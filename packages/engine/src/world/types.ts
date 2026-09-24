@@ -1,0 +1,48 @@
+import type { Biome } from '../animals/types.js';
+
+export const CHUNK_SIZE = 16;
+
+export type TileKind = 'grass' | 'tallgrass' | 'sand' | 'water' | 'rock' | 'tree' | 'tent';
+
+export interface Tile {
+	kind: TileKind;
+	biome: Biome;
+	/** Ground height in tile units; water is 0, hills rise above. Purely visual for now. */
+	height: number;
+}
+
+export interface Chunk {
+	cx: number;
+	cy: number;
+	/** Row-major, `CHUNK_SIZE × CHUNK_SIZE`; index = y * CHUNK_SIZE + x. */
+	tiles: Tile[];
+}
+
+export function isWalkable(kind: TileKind): boolean {
+	return kind === 'grass' || kind === 'tallgrass' || kind === 'sand' || kind === 'tent';
+}
+
+/** Tiles where wild animals may appear. */
+export function isEncounterTile(kind: TileKind): boolean {
+	return kind === 'tallgrass';
+}
+
+export interface GridPos {
+	x: number;
+	y: number;
+}
+
+export type Direction = 'up' | 'down' | 'left' | 'right';
+
+export function step(pos: GridPos, dir: Direction): GridPos {
+	switch (dir) {
+		case 'up':
+			return { x: pos.x, y: pos.y - 1 };
+		case 'down':
+			return { x: pos.x, y: pos.y + 1 };
+		case 'left':
+			return { x: pos.x - 1, y: pos.y };
+		case 'right':
+			return { x: pos.x + 1, y: pos.y };
+	}
+}

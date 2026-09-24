@@ -1,0 +1,38 @@
+:root {
+	--font-ui: 'Nunito', system-ui, sans-serif;
+	--panel-bg: rgba(255, 252, 245, 0.92);
+	--panel-ink: #2d2a32;
+	--accent: #ff9f43;
+	--good: #56c271;
+	--bad: #f25f5c;
+	--hud-shadow: 0 6px 18px rgba(0, 0, 0, 0.18);
+	--radius: 16px;
+}
+
+html,
+body {
+	margin: 0;
+	height: 100%;
+	overflow: hidden;
+	background: #8fd3f4;
+	font-family: var(--font-ui);
+	color: var(--panel-ink);
+}
+
+#game {
+	position: fixed;
+	inset: 0;
+	width: 100%;
+	height: 100%;
+	display: block;
+}
+
+#ui {
+	position: fixed;
+	inset: 0;
+	pointer-events: none;
+}
+
+#ui > * {
+	pointer-events: auto;
+}

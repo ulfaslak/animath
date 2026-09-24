@@ -1,0 +1,11 @@
+{
+	"extends": "../../tsconfig.base.json",
+	"compilerOptions": {
+		// No DOM, no Node. The engine must run unchanged in the browser (single
+		// player) and on the server (multiplayer). `lib` is the mechanism: a
+		// reference to `window`, `document`, `process` or `fetch` fails to compile.
+		"lib": ["ES2022"],
+		"types": []
+	},
+	"include": ["src"]
+}

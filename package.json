@@ -1,0 +1,25 @@
+{
+	"name": "mathgame",
+	"private": true,
+	"version": "0.0.1",
+	"packageManager": "pnpm@12.4.1",
+	"scripts": {
+		"dev": "pnpm -r --parallel --stream dev",
+		"dev:client": "pnpm -F @mathgame/client dev",
+		"dev:server": "pnpm -F @mathgame/server dev",
+		"build": "pnpm -r build",
+		"check": "pnpm -r check",
+		"test": "pnpm -r test",
+		"lint": "prettier --check .",
+		"format": "prettier --write .",
+		"db:up": "docker compose up -d",
+		"db:down": "docker compose down",
+		"db:migrate": "pnpm -F @mathgame/server migrate",
+		"db:psql": "docker compose exec postgres psql -U postgres -d mathgame"
+	},
+	"devDependencies": {
+		"playwright-core": "^1.63.0",
+		"prettier": "^3.6.2",
+		"prettier-plugin-svelte": "^3.4.0"
+	}
+}

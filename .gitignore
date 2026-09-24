@@ -1,0 +1,30 @@
+node_modules
+.DS_Store
+Thumbs.db
+
+# Build output
+dist
+*.tsbuildinfo
+
+# Env
+.env
+.env.local
+.env.*.local
+!.env.example
+
+# Vite
+vite.config.ts.timestamp-*
+
+# Claude Code
+.claude/worktrees/
+.claude/settings.local.json
+
+# Local git worktrees
+.worktrees/
+
+# Screenshots (agents dump PR screenshots here — see CLAUDE.md)
+screenshots/*
+!screenshots/.gitkeep
+
+# Obsidian vault metadata
+.obsidian/

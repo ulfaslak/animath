@@ -1,0 +1,18 @@
+services:
+  postgres:
+    image: postgres:18-alpine
+    ports:
+      # Host port 5433: the lawcel dev database already owns 5432 on this machine.
+      - '5433:5432'
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: mathgame
+    volumes:
+      # postgres:18 declares VOLUME /var/lib/postgresql (PGDATA lives under
+      # /var/lib/postgresql/18/docker). Mount the parent so the cluster persists
+      # across `docker compose down`.
+      - pgdata:/var/lib/postgresql
+
+volumes:
+  pgdata:
