@@ -6,6 +6,7 @@ import {
 	hashInts,
 	hashString,
 	isWalkable,
+	newGame,
 	rollEncounter,
 	spawnPoint,
 	startBattle,
@@ -19,8 +20,12 @@ import {
 	type Direction,
 	type GameEvent,
 	type GridPos,
-	type Intent
+	type Intent,
+	type SavedGame
 } from '@mathgame/engine';
+
+/** The prototype world. Every new game is played in it; a save carries its own seed. */
+export const WORLD_SEED = hashString('prototype');
 
 /**
  * Salts keep the per-step encounter roll and the battle seed apart from each
@@ -28,6 +33,12 @@ import {
  */
 const ENCOUNTER_SALT = hashString('encounter');
 const BATTLE_SALT = hashString('battle');
+
+/** How a session begins: a saved game to pick up (a new game when absent), and a line to say. */
+export interface StartOptions {
+	game?: SavedGame;
+	message?: string;
+}
 
 /**
  * Single-player authority: applies the rules in-process and emits events.
@@ -43,33 +54,79 @@ const BATTLE_SALT = hashString('battle');
  * running the same code would agree with it. The one exception is the id an
  * animal gets when it is caught, which must be unique across sessions and is
  * therefore minted, not derived.
+ *
+ * The whole game fits in a `SavedGame`: `snapshot()` takes one at any moment,
+ * a battle included, and `start({ game })` picks it up again, so a save
+ * continues the same step count, and a battle the same intents, as if the
+ * page had never reloaded.
  */
 export class LocalAuthority implements Authority {
 	private listeners = new Set<(e: GameEvent) => void>();
 	private readonly playerId = 'local';
-	private readonly seed = hashString('prototype');
+	private seed = WORLD_SEED;
 	private spawn: GridPos = { x: 0, y: 0 };
 	private pos: GridPos = { x: 0, y: 0 };
+	/**
+	 * The way the player faces, as the client shows it: `down` in a new game,
+	 * then the `dir` of every `move`, walked or blocked.
+	 */
+	private facing: Direction = 'down';
 	private party: AnimalInstance[] = [];
-	/** Completed steps this session. Keys the encounter roll and the battle seed. */
+	/** Completed steps in this game, saved with it. Keys the encounter roll and the battle seed. */
 	private steps = 0;
 	/** The battle in progress, with the seed every intent of it is applied with. */
 	private battle: { state: BattleState; seed: number } | null = null;
+	/** Intents before `start` have no game to act on. */
+	private started = false;
 
-	start(): void {
+	/**
+	 * Begin a game: a new one, or `options.game` from a save. Emits `welcome`,
+	 * then `battle-started` if the save was taken mid-battle, then the message.
+	 */
+	start(options: StartOptions = {}): void {
+		const game = options.game ?? newGame(WORLD_SEED);
+		this.seed = game.seed;
 		this.spawn = spawnPoint(this.seed);
-		this.pos = this.spawn;
-		this.party = [{ id: 'starter', speciesId: 'squirrel', hp: 20 }];
+		this.pos = { x: game.pos.x, y: game.pos.y };
+		this.facing = game.facing;
+		this.steps = game.steps;
+		this.party = game.party.map((a) => ({ ...a }));
+		this.battle = null;
+		this.started = true;
 		this.emit({
 			type: 'welcome',
 			playerId: this.playerId,
 			seed: this.seed,
-			pos: this.pos,
+			pos: { ...this.pos },
+			facing: this.facing,
 			party: this.partyCopy()
 		});
+		if (game.battle) {
+			// The battle's seed is the one it started with: the steps have not moved since.
+			this.battle = { state: game.battle, seed: this.battleSeed() };
+			this.emit({ type: 'battle-started', state: game.battle });
+		}
+		if (options.message) this.emit({ type: 'message', text: options.message });
+	}
+
+	/**
+	 * The game as it stands, for a save. Mid-battle the party is the battle's,
+	 * HP as it is now, and the battle comes too (its state, never its seed).
+	 */
+	snapshot(): SavedGame {
+		const party = this.battle ? this.battle.state.party : this.party;
+		return {
+			seed: this.seed,
+			pos: { ...this.pos },
+			facing: this.facing,
+			steps: this.steps,
+			party: party.map((a) => ({ ...a })),
+			battle: this.battle ? this.battle.state : null
+		};
 	}
 
 	dispatch(intent: Intent): void {
+		if (!this.started) return;
 		if (this.battle) {
 			// Mid-battle there is no walking and no talking; only battle intents count.
 			if (intent.type === 'battle') this.applyBattle(intent.intent);
@@ -96,6 +153,7 @@ export class LocalAuthority implements Authority {
 	// --- explore -----------------------------------------------------------
 
 	private move(dir: Direction): void {
+		this.facing = dir;
 		const next = step(this.pos, dir);
 		const tile = tileAtWorld(this.seed, next.x, next.y);
 		if (!isWalkable(tile.kind)) {
@@ -121,8 +179,13 @@ export class LocalAuthority implements Authority {
 
 	private beginBattle(wild: AnimalInstance): void {
 		const state = startBattle(this.party, wild);
-		this.battle = { state, seed: hashInts(this.seed, BATTLE_SALT, this.steps) };
+		this.battle = { state, seed: this.battleSeed() };
 		this.emit({ type: 'battle-started', state });
+	}
+
+	/** The seed of a battle that starts on the current step. */
+	private battleSeed(): number {
+		return hashInts(this.seed, BATTLE_SALT, this.steps);
 	}
 
 	private applyBattle(intent: BattleIntent): void {
@@ -197,7 +260,7 @@ export class LocalAuthority implements Authority {
  * A fresh instance id. `crypto.randomUUID` needs a secure context, which a
  * LAN address over plain http is not, so fall back to random bytes there.
  */
-function mintId(): string {
+export function mintId(): string {
 	const c = globalThis.crypto;
 	if (typeof c.randomUUID === 'function') return c.randomUUID();
 	const bytes = c.getRandomValues(new Uint8Array(16));

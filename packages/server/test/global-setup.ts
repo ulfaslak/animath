@@ -32,7 +32,7 @@ export default async function setup(): Promise<void> {
 		await migrate(drizzle(pool), {
 			migrationsFolder: fileURLToPath(new URL('../drizzle', import.meta.url))
 		});
-		await pool.query('truncate table saves, players');
+		await pool.query('truncate table save_backups, saves, players');
 	} finally {
 		await pool.end();
 	}

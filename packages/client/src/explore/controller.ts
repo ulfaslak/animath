@@ -29,6 +29,7 @@ export class ExploreController {
 				this.seed = event.seed;
 				this.pos = this.from = event.pos;
 				this.progress = 1;
+				this.facing = event.facing;
 				this.renderer.setWorld(this.seed);
 				this.renderer.setPlayer(event.pos, event.pos, 1, this.facing);
 				break;
