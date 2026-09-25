@@ -8,12 +8,16 @@
  *   node scripts/screenshot.mjs [--url http://localhost:5180/] [--out screenshots/x.png]
  *                               [--keys "ArrowRight*5,ArrowDown*3"] [--wait 1500]
  *                               [--settle 1500] [--key-interval 700]
- *                               [--width 1280 --height 800]
+ *                               [--width 1280 --height 800] [--scale 1]
+ *                               [--clip x,y,w,h]
  *
  * Prints the HUD hint line (which carries the player's grid position) so a
  * movement check can be asserted from the console output, not only the image.
  * Headless SwiftShader runs at a few frames per second, so buffered steps need
- * the `--settle` wait to finish before the screenshot.
+ * the `--settle` wait to finish before the screenshot. `--scale 3` renders the
+ * same framing at three device pixels per CSS pixel and `--clip` keeps only a
+ * region of it (CSS pixels): together they magnify a detail without changing
+ * what the camera sees.
  */
 import { chromium } from 'playwright-core';
 import { mkdirSync } from 'node:fs';
@@ -34,6 +38,10 @@ const settle = Number(args.settle ?? 1500);
 const keyInterval = Number(args['key-interval'] ?? 700);
 const width = Number(args.width ?? 1280);
 const height = Number(args.height ?? 800);
+const scale = Number(args.scale ?? 1);
+const clip = args.clip
+	? (([x, y, w, h]) => ({ x, y, width: w, height: h }))(args.clip.split(',').map(Number))
+	: undefined;
 const keys = (args.keys ?? '')
 	.split(',')
 	.filter(Boolean)
@@ -47,7 +55,7 @@ const browser = await chromium.launch({
 	headless: true,
 	args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist']
 });
-const page = await browser.newPage({ viewport: { width, height }, deviceScaleFactor: 1 });
+const page = await browser.newPage({ viewport: { width, height }, deviceScaleFactor: scale });
 const errors = [];
 page.on('console', (m) => {
 	// SwiftShader (headless software GL) spams "GPU stall" performance notes; not ours.
@@ -66,7 +74,7 @@ for (const key of keys) {
 }
 await page.waitForTimeout(keys.length ? settle : 200);
 mkdirSync(dirname(out), { recursive: true });
-await page.screenshot({ path: out });
+await page.screenshot({ path: out, clip });
 const hint = await page
 	.locator('.hint')
 	.textContent()

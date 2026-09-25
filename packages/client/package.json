@@ -8,7 +8,7 @@
 		"build": "vite build",
 		"preview": "vite preview",
 		"check": "svelte-check --tsconfig ./tsconfig.json",
-		"test": "echo 'client: no unit tests (rendering is verified visually, see CLAUDE.md Phase 2)'"
+		"test": "vitest run"
 	},
 	"dependencies": {
 		"@mathgame/engine": "workspace:*",
@@ -21,6 +21,7 @@
 		"svelte": "^5.38.0",
 		"svelte-check": "^4.3.0",
 		"typescript": "^5.9.2",
-		"vite": "^7.1.0"
+		"vite": "^7.1.0",
+		"vitest": "^3.2.4"
 	}
 }

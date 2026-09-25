@@ -99,6 +99,8 @@ What is built and observable today. Keep current: add a bullet when a feature sh
 
 - Procedural chunked world with four biomes, water, sand, tall grass (including reeds on river banks), trees, rocks and doctor tents, rendered low-poly with a fixed camera.
 - Grid movement with arrow keys / WASD; blocked tiles stop you; a tap always moves one tile.
+- The player is a small trainer figure — a kid in a cap — that faces the way it walks, stands on top of hills and breathes while idle.
+- A crude but recognisable low-poly figure for every species, built from primitives with one exaggerated tell each; today they are only visible in the `?zoo` line-up (see [[CHEATSHEET]]) until battle and encounters use them.
 - Party HUD (name + HP bar per animal).
 
 ### Engine (no UI yet)
@@ -113,7 +115,8 @@ What is built and observable today. Keep current: add a bullet when a feature sh
 ### Server
 
 - Health endpoint reporting database reachability.
-- `players` and `saves` tables for anonymous identity and progress (nothing writes them yet).
+- Anonymous identity: a player is created with one request and gets an id plus a secret; no account, no login.
+- One save per player, stored and returned as a versioned document (world seed, position, party of up to six). The client does not use it yet.
 
 ## 6. Not yet built
 
@@ -123,8 +126,8 @@ In rough priority order. Each becomes a GitHub issue when picked up.
 2. Wild encounters in tall grass, weighted by biome and tier — the engine roll and tables are built (§5); the authority still has to roll on each step and hand the animal to battle mode.
 3. Catching with the leash; party management.
 4. Doctor healing at tents.
-5. Save/load through the server with the anonymous identity.
-6. Real low-poly animal models with idle/attack animations (CC0 sources, see [[DECISIONS]]).
+5. Save/load in the client: create the anonymous player on first visit, keep the secret, load the save on boot and write it as the game progresses (the server routes exist, see [[ARCHITECTURE]] § HTTP API).
+6. Real low-poly animal models (glTF, CC0 sources, see [[DECISIONS]]) with attack animations, replacing the primitive figures.
 7. Procedural world v2: rivers that flow, paths, biome shaping, landmarks, spawn tables.
 8. Puzzle catalog v2: fractions, decimals, negatives, word problems, per-child adaptive difficulty.
 9. Touch controls for tablets.

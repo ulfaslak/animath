@@ -7,8 +7,12 @@ import { jsonb, pgTable, text, timestamp, uuid } from 'drizzle-orm/pg-core';
  */
 export const players = pgTable('players', {
 	id: uuid('id').primaryKey().defaultRandom(),
-	/** Random secret the client holds; proves ownership of the id. */
-	secret: text('secret').notNull(),
+	/**
+	 * SHA-256 hex of the random secret the client holds (see `secrets.ts`).
+	 * Presenting the secret proves ownership of the id; the secret itself is
+	 * never stored.
+	 */
+	secretHash: text('secret_hash').notNull(),
 	displayName: text('display_name'),
 	createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 	lastSeenAt: timestamp('last_seen_at', { withTimezone: true }).notNull().defaultNow()

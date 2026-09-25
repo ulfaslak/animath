@@ -70,41 +70,73 @@ Two things keep that swap cheap: intents carry only what the player *chose* (a d
 | `src/state/game.svelte.ts`    | `game`: the `$state` view the Svelte overlay reads. Filled only by `game.apply(event)`.                                                                             |
 | `src/input/keyboard.ts`       | Held-key tracking plus a 2-deep tap buffer; arrows/WASD → `Direction`, Enter/Space → interact.                                                                      |
 | `src/explore/controller.ts`   | Explore mode: turns input into `move`/`interact` intents (one per completed step), tweens the player mesh between tiles on `player-moved`, asks for chunks around it. |
-| `src/render/renderer.ts`      | `GameRenderer`: WebGL renderer, scene, fixed orthographic camera, lights, chunk cache (5×5 chunks around the player), player placeholder mesh.                        |
-| `src/render/tiles.ts`         | `buildChunkGroup(chunk)`: one `InstancedMesh` of boxes for ground, plus decoration groups (trees, rocks, tall grass, tent + fire + point light).                     |
-| `src/render/palette.ts`       | Tile and decoration colours. Mirrors [[DESIGN]] § Palette.                                                                                                          |
+| `src/render/renderer.ts`      | `GameRenderer`: WebGL renderer, scene, fixed orthographic camera, lights, chunk cache (5×5 chunks around the player), the player figure, `addFigure` for extra standing figures, idle animation each frame. |
+| `src/render/tiles.ts`         | `buildChunkGroup(chunk)`: one `InstancedMesh` of boxes for ground, plus decoration groups (trees, rocks, tall grass, tent + fire + point light). `groundTop(tile)`: the height figures stand at. |
+| `src/render/animals.ts`       | `buildAnimalMesh(speciesId)`, `buildPlayerMesh()`, `animateIdle(figure, t)`: primitive figures for every catalog species and the trainer. Contract: units are tiles, feet on `y = 0`, centred on `x`, facing `+z`; the group's one child is the rig that idles. |
+| `src/render/zoo.ts`           | `buildZoo(seed, origin)`: the `?zoo` line-up, one figure per species by the spawn tile. Verification only, never on the normal path.                              |
+| `src/render/palette.ts`       | Tile, decoration, trainer and species colours. Mirrors [[DESIGN]] § Palette.                                                                                        |
 | `src/ui/App.svelte`           | Mode switch: loading / explore (`Hud`) / battle (panel to come).                                                                                                    |
 | `src/ui/Hud.svelte`           | Party list with HP bars, bottom hint line.                                                                                                                          |
 | `src/styles.css`              | CSS custom properties (panel colours, radius, font) and the canvas/overlay layout.                                                                                   |
 | `public/assets/`              | Models, textures, sounds. `CREDITS.md` lists every third-party file.                                                                                                |
+| `test/animals.test.ts`        | vitest: every catalog species builds a figure that keeps the contract in `animals.ts` (geometry construction needs no WebGL).                                        |
 
 ### Coordinate system
 
-Engine grid `(x, y)` maps to Three `(x, height, z)` with `z = y`; grid "down" is screen-down because the camera's yaw is fixed. Tiles are unit cubes centred on integer coordinates; the ground top is at `y = 0.5 + 0.25·height` for land and lower for water. The player mesh sits at the tile's top and hops 0.15 during a step.
+Engine grid `(x, y)` maps to Three `(x, height, z)` with `z = y`; grid "down" is screen-down because the camera's yaw is fixed. Tiles are unit cubes centred on integer coordinates; the ground top is at `y = 0.5 + 0.25·height` for land and lower for water (`groundTop` in `tiles.ts`). Figures stand with their feet on that top face; the player hops 0.15 during a step. A figure faces `+z` (grid "down", toward the camera) at `rotation.y = 0`; `up` is `π`, `right` is `π/2`, `left` is `-π/2`.
 
 ### Modes
 
-Explore is implemented. Battle mode will be a second controller + a second scene (own camera, two animal meshes, back and front view) and a Svelte panel; the mode switch is driven by `battle-started` / `battle-ended` events. See [[UI_SPEC]].
+Explore is implemented. Battle mode will be a second controller + a second scene (own camera, two figures from `animals.ts`, back and front view) and a Svelte panel; the mode switch is driven by `battle-started` / `battle-ended` events. See [[UI_SPEC]].
 
 ## `packages/server` — persistence and (later) authority
 
 | Path                         | Holds                                                                                                     |
 | ---------------------------- | --------------------------------------------------------------------------------------------------------- |
 | `src/index.ts`               | Starts the Hono app on `PORT`.                                                                            |
-| `src/app.ts`                 | `createApp()`: logger, `/api/health`, static serving of `../client/dist` (prod). Testable without a port. |
+| `src/app.ts`                 | `createApp()`: logger, `/api/health`, `/api/players`, static serving of `../client/dist` (prod). Testable without a port. |
 | `src/env.ts`                 | Loads `.env` (repo root or cwd) with `process.loadEnvFile`; validates `DATABASE_URL`, `PORT`.             |
 | `src/db/schema.ts`           | Drizzle schema.                                                                                           |
 | `src/db/index.ts`            | `pool`, `db`, `pingDb`.                                                                                   |
-| `src/routes/*.ts`            | One Hono sub-app per route group.                                                                         |
+| `src/routes/*.ts`            | One Hono sub-app per route group: `health.ts`, `players.ts` (identity + save).                            |
+| `src/secrets.ts`             | Player secrets: generate (`randomBytes`), hash (SHA-256), constant-time compare.                          |
+| `src/save.ts`                | `SaveV1` — the save envelope — and `validateSave()`, the hand-rolled validator. No schema library.        |
 | `scripts/migrate.ts`         | Applies journaled migrations from `drizzle/`.                                                             |
 | `drizzle/NNNN_*.sql`         | Hand-written migrations; `drizzle/meta/_journal.json` lists them.                                         |
+| `test/*.test.ts`             | Integration tests against `mathgame_test` (see [[DEVELOPMENT]] § Testing ideology).                       |
+| `test/global-setup.ts`       | Creates, migrates and truncates `mathgame_test` once per `vitest` run; `vitest.config.ts` injects its URL.|
 
 ### Data model
 
-- `players` — `id uuid pk`, `secret text` (client-held proof of ownership), `display_name text?`, `created_at`, `last_seen_at`. One row per anonymous player.
-- `saves` — `player_id uuid pk → players (cascade)`, `data jsonb` (position, party, inventory — shape still moving, so a blob), `updated_at`. One save per player.
+- `players` — `id uuid pk`, `secret_hash text` (SHA-256 of the client-held secret; the secret itself is never stored), `display_name text?`, `created_at`, `last_seen_at` (bumped on every authenticated request). One row per anonymous player.
+- `saves` — `player_id uuid pk → players (cascade)`, `data jsonb` (the `SaveV1` envelope below), `updated_at`. One save per player.
 
 Hot fields get promoted from `data` to columns when a query needs them (nearby players, leaderboards).
+
+### HTTP API
+
+Errors are JSON `{ error: string }`. All routes are under `/api`.
+
+| Route                         | Auth  | Response                                                                          |
+| ----------------------------- | ----- | --------------------------------------------------------------------------------- |
+| `POST /api/players`           | none  | `201 { id: uuid, secret: string }`. The client stores both; the secret is shown once. |
+| `GET /api/players/:id/save`   | owner | `200 SaveV1`, or `404` when nothing has been saved.                               |
+| `PUT /api/players/:id/save`   | owner | `200 { ok: true }` after an upsert; `400` bad JSON or shape; `413` body over 64 KB. |
+
+**Owner auth** is `Authorization: Bearer <secret>`. Missing or malformed header → `401`; `:id` unknown (or not a uuid) → `404`; secret does not match the stored hash → `401`.
+
+**`SaveV1`** (`src/save.ts`) is a versioned envelope, stored and returned verbatim:
+
+```ts
+{
+	version: 1,
+	seed: number,                 // integer; the world is a pure function of it
+	pos: { x: number, y: number }, // integer tile coordinates, any sign
+	party: AnimalInstance[]       // 0–6 of { id: string, speciesId: string, nickname?: string, hp: number }
+}
+```
+
+Required fields are validated strictly (`speciesId` must be in the engine catalog, `hp` a whole number ≥ 0, `id` unique within the party). Any extra field — top-level or per animal — is stored and returned as sent, so a newer client can add data without a server change; bump `version` only when an old document becomes unreadable. "As sent" is JSON semantics: key order and `-0` are not preserved, and a document containing a NUL character, a lone surrogate or a number that overflows to Infinity is a `400`, not a mangled row. The upsert is unconditional — last write wins, with no stale-write guard (see [[DEFERRED]]).
 
 ## Ports and processes (development)
 
