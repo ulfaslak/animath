@@ -187,7 +187,84 @@ describe('difficulty ladder', () => {
 			expect(minStep[i]).toBeGreaterThanOrEqual(2);
 		}
 	});
+
+	it('sequence: every pattern starts further along as difficulty climbs', () => {
+		// The smallest answer per pattern is non-decreasing, and strictly bigger
+		// two difficulties up: "1, 1, 2, 3, ?" belongs to difficulty 7, not 10.
+		const g = getGenerator('sequence');
+		const floor = new Map<string, Map<number, number>>();
+		for (let d = g.minDifficulty; d <= g.maxDifficulty; d++) {
+			const rng = new Rng(9000 + d);
+			for (let i = 0; i < SAMPLES * 2; i++) {
+				const p = g.generate(rng, d);
+				const r = readings(numbersIn(p.prompt));
+				expect(r.size, `d=${d}: ${p.prompt} reads as ${[...r.keys()]}`).toBe(1);
+				const [pattern] = [...r.keys()] as [string];
+				const f = floor.get(pattern) ?? new Map<number, number>();
+				f.set(d, Math.min(f.get(d) ?? Infinity, p.answer));
+				floor.set(pattern, f);
+			}
+		}
+		expect([...floor.keys()].sort()).toEqual([
+			'add-last-two',
+			'counting',
+			'doubling-or-tripling',
+			'squares',
+			'triangle-numbers'
+		]);
+		for (const [pattern, f] of floor) {
+			for (const [d, lo] of f) {
+				if (f.has(d - 1))
+					expect(lo, `${pattern}: floor fell at d=${d}`).toBeGreaterThanOrEqual(f.get(d - 1)!);
+				if (f.has(d - 2))
+					expect(lo, `${pattern}: d=${d} as easy as d=${d - 2}`).toBeGreaterThan(f.get(d - 2)!);
+			}
+		}
+	});
+
+	it('sequence: no prompt fits two patterns with different answers', () => {
+		// "2, 3, 5, 8, ?" is 13 by adding the last two and 12 by "the gaps grow
+		// by one"; a kid who answers 12 is not wrong. Checked exhaustively over
+		// every difficulty, not only where the sampler happened to land.
+		const g = getGenerator('sequence');
+		for (let d = g.minDifficulty; d <= g.maxDifficulty; d++) {
+			const rng = new Rng(9500 + d);
+			for (let i = 0; i < SAMPLES * 3; i++) {
+				const p = g.generate(rng, d);
+				const answers = new Set(readings(numbersIn(p.prompt)).values());
+				expect([...answers], `d=${d}: ${p.prompt}`).toEqual([p.answer]);
+			}
+		}
+	});
 });
+
+/**
+ * Every pattern a kid is taught that fits `t`, with the next number it
+ * predicts. Independent of the generator's families on purpose: a prompt that
+ * two of these fit is ambiguous whatever the generator meant.
+ */
+function readings(t: number[]): Map<string, number> {
+	const out = new Map<string, number>();
+	const last = t[t.length - 1]!;
+	const gaps = t.slice(1).map((v, i) => v - t[i]!);
+	if (gaps.every((v) => v === gaps[0])) out.set('counting', last + gaps[0]!);
+	const ratio = t[1]! / t[0]!;
+	if (
+		Number.isInteger(ratio) &&
+		ratio >= 2 &&
+		t.every((v, i) => i === 0 || v === t[i - 1]! * ratio)
+	)
+		out.set('doubling-or-tripling', last * ratio);
+	if (t.every((v, i) => i < 2 || v === t[i - 1]! + t[i - 2]!))
+		out.set('add-last-two', last + t[t.length - 2]!);
+	const growth = gaps.slice(1).map((v, i) => v - gaps[i]!);
+	if (growth[0] !== 0 && growth.every((v) => v === growth[0])) {
+		const next = last + gaps[gaps.length - 1]! + growth[0]!;
+		const name = growth[0] === 2 ? 'squares' : growth[0] === 1 ? 'triangle-numbers' : 'gaps-grow';
+		out.set(name, next);
+	}
+	return out;
+}
 
 describe('checkAnswer', () => {
 	const p = { kind: 'add' as const, difficulty: 1, prompt: '1 + 1 = ?', answer: 2 };

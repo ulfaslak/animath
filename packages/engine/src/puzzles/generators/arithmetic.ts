@@ -5,9 +5,10 @@ import type { Puzzle, PuzzleGenerator } from '../types.js';
  * Operand bands per difficulty (index = difficulty − 1). Every operand is
  * drawn from a closed band `[lo, hi]`, so each difficulty has a floor as well
  * as a ceiling: a difficulty-3 attack can never ask "4 + 1" (#7). Both ends of
- * every band are non-decreasing in difficulty — that is the property
- * `puzzles.test.ts` pins, and what keeps the ladder monotone when a band is
- * retuned. [[PRODUCT]] §4 "Puzzles" states the same tables in prose.
+ * every band are non-decreasing in difficulty; `puzzles.test.ts` pins what a
+ * kid sees because of it (the smallest and the largest number in a prompt
+ * never fall), so a retuned band that breaks the ladder fails the suite.
+ * [[PRODUCT]] §4 "Puzzles" states the same tables in prose.
  */
 export type Band = readonly [lo: number, hi: number];
 
@@ -37,7 +38,7 @@ export const MUL_BIG_BAND: readonly Band[] = [
 	[2, 5], //      (1: unused)
 	[2, 5], //      2: small tables
 	[6, 10], //     3: tables 6–10 by 2–5
-	[6, 10], //     4: tables 6–10 by 6–10
+	[6, 10], //     4: tables 6–10 by 6–9
 	[11, 20], //    5: teens by a digit
 	[21, 50], //    6: two-digit by a digit
 	[21, 50], //    7: two-digit by teens
@@ -49,8 +50,8 @@ export const MUL_SMALL_BAND: readonly Band[] = [
 	[2, 5],
 	[2, 5],
 	[2, 5],
-	[6, 10],
-	[6, 9], //      5–6: no "× 10" freebies once the big factor has two digits
+	[6, 9], //      4–6: no "× 10" freebie as the small factor
+	[6, 9],
 	[6, 9],
 	[11, 20],
 	[11, 20],
