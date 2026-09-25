@@ -43,7 +43,21 @@ export type GameEvent =
 	 */
 	| { type: 'doctor-visit-updated'; state: DoctorState; events: readonly DoctorEvent[] }
 	/** `state.party` is the party after the visit. */
-	| { type: 'doctor-visit-ended'; state: DoctorState };
+	| { type: 'doctor-visit-ended'; state: DoctorState }
+	/**
+	 * After a lost battle: `takeToDoctor`'s result. Put the player on `pos`
+	 * without a tween (it can be a hundred tiles away), turn them to `dir`
+	 * (toward `tent`, or down when `tent` is null and a doctor came to them),
+	 * and replace the party. A `message` with the doctor's line follows.
+	 */
+	| {
+			type: 'taken-to-doctor';
+			playerId: string;
+			pos: GridPos;
+			dir: Direction;
+			tent: GridPos | null;
+			party: AnimalInstance[];
+	  };
 
 export interface Authority {
 	dispatch(intent: Intent): void;

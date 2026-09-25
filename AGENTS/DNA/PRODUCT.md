@@ -118,7 +118,7 @@ What is built and observable today. Keep current: add a bullet when a feature sh
 - Species catalog: 7 placeholder species, tiers 1–5.
 - Wild encounter tables: a per-step roll on tall grass that picks a species by biome, tier and distance from spawn (§4 "Wild encounters"). Nothing calls it on a real step yet.
 - Battle reducer: `startBattle` and `applyBattleIntent` play a whole wild battle by the rules in §4 — attacks, puzzles, answers, the wild animal's reply, leash, flee, knock-outs and automatic party switching — as intents in, events out. Not wired to the client yet, so nothing on screen changes.
-- Doctor rules (§4 "Knock-out and healing"): whether the player faces a tent, a doctor visit that heals one hurt animal per solved puzzle (`startDoctorVisit` and `applyDoctorIntent`, intents in, events out), and the knock-out rule (`takeToDoctor`), which finds the nearest tent on foot and heals the whole party. Not wired to the client yet: pressing Enter at a tent still does nothing.
+- Doctor rules (§4 "Knock-out and healing"): whether the player faces a tent, a doctor visit that heals one hurt animal per solved puzzle (`startDoctorVisit` and `applyDoctorIntent`, intents in, events out), and the knock-out rule (`takeToDoctor`), which finds the nearest tent on foot and heals the whole party. Not wired to the client yet: pressing Enter at a tent still just says "Nothing here yet.".
 
 ### Server
 

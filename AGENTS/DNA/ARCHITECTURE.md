@@ -93,7 +93,7 @@ Engine grid `(x, y)` maps to Three `(x, height, z)` with `z = y`; grid "down" is
 
 ### Modes
 
-Explore is implemented. Battle mode will be a second controller + a second scene (own camera, two figures from `animals.ts`, back and front view) and a Svelte panel; the mode switch is driven by `battle-started` / `battle-ended` events. The doctor will not be a mode: a dialogue card over explore, driven by `doctor-visit-started` / `-updated` / `-ended` (the events exist; nothing emits them yet). The authority is to open a visit on `interact` when `canTalkToDoctor(seed, pos, facing)` holds, which means it must track the player's facing the same way the client does: `down` at `welcome`, then the `dir` of every `move`, walked or blocked. See [[UI_SPEC]].
+Explore is implemented. Battle mode will be a second controller + a second scene (own camera, two figures from `animals.ts`, back and front view) and a Svelte panel; the mode switch is driven by `battle-started` / `battle-ended` events. The doctor will not be a mode: a dialogue card over explore, driven by `doctor-visit-started` / `-updated` / `-ended`; after a lost battle, `taken-to-doctor` places the player and replaces the party (the events exist; nothing emits them yet). The authority is to open a visit on `interact` when `canTalkToDoctor(seed, pos, facing)` holds, so it must track the facing the client shows: `down` until the first `move`, then the `dir` of every `move`, walked or blocked, and the `dir` of `taken-to-doctor`. The client sets `down` once, on page load, not on `welcome`, so a second `welcome` (a reconnect) must reset both sides or carry the facing. See [[UI_SPEC]].
 
 ## `packages/server` — persistence and (later) authority
 
