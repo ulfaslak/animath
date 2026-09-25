@@ -132,16 +132,21 @@ describe('hardcoded text in Svelte templates', () => {
 		const stale = [...left].flatMap(([file, texts]) => texts.map((text) => `${file}: ${text}`));
 
 		expect(svelteSources.size).toBeGreaterThan(3);
-		expect(
-			added.map((o) => `${o.file}:${o.line} ${JSON.stringify(o.text)}`),
-			'Words written straight into a template. Put them in src/copy/en.yaml and da.yaml and show them ' +
-				"with t('group.key') (DEVELOPMENT § Copy and languages). Until the copy extraction lands, words " +
-				'in a file you are changing anyway may instead be listed in test/hardcoded-text.baseline.yaml.'
-		).toEqual([]);
-		expect(
-			stale,
-			'These baseline entries are no longer in their template (moved to the copy files, or reworded): ' +
-				'delete them from test/hardcoded-text.baseline.yaml.'
-		).toEqual([]);
+		// Soft, so a reworded line reports both halves at once: the new words and the stale entry.
+		expect
+			.soft(
+				added.map((o) => `${o.file}:${o.line} ${JSON.stringify(o.text)}`),
+				'Words written straight into a template. Put them in src/copy/en.yaml and da.yaml and show them ' +
+					"with t('group.key') (DEVELOPMENT § Copy and languages). Until the copy extraction lands, words " +
+					'in a file you are changing anyway may instead be listed in test/hardcoded-text.baseline.yaml.'
+			)
+			.toEqual([]);
+		expect
+			.soft(
+				stale,
+				'These baseline entries are no longer in their template (moved to the copy files, or reworded): ' +
+					'delete them from test/hardcoded-text.baseline.yaml.'
+			)
+			.toEqual([]);
 	});
 });
