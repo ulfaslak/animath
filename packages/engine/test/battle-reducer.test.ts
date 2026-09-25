@@ -3,7 +3,12 @@ import { ANIMALS, getAnimal } from '../src/animals/catalog.js';
 import { ATTACK_LEVELS, type AnimalInstance, type AttackLevel } from '../src/animals/types.js';
 import { catchProbability } from '../src/battle/catch.js';
 import { attackDamage } from '../src/battle/damage.js';
-import { activeAnimal, applyBattleIntent, startBattle } from '../src/battle/reducer.js';
+import {
+	WILD_MISS_CHANCE,
+	activeAnimal,
+	applyBattleIntent,
+	startBattle
+} from '../src/battle/reducer.js';
 import type { BattleEvent, BattleIntent, BattleState, BattleStep } from '../src/battle/types.js';
 import { puzzleDifficulty } from '../src/puzzles/difficulty.js';
 import { checkAnswer, getGenerator } from '../src/puzzles/registry.js';
@@ -385,8 +390,19 @@ describe('every battle in the catalog', () => {
 						break;
 					}
 					case 'missed':
-						expect(e.attacker).toBe('player');
-						expect(oppHp).toBe(before.opponent.hp);
+						if (e.attacker === 'player') {
+							expect(oppHp).toBe(before.opponent.hp);
+						} else {
+							// The wild animal only misses an animal of its own tier or fiercer.
+							const spec = getAnimal(before.opponent.speciesId);
+							const target = getAnimal(state.party[active]!.speciesId);
+							expect(spec.tier).toBeLessThanOrEqual(target.tier);
+							expect(e.level).toBe(1);
+							expect(e.attackIndex).toBeGreaterThanOrEqual(1);
+							expect(e.attackIndex).toBeLessThanOrEqual(spec.attacks.length);
+							expect(state.party[active]!.hp).toBe(playerHp);
+							expect(next).toBeUndefined();
+						}
 						break;
 					case 'fainted':
 						if (e.side === 'opponent') {
@@ -417,7 +433,8 @@ describe('every battle in the catalog', () => {
 						if (e.success) {
 							expect(next).toEqual({ type: 'ended', outcome: 'caught', caught: before.opponent });
 						} else {
-							expect(next?.type).toBe('hit');
+							expect(['hit', 'missed']).toContain(next?.type);
+							expect(next).toMatchObject({ attacker: 'opponent' });
 						}
 						break;
 					}
@@ -493,7 +510,8 @@ describe('answers', () => {
 							level
 						});
 						expect(events.some((e) => e.type === 'hit' && e.attacker === 'player')).toBe(false);
-						expect(events.some((e) => e.type === 'hit' && e.attacker === 'opponent')).toBe(true);
+						// The wild animal still takes its turn: it hits, or misses a wary match.
+						expect(events[2]).toMatchObject({ attacker: 'opponent' });
 					}
 				}
 			}
@@ -541,20 +559,91 @@ describe('answers', () => {
 });
 
 describe('the wild animal', () => {
+	/** The wild animal's one action after a wrong answer: a hit or a miss. */
+	function wildTurn(p: string, w: string, seed: number) {
+		const start = startBattle(makeParty([p]), makeWild(w));
+		const { state, events } = attackAndAnswer(start, seed, 1, 1, false);
+		const turn = events.filter(
+			(e) => (e.type === 'hit' || e.type === 'missed') && e.attacker === 'opponent'
+		);
+		expect(turn, `${p} vs ${w}, seed ${seed}`).toHaveLength(1);
+		const e = turn[0]!;
+		if (e.type !== 'hit' && e.type !== 'missed') throw new Error('not a turn');
+		return { e, start, state };
+	}
+
 	it('picks each of its attacks equally often and hits for its level-1 power', () => {
 		const spec = getAnimal('bear');
 		const picks = new Array(spec.attacks.length).fill(0);
 		const runs = 2000;
 		for (let seed = 0; seed < runs; seed++) {
-			const start = startBattle(makeParty(['bear']), makeWild('bear'));
-			const { events } = attackAndAnswer(start, seed, 1, 1, false);
-			const hit = events.find((e) => e.type === 'hit');
-			if (hit?.type !== 'hit') throw new Error('no hit');
-			expect(hit.attacker).toBe('opponent');
-			expect(hit.damage).toBe(spec.attacks[hit.attackIndex - 1]!.power);
-			picks[hit.attackIndex - 1]++;
+			const { e } = wildTurn('bear', 'bear', seed);
+			if (e.type === 'hit') expect(e.damage).toBe(spec.attacks[e.attackIndex - 1]!.power);
+			expect(e.level).toBe(1);
+			picks[e.attackIndex - 1]++;
 		}
 		for (const count of picks) expect(count / runs).toBeCloseTo(1 / spec.attacks.length, 1);
+	});
+
+	it('misses an animal of its own tier or fiercer exactly when its roll says so, never a smaller one', () => {
+		// Recomputed from the seed: the attack pick, then the miss roll, are the
+		// wild turn's two draws from the answer intent's Rng (step 1).
+		for (const p of ids) {
+			for (const w of ids) {
+				const wary = getAnimal(w).tier <= getAnimal(p).tier;
+				for (let seed = 0; seed < 40; seed++) {
+					const { e, start, state } = wildTurn(p, w, seed);
+					const rng = new Rng(hashInts(seed, 1));
+					expect(e.attackIndex).toBe(rng.int(1, getAnimal(w).attacks.length));
+					const miss = wary && rng.next() < WILD_MISS_CHANCE;
+					expect(e.type, `${p} vs ${w}, seed ${seed}`).toBe(miss ? 'missed' : 'hit');
+					if (miss) {
+						expect(state.party[0]!.hp).toBe(start.party[0]!.hp);
+						expect(state.log.at(-1)).toMatch(/^Wild .+ used .+! It missed\.$/);
+					}
+				}
+			}
+		}
+	});
+
+	it('misses a wary match about as often as WILD_MISS_CHANCE says', () => {
+		let misses = 0;
+		const runs = 2000;
+		for (let seed = 0; seed < runs; seed++) {
+			if (wildTurn('squirrel', 'rabbit', seed).e.type === 'missed') misses++;
+		}
+		expect(misses / runs).toBeCloseTo(WILD_MISS_CHANCE, 1);
+	});
+
+	it('judges wariness against the animal in front, turn by turn', () => {
+		// A fox never misses the squirrel in front, but can miss the bear that
+		// steps in once the squirrel is tired.
+		let bearTurns = 0;
+		let bearMisses = 0;
+		for (let seed = 0; seed < 100; seed++) {
+			const party = makeParty(['squirrel', 'bear']);
+			party[0]!.hp = 1;
+			const first = attackAndAnswer(startBattle(party, makeWild('fox')), seed, 1, 1, false);
+			expect(first.events.map((e) => e.type)).toEqual([
+				'answer-judged',
+				'missed',
+				'hit',
+				'fainted',
+				'switched'
+			]);
+			let state = first.state;
+			for (let turn = 0; turn < 5; turn++) {
+				expect(activeAnimal(state).speciesId).toBe('bear');
+				const step = attackAndAnswer(state, seed, 1, 1, false);
+				const wild = step.events.find((e) => e.type !== 'answer-judged' && e.type !== 'missed');
+				const missed = step.events.filter((e) => e.type === 'missed' && e.attacker === 'opponent');
+				bearTurns++;
+				bearMisses += missed.length;
+				if (missed.length === 0) expect(wild).toMatchObject({ type: 'hit', attacker: 'opponent' });
+				state = step.state;
+			}
+		}
+		expect(bearMisses / bearTurns).toBeCloseTo(WILD_MISS_CHANCE, 1);
 	});
 });
 
@@ -576,7 +665,9 @@ describe('the leash', () => {
 						expect(outcome(state)).toBe('caught');
 						expect(state.party).toEqual(start.party);
 					} else {
-						expect(events[1]?.type).toBe('hit');
+						// A failed throw hands the turn to the wild animal.
+						expect(['hit', 'missed']).toContain(events[1]?.type);
+						expect(events[1]).toMatchObject({ attacker: 'opponent' });
 						expect(outcome(state)).toBeNull();
 					}
 				}

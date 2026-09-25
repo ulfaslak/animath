@@ -29,11 +29,23 @@ import type {
  * the state: the state goes to the client, and a client that knew the seed
  * could predict every leash roll and every wild attack.
  *
- * Turn order is fixed: the player acts, then the wild animal hits back in the
- * same call. A wrong answer or a leash that breaks free still hands the turn
- * to the wild animal; fleeing always works. The wild animal picks one of its
- * attacks at random and always hits for that attack's level-1 damage.
+ * Turn order is fixed: the player acts, then the wild animal takes its turn in
+ * the same call. A wrong answer or a leash that breaks free still hands the
+ * turn to the wild animal; fleeing always works. The wild animal picks one of
+ * its attacks at random and hits for that attack's level-1 damage — unless it
+ * faces an animal of its own tier or fiercer, when it misses
+ * `WILD_MISS_CHANCE` of the time.
  */
+
+/**
+ * How often a wild animal misses an animal of its own tier or fiercer (11 in
+ * 25). It never misses a smaller one. Tuned so a kid who always answers the
+ * easiest puzzle right beats an animal of their own tier about 79% of the time
+ * (45% when right 7 times in 10), while every turn against a smaller animal
+ * plays exactly as it did before misses existed (#8's balance table).
+ * [[PRODUCT]] §4 "Battle" states it in prose.
+ */
+export const WILD_MISS_CHANCE = 0.44;
 
 export interface StartBattleOptions {
 	/** Multiplier for leash throws; 1 is the starter leash. */
@@ -218,18 +230,36 @@ function flee(state: BattleState, seed: number): BattleStep {
 
 /**
  * The wild animal picks one of its attacks uniformly at random and hits for
- * that attack's level-1 damage; it never misses and never solves a puzzle.
- * If the hit knocks the player's animal out, the next conscious party member
- * (in party order) steps in; if there is none, the battle is lost. Otherwise
- * the round ends and the player chooses again.
+ * that attack's level-1 damage; it never solves a puzzle. Against an animal of
+ * its own tier or fiercer it misses `WILD_MISS_CHANCE` of the time; against a
+ * smaller one it never misses. If the hit knocks the player's animal out, the
+ * next conscious party member (in party order) steps in; if there is none, the
+ * battle is lost. Otherwise the round ends and the player chooses again.
+ *
+ * Wariness is judged turn by turn against the animal in front: a fox never
+ * misses a squirrel, but can miss the bear that steps in after it. The miss
+ * roll is drawn on every turn and after the attack pick, so a turn against a
+ * smaller animal draws and hits exactly as it did before misses existed, and a
+ * battle in which every animal that fights is smaller than the wild one
+ * replays exactly as before.
  */
 function opponentTurn(draft: Draft): void {
 	const spec = getAnimal(draft.opponent.speciesId);
 	const attackIndex = draft.rng.int(1, spec.attacks.length);
 	const level: AttackLevel = 1;
-	const damage = attackDamage(spec, attackIndex, level, true);
-
 	const target = draft.active();
+	const wary = spec.tier <= getAnimal(target.speciesId).tier;
+	const missRoll = draft.rng.next();
+	const attackName = spec.attacks[attackIndex - 1]!.name;
+
+	if (wary && missRoll < WILD_MISS_CHANCE) {
+		draft.events.push({ type: 'missed', attacker: 'opponent', attackIndex, level });
+		draft.say(`Wild ${animalName(draft.opponent)} used ${attackName}! It missed.`);
+		draft.nextRound();
+		return;
+	}
+
+	const damage = attackDamage(spec, attackIndex, level, true);
 	const hp = Math.max(0, target.hp - damage);
 	draft.party[draft.activeIndex] = { ...target, hp };
 	draft.events.push({
@@ -240,9 +270,7 @@ function opponentTurn(draft: Draft): void {
 		damage,
 		targetHp: hp
 	});
-	draft.say(
-		`Wild ${animalName(draft.opponent)} used ${spec.attacks[attackIndex - 1]!.name}! ${damage} damage.`
-	);
+	draft.say(`Wild ${animalName(draft.opponent)} used ${attackName}! ${damage} damage.`);
 
 	if (hp > 0) {
 		draft.nextRound();

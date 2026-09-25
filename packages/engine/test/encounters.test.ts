@@ -30,18 +30,46 @@ function share(biome: Biome, distance: number, tiers: (t: Tier) => boolean): num
 		.reduce((sum, e) => sum + e.weight, 0);
 }
 
+/** Species whose habitats include the biome. */
+const residents = (biome: Biome) => ANIMALS.filter((a) => a.habitats.includes(biome));
+/** The biomes that have no tier-1 animal of their own: the river and the mountains today. */
+const UNGENTLE = BIOMES.filter((b) => !residents(b).some((a) => a.tier === 1));
+
 describe('encounterTable', () => {
-	it('lists exactly the species whose habitats include the biome, with shares summing to 1', () => {
+	it('lists the residents, plus tier-1 visitors inside the wild radius where no tier-1 animal lives', () => {
+		expect(UNGENTLE).toEqual(['river', 'mountain']);
+		const tier1 = ANIMALS.filter((a) => a.tier === 1);
 		for (const biome of BIOMES) {
-			const expected = ANIMALS.filter((a) => a.habitats.includes(biome))
-				.map((a) => a.id)
-				.sort();
-			for (const d of [0, SAFE_RADIUS, (SAFE_RADIUS + WILD_RADIUS) / 2, WILD_RADIUS, 1000]) {
+			for (const d of [
+				0,
+				SAFE_RADIUS,
+				(SAFE_RADIUS + WILD_RADIUS) / 2,
+				WILD_RADIUS - 1,
+				WILD_RADIUS,
+				1000
+			]) {
+				const visitors = UNGENTLE.includes(biome) && d < WILD_RADIUS ? tier1 : [];
+				const expected = [...residents(biome), ...visitors].map((a) => a.id).sort();
 				const table = encounterTable(biome, d);
-				expect(table.map((e) => e.species.id).sort()).toEqual(expected);
+				expect(table.map((e) => e.species.id).sort(), `${biome} @ ${d}`).toEqual(expected);
 				expect(table.reduce((s, e) => s + e.weight, 0)).toBeCloseTo(1, 9);
 				for (const e of table) expect(e.weight, `${e.species.id} in ${biome}`).toBeGreaterThan(0);
 			}
+		}
+	});
+
+	it('near spawn the river is mostly tier-1 visitors, and it is otters only from the wild radius out', () => {
+		// Visitors weigh 1 each near spawn and a tier-2 resident weighs 1/5, like everywhere else.
+		expect(share('river', 0, (t) => t === 2)).toBeCloseTo(0.2 / 2.2, 9);
+		expect(share('river', SAFE_RADIUS, (t) => t === 2)).toBeCloseTo(0.2 / 2.2, 9);
+		expect(share('mountain', 0, (t) => t === 1)).toBeGreaterThan(0.99);
+		for (const biome of UNGENTLE) {
+			const far = encounterTable(biome, WILD_RADIUS);
+			expect(far.map((e) => e.species.id).sort()).toEqual(
+				residents(biome)
+					.map((a) => a.id)
+					.sort()
+			);
 		}
 	});
 
@@ -53,9 +81,8 @@ describe('encounterTable', () => {
 		}
 	});
 
-	it('inside the safe radius tier 1 is the majority and tiers 3+ are under 5%, wherever a tier-1 species lives', () => {
+	it('inside the safe radius tier 1 is the majority and tiers 3+ are under 5%, in every biome', () => {
 		for (const biome of BIOMES) {
-			if (!ANIMALS.some((a) => a.tier === 1 && a.habitats.includes(biome))) continue;
 			for (const d of [0, SAFE_RADIUS / 2, SAFE_RADIUS]) {
 				expect(
 					share(biome, d, (t) => t === 1),
@@ -69,13 +96,17 @@ describe('encounterTable', () => {
 		}
 	});
 
-	it('the tier-3+ share never falls with distance, and beyond the wild radius every species is equal', () => {
+	it('the tier-3+ share never falls and the tier-1 share never rises with distance; beyond the wild radius every species is equal', () => {
 		for (const biome of BIOMES) {
-			let prev = -1;
+			let prevFierce = -1;
+			let prevGentle = 2;
 			for (let d = 0; d <= WILD_RADIUS + 64; d += 2) {
-				const s = share(biome, d, (t) => t >= 3);
-				expect(s, `${biome} @ ${d}`).toBeGreaterThanOrEqual(prev - 1e-12);
-				prev = s;
+				const fierce = share(biome, d, (t) => t >= 3);
+				const gentle = share(biome, d, (t) => t === 1);
+				expect(fierce, `${biome} @ ${d}`).toBeGreaterThanOrEqual(prevFierce - 1e-12);
+				expect(gentle, `${biome} @ ${d}`).toBeLessThanOrEqual(prevGentle + 1e-12);
+				prevFierce = fierce;
+				prevGentle = gentle;
 			}
 			const far = encounterTable(biome, WILD_RADIUS);
 			for (const e of far) expect(e.weight).toBeCloseTo(1 / far.length, 9);
@@ -131,7 +162,7 @@ describe('rollEncounter', () => {
 		}
 	});
 
-	it('returns a catalog species that lives in the biome, at full HP', () => {
+	it('returns a species that lives in the biome or visits it near spawn, at full HP', () => {
 		for (const biome of BIOMES) {
 			for (const d of [0, 64, 400]) {
 				const rng = new Rng(hashString(`${biome}:${d}`));
@@ -140,7 +171,8 @@ describe('rollEncounter', () => {
 					if (!wild) continue;
 					n++;
 					const spec = getAnimal(wild.speciesId);
-					expect(spec.habitats).toContain(biome);
+					const visitor = UNGENTLE.includes(biome) && d < WILD_RADIUS && spec.tier === 1;
+					if (!visitor) expect(spec.habitats).toContain(biome);
 					expect(wild.hp).toBe(spec.maxHp);
 					expect(Object.keys(wild).sort()).toEqual(['hp', 'speciesId']);
 				}

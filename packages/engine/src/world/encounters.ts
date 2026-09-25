@@ -10,9 +10,11 @@ import { isEncounterTile, type GridPos, type Tile } from './types.js';
  * lands on an encounter tile can start a battle; the roll then draws the
  * encounter chance and, on a hit, a species from the biome's table. The table
  * is the catalog filtered by habitat, weighted by tier so that fierce animals
- * are rare near the spawn tile and ordinary far from it. [[PRODUCT]] §4
- * "Wild encounters" states the numbers in prose; they must agree with the
- * constants below.
+ * are rare near the spawn tile and ordinary far from it. A biome with no tier-1
+ * animal of its own (the river, the mountains) also gets the catalog's tier-1
+ * animals as visitors near spawn, so the first few minutes are gentle wherever
+ * the player walks. [[PRODUCT]] §4 "Wild encounters" states the numbers in
+ * prose; they must agree with the constants below.
  *
  * Every draw comes from the caller's `Rng`, so a walk replays exactly from
  * (seed, intents). The rng is only touched when the tile can hold an encounter.
@@ -66,15 +68,32 @@ function tierWeight(tier: Tier, distance: number): number {
 }
 
 /**
+ * How welcome tier-1 visitors are in a biome that has no tier-1 animal of its
+ * own: 1 inside the safe radius, thinning out linearly to 0 at the wild
+ * radius. Beyond it the river is otters and the mountains are wolves and bears.
+ */
+function visitorWeight(distance: number): number {
+	return tierWeight(1, distance) * (1 - danger(distance));
+}
+
+/**
  * The species that can appear in `biome` at `distance` tiles from spawn, with
- * their normalised shares. Empty only if no species in the catalog lives there.
+ * their normalised shares, in catalog order. Residents (species whose habitats
+ * include the biome) are weighted by tier. A biome with residents but no tier-1
+ * resident also lists every tier-1 species as a visitor, weighted by
+ * `visitorWeight`. Empty only if no species in the catalog lives there.
  */
 export function encounterTable(biome: Biome, distance: number): EncounterEntry[] {
 	if (!Number.isFinite(distance)) throw new Error(`encounterTable: distance is ${distance}`);
-	const raw = ANIMALS.filter((a) => a.habitats.includes(biome)).map((species) => ({
-		species,
-		weight: tierWeight(species.tier, distance)
-	}));
+	const residents = ANIMALS.filter((a) => a.habitats.includes(biome));
+	const visitors =
+		residents.length > 0 && !residents.some((a) => a.tier === 1) ? visitorWeight(distance) : 0;
+	const raw = ANIMALS.flatMap((species) => {
+		if (species.habitats.includes(biome))
+			return [{ species, weight: tierWeight(species.tier, distance) }];
+		if (species.tier === 1 && visitors > 0) return [{ species, weight: visitors }];
+		return [];
+	});
 	const total = raw.reduce((sum, e) => sum + e.weight, 0);
 	return raw.map((e) => ({ species: e.species, weight: e.weight / total }));
 }
