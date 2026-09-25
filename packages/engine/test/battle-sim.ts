@@ -16,6 +16,10 @@ export interface PlayerModel {
 	/** Probability of answering a puzzle correctly. */
 	accuracy: number;
 	policy: Policy;
+	/** Probability of throwing the leash instead of attacking, per choose-action. Default 0. */
+	leash?: number;
+	/** Probability of running away instead of attacking, per choose-action. Default 0. */
+	flee?: number;
 }
 
 export interface PlayResult {
@@ -47,6 +51,8 @@ export function nextIntent(state: BattleState, model: PlayerModel, rng: Rng): Ba
 			return { type: 'answer', input: String(correct ? answer : answer + 1) };
 		}
 		case 'choose-action': {
+			if (rng.chance(model.leash ?? 0)) return { type: 'throw-leash' };
+			if (rng.chance(model.flee ?? 0)) return { type: 'flee' };
 			const spec = getAnimal(state.party[state.active]!.speciesId);
 			const n = spec.attacks.length;
 			switch (model.policy) {
@@ -68,6 +74,8 @@ export function nextIntent(state: BattleState, model: PlayerModel, rng: Rng): Ba
 /**
  * Play a battle to the end. `onStep` sees every accepted step (input state,
  * intent, result) so property tests can check invariants along the way.
+ * The player's own randomness is seeded from `seed` too, so a run is
+ * reproducible from `(seed, party, wild, model)`.
  */
 export function playBattle(
 	seed: number,
@@ -78,13 +86,13 @@ export function playBattle(
 	maxIntents = 2000
 ): PlayResult {
 	const playerRng = new Rng(hashInts(seed, 0x9e3779b9));
-	let state = startBattle(seed, party, wild);
+	let state = startBattle(party, wild);
 	const events: BattleEvent[] = [];
 	const intents: BattleIntent[] = [];
 	for (let i = 0; i < maxIntents; i++) {
 		const intent = nextIntent(state, model, playerRng);
 		if (!intent) break;
-		const step = applyBattleIntent(state, intent);
+		const step = applyBattleIntent(state, intent, seed);
 		onStep?.(state, intent, step);
 		intents.push(intent);
 		events.push(...step.events);

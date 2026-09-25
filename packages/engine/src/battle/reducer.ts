@@ -17,13 +17,17 @@ import type {
 /**
  * The battle reducer: pure rules for one wild battle.
  *
- *   startBattle(seed, party, wild)       → BattleState
- *   applyBattleIntent(state, intent)     → { state, events }
+ *   startBattle(party, wild, options?)          → BattleState
+ *   applyBattleIntent(state, intent, seed)      → { state, events }
  *
  * Both are pure. The input state is never mutated; every accepted intent
  * returns a fresh state and the list of events that explain it, in order.
  * Randomness for the n-th accepted intent comes from `hashInts(seed, n)`, so a
- * battle replays exactly from `(seed, party, wild, intents)`.
+ * battle replays exactly from `(seed, party, wild, leashQuality, intents)`.
+ *
+ * The seed is the authority's secret and travels with each call, never inside
+ * the state: the state goes to the client, and a client that knew the seed
+ * could predict every leash roll and every wild attack.
  *
  * Turn order is fixed: the player acts, then the wild animal hits back in the
  * same call. A wrong answer or a leash that breaks free still hands the turn
@@ -37,7 +41,6 @@ export interface StartBattleOptions {
 }
 
 export function startBattle(
-	seed: number,
 	party: readonly AnimalInstance[],
 	wild: AnimalInstance,
 	options: StartBattleOptions = {}
@@ -47,6 +50,12 @@ export function startBattle(
 	validateInstance(wild, 'wild');
 	if (wild.hp === 0) throw new Error('startBattle: the wild animal is already knocked out');
 
+	const ids = new Set<string>();
+	for (const animal of [...party, wild]) {
+		if (ids.has(animal.id)) throw new Error(`startBattle: two animals share the id ${animal.id}`);
+		ids.add(animal.id);
+	}
+
 	const active = party.findIndex((a) => a.hp > 0);
 	if (active < 0) throw new Error('startBattle: every animal in the party is knocked out');
 
@@ -54,7 +63,6 @@ export function startBattle(
 	if (!(leashQuality > 0)) throw new Error('startBattle: leashQuality must be positive');
 
 	return {
-		seed,
 		step: 0,
 		turn: 1,
 		party: party.map((a) => ({ ...a })),
@@ -80,17 +88,29 @@ export function activeAnimal(state: BattleState): AnimalInstance {
 	return state.party[state.active]!;
 }
 
-export function applyBattleIntent(state: BattleState, intent: BattleIntent): BattleStep {
+/**
+ * Apply one intent. `seed` is the battle's seed, held by the authority; the
+ * same seed must be passed for every intent of one battle.
+ */
+export function applyBattleIntent(
+	state: BattleState,
+	intent: BattleIntent,
+	seed: number
+): BattleStep {
+	if (!Number.isInteger(seed) || seed < 0 || seed > 0xffffffff) {
+		throw new Error(`applyBattleIntent: seed must be a 32-bit unsigned integer, got ${seed}`);
+	}
+	if (!intent || typeof intent !== 'object') return reject(state, 'That is not an intent.');
 	if (state.phase.kind === 'ended') return reject(state, 'The battle is over.');
 	switch (intent.type) {
 		case 'attack':
-			return chooseAttack(state, intent.attackIndex, intent.level);
+			return chooseAttack(state, seed, intent.attackIndex, intent.level);
 		case 'answer':
-			return answer(state, intent.input);
+			return answer(state, seed, intent.input);
 		case 'throw-leash':
-			return throwLeash(state);
+			return throwLeash(state, seed);
 		case 'flee':
-			return flee(state);
+			return flee(state, seed);
 		default:
 			return reject(state, `Unknown intent ${String((intent as { type: unknown }).type)}.`);
 	}
@@ -98,7 +118,12 @@ export function applyBattleIntent(state: BattleState, intent: BattleIntent): Bat
 
 // --- intents ---------------------------------------------------------------
 
-function chooseAttack(state: BattleState, attackIndex: number, level: AttackLevel): BattleStep {
+function chooseAttack(
+	state: BattleState,
+	seed: number,
+	attackIndex: number,
+	level: AttackLevel
+): BattleStep {
 	if (state.phase.kind !== 'choose-action') return reject(state, 'Not the time to attack.');
 	const spec = getAnimal(activeAnimal(state).speciesId);
 	const attack = spec.attacks[attackIndex - 1];
@@ -107,7 +132,7 @@ function chooseAttack(state: BattleState, attackIndex: number, level: AttackLeve
 	}
 	if (!ATTACK_LEVELS.includes(level)) return reject(state, `There is no level ${level}.`);
 
-	const draft = Draft.from(state);
+	const draft = Draft.from(state, seed);
 	const puzzle = generatePuzzle(
 		draft.rng,
 		puzzleDifficulty(spec.tier, attackIndex, level),
@@ -118,10 +143,10 @@ function chooseAttack(state: BattleState, attackIndex: number, level: AttackLeve
 	return draft.finish();
 }
 
-function answer(state: BattleState, input: string): BattleStep {
+function answer(state: BattleState, seed: number, input: string): BattleStep {
 	if (state.phase.kind !== 'solving') return reject(state, 'There is no puzzle to answer.');
 	const { attackIndex, level, puzzle } = state.phase;
-	const draft = Draft.from(state);
+	const draft = Draft.from(state, seed);
 	const attacker = draft.active();
 	const spec = getAnimal(attacker.speciesId);
 	const attackName = spec.attacks[attackIndex - 1]!.name;
@@ -156,9 +181,9 @@ function answer(state: BattleState, input: string): BattleStep {
 	return draft.finish();
 }
 
-function throwLeash(state: BattleState): BattleStep {
+function throwLeash(state: BattleState, seed: number): BattleStep {
 	if (state.phase.kind !== 'choose-action') return reject(state, 'Not the time for the leash.');
-	const draft = Draft.from(state);
+	const draft = Draft.from(state, seed);
 	const spec = getAnimal(draft.opponent.speciesId);
 	const chance = catchProbability(
 		draft.opponent.hp / spec.maxHp,
@@ -180,9 +205,9 @@ function throwLeash(state: BattleState): BattleStep {
 	return draft.finish();
 }
 
-function flee(state: BattleState): BattleStep {
+function flee(state: BattleState, seed: number): BattleStep {
 	if (state.phase.kind !== 'choose-action') return reject(state, 'Not the time to run.');
-	const draft = Draft.from(state);
+	const draft = Draft.from(state, seed);
 	draft.events.push({ type: 'fled' });
 	draft.say('You got away!');
 	draft.end('fled');
@@ -258,8 +283,11 @@ class Draft {
 	readonly log: string[];
 	readonly events: BattleEvent[] = [];
 
-	private constructor(private readonly base: BattleState) {
-		this.rng = new Rng(hashInts(base.seed, base.step));
+	private constructor(
+		private readonly base: BattleState,
+		seed: number
+	) {
+		this.rng = new Rng(hashInts(seed, base.step));
 		this.party = base.party.slice();
 		this.activeIndex = base.active;
 		this.opponent = base.opponent;
@@ -268,8 +296,8 @@ class Draft {
 		this.log = base.log.slice();
 	}
 
-	static from(state: BattleState): Draft {
-		return new Draft(state);
+	static from(state: BattleState, seed: number): Draft {
+		return new Draft(state, seed);
 	}
 
 	active(): AnimalInstance {

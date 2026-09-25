@@ -21,9 +21,11 @@ export type BattleOutcome = 'won' | 'lost' | 'caught' | 'fled';
 export type BattleSide = 'player' | 'opponent';
 
 export interface BattleState {
-	/** Seed for the battle's own randomness. `hashInts(seed, step)` seeds each intent's Rng. */
-	seed: number;
-	/** Intents accepted so far. With `seed`, this keys the Rng for the next one. */
+	/**
+	 * Intents accepted so far. With the authority's seed (passed to
+	 * `applyBattleIntent`, never stored here where a client could read it)
+	 * this keys the Rng for the next intent.
+	 */
 	step: number;
 	/** Round counter, 1-based. Advances after the wild animal has taken its turn. */
 	turn: number;

@@ -35,7 +35,7 @@ tree packages -I 'node_modules|dist' --dirsfirst
 | `src/battle/damage.ts`            | `attackDamage`.                                                                                                                                                |
 | `src/battle/catch.ts`             | `catchProbability`.                                                                                                                                            |
 | `src/battle/types.ts`             | `BattleState`, `BattlePhase`, `BattleIntent`, `BattleEvent`, `BattleOutcome`, `BattleStep`.                                                                     |
-| `src/battle/reducer.ts`           | `startBattle(seed, party, wild, options?)`, `applyBattleIntent(state, intent) → { state, events }`, `activeAnimal`. The whole wild-battle loop; pure.           |
+| `src/battle/reducer.ts`           | `startBattle(party, wild, options?)`, `applyBattleIntent(state, intent, seed) → { state, events }`, `activeAnimal`. The whole wild-battle loop; pure. The seed is the authority's, never in the state. |
 | `src/world/types.ts`              | `Tile`, `TileKind`, `Chunk`, `GridPos`, `Direction`, `CHUNK_SIZE`, `isWalkable`, `isEncounterTile`, `step`.                                                     |
 | `src/world/generate.ts`           | `generateChunk(seed, cx, cy)`, `tileAtWorld`, `spawnPoint`. Value-noise elevation + moisture → biome → tile kind; tents on a sparse lattice.                    |
 | `src/protocol.ts`                 | `Intent`, `GameEvent`, `Authority` — the client ↔ authority contract.                                                                                          |
