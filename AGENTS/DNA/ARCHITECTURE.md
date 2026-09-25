@@ -36,12 +36,17 @@ tree packages -I 'node_modules|dist' --dirsfirst
 | `src/battle/catch.ts`             | `catchProbability`.                                                                                                                                            |
 | `src/battle/types.ts`             | `BattleState`, `BattlePhase`, `BattleIntent`, `BattleEvent`, `BattleOutcome`, `BattleStep`.                                                                     |
 | `src/battle/reducer.ts`           | `startBattle(party, wild, options?)`, `applyBattleIntent(state, intent, seed) → { state, events }`, `activeAnimal`. The whole wild-battle loop; pure. The seed is the authority's, never in the state. The wild animal's miss chance is `WILD_MISS_CHANCE`, exported for tests and not re-exported from `index.ts`. |
+| `src/doctor/types.ts`             | `DoctorState`, `DoctorPhase`, `DoctorIntent`, `DoctorEvent`, `DoctorStep`.                                                                                      |
+| `src/doctor/reducer.ts`           | `startDoctorVisit(party)`, `applyDoctorIntent(state, intent, seed) → { state, events }`. One visit to a doctor's tent; pure. Same shape and seed rule as the battle reducer: the seed is the authority's, never in the state, fresh per visit. |
+| `src/doctor/party.ts`             | `needsHealing(animal)` (who the doctor treats) and the party validation the doctor's entry points share.                                                        |
+| `src/doctor/knockout.ts`          | `takeToDoctor(seed, pos, party) → Rescue`: the knock-out rule the authority applies on `ended { outcome: 'lost' }`: where the player stands next, which way they face, the healed party, the message line. |
 | `src/world/types.ts`              | `Tile`, `TileKind`, `Chunk`, `GridPos`, `Direction`, `CHUNK_SIZE`, `isWalkable`, `isEncounterTile`, `step`.                                                     |
+| `src/world/tents.ts`              | `nearestTent(seed, from, maxSteps?) → TentSpot \| null` (the tent, the tile to stand on beside it, the facing, the steps; nearest on foot, breadth-first over walkable tiles), `canTalkToDoctor(seed, pos, facing)`, `TENT_SEARCH_STEPS`. |
 | `src/world/generate.ts`           | `generateChunk(seed, cx, cy)`, `tileAtWorld`, `spawnPoint`. Value-noise elevation + moisture → biome → tile kind; tents on a sparse lattice.                    |
 | `src/world/encounters.ts`         | `rollEncounter(rng, site)`, `encounterTable(biome, distance)`, `distanceFromSpawn`, the radius and chance constants. Biome tables come from the catalog's habitats, plus tier-1 visitors near spawn where a biome has no tier-1 resident. |
 | `src/protocol.ts`                 | `Intent`, `GameEvent`, `Authority` — the client ↔ authority contract.                                                                                          |
 | `src/index.ts`                    | The public surface. Everything the client or server uses is re-exported here.                                                                                  |
-| `test/*.test.ts`                  | vitest. `purity.test.ts` pins the package boundary; the others are property tests over seeds, the difficulty range and the whole catalog. `balance.test.ts` is the species × species simulation that pins the balance targets in [[PRODUCT]] §4 (`SIM=1` prints every policy × accuracy × level table); `battle-sim.ts` is its scripted player. |
+| `test/*.test.ts`                  | vitest. `purity.test.ts` pins the package boundary; the others are property tests over seeds, the difficulty range and the whole catalog. `balance.test.ts` is the species × species simulation that pins the balance targets in [[PRODUCT]] §4 (`SIM=1` prints every policy × accuracy × level table); `battle-sim.ts` is its scripted player. `tents.test.ts` checks `nearestTent` against its own flood fill over the tent lattice; `doctor.test.ts` covers the doctor reducer and the knock-out rule. |
 
 ### The authority seam (how multiplayer slots in)
 
@@ -88,7 +93,7 @@ Engine grid `(x, y)` maps to Three `(x, height, z)` with `z = y`; grid "down" is
 
 ### Modes
 
-Explore is implemented. Battle mode will be a second controller + a second scene (own camera, two figures from `animals.ts`, back and front view) and a Svelte panel; the mode switch is driven by `battle-started` / `battle-ended` events. See [[UI_SPEC]].
+Explore is implemented. Battle mode will be a second controller + a second scene (own camera, two figures from `animals.ts`, back and front view) and a Svelte panel; the mode switch is driven by `battle-started` / `battle-ended` events. The doctor will not be a mode: a dialogue card over explore, driven by `doctor-visit-started` / `-updated` / `-ended`; after a lost battle, `taken-to-doctor` places the player and replaces the party (the events exist; nothing emits them yet). The authority is to open a visit on `interact` when `canTalkToDoctor(seed, pos, facing)` holds, so it must track the facing the client shows: `down` until the first `move`, then the `dir` of every `move`, walked or blocked, and the `dir` of `taken-to-doctor`. The client sets `down` once, on page load, not on `welcome`, so a second `welcome` (a reconnect) must reset both sides or carry the facing. See [[UI_SPEC]].
 
 ## `packages/server` — persistence and (later) authority
 
