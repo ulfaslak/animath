@@ -10,13 +10,15 @@ import {
 	type GridPos
 } from '@mathgame/engine';
 import { describe, expect, it } from 'vitest';
-import { LocalAuthority } from '../src/authority/local';
+import { LocalAuthority, partyFromParam } from '../src/authority/local';
 
 /**
  * The single-player authority's own rules — the ones around the engine, not
  * in it: one encounter roll per completed step, keyed so a walk replays; the
- * battle's result written back into the world; the lost-battle rest. The
- * battle itself is the engine's (see the engine's `battle-reducer.test.ts`).
+ * battle's result written back into the world; the lost-battle rest; what
+ * it tells the engine the player is doing when the party is edited. The
+ * battle and the party rules themselves are the engine's (see its
+ * `battle-reducer.test.ts` and `party.test.ts`).
  *
  * The prototype world's spawn tile, (-2, 6), has a river reed (tall grass)
  * straight to its left, so walking left and right from it meets animals
@@ -24,8 +26,10 @@ import { LocalAuthority } from '../src/authority/local';
  */
 type Session = { authority: LocalAuthority; events: GameEvent[] };
 
-function session(): Session {
-	const authority = new LocalAuthority();
+function session(startingParty?: string): Session {
+	const authority = new LocalAuthority({
+		party: startingParty === undefined ? undefined : partyFromParam(startingParty)
+	});
 	const events: GameEvent[] = [];
 	authority.subscribe((e) => events.push(e));
 	authority.start();
@@ -75,7 +79,9 @@ function attack(s: Session, attackIndex: number, level: 1 | 2 | 3, correct: bool
 function party(s: Session): AnimalInstance[] {
 	for (let i = s.events.length - 1; i >= 0; i--) {
 		const e = s.events[i]!;
-		if (e.type === 'party-changed' || e.type === 'welcome') return e.party;
+		if (e.type === 'party-changed' || e.type === 'party-edited' || e.type === 'welcome') {
+			return e.party;
+		}
 	}
 	throw new Error('no party');
 }
@@ -284,5 +290,91 @@ describe('LocalAuthority: outcomes', () => {
 			}
 		}
 		throw new Error(`the party never filled up (${caught} caught)`);
+	});
+});
+
+describe('LocalAuthority: the party', () => {
+	/** The `party-edited` the last party intent produced. */
+	function lastEdit(s: Session): Extract<GameEvent, { type: 'party-edited' }> {
+		const e = s.events[lastIndexOf(s, 'party-edited')];
+		if (e?.type !== 'party-edited') throw new Error('no party-edited');
+		return e;
+	}
+
+	it('a chosen lead is the animal that steps into the next battle', () => {
+		const s = session('squirrel,rabbit,fox');
+		const fox = party(s)[2]!;
+		s.authority.dispatch({ type: 'party', intent: { type: 'select-lead', animalId: fox.id } });
+		expect(lastEdit(s).events).toEqual([{ type: 'lead-selected', animalId: fox.id, from: 2 }]);
+		expect(party(s).map((a) => a.speciesId)).toEqual(['fox', 'squirrel', 'rabbit']);
+		expect(lastMessage(s)).toBe('Fox goes first!');
+		const battle = walkIntoBattle(s);
+		expect(battle.party[battle.active]!.id).toBe(fox.id);
+	});
+
+	it('a tired animal is not chosen, and the message says why', () => {
+		const s = session('squirrel,rabbit:0');
+		const before = party(s);
+		const rabbit = before[1]!;
+		s.authority.dispatch({ type: 'party', intent: { type: 'select-lead', animalId: rabbit.id } });
+		expect(lastEdit(s).events).toEqual([
+			{ type: 'rejected', reason: 'tired', animalId: rabbit.id }
+		]);
+		expect(party(s)).toEqual(before);
+		expect(lastMessage(s)).toBe('Rabbit is tired. Visit the doctor!');
+	});
+
+	it('with the first animal tired, the next one standing leads the battle', () => {
+		const s = session('squirrel:0,rabbit');
+		const battle = walkIntoBattle(s);
+		expect(battle.active).toBe(1);
+		expect(battle.party[1]!.speciesId).toBe('rabbit');
+	});
+
+	it('a name given in explore is the name the battle uses', () => {
+		const s = session();
+		const starter = party(s)[0]!;
+		const nickname = '  Sir Fluffington the Third ';
+		s.authority.dispatch({
+			type: 'party',
+			intent: { type: 'rename', animalId: starter.id, nickname }
+		});
+		expect(party(s)[0]!.nickname).toBe('Sir Fluffing');
+		const battle = walkIntoBattle(s);
+		expect(battle.party[battle.active]!.nickname).toBe('Sir Fluffing');
+		expect(battle.log).toContain('Go, Sir Fluffing!');
+	});
+
+	it('mid-battle every party edit is refused, and the battle writes back the party it began with', () => {
+		const s = session('squirrel,rabbit');
+		const [squirrel, rabbit] = party(s);
+		walkIntoBattle(s);
+		for (const intent of [
+			{ type: 'select-lead', animalId: rabbit!.id },
+			{ type: 'reorder', animalId: rabbit!.id, to: 0 },
+			{ type: 'rename', animalId: squirrel!.id, nickname: 'Pip' }
+		] as const) {
+			s.authority.dispatch({ type: 'party', intent });
+			expect(lastEdit(s).events).toEqual([{ type: 'rejected', reason: 'not-exploring' }]);
+		}
+		s.authority.dispatch({ type: 'battle', intent: { type: 'flee' } });
+		expect(party(s).map((a) => [a.id, a.nickname])).toEqual([
+			[squirrel!.id, undefined],
+			[rabbit!.id, undefined]
+		]);
+	});
+});
+
+describe('partyFromParam (the ?party= hook)', () => {
+	it('reads species, HP and a name, skips what it does not know, and stops at six', () => {
+		expect(partyFromParam('rabbit,fox:0,bear:40:Big  Bear,unicorn,OTTER:999,deer:-3')).toEqual([
+			{ id: 'party-1', speciesId: 'rabbit', hp: 22 },
+			{ id: 'party-2', speciesId: 'fox', hp: 0 },
+			{ id: 'party-3', speciesId: 'bear', hp: 40, nickname: 'Big Bear' },
+			{ id: 'party-4', speciesId: 'otter', hp: 32 },
+			{ id: 'party-5', speciesId: 'deer', hp: 0 }
+		]);
+		expect(partyFromParam('squirrel,'.repeat(9))).toHaveLength(6);
+		expect(partyFromParam('')).toEqual([]);
 	});
 });
