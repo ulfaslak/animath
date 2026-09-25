@@ -103,8 +103,7 @@ export type SaveCheck<T> = { ok: true; value: T } | { ok: false; error: string }
  * document alone — see [[INVARIANTS]] § Saves.
  */
 export type SaveRead =
-	| { ok: true; save: SaveV1 }
-	| { ok: false; reason: 'newer' | 'invalid'; error: string };
+	{ ok: true; save: SaveV1 } | { ok: false; reason: 'newer' | 'invalid'; error: string };
 
 type Doc = Record<string, unknown>;
 
@@ -246,7 +245,8 @@ export function upgradeSave(
 	upgrades: Readonly<Record<number, (doc: Doc) => Doc>>,
 	target: number
 ): { ok: true; doc: Doc } | { ok: false; reason: 'newer' | 'invalid'; error: string } {
-	if (!isRecord(input)) return { ok: false, reason: 'invalid', error: 'save must be a JSON object' };
+	if (!isRecord(input))
+		return { ok: false, reason: 'invalid', error: 'save must be a JSON object' };
 	const version = input.version;
 	if (!Number.isSafeInteger(version) || (version as number) < 1) {
 		return { ok: false, reason: 'invalid', error: 'version must be a whole number from 1' };
@@ -428,7 +428,10 @@ export function canReplace(stored: unknown, incoming: Pick<SaveWrite, 'seq'>): b
  * document this build cannot read — the cases where the server copies
  * `stored` aside before replacing it.
  */
-export function replacesAnotherGame(stored: unknown, incoming: Pick<SaveWrite, 'lineage'>): boolean {
+export function replacesAnotherGame(
+	stored: unknown,
+	incoming: Pick<SaveWrite, 'lineage'>
+): boolean {
 	if (stored === null) return false;
 	return !readSave(stored).ok || saveLineage(stored) !== incoming.lineage;
 }

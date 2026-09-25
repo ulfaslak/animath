@@ -3,11 +3,16 @@ import {
 	attackDamage,
 	getAnimal,
 	isEncounterTile,
+	readSave,
+	restoreGame,
+	saveDocument,
 	tileAtWorld,
 	type AnimalInstance,
 	type BattleState,
 	type GameEvent,
-	type GridPos
+	type GridPos,
+	type Intent,
+	type SavedGame
 } from '@mathgame/engine';
 import { describe, expect, it } from 'vitest';
 import { LocalAuthority } from '../src/authority/local';
@@ -284,5 +289,158 @@ describe('LocalAuthority: outcomes', () => {
 			}
 		}
 		throw new Error(`the party never filled up (${caught} caught)`);
+	});
+});
+
+describe('LocalAuthority: saved games', () => {
+	/** Whether a battle is in progress, from the events. */
+	function inBattle(s: Session): boolean {
+		return lastIndexOf(s, 'battle-started') > lastIndexOf(s, 'battle-ended');
+	}
+
+	/** What a scripted kid does next: walk the reed, fight, get one in four wrong, leash the weak. */
+	function nextIntent(s: Session, i: number): Intent {
+		if (!inBattle(s)) return { type: 'move', dir: i % 2 === 0 ? 'left' : 'right' };
+		const state = latestBattle(s);
+		if (state.phase.kind === 'solving') {
+			const { answer } = state.phase.puzzle;
+			const input = String(i % 4 === 0 ? answer + 1 : answer);
+			return { type: 'battle', intent: { type: 'answer', input } };
+		}
+		const wild = state.opponent;
+		if (wild.hp * 3 < getAnimal(wild.speciesId).maxHp) {
+			return { type: 'battle', intent: { type: 'throw-leash' } };
+		}
+		return { type: 'battle', intent: { type: 'attack', attackIndex: 1, level: 1 } };
+	}
+
+	/** An event with minted ids left out: what must match between two runs of one game. */
+	function fingerprint(e: GameEvent): unknown {
+		const party = (p: readonly AnimalInstance[]) => p.map((a) => [a.speciesId, a.hp]);
+		switch (e.type) {
+			case 'battle-started':
+			case 'battle-ended':
+				return [
+					e.type,
+					e.state.opponent.speciesId,
+					e.state.opponent.hp,
+					party(e.state.party),
+					e.state.phase
+				];
+			case 'battle-updated':
+				return [
+					e.type,
+					e.state.step,
+					party(e.state.party),
+					e.state.phase,
+					e.events.map((x) => x.type)
+				];
+			case 'party-changed':
+				return [e.type, party(e.party)];
+			default:
+				return e;
+		}
+	}
+
+	/** A save round trip, as the autosave and a reload do it: JSON through storage, then restore. */
+	function throughSave(game: SavedGame): SavedGame {
+		const doc = saveDocument(game, { lineage: 'test', seq: 1 });
+		const read = readSave(JSON.parse(JSON.stringify(doc)));
+		if (!read.ok) throw new Error(read.error);
+		return restoreGame(read.save);
+	}
+
+	it('a restored game plays on exactly as the original does, cut anywhere, mid-puzzle included', () => {
+		const cuts = { explore: 0, choose: 0, solving: 0 };
+		for (const cut of [3, 11, 12, 13, 14, 20, 33, 47, 60, 75]) {
+			const a = session();
+			let i = 0;
+			for (; i < cut; i++) a.authority.dispatch(nextIntent(a, i));
+			const saved = throughSave(a.authority.snapshot());
+			if (!saved.battle) cuts.explore++;
+			else if (saved.battle.phase.kind === 'solving') cuts.solving++;
+			else cuts.choose++;
+
+			const b: Session = { authority: new LocalAuthority(), events: [] };
+			b.authority.subscribe((e) => b.events.push(e));
+			b.authority.start({ game: saved });
+			expect(inBattle(b)).toBe(inBattle(a));
+			const fromA = a.events.length;
+			const fromB = b.events.length;
+			for (; i < cut + 60; i++) {
+				a.authority.dispatch(nextIntent(a, i));
+				b.authority.dispatch(nextIntent(b, i));
+			}
+			expect(b.events.slice(fromB).map(fingerprint)).toEqual(
+				a.events.slice(fromA).map(fingerprint)
+			);
+		}
+		// The cuts land in explore, at the battle menu and in the middle of a puzzle.
+		expect(cuts.explore).toBeGreaterThan(0);
+		expect(cuts.choose).toBeGreaterThan(0);
+		expect(cuts.solving).toBeGreaterThan(0);
+	});
+
+	it('start picks up a saved battle: welcome, then battle-started with the saved state, then the message', () => {
+		const a = session();
+		walkIntoBattle(a);
+		a.authority.dispatch({ type: 'battle', intent: { type: 'attack', attackIndex: 1, level: 2 } });
+		const saved = throughSave(a.authority.snapshot());
+		expect(saved.battle?.phase.kind).toBe('solving');
+
+		const b: Session = { authority: new LocalAuthority(), events: [] };
+		b.authority.subscribe((e) => b.events.push(e));
+		b.authority.start({ game: saved, message: 'Welcome back!' });
+		expect(b.events.map((e) => e.type)).toEqual(['welcome', 'battle-started', 'message']);
+		expect(welcome(b)).toMatchObject({ pos: saved.pos, facing: saved.facing, party: saved.party });
+		expect(latestBattle(b)).toEqual(latestBattle(a));
+		// Walking waits for the battle, as it would have before the reload.
+		b.authority.dispatch({ type: 'move', dir: 'up' });
+		expect(b.events.length).toBe(3);
+	});
+
+	it('mid-battle, the snapshot holds the battle and its party as they stand; in explore, no battle', () => {
+		const s = session();
+		expect(s.authority.snapshot().battle).toBeNull();
+		walkIntoBattle(s);
+		lose(s);
+		walkIntoBattle(s);
+		attack(s, 1, 1, false);
+		const state = latestBattle(s);
+		const snap = s.authority.snapshot();
+		expect(snap.battle).toEqual(state);
+		expect(snap.party).toEqual(state.party);
+		expect(snap.pos).toEqual(position(s));
+	});
+
+	it('keeps the facing the client shows: down at first, then every move, walked or blocked', () => {
+		const s = session();
+		expect(welcome(s).facing).toBe('down');
+		expect(s.authority.snapshot().facing).toBe('down');
+		for (const dir of ['up', 'left', 'down', 'right'] as const) {
+			s.authority.dispatch({ type: 'move', dir });
+			expect(s.authority.snapshot().facing).toBe(dir);
+		}
+		// The spawn tile has water beside it: walk until something blocks, and the facing follows.
+		const blockedAt = s.events.length;
+		for (
+			let n = 0;
+			n < 40 && !s.events.slice(blockedAt).some((e) => e.type === 'player-blocked');
+			n++
+		) {
+			if (inBattle(s)) s.authority.dispatch({ type: 'battle', intent: { type: 'flee' } });
+			s.authority.dispatch({ type: 'move', dir: 'up' });
+		}
+		expect(s.events.slice(blockedAt).some((e) => e.type === 'player-blocked')).toBe(true);
+		expect(s.authority.snapshot().facing).toBe('up');
+	});
+
+	it('ignores intents until it has started', () => {
+		const authority = new LocalAuthority();
+		const events: GameEvent[] = [];
+		authority.subscribe((e) => events.push(e));
+		authority.dispatch({ type: 'move', dir: 'left' });
+		authority.dispatch({ type: 'interact' });
+		expect(events).toEqual([]);
 	});
 });

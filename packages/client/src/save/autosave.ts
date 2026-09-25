@@ -299,7 +299,11 @@ export class Autosave {
 			}
 		}
 
-		const doc = saveDocument(this.snapshot(), { lineage: this.lineage, seq: this.seq + 1 }, this.extras);
+		const doc = saveDocument(
+			this.snapshot(),
+			{ lineage: this.lineage, seq: this.seq + 1 },
+			this.extras
+		);
 		const checked = validateSaveWrite(doc);
 		if (!checked.ok) {
 			console.error(`Animath could not save the game: ${checked.error}`);
@@ -510,7 +514,8 @@ export class Autosave {
 			this.goStale();
 			return;
 		}
-		if (current !== null) store.set(this.local === 'held' ? KEYS.unreadable : KEYS.replaced, current);
+		if (current !== null)
+			store.set(this.local === 'held' ? KEYS.unreadable : KEYS.replaced, current);
 		if (!store.set(KEYS.save, JSON.stringify(save))) {
 			// Cannot keep the server's game here, so reloading would not reach it. Carry on as we are.
 			this.serverState = 'stopped';

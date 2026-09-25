@@ -287,7 +287,10 @@ describe('PUT validation', () => {
 	it("400 for a document the engine's validator refuses", async () => {
 		await expectRejected([1, 2, 3], /object/);
 		await expectRejected(doc(1, 'game-a', { version: 2 }), /version/);
-		await expectRejected(doc(1, 'game-a', { party: [animal(1, { speciesId: 'dragon' })] }), /species/);
+		await expectRejected(
+			doc(1, 'game-a', { party: [animal(1, { speciesId: 'dragon' })] }),
+			/species/
+		);
 	});
 
 	it(`400 for a party of ${MAX_PARTY + 1}, 200 for a party of ${MAX_PARTY}`, async () => {
