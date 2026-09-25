@@ -314,7 +314,9 @@ describe('every battle in the catalog', () => {
 					expect(wordedStrings({ state, said }), `${p} vs ${w} seed ${seed}`).toEqual([]);
 				}
 			}
-		});
+			// About 2 s alone, but it runs beside every other test file: with other
+			// agents' test runs on the machine, the first sweep crossed the 5 s default.
+		}, 20_000);
 	}
 
 	it('reached every outcome, and switched both ways', () => {
