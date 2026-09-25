@@ -132,7 +132,7 @@ Errors are JSON `{ error: string }`. All routes are under `/api`.
 }
 ```
 
-Required fields are validated strictly (`speciesId` must be in the engine catalog, `hp` a whole number ≥ 0, `id` unique within the party). Any extra field — top-level or per animal — is stored and returned untouched, so a newer client can add data without a server change; bump `version` only when an old document becomes unreadable.
+Required fields are validated strictly (`speciesId` must be in the engine catalog, `hp` a whole number ≥ 0, `id` unique within the party). Any extra field — top-level or per animal — is stored and returned as sent, so a newer client can add data without a server change; bump `version` only when an old document becomes unreadable. "As sent" is JSON semantics: key order and `-0` are not preserved, and a document containing a NUL character, a lone surrogate or a number that overflows to Infinity is a `400`, not a mangled row. The upsert is unconditional — last write wins, with no stale-write guard (see [[DEFERRED]]).
 
 ## Ports and processes (development)
 

@@ -37,3 +37,11 @@ Technical items we've intentionally postponed: tech debt, hardening shortcuts, k
 **Why deferred**: the server PR could not touch the engine while other engine work was in flight; a redeclared type is a small, visible duplication.
 
 **Trigger**: the client save/load PR. Move the type (not the validator) to the engine and import it from both sides.
+
+### Saves have no stale-write guard
+
+**What**: `PUT /api/players/:id/save` is an unconditional upsert: the last request to arrive wins. A retried request that lands after a newer save, or two tabs holding the same id + secret and autosaving on a timer, roll the persisted save back to an older document — a caught animal vanishes. `SaveV1` carries no sequence number or client timestamp to order writes by.
+
+**Why deferred**: nothing writes saves yet, and the guard is half a protocol (the client must send a counter and handle a 409 by reloading) that should be designed with the client's autosave in hand, not guessed at from the server side. Adding an optional field later is not a `version` bump: unknown fields are already accepted.
+
+**Trigger**: the client save/load PR. Add a monotonically increasing `seq` (or `savedAt`) to `SaveV1`, make the upsert conditional on it, and answer `409` when the stored document is newer.

@@ -21,3 +21,11 @@ The client dev server was configured on Vite's default port 5173, which another 
 ### 2026-09-24 — repo setup — a test that greps source matched its own explanatory comment `[not codified]`
 
 The engine purity test asserts no `Math.random` in `src/`; the first run failed on the doc comment in `rng.ts` that says "the engine never calls `Math.random`". Fix: the test strips comments before matching. Lesson: a source-scanning test must decide up front whether prose counts. Would become `[learned]` with a line in [[DEVELOPMENT]] § Testing ideology about source-scanning tests.
+
+### 2026-09-25 — PR #5 (save routes) — compared a database timestamp to an application one `[learned]`
+
+A test asserted `last_seen_at` (written from Node's `new Date()`) was later than `created_at` (the column's `now()` default) and failed: the Postgres container's clock runs ~120 ms ahead of the host, so the "later" write carried the earlier time. Fix: the server writes every timestamp with `sql\`now()\``; the offset is recorded in [[ENVIRONMENT_NOTES]] § "The Postgres container's clock". Category: **two clocks** — a row default and an application `Date` are different clocks even on one machine; pick one per table.
+
+### 2026-09-25 — PR #5 (save routes) — validated the shape of a document, not whether the store could hold it `[learned]`
+
+The save validator checked types, ranges and lengths and passed a document through to `jsonb`, which then threw on a NUL character or a lone surrogate (a 500 on a public route) and silently stored `null` for a number `JSON.parse` had turned into `Infinity`. Found by the adversarial reviewer. Fix: a storability walk over the whole document, extras included, with tests and a negative control; the ARCHITECTURE prose now says what "stored as sent" means. Category: **validator stops at the type** — a validator that admits arbitrary extra fields must also check the one thing the type system cannot: that the storage layer accepts every value it lets through.

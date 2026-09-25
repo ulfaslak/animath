@@ -5,9 +5,13 @@ import { ANIMALS } from '@mathgame/engine';
  * The save document a client PUTs to `/api/players/:id/save` and GETs back.
  *
  * Versioned envelope. The required fields are validated strictly; any extra
- * top-level or per-animal field is stored and returned untouched, so a newer
- * client can add data without a server change. Bumping `version` is for a
- * change that makes an old document unreadable.
+ * top-level or per-animal field is stored and returned as sent, so a newer
+ * client can add data without a server change. "As sent" means JSON
+ * semantics: key order and `-0` are not preserved, and a document holding
+ * something JSON/jsonb cannot represent (a NUL character, a lone surrogate, a
+ * number that overflows to Infinity) is rejected with 400 rather than stored
+ * mangled. Bumping `version` is for a change that makes an old document
+ * unreadable.
  */
 export interface SaveV1 {
 	version: 1;
@@ -38,6 +42,37 @@ function fail(error: string): SaveValidation {
 	return { ok: false, error };
 }
 
+/** Postgres jsonb refuses NUL and unpaired surrogates (error 22P05). */
+const UNSTORABLE_TEXT = /\0|\p{Surrogate}/u;
+
+/**
+ * Walks the whole document — extras included — for values that would either
+ * make the insert throw (NUL, lone surrogate) or come back changed (a number
+ * `JSON.parse` turned into ±Infinity is written as `null`). Returns the first
+ * offending path, or null.
+ */
+function findUnstorable(v: unknown, path: string): string | null {
+	if (typeof v === 'string') {
+		return UNSTORABLE_TEXT.test(v) ? `${path} contains characters that cannot be saved` : null;
+	}
+	if (typeof v === 'number') return Number.isFinite(v) ? null : `${path} must be a finite number`;
+	if (Array.isArray(v)) {
+		for (let i = 0; i < v.length; i++) {
+			const error = findUnstorable(v[i], `${path}[${i}]`);
+			if (error) return error;
+		}
+		return null;
+	}
+	if (isRecord(v)) {
+		for (const [key, value] of Object.entries(v)) {
+			if (UNSTORABLE_TEXT.test(key)) return `${path} has a key that cannot be saved`;
+			const error = findUnstorable(value, path ? `${path}.${key}` : key);
+			if (error) return error;
+		}
+	}
+	return null;
+}
+
 function validateAnimal(v: unknown, label: string): string | null {
 	if (!isRecord(v)) return `${label} must be an object`;
 	if (typeof v.id !== 'string' || v.id.length === 0 || v.id.length > MAX_ID_LENGTH) {
@@ -66,6 +101,8 @@ function validateAnimal(v: unknown, label: string): string | null {
  */
 export function validateSave(input: unknown): SaveValidation {
 	if (!isRecord(input)) return fail('save must be a JSON object');
+	const unstorable = findUnstorable(input, '');
+	if (unstorable) return fail(unstorable);
 	if (input.version !== SAVE_VERSION) return fail(`version must be ${SAVE_VERSION}`);
 	if (!Number.isSafeInteger(input.seed)) return fail('seed must be a whole number');
 	const pos = input.pos;

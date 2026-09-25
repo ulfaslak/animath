@@ -220,6 +220,24 @@ describe('PUT validation', () => {
 		await expectRejected({ ...validSave, party: [animal(1), animal(1)] }, /id/);
 	});
 
+	it('400, not 500, for text jsonb cannot store: NUL and lone surrogates, anywhere', async () => {
+		await expectRejected(
+			{ ...validSave, party: [animal(1, { nickname: 'a\u0000b' })] },
+			/nickname/
+		);
+		await expectRejected({ ...validSave, party: [animal(1, { id: 'a\u0000' })] }, /id/);
+		// Raw bodies: JSON.stringify would re-escape a lone surrogate into a pair.
+		const raw = JSON.stringify(validSave).slice(0, -1);
+		await expectRejected(`${raw},"note":"\\ud800"}`, /note/);
+		await expectRejected(`${raw},"a\\u0000b":1}`, /key/);
+	});
+
+	it('400 for a number that overflows to Infinity, which would come back as null', async () => {
+		const raw = JSON.stringify(validSave).slice(0, -1);
+		await expectRejected(`${raw},"big":1e400}`, /big/);
+		await expectRejected(`${raw},"party":[{"id":"a","speciesId":"fox","hp":1,"x":-1e999}]}`, /x/);
+	});
+
 	it('413 for a body over the size cap, with and without Content-Length', async () => {
 		const player = await createPlayer();
 		const body = JSON.stringify({ ...validSave, notes: 'x'.repeat(SAVE_MAX_BYTES) });
