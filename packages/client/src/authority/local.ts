@@ -271,7 +271,7 @@ export function partyFromParam(param: string): AnimalInstance[] {
 				: Math.max(0, Math.min(spec.maxHp, wanted));
 		const animal: AnimalInstance = { id: `party-${party.length + 1}`, speciesId: spec.id, hp };
 		const nickname = normalizeNickname(name);
-		if (nickname !== null) animal.nickname = nickname;
+		if (nickname !== undefined) animal.nickname = nickname;
 		party.push(animal);
 	}
 	return party;

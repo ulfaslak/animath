@@ -367,7 +367,9 @@ describe('LocalAuthority: the party', () => {
 
 describe('partyFromParam (the ?party= hook)', () => {
 	it('reads species, HP and a name, skips what it does not know, and stops at six', () => {
-		expect(partyFromParam('rabbit,fox:0,bear:40:Big  Bear,unicorn,OTTER:999,deer:-3')).toEqual([
+		// Strict: an animal without a name has no `nickname` key at all, as in a save.
+		const party = partyFromParam('rabbit,fox:0,bear:40:Big  Bear,unicorn,OTTER:999,deer:-3:😀');
+		expect(party).toStrictEqual([
 			{ id: 'party-1', speciesId: 'rabbit', hp: 22 },
 			{ id: 'party-2', speciesId: 'fox', hp: 0 },
 			{ id: 'party-3', speciesId: 'bear', hp: 40, nickname: 'Big Bear' },
