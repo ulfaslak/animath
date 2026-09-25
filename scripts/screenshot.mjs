@@ -26,6 +26,11 @@
  * the status boxes and the result card — so a flow can be asserted from the
  * console output, not only the images.
  *
+ * Each run is a fresh browser, so a new player and a new game; `reload:` keeps
+ * the game, which is saved in the page's localStorage. The script exits
+ * non-zero on console errors and warnings, except failed `/api/` calls: the
+ * game saves locally without the API, so those are listed at the end instead.
+ *
  * Headless SwiftShader runs at a few frames per second, so buffered steps need
  * the `--settle` wait to finish before the screenshot. `--scale 3` renders the
  * same framing at three device pixels per CSS pixel and `--clip` keeps only a
