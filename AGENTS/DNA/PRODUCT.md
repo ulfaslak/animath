@@ -1,4 +1,4 @@
-# Product: Math Game (working title)
+# Product: Animath
 
 ## 1. Vision
 
@@ -6,11 +6,11 @@ A cheerful low-poly adventure for kids in which every attack is a math puzzle. Y
 
 Built for the human's kid and their friends. Single player first, then a shared world where they play together and against each other.
 
-The name is undecided (see [[HUMAN_TODO]]); "Math Game" is the placeholder.
+The game is called **Animath**. The repo and package names (`mathgame`, `@mathgame/*`) predate the name and stay as they are.
 
 ## 2. Players
 
-- **Kids aged roughly 6–12** (assumption, see [[HUMAN_TODO]]). Reading level: short words, big text. The puzzle ladder spans from single-digit addition to three-digit multiplication and square roots.
+- **Kids aged roughly 6–12**. Reading level: short words, big text. The puzzle ladder spans from single-digit addition to three-digit multiplication and square roots.
 - **Devices**: a laptop/desktop browser with a keyboard first. Tablets with touch controls are a planned follow-up, not a v1 target.
 - **No login.** Open the link and you are in. Identity is an anonymous id the browser remembers, so progress survives a reload.
 

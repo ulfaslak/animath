@@ -1,8 +1,8 @@
-# Math Game
+# Animath
 
 A cheerful low-poly adventure for kids where every attack is a math puzzle. Explore a procedurally generated world, catch animals, battle Game Boy Pokémon style — and hit harder by solving harder math.
 
-Working title. Single player prototype; multiplayer planned.
+Single player prototype; multiplayer planned.
 
 ## Run it
 
@@ -12,7 +12,7 @@ pnpm db:up && pnpm db:migrate
 pnpm dev            # client on http://localhost:5180, API on :3000
 ```
 
-Arrows / WASD to walk.
+Controls, hidden behaviour and known exploits: [`AGENTS/DNA/CHEATSHEET.md`](AGENTS/DNA/CHEATSHEET.md).
 
 ## Layout
 
