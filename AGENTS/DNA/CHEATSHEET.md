@@ -19,7 +19,7 @@ Everything a player can do in **today's build**, and how: every key, every hidde
 | Enter                 | Puzzle  | Answer. Nothing happens until you have typed at least one digit.                                                        |
 | Enter / Space         | Result card | Back to exploring.                                                                                                  |
 
-Escape does nothing anywhere yet — not even in a puzzle: once a puzzle is up, the only way on is to answer it. The mouse and touch are ignored everywhere (the result card's button looks clickable but isn't). The page has no debug keys or console hooks; its one URL parameter is `?zoo` (see § Hidden behaviour).
+Escape does nothing anywhere yet — not even in a puzzle: once a puzzle is up, the only way on is to answer it. The mouse and touch are ignored everywhere (the result card's button looks clickable but isn't). The page has no debug keys or console hooks; its URL parameters are `?zoo` and `?lang` (see § Hidden behaviour).
 
 ## The world
 
@@ -31,7 +31,7 @@ Escape does nothing anywhere yet — not even in a puzzle: once a puzzle is up, 
 | Tile                                          | Walk on it? |
 | --------------------------------------------- | ----------- |
 | Grass                                         | Yes         |
-| Tall grass (darker green with little blades)   | Yes. Each step onto it has a 1-in-10 chance of a wild battle. |
+| Tall grass (darker green with little blades)   | Yes. Each step onto it has a 1-in-10 chance of a wild battle, unless nothing living there is big enough to take on the animal leading your party (see § Your party). |
 | Sand                                          | Yes         |
 | Doctor's tent (orange pyramid with a campfire) | No. Walking into it turns you to face it. Pressing Enter while facing it still says "Nothing here yet."; healing will happen here. The nearest one to the start is at (5, 7): walk 6 tiles right and 1 down, and you stand just left of it. |
 | Water                                         | No          |
@@ -40,7 +40,9 @@ Escape does nothing anywhere yet — not even in a puzzle: once a puzzle is up, 
 
 ## Finding a battle fast
 
-The tile straight left of the start, (-3, 6), is a river reed: tall grass on the river bank. Near home, squirrels and rabbits come down to the water, and now and then an otter. Press Left and Right in turn (Left, Right, Left, …): every Left lands on the reed. **The 11th step (the sixth Left) always meets a Rabbit**, the 15th a Squirrel, and the first Otter comes on the 97th step. For foxes and the odd deer, walk to the meadow tall grass south-east of the start — the nearest is (2, 7), (3, 7) and (4, 7) — where you meet squirrels and rabbits, sometimes a fox and rarely a deer.
+The tile straight left of the start, (-3, 6), is a river reed: tall grass on the river bank. Near home, with the starting Squirrel in front, squirrels and rabbits come down to the water, and now and then an otter. Press Left and Right in turn (Left, Right, Left, …): every Left lands on the reed. **The 11th step (the sixth Left) always meets a Rabbit**, the 15th a Squirrel, and the first Otter comes on the 97th step. For foxes and the odd deer, walk to the meadow tall grass south-east of the start — the nearest is (2, 7), (3, 7) and (4, 7) — where you meet squirrels and rabbits, sometimes a fox and rarely a deer.
+
+Who comes out depends on who leads your party (§ Your party). With a fox or an otter in front, the same steps on the reed meet an Otter every time; with a wolf or a bear in front, the reed never starts a battle.
 
 ## Battles
 
@@ -58,6 +60,15 @@ The tile straight left of the start, (-3, 6), is a river reed: tall grass on the
 
 The cards in the top-left corner are your party. You start with one Squirrel at full HP (20 of 20). Every animal you catch joins the end of the list, with the HP it had when the leash landed, up to six. With six already, a caught animal goes back into the grass. An animal at 0 HP is greyed out with a "tired" tag and sits out battles. Nothing heals except losing a battle (everyone back to full) and reloading the page (everything back to the start).
 
+**Your lead decides what comes out of the grass.** The lead is the first card that isn't tired: the animal that steps into the next battle. Wild animals size it up:
+
+- Nothing two or more tiers smaller than the lead ever comes out. One tier smaller comes out now and then where animals the lead's size or bigger live too: near home 1 battle in 7 to 1 in 13 (a fox in the meadow meets a squirrel or a rabbit 1 time in 7), and far out, where big animals are common, as rarely as 1 in 40.
+- Everything else is the mix the starter meets, moved up to the lead's size. With a fox in front, near home, the meadow is about 71% foxes, 14% deer and 14% squirrels or rabbits; the forest mostly foxes, sometimes a deer, rarely a wolf or a bear; the river all otters; the mountains foxes and otters that come up the hills, rarely a wolf or a bear.
+- It still starts a battle on 1 grass step in 10 wherever anything could, whoever leads: the same steps as with the starter, only the animal differs.
+- Where nothing is big enough, the grass is quiet: with a wolf in front, the river; with a bear in front, the meadow and the river. Where only one-tier-smaller animals live, every battle is one of them, still on 1 grass step in 10: a deer at the river meets only otters, and a wolf in the meadow only deer.
+
+To meet smaller animals again, put a smaller animal in front. Today the Squirrel you start with leads until it is tired. Then the next card that isn't tired leads, until a lost battle heals everyone and puts the Squirrel back in front.
+
 ## Hidden behaviour
 
 - **A tap is always one step.** A key press shorter than a frame still moves you one tile.
@@ -70,9 +81,11 @@ The cards in the top-left corner are your party. You start with one Squirrel at 
 - **The same walk meets the same animals.** Encounters are decided by how many steps you have taken since the page loaded, so after a reload the same route meets the same animals at the same steps (see § Finding a battle fast).
 - **Leading zeros are fine**: "09" is the same answer as "9".
 - **Nothing is saved.** A reload puts you back at (-2, 6) with one full-HP Squirrel.
+- **A little Danish.** If your browser prefers Danish, the line under a puzzle you haven't answered yet says "Skriv svaret, og tryk så på Enter". Every other word is still English, and there is no way to switch language in the game yet. `?lang=da` or `?lang=en` in the address picks one for that visit.
 - **`?zoo` shows every animal.** Open `http://localhost:5180/?zoo` and one of each species stands in a row two or three tiles from the start, in catalog order — squirrel, rabbit, fox, otter, deer, wolf, bear — facing you. They are scenery: you walk straight through them and nothing else changes. It exists to check the figures, not to play with.
 
 ## Exploits and quirks
 
 - **Losing is a free full heal.** Since nothing else heals yet, a hurt party can lose a battle on purpose (answer wrong) to rest back to full HP at the start tile. Reloading does the same and also forgets every caught animal.
+- **A bear in front walks through the meadow and the river in peace.** Nothing there is big enough to challenge it, so no battle ever starts; the same goes for a wolf at the river.
 - **Messages never go away.** After a battle or pressing Enter, the last message stays on the bottom line until the next one. The "Arrows / WASD to walk" hint also never goes away.

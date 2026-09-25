@@ -1,0 +1,12 @@
+# English: the fallback language. Every key here exists in every language
+# file, reading the same {params}; test/copy-files.test.ts checks.
+# How to add a line: AGENTS/DNA/DEVELOPMENT.md § Copy and languages.
+# How it should sound: AGENTS/DNA/DESIGN.md § Voice and copy.
+
+language:
+  # This language's own name, as the Language setting lists it.
+  name: English
+
+puzzle:
+  # Under a puzzle until it is answered.
+  keys: Type the answer, then press Enter

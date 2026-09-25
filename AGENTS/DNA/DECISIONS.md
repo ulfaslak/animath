@@ -33,6 +33,15 @@ Ground tiles render as one `InstancedMesh` per chunk.
 Font: Nunito (Google Fonts). Rounded, friendly.
 Dev server on port **5180** (5173 belongs to another project on this machine).
 
+## Copy and languages
+
+All player-facing copy lives in per-language YAML files, `packages/client/src/copy/<code>.yaml`. Code refers to copy by key (`t('puzzle.keys')`) and holds no player-facing words, in TypeScript or in a Svelte template. Words written into code before this rule are listed in `packages/client/test/hardcoded-text.baseline.yaml` until they move.
+The game speaks English (`en`) and Danish (`da`). English is the fallback, so every key exists in English.
+Adding a language is adding a file and one registry line.
+YAML is parsed at build time. The browser gets plain objects and ships no YAML parser.
+The engine is language-free: it emits ids, codes and numbers, and the client picks the words.
+Words are picked when they are shown, from the language on screen. State and events carry keys and params, never finished sentences, so changing the language re-words everything at once, without a reload.
+
 ## Assets
 
 Only CC0 or attribution-licensed assets. Candidate sources: Kenney, Quaternius, Poly Pizza — verify the license on each download.
