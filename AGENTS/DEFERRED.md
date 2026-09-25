@@ -20,7 +20,15 @@ Technical items we've intentionally postponed: tech debt, hardening shortcuts, k
 
 **Why deferred**: there is no server authority yet, and stripping the answer means a second `Puzzle` shape (or a redacting step in the protocol) for a cheat nobody can attempt today.
 
-**Trigger**: the `RemoteAuthority` / server-side battle PR. Redact `answer` from what goes over the wire there, and decide whether `answer-judged` keeps reporting it after the fact (harmless: the puzzle is spent).
+**Trigger**: the `RemoteAuthority` / server-side battle PR. Redact `answer` from what goes over the wire there (`BattlePhase.solving` and `puzzle-shown`). Keep it in `answer-judged`: the battle screen shows it after a wrong answer ("Not quite! It was 12."), and by then the puzzle is spent.
+
+### The authority's step counter is not saved
+
+**What**: `LocalAuthority` keys every encounter roll and battle seed by its count of completed steps (see [[INVARIANTS]] § Authority), and the count starts at 0 on every page load. Without saves that is harmless — a reload puts everything back to the start. With saves, a reloaded player at a saved position would replay the encounters of steps 1, 2, 3… again, and a kid could learn that the 11th step after a reload always meets the same animal.
+
+**Why deferred**: nothing is saved yet; the counter is one number that belongs in the save envelope beside `pos` and `party`.
+
+**Trigger**: the client save/load PR. Save the step count with the position and restore it on load (an extra field in `SaveV1` needs no server change).
 
 ### Anonymous player identity is unauthenticated
 

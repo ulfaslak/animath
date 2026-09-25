@@ -103,17 +103,25 @@ What is built and observable today. Keep current: add a bullet when a feature sh
 - Procedural chunked world with four biomes, water, sand, tall grass (including reeds on river banks), trees, rocks and doctor tents, rendered low-poly with a fixed camera.
 - Grid movement with arrow keys / WASD; blocked tiles stop you; a tap always moves one tile.
 - The player is a small trainer figure — a kid in a cap — that faces the way it walks, stands on top of hills and breathes while idle.
-- A crude but recognisable low-poly figure for every species, built from primitives with one exaggerated tell each; today they are only visible in the `?zoo` line-up (see [[CHEATSHEET]]) until battle and encounters use them.
-- Party HUD (name + HP bar per animal).
+- A crude but recognisable low-poly figure for every species, built from primitives with one exaggerated tell each. They fight in battles; the `?zoo` line-up (see [[CHEATSHEET]]) shows them all at once.
+- Party HUD: one card per animal with its name and an HP bar with numbers; a knocked-out animal is greyed with a "tired" tag.
 
-### Engine (no UI yet)
+### Encounters and battle
+
+- Wild encounters: each step onto tall grass may start a battle, with the species picked by biome, tier and distance from spawn (§4 "Wild encounters").
+- Battle mode, Game Boy style ([[UI_SPEC]] § Battle mode): the two animals face each other on a patch of the biome, with status boxes, a narration line, an action menu (every attack at three levels, with how hard its puzzle is, then Leash and Run) and the puzzle panel. Every attack is a puzzle answered by typing a number; a wrong answer shows the right one. The wild animal's reply, knock-outs and the automatic switch to the next animal are played out one line at a time.
+- Catching with the leash; a caught animal joins the party (up to six) with the HP it had. With six already, it goes back into the grass.
+- HP lost in a battle stays lost afterwards; a knocked-out animal stays tired and sits out battles until healed.
+- **Placeholder for losing**: when the whole party is tired, everyone rests back to full HP and the player is put back on the start tile ("Everyone is tired. You rest and feel better."). §4 says the player is taken to the nearest doctor's tent; that replaces this when doctor healing lands (§6).
+
+### Engine
 
 - Puzzle catalog: 7 kinds across difficulty 1–10, seeded and deterministic.
-- Difficulty mapping (tier, attack, level) and healing difficulty.
+- Difficulty mapping (tier, attack, level) and healing difficulty — the healing one is not used by anything yet.
 - Damage and catch-probability formulas.
 - Species catalog: 7 placeholder species, tiers 1–5.
-- Wild encounter tables: a per-step roll on tall grass that picks a species by biome, tier and distance from spawn (§4 "Wild encounters"). Nothing calls it on a real step yet.
-- Battle reducer: `startBattle` and `applyBattleIntent` play a whole wild battle by the rules in §4 — attacks, puzzles, answers, the wild animal's reply, leash, flee, knock-outs and automatic party switching — as intents in, events out. Not wired to the client yet, so nothing on screen changes.
+- Wild encounter tables and the per-step roll (§4 "Wild encounters").
+- Battle reducer: `startBattle` and `applyBattleIntent` play a whole wild battle by the rules in §4 — attacks, puzzles, answers, the wild animal's reply, leash, flee, knock-outs and automatic party switching — as intents in, events out.
 
 ### Server
 
@@ -125,14 +133,12 @@ What is built and observable today. Keep current: add a bullet when a feature sh
 
 In rough priority order. Each becomes a GitHub issue when picked up.
 
-1. Battle mode: the battle scene and the puzzle panel, driven by the engine's battle reducer (the reducer itself is built, see §5).
-2. Wild encounters in tall grass, weighted by biome and tier — the engine roll and tables are built (§5); the authority still has to roll on each step and hand the animal to battle mode.
-3. Catching with the leash; party management.
-4. Doctor healing at tents.
-5. Save/load in the client: create the anonymous player on first visit, keep the secret, load the save on boot and write it as the game progresses (the server routes exist, see [[ARCHITECTURE]] § HTTP API).
-6. Real low-poly animal models (glTF, CC0 sources, see [[DECISIONS]]) with attack animations, replacing the primitive figures.
-7. Procedural world v2: rivers that flow, paths, biome shaping, landmarks, spawn tables.
-8. Puzzle catalog v2: fractions, decimals, negatives, word problems, per-child adaptive difficulty.
-9. Touch controls for tablets.
-10. Multiplayer: shared world, other players visible, PvP battles, tokens, shop.
-11. Deployment to the Hetzner VPS.
+1. Party management: reorder, nicknames (catching ships, §5).
+2. Doctor healing at tents, and being taken to the nearest tent when the whole party is tired (replacing the placeholder in §5).
+3. Save/load in the client: create the anonymous player on first visit, keep the secret, load the save on boot and write it as the game progresses (the server routes exist, see [[ARCHITECTURE]] § HTTP API).
+4. Real low-poly animal models (glTF, CC0 sources, see [[DECISIONS]]) with attack animations, replacing the primitive figures.
+5. Procedural world v2: rivers that flow, paths, biome shaping, landmarks, spawn tables.
+6. Puzzle catalog v2: fractions, decimals, negatives, word problems, per-child adaptive difficulty.
+7. Touch controls for tablets.
+8. Multiplayer: shared world, other players visible, PvP battles, tokens, shop.
+9. Deployment to the Hetzner VPS.

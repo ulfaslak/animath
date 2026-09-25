@@ -56,7 +56,7 @@ tree packages -I 'node_modules|dist' --dirsfirst
 
 `Authority` (`protocol.ts`) is `dispatch(intent)` + `subscribe(listener)`. The client has exactly one authority instance and everything above it is a consumer of events.
 
-- **Today**: `packages/client/src/authority/local.ts` — `LocalAuthority` runs the engine in-process.
+- **Today**: `packages/client/src/authority/local.ts` — `LocalAuthority` runs the engine in-process. Its own randomness (the encounter roll after each step, a battle's seed) is keyed by the world seed and its count of completed steps, never by `Math.random`; see [[INVARIANTS]] § Authority. Besides the battle events it emits `party-changed` (the whole party, after a battle) and `player-placed` (put on a tile without walking: the lost-battle rest today, a doctor's tent later).
 - **Multiplayer**: a `RemoteAuthority` with the same interface forwards intents over a WebSocket and relays the server's events. The server runs the engine against the shared world and is the source of truth. Nothing in the renderer, input or UI changes.
 
 Two things keep that swap cheap: intents carry only what the player *chose* (a direction, an attack index, an answer string), never a computed outcome; and events describe what *happened* in enough detail to render without re-running the rules.
@@ -66,21 +66,30 @@ Two things keep that swap cheap: intents carry only what the player *chose* (a d
 | Path                          | Holds                                                                                                                                                               |
 | ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `index.html`                  | A full-screen `<canvas id="game">` under a `<div id="ui">` overlay. Loads Nunito.                                                                                    |
-| `src/main.ts`                 | Wires authority → game view + explore controller, mounts the Svelte app, runs the `requestAnimationFrame` loop (`explore.update(dt)`, `renderer.render()`).        |
-| `src/authority/local.ts`      | `LocalAuthority` (see above).                                                                                                                                       |
-| `src/state/game.svelte.ts`    | `game`: the `$state` view the Svelte overlay reads. Filled only by `game.apply(event)`.                                                                             |
-| `src/input/keyboard.ts`       | Held-key tracking plus a 2-deep tap buffer; arrows/WASD → `Direction`, Enter/Space → interact.                                                                      |
-| `src/explore/controller.ts`   | Explore mode: turns input into `move`/`interact` intents (one per completed step), tweens the player mesh between tiles on `player-moved`, asks for chunks around it. |
-| `src/render/renderer.ts`      | `GameRenderer`: WebGL renderer, scene, fixed orthographic camera, lights, chunk cache (5×5 chunks around the player), the player figure, `addFigure` for extra standing figures, idle animation each frame. |
+| `src/main.ts`                 | Wires the authority's events to the game view and both mode controllers, sends each key to the mode on screen, mounts the Svelte app, runs the `requestAnimationFrame` loop (the explore or battle controller's `update(dt)`, then `renderer.render()`). |
+| `src/authority/local.ts`      | `LocalAuthority` (see above): moves, one encounter roll per completed step, the battle in progress (the engine's state plus the seed it never shows), and the result written back — party HP, a caught animal (up to six), the lost-battle rest. |
+| `src/state/game.svelte.ts`    | `game`: the `$state` view the Svelte overlay reads (`mode`, `pos`, `party`, `message`, …). Filled only by `game.apply(event)`.                                      |
+| `src/state/battle.svelte.ts`  | `battle`: the battle screen's `$state` view — what the panel shows and which `screen` the keys drive (`actions`, `puzzle`, `busy`, `result`). Written only by the battle controller. |
+| `src/input/keyboard.ts`       | Explore input: held-key tracking plus a 2-deep tap buffer; arrows/WASD → `Direction`, Enter/Space → interact. `setEnabled(false)` while the battle screen is up drops held keys and taps. |
+| `src/input/answer.ts`         | `answerKey(input, key)`: typing an answer (digits, a leading minus, Backspace, 7 characters, Enter only once a digit is typed). Shared by every screen that asks a puzzle. |
+| `src/explore/controller.ts`   | Explore mode: turns input into `move`/`interact` intents (one per completed step), tweens the player mesh between tiles on `player-moved`, jumps it on `player-placed`, asks for chunks around it. |
+| `src/battle/controller.ts`    | Battle mode, from `battle-started` until the result card is left: keys → battle intents, and the authority's battle events played back one beat at a time (narration, HP, scene effects) before the latest state is shown. Ignores updates for any battle but the one on screen. |
+| `src/render/renderer.ts`      | `GameRenderer`: WebGL renderer, scene, fixed orthographic camera, lights, chunk cache (5×5 chunks around the player), the player figure, `addFigure` for extra standing figures, idle animation each frame. `setBattle(scene)` draws a battle scene instead of the world. |
+| `src/render/battle-scene.ts`  | `BattleScene`: one per session, dressed per battle — biome backdrop, both figures facing each other, the lens-shifted perspective camera that centres them above the panel, and the effects (lunge, shake, puff, hop, faint, the leash). `battlePanelHeight` mirrors the CSS panel height. |
 | `src/render/tiles.ts`         | `buildChunkGroup(chunk)`: one `InstancedMesh` of boxes for ground, plus decoration groups (trees, rocks, tall grass, tent + fire + point light). `groundTop(tile)`: the height figures stand at. |
 | `src/render/animals.ts`       | `buildAnimalMesh(speciesId)`, `buildPlayerMesh()`, `animateIdle(figure, t)`: primitive figures for every catalog species and the trainer. Contract: units are tiles, feet on `y = 0`, centred on `x`, facing `+z`; the group's one child is the rig that idles. |
 | `src/render/zoo.ts`           | `buildZoo(seed, origin)`: the `?zoo` line-up, one figure per species by the spawn tile. Verification only, never on the normal path.                              |
 | `src/render/palette.ts`       | Tile, decoration, trainer and species colours. Mirrors [[DESIGN]] § Palette.                                                                                        |
-| `src/ui/App.svelte`           | Mode switch: loading / explore (`Hud`) / battle (panel to come).                                                                                                    |
-| `src/ui/Hud.svelte`           | Party list with HP bars, bottom hint line.                                                                                                                          |
-| `src/styles.css`              | CSS custom properties (panel colours, radius, font) and the canvas/overlay layout.                                                                                   |
+| `src/ui/App.svelte`           | Mode switch: loading / explore (`Hud`) / battle (`BattlePanel`, from the moment the battle scene appears until the result card is left).                           |
+| `src/ui/Hud.svelte`           | Party list with HP bars and "tired" tags, bottom hint line.                                                                                                         |
+| `src/ui/BattlePanel.svelte`   | The battle overlay: status boxes, narration line, action menu, puzzle area, result card. Reads `battle`; never dispatches.                                         |
+| `src/ui/PuzzlePanel.svelte`   | One puzzle being answered: prompt, typed answer, judgement. The one puzzle view ([[UI_SPEC]] § Component reuse).                                                    |
+| `src/ui/HpBar.svelte`         | The one HP bar: colour by fraction left (green, amber under half, red under a fifth), always with `hp/max` printed.                                                  |
+| `src/styles.css`              | CSS custom properties (panel colours, radius, font, `--battle-panel`) and the canvas/overlay layout.                                                                |
 | `public/assets/`              | Models, textures, sounds. `CREDITS.md` lists every third-party file.                                                                                                |
 | `test/animals.test.ts`        | vitest: every catalog species builds a figure that keeps the contract in `animals.ts` (geometry construction needs no WebGL).                                        |
+| `test/local-authority.test.ts`| vitest: the authority's rules around the engine — encounters replay per step, battles start only on encounter tiles, outcomes write back, the party caps at six, the lost-battle rest. |
+| `test/battle-controller.test.ts` | vitest: the battle screen driven by keys against the real authority — held keys, empty answers, mashed Enter, stale events. The scene is built, never drawn.     |
 
 ### Coordinate system
 
@@ -88,7 +97,7 @@ Engine grid `(x, y)` maps to Three `(x, height, z)` with `z = y`; grid "down" is
 
 ### Modes
 
-Explore is implemented. Battle mode will be a second controller + a second scene (own camera, two figures from `animals.ts`, back and front view) and a Svelte panel; the mode switch is driven by `battle-started` / `battle-ended` events. See [[UI_SPEC]].
+Two modes, one on screen at a time. `battle-started` hands the screen to the battle controller: explore input is switched off, the world keeps drawing for a moment so the step into the grass lands, then the battle scene and panel replace it. The authority resolves each battle intent at once; the controller plays the events back as beats and only then shows the new state, so the screen lags the authority on purpose. `battle-ended` puts the authority back in explore at once, but the screen stays on the result card until the player leaves it; only then does explore input come back. Walking during a battle and battle intents outside one are ignored by the authority. See [[UI_SPEC]].
 
 ## `packages/server` — persistence and (later) authority
 
@@ -151,7 +160,7 @@ Vite proxies `/api` and `/ws` to 3000. In production the server serves the built
 
 ## Repo-level files
 
-- `scripts/screenshot.mjs` — headless Chrome screenshot of the running game (`playwright-core`, `channel: 'chrome'`). The visual verification tool; see `/play`.
+- `scripts/screenshot.mjs` — headless Chrome driving the running game with a key script and saving frames (`playwright-core`, `channel: 'chrome'`). The visual verification tool; see `/play` and [[DEVELOPMENT]] § Looking at the game.
 - `docker-compose.yml` — local Postgres only.
 - `.gtrconfig` — worktree creation copies `.env` and runs `pnpm install`.
 - `AGENTS/` — persistent context (this file's siblings). `AGENTS/DNA/` is the guardrail set; the rest is record-keeping.

@@ -37,33 +37,34 @@ How the two modes are laid out and behave. Visual language is in [[DESIGN]]; rul
 Borrowed composition from the Game Boy games: your animal from behind at bottom-left, the opponent from the front at top-right, status boxes opposite each sprite, and a panel across the bottom. Our addition is a **puzzle area** that takes real space, because solving is the whole game.
 
 ```
-┌────────────────────────────────────────────────────────┐
-│ ┌─────────────────┐                                    │
-│ │ Opponent name   │                       [opponent]   │
-│ │ HP ▓▓▓▓▓░░░░░   │                        (front)     │
-│ └─────────────────┘                                    │
-│                                                        │
-│                                  ┌─────────────────┐   │
-│      [your animal]               │ Your animal     │   │
-│         (back)                   │ HP ▓▓▓▓▓▓▓▓░░   │   │
-│                                  └─────────────────┘   │
-├──────────────────────┬─────────────────────────────────┤
-│ ACTIONS              │ PUZZLE                          │
-│ ▸ Nut Toss  [1][2][3]│                                 │
-│   Scurry    [1][2][3]│        7 × 8 = ?                │
-│   Leash              │      [ 56 ]        (Enter)      │
-│   Run                │                                 │
-└──────────────────────┴─────────────────────────────────┘
+┌──────────────────────────────────────────────────────────┐
+│ ┌──────────────────┐                                     │
+│ │ Otter            │                      [opponent]     │
+│ │ ▓▓▓▓▓▓░░░░ 18/32 │                       (front)       │
+│ └──────────────────┘                                     │
+│                                   ┌──────────────────┐   │
+│     [your animal]                 │ Squirrel         │   │
+│        (back)                     │ ▓▓▓▓▓▓▓░░  15/20 │   │
+│                                   └──────────────────┘   │
+│           ( Wild Otter used Splash! 5 damage. )          │
+├────────────────────────┬─────────────────────────────────┤
+│ ▸ Nut Toss    easy 123 │                                 │
+│   Scurry Kick easy 123 │          7 × 8 = ?              │
+│   Leash       hard  ●  │           [ 56 ]                │
+│   Run                  │ Type the answer, then press Enter│
+└────────────────────────┴─────────────────────────────────┘
 ```
 
-- **Scene** (top ~60%): a second Three.js scene with its own fixed camera, low behind the player's animal, looking up at the opponent. Both models idle; an attack plays a short lunge; a hit shakes the target; a miss shows a puff. Background is a stylised patch of the biome the battle started in.
-- **Status boxes**: name, HP bar with numbers. No level (there are none). Opponent box top-left, player box mid-right, mirroring the sprites.
-- **Bottom panel** (~40%): two columns.
-  - **Actions** (left): the animal's attacks, each with three level buttons; then Leash and Run. Keyboard: up/down to pick an attack, 1/2/3 to pick a level (or left/right then Enter). Disabled actions are greyed with a one-word reason.
-  - **Puzzle** (right): empty with a soft prompt ("Pick an attack") until an attack is chosen; then the prompt in very large type, a number input, and a submit button. Number keys type, Backspace deletes, Enter submits, Escape backs out to actions. Correct → green flash, damage number flies to the opponent. Wrong → red shake, the correct answer is **not** shown (they will meet the puzzle again), "Missed!" in the log.
-- **Log line**: one line above the panel narrates the turn ("Bear used Swipe! 19 damage."). Turn order and the opponent's action are visible, never instant.
-- **Leash**: a throw animation, then a suspense pause, then "Caught!" or "It broke free!" The odds are never shown as a number (kids should feel it, not compute it); a colour on the leash button hints (green/amber/red by HP thirds).
-- **End**: a result card (won / caught / tired / ran away) with one big button back to explore.
+- **Entering**: the step into the grass lands first — the world stays on screen for about 0.3 s after the encounter — and then the battle scene replaces it. The explore HUD goes at once.
+- **Scene** (above the panel): a second Three.js scene with its own fixed perspective camera, low behind the player's animal. The image is shifted up (a lens shift, so verticals stay vertical) until the scene is centred in the part of the canvas the panel leaves free. The two animals stand three-quarters on, each turned to face the other, and are scaled towards a common height (by the square root of the ratio, clamped to 0.8–1.6) so an otter and a deer both read at battle size while a bear still looks bigger than a squirrel. Both idle; an attacker lunges; a hit shakes the target; a miss puffs beside it; a tired animal tips over and stays down; the winner hops. Background: the biome's ground colour with tufts of tall grass, plus trees (forest), boulders (mountain) or water behind (river). Nothing stands between the camera and the player's animal.
+- **Status boxes**: name, HP bar with numbers. No level (there are none). Opponent box top-left, player box on the right just above the narration line. A hit pops the damage ("−14") over the box of the animal that took it.
+- **Bottom panel**: `clamp(260px, 40vh, 360px)` tall, two columns at 2 : 3 (1 : 1 below 900 px wide, where the attack names need the room).
+  - **Actions** (left): one row per attack — its name, how hard its puzzle is at the chosen level, and three level pills — then Leash and Run. The difficulty word reads the engine's 1–10 scale as easy (1–3), medium (4–6), hard (7–8) or super hard (9–10). The level is one choice for all rows and is kept from battle to battle. Keys: up/down or W/S move the cursor (wrapping round); left/right or A/D change the level; 1/2/3 pick that level and attack at once; Enter or Space do the highlighted action. While a turn plays the rows dim and keys do nothing.
+  - **Puzzle** (right): until an attack is chosen, "Pick an attack", one sentence about the highlighted row ("Scurry Kick, level 3: a medium puzzle with adding, taking away or missing numbers. It hits for 14.") and a key reminder. Once chosen: the prompt in very large type and an answer box. Number keys type, a minus only as the first character, Backspace deletes, at most seven characters; Enter submits, and does nothing until a digit has been typed. **There is no way back**: once a puzzle is shown the turn is committed ([[PRODUCT]] §4), so Escape does nothing. Correct → the card flashes green and says "Correct!". Wrong → the answer box shakes red and the right answer is shown, "Not quite! It was 56." — the next puzzle is a new one, so seeing the answer is how a kid learns it.
+- **Narration line**: one line above the panel, one beat per event with a hold of about a second each ("Wild Otter used Splash! 5 damage."). Turn order and the opponent's action are visible, never instant.
+- **Leash**: a loop on a rope flies in from the trainer's side (off-screen, lower left), wobbles on the animal through a suspense pause ("You throw the leash…"), then holds ("Caught!", and the animal hops) or pops off ("It broke free!"). The odds are never shown as a number (kids should feel it, not compute it): the Leash row says hard / maybe / good chance with a red / amber / green dot, by the wild animal's HP in thirds.
+- **End**: a result card — "You won!", "You caught a Fox!", "Good try!" (the whole party is tired) or "You got away!" — over the authority's closing message, with one big button back to explore. Enter or Space press it; for the first 0.8 s the card ignores keys, so an Enter mashed through the last beats cannot skip it.
+- **Keys across modes**: keys go to one mode at a time. A key already held down when the mode changes does nothing in the new mode until it is pressed again: battle ignores auto-repeat, and explore drops held keys and queued taps while the battle screen is up.
 
 ## Doctor
 
@@ -75,4 +76,4 @@ Escape. Cards for Party (reorder, nickname), Settings (sound, later: touch contr
 
 ## Component reuse
 
-One `PuzzlePanel` component serves battle and doctor. One `HpBar`. One `Card`. New UI reuses these before inventing.
+One `PuzzlePanel` component serves battle and doctor, and one helper (`input/answer.ts`) turns keys into the typed answer for both. One `HpBar`. One `Card`. New UI reuses these before inventing.

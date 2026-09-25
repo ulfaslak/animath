@@ -138,7 +138,7 @@ function closingEvents(s: Session): GameEvent[] {
 }
 
 describe('LocalAuthority: encounters', () => {
-	it('a walk meets the same animals at the same steps, each with a fresh id', () => {
+	it('a walk meets the same animals and puzzles at the same steps, each with a fresh id', () => {
 		const a = session();
 		const b = session();
 		for (let n = 0; n < 4; n++) {
@@ -149,7 +149,20 @@ describe('LocalAuthority: encounters', () => {
 			expect(a.events.length - fromA).toBe(b.events.length - fromB);
 			expect(second.opponent.speciesId).toBe(first.opponent.speciesId);
 			expect(second.opponent.id).not.toBe(first.opponent.id);
-			for (const s of [a, b]) s.authority.dispatch({ type: 'battle', intent: { type: 'flee' } });
+			for (const s of [a, b]) {
+				s.authority.dispatch({
+					type: 'battle',
+					intent: { type: 'attack', attackIndex: 1, level: n % 3 === 0 ? 1 : 2 }
+				});
+			}
+			expect(latestBattle(b).phase).toEqual(latestBattle(a).phase);
+			for (const s of [a, b]) {
+				s.authority.dispatch({ type: 'battle', intent: { type: 'answer', input: '1' } });
+				if (latestBattle(s).phase.kind !== 'ended') {
+					s.authority.dispatch({ type: 'battle', intent: { type: 'flee' } });
+				}
+			}
+			expect(party(b)).toEqual(party(a));
 		}
 	});
 
