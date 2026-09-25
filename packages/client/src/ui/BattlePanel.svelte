@@ -129,7 +129,10 @@
 {#if front && spec}
 	<div class="status player">
 		<div class="name">{nameOf(front)}</div>
-		<HpBar hp={front.hp} max={spec.maxHp} />
+		<!-- A fresh bar per animal: the one that left must not slide into the newcomer's. -->
+		{#key front.id}
+			<HpBar hp={front.hp} max={spec.maxHp} />
+		{/key}
 		{#if battle.hit?.side === 'player'}
 			{#key battle.hit.n}
 				<div class="damage">−{battle.hit.damage}</div>

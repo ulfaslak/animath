@@ -428,7 +428,8 @@ describe('switching animals', () => {
 		t.run(3);
 		const tired = { ...battle.party[0]!, hp: 0 };
 		const next = battle.party[1]!;
-		// Answer wrong until the one in front is tired.
+		// Answer wrong, with the second attack, until the one in front is tired.
+		t.press('ArrowDown');
 		for (let i = 0; battle.screen !== 'party'; i++) {
 			if (i > 40) throw new Error('never knocked out');
 			t.press('1');
@@ -458,6 +459,7 @@ describe('switching animals', () => {
 		expect(battle.line).toBe(`Go, ${name(next)}!`);
 		t.runUntil(() => battle.screen === 'actions');
 		expect(battle.line).toBe(`What will ${name(next)} do?`);
+		expect(battle.cursor).toBe(0);
 		expect({ wild: battle.opponent!.hp, next: battle.party[1]!.hp }).toEqual(hp);
 	});
 });

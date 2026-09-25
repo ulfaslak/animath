@@ -68,8 +68,6 @@ export class BattleController {
 	private seed = 0;
 	private pos: GridPos = { x: 0, y: 0 };
 	private hits = 0;
-	/** The party index the action menu was last shown for; a new animal starts at the top row. */
-	private menuFor = 0;
 
 	constructor(
 		private authority: Authority,
@@ -172,7 +170,6 @@ export class BattleController {
 		battle.front = state.active;
 		battle.opponent = { ...state.opponent };
 		this.latest = state;
-		this.menuFor = state.active;
 		this.closing = '';
 		this.beats = [];
 		this.wait = 0;
@@ -202,10 +199,8 @@ export class BattleController {
 		const front = this.front();
 		switch (state.phase.kind) {
 			case 'choose-action': {
-				// A different animal in front has different attacks: start at its first.
 				const rows = actionCount(getAnimal(front.speciesId).attacks.length);
-				battle.cursor = state.active === this.menuFor ? Math.min(battle.cursor, rows - 1) : 0;
-				this.menuFor = state.active;
+				battle.cursor = Math.min(battle.cursor, rows - 1);
 				battle.puzzle = null;
 				battle.judged = null;
 				battle.input = '';
@@ -417,6 +412,7 @@ export class BattleController {
 				const enter: Beat = {
 					run: () => {
 						battle.front = e.partyIndex;
+						battle.cursor = 0; // a new animal's menu starts at its first attack
 						scene.setFigure('player', e.animal.speciesId);
 						scene.appear('player');
 						return `Go, ${nameOf(e.animal)}!`;
