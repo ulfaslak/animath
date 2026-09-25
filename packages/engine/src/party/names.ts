@@ -40,6 +40,11 @@ const HAS_LETTER_OR_DIGIT = /[\p{L}\p{Nd}]/u;
  */
 const LATIN_ACCENT = /[\u0300-\u0304\u0306-\u030C\u0323\u0327\u0328]/u;
 const LATIN_GREEK_CYRILLIC = /[\p{Script=Latin}\p{Script=Greek}\p{Script=Cyrillic}]/u;
+/** The other generic marks a name keeps: Arabic vowel marks, and the kana voicing marks. */
+const ARABIC_VOWEL = /[\u064B-\u065F\u0670]/u;
+const KANA_VOICING = /[\u3099\u309A]/u;
+/** Marks Unicode shares between scripts (`Script=Inherited`): a few accents, and every decoration. */
+const GENERIC_MARK = /\p{Script=Inherited}/u;
 /**
  * The scripts whose own marks a name keeps, on letters of the same script.
  * Latin, Greek and Cyrillic are not among them: their letters take only the
@@ -79,16 +84,25 @@ const SCRIPTS_WITH_MARKS = [
 ].map((script) => new RegExp(`\\p{Script_Extensions=${script}}`, 'u'));
 
 /**
- * Whether a mark spells the name on this letter: it belongs to the letter's
- * own script (a Hindi vowel sign on a Hindi letter, a Hebrew point, Thai and
- * Burmese vowels, Arabic vowel marks), or, on a Latin, Greek or Cyrillic
- * letter, it is one of the accents above. Every other mark decorates rather
- * than spells — underlines, strike-throughs, arrows and boxes under or over a
- * letter, a script's mark stuck on another script's letter, the marks text
- * generators stack — and goes, like any other symbol.
+ * Whether a mark spells the name on this letter. On a Latin, Greek or
+ * Cyrillic letter, only the accents above. On any other letter, a mark of
+ * the letter's own script, for the scripts listed (a Hindi vowel sign, a
+ * Hebrew point, Thai and Burmese vowels), plus Arabic vowel marks on Arabic
+ * letters and the voicing marks on kana. Every other mark decorates rather
+ * than spells — underlines, strike-throughs, arrows and boxes under or over
+ * a letter, a script's mark stuck on another script's letter, the marks text
+ * generators stack — and goes, like any other symbol. A script not listed
+ * keeps its letters and loses its marks.
  */
 function belongsOn(mark: string, letter: string): boolean {
 	if (LATIN_GREEK_CYRILLIC.test(letter)) return LATIN_ACCENT.test(mark);
+	if (GENERIC_MARK.test(mark)) {
+		// Unicode ties some decorations to scripts too (the overline to kana, an
+		// asterisk to Devanagari), so a generic mark counts only when named.
+		if (ARABIC_VOWEL.test(mark)) return /\p{Script_Extensions=Arabic}/u.test(letter);
+		if (KANA_VOICING.test(mark)) return /[\p{Script=Hiragana}\p{Script=Katakana}]/u.test(letter);
+		return false;
+	}
 	return SCRIPTS_WITH_MARKS.some((script) => script.test(mark) && script.test(letter));
 }
 

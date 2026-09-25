@@ -133,6 +133,14 @@ function sharesScript(mark: string, letter: string): boolean {
 	if (/[\p{Script=Latin}\p{Script=Greek}\p{Script=Cyrillic}]/u.test(letter)) {
 		return GENERIC_LATIN_ACCENT.test(mark);
 	}
+	if (/\p{Script=Inherited}/u.test(mark)) {
+		const arabicVowel = /[\u064B-\u065F\u0670]/u.test(mark);
+		const kanaVoicing = /[\u3099\u309A]/u.test(mark);
+		return (
+			(arabicVowel && /\p{Script_Extensions=Arabic}/u.test(letter)) ||
+			(kanaVoicing && /[\p{Script=Hiragana}\p{Script=Katakana}]/u.test(letter))
+		);
+	}
 	return TEST_SCRIPTS.some((script) => script.test(mark) && script.test(letter));
 }
 
@@ -226,14 +234,20 @@ describe('normalizeNickname', () => {
 		const decorations = [
 			0x0305, 0x0332, 0x0333, 0x0334, 0x0335, 0x0336, 0x0337, 0x0338, 0x0353, 0x0354, 0x0355,
 			0x0356, 0x0362, 0x0489, 0x1cd4, 0x1ce2, 0x1dfb, 0x20d0, 0x20d2, 0x20dd, 0x20e0, 0x20e3,
-			0xfe20, 0xfe2f
+			0x20f0, 0xfe20, 0xfe2f
 		];
+		// On letters of seven scripts: Unicode ties some decorations to a script
+		// (the overline to kana), and a decoration is one on every letter.
+		const letters = [0x0050, 0x0436, 0x0915, 0x30ab, 0x0628, 0x05e9, 0x0e01];
 		for (const cp of decorations) {
-			const raw = `P${String.fromCodePoint(cp)}ip`;
-			expect({ cp: cp.toString(16), name: normalizeNickname(raw) }).toEqual({
-				cp: cp.toString(16),
-				name: 'Pip'
-			});
+			for (const letter of letters) {
+				const l = String.fromCodePoint(letter);
+				const raw = `${l}${String.fromCodePoint(cp)}${l}`;
+				expect({ cp: cp.toString(16), name: normalizeNickname(raw) }).toEqual({
+					cp: cp.toString(16),
+					name: l + l
+				});
+			}
 		}
 	});
 
@@ -286,6 +300,7 @@ describe('normalizeNickname', () => {
 				'\u0645\u064F\u062D\u064E\u0645\u064E\u0651\u062F'
 			], // Arabic vowel marks stay on Arabic letters
 			['\u0416\u0483', '\u0416'], // Latin, Greek and Cyrillic letters take only the listed accents
+			['\u304B\u3099', '\u304C'], // a voicing mark joins its kana
 			['n\u0305', 'n'], // an overline, which Unicode also counts as Latin
 			['\u0915\u05B8', '\u0915'], // a Hebrew vowel on a Hindi letter
 			['\u0301abc', 'abc'], // a mark on nothing

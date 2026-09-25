@@ -78,10 +78,13 @@ Technical items we've intentionally postponed: tech debt, hardening shortcuts, k
 
 **Trigger**: the `RemoteAuthority` / WebSocket PR.
 
-### `normalizeNickname` follows the host's Unicode tables
+### `normalizeNickname` follows the host's Unicode tables, and keeps accents for listed scripts only
 
-**What**: the nickname cleaner uses `\p{L}`, `\p{M}`, `\p{Default_Ignorable_Code_Point}` and `normalize('NFKC')`, whose answers come from the JavaScript engine's Unicode version. A letter added in a recent Unicode version is kept by a newer Node and dropped (as unassigned) by an older browser, so two engines can clean the same typed name differently. Harmless while the authority is the only one that cleans: it stores its result and every screen shows that. The name box's "It will be called …" preview is the one place the client cleans for itself, and it could disagree in that rare case.
+**What**: two limits of the nickname cleaner.
+- **Host tables.** It uses `\p{L}`, `\p{M}`, `\p{Script=…}`, `\p{Script_Extensions=…}`, `\p{Default_Ignorable_Code_Point}` and `normalize('NFKC')`, whose answers come from the JavaScript engine's Unicode version. A letter added in a recent Unicode version is kept by a newer Node and dropped (as unassigned) by an older browser, and Script_Extensions data changes more often still. So two engines can clean the same typed name differently. That is harmless while the authority is the only one that cleans: it stores its result, and every screen shows that. The name box's "It will be called …" preview is the one place the client cleans for itself, and it could disagree in that rare case.
+- **Listed scripts only.** Accent marks are kept for Latin, Greek and Cyrillic and for the scripts in `SCRIPTS_WITH_MARKS`. Rarer scripts (Meetei Mayek, N'Ko, Adlam, Tai Tham, Baybayin…) keep their letters and lose their vowel signs.
+- **Joining controls.** ZWJ and ZWNJ are dropped as default-ignorable, although they change how Sinhala ("ශ්‍රී") and Persian ("علی‌رضا") letters join.
 
-**Why deferred**: there is one authority, in the browser. With a server authority the server's result is the truth and the client only displays it; the gap is a preview that could be wrong about a letter from the newest Unicode version.
+**Why deferred**: the players are Danish and English-speaking kids, and there is one authority, in the browser. The fixes cost more than they are worth today. Every script's marks would need the full, generated list of Unicode scripts, guarded against engines that don't know the newest names. Joiners would need to be kept only between two letters of one script. With a server authority, the server's result is the truth and the client only displays it.
 
-**Trigger**: the server-side authority PR — check that nothing but the server cleans a name that is stored, and decide whether the preview needs the server's answer.
+**Trigger**: a player whose name needs one of these, or the server-side authority PR. At that PR, check that nothing but the server cleans a name that is stored, and decide whether the preview needs the server's answer.
