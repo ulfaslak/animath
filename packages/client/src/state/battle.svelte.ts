@@ -1,4 +1,5 @@
-import type { AnimalInstance, AttackLevel, BattleOutcome, Puzzle } from '@mathgame/engine';
+import type { AnimalInstance, BattleOutcome, Puzzle } from '@mathgame/engine';
+import type { Levels } from '../battle/menu';
 
 /**
  * What the battle screen shows. Filled only by `BattleController`, which
@@ -8,10 +9,10 @@ import type { AnimalInstance, AttackLevel, BattleOutcome, Puzzle } from '@mathga
  * the state"). Svelte components read it and never write it.
  *
  * `screen` says what the keyboard does: `actions` navigates the menu,
- * `puzzle` types an answer, `busy` ignores everything while events play,
- * `result` waits for Enter to leave.
+ * `party` picks an animal to send in, `puzzle` types an answer, `busy`
+ * ignores everything while events play, `result` waits for Enter to leave.
  */
-export type BattleScreen = 'actions' | 'puzzle' | 'busy' | 'result';
+export type BattleScreen = 'actions' | 'party' | 'puzzle' | 'busy' | 'result';
 
 class BattleView {
 	/** True from `battle-started` until the player leaves the result card. */
@@ -26,10 +27,18 @@ class BattleView {
 	front = $state(0);
 	opponent = $state<AnimalInstance | null>(null);
 	screen = $state<BattleScreen>('busy');
-	/** Highlighted row of the action menu: the attacks, then Leash, then Run. */
+	/** Highlighted row of the action menu: the attacks, then Leash, Switch and Run. */
 	cursor = $state(0);
-	/** The level the highlighted attack will be used at. Kept from battle to battle. */
-	level = $state<AttackLevel>(1);
+	/** Each attack's own level, by species and attack (`menu.ts`). Kept from battle to battle. */
+	levels = $state<Levels>({});
+	/** Highlighted animal of the party list, by party index. */
+	partyCursor = $state(0);
+	/** Who could step in, by party index: the engine's `canSwitchTo` on the state on screen. */
+	pickable = $state<boolean[]>([]);
+	/** The party list is up because the animal in front is tired: someone must be picked. */
+	mustPick = $state(false);
+	/** Counts picks of an animal who can't step in; each one shakes the highlighted row. */
+	refused = $state(0);
 	puzzle = $state<Puzzle | null>(null);
 	/** The answer typed so far. */
 	input = $state('');
@@ -43,7 +52,7 @@ class BattleView {
 	/** The authority's closing message, shown under the result headline. */
 	closing = $state('');
 
-	/** Clear everything but the attack level. */
+	/** Clear everything but the attack levels. */
 	reset(): void {
 		this.active = false;
 		this.entering = false;
@@ -52,6 +61,10 @@ class BattleView {
 		this.opponent = null;
 		this.screen = 'busy';
 		this.cursor = 0;
+		this.partyCursor = 0;
+		this.pickable = [];
+		this.mustPick = false;
+		this.refused = 0;
 		this.puzzle = null;
 		this.input = '';
 		this.judged = null;
@@ -63,16 +76,3 @@ class BattleView {
 }
 
 export const battle = new BattleView();
-
-/** What the menu row at `cursor` does, given how many attacks the animal has. */
-export type BattleAction = { kind: 'attack'; index: number } | { kind: 'leash' } | { kind: 'run' };
-
-export function actionAt(cursor: number, attackCount: number): BattleAction {
-	if (cursor < attackCount) return { kind: 'attack', index: cursor + 1 };
-	return cursor === attackCount ? { kind: 'leash' } : { kind: 'run' };
-}
-
-/** Rows in the action menu: every attack, then Leash and Run. */
-export function actionCount(attackCount: number): number {
-	return attackCount + 2;
-}

@@ -3,24 +3,30 @@
 		ATTACK_LEVELS,
 		attackDamage,
 		getAnimal,
-		puzzleDifficulty,
 		type AnimalInstance,
 		type PuzzleKind
 	} from '@mathgame/engine';
-	import { actionAt, battle } from '../state/battle.svelte';
+	import { BATTLE_COPY, LEVEL_WORDS } from '../battle/copy';
+	import { actionAt, attackRows, rowOf } from '../battle/menu';
+	import { battle } from '../state/battle.svelte';
 	import HpBar from './HpBar.svelte';
 	import PuzzlePanel from './PuzzlePanel.svelte';
 
 	/**
 	 * The battle screen's overlay: status boxes over the scene, a narration
-	 * line, the two-column bottom panel (actions | puzzle) and the result
-	 * card. Everything it shows comes from `battle` (the presentation view);
-	 * keys are handled by `BattleController`, so nothing here dispatches.
+	 * line, the two-column bottom panel (actions or the party list | puzzle)
+	 * and the result card. Everything it shows comes from `battle` (the
+	 * presentation view); keys are handled by `BattleController`, so nothing
+	 * here dispatches.
 	 */
 	const front = $derived(battle.party[battle.front] ?? null);
 	const spec = $derived(front ? getAnimal(front.speciesId) : null);
 	const opponent = $derived(battle.opponent);
 	const opponentSpec = $derived(opponent ? getAnimal(opponent.speciesId) : null);
+	/** Each attack with its own level and that level's word. */
+	const rows = $derived(spec ? attackRows(spec, battle.levels) : []);
+	/** Someone could step in; with nobody, the Switch row is greyed and says why. */
+	const canSwitch = $derived(battle.pickable.some(Boolean));
 
 	const KIND_WORDS: Record<PuzzleKind, string> = {
 		add: 'adding',
@@ -41,11 +47,6 @@
 		return `${/^[aeiou]/i.test(name) ? 'an' : 'a'} ${name}`;
 	}
 
-	/** How hard a puzzle at engine difficulty `d` (1..10) is, in a word a kid can read. */
-	function difficultyWord(d: number): string {
-		return d <= 3 ? 'easy' : d <= 6 ? 'medium' : d <= 8 ? 'hard' : 'super hard';
-	}
-
 	function kindWords(kinds: readonly PuzzleKind[]): string {
 		const words = kinds.map((k) => KIND_WORDS[k]);
 		if (words.length <= 1) return words.join('');
@@ -57,15 +58,32 @@
 		if (!spec) return '';
 		const action = actionAt(battle.cursor, spec.attacks.length);
 		if (action.kind === 'attack') {
-			const attack = spec.attacks[action.index - 1]!;
-			const damage = attackDamage(spec, action.index, battle.level, true);
-			const word = difficultyWord(puzzleDifficulty(spec.tier, action.index, battle.level));
-			return `${attack.name}, level ${battle.level}: ${withArticle(word)} puzzle with ${kindWords(attack.kinds)}. It hits for ${damage}.`;
+			const row = rows[action.index - 1]!;
+			const damage = attackDamage(spec, row.index, row.level, true);
+			const kinds = kindWords(spec.attacks[row.index - 1]!.kinds);
+			return BATTLE_COPY.attackDetail(row.name, row.word, kinds, damage);
 		}
 		if (action.kind === 'leash') {
 			return 'Throw the leash to catch it! It works best when its HP is low.';
 		}
+		if (action.kind === 'switch') {
+			if (canSwitch) return BATTLE_COPY.switchDetail;
+			return battle.party.length < 2 ? BATTLE_COPY.switchAlone : BATTLE_COPY.switchAllTired;
+		}
 		return 'Run away. The wild animal stays in the grass.';
+	});
+
+	/** What picking the highlighted animal of the party list would do. */
+	const partyDetail = $derived.by(() => {
+		const animal = battle.party[battle.partyCursor];
+		if (!animal || !opponent) return '';
+		const name = nameOf(animal);
+		if (battle.pickable[battle.partyCursor]) {
+			return battle.mustPick
+				? BATTLE_COPY.sendInFree(name)
+				: BATTLE_COPY.sendIn(name, nameOf(opponent));
+		}
+		return animal.hp === 0 ? BATTLE_COPY.tiredDetail(name) : BATTLE_COPY.inBattleDetail(name);
 	});
 
 	/**
@@ -125,34 +143,72 @@
 {/if}
 
 <div class="panel">
-	<div class="card actions" class:dim={battle.screen !== 'actions'}>
-		{#if spec}
-			{#each spec.attacks as attack, i (attack.id)}
-				<div class="row" class:selected={battle.cursor === i}>
+	{#if battle.screen === 'party'}
+		<div class="card actions party">
+			{#key battle.refused}
+				{#each battle.party as animal, i (animal.id)}
+					{@const selected = battle.partyCursor === i}
+					<div
+						class="row"
+						class:selected
+						class:off={!battle.pickable[i]}
+						class:nudge={selected && battle.refused > 0}
+					>
+						<span class="caret">▸</span>
+						<span class="label">{nameOf(animal)}</span>
+						<span class="hp-cell"
+							><HpBar hp={animal.hp} max={getAnimal(animal.speciesId).maxHp} /></span
+						>
+						<span class="how">
+							{animal.hp === 0
+								? BATTLE_COPY.tiredTag
+								: i === battle.front
+									? BATTLE_COPY.inBattleTag
+									: ''}
+						</span>
+					</div>
+				{/each}
+			{/key}
+		</div>
+	{:else}
+		<div class="card actions" class:dim={battle.screen !== 'actions'}>
+			{#if spec}
+				{#each rows as row, i (row.index)}
+					<div class="row" class:selected={battle.cursor === i}>
+						<span class="caret">▸</span>
+						<span class="label">{row.name}</span>
+						{#if battle.cursor === i}
+							<span class="levels">
+								{#each ATTACK_LEVELS as level (level)}
+									<span class="pill" class:on={row.level === level}>{LEVEL_WORDS[level]}</span>
+								{/each}
+							</span>
+						{:else}
+							<span class="how">{row.word}</span>
+						{/if}
+					</div>
+				{/each}
+				<div class="row" class:selected={battle.cursor === spec.attacks.length}>
 					<span class="caret">▸</span>
-					<span class="label">{attack.name}</span>
-					<span class="how">
-						{difficultyWord(puzzleDifficulty(spec.tier, i + 1, battle.level))}
-					</span>
-					<span class="levels">
-						{#each ATTACK_LEVELS as level (level)}
-							<span class="pill" class:on={battle.level === level}>{level}</span>
-						{/each}
-					</span>
+					<span class="label">Leash</span>
+					<span class="how">{LEASH_WORDS[leashBand]}</span>
+					<span class="dot {leashBand}"></span>
 				</div>
-			{/each}
-			<div class="row" class:selected={battle.cursor === spec.attacks.length}>
-				<span class="caret">▸</span>
-				<span class="label">Leash</span>
-				<span class="how">{LEASH_WORDS[leashBand]}</span>
-				<span class="dot {leashBand}"></span>
-			</div>
-			<div class="row" class:selected={battle.cursor === spec.attacks.length + 1}>
-				<span class="caret">▸</span>
-				<span class="label">Run</span>
-			</div>
-		{/if}
-	</div>
+				<div
+					class="row"
+					class:selected={battle.cursor === rowOf('switch', spec.attacks.length)}
+					class:off={!canSwitch}
+				>
+					<span class="caret">▸</span>
+					<span class="label">{BATTLE_COPY.switchRow}</span>
+				</div>
+				<div class="row" class:selected={battle.cursor === rowOf('run', spec.attacks.length)}>
+					<span class="caret">▸</span>
+					<span class="label">Run</span>
+				</div>
+			{/if}
+		</div>
+	{/if}
 
 	<div class="card puzzle" class:correct={battle.judged?.correct === true}>
 		{#if battle.puzzle}
@@ -162,10 +218,14 @@
 				judged={battle.judged}
 				typing={battle.screen === 'puzzle'}
 			/>
+		{:else if battle.screen === 'party'}
+			<div class="soft">{BATTLE_COPY.pickTitle}</div>
+			<div class="detail">{partyDetail}</div>
+			<div class="keys">{battle.mustPick ? BATTLE_COPY.mustPickKeys : BATTLE_COPY.listKeys}</div>
 		{:else}
 			<div class="soft">Pick an attack</div>
 			<div class="detail">{detail}</div>
-			<div class="keys">↑ ↓ choose · ← → level · Enter go</div>
+			<div class="keys">{BATTLE_COPY.menuKeys}</div>
 		{/if}
 	</div>
 </div>
@@ -319,8 +379,8 @@
 	.pill {
 		display: grid;
 		place-items: center;
-		width: 28px;
 		height: 28px;
+		padding: 0 7px;
 		border-radius: 14px;
 		background: rgba(0, 0, 0, 0.08);
 		font-size: 16px;
@@ -328,6 +388,21 @@
 	.row.selected .pill.on {
 		background: var(--accent);
 		color: white;
+	}
+	/* Nobody to switch to, or an animal that can't step in: still readable, clearly out. */
+	.row.off > :not(.caret) {
+		opacity: 0.45;
+	}
+	.hp-cell {
+		flex: 0 1 150px;
+		min-width: 100px;
+	}
+	.party .how {
+		min-width: 4.6em;
+		text-align: right;
+	}
+	.row.nudge {
+		animation: nudge 0.35s ease-out;
 	}
 	.dot {
 		width: 16px;
@@ -415,6 +490,21 @@
 		padding: 2px 8px;
 		border-radius: 8px;
 		background: rgba(255, 255, 255, 0.3);
+	}
+
+	@keyframes nudge {
+		20% {
+			transform: translateX(-6px);
+		}
+		40% {
+			transform: translateX(6px);
+		}
+		60% {
+			transform: translateX(-4px);
+		}
+		80% {
+			transform: translateX(3px);
+		}
 	}
 
 	@keyframes pop {

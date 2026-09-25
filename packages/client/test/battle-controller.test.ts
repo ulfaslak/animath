@@ -1,7 +1,17 @@
-import { getAnimal, type AnimalInstance, type GameEvent, type Intent } from '@mathgame/engine';
+import {
+	ATTACK_LEVELS,
+	attackDamage,
+	getAnimal,
+	type AnimalInstance,
+	type AttackLevel,
+	type BattleState,
+	type GameEvent,
+	type Intent
+} from '@mathgame/engine';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { LocalAuthority } from '../src/authority/local';
 import { BattleController } from '../src/battle/controller';
+import { actionAt, attackRows } from '../src/battle/menu';
 import type { GameRenderer } from '../src/render/renderer';
 import { battle } from '../src/state/battle.svelte';
 
@@ -68,12 +78,102 @@ function setup() {
 			authority.dispatch({ type: 'move', dir: i % 2 === 0 ? 'left' : 'right' });
 		}
 	};
-	return { authority, controller, events, sent, shown, run, runUntil, press, walkIntoBattle };
+	/** The battle as the authority last reported it (ahead of the screen). */
+	const latest = (): BattleState => {
+		for (let i = events.length - 1; i >= 0; i--) {
+			const e = events[i]!;
+			if (e.type === 'battle-updated' || e.type === 'battle-started') return e.state;
+		}
+		throw new Error('no battle yet');
+	};
+	/** The party as the authority last reported it. */
+	const partyNow = (): AnimalInstance[] => {
+		for (let i = events.length - 1; i >= 0; i--) {
+			const e = events[i]!;
+			if (e.type === 'party-changed' || e.type === 'welcome') return e.party;
+		}
+		return [];
+	};
+	/**
+	 * Catch animals until the party has `size`, driving the authority directly
+	 * (the screen plays along), and leave each result card. The wild animal is
+	 * worn down with the hardest hit that leaves it standing, then leashed.
+	 */
+	const growParty = (size: number) => {
+		for (let battles = 0; partyNow().length < size; battles++) {
+			if (battles > 60) throw new Error('caught nothing');
+			walkIntoBattle();
+			for (let turn = 0; turn < 80 && latest().phase.kind !== 'ended'; turn++) {
+				const s = latest();
+				if (s.phase.kind === 'choose-animal') {
+					const partyIndex = s.party.findIndex((a) => a.hp > 0);
+					authority.dispatch({ type: 'battle', intent: { type: 'switch', partyIndex } });
+					continue;
+				}
+				const mine = getAnimal(s.party[s.active]!.speciesId);
+				let best: { attackIndex: number; level: AttackLevel; damage: number } | null = null;
+				for (let n = 1; n <= mine.attacks.length; n++) {
+					for (const level of ATTACK_LEVELS) {
+						const damage = attackDamage(mine, n, level, true);
+						if (damage < s.opponent.hp && (!best || damage > best.damage)) {
+							best = { attackIndex: n, level, damage };
+						}
+					}
+				}
+				if (best && s.opponent.hp * 3 > getAnimal(s.opponent.speciesId).maxHp) {
+					const { attackIndex, level } = best;
+					authority.dispatch({ type: 'battle', intent: { type: 'attack', attackIndex, level } });
+					const phase = latest().phase;
+					if (phase.kind !== 'solving') throw new Error(`no puzzle: ${phase.kind}`);
+					const input = String(phase.puzzle.answer);
+					authority.dispatch({ type: 'battle', intent: { type: 'answer', input } });
+				} else {
+					authority.dispatch({ type: 'battle', intent: { type: 'throw-leash' } });
+				}
+			}
+			runUntil(() => battle.screen === 'result', 300);
+			run(1);
+			press('Enter');
+		}
+	};
+	/** Lose a battle on purpose, every answer wrong: the rest after it heals everyone. */
+	const restAll = () => {
+		walkIntoBattle();
+		for (let i = 0; i < 400 && latest().phase.kind !== 'ended'; i++) {
+			const s = latest();
+			if (s.phase.kind === 'choose-animal') {
+				const partyIndex = s.party.findIndex((a) => a.hp > 0);
+				authority.dispatch({ type: 'battle', intent: { type: 'switch', partyIndex } });
+				continue;
+			}
+			authority.dispatch({ type: 'battle', intent: { type: 'attack', attackIndex: 1, level: 1 } });
+			authority.dispatch({ type: 'battle', intent: { type: 'answer', input: 'x' } });
+		}
+		runUntil(() => battle.screen === 'result', 300);
+		run(1);
+		press('Enter');
+		for (const a of partyNow()) expect(a.hp).toBe(getAnimal(a.speciesId).maxHp);
+	};
+	return {
+		authority,
+		controller,
+		events,
+		sent,
+		shown,
+		run,
+		runUntil,
+		press,
+		walkIntoBattle,
+		latest,
+		partyNow,
+		growParty,
+		restAll
+	};
 }
 
 beforeEach(() => {
 	battle.reset();
-	battle.level = 1;
+	battle.levels = {};
 });
 
 describe('battle screen', () => {
@@ -202,5 +302,162 @@ describe('battle screen', () => {
 		t.run(3);
 		expect(battle.screen).toBe('actions');
 		expect({ line: battle.line, opponent: battle.opponent }).toEqual(view);
+	});
+});
+
+describe('attack levels', () => {
+	it('each attack row has its own level, read as easy, medium or hard, kept from battle to battle', () => {
+		const t = setup();
+		t.walkIntoBattle();
+		t.run(3);
+		const squirrel = getAnimal('squirrel');
+		const words = () => attackRows(squirrel, battle.levels).map((r) => r.word);
+		expect(words()).toEqual(['easy', 'easy']);
+
+		// Right on the top row changes the top row only, and stops at hard.
+		t.press('ArrowRight');
+		expect(words()).toEqual(['medium', 'easy']);
+		t.press('d', 'ArrowRight');
+		expect(words()).toEqual(['hard', 'easy']);
+		// Left on the bottom row stops at easy; right moves the bottom row only.
+		t.press('ArrowDown', 'ArrowLeft');
+		expect(words()).toEqual(['hard', 'easy']);
+		t.press('ArrowRight');
+		expect(words()).toEqual(['hard', 'medium']);
+
+		// Enter attacks at the highlighted row's own level.
+		t.press('Enter');
+		expect(t.sent.at(-1)).toEqual({
+			type: 'battle',
+			intent: { type: 'attack', attackIndex: 2, level: 2 }
+		});
+		t.press(...String(battle.puzzle!.answer + 1), 'Enter');
+		t.runUntil(() => battle.screen === 'actions');
+		t.press('ArrowUp', 'ArrowUp', 'Enter'); // Scurry Kick → Nut Toss → Run
+		t.runUntil(() => battle.screen === 'result');
+		t.run(1);
+		t.press('Enter');
+
+		// The next battle remembers both rows; a level key sets its row and attacks.
+		t.walkIntoBattle();
+		t.run(3);
+		expect(words()).toEqual(['hard', 'medium']);
+		t.press('1');
+		expect(t.sent.at(-1)).toEqual({
+			type: 'battle',
+			intent: { type: 'attack', attackIndex: 1, level: 1 }
+		});
+		expect(words()).toEqual(['easy', 'medium']);
+	});
+});
+
+describe('switching animals', () => {
+	/** Move the menu cursor down to the Switch row. */
+	function toSwitchRow(t: ReturnType<typeof setup>): void {
+		const attacks = () => getAnimal(battle.party[battle.front]!.speciesId).attacks.length;
+		for (let i = 0; actionAt(battle.cursor, attacks()).kind !== 'switch'; i++) {
+			if (i > 8) throw new Error('no Switch row');
+			t.press('ArrowDown');
+		}
+	}
+
+	it('with a party of one, the Switch row does nothing', () => {
+		const t = setup();
+		t.walkIntoBattle();
+		t.run(3);
+		toSwitchRow(t);
+		expect(battle.pickable).toEqual([false]);
+		const before = t.sent.length;
+		t.press('Enter', ' ', '1', 'ArrowRight');
+		expect(t.sent.length).toBe(before);
+		expect(battle.screen).toBe('actions');
+	});
+
+	it('from the menu: the list, Escape back, no to the one in front, then the switch and the reply', () => {
+		const t = setup();
+		t.growParty(2);
+		t.restAll(); // a caught animal is weak; one hit could knock the newcomer out
+		t.walkIntoBattle();
+		t.run(3);
+		const [first, second] = battle.party.map((a) => ({ ...a }));
+		expect(battle.front).toBe(0);
+		toSwitchRow(t);
+		const switchRow = battle.cursor;
+
+		t.press('Enter');
+		expect(battle.screen).toBe('party');
+		expect(battle.mustPick).toBe(false);
+		expect(battle.pickable).toEqual([false, true]);
+		expect(battle.partyCursor).toBe(1);
+		t.press('Escape');
+		expect(battle.screen).toBe('actions');
+		expect(battle.cursor).toBe(switchRow);
+
+		// The animal already in front can be highlighted, but not picked.
+		t.press('Enter', 'ArrowUp');
+		expect(battle.partyCursor).toBe(0);
+		const before = t.sent.length;
+		t.press('Enter');
+		expect(t.sent.length).toBe(before);
+		expect(battle.refused).toBe(1);
+		expect(battle.screen).toBe('party');
+
+		t.press('s', 'Enter');
+		expect(t.sent.at(-1)).toEqual({ type: 'battle', intent: { type: 'switch', partyIndex: 1 } });
+		t.run(0.1);
+		expect(battle.line).toBe(`Come back, ${name(first!)}!`);
+		expect(battle.front).toBe(0);
+		t.run(0.9);
+		expect(battle.line).toBe(`Go, ${name(second!)}!`);
+		expect(battle.front).toBe(1);
+		// The switch took the turn: the wild animal's reply comes next.
+		t.run(1.0);
+		expect(battle.line).toMatch(new RegExp(`^Wild ${name(battle.opponent!)} used `));
+		t.runUntil(() => battle.screen === 'actions');
+		expect(battle.line).toBe(`What will ${name(second!)} do?`);
+		expect(battle.cursor).toBe(0);
+		expect(battle.party[0]).toEqual(first);
+		expect(t.latest().active).toBe(1);
+	});
+
+	it('after a knock-out: who goes next, no way back, no to a tired one, and the pick is free', () => {
+		const t = setup();
+		t.growParty(2);
+		t.restAll();
+		t.walkIntoBattle();
+		t.run(3);
+		const tired = { ...battle.party[0]!, hp: 0 };
+		const next = battle.party[1]!;
+		// Answer wrong until the one in front is tired.
+		for (let i = 0; battle.screen !== 'party'; i++) {
+			if (i > 40) throw new Error('never knocked out');
+			t.press('1');
+			t.press(...String(battle.puzzle!.answer + 1), 'Enter');
+			t.runUntil(() => battle.screen === 'actions' || battle.screen === 'party', 30);
+		}
+		expect(battle.mustPick).toBe(true);
+		expect(battle.line).toBe(`${name(tired)} is tired. Who goes next?`);
+		expect(battle.party[0]).toEqual(tired);
+		expect(battle.partyCursor).toBe(1);
+
+		const before = t.sent.length;
+		t.press('Escape', 'ArrowLeft', '1');
+		expect(battle.screen).toBe('party');
+		t.press('ArrowUp', 'Enter');
+		expect(t.sent.length).toBe(before);
+		expect(battle.refused).toBe(1);
+
+		const hp = { wild: battle.opponent!.hp, next: next.hp };
+		t.press('ArrowDown', 'Enter');
+		expect(t.sent.at(-1)).toEqual({ type: 'battle', intent: { type: 'switch', partyIndex: 1 } });
+		const update = t.events.at(-1);
+		expect(update?.type === 'battle-updated' && update.events.map((e) => e.type)).toEqual([
+			'switched'
+		]);
+		t.run(0.1);
+		expect(battle.line).toBe(`Go, ${name(next)}!`);
+		t.runUntil(() => battle.screen === 'actions');
+		expect(battle.line).toBe(`What will ${name(next)} do?`);
+		expect({ wild: battle.opponent!.hp, next: battle.party[1]!.hp }).toEqual(hp);
 	});
 });

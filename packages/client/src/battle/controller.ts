@@ -1,9 +1,8 @@
 import {
-	ATTACK_LEVELS,
+	canSwitchTo,
 	getAnimal,
 	tileAtWorld,
 	type AnimalInstance,
-	type AttackLevel,
 	type Authority,
 	type BattleEvent,
 	type BattleIntent,
@@ -15,7 +14,9 @@ import {
 import { answerKey } from '../input/answer';
 import { BattleScene } from '../render/battle-scene';
 import type { GameRenderer } from '../render/renderer';
-import { actionAt, actionCount, battle } from '../state/battle.svelte';
+import { battle } from '../state/battle.svelte';
+import { BATTLE_COPY } from './copy';
+import { actionCount, firstPickable, listKey, menuKey, rowOf } from './menu';
 
 /**
  * Battle mode: owns the battle screen from `battle-started` until the player
@@ -24,7 +25,8 @@ import { actionAt, actionCount, battle } from '../state/battle.svelte';
  * change, a lunge or a shake — with a hold after each, so a turn reads like a
  * Game Boy battle instead of resolving in one frame. Only when every beat has
  * played does the view show the authority's latest state (the menu, the
- * puzzle or the result card) and take input again.
+ * party list, the puzzle or the result card) and take input again. What a
+ * key means on the menu and the list is `menu.ts`'s to say.
  *
  * The authority answers every intent synchronously; the beats are purely
  * presentation and nothing here decides an outcome.
@@ -66,6 +68,8 @@ export class BattleController {
 	private seed = 0;
 	private pos: GridPos = { x: 0, y: 0 };
 	private hits = 0;
+	/** The party index the action menu was last shown for; a new animal starts at the top row. */
+	private menuFor = 0;
 
 	constructor(
 		private authority: Authority,
@@ -86,14 +90,17 @@ export class BattleController {
 			case 'battle-started':
 				this.begin(event.state);
 				break;
-			case 'battle-updated':
+			case 'battle-updated': {
 				// Only the battle on screen: the wild animal's id is minted per encounter,
 				// so an update for an earlier battle (late, or replayed) never matches.
 				if (!battle.active || event.state.opponent.id !== this.latest?.opponent.id) return;
+				// A switch out of `choose-animal` replaces a tired animal: nobody is called back.
+				const replacing = this.latest.phase.kind === 'choose-animal';
 				this.latest = event.state;
 				battle.screen = 'busy';
-				for (const e of event.events) this.beats.push(...this.narrate(e));
+				for (const e of event.events) this.beats.push(...this.narrate(e, replacing));
 				break;
+			}
 			case 'message':
 				if (!battle.active || this.latest?.phase.kind !== 'ended') return;
 				this.closing = event.text;
@@ -140,6 +147,9 @@ export class BattleController {
 			case 'actions':
 				handled = this.menuKey(e.key);
 				break;
+			case 'party':
+				handled = this.partyKey(e.key);
+				break;
 			case 'puzzle':
 				handled = this.puzzleKey(e.key);
 				break;
@@ -162,6 +172,7 @@ export class BattleController {
 		battle.front = state.active;
 		battle.opponent = { ...state.opponent };
 		this.latest = state;
+		this.menuFor = state.active;
 		this.closing = '';
 		this.beats = [];
 		this.wait = 0;
@@ -172,10 +183,11 @@ export class BattleController {
 
 		const wild = nameOf(state.opponent);
 		const mine = nameOf(this.front());
-		this.beats.push(
-			{ run: () => `A wild ${wild} appears!`, hold: 1.4 },
-			{ run: () => `Go, ${mine}!`, hold: 1.0 }
-		);
+		this.beats.push({ run: () => `A wild ${wild} appears!`, hold: 1.4 });
+		// A battle picked up where the animal in front is already tired (a
+		// restored one, waiting for the player to pick) shows it lying down.
+		if (this.front().hp > 0) this.beats.push({ run: () => `Go, ${mine}!`, hold: 1.0 });
+		else this.scene.faint('player');
 	}
 
 	/** Every beat has played: show the authority's latest state and take input. */
@@ -185,12 +197,15 @@ export class BattleController {
 		battle.party = state.party.map((a) => ({ ...a }));
 		battle.front = state.active;
 		battle.opponent = { ...state.opponent };
+		battle.pickable = state.party.map((_, i) => canSwitchTo(state, i));
 		battle.hit = null;
 		const front = this.front();
 		switch (state.phase.kind) {
 			case 'choose-action': {
+				// A different animal in front has different attacks: start at its first.
 				const rows = actionCount(getAnimal(front.speciesId).attacks.length);
-				battle.cursor = Math.min(battle.cursor, rows - 1);
+				battle.cursor = state.active === this.menuFor ? Math.min(battle.cursor, rows - 1) : 0;
+				this.menuFor = state.active;
 				battle.puzzle = null;
 				battle.judged = null;
 				battle.input = '';
@@ -198,6 +213,14 @@ export class BattleController {
 				battle.screen = 'actions';
 				break;
 			}
+			case 'choose-animal':
+				// The animal in front is tired: the party list, with no way back.
+				battle.puzzle = null;
+				battle.judged = null;
+				battle.input = '';
+				this.openParty(true);
+				battle.line = BATTLE_COPY.whoIsNext(nameOf(front));
+				break;
 			case 'solving':
 				battle.puzzle = state.phase.puzzle;
 				battle.input = '';
@@ -232,49 +255,53 @@ export class BattleController {
 	// --- keys ----------------------------------------------------------------
 
 	private menuKey(key: string): boolean {
-		const attacks = getAnimal(this.front().speciesId).attacks;
-		const rows = actionCount(attacks.length);
-		switch (key) {
-			case 'ArrowUp':
-			case 'w':
-				battle.cursor = (battle.cursor + rows - 1) % rows;
-				return true;
-			case 'ArrowDown':
-			case 's':
-				battle.cursor = (battle.cursor + 1) % rows;
-				return true;
-			case 'ArrowLeft':
-			case 'a':
-				battle.level = clampLevel(battle.level - 1);
-				return true;
-			case 'ArrowRight':
-			case 'd':
-				battle.level = clampLevel(battle.level + 1);
-				return true;
-			case '1':
-			case '2':
-			case '3': {
-				// A level key on an attack row picks that level and attacks at once.
-				const action = actionAt(battle.cursor, attacks.length);
-				if (action.kind !== 'attack') return true;
-				battle.level = clampLevel(Number(key));
-				this.send({ type: 'attack', attackIndex: action.index, level: battle.level });
-				return true;
-			}
-			case 'Enter':
-			case ' ': {
-				const action = actionAt(battle.cursor, attacks.length);
-				if (action.kind === 'attack') {
-					this.send({ type: 'attack', attackIndex: action.index, level: battle.level });
-				} else if (action.kind === 'leash') {
-					this.send({ type: 'throw-leash' });
-				} else {
-					this.send({ type: 'flee' });
-				}
-				return true;
-			}
+		const spec = getAnimal(this.front().speciesId);
+		const { menu, handled, choice } = menuKey(
+			{ cursor: battle.cursor, levels: battle.levels },
+			key,
+			spec
+		);
+		battle.cursor = menu.cursor;
+		if (menu.levels !== battle.levels) battle.levels = menu.levels;
+		switch (choice?.kind) {
+			case 'attack':
+				this.send({ type: 'attack', attackIndex: choice.attackIndex, level: choice.level });
+				break;
+			case 'leash':
+				this.send({ type: 'throw-leash' });
+				break;
+			case 'switch':
+				// With nobody to send in, the row stays put; its text says why.
+				if (battle.pickable.some(Boolean)) this.openParty(false);
+				break;
+			case 'run':
+				this.send({ type: 'flee' });
+				break;
 		}
-		return false;
+		return handled;
+	}
+
+	/** Show the party list: after a knock-out (`mustPick`, no way back) or from the Switch row. */
+	private openParty(mustPick: boolean): void {
+		battle.mustPick = mustPick;
+		battle.partyCursor = firstPickable(battle.pickable);
+		battle.refused = 0;
+		battle.screen = 'party';
+	}
+
+	private partyKey(key: string): boolean {
+		const { cursor, handled, choice } = listKey(battle.partyCursor, key, battle.party.length);
+		if (cursor !== battle.partyCursor) battle.refused = 0;
+		battle.partyCursor = cursor;
+		if (choice === 'pick') {
+			// The engine would refuse a tired or current animal; say no here instead.
+			if (battle.pickable[cursor]) this.send({ type: 'switch', partyIndex: cursor });
+			else battle.refused += 1;
+		} else if (choice === 'back' && !battle.mustPick) {
+			battle.cursor = rowOf('switch', getAnimal(this.front().speciesId).attacks.length);
+			battle.screen = 'actions';
+		}
+		return handled;
 	}
 
 	private puzzleKey(key: string): boolean {
@@ -289,9 +316,10 @@ export class BattleController {
 	/**
 	 * Turn one battle event into beats. Names are resolved when the beat runs,
 	 * against the view as it stands then, so a switch earlier in the same
-	 * turn is reflected.
+	 * turn is reflected. `replacing` says the intent picked who replaces a
+	 * tired animal, so a switch calls nobody back.
 	 */
-	private narrate(e: BattleEvent): Beat[] {
+	private narrate(e: BattleEvent, replacing: boolean): Beat[] {
 		const scene = this.scene!;
 		switch (e.type) {
 			case 'puzzle-shown':
@@ -385,17 +413,26 @@ export class BattleController {
 						hold: 1.2
 					}
 				];
-			case 'switched':
-				return [
-					{
-						run: () => {
-							battle.front = e.partyIndex;
-							scene.setFigure('player', e.animal.speciesId);
-							return `Go, ${nameOf(e.animal)}!`;
-						},
-						hold: 1.0
-					}
-				];
+			case 'switched': {
+				const enter: Beat = {
+					run: () => {
+						battle.front = e.partyIndex;
+						scene.setFigure('player', e.animal.speciesId);
+						scene.appear('player');
+						return `Go, ${nameOf(e.animal)}!`;
+					},
+					hold: 1.0
+				};
+				if (replacing) return [enter];
+				const leave: Beat = {
+					run: () => {
+						scene.recall('player');
+						return BATTLE_COPY.comeBack(nameOf(this.front()));
+					},
+					hold: 0.9
+				};
+				return [leave, enter];
+			}
 			case 'leash-thrown':
 				return [
 					{
@@ -438,10 +475,4 @@ function nameOf(animal: AnimalInstance): string {
 
 function attackName(animal: AnimalInstance, attackIndex: number): string {
 	return getAnimal(animal.speciesId).attacks[attackIndex - 1]?.name ?? 'its attack';
-}
-
-function clampLevel(level: number): AttackLevel {
-	const lo = ATTACK_LEVELS[0];
-	const hi = ATTACK_LEVELS[ATTACK_LEVELS.length - 1]!;
-	return Math.max(lo, Math.min(hi, level)) as AttackLevel;
 }
