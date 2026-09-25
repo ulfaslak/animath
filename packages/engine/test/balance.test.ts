@@ -14,7 +14,13 @@ import { makeParty, makeWild, playBattle, type PlayerModel, type Policy } from '
  */
 const SEEDS = 200;
 /** More seeds where a test compares a win rate with a target band. */
-const TARGET_SEEDS = 400;
+const TARGET_SEEDS = 1000;
+/**
+ * Sampling slack on a target band. A mean over 11 same-tier pairs at 1000
+ * seeds each has a standard error under half a point, so 2 points is over
+ * four standard errors: the band, not the dice, decides the test.
+ */
+const SLACK = 0.02;
 const PRINT = Boolean(process.env.SIM);
 
 interface Outcome {
@@ -75,9 +81,17 @@ function grid(model: PlayerModel): string {
 	return [`**${name}** — win rate (mean rounds)`, '', head, sep, ...rows].join('\n');
 }
 
+/** The starter against its own tier near spawn: a wild squirrel or a wild rabbit, equally likely. */
+const STARTER_FIGHTS: Array<[string, string]> = [
+	['squirrel', 'squirrel'],
+	['squirrel', 'rabbit']
+];
+const starterWin = (model: PlayerModel) =>
+	mean(STARTER_FIGHTS.map(([p, w]) => simulate(p, w, model, TARGET_SEEDS).win));
+
 function targets(): string {
 	const rows: string[] = [
-		'| matchup | player | target | mean | range |',
+		`| matchup | player | target (tests allow ±${SLACK * 100} points of sampling) | mean | range |`,
 		'| --- | --- | --- | --- | --- |'
 	];
 	const row = (label: string, gap: number, model: PlayerModel, target: string) => {
@@ -91,7 +105,22 @@ function targets(): string {
 	row('same tier', 0, easiest(0.7), '40–55%');
 	row('one tier up', 1, easiest(1), 'under 35%');
 	row('two tiers up', 2, easiest(1), 'under 10%');
+	for (const [acc, target] of [
+		[1, '65–80%'],
+		[0.85, '—'],
+		[0.7, '40–55%']
+	] as const) {
+		rows.push(
+			`| starter squirrel vs squirrel or rabbit | easiest puzzle, right ${pct(acc)} | ${target} | ${pct(starterWin(easiest(acc)))} | — |`
+		);
+	}
 	return rows.join('\n');
+}
+
+/** `x` is inside `[lo, hi]` up to sampling slack. */
+function expectInBand(x: number, lo: number, hi: number, what: string): void {
+	expect(x, what).toBeGreaterThanOrEqual(lo - SLACK);
+	expect(x, what).toBeLessThanOrEqual(hi + SLACK);
 }
 
 describe('balance simulation', () => {
@@ -120,18 +149,21 @@ describe('balance simulation', () => {
 		}
 	});
 
-	it('the easiest puzzle, always right, usually beats an animal of your own tier', () => {
+	it('the easiest puzzle, always right, usually beats an animal of your own tier (65–80%)', () => {
 		const rates = winRates(0, easiest(1));
 		for (const { p, w, win } of rates) expect(win, `${p} vs ${w}`).toBeGreaterThan(0.5);
-		const m = mean(rates.map((r) => r.win));
-		expect(m).toBeGreaterThanOrEqual(0.65);
-		expect(m).toBeLessThanOrEqual(0.85);
+		expectInBand(mean(rates.map((r) => r.win)), 0.65, 0.8, 'same-tier mean');
 	});
 
-	it('the easiest puzzle at 70% right makes a same-tier fight close to a coin flip', () => {
-		const m = mean(winRates(0, easiest(0.7)).map((r) => r.win));
-		expect(m).toBeGreaterThanOrEqual(0.35);
-		expect(m).toBeLessThanOrEqual(0.6);
+	it('the easiest puzzle at 70% right makes a same-tier fight close to a coin flip (40–55%)', () => {
+		expectInBand(mean(winRates(0, easiest(0.7)).map((r) => r.win)), 0.4, 0.55, 'same-tier mean');
+	});
+
+	it('the starter squirrel meets the same targets against its own near-spawn tier', () => {
+		// The meadow near spawn is 45% squirrel and 45% rabbit, and so are the
+		// river's and the mountains' visitors.
+		expectInBand(starterWin(easiest(1)), 0.65, 0.8, 'starter, always right');
+		expectInBand(starterWin(easiest(0.7)), 0.4, 0.55, 'starter, right 70%');
 	});
 
 	it('on the easiest puzzle, one tier up is hard and two tiers up is out of reach', () => {

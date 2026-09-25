@@ -614,6 +614,37 @@ describe('the wild animal', () => {
 		}
 		expect(misses / runs).toBeCloseTo(WILD_MISS_CHANCE, 1);
 	});
+
+	it('judges wariness against the animal in front, turn by turn', () => {
+		// A fox never misses the squirrel in front, but can miss the bear that
+		// steps in once the squirrel is tired.
+		let bearTurns = 0;
+		let bearMisses = 0;
+		for (let seed = 0; seed < 100; seed++) {
+			const party = makeParty(['squirrel', 'bear']);
+			party[0]!.hp = 1;
+			const first = attackAndAnswer(startBattle(party, makeWild('fox')), seed, 1, 1, false);
+			expect(first.events.map((e) => e.type)).toEqual([
+				'answer-judged',
+				'missed',
+				'hit',
+				'fainted',
+				'switched'
+			]);
+			let state = first.state;
+			for (let turn = 0; turn < 5; turn++) {
+				expect(activeAnimal(state).speciesId).toBe('bear');
+				const step = attackAndAnswer(state, seed, 1, 1, false);
+				const wild = step.events.find((e) => e.type !== 'answer-judged' && e.type !== 'missed');
+				const missed = step.events.filter((e) => e.type === 'missed' && e.attacker === 'opponent');
+				bearTurns++;
+				bearMisses += missed.length;
+				if (missed.length === 0) expect(wild).toMatchObject({ type: 'hit', attacker: 'opponent' });
+				state = step.state;
+			}
+		}
+		expect(bearMisses / bearTurns).toBeCloseTo(WILD_MISS_CHANCE, 1);
+	});
 });
 
 describe('the leash', () => {

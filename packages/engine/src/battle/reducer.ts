@@ -38,13 +38,14 @@ import type {
  */
 
 /**
- * How often a wild animal misses an animal of its own tier or fiercer. It never
- * misses a smaller one. Tuned so a kid who always answers the easiest puzzle
- * right usually beats an animal of its own tier, while every fight against a
- * fiercer animal plays exactly as it did before (#8's balance table).
+ * How often a wild animal misses an animal of its own tier or fiercer (11 in
+ * 25). It never misses a smaller one. Tuned so a kid who always answers the
+ * easiest puzzle right beats an animal of their own tier about 79% of the time
+ * (45% when right 7 times in 10), while every turn against a smaller animal
+ * plays exactly as it did before misses existed (#8's balance table).
  * [[PRODUCT]] §4 "Battle" states it in prose.
  */
-export const WILD_MISS_CHANCE = 0.45;
+export const WILD_MISS_CHANCE = 0.44;
 
 export interface StartBattleOptions {
 	/** Multiplier for leash throws; 1 is the starter leash. */
@@ -235,9 +236,12 @@ function flee(state: BattleState, seed: number): BattleStep {
  * next conscious party member (in party order) steps in; if there is none, the
  * battle is lost. Otherwise the round ends and the player chooses again.
  *
- * The miss roll is drawn on every turn and after the attack pick, so a fight
- * against a fiercer animal draws the same attacks from the same seed as it
- * did before misses existed.
+ * Wariness is judged turn by turn against the animal in front: a fox never
+ * misses a squirrel, but can miss the bear that steps in after it. The miss
+ * roll is drawn on every turn and after the attack pick, so a turn against a
+ * smaller animal draws and hits exactly as it did before misses existed, and a
+ * battle in which every animal that fights is smaller than the wild one
+ * replays exactly as before.
  */
 function opponentTurn(draft: Draft): void {
 	const spec = getAnimal(draft.opponent.speciesId);
