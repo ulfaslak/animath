@@ -95,16 +95,19 @@ function problems(name: string): string[] {
 	if (name.includes('  ')) found.push('two spaces in a row');
 	if (name !== name.normalize('NFKC')) found.push('not NFKC');
 	if (!/[\p{L}\p{Nd}]/u.test(name)) found.push('no letter or digit');
-	let marks = 2; // before any letter, nothing may carry a mark
+	let marks = 4; // before any letter, nothing may carry a mark
 	for (const c of name) {
 		const code = `U+${c.codePointAt(0)!.toString(16).toUpperCase()}`;
 		if (/\p{Default_Ignorable_Code_Point}/u.test(c)) found.push(`holds ${code}`);
 		if (/\p{M}/u.test(c)) {
-			if (marks >= 2) found.push(`a mark on no letter, or a third on one: ${code}`);
+			if (marks >= 4) found.push(`a mark on no letter, or a fifth on one: ${code}`);
+			if (/\p{Me}|[\u0334-\u0338\u20D0-\u20FF]/u.test(c)) {
+				found.push(`a mark that draws as a symbol: ${code}`);
+			}
 			marks++;
 			continue;
 		}
-		marks = /\p{L}/u.test(c) ? 0 : 2;
+		marks = /\p{L}/u.test(c) ? 0 : 4;
 		if (!/[\p{L}\p{Nd} '.-]/u.test(c)) found.push(`holds ${code}`);
 	}
 	return found;
@@ -197,7 +200,17 @@ describe('normalizeNickname', () => {
 			['र\u093Eम', 'र\u093Eम'], // राम: the vowel sign stays on its letter
 			['ש\u05B8\u05C1ל\u05D5\u05B9ם', 'ש\u05B8\u05C1ל\u05D5\u05B9ם'], // שָׁלוֹם
 			['n\u0308', 'n\u0308'], // no single letter for n with two dots: the mark stays
-			['x\u0301\u0302\u0303\u0304', 'x\u0301\u0302'], // two marks a letter, not a tower
+			['x\u0301\u0302\u0303\u0304\u0306', 'x\u0301\u0302\u0303\u0304'], // four marks a letter, not a tower
+			['\u1000\u103B\u1031\u102C\u103A', '\u1000\u103B\u1031\u102C\u103A'], // Burmese Kyaw: four marks on one letter
+			[
+				'\u05D9\u05B4\u05E9\u05B8\u05BC\u05C2\u05E9\u05DB\u05B8\u05E8',
+				'\u05D9\u05B4\u05E9\u05B8\u05BC\u05C2\u05E9\u05DB\u05B8\u05E8'
+			], // Issachar: vowel, dagesh and sin dot
+			['\u091C\u093C\u093F\u0902\u0926\u093E', '\u091C\u093C\u093F\u0902\u0926\u093E'], // Hindi zinda: nukta, vowel sign, anusvara
+			['\u1789\u17C9\u17B6\u17C6', '\u1789\u17C9\u17B6\u17C6'], // Khmer
+			['Pip\u20E0', 'Pip'], // an enclosing "no" sign over the p is a symbol
+			['P\u0336i\u0336p\u0336', 'Pip'], // strike-through
+			['x\u0489', 'x'], // an enclosing Cyrillic sign
 			['\u0301abc', 'abc'], // a mark on nothing
 			['1\u0301 2', '1 2'], // a mark on a digit
 			['a'.repeat(11) + 'x\u0301', 'a'.repeat(11)], // never cut between a letter and its mark

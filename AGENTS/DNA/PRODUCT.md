@@ -101,7 +101,7 @@ Two modes only, borrowed from the Game Boy games: **Explore** and **Battle**. Fi
 - A party holds up to six animals, in an order the player chooses.
 - **The lead is the first animal in party order that is not tired.** It is the one that steps into the next battle, and whenever an animal is knocked out the next one standing in order steps in. There is no separate "selected" animal: choosing a lead moves it to the front.
 - While exploring — not in a battle, not at the doctor — the player can choose any animal that is not tired as the lead, move any animal up or down (a tired one too: a tired animal at the front is simply skipped), and name any animal.
-- **Nicknames**: at most 12 characters, from letters (any alphabet, with up to two accent marks on each), digits, spaces, hyphens, apostrophes and dots. An accent that no single letter carries (a Hindi vowel sign, a Hebrew point) counts as a character. Everything else a kid types — emoji, symbols — is left out, runs of spaces become one, and spaces at either end are trimmed. A name with no letter or digit left is no name, and the animal goes by its species' name again.
+- **Nicknames**: at most 12 characters, from letters (any alphabet, with up to four accent marks on each), digits, spaces, hyphens, apostrophes and dots. An accent that no single letter carries (a Hindi vowel sign, a Hebrew point) counts as a character. Everything else a kid types — emoji, symbols, marks that draw as symbols (a circle around a letter, a strike-through) — is left out, runs of spaces become one, and spaces at either end are trimmed. A name with no letter or digit left is no name, and the animal goes by its species' name again.
 
 ### Starting out
 

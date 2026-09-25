@@ -6,8 +6,12 @@
  */
 export const MAX_NICKNAME_LENGTH = 12;
 
-/** How many accent marks one letter may carry: enough for any alphabet, too few to stack a tower. */
-const MAX_MARKS_PER_LETTER = 2;
+/**
+ * How many accent marks one letter may carry. Real names need up to four
+ * (Burmese "ကျော်", Hebrew "שָּׂ" with its vowel, dagesh and sin dot); more is
+ * a tower of marks, not a name.
+ */
+const MAX_MARKS_PER_LETTER = 4;
 /** Raw input past this many UTF-16 units is never looked at: the name is cut far shorter anyway. */
 const MAX_RAW_LENGTH = 1000;
 /** Cleaning settles after a pass or two and is confirmed by the next; this only bounds a surprise. */
@@ -19,12 +23,15 @@ const APOSTROPHES = /[\u0060\u00B4\u02BC\u2018\u2019\u201B\u2032]/gu;
 const DASHES = /[\u2010-\u2015\u2212]/gu;
 /**
  * Everything a name may not hold: anything but a letter, an accent mark, a
- * digit, a space, a hyphen, an apostrophe or a dot. Default-ignorable
- * characters go too, even the ones Unicode calls letters or marks (the Hangul
- * fillers, variation selectors), because they draw as nothing and would make
- * a name that looks empty.
+ * digit, a space, a hyphen, an apostrophe or a dot. Marks that draw as
+ * symbols go: enclosing marks (a circle or a "no" sign around a letter),
+ * strike-through overlays ("P̶i̶p̶") and the block of marks made for symbols.
+ * Default-ignorable characters go too, even the ones Unicode calls letters or
+ * marks (the Hangul fillers, variation selectors), because they draw as
+ * nothing and would make a name that looks empty.
  */
-const NOT_ALLOWED = /[^\p{L}\p{M}\p{Nd} '.-]|\p{Default_Ignorable_Code_Point}/gu;
+const NOT_ALLOWED =
+	/[^\p{L}\p{Mn}\p{Mc}\p{Nd} '.-]|[\u0334-\u0338\u20D0-\u20FF]|\p{Default_Ignorable_Code_Point}/gu;
 const LETTER = /\p{L}/u;
 const MARK = /\p{M}/u;
 const HAS_LETTER_OR_DIGIT = /[\p{L}\p{Nd}]/u;
@@ -39,9 +46,9 @@ const HAS_LETTER_OR_DIGIT = /[\p{L}\p{Nd}]/u;
  * - Apostrophe and dash look-alikes become `'` and `-`; any run of white
  *   space becomes one space.
  * - Only letters (any alphabet), digits, spaces, `-`, `'` and `.` are kept,
- *   and accent marks on a letter, at most two per letter ("राम", "שָׁלוֹם"):
- *   emoji, symbols, control and invisible characters are dropped, and so is
- *   a mark with no letter under it.
+ *   and accent marks on a letter, at most four per letter ("राम", "שָׁלוֹם"):
+ *   emoji, symbols (marks that draw as one included), control and invisible
+ *   characters are dropped, and so is a mark with no letter under it.
  * - Spaces are trimmed from both ends, and the name is cut to
  *   `MAX_NICKNAME_LENGTH` code points (then trimmed again), never between a
  *   letter and its marks.
