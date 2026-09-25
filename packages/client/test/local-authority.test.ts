@@ -20,7 +20,8 @@ import { LocalAuthority } from '../src/authority/local';
  *
  * The prototype world's spawn tile, (-2, 6), has a river reed (tall grass)
  * straight to its left, so walking left and right from it meets animals
- * (squirrels and rabbits near home, now and then an otter).
+ * (with the starter squirrel in front: squirrels and rabbits near home, now
+ * and then an otter).
  */
 type Session = { authority: LocalAuthority; events: GameEvent[] };
 
@@ -42,6 +43,41 @@ function welcome(s: Session): Extract<GameEvent, { type: 'welcome' }> {
 	const w = s.events.find((e) => e.type === 'welcome');
 	if (w?.type !== 'welcome') throw new Error('no welcome');
 	return w;
+}
+
+/**
+ * Hand the authority a party before any battle, as a loaded save would.
+ * `LocalAuthority` has no way to take one yet, so this sets the field itself.
+ */
+function giveParty(s: Session, party: AnimalInstance[]): void {
+	(s.authority as unknown as { party: AnimalInstance[] }).party = party.map((a) => ({ ...a }));
+}
+
+const animal = (speciesId: string, hp = getAnimal(speciesId).maxHp): AnimalInstance => ({
+	id: `${speciesId}-${hp}`,
+	speciesId,
+	hp
+});
+
+/**
+ * Press Left, Right, Left, … from the spawn tile for `steps` steps, running
+ * from every battle: every Left lands on the reed. Which animal came out on
+ * which step, and which of the player's animals stepped in against it.
+ */
+function reedWalk(s: Session, steps: number): { step: number; wild: string; lead: string }[] {
+	const met: { step: number; wild: string; lead: string }[] = [];
+	for (let step = 1; step <= steps; step++) {
+		const from = s.events.length;
+		s.authority.dispatch({ type: 'move', dir: step % 2 === 1 ? 'left' : 'right' });
+		const fresh = s.events.slice(from);
+		if (!fresh.some((e) => e.type === 'player-moved')) throw new Error(`step ${step} was blocked`);
+		const started = fresh.find((e) => e.type === 'battle-started');
+		if (started?.type !== 'battle-started') continue;
+		const { opponent, party, active } = started.state;
+		met.push({ step, wild: opponent.speciesId, lead: party[active]!.speciesId });
+		s.authority.dispatch({ type: 'battle', intent: { type: 'flee' } });
+	}
+	return met;
 }
 
 /** Walk left/right past the reed until a battle starts; the state it started with. */
@@ -208,6 +244,43 @@ describe('LocalAuthority: encounters', () => {
 		expect(s.events.length).toBe(before);
 		s.authority.dispatch({ type: 'battle', intent: { type: 'flee' } });
 		expect(position(s)).toEqual(pos);
+	});
+});
+
+describe('LocalAuthority: the lead decides who comes out', () => {
+	it('with the starter in front, the reed meets a Rabbit on step 11, a Squirrel on step 15 and the first Otter on step 97', () => {
+		const met = reedWalk(session(), 97);
+		expect(met[0]).toEqual({ step: 11, wild: 'rabbit', lead: 'squirrel' });
+		expect(met[1]).toEqual({ step: 15, wild: 'squirrel', lead: 'squirrel' });
+		expect(met.find((m) => m.wild === 'otter')?.step).toBe(97);
+		expect(met.every((m) => ['squirrel', 'rabbit', 'otter'].includes(m.wild))).toBe(true);
+	});
+
+	it('the first animal that is not tired leads: with a fox in front the reed has only otters, on the same steps', () => {
+		const starter = reedWalk(session(), 200);
+		for (const party of [
+			[animal('fox'), animal('squirrel')],
+			[animal('squirrel', 0), animal('fox')]
+		]) {
+			const s = session();
+			giveParty(s, party);
+			const met = reedWalk(s, 200);
+			expect(met.map((m) => m.step)).toEqual(starter.map((m) => m.step));
+			expect(new Set(met.map((m) => m.wild))).toEqual(new Set(['otter']));
+			expect(new Set(met.map((m) => m.lead))).toEqual(new Set(['fox']));
+		}
+		// Behind a standing squirrel, a fox changes nothing.
+		const s = session();
+		giveParty(s, [animal('squirrel'), animal('fox')]);
+		expect(reedWalk(s, 200)).toEqual(starter);
+	});
+
+	it('with a bear in front, nothing at the river is big enough to come out', () => {
+		for (const party of [[animal('bear')], [animal('squirrel', 0), animal('bear')]]) {
+			const s = session();
+			giveParty(s, party);
+			expect(reedWalk(s, 400)).toEqual([]);
+		}
 	});
 });
 

@@ -6,8 +6,8 @@
 		type AnimalInstance,
 		type PuzzleKind
 	} from '@mathgame/engine';
-	import { BATTLE_COPY, LEVEL_WORDS } from '../battle/copy';
-	import { actionAt, attackRows, rowOf } from '../battle/menu';
+	import { actionAt, attackRows, levelWord, rowOf } from '../battle/menu';
+	import { t } from '../copy';
 	import { battle } from '../state/battle.svelte';
 	import HpBar from './HpBar.svelte';
 	import PuzzlePanel from './PuzzlePanel.svelte';
@@ -61,14 +61,14 @@
 			const row = rows[action.index - 1]!;
 			const damage = attackDamage(spec, row.index, row.level, true);
 			const kinds = kindWords(spec.attacks[row.index - 1]!.kinds);
-			return BATTLE_COPY.attackDetail(row.name, row.word, kinds, damage);
+			return t('battle.attackDetail', { attack: row.name, level: row.word, kinds, damage });
 		}
 		if (action.kind === 'leash') {
 			return 'Throw the leash to catch it! It works best when its HP is low.';
 		}
 		if (action.kind === 'switch') {
-			if (canSwitch) return BATTLE_COPY.switchDetail;
-			return battle.party.length < 2 ? BATTLE_COPY.switchAlone : BATTLE_COPY.switchAllTired;
+			if (canSwitch) return t('battle.switch.detail');
+			return battle.party.length < 2 ? t('battle.switch.alone') : t('battle.switch.allTired');
 		}
 		return 'Run away. The wild animal stays in the grass.';
 	});
@@ -80,10 +80,12 @@
 		const name = nameOf(animal);
 		if (battle.pickable[battle.partyCursor]) {
 			return battle.mustPick
-				? BATTLE_COPY.sendInFree(name)
-				: BATTLE_COPY.sendIn(name, nameOf(opponent));
+				? t('battle.switch.sendInFree', { name })
+				: t('battle.switch.sendIn', { name });
 		}
-		return animal.hp === 0 ? BATTLE_COPY.tiredDetail(name) : BATTLE_COPY.inBattleDetail(name);
+		return animal.hp === 0
+			? t('battle.switch.tired', { name })
+			: t('battle.switch.inBattle', { name });
 	});
 
 	/**
@@ -163,11 +165,11 @@
 							><HpBar hp={animal.hp} max={getAnimal(animal.speciesId).maxHp} /></span
 						>
 						<span class="how">
-							{animal.hp === 0
-								? BATTLE_COPY.tiredTag
-								: i === battle.front
-									? BATTLE_COPY.inBattleTag
-									: ''}
+							{#if animal.hp === 0}
+								{t('battle.switch.tiredTag')}
+							{:else if i === battle.front}
+								{t('battle.switch.inBattleTag')}
+							{/if}
 						</span>
 					</div>
 				{/each}
@@ -183,7 +185,7 @@
 						{#if battle.cursor === i}
 							<span class="levels">
 								{#each ATTACK_LEVELS as level (level)}
-									<span class="pill" class:on={row.level === level}>{LEVEL_WORDS[level]}</span>
+									<span class="pill" class:on={row.level === level}>{levelWord(level)}</span>
 								{/each}
 							</span>
 						{:else}
@@ -203,7 +205,7 @@
 					class:off={!canSwitch}
 				>
 					<span class="caret">▸</span>
-					<span class="label">{BATTLE_COPY.switchRow}</span>
+					<span class="label">{t('battle.switch.row')}</span>
 				</div>
 				<div class="row" class:selected={battle.cursor === rowOf('run', spec.attacks.length)}>
 					<span class="caret">▸</span>
@@ -222,13 +224,15 @@
 				typing={battle.screen === 'puzzle'}
 			/>
 		{:else if battle.screen === 'party'}
-			<div class="soft">{BATTLE_COPY.pickTitle}</div>
+			<div class="soft">{t('battle.switch.title')}</div>
 			<div class="detail">{partyDetail}</div>
-			<div class="keys">{battle.mustPick ? BATTLE_COPY.mustPickKeys : BATTLE_COPY.listKeys}</div>
+			<div class="keys">
+				{battle.mustPick ? t('battle.switch.mustPickKeys') : t('battle.switch.keys')}
+			</div>
 		{:else}
 			<div class="soft">Pick an attack</div>
 			<div class="detail">{detail}</div>
-			<div class="keys">{BATTLE_COPY.menuKeys}</div>
+			<div class="keys">{t('battle.menuKeys')}</div>
 		{/if}
 	</div>
 </div>

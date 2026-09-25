@@ -14,8 +14,8 @@ import {
 import { answerKey } from '../input/answer';
 import { BattleScene } from '../render/battle-scene';
 import type { GameRenderer } from '../render/renderer';
+import { t } from '../copy';
 import { battle } from '../state/battle.svelte';
-import { BATTLE_COPY } from './copy';
 import { actionCount, firstPickable, listKey, menuKey, rowOf } from './menu';
 
 /**
@@ -214,7 +214,7 @@ export class BattleController {
 				battle.judged = null;
 				battle.input = '';
 				this.openParty(true);
-				battle.line = BATTLE_COPY.whoIsNext(nameOf(front));
+				battle.line = t('battle.switch.whoIsNext', { name: nameOf(front) });
 				break;
 			case 'solving':
 				battle.puzzle = state.phase.puzzle;
@@ -423,7 +423,7 @@ export class BattleController {
 				const leave: Beat = {
 					run: () => {
 						scene.recall('player');
-						return BATTLE_COPY.comeBack(nameOf(this.front()));
+						return t('battle.switch.comeBack', { name: nameOf(this.front()) });
 					},
 					hold: 0.9
 				};

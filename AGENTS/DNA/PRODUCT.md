@@ -45,12 +45,14 @@ Two modes only, borrowed from the Game Boy games: **Explore** and **Battle**. Fi
 
 ### Wild encounters
 
-- Each step that lands on **tall grass** has a **1-in-10** chance of starting a wild battle: one encounter per ten grass steps on average. No other tile ever starts one.
-- The animal comes from the biome's **encounter table**: every species whose habitats include the biome, weighted by tier, plus the visitors below. It appears at full HP.
-- **Distance rule.** Fierce animals are rare near the start and ordinary far away. With `d` the straight-line distance in tiles from the spawn tile, `danger = clamp((d − 32) / 96, 0, 1)`, and a tier-`t` species weighs `5^(−(t−1)·(1−danger))`, normalised within the biome. Inside the **safe radius** (32 tiles) each tier is five times rarer than the tier below it; from the **wild radius** (128 tiles) out, every species living in the biome is equally likely; in between the ratio shrinks smoothly.
-- **Visitors near home.** A biome with no tier-1 animal of its own — the river and the mountains in the prototype — also gets every tier-1 species as a visitor, each weighing `1 − danger`: as much as a tier-1 resident inside the safe radius, thinning out to nothing at the wild radius. Near home the squirrels and rabbits come down to the water and up the hills; far out the river is otters and the mountains are wolves and bears.
-- With the prototype catalog, near spawn: meadow ≈ 45% squirrel, 45% rabbit, 9% fox, 2% deer; forest ≈ 80% squirrel, 16% fox, 3% deer, under 1% wolf or bear; river ≈ 45% squirrel, 45% rabbit, 9% otter; mountains ≈ 50% squirrel, 50% rabbit, under 1% wolf or bear. Far out, every species living in the biome gets an equal share, so a far forest is 40% wolf or bear and a far river is all otters.
-- Promises: inside the safe radius, in every biome, tier 1 is the majority and tiers 3–5 together are under 5%; the share of fierce animals never falls, and the share of tier 1 never rises, as you walk away from spawn. With the prototype seed the spawn tile is one step from a river reed; an encounter there is a squirrel or a rabbit 10 times in 11 and an otter 1 time in 11.
+- Each step that lands on **tall grass** has a **1-in-10** chance of starting a wild battle: one encounter per ten grass steps on average, whichever animal leads the party, wherever anything could challenge it (below). No other tile ever starts one.
+- **The lead decides who comes out.** The lead is the first animal in the party that isn't tired: the one that steps into the battle first. With `L` its tier, a species `k = t − L` tiers above it (`k ≥ 0`) weighs what a tier-`(1 + k)` species weighed before the lead mattered, so the rules below are the starter's, moved up by `L − 1` tiers; for a tier-1 lead nothing changed. A species **one tier below** the lead weighs **1/10** of one of the lead's own tier, near home and far away. **Two or more tiers below**, it never comes out.
+- The animal comes from the biome's **encounter table**: every species whose habitats include the biome and that may challenge the lead, plus the visitors below. It appears at full HP.
+- **Distance rule.** Fierce animals are rare near the start and ordinary far away. With `d` the straight-line distance in tiles from the spawn tile, `danger = clamp((d − 32) / 96, 0, 1)`; a species `k` tiers above the lead weighs `5^(−k·(1−danger))`, one tier below weighs `0.1`, and the weights are normalised within the biome. Inside the **safe radius** (32 tiles) each tier above the lead is five times rarer than the tier below it; from the **wild radius** (128 tiles) out, every species living in the biome from the lead's tier up is equally likely; in between the ratio shrinks smoothly.
+- **Visitors near home.** A biome where animals the lead's size or bigger live, but none of its own tier, also gets every species of the lead's tier as a visitor, each weighing `1 − danger`: as much as a resident of the lead's tier inside the safe radius, thinning out to nothing at the wild radius. With the starter in front, the squirrels and rabbits come down to the water and up the hills; with a fox or an otter, foxes and otters come up the hills; with a deer, deer do. Far out the river is otters and the mountains are wolves and bears.
+- **Nothing to meet.** Where nothing living in a biome is within one tier below the lead, its tall grass stays quiet. In the prototype: a wolf meets nothing at the river, and a bear nothing in the meadow or at the river. The 1/10 only thins smaller animals out where the lead's tier or bigger lives too: where nothing but one-tier-smaller animals lives, every battle is one of them, on the usual 1 grass step in 10, so a deer at the river meets only otters and a wolf in the meadow only deer. A kid meets smaller animals again with a smaller lead; choosing the lead is party management (§6), and until it ships the lead changes only when the animals before it are tired.
+- With the prototype catalog, near spawn. **Starter (tier 1) in front**: meadow ≈ 45% squirrel, 45% rabbit, 9% fox, 2% deer; forest ≈ 80% squirrel, 16% fox, 3% deer, under 1% wolf or bear; river ≈ 45% squirrel, 45% rabbit, 9% otter; mountains ≈ 50% squirrel, 50% rabbit, under 1% wolf or bear. **Fox or otter**: meadow ≈ 71% fox, 14% deer, 7% squirrel, 7% rabbit; forest ≈ 74% fox, 15% deer, 7% squirrel, 4% wolf or bear; river all otters; mountains ≈ 49% fox, 49% otter, 2% wolf or bear. **Bear**: forest and mountains ≈ 91% bear, 9% wolf. Far out, every species living in the biome from the lead's tier up gets an equal share, so for the starter a far forest is 40% wolf or bear and a far river is all otters.
+- Promises, for every lead: nothing two or more tiers below it ever comes out; inside the safe radius, in every biome where anything its size or bigger lives, its own tier is the majority and animals two or more tiers above it are under 5% together; the share of those never falls, and the share of its own tier never rises, as you walk away from spawn. With the prototype seed the spawn tile is one step from a river reed: with the starter in front an encounter there is a squirrel or a rabbit 10 times in 11 and an otter 1 time in 11; with a fox in front it is always an otter.
 - River banks are sand with **reeds**: ordinary tall-grass tiles, looking like any tall grass, on about 3 bank tiles in 10. That is where otters are met.
 
 ### Battle
@@ -122,12 +124,16 @@ What is built and observable today. Keep current: add a bullet when a feature sh
 
 ### Encounters and battle
 
-- Wild encounters: each step onto tall grass may start a battle, with the species picked by biome, tier and distance from spawn (§4 "Wild encounters").
+- Wild encounters: each step onto tall grass may start a battle, with the species picked by biome, distance from spawn and tier compared with the party's lead (§4 "Wild encounters"). A stronger lead meets stronger animals as often as the starter meets small ones, never anything two or more tiers smaller, and finds some biomes quiet: a bear meets nothing in the meadow or at the river.
 - Battle mode, Game Boy style ([[UI_SPEC]] § Battle mode): the two animals face each other on a patch of the biome, with status boxes, a narration line, an action menu (every attack with its own level — easy, medium or hard — then Leash, Switch and Run) and the puzzle panel. Every attack is a puzzle answered by typing a number. The wild animal's reply and knock-outs are played out one line at a time.
 - Switching animals mid-battle (§4 "Battle"): Switch opens the party list, with tired animals greyed and the one in front marked; the switch takes the turn. After a knock-out the same list asks who goes next, and that pick is free. With a party of one the Switch row is greyed and says to catch a second animal.
 - Catching with the leash; a caught animal joins the party (up to six) with the HP it had. With six already, it goes back into the grass.
 - HP lost in a battle stays lost afterwards; a knocked-out animal stays tired and sits out battles until healed.
 - **Placeholder for losing**: when the whole party is tired, everyone rests back to full HP and the player is put back on the start tile ("Everyone is tired. You rest and feel better."). §4 says the player is taken to the nearest doctor's tent; that replaces this when doctor healing lands (§6).
+
+### Language
+
+- The game starts in Danish when the browser prefers Danish, and in English otherwise (`?lang=da` / `?lang=en` in the address overrides). So far only the line under a puzzle, the attack levels (let, mellem, svær) and the words for switching animals are in Danish; everything else is English, animal and attack names included, and there is no Language setting yet (§6).
 
 ### Engine
 
@@ -135,7 +141,7 @@ What is built and observable today. Keep current: add a bullet when a feature sh
 - Difficulty mapping (tier, attack, level) and healing difficulty — the healing one is not used by anything yet.
 - Damage and catch-probability formulas.
 - Species catalog: 7 placeholder species, tiers 1–5.
-- Wild encounter tables and the per-step roll, with tier-1 visitors near home in the river and the mountains (§4 "Wild encounters").
+- Wild encounter tables and the per-step roll, indexed on the lead's tier, with visitors of the lead's tier near home where only bigger animals live (§4 "Wild encounters").
 - Battle reducer: `startBattle` and `applyBattleIntent` play a whole wild battle by the rules in §4 — attacks, puzzles, answers, the wild animal's reply (which can miss an animal its own size or bigger), leash, flee, switching, knock-outs and the player's pick of who steps in — as intents in, events out.
 - Doctor rules (§4 "Knock-out and healing"): whether the player faces a tent, a doctor visit that heals one hurt animal per solved puzzle (`startDoctorVisit` and `applyDoctorIntent`, intents in, events out), and the knock-out rule (`takeToDoctor`), which finds the nearest tent on foot and heals the whole party. Not wired to the client yet: pressing Enter at a tent still just says "Nothing here yet.", and a lost battle ends in the placeholder rest above.
 
@@ -153,8 +159,9 @@ In rough priority order. Each becomes a GitHub issue when picked up.
 2. Doctor healing at tents in the client: the doctor's dialogue card, and the trip to the tent after a lost battle, replacing the placeholder rest in §5. The engine rules are built (§5).
 3. Save/load in the client: create the anonymous player on first visit, keep the secret, load the save on boot and write it as the game progresses (the server routes exist, see [[ARCHITECTURE]] § HTTP API).
 4. Real low-poly animal models (glTF, CC0 sources, see [[DECISIONS]]) with attack animations, replacing the primitive figures.
-5. Procedural world v2: rivers that flow, paths, biome shaping, landmarks, spawn tables.
-6. Puzzle catalog v2: fractions, decimals, negatives, word problems, per-child adaptive difficulty.
-7. Touch controls for tablets.
-8. Multiplayer: shared world, other players visible, PvP battles, tokens, shop.
-9. Deployment to the Hetzner VPS.
+5. The whole game in Danish and English: every line in both, and a Language setting in the pause menu that switches every word at once and is remembered on this device. The copy files and `t()` exist (§5, [[ARCHITECTURE]] § Copy); the words have not moved into them yet.
+6. Procedural world v2: rivers that flow, paths, biome shaping, landmarks, spawn tables.
+7. Puzzle catalog v2: fractions, decimals, negatives, word problems, per-child adaptive difficulty.
+8. Touch controls for tablets.
+9. Multiplayer: shared world, other players visible, PvP battles, tokens, shop.
+10. Deployment to the Hetzner VPS.

@@ -72,8 +72,8 @@ Technical items we've intentionally postponed: tech debt, hardening shortcuts, k
 
 ### The engine still writes English a player could read
 
-**What**: the battle and doctor reducers append English sentences to the `log` in their state ("Go, Rabbit!", "Wild Fox used Nip! 6 damage."), and `takeToDoctor` returns an English `message` for the message bar. Player copy is moving into per-language files (English and Danish), and a sentence built in the engine can't be translated there. The battle screen already narrates from events with the client's own words and never reads `log`. (Rejection `reason`s are English too, but they only reach the developer console.)
+**What**: `BattleState.log`, `DoctorState.log` and `Rescue.message` are English sentences built in the engine ([[ARCHITECTURE]] § Copy), against [[DECISIONS]] § Copy and languages ("the engine is language-free"). Nothing on screen reads the two logs; the rescue line will be shown once the doctor reaches the client. (Rejection `reason`s are English too, but they only reach the developer console.)
 
-**Why deferred**: dropping `log` changes `BattleState` and `DoctorState`, which the client save work persists and the engine's golden replays pin, and the translation files don't exist yet. The switching PR added no English sentence to the engine: its `switch` intent reuses the existing "Go, …!" line.
+**Why deferred**: dropping `log` changes `BattleState` and `DoctorState`, which the client save work persists and the engine's golden replays pin, and the copy extraction is its own PR. The switching PR added no English sentence to the engine: its `switch` intent reuses the existing "Go, …!" log line.
 
-**Trigger**: the PR that moves client copy into the per-language files. Remove `log` from both states (the events already say everything), and have `takeToDoctor` return which case happened (a tent, or a doctor who came by) instead of a sentence.
+**Trigger**: the copy-extraction PR that moves the game's words into the copy files. Remove `log` from both states (the events already say everything), and have `takeToDoctor` say which case happened (a tent, or a doctor who came by) instead of returning a sentence.

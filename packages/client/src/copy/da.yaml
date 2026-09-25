@@ -1,0 +1,45 @@
+# Dansk. Every key in en.yaml exists here, reading the same {params};
+# test/copy-files.test.ts checks.
+# How to add a line: AGENTS/DNA/DEVELOPMENT.md § Copy and languages.
+# How it should sound: AGENTS/DNA/DESIGN.md § Voice and copy (Danish).
+
+language:
+  # This language's own name, as the Language setting lists it.
+  name: Dansk
+
+puzzle:
+  # Under a puzzle until it is answered.
+  keys: Skriv svaret, og tryk så på Enter
+
+battle:
+  # An attack's three levels: the highlighted row's buttons, and every other row's word.
+  level:
+    easy: let
+    medium: mellem
+    hard: svær
+  # The key reminder under "Pick an attack".
+  menuKeys: ↑ ↓ vælg · ← → hvor svært · Enter kør
+  # The highlighted attack. {attack}: its name; {level}: its level's word;
+  # {kinds}: what its sums are about; {damage}: how much it hits for.
+  attackDetail: '{attack} på {level}: {kinds}. Det gør {damage} skade.'
+  switch:
+    # The Switch row of the action menu, and what it says when highlighted.
+    row: Skift
+    detail: Send et andet dyr ind. Det bruger din tur.
+    alone: Du skal have to dyr for at skifte. Fang et med snoren!
+    allTired: Dine andre dyr er trætte.
+    # The party list: its title, its keys (no way back after a knock-out), its tags.
+    title: Vælg et dyr
+    keys: ↑ ↓ vælg · Enter kør · Esc tilbage
+    mustPickKeys: ↑ ↓ vælg · Enter kør
+    tiredTag: træt
+    inBattleTag: på banen
+    # The highlighted animal of the list; {name} is its name.
+    sendIn: 'Send {name} ind. Så får det vilde dyr en tur.'
+    sendInFree: 'Send {name} ind. Så er det din tur.'
+    tired: '{name} er træt og skal hvile sig.'
+    inBattle: '{name} er allerede på banen.'
+    # Narration: the animal in front is tired and someone must go in.
+    whoIsNext: '{name} er træt. Hvem skal ind nu?'
+    # Narration: the animal in front goes back to make room.
+    comeBack: 'Kom tilbage, {name}!'

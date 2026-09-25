@@ -1,5 +1,6 @@
 <script lang="ts">
 	import type { Puzzle } from '@mathgame/engine';
+	import { t } from '../copy';
 
 	/**
 	 * One puzzle being answered: the prompt in very large type, the answer
@@ -37,7 +38,7 @@
 		{judged.correct ? 'Correct!' : 'Not quite!'}
 	</div>
 {:else}
-	<div class="keys">Type the answer, then press Enter</div>
+	<div class="keys">{t('puzzle.keys')}</div>
 {/if}
 
 <style>

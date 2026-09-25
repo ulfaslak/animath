@@ -1,0 +1,45 @@
+# English: the fallback language. Every key here exists in every language
+# file, reading the same {params}; test/copy-files.test.ts checks.
+# How to add a line: AGENTS/DNA/DEVELOPMENT.md § Copy and languages.
+# How it should sound: AGENTS/DNA/DESIGN.md § Voice and copy.
+
+language:
+  # This language's own name, as the Language setting lists it.
+  name: English
+
+puzzle:
+  # Under a puzzle until it is answered.
+  keys: Type the answer, then press Enter
+
+battle:
+  # An attack's three levels: the highlighted row's buttons, and every other row's word.
+  level:
+    easy: easy
+    medium: medium
+    hard: hard
+  # The key reminder under "Pick an attack".
+  menuKeys: ↑ ↓ choose · ← → how hard · Enter go
+  # The highlighted attack. {attack}: its name; {level}: its level's word;
+  # {kinds}: what its sums are about; {damage}: how much it hits for.
+  attackDetail: '{attack} on {level}: {kinds}. It hits for {damage}.'
+  switch:
+    # The Switch row of the action menu, and what it says when highlighted.
+    row: Switch
+    detail: Send in a different animal. It uses up your turn.
+    alone: You need a second animal to switch. Catch one with the leash!
+    allTired: Your other animals are tired.
+    # The party list: its title, its keys (no way back after a knock-out), its tags.
+    title: Pick an animal
+    keys: ↑ ↓ choose · Enter go · Esc back
+    mustPickKeys: ↑ ↓ choose · Enter go
+    tiredTag: tired
+    inBattleTag: in battle
+    # The highlighted animal of the list; {name} is its name.
+    sendIn: 'Send in {name}. Then the wild animal gets a turn.'
+    sendInFree: "Send in {name}. Then it's your turn."
+    tired: '{name} is tired and needs a rest.'
+    inBattle: '{name} is already in the battle.'
+    # Narration: the animal in front is tired and someone must go in.
+    whoIsNext: '{name} is tired. Who goes next?'
+    # Narration: the animal in front goes back to make room.
+    comeBack: 'Come back, {name}!'

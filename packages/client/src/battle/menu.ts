@@ -1,5 +1,5 @@
 import { ATTACK_LEVELS, type AnimalSpec, type AttackLevel } from '@mathgame/engine';
-import { LEVEL_WORDS } from './copy';
+import { t } from '../copy';
 
 /**
  * The battle menus as pure data: which row the cursor is on, the level each
@@ -55,6 +55,18 @@ function clampLevel(level: number): AttackLevel {
 	return Math.max(lo, Math.min(hi, level)) as AttackLevel;
 }
 
+/** What a level is called, in the language on screen: easy, medium or hard. */
+export function levelWord(level: AttackLevel): string {
+	switch (level) {
+		case 1:
+			return t('battle.level.easy');
+		case 2:
+			return t('battle.level.medium');
+		case 3:
+			return t('battle.level.hard');
+	}
+}
+
 /** One attack row as the panel draws it: its own level and that level's word. */
 export interface AttackRow {
 	/** 1-based, as the engine counts attacks. */
@@ -67,7 +79,7 @@ export interface AttackRow {
 export function attackRows(spec: AnimalSpec, levels: Levels): AttackRow[] {
 	return spec.attacks.map((attack, i) => {
 		const level = levelOf(levels, spec.id, attack.id);
-		return { index: i + 1, name: attack.name, level, word: LEVEL_WORDS[level] };
+		return { index: i + 1, name: attack.name, level, word: levelWord(level) };
 	});
 }
 
