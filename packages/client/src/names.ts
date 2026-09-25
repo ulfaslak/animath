@@ -10,6 +10,10 @@ export function nameOf(animal: AnimalInstance): string {
 	return animal.nickname ?? speciesName(animal.speciesId);
 }
 
+/**
+ * A species' name on screen. Still the engine catalog's English name: the one
+ * place the copy extraction swaps for `t('species.<id>.name')`.
+ */
 export function speciesName(speciesId: string): string {
 	return getAnimal(speciesId).name;
 }

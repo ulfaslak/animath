@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { MAX_NICKNAME_LENGTH, getAnimal, leadIndex, normalizeNickname } from '@mathgame/engine';
 	import { flip } from 'svelte/animate';
+	import { t } from '../copy';
 	import { nameOf, speciesName } from '../names';
 	import { game } from '../state/game.svelte';
 	import {
@@ -18,35 +19,8 @@
 	 * options, or the name box. It reads `game.party` and `pause`; keys are
 	 * `PauseController`'s, so nothing here dispatches. The name box binds
 	 * `pause.draft` and keeps the focus while it is open, so typing lands in it.
+	 * Every word comes from the copy files (`pause.*`, `hud.*`).
 	 */
-
-	/** Every word this screen shows, in one place for translation. */
-	const COPY = {
-		title: 'Paused',
-		team: 'Your team',
-		tired: 'tired',
-		lead: 'goes first',
-		items: { resume: 'Keep playing' } satisfies Record<MenuItem, string>,
-		options: {
-			first: 'Go first',
-			up: 'Move up',
-			down: 'Move down',
-			name: 'New name',
-			back: 'Back'
-		} satisfies Record<PartyOption, string>,
-		pick: 'Pick an animal',
-		pickHelp: 'Choose who goes first, move it, or give it a name.',
-		tiredHelp: (name: string) => `${name} is tired, so it can't go first.`,
-		nameTitle: (species: string) => `Name your ${species}`,
-		nameRule: `Letters and numbers, up to ${MAX_NICKNAME_LENGTH}.`,
-		willBe: (name: string) => `It will be called ${name}.`,
-		keys: {
-			list: '↑ ↓ choose · Enter pick · Esc close',
-			options: '↑ ↓ choose · Enter do it · Esc back',
-			naming: 'Enter save · Esc back'
-		}
-	};
-
 	const lead = $derived(leadIndex(game.party));
 	const pickedIndex = $derived(
 		pause.picked === null ? -1 : game.party.findIndex((a) => a.id === pause.picked)
@@ -60,8 +34,30 @@
 	const preview = $derived.by(() => {
 		if (pause.screen !== 'naming' || !picked) return '';
 		const clean = normalizeNickname(pause.draft) ?? speciesName(picked.speciesId);
-		return clean === pause.draft.trim().replace(/\s+/g, ' ') ? '' : COPY.willBe(clean);
+		return clean === pause.draft.trim().replace(/\s+/g, ' ') ? '' : clean;
 	});
+
+	function itemLabel(item: MenuItem): string {
+		switch (item) {
+			case 'resume':
+				return t('pause.resume');
+		}
+	}
+
+	function optionLabel(option: PartyOption): string {
+		switch (option) {
+			case 'first':
+				return t('pause.goFirst');
+			case 'up':
+				return t('pause.moveUp');
+			case 'down':
+				return t('pause.moveDown');
+			case 'name':
+				return t('pause.newName');
+			case 'back':
+				return t('pause.back');
+		}
+	}
 
 	/** Focus the name box with its text selected (typing replaces it), and keep the focus there. */
 	function nameBox(input: HTMLInputElement) {
@@ -78,10 +74,10 @@
 
 <div class="backdrop">
 	<div class="menu">
-		<div class="title">{COPY.title}</div>
+		<div class="title">{t('pause.title')}</div>
 		<div class="columns">
 			<div class="team">
-				<div class="heading">{COPY.team}</div>
+				<div class="heading">{t('pause.team')}</div>
 				{#each game.party as animal, i (animal.id)}
 					{@const spec = getAnimal(animal.speciesId)}
 					{@const name = nameOf(animal)}
@@ -102,9 +98,9 @@
 						<span class="bar"><HpBar hp={animal.hp} max={spec.maxHp} /></span>
 						<span class="tags">
 							{#if animal.hp === 0}
-								<span class="tag">{COPY.tired}</span>
+								<span class="tag">{t('hud.tired')}</span>
 							{:else if i === lead && game.party.length > 1}
-								<span class="tag lead">{COPY.lead}</span>
+								<span class="tag lead">{t('hud.goesFirst')}</span>
 							{/if}
 						</span>
 					</div>
@@ -114,7 +110,7 @@
 						class="row item"
 						class:lit={pause.screen === 'list' && lit === game.party.length + j}
 					>
-						<span class="button">{COPY.items[item]}</span>
+						<span class="button">{itemLabel(item)}</span>
 					</div>
 				{/each}
 			</div>
@@ -124,14 +120,14 @@
 					<div class="side-title">{nameOf(picked)}</div>
 					{#each options as option, i (option.id)}
 						<div class="row option" class:lit={pause.option === i} class:off={!option.enabled}>
-							<span class="caret">▸</span>{COPY.options[option.id]}
+							<span class="caret">▸</span>{optionLabel(option.id)}
 						</div>
 					{/each}
 					{#if picked.hp === 0}
-						<div class="note">{COPY.tiredHelp(nameOf(picked))}</div>
+						<div class="note">{t('pause.tiredHelp', { name: nameOf(picked) })}</div>
 					{/if}
 				{:else if pause.screen === 'naming' && picked}
-					<div class="side-title">{COPY.nameTitle(speciesName(picked.speciesId))}</div>
+					<div class="side-title">{t('pause.nameTitle', { name: nameOf(picked) })}</div>
 					<input
 						class="name-box"
 						type="text"
@@ -140,18 +136,28 @@
 						placeholder={speciesName(picked.speciesId)}
 						autocomplete="off"
 						spellcheck="false"
-						aria-label={COPY.options.name}
+						aria-label={t('pause.newName')}
 						{@attach nameBox}
 					/>
-					<div class="note">{COPY.nameRule}</div>
-					{#if preview}<div class="note preview">{preview}</div>{/if}
+					<div class="note">{t('pause.nameRule', { max: MAX_NICKNAME_LENGTH })}</div>
+					{#if preview}
+						<div class="note preview">{t('pause.willBe', { name: preview })}</div>
+					{/if}
 				{:else}
-					<div class="soft">{COPY.pick}</div>
-					<div class="note">{COPY.pickHelp}</div>
+					<div class="soft">{t('pause.pick')}</div>
+					<div class="note">{t('pause.pickHelp')}</div>
 				{/if}
 			</div>
 		</div>
-		<div class="keys">{COPY.keys[pause.screen]}</div>
+		<div class="keys">
+			{#if pause.screen === 'list'}
+				{t('pause.keysList')}
+			{:else if pause.screen === 'options'}
+				{t('pause.keysOptions')}
+			{:else}
+				{t('pause.keysNaming')}
+			{/if}
+		</div>
 	</div>
 </div>
 

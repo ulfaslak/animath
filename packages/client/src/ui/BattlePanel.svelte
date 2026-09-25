@@ -8,6 +8,7 @@
 		type AnimalInstance,
 		type PuzzleKind
 	} from '@mathgame/engine';
+	import { t } from '../copy';
 	import { actionAt, battle } from '../state/battle.svelte';
 	import HpBar from './HpBar.svelte';
 	import PuzzlePanel from './PuzzlePanel.svelte';
@@ -81,7 +82,6 @@
 		const chance = catchProbability(hp, opponentSpec.catchRate, battle.leashQuality);
 		return chance >= 0.5 ? 'good' : chance >= 0.2 ? 'warn' : 'bad';
 	});
-	const LEASH_WORDS = { good: 'Good chance!', warn: 'Maybe', bad: 'Hard to catch' } as const;
 
 	const headline = $derived.by(() => {
 		switch (battle.outcome) {
@@ -147,7 +147,15 @@
 			<div class="row" class:selected={battle.cursor === spec.attacks.length}>
 				<span class="caret">▸</span>
 				<span class="label">Leash</span>
-				<span class="how">{LEASH_WORDS[leashBand]}</span>
+				<span class="how">
+					{#if leashBand === 'good'}
+						{t('battle.leashGood')}
+					{:else if leashBand === 'warn'}
+						{t('battle.leashMaybe')}
+					{:else}
+						{t('battle.leashHard')}
+					{/if}
+				</span>
 				<span class="dot {leashBand}"></span>
 			</div>
 			<div class="row" class:selected={battle.cursor === spec.attacks.length + 1}>

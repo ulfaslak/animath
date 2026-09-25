@@ -102,7 +102,7 @@ describe('pause menu', () => {
 	});
 
 	it('"Go first" sends select-lead and comes back to the list on the animal, now first', () => {
-		const { press, sent, species, events } = setup();
+		const { press, sent, species } = setup();
 		const fox = game.party[2]!;
 		press('Escape', 's', 's', 'Enter');
 		expect(pause.screen).toBe('options');
@@ -115,7 +115,8 @@ describe('pause menu', () => {
 		expect(species()).toEqual(['fox', 'squirrel', 'rabbit']);
 		expect(pause.screen).toBe('list');
 		expect(pause.cursor).toBe(0);
-		expect(events.some((e) => e.type === 'message' && e.text === 'Fox goes first!')).toBe(true);
+		// The message line will say so when the menu closes.
+		expect(game.notice).toEqual({ kind: 'chosen', animalId: fox.id });
 	});
 
 	it('moves an animal up one step at a time, and a mashed Enter stops at the top', () => {

@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { getAnimal, leadIndex } from '@mathgame/engine';
+	import { t } from '../copy';
 	import { nameOf } from '../names';
 	import { game } from '../state/game.svelte';
 	import HpBar from './HpBar.svelte';
@@ -10,20 +11,15 @@
 	 * is knocked out. The lead — the engine's `leadIndex`, the first animal
 	 * standing, the one a battle sends out — is outlined and tagged "goes
 	 * first". Under the cards, the keys for choosing and for the menu; at the
-	 * bottom, the message line.
+	 * bottom, the message line, where a notice about the lead is put into words.
 	 */
-
-	/** Every word the cards and keys show, in one place for translation. */
-	const COPY = {
-		tired: 'tired',
-		lead: 'goes first',
-		choose: 'Pick who goes first',
-		menu: 'Menu'
-	};
-
 	const lead = $derived(leadIndex(game.party));
 	/** With one animal there is nobody to choose between: no numbers, no tag. */
 	const choosing = $derived(game.party.length > 1);
+	/** The animal a notice about the lead is about, if it is still in the party. */
+	const noticed = $derived(
+		game.notice ? game.party.find((a) => a.id === game.notice!.animalId) : undefined
+	);
 </script>
 
 <div class="party">
@@ -34,9 +30,9 @@
 				{#if choosing}<kbd class="slot">{i + 1}</kbd>{/if}
 				<span class="name">{nameOf(animal)}</span>
 				{#if animal.hp === 0}
-					<span class="tag">{COPY.tired}</span>
+					<span class="tag">{t('hud.tired')}</span>
 				{:else if choosing && i === lead}
-					<span class="tag lead">{COPY.lead}</span>
+					<span class="tag lead">{t('hud.goesFirst')}</span>
 				{/if}
 			</div>
 			<div class="hp"><HpBar hp={animal.hp} max={spec.maxHp} /></div>
@@ -44,15 +40,24 @@
 	{/each}
 	<div class="keys">
 		{#if choosing}
-			<span><kbd>1</kbd>–<kbd>{game.party.length}</kbd> {COPY.choose}</span>
+			<span><kbd>1</kbd>–<kbd>{game.party.length}</kbd> {t('hud.pickLead')}</span>
 		{/if}
-		<span><kbd>Esc</kbd> {COPY.menu}</span>
+		<span><kbd>{t('keys.esc')}</kbd> {t('hud.menu')}</span>
 	</div>
 </div>
 
 <div class="hint">
 	Arrows / WASD to walk · {game.pos.x}, {game.pos.y}
-	{#if game.message}
+	{#if game.notice && noticed}
+		·
+		{#if game.notice.kind === 'chosen'}
+			{t('party.leadChosen', { name: nameOf(noticed) })}
+		{:else if game.notice.kind === 'tired'}
+			{t('party.leadTired', { name: nameOf(noticed) })}
+		{:else}
+			{t('party.leadAlready', { name: nameOf(noticed) })}
+		{/if}
+	{:else if game.message}
 		· {game.message}
 	{/if}
 </div>

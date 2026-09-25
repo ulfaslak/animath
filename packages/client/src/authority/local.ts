@@ -24,18 +24,9 @@ import {
 	type GameEvent,
 	type GridPos,
 	type Intent,
-	type PartyEvent,
 	type PartyIntent,
 	type PlayerActivity
 } from '@mathgame/engine';
-import { nameOf } from '../names';
-
-/** The message bar's lines about choosing who goes first, in one place for translation. */
-const LEAD_WORDS = {
-	chosen: (name: string) => `${name} goes first!`,
-	tired: (name: string) => `${name} is tired. Visit the doctor!`,
-	already: (name: string) => `${name} already goes first!`
-};
 
 export interface LocalAuthorityOptions {
 	/** Start with this party instead of the one squirrel: the `?party=` debug hook (`partyFromParam`). */
@@ -222,34 +213,15 @@ export class LocalAuthority implements Authority {
 
 	// --- party ---------------------------------------------------------------
 
+	/**
+	 * Apply a party intent and say what happened: the facts only. The client
+	 * words them (the message line's notice about the lead), in the language
+	 * on screen.
+	 */
 	private editParty(intent: PartyIntent): void {
-		const before = this.party[leadIndex(this.party)];
 		const { party, events } = applyPartyIntent(this.party, intent, this.activity());
 		this.party = party.map((a) => ({ ...a }));
 		this.emit({ type: 'party-edited', party: this.partyCopy(), events });
-		const line = this.leadLine(events, before);
-		if (line) this.emit({ type: 'message', text: line });
-	}
-
-	/**
-	 * The message bar's line after a party edit. A lead that can't be chosen is
-	 * told why — nothing else on screen would say. Otherwise, whenever the edit
-	 * changed who goes first or what it is called (a pick, a move in the pause
-	 * menu, a new name), the bar names the lead again, so an earlier "Fox goes
-	 * first!" never outlives the fox's place at the front.
-	 */
-	private leadLine(events: readonly PartyEvent[], before: AnimalInstance | undefined): string {
-		for (const e of events) {
-			if (e.type !== 'rejected' || e.animalId === undefined) continue;
-			const animal = this.party.find((a) => a.id === e.animalId);
-			if (!animal) continue;
-			if (e.reason === 'tired') return LEAD_WORDS.tired(nameOf(animal));
-			if (e.reason === 'already-lead') return LEAD_WORDS.already(nameOf(animal));
-		}
-		const after = this.party[leadIndex(this.party)];
-		if (!after) return '';
-		const same = before?.id === after.id && before.nickname === after.nickname;
-		return same ? '' : LEAD_WORDS.chosen(nameOf(after));
 	}
 
 	/** What the player is doing, for the engine's rules that depend on it. */

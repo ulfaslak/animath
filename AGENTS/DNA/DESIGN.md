@@ -72,6 +72,30 @@ Short, warm, second person. One idea per line. Words a seven-year-old reads with
 - "Good try!" when the whole party is tired, never "You lost".
 - No sarcasm, no "oops", no "error". No text the game can't stand behind if a kid reads it aloud.
 
+Every line exists in each language the game speaks ([[DECISIONS]] § Copy and languages). Each language is written, not translated word for word: say what a kid who speaks it would say.
+
+### Danish
+
+The same voice for a Danish seven-year-old reading alone: short, warm, one idea per line, everyday words.
+
+- Second person "du", never "De".
+- "træt" for tired: "Ræv er træt." Never "besvimet", "slået ud" or "død".
+- "Ikke helt! Bjørnen ryster det af sig." not "Forkert svar." Big moments get big copy and an exclamation mark: "Du fangede en ræv!" "Godt forsøgt!" when the whole party is tired, never "Du tabte".
+- No anglicisms where Danish has a word a kid knows: "hold", not "team". Nothing scary: no "dø", "dræbe" or "blod".
+- The animal that goes first is "først ud" ("Ræv er først ud!"), and the menu option that puts one there is "Sæt forrest". The pause menu is "Pause", and closing it is "Spil videre".
+- A species is a noun. Your own animal goes by its name, the nickname or else the species with a capital ("Kom så, Ræv!"). A wild one gets an article, lower case: "En vild ræv dukker op!", "Den vilde ræv er træt."
+- Danish nouns are *en* or *et*, and the article and "vild" follow: en vild ræv / den vilde ræv, but et vildt egern / det vilde egern. The copy files give each species its forms, so a sentence never guesses.
+
+| English  | Dansk  | en / et | the …   |
+| -------- | ------ | ------- | ------- |
+| Squirrel | egern  | et      | egernet |
+| Rabbit   | kanin  | en      | kaninen |
+| Fox      | ræv    | en      | ræven   |
+| Otter    | odder  | en      | odderen |
+| Deer     | hjort  | en      | hjorten |
+| Wolf     | ulv    | en      | ulven   |
+| Bear     | bjørn  | en      | bjørnen |
+
 ## Accessibility
 
 - Every state is readable without colour (numbers on HP bars, icons plus text for hit/miss, "goes first" on the lead's card).

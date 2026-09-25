@@ -138,6 +138,10 @@ What is built and observable today. Keep current: add a bullet when a feature sh
 - HP lost in a battle stays lost afterwards; a knocked-out animal stays tired and sits out battles until healed.
 - **Placeholder for losing**: when the whole party is tired, everyone rests back to full HP and the player is put back on the start tile ("Everyone is tired. You rest and feel better."). §4 says the player is taken to the nearest doctor's tent; that replaces this when doctor healing lands (§6).
 
+### Language
+
+- The game starts in Danish when the browser prefers Danish, and in English otherwise (`?lang=da` / `?lang=en` in the address overrides). So far only the line under a puzzle is in Danish; everything else is English, and there is no Language setting yet (§6).
+
 ### Engine
 
 - Puzzle catalog: 7 kinds across difficulty 1–10, seeded and deterministic.
@@ -163,8 +167,9 @@ In rough priority order. Each becomes a GitHub issue when picked up.
 2. Save/load in the client: create the anonymous player on first visit, keep the secret, load the save on boot and write it as the game progresses (the server routes exist, see [[ARCHITECTURE]] § HTTP API).
 3. A title screen and settings (sound, language) in the pause menu.
 4. Real low-poly animal models (glTF, CC0 sources, see [[DECISIONS]]) with attack animations, replacing the primitive figures.
-5. Procedural world v2: rivers that flow, paths, biome shaping, landmarks, spawn tables.
-6. Puzzle catalog v2: fractions, decimals, negatives, word problems, per-child adaptive difficulty.
-7. Touch controls for tablets.
-8. Multiplayer: shared world, other players visible, PvP battles, tokens, shop.
-9. Deployment to the Hetzner VPS.
+5. The whole game in Danish and English: every line in both, and a Language setting in the pause menu that switches every word at once and is remembered on this device. The copy files and `t()` exist (§5, [[ARCHITECTURE]] § Copy); the words have not moved into them yet.
+6. Procedural world v2: rivers that flow, paths, biome shaping, landmarks, spawn tables.
+7. Puzzle catalog v2: fractions, decimals, negatives, word problems, per-child adaptive difficulty.
+8. Touch controls for tablets.
+9. Multiplayer: shared world, other players visible, PvP battles, tokens, shop.
+10. Deployment to the Hetzner VPS.

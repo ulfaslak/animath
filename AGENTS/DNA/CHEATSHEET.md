@@ -10,7 +10,7 @@ Everything a player can do in **today's build**, and how: every key, every hidde
 | --------------------- | ------- | ----------------------------------------------------------------------------------------------------------------------- |
 | Arrow keys / W A S D  | Explore | Walk one tile. Hold to keep walking (about 5–6 tiles a second).                                                         |
 | Enter / Space         | Explore | Interact. Today it always says "Nothing here yet.", wherever you stand and whatever you face. The on-screen hint doesn't mention this key. |
-| 1–6                   | Explore | Choose who goes first: the animal on that card moves to the top of your team ("Fox goes first!"), even mid-step. A tired one stays where it is ("Rabbit is tired. Visit the doctor!"), and so does the one that already goes first ("Fox already goes first!"). A number with no card does nothing, and with one animal there are no numbers. |
+| 1–6                   | Explore | Choose who goes first: the animal on that card moves to the top of your team ("Fox goes first!"), even mid-step. A tired one stays where it is ("Rabbit is tired and can't go first."), and so does the one that already goes first ("Fox already goes first!"). A number with no card does nothing, and with one animal there are no numbers. |
 | Escape                | Explore | Open the pause menu. Walking waits until it closes. |
 | Up / Down, W / S      | Pause menu | Move the cursor through your team and then "Keep playing". It wraps round. |
 | Enter / Space         | Pause menu | On an animal: open its options on the right. On "Keep playing": close the menu. |
@@ -27,7 +27,7 @@ Everything a player can do in **today's build**, and how: every key, every hidde
 | Enter                 | Puzzle  | Answer. Nothing happens until you have typed at least one digit.                                                        |
 | Enter / Space         | Result card | Back to exploring.                                                                                                  |
 
-Escape does nothing in a battle — not even in a puzzle: once a puzzle is up, the only way on is to answer it. The mouse and touch are ignored everywhere (the result card's button, the party cards and the pause menu's rows look clickable but aren't; a click in the name box only moves the caret). The page has no debug keys or console hooks; its URL parameters are `?zoo` and `?party=` (see § Hidden behaviour).
+Escape does nothing in a battle — not even in a puzzle: once a puzzle is up, the only way on is to answer it. The mouse and touch are ignored everywhere (the result card's button, the party cards and the pause menu's rows look clickable but aren't; a click in the name box only moves the caret). The page has no debug keys or console hooks; its URL parameters are `?zoo`, `?lang` and `?party=` (see § Hidden behaviour).
 
 ## The world
 
@@ -95,6 +95,7 @@ To meet smaller animals again, put a smaller animal in front: press its number, 
 - **Walking waits in the pause menu.** Opening it mid-step lets that step land, then nothing moves until the menu closes. An arrow still held when the menu opens or closes does nothing until you press it again, and a battle can never start while the menu is open.
 - **Nothing is saved.** A reload puts you back at (-2, 6) with one full-HP Squirrel, and forgets names and order.
 - **`?party=` picks your starting team.** `http://localhost:5180/?party=rabbit,fox:0,bear:40:Big Bear` starts with those animals instead of the Squirrel: species ids separated by commas, each with an optional `:HP` (full when left out, kept between 0 and the species' maximum) and `:name` (cleaned like a typed one). Unknown species are skipped and at most six are kept. It exists to check the party screens without catching five animals first — and anyone who knows it can start with a bear.
+- **Some Danish.** If your browser prefers Danish, the line under a puzzle you haven't answered yet says "Skriv svaret, og tryk så på Enter", and the party cards ("træt", "først ud"), the keys under them, the lines about who goes first ("Ræv er først ud!"), the whole pause menu and the Leash row's words ("God chance!", "Måske", "Svært at fange") are Danish. Every other word is still English (species names too, so a card can say "Squirrel … først ud"), and there is no way to switch language in the game yet. `?lang=da` or `?lang=en` in the address picks one for that visit.
 - **`?zoo` shows every animal.** Open `http://localhost:5180/?zoo` and one of each species stands in a row two or three tiles from the start, in catalog order — squirrel, rabbit, fox, otter, deer, wolf, bear — facing you. They are scenery: you walk straight through them and nothing else changes. It exists to check the figures, not to play with.
 
 ## Exploits and quirks

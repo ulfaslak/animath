@@ -7,8 +7,7 @@ import {
 	type AnimalInstance,
 	type BattleState,
 	type GameEvent,
-	type GridPos,
-	type Intent
+	type GridPos
 } from '@mathgame/engine';
 import { describe, expect, it } from 'vitest';
 import { LocalAuthority, partyFromParam } from '../src/authority/local';
@@ -393,21 +392,22 @@ describe('LocalAuthority: the party', () => {
 		s.authority.dispatch({ type: 'party', intent: { type: 'select-lead', animalId: fox.id } });
 		expect(lastEdit(s).events).toEqual([{ type: 'lead-selected', animalId: fox.id, from: 2 }]);
 		expect(party(s).map((a) => a.speciesId)).toEqual(['fox', 'squirrel', 'rabbit']);
-		expect(lastMessage(s)).toBe('Fox goes first!');
 		const battle = walkIntoBattle(s);
 		expect(battle.party[battle.active]!.id).toBe(fox.id);
 	});
 
-	it('a tired animal is not chosen, and the message says why', () => {
+	it('a tired animal is not chosen, and the refusal names it; no sentence is sent', () => {
 		const s = session('squirrel,rabbit:0');
 		const before = party(s);
 		const rabbit = before[1]!;
+		const sent = s.events.length;
 		s.authority.dispatch({ type: 'party', intent: { type: 'select-lead', animalId: rabbit.id } });
 		expect(lastEdit(s).events).toEqual([
 			{ type: 'rejected', reason: 'tired', animalId: rabbit.id }
 		]);
 		expect(party(s)).toEqual(before);
-		expect(lastMessage(s)).toBe('Rabbit is tired. Visit the doctor!');
+		// The facts only: the client words them in the language on screen.
+		expect(s.events.slice(sent).map((e) => e.type)).toEqual(['party-edited']);
 	});
 
 	it('with the first animal tired, the next one standing leads the battle', () => {
@@ -429,28 +429,6 @@ describe('LocalAuthority: the party', () => {
 		const battle = walkIntoBattle(s);
 		expect(battle.party[battle.active]!.nickname).toBe('Sir Fluffing');
 		expect(battle.log).toContain('Go, Sir Fluffing!');
-	});
-
-	it('the message bar names the lead again after any edit that changes who it is or its name', () => {
-		const s = session('squirrel,rabbit,fox');
-		const [squirrel, rabbit, fox] = party(s);
-		const messages = () => s.events.filter((e) => e.type === 'message').length;
-		const edit = (intent: Extract<Intent, { type: 'party' }>['intent']) =>
-			s.authority.dispatch({ type: 'party', intent });
-
-		edit({ type: 'select-lead', animalId: fox!.id });
-		expect(lastMessage(s)).toBe('Fox goes first!');
-		// The pause menu moves the fox to the back: the squirrel leads again.
-		edit({ type: 'reorder', animalId: fox!.id, to: 2 });
-		expect(lastMessage(s)).toBe('Squirrel goes first!');
-		// The lead gets a name: the bar says it.
-		edit({ type: 'rename', animalId: squirrel!.id, nickname: 'Pip' });
-		expect(lastMessage(s)).toBe('Pip goes first!');
-		// Edits that leave the lead as it was say nothing.
-		const before = messages();
-		edit({ type: 'rename', animalId: rabbit!.id, nickname: 'Hop' });
-		edit({ type: 'reorder', animalId: rabbit!.id, to: 2 });
-		expect(messages()).toBe(before);
 	});
 
 	it('a party it starts with is cleaned like a rename', () => {
