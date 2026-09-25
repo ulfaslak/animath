@@ -1,12 +1,13 @@
-import { getAnimal, normalizeNickname, type AnimalInstance } from '@mathgame/engine';
+import { getAnimal, type AnimalInstance } from '@mathgame/engine';
 
 /**
  * What the screen calls an animal: its nickname, or else its species' name.
- * The nickname is read through the engine's cleaning, so a name from anywhere
- * (an old save, the `?party=` hook) shows as a typed one would, never blank.
+ * Every way a nickname enters the authority's party goes through the engine's
+ * `normalizeNickname` (a rename, and the party the authority starts with), so
+ * the name is shown as stored, the same on every screen.
  */
 export function nameOf(animal: AnimalInstance): string {
-	return normalizeNickname(animal.nickname) ?? speciesName(animal.speciesId);
+	return animal.nickname ?? speciesName(animal.speciesId);
 }
 
 export function speciesName(speciesId: string): string {

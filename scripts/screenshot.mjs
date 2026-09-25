@@ -21,6 +21,9 @@
  *   shot:<name>   save an extra frame to `<out>-<name>.png` now
  *   size:<w>x<h>  resize the window now (e.g. mid-battle)
  *   reload:       reload the page and wait for it, as a kid pressing F5 would
+ *   down:<key>    press a key and keep it down while the next tokens run; a
+ *                 second `down:` of the same key is an auto-repeat
+ *   up:<key>      let go of a key pressed with `down:`
  * The final frame goes to `--out`. After every frame the script prints what
  * the screen says — in explore the HUD line (with the grid position) and the
  * party cards; in the pause menu its rows, the picked animal's options and
@@ -62,7 +65,7 @@ const script = (args.keys ?? '')
 	.split(',')
 	.filter(Boolean)
 	.flatMap((token) => {
-		const m = /^(type|wait|shot|hold|size|reload):(.*)$/.exec(token);
+		const m = /^(type|wait|shot|hold|size|reload|down|up):(.*)$/.exec(token);
 		if (m) return [{ op: m[1], arg: m[2] }];
 		const [key, n] = token.split('*');
 		return Array(Number(n ?? 1)).fill({ op: 'key', arg: key });
@@ -214,6 +217,14 @@ for (const { op, arg } of script) {
 		case 'reload':
 			await page.reload({ waitUntil: 'networkidle' });
 			await page.waitForTimeout(wait);
+			break;
+		case 'down':
+			await page.keyboard.down(arg);
+			await page.waitForTimeout(keyInterval);
+			break;
+		case 'up':
+			await page.keyboard.up(arg);
+			await page.waitForTimeout(keyInterval);
 			break;
 		case 'shot':
 			await page.waitForTimeout(400);

@@ -43,7 +43,9 @@ export class PauseController {
 
 	onKey(e: KeyboardEvent): void {
 		// An input method is still building a character; its Enter and Escape are its own.
-		if (e.isComposing) return;
+		// Safari ends the composition before the Enter that commits it arrives, so
+		// that keydown says `isComposing: false`; its keyCode is still 229.
+		if (e.isComposing || e.keyCode === 229) return;
 		if (!pause.open) {
 			if (e.key === 'Escape' && !e.repeat && !modified(e)) {
 				this.open();

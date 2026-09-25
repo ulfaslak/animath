@@ -8,6 +8,7 @@ import {
 	hashInts,
 	hashString,
 	isWalkable,
+	leadIndex,
 	normalizeNickname,
 	rollEncounter,
 	spawnPoint,
@@ -23,10 +24,10 @@ import {
 	type GameEvent,
 	type GridPos,
 	type Intent,
+	type PartyEvent,
 	type PartyIntent,
 	type PlayerActivity
 } from '@mathgame/engine';
-
 import { nameOf } from '../names';
 
 /** The message bar's lines about choosing who goes first, in one place for translation. */
@@ -80,8 +81,11 @@ export class LocalAuthority implements Authority {
 	start(): void {
 		this.spawn = spawnPoint(this.seed);
 		this.pos = this.spawn;
+		// A party from outside (`?party=`, later a save) enters through the
+		// engine's name cleaning, like a rename: the party only ever holds
+		// cleaned nicknames, so every screen can show one as stored.
 		this.party = this.options.party?.length
-			? this.options.party.map((a) => ({ ...a }))
+			? this.options.party.map(withCleanNickname)
 			: [{ id: 'starter', speciesId: 'squirrel', hp: 20 }];
 		this.emit({
 			type: 'welcome',
@@ -214,24 +218,33 @@ export class LocalAuthority implements Authority {
 	// --- party ---------------------------------------------------------------
 
 	private editParty(intent: PartyIntent): void {
+		const before = this.party[leadIndex(this.party)];
 		const { party, events } = applyPartyIntent(this.party, intent, this.activity());
 		this.party = party.map((a) => ({ ...a }));
 		this.emit({ type: 'party-edited', party: this.partyCopy(), events });
-		// Choosing who goes first gets a line on the message bar, most of all
-		// when it can't be done: nothing else on screen would say why.
+		const line = this.leadLine(events, before);
+		if (line) this.emit({ type: 'message', text: line });
+	}
+
+	/**
+	 * The message bar's line after a party edit. A lead that can't be chosen is
+	 * told why — nothing else on screen would say. Otherwise, whenever the edit
+	 * changed who goes first or what it is called (a pick, a move in the pause
+	 * menu, a new name), the bar names the lead again, so an earlier "Fox goes
+	 * first!" never outlives the fox's place at the front.
+	 */
+	private leadLine(events: readonly PartyEvent[], before: AnimalInstance | undefined): string {
 		for (const e of events) {
-			const animal = 'animalId' in e ? this.party.find((a) => a.id === e.animalId) : undefined;
+			if (e.type !== 'rejected' || e.animalId === undefined) continue;
+			const animal = this.party.find((a) => a.id === e.animalId);
 			if (!animal) continue;
-			const line =
-				e.type === 'lead-selected'
-					? LEAD_WORDS.chosen(nameOf(animal))
-					: e.type === 'rejected' && e.reason === 'tired'
-						? LEAD_WORDS.tired(nameOf(animal))
-						: e.type === 'rejected' && e.reason === 'already-lead'
-							? LEAD_WORDS.already(nameOf(animal))
-							: undefined;
-			if (line) this.emit({ type: 'message', text: line });
+			if (e.reason === 'tired') return LEAD_WORDS.tired(nameOf(animal));
+			if (e.reason === 'already-lead') return LEAD_WORDS.already(nameOf(animal));
 		}
+		const after = this.party[leadIndex(this.party)];
+		if (!after) return '';
+		const same = before?.id === after.id && before.nickname === after.nickname;
+		return same ? '' : LEAD_WORDS.chosen(nameOf(after));
 	}
 
 	/** What the player is doing, for the engine's rules that depend on it. */
@@ -275,6 +288,13 @@ export function partyFromParam(param: string): AnimalInstance[] {
 		party.push(animal);
 	}
 	return party;
+}
+
+/** A copy of the animal with its nickname cleaned, and no `nickname` key when none is left. */
+function withCleanNickname(animal: AnimalInstance): AnimalInstance {
+	const { nickname, ...rest } = animal;
+	const clean = normalizeNickname(nickname);
+	return clean === undefined ? rest : { ...rest, nickname: clean };
 }
 
 /**

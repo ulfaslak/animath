@@ -45,14 +45,16 @@ Headless Chrome via `playwright-core`, WebGL through SwiftShader. The script exi
 
 | Token              | Does                                                                                   |
 | ------------------ | -------------------------------------------------------------------------------------- |
-| `type:<text>`      | types each character, e.g. an answer: `type:56`, `type:-5`                              |
+| `type:<text>`      | types each character, e.g. an answer (`type:56`, `type:-5`) or a name, emoji included (`type:Pip😀`); never a comma |
 | `hold:<key>:<ms>`  | holds a key down with auto-repeat, as a real keyboard does (`hold:ArrowUp:5000`)       |
+| `down:<key>`       | presses a key and keeps it down while the next tokens run; another `down:` of it is an auto-repeat |
+| `up:<key>`         | lets go of a key pressed with `down:` (`down:ArrowRight,Escape,down:ArrowRight,Escape,up:ArrowRight`: a walking key held across the pause menu) |
 | `wait:<ms>`        | pauses — a battle turn takes several seconds to narrate                                 |
 | `shot:<name>`      | saves an extra frame to `<out>-<name>.png` there and then                               |
 | `size:<w>x<h>`     | resizes the window mid-run                                                              |
 | `reload:`          | reloads the page                                                                        |
 
-After every frame the script prints what the screen says — the HUD line with the grid position in explore; in a battle the status boxes, the menu (the highlighted row in brackets, with its level), the narration line, the puzzle, the typed answer, the judgement and the result card — so a run can be checked from its output as well as its images.
+After every frame the script prints what the screen says — in explore the HUD line with the grid position and the party cards (the lead in brackets); in the pause menu its rows (the lit one in brackets), the picked animal's options (greyed ones in parentheses), the name box with whether it has the focus, and the notes under it; in a battle the status boxes, the menu (the highlighted row in brackets, with its level), the narration line, the puzzle, the typed answer, the judgement and the result card — so a run can be checked from its output as well as its images. `?party=` (see [[CHEATSHEET]] § Hidden behaviour) starts with any team, which is how to look at a full or tired party.
 
 **Playing a battle.** The 11th step of Left, Right, Left, … from the start always meets a rabbit (see [[CHEATSHEET]] § Finding a battle fast; the animal changes whenever the encounter tables do). Walk in, look, run away:
 

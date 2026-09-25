@@ -17,11 +17,15 @@ interface Key extends KeyboardEvent {
 	prevented: boolean;
 }
 
-function key(name: string, options: { repeat?: boolean; isComposing?: boolean } = {}): Key {
+function key(
+	name: string,
+	options: { repeat?: boolean; isComposing?: boolean; keyCode?: number } = {}
+): Key {
 	const event = {
 		key: name,
 		repeat: options.repeat ?? false,
 		isComposing: options.isComposing ?? false,
+		keyCode: options.keyCode ?? 0,
 		ctrlKey: false,
 		metaKey: false,
 		altKey: false,
@@ -164,6 +168,9 @@ describe('pause menu', () => {
 		// An input method's Enter finishes a character, not the name.
 		pause.draft = '  Pip😀 ';
 		controller.onKey(key('Enter', { isComposing: true }));
+		expect(pause.screen).toBe('naming');
+		// Safari's committing Enter: no longer composing, but keyCode 229.
+		controller.onKey(key('Enter', { keyCode: 229 }));
 		expect(pause.screen).toBe('naming');
 		// A held Enter does not save.
 		controller.onKey(key('Enter', { repeat: true }));

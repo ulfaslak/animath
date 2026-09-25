@@ -77,3 +77,11 @@ Technical items we've intentionally postponed: tech debt, hardening shortcuts, k
 **Why deferred**: there is no remote authority, and a relative move (`{ by: -1 }`) is a protocol change best made when the latency is real and can be tried.
 
 **Trigger**: the `RemoteAuthority` / WebSocket PR.
+
+### `normalizeNickname` follows the host's Unicode tables
+
+**What**: the nickname cleaner uses `\p{L}`, `\p{M}`, `\p{Default_Ignorable_Code_Point}` and `normalize('NFKC')`, whose answers come from the JavaScript engine's Unicode version. A letter added in a recent Unicode version is kept by a newer Node and dropped (as unassigned) by an older browser, so two engines can clean the same typed name differently. Harmless while the authority is the only one that cleans: it stores its result and every screen shows that. The name box's "It will be called …" preview is the one place the client cleans for itself, and it could disagree in that rare case.
+
+**Why deferred**: there is one authority, in the browser. With a server authority the server's result is the truth and the client only displays it; the gap is a preview that could be wrong about a letter from the newest Unicode version.
+
+**Trigger**: the server-side authority PR — check that nothing but the server cleans a name that is stored, and decide whether the preview needs the server's answer.

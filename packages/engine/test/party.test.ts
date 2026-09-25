@@ -95,12 +95,45 @@ function problems(name: string): string[] {
 	if (name.includes('  ')) found.push('two spaces in a row');
 	if (name !== name.normalize('NFKC')) found.push('not NFKC');
 	if (!/[\p{L}\p{Nd}]/u.test(name)) found.push('no letter or digit');
+	let marks = 2; // before any letter, nothing may carry a mark
 	for (const c of name) {
-		if (!/[\p{L}\p{Nd} '.-]/u.test(c) || /\p{Default_Ignorable_Code_Point}/u.test(c)) {
-			found.push(`holds U+${c.codePointAt(0)!.toString(16).toUpperCase()}`);
+		const code = `U+${c.codePointAt(0)!.toString(16).toUpperCase()}`;
+		if (/\p{Default_Ignorable_Code_Point}/u.test(c)) found.push(`holds ${code}`);
+		if (/\p{M}/u.test(c)) {
+			if (marks >= 2) found.push(`a mark on no letter, or a third on one: ${code}`);
+			marks++;
+			continue;
 		}
+		marks = /\p{L}/u.test(c) ? 0 : 2;
+		if (!/[\p{L}\p{Nd} '.-]/u.test(c)) found.push(`holds ${code}`);
 	}
 	return found;
+}
+
+/** Names in alphabets that put marks on letters, as a kid would type them. */
+const SYLLABLES = [
+	'र\u093E', // रा
+	'म\u093F', // मि
+	'क\u0941', // कु
+	'स\u094D', // स् (a virama)
+	'ש\u05B8\u05C1', // שָׁ
+	'ל',
+	'ו\u05B9', // וֹ
+	'n\u0308', // n̈: no single letter for it
+	'ø',
+	'ก\u0E34', // กิ
+	'ñ',
+	'ж'
+];
+
+function markedName(rng: Rng): string {
+	let name = '';
+	while (true) {
+		const next = name + rng.pick(SYLLABLES);
+		if (Array.from(next).length > MAX_NICKNAME_LENGTH) return name;
+		name = next;
+		if (rng.next() < 0.2) return name;
+	}
 }
 
 describe('normalizeNickname', () => {
@@ -131,6 +164,14 @@ describe('normalizeNickname', () => {
 		}
 	});
 
+	it('keeps the accent marks an alphabet puts on its letters', () => {
+		for (let i = 0; i < 2000; i++) {
+			const name = markedName(new Rng(hashInts(0xacce, i))).normalize('NFKC');
+			if (name === '') continue;
+			expect({ name, clean: normalizeNickname(name) }).toEqual({ name, clean: name });
+		}
+	});
+
 	it('cleans the things kids and keyboards actually do', () => {
 		const cases: [unknown, string | undefined][] = [
 			['  Pip  ', 'Pip'],
@@ -153,6 +194,13 @@ describe('normalizeNickname', () => {
 			['\u115F\u1160', undefined],
 			['\u0301\u0301', undefined],
 			['\u1100\u{1F600}\u1161', '\uAC00'], // jamo that meet once the emoji goes
+			['र\u093Eम', 'र\u093Eम'], // राम: the vowel sign stays on its letter
+			['ש\u05B8\u05C1ל\u05D5\u05B9ם', 'ש\u05B8\u05C1ל\u05D5\u05B9ם'], // שָׁלוֹם
+			['n\u0308', 'n\u0308'], // no single letter for n with two dots: the mark stays
+			['x\u0301\u0302\u0303\u0304', 'x\u0301\u0302'], // two marks a letter, not a tower
+			['\u0301abc', 'abc'], // a mark on nothing
+			['1\u0301 2', '1 2'], // a mark on a digit
+			['a'.repeat(11) + 'x\u0301', 'a'.repeat(11)], // never cut between a letter and its mark
 			['', undefined],
 			['     ', undefined],
 			['---', undefined],

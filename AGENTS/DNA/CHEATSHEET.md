@@ -68,7 +68,7 @@ The cards in the top-left corner are your party, in battle order. You start with
 
 - **Who goes first**: the first card that isn't tired, outlined in orange and tagged "goes first". It steps into the next battle; when it gets tired, the next card down that isn't tired steps in. Press a card's number, or pick "Go first" in the pause menu, to move that animal to the top. The numbers on the cards follow the order, so the animal you picked becomes 1 and the others move down one.
 - **Moving and naming**: in the pause menu (Escape) any animal can move up or down, a tired one too — a tired animal on top is skipped, and the tag stays with the first one standing. "New name" gives an animal a nickname, which the cards, the menu and battles all use ("Go, Pip!").
-- **What a name can be**: up to 12 letters (any alphabet, so "Søren" works), digits, spaces, hyphens, apostrophes and dots. Emoji and other symbols are left out when you press Enter, extra spaces are squeezed, and a name with no letter or digit left — empty, spaces, only emoji — means no nickname: the animal is called by its species again. The name box shows "It will be called …" before you press Enter whenever the name will come out different from what you typed.
+- **What a name can be**: up to 12 letters (any alphabet, so "Søren" and "राम" work; an accent Unicode keeps separate from its letter, like a Hindi vowel sign, counts as a letter), digits, spaces, hyphens, apostrophes and dots. Emoji and other symbols are left out when you press Enter, extra spaces are squeezed, and a name with no letter or digit left — empty, spaces, only emoji — means no nickname: the animal is called by its species again. The name box shows "It will be called …" before you press Enter whenever the name will come out different from what you typed.
 
 ## Hidden behaviour
 
@@ -89,5 +89,5 @@ The cards in the top-left corner are your party, in battle order. You start with
 ## Exploits and quirks
 
 - **Losing is a free full heal.** Since nothing else heals yet, a hurt party can lose a battle on purpose (answer wrong) to rest back to full HP at the start tile. Reloading does the same and also forgets every caught animal.
-- **Messages never go away.** After a battle, pressing Enter or choosing who goes first, the last message stays on the bottom line until the next one. The "Arrows / WASD to walk" hint also never goes away.
+- **Messages never go away.** After a battle, pressing Enter or choosing who goes first, the last message stays on the bottom line until the next one. The "Arrows / WASD to walk" hint also never goes away. A lead line can't go stale, though: whenever the pause menu changes who goes first or renames it, the line names the lead again ("Squirrel goes first!").
 - **A nickname can be anything made of letters**, including another animal's name or "Wild Fox": a squirrel called "Bear" is still a squirrel, and one called "Wild Fox" shows "Wild Fox" in its own status box in battle.

@@ -54,14 +54,9 @@ export class ExploreController {
 	}
 
 	update(dt: number): void {
-		if (this.progress < 1) {
-			this.progress = Math.min(1, this.progress + dt / STEP_SECONDS);
-		} else {
-			const dir = this.keyboard.takeTap() ?? this.keyboard.heldDirection();
-			if (dir) this.authority.dispatch({ type: 'move', dir });
-			if (this.keyboard.takeInteract()) this.authority.dispatch({ type: 'interact' });
-		}
-		// A number key chooses who goes first; it needs no pause in the walking.
+		// A number key chooses who goes first, at once, even mid-step — and before
+		// any step this frame sends: that step can start a battle, and the animal
+		// chosen on the same frame must be the one that fights.
 		const slot = this.keyboard.takeSlot();
 		const animal = slot === undefined ? undefined : game.party[slot];
 		if (animal) {
@@ -69,6 +64,13 @@ export class ExploreController {
 				type: 'party',
 				intent: { type: 'select-lead', animalId: animal.id }
 			});
+		}
+		if (this.progress < 1) {
+			this.progress = Math.min(1, this.progress + dt / STEP_SECONDS);
+		} else {
+			const dir = this.keyboard.takeTap() ?? this.keyboard.heldDirection();
+			if (dir) this.authority.dispatch({ type: 'move', dir });
+			if (this.keyboard.takeInteract()) this.authority.dispatch({ type: 'interact' });
 		}
 		this.renderer.setPlayer(this.from, this.pos, this.progress, this.facing);
 		this.renderer.ensureChunksAround(this.pos);

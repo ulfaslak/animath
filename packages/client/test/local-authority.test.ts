@@ -7,7 +7,8 @@ import {
 	type AnimalInstance,
 	type BattleState,
 	type GameEvent,
-	type GridPos
+	type GridPos,
+	type Intent
 } from '@mathgame/engine';
 import { describe, expect, it } from 'vitest';
 import { LocalAuthority, partyFromParam } from '../src/authority/local';
@@ -343,6 +344,45 @@ describe('LocalAuthority: the party', () => {
 		const battle = walkIntoBattle(s);
 		expect(battle.party[battle.active]!.nickname).toBe('Sir Fluffing');
 		expect(battle.log).toContain('Go, Sir Fluffing!');
+	});
+
+	it('the message bar names the lead again after any edit that changes who it is or its name', () => {
+		const s = session('squirrel,rabbit,fox');
+		const [squirrel, rabbit, fox] = party(s);
+		const messages = () => s.events.filter((e) => e.type === 'message').length;
+		const edit = (intent: Extract<Intent, { type: 'party' }>['intent']) =>
+			s.authority.dispatch({ type: 'party', intent });
+
+		edit({ type: 'select-lead', animalId: fox!.id });
+		expect(lastMessage(s)).toBe('Fox goes first!');
+		// The pause menu moves the fox to the back: the squirrel leads again.
+		edit({ type: 'reorder', animalId: fox!.id, to: 2 });
+		expect(lastMessage(s)).toBe('Squirrel goes first!');
+		// The lead gets a name: the bar says it.
+		edit({ type: 'rename', animalId: squirrel!.id, nickname: 'Pip' });
+		expect(lastMessage(s)).toBe('Pip goes first!');
+		// Edits that leave the lead as it was say nothing.
+		const before = messages();
+		edit({ type: 'rename', animalId: rabbit!.id, nickname: 'Hop' });
+		edit({ type: 'reorder', animalId: rabbit!.id, to: 2 });
+		expect(messages()).toBe(before);
+	});
+
+	it('a party it starts with is cleaned like a rename', () => {
+		const authority = new LocalAuthority({
+			party: [
+				{ id: 'a', speciesId: 'fox', hp: 3, nickname: '  \u{1F600} ' },
+				{ id: 'b', speciesId: 'rabbit', hp: 1, nickname: ' Hop   Hop ' }
+			]
+		});
+		const events: GameEvent[] = [];
+		authority.subscribe((e) => events.push(e));
+		authority.start();
+		const start = events.find((e) => e.type === 'welcome');
+		expect(start?.type === 'welcome' && start.party).toStrictEqual([
+			{ id: 'a', speciesId: 'fox', hp: 3 },
+			{ id: 'b', speciesId: 'rabbit', hp: 1, nickname: 'Hop Hop' }
+		]);
 	});
 
 	it('mid-battle every party edit is refused, and the battle writes back the party it began with', () => {
