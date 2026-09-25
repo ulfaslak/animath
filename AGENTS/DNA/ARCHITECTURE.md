@@ -72,11 +72,12 @@ Two things keep that swap cheap: intents carry only what the player *chose* (a d
 | Path                          | Holds                                                                                                                                                               |
 | ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `index.html`                  | A full-screen `<canvas id="game">` under a `<div id="ui">` overlay. Loads Nunito.                                                                                    |
+| `vite.config.ts`              | Dev server (port, `/api` proxy, `TUNNEL`), build options, and `yaml()`: the plugin that turns an imported `.yaml` file into its data at build time. `vitest.config.ts` extends it, so tests load YAML the same way. |
 | `src/main.ts`                 | Wires the authority's events to the views and the three controllers, sends each key to the screen that is up (battle, else the doctor's card, else explore), mounts the Svelte app, runs the `requestAnimationFrame` loop (the controllers' `update(dt)`, the message line's clock while the explore HUD is up, then `renderer.render()`). |
-| `src/flags.ts`                | The URL switches, read once: `?zoo`, `?debug` (position and facing on screen), `?party=` (the starting party, e.g. `bear:10,fox`; a typo is ignored).                |
+| `src/flags.ts`                | The URL switches, read once: `?zoo`, `?debug` (position and facing on screen), `?party=` (the starting party, e.g. `bear:10,fox`; a typo is ignored). `?lang=` is read by `copy/`. |
 | `src/authority/local.ts`      | `LocalAuthority` (see above): moves and the facing they leave, one encounter roll per completed step (for the tier of the first animal that isn't tired), the battle in progress and the doctor visit in progress (each the engine's state plus the seed it never shows), and results written back — party HP, a caught animal (up to six), each heal, the trip to the tent after a lost battle (`takeToDoctor`). Takes an optional starting party (`?party=`). |
-| `src/state/game.svelte.ts`    | `game`: the `$state` view the Svelte overlay reads (`mode`, `pos`, `facing`, `moves`, `party`, …). Filled only by `game.apply(event)`.                              |
-| `src/state/hud.svelte.ts`     | `hud`: what the explore message line says — the latest thing said (a `message`, or the doctor's goodbye and knock-out line worded from their events) while fresh, and the doctor prompt or the controls hint under it. `tick(dt)` counts only while the explore HUD is up. |
+| `src/state/game.svelte.ts`    | `game`: the `$state` view the Svelte overlay reads (`mode`, `pos`, `facing`, `steps`, `party`, …). Filled only by `game.apply(event)`.                              |
+| `src/state/hud.svelte.ts`     | `hud`: what the explore message line says — the latest thing said (a `message`, or a line the client words itself: the doctor's goodbye, the knock-out line, the not-at-a-tent hint) while fresh, and the doctor prompt or the controls hint under it. `tick(dt)` counts only while the explore HUD is up. |
 | `src/state/battle.svelte.ts`  | `battle`: the battle screen's `$state` view — what the panel shows and which `screen` the keys drive (`actions`, `puzzle`, `busy`, `result`). Written only by the battle controller. |
 | `src/state/doctor.svelte.ts`  | `doctor`: the doctor's card's `$state` view — the party, the doctor's line, the cursor, the puzzle and which `screen` the keys drive (`list`, `puzzle`, `busy`) — plus the cursor helpers. Written only by the doctor controller. |
 | `src/input/keyboard.ts`       | Explore input: held-key tracking plus a 2-deep tap buffer; arrows/WASD → `Direction`, Enter/Space → interact. `setEnabled(false)` while the battle screen or the doctor's card is up drops held keys and taps. |
@@ -98,6 +99,12 @@ Two things keep that swap cheap: intents carry only what the player *chose* (a d
 | `src/ui/PuzzlePanel.svelte`   | One puzzle being answered: prompt, typed answer, judgement. The one puzzle view ([[UI_SPEC]] § Component reuse).                                                    |
 | `src/ui/HpBar.svelte`         | The one HP bar: colour by fraction left (green, amber under half, red under a fifth), always with `hp/max` printed.                                                  |
 | `src/styles.css`              | CSS custom properties (panel colours, radius, font, `--battle-panel`, `--doctor-panel`) and the canvas/overlay layout.                                              |
+| `src/copy/<code>.yaml`        | The words: every player-facing line, one file per language (`en.yaml`, `da.yaml`), nested keys grouped by screen (`puzzle.keys`). See § Copy.                      |
+| `src/copy/languages.ts`       | `LANGUAGES` (the registry: one code per language, in the order the Language setting lists them), `FALLBACK_LANGUAGE` (`en`), `isLanguage`, `COPY` (every file's data). |
+| `src/copy/translate.ts`       | `createTranslator(copy, fallback, warn?)`: flattens the files into messages, fills `{param}` and `{param.form}`, picks a plural form by `Intl.PluralRules`, capitalises a value that starts a sentence, falls back to English. Pure. |
+| `src/copy/language.svelte.ts` | `language` (`current` as `$state`, `set`, `onChange`), `t(key, params?)`, `languageName`, `chooseLanguage`, `readLanguageHints`: the language on screen, where it starts, and where it is remembered. |
+| `src/copy/index.ts`           | The one import path for all of it: `import { t, language } from '../copy'`.                                                                                        |
+| `src/copy/yaml.d.ts`          | Types a `.yaml` import as `unknown` data.                                                                                                                           |
 | `public/assets/`              | Models, textures, sounds. `CREDITS.md` lists every third-party file.                                                                                                |
 | `test/animals.test.ts`        | vitest: every catalog species builds a figure that keeps the contract in `animals.ts` (geometry construction needs no WebGL).                                        |
 | `test/local-authority.test.ts`| vitest: the authority's rules around the engine — encounters replay per step, battles start only on encounter tiles, the lead decides who comes out, outcomes write back, the party caps at six, the trip to the tent after a lost battle, the facing it keeps, the doctor visit (walking waits, heals write back, a fresh seed per visit that never leaves it). |
@@ -106,6 +113,26 @@ Two things keep that swap cheap: intents carry only what the player *chose* (a d
 | `test/hud.test.ts`            | vitest: the message line — a line fades after 5 s of explore time and waits while the HUD is off screen, the controls hint, the doctor prompt, the doctor's lines worded from events. |
 | `test/flags.test.ts`          | vitest: the URL switches, and that a misspelt `?party=` is ignored as a whole.                                                                                      |
 | `test/css-vars.test.ts`       | vitest: every `var(--x)` in the UI's `.svelte` and `.css` files is defined (an undefined one fails nowhere else). `vitest.config.ts` lets tests read CSS as text.  |
+| `test/copy-files.test.ts`     | vitest: one copy file per registered language; every language has exactly English's keys, each reading the same params; no empty or non-text values; plural forms match the language's `Intl.PluralRules`; every key the code passes to `t()` as a literal exists in English, with the params its message reads. |
+| `test/copy-runtime.test.ts`   | vitest: `t()`'s rules on made-up copy (placeholders, forms, plurals, capitals, fallback, one warning per gap), `chooseLanguage`, and the store against the real files. |
+| `test/hardcoded-text.test.ts` | vitest: no Svelte template prints words of its own (text, worded attributes such as `title` or `aria-label`, string literals a `{…}` prints) beyond `hardcoded-text.baseline.yaml`, which may only shrink. |
+| `test/source.ts`              | Helpers for the tests that parse the client's own source: Svelte's AST for components, TypeScript's for modules, so comments never count.                           |
+
+### Copy
+
+```
+ src/copy/en.yaml ┐  yaml() at build time          ┌ language.current ($state)
+ src/copy/da.yaml ┴─────────────▶ plain objects ───┤ t('key', params) ─▶ Svelte markup
+                                                   └ language.onChange ─▶ code outside Svelte
+```
+
+- **Where the words live.** Every player-facing line is in `src/copy/<code>.yaml`, nested by screen (`puzzle.keys`; the rest follows the extraction). Only the client reads the files. Both languages ship in the main bundle; each is a few kB.
+- **Loading.** `yaml()` in `vite.config.ts` parses a file when Vite builds, serves or tests it; the bundle holds its data and no YAML parser. A syntax error or a repeated key fails the build.
+- **The language on screen.** `language.current` starts from `?lang=` (for that visit only), else the choice remembered on this device (`localStorage['animath.language']`), else the first of `navigator.languages` the game speaks (`da-DK` counts as `da`), else English. `language.set()` switches, remembers (storage failures are ignored), sets `<html lang>` and calls the `onChange` listeners.
+- **`t()`** reads `language.current` on every call, so Svelte markup that calls it re-renders the moment the language changes. Code outside Svelte (the Three.js layer, if it ever draws words) calls `t()` when it draws and redraws on `language.onChange`. A sentence stored as a string stays in the language it was made in, so state and events hold keys and params ([[DECISIONS]] § Copy and languages).
+- **Gaps.** A key missing from Danish shows in English; a key missing from English shows as the key. In development each gap logs one `console.warn`, which makes `scripts/screenshot.mjs` exit non-zero; production is silent. `copy-files.test.ts` fails on both.
+- **Dev server.** An edited copy file swaps the words in place: `language.svelte.ts` accepts the hot update of `languages.ts`, so the game on screen and the `language` store survive it.
+- **The engine emits no words** ([[DECISIONS]] § Copy and languages): ids (`speciesId`, attack ids), codes and numbers, which the client words. Puzzle prompts are maths notation (`7 × 8 = ?`) and need none. Until the extraction, English still crosses the seam in two ways: species and attack `name`s in `animals/catalog.ts`, which the client shows, and the `message` event's `text`, a finished sentence `LocalAuthority` writes. The engine's own `BattleState.log`, `DoctorState.log` and `Rescue.message` are English too, but the client does not show them: it words the battle from its events.
 
 ### Coordinate system
 

@@ -23,7 +23,7 @@ Everything a player can do in **today's build**, and how: every key, every hidde
 | Enter                 | Puzzle (battle or doctor) | Answer. Nothing happens until you have typed at least one digit.                                      |
 | Enter / Space         | Result card | Back to exploring.                                                                                                  |
 
-Escape leaves the doctor's card and does nothing anywhere else yet — not even in a battle puzzle: once a battle puzzle is up, the only way on is to answer it. The mouse and touch are ignored everywhere (the result card's and the doctor's buttons look clickable but aren't). The page has no debug keys or console hooks; its URL switches are `?zoo`, `?debug` and `?party=` (see § Hidden behaviour).
+Escape leaves the doctor's card and does nothing anywhere else yet — not even in a battle puzzle: once a battle puzzle is up, the only way on is to answer it. The mouse and touch are ignored everywhere (the result card's and the doctor's buttons look clickable but aren't). The page has no debug keys or console hooks; its URL parameters are `?zoo`, `?lang`, `?debug` and `?party=` (see § Hidden behaviour).
 
 ## The world
 
@@ -97,6 +97,7 @@ To meet smaller animals again, put a smaller animal in front. Today the Squirrel
 - **The same walk meets the same animals.** Encounters are decided by how many steps you have taken since the page loaded, so after a reload the same route meets the same animals at the same steps (see § Finding a battle fast).
 - **Leading zeros are fine**: "09" is the same answer as "9".
 - **Nothing is saved.** A reload puts you back at (-2, 6) with one full-HP Squirrel.
+- **A little Danish.** If your browser prefers Danish, the line under a puzzle you haven't answered yet says "Skriv svaret, og tryk så på Enter". Every other word is still English, and there is no way to switch language in the game yet. `?lang=da` or `?lang=en` in the address picks one for that visit.
 - **`?zoo` shows every animal.** Open `http://localhost:5180/?zoo` and one of each species stands in a row two or three tiles from the start, in catalog order — squirrel, rabbit, fox, otter, deer, wolf, bear — facing you. They are scenery: you walk straight through them and nothing else changes. It exists to check the figures, not to play with.
 - **`?debug` shows where you are**: the grid position and the way you face (`5, 6 · down`) in the top-right corner.
 - **`?party=` picks your starting party**, for looking at screens that need one: `?party=squirrel:5,rabbit:0,fox` starts with a squirrel at 5 HP, a tired rabbit and a fox at full HP. Species are the catalog ids (`squirrel`, `rabbit`, `fox`, `otter`, `deer`, `wolf`, `bear`), HP is optional (full by default) and clamped to the species, at most six. Anything misspelt and the game starts as usual. Switches combine: `?debug&party=bear`.

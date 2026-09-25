@@ -131,6 +131,10 @@ What is built and observable today. Keep current: add a bullet when a feature sh
 - HP lost in a battle stays lost afterwards; a knocked-out animal stays tired and sits out battles until healed.
 - Losing: when the whole party is tired, the result card says "Good try!" and the doctor's line, and the player is back in the world beside the nearest tent on foot, facing it, with the whole party healed (§4 "Knock-out and healing").
 
+### Language
+
+- The game starts in Danish when the browser prefers Danish, and in English otherwise (`?lang=da` / `?lang=en` in the address overrides). So far only the line under a puzzle is in Danish; everything else is English, and there is no Language setting yet (§6).
+
 ### Engine
 
 - Puzzle catalog: 7 kinds across difficulty 1–10, seeded and deterministic.
@@ -154,8 +158,9 @@ In rough priority order. Each becomes a GitHub issue when picked up.
 1. Party management: reorder, nicknames (catching ships, §5).
 2. Save/load in the client: create the anonymous player on first visit, keep the secret, load the save on boot and write it as the game progresses (the server routes exist, see [[ARCHITECTURE]] § HTTP API).
 3. Real low-poly animal models (glTF, CC0 sources, see [[DECISIONS]]) with attack animations, replacing the primitive figures.
-4. Procedural world v2: rivers that flow, paths, biome shaping, landmarks, spawn tables.
-5. Puzzle catalog v2: fractions, decimals, negatives, word problems, per-child adaptive difficulty.
-6. Touch controls for tablets.
-7. Multiplayer: shared world, other players visible, PvP battles, tokens, shop.
-8. Deployment to the Hetzner VPS.
+4. The whole game in Danish and English: every line in both, and a Language setting in the pause menu that switches every word at once and is remembered on this device. The copy files and `t()` exist (§5, [[ARCHITECTURE]] § Copy); the doctor's words are in them, the rest have not moved yet.
+5. Procedural world v2: rivers that flow, paths, biome shaping, landmarks, spawn tables.
+6. Puzzle catalog v2: fractions, decimals, negatives, word problems, per-child adaptive difficulty.
+7. Touch controls for tablets.
+8. Multiplayer: shared world, other players visible, PvP battles, tokens, shop.
+9. Deployment to the Hetzner VPS.
