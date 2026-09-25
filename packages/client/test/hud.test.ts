@@ -27,6 +27,7 @@ function setup() {
 	const keyboard = {
 		takeTap: () => undefined,
 		heldDirection: () => undefined,
+		takeSlot: () => undefined,
 		takeInteract: () => {
 			const pressed = enter;
 			enter = false;

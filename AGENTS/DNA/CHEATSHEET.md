@@ -10,6 +10,14 @@ Everything a player can do in **today's build**, and how: every key, every hidde
 | --------------------- | ------- | ----------------------------------------------------------------------------------------------------------------------- |
 | Arrow keys / W A S D  | Explore | Walk one tile. Hold to keep walking (about 5–6 tiles a second).                                                         |
 | Enter / Space         | Explore | Facing a doctor's tent: talk to the doctor (the bottom line says "Press Enter to talk to the doctor" there). Anywhere else it says "Walk up to a tent to talk to the doctor." |
+| 1–6                   | Explore | Choose who goes first: the animal on that card moves to the top of your team ("Fox goes first!"), even mid-step. A tired one stays where it is ("Rabbit is tired. Visit the doctor!"), and so does the one that already goes first ("Fox already goes first!"). A number with no card does nothing, and with one animal there are no numbers. |
+| Escape                | Explore | Open the pause menu. Walking waits until it closes. |
+| Up / Down, W / S      | Pause menu | Move the cursor through your team and then "Keep playing". It wraps round. |
+| Enter / Space         | Pause menu | On an animal: open its options on the right. On "Keep playing": close the menu. |
+| Up / Down, W / S; Enter / Space | Animal options | Choose and do: Go first, Move up, Move down, New name, Back. Greyed options are skipped: Go first for a tired animal or the one already going first, Move up at the top, Move down at the bottom. Moves happen at once, and the options stay open for the next one. |
+| Escape                | Pause menu | Close the menu; from an animal's options, back to the list; from the name box, back to the options without saving. |
+| Any letter, digit, Space | Name box | Type the name; W A S D and Space are just letters here. The arrows move the caret, Backspace deletes. The box stops at 12 characters. |
+| Enter                 | Name box | Save the name and go back to the list. An empty name gives the species' name back. |
 | Up / Down, W / S      | Doctor  | Move the cursor through the animals who need the doctor and Bye; fit animals are skipped. It wraps round.           |
 | Enter / Space         | Doctor  | Pick the highlighted animal (its puzzle appears), or say bye on Bye. Nothing for the first half second after the card opens. |
 | Up / Down, W / S      | Doctor puzzle | Swap the puzzle for the previous or next animal who needs the doctor (a fresh puzzle; what you typed is dropped). With only one animal hurt, nothing. |
@@ -23,7 +31,7 @@ Everything a player can do in **today's build**, and how: every key, every hidde
 | Enter                 | Puzzle (battle or doctor) | Answer. Nothing happens until you have typed at least one digit.                                      |
 | Enter / Space         | Result card | Back to exploring.                                                                                                  |
 
-Escape leaves the doctor's card and does nothing anywhere else yet — not even in a battle puzzle: once a battle puzzle is up, the only way on is to answer it. The mouse and touch are ignored everywhere (the result card's and the doctor's buttons look clickable but aren't). The page has no debug keys or console hooks; its URL parameters are `?zoo`, `?lang`, `?debug` and `?party=` (see § Hidden behaviour).
+Escape opens the pause menu in explore and leaves the doctor's card; in a battle it does nothing — not even in a battle puzzle: once a battle puzzle is up, the only way on is to answer it. The mouse and touch are ignored everywhere (the result card's and the doctor's buttons, the party cards and the pause menu's rows look clickable but aren't; a click in the name box only moves the caret). The page has no debug keys or console hooks; its URL parameters are `?zoo`, `?lang`, `?debug` and `?party=` (see § Hidden behaviour).
 
 ## The world
 
@@ -54,7 +62,7 @@ Who comes out depends on who leads your party (§ Your party). With a fox or an 
 - **Higher level, harder sum, bigger hit.** Each attack row says how hard its puzzle is at the chosen level (easy, medium, hard, super hard), and the box on the right says what kind of maths it asks and how much damage it does.
 - **A wrong answer misses** ("Not quite!", then "Missed! The wild Rabbit shrugs it off."). The right answer is not shown.
 - **Picking an attack can't be undone.** Leaving the puzzle is not possible; typing anything wrong counts as a miss.
-- **Leash**: the row says "strong", "weaker" or "weak" (red, amber or green dot) by how much HP the wild animal has left, in thirds. It is about HP only: a fierce animal stays hard to catch even when it says "weak" (a bear at a third of its HP breaks free about 94 times in 100). A throw that breaks free costs your turn.
+- **Leash**: the row says how likely a catch is right now, with a dot of the same colour: "Good chance!" (green, one in two or better), "Maybe" (amber, one in five or better) or "Hard to catch" (red). It follows the real odds, so it changes as the animal's HP drops and depends on the species: a rabbit at full HP is "Hard to catch" and at 2 HP a "Good chance!"; a fox turns "Maybe" below about a third of its HP and "Good chance!" only at 1 HP; a bear is "Hard to catch" all the way down. A throw that breaks free costs your turn.
 - **Run** always works and costs nothing.
 - **When your animal is tired** (0 HP), the next animal in your party that isn't tired steps in by itself, and you choose again.
 - **Win, catch, or run**: a card says what happened; press Enter to walk on from the same tile. HP you lost stays lost.
@@ -71,16 +79,20 @@ Who comes out depends on who leads your party (§ Your party). With a fox or an 
 
 ## Your party
 
-The cards in the top-left corner are your party. You start with one Squirrel at full HP (20 of 20). Every animal you catch joins the end of the list, with the HP it had when the leash landed, up to six. With six already, a caught animal goes back into the grass. An animal at 0 HP is greyed out with a "tired" tag and sits out battles. Animals heal at a doctor's tent (one puzzle each), all at once for free when you lose a battle, and a reload puts everything back to the start.
+The cards in the top-left corner are your party, in battle order. You start with one Squirrel at full HP (20 of 20). Every animal you catch joins the end of the list, with the HP it had when the leash landed, up to six. With six already, a caught animal goes back into the grass. An animal at 0 HP is greyed out with a "tired" tag and sits out battles. Animals heal at a doctor's tent (one puzzle each), all at once for free when you lose a battle, and a reload puts everything back to the start.
 
-**Your lead decides what comes out of the grass.** The lead is the first card that isn't tired: the animal that steps into the next battle. Wild animals size it up:
+- **Who goes first**: the first card that isn't tired, outlined in orange and tagged "goes first". It steps into the next battle; when it gets tired, the next card down that isn't tired steps in. Press a card's number, or pick "Go first" in the pause menu, to move that animal to the top. The numbers on the cards follow the order, so the animal you picked becomes 1 and the others move down one.
+- **Moving and naming**: in the pause menu (Escape) any animal can move up or down, a tired one too — a tired animal on top is skipped, and the tag stays with the first one standing. "New name" gives an animal a nickname, which the cards, the menu and battles all use ("Go, Pip!").
+- **What a name can be**: up to 12 letters (any alphabet, so "Søren" and "राम" work; an accent Unicode keeps separate from its letter, like a Hindi vowel sign, counts as a letter, and a few rarer alphabets keep their letters but lose their accents), digits, spaces, hyphens, apostrophes and dots. Emoji, other symbols and the text-generator tricks (underlined, struck-through or circled letters) are left out when you press Enter, extra spaces are squeezed, and a name with no letter or digit left — empty, spaces, only emoji — means no nickname: the animal is called by its species again. The name box shows "It will be called …" before you press Enter whenever the name will come out different from what you typed.
+
+**Your lead decides what comes out of the grass.** Wild animals size up the animal that goes first:
 
 - Nothing two or more tiers smaller than the lead ever comes out. One tier smaller comes out now and then where animals the lead's size or bigger live too: near home 1 battle in 7 to 1 in 13 (a fox in the meadow meets a squirrel or a rabbit 1 time in 7), and far out, where big animals are common, as rarely as 1 in 40.
 - Everything else is the mix the starter meets, moved up to the lead's size. With a fox in front, near home, the meadow is about 71% foxes, 14% deer and 14% squirrels or rabbits; the forest mostly foxes, sometimes a deer, rarely a wolf or a bear; the river all otters; the mountains foxes and otters that come up the hills, rarely a wolf or a bear.
 - It still starts a battle on 1 grass step in 10 wherever anything could, whoever leads: the same steps as with the starter, only the animal differs.
 - Where nothing is big enough, the grass is quiet: with a wolf in front, the river; with a bear in front, the meadow and the river. Where only one-tier-smaller animals live, every battle is one of them, still on 1 grass step in 10: a deer at the river meets only otters, and a wolf in the meadow only deer.
 
-To meet smaller animals again, put a smaller animal in front. Today the Squirrel you start with leads until it is tired. Then the next card that isn't tired leads, until a lost battle heals everyone and puts the Squirrel back in front.
+To meet smaller animals again, put a smaller animal in front: press its number, or pick "Go first" in the pause menu. A lost battle heals everyone and keeps the order, so the first card leads again.
 
 ## Hidden behaviour
 
@@ -92,12 +104,13 @@ To meet smaller animals again, put a smaller animal in front. Today the Squirrel
 - **Keys don't leak between walking and battling.** An arrow still held down when a battle starts does nothing in the battle until you press it again, and keys pressed in a battle never become steps.
 - **Keys wait while a battle turn plays.** From your answer until the menu comes back, every key is ignored — mashing Enter can't pick anything by accident — and the result card ignores keys for its first moment too.
 - **The doctor's card is the same.** It ignores every key but Escape for its first half second, and while "Correct!" or "Not quite!" is showing. A key held down when it opens does nothing until pressed again, and keys pressed at the doctor never become steps.
-- **Messages fade.** A line on the bottom of the screen stays for 5 seconds of walking about, then fades. A line said during a battle or at the doctor waits for you: after a battle the result's line is still there when you are back in the world. "Walk up to a tent…" goes as soon as you face a tent, where the prompt takes over.
+- **Messages fade.** A line on the bottom of the screen stays for 5 seconds of walking about, then fades. A line said during a battle or at the doctor waits for you: after a battle the result's line is still there when you are back in the world. "Walk up to a tent…" goes as soon as you face a tent, where the prompt takes over. A line about who goes first also goes at once when a battle or the doctor changes your party.
 - **The controls hint goes away** after your first 5 steps. Bumping into things doesn't count, however long you hold the key.
 - **The same walk meets the same animals.** Encounters are decided by how many steps you have taken since the page loaded, so after a reload the same route meets the same animals at the same steps (see § Finding a battle fast).
 - **Leading zeros are fine**: "09" is the same answer as "9".
-- **Nothing is saved.** A reload puts you back at (-2, 6) with one full-HP Squirrel.
-- **A little Danish.** If your browser prefers Danish, the line under a puzzle you haven't answered yet says "Skriv svaret, og tryk så på Enter", the doctor speaks Danish (the doctor's card, everything the doctor says, "Tryk på Enter for at tale med dyrlægen" and the other hints on the bottom line), and a tired animal is "træt". Every other word is still English (the animals' names, even inside Danish sentences — "Lad os hjælpe Squirrel!" — the battle screen and the battle's closing lines), and there is no way to switch language in the game yet. `?lang=da` or `?lang=en` in the address picks one for that visit.
+- **Walking waits in the pause menu.** Opening it mid-step lets that step land, then nothing moves until the menu closes. An arrow still held when the menu opens or closes does nothing until you press it again, and a battle can never start while the menu is open.
+- **Nothing is saved.** A reload puts you back at (-2, 6) with one full-HP Squirrel, and forgets names and order.
+- **Some Danish.** If your browser prefers Danish, the line under a puzzle you haven't answered yet says "Skriv svaret, og tryk så på Enter", the doctor speaks Danish (the doctor's card, everything the doctor says, "Tryk på Enter for at tale med dyrlægen" and the other hints on the bottom line), the party cards ("træt", "først ud") and the keys under them, the lines about who goes first ("Ræv er først ud!"), the whole pause menu, and the Leash row's words ("God chance!", "Måske", "Svært at fange"). Every other word is still English (the animals' names, even inside Danish sentences — "Lad os hjælpe Squirrel!" — the battle screen and the battle's closing lines), and there is no way to switch language in the game yet. `?lang=da` or `?lang=en` in the address picks one for that visit.
 - **`?zoo` shows every animal.** Open `http://localhost:5180/?zoo` and one of each species stands in a row two or three tiles from the start, in catalog order — squirrel, rabbit, fox, otter, deer, wolf, bear — facing you. They are scenery: you walk straight through them and nothing else changes. It exists to check the figures, not to play with.
 - **`?debug` shows where you are**: the grid position and the way you face (`5, 6 · down`) in the top-right corner.
 - **`?party=` picks your starting party**, for looking at screens that need one: `?party=squirrel:5,rabbit:0,fox` starts with a squirrel at 5 HP, a tired rabbit and a fox at full HP. Species are the catalog ids (`squirrel`, `rabbit`, `fox`, `otter`, `deer`, `wolf`, `bear`), HP is optional (full by default) and clamped to the species, at most six. Anything misspelt and the game starts as usual. Switches combine: `?debug&party=bear`.
@@ -106,5 +119,6 @@ To meet smaller animals again, put a smaller animal in front. Today the Squirrel
 
 - **Losing is a free full heal.** Healing at the doctor costs one puzzle per animal, but losing a battle on purpose (answer wrong) heals the whole party for nothing and puts you by the nearest tent. Reloading heals too, and also forgets every caught animal.
 - **A hard doctor's puzzle can be skipped**: answer anything (a wrong answer costs nothing and brings another puzzle), swap to another animal and back, or say bye and talk again. By design: at the doctor, nothing is lost by missing.
-- **A bear in front walks through the meadow and the river in peace.** Nothing there is big enough to challenge it, so no battle ever starts; the same goes for a wolf at the river.
+- **A bear in front walks through the meadow and the river in peace.** Nothing there is big enough to challenge it, so no battle ever starts; the same goes for a wolf at the river. With a bear in the team, its number key turns this on and off as you walk: put the bear first to cross the meadow without a battle, then a squirrel first to meet rabbits again.
 - **`?party=` is a cheat**: anyone who edits the URL can start with a bear (and so walk the meadow in peace). It is there for testing.
+- **A nickname can be anything made of letters**, including another animal's name or "Wild Fox": a squirrel called "Bear" is still a squirrel, and one called "Wild Fox" shows "Wild Fox" in its own status box in battle.

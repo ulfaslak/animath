@@ -1,4 +1,4 @@
-import type { Direction } from '@mathgame/engine';
+import { MAX_PARTY, type Direction } from '@mathgame/engine';
 
 const DIRECTION_KEYS: Record<string, Direction> = {
 	ArrowUp: 'up',
@@ -19,10 +19,18 @@ const DIRECTION_KEYS: Record<string, Direction> = {
  */
 const TAP_BUFFER = 2;
 
+/** The number keys 1 to `MAX_PARTY` choose the party slot that goes first. */
+function slotKey(key: string): number | undefined {
+	const n = /^[1-9]$/.test(key) ? Number(key) : 0;
+	return n >= 1 && n <= MAX_PARTY ? n - 1 : undefined;
+}
+
 export class Keyboard {
 	private held = new Map<Direction, number>(); // dir → time pressed
 	private taps: Direction[] = [];
 	private interactQueued = false;
+	/** The party slot (0-based) whose number was pressed last, until it is taken. */
+	private slotQueued: number | undefined;
 	private enabled = true;
 
 	constructor(target: Window) {
@@ -35,6 +43,9 @@ export class Keyboard {
 				e.preventDefault();
 			} else if (e.key === 'Enter' || e.key === ' ') {
 				this.interactQueued = true;
+				e.preventDefault();
+			} else if (slotKey(e.key) !== undefined && !e.ctrlKey && !e.metaKey && !e.altKey) {
+				this.slotQueued = slotKey(e.key);
 				e.preventDefault();
 			}
 		});
@@ -60,6 +71,7 @@ export class Keyboard {
 		this.held.clear();
 		this.taps.length = 0;
 		this.interactQueued = false;
+		this.slotQueued = undefined;
 	}
 
 	/** The next buffered tap, if any. Consumed once. */
@@ -84,5 +96,12 @@ export class Keyboard {
 		const v = this.interactQueued;
 		this.interactQueued = false;
 		return v;
+	}
+
+	/** The party slot (0-based) the player asked to go first, if any. Consumed once. */
+	takeSlot(): number | undefined {
+		const slot = this.slotQueued;
+		this.slotQueued = undefined;
+		return slot;
 	}
 }

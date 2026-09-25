@@ -1,5 +1,6 @@
 import { getAnimal } from '../animals/catalog.js';
 import { ATTACK_LEVELS, type AnimalInstance, type AttackLevel } from '../animals/types.js';
+import { leadIndex } from '../party/reducer.js';
 import { puzzleDifficulty } from '../puzzles/difficulty.js';
 import { checkAnswer, generatePuzzle } from '../puzzles/registry.js';
 import { Rng, hashInts } from '../rng.js';
@@ -68,7 +69,7 @@ export function startBattle(
 		ids.add(animal.id);
 	}
 
-	const active = party.findIndex((a) => a.hp > 0);
+	const active = leadIndex(party);
 	if (active < 0) throw new Error('startBattle: every animal in the party is knocked out');
 
 	const leashQuality = options.leashQuality ?? 1;
@@ -281,7 +282,7 @@ function opponentTurn(draft: Draft): void {
 	draft.events.push({ type: 'fainted', side: 'player', animal: fainted });
 	draft.say(`${animalName(fainted)} is tired.`);
 
-	const next = draft.party.findIndex((a) => a.hp > 0);
+	const next = leadIndex(draft.party);
 	if (next < 0) {
 		draft.say('All your animals are tired.');
 		draft.end('lost');

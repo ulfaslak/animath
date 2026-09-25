@@ -165,6 +165,7 @@ export class BattleController {
 		battle.party = state.party.map((a) => ({ ...a }));
 		battle.front = state.active;
 		battle.opponent = { ...state.opponent };
+		battle.leashQuality = state.leashQuality;
 		this.latest = state;
 		this.closing = '';
 		this.beats = [];

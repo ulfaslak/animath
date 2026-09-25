@@ -7,25 +7,31 @@
  *
  *   node scripts/screenshot.mjs [--url http://localhost:5180/] [--out screenshots/x.png]
  *                               [--keys "ArrowRight*5,ArrowDown*3"] [--wait 1500]
- *                               [--settle 1500] [--key-interval 700]
+ *                               [--settle 1500] [--key-interval 700] [--tap-ms 100]
  *                               [--width 1280 --height 800] [--scale 1]
  *                               [--clip x,y,w,h]
  *
  * `--keys` is a comma-separated script. A token is a key name (`ArrowRight`,
  * `Enter`, `2`), optionally `*n` to press it n times; or one of
- *   type:<text>   type each character of <text> (an answer: digits, a minus)
+ *   type:<text>   type each character of <text> (an answer: digits, a minus;
+ *                 a name, emoji included; never a comma)
  *   hold:<key>:<ms>  hold a key down for <ms>, auto-repeating like a real
  *                 keyboard (a repeat every 100 ms after a 500 ms delay)
  *   wait:<ms>     pause, e.g. while a battle turn narrates
  *   shot:<name>   save an extra frame to `<out>-<name>.png` now
  *   size:<w>x<h>  resize the window now (e.g. mid-battle)
  *   reload:       reload the page and wait for it, as a kid pressing F5 would
+ *   down:<key>    press a key and keep it down while the next tokens run; a
+ *                 second `down:` of the same key is an auto-repeat
+ *   up:<key>      let go of a key pressed with `down:`
  * The final frame goes to `--out`. After every frame the script prints what
  * the screen says — the message line in explore (and the grid position and
- * facing with `?debug` in the URL), at the doctor the doctor's line and the
- * party, and in a battle the narration line, the puzzle, the typed answer,
- * the judgement, the status boxes and the result card — so a flow can be
- * asserted from the console output, not only the images.
+ * facing with `?debug` in the URL) and the party cards; in the pause menu its
+ * rows, the picked animal's options and the name box (with whether it has
+ * the focus); at the doctor the doctor's line and the party; and in a battle
+ * the narration line, the puzzle, the typed answer, the judgement, the status
+ * boxes and the result card — so a flow can be asserted from the console
+ * output, not only the images.
  *
  * Headless SwiftShader runs at a few frames per second, so buffered steps need
  * the `--settle` wait to finish before the screenshot. `--scale 3` renders the
@@ -50,6 +56,10 @@ const settle = Number(args.settle ?? 1500);
 // One grid step takes ~3 frames at SwiftShader's frame rate; the client buffers
 // only two taps by design, so keys are spaced out to let each step complete.
 const keyInterval = Number(args['key-interval'] ?? 700);
+// How long a key token holds its key. A step takes 0.18 s, and a key still
+// down when a step lands walks another tile, so a hold longer than a step is
+// two steps whenever the page draws fast. Keep taps shorter than a step.
+const tapMs = Number(args['tap-ms'] ?? 100);
 const width = Number(args.width ?? 1280);
 const height = Number(args.height ?? 800);
 const scale = Number(args.scale ?? 1);
@@ -60,7 +70,7 @@ const script = (args.keys ?? '')
 	.split(',')
 	.filter(Boolean)
 	.flatMap((token) => {
-		const m = /^(type|wait|shot|hold|size|reload):(.*)$/.exec(token);
+		const m = /^(type|wait|shot|hold|size|reload|down|up):(.*)$/.exec(token);
 		if (m) return [{ op: m[1], arg: m[2] }];
 		const [key, n] = token.split('*');
 		return Array(Number(n ?? 1)).fill({ op: 'key', arg: key });
@@ -110,6 +120,40 @@ async function describe() {
 		})
 	);
 	if (patients.length) lines.push(`patients: ${patients.join(' | ')}`);
+	// Party cards in explore, the lead in brackets: "[1 Pip 20/20 goes first] | 2 Rabbit 0/22 tired".
+	const cards = await page.locator('.party .member').evaluateAll((els) =>
+		els.map((el) => {
+			const text = el.textContent.replace(/\s+/g, ' ').trim();
+			return el.classList.contains('lead') ? `[${text}]` : text;
+		})
+	);
+	if (cards.length) lines.push(`party: ${cards.join(' | ')}`);
+	// The pause menu: its rows (the lit one in brackets), the picked animal's
+	// options (greyed ones in parentheses), and the name box.
+	const pauseRows = await page.locator('.menu .team .row').evaluateAll((els) =>
+		els.map((el) => {
+			const text = el.textContent.replace(/\s+/g, ' ').trim();
+			return el.classList.contains('lit') ? `[${text}]` : text;
+		})
+	);
+	if (pauseRows.length) lines.push(`pause: ${pauseRows.join(' | ')}`);
+	const options = await page.locator('.menu .option').evaluateAll((els) =>
+		els.map((el) => {
+			const text = el.textContent.replace(/[▸\s]+/g, ' ').trim();
+			if (el.classList.contains('off')) return `(${text})`;
+			return el.classList.contains('lit') ? `[${text}]` : text;
+		})
+	);
+	if (options.length) lines.push(`options: ${options.join(' | ')}`);
+	const nameBox = page.locator('.name-box');
+	if ((await nameBox.count()) > 0) {
+		const focused = await nameBox.evaluate((el) => el === document.activeElement);
+		lines.push(
+			`name box: "${await nameBox.inputValue()}"${focused ? ' (focused)' : ' (NOT focused)'}`
+		);
+	}
+	const notes = await page.locator('.menu .note').allTextContents();
+	if (notes.length) lines.push(`notes: ${notes.map((n) => n.trim()).join(' | ')}`);
 	const statuses = await page.locator('.status').allTextContents();
 	if (statuses.length) {
 		lines.push(`status: ${statuses.map((s) => s.replace(/\s+/g, ' ').trim()).join(' | ')}`);
@@ -156,13 +200,15 @@ for (const { op, arg } of script) {
 	switch (op) {
 		case 'key':
 			await page.keyboard.down(arg);
-			await page.waitForTimeout(220);
+			await page.waitForTimeout(tapMs);
 			await page.keyboard.up(arg);
 			await page.waitForTimeout(keyInterval);
 			break;
 		case 'type':
+			// `type` presses a key for anything on a keyboard and inserts the rest
+			// (an emoji, an accented letter) as text, as a real input method would.
 			for (const ch of arg) {
-				await page.keyboard.press(ch);
+				await page.keyboard.type(ch);
 				await page.waitForTimeout(150);
 			}
 			await page.waitForTimeout(keyInterval);
@@ -193,6 +239,14 @@ for (const { op, arg } of script) {
 		case 'reload':
 			await page.reload({ waitUntil: 'networkidle' });
 			await page.waitForTimeout(wait);
+			break;
+		case 'down':
+			await page.keyboard.down(arg);
+			await page.waitForTimeout(keyInterval);
+			break;
+		case 'up':
+			await page.keyboard.up(arg);
+			await page.waitForTimeout(keyInterval);
 			break;
 		case 'shot':
 			await page.waitForTimeout(400);
