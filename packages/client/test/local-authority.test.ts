@@ -31,6 +31,12 @@ function session(): Session {
 	return { authority, events };
 }
 
+/** Index of the last event of `type`, or -1. (ES2022 has no `findLastIndex`.) */
+function lastIndexOf(s: Session, type: GameEvent['type']): number {
+	for (let i = s.events.length - 1; i >= 0; i--) if (s.events[i]!.type === type) return i;
+	return -1;
+}
+
 function welcome(s: Session): Extract<GameEvent, { type: 'welcome' }> {
 	const w = s.events.find((e) => e.type === 'welcome');
 	if (w?.type !== 'welcome') throw new Error('no welcome');
@@ -128,8 +134,7 @@ function tryToCatch(s: Session): void {
 
 /** The events a finished battle's last intent produced, from its `battle-updated` on. */
 function closingEvents(s: Session): GameEvent[] {
-	const i = s.events.findLastIndex((e) => e.type === 'battle-updated');
-	return s.events.slice(i);
+	return s.events.slice(lastIndexOf(s, 'battle-updated'));
 }
 
 describe('LocalAuthority: encounters', () => {
@@ -153,7 +158,7 @@ describe('LocalAuthority: encounters', () => {
 		const { seed } = welcome(s);
 		for (let n = 0; n < 6; n++) {
 			const state = walkIntoBattle(s);
-			const i = s.events.findLastIndex((e) => e.type === 'battle-started');
+			const i = lastIndexOf(s, 'battle-started');
 			const step = s.events[i - 1];
 			if (step?.type !== 'player-moved') throw new Error(`battle after ${step?.type}`);
 			expect(isEncounterTile(tileAtWorld(seed, step.pos.x, step.pos.y).kind)).toBe(true);

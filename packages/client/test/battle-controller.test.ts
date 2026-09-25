@@ -176,7 +176,7 @@ describe('battle screen', () => {
 		t.run(1);
 		t.press('Enter');
 		expect(battle.active).toBe(false);
-		const stale = t.events.findLast((e) => e.type === 'battle-updated')!;
+		const stale = t.events.filter((e) => e.type === 'battle-updated').at(-1)!;
 		const shown = t.shown.length;
 
 		// Back in explore: a late update changes nothing.
