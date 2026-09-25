@@ -2,16 +2,17 @@
 
 Tasks that genuinely require human action — accounts, consents, decisions that need human judgment. Running servers, migrations, and database operations are NOT human tasks; agents do those.
 
-### Install a tunnel client so the game can be shared from this machine
+### Add your ngrok authtoken so the game can be shared from this machine
 
-**What**: Neither `ngrok` nor `cloudflared` is installed. Pick one:
+**What**: `ngrok` is installed (Homebrew, 2026-09-25) but has no authtoken yet. Copy the token from https://dashboard.ngrok.com/get-started/your-authtoken and run, in your own terminal:
 
-- ngrok: `brew install ngrok`, then `ngrok config add-authtoken <token>` from your ngrok dashboard. Run with `ngrok http 5180`.
-- cloudflared (no account needed for quick tunnels): `brew install cloudflared`, run with `cloudflared tunnel --url http://localhost:5180`.
+```bash
+ngrok config add-authtoken <token>
+```
 
-Either way, start the client dev server with `TUNNEL=1 pnpm dev:client` so Vite accepts the tunnel hostname. Recipe in [[DEVELOPMENT]] § "Sharing the game through a tunnel".
+Then share the game with `TUNNEL=1 pnpm dev:client` in one terminal and `ngrok http 5180` in another; send the `https://….ngrok-free.app` URL it prints. Recipe in [[DEVELOPMENT]] § "Sharing the game through a tunnel".
 
-**Why**: the authtoken is tied to your account; an agent can't create it. Until this is done the game is reachable only on this machine.
+**Why**: the authtoken is tied to your account; an agent must not handle it. Until this is done the game is reachable only on this machine.
 
 ### Decide the game's name
 
