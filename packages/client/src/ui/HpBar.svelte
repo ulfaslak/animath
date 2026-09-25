@@ -3,16 +3,18 @@
 	 * The one HP bar, used by the party HUD and the battle status boxes.
 	 * Colour follows the fraction left (green, then amber under half, then red
 	 * under a fifth) and the numbers are always printed, so the state is
-	 * readable without colour.
+	 * readable without colour. Any HP above zero shows at least a sliver, so
+	 * 1/100 never looks the same as a tired 0/100.
 	 */
 	let { hp, max }: { hp: number; max: number } = $props();
 	const fraction = $derived(max > 0 ? Math.max(0, Math.min(1, hp / max)) : 0);
 	const band = $derived(fraction > 0.5 ? 'good' : fraction > 0.2 ? 'warn' : 'bad');
+	const width = $derived(hp > 0 ? Math.max(4, fraction * 100) : 0);
 </script>
 
 <div class="hp">
 	<div class="track">
-		<div class="bar {band}" style:width="{fraction * 100}%"></div>
+		<div class="bar {band}" style:width="{width}%"></div>
 	</div>
 	<span class="text">{hp}/{max}</span>
 </div>
