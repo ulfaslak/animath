@@ -22,19 +22,75 @@ const APOSTROPHES = /[\u0060\u00B4\u02BC\u2018\u2019\u201B\u2032]/gu;
 /** Dashes and minus signs. */
 const DASHES = /[\u2010-\u2015\u2212]/gu;
 /**
- * Everything a name may not hold: anything but a letter, an accent mark, a
- * digit, a space, a hyphen, an apostrophe or a dot. Marks that draw as
- * symbols go: enclosing marks (a circle or a "no" sign around a letter),
- * strike-through overlays ("P̶i̶p̶") and the block of marks made for symbols.
- * Default-ignorable characters go too, even the ones Unicode calls letters or
- * marks (the Hangul fillers, variation selectors), because they draw as
- * nothing and would make a name that looks empty.
+ * Everything a name may not hold: anything but a letter, a (non-enclosing)
+ * mark, a digit, a space, a hyphen, an apostrophe or a dot. Default-ignorable
+ * characters go too, even the ones Unicode calls letters or marks (the Hangul
+ * fillers, variation selectors), because they draw as nothing and would make
+ * a name that looks empty. Which of the marks stay is `belongsOn`'s call.
  */
-const NOT_ALLOWED =
-	/[^\p{L}\p{Mn}\p{Mc}\p{Nd} '.-]|[\u0334-\u0338\u20D0-\u20FF]|\p{Default_Ignorable_Code_Point}/gu;
+const NOT_ALLOWED = /[^\p{L}\p{Mn}\p{Mc}\p{Nd} '.-]|\p{Default_Ignorable_Code_Point}/gu;
 const LETTER = /\p{L}/u;
 const MARK = /\p{M}/u;
 const HAS_LETTER_OR_DIGIT = /[\p{L}\p{Nd}]/u;
+/**
+ * The generic accents Latin, Greek and Cyrillic names use on letters Unicode
+ * has no single character for ("n̈"): grave, acute, circumflex, tilde, macron,
+ * breve, dot above, diaeresis, hook above, ring above, double acute, caron,
+ * dot below, cedilla, ogonek.
+ */
+const LATIN_ACCENT = /[\u0300-\u0304\u0306-\u030C\u0323\u0327\u0328]/u;
+const LATIN_GREEK_CYRILLIC = /[\p{Script=Latin}\p{Script=Greek}\p{Script=Cyrillic}]/u;
+/**
+ * The scripts whose own marks a name keeps, on letters of the same script.
+ * Latin, Greek and Cyrillic are not among them: their letters take only the
+ * accents above, because Unicode counts some decorations as Latin too (the
+ * overline, the medieval superscript letters).
+ */
+const SCRIPTS_WITH_MARKS = [
+	'Arabic',
+	'Armenian',
+	'Balinese',
+	'Bengali',
+	'Devanagari',
+	'Ethiopic',
+	'Georgian',
+	'Gujarati',
+	'Gurmukhi',
+	'Hangul',
+	'Hebrew',
+	'Hiragana',
+	'Javanese',
+	'Kannada',
+	'Katakana',
+	'Khmer',
+	'Lao',
+	'Malayalam',
+	'Mongolian',
+	'Myanmar',
+	'Oriya',
+	'Sinhala',
+	'Sundanese',
+	'Syriac',
+	'Tamil',
+	'Telugu',
+	'Thaana',
+	'Thai',
+	'Tibetan'
+].map((script) => new RegExp(`\\p{Script_Extensions=${script}}`, 'u'));
+
+/**
+ * Whether a mark spells the name on this letter: it belongs to the letter's
+ * own script (a Hindi vowel sign on a Hindi letter, a Hebrew point, Thai and
+ * Burmese vowels, Arabic vowel marks), or, on a Latin, Greek or Cyrillic
+ * letter, it is one of the accents above. Every other mark decorates rather
+ * than spells — underlines, strike-throughs, arrows and boxes under or over a
+ * letter, a script's mark stuck on another script's letter, the marks text
+ * generators stack — and goes, like any other symbol.
+ */
+function belongsOn(mark: string, letter: string): boolean {
+	if (LATIN_GREEK_CYRILLIC.test(letter)) return LATIN_ACCENT.test(mark);
+	return SCRIPTS_WITH_MARKS.some((script) => script.test(mark) && script.test(letter));
+}
 
 /**
  * Cleans a typed nickname, or returns undefined when nothing usable is left:
@@ -82,15 +138,17 @@ function cleanOnce(text: string): string {
 		.normalize('NFKC')
 		.replace(/\s/gu, ' ')
 		.replace(NOT_ALLOWED, '');
-	// A mark stays only on a letter, and only the first few on each.
+	// A mark stays only on a letter it belongs on, and only the first few on each.
 	let kept = '';
-	let marks = MAX_MARKS_PER_LETTER; // before any letter, nothing can carry a mark
+	let letter = ''; // the letter the next marks sit on; '' after anything else
+	let marks = 0;
 	for (const c of allowed) {
 		if (MARK.test(c)) {
-			if (marks >= MAX_MARKS_PER_LETTER) continue;
+			if (!letter || marks >= MAX_MARKS_PER_LETTER || !belongsOn(c, letter)) continue;
 			marks++;
 		} else {
-			marks = LETTER.test(c) ? 0 : MAX_MARKS_PER_LETTER;
+			letter = LETTER.test(c) ? c : '';
+			marks = 0;
 		}
 		kept += c;
 	}

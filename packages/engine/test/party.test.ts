@@ -85,6 +85,57 @@ function plainName(rng: Rng): string {
 const FUZZ = 6000;
 const fuzzed = Array.from({ length: FUZZ }, (_, i) => randomText(new Rng(hashInts(0x5eed, i))));
 
+/**
+ * Whether a mark belongs on the letter under it: the test's own statement of
+ * the rule, over more scripts than the cleaner lists. Latin, Greek and
+ * Cyrillic letters take only the listed accents.
+ */
+const TEST_SCRIPTS = [
+	'Arabic',
+	'Armenian',
+	'Balinese',
+	'Bengali',
+	'Buginese',
+	'Cham',
+	'Cyrillic',
+	'Devanagari',
+	'Ethiopic',
+	'Georgian',
+	'Greek',
+	'Gujarati',
+	'Gurmukhi',
+	'Hangul',
+	'Hebrew',
+	'Hiragana',
+	'Javanese',
+	'Kannada',
+	'Katakana',
+	'Kharoshthi',
+	'Khmer',
+	'Lao',
+	'Latin',
+	'Malayalam',
+	'Mongolian',
+	'Myanmar',
+	'Oriya',
+	'Sinhala',
+	'Sundanese',
+	'Syriac',
+	'Tamil',
+	'Telugu',
+	'Thaana',
+	'Thai',
+	'Tibetan',
+	'Vai'
+].map((script) => new RegExp(`\\p{Script_Extensions=${script}}`, 'u'));
+const GENERIC_LATIN_ACCENT = /[\u0300-\u0304\u0306-\u030C\u0323\u0327\u0328]/u;
+function sharesScript(mark: string, letter: string): boolean {
+	if (/[\p{Script=Latin}\p{Script=Greek}\p{Script=Cyrillic}]/u.test(letter)) {
+		return GENERIC_LATIN_ACCENT.test(mark);
+	}
+	return TEST_SCRIPTS.some((script) => script.test(mark) && script.test(letter));
+}
+
 /** Every promise a cleaned name makes, as the list of the ones it breaks. */
 function problems(name: string): string[] {
 	const found: string[] = [];
@@ -95,19 +146,20 @@ function problems(name: string): string[] {
 	if (name.includes('  ')) found.push('two spaces in a row');
 	if (name !== name.normalize('NFKC')) found.push('not NFKC');
 	if (!/[\p{L}\p{Nd}]/u.test(name)) found.push('no letter or digit');
-	let marks = 4; // before any letter, nothing may carry a mark
+	let letter = ''; // the letter the next marks sit on
+	let marks = 0;
 	for (const c of name) {
 		const code = `U+${c.codePointAt(0)!.toString(16).toUpperCase()}`;
 		if (/\p{Default_Ignorable_Code_Point}/u.test(c)) found.push(`holds ${code}`);
 		if (/\p{M}/u.test(c)) {
-			if (marks >= 4) found.push(`a mark on no letter, or a fifth on one: ${code}`);
-			if (/\p{Me}|[\u0334-\u0338\u20D0-\u20FF]/u.test(c)) {
-				found.push(`a mark that draws as a symbol: ${code}`);
-			}
+			if (!letter || marks >= 4) found.push(`a mark on no letter, or a fifth on one: ${code}`);
+			else if (!sharesScript(c, letter))
+				found.push(`a mark that does not belong on ${letter}: ${code}`);
 			marks++;
 			continue;
 		}
-		marks = /\p{L}/u.test(c) ? 0 : 4;
+		letter = /\p{L}/u.test(c) ? c : '';
+		marks = 0;
 		if (!/[\p{L}\p{Nd} '.-]/u.test(c)) found.push(`holds ${code}`);
 	}
 	return found;
@@ -167,6 +219,24 @@ describe('normalizeNickname', () => {
 		}
 	});
 
+	it('drops every mark that decorates a letter rather than spells it', () => {
+		// Named, not derived from the rule: underline and overline, the strike-through
+		// overlays, arrows and an x below, enclosing circles and a keycap, Vedic and
+		// half marks, the deletion mark. Text generators stack these on letters.
+		const decorations = [
+			0x0305, 0x0332, 0x0333, 0x0334, 0x0335, 0x0336, 0x0337, 0x0338, 0x0353, 0x0354, 0x0355,
+			0x0356, 0x0362, 0x0489, 0x1cd4, 0x1ce2, 0x1dfb, 0x20d0, 0x20d2, 0x20dd, 0x20e0, 0x20e3,
+			0xfe20, 0xfe2f
+		];
+		for (const cp of decorations) {
+			const raw = `P${String.fromCodePoint(cp)}ip`;
+			expect({ cp: cp.toString(16), name: normalizeNickname(raw) }).toEqual({
+				cp: cp.toString(16),
+				name: 'Pip'
+			});
+		}
+	});
+
 	it('keeps the accent marks an alphabet puts on its letters', () => {
 		for (let i = 0; i < 2000; i++) {
 			const name = markedName(new Rng(hashInts(0xacce, i))).normalize('NFKC');
@@ -211,6 +281,13 @@ describe('normalizeNickname', () => {
 			['Pip\u20E0', 'Pip'], // an enclosing "no" sign over the p is a symbol
 			['P\u0336i\u0336p\u0336', 'Pip'], // strike-through
 			['x\u0489', 'x'], // an enclosing Cyrillic sign
+			[
+				'\u0645\u064F\u062D\u064E\u0645\u064E\u0651\u062F',
+				'\u0645\u064F\u062D\u064E\u0645\u064E\u0651\u062F'
+			], // Arabic vowel marks stay on Arabic letters
+			['\u0416\u0483', '\u0416'], // Latin, Greek and Cyrillic letters take only the listed accents
+			['n\u0305', 'n'], // an overline, which Unicode also counts as Latin
+			['\u0915\u05B8', '\u0915'], // a Hebrew vowel on a Hindi letter
 			['\u0301abc', 'abc'], // a mark on nothing
 			['1\u0301 2', '1 2'], // a mark on a digit
 			['a'.repeat(11) + 'x\u0301', 'a'.repeat(11)], // never cut between a letter and its mark
