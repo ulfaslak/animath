@@ -6,12 +6,14 @@ import { DoctorController } from './doctor/controller';
 import { ExploreController } from './explore/controller';
 import { flags } from './flags';
 import { Keyboard } from './input/keyboard';
+import { PauseController } from './pause/controller';
 import { GameRenderer } from './render/renderer';
 import { buildZoo } from './render/zoo';
 import { battle } from './state/battle.svelte';
 import { doctor } from './state/doctor.svelte';
 import { game } from './state/game.svelte';
 import { hud } from './state/hud.svelte';
+import { pause } from './state/pause.svelte';
 import App from './ui/App.svelte';
 
 const canvas = document.getElementById('game') as HTMLCanvasElement;
@@ -23,6 +25,7 @@ const keyboard = new Keyboard(window);
 const explore = new ExploreController(authority, renderer, keyboard);
 const battleController = new BattleController(authority, renderer);
 const doctorController = new DoctorController(authority);
+const pauseController = new PauseController(authority);
 
 authority.subscribe((event) => {
 	game.apply(event);
@@ -30,17 +33,26 @@ authority.subscribe((event) => {
 	explore.handle(event);
 	battleController.handle(event);
 	doctorController.handle(event);
+	pauseController.handle(event);
 	// `?zoo` lines up one of every species by the spawn tile (a check for the meshes).
 	if (flags.zoo && event.type === 'welcome') {
 		for (const figure of buildZoo(event.seed, event.pos)) renderer.addFigure(figure);
 	}
 });
 
+/** Walking reads the keyboard only in explore with no card or menu open. */
+const exploreInput = () => !battle.active && !doctor.active && !pause.open;
+
 // Keys go to exactly one screen: the battle while it is up, else the doctor's
-// card while it is open, else explore (which reads them through `keyboard`).
+// card while it is open, else the pause menu while it is open (Escape in
+// explore opens it), else explore, which reads them through `keyboard`.
+// Explore's own listener runs first and is switched off here at once, so the
+// key that opens the menu is the last one walking sees.
 window.addEventListener('keydown', (e) => {
 	if (battle.active) battleController.onKey(e);
 	else if (doctor.active) doctorController.onKey(e);
+	else if (game.mode === 'explore') pauseController.onKey(e);
+	keyboard.setEnabled(exploreInput());
 });
 
 mount(App, { target: uiRoot });
@@ -49,7 +61,7 @@ let last = performance.now();
 function frame(now: number) {
 	const dt = Math.min(0.1, (now - last) / 1000);
 	last = now;
-	keyboard.setEnabled(!battle.active && !doctor.active);
+	keyboard.setEnabled(exploreInput());
 	// While a battle is entering, the world keeps drawing so the step into the
 	// grass can land; explore input is already off, so no new step starts.
 	// The doctor's card is drawn over the world, which keeps drawing under it.
@@ -57,7 +69,7 @@ function frame(now: number) {
 	if (battle.active) battleController.update(dt);
 	if (doctor.active) doctorController.update(dt);
 	// The message line's clock runs only while the explore HUD is on screen.
-	if (!battle.active && !doctor.active) hud.tick(dt);
+	if (!battle.active && !doctor.active && !pause.open) hud.tick(dt);
 	renderer.render();
 	requestAnimationFrame(frame);
 }

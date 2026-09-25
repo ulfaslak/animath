@@ -46,7 +46,7 @@ Two modes only, borrowed from the Game Boy games: **Explore** and **Battle**. Fi
 ### Wild encounters
 
 - Each step that lands on **tall grass** has a **1-in-10** chance of starting a wild battle: one encounter per ten grass steps on average, whichever animal leads the party, wherever anything could challenge it (below). No other tile ever starts one.
-- **The lead decides who comes out.** The lead is the first animal in the party that isn't tired: the one that steps into the battle first. With `L` its tier, a species `k = t − L` tiers above it (`k ≥ 0`) weighs what a tier-`(1 + k)` species weighed before the lead mattered, so the rules below are the starter's, moved up by `L − 1` tiers; for a tier-1 lead nothing changed. A species **one tier below** the lead weighs **1/10** of one of the lead's own tier, near home and far away. **Two or more tiers below**, it never comes out.
+- **The lead decides who comes out.** The lead (§4 "Party") is the first animal in the party that isn't tired, the one that steps into the battle first, and the player can choose it while exploring. With `L` its tier, a species `k = t − L` tiers above it (`k ≥ 0`) weighs what a tier-`(1 + k)` species weighed before the lead mattered, so the rules below are the starter's, moved up by `L − 1` tiers; for a tier-1 lead nothing changed. A species **one tier below** the lead weighs **1/10** of one of the lead's own tier, near home and far away. **Two or more tiers below**, it never comes out.
 - The animal comes from the biome's **encounter table**: every species whose habitats include the biome and that may challenge the lead, plus the visitors below. It appears at full HP.
 - **Distance rule.** Fierce animals are rare near the start and ordinary far away. With `d` the straight-line distance in tiles from the spawn tile, `danger = clamp((d − 32) / 96, 0, 1)`; a species `k` tiers above the lead weighs `5^(−k·(1−danger))`, one tier below weighs `0.1`, and the weights are normalised within the biome. Inside the **safe radius** (32 tiles) each tier above the lead is five times rarer than the tier below it; from the **wild radius** (128 tiles) out, every species living in the biome from the lead's tier up is equally likely; in between the ratio shrinks smoothly.
 - **Visitors near home.** A biome where animals the lead's size or bigger live, but none of its own tier, also gets every species of the lead's tier as a visitor, each weighing `1 − danger`: as much as a resident of the lead's tier inside the safe radius, thinning out to nothing at the wild radius. With the starter in front, the squirrels and rabbits come down to the water and up the hills; with a fox or an otter, foxes and otters come up the hills; with a deer, deer do. Far out the river is otters and the mountains are wolves and bears.
@@ -99,6 +99,13 @@ Two modes only, borrowed from the Game Boy games: **Explore** and **Battle**. Fi
 - Input is a number. Answers are judged by the engine, never by the UI.
 - The catalog is designed to grow: fractions, decimals, negatives, percentages, word problems, adaptive difficulty per child are all future kinds, not v1.
 
+### Party
+
+- A party holds up to six animals, in an order the player chooses.
+- **The lead is the first animal in party order that is not tired.** It is the one that steps into the next battle and the one wild animals size up before they come out (§4 "Wild encounters"). Once a battle has started, the player decides who is in front: a switch, or picking who steps in after a knock-out (§4 "Battle"); neither changes the party's order. There is no separate "selected" animal: choosing a lead moves it to the front.
+- While exploring — not in a battle, not at the doctor — the player can choose any animal that is not tired as the lead, move any animal up or down (a tired one too: a tired animal at the front is simply skipped), and name any animal.
+- **Nicknames**: at most 12 characters, from letters (any alphabet), digits, spaces, hyphens, apostrophes and dots. A letter keeps up to four accent marks that belong on it: the usual accents on a Latin, Greek or Cyrillic letter, or its own script's marks for the scripts the engine lists (the Indian scripts, Arabic, Hebrew, Thai, Burmese, Khmer and a dozen more); a script not listed keeps its letters and loses its marks. An accent that no single letter carries counts as a character. Everything else a kid types — emoji, symbols, marks that decorate a letter (an underline, a strike-through, a circle around it) — is left out, runs of spaces become one, and spaces at either end are trimmed. A name with no letter or digit left is no name, and the animal goes by its species' name again.
+
 ### Starting out
 
 A new player starts with one tier-1 animal (a squirrel in the prototype). A starter choice of three is planned.
@@ -120,14 +127,16 @@ What is built and observable today. Keep current: add a bullet when a feature sh
 - Grid movement with arrow keys / WASD; blocked tiles (water, rock, trees, doctor tents) stop you; a tap always moves one tile.
 - The player is a small trainer figure — a kid in a cap — that faces the way it walks, stands on top of hills and breathes while idle.
 - A crude but recognisable low-poly figure for every species, built from primitives with one exaggerated tell each. They fight in battles; the `?zoo` line-up (see [[CHEATSHEET]]) shows them all at once.
-- Party HUD: one card per animal with its name and an HP bar with numbers; a knocked-out animal is greyed with a "tired" tag.
+- Party HUD: one card per animal in battle order with its number key, its name (nickname if it has one) and an HP bar with numbers; a knocked-out animal is greyed with a "tired" tag, and the lead is outlined and tagged "goes first".
+- Choosing the lead from explore: the number keys pick who goes first (§4 "Party"); a tired animal can't go first, and the message line says so.
+- Pause menu (Escape in explore): the team in battle order, where an animal can go first, move up or down, or get a nickname typed in a name box. Walking waits while it is open.
 - Message line: the latest message for a few seconds, the controls hint for the first few steps, and "Press Enter to talk to the doctor" while the player faces a tent ([[UI_SPEC]] § Explore mode).
 - Doctor's tents: facing a tent, Enter opens the doctor's card ([[UI_SPEC]] § Doctor). Pick a hurt or tired animal, solve its puzzle and it is back to full HP; a wrong answer just brings another puzzle; the list stays live during a puzzle; Bye or Escape leaves at any time. With nobody hurt, the doctor says everyone is fit and happy. The doctor speaks English and Danish (its words are in the copy files; the animals' names are still English).
 
 ### Encounters and battle
 
 - Wild encounters: each step onto tall grass may start a battle, with the species picked by biome, distance from spawn and tier compared with the party's lead (§4 "Wild encounters"). A stronger lead meets stronger animals as often as the starter meets small ones, never anything two or more tiers smaller, and finds some biomes quiet: a bear meets nothing in the meadow or at the river.
-- Battle mode, Game Boy style ([[UI_SPEC]] § Battle mode): the two animals face each other on a patch of the biome, with status boxes, a narration line, an action menu (every attack with its own level — easy, medium or hard — then Leash, Switch and Run) and the puzzle panel. Every attack is a puzzle answered by typing a number. The wild animal's reply and knock-outs are played out one line at a time.
+- Battle mode, Game Boy style ([[UI_SPEC]] § Battle mode): the two animals face each other on a patch of the biome, with status boxes, a narration line, an action menu (every attack with its own level — easy, medium or hard — then Leash, with a word for how likely a catch is, Switch and Run) and the puzzle panel. Every attack is a puzzle answered by typing a number. The wild animal's reply and knock-outs are played out one line at a time.
 - Switching animals mid-battle (§4 "Battle"): Switch opens the party list, with tired animals greyed and the one in front marked; the switch takes the turn. After a knock-out the same list asks who goes next, and that pick is free. With a party of one the Switch row is greyed and says to catch a second animal.
 - Catching with the leash; a caught animal joins the party (up to six) with the HP it had. With six already, it goes back into the grass.
 - HP lost in a battle stays lost afterwards; a knocked-out animal stays tired and sits out battles until healed.
@@ -145,6 +154,7 @@ What is built and observable today. Keep current: add a bullet when a feature sh
 - Species catalog: 7 placeholder species, tiers 1–5.
 - Wild encounter tables and the per-step roll, indexed on the lead's tier, with visitors of the lead's tier near home where only bigger animals live (§4 "Wild encounters").
 - Battle reducer: `startBattle` and `applyBattleIntent` play a whole wild battle by the rules in §4 — attacks, puzzles, answers, the wild animal's reply (which can miss an animal its own size or bigger), leash, flee, switching, knock-outs and the player's pick of who steps in — as intents in, events out.
+- Party rules (§4 "Party"): `applyPartyIntent` chooses the lead, moves an animal or names it, only while exploring; `normalizeNickname` cleans a typed name; `leadIndex` is the lead that battles and encounters use.
 - Doctor rules (§4 "Knock-out and healing"): whether the player faces a tent, a doctor visit that heals one hurt animal per solved puzzle (`startDoctorVisit` and `applyDoctorIntent`, intents in, events out), and the knock-out rule (`takeToDoctor`), which finds the nearest tent on foot and heals the whole party.
 
 ### Server
@@ -157,8 +167,8 @@ What is built and observable today. Keep current: add a bullet when a feature sh
 
 In rough priority order. Each becomes a GitHub issue when picked up.
 
-1. Party management: reorder, nicknames (catching ships, §5).
-2. Save/load in the client: create the anonymous player on first visit, keep the secret, load the save on boot and write it as the game progresses (the server routes exist, see [[ARCHITECTURE]] § HTTP API).
+1. Save/load in the client: create the anonymous player on first visit, keep the secret, load the save on boot and write it as the game progresses (the server routes exist, see [[ARCHITECTURE]] § HTTP API).
+2. A title screen, and sound with its setting in the pause menu (where the Language setting also goes, below).
 3. Real low-poly animal models (glTF, CC0 sources, see [[DECISIONS]]) with attack animations, replacing the primitive figures.
 4. The whole game in Danish and English: every line in both, and a Language setting in the pause menu that switches every word at once and is remembered on this device. The copy files and `t()` exist (§5, [[ARCHITECTURE]] § Copy); the doctor's words are in them, the rest have not moved yet.
 5. Procedural world v2: rivers that flow, paths, biome shaping, landmarks, spawn tables.

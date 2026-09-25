@@ -3,11 +3,14 @@ import {
 	Rng,
 	applyBattleIntent,
 	applyDoctorIntent,
+	applyPartyIntent,
 	canTalkToDoctor,
 	getAnimal,
 	hashInts,
 	hashString,
 	isWalkable,
+	leadIndex,
+	normalizeNickname,
 	rollEncounter,
 	spawnPoint,
 	startBattle,
@@ -26,6 +29,8 @@ import {
 	type GameEvent,
 	type GridPos,
 	type Intent,
+	type PartyIntent,
+	type PlayerActivity,
 	type Rescue
 } from '@mathgame/engine';
 
@@ -43,7 +48,7 @@ export interface LocalAuthorityOptions {
 	 * Start with this party instead of the one squirrel: the `?party=` URL
 	 * switch, for looking at screens that need a bigger or hurt party. Every
 	 * animal must be valid (a catalog species, HP in `0..maxHp`, unique ids);
-	 * at most `MAX_PARTY`.
+	 * at most `MAX_PARTY`. Nicknames are cleaned on the way in, like a rename.
 	 */
 	party?: readonly AnimalInstance[];
 }
@@ -95,8 +100,11 @@ export class LocalAuthority implements Authority {
 		this.spawn = spawnPoint(this.seed);
 		this.pos = this.spawn;
 		this.facing = 'down';
-		this.party = this.options.party
-			? this.options.party.map((a) => ({ ...a }))
+		// A party from outside (`?party=`, later a save) enters through the
+		// engine's name cleaning, like a rename: the party only ever holds
+		// cleaned nicknames, so every screen can show one as stored.
+		this.party = this.options.party?.length
+			? this.options.party.map(withCleanNickname)
 			: [{ id: 'starter', speciesId: 'squirrel', hp: 20 }];
 		this.emit({
 			type: 'welcome',
@@ -108,6 +116,12 @@ export class LocalAuthority implements Authority {
 	}
 
 	dispatch(intent: Intent): void {
+		if (intent.type === 'party') {
+			// In any mode: the engine is told what the player is doing and refuses
+			// an edit outside explore itself.
+			this.editParty(intent.intent);
+			return;
+		}
 		if (this.battle) {
 			// Mid-battle there is no walking and no talking; only battle intents count.
 			if (intent.type === 'battle') this.applyBattle(intent.intent);
@@ -152,12 +166,13 @@ export class LocalAuthority implements Authority {
 		this.steps += 1;
 		this.emit({ type: 'player-moved', playerId: this.playerId, pos: next, dir });
 
-		// The lead is the first animal that isn't tired: the one `startBattle`
-		// sends out first, and the one wild animals size up before they come
-		// out. A party with nobody standing can't battle (`startBattle` refuses
+		// The lead (the engine's `leadIndex`: the first animal that isn't tired)
+		// is the one `startBattle` sends out first, and the one wild animals size
+		// up before they come out, so choosing a lead changes what the grass
+		// holds. A party with nobody standing can't battle (`startBattle` refuses
 		// it). Losing takes everyone to the doctor, so only a `?party=` of tired
 		// animals walks here; it meets nothing until the doctor has helped.
-		const lead = this.party.find((a) => a.hp > 0);
+		const lead = this.party[leadIndex(this.party)];
 		if (!lead) return;
 		// One roll per completed step, keyed by the step count so a replayed
 		// walk meets the same animals; the engine only draws on tall grass.
@@ -286,6 +301,24 @@ export class LocalAuthority implements Authority {
 		this.emit({ type: 'doctor-visit-ended', visit, state });
 	}
 
+	// --- party ---------------------------------------------------------------
+
+	/**
+	 * Apply a party intent and say what happened: the facts only. The client
+	 * words them (the message line's notice about the lead), in the language
+	 * on screen.
+	 */
+	private editParty(intent: PartyIntent): void {
+		const { party, events } = applyPartyIntent(this.party, intent, this.activity());
+		this.party = party.map((a) => ({ ...a }));
+		this.emit({ type: 'party-edited', party: this.partyCopy(), events });
+	}
+
+	/** What the player is doing, for the engine's rules that depend on it. */
+	private activity(): PlayerActivity {
+		return this.battle ? 'battle' : this.doctor ? 'doctor' : 'explore';
+	}
+
 	// --- helpers -----------------------------------------------------------
 
 	private partyCopy(): AnimalInstance[] {
@@ -295,6 +328,13 @@ export class LocalAuthority implements Authority {
 	private emit(event: GameEvent): void {
 		for (const l of this.listeners) l(event);
 	}
+}
+
+/** A copy of the animal with its nickname cleaned, and no `nickname` key when none is left. */
+function withCleanNickname(animal: AnimalInstance): AnimalInstance {
+	const { nickname, ...rest } = animal;
+	const clean = normalizeNickname(nickname);
+	return clean === undefined ? rest : { ...rest, nickname: clean };
 }
 
 /**

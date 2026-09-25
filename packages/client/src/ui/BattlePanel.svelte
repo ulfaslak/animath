@@ -2,6 +2,7 @@
 	import {
 		ATTACK_LEVELS,
 		attackDamage,
+		catchProbability,
 		getAnimal,
 		type AnimalInstance,
 		type PuzzleKind
@@ -99,16 +100,17 @@
 	});
 
 	/**
-	 * The leash row hints at the odds by the wild animal's HP in thirds
-	 * (UI_SPEC), never with a number. The word says what the colour says —
-	 * how strong the animal still is — and promises nothing more.
+	 * The leash row hints at the real odds — the engine's `catchProbability`
+	 * for this animal at the HP on screen, with this leash — never as a number
+	 * (UI_SPEC): at least one in two is a good chance, at least one in five is
+	 * a maybe, anything less is hard. The word says what the colour says.
 	 */
 	const leashBand = $derived.by(() => {
 		if (!opponent || !opponentSpec) return 'bad';
-		const fraction = opponent.hp / opponentSpec.maxHp;
-		return fraction <= 1 / 3 ? 'good' : fraction <= 2 / 3 ? 'warn' : 'bad';
+		const hp = opponent.hp / opponentSpec.maxHp;
+		const chance = catchProbability(hp, opponentSpec.catchRate, battle.leashQuality);
+		return chance >= 0.5 ? 'good' : chance >= 0.2 ? 'warn' : 'bad';
 	});
-	const LEASH_WORDS = { good: 'weak', warn: 'weaker', bad: 'strong' } as const;
 
 	const headline = $derived.by(() => {
 		switch (battle.outcome) {
@@ -206,7 +208,15 @@
 				<div class="row" class:selected={battle.cursor === spec.attacks.length}>
 					<span class="caret">▸</span>
 					<span class="label">Leash</span>
-					<span class="how">{LEASH_WORDS[leashBand]}</span>
+					<span class="how">
+						{#if leashBand === 'good'}
+							{t('battle.leashGood')}
+						{:else if leashBand === 'warn'}
+							{t('battle.leashMaybe')}
+						{:else}
+							{t('battle.leashHard')}
+						{/if}
+					</span>
 					<span class="dot {leashBand}"></span>
 				</div>
 				<div

@@ -45,14 +45,16 @@ Headless Chrome via `playwright-core`, WebGL through SwiftShader. The script exi
 
 | Token              | Does                                                                                   |
 | ------------------ | -------------------------------------------------------------------------------------- |
-| `type:<text>`      | types each character, e.g. an answer: `type:56`, `type:-5`                              |
+| `type:<text>`      | types each character, e.g. an answer (`type:56`, `type:-5`) or a name, emoji included (`type:Pip😀`); never a comma |
 | `hold:<key>:<ms>`  | holds a key down with auto-repeat, as a real keyboard does (`hold:ArrowUp:5000`)       |
+| `down:<key>`       | presses a key and keeps it down while the next tokens run; another `down:` of it is an auto-repeat |
+| `up:<key>`         | lets go of a key pressed with `down:` (`down:ArrowRight,Escape,down:ArrowRight,Escape,up:ArrowRight`: a walking key held across the pause menu) |
 | `wait:<ms>`        | pauses — a battle turn takes several seconds to narrate                                 |
 | `shot:<name>`      | saves an extra frame to `<out>-<name>.png` there and then                               |
 | `size:<w>x<h>`     | resizes the window mid-run                                                              |
 | `reload:`          | reloads the page                                                                        |
 
-After every frame the script prints what the screen says — the message line in explore (`hud:`), and with `?debug` in the URL the grid position and facing (`at:`); at the doctor the doctor's line and the party (the highlighted row in brackets); in a battle the status boxes, the menu (the highlighted row in brackets; each attack with its level word, greyed rows marked) or the party list in its place, the narration line, the puzzle, the typed answer, the judgement and the result card — so a run can be checked from its output as well as its images.
+After every frame the script prints what the screen says: the message line in explore (`hud:`), with `?debug` in the URL the grid position and facing (`at:`), and the party cards (`party:`, the lead in brackets); in the pause menu its rows (the lit one in brackets), the picked animal's options (greyed ones in parentheses), the name box with whether it has the focus, and the notes under it; at the doctor the doctor's line and the party (the highlighted row in brackets); in a battle the status boxes, the menu (the highlighted row in brackets; each attack with its level word, greyed rows marked) or the switch list in its place (`switch:`), the narration line, the puzzle, the typed answer, the judgement and the result card — so a run can be checked from its output as well as its images.
 
 `?party=` starts the game with any party (`?party=squirrel:5,rabbit:0,fox`: species, then HP, full by default), for screens that need a big or hurt one; `?debug` and `?party=` combine (see [[CHEATSHEET]] § Hidden behaviour).
 
@@ -103,6 +105,8 @@ All code is written by agents; the human reviews PRs and plays the game but does
 **Don't test**: framework glue, things the type system guarantees, a wrapper that only forwards to the engine.
 
 **Redundancy rule**: a test that mocks a dependency and asserts what another test already proves with the real thing is dead weight. Remove it. `/cleanse` prunes these.
+
+**`toEqual` cannot see a key set to `undefined`**: `{ nickname: undefined }` equals `{}` to it. When a missing key is the point — no nickname is no key, as in a save — assert with `toStrictEqual`.
 
 **Pragmatic coverage.** No coverage number. The question is: "if an agent breaks this rule in a future PR, does a test fail before merge?"
 

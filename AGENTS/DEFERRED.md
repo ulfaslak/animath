@@ -72,6 +72,25 @@ Technical items we've intentionally postponed: tech debt, hardening shortcuts, k
 
 **Trigger**: the server-side authority PR, a second caller of `nearestTent` on a per-step path (a "nearest doctor" hint), or a report of a pause after losing a battle.
 
+### `reorder` names an absolute slot, which a remote authority's latency can turn stale
+
+**What**: the `reorder` party intent carries the slot to move to (`to`), which the pause menu computes from the party it last saw. With the in-process `LocalAuthority` every `party-edited` arrives before the next key, so that view is never stale. Over a network, a kid pressing "Move up" twice before the first answer returns sends the same `to` twice: the second is refused (`already-there`) and the press is lost. `select-lead` and `rename` name the animal, not a slot, and are unaffected.
+
+**Why deferred**: there is no remote authority, and a relative move (`{ by: -1 }`) is a protocol change best made when the latency is real and can be tried.
+
+**Trigger**: the `RemoteAuthority` / WebSocket PR.
+
+### `normalizeNickname` follows the host's Unicode tables, and keeps accents for listed scripts only
+
+**What**: two limits of the nickname cleaner.
+- **Host tables.** It uses `\p{L}`, `\p{M}`, `\p{Script=…}`, `\p{Script_Extensions=…}`, `\p{Default_Ignorable_Code_Point}` and `normalize('NFKC')`, whose answers come from the JavaScript engine's Unicode version. A letter added in a recent Unicode version is kept by a newer Node and dropped (as unassigned) by an older browser, and Script_Extensions data changes more often still. So two engines can clean the same typed name differently. That is harmless while the authority is the only one that cleans: it stores its result, and every screen shows that. The name box's "It will be called …" preview is the one place the client cleans for itself, and it could disagree in that rare case.
+- **Listed scripts only.** Accent marks are kept for Latin, Greek and Cyrillic and for the scripts in `SCRIPTS_WITH_MARKS`. Rarer scripts (Meetei Mayek, N'Ko, Adlam, Tai Tham, Baybayin…) keep their letters and lose their vowel signs.
+- **Joining controls.** ZWJ and ZWNJ are dropped as default-ignorable, although they change how Sinhala ("ශ්‍රී") and Persian ("علی‌رضا") letters join.
+
+**Why deferred**: the players are Danish and English-speaking kids, and there is one authority, in the browser. The fixes cost more than they are worth today. Every script's marks would need the full, generated list of Unicode scripts, guarded against engines that don't know the newest names. Joiners would need to be kept only between two letters of one script. With a server authority, the server's result is the truth and the client only displays it.
+
+**Trigger**: a player whose name needs one of these, or the server-side authority PR. At that PR, check that nothing but the server cleans a name that is stored, and decide whether the preview needs the server's answer.
+
 ### The engine still words lines that no screen shows
 
 **What**: `BattleState.log`, `DoctorState.log` and `Rescue.message` hold English sentences the engine writes ("Let's help Squirrel! Can you solve this?", "The doctor looked after your animals…"), against [[DECISIONS]] § Copy and languages ("the engine is language-free"). The client words every line itself from events — the battle narration in `battle/controller.ts`, everything the doctor says through `doctor/lines.ts` and the copy files — so these strings reach no screen, but they are still generated, tested and carried in every state event.
@@ -79,11 +98,3 @@ Technical items we've intentionally postponed: tech debt, hardening shortcuts, k
 **Why deferred**: removing them changes the engine's state shapes and its tests, which is its own PR; nothing reads them, so they cost nothing but bytes.
 
 **Trigger**: the copy extraction (the follow-up to the copy files, PR #16, that moves the game's words into `copy/`). Drop the three fields (or turn them into data the client words) there, and move the authority's own `message` texts (the battle results in `LocalAuthority.endBattle`) to keys at the same time.
-
-### UI_SPEC promises one `Card` component; each overlay styles its own
-
-**What**: [[UI_SPEC]] § Component reuse lists "One `Card`", but there is none: `BattlePanel.svelte`, `DoctorCard.svelte` and `Hud.svelte` each give their cards the same look (`--panel-bg`, `--radius`, `--hud-shadow`) in scoped CSS. A change to the card look has to be made three times.
-
-**Why deferred**: the doctor's card was built while another branch was reworking `Hud.svelte` and `BattlePanel.svelte`; extracting a shared component then would have been a three-way conflict for no change on screen.
-
-**Trigger**: the pause menu (the next overlay), or the next change to the card look. Extract `ui/Card.svelte` and use it in every overlay, or reword the UI_SPEC line to name the shared tokens instead.

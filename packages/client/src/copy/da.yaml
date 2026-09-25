@@ -12,6 +12,10 @@ puzzle:
   keys: Skriv svaret, og tryk så på Enter
 
 battle:
+  # On the Leash row: how likely a throw is to catch the wild animal right now.
+  leashGood: God chance!
+  leashMaybe: Måske
+  leashHard: Svært at fange
   # An attack's three levels: the highlighted row's buttons, and every other row's word.
   level:
     easy: let
@@ -66,6 +70,13 @@ explore:
 party:
   # The tag on an animal at 0 HP.
   tired: træt
+  # The message line, when a number key or "Sæt forrest" made {name} the lead,
+  # or a change in the pause menu left {name} in front.
+  leadChosen: '{name} er først ud!'
+  # The message line, when the number of a tired animal was pressed.
+  leadTired: '{name} er træt. Besøg dyrlægen!'
+  # The message line, when the lead's own number was pressed.
+  leadAlready: '{name} er allerede først ud!'
 
 doctor:
   # The name tag in front of what the doctor says.
@@ -101,3 +112,44 @@ doctor:
   # The puzzle area when nobody needs the doctor.
   allFit: Ud på eventyr!
   allFitKeys: Enter eller Esc for at sige farvel
+
+keys:
+  # A key cap, as printed on the keyboard.
+  esc: Esc
+
+hud:
+  # The tag on the card of the lead: the animal that steps into the next battle.
+  goesFirst: først ud
+  # Under the party cards, after the number keys 1–n.
+  pickLead: Vælg hvem der er først ud
+  # Under the party cards, after the Esc key cap.
+  menu: Menu
+
+pause:
+  # The pause menu's title.
+  title: Pause
+  # Above the list of the party's animals.
+  team: Dit hold
+  # The row that closes the menu.
+  resume: Spil videre
+  # The picked animal's options: become the lead, move one place, get a nickname.
+  goFirst: Sæt forrest
+  moveUp: Flyt op
+  moveDown: Flyt ned
+  newName: Nyt navn
+  back: Tilbage
+  # The right-hand panel before an animal is picked.
+  pick: Vælg et dyr
+  pickHelp: Vælg hvem der er først ud, flyt det, eller giv det et navn.
+  # Under the options of a tired animal, whose "Sæt forrest" is greyed.
+  tiredHelp: '{name} er træt og kan ikke være først ud.'
+  # Above the name box.
+  nameTitle: Nyt navn til {name}
+  # Under the name box; {max} is the most characters a name can have.
+  nameRule: Bogstaver og tal, højst {max}.
+  # Under the name box, when the typed name will be stored differently.
+  willBe: Navnet bliver {name}.
+  # The key reminder at the bottom, one per screen of the menu.
+  keysList: ↑ ↓ flyt · Enter vælg · Esc luk
+  keysOptions: ↑ ↓ flyt · Enter gør det · Esc tilbage
+  keysNaming: Enter gem · Esc tilbage

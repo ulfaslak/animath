@@ -182,6 +182,7 @@ export class BattleController {
 		battle.party = state.party.map((a) => ({ ...a }));
 		battle.front = state.active;
 		battle.opponent = { ...state.opponent };
+		battle.leashQuality = state.leashQuality;
 		// Known from the start, so the Switch row doesn't show greyed through the opening lines.
 		battle.pickable = state.party.map((_, i) => canSwitchTo(state, i));
 		this.latest = state;

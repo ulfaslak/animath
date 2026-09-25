@@ -3,9 +3,11 @@
 	import { battle } from '../state/battle.svelte';
 	import { doctor } from '../state/doctor.svelte';
 	import { game } from '../state/game.svelte';
+	import { pause } from '../state/pause.svelte';
 	import BattlePanel from './BattlePanel.svelte';
 	import DoctorCard from './DoctorCard.svelte';
 	import Hud from './Hud.svelte';
+	import PauseMenu from './PauseMenu.svelte';
 </script>
 
 {#if game.mode === 'loading'}
@@ -14,6 +16,8 @@
 	{#if !battle.entering}<BattlePanel />{/if}
 {:else if doctor.active}
 	<DoctorCard />
+{:else if pause.open}
+	<PauseMenu />
 {:else}
 	<Hud />
 {/if}

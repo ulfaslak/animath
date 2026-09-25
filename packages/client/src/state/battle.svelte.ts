@@ -26,6 +26,8 @@ class BattleView {
 	/** Index into `party` of the animal in front. */
 	front = $state(0);
 	opponent = $state<AnimalInstance | null>(null);
+	/** The leash's quality multiplier (1 is the starter leash), for the Leash row's hint. */
+	leashQuality = $state(1);
 	screen = $state<BattleScreen>('busy');
 	/** Highlighted row of the action menu: the attacks, then Leash, Switch and Run. */
 	cursor = $state(0);
@@ -59,6 +61,7 @@ class BattleView {
 		this.party = [];
 		this.front = 0;
 		this.opponent = null;
+		this.leashQuality = 1;
 		this.screen = 'busy';
 		this.cursor = 0;
 		this.partyCursor = 0;
