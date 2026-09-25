@@ -74,11 +74,11 @@ Technical items we've intentionally postponed: tech debt, hardening shortcuts, k
 
 ### The engine still words lines that no screen shows
 
-**What**: `BattleState.log`, `DoctorState.log` and `Rescue.message` hold English sentences the engine writes ("Let's help Squirrel! Can you solve this?", "The doctor looked after your animals…"). The client words every line itself from events — the battle narration in `battle/controller.ts`, everything the doctor says in `doctor/lines.ts` — so these strings reach no screen, but they are still generated, tested and carried in every state event.
+**What**: `BattleState.log`, `DoctorState.log` and `Rescue.message` hold English sentences the engine writes ("Let's help Squirrel! Can you solve this?", "The doctor looked after your animals…"), against [[DECISIONS]] § Copy and languages ("the engine is language-free"). The client words every line itself from events — the battle narration in `battle/controller.ts`, everything the doctor says through `doctor/lines.ts` and the copy files — so these strings reach no screen, but they are still generated, tested and carried in every state event.
 
 **Why deferred**: removing them changes the engine's state shapes and its tests, which is its own PR; nothing reads them, so they cost nothing but bytes.
 
-**Trigger**: the refactor that moves player-facing copy into per-language files. Drop the three fields (or turn them into data the client words) there, and move the authority's own `message` texts (battle results, `NOT_AT_A_TENT` in `local.ts`) to keys at the same time.
+**Trigger**: the copy extraction (the follow-up to the copy files, PR #16, that moves the game's words into `copy/`). Drop the three fields (or turn them into data the client words) there, and move the authority's own `message` texts (the battle results in `LocalAuthority.endBattle`) to keys at the same time.
 
 ### UI_SPEC promises one `Card` component; each overlay styles its own
 
