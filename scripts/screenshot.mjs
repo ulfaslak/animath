@@ -7,7 +7,7 @@
  *
  *   node scripts/screenshot.mjs [--url http://localhost:5180/] [--out screenshots/x.png]
  *                               [--keys "ArrowRight*5,ArrowDown*3"] [--wait 1500]
- *                               [--settle 1500] [--key-interval 700]
+ *                               [--settle 1500] [--key-interval 700] [--tap-ms 100]
  *                               [--width 1280 --height 800] [--scale 1]
  *                               [--clip x,y,w,h]
  *
@@ -55,6 +55,10 @@ const settle = Number(args.settle ?? 1500);
 // One grid step takes ~3 frames at SwiftShader's frame rate; the client buffers
 // only two taps by design, so keys are spaced out to let each step complete.
 const keyInterval = Number(args['key-interval'] ?? 700);
+// How long a key token holds its key. A step takes 0.18 s, and a key still
+// down when a step lands walks another tile, so a hold longer than a step is
+// two steps whenever the page draws fast. Keep taps shorter than a step.
+const tapMs = Number(args['tap-ms'] ?? 100);
 const width = Number(args.width ?? 1280);
 const height = Number(args.height ?? 800);
 const scale = Number(args.scale ?? 1);
@@ -178,7 +182,7 @@ for (const { op, arg } of script) {
 	switch (op) {
 		case 'key':
 			await page.keyboard.down(arg);
-			await page.waitForTimeout(220);
+			await page.waitForTimeout(tapMs);
 			await page.keyboard.up(arg);
 			await page.waitForTimeout(keyInterval);
 			break;
