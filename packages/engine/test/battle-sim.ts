@@ -15,7 +15,10 @@ export type Policy = 'max' | 'min' | 'random';
 export interface PlayerModel {
 	/** Probability of answering a puzzle correctly. */
 	accuracy: number;
+	/** Weakest attack ('min'), strongest ('max') or a uniformly random one. */
 	policy: Policy;
+	/** The level every attack is used at. Default: 1 for 'min', 3 for 'max', random for 'random'. */
+	level?: AttackLevel;
 	/** Probability of throwing the leash instead of attacking, per choose-action. Default 0. */
 	leash?: number;
 	/** Probability of running away instead of attacking, per choose-action. Default 0. */
@@ -57,14 +60,14 @@ export function nextIntent(state: BattleState, model: PlayerModel, rng: Rng): Ba
 			const n = spec.attacks.length;
 			switch (model.policy) {
 				case 'max':
-					return { type: 'attack', attackIndex: n, level: 3 };
+					return { type: 'attack', attackIndex: n, level: model.level ?? 3 };
 				case 'min':
-					return { type: 'attack', attackIndex: 1, level: 1 };
+					return { type: 'attack', attackIndex: 1, level: model.level ?? 1 };
 				case 'random':
 					return {
 						type: 'attack',
 						attackIndex: rng.int(1, n),
-						level: rng.int(1, 3) as AttackLevel
+						level: model.level ?? (rng.int(1, 3) as AttackLevel)
 					};
 			}
 		}

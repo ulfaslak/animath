@@ -9,7 +9,7 @@ describe('animal catalog', () => {
 		for (const a of ANIMALS) {
 			expect(a.attacks.length).toBeGreaterThanOrEqual(1);
 			expect(a.attacks.length).toBeLessThanOrEqual(4);
-			// A wild animal always hits for its attack's power, so ≥ 1 is what makes every battle end.
+			// A wild animal that doesn't miss hits for its attack's power, so ≥ 1 is what makes every battle end.
 			expect((a.attacks[0] as { power: number }).power, `${a.id}: attack 1`).toBeGreaterThanOrEqual(
 				1
 			);
