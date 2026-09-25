@@ -6,18 +6,26 @@ import { isEncounterTile, type GridPos, type Tile } from './types.js';
 /**
  * Wild encounters: which animal, if any, steps out of the tall grass.
  *
- * The authority calls `rollEncounter` once per completed step. Only a step that
- * lands on an encounter tile can start a battle; the roll then draws the
- * encounter chance and, on a hit, a species from the biome's table. The table
- * is the catalog filtered by habitat, weighted by tier so that fierce animals
- * are rare near the spawn tile and ordinary far from it. A biome with no tier-1
- * animal of its own (the river, the mountains) also gets the catalog's tier-1
- * animals as visitors near spawn, so the first few minutes are gentle wherever
- * the player walks. [[PRODUCT]] §4 "Wild encounters" states the numbers in
- * prose; they must agree with the constants below.
+ * The authority calls `rollEncounter` once per completed step, with the tier of
+ * the party's lead: the first animal that isn't tired, the one that steps into
+ * the battle first. Only a step that lands on an encounter tile can start a
+ * battle; the roll then draws the encounter chance and, on a hit, a species
+ * from the biome's table.
+ *
+ * The table is the catalog filtered by habitat and weighted by how many tiers
+ * above the lead each species is, so that animals fiercer than the lead are
+ * rare near the spawn tile and ordinary far from it. An animal two or more
+ * tiers below the lead never challenges it; one tier below does, rarely. A
+ * biome where the only animals at least the lead's size are bigger than it
+ * (for a tier-1 lead: the river, the mountains) also gets the animals of the
+ * lead's own tier as visitors near spawn, so the first few minutes are fair
+ * wherever the player walks. For a tier-1 lead, nothing is below it, and this
+ * is the rule from before the lead mattered. [[PRODUCT]] §4 "Wild encounters"
+ * states the numbers in prose; they must agree with the constants below.
  *
  * Every draw comes from the caller's `Rng`, so a walk replays exactly from
- * (seed, intents). The rng is only touched when the tile can hold an encounter.
+ * (seed, intents). The rng is only touched when the tile can hold an encounter
+ * and something in the biome could challenge the lead.
  */
 
 /** Chance that a step landing on tall grass starts a battle: one encounter per ten grass steps. */
@@ -26,11 +34,18 @@ export const ENCOUNTER_CHANCE = 0.1;
 /** Up to this many tiles from spawn the tier mix is at its gentlest. */
 export const SAFE_RADIUS = 32;
 
-/** From this many tiles out, every tier living in a biome is equally likely. */
+/** From this many tiles out, every tier from the lead's up is equally likely. */
 export const WILD_RADIUS = 128;
 
-/** Inside the safe radius each tier is this many times rarer than the tier below it. */
+/** Inside the safe radius each tier above the lead is this many times rarer than the tier below it. */
 export const NEAR_TIER_RATIO = 5;
+
+/**
+ * What a species one tier below the lead weighs, next to a species of the
+ * lead's own tier (which weighs 1 at any distance). Small animals rarely
+ * challenge a bigger one; two or more tiers below, never.
+ */
+export const ONE_TIER_BELOW_WEIGHT = 0.1;
 
 export interface EncounterEntry {
 	species: AnimalSpec;
@@ -62,36 +77,58 @@ function danger(distance: number): number {
 	return Math.min(1, Math.max(0, t));
 }
 
-/** Relative weight of a tier at a distance: `ratio^-(tier-1)` near spawn, 1 far out. */
-function tierWeight(tier: Tier, distance: number): number {
-	return Math.pow(NEAR_TIER_RATIO, -(tier - 1) * (1 - danger(distance)));
+/**
+ * Relative weight of a resident `above` tiers above the lead (negative:
+ * below it): `ratio^-above` near spawn and 1 far out for the lead's tier and
+ * up, `ONE_TIER_BELOW_WEIGHT` one tier below at any distance, 0 further down.
+ */
+function challengerWeight(above: number, distance: number): number {
+	if (above >= 0) return Math.pow(NEAR_TIER_RATIO, -above * (1 - danger(distance)));
+	return above === -1 ? ONE_TIER_BELOW_WEIGHT : 0;
 }
 
 /**
- * How welcome tier-1 visitors are in a biome that has no tier-1 animal of its
- * own: 1 inside the safe radius, thinning out linearly to 0 at the wild
- * radius. Beyond it the river is otters and the mountains are wolves and bears.
+ * How welcome visitors of the lead's tier are in a biome that has no animal of
+ * that tier of its own: 1 inside the safe radius, thinning out linearly to 0
+ * at the wild radius. Beyond it, for a tier-1 lead, the river is otters and
+ * the mountains are wolves and bears.
  */
 function visitorWeight(distance: number): number {
-	return tierWeight(1, distance) * (1 - danger(distance));
+	return challengerWeight(0, distance) * (1 - danger(distance));
+}
+
+function assertTier(tier: unknown, where: string): asserts tier is Tier {
+	if (!Number.isInteger(tier) || (tier as number) < 1 || (tier as number) > 5) {
+		throw new Error(`${where}: the lead's tier is ${String(tier)}, expected 1..5`);
+	}
 }
 
 /**
- * The species that can appear in `biome` at `distance` tiles from spawn, with
- * their normalised shares, in catalog order. Residents (species whose habitats
- * include the biome) are weighted by tier. A biome with residents but no tier-1
- * resident also lists every tier-1 species as a visitor, weighted by
- * `visitorWeight`. Empty only if no species in the catalog lives there.
+ * The species that can challenge a lead of tier `leadTier` in `biome` at
+ * `distance` tiles from spawn, with their normalised shares, in catalog order.
+ *
+ * Residents (species whose habitats include the biome) are weighted by how
+ * many tiers above the lead they are; residents two or more tiers below it are
+ * left out. A biome with residents at or above the lead's tier but none of
+ * its tier also lists every species of the lead's tier as a visitor, weighted
+ * by `visitorWeight`. Empty when nothing living in the biome is within one
+ * tier below the lead: a bear meets nothing in the meadow.
  */
-export function encounterTable(biome: Biome, distance: number): EncounterEntry[] {
+export function encounterTable(biome: Biome, distance: number, leadTier: Tier): EncounterEntry[] {
 	if (!Number.isFinite(distance)) throw new Error(`encounterTable: distance is ${distance}`);
+	assertTier(leadTier, 'encounterTable');
 	const residents = ANIMALS.filter((a) => a.habitats.includes(biome));
 	const visitors =
-		residents.length > 0 && !residents.some((a) => a.tier === 1) ? visitorWeight(distance) : 0;
+		residents.some((a) => a.tier >= leadTier) && !residents.some((a) => a.tier === leadTier)
+			? visitorWeight(distance)
+			: 0;
 	const raw = ANIMALS.flatMap((species) => {
-		if (species.habitats.includes(biome))
-			return [{ species, weight: tierWeight(species.tier, distance) }];
-		if (species.tier === 1 && visitors > 0) return [{ species, weight: visitors }];
+		const above = species.tier - leadTier;
+		if (species.habitats.includes(biome)) {
+			const weight = challengerWeight(above, distance);
+			return weight > 0 ? [{ species, weight }] : [];
+		}
+		if (above === 0 && visitors > 0) return [{ species, weight: visitors }];
 		return [];
 	});
 	const total = raw.reduce((sum, e) => sum + e.weight, 0);
@@ -99,17 +136,21 @@ export function encounterTable(biome: Biome, distance: number): EncounterEntry[]
 }
 
 /**
- * Roll for a wild encounter after a step. Returns the wild animal at full HP,
- * or `null` when nothing happens. Throws on a site whose position or spawn is
- * not a real coordinate rather than guessing a table.
+ * Roll for a wild encounter after a step, for a party led by an animal of
+ * tier `leadTier`. Returns the wild animal at full HP, or `null` when nothing
+ * happens. The chance is `ENCOUNTER_CHANCE` whatever the lead, wherever
+ * anything could challenge it; where nothing could, the roll is `null` without
+ * a draw. Throws on a site whose position or spawn is not a real coordinate,
+ * or a lead that is not a tier, rather than guessing a table.
  */
-export function rollEncounter(rng: Rng, site: EncounterSite): WildAnimal | null {
+export function rollEncounter(rng: Rng, site: EncounterSite, leadTier: Tier): WildAnimal | null {
+	assertTier(leadTier, 'rollEncounter');
 	if (!isEncounterTile(site.tile.kind)) return null;
 	const distance = distanceFromSpawn(site.pos, site.spawn);
 	if (!Number.isFinite(distance)) throw new Error(`rollEncounter: distance is ${distance}`);
-	if (!rng.chance(ENCOUNTER_CHANCE)) return null;
-	const table = encounterTable(site.tile.biome, distance);
+	const table = encounterTable(site.tile.biome, distance, leadTier);
 	if (table.length === 0) return null;
+	if (!rng.chance(ENCOUNTER_CHANCE)) return null;
 	const species = pickWeighted(rng, table);
 	return { speciesId: species.id, hp: species.maxHp };
 }
