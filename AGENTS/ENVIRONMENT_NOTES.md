@@ -19,6 +19,8 @@ The same Mac runs lawcel's dev stack, often with several worktrees live at once.
 
 Use `pnpm db:psql -c "<sql>"` (wraps `docker compose exec postgres psql`), or `docker compose exec -T postgres psql -U postgres -d mathgame`.
 
+**From a worktree, pass `-p mathgame`.** Compose names its project after the directory, so inside `../mathgame-worktrees/<branch>/` both `pnpm db:psql` and `pnpm db:up` look for a `<branch>-postgres-1` container and report `service "postgres" is not running` (or, for `db:up`, start a second Postgres that fights for port 5433). The dev database is the container `mathgame-postgres-1`: `docker compose -p mathgame exec -T postgres psql -U postgres -d mathgame -c "<sql>"`. `pnpm db:migrate` is unaffected — it connects through `DATABASE_URL`.
+
 ## Looking at the game
 
 The Claude-in-Chrome extension tab shows an error page for `localhost` URLs on this machine (cause not established; both `localhost` and `[::1]` fail while `curl` succeeds). Don't burn time on it: `node scripts/screenshot.mjs` drives the locally installed Google Chrome headlessly through `playwright-core` (no browser download) and renders WebGL through SwiftShader. It is slower than a GPU and logs "GPU stall" performance notes, which the script filters. Colours and layout are faithful; shadow softness and anti-aliasing are not, so judge those by eye in a real browser if they matter.

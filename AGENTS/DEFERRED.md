@@ -24,8 +24,16 @@ Technical items we've intentionally postponed: tech debt, hardening shortcuts, k
 
 ### Anonymous player identity is unauthenticated
 
-**What**: `players.secret` is a random string the client will hold in `localStorage` and present on connect. Anyone who copies it owns the player. No rate limiting, no rotation, no way to recover a lost secret.
+**What**: the player secret is a random token the client will hold in `localStorage` and send as a bearer header. Only its hash is stored, so a database dump is useless, but anyone who copies the token from the browser owns the player. No rate limiting on `POST /api/players` (anyone can mint rows), no rotation, no way to recover a lost secret.
 
 **Why deferred**: there is nothing to steal until multiplayer, tokens and a shop exist, and the players are a handful of kids on a tunnel URL.
 
-**Trigger**: multiplayer with any persistent economy (tokens, purchasable leashes/potions), or the first report of a kid losing their save.
+**Trigger**: multiplayer with any persistent economy (tokens, purchasable leashes/potions), the first public deploy (rate limiting), or the first report of a kid losing their save.
+
+### The save envelope type lives only in the server
+
+**What**: `SaveV1` and its validator are in `packages/server/src/save.ts`. The client will need the same shape to write saves, and client and server may not import each other, so the client would have to redeclare it. The natural shared home is the engine (`protocol.ts` already carries the identical `welcome` payload: `seed`, `pos`, `party`).
+
+**Why deferred**: the server PR could not touch the engine while other engine work was in flight; a redeclared type is a small, visible duplication.
+
+**Trigger**: the client save/load PR. Move the type (not the validator) to the engine and import it from both sides.
