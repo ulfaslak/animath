@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { MAX_NICKNAME_LENGTH, getAnimal, leadIndex, normalizeNickname } from '@mathgame/engine';
 	import { flip } from 'svelte/animate';
+	import { sfx } from '../audio/sfx.svelte';
 	import { t } from '../copy';
 	import { nameOf, speciesName } from '../names';
 	import { game } from '../state/game.svelte';
@@ -15,8 +16,9 @@
 
 	/**
 	 * The pause menu: the team in battle order on the left, then the menu
-	 * items; on the right, what can be done with the picked animal — the
-	 * options, or the name box. It reads `game.party` and `pause`; keys are
+	 * items ("Keep playing", then the Sound setting with its switch); on the
+	 * right, what can be done with the picked animal — the options, or the
+	 * name box. It reads `game.party`, `pause` and `sfx.on`; keys are
 	 * `PauseController`'s, so nothing here dispatches. The name box binds
 	 * `pause.draft` and keeps the focus while it is open, so typing lands in it.
 	 * Every word comes from the copy files (`pause.*`, `hud.*`).
@@ -41,6 +43,8 @@
 		switch (item) {
 			case 'resume':
 				return t('pause.resume');
+			case 'sound':
+				return t('pause.sound');
 		}
 	}
 
@@ -110,7 +114,16 @@
 						class="row item"
 						class:lit={pause.screen === 'list' && lit === game.party.length + j}
 					>
-						<span class="button">{itemLabel(item)}</span>
+						{#if item === 'sound'}
+							<!-- A setting: its name, a switch, and the switch's state in words. -->
+							<span class="setting">{itemLabel(item)}</span>
+							<span class="switch" class:on={sfx.on} aria-hidden="true"
+								><span class="knob"></span></span
+							>
+							<span class="setting-state">{sfx.on ? t('pause.soundOn') : t('pause.soundOff')}</span>
+						{:else}
+							<span class="button">{itemLabel(item)}</span>
+						{/if}
 					</div>
 				{/each}
 			</div>
@@ -275,6 +288,45 @@
 		border-radius: 20px;
 		background: var(--accent);
 		color: white;
+	}
+	.setting {
+		min-width: 5em;
+	}
+	/* An on/off switch: the knob slides right and the track fills green when on. */
+	.switch {
+		position: relative;
+		flex: none;
+		width: 52px;
+		height: 28px;
+		border-radius: 14px;
+		background: rgba(0, 0, 0, 0.18);
+		transition: background-color 0.2s;
+	}
+	.switch.on {
+		background: var(--good);
+	}
+	.knob {
+		position: absolute;
+		top: 3px;
+		left: 3px;
+		width: 22px;
+		height: 22px;
+		border-radius: 50%;
+		background: white;
+		box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
+		transition: transform 0.2s;
+	}
+	.switch.on .knob {
+		transform: translateX(24px);
+	}
+	.setting-state {
+		min-width: 3em;
+	}
+	@media (prefers-reduced-motion: reduce) {
+		.switch,
+		.knob {
+			transition: none;
+		}
 	}
 	.side {
 		background: rgba(0, 0, 0, 0.04);

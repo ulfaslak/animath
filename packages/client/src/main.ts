@@ -1,5 +1,6 @@
 import './styles.css';
 import { mount } from 'svelte';
+import { sfx } from './audio/sfx.svelte';
 import { LocalAuthority } from './authority/local';
 import { BattleController } from './battle/controller';
 import { DoctorController } from './doctor/controller';
@@ -43,13 +44,31 @@ authority.subscribe((event) => {
 /** Walking reads the keyboard only in explore with no card or menu open. */
 const exploreInput = () => !battle.active && !doctor.active && !pause.open;
 
+/** Typing an answer or a name: M is a letter there, not the sound key. */
+const typing = (e: KeyboardEvent) =>
+	e.target instanceof HTMLInputElement ||
+	(battle.active && battle.screen === 'puzzle') ||
+	(doctor.active && doctor.screen === 'puzzle') ||
+	(pause.open && pause.screen === 'naming');
+
+// Browsers let a page make sound only after a key press, click or touch; each
+// one wakes the sound (the first makes it), before any screen plays a cue.
+for (const type of ['keydown', 'pointerdown', 'touchend']) {
+	window.addEventListener(type, () => sfx.unlock(), { capture: true });
+}
+
 // Keys go to exactly one screen: the battle while it is up, else the doctor's
 // card while it is open, else the pause menu while it is open (Escape in
 // explore opens it), else explore, which reads them through `keyboard`.
 // Explore's own listener runs first and is switched off here at once, so the
-// key that opens the menu is the last one walking sees.
+// key that opens the menu is the last one walking sees. M turns the sound on
+// or off on every screen, except while an answer or a name is being typed.
 window.addEventListener('keydown', (e) => {
-	if (battle.active) battleController.onKey(e);
+	const soundKey = (e.key === 'm' || e.key === 'M') && !e.ctrlKey && !e.metaKey && !e.altKey;
+	if (soundKey && game.mode !== 'loading' && !typing(e)) {
+		e.preventDefault();
+		if (!e.repeat) sfx.flip();
+	} else if (battle.active) battleController.onKey(e);
 	else if (doctor.active) doctorController.onKey(e);
 	else if (game.mode === 'explore') pauseController.onKey(e);
 	keyboard.setEnabled(exploreInput());

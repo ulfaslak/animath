@@ -5,6 +5,7 @@ import {
 	type GameEvent,
 	type PartyEvent
 } from '@mathgame/engine';
+import { sfx } from '../audio/sfx.svelte';
 import { t } from '../copy';
 import { doctorWords, type DoctorLine } from '../doctor/lines';
 import { nameOf } from '../names';
@@ -152,6 +153,8 @@ class HudView {
 			case 'party-edited': {
 				const notice = leadNotice(event.party, event.events);
 				if (notice) this.say({ party: notice });
+				// A new animal in front: ding-ding, with its "goes first!" line.
+				if (notice?.lead === 'chosen') sfx.play('lead');
 				break;
 			}
 			case 'party-changed':

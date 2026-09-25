@@ -1,7 +1,8 @@
 import { Rng, type Biome } from '@mathgame/engine';
 import * as THREE from 'three';
+import { motion } from '../motion';
 import { animateIdle, buildAnimalMesh } from './animals';
-import { COLORS, TILE_COLORS } from './palette';
+import { COLORS, CONFETTI_COLORS, TILE_COLORS } from './palette';
 
 /**
  * The battle scene: a patch of the biome the battle started in, the player's
@@ -22,8 +23,10 @@ import { COLORS, TILE_COLORS } from './palette';
  * canvas the panel leaves free.
  *
  * Feedback is transient and presentational: an attacker lunges, a target
- * shakes, a miss puffs, a knocked-out animal tips over and stays down, the
- * leash flies, wobbles, then holds or pops off.
+ * shakes, a miss puffs, a knocked-out animal tips over into a little cloud of
+ * dust and stays down, the leash flies, wobbles, then holds (with a burst of
+ * confetti) or pops off. With reduced motion (`motion.ts`) every movement is
+ * smaller and the confetti fewer and slower; what happened still shows.
  */
 export type BattleSide = 'player' | 'opponent';
 
@@ -57,10 +60,17 @@ const SHAKE_SECONDS = 0.45;
 const FAINT_SECONDS = 0.6;
 const HOP_SECONDS = 0.5;
 const PUFF_SECONDS = 0.5;
-const LEASH_FLIGHT_SECONDS = 0.55;
+/** Seconds the leash takes from the hand to the animal; the wobble starts then. */
+export const LEASH_FLIGHT_SECONDS = 0.55;
 const LEASH_POP_SECONDS = 0.3;
 const RECALL_SECONDS = 0.4;
 const APPEAR_SECONDS = 0.4;
+/** The dust rises as a fainting animal touches down, near the end of its fall. */
+const DUST_DELAY_SECONDS = FAINT_SECONDS * 0.75;
+const DUST_SECONDS = 0.7;
+/** A confetti piece's life; each lives a little longer or shorter so they don't vanish at once. */
+const CONFETTI_SECONDS = 1.3;
+const GRAVITY = 6;
 
 type EffectKind = 'lunge' | 'shake' | 'faint' | 'hop' | 'recall' | 'appear';
 /** Effects that leave the figure where they end until `setFigure` replaces it. */
@@ -73,6 +83,19 @@ interface Effect {
 interface Puff {
 	group: THREE.Group;
 	t: number;
+}
+/** A ring of dust around a figure's feet; it waits `delay` seconds, then spreads and fades. */
+interface Dust {
+	group: THREE.Group;
+	t: number;
+	delay: number;
+}
+interface ConfettiPiece {
+	mesh: THREE.Mesh;
+	velocity: THREE.Vector3;
+	spin: THREE.Vector3;
+	t: number;
+	life: number;
 }
 interface Leash {
 	loop: THREE.Mesh;
@@ -93,8 +116,15 @@ const canopyMaterials = [lambert(COLORS.canopy), lambert(COLORS.canopyLight)];
 const boulderMaterial = lambert(COLORS.rock);
 const waterMaterial = lambert(TILE_COLORS.water);
 const puffMaterial = lambert(COLORS.white);
+const dustMaterial = lambert(COLORS.dust);
 const leashMaterial = lambert(COLORS.fire);
+const confettiMaterials = CONFETTI_COLORS.map((hex) => {
+	const material = lambert(hex);
+	material.side = THREE.DoubleSide; // a flat piece shows from both faces as it tumbles
+	return material;
+});
 const PUFF_GEOMETRY = new THREE.IcosahedronGeometry(0.12, 0);
+const CONFETTI_GEOMETRY = new THREE.PlaneGeometry(0.09, 0.06);
 const LOOP_GEOMETRY = new THREE.TorusGeometry(0.3, 0.05, 6, 16);
 /** A unit-length rope along +y from the origin; stretched and turned per frame. */
 const ROPE_GEOMETRY = new THREE.CylinderGeometry(0.025, 0.025, 1, 5).translate(0, 0.5, 0);
@@ -110,8 +140,15 @@ export class BattleScene {
 	private heights: Record<BattleSide, number> = { player: 0.5, opponent: 0.5 };
 	private effects: Effect[] = [];
 	private puffs: Puff[] = [];
+	private dusts: Dust[] = [];
+	private confetti: ConfettiPiece[] = [];
+	/** Counts confetti bursts, to seed each one's scatter. */
+	private bursts = 0;
 	private leash: Leash | null = null;
 	private lastT = -1;
+	/** The canvas size in CSS pixels, from the last `resize`. */
+	private width = 1;
+	private height = 1;
 
 	constructor() {
 		this.scene.background = new THREE.Color(COLORS.sky);
@@ -148,6 +185,10 @@ export class BattleScene {
 		}
 		for (const puff of this.puffs) this.scene.remove(puff.group);
 		this.puffs = [];
+		for (const dust of this.dusts) this.scene.remove(dust.group);
+		this.dusts = [];
+		for (const piece of this.confetti) this.scene.remove(piece.mesh);
+		this.confetti = [];
 		this.dropLeash();
 		this.effects = [];
 		this.setFigure('player', playerSpecies);
@@ -191,9 +232,10 @@ export class BattleScene {
 		this.effects.push({ side, kind: 'hop', t: 0 });
 	}
 
-	/** Tip the figure over; it stays down until `setFigure` replaces it. */
+	/** Tip the figure over into a puff of dust; it stays down until `setFigure` replaces it. */
 	faint(side: BattleSide): void {
 		this.effects.push({ side, kind: 'faint', t: 0 });
+		this.dust(side);
 	}
 
 	/** The animal goes back to its trainer: it shrinks away and stays gone until `setFigure`. */
@@ -221,6 +263,72 @@ export class BattleScene {
 		this.scene.add(group);
 	}
 
+	/** A ring of dust at a figure's feet, rising as it lies down. */
+	private dust(side: BattleSide): void {
+		const group = new THREE.Group();
+		const count = 8;
+		for (let i = 0; i < count; i++) {
+			const bit = new THREE.Mesh(PUFF_GEOMETRY, dustMaterial);
+			const angle = (i / count) * Math.PI * 2 + 0.3;
+			// Each bit remembers the way it drifts; `update` moves it out along it.
+			bit.userData.dir = new THREE.Vector3(Math.cos(angle), 0, Math.sin(angle));
+			bit.position.copy(bit.userData.dir as THREE.Vector3).multiplyScalar(0.25);
+			group.add(bit);
+		}
+		// Under its middle once it lies down: `faint` tips it sideways about its
+		// own z (see `applyEffect`), so its head ends up that way from its feet.
+		const spot = SPOT[side];
+		const tip = new THREE.Euler(0, this.figures[side]?.rotation.y ?? 0, faintTilt(side));
+		const head = new THREE.Vector3(0, 1, 0).applyEuler(tip);
+		const reach = this.heights[side] * 0.45;
+		group.position.set(spot.x + head.x * reach, 0.05, spot.z + head.z * reach);
+		group.visible = false;
+		this.dusts.push({ group, t: 0, delay: DUST_DELAY_SECONDS });
+		this.scene.add(group);
+	}
+
+	/** A small burst of confetti around a figure: the caught celebration. */
+	private celebrate(side: BattleSide): void {
+		const rng = new Rng(++this.bursts * 7919);
+		const reduced = motion.reduced;
+		const count = reduced ? 12 : 30;
+		const spot = SPOT[side];
+		const from = new THREE.Vector3(spot.x, this.heights[side] * 0.8, spot.z);
+		for (let i = 0; i < count; i++) {
+			const mesh = new THREE.Mesh(
+				CONFETTI_GEOMETRY,
+				confettiMaterials[i % confettiMaterials.length]
+			);
+			mesh.position.copy(from);
+			mesh.rotation.set(rng.next() * 6, rng.next() * 6, rng.next() * 6);
+			const angle = rng.next() * Math.PI * 2;
+			const out = (0.5 + rng.next() * 1.1) * (reduced ? 0.4 : 1);
+			const up = (2.2 + rng.next() * 1.4) * (reduced ? 0.45 : 1);
+			this.confetti.push({
+				mesh,
+				velocity: new THREE.Vector3(Math.cos(angle) * out, up, Math.sin(angle) * out),
+				spin: reduced
+					? new THREE.Vector3()
+					: new THREE.Vector3(rng.next() * 10 - 5, rng.next() * 10 - 5, rng.next() * 10 - 5),
+				t: 0,
+				life: CONFETTI_SECONDS * (0.8 + rng.next() * 0.4)
+			});
+			this.scene.add(mesh);
+		}
+	}
+
+	/**
+	 * Where a figure's middle is on the canvas, in CSS pixels from the top left:
+	 * the battle screen's transition opens there.
+	 */
+	screenPoint(side: BattleSide): { x: number; y: number } {
+		const p = SPOT[side].clone();
+		p.y = this.heights[side] * 0.5;
+		this.camera.updateMatrixWorld();
+		p.project(this.camera);
+		return { x: ((p.x + 1) / 2) * this.width, y: ((1 - p.y) / 2) * this.height };
+	}
+
 	/** The leash's loop flies from the trainer's hand to the wild animal and wobbles there. */
 	throwLeash(): void {
 		this.dropLeash();
@@ -236,8 +344,10 @@ export class BattleScene {
 		if (!this.leash) return;
 		this.leash.state = success ? 'caught' : 'broke';
 		this.leash.t = 0;
-		if (success) this.hop('opponent');
-		else this.shake('opponent');
+		if (success) {
+			this.hop('opponent');
+			this.celebrate('opponent');
+		} else this.shake('opponent');
 	}
 
 	/**
@@ -246,6 +356,8 @@ export class BattleScene {
 	 * widened by the same proportion so that area always spans `SCENE_FOV`.
 	 */
 	resize(width: number, height: number): void {
+		this.width = width;
+		this.height = height;
 		const panel = battlePanelHeight(height);
 		const free = Math.max(1, height - panel);
 		const full = height + panel;
@@ -287,6 +399,41 @@ export class BattleScene {
 		for (const puff of this.puffs) if (puff.t >= PUFF_SECONDS) this.scene.remove(puff.group);
 		this.puffs = this.puffs.filter((p) => p.t < PUFF_SECONDS);
 
+		for (const dust of this.dusts) {
+			dust.t += dt;
+			const p = (dust.t - dust.delay) / DUST_SECONDS;
+			dust.group.visible = p > 0 && p < 1;
+			if (!dust.group.visible) continue;
+			// Out along the ground and a little up, swelling then shrinking away.
+			for (const bit of dust.group.children) {
+				const dir = bit.userData.dir as THREE.Vector3;
+				bit.position.set(dir.x * (0.25 + p * 0.45), p * 0.12, dir.z * (0.25 + p * 0.45));
+				bit.scale.setScalar(Math.max(0.01, Math.sin(Math.min(1, p * 1.2) * Math.PI) * 1.3));
+			}
+		}
+		for (const dust of this.dusts) {
+			if (dust.t >= dust.delay + DUST_SECONDS) this.scene.remove(dust.group);
+		}
+		this.dusts = this.dusts.filter((d) => d.t < d.delay + DUST_SECONDS);
+
+		const gravity = motion.reduced ? GRAVITY * 0.4 : GRAVITY;
+		for (const piece of this.confetti) {
+			piece.t += dt;
+			piece.velocity.y -= gravity * dt;
+			// Air slows it, so pieces flutter down instead of dropping like stones.
+			piece.velocity.multiplyScalar(Math.max(0, 1 - 1.6 * dt));
+			piece.mesh.position.addScaledVector(piece.velocity, dt);
+			piece.mesh.position.y = Math.max(0.02, piece.mesh.position.y);
+			piece.mesh.rotation.x += piece.spin.x * dt;
+			piece.mesh.rotation.y += piece.spin.y * dt;
+			piece.mesh.rotation.z += piece.spin.z * dt;
+			// Shrinks away over the last third of its life.
+			const left = (piece.life - piece.t) / (piece.life / 3);
+			piece.mesh.scale.setScalar(Math.max(0.01, Math.min(1, left)));
+		}
+		for (const piece of this.confetti) if (piece.t >= piece.life) this.scene.remove(piece.mesh);
+		this.confetti = this.confetti.filter((c) => c.t < c.life);
+
 		this.updateLeash(dt, t);
 	}
 
@@ -309,8 +456,9 @@ export class BattleScene {
 				HAND.y + (holdY - HAND.y) * p + Math.sin(p * Math.PI) * 1.0,
 				HAND.z + (to.z - HAND.z) * p
 			);
-			// Settled on the animal: it wobbles while everyone waits.
-			if (p >= 1) loop.rotation.z = Math.sin(t * 9) * 0.3;
+			// Settled on the animal: it wobbles while everyone waits, a swing each
+			// way every 0.35 s (the pace of the `wobble` cue's ticks).
+			if (p >= 1) loop.rotation.z = Math.sin(t * 9) * (motion.reduced ? 0.1 : 0.3);
 		} else if (leash.state === 'caught') {
 			loop.position.set(to.x, holdY, to.z);
 			loop.scale.setScalar(size * (1 - 0.15 * Math.min(1, leash.t / 0.2)));
@@ -353,30 +501,41 @@ function effectSeconds(kind: EffectKind): number {
 	}
 }
 
-/** Offset a figure (already reset to its spot) for one running effect. */
+/** How far over a tired animal tips, about its own z: away from the other one. */
+function faintTilt(side: BattleSide): number {
+	return (side === 'player' ? -1 : 1) * (Math.PI / 2);
+}
+
+/**
+ * Offset a figure (already reset to its spot) for one running effect. With
+ * reduced motion the lunge, shake and hop travel about a third as far; the
+ * faint, the recall and the appearance keep their shape, since they say
+ * what happened.
+ */
 function applyEffect(figure: THREE.Group, effect: Effect): void {
 	const p = Math.min(1, effect.t / effectSeconds(effect.kind));
+	const k = motion.reduced ? 0.35 : 1;
 	switch (effect.kind) {
 		case 'lunge': {
 			const target = SPOT[effect.side === 'player' ? 'opponent' : 'player'];
-			const reach = Math.sin(p * Math.PI) * 0.45;
+			const reach = Math.sin(p * Math.PI) * 0.45 * k;
 			const dx = target.x - figure.position.x;
 			const dz = target.z - figure.position.z;
 			const len = Math.hypot(dx, dz) || 1;
 			figure.position.x += (dx / len) * reach;
 			figure.position.z += (dz / len) * reach;
-			figure.position.y += Math.sin(p * Math.PI) * 0.12;
+			figure.position.y += Math.sin(p * Math.PI) * 0.12 * k;
 			break;
 		}
 		case 'shake':
-			figure.position.x += Math.sin(p * Math.PI * 6) * 0.12 * (1 - p);
+			figure.position.x += Math.sin(p * Math.PI * 6) * 0.12 * (1 - p) * k;
 			break;
 		case 'hop':
-			figure.position.y += Math.abs(Math.sin(p * Math.PI * 2)) * 0.25 * (1 - p * 0.5);
+			figure.position.y += Math.abs(Math.sin(p * Math.PI * 2)) * 0.25 * (1 - p * 0.5) * k;
 			break;
 		case 'faint': {
 			const ease = p * p;
-			figure.rotation.z = (effect.side === 'player' ? -1 : 1) * ease * (Math.PI / 2);
+			figure.rotation.z = faintTilt(effect.side) * ease;
 			figure.position.y -= ease * 0.05;
 			break;
 		}

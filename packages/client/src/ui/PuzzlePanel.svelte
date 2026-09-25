@@ -114,4 +114,22 @@
 			visibility: hidden;
 		}
 	}
+	/* Less motion: a small shake; the red border and "Not quite!" say the rest. */
+	@keyframes shake-small {
+		0%,
+		100% {
+			transform: translateX(0);
+		}
+		25% {
+			transform: translateX(-2px);
+		}
+		75% {
+			transform: translateX(2px);
+		}
+	}
+	@media (prefers-reduced-motion: reduce) {
+		.answer.wrong {
+			animation-name: shake-small;
+		}
+	}
 </style>

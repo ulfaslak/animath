@@ -132,6 +132,10 @@ pause:
   team: Dit hold
   # The row that closes the menu.
   resume: Spil videre
+  # The Sound setting's row: its name, then the word beside its switch.
+  sound: Lyd
+  soundOn: Til
+  soundOff: Fra
   # The picked animal's options: become the lead, move one place, get a nickname.
   goFirst: Sæt forrest
   moveUp: Flyt op
@@ -153,3 +157,10 @@ pause:
   keysList: ↑ ↓ flyt · Enter vælg · Esc luk
   keysOptions: ↑ ↓ flyt · Enter gør det · Esc tilbage
   keysNaming: Enter gem · Esc tilbage
+
+sound:
+  # The chip at the top of the screen after M turned the sound on or off.
+  chipOn: Lyden er tændt
+  chipOff: Lyden er slukket
+  # Under "Lyden er slukket": how to get it back.
+  chipHint: Tryk på M for at tænde den igen

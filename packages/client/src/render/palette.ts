@@ -27,8 +27,19 @@ export const COLORS = {
 	playerCap: 0x3d7be8,
 	// Shared animal details.
 	white: 0xfff4e6,
-	dark: 0x2f2a28
+	dark: 0x2f2a28,
+	// The little cloud a tired animal lies down in: sandy, never grey smoke.
+	dust: 0xe9dcc4
 } as const;
+
+/**
+ * The caught celebration's confetti: colours already in the game — the UI
+ * accent, good green, warn amber, water blue, the trainer's shirt, off-white
+ * and the rabbit's pink ear.
+ */
+export const CONFETTI_COLORS: readonly number[] = [
+	0xff9f43, 0x56c271, 0xf5b83d, 0x5ec8f2, 0xff7e6b, 0xfff4e6, 0xf5b8c4
+];
 
 /**
  * One fur colour per species, plus an accent used for the part that makes

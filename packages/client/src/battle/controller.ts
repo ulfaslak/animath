@@ -11,12 +11,15 @@ import {
 	type GameEvent,
 	type GridPos
 } from '@mathgame/engine';
+import { levelPitch } from '../audio/cues';
+import { sfx } from '../audio/sfx.svelte';
 import { answerKey } from '../input/answer';
-import { BattleScene } from '../render/battle-scene';
+import { motion } from '../motion';
+import { BattleScene, LEASH_FLIGHT_SECONDS } from '../render/battle-scene';
 import type { GameRenderer } from '../render/renderer';
 import { t } from '../copy';
 import { battle } from '../state/battle.svelte';
-import { actionCount, firstPickable, listKey, menuKey, rowOf } from './menu';
+import { actionCount, attackRows, firstPickable, listKey, menuKey, rowOf } from './menu';
 
 /**
  * Battle mode: owns the battle screen from `battle-started` until the player
@@ -29,7 +32,8 @@ import { actionCount, firstPickable, listKey, menuKey, rowOf } from './menu';
  * key means on the menu and the list is `menu.ts`'s to say.
  *
  * The authority answers every intent synchronously; the beats are purely
- * presentation and nothing here decides an outcome.
+ * presentation and nothing here decides an outcome. The sounds are too: each
+ * cue plays with the beat or the key that shows its moment on screen.
  */
 
 /** One beat: change something and maybe say a line, then hold for `hold` seconds. */
@@ -51,10 +55,17 @@ const RESULT_GUARD_SECONDS = 0.8;
 const PICK_GUARD_SECONDS = 0.8;
 
 /**
- * Seconds the world stays on screen after `battle-started`, so the step into
- * the grass lands before the battle appears (a step takes 0.18 s).
+ * Seconds the iris takes to close on the player after `battle-started`. It
+ * starts slowly, so the step into the grass lands in plain view (a step takes
+ * 0.18 s).
  */
-const ENTER_SECONDS = 0.3;
+const IRIS_CLOSE_SECONDS = 0.4;
+/** Seconds the screen stays closed before the battle scene opens. */
+const IRIS_HOLD_SECONDS = 0.1;
+/** Seconds the world stays on screen after `battle-started`: the iris closing, then the hold. */
+export const ENTER_SECONDS = IRIS_CLOSE_SECONDS + IRIS_HOLD_SECONDS;
+/** Seconds the iris takes to open on the wild animal, while the first line is read. */
+export const IRIS_OPEN_SECONDS = 0.45;
 
 export class BattleController {
 	/** Built on the first battle and reused for every one after it. */
@@ -122,11 +133,21 @@ export class BattleController {
 	/** Play beats as their holds expire; `dt` is seconds. */
 	update(dt: number): void {
 		if (!battle.active) return;
+		const transition = battle.transition;
 		if (battle.entering) {
 			this.enterIn -= dt;
+			if (transition) {
+				transition.p = Math.min(1, (ENTER_SECONDS - this.enterIn) / IRIS_CLOSE_SECONDS);
+			}
 			if (this.enterIn > 0) return;
 			battle.entering = false;
 			this.renderer.setBattle(this.scene);
+			// Open on the wild animal: "A wild … appears!" is the line that goes with it.
+			const at = this.scene!.screenPoint('opponent');
+			battle.transition = { kind: transition?.kind ?? 'iris', closing: false, p: 0, ...at };
+		} else if (transition) {
+			transition.p += dt / IRIS_OPEN_SECONDS;
+			if (transition.p >= 1) battle.transition = null;
 		}
 		if (battle.screen === 'result') this.resultAge += dt;
 		if (battle.screen === 'party') this.listAge += dt;
@@ -166,7 +187,10 @@ export class BattleController {
 				break;
 			case 'result':
 				handled = e.key === 'Enter' || e.key === ' ';
-				if (handled && this.resultAge >= RESULT_GUARD_SECONDS) this.leave();
+				if (handled && this.resultAge >= RESULT_GUARD_SECONDS) {
+					sfx.play('confirm');
+					this.leave();
+				}
 				break;
 		}
 		if (handled) e.preventDefault();
@@ -179,6 +203,14 @@ export class BattleController {
 		battle.active = true;
 		battle.entering = true;
 		this.enterIn = ENTER_SECONDS;
+		// The iris closes on the player; with reduced motion the screen dims instead.
+		battle.transition = {
+			kind: motion.reduced ? 'fade' : 'iris',
+			closing: true,
+			p: 0,
+			...this.renderer.playerScreenPoint()
+		};
+		sfx.play('encounter');
 		battle.party = state.party.map((a) => ({ ...a }));
 		battle.front = state.active;
 		battle.opponent = { ...state.opponent };
@@ -243,7 +275,10 @@ export class BattleController {
 				battle.screen = 'puzzle';
 				break;
 			case 'ended':
-				if (state.phase.outcome === 'won') this.scene?.hop('player');
+				if (state.phase.outcome === 'won') {
+					this.scene?.hop('player');
+					sfx.play('won');
+				}
 				battle.outcome = state.phase.outcome;
 				battle.closing = this.closing;
 				battle.line = '';
@@ -275,22 +310,37 @@ export class BattleController {
 			key,
 			spec
 		);
+		const moved = menu.cursor !== battle.cursor;
+		const leveled = menu.levels !== battle.levels;
 		battle.cursor = menu.cursor;
-		if (menu.levels !== battle.levels) battle.levels = menu.levels;
+		if (leveled) battle.levels = menu.levels;
 		switch (choice?.kind) {
 			case 'attack':
+				sfx.play('confirm', { pitch: levelPitch(choice.level) });
 				this.send({ type: 'attack', attackIndex: choice.attackIndex, level: choice.level });
 				break;
 			case 'leash':
+				sfx.play('confirm');
 				this.send({ type: 'throw-leash' });
 				break;
 			case 'switch':
 				// With nobody to send in, the row stays put; its text says why.
-				if (battle.pickable.some(Boolean)) this.openParty(false);
+				if (battle.pickable.some(Boolean)) {
+					sfx.play('confirm');
+					this.openParty(false);
+				}
 				break;
 			case 'run':
+				sfx.play('confirm');
 				this.send({ type: 'flee' });
 				break;
+			default:
+				if (moved) sfx.play('move');
+				else if (leveled) {
+					// The blip climbs with the level: easy, medium, hard.
+					const row = attackRows(spec, menu.levels)[menu.cursor];
+					if (row) sfx.play('move', { pitch: levelPitch(row.level) });
+				}
 		}
 		return handled;
 	}
@@ -306,15 +356,22 @@ export class BattleController {
 
 	private partyKey(key: string): boolean {
 		const { cursor, handled, choice } = listKey(battle.partyCursor, key, battle.party.length);
-		if (cursor !== battle.partyCursor) battle.refused = 0;
+		if (cursor !== battle.partyCursor) {
+			battle.refused = 0;
+			sfx.play('move');
+		}
 		battle.partyCursor = cursor;
 		// A list that came up by itself waits a moment before taking a pick.
 		if (choice === 'pick' && battle.mustPick && this.listAge < PICK_GUARD_SECONDS) return handled;
 		if (choice === 'pick') {
 			// The engine would refuse a tired or current animal; say no here instead.
-			if (battle.pickable[cursor]) this.send({ type: 'switch', partyIndex: cursor });
-			else battle.refused += 1;
+			// The row's shake says it; no sound scolds a pick.
+			if (battle.pickable[cursor]) {
+				sfx.play('confirm');
+				this.send({ type: 'switch', partyIndex: cursor });
+			} else battle.refused += 1;
 		} else if (choice === 'back' && !battle.mustPick) {
+			sfx.play('move');
 			battle.cursor = rowOf('switch', getAnimal(this.front().speciesId).attacks.length);
 			battle.screen = 'actions';
 		}
@@ -347,6 +404,7 @@ export class BattleController {
 					{
 						run: () => {
 							battle.judged = { correct: e.correct };
+							sfx.play(e.correct ? 'correct' : 'wrong');
 							return e.correct ? 'Correct!' : 'Not quite!';
 						},
 						hold: 1.0
@@ -369,6 +427,7 @@ export class BattleController {
 					{
 						run: () => {
 							scene.shake(target);
+							sfx.play('hit');
 							if (target === 'opponent') {
 								battle.opponent = { ...battle.opponent!, hp: e.targetHp };
 							} else {
@@ -423,6 +482,7 @@ export class BattleController {
 					{
 						run: () => {
 							scene.faint(e.side);
+							sfx.play('faint');
 							return e.side === 'opponent'
 								? `Wild ${nameOf(e.animal)} is tired!`
 								: `${nameOf(e.animal)} is tired.`;
@@ -456,6 +516,9 @@ export class BattleController {
 					{
 						run: () => {
 							scene.throwLeash();
+							sfx.play('throw');
+							// Tick, tock while the loop wobbles on the animal.
+							sfx.play('wobble', { delay: LEASH_FLIGHT_SECONDS });
 							return 'You throw the leash…';
 						},
 						hold: 1.8
@@ -463,6 +526,7 @@ export class BattleController {
 					{
 						run: () => {
 							scene.leashResult(e.success);
+							sfx.play(e.success ? 'caught' : 'boing');
 							return e.success ? 'Caught!' : 'It broke free!';
 						},
 						hold: 1.2

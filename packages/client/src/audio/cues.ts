@@ -190,13 +190,16 @@ export const CUES: Record<CueName, Cue> = {
 			{ at: 0, dur: 0.3, wave: 'sine', freq: 300, to: 700, gain: 0.07, attack: 0.05 }
 		]
 	},
-	/** The loop wobbles on the animal: tick, tock, tick, tock, in time with the swing. */
+	/**
+	 * The loop wobbles on the animal: tick, tock, tick, tock, at the pace of
+	 * its swing (one way every 0.35 s, `battle-scene.ts`).
+	 */
 	wobble: {
 		voices: [
 			pluck(0, 1100, 0.035, 0.18),
-			pluck(0.3, 850, 0.035, 0.18),
-			pluck(0.6, 1100, 0.035, 0.18),
-			pluck(0.9, 850, 0.035, 0.18)
+			pluck(0.35, 850, 0.035, 0.18),
+			pluck(0.7, 1100, 0.035, 0.18),
+			pluck(1.05, 850, 0.035, 0.18)
 		]
 	},
 	/** The leash holds: a little fanfare up to a held note. */

@@ -11,12 +11,13 @@ import { leadIndex, type AnimalInstance } from '@mathgame/engine';
 export type PauseScreen = 'list' | 'options' | 'naming';
 
 /**
- * The rows under the team, in order. A new one (Settings, Quit to title) is a
- * new id here, its label in `PauseMenu.svelte`, and its case in
- * `PauseController.chooseItem` — the cursor, keys and layout already count
- * every row listed.
+ * The rows under the team, in order: "Keep playing", then the settings. A
+ * new one (a setting, Quit to title) is a new id here, its label in
+ * `PauseMenu.svelte`, and its case in `PauseController.chooseItem` — the
+ * cursor, keys and layout already count every row listed. A setting's row
+ * also takes left and right (`PauseController.settingKey`).
  */
-export const MENU_ITEMS = ['resume'] as const;
+export const MENU_ITEMS = ['resume', 'sound'] as const;
 export type MenuItem = (typeof MENU_ITEMS)[number];
 
 class PauseView {

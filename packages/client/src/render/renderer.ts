@@ -6,7 +6,8 @@ import {
 	type GridPos
 } from '@mathgame/engine';
 import * as THREE from 'three';
-import { animateIdle, buildPlayerMesh } from './animals';
+import { motion } from '../motion';
+import { animateIdle, animateWalk, buildPlayerMesh } from './animals';
 import type { BattleScene } from './battle-scene';
 import { COLORS } from './palette';
 import { buildChunkGroup, groundTop } from './tiles';
@@ -16,7 +17,8 @@ import { buildChunkGroup, groundTop } from './tiles';
  * rotation — the world reads like a diorama), flat-shaded low-poly meshes,
  * one directional light with soft shadows. Chunks are built lazily as the
  * player approaches them and cached by key. Figures (the player and anything
- * added with `addFigure`) breathe a little every frame.
+ * added with `addFigure`) breathe a little every frame, and the player swings
+ * its arms and legs through each step (smaller with reduced motion).
  */
 const VIEW_HEIGHT_TILES = 14; // how many tiles tall the viewport is
 const CAMERA_PITCH = THREE.MathUtils.degToRad(50);
@@ -32,6 +34,8 @@ export class GameRenderer {
 	private chunks = new Map<string, THREE.Group>();
 	private seed = 0;
 	private cameraTarget = new THREE.Vector3();
+	/** The player's step as last placed: how far through it (1 is standing) and which foot leads. */
+	private step = { progress: 1, stride: 1 as 1 | -1 };
 	/** While set, this scene is drawn instead of the world. */
 	private battle: BattleScene | null = null;
 
@@ -109,11 +113,28 @@ export class GameRenderer {
 		const z = from.y + (to.y - from.y) * t;
 		const yFrom = this.groundAt(from);
 		const y = yFrom + (this.groundAt(to) - yFrom) * t;
-		const hop = Math.sin(progress * Math.PI) * 0.15;
+		const hop = Math.sin(progress * Math.PI) * (motion.reduced ? 0.05 : 0.15);
 		this.player.position.set(x, y + hop, z);
 		// Figures face +z at rest, which is grid "down" (toward the camera).
 		this.player.rotation.y = { up: Math.PI, down: 0, left: -Math.PI / 2, right: Math.PI / 2 }[dir];
 		this.cameraTarget.set(x, 0, z);
+		// Every step lands on the other foot: x + y changes by one each step.
+		const moving = from.x !== to.x || from.y !== to.y;
+		this.step.progress = moving ? progress : 1;
+		this.step.stride = (((to.x + to.y) % 2) + 2) % 2 === 0 ? 1 : -1;
+	}
+
+	/**
+	 * Where the player's middle is on the canvas, in CSS pixels from the top
+	 * left: the encounter transition closes on it.
+	 */
+	playerScreenPoint(): { x: number; y: number } {
+		this.placeCamera();
+		const p = this.player.position.clone();
+		p.y += 0.35;
+		p.project(this.camera);
+		const { w, h } = this.size();
+		return { x: ((p.x + 1) / 2) * w, y: ((1 - p.y) / 2) * h };
 	}
 
 	/** Add a standing figure (from `animals.ts`) to the world; it idles with the player. */
@@ -137,8 +158,16 @@ export class GameRenderer {
 			return;
 		}
 		animateIdle(this.player, t);
+		animateWalk(this.player, this.step.progress, this.step.stride, motion.reduced ? 0.4 : 1);
 		for (const f of this.figures) animateIdle(f, t);
-		// Camera rides a fixed offset from the target: pitch/yaw never change.
+		this.placeCamera();
+		this.sun.position.copy(this.cameraTarget).add(new THREE.Vector3(12, 20, 8));
+		this.sun.target.position.copy(this.cameraTarget);
+		this.renderer.render(this.scene, this.camera);
+	}
+
+	/** The camera rides a fixed offset from the target: pitch and yaw never change. */
+	private placeCamera(): void {
 		const dist = 40;
 		const offset = new THREE.Vector3(
 			Math.sin(CAMERA_YAW) * Math.cos(CAMERA_PITCH),
@@ -147,9 +176,7 @@ export class GameRenderer {
 		).multiplyScalar(dist);
 		this.camera.position.copy(this.cameraTarget).add(offset);
 		this.camera.lookAt(this.cameraTarget);
-		this.sun.position.copy(this.cameraTarget).add(new THREE.Vector3(12, 20, 8));
-		this.sun.target.position.copy(this.cameraTarget);
-		this.renderer.render(this.scene, this.camera);
+		this.camera.updateMatrixWorld();
 	}
 
 	private groundAt(pos: GridPos): number {

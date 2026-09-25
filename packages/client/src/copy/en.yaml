@@ -132,6 +132,10 @@ pause:
   team: Your team
   # The row that closes the menu.
   resume: Keep playing
+  # The Sound setting's row: its name, then the word beside its switch.
+  sound: Sound
+  soundOn: 'On'
+  soundOff: 'Off'
   # The picked animal's options: become the lead, move one place, get a nickname.
   goFirst: Go first
   moveUp: Move up
@@ -153,3 +157,10 @@ pause:
   keysList: ↑ ↓ choose · Enter pick · Esc close
   keysOptions: ↑ ↓ choose · Enter do it · Esc back
   keysNaming: Enter save · Esc back
+
+sound:
+  # The chip at the top of the screen after M turned the sound on or off.
+  chipOn: Sound is on
+  chipOff: Sound is off
+  # Under "Sound is off": how to get it back.
+  chipHint: Press M to turn it back on
