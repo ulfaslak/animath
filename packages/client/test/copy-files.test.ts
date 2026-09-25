@@ -35,6 +35,9 @@ const KEY = /^[a-z][a-zA-Z0-9]*(-[a-z0-9]+)*$/;
 /** What is wrong with one copy file's shape: non-text leaves, empty text, bad keys, wrong plural forms. */
 function shapeProblems(lang: string, node: unknown, path: string[] = []): string[] {
 	const where = `${lang}.yaml ${path.length ? path.join('.') : '(the whole file)'}`;
+	if (path.length === 0 && (typeof node !== 'object' || node === null || Array.isArray(node))) {
+		return [`${where} must be groups of keys, not ${JSON.stringify(node)}`];
+	}
 	if (typeof node === 'string') return node.trim() === '' ? [`${where} is empty`] : [];
 	if (node === null || typeof node !== 'object' || Array.isArray(node)) {
 		return [`${where} is ${JSON.stringify(node)}, not text (quote it)`];
