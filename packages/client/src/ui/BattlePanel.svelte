@@ -160,7 +160,11 @@
 				{battle.input}<span class="cursor" class:blink={battle.screen === 'puzzle'}></span>
 			</div>
 			{#if battle.judged}
-				<div class="judgement" class:good={battle.judged.correct} class:bad={!battle.judged.correct}>
+				<div
+					class="judgement"
+					class:good={battle.judged.correct}
+					class:bad={!battle.judged.correct}
+				>
 					{battle.judged.correct ? 'Correct!' : `Not quite! It was ${battle.judged.answer}.`}
 				</div>
 			{:else}
