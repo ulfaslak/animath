@@ -504,9 +504,10 @@ describe('Autosave: the server backup', () => {
 		expect(server.calls.filter((c) => c === 'put').length).toBe(puts);
 	});
 
-	it('an unreadable save on the server is saved past, and never adopted', async () => {
+	it('an unreadable save on the server is never adopted, and saved past once the kid plays', async () => {
 		const server = new FakeServer();
-		const who = server.seed({ version: 1, seq: 500, party: 'not a party' });
+		const unreadable = { version: 1, seq: 500, party: 'not a party' };
+		const who = server.seed(unreadable);
 		const store = new MemoryStore();
 		const tab = new Tab(store, server);
 		await tab.open();
@@ -516,8 +517,43 @@ describe('Autosave: the server backup', () => {
 		await next.walk();
 		await later();
 		expect(next.autosave.wantsReload).toBe(false);
+		expect(server.saveOf(who)).toEqual(unreadable);
+		await next.catchOne();
+		await later();
 		expect(server.saveOf(who)!.seq).toBeGreaterThan(500);
 		expect(store.save()!.seq).toBe(server.saveOf(who)!.seq);
+	});
+
+	it('with no save here, an unreadable backup gives a new game that says so and waits for play', async () => {
+		const server = new FakeServer();
+		const unreadable = { version: 1, seq: 70, party: [{ id: 'a', speciesId: 'dragon', hp: 3 }] };
+		const who = server.seed(unreadable);
+		const store = new MemoryStore();
+		store.set(KEYS.player, JSON.stringify(who));
+		const tab = new Tab(store, server);
+		expect(await tab.open()).toEqual({ notice: 'save.couldNotLoad' });
+		expect(store.save()!.seq).toBeGreaterThan(70);
+		await tab.walk();
+		await later();
+		expect(server.saveOf(who)).toEqual(unreadable);
+		await tab.catchOne();
+		await later();
+		expect(server.saveOf(who)).toEqual(store.save());
+	});
+
+	it("with no save here, a newer build's backup gives a new game that says so and never sends", async () => {
+		const server = new FakeServer();
+		const newer = { version: 2, seq: 9, whatever: true };
+		const who = server.seed(newer);
+		const store = new MemoryStore();
+		store.set(KEYS.player, JSON.stringify(who));
+		const tab = new Tab(store, server);
+		expect(await tab.open()).toEqual({ notice: 'save.newerGame' });
+		await tab.catchOne();
+		tab.autosave.flush();
+		await later(60_000);
+		expect(server.saveOf(who)).toEqual(newer);
+		expect(server.calls.filter((c) => c === 'put')).toEqual([]);
 	});
 
 	it("a newer build's save on the server is never overwritten", async () => {

@@ -129,6 +129,8 @@ export class Autosave {
 	private commitQueued = false;
 	/** A battle ended or the party changed this page load. */
 	private played = false;
+	/** The server holds a save this build cannot read: no backup replaces it until the kid has played. */
+	private serverHeld = false;
 	private stale = false;
 	/** `begin` was called: the authority has started from the plan. */
 	private begun = false;
@@ -204,9 +206,17 @@ export class Autosave {
 					this.played = true;
 					return { game: restoreGame(read.save), notice: 'save.welcomeBack' };
 				}
-				if (read.reason === 'newer') this.serverState = 'stopped';
-				// Unreadable: our saves are numbered past it, and the server sets it aside when one lands.
-				else this.seq = Math.max(this.seq, saveSeq(got.doc));
+				// The kid's game is on the server, but this page cannot read it: a new game, said so.
+				if (read.reason === 'newer') {
+					this.serverState = 'stopped';
+					plan = { notice: 'save.newerGame' };
+				} else {
+					// Saves are numbered past it, and it waits until the kid has played the new game;
+					// then the server sets it aside when the first backup replaces it.
+					this.seq = Math.max(this.seq, saveSeq(got.doc));
+					this.serverHeld = true;
+					plan = { notice: 'save.couldNotLoad' };
+				}
 			} else if (got.kind === 'unknown-player') {
 				this.retireIdentity();
 			} else if (got.kind === 'offline') {
@@ -409,7 +419,7 @@ export class Autosave {
 			this.serverState === 'ready' &&
 			!this.stale &&
 			this.local !== 'frozen' &&
-			(this.local !== 'held' || this.played)
+			((this.local !== 'held' && !this.serverHeld) || this.played)
 		);
 	}
 
@@ -500,8 +510,10 @@ export class Autosave {
 				this.serverState = 'stopped';
 				return;
 			}
-			// Unreadable: save past it; the server sets it aside when the backup replaces it.
+			// Unreadable: once the kid has played, save past it; the server sets it aside when
+			// the backup replaces it.
 			this.serverState = 'ready';
+			this.serverHeld = true;
 			if (theirs >= this.seq) {
 				this.seq = theirs;
 				this.markDirty(true);
