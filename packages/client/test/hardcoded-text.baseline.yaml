@@ -16,9 +16,6 @@ src/ui/BattlePanel.svelte:
   - Keep exploring
   - Enter
 
-src/ui/Hud.svelte:
-  - tired
-
 src/ui/PuzzlePanel.svelte:
   - Correct!
   - Not quite!

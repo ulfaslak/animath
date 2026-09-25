@@ -116,7 +116,8 @@ describe('the explore message line', () => {
 		s.move(...Array<Direction>(7).fill('right')); // (5, 6), beside the tent, facing along it
 		const quiet = s.events.length;
 		s.pressEnter();
-		expect(s.events.slice(quiet)).toEqual([]); // the authority has nothing to say
+		// The authority says what happened, without words; the line is worded here.
+		expect(s.events.slice(quiet)).toEqual(['nothing-to-interact']);
 		hud.tick(0);
 		expect(hud.message).toBe(t('explore.notAtTent'));
 

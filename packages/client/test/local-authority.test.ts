@@ -466,14 +466,16 @@ describe('LocalAuthority: facing', () => {
 		move(s, 'right');
 		expect(s.events.at(-1)).toMatchObject({ type: 'player-moved', dir: 'right' });
 
-		// Beside the tent but facing away, Enter changes nothing (the client says
-		// how to reach a doctor, in the player's language).
+		// Beside the tent but facing away, Enter changes nothing, and the event
+		// says so without words (the client says how to reach a doctor).
 		move(s, ...Array<Direction>(6).fill('right'));
 		expect(position(s)).toEqual({ x: 5, y: 6 });
 		expect(canTalkToDoctor(seed, position(s), 'down')).toBe(true);
 		const before = s.events.length;
 		s.authority.dispatch({ type: 'interact' });
-		expect(s.events.slice(before)).toEqual([]);
+		expect(s.events.slice(before)).toEqual([
+			{ type: 'nothing-to-interact', playerId: welcome(s).playerId }
+		]);
 
 		// Bumping into the tent turns the player to it; now Enter talks.
 		move(s, 'down');

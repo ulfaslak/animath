@@ -9,8 +9,9 @@ import { game } from './game.svelte';
  * the player faces a tent, or the controls hint for the first few steps.
  *
  * Things said are the authority's `message` events, plus lines the client
- * words itself: the doctor's goodbye after a visit, the doctor's line after a
- * lost battle's trip to the tent, and the hint for Enter away from a tent.
+ * words itself from events that carry no words: the doctor's goodbye
+ * (`doctor-visit-ended`), the doctor's line after a lost battle
+ * (`taken-to-doctor`), and how to find a doctor (`nothing-to-interact`).
  * They are kept as data and worded when shown, in the language on screen.
  *
  * Their seconds count only while the explore HUD is on screen (`tick`, from
@@ -29,7 +30,7 @@ export type Said =
 	/** The authority's `message`, as it sent it. */
 	| { text: string }
 	| { doctor: DoctorLine }
-	/** Enter with no tent in front of the player. */
+	/** `interact` found no tent in front of the player. */
 	| { explore: 'notAtTent' };
 
 export function saidWords(said: Said): string {
@@ -81,11 +82,14 @@ class HudView {
 			case 'doctor-visit-ended':
 				this.say({ doctor: { say: 'goodbye' } });
 				break;
+			case 'nothing-to-interact':
+				if (event.playerId === game.playerId) this.say({ explore: 'notAtTent' });
+				break;
 		}
 	}
 
 	/** Put a line on the message line; it stays for `MESSAGE_SECONDS` of the HUD on screen. */
-	say(said: Said): void {
+	private say(said: Said): void {
 		this.#said = said;
 		this.age = 0;
 	}

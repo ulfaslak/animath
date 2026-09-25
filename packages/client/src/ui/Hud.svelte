@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { getAnimal } from '@mathgame/engine';
 	import { fade } from 'svelte/transition';
+	import { t } from '../copy';
 	import { game } from '../state/game.svelte';
 	import { hud } from '../state/hud.svelte';
 	import HpBar from './HpBar.svelte';
@@ -12,7 +13,7 @@
 		<div class="member" class:tired={animal.hp === 0}>
 			<span class="name">
 				{animal.nickname ?? spec.name}
-				{#if animal.hp === 0}<span class="tag">tired</span>{/if}
+				{#if animal.hp === 0}<span class="tag">{t('party.tired')}</span>{/if}
 			</span>
 			<HpBar hp={animal.hp} max={spec.maxHp} />
 		</div>

@@ -245,11 +245,14 @@ export class LocalAuthority implements Authority {
 
 	/**
 	 * Enter/Space: talk to the doctor when facing a tent. Anywhere else there
-	 * is nothing to talk to and nothing happens; the client says how to find a
-	 * doctor itself, in the player's language.
+	 * is nothing to talk to, and the event says so without words: the client
+	 * says how to find a doctor, in the player's language.
 	 */
 	private interact(): void {
-		if (!canTalkToDoctor(this.seed, this.pos, this.facing)) return;
+		if (!canTalkToDoctor(this.seed, this.pos, this.facing)) {
+			this.emit({ type: 'nothing-to-interact', playerId: this.playerId });
+			return;
+		}
 		this.visits += 1;
 		const state = startDoctorVisit(this.party);
 		// A fresh seed per visit, keyed like everything else here so a session

@@ -47,6 +47,12 @@ export type GameEvent =
 	| { type: 'party-changed'; party: AnimalInstance[] }
 	| { type: 'message'; text: string }
 	/**
+	 * `interact` found nothing to talk to: no tent in front of the player, as
+	 * the authority saw them. Nothing changed; the client may say how to find a
+	 * doctor, in its own words.
+	 */
+	| { type: 'nothing-to-interact'; playerId: string }
+	/**
 	 * `interact` while facing a tent opened a visit. Walking waits until
 	 * `doctor-visit-ended`. `visit` tells visits apart (a `DoctorState` starts
 	 * its `step` at 0 every time): every event of one visit carries the same

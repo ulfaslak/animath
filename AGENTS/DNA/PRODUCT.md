@@ -129,11 +129,11 @@ What is built and observable today. Keep current: add a bullet when a feature sh
 - Battle mode, Game Boy style ([[UI_SPEC]] § Battle mode): the two animals face each other on a patch of the biome, with status boxes, a narration line, an action menu (every attack at three levels, with how hard its puzzle is, then Leash and Run) and the puzzle panel. Every attack is a puzzle answered by typing a number. The wild animal's reply, knock-outs and the automatic switch to the next animal are played out one line at a time.
 - Catching with the leash; a caught animal joins the party (up to six) with the HP it had. With six already, it goes back into the grass.
 - HP lost in a battle stays lost afterwards; a knocked-out animal stays tired and sits out battles until healed.
-- Losing: when the whole party is tired, the result card says "Good try!" and the doctor's line, and the player is back in the world beside the nearest tent on foot, facing it, with the whole party healed (§4 "Knock-out and healing").
+- Losing: when the whole party is tired, the result card says "Good try!", and the player is back in the world beside the nearest tent on foot, facing it, with the whole party healed and the doctor's line on the message line (§4 "Knock-out and healing").
 
 ### Language
 
-- The game starts in Danish when the browser prefers Danish, and in English otherwise (`?lang=da` / `?lang=en` in the address overrides). So far only the line under a puzzle is in Danish; everything else is English, and there is no Language setting yet (§6).
+- The game starts in Danish when the browser prefers Danish, and in English otherwise (`?lang=da` / `?lang=en` in the address overrides). So far the line under a puzzle, the doctor (the card, everything the doctor says, the tent prompt and hints on the message line) and the party's "tired" tag are in Danish; everything else is English, the animals' names included, and there is no Language setting yet (§6).
 
 ### Engine
 
