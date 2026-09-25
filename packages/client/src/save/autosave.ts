@@ -82,7 +82,7 @@ type Server = 'unknown' | 'ready' | 'stopped';
 
 /** Backups wait this long after a change that matters, or after walking. */
 const SOON_MS = 1000;
-const WALK_MS = 5000;
+const WALK_MS = 15_000;
 /** Retries back off from 2 s to a minute, and give up after this many in a row. */
 const MAX_FAILURES = 6;
 const BOOT_WAIT_MS = 2500;
@@ -127,6 +127,8 @@ export class Autosave {
 	/** A battle ended or the party changed this page load. */
 	private played = false;
 	private stale = false;
+	/** `begin` was called: the authority has started from the plan. */
+	private begun = false;
 
 	private pushTimer: unknown = null;
 	private pushDue = Infinity;
@@ -213,12 +215,19 @@ export class Autosave {
 
 	/** Call once the authority has started from the plan. */
 	begin(): void {
+		this.begun = true;
 		if (this.firstWrite) this.changed(false);
 		this.startServer();
 	}
 
-	/** Every authority event: anything that changes the game is saved. */
+	/**
+	 * Every authority event: anything that changes the game is saved. Events
+	 * before `begin` are the authority starting from the plan (a restored
+	 * battle's `battle-started` among them); they change nothing, so they
+	 * write nothing.
+	 */
 	handle(event: GameEvent): void {
+		if (!this.begun) return;
 		switch (event.type) {
 			case 'battle-ended':
 			case 'party-changed':
@@ -248,10 +257,12 @@ export class Autosave {
 	}
 
 	/** A `storage` event: another page of this site changed `key` (null: storage was cleared). */
-	onStorage(key: string | null, value: string | null): void {
+	onStorage(key: string | null): void {
 		if (this.stale || (this.local !== 'ok' && this.local !== 'held')) return;
 		if (key !== null && key !== KEYS.save) return;
-		const now = key === null ? (this.store?.get(KEYS.save) ?? null) : value;
+		// Judge the save as it is now, not the value the event carried: events arrive late,
+		// and that value may already be replaced, by this page's own next save among others.
+		const now = this.store?.get(KEYS.save) ?? null;
 		if (now === this.seenText) return;
 		if (!this.canCarryOnFrom(now)) this.goStale();
 		// Otherwise the other page only walked: this one carries on from it at its next save.

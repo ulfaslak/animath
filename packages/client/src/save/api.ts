@@ -41,7 +41,13 @@ export interface SaveServer {
 const NO_SAVE = 'no save yet';
 const NO_PLAYER = 'no such player';
 
-const TIMEOUT_MS = 8000;
+/**
+ * Background requests give up after this. Generous: the first ones go out
+ * while the first frames build the world, which can hold the page's thread
+ * for seconds on a slow machine, and an answer that arrives after the abort
+ * is lost (a player made twice, the first one never used).
+ */
+const TIMEOUT_MS = 15_000;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 /** Whether `v` is an identity as the server hands them out. */

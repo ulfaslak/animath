@@ -120,6 +120,10 @@ class Tab {
 	async open(): Promise<{ game?: SavedGame; message?: string }> {
 		const plan = await this.autosave.boot();
 		this.game = plan.game ? JSON.parse(JSON.stringify(plan.game)) : newGame(SEED);
+		// What `authority.start(plan)` emits, before `begin` — as in main.ts.
+		this.autosave.handle({ type: 'welcome' } as GameEvent);
+		if (this.game.battle) this.autosave.handle({ type: 'battle-started' } as GameEvent);
+		if (plan.message) this.autosave.handle({ type: 'message', text: plan.message });
 		this.autosave.begin();
 		await settle();
 		return plan;
@@ -157,7 +161,7 @@ async function settle(): Promise<void> {
 }
 
 /** Run the backup timers: a push after a change goes out within this. */
-async function later(ms = 6000): Promise<void> {
+async function later(ms = 16_000): Promise<void> {
 	await vi.advanceTimersByTimeAsync(ms);
 }
 
@@ -349,7 +353,7 @@ describe('Autosave: two tabs', () => {
 	it('a tab that falls behind a catch stops saving and asks to reload', async () => {
 		const { store, a, b } = await twoTabs();
 		await a.catchOne();
-		b.autosave.onStorage(KEYS.save, store.get(KEYS.save));
+		b.autosave.onStorage(KEYS.save);
 		expect(b.autosave.wantsReload).toBe(true);
 		const saved = store.get(KEYS.save);
 		await b.walk();
@@ -371,7 +375,7 @@ describe('Autosave: two tabs', () => {
 		await a.walk();
 		await a.walk();
 		const theirs = store.save()!;
-		b.autosave.onStorage(KEYS.save, store.get(KEYS.save));
+		b.autosave.onStorage(KEYS.save);
 		expect(b.autosave.wantsReload).toBe(false);
 		await b.catchOne();
 		const mine = store.save()!;
@@ -382,6 +386,43 @@ describe('Autosave: two tabs', () => {
 		await a.walk();
 		expect(a.autosave.wantsReload).toBe(true);
 		expect(store.save()).toEqual(mine);
+	});
+
+	it('a storage event that arrives after this tab already saved on top of it changes nothing', async () => {
+		const { store, a, b } = await twoTabs();
+		await b.walk();
+		// A saves next: B only walked, so A carries on from B's save and writes a catch on top.
+		await a.catchOne();
+		expect(store.save()!.party).toHaveLength(2);
+		// Only now does A hear about B's walk: late, and already built on.
+		a.autosave.onStorage(KEYS.save);
+		expect(a.autosave.wantsReload).toBe(false);
+		await a.walk();
+		expect(store.save()!.steps).toBe(a.game.steps);
+	});
+
+	it('picking up a saved battle writes nothing, so another tab is not disturbed', async () => {
+		const { store, a } = await twoTabs();
+		const battle = {
+			step: 3,
+			turn: 2,
+			party: a.game.party,
+			active: 0,
+			opponent: { id: 'wild-1', speciesId: 'rabbit', hp: 20 },
+			leashQuality: 1,
+			phase: { kind: 'choose-action' as const },
+			log: []
+		};
+		await a.play((g) => (g.battle = battle), 'battle-updated');
+		const saved = store.get(KEYS.save);
+		const writes = store.writes;
+		const c = new Tab(store, null);
+		const plan = await c.open();
+		expect(plan.game?.battle).toEqual(battle);
+		expect(store.writes).toBe(writes);
+		expect(store.get(KEYS.save)).toBe(saved);
+		a.autosave.onStorage(KEYS.save);
+		expect(a.autosave.wantsReload).toBe(false);
 	});
 
 	it('a save removed from under the page (site data cleared) is not written back', async () => {

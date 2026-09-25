@@ -54,7 +54,7 @@ document.addEventListener('visibilitychange', () => {
 	if (document.visibilityState === 'hidden') autosave.flush();
 });
 // Another tab of the game saved: this one may be behind now.
-window.addEventListener('storage', (e) => autosave.onStorage(e.key, e.newValue));
+window.addEventListener('storage', (e) => autosave.onStorage(e.key));
 
 mount(App, { target: uiRoot });
 
