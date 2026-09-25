@@ -11,13 +11,14 @@ Everything a player can do in **today's build**, and how: every key, every hidde
 | Arrow keys / W A S D  | Explore | Walk one tile. Hold to keep walking (about 5–6 tiles a second).                                                         |
 | Enter / Space         | Explore | Interact. Today it always says "Nothing here yet.", wherever you stand and whatever you face. The on-screen hint doesn't mention this key. |
 
-No other key does anything. Escape, number keys, the mouse and touch are ignored. The page has no URL parameters, debug keys or console hooks.
+No other key does anything. Escape, number keys, the mouse and touch are ignored. The page has no debug keys or console hooks; its one URL parameter is `?zoo` (see § Hidden behaviour).
 
 ## The world
 
 - The world is the **same every time**. The seed is fixed (`'prototype'`), so the same map loads on every reload and on every machine.
 - You **start at (-2, 6)**, on grass next to a stretch of water. The HUD shows your grid position: pressing Right adds 1 to x, and pressing Down adds 1 to y.
 - The world never ends. It is generated in 16×16 chunks as you walk, in every direction.
+- **You are a kid in a blue cap** (coral shirt, blue shorts). The figure turns to face the way you last walked or bumped, stands on top of hills rather than sinking into them, and breathes gently while you stand still.
 
 | Tile                                          | Walk on it? |
 | --------------------------------------------- | ----------- |
@@ -41,6 +42,7 @@ The card in the top-left corner is your party: one Squirrel with full HP (20 of 
 - **Walking into something turns you to face it** without moving you.
 - **Switching windows stops you.** If you tab away with a key held, you stop walking and any queued taps are dropped.
 - **Nothing is saved.** A reload puts you back at (-2, 6).
+- **`?zoo` shows every animal.** Open `http://localhost:5180/?zoo` and one of each species stands in a row two or three tiles from the start, in catalog order — squirrel, rabbit, fox, otter, deer, wolf, bear — facing you. They are scenery: you walk straight through them and nothing else changes. It exists to check the figures, not to play with.
 
 ## Exploits and quirks
 

@@ -90,6 +90,8 @@ What is built and observable today. Keep current: add a bullet when a feature sh
 
 - Procedural chunked world with four biomes, water, sand, tall grass, trees, rocks and doctor tents, rendered low-poly with a fixed camera.
 - Grid movement with arrow keys / WASD; blocked tiles stop you; a tap always moves one tile.
+- The player is a small trainer figure — a kid in a cap — that faces the way it walks, stands on top of hills and breathes while idle.
+- A crude but recognisable low-poly figure for every species, built from primitives with one exaggerated tell each; today they are only visible in the `?zoo` line-up (see [[CHEATSHEET]]) until battle and encounters use them.
 - Party HUD (name + HP bar per animal).
 
 ### Engine (no UI yet)
@@ -114,7 +116,7 @@ In rough priority order. Each becomes a GitHub issue when picked up.
 3. Catching with the leash; party management.
 4. Doctor healing at tents.
 5. Save/load through the server with the anonymous identity.
-6. Real low-poly animal models with idle/attack animations (CC0 sources, see [[DECISIONS]]).
+6. Real low-poly animal models (glTF, CC0 sources, see [[DECISIONS]]) with attack animations, replacing the primitive figures.
 7. Procedural world v2: rivers that flow, paths, biome shaping, landmarks, spawn tables.
 8. Puzzle catalog v2: fractions, decimals, negatives, word problems, per-child adaptive difficulty.
 9. Touch controls for tablets.
