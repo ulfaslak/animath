@@ -110,8 +110,8 @@ Escape in explore opens it; never in a battle (Escape there does nothing) or at 
 │   1 Pip  Squirrel  ▓▓▓▓░ 20/20 goes first  │ Fox           │ │
 │   2 Rabbit         ░░░░░  0/22      tired  │ ▸ Go first    │ │
 │  [3 Fox            ▓▓░░░ 12/35           ] │   Move up     │ │
-│   ( Keep playing )                         │  (Move down)  │ │
-│                                            │   New name    │ │
+│   Language            [English]  Dansk     │  (Move down)  │ │
+│   ( Keep playing )                         │   New name    │ │
 │                                            │   Back        │ │
 │                                            └───────────────┘ │
 │                                                              │
@@ -119,11 +119,12 @@ Escape in explore opens it; never in a battle (Escape there does nothing) or at 
 └──────────────────────────────────────────────────────────────┘
 ```
 
-- **Left**: "Your team" in battle order — slot number, name (with the species beside a nickname), HP bar with numbers, "tired" or "goes first" — then the menu rows ("Keep playing"; Settings and Quit to title join here when there is something to set and a title to quit to). Up/down or W/S move the cursor, wrapping round; Enter or Space pick; Escape closes the menu.
+- **Left**: "Your team" in battle order — slot number, name (with the species beside a nickname), HP bar with numbers, "tired" or "goes first" — then the menu rows: Language, then "Keep playing" (Quit to title joins here when there is a title to quit to). Up/down or W/S move the cursor, wrapping round; Enter or Space pick; Escape closes the menu.
+- **Language**: the row lists every language in its own words ("English", "Dansk"), the one on screen lit, so a kid finds theirs whatever language the screen is in. Enter or Space, or left/right (A/D) on the row, switch to the next language: every word on screen changes at once, the menu stays open, and the choice is remembered on this device.
 - **Right**: what can be done with the picked animal, which stays outlined in the list: **Go first** (not for a tired animal or the lead), **Move up**, **Move down**, **New name**, **Back**. Options that can't be done are greyed and the cursor skips them; one that becomes impossible under the cursor (the animal reached the top) does nothing, so mashing Enter never overshoots. Moves happen at once and the list re-sorts with a short slide. Escape goes back to the list, with the cursor on the animal wherever it now is. Before anything is picked, the panel says what picking does.
 - **Name box**: New name opens a text box with the current nickname selected, the species' name as the placeholder, a line saying what a name may hold, and — when the typed text will not be stored as shown — what the animal will be called ("It will be called Pip."). Every key but Enter, Escape and Tab types: W A S D and Space are letters here, and the arrows move the caret. Enter saves (an empty name gives the species' name back), Escape goes back to the options without saving, and the box keeps the focus while it is open. An input method's Enter and Escape are its own.
-- The key reminder at the bottom follows the screen: "↑ ↓ choose · Enter pick · Esc close", "↑ ↓ choose · Enter do it · Esc back", "Enter save · Esc back".
-- It holds at 1024×768 with six animals and a 12-character name.
+- The key reminder at the bottom follows the screen: "↑ ↓ choose · Enter pick · Esc close" ("↑ ↓ choose · ← → or Enter change the language · Esc close" on the Language row), "↑ ↓ choose · Enter do it · Esc back", "Enter save · Esc back".
+- It holds at 1024×768 with six animals and a 12-character name, in either language.
 
 ## Component reuse
 

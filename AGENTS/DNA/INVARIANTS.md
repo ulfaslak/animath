@@ -20,6 +20,10 @@ No DOM, no Three.js, no Node built-ins, no npm packages. It must run byte-for-by
 
 Every random draw goes through an `Rng` the caller constructed from a seed, and nothing reads `Date.now`. A battle, a chunk, a puzzle can then be replayed exactly from `(seed, intents)`, which is what lets a client predict and a server verify without disagreeing. Enforced by `test/purity.test.ts` (comment-stripped source grep) and by `rng.test.ts` / `world.test.ts` / `puzzles.test.ts` asserting equal output for equal seeds. Design-time.
 
+### The engine holds no player-facing words
+
+Species and attacks are ids; events say what happened; a refusal is a code; a `message` line is a copy key from `LINES` with numbers and animals by id. A sentence written in the engine would reach a Danish kid in English, and would have to be shipped twice once a server authority sends it. Enforced by `test/no-words.test.ts` (TypeScript's parser over every source file: no literal that reads as a sentence outside `new Error`), by the battle and doctor sweeps (`words.ts`: no worded string in any state or event, nicknames aside), and by the types (`Line` params are numbers or `AnimalRef`s, never strings). Design-time.
+
 ### A chunk is a pure function of `(seed, cx, cy)`
 
 Generating chunk `(4, −2)` alone yields the same tiles as generating it after `(3, −2)`, and tile `(x, y)` is the same whether asked via its chunk or via `tileAtWorld`. Per-tile randomness is derived from `hashInts(seed, x, y, …)`, never from a shared generator whose state depends on call order. Enforced by `world.test.ts` ("pure function", "no seams"). Design-time.

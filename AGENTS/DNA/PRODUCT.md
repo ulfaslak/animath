@@ -144,7 +144,7 @@ What is built and observable today. Keep current: add a bullet when a feature sh
 
 ### Language
 
-- The game starts in Danish when the browser prefers Danish, and in English otherwise (`?lang=da` / `?lang=en` in the address overrides). So far the line under a puzzle, the doctor (the card, everything the doctor says, the tent prompt and hints on the message line), the party's "tired" tag, and in battle the attack levels (let, mellem, svær), the menu's key reminder, the sentence about the highlighted attack, "Kom så, …!" and everything about switching animals are in Danish; everything else is English, the animals' and attacks' names included, and there is no Language setting yet (§6).
+- The whole game in Danish and English, the animals' and attacks' names included. It starts in the language the browser prefers (Danish or English, else English); Language in the pause menu switches every word on screen at once and is remembered on this device (`?lang=da` / `?lang=en` in the address picks one for a visit).
 
 ### Engine
 
@@ -168,11 +168,10 @@ What is built and observable today. Keep current: add a bullet when a feature sh
 In rough priority order. Each becomes a GitHub issue when picked up.
 
 1. Save/load in the client: create the anonymous player on first visit, keep the secret, load the save on boot and write it as the game progresses (the server routes exist, see [[ARCHITECTURE]] § HTTP API).
-2. A title screen, and sound with its setting in the pause menu (where the Language setting also goes, below).
+2. A title screen, and sound with its setting in the pause menu, beside Language.
 3. Real low-poly animal models (glTF, CC0 sources, see [[DECISIONS]]) with attack animations, replacing the primitive figures.
-4. The whole game in Danish and English: every line in both, and a Language setting in the pause menu that switches every word at once and is remembered on this device. The copy files and `t()` exist (§5, [[ARCHITECTURE]] § Copy); the doctor's words are in them, the rest have not moved yet.
-5. Procedural world v2: rivers that flow, paths, biome shaping, landmarks, spawn tables.
-6. Puzzle catalog v2: fractions, decimals, negatives, word problems, per-child adaptive difficulty.
-7. Touch controls for tablets.
-8. Multiplayer: shared world, other players visible, PvP battles, tokens, shop.
-9. Deployment to the Hetzner VPS.
+4. Procedural world v2: rivers that flow, paths, biome shaping, landmarks, spawn tables.
+5. Puzzle catalog v2: fractions, decimals, negatives, word problems, per-child adaptive difficulty.
+6. Touch controls for tablets.
+7. Multiplayer: shared world, other players visible, PvP battles, tokens, shop.
+8. Deployment to the Hetzner VPS.
