@@ -30,9 +30,23 @@ export type {
 	BattleStep
 } from './battle/types.js';
 
+export { applyDoctorIntent, startDoctorVisit } from './doctor/reducer.js';
+export { needsHealing } from './doctor/party.js';
+export { takeToDoctor } from './doctor/knockout.js';
+export type { Rescue } from './doctor/knockout.js';
+export type {
+	DoctorEvent,
+	DoctorIntent,
+	DoctorPhase,
+	DoctorState,
+	DoctorStep
+} from './doctor/types.js';
+
 export type { Chunk, Direction, GridPos, Tile, TileKind } from './world/types.js';
 export { CHUNK_SIZE, isEncounterTile, isWalkable, step } from './world/types.js';
 export { generateChunk, spawnPoint, tileAtWorld } from './world/generate.js';
+export { TENT_SEARCH_STEPS, canTalkToDoctor, nearestTent } from './world/tents.js';
+export type { TentSpot } from './world/tents.js';
 export type { EncounterEntry, EncounterSite, WildAnimal } from './world/encounters.js';
 export {
 	ENCOUNTER_CHANCE,

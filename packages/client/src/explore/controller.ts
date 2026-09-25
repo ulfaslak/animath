@@ -39,11 +39,11 @@ export class ExploreController {
 			case 'player-blocked':
 				this.facing = event.dir;
 				break;
-			case 'player-placed':
-				// Put down, not walked: no tween.
+			case 'taken-to-doctor':
+				// Put down, not walked (it can be far away): no tween.
 				this.pos = this.from = event.pos;
 				this.progress = 1;
-				this.facing = 'down';
+				this.facing = event.dir;
 				break;
 		}
 	}

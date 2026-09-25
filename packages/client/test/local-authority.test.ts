@@ -74,7 +74,9 @@ function attack(s: Session, attackIndex: number, level: 1 | 2 | 3, correct: bool
 function party(s: Session): AnimalInstance[] {
 	for (let i = s.events.length - 1; i >= 0; i--) {
 		const e = s.events[i]!;
-		if (e.type === 'party-changed' || e.type === 'welcome') return e.party;
+		if (e.type === 'party-changed' || e.type === 'taken-to-doctor' || e.type === 'welcome') {
+			return e.party;
+		}
 	}
 	throw new Error('no party');
 }
@@ -88,7 +90,7 @@ function lastMessage(s: Session): string {
 function position(s: Session): GridPos {
 	for (let i = s.events.length - 1; i >= 0; i--) {
 		const e = s.events[i]!;
-		if (e.type === 'player-moved' || e.type === 'player-placed' || e.type === 'welcome') {
+		if (e.type === 'player-moved' || e.type === 'taken-to-doctor' || e.type === 'welcome') {
 			return e.pos;
 		}
 	}
@@ -237,10 +239,11 @@ describe('LocalAuthority: outcomes', () => {
 		expect(closingEvents(s).map((e) => e.type)).toEqual([
 			'battle-updated',
 			'battle-ended',
-			'party-changed',
-			'player-placed',
+			'taken-to-doctor',
 			'message'
 		]);
+		const taken = closingEvents(s).find((e) => e.type === 'taken-to-doctor');
+		expect(taken).toMatchObject({ pos: spawn, dir: 'down', tent: null });
 		for (const a of party(s)) expect(a.hp).toBe(getAnimal(a.speciesId).maxHp);
 		expect(position(s)).toEqual(spawn);
 		expect(lastMessage(s)).toBe('Everyone is tired. You rest and feel better.');

@@ -1,5 +1,6 @@
 import type { AnimalInstance } from './animals/types.js';
 import type { BattleEvent, BattleIntent, BattleState } from './battle/types.js';
+import type { DoctorEvent, DoctorIntent, DoctorState } from './doctor/types.js';
 import type { Direction, GridPos } from './world/types.js';
 
 /**
@@ -16,17 +17,15 @@ import type { Direction, GridPos } from './world/types.js';
 export type Intent =
 	| { type: 'move'; dir: Direction }
 	| { type: 'interact' }
-	| { type: 'battle'; intent: BattleIntent };
+	| { type: 'battle'; intent: BattleIntent }
+	/** Only during a doctor visit. A visit starts with `interact` while `canTalkToDoctor` holds. */
+	| { type: 'doctor'; intent: DoctorIntent };
 
 export type GameEvent =
 	| { type: 'welcome'; playerId: string; seed: number; pos: GridPos; party: AnimalInstance[] }
 	| { type: 'player-moved'; playerId: string; pos: GridPos; dir: Direction }
 	| { type: 'player-blocked'; playerId: string; dir: Direction }
-	/**
-	 * The player was put on a tile without walking there — resting after a
-	 * lost battle today, a doctor's tent later. No direction: nothing to tween.
-	 */
-	| { type: 'player-placed'; playerId: string; pos: GridPos }
+
 	| { type: 'battle-started'; state: BattleState }
 	/**
 	 * One battle intent was applied. `events` is what happened, in order, and
@@ -37,10 +36,34 @@ export type GameEvent =
 	| { type: 'battle-ended'; state: BattleState }
 	/**
 	 * The party changed outside a battle turn: HP written back after a battle,
-	 * a caught animal joining, a heal. Always the whole party, in order.
+	 * a caught animal joining. Always the whole party, in order.
 	 */
 	| { type: 'party-changed'; party: AnimalInstance[] }
-	| { type: 'message'; text: string };
+	| { type: 'message'; text: string }
+	/** `interact` while facing a tent opened a visit. Walking waits until `doctor-visit-ended`. */
+	| { type: 'doctor-visit-started'; state: DoctorState }
+	/**
+	 * One doctor intent was applied. As with `battle-updated`: animate `events`
+	 * in order, then show `state`. When the last event is `ended`, a
+	 * `doctor-visit-ended` follows.
+	 */
+	| { type: 'doctor-visit-updated'; state: DoctorState; events: readonly DoctorEvent[] }
+	/** `state.party` is the party after the visit. */
+	| { type: 'doctor-visit-ended'; state: DoctorState }
+	/**
+	 * After a lost battle: `takeToDoctor`'s result. Put the player on `pos`
+	 * without a tween (it can be a hundred tiles away), turn them to `dir`
+	 * (toward `tent`, or down when `tent` is null and a doctor came to them),
+	 * and replace the party. A `message` with the doctor's line follows.
+	 */
+	| {
+			type: 'taken-to-doctor';
+			playerId: string;
+			pos: GridPos;
+			dir: Direction;
+			tent: GridPos | null;
+			party: AnimalInstance[];
+	  };
 
 export interface Authority {
 	dispatch(intent: Intent): void;

@@ -31,7 +31,7 @@ Two modes only, borrowed from the Game Boy games: **Explore** and **Battle**. Fi
 - Grid-based. The player moves one tile at a time in four directions.
 - Procedurally generated from a seed, in 16×16 chunks, infinite in every direction. The same seed always yields the same world, so a shared world needs no map download.
 - Biomes: **meadow** (easy animals), **forest** (mid), **river** banks (easy–mid, water animals), **mountain** (hard).
-- Tiles: grass; **tall grass** (where encounters happen); sand; water, rock and trees (blocked); **tent** (a doctor).
+- Tiles: grass; **tall grass** (where encounters happen); sand; water, rock and trees (blocked); **tent** (a doctor; blocked too, you talk to the doctor from the tile beside it).
 - Doctors sit by a small tent with a campfire, in the woods or near water. Not rare, not everywhere.
 
 ### Animals
@@ -73,13 +73,24 @@ Two modes only, borrowed from the Game Boy games: **Explore** and **Battle**. Fi
 ### Knock-out and healing
 
 - An animal at 0 HP is **knocked out** and can't battle until healed.
-- Doctors heal one animal in exchange for a solved puzzle. Difficulty scales with the animal's tier (`base[tier] + 1`), so healing a bear is harder than healing a squirrel.
-- If every animal in the party is knocked out, the player is taken to the nearest doctor's tent. No other penalty (assumption: this is a kids' game).
+- **Talking to a doctor**: stand on a tile next to a tent, face it and interact. Walking into a tent turns you to face it. Standing beside it without facing it is not enough.
+- The doctor helps any animal below full HP, knocked out or only hurt.
+- Doctors heal one animal in exchange for a solved puzzle: pick an animal, solve its puzzle, and it is back to full HP. Difficulty scales with the animal's tier (`base[tier] + 1`: squirrel and rabbit 2, fox and otter 3, deer 5, wolf 6, bear 8), so healing a bear is harder than healing a squirrel. The puzzle's kind is one the animal's own attacks ask, so a kid meets the kind of sum they already know from battle.
+- **A wrong answer at the doctor costs nothing.** HP stays where it was and a different puzzle takes its place, as many times as it takes. The player can pick another animal or leave at any time.
+- If every animal in the party is knocked out, the player is taken to the nearest doctor's tent and stands beside it, facing it, and the doctor heals the whole party for free. No other penalty (assumption: this is a kids' game).
+- **Nearest means on foot**: the fewest steps over walkable ground, never through water, rock, trees or another tent. A tent on an island or boxed in by trees is never where the player wakes up, so they always land somewhere they could have walked to. Ties go to the tent further up, then further left, then the side in front of the door (below the tent), then left, right and behind. If no tent is within 200 steps, a doctor comes to the player instead: they stay where they are, and the party is healed all the same.
 
 ### Puzzles
 
 - Kinds in v1: addition, subtraction, multiplication, division, missing operand ("7 + ? = 12"), next number in a sequence, square root. Every answer is a whole number.
 - Difficulty is a 1–10 scalar. Each kind declares the range it supports; each attack declares the kinds it can ask; the engine picks a kind that fits.
+- **Every operand comes from a band with a floor and a ceiling**, so a harder attack never asks an easier question: a difficulty-3 attack cannot ask "4 + 1". Both ends of every band climb with difficulty (neither ever falls). For every kind but sequences a puzzle always shows a bigger number than any puzzle of the same kind two difficulties down; a sequence is never one that two difficulties down could ask.
+  - Addition, subtraction and the missing addend draw both numbers from one band per difficulty: 1–5 · 6–10 · 11–20 · 21–50 · 51–100 · 101–200 · 201–500 · 501–1000 · 1001–5000 · 5001–10000. Subtraction is the same fact family read backwards (`(x + y) − x`), so nothing is ever "− 0" or "− itself".
+  - Multiplication, division and the missing factor are a **big** factor times a **small** one (the times table). Big: 2–5 · 6–9 · 6–9 · 11–20 · 21–50 · 21–50 · 51–100 · 51–100 · 101–500 for difficulties 2–10; small: 2–5 · 2–5 · 6–9 · 6–9 · 6–9 · 11–20 · 11–20 · 21–50 · 21–50. So difficulty 2 is the small tables, 4 is the hard corner of the table (6–9 by 6–9), 5 is teens by a digit, 7 is two-digit by two-digit. Ten is never a factor: "10 × 7" is a freebie. Division is the family backwards (`(big × small) ÷ small`); the missing factor hides the big one.
+  - Square roots ask for a root in 2–5 · 4–8 · 6–10 · 9–12 · 11–15 · 13–20 · 16–30 · 21–50 for difficulties 3–10.
+  - Counting sequences step by 1–2 at difficulty 1, 2–5 at 2, and from `d` up to `2d + 2` after that (up to 25 at difficulty 10); only difficulty 1 counts by ones. They start from 0–5 at difficulty 1, 6–10 at 2, and so on in fives up to 46–50 at 10, so two difficulties never ask the same counting sequence.
+  - The other sequence patterns join as difficulty climbs — doubling at 3 (tripling too from 6), squares at 5, triangle numbers and add-the-last-two at 7 — and each starts further along the higher it goes: a pattern's first term at difficulty `d` is always bigger than any first term it had at `d − 2`. So a textbook opening ("1, 2, 4, 8", "1, 4, 9, 16", "1, 3, 6, 10") is asked only within a difficulty of the one that introduces it, and at difficulty 10 doubling or tripling starts from 15–25, squares from 8²–12², triangle numbers from the 6th–10th and add-the-last-two from a first term of 6–10.
+  - Every sequence has one right answer. It fits exactly one pattern, and it never ends in three evenly spaced numbers unless it counts all the way: "2, 3, 5, 8, ?" is never asked (adding the last two says 13, "the gaps grow by one" says 12), nor is "4, 4, 8, 12, ?" (20, but a kid counting on from the end says 16).
 - Input is a number. Answers are judged by the engine, never by the UI.
 - The catalog is designed to grow: fractions, decimals, negatives, percentages, word problems, adaptive difficulty per child are all future kinds, not v1.
 
@@ -101,7 +112,7 @@ What is built and observable today. Keep current: add a bullet when a feature sh
 ### Explore
 
 - Procedural chunked world with four biomes, water, sand, tall grass (including reeds on river banks), trees, rocks and doctor tents, rendered low-poly with a fixed camera.
-- Grid movement with arrow keys / WASD; blocked tiles stop you; a tap always moves one tile.
+- Grid movement with arrow keys / WASD; blocked tiles (water, rock, trees, doctor tents) stop you; a tap always moves one tile.
 - The player is a small trainer figure — a kid in a cap — that faces the way it walks, stands on top of hills and breathes while idle.
 - A crude but recognisable low-poly figure for every species, built from primitives with one exaggerated tell each. They fight in battles; the `?zoo` line-up (see [[CHEATSHEET]]) shows them all at once.
 - Party HUD: one card per animal with its name and an HP bar with numbers; a knocked-out animal is greyed with a "tired" tag.
@@ -122,6 +133,7 @@ What is built and observable today. Keep current: add a bullet when a feature sh
 - Species catalog: 7 placeholder species, tiers 1–5.
 - Wild encounter tables and the per-step roll (§4 "Wild encounters").
 - Battle reducer: `startBattle` and `applyBattleIntent` play a whole wild battle by the rules in §4 — attacks, puzzles, answers, the wild animal's reply, leash, flee, knock-outs and automatic party switching — as intents in, events out.
+- Doctor rules (§4 "Knock-out and healing"): whether the player faces a tent, a doctor visit that heals one hurt animal per solved puzzle (`startDoctorVisit` and `applyDoctorIntent`, intents in, events out), and the knock-out rule (`takeToDoctor`), which finds the nearest tent on foot and heals the whole party. Not wired to the client yet: pressing Enter at a tent still just says "Nothing here yet.", and a lost battle ends in the placeholder rest above.
 
 ### Server
 
@@ -134,7 +146,7 @@ What is built and observable today. Keep current: add a bullet when a feature sh
 In rough priority order. Each becomes a GitHub issue when picked up.
 
 1. Party management: reorder, nicknames (catching ships, §5).
-2. Doctor healing at tents, and being taken to the nearest tent when the whole party is tired (replacing the placeholder in §5).
+2. Doctor healing at tents in the client: the doctor's dialogue card, and the trip to the tent after a lost battle, replacing the placeholder rest in §5. The engine rules are built (§5).
 3. Save/load in the client: create the anonymous player on first visit, keep the secret, load the save on boot and write it as the game progresses (the server routes exist, see [[ARCHITECTURE]] § HTTP API).
 4. Real low-poly animal models (glTF, CC0 sources, see [[DECISIONS]]) with attack animations, replacing the primitive figures.
 5. Procedural world v2: rivers that flow, paths, biome shaping, landmarks, spawn tables.

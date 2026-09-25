@@ -33,7 +33,7 @@ Escape does nothing anywhere yet — not even in a puzzle: once a puzzle is up, 
 | Grass                                         | Yes         |
 | Tall grass (darker green with little blades)   | Yes. Each step onto it has a 1-in-10 chance of a wild battle. |
 | Sand                                          | Yes         |
-| Doctor's tent (orange pyramid with a campfire) | Yes. You stand inside it. Nothing happens yet; healing will happen here. The nearest one to the start is at (5, 7). |
+| Doctor's tent (orange pyramid with a campfire) | No. Walking into it turns you to face it. Pressing Enter while facing it still says "Nothing here yet."; healing will happen here. The nearest one to the start is at (5, 7): walk 6 tiles right and 1 down, and you stand just left of it. |
 | Water                                         | No          |
 | Rock                                          | No          |
 | Tree                                          | No          |
@@ -76,4 +76,3 @@ The cards in the top-left corner are your party. You start with one Squirrel at 
 
 - **Losing is a free full heal.** Since nothing else heals yet, a hurt party can lose a battle on purpose (answer wrong) to rest back to full HP at the start tile. Reloading does the same and also forgets every caught animal.
 - **Messages never go away.** After a battle or pressing Enter, the last message stays on the bottom line until the next one. The "Arrows / WASD to walk" hint also never goes away.
-- **You can stand inside a doctor's tent**, because tents count as walkable ground.

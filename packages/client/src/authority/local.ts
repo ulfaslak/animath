@@ -140,8 +140,12 @@ export class LocalAuthority implements Authority {
 	/**
 	 * Write the battle's result back into the world: HP lost stays lost, a
 	 * caught animal joins the party if there is room, and a lost battle heals
-	 * everyone and puts the player back on the spawn tile. (That last one is a
-	 * placeholder for the nearest doctor's tent, which lands with the doctor.)
+	 * everyone and puts the player back on the spawn tile, facing down.
+	 *
+	 * That last one is a placeholder for the knock-out rule. It already travels
+	 * in the rule's event, `taken-to-doctor` (with `tent: null`, as when no tent
+	 * is in reach), so applying the engine's `takeToDoctor` instead changes this
+	 * method and nothing downstream.
 	 */
 	private endBattle(state: BattleState, events: readonly BattleEvent[]): void {
 		if (state.phase.kind !== 'ended') return;
@@ -174,9 +178,17 @@ export class LocalAuthority implements Authority {
 				break;
 		}
 		this.emit({ type: 'battle-ended', state });
-		this.emit({ type: 'party-changed', party: this.partyCopy() });
 		if (state.phase.outcome === 'lost') {
-			this.emit({ type: 'player-placed', playerId: this.playerId, pos: this.pos });
+			this.emit({
+				type: 'taken-to-doctor',
+				playerId: this.playerId,
+				pos: this.pos,
+				dir: 'down',
+				tent: null,
+				party: this.partyCopy()
+			});
+		} else {
+			this.emit({ type: 'party-changed', party: this.partyCopy() });
 		}
 		this.emit({ type: 'message', text });
 	}
