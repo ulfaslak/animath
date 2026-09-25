@@ -26,5 +26,9 @@ vite.config.ts.timestamp-*
 screenshots/*
 !screenshots/.gitkeep
 
+# Throwaway scripts that must sit inside a package to resolve its imports
+# (e.g. packages/client/zz-answers.scratch.ts): never committed.
+*.scratch.*
+
 # Obsidian vault metadata
 .obsidian/

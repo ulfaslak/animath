@@ -109,3 +109,23 @@ The placeholder filler treated any lookup that was not `undefined` as the words 
 ### 2026-09-25 — PR #16 (i18n infrastructure) — a guard with two checks showed one failure per run `[not codified]`
 
 The template lint asserted "no new words" and then "no stale baseline entries" with two plain `expect`s. Rewording a baselined line trips both, but the first failure stopped the test, so the stale entry only showed on a second run. Found by a negative control that reworded a line. Fix: `expect.soft` for both, so one run lists everything to change. Category: **a guard that reports serially**. When a guard's checks are independent and one edit can trip several, report them together (soft assertions, or one combined assertion). Otherwise every fix costs one round of the test.
+
+### 2026-09-25 — PR #15 (party and pause menu) — a "no value" sentinel changed under a caller, and `toEqual` could not see it `[learned]`
+
+`normalizeNickname` returned `null` for "no name" and then `undefined`, to match `nickname?: string`. `partyFromParam` still tested `!== null`, so a nameless animal got a `nickname: undefined` key. Its test used `toEqual`, which treats that key as absent, and passed. Found reading the diff before the push. Fix: `!== undefined`, and the test asserts with `toStrictEqual`, failing with the old check (negative control). Category: **a sentinel changed under its callers**. When a function's "nothing" value changes, grep every caller for the old one. A test about a key being absent needs `toStrictEqual`: [[DEVELOPMENT]] § Testing ideology now says so.
+
+### 2026-09-25 — PR #15 (party and pause menu) — two intents from one frame, sent in the wrong order `[learned]`
+
+`ExploreController.update` sent the frame's step before the number key's `select-lead`. The authority is synchronous, so a step that rolled an encounter started the battle with the old lead. The pick then arrived mid-battle, was refused, and nothing said so. Found by the adversarial review. Fix: the pick goes first, and `explore-controller.test.ts` presses a number on the frame of the encounter step (it fails with the old order). Category: **ordering within one frame**. When one input can change the mode (a step can start a battle), anything that must happen in the current mode is sent before it.
+
+### 2026-09-25 — PR #15 (party and pause menu) — a message line outlived the state it described `[learned]`
+
+After "Fox goes first!", moving the fox down in the pause menu left the line in place, contradicting the cards under it. Messages stay until the next one, and only a pick made a new line. Found by the adversarial review. Fix: the game view's notice names the lead again after any edit that changes who it is (`leadNotice`), with `game-view.test.ts` walking pick, menu move, rename and unrelated edits. Category: **derived text that outlives its state**. A line stating a fact about state must be refreshed whenever any path changes that state, not only the path that first said it.
+
+### 2026-09-25 — PR #15 (party and pause menu) — a Unicode rule tested only on the alphabets the author reads `[learned]`
+
+The nickname cleaner's fuzz proved the safety promises: idempotent, capped, never blank. It said nothing about keeping what a kid typed. So the first version dropped every combining mark ("राम" became "रम", Hebrew lost its points), and the fix capped marks at two, which still broke Burmese "ကျော်" and pointed Hebrew. Allowing every mark then let enclosing signs and strike-through back in ("Pip⃠", "P̶i̶p̶"). All three were found by the adversarial reviews. Fix: up to four marks per letter, no enclosing or overlay marks, and tests that names from each script come back unchanged: an example table and a property over syllables. See [[INVARIANTS]] § "A stored nickname is a fixed point". Category: **safety without preservation**. A cleaner needs both kinds of test: what it must never let through, and what it must never take away, with real inputs from every script it claims.
+
+### 2026-09-25 — PR #15 (party and pause menu) — `git add -A` committed a scratch script `[learned]`
+
+A throwaway script that replayed the battle for puzzle answers had to sit inside `packages/client` to resolve `@mathgame/engine`. The next `git add -A` committed it, and `pnpm lint` failed on it. Found by the second adversarial review. Fix: the file is gone, and `.gitignore` ignores `*.scratch.*`, the name such scripts get. Category: **a staging sweep in a working tree with throwaway files**. Name a throwaway that must live in the tree `*.scratch.*`, and keep everything else in the scratchpad.
