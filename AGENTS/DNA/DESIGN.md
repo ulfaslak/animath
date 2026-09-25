@@ -74,7 +74,8 @@ Short, warm, second person. One idea per line. Words a seven-year-old reads with
 
 ## Accessibility
 
-- Every state is readable without colour (numbers on HP bars, icons plus text for hit/miss).
+- Every state is readable without colour (numbers on HP bars, icons plus text for hit/miss, "goes first" on the lead's card).
+- A word shown beside a colour says exactly what the colour encodes, and no more. If the word promises something the colour does not measure ("good chance" on a colour that only tracks HP), change what the colour measures or change the word.
 - Keyboard-only play is complete: arrows/WASD, number keys, Enter, Escape.
 - Motion is gentle; no full-screen flashes on a hit.
 - Text never below 16 px; puzzle prompt never below 32 px.

@@ -96,6 +96,13 @@ Two modes only, borrowed from the Game Boy games: **Explore** and **Battle**. Fi
 - Input is a number. Answers are judged by the engine, never by the UI.
 - The catalog is designed to grow: fractions, decimals, negatives, percentages, word problems, adaptive difficulty per child are all future kinds, not v1.
 
+### Party
+
+- A party holds up to six animals, in an order the player chooses.
+- **The lead is the first animal in party order that is not tired.** It is the one that steps into the next battle, and whenever an animal is knocked out the next one standing in order steps in. There is no separate "selected" animal: choosing a lead moves it to the front.
+- While exploring — not in a battle, not at the doctor — the player can choose any animal that is not tired as the lead, move any animal up or down (a tired one too: a tired animal at the front is simply skipped), and name any animal.
+- **Nicknames**: at most 12 characters, from letters (any alphabet), digits, spaces, hyphens, apostrophes and dots. Everything else a kid types — emoji, symbols — is left out, runs of spaces become one, and spaces at either end are trimmed. A name with no letter or digit left is no name, and the animal goes by its species' name again.
+
 ### Starting out
 
 A new player starts with one tier-1 animal (a squirrel in the prototype). A starter choice of three is planned.
@@ -117,12 +124,14 @@ What is built and observable today. Keep current: add a bullet when a feature sh
 - Grid movement with arrow keys / WASD; blocked tiles (water, rock, trees, doctor tents) stop you; a tap always moves one tile.
 - The player is a small trainer figure — a kid in a cap — that faces the way it walks, stands on top of hills and breathes while idle.
 - A crude but recognisable low-poly figure for every species, built from primitives with one exaggerated tell each. They fight in battles; the `?zoo` line-up (see [[CHEATSHEET]]) shows them all at once.
-- Party HUD: one card per animal with its name and an HP bar with numbers; a knocked-out animal is greyed with a "tired" tag.
+- Party HUD: one card per animal in battle order with its number key, its name (nickname if it has one) and an HP bar with numbers; a knocked-out animal is greyed with a "tired" tag, and the lead is outlined and tagged "goes first".
+- Choosing the lead from explore: the number keys pick who goes first (§4 "Party"); a tired animal can't go first, and the message line says so.
+- Pause menu (Escape in explore): the team in battle order, where an animal can go first, move up or down, or get a nickname typed in a name box. Walking waits while it is open.
 
 ### Encounters and battle
 
 - Wild encounters: each step onto tall grass may start a battle, with the species picked by biome, tier and distance from spawn (§4 "Wild encounters").
-- Battle mode, Game Boy style ([[UI_SPEC]] § Battle mode): the two animals face each other on a patch of the biome, with status boxes, a narration line, an action menu (every attack at three levels, with how hard its puzzle is, then Leash and Run) and the puzzle panel. Every attack is a puzzle answered by typing a number. The wild animal's reply, knock-outs and the automatic switch to the next animal are played out one line at a time.
+- Battle mode, Game Boy style ([[UI_SPEC]] § Battle mode): the two animals face each other on a patch of the biome, with status boxes, a narration line, an action menu (every attack at three levels, with how hard its puzzle is, then Leash, with a word for how likely a catch is, and Run) and the puzzle panel. Every attack is a puzzle answered by typing a number. The wild animal's reply, knock-outs and the automatic switch to the next animal are played out one line at a time.
 - Catching with the leash; a caught animal joins the party (up to six) with the HP it had. With six already, it goes back into the grass.
 - HP lost in a battle stays lost afterwards; a knocked-out animal stays tired and sits out battles until healed.
 - **Placeholder for losing**: when the whole party is tired, everyone rests back to full HP and the player is put back on the start tile ("Everyone is tired. You rest and feel better."). §4 says the player is taken to the nearest doctor's tent; that replaces this when doctor healing lands (§6).
@@ -135,6 +144,7 @@ What is built and observable today. Keep current: add a bullet when a feature sh
 - Species catalog: 7 placeholder species, tiers 1–5.
 - Wild encounter tables and the per-step roll, with tier-1 visitors near home in the river and the mountains (§4 "Wild encounters").
 - Battle reducer: `startBattle` and `applyBattleIntent` play a whole wild battle by the rules in §4 — attacks, puzzles, answers, the wild animal's reply (which can miss an animal its own size or bigger), leash, flee, knock-outs and automatic party switching — as intents in, events out.
+- Party rules (§4 "Party"): `applyPartyIntent` chooses the lead, moves an animal or names it, only while exploring; `normalizeNickname` cleans a typed name; `leadIndex` is the lead that battles use.
 - Doctor rules (§4 "Knock-out and healing"): whether the player faces a tent, a doctor visit that heals one hurt animal per solved puzzle (`startDoctorVisit` and `applyDoctorIntent`, intents in, events out), and the knock-out rule (`takeToDoctor`), which finds the nearest tent on foot and heals the whole party. Not wired to the client yet: pressing Enter at a tent still just says "Nothing here yet.", and a lost battle ends in the placeholder rest above.
 
 ### Server
@@ -147,9 +157,9 @@ What is built and observable today. Keep current: add a bullet when a feature sh
 
 In rough priority order. Each becomes a GitHub issue when picked up.
 
-1. Party management: reorder, nicknames (catching ships, §5).
-2. Doctor healing at tents in the client: the doctor's dialogue card, and the trip to the tent after a lost battle, replacing the placeholder rest in §5. The engine rules are built (§5).
-3. Save/load in the client: create the anonymous player on first visit, keep the secret, load the save on boot and write it as the game progresses (the server routes exist, see [[ARCHITECTURE]] § HTTP API).
+1. Doctor healing at tents in the client: the doctor's dialogue card, and the trip to the tent after a lost battle, replacing the placeholder rest in §5. The engine rules are built (§5).
+2. Save/load in the client: create the anonymous player on first visit, keep the secret, load the save on boot and write it as the game progresses (the server routes exist, see [[ARCHITECTURE]] § HTTP API).
+3. A title screen and settings (sound, language) in the pause menu.
 4. Real low-poly animal models (glTF, CC0 sources, see [[DECISIONS]]) with attack animations, replacing the primitive figures.
 5. Procedural world v2: rivers that flow, paths, biome shaping, landmarks, spawn tables.
 6. Puzzle catalog v2: fractions, decimals, negatives, word problems, per-child adaptive difficulty.

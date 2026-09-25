@@ -13,7 +13,8 @@
  *
  * `--keys` is a comma-separated script. A token is a key name (`ArrowRight`,
  * `Enter`, `2`), optionally `*n` to press it n times; or one of
- *   type:<text>   type each character of <text> (an answer: digits, a minus)
+ *   type:<text>   type each character of <text> (an answer: digits, a minus;
+ *                 a name, emoji included; never a comma)
  *   hold:<key>:<ms>  hold a key down for <ms>, auto-repeating like a real
  *                 keyboard (a repeat every 100 ms after a 500 ms delay)
  *   wait:<ms>     pause, e.g. while a battle turn narrates
@@ -21,10 +22,12 @@
  *   size:<w>x<h>  resize the window now (e.g. mid-battle)
  *   reload:       reload the page and wait for it, as a kid pressing F5 would
  * The final frame goes to `--out`. After every frame the script prints what
- * the screen says — the HUD line in explore (with the grid position), and in
- * a battle the narration line, the puzzle, the typed answer, the judgement,
- * the status boxes and the result card — so a flow can be asserted from the
- * console output, not only the images.
+ * the screen says — in explore the HUD line (with the grid position) and the
+ * party cards; in the pause menu its rows, the picked animal's options and
+ * the name box (with whether it has the focus); in a battle the narration
+ * line, the puzzle, the typed answer, the judgement, the status boxes and the
+ * result card — so a flow can be asserted from the console output, not only
+ * the images.
  *
  * Headless SwiftShader runs at a few frames per second, so buffered steps need
  * the `--settle` wait to finish before the screenshot. `--scale 3` renders the
@@ -92,6 +95,40 @@ async function describe() {
 	const lines = [];
 	const hint = await textOf('.hint');
 	if (hint !== null) lines.push(`hud: ${hint}`);
+	// Party cards in explore, the lead in brackets: "[1 Pip 20/20 goes first] | 2 Rabbit 0/22 tired".
+	const cards = await page.locator('.party .member').evaluateAll((els) =>
+		els.map((el) => {
+			const text = el.textContent.replace(/\s+/g, ' ').trim();
+			return el.classList.contains('lead') ? `[${text}]` : text;
+		})
+	);
+	if (cards.length) lines.push(`party: ${cards.join(' | ')}`);
+	// The pause menu: its rows (the lit one in brackets), the picked animal's
+	// options (greyed ones in parentheses), and the name box.
+	const pauseRows = await page.locator('.menu .team .row').evaluateAll((els) =>
+		els.map((el) => {
+			const text = el.textContent.replace(/\s+/g, ' ').trim();
+			return el.classList.contains('lit') ? `[${text}]` : text;
+		})
+	);
+	if (pauseRows.length) lines.push(`pause: ${pauseRows.join(' | ')}`);
+	const options = await page.locator('.menu .option').evaluateAll((els) =>
+		els.map((el) => {
+			const text = el.textContent.replace(/[▸\s]+/g, ' ').trim();
+			if (el.classList.contains('off')) return `(${text})`;
+			return el.classList.contains('lit') ? `[${text}]` : text;
+		})
+	);
+	if (options.length) lines.push(`options: ${options.join(' | ')}`);
+	const nameBox = page.locator('.name-box');
+	if ((await nameBox.count()) > 0) {
+		const focused = await nameBox.evaluate((el) => el === document.activeElement);
+		lines.push(
+			`name box: "${await nameBox.inputValue()}"${focused ? ' (focused)' : ' (NOT focused)'}`
+		);
+	}
+	const notes = await page.locator('.menu .note').allTextContents();
+	if (notes.length) lines.push(`notes: ${notes.map((n) => n.trim()).join(' | ')}`);
 	const statuses = await page.locator('.status').allTextContents();
 	if (statuses.length) {
 		lines.push(`status: ${statuses.map((s) => s.replace(/\s+/g, ' ').trim()).join(' | ')}`);
@@ -143,8 +180,10 @@ for (const { op, arg } of script) {
 			await page.waitForTimeout(keyInterval);
 			break;
 		case 'type':
+			// `type` presses a key for anything on a keyboard and inserts the rest
+			// (an emoji, an accented letter) as text, as a real input method would.
 			for (const ch of arg) {
-				await page.keyboard.press(ch);
+				await page.keyboard.type(ch);
 				await page.waitForTimeout(150);
 			}
 			await page.waitForTimeout(keyInterval);

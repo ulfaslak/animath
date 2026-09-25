@@ -69,3 +69,11 @@ Technical items we've intentionally postponed: tech debt, hardening shortcuts, k
 **Why deferred**: it runs once per lost battle, while a result card is on screen, and there is no server authority yet. Faster options change the algorithm (visit the tent lattice in order of distance and path-check each candidate, or cap by tiles visited), which is worth doing when there is a second caller or a real report.
 
 **Trigger**: the server-side authority PR, a second caller of `nearestTent` on a per-step path (a "nearest doctor" hint), or a report of a pause after losing a battle.
+
+### `reorder` names an absolute slot, which a remote authority's latency can turn stale
+
+**What**: the `reorder` party intent carries the slot to move to (`to`), which the pause menu computes from the party it last saw. With the in-process `LocalAuthority` every `party-edited` arrives before the next key, so that view is never stale. Over a network, a kid pressing "Move up" twice before the first answer returns sends the same `to` twice: the second is refused (`already-there`) and the press is lost. `select-lead` and `rename` name the animal, not a slot, and are unaffected.
+
+**Why deferred**: there is no remote authority, and a relative move (`{ by: -1 }`) is a protocol change best made when the latency is real and can be tried.
+
+**Trigger**: the `RemoteAuthority` / WebSocket PR.

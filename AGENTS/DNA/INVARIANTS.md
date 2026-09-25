@@ -115,3 +115,17 @@ In a doctor visit, an answer `checkAnswer` rejects leaves every animal's HP as i
 ### A doctor visit is a pure function of `(seed, party, intents)` and keeps the seed out of its state
 
 Like a battle: `applyDoctorIntent(state, intent, seed)` never mutates its input, draws the n-th accepted intent's puzzles from `new Rng(hashInts(seed, n))`, and returns the same state reference with one `rejected` event for an intent that does not fit. The seed is not in `DoctorState`, which goes to the client; a client that knew it could see the next puzzle before asking for it. Enforced by `doctor.test.ts` (frozen input on every step, the replay sweep, and a check of the state's keys). Design-time.
+
+## Party
+
+### The party changes only while exploring
+
+`applyPartyIntent(party, intent, activity)` refuses every intent — choosing a lead, moving, naming — unless `activity` is `explore`, returning the same party with one `rejected { reason: 'not-exploring' }`. A battle, and a doctor visit, each work on their own copy of the party and write it back when they end: an edit made in the meantime would be undone, and a lead chosen mid-battle would name a different animal than the one fighting. The authority says what the player is doing; the engine applies the rule. Enforced by `party.test.ts` ("changes nothing outside explore") and `local-authority.test.ts` (mid-battle edits are refused, and the battle writes back the party it began with). Design-time.
+
+### The lead is `leadIndex`, wherever it is shown or used
+
+The animal the HUD and the pause menu mark "goes first", the one `startBattle` sends out, and the one that steps in after a knock-out are all `leadIndex(party)`: the first animal in party order with HP above 0. Nothing computes the lead another way, and there is no stored "selected" animal to drift from it: choosing a lead (`select-lead`) moves that animal to the front, and is refused for a tired one. Enforced by `party.test.ts` (after every accepted `select-lead`, and after every move, `startBattle` sends out `leadIndex`) and `local-authority.test.ts` ("a chosen lead is the animal that steps into the next battle"). Design-time; anything new that depends on the lead — the encounter tables sizing wild animals to it — reads it here.
+
+### A stored nickname is a fixed point of `normalizeNickname`
+
+Every nickname the engine stores comes out of `normalizeNickname`, and cleaning it again changes nothing: 1 to 12 code points of letters, digits, `-`, `'`, `.` and single inner spaces, at least one letter or digit, NFKC, and nothing default-ignorable (the Hangul fillers are Unicode "letters" that draw as nothing, so a name of them would look blank). One cleaning pass is not enough — about 1 random string in 400 changes on a second pass, because dropping a character can put two Hangul jamo side by side for NFKC to join, and NFKC can turn a letter into an apostrophe look-alike — so the cleaner repeats until a pass changes nothing. Enforced by `party.test.ts`: 6,000 strings drawn from hostile Unicode ranges, every rename in random runs of edits, and a check that a plainly typed name comes back exactly as typed. Design-time; a one-pass cleaner fails the fuzz.
