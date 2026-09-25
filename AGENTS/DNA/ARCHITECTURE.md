@@ -35,13 +35,13 @@ tree packages -I 'node_modules|dist' --dirsfirst
 | `src/battle/damage.ts`            | `attackDamage`.                                                                                                                                                |
 | `src/battle/catch.ts`             | `catchProbability`.                                                                                                                                            |
 | `src/battle/types.ts`             | `BattleState`, `BattlePhase`, `BattleIntent`, `BattleEvent`, `BattleOutcome`, `BattleStep`.                                                                     |
-| `src/battle/reducer.ts`           | `startBattle(party, wild, options?)`, `applyBattleIntent(state, intent, seed) → { state, events }`, `activeAnimal`. The whole wild-battle loop; pure. The seed is the authority's, never in the state. |
+| `src/battle/reducer.ts`           | `startBattle(party, wild, options?)`, `applyBattleIntent(state, intent, seed) → { state, events }`, `activeAnimal`, `WILD_MISS_CHANCE`. The whole wild-battle loop; pure. The seed is the authority's, never in the state. |
 | `src/world/types.ts`              | `Tile`, `TileKind`, `Chunk`, `GridPos`, `Direction`, `CHUNK_SIZE`, `isWalkable`, `isEncounterTile`, `step`.                                                     |
 | `src/world/generate.ts`           | `generateChunk(seed, cx, cy)`, `tileAtWorld`, `spawnPoint`. Value-noise elevation + moisture → biome → tile kind; tents on a sparse lattice.                    |
-| `src/world/encounters.ts`         | `rollEncounter(rng, site)`, `encounterTable(biome, distance)`, `distanceFromSpawn`, the radius and chance constants. Biome tables come from the catalog's habitats. |
+| `src/world/encounters.ts`         | `rollEncounter(rng, site)`, `encounterTable(biome, distance)`, `distanceFromSpawn`, the radius and chance constants. Biome tables come from the catalog's habitats, plus tier-1 visitors near spawn where a biome has no tier-1 resident. |
 | `src/protocol.ts`                 | `Intent`, `GameEvent`, `Authority` — the client ↔ authority contract.                                                                                          |
 | `src/index.ts`                    | The public surface. Everything the client or server uses is re-exported here.                                                                                  |
-| `test/*.test.ts`                  | vitest. `purity.test.ts` pins the package boundary; the others are property tests over seeds, the difficulty range and the whole catalog. `balance.test.ts` is the species × species simulation (`SIM=1` prints the tables); `battle-sim.ts` is its scripted player. |
+| `test/*.test.ts`                  | vitest. `purity.test.ts` pins the package boundary; the others are property tests over seeds, the difficulty range and the whole catalog. `balance.test.ts` is the species × species simulation that pins the balance targets in [[PRODUCT]] §4 (`SIM=1` prints every policy × accuracy × level table); `battle-sim.ts` is its scripted player. |
 
 ### The authority seam (how multiplayer slots in)
 
