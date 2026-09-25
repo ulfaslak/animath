@@ -9,22 +9,26 @@ Everything a player can do in **today's build**, and how: every key, every hidde
 | Key                   | Mode    | What it does                                                                                                            |
 | --------------------- | ------- | ----------------------------------------------------------------------------------------------------------------------- |
 | Arrow keys / W A S D  | Explore | Walk one tile. Hold to keep walking (about 5–6 tiles a second).                                                         |
-| Enter / Space         | Explore | Interact. Today it always says "Nothing here yet.", wherever you stand and whatever you face. The on-screen hint doesn't mention this key. |
+| Enter / Space         | Explore | Facing a doctor's tent: talk to the doctor (the bottom line says "Press Enter to talk to the doctor" there). Anywhere else it says "Walk up to a tent to talk to the doctor." |
+| Up / Down, W / S      | Doctor  | Move the cursor through the animals who need the doctor and Bye; fit animals are skipped. It wraps round.           |
+| Enter / Space         | Doctor  | Pick the highlighted animal (its puzzle appears), or say bye on Bye. Nothing for the first half second after the card opens. |
+| Up / Down, W / S      | Doctor puzzle | Swap the puzzle for the previous or next animal who needs the doctor (a fresh puzzle; what you typed is dropped). With only one animal hurt, nothing. |
+| Escape                | Doctor  | Leave, at any time: on the list, in a puzzle, even while "Correct!" or "Not quite!" is showing. An animal already healed stays healed. |
 | Up / Down, W / S      | Battle menu | Move the cursor through the attacks, Leash and Run. It wraps round from the top to the bottom.                    |
 | Left / Right, A / D   | Battle menu | Pick the level (1, 2 or 3) for the attack. The same level applies to every attack and is remembered for the next battle. |
 | 1 / 2 / 3             | Battle menu | On an attack: pick that level and attack straight away. On Leash or Run: nothing.                                   |
 | Enter / Space         | Battle menu | Do the highlighted thing: attack at the chosen level, throw the leash, or run.                                      |
-| 0–9, minus            | Puzzle  | Type the answer. A minus only works as the first character; at most seven characters.                                    |
-| Backspace             | Puzzle  | Delete the last character.                                                                                              |
-| Enter                 | Puzzle  | Answer. Nothing happens until you have typed at least one digit.                                                        |
+| 0–9, minus            | Puzzle (battle or doctor) | Type the answer. A minus only works as the first character; at most seven characters.                  |
+| Backspace             | Puzzle (battle or doctor) | Delete the last character.                                                                            |
+| Enter                 | Puzzle (battle or doctor) | Answer. Nothing happens until you have typed at least one digit.                                      |
 | Enter / Space         | Result card | Back to exploring.                                                                                                  |
 
-Escape does nothing anywhere yet — not even in a puzzle: once a puzzle is up, the only way on is to answer it. The mouse and touch are ignored everywhere (the result card's button looks clickable but isn't). The page has no debug keys or console hooks; its one URL parameter is `?zoo` (see § Hidden behaviour).
+Escape leaves the doctor's card and does nothing anywhere else yet — not even in a battle puzzle: once a battle puzzle is up, the only way on is to answer it. The mouse and touch are ignored everywhere (the result card's and the doctor's buttons look clickable but aren't). The page has no debug keys or console hooks; its URL switches are `?zoo`, `?debug` and `?party=` (see § Hidden behaviour).
 
 ## The world
 
 - The world is the **same every time**. The seed is fixed (`'prototype'`), so the same map loads on every reload and on every machine.
-- You **start at (-2, 6)**, on grass next to a stretch of water. The HUD shows your grid position: pressing Right adds 1 to x, and pressing Down adds 1 to y.
+- You **start at (-2, 6)**, on grass next to a stretch of water. Pressing Right adds 1 to x, and pressing Down adds 1 to y. The screen doesn't show the position unless the URL has `?debug`.
 - The world never ends. It is generated in 16×16 chunks as you walk, in every direction.
 - **You are a kid in a blue cap** (coral shirt, blue shorts). The figure turns to face the way you last walked or bumped, stands on top of hills rather than sinking into them, and breathes gently while you stand still.
 
@@ -33,7 +37,7 @@ Escape does nothing anywhere yet — not even in a puzzle: once a puzzle is up, 
 | Grass                                         | Yes         |
 | Tall grass (darker green with little blades)   | Yes. Each step onto it has a 1-in-10 chance of a wild battle. |
 | Sand                                          | Yes         |
-| Doctor's tent (orange pyramid with a campfire) | No. Walking into it turns you to face it. Pressing Enter while facing it still says "Nothing here yet."; healing will happen here. The nearest one to the start is at (5, 7): walk 6 tiles right and 1 down, and you stand just left of it. |
+| Doctor's tent (orange pyramid with a campfire) | No. Walking into it turns you to face it, and then Enter talks to the doctor (see § The doctor). |
 | Water                                         | No          |
 | Rock                                          | No          |
 | Tree                                          | No          |
@@ -52,11 +56,20 @@ The tile straight left of the start, (-3, 6), is a river reed: tall grass on the
 - **Run** always works and costs nothing.
 - **When your animal is tired** (0 HP), the next animal in your party that isn't tired steps in by itself, and you choose again.
 - **Win, catch, or run**: a card says what happened; press Enter to walk on from the same tile. HP you lost stays lost.
-- **Lose** (every animal tired): "Good try!" — everyone rests back to full HP and you are put back on the start tile, (-2, 6). (A stand-in: later you will be taken to the nearest doctor's tent.)
+- **Lose** (every animal tired): "Good try!" and "The doctor looked after your animals. Everyone feels better!" — press Enter and you are standing beside the nearest doctor's tent (nearest on foot, never across water), facing it, with the whole party at full HP. From the reed by the start that is (4, 7), just left of the tent at (5, 7). If no tent is within 200 steps, you stay where you were and "A doctor came by…" instead.
+
+## The doctor
+
+- **Finding one**: the nearest tent to the start is at (5, 7). Walk 7 tiles right, all on grass, to (5, 6), then press Down: you bump into the tent and face it. (From the left, (4, 7) is tall grass.) Standing next to a tent without facing it is not enough: press the arrow toward it first.
+- **Talking**: press Enter while facing the tent. A card opens at the bottom of the screen with the doctor's line, your party on the left and a puzzle area on the right. Your party cards in the corner go away while it is open, and walking waits.
+- **Healing**: pick an animal who is hurt or tired and solve its puzzle: it is back to full HP ("Well done! Squirrel feels all better!", and a green "+15" pops over it). One puzzle heals one animal. The puzzle is a kind the animal's own attacks ask, and harder for fiercer animals: difficulty 2 for a squirrel or a rabbit, 3 for a fox or an otter, 5 for a deer, 6 for a wolf, 8 for a bear.
+- **A wrong answer costs nothing**: "Not quite! Let's try another one." and a different puzzle, as many times as it takes. The right answer is not shown.
+- **Fit animals** are shown greyed and can't be picked. With nobody hurt the doctor says "Hello! Your animals are all fit and happy." and Enter just says bye.
+- **Leaving**: Bye (Enter on it) or Escape, at any time. The doctor says "Bye! Come back any time." on the bottom line.
 
 ## Your party
 
-The cards in the top-left corner are your party. You start with one Squirrel at full HP (20 of 20). Every animal you catch joins the end of the list, with the HP it had when the leash landed, up to six. With six already, a caught animal goes back into the grass. An animal at 0 HP is greyed out with a "tired" tag and sits out battles. Nothing heals except losing a battle (everyone back to full) and reloading the page (everything back to the start).
+The cards in the top-left corner are your party. You start with one Squirrel at full HP (20 of 20). Every animal you catch joins the end of the list, with the HP it had when the leash landed, up to six. With six already, a caught animal goes back into the grass. An animal at 0 HP is greyed out with a "tired" tag and sits out battles. Animals heal at a doctor's tent (one puzzle each), all at once for free when you lose a battle, and a reload puts everything back to the start.
 
 ## Hidden behaviour
 
@@ -67,12 +80,18 @@ The cards in the top-left corner are your party. You start with one Squirrel at 
 - **Switching windows stops you.** If you tab away with a key held, you stop walking and any queued taps are dropped.
 - **Keys don't leak between walking and battling.** An arrow still held down when a battle starts does nothing in the battle until you press it again, and keys pressed in a battle never become steps.
 - **Keys wait while a battle turn plays.** From your answer until the menu comes back, every key is ignored — mashing Enter can't pick anything by accident — and the result card ignores keys for its first moment too.
+- **The doctor's card is the same.** It ignores every key but Escape for its first half second, and while "Correct!" or "Not quite!" is showing. A key held down when it opens does nothing until pressed again, and keys pressed at the doctor never become steps.
+- **Messages fade.** A line on the bottom of the screen stays for 5 seconds of walking about, then fades. A line said during a battle or at the doctor waits for you: after a battle the result's line is still there when you are back in the world.
+- **The controls hint goes away** after your first 5 moves (bumping into something counts).
 - **The same walk meets the same animals.** Encounters are decided by how many steps you have taken since the page loaded, so after a reload the same route meets the same animals at the same steps (see § Finding a battle fast).
 - **Leading zeros are fine**: "09" is the same answer as "9".
 - **Nothing is saved.** A reload puts you back at (-2, 6) with one full-HP Squirrel.
 - **`?zoo` shows every animal.** Open `http://localhost:5180/?zoo` and one of each species stands in a row two or three tiles from the start, in catalog order — squirrel, rabbit, fox, otter, deer, wolf, bear — facing you. They are scenery: you walk straight through them and nothing else changes. It exists to check the figures, not to play with.
+- **`?debug` shows where you are**: the grid position and the way you face (`5, 6 · down`) in the top-right corner.
+- **`?party=` picks your starting party**, for looking at screens that need one: `?party=squirrel:5,rabbit:0,fox` starts with a squirrel at 5 HP, a tired rabbit and a fox at full HP. Species are the catalog ids (`squirrel`, `rabbit`, `fox`, `otter`, `deer`, `wolf`, `bear`), HP is optional (full by default) and clamped to the species, at most six. Anything misspelt and the game starts as usual. Switches combine: `?debug&party=bear`.
 
 ## Exploits and quirks
 
-- **Losing is a free full heal.** Since nothing else heals yet, a hurt party can lose a battle on purpose (answer wrong) to rest back to full HP at the start tile. Reloading does the same and also forgets every caught animal.
-- **Messages never go away.** After a battle or pressing Enter, the last message stays on the bottom line until the next one. The "Arrows / WASD to walk" hint also never goes away.
+- **Losing is a free full heal.** Healing at the doctor costs one puzzle per animal, but losing a battle on purpose (answer wrong) heals the whole party for nothing and puts you by the nearest tent. Reloading heals too, and also forgets every caught animal.
+- **A hard doctor's puzzle can be skipped**: answer anything (a wrong answer costs nothing and brings another puzzle), swap to another animal and back, or say bye and talk again. By design: at the doctor, nothing is lost by missing.
+- **`?party=` is a cheat**: anyone who edits the URL can start with a bear. It is there for testing.
