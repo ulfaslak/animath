@@ -98,7 +98,7 @@
 
 {#if opponent && opponentSpec}
 	<div class="status opponent">
-		<div class="name">{nameOf(opponent)}</div>
+		<div class="name">Wild {nameOf(opponent)}</div>
 		<HpBar hp={opponent.hp} max={opponentSpec.maxHp} />
 		{#if battle.hit?.side === 'opponent'}
 			{#key battle.hit.n}

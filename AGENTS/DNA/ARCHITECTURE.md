@@ -95,6 +95,7 @@ Two things keep that swap cheap: intents carry only what the player *chose* (a d
 | `test/animals.test.ts`        | vitest: every catalog species builds a figure that keeps the contract in `animals.ts` (geometry construction needs no WebGL).                                        |
 | `test/local-authority.test.ts`| vitest: the authority's rules around the engine — encounters replay per step, battles start only on encounter tiles, outcomes write back, the party caps at six, the lost-battle rest. |
 | `test/battle-controller.test.ts` | vitest: the battle screen driven by keys against the real authority — held keys, empty answers, mashed Enter, stale events. The scene is built, never drawn.     |
+| `test/css-vars.test.ts`       | vitest: every `var(--x)` in the UI's `.svelte` and `.css` files is defined (an undefined one fails nowhere else). `vitest.config.ts` lets tests read CSS as text.  |
 
 ### Coordinate system
 
