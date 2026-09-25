@@ -23,6 +23,13 @@ export interface PlayerModel {
 	leash?: number;
 	/** Probability of running away instead of attacking, per choose-action. Default 0. */
 	flee?: number;
+	/**
+	 * Probability of switching to another standing animal instead of attacking,
+	 * per choose-action; with it set, a tired animal's replacement is picked at
+	 * random too. Default 0: never switch, and send in the first standing animal
+	 * in party order (drawing nothing, so older models replay as they did).
+	 */
+	switch?: number;
 }
 
 export interface PlayResult {
@@ -43,6 +50,11 @@ export function makeWild(speciesId: string, hp?: number): AnimalInstance {
 	return { id: `wild-${speciesId}`, speciesId, hp: hp ?? getAnimal(speciesId).maxHp };
 }
 
+/** Party indices that could step in: standing, and not the animal in front. */
+export function others(state: BattleState): number[] {
+	return state.party.flatMap((a, i) => (i !== state.active && a.hp > 0 ? [i] : []));
+}
+
 /** The intent a scripted player sends in `state`, or null when the battle is over. */
 export function nextIntent(state: BattleState, model: PlayerModel, rng: Rng): BattleIntent | null {
 	switch (state.phase.kind) {
@@ -53,9 +65,19 @@ export function nextIntent(state: BattleState, model: PlayerModel, rng: Rng): Ba
 			const correct = rng.chance(model.accuracy);
 			return { type: 'answer', input: String(correct ? answer : answer + 1) };
 		}
+		case 'choose-animal': {
+			const standing = others(state);
+			const pick = model.switch ? rng.pick(standing) : standing[0];
+			if (pick === undefined) throw new Error('choose-animal with nobody standing');
+			return { type: 'switch', partyIndex: pick };
+		}
 		case 'choose-action': {
 			if (rng.chance(model.leash ?? 0)) return { type: 'throw-leash' };
 			if (rng.chance(model.flee ?? 0)) return { type: 'flee' };
+			if (model.switch && rng.chance(model.switch)) {
+				const standing = others(state);
+				if (standing.length > 0) return { type: 'switch', partyIndex: rng.pick(standing) };
+			}
 			const spec = getAnimal(state.party[state.active]!.speciesId);
 			const n = spec.attacks.length;
 			switch (model.policy) {

@@ -59,8 +59,12 @@ const HOP_SECONDS = 0.5;
 const PUFF_SECONDS = 0.5;
 const LEASH_FLIGHT_SECONDS = 0.55;
 const LEASH_POP_SECONDS = 0.3;
+const RECALL_SECONDS = 0.4;
+const APPEAR_SECONDS = 0.4;
 
-type EffectKind = 'lunge' | 'shake' | 'faint' | 'hop';
+type EffectKind = 'lunge' | 'shake' | 'faint' | 'hop' | 'recall' | 'appear';
+/** Effects that leave the figure where they end until `setFigure` replaces it. */
+const LASTING: readonly EffectKind[] = ['faint', 'recall'];
 interface Effect {
 	side: BattleSide;
 	kind: EffectKind;
@@ -161,6 +165,7 @@ export class BattleScene {
 		const height = new THREE.Box3().setFromObject(figure).getSize(new THREE.Vector3()).y;
 		const scale = Math.min(1.6, Math.max(0.8, Math.sqrt(1 / height)));
 		figure.scale.setScalar(scale);
+		figure.userData.baseScale = scale;
 		this.heights[side] = height * scale;
 		const other = SPOT[side === 'player' ? 'opponent' : 'player'];
 		// Face the other animal: the player's from behind, the wild one three-quarters on.
@@ -189,6 +194,16 @@ export class BattleScene {
 	/** Tip the figure over; it stays down until `setFigure` replaces it. */
 	faint(side: BattleSide): void {
 		this.effects.push({ side, kind: 'faint', t: 0 });
+	}
+
+	/** The animal goes back to its trainer: it shrinks away and stays gone until `setFigure`. */
+	recall(side: BattleSide): void {
+		this.effects.push({ side, kind: 'recall', t: 0 });
+	}
+
+	/** A fresh animal steps in: it grows from nothing with a little bounce. */
+	appear(side: BattleSide): void {
+		this.effects.push({ side, kind: 'appear', t: 0 });
 	}
 
 	/** A little cloud beside a figure: the attack aimed at it missed. */
@@ -252,13 +267,16 @@ export class BattleScene {
 			figure.position.copy(SPOT[side]);
 			figure.rotation.z = 0;
 			figure.rotation.x = 0;
+			figure.scale.setScalar((figure.userData.baseScale as number | undefined) ?? 1);
 		}
 		for (const effect of this.effects) {
 			effect.t += dt;
 			const figure = this.figures[effect.side];
 			if (figure) applyEffect(figure, effect);
 		}
-		this.effects = this.effects.filter((e) => e.kind === 'faint' || e.t < effectSeconds(e.kind));
+		this.effects = this.effects.filter(
+			(e) => LASTING.includes(e.kind) || e.t < effectSeconds(e.kind)
+		);
 
 		for (const puff of this.puffs) {
 			puff.t += dt;
@@ -328,6 +346,10 @@ function effectSeconds(kind: EffectKind): number {
 			return HOP_SECONDS;
 		case 'faint':
 			return FAINT_SECONDS;
+		case 'recall':
+			return RECALL_SECONDS;
+		case 'appear':
+			return APPEAR_SECONDS;
 	}
 }
 
@@ -356,6 +378,17 @@ function applyEffect(figure: THREE.Group, effect: Effect): void {
 			const ease = p * p;
 			figure.rotation.z = (effect.side === 'player' ? -1 : 1) * ease * (Math.PI / 2);
 			figure.position.y -= ease * 0.05;
+			break;
+		}
+		case 'recall':
+			// Shrinks to nothing; a sliver of scale keeps the matrix invertible.
+			figure.scale.multiplyScalar(Math.max(0.001, 1 - p * p));
+			figure.position.y += Math.sin(p * Math.PI) * 0.15;
+			break;
+		case 'appear': {
+			// Grows past its size and settles back (an ease-out with a little overshoot).
+			const grow = 1 + 2.2 * Math.pow(p - 1, 3) + 1.2 * Math.pow(p - 1, 2);
+			figure.scale.multiplyScalar(Math.max(0.001, grow));
 			break;
 		}
 	}

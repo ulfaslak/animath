@@ -31,11 +31,15 @@ import type {
  * could predict every leash roll and every wild attack.
  *
  * Turn order is fixed: the player acts, then the wild animal takes its turn in
- * the same call. A wrong answer or a leash that breaks free still hands the
- * turn to the wild animal; fleeing always works. The wild animal picks one of
- * its attacks at random and hits for that attack's level-1 damage — unless it
- * faces an animal of its own tier or fiercer, when it misses
- * `WILD_MISS_CHANCE` of the time.
+ * the same call. A wrong answer, a leash that breaks free or a switch still
+ * hands the turn to the wild animal; fleeing always works. The wild animal
+ * picks one of its attacks at random and hits for that attack's level-1
+ * damage — unless it faces an animal of its own tier or fiercer, when it
+ * misses `WILD_MISS_CHANCE` of the time.
+ *
+ * When the animal in front is knocked out and someone else is standing, the
+ * battle waits in `choose-animal` for the player to say who steps in. That
+ * switch is free: the wild animal has just had its turn.
  */
 
 /**
@@ -96,9 +100,30 @@ function validateInstance(animal: AnimalInstance, where: string): void {
 	}
 }
 
-/** The party member currently in front. */
+/** The party member currently in front. In `choose-animal` it is the tired one. */
 export function activeAnimal(state: BattleState): AnimalInstance {
 	return state.party[state.active]!;
+}
+
+/**
+ * Whether a `switch` to party member `partyIndex` would be accepted now: the
+ * player is choosing (an action, or who replaces a tired animal), and the
+ * animal is in the party, standing and not already in front. The reducer
+ * decides by this, and the client greys out whoever it rules out.
+ */
+export function canSwitchTo(state: BattleState, partyIndex: number): boolean {
+	return switchRefusal(state, partyIndex) === null;
+}
+
+/** Why a switch to `partyIndex` would be rejected, or null when it would not. */
+function switchRefusal(state: BattleState, partyIndex: number): string | null {
+	const { kind } = state.phase;
+	if (kind !== 'choose-action' && kind !== 'choose-animal') return 'Not the time to switch.';
+	const animal = Number.isInteger(partyIndex) ? state.party[partyIndex] : undefined;
+	if (!animal) return `There is no party member ${partyIndex}.`;
+	if (partyIndex === state.active) return `${animalName(animal)} is already in front.`;
+	if (animal.hp === 0) return `${animalName(animal)} is too tired to switch in.`;
+	return null;
 }
 
 /**
@@ -124,6 +149,8 @@ export function applyBattleIntent(
 			return throwLeash(state, seed);
 		case 'flee':
 			return flee(state, seed);
+		case 'switch':
+			return switchAnimal(state, seed, intent.partyIndex);
 		default:
 			return reject(state, `Unknown intent ${String((intent as { type: unknown }).type)}.`);
 	}
@@ -227,15 +254,39 @@ function flee(state: BattleState, seed: number): BattleStep {
 	return draft.finish();
 }
 
+/**
+ * Send in another party member. On the player's turn this is the turn: the
+ * wild animal replies at once, against the newcomer. After a knock-out
+ * (`choose-animal`) it is how the player picks who steps in, and it is free —
+ * the wild animal has just had its turn — so the player chooses an action
+ * next. Either way the switch itself changes no HP.
+ */
+function switchAnimal(state: BattleState, seed: number, partyIndex: number): BattleStep {
+	const refusal = switchRefusal(state, partyIndex);
+	if (refusal !== null) return reject(state, refusal);
+	const draft = Draft.from(state, seed);
+	draft.activeIndex = partyIndex;
+	const fresh = draft.active();
+	draft.events.push({ type: 'switched', animal: fresh, partyIndex });
+	draft.say(`Go, ${animalName(fresh)}!`);
+	if (state.phase.kind === 'choose-animal') {
+		draft.phase = { kind: 'choose-action' };
+		return draft.finish();
+	}
+	opponentTurn(draft);
+	return draft.finish();
+}
+
 // --- the wild animal's turn -------------------------------------------------
 
 /**
  * The wild animal picks one of its attacks uniformly at random and hits for
  * that attack's level-1 damage; it never solves a puzzle. Against an animal of
  * its own tier or fiercer it misses `WILD_MISS_CHANCE` of the time; against a
- * smaller one it never misses. If the hit knocks the player's animal out, the
- * next conscious party member (in party order) steps in; if there is none, the
- * battle is lost. Otherwise the round ends and the player chooses again.
+ * smaller one it never misses. If the hit knocks the player's animal out and
+ * nobody else is standing, the battle is lost; if someone is, the round ends
+ * in `choose-animal` and the player picks who steps in. Otherwise the round
+ * ends and the player chooses again.
  *
  * Wariness is judged turn by turn against the animal in front: a fox never
  * misses a squirrel, but can miss the bear that steps in after it. The miss
@@ -282,17 +333,13 @@ function opponentTurn(draft: Draft): void {
 	draft.events.push({ type: 'fainted', side: 'player', animal: fainted });
 	draft.say(`${animalName(fainted)} is tired.`);
 
-	const next = leadIndex(draft.party);
-	if (next < 0) {
+	if (leadIndex(draft.party) < 0) {
 		draft.say('All your animals are tired.');
 		draft.end('lost');
 		return;
 	}
-	draft.activeIndex = next;
-	const fresh = draft.active();
-	draft.events.push({ type: 'switched', animal: fresh, partyIndex: next });
-	draft.say(`Go, ${animalName(fresh)}!`);
-	draft.nextRound();
+	// Someone is still standing: the player picks who steps in (a free `switch`).
+	draft.nextRound('choose-animal');
 }
 
 // --- helpers ---------------------------------------------------------------
@@ -342,8 +389,9 @@ class Draft {
 		this.events.push(caught ? { type: 'ended', outcome, caught } : { type: 'ended', outcome });
 	}
 
-	nextRound(): void {
-		this.phase = { kind: 'choose-action' };
+	/** The wild animal's turn is over: the player chooses an action, or who steps in. */
+	nextRound(kind: 'choose-action' | 'choose-animal' = 'choose-action'): void {
+		this.phase = { kind };
 		this.turn += 1;
 	}
 

@@ -122,6 +122,14 @@ function latestBattle(s: Session): BattleState {
 	throw new Error('no battle yet');
 }
 
+/** After a knock-out, send in the first animal still standing; otherwise nothing. */
+function stepIn(s: Session): void {
+	const state = latestBattle(s);
+	if (state.phase.kind !== 'choose-animal') return;
+	const partyIndex = state.party.findIndex((a) => a.hp > 0);
+	s.authority.dispatch({ type: 'battle', intent: { type: 'switch', partyIndex } });
+}
+
 /** Pick an attack and answer it, right or wrong on purpose. */
 function attack(s: Session, attackIndex: number, level: 1 | 2 | 3, correct: boolean): void {
 	s.authority.dispatch({ type: 'battle', intent: { type: 'attack', attackIndex, level } });
@@ -232,6 +240,7 @@ function answerDoctor(s: Session, correct: boolean): void {
 /** Win the current battle: the strongest attack at level 3, always right. */
 function win(s: Session): void {
 	while (latestBattle(s).phase.kind !== 'ended') {
+		stepIn(s);
 		const state = latestBattle(s);
 		attack(s, getAnimal(state.party[state.active]!.speciesId).attacks.length, 3, true);
 	}
@@ -239,7 +248,10 @@ function win(s: Session): void {
 
 /** Lose the current battle: every answer wrong. */
 function lose(s: Session): void {
-	while (latestBattle(s).phase.kind !== 'ended') attack(s, 1, 1, false);
+	while (latestBattle(s).phase.kind !== 'ended') {
+		stepIn(s);
+		attack(s, 1, 1, false);
+	}
 }
 
 /**
@@ -248,6 +260,7 @@ function lose(s: Session): void {
  */
 function tryToCatch(s: Session): void {
 	for (let turn = 0; turn < 80 && latestBattle(s).phase.kind !== 'ended'; turn++) {
+		stepIn(s);
 		const state = latestBattle(s);
 		const wild = state.opponent;
 		const mine = getAnimal(state.party[state.active]!.speciesId);
@@ -497,6 +510,11 @@ describe('LocalAuthority: saved games', () => {
 	function nextIntent(s: Session, i: number): Intent {
 		if (!inBattle(s)) return { type: 'move', dir: i % 2 === 0 ? 'left' : 'right' };
 		const state = latestBattle(s);
+		if (state.phase.kind === 'choose-animal') {
+			// A knock-out: send in the first one standing.
+			const partyIndex = state.party.findIndex((a) => a.hp > 0);
+			return { type: 'battle', intent: { type: 'switch', partyIndex } };
+		}
 		if (state.phase.kind === 'solving') {
 			const { answer } = state.phase.puzzle;
 			const input = String(i % 4 === 0 ? answer + 1 : answer);

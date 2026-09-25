@@ -351,8 +351,9 @@ export function restoreGame(save: SaveV1): SavedGame {
 /**
  * A saved battle, if it can be picked up again with `party` (the party
  * restored beside it): the same animals with the same HP, a standing animal
- * in front, a wild animal that is still standing, and a phase the reducer
- * can take the next intent in. Anything else is null, and the player is back
+ * in front (or, waiting for a replacement after a knock-out, a tired one with
+ * someone standing behind it), a wild animal that is still standing, and a
+ * phase the reducer can take the next intent in. Anything else is null, and the player is back
  * in explore as if they had run away, with the HP they had.
  */
 export function readBattle(value: unknown, party: readonly AnimalInstance[]): BattleState | null {
@@ -367,7 +368,14 @@ export function readBattle(value: unknown, party: readonly AnimalInstance[]): Ba
 	if (canonical(fought) !== canonical(party)) return null;
 	if (!Number.isSafeInteger(active)) return null;
 	const front = party[active as number];
-	if (!front || front.hp === 0) return null;
+	if (!front) return null;
+	// After a knock-out (`choose-animal`) the tired animal is still in front, waiting to
+	// be replaced by one that is standing; in every other phase the front one stands.
+	if (isRecord(phase) && phase.kind === 'choose-animal') {
+		if (front.hp !== 0 || !party.some((a) => a.hp > 0)) return null;
+	} else if (front.hp === 0) {
+		return null;
+	}
 	if (validateAnimal(opponent, 'opponent') !== null) return null;
 	const wild = opponent as unknown as AnimalInstance;
 	if (wild.hp === 0 || wild.hp > getAnimal(wild.speciesId).maxHp) return null;
@@ -388,7 +396,7 @@ export function readBattle(value: unknown, party: readonly AnimalInstance[]): Ba
 		if (!Number.isSafeInteger(puzzle.difficulty)) return null;
 		const difficulty = puzzle.difficulty as number;
 		if (difficulty < MIN_DIFFICULTY || difficulty > MAX_DIFFICULTY) return null;
-	} else if (phase.kind !== 'choose-action') {
+	} else if (phase.kind !== 'choose-action' && phase.kind !== 'choose-animal') {
 		return null;
 	}
 	return {

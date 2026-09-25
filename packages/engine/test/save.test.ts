@@ -341,19 +341,23 @@ function battleStates(seed: number, speciesIds: string[], wild: string) {
 describe('readBattle', () => {
 	it('picks up every state of real battles, and the battle goes on exactly as it would have', () => {
 		let solving = 0;
+		let replacing = 0;
 		for (let seed = 1; seed <= SEEDS; seed++) {
 			for (const { state, next } of battleStates(seed, ['squirrel', 'fox'], 'rabbit')) {
 				const party = state.party.map((a) => ({ ...a }));
 				const restored = readBattle(JSON.parse(JSON.stringify(state)), party);
 				expect(restored).toEqual(state);
 				if (state.phase.kind === 'solving') solving++;
+				if (state.phase.kind === 'choose-animal') replacing++;
 				// Same seed, same intent: the same step, whether or not the page reloaded.
 				expect(applyBattleIntent(restored!, next, seed)).toEqual(
 					applyBattleIntent(state, next, seed)
 				);
 			}
 		}
+		// Mid-puzzle, and waiting to replace a knocked-out animal, both come back.
 		expect(solving).toBeGreaterThan(0);
+		expect(replacing).toBeGreaterThan(0);
 	});
 
 	it('drops a battle that does not fit the party or the rules', () => {

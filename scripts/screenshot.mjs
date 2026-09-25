@@ -185,17 +185,22 @@ async function describe() {
 	if (statuses.length) {
 		lines.push(`status: ${statuses.map((s) => s.replace(/\s+/g, ' ').trim()).join(' | ')}`);
 	}
+	// The action menu, or the party list in its place: the highlighted row in
+	// brackets, each attack with its own level word, greyed rows marked.
 	const rows = await page.locator('.actions .row').evaluateAll((els) =>
 		els.map((el) => {
 			const label = el.querySelector('.label')?.textContent ?? '';
+			const hp = el.querySelector('.hp .text')?.textContent.trim();
 			const how = el.querySelector('.how')?.textContent.trim();
-			const text = how ? `${label} (${how})` : label;
-			const level = el.querySelector('.pill.on')?.textContent;
-			if (!el.classList.contains('selected')) return text;
-			return level ? `[${text} at level ${level}]` : `[${text}]`;
+			const level = el.querySelector('.pill.on')?.textContent.trim();
+			const notes = [how, level, el.classList.contains('off') && 'greyed'].filter(Boolean);
+			const text = [label, hp, notes.length && `(${notes.join(', ')})`].filter(Boolean).join(' ');
+			return el.classList.contains('selected') ? `[${text}]` : text;
 		})
 	);
-	if (rows.length) lines.push(`menu: ${rows.join(' | ')}`);
+	// The battle's switch list stands where the menu was; `party:` is the explore HUD's cards.
+	const list = (await page.locator('.actions.party').count()) ? 'switch' : 'menu';
+	if (rows.length) lines.push(`${list}: ${rows.join(' | ')}`);
 	for (const [label, selector] of [
 		['line', '.battle-line'],
 		['detail', '.detail'],

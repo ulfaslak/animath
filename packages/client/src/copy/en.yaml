@@ -11,6 +11,54 @@ puzzle:
   # Under a puzzle until it is answered.
   keys: Type the answer, then press Enter
 
+battle:
+  # On the Leash row: how likely a throw is to catch the wild animal right now.
+  leashGood: Good chance!
+  leashMaybe: Maybe
+  leashHard: Hard to catch
+  # An attack's three levels: the highlighted row's buttons, and every other row's word.
+  level:
+    easy: easy
+    medium: medium
+    hard: hard
+  # The key reminder under "Pick an attack".
+  menuKeys: ↑ ↓ choose · ← → how hard · Enter go
+  # The highlighted attack. {attack}: its name; {level}: its level's word;
+  # {kinds}: what its sums are about (the words below, in an "or" list); {damage}: how much it hits for.
+  attackDetail: '{attack} on {level}: {kinds}. It hits for {damage}.'
+  # What each kind of puzzle is about, as {kinds} lists them.
+  kinds:
+    add: adding
+    sub: taking away
+    mul: times tables
+    div: sharing
+    missing: missing numbers
+    sequence: number patterns
+    sqrt: square roots
+  # Narration: your animal steps in, at the start or after a switch.
+  go: 'Go, {name}!'
+  switch:
+    # The Switch row of the action menu, and what it says when highlighted.
+    row: Switch
+    detail: Send in a different animal. It uses up your turn.
+    alone: You need a second animal to switch. Catch one with the leash!
+    allTired: Your other animals are tired.
+    # The party list: its title, its keys (no way back after a knock-out), its tags.
+    title: Pick an animal
+    keys: ↑ ↓ choose · Enter go · Esc back
+    mustPickKeys: ↑ ↓ choose · Enter go
+    tiredTag: tired
+    inBattleTag: in battle
+    # The highlighted animal of the list; {name} is its name.
+    sendIn: 'Send in {name}. Then the wild animal gets a turn.'
+    sendInFree: "Send in {name}. Then it's your turn."
+    tired: '{name} is tired and needs a rest.'
+    inBattle: '{name} is already in the battle.'
+    # Narration: the animal in front is tired and someone must go in.
+    whoIsNext: '{name} is tired. Who goes next?'
+    # Narration: the animal in front goes back to make room.
+    comeBack: 'Come back, {name}!'
+
 explore:
   # Under the latest message for a player's first few moves.
   controls: Arrows / WASD to walk
@@ -105,12 +153,6 @@ pause:
   keysList: ↑ ↓ choose · Enter pick · Esc close
   keysOptions: ↑ ↓ choose · Enter do it · Esc back
   keysNaming: Enter save · Esc back
-
-battle:
-  # On the Leash row: how likely a throw is to catch the wild animal right now.
-  leashGood: Good chance!
-  leashMaybe: Maybe
-  leashHard: Hard to catch
 
 save:
   # On the message line when a saved game is picked up.
