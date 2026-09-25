@@ -136,6 +136,8 @@ export class Autosave {
 	private flushed = 0;
 	private creating = false;
 	private failures = 0;
+	/** What to try again once the server answers, while retries rest. */
+	private resting: (() => void) | null = null;
 
 	constructor(options: AutosaveOptions) {
 		this.throwaway = options.throwaway ?? false;
@@ -318,6 +320,7 @@ export class Autosave {
 		this.base = doc;
 		this.latest = doc;
 		this.firstWrite = false;
+		if (matters) this.wake();
 		this.schedulePush(matters);
 	}
 
@@ -397,7 +400,8 @@ export class Autosave {
 	}
 
 	private schedulePush(matters: boolean): void {
-		if (!this.canPush() || this.retryTimer !== null) return;
+		// While retries rest, only `wake` sends anything.
+		if (!this.canPush() || this.retryTimer !== null || this.resting) return;
 		const delay = matters ? SOON_MS : WALK_MS;
 		const due = Date.now() + delay;
 		if (this.pushTimer !== null) {
@@ -423,7 +427,7 @@ export class Autosave {
 		switch (result.kind) {
 			case 'saved':
 				this.pushed = Math.max(this.pushed, doc.seq);
-				this.failures = 0;
+				this.succeeded();
 				if (this.latest && this.latest.seq > this.pushed) this.schedulePush(true);
 				return;
 			case 'conflict':
@@ -457,13 +461,13 @@ export class Autosave {
 				this.retireIdentity();
 				return;
 			case 'none':
-				this.failures = 0;
+				this.succeeded();
 				this.pushed = 0;
 				this.serverState = 'ready';
 				this.schedulePush(true);
 				return;
 			case 'found':
-				this.failures = 0;
+				this.succeeded();
 				this.settleWith(got.doc);
 				return;
 		}
@@ -534,7 +538,7 @@ export class Autosave {
 			this.retry(() => void this.createIdentity());
 			return;
 		}
-		this.failures = 0;
+		this.succeeded();
 		// Another page of this browser may have made one first: use it, so both back up to one player.
 		const theirs = parseJson(this.store.get(KEYS.player) ?? '');
 		if (isIdentity(theirs)) {
@@ -565,18 +569,39 @@ export class Autosave {
 		void this.createIdentity();
 	}
 
+	/**
+	 * The server was out of reach: try `action` again after a growing pause.
+	 * After `MAX_FAILURES` in a row, rest instead — no timer, so an API that
+	 * is simply not running costs nothing — until something worth backing up
+	 * happens (`wake`).
+	 */
 	private retry(action: () => void): void {
 		this.failures += 1;
-		if (this.failures >= MAX_FAILURES) {
-			this.serverState = 'stopped';
-			return;
-		}
+		this.resting = action;
 		if (this.retryTimer !== null) this.timers.clearTimeout(this.retryTimer);
+		this.retryTimer = null;
+		if (this.failures >= MAX_FAILURES) return;
 		const delay = Math.min(60_000, 2000 * 2 ** (this.failures - 1));
 		this.retryTimer = this.timers.setTimeout(() => {
 			this.retryTimer = null;
+			this.resting = null;
 			action();
 		}, delay);
+	}
+
+	/** The server answered: retries start over. */
+	private succeeded(): void {
+		this.failures = 0;
+		this.resting = null;
+	}
+
+	/** A battle ended or the party changed: a resting backup tries once more. */
+	private wake(): void {
+		const action = this.resting;
+		if (!action || this.retryTimer !== null || this.stale) return;
+		this.resting = null;
+		this.failures = MAX_FAILURES - 1;
+		action();
 	}
 
 	private clearTimers(): void {

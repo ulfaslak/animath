@@ -72,12 +72,34 @@ const browser = await chromium.launch({
 });
 const page = await browser.newPage({ viewport: { width, height }, deviceScaleFactor: scale });
 const errors = [];
+// The game saves locally and backs up to the API when it can; it plays the same
+// without it. Failed API calls are listed, not counted as errors.
+const api = [];
+const isApi = (u) => {
+	try {
+		return new URL(u).pathname.startsWith('/api/');
+	} catch {
+		return false;
+	}
+};
 page.on('console', (m) => {
 	// SwiftShader (headless software GL) spams "GPU stall" performance notes; not ours.
 	if (/GPU stall/.test(m.text())) return;
+	// Chrome logs every failed request; the API ones are listed below instead.
+	if (/^Failed to load resource/.test(m.text()) && isApi(m.location().url)) return;
 	if (m.type() === 'error' || m.type() === 'warning') errors.push(`[${m.type()}] ${m.text()}`);
 });
 page.on('pageerror', (e) => errors.push(`[pageerror] ${e.message}`));
+page.on('response', (r) => {
+	if (isApi(r.url()) && r.status() >= 400) {
+		api.push(`${r.request().method()} ${new URL(r.url()).pathname} → ${r.status()}`);
+	}
+});
+page.on('requestfailed', (r) => {
+	if (isApi(r.url())) {
+		api.push(`${r.method()} ${new URL(r.url()).pathname} failed (${r.failure()?.errorText})`);
+	}
+});
 
 /** Text of the first element matching `selector`, or null when there is none. */
 async function textOf(selector) {
@@ -186,6 +208,10 @@ await page.waitForTimeout(script.length ? settle : 200);
 await shoot(out);
 await browser.close();
 
+if (api.length) {
+	console.log('api calls that did not succeed (the game plays on and saves locally):');
+	for (const line of api) console.log('  ' + line);
+}
 if (errors.length) {
 	console.log('console errors/warnings:');
 	for (const e of errors) console.log('  ' + e);

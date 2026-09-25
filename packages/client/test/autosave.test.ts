@@ -486,7 +486,7 @@ describe('Autosave: the server backup', () => {
 		expect(tab.autosave.wantsReload).toBe(false);
 	});
 
-	it('while the server is down the game saves locally, retries quietly, then gives up', async () => {
+	it('while the server is down the game saves locally, retries quietly, then rests until a catch', async () => {
 		const store = new MemoryStore();
 		const server = new FakeServer();
 		server.online = false;
@@ -497,11 +497,38 @@ describe('Autosave: the server backup', () => {
 		const tries = server.calls.length;
 		expect(tries).toBeGreaterThan(1);
 		expect(tries).toBeLessThanOrEqual(6);
-		await tab.catchOne();
-		expect(store.save()!.party).toHaveLength(2);
+		// Resting: walking costs the server nothing, and the game saves here all the same.
+		for (let i = 0; i < 10; i++) await tab.walk();
 		await later(10 * 60_000);
 		expect(server.calls.length).toBe(tries);
+		expect(store.save()!.steps).toBe(10);
+		// A catch tries once more; still down, so it rests again.
+		await tab.catchOne();
+		await later(10 * 60_000);
+		expect(server.calls.length).toBe(tries + 1);
+		// The server is back: the next catch makes the player and backs the game up.
+		server.online = true;
+		await tab.catchOne();
+		await later();
+		const who = identityIn(store)!;
+		expect(server.saveOf(who)).toEqual(store.save());
+		expect(server.saveOf(who)!.party).toHaveLength(3);
 		expect(errors).not.toHaveBeenCalled();
+	});
+
+	it('a backup that failed while the server restarted goes out once it is back', async () => {
+		const store = new MemoryStore();
+		const server = new FakeServer();
+		const tab = new Tab(store, server);
+		await tab.open();
+		await later();
+		const who = identityIn(store)!;
+		server.online = false;
+		await tab.catchOne();
+		await later(3000);
+		server.online = true;
+		await later(10_000);
+		expect(server.saveOf(who)).toEqual(store.save());
 	});
 
 	it('a refused backup is reported once to developers and not sent again', async () => {
