@@ -115,8 +115,7 @@ export function createTranslator<L extends string>(
 			once(`copy: "${key}" is missing from ${fallback}.yaml`);
 			return key;
 		}
-		const missing = (placeholder: string) =>
-			once(`copy: "${key}" in ${from}.yaml has no param for ${placeholder}`);
+		const missing = (placeholder: string) => once(`copy: "${key}" was not given ${placeholder}`);
 		const text =
 			typeof message === 'string'
 				? message
@@ -156,11 +155,14 @@ function fill(
 	return text.replace(
 		PLACEHOLDER,
 		(whole: string, name: string, form: string | undefined, at: number) => {
-			const value = params?.[name];
-			let out: string | undefined;
+			// Own properties only: `{animal.constructor}` must not find Object's.
+			const value = params && Object.hasOwn(params, name) ? params[name] : undefined;
+			let out: unknown;
 			if (typeof value === 'string' || typeof value === 'number') out = String(value);
-			else if (value !== undefined && form !== undefined) out = value[form];
-			if (out === undefined) {
+			else if (typeof value === 'object' && form !== undefined && Object.hasOwn(value, form)) {
+				out = value[form];
+			}
+			if (typeof out !== 'string') {
 				missing(whole);
 				return whole;
 			}

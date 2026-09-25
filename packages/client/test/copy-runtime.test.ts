@@ -89,10 +89,17 @@ describe('createTranslator', () => {
 		expect(tr('en', 'caught', { animal: { name: 'Fox' } })).toBe('You caught {animal.a}!');
 		expect(tr('en', 'points', {})).toBe('{count} points');
 		expect(warnings).toEqual([
-			'copy: "hello" in en.yaml has no param for {name}',
-			'copy: "caught" in en.yaml has no param for {animal.a}',
-			'copy: "points" in en.yaml has no param for {count}'
+			'copy: "hello" was not given {name}',
+			'copy: "caught" was not given {animal.a}',
+			'copy: "points" was not given {count}'
 		]);
+	});
+
+	it("never reads a param's inherited properties", () => {
+		const { tr } = translator();
+		const tricky = createTranslator({ en: { x: '{animal.constructor} {toString}' } }, 'en');
+		expect(tricky('en', 'x', { animal: squirrel })).toBe('{animal.constructor} {toString}');
+		expect(tr('en', 'caught', { animal: { a: 'a Fox', name: 'Fox' } })).toBe('You caught a Fox!');
 	});
 
 	it('shows a key missing from Danish in English, and warns once', () => {
