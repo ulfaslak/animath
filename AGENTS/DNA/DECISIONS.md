@@ -16,6 +16,7 @@ No React, ever. No SvelteKit either: the client is a plain Vite app.
 The engine is a **pure TypeScript package with zero dependencies** and no access to the DOM, Three.js, Node or the network. `lib: ["ES2022"]` in its tsconfig enforces it at compile time; a test enforces it at runtime.
 All randomness comes from a seeded `Rng` passed in by the caller. `Math.random` and `Date.now` are banned in the engine.
 The world is a pure function of `(seed, chunkX, chunkY)`; per-tile randomness is keyed by coordinates via `hashInts`, never by call order.
+Instance ids (`AnimalInstance.id`) are minted by the authority, never by the engine. An engine function that creates an animal returns it without an id (`WildAnimal`).
 Grid world, 16×16 chunks, four-direction movement, screen-space `y` grows downward.
 Puzzle answers are whole numbers only. Prompts are plain strings until a kind needs more.
 Difficulty is an integer 1..10. Every puzzle generator declares the range it supports.

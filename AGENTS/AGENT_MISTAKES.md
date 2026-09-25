@@ -18,6 +18,18 @@ The client dev server was configured on Vite's default port 5173, which another 
 
 `svelte-check` and `vite build` were both clean while every ground tile rendered black: the instanced mesh material had `vertexColors: true` with no colour attribute on the geometry, so the shader read zeros. Only the screenshot caught it. Fix: removed the flag; CLAUDE.md Phase 2 now says a rendering change is unverified until an agent has read a screenshot of it. Category: **rendered result vs. passing gate**.
 
+### 2026-09-25 — PR #6 — the engine minted an identity it could not make unique `[learned]`
+
+`rollEncounter` returned an `AnimalInstance` whose `id` came from the rng stream, so two authorities seeded alike, or one replaying a walk after a reload, produced the same id for different animals, while `AnimalInstance.id` promises uniqueness. The type demanded an id, so the engine invented one. Found by the adversarial review. Fix: the roll returns `WildAnimal = Omit<AnimalInstance, 'id'>` and the authority attaches the id; [[DECISIONS]] § Engine now says ids are minted by the authority. Category: **satisfying a type by fabricating a value the function cannot guarantee** — when a required field can't be honoured, change the return type instead of filling it in.
+
+### 2026-09-25 — PR #6 — a malformed coordinate degraded to the worst outcome instead of failing `[learned]`
+
+A `NaN` distance (a missing `pos` or `spawn`) made every table weight `NaN`, and the weighted pick's float-rounding fallback then returned the last entry: the fiercest species, every time, on the safest tile, with every test green. Found by the adversarial review. Fix: `encounterTable` and `rollEncounter` throw on a non-finite distance, pinned by a test in `encounters.test.ts`. Category: **a fallback branch written for rounding also absorbed garbage input** — a "can't happen" fallback needs a guard upstream, or it becomes the behaviour for every invalid input.
+
+### 2026-09-25 — PR #6 — restored a negative control with `git checkout --` and lost uncommitted fixes `[learned]`
+
+To watch a test go red, a guard was stripped from `encounters.ts` with `sed` and the file "restored" with `git checkout -- <file>`. The file also held uncommitted fix commits' worth of edits, so the checkout reverted those too; noticed only because a `grep -c` after the restore printed 0. Fix: re-applied the edits. Rule already in CLAUDE.md § Protecting existing work (`git checkout <ref> -- .` is not a diagnostic). Category: **a restore that targets the last commit, not the last state** — before flipping a line for a negative control, commit first, or restore by re-editing, never with git.
+
 ### 2026-09-24 — repo setup — a test that greps source matched its own explanatory comment `[not codified]`
 
 The engine purity test asserts no `Math.random` in `src/`; the first run failed on the doc comment in `rng.ts` that says "the engine never calls `Math.random`". Fix: the test strips comments before matching. Lesson: a source-scanning test must decide up front whether prose counts. Would become `[learned]` with a line in [[DEVELOPMENT]] § Testing ideology about source-scanning tests.

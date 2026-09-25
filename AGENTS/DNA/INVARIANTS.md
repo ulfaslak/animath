@@ -57,3 +57,17 @@ For every kind, at every difficulty in the kind's declared range, `answer` is an
 ### The spawn point is walkable
 
 `spawnPoint(seed)` returns a grass tile for every seed; a player never starts inside water or a tree. Enforced by `world.test.ts` over 25 seeds. Design-time.
+
+## Encounters
+
+### Every species in the catalog can be met somewhere
+
+Each biome's encounter table lists exactly the species whose habitats include it, all with positive weight, and for every species at least one habitat grows tall grass within 8 chunks of spawn. A species whose only habitat never generates tall grass is unreachable — which the otter was, because the river biome was water and sand only, until the banks got reeds. Enforced by `encounters.test.ts` ("every species has a biome", "grows tall grass in at least one habitat") over several seeds.
+
+### Fierce animals are rare near spawn and never rarer further out
+
+Inside `SAFE_RADIUS` tiles of the spawn tile, in any biome where a tier-1 species lives, tier 1 holds the majority of the encounter table and tiers 3–5 together hold under 5%; the tier-3+ share is non-decreasing in distance; beyond `WILD_RADIUS` every species in a biome has an equal share. A new species or a retuned ratio that breaks any of these fails the suite. Enforced by `encounters.test.ts` § encounterTable. Design-time.
+
+### An encounter can only start on an encounter tile
+
+`rollEncounter` returns `null` for every tile kind that `isEncounterTile` rejects, without drawing from the rng, so a walk's random stream depends only on the grass steps taken. Enforced by `encounters.test.ts` § rollEncounter. Design-time.
