@@ -1,13 +1,21 @@
-import { CHUNK_SIZE, generateChunk, type Direction, type GridPos } from '@mathgame/engine';
+import {
+	CHUNK_SIZE,
+	generateChunk,
+	tileAtWorld,
+	type Direction,
+	type GridPos
+} from '@mathgame/engine';
 import * as THREE from 'three';
+import { animateIdle, buildPlayerMesh } from './animals';
 import { COLORS } from './palette';
-import { buildChunkGroup } from './tiles';
+import { buildChunkGroup, groundTop } from './tiles';
 
 /**
  * Owns the Three.js scene: a fixed-angle orthographic camera (no zoom, no
  * rotation — the world reads like a diorama), flat-shaded low-poly meshes,
  * one directional light with soft shadows. Chunks are built lazily as the
- * player approaches them and cached by key.
+ * player approaches them and cached by key. Figures (the player and anything
+ * added with `addFigure`) breathe a little every frame.
  */
 const VIEW_HEIGHT_TILES = 14; // how many tiles tall the viewport is
 const CAMERA_PITCH = THREE.MathUtils.degToRad(50);
@@ -19,6 +27,7 @@ export class GameRenderer {
 	private scene = new THREE.Scene();
 	private camera: THREE.OrthographicCamera;
 	private player: THREE.Group;
+	private figures: THREE.Group[] = [];
 	private chunks = new Map<string, THREE.Group>();
 	private seed = 0;
 	private cameraTarget = new THREE.Vector3();
@@ -53,7 +62,7 @@ export class GameRenderer {
 		this.scene.add(sun.target);
 		this.sun = sun;
 
-		this.player = buildPlayerPlaceholder();
+		this.player = buildPlayerMesh();
 		this.scene.add(this.player);
 
 		window.addEventListener('resize', () => this.resize());
@@ -95,13 +104,25 @@ export class GameRenderer {
 		const t = progress * progress * (3 - 2 * progress); // smoothstep
 		const x = from.x + (to.x - from.x) * t;
 		const z = from.y + (to.y - from.y) * t;
+		const yFrom = this.groundAt(from);
+		const y = yFrom + (this.groundAt(to) - yFrom) * t;
 		const hop = Math.sin(progress * Math.PI) * 0.15;
-		this.player.position.set(x, 0.5 + hop, z);
+		this.player.position.set(x, y + hop, z);
+		// Figures face +z at rest, which is grid "down" (toward the camera).
 		this.player.rotation.y = { up: Math.PI, down: 0, left: -Math.PI / 2, right: Math.PI / 2 }[dir];
 		this.cameraTarget.set(x, 0, z);
 	}
 
+	/** Add a standing figure (from `animals.ts`) to the world; it idles with the player. */
+	addFigure(figure: THREE.Group): void {
+		this.figures.push(figure);
+		this.scene.add(figure);
+	}
+
 	render(): void {
+		const t = performance.now() / 1000;
+		animateIdle(this.player, t);
+		for (const f of this.figures) animateIdle(f, t);
 		// Camera rides a fixed offset from the target: pitch/yaw never change.
 		const dist = 40;
 		const offset = new THREE.Vector3(
@@ -116,6 +137,10 @@ export class GameRenderer {
 		this.renderer.render(this.scene, this.camera);
 	}
 
+	private groundAt(pos: GridPos): number {
+		return groundTop(tileAtWorld(this.seed, pos.x, pos.y));
+	}
+
 	private resize(): void {
 		const w = this.canvas.clientWidth || window.innerWidth;
 		const h = this.canvas.clientHeight || window.innerHeight;
@@ -128,24 +153,4 @@ export class GameRenderer {
 		this.camera.bottom = -halfH;
 		this.camera.updateProjectionMatrix();
 	}
-}
-
-/** A stand-in until real low-poly animal models arrive: body + head + ears. */
-function buildPlayerPlaceholder(): THREE.Group {
-	const g = new THREE.Group();
-	const bodyMat = new THREE.MeshLambertMaterial({ color: COLORS.player, flatShading: true });
-	const headMat = new THREE.MeshLambertMaterial({ color: COLORS.playerHead, flatShading: true });
-	const body = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.5, 0.7), bodyMat);
-	body.position.y = 0;
-	body.castShadow = true;
-	const head = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.4, 0.4), headMat);
-	head.position.set(0, 0.35, 0.35);
-	head.castShadow = true;
-	const earGeo = new THREE.ConeGeometry(0.08, 0.2, 4);
-	const earL = new THREE.Mesh(earGeo, bodyMat);
-	earL.position.set(-0.12, 0.62, 0.35);
-	const earR = earL.clone();
-	earR.position.x = 0.12;
-	g.add(body, head, earL, earR);
-	return g;
 }

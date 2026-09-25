@@ -14,6 +14,11 @@ import { COLORS, TILE_COLORS } from './palette';
 const TILE_GEO = new THREE.BoxGeometry(1, 1, 1);
 const MATERIAL = new THREE.MeshLambertMaterial({ flatShading: true });
 
+/** Height of a tile's top face. Figures stand here; water sits below the land. */
+export function groundTop(tile: Tile): number {
+	return tile.kind === 'water' ? 0.2 : 0.5 + tile.height * 0.25;
+}
+
 export function buildChunkGroup(chunk: Chunk): THREE.Group {
 	const group = new THREE.Group();
 	const ground = new THREE.InstancedMesh(TILE_GEO, MATERIAL, CHUNK_SIZE * CHUNK_SIZE);
@@ -27,7 +32,7 @@ export function buildChunkGroup(chunk: Chunk): THREE.Group {
 	chunk.tiles.forEach((tile, i) => {
 		const x = ox + (i % CHUNK_SIZE);
 		const z = oy + Math.floor(i / CHUNK_SIZE);
-		const h = tile.kind === 'water' ? 0.7 : 1 + tile.height * 0.25;
+		const h = groundTop(tile) + 0.5; // the box's base is at y = -0.5
 		m.makeScale(1, h, 1);
 		m.setPosition(x, h / 2 - 0.5, z);
 		ground.setMatrixAt(i, m);

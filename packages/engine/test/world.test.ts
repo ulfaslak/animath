@@ -38,6 +38,22 @@ describe('generateChunk', () => {
 		expect(kinds.has('tallgrass')).toBe(true);
 	});
 
+	it('river banks are sand with patches of reeds, so water animals have tall grass to hide in', () => {
+		let sand = 0;
+		let reeds = 0;
+		for (let cy = -4; cy < 4; cy++)
+			for (let cx = -4; cx < 4; cx++)
+				for (const t of generateChunk(hashString('prototype'), cx, cy).tiles) {
+					if (t.biome !== 'river') continue;
+					if (t.kind === 'sand') sand++;
+					else if (t.kind === 'tallgrass') reeds++;
+					else expect(t.kind).toBe('water');
+				}
+		expect(reeds).toBeGreaterThan(0);
+		expect(reeds / (sand + reeds)).toBeGreaterThan(0.2);
+		expect(reeds / (sand + reeds)).toBeLessThan(0.4);
+	});
+
 	it('places tents in every quadrant, on one lattice with no mirror at 0', () => {
 		const quadrants = new Set<string>();
 		const offLattice: string[] = [];

@@ -36,6 +36,7 @@ Production shape: `pnpm build` then `pnpm -F @mathgame/server start` serves the 
 node scripts/screenshot.mjs --out screenshots/what-i-changed.png
 node scripts/screenshot.mjs --keys "ArrowRight*5,ArrowDown*2" --out screenshots/after-walk.png
 node scripts/screenshot.mjs --width 1024 --height 768   # tablet landscape
+node scripts/screenshot.mjs --url 'http://localhost:5180/?zoo' --scale 3 --clip 400,320,360,230   # every animal figure, magnified 3× (same camera)
 ```
 
 Headless Chrome via `playwright-core`, WebGL through SwiftShader. The script exits non-zero and prints console errors if the page logged any. **Read the image** — a saved file you never looked at verifies nothing. The `/play` command wraps this.
@@ -64,9 +65,9 @@ All code is written by agents; the human reviews PRs and plays the game but does
 
 **Simulate balance, don't guess it.** When a change touches damage, HP, catch rates or difficulty, write (or run) a small simulation in `packages/engine/test/` or a scratch script: N battles between species pairs, win rates, average turns, catch attempts to success. Paste the table in the PR. A number in [[PRODUCT]] §4 that was never simulated is a guess.
 
-**Client**: no unit tests for rendering. Verification is a screenshot you read (see above), at the default viewport and at 1024×768. Pure client helpers (input mapping, tweens) may get vitest tests if they grow logic; Svelte components don't.
+**Client**: no unit tests for rendering. Verification is a screenshot you read (see above), at the default viewport and at 1024×768. Pure client helpers (input mapping, tweens) may get vitest tests if they grow logic; Svelte components don't. `test/animals.test.ts` is the one example so far: it pins the figure contract (every catalog species builds, feet on `y = 0`, flat-shaded) because a species added to the engine without a figure would otherwise only fail at run time.
 
-**Server**: `app.test.ts` style tests through `app.request()` with the DB mocked; integration tests against a real `mathgame_test` database once routes write data (pattern to establish with the save/load issue).
+**Server**: integration tests in `packages/server/test/*.test.ts` drive the real app through `app.request()` against a real `mathgame_test` database — no mocks below the HTTP layer. `test/global-setup.ts` creates the database on the same Postgres if missing, applies the journaled migrations and truncates it, and `vitest.config.ts` injects its URL as `DATABASE_URL`, so a test can never touch `mathgame`. Each test creates its own player, so tests share no rows. Mock the DB only for what cannot be exercised for real (`src/app.test.ts` mocks `pingDb` to see the 503).
 
 **Don't test**: framework glue, things the type system guarantees, a wrapper that only forwards to the engine.
 
@@ -77,6 +78,8 @@ All code is written by agents; the human reviews PRs and plays the game but does
 ## Database
 
 Local Postgres runs in Docker (`docker-compose.yml`, host port 5433, database `mathgame`, user/password `postgres`). `pnpm db:psql -c "<sql>"` runs a query; `/reset` recreates it from scratch.
+
+The server test suite uses a second database on the same instance, `mathgame_test`, created and migrated by the tests themselves (see § Testing ideology). `TEST_DATABASE_URL` overrides its URL; the name must end in `_test`.
 
 ### Migrations
 

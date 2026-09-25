@@ -19,6 +19,16 @@ The same Mac runs lawcel's dev stack, often with several worktrees live at once.
 
 Use `pnpm db:psql -c "<sql>"` (wraps `docker compose exec postgres psql`), or `docker compose exec -T postgres psql -U postgres -d mathgame`.
 
+**From a worktree, pass `-p mathgame`.** Compose names its project after the directory, so inside `../mathgame-worktrees/<branch>/` both `pnpm db:psql` and `pnpm db:up` look for a `<branch>-postgres-1` container and report `service "postgres" is not running` (or, for `db:up`, start a second Postgres that fights for port 5433). The dev database is the container `mathgame-postgres-1`: `docker compose -p mathgame exec -T postgres psql -U postgres -d mathgame -c "<sql>"`. `pnpm db:migrate` is unaffected — it connects through `DATABASE_URL`.
+
+## `git gtr new` may skip the `.env` copy and the `pnpm install` hook
+
+`.gtrconfig` asks gtr to copy `.env` and run `pnpm install` into every new worktree, and at least once (2026-09-25) it did neither: the fresh worktree had no `.env` and no `node_modules`. Without `.env` the server tests fail at startup with `DATABASE_URL is not set` (their vitest config derives the test database URL from it), which looks like a broken merge and isn't. After `git gtr new`, check `ls .env node_modules` in the worktree; if either is missing, `cp ../../mathgame/.env .` and `pnpm install` by hand.
+
+## The Postgres container's clock runs ~120 ms ahead of the host
+
+Measured with `clock_timestamp()` against `Date.now()`: 116–134 ms, stable across calls. A row whose default is `now()` therefore carries a later timestamp than a `new Date()` computed in Node afterwards, and a test asserting "updated after created" fails. Write timestamps with one clock — the server uses `sql\`now()\`` for `last_seen_at` and `updated_at` — and never compare a Postgres timestamp to a Node one across a gap under a second.
+
 ## Looking at the game
 
 The Claude-in-Chrome extension tab shows an error page for `localhost` URLs on this machine (cause not established; both `localhost` and `[::1]` fail while `curl` succeeds). Don't burn time on it: `node scripts/screenshot.mjs` drives the locally installed Google Chrome headlessly through `playwright-core` (no browser download) and renders WebGL through SwiftShader. It is slower than a GPU and logs "GPU stall" performance notes, which the script filters. Colours and layout are faithful; shadow softness and anti-aliasing are not, so judge those by eye in a real browser if they matter.
