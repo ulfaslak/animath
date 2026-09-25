@@ -89,7 +89,9 @@ export class BattleController {
 				this.begin(event.state);
 				break;
 			case 'battle-updated':
-				if (!battle.active) return; // no battle on screen: a stale or foreign event
+				// Only the battle on screen: the wild animal's id is minted per encounter,
+				// so an update for an earlier battle (late, or replayed) never matches.
+				if (!battle.active || event.state.opponent.id !== this.latest?.opponent.id) return;
 				this.latest = event.state;
 				battle.screen = 'busy';
 				for (const e of event.events) this.beats.push(...this.narrate(e));

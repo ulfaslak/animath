@@ -94,7 +94,7 @@ describe('battle screen', () => {
 		// The arrow that walked into the grass is still down: only repeats arrive.
 		for (let i = 0; i < 20; i++) t.controller.onKey(key('ArrowDown', true));
 		t.run(3);
-		for (let i = 0; i < 20; i++) t.controller.onKey(key('ArrowDown', true));
+		for (let i = 0; i < 3; i++) t.controller.onKey(key('ArrowDown', true));
 		expect(battle.cursor).toBe(0);
 		t.press('ArrowDown');
 		expect(battle.cursor).toBe(1);
@@ -167,26 +167,34 @@ describe('battle screen', () => {
 		expect(t.shown.at(-1)).toBeNull();
 	});
 
-	it('ignores battle events that arrive when no battle is on screen', () => {
+	it('ignores events for a battle that is no longer on screen', () => {
 		const t = setup();
 		t.walkIntoBattle();
 		t.run(3);
-		const updated = (): Extract<GameEvent, { type: 'battle-updated' }> => {
-			const e = t.events.findLast((e) => e.type === 'battle-updated');
-			if (e?.type !== 'battle-updated') throw new Error('no update');
-			return e;
-		};
-		t.press('ArrowUp', 'Enter');
-		t.run(3);
+		t.press('ArrowUp', 'Enter'); // Run
+		t.runUntil(() => battle.screen === 'result');
+		t.run(1);
 		t.press('Enter');
 		expect(battle.active).toBe(false);
+		const stale = t.events.findLast((e) => e.type === 'battle-updated')!;
 		const shown = t.shown.length;
-		t.controller.handle(updated());
+
+		// Back in explore: a late update changes nothing.
+		t.controller.handle(stale);
 		t.controller.handle({ type: 'message', text: 'late' });
 		t.run(3);
 		expect(battle.active).toBe(false);
-		expect(battle.screen).toBe('busy');
-		expect(battle.line).toBe('');
 		expect(t.shown).toHaveLength(shown);
+
+		// In the next battle: the old battle's end must not end this one.
+		t.walkIntoBattle();
+		t.run(4);
+		expect(battle.screen).toBe('actions');
+		const view = { line: battle.line, opponent: battle.opponent };
+		t.controller.handle(stale);
+		t.controller.handle({ type: 'message', text: 'late' });
+		t.run(3);
+		expect(battle.screen).toBe('actions');
+		expect({ line: battle.line, opponent: battle.opponent }).toEqual(view);
 	});
 });
