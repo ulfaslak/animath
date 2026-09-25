@@ -1,16 +1,18 @@
 <script lang="ts">
 	import { getAnimal } from '@mathgame/engine';
 	import { game } from '../state/game.svelte';
+	import HpBar from './HpBar.svelte';
 </script>
 
 <div class="party">
 	{#each game.party as animal (animal.id)}
 		{@const spec = getAnimal(animal.speciesId)}
-		<div class="member">
-			<span class="name">{animal.nickname ?? spec.name}</span>
-			<span class="hp">
-				<span class="bar" style:width="{(100 * animal.hp) / spec.maxHp}%"></span>
+		<div class="member" class:tired={animal.hp === 0}>
+			<span class="name">
+				{animal.nickname ?? spec.name}
+				{#if animal.hp === 0}<span class="tag">tired</span>{/if}
 			</span>
+			<HpBar hp={animal.hp} max={spec.maxHp} />
 		</div>
 	{/each}
 </div>
@@ -36,22 +38,24 @@
 		border-radius: var(--radius);
 		box-shadow: var(--hud-shadow);
 		padding: 8px 14px;
-		min-width: 160px;
+		width: 200px;
 		font-weight: 800;
 	}
-	.hp {
-		display: block;
-		height: 10px;
-		border-radius: 5px;
-		background: rgba(0, 0, 0, 0.1);
-		margin-top: 6px;
-		overflow: hidden;
+	.member.tired {
+		opacity: 0.7;
 	}
-	.bar {
-		display: block;
-		height: 100%;
-		background: var(--good);
-		border-radius: 5px;
+	.name {
+		display: flex;
+		align-items: center;
+		gap: 8px;
+		margin-bottom: 4px;
+	}
+	.tag {
+		font-size: 16px;
+		font-weight: 800;
+		padding: 1px 8px;
+		border-radius: 8px;
+		background: rgba(0, 0, 0, 0.1);
 	}
 	.hint {
 		position: absolute;

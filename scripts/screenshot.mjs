@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
- * Visual check: open the game in headless Chrome, optionally press keys, and
- * save a screenshot. This is the standard way to *look* at a change (see
+ * Visual check: open the game in headless Chrome, drive it with keys, and
+ * save screenshots. This is the standard way to *look* at a change (see
  * CLAUDE.md § Phase 2). Uses the locally installed Google Chrome via
  * playwright-core, so nothing is downloaded.
  *
@@ -11,8 +11,21 @@
  *                               [--width 1280 --height 800] [--scale 1]
  *                               [--clip x,y,w,h]
  *
- * Prints the HUD hint line (which carries the player's grid position) so a
- * movement check can be asserted from the console output, not only the image.
+ * `--keys` is a comma-separated script. A token is a key name (`ArrowRight`,
+ * `Enter`, `2`), optionally `*n` to press it n times; or one of
+ *   type:<text>   type each character of <text> (an answer: digits, a minus)
+ *   hold:<key>:<ms>  hold a key down for <ms>, auto-repeating like a real
+ *                 keyboard (a repeat every 100 ms after a 500 ms delay)
+ *   wait:<ms>     pause, e.g. while a battle turn narrates
+ *   shot:<name>   save an extra frame to `<out>-<name>.png` now
+ *   size:<w>x<h>  resize the window now (e.g. mid-battle)
+ *   reload:       reload the page and wait for it, as a kid pressing F5 would
+ * The final frame goes to `--out`. After every frame the script prints what
+ * the screen says — the HUD line in explore (with the grid position), and in
+ * a battle the narration line, the puzzle, the typed answer, the judgement,
+ * the status boxes and the result card — so a flow can be asserted from the
+ * console output, not only the images.
+ *
  * Headless SwiftShader runs at a few frames per second, so buffered steps need
  * the `--settle` wait to finish before the screenshot. `--scale 3` renders the
  * same framing at three device pixels per CSS pixel and `--clip` keeps only a
@@ -21,7 +34,7 @@
  */
 import { chromium } from 'playwright-core';
 import { mkdirSync } from 'node:fs';
-import { dirname, resolve } from 'node:path';
+import { basename, dirname, extname, join, resolve } from 'node:path';
 
 const args = Object.fromEntries(
 	process.argv
@@ -42,12 +55,14 @@ const scale = Number(args.scale ?? 1);
 const clip = args.clip
 	? (([x, y, w, h]) => ({ x, y, width: w, height: h }))(args.clip.split(',').map(Number))
 	: undefined;
-const keys = (args.keys ?? '')
+const script = (args.keys ?? '')
 	.split(',')
 	.filter(Boolean)
-	.flatMap((spec) => {
-		const [key, n] = spec.split('*');
-		return Array(Number(n ?? 1)).fill(key);
+	.flatMap((token) => {
+		const m = /^(type|wait|shot|hold|size|reload):(.*)$/.exec(token);
+		if (m) return [{ op: m[1], arg: m[2] }];
+		const [key, n] = token.split('*');
+		return Array(Number(n ?? 1)).fill({ op: 'key', arg: key });
 	});
 
 const browser = await chromium.launch({
@@ -64,25 +79,113 @@ page.on('console', (m) => {
 });
 page.on('pageerror', (e) => errors.push(`[pageerror] ${e.message}`));
 
+/** Text of the first element matching `selector`, or null when there is none. */
+async function textOf(selector) {
+	const locator = page.locator(selector);
+	if ((await locator.count()) === 0) return null;
+	const text = await locator.first().textContent();
+	return text === null ? null : text.replace(/\s+/g, ' ').trim();
+}
+
+/** What the screen says right now, one `key: value` per line. */
+async function describe() {
+	const lines = [];
+	const hint = await textOf('.hint');
+	if (hint !== null) lines.push(`hud: ${hint}`);
+	const statuses = await page.locator('.status').allTextContents();
+	if (statuses.length) {
+		lines.push(`status: ${statuses.map((s) => s.replace(/\s+/g, ' ').trim()).join(' | ')}`);
+	}
+	const rows = await page.locator('.actions .row').evaluateAll((els) =>
+		els.map((el) => {
+			const label = el.querySelector('.label')?.textContent ?? '';
+			const how = el.querySelector('.how')?.textContent.trim();
+			const text = how ? `${label} (${how})` : label;
+			const level = el.querySelector('.pill.on')?.textContent;
+			if (!el.classList.contains('selected')) return text;
+			return level ? `[${text} at level ${level}]` : `[${text}]`;
+		})
+	);
+	if (rows.length) lines.push(`menu: ${rows.join(' | ')}`);
+	for (const [label, selector] of [
+		['line', '.battle-line'],
+		['detail', '.detail'],
+		['puzzle', '.puzzle-prompt'],
+		['answer', '.answer'],
+		['judged', '.judgement'],
+		['result', '.result-title'],
+		['result-text', '.result-text']
+	]) {
+		const text = await textOf(selector);
+		if (text !== null) lines.push(`${label}: ${text}`);
+	}
+	return lines;
+}
+
+async function shoot(path) {
+	mkdirSync(dirname(path), { recursive: true });
+	await page.screenshot({ path, clip });
+	console.log(`saved ${path}`);
+	for (const line of await describe()) console.log(`  ${line}`);
+}
+
+const ext = extname(out);
+const stem = join(dirname(out), basename(out, ext));
+
 await page.goto(url, { waitUntil: 'networkidle' });
 await page.waitForTimeout(wait);
-for (const key of keys) {
-	await page.keyboard.down(key);
-	await page.waitForTimeout(220);
-	await page.keyboard.up(key);
-	await page.waitForTimeout(keyInterval);
+for (const { op, arg } of script) {
+	switch (op) {
+		case 'key':
+			await page.keyboard.down(arg);
+			await page.waitForTimeout(220);
+			await page.keyboard.up(arg);
+			await page.waitForTimeout(keyInterval);
+			break;
+		case 'type':
+			for (const ch of arg) {
+				await page.keyboard.press(ch);
+				await page.waitForTimeout(150);
+			}
+			await page.waitForTimeout(keyInterval);
+			break;
+		case 'hold': {
+			const [key, ms] = arg.split(':');
+			const until = Date.now() + Number(ms);
+			await page.keyboard.down(key);
+			await page.waitForTimeout(Math.min(500, Number(ms)));
+			// Playwright marks a second `down` of a held key as `repeat: true`.
+			while (Date.now() < until) {
+				await page.keyboard.down(key);
+				await page.waitForTimeout(100);
+			}
+			await page.keyboard.up(key);
+			await page.waitForTimeout(keyInterval);
+			break;
+		}
+		case 'wait':
+			await page.waitForTimeout(Number(arg));
+			break;
+		case 'size': {
+			const [w, h] = arg.split('x').map(Number);
+			await page.setViewportSize({ width: w, height: h });
+			await page.waitForTimeout(400);
+			break;
+		}
+		case 'reload':
+			await page.reload({ waitUntil: 'networkidle' });
+			await page.waitForTimeout(wait);
+			break;
+		case 'shot':
+			await page.waitForTimeout(400);
+			await shoot(`${stem}-${arg}${ext || '.png'}`);
+			break;
+	}
 }
-await page.waitForTimeout(keys.length ? settle : 200);
-mkdirSync(dirname(out), { recursive: true });
-await page.screenshot({ path: out, clip });
-const hint = await page
-	.locator('.hint')
-	.textContent()
-	.catch(() => null);
+await page.waitForTimeout(script.length ? settle : 200);
+await shoot(out);
 await browser.close();
 
-console.log(`saved ${out}`);
-if (hint) console.log(`hud: ${hint.replace(/\s+/g, ' ').trim()}`);
 if (errors.length) {
 	console.log('console errors/warnings:');
 	for (const e of errors) console.log('  ' + e);

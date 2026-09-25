@@ -4,9 +4,12 @@
 	--panel-ink: #2d2a32;
 	--accent: #ff9f43;
 	--good: #56c271;
+	--warn: #f5b83d;
 	--bad: #f25f5c;
 	--hud-shadow: 0 6px 18px rgba(0, 0, 0, 0.18);
 	--radius: 16px;
+	/* Height of the battle screen's bottom panel (actions | puzzle). */
+	--battle-panel: clamp(260px, 40vh, 360px);
 }
 
 html,

@@ -25,6 +25,12 @@ export type GameEvent =
 	| { type: 'welcome'; playerId: string; seed: number; pos: GridPos; party: AnimalInstance[] }
 	| { type: 'player-moved'; playerId: string; pos: GridPos; dir: Direction }
 	| { type: 'player-blocked'; playerId: string; dir: Direction }
+	/**
+	 * The player was put on a tile without walking there: today, the rest after
+	 * a lost battle. No direction: the figure keeps facing the way it did, and
+	 * there is nothing to tween.
+	 */
+	| { type: 'player-placed'; playerId: string; pos: GridPos }
 	| { type: 'battle-started'; state: BattleState }
 	/**
 	 * One battle intent was applied. `events` is what happened, in order, and
@@ -33,6 +39,12 @@ export type GameEvent =
 	 */
 	| { type: 'battle-updated'; state: BattleState; events: readonly BattleEvent[] }
 	| { type: 'battle-ended'; state: BattleState }
+	/**
+	 * The party changed outside a battle turn: HP written back after a battle,
+	 * a caught animal joining, the rest after a lost one. Always the whole
+	 * party, in order.
+	 */
+	| { type: 'party-changed'; party: AnimalInstance[] }
 	| { type: 'message'; text: string }
 	/** `interact` while facing a tent opened a visit. Walking waits until `doctor-visit-ended`. */
 	| { type: 'doctor-visit-started'; state: DoctorState }

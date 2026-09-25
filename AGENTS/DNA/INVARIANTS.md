@@ -76,6 +76,12 @@ On its turn the wild animal draws its attack (`rng.int(1, N)`) and then a miss r
 
 `catchProbability(hp, rate, leash)` is monotonically non-increasing in `hp`, halves every 0.2 of HP, and is capped at 0.95 regardless of leash quality. Enforced by `battle.test.ts` § catchProbability. Design-time.
 
+## Authority
+
+### The authority's randomness is keyed by the world seed and its step count, and its seeds never leave it
+
+`LocalAuthority` rolls one encounter after each completed step with `new Rng(hashInts(worldSeed, hashString('encounter'), steps))` and gives a battle the seed `hashInts(worldSeed, hashString('battle'), steps)` of the step it started on; nothing in it reads `Math.random` or the clock except minting an animal's id, which must be unique rather than replayable. So a walk replays — the same steps meet the same animals and the same puzzles — which is what lets a server running the same code agree with a client. The battle seed stays in the authority: events carry only `BattleState`, which has no seed. Enforced by `packages/client/test/local-authority.test.ts` ("a walk meets the same animals and puzzles at the same steps, each with a fresh id") and, for the state, the engine's `battle-reducer.test.ts`. Design-time.
+
 ## World
 
 ### The spawn point is walkable

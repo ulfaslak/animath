@@ -23,10 +23,11 @@ export class Keyboard {
 	private held = new Map<Direction, number>(); // dir → time pressed
 	private taps: Direction[] = [];
 	private interactQueued = false;
+	private enabled = true;
 
 	constructor(target: Window) {
 		target.addEventListener('keydown', (e) => {
-			if (e.repeat) return;
+			if (!this.enabled || e.repeat) return;
 			const dir = DIRECTION_KEYS[e.key];
 			if (dir) {
 				this.held.set(dir, performance.now());
@@ -41,10 +42,24 @@ export class Keyboard {
 			const dir = DIRECTION_KEYS[e.key];
 			if (dir) this.held.delete(dir);
 		});
-		target.addEventListener('blur', () => {
-			this.held.clear();
-			this.taps.length = 0;
-		});
+		target.addEventListener('blur', () => this.clear());
+	}
+
+	/**
+	 * Explore input is only read in explore mode. Disabling drops whatever was
+	 * held or buffered, so a key held into a battle does not walk the player
+	 * when the battle ends, and keys typed in the battle never become steps.
+	 */
+	setEnabled(on: boolean): void {
+		if (this.enabled === on) return;
+		this.enabled = on;
+		if (!on) this.clear();
+	}
+
+	private clear(): void {
+		this.held.clear();
+		this.taps.length = 0;
+		this.interactQueued = false;
 	}
 
 	/** The next buffered tap, if any. Consumed once. */

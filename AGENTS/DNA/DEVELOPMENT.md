@@ -39,7 +39,28 @@ node scripts/screenshot.mjs --width 1024 --height 768   # tablet landscape
 node scripts/screenshot.mjs --url 'http://localhost:5180/?zoo' --scale 3 --clip 400,320,360,230   # every animal figure, magnified 3× (same camera)
 ```
 
-Headless Chrome via `playwright-core`, WebGL through SwiftShader. The script exits non-zero and prints console errors if the page logged any. **Read the image** — a saved file you never looked at verifies nothing. The `/play` command wraps this.
+Headless Chrome via `playwright-core`, WebGL through SwiftShader. The script exits non-zero and prints console errors (and warnings) if the page logged any. **Read the image** — a saved file you never looked at verifies nothing. The `/play` command wraps this.
+
+`--keys` is a comma-separated script run in order. A plain token is a key name, optionally `*n` to repeat it (`ArrowRight*5`, `Enter`, `3`). The rest take an argument:
+
+| Token              | Does                                                                                   |
+| ------------------ | -------------------------------------------------------------------------------------- |
+| `type:<text>`      | types each character, e.g. an answer: `type:56`, `type:-5`                              |
+| `hold:<key>:<ms>`  | holds a key down with auto-repeat, as a real keyboard does (`hold:ArrowUp:5000`)       |
+| `wait:<ms>`        | pauses — a battle turn takes several seconds to narrate                                 |
+| `shot:<name>`      | saves an extra frame to `<out>-<name>.png` there and then                               |
+| `size:<w>x<h>`     | resizes the window mid-run                                                              |
+| `reload:`          | reloads the page                                                                        |
+
+After every frame the script prints what the screen says — the HUD line with the grid position in explore; in a battle the status boxes, the menu (the highlighted row in brackets, with its level), the narration line, the puzzle, the typed answer, the judgement and the result card — so a run can be checked from its output as well as its images.
+
+**Playing a battle.** The 11th step of Left, Right, Left, … from the start always meets a rabbit (see [[CHEATSHEET]] § Finding a battle fast; the animal changes whenever the encounter tables do). Walk in, look, run away:
+
+```bash
+node scripts/screenshot.mjs --keys "ArrowLeft,ArrowRight,ArrowLeft,ArrowRight,ArrowLeft,ArrowRight,ArrowLeft,ArrowRight,ArrowLeft,ArrowRight,ArrowLeft,wait:8000,shot:menu,ArrowUp,Enter,wait:4000,shot:result,Enter" --out screenshots/ran.png
+```
+
+To attack, press the level key on the highlighted attack (`1`, or `ArrowDown,3` for the second attack at level 3), then `wait:1500,type:<answer>,Enter,wait:9000`. Answering wrong on purpose (a loss) needs no answers. Puzzles are seeded like everything else, so the same keys meet the same puzzles: to learn the right answers, replay the same walk and intents against the client's `LocalAuthority` (`packages/client/src/authority/local.ts`) in a throwaway script run with `packages/server/node_modules/.bin/tsx`, and read each `puzzle-shown` event's `puzzle.answer`. Answers change whenever the puzzle generators do, so never hard-code them in docs or tests.
 
 ## Checks and tests
 
@@ -65,7 +86,7 @@ All code is written by agents; the human reviews PRs and plays the game but does
 
 **Simulate balance, don't guess it.** When a change touches damage, HP, catch rates or difficulty, write (or run) a small simulation in `packages/engine/test/` or a scratch script: N battles between species pairs, win rates, average turns, catch attempts to success. Paste the table in the PR. A number in [[PRODUCT]] §4 that was never simulated is a guess.
 
-**Client**: no unit tests for rendering. Verification is a screenshot you read (see above), at the default viewport and at 1024×768. Pure client helpers (input mapping, tweens) may get vitest tests if they grow logic; Svelte components don't. `test/animals.test.ts` is the one example so far: it pins the figure contract (every catalog species builds, feet on `y = 0`, flat-shaded) because a species added to the engine without a figure would otherwise only fail at run time.
+**Client**: no unit tests for rendering. Verification is a screenshot you read (see above), at the default viewport and at 1024×768. Pure client helpers (input mapping, tweens) may get vitest tests if they grow logic; Svelte components don't. `test/animals.test.ts` pins the figure contract (every catalog species builds, feet on `y = 0`, flat-shaded) because a species added to the engine without a figure would otherwise only fail at run time. `test/local-authority.test.ts` drives the real `LocalAuthority` over the real engine (the authority's rules around the engine: encounters, outcomes, the party cap), and `test/battle-controller.test.ts` presses keys at the battle screen against it — the input and pacing rules a screenshot can't pin (held keys, empty answers, mashing, stale events). Both read puzzle answers from the events, never from a hard-coded list. `test/css-vars.test.ts` fails when a component reads a CSS custom property that `styles.css` never defines — the browser, `svelte-check` and the build all accept that silently.
 
 **Server**: integration tests in `packages/server/test/*.test.ts` drive the real app through `app.request()` against a real `mathgame_test` database — no mocks below the HTTP layer. `test/global-setup.ts` creates the database on the same Postgres if missing, applies the journaled migrations and truncates it, and `vitest.config.ts` injects its URL as `DATABASE_URL`, so a test can never touch `mathgame`. Each test creates its own player, so tests share no rows. Mock the DB only for what cannot be exercised for real (`src/app.test.ts` mocks `pingDb` to see the 503).
 

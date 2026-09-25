@@ -3,6 +3,11 @@ import type { AnimalInstance, GameEvent, GridPos } from '@mathgame/engine';
 /**
  * The UI's read-only view of the game. It is filled exclusively from
  * authority events — Svelte components never poke game state directly.
+ *
+ * `mode` is the authority's mode: it flips to `battle` on `battle-started`
+ * and back on `battle-ended`. The battle *screen* stays up a little longer
+ * than that (the last events are narrated, then a result card waits for
+ * Enter); that presentation state lives in `battle.svelte.ts`.
  */
 class GameView {
 	mode = $state<'loading' | 'explore' | 'battle'>('loading');
@@ -22,6 +27,7 @@ class GameView {
 				this.mode = 'explore';
 				break;
 			case 'player-moved':
+			case 'player-placed':
 				if (event.playerId === this.playerId) this.pos = event.pos;
 				break;
 			case 'battle-started':
@@ -29,6 +35,9 @@ class GameView {
 				break;
 			case 'battle-ended':
 				this.mode = 'explore';
+				break;
+			case 'party-changed':
+				this.party = event.party;
 				break;
 			case 'message':
 				this.message = event.text;

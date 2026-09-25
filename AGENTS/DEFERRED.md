@@ -20,7 +20,23 @@ Technical items we've intentionally postponed: tech debt, hardening shortcuts, k
 
 **Why deferred**: there is no server authority yet, and stripping the answer means a second `Puzzle` shape (or a redacting step in the protocol) for a cheat nobody can attempt today.
 
-**Trigger**: the `RemoteAuthority` / server-side battle PR. Redact `answer` from what goes over the wire there, and decide whether `answer-judged` keeps reporting it after the fact (harmless: the puzzle is spent).
+**Trigger**: the `RemoteAuthority` / server-side battle PR. Redact `answer` from what goes over the wire there, and decide whether `answer-judged` keeps reporting it after the fact (harmless: the puzzle is spent; the battle screen never shows it).
+
+### A battle's result is written back by the client's authority, not the engine
+
+**What**: when a battle ends, `LocalAuthority.endBattle` decides what it means for the world: the party takes the battle's HP, a caught animal joins if there is room (the cap is the engine's `MAX_PARTY`, but the let-it-go decision is in the authority), a lost battle rests everyone at the spawn tile, and the closing line is chosen. A server authority would have to repeat all of it, and the two copies could drift.
+
+**Why deferred**: there is one authority today, the brief for this work put the outcomes there, and the lost branch is a placeholder the doctor's client work replaces with the engine's `takeToDoctor`.
+
+**Trigger**: the `RemoteAuthority` / server-side battle PR, or earlier if a second outcome rule lands. Move the write-back into an engine function (`concludeBattle(party, endedState) → { party, message }`, beside `takeToDoctor`) and call it from both authorities.
+
+### The authority's step counter is not saved
+
+**What**: `LocalAuthority` keys every encounter roll and battle seed by its count of completed steps (see [[INVARIANTS]] § Authority), and the count starts at 0 on every page load. Without saves that is harmless — a reload puts everything back to the start. With saves, a reloaded player at a saved position would replay the encounters of steps 1, 2, 3… again, and a kid could learn that the 11th step after a reload always meets the same animal.
+
+**Why deferred**: nothing is saved yet; the counter is one number that belongs in the save envelope beside `pos` and `party`.
+
+**Trigger**: the client save/load PR. Save the step count with the position and restore it on load (an extra field in `SaveV1` needs no server change).
 
 ### Anonymous player identity is unauthenticated
 

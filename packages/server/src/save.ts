@@ -1,5 +1,5 @@
 import type { AnimalInstance, GridPos } from '@mathgame/engine';
-import { ANIMALS } from '@mathgame/engine';
+import { ANIMALS, MAX_PARTY } from '@mathgame/engine';
 
 /**
  * The save document a client PUTs to `/api/players/:id/save` and GETs back.
@@ -24,7 +24,8 @@ export interface SaveV1 {
 }
 
 export const SAVE_VERSION = 1;
-export const MAX_PARTY = 6;
+/** The engine's cap, re-exported for the tests. */
+export { MAX_PARTY };
 /** Hard cap on a PUT body. A full party with nicknames is well under 1 KB. */
 export const SAVE_MAX_BYTES = 64 * 1024;
 

@@ -44,7 +44,8 @@ Hex values are the ones in `packages/client/src/render/palette.ts` and `styles.c
 | UI panel             | `rgba(255,252,245,.92)` | Cream, slightly translucent.       |
 | UI ink               | `#2d2a32` |                                              |
 | Good (HP, correct)   | `#56c271` |                                              |
-| Bad (damage, wrong)  | `#f25f5c` |                                              |
+| Warn (HP under half) | `#f5b83d` | Amber: an HP bar between a half and a fifth, the leash's "maybe". |
+| Bad (damage, wrong)  | `#f25f5c` | Also an HP bar under a fifth. Text on Good, Warn and Bad is ink, never white. |
 
 Colour is never the only signal: a wrong answer also shakes, a low HP bar also shows a number.
 
@@ -68,6 +69,7 @@ Short, warm, second person. One idea per line. Words a seven-year-old reads with
 - "Squirrel is tired." not "Squirrel has fainted."
 - "Not quite! The bear shrugs it off." not "Incorrect answer."
 - "You caught a Fox!" with an exclamation mark. Big moments get big copy.
+- "Good try!" when the whole party is tired, never "You lost".
 - No sarcasm, no "oops", no "error". No text the game can't stand behind if a kid reads it aloud.
 
 ## Accessibility
