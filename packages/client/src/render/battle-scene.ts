@@ -124,6 +124,8 @@ const confettiMaterials = CONFETTI_COLORS.map((hex) => {
 	return material;
 });
 const PUFF_GEOMETRY = new THREE.IcosahedronGeometry(0.12, 0);
+/** Rounder than a miss's puff, so a cloud of it never reads as a heap of pebbles. */
+const DUST_GEOMETRY = new THREE.IcosahedronGeometry(0.08, 1);
 const CONFETTI_GEOMETRY = new THREE.PlaneGeometry(0.09, 0.06);
 const LOOP_GEOMETRY = new THREE.TorusGeometry(0.3, 0.05, 6, 16);
 /** A unit-length rope along +y from the origin; stretched and turned per frame. */
@@ -185,7 +187,10 @@ export class BattleScene {
 		}
 		for (const puff of this.puffs) this.scene.remove(puff.group);
 		this.puffs = [];
-		for (const dust of this.dusts) this.scene.remove(dust.group);
+		for (const dust of this.dusts) {
+			this.scene.remove(dust.group);
+			(dust.group.userData.material as THREE.Material).dispose();
+		}
 		this.dusts = [];
 		for (const piece of this.confetti) this.scene.remove(piece.mesh);
 		this.confetti = [];
@@ -266,22 +271,26 @@ export class BattleScene {
 	/** A ring of dust at a figure's feet, rising as it lies down. */
 	private dust(side: BattleSide): void {
 		const group = new THREE.Group();
-		const count = 8;
+		// Its own material, so the cloud can fade without fading another one.
+		const material = dustMaterial.clone();
+		material.transparent = true;
+		const count = 10;
 		for (let i = 0; i < count; i++) {
-			const bit = new THREE.Mesh(PUFF_GEOMETRY, dustMaterial);
+			const bit = new THREE.Mesh(DUST_GEOMETRY, material);
 			const angle = (i / count) * Math.PI * 2 + 0.3;
 			// Each bit remembers the way it drifts; `update` moves it out along it.
 			bit.userData.dir = new THREE.Vector3(Math.cos(angle), 0, Math.sin(angle));
-			bit.position.copy(bit.userData.dir as THREE.Vector3).multiplyScalar(0.25);
 			group.add(bit);
 		}
-		// Under its middle once it lies down: `faint` tips it sideways about its
+		// Round its middle once it lies down: `faint` tips it sideways about its
 		// own z (see `applyEffect`), so its head ends up that way from its feet.
 		const spot = SPOT[side];
 		const tip = new THREE.Euler(0, this.figures[side]?.rotation.y ?? 0, faintTilt(side));
 		const head = new THREE.Vector3(0, 1, 0).applyEuler(tip);
-		const reach = this.heights[side] * 0.45;
-		group.position.set(spot.x + head.x * reach, 0.05, spot.z + head.z * reach);
+		const size = this.heights[side];
+		group.position.set(spot.x + head.x * size * 0.45, 0, spot.z + head.z * size * 0.45);
+		group.userData.size = size;
+		group.userData.material = material;
 		group.visible = false;
 		this.dusts.push({ group, t: 0, delay: DUST_DELAY_SECONDS });
 		this.scene.add(group);
@@ -404,15 +413,23 @@ export class BattleScene {
 			const p = (dust.t - dust.delay) / DUST_SECONDS;
 			dust.group.visible = p > 0 && p < 1;
 			if (!dust.group.visible) continue;
-			// Out along the ground and a little up, swelling then shrinking away.
+			// A ring rolling out along the ground from round the animal, rising a
+			// little, puffing up and thinning away: it frames the animal, never hides it.
+			const size = dust.group.userData.size as number;
+			const ring = size * (0.55 + p * 0.5);
+			const ease = Math.sin(Math.min(1, p * 2) * (Math.PI / 2));
 			for (const bit of dust.group.children) {
 				const dir = bit.userData.dir as THREE.Vector3;
-				bit.position.set(dir.x * (0.25 + p * 0.45), p * 0.12, dir.z * (0.25 + p * 0.45));
-				bit.scale.setScalar(Math.max(0.01, Math.sin(Math.min(1, p * 1.2) * Math.PI) * 1.3));
+				bit.position.set(dir.x * ring, 0.05 + p * 0.12, dir.z * ring);
+				bit.scale.setScalar(Math.max(0.01, (0.4 + 0.6 * ease) * Math.min(1.3, size)));
 			}
+			(dust.group.userData.material as THREE.Material).opacity = 0.8 * (1 - p);
 		}
 		for (const dust of this.dusts) {
-			if (dust.t >= dust.delay + DUST_SECONDS) this.scene.remove(dust.group);
+			if (dust.t >= dust.delay + DUST_SECONDS) {
+				this.scene.remove(dust.group);
+				(dust.group.userData.material as THREE.Material).dispose();
+			}
 		}
 		this.dusts = this.dusts.filter((d) => d.t < d.delay + DUST_SECONDS);
 

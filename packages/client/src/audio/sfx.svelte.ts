@@ -9,7 +9,10 @@ import { scheduleCue } from './synth';
  *   pressed something. `unlock()`, called on every key press, click and touch
  *   (`main.ts`), creates the `AudioContext` the first time and resumes it
  *   whenever the browser has suspended it. `play()` never creates one, so a
- *   cue asked for before the first key press is silently dropped.
+ *   cue asked for before the first key press is silently dropped. Not every
+ *   key counts: Chrome ignores Escape and the modifier keys, and a context made
+ *   on one of those only logs a warning. So `unlock()` waits for a press the
+ *   browser counts (`navigator.userActivation.isActive`, where it exists).
  * - **The setting.** `on` is remembered on this device
  *   (`localStorage['animath.sound']`, storage failures ignored) and is on by
  *   default. Turning it off cuts whatever is playing and suspends the context.
@@ -39,6 +42,8 @@ export interface SfxOptions {
 	createContext?: () => AudioContext | null;
 	/** Where the setting is remembered; null when there is none. May throw. */
 	storage?: () => Pick<Storage, 'getItem' | 'setItem'> | null;
+	/** Whether the browser lets sound start right now (a press it counts as the player's). */
+	mayStart?: () => boolean;
 }
 
 export class Sfx {
@@ -59,10 +64,12 @@ export class Sfx {
 	private listeners = new Set<(cue: CueName) => void>();
 	private createContext: () => AudioContext | null;
 	private storage: () => Pick<Storage, 'getItem' | 'setItem'> | null;
+	private mayStart: () => boolean;
 
 	constructor(options: SfxOptions = {}) {
 		this.createContext = options.createContext ?? browserContext;
 		this.storage = options.storage ?? browserStorage;
+		this.mayStart = options.mayStart ?? userActivated;
 		this.on = this.read() !== 'off';
 	}
 
@@ -82,7 +89,7 @@ export class Sfx {
 
 	/** On a key press, click or touch: make the context if there is none, and wake it. */
 	unlock(): void {
-		if (!this.on || this.unavailable) return;
+		if (!this.on || this.unavailable || !this.mayStart()) return;
 		if (!this.ctx) {
 			this.ctx = this.createContext();
 			if (!this.ctx) {
@@ -170,6 +177,17 @@ function browserContext(): AudioContext | null {
 
 function browserStorage(): Storage | null {
 	return typeof window === 'undefined' ? null : window.localStorage;
+}
+
+/**
+ * The browser's own word on whether this moment is the player's press. A
+ * browser without `userActivation` (older Safari) gets the benefit of the
+ * doubt: the worst case is one warning in its console.
+ */
+function userActivated(): boolean {
+	if (typeof navigator === 'undefined') return true;
+	const activation = (navigator as { userActivation?: { isActive: boolean } }).userActivation;
+	return activation === undefined || activation.isActive;
 }
 
 /** The page's one sound player. */

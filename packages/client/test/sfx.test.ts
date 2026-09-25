@@ -297,18 +297,21 @@ describe('Sfx', () => {
 	function setup(stored: Record<string, string> = {}) {
 		const contexts: FakeContext[] = [];
 		const storage = memoryStorage(stored);
+		/** Whether the browser counts the current key as the player's press. */
+		const activation = { active: true };
 		const sfx = new Sfx({
 			createContext: () => {
 				const ctx = new FakeContext();
 				contexts.push(ctx);
 				return asContext(ctx);
 			},
-			storage: () => storage
+			storage: () => storage,
+			mayStart: () => activation.active
 		});
 		const heard: CueName[] = [];
 		sfx.onCue((cue) => heard.push(cue));
 		const started = () => contexts.flatMap((c) => c.sources()).filter((s) => s.started !== null);
-		return { sfx, contexts, storage, heard, started };
+		return { sfx, contexts, storage, heard, started, activation };
 	}
 
 	it('makes no sound, and no context, before the first key press', () => {
@@ -317,6 +320,25 @@ describe('Sfx', () => {
 		expect(t.contexts).toHaveLength(0);
 		expect(t.heard).toEqual(['encounter']);
 		expect(t.sfx.recent).toEqual(['encounter']);
+	});
+
+	it('waits for a key the browser counts: Escape or Shift first makes no context', () => {
+		const t = setup();
+		t.activation.active = false;
+		t.sfx.unlock();
+		expect(t.contexts).toHaveLength(0);
+		t.activation.active = true;
+		t.sfx.unlock();
+		expect(t.contexts).toHaveLength(1);
+		// A context the browser suspended later is only woken by a press that counts.
+		const ctx = t.contexts[0]!;
+		ctx.state = 'suspended';
+		t.activation.active = false;
+		t.sfx.unlock();
+		expect(ctx.resumes).toBe(1);
+		t.activation.active = true;
+		t.sfx.unlock();
+		expect(ctx.resumes).toBe(2);
 	});
 
 	it('wakes on a key press and plays through a modest master volume', () => {

@@ -31,6 +31,8 @@
 	const options = $derived(pickedIndex >= 0 ? partyOptions(game.party, pickedIndex) : []);
 	/** The team row that is lit: the cursor, or the picked animal while its options are open. */
 	const lit = $derived(pause.screen === 'list' ? pause.cursor : pickedIndex);
+	/** The cursor is on the Sound row: the right side says what it does, and that M does it too. */
+	const soundLit = $derived(MENU_ITEMS[pause.cursor - game.party.length] === 'sound');
 
 	/** What the typed name will turn into, when that is not just what the box shows. */
 	const preview = $derived.by(() => {
@@ -156,6 +158,9 @@
 					{#if preview}
 						<div class="note preview">{t('pause.willBe', { name: preview })}</div>
 					{/if}
+				{:else if pause.screen === 'list' && soundLit}
+					<div class="side-title">{t('pause.sound')}</div>
+					<div class="note">{t('pause.soundHelp')}</div>
 				{:else}
 					<div class="soft">{t('pause.pick')}</div>
 					<div class="note">{t('pause.pickHelp')}</div>

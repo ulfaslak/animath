@@ -28,8 +28,8 @@ export const COLORS = {
 	// Shared animal details.
 	white: 0xfff4e6,
 	dark: 0x2f2a28,
-	// The little cloud a tired animal lies down in: sandy, never grey smoke.
-	dust: 0xe9dcc4
+	// The little cloud a tired animal lies down in: a warm near-white, never grey smoke.
+	dust: 0xf6efe2
 } as const;
 
 /**

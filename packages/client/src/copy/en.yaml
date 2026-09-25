@@ -136,6 +136,8 @@ pause:
   sound: Sound
   soundOn: 'On'
   soundOff: 'Off'
+  # The right-hand panel while the Sound row is highlighted.
+  soundHelp: Enter or ← → turns the sound on and off. You can also press M.
   # The picked animal's options: become the lead, move one place, get a nickname.
   goFirst: Go first
   moveUp: Move up

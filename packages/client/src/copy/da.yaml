@@ -136,6 +136,8 @@ pause:
   sound: Lyd
   soundOn: Til
   soundOff: Fra
+  # The right-hand panel while the Sound row is highlighted.
+  soundHelp: Enter eller ← → tænder og slukker lyden. Du kan også trykke på M.
   # The picked animal's options: become the lead, move one place, get a nickname.
   goFirst: Sæt forrest
   moveUp: Flyt op

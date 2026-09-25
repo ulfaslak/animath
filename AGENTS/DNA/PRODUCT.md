@@ -125,11 +125,11 @@ What is built and observable today. Keep current: add a bullet when a feature sh
 
 - Procedural chunked world with four biomes, water, sand, tall grass (including reeds on river banks), trees, rocks and doctor tents, rendered low-poly with a fixed camera.
 - Grid movement with arrow keys / WASD; blocked tiles (water, rock, trees, doctor tents) stop you; a tap always moves one tile.
-- The player is a small trainer figure — a kid in a cap — that faces the way it walks, stands on top of hills and breathes while idle.
+- The player is a small trainer figure — a kid in a cap — that faces the way it walks, swings its arms and legs with every step, stands on top of hills and breathes while idle.
 - A crude but recognisable low-poly figure for every species, built from primitives with one exaggerated tell each. They fight in battles; the `?zoo` line-up (see [[CHEATSHEET]]) shows them all at once.
 - Party HUD: one card per animal in battle order with its number key, its name (nickname if it has one) and an HP bar with numbers; a knocked-out animal is greyed with a "tired" tag, and the lead is outlined and tagged "goes first".
 - Choosing the lead from explore: the number keys pick who goes first (§4 "Party"); a tired animal can't go first, and the message line says so.
-- Pause menu (Escape in explore): the team in battle order, where an animal can go first, move up or down, or get a nickname typed in a name box. Walking waits while it is open.
+- Pause menu (Escape in explore): the team in battle order, where an animal can go first, move up or down, or get a nickname typed in a name box, then "Keep playing" and the Sound setting. Walking waits while it is open.
 - Message line: the latest message for a few seconds, the controls hint for the first few steps, and "Press Enter to talk to the doctor" while the player faces a tent ([[UI_SPEC]] § Explore mode).
 - Doctor's tents: facing a tent, Enter opens the doctor's card ([[UI_SPEC]] § Doctor). Pick a hurt or tired animal, solve its puzzle and it is back to full HP; a wrong answer just brings another puzzle; the list stays live during a puzzle; Bye or Escape leaves at any time. With nobody hurt, the doctor says everyone is fit and happy. The doctor speaks English and Danish (its words are in the copy files; the animals' names are still English).
 
@@ -141,6 +141,12 @@ What is built and observable today. Keep current: add a bullet when a feature sh
 - Catching with the leash; a caught animal joins the party (up to six) with the HP it had. With six already, it goes back into the grass.
 - HP lost in a battle stays lost afterwards; a knocked-out animal stays tired and sits out battles until healed.
 - Losing: when the whole party is tired, the result card says "Good try!", and the player is back in the world beside the nearest tent on foot, facing it, with the whole party healed and the doctor's line on the message line (§4 "Knock-out and healing").
+
+### Sound and feel
+
+- Sound: short, soft sounds made while the game runs, no sound files ([[DESIGN]] § Sound) — a jingle when a wild animal jumps out, blips on the menus, a chime for a right answer and a soft bonk for a miss, a thump for a hit, a puff when an animal gets tired, the leash's whoosh, tick-tock and its fanfare or boing, a sparkle at the doctor, a ding for a new lead and a fanfare for a win. Every sound goes with something on screen.
+- Sound setting: on by default, a Sound row in the pause menu, and M on any screen except while typing; remembered on this device.
+- Little flourishes ([[UI_SPEC]] § Sound and juice): an iris that closes on the player and opens on the wild animal, a ring of dust round a tired animal, confetti round a caught one, sparkles along a healed animal's HP bar, the trainer's walk. A system set to reduce motion gets calmer versions.
 
 ### Language
 
@@ -168,7 +174,7 @@ What is built and observable today. Keep current: add a bullet when a feature sh
 In rough priority order. Each becomes a GitHub issue when picked up.
 
 1. Save/load in the client: create the anonymous player on first visit, keep the secret, load the save on boot and write it as the game progresses (the server routes exist, see [[ARCHITECTURE]] § HTTP API).
-2. A title screen, and sound with its setting in the pause menu (where the Language setting also goes, below).
+2. A title screen.
 3. Real low-poly animal models (glTF, CC0 sources, see [[DECISIONS]]) with attack animations, replacing the primitive figures.
 4. The whole game in Danish and English: every line in both, and a Language setting in the pause menu that switches every word at once and is remembered on this device. The copy files and `t()` exist (§5, [[ARCHITECTURE]] § Copy); the doctor's words are in them, the rest have not moved yet.
 5. Procedural world v2: rivers that flow, paths, biome shaping, landmarks, spawn tables.

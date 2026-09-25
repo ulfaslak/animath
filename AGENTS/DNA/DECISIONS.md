@@ -31,6 +31,7 @@ Svelte 5 (runes) for the DOM overlay only — HUD, menus, the puzzle panel. Svel
 Placeholder geometry (boxes, cones) is acceptable until real models arrive. Real models are glTF.
 Ground tiles render as one `InstancedMesh` per chunk.
 Font: Nunito (Google Fonts). Rounded, friendly.
+Sound is synthesized while the game runs, with WebAudio, from cue data in `src/audio/`: no sound files, no audio library. Cues play from the screens (controllers, the HUD), where events become visuals; the authority and the engine know nothing of sound.
 Dev server on port **5180** (5173 belongs to another project on this machine).
 
 ## Copy and languages

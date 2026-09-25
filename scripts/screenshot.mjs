@@ -9,7 +9,7 @@
  *                               [--keys "ArrowRight*5,ArrowDown*3"] [--wait 1500]
  *                               [--settle 1500] [--key-interval 700] [--tap-ms 100]
  *                               [--width 1280 --height 800] [--scale 1]
- *                               [--clip x,y,w,h]
+ *                               [--clip x,y,w,h] [--reduced-motion]
  *
  * `--keys` is a comma-separated script. A token is a key name (`ArrowRight`,
  * `Enter`, `2`), optionally `*n` to press it n times; or one of
@@ -31,7 +31,11 @@
  * the focus); at the doctor the doctor's line and the party; and in a battle
  * the narration line, the puzzle, the typed answer, the judgement, the status
  * boxes and the result card — so a flow can be asserted from the console
- * output, not only the images.
+ * output, not only the images. With `?debug`, it also prints the last sound
+ * cues the game asked for (`cue:`), which headless Chrome plays to no one.
+ *
+ * `--reduced-motion` opens the page as a system that asks for less motion
+ * (`prefers-reduced-motion: reduce`).
  *
  * Headless SwiftShader runs at a few frames per second, so buffered steps need
  * the `--settle` wait to finish before the screenshot. `--scale 3` renders the
@@ -81,7 +85,11 @@ const browser = await chromium.launch({
 	headless: true,
 	args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist']
 });
-const page = await browser.newPage({ viewport: { width, height }, deviceScaleFactor: scale });
+const page = await browser.newPage({
+	viewport: { width, height },
+	deviceScaleFactor: scale,
+	reducedMotion: args['reduced-motion'] ? 'reduce' : 'no-preference'
+});
 const errors = [];
 page.on('console', (m) => {
 	// SwiftShader (headless software GL) spams "GPU stall" performance notes; not ours.
@@ -101,8 +109,10 @@ async function textOf(selector) {
 /** What the screen says right now, one `key: value` per line. */
 async function describe() {
 	const lines = [];
-	const debug = await textOf('.debug');
+	const debug = await textOf('.debug:not(.debug-cue)');
 	if (debug !== null) lines.push(`at: ${debug}`);
+	const cue = await textOf('.debug-cue');
+	if (cue !== null) lines.push(`cue: ${cue}`);
 	const message = await textOf('.hint .message');
 	const prompt = await textOf('.hint .prompt');
 	if (message !== null || prompt !== null) {

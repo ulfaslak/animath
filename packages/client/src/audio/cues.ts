@@ -116,8 +116,12 @@ export const CUES: Record<CueName, Cue> = {
 			{ at: 0, dur: 0.3, wave: 'sine', freq: 300, to: 900, gain: 0.1, attack: 0.08 }
 		]
 	},
-	/** The cursor moves: the smallest blip. */
-	move: { voices: [pluck(0, A5, 0.05, 0.16)] },
+	/** The cursor moves: the smallest blip, quieter than everything else. */
+	move: {
+		voices: [
+			{ at: 0, dur: 0.07, wave: 'triangle', freq: A5, gain: 0.3, attack: 0.004, hold: 0.012 }
+		]
+	},
 	/** A choice is made: two quick notes up. */
 	confirm: { voices: [pluck(0, E5, 0.07, 0.24), pluck(0.05, A5, 0.1, 0.24)] },
 	/** A right answer: a bright chime, three bells up a major chord. */
@@ -129,32 +133,40 @@ export const CUES: Record<CueName, Cue> = {
 			pluck(0.14, C7, 0.3, 0.06)
 		]
 	},
-	/** A miss: one soft, round, low bonk. */
+	/**
+	 * A miss: one soft, round, low bonk. Pitched above 200 Hz so a laptop's
+	 * small speakers still carry it; one note, never a falling pair.
+	 */
 	wrong: {
 		voices: [
 			{
 				at: 0,
-				dur: 0.22,
+				dur: 0.24,
 				wave: 'sine',
-				freq: 240,
-				to: 170,
-				gain: 0.42,
+				freq: 300,
+				to: 210,
+				gain: 0.3,
 				attack: 0.01,
-				filter: { type: 'lowpass', freq: 900 }
+				hold: 0.03,
+				filter: { type: 'lowpass', freq: 1000 }
 			},
-			{ at: 0, dur: 0.18, wave: 'triangle', freq: 120, to: 90, gain: 0.18, attack: 0.01 }
+			{ at: 0, dur: 0.18, wave: 'triangle', freq: 150, to: 110, gain: 0.15, attack: 0.01 }
 		]
 	},
-	/** An attack lands: a thump, with a puff of air on top. */
+	/**
+	 * An attack lands: a thump with a knock on top that small speakers can
+	 * play (they drop the thump's lowest notes), and a puff of air.
+	 */
 	hit: {
 		voices: [
-			{ at: 0, dur: 0.18, wave: 'sine', freq: 160, to: 55, gain: 0.55, attack: 0.003 },
+			{ at: 0, dur: 0.18, wave: 'sine', freq: 220, to: 80, gain: 0.55, attack: 0.003 },
+			{ at: 0, dur: 0.07, wave: 'triangle', freq: 330, to: 160, gain: 0.3, attack: 0.002 },
 			{
 				at: 0,
 				dur: 0.08,
 				wave: 'noise',
 				freq: 0,
-				gain: 0.2,
+				gain: 0.22,
 				attack: 0.003,
 				filter: { type: 'lowpass', freq: 1200, to: 300 }
 			}
