@@ -81,13 +81,19 @@ function grid(model: PlayerModel): string {
 	return [`**${name}** — win rate (mean rounds)`, '', head, sep, ...rows].join('\n');
 }
 
-/** The starter against its own tier near spawn: a wild squirrel or a wild rabbit, equally likely. */
-const STARTER_FIGHTS: Array<[string, string]> = [
-	['squirrel', 'squirrel'],
-	['squirrel', 'rabbit']
-];
-const starterWin = (model: PlayerModel) =>
-	mean(STARTER_FIGHTS.map(([p, w]) => simulate(p, w, model, TARGET_SEEDS).win));
+/**
+ * The starter against its own tier near spawn. In the meadow a wild squirrel
+ * or a wild rabbit, equally likely; at the river a squirrel, a rabbit or a
+ * frog (the squirrels and rabbits come down to the frogs' reeds), and the reed
+ * beside the prototype world's spawn tile is where a new game's first battles
+ * happen.
+ */
+const STARTER_MIXES: Record<string, readonly string[]> = {
+	'squirrel or rabbit (the meadow)': ['squirrel', 'rabbit'],
+	'squirrel, rabbit or frog (the river)': ['squirrel', 'rabbit', 'frog']
+};
+const starterWin = (model: PlayerModel, wild: readonly string[]) =>
+	mean(wild.map((w) => simulate('squirrel', w, model, TARGET_SEEDS).win));
 
 function targets(): string {
 	const rows: string[] = [
@@ -105,14 +111,16 @@ function targets(): string {
 	row('same tier', 0, easiest(0.7), '40–55%');
 	row('one tier up', 1, easiest(1), 'under 35%');
 	row('two tiers up', 2, easiest(1), 'under 10%');
-	for (const [acc, target] of [
-		[1, '65–80%'],
-		[0.85, '—'],
-		[0.7, '40–55%']
-	] as const) {
-		rows.push(
-			`| starter squirrel vs squirrel or rabbit | easiest puzzle, right ${pct(acc)} | ${target} | ${pct(starterWin(easiest(acc)))} | — |`
-		);
+	for (const [mix, wild] of Object.entries(STARTER_MIXES)) {
+		for (const [acc, target] of [
+			[1, '65–80%'],
+			[0.85, '—'],
+			[0.7, '40–55%']
+		] as const) {
+			rows.push(
+				`| starter squirrel vs ${mix} | easiest puzzle, right ${pct(acc)} | ${target} | ${pct(starterWin(easiest(acc), wild))} | — |`
+			);
+		}
 	}
 	return rows.join('\n');
 }
@@ -131,12 +139,15 @@ describe('balance simulation', () => {
 				for (const accuracy of [1, 0.85, 0.7])
 					for (const level of [1, 2, 3] as AttackLevel[]) models.push({ accuracy, policy, level });
 			console.log('\n' + [targets(), ...models.map(grid)].join('\n\n') + '\n');
-		});
+			// Every species pair under 27 models: 18 s with eight species on a loaded machine.
+		}, 120_000);
 	}
 
 	it("a squirrel almost never beats a bear, even when it's always right", () => {
-		expect(simulate('squirrel', 'bear', hardest(1)).win).toBeLessThan(0.05);
-		expect(simulate('rabbit', 'bear', hardest(1)).win).toBeLessThan(0.05);
+		const small = ids.filter((id) => tier(id) === 1);
+		expect(small).toEqual(['squirrel', 'rabbit', 'frog']);
+		for (const id of small)
+			expect(simulate(id, 'bear', hardest(1)).win, `${id} vs bear`).toBeLessThan(0.05);
 	});
 
 	it('a bear beats a squirrel almost always, even at 70% accuracy', () => {
@@ -160,10 +171,10 @@ describe('balance simulation', () => {
 	});
 
 	it('the starter squirrel meets the same targets against its own near-spawn tier', () => {
-		// The meadow near spawn is 45% squirrel and 45% rabbit, and so are the
-		// river's and the mountains' visitors.
-		expectInBand(starterWin(easiest(1)), 0.65, 0.8, 'starter, always right');
-		expectInBand(starterWin(easiest(0.7)), 0.4, 0.55, 'starter, right 70%');
+		for (const [mix, wild] of Object.entries(STARTER_MIXES)) {
+			expectInBand(starterWin(easiest(1), wild), 0.65, 0.8, `starter vs ${mix}, always right`);
+			expectInBand(starterWin(easiest(0.7), wild), 0.4, 0.55, `starter vs ${mix}, right 70%`);
+		}
 	});
 
 	it('on the easiest puzzle, one tier up is hard and two tiers up is out of reach', () => {
