@@ -256,6 +256,12 @@
 		padding: 0 16px 16px;
 		box-sizing: border-box;
 	}
+	/* Below the supported sizes, give the attack names the room before the puzzle. */
+	@media (max-width: 900px) {
+		.panel {
+			grid-template-columns: 1fr 1fr;
+		}
+	}
 	.card {
 		background: var(--panel-bg);
 		border-radius: var(--radius);

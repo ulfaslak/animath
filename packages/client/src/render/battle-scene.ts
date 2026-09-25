@@ -71,10 +71,14 @@ interface Puff {
 	t: number;
 }
 interface Leash {
-	mesh: THREE.Mesh;
+	loop: THREE.Mesh;
+	rope: THREE.Mesh;
 	t: number;
 	state: 'flying' | 'caught' | 'broke';
 }
+/** Where the leash comes from: the trainer's hand, just off the lower-left edge. */
+const HAND = new THREE.Vector3(-2.4, 0.9, 3.4);
+const UP = new THREE.Vector3(0, 1, 0);
 
 function lambert(hex: number): THREE.MeshLambertMaterial {
 	return new THREE.MeshLambertMaterial({ color: hex, flatShading: true });
@@ -87,7 +91,9 @@ const waterMaterial = lambert(TILE_COLORS.water);
 const puffMaterial = lambert(COLORS.white);
 const leashMaterial = lambert(COLORS.fire);
 const PUFF_GEOMETRY = new THREE.IcosahedronGeometry(0.12, 0);
-const LEASH_GEOMETRY = new THREE.TorusGeometry(0.28, 0.05, 6, 14);
+const LOOP_GEOMETRY = new THREE.TorusGeometry(0.3, 0.05, 6, 16);
+/** A unit-length rope along +y from the origin; stretched and turned per frame. */
+const ROPE_GEOMETRY = new THREE.CylinderGeometry(0.025, 0.025, 1, 5).translate(0, 0.5, 0);
 
 export class BattleScene {
 	readonly scene = new THREE.Scene();
@@ -200,13 +206,14 @@ export class BattleScene {
 		this.scene.add(group);
 	}
 
-	/** The leash flies from the player's side to the wild animal and wobbles there. */
+	/** The leash's loop flies from the trainer's hand to the wild animal and wobbles there. */
 	throwLeash(): void {
 		this.dropLeash();
-		const mesh = new THREE.Mesh(LEASH_GEOMETRY, leashMaterial);
-		mesh.castShadow = true;
-		this.leash = { mesh, t: 0, state: 'flying' };
-		this.scene.add(mesh);
+		const loop = new THREE.Mesh(LOOP_GEOMETRY, leashMaterial);
+		const rope = new THREE.Mesh(ROPE_GEOMETRY, leashMaterial);
+		loop.castShadow = rope.castShadow = true;
+		this.leash = { loop, rope, t: 0, state: 'flying' };
+		this.scene.add(loop, rope);
 	}
 
 	/** How the throw ended: the loop holds (and the animal hops), or it pops off. */
@@ -269,39 +276,44 @@ export class BattleScene {
 		const leash = this.leash;
 		if (!leash) return;
 		leash.t += dt;
-		const from = SPOT.player;
 		const to = SPOT.opponent;
 		const holdY = this.heights.opponent * 0.55;
-		const mesh = leash.mesh;
-		mesh.scale.setScalar(1);
-		mesh.rotation.set(Math.PI / 2, 0, 0);
+		// Big enough to go round the animal: a squirrel's loop is small, a bear's wide.
+		const size = Math.max(0.8, Math.min(1.6, this.heights.opponent / 0.7));
+		const { loop, rope } = leash;
+		loop.scale.setScalar(size);
+		// Tilted towards the camera so the loop reads as a ring, not a line.
+		loop.rotation.set(Math.PI / 2 - 0.6, 0, 0);
 		if (leash.state === 'flying') {
 			const p = Math.min(1, leash.t / LEASH_FLIGHT_SECONDS);
-			mesh.position.set(
-				from.x + (to.x - from.x) * p,
-				0.6 + (holdY - 0.6) * p + Math.sin(p * Math.PI) * 1.2,
-				from.z + (to.z - from.z) * p
+			loop.position.set(
+				HAND.x + (to.x - HAND.x) * p,
+				HAND.y + (holdY - HAND.y) * p + Math.sin(p * Math.PI) * 1.0,
+				HAND.z + (to.z - HAND.z) * p
 			);
-			mesh.rotation.z = p * Math.PI * 4;
+			// Settled on the animal: it wobbles while everyone waits.
+			if (p >= 1) loop.rotation.z = Math.sin(t * 9) * 0.3;
+		} else if (leash.state === 'caught') {
+			loop.position.set(to.x, holdY, to.z);
+			loop.scale.setScalar(size * (1 - 0.15 * Math.min(1, leash.t / 0.2)));
+		} else {
+			const p = Math.min(1, leash.t / LEASH_POP_SECONDS);
+			loop.position.set(to.x, holdY + p * 0.8, to.z);
+			loop.scale.setScalar(Math.max(0.001, size * (1 - p)));
 			if (p >= 1) {
-				// Settled on the animal: wobble while everyone waits.
-				mesh.rotation.x = Math.PI / 2 + Math.sin(t * 9) * 0.35;
+				this.dropLeash();
+				return;
 			}
-			return;
 		}
-		mesh.position.set(to.x, holdY, to.z);
-		if (leash.state === 'caught') {
-			mesh.scale.setScalar(1 - 0.15 * Math.min(1, leash.t / 0.2));
-			return;
-		}
-		const p = Math.min(1, leash.t / LEASH_POP_SECONDS);
-		mesh.position.y = holdY + p * 0.8;
-		mesh.scale.setScalar(Math.max(0.001, 1 - p));
-		if (p >= 1) this.dropLeash();
+		// The rope runs from the hand to the loop.
+		const span = loop.position.clone().sub(HAND);
+		rope.position.copy(HAND);
+		rope.scale.set(1, span.length(), 1);
+		rope.quaternion.setFromUnitVectors(UP, span.normalize());
 	}
 
 	private dropLeash(): void {
-		if (this.leash) this.scene.remove(this.leash.mesh);
+		if (this.leash) this.scene.remove(this.leash.loop, this.leash.rope);
 		this.leash = null;
 	}
 }
