@@ -1,32 +1,41 @@
 import {
 	ATTACK_LEVELS,
 	attackDamage,
+	canTalkToDoctor,
 	getAnimal,
 	isEncounterTile,
+	nearestTent,
+	takeToDoctor,
 	tileAtWorld,
 	type AnimalInstance,
 	type BattleState,
+	type Direction,
+	type DoctorIntent,
+	type DoctorState,
 	type GameEvent,
 	type GridPos
 } from '@mathgame/engine';
 import { describe, expect, it } from 'vitest';
-import { LocalAuthority } from '../src/authority/local';
+import { LocalAuthority, type LocalAuthorityOptions } from '../src/authority/local';
 
 /**
  * The single-player authority's own rules — the ones around the engine, not
  * in it: one encounter roll per completed step, keyed so a walk replays; the
- * battle's result written back into the world; the lost-battle rest. The
- * battle itself is the engine's (see the engine's `battle-reducer.test.ts`).
+ * battle's result written back into the world; the facing it keeps so that
+ * Enter talks to a doctor only at a tent; the doctor visit and its seed; the
+ * trip to the tent after a lost battle. The battle and the visit themselves
+ * are the engine's (its `battle-reducer.test.ts` and `doctor.test.ts`).
  *
  * The prototype world's spawn tile, (-2, 6), has a river reed (tall grass)
  * straight to its left, so walking left and right from it meets animals
  * (with the starter squirrel in front: squirrels and rabbits near home, now
- * and then an otter).
+ * and then an otter). Seven steps right, all on grass, is (5, 6), just above
+ * the tent at (5, 7).
  */
 type Session = { authority: LocalAuthority; events: GameEvent[] };
 
-function session(): Session {
-	const authority = new LocalAuthority();
+function session(options?: LocalAuthorityOptions): Session {
+	const authority = new LocalAuthority(options);
 	const events: GameEvent[] = [];
 	authority.subscribe((e) => events.push(e));
 	authority.start();
@@ -111,7 +120,9 @@ function attack(s: Session, attackIndex: number, level: 1 | 2 | 3, correct: bool
 function party(s: Session): AnimalInstance[] {
 	for (let i = s.events.length - 1; i >= 0; i--) {
 		const e = s.events[i]!;
-		if (e.type === 'party-changed' || e.type === 'welcome') return e.party;
+		if (e.type === 'party-changed' || e.type === 'welcome' || e.type === 'taken-to-doctor') {
+			return e.party;
+		}
 	}
 	throw new Error('no party');
 }
@@ -125,11 +136,78 @@ function lastMessage(s: Session): string {
 function position(s: Session): GridPos {
 	for (let i = s.events.length - 1; i >= 0; i--) {
 		const e = s.events[i]!;
-		if (e.type === 'player-moved' || e.type === 'player-placed' || e.type === 'welcome') {
+		if (
+			e.type === 'player-moved' ||
+			e.type === 'player-placed' ||
+			e.type === 'taken-to-doctor' ||
+			e.type === 'welcome'
+		) {
 			return e.pos;
 		}
 	}
 	throw new Error('no position');
+}
+
+/** Which way the player faces, from the events, as the client turns the figure. */
+function facing(s: Session): Direction {
+	for (let i = s.events.length - 1; i >= 0; i--) {
+		const e = s.events[i]!;
+		if (e.type === 'player-moved' || e.type === 'player-blocked') return e.dir;
+		if (e.type === 'taken-to-doctor') return e.dir;
+		if (e.type === 'welcome') return 'down';
+	}
+	throw new Error('no facing');
+}
+
+function move(s: Session, ...dirs: Direction[]): void {
+	for (const dir of dirs) s.authority.dispatch({ type: 'move', dir });
+}
+
+function doctorIntent(s: Session, intent: DoctorIntent): void {
+	s.authority.dispatch({ type: 'doctor', intent });
+}
+
+/** The doctor visit as the last doctor event left it. */
+function visit(s: Session): DoctorState {
+	for (let i = s.events.length - 1; i >= 0; i--) {
+		const e = s.events[i]!;
+		if (
+			e.type === 'doctor-visit-started' ||
+			e.type === 'doctor-visit-updated' ||
+			e.type === 'doctor-visit-ended'
+		) {
+			return e.state;
+		}
+	}
+	throw new Error('no doctor visit');
+}
+
+/** Seven steps right from spawn, all on grass, to (5, 6); then bump down into the tent at (5, 7). */
+function walkToTent(s: Session): void {
+	move(s, ...Array<Direction>(7).fill('right'));
+	expect(position(s)).toEqual({ x: 5, y: 6 });
+	move(s, 'down');
+	expect(position(s)).toEqual({ x: 5, y: 6 });
+	expect(facing(s)).toBe('down');
+}
+
+/** A hurt party: a squirrel at 5 of 20, a tired rabbit, a fox at full HP. */
+function hurtParty(): AnimalInstance[] {
+	return [
+		{ id: 'a', speciesId: 'squirrel', hp: 5 },
+		{ id: 'b', speciesId: 'rabbit', hp: 0 },
+		{ id: 'c', speciesId: 'fox', hp: getAnimal('fox').maxHp }
+	];
+}
+
+/** Answer the open doctor puzzle, right or wrong on purpose. */
+function answerDoctor(s: Session, correct: boolean): void {
+	const phase = visit(s).phase;
+	if (phase.kind !== 'solving') throw new Error(`expected a doctor puzzle, got ${phase.kind}`);
+	doctorIntent(s, {
+		type: 'answer',
+		input: String(correct ? phase.puzzle.answer : phase.puzzle.answer + 1)
+	});
 }
 
 /** Win the current battle: the strongest attack at level 3, always right. */
@@ -309,25 +387,43 @@ describe('LocalAuthority: outcomes', () => {
 		expect(lastMessage(s)).toMatch(/stays in the grass/);
 	});
 
-	it('lost: everyone is healed and put back on the spawn tile (placeholder for the tent)', () => {
+	it('lost: taken to the nearest tent on foot, facing it, with everyone healed', () => {
 		const s = session();
-		const spawn = welcome(s).pos;
+		const { seed } = welcome(s);
 		walkIntoBattle(s);
+		const lostOn = position(s);
 		lose(s);
-		expect(latestBattle(s).phase).toEqual({ kind: 'ended', outcome: 'lost' });
+		const end = latestBattle(s);
+		expect(end.phase).toEqual({ kind: 'ended', outcome: 'lost' });
+		// No `message`: the client words the doctor's line from the event.
 		expect(closingEvents(s).map((e) => e.type)).toEqual([
 			'battle-updated',
 			'battle-ended',
-			'party-changed',
-			'player-placed',
-			'message'
+			'taken-to-doctor'
 		]);
+		const rescue = takeToDoctor(seed, lostOn, end.party);
+		const taken = s.events.find((e) => e.type === 'taken-to-doctor');
+		expect(taken).toEqual({
+			type: 'taken-to-doctor',
+			playerId: welcome(s).playerId,
+			pos: rescue.pos,
+			dir: rescue.facing,
+			tent: rescue.tent,
+			party: rescue.party
+		});
+		// Near spawn that is the tent at (5, 7), from its left.
+		expect(rescue).toMatchObject({ tent: { x: 5, y: 7 }, pos: { x: 4, y: 7 }, facing: 'right' });
 		for (const a of party(s)) expect(a.hp).toBe(getAnimal(a.speciesId).maxHp);
-		expect(position(s)).toEqual(spawn);
-		expect(lastMessage(s)).toBe('Everyone is tired. You rest and feel better.');
-		// The authority walks on from the spawn tile, not from the battle.
-		s.authority.dispatch({ type: 'move', dir: 'right' });
-		expect(position(s)).toEqual({ x: spawn.x + 1, y: spawn.y });
+
+		// The authority faces the tent too: Enter talks to the doctor at once.
+		expect(canTalkToDoctor(seed, position(s), facing(s))).toBe(true);
+		s.authority.dispatch({ type: 'interact' });
+		expect(s.events.at(-1)?.type).toBe('doctor-visit-started');
+		doctorIntent(s, { type: 'leave' });
+
+		// And it walks on from the tent, not from where the battle was.
+		move(s, 'left');
+		expect(position(s)).toEqual({ x: 3, y: 7 });
 	});
 
 	it('caught: joins the party with the HP it had; a seventh animal is let go', () => {
@@ -357,5 +453,175 @@ describe('LocalAuthority: outcomes', () => {
 			}
 		}
 		throw new Error(`the party never filled up (${caught} caught)`);
+	});
+});
+
+describe('LocalAuthority: facing', () => {
+	it('faces down from the start, then the way of every move, walked or blocked', () => {
+		const s = session();
+		const { seed } = welcome(s);
+		expect(facing(s)).toBe('down');
+		move(s, 'up'); // the river, above the spawn tile
+		expect(s.events.at(-1)).toMatchObject({ type: 'player-blocked', dir: 'up' });
+		move(s, 'right');
+		expect(s.events.at(-1)).toMatchObject({ type: 'player-moved', dir: 'right' });
+
+		// Beside the tent but facing away, Enter changes nothing, and the event
+		// says so without words (the client says how to reach a doctor).
+		move(s, ...Array<Direction>(6).fill('right'));
+		expect(position(s)).toEqual({ x: 5, y: 6 });
+		expect(canTalkToDoctor(seed, position(s), 'down')).toBe(true);
+		const before = s.events.length;
+		s.authority.dispatch({ type: 'interact' });
+		expect(s.events.slice(before)).toEqual([
+			{ type: 'nothing-to-interact', playerId: welcome(s).playerId }
+		]);
+
+		// Bumping into the tent turns the player to it; now Enter talks.
+		move(s, 'down');
+		expect(s.events.at(-1)).toMatchObject({ type: 'player-blocked', dir: 'down' });
+		s.authority.dispatch({ type: 'interact' });
+		expect(s.events.at(-1)).toMatchObject({ type: 'doctor-visit-started', visit: 1 });
+	});
+
+	it('a nearest-tent stand from far away is one the player faces the tent from', () => {
+		// The knock-out rule and the authority agree on facing for any tent, not only (5, 7).
+		const s = session();
+		const { seed } = welcome(s);
+		for (const from of [
+			{ x: 40, y: -30 },
+			{ x: -60, y: 45 }
+		]) {
+			const spot = nearestTent(seed, from);
+			if (!spot) continue;
+			expect(canTalkToDoctor(seed, spot.stand, spot.facing)).toBe(true);
+		}
+	});
+});
+
+describe('LocalAuthority: the doctor', () => {
+	it('heals one animal per solved puzzle; a miss costs nothing; walking waits', () => {
+		const s = session({ party: hurtParty() });
+		walkToTent(s);
+		s.authority.dispatch({ type: 'interact' });
+		expect(visit(s).phase).toEqual({ kind: 'choose-patient' });
+		expect(visit(s).party).toEqual(hurtParty());
+
+		// Walking and battle intents wait until the visit ends.
+		const pos = position(s);
+		const quiet = s.events.length;
+		move(s, 'up', 'left');
+		s.authority.dispatch({ type: 'battle', intent: { type: 'flee' } });
+		expect(s.events.length).toBe(quiet);
+
+		// A healthy animal can't be picked: the engine says why, nothing changes.
+		doctorIntent(s, { type: 'pick-patient', partyIndex: 2 });
+		expect(s.events.at(-1)).toMatchObject({ type: 'doctor-visit-updated' });
+		expect(visit(s).phase).toEqual({ kind: 'choose-patient' });
+
+		// A miss: the HP stays, another puzzle, no party change.
+		doctorIntent(s, { type: 'pick-patient', partyIndex: 1 });
+		const first = visit(s).phase;
+		const beforeMiss = s.events.length;
+		answerDoctor(s, false);
+		const missed = s.events.slice(beforeMiss);
+		expect(missed.map((e) => e.type)).toEqual(['doctor-visit-updated']);
+		expect(visit(s).party[1]!.hp).toBe(0);
+		expect(visit(s).phase).toMatchObject({ kind: 'solving', partyIndex: 1 });
+		expect(visit(s).phase).not.toEqual(first);
+
+		// A right answer heals that one animal, and the party is written back at once.
+		answerDoctor(s, true);
+		expect(s.events.at(-1)).toEqual({
+			type: 'party-changed',
+			party: [hurtParty()[0], { ...hurtParty()[1], hp: getAnimal('rabbit').maxHp }, hurtParty()[2]]
+		});
+
+		// Switching mid-puzzle swaps it; leaving mid-puzzle heals nobody else.
+		doctorIntent(s, { type: 'pick-patient', partyIndex: 0 });
+		expect(visit(s).phase).toMatchObject({ kind: 'solving', partyIndex: 0 });
+		const beforeLeave = s.events.length;
+		doctorIntent(s, { type: 'leave' });
+		expect(s.events.slice(beforeLeave).map((e) => e.type)).toEqual([
+			'doctor-visit-updated',
+			'doctor-visit-ended'
+		]);
+		expect(visit(s).party.map((a) => a.hp)).toEqual([
+			5,
+			getAnimal('rabbit').maxHp,
+			getAnimal('fox').maxHp
+		]);
+
+		// Walking works again, from where the visit was; doctor intents do nothing now.
+		const after = s.events.length;
+		doctorIntent(s, { type: 'leave' });
+		expect(s.events.length).toBe(after);
+		move(s, 'left');
+		expect(position(s)).toEqual({ x: pos.x - 1, y: pos.y });
+	});
+
+	it('with nobody hurt, a visit still opens, and can only end', () => {
+		const s = session();
+		walkToTent(s);
+		s.authority.dispatch({ type: 'interact' });
+		expect(s.events.at(-1)).toMatchObject({ type: 'doctor-visit-started' });
+		doctorIntent(s, { type: 'pick-patient', partyIndex: 0 });
+		expect(visit(s).phase).toEqual({ kind: 'choose-patient' });
+		doctorIntent(s, { type: 'leave' });
+		expect(s.events.at(-1)).toMatchObject({ type: 'doctor-visit-ended' });
+	});
+
+	it('a visit replays from the same intents, and a second visit asks new puzzles', () => {
+		const prompts = (s: Session): string[] => {
+			s.authority.dispatch({ type: 'interact' });
+			const seen: string[] = [];
+			doctorIntent(s, { type: 'pick-patient', partyIndex: 0 });
+			for (let i = 0; i < 6; i++) {
+				const phase = visit(s).phase;
+				if (phase.kind === 'solving') seen.push(phase.puzzle.prompt);
+				answerDoctor(s, false);
+			}
+			doctorIntent(s, { type: 'leave' });
+			return seen;
+		};
+		const a = session({ party: hurtParty() });
+		const b = session({ party: hurtParty() });
+		walkToTent(a);
+		walkToTent(b);
+		const firstA = prompts(a);
+		expect(prompts(b)).toEqual(firstA);
+		// Same tile, same step count, a new visit: the seed is fresh.
+		expect(prompts(a)).not.toEqual(firstA);
+	});
+
+	it('numbers its visits: every event of one visit carries its number, the next visit the next', () => {
+		const s = session({ party: hurtParty() });
+		walkToTent(s);
+		for (const n of [1, 2]) {
+			const from = s.events.length;
+			s.authority.dispatch({ type: 'interact' });
+			doctorIntent(s, { type: 'pick-patient', partyIndex: 0 });
+			doctorIntent(s, { type: 'leave' });
+			const visits = s.events
+				.slice(from)
+				.flatMap((e) =>
+					e.type === 'doctor-visit-started' ||
+					e.type === 'doctor-visit-updated' ||
+					e.type === 'doctor-visit-ended'
+						? [e.visit]
+						: []
+				);
+			expect(visits).toEqual([n, n, n, n]);
+		}
+	});
+
+	it('a doctor visit never shows its seed', () => {
+		const s = session({ party: hurtParty() });
+		walkToTent(s);
+		s.authority.dispatch({ type: 'interact' });
+		doctorIntent(s, { type: 'pick-patient', partyIndex: 0 });
+		for (const e of s.events) {
+			if (e.type.startsWith('doctor-')) expect(JSON.stringify(e)).not.toMatch(/seed/i);
+		}
 	});
 });

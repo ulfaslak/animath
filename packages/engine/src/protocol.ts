@@ -26,9 +26,9 @@ export type GameEvent =
 	| { type: 'player-moved'; playerId: string; pos: GridPos; dir: Direction }
 	| { type: 'player-blocked'; playerId: string; dir: Direction }
 	/**
-	 * The player was put on a tile without walking there: today, the rest after
-	 * a lost battle. No direction: the figure keeps facing the way it did, and
-	 * there is nothing to tween.
+	 * The player was put on a tile without walking there. No direction: the
+	 * figure keeps facing the way it did, and there is nothing to tween.
+	 * `LocalAuthority` sends none today (a lost battle sends `taken-to-doctor`).
 	 */
 	| { type: 'player-placed'; playerId: string; pos: GridPos }
 	| { type: 'battle-started'; state: BattleState }
@@ -40,27 +40,44 @@ export type GameEvent =
 	| { type: 'battle-updated'; state: BattleState; events: readonly BattleEvent[] }
 	| { type: 'battle-ended'; state: BattleState }
 	/**
-	 * The party changed outside a battle turn: HP written back after a battle,
-	 * a caught animal joining, the rest after a lost one. Always the whole
-	 * party, in order.
+	 * The party changed outside a battle turn: HP written back after a battle
+	 * that was not lost, a caught animal joining, an animal healed at the
+	 * doctor (sent at once, mid-visit). Always the whole party, in order.
 	 */
 	| { type: 'party-changed'; party: AnimalInstance[] }
 	| { type: 'message'; text: string }
-	/** `interact` while facing a tent opened a visit. Walking waits until `doctor-visit-ended`. */
-	| { type: 'doctor-visit-started'; state: DoctorState }
+	/**
+	 * `interact` found nothing to talk to: no tent in front of the player, as
+	 * the authority saw them. Nothing changed; the client may say how to find a
+	 * doctor, in its own words.
+	 */
+	| { type: 'nothing-to-interact'; playerId: string }
+	/**
+	 * `interact` while facing a tent opened a visit. Walking waits until
+	 * `doctor-visit-ended`. `visit` tells visits apart (a `DoctorState` starts
+	 * its `step` at 0 every time): every event of one visit carries the same
+	 * one, and a later visit a different one.
+	 */
+	| { type: 'doctor-visit-started'; visit: number; state: DoctorState }
 	/**
 	 * One doctor intent was applied. As with `battle-updated`: animate `events`
 	 * in order, then show `state`. When the last event is `ended`, a
 	 * `doctor-visit-ended` follows.
 	 */
-	| { type: 'doctor-visit-updated'; state: DoctorState; events: readonly DoctorEvent[] }
+	| {
+			type: 'doctor-visit-updated';
+			visit: number;
+			state: DoctorState;
+			events: readonly DoctorEvent[];
+	  }
 	/** `state.party` is the party after the visit. */
-	| { type: 'doctor-visit-ended'; state: DoctorState }
+	| { type: 'doctor-visit-ended'; visit: number; state: DoctorState }
 	/**
 	 * After a lost battle: `takeToDoctor`'s result. Put the player on `pos`
 	 * without a tween (it can be a hundred tiles away), turn them to `dir`
 	 * (toward `tent`, or down when `tent` is null and a doctor came to them),
-	 * and replace the party. A `message` with the doctor's line follows.
+	 * and replace the party. No `message` follows: the client words the
+	 * doctor's line itself, from whether `tent` is null.
 	 */
 	| {
 			type: 'taken-to-doctor';

@@ -10,6 +10,8 @@
 	--radius: 16px;
 	/* Height of the battle screen's bottom panel (actions | puzzle). */
 	--battle-panel: clamp(260px, 40vh, 360px);
+	/* Height of the doctor's card: its line, then party | puzzle (up to six animals and Bye). */
+	--doctor-panel: clamp(300px, 44vh, 400px);
 }
 
 html,
