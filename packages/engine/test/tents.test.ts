@@ -161,6 +161,25 @@ describe('nearestTent', () => {
 		expect(negative).toBeGreaterThan(0);
 	});
 
+	it('from a blocked tile beside a tent (water, tree, rock), still stands the player on walkable ground', () => {
+		let blocked = 0;
+		for (const seed of SEEDS) {
+			for (const tent of tentsNearOrigin(seed)) {
+				for (const [, dx, dy] of SIDES) {
+					const from = { x: tent.x + dx, y: tent.y + dy };
+					if (isWalkable(tileAtWorld(seed, from.x, from.y).kind)) continue;
+					blocked++;
+					const spot = nearestTent(seed, from);
+					if (!spot) continue;
+					expect(spot.stand).not.toEqual(from);
+					expect(spot.steps).toBeGreaterThan(0);
+					expect(isWalkable(tileAtWorld(seed, spot.stand.x, spot.stand.y).kind)).toBe(true);
+				}
+			}
+		}
+		expect(blocked).toBeGreaterThan(0);
+	});
+
 	it('never picks a tent that is boxed in, and prefers the door side when two sides tie', () => {
 		let boxed = 0;
 		for (const seed of SEEDS) {
