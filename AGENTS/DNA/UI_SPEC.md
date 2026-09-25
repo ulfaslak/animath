@@ -27,7 +27,8 @@ How the two modes are laid out and behave. Visual language is in [[DESIGN]]; rul
 ```
 
 - **Party HUD** (top-left): one card per animal — name (nickname if set), HP bar with `hp/max` text. Knocked-out animals are greyed with a "tired" tag. Never more than six cards.
-- **Message line** (bottom-centre): the latest `message` event, plus the controls hint until the player has moved a few times. Fades after a few seconds.
+- **Message line** (bottom-centre): the latest `message` event, plus the controls hint until the player has moved a few times. Fades after a few seconds. Before the first message, what start-up found about the save: "Welcome back!" when a saved game was picked up, or why a new game started ("Your saved game didn't load, so here is a new one."). Saving itself shows nothing: no icon, no "Saved", and nothing when the server is out of reach, because the game is always saved in the browser.
+- **Loading**: "Loading…" over an empty screen until the game has started, which is at once when the browser holds the save; only a browser that has lost its save but still knows the player waits, at most a few seconds, for the server's copy.
 - **Interaction prompt**: when the player faces a doctor's tent, the message line shows "Press Enter to talk to the doctor".
 - **Controls**: arrows/WASD to walk, Enter/Space to interact, Escape opens the pause menu (party, settings, later: bag). Holding a key keeps walking; a tap moves one tile.
 - The player stays centred; the world scrolls under them. Chunks are built 2 chunks out in every direction so nothing pops in at the edge.

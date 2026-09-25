@@ -45,6 +45,7 @@ tree packages -I 'node_modules|dist' --dirsfirst
 | `src/world/generate.ts`           | `generateChunk(seed, cx, cy)`, `tileAtWorld`, `spawnPoint`. Value-noise elevation + moisture → biome → tile kind; tents on a sparse lattice.                    |
 | `src/world/encounters.ts`         | `rollEncounter(rng, site, leadTier)`, `encounterTable(biome, distance, leadTier)`, `distanceFromSpawn`, the radius, chance and weight constants (`ONE_TIER_BELOW_WEIGHT`). Biome tables come from the catalog's habitats, weighted by tier relative to the lead's, plus visitors of the lead's tier near spawn where every resident the lead's size or bigger is bigger. The caller picks the lead; the engine only takes its tier. |
 | `src/protocol.ts`                 | `Intent`, `GameEvent`, `Authority` — the client ↔ authority contract.                                                                                          |
+| `src/save.ts`                     | The save document, for the client's copy and the server's backup alike: `SaveV1`, `SavedGame` (what an authority needs to carry on), `validateSave` / `validateSaveWrite`, `readSave` with the upgrade seam (`SAVE_UPGRADES`, `upgradeSave`), `newGame`, `restoreGame` (a playable game from any readable save), `readBattle` (a saved battle, or null), `saveDocument`, `saveExtras`, `saveSeq` / `saveLineage`, the server's guard `canReplace` and `replacesAnotherGame`, and `sameProgress`. See § Saving. |
 | `src/index.ts`                    | The public surface. Everything the client or server uses is re-exported here.                                                                                  |
 | `test/*.test.ts`                  | vitest. `purity.test.ts` pins the package boundary; the others are property tests over seeds, the difficulty range and the whole catalog. `balance.test.ts` is the species × species simulation that pins the balance targets in [[PRODUCT]] §4 (`SIM=1` prints every policy × accuracy × level table); `battle-sim.ts` is its scripted player. `tents.test.ts` checks `nearestTent` against its own flood fill over the tent lattice; `doctor.test.ts` covers the doctor reducer and the knock-out rule. |
 
@@ -61,7 +62,7 @@ tree packages -I 'node_modules|dist' --dirsfirst
 
 `Authority` (`protocol.ts`) is `dispatch(intent)` + `subscribe(listener)`. The client has exactly one authority instance and everything above it is a consumer of events.
 
-- **Today**: `packages/client/src/authority/local.ts` — `LocalAuthority` runs the engine in-process. Its own randomness (the encounter roll after each step, a battle's seed) is keyed by the world seed and its count of completed steps, never by `Math.random`; see [[INVARIANTS]] § Authority. After a battle it emits `party-changed` (the whole party, HP written back, a caught animal added) and, after a lost one, `player-placed` (see § Modes).
+- **Today**: `packages/client/src/authority/local.ts` — `LocalAuthority` runs the engine in-process. Its own randomness (the encounter roll after each step, a battle's seed) is keyed by the world seed and its count of completed steps, never by `Math.random`; see [[INVARIANTS]] § Authority. After a battle it emits `party-changed` (the whole party, HP written back, a caught animal added) and, after a lost one, `player-placed` (see § Modes). The whole game fits in a `SavedGame`: `snapshot()` takes one at any moment, a battle in progress included (its state, never its seed, which is derived again from the step count), and `start({ game })` picks one up, emitting `welcome` and then, for a saved battle, `battle-started`. The client saves it (§ Saving); a server authority would keep it itself.
 - **Multiplayer**: a `RemoteAuthority` with the same interface forwards intents over a WebSocket and relays the server's events. The server runs the engine against the shared world and is the source of truth. Nothing in the renderer, input or UI changes.
 
 Two things keep that swap cheap: intents carry only what the player *chose* (a direction, an attack index, an answer string), never a computed outcome; and events describe what *happened* in enough detail to render without re-running the rules.
@@ -71,10 +72,14 @@ Two things keep that swap cheap: intents carry only what the player *chose* (a d
 | Path                          | Holds                                                                                                                                                               |
 | ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `index.html`                  | A full-screen `<canvas id="game">` under a `<div id="ui">` overlay. Loads Nunito.                                                                                    |
-| `vite.config.ts`              | Dev server (port, `/api` proxy, `TUNNEL`), build options, and `yaml()`: the plugin that turns an imported `.yaml` file into its data at build time. `vitest.config.ts` extends it, so tests load YAML the same way. |
-| `src/main.ts`                 | Wires the authority's events to the game view and both mode controllers, sends each key to the mode on screen, mounts the Svelte app, runs the `requestAnimationFrame` loop (the explore or battle controller's `update(dt)`, then `renderer.render()`). |
-| `src/authority/local.ts`      | `LocalAuthority` (see above): moves, one encounter roll per completed step (for the tier of the first animal that isn't tired), the battle in progress (the engine's state plus the seed it never shows), and the result written back — party HP, a caught animal (up to six), the lost-battle rest. |
+| `vite.config.ts`              | Dev server (port, `/api` proxy and its `API_PORT`, `TUNNEL`), build options, and `yaml()`: the plugin that turns an imported `.yaml` file into its data at build time. `vitest.config.ts` extends it, so tests load YAML the same way. |
+| `src/main.ts`                 | Wires the authority's events to the game view, both mode controllers and the autosave, sends each key to the mode on screen, mounts the Svelte app, runs the `requestAnimationFrame` loop (nothing is updated or drawn while loading; then the explore or battle controller's `update(dt)`, then `renderer.render()`), saves on `pagehide` and when the page is hidden, passes `storage` events to the autosave, and reloads the page when the autosave asks and the page is visible. Starts the game from `autosave.boot()`'s plan. `?new` makes the game a throwaway. |
+| `src/authority/local.ts`      | `LocalAuthority` (see above): moves (tracking the facing), one encounter roll per completed step (for the tier of the first animal that isn't tired), the battle in progress (the engine's state plus the seed it never shows), and the result written back — party HP, a caught animal (up to six), the lost-battle rest. `start({ game })`, `snapshot()`, `WORLD_SEED`, `mintId`. |
+| `src/save/autosave.ts`        | `Autosave`: the save's whole life in the browser (§ Saving). `boot()` → the start plan; `begin()`; `handle(event)`; `flush()`; `onStorage(key)`; `wantsReload`. Timers and storage are injected, so its rules are tested without a browser. |
+| `src/save/storage.ts`         | `KEYS` (every `localStorage` key the save uses), `browserStore()` (localStorage behind try/catch, or null when the browser refuses it), `parseJson`.                  |
+| `src/save/api.ts`             | `httpSaveServer()`: the backup API reduced to outcomes (`created`, `found`, `none`, `saved`, `conflict`, `refused`, `unknown-player`, `offline`). Anything it cannot place is `offline`, and nothing is decided from it. `isIdentity`. |
 | `src/state/game.svelte.ts`    | `game`: the `$state` view the Svelte overlay reads (`mode`, `pos`, `party`, `message`, …). Filled only by `game.apply(event)`.                                      |
+| `src/state/notice.svelte.ts`  | `notice`: what start-up found about the save, as a copy key (`SAVE_NOTICES`: welcome back, did not load, newer build, no storage). The HUD words it until the authority's first message takes the line. Written only by `main.ts`. |
 | `src/state/battle.svelte.ts`  | `battle`: the battle screen's `$state` view — what the panel shows and which `screen` the keys drive (`actions`, `puzzle`, `busy`, `result`). Written only by the battle controller. |
 | `src/input/keyboard.ts`       | Explore input: held-key tracking plus a 2-deep tap buffer; arrows/WASD → `Direction`, Enter/Space → interact. `setEnabled(false)` while the battle screen is up drops held keys and taps. |
 | `src/input/answer.ts`         | `answerKey(input, key)`: typing an answer (digits, a leading minus, Backspace, 7 characters, Enter only once a digit is typed). Shared by every screen that asks a puzzle. |
@@ -100,7 +105,8 @@ Two things keep that swap cheap: intents carry only what the player *chose* (a d
 | `src/copy/yaml.d.ts`          | Types a `.yaml` import as `unknown` data.                                                                                                                           |
 | `public/assets/`              | Models, textures, sounds. `CREDITS.md` lists every third-party file.                                                                                                |
 | `test/animals.test.ts`        | vitest: every catalog species builds a figure that keeps the contract in `animals.ts` (geometry construction needs no WebGL).                                        |
-| `test/local-authority.test.ts`| vitest: the authority's rules around the engine — encounters replay per step, battles start only on encounter tiles, the lead decides who comes out, outcomes write back, the party caps at six, the lost-battle rest. |
+| `test/local-authority.test.ts`| vitest: the authority's rules around the engine — encounters replay per step, battles start only on encounter tiles, the lead decides who comes out, outcomes write back, the party caps at six, the lost-battle rest — and saved games: a game restored from a save, cut anywhere (mid-puzzle included), plays on exactly as the original. |
+| `test/autosave.test.ts`       | vitest: the autosave against a `localStorage` stand-in several "tabs" share and a server stand-in running the real guard — saved after every change, never over a save a tab has not seen, unreadable and newer saves left alone, the backup never blocking the game, which of two games wins. |
 | `test/battle-controller.test.ts` | vitest: the battle screen driven by keys against the real authority — held keys, empty answers, mashed Enter, stale events. The scene is built, never drawn.     |
 | `test/css-vars.test.ts`       | vitest: every `var(--x)` in the UI's `.svelte` and `.css` files is defined (an undefined one fails nowhere else). `vitest.config.ts` lets tests read CSS as text.  |
 | `test/copy-files.test.ts`     | vitest: one copy file per registered language; every language has exactly English's keys, each reading the same params; no empty or non-text values; plural forms match the language's `Intl.PluralRules`; every key the code passes to `t()` as a literal exists in English, with the params its message reads. |
@@ -132,7 +138,28 @@ Engine grid `(x, y)` maps to Three `(x, height, z)` with `z = y`; grid "down" is
 
 Two modes, one on screen at a time. `battle-started` hands the screen to the battle controller: explore input is switched off, the world keeps drawing for a moment so the step into the grass lands, then the battle scene and panel replace it. The authority resolves each battle intent at once; the controller plays the events back as beats and only then shows the new state, so the screen lags the authority on purpose. `battle-ended` puts the authority back in explore at once, but the screen stays on the result card until the player leaves it; only then does explore input come back. Walking during a battle and battle intents outside one are ignored by the authority.
 
-The doctor will not be a mode: a dialogue card over explore, driven by `doctor-visit-started` / `-updated` / `-ended`; after a lost battle, `taken-to-doctor` places the player and replaces the party (the events exist; nothing emits them yet). Until the doctor comes to the client, a lost battle ends in a placeholder rest instead: `party-changed` with everyone at full HP and `player-placed` on the spawn tile, the figure keeping its facing. The authority is to open a visit on `interact` when `canTalkToDoctor(seed, pos, facing)` holds, so it must track the facing the client shows: `down` until the first `move`, then the `dir` of every `move`, walked or blocked, and the `dir` of `taken-to-doctor`. The client sets `down` once, on page load, not on `welcome`, so a second `welcome` (a reconnect) must reset both sides or carry the facing. See [[UI_SPEC]].
+The doctor will not be a mode: a dialogue card over explore, driven by `doctor-visit-started` / `-updated` / `-ended`; after a lost battle, `taken-to-doctor` places the player and replaces the party (the events exist; nothing emits them yet). Until the doctor comes to the client, a lost battle ends in a placeholder rest instead: `party-changed` with everyone at full HP and `player-placed` on the spawn tile, the figure keeping its facing. The authority is to open a visit on `interact` when `canTalkToDoctor(seed, pos, facing)` holds, so it tracks the facing the client shows: `down` in a new game, then the `dir` of every `move`, walked or blocked (and, once the doctor comes, the `dir` of `taken-to-doctor`). The facing is saved with the game, and `welcome` carries it, so a restored player looks the way they did and both sides agree after any `welcome`. See [[UI_SPEC]].
+
+### Saving
+
+Local first ([[DECISIONS]] § Saves). The pieces:
+
+```
+ LocalAuthority ──events──▶ Autosave.handle ──(one per intent)──▶ commit()
+       ▲                        │                                   │
+       │ start({ game })        │ snapshot()                        ├─▶ localStorage['animath.save']   the save
+ Autosave.boot() ◀── localStorage (instant) · server GET (only       │    (compare-before-write)
+       │               when there is an identity but no save)       └─▶ PUT /api/players/:id/save      the backup
+       └─▶ notice (a copy key for the HUD)                               (background, seq must rise)
+```
+
+- **The document.** `SaveV1` (engine `save.ts`): `version`, `seed`, `pos`, `party` since the first save; `facing`, `steps`, `lineage`, `seq` on every write since client saves; `battle` while one is in progress. `lineage` is a random id minted when a game starts, the same in every save of that game; `seq` numbers the saves of a game, one higher each time. Old documents lack the later fields and `restoreGame` fills them in (facing down, no steps).
+- **When.** `Autosave.handle` marks the save dirty on every event that changes the game (a step or a bump, a battle start, turn or end, a party change, a doctor visit) and writes once, in a microtask, after everything one intent caused. `flush()` writes at once on `pagehide` and when the page is hidden. Events emitted before `begin()` are the authority starting from the plan and write nothing.
+- **Compare before write.** Every tab keeps the exact text of the save it last read or wrote. Before a write it reads the key again: unchanged → write. Changed → another tab saved. If that save differs from this tab's own only in whereabouts (`sameProgress`: position, facing, steps, lineage, seq), this tab carries on from it (its `seq`, its lineage) and writes on top. Otherwise this tab is stale: it stops writing (locally and to the server) and `wantsReload`; `main.ts` reloads it once it is visible. A `storage` event triggers the same check early, against the key as it is, never the value the event carried. A key that has gone (site data cleared) is never written back.
+- **Start** (`boot()`). A readable local save → that game, now, and `welcome back`. A newer build's save → a new game that writes nothing (`frozen`). An unreadable save → a new game that leaves the key alone until the kid has played (a battle ended or the party changed), then moves the old text to `animath.save.unreadable` and writes (`held`). No readable save but an identity → one `GET` (2.5 s at most): a readable backup becomes the game and the local save. Otherwise a new game with a fresh lineage, written at once.
+- **The backup.** A tab that saves locally also sends its latest document: 1 s after something that matters, 15 s after walking, with `keepalive` on `pagehide`; one request at a time. No identity yet → `POST /api/players` first (a second tab that made one first is used instead). With an identity from before, the first thing sent is a `GET`, and the save with the higher `seq` carries on: this tab's is sent; the server's (another game played more, or this game's saves that never reached this browser's storage) is adopted — the local one moved to `animath.save.replaced` — and the page reloads into it. A `409` settles the same way. An unreadable backup is saved past (the next `seq` beats it; the server keeps it); a newer build's is never written over. Out of reach: retries at 2, 4, 8, 16, 32 s, then rest, with no timer, until a battle ends or the party changes. A `400`/`413` is a bug: one `console.error`, and no more backups this visit. `401` or `404 no such player`: the identity moves to `animath.player.previous` and a new player is made.
+- **Keys** (`save/storage.ts` `KEYS`): `animath.save`, `animath.player` (`{ id, secret }`), `animath.save.unreadable`, `animath.save.replaced`, `animath.player.previous`. The language's `animath.language` belongs to the copy module.
+- **`?new`**: no store, no server: a throwaway game that reads and writes nothing.
 
 ## `packages/server` — persistence and (later) authority
 
@@ -145,7 +172,7 @@ The doctor will not be a mode: a dialogue card over explore, driven by `doctor-v
 | `src/db/index.ts`            | `pool`, `db`, `pingDb`.                                                                                   |
 | `src/routes/*.ts`            | One Hono sub-app per route group: `health.ts`, `players.ts` (identity + save).                            |
 | `src/secrets.ts`             | Player secrets: generate (`randomBytes`), hash (SHA-256), constant-time compare.                          |
-| `src/save.ts`                | `SaveV1` — the save envelope — and `validateSave()`, the hand-rolled validator. No schema library.        |
+| `src/save.ts`                | `writeSave(playerId, doc)`: the guarded write (below) in one transaction with the player's row locked, and `SAVE_MAX_BYTES`. The document and its validator are the engine's (`save.ts`). |
 | `scripts/migrate.ts`         | Applies journaled migrations from `drizzle/`.                                                             |
 | `drizzle/NNNN_*.sql`         | Hand-written migrations; `drizzle/meta/_journal.json` lists them.                                         |
 | `test/*.test.ts`             | Integration tests against `mathgame_test` (see [[DEVELOPMENT]] § Testing ideology).                       |
@@ -154,7 +181,8 @@ The doctor will not be a mode: a dialogue card over explore, driven by `doctor-v
 ### Data model
 
 - `players` — `id uuid pk`, `secret_hash text` (SHA-256 of the client-held secret; the secret itself is never stored), `display_name text?`, `created_at`, `last_seen_at` (bumped on every authenticated request). One row per anonymous player.
-- `saves` — `player_id uuid pk → players (cascade)`, `data jsonb` (the `SaveV1` envelope below), `updated_at`. One save per player.
+- `saves` — `player_id uuid pk → players (cascade)`, `data jsonb` (the `SaveV1` envelope below), `updated_at`. One save per player: the backup of the save that lives in the player's browser.
+- `save_backups` — `id bigserial pk`, `player_id uuid → players (cascade)`, `data jsonb`, `reason text` (`replaced`: a different game took its place; `unreadable`: this build could not read it), `created_at`. A save the server would otherwise lose, copied here before a write replaces it. Nothing reads it; it is for recovering a kid's game by hand ([[DEVELOPMENT]] § Database).
 
 Hot fields get promoted from `data` to columns when a query needs them (nearby players, leaderboards).
 
@@ -165,23 +193,30 @@ Errors are JSON `{ error: string }`. All routes are under `/api`.
 | Route                         | Auth  | Response                                                                          |
 | ----------------------------- | ----- | --------------------------------------------------------------------------------- |
 | `POST /api/players`           | none  | `201 { id: uuid, secret: string }`. The client stores both; the secret is shown once. |
-| `GET /api/players/:id/save`   | owner | `200 SaveV1`, or `404` when nothing has been saved.                               |
-| `PUT /api/players/:id/save`   | owner | `200 { ok: true }` after an upsert; `400` bad JSON or shape; `413` body over 64 KB. |
+| `GET /api/players/:id/save`   | owner | `200 SaveV1` as stored, readable or not, or `404 { error: 'no save yet' }`.        |
+| `PUT /api/players/:id/save`   | owner | `200 { ok: true }` after the write; `400` bad JSON, or a document `validateSaveWrite` refuses; `409` when the stored save's `seq` is the same or higher; `413` body over 64 KB. |
 
-**Owner auth** is `Authorization: Bearer <secret>`. Missing or malformed header → `401`; `:id` unknown (or not a uuid) → `404`; secret does not match the stored hash → `401`.
+**Owner auth** is `Authorization: Bearer <secret>`. Missing or malformed header → `401`; `:id` unknown (or not a uuid) → `404 { error: 'no such player' }`; secret does not match the stored hash → `401`. The client tells the two `404`s apart by their `error` text, which `players.test.ts` pins.
 
-**`SaveV1`** (`src/save.ts`) is a versioned envelope, stored and returned verbatim:
+**`SaveV1`** (engine `src/save.ts`) is a versioned envelope, stored and returned verbatim:
 
 ```ts
 {
 	version: 1,
-	seed: number,                 // integer; the world is a pure function of it
-	pos: { x: number, y: number }, // integer tile coordinates, any sign
-	party: AnimalInstance[]       // 0–6 of { id: string, speciesId: string, nickname?: string, hp: number }
+	seed: number,                  // integer; the world is a pure function of it
+	pos: { x: number, y: number },  // integer tile coordinates, any sign
+	party: AnimalInstance[],       // 0–6 of { id: string, speciesId: string, nickname?: string, hp: number }
+	facing: 'up' | 'down' | 'left' | 'right',
+	steps: number,                 // whole; the authority's step count, which keys every encounter
+	lineage: string,               // 1–64 characters; the game this save belongs to
+	seq: number,                   // whole ≥ 1; this save's number within its game
+	battle?: BattleState           // the battle in progress, when there is one
 }
 ```
 
-Required fields are validated strictly (`speciesId` must be in the engine catalog, `hp` a whole number ≥ 0, `id` unique within the party). Any extra field — top-level or per animal — is stored and returned as sent, so a newer client can add data without a server change; bump `version` only when an old document becomes unreadable. "As sent" is JSON semantics: key order and `-0` are not preserved, and a document containing a NUL character, a lone surrogate or a number that overflows to Infinity is a `400`, not a mangled row. The upsert is unconditional — last write wins, with no stale-write guard (see [[DEFERRED]]).
+`version`, `seed`, `pos` and `party` are validated strictly (`speciesId` must be in the engine catalog, `hp` a whole number ≥ 0, `id` unique within the party); `facing`, `steps`, `lineage` and `seq` when present, and a write must carry all four. `battle` only has to be storable: the client checks it when it loads (`readBattle`) and drops it if it cannot be picked up. Any extra field — top-level or per animal — is stored and returned as sent, so a newer client can add data without a server change; bump `version` only when an old document becomes unreadable. "As sent" is JSON semantics: key order and `-0` are not preserved, and a document containing a NUL character, a lone surrogate or a number that overflows to Infinity is a `400`, not a mangled row.
+
+**The write guard** (`canReplace`, `replacesAnotherGame`, `writeSave`). A `PUT` lands only when its `seq` is higher than the stored save's (`saveSeq`: its `seq`, or 0 when it has none or cannot be read); otherwise `409`. Within one game that puts backups in order however the network delivers them, and the browser's compare-before-write keeps a game's saves in one line (§ Saving). Between two games (two lineages: one started while the other was out of reach), the one saved more often wins. Before a write replaces a save from a different lineage, or one `readSave` cannot read, the old document goes to `save_backups`. The read, the decision and the write run in one transaction with the player's row locked, so of racing writes one lands and the rest see it.
 
 ## Ports and processes (development)
 
@@ -191,11 +226,11 @@ Required fields are validated strictly (`speciesId` must be in the engine catalo
 | API server  | 3000 | `pnpm dev:server` (`tsx watch`)  |
 | Postgres    | 5433 | `pnpm db:up` (docker compose)    |
 
-Vite proxies `/api` and `/ws` to 3000. In production the server serves the built client itself.
+Vite proxies `/api` and `/ws` to 3000, or to `API_PORT` when it is set (a worktree's own API). In production the server serves the built client itself.
 
 ## Repo-level files
 
-- `scripts/screenshot.mjs` — headless Chrome driving the running game with a key script and saving frames (`playwright-core`, `channel: 'chrome'`). The visual verification tool; see `/play` and [[DEVELOPMENT]] § Looking at the game.
+- `scripts/screenshot.mjs` — headless Chrome driving the running game with a key script and saving frames (`playwright-core`, `channel: 'chrome'`). The visual verification tool; see `/play` and [[DEVELOPMENT]] § Looking at the game. Each run is a fresh browser, so a new player and a new game; failed `/api/` calls are listed, not counted as errors, since the game saves locally without the API.
 - `docker-compose.yml` — local Postgres only.
 - `.gtrconfig` — worktree creation copies `.env` and runs `pnpm install`.
 - `AGENTS/` — persistent context (this file's siblings). `AGENTS/DNA/` is the guardrail set; the rest is record-keeping.

@@ -30,37 +30,29 @@ Technical items we've intentionally postponed: tech debt, hardening shortcuts, k
 
 **Trigger**: the `RemoteAuthority` / server-side battle PR, or earlier if a second outcome rule lands. Move the write-back into an engine function (`concludeBattle(party, endedState) → { party, message }`, beside `takeToDoctor`) and call it from both authorities.
 
-### The authority's step counter is not saved
-
-**What**: `LocalAuthority` keys every encounter roll and battle seed by its count of completed steps (see [[INVARIANTS]] § Authority), and the count starts at 0 on every page load. Without saves that is harmless — a reload puts everything back to the start. With saves, a reloaded player at a saved position would replay the encounters of steps 1, 2, 3… again, and a kid could learn that the 11th step after a reload always meets the same animal.
-
-**Why deferred**: nothing is saved yet; the counter is one number that belongs in the save envelope beside `pos` and `party`.
-
-**Trigger**: the client save/load PR. Save the step count with the position and restore it on load (an extra field in `SaveV1` needs no server change).
-
 ### Anonymous player identity is unauthenticated
 
-**What**: the player secret is a random token the client will hold in `localStorage` and send as a bearer header. Only its hash is stored, so a database dump is useless, but anyone who copies the token from the browser owns the player. No rate limiting on `POST /api/players` (anyone can mint rows), no rotation, no way to recover a lost secret.
+**What**: the player secret is a random token the client holds in `localStorage` (`animath.player`) and sends as a bearer header. Only its hash is stored, so a database dump is useless, but anyone who copies the token from the browser owns the player and its backup. No rate limiting on `POST /api/players`: anyone can mint rows, and the game itself leaves unused ones behind (every screenshot run is a new player; a page reloaded before its first `POST` answered makes another). No rotation, and no way to recover a lost secret: a kid whose browser forgets the site (cleared data, another browser or device, Safari deleting a site's storage after seven days without a visit) starts a new game, and their backup waits on the server under an identity nothing holds any more. Only by hand ([[DEVELOPMENT]] § Database) can it be moved to their new player.
 
-**Why deferred**: there is nothing to steal until multiplayer, tokens and a shop exist, and the players are a handful of kids on a tunnel URL.
+**Why deferred**: there is nothing to steal until multiplayer, tokens and a shop exist, and the players are a handful of kids on a tunnel URL. Moving a game between browsers is a feature (a recovery code, or accounts), not a hardening.
 
-**Trigger**: multiplayer with any persistent economy (tokens, purchasable leashes/potions), the first public deploy (rate limiting), or the first report of a kid losing their save.
+**Trigger**: multiplayer with any persistent economy (tokens, purchasable leashes/potions), the first public deploy (rate limiting, and sweeping players with no save), or the first report of a kid losing their save.
 
-### The save envelope type lives only in the server
+### The server stores whatever save the client sends
 
-**What**: `SaveV1` and its validator are in `packages/server/src/save.ts`. The client will need the same shape to write saves, and client and server may not import each other, so the client would have to redeclare it. The natural shared home is the engine (`protocol.ts` already carries the identical `welcome` payload: `seed`, `pos`, `party`).
+**What**: `PUT /api/players/:id/save` checks the document's shape, not that the game in it could have happened: an HP above the species' maximum (`restoreGame` cuts it on load), a party of any animals, a position anywhere, a `battle` the server never looks inside (the client checks it with `readBattle` on load). A modified client, or a hand-edited `localStorage` save, is backed up as sent. The saved battle also carries the puzzle's answer, as `BattleState` does ([[CHEATSHEET]] § Exploits).
 
-**Why deferred**: the server PR could not touch the engine while other engine work was in flight; a redeclared type is a small, visible duplication.
+**Why deferred**: the save is the single-player authority's state, and that authority is the client; the server has nothing to check it against until it runs the game itself.
 
-**Trigger**: the client save/load PR. Move the type (not the validator) to the engine and import it from both sides.
+**Trigger**: the `RemoteAuthority` / server-side battle PR, or anything that makes one player's save matter to another (trading, PvP, a leaderboard). Then the server keeps the state and the client stops sending saves.
 
-### Saves have no stale-write guard
+### A saved position assumes today's world generator
 
-**What**: `PUT /api/players/:id/save` is an unconditional upsert: the last request to arrive wins. A retried request that lands after a newer save, or two tabs holding the same id + secret and autosaving on a timer, roll the persisted save back to an older document — a caught animal vanishes. `SaveV1` carries no sequence number or client timestamp to order writes by.
+**What**: a save holds a tile position and a step count, both meaningful only in the world `generateChunk` makes today. A change to world generation that moves tiles under an existing seed can leave a saved player on water or a tree (`restoreGame` then puts them on the spawn tile, far from where they were) or walled in on a patch of walkable tiles, which `restoreGame` does not detect.
 
-**Why deferred**: nothing writes saves yet, and the guard is half a protocol (the client must send a counter and handle a 409 by reloading) that should be designed with the client's autosave in hand, not guessed at from the server side. Adding an optional field later is not a `version` bump: unknown fields are already accepted.
+**Why deferred**: the generator has not changed since the first save, and the right fix depends on the change: keep old seeds on the old generator, or bump `SAVE_VERSION` with an upgrade that moves saved players to a safe tile near where they were (the knock-out rule's `nearestTent` search is the model).
 
-**Trigger**: the client save/load PR. Add a monotonically increasing `seq` (or `savedAt`) to `SaveV1`, make the upsert conditional on it, and answer `409` when the stored document is newer.
+**Trigger**: any PR that changes what `generateChunk` returns for an existing seed (procedural world v2 in [[PRODUCT]] §6 is one).
 
 ### `nearestTent` is a synchronous flood fill that costs up to a few hundred milliseconds
 

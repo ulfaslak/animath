@@ -19,12 +19,12 @@ Everything a player can do in **today's build**, and how: every key, every hidde
 | Enter                 | Puzzle  | Answer. Nothing happens until you have typed at least one digit.                                                        |
 | Enter / Space         | Result card | Back to exploring.                                                                                                  |
 
-Escape does nothing anywhere yet — not even in a puzzle: once a puzzle is up, the only way on is to answer it. The mouse and touch are ignored everywhere (the result card's button looks clickable but isn't). The page has no debug keys or console hooks; its URL parameters are `?zoo` and `?lang` (see § Hidden behaviour).
+Escape does nothing anywhere yet — not even in a puzzle: once a puzzle is up, the only way on is to answer it. The mouse and touch are ignored everywhere (the result card's button looks clickable but isn't). The page has no debug keys or console hooks; its URL parameters are `?zoo`, `?lang` and `?new` (see § Hidden behaviour and § Saving).
 
 ## The world
 
 - The world is the **same every time**. The seed is fixed (`'prototype'`), so the same map loads on every reload and on every machine.
-- You **start at (-2, 6)**, on grass next to a stretch of water. The HUD shows your grid position: pressing Right adds 1 to x, and pressing Down adds 1 to y.
+- A new game **starts at (-2, 6)**, on grass next to a stretch of water; after that, the game starts where you left it (§ Saving). The HUD shows your grid position: pressing Right adds 1 to x, and pressing Down adds 1 to y.
 - The world never ends. It is generated in 16×16 chunks as you walk, in every direction.
 - **You are a kid in a blue cap** (coral shirt, blue shorts). The figure turns to face the way you last walked or bumped, stands on top of hills rather than sinking into them, and breathes gently while you stand still.
 
@@ -40,7 +40,7 @@ Escape does nothing anywhere yet — not even in a puzzle: once a puzzle is up, 
 
 ## Finding a battle fast
 
-The tile straight left of the start, (-3, 6), is a river reed: tall grass on the river bank. Near home, with the starting Squirrel in front, squirrels and rabbits come down to the water, and now and then an otter. Press Left and Right in turn (Left, Right, Left, …): every Left lands on the reed. **The 11th step (the sixth Left) always meets a Rabbit**, the 15th a Squirrel, and the first Otter comes on the 97th step. For foxes and the odd deer, walk to the meadow tall grass south-east of the start — the nearest is (2, 7), (3, 7) and (4, 7) — where you meet squirrels and rabbits, sometimes a fox and rarely a deer.
+The tile straight left of the start, (-3, 6), is a river reed: tall grass on the river bank. Near home, with the starting Squirrel in front, squirrels and rabbits come down to the water, and now and then an otter. In a new game (a new browser, a private window or `?new`), press Left and Right in turn (Left, Right, Left, …): every Left lands on the reed. **The 11th step (the sixth Left) always meets a Rabbit**, the 15th a Squirrel, and the first Otter comes on the 97th step. The steps are counted over the whole game and saved with it, so this only works from the start of a game, not after a reload. For foxes and the odd deer, walk to the meadow tall grass south-east of the start — the nearest is (2, 7), (3, 7) and (4, 7) — where you meet squirrels and rabbits, sometimes a fox and rarely a deer.
 
 Who comes out depends on who leads your party (§ Your party). With a fox or an otter in front, the same steps on the reed meet an Otter every time; with a wolf or a bear in front, the reed never starts a battle.
 
@@ -58,7 +58,7 @@ Who comes out depends on who leads your party (§ Your party). With a fox or an 
 
 ## Your party
 
-The cards in the top-left corner are your party. You start with one Squirrel at full HP (20 of 20). Every animal you catch joins the end of the list, with the HP it had when the leash landed, up to six. With six already, a caught animal goes back into the grass. An animal at 0 HP is greyed out with a "tired" tag and sits out battles. Nothing heals except losing a battle (everyone back to full) and reloading the page (everything back to the start).
+The cards in the top-left corner are your party. You start with one Squirrel at full HP (20 of 20). Every animal you catch joins the end of the list, with the HP it had when the leash landed, up to six. With six already, a caught animal goes back into the grass. An animal at 0 HP is greyed out with a "tired" tag and sits out battles. Nothing heals except losing a battle (everyone back to full). Reloading changes nothing: the party comes back exactly as it was.
 
 **Your lead decides what comes out of the grass.** The lead is the first card that isn't tired: the animal that steps into the next battle. Wild animals size it up:
 
@@ -78,14 +78,24 @@ To meet smaller animals again, put a smaller animal in front. Today the Squirrel
 - **Switching windows stops you.** If you tab away with a key held, you stop walking and any queued taps are dropped.
 - **Keys don't leak between walking and battling.** An arrow still held down when a battle starts does nothing in the battle until you press it again, and keys pressed in a battle never become steps.
 - **Keys wait while a battle turn plays.** From your answer until the menu comes back, every key is ignored — mashing Enter can't pick anything by accident — and the result card ignores keys for its first moment too.
-- **The same walk meets the same animals.** Encounters are decided by how many steps you have taken since the page loaded, so after a reload the same route meets the same animals at the same steps (see § Finding a battle fast).
+- **The same walk meets the same animals.** Encounters are decided by how many steps you have taken in this game, so two new games walked the same way meet the same animals at the same steps (see § Finding a battle fast). The count is saved, so a reload carries on with the next step: it never replays the animals behind you.
 - **Leading zeros are fine**: "09" is the same answer as "9".
-- **Nothing is saved.** A reload puts you back at (-2, 6) with one full-HP Squirrel.
 - **A little Danish.** If your browser prefers Danish, the line under a puzzle you haven't answered yet says "Skriv svaret, og tryk så på Enter". Every other word is still English, and there is no way to switch language in the game yet. `?lang=da` or `?lang=en` in the address picks one for that visit.
 - **`?zoo` shows every animal.** Open `http://localhost:5180/?zoo` and one of each species stands in a row two or three tiles from the start, in catalog order — squirrel, rabbit, fox, otter, deer, wolf, bear — facing you. They are scenery: you walk straight through them and nothing else changes. It exists to check the figures, not to play with.
 
+## Saving
+
+- **Everything is saved as you go**, in this browser: after every step, every battle turn and every catch, and when you close the tab. There is no save button and nothing to wait for. Reload, or come back another day, and you are where you were, facing the way you were, with the same animals and HP. The message line says "Welcome back!".
+- **A reload in a battle picks the battle up**: the same wild animal, the same HP, and the same puzzle if one was up (what you had typed is gone; the level you picked goes back to 1). The narration starts again with "A wild … appears!". A reload after you answered, while the turn is still being told, skips to what happened: the answer already counted.
+- **The saved game belongs to the browser and the address.** Another browser, a private window, `localhost` instead of the shared link, or a different link is a different game. A kid who comes back through the same link on the same browser finds their game.
+- **Two tabs of the game.** Both start as the same game. When one tab catches an animal, wins, loses or plays a battle turn, the other reloads into that newer game as soon as you look at it. Walking in either is fine: the tab you use carries on from where it is. Nothing a tab did is ever lost to the other one.
+- **Start a new game**: clear this site's data in the browser (the padlock or site-settings menu, "Delete data" or "Clear cookies and site data"), then reload. Nothing inside the game deletes a save. `http://…/?new` plays a new game in that tab that is saved nowhere; drop `?new` and the saved game is back, untouched. A private window is also a new game, kept only while the window is open.
+- **A save that won't load** (after an update the game cannot read it) gives a new game and says "Your saved game didn't load, so here is a new one." The old save stays until you finish a battle in the new game, and is then kept aside, not deleted. A save written by a newer version of the game is not touched: the page says to reload.
+- **No server, no problem.** The game saves in the browser whether or not the server is running. It also keeps a backup on the server when it can reach it; if the server is down it tries a few times, then again after the next battle.
+
 ## Exploits and quirks
 
-- **Losing is a free full heal.** Since nothing else heals yet, a hurt party can lose a battle on purpose (answer wrong) to rest back to full HP at the start tile. Reloading does the same and also forgets every caught animal.
+- **Losing is a free full heal.** Since nothing else heals yet, a hurt party can lose a battle on purpose (answer wrong) to rest back to full HP at the start tile. Reloading heals nothing and forgets nothing.
+- **The save is plain text in the browser.** Anyone who opens the browser's developer tools can read and edit `animath.save` in the site's local storage: change HP, add animals, move anywhere. In the middle of a puzzle it also holds the puzzle's answer. The server backup takes whatever the browser sends. Harmless in a single-player game; it matters once games are shared ([[DEFERRED]]).
 - **A bear in front walks through the meadow and the river in peace.** Nothing there is big enough to challenge it, so no battle ever starts; the same goes for a wolf at the river.
 - **Messages never go away.** After a battle or pressing Enter, the last message stays on the bottom line until the next one. The "Arrows / WASD to walk" hint also never goes away.
