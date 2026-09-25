@@ -90,20 +90,49 @@ Explore is implemented. Battle mode will be a second controller + a second scene
 | Path                         | Holds                                                                                                     |
 | ---------------------------- | --------------------------------------------------------------------------------------------------------- |
 | `src/index.ts`               | Starts the Hono app on `PORT`.                                                                            |
-| `src/app.ts`                 | `createApp()`: logger, `/api/health`, static serving of `../client/dist` (prod). Testable without a port. |
+| `src/app.ts`                 | `createApp()`: logger, `/api/health`, `/api/players`, static serving of `../client/dist` (prod). Testable without a port. |
 | `src/env.ts`                 | Loads `.env` (repo root or cwd) with `process.loadEnvFile`; validates `DATABASE_URL`, `PORT`.             |
 | `src/db/schema.ts`           | Drizzle schema.                                                                                           |
 | `src/db/index.ts`            | `pool`, `db`, `pingDb`.                                                                                   |
-| `src/routes/*.ts`            | One Hono sub-app per route group.                                                                         |
+| `src/routes/*.ts`            | One Hono sub-app per route group: `health.ts`, `players.ts` (identity + save).                            |
+| `src/secrets.ts`             | Player secrets: generate (`randomBytes`), hash (SHA-256), constant-time compare.                          |
+| `src/save.ts`                | `SaveV1` — the save envelope — and `validateSave()`, the hand-rolled validator. No schema library.        |
 | `scripts/migrate.ts`         | Applies journaled migrations from `drizzle/`.                                                             |
 | `drizzle/NNNN_*.sql`         | Hand-written migrations; `drizzle/meta/_journal.json` lists them.                                         |
+| `test/*.test.ts`             | Integration tests against `mathgame_test` (see [[DEVELOPMENT]] § Testing ideology).                       |
+| `test/global-setup.ts`       | Creates, migrates and truncates `mathgame_test` once per `vitest` run; `vitest.config.ts` injects its URL.|
 
 ### Data model
 
-- `players` — `id uuid pk`, `secret text` (client-held proof of ownership), `display_name text?`, `created_at`, `last_seen_at`. One row per anonymous player.
-- `saves` — `player_id uuid pk → players (cascade)`, `data jsonb` (position, party, inventory — shape still moving, so a blob), `updated_at`. One save per player.
+- `players` — `id uuid pk`, `secret_hash text` (SHA-256 of the client-held secret; the secret itself is never stored), `display_name text?`, `created_at`, `last_seen_at` (bumped on every authenticated request). One row per anonymous player.
+- `saves` — `player_id uuid pk → players (cascade)`, `data jsonb` (the `SaveV1` envelope below), `updated_at`. One save per player.
 
 Hot fields get promoted from `data` to columns when a query needs them (nearby players, leaderboards).
+
+### HTTP API
+
+Errors are JSON `{ error: string }`. All routes are under `/api`.
+
+| Route                         | Auth  | Response                                                                          |
+| ----------------------------- | ----- | --------------------------------------------------------------------------------- |
+| `POST /api/players`           | none  | `201 { id: uuid, secret: string }`. The client stores both; the secret is shown once. |
+| `GET /api/players/:id/save`   | owner | `200 SaveV1`, or `404` when nothing has been saved.                               |
+| `PUT /api/players/:id/save`   | owner | `200 { ok: true }` after an upsert; `400` bad JSON or shape; `413` body over 64 KB. |
+
+**Owner auth** is `Authorization: Bearer <secret>`. Missing or malformed header → `401`; `:id` unknown (or not a uuid) → `404`; secret does not match the stored hash → `401`.
+
+**`SaveV1`** (`src/save.ts`) is a versioned envelope, stored and returned verbatim:
+
+```ts
+{
+	version: 1,
+	seed: number,                 // integer; the world is a pure function of it
+	pos: { x: number, y: number }, // integer tile coordinates, any sign
+	party: AnimalInstance[]       // 0–6 of { id: string, speciesId: string, nickname?: string, hp: number }
+}
+```
+
+Required fields are validated strictly (`speciesId` must be in the engine catalog, `hp` a whole number ≥ 0, `id` unique within the party). Any extra field — top-level or per animal — is stored and returned as sent, so a newer client can add data without a server change; bump `version` only when an old document becomes unreadable. "As sent" is JSON semantics: key order and `-0` are not preserved, and a document containing a NUL character, a lone surrogate or a number that overflows to Infinity is a `400`, not a mangled row. The upsert is unconditional — last write wins, with no stale-write guard (see [[DEFERRED]]).
 
 ## Ports and processes (development)
 

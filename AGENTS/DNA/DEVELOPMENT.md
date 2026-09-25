@@ -66,7 +66,7 @@ All code is written by agents; the human reviews PRs and plays the game but does
 
 **Client**: no unit tests for rendering. Verification is a screenshot you read (see above), at the default viewport and at 1024×768. Pure client helpers (input mapping, tweens) may get vitest tests if they grow logic; Svelte components don't.
 
-**Server**: `app.test.ts` style tests through `app.request()` with the DB mocked; integration tests against a real `mathgame_test` database once routes write data (pattern to establish with the save/load issue).
+**Server**: integration tests in `packages/server/test/*.test.ts` drive the real app through `app.request()` against a real `mathgame_test` database — no mocks below the HTTP layer. `test/global-setup.ts` creates the database on the same Postgres if missing, applies the journaled migrations and truncates it, and `vitest.config.ts` injects its URL as `DATABASE_URL`, so a test can never touch `mathgame`. Each test creates its own player, so tests share no rows. Mock the DB only for what cannot be exercised for real (`src/app.test.ts` mocks `pingDb` to see the 503).
 
 **Don't test**: framework glue, things the type system guarantees, a wrapper that only forwards to the engine.
 
@@ -77,6 +77,8 @@ All code is written by agents; the human reviews PRs and plays the game but does
 ## Database
 
 Local Postgres runs in Docker (`docker-compose.yml`, host port 5433, database `mathgame`, user/password `postgres`). `pnpm db:psql -c "<sql>"` runs a query; `/reset` recreates it from scratch.
+
+The server test suite uses a second database on the same instance, `mathgame_test`, created and migrated by the tests themselves (see § Testing ideology). `TEST_DATABASE_URL` overrides its URL; the name must end in `_test`.
 
 ### Migrations
 

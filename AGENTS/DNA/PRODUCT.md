@@ -103,7 +103,8 @@ What is built and observable today. Keep current: add a bullet when a feature sh
 ### Server
 
 - Health endpoint reporting database reachability.
-- `players` and `saves` tables for anonymous identity and progress (nothing writes them yet).
+- Anonymous identity: a player is created with one request and gets an id plus a secret; no account, no login.
+- One save per player, stored and returned as a versioned document (world seed, position, party of up to six). The client does not use it yet.
 
 ## 6. Not yet built
 
@@ -113,7 +114,7 @@ In rough priority order. Each becomes a GitHub issue when picked up.
 2. Wild encounters in tall grass, weighted by biome and tier.
 3. Catching with the leash; party management.
 4. Doctor healing at tents.
-5. Save/load through the server with the anonymous identity.
+5. Save/load in the client: create the anonymous player on first visit, keep the secret, load the save on boot and write it as the game progresses (the server routes exist, see [[ARCHITECTURE]] § HTTP API).
 6. Real low-poly animal models with idle/attack animations (CC0 sources, see [[DECISIONS]]).
 7. Procedural world v2: rivers that flow, paths, biome shaping, landmarks, spawn tables.
 8. Puzzle catalog v2: fractions, decimals, negatives, word problems, per-child adaptive difficulty.
