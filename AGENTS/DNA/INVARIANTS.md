@@ -91,3 +91,17 @@ Inside `SAFE_RADIUS` tiles of the spawn tile, in any biome where a tier-1 specie
 ### An encounter can only start on an encounter tile
 
 `rollEncounter` returns `null` for every tile kind that `isEncounterTile` rejects, without drawing from the rng, so a walk's random stream depends only on the grass steps taken. Enforced by `encounters.test.ts` § rollEncounter. Design-time.
+
+## Doctor
+
+### A knock-out never strands the player
+
+`takeToDoctor` either leaves the player where they were or puts them on a walkable tile next to a tent, facing it, that is reachable on foot from where the battle was lost. That holds because `nearestTent` is a breadth-first search over walkable tiles from the player, not a straight-line nearest: the tent nearest as the crow flies can be on an island or boxed in by trees, and a kid put there could never walk away, with the position saved. Enforced by `tents.test.ts`, which checks `nearestTent` against its own flood fill over the tent lattice from random starts of every kind and sign and never lets a boxed-in tent be chosen, and by `doctor.test.ts` § takeToDoctor. Design-time.
+
+### A wrong answer at the doctor changes nothing, and healing stops at full
+
+In a doctor visit, an answer `checkAnswer` rejects leaves every animal's HP as it was and puts a different puzzle in place of the one missed; a right one sets exactly the picked animal to its `maxHp`; no step lowers an HP or raises one above `maxHp`. Enforced by `doctor.test.ts` over every species at three HP levels × 25 seeds × every shape of wrong answer, and by a check on every step of every visit that each HP change comes with a `healed` event. Design-time.
+
+### A doctor visit is a pure function of `(seed, party, intents)` and keeps the seed out of its state
+
+Like a battle: `applyDoctorIntent(state, intent, seed)` never mutates its input, draws the n-th accepted intent's puzzles from `new Rng(hashInts(seed, n))`, and returns the same state reference with one `rejected` event for an intent that does not fit. The seed is not in `DoctorState`, which goes to the client; a client that knew it could see the next puzzle before asking for it. Enforced by `doctor.test.ts` (frozen input on every step, the replay sweep, and a check of the state's keys). Design-time.

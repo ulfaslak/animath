@@ -25,7 +25,7 @@ No other key does anything. Escape, number keys, the mouse and touch are ignored
 | Grass                                         | Yes         |
 | Tall grass (darker green with little blades)   | Yes. Nothing happens yet; wild encounters will start here. |
 | Sand                                          | Yes         |
-| Doctor's tent (orange pyramid with a campfire) | Yes. You stand inside it. Nothing happens yet; healing will happen here. The nearest one to the start is at (5, 7). |
+| Doctor's tent (orange pyramid with a campfire) | No. Walking into it turns you to face it. Pressing Enter while facing it still says "Nothing here yet."; healing will happen here. The nearest one to the start is at (5, 7): walk 6 tiles right and 1 down, and you stand just left of it. |
 | Water                                         | No          |
 | Rock                                          | No          |
 | Tree                                          | No          |
@@ -47,4 +47,3 @@ The card in the top-left corner is your party: one Squirrel with full HP (20 of 
 ## Exploits and quirks
 
 - **Messages never go away.** After you press Enter, "Nothing here yet." stays on the bottom line until you reload. The "Arrows / WASD to walk" hint also never goes away.
-- **You can stand inside a doctor's tent**, because tents count as walkable ground.

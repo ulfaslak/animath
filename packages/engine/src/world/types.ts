@@ -18,8 +18,12 @@ export interface Chunk {
 	tiles: Tile[];
 }
 
+/**
+ * Ground a player can stand on. A doctor's tent is solid: the player talks to
+ * the doctor from the tile beside it (see `world/tents.ts`), never inside it.
+ */
 export function isWalkable(kind: TileKind): boolean {
-	return kind === 'grass' || kind === 'tallgrass' || kind === 'sand' || kind === 'tent';
+	return kind === 'grass' || kind === 'tallgrass' || kind === 'sand';
 }
 
 /** Tiles where wild animals may appear. */
