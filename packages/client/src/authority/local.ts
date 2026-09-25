@@ -185,14 +185,15 @@ export class LocalAuthority implements Authority {
 	 * Write the battle's result back into the world: HP lost stays lost, a
 	 * caught animal joins the party if there is room, and a lost battle takes
 	 * the player to the nearest doctor's tent, where the whole party is healed
-	 * (the engine's knock-out rule, `takeToDoctor`).
+	 * (the engine's knock-out rule, `takeToDoctor`). That one has no `message`:
+	 * the client words the doctor's line from `taken-to-doctor`.
 	 */
 	private endBattle(state: BattleState, events: readonly BattleEvent[]): void {
 		if (state.phase.kind !== 'ended') return;
 		this.party = state.party.map((a) => ({ ...a }));
 		const wildName = getAnimal(state.opponent.speciesId).name;
 		let rescue: Rescue | null = null;
-		let text: string;
+		let text: string | null = null;
 		switch (state.phase.outcome) {
 			case 'won':
 				text = `The wild ${wildName} runs home to rest.`;
@@ -218,7 +219,6 @@ export class LocalAuthority implements Authority {
 				this.party = rescue.party;
 				this.pos = rescue.pos;
 				this.facing = rescue.facing;
-				text = rescue.message;
 				break;
 		}
 		this.emit({ type: 'battle-ended', state });
@@ -234,7 +234,7 @@ export class LocalAuthority implements Authority {
 		} else {
 			this.emit({ type: 'party-changed', party: this.partyCopy() });
 		}
-		this.emit({ type: 'message', text });
+		if (text !== null) this.emit({ type: 'message', text });
 	}
 
 	// --- doctor ------------------------------------------------------------
@@ -255,8 +255,8 @@ export class LocalAuthority implements Authority {
 
 	/**
 	 * Apply one doctor intent. A heal is written back at once (the kid earned
-	 * it, whatever happens to the visit after), and leaving ends the visit
-	 * with the doctor's goodbye on the message line.
+	 * it, whatever happens to the visit after); leaving ends the visit, and
+	 * the client says the doctor's goodbye.
 	 */
 	private applyDoctor(intent: DoctorIntent): void {
 		const visit = this.doctor!;
@@ -270,8 +270,6 @@ export class LocalAuthority implements Authority {
 		if (state.phase.kind !== 'ended') return;
 		this.doctor = null;
 		this.emit({ type: 'doctor-visit-ended', state });
-		const goodbye = state.log[state.log.length - 1];
-		if (goodbye) this.emit({ type: 'message', text: goodbye });
 	}
 
 	// --- helpers -----------------------------------------------------------

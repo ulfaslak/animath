@@ -12,6 +12,7 @@ import {
 	type GameEvent,
 	type GridPos
 } from '@mathgame/engine';
+import { doctorLines } from '../doctor/lines';
 import { answerKey } from '../input/answer';
 import { BattleScene } from '../render/battle-scene';
 import type { GameRenderer } from '../render/renderer';
@@ -55,7 +56,7 @@ export class BattleController {
 	private latest: BattleState | null = null;
 	private beats: Beat[] = [];
 	private wait = 0;
-	/** The authority's closing `message`, kept for the result card. */
+	/** What was said once the battle ended, kept for the result card. */
 	private closing = '';
 	/** Seconds the result card has been up. */
 	private resultAge = 0;
@@ -81,8 +82,13 @@ export class BattleController {
 				break;
 			case 'player-moved':
 			case 'player-placed':
-			case 'taken-to-doctor':
 				if (event.playerId === this.playerId) this.pos = event.pos;
+				break;
+			case 'taken-to-doctor':
+				// A lost battle: no `message` follows, the doctor's line is ours to say.
+				if (event.playerId !== this.playerId) return;
+				this.pos = event.pos;
+				this.setClosing(doctorLines.rescued(event.tent !== null));
 				break;
 			case 'battle-started':
 				this.begin(event.state);
@@ -96,11 +102,16 @@ export class BattleController {
 				for (const e of event.events) this.beats.push(...this.narrate(e));
 				break;
 			case 'message':
-				if (!battle.active || this.latest?.phase.kind !== 'ended') return;
-				this.closing = event.text;
-				if (battle.screen === 'result') battle.closing = event.text;
+				this.setClosing(event.text);
 				break;
 		}
+	}
+
+	/** The line under the result headline: what the authority said once the battle ended. */
+	private setClosing(text: string): void {
+		if (!battle.active || this.latest?.phase.kind !== 'ended') return;
+		this.closing = text;
+		if (battle.screen === 'result') battle.closing = text;
 	}
 
 	/** Play beats as their holds expire; `dt` is seconds. */

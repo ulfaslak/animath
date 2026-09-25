@@ -8,7 +8,8 @@ import type { AnimalInstance, Direction, GameEvent, GridPos } from '@mathgame/en
  * and back on `battle-ended`. The battle *screen* stays up a little longer
  * than that (the last events are narrated, then a result card waits for
  * Enter); that presentation state lives in `battle.svelte.ts`. A doctor
- * visit is not a mode: its card is in `doctor.svelte.ts`.
+ * visit is not a mode: its card is in `doctor.svelte.ts`. What the message
+ * line says is in `hud.svelte.ts`.
  */
 class GameView {
 	mode = $state<'loading' | 'explore' | 'battle'>('loading');
@@ -20,9 +21,6 @@ class GameView {
 	/** Moves the player has made since `welcome`, walked or blocked (the controls hint counts them). */
 	moves = $state(0);
 	party = $state<AnimalInstance[]>([]);
-	message = $state<string>('');
-	/** Counts `message` events, so the same line said twice shows twice. */
-	messageSeq = $state(0);
 
 	apply(event: GameEvent): void {
 		switch (event.type) {
@@ -66,10 +64,6 @@ class GameView {
 				break;
 			case 'doctor-visit-ended':
 				this.party = event.state.party.map((a) => ({ ...a }));
-				break;
-			case 'message':
-				this.message = event.text;
-				this.messageSeq += 1;
 				break;
 		}
 	}

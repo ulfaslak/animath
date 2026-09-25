@@ -40,7 +40,10 @@ class BattleView {
 	/** The latest hit, for the damage number that pops over a status box; `n` restarts it. */
 	hit = $state<{ side: 'player' | 'opponent'; damage: number; n: number } | null>(null);
 	outcome = $state<BattleOutcome | null>(null);
-	/** The authority's closing message, shown under the result headline. */
+	/**
+	 * What was said once the battle ended, shown under the result headline:
+	 * the authority's `message`, or after a lost battle the doctor's line.
+	 */
 	closing = $state('');
 
 	/** Clear everything but the attack level. */

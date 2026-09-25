@@ -322,11 +322,11 @@ describe('LocalAuthority: outcomes', () => {
 		lose(s);
 		const end = latestBattle(s);
 		expect(end.phase).toEqual({ kind: 'ended', outcome: 'lost' });
+		// No `message`: the client words the doctor's line from the event.
 		expect(closingEvents(s).map((e) => e.type)).toEqual([
 			'battle-updated',
 			'battle-ended',
-			'taken-to-doctor',
-			'message'
+			'taken-to-doctor'
 		]);
 		const rescue = takeToDoctor(seed, lostOn, end.party);
 		const taken = s.events.find((e) => e.type === 'taken-to-doctor');
@@ -341,7 +341,6 @@ describe('LocalAuthority: outcomes', () => {
 		// Near spawn that is the tent at (5, 7), from its left.
 		expect(rescue).toMatchObject({ tent: { x: 5, y: 7 }, pos: { x: 4, y: 7 }, facing: 'right' });
 		for (const a of party(s)) expect(a.hp).toBe(getAnimal(a.speciesId).maxHp);
-		expect(lastMessage(s)).toBe(rescue.message);
 
 		// The authority faces the tent too: Enter talks to the doctor at once.
 		expect(canTalkToDoctor(seed, position(s), facing(s))).toBe(true);
@@ -430,7 +429,7 @@ describe('LocalAuthority: the doctor', () => {
 		walkToTent(s);
 		s.authority.dispatch({ type: 'interact' });
 		expect(visit(s).phase).toEqual({ kind: 'choose-patient' });
-		expect(visit(s).log).toEqual(['Hello! Who needs help today?']);
+		expect(visit(s).party).toEqual(hurtParty());
 
 		// Walking and battle intents wait until the visit ends.
 		const pos = position(s);
@@ -454,7 +453,6 @@ describe('LocalAuthority: the doctor', () => {
 		expect(visit(s).party[1]!.hp).toBe(0);
 		expect(visit(s).phase).toMatchObject({ kind: 'solving', partyIndex: 1 });
 		expect(visit(s).phase).not.toEqual(first);
-		expect(visit(s).log.at(-1)).toBe("Not quite! Let's try another one.");
 
 		// A right answer heals that one animal, and the party is written back at once.
 		answerDoctor(s, true);
@@ -470,10 +468,8 @@ describe('LocalAuthority: the doctor', () => {
 		doctorIntent(s, { type: 'leave' });
 		expect(s.events.slice(beforeLeave).map((e) => e.type)).toEqual([
 			'doctor-visit-updated',
-			'doctor-visit-ended',
-			'message'
+			'doctor-visit-ended'
 		]);
-		expect(lastMessage(s)).toBe('Bye! Come back any time.');
 		expect(visit(s).party.map((a) => a.hp)).toEqual([
 			5,
 			getAnimal('rabbit').maxHp,
@@ -488,15 +484,15 @@ describe('LocalAuthority: the doctor', () => {
 		expect(position(s)).toEqual({ x: pos.x - 1, y: pos.y });
 	});
 
-	it('with nobody hurt, the doctor says so and the visit can only end', () => {
+	it('with nobody hurt, a visit still opens, and can only end', () => {
 		const s = session();
 		walkToTent(s);
 		s.authority.dispatch({ type: 'interact' });
-		expect(visit(s).log).toEqual(['Hello! Your animals are all fit and happy.']);
+		expect(s.events.at(-1)).toMatchObject({ type: 'doctor-visit-started' });
 		doctorIntent(s, { type: 'pick-patient', partyIndex: 0 });
 		expect(visit(s).phase).toEqual({ kind: 'choose-patient' });
 		doctorIntent(s, { type: 'leave' });
-		expect(s.events.at(-2)).toMatchObject({ type: 'doctor-visit-ended' });
+		expect(s.events.at(-1)).toMatchObject({ type: 'doctor-visit-ended' });
 	});
 
 	it('a visit replays from the same intents, and a second visit asks new puzzles', () => {

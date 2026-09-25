@@ -1,6 +1,7 @@
 import {
 	getAnimal,
 	needsHealing,
+	type AnimalInstance,
 	type Authority,
 	type DoctorEvent,
 	type DoctorIntent,
@@ -9,6 +10,7 @@ import {
 } from '@mathgame/engine';
 import { answerKey } from '../input/answer';
 import { cursorStops, doctor, hurtIndexes, stepCursor } from '../state/doctor.svelte';
+import { doctorLines } from './lines';
 
 /**
  * The doctor's card: from `doctor-visit-started` to `doctor-visit-ended`, a
@@ -16,7 +18,8 @@ import { cursorStops, doctor, hurtIndexes, stepCursor } from '../state/doctor.sv
  * turns keys into doctor intents and plays the authority's doctor events back
  * a beat at a time — the judgement of an answer, then the heal — before it
  * shows the latest state and takes keys again, the way the battle screen
- * does. Nothing here decides anything: the engine judges answers and heals.
+ * does. The doctor's words come from `lines.ts`, chosen by event. Nothing
+ * here decides anything: the engine judges answers and heals.
  */
 
 /** One beat: change the view, then hold for `hold` seconds. */
@@ -44,7 +47,7 @@ export class DoctorController {
 	private wait = 0;
 	/** Seconds the card has been open. */
 	private age = 0;
-	/** What the doctor said in answer to the latest intent (joined lines of its log). */
+	/** What the doctor says about the latest state; shown with its beat, or at `settle`. */
 	private said = '';
 	private heals = 0;
 
@@ -59,7 +62,7 @@ export class DoctorController {
 				// Only the visit on screen, and never an older state than the one shown.
 				const latest = this.latest;
 				if (!doctor.active || !latest || event.state.step < latest.step) return;
-				const said = event.state.log.slice(latest.log.length).join(' ');
+				const said = lineFor(event.events, event.state);
 				if (said) this.said = said;
 				this.latest = event.state;
 				doctor.screen = 'busy';
@@ -125,7 +128,7 @@ export class DoctorController {
 		this.beats = [];
 		this.wait = 0;
 		this.age = 0;
-		this.said = state.log.join(' ');
+		this.said = state.party.some(needsHealing) ? doctorLines.hello : doctorLines.helloAllFit;
 		doctor.cursor = hurtIndexes(state.party)[0] ?? state.party.length;
 		this.settle();
 	}
@@ -223,8 +226,8 @@ export class DoctorController {
 
 	// --- beats ---------------------------------------------------------------
 
-	/** Turn one doctor event into beats. `said` is the doctor's answer to the intent. */
-	private narrate(e: DoctorEvent, said: string): Beat[] {
+	/** Turn one doctor event into beats. `said` is what the doctor says to the whole step. */
+	private narrate(e: DoctorEvent, said: string | null): Beat[] {
 		switch (e.type) {
 			case 'puzzle-shown':
 				return []; // `settle` shows the puzzle once the beats have played
@@ -263,4 +266,26 @@ export class DoctorController {
 				return [];
 		}
 	}
+}
+
+/**
+ * What the doctor says to one step's events, or null to keep the line as it
+ * is (`ended` closes the card; `rejected` changes nothing).
+ */
+function lineFor(events: readonly DoctorEvent[], state: DoctorState): string | null {
+	for (const e of events) {
+		if (e.type === 'answer-judged' && !e.correct) return doctorLines.notQuite;
+		if (e.type === 'healed') {
+			return doctorLines.healed(nameOf(e.animal), state.party.some(needsHealing));
+		}
+	}
+	for (const e of events) {
+		const patient = e.type === 'puzzle-shown' ? state.party[e.partyIndex] : undefined;
+		if (patient) return doctorLines.letsHelp(nameOf(patient));
+	}
+	return null;
+}
+
+function nameOf(animal: AnimalInstance): string {
+	return animal.nickname ?? getAnimal(animal.speciesId).name;
 }

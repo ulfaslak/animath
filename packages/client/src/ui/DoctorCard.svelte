@@ -15,6 +15,21 @@
 	const hurt = $derived(hurtIndexes(doctor.party));
 	const highlighted = $derived(doctor.party[doctor.cursor] ?? null);
 
+	/** The card's own words (what the doctor says is in `doctor/lines.ts`). */
+	const words = {
+		doctor: 'Doctor',
+		tired: 'tired',
+		bye: 'Bye',
+		byeKey: 'Esc',
+		pick: 'Pick an animal',
+		pickDetail: (name: string) => `Solve a puzzle and ${name} feels all better!`,
+		byeDetail: 'Say bye and go exploring.',
+		listKeys: '↑ ↓ choose · Enter pick · Esc bye',
+		puzzleKeys: '↑ ↓ help another animal · Esc bye',
+		allFit: 'Time to explore!',
+		allFitKeys: 'Enter or Esc to say bye'
+	};
+
 	function nameOf(animal: AnimalInstance): string {
 		return animal.nickname ?? getAnimal(animal.speciesId).name;
 	}
@@ -22,7 +37,7 @@
 
 <div class="doctor">
 	<div class="card talk">
-		<span class="who">Doctor</span>
+		<span class="who">{words.doctor}</span>
 		<span class="doctor-line">{doctor.line}</span>
 	</div>
 
@@ -32,7 +47,7 @@
 			<div class="row" class:selected={doctor.cursor === i} class:healthy={!needsHealing(animal)}>
 				<span class="caret">▸</span>
 				<span class="label">{nameOf(animal)}</span>
-				{#if animal.hp === 0}<span class="tag">tired</span>{/if}
+				{#if animal.hp === 0}<span class="tag">{words.tired}</span>{/if}
 				<span class="bar"><HpBar hp={animal.hp} max={spec.maxHp} /></span>
 				{#if doctor.healed?.index === i}
 					{#key doctor.healed.n}
@@ -43,8 +58,8 @@
 		{/each}
 		<div class="row bye" class:selected={doctor.cursor === doctor.party.length}>
 			<span class="caret">▸</span>
-			<span class="label">Bye</span>
-			<kbd>Esc</kbd>
+			<span class="label">{words.bye}</span>
+			<kbd>{words.byeKey}</kbd>
 		</div>
 	</div>
 
@@ -57,19 +72,17 @@
 				typing={doctor.screen === 'puzzle'}
 			/>
 			{#if hurt.length > 1}
-				<div class="keys">↑ ↓ help another animal · Esc bye</div>
+				<div class="keys">{words.puzzleKeys}</div>
 			{/if}
 		{:else if hurt.length === 0}
-			<div class="soft">Time to explore!</div>
-			<div class="keys">Enter or Esc to say bye</div>
+			<div class="soft">{words.allFit}</div>
+			<div class="keys">{words.allFitKeys}</div>
 		{:else}
-			<div class="soft">Pick an animal</div>
+			<div class="soft">{words.pick}</div>
 			<div class="detail">
-				{highlighted
-					? `Solve a puzzle and ${nameOf(highlighted)} feels all better!`
-					: 'Say bye and go exploring.'}
+				{highlighted ? words.pickDetail(nameOf(highlighted)) : words.byeDetail}
 			</div>
-			<div class="keys">↑ ↓ choose · Enter pick · Esc bye</div>
+			<div class="keys">{words.listKeys}</div>
 		{/if}
 	</div>
 </div>

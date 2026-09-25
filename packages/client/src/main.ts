@@ -26,6 +26,7 @@ const doctorController = new DoctorController(authority);
 
 authority.subscribe((event) => {
 	game.apply(event);
+	hud.apply(event);
 	explore.handle(event);
 	battleController.handle(event);
 	doctorController.handle(event);
