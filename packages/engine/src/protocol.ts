@@ -1,5 +1,6 @@
 import type { AnimalInstance } from './animals/types.js';
 import type { BattleEvent, BattleIntent, BattleState } from './battle/types.js';
+import type { DoctorEvent, DoctorIntent, DoctorState } from './doctor/types.js';
 import type { Direction, GridPos } from './world/types.js';
 
 /**
@@ -16,7 +17,9 @@ import type { Direction, GridPos } from './world/types.js';
 export type Intent =
 	| { type: 'move'; dir: Direction }
 	| { type: 'interact' }
-	| { type: 'battle'; intent: BattleIntent };
+	| { type: 'battle'; intent: BattleIntent }
+	/** Only during a doctor visit. A visit starts with `interact` while `canTalkToDoctor` holds. */
+	| { type: 'doctor'; intent: DoctorIntent };
 
 export type GameEvent =
 	| { type: 'welcome'; playerId: string; seed: number; pos: GridPos; party: AnimalInstance[] }
@@ -30,7 +33,17 @@ export type GameEvent =
 	 */
 	| { type: 'battle-updated'; state: BattleState; events: readonly BattleEvent[] }
 	| { type: 'battle-ended'; state: BattleState }
-	| { type: 'message'; text: string };
+	| { type: 'message'; text: string }
+	/** `interact` while facing a tent opened a visit. Walking waits until `doctor-visit-ended`. */
+	| { type: 'doctor-visit-started'; state: DoctorState }
+	/**
+	 * One doctor intent was applied. As with `battle-updated`: animate `events`
+	 * in order, then show `state`. When the last event is `ended`, a
+	 * `doctor-visit-ended` follows.
+	 */
+	| { type: 'doctor-visit-updated'; state: DoctorState; events: readonly DoctorEvent[] }
+	/** `state.party` is the party after the visit. */
+	| { type: 'doctor-visit-ended'; state: DoctorState };
 
 export interface Authority {
 	dispatch(intent: Intent): void;
