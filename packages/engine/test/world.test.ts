@@ -38,8 +38,9 @@ describe('generateChunk', () => {
 		expect(kinds.has('tallgrass')).toBe(true);
 	});
 
-	it('places tents in every quadrant, not only where x and y are positive', () => {
+	it('places tents in every quadrant, on one lattice with no mirror at 0', () => {
 		const quadrants = new Set<string>();
+		const offLattice: string[] = [];
 		for (let cy = -12; cy < 12; cy++)
 			for (let cx = -12; cx < 12; cx++)
 				for (const [i, t] of generateChunk(hashString('prototype'), cx, cy).tiles.entries()) {
@@ -47,8 +48,15 @@ describe('generateChunk', () => {
 					const x = cx * CHUNK_SIZE + (i % CHUNK_SIZE);
 					const y = cy * CHUNK_SIZE + Math.floor(i / CHUNK_SIZE);
 					quadrants.add(`${x < 0 ? 'W' : 'E'}${y < 0 ? 'N' : 'S'}`);
+					// Tents repeat every 23 columns and 19 rows, straight through 0.
+					if (
+						(x - 5) / 23 !== Math.floor((x - 5) / 23) ||
+						(y - 7) / 19 !== Math.floor((y - 7) / 19)
+					)
+						offLattice.push(`${x},${y}`);
 				}
 		expect([...quadrants].sort()).toEqual(['EN', 'ES', 'WN', 'WS']);
+		expect(offLattice).toEqual([]);
 	});
 });
 
