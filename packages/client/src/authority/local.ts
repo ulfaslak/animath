@@ -165,7 +165,7 @@ export class LocalAuthority implements Authority {
 			case 'lost':
 				this.party = this.party.map((a) => ({ ...a, hp: getAnimal(a.speciesId).maxHp }));
 				this.pos = this.spawn;
-				text = 'You rest and feel better.';
+				text = 'Everyone is tired. You rest and feel better.';
 				break;
 		}
 		this.emit({ type: 'battle-ended', state });

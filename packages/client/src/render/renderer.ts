@@ -125,7 +125,8 @@ export class GameRenderer {
 	/** Show a battle scene instead of the world, or `null` to return to it. */
 	setBattle(scene: BattleScene | null): void {
 		this.battle = scene;
-		scene?.resize(this.aspect());
+		const { w, h } = this.size();
+		scene?.resize(w, h);
 	}
 
 	render(): void {
@@ -155,15 +156,16 @@ export class GameRenderer {
 		return groundTop(tileAtWorld(this.seed, pos.x, pos.y));
 	}
 
-	private aspect(): number {
-		const w = this.canvas.clientWidth || window.innerWidth;
-		const h = this.canvas.clientHeight || window.innerHeight;
-		return w / h;
+	/** The canvas size in CSS pixels. */
+	private size(): { w: number; h: number } {
+		return {
+			w: this.canvas.clientWidth || window.innerWidth,
+			h: this.canvas.clientHeight || window.innerHeight
+		};
 	}
 
 	private resize(): void {
-		const w = this.canvas.clientWidth || window.innerWidth;
-		const h = this.canvas.clientHeight || window.innerHeight;
+		const { w, h } = this.size();
 		this.renderer.setSize(w, h, false);
 		const aspect = w / h;
 		const halfH = VIEW_HEIGHT_TILES / 2;
@@ -172,6 +174,6 @@ export class GameRenderer {
 		this.camera.top = halfH;
 		this.camera.bottom = -halfH;
 		this.camera.updateProjectionMatrix();
-		this.battle?.resize(aspect);
+		this.battle?.resize(w, h);
 	}
 }

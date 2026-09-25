@@ -25,7 +25,7 @@
 		add: 'adding',
 		sub: 'taking away',
 		mul: 'times tables',
-		div: 'sharing out',
+		div: 'sharing',
 		missing: 'missing numbers',
 		sequence: 'number patterns',
 		sqrt: 'square roots'
@@ -35,8 +35,14 @@
 		return animal.nickname ?? getAnimal(animal.speciesId).name;
 	}
 
+	/** "a Fox", "an Otter". */
+	function withArticle(name: string): string {
+		return `${/^[aeiou]/i.test(name) ? 'an' : 'a'} ${name}`;
+	}
+
+	/** How hard a puzzle at engine difficulty `d` (1..10) is, in a word a kid can read. */
 	function difficultyWord(d: number): string {
-		return d <= 3 ? 'An easy' : d <= 6 ? 'A medium' : d <= 8 ? 'A hard' : 'A very hard';
+		return d <= 3 ? 'easy' : d <= 6 ? 'medium' : d <= 8 ? 'hard' : 'super hard';
 	}
 
 	function kindWords(kinds: readonly PuzzleKind[]): string {
@@ -46,36 +52,37 @@
 	}
 
 	/** What the highlighted row will do, in words a kid can read. */
-	const hint = $derived.by(() => {
+	const detail = $derived.by(() => {
 		if (!spec) return '';
 		const action = actionAt(battle.cursor, spec.attacks.length);
 		if (action.kind === 'attack') {
 			const attack = spec.attacks[action.index - 1]!;
 			const damage = attackDamage(spec, action.index, battle.level, true);
-			const difficulty = puzzleDifficulty(spec.tier, action.index, battle.level);
-			return `${attack.name} at level ${battle.level} hits for ${damage}. ${difficultyWord(difficulty)} puzzle: ${kindWords(attack.kinds)}.`;
+			const word = difficultyWord(puzzleDifficulty(spec.tier, action.index, battle.level));
+			return `${attack.name}, level ${battle.level}: ${withArticle(word)} puzzle with ${kindWords(attack.kinds)}. It hits for ${damage}.`;
 		}
 		if (action.kind === 'leash') {
-			return 'Throw the leash to catch it. It works best when the wild animal is tired.';
+			return 'Throw the leash to catch it! It works best when its HP is low.';
 		}
 		return 'Run away. The wild animal stays in the grass.';
 	});
 
-	/** The leash button's colour hints at the odds by HP thirds; never a number. */
+	/** The leash row's colour hints at the odds by HP thirds; never a number. */
 	const leashBand = $derived.by(() => {
 		if (!opponent || !opponentSpec) return 'bad';
 		const fraction = opponent.hp / opponentSpec.maxHp;
 		return fraction <= 1 / 3 ? 'good' : fraction <= 2 / 3 ? 'warn' : 'bad';
 	});
+	const LEASH_WORDS = { good: 'good chance', warn: 'maybe', bad: 'hard' } as const;
 
 	const headline = $derived.by(() => {
 		switch (battle.outcome) {
 			case 'won':
 				return 'You won!';
 			case 'caught':
-				return opponent ? `You caught a ${nameOf(opponent)}!` : 'Caught!';
+				return opponent ? `You caught ${withArticle(nameOf(opponent))}!` : 'Caught!';
 			case 'lost':
-				return 'Everyone is tired.';
+				return 'Good try!';
 			case 'fled':
 				return 'You got away!';
 			default:
@@ -88,6 +95,11 @@
 	<div class="status opponent">
 		<div class="name">{nameOf(opponent)}</div>
 		<HpBar hp={opponent.hp} max={opponentSpec.maxHp} />
+		{#if battle.hit?.side === 'opponent'}
+			{#key battle.hit.n}
+				<div class="damage">−{battle.hit.damage}</div>
+			{/key}
+		{/if}
 	</div>
 {/if}
 
@@ -95,6 +107,11 @@
 	<div class="status player">
 		<div class="name">{nameOf(front)}</div>
 		<HpBar hp={front.hp} max={spec.maxHp} />
+		{#if battle.hit?.side === 'player'}
+			{#key battle.hit.n}
+				<div class="damage">−{battle.hit.damage}</div>
+			{/key}
+		{/if}
 	</div>
 {/if}
 
@@ -109,6 +126,9 @@
 				<div class="row" class:selected={battle.cursor === i}>
 					<span class="caret">▸</span>
 					<span class="label">{attack.name}</span>
+					<span class="how">
+						{difficultyWord(puzzleDifficulty(spec.tier, i + 1, battle.level))}
+					</span>
 					<span class="levels">
 						{#each ATTACK_LEVELS as level (level)}
 							<span class="pill" class:on={battle.level === level}>{level}</span>
@@ -119,6 +139,7 @@
 			<div class="row" class:selected={battle.cursor === spec.attacks.length}>
 				<span class="caret">▸</span>
 				<span class="label">Leash</span>
+				<span class="how">{LEASH_WORDS[leashBand]}</span>
 				<span class="dot {leashBand}"></span>
 			</div>
 			<div class="row" class:selected={battle.cursor === spec.attacks.length + 1}>
@@ -128,7 +149,7 @@
 		{/if}
 	</div>
 
-	<div class="card puzzle">
+	<div class="card puzzle" class:correct={battle.judged?.correct === true}>
 		{#if battle.puzzle}
 			<div class="puzzle-prompt">{battle.puzzle.prompt}</div>
 			<div
@@ -143,11 +164,12 @@
 					{battle.judged.correct ? 'Correct!' : `Not quite! It was ${battle.judged.answer}.`}
 				</div>
 			{:else}
-				<div class="hint">Type the answer, then press Enter</div>
+				<div class="keys">Type the answer, then press Enter</div>
 			{/if}
 		{:else}
 			<div class="soft">Pick an attack</div>
-			<div class="hint">{hint}</div>
+			<div class="detail">{detail}</div>
+			<div class="keys">↑ ↓ choose · ← → level · Enter go</div>
 		{/if}
 	</div>
 </div>
@@ -169,6 +191,7 @@
 		position: absolute;
 		width: 240px;
 		max-width: calc(50vw - 24px);
+		box-sizing: border-box;
 		background: var(--panel-bg);
 		border-radius: var(--radius);
 		box-shadow: var(--hud-shadow);
@@ -179,8 +202,8 @@
 		left: 16px;
 	}
 	.status.player {
-		right: 24px;
-		bottom: calc(var(--battle-panel) + 68px);
+		right: 16px;
+		bottom: calc(var(--battle-panel) + 72px);
 	}
 	.status .name {
 		font-weight: 800;
@@ -190,13 +213,28 @@
 		text-overflow: ellipsis;
 		white-space: nowrap;
 	}
+	.damage {
+		position: absolute;
+		right: 14px;
+		top: -6px;
+		font-weight: 800;
+		font-size: 28px;
+		color: var(--bad);
+		text-shadow:
+			0 2px 0 white,
+			0 0 6px white;
+		pointer-events: none;
+		animation: pop 1.1s ease-out forwards;
+	}
 
 	.battle-line {
 		position: absolute;
 		bottom: calc(var(--battle-panel) + 12px);
 		left: 50%;
 		transform: translateX(-50%);
-		max-width: min(60vw, 640px);
+		width: max-content;
+		max-width: min(calc(100vw - 32px), 640px);
+		box-sizing: border-box;
 		background: var(--panel-bg);
 		border-radius: var(--radius);
 		box-shadow: var(--hud-shadow);
@@ -213,7 +251,7 @@
 		bottom: 0;
 		height: var(--battle-panel);
 		display: grid;
-		grid-template-columns: minmax(240px, 2fr) 3fr;
+		grid-template-columns: minmax(300px, 2fr) 3fr;
 		gap: 12px;
 		padding: 0 16px 16px;
 		box-sizing: border-box;
@@ -241,7 +279,8 @@
 		display: flex;
 		align-items: center;
 		gap: 8px;
-		min-height: 40px;
+		flex: 0 1 40px;
+		min-height: 32px;
 		padding: 0 10px;
 		border-radius: 12px;
 		font-weight: 800;
@@ -260,8 +299,15 @@
 	}
 	.label {
 		flex: 1;
+		min-width: 0;
 		overflow: hidden;
 		text-overflow: ellipsis;
+		white-space: nowrap;
+	}
+	.how {
+		font-weight: 600;
+		font-size: 16px;
+		opacity: 0.75;
 		white-space: nowrap;
 	}
 	.levels {
@@ -275,16 +321,17 @@
 		height: 28px;
 		border-radius: 14px;
 		background: rgba(0, 0, 0, 0.08);
-		font-size: 15px;
+		font-size: 16px;
 	}
 	.row.selected .pill.on {
 		background: var(--accent);
 		color: white;
 	}
 	.dot {
-		width: 14px;
-		height: 14px;
-		border-radius: 7px;
+		width: 16px;
+		height: 16px;
+		margin: 0 6px;
+		border-radius: 8px;
 	}
 	.dot.good {
 		background: var(--good);
@@ -305,33 +352,41 @@
 		padding: 12px 20px;
 		text-align: center;
 		overflow: hidden;
+		transition: background-color 0.3s;
+	}
+	.puzzle.correct {
+		background: color-mix(in srgb, var(--good) 22%, var(--panel-bg));
 	}
 	.soft {
 		font-weight: 800;
 		font-size: 32px;
 		opacity: 0.45;
 	}
-	.hint {
+	.detail {
+		font-weight: 600;
+		font-size: 18px;
+		max-width: 30em;
+	}
+	.keys {
 		font-weight: 600;
 		font-size: 16px;
-		max-width: 34em;
-		opacity: 0.85;
+		opacity: 0.7;
 	}
 	.puzzle-prompt {
 		font-weight: 800;
-		font-size: clamp(40px, 5.5vh, 60px);
+		font-size: clamp(40px, 7vh, 64px);
 		line-height: 1.1;
 		overflow-wrap: anywhere;
 	}
 	.answer {
-		min-width: 5em;
+		min-width: 4em;
 		min-height: 1.3em;
 		padding: 2px 16px;
 		border-radius: 12px;
 		border: 3px solid rgba(0, 0, 0, 0.15);
 		background: white;
 		font-weight: 800;
-		font-size: clamp(32px, 4.5vh, 44px);
+		font-size: clamp(32px, 5vh, 44px);
 		font-variant-numeric: tabular-nums;
 		line-height: 1.3;
 	}
@@ -356,13 +411,15 @@
 	}
 	.judgement {
 		font-weight: 800;
-		font-size: 22px;
+		font-size: 24px;
+		padding: 2px 18px;
+		border-radius: 18px;
 	}
 	.judgement.good {
-		color: var(--good);
+		background: var(--good);
 	}
 	.judgement.bad {
-		color: var(--bad);
+		background: var(--bad);
 	}
 
 	.result {
@@ -374,7 +431,7 @@
 	}
 	.result-card {
 		padding: 28px 40px 32px;
-		max-width: min(80vw, 520px);
+		max-width: min(calc(100vw - 32px), 520px);
 		text-align: center;
 	}
 	.result-title {
@@ -402,7 +459,7 @@
 	}
 	kbd {
 		font-family: inherit;
-		font-size: 14px;
+		font-size: 16px;
 		padding: 2px 8px;
 		border-radius: 8px;
 		background: rgba(255, 255, 255, 0.3);
@@ -423,6 +480,24 @@
 	@keyframes blink {
 		to {
 			visibility: hidden;
+		}
+	}
+	@keyframes pop {
+		0% {
+			opacity: 0;
+			transform: translateY(8px) scale(0.8);
+		}
+		15% {
+			opacity: 1;
+			transform: translateY(0) scale(1.15);
+		}
+		70% {
+			opacity: 1;
+			transform: translateY(-10px) scale(1);
+		}
+		100% {
+			opacity: 0;
+			transform: translateY(-22px) scale(1);
 		}
 	}
 </style>

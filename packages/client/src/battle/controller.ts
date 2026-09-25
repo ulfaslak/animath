@@ -7,37 +7,45 @@ import {
 	type Authority,
 	type BattleEvent,
 	type BattleIntent,
+	type BattleSide,
 	type BattleState,
-	type GameEvent
+	type GameEvent,
+	type GridPos
 } from '@mathgame/engine';
 import { BattleScene } from '../render/battle-scene';
 import type { GameRenderer } from '../render/renderer';
 import { actionAt, actionCount, battle } from '../state/battle.svelte';
-import { game } from '../state/game.svelte';
 
 /**
  * Battle mode: owns the battle screen from `battle-started` until the player
  * leaves the result card. It turns keys into battle intents, and plays the
  * authority's events back one *beat* at a time — a line of narration, an HP
- * change, a shake — with a hold after each, so a turn reads like a Game Boy
- * battle instead of resolving in one frame. Only when every beat has played
- * does the view show the authority's latest state (the menu, the puzzle or
- * the result card) and take input again.
+ * change, a lunge or a shake — with a hold after each, so a turn reads like a
+ * Game Boy battle instead of resolving in one frame. Only when every beat has
+ * played does the view show the authority's latest state (the menu, the
+ * puzzle or the result card) and take input again.
  *
  * The authority answers every intent synchronously; the beats are purely
  * presentation and nothing here decides an outcome.
  */
 
-/** One beat: change something and say a line, then hold for `hold` seconds. */
+/** One beat: change something and maybe say a line, then hold for `hold` seconds. */
 interface Beat {
 	run: () => string | undefined;
 	hold: number;
 }
 
-/** A sign and six digits. Every answer in the game is far shorter. */
+/** A sign and six digits. Every answer in the game is shorter. */
 const MAX_ANSWER_LENGTH = 7;
 
+/**
+ * Seconds the result card ignores keys after it appears, so an Enter mashed
+ * through the last beats cannot dismiss it unread.
+ */
+const RESULT_GUARD_SECONDS = 0.8;
+
 export class BattleController {
+	/** Built on the first battle and reused for every one after it. */
 	private scene: BattleScene | null = null;
 	/** The authority's latest state; shown once the beats have played. */
 	private latest: BattleState | null = null;
@@ -45,6 +53,13 @@ export class BattleController {
 	private wait = 0;
 	/** The authority's closing `message`, kept for the result card. */
 	private closing = '';
+	/** Seconds the result card has been up. */
+	private resultAge = 0;
+	/** Where the player stands, to pick the battle's backdrop. */
+	private playerId = '';
+	private seed = 0;
+	private pos: GridPos = { x: 0, y: 0 };
+	private hits = 0;
 
 	constructor(
 		private authority: Authority,
@@ -53,24 +68,36 @@ export class BattleController {
 
 	handle(event: GameEvent): void {
 		switch (event.type) {
+			case 'welcome':
+				this.playerId = event.playerId;
+				this.seed = event.seed;
+				this.pos = event.pos;
+				break;
+			case 'player-moved':
+			case 'player-placed':
+				if (event.playerId === this.playerId) this.pos = event.pos;
+				break;
 			case 'battle-started':
 				this.begin(event.state);
 				break;
 			case 'battle-updated':
-				if (!this.scene) return; // not showing a battle: a stale or foreign event
+				if (!battle.active) return; // no battle on screen: a stale or foreign event
 				this.latest = event.state;
 				battle.screen = 'busy';
 				for (const e of event.events) this.beats.push(...this.narrate(e));
 				break;
 			case 'message':
-				if (this.scene && this.latest?.phase.kind === 'ended') this.closing = event.text;
+				if (!battle.active || this.latest?.phase.kind !== 'ended') return;
+				this.closing = event.text;
+				if (battle.screen === 'result') battle.closing = event.text;
 				break;
 		}
 	}
 
 	/** Play beats as their holds expire; `dt` is seconds. */
 	update(dt: number): void {
-		if (!this.scene) return;
+		if (!battle.active) return;
+		if (battle.screen === 'result') this.resultAge += dt;
 		this.wait -= dt;
 		while (this.wait <= 0 && this.beats.length > 0) {
 			const beat = this.beats.shift()!;
@@ -84,6 +111,13 @@ export class BattleController {
 	/** Keyboard input while the battle screen is up. */
 	onKey(e: KeyboardEvent): void {
 		if (!battle.active) return;
+		// Leave browser shortcuts alone, and never act on auto-repeat: a key held
+		// down when the battle began (a walking arrow) must not scroll the menu.
+		if (e.ctrlKey || e.metaKey || e.altKey) return;
+		if (e.repeat) {
+			e.preventDefault();
+			return;
+		}
 		let handled: boolean;
 		switch (battle.screen) {
 			case 'busy':
@@ -97,7 +131,7 @@ export class BattleController {
 				break;
 			case 'result':
 				handled = e.key === 'Enter' || e.key === ' ';
-				if (handled) this.leave();
+				if (handled && this.resultAge >= RESULT_GUARD_SECONDS) this.leave();
 				break;
 		}
 		if (handled) e.preventDefault();
@@ -116,17 +150,16 @@ export class BattleController {
 		this.beats = [];
 		this.wait = 0;
 
-		const biome = tileAtWorld(game.seed, game.pos.x, game.pos.y).biome;
-		this.scene = new BattleScene(biome);
-		this.scene.setFigure('player', this.front().speciesId);
-		this.scene.setFigure('opponent', state.opponent.speciesId);
+		const biome = tileAtWorld(this.seed, this.pos.x, this.pos.y).biome;
+		this.scene ??= new BattleScene();
+		this.scene.begin(biome, this.front().speciesId, state.opponent.speciesId);
 		this.renderer.setBattle(this.scene);
 
 		const wild = nameOf(state.opponent);
 		const mine = nameOf(this.front());
 		this.beats.push(
-			{ run: () => `A wild ${wild} appears!`, hold: 1.3 },
-			{ run: () => `Go, ${mine}!`, hold: 0.9 }
+			{ run: () => `A wild ${wild} appears!`, hold: 1.4 },
+			{ run: () => `Go, ${mine}!`, hold: 1.0 }
 		);
 	}
 
@@ -157,9 +190,11 @@ export class BattleController {
 				battle.screen = 'puzzle';
 				break;
 			case 'ended':
+				if (state.phase.outcome === 'won') this.scene?.hop('player');
 				battle.outcome = state.phase.outcome;
 				battle.closing = this.closing;
 				battle.line = '';
+				this.resultAge = 0;
 				battle.screen = 'result';
 				break;
 		}
@@ -167,7 +202,6 @@ export class BattleController {
 
 	private leave(): void {
 		this.renderer.setBattle(null);
-		this.scene = null;
 		this.latest = null;
 		this.beats = [];
 		this.wait = 0;
@@ -204,6 +238,7 @@ export class BattleController {
 			case '1':
 			case '2':
 			case '3': {
+				// A level key on an attack row picks that level and attacks at once.
 				const action = actionAt(battle.cursor, attacks.length);
 				if (action.kind !== 'attack') return true;
 				battle.level = clampLevel(Number(key));
@@ -267,41 +302,49 @@ export class BattleController {
 							battle.judged = { correct: e.correct, answer: e.answer };
 							return e.correct ? 'Correct!' : `Not quite! It was ${e.answer}.`;
 						},
-						hold: 1.0
+						hold: e.correct ? 1.0 : 1.8
 					}
 				];
-			case 'hit':
-				if (e.attacker === 'player') {
-					return [
-						{
-							run: () => {
-								const front = this.front();
-								battle.opponent = { ...battle.opponent!, hp: e.targetHp };
-								scene.shake('opponent');
-								return `${nameOf(front)} used ${attackName(front, e.attackIndex)}! ${e.damage} damage.`;
-							},
-							hold: 1.2
-						}
-					];
-				}
+			case 'hit': {
+				const target: BattleSide = e.attacker === 'player' ? 'opponent' : 'player';
+				let said = '';
 				return [
 					{
 						run: () => {
-							const wild = battle.opponent!;
-							battle.party = battle.party.map((a, i) =>
-								i === battle.front ? { ...a, hp: e.targetHp } : a
-							);
-							scene.shake('player');
-							return `Wild ${nameOf(wild)} used ${attackName(wild, e.attackIndex)}! ${e.damage} damage.`;
+							scene.lunge(e.attacker);
+							const who = this.animalOn(e.attacker);
+							const prefix = e.attacker === 'opponent' ? 'Wild ' : '';
+							said = `${prefix}${nameOf(who)} used ${attackName(who, e.attackIndex)}!`;
+							return said;
+						},
+						hold: 0.35
+					},
+					{
+						run: () => {
+							scene.shake(target);
+							if (target === 'opponent') {
+								battle.opponent = { ...battle.opponent!, hp: e.targetHp };
+							} else {
+								battle.party = battle.party.map((a, i) =>
+									i === battle.front ? { ...a, hp: e.targetHp } : a
+								);
+							}
+							battle.hit = { side: target, damage: e.damage, n: ++this.hits };
+							return `${said} ${e.damage} damage.`;
 						},
 						hold: 1.2
 					}
 				];
+			}
 			case 'missed':
 				return [
 					{
-						run: () => `${attackName(this.front(), e.attackIndex)} missed!`,
-						hold: 0.8
+						run: () => {
+							scene.lunge(e.attacker);
+							scene.puff(e.attacker === 'player' ? 'opponent' : 'player');
+							return `${attackName(this.animalOn(e.attacker), e.attackIndex)} missed!`;
+						},
+						hold: 1.0
 					}
 				];
 			case 'fainted':
@@ -313,7 +356,7 @@ export class BattleController {
 								? `Wild ${nameOf(e.animal)} is tired!`
 								: `${nameOf(e.animal)} is tired.`;
 						},
-						hold: 1.0
+						hold: 1.2
 					}
 				];
 			case 'switched':
@@ -324,13 +367,25 @@ export class BattleController {
 							scene.setFigure('player', e.animal.speciesId);
 							return `Go, ${nameOf(e.animal)}!`;
 						},
-						hold: 0.9
+						hold: 1.0
 					}
 				];
 			case 'leash-thrown':
 				return [
-					{ run: () => 'You throw the leash…', hold: 1.4 },
-					{ run: () => (e.success ? 'Caught!' : 'It broke free!'), hold: 1.0 }
+					{
+						run: () => {
+							scene.throwLeash();
+							return 'You throw the leash…';
+						},
+						hold: 1.8
+					},
+					{
+						run: () => {
+							scene.leashResult(e.success);
+							return e.success ? 'Caught!' : 'It broke free!';
+						},
+						hold: 1.2
+					}
 				];
 			case 'fled':
 				return [{ run: () => 'You got away!', hold: 0.8 }];
@@ -344,6 +399,10 @@ export class BattleController {
 
 	private front(): AnimalInstance {
 		return battle.party[battle.front] ?? battle.party[0]!;
+	}
+
+	private animalOn(side: BattleSide): AnimalInstance {
+		return side === 'player' ? this.front() : battle.opponent!;
 	}
 }
 

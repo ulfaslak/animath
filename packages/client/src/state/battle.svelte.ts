@@ -1,10 +1,11 @@
 import type { AnimalInstance, AttackLevel, BattleOutcome, Puzzle } from '@mathgame/engine';
 
 /**
- * What the battle screen shows. Filled by `BattleController`, which plays
- * the authority's battle events one at a time so HP bars and the log line
- * move at a pace a kid can follow. The authoritative state is in the events;
- * this view lags it by design ("animate the events, then show the state").
+ * What the battle screen shows. Filled only by `BattleController`, which
+ * plays the authority's battle events back one beat at a time so HP bars and
+ * the narration move at a pace a kid can follow. The authoritative state is
+ * in the events; this view lags it by design ("animate the events, then show
+ * the state"). Svelte components read it and never write it.
  *
  * `screen` says what the keyboard does: `actions` navigates the menu,
  * `puzzle` types an answer, `busy` ignores everything while events play,
@@ -22,7 +23,7 @@ class BattleView {
 	screen = $state<BattleScreen>('busy');
 	/** Highlighted row of the action menu: the attacks, then Leash, then Run. */
 	cursor = $state(0);
-	/** The attack level the highlighted attack will be used at. Sticky across battles. */
+	/** The level the highlighted attack will be used at. Kept from battle to battle. */
 	level = $state<AttackLevel>(1);
 	puzzle = $state<Puzzle | null>(null);
 	/** The answer typed so far. */
@@ -30,11 +31,13 @@ class BattleView {
 	judged = $state<{ correct: boolean; answer: number } | null>(null);
 	/** The one-line narration above the panel. */
 	line = $state('');
+	/** The latest hit, for the damage number that pops over a status box; `n` restarts it. */
+	hit = $state<{ side: 'player' | 'opponent'; damage: number; n: number } | null>(null);
 	outcome = $state<BattleOutcome | null>(null);
 	/** The authority's closing message, shown under the result headline. */
 	closing = $state('');
 
-	/** Clear everything but the sticky attack level. */
+	/** Clear everything but the attack level. */
 	reset(): void {
 		this.active = false;
 		this.party = [];
@@ -46,6 +49,7 @@ class BattleView {
 		this.input = '';
 		this.judged = null;
 		this.line = '';
+		this.hit = null;
 		this.outcome = null;
 		this.closing = '';
 	}

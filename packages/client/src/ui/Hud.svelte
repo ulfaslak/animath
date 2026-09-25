@@ -51,7 +51,7 @@
 		margin-bottom: 4px;
 	}
 	.tag {
-		font-size: 13px;
+		font-size: 16px;
 		font-weight: 800;
 		padding: 1px 8px;
 		border-radius: 8px;

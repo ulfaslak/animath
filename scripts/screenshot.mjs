@@ -92,8 +92,20 @@ async function describe() {
 	if (statuses.length) {
 		lines.push(`status: ${statuses.map((s) => s.replace(/\s+/g, ' ').trim()).join(' | ')}`);
 	}
+	const rows = await page.locator('.actions .row').evaluateAll((els) =>
+		els.map((el) => {
+			const label = el.querySelector('.label')?.textContent ?? '';
+			const how = el.querySelector('.how')?.textContent.trim();
+			const text = how ? `${label} (${how})` : label;
+			const level = el.querySelector('.pill.on')?.textContent;
+			if (!el.classList.contains('selected')) return text;
+			return level ? `[${text} at level ${level}]` : `[${text}]`;
+		})
+	);
+	if (rows.length) lines.push(`menu: ${rows.join(' | ')}`);
 	for (const [label, selector] of [
 		['line', '.battle-line'],
+		['detail', '.detail'],
 		['puzzle', '.puzzle-prompt'],
 		['answer', '.answer'],
 		['judged', '.judgement'],
