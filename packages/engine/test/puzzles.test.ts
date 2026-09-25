@@ -167,6 +167,28 @@ describe('difficulty ladder', () => {
 		});
 	}
 
+	it('ten is never a factor: "10 × 7" is a freebie at any difficulty', () => {
+		for (const kind of ['mul', 'div', 'missing'] as const) {
+			const g = getGenerator(kind);
+			for (let d = g.minDifficulty; d <= g.maxDifficulty; d++) {
+				const rng = new Rng(9900 + d);
+				for (let i = 0; i < SAMPLES; i++) {
+					const p = g.generate(rng, d);
+					const [a, b] = numbersIn(p.prompt) as [number, number];
+					// mul shows both factors; div and the missing factor hide one in the answer.
+					const factors = p.prompt.includes('÷')
+						? [b, p.answer]
+						: p.prompt.includes('× ?')
+							? [a, p.answer]
+							: p.prompt.includes('×')
+								? [a, b]
+								: [];
+					expect(factors, `${kind} d=${d}: ${p.prompt}`).not.toContain(10);
+				}
+			}
+		}
+	});
+
 	it('sequence: counting steps climb with difficulty; only difficulty 1 counts by ones', () => {
 		const g = getGenerator('sequence');
 		const minStep: number[] = [];
@@ -188,55 +210,88 @@ describe('difficulty ladder', () => {
 		}
 	});
 
-	it('sequence: every pattern starts further along as difficulty climbs', () => {
-		// The smallest answer per pattern is non-decreasing, and strictly bigger
-		// two difficulties up: "1, 1, 2, 3, ?" belongs to difficulty 7, not 10.
+	it('sequence: a pattern never asks at difficulty d what it asks two difficulties down', () => {
+		// Per pattern, both ends of the first term climb, the smallest first term
+		// at d is above the largest at d − 2 (so no prompt repeats two steps
+		// apart), and the smallest answer never falls. On main "0, 10, 20, 30, ?"
+		// could be asked at every difficulty from 4 to 10, and "1, 1, 2, 3, ?"
+		// at 10. Sampled: 900 fixed seeds per difficulty.
 		const g = getGenerator('sequence');
-		const floor = new Map<string, Map<number, number>>();
+		type Seen = { firstLo: number; firstHi: number; answerLo: number };
+		const seen = new Map<string, Map<number, Seen>>();
 		for (let d = g.minDifficulty; d <= g.maxDifficulty; d++) {
 			const rng = new Rng(9000 + d);
-			for (let i = 0; i < SAMPLES * 2; i++) {
+			for (let i = 0; i < SAMPLES * 3; i++) {
 				const p = g.generate(rng, d);
-				const r = readings(numbersIn(p.prompt));
+				const t = numbersIn(p.prompt);
+				const r = readings(t);
 				expect(r.size, `d=${d}: ${p.prompt} reads as ${[...r.keys()]}`).toBe(1);
 				const [pattern] = [...r.keys()] as [string];
-				const f = floor.get(pattern) ?? new Map<number, number>();
-				f.set(d, Math.min(f.get(d) ?? Infinity, p.answer));
-				floor.set(pattern, f);
+				const byD = seen.get(pattern) ?? new Map<number, Seen>();
+				const s = byD.get(d) ?? { firstLo: Infinity, firstHi: -Infinity, answerLo: Infinity };
+				byD.set(d, {
+					firstLo: Math.min(s.firstLo, t[0]!),
+					firstHi: Math.max(s.firstHi, t[0]!),
+					answerLo: Math.min(s.answerLo, p.answer)
+				});
+				seen.set(pattern, byD);
 			}
 		}
-		expect([...floor.keys()].sort()).toEqual([
+		expect([...seen.keys()].sort()).toEqual([
 			'add-last-two',
 			'counting',
 			'doubling-or-tripling',
 			'squares',
 			'triangle-numbers'
 		]);
-		for (const [pattern, f] of floor) {
-			for (const [d, lo] of f) {
-				if (f.has(d - 1))
-					expect(lo, `${pattern}: floor fell at d=${d}`).toBeGreaterThanOrEqual(f.get(d - 1)!);
-				if (f.has(d - 2))
-					expect(lo, `${pattern}: d=${d} as easy as d=${d - 2}`).toBeGreaterThan(f.get(d - 2)!);
+		for (const [pattern, byD] of seen) {
+			for (const [d, s] of byD) {
+				const prev = byD.get(d - 1);
+				if (prev) {
+					expect(s.firstLo, `${pattern}: first-term floor fell at d=${d}`).toBeGreaterThanOrEqual(
+						prev.firstLo
+					);
+					expect(s.firstHi, `${pattern}: first-term ceiling fell at d=${d}`).toBeGreaterThanOrEqual(
+						prev.firstHi
+					);
+					expect(s.answerLo, `${pattern}: answer floor fell at d=${d}`).toBeGreaterThanOrEqual(
+						prev.answerLo
+					);
+				}
+				const twoDown = byD.get(d - 2);
+				if (twoDown)
+					expect(s.firstLo, `${pattern}: d=${d} repeats d=${d - 2}`).toBeGreaterThan(
+						twoDown.firstHi
+					);
 			}
 		}
 	});
 
 	it('sequence: no prompt fits two patterns with different answers', () => {
 		// "2, 3, 5, 8, ?" is 13 by adding the last two and 12 by "the gaps grow
-		// by one"; a kid who answers 12 is not wrong. Checked exhaustively over
-		// every difficulty, not only where the sampler happened to land.
+		// by one"; "4, 4, 8, 12, ?" is 20 by adding the last two and 16 to a kid
+		// who counts on from the end. Either kid is not wrong. Sampled: 900
+		// fixed seeds per difficulty.
 		const g = getGenerator('sequence');
 		for (let d = g.minDifficulty; d <= g.maxDifficulty; d++) {
 			const rng = new Rng(9500 + d);
 			for (let i = 0; i < SAMPLES * 3; i++) {
 				const p = g.generate(rng, d);
-				const answers = new Set(readings(numbersIn(p.prompt)).values());
+				const t = numbersIn(p.prompt);
+				const answers = new Set(readings(t).values());
+				const tail = countingAtTheEnd(t);
+				if (tail !== null) answers.add(tail);
 				expect([...answers], `d=${d}: ${p.prompt}`).toEqual([p.answer]);
 			}
 		}
 	});
 });
+
+/** What a kid who only looks at the last three terms predicts, if they count. */
+function countingAtTheEnd(t: number[]): number | null {
+	const [x, y, z] = t.slice(-3) as [number, number, number];
+	return z - y === y - x ? z + (z - y) : null;
+}
 
 /**
  * Every pattern a kid is taught that fits `t`, with the next number it

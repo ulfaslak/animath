@@ -31,14 +31,15 @@ export const ADD_BAND: readonly Band[] = [
 
 /**
  * mul / div / missing-×: a big factor times a small one. The small factor is
- * the times table (2–10 at first), the big one is what grows past it.
+ * the times table (2–9 at first), the big one is what grows past it. Ten is
+ * never a factor: "10 × 7" is a freebie, not a difficulty-3 or -4 question.
  * Difficulty 1 is below `mul.minDifficulty`; its row keeps the tables aligned.
  */
 export const MUL_BIG_BAND: readonly Band[] = [
 	[2, 5], //      (1: unused)
 	[2, 5], //      2: small tables
-	[6, 10], //     3: tables 6–10 by 2–5
-	[6, 10], //     4: tables 6–10 by 6–9
+	[6, 9], //      3: tables 6–9 by 2–5
+	[6, 9], //      4: tables 6–9 by 6–9
 	[11, 20], //    5: teens by a digit
 	[21, 50], //    6: two-digit by a digit
 	[21, 50], //    7: two-digit by teens
@@ -50,7 +51,7 @@ export const MUL_SMALL_BAND: readonly Band[] = [
 	[2, 5],
 	[2, 5],
 	[2, 5],
-	[6, 9], //      4–6: no "× 10" freebie as the small factor
+	[6, 9], //      4–6
 	[6, 9],
 	[6, 9],
 	[11, 20],

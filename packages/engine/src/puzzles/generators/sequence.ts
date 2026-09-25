@@ -16,9 +16,11 @@ function familiesFor(difficulty: number): Family[] {
 const SHOWN = 4; // terms shown before the "?"
 
 /**
- * Step band for counting sequences (index = difficulty − 1). The floor is
- * what stops difficulty 10 from asking "12, 13, 14, 15, ?" (#7); the ceiling
- * keeps difficulty 1 at counting by ones and twos.
+ * Counting sequences (index = difficulty − 1): the step and the first term
+ * both come from bands. The step floor stops difficulty 10 from asking
+ * "12, 13, 14, 15, ?" (#7); the first-term bands don't overlap at all, so no
+ * two difficulties ever ask the same counting sequence ("0, 10, 20, 30, ?"
+ * used to be possible at every difficulty from 4 to 10).
  */
 const STEP_BAND: readonly Band[] = [
 	[1, 2],
@@ -32,38 +34,52 @@ const STEP_BAND: readonly Band[] = [
 	[9, 20],
 	[10, 25]
 ];
+const COUNTING_START: readonly Band[] = [
+	[0, 5],
+	[6, 10],
+	[11, 15],
+	[16, 20],
+	[21, 25],
+	[26, 30],
+	[31, 35],
+	[36, 40],
+	[41, 45],
+	[46, 50]
+];
 
 /**
  * Where the other patterns start (index = difficulty − 1; rows below the
- * difficulty that introduces a family are unused). The textbook opening —
- * "1, 2, 4, 8", "1, 4, 9, 16", "1, 3, 6, 10", "1, 1, 2, 3" — belongs to the
- * difficulty that introduces the pattern; later difficulties start further
- * along, so the bear's hardest attack never asks what the rabbit asks (#7).
+ * difficulty that introduces a pattern are unused). Both ends climb, and each
+ * floor sits above the ceiling two difficulties down, so a pattern never asks
+ * at difficulty d what it asks at d − 2 or below: the textbook opening —
+ * "1, 2, 4, 8", "1, 4, 9, 16", "1, 3, 6, 10" — stays near the difficulty that
+ * introduces it, and the bear's hardest attack never asks what the rabbit
+ * asks (#7).
  */
 const GEOMETRIC_START: readonly Band[] = [
-	[1, 5], //  (1–2: unused)
-	[1, 5],
-	[1, 5], //  3–4: doubling from 1–5
-	[1, 5],
-	[2, 6],
-	[2, 6], //  6: ×3 joins
-	[3, 8],
-	[3, 8],
-	[4, 10],
-	[4, 10]
+	[1, 4], //  (1–2: unused)
+	[1, 4],
+	[1, 4], //  3: doubling from 1–4
+	[2, 5],
+	[5, 8],
+	[6, 9], //  6: ×3 joins
+	[9, 12],
+	[10, 14],
+	[13, 20],
+	[15, 25]
 ];
 /** The first number squared. */
 const SQUARES_START: readonly Band[] = [
-	[1, 1], //  (1–4: unused)
-	[1, 1],
-	[1, 1],
-	[1, 1],
+	[1, 2], //  (1–4: unused)
+	[1, 2],
+	[1, 2],
+	[1, 2],
 	[1, 2], //  5: 1, 4, 9, 16 or 4, 9, 16, 25
 	[1, 3],
-	[2, 4],
-	[3, 6],
-	[4, 8],
-	[5, 10] // 10: from 25, 36, 49, 64 up to 100, 121, 144, 169
+	[3, 5],
+	[4, 7],
+	[6, 9],
+	[8, 12] // 10: from 64, 81, 100, 121 up to 144, 169, 196, 225
 ];
 /** Which triangle number comes first (1 → 1, 3, 6, 10). */
 const TRIANGULAR_START: readonly Band[] = [
@@ -75,8 +91,8 @@ const TRIANGULAR_START: readonly Band[] = [
 	[1, 3],
 	[1, 3], //  7: 1, 3, 6, 10
 	[2, 5],
-	[3, 7],
-	[4, 9]
+	[4, 7],
+	[6, 10]
 ];
 /** The first term of an add-the-last-two sequence. */
 const FIBONACCI_START: readonly Band[] = [
@@ -86,10 +102,10 @@ const FIBONACCI_START: readonly Band[] = [
 	[1, 3],
 	[1, 3],
 	[1, 3],
-	[1, 3], //  7: 1, 1, 2, 3
-	[2, 4],
-	[3, 6],
-	[4, 8]
+	[1, 3], //  7: 1, 2, 3, 5 · 1, 3, 4, 7 · 2, 4, 6, 10 · 3, 4, 7, 11 · 3, 5, 8, 13
+	[2, 5],
+	[4, 7],
+	[6, 10]
 ];
 
 function draw(rng: Rng, table: readonly Band[], difficulty: number): number {
@@ -102,7 +118,7 @@ function terms(family: Family, rng: Rng, difficulty: number): number[] {
 	switch (family) {
 		case 'arithmetic': {
 			const step = draw(rng, STEP_BAND, difficulty);
-			const start = rng.int(0, difficulty * 5);
+			const start = draw(rng, COUNTING_START, difficulty);
 			for (let i = 0; i <= SHOWN; i++) out.push(start + i * step);
 			return out;
 		}
@@ -127,11 +143,11 @@ function terms(family: Family, rng: Rng, difficulty: number): number[] {
 		}
 		case 'fibonacci': {
 			let a = draw(rng, FIBONACCI_START, difficulty);
-			// a, b, a + b, a + 2b has gaps b − a, a, b. When 2b = 3a those gaps
-			// grow by the same amount ("2, 3, 5, 8": gaps 1, 2, 3), so "the gaps
-			// grow by one" answers 12 where adding the last two answers 13. A
-			// prompt must have one right answer: skip the second gap that does it.
-			const gaps = [0, 1, 2].filter((k) => 2 * (a + k) !== 3 * a);
+			// a, b, a + b, a + 2b has gaps b − a, a, b, and a prompt must have one
+			// right answer. b = a ("4, 4, 8, 12") ends in a counting run a kid
+			// reads as 16, not 20; 2b = 3a ("2, 3, 5, 8": gaps 1, 2, 3) has gaps
+			// that grow by one, which answers 12, not 13. Skip both.
+			const gaps = [1, 2].filter((k) => 2 * (a + k) !== 3 * a);
 			let b = a + rng.pick(gaps);
 			for (let i = 0; i <= SHOWN; i++) {
 				out.push(a);
