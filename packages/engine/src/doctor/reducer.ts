@@ -3,8 +3,9 @@ import type { AnimalInstance } from '../animals/types.js';
 import { healingDifficulty } from '../puzzles/difficulty.js';
 import { checkAnswer, generatePuzzle } from '../puzzles/registry.js';
 import type { Puzzle, PuzzleKind } from '../puzzles/types.js';
+import { animalName } from '../party/names.js';
 import { Rng, hashInts } from '../rng.js';
-import { animalName, needsHealing, validateParty } from './party.js';
+import { needsHealing, validateParty } from './party.js';
 import type { DoctorEvent, DoctorIntent, DoctorPhase, DoctorState, DoctorStep } from './types.js';
 
 /**
