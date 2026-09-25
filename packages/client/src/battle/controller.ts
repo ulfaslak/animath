@@ -81,6 +81,10 @@ export class BattleController {
 				break;
 			case 'player-moved':
 			case 'player-placed':
+			case 'taken-to-doctor':
+				// Where the next battle is fought, for its backdrop. A lost battle's
+				// trip to the tent sends no `message`: its card shows only "Good try!",
+				// and the doctor's line waits on the message line in the world.
 				if (event.playerId === this.playerId) this.pos = event.pos;
 				break;
 			case 'battle-started':

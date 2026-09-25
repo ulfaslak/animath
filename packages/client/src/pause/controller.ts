@@ -26,6 +26,7 @@ export class PauseController {
 		switch (event.type) {
 			case 'welcome':
 			case 'battle-started':
+			case 'doctor-visit-started':
 				// Something else has the screen now; the menu never stays open under it.
 				this.close();
 				break;

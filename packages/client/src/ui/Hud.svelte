@@ -1,8 +1,10 @@
 <script lang="ts">
 	import { getAnimal, leadIndex } from '@mathgame/engine';
+	import { fade } from 'svelte/transition';
 	import { t } from '../copy';
 	import { nameOf } from '../names';
 	import { game } from '../state/game.svelte';
+	import { hud } from '../state/hud.svelte';
 	import HpBar from './HpBar.svelte';
 
 	/**
@@ -11,15 +13,12 @@
 	 * is knocked out. The lead — the engine's `leadIndex`, the first animal
 	 * standing, the one a battle sends out — is outlined and tagged "goes
 	 * first". Under the cards, the keys for choosing and for the menu; at the
-	 * bottom, the message line, where a notice about the lead is put into words.
+	 * bottom, the message line (`state/hud.svelte.ts`), which also says who goes
+	 * first after a party edit.
 	 */
 	const lead = $derived(leadIndex(game.party));
 	/** With one animal there is nobody to choose between: no numbers, no tag. */
 	const choosing = $derived(game.party.length > 1);
-	/** The animal a notice about the lead is about, if it is still in the party. */
-	const noticed = $derived(
-		game.notice ? game.party.find((a) => a.id === game.notice!.animalId) : undefined
-	);
 </script>
 
 <div class="party">
@@ -30,7 +29,7 @@
 				{#if choosing}<kbd class="slot">{i + 1}</kbd>{/if}
 				<span class="name">{nameOf(animal)}</span>
 				{#if animal.hp === 0}
-					<span class="tag">{t('hud.tired')}</span>
+					<span class="tag">{t('party.tired')}</span>
 				{:else if choosing && i === lead}
 					<span class="tag lead">{t('hud.goesFirst')}</span>
 				{/if}
@@ -46,21 +45,18 @@
 	</div>
 </div>
 
-<div class="hint">
-	Arrows / WASD to walk · {game.pos.x}, {game.pos.y}
-	{#if game.notice && noticed}
-		·
-		{#if game.notice.kind === 'chosen'}
-			{t('party.leadChosen', { name: nameOf(noticed) })}
-		{:else if game.notice.kind === 'tired'}
-			{t('party.leadTired', { name: nameOf(noticed) })}
-		{:else}
-			{t('party.leadAlready', { name: nameOf(noticed) })}
+<!-- The message line: the latest message while it is fresh, then the doctor
+     prompt or the controls hint (see `state/hud.svelte.ts`). -->
+{#if hud.message || hud.hint}
+	<div class="hint" transition:fade={{ duration: 400 }}>
+		{#if hud.message}
+			<div class="message" transition:fade={{ duration: 400 }}>{hud.message}</div>
 		{/if}
-	{:else if game.message}
-		· {game.message}
-	{/if}
-</div>
+		{#if hud.hint}
+			<div class="prompt">{hud.hint}</div>
+		{/if}
+	</div>
+{/if}
 
 <style>
 	.party {
@@ -151,11 +147,20 @@
 		bottom: 16px;
 		left: 50%;
 		transform: translateX(-50%);
+		width: max-content;
+		max-width: calc(100vw - 32px);
+		box-sizing: border-box;
 		background: var(--panel-bg);
 		border-radius: var(--radius);
 		box-shadow: var(--hud-shadow);
 		padding: 8px 16px;
 		font-weight: 600;
-		white-space: nowrap;
+		text-align: center;
+	}
+	.prompt {
+		font-weight: 800;
+	}
+	.message + .prompt {
+		margin-top: 2px;
 	}
 </style>

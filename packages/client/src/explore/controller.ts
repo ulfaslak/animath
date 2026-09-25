@@ -8,6 +8,7 @@ const STEP_SECONDS = 0.18; // one tile per step; Game Boy pace is ~0.25
 /**
  * Explore mode: turns held keys into `move` intents, one per tile, and
  * animates the player mesh between tiles as `player-moved` events arrive.
+ * Enter is sent as `interact`; what came of it is the authority's to say.
  * A number key sends `select-lead` for the animal in that party slot.
  */
 export class ExploreController {
@@ -27,10 +28,13 @@ export class ExploreController {
 	handle(event: GameEvent): void {
 		switch (event.type) {
 			case 'welcome':
+				// The authority faces down at `welcome` too, so a second one (a
+				// reconnect) leaves both sides agreeing about which way the player looks.
 				this.playerId = event.playerId;
 				this.seed = event.seed;
 				this.pos = this.from = event.pos;
 				this.progress = 1;
+				this.facing = 'down';
 				this.renderer.setWorld(this.seed);
 				this.renderer.setPlayer(event.pos, event.pos, 1, this.facing);
 				break;
@@ -49,6 +53,14 @@ export class ExploreController {
 				if (event.playerId !== this.playerId) break;
 				this.pos = this.from = event.pos;
 				this.progress = 1;
+				break;
+			case 'taken-to-doctor':
+				// After a lost battle: beside a tent that can be far away, so no
+				// tween; the figure turns to the tent (or down, if a doctor came).
+				if (event.playerId !== this.playerId) break;
+				this.pos = this.from = event.pos;
+				this.progress = 1;
+				this.facing = event.dir;
 				break;
 		}
 	}

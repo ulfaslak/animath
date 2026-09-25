@@ -11,28 +11,71 @@ puzzle:
   # Under a puzzle until it is answered.
   keys: Type the answer, then press Enter
 
+explore:
+  # Under the latest message for a player's first few moves.
+  controls: Arrows / WASD to walk
+  # Under the latest message while the player faces a doctor's tent.
+  talkPrompt: Press Enter to talk to the doctor
+  # Enter anywhere but facing a tent.
+  notAtTent: Walk up to a tent to talk to the doctor.
+
+party:
+  # The tag on an animal at 0 HP.
+  tired: tired
+  # The message line, when a number key or "Go first" made {name} the lead,
+  # or a change in the pause menu left {name} in front.
+  leadChosen: '{name} goes first!'
+  # The message line, when the number of a tired animal was pressed.
+  leadTired: '{name} is tired. Visit the doctor!'
+  # The message line, when the lead's own number was pressed.
+  leadAlready: '{name} already goes first!'
+
+doctor:
+  # The name tag in front of what the doctor says.
+  title: Doctor
+  # Opening the card with someone to help.
+  hello: Hello! Who needs help today?
+  # Opening the card with nobody to help.
+  helloAllFit: Hello! Your animals are all fit and happy.
+  # A puzzle for {name}, just picked.
+  letsHelp: Let's help {name}! Can you solve this?
+  # After a wrong answer; a new puzzle follows.
+  notQuite: Not quite! Let's try another one.
+  # After a right answer, while someone else still needs the doctor.
+  healedNext: Well done! {name} feels all better! Who is next?
+  # After a right answer that leaves everyone at full HP.
+  healedAll: Well done! {name} feels all better! Everyone is fit and happy!
+  # On the message line after leaving the card.
+  goodbye: Bye! Come back any time.
+  # After a lost battle, woken beside a tent.
+  rescuedAtTent: The doctor looked after your animals. Everyone feels better!
+  # After a lost battle with no tent near: a doctor came to the player.
+  rescuedHere: A doctor came by and looked after your animals. Everyone feels better!
+  # The last row of the list, and its key.
+  bye: Bye
+  byeKey: Esc
+  # The puzzle area before an animal is picked.
+  pick: Pick an animal
+  pickDetail: Solve a puzzle and {name} feels all better!
+  byeDetail: Say bye and go exploring.
+  listKeys: ↑ ↓ choose · Enter pick · Esc bye
+  # Under a doctor's puzzle while another animal needs help too.
+  puzzleKeys: ↑ ↓ help another animal · Esc bye
+  # The puzzle area when nobody needs the doctor.
+  allFit: Time to explore!
+  allFitKeys: Enter or Esc to say bye
+
 keys:
   # A key cap, as printed on the keyboard.
   esc: Esc
 
 hud:
-  # The tag on a knocked-out animal's party card.
-  tired: tired
   # The tag on the card of the lead: the animal that steps into the next battle.
   goesFirst: goes first
   # Under the party cards, after the number keys 1–n.
   pickLead: Pick who goes first
   # Under the party cards, after the Esc key cap.
   menu: Menu
-
-party:
-  # The message line, when a number key or "Go first" made {name} the lead,
-  # or a change in the pause menu left {name} in front.
-  leadChosen: '{name} goes first!'
-  # The message line, when the number of a tired animal was pressed.
-  leadTired: "{name} is tired and can't go first."
-  # The message line, when the lead's own number was pressed.
-  leadAlready: '{name} already goes first!'
 
 pause:
   # The pause menu's title.

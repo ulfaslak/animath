@@ -1,6 +1,7 @@
 import type { GameEvent, Intent } from '@mathgame/engine';
 import { beforeEach, describe, expect, it } from 'vitest';
-import { LocalAuthority, partyFromParam } from '../src/authority/local';
+import { LocalAuthority } from '../src/authority/local';
+import { parseParty } from '../src/flags';
 import { PauseController } from '../src/pause/controller';
 import { game } from '../src/state/game.svelte';
 import { MENU_ITEMS, pause } from '../src/state/pause.svelte';
@@ -38,7 +39,7 @@ function key(
 }
 
 function setup(startingParty = 'squirrel,rabbit,fox') {
-	const authority = new LocalAuthority({ party: partyFromParam(startingParty) });
+	const authority = new LocalAuthority({ party: parseParty(startingParty)! });
 	const controller = new PauseController(authority);
 	const events: GameEvent[] = [];
 	const sent: Intent[] = [];
@@ -115,8 +116,6 @@ describe('pause menu', () => {
 		expect(species()).toEqual(['fox', 'squirrel', 'rabbit']);
 		expect(pause.screen).toBe('list');
 		expect(pause.cursor).toBe(0);
-		// The message line will say so when the menu closes.
-		expect(game.notice).toEqual({ kind: 'chosen', animalId: fox.id });
 	});
 
 	it('moves an animal up one step at a time, and a mashed Enter stops at the top', () => {

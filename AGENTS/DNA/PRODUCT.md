@@ -129,6 +129,8 @@ What is built and observable today. Keep current: add a bullet when a feature sh
 - Party HUD: one card per animal in battle order with its number key, its name (nickname if it has one) and an HP bar with numbers; a knocked-out animal is greyed with a "tired" tag, and the lead is outlined and tagged "goes first".
 - Choosing the lead from explore: the number keys pick who goes first (§4 "Party"); a tired animal can't go first, and the message line says so.
 - Pause menu (Escape in explore): the team in battle order, where an animal can go first, move up or down, or get a nickname typed in a name box. Walking waits while it is open.
+- Message line: the latest message for a few seconds, the controls hint for the first few steps, and "Press Enter to talk to the doctor" while the player faces a tent ([[UI_SPEC]] § Explore mode).
+- Doctor's tents: facing a tent, Enter opens the doctor's card ([[UI_SPEC]] § Doctor). Pick a hurt or tired animal, solve its puzzle and it is back to full HP; a wrong answer just brings another puzzle; the list stays live during a puzzle; Bye or Escape leaves at any time. With nobody hurt, the doctor says everyone is fit and happy. The doctor speaks English and Danish (its words are in the copy files; the animals' names are still English).
 
 ### Encounters and battle
 
@@ -136,22 +138,22 @@ What is built and observable today. Keep current: add a bullet when a feature sh
 - Battle mode, Game Boy style ([[UI_SPEC]] § Battle mode): the two animals face each other on a patch of the biome, with status boxes, a narration line, an action menu (every attack at three levels, with how hard its puzzle is, then Leash, with a word for how likely a catch is, and Run) and the puzzle panel. Every attack is a puzzle answered by typing a number. The wild animal's reply, knock-outs and the automatic switch to the next animal are played out one line at a time.
 - Catching with the leash; a caught animal joins the party (up to six) with the HP it had. With six already, it goes back into the grass.
 - HP lost in a battle stays lost afterwards; a knocked-out animal stays tired and sits out battles until healed.
-- **Placeholder for losing**: when the whole party is tired, everyone rests back to full HP and the player is put back on the start tile ("Everyone is tired. You rest and feel better."). §4 says the player is taken to the nearest doctor's tent; that replaces this when doctor healing lands (§6).
+- Losing: when the whole party is tired, the result card says "Good try!", and the player is back in the world beside the nearest tent on foot, facing it, with the whole party healed and the doctor's line on the message line (§4 "Knock-out and healing").
 
 ### Language
 
-- The game starts in Danish when the browser prefers Danish, and in English otherwise (`?lang=da` / `?lang=en` in the address overrides). So far only the line under a puzzle is in Danish; everything else is English, and there is no Language setting yet (§6).
+- The game starts in Danish when the browser prefers Danish, and in English otherwise (`?lang=da` / `?lang=en` in the address overrides). So far the line under a puzzle, the doctor (the card, everything the doctor says, the tent prompt and hints on the message line) and the party's "tired" tag are in Danish; everything else is English, the animals' names included, and there is no Language setting yet (§6).
 
 ### Engine
 
 - Puzzle catalog: 7 kinds across difficulty 1–10, seeded and deterministic.
-- Difficulty mapping (tier, attack, level) and healing difficulty — the healing one is not used by anything yet.
+- Difficulty mapping (tier, attack, level) and healing difficulty.
 - Damage and catch-probability formulas.
 - Species catalog: 7 placeholder species, tiers 1–5.
 - Wild encounter tables and the per-step roll, indexed on the lead's tier, with visitors of the lead's tier near home where only bigger animals live (§4 "Wild encounters").
 - Battle reducer: `startBattle` and `applyBattleIntent` play a whole wild battle by the rules in §4 — attacks, puzzles, answers, the wild animal's reply (which can miss an animal its own size or bigger), leash, flee, knock-outs and automatic party switching — as intents in, events out.
 - Party rules (§4 "Party"): `applyPartyIntent` chooses the lead, moves an animal or names it, only while exploring; `normalizeNickname` cleans a typed name; `leadIndex` is the lead that battles and encounters use.
-- Doctor rules (§4 "Knock-out and healing"): whether the player faces a tent, a doctor visit that heals one hurt animal per solved puzzle (`startDoctorVisit` and `applyDoctorIntent`, intents in, events out), and the knock-out rule (`takeToDoctor`), which finds the nearest tent on foot and heals the whole party. Not wired to the client yet: pressing Enter at a tent still just says "Nothing here yet.", and a lost battle ends in the placeholder rest above.
+- Doctor rules (§4 "Knock-out and healing"): whether the player faces a tent, a doctor visit that heals one hurt animal per solved puzzle (`startDoctorVisit` and `applyDoctorIntent`, intents in, events out), and the knock-out rule (`takeToDoctor`), which finds the nearest tent on foot and heals the whole party.
 
 ### Server
 
@@ -163,13 +165,12 @@ What is built and observable today. Keep current: add a bullet when a feature sh
 
 In rough priority order. Each becomes a GitHub issue when picked up.
 
-1. Doctor healing at tents in the client: the doctor's dialogue card, and the trip to the tent after a lost battle, replacing the placeholder rest in §5. The engine rules are built (§5).
-2. Save/load in the client: create the anonymous player on first visit, keep the secret, load the save on boot and write it as the game progresses (the server routes exist, see [[ARCHITECTURE]] § HTTP API).
-3. A title screen and settings (sound, language) in the pause menu.
-4. Real low-poly animal models (glTF, CC0 sources, see [[DECISIONS]]) with attack animations, replacing the primitive figures.
-5. The whole game in Danish and English: every line in both, and a Language setting in the pause menu that switches every word at once and is remembered on this device. The copy files and `t()` exist (§5, [[ARCHITECTURE]] § Copy); the words have not moved into them yet.
-6. Procedural world v2: rivers that flow, paths, biome shaping, landmarks, spawn tables.
-7. Puzzle catalog v2: fractions, decimals, negatives, word problems, per-child adaptive difficulty.
-8. Touch controls for tablets.
-9. Multiplayer: shared world, other players visible, PvP battles, tokens, shop.
-10. Deployment to the Hetzner VPS.
+1. Save/load in the client: create the anonymous player on first visit, keep the secret, load the save on boot and write it as the game progresses (the server routes exist, see [[ARCHITECTURE]] § HTTP API).
+2. A title screen, and sound with its setting in the pause menu (where the Language setting also goes, below).
+3. Real low-poly animal models (glTF, CC0 sources, see [[DECISIONS]]) with attack animations, replacing the primitive figures.
+4. The whole game in Danish and English: every line in both, and a Language setting in the pause menu that switches every word at once and is remembered on this device. The copy files and `t()` exist (§5, [[ARCHITECTURE]] § Copy); the doctor's words are in them, the rest have not moved yet.
+5. Procedural world v2: rivers that flow, paths, biome shaping, landmarks, spawn tables.
+6. Puzzle catalog v2: fractions, decimals, negatives, word problems, per-child adaptive difficulty.
+7. Touch controls for tablets.
+8. Multiplayer: shared world, other players visible, PvP battles, tokens, shop.
+9. Deployment to the Hetzner VPS.

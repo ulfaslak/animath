@@ -1,6 +1,7 @@
 import type { BattleState, GameEvent } from '@mathgame/engine';
 import { describe, expect, it } from 'vitest';
-import { LocalAuthority, partyFromParam } from '../src/authority/local';
+import { LocalAuthority } from '../src/authority/local';
+import { parseParty } from '../src/flags';
 import { ExploreController } from '../src/explore/controller';
 import { Keyboard } from '../src/input/keyboard';
 import type { GameRenderer } from '../src/render/renderer';
@@ -23,7 +24,7 @@ function setup(startingParty: string) {
 		setPlayer() {},
 		ensureChunksAround() {}
 	} as unknown as GameRenderer;
-	const authority = new LocalAuthority({ party: partyFromParam(startingParty) });
+	const authority = new LocalAuthority({ party: parseParty(startingParty)! });
 	const explore = new ExploreController(authority, renderer, keyboard);
 	const events: GameEvent[] = [];
 	authority.subscribe((e) => {

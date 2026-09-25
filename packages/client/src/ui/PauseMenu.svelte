@@ -98,7 +98,7 @@
 						<span class="bar"><HpBar hp={animal.hp} max={spec.maxHp} /></span>
 						<span class="tags">
 							{#if animal.hp === 0}
-								<span class="tag">{t('hud.tired')}</span>
+								<span class="tag">{t('party.tired')}</span>
 							{:else if i === lead && game.party.length > 1}
 								<span class="tag lead">{t('hud.goesFirst')}</span>
 							{/if}

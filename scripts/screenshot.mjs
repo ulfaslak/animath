@@ -25,12 +25,13 @@
  *                 second `down:` of the same key is an auto-repeat
  *   up:<key>      let go of a key pressed with `down:`
  * The final frame goes to `--out`. After every frame the script prints what
- * the screen says — in explore the HUD line (with the grid position) and the
- * party cards; in the pause menu its rows, the picked animal's options and
- * the name box (with whether it has the focus); in a battle the narration
- * line, the puzzle, the typed answer, the judgement, the status boxes and the
- * result card — so a flow can be asserted from the console output, not only
- * the images.
+ * the screen says — the message line in explore (and the grid position and
+ * facing with `?debug` in the URL) and the party cards; in the pause menu its
+ * rows, the picked animal's options and the name box (with whether it has
+ * the focus); at the doctor the doctor's line and the party; and in a battle
+ * the narration line, the puzzle, the typed answer, the judgement, the status
+ * boxes and the result card — so a flow can be asserted from the console
+ * output, not only the images.
  *
  * Headless SwiftShader runs at a few frames per second, so buffered steps need
  * the `--settle` wait to finish before the screenshot. `--scale 3` renders the
@@ -100,8 +101,25 @@ async function textOf(selector) {
 /** What the screen says right now, one `key: value` per line. */
 async function describe() {
 	const lines = [];
-	const hint = await textOf('.hint');
-	if (hint !== null) lines.push(`hud: ${hint}`);
+	const debug = await textOf('.debug');
+	if (debug !== null) lines.push(`at: ${debug}`);
+	const message = await textOf('.hint .message');
+	const prompt = await textOf('.hint .prompt');
+	if (message !== null || prompt !== null) {
+		lines.push(`hud: ${[message, prompt].filter((t) => t !== null).join(' | ')}`);
+	}
+	const doctorLine = await textOf('.doctor-line');
+	if (doctorLine !== null) lines.push(`doctor: ${doctorLine}`);
+	const patients = await page.locator('.patients .row').evaluateAll((els) =>
+		els.map((el) => {
+			const label = el.querySelector('.label')?.textContent ?? '';
+			const tag = el.querySelector('.tag')?.textContent;
+			const hp = el.querySelector('.hp .text')?.textContent;
+			const text = [label, tag && `(${tag})`, hp].filter(Boolean).join(' ');
+			return el.classList.contains('selected') ? `[${text}]` : text;
+		})
+	);
+	if (patients.length) lines.push(`patients: ${patients.join(' | ')}`);
 	// Party cards in explore, the lead in brackets: "[1 Pip 20/20 goes first] | 2 Rabbit 0/22 tired".
 	const cards = await page.locator('.party .member').evaluateAll((els) =>
 		els.map((el) => {
