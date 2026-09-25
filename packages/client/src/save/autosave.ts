@@ -13,7 +13,7 @@ import {
 	type SavedGame
 } from '@mathgame/engine';
 import { isIdentity, type Identity, type SaveServer } from './api';
-import { SAVE_TEXT } from './copy';
+import { t } from '../copy';
 import { KEYS, parseJson, type KeyValueStore } from './storage';
 
 /**
@@ -164,7 +164,7 @@ export class Autosave {
 	async boot(): Promise<StartPlan> {
 		if (this.throwaway) return {};
 		const store = this.store;
-		if (!store) return { message: SAVE_TEXT.cannotSave };
+		if (!store) return { message: t('save.cannotSave') };
 		this.readIdentity(store);
 
 		const text = store.get(KEYS.save);
@@ -176,14 +176,14 @@ export class Autosave {
 			if (read.ok) {
 				this.carryOn(read.save);
 				this.serverState = this.identity ? 'unknown' : 'ready';
-				return { game: restoreGame(read.save), message: SAVE_TEXT.welcomeBack };
+				return { game: restoreGame(read.save), message: t('save.welcomeBack') };
 			}
 			if (read.reason === 'newer') {
 				this.local = 'frozen';
-				return { message: SAVE_TEXT.newerGame };
+				return { message: t('save.newerGame') };
 			}
 			this.local = 'held';
-			plan = { message: SAVE_TEXT.couldNotLoad };
+			plan = { message: t('save.couldNotLoad') };
 		}
 
 		// No save this build can read here. The server may have this player's game.
@@ -199,7 +199,7 @@ export class Autosave {
 					this.pushed = this.seq;
 					// The kid's game is back: an unreadable local save is set aside for it at once.
 					this.played = true;
-					return { game: restoreGame(read.save), message: SAVE_TEXT.welcomeBack };
+					return { game: restoreGame(read.save), message: t('save.welcomeBack') };
 				}
 				if (read.reason === 'newer') this.serverState = 'stopped';
 				// Unreadable: our saves are numbered past it, and the server sets it aside when one lands.
