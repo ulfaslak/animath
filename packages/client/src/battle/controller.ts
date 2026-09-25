@@ -45,6 +45,12 @@ interface Beat {
 const RESULT_GUARD_SECONDS = 0.8;
 
 /**
+ * Seconds the "who goes next?" list ignores a pick after a knock-out brings it
+ * up, so an Enter mashed through the narration cannot choose for the kid.
+ */
+const PICK_GUARD_SECONDS = 0.8;
+
+/**
  * Seconds the world stays on screen after `battle-started`, so the step into
  * the grass lands before the battle appears (a step takes 0.18 s).
  */
@@ -61,6 +67,8 @@ export class BattleController {
 	private closing = '';
 	/** Seconds the result card has been up. */
 	private resultAge = 0;
+	/** Seconds the party list has been up. */
+	private listAge = 0;
 	/** Seconds left before the battle screen replaces the world. */
 	private enterIn = 0;
 	/** Where the player stands, to pick the battle's backdrop. */
@@ -117,6 +125,7 @@ export class BattleController {
 			this.renderer.setBattle(this.scene);
 		}
 		if (battle.screen === 'result') this.resultAge += dt;
+		if (battle.screen === 'party') this.listAge += dt;
 		this.wait -= dt;
 		while (this.wait <= 0 && this.beats.length > 0) {
 			const beat = this.beats.shift()!;
@@ -169,6 +178,8 @@ export class BattleController {
 		battle.party = state.party.map((a) => ({ ...a }));
 		battle.front = state.active;
 		battle.opponent = { ...state.opponent };
+		// Known from the start, so the Switch row doesn't show greyed through the opening lines.
+		battle.pickable = state.party.map((_, i) => canSwitchTo(state, i));
 		this.latest = state;
 		this.closing = '';
 		this.beats = [];
@@ -183,8 +194,11 @@ export class BattleController {
 		this.beats.push({ run: () => `A wild ${wild} appears!`, hold: 1.4 });
 		// A battle picked up where the animal in front is already tired (a
 		// restored one, waiting for the player to pick) shows it lying down.
-		if (this.front().hp > 0) this.beats.push({ run: () => `Go, ${mine}!`, hold: 1.0 });
-		else this.scene.faint('player');
+		if (this.front().hp > 0) {
+			this.beats.push({ run: () => t('battle.go', { name: mine }), hold: 1.0 });
+		} else {
+			this.scene.faint('player');
+		}
 	}
 
 	/** Every beat has played: show the authority's latest state and take input. */
@@ -281,6 +295,7 @@ export class BattleController {
 		battle.mustPick = mustPick;
 		battle.partyCursor = firstPickable(battle.pickable);
 		battle.refused = 0;
+		this.listAge = 0;
 		battle.screen = 'party';
 	}
 
@@ -288,6 +303,8 @@ export class BattleController {
 		const { cursor, handled, choice } = listKey(battle.partyCursor, key, battle.party.length);
 		if (cursor !== battle.partyCursor) battle.refused = 0;
 		battle.partyCursor = cursor;
+		// A list that came up by itself waits a moment before taking a pick.
+		if (choice === 'pick' && battle.mustPick && this.listAge < PICK_GUARD_SECONDS) return handled;
 		if (choice === 'pick') {
 			// The engine would refuse a tired or current animal; say no here instead.
 			if (battle.pickable[cursor]) this.send({ type: 'switch', partyIndex: cursor });
@@ -415,7 +432,7 @@ export class BattleController {
 						battle.cursor = 0; // a new animal's menu starts at its first attack
 						scene.setFigure('player', e.animal.speciesId);
 						scene.appear('player');
-						return `Go, ${nameOf(e.animal)}!`;
+						return t('battle.go', { name: nameOf(e.animal) });
 					},
 					hold: 1.0
 				};

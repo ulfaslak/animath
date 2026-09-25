@@ -7,7 +7,7 @@
 		type PuzzleKind
 	} from '@mathgame/engine';
 	import { actionAt, attackRows, levelWord, rowOf } from '../battle/menu';
-	import { t } from '../copy';
+	import { language, t } from '../copy';
 	import { battle } from '../state/battle.svelte';
 	import HpBar from './HpBar.svelte';
 	import PuzzlePanel from './PuzzlePanel.svelte';
@@ -28,15 +28,25 @@
 	/** Someone could step in; with nobody, the Switch row is greyed and says why. */
 	const canSwitch = $derived(battle.pickable.some(Boolean));
 
-	const KIND_WORDS: Record<PuzzleKind, string> = {
-		add: 'adding',
-		sub: 'taking away',
-		mul: 'times tables',
-		div: 'sharing',
-		missing: 'missing numbers',
-		sequence: 'number patterns',
-		sqrt: 'square roots'
-	};
+	/** What a kind of puzzle is about, in the language on screen. */
+	function kindWord(kind: PuzzleKind): string {
+		switch (kind) {
+			case 'add':
+				return t('battle.kinds.add');
+			case 'sub':
+				return t('battle.kinds.sub');
+			case 'mul':
+				return t('battle.kinds.mul');
+			case 'div':
+				return t('battle.kinds.div');
+			case 'missing':
+				return t('battle.kinds.missing');
+			case 'sequence':
+				return t('battle.kinds.sequence');
+			case 'sqrt':
+				return t('battle.kinds.sqrt');
+		}
+	}
 
 	function nameOf(animal: AnimalInstance): string {
 		return animal.nickname ?? getAnimal(animal.speciesId).name;
@@ -47,10 +57,10 @@
 		return `${/^[aeiou]/i.test(name) ? 'an' : 'a'} ${name}`;
 	}
 
+	/** "adding, taking away, or missing numbers": the language's own "or" list. */
 	function kindWords(kinds: readonly PuzzleKind[]): string {
-		const words = kinds.map((k) => KIND_WORDS[k]);
-		if (words.length <= 1) return words.join('');
-		return `${words.slice(0, -1).join(', ')} or ${words[words.length - 1]}`;
+		const list = new Intl.ListFormat(language.current, { type: 'disjunction' });
+		return list.format(kinds.map(kindWord));
 	}
 
 	/** What the highlighted row will do, in words a kid can read. */

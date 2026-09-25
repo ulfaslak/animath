@@ -20,8 +20,19 @@ battle:
   # The key reminder under "Pick an attack".
   menuKeys: ↑ ↓ choose · ← → how hard · Enter go
   # The highlighted attack. {attack}: its name; {level}: its level's word;
-  # {kinds}: what its sums are about; {damage}: how much it hits for.
+  # {kinds}: what its sums are about (the words below, in an "or" list); {damage}: how much it hits for.
   attackDetail: '{attack} on {level}: {kinds}. It hits for {damage}.'
+  # What each kind of puzzle is about, as {kinds} lists them.
+  kinds:
+    add: adding
+    sub: taking away
+    mul: times tables
+    div: sharing
+    missing: missing numbers
+    sequence: number patterns
+    sqrt: square roots
+  # Narration: your animal steps in, at the start or after a switch.
+  go: 'Go, {name}!'
   switch:
     # The Switch row of the action menu, and what it says when highlighted.
     row: Switch

@@ -378,6 +378,8 @@ describe('switching animals', () => {
 		t.growParty(2);
 		t.restAll(); // a caught animal is weak; one hit could knock the newcomer out
 		t.walkIntoBattle();
+		// Who could step in is known from the first line, so Switch never shows greyed first.
+		expect(battle.pickable).toEqual([false, true]);
 		t.run(3);
 		const [first, second] = battle.party.map((a) => ({ ...a }));
 		expect(battle.front).toBe(0);
@@ -441,7 +443,13 @@ describe('switching animals', () => {
 		expect(battle.party[0]).toEqual(tired);
 		expect(battle.partyCursor).toBe(1);
 
+		// An Enter mashed through the knock-out doesn't pick for the kid.
 		const before = t.sent.length;
+		t.press('Enter', ' ', 'Enter');
+		expect(t.sent.length).toBe(before);
+		expect(battle.screen).toBe('party');
+		t.run(1);
+
 		t.press('Escape', 'ArrowLeft', '1');
 		expect(battle.screen).toBe('party');
 		t.press('ArrowUp', 'Enter');
@@ -461,5 +469,26 @@ describe('switching animals', () => {
 		expect(battle.line).toBe(`What will ${name(next)} do?`);
 		expect(battle.cursor).toBe(0);
 		expect({ wild: battle.opponent!.hp, next: battle.party[1]!.hp }).toEqual(hp);
+	});
+
+	it('after a switch, even one that ends back on the same animal, the menu starts at the top', () => {
+		const t = setup();
+		t.growParty(2); // no rest: the caught animal is weak, so a reply can knock it out on arrival
+		t.walkIntoBattle();
+		t.run(3);
+		// Switch from the Switch row until the wild animal's reply knocks the newcomer out.
+		for (let i = 0; !(battle.screen === 'party' && battle.mustPick); i++) {
+			if (i > 20 || battle.screen === 'result') throw new Error('no newcomer was knocked out');
+			toSwitchRow(t);
+			t.press('Enter', 'Enter');
+			t.runUntil(() => ['actions', 'party', 'result'].includes(battle.screen), 30);
+		}
+		// The animal that was in front before the switch goes back in: it is its menu again.
+		const back = battle.partyCursor;
+		t.run(1);
+		t.press('Enter');
+		t.runUntil(() => battle.screen === 'actions');
+		expect(battle.front).toBe(back);
+		expect(battle.cursor).toBe(0);
 	});
 });

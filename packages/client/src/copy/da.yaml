@@ -20,8 +20,19 @@ battle:
   # The key reminder under "Pick an attack".
   menuKeys: ↑ ↓ vælg · ← → hvor svært · Enter kør
   # The highlighted attack. {attack}: its name; {level}: its level's word;
-  # {kinds}: what its sums are about; {damage}: how much it hits for.
+  # {kinds}: what its sums are about (the words below, in an "or" list); {damage}: how much it hits for.
   attackDetail: '{attack} på {level}: {kinds}. Det gør {damage} skade.'
+  # What each kind of puzzle is about, as {kinds} lists them.
+  kinds:
+    add: plus
+    sub: minus
+    mul: gangetabeller
+    div: deling
+    missing: manglende tal
+    sequence: talmønstre
+    sqrt: kvadratrødder
+  # Narration: your animal steps in, at the start or after a switch.
+  go: 'Kom så, {name}!'
   switch:
     # The Switch row of the action menu, and what it says when highlighted.
     row: Skift
