@@ -152,14 +152,18 @@ export class LocalAuthority implements Authority {
 		this.steps += 1;
 		this.emit({ type: 'player-moved', playerId: this.playerId, pos: next, dir });
 
-		// A party with nobody standing can't battle (`startBattle` refuses it).
-		// Losing takes everyone to the doctor, so only a `?party=` of tired
+		// The lead is the first animal that isn't tired: the one `startBattle`
+		// sends out first, and the one wild animals size up before they come
+		// out. A party with nobody standing can't battle (`startBattle` refuses
+		// it). Losing takes everyone to the doctor, so only a `?party=` of tired
 		// animals walks here; it meets nothing until the doctor has helped.
-		if (!this.party.some((a) => a.hp > 0)) return;
+		const lead = this.party.find((a) => a.hp > 0);
+		if (!lead) return;
 		// One roll per completed step, keyed by the step count so a replayed
 		// walk meets the same animals; the engine only draws on tall grass.
 		const rng = new Rng(hashInts(this.seed, ENCOUNTER_SALT, this.steps));
-		const wild = rollEncounter(rng, { tile, pos: next, spawn: this.spawn });
+		const site = { tile, pos: next, spawn: this.spawn };
+		const wild = rollEncounter(rng, site, getAnimal(lead.speciesId).tier);
 		if (wild) this.beginBattle({ ...wild, id: mintId() });
 	}
 
