@@ -384,12 +384,15 @@ describe('rollEncounter', () => {
 			for (const d of [0, 16, 40, 64, 100, 127.5, 160]) {
 				const now = new Rng(hashString(`before:${biome}:${d}`));
 				const before = new Rng(hashString(`before:${biome}:${d}`));
-				for (let i = 0; i < 3000; i++) {
-					const wild = rollEncounter(now, siteAt(biome, d), 1);
-					expect(wild?.speciesId ?? null, `${biome} @ ${d}, roll ${i}`).toBe(
-						rollBeforeLeads(before, siteAt(biome, d))
-					);
-				}
+				const rolls = Array.from({ length: 3000 }, () => [
+					rollEncounter(now, siteAt(biome, d), 1)?.speciesId ?? null,
+					rollBeforeLeads(before, siteAt(biome, d))
+				]);
+				expect(
+					rolls.filter(([a, b]) => a !== b),
+					`${biome} @ ${d}`
+				).toEqual([]);
+				expect(rolls.filter(([a]) => a !== null).length).toBeGreaterThan(200);
 			}
 		}
 	});
@@ -400,14 +403,14 @@ describe('rollEncounter', () => {
 			for (const biome of BIOMES) {
 				if (isSilent(lead, biome)) continue;
 				for (const d of [0, 64, 400]) {
-					for (let seed = 0; seed < 1000; seed++) {
-						const withLead = rollEncounter(new Rng(seed), siteAt(biome, d), lead);
-						const withStarter = rollEncounter(new Rng(seed), siteAt(biome, d), 1);
-						expect(withLead === null, `seed ${seed}, tier-${lead} lead in ${biome} @ ${d}`).toBe(
-							withStarter === null
-						);
-						if (withLead) battles++;
-					}
+					const seeds = Array.from({ length: 1000 }, (_, i) => hashString(`${biome}:${d}:${i}`));
+					const withLead = seeds.map((s) => rollEncounter(new Rng(s), siteAt(biome, d), lead));
+					const withStarter = seeds.map((s) => rollEncounter(new Rng(s), siteAt(biome, d), 1));
+					expect(
+						withLead.map((w) => w !== null),
+						`tier-${lead} lead in ${biome} @ ${d}`
+					).toEqual(withStarter.map((w) => w !== null));
+					battles += withLead.filter((w) => w !== null).length;
 				}
 			}
 		}
