@@ -1,6 +1,5 @@
 import { getAnimal } from '../animals/catalog.js';
 import { ATTACK_LEVELS, type AnimalInstance, type AttackLevel } from '../animals/types.js';
-import { animalName } from '../party/names.js';
 import { leadIndex } from '../party/reducer.js';
 import { puzzleDifficulty } from '../puzzles/difficulty.js';
 import { checkAnswer, generatePuzzle } from '../puzzles/registry.js';
@@ -367,4 +366,8 @@ class Draft {
 
 function reject(state: BattleState, reason: string): BattleStep {
 	return { state, events: [{ type: 'rejected', reason }] };
+}
+
+function animalName(animal: AnimalInstance): string {
+	return animal.nickname ?? getAnimal(animal.speciesId).name;
 }

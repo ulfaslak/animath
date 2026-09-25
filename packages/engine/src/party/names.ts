@@ -1,6 +1,3 @@
-import { getAnimal } from '../animals/catalog.js';
-import type { AnimalInstance } from '../animals/types.js';
-
 /**
  * A nickname holds at most this many characters (Unicode code points, which
  * after cleaning are the letters a kid sees). Long enough for "Mr Whiskers",
@@ -10,13 +7,13 @@ export const MAX_NICKNAME_LENGTH = 12;
 
 /** Raw input past this many UTF-16 units is never looked at: the name is cut far shorter anyway. */
 const MAX_RAW_LENGTH = 1000;
-/** Cleaning settles after one pass and is confirmed by the second; this only bounds a surprise. */
+/** Cleaning settles after one pass or two and is confirmed by the next; this only bounds a surprise. */
 const MAX_PASSES = 6;
 
 /** Apostrophe look-alikes a keyboard or tablet types ("Pip’s" → "Pip's"). */
-const APOSTROPHES = /[`´ʼ‘’‛′]/gu;
+const APOSTROPHES = /[\u0060\u00B4\u02BC\u2018\u2019\u201B\u2032]/gu;
 /** Dashes and minus signs. */
-const DASHES = /[‐-―−]/gu;
+const DASHES = /[\u2010-\u2015\u2212]/gu;
 /**
  * Everything a name may not hold: anything but a letter, a digit, a space,
  * a hyphen, an apostrophe or a dot. Default-ignorable characters go too, even
@@ -27,8 +24,8 @@ const NOT_ALLOWED = /[^\p{L}\p{Nd} '.-]|\p{Default_Ignorable_Code_Point}/gu;
 const HAS_LETTER_OR_DIGIT = /[\p{L}\p{Nd}]/u;
 
 /**
- * Cleans a typed nickname, or returns null when nothing usable is left (the
- * animal then goes by its species' name). The rules, in order:
+ * Cleans a typed nickname, or returns undefined when nothing usable is left:
+ * no nickname, and the client shows the species' name. The rules, in order:
  *
  * - NFKC, so fancy and full-width letters become plain ones ("𝓟𝓲𝓹" → "Pip")
  *   and an accent typed as a separate mark joins its letter ("é").
@@ -43,19 +40,20 @@ const HAS_LETTER_OR_DIGIT = /[\p{L}\p{Nd}]/u;
  *
  * The result is a fixed point: cleaning a cleaned name returns it unchanged.
  * That holds by construction — the passes repeat until one changes nothing —
- * rather than by an argument about Unicode normalisation that a future
- * Unicode version could break.
+ * because one pass is not enough (for about 1 random string in 400): dropping
+ * a character can put two Hangul jamo side by side, which NFKC then joins, and
+ * NFKC can make an apostrophe look-alike out of a letter ("ŉ" becomes "ʼn").
  */
-export function normalizeNickname(raw: unknown): string | null {
-	if (typeof raw !== 'string') return null;
+export function normalizeNickname(raw: unknown): string | undefined {
+	if (typeof raw !== 'string') return undefined;
 	let name = raw.slice(0, MAX_RAW_LENGTH);
 	for (let pass = 0; ; pass++) {
 		const next = cleanOnce(name);
 		if (next === name) break;
-		if (pass === MAX_PASSES) return null;
+		if (pass === MAX_PASSES) return undefined;
 		name = next;
 	}
-	return HAS_LETTER_OR_DIGIT.test(name) ? name : null;
+	return HAS_LETTER_OR_DIGIT.test(name) ? name : undefined;
 }
 
 function cleanOnce(text: string): string {
@@ -70,13 +68,4 @@ function cleanOnce(text: string): string {
 	const chars = Array.from(cleaned);
 	if (chars.length <= MAX_NICKNAME_LENGTH) return cleaned;
 	return chars.slice(0, MAX_NICKNAME_LENGTH).join('').trim();
-}
-
-/**
- * What the game calls an animal: its nickname, cleaned, or else its species'
- * name. Cleaning here too means a name from anywhere — an old save, a debug
- * party — reads the same as one typed in the game.
- */
-export function animalName(animal: AnimalInstance): string {
-	return normalizeNickname(animal.nickname) ?? getAnimal(animal.speciesId).name;
 }

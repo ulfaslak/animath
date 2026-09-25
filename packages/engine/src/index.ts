@@ -42,9 +42,15 @@ export type {
 	DoctorStep
 } from './doctor/types.js';
 
-export { MAX_NICKNAME_LENGTH, animalName, normalizeNickname } from './party/names.js';
+export { MAX_NICKNAME_LENGTH, normalizeNickname } from './party/names.js';
 export { applyPartyIntent, leadIndex } from './party/reducer.js';
-export type { PartyEvent, PartyIntent, PartyStep, PlayerActivity } from './party/types.js';
+export type {
+	PartyEvent,
+	PartyIntent,
+	PartyRejection,
+	PartyStep,
+	PlayerActivity
+} from './party/types.js';
 
 export type { Chunk, Direction, GridPos, Tile, TileKind } from './world/types.js';
 export { CHUNK_SIZE, isEncounterTile, isWalkable, step } from './world/types.js';

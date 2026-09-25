@@ -1,10 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { ANIMALS, getAnimal } from '../src/animals/catalog.js';
+import { ANIMALS } from '../src/animals/catalog.js';
 import { MAX_PARTY, type AnimalInstance } from '../src/animals/types.js';
 import { startBattle } from '../src/battle/reducer.js';
-import { MAX_NICKNAME_LENGTH, animalName, normalizeNickname } from '../src/party/names.js';
+import { MAX_NICKNAME_LENGTH, normalizeNickname } from '../src/party/names.js';
 import { applyPartyIntent, leadIndex } from '../src/party/reducer.js';
-import type { PartyIntent, PartyStep, PlayerActivity } from '../src/party/types.js';
+import type { PartyIntent, PartyRejection, PartyStep, PlayerActivity } from '../src/party/types.js';
 import { Rng, hashInts } from '../src/rng.js';
 
 /**
@@ -32,30 +32,30 @@ const RANGES: readonly (readonly [number, number])[] = [
 	[0x20, 0x7e], // ASCII
 	[0x20, 0x7e],
 	[0x00, 0x1f], // control
-	[0xa0, 0xff], // Latin-1: NBSP, ´, æ ø å, ß
+	[0xa0, 0xff], // Latin-1: NBSP, acute accent, æ ø å, ß
 	[0x100, 0x24f], // Latin extended: ŉ, Ǆ ǅ ǆ
-	[0x2b0, 0x2ff], // modifier letters: ʰ ʼ ˆ
+	[0x2b0, 0x2ff], // modifier letters
 	[0x300, 0x36f], // combining marks
-	[0x370, 0x3ff], // Greek, with ͺ (a letter that NFKC turns into a space and a mark)
+	[0x370, 0x3ff], // Greek, with U+037A (a letter that NFKC turns into a space and a mark)
 	[0x400, 0x4ff], // Cyrillic
 	[0x591, 0x5f4], // Hebrew points and letters
 	[0x600, 0x6ff], // Arabic
-	[0xe00, 0xe7f], // Thai, with ำ (a letter that NFKC splits into a mark and a letter)
+	[0xe00, 0xe7f], // Thai, with U+0E33 (a letter that NFKC splits into a mark and a letter)
 	[0x1100, 0x11ff], // Hangul jamo, with the invisible fillers
-	[0x1e00, 0x1eff], // Latin extended additional: ẛ
+	[0x1e00, 0x1eff], // Latin extended additional
 	[0x2000, 0x206f], // spaces, zero-width joiners, dashes, quotes, bidi controls
-	[0x2100, 0x214f], // letterlike symbols: ℌ Ω Å
+	[0x2100, 0x214f], // letterlike symbols: ohm, angstrom
 	[0x2460, 0x24ff], // circled numbers and letters
 	[0x3000, 0x303f], // CJK punctuation, ideographic space
-	[0x3130, 0x318f], // Hangul compatibility jamo, with ㅤ
+	[0x3130, 0x318f], // Hangul compatibility jamo, with the Hangul filler
 	[0x4e00, 0x4e3f], // CJK ideographs
 	[0xac00, 0xac3f], // Hangul syllables
 	[0xd800, 0xdfff], // lone surrogates
 	[0xfb00, 0xfb06], // ligatures: ﬁ ﬂ
-	[0xfdf0, 0xfdfd], // Arabic ligatures that expand to whole phrases (ﷺ, ﷽)
+	[0xfdf0, 0xfdfd], // Arabic ligatures that expand to whole phrases
 	[0xfe00, 0xfe0f], // variation selectors
 	[0xff00, 0xffef], // full-width forms, with the half-width Hangul filler
-	[0x1d400, 0x1d7ff], // mathematical letters: 𝓟 𝐀
+	[0x1d400, 0x1d7ff], // mathematical letters
 	[0x1f300, 0x1faff], // emoji, skin tones
 	[0xe0000, 0xe007f] // tags
 ];
@@ -85,7 +85,7 @@ function plainName(rng: Rng): string {
 const FUZZ = 6000;
 const fuzzed = Array.from({ length: FUZZ }, (_, i) => randomText(new Rng(hashInts(0x5eed, i))));
 
-/** Every property a cleaned name must have, as one list of broken promises. */
+/** Every promise a cleaned name makes, as the list of the ones it breaks. */
 function problems(name: string): string[] {
 	const found: string[] = [];
 	if (normalizeNickname(name) !== name) found.push('cleaning it again changes it');
@@ -104,11 +104,11 @@ function problems(name: string): string[] {
 }
 
 describe('normalizeNickname', () => {
-	it('returns a clean name or nothing, for any text at all', () => {
+	it('returns a clean name or no name, for any text at all', () => {
 		let named = 0;
 		for (const raw of fuzzed) {
 			const name = normalizeNickname(raw);
-			if (name === null) continue;
+			if (name === undefined) continue;
 			named++;
 			expect({ raw, name, problems: problems(name) }).toEqual({ raw, name, problems: [] });
 		}
@@ -117,10 +117,10 @@ describe('normalizeNickname', () => {
 		expect(named).toBeLessThan(FUZZ);
 	});
 
-	it('is idempotent, including on the raw text of every result', () => {
+	it('is idempotent', () => {
 		for (const raw of fuzzed) {
 			const once = normalizeNickname(raw);
-			if (once !== null) expect(normalizeNickname(once)).toBe(once);
+			if (once !== undefined) expect(normalizeNickname(once)).toBe(once);
 		}
 	});
 
@@ -132,53 +132,41 @@ describe('normalizeNickname', () => {
 	});
 
 	it('cleans the things kids and keyboards actually do', () => {
-		const cases: [unknown, string | null][] = [
+		const cases: [unknown, string | undefined][] = [
 			['  Pip  ', 'Pip'],
 			['Mr   Fluff', 'Mr Fluff'],
 			['Mr\tFluff\n', 'Mr Fluff'],
 			['Søren', 'Søren'],
 			['Æble', 'Æble'],
-			['éclair', 'éclair'],
-			['𝓟𝓲𝓹', 'Pip'],
-			['ＰＩＰ', 'PIP'],
-			['Pip😀', 'Pip'],
-			['😀🐿️', null],
-			['👨‍👩‍👧', null],
-			['Pip’s', "Pip's"],
-			['Ann–Marie', 'Ann-Marie'],
+			['e\u0301clair', '\u00E9clair'],
+			['\u{1D4DF}\u{1D4F2}\u{1D4F9}', 'Pip'], // mathematical script letters
+			['\uFF30\uFF29\uFF30', 'PIP'], // full-width letters
+			['Pip\u{1F600}', 'Pip'],
+			['\u{1F600}\u{1F43F}\uFE0F', undefined],
+			['\u{1F468}\u200D\u{1F469}\u200D\u{1F467}', undefined], // a family emoji
+			['Pip\u2019s', "Pip's"],
+			['Ann\u2013Marie', 'Ann-Marie'],
 			['R2-D2', 'R2-D2'],
-			['Pip​Pop', 'PipPop'],
-			['ㅤ', null],
-			['ㅤPip', 'Pip'],
-			['ᅟᅠ', null],
-			['́́', null],
-			['', null],
-			['     ', null],
-			['---', null],
-			['. . .', null],
+			['Pip\u200BPop', 'PipPop'], // zero-width space
+			['\u3164', undefined], // Hangul filler: a "letter" that draws as nothing
+			['\u3164Pip', 'Pip'],
+			['\u115F\u1160', undefined],
+			['\u0301\u0301', undefined],
+			['\u1100\u{1F600}\u1161', '\uAC00'], // jamo that meet once the emoji goes
+			['', undefined],
+			['     ', undefined],
+			['---', undefined],
+			['. . .', undefined],
 			['Sir Fluffington the Third', 'Sir Fluffing'],
 			['abcdefghijk lmn', 'abcdefghijk'],
 			['Pip'.repeat(400), 'PipPipPipPip'],
-			[7, null],
-			[undefined, null],
-			[null, null]
+			[7, undefined],
+			[undefined, undefined],
+			[null, undefined]
 		];
 		for (const [raw, expected] of cases) {
 			expect({ raw, name: normalizeNickname(raw) }).toEqual({ raw, name: expected });
 		}
-	});
-});
-
-describe('animalName', () => {
-	it('is the nickname when there is one, else the species name', () => {
-		expect(animalName({ id: 'a', speciesId: 'fox', hp: 1 })).toBe('Fox');
-		expect(animalName({ id: 'a', speciesId: 'fox', nickname: 'Rusty', hp: 1 })).toBe('Rusty');
-	});
-
-	it('never shows a name that would not survive cleaning', () => {
-		expect(animalName({ id: 'a', speciesId: 'fox', nickname: '', hp: 1 })).toBe('Fox');
-		expect(animalName({ id: 'a', speciesId: 'fox', nickname: '  Rusty ', hp: 1 })).toBe('Rusty');
-		expect(animalName({ id: 'a', speciesId: 'otter', nickname: '😀', hp: 1 })).toBe('Otter');
 	});
 });
 
@@ -192,23 +180,89 @@ function randomParty(rng: Rng, size = rng.int(1, MAX_PARTY)): AnimalInstance[] {
 			speciesId: spec.id,
 			hp: rng.next() < 0.25 ? 0 : rng.int(1, spec.maxHp)
 		};
-		if (rng.next() < 0.4) animal.nickname = normalizeNickname(plainName(rng)) ?? undefined;
-		if (animal.nickname === undefined) delete animal.nickname;
+		const nickname = rng.next() < 0.4 ? normalizeNickname(plainName(rng)) : undefined;
+		if (nickname !== undefined) animal.nickname = nickname;
 		return animal;
 	});
 }
 
 const PARTIES = Array.from({ length: 200 }, (_, i) => deepFreeze(randomParty(new Rng(i + 1))));
 
-function expectRejected(party: readonly AnimalInstance[], step: PartyStep): void {
+/** Refused: the very same party back, and one `rejected` event naming the animal when it is in the party. */
+function expectRejected(
+	party: readonly AnimalInstance[],
+	step: PartyStep,
+	reason: PartyRejection,
+	animalId?: string
+): void {
 	expect(step.party).toBe(party);
-	expect(step.events).toHaveLength(1);
-	expect(step.events[0]!.type).toBe('rejected');
+	expect(step.events).toEqual([
+		animalId === undefined ? { type: 'rejected', reason } : { type: 'rejected', reason, animalId }
+	]);
 }
 
 function byId(party: readonly AnimalInstance[]): Map<string, AnimalInstance> {
 	return new Map(party.map((a) => [a.id, a]));
 }
+
+/** The party's ids with one left out: what must keep its order when that one moves. */
+function othersInOrder(party: readonly AnimalInstance[], left: string): string[] {
+	return party.map((a) => a.id).filter((id) => id !== left);
+}
+
+describe('applyPartyIntent: select-lead', () => {
+	it('moves a standing animal to the front, where it leads; refuses a tired one and the lead', () => {
+		let chosen = 0;
+		for (const party of PARTIES) {
+			for (const [from, animal] of party.entries()) {
+				const step = applyPartyIntent(
+					party,
+					{ type: 'select-lead', animalId: animal.id },
+					'explore'
+				);
+				if (animal.hp === 0) {
+					expectRejected(party, step, 'tired', animal.id);
+					continue;
+				}
+				if (leadIndex(party) === from) {
+					expectRejected(party, step, 'already-lead', animal.id);
+					continue;
+				}
+				chosen++;
+				expect(step.events).toEqual([{ type: 'lead-selected', animalId: animal.id, from }]);
+				expect(step.party[0]!.id).toBe(animal.id);
+				expect(leadIndex(step.party)).toBe(0);
+				expect(othersInOrder(step.party, animal.id)).toEqual(othersInOrder(party, animal.id));
+				const before = byId(party);
+				for (const a of step.party) expect(a).toEqual(before.get(a.id));
+			}
+		}
+		expect(chosen).toBeGreaterThan(100);
+	});
+
+	it('the chosen lead is the animal that steps into the next battle', () => {
+		const wild: AnimalInstance = { id: 'wild', speciesId: 'rabbit', hp: 22 };
+		for (const party of PARTIES) {
+			for (const animal of party.filter((a) => a.hp > 0)) {
+				const step = applyPartyIntent(
+					party,
+					{ type: 'select-lead', animalId: animal.id },
+					'explore'
+				);
+				const battle = startBattle(step.party, wild);
+				expect(battle.party[battle.active]!.id).toBe(animal.id);
+			}
+		}
+	});
+
+	it('refuses an animal that is not in the party', () => {
+		const party = PARTIES[0]!;
+		for (const animalId of ['nobody', '', 3, null, undefined]) {
+			const intent = { type: 'select-lead', animalId } as unknown as PartyIntent;
+			expectRejected(party, applyPartyIntent(party, intent, 'explore'), 'unknown-animal');
+		}
+	});
+});
 
 describe('applyPartyIntent: reorder', () => {
 	it('moves one animal to the slot asked for and keeps everyone else in order', () => {
@@ -218,15 +272,13 @@ describe('applyPartyIntent: reorder', () => {
 					const intent: PartyIntent = { type: 'reorder', animalId: animal.id, to };
 					const step = applyPartyIntent(party, intent, 'explore');
 					if (to === from) {
-						expectRejected(party, step);
+						expectRejected(party, step, 'already-there', animal.id);
 						continue;
 					}
 					expect(step.events).toEqual([{ type: 'reordered', animalId: animal.id, from, to }]);
 					expect(step.party).toHaveLength(party.length);
 					expect(step.party[to]!.id).toBe(animal.id);
-					const others = (p: readonly AnimalInstance[]) =>
-						p.map((a) => a.id).filter((id) => id !== animal.id);
-					expect(others(step.party)).toEqual(others(party));
+					expect(othersInOrder(step.party, animal.id)).toEqual(othersInOrder(party, animal.id));
 					// Nothing about any animal changes but its place, and no object is shared.
 					const before = byId(party);
 					for (const moved of step.party) {
@@ -243,25 +295,21 @@ describe('applyPartyIntent: reorder', () => {
 			const id = party[0]!.id;
 			for (const to of [-1, party.length, party.length + 5, 0.5, NaN, Infinity, '1', null]) {
 				const intent = { type: 'reorder', animalId: id, to } as unknown as PartyIntent;
-				expectRejected(party, applyPartyIntent(party, intent, 'explore'));
+				expectRejected(party, applyPartyIntent(party, intent, 'explore'), 'no-such-slot', id);
 			}
 			for (const animalId of ['nobody', '', 3, null, undefined]) {
 				const intent = { type: 'reorder', animalId, to: 0 } as unknown as PartyIntent;
-				expectRejected(party, applyPartyIntent(party, intent, 'explore'));
+				expectRejected(party, applyPartyIntent(party, intent, 'explore'), 'unknown-animal');
 			}
 		}
 	});
 
-	it('the new lead is the one that steps into the next battle', () => {
+	it('whoever is first and standing after a move steps into the next battle', () => {
 		const wild: AnimalInstance = { id: 'wild', speciesId: 'rabbit', hp: 22 };
 		for (const party of PARTIES) {
 			for (const animal of party) {
-				const step = applyPartyIntent(
-					party,
-					{ type: 'reorder', animalId: animal.id, to: 0 },
-					'explore'
-				);
-				const next = step.party;
+				const intent: PartyIntent = { type: 'reorder', animalId: animal.id, to: 0 };
+				const next = applyPartyIntent(party, intent, 'explore').party;
 				if (leadIndex(next) < 0) continue;
 				const battle = startBattle(next, wild);
 				expect(battle.active).toBe(leadIndex(next));
@@ -276,26 +324,31 @@ describe('applyPartyIntent: rename', () => {
 		'Pip',
 		'  Rusty  ',
 		'Mr   Fluff',
-		'Pip😀',
-		'😀',
+		'Pip\u{1F600}',
+		'\u{1F600}',
 		'',
 		'   ',
 		'Sir Fluffington the Third'
 	];
 
-	it('stores the cleaned name, or clears it when nothing usable is left', () => {
+	it('stores the cleaned name, or no nickname at all when nothing usable is left', () => {
 		for (const party of PARTIES.slice(0, 60)) {
 			for (const animal of party) {
 				for (const raw of typed) {
 					const intent: PartyIntent = { type: 'rename', animalId: animal.id, nickname: raw };
 					const step = applyPartyIntent(party, intent, 'explore');
 					const clean = normalizeNickname(raw);
-					expect(step.events).toEqual([{ type: 'renamed', animalId: animal.id, nickname: clean }]);
+					expect(step.events).toEqual([
+						clean === undefined
+							? { type: 'renamed', animalId: animal.id }
+							: { type: 'renamed', animalId: animal.id, nickname: clean }
+					]);
 					const renamed = step.party.find((a) => a.id === animal.id)!;
-					const { nickname: _old, ...rest } = animal;
-					expect(renamed).toEqual(clean === null ? rest : { ...rest, nickname: clean });
-					expect('nickname' in renamed).toBe(clean !== null);
-					expect(animalName(renamed)).toBe(clean ?? getAnimal(animal.speciesId).name);
+					const rest = { id: animal.id, speciesId: animal.speciesId, hp: animal.hp };
+					expect(renamed).toEqual(clean === undefined ? rest : { ...rest, nickname: clean });
+					// No nickname is no key, as in a save; never `nickname: undefined`.
+					expect(Object.keys(renamed).includes('nickname')).toBe(clean !== undefined);
+					expect(Object.keys(step.events[0]!).includes('nickname')).toBe(clean !== undefined);
 					// Everyone else, and the order, stay exactly as they were.
 					expect(step.party.map((a) => a.id)).toEqual(party.map((a) => a.id));
 					for (const other of step.party) {
@@ -309,13 +362,12 @@ describe('applyPartyIntent: rename', () => {
 	it('refuses a name that is not text, and an unknown animal', () => {
 		const party = PARTIES[0]!;
 		for (const nickname of [7, null, undefined, ['Pip'], { name: 'Pip' }]) {
-			const intent = { type: 'rename', animalId: party[0]!.id, nickname } as unknown as PartyIntent;
-			expectRejected(party, applyPartyIntent(party, intent, 'explore'));
+			const id = party[0]!.id;
+			const intent = { type: 'rename', animalId: id, nickname } as unknown as PartyIntent;
+			expectRejected(party, applyPartyIntent(party, intent, 'explore'), 'not-text', id);
 		}
-		expectRejected(
-			party,
-			applyPartyIntent(party, { type: 'rename', animalId: 'nobody', nickname: 'Pip' }, 'explore')
-		);
+		const intent: PartyIntent = { type: 'rename', animalId: 'nobody', nickname: 'Pip' };
+		expectRejected(party, applyPartyIntent(party, intent, 'explore'), 'unknown-animal');
 	});
 });
 
@@ -325,12 +377,13 @@ describe('applyPartyIntent: when', () => {
 			for (const party of PARTIES.slice(0, 40)) {
 				const animal = party.at(-1)!;
 				const intents: PartyIntent[] = [
+					{ type: 'select-lead', animalId: animal.id },
 					{ type: 'reorder', animalId: animal.id, to: 0 },
 					{ type: 'rename', animalId: animal.id, nickname: 'Pip' },
 					{ type: 'rename', animalId: animal.id, nickname: '' }
 				];
 				for (const intent of intents) {
-					expectRejected(party, applyPartyIntent(party, intent, activity));
+					expectRejected(party, applyPartyIntent(party, intent, activity), 'not-exploring');
 				}
 			}
 		}
@@ -339,7 +392,8 @@ describe('applyPartyIntent: when', () => {
 	it('refuses anything that is not a party intent', () => {
 		const party = PARTIES[0]!;
 		for (const intent of [null, undefined, 42, 'reorder', {}, { type: 'fly' }]) {
-			expectRejected(party, applyPartyIntent(party, intent as unknown as PartyIntent, 'explore'));
+			const step = applyPartyIntent(party, intent as unknown as PartyIntent, 'explore');
+			expectRejected(party, step, 'not-an-intent');
 		}
 	});
 
@@ -350,10 +404,13 @@ describe('applyPartyIntent: when', () => {
 			const hp = new Map(party.map((a) => [a.id, a.hp]));
 			for (let i = 0; i < 30; i++) {
 				const animal = rng.pick(party);
+				const roll = rng.next();
 				const intent: PartyIntent =
-					rng.next() < 0.5
-						? { type: 'reorder', animalId: animal.id, to: rng.int(-1, party.length) }
-						: { type: 'rename', animalId: animal.id, nickname: randomText(rng) };
+					roll < 0.3
+						? { type: 'select-lead', animalId: animal.id }
+						: roll < 0.65
+							? { type: 'reorder', animalId: animal.id, to: rng.int(-1, party.length) }
+							: { type: 'rename', animalId: animal.id, nickname: randomText(rng) };
 				party = deepFreeze(applyPartyIntent(party, intent, 'explore').party);
 				expect(new Map(party.map((a) => [a.id, a.hp]))).toEqual(hp);
 				for (const a of party) {

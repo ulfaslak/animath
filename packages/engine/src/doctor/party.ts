@@ -28,3 +28,7 @@ export function validateParty(party: readonly AnimalInstance[], where: string): 
 		ids.add(animal.id);
 	}
 }
+
+export function animalName(animal: AnimalInstance): string {
+	return animal.nickname ?? getAnimal(animal.speciesId).name;
+}
