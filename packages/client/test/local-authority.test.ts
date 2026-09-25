@@ -454,7 +454,7 @@ describe('LocalAuthority: saved games', () => {
 		expect(cuts.solving).toBeGreaterThan(0);
 	});
 
-	it('start picks up a saved battle: welcome, then battle-started with the saved state, then the message', () => {
+	it('start picks up a saved battle: welcome, then battle-started with the saved state', () => {
 		const a = session();
 		walkIntoBattle(a);
 		a.authority.dispatch({ type: 'battle', intent: { type: 'attack', attackIndex: 1, level: 2 } });
@@ -463,13 +463,13 @@ describe('LocalAuthority: saved games', () => {
 
 		const b: Session = { authority: new LocalAuthority(), events: [] };
 		b.authority.subscribe((e) => b.events.push(e));
-		b.authority.start({ game: saved, message: 'Welcome back!' });
-		expect(b.events.map((e) => e.type)).toEqual(['welcome', 'battle-started', 'message']);
+		b.authority.start({ game: saved });
+		expect(b.events.map((e) => e.type)).toEqual(['welcome', 'battle-started']);
 		expect(welcome(b)).toMatchObject({ pos: saved.pos, facing: saved.facing, party: saved.party });
 		expect(latestBattle(b)).toEqual(latestBattle(a));
 		// Walking waits for the battle, as it would have before the reload.
 		b.authority.dispatch({ type: 'move', dir: 'up' });
-		expect(b.events.length).toBe(3);
+		expect(b.events.length).toBe(2);
 	});
 
 	it('mid-battle, the snapshot holds the battle and its party as they stand; in explore, no battle', () => {

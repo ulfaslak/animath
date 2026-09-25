@@ -13,7 +13,7 @@ import {
 	type SavedGame
 } from '@mathgame/engine';
 import { isIdentity, type Identity, type SaveServer } from './api';
-import { t } from '../copy';
+import type { SaveNotice } from '../state/notice.svelte';
 import { KEYS, parseJson, type KeyValueStore } from './storage';
 
 /**
@@ -54,10 +54,13 @@ export interface AutosaveOptions {
 	bootWaitMs?: number;
 }
 
-/** How the page starts: pass it to `LocalAuthority.start`. No `game` means a new game. */
+/**
+ * How the page starts: `game` for `LocalAuthority.start` (none means a new
+ * game), and what to tell the player about the save, as a copy key.
+ */
 export interface StartPlan {
 	game?: SavedGame;
-	message?: string;
+	notice?: SaveNotice;
 }
 
 /**
@@ -164,7 +167,7 @@ export class Autosave {
 	async boot(): Promise<StartPlan> {
 		if (this.throwaway) return {};
 		const store = this.store;
-		if (!store) return { message: t('save.cannotSave') };
+		if (!store) return { notice: 'save.cannotSave' };
 		this.readIdentity(store);
 
 		const text = store.get(KEYS.save);
@@ -176,14 +179,14 @@ export class Autosave {
 			if (read.ok) {
 				this.carryOn(read.save);
 				this.serverState = this.identity ? 'unknown' : 'ready';
-				return { game: restoreGame(read.save), message: t('save.welcomeBack') };
+				return { game: restoreGame(read.save), notice: 'save.welcomeBack' };
 			}
 			if (read.reason === 'newer') {
 				this.local = 'frozen';
-				return { message: t('save.newerGame') };
+				return { notice: 'save.newerGame' };
 			}
 			this.local = 'held';
-			plan = { message: t('save.couldNotLoad') };
+			plan = { notice: 'save.couldNotLoad' };
 		}
 
 		// No save this build can read here. The server may have this player's game.
@@ -199,7 +202,7 @@ export class Autosave {
 					this.pushed = this.seq;
 					// The kid's game is back: an unreadable local save is set aside for it at once.
 					this.played = true;
-					return { game: restoreGame(read.save), message: t('save.welcomeBack') };
+					return { game: restoreGame(read.save), notice: 'save.welcomeBack' };
 				}
 				if (read.reason === 'newer') this.serverState = 'stopped';
 				// Unreadable: our saves are numbered past it, and the server sets it aside when one lands.

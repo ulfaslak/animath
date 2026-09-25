@@ -10,7 +10,9 @@ import {
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Identity, SaveServer, ServerRead, ServerWrite } from '../src/save/api';
 import { Autosave } from '../src/save/autosave';
-import { t } from '../src/copy';
+import { COPY, LANGUAGES } from '../src/copy/languages';
+import { flatten } from '../src/copy/translate';
+import { SAVE_NOTICES } from '../src/state/notice.svelte';
 import { KEYS, type KeyValueStore } from '../src/save/storage';
 
 /**
@@ -117,13 +119,12 @@ class Tab {
 	}
 
 	/** Boot and begin, as `main.ts` does; the game is whatever the plan says. */
-	async open(): Promise<{ game?: SavedGame; message?: string }> {
+	async open(): Promise<{ game?: SavedGame; notice?: string }> {
 		const plan = await this.autosave.boot();
 		this.game = plan.game ? JSON.parse(JSON.stringify(plan.game)) : newGame(SEED);
 		// What `authority.start(plan)` emits, before `begin` — as in main.ts.
 		this.autosave.handle({ type: 'welcome' } as GameEvent);
 		if (this.game.battle) this.autosave.handle({ type: 'battle-started' } as GameEvent);
-		if (plan.message) this.autosave.handle({ type: 'message', text: plan.message });
 		this.autosave.begin();
 		await settle();
 		return plan;
@@ -207,7 +208,7 @@ describe('Autosave: the save in this browser', () => {
 		const again = new Tab(store, server);
 		const plan = await again.autosave.boot();
 		expect(server.calls.length).toBe(calls);
-		expect(plan).toEqual({ game: first.game, message: t('save.welcomeBack') });
+		expect(plan).toEqual({ game: first.game, notice: 'save.welcomeBack' });
 	});
 
 	it('writes after every change, once for everything one intent causes', async () => {
@@ -271,7 +272,7 @@ describe('Autosave: the save in this browser', () => {
 		store.set(KEYS.save, broken);
 		const server = new FakeServer();
 		const tab = new Tab(store, server);
-		expect(await tab.open()).toEqual({ message: t('save.couldNotLoad') });
+		expect(await tab.open()).toEqual({ notice: 'save.couldNotLoad' });
 		await tab.walk();
 		await later();
 		expect(store.get(KEYS.save)).toBe(broken);
@@ -291,7 +292,7 @@ describe('Autosave: the save in this browser', () => {
 		store.set(KEYS.save, newer);
 		const server = new FakeServer();
 		const tab = new Tab(store, server);
-		expect(await tab.open()).toEqual({ message: t('save.newerGame') });
+		expect(await tab.open()).toEqual({ notice: 'save.newerGame' });
 		await tab.catchOne();
 		tab.autosave.flush();
 		await later();
@@ -302,7 +303,7 @@ describe('Autosave: the save in this browser', () => {
 	it('with no storage the game plays and says it cannot keep the game; ?new plays and says nothing', async () => {
 		const server = new FakeServer();
 		const blocked = new Tab(null, server);
-		expect(await blocked.open()).toEqual({ message: t('save.cannotSave') });
+		expect(await blocked.open()).toEqual({ notice: 'save.cannotSave' });
 		await blocked.catchOne();
 		blocked.autosave.flush();
 		await later();
@@ -335,6 +336,15 @@ describe('Autosave: the save in this browser', () => {
 		await later();
 		expect(next.autosave.wantsReload).toBe(true);
 		expect(store.save()!.party).toHaveLength(2);
+	});
+});
+
+describe('Autosave: what start-up tells the player', () => {
+	it('every notice is a line in every language', () => {
+		for (const lang of LANGUAGES) {
+			const lines = flatten(COPY[lang]);
+			for (const key of SAVE_NOTICES) expect(lines.has(key), `${lang}: ${key}`).toBe(true);
+		}
 	});
 });
 
@@ -445,7 +455,7 @@ describe('Autosave: the server backup', () => {
 		store.set(KEYS.player, JSON.stringify(who));
 		const tab = new Tab(store, server);
 		const plan = await tab.open();
-		expect(plan.message).toBe(t('save.welcomeBack'));
+		expect(plan.notice).toBe('save.welcomeBack');
 		expect(plan.game?.party).toHaveLength(2);
 		expect(store.save()).toMatchObject({ lineage: 'from-server', seq: 41, steps: 55 });
 	});

@@ -11,6 +11,7 @@ import { Autosave } from './save/autosave';
 import { browserStore } from './save/storage';
 import { battle } from './state/battle.svelte';
 import { game } from './state/game.svelte';
+import { notice } from './state/notice.svelte';
 import App from './ui/App.svelte';
 
 const canvas = document.getElementById('game') as HTMLCanvasElement;
@@ -82,6 +83,7 @@ function frame(now: number) {
 requestAnimationFrame(frame);
 
 void autosave.boot().then((plan) => {
-	authority.start(plan);
+	notice.key = plan.notice ?? null;
+	authority.start({ game: plan.game });
 	autosave.begin();
 });

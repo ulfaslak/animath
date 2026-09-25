@@ -1,6 +1,8 @@
 <script lang="ts">
 	import { getAnimal } from '@mathgame/engine';
+	import { t } from '../copy';
 	import { game } from '../state/game.svelte';
+	import { notice } from '../state/notice.svelte';
 	import HpBar from './HpBar.svelte';
 </script>
 
@@ -21,6 +23,8 @@
 	Arrows / WASD to walk · {game.pos.x}, {game.pos.y}
 	{#if game.message}
 		· {game.message}
+	{:else if notice.key}
+		· {t(notice.key)}
 	{/if}
 </div>
 

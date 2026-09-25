@@ -34,10 +34,9 @@ export const WORLD_SEED = hashString('prototype');
 const ENCOUNTER_SALT = hashString('encounter');
 const BATTLE_SALT = hashString('battle');
 
-/** How a session begins: a saved game to pick up (a new game when absent), and a line to say. */
+/** How a session begins: a saved game to pick up, or a new game when absent. */
 export interface StartOptions {
 	game?: SavedGame;
-	message?: string;
 }
 
 /**
@@ -81,7 +80,7 @@ export class LocalAuthority implements Authority {
 
 	/**
 	 * Begin a game: a new one, or `options.game` from a save. Emits `welcome`,
-	 * then `battle-started` if the save was taken mid-battle, then the message.
+	 * then `battle-started` if the save was taken mid-battle.
 	 */
 	start(options: StartOptions = {}): void {
 		const game = options.game ?? newGame(WORLD_SEED);
@@ -106,7 +105,6 @@ export class LocalAuthority implements Authority {
 			this.battle = { state: game.battle, seed: this.battleSeed() };
 			this.emit({ type: 'battle-started', state: game.battle });
 		}
-		if (options.message) this.emit({ type: 'message', text: options.message });
 	}
 
 	/**
