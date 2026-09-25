@@ -166,6 +166,19 @@ export class LocalAuthority implements Authority {
 		};
 	}
 
+	/**
+	 * Another tab of this game walked further, and the save this page carries
+	 * on from has its counts: raise this page's to them, so its next
+	 * encounters and doctor puzzles follow on instead of repeating. Never
+	 * lowers a count, and leaves a battle or visit in progress alone (their
+	 * seeds are fixed already).
+	 */
+	catchUp(counts: { steps: number; visits: number }): void {
+		if (this.battle || this.doctor) return;
+		this.steps = Math.max(this.steps, counts.steps);
+		this.visits = Math.max(this.visits, counts.visits);
+	}
+
 	/** A new game in the prototype world, with the `?party=` party when there is one. */
 	private newGame(): SavedGame {
 		const game = newGame(WORLD_SEED);

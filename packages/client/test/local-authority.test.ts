@@ -710,6 +710,21 @@ describe('LocalAuthority: saved games', () => {
 		expect(restored.battle?.party[0]!.nickname).toBe('Bob');
 	});
 
+	it('catches up with another tab: counts only rise, and never mid-battle', () => {
+		const s = session();
+		move(s, 'right', 'left');
+		expect(s.authority.snapshot().steps).toBe(2);
+		s.authority.catchUp({ steps: 40, visits: 3 });
+		expect(s.authority.snapshot()).toMatchObject({ steps: 40, visits: 3 });
+		s.authority.catchUp({ steps: 10, visits: 1 });
+		expect(s.authority.snapshot()).toMatchObject({ steps: 40, visits: 3 });
+		const b = session();
+		walkIntoBattle(b);
+		const steps = b.authority.snapshot().steps;
+		b.authority.catchUp({ steps: steps + 50, visits: 9 });
+		expect(b.authority.snapshot()).toMatchObject({ steps, visits: 0 });
+	});
+
 	it('ignores intents until it has started', () => {
 		const authority = new LocalAuthority();
 		const events: GameEvent[] = [];

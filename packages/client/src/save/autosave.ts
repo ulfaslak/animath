@@ -47,6 +47,12 @@ export interface AutosaveOptions {
 	snapshot: () => SavedGame;
 	/** A fresh random id, for a new game's lineage. */
 	mintId: () => string;
+	/**
+	 * Another tab of this game walked further and this page carries on from
+	 * its save: raise the authority's step and visit counts to those, so the
+	 * next encounters and doctor puzzles follow on rather than repeat.
+	 */
+	catchUp?: (counts: { steps: number; visits: number }) => void;
 	/** `?new`: a throwaway game that reads and writes nothing, and says nothing about it. */
 	throwaway?: boolean;
 	timers?: Timers;
@@ -89,6 +95,8 @@ const WALK_MS = 15_000;
 /** Retries back off from 2 s to a minute, and give up after this many in a row. */
 const MAX_FAILURES = 6;
 const BOOT_WAIT_MS = 2500;
+/** How many saves each set-aside key can keep (`animath.save.unreadable`, `.2`, … `.20`). */
+const MAX_SET_ASIDE = 20;
 
 const browserTimers: Timers = {
 	setTimeout: (fn, ms) => setTimeout(fn, ms),
@@ -100,6 +108,7 @@ export class Autosave {
 	private readonly server: SaveServer | null;
 	private readonly snapshot: () => SavedGame;
 	private readonly mintId: () => string;
+	private readonly catchUp: ((counts: { steps: number; visits: number }) => void) | null;
 	private readonly throwaway: boolean;
 	private readonly timers: Timers;
 	private readonly bootWaitMs: number;
@@ -152,6 +161,7 @@ export class Autosave {
 		this.server = this.throwaway ? null : options.server;
 		this.snapshot = options.snapshot;
 		this.mintId = options.mintId;
+		this.catchUp = options.catchUp ?? null;
 		this.timers = options.timers ?? browserTimers;
 		this.bootWaitMs = options.bootWaitMs ?? BOOT_WAIT_MS;
 	}
@@ -244,11 +254,14 @@ export class Autosave {
 		switch (event.type) {
 			case 'battle-ended':
 			case 'party-changed':
-			case 'party-edited':
 			case 'taken-to-doctor':
-			case 'doctor-visit-ended':
 				this.changed(true);
 				break;
+			case 'party-edited':
+				// A refused edit changes nothing.
+				if (event.events.some((e) => e.type !== 'rejected')) this.changed(true);
+				break;
+			case 'doctor-visit-ended':
 			case 'player-moved':
 			case 'player-blocked':
 			case 'player-placed':
@@ -278,8 +291,8 @@ export class Autosave {
 		// and that value may already be replaced, by this page's own next save among others.
 		const now = this.store?.get(KEYS.save) ?? null;
 		if (now === this.seenText) return;
-		if (!this.canCarryOnFrom(now)) this.goStale();
-		// Otherwise the other page only walked: this one carries on from it at its next save.
+		// The other page only walked: carry on from its save now, counters and all.
+		if (!this.carryOnFrom(now)) this.goStale();
 	}
 
 	// --- local ----------------------------------------------------------------
@@ -311,20 +324,19 @@ export class Autosave {
 		if (this.local === 'held' && !this.played) return;
 
 		const store = this.store;
-		const writesLocal = store !== null && (this.local === 'ok' || this.local === 'held');
-		if (writesLocal) {
+		if (store !== null && (this.local === 'ok' || this.local === 'held')) {
 			const current = store.get(KEYS.save);
 			if (current !== this.seenText && !this.carryOnFrom(current)) {
 				this.goStale();
 				return;
 			}
 			if (this.local === 'held') {
-				if (current !== null && store.get(KEYS.unreadable) === null) {
-					store.set(KEYS.unreadable, current);
-				}
-				this.local = 'ok';
+				// The unreadable save is kept aside before the new game takes its place; with
+				// nowhere to keep it, it stays where it is and this game is not saved here.
+				this.local = current === null || this.setAside(KEYS.unreadable, current) ? 'ok' : 'broken';
 			}
 		}
+		const writesLocal = store !== null && this.local === 'ok';
 
 		const doc = saveDocument(
 			this.snapshot(),
@@ -377,7 +389,24 @@ export class Autosave {
 		if (!read.ok) return false;
 		this.carryOn(read.save);
 		this.seenText = text;
+		this.catchUp?.({ steps: read.save.steps ?? 0, visits: read.save.visits ?? 0 });
 		return true;
+	}
+
+	/**
+	 * Keep `text` under `prefix`, or the first free `prefix.2`, `prefix.3`, …:
+	 * a save set aside is never written over. False when nowhere is left.
+	 */
+	private setAside(prefix: string, text: string): boolean {
+		const store = this.store;
+		if (!store) return false;
+		for (let n = 1; n <= MAX_SET_ASIDE; n++) {
+			const key = n === 1 ? prefix : `${prefix}.${n}`;
+			const there = store.get(key);
+			if (there === text) return true;
+			if (there === null) return store.set(key, text);
+		}
+		return false;
 	}
 
 	private goStale(): void {
@@ -522,7 +551,8 @@ export class Autosave {
 			return;
 		}
 		const sameGame = saveLineage(doc) === this.lineage;
-		if (theirs > this.seq || (theirs === this.seq && !sameGame)) {
+		// A tie goes to the server's game, but only a tie between saves: at 0 neither has one.
+		if (theirs > this.seq || (theirs === this.seq && theirs > 0 && !sameGame)) {
 			this.adopt(read.save);
 			return;
 		}
@@ -545,8 +575,12 @@ export class Autosave {
 			this.goStale();
 			return;
 		}
-		if (current !== null)
-			store.set(this.local === 'held' ? KEYS.unreadable : KEYS.replaced, current);
+		const aside = this.local === 'held' ? KEYS.unreadable : KEYS.replaced;
+		if (current !== null && !this.setAside(aside, current)) {
+			// Nowhere to keep this browser's game: it is not replaced.
+			this.serverState = 'stopped';
+			return;
+		}
 		if (!store.set(KEYS.save, JSON.stringify(save))) {
 			// Cannot keep the server's game here, so reloading would not reach it. Carry on as we are.
 			this.serverState = 'stopped';

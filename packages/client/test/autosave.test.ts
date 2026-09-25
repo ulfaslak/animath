@@ -112,6 +112,10 @@ class Tab {
 			store,
 			server,
 			snapshot: () => JSON.parse(JSON.stringify(this.game)) as SavedGame,
+			catchUp: ({ steps, visits }) => {
+				this.game.steps = Math.max(this.game.steps, steps);
+				this.game.visits = Math.max(this.game.visits, visits);
+			},
 			mintId: () => `lineage-${Math.random().toString(36).slice(2)}-${this.ids++}`,
 			throwaway: options.throwaway,
 			bootWaitMs: 100
@@ -133,10 +137,10 @@ class Tab {
 	/** Change the game and tell the autosave, as an authority event would. */
 	async play(
 		change: (game: SavedGame) => void,
-		event: GameEvent['type'] = 'player-moved'
+		event: GameEvent['type'] | GameEvent = 'player-moved'
 	): Promise<void> {
 		change(this.game);
-		this.autosave.handle({ type: event } as GameEvent);
+		this.autosave.handle(typeof event === 'string' ? ({ type: event } as GameEvent) : event);
 		await settle();
 	}
 
@@ -154,6 +158,11 @@ class Tab {
 			'party-changed'
 		);
 	}
+}
+
+/** A `party-edited` with these events. */
+function edited(events: Extract<GameEvent, { type: 'party-edited' }>['events']): GameEvent {
+	return { type: 'party-edited', party: [], events };
 }
 
 /** Let microtasks and pending fake-server calls run. */
@@ -227,23 +236,59 @@ describe('Autosave: the save in this browser', () => {
 		tab.autosave.handle({ type: 'message', text: 'hi' });
 		await settle();
 		expect(store.writes).toBe(before + 1);
-		// A lead chosen, an animal moved or renamed in the pause menu is saved at once.
+		// A lead chosen, an animal moved or renamed in the pause menu is saved at once;
+		// a refused edit changes nothing and writes nothing.
 		tab.game.party = [...tab.game.party].reverse();
-		tab.autosave.handle({ type: 'party-edited' } as GameEvent);
+		tab.autosave.handle(edited([{ type: 'renamed', animalId: 'starter', nickname: 'Nut' }]));
 		await settle();
 		expect(store.writes).toBe(before + 2);
 		expect(store.save()!.party).toEqual(tab.game.party);
+		tab.autosave.handle(edited([{ type: 'rejected', reason: 'already-lead' }]));
+		await settle();
+		expect(store.writes).toBe(before + 2);
 	});
 
-	it('a party edit is playing: a held unreadable save is set aside for it', async () => {
+	it('a party edit is playing, a refused one or a doctor visit alone is not', async () => {
+		const broken = '{"version":1,"broken":true}';
 		const store = new MemoryStore();
-		store.set(KEYS.save, '{"version":1,"broken":true}');
+		store.set(KEYS.save, broken);
 		const tab = new Tab(store, null);
 		await tab.open();
-		expect(store.get(KEYS.save)).toBe('{"version":1,"broken":true}');
-		await tab.play((g) => (g.party[0]!.nickname = 'Nut'), 'party-edited');
-		expect(store.get(KEYS.unreadable)).toBe('{"version":1,"broken":true}');
+		await tab.play(() => {}, edited([{ type: 'rejected', reason: 'already-lead' }]));
+		await tab.play(() => {}, 'doctor-visit-ended');
+		expect(store.get(KEYS.save)).toBe(broken);
+		await tab.play(
+			(g) => (g.party[0]!.nickname = 'Nut'),
+			edited([{ type: 'renamed', animalId: 'starter', nickname: 'Nut' }])
+		);
+		expect(store.get(KEYS.unreadable)).toBe(broken);
 		expect(store.save()!.party[0]!.nickname).toBe('Nut');
+	});
+
+	it('a second unreadable save is kept beside the first, never over it', async () => {
+		const store = new MemoryStore();
+		store.set(KEYS.unreadable, 'the first one');
+		store.set(KEYS.save, '{"version":1,"second":true}');
+		const tab = new Tab(store, null);
+		await tab.open();
+		await tab.catchOne();
+		expect(store.get(KEYS.unreadable)).toBe('the first one');
+		expect(store.get(`${KEYS.unreadable}.2`)).toBe('{"version":1,"second":true}');
+		expect(store.save()!.party).toHaveLength(2);
+	});
+
+	it('with nowhere left to keep it, an unreadable save is never written over', async () => {
+		const store = new MemoryStore();
+		store.set(KEYS.unreadable, 'kept 1');
+		for (let n = 2; n <= 20; n++) store.set(`${KEYS.unreadable}.${n}`, `kept ${n}`);
+		const broken = '{"version":1,"third":true}';
+		store.set(KEYS.save, broken);
+		const tab = new Tab(store, null);
+		await tab.open();
+		await tab.catchOne();
+		await tab.walk();
+		expect(store.get(KEYS.save)).toBe(broken);
+		expect(store.get(KEYS.unreadable)).toBe('kept 1');
 	});
 
 	it('saves a battle in progress with the game, so a reload picks it up', async () => {
@@ -415,6 +460,23 @@ describe('Autosave: two tabs', () => {
 		expect(store.save()).toEqual(mine);
 	});
 
+	it('carrying on from a tab that walked further takes its step and visit counts too', async () => {
+		const { store, a, b } = await twoTabs();
+		for (let i = 0; i < 30; i++) await b.walk();
+		await b.play((g) => (g.visits += 1), 'doctor-visit-ended');
+		const theirs = store.save()!;
+		await a.walk();
+		const mine = store.save()!;
+		expect(a.autosave.wantsReload).toBe(false);
+		expect(mine.steps).toBeGreaterThanOrEqual(theirs.steps);
+		expect(mine.visits).toBe(theirs.visits);
+		// A storage event does the same before this tab's next save.
+		b.game.steps += 5;
+		await b.walk();
+		a.autosave.onStorage(KEYS.save);
+		expect(a.game.steps).toBe(store.save()!.steps);
+	});
+
 	it('a storage event that arrives after this tab already saved on top of it changes nothing', async () => {
 		const { store, a, b } = await twoTabs();
 		await b.walk();
@@ -571,6 +633,49 @@ describe('Autosave: the server backup', () => {
 		await later(60_000);
 		expect(server.saveOf(who)).toEqual(newer);
 		expect(server.calls.filter((c) => c === 'put')).toEqual([]);
+	});
+
+	it('a server save from before seq and lineage never sends the page round a reload loop', async () => {
+		const server = new FakeServer();
+		const legacy = { version: 1, seed: SEED, pos: { x: -2, y: 6 }, party: [] };
+		const who = server.seed(legacy);
+		const store = new MemoryStore();
+		store.set(KEYS.player, JSON.stringify(who));
+		store.set(KEYS.save, '{"version":1,"broken":true}');
+		server.online = false;
+		const tab = new Tab(store, server);
+		expect(await tab.open()).toEqual({ notice: 'save.couldNotLoad' });
+		server.online = true;
+		await later(10_000);
+		expect(tab.autosave.wantsReload).toBe(false);
+		// The kid plays the new game, and it is backed up over the old one.
+		await tab.catchOne();
+		await later();
+		expect(server.saveOf(who)).toEqual(store.save());
+		// And a reload settles, with nothing to adopt.
+		const again = new Tab(store, server);
+		await again.open();
+		await later();
+		expect(again.autosave.wantsReload).toBe(false);
+	});
+
+	it('a game adopted from the server never overwrites a game already kept aside', async () => {
+		const server = new FakeServer();
+		const theirs = { ...newGame(SEED), version: 1, lineage: 'from-server', seq: 40 };
+		const who = server.seed(theirs);
+		const store = new MemoryStore();
+		store.set(KEYS.player, JSON.stringify(who));
+		store.set(KEYS.replaced, 'an earlier game');
+		server.online = false;
+		const tab = new Tab(store, server);
+		await tab.open();
+		await tab.walk();
+		const fresh = store.get(KEYS.save);
+		server.online = true;
+		await later(10_000);
+		expect(tab.autosave.wantsReload).toBe(true);
+		expect(store.get(KEYS.replaced)).toBe('an earlier game');
+		expect(store.get(`${KEYS.replaced}.2`)).toBe(fresh);
 	});
 
 	it("a newer build's save on the server is never overwritten", async () => {

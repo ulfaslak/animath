@@ -35,6 +35,7 @@ const autosave = new Autosave({
 	store: browserStore(),
 	server: httpSaveServer(),
 	snapshot: () => authority.snapshot(),
+	catchUp: (counts) => authority.catchUp(counts),
 	mintId,
 	throwaway: flags.fresh || flags.party !== null
 });
@@ -79,6 +80,28 @@ window.addEventListener('storage', (e) => autosave.onStorage(e.key));
 
 mount(App, { target: uiRoot });
 
+/**
+ * Whether the page may reload itself now: at most 3 times a minute, so no
+ * bug can trap a kid in a reload loop. A page that may not stays as it is,
+ * behind and no longer saving, until the kid reloads it.
+ */
+function mayReload(): boolean {
+	try {
+		const now = Date.now();
+		const recent = (
+			JSON.parse(sessionStorage.getItem('animath.reloads') ?? '[]') as number[]
+		).filter((t) => now - t < 60_000);
+		if (recent.length >= 3) {
+			console.warn('Animath: not reloading again so soon; this tab has stopped saving.');
+			return false;
+		}
+		sessionStorage.setItem('animath.reloads', JSON.stringify([...recent, now]));
+	} catch {
+		// No session storage: reload anyway.
+	}
+	return true;
+}
+
 let reloading = false;
 let last = performance.now();
 function frame(now: number) {
@@ -87,7 +110,7 @@ function frame(now: number) {
 	// Another tab took the game further: pick up the newest save, once this tab is looked at.
 	if (autosave.wantsReload && !reloading && document.visibilityState === 'visible') {
 		reloading = true;
-		location.reload();
+		if (mayReload()) location.reload();
 	}
 	const loading = game.mode === 'loading';
 	keyboard.setEnabled(exploreInput());
