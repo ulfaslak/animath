@@ -133,7 +133,7 @@ What is built and observable today. Keep current: add a bullet when a feature sh
 
 ### Language
 
-- The game starts in Danish when the browser prefers Danish, and in English otherwise (`?lang=da` / `?lang=en` in the address overrides). So far only the line under a puzzle, the attack levels (let, mellem, svær) and the words for switching animals are in Danish; everything else is English, animal and attack names included, and there is no Language setting yet (§6).
+- The game starts in Danish when the browser prefers Danish, and in English otherwise (`?lang=da` / `?lang=en` in the address overrides). So far the line under a puzzle is in Danish, and in battle the attack levels (let, mellem, svær), the menu's key reminder, the sentence about the highlighted attack, "Kom så, …!" and everything about switching animals; everything else is English, animal and attack names included, and there is no Language setting yet (§6).
 
 ### Engine
 
