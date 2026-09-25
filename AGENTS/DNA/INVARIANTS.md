@@ -57,3 +57,7 @@ For every kind, at every difficulty in the kind's declared range, `answer` is an
 ### The spawn point is walkable
 
 `spawnPoint(seed)` returns a grass tile for every seed; a player never starts inside water or a tree. Enforced by `world.test.ts` over 25 seeds. Design-time.
+
+### Doctor's tents appear in every direction from the start
+
+The tent lattice is tested with a modulo that is never negative. JavaScript's `%` keeps the sign of the left operand, so `x % 23 === 5` can never hold for a negative `x`. Any lattice or periodic placement over world coordinates must use the same non-negative `mod`. Enforced by `world.test.ts` ("places tents in every quadrant"). Taught by #2: for the `'prototype'` seed, every tent sat south-east of (0, 0), and a player who went north or west would never have found a doctor.

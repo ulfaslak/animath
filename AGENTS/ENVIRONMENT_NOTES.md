@@ -23,6 +23,8 @@ Use `pnpm db:psql -c "<sql>"` (wraps `docker compose exec postgres psql`), or `d
 
 The Claude-in-Chrome extension tab shows an error page for `localhost` URLs on this machine (cause not established; both `localhost` and `[::1]` fail while `curl` succeeds). Don't burn time on it: `node scripts/screenshot.mjs` drives the locally installed Google Chrome headlessly through `playwright-core` (no browser download) and renders WebGL through SwiftShader. It is slower than a GPU and logs "GPU stall" performance notes, which the script filters. Colours and layout are faithful; shadow softness and anti-aliasing are not, so judge those by eye in a real browser if they matter.
 
+Long walks lose taps. SwiftShader can freeze for over a second while new chunks render. Taps pressed during a freeze pile up, and the client keeps only two of them by design, so a 70-key route ends a few tiles short, and short by a different amount each run. For a walk longer than about 20 keys, pass `--key-interval 1300` and check the coordinates in the `hud:` line the script prints. To plan a route around water and trees, run a breadth-first search over `tileAtWorld` + `isWalkable` from `spawnPoint` in a throwaway vitest file.
+
 ## pnpm 12 build-script approval
 
 pnpm 12 refuses to run dependency postinstall scripts unless approved in `pnpm-workspace.yaml` under `allowBuilds` (the older `onlyBuiltDependencies` key is read but not honoured). `esbuild` is approved there. If `pnpm install` ever ends with `ERR_PNPM_IGNORED_BUILDS`, run `pnpm approve-builds <pkg> --yes` — it edits the file for you.
