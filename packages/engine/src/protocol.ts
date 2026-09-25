@@ -1,5 +1,5 @@
 import type { AnimalInstance } from './animals/types.js';
-import type { BattleIntent, BattleState } from './battle/types.js';
+import type { BattleEvent, BattleIntent, BattleState } from './battle/types.js';
 import type { Direction, GridPos } from './world/types.js';
 
 /**
@@ -23,7 +23,12 @@ export type GameEvent =
 	| { type: 'player-moved'; playerId: string; pos: GridPos; dir: Direction }
 	| { type: 'player-blocked'; playerId: string; dir: Direction }
 	| { type: 'battle-started'; state: BattleState }
-	| { type: 'battle-updated'; state: BattleState }
+	/**
+	 * One battle intent was applied. `events` is what happened, in order, and
+	 * `state` is the battle after all of them; animate the events, then show
+	 * the state. When the last event is `ended`, a `battle-ended` follows.
+	 */
+	| { type: 'battle-updated'; state: BattleState; events: readonly BattleEvent[] }
 	| { type: 'battle-ended'; state: BattleState }
 	| { type: 'message'; text: string };
 

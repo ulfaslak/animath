@@ -46,17 +46,20 @@ Two modes only, borrowed from the Game Boy games: **Explore** and **Battle**. Fi
 ### Battle
 
 - Turn-based, one action per turn, like the Game Boy games. The player's animal is seen from behind, the opponent from the front.
-- Player's turn: pick an attack and a level → a puzzle appears → answer. **Correct** → full damage for that attack and level. **Wrong** → the attack misses (0 damage) and the turn is over. No timer in v1; an open question is whether a gentle timer or a speed bonus should exist.
-- Opponent's turn (wild animal): picks one of its attacks and hits for that attack's damage. Wild animals don't solve puzzles.
-- Other actions on the player's turn: throw a leash (wild battles), flee (wild battles; always succeeds in v1), switch animal (later).
-- A battle ends when either animal reaches 0 HP, on a successful catch, or on fleeing.
+- The player always acts first. A round is one player action followed by the wild animal's reply, unless the action ended the battle.
+- Player's turn: pick an attack and a level → a puzzle appears → answer. **Correct** → full damage for that attack and level. **Wrong** → the attack misses (0 damage) and the turn is over. Once an attack is picked there is no backing out: giving up on the puzzle is the same as answering it wrong. No timer in v1; an open question is whether a gentle timer or a speed bonus should exist.
+- The puzzle's difficulty comes from the **player's** animal — `difficulty(tier, n, level)` with that species' tier — and its kind is one the chosen attack can ask. A bear in your party asks bear-hard questions.
+- Opponent's turn (wild animal): picks one of its attacks uniformly at random and hits for that attack's level-1 damage (its `power`). Wild animals don't solve puzzles and never miss.
+- Other actions on the player's turn: throw a leash (wild battles), flee (wild battles; always succeeds in v1 and costs nothing), switch animal (later).
+- When the player's animal is knocked out and another party member is still standing, the first standing one in party order steps in automatically; the wild animal's turn is then over and the player chooses again. HP lost in a battle stays lost afterwards.
+- A battle ends **won** when the wild animal reaches 0 HP, **lost** when the whole party is knocked out, **caught** on a successful leash throw, or **fled**.
 
 ### Catching
 
 - Throw a leash when the wild animal is weak. `P(success) = catchRate × leashQuality × 2^(−hp/0.2)` where `hp` is the fraction of HP remaining, capped at 95%.
 - Every 20% of HP halves the odds. A squirrel (rate 0.9) at 10% HP ≈ 64%; a bear (rate 0.2) at 10% ≈ 14%, at 50% ≈ 3.5%.
 - `leashQuality` is 1 for the starter leash; better leashes come from the future shop.
-- A failed throw costs the turn.
+- A failed throw costs the turn. A caught animal keeps the HP it had when the leash landed.
 
 ### Knock-out and healing
 
@@ -98,7 +101,7 @@ What is built and observable today. Keep current: add a bullet when a feature sh
 - Difficulty mapping (tier, attack, level) and healing difficulty.
 - Damage and catch-probability formulas.
 - Species catalog: 7 placeholder species, tiers 1–5.
-- Battle state and intent types (no reducer yet, see [[DEFERRED]]).
+- Battle reducer: `startBattle` and `applyBattleIntent` play a whole wild battle by the rules in §4 — attacks, puzzles, answers, the wild animal's reply, leash, flee, knock-outs and automatic party switching — as intents in, events out. Not wired to the client yet, so nothing on screen changes.
 
 ### Server
 
@@ -109,7 +112,7 @@ What is built and observable today. Keep current: add a bullet when a feature sh
 
 In rough priority order. Each becomes a GitHub issue when picked up.
 
-1. Battle mode: the reducer, the battle scene, the puzzle panel.
+1. Battle mode: the battle scene and the puzzle panel, driven by the engine's battle reducer (the reducer itself is built, see §5).
 2. Wild encounters in tall grass, weighted by biome and tier.
 3. Catching with the leash; party management.
 4. Doctor healing at tents.

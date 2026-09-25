@@ -14,13 +14,13 @@ Technical items we've intentionally postponed: tech debt, hardening shortcuts, k
 
 **Trigger**: the first deploy to the Hetzner VPS (the Dockerfile PR).
 
-### Battle-state types exist without a reducer
+### The puzzle's answer travels to the client inside `BattleState`
 
-**What**: `packages/engine/src/battle/types.ts` defines `BattleState`, `BattlePhase` and `BattleIntent`, and `protocol.ts` carries battle events, but nothing in the engine advances a battle yet — `LocalAuthority` drops `battle` intents. The types are there so the client and server can be written against a stable shape.
+**What**: `BattlePhase` (`solving`) and the `puzzle-shown` event carry the whole `Puzzle`, `answer` included, and `answer-judged` repeats it. With `LocalAuthority` that is harmless — the client already runs the engine. With a server authority, a modified client could read the answer and never miss.
 
-**Why deferred**: the battle reducer is the first real gameplay issue, not part of repo setup; designing it inside the setup PR would have meant guessing at UI needs.
+**Why deferred**: there is no server authority yet, and stripping the answer means a second `Puzzle` shape (or a redacting step in the protocol) for a cheat nobody can attempt today.
 
-**Trigger**: the battle-mode issue. Delete this entry when `applyBattleIntent` lands with tests.
+**Trigger**: the `RemoteAuthority` / server-side battle PR. Redact `answer` from what goes over the wire there, and decide whether `answer-judged` keeps reporting it after the fact (harmless: the puzzle is spent).
 
 ### Anonymous player identity is unauthenticated
 
