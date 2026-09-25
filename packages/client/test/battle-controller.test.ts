@@ -1,4 +1,4 @@
-import type { GameEvent, Intent } from '@mathgame/engine';
+import { getAnimal, type AnimalInstance, type GameEvent, type Intent } from '@mathgame/engine';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { LocalAuthority } from '../src/authority/local';
 import { BattleController } from '../src/battle/controller';
@@ -21,6 +21,10 @@ function key(name: string, repeat = false): KeyboardEvent {
 		altKey: false,
 		preventDefault() {}
 	} as unknown as KeyboardEvent;
+}
+
+function name(animal: AnimalInstance): string {
+	return animal.nickname ?? getAnimal(animal.speciesId).name;
 }
 
 function setup() {
@@ -81,7 +85,7 @@ describe('battle screen', () => {
 		t.run(0.4);
 		expect(battle.entering).toBe(false);
 		expect(t.shown).toHaveLength(1);
-		expect(battle.line).toBe('A wild Otter appears!');
+		expect(battle.line).toBe(`A wild ${name(battle.opponent!)} appears!`);
 		expect(battle.screen).toBe('busy');
 		t.run(3);
 		expect(battle.screen).toBe('actions');
@@ -135,20 +139,22 @@ describe('battle screen', () => {
 		expect(t.sent.at(-1)).toEqual({ type: 'battle', intent: { type: 'answer', input: '007' } });
 	});
 
-	it('shows the right answer after a wrong one, and the damage the wild animal deals', () => {
+	it('says "Not quite!" after a wrong answer and never shows the right one', () => {
 		const t = setup();
 		t.walkIntoBattle();
 		t.run(3);
+		const hp = battle.opponent!.hp;
 		t.press('1');
 		const answer = battle.puzzle!.answer;
 		t.press(...String(answer + 1), 'Enter');
 		t.run(0.1);
-		expect(battle.judged).toEqual({ correct: false, answer });
-		expect(battle.line).toBe(`Not quite! It was ${answer}.`);
+		expect(battle.judged).toEqual({ correct: false });
+		expect(battle.line).toBe('Not quite!');
+		t.run(1.1);
+		expect(battle.line).toBe(`Missed! The wild ${name(battle.opponent!)} shrugs it off.`);
 		t.run(8);
 		expect(battle.screen).toBe('actions');
-		expect(battle.party[0]!.hp).toBeLessThan(20);
-		expect(battle.opponent!.hp).toBe(32);
+		expect(battle.opponent!.hp).toBe(hp);
 	});
 
 	it('keeps the result card up through a mashed Enter, then leaves on the next one', () => {
@@ -158,7 +164,7 @@ describe('battle screen', () => {
 		t.press('ArrowUp', 'Enter'); // Run
 		t.runUntil(() => battle.screen === 'result');
 		expect(battle.outcome).toBe('fled');
-		expect(battle.closing).toBe('The wild Otter stays in the grass.');
+		expect(battle.closing).toBe(`The wild ${name(battle.opponent!)} stays in the grass.`);
 		t.press('Enter');
 		expect(battle.active).toBe(true);
 		t.run(1);

@@ -80,7 +80,7 @@ export class BattleController {
 				this.pos = event.pos;
 				break;
 			case 'player-moved':
-			case 'taken-to-doctor':
+			case 'player-placed':
 				if (event.playerId === this.playerId) this.pos = event.pos;
 				break;
 			case 'battle-started':
@@ -297,13 +297,14 @@ export class BattleController {
 			case 'puzzle-shown':
 				return []; // `settle` shows the puzzle once the beats have played
 			case 'answer-judged':
+				// The right answer is never shown (UI_SPEC): the kid meets the puzzle again.
 				return [
 					{
 						run: () => {
-							battle.judged = { correct: e.correct, answer: e.answer };
-							return e.correct ? 'Correct!' : `Not quite! It was ${e.answer}.`;
+							battle.judged = { correct: e.correct };
+							return e.correct ? 'Correct!' : 'Not quite!';
 						},
-						hold: e.correct ? 1.0 : 1.8
+						hold: 1.0
 					}
 				];
 			case 'hit': {
@@ -338,16 +339,40 @@ export class BattleController {
 				];
 			}
 			case 'missed':
-				return [
-					{
-						run: () => {
-							scene.lunge(e.attacker);
-							scene.puff(e.attacker === 'player' ? 'opponent' : 'player');
-							return `${attackName(this.animalOn(e.attacker), e.attackIndex)} missed!`;
+				if (e.attacker === 'player') {
+					return [
+						{
+							run: () => {
+								scene.lunge('player');
+								scene.puff('opponent');
+								return `Missed! The wild ${nameOf(battle.opponent!)} shrugs it off.`;
+							},
+							hold: 1.3
+						}
+					];
+				}
+				{
+					// A wild animal facing one its own size or bigger sometimes misses.
+					let said = '';
+					return [
+						{
+							run: () => {
+								scene.lunge('opponent');
+								const wild = battle.opponent!;
+								said = `Wild ${nameOf(wild)} used ${attackName(wild, e.attackIndex)}!`;
+								return said;
+							},
+							hold: 0.35
 						},
-						hold: 1.0
-					}
-				];
+						{
+							run: () => {
+								scene.puff('player');
+								return `${said} It missed.`;
+							},
+							hold: 1.2
+						}
+					];
+				}
 			case 'fainted':
 				return [
 					{

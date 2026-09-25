@@ -68,13 +68,17 @@
 		return 'Run away. The wild animal stays in the grass.';
 	});
 
-	/** The leash row's colour hints at the odds by HP thirds; never a number. */
+	/**
+	 * The leash row hints at the odds by the wild animal's HP in thirds
+	 * (UI_SPEC), never with a number. The word says what the colour says —
+	 * how strong the animal still is — and promises nothing more.
+	 */
 	const leashBand = $derived.by(() => {
 		if (!opponent || !opponentSpec) return 'bad';
 		const fraction = opponent.hp / opponentSpec.maxHp;
 		return fraction <= 1 / 3 ? 'good' : fraction <= 2 / 3 ? 'warn' : 'bad';
 	});
-	const LEASH_WORDS = { good: 'good chance', warn: 'maybe', bad: 'hard' } as const;
+	const LEASH_WORDS = { good: 'weak', warn: 'weaker', bad: 'strong' } as const;
 
 	const headline = $derived.by(() => {
 		switch (battle.outcome) {

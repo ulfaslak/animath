@@ -27,11 +27,8 @@ class GameView {
 				this.mode = 'explore';
 				break;
 			case 'player-moved':
+			case 'player-placed':
 				if (event.playerId === this.playerId) this.pos = event.pos;
-				break;
-			case 'taken-to-doctor':
-				if (event.playerId === this.playerId) this.pos = event.pos;
-				this.party = event.party;
 				break;
 			case 'battle-started':
 				this.mode = 'battle';

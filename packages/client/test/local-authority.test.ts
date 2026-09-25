@@ -19,7 +19,8 @@ import { LocalAuthority } from '../src/authority/local';
  * battle itself is the engine's (see the engine's `battle-reducer.test.ts`).
  *
  * The prototype world's spawn tile, (-2, 6), has a river reed (tall grass)
- * straight to its left, so walking left and right from it meets otters.
+ * straight to its left, so walking left and right from it meets animals
+ * (squirrels and rabbits near home, now and then an otter).
  */
 type Session = { authority: LocalAuthority; events: GameEvent[] };
 
@@ -74,9 +75,7 @@ function attack(s: Session, attackIndex: number, level: 1 | 2 | 3, correct: bool
 function party(s: Session): AnimalInstance[] {
 	for (let i = s.events.length - 1; i >= 0; i--) {
 		const e = s.events[i]!;
-		if (e.type === 'party-changed' || e.type === 'taken-to-doctor' || e.type === 'welcome') {
-			return e.party;
-		}
+		if (e.type === 'party-changed' || e.type === 'welcome') return e.party;
 	}
 	throw new Error('no party');
 }
@@ -90,7 +89,7 @@ function lastMessage(s: Session): string {
 function position(s: Session): GridPos {
 	for (let i = s.events.length - 1; i >= 0; i--) {
 		const e = s.events[i]!;
-		if (e.type === 'player-moved' || e.type === 'taken-to-doctor' || e.type === 'welcome') {
+		if (e.type === 'player-moved' || e.type === 'player-placed' || e.type === 'welcome') {
 			return e.pos;
 		}
 	}
@@ -200,24 +199,31 @@ describe('LocalAuthority: encounters', () => {
 });
 
 describe('LocalAuthority: outcomes', () => {
-	it('won: HP lost in the battle stays lost', () => {
+	it('won: HP lost in the battle stays lost, into the next battle too', () => {
 		const s = session();
-		walkIntoBattle(s);
-		win(s);
-		const final = latestBattle(s);
+		// Wild animals sometimes miss, so win until a battle has cost some HP.
+		let final: BattleState | null = null;
+		for (let n = 0; n < 20 && !final; n++) {
+			walkIntoBattle(s);
+			win(s);
+			const end = latestBattle(s);
+			if (end.party[0]!.hp < getAnimal('squirrel').maxHp) final = end;
+		}
+		if (!final) throw new Error('twenty wins without losing any HP');
 		expect(final.phase).toEqual({ kind: 'ended', outcome: 'won' });
 		expect(party(s)).toEqual(final.party);
-		expect(party(s)[0]!.hp).toBeLessThan(getAnimal('squirrel').maxHp);
 		expect(closingEvents(s).map((e) => e.type)).toEqual([
 			'battle-updated',
 			'battle-ended',
 			'party-changed',
 			'message'
 		]);
-		// And the next walk goes on from where the battle was.
+		// The next walk goes on from where the battle was, and the next battle
+		// starts with the HP this one left.
 		const from = position(s);
 		s.authority.dispatch({ type: 'move', dir: 'right' });
 		expect(position(s)).toEqual({ x: from.x + 1, y: from.y });
+		expect(walkIntoBattle(s).party).toEqual(final.party);
 	});
 
 	it('fled: nothing changes but a message', () => {
@@ -239,11 +245,10 @@ describe('LocalAuthority: outcomes', () => {
 		expect(closingEvents(s).map((e) => e.type)).toEqual([
 			'battle-updated',
 			'battle-ended',
-			'taken-to-doctor',
+			'party-changed',
+			'player-placed',
 			'message'
 		]);
-		const taken = closingEvents(s).find((e) => e.type === 'taken-to-doctor');
-		expect(taken).toMatchObject({ pos: spawn, dir: 'down', tent: null });
 		for (const a of party(s)) expect(a.hp).toBe(getAnimal(a.speciesId).maxHp);
 		expect(position(s)).toEqual(spawn);
 		expect(lastMessage(s)).toBe('Everyone is tired. You rest and feel better.');

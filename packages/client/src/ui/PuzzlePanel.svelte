@@ -3,7 +3,8 @@
 
 	/**
 	 * One puzzle being answered: the prompt in very large type, the answer
-	 * typed so far, then the judgement — "Correct!" or "Not quite! It was 12."
+	 * typed so far, then the judgement — "Correct!" or "Not quite!" (the right
+	 * answer is never shown; see UI_SPEC § Battle mode).
 	 * The one puzzle view for every screen that asks one (battle now, the
 	 * doctor later; see UI_SPEC § Component reuse). It only shows: keys are
 	 * turned into text by `input/answer.ts` and answers are judged by the
@@ -17,7 +18,7 @@
 	}: {
 		puzzle: Puzzle;
 		input: string;
-		judged: { correct: boolean; answer: number } | null;
+		judged: { correct: boolean } | null;
 		/** True while keys type into the answer (shows a blinking cursor). */
 		typing: boolean;
 	} = $props();
@@ -33,7 +34,7 @@
 </div>
 {#if judged}
 	<div class="judgement" class:good={judged.correct} class:bad={!judged.correct}>
-		{judged.correct ? 'Correct!' : `Not quite! It was ${judged.answer}.`}
+		{judged.correct ? 'Correct!' : 'Not quite!'}
 	</div>
 {:else}
 	<div class="keys">Type the answer, then press Enter</div>

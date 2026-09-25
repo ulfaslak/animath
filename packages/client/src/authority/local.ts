@@ -1,4 +1,5 @@
 import {
+	MAX_PARTY,
 	Rng,
 	applyBattleIntent,
 	getAnimal,
@@ -20,9 +21,6 @@ import {
 	type GridPos,
 	type Intent
 } from '@mathgame/engine';
-
-/** A party holds at most this many animals; a catch beyond it is let go. */
-const PARTY_LIMIT = 6;
 
 /**
  * Salts keep the per-step encounter roll and the battle seed apart from each
@@ -140,12 +138,11 @@ export class LocalAuthority implements Authority {
 	/**
 	 * Write the battle's result back into the world: HP lost stays lost, a
 	 * caught animal joins the party if there is room, and a lost battle heals
-	 * everyone and puts the player back on the spawn tile, facing down.
+	 * everyone and puts the player back on the spawn tile.
 	 *
-	 * That last one is a placeholder for the knock-out rule. It already travels
-	 * in the rule's event, `taken-to-doctor` (with `tent: null`, as when no tent
-	 * is in reach), so applying the engine's `takeToDoctor` instead changes this
-	 * method and nothing downstream.
+	 * That last one is a placeholder for the knock-out rule (the engine's
+	 * `takeToDoctor`, with its `taken-to-doctor` event), which replaces it
+	 * when the doctor comes to the client.
 	 */
 	private endBattle(state: BattleState, events: readonly BattleEvent[]): void {
 		if (state.phase.kind !== 'ended') return;
@@ -163,7 +160,7 @@ export class LocalAuthority implements Authority {
 				// The reducer always reports the caught animal on `ended`.
 				const ended = events.find((e) => e.type === 'ended');
 				const caught = ended?.type === 'ended' ? ended.caught : undefined;
-				if (caught && this.party.length >= PARTY_LIMIT) {
+				if (caught && this.party.length >= MAX_PARTY) {
 					text = `Your team is full, so ${wildName} goes back into the grass.`;
 				} else {
 					if (caught) this.party.push({ ...caught });
@@ -178,17 +175,9 @@ export class LocalAuthority implements Authority {
 				break;
 		}
 		this.emit({ type: 'battle-ended', state });
+		this.emit({ type: 'party-changed', party: this.partyCopy() });
 		if (state.phase.outcome === 'lost') {
-			this.emit({
-				type: 'taken-to-doctor',
-				playerId: this.playerId,
-				pos: this.pos,
-				dir: 'down',
-				tent: null,
-				party: this.partyCopy()
-			});
-		} else {
-			this.emit({ type: 'party-changed', party: this.partyCopy() });
+			this.emit({ type: 'player-placed', playerId: this.playerId, pos: this.pos });
 		}
 		this.emit({ type: 'message', text });
 	}

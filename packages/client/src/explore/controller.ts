@@ -14,6 +14,7 @@ export class ExploreController {
 	private progress = 1; // 0..1 along from → pos
 	private facing: Direction = 'down';
 	private seed = 0;
+	private playerId = '';
 
 	constructor(
 		private authority: Authority,
@@ -24,6 +25,7 @@ export class ExploreController {
 	handle(event: GameEvent): void {
 		switch (event.type) {
 			case 'welcome':
+				this.playerId = event.playerId;
 				this.seed = event.seed;
 				this.pos = this.from = event.pos;
 				this.progress = 1;
@@ -31,19 +33,20 @@ export class ExploreController {
 				this.renderer.setPlayer(event.pos, event.pos, 1, this.facing);
 				break;
 			case 'player-moved':
+				if (event.playerId !== this.playerId) break;
 				this.from = this.pos;
 				this.pos = event.pos;
 				this.progress = 0;
 				this.facing = event.dir;
 				break;
 			case 'player-blocked':
-				this.facing = event.dir;
+				if (event.playerId === this.playerId) this.facing = event.dir;
 				break;
-			case 'taken-to-doctor':
-				// Put down, not walked (it can be far away): no tween.
+			case 'player-placed':
+				// Put down, not walked: no tween, and the figure keeps its facing.
+				if (event.playerId !== this.playerId) break;
 				this.pos = this.from = event.pos;
 				this.progress = 1;
-				this.facing = event.dir;
 				break;
 		}
 	}

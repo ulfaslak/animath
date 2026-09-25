@@ -33,7 +33,8 @@ class BattleView {
 	puzzle = $state<Puzzle | null>(null);
 	/** The answer typed so far. */
 	input = $state('');
-	judged = $state<{ correct: boolean; answer: number } | null>(null);
+	/** How the last answer was judged. Never the right answer: UI_SPEC keeps it hidden. */
+	judged = $state<{ correct: boolean } | null>(null);
 	/** The one-line narration above the panel. */
 	line = $state('');
 	/** The latest hit, for the damage number that pops over a status box; `n` restarts it. */

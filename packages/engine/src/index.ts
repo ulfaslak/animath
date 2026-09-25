@@ -13,7 +13,7 @@ export type {
 	Biome,
 	Tier
 } from './animals/types.js';
-export { ATTACK_LEVELS } from './animals/types.js';
+export { ATTACK_LEVELS, MAX_PARTY } from './animals/types.js';
 export { ANIMALS, getAnimal } from './animals/catalog.js';
 
 export { attackDamage } from './battle/damage.js';
