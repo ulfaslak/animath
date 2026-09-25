@@ -95,7 +95,7 @@ describe('createTranslator', () => {
 		]);
 	});
 
-	it("never reads a param's inherited properties", () => {
+	it('prints only text: a lookup that finds a function is a gap', () => {
 		const { tr } = translator();
 		const tricky = createTranslator({ en: { x: '{animal.constructor} {toString}' } }, 'en');
 		expect(tricky('en', 'x', { animal: squirrel })).toBe('{animal.constructor} {toString}');

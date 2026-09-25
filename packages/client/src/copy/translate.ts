@@ -155,13 +155,11 @@ function fill(
 	return text.replace(
 		PLACEHOLDER,
 		(whole: string, name: string, form: string | undefined, at: number) => {
-			// Own properties only: `{animal.constructor}` must not find Object's.
-			const value = params && Object.hasOwn(params, name) ? params[name] : undefined;
+			const value = params?.[name];
 			let out: unknown;
 			if (typeof value === 'string' || typeof value === 'number') out = String(value);
-			else if (typeof value === 'object' && form !== undefined && Object.hasOwn(value, form)) {
-				out = value[form];
-			}
+			else if (typeof value === 'object' && form !== undefined) out = value[form];
+			// Only text prints: `{animal.constructor}` finds a function, not a form.
 			if (typeof out !== 'string') {
 				missing(whole);
 				return whole;
