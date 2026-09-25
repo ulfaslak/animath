@@ -18,6 +18,8 @@
  *                 keyboard (a repeat every 100 ms after a 500 ms delay)
  *   wait:<ms>     pause, e.g. while a battle turn narrates
  *   shot:<name>   save an extra frame to `<out>-<name>.png` now
+ *   size:<w>x<h>  resize the window now (e.g. mid-battle)
+ *   reload:       reload the page and wait for it, as a kid pressing F5 would
  * The final frame goes to `--out`. After every frame the script prints what
  * the screen says — the HUD line in explore (with the grid position), and in
  * a battle the narration line, the puzzle, the typed answer, the judgement,
@@ -57,7 +59,7 @@ const script = (args.keys ?? '')
 	.split(',')
 	.filter(Boolean)
 	.flatMap((token) => {
-		const m = /^(type|wait|shot|hold):(.*)$/.exec(token);
+		const m = /^(type|wait|shot|hold|size|reload):(.*)$/.exec(token);
 		if (m) return [{ op: m[1], arg: m[2] }];
 		const [key, n] = token.split('*');
 		return Array(Number(n ?? 1)).fill({ op: 'key', arg: key });
@@ -163,6 +165,16 @@ for (const { op, arg } of script) {
 		}
 		case 'wait':
 			await page.waitForTimeout(Number(arg));
+			break;
+		case 'size': {
+			const [w, h] = arg.split('x').map(Number);
+			await page.setViewportSize({ width: w, height: h });
+			await page.waitForTimeout(400);
+			break;
+		}
+		case 'reload':
+			await page.reload({ waitUntil: 'networkidle' });
+			await page.waitForTimeout(wait);
 			break;
 		case 'shot':
 			await page.waitForTimeout(400);

@@ -44,6 +44,12 @@ const MAX_ANSWER_LENGTH = 7;
  */
 const RESULT_GUARD_SECONDS = 0.8;
 
+/**
+ * Seconds the world stays on screen after `battle-started`, so the step into
+ * the grass lands before the battle appears (a step takes 0.18 s).
+ */
+const ENTER_SECONDS = 0.3;
+
 export class BattleController {
 	/** Built on the first battle and reused for every one after it. */
 	private scene: BattleScene | null = null;
@@ -55,6 +61,8 @@ export class BattleController {
 	private closing = '';
 	/** Seconds the result card has been up. */
 	private resultAge = 0;
+	/** Seconds left before the battle screen replaces the world. */
+	private enterIn = 0;
 	/** Where the player stands, to pick the battle's backdrop. */
 	private playerId = '';
 	private seed = 0;
@@ -97,6 +105,12 @@ export class BattleController {
 	/** Play beats as their holds expire; `dt` is seconds. */
 	update(dt: number): void {
 		if (!battle.active) return;
+		if (battle.entering) {
+			this.enterIn -= dt;
+			if (this.enterIn > 0) return;
+			battle.entering = false;
+			this.renderer.setBattle(this.scene);
+		}
 		if (battle.screen === 'result') this.resultAge += dt;
 		this.wait -= dt;
 		while (this.wait <= 0 && this.beats.length > 0) {
@@ -142,6 +156,8 @@ export class BattleController {
 	private begin(state: BattleState): void {
 		battle.reset();
 		battle.active = true;
+		battle.entering = true;
+		this.enterIn = ENTER_SECONDS;
 		battle.party = state.party.map((a) => ({ ...a }));
 		battle.front = state.active;
 		battle.opponent = { ...state.opponent };
@@ -153,7 +169,6 @@ export class BattleController {
 		const biome = tileAtWorld(this.seed, this.pos.x, this.pos.y).biome;
 		this.scene ??= new BattleScene();
 		this.scene.begin(biome, this.front().speciesId, state.opponent.speciesId);
-		this.renderer.setBattle(this.scene);
 
 		const wild = nameOf(state.opponent);
 		const mine = nameOf(this.front());

@@ -8,7 +8,7 @@
 {#if game.mode === 'loading'}
 	<div class="loading">Loading…</div>
 {:else if battle.active}
-	<BattlePanel />
+	{#if !battle.entering}<BattlePanel />{/if}
 {:else}
 	<Hud />
 {/if}

@@ -42,8 +42,10 @@ function frame(now: number) {
 	const dt = Math.min(0.1, (now - last) / 1000);
 	last = now;
 	keyboard.setEnabled(!battle.active);
+	// While a battle is entering, the world keeps drawing so the step into the
+	// grass can land; explore input is already off, so no new step starts.
+	if (!battle.active || battle.entering) explore.update(dt);
 	if (battle.active) battleController.update(dt);
-	else explore.update(dt);
 	renderer.render();
 	requestAnimationFrame(frame);
 }

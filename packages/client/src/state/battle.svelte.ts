@@ -16,6 +16,11 @@ export type BattleScreen = 'actions' | 'puzzle' | 'busy' | 'result';
 class BattleView {
 	/** True from `battle-started` until the player leaves the result card. */
 	active = $state(false);
+	/**
+	 * True for the first moments of `active`, while the step into the grass
+	 * finishes on screen; the battle screen appears when it turns false.
+	 */
+	entering = $state(false);
 	party = $state<AnimalInstance[]>([]);
 	/** Index into `party` of the animal in front. */
 	front = $state(0);
@@ -40,6 +45,7 @@ class BattleView {
 	/** Clear everything but the attack level. */
 	reset(): void {
 		this.active = false;
+		this.entering = false;
 		this.party = [];
 		this.front = 0;
 		this.opponent = null;
