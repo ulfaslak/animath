@@ -10,16 +10,19 @@ Everything a player can do in **today's build**, and how: every key, every hidde
 | --------------------- | ------- | ----------------------------------------------------------------------------------------------------------------------- |
 | Arrow keys / W A S D  | Explore | Walk one tile. Hold to keep walking (about 5–6 tiles a second).                                                         |
 | Enter / Space         | Explore | Interact. Today it always says "Nothing here yet.", wherever you stand and whatever you face. The on-screen hint doesn't mention this key. |
-| Up / Down, W / S      | Battle menu | Move the cursor through the attacks, Leash and Run. It wraps round from the top to the bottom.                    |
-| Left / Right, A / D   | Battle menu | Pick the level (1, 2 or 3) for the attack. The same level applies to every attack and is remembered for the next battle. |
-| 1 / 2 / 3             | Battle menu | On an attack: pick that level and attack straight away. On Leash or Run: nothing.                                   |
-| Enter / Space         | Battle menu | Do the highlighted thing: attack at the chosen level, throw the leash, or run.                                      |
+| Up / Down, W / S      | Battle menu | Move the cursor through the attacks, Leash, Switch and Run. It wraps round from the top to the bottom.            |
+| Left / Right, A / D   | Battle menu | On an attack: make that attack easy, medium or hard. Only the highlighted attack changes; every attack keeps its own level. On Leash, Switch or Run: nothing. |
+| 1 / 2 / 3             | Battle menu | On an attack: set it to easy (1), medium (2) or hard (3) and attack straight away. On Leash, Switch or Run: nothing. |
+| Enter / Space         | Battle menu | Do the highlighted thing: attack at that attack's level, throw the leash, open the party list (Switch), or run. On a greyed Switch: nothing. |
+| Up / Down, W / S      | Party list  | Move through your animals, tired ones and the one in battle included. It wraps round.                            |
+| Enter / Space         | Party list  | Send the highlighted animal in. On a greyed one (tired, or already in battle) the row shakes and nothing happens. |
+| Escape                | Party list  | Back to the menu, on Switch. Does nothing when the list came up because your animal got tired: you must pick.     |
 | 0–9, minus            | Puzzle  | Type the answer. A minus only works as the first character; at most seven characters.                                    |
 | Backspace             | Puzzle  | Delete the last character.                                                                                              |
 | Enter                 | Puzzle  | Answer. Nothing happens until you have typed at least one digit.                                                        |
 | Enter / Space         | Result card | Back to exploring.                                                                                                  |
 
-Escape does nothing anywhere yet — not even in a puzzle: once a puzzle is up, the only way on is to answer it. The mouse and touch are ignored everywhere (the result card's button looks clickable but isn't). The page has no debug keys or console hooks; its one URL parameter is `?zoo` (see § Hidden behaviour).
+Escape does nothing anywhere else yet — not even in a puzzle: once a puzzle is up, the only way on is to answer it. The mouse and touch are ignored everywhere (the result card's button looks clickable but isn't). The page has no debug keys or console hooks; its one URL parameter is `?zoo` (see § Hidden behaviour).
 
 ## The world
 
@@ -45,12 +48,13 @@ The tile straight left of the start, (-3, 6), is a river reed: tall grass on the
 ## Battles
 
 - **You always go first.** Pick an attack and a level, answer the puzzle, then the wild animal answers with one of its attacks. Facing an animal its own size or bigger it sometimes misses ("It missed."); a smaller one it never misses.
-- **Higher level, harder sum, bigger hit.** Each attack row says how hard its puzzle is at the chosen level (easy, medium, hard, super hard), and the box on the right says what kind of maths it asks and how much damage it does.
+- **Harder sum, bigger hit.** Every attack has its own level, easy, medium or hard, shown on its row; the box on the right says what kind of maths it asks and how much damage it does. The words are the attack's own three steps, not a scale shared by every animal: a bear's easy Crush is still a very hard sum.
 - **A wrong answer misses** ("Not quite!", then "Missed! The wild Rabbit shrugs it off."). The right answer is not shown.
 - **Picking an attack can't be undone.** Leaving the puzzle is not possible; typing anything wrong counts as a miss.
 - **Leash**: the row says "strong", "weaker" or "weak" (red, amber or green dot) by how much HP the wild animal has left, in thirds. It is about HP only: a fierce animal stays hard to catch even when it says "weak" (a bear at a third of its HP breaks free about 94 times in 100). A throw that breaks free costs your turn.
 - **Run** always works and costs nothing.
-- **When your animal is tired** (0 HP), the next animal in your party that isn't tired steps in by itself, and you choose again.
+- **Switch** sends in another animal ("Come back, Squirrel!", "Go, Rabbit!"). It costs your turn: the wild animal has a go at the newcomer straight away. It is greyed with only one animal in your party ("You need a second animal to switch. Catch one with the leash!") and when everyone else is tired.
+- **When your animal is tired** (0 HP) and someone else isn't, the party list comes up: "Squirrel is tired. Who goes next?" Pick anyone who isn't tired. That pick is free (the wild animal doesn't get a turn), and then you choose what to do.
 - **Win, catch, or run**: a card says what happened; press Enter to walk on from the same tile. HP you lost stays lost.
 - **Lose** (every animal tired): "Good try!" — everyone rests back to full HP and you are put back on the start tile, (-2, 6). (A stand-in: later you will be taken to the nearest doctor's tent.)
 
@@ -66,6 +70,8 @@ The cards in the top-left corner are your party. You start with one Squirrel at 
 - **Walking into something turns you to face it** without moving you.
 - **Switching windows stops you.** If you tab away with a key held, you stop walking and any queued taps are dropped.
 - **Keys don't leak between walking and battling.** An arrow still held down when a battle starts does nothing in the battle until you press it again, and keys pressed in a battle never become steps.
+- **Attack levels are remembered, per attack and per kind of animal, until you reload.** Set a squirrel's Nut Toss to hard and it is hard in the next battle too, and for every squirrel you have; a rabbit's attacks keep their own. After a switch the menu starts on the new animal's first attack.
+- **Switching can't be used to stall.** Every switch you choose gives the wild animal a turn, so switching back and forth only wears your party down.
 - **Keys wait while a battle turn plays.** From your answer until the menu comes back, every key is ignored — mashing Enter can't pick anything by accident — and the result card ignores keys for its first moment too.
 - **The same walk meets the same animals.** Encounters are decided by how many steps you have taken since the page loaded, so after a reload the same route meets the same animals at the same steps (see § Finding a battle fast).
 - **Leading zeros are fine**: "09" is the same answer as "9".

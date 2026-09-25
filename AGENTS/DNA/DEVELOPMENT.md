@@ -52,7 +52,7 @@ Headless Chrome via `playwright-core`, WebGL through SwiftShader. The script exi
 | `size:<w>x<h>`     | resizes the window mid-run                                                              |
 | `reload:`          | reloads the page                                                                        |
 
-After every frame the script prints what the screen says — the HUD line with the grid position in explore; in a battle the status boxes, the menu (the highlighted row in brackets, with its level), the narration line, the puzzle, the typed answer, the judgement and the result card — so a run can be checked from its output as well as its images.
+After every frame the script prints what the screen says — the HUD line with the grid position in explore; in a battle the status boxes, the menu (the highlighted row in brackets; each attack with its level word, greyed rows marked) or the party list in its place, the narration line, the puzzle, the typed answer, the judgement and the result card — so a run can be checked from its output as well as its images.
 
 **Playing a battle.** The 11th step of Left, Right, Left, … from the start always meets a rabbit (see [[CHEATSHEET]] § Finding a battle fast; the animal changes whenever the encounter tables do). Walk in, look, run away:
 

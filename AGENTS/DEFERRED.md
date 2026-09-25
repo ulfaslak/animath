@@ -69,3 +69,11 @@ Technical items we've intentionally postponed: tech debt, hardening shortcuts, k
 **Why deferred**: it runs once per lost battle, while a result card is on screen, and there is no server authority yet. Faster options change the algorithm (visit the tent lattice in order of distance and path-check each candidate, or cap by tiles visited), which is worth doing when there is a second caller or a real report.
 
 **Trigger**: the server-side authority PR, a second caller of `nearestTent` on a per-step path (a "nearest doctor" hint), or a report of a pause after losing a battle.
+
+### The engine still writes English a player could read
+
+**What**: the battle and doctor reducers append English sentences to the `log` in their state ("Go, Rabbit!", "Wild Fox used Nip! 6 damage."), and `takeToDoctor` returns an English `message` for the message bar. Player copy is moving into per-language files (English and Danish), and a sentence built in the engine can't be translated there. The battle screen already narrates from events with the client's own words and never reads `log`. (Rejection `reason`s are English too, but they only reach the developer console.)
+
+**Why deferred**: dropping `log` changes `BattleState` and `DoctorState`, which the client save work persists and the engine's golden replays pin, and the translation files don't exist yet. The switching PR added no English sentence to the engine: its `switch` intent reuses the existing "Go, …!" line.
+
+**Trigger**: the PR that moves client copy into the per-language files. Remove `log` from both states (the events already say everything), and have `takeToDoctor` return which case happened (a tent, or a doctor who came by) instead of a sentence.
