@@ -37,6 +37,7 @@ tree packages -I 'node_modules|dist' --dirsfirst
 | `src/battle/types.ts`             | `BattleState`, `BattlePhase`, `BattleIntent`. The reducer goes next to them when it lands.                                                                     |
 | `src/world/types.ts`              | `Tile`, `TileKind`, `Chunk`, `GridPos`, `Direction`, `CHUNK_SIZE`, `isWalkable`, `isEncounterTile`, `step`.                                                     |
 | `src/world/generate.ts`           | `generateChunk(seed, cx, cy)`, `tileAtWorld`, `spawnPoint`. Value-noise elevation + moisture → biome → tile kind; tents on a sparse lattice.                    |
+| `src/world/encounters.ts`         | `rollEncounter(rng, site)`, `encounterTable(biome, distance)`, `distanceFromSpawn`, the radius and chance constants. Biome tables come from the catalog's habitats. |
 | `src/protocol.ts`                 | `Intent`, `GameEvent`, `Authority` — the client ↔ authority contract.                                                                                          |
 | `src/index.ts`                    | The public surface. Everything the client or server uses is re-exported here.                                                                                  |
 | `test/*.test.ts`                  | vitest. `purity.test.ts` pins the package boundary; the others are property tests over seeds, the difficulty range and the whole catalog.                       |

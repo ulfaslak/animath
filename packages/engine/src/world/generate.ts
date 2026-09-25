@@ -14,9 +14,10 @@ import { CHUNK_SIZE, type Chunk, type Tile, type TileKind } from './types.js';
  *
  * What it does today: value noise for elevation → water / sand / grass / rock,
  * a second noise for moisture → tall grass and tree density, a coarse biome
- * label per tile. Doctor tents are placed on a sparse lattice near water or
- * trees. Rivers, paths, points of interest and proper biome shaping are the
- * real work, tracked as issues.
+ * label per tile. River banks are sand with patches of reeds (tall grass) so
+ * the river biome has encounter tiles. Doctor tents are placed on a sparse
+ * lattice near water or trees. Rivers, paths, points of interest and proper
+ * biome shaping are the real work, tracked as issues.
  */
 
 function valueNoise(seed: number, x: number, y: number, scale: number): number {
@@ -60,7 +61,8 @@ function tileAt(seed: number, x: number, y: number): Tile {
 
 	let kind: TileKind;
 	if (elev < 0.36) kind = 'water';
-	else if (elev < 0.4) kind = 'sand';
+	// The bank: sand with patches of reeds, so river animals have tall grass to hide in.
+	else if (elev < 0.4) kind = local.chance(0.3) ? 'tallgrass' : 'sand';
 	else if (elev > 0.8) kind = 'rock';
 	else if (biome === 'forest' && local.chance(0.35)) kind = 'tree';
 	else if (biome === 'mountain' && local.chance(0.15)) kind = 'rock';

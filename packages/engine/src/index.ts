@@ -23,5 +23,15 @@ export type { BattleIntent, BattlePhase, BattleState } from './battle/types.js';
 export type { Chunk, Direction, GridPos, Tile, TileKind } from './world/types.js';
 export { CHUNK_SIZE, isEncounterTile, isWalkable, step } from './world/types.js';
 export { generateChunk, spawnPoint, tileAtWorld } from './world/generate.js';
+export type { EncounterEntry, EncounterSite } from './world/encounters.js';
+export {
+	ENCOUNTER_CHANCE,
+	NEAR_TIER_RATIO,
+	SAFE_RADIUS,
+	WILD_RADIUS,
+	distanceFromSpawn,
+	encounterTable,
+	rollEncounter
+} from './world/encounters.js';
 
 export type { Authority, GameEvent, Intent } from './protocol.js';
