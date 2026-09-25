@@ -12,7 +12,7 @@ import type { Identity, SaveServer, ServerRead, ServerWrite } from '../src/save/
 import { Autosave } from '../src/save/autosave';
 import { COPY, LANGUAGES } from '../src/copy/languages';
 import { flatten } from '../src/copy/translate';
-import { SAVE_NOTICES } from '../src/state/notice.svelte';
+import { SAVE_NOTICES } from '../src/save/notices';
 import { KEYS, type KeyValueStore } from '../src/save/storage';
 
 /**

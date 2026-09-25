@@ -24,11 +24,11 @@ Technical items we've intentionally postponed: tech debt, hardening shortcuts, k
 
 ### A battle's result is written back by the client's authority, not the engine
 
-**What**: when a battle ends, `LocalAuthority.endBattle` decides what it means for the world: the party takes the battle's HP, a caught animal joins if there is room (the cap is the engine's `MAX_PARTY`, but the let-it-go decision is in the authority), a lost battle rests everyone at the spawn tile, and the closing line is chosen. A server authority would have to repeat all of it, and the two copies could drift.
+**What**: when a battle ends, `LocalAuthority.endBattle` decides what it means for the world: the party takes the battle's HP, a caught animal joins if there is room (the cap is the engine's `MAX_PARTY`, but the let-it-go decision is in the authority), and the closing line is chosen. Only a lost battle is the engine's (`takeToDoctor`). A server authority would have to repeat the rest, and the two copies could drift.
 
-**Why deferred**: there is one authority today, the brief for this work put the outcomes there, and the lost branch is a placeholder the doctor's client work replaces with the engine's `takeToDoctor`.
+**Why deferred**: there is one authority today, and the brief for the battle work put the outcomes there.
 
-**Trigger**: the `RemoteAuthority` / server-side battle PR, or earlier if a second outcome rule lands. Move the write-back into an engine function (`concludeBattle(party, endedState) → { party, message }`, beside `takeToDoctor`) and call it from both authorities.
+**Trigger**: the `RemoteAuthority` / server-side battle PR, or earlier if a second outcome rule lands. Move the write-back into an engine function (`concludeBattle(party, endedState) → { party, outcome }`, beside `takeToDoctor`) and call it from both authorities; let the client word the closing line from the outcome, as it already does for a lost battle.
 
 ### Anonymous player identity is unauthenticated
 
@@ -56,8 +56,26 @@ Technical items we've intentionally postponed: tech debt, hardening shortcuts, k
 
 ### `nearestTent` is a synchronous flood fill that costs up to a few hundred milliseconds
 
-**What**: `nearestTent` (used by `takeToDoctor` after every lost battle) visits about 2·s² tiles for a tent s steps away and generates each one with `tileAtWorld`. Measured over 2,400 walkable starts on 6 seeds: median 10 ms, p99 72 ms, max 180 ms. An adversarial review found 275 ms over 400 seeds. A search that ran all the way to `TENT_SEARCH_STEPS` on open ground would cost several times that, though none has been found. In `LocalAuthority` the search blocks the render thread for that long; in a server authority it would block the event loop for every connection.
+**What**: `nearestTent` (used by `takeToDoctor` after every lost battle) visits about 2·s² tiles for a tent s steps away and generates each one with `tileAtWorld`. Measured over 2,400 walkable starts on 6 seeds: median 10 ms, p99 72 ms, max 180 ms. An adversarial review found 275 ms over 400 seeds. A search that ran all the way to `TENT_SEARCH_STEPS` on open ground would cost several times that, though none has been found. In `LocalAuthority` it runs inside the keydown of the answer that loses the battle, before the first beat plays, and blocks the page that long; in a server authority it would block the event loop for every connection.
 
-**Why deferred**: it runs once per lost battle, while a result card is on screen, and there is no server authority yet. Faster options change the algorithm (visit the tent lattice in order of distance and path-check each candidate, or cap by tiles visited), which is worth doing when there is a second caller or a real report.
+**The game's own world**: the seed is fixed (`'prototype'`), so the numbers that matter are that world's. Over every tall-grass tile within 40 tiles of the start (where a battle can be lost), plus samples out to 400 tiles: median 5–11 ms, max 50 ms in node on an M-series Mac, and 20–40 ms at the slowest of those spots measured in Chrome. Losing at the reed by the start (the usual place): the whole keydown, battle reducer and `takeToDoctor` included, takes 2 ms (Chrome's Event Timing, 2026-09-25). Not perceptible: the first beat after an answer holds for a second anyway.
+
+**Why deferred**: in the game's world it costs at most a few frames, once per lost battle, and there is no server authority yet. Faster options change the algorithm (visit the tent lattice in order of distance and path-check each candidate, or cap by tiles visited), which is worth doing when there is a second caller or a real report.
 
 **Trigger**: the server-side authority PR, a second caller of `nearestTent` on a per-step path (a "nearest doctor" hint), or a report of a pause after losing a battle.
+
+### The engine still words lines that no screen shows
+
+**What**: `BattleState.log`, `DoctorState.log` and `Rescue.message` hold English sentences the engine writes ("Let's help Squirrel! Can you solve this?", "The doctor looked after your animals…"), against [[DECISIONS]] § Copy and languages ("the engine is language-free"). The client words every line itself from events — the battle narration in `battle/controller.ts`, everything the doctor says through `doctor/lines.ts` and the copy files — so these strings reach no screen, but they are still generated, tested and carried in every state event.
+
+**Why deferred**: removing them changes the engine's state shapes and its tests, which is its own PR; nothing reads them, so they cost nothing but bytes.
+
+**Trigger**: the copy extraction (the follow-up to the copy files, PR #16, that moves the game's words into `copy/`). Drop the three fields (or turn them into data the client words) there, and move the authority's own `message` texts (the battle results in `LocalAuthority.endBattle`) to keys at the same time.
+
+### UI_SPEC promises one `Card` component; each overlay styles its own
+
+**What**: [[UI_SPEC]] § Component reuse lists "One `Card`", but there is none: `BattlePanel.svelte`, `DoctorCard.svelte` and `Hud.svelte` each give their cards the same look (`--panel-bg`, `--radius`, `--hud-shadow`) in scoped CSS. A change to the card look has to be made three times.
+
+**Why deferred**: the doctor's card was built while another branch was reworking `Hud.svelte` and `BattlePanel.svelte`; extracting a shared component then would have been a three-way conflict for no change on screen.
+
+**Trigger**: the pause menu (the next overlay), or the next change to the card look. Extract `ui/Card.svelte` and use it in every overlay, or reword the UI_SPEC line to name the shared tokens instead.

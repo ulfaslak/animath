@@ -53,7 +53,7 @@ const v1 = {
 };
 
 /** A document ready to write. */
-const written = { ...v1, facing: 'left', steps: 12, lineage: 'game-a', seq: 3 };
+const written = { ...v1, facing: 'left', steps: 12, visits: 2, lineage: 'game-a', seq: 3 };
 
 function error(input: unknown): string {
 	const checked = validateSave(input);
@@ -114,6 +114,7 @@ describe('validateSave', () => {
 		expect(error({ ...written, facing: 'north' })).toMatch(/facing/);
 		expect(error({ ...written, steps: -1 })).toMatch(/steps/);
 		expect(error({ ...written, steps: 1.5 })).toMatch(/steps/);
+		expect(error({ ...written, visits: -2 })).toMatch(/visits/);
 		expect(error({ ...written, seq: '3' })).toMatch(/seq/);
 		expect(error({ ...written, lineage: '' })).toMatch(/lineage/);
 		expect(error({ ...written, lineage: 7 })).toMatch(/lineage/);
@@ -137,9 +138,9 @@ describe('validateSave', () => {
 });
 
 describe('validateSaveWrite', () => {
-	it('needs facing, steps, lineage and a seq of at least 1', () => {
+	it('needs facing, steps, visits, lineage and a seq of at least 1', () => {
 		expect(validateSaveWrite(written).ok).toBe(true);
-		for (const key of ['facing', 'steps', 'lineage', 'seq']) {
+		for (const key of ['facing', 'steps', 'visits', 'lineage', 'seq']) {
 			const partial: Record<string, unknown> = { ...written };
 			delete partial[key];
 			const checked = validateSaveWrite(partial);
@@ -224,6 +225,7 @@ describe('newGame and restoreGame', () => {
 			pos: spawnPoint(SEED),
 			facing: 'down',
 			steps: 0,
+			visits: 0,
 			party: [{ id: 'starter', speciesId: STARTER_SPECIES, hp: getAnimal(STARTER_SPECIES).maxHp }],
 			battle: null
 		});
@@ -232,7 +234,14 @@ describe('newGame and restoreGame', () => {
 	it('an older v1 save gets facing down and no steps', () => {
 		const pos = findTile(v1.seed, true);
 		const game = restoreGame({ ...v1, pos } as SaveV1);
-		expect(game).toMatchObject({ seed: v1.seed, pos, facing: 'down', steps: 0, battle: null });
+		expect(game).toMatchObject({
+			seed: v1.seed,
+			pos,
+			facing: 'down',
+			steps: 0,
+			visits: 0,
+			battle: null
+		});
 		expect(game.party).toEqual(v1.party);
 	});
 
@@ -242,6 +251,7 @@ describe('newGame and restoreGame', () => {
 			pos: findTile(SEED, true),
 			facing: 'up',
 			steps: 321,
+			visits: 4,
 			party: [
 				{ id: 'a', speciesId: 'fox', hp: 3, nickname: 'Rusty' },
 				{ id: 'b', speciesId: 'bear', hp: 0 }
@@ -418,7 +428,7 @@ describe('readBattle', () => {
 		const party = makeParty(['squirrel']);
 		const battle = startBattle(party, makeWild('rabbit'));
 		const doc = saveDocument(
-			{ seed: SEED, pos, facing: 'left', steps: 11, party, battle },
+			{ seed: SEED, pos, facing: 'left', steps: 11, visits: 0, party, battle },
 			{ lineage: 'L', seq: 2 }
 		);
 		const read = readSave(JSON.parse(JSON.stringify(doc)));
@@ -473,6 +483,7 @@ describe('which save wins', () => {
 			pos: { x: 50, y: 60 },
 			facing: 'up',
 			steps: 900,
+			visits: 9,
 			lineage: 'game-z',
 			seq: 77
 		};

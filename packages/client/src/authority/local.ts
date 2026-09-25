@@ -2,6 +2,8 @@ import {
 	MAX_PARTY,
 	Rng,
 	applyBattleIntent,
+	applyDoctorIntent,
+	canTalkToDoctor,
 	getAnimal,
 	hashInts,
 	hashString,
@@ -10,7 +12,9 @@ import {
 	rollEncounter,
 	spawnPoint,
 	startBattle,
+	startDoctorVisit,
 	step,
+	takeToDoctor,
 	tileAtWorld,
 	type AnimalInstance,
 	type Authority,
@@ -18,9 +22,12 @@ import {
 	type BattleIntent,
 	type BattleState,
 	type Direction,
+	type DoctorIntent,
+	type DoctorState,
 	type GameEvent,
 	type GridPos,
 	type Intent,
+	type Rescue,
 	type SavedGame
 } from '@mathgame/engine';
 
@@ -28,11 +35,23 @@ import {
 export const WORLD_SEED = hashString('prototype');
 
 /**
- * Salts keep the per-step encounter roll and the battle seed apart from each
- * other and from world generation, which also hashes the world seed.
+ * Salts keep the per-step encounter roll, the battle seed and the doctor's
+ * seed apart from each other and from world generation, which also hashes the
+ * world seed.
  */
 const ENCOUNTER_SALT = hashString('encounter');
 const BATTLE_SALT = hashString('battle');
+const DOCTOR_SALT = hashString('doctor');
+
+export interface LocalAuthorityOptions {
+	/**
+	 * Start with this party instead of the one squirrel: the `?party=` URL
+	 * switch, for looking at screens that need a bigger or hurt party. Every
+	 * animal must be valid (a catalog species, HP in `0..maxHp`, unique ids);
+	 * at most `MAX_PARTY`.
+	 */
+	party?: readonly AnimalInstance[];
+}
 
 /** How a session begins: a saved game to pick up, or a new game when absent. */
 export interface StartOptions {
@@ -66,31 +85,45 @@ export class LocalAuthority implements Authority {
 	private spawn: GridPos = { x: 0, y: 0 };
 	private pos: GridPos = { x: 0, y: 0 };
 	/**
-	 * The way the player faces, as the client shows it: `down` in a new game,
-	 * then the `dir` of every `move`, walked or blocked.
+	 * The way the player faces, as the client shows it: `down` in a new game
+	 * (the saved facing in a restored one), then the direction of every
+	 * move, walked or blocked, and the direction of `taken-to-doctor`.
+	 * `interact` talks to a doctor only when this faces a tent.
 	 */
 	private facing: Direction = 'down';
 	private party: AnimalInstance[] = [];
-	/** Completed steps in this game, saved with it. Keys the encounter roll and the battle seed. */
+	/** Completed steps in this game, saved with it. Keys the encounter roll and the battle and doctor seeds. */
 	private steps = 0;
+	/** Doctor visits opened in this game, saved with it, so a later visit at the same step asks new puzzles. */
+	private visits = 0;
 	/** The battle in progress, with the seed every intent of it is applied with. */
 	private battle: { state: BattleState; seed: number } | null = null;
 	/** Intents before `start` have no game to act on. */
 	private started = false;
+	/**
+	 * The doctor visit in progress: its number (every event of it carries
+	 * that) and its seed, which like the battle's never leaves here. Not
+	 * saved: a reload closes the visit, and what it healed is in the party.
+	 */
+	private doctor: { visit: number; state: DoctorState; seed: number } | null = null;
+
+	constructor(private readonly options: LocalAuthorityOptions = {}) {}
 
 	/**
 	 * Begin a game: a new one, or `options.game` from a save. Emits `welcome`,
 	 * then `battle-started` if the save was taken mid-battle.
 	 */
 	start(options: StartOptions = {}): void {
-		const game = options.game ?? newGame(WORLD_SEED);
+		const game = options.game ?? this.newGame();
 		this.seed = game.seed;
 		this.spawn = spawnPoint(this.seed);
 		this.pos = { x: game.pos.x, y: game.pos.y };
 		this.facing = game.facing;
 		this.steps = game.steps;
+		this.visits = game.visits;
 		this.party = game.party.map((a) => ({ ...a }));
 		this.battle = null;
+		this.doctor = null;
 		this.started = true;
 		this.emit({
 			type: 'welcome',
@@ -110,6 +143,7 @@ export class LocalAuthority implements Authority {
 	/**
 	 * The game as it stands, for a save. Mid-battle the party is the battle's,
 	 * HP as it is now, and the battle comes too (its state, never its seed).
+	 * A doctor visit is not saved; what it healed already is in the party.
 	 */
 	snapshot(): SavedGame {
 		const party = this.battle ? this.battle.state.party : this.party;
@@ -118,9 +152,18 @@ export class LocalAuthority implements Authority {
 			pos: { ...this.pos },
 			facing: this.facing,
 			steps: this.steps,
+			visits: this.visits,
 			party: party.map((a) => ({ ...a })),
 			battle: this.battle ? this.battle.state : null
 		};
+	}
+
+	/** A new game in the prototype world, with the `?party=` party when there is one. */
+	private newGame(): SavedGame {
+		const game = newGame(WORLD_SEED);
+		return this.options.party
+			? { ...game, party: this.options.party.map((a) => ({ ...a })) }
+			: game;
 	}
 
 	dispatch(intent: Intent): void {
@@ -130,15 +173,21 @@ export class LocalAuthority implements Authority {
 			if (intent.type === 'battle') this.applyBattle(intent.intent);
 			return;
 		}
+		if (this.doctor) {
+			// At the doctor, walking waits until the visit ends; only doctor intents count.
+			if (intent.type === 'doctor') this.applyDoctor(intent.intent);
+			return;
+		}
 		switch (intent.type) {
 			case 'move':
 				this.move(intent.dir);
 				break;
 			case 'interact':
-				this.emit({ type: 'message', text: 'Nothing here yet.' });
+				this.interact();
 				break;
 			case 'battle':
-				// No battle to act in; the client is showing a result card or is stale.
+			case 'doctor':
+				// Nothing to act in; the client is showing a result card or is stale.
 				break;
 		}
 	}
@@ -151,6 +200,7 @@ export class LocalAuthority implements Authority {
 	// --- explore -----------------------------------------------------------
 
 	private move(dir: Direction): void {
+		// Walked or blocked, the player turns to face the way they tried to go.
 		this.facing = dir;
 		const next = step(this.pos, dir);
 		const tile = tileAtWorld(this.seed, next.x, next.y);
@@ -165,8 +215,8 @@ export class LocalAuthority implements Authority {
 		// The lead is the first animal that isn't tired: the one `startBattle`
 		// sends out first, and the one wild animals size up before they come
 		// out. A party with nobody standing can't battle (`startBattle` refuses
-		// it). Unreachable while losing heals everyone; the doctor's rules
-		// decide what a tired party meets.
+		// it). Losing takes everyone to the doctor, so only a `?party=` of tired
+		// animals walks here; it meets nothing until the doctor has helped.
 		const lead = this.party.find((a) => a.hp > 0);
 		if (!lead) return;
 		// One roll per completed step, keyed by the step count so a replayed
@@ -202,18 +252,17 @@ export class LocalAuthority implements Authority {
 
 	/**
 	 * Write the battle's result back into the world: HP lost stays lost, a
-	 * caught animal joins the party if there is room, and a lost battle heals
-	 * everyone and puts the player back on the spawn tile.
-	 *
-	 * That last one is a placeholder for the knock-out rule (the engine's
-	 * `takeToDoctor`, with its `taken-to-doctor` event), which replaces it
-	 * when the doctor comes to the client.
+	 * caught animal joins the party if there is room, and a lost battle takes
+	 * the player to the nearest doctor's tent, where the whole party is healed
+	 * (the engine's knock-out rule, `takeToDoctor`). That one has no `message`:
+	 * the client words the doctor's line from `taken-to-doctor`.
 	 */
 	private endBattle(state: BattleState, events: readonly BattleEvent[]): void {
 		if (state.phase.kind !== 'ended') return;
 		this.party = state.party.map((a) => ({ ...a }));
 		const wildName = getAnimal(state.opponent.speciesId).name;
-		let text: string;
+		let rescue: Rescue | null = null;
+		let text: string | null = null;
 		switch (state.phase.outcome) {
 			case 'won':
 				text = `The wild ${wildName} runs home to rest.`;
@@ -234,17 +283,72 @@ export class LocalAuthority implements Authority {
 				break;
 			}
 			case 'lost':
-				this.party = this.party.map((a) => ({ ...a, hp: getAnimal(a.speciesId).maxHp }));
-				this.pos = this.spawn;
-				text = 'Everyone is tired. You rest and feel better.';
+				// Every animal is tired: off to the nearest tent on foot, facing it.
+				rescue = takeToDoctor(this.seed, this.pos, this.party);
+				this.party = rescue.party;
+				this.pos = rescue.pos;
+				this.facing = rescue.facing;
 				break;
 		}
 		this.emit({ type: 'battle-ended', state });
-		this.emit({ type: 'party-changed', party: this.partyCopy() });
-		if (state.phase.outcome === 'lost') {
-			this.emit({ type: 'player-placed', playerId: this.playerId, pos: this.pos });
+		if (rescue) {
+			this.emit({
+				type: 'taken-to-doctor',
+				playerId: this.playerId,
+				pos: { ...rescue.pos },
+				dir: rescue.facing,
+				tent: rescue.tent && { ...rescue.tent },
+				party: this.partyCopy()
+			});
+		} else {
+			this.emit({ type: 'party-changed', party: this.partyCopy() });
 		}
-		this.emit({ type: 'message', text });
+		if (text !== null) this.emit({ type: 'message', text });
+	}
+
+	// --- doctor ------------------------------------------------------------
+
+	/**
+	 * Enter/Space: talk to the doctor when facing a tent. Anywhere else there
+	 * is nothing to talk to, and the event says so without words: the client
+	 * says how to find a doctor, in the player's language.
+	 */
+	private interact(): void {
+		if (!canTalkToDoctor(this.seed, this.pos, this.facing)) {
+			this.emit({ type: 'nothing-to-interact', playerId: this.playerId });
+			return;
+		}
+		this.visits += 1;
+		const state = startDoctorVisit(this.party);
+		// A fresh seed per visit, keyed like everything else here so a session
+		// replays; the visit count keeps a second visit from asking the same
+		// puzzles, and tells the visits apart in their events.
+		this.doctor = {
+			visit: this.visits,
+			state,
+			seed: hashInts(this.seed, DOCTOR_SALT, this.steps, this.visits)
+		};
+		this.emit({ type: 'doctor-visit-started', visit: this.visits, state });
+	}
+
+	/**
+	 * Apply one doctor intent. A heal is written back at once (the kid earned
+	 * it, whatever happens to the visit after); leaving ends the visit, and
+	 * the client says the doctor's goodbye.
+	 */
+	private applyDoctor(intent: DoctorIntent): void {
+		const doctor = this.doctor!;
+		const { visit } = doctor;
+		const { state, events } = applyDoctorIntent(doctor.state, intent, doctor.seed);
+		doctor.state = state;
+		this.emit({ type: 'doctor-visit-updated', visit, state, events });
+		if (events.some((e) => e.type === 'healed')) {
+			this.party = state.party.map((a) => ({ ...a }));
+			this.emit({ type: 'party-changed', party: this.partyCopy() });
+		}
+		if (state.phase.kind !== 'ended') return;
+		this.doctor = null;
+		this.emit({ type: 'doctor-visit-ended', visit, state });
 	}
 
 	// --- helpers -----------------------------------------------------------

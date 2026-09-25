@@ -35,6 +35,8 @@ export interface SavedGame {
 	facing: Direction;
 	/** Completed steps. Keys every encounter roll and battle seed, so a reload carries on the sequence. */
 	steps: number;
+	/** Doctor visits opened. With `steps`, keys each visit's puzzles, so a reload carries those on too. */
+	visits: number;
 	/** The party, in slot order, at most `MAX_PARTY`. During a battle, HP as it stands in the battle. */
 	party: AnimalInstance[];
 	/** The battle in progress, or null. Its seed is not saved: the authority derives it from `steps`. */
@@ -47,7 +49,7 @@ export interface SavedGame {
  * `version`, `seed`, `pos` and `party` have been required since the first
  * save. The other fields arrived with client saves: older v1 documents lack
  * them and `restoreGame` fills them in, while every write must carry
- * `facing`, `steps`, `lineage` and `seq` (`validateSaveWrite`). Any field this
+ * `facing`, `steps`, `visits`, `lineage` and `seq` (`validateSaveWrite`). Any field this
  * type does not name, at the top level or on an animal, is kept as sent, so a
  * newer client can add data without a server change. Bump `version` only
  * when an old document becomes unreadable, and add the upgrade that reads it
@@ -60,6 +62,7 @@ export interface SaveV1 {
 	party: AnimalInstance[];
 	facing?: Direction;
 	steps?: number;
+	visits?: number;
 	/**
 	 * The game this document belongs to: a random id minted when the game
 	 * started, the same in every save of it. Two lineages are two different
@@ -73,7 +76,8 @@ export interface SaveV1 {
 }
 
 /** A document ready to be written: every field a write must carry is present. */
-export type SaveWrite = SaveV1 & Required<Pick<SaveV1, 'facing' | 'steps' | 'lineage' | 'seq'>>;
+export type SaveWrite = SaveV1 &
+	Required<Pick<SaveV1, 'facing' | 'steps' | 'visits' | 'lineage' | 'seq'>>;
 
 /** The fields `SaveV1` names. Everything else in a document is an extra and is kept as sent. */
 const SAVE_KEYS: ReadonlySet<string> = new Set([
@@ -83,13 +87,21 @@ const SAVE_KEYS: ReadonlySet<string> = new Set([
 	'party',
 	'facing',
 	'steps',
+	'visits',
 	'lineage',
 	'seq',
 	'battle'
 ]);
 
 /** Fields that say where the player is, or which write a document is — not what they have. */
-const WHEREABOUTS: ReadonlySet<string> = new Set(['pos', 'facing', 'steps', 'lineage', 'seq']);
+const WHEREABOUTS: ReadonlySet<string> = new Set([
+	'pos',
+	'facing',
+	'steps',
+	'visits',
+	'lineage',
+	'seq'
+]);
 
 const DIRECTIONS: ReadonlySet<string> = new Set(['up', 'down', 'left', 'right']);
 const SPECIES_IDS: ReadonlySet<string> = new Set(ANIMALS.map((a) => a.id));
@@ -210,7 +222,7 @@ function findSaveError(input: Doc): string | null {
 	if (input.facing !== undefined && !DIRECTIONS.has(input.facing as string)) {
 		return 'facing must be up, down, left or right';
 	}
-	for (const key of ['steps', 'seq'] as const) {
+	for (const key of ['steps', 'visits', 'seq'] as const) {
 		if (input[key] !== undefined && !isWhole(input[key])) {
 			return `${key} must be a whole number of 0 or more`;
 		}
@@ -223,13 +235,13 @@ function findSaveError(input: Doc): string | null {
 
 /**
  * Checks a document someone wants to write: a valid v1 document that also
- * carries `facing`, `steps`, `lineage` and a `seq` of at least 1.
+ * carries `facing`, `steps`, `visits`, `lineage` and a `seq` of at least 1.
  */
 export function validateSaveWrite(input: unknown): SaveCheck<SaveWrite> {
 	const checked = validateSave(input);
 	if (!checked.ok) return checked;
 	const doc = checked.value;
-	for (const key of ['facing', 'steps', 'lineage', 'seq'] as const) {
+	for (const key of ['facing', 'steps', 'visits', 'lineage', 'seq'] as const) {
 		if (doc[key] === undefined) return { ok: false, error: `a save being written needs ${key}` };
 	}
 	if (doc.seq! < 1) return { ok: false, error: 'seq must be 1 or more' };
@@ -284,6 +296,7 @@ export function newGame(seed: number): SavedGame {
 		pos: spawnPoint(seed),
 		facing: 'down',
 		steps: 0,
+		visits: 0,
 		party: [{ id: 'starter', speciesId: STARTER_SPECIES, hp: getAnimal(STARTER_SPECIES).maxHp }],
 		battle: null
 	};
@@ -291,7 +304,7 @@ export function newGame(seed: number): SavedGame {
 
 /**
  * The game a readable save describes, made playable. Fields an older v1
- * document lacks get their defaults (facing down, no steps), and nothing in
+ * document lacks get their defaults (facing down, no steps or visits), and nothing in
  * it can leave the player stuck: a position that is not walkable (the world
  * generator changed under it) becomes the spawn tile, an HP above the
  * species' maximum is cut to it, an empty party gets the starter, and a party
@@ -313,6 +326,7 @@ export function restoreGame(save: SaveV1): SavedGame {
 		pos: standable ? { x: save.pos.x, y: save.pos.y } : spawnPoint(seed),
 		facing: save.facing ?? 'down',
 		steps: save.steps ?? 0,
+		visits: save.visits ?? 0,
 		party,
 		battle: standable ? readBattle(save.battle, party) : null
 	};
@@ -392,6 +406,7 @@ export function saveDocument(
 		pos: { x: game.pos.x, y: game.pos.y },
 		facing: game.facing,
 		steps: game.steps,
+		visits: game.visits,
 		party: game.party.map((a) => ({ ...a })),
 		lineage: stamp.lineage,
 		seq: stamp.seq
@@ -438,7 +453,7 @@ export function replacesAnotherGame(
 
 /**
  * Whether two saves hold the same progress: they may differ in where the
- * player is (position, facing, steps) and in which write they are, and in
+ * player is (position, facing, steps, doctor visits) and in which write they are, and in
  * nothing else — not the party, not a battle, not the world, not any extra
  * field. A page whose save was replaced by another page that only walked
  * around can take the save back without losing anything a kid would miss.

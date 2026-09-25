@@ -11,6 +11,53 @@ puzzle:
   # Under a puzzle until it is answered.
   keys: Skriv svaret, og tryk så på Enter
 
+explore:
+  # Under the latest message for a player's first few moves.
+  controls: Brug piletasterne eller WASD for at gå
+  # Under the latest message while the player faces a doctor's tent.
+  talkPrompt: Tryk på Enter for at tale med dyrlægen
+  # Enter anywhere but facing a tent.
+  notAtTent: Gå hen til et telt for at tale med dyrlægen.
+
+party:
+  # The tag on an animal at 0 HP.
+  tired: træt
+
+doctor:
+  # The name tag in front of what the doctor says.
+  title: Dyrlæge
+  # Opening the card with someone to help.
+  hello: Hej! Hvem skal jeg hjælpe i dag?
+  # Opening the card with nobody to help.
+  helloAllFit: Hej! Alle dine dyr er friske og glade.
+  # A puzzle for {name}, just picked.
+  letsHelp: Lad os hjælpe {name}! Kan du løse den her?
+  # After a wrong answer; a new puzzle follows.
+  notQuite: Ikke helt! Lad os prøve en anden.
+  # After a right answer, while someone else still needs the doctor.
+  healedNext: Godt klaret! {name} har det godt igen! Hvem er den næste?
+  # After a right answer that leaves everyone at full HP.
+  healedAll: Godt klaret! {name} har det godt igen! Alle er friske og glade!
+  # On the message line after leaving the card.
+  goodbye: Hej hej! Kom bare igen, når du vil.
+  # After a lost battle, woken beside a tent.
+  rescuedAtTent: Dyrlægen har passet godt på dine dyr. Nu har alle det godt igen!
+  # After a lost battle with no tent near: a doctor came to the player.
+  rescuedHere: En dyrlæge kom forbi og passede godt på dine dyr. Nu har alle det godt igen!
+  # The last row of the list, and its key.
+  bye: Farvel
+  byeKey: Esc
+  # The puzzle area before an animal is picked.
+  pick: Vælg et dyr
+  pickDetail: Løs en opgave, så får {name} det godt igen!
+  byeDetail: Sig farvel, og gå på opdagelse.
+  listKeys: ↑ ↓ flyt · Enter vælg · Esc farvel
+  # Under a doctor's puzzle while another animal needs help too.
+  puzzleKeys: ↑ ↓ hjælp et andet dyr · Esc farvel
+  # The puzzle area when nobody needs the doctor.
+  allFit: Ud på eventyr!
+  allFitKeys: Enter eller Esc for at sige farvel
+
 save:
   # On the message line when a saved game is picked up.
   welcomeBack: Velkommen tilbage!

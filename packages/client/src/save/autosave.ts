@@ -13,7 +13,7 @@ import {
 	type SavedGame
 } from '@mathgame/engine';
 import { isIdentity, type Identity, type SaveServer } from './api';
-import type { SaveNotice } from '../state/notice.svelte';
+import type { SaveNotice } from './notices';
 import { KEYS, parseJson, type KeyValueStore } from './storage';
 
 /**

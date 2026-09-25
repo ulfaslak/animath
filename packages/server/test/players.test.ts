@@ -61,6 +61,7 @@ function doc(seq: number, lineage = 'game-a', overrides: Record<string, unknown>
 		pos: { x: -7, y: 3 },
 		facing: 'left',
 		steps: 40 + seq,
+		visits: 1,
 		lineage,
 		seq,
 		party: [animal(1, { nickname: 'Nutkin' }), animal(2, { speciesId: 'fox' })],
@@ -301,7 +302,7 @@ describe('PUT validation', () => {
 	});
 
 	it('400 for a write without the fields every write carries', async () => {
-		for (const key of ['seq', 'lineage', 'steps', 'facing']) {
+		for (const key of ['seq', 'lineage', 'steps', 'visits', 'facing']) {
 			const partial: Record<string, unknown> = doc(1);
 			delete partial[key];
 			await expectRejected(partial, new RegExp(key));
