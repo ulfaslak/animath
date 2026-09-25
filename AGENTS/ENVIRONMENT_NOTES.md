@@ -14,6 +14,7 @@ The same Mac runs lawcel's dev stack, often with several worktrees live at once.
 
 - **Postgres.** Lawcel's container owns host port **5432**. Ours (`mathgame-postgres-1`, from the root `docker-compose.yml`) is on **5433**. `DATABASE_URL` in `.env.example` already says so; never "fix" it back to 5432.
 - **Ports.** Lawcel dev servers start at Vite's default **5173** and count up. Ours: client **5180**, API **3000**. Before starting a server, `lsof -nP -iTCP:<port> -sTCP:LISTEN` — if something you didn't start is listening, pick another port and pass it explicitly; never kill a listener that isn't yours. Note that Vite binds `localhost` as IPv6 `[::1]` on this machine, so `curl 127.0.0.1:5180` fails while `curl localhost:5180` works; that's normal.
+- **The primary clone's dev servers are often already up.** The human (or another session) runs `pnpm dev` from `~/git/mathgame` on 5180 and 3000; `lsof -a -p <pid> -d cwd` shows whose it is. From a worktree, start your own client beside it with `pnpm -F @mathgame/client exec vite --port 5181 --strictPort` (the config pins 5180) and point the screenshot script at it with `--url http://localhost:5181/`. The client does not call the API yet, so no second API server is needed for anything on screen.
 
 ## No `psql` on the PATH
 

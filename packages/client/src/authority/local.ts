@@ -108,6 +108,10 @@ export class LocalAuthority implements Authority {
 		this.steps += 1;
 		this.emit({ type: 'player-moved', playerId: this.playerId, pos: next, dir });
 
+		// A party with nobody standing can't battle (`startBattle` refuses it).
+		// Unreachable while losing heals everyone; the doctor's rules decide
+		// what a tired party meets.
+		if (!this.party.some((a) => a.hp > 0)) return;
 		// One roll per completed step, keyed by the step count so a replayed
 		// walk meets the same animals; the engine only draws on tall grass.
 		const rng = new Rng(hashInts(this.seed, ENCOUNTER_SALT, this.steps));
@@ -152,13 +156,14 @@ export class LocalAuthority implements Authority {
 				text = `The wild ${wildName} stays in the grass.`;
 				break;
 			case 'caught': {
+				// The reducer always reports the caught animal on `ended`.
 				const ended = events.find((e) => e.type === 'ended');
 				const caught = ended?.type === 'ended' ? ended.caught : undefined;
-				if (caught && this.party.length < PARTY_LIMIT) {
-					this.party.push({ ...caught });
-					text = `${wildName} joins your team!`;
-				} else {
+				if (caught && this.party.length >= PARTY_LIMIT) {
 					text = `Your team is full, so ${wildName} goes back into the grass.`;
+				} else {
+					if (caught) this.party.push({ ...caught });
+					text = `${wildName} joins your team!`;
 				}
 				break;
 			}
