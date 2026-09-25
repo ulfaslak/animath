@@ -21,10 +21,11 @@
  *   size:<w>x<h>  resize the window now (e.g. mid-battle)
  *   reload:       reload the page and wait for it, as a kid pressing F5 would
  * The final frame goes to `--out`. After every frame the script prints what
- * the screen says — the HUD line in explore (with the grid position), and in
- * a battle the narration line, the puzzle, the typed answer, the judgement,
- * the status boxes and the result card — so a flow can be asserted from the
- * console output, not only the images.
+ * the screen says — the message line in explore (and the grid position and
+ * facing with `?debug` in the URL), at the doctor the doctor's line and the
+ * party, and in a battle the narration line, the puzzle, the typed answer,
+ * the judgement, the status boxes and the result card — so a flow can be
+ * asserted from the console output, not only the images.
  *
  * Headless SwiftShader runs at a few frames per second, so buffered steps need
  * the `--settle` wait to finish before the screenshot. `--scale 3` renders the
@@ -90,8 +91,25 @@ async function textOf(selector) {
 /** What the screen says right now, one `key: value` per line. */
 async function describe() {
 	const lines = [];
-	const hint = await textOf('.hint');
-	if (hint !== null) lines.push(`hud: ${hint}`);
+	const debug = await textOf('.debug');
+	if (debug !== null) lines.push(`at: ${debug}`);
+	const message = await textOf('.hint .message');
+	const prompt = await textOf('.hint .prompt');
+	if (message !== null || prompt !== null) {
+		lines.push(`hud: ${[message, prompt].filter((t) => t !== null).join(' | ')}`);
+	}
+	const doctorLine = await textOf('.doctor-line');
+	if (doctorLine !== null) lines.push(`doctor: ${doctorLine}`);
+	const patients = await page.locator('.patients .row').evaluateAll((els) =>
+		els.map((el) => {
+			const label = el.querySelector('.label')?.textContent ?? '';
+			const tag = el.querySelector('.tag')?.textContent;
+			const hp = el.querySelector('.hp .text')?.textContent;
+			const text = [label, tag && `(${tag})`, hp].filter(Boolean).join(' ');
+			return el.classList.contains('selected') ? `[${text}]` : text;
+		})
+	);
+	if (patients.length) lines.push(`patients: ${patients.join(' | ')}`);
 	const statuses = await page.locator('.status').allTextContents();
 	if (statuses.length) {
 		lines.push(`status: ${statuses.map((s) => s.replace(/\s+/g, ' ').trim()).join(' | ')}`);

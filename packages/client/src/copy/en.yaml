@@ -54,3 +54,50 @@ battle:
     whoIsNext: '{name} is tired. Who goes next?'
     # Narration: the animal in front goes back to make room.
     comeBack: 'Come back, {name}!'
+
+explore:
+  # Under the latest message for a player's first few moves.
+  controls: Arrows / WASD to walk
+  # Under the latest message while the player faces a doctor's tent.
+  talkPrompt: Press Enter to talk to the doctor
+  # Enter anywhere but facing a tent.
+  notAtTent: Walk up to a tent to talk to the doctor.
+
+party:
+  # The tag on an animal at 0 HP.
+  tired: tired
+
+doctor:
+  # The name tag in front of what the doctor says.
+  title: Doctor
+  # Opening the card with someone to help.
+  hello: Hello! Who needs help today?
+  # Opening the card with nobody to help.
+  helloAllFit: Hello! Your animals are all fit and happy.
+  # A puzzle for {name}, just picked.
+  letsHelp: Let's help {name}! Can you solve this?
+  # After a wrong answer; a new puzzle follows.
+  notQuite: Not quite! Let's try another one.
+  # After a right answer, while someone else still needs the doctor.
+  healedNext: Well done! {name} feels all better! Who is next?
+  # After a right answer that leaves everyone at full HP.
+  healedAll: Well done! {name} feels all better! Everyone is fit and happy!
+  # On the message line after leaving the card.
+  goodbye: Bye! Come back any time.
+  # After a lost battle, woken beside a tent.
+  rescuedAtTent: The doctor looked after your animals. Everyone feels better!
+  # After a lost battle with no tent near: a doctor came to the player.
+  rescuedHere: A doctor came by and looked after your animals. Everyone feels better!
+  # The last row of the list, and its key.
+  bye: Bye
+  byeKey: Esc
+  # The puzzle area before an animal is picked.
+  pick: Pick an animal
+  pickDetail: Solve a puzzle and {name} feels all better!
+  byeDetail: Say bye and go exploring.
+  listKeys: ↑ ↓ choose · Enter pick · Esc bye
+  # Under a doctor's puzzle while another animal needs help too.
+  puzzleKeys: ↑ ↓ help another animal · Esc bye
+  # The puzzle area when nobody needs the doctor.
+  allFit: Time to explore!
+  allFitKeys: Enter or Esc to say bye

@@ -86,11 +86,13 @@ function setup() {
 		}
 		throw new Error('no battle yet');
 	};
-	/** The party as the authority last reported it. */
+	/** The party as the authority last reported it (a lost battle's trip to the tent heals it). */
 	const partyNow = (): AnimalInstance[] => {
 		for (let i = events.length - 1; i >= 0; i--) {
 			const e = events[i]!;
-			if (e.type === 'party-changed' || e.type === 'welcome') return e.party;
+			if (e.type === 'party-changed' || e.type === 'welcome' || e.type === 'taken-to-doctor') {
+				return e.party;
+			}
 		}
 		return [];
 	};
@@ -136,7 +138,7 @@ function setup() {
 			press('Enter');
 		}
 	};
-	/** Lose a battle on purpose, every answer wrong: the rest after it heals everyone. */
+	/** Lose a battle on purpose, every answer wrong: the trip to the tent heals everyone. */
 	const restAll = () => {
 		walkIntoBattle();
 		for (let i = 0; i < 400 && latest().phase.kind !== 'ended'; i++) {
