@@ -1,6 +1,7 @@
 import type { Authority, Direction, GameEvent, GridPos } from '@mathgame/engine';
 import type { Keyboard } from '../input/keyboard';
 import type { GameRenderer } from '../render/renderer';
+import { game } from '../state/game.svelte';
 
 const STEP_SECONDS = 0.18; // one tile per step; Game Boy pace is ~0.25
 
@@ -8,6 +9,7 @@ const STEP_SECONDS = 0.18; // one tile per step; Game Boy pace is ~0.25
  * Explore mode: turns held keys into `move` intents, one per tile, and
  * animates the player mesh between tiles as `player-moved` events arrive.
  * Enter is sent as `interact`; what came of it is the authority's to say.
+ * A number key sends `select-lead` for the animal in that party slot.
  */
 export class ExploreController {
 	private pos: GridPos = { x: 0, y: 0 };
@@ -65,6 +67,17 @@ export class ExploreController {
 	}
 
 	update(dt: number): void {
+		// A number key chooses who goes first, at once, even mid-step — and before
+		// any step this frame sends: that step can start a battle, and the animal
+		// chosen on the same frame must be the one that fights.
+		const slot = this.keyboard.takeSlot();
+		const animal = slot === undefined ? undefined : game.party[slot];
+		if (animal) {
+			this.authority.dispatch({
+				type: 'party',
+				intent: { type: 'select-lead', animalId: animal.id }
+			});
+		}
 		if (this.progress < 1) {
 			this.progress = Math.min(1, this.progress + dt / STEP_SECONDS);
 		} else {

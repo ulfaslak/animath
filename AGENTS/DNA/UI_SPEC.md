@@ -26,12 +26,19 @@ How the two modes are laid out and behave. Visual language is in [[DESIGN]]; rul
 └────────────────────────────────────────────────────────┘
 ```
 
+<<<<<<< HEAD
 - **Party HUD** (top-left): one card per animal — name (nickname if set), HP bar with `hp/max` text. Knocked-out animals are greyed with a "tired" tag. Never more than six cards.
 - **Message line** (bottom-centre): up to two lines in one box. Above, the latest thing said — a `message` event, a line the client words from an event that carries no words (the doctor's lines; `nothing-to-interact`, Enter away from a tent), or, when the game starts, what it found about the save ("Welcome back!" when a saved game was picked up, or why a new game started: "Your saved game didn't load, so here is a new one.") — for 5 seconds, then it fades; the seconds count only while the explore HUD is on screen, so a line said during a battle or a doctor visit is still there to read afterwards. Below, the controls hint ("Arrows / WASD to walk") until the player has walked 5 steps; bumps don't count, since a key held against a wall bumps every frame. With neither, the box fades away.
 - **Interaction prompt**: when the player faces a doctor's tent, the lower line shows "Press Enter to talk to the doctor", in place of the controls hint. Enter anywhere else says "Walk up to a tent to talk to the doctor.", which gives way to the prompt as soon as the player faces a tent.
 - **Saving shows nothing**: no icon, no "Saved", and nothing when the server is out of reach, because the game is always saved in the browser.
 - **Loading**: "Loading…" over an empty screen until the game has started, which is at once when the browser holds the save; only a browser that has lost its save but still knows the player waits, at most a few seconds, for the server's copy.
 - **Controls**: arrows/WASD to walk, Enter/Space to interact, Escape opens the pause menu (party, settings, later: bag). Holding a key keeps walking; a tap moves one tile.
+=======
+- **Party HUD** (top-left): one card per animal, in battle order — the number key that makes it go first (as a key cap), name (nickname if set, cut with an ellipsis when it does not fit), HP bar with `hp/max` text. Knocked-out animals are greyed with a "tired" tag. The lead ([[PRODUCT]] §4 "Party") is outlined in the accent colour, its key cap filled, and tagged "goes first", so it reads without colour too. With a party of one there is nobody to choose between: no key caps, no tag. Under the cards, a small panel shows the keys: "1–n Pick who goes first" and "Esc Menu". Never more than six cards; six fit at 1024×768.
+- **Message line** (bottom-centre): up to two lines in one box. Above, the latest thing said — a `message` event, or a line the client words from an event that carries no words (the doctor's lines; `nothing-to-interact`, Enter away from a tent) — for 5 seconds, then it fades; the seconds count only while the explore HUD is on screen, so a line said during a battle or a doctor visit is still there to read afterwards. Below, the controls hint ("Arrows / WASD to walk") until the player has walked 5 steps; bumps don't count, since a key held against a wall bumps every frame. With neither, the box fades away. After a party edit that changes who goes first, the line names the new lead ("Fox goes first!"), or says why an animal can't be chosen; a line about the lead goes at once when a battle or the doctor changes the party.
+- **Interaction prompt**: when the player faces a doctor's tent, the lower line shows "Press Enter to talk to the doctor", in place of the controls hint. Enter anywhere else says "Walk up to a tent to talk to the doctor.", which gives way to the prompt as soon as the player faces a tent.
+- **Controls**: arrows/WASD to walk, Enter/Space to interact, number keys 1–6 choose who goes first (the animal in that slot moves to the front; a tired one stays put and the message line says it is tired and needs the doctor), Escape opens the pause menu. Holding a key keeps walking; a tap moves one tile.
+>>>>>>> origin/main
 - The grid position is not shown to players. `?debug` in the URL puts the position and facing in the top-right corner.
 - The player stays centred; the world scrolls under them. Chunks are built 2 chunks out in every direction so nothing pops in at the edge.
 
@@ -65,9 +72,9 @@ Borrowed composition from the Game Boy games: your animal from behind at bottom-
   - **Actions** (left): one row per attack — its name, how hard its puzzle is at the chosen level, and three level pills — then Leash and Run. The difficulty word reads the engine's 1–10 scale as easy (1–3), medium (4–6), hard (7–8) or super hard (9–10). The level is one choice for all rows and is kept from battle to battle. Keys: up/down or W/S move the cursor (wrapping round); left/right or A/D change the level; 1/2/3 pick that level and attack at once; Enter or Space do the highlighted action. While a turn plays the rows dim and keys do nothing.
   - **Puzzle** (right): until an attack is chosen, "Pick an attack", one sentence about the highlighted row ("Scurry Kick, level 3: a medium puzzle with adding, taking away or missing numbers. It hits for 14.") and a key reminder. Once chosen: the prompt in very large type and an answer box. Number keys type, a minus only as the first character, Backspace deletes, at most seven characters; Enter submits, and does nothing until a digit has been typed. **There is no way back**: once a puzzle is shown the turn is committed ([[PRODUCT]] §4), so Escape does nothing. Correct → the card flashes green and says "Correct!". Wrong → the answer box shakes red and says "Not quite!"; the correct answer is **not** shown (they will meet the puzzle again), and the log says "Missed!".
 - **Narration line**: one line above the panel, one beat per event with a hold of about a second each ("Wild Otter used Splash! 5 damage.", "Wild Otter used Splash! It missed.", "Missed! The wild Otter shrugs it off."). Turn order and the opponent's action are visible, never instant.
-- **Leash**: a loop on a rope flies in from the trainer's side (off-screen, lower left), wobbles on the animal through a suspense pause ("You throw the leash…"), then holds ("Caught!", and the animal hops) or pops off ("It broke free!"). The odds are never shown as a number (kids should feel it, not compute it): a colour on the Leash row hints, red / amber / green by the wild animal's HP in thirds, and a word says the same thing — strong / weaker / weak — because colour is never the only signal.
+- **Leash**: a loop on a rope flies in from the trainer's side (off-screen, lower left), wobbles on the animal through a suspense pause ("You throw the leash…"), then holds ("Caught!", and the animal hops) or pops off ("It broke free!"). The odds are never shown as a number (kids should feel it, not compute it): the Leash row hints at the real chance — the engine's `catchProbability` for this animal at the HP on screen, with this leash — as a colour and the same thing in words, because colour is never the only signal: green "Good chance!" at one in two or better, amber "Maybe" at one in five or better, red "Hard to catch" below that. A fierce animal can stay "Hard to catch" all the way down (a bear never reaches one in five).
 - **End**: a result card — "You won!", "You caught a Fox!", "Good try!" (the whole party is tired) or "You got away!" — over the authority's closing message (none after "Good try!": the doctor has the next word, in the world; see § Doctor), with one big button back to explore. Enter or Space press it; for the first 0.8 s the card ignores keys, so an Enter mashed through the last beats cannot skip it.
-- **Keys across modes**: keys go to one screen at a time — the battle, else the doctor's card, else explore. A key already held down when the screen changes does nothing in the new one until it is pressed again: battle and the doctor's card ignore auto-repeat, and explore drops held keys and queued taps while either is up.
+- **Keys across modes**: keys go to one screen at a time — the battle, else the doctor's card, else the pause menu, else explore. A key already held down when the screen changes does nothing in the new one until it is pressed again: battle, the doctor's card and the pause menu ignore auto-repeat, and explore drops held keys, queued taps and a pressed number while any of them is up.
 
 ## Doctor
 
@@ -99,8 +106,31 @@ After a lost battle, the result card says "Good try!" and nothing more, and its 
 
 ## Pause menu
 
-Escape. Cards for Party (reorder, nickname), Settings (sound, later: touch controls), and Quit to title. All keyboard-navigable.
+Escape in explore opens it; never in a battle (Escape there does nothing) or at the doctor (Escape there leaves). An overlay, not a mode: the world keeps drawing under a dim backdrop, and walking waits until it closes (a step already started lands).
+
+```
+┌──────────────────────────────────────────────────────────────┐
+│ Paused                                                       │
+│                                                              │
+│   Your team                                ┌───────────────┐ │
+│   1 Pip  Squirrel  ▓▓▓▓░ 20/20 goes first  │ Fox           │ │
+│   2 Rabbit         ░░░░░  0/22      tired  │ ▸ Go first    │ │
+│  [3 Fox            ▓▓░░░ 12/35           ] │   Move up     │ │
+│   ( Keep playing )                         │  (Move down)  │ │
+│                                            │   New name    │ │
+│                                            │   Back        │ │
+│                                            └───────────────┘ │
+│                                                              │
+│              ↑ ↓ choose · Enter do it · Esc back             │
+└──────────────────────────────────────────────────────────────┘
+```
+
+- **Left**: "Your team" in battle order — slot number, name (with the species beside a nickname), HP bar with numbers, "tired" or "goes first" — then the menu rows ("Keep playing"; Settings and Quit to title join here when there is something to set and a title to quit to). Up/down or W/S move the cursor, wrapping round; Enter or Space pick; Escape closes the menu.
+- **Right**: what can be done with the picked animal, which stays outlined in the list: **Go first** (not for a tired animal or the lead), **Move up**, **Move down**, **New name**, **Back**. Options that can't be done are greyed and the cursor skips them; one that becomes impossible under the cursor (the animal reached the top) does nothing, so mashing Enter never overshoots. Moves happen at once and the list re-sorts with a short slide. Escape goes back to the list, with the cursor on the animal wherever it now is. Before anything is picked, the panel says what picking does.
+- **Name box**: New name opens a text box with the current nickname selected, the species' name as the placeholder, a line saying what a name may hold, and — when the typed text will not be stored as shown — what the animal will be called ("It will be called Pip."). Every key but Enter, Escape and Tab types: W A S D and Space are letters here, and the arrows move the caret. Enter saves (an empty name gives the species' name back), Escape goes back to the options without saving, and the box keeps the focus while it is open. An input method's Enter and Escape are its own.
+- The key reminder at the bottom follows the screen: "↑ ↓ choose · Enter pick · Esc close", "↑ ↓ choose · Enter do it · Esc back", "Enter save · Esc back".
+- It holds at 1024×768 with six animals and a 12-character name.
 
 ## Component reuse
 
-One `PuzzlePanel` component serves battle and doctor, and one helper (`input/answer.ts`) turns keys into the typed answer for both. One `HpBar`. One `Card`. New UI reuses these before inventing.
+One `PuzzlePanel` component serves battle and doctor, and one helper (`input/answer.ts`) turns keys into the typed answer for both. One `HpBar`. Every card — the HUD's, the battle panel's, the doctor's, the pause menu — has one look, from the tokens `--panel-bg`, `--radius` and `--hud-shadow` in `styles.css`, not from a shared component. New UI reuses these before inventing.

@@ -1,6 +1,7 @@
 import type { AnimalInstance } from './animals/types.js';
 import type { BattleEvent, BattleIntent, BattleState } from './battle/types.js';
 import type { DoctorEvent, DoctorIntent, DoctorState } from './doctor/types.js';
+import type { PartyEvent, PartyIntent } from './party/types.js';
 import type { Direction, GridPos } from './world/types.js';
 
 /**
@@ -19,7 +20,13 @@ export type Intent =
 	| { type: 'interact' }
 	| { type: 'battle'; intent: BattleIntent }
 	/** Only during a doctor visit. A visit starts with `interact` while `canTalkToDoctor` holds. */
-	| { type: 'doctor'; intent: DoctorIntent };
+	| { type: 'doctor'; intent: DoctorIntent }
+	/**
+	 * Reorder or rename the party (the pause menu). The authority passes what
+	 * the player is doing to `applyPartyIntent`, which accepts it only while
+	 * exploring. Always answered with a `party-edited`.
+	 */
+	| { type: 'party'; intent: PartyIntent };
 
 export type GameEvent =
 	/**
@@ -98,7 +105,13 @@ export type GameEvent =
 			dir: Direction;
 			tent: GridPos | null;
 			party: AnimalInstance[];
-	  };
+	  }
+	/**
+	 * One party intent was applied. `events` says what happened (`reordered`,
+	 * `renamed`, or `rejected`, when the party is unchanged) and `party` is the
+	 * whole party after it, in order.
+	 */
+	| { type: 'party-edited'; party: AnimalInstance[]; events: readonly PartyEvent[] };
 
 export interface Authority {
 	dispatch(intent: Intent): void;

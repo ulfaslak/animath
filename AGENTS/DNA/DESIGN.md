@@ -82,6 +82,7 @@ The same voice for a Danish seven-year-old reading alone: short, warm, one idea 
 - "træt" for tired: "Ræv er træt." Never "besvimet", "slået ud" or "død".
 - "Ikke helt! Bjørnen ryster det af sig." not "Forkert svar." Big moments get big copy and an exclamation mark: "Du fangede en ræv!" "Godt forsøgt!" when the whole party is tired, never "Du tabte".
 - No anglicisms where Danish has a word a kid knows: "hold", not "team". Nothing scary: no "dø", "dræbe" or "blod".
+- The animal that goes first is "først ud" ("Ræv er først ud!"), and the menu option that puts one there is "Sæt forrest". The pause menu is "Pause", and closing it is "Spil videre".
 - A species is a noun. Your own animal goes by its name, the nickname or else the species with a capital ("Kom så, Ræv!"). A wild one gets an article, lower case: "En vild ræv dukker op!", "Den vilde ræv er træt."
 - Danish nouns are *en* or *et*, and the article and "vild" follow: en vild ræv / den vilde ræv, but et vildt egern / det vilde egern. The copy files give each species its forms, so a sentence never guesses.
 
@@ -97,7 +98,8 @@ The same voice for a Danish seven-year-old reading alone: short, warm, one idea 
 
 ## Accessibility
 
-- Every state is readable without colour (numbers on HP bars, icons plus text for hit/miss).
+- Every state is readable without colour (numbers on HP bars, icons plus text for hit/miss, "goes first" on the lead's card).
+- A word shown beside a colour says exactly what the colour encodes, and no more. If the word promises something the colour does not measure ("good chance" on a colour that only tracks HP), change what the colour measures or change the word.
 - Keyboard-only play is complete: arrows/WASD, number keys, Enter, Escape.
 - Motion is gentle; no full-screen flashes on a hit.
 - Text never below 16 px; puzzle prompt never below 32 px.

@@ -22,6 +22,13 @@ explore:
 party:
   # The tag on an animal at 0 HP.
   tired: tired
+  # The message line, when a number key or "Go first" made {name} the lead,
+  # or a change in the pause menu left {name} in front.
+  leadChosen: '{name} goes first!'
+  # The message line, when the number of a tired animal was pressed.
+  leadTired: '{name} is tired. Visit the doctor!'
+  # The message line, when the lead's own number was pressed.
+  leadAlready: '{name} already goes first!'
 
 doctor:
   # The name tag in front of what the doctor says.
@@ -57,6 +64,53 @@ doctor:
   # The puzzle area when nobody needs the doctor.
   allFit: Time to explore!
   allFitKeys: Enter or Esc to say bye
+
+keys:
+  # A key cap, as printed on the keyboard.
+  esc: Esc
+
+hud:
+  # The tag on the card of the lead: the animal that steps into the next battle.
+  goesFirst: goes first
+  # Under the party cards, after the number keys 1–n.
+  pickLead: Pick who goes first
+  # Under the party cards, after the Esc key cap.
+  menu: Menu
+
+pause:
+  # The pause menu's title.
+  title: Paused
+  # Above the list of the party's animals.
+  team: Your team
+  # The row that closes the menu.
+  resume: Keep playing
+  # The picked animal's options: become the lead, move one place, get a nickname.
+  goFirst: Go first
+  moveUp: Move up
+  moveDown: Move down
+  newName: New name
+  back: Back
+  # The right-hand panel before an animal is picked.
+  pick: Pick an animal
+  pickHelp: Choose who goes first, move it, or give it a name.
+  # Under the options of a tired animal, whose "Go first" is greyed.
+  tiredHelp: "{name} is tired, so it can't go first."
+  # Above the name box.
+  nameTitle: New name for {name}
+  # Under the name box; {max} is the most characters a name can have.
+  nameRule: Letters and numbers, up to {max}.
+  # Under the name box, when the typed name will be stored differently.
+  willBe: Its name will be {name}.
+  # The key reminder at the bottom, one per screen of the menu.
+  keysList: ↑ ↓ choose · Enter pick · Esc close
+  keysOptions: ↑ ↓ choose · Enter do it · Esc back
+  keysNaming: Enter save · Esc back
+
+battle:
+  # On the Leash row: how likely a throw is to catch the wild animal right now.
+  leashGood: Good chance!
+  leashMaybe: Maybe
+  leashHard: Hard to catch
 
 save:
   # On the message line when a saved game is picked up.

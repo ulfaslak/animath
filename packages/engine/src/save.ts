@@ -2,6 +2,7 @@ import type { AnimalInstance } from './animals/types.js';
 import { ATTACK_LEVELS, MAX_PARTY } from './animals/types.js';
 import { ANIMALS, getAnimal } from './animals/catalog.js';
 import type { BattleState } from './battle/types.js';
+import { normalizeNickname } from './party/names.js';
 import { ALL_PUZZLE_KINDS, MAX_DIFFICULTY, MIN_DIFFICULTY } from './puzzles/types.js';
 import { spawnPoint, tileAtWorld } from './world/generate.js';
 import type { Direction, GridPos } from './world/types.js';
@@ -19,8 +20,12 @@ export const SAVE_VERSION = 1;
 
 /** The longest animal id, or lineage id, a save may hold. */
 export const MAX_SAVE_ID_LENGTH = 64;
-/** The longest nickname a save may hold. A rename box must stop typing here. */
-export const MAX_NICKNAME_LENGTH = 40;
+/**
+ * The longest nickname a save accepts, in UTF-16 units. Renames are cut much
+ * shorter (`MAX_NICKNAME_LENGTH`, in code points, `party/names.ts`); this is
+ * the storage limit, with room for a name of 4-byte letters twice over.
+ */
+export const MAX_SAVED_NICKNAME_LENGTH = 40;
 
 /** The species a new game starts with ([[PRODUCT]] §4 "Starting out"). */
 export const STARTER_SPECIES = 'squirrel';
@@ -179,9 +184,9 @@ function validateAnimal(v: unknown, label: string): string | null {
 		v.nickname !== undefined &&
 		(typeof v.nickname !== 'string' ||
 			v.nickname.length === 0 ||
-			v.nickname.length > MAX_NICKNAME_LENGTH)
+			v.nickname.length > MAX_SAVED_NICKNAME_LENGTH)
 	) {
-		return `${label}.nickname must be a string of 1–${MAX_NICKNAME_LENGTH} characters`;
+		return `${label}.nickname must be a string of 1–${MAX_SAVED_NICKNAME_LENGTH} characters`;
 	}
 	if (!isWhole(v.hp)) return `${label}.hp must be a whole number of 0 or more`;
 	return null;
@@ -302,8 +307,17 @@ export function newGame(seed: number): SavedGame {
 	};
 }
 
+/** An animal from a save as a rename would leave it: its nickname cleaned, and none when nothing is left. */
+function cleanAnimal(animal: AnimalInstance): AnimalInstance {
+	const { nickname, ...rest } = animal;
+	const clean = normalizeNickname(nickname);
+	return clean === undefined ? rest : { ...rest, nickname: clean };
+}
+
 /**
- * The game a readable save describes, made playable. Fields an older v1
+ * The game a readable save describes, made playable. Nicknames go through
+ * the same cleaning as a rename (`normalizeNickname`), in the party and in a
+ * saved battle's party alike. Fields an older v1
  * document lacks get their defaults (facing down, no steps or visits), and nothing in
  * it can leave the player stuck: a position that is not walkable (the world
  * generator changed under it) becomes the spawn tile, an HP above the
@@ -316,7 +330,9 @@ export function newGame(seed: number): SavedGame {
 export function restoreGame(save: SaveV1): SavedGame {
 	const { seed } = save;
 	const standable = isWalkable(tileAtWorld(seed, save.pos.x, save.pos.y).kind);
-	let party = save.party.map((a) => ({ ...a, hp: Math.min(a.hp, getAnimal(a.speciesId).maxHp) }));
+	let party = save.party.map((a) =>
+		cleanAnimal({ ...a, hp: Math.min(a.hp, getAnimal(a.speciesId).maxHp) })
+	);
 	if (party.length === 0) party = newGame(seed).party;
 	else if (!party.some((a) => a.hp > 0)) {
 		party = party.map((a) => ({ ...a, hp: getAnimal(a.speciesId).maxHp }));
@@ -343,7 +359,12 @@ export function readBattle(value: unknown, party: readonly AnimalInstance[]): Ba
 	if (!isRecord(value)) return null;
 	const { step, turn, active, opponent, leashQuality, phase, log } = value;
 	if (!isWhole(step) || !Number.isSafeInteger(turn) || (turn as number) < 1) return null;
-	if (!Array.isArray(value.party) || canonical(value.party) !== canonical(party)) return null;
+	if (!Array.isArray(value.party)) return null;
+	// Cleaned as the restored party was, so the two compare as the game would see them.
+	const fought = value.party.map((a) =>
+		isRecord(a) ? cleanAnimal(a as unknown as AnimalInstance) : a
+	);
+	if (canonical(fought) !== canonical(party)) return null;
 	if (!Number.isSafeInteger(active)) return null;
 	const front = party[active as number];
 	if (!front || front.hp === 0) return null;

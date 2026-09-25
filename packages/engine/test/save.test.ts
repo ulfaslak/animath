@@ -5,7 +5,7 @@ import { applyBattleIntent, startBattle } from '../src/battle/reducer.js';
 import type { BattleState } from '../src/battle/types.js';
 import { Rng, hashInts, hashString } from '../src/rng.js';
 import {
-	MAX_NICKNAME_LENGTH,
+	MAX_SAVED_NICKNAME_LENGTH,
 	SAVE_UPGRADES,
 	SAVE_VERSION,
 	STARTER_SPECIES,
@@ -105,7 +105,7 @@ describe('validateSave', () => {
 		expect(error({ ...v1, party: [animal(1, { id: 'x'.repeat(65) })] })).toMatch(/id/);
 		expect(error({ ...v1, party: [animal(1, { nickname: 7 })] })).toMatch(/nickname/);
 		expect(error({ ...v1, party: [animal(1, { nickname: null })] })).toMatch(/nickname/);
-		const long = 'n'.repeat(MAX_NICKNAME_LENGTH + 1);
+		const long = 'n'.repeat(MAX_SAVED_NICKNAME_LENGTH + 1);
 		expect(error({ ...v1, party: [animal(1, { nickname: long })] })).toMatch(/nickname/);
 		expect(error({ ...v1, party: [animal(1), animal(1)] })).toMatch(/id/);
 	});

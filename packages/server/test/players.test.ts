@@ -1,4 +1,4 @@
-import { MAX_PARTY } from '@mathgame/engine';
+import { MAX_NICKNAME_LENGTH, MAX_PARTY, normalizeNickname } from '@mathgame/engine';
 import { eq } from 'drizzle-orm';
 import { randomUUID } from 'node:crypto';
 import { afterAll, describe, expect, it } from 'vitest';
@@ -132,6 +132,18 @@ describe('save round trip', () => {
 		const got = await getSave(player);
 		expect(got.status).toBe(200);
 		expect(await got.json()).toEqual(sent);
+	});
+
+	it('stores the longest nickname the game can make, in the widest letters', async () => {
+		// The engine counts a nickname in code points and the save checks UTF-16
+		// units: a name of 4-byte letters is twice as long here. This fails if the
+		// engine's cap ever outgrows what a save accepts.
+		const nickname = normalizeNickname('\u{10400}'.repeat(MAX_NICKNAME_LENGTH + 5))!;
+		expect(Array.from(nickname)).toHaveLength(MAX_NICKNAME_LENGTH);
+		const player = await createPlayer();
+		const sent = doc(1, 'game-a', { party: [animal(1, { nickname })] });
+		expect((await putSave(player, sent)).status).toBe(200);
+		expect(await (await getSave(player)).json()).toEqual(sent);
 	});
 
 	it('a later save of the same game replaces the save instead of adding a row, with no backup', async () => {

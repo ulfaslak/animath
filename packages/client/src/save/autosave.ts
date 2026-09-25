@@ -244,6 +244,7 @@ export class Autosave {
 		switch (event.type) {
 			case 'battle-ended':
 			case 'party-changed':
+			case 'party-edited':
 			case 'taken-to-doctor':
 			case 'doctor-visit-ended':
 				this.changed(true);
