@@ -5,6 +5,7 @@ import {
 	applyDoctorIntent,
 	applyPartyIntent,
 	canTalkToDoctor,
+	chooseStarter,
 	getAnimal,
 	hashInts,
 	hashString,
@@ -82,6 +83,10 @@ export interface StartOptions {
  * a battle included, and `start({ game })` picks it up again, so a save
  * continues the same step count, and a battle the same intents, as if the
  * page had never reloaded.
+ *
+ * Until a game is under way (the title), it takes one intent, `new-game`,
+ * and ignores the rest; `leave-game` goes back there. So nothing walks,
+ * rolls an encounter or changes behind the title.
  */
 export class LocalAuthority implements Authority {
 	private listeners = new Set<(e: GameEvent) => void>();
@@ -103,7 +108,10 @@ export class LocalAuthority implements Authority {
 	private visits = 0;
 	/** The battle in progress, with the seed every intent of it is applied with. */
 	private battle: { state: BattleState; seed: number } | null = null;
-	/** Intents before `start` have no game to act on. */
+	/**
+	 * A game is under way: from `start` or an accepted `new-game` until
+	 * `leave-game`. Without one there is nothing to act on but `new-game`.
+	 */
 	private started = false;
 	/**
 	 * The doctor visit in progress: its number (every event of it carries
@@ -119,7 +127,11 @@ export class LocalAuthority implements Authority {
 	 * then `battle-started` if the save was taken mid-battle.
 	 */
 	start(options: StartOptions = {}): void {
-		const game = options.game ?? this.newGame();
+		this.run(options.game ?? this.newGame(), options.game === undefined);
+	}
+
+	/** Run `game` from where it stands; `isNew` when it begins here rather than from a save. */
+	private run(game: SavedGame, isNew: boolean): void {
 		this.seed = game.seed;
 		this.spawn = spawnPoint(this.seed);
 		this.pos = { x: game.pos.x, y: game.pos.y };
@@ -139,7 +151,8 @@ export class LocalAuthority implements Authority {
 			seed: this.seed,
 			pos: { ...this.pos },
 			facing: this.facing,
-			party: this.partyCopy()
+			party: this.partyCopy(),
+			newGame: isNew
 		});
 		if (game.battle) {
 			// The battle's seed is the one it started with: the steps have not moved since.
@@ -189,7 +202,15 @@ export class LocalAuthority implements Authority {
 	}
 
 	dispatch(intent: Intent): void {
+		if (intent.type === 'new-game') {
+			this.startNewGame(intent);
+			return;
+		}
 		if (!this.started) return;
+		if (intent.type === 'leave-game') {
+			this.leave();
+			return;
+		}
 		if (intent.type === 'party') {
 			// In any mode: the engine is told what the player is doing and refuses
 			// an edit outside explore itself.
@@ -223,6 +244,39 @@ export class LocalAuthority implements Authority {
 	subscribe(listener: (e: GameEvent) => void): () => void {
 		this.listeners.add(listener);
 		return () => this.listeners.delete(listener);
+	}
+
+	// --- the title -----------------------------------------------------------
+
+	/**
+	 * `new-game`: the starter screen's choice. Only from the title, and only
+	 * a starter (the engine's `chooseStarter`, which also cleans the name);
+	 * the new game is played in the prototype world, and its starter gets a
+	 * fresh id like a caught animal.
+	 */
+	private startNewGame(choice: unknown): void {
+		if (this.started) {
+			this.emit({ type: 'new-game-refused', reason: 'game-in-progress' });
+			return;
+		}
+		const pick = chooseStarter(choice);
+		if (!pick.ok) {
+			this.emit({ type: 'new-game-refused', reason: pick.reason });
+			return;
+		}
+		this.run(newGame(WORLD_SEED, { ...pick.starter, id: mintId() }), true);
+	}
+
+	/**
+	 * `leave-game`: back to the title. The game stays as it stood, so
+	 * `snapshot()` still holds it (a battle in progress too) and `start` can
+	 * pick it up again; a doctor visit closes, as a reload closes it, keeping
+	 * what it healed. Nothing is accepted after this but `new-game`.
+	 */
+	private leave(): void {
+		this.doctor = null;
+		this.started = false;
+		this.emit({ type: 'game-left' });
 	}
 
 	// --- explore -----------------------------------------------------------

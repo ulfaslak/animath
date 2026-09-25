@@ -44,6 +44,8 @@ export type {
 
 export { MAX_NICKNAME_LENGTH, normalizeNickname } from './party/names.js';
 export { applyPartyIntent, leadIndex } from './party/reducer.js';
+export { STARTERS, STARTER_TIER, chooseStarter, isStarter } from './party/starters.js';
+export type { NewGameRejection, Starter, StarterPick } from './party/starters.js';
 export type {
 	PartyEvent,
 	PartyIntent,

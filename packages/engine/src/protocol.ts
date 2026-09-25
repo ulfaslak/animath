@@ -1,6 +1,7 @@
 import type { AnimalInstance } from './animals/types.js';
 import type { BattleEvent, BattleIntent, BattleState } from './battle/types.js';
 import type { DoctorEvent, DoctorIntent, DoctorState } from './doctor/types.js';
+import type { NewGameRejection } from './party/starters.js';
 import type { PartyEvent, PartyIntent } from './party/types.js';
 import type { Direction, GridPos } from './world/types.js';
 
@@ -26,13 +27,30 @@ export type Intent =
 	 * the player is doing to `applyPartyIntent`, which accepts it only while
 	 * exploring. Always answered with a `party-edited`.
 	 */
-	| { type: 'party'; intent: PartyIntent };
+	| { type: 'party'; intent: PartyIntent }
+	/**
+	 * Start a new game with the starter the player picked, and the name they
+	 * gave it, as typed (the title's starter screen). The engine's
+	 * `chooseStarter` checks it: a tier-1 species, a nickname that is text,
+	 * cleaned like a rename. Only while no game is under way, which is at the
+	 * title. Answered with `welcome` (`newGame: true`), or `new-game-refused`.
+	 */
+	| { type: 'new-game'; speciesId: string; nickname?: string }
+	/**
+	 * Leave the game for the title (the pause menu's Quit to title). The game
+	 * stops where it is, as a reload stops it: a battle in progress stays in
+	 * the game (`snapshot()`), a doctor visit closes. Answered with
+	 * `game-left`; after it nothing walks, rolls or saves until a game starts.
+	 */
+	| { type: 'leave-game' };
 
 export type GameEvent =
 	/**
 	 * The game starts, or starts over: a new game, or one picked up from a
 	 * save. Carries the facing too, so a restored player looks the way they
 	 * did. A `battle-started` follows when the save was taken mid-battle.
+	 * `newGame` tells the two apart: true for a game that begins here (a
+	 * starter just picked, or a throwaway game), false for one picked up.
 	 */
 	| {
 			type: 'welcome';
@@ -41,7 +59,12 @@ export type GameEvent =
 			pos: GridPos;
 			facing: Direction;
 			party: AnimalInstance[];
+			newGame: boolean;
 	  }
+	/** `new-game` was refused, and nothing started: why, as a code. */
+	| { type: 'new-game-refused'; reason: NewGameRejection }
+	/** The player left the game for the title (`leave-game`). No game is under way now. */
+	| { type: 'game-left' }
 	| { type: 'player-moved'; playerId: string; pos: GridPos; dir: Direction }
 	| { type: 'player-blocked'; playerId: string; dir: Direction }
 	/**

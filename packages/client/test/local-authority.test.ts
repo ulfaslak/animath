@@ -8,7 +8,9 @@ import {
 	nearestTent,
 	readSave,
 	restoreGame,
+	STARTERS,
 	saveDocument,
+	spawnPoint,
 	takeToDoctor,
 	tileAtWorld,
 	type AnimalInstance,
@@ -1010,5 +1012,179 @@ describe('LocalAuthority: the doctor', () => {
 		for (const e of s.events) {
 			if (e.type.startsWith('doctor-')) expect(JSON.stringify(e)).not.toMatch(/seed/i);
 		}
+	});
+});
+
+describe('LocalAuthority: the title', () => {
+	/** An authority at the title: nothing started yet. */
+	function atTitle(): Session {
+		const authority = new LocalAuthority();
+		const events: GameEvent[] = [];
+		authority.subscribe((e) => events.push(e));
+		return { authority, events };
+	}
+
+	it('starts a new game with any starter: alone in the party, at full HP, at the spawn tile', () => {
+		for (const speciesId of STARTERS) {
+			const s = atTitle();
+			s.authority.dispatch({ type: 'new-game', speciesId });
+			expect(s.events.map((e) => e.type)).toEqual(['welcome']);
+			const w = welcome(s);
+			expect(w).toMatchObject({ newGame: true, pos: spawnPoint(w.seed), facing: 'down' });
+			expect(w.party).toHaveLength(1);
+			// No nickname key: the starter goes by its species' name.
+			expect(w.party[0]).toStrictEqual({
+				id: w.party[0]!.id,
+				speciesId,
+				hp: getAnimal(speciesId).maxHp
+			});
+			expect(s.authority.snapshot()).toMatchObject({ steps: 0, visits: 0, battle: null });
+		}
+	});
+
+	it('gives each starter a fresh id, and cleans its name as a rename does', () => {
+		const a = atTitle();
+		const b = atTitle();
+		a.authority.dispatch({ type: 'new-game', speciesId: 'rabbit', nickname: '  Hop  🐇 ' });
+		b.authority.dispatch({ type: 'new-game', speciesId: 'rabbit', nickname: '🐇' });
+		expect(welcome(a).party[0]).toMatchObject({ speciesId: 'rabbit', nickname: 'Hop' });
+		expect(welcome(b).party[0]).not.toHaveProperty('nickname');
+		expect(welcome(a).party[0]!.id).not.toBe(welcome(b).party[0]!.id);
+	});
+
+	it('every starter meets the same animals on the same steps: all starters are one size', () => {
+		const walks = STARTERS.map((speciesId) => {
+			const s = atTitle();
+			s.authority.dispatch({ type: 'new-game', speciesId });
+			return reedWalk(s, 40).map(({ step, wild }) => [step, wild]);
+		});
+		expect(walks[0]!.length).toBeGreaterThan(0);
+		for (const walk of walks) expect(walk).toEqual(walks[0]);
+	});
+
+	it('refuses a species that is not a starter, and nothing starts', () => {
+		for (const speciesId of ['fox', 'bear', 'dragon']) {
+			const s = atTitle();
+			s.authority.dispatch({ type: 'new-game', speciesId });
+			expect(s.events).toEqual([{ type: 'new-game-refused', reason: 'not-a-starter' }]);
+			move(s, 'left', 'right', 'left');
+			s.authority.dispatch({ type: 'interact' });
+			expect(s.events).toHaveLength(1);
+		}
+		const s = atTitle();
+		s.authority.dispatch({ type: 'new-game', speciesId: 'squirrel', nickname: 7 } as never);
+		expect(s.events).toEqual([{ type: 'new-game-refused', reason: 'not-text' }]);
+	});
+
+	it('refuses a new game while one is under way, and the game goes on as it was', () => {
+		const s = session();
+		move(s, 'right', 'left');
+		const before = s.authority.snapshot();
+		const from = s.events.length;
+		s.authority.dispatch({ type: 'new-game', speciesId: 'rabbit' });
+		expect(s.events.slice(from)).toEqual([
+			{ type: 'new-game-refused', reason: 'game-in-progress' }
+		]);
+		expect(s.authority.snapshot()).toEqual(before);
+		// Mid-battle too: no way out of a battle through a new game.
+		walkIntoBattle(s);
+		const inBattle = s.events.length;
+		s.authority.dispatch({ type: 'new-game', speciesId: 'rabbit' });
+		expect(s.events.slice(inBattle)).toEqual([
+			{ type: 'new-game-refused', reason: 'game-in-progress' }
+		]);
+	});
+
+	it('before any game and after leaving one, nothing walks, rolls or talks', () => {
+		const fresh = atTitle();
+		move(fresh, 'left', 'right');
+		fresh.authority.dispatch({ type: 'leave-game' });
+		fresh.authority.dispatch({ type: 'interact' });
+		expect(fresh.events).toEqual([]);
+
+		const s = session();
+		s.authority.dispatch({ type: 'leave-game' });
+		expect(s.events.at(-1)).toEqual({ type: 'game-left' });
+		const left = s.events.length;
+		const game = s.authority.snapshot();
+		// The reed by the start: a walk here with a game under way meets animals.
+		for (let i = 0; i < 40; i++) move(s, i % 2 === 0 ? 'left' : 'right');
+		s.authority.dispatch({ type: 'interact' });
+		s.authority.dispatch({ type: 'party', intent: { type: 'rename', animalId: 'starter', nickname: 'Pip' } });
+		s.authority.dispatch({ type: 'leave-game' });
+		expect(s.events.length).toBe(left);
+		expect(s.authority.snapshot()).toEqual(game);
+	});
+
+	it('a game left and picked up again plays on exactly as if it had never been left', () => {
+		const a = session();
+		const b = session();
+		const walk = (s: Session, from: number, to: number) => {
+			for (let i = from; i < to; i++) move(s, i % 2 === 0 ? 'left' : 'right');
+			if (lastIndexOf(s, 'battle-started') > lastIndexOf(s, 'battle-ended')) {
+				s.authority.dispatch({ type: 'battle', intent: { type: 'flee' } });
+			}
+		};
+		walk(a, 0, 5);
+		walk(b, 0, 5);
+		b.authority.dispatch({ type: 'leave-game' });
+		b.authority.start({ game: b.authority.snapshot() });
+		expect(b.events.at(-1)).toMatchObject({ type: 'welcome', newGame: false });
+		const from = { a: a.events.length, b: b.events.length };
+		walk(a, 5, 60);
+		walk(b, 5, 60);
+		const species = (s: Session, start: number) =>
+			s.events
+				.slice(start)
+				.flatMap((e) => (e.type === 'battle-started' ? [e.state.opponent.speciesId] : []));
+		expect(species(a, from.a).length).toBeGreaterThan(0);
+		expect(species(b, from.b)).toEqual(species(a, from.a));
+	});
+
+	it('leaving mid-battle keeps the battle in the game; leaving a doctor visit closes it', () => {
+		const s = session();
+		walkIntoBattle(s);
+		attack(s, 1, 2, false);
+		const battle = latestBattle(s);
+		s.authority.dispatch({ type: 'leave-game' });
+		expect(s.authority.snapshot().battle).toEqual(battle);
+		s.authority.start({ game: s.authority.snapshot() });
+		expect(s.events.slice(-2).map((e) => e.type)).toEqual(['welcome', 'battle-started']);
+
+		const d = session({ party: hurtParty() });
+		walkToTent(d);
+		d.authority.dispatch({ type: 'interact' });
+		doctorIntent(d, { type: 'pick-patient', partyIndex: 1 });
+		answerDoctor(d, true);
+		d.authority.dispatch({ type: 'leave-game' });
+		d.authority.start({ game: d.authority.snapshot() });
+		const after = d.events.length;
+		// The visit is gone (walking works), and what it healed stayed healed.
+		move(d, 'up');
+		expect(d.events.length).toBeGreaterThan(after);
+		expect(d.authority.snapshot().party[1]!.hp).toBe(getAnimal('rabbit').maxHp);
+	});
+
+	it('a new game after leaving one starts fresh at the spawn tile, with the new starter only', () => {
+		const s = session();
+		move(s, 'right', 'right', 'right');
+		s.authority.dispatch({ type: 'leave-game' });
+		s.authority.dispatch({ type: 'new-game', speciesId: 'rabbit', nickname: 'Hop' });
+		const w = s.events.at(-1);
+		expect(w).toMatchObject({ type: 'welcome', newGame: true, facing: 'down' });
+		expect(s.authority.snapshot()).toMatchObject({
+			pos: spawnPoint(s.authority.snapshot().seed),
+			steps: 0,
+			visits: 0,
+			battle: null,
+			party: [{ speciesId: 'rabbit', nickname: 'Hop', hp: 22 }]
+		});
+	});
+
+	it('a game started without a save is new; one picked up from a save is not', () => {
+		expect(welcome(session())).toMatchObject({ newGame: true });
+		const s = atTitle();
+		s.authority.start({ game: session().authority.snapshot() });
+		expect(welcome(s)).toMatchObject({ newGame: false });
 	});
 });

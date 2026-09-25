@@ -27,7 +27,11 @@ export const MAX_SAVE_ID_LENGTH = 64;
  */
 export const MAX_SAVED_NICKNAME_LENGTH = 40;
 
-/** The species a new game starts with ([[PRODUCT]] §4 "Starting out"). */
+/**
+ * The starter of a game nobody chose one for: a throwaway game (`?new`), and
+ * a saved party that came back empty. A player picks theirs from `STARTERS`
+ * ([[PRODUCT]] §4 "Starting out").
+ */
 export const STARTER_SPECIES = 'squirrel';
 
 /** What a save remembers about the game: everything an authority needs to carry on from it. */
@@ -294,15 +298,23 @@ export function readSave(input: unknown): SaveRead {
 		: { ok: false, reason: 'invalid', error: checked.error };
 }
 
-/** A new game in world `seed`: the spawn tile, facing down, one starter at full HP. */
-export function newGame(seed: number): SavedGame {
+/**
+ * A new game in world `seed`: the spawn tile, facing down, nothing walked,
+ * and one animal, `starter` (the chosen one, `chooseStarter`'s with an id
+ * from the authority), or else the default starter at full HP.
+ */
+export function newGame(seed: number, starter?: AnimalInstance): SavedGame {
 	return {
 		seed,
 		pos: spawnPoint(seed),
 		facing: 'down',
 		steps: 0,
 		visits: 0,
-		party: [{ id: 'starter', speciesId: STARTER_SPECIES, hp: getAnimal(STARTER_SPECIES).maxHp }],
+		party: [
+			starter
+				? { ...starter }
+				: { id: 'starter', speciesId: STARTER_SPECIES, hp: getAnimal(STARTER_SPECIES).maxHp }
+		],
 		battle: null
 	};
 }

@@ -92,7 +92,8 @@ describe('the explore message line', () => {
 			seed: 1,
 			pos: { x: 0, y: 0 },
 			facing: 'down',
-			party: []
+			party: [],
+			newGame: true
 		});
 		hud.apply({
 			type: 'doctor-visit-ended',
@@ -171,7 +172,8 @@ describe('the explore message line', () => {
 			seed: hashString('prototype'),
 			pos: { x: 5, y: 6 },
 			facing: 'left',
-			party: []
+			party: [],
+			newGame: false
 		});
 		expect(hud.hint).toBe(t('explore.controls'));
 		game.apply({ type: 'player-blocked', playerId: 'p', dir: 'down' });
@@ -187,7 +189,8 @@ describe('the explore message line', () => {
 			seed: hashString('prototype'),
 			pos: { x: 5, y: 6 },
 			facing: 'down',
-			party: []
+			party: [],
+			newGame: false
 		});
 		expect(hud.hint).toBe(t('explore.talkPrompt'));
 	});
