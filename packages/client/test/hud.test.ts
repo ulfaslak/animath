@@ -121,7 +121,10 @@ describe('the explore message line', () => {
 		expect(hud.message).toBe(t('explore.notAtTent'));
 
 		s.move('down'); // bumps the tent: now facing it
-		s.tick(MESSAGE_SECONDS + 1);
+		// Advice followed: the prompt takes over at once, the hint does not linger above it.
+		hud.tick(1 / 60);
+		expect(hud.message).toBe('');
+		expect(hud.hint).toBe(t('explore.talkPrompt'));
 		s.pressEnter();
 		expect(s.events.at(-1)).toBe('doctor-visit-started');
 		hud.tick(0);

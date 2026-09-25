@@ -43,11 +43,19 @@ class HudView {
 	#fresh = $state(false);
 	private age = MESSAGE_SECONDS;
 
-	/** The latest thing said while it is fresh, worded now, else ''. */
-	message = $derived(this.#fresh && this.#said ? saidWords(this.#said) : '');
+	#facingTent = $derived(canTalkToDoctor(game.seed, game.pos, game.facing));
+	/**
+	 * The latest thing said while it is fresh, worded now, else ''. "Walk up to
+	 * a tent" is over once the player faces one: the prompt below says what next.
+	 */
+	message = $derived(
+		this.#fresh && this.#said && !('explore' in this.#said && this.#facingTent)
+			? saidWords(this.#said)
+			: ''
+	);
 	/** The line under it: the doctor prompt, the controls hint, or ''. */
 	hint = $derived(
-		canTalkToDoctor(game.seed, game.pos, game.facing)
+		this.#facingTent
 			? t('explore.talkPrompt')
 			: game.steps < HINT_STEPS
 				? t('explore.controls')
