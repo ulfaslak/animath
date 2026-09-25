@@ -16,7 +16,7 @@ import {
 	type GridPos
 } from '@mathgame/engine';
 import { describe, expect, it } from 'vitest';
-import { LocalAuthority, NOT_AT_A_TENT, type LocalAuthorityOptions } from '../src/authority/local';
+import { LocalAuthority, type LocalAuthorityOptions } from '../src/authority/local';
 
 /**
  * The single-player authority's own rules — the ones around the engine, not
@@ -466,19 +466,20 @@ describe('LocalAuthority: facing', () => {
 		move(s, 'right');
 		expect(s.events.at(-1)).toMatchObject({ type: 'player-moved', dir: 'right' });
 
-		// Beside the tent but facing away, Enter only says how to reach a doctor.
+		// Beside the tent but facing away, Enter changes nothing (the client says
+		// how to reach a doctor, in the player's language).
 		move(s, ...Array<Direction>(6).fill('right'));
 		expect(position(s)).toEqual({ x: 5, y: 6 });
 		expect(canTalkToDoctor(seed, position(s), 'down')).toBe(true);
 		const before = s.events.length;
 		s.authority.dispatch({ type: 'interact' });
-		expect(s.events.slice(before)).toEqual([{ type: 'message', text: NOT_AT_A_TENT }]);
+		expect(s.events.slice(before)).toEqual([]);
 
 		// Bumping into the tent turns the player to it; now Enter talks.
 		move(s, 'down');
 		expect(s.events.at(-1)).toMatchObject({ type: 'player-blocked', dir: 'down' });
 		s.authority.dispatch({ type: 'interact' });
-		expect(s.events.at(-1)).toMatchObject({ type: 'doctor-visit-started' });
+		expect(s.events.at(-1)).toMatchObject({ type: 'doctor-visit-started', visit: 1 });
 	});
 
 	it('a nearest-tent stand from far away is one the player faces the tent from', () => {
@@ -589,6 +590,27 @@ describe('LocalAuthority: the doctor', () => {
 		expect(prompts(b)).toEqual(firstA);
 		// Same tile, same step count, a new visit: the seed is fresh.
 		expect(prompts(a)).not.toEqual(firstA);
+	});
+
+	it('numbers its visits: every event of one visit carries its number, the next visit the next', () => {
+		const s = session({ party: hurtParty() });
+		walkToTent(s);
+		for (const n of [1, 2]) {
+			const from = s.events.length;
+			s.authority.dispatch({ type: 'interact' });
+			doctorIntent(s, { type: 'pick-patient', partyIndex: 0 });
+			doctorIntent(s, { type: 'leave' });
+			const visits = s.events
+				.slice(from)
+				.flatMap((e) =>
+					e.type === 'doctor-visit-started' ||
+					e.type === 'doctor-visit-updated' ||
+					e.type === 'doctor-visit-ended'
+						? [e.visit]
+						: []
+				);
+			expect(visits).toEqual([n, n, n, n]);
+		}
 	});
 
 	it('a doctor visit never shows its seed', () => {

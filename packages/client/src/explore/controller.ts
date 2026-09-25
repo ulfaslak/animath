@@ -1,12 +1,22 @@
-import type { Authority, Direction, GameEvent, GridPos } from '@mathgame/engine';
+import {
+	canTalkToDoctor,
+	type Authority,
+	type Direction,
+	type GameEvent,
+	type GridPos
+} from '@mathgame/engine';
 import type { Keyboard } from '../input/keyboard';
 import type { GameRenderer } from '../render/renderer';
+import { hud } from '../state/hud.svelte';
 
 const STEP_SECONDS = 0.18; // one tile per step; Game Boy pace is ~0.25
 
 /**
  * Explore mode: turns held keys into `move` intents, one per tile, and
  * animates the player mesh between tiles as `player-moved` events arrive.
+ * Enter is always sent as `interact`; with no tent in front (the check the
+ * authority makes, on the same position and facing), nothing will come of it,
+ * so the message line says how to find a doctor.
  */
 export class ExploreController {
 	private pos: GridPos = { x: 0, y: 0 };
@@ -68,7 +78,10 @@ export class ExploreController {
 		} else {
 			const dir = this.keyboard.takeTap() ?? this.keyboard.heldDirection();
 			if (dir) this.authority.dispatch({ type: 'move', dir });
-			if (this.keyboard.takeInteract()) this.authority.dispatch({ type: 'interact' });
+			if (this.keyboard.takeInteract()) {
+				this.authority.dispatch({ type: 'interact' });
+				if (!canTalkToDoctor(this.seed, this.pos, this.facing)) hud.say({ explore: 'notAtTent' });
+			}
 		}
 		this.renderer.setPlayer(this.from, this.pos, this.progress, this.facing);
 		this.renderer.ensureChunksAround(this.pos);

@@ -1,4 +1,5 @@
 import { needsHealing, type AnimalInstance, type Puzzle } from '@mathgame/engine';
+import type { DoctorLine } from '../doctor/lines';
 
 /**
  * What the doctor's card shows. Filled only by `DoctorController`, which
@@ -16,8 +17,8 @@ class DoctorView {
 	/** True from `doctor-visit-started` until `doctor-visit-ended`. */
 	active = $state(false);
 	party = $state<AnimalInstance[]>([]);
-	/** What the doctor is saying. */
-	line = $state('');
+	/** What the doctor is saying, worded by the card in the language on screen. */
+	line = $state<DoctorLine | null>(null);
 	/** Highlighted row: a party index, or `party.length` for Bye. */
 	cursor = $state(0);
 	/** The animal whose puzzle is open. */
@@ -37,7 +38,7 @@ class DoctorView {
 	reset(): void {
 		this.active = false;
 		this.party = [];
-		this.line = '';
+		this.line = null;
 		this.cursor = 0;
 		this.patient = null;
 		this.puzzle = null;

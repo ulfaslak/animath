@@ -18,8 +18,11 @@ class GameView {
 	pos = $state<GridPos>({ x: 0, y: 0 });
 	/** The way the player faces: down from `welcome`, then every move's direction, walked or blocked. */
 	facing = $state<Direction>('down');
-	/** Moves the player has made since `welcome`, walked or blocked (the controls hint counts them). */
-	moves = $state(0);
+	/**
+	 * Steps walked since `welcome` (the controls hint counts them). Bumps are
+	 * not steps: a key held against a wall sends a blocked move every frame.
+	 */
+	steps = $state(0);
 	party = $state<AnimalInstance[]>([]);
 
 	apply(event: GameEvent): void {
@@ -29,7 +32,7 @@ class GameView {
 				this.seed = event.seed;
 				this.pos = event.pos;
 				this.facing = 'down';
-				this.moves = 0;
+				this.steps = 0;
 				this.party = event.party;
 				this.mode = 'explore';
 				break;
@@ -37,12 +40,10 @@ class GameView {
 				if (event.playerId !== this.playerId) break;
 				this.pos = event.pos;
 				this.facing = event.dir;
-				this.moves += 1;
+				this.steps += 1;
 				break;
 			case 'player-blocked':
-				if (event.playerId !== this.playerId) break;
-				this.facing = event.dir;
-				this.moves += 1;
+				if (event.playerId === this.playerId) this.facing = event.dir;
 				break;
 			case 'player-placed':
 				if (event.playerId === this.playerId) this.pos = event.pos;

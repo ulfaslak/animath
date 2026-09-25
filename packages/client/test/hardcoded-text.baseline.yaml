@@ -18,7 +18,6 @@ src/ui/BattlePanel.svelte:
 
 src/ui/Hud.svelte:
   - tired
-  - Arrows / WASD to walk ·
 
 src/ui/PuzzlePanel.svelte:
   - Correct!

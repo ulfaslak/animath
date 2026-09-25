@@ -1,21 +1,45 @@
+import { getAnimal, type AnimalInstance } from '@mathgame/engine';
+import { t } from '../copy';
+
 /**
- * Everything the doctor says, in one place: on the card, as the player
- * leaves, and after a lost battle. The client words these from the doctor's
- * events itself (the engine's `DoctorState.log` and `Rescue.message` are not
- * shown), the way the battle screen words its narration, so the words can
- * move to per-language files without touching the engine or the authority.
+ * What the doctor says, as data: on the card, as the player leaves, and after
+ * a lost battle. The client chooses a line from the doctor's events (the
+ * engine's `DoctorState.log` and `Rescue.message` are not shown), keeps it in
+ * state as one of these, and words it with `doctorWords` when it is shown, in
+ * the language on screen (DECISIONS § Copy and languages). An animal travels
+ * as itself, so its name is worded at display time too.
  */
-export const doctorLines = {
-	hello: 'Hello! Who needs help today?',
-	helloAllFit: 'Hello! Your animals are all fit and happy.',
-	letsHelp: (name: string) => `Let's help ${name}! Can you solve this?`,
-	notQuite: "Not quite! Let's try another one.",
-	healed: (name: string, someoneStillHurt: boolean) =>
-		`Well done! ${name} feels all better! ${someoneStillHurt ? 'Who is next?' : 'Everyone is fit and happy!'}`,
-	bye: 'Bye! Come back any time.',
-	/** After a lost battle: taken to a tent, or (no tent near) a doctor came to the player. */
-	rescued: (atTent: boolean) =>
-		atTent
-			? 'The doctor looked after your animals. Everyone feels better!'
-			: 'A doctor came by and looked after your animals. Everyone feels better!'
-};
+export type DoctorLine =
+	| { say: 'hello' }
+	| { say: 'helloAllFit' }
+	| { say: 'letsHelp'; animal: AnimalInstance }
+	| { say: 'notQuite' }
+	| { say: 'healed'; animal: AnimalInstance; someoneStillHurt: boolean }
+	| { say: 'goodbye' }
+	| { say: 'rescued'; atTent: boolean };
+
+export function doctorWords(line: DoctorLine): string {
+	switch (line.say) {
+		case 'hello':
+			return t('doctor.hello');
+		case 'helloAllFit':
+			return t('doctor.helloAllFit');
+		case 'letsHelp':
+			return t('doctor.letsHelp', { name: nameOf(line.animal) });
+		case 'notQuite':
+			return t('doctor.notQuite');
+		case 'healed':
+			return line.someoneStillHurt
+				? t('doctor.healedNext', { name: nameOf(line.animal) })
+				: t('doctor.healedAll', { name: nameOf(line.animal) });
+		case 'goodbye':
+			return t('doctor.goodbye');
+		case 'rescued':
+			return line.atTent ? t('doctor.rescuedAtTent') : t('doctor.rescuedHere');
+	}
+}
+
+/** An animal's name as the game shows it: its nickname, else its species. */
+export function nameOf(animal: AnimalInstance): string {
+	return animal.nickname ?? getAnimal(animal.speciesId).name;
+}

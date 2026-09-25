@@ -1,7 +1,6 @@
 import {
 	getAnimal,
 	needsHealing,
-	type AnimalInstance,
 	type Authority,
 	type DoctorEvent,
 	type DoctorIntent,
@@ -10,7 +9,7 @@ import {
 } from '@mathgame/engine';
 import { answerKey } from '../input/answer';
 import { cursorStops, doctor, hurtIndexes, stepCursor } from '../state/doctor.svelte';
-import { doctorLines } from './lines';
+import type { DoctorLine } from './lines';
 
 /**
  * The doctor's card: from `doctor-visit-started` to `doctor-visit-ended`, a
@@ -18,8 +17,9 @@ import { doctorLines } from './lines';
  * turns keys into doctor intents and plays the authority's doctor events back
  * a beat at a time — the judgement of an answer, then the heal — before it
  * shows the latest state and takes keys again, the way the battle screen
- * does. The doctor's words come from `lines.ts`, chosen by event. Nothing
- * here decides anything: the engine judges answers and heals.
+ * does. What the doctor says is chosen by event, as a `DoctorLine` the card
+ * words when it shows it. Nothing here decides anything: the engine judges
+ * answers and heals.
  */
 
 /** One beat: change the view, then hold for `hold` seconds. */
@@ -41,6 +41,8 @@ const CORRECT_HOLD = 0.8;
 const HEAL_HOLD = 1.2;
 
 export class DoctorController {
+	/** The visit on screen, as its events number it; null while the card is closed. */
+	private visit: number | null = null;
 	/** The authority's latest state; shown once the beats have played. */
 	private latest: DoctorState | null = null;
 	private beats: Beat[] = [];
@@ -48,7 +50,7 @@ export class DoctorController {
 	/** Seconds the card has been open. */
 	private age = 0;
 	/** What the doctor says about the latest state; shown with its beat, or at `settle`. */
-	private said = '';
+	private said: DoctorLine | null = null;
 	private heals = 0;
 
 	constructor(private authority: Authority) {}
@@ -56,12 +58,13 @@ export class DoctorController {
 	handle(event: GameEvent): void {
 		switch (event.type) {
 			case 'doctor-visit-started':
-				this.open(event.state);
+				this.open(event.visit, event.state);
 				break;
 			case 'doctor-visit-updated': {
-				// Only the visit on screen, and never an older state than the one shown.
+				// Only the visit on screen (a late event of an earlier visit carries
+				// another number), and never an older state of it than the one shown.
 				const latest = this.latest;
-				if (!doctor.active || !latest || event.state.step < latest.step) return;
+				if (event.visit !== this.visit || !latest || event.state.step < latest.step) return;
 				const said = lineFor(event.events, event.state);
 				if (said) this.said = said;
 				this.latest = event.state;
@@ -73,7 +76,7 @@ export class DoctorController {
 				break;
 			}
 			case 'doctor-visit-ended':
-				if (doctor.active) this.close();
+				if (event.visit === this.visit) this.close();
 				break;
 		}
 	}
@@ -124,14 +127,15 @@ export class DoctorController {
 
 	// --- screens -------------------------------------------------------------
 
-	private open(state: DoctorState): void {
+	private open(visit: number, state: DoctorState): void {
 		doctor.reset();
 		doctor.active = true;
+		this.visit = visit;
 		this.latest = state;
 		this.beats = [];
 		this.wait = 0;
 		this.age = 0;
-		this.said = state.party.some(needsHealing) ? doctorLines.hello : doctorLines.helloAllFit;
+		this.said = { say: state.party.some(needsHealing) ? 'hello' : 'helloAllFit' };
 		doctor.cursor = hurtIndexes(state.party)[0] ?? state.party.length;
 		this.settle();
 	}
@@ -172,10 +176,11 @@ export class DoctorController {
 
 	private close(): void {
 		doctor.reset();
+		this.visit = null;
 		this.latest = null;
 		this.beats = [];
 		this.wait = 0;
-		this.said = '';
+		this.said = null;
 	}
 
 	private send(intent: DoctorIntent): void {
@@ -231,7 +236,7 @@ export class DoctorController {
 	// --- beats ---------------------------------------------------------------
 
 	/** Turn one doctor event into beats. `said` is what the doctor says to the whole step. */
-	private narrate(e: DoctorEvent, said: string | null): Beat[] {
+	private narrate(e: DoctorEvent, said: DoctorLine | null): Beat[] {
 		switch (e.type) {
 			case 'puzzle-shown':
 				return []; // `settle` shows the puzzle once the beats have played
@@ -276,20 +281,17 @@ export class DoctorController {
  * What the doctor says to one step's events, or null to keep the line as it
  * is (`ended` closes the card; `rejected` changes nothing).
  */
-function lineFor(events: readonly DoctorEvent[], state: DoctorState): string | null {
+function lineFor(events: readonly DoctorEvent[], state: DoctorState): DoctorLine | null {
 	for (const e of events) {
-		if (e.type === 'answer-judged' && !e.correct) return doctorLines.notQuite;
+		if (e.type === 'answer-judged' && !e.correct) return { say: 'notQuite' };
 		if (e.type === 'healed') {
-			return doctorLines.healed(nameOf(e.animal), state.party.some(needsHealing));
+			const someoneStillHurt = state.party.some(needsHealing);
+			return { say: 'healed', animal: { ...e.animal }, someoneStillHurt };
 		}
 	}
 	for (const e of events) {
 		const patient = e.type === 'puzzle-shown' ? state.party[e.partyIndex] : undefined;
-		if (patient) return doctorLines.letsHelp(nameOf(patient));
+		if (patient) return { say: 'letsHelp', animal: { ...patient } };
 	}
 	return null;
-}
-
-function nameOf(animal: AnimalInstance): string {
-	return animal.nickname ?? getAnimal(animal.speciesId).name;
 }

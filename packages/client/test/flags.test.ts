@@ -35,6 +35,10 @@ describe('URL switches', () => {
 			'squirrel:abc',
 			'squirrel:1.5',
 			'squirrel:1:2',
+			'squirrel: ', // `?party=squirrel:%20`: Number(' ') is 0, a tired squirrel nobody asked for
+			'bear:1e1',
+			'bear:0x5',
+			'bear:+3',
 			'Squirrel',
 			Array(7).fill('rabbit').join(',')
 		]) {

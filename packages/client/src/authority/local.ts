@@ -38,9 +38,6 @@ const ENCOUNTER_SALT = hashString('encounter');
 const BATTLE_SALT = hashString('battle');
 const DOCTOR_SALT = hashString('doctor');
 
-/** What `interact` says when the player is not facing a doctor's tent. */
-export const NOT_AT_A_TENT = 'Walk up to a tent to talk to the doctor.';
-
 export interface LocalAuthorityOptions {
 	/**
 	 * Start with this party instead of the one squirrel: the `?party=` URL
@@ -86,8 +83,11 @@ export class LocalAuthority implements Authority {
 	private visits = 0;
 	/** The battle in progress, with the seed every intent of it is applied with. */
 	private battle: { state: BattleState; seed: number } | null = null;
-	/** The doctor visit in progress, with its seed; like the battle's, it never leaves here. */
-	private doctor: { state: DoctorState; seed: number } | null = null;
+	/**
+	 * The doctor visit in progress: its number (every event of it carries
+	 * that) and its seed, which like the battle's never leaves here.
+	 */
+	private doctor: { visit: number; state: DoctorState; seed: number } | null = null;
 
 	constructor(private readonly options: LocalAuthorityOptions = {}) {}
 
@@ -243,18 +243,24 @@ export class LocalAuthority implements Authority {
 
 	// --- doctor ------------------------------------------------------------
 
-	/** Enter/Space: talk to the doctor when facing a tent, or say how to find one. */
+	/**
+	 * Enter/Space: talk to the doctor when facing a tent. Anywhere else there
+	 * is nothing to talk to and nothing happens; the client says how to find a
+	 * doctor itself, in the player's language.
+	 */
 	private interact(): void {
-		if (!canTalkToDoctor(this.seed, this.pos, this.facing)) {
-			this.emit({ type: 'message', text: NOT_AT_A_TENT });
-			return;
-		}
+		if (!canTalkToDoctor(this.seed, this.pos, this.facing)) return;
 		this.visits += 1;
 		const state = startDoctorVisit(this.party);
 		// A fresh seed per visit, keyed like everything else here so a session
-		// replays; the visit count keeps a second visit from asking the same puzzles.
-		this.doctor = { state, seed: hashInts(this.seed, DOCTOR_SALT, this.steps, this.visits) };
-		this.emit({ type: 'doctor-visit-started', state });
+		// replays; the visit count keeps a second visit from asking the same
+		// puzzles, and tells the visits apart in their events.
+		this.doctor = {
+			visit: this.visits,
+			state,
+			seed: hashInts(this.seed, DOCTOR_SALT, this.steps, this.visits)
+		};
+		this.emit({ type: 'doctor-visit-started', visit: this.visits, state });
 	}
 
 	/**
@@ -263,17 +269,18 @@ export class LocalAuthority implements Authority {
 	 * the client says the doctor's goodbye.
 	 */
 	private applyDoctor(intent: DoctorIntent): void {
-		const visit = this.doctor!;
-		const { state, events } = applyDoctorIntent(visit.state, intent, visit.seed);
-		visit.state = state;
-		this.emit({ type: 'doctor-visit-updated', state, events });
+		const doctor = this.doctor!;
+		const { visit } = doctor;
+		const { state, events } = applyDoctorIntent(doctor.state, intent, doctor.seed);
+		doctor.state = state;
+		this.emit({ type: 'doctor-visit-updated', visit, state, events });
 		if (events.some((e) => e.type === 'healed')) {
 			this.party = state.party.map((a) => ({ ...a }));
 			this.emit({ type: 'party-changed', party: this.partyCopy() });
 		}
 		if (state.phase.kind !== 'ended') return;
 		this.doctor = null;
-		this.emit({ type: 'doctor-visit-ended', state });
+		this.emit({ type: 'doctor-visit-ended', visit, state });
 	}
 
 	// --- helpers -----------------------------------------------------------

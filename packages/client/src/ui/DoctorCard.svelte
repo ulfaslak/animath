@@ -1,5 +1,7 @@
 <script lang="ts">
-	import { getAnimal, needsHealing, type AnimalInstance } from '@mathgame/engine';
+	import { getAnimal, needsHealing } from '@mathgame/engine';
+	import { t } from '../copy';
+	import { doctorWords, nameOf } from '../doctor/lines';
 	import { doctor, hurtIndexes } from '../state/doctor.svelte';
 	import HpBar from './HpBar.svelte';
 	import PuzzlePanel from './PuzzlePanel.svelte';
@@ -9,36 +11,18 @@
 	 * Doctor): the doctor's line across the top, the party on the left (hurt
 	 * animals can be picked, healthy ones are shown but skipped), the puzzle on
 	 * the right in the same `PuzzlePanel` as battle, and Bye. Everything comes
-	 * from `doctor` (the presentation view); keys are handled by
-	 * `DoctorController`, so nothing here dispatches.
+	 * from `doctor` (the presentation view) and every word from the copy files
+	 * (`doctor.*`); keys are handled by `DoctorController`, so nothing here
+	 * dispatches.
 	 */
 	const hurt = $derived(hurtIndexes(doctor.party));
 	const highlighted = $derived(doctor.party[doctor.cursor] ?? null);
-
-	/** The card's own words (what the doctor says is in `doctor/lines.ts`). */
-	const words = {
-		doctor: 'Doctor',
-		tired: 'tired',
-		bye: 'Bye',
-		byeKey: 'Esc',
-		pick: 'Pick an animal',
-		pickDetail: (name: string) => `Solve a puzzle and ${name} feels all better!`,
-		byeDetail: 'Say bye and go exploring.',
-		listKeys: '↑ ↓ choose · Enter pick · Esc bye',
-		puzzleKeys: '↑ ↓ help another animal · Esc bye',
-		allFit: 'Time to explore!',
-		allFitKeys: 'Enter or Esc to say bye'
-	};
-
-	function nameOf(animal: AnimalInstance): string {
-		return animal.nickname ?? getAnimal(animal.speciesId).name;
-	}
 </script>
 
 <div class="doctor">
 	<div class="card talk">
-		<span class="who">{words.doctor}</span>
-		<span class="doctor-line">{doctor.line}</span>
+		<span class="who">{t('doctor.title')}</span>
+		<span class="doctor-line">{doctor.line ? doctorWords(doctor.line) : ''}</span>
 	</div>
 
 	<div class="card patients">
@@ -53,7 +37,7 @@
 			>
 				<span class="caret">▸</span>
 				<span class="label">{nameOf(animal)}</span>
-				{#if animal.hp === 0}<span class="tag">{words.tired}</span>{/if}
+				{#if animal.hp === 0}<span class="tag">{t('party.tired')}</span>{/if}
 				<span class="bar"><HpBar hp={animal.hp} max={spec.maxHp} /></span>
 				{#if doctor.healed?.index === i}
 					{#key doctor.healed.n}
@@ -64,8 +48,8 @@
 		{/each}
 		<div class="row bye" class:selected={doctor.cursor === doctor.party.length}>
 			<span class="caret">▸</span>
-			<span class="label">{words.bye}</span>
-			<kbd>{words.byeKey}</kbd>
+			<span class="label">{t('doctor.bye')}</span>
+			<kbd>{t('doctor.byeKey')}</kbd>
 		</div>
 	</div>
 
@@ -78,17 +62,19 @@
 				typing={doctor.screen === 'puzzle'}
 			/>
 			{#if hurt.length > 1}
-				<div class="keys">{words.puzzleKeys}</div>
+				<div class="keys">{t('doctor.puzzleKeys')}</div>
 			{/if}
 		{:else if hurt.length === 0}
-			<div class="soft">{words.allFit}</div>
-			<div class="keys">{words.allFitKeys}</div>
+			<div class="soft">{t('doctor.allFit')}</div>
+			<div class="keys">{t('doctor.allFitKeys')}</div>
 		{:else}
-			<div class="soft">{words.pick}</div>
+			<div class="soft">{t('doctor.pick')}</div>
 			<div class="detail">
-				{highlighted ? words.pickDetail(nameOf(highlighted)) : words.byeDetail}
+				{highlighted
+					? t('doctor.pickDetail', { name: nameOf(highlighted) })
+					: t('doctor.byeDetail')}
 			</div>
-			<div class="keys">{words.listKeys}</div>
+			<div class="keys">{t('doctor.listKeys')}</div>
 		{/if}
 	</div>
 </div>

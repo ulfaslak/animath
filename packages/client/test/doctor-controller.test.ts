@@ -2,7 +2,7 @@ import { getAnimal, type AnimalInstance, type GameEvent, type Intent } from '@ma
 import { beforeEach, describe, expect, it } from 'vitest';
 import { LocalAuthority } from '../src/authority/local';
 import { DoctorController, OPEN_GUARD_SECONDS } from '../src/doctor/controller';
-import { doctorLines } from '../src/doctor/lines';
+import { doctorWords } from '../src/doctor/lines';
 import { doctor } from '../src/state/doctor.svelte';
 
 /**
@@ -85,7 +85,7 @@ describe("the doctor's card", () => {
 	it("opens with the doctor's line and the cursor on the first hurt animal; healthy ones are skipped", () => {
 		const t = setup(hurtParty());
 		t.talk();
-		expect(doctor.line).toBe(doctorLines.hello);
+		expect(doctor.line).toEqual({ say: 'hello' });
 		expect(doctor.screen).toBe('list');
 		expect(doctor.cursor).toBe(0);
 		// An Enter mashed at the tent does nothing for a moment.
@@ -110,12 +110,12 @@ describe("the doctor's card", () => {
 		t.press('Enter');
 		expect(doctor.screen).toBe('puzzle');
 		expect(doctor.patient).toBe(0);
-		expect(doctor.line).toBe(doctorLines.letsHelp('Squirrel'));
+		expect(doctor.line).toMatchObject({ say: 'letsHelp', animal: { speciesId: 'squirrel' } });
 		const first = doctor.puzzle!;
 		const right = t.answer();
 		t.press(...String(right + 1), 'Enter');
 		expect(doctor.judged).toEqual({ correct: false });
-		expect(doctor.line).toBe(doctorLines.notQuite);
+		expect(doctor.line).toEqual({ say: 'notQuite' });
 		expect(doctor.screen).toBe('busy');
 		expect(doctor.party[0]!.hp).toBe(5);
 		t.run(1.3);
@@ -123,7 +123,7 @@ describe("the doctor's card", () => {
 		expect(doctor.judged).toBeNull();
 		expect(doctor.input).toBe('');
 		expect(doctor.puzzle).not.toBe(first);
-		expect(doctor.line).not.toContain(String(right));
+		expect(doctorWords(doctor.line!)).not.toContain(String(right));
 	});
 
 	it('a right answer heals with a cheer, then moves on to the next animal who needs help', () => {
@@ -137,7 +137,11 @@ describe("the doctor's card", () => {
 		t.run(0.85);
 		expect(doctor.party[0]!.hp).toBe(20);
 		expect(doctor.healed).toMatchObject({ index: 0, amount: 15 });
-		expect(doctor.line).toBe(doctorLines.healed('Squirrel', true));
+		expect(doctor.line).toMatchObject({
+			say: 'healed',
+			animal: { speciesId: 'squirrel', hp: 20 },
+			someoneStillHurt: true
+		});
 		expect(doctor.screen).toBe('busy');
 		t.run(1.3);
 		expect(doctor.screen).toBe('list');
@@ -149,7 +153,11 @@ describe("the doctor's card", () => {
 		t.press('Enter');
 		t.press(...String(t.answer()), 'Enter');
 		t.run(2.2);
-		expect(doctor.line).toBe(doctorLines.healed('Rabbit', false));
+		expect(doctor.line).toMatchObject({
+			say: 'healed',
+			animal: { speciesId: 'rabbit' },
+			someoneStillHurt: false
+		});
 		expect(doctor.cursor).toBe(3);
 	});
 
@@ -167,7 +175,7 @@ describe("the doctor's card", () => {
 		expect(doctor.patient).toBe(1);
 		expect(doctor.cursor).toBe(1);
 		expect(doctor.input).toBe('');
-		expect(doctor.line).toBe(doctorLines.letsHelp('Rabbit'));
+		expect(doctor.line).toMatchObject({ say: 'letsHelp', animal: { speciesId: 'rabbit' } });
 		t.press('ArrowDown'); // past the fit fox, round to the squirrel
 		expect(doctor.patient).toBe(0);
 
@@ -217,7 +225,7 @@ describe("the doctor's card", () => {
 	it('with nobody hurt, the doctor says so kindly, and Enter says bye', () => {
 		const t = setup();
 		t.talk();
-		expect(doctor.line).toBe(doctorLines.helloAllFit);
+		expect(doctor.line).toEqual({ say: 'helloAllFit' });
 		expect(doctor.cursor).toBe(1); // Bye, below the one squirrel
 		t.run(OPEN_GUARD_SECONDS);
 		t.press('ArrowDown', 'ArrowUp');
@@ -245,5 +253,38 @@ describe("the doctor's card", () => {
 		const answered = t.doctorSent().length;
 		t.press('Enter', '1', 'ArrowDown', ' ', 'Enter');
 		expect(t.doctorSent().length).toBe(answered);
+	});
+
+	it('ignores events from an earlier visit, even one further along than the visit on screen', () => {
+		const t = setup(hurtParty());
+		t.talk();
+		t.run(OPEN_GUARD_SECONDS);
+		// Visit 1: pick, miss twice (its step is 3 by then), leave.
+		t.press('Enter');
+		t.press(...String(t.answer() + 1), 'Enter');
+		t.run(1.3);
+		t.press(...String(t.answer() + 1), 'Enter');
+		t.run(1.3);
+		const lateUpdate = t.events.filter((e) => e.type === 'doctor-visit-updated').at(-1)!;
+		t.press('Escape');
+		const lateEnd = t.events.filter((e) => e.type === 'doctor-visit-ended').at(-1)!;
+
+		// Visit 2, one step in: the late events of visit 1 change nothing on screen.
+		t.authority.dispatch({ type: 'interact' });
+		t.run(OPEN_GUARD_SECONDS);
+		t.press('Enter');
+		const view = () => ({
+			active: doctor.active,
+			line: doctor.line,
+			puzzle: doctor.puzzle,
+			screen: doctor.screen,
+			judged: doctor.judged
+		});
+		const before = view();
+		expect(before.screen).toBe('puzzle');
+		t.controller.handle(lateUpdate);
+		t.controller.handle(lateEnd);
+		t.run(3);
+		expect(view()).toEqual(before);
 	});
 });

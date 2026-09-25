@@ -46,16 +46,26 @@ export type GameEvent =
 	 */
 	| { type: 'party-changed'; party: AnimalInstance[] }
 	| { type: 'message'; text: string }
-	/** `interact` while facing a tent opened a visit. Walking waits until `doctor-visit-ended`. */
-	| { type: 'doctor-visit-started'; state: DoctorState }
+	/**
+	 * `interact` while facing a tent opened a visit. Walking waits until
+	 * `doctor-visit-ended`. `visit` tells visits apart (a `DoctorState` starts
+	 * its `step` at 0 every time): every event of one visit carries the same
+	 * one, and a later visit a different one.
+	 */
+	| { type: 'doctor-visit-started'; visit: number; state: DoctorState }
 	/**
 	 * One doctor intent was applied. As with `battle-updated`: animate `events`
 	 * in order, then show `state`. When the last event is `ended`, a
 	 * `doctor-visit-ended` follows.
 	 */
-	| { type: 'doctor-visit-updated'; state: DoctorState; events: readonly DoctorEvent[] }
+	| {
+			type: 'doctor-visit-updated';
+			visit: number;
+			state: DoctorState;
+			events: readonly DoctorEvent[];
+	  }
 	/** `state.party` is the party after the visit. */
-	| { type: 'doctor-visit-ended'; state: DoctorState }
+	| { type: 'doctor-visit-ended'; visit: number; state: DoctorState }
 	/**
 	 * After a lost battle: `takeToDoctor`'s result. Put the player on `pos`
 	 * without a tween (it can be a hundred tiles away), turn them to `dir`

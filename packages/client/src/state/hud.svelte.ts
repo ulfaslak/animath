@@ -1,15 +1,17 @@
 import { canTalkToDoctor, type GameEvent } from '@mathgame/engine';
-import { doctorLines } from '../doctor/lines';
+import { t } from '../copy';
+import { doctorWords, type DoctorLine } from '../doctor/lines';
 import { game } from './game.svelte';
 
 /**
  * What the explore HUD's message line says (UI_SPEC § Explore mode): the
  * latest thing said, for a few seconds, and under it the doctor prompt while
- * the player faces a tent, or the controls hint for the first few moves.
+ * the player faces a tent, or the controls hint for the first few steps.
  *
- * Things said are the authority's `message` events, plus the doctor's lines
- * the client words itself: the goodbye after a visit and the line after a
- * lost battle's trip to the tent.
+ * Things said are the authority's `message` events, plus lines the client
+ * words itself: the doctor's goodbye after a visit, the doctor's line after a
+ * lost battle's trip to the tent, and the hint for Enter away from a tent.
+ * They are kept as data and worded when shown, in the language on screen.
  *
  * Their seconds count only while the explore HUD is on screen (`tick`, from
  * the frame loop), so a line said while the battle screen or the doctor's
@@ -19,56 +21,72 @@ import { game } from './game.svelte';
 
 /** Seconds a message stays on the line while the explore HUD is on screen. */
 export const MESSAGE_SECONDS = 5;
-/** Moves (walked or bumped) after which the controls hint goes away. */
-export const HINT_MOVES = 5;
-/** The message line's own words. */
-export const hudLines = {
-	talk: 'Press Enter to talk to the doctor',
-	controls: 'Arrows / WASD to walk'
-};
+/** Steps walked after which the controls hint goes away. */
+export const HINT_STEPS = 5;
+
+/** A line on the message line, as data. */
+export type Said =
+	/** The authority's `message`, as it sent it. */
+	| { text: string }
+	| { doctor: DoctorLine }
+	/** Enter with no tent in front of the player. */
+	| { explore: 'notAtTent' };
+
+export function saidWords(said: Said): string {
+	if ('text' in said) return said.text;
+	if ('doctor' in said) return doctorWords(said.doctor);
+	return t('explore.notAtTent');
+}
 
 class HudView {
-	/** The latest thing said while it is fresh, else ''. */
-	message = $state('');
+	#said = $state<Said | null>(null);
+	#fresh = $state(false);
+	private age = MESSAGE_SECONDS;
+
+	/** The latest thing said while it is fresh, worded now, else ''. */
+	message = $derived(this.#fresh && this.#said ? saidWords(this.#said) : '');
 	/** The line under it: the doctor prompt, the controls hint, or ''. */
 	hint = $derived(
 		canTalkToDoctor(game.seed, game.pos, game.facing)
-			? hudLines.talk
-			: game.moves < HINT_MOVES
-				? hudLines.controls
+			? t('explore.talkPrompt')
+			: game.steps < HINT_STEPS
+				? t('explore.controls')
 				: ''
 	);
-	private said = '';
-	private age = MESSAGE_SECONDS;
 
 	/** Call after `game.apply(event)`, which knows who the player is. */
 	apply(event: GameEvent): void {
 		switch (event.type) {
 			case 'welcome':
-				this.say('');
+				this.#said = null;
+				this.age = MESSAGE_SECONDS;
+				this.#fresh = false;
 				break;
 			case 'message':
-				this.say(event.text);
+				this.say({ text: event.text });
 				break;
 			case 'taken-to-doctor':
-				if (event.playerId === game.playerId) this.say(doctorLines.rescued(event.tent !== null));
+				if (event.playerId === game.playerId) {
+					this.say({ doctor: { say: 'rescued', atTent: event.tent !== null } });
+				}
 				break;
 			case 'doctor-visit-ended':
-				this.say(doctorLines.bye);
+				this.say({ doctor: { say: 'goodbye' } });
 				break;
 		}
 	}
 
-	/** Advance the message clock by `dt` seconds of the explore HUD being on screen. */
-	tick(dt: number): void {
-		const text = this.age < MESSAGE_SECONDS ? this.said : '';
-		this.age += dt;
-		if (this.message !== text) this.message = text;
+	/** Put a line on the message line; it stays for `MESSAGE_SECONDS` of the HUD on screen. */
+	say(said: Said): void {
+		this.#said = said;
+		this.age = 0;
 	}
 
-	private say(text: string): void {
-		this.said = text;
-		this.age = 0;
+	/** Advance the message clock by `dt` seconds of the explore HUD being on screen. */
+	tick(dt: number): void {
+		const fresh = this.#said !== null && this.age < MESSAGE_SECONDS;
+		this.age += dt;
+		if (this.#fresh !== fresh) this.#fresh = fresh;
 	}
 }
 

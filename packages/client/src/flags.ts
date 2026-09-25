@@ -37,8 +37,9 @@ export function parseParty(text: string | null): AnimalInstance[] | null {
 		const [speciesId, hpText, ...rest] = entry.split(':');
 		const spec = ANIMALS.find((a) => a.id === speciesId);
 		if (!spec || rest.length > 0) return null;
+		// Digits only (a minus allowed): `Number` would also take ' ', '1e1', '0x5' and '+3'.
+		if (hpText !== undefined && !/^-?\d+$/.test(hpText)) return null;
 		const hp = hpText === undefined ? spec.maxHp : Number(hpText);
-		if (hpText === '' || !Number.isInteger(hp)) return null;
 		party.push({
 			id: `party-${i + 1}`,
 			speciesId: spec.id,
