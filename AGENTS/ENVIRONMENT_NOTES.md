@@ -24,7 +24,11 @@ Use `pnpm db:psql -c "<sql>"` (wraps `docker compose exec postgres psql`), or `d
 
 ## `git gtr new` may skip the `.env` copy and the `pnpm install` hook
 
-`.gtrconfig` asks gtr to copy `.env` and run `pnpm install` into every new worktree, and on 2026-09-25 it did neither, twice (the second time for `balance/starter-mirror-fights`): the fresh worktree had no `.env` and no `node_modules`. Without `.env` the server tests fail at startup with `DATABASE_URL is not set` (their vitest config derives the test database URL from it), which looks like a broken merge and isn't. After `git gtr new`, check `ls .env node_modules` in the worktree; if either is missing, `cp ../../mathgame/.env .` and `pnpm install` by hand.
+`.gtrconfig` asks gtr to copy `.env` and run `pnpm install` into every new worktree, and on 2026-09-25 it did neither, twice (the second time for `balance/starter-mirror-fights`): the fresh worktree had no `.env` and no `node_modules`. Without `.env` the server tests fail at startup with `DATABASE_URL is not set` (their vitest config derives the test database URL from it), which looks like a broken merge and isn't. After `git gtr new`, check `ls .env node_modules` in the worktree; if either is missing, `cp ../../mathgame/.env .` and `pnpm install` by hand. It happened a third time on the same day, for `feat/encounters-by-lead`.
+
+## Sibling agents share one scratchpad folder
+
+Agents started by one orchestrator run under the same session id (`$CLAUDE_CODE_SESSION_ID`), so their "session-specific" scratchpad is one folder with dozens of files from several branches in it. On 2026-09-25 another branch's `pr-body.md` replaced `feat/encounters-by-lead`'s between two edits, luckily after the PR had been opened from it. Put every scratch file in a subfolder named after your branch (`$SCRATCHPAD/<branch>/pr-body.md`), and never restore a negative control from a generic name like `local.ts.bak` that a sibling may also write.
 
 ## The Postgres container's clock runs ~120 ms ahead of the host
 
