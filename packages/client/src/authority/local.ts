@@ -1,11 +1,14 @@
 import {
+	ANIMALS,
 	MAX_PARTY,
 	Rng,
 	applyBattleIntent,
+	applyPartyIntent,
 	getAnimal,
 	hashInts,
 	hashString,
 	isWalkable,
+	normalizeNickname,
 	rollEncounter,
 	spawnPoint,
 	startBattle,
@@ -19,8 +22,24 @@ import {
 	type Direction,
 	type GameEvent,
 	type GridPos,
-	type Intent
+	type Intent,
+	type PartyIntent,
+	type PlayerActivity
 } from '@mathgame/engine';
+
+import { nameOf } from '../names';
+
+/** The message bar's lines about choosing who goes first, in one place for translation. */
+const LEAD_WORDS = {
+	chosen: (name: string) => `${name} goes first!`,
+	tired: (name: string) => `${name} is tired. Visit the doctor!`,
+	already: (name: string) => `${name} already goes first!`
+};
+
+export interface LocalAuthorityOptions {
+	/** Start with this party instead of the one squirrel: the `?party=` debug hook (`partyFromParam`). */
+	party?: readonly AnimalInstance[];
+}
 
 /**
  * Salts keep the per-step encounter roll and the battle seed apart from each
@@ -56,10 +75,14 @@ export class LocalAuthority implements Authority {
 	/** The battle in progress, with the seed every intent of it is applied with. */
 	private battle: { state: BattleState; seed: number } | null = null;
 
+	constructor(private readonly options: LocalAuthorityOptions = {}) {}
+
 	start(): void {
 		this.spawn = spawnPoint(this.seed);
 		this.pos = this.spawn;
-		this.party = [{ id: 'starter', speciesId: 'squirrel', hp: 20 }];
+		this.party = this.options.party?.length
+			? this.options.party.map((a) => ({ ...a }))
+			: [{ id: 'starter', speciesId: 'squirrel', hp: 20 }];
 		this.emit({
 			type: 'welcome',
 			playerId: this.playerId,
@@ -70,6 +93,12 @@ export class LocalAuthority implements Authority {
 	}
 
 	dispatch(intent: Intent): void {
+		if (intent.type === 'party') {
+			// In any mode: the engine is told what the player is doing and refuses
+			// an edit outside explore itself.
+			this.editParty(intent.intent);
+			return;
+		}
 		if (this.battle) {
 			// Mid-battle there is no walking and no talking; only battle intents count.
 			if (intent.type === 'battle') this.applyBattle(intent.intent);
@@ -182,6 +211,34 @@ export class LocalAuthority implements Authority {
 		this.emit({ type: 'message', text });
 	}
 
+	// --- party ---------------------------------------------------------------
+
+	private editParty(intent: PartyIntent): void {
+		const { party, events } = applyPartyIntent(this.party, intent, this.activity());
+		this.party = party.map((a) => ({ ...a }));
+		this.emit({ type: 'party-edited', party: this.partyCopy(), events });
+		// Choosing who goes first gets a line on the message bar, most of all
+		// when it can't be done: nothing else on screen would say why.
+		for (const e of events) {
+			const animal = 'animalId' in e ? this.party.find((a) => a.id === e.animalId) : undefined;
+			if (!animal) continue;
+			const line =
+				e.type === 'lead-selected'
+					? LEAD_WORDS.chosen(nameOf(animal))
+					: e.type === 'rejected' && e.reason === 'tired'
+						? LEAD_WORDS.tired(nameOf(animal))
+						: e.type === 'rejected' && e.reason === 'already-lead'
+							? LEAD_WORDS.already(nameOf(animal))
+							: undefined;
+			if (line) this.emit({ type: 'message', text: line });
+		}
+	}
+
+	/** What the player is doing, for the engine's rules that depend on it. */
+	private activity(): PlayerActivity {
+		return this.battle ? 'battle' : 'explore';
+	}
+
 	// --- helpers -----------------------------------------------------------
 
 	private partyCopy(): AnimalInstance[] {
@@ -191,6 +248,33 @@ export class LocalAuthority implements Authority {
 	private emit(event: GameEvent): void {
 		for (const l of this.listeners) l(event);
 	}
+}
+
+/**
+ * The `?party=` debug hook: a starting party written as comma-separated
+ * `species[:hp[:name]]` entries, e.g. `?party=rabbit,fox:0,bear:40:Big Bear`.
+ * Unknown species are skipped, HP is clamped to `0..maxHp` (full when left
+ * out), the name is cleaned by the engine, and at most `MAX_PARTY` animals are
+ * kept. For looking at the party screens without catching five animals first;
+ * a normal start is one squirrel.
+ */
+export function partyFromParam(param: string): AnimalInstance[] {
+	const party: AnimalInstance[] = [];
+	for (const entry of param.split(',')) {
+		const [speciesId = '', hpText = '', name] = entry.trim().split(':');
+		const spec = ANIMALS.find((a) => a.id === speciesId.toLowerCase());
+		if (!spec || party.length >= MAX_PARTY) continue;
+		const wanted = Math.round(Number(hpText));
+		const hp =
+			hpText === '' || !Number.isFinite(wanted)
+				? spec.maxHp
+				: Math.max(0, Math.min(spec.maxHp, wanted));
+		const animal: AnimalInstance = { id: `party-${party.length + 1}`, speciesId: spec.id, hp };
+		const nickname = normalizeNickname(name);
+		if (nickname !== null) animal.nickname = nickname;
+		party.push(animal);
+	}
+	return party;
 }
 
 /**

@@ -37,6 +37,7 @@ class GameView {
 				this.mode = 'explore';
 				break;
 			case 'party-changed':
+			case 'party-edited':
 				this.party = event.party;
 				break;
 			case 'message':
