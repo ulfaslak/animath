@@ -69,21 +69,24 @@ Two things keep that swap cheap: intents carry only what the player *chose* (a d
 | `src/state/game.svelte.ts`    | `game`: the `$state` view the Svelte overlay reads. Filled only by `game.apply(event)`.                                                                             |
 | `src/input/keyboard.ts`       | Held-key tracking plus a 2-deep tap buffer; arrows/WASD → `Direction`, Enter/Space → interact.                                                                      |
 | `src/explore/controller.ts`   | Explore mode: turns input into `move`/`interact` intents (one per completed step), tweens the player mesh between tiles on `player-moved`, asks for chunks around it. |
-| `src/render/renderer.ts`      | `GameRenderer`: WebGL renderer, scene, fixed orthographic camera, lights, chunk cache (5×5 chunks around the player), player placeholder mesh.                        |
-| `src/render/tiles.ts`         | `buildChunkGroup(chunk)`: one `InstancedMesh` of boxes for ground, plus decoration groups (trees, rocks, tall grass, tent + fire + point light).                     |
-| `src/render/palette.ts`       | Tile and decoration colours. Mirrors [[DESIGN]] § Palette.                                                                                                          |
+| `src/render/renderer.ts`      | `GameRenderer`: WebGL renderer, scene, fixed orthographic camera, lights, chunk cache (5×5 chunks around the player), the player figure, `addFigure` for extra standing figures, idle animation each frame. |
+| `src/render/tiles.ts`         | `buildChunkGroup(chunk)`: one `InstancedMesh` of boxes for ground, plus decoration groups (trees, rocks, tall grass, tent + fire + point light). `groundTop(tile)`: the height figures stand at. |
+| `src/render/animals.ts`       | `buildAnimalMesh(speciesId)`, `buildPlayerMesh()`, `animateIdle(figure, t)`: primitive figures for every catalog species and the trainer. Contract: units are tiles, feet on `y = 0`, centred on `x`, facing `+z`; the group's one child is the rig that idles. |
+| `src/render/zoo.ts`           | `buildZoo(seed, origin)`: the `?zoo` line-up, one figure per species by the spawn tile. Verification only, never on the normal path.                              |
+| `src/render/palette.ts`       | Tile, decoration, trainer and species colours. Mirrors [[DESIGN]] § Palette.                                                                                        |
 | `src/ui/App.svelte`           | Mode switch: loading / explore (`Hud`) / battle (panel to come).                                                                                                    |
 | `src/ui/Hud.svelte`           | Party list with HP bars, bottom hint line.                                                                                                                          |
 | `src/styles.css`              | CSS custom properties (panel colours, radius, font) and the canvas/overlay layout.                                                                                   |
 | `public/assets/`              | Models, textures, sounds. `CREDITS.md` lists every third-party file.                                                                                                |
+| `test/animals.test.ts`        | vitest: every catalog species builds a figure that keeps the contract in `animals.ts` (geometry construction needs no WebGL).                                        |
 
 ### Coordinate system
 
-Engine grid `(x, y)` maps to Three `(x, height, z)` with `z = y`; grid "down" is screen-down because the camera's yaw is fixed. Tiles are unit cubes centred on integer coordinates; the ground top is at `y = 0.5 + 0.25·height` for land and lower for water. The player mesh sits at the tile's top and hops 0.15 during a step.
+Engine grid `(x, y)` maps to Three `(x, height, z)` with `z = y`; grid "down" is screen-down because the camera's yaw is fixed. Tiles are unit cubes centred on integer coordinates; the ground top is at `y = 0.5 + 0.25·height` for land and lower for water (`groundTop` in `tiles.ts`). Figures stand with their feet on that top face; the player hops 0.15 during a step. A figure faces `+z` (grid "down", toward the camera) at `rotation.y = 0`; `up` is `π`, `right` is `π/2`, `left` is `-π/2`.
 
 ### Modes
 
-Explore is implemented. Battle mode will be a second controller + a second scene (own camera, two animal meshes, back and front view) and a Svelte panel; the mode switch is driven by `battle-started` / `battle-ended` events. See [[UI_SPEC]].
+Explore is implemented. Battle mode will be a second controller + a second scene (own camera, two figures from `animals.ts`, back and front view) and a Svelte panel; the mode switch is driven by `battle-started` / `battle-ended` events. See [[UI_SPEC]].
 
 ## `packages/server` — persistence and (later) authority
 
