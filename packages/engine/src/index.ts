@@ -61,6 +61,7 @@ export type { EncounterEntry, EncounterSite, WildAnimal } from './world/encounte
 export {
 	ENCOUNTER_CHANCE,
 	NEAR_TIER_RATIO,
+	ONE_TIER_BELOW_WEIGHT,
 	SAFE_RADIUS,
 	WILD_RADIUS,
 	distanceFromSpawn,

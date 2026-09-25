@@ -39,7 +39,7 @@ Escape does nothing in a battle — not even in a puzzle: once a puzzle is up, t
 | Tile                                          | Walk on it? |
 | --------------------------------------------- | ----------- |
 | Grass                                         | Yes         |
-| Tall grass (darker green with little blades)   | Yes. Each step onto it has a 1-in-10 chance of a wild battle. |
+| Tall grass (darker green with little blades)   | Yes. Each step onto it has a 1-in-10 chance of a wild battle, unless nothing living there is big enough to take on the animal leading your party (see § Your party). |
 | Sand                                          | Yes         |
 | Doctor's tent (orange pyramid with a campfire) | No. Walking into it turns you to face it. Pressing Enter while facing it still says "Nothing here yet."; healing will happen here. The nearest one to the start is at (5, 7): walk 6 tiles right and 1 down, and you stand just left of it. |
 | Water                                         | No          |
@@ -48,7 +48,9 @@ Escape does nothing in a battle — not even in a puzzle: once a puzzle is up, t
 
 ## Finding a battle fast
 
-The tile straight left of the start, (-3, 6), is a river reed: tall grass on the river bank. Near home, squirrels and rabbits come down to the water, and now and then an otter. Press Left and Right in turn (Left, Right, Left, …): every Left lands on the reed. **The 11th step (the sixth Left) always meets a Rabbit**, the 15th a Squirrel, and the first Otter comes on the 97th step. For foxes and the odd deer, walk to the meadow tall grass south-east of the start — the nearest is (2, 7), (3, 7) and (4, 7) — where you meet squirrels and rabbits, sometimes a fox and rarely a deer.
+The tile straight left of the start, (-3, 6), is a river reed: tall grass on the river bank. Near home, with the starting Squirrel in front, squirrels and rabbits come down to the water, and now and then an otter. Press Left and Right in turn (Left, Right, Left, …): every Left lands on the reed. **The 11th step (the sixth Left) always meets a Rabbit**, the 15th a Squirrel, and the first Otter comes on the 97th step. For foxes and the odd deer, walk to the meadow tall grass south-east of the start — the nearest is (2, 7), (3, 7) and (4, 7) — where you meet squirrels and rabbits, sometimes a fox and rarely a deer.
+
+Who comes out depends on who leads your party (§ Your party). With a fox or an otter in front, the same steps on the reed meet an Otter every time; with a wolf or a bear in front, the reed never starts a battle.
 
 ## Battles
 
@@ -70,6 +72,15 @@ The cards in the top-left corner are your party, in battle order. You start with
 - **Moving and naming**: in the pause menu (Escape) any animal can move up or down, a tired one too — a tired animal on top is skipped, and the tag stays with the first one standing. "New name" gives an animal a nickname, which the cards, the menu and battles all use ("Go, Pip!").
 - **What a name can be**: up to 12 letters (any alphabet, so "Søren" and "राम" work; an accent Unicode keeps separate from its letter, like a Hindi vowel sign, counts as a letter), digits, spaces, hyphens, apostrophes and dots. Emoji and other symbols are left out when you press Enter, extra spaces are squeezed, and a name with no letter or digit left — empty, spaces, only emoji — means no nickname: the animal is called by its species again. The name box shows "It will be called …" before you press Enter whenever the name will come out different from what you typed.
 
+**Your lead decides what comes out of the grass.** Wild animals size up the animal that goes first:
+
+- Nothing two or more tiers smaller than the lead ever comes out. One tier smaller comes out now and then where animals the lead's size or bigger live too: near home 1 battle in 7 to 1 in 13 (a fox in the meadow meets a squirrel or a rabbit 1 time in 7), and far out, where big animals are common, as rarely as 1 in 40.
+- Everything else is the mix the starter meets, moved up to the lead's size. With a fox in front, near home, the meadow is about 71% foxes, 14% deer and 14% squirrels or rabbits; the forest mostly foxes, sometimes a deer, rarely a wolf or a bear; the river all otters; the mountains foxes and otters that come up the hills, rarely a wolf or a bear.
+- It still starts a battle on 1 grass step in 10 wherever anything could, whoever leads: the same steps as with the starter, only the animal differs.
+- Where nothing is big enough, the grass is quiet: with a wolf in front, the river; with a bear in front, the meadow and the river. Where only one-tier-smaller animals live, every battle is one of them, still on 1 grass step in 10: a deer at the river meets only otters, and a wolf in the meadow only deer.
+
+To meet smaller animals again, put a smaller animal in front: press its number, or pick "Go first" in the pause menu. A lost battle heals everyone and keeps the order, so the first card leads again.
+
 ## Hidden behaviour
 
 - **A tap is always one step.** A key press shorter than a frame still moves you one tile.
@@ -89,5 +100,6 @@ The cards in the top-left corner are your party, in battle order. You start with
 ## Exploits and quirks
 
 - **Losing is a free full heal.** Since nothing else heals yet, a hurt party can lose a battle on purpose (answer wrong) to rest back to full HP at the start tile. Reloading does the same and also forgets every caught animal.
+- **A bear in front walks through the meadow and the river in peace.** Nothing there is big enough to challenge it, so no battle ever starts; the same goes for a wolf at the river. With a bear in the team, its number key turns this on and off as you walk: put the bear first to cross the meadow without a battle, then a squirrel first to meet rabbits again.
 - **Messages never go away.** After a battle, pressing Enter or choosing who goes first, the last message stays on the bottom line until the next one. The "Arrows / WASD to walk" hint also never goes away. A lead line can't go stale, though: whenever the pause menu changes who goes first or renames it, the line names the lead again ("Squirrel goes first!").
 - **A nickname can be anything made of letters**, including another animal's name or "Wild Fox": a squirrel called "Bear" is still a squirrel, and one called "Wild Fox" shows "Wild Fox" in its own status box in battle.
