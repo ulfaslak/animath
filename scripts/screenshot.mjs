@@ -14,6 +14,8 @@
  * `--keys` is a comma-separated script. A token is a key name (`ArrowRight`,
  * `Enter`, `2`), optionally `*n` to press it n times; or one of
  *   type:<text>   type each character of <text> (an answer: digits, a minus)
+ *   hold:<key>:<ms>  hold a key down for <ms>, auto-repeating like a real
+ *                 keyboard (a repeat every 100 ms after a 500 ms delay)
  *   wait:<ms>     pause, e.g. while a battle turn narrates
  *   shot:<name>   save an extra frame to `<out>-<name>.png` now
  * The final frame goes to `--out`. After every frame the script prints what
@@ -55,7 +57,7 @@ const script = (args.keys ?? '')
 	.split(',')
 	.filter(Boolean)
 	.flatMap((token) => {
-		const m = /^(type|wait|shot):(.*)$/.exec(token);
+		const m = /^(type|wait|shot|hold):(.*)$/.exec(token);
 		if (m) return [{ op: m[1], arg: m[2] }];
 		const [key, n] = token.split('*');
 		return Array(Number(n ?? 1)).fill({ op: 'key', arg: key });
@@ -145,6 +147,20 @@ for (const { op, arg } of script) {
 			}
 			await page.waitForTimeout(keyInterval);
 			break;
+		case 'hold': {
+			const [key, ms] = arg.split(':');
+			const until = Date.now() + Number(ms);
+			await page.keyboard.down(key);
+			await page.waitForTimeout(Math.min(500, Number(ms)));
+			// Playwright marks a second `down` of a held key as `repeat: true`.
+			while (Date.now() < until) {
+				await page.keyboard.down(key);
+				await page.waitForTimeout(100);
+			}
+			await page.keyboard.up(key);
+			await page.waitForTimeout(keyInterval);
+			break;
+		}
 		case 'wait':
 			await page.waitForTimeout(Number(arg));
 			break;

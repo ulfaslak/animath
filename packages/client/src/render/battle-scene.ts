@@ -368,12 +368,14 @@ function buildBackdrop(biome: Biome): THREE.Group {
 	const clear = (x: number, z: number, r: number) =>
 		Object.values(SPOT).every((s) => Math.hypot(x - s.x, z - s.z) > r);
 
-	for (let i = 0; i < 34; i++) {
+	for (let i = 0; i < 40; i++) {
 		const angle = rng.next() * Math.PI * 2;
 		const radius = 1.4 + rng.next() * 6;
 		const x = Math.cos(angle) * radius;
 		const z = Math.sin(angle) * radius - 1;
-		if (!clear(x, z, 0.9)) continue;
+		// Nothing between the camera and the player's animal: a tuft that close
+		// would fill the screen and show through the bottom panel.
+		if (z > SPOT.player.z + 0.6 || !clear(x, z, 0.9)) continue;
 		const tuft = new THREE.Group();
 		for (let b = 0; b < 3; b++) {
 			const blade = new THREE.Mesh(new THREE.ConeGeometry(0.08, 0.35, 3), tuftMaterial);

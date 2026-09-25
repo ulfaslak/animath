@@ -170,6 +170,7 @@ export class BattleController {
 		battle.party = state.party.map((a) => ({ ...a }));
 		battle.front = state.active;
 		battle.opponent = { ...state.opponent };
+		battle.hit = null;
 		const front = this.front();
 		switch (state.phase.kind) {
 			case 'choose-action': {

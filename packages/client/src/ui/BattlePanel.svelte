@@ -272,8 +272,8 @@
 		padding: 10px 12px;
 		overflow: hidden;
 	}
-	.actions.dim {
-		opacity: 0.6;
+	.actions.dim .row {
+		opacity: 0.55;
 	}
 	.row {
 		display: flex;
