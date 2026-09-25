@@ -43,6 +43,12 @@ export interface EncounterSite {
 	spawn: GridPos;
 }
 
+/**
+ * A wild animal at full HP, without an id: a seeded engine can only make ids
+ * that repeat across replays, so the authority mints one when it needs it.
+ */
+export type WildAnimal = Omit<AnimalInstance, 'id'>;
+
 /** Straight-line distance in tiles. "Radius" in the rules means this. */
 export function distanceFromSpawn(pos: GridPos, spawn: GridPos): number {
 	return Math.hypot(pos.x - spawn.x, pos.y - spawn.y);
@@ -64,6 +70,7 @@ function tierWeight(tier: Tier, distance: number): number {
  * their normalised shares. Empty only if no species in the catalog lives there.
  */
 export function encounterTable(biome: Biome, distance: number): EncounterEntry[] {
+	if (!Number.isFinite(distance)) throw new Error(`encounterTable: distance is ${distance}`);
 	const raw = ANIMALS.filter((a) => a.habitats.includes(biome)).map((species) => ({
 		species,
 		weight: tierWeight(species.tier, distance)
@@ -74,17 +81,18 @@ export function encounterTable(biome: Biome, distance: number): EncounterEntry[]
 
 /**
  * Roll for a wild encounter after a step. Returns the wild animal at full HP,
- * or `null` when nothing happens. The instance id is drawn from the rng; an
- * authority that persists a caught animal may re-id it.
+ * or `null` when nothing happens. Throws on a site whose position or spawn is
+ * not a real coordinate rather than guessing a table.
  */
-export function rollEncounter(rng: Rng, site: EncounterSite): AnimalInstance | null {
+export function rollEncounter(rng: Rng, site: EncounterSite): WildAnimal | null {
 	if (!isEncounterTile(site.tile.kind)) return null;
+	const distance = distanceFromSpawn(site.pos, site.spawn);
+	if (!Number.isFinite(distance)) throw new Error(`rollEncounter: distance is ${distance}`);
 	if (!rng.chance(ENCOUNTER_CHANCE)) return null;
-	const table = encounterTable(site.tile.biome, distanceFromSpawn(site.pos, site.spawn));
+	const table = encounterTable(site.tile.biome, distance);
 	if (table.length === 0) return null;
 	const species = pickWeighted(rng, table);
-	const tag = rng.int(0, 0xffffffff).toString(16).padStart(8, '0');
-	return { id: `wild-${species.id}-${tag}`, speciesId: species.id, hp: species.maxHp };
+	return { speciesId: species.id, hp: species.maxHp };
 }
 
 function pickWeighted(rng: Rng, table: readonly EncounterEntry[]): AnimalSpec {

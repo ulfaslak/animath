@@ -62,7 +62,7 @@ For every kind, at every difficulty in the kind's declared range, `answer` is an
 
 ### Every species in the catalog can be met somewhere
 
-Each biome's encounter table lists exactly the species whose habitats include it, all with positive weight, and for every species at least one habitat grows tall grass within a few chunks of spawn. A species whose only habitat never generates tall grass is unreachable — which the otter was, because the river biome was water and sand only, until the banks got reeds. Enforced by `encounters.test.ts` ("every species has a biome", "grows tall grass in at least one habitat") over several seeds.
+Each biome's encounter table lists exactly the species whose habitats include it, all with positive weight, and for every species at least one habitat grows tall grass within 8 chunks of spawn. A species whose only habitat never generates tall grass is unreachable — which the otter was, because the river biome was water and sand only, until the banks got reeds. Enforced by `encounters.test.ts` ("every species has a biome", "grows tall grass in at least one habitat") over several seeds.
 
 ### Fierce animals are rare near spawn and never rarer further out
 

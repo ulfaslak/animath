@@ -112,6 +112,13 @@ describe('rollEncounter', () => {
 		expect(run(42)).not.toEqual(run(43));
 	});
 
+	it('refuses a site with a broken position instead of guessing a table', () => {
+		const broken = { tile: tallgrass('forest'), pos: { x: NaN, y: 0 }, spawn: ORIGIN };
+		expect(() => rollEncounter(new Rng(3), broken)).toThrow();
+		expect(() => encounterTable('forest', NaN)).toThrow();
+		expect(() => encounterTable('forest', Infinity)).toThrow();
+	});
+
 	it('starts one encounter per 8–12 grass steps in every biome', () => {
 		const steps = 20000;
 		for (const biome of BIOMES) {
@@ -124,8 +131,7 @@ describe('rollEncounter', () => {
 		}
 	});
 
-	it('returns a catalog species that lives in the biome, at full HP, with a fresh id', () => {
-		const ids = new Set<string>();
+	it('returns a catalog species that lives in the biome, at full HP', () => {
 		for (const biome of BIOMES) {
 			for (const d of [0, 64, 400]) {
 				const rng = new Rng(hashString(`${biome}:${d}`));
@@ -136,8 +142,7 @@ describe('rollEncounter', () => {
 					const spec = getAnimal(wild.speciesId);
 					expect(spec.habitats).toContain(biome);
 					expect(wild.hp).toBe(spec.maxHp);
-					expect(ids.has(wild.id), `duplicate id ${wild.id}`).toBe(false);
-					ids.add(wild.id);
+					expect(Object.keys(wild).sort()).toEqual(['hp', 'speciesId']);
 				}
 			}
 		}

@@ -49,8 +49,8 @@ Two modes only, borrowed from the Game Boy games: **Explore** and **Battle**. Fi
 - The animal comes from the biome's **encounter table**: every species whose habitats include the biome, weighted by tier. It appears at full HP.
 - **Distance rule.** Fierce animals are rare near the start and ordinary far away. With `d` the straight-line distance in tiles from the spawn tile, `danger = clamp((d − 32) / 96, 0, 1)`, and a tier-`t` species weighs `5^(−(t−1)·(1−danger))`, normalised within the biome. Inside the **safe radius** (32 tiles) each tier is five times rarer than the tier below it; from the **wild radius** (128 tiles) out, every species living in the biome is equally likely; in between the ratio shrinks smoothly.
 - With the prototype catalog, near spawn: meadow ≈ 45% squirrel, 45% rabbit, 9% fox, 2% deer; forest ≈ 80% squirrel, 16% fox, 3% deer, under 1% wolf or bear. Far out, every species in the biome gets an equal share, so a far forest is 40% wolf or bear.
-- Promises: inside the safe radius, in any biome where a tier-1 species lives, tier 1 is the majority and tiers 3–5 together are under 5%; the share of fierce animals never falls as you walk away from spawn. Mountains have no tier-1 species and are hard even next to spawn — that is the biome's promise, not a leak.
-- River banks are sand with patches of **reeds** (tall grass, about 3 bank tiles in 10); that is where otters are met.
+- Promises: inside the safe radius, in any biome where a tier-1 species lives, tier 1 is the majority and tiers 3–5 together are under 5%; the share of fierce animals never falls as you walk away from spawn. Two biomes have no tier-1 species and so no gentle zone: the river is otters (tier 2) at any distance, and mountains are wolves and bears even next to spawn. Those are the biomes' promises, not leaks — and with the prototype seed the spawn tile is one step from a river reed, so a first encounter may well be an otter.
+- River banks are sand with **reeds**: ordinary tall-grass tiles, looking like any tall grass, on about 3 bank tiles in 10. That is where otters are met.
 
 ### Battle
 
