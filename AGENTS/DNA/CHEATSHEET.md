@@ -62,10 +62,10 @@ The cards in the top-left corner are your party. You start with one Squirrel at 
 
 **Your lead decides what comes out of the grass.** The lead is the first card that isn't tired: the animal that steps into the next battle. Wild animals size it up:
 
-- Nothing two or more tiers smaller than the lead ever comes out. One tier smaller comes out now and then (about 1 battle in 10 where there is any).
+- Nothing two or more tiers smaller than the lead ever comes out. One tier smaller comes out now and then where animals the lead's size or bigger live too: near home 1 battle in 7 to 1 in 13 (a fox in the meadow meets a squirrel or a rabbit 1 time in 7), and far out, where big animals are common, as rarely as 1 in 40.
 - Everything else is the mix the starter meets, moved up to the lead's size. With a fox in front, near home, the meadow is about 71% foxes, 14% deer and 14% squirrels or rabbits; the forest mostly foxes, sometimes a deer, rarely a wolf or a bear; the river all otters; the mountains foxes and otters that come up the hills, rarely a wolf or a bear.
 - It still starts a battle on 1 grass step in 10 wherever anything could, whoever leads: the same steps as with the starter, only the animal differs.
-- Where nothing is big enough, the grass is quiet: with a wolf in front, the river; with a bear in front, the meadow and the river. A deer at the river meets only otters, and a wolf in the meadow only deer.
+- Where nothing is big enough, the grass is quiet: with a wolf in front, the river; with a bear in front, the meadow and the river. Where only one-tier-smaller animals live, every battle is one of them, still on 1 grass step in 10: a deer at the river meets only otters, and a wolf in the meadow only deer.
 
 To meet smaller animals again, put a smaller animal in front. Today the Squirrel you start with leads until it is tired. Then the next card that isn't tired leads, until a lost battle heals everyone and puts the Squirrel back in front.
 

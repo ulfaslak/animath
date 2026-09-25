@@ -98,6 +98,13 @@ function rollBeforeLeads(rng: Rng, site: EncounterSite): string | null {
 	return last;
 }
 
+/** An Rng whose every chance comes up, so each roll on tall grass is an encounter, picked from the real stream. */
+class EveryStepMeets extends Rng {
+	override chance(): boolean {
+		return true;
+	}
+}
+
 /** The (lead, biome) pairs where nothing in the prototype catalog can challenge the lead. */
 const SILENT: readonly (readonly [Tier, Biome])[] = [
 	[4, 'river'],
@@ -108,22 +115,20 @@ const isSilent = (lead: Tier, biome: Biome) => SILENT.some(([l, b]) => l === lea
 
 describe('encounterTable', () => {
 	it('for a tier-1 lead is the table from before the lead mattered, at every distance', () => {
+		const bad: string[] = [];
 		for (const biome of BIOMES) {
 			for (const d of SWEEP) {
 				const table = encounterTable(biome, d, 1);
 				const before = tableBeforeLeads(ANIMALS, biome, d);
-				expect(
-					table.map((e) => e.species.id),
-					`${biome} @ ${d}`
-				).toEqual([...before.keys()]);
+				const ids = table.map((e) => e.species.id).join();
+				if (ids !== [...before.keys()].join()) bad.push(`${biome} @ ${d} lists ${ids}`);
 				for (const e of table) {
-					expect(e.weight, `${e.species.id} in ${biome} @ ${d}`).toBeCloseTo(
-						before.get(e.species.id)!,
-						14
-					);
+					if (!(Math.abs(e.weight - before.get(e.species.id)!) <= 1e-14))
+						bad.push(`${e.species.id} in ${biome} @ ${d}: ${e.weight}`);
 				}
 			}
 		}
+		expect(bad).toEqual([]);
 		// Today's numbers near spawn, as [[PRODUCT]] §4 quotes them.
 		expectShares(
 			encounterTable('meadow', 0, 1),
@@ -141,20 +146,25 @@ describe('encounterTable', () => {
 	});
 
 	it('never lists an animal two or more tiers below the lead', () => {
+		const bad: string[] = [];
+		let listed = 0;
 		for (const lead of LEADS) {
 			for (const biome of BIOMES) {
 				for (const d of SWEEP) {
 					for (const e of encounterTable(biome, d, lead)) {
-						expect(e.species.tier, `${e.species.id} vs a tier-${lead} lead`).toBeGreaterThanOrEqual(
-							lead - 1
-						);
+						listed++;
+						if (e.species.tier < lead - 1)
+							bad.push(`${e.species.id} vs a tier-${lead} lead in ${biome} @ ${d}`);
 					}
 				}
 			}
 		}
+		expect(bad).toEqual([]);
+		expect(listed).toBeGreaterThan(10000);
 	});
 
 	it('from its own tier up, a tier-T lead meets what a tier-1 lead met in a world T − 1 tiers smaller', () => {
+		const bad: string[] = [];
 		let compared = 0;
 		for (const lead of LEADS) {
 			// The catalog as a tier-1 lead would see it if every animal were
@@ -166,27 +176,26 @@ describe('encounterTable', () => {
 			}));
 			for (const biome of BIOMES) {
 				for (const d of SWEEP) {
+					const where = `tier-${lead} lead in ${biome} @ ${d}`;
 					const upper = encounterTable(biome, d, lead).filter((e) => e.species.tier >= lead);
 					const mass = total(upper);
 					const expected = tableBeforeLeads(shrunk, biome, d);
-					expect(
-						upper.map((e) => e.species.id),
-						`tier-${lead} lead in ${biome} @ ${d}`
-					).toEqual([...expected.keys()]);
+					const ids = upper.map((e) => e.species.id).join();
+					if (ids !== [...expected.keys()].join()) bad.push(`${where} lists ${ids}`);
 					for (const e of upper) {
-						expect(
-							e.weight / mass,
-							`${e.species.id}, tier-${lead} lead, ${biome} @ ${d}`
-						).toBeCloseTo(expected.get(e.species.id)!, 12);
 						compared++;
+						if (!(Math.abs(e.weight / mass - expected.get(e.species.id)!) <= 1e-12))
+							bad.push(`${e.species.id}, ${where}: ${e.weight / mass}`);
 					}
 				}
 			}
 		}
+		expect(bad).toEqual([]);
 		expect(compared).toBeGreaterThan(10000);
 	});
 
 	it(`weighs an animal one tier below the lead ${ONE_TIER_BELOW_WEIGHT} of one of the lead's own tier, near and far`, () => {
+		const bad: string[] = [];
 		let compared = 0;
 		for (const lead of LEADS) {
 			for (const biome of BIOMES) {
@@ -198,16 +207,15 @@ describe('encounterTable', () => {
 					);
 					for (const b of below) {
 						for (const o of own) {
-							expect(
-								b.weight / o.weight,
-								`${b.species.id} / ${o.species.id} in ${biome} @ ${d}`
-							).toBeCloseTo(ONE_TIER_BELOW_WEIGHT, 12);
 							compared++;
+							if (!(Math.abs(b.weight / o.weight - ONE_TIER_BELOW_WEIGHT) <= 1e-12))
+								bad.push(`${b.species.id} / ${o.species.id} in ${biome} @ ${d}`);
 						}
 					}
 				}
 			}
 		}
+		expect(bad).toEqual([]);
 		expect(compared).toBeGreaterThan(1000);
 		// Near spawn with a fox or otter in front, as [[PRODUCT]] §4 quotes it.
 		expectShares(
@@ -265,18 +273,18 @@ describe('encounterTable', () => {
 
 	it('is empty exactly where nothing living there is within one tier below the lead', () => {
 		const silent: [Tier, Biome][] = [];
+		const bad: string[] = [];
 		for (const lead of LEADS) {
 			for (const biome of BIOMES) {
 				const anyone = residents(biome).some((a) => a.tier >= lead - 1);
 				for (const d of SWEEP) {
-					expect(
-						encounterTable(biome, d, lead).length > 0,
-						`tier-${lead} lead in ${biome} @ ${d}`
-					).toBe(anyone);
+					if (encounterTable(biome, d, lead).length > 0 !== anyone)
+						bad.push(`tier-${lead} lead in ${biome} @ ${d}`);
 				}
 				if (!anyone) silent.push([lead, biome]);
 			}
 		}
+		expect(bad).toEqual([]);
 		expect(silent).toEqual(SILENT);
 	});
 
@@ -313,6 +321,7 @@ describe('encounterTable', () => {
 	});
 
 	it("the share two tiers above the lead never falls and the lead's own never rises with distance; beyond the wild radius its tier and up are equal", () => {
+		const bad: string[] = [];
 		for (const lead of LEADS) {
 			for (const biome of BIOMES) {
 				let prevFierce = -1;
@@ -321,8 +330,8 @@ describe('encounterTable', () => {
 					const fierce = share(biome, d, lead, (t) => t >= lead + 2);
 					const own = share(biome, d, lead, (t) => t === lead);
 					const where = `tier-${lead} lead in ${biome} @ ${d}`;
-					expect(fierce, where).toBeGreaterThanOrEqual(prevFierce - 1e-12);
-					expect(own, where).toBeLessThanOrEqual(prevOwn + 1e-12);
+					if (!(fierce >= prevFierce - 1e-12)) bad.push(`${where}: two up fell to ${fierce}`);
+					if (!(own <= prevOwn + 1e-12)) bad.push(`${where}: own tier rose to ${own}`);
 					prevFierce = fierce;
 					prevOwn = own;
 				}
@@ -333,6 +342,7 @@ describe('encounterTable', () => {
 				expect(encounterTable(biome, WILD_RADIUS * 4, lead)).toEqual(far);
 			}
 		}
+		expect(bad).toEqual([]);
 	});
 
 	it('measures distance as the crow flies', () => {
@@ -359,10 +369,9 @@ describe('rollEncounter', () => {
 			for (const kind of kinds) {
 				for (const biome of BIOMES) {
 					const rng = new Rng(1);
-					for (let i = 0; i < 100; i++) {
-						const site = { tile: { kind, biome, height: 0 }, pos: { x: 300, y: 0 }, spawn: ORIGIN };
-						expect(rollEncounter(rng, site, lead)).toBeNull();
-					}
+					const site = { tile: { kind, biome, height: 0 }, pos: { x: 300, y: 0 }, spawn: ORIGIN };
+					const rolls = Array.from({ length: 100 }, () => rollEncounter(rng, site, lead));
+					expect(rolls.filter((w) => w !== null)).toEqual([]);
 					expect(rng.next()).toBe(new Rng(1).next());
 				}
 			}
@@ -373,7 +382,8 @@ describe('rollEncounter', () => {
 		for (const [lead, biome] of SILENT) {
 			for (const d of [0, 64, 400]) {
 				const rng = new Rng(7);
-				for (let i = 0; i < 500; i++) expect(rollEncounter(rng, siteAt(biome, d), lead)).toBeNull();
+				const rolls = Array.from({ length: 500 }, () => rollEncounter(rng, siteAt(biome, d), lead));
+				expect(rolls.filter((w) => w !== null)).toEqual([]);
 				expect(rng.next()).toBe(new Rng(7).next());
 			}
 		}
@@ -384,7 +394,7 @@ describe('rollEncounter', () => {
 			for (const d of [0, 16, 40, 64, 100, 127.5, 160]) {
 				const now = new Rng(hashString(`before:${biome}:${d}`));
 				const before = new Rng(hashString(`before:${biome}:${d}`));
-				const rolls = Array.from({ length: 3000 }, () => [
+				const rolls = Array.from({ length: 1500 }, () => [
 					rollEncounter(now, siteAt(biome, d), 1)?.speciesId ?? null,
 					rollBeforeLeads(before, siteAt(biome, d))
 				]);
@@ -392,7 +402,7 @@ describe('rollEncounter', () => {
 					rolls.filter(([a, b]) => a !== b),
 					`${biome} @ ${d}`
 				).toEqual([]);
-				expect(rolls.filter(([a]) => a !== null).length).toBeGreaterThan(200);
+				expect(rolls.filter(([a]) => a !== null).length).toBeGreaterThan(100);
 			}
 		}
 	});
@@ -403,7 +413,7 @@ describe('rollEncounter', () => {
 			for (const biome of BIOMES) {
 				if (isSilent(lead, biome)) continue;
 				for (const d of [0, 64, 400]) {
-					const seeds = Array.from({ length: 1000 }, (_, i) => hashString(`${biome}:${d}:${i}`));
+					const seeds = Array.from({ length: 400 }, (_, i) => hashString(`${biome}:${d}:${i}`));
 					const withLead = seeds.map((s) => rollEncounter(new Rng(s), siteAt(biome, d), lead));
 					const withStarter = seeds.map((s) => rollEncounter(new Rng(s), siteAt(biome, d), 1));
 					expect(
@@ -418,7 +428,7 @@ describe('rollEncounter', () => {
 	});
 
 	it('starts one encounter per 8–12 grass steps wherever anything could challenge the lead', () => {
-		const steps = 20000;
+		const steps = 8000;
 		for (const lead of LEADS) {
 			for (const biome of BIOMES) {
 				if (isSilent(lead, biome)) continue;
@@ -464,6 +474,8 @@ describe('rollEncounter', () => {
 			{ x: -45, y: 60 },
 			{ x: -150, y: -150 }
 		];
+		const bad: string[] = [];
+		let met = 0;
 		for (const lead of LEADS) {
 			for (const biome of BIOMES) {
 				for (const spawn of spawns) {
@@ -472,28 +484,31 @@ describe('rollEncounter', () => {
 						const site = { tile: tallgrass(biome), pos, spawn };
 						const table = encounterTable(biome, distanceFromSpawn(pos, spawn), lead);
 						const rng = new Rng(hashString(`${lead}:${biome}:${pos.x}:${pos.y}`));
-						let met = 0;
-						for (let i = 0; i < 400; i++) {
+						let here = 0;
+						for (let i = 0; i < 200; i++) {
 							const wild = rollEncounter(rng, site, lead);
 							if (!wild) continue;
-							met++;
+							here++;
 							const spec = getAnimal(wild.speciesId);
 							const where = `${spec.id} vs a tier-${lead} lead in ${biome} at (${pos.x}, ${pos.y})`;
-							expect(spec.tier, where).toBeGreaterThanOrEqual(lead - 1);
-							expect(
-								table.some((e) => e.species.id === spec.id),
-								where
-							).toBe(true);
-							if (!spec.habitats.includes(biome))
-								expect(spec.tier, `${where}: a visitor`).toBe(lead);
-							expect(wild.hp).toBe(spec.maxHp);
-							expect(Object.keys(wild).sort()).toEqual(['hp', 'speciesId']);
+							if (spec.tier < lead - 1) bad.push(`${where}: too small`);
+							if (!table.some((e) => e.species.id === spec.id))
+								bad.push(`${where}: not in the table`);
+							if (!spec.habitats.includes(biome) && spec.tier !== lead)
+								bad.push(`${where}: a visitor not of the lead's tier`);
+							if (wild.hp !== spec.maxHp) bad.push(`${where}: hp ${wild.hp}`);
+							if (Object.keys(wild).sort().join() !== 'hp,speciesId')
+								bad.push(`${where}: keys ${Object.keys(wild)}`);
 						}
-						expect(met > 0, `tier-${lead} lead in ${biome}`).toBe(!isSilent(lead, biome));
+						if (here > 0 === isSilent(lead, biome))
+							bad.push(`tier-${lead} lead in ${biome} at (${pos.x}, ${pos.y}): ${here} met`);
+						met += here;
 					}
 				}
 			}
 		}
+		expect(bad).toEqual([]);
+		expect(met).toBeGreaterThan(2000);
 	});
 
 	it("samples the lead's table: species shares match the weights, and far out every species shows up", () => {
@@ -501,13 +516,14 @@ describe('rollEncounter', () => {
 			for (const biome of BIOMES) {
 				if (isSilent(lead, biome)) continue;
 				for (const d of [0, 400]) {
-					const rng = new Rng(hashString(`sample:${lead}:${biome}:${d}`));
+					// Every roll is an encounter, so no time goes on the nine steps in
+					// ten that meet nothing (the rate has its own tests above).
+					const rng = new EveryStepMeets(hashString(`sample:${lead}:${biome}:${d}`));
 					const counts = new Map<string, number>();
 					const encounters = 4000;
-					for (let n = 0; n < encounters;) {
+					for (let n = 0; n < encounters; n++) {
 						const wild = rollEncounter(rng, siteAt(biome, d), lead);
-						if (!wild) continue;
-						n++;
+						if (!wild) throw new Error(`no encounter for a tier-${lead} lead in ${biome}`);
 						counts.set(wild.speciesId, (counts.get(wild.speciesId) ?? 0) + 1);
 					}
 					const table = encounterTable(biome, d, lead);

@@ -42,8 +42,11 @@ export const NEAR_TIER_RATIO = 5;
 
 /**
  * What a species one tier below the lead weighs, next to a species of the
- * lead's own tier (which weighs 1 at any distance). Small animals rarely
- * challenge a bigger one; two or more tiers below, never.
+ * lead's own tier (which weighs 1 at any distance); two or more tiers below
+ * weighs nothing. A weight, not a share: where the lead's tier or bigger lives
+ * too, smaller challengers are uncommon (2–14% of encounters in the prototype
+ * catalog), but where nothing else lives — a deer at the river, a wolf in the
+ * meadow — every encounter is one of them, at the usual `ENCOUNTER_CHANCE`.
  */
 export const ONE_TIER_BELOW_WEIGHT = 0.1;
 
