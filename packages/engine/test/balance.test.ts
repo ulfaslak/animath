@@ -1,15 +1,20 @@
 import { describe, expect, it } from 'vitest';
-import { ANIMALS } from '../src/animals/catalog.js';
-import { makeParty, makeWild, playBattle, type PlayerModel } from './battle-sim.js';
+import { ANIMALS, getAnimal } from '../src/animals/catalog.js';
+import type { AttackLevel } from '../src/animals/types.js';
+import { makeParty, makeWild, playBattle, type PlayerModel, type Policy } from './battle-sim.js';
 
 /**
- * Balance: species × species battles with a scripted player. The assertions
- * pin the claims [[PRODUCT]] §4 makes in prose ("don't face a bear with a
- * squirrel"). Run with `SIM=1` to print the full win-rate tables:
+ * Balance: species × species battles with a scripted player, party of one, who
+ * only attacks. The assertions pin the claims [[PRODUCT]] §4 makes in prose:
+ * a kid who picks the easiest puzzle and is always right usually beats an
+ * animal of their own tier, and "don't face a bear with a squirrel". Run with
+ * `SIM=1` to print the whole harness (every policy × accuracy × level):
  *
  *   SIM=1 pnpm -F @mathgame/engine exec vitest run test/balance.test.ts
  */
 const SEEDS = 200;
+/** More seeds where a test compares a win rate with a target band. */
+const TARGET_SEEDS = 400;
 const PRINT = Boolean(process.env.SIM);
 
 interface Outcome {
@@ -17,85 +22,132 @@ interface Outcome {
 	rounds: number;
 }
 
-function simulate(playerId: string, wildId: string, model: PlayerModel): Outcome {
+const ids = ANIMALS.map((a) => a.id);
+const tier = (id: string) => getAnimal(id).tier;
+
+/** Every (player, wild) pair where the wild animal is `gap` tiers fiercer. */
+function pairs(gap: number): Array<[string, string]> {
+	return ids.flatMap((p) =>
+		ids.filter((w) => tier(w) - tier(p) === gap).map((w): [string, string] => [p, w])
+	);
+}
+
+const cache = new Map<string, Outcome>();
+function simulate(playerId: string, wildId: string, model: PlayerModel, seeds = SEEDS): Outcome {
+	const key = `${playerId}>${wildId}|${model.policy}|${model.level}|${model.accuracy}|${seeds}`;
+	const hit = cache.get(key);
+	if (hit) return hit;
 	let wins = 0;
 	let rounds = 0;
-	for (let seed = 0; seed < SEEDS; seed++) {
+	for (let seed = 0; seed < seeds; seed++) {
 		const { state } = playBattle(seed, makeParty([playerId]), makeWild(wildId), model);
 		if (state.phase.kind !== 'ended') throw new Error('battle did not end');
 		if (state.phase.outcome === 'won') wins++;
 		rounds += state.turn;
 	}
-	return { win: wins / SEEDS, rounds: rounds / SEEDS };
+	const out = { win: wins / seeds, rounds: rounds / seeds };
+	cache.set(key, out);
+	return out;
 }
 
-const MODELS: Record<string, PlayerModel> = {
-	'always right, strongest attack at level 3': { accuracy: 1, policy: 'max' },
-	'right 70%, strongest attack at level 3': { accuracy: 0.7, policy: 'max' },
-	'always right, weakest attack at level 1': { accuracy: 1, policy: 'min' },
-	'right 70%, weakest attack at level 1': { accuracy: 0.7, policy: 'min' }
-};
+/** The kid the targets are about: the easiest puzzle, the weakest attack at level 1. */
+const easiest = (accuracy: number): PlayerModel => ({ accuracy, policy: 'min', level: 1 });
+/** The strongest attack at level 3: the hardest puzzles the animal can ask. */
+const hardest = (accuracy: number): PlayerModel => ({ accuracy, policy: 'max', level: 3 });
 
-const ids = ANIMALS.map((a) => a.id);
-const grids = new Map<string, Map<string, Outcome>>();
-for (const [name, model] of Object.entries(MODELS)) {
-	const grid = new Map<string, Outcome>();
-	for (const p of ids) for (const w of ids) grid.set(`${p}>${w}`, simulate(p, w, model));
-	grids.set(name, grid);
-}
+const mean = (xs: number[]) => xs.reduce((a, b) => a + b, 0) / xs.length;
+const winRates = (gap: number, model: PlayerModel, seeds = TARGET_SEEDS) =>
+	pairs(gap).map(([p, w]) => ({ p, w, win: simulate(p, w, model, seeds).win }));
 
-function cell(name: string, p: string, w: string): Outcome {
-	return grids.get(name)!.get(`${p}>${w}`)!;
-}
+const pct = (x: number) => `${Math.round(x * 100)}%`;
 
-function table(name: string): string {
+function grid(model: PlayerModel): string {
+	const name = `${model.policy === 'min' ? 'weakest' : model.policy === 'max' ? 'strongest' : 'random'} attack, level ${model.level ?? 'random'}, right ${pct(model.accuracy)}`;
 	const head = `| player \\ wild | ${ids.join(' | ')} |`;
 	const sep = `| --- | ${ids.map(() => '---').join(' | ')} |`;
 	const rows = ids.map((p) => {
 		const cells = ids.map((w) => {
-			const { win, rounds } = cell(name, p, w);
-			return `${Math.round(win * 100)}% (${rounds.toFixed(1)})`;
+			const { win, rounds } = simulate(p, w, model);
+			return `${pct(win)} (${rounds.toFixed(1)})`;
 		});
 		return `| **${p}** | ${cells.join(' | ')} |`;
 	});
 	return [`**${name}** — win rate (mean rounds)`, '', head, sep, ...rows].join('\n');
 }
 
+function targets(): string {
+	const rows: string[] = [
+		'| matchup | player | target | mean | range |',
+		'| --- | --- | --- | --- | --- |'
+	];
+	const row = (label: string, gap: number, model: PlayerModel, target: string) => {
+		const w = winRates(gap, model).map((r) => r.win);
+		rows.push(
+			`| ${label} | easiest puzzle, right ${pct(model.accuracy)} | ${target} | ${pct(mean(w))} | ${pct(Math.min(...w))}–${pct(Math.max(...w))} |`
+		);
+	};
+	row('same tier', 0, easiest(1), '65–80%');
+	row('same tier', 0, easiest(0.85), '—');
+	row('same tier', 0, easiest(0.7), '40–55%');
+	row('one tier up', 1, easiest(1), 'under 35%');
+	row('two tiers up', 2, easiest(1), 'under 10%');
+	return rows.join('\n');
+}
+
 describe('balance simulation', () => {
 	if (PRINT) {
 		it('prints the tables', () => {
-			console.log('\n' + [...grids.keys()].map(table).join('\n\n') + '\n');
+			const models: PlayerModel[] = [];
+			for (const policy of ['min', 'max', 'random'] as Policy[])
+				for (const accuracy of [1, 0.85, 0.7])
+					for (const level of [1, 2, 3] as AttackLevel[]) models.push({ accuracy, policy, level });
+			console.log('\n' + [targets(), ...models.map(grid)].join('\n\n') + '\n');
 		});
 	}
 
 	it("a squirrel almost never beats a bear, even when it's always right", () => {
-		const best = 'always right, strongest attack at level 3';
-		expect(cell(best, 'squirrel', 'bear').win).toBeLessThan(0.05);
-		expect(cell(best, 'rabbit', 'bear').win).toBeLessThan(0.05);
+		expect(simulate('squirrel', 'bear', hardest(1)).win).toBeLessThan(0.05);
+		expect(simulate('rabbit', 'bear', hardest(1)).win).toBeLessThan(0.05);
 	});
 
 	it('a bear beats a squirrel almost always, even at 70% accuracy', () => {
-		expect(cell('right 70%, strongest attack at level 3', 'bear', 'squirrel').win).toBeGreaterThan(
-			0.95
-		);
+		expect(simulate('bear', 'squirrel', hardest(0.7)).win).toBeGreaterThan(0.95);
 	});
 
 	it('an always-right player beats their own species with its strongest attack', () => {
 		for (const id of ids) {
-			expect(
-				cell('always right, strongest attack at level 3', id, id).win,
-				`${id} mirror`
-			).toBeGreaterThanOrEqual(0.9);
+			expect(simulate(id, id, hardest(1)).win, `${id} mirror`).toBeGreaterThanOrEqual(0.9);
 		}
 	});
 
+	it('the easiest puzzle, always right, usually beats an animal of your own tier', () => {
+		const rates = winRates(0, easiest(1));
+		for (const { p, w, win } of rates) expect(win, `${p} vs ${w}`).toBeGreaterThan(0.5);
+		const m = mean(rates.map((r) => r.win));
+		expect(m).toBeGreaterThanOrEqual(0.65);
+		expect(m).toBeLessThanOrEqual(0.85);
+	});
+
+	it('the easiest puzzle at 70% right makes a same-tier fight close to a coin flip', () => {
+		const m = mean(winRates(0, easiest(0.7)).map((r) => r.win));
+		expect(m).toBeGreaterThanOrEqual(0.35);
+		expect(m).toBeLessThanOrEqual(0.6);
+	});
+
+	it('on the easiest puzzle, one tier up is hard and two tiers up is out of reach', () => {
+		for (const { p, w, win } of winRates(1, easiest(1)))
+			expect(win, `${p} vs ${w}`).toBeLessThan(0.35);
+		for (const { p, w, win } of winRates(2, easiest(1)))
+			expect(win, `${p} vs ${w}`).toBeLessThan(0.1);
+	});
+
 	it('being right more often never hurts', () => {
-		for (const policy of ['strongest attack at level 3', 'weakest attack at level 1']) {
+		for (const model of [hardest, easiest]) {
 			for (const p of ids) {
 				for (const w of ids) {
-					const sure = cell(`always right, ${policy}`, p, w).win;
-					const shaky = cell(`right 70%, ${policy}`, p, w).win;
-					expect(sure, `${p} vs ${w}, ${policy}`).toBeGreaterThanOrEqual(shaky - 0.05);
+					const sure = simulate(p, w, model(1)).win;
+					const shaky = simulate(p, w, model(0.7)).win;
+					expect(sure, `${p} vs ${w}, ${model.name}`).toBeGreaterThanOrEqual(shaky - 0.05);
 				}
 			}
 		}
@@ -104,8 +156,8 @@ describe('balance simulation', () => {
 	it('a stronger attack at a higher level never hurts an always-right player', () => {
 		for (const p of ids) {
 			for (const w of ids) {
-				const strong = cell('always right, strongest attack at level 3', p, w).win;
-				const weak = cell('always right, weakest attack at level 1', p, w).win;
+				const strong = simulate(p, w, hardest(1)).win;
+				const weak = simulate(p, w, easiest(1)).win;
 				expect(strong, `${p} vs ${w}`).toBeGreaterThanOrEqual(weak - 0.05);
 			}
 		}
