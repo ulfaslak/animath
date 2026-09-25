@@ -9,6 +9,7 @@
 	} from '@mathgame/engine';
 	import { actionAt, battle } from '../state/battle.svelte';
 	import HpBar from './HpBar.svelte';
+	import PuzzlePanel from './PuzzlePanel.svelte';
 
 	/**
 	 * The battle screen's overlay: status boxes over the scene, a narration
@@ -151,25 +152,12 @@
 
 	<div class="card puzzle" class:correct={battle.judged?.correct === true}>
 		{#if battle.puzzle}
-			<div class="puzzle-prompt">{battle.puzzle.prompt}</div>
-			<div
-				class="answer"
-				class:correct={battle.judged?.correct === true}
-				class:wrong={battle.judged?.correct === false}
-			>
-				{battle.input}<span class="cursor" class:blink={battle.screen === 'puzzle'}></span>
-			</div>
-			{#if battle.judged}
-				<div
-					class="judgement"
-					class:good={battle.judged.correct}
-					class:bad={!battle.judged.correct}
-				>
-					{battle.judged.correct ? 'Correct!' : `Not quite! It was ${battle.judged.answer}.`}
-				</div>
-			{:else}
-				<div class="keys">Type the answer, then press Enter</div>
-			{/if}
+			<PuzzlePanel
+				puzzle={battle.puzzle}
+				input={battle.input}
+				judged={battle.judged}
+				typing={battle.screen === 'puzzle'}
+			/>
 		{:else}
 			<div class="soft">Pick an attack</div>
 			<div class="detail">{detail}</div>
@@ -382,56 +370,6 @@
 		font-size: 16px;
 		opacity: 0.7;
 	}
-	.puzzle-prompt {
-		font-weight: 800;
-		font-size: clamp(40px, 7vh, 64px);
-		line-height: 1.1;
-		overflow-wrap: anywhere;
-	}
-	.answer {
-		min-width: 4em;
-		min-height: 1.3em;
-		padding: 2px 16px;
-		border-radius: 12px;
-		border: 3px solid rgba(0, 0, 0, 0.15);
-		background: white;
-		font-weight: 800;
-		font-size: clamp(32px, 5vh, 44px);
-		font-variant-numeric: tabular-nums;
-		line-height: 1.3;
-	}
-	.answer.correct {
-		border-color: var(--good);
-	}
-	.answer.wrong {
-		border-color: var(--bad);
-		animation: shake 0.4s ease-out;
-	}
-	.cursor {
-		display: inline-block;
-		width: 3px;
-		height: 0.9em;
-		margin-left: 2px;
-		vertical-align: -0.1em;
-		background: transparent;
-	}
-	.cursor.blink {
-		background: var(--panel-ink);
-		animation: blink 1s steps(2) infinite;
-	}
-	.judgement {
-		font-weight: 800;
-		font-size: 24px;
-		padding: 2px 18px;
-		border-radius: 18px;
-	}
-	.judgement.good {
-		background: var(--good);
-	}
-	.judgement.bad {
-		background: var(--bad);
-	}
-
 	.result {
 		position: absolute;
 		inset: 0;
@@ -475,23 +413,6 @@
 		background: rgba(255, 255, 255, 0.3);
 	}
 
-	@keyframes shake {
-		0%,
-		100% {
-			transform: translateX(0);
-		}
-		25% {
-			transform: translateX(-8px);
-		}
-		75% {
-			transform: translateX(8px);
-		}
-	}
-	@keyframes blink {
-		to {
-			visibility: hidden;
-		}
-	}
 	@keyframes pop {
 		0% {
 			opacity: 0;

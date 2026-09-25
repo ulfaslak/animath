@@ -12,6 +12,7 @@ import {
 	type GameEvent,
 	type GridPos
 } from '@mathgame/engine';
+import { answerKey } from '../input/answer';
 import { BattleScene } from '../render/battle-scene';
 import type { GameRenderer } from '../render/renderer';
 import { actionAt, actionCount, battle } from '../state/battle.svelte';
@@ -34,9 +35,6 @@ interface Beat {
 	run: () => string | undefined;
 	hold: number;
 }
-
-/** A sign and six digits. Every answer in the game is shorter. */
-const MAX_ANSWER_LENGTH = 7;
 
 /**
  * Seconds the result card ignores keys after it appears, so an Enter mashed
@@ -280,25 +278,10 @@ export class BattleController {
 	}
 
 	private puzzleKey(key: string): boolean {
-		if (/^[0-9]$/.test(key)) {
-			if (battle.input.length < MAX_ANSWER_LENGTH) battle.input += key;
-			return true;
-		}
-		if (key === '-') {
-			if (battle.input === '') battle.input = '-';
-			return true;
-		}
-		if (key === 'Backspace') {
-			battle.input = battle.input.slice(0, -1);
-			return true;
-		}
-		if (key === 'Enter') {
-			// An empty field is not an answer: a kid who mashes Enter after
-			// picking an attack must not lose the turn to it.
-			if (/\d/.test(battle.input)) this.send({ type: 'answer', input: battle.input });
-			return true;
-		}
-		return false;
+		const typed = answerKey(battle.input, key);
+		battle.input = typed.input;
+		if (typed.submit) this.send({ type: 'answer', input: typed.input });
+		return typed.handled;
 	}
 
 	// --- narration -----------------------------------------------------------
