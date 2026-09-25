@@ -69,7 +69,7 @@ Short, warm, second person. One idea per line. Words a seven-year-old reads with
 - "Squirrel is tired." not "Squirrel has fainted."
 - "Not quite! The bear shrugs it off." not "Incorrect answer."
 - "You caught a Fox!" with an exclamation mark. Big moments get big copy.
-- "Good try!" when the whole party is tired, never "You lost". "Not quite! It was 12." after a wrong answer: the right answer, said kindly.
+- "Good try!" when the whole party is tired, never "You lost".
 - No sarcasm, no "oops", no "error". No text the game can't stand behind if a kid reads it aloud.
 
 ## Accessibility

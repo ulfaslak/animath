@@ -40,15 +40,15 @@ Escape does nothing anywhere yet — not even in a puzzle: once a puzzle is up, 
 
 ## Finding a battle fast
 
-The tile straight left of the start, (-3, 6), is a river reed: tall grass on the river bank, where only otters live. Press Left and Right in turn (Left, Right, Left, …): every Left lands on the reed. **The 11th step (the sixth Left) always meets an Otter**, and the next one comes on the 15th step. For other animals, walk to the meadow tall grass south-east of the start — the nearest is (2, 7), (3, 7) and (4, 7) — where you meet squirrels and rabbits, sometimes a fox and rarely a deer.
+The tile straight left of the start, (-3, 6), is a river reed: tall grass on the river bank. Near home, squirrels and rabbits come down to the water, and now and then an otter. Press Left and Right in turn (Left, Right, Left, …): every Left lands on the reed. **The 11th step (the sixth Left) always meets a Rabbit**, the 15th a Squirrel, and the first Otter comes on the 97th step. For foxes and the odd deer, walk to the meadow tall grass south-east of the start — the nearest is (2, 7), (3, 7) and (4, 7) — where you meet squirrels and rabbits, sometimes a fox and rarely a deer.
 
 ## Battles
 
-- **You always go first.** Pick an attack and a level, answer the puzzle, then the wild animal answers with one of its attacks. It never misses.
+- **You always go first.** Pick an attack and a level, answer the puzzle, then the wild animal answers with one of its attacks. Facing an animal its own size or bigger it sometimes misses ("It missed."); a smaller one it never misses.
 - **Higher level, harder sum, bigger hit.** Each attack row says how hard its puzzle is at the chosen level (easy, medium, hard, super hard), and the box on the right says what kind of maths it asks and how much damage it does.
-- **A wrong answer misses** and shows you the right one ("Not quite! It was 4."). The next puzzle is a new one.
+- **A wrong answer misses** ("Not quite!", then "Missed! The wild Rabbit shrugs it off."). The right answer is not shown.
 - **Picking an attack can't be undone.** Leaving the puzzle is not possible; typing anything wrong counts as a miss.
-- **Leash**: the row says "hard", "maybe" or "good chance" (red, amber or green dot) by how much HP the wild animal has left, in thirds. A throw that breaks free costs your turn.
+- **Leash**: the row says "strong", "weaker" or "weak" (red, amber or green dot) by how much HP the wild animal has left, in thirds. It is about HP only: a fierce animal stays hard to catch even when it says "weak" (a bear at a third of its HP breaks free about 94 times in 100). A throw that breaks free costs your turn.
 - **Run** always works and costs nothing.
 - **When your animal is tired** (0 HP), the next animal in your party that isn't tired steps in by itself, and you choose again.
 - **Win, catch, or run**: a card says what happened; press Enter to walk on from the same tile. HP you lost stays lost.

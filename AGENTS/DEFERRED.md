@@ -20,7 +20,15 @@ Technical items we've intentionally postponed: tech debt, hardening shortcuts, k
 
 **Why deferred**: there is no server authority yet, and stripping the answer means a second `Puzzle` shape (or a redacting step in the protocol) for a cheat nobody can attempt today.
 
-**Trigger**: the `RemoteAuthority` / server-side battle PR. Redact `answer` from what goes over the wire there (`BattlePhase.solving` and `puzzle-shown`). Keep it in `answer-judged`: the battle screen shows it after a wrong answer ("Not quite! It was 12."), and by then the puzzle is spent.
+**Trigger**: the `RemoteAuthority` / server-side battle PR. Redact `answer` from what goes over the wire there, and decide whether `answer-judged` keeps reporting it after the fact (harmless: the puzzle is spent; the battle screen never shows it).
+
+### A battle's result is written back by the client's authority, not the engine
+
+**What**: when a battle ends, `LocalAuthority.endBattle` decides what it means for the world: the party takes the battle's HP, a caught animal joins if there is room (the cap is the engine's `MAX_PARTY`, but the let-it-go decision is in the authority), a lost battle rests everyone at the spawn tile, and the closing line is chosen. A server authority would have to repeat all of it, and the two copies could drift.
+
+**Why deferred**: there is one authority today, the brief for this work put the outcomes there, and the lost branch is a placeholder the doctor's client work replaces with the engine's `takeToDoctor`.
+
+**Trigger**: the `RemoteAuthority` / server-side battle PR, or earlier if a second outcome rule lands. Move the write-back into an engine function (`concludeBattle(party, endedState) → { party, message }`, beside `takeToDoctor`) and call it from both authorities.
 
 ### The authority's step counter is not saved
 

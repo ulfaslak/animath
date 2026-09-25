@@ -122,7 +122,7 @@ What is built and observable today. Keep current: add a bullet when a feature sh
 ### Encounters and battle
 
 - Wild encounters: each step onto tall grass may start a battle, with the species picked by biome, tier and distance from spawn (§4 "Wild encounters").
-- Battle mode, Game Boy style ([[UI_SPEC]] § Battle mode): the two animals face each other on a patch of the biome, with status boxes, a narration line, an action menu (every attack at three levels, with how hard its puzzle is, then Leash and Run) and the puzzle panel. Every attack is a puzzle answered by typing a number; a wrong answer shows the right one. The wild animal's reply, knock-outs and the automatic switch to the next animal are played out one line at a time.
+- Battle mode, Game Boy style ([[UI_SPEC]] § Battle mode): the two animals face each other on a patch of the biome, with status boxes, a narration line, an action menu (every attack at three levels, with how hard its puzzle is, then Leash and Run) and the puzzle panel. Every attack is a puzzle answered by typing a number. The wild animal's reply, knock-outs and the automatic switch to the next animal are played out one line at a time.
 - Catching with the leash; a caught animal joins the party (up to six) with the HP it had. With six already, it goes back into the grass.
 - HP lost in a battle stays lost afterwards; a knocked-out animal stays tired and sits out battles until healed.
 - **Placeholder for losing**: when the whole party is tired, everyone rests back to full HP and the player is put back on the start tile ("Everyone is tired. You rest and feel better."). §4 says the player is taken to the nearest doctor's tent; that replaces this when doctor healing lands (§6).
