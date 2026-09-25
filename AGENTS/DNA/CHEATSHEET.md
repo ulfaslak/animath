@@ -19,7 +19,7 @@ Everything a player can do in **today's build**, and how: every key, every hidde
 | Enter                 | Puzzle  | Answer. Nothing happens until you have typed at least one digit.                                                        |
 | Enter / Space         | Result card | Back to exploring.                                                                                                  |
 
-Escape does nothing anywhere yet — not even in a puzzle: once a puzzle is up, the only way on is to answer it. The mouse and touch are ignored everywhere (the result card's button looks clickable but isn't). The page has no debug keys or console hooks; its one URL parameter is `?zoo` (see § Hidden behaviour).
+Escape does nothing anywhere yet — not even in a puzzle: once a puzzle is up, the only way on is to answer it. The mouse and touch are ignored everywhere (the result card's button looks clickable but isn't). The page has no debug keys or console hooks; its URL parameters are `?zoo` and `?lang` (see § Hidden behaviour).
 
 ## The world
 
@@ -70,6 +70,7 @@ The cards in the top-left corner are your party. You start with one Squirrel at 
 - **The same walk meets the same animals.** Encounters are decided by how many steps you have taken since the page loaded, so after a reload the same route meets the same animals at the same steps (see § Finding a battle fast).
 - **Leading zeros are fine**: "09" is the same answer as "9".
 - **Nothing is saved.** A reload puts you back at (-2, 6) with one full-HP Squirrel.
+- **A little Danish.** If your browser prefers Danish, the line under a puzzle you haven't answered yet says "Skriv svaret, og tryk så på Enter". Every other word is still English, and there is no way to switch language in the game yet. `?lang=da` or `?lang=en` in the address picks one for that visit.
 - **`?zoo` shows every animal.** Open `http://localhost:5180/?zoo` and one of each species stands in a row two or three tiles from the start, in catalog order — squirrel, rabbit, fox, otter, deer, wolf, bear — facing you. They are scenery: you walk straight through them and nothing else changes. It exists to check the figures, not to play with.
 
 ## Exploits and quirks
