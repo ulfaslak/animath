@@ -7,13 +7,21 @@ import {
 	WILD_MISS_CHANCE,
 	activeAnimal,
 	applyBattleIntent,
+	canSwitchTo,
 	startBattle
 } from '../src/battle/reducer.js';
 import type { BattleEvent, BattleIntent, BattleState, BattleStep } from '../src/battle/types.js';
 import { puzzleDifficulty } from '../src/puzzles/difficulty.js';
 import { checkAnswer, getGenerator } from '../src/puzzles/registry.js';
 import { Rng, hashInts } from '../src/rng.js';
-import { makeParty, makeWild, nextIntent, playBattle, type PlayerModel } from './battle-sim.js';
+import {
+	makeParty,
+	makeWild,
+	nextIntent,
+	others,
+	playBattle,
+	type PlayerModel
+} from './battle-sim.js';
 
 const SEEDS = 25;
 const ids = ANIMALS.map((a) => a.id);
@@ -196,23 +204,34 @@ describe('replay', () => {
 	});
 
 	it('golden: squirrel + rabbit vs a wild fox, seed 2024', () => {
-		// Attack 2 at level 3 every round, wrong on every third answer, one leash throw on round 3.
+		// Attack 2 at level 3 every round, wrong on every third answer, one leash
+		// throw on round 3; the rabbit steps in when the squirrel is tired.
 		let answers = 0;
+		const steps: string[] = [];
 		const { state, events } = drive(
 			2024,
 			makeParty(['squirrel', 'rabbit']),
 			makeWild('fox'),
 			(s) => {
 				if (s.phase.kind === 'ended') return null;
+				if (s.phase.kind === 'choose-animal') return { type: 'switch', partyIndex: 1 };
 				if (s.phase.kind === 'solving') {
 					const a = s.phase.puzzle.answer;
 					return { type: 'answer', input: String(answers++ % 3 === 1 ? a + 1 : a) };
 				}
 				if (s.turn === 3) return { type: 'throw-leash' };
 				return { type: 'attack', attackIndex: 2, level: 3 };
-			}
+			},
+			(_, intent, step) =>
+				steps.push(`${intent.type} → ${step.state.phase.kind}: ${step.events.map((e) => e.type)}`)
 		);
 
+		// The squirrel's knock-out ends the round in choose-animal; the rabbit's
+		// entrance is its own intent, and a free one: no wild reply follows it.
+		expect(steps.slice(4, 6)).toEqual([
+			'throw-leash → choose-animal: leash-thrown,hit,fainted',
+			'switch → choose-action: switched'
+		]);
 		expect(events.map((e) => e.type)).toEqual([
 			'puzzle-shown',
 			'answer-judged',
@@ -247,7 +266,7 @@ describe('replay', () => {
 			{ type: 'hit', attacker: 'player', attackIndex: 2, level: 3, damage: 14, targetHp: 0 }
 		]);
 		expect(state).toEqual({
-			step: 9,
+			step: 10,
 			turn: 5,
 			active: 1,
 			leashQuality: 1,
@@ -279,10 +298,19 @@ describe('replay', () => {
 });
 
 describe('every battle in the catalog', () => {
-	// A shaky player who sometimes throws the leash and, rarely, runs — so every
-	// branch of the reducer is walked for every species pair.
-	const model: PlayerModel = { accuracy: 0.6, policy: 'random', leash: 0.15, flee: 0.02 };
+	// A shaky player who sometimes throws the leash, sometimes switches animals
+	// (and picks a random one to replace a tired one) and, rarely, runs — so
+	// every branch of the reducer is walked for every species pair.
+	const model: PlayerModel = {
+		accuracy: 0.6,
+		policy: 'random',
+		leash: 0.15,
+		flee: 0.02,
+		switch: 0.15
+	};
 	const seen = new Set<string>();
+	let switches = 0;
+	let replacements = 0;
 
 	for (const p of ids) {
 		it(`${p} vs everything: terminates, keeps HP in bounds, never mutates its input, explains every change`, () => {
@@ -291,10 +319,15 @@ describe('every battle in the catalog', () => {
 					const rng = new Rng(hashInts(seed, 0x9e3779b9));
 					const { state } = drive(
 						seed,
-						makeParty([p, 'rabbit']),
+						makeParty([p, 'rabbit', 'fox']),
 						makeWild(w),
 						(s) => nextIntent(s, model, rng),
-						checkStep(seed)
+						(before, intent, step) => {
+							checkStep(seed)(before, intent, step);
+							if (intent.type !== 'switch') return;
+							if (before.phase.kind === 'choose-animal') replacements++;
+							else switches++;
+						}
 					);
 					expect(state.phase.kind, `${p} vs ${w} seed ${seed} never ended`).toBe('ended');
 					seen.add(outcome(state)!);
@@ -303,8 +336,10 @@ describe('every battle in the catalog', () => {
 		});
 	}
 
-	it('reached every outcome', () => {
+	it('reached every outcome, and switched both ways', () => {
 		expect([...seen].sort()).toEqual(['caught', 'fled', 'lost', 'won']);
+		expect(switches).toBeGreaterThan(100);
+		expect(replacements).toBeGreaterThan(100);
 	});
 
 	function checkStep(seed: number) {
@@ -336,6 +371,8 @@ describe('every battle in the catalog', () => {
 			let playerHp = activeAnimal(before).hp;
 			let oppHp = before.opponent.hp;
 			let active = before.active;
+			/** Party members the wild animal hit in this step: nobody else's HP may change. */
+			const struck = new Set<number>();
 			for (let i = 0; i < events.length; i++) {
 				const e = events[i]!;
 				const next = events[i + 1];
@@ -386,6 +423,7 @@ describe('every battle in the catalog', () => {
 							playerHp = Math.max(0, playerHp - e.damage);
 							expect(e.targetHp).toBe(playerHp);
 							expect(state.party[active]!.hp).toBe(playerHp);
+							struck.add(active);
 						}
 						break;
 					}
@@ -412,17 +450,37 @@ describe('every battle in the catalog', () => {
 						} else {
 							expect(playerHp).toBe(0);
 							expect(e.animal).toEqual({ ...before.party[active], hp: 0 });
-							expect(['switched', 'ended']).toContain(next?.type);
+							// Nobody left: lost. Otherwise the player picks who steps in.
+							if (next) {
+								expect(next).toEqual({ type: 'ended', outcome: 'lost' });
+							} else {
+								expect(state.phase).toEqual({ kind: 'choose-animal' });
+								expect(state.party.some((a) => a.hp > 0)).toBe(true);
+							}
 						}
 						break;
-					case 'switched':
-						expect(events[i - 1]?.type).toBe('fainted');
-						expect(e.partyIndex).not.toBe(active);
-						expect(state.party[e.partyIndex]!.hp).toBeGreaterThan(0);
-						expect(e.animal).toEqual(state.party[e.partyIndex]);
+					case 'switched': {
+						// Only a switch intent switches, first thing in its step, to whom it named.
+						if (intent.type !== 'switch') throw new Error(`${where}: switched`);
+						expect(i).toBe(0);
+						expect(e.partyIndex).toBe(intent.partyIndex);
+						expect(e.partyIndex).not.toBe(before.active);
+						expect(before.party[e.partyIndex]!.hp).toBeGreaterThan(0);
+						expect(e.animal).toEqual(before.party[e.partyIndex]);
 						active = e.partyIndex;
 						playerHp = e.animal.hp;
+						if (before.phase.kind === 'choose-animal') {
+							// Replacing a tired animal is free: the player chooses next.
+							expect(next).toBeUndefined();
+							expect(state.phase).toEqual({ kind: 'choose-action' });
+						} else {
+							// Otherwise the switch is the turn: the wild animal replies.
+							expect(before.phase).toEqual({ kind: 'choose-action' });
+							expect(['hit', 'missed']).toContain(next?.type);
+							expect(next).toMatchObject({ attacker: 'opponent' });
+						}
 						break;
+					}
 					case 'leash-thrown': {
 						expect(intent.type).toBe('throw-leash');
 						const spec = getAnimal(before.opponent.speciesId);
@@ -461,10 +519,17 @@ describe('every battle in the catalog', () => {
 			expect(state.opponent.hp).toBe(oppHp);
 			expect(state.active).toBe(active);
 			expect(activeAnimal(state).hp).toBe(playerHp);
+			// HP changes only where the events say: a switch, or anything else,
+			// never touches a party member the wild animal did not hit.
+			state.party.forEach((a, i) => {
+				if (!struck.has(i)) expect(a.hp, `${where}: party ${i}`).toBe(before.party[i]!.hp);
+			});
 
 			// The round counter advances exactly when the wild animal's turn ended without ending the battle.
-			const roundOver = state.phase.kind === 'choose-action' && intent.type !== 'attack';
-			expect(state.turn).toBe(before.turn + (roundOver ? 1 : 0));
+			const wildActed = events.some(
+				(e) => (e.type === 'hit' || e.type === 'missed') && e.attacker === 'opponent'
+			);
+			expect(state.turn).toBe(before.turn + (wildActed && state.phase.kind !== 'ended' ? 1 : 0));
 
 			// The log only ever grows.
 			expect(state.log.slice(0, before.log.length)).toEqual(before.log);
@@ -628,10 +693,11 @@ describe('the wild animal', () => {
 				'answer-judged',
 				'missed',
 				'hit',
-				'fainted',
-				'switched'
+				'fainted'
 			]);
-			let state = first.state;
+			const bearIn = applyBattleIntent(first.state, { type: 'switch', partyIndex: 1 }, seed);
+			expect(bearIn.events.map((e) => e.type)).toEqual(['switched']);
+			let state = bearIn.state;
 			for (let turn = 0; turn < 5; turn++) {
 				expect(activeAnimal(state).speciesId).toBe('bear');
 				const step = attackAndAnswer(state, seed, 1, 1, false);
@@ -712,24 +778,43 @@ describe('fleeing', () => {
 });
 
 describe('knock-outs', () => {
-	it('the next conscious party member steps in, in party order', () => {
-		const party = makeParty(['squirrel', 'rabbit', 'fox']);
+	it('the player picks who steps in, for free, and then chooses an action', () => {
+		const party = makeParty(['squirrel', 'rabbit', 'fox', 'otter']);
 		party[0]!.hp = 1;
 		party[1]!.hp = 0;
 		const { state, events } = attackAndAnswer(startBattle(party, makeWild('bear')), 1, 1, 1, false);
-		expect(events.map((e) => e.type)).toEqual([
-			'answer-judged',
-			'missed',
-			'hit',
-			'fainted',
-			'switched'
-		]);
-		expect(events[4]).toEqual({ type: 'switched', animal: { ...party[2], hp: 35 }, partyIndex: 2 });
-		expect(state.active).toBe(2);
-		expect(state.party.map((a) => a.hp)).toEqual([0, 0, 35]);
-		expect(state.phase).toEqual({ kind: 'choose-action' });
+		expect(events.map((e) => e.type)).toEqual(['answer-judged', 'missed', 'hit', 'fainted']);
+		// The round is over; the tired squirrel stays in front until the player picks.
+		expect(state.phase).toEqual({ kind: 'choose-animal' });
+		expect(state.active).toBe(0);
 		expect(state.turn).toBe(2);
-		expect(state.log.slice(-2)).toEqual(['Squirrel is tired.', 'Go, Fox!']);
+		expect(state.party.map((a) => a.hp)).toEqual([0, 0, 35, 32]);
+		expect(state.log.at(-1)).toBe('Squirrel is tired.');
+
+		// Not the first standing one in party order: the otter, because the player says so.
+		const picked = applyBattleIntent(deepFreeze(state), { type: 'switch', partyIndex: 3 }, 1);
+		expect(picked.events).toEqual([{ type: 'switched', animal: party[3], partyIndex: 3 }]);
+		expect(picked.state.active).toBe(3);
+		expect(picked.state.phase).toEqual({ kind: 'choose-action' });
+		expect(picked.state.turn).toBe(2);
+		expect(picked.state.party).toEqual(state.party);
+		expect(picked.state.opponent).toEqual(state.opponent);
+		expect(picked.state.log.at(-1)).toBe('Go, Otter!');
+
+		// While the player picks, only a switch to someone standing fits.
+		for (const intent of [
+			{ type: 'attack', attackIndex: 1, level: 1 },
+			{ type: 'answer', input: '4' },
+			{ type: 'throw-leash' },
+			{ type: 'flee' },
+			{ type: 'switch', partyIndex: 0 },
+			{ type: 'switch', partyIndex: 1 },
+			{ type: 'switch', partyIndex: 4 }
+		] as BattleIntent[]) {
+			const step = applyBattleIntent(state, intent, 1);
+			expect(step.state, JSON.stringify(intent)).toBe(state);
+			expect(step.events).toEqual([expect.objectContaining({ type: 'rejected' })]);
+		}
 	});
 
 	it('the battle is lost when the last one is knocked out', () => {
@@ -791,6 +876,112 @@ describe('rejected intents', () => {
 		expectRejected(ended, { type: 'throw-leash' });
 		expectRejected(ended, { type: 'flee' });
 	});
+
+	it('a switch to the animal in front, a tired one or one that is not there, or mid-puzzle', () => {
+		const party = makeParty(['squirrel', 'rabbit', 'fox']);
+		party[1]!.hp = 0;
+		const start = startBattle(party, makeWild('otter'));
+		const to = (partyIndex: unknown) => ({ type: 'switch', partyIndex }) as BattleIntent;
+		for (const bad of [0, 1, -1, 3, 1.5, NaN, Infinity, '2', null, undefined]) {
+			expectRejected(start, to(bad));
+		}
+		expectRejected(start, { type: 'switch' } as unknown as BattleIntent);
+		expect(applyBattleIntent(start, to(2), 9).events[0]).toMatchObject({ type: 'switched' });
+
+		const solving = applyBattleIntent(start, { type: 'attack', attackIndex: 1, level: 1 }, 9).state;
+		expectRejected(solving, to(2));
+		const ended = applyBattleIntent(start, { type: 'flee' }, 9).state;
+		expectRejected(ended, to(2));
+
+		// A party of one has nobody to switch to.
+		const alone = startBattle(makeParty(['squirrel']), makeWild('otter'));
+		for (const bad of [0, 1, -1]) expectRejected(alone, to(bad));
+	});
+});
+
+describe('switching', () => {
+	it('takes the turn: the wild animal replies against the newcomer, and only its hit costs HP', () => {
+		for (const a of ids) {
+			for (const b of ids) {
+				for (const w of ids) {
+					for (let seed = 0; seed < 5; seed++) {
+						const party = makeParty([a, b]);
+						const start = deepFreeze(startBattle(party, makeWild(w)));
+						const { state, events } = applyBattleIntent(
+							start,
+							{ type: 'switch', partyIndex: 1 },
+							seed
+						);
+						const where = `${a} → ${b} vs ${w}, seed ${seed}`;
+						expect(events[0], where).toEqual({ type: 'switched', animal: party[1], partyIndex: 1 });
+						expect(state.active).toBe(1);
+
+						// The wild turn's two draws, recomputed: against the newcomer, not the one who left.
+						const spec = getAnimal(w);
+						const rng = new Rng(hashInts(seed, 0));
+						const attackIndex = rng.int(1, spec.attacks.length);
+						const miss = spec.tier <= getAnimal(b).tier && rng.next() < WILD_MISS_CHANCE;
+						const power = spec.attacks[attackIndex - 1]!.power;
+						const hp = miss ? maxHp(party[1]!) : Math.max(0, maxHp(party[1]!) - power);
+						expect(events[1], where).toMatchObject({
+							type: miss ? 'missed' : 'hit',
+							attacker: 'opponent',
+							attackIndex
+						});
+						expect(state.party[1]!.hp, where).toBe(hp);
+						expect(state.party[0]).toEqual(start.party[0]);
+						expect(state.opponent).toEqual(start.opponent);
+						expect(state.turn).toBe(2);
+						// A newcomer knocked out at once hands the choice back: the first one still stands.
+						expect(state.phase).toEqual({ kind: hp === 0 ? 'choose-animal' : 'choose-action' });
+					}
+				}
+			}
+		}
+	});
+
+	it('never stalls: a player who switches whenever they can loses every battle, the wild animal untouched', () => {
+		// Switch while anyone else is standing; with nobody left to switch to, answer wrong.
+		const onlySwitch = (s: BattleState): BattleIntent | null => {
+			if (s.phase.kind === 'ended') return null;
+			if (s.phase.kind === 'solving') return { type: 'answer', input: 'x' };
+			const standing = others(s);
+			if (standing.length === 0) return { type: 'attack', attackIndex: 1, level: 1 };
+			return { type: 'switch', partyIndex: standing[s.turn % standing.length]! };
+		};
+		for (const w of ids) {
+			for (let seed = 0; seed < SEEDS; seed++) {
+				const party = makeParty(['bear', 'squirrel', 'rabbit']);
+				const { state } = drive(seed, party, makeWild(w), onlySwitch);
+				const where = `vs ${w}, seed ${seed}`;
+				expect(outcome(state), where).toBe('lost');
+				expect(state.opponent.hp).toBe(maxHp(state.opponent));
+				// Every switch but the two replacements gave the wild animal a turn.
+				// Every round costs the party HP or is a miss, which can't go on for long.
+				const hp = party.reduce((sum, x) => sum + x.hp, 0);
+				expect(state.turn, where).toBeLessThanOrEqual(hp);
+			}
+		}
+	});
+
+	it('canSwitchTo says exactly which switches the reducer takes', () => {
+		const model: PlayerModel = { accuracy: 0.6, policy: 'random', leash: 0.1, switch: 0.2 };
+		let checked = 0;
+		for (const w of ids) {
+			for (let seed = 0; seed < 5; seed++) {
+				const party = makeParty(['squirrel', 'fox', 'bear']);
+				party[2]!.hp = seed % 2 === 0 ? 0 : 50;
+				playBattle(seed, party, makeWild(w), model, (before) => {
+					for (const i of [-1, 0, 1, 2, 3, 0.5]) {
+						const step = applyBattleIntent(before, { type: 'switch', partyIndex: i }, seed);
+						expect(canSwitchTo(before, i)).toBe(step.events[0]!.type === 'switched');
+						checked++;
+					}
+				});
+			}
+		}
+		expect(checked).toBeGreaterThan(1000);
+	});
 });
 
 describe('transcripts', () => {
@@ -813,8 +1004,9 @@ describe('transcripts', () => {
 				makeWild('fox'),
 				(() => {
 					const rng = new Rng(12);
-					return (s: BattleState) => {
+					return (s: BattleState): BattleIntent | null => {
 						if (s.phase.kind === 'ended') return null;
+						if (s.phase.kind === 'choose-animal') return { type: 'switch', partyIndex: 1 };
 						if (s.phase.kind === 'solving') {
 							const a = s.phase.puzzle.answer;
 							return { type: 'answer', input: String(rng.chance(0.7) ? a : a + 2) };

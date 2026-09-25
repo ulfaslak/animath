@@ -10,9 +10,14 @@ import type { Puzzle } from '../puzzles/types.js';
  * The wild animal's turn is resolved inside the same reducer call as the
  * player's action, so the state never rests in an "opponent's turn" phase —
  * the client animates the events in order and only then shows the new state.
+ *
+ * `choose-animal` follows a knock-out while someone else in the party is
+ * still standing: the animal in front (`active`) is the tired one, and the
+ * only intent that fits is a `switch` naming who steps in.
  */
 export type BattlePhase =
 	| { kind: 'choose-action' }
+	| { kind: 'choose-animal' }
 	| { kind: 'solving'; attackIndex: number; level: AttackLevel; puzzle: Puzzle }
 	| { kind: 'ended'; outcome: BattleOutcome };
 
@@ -49,7 +54,13 @@ export type BattleIntent =
 	| { type: 'attack'; attackIndex: number; level: AttackLevel }
 	| { type: 'answer'; input: string }
 	| { type: 'throw-leash' }
-	| { type: 'flee' };
+	| { type: 'flee' }
+	/**
+	 * Send in the party member at `partyIndex`. On the player's turn it is the
+	 * turn (the wild animal replies against the newcomer); in `choose-animal`
+	 * it picks who replaces the tired animal, and costs nothing.
+	 */
+	| { type: 'switch'; partyIndex: number };
 
 /**
  * What happened, in order, as a result of one intent. Detailed enough to
@@ -70,6 +81,7 @@ export type BattleEvent =
 	  }
 	| { type: 'missed'; attacker: BattleSide; attackIndex: number; level: AttackLevel }
 	| { type: 'fainted'; side: BattleSide; animal: AnimalInstance }
+	/** A `switch` was accepted: `animal` (party member `partyIndex`) is in front now. */
 	| { type: 'switched'; animal: AnimalInstance; partyIndex: number }
 	| { type: 'leash-thrown'; chance: number; success: boolean }
 	| { type: 'fled' }
