@@ -7,6 +7,22 @@ language:
   # This language's own name, as the Language setting lists it.
   name: English
 
+# Every species by its engine id: its forms, and its attacks by id. Only the
+# frog so far: the other species' names still come from the engine's catalog
+# until the copy extraction moves them here.
+species:
+  frog:
+    name: Frog
+    a: a Frog
+    the: the Frog
+    wild: wild Frog
+    aWild: a wild Frog
+    theWild: the wild Frog
+    attacks:
+      croak: Croak
+      tongue-flick: Tongue Flick
+      big-splash: Big Splash
+
 puzzle:
   # Under a puzzle until it is answered.
   keys: Type the answer, then press Enter
