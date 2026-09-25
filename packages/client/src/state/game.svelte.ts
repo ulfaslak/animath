@@ -59,7 +59,10 @@ class GameView {
 				this.mode = 'explore';
 				break;
 			case 'party-changed':
+				// The world changed the party (a battle's result, a rest): a line
+				// about who goes first may no longer be true.
 				this.party = event.party;
+				this.notice = null;
 				break;
 			case 'party-edited': {
 				const notice = leadNotice(this.party, event.party, event.events);

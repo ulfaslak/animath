@@ -58,4 +58,12 @@ describe('the notice about the lead', () => {
 		expect(game.notice).toBeNull();
 		expect(game.message).not.toBe('');
 	});
+
+	it('goes when the world changes the party, since the lead may have changed with it', () => {
+		const { edit } = setup('squirrel,fox');
+		edit({ type: 'select-lead', animalId: game.party[1]!.id });
+		expect(game.notice).not.toBeNull();
+		game.apply({ type: 'party-changed', party: game.party.map((a) => ({ ...a, hp: 0 })) });
+		expect(game.notice).toBeNull();
+	});
 });
