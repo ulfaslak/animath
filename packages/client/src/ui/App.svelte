@@ -1,15 +1,16 @@
 <script lang="ts">
+	import { battle } from '../state/battle.svelte';
 	import { game } from '../state/game.svelte';
+	import BattlePanel from './BattlePanel.svelte';
 	import Hud from './Hud.svelte';
 </script>
 
 {#if game.mode === 'loading'}
 	<div class="loading">Loading…</div>
-{:else if game.mode === 'explore'}
+{:else if battle.active}
+	<BattlePanel />
+{:else}
 	<Hud />
-{:else if game.mode === 'battle'}
-	<!-- Battle panel lands with the battle-mode issue; see AGENTS/DNA/UI_SPEC.md -->
-	<div class="loading">Battle</div>
 {/if}
 
 <style>
