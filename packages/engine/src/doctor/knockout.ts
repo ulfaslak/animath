@@ -24,10 +24,11 @@ export interface Rescue {
 	facing: Direction;
 	/** The tent the player was taken to, or null when the doctor came to them. */
 	tent: GridPos | null;
-	/** The whole party, every animal at full HP, in the same order. */
+	/**
+	 * The whole party, every animal at full HP, in the same order. What the
+	 * doctor says about it is the client's to word, from whether `tent` is null.
+	 */
 	party: AnimalInstance[];
-	/** One line for the message bar. */
-	message: string;
 }
 
 /**
@@ -44,19 +45,7 @@ export function takeToDoctor(seed: number, pos: GridPos, party: readonly AnimalI
 	const healed = party.map((a) => ({ ...a, hp: getAnimal(a.speciesId).maxHp }));
 	const spot = nearestTent(seed, pos);
 	if (!spot) {
-		return {
-			pos: { x: pos.x, y: pos.y },
-			facing: 'down',
-			tent: null,
-			party: healed,
-			message: 'A doctor came by and looked after your animals. Everyone feels better!'
-		};
+		return { pos: { x: pos.x, y: pos.y }, facing: 'down', tent: null, party: healed };
 	}
-	return {
-		pos: spot.stand,
-		facing: spot.facing,
-		tent: spot.tent,
-		party: healed,
-		message: 'The doctor looked after your animals. Everyone feels better!'
-	};
+	return { pos: spot.stand, facing: spot.facing, tent: spot.tent, party: healed };
 }

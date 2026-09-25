@@ -14,6 +14,7 @@ import type { BattleEvent, BattleIntent, BattleState, BattleStep } from '../src/
 import { puzzleDifficulty } from '../src/puzzles/difficulty.js';
 import { checkAnswer, getGenerator } from '../src/puzzles/registry.js';
 import { Rng, hashInts } from '../src/rng.js';
+import { wordedStrings } from './words.js';
 import {
 	makeParty,
 	makeWild,
@@ -95,7 +96,6 @@ describe('startBattle', () => {
 		expect(state.turn).toBe(1);
 		expect(state.step).toBe(0);
 		expect(state.leashQuality).toBe(1);
-		expect(state.log).toEqual(['A wild Deer appears!', 'Go, Rabbit!']);
 		expect(state.party).not.toBe(party);
 		expect(state.opponent).not.toBe(wild);
 		wild.hp = 1;
@@ -108,12 +108,6 @@ describe('startBattle', () => {
 		expect(Object.keys(startBattle(makeParty(['squirrel']), makeWild('fox')))).not.toContain(
 			'seed'
 		);
-	});
-
-	it('uses the nickname when there is one', () => {
-		const party = makeParty(['squirrel']);
-		party[0]!.nickname = 'Pip';
-		expect(startBattle(party, makeWild('fox')).log[1]).toBe('Go, Pip!');
 	});
 
 	it('refuses a battle that cannot be fought', () => {
@@ -154,7 +148,7 @@ describe('applyBattleIntent', () => {
 		for (const bad of [undefined, null, 42, 'flee']) {
 			const step = applyBattleIntent(start, bad as unknown as BattleIntent, 1);
 			expect(step.state).toBe(start);
-			expect(step.events).toEqual([{ type: 'rejected', reason: 'That is not an intent.' }]);
+			expect(step.events).toEqual([{ type: 'rejected', reason: 'not-an-intent' }]);
 		}
 	});
 });
@@ -275,24 +269,7 @@ describe('replay', () => {
 				{ id: 'rabbit-1', speciesId: 'rabbit', hp: 13 }
 			],
 			opponent: { id: 'wild-fox', speciesId: 'fox', hp: 0 },
-			phase: { kind: 'ended', outcome: 'won' },
-			log: [
-				'A wild Fox appears!',
-				'Go, Squirrel!',
-				'Squirrel used Scurry Kick! 14 damage.',
-				'Wild Fox used Trick! 12 damage.',
-				'Not quite! Scurry Kick missed.',
-				'Wild Fox used Nip! 6 damage.',
-				'You throw the leash…',
-				'It broke free!',
-				'Wild Fox used Nip! 6 damage.',
-				'Squirrel is tired.',
-				'Go, Rabbit!',
-				'Rabbit used Thump! 14 damage.',
-				'Wild Fox used Pounce! 9 damage.',
-				'Rabbit used Thump! 14 damage.',
-				'Wild Fox is tired. You win!'
-			]
+			phase: { kind: 'ended', outcome: 'won' }
 		});
 	});
 });
@@ -317,6 +294,7 @@ describe('every battle in the catalog', () => {
 			for (const w of ids) {
 				for (let seed = 0; seed < SEEDS; seed++) {
 					const rng = new Rng(hashInts(seed, 0x9e3779b9));
+					const said: BattleEvent[] = [];
 					const { state } = drive(
 						seed,
 						makeParty([p, 'rabbit', 'fox']),
@@ -324,6 +302,7 @@ describe('every battle in the catalog', () => {
 						(s) => nextIntent(s, model, rng),
 						(before, intent, step) => {
 							checkStep(seed)(before, intent, step);
+							said.push(...step.events);
 							if (intent.type !== 'switch') return;
 							if (before.phase.kind === 'choose-animal') replacements++;
 							else switches++;
@@ -331,6 +310,8 @@ describe('every battle in the catalog', () => {
 					);
 					expect(state.phase.kind, `${p} vs ${w} seed ${seed} never ended`).toBe('ended');
 					seen.add(outcome(state)!);
+					// Nothing the engine sends is worded: the client words it (DECISIONS § Copy and languages).
+					expect(wordedStrings({ state, said }), `${p} vs ${w} seed ${seed}`).toEqual([]);
 				}
 			}
 		});
@@ -530,9 +511,6 @@ describe('every battle in the catalog', () => {
 				(e) => (e.type === 'hit' || e.type === 'missed') && e.attacker === 'opponent'
 			);
 			expect(state.turn).toBe(before.turn + (wildActed && state.phase.kind !== 'ended' ? 1 : 0));
-
-			// The log only ever grows.
-			expect(state.log.slice(0, before.log.length)).toEqual(before.log);
 		};
 	}
 });
@@ -662,10 +640,7 @@ describe('the wild animal', () => {
 					expect(e.attackIndex).toBe(rng.int(1, getAnimal(w).attacks.length));
 					const miss = wary && rng.next() < WILD_MISS_CHANCE;
 					expect(e.type, `${p} vs ${w}, seed ${seed}`).toBe(miss ? 'missed' : 'hit');
-					if (miss) {
-						expect(state.party[0]!.hp).toBe(start.party[0]!.hp);
-						expect(state.log.at(-1)).toMatch(/^Wild .+ used .+! It missed\.$/);
-					}
+					if (miss) expect(state.party[0]!.hp).toBe(start.party[0]!.hp);
 				}
 			}
 		}
@@ -789,7 +764,7 @@ describe('knock-outs', () => {
 		expect(state.active).toBe(0);
 		expect(state.turn).toBe(2);
 		expect(state.party.map((a) => a.hp)).toEqual([0, 0, 35, 32]);
-		expect(state.log.at(-1)).toBe('Squirrel is tired.');
+		expect(events.at(-1)).toEqual({ type: 'fainted', side: 'player', animal: state.party[0] });
 
 		// Not the first standing one in party order: the otter, because the player says so.
 		const picked = applyBattleIntent(deepFreeze(state), { type: 'switch', partyIndex: 3 }, 1);
@@ -799,7 +774,6 @@ describe('knock-outs', () => {
 		expect(picked.state.turn).toBe(2);
 		expect(picked.state.party).toEqual(state.party);
 		expect(picked.state.opponent).toEqual(state.opponent);
-		expect(picked.state.log.at(-1)).toBe('Go, Otter!');
 
 		// While the player picks, only a switch to someone standing fits.
 		for (const intent of [
@@ -829,9 +803,9 @@ describe('knock-outs', () => {
 			'fainted',
 			'ended'
 		]);
+		expect(events[3]).toEqual({ type: 'fainted', side: 'player', animal: state.party[1] });
 		expect(events[4]).toEqual({ type: 'ended', outcome: 'lost' });
 		expect(state.party.map((a) => a.hp)).toEqual([0, 0]);
-		expect(state.log.slice(-2)).toEqual(['Squirrel is tired.', 'All your animals are tired.']);
 	});
 
 	it('the opponent faints on the hit that empties its HP and the battle is won on the spot', () => {
@@ -988,9 +962,7 @@ describe('transcripts', () => {
 	it.runIf(PRINT)('prints two full battles as event lists', () => {
 		const show = (title: string, r: { events: BattleEvent[]; state: BattleState }) => {
 			const lines = r.events.map((e) => `  ${JSON.stringify(e)}`);
-			console.log(
-				`\n### ${title}\n\n${lines.join('\n')}\n\n  log: ${JSON.stringify(r.state.log, null, 2)}\n`
-			);
+			console.log(`\n### ${title}\n\n${lines.join('\n')}\n\n  end: ${JSON.stringify(r.state)}\n`);
 		};
 		show(
 			'Squirrel vs wild Squirrel, always right, Scurry Kick at level 3',
