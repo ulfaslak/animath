@@ -102,9 +102,9 @@ function belongsOn(mark: string, letter: string): boolean {
  * - Apostrophe and dash look-alikes become `'` and `-`; any run of white
  *   space becomes one space.
  * - Only letters (any alphabet), digits, spaces, `-`, `'` and `.` are kept,
- *   and accent marks on a letter, at most four per letter ("राम", "שָׁלוֹם"):
- *   emoji, symbols (marks that draw as one included), control and invisible
- *   characters are dropped, and so is a mark with no letter under it.
+ *   and up to four marks on each letter they belong on (`belongsOn`: "राम", "שָׁלוֹם"):
+ *   emoji, symbols, marks that decorate rather than spell, control and
+ *   invisible characters are dropped, and so is a mark with no letter under it.
  * - Spaces are trimmed from both ends, and the name is cut to
  *   `MAX_NICKNAME_LENGTH` code points (then trimmed again), never between a
  *   letter and its marks.
