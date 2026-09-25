@@ -54,7 +54,7 @@ Headless Chrome via `playwright-core`, WebGL through SwiftShader. The script exi
 
 After every frame the script prints what the screen says — the HUD line with the grid position in explore; in a battle the status boxes, the menu (the highlighted row in brackets, with its level), the narration line, the puzzle, the typed answer, the judgement and the result card — so a run can be checked from its output as well as its images.
 
-**Playing a battle.** The 11th step of Left, Right, Left, … from the start always meets a rabbit (see [[CHEATSHEET]] § Finding a battle fast; the animal changes whenever the encounter tables do). Walk in, look, run away:
+**Playing a battle.** The 11th step of Left, Right, Left, … from the start always meets a rabbit while the starting squirrel leads (see [[CHEATSHEET]] § Finding a battle fast; the animal changes whenever the encounter tables or the lead do, and `local-authority.test.ts` pins it). Walk in, look, run away:
 
 ```bash
 node scripts/screenshot.mjs --keys "ArrowLeft,ArrowRight,ArrowLeft,ArrowRight,ArrowLeft,ArrowRight,ArrowLeft,ArrowRight,ArrowLeft,ArrowRight,ArrowLeft,wait:8000,shot:menu,ArrowUp,Enter,wait:4000,shot:result,Enter" --out screenshots/ran.png
@@ -83,6 +83,8 @@ All code is written by agents; the human reviews PRs and plays the game but does
 - **Independent re-derivation** for generators: the puzzle test re-solves each prompt with its own tiny solver instead of trusting `answer`. When you add a puzzle kind, extend the solver.
 - **Replay tests** for state machines: apply a fixed intent log to a fixed seed and assert the final state. When the battle reducer lands, this is how it is tested.
 - **Boundary tests** that pin the architecture: `purity.test.ts` fails if the engine grows an import. Keep it.
+
+**Keep every test well under vitest's 5 s default timeout**, including when other worktrees load the machine. A sweep costs the product of its dimensions, so when a new dimension joins an existing one (every lead, every species), time the file again. In a hot loop, collect failures into an array and assert once (`expect(bad).toEqual([])`): an `expect` per item costs more than the rule it checks. A sampling test can skip the draws it does not measure; `encounters.test.ts` samples species picks with an `Rng` whose every chance comes up.
 
 **Simulate balance, don't guess it.** When a change touches damage, HP, catch rates or difficulty, write (or run) a small simulation in `packages/engine/test/` or a scratch script: N battles between species pairs, win rates, average turns, catch attempts to success. Paste the table in the PR. A number in [[PRODUCT]] §4 that was never simulated is a guess.
 
