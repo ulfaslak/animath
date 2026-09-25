@@ -1,6 +1,8 @@
 <script lang="ts">
 	import { getAnimal } from '@mathgame/engine';
+	import { fade } from 'svelte/transition';
 	import { game } from '../state/game.svelte';
+	import { hud } from '../state/hud.svelte';
 	import HpBar from './HpBar.svelte';
 </script>
 
@@ -17,12 +19,18 @@
 	{/each}
 </div>
 
-<div class="hint">
-	Arrows / WASD to walk · {game.pos.x}, {game.pos.y}
-	{#if game.message}
-		· {game.message}
-	{/if}
-</div>
+<!-- The message line: the latest message while it is fresh, then the doctor
+     prompt or the controls hint (see `state/hud.svelte.ts`). -->
+{#if hud.message || hud.hint}
+	<div class="hint" transition:fade={{ duration: 400 }}>
+		{#if hud.message}
+			<div class="message" transition:fade={{ duration: 400 }}>{hud.message}</div>
+		{/if}
+		{#if hud.hint}
+			<div class="prompt">{hud.hint}</div>
+		{/if}
+	</div>
+{/if}
 
 <style>
 	.party {
@@ -62,11 +70,20 @@
 		bottom: 16px;
 		left: 50%;
 		transform: translateX(-50%);
+		width: max-content;
+		max-width: calc(100vw - 32px);
+		box-sizing: border-box;
 		background: var(--panel-bg);
 		border-radius: var(--radius);
 		box-shadow: var(--hud-shadow);
 		padding: 8px 16px;
 		font-weight: 600;
-		white-space: nowrap;
+		text-align: center;
+	}
+	.prompt {
+		font-weight: 800;
+	}
+	.message + .prompt {
+		margin-top: 2px;
 	}
 </style>

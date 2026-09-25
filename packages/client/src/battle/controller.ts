@@ -81,6 +81,7 @@ export class BattleController {
 				break;
 			case 'player-moved':
 			case 'player-placed':
+			case 'taken-to-doctor':
 				if (event.playerId === this.playerId) this.pos = event.pos;
 				break;
 			case 'battle-started':
