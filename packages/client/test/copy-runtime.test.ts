@@ -99,6 +99,8 @@ describe('createTranslator', () => {
 		const { tr } = translator();
 		const tricky = createTranslator({ en: { x: '{animal.constructor} {toString}' } }, 'en');
 		expect(tricky('en', 'x', { animal: squirrel })).toBe('{animal.constructor} {toString}');
+		// A null from an untyped caller (an opponent not there yet) is a gap too, not a crash.
+		expect(tr('en', 'caught', { animal: null as never })).toBe('You caught {animal.a}!');
 		expect(tr('en', 'caught', { animal: { a: 'a Fox', name: 'Fox' } })).toBe('You caught a Fox!');
 	});
 
