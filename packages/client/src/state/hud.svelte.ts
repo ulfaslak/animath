@@ -3,11 +3,13 @@ import {
 	leadIndex,
 	type AnimalInstance,
 	type GameEvent,
+	type Line as MessageLine,
 	type PartyEvent
 } from '@mathgame/engine';
 import { t } from '../copy';
 import { doctorWords, type DoctorLine } from '../doctor/lines';
-import { nameOf } from '../names';
+import { words } from '../lines';
+import { animalWords } from '../names';
 import { game } from './game.svelte';
 
 /**
@@ -45,15 +47,15 @@ export interface PartyNotice {
 
 /** A line on the message line, as data. */
 export type Said =
-	/** The authority's `message`, as it sent it. */
-	| { text: string }
+	/** The authority's `message`: a copy key and its values, as it sent them. */
+	| { line: MessageLine }
 	| { doctor: DoctorLine }
 	/** `interact` found no tent in front of the player. */
 	| { explore: 'notAtTent' }
 	| { party: PartyNotice };
 
 export function saidWords(said: Said): string {
-	if ('text' in said) return said.text;
+	if ('line' in said) return words(said.line);
 	if ('doctor' in said) return doctorWords(said.doctor);
 	if ('party' in said) return partyWords(said.party);
 	return t('explore.notAtTent');
@@ -62,14 +64,14 @@ export function saidWords(said: Said): string {
 function partyWords(notice: PartyNotice): string {
 	const animal = game.party.find((a) => a.id === notice.animalId);
 	if (!animal) return '';
-	const name = nameOf(animal);
+	const params = { animal: animalWords(animal) };
 	switch (notice.lead) {
 		case 'chosen':
-			return t('party.leadChosen', { name });
+			return t('party.leadChosen', params);
 		case 'tired':
-			return t('party.leadTired', { name });
+			return t('party.leadTired', params);
 		case 'already':
-			return t('party.leadAlready', { name });
+			return t('party.leadAlready', params);
 	}
 }
 
@@ -136,7 +138,7 @@ class HudView {
 				this.#fresh = false;
 				break;
 			case 'message':
-				this.say({ text: event.text });
+				this.say({ line: event.line });
 				break;
 			case 'taken-to-doctor':
 				if (event.playerId === game.playerId) {

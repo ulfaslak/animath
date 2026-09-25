@@ -1,14 +1,22 @@
 import { describe, expect, it } from 'vitest';
-import baselineFile from './hardcoded-text.baseline.yaml';
-import { lineOf, parseSvelte, printedStrings, svelteSources, type AstNode } from './source';
+import {
+	lineOf,
+	parseSvelte,
+	printedStrings,
+	svelteSources,
+	tsSources,
+	wordedLiterals,
+	type AstNode
+} from './source';
 
 /**
- * No player-facing words are written straight into a Svelte template: they
- * live in `src/copy/<language>.yaml` and are shown with `t()`, so the
- * Language setting reaches them (DECISIONS § Copy and languages). Text that
- * predates the copy files is listed in `hardcoded-text.baseline.yaml` until
- * the extraction empties it. Script blocks and `.ts` files are not checked
- * here: a word in a variable is out of this test's reach.
+ * No player-facing words are written into code: they live in
+ * `src/copy/<language>.yaml` and are shown with `t()` or `words(line)`, so
+ * the Language setting reaches them (DECISIONS § Copy and languages). Two
+ * checks: Svelte templates print no words of their own, and no TypeScript —
+ * modules or `<script>` blocks — holds a literal that reads as a sentence.
+ * The second is a heuristic (see `wordedLiterals`); the types do the rest:
+ * what the screen says is kept as a `Line` or a copy key, never a string.
  */
 
 /** Attributes whose words a player reads, or hears from a screen reader. */
@@ -80,14 +88,6 @@ function hardcodedText(file: string, source: string): Offender[] {
 	return found;
 }
 
-/** The baseline as `file → texts`, one entry per occurrence. */
-function readBaseline(data: unknown): Map<string, string[]> {
-	const entries = Object.entries((data ?? {}) as Record<string, unknown>);
-	return new Map(
-		entries.map(([file, texts]) => [file, Array.isArray(texts) ? texts.map(String) : []])
-	);
-}
-
 describe('hardcoded text in Svelte templates', () => {
 	it('finds text, worded attributes and printed literals, and nothing else', () => {
 		const source = `<script lang="ts">
@@ -117,36 +117,56 @@ describe('hardcoded text in Svelte templates', () => {
 		expect(found.map((o) => o.line)).toEqual([5, 6, 7, 7, 8, 11]);
 	});
 
-	it('every template shows its words through t(), apart from the baseline', () => {
-		const baseline = readBaseline(baselineFile);
-		const left = new Map([...baseline].map(([file, texts]) => [file, [...texts]]));
-		const added: Offender[] = [];
-		for (const [file, source] of svelteSources) {
-			for (const offender of hardcodedText(file, source)) {
-				const allowed = left.get(file);
-				const i = allowed?.indexOf(offender.text) ?? -1;
-				if (i >= 0) allowed!.splice(i, 1);
-				else added.push(offender);
-			}
-		}
-		const stale = [...left].flatMap(([file, texts]) => texts.map((text) => `${file}: ${text}`));
-
+	it('every template shows its words through t()', () => {
+		const found = [...svelteSources].flatMap(([file, source]) => hardcodedText(file, source));
 		expect(svelteSources.size).toBeGreaterThan(3);
-		// Soft, so a reworded line reports both halves at once: the new words and the stale entry.
-		expect
-			.soft(
-				added.map((o) => `${o.file}:${o.line} ${JSON.stringify(o.text)}`),
-				'Words written straight into a template. Put them in src/copy/en.yaml and da.yaml and show them ' +
-					"with t('group.key') (DEVELOPMENT § Copy and languages). Until the copy extraction lands, words " +
-					'in a file you are changing anyway may instead be listed in test/hardcoded-text.baseline.yaml.'
+		expect(
+			found.map((o) => `${o.file}:${o.line} ${JSON.stringify(o.text)}`),
+			'Words written straight into a template. Put them in src/copy/en.yaml and da.yaml and show ' +
+				"them with t('group.key') (DEVELOPMENT § Copy and languages)."
+		).toEqual([]);
+	});
+});
+
+describe('worded literals in TypeScript', () => {
+	it('finds sentences, and skips errors, console lines, keys and sums', () => {
+		const source = `
+			// A comment with words in it. Fine.
+			const a = 'Go, Pip!';
+			const b = \`\${x} + \${y} = ?\`;
+			const c = e.key === 'Enter' ? 'battle.go' : 'choose-action';
+			const d = 'Caught!';
+			throw new Error(\`startBattle: the party is empty\`);
+			console.warn(\`battle intent rejected: \${reason}\`);
+			const e = \`Wild \${name} used it\`;
+		`;
+		expect(wordedLiterals('fixture.ts', source)).toEqual([
+			'fixture.ts:3 Go, Pip!',
+			'fixture.ts:6 Caught!',
+			'fixture.ts:9 Wild x used it'
+		]);
+	});
+
+	it('no module or script block holds a sentence', () => {
+		const scripts = [...svelteSources].flatMap(([file, source]) =>
+			[...source.matchAll(/<script[^>]*>([\s\S]*?)<\/script>/g)].map(
+				(m) =>
+					[
+						file,
+						source.slice(0, m.index + m[0].indexOf('>') + 1).replace(/[^\n]/g, '') + m[1]!
+					] as const
 			)
-			.toEqual([]);
-		expect
-			.soft(
-				stale,
-				'These baseline entries are no longer in their template (moved to the copy files, or reworded): ' +
-					'delete them from test/hardcoded-text.baseline.yaml.'
-			)
-			.toEqual([]);
+		);
+		// The copy engine handles text by trade; its only literals are for developers.
+		const modules = [...tsSources].filter(([file]) => !file.startsWith('src/copy/'));
+		expect(modules.length).toBeGreaterThan(10);
+		const found = [...modules, ...scripts].flatMap(([file, source]) =>
+			wordedLiterals(file, source)
+		);
+		expect(
+			found,
+			'A sentence in code. Put it in src/copy/en.yaml and da.yaml, and keep what the screen says as ' +
+				'a Line or a copy key (DEVELOPMENT § Copy and languages).'
+		).toEqual([]);
 	});
 });

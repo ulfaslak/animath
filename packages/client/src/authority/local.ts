@@ -26,9 +26,11 @@ import {
 	type Direction,
 	type DoctorIntent,
 	type DoctorState,
+	type AnimalRef,
 	type GameEvent,
 	type GridPos,
 	type Intent,
+	type Line,
 	type PartyIntent,
 	type PlayerActivity,
 	type Rescue
@@ -205,30 +207,31 @@ export class LocalAuthority implements Authority {
 	 * caught animal joins the party if there is room, and a lost battle takes
 	 * the player to the nearest doctor's tent, where the whole party is healed
 	 * (the engine's knock-out rule, `takeToDoctor`). That one has no `message`:
-	 * the client words the doctor's line from `taken-to-doctor`.
+	 * the client words the doctor's line from `taken-to-doctor`. The closing
+	 * line is a copy key and the wild animal, never words.
 	 */
 	private endBattle(state: BattleState, events: readonly BattleEvent[]): void {
 		if (state.phase.kind !== 'ended') return;
 		this.party = state.party.map((a) => ({ ...a }));
-		const wildName = getAnimal(state.opponent.speciesId).name;
+		const animal: AnimalRef = { speciesId: state.opponent.speciesId };
 		let rescue: Rescue | null = null;
-		let text: string | null = null;
+		let line: Line | null = null;
 		switch (state.phase.outcome) {
 			case 'won':
-				text = `The wild ${wildName} runs home to rest.`;
+				line = { key: 'battle.closing.won', params: { animal } };
 				break;
 			case 'fled':
-				text = `The wild ${wildName} stays in the grass.`;
+				line = { key: 'battle.closing.fled', params: { animal } };
 				break;
 			case 'caught': {
 				// The reducer always reports the caught animal on `ended`.
 				const ended = events.find((e) => e.type === 'ended');
 				const caught = ended?.type === 'ended' ? ended.caught : undefined;
 				if (caught && this.party.length >= MAX_PARTY) {
-					text = `Your team is full, so ${wildName} goes back into the grass.`;
+					line = { key: 'battle.closing.teamFull', params: { animal } };
 				} else {
 					if (caught) this.party.push({ ...caught });
-					text = `${wildName} joins your team!`;
+					line = { key: 'battle.closing.joined', params: { animal } };
 				}
 				break;
 			}
@@ -253,7 +256,7 @@ export class LocalAuthority implements Authority {
 		} else {
 			this.emit({ type: 'party-changed', party: this.partyCopy() });
 		}
-		if (text !== null) this.emit({ type: 'message', text });
+		if (line !== null) this.emit({ type: 'message', line });
 	}
 
 	// --- doctor ------------------------------------------------------------
