@@ -30,6 +30,14 @@ Generating chunk `(4, −2)` alone yields the same tiles as generating it after 
 
 For every kind, at every difficulty in the kind's declared range, `answer` is an integer and an independent re-solve of `prompt` yields it. Division builds the dividend from the answer; square roots square the answer; sequences are generated from a closed form. Enforced by `puzzles.test.ts`, which re-parses each prompt with its own solver over 200 seeds per (kind, difficulty). Design-time.
 
+### Operands climb with difficulty: every band has a floor, and both ends are non-decreasing
+
+For every kind but `sequence`, the smallest and the largest number shown in a prompt are non-decreasing in difficulty (per operation, since `missing` mixes "+ ?" and "× ?"), nothing above difficulty 1 is "+ 1" / "× 1", ten is never a factor, and a puzzle at difficulty `d` shows a bigger number than any puzzle at `d − 2`. For sequences, each pattern's first term has both ends non-decreasing in difficulty and a floor above its ceiling two difficulties down (so no sequence is asked at `d` and at `d − 2`), each pattern's smallest answer never falls, and only difficulty 1 counts by ones. Operands, steps and first terms are drawn from `[lo, hi]` bands (`arithmetic.ts`, `sqrt.ts`, `sequence.ts`), never from `[1, max]` or `[0, max]`. Enforced by `puzzles.test.ts` § difficulty ladder, sampled over 300–900 fixed seeds per (kind, difficulty). Incident: #7 — operands had ceilings only, so a difficulty-3 attack asked "4 + 1", "16 − 15" and "8 + ? = 9" three puzzles in a row, and difficulty 10 could ask "√9", "1, 1, 2, 3, ?" or "0, 10, 20, 30, ?".
+
+### A sequence prompt has exactly one right answer
+
+Every sequence prompt fits exactly one of the patterns a kid is taught — equal gaps, a constant ratio, adding the last two, gaps that grow by a constant — and its last three numbers are evenly spaced only when the whole prompt counts, so the generator's answer is the only right one. Add-the-last-two never starts with a pair `a, b` where `2b = 3a` (its gaps then also grow by a constant) or `b = a` (it then ends in a counting run). Enforced by `puzzles.test.ts` ("no prompt fits two patterns"), which reads every prompt with each pattern, and with "count on from the last three", independently of the generator; sampled over 900 fixed seeds per difficulty. Incident: PR #10 — "2, 3, 5, 8, ?" was asked at difficulty 7–10 expecting 13, while "the gaps grow by one" answers 12; "4, 4, 8, 12, ?" expected 20 where counting on says 16.
+
 ### Answers are judged in the engine, never in the UI
 
 `checkAnswer(puzzle, input)` is the only place a submitted answer is compared. The UI passes the raw string through; the authority calls `checkAnswer` and emits the result. When the authority moves to the server, a client cannot claim a hit it did not earn. Enforced by review (grep the client for `=== puzzle.answer` / `.answer ===` during Phase 2.5). Design-time.
