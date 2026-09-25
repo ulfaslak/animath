@@ -227,6 +227,23 @@ describe('Autosave: the save in this browser', () => {
 		tab.autosave.handle({ type: 'message', text: 'hi' });
 		await settle();
 		expect(store.writes).toBe(before + 1);
+		// A lead chosen, an animal moved or renamed in the pause menu is saved at once.
+		tab.game.party = [...tab.game.party].reverse();
+		tab.autosave.handle({ type: 'party-edited' } as GameEvent);
+		await settle();
+		expect(store.writes).toBe(before + 2);
+		expect(store.save()!.party).toEqual(tab.game.party);
+	});
+
+	it('a party edit is playing: a held unreadable save is set aside for it', async () => {
+		const store = new MemoryStore();
+		store.set(KEYS.save, '{"version":1,"broken":true}');
+		const tab = new Tab(store, null);
+		await tab.open();
+		expect(store.get(KEYS.save)).toBe('{"version":1,"broken":true}');
+		await tab.play((g) => (g.party[0]!.nickname = 'Nut'), 'party-edited');
+		expect(store.get(KEYS.unreadable)).toBe('{"version":1,"broken":true}');
+		expect(store.save()!.party[0]!.nickname).toBe('Nut');
 	});
 
 	it('saves a battle in progress with the game, so a reload picks it up', async () => {
