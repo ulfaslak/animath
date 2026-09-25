@@ -143,6 +143,7 @@ describe("the doctor's card", () => {
 		expect(doctor.screen).toBe('list');
 		expect(doctor.puzzle).toBeNull();
 		expect(doctor.cursor).toBe(1); // the rabbit, still tired
+		expect(doctor.healed).toBeNull(); // the cheer is over; the squirrel sits with the fit ones
 
 		// Heal the rabbit too: with everyone fit, the cursor rests on Bye.
 		t.press('Enter');

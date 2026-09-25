@@ -144,6 +144,7 @@ export class DoctorController {
 		doctor.line = this.said;
 		doctor.input = '';
 		doctor.judged = null;
+		doctor.healed = null;
 		switch (state.phase.kind) {
 			case 'choose-patient': {
 				doctor.puzzle = null;

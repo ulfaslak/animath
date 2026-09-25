@@ -44,7 +44,13 @@
 	<div class="card patients">
 		{#each doctor.party as animal, i (animal.id)}
 			{@const spec = getAnimal(animal.speciesId)}
-			<div class="row" class:selected={doctor.cursor === i} class:healthy={!needsHealing(animal)}>
+			{@const cheer = doctor.healed?.index === i}
+			<div
+				class="row"
+				class:selected={doctor.cursor === i}
+				class:cheer
+				class:healthy={!needsHealing(animal) && !cheer}
+			>
 				<span class="caret">▸</span>
 				<span class="label">{nameOf(animal)}</span>
 				{#if animal.hp === 0}<span class="tag">{words.tired}</span>{/if}
@@ -164,6 +170,11 @@
 	.row.healthy {
 		opacity: 0.55;
 	}
+	/* Just healed: lit up green and hopping once, before it settles among the fit ones. */
+	.row.cheer {
+		background: color-mix(in srgb, var(--good) 30%, transparent);
+		animation: cheer 0.5s ease-out;
+	}
 	.caret {
 		flex: none;
 		width: 16px;
@@ -246,6 +257,15 @@
 		opacity: 0.7;
 	}
 
+	@keyframes cheer {
+		0%,
+		100% {
+			transform: translateY(0);
+		}
+		40% {
+			transform: translateY(-4px);
+		}
+	}
 	@keyframes pop {
 		0% {
 			opacity: 0;

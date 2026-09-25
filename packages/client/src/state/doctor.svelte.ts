@@ -28,7 +28,10 @@ class DoctorView {
 	/** How the last answer was judged. Never the right answer: the kid may meet it again. */
 	judged = $state<{ correct: boolean } | null>(null);
 	screen = $state<DoctorScreen>('busy');
-	/** The latest heal, for the "+N" that pops over its row; `n` restarts the pop. */
+	/**
+	 * The heal being cheered, from its beat until the list takes keys again:
+	 * its row lights up and a "+N" pops over it; `n` restarts the pop.
+	 */
 	healed = $state<{ index: number; amount: number; n: number } | null>(null);
 
 	reset(): void {
