@@ -46,7 +46,19 @@ For every kind, at every difficulty in the kind's declared range, `answer` is an
 
 ### A wrong answer deals zero damage
 
-`attackDamage(…, solved = false)` is 0. No partial credit, no consolation hit. Enforced by `battle.test.ts`. Design-time.
+`attackDamage(…, solved = false)` is 0. No partial credit, no consolation hit. In the reducer, an `answer-judged` with `correct: false` is followed by `missed`, never by a player `hit`, and the opponent's HP is unchanged — for any input, including an empty string; a correct one is always followed by a `hit` for exactly `attackDamage`. Enforced by `battle.test.ts` and `battle-reducer.test.ts` § answers over every species pair. Design-time.
+
+### A battle is a pure function of `(seed, party, wild, leashQuality, intents)` and never mutates its input
+
+`applyBattleIntent(state, intent, seed)` returns a new state and leaves the one it was given untouched; the Rng for the n-th accepted intent is `new Rng(hashInts(seed, n))`, so replaying the same intent log from the same seed yields identical states and events, and a rejected intent (wrong phase, bad attack index or level, not an object) returns the same state reference with a single `rejected` event. The seed is passed by the authority on every call and is **not** in `BattleState`: the state goes to the client, and a client that knew the seed could predict every leash roll and every wild attack. This is what lets a client and a server agree without trusting each other. Enforced by `battle-reducer.test.ts`: the catalog sweep deep-freezes every input state, the replay test plays every species pair from the same seed twice and compares, and a test asserts the state has no `seed` key. Design-time.
+
+### A battle always ends, and HP stays a whole number in `[0, maxHp]` on both sides
+
+Every round the wild animal hits for its attack's `power`, which is ≥ 1 for every attack in the catalog, so the party's total HP strictly decreases each round whatever the player answers; damage is clamped at 0 and `startBattle` refuses an animal outside `0..maxHp`, or two animals sharing an id (a duplicate would give the party phantom HP and make writing HP back ambiguous). Enforced by `battle-reducer.test.ts` over every species pair × 25 seeds with a 60%-accurate random player who also throws the leash and occasionally runs, so every outcome is reached, and by `battle.test.ts` (`power ≥ 1`). Design-time.
+
+### A catch happens only on a leash throw whose seeded roll beats `catchProbability`
+
+`leash-thrown.success` is exactly `rng.next() < catchProbability(hp / maxHp, catchRate, leashQuality)` with the battle's own Rng, a success ends the battle `caught` with the wild animal at its current (non-zero) HP, and a failure hands the turn to the wild animal. Enforced by `battle-reducer.test.ts` § the leash, which recomputes the roll independently for every species at four HP bands. Design-time.
 
 ### Catch probability is non-increasing in HP fraction and never a certainty
 

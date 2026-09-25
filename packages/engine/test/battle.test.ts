@@ -5,10 +5,14 @@ import { catchProbability } from '../src/battle/catch.js';
 import { attackDamage } from '../src/battle/damage.js';
 
 describe('animal catalog', () => {
-	it('every species has 1–4 attacks with strictly increasing power', () => {
+	it('every species has 1–4 attacks with strictly increasing power, none below 1', () => {
 		for (const a of ANIMALS) {
 			expect(a.attacks.length).toBeGreaterThanOrEqual(1);
 			expect(a.attacks.length).toBeLessThanOrEqual(4);
+			// A wild animal always hits for its attack's power, so ≥ 1 is what makes every battle end.
+			expect((a.attacks[0] as { power: number }).power, `${a.id}: attack 1`).toBeGreaterThanOrEqual(
+				1
+			);
 			for (let i = 1; i < a.attacks.length; i++) {
 				expect(
 					(a.attacks[i] as { power: number }).power,

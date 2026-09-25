@@ -18,7 +18,17 @@ export { ANIMALS, getAnimal } from './animals/catalog.js';
 
 export { attackDamage } from './battle/damage.js';
 export { catchProbability } from './battle/catch.js';
-export type { BattleIntent, BattlePhase, BattleState } from './battle/types.js';
+export { activeAnimal, applyBattleIntent, startBattle } from './battle/reducer.js';
+export type { StartBattleOptions } from './battle/reducer.js';
+export type {
+	BattleEvent,
+	BattleIntent,
+	BattleOutcome,
+	BattlePhase,
+	BattleSide,
+	BattleState,
+	BattleStep
+} from './battle/types.js';
 
 export type { Chunk, Direction, GridPos, Tile, TileKind } from './world/types.js';
 export { CHUNK_SIZE, isEncounterTile, isWalkable, step } from './world/types.js';
