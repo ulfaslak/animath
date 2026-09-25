@@ -1,5 +1,6 @@
 import type { Rng } from '../../rng.js';
 import type { Puzzle, PuzzleGenerator } from '../types.js';
+import { band, type Band } from './arithmetic.js';
 
 type Family = 'arithmetic' | 'geometric' | 'squares' | 'triangular' | 'fibonacci';
 
@@ -14,11 +15,30 @@ function familiesFor(difficulty: number): Family[] {
 
 const SHOWN = 4; // terms shown before the "?"
 
+/**
+ * Step band for counting sequences (index = difficulty − 1). The floor is
+ * what stops difficulty 10 from asking "12, 13, 14, 15, ?" (#7); the ceiling
+ * keeps difficulty 1 at counting by ones and twos.
+ */
+const STEP_BAND: readonly Band[] = [
+	[1, 2],
+	[2, 5],
+	[3, 8],
+	[4, 10],
+	[5, 12],
+	[6, 14],
+	[7, 16],
+	[8, 18],
+	[9, 20],
+	[10, 25]
+];
+
 function terms(family: Family, rng: Rng, difficulty: number): number[] {
 	const out: number[] = [];
 	switch (family) {
 		case 'arithmetic': {
-			const step = rng.int(1, Math.min(2 + difficulty * 2, 25));
+			const [lo, hi] = band(STEP_BAND, difficulty);
+			const step = rng.int(lo, hi);
 			const start = rng.int(0, difficulty * 5);
 			for (let i = 0; i <= SHOWN; i++) out.push(start + i * step);
 			return out;

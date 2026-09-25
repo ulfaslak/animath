@@ -30,6 +30,10 @@ Generating chunk `(4, −2)` alone yields the same tiles as generating it after 
 
 For every kind, at every difficulty in the kind's declared range, `answer` is an integer and an independent re-solve of `prompt` yields it. Division builds the dividend from the answer; square roots square the answer; sequences are generated from a closed form. Enforced by `puzzles.test.ts`, which re-parses each prompt with its own solver over 200 seeds per (kind, difficulty). Design-time.
 
+### Operands climb with difficulty: every band has a floor, and both ends are non-decreasing
+
+For every kind but `sequence`, the smallest and the largest number shown in a prompt are non-decreasing in difficulty (per operation, since `missing` mixes "+ ?" and "× ?"), nothing above difficulty 1 is "+ 1" / "× 1", and a puzzle at difficulty `d` shows a bigger number than any puzzle at `d − 2`; counting sequences have a step floor that climbs. Operands are drawn from `[lo, hi]` bands (`arithmetic.ts`, `sqrt.ts`, `sequence.ts`), never from `[1, max]`. Enforced by `puzzles.test.ts` § difficulty ladder over 300 seeds per (kind, difficulty). Incident: #7 — operands had ceilings only, so a difficulty-3 attack asked "4 + 1", "16 − 15" and "8 + ? = 9" three puzzles in a row, and difficulty 10 could ask "√9".
+
 ### Answers are judged in the engine, never in the UI
 
 `checkAnswer(puzzle, input)` is the only place a submitted answer is compared. The UI passes the raw string through; the authority calls `checkAnswer` and emits the result. When the authority moves to the server, a client cannot claim a hit it did not earn. Enforced by review (grep the client for `=== puzzle.answer` / `.answer ===` during Phase 2.5). Design-time.
