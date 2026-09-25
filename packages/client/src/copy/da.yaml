@@ -11,6 +11,54 @@ puzzle:
   # Under a puzzle until it is answered.
   keys: Skriv svaret, og tryk så på Enter
 
+battle:
+  # On the Leash row: how likely a throw is to catch the wild animal right now.
+  leashGood: God chance!
+  leashMaybe: Måske
+  leashHard: Svært at fange
+  # An attack's three levels: the highlighted row's buttons, and every other row's word.
+  level:
+    easy: let
+    medium: mellem
+    hard: svær
+  # The key reminder under "Pick an attack".
+  menuKeys: ↑ ↓ vælg · ← → hvor svært · Enter kør
+  # The highlighted attack. {attack}: its name; {level}: its level's word;
+  # {kinds}: what its sums are about (the words below, in an "or" list); {damage}: how much it hits for.
+  attackDetail: '{attack} på {level}: {kinds}. Det gør {damage} skade.'
+  # What each kind of puzzle is about, as {kinds} lists them.
+  kinds:
+    add: plus
+    sub: minus
+    mul: gangetabeller
+    div: deling
+    missing: manglende tal
+    sequence: talmønstre
+    sqrt: kvadratrødder
+  # Narration: your animal steps in, at the start or after a switch.
+  go: 'Kom så, {name}!'
+  switch:
+    # The Switch row of the action menu, and what it says when highlighted.
+    row: Skift
+    detail: Send et andet dyr ind. Det bruger din tur.
+    alone: Du skal have to dyr for at skifte. Fang et med snoren!
+    allTired: Dine andre dyr er trætte.
+    # The party list: its title, its keys (no way back after a knock-out), its tags.
+    title: Vælg et dyr
+    keys: ↑ ↓ vælg · Enter kør · Esc tilbage
+    mustPickKeys: ↑ ↓ vælg · Enter kør
+    tiredTag: træt
+    inBattleTag: på banen
+    # The highlighted animal of the list; {name} is its name.
+    sendIn: 'Send {name} ind. Så får det vilde dyr en tur.'
+    sendInFree: 'Send {name} ind. Så er det din tur.'
+    tired: '{name} er træt og skal hvile sig.'
+    inBattle: '{name} er allerede på banen.'
+    # Narration: the animal in front is tired and someone must go in.
+    whoIsNext: '{name} er træt. Hvem skal ind nu?'
+    # Narration: the animal in front goes back to make room.
+    comeBack: 'Kom tilbage, {name}!'
+
 explore:
   # Under the latest message for a player's first few moves.
   controls: Brug piletasterne eller WASD for at gå
@@ -105,9 +153,3 @@ pause:
   keysList: ↑ ↓ flyt · Enter vælg · Esc luk
   keysOptions: ↑ ↓ flyt · Enter gør det · Esc tilbage
   keysNaming: Enter gem · Esc tilbage
-
-battle:
-  # On the Leash row: how likely a throw is to catch the wild animal right now.
-  leashGood: God chance!
-  leashMaybe: Måske
-  leashHard: Svært at fange

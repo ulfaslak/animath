@@ -18,7 +18,7 @@ export { ANIMALS, getAnimal } from './animals/catalog.js';
 
 export { attackDamage } from './battle/damage.js';
 export { catchProbability } from './battle/catch.js';
-export { activeAnimal, applyBattleIntent, startBattle } from './battle/reducer.js';
+export { activeAnimal, applyBattleIntent, canSwitchTo, startBattle } from './battle/reducer.js';
 export type { StartBattleOptions } from './battle/reducer.js';
 export type {
 	BattleEvent,
