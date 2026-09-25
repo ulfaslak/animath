@@ -23,6 +23,7 @@ Thorough review of DNA against the full implementation.
    - It follows decisions in [[DECISIONS]] (correct libraries, patterns, conventions).
    - It sits where [[ARCHITECTURE]] says it should, and the engine/client/server boundary holds (engine imports nothing from DOM, Three.js, Node or the server; client and server never re-implement a rule the engine owns).
    - Any UI it renders follows [[UI_SPEC]] and [[DESIGN]].
+   - Every key listener, input path and player-reachable behaviour it adds is in [[CHEATSHEET]], and nothing in [[CHEATSHEET]] describes behaviour the code no longer has.
    - Every gameplay number it uses (damage, HP, catch rate, difficulty) is the one [[PRODUCT]] describes, and the formula is in the engine, not duplicated elsewhere.
 4. **Database reality check.** Compare the Drizzle schema (`packages/server/src/db/schema.ts`) against the actual database:
    ```bash

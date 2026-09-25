@@ -1,6 +1,6 @@
 # About
 
-A browser math game for kids: a cheerful low-poly world you explore, wild animals you catch with a leash, and Game Boy Pokémon-style battles where every attack is a math puzzle. Single player today, multiplayer later. Everything about what the game *is* lives in [[PRODUCT]].
+**Animath** is a browser math game for kids: a cheerful low-poly world you explore, wild animals you catch with a leash, and Game Boy Pokémon-style battles where every attack is a math puzzle. Single player today, multiplayer later. Everything about what the game *is* lives in [[PRODUCT]].
 
 It is a pnpm workspace with three packages: `packages/engine` (pure TypeScript game rules, no dependencies), `packages/client` (Vite + Three.js + a Svelte HUD) and `packages/server` (Hono + Postgres via Drizzle). There is no deploy yet; the game runs locally and is shared through a tunnel. No React, anywhere, ever.
 
@@ -27,6 +27,7 @@ Read the DNA files relevant to your task — not all of them. All files are in `
 | [[ARCHITECTURE]] | **Where** code and data live — packages, modules, the authority seam, the data model, ports.                                                   | Could you verify it with `ls` or by opening the file?                                    |
 | [[DESIGN]]       | Look and voice: aesthetic direction, palette, typography, copy rules, accessibility.                                                           |                                                                                          |
 | [[UI_SPEC]]      | How each **mode is laid out and behaves on screen** — explore, battle, doctor, menus; input conventions.                                       | Would a designer recognise it as a convention?                                           |
+| [[CHEATSHEET]]   | What a player can **actually do in today's build** and how: every key, hidden behaviour, known exploit. What works now, not what is planned.    | Could a player do it right now?                                                         |
 | [[DEVELOPMENT]]  | How to **work on** the game: setup, running, looking at it, testing ideology, migrations, tunnel.                                             | Is it a thing you _do_, not a thing the game does?                                      |
 
 Statements migrate as they change kind. A decision that has been implemented and now has a test around it usually belongs in [[INVARIANTS]] rather than [[DECISIONS]] — the choice is settled, and what matters is what must not break. A formula belongs in [[PRODUCT]] (prose) and the engine (code), and nowhere else.
@@ -35,7 +36,7 @@ Statements migrate as they change kind. A decision that has been implemented and
 | ----------------------------------------------------------- | -------------------------------------- |
 | Any implementation work                                     | [[DECISIONS]], [[ARCHITECTURE]]        |
 | Engine work — puzzles, battle, catching, world generation   | + [[PRODUCT]] §4, [[INVARIANTS]]       |
-| Client work — rendering, input, HUD, panels                 | + [[UI_SPEC]], [[DESIGN]]              |
+| Client work — rendering, input, HUD, panels                 | + [[UI_SPEC]], [[DESIGN]], [[CHEATSHEET]] |
 | Server work — routes, schema, migrations                    | + [[DEVELOPMENT]]                      |
 | Balance or difficulty tuning                                | [[PRODUCT]] §4, [[INVARIANTS]], [[DEVELOPMENT]] § Testing ideology |
 | Product scope or feature questions                          | [[PRODUCT]]                            |
@@ -57,6 +58,7 @@ An agent-private memory is invisible to every other agent — a Codex session, a
 | A structural fact about the code — a decision, a contract, a convention | `AGENTS/DNA/` (pick the file by the table above)  |
 | A gameplay rule, formula or number a player would notice               | [[PRODUCT]] §4 (prose) + the engine (code)        |
 | A guard or ordering rule that must not break — especially one a bug taught you | [[INVARIANTS]]                             |
+| A control, hidden behaviour or exploit a player can trigger today     | [[CHEATSHEET]]                                    |
 | An environment trap, shared-resource collision, or verification recipe | [[ENVIRONMENT_NOTES]]                             |
 | A category of error worth not repeating                                | [[AGENT_MISTAKES]]                                |
 | Tech debt with a trigger                                               | [[DEFERRED]]                                      |
@@ -181,6 +183,7 @@ Hand-write the SQL; never run `drizzle-kit generate` in a worktree (it produces 
 - **Format only your own files** (`pnpm exec prettier --write <files>`), not the whole repo.
 - Update DNA if your changes introduced structural facts not anticipated by the issue.
 - **Update the feature inventory** in [[PRODUCT]] §5 if your change adds, removes, or significantly modifies something a player can see. Move items from §6 when they ship. If you changed a gameplay number or formula, update [[PRODUCT]] §4 in the same PR.
+- **Update [[CHEATSHEET]]** if your change adds, removes or alters a key, a way to reach something, or a behaviour a player could stumble on — including any exploit you noticed.
 - Commit, push, and open a PR. The **last commit message** of this phase must include: `[not user-tested]`.
 - **PR body structure.** At minimum: `## Summary` and `## Test plan` (checklist). Add `## Decisions taken without asking` if any autonomous scope calls were made. Add `## Balance` with a simulation table if numbers changed. The session ID footer goes last.
 - **Screenshots for anything visible.** If the PR changes what's on screen, add before/after screenshots to the PR description (`scripts/screenshot.mjs` → `screenshots/`, upload via `gh`). The `screenshots/` directory is gitignored so dumps don't clutter the tree.
