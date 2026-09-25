@@ -31,7 +31,7 @@ No other key does anything. Escape, number keys, the mouse and touch are ignored
 
 ## Your party
 
-One Squirrel with full HP (20 of 20). Nothing can hurt or heal it yet, and you can't catch anything, so the party never changes.
+The card in the top-left corner is your party: one Squirrel with full HP (20 of 20). Nothing can hurt or heal it yet, and you can't catch anything, so the party never changes.
 
 ## Hidden behaviour
 
@@ -46,4 +46,3 @@ One Squirrel with full HP (20 of 20). Nothing can hurt or heal it yet, and you c
 
 - **Messages never go away.** After you press Enter, "Nothing here yet." stays on the bottom line until you reload. The "Arrows / WASD to walk" hint also never goes away.
 - **You can stand inside a doctor's tent**, because tents count as walkable ground.
-- **There are no doctor's tents north or west of the start.** Tents only appear where both x and y are 0 or more (bug #2).

@@ -70,8 +70,8 @@ function tileAt(seed: number, x: number, y: number): Tile {
 	// Doctor tents: sparse lattice, only on ground, only near water or forest.
 	if (
 		kind === 'grass' &&
-		x % 23 === 5 &&
-		y % 19 === 7 &&
+		mod(x, 23) === 5 &&
+		mod(y, 19) === 7 &&
 		(biome === 'forest' || hasWaterNearby(seed, x, y))
 	) {
 		kind = 'tent';
@@ -79,6 +79,11 @@ function tileAt(seed: number, x: number, y: number): Tile {
 
 	const height = kind === 'water' ? 0 : Math.max(0, Math.round((elev - 0.36) * 6));
 	return { kind, biome, height };
+}
+
+/** Modulo that is never negative: `%` keeps the sign of `x`, so `-3 % 23` is -3. */
+function mod(x: number, m: number): number {
+	return ((x % m) + m) % m;
 }
 
 function hasWaterNearby(seed: number, x: number, y: number): boolean {
