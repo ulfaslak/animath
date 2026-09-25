@@ -170,6 +170,13 @@ describe("the doctor's card", () => {
 		t.press('ArrowDown'); // past the fit fox, round to the squirrel
 		expect(doctor.patient).toBe(0);
 
+		// A pick or a swap has nothing to play: the very next key, in the same
+		// frame, types into the new puzzle (on a slow machine a frame is long).
+		t.controller.onKey(key('ArrowUp'));
+		t.controller.onKey(key('7'));
+		expect(doctor.patient).toBe(1);
+		expect(doctor.input).toBe('7');
+
 		// With only one animal hurt, there is nobody to swap to.
 		const u = setup([
 			{ id: 'a', speciesId: 'squirrel', hp: 5 },

@@ -67,6 +67,9 @@ export class DoctorController {
 				this.latest = event.state;
 				doctor.screen = 'busy';
 				for (const e of event.events) this.beats.push(...this.narrate(e, said));
+				// Nothing to play (a pick, a swap, a rejection): show it now, so a key
+				// typed straight after an arrow lands in the new puzzle, not in a gap.
+				if (this.beats.length === 0 && this.wait <= 0) this.settle();
 				break;
 			}
 			case 'doctor-visit-ended':
