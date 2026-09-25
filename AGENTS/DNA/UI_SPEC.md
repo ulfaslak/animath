@@ -67,7 +67,9 @@ Borrowed composition from the Game Boy games: your animal from behind at bottom-
 
 ## Doctor
 
-Talking to a doctor opens a dialogue card in explore mode (no mode switch): the doctor's line, a list of the party's tired animals, and on picking one, a puzzle in the same puzzle component as battle. Solve → healed, with a cheer. Miss → "Try again?" with a new puzzle, no limit.
+Talking to a doctor (facing a tent, Enter/Space) opens a dialogue card in explore mode (no mode switch): the doctor's line, a list of the party's hurt animals (tired ones included; healthy ones are shown but can't be picked), and on picking one, a puzzle in the same puzzle component as battle. Solve → healed, with a cheer. Miss → "Not quite! Let's try another one." with a new puzzle, no limit. The list stays live while a puzzle is open: picking another animal swaps the puzzle. Escape or a "Bye" button leaves at any time. Walking waits until the card closes.
+
+After a lost battle, the result card's button returns the player to explore standing beside the nearest tent, facing it, with the party healed and the doctor's line on the message line.
 
 ## Pause menu
 

@@ -31,7 +31,7 @@ Two modes only, borrowed from the Game Boy games: **Explore** and **Battle**. Fi
 - Grid-based. The player moves one tile at a time in four directions.
 - Procedurally generated from a seed, in 16×16 chunks, infinite in every direction. The same seed always yields the same world, so a shared world needs no map download.
 - Biomes: **meadow** (easy animals), **forest** (mid), **river** banks (easy–mid, water animals), **mountain** (hard).
-- Tiles: grass; **tall grass** (where encounters happen); sand; water, rock and trees (blocked); **tent** (a doctor).
+- Tiles: grass; **tall grass** (where encounters happen); sand; water, rock and trees (blocked); **tent** (a doctor; blocked too, you talk to the doctor from the tile beside it).
 - Doctors sit by a small tent with a campfire, in the woods or near water. Not rare, not everywhere.
 
 ### Animals
@@ -73,8 +73,12 @@ Two modes only, borrowed from the Game Boy games: **Explore** and **Battle**. Fi
 ### Knock-out and healing
 
 - An animal at 0 HP is **knocked out** and can't battle until healed.
-- Doctors heal one animal in exchange for a solved puzzle. Difficulty scales with the animal's tier (`base[tier] + 1`), so healing a bear is harder than healing a squirrel.
-- If every animal in the party is knocked out, the player is taken to the nearest doctor's tent. No other penalty (assumption: this is a kids' game).
+- **Talking to a doctor**: stand on a tile next to a tent, face it and interact. Walking into a tent turns you to face it. Standing beside it without facing it is not enough.
+- The doctor helps any animal below full HP, knocked out or only hurt.
+- Doctors heal one animal in exchange for a solved puzzle: pick an animal, solve its puzzle, and it is back to full HP. Difficulty scales with the animal's tier (`base[tier] + 1`: squirrel and rabbit 2, fox and otter 3, deer 5, wolf 6, bear 8), so healing a bear is harder than healing a squirrel. The puzzle's kind is one the animal's own attacks ask, so a kid meets the kind of sum they already know from battle.
+- **A wrong answer at the doctor costs nothing.** HP stays where it was and a different puzzle takes its place, as many times as it takes. The player can pick another animal or leave at any time.
+- If every animal in the party is knocked out, the player is taken to the nearest doctor's tent and stands beside it, facing it, and the doctor heals the whole party for free. No other penalty (assumption: this is a kids' game).
+- **Nearest means on foot**: the fewest steps over walkable ground, never through water, rock, trees or another tent. A tent on an island or boxed in by trees is never where the player wakes up, so they always land somewhere they could have walked to. Ties go to the tent further up, then further left, then the side in front of the door (below the tent), then left, right and behind. If no tent is within 200 steps, a doctor comes to the player instead: they stay where they are, and the party is healed all the same.
 
 ### Puzzles
 
@@ -101,7 +105,7 @@ What is built and observable today. Keep current: add a bullet when a feature sh
 ### Explore
 
 - Procedural chunked world with four biomes, water, sand, tall grass (including reeds on river banks), trees, rocks and doctor tents, rendered low-poly with a fixed camera.
-- Grid movement with arrow keys / WASD; blocked tiles stop you; a tap always moves one tile.
+- Grid movement with arrow keys / WASD; blocked tiles (water, rock, trees, doctor tents) stop you; a tap always moves one tile.
 - The player is a small trainer figure — a kid in a cap — that faces the way it walks, stands on top of hills and breathes while idle.
 - A crude but recognisable low-poly figure for every species, built from primitives with one exaggerated tell each; today they are only visible in the `?zoo` line-up (see [[CHEATSHEET]]) until battle and encounters use them.
 - Party HUD (name + HP bar per animal).
@@ -114,6 +118,7 @@ What is built and observable today. Keep current: add a bullet when a feature sh
 - Species catalog: 7 placeholder species, tiers 1–5.
 - Wild encounter tables: a per-step roll on tall grass that picks a species by biome, tier and distance from spawn (§4 "Wild encounters"). Nothing calls it on a real step yet.
 - Battle reducer: `startBattle` and `applyBattleIntent` play a whole wild battle by the rules in §4 — attacks, puzzles, answers, the wild animal's reply, leash, flee, knock-outs and automatic party switching — as intents in, events out. Not wired to the client yet, so nothing on screen changes.
+- Doctor rules (§4 "Knock-out and healing"): whether the player faces a tent, a doctor visit that heals one hurt animal per solved puzzle (`startDoctorVisit` and `applyDoctorIntent`, intents in, events out), and the knock-out rule (`takeToDoctor`), which finds the nearest tent on foot and heals the whole party. Not wired to the client yet: pressing Enter at a tent still does nothing.
 
 ### Server
 
@@ -128,7 +133,7 @@ In rough priority order. Each becomes a GitHub issue when picked up.
 1. Battle mode: the battle scene and the puzzle panel, driven by the engine's battle reducer (the reducer itself is built, see §5).
 2. Wild encounters in tall grass, weighted by biome and tier — the engine roll and tables are built (§5); the authority still has to roll on each step and hand the animal to battle mode.
 3. Catching with the leash; party management.
-4. Doctor healing at tents.
+4. Doctor healing at tents in the client: the doctor's dialogue card, and the trip to the tent after a lost battle. The engine rules are built (§5).
 5. Save/load in the client: create the anonymous player on first visit, keep the secret, load the save on boot and write it as the game progresses (the server routes exist, see [[ARCHITECTURE]] § HTTP API).
 6. Real low-poly animal models (glTF, CC0 sources, see [[DECISIONS]]) with attack animations, replacing the primitive figures.
 7. Procedural world v2: rivers that flow, paths, biome shaping, landmarks, spawn tables.

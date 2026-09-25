@@ -14,9 +14,9 @@ Technical items we've intentionally postponed: tech debt, hardening shortcuts, k
 
 **Trigger**: the first deploy to the Hetzner VPS (the Dockerfile PR).
 
-### The puzzle's answer travels to the client inside `BattleState`
+### The puzzle's answer travels to the client inside `BattleState` and `DoctorState`
 
-**What**: `BattlePhase` (`solving`) and the `puzzle-shown` event carry the whole `Puzzle`, `answer` included, and `answer-judged` repeats it. With `LocalAuthority` that is harmless — the client already runs the engine. With a server authority, a modified client could read the answer and never miss.
+**What**: `BattlePhase` (`solving`) and the `puzzle-shown` event carry the whole `Puzzle`, `answer` included, and `answer-judged` repeats it. The doctor reducer copies the shape: `DoctorPhase` (`solving`) and its `puzzle-shown` carry the answer too. With `LocalAuthority` that is harmless — the client already runs the engine. With a server authority, a modified client could read the answer and never miss (or heal for free).
 
 **Why deferred**: there is no server authority yet, and stripping the answer means a second `Puzzle` shape (or a redacting step in the protocol) for a cheat nobody can attempt today.
 
