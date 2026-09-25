@@ -66,7 +66,7 @@ To attack, press the level key on the highlighted attack (`1`, or `ArrowDown,3` 
 
 ```bash
 pnpm check   # tsc for engine + server, svelte-check for client
-pnpm test    # vitest in engine and server
+pnpm test    # vitest in engine, client and server
 pnpm lint    # prettier --check
 pnpm format  # prettier --write
 ```
@@ -88,7 +88,7 @@ All code is written by agents; the human reviews PRs and plays the game but does
 
 **Simulate balance, don't guess it.** When a change touches damage, HP, catch rates or difficulty, write (or run) a small simulation in `packages/engine/test/` or a scratch script: N battles between species pairs, win rates, average turns, catch attempts to success. Paste the table in the PR. A number in [[PRODUCT]] §4 that was never simulated is a guess.
 
-**Client**: no unit tests for rendering. Verification is a screenshot you read (see above), at the default viewport and at 1024×768. Pure client helpers (input mapping, tweens) may get vitest tests if they grow logic; Svelte components don't. `test/animals.test.ts` pins the figure contract (every catalog species builds, feet on `y = 0`, flat-shaded) because a species added to the engine without a figure would otherwise only fail at run time. `test/local-authority.test.ts` drives the real `LocalAuthority` over the real engine (the authority's rules around the engine: encounters, outcomes, the party cap), and `test/battle-controller.test.ts` presses keys at the battle screen against it — the input and pacing rules a screenshot can't pin (held keys, empty answers, mashing, stale events). Both read puzzle answers from the events, never from a hard-coded list. `test/css-vars.test.ts` fails when a component reads a CSS custom property that `styles.css` never defines — the browser, `svelte-check` and the build all accept that silently.
+**Client**: no unit tests for rendering. Verification is a screenshot you read (see above), at the default viewport and at 1024×768. Pure client helpers (input mapping, tweens) may get vitest tests if they grow logic; Svelte components don't. `test/animals.test.ts` pins the figure contract (every catalog species builds, feet on `y = 0`, flat-shaded) because a species added to the engine without a figure would otherwise only fail at run time. `test/local-authority.test.ts` drives the real `LocalAuthority` over the real engine (the authority's rules around the engine: encounters, outcomes, the party cap), and `test/battle-controller.test.ts` presses keys at the battle screen against it — the input and pacing rules a screenshot can't pin (held keys, empty answers, mashing, stale events). Both read puzzle answers from the events, never from a hard-coded list. `test/css-vars.test.ts` fails when a component reads a CSS custom property that `styles.css` never defines — the browser, `svelte-check` and the build all accept that silently. `test/copy-files.test.ts` and `test/hardcoded-text.test.ts` hold the copy rules in § Copy and languages; they parse the source (Svelte's and TypeScript's parsers, `test/source.ts`) rather than grep it, so a comment that mentions a key or a word never counts.
 
 **Server**: integration tests in `packages/server/test/*.test.ts` drive the real app through `app.request()` against a real `mathgame_test` database — no mocks below the HTTP layer. `test/global-setup.ts` creates the database on the same Postgres if missing, applies the journaled migrations and truncates it, and `vitest.config.ts` injects its URL as `DATABASE_URL`, so a test can never touch `mathgame`. Each test creates its own player, so tests share no rows. Mock the DB only for what cannot be exercised for real (`src/app.test.ts` mocks `pingDb` to see the 503).
 
@@ -97,6 +97,38 @@ All code is written by agents; the human reviews PRs and plays the game but does
 **Redundancy rule**: a test that mocks a dependency and asserts what another test already proves with the real thing is dead weight. Remove it. `/cleanse` prunes these.
 
 **Pragmatic coverage.** No coverage number. The question is: "if an agent breaks this rule in a future PR, does a test fail before merge?"
+
+## Copy and languages
+
+Every word a player reads comes from `packages/client/src/copy/<code>.yaml` ([[DECISIONS]] § Copy and languages; the moving parts are in [[ARCHITECTURE]] § Copy).
+
+### Adding a line
+
+1. Pick a key: the screen's group, then a camelCase name for what the line is *for*, not what it says (`puzzle.keys`, `battle.caught`). Engine ids are used as they are, so code can build the key: `species.fox.name`, `species.fox.attacks.nip`.
+2. Add it to `en.yaml` **and** `da.yaml`, in the same place in both. The Danish follows [[DESIGN]] § Voice and copy, Danish.
+3. Show it with `t()`: `import { t } from '../copy'`, then `{t('puzzle.keys')}` in markup or `t('battle.caught', { animal })` in code. Write the key out (`cond ? t('a') : t('b')`, not a variable) so the tests can check it; a key built at run time, like the species one, needs a test of its own over every id.
+4. `pnpm -F @mathgame/client test`.
+
+The rules, all enforced by `copy-files.test.ts`:
+
+- **Placeholders.** `{name}` prints a string or number param as it is. `{animal.a}` picks the `a` form of an object param (`{ name: 'Ræv', a: 'en ræv' }`); a plain string param, such as a nickname, stands for every form. A key reads the same params in every language, and a `t()` call passes exactly those.
+- **Plurals.** A group of CLDR forms, chosen by the `count` param: `one: '{count} point'` and `other: '{count} points'`. English and Danish use exactly `one` and `other`; each language's forms are checked against `Intl.PluralRules`.
+- **Capitals.** A param that starts a sentence (the start of the line, or after `.`, `!` or `?`) gets a capital first letter, so forms are written the way they read mid-sentence: `et vildt egern`.
+- **YAML.** Quote a line that starts with `{` (`'{animal.aWild} dukker op!'`), or YAML reads a map. Every value is text: quote one that is only a number or `true`. A repeated key fails the build. `yes` and `no` are plain words (YAML 1.2).
+- **No words in templates.** `hardcoded-text.test.ts` fails on words written into a `.svelte` template: text between tags, `title`, `aria-label`, `placeholder`-style attributes, and string literals a `{…}` prints. Words from before the copy files are listed in `packages/client/test/hardcoded-text.baseline.yaml` until they move; the test also fails when a listed line is gone, so delete it there when you move it.
+
+A key missing from Danish shows in English and logs one warning in the console, which makes the screenshot script exit non-zero. A key missing from English shows the key itself and fails the tests.
+
+### Adding a language
+
+1. Copy `en.yaml` to `<code>.yaml` beside it (ISO 639-1: `sv`, `de`) and write every value in the new language, keeping every key and `{param}`.
+2. Add `'<code>'` to `LANGUAGES` in `packages/client/src/copy/languages.ts`. The order there is the order of the Language setting.
+3. `pnpm -F @mathgame/client test` fails until every key and param is there and every plural message has the language's forms (Polish needs `one`, `few`, `many` and `other`).
+4. Add the language's voice notes and glossary to [[DESIGN]] § Voice and copy, and look at every screen in it at 1024×768 (`?lang=<code>`, below): longer words overflow first.
+
+### Looking at the game in another language
+
+`?lang=da` (or `?lang=en`) picks the language for that visit without remembering it: `node scripts/screenshot.mjs --url 'http://localhost:5180/?lang=da'`. Without it, the game starts in the language chosen before on this device, else the browser's. With the dev server running, an edited copy file changes the words on screen in place, without a reload.
 
 ## Database
 
