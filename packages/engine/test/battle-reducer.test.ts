@@ -333,7 +333,9 @@ describe('every battle in the catalog', () => {
 					seen.add(outcome(state)!);
 				}
 			}
-		});
+			// A few seconds per species on a quiet machine; well over vitest's 5 s default
+			// when other agents' browsers load it.
+		}, 60_000);
 	}
 
 	it('reached every outcome, and switched both ways', () => {

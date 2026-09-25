@@ -1,21 +1,24 @@
+import { validateSaveWrite } from '@mathgame/engine';
 import { eq, sql } from 'drizzle-orm';
 import { Hono } from 'hono';
 import { bodyLimit } from 'hono/body-limit';
 import type { MiddlewareHandler } from 'hono';
 import { db } from '../db/index.js';
 import { players, saves } from '../db/schema.js';
-import { SAVE_MAX_BYTES, validateSave } from '../save.js';
+import { SAVE_MAX_BYTES, writeSave } from '../save.js';
 import { hashSecret, newSecret, secretMatches } from '../secrets.js';
 
 /**
- * Anonymous players and their single save.
+ * Anonymous players and the backup of their save.
  *
  *   POST /api/players             → 201 { id, secret }
  *   GET  /api/players/:id/save    → 200 SaveV1 | 404
- *   PUT  /api/players/:id/save    → 200 { ok: true } | 400 | 413
+ *   PUT  /api/players/:id/save    → 200 { ok: true } | 400 | 409 | 413
  *
  * Every `/:id/...` request carries `Authorization: Bearer <secret>`. Missing
  * or wrong secret → 401; unknown id → 404. Only the secret's hash is stored.
+ * The two 404 bodies differ ("no save yet", "no such player"), and the client
+ * tells them apart by that text.
  */
 
 type Env = { Variables: { playerId: string } };
@@ -80,15 +83,12 @@ export const playersRoute = new Hono<Env>()
 			} catch {
 				return c.json({ error: 'body is not valid JSON' }, 400);
 			}
-			const result = validateSave(body);
+			const result = validateSaveWrite(body);
 			if (!result.ok) return c.json({ error: result.error }, 400);
-			await db
-				.insert(saves)
-				.values({ playerId: c.get('playerId'), data: result.value })
-				.onConflictDoUpdate({
-					target: saves.playerId,
-					set: { data: result.value, updatedAt: sql`now()` }
-				});
+			const written = await writeSave(c.get('playerId'), result.value);
+			if (written === 'stale') {
+				return c.json({ error: 'a save with the same or a higher seq is already stored' }, 409);
+			}
 			return c.json({ ok: true });
 		}
 	);

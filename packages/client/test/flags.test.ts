@@ -4,12 +4,13 @@ import { parseParty, readFlags } from '../src/flags';
 
 /** The URL switches (CHEATSHEET § Hidden behaviour): a typo must start an ordinary game. */
 describe('URL switches', () => {
-	it('reads ?zoo, ?debug and ?party=', () => {
-		expect(readFlags('')).toEqual({ zoo: false, debug: false, party: null });
-		expect(readFlags('?zoo&debug&party=fox')).toEqual({
+	it('reads ?zoo, ?debug, ?party= and ?new', () => {
+		expect(readFlags('')).toEqual({ zoo: false, debug: false, party: null, fresh: false });
+		expect(readFlags('?zoo&debug&party=fox&new')).toEqual({
 			zoo: true,
 			debug: true,
-			party: [{ id: 'party-1', speciesId: 'fox', hp: getAnimal('fox').maxHp }]
+			party: [{ id: 'party-1', speciesId: 'fox', hp: getAnimal('fox').maxHp }],
+			fresh: true
 		});
 	});
 
