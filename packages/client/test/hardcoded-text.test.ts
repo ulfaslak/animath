@@ -48,7 +48,7 @@ interface Offender {
  * (`{ok ? 'Yes!' : 'No'}`). Anything with a letter in it counts; numbers,
  * symbols and `{t('key')}` do not.
  */
-export function hardcodedText(file: string, source: string): Offender[] {
+function hardcodedText(file: string, source: string): Offender[] {
 	const found: Offender[] = [];
 	const report = (text: string, start: number) => {
 		const words = text.replace(/\s+/g, ' ').trim();
