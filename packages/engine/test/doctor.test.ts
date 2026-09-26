@@ -493,8 +493,9 @@ describe('the shop', () => {
 
 	it('sells nothing whose effect is not built: a kid never pays for a tool that does nothing', () => {
 		// The change that builds an item's effect (chopping, breaking rocks, sailing)
-		// turns its `available` on and adds it here, and nothing else does.
-		expect(itemsForSale()).toEqual([]);
+		// turns its `available` on and adds it here, and nothing else does. The boat
+		// sails: water is passable with it.
+		expect(itemsForSale()).toEqual(['boat']);
 	});
 });
 
@@ -836,7 +837,8 @@ describe('replay', () => {
 			],
 			tokens: 0,
 			items: [],
-			shop: [],
+			shop: itemsForSale(),
+
 			phase: { kind: 'ended' }
 		});
 	});

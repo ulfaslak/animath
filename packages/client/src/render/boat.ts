@@ -173,9 +173,11 @@ export function poseBoat(boat: THREE.Group, afloat: number, calm: boolean, bob =
 	if (pennant) pennant.scale.setScalar(Math.max(0.001, smoothstep((e - 0.7) / 0.3)));
 }
 
-/** Free the boat's geometries (its materials are shared, and stay). */
+/** Free the boat's geometries, each once (the hull's two sides share one; its materials are shared, and stay). */
 export function disposeBoat(boat: THREE.Object3D): void {
+	const geometries = new Set<THREE.BufferGeometry>();
 	boat.traverse((o) => {
-		if (o instanceof THREE.Mesh) o.geometry.dispose();
+		if (o instanceof THREE.Mesh) geometries.add(o.geometry);
 	});
+	for (const geometry of geometries) geometry.dispose();
 }

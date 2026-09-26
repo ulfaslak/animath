@@ -199,7 +199,6 @@ describe('the battle scene', () => {
 		const biomes: Biome[] = ['meadow', 'forest', 'river', 'mountain', 'sea'];
 		let between: number | null = null;
 		for (let i = 0; i < 10; i++) {
-
 			const figures = new Set<THREE.BufferGeometry>();
 			const look = () => {
 				ledger.see(scene.scene);

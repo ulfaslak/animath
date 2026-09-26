@@ -9,6 +9,7 @@ import {
 	isEncounterTile,
 	isWalkable,
 	isWater,
+	itemsForSale,
 	joinParty,
 	leadIndex,
 	nearestTent,
@@ -1042,11 +1043,17 @@ describe('LocalAuthority: the doctor', () => {
 		const s = session({ party: hurtParty(), tokens: 50 });
 		walkToTent(s);
 		s.authority.dispatch({ type: 'interact' });
-		expect(visit(s).shop).toEqual([]);
+		expect(visit(s).shop).toEqual(itemsForSale());
+		// The boat sails since it went on sale; what is not on sale can't be bought.
+		expect(visit(s).shop).toContain('boat');
+		for (const itemId of ITEM_IDS.filter((id) => !itemsForSale().includes(id))) {
+			doctorIntent(s, { type: 'buy', itemId });
+			expect(s.events.at(-1)).toMatchObject({
+				events: [{ type: 'rejected', reason: 'not-for-sale' }]
+			});
+		}
 		doctorIntent(s, { type: 'buy', itemId: 'boat' });
-		expect(s.events.at(-1)).toMatchObject({
-			events: [{ type: 'rejected', reason: 'not-for-sale' }]
-		});
+		expect(visit(s).phase).toMatchObject({ kind: 'buying', itemId: 'boat' });
 	});
 
 	it('with nobody hurt, a visit still opens, and nobody can be picked to heal', () => {
@@ -1162,7 +1169,6 @@ describe('LocalAuthority: the boat', () => {
 		expect(s.events.at(-1)).toMatchObject({ type: 'player-blocked', dir: 'down' });
 	});
 
-
 	it('out on the water, nothing comes out of it: it is no one’s tall grass', () => {
 		const s = withItems(['boat'], [animal('otter'), animal('frog')]);
 		move(s, ...UP_TO_DEEP);
@@ -1199,11 +1205,17 @@ describe('LocalAuthority: the boat', () => {
 	it('a battle lost on the water, the squirrel still in the boat: over the water to a tent, everyone healed', () => {
 		const team = [animal('squirrel'), animal('otter', 3)];
 		const at = { x: -2, y: 2 };
-		const battle = startBattle(team, { id: 'wild', speciesId: 'otter', hp: 32 }, { realm: 'water' });
+		const battle = startBattle(
+			team,
+			{ id: 'wild', speciesId: 'otter', hp: 32 },
+			{ realm: 'water' }
+		);
 		const authority = new LocalAuthority();
 		const events: GameEvent[] = [];
 		authority.subscribe((e) => events.push(e));
-		authority.start({ game: { ...newGame(WORLD_SEED), pos: at, party: team, items: ['boat'], battle } });
+		authority.start({
+			game: { ...newGame(WORLD_SEED), pos: at, party: team, items: ['boat'], battle }
+		});
 		const s = { authority, events };
 		expect(latestBattle(s).realm).toBe('water');
 		while (latestBattle(s).phase.kind !== 'ended') attack(s, 1, 1, false);
@@ -1214,7 +1226,9 @@ describe('LocalAuthority: the boat', () => {
 			gear: { boat: true },
 			realm: 'water'
 		});
-		expect(rescue.pos).toEqual(nearestTent(WORLD_SEED, at, TENT_SEARCH_STEPS, { boat: true })!.stand);
+		expect(rescue.pos).toEqual(
+			nearestTent(WORLD_SEED, at, TENT_SEARCH_STEPS, { boat: true })!.stand
+		);
 		expect(events.find((e) => e.type === 'taken-to-doctor')).toMatchObject({
 			pos: rescue.pos,
 			dir: rescue.facing,
@@ -1226,7 +1240,6 @@ describe('LocalAuthority: the boat', () => {
 });
 
 describe('LocalAuthority: the title', () => {
-
 	/** An authority at the title: nothing started yet. */
 	function atTitle(): Session {
 		const authority = new LocalAuthority();

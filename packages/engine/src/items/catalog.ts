@@ -32,8 +32,8 @@ export const ITEMS: readonly ItemSpec[] = [
 	{ id: 'axe', price: 8, available: false },
 	/** Breaks a rock. */
 	{ id: 'pickaxe', price: 13, available: false },
-	/** Sails on water. */
-	{ id: 'boat', price: 21, available: false }
+	/** Sails on water: water is `isPassable` with it (`gearOf`). */
+	{ id: 'boat', price: 21, available: true }
 ];
 
 /** Every item id, in catalog order. */

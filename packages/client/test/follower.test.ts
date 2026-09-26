@@ -6,7 +6,6 @@ import {
 	newGame,
 	step,
 	tileAtWorld,
-
 	type BattleState,
 	type Direction,
 	type DoctorState,
@@ -322,7 +321,6 @@ describe('out on the water', () => {
 		}
 	};
 
-
 	it('one that swims swims behind the boat: over 600 random steps, beside the trainer, never where it can’t go', () => {
 		const s = setup('otter', withBoat('otter'));
 		const rng = new Rng(77);
@@ -362,9 +360,9 @@ describe('out on the water', () => {
 		sail(s, ['up', 'up', 'left', 'right']);
 		expect(s.follower.inBoat).toBe(true);
 		const rider = s.figures.at(-1)!;
-		expect(Math.hypot(rider.position.x - s.trainer().x, rider.position.z - s.trainer().y)).toBeLessThan(
-			0.5
-		);
+		expect(
+			Math.hypot(rider.position.x - s.trainer().x, rider.position.z - s.trainer().y)
+		).toBeLessThan(0.5);
 		// Its figure is small enough to fit in the boat.
 		expect(rider.scale.x).toBeLessThan(1);
 		// Back on land it walks behind again, on ground, never on the water it left.
