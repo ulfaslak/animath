@@ -12,13 +12,16 @@
 	import { optionKey, rowKey, tabKey, unfocusable } from '../input/press';
 	import { touch } from '../input/touch.svelte';
 	import { itemName, itemUse, itemWords } from '../items';
-	import { animalWords, nameOf } from '../names';
+	import { animalWords, nameOf, speciesName } from '../names';
 	import {
 		DOCTOR_TABS,
 		cannotBuy,
 		doctor,
 		hurtIndexes,
+		kindPicked,
+		mustStay,
 		tabRows,
+		type DoctorRow,
 		type DoctorTab
 	} from '../state/doctor.svelte';
 	import Coin from './Coin.svelte';
@@ -42,9 +45,14 @@
 	 * has the card's height for rows a finger tall.
 	 */
 	const rows = $derived(tabRows(doctor.tab, doctor.party, doctor.shop));
-	/** The rows that scroll: the animals or the items. Help home's button and Bye stay put under them. */
+	/**
+	 * The rows that scroll: the animals (and on help home each bundle's row)
+	 * or the items. Help home's button and Bye stay put under them.
+	 */
 	const listed = $derived(
-		rows.flatMap((row, k) => (row.kind === 'animal' || row.kind === 'item' ? [{ row, k }] : []))
+		rows.flatMap((row, k) =>
+			row.kind === 'animal' || row.kind === 'bundle' || row.kind === 'item' ? [{ row, k }] : []
+		)
 	);
 	const footer = $derived(
 		rows.flatMap((row, k) => (row.kind === 'send' || row.kind === 'bye' ? [{ row, k }] : []))
@@ -53,9 +61,12 @@
 	const hurt = $derived(hurtIndexes(doctor.party));
 	const marked = $derived(new Set(doctor.marked));
 	const markedAnimals = $derived(doctor.party.filter((a) => marked.has(a.id)));
+	/** What the animals picked bring together: the running total, before the sum is asked. */
 	const reward = $derived(homeTokens(markedAnimals));
-	/** Animals not picked who aren't tired: one of them always stays. */
-	const standingLeft = $derived(doctor.party.filter((a) => !marked.has(a.id) && a.hp > 0).length);
+	/** Animals not picked who have to stay: picking one more would leave nobody standing. */
+	const staying = $derived(
+		new Set(doctor.party.filter((a) => mustStay(a, doctor)).map((a) => a.id))
+	);
 	const leaving = $derived(new Set(doctor.leaving ?? []));
 	/** While a heal is open: the species it helps, whose rows light up together. */
 	const patientSpecies = $derived(
@@ -76,6 +87,30 @@
 				return t('doctor.tabs.home');
 			case 'shop':
 				return t('doctor.tabs.shop');
+		}
+	}
+
+	/** The animals of a kind, in party order: a bundle row's. */
+	function kindOf(speciesId: string) {
+		return doctor.party.filter((a) => a.speciesId === speciesId);
+	}
+
+	/** A bundle row goes with its animals when fewer than two of them stay: it is gone after the goodbye. */
+	function kindLeaves(speciesId: string): boolean {
+		return leaving.size > 0 && kindOf(speciesId).filter((a) => !leaving.has(a.id)).length < 2;
+	}
+
+	/** The key a row is drawn by: an animal's id, a bundle's kind, an item's id. */
+	function rowId(row: DoctorRow): string {
+		switch (row.kind) {
+			case 'animal':
+				return doctor.party[row.partyIndex]!.id;
+			case 'bundle':
+				return `bundle:${row.speciesId}`;
+			case 'item':
+				return row.itemId;
+			default:
+				return row.kind;
 		}
 	}
 
@@ -192,8 +227,35 @@
 			bind:this={list}
 			onscroll={measure}
 		>
-			{#each listed as { row, k } (row.kind === 'animal' ? doctor.party[row.partyIndex]!.id : row.itemId)}
-				{#if row.kind === 'animal'}
+			{#each listed as { row, k } (rowId(row))}
+				{#if row.kind === 'bundle'}
+					<!-- Several of one kind, as their card reads in the HUD: a pick here picks them all. -->
+					{@const kind = kindOf(row.speciesId)}
+					{@const picked = kindPicked(row.speciesId, doctor)}
+					<button
+						type="button"
+						class="row bundle"
+						class:selected={doctor.cursor === k}
+						class:marked={picked === 'all'}
+						class:some={picked === 'some'}
+						class:leaving={kindLeaves(row.speciesId)}
+						class:group={row.groupStart}
+						class:shake-a={doctor.shake?.row === k && doctor.shake.n % 2 === 0}
+						class:shake-b={doctor.shake?.row === k && doctor.shake.n % 2 === 1}
+						data-press={rowKey(k)}
+						{@attach unfocusable}
+					>
+						<span class="caret">▸</span>
+						<span class="check" aria-hidden="true"
+							>{picked === 'all' ? '✓' : picked === 'some' ? '–' : ''}</span
+						>
+						<span class="label"
+							>{speciesName(row.speciesId)}
+							<span class="count">{t('team.count', { count: kind.length })}</span></span
+						>
+						<span class="worth">+{homeTokens(kind)} <Coin size={16} /></span>
+					</button>
+				{:else if row.kind === 'animal'}
 					{@const animal = doctor.party[row.partyIndex]!}
 					{@const spec = getAnimal(animal.speciesId)}
 					{@const healedBy = doctor.healed?.amounts[row.partyIndex]}
@@ -215,30 +277,29 @@
 					>
 						<span class="caret">▸</span>
 						{#if doctor.tab === 'home'}
-							<span class="check" aria-hidden="true">{marked.has(animal.id) ? '✓' : ''}</span>
+							<!-- Ticked when picked; dashed when this one has to stay, so the kid sees it before trying. -->
+							<span class="check" class:stays={staying.has(animal.id)} aria-hidden="true"
+								>{marked.has(animal.id) ? '✓' : ''}</span
+							>
 						{/if}
 						<span class="label">{nameOf(animal)}</span>
-						{#if doctor.tab === 'home'}
-							<span class="worth">+{tokensForTier(spec.tier)} <Coin size={16} /></span>
-						{:else}
-							<!-- "tired" in the empty bar, so the name has the row; the heal's stars and "+N" over the bar. -->
-							<span class="bar">
-								<HpBar hp={animal.hp} max={spec.maxHp} emptyTag={t('party.tired')} />
-								{#if healedBy !== undefined && doctor.healed}
-									{#key doctor.healed.n}
-										<span class="sparkles" aria-hidden="true">
-											{#each SPARKS as s, j (j)}
-												<i
-													class="spark {s.c}"
-													style="left: {s.x}%; --dx: {s.dx}px; --dy: {s.dy}px; animation-delay: {s.d}s"
-												></i>
-											{/each}
-										</span>
-										<span class="heal">+{healedBy}</span>
-									{/key}
-								{/if}
-							</span>
-						{/if}
+						<!-- "tired" in the empty bar, so the name has the row; the heal's stars and "+N" over the bar. -->
+						<span class="bar">
+							<HpBar hp={animal.hp} max={spec.maxHp} emptyTag={t('party.tired')} />
+							{#if healedBy !== undefined && doctor.healed}
+								{#key doctor.healed.n}
+									<span class="sparkles" aria-hidden="true">
+										{#each SPARKS as s, j (j)}
+											<i
+												class="spark {s.c}"
+												style="left: {s.x}%; --dx: {s.dx}px; --dy: {s.dy}px; animation-delay: {s.d}s"
+											></i>
+										{/each}
+									</span>
+									<span class="heal">+{healedBy}</span>
+								{/key}
+							{/if}
+						</span>
 					</button>
 				{:else if row.kind === 'item'}
 					{@const owned = doctor.items.includes(row.itemId)}
@@ -353,21 +414,32 @@
 			{#if !touch.on}<div class="keys">{t('doctor.home.sureKeys')}</div>{/if}
 		{:else if doctor.tab === 'home'}
 			<div class="soft">{t('doctor.home.title')}</div>
-			<div class="detail">{t('doctor.home.how')}</div>
+			<!-- Once something is picked, the running total takes the explanation's place. -->
 			{#if marked.size > 0}
-				<div class="detail strong">
+				<div class="tally">
+					<Coin size={24} />
 					{t('doctor.home.picked', { count: marked.size, amount: reward })}
+				</div>
+			{:else}
+				<div class="detail">{t('doctor.home.how')}</div>
+			{/if}
+			{#if highlighted?.kind === 'bundle'}
+				{@const kind = kindOf(highlighted.speciesId)}
+				<div class="detail strong">
+					{t('doctor.home.kindWorth', { count: kind.length, amount: homeTokens(kind) })}
 				</div>
 			{:else if highlighted?.kind === 'animal' && doctor.party[highlighted.partyIndex]}
 				{@const animal = doctor.party[highlighted.partyIndex]!}
 				<div class="detail strong">
-					{t('doctor.home.worth', {
-						animal: animalWords(animal),
-						count: tokensForTier(getAnimal(animal.speciesId).tier)
-					})}
+					{staying.has(animal.id)
+						? t('doctor.home.stays', { animal: animalWords(animal) })
+						: t('doctor.home.worth', {
+								animal: animalWords(animal),
+								count: tokensForTier(getAnimal(animal.speciesId).tier)
+							})}
 				</div>
 			{/if}
-			{#if standingLeft <= 1}
+			{#if staying.size > 0}
 				<div class="detail">{t('doctor.home.keepOne')}</div>
 			{/if}
 			<div class="keys">{touch.on ? t('doctor.home.touch') : t('doctor.home.keys')}</div>
@@ -581,12 +653,14 @@
 	 * The rows line up in shared columns sized by the longest name there, so
 	 * every name shows whole and the bars start together. On heal: caret,
 	 * name, HP bar (a tired animal's "tired" written in its empty bar). On
-	 * help home: caret, check, name, what it brings. In the shop: caret,
-	 * picture, name, price. A row is a subgrid of the list; a browser without
-	 * subgrid lays each row out on its own, in the same columns. A subgrid's
-	 * padding counts as a margin on the items at its edges, so the edge
-	 * columns are `auto`: the caret's holds the row's 10 px beside the caret's
-	 * 16, and the last one holds 10 px beside what it shows.
+	 * help home: caret, check, name, HP bar, the bar a little shorter for the
+	 * check (a bundle's row: its kind and how many, and what they all bring,
+	 * in the bar's place). In the shop: caret, picture, name, price. A row is
+	 * a subgrid of the list; a browser without subgrid lays each row out on
+	 * its own, in the same columns. A subgrid's padding counts as a margin on
+	 * the items at its edges, so the edge columns are `auto`: the caret's
+	 * holds the row's 10 px beside the caret's 16, and the last one holds
+	 * 10 px beside what it shows.
 	 */
 	.list {
 		flex: 1;
@@ -621,7 +695,7 @@
 		);
 	}
 	.list.tab-home {
-		grid-template-columns: auto auto minmax(0, max-content) minmax(max-content, 1fr);
+		grid-template-columns: auto auto minmax(0, max-content) minmax(100px, 1fr);
 	}
 	.list.tab-shop {
 		grid-template-columns: auto auto minmax(0, max-content) minmax(max-content, 1fr);
@@ -724,6 +798,38 @@
 	.row.marked .check {
 		border-color: var(--good);
 		background: var(--good);
+	}
+	/* Some of a kind picked, and more could be: a dash in a green ring. */
+	.row.some .check {
+		border-color: var(--good);
+		color: var(--good);
+		font-weight: 800;
+	}
+	/* The one who has to stay: an empty ring, dashed and faded, that no pick fills. */
+	.check.stays {
+		border-style: dashed;
+		opacity: 0.45;
+	}
+	/* A bundle's row: over its animals, a shade darker, its kind's name and how many. */
+	.row.bundle {
+		background: rgba(45, 42, 50, 0.05);
+	}
+	.row.bundle.selected {
+		background: rgba(255, 159, 67, 0.22);
+	}
+	.row.bundle.marked {
+		background: color-mix(in srgb, var(--good) 22%, transparent);
+	}
+	.row.bundle.marked.selected {
+		background: color-mix(in srgb, var(--good) 34%, transparent);
+	}
+	.count {
+		margin-left: 4px;
+		padding: 0 7px;
+		border-radius: 8px;
+		font-size: 15px;
+		background: rgba(45, 42, 50, 0.08);
+		font-variant-numeric: tabular-nums;
 	}
 	.label {
 		min-width: 0;
@@ -829,6 +935,17 @@
 	}
 	.detail.strong {
 		font-weight: 800;
+	}
+	/* The running total of a hand-over: what the animals picked bring, before the sum. */
+	.tally {
+		display: flex;
+		align-items: center;
+		gap: 8px;
+		padding: 4px 14px 4px 8px;
+		border-radius: 18px;
+		background: rgba(245, 184, 61, 0.2);
+		font-weight: 800;
+		font-size: 20px;
 	}
 	.keys {
 		font-weight: 600;

@@ -1,5 +1,8 @@
 import {
+	bundles,
+	canGoHome,
 	getItem,
+	kindGoingHome,
 	needsHealing,
 	type AnimalInstance,
 	type ItemId,
@@ -32,13 +35,16 @@ export type DoctorTrade =
 	| { kind: 'buy'; itemId: ItemId; price: number };
 
 /**
- * A row of a tab's list. The animals come grouped by species (the order each
- * species first comes in the party, then party order within it), since one
- * healing puzzle helps a whole species; `groupStart` marks the first of a
- * group after the first. `send` is Help home's button, and `bye` ends every
- * list.
+ * A row of a tab's list. The animals come in their species' bundles (the
+ * order each species first comes in the party, then party order within it),
+ * since one healing puzzle helps a whole species; `groupStart` marks the
+ * first row of a bundle after the first. On **home** a bundle of several
+ * animals has a row of its own over them, `bundle` ("Fox ×40"), which picks
+ * or unpicks the whole kind at once. `send` is Help home's button, and `bye`
+ * ends every list.
  */
 export type DoctorRow =
+	| { kind: 'bundle'; speciesId: string; groupStart: boolean }
 	| { kind: 'animal'; partyIndex: number; groupStart: boolean }
 	| { kind: 'item'; itemId: ItemId }
 	| { kind: 'send' }
@@ -127,16 +133,6 @@ export function hurtIndexes(party: readonly AnimalInstance[]): number[] {
 	return out;
 }
 
-/**
- * Party indexes grouped by species: the species in the order each first
- * comes in the party, and within a species in party order.
- */
-export function groupedIndexes(party: readonly AnimalInstance[]): number[] {
-	const species: string[] = [];
-	for (const a of party) if (!species.includes(a.speciesId)) species.push(a.speciesId);
-	return species.flatMap((s) => party.flatMap((a, i) => (a.speciesId === s ? [i] : [])));
-}
-
 /** The rows of a tab's list, top to bottom. */
 export function tabRows(
 	tab: DoctorTab,
@@ -146,11 +142,17 @@ export function tabRows(
 	if (tab === 'shop') {
 		return [...shop.map((itemId) => ({ kind: 'item' as const, itemId })), { kind: 'bye' }];
 	}
-	const animals: DoctorRow[] = groupedIndexes(party).map((partyIndex, k, order) => ({
-		kind: 'animal',
-		partyIndex,
-		groupStart: k > 0 && party[order[k - 1]!]!.speciesId !== party[partyIndex]!.speciesId
-	}));
+	const animals = bundles(party).flatMap((bundle, b): DoctorRow[] => {
+		const head = tab === 'home' && bundle.animals.length > 1;
+		const rows = bundle.slots.map((partyIndex, k): DoctorRow => ({
+			kind: 'animal',
+			partyIndex,
+			groupStart: b > 0 && k === 0 && !head
+		}));
+		return head
+			? [{ kind: 'bundle', speciesId: bundle.speciesId, groupStart: b > 0 }, ...rows]
+			: rows;
+	});
 	return tab === 'home'
 		? [...animals, { kind: 'send' }, { kind: 'bye' }]
 		: [...animals, { kind: 'bye' }];
@@ -158,9 +160,10 @@ export function tabRows(
 
 /**
  * The rows the cursor stops on: on **heal** the animals who need the doctor
- * (fit ones are shown, greyed, and skipped); on **home** every animal, and
- * Help home once one is picked; on **shop** every item, the ones that can't
- * be bought too (the card says why); and Bye on every tab.
+ * (fit ones are shown, greyed, and skipped); on **home** every animal and
+ * every bundle's row, and Help home once one is picked; on **shop** every
+ * item, the ones that can't be bought too (the card says why); and Bye on
+ * every tab.
  */
 export function rowStops(rows: readonly DoctorRow[], view: StopsView): number[] {
 	return rows.flatMap((row, k) => {
@@ -169,6 +172,7 @@ export function rowStops(rows: readonly DoctorRow[], view: StopsView): number[] 
 				return view.tab !== 'heal' || needsHealing(view.party[row.partyIndex]!) ? [k] : [];
 			case 'send':
 				return view.marked.length > 0 ? [k] : [];
+			case 'bundle':
 			case 'item':
 			case 'bye':
 				return [k];
@@ -183,16 +187,32 @@ export interface StopsView {
 	marked: readonly string[];
 }
 
+/** What the helpers for picking animals to go home read. */
+export interface PicksView {
+	party: readonly AnimalInstance[];
+	marked: readonly string[];
+}
+
 /**
- * Whether `animal` may be picked to go home, with `marked` picked already:
- * somebody who isn't tired must stay (the engine's `keep-one`).
+ * Whether `animal`, not picked, has to stay: picking it too would leave
+ * nobody standing (the engine's `canGoHome`, the rule behind `keep-one`).
+ * Its check box shows it before the kid tries.
  */
-export function canGoHome(
-	animal: AnimalInstance,
-	party: readonly AnimalInstance[],
-	marked: readonly string[]
-): boolean {
-	return party.some((a) => a.id !== animal.id && !marked.includes(a.id) && a.hp > 0);
+export function mustStay(animal: AnimalInstance, view: PicksView): boolean {
+	return !view.marked.includes(animal.id) && !canGoHome(view.party, [...view.marked, animal.id]);
+}
+
+/**
+ * How much of a kind is picked to go home, for its bundle row's check box:
+ * `none`; `all`, once every one of the kind that may go is picked (the one
+ * who stays aside, when one must: `kindGoingHome` adds nobody more); else
+ * `some`. A pick on the row adds the rest while it is `none` or `some`, and
+ * takes the whole kind back while it is `all`.
+ */
+export function kindPicked(speciesId: string, view: PicksView): 'none' | 'some' | 'all' {
+	const kind = view.party.filter((a) => a.speciesId === speciesId);
+	if (!kind.some((a) => view.marked.includes(a.id))) return 'none';
+	return kindGoingHome(view.party, view.marked, speciesId).length === 0 ? 'all' : 'some';
 }
 
 /** Why an item can't be bought now, or null when it can. */

@@ -396,11 +396,15 @@ doctor:
     worth:
       one: '{animal.name} brings {count} token.'
       other: '{animal.name} brings {count} tokens.'
-    # How many animals are picked, and what they bring together.
+    # The highlighted animal, when it has to stay: picking it too would leave nobody who isn't tired.
+    stays: '{animal.name} stays with you.'
+    # The highlighted row of a kind ("Fox ×40"), which picks them all: how many, and what they all bring.
+    kindWorth: All {count} bring {amount} tokens.
+    # How many animals are picked, and what they bring together: the running total.
     picked:
       one: '1 animal picked: {amount} tokens.'
       other: '{count} animals picked: {amount} tokens.'
-    # When every animal but one is picked.
+    # When one animal has to stay, because it is the last one left that isn't tired.
     keepOne: One animal that isn't tired always stays with you.
     # The button under the animals.
     send: Help them home

@@ -42,8 +42,8 @@
  * facing with `?debug` in the URL), the party cards (and an open card's
  * animals) and the tokens and tools in the corner; in the pause menu its
  * rows, the picked animal's options and the name box (with whether it has
- * the focus); at the doctor the doctor's line, the tokens, the tabs and the
- * tab's list; and in a battle
+ * the focus); at the doctor the doctor's line, the tokens, the tabs, the
+ * tab's list and what its right-hand side says; and in a battle
  * the narration line, the puzzle, the typed answer, the judgement, the status
  * boxes and the result card — so a flow can be asserted from the console
  * output, not only the images. With `?debug`, it also prints the last sound
@@ -270,22 +270,34 @@ async function describe() {
 		);
 	if (tabs.length)
 		lines.push(`tabs: ${tabs.join(' | ')} · ${await textOf('.doctor .purse .tokens')}`);
-	// The tab's list: the highlighted row in brackets, a picked animal with ✓,
-	// what an animal brings or an item costs, a greyed row marked.
+	// The tab's list: the highlighted row in brackets, a picked animal (or a
+	// whole kind) with ✓, a kind picked in part with –, one who has to stay
+	// marked, what a kind brings or an item costs, a greyed row marked.
 	const patients = await page.locator('.patients .row').evaluateAll((els) =>
 		els.map((el) => {
-			const label = el.querySelector('.label')?.textContent ?? '';
+			const label = (el.querySelector('.label')?.textContent ?? '').replace(/\s+/g, ' ').trim();
 			const tag = el.querySelector('.tag')?.textContent;
 			const hp = el.querySelector('.hp .text')?.textContent;
 			const worth = el.querySelector('.worth')?.textContent.trim();
-			const picked = el.classList.contains('marked') ? '✓ ' : '';
+			const picked = el.classList.contains('marked')
+				? '✓ '
+				: el.classList.contains('some')
+					? '– '
+					: '';
+			const stays = el.querySelector('.check.stays') ? '(stays)' : '';
 			const off = el.classList.contains('healthy') || el.classList.contains('off');
 			const text =
-				picked + [label, tag && `(${tag})`, hp, worth, off && '(greyed)'].filter(Boolean).join(' ');
+				picked +
+				[label, tag && `(${tag})`, hp, worth, stays, off && '(greyed)'].filter(Boolean).join(' ');
 			return el.classList.contains('selected') ? `[${text}]` : text;
 		})
 	);
 	if (patients.length) lines.push(`patients: ${patients.join(' | ')}`);
+	// The right-hand side before a pick: its title, a hand-over's running total, what the highlighted row does.
+	const side = await page
+		.locator('.doctor .puzzle :is(.soft, .tally, .detail, .ware-name)')
+		.evaluateAll((els) => els.map((el) => el.textContent.replace(/\s+/g, ' ').trim()));
+	if (side.length) lines.push(`side: ${side.join(' · ')}`);
 	const choices = await page
 		.locator('.doctor .choice')
 		.evaluateAll((els) =>

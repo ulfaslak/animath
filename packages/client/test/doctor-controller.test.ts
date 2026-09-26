@@ -1,6 +1,7 @@
 import {
 	ITEM_IDS,
 	getAnimal,
+	homeTokens,
 	itemsForSale,
 	type AnimalInstance,
 	type GameEvent,
@@ -15,7 +16,7 @@ import { DoctorController } from '../src/doctor/controller';
 import { doctorWords } from '../src/doctor/lines';
 import { PICK_QUIET_SECONDS } from '../src/input/pick-guard';
 import { optionKey, rowKey, tabKey } from '../src/input/press';
-import { doctor, tabRows } from '../src/state/doctor.svelte';
+import { doctor, kindPicked, mustStay, tabRows } from '../src/state/doctor.svelte';
 import { everyMash } from './mash';
 
 /**
@@ -755,6 +756,198 @@ describe('helping animals home', () => {
 			type: 'doctor',
 			intent: { type: 'hand-over', ids: ['a'] }
 		});
+	});
+});
+
+/** `n` animals of one kind, `<prefix>1` first, at `hp` (full when not given). */
+function many(speciesId: string, n: number, prefix: string, hp?: number): AnimalInstance[] {
+	const max = getAnimal(speciesId).maxHp;
+	return Array.from({ length: n }, (_, i) => ({
+		id: `${prefix}${i + 1}`,
+		speciesId,
+		hp: hp ?? max
+	}));
+}
+
+describe('helping a whole kind home', () => {
+	/** Talk, wait out the opening moment, and go to the home tab. */
+	const home = (t: ReturnType<typeof setup>) => {
+		t.talk();
+		t.run(PICK_QUIET_SECONDS);
+		t.press('ArrowRight');
+		expect(doctor.tab).toBe('home');
+	};
+	/** The home tab's rows, each by what it shows. */
+	const shown = () =>
+		tabRowsOf().map((r) =>
+			r.kind === 'animal'
+				? doctor.party[r.partyIndex]!.id
+				: r.kind === 'bundle'
+					? `all ${r.speciesId}`
+					: r.kind
+		);
+
+	it('a kind of several has a row over its animals, which picks them all at once and takes them back', () => {
+		const t = setup([
+			...many('fox', 3, 'f'),
+			{ id: 's', speciesId: 'squirrel', hp: 4 },
+			{ id: 'r', speciesId: 'rabbit', hp: 0 }
+		]);
+		home(t);
+		// A kind of one needs no row of its own; the heal tab has none at all.
+		expect(shown()).toEqual(['all fox', 'f1', 'f2', 'f3', 's', 'r', 'send', 'bye']);
+		expect(doctor.cursor).toBe(0);
+		t.cues.length = 0;
+		// Picks go at once, as an animal's do: nothing leaves before the confirm and the sum.
+		t.press('Enter');
+		expect(doctor.marked).toEqual(['f1', 'f2', 'f3']);
+		expect(kindPicked('fox', doctor)).toBe('all');
+		t.press('Enter');
+		expect(doctor.marked).toEqual([]);
+		expect(kindPicked('fox', doctor)).toBe('none');
+		// One picked by hand: the row adds the rest, then takes the whole kind back.
+		t.press('ArrowDown', 'ArrowDown', 'Enter', 'ArrowUp', 'ArrowUp');
+		expect(doctor.marked).toEqual(['f2']);
+		expect(kindPicked('fox', doctor)).toBe('some');
+		t.press('Enter');
+		expect(doctor.marked).toEqual(['f2', 'f1', 'f3']);
+		t.press('Enter');
+		expect(doctor.marked).toEqual([]);
+		expect(t.cues).toEqual([
+			'confirm',
+			'move',
+			'move',
+			'move',
+			'confirm',
+			'move',
+			'move',
+			'confirm',
+			'move'
+		]);
+		// Another kind's picks stay as they were.
+		t.press('ArrowDown', 'ArrowDown', 'ArrowDown', 'ArrowDown', 'Enter');
+		expect(doctor.marked).toEqual(['s']);
+		t.press(rowKey(0), rowKey(0));
+		expect(doctor.marked).toEqual(['s']);
+		expect(tabRows('heal', doctor.party, doctor.shop).some((r) => r.kind === 'bundle')).toBe(false);
+		expect(t.doctorSent()).toEqual([]);
+	});
+
+	it('when the kind is all that stands, the first of it standing stays, and the rest go home', () => {
+		const t = setup(
+			[
+				{ id: 'f1', speciesId: 'fox', hp: 0 },
+				{ id: 'f2', speciesId: 'fox', hp: 9 },
+				{ id: 'f3', speciesId: 'fox', hp: 35 },
+				{ id: 's', speciesId: 'squirrel', hp: 0 }
+			],
+			{ tokens: 3 }
+		);
+		home(t);
+		// Before anything is picked, nobody has to stay.
+		expect(doctor.party.filter((a) => mustStay(a, doctor))).toEqual([]);
+		t.press('Enter');
+		expect(doctor.marked).toEqual(['f1', 'f3']);
+		// The fox who stays: its check box says so, and a pick on it gives a little shake and no sound.
+		expect(doctor.party.filter((a) => mustStay(a, doctor)).map((a) => a.id)).toEqual(['f2']);
+		expect(kindPicked('fox', doctor)).toBe('all');
+		t.cues.length = 0;
+		t.press('ArrowDown', 'ArrowDown', 'Enter');
+		expect(doctor.marked).toEqual(['f1', 'f3']);
+		expect(doctor.shake).toMatchObject({ row: 2 });
+		expect(t.cues).toEqual(['move', 'move']);
+		// The tired squirrel may go too; the fox still stays.
+		t.press('ArrowDown', 'ArrowDown', 'Enter');
+		expect(doctor.marked).toEqual(['f1', 'f3', 's']);
+		t.press('ArrowDown');
+		expect(tabRowsOf()[doctor.cursor]).toEqual({ kind: 'send' });
+		t.run(PICK_QUIET_SECONDS);
+		t.press('Enter');
+		t.run(PICK_QUIET_SECONDS);
+		t.press('ArrowRight', 'Enter');
+		expect(t.doctorSent().at(-1)).toEqual({
+			type: 'doctor',
+			intent: { type: 'hand-over', ids: ['f1', 'f3', 's'] }
+		});
+		expect(doctor.puzzle?.prompt).toBe('3 + 14 = ?');
+		t.press('1', '7', 'Enter');
+		t.run(0.85 + 1.6 + 1.7);
+		expect(doctor.screen).toBe('list');
+		expect(t.saved()).toEqual({ tokens: 17, items: [], party: ['f2'] });
+		// One fox left: a kind of one has no row of its own.
+		expect(shown()).toEqual(['f2', 'send', 'bye']);
+	});
+
+	it('forty foxes at once: the running total, the sum of the real numbers, and "No, not now" lit first under a mash', () => {
+		const party = [...many('fox', 40, 'f'), { id: 's', speciesId: 'squirrel', hp: 20 }];
+		for (const { name, gaps } of everyMash(3)) {
+			const t = setup(party, { tokens: 23 });
+			home(t);
+			t.press('Enter');
+			expect(doctor.marked, name).toHaveLength(40);
+			expect(homeTokens(doctor.party.filter((a) => doctor.marked.includes(a.id)))).toBe(240);
+			// Up from the top: round to Bye, then Help them home.
+			t.press('ArrowUp', 'ArrowUp');
+			expect(tabRowsOf()[doctor.cursor], name).toEqual({ kind: 'send' });
+			t.run(PICK_QUIET_SECONDS);
+			// The mash's first Enter opens the confirm; the rest land on it, and on "Yes" too.
+			for (const gap of gaps) {
+				t.controller.onKey(key('Enter'));
+				t.run(gap);
+			}
+			expect(doctor.screen, name).toBe('confirm');
+			expect(doctor.confirm, name).toBe(0);
+			t.press('ArrowRight');
+			for (const gap of gaps) {
+				t.controller.onKey(key('Enter'));
+				t.run(gap);
+			}
+			expect(doctor.screen, name).toBe('confirm');
+			expect(t.doctorSent(), name).toEqual([]);
+			// A deliberate Yes, after the quiet moment: the sum of the real numbers.
+			t.run(PICK_QUIET_SECONDS);
+			t.press('Enter');
+			expect(doctor.puzzle?.prompt, name).toBe('23 + 240 = ?');
+			expect(doctor.trade, name).toMatchObject({ kind: 'home', reward: 240 });
+		}
+	});
+
+	it('a tap on a kind picks them all at once; a kind none of whom may go shakes', () => {
+		const t = setup([...many('rabbit', 5, 'r'), { id: 'f', speciesId: 'fox', hp: 12 }]);
+		home(t);
+		t.press(rowKey(0));
+		expect(doctor.marked).toEqual(['r1', 'r2', 'r3', 'r4', 'r5']);
+		t.press(rowKey(0));
+		expect(doctor.marked).toEqual([]);
+
+		// Nobody standing at all (a `?party=` of tired animals): nobody can go until one is healed.
+		const tired = setup(many('rabbit', 3, 'r', 0));
+		home(tired);
+		tired.cues.length = 0;
+		tired.press('Enter');
+		expect(doctor.marked).toEqual([]);
+		expect(doctor.shake).toMatchObject({ row: 0 });
+		expect(tired.cues).toEqual([]);
+	});
+
+	it('a team of 120 across every kind: a row for each kind, every row a stop, up and down wrapping round', () => {
+		const kinds = ['squirrel', 'rabbit', 'frog', 'fox', 'otter', 'deer', 'wolf', 'bear'];
+		const t = setup(kinds.flatMap((s) => many(s, 15, `${s}-`)));
+		home(t);
+		const rows = tabRowsOf();
+		expect(rows).toHaveLength(8 + 120 + 2);
+		expect(
+			rows.filter((r) => r.kind === 'bundle').map((r) => r.kind === 'bundle' && r.speciesId)
+		).toEqual(kinds);
+		// Every kind's row is a line apart from the kind before it.
+		expect(rows.filter((r) => 'groupStart' in r && r.groupStart)).toHaveLength(7);
+		// The bears, all at once, from the bottom of the list (round to Bye, past Help them home
+		// while nothing is picked, then up the fifteen bears): 15 × 30 tokens.
+		for (let i = 0; i < 17; i++) t.press('ArrowUp');
+		expect(rows[doctor.cursor]).toEqual({ kind: 'bundle', speciesId: 'bear', groupStart: true });
+		t.press('Enter');
+		expect(doctor.marked).toHaveLength(15);
+		expect(homeTokens(doctor.party.filter((a) => doctor.marked.includes(a.id)))).toBe(450);
 	});
 });
 
