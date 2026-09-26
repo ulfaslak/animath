@@ -11,6 +11,33 @@ const DIRECTION_KEYS: Record<string, Direction> = {
 	d: 'right'
 };
 
+/** W A S D by where a QWERTY keyboard has them, for keyboards whose letters aren't Latin. */
+const WASD_BY_POSITION: Record<string, string> = { KeyW: 'w', KeyA: 'a', KeyS: 's', KeyD: 'd' };
+
+/**
+ * The name every screen's key map reads for a key press: a letter in lower
+ * case whatever Caps Lock and Shift say ("D" is "d"); on a keyboard that
+ * types another alphabet (Russian, Greek), W A S D by where they sit; and
+ * anything else as the browser names it ("Enter", "ArrowUp", "3", " ", and
+ * "Process" while an input method is using the key, which is no W).
+ */
+export function keyName(e: Pick<KeyboardEvent, 'key' | 'code'>): string {
+	// One character is a letter, a digit or a sign; longer is a name.
+	if ([...e.key].length !== 1) return e.key;
+	const key = e.key.toLowerCase();
+	if (/^[a-z]$/.test(key)) return key;
+	return WASD_BY_POSITION[e.code] ?? key;
+}
+
+/**
+ * A browser shortcut: a key pressed with Ctrl, Cmd or Alt held (bookmark,
+ * save, select all, back). The game uses none of them, so every screen
+ * leaves them to the browser.
+ */
+export function isShortcut(e: Pick<KeyboardEvent, 'ctrlKey' | 'metaKey' | 'altKey'>): boolean {
+	return e.ctrlKey || e.metaKey || e.altKey;
+}
+
 /**
  * Tracks held keys so movement repeats while a key is down, and buffers taps
  * so a press shorter than one frame still produces one step (Game Boy feel:
@@ -26,7 +53,12 @@ function slotKey(key: string): number | undefined {
 }
 
 export class Keyboard {
-	private held = new Map<Direction, number>(); // dir → time pressed
+	/**
+	 * Direction keys held down, by the physical key (`code`), so a key's
+	 * release lets go of whatever its press held, even when the two name the
+	 * key differently: a D let go while Shift is down reports "D".
+	 */
+	private held = new Map<string, { dir: Direction; since: number }>();
 	private taps: Direction[] = [];
 	private interactQueued = false;
 	/** The party slot (0-based) whose number was pressed last, until it is taken. */
@@ -35,25 +67,33 @@ export class Keyboard {
 
 	constructor(target: Window) {
 		target.addEventListener('keydown', (e) => {
+			// A shortcut is the browser's, and it stops the walk: macOS sends no
+			// keyup for a key let go while Cmd is down, which would leave it held.
+			if (isShortcut(e)) {
+				this.held.clear();
+				return;
+			}
 			if (!this.enabled || e.repeat) return;
-			const dir = DIRECTION_KEYS[e.key];
+			const key = keyName(e);
+			const dir = DIRECTION_KEYS[key];
 			if (dir) {
-				this.held.set(dir, performance.now());
+				this.held.set(e.code || key, { dir, since: performance.now() });
 				if (this.taps.length < TAP_BUFFER) this.taps.push(dir);
 				e.preventDefault();
-			} else if (e.key === 'Enter' || e.key === ' ') {
+			} else if (key === 'Enter' || key === ' ') {
 				this.interactQueued = true;
 				e.preventDefault();
-			} else if (slotKey(e.key) !== undefined && !e.ctrlKey && !e.metaKey && !e.altKey) {
-				this.slotQueued = slotKey(e.key);
+			} else if (slotKey(key) !== undefined) {
+				this.slotQueued = slotKey(key);
 				e.preventDefault();
 			}
 		});
 		target.addEventListener('keyup', (e) => {
-			const dir = DIRECTION_KEYS[e.key];
-			if (dir) this.held.delete(dir);
+			this.held.delete(e.code || keyName(e));
 		});
+		// Away from the page, keys are let go where the page can't hear them.
 		target.addEventListener('blur', () => this.clear());
+		target.addEventListener('visibilitychange', () => this.clear());
 	}
 
 	/**
@@ -82,11 +122,11 @@ export class Keyboard {
 	/** The most recently pressed direction still held, if any. */
 	heldDirection(): Direction | undefined {
 		let best: Direction | undefined;
-		let bestT = -1;
-		for (const [dir, t] of this.held) {
-			if (t > bestT) {
+		let bestSince = -1;
+		for (const { dir, since } of this.held.values()) {
+			if (since > bestSince) {
 				best = dir;
-				bestT = t;
+				bestSince = since;
 			}
 		}
 		return best;
