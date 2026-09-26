@@ -119,10 +119,12 @@ describe('the starter stage in its room', () => {
 		const natural = feet(stage, 720)[0]!;
 		stage.setRoom({ top: 0, bottom: natural - 40 });
 		expect(feet(stage, 720)[0]).toBeCloseTo(natural - 40, 1);
-		// Shown again (back to the title and New game): the first room places it again.
+		// Shown again (back to the title and New game): it stands where it stands, the last
+		// screen's room forgotten, until the first room places it again.
 		stage.show(STARTERS);
-		stage.setRoom({ top: 0, bottom: 720 });
 		expect(feet(stage, 720)[0]).toBeCloseTo(natural, 1);
+		stage.setRoom({ top: 0, bottom: natural - 20 });
+		expect(feet(stage, 720)[0]).toBeCloseTo(natural - 20, 1);
 		motion.reduced = true;
 		stage.setRoom({ top: 0, bottom: natural - 70 });
 		stage.slide(1 / 60);

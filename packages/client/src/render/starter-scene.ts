@@ -150,6 +150,8 @@ export class StarterScene implements Stage {
 		});
 		this.lit = 0;
 		this.joy = -1;
+		// The screen shown now reports its own room; the last one's (the name box's, say) is gone.
+		this.room = null;
 		this.settled = false;
 		this.frame();
 	}
