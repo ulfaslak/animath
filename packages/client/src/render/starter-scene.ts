@@ -22,9 +22,9 @@ const SPACING = 1.45;
 /** Vertical field of view, in degrees. */
 const FOV = 30;
 /** The share of the screen's width the row may take. */
-const ROW_SHARE = 0.62;
+const ROW_SHARE = 0.72;
 /** Where the row's middle sits, from the top of the screen: above the card at the bottom. */
-const ROW_AT = 0.43;
+const ROW_AT = 0.45;
 const BOUNCE_SECONDS = 1.3;
 const JOY_SECONDS = 0.9;
 
@@ -79,12 +79,15 @@ export class StarterScene implements Stage {
 		}
 		this.figures = speciesIds.map((id, i) => {
 			const figure = buildAnimalMesh(id);
-			const height = new THREE.Box3().setFromObject(figure).getSize(new THREE.Vector3()).y;
-			// Towards a common height, as in battle: a squirrel and a rabbit both read,
-			// and the rabbit's ears still stand taller.
-			const scale = Math.min(1.9, Math.max(1, Math.sqrt(1.1 / height)));
+			const box = new THREE.Box3().setFromObject(figure).getSize(new THREE.Vector3());
+			// Towards a common size, as in battle: a squirrel and a rabbit both read, the
+			// rabbit's ears still stand taller, and a squat, wide frog is sized by its width.
+			const size = Math.max(box.y, box.x);
+			const scale = Math.min(1.9, Math.max(1, Math.sqrt(1.1 / size)));
 			figure.scale.setScalar(scale);
 			figure.userData.baseScale = scale;
+			// The ring under the lit one goes round its feet, however wide they are.
+			figure.userData.ringScale = Math.max(1, ((Math.max(box.x, box.z) * scale) / 2 + 0.12) / 0.46);
 			figure.userData.idlePhase = i * 1.1;
 			figure.position.set(this.xOf(i, speciesIds.length), 0, 0);
 			this.scene.add(figure);
@@ -146,7 +149,10 @@ export class StarterScene implements Stage {
 		});
 		const lit = this.figures[this.lit];
 		this.ring.visible = !!lit;
-		if (lit) this.ring.position.x = lit.position.x;
+		if (lit) {
+			this.ring.position.x = lit.position.x;
+			this.ring.scale.setScalar((lit.userData.ringScale as number | undefined) ?? 1);
+		}
 	}
 
 	private xOf(i: number, count: number): number {

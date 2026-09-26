@@ -28,7 +28,8 @@
 
 	/** What the typed name will turn into, when that is not just what the box shows. */
 	const preview = $derived.by(() => {
-		if (title.screen !== 'naming') return '';
+		// An empty box has its own line: no name, just the species'.
+		if (title.screen !== 'naming' || title.draft.trim() === '') return '';
 		const clean = normalizeNickname(title.draft) ?? speciesName(species);
 		return clean === title.draft.trim().replace(/\s+/g, ' ') ? '' : clean;
 	});
