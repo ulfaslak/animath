@@ -82,3 +82,11 @@ Technical items we've intentionally postponed: tech debt, hardening shortcuts, k
 **Why deferred**: the players are Danish and English-speaking kids, and there is one authority, in the browser. The fixes cost more than they are worth today. Every script's marks would need the full, generated list of Unicode scripts, guarded against engines that don't know the newest names. Joiners would need to be kept only between two letters of one script. With a server authority, the server's result is the truth and the client only displays it.
 
 **Trigger**: a player whose name needs one of these, or the server-side authority PR. At that PR, check that nothing but the server cleans a name that is stored, and decide whether the preview needs the server's answer.
+
+### A browser keeps at most 200 games left for a new one
+
+**What**: New game on the title moves the saved game to the first free slot of `animath.save.previous` (`.2` … `.200`) and never writes over one. With all of them taken, the saved game stays in `animath.save` and the new game is not saved in the browser: it plays, is backed up to the server when that is reachable, and after a reload the title offers the old game again (or, once the backup has landed, the page settles with the server and takes the new one). Nothing is lost, but the new game doesn't stick without a server, and nothing tells the kid.
+
+**Why deferred**: every try of a starter puts one game away, but 200 is years of trying at this household's pace, and making room means deleting a kid's game, which [[DECISIONS]] § Saves rules out; the fix is a decision (drop games with nothing in them, a size budget, or letting the server's `save_backups` be the only copy past a point).
+
+**Trigger**: a report of a new game that did not stick, or `animath.save.previous.100` showing up in a kid's browser.

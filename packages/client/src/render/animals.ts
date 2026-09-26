@@ -323,3 +323,13 @@ export function animateWalk(
 	rig.rotation.z = stride * WADDLE * s;
 	rig.scale.y *= 1 + STRETCH * s;
 }
+
+/**
+ * Free a figure that leaves the screen for good: its geometries. Its
+ * materials are shared by every figure (cached above) and stay.
+ */
+export function disposeFigure(figure: THREE.Object3D): void {
+	figure.traverse((o) => {
+		if (o instanceof THREE.Mesh) o.geometry.dispose();
+	});
+}

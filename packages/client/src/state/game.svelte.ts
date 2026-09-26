@@ -4,15 +4,18 @@ import type { AnimalInstance, Direction, GameEvent, GridPos } from '@mathgame/en
  * The UI's read-only view of the game. It is filled exclusively from
  * authority events — Svelte components never poke game state directly.
  *
- * `mode` is the authority's mode: it flips to `battle` on `battle-started`
- * and back on `battle-ended`. The battle *screen* stays up a little longer
+ * `mode` is the authority's mode: `loading` until the first game starts,
+ * then `explore`; it flips to `battle` on `battle-started` and back on
+ * `battle-ended`, and to `title` on `game-left`, when no game is under way
+ * until the next `welcome`. The title screen itself is `title.svelte.ts`,
+ * which is up before the first game too. The battle *screen* stays up a little longer
  * than that (the last events are narrated, then a result card waits for
  * Enter); that presentation state lives in `battle.svelte.ts`. A doctor
  * visit is not a mode: its card is in `doctor.svelte.ts`. What the message
  * line says is in `hud.svelte.ts`.
  */
 class GameView {
-	mode = $state<'loading' | 'explore' | 'battle'>('loading');
+	mode = $state<'loading' | 'title' | 'explore' | 'battle'>('loading');
 	playerId = $state<string>('');
 	seed = $state<number>(0);
 	pos = $state<GridPos>({ x: 0, y: 0 });
@@ -59,6 +62,9 @@ class GameView {
 				break;
 			case 'battle-ended':
 				this.mode = 'explore';
+				break;
+			case 'game-left':
+				this.mode = 'title';
 				break;
 			case 'party-changed':
 			case 'party-edited':

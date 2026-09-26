@@ -5,7 +5,7 @@ import { ANIMALS, MAX_PARTY, type AnimalInstance } from '@mathgame/engine';
  * needs: each exists to look at something (CHEATSHEET § Hidden behaviour).
  */
 export interface Flags {
-	/** `?zoo`: one of every species stands by the spawn tile, to check the figures. */
+	/** `?zoo`: one of every species stands by the spawn tile, to check the figures. A throwaway game. */
 	zoo: boolean;
 	/** `?debug`: the player's grid position and facing in the top-right corner. */
 	debug: boolean;
@@ -16,15 +16,25 @@ export interface Flags {
 	party: AnimalInstance[] | null;
 	/** `?new`: a throwaway game that loads and saves nothing; the saved game is left alone. */
 	fresh: boolean;
+	/**
+	 * `?new`, `?party=` or `?zoo`: a throwaway game, straight into explore
+	 * without the title. Nothing is loaded or saved, so a look at a screen
+	 * never touches a kid's game.
+	 */
+	throwaway: boolean;
 }
 
 export function readFlags(search: string): Flags {
 	const params = new URLSearchParams(search);
+	const zoo = params.has('zoo');
+	const party = parseParty(params.get('party'));
+	const fresh = params.has('new');
 	return {
-		zoo: params.has('zoo'),
+		zoo,
 		debug: params.has('debug'),
-		party: parseParty(params.get('party')),
-		fresh: params.has('new')
+		party,
+		fresh,
+		throwaway: fresh || party !== null || zoo
 	};
 }
 

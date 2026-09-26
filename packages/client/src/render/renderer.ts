@@ -2,10 +2,22 @@ import { tileAtWorld, type Direction, type GridPos } from '@mathgame/engine';
 import * as THREE from 'three';
 import { motion } from '../motion';
 import { animateIdle, animateWalk, buildPlayerMesh } from './animals';
-import type { BattleScene } from './battle-scene';
 import { ChunkRing } from './chunks';
 import { COLORS } from './palette';
 import { groundTop } from './tiles';
+
+/**
+ * A scene drawn instead of the world, with its own camera: the battle scene,
+ * or the title's starter stage.
+ */
+export interface Stage {
+	readonly scene: THREE.Scene;
+	readonly camera: THREE.Camera;
+	/** Advance its animation; `t` is seconds. */
+	update(t: number): void;
+	/** Match the canvas, in CSS pixels. */
+	resize(width: number, height: number): void;
+}
 
 /**
  * Owns the Three.js scene: a fixed-angle orthographic camera (no zoom, no
@@ -32,7 +44,7 @@ export class GameRenderer {
 	/** The player's step as last placed: how far through it (1 is standing) and which foot leads. */
 	private step = { progress: 1, stride: 1 as 1 | -1 };
 	/** While set, this scene is drawn instead of the world. */
-	private battle: BattleScene | null = null;
+	private stage: Stage | null = null;
 
 	constructor(private canvas: HTMLCanvasElement) {
 		this.renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
@@ -72,7 +84,9 @@ export class GameRenderer {
 	}
 	private sun: THREE.DirectionalLight;
 
+	/** Draw world `seed`. The chunks already built stay when it is the world on screen. */
 	setWorld(seed: number): void {
+		if (seed === this.seed && this.chunks.size > 0) return;
 		this.seed = seed;
 		this.chunks.reset(seed);
 	}
@@ -112,24 +126,44 @@ export class GameRenderer {
 		return { x: ((p.x + 1) / 2) * w, y: ((1 - p.y) / 2) * h };
 	}
 
+	/**
+	 * Point the camera at a ground position other than the player's (the
+	 * title's slow drift). The angle is the explore camera's, never another;
+	 * the next `setPlayer` points it back at the player.
+	 */
+	lookAt(x: number, z: number): void {
+		this.cameraTarget.set(x, 0, z);
+	}
+
 	/** Add a standing figure (from `animals.ts`) to the world; it idles with the player. */
 	addFigure(figure: THREE.Group): void {
 		this.figures.push(figure);
 		this.scene.add(figure);
 	}
 
+	/** Take a figure added with `addFigure` out of the world. */
+	removeFigure(figure: THREE.Group): void {
+		this.figures = this.figures.filter((f) => f !== figure);
+		this.scene.remove(figure);
+	}
+
 	/** Show a battle scene instead of the world, or `null` to return to it. */
-	setBattle(scene: BattleScene | null): void {
-		this.battle = scene;
+	setBattle(scene: Stage | null): void {
+		this.setStage(scene);
+	}
+
+	/** Draw `stage` instead of the world (a battle, the starter stage), or `null` for the world. */
+	setStage(stage: Stage | null): void {
+		this.stage = stage;
 		const { w, h } = this.size();
-		scene?.resize(w, h);
+		stage?.resize(w, h);
 	}
 
 	render(): void {
 		const t = performance.now() / 1000;
-		if (this.battle) {
-			this.battle.update(t);
-			this.renderer.render(this.battle.scene, this.battle.camera);
+		if (this.stage) {
+			this.stage.update(t);
+			this.renderer.render(this.stage.scene, this.stage.camera);
 			return;
 		}
 		animateIdle(this.player, t);
@@ -158,6 +192,12 @@ export class GameRenderer {
 		return groundTop(tileAtWorld(this.seed, pos.x, pos.y));
 	}
 
+	/** The canvas's width over its height: how many tiles wide the world view is, per tile tall. */
+	aspect(): number {
+		const { w, h } = this.size();
+		return w / Math.max(1, h);
+	}
+
 	/** The canvas size in CSS pixels. */
 	private size(): { w: number; h: number } {
 		return {
@@ -176,6 +216,6 @@ export class GameRenderer {
 		this.camera.top = halfH;
 		this.camera.bottom = -halfH;
 		this.camera.updateProjectionMatrix();
-		this.battle?.resize(w, h);
+		this.stage?.resize(w, h);
 	}
 }
