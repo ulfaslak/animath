@@ -88,13 +88,17 @@
 		if (action.kind === 'switch') {
 			if (canSwitch) return t('battle.switch.detail');
 			if (battle.party.length < 2) return t('battle.switch.alone');
-			// Out on the water, the others may be standing, only not swimmers.
+			// The others may be standing, only not able to fight here: out on the water
+			// they can't swim, and on land they live in the sea.
 			const others = battle.party.filter((_, i) => i !== battle.front);
-			return others.some((a) => a.hp > 0 && !canFightIn(a.speciesId, battle.realm))
+			if (!others.some((a) => a.hp > 0 && !canFightIn(a.speciesId, battle.realm)))
+				return t('battle.switch.allTired');
+			return battle.realm === 'water'
 				? t('battle.switch.noSwimmers')
-				: t('battle.switch.allTired');
+				: t('battle.switch.noWalkers');
 		}
-		return t('battle.run.detail', { animal: animalWords(opponent) });
+		const run = battle.realm === 'water' ? 'battle.run.detailSea' : 'battle.run.detail';
+		return t(run, { animal: animalWords(opponent) });
 	});
 
 	/** The puzzle area's title for the highlighted row: what picking it does. */
@@ -137,7 +141,11 @@
 				? t('battle.switch.sendInFree', params)
 				: t('battle.switch.sendIn', params);
 		}
-		if (!canFightIn(animal.speciesId, battle.realm)) return t('battle.switch.cantSwim', params);
+		if (!canFightIn(animal.speciesId, battle.realm)) {
+			return battle.realm === 'water'
+				? t('battle.switch.cantSwim', params)
+				: t('battle.switch.inTheSea', params);
+		}
 		return animal.hp === 0 ? t('battle.switch.tired', params) : t('battle.switch.inBattle', params);
 	});
 
@@ -256,7 +264,9 @@
 							>
 							<span class="how">
 								{#if !canFightIn(animal.speciesId, battle.realm)}
-									{t('battle.switch.cantSwimTag')}
+									{battle.realm === 'water'
+										? t('battle.switch.cantSwimTag')
+										: t('battle.switch.seaTag')}
 								{:else if animal.hp === 0}
 									{t('battle.switch.tiredTag')}
 								{:else if i === battle.front}

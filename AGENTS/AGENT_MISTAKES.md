@@ -17,7 +17,7 @@ The categories that keep coming back. Each names where its guard lives, or the p
 - **`git gtr new` skips the `.env` copy and `pnpm install`**: five worktrees on 2026-09-25 and 2026-09-26, the last `docs/dna-drift-sweep`; without `.env` the server tests fail like a broken merge. [[ENVIRONMENT_NOTES]] says to check every time.
 - **A worktree's Vite backs up to the human's database**, because every Vite proxies `/api` to the primary clone's API unless `API_PORT` says otherwise: PR #21, PR #28 and other runs on 2026-09-26. Since PR #36 `scripts/screenshot.mjs` blocks `/api` unless `--api`; CLAUDE.md Phase 2 still says `/play` starts "both dev servers".
 - **A stale-event guard on the mode or the order, not the identity**: PR #13 (a battle), PR #14 (a doctor visit).
-- **An effect sized by its numbers, not in a frame**: PR #28, PR #42 (three times), PR #49 (a layout moved a long name next to the heal's stars), PR #69 (the boat's rims crossed, its back pose unreadable at game size).
+- **An effect sized by its numbers, not in a frame**: PR #28, PR #42 (three times), PR #49 (a layout moved a long name next to the heal's stars), PR #69 (the boat's rims crossed, its back pose unreadable at game size), PR #74 (a starfish edge-on to the camera, a speck at game size).
 - **Prose that says more than the code or its test shows**: DNA written from memory (PR #11), a claim pinned only where it is vacuous (PR #12), a weight quoted as a share (PR #17), a sample's window stated as a rule (PR #21), a promise one step past what the test measures (PR #34), a mean pooled over worlds stated for each world and an extreme read off a sample (PR #64), a lower bound stated as exact and a distance off by one (PR #69).
 
 ---
@@ -429,3 +429,16 @@ A lead that can't swim stays on the shore tile to shrink away as the trainer sai
 ### 2026-09-26 — PR #69 (the boat) — a scripted edit's diff not read line by line `[not codified]`
 
 The exact-replace script used for edits appended the heredoc's final newline to each last replacement. That left a stray blank line in about 30 places. Some split a Markdown table in ARCHITECTURE, DESIGN and CHEATSHEET: a blank line ends a table, so the rows after it rendered as text. Prettier keeps a single blank line between statements and anywhere in Markdown, so `pnpm lint` passed. Found while resolving the merge with main. Fix: the script corrected and every blank line removed. Would become `[learned]` with a line in CLAUDE.md § Keeping context spendable: after any scripted edit, read `git diff` for blank lines it added.
+
+### 2026-09-26 — PR #74 (sea animals) — a figure built against the tests' measures, not with them `[learned]`
+
+Two figure tests failed on geometry that looked right:
+
+- **The leaning starfish's feet measured 0.02 under the ground.** Its parts were leaned by turning their meshes, and `Box3.setFromObject` measures a turned part by turning its own bounding box, not its vertices, so the box's corner dipped where no vertex did.
+- **The octopus barely lay down to rest.** Its suckers' bottoms sat 0.005 above the ground, exactly the edge at which resting counts a part as standing on it. They counted as raised, became its "belly", and the rest pose lowered it by that much.
+
+Both were found by the figure tests. Fix: the lean is in the arms' geometry, the suckers stand on the ground, and `animals.ts`'s module comment now names both measures and their edges. Category: **a shape tuned by eye against a measure it never read**.
+
+### 2026-09-26 — PR #74 (sea animals) — copy written for the one place that existed `[learned]`
+
+The end-of-battle lines and the Run row said the wild animal "stays in the grass" and "runs home". At sea they would have told a kid a dolphin stays in the grass. Found while reading the copy to plan the frames, before any frame showed it. Fix: sea variants picked by the battle's realm. Category: **a new place for an old sentence**. CLAUDE.md Phase 2's "Prose is a claim" says to grep for words describing the old world ("grass"). This PR did so late, not first.

@@ -1,8 +1,14 @@
 import { describe, expect, it } from 'vitest';
-import { ANIMALS, getAnimal } from '../src/animals/catalog.js';
+import { ANIMALS, canFightIn, getAnimal } from '../src/animals/catalog.js';
 import type { AnimalInstance, Realm } from '../src/animals/types.js';
 import { takeToDoctor } from '../src/doctor/knockout.js';
-import { canGoHome, kindGoingHome, mustStay, needsHealing } from '../src/doctor/party.js';
+import {
+	canGoHome,
+	keepsATeam,
+	kindGoingHome,
+	mustStay,
+	needsHealing
+} from '../src/doctor/party.js';
 import { applyDoctorIntent, startDoctorVisit } from '../src/doctor/reducer.js';
 import { homeTokens, tokenPuzzle, tokensForTier } from '../src/doctor/tokens.js';
 import type { DoctorEvent, DoctorIntent, DoctorState, DoctorStep } from '../src/doctor/types.js';
@@ -595,6 +601,15 @@ describe('helping animals home', () => {
 		const alone = startDoctorVisit(partyOf(['squirrel', 0]));
 		const s = apply(alone, { type: 'hand-over', ids: ['squirrel-0'] }, 1);
 		expect(s.events).toEqual([{ type: 'rejected', reason: 'keep-one' }]);
+		// The tent stands on land: a crab or a whale standing is nobody to walk on with, so one
+		// that can fight on land stays too. A frog swims and walks: it will do.
+		const seaside = startDoctorVisit(partyOf(['squirrel'], ['crab'], ['whale'], ['frog']));
+		expect(reason(['squirrel-0', 'frog-3'], seaside)).toBe('keep-one');
+		expect(reason(['squirrel-0', 'crab-1', 'whale-2'], seaside)).toBe('accepted');
+		expect(reason(['squirrel-0'], seaside)).toBe('accepted');
+		expect(reason(['crab-1', 'whale-2', 'frog-3'], seaside)).toBe('accepted');
+		const onlySea = startDoctorVisit(partyOf(['crab'], ['squirrel', 0]));
+		expect(reason(['squirrel-1'], onlySea)).toBe('keep-one');
 	});
 });
 
@@ -635,6 +650,35 @@ describe('helping a whole kind home', () => {
 		expect(mustStay(partyOf(['fox', 0], ['fox', 0]), [])).toEqual(['fox-0', 'fox-1']);
 	});
 
+	it('a sea animal is no one to walk on with: handing over every walker and keeping only sea animals is refused', () => {
+		const party = partyOf(['fox'], ['fox'], ['crab'], ['crab'], ['whale']);
+		// Every fox going leaves only sea animals standing, which could battle nothing on land.
+		expect(canGoHome(party, ['fox-0', 'fox-1'])).toBe(false);
+		const visit = startDoctorVisit(party);
+		expect(apply(visit, { type: 'hand-over', ids: ['fox-0', 'fox-1'] }, 1).events).toEqual([
+			{ type: 'rejected', reason: 'keep-one' }
+		]);
+		// So the foxes' row keeps the first fox, and the last fox has to stay once the other is picked.
+		expect(kindGoingHome(party, [], 'fox')).toEqual(['fox-1']);
+		expect(mustStay(party, ['fox-1'])).toEqual(['fox-0']);
+		// The sea animals may all go: a fox stays to walk on with the kid.
+		expect(kindGoingHome(party, ['fox-1'], 'crab')).toEqual(['crab-2', 'crab-3']);
+		expect(kindGoingHome(party, [], 'whale')).toEqual(['whale-4']);
+		expect(
+			apply(visit, { type: 'hand-over', ids: ['fox-1', 'crab-2', 'crab-3', 'whale-4'] }, 1)
+				.events[0]?.type
+		).toBe('hand-over-shown');
+		// The foxes tired and the sea animals standing: nobody can walk on, so nobody may go.
+		const tiredFoxes = partyOf(['fox', 0], ['fox', 0], ['crab'], ['whale']);
+		expect(kindGoingHome(tiredFoxes, [], 'crab')).toEqual([]);
+		expect(kindGoingHome(tiredFoxes, [], 'fox')).toEqual([]);
+		expect(mustStay(tiredFoxes, [])).toEqual(['fox-0', 'fox-1', 'crab-2', 'whale-3']);
+		// The frog swims and walks: it keeps a team on land on its own.
+		const frogAndCrab = partyOf(['frog'], ['crab']);
+		expect(kindGoingHome(frogAndCrab, [], 'crab')).toEqual(['crab-1']);
+		expect(mustStay(frogAndCrab, [])).toEqual(['frog-0']);
+	});
+
 	it('over random teams: picks all it may, never the last one standing, and the reducer takes it', () => {
 		const species = ANIMALS.map((a) => a.id);
 		const bad: string[] = [];
@@ -649,11 +693,16 @@ describe('helping a whole kind home', () => {
 				const max = getAnimal(speciesId).maxHp;
 				return { id: `a${i}`, speciesId, hp: rng.chance(0.35) ? 0 : rng.int(1, max) };
 			});
-			const standing = party.some((a) => a.hp > 0);
+			// Who could walk on with the kid, by the rule's own words: not tired, and at home on land.
+			const walks = (a: AnimalInstance) => a.hp > 0 && canFightIn(a.speciesId, 'land');
+			const standing = party.some(walks);
 			for (let round = 0; round < 4; round++) {
 				// Some picked already, as a kid's picks on the card: none, some, or every one.
 				const odds = [0, 0.3, 0.7, 1][round]!;
 				const picked = idsOf(party.filter(() => rng.chance(odds)));
+				// The ones who stay keep a team exactly when one of them walks.
+				const staying = party.filter((a) => !picked.includes(a.id));
+				if (keepsATeam(staying) !== staying.some(walks)) note('not a team', party, picked);
 				// Who has to stay is who can't join the picks by the rule itself.
 				const refused = party.filter(
 					(a) => !picked.includes(a.id) && !canGoHome(party, [...picked, a.id])
@@ -674,11 +723,11 @@ describe('helping a whole kind home', () => {
 					// As many as may go: nothing more of the kind can join after it.
 					if (kindGoingHome(party, after, speciesId).length > 0)
 						note('could pick more', party, picked);
-					// At most one of the kind stays, and only one who must: the first standing of the rest.
+					// At most one of the kind stays, and only one who must: the first of the rest who walks.
 					const left = rest.filter((a) => !joins.includes(a.id));
 					if (canGoHome(party, picked) && standing) {
 						const all = [...picked, ...idsOf(rest)];
-						const stays = canGoHome(party, all) ? [] : [rest.find((a) => a.hp > 0)!];
+						const stays = canGoHome(party, all) ? [] : [rest.find(walks)!];
 						if (JSON.stringify(idsOf(left)) !== JSON.stringify(idsOf(stays)))
 							note('the wrong one stays', party, picked);
 					}

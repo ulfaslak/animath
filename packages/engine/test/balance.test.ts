@@ -5,7 +5,14 @@ import { hashString } from '../src/rng.js';
 import { SAFE_RADIUS, distanceFromSpawn, encounterTableAt } from '../src/world/encounters.js';
 import { spawnPoint, tileAtWorld } from '../src/world/generate.js';
 import { surroundings } from '../src/world/habitat.js';
-import { makeParty, makeWild, playBattle, type PlayerModel, type Policy } from './battle-sim.js';
+import {
+	arena,
+	makeParty,
+	makeWild,
+	playBattle,
+	type PlayerModel,
+	type Policy
+} from './battle-sim.js';
 
 /**
  * Balance: species × species battles with a scripted player, party of one, who
@@ -35,10 +42,12 @@ interface Outcome {
 const ids = ANIMALS.map((a) => a.id);
 const tier = (id: string) => getAnimal(id).tier;
 
-/** Every (player, wild) pair where the wild animal is `gap` tiers fiercer. */
+/** Every (player, wild) pair that can meet, where the wild animal is `gap` tiers fiercer. */
 function pairs(gap: number): Array<[string, string]> {
 	return ids.flatMap((p) =>
-		ids.filter((w) => tier(w) - tier(p) === gap).map((w): [string, string] => [p, w])
+		ids
+			.filter((w) => tier(w) - tier(p) === gap && arena(p, w) !== null)
+			.map((w): [string, string] => [p, w])
 	);
 }
 
@@ -49,8 +58,11 @@ function simulate(playerId: string, wildId: string, model: PlayerModel, seeds = 
 	if (hit) return hit;
 	let wins = 0;
 	let rounds = 0;
+	const realm = arena(playerId, wildId);
+	if (realm === null) throw new Error(`${playerId} and ${wildId} never meet`);
 	for (let seed = 0; seed < seeds; seed++) {
-		const { state } = playBattle(seed, makeParty([playerId]), makeWild(wildId), model);
+		const party = makeParty([playerId]);
+		const { state } = playBattle(seed, party, makeWild(wildId), model, undefined, 2000, realm);
 		if (state.phase.kind !== 'ended') throw new Error('battle did not end');
 		if (state.phase.outcome === 'won') wins++;
 		rounds += state.turn;
@@ -77,6 +89,7 @@ function grid(model: PlayerModel): string {
 	const sep = `| --- | ${ids.map(() => '---').join(' | ')} |`;
 	const rows = ids.map((p) => {
 		const cells = ids.map((w) => {
+			if (arena(p, w) === null) return '—';
 			const { win, rounds } = simulate(p, w, model);
 			return `${pct(win)} (${rounds.toFixed(1)})`;
 		});
@@ -178,15 +191,44 @@ describe('balance simulation', () => {
 		}, 120_000);
 	}
 
-	it("a squirrel almost never beats a bear, even when it's always right", () => {
+	it("a squirrel almost never beats a bear, even when it's always right, nor a crab a whale", () => {
 		const small = ids.filter((id) => tier(id) === 1);
-		expect(small).toEqual(['squirrel', 'rabbit', 'frog']);
-		for (const id of small)
-			expect(simulate(id, 'bear', hardest(1)).win, `${id} vs bear`).toBeLessThan(0.05);
+		expect(small).toEqual(['squirrel', 'rabbit', 'frog', 'crab', 'starfish']);
+		for (const big of ['bear', 'whale']) {
+			const meet = small.filter((id) => arena(id, big) !== null);
+			expect(meet.length, `tier-1 animals that meet the ${big}`).toBe(3);
+			for (const id of meet)
+				expect(simulate(id, big, hardest(1)).win, `${id} vs ${big}`).toBeLessThan(0.05);
+		}
 	});
 
-	it('a bear beats a squirrel almost always, even at 70% accuracy', () => {
+	it('each sea animal is its land twin in numbers, so the land balance holds at sea as it is', () => {
+		const twins: Record<string, string> = {
+			crab: 'rabbit',
+			starfish: 'frog',
+			turtle: 'otter',
+			dolphin: 'deer',
+			octopus: 'wolf',
+			whale: 'bear'
+		};
+		const sea = ANIMALS.filter((a) => !a.realms.includes('land')).map((a) => a.id);
+		expect(Object.keys(twins)).toEqual(sea);
+		const numbers = (id: string) => {
+			const a = getAnimal(id);
+			return [a.tier, a.maxHp, a.catchRate, a.attacks.map((k) => k.power)];
+		};
+		for (const [id, twin] of Object.entries(twins)) expect(numbers(id), id).toEqual(numbers(twin));
+		// The small ones ask sums and number patterns, never a times-table sum.
+		for (const id of sea.filter((s) => tier(s) === 1)) {
+			const kinds = new Set(getAnimal(id).attacks.flatMap((k) => k.kinds));
+			for (const kind of kinds)
+				expect(['add', 'sub', 'sequence'], `${id} asks ${kind}`).toContain(kind);
+		}
+	});
+
+	it('a bear beats a squirrel almost always, even at 70% accuracy, and a whale a crab', () => {
 		expect(simulate('bear', 'squirrel', hardest(0.7)).win).toBeGreaterThan(0.95);
+		expect(simulate('whale', 'crab', hardest(0.7)).win).toBeGreaterThan(0.95);
 	});
 
 	it('an always-right player beats their own species with its strongest attack', () => {
@@ -235,6 +277,7 @@ describe('balance simulation', () => {
 		for (const model of [hardest, easiest]) {
 			for (const p of ids) {
 				for (const w of ids) {
+					if (arena(p, w) === null) continue;
 					const sure = simulate(p, w, model(1)).win;
 					const shaky = simulate(p, w, model(0.7)).win;
 					expect(sure, `${p} vs ${w}, ${model.name}`).toBeGreaterThanOrEqual(shaky - 0.05);
@@ -246,6 +289,7 @@ describe('balance simulation', () => {
 	it('a stronger attack at a higher level never hurts an always-right player', () => {
 		for (const p of ids) {
 			for (const w of ids) {
+				if (arena(p, w) === null) continue;
 				const strong = simulate(p, w, hardest(1)).win;
 				const weak = simulate(p, w, easiest(1)).win;
 				expect(strong, `${p} vs ${w}`).toBeGreaterThanOrEqual(weak - 0.05);

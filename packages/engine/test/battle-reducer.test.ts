@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import { ANIMALS, canFightIn, getAnimal } from '../src/animals/catalog.js';
-import { ATTACK_LEVELS, type AnimalInstance, type AttackLevel } from '../src/animals/types.js';
+import {
+	ATTACK_LEVELS,
+	type AnimalInstance,
+	type AttackLevel,
+	type Realm
+} from '../src/animals/types.js';
 import { catchProbability } from '../src/battle/catch.js';
 import { attackDamage } from '../src/battle/damage.js';
 import {
@@ -16,6 +21,7 @@ import { checkAnswer, getGenerator } from '../src/puzzles/registry.js';
 import { Rng, hashInts } from '../src/rng.js';
 import { wordedStrings } from './words.js';
 import {
+	arena,
 	makeParty,
 	makeWild,
 	nextIntent,
@@ -27,6 +33,13 @@ import {
 const SEEDS = 25;
 const ids = ANIMALS.map((a) => a.id);
 const PRINT = Boolean(process.env.SIM);
+/** Every (player, wild) pair of the catalog that can meet, and where: a sea animal only out on the water. */
+const MEETINGS = ids.flatMap((p) =>
+	ids.flatMap((w) => {
+		const realm = arena(p, w);
+		return realm ? [{ p, w, realm }] : [];
+	})
+);
 
 function deepFreeze<T>(value: T): T {
 	if (value && typeof value === 'object' && !Object.isFrozen(value)) {
@@ -50,9 +63,10 @@ function drive(
 	party: readonly AnimalInstance[],
 	wild: AnimalInstance,
 	script: (state: BattleState) => BattleIntent | null,
-	check?: (before: BattleState, intent: BattleIntent, step: BattleStep) => void
+	check?: (before: BattleState, intent: BattleIntent, step: BattleStep) => void,
+	realm: Realm = 'land'
 ): { state: BattleState; events: BattleEvent[] } {
-	let state = startBattle(party, wild);
+	let state = startBattle(party, wild, { realm });
 	const events: BattleEvent[] = [];
 	for (let i = 0; i < 2000; i++) {
 		const intent = script(state);
@@ -156,15 +170,15 @@ describe('applyBattleIntent', () => {
 describe('replay', () => {
 	it('the same seed, party, wild and intents always yield the same states and events', () => {
 		const model: PlayerModel = { accuracy: 0.6, policy: 'random', leash: 0.1 };
-		for (const p of ids) {
-			for (const w of ids) {
-				for (let seed = 0; seed < 5; seed++) {
-					const a = playBattle(seed, makeParty([p, 'squirrel']), makeWild(w), model);
-					const b = playBattle(seed, makeParty([p, 'squirrel']), makeWild(w), model);
-					expect(b.intents).toEqual(a.intents);
-					expect(b.events).toEqual(a.events);
-					expect(b.state).toEqual(a.state);
-				}
+		for (const { p, w, realm } of MEETINGS) {
+			for (let seed = 0; seed < 5; seed++) {
+				const play = () =>
+					playBattle(seed, makeParty([p, 'squirrel']), makeWild(w), model, undefined, 2000, realm);
+				const a = play();
+				const b = play();
+				expect(b.intents).toEqual(a.intents);
+				expect(b.events).toEqual(a.events);
+				expect(b.state).toEqual(a.state);
 			}
 		}
 	});
@@ -291,14 +305,16 @@ describe('every battle in the catalog', () => {
 	let replacements = 0;
 
 	for (const p of ids) {
-		it(`${p} vs everything: terminates, keeps HP in bounds, never mutates its input, explains every change`, () => {
-			for (const w of ids) {
+		it(`${p} vs everything it meets: terminates, keeps HP in bounds, never mutates its input, explains every change`, () => {
+			for (const { w, realm } of MEETINGS.filter((m) => m.p === p)) {
+				// On land two to step in; out on the water one that swims and one that can't.
+				const team = realm === 'land' ? [p, 'rabbit', 'fox'] : [p, 'otter', 'squirrel'];
 				for (let seed = 0; seed < SEEDS; seed++) {
 					const rng = new Rng(hashInts(seed, 0x9e3779b9));
 					const said: BattleEvent[] = [];
 					const { state } = drive(
 						seed,
-						makeParty([p, 'rabbit', 'fox']),
+						makeParty(team),
 						makeWild(w),
 						(s) => nextIntent(s, model, rng),
 						(before, intent, step) => {
@@ -307,7 +323,8 @@ describe('every battle in the catalog', () => {
 							if (intent.type !== 'switch') return;
 							if (before.phase.kind === 'choose-animal') replacements++;
 							else switches++;
-						}
+						},
+						realm
 					);
 					expect(state.phase.kind, `${p} vs ${w} seed ${seed} never ended`).toBe('ended');
 					seen.add(outcome(state)!);
@@ -489,7 +506,10 @@ describe('every battle in the catalog', () => {
 					case 'ended':
 						expect(next).toBeUndefined();
 						expect(state.phase).toEqual({ kind: 'ended', outcome: e.outcome });
-						if (e.outcome === 'lost') for (const a of state.party) expect(a.hp).toBe(0);
+						// Lost: everyone who could fight here is tired (out on the water, the ones that swim).
+						if (e.outcome === 'lost')
+							for (const a of state.party)
+								if (canFightIn(a.speciesId, state.realm)) expect(a.hp).toBe(0);
 						if (e.outcome === 'won') expect(state.opponent.hp).toBe(0);
 						if (e.outcome === 'caught') {
 							expect(e.caught?.hp).toBeGreaterThan(0);
@@ -520,45 +540,43 @@ describe('every battle in the catalog', () => {
 
 describe('answers', () => {
 	it('a wrong answer never damages the opponent, whatever the input', () => {
-		for (const p of ids) {
-			for (const w of ids) {
-				for (let seed = 0; seed < 5; seed++) {
-					const rng = new Rng(seed);
-					const n = rng.int(1, getAnimal(p).attacks.length);
-					const level = rng.int(1, 3) as AttackLevel;
-					const start = startBattle(makeParty([p]), makeWild(w));
-					const solving = applyBattleIntent(
-						start,
-						{ type: 'attack', attackIndex: n, level },
+		for (const { p, w, realm } of MEETINGS) {
+			for (let seed = 0; seed < 5; seed++) {
+				const rng = new Rng(seed);
+				const n = rng.int(1, getAnimal(p).attacks.length);
+				const level = rng.int(1, 3) as AttackLevel;
+				const start = startBattle(makeParty([p]), makeWild(w), { realm });
+				const solving = applyBattleIntent(
+					start,
+					{ type: 'attack', attackIndex: n, level },
+					seed
+				).state;
+				if (solving.phase.kind !== 'solving') throw new Error('not solving');
+				const answer = solving.phase.puzzle.answer;
+				for (const input of [
+					'',
+					'nope',
+					String(answer + 1),
+					String(answer - 1),
+					'1.5',
+					`${answer} ${answer}`
+				]) {
+					const { state, events } = applyBattleIntent(
+						deepFreeze(solving),
+						{ type: 'answer', input },
 						seed
-					).state;
-					if (solving.phase.kind !== 'solving') throw new Error('not solving');
-					const answer = solving.phase.puzzle.answer;
-					for (const input of [
-						'',
-						'nope',
-						String(answer + 1),
-						String(answer - 1),
-						'1.5',
-						`${answer} ${answer}`
-					]) {
-						const { state, events } = applyBattleIntent(
-							deepFreeze(solving),
-							{ type: 'answer', input },
-							seed
-						);
-						expect(state.opponent.hp).toBe(solving.opponent.hp);
-						expect(events[0]).toEqual({ type: 'answer-judged', input, correct: false, answer });
-						expect(events[1]).toEqual({
-							type: 'missed',
-							attacker: 'player',
-							attackIndex: n,
-							level
-						});
-						expect(events.some((e) => e.type === 'hit' && e.attacker === 'player')).toBe(false);
-						// The wild animal still takes its turn: it hits, or misses a wary match.
-						expect(events[2]).toMatchObject({ attacker: 'opponent' });
-					}
+					);
+					expect(state.opponent.hp).toBe(solving.opponent.hp);
+					expect(events[0]).toEqual({ type: 'answer-judged', input, correct: false, answer });
+					expect(events[1]).toEqual({
+						type: 'missed',
+						attacker: 'player',
+						attackIndex: n,
+						level
+					});
+					expect(events.some((e) => e.type === 'hit' && e.attacker === 'player')).toBe(false);
+					// The wild animal still takes its turn: it hits, or misses a wary match.
+					expect(events[2]).toMatchObject({ attacker: 'opponent' });
 				}
 			}
 		}
@@ -570,7 +588,9 @@ describe('answers', () => {
 			for (let n = 1; n <= spec.attacks.length; n++) {
 				for (const level of ATTACK_LEVELS) {
 					for (let seed = 0; seed < 5; seed++) {
-						const start = startBattle(makeParty([p]), makeWild('bear'));
+						// A 100-HP opponent it can meet: the bear, or out on the water the whale.
+						const big = arena(p, 'bear') ? 'bear' : 'whale';
+						const start = startBattle(makeParty([p]), makeWild(big), { realm: arena(p, big)! });
 						const solving = applyBattleIntent(
 							start,
 							{ type: 'attack', attackIndex: n, level },
@@ -607,7 +627,7 @@ describe('answers', () => {
 describe('the wild animal', () => {
 	/** The wild animal's one action after a wrong answer: a hit or a miss. */
 	function wildTurn(p: string, w: string, seed: number) {
-		const start = startBattle(makeParty([p]), makeWild(w));
+		const start = startBattle(makeParty([p]), makeWild(w), { realm: arena(p, w)! });
 		const { state, events } = attackAndAnswer(start, seed, 1, 1, false);
 		const turn = events.filter(
 			(e) => (e.type === 'hit' || e.type === 'missed') && e.attacker === 'opponent'
@@ -634,17 +654,15 @@ describe('the wild animal', () => {
 	it('misses an animal of its own tier or fiercer exactly when its roll says so, never a smaller one', () => {
 		// Recomputed from the seed: the attack pick, then the miss roll, are the
 		// wild turn's two draws from the answer intent's Rng (step 1).
-		for (const p of ids) {
-			for (const w of ids) {
-				const wary = getAnimal(w).tier <= getAnimal(p).tier;
-				for (let seed = 0; seed < 40; seed++) {
-					const { e, start, state } = wildTurn(p, w, seed);
-					const rng = new Rng(hashInts(seed, 1));
-					expect(e.attackIndex).toBe(rng.int(1, getAnimal(w).attacks.length));
-					const miss = wary && rng.next() < WILD_MISS_CHANCE;
-					expect(e.type, `${p} vs ${w}, seed ${seed}`).toBe(miss ? 'missed' : 'hit');
-					if (miss) expect(state.party[0]!.hp).toBe(start.party[0]!.hp);
-				}
+		for (const { p, w } of MEETINGS) {
+			const wary = getAnimal(w).tier <= getAnimal(p).tier;
+			for (let seed = 0; seed < 40; seed++) {
+				const { e, start, state } = wildTurn(p, w, seed);
+				const rng = new Rng(hashInts(seed, 1));
+				expect(e.attackIndex).toBe(rng.int(1, getAnimal(w).attacks.length));
+				const miss = wary && rng.next() < WILD_MISS_CHANCE;
+				expect(e.type, `${p} vs ${w}, seed ${seed}`).toBe(miss ? 'missed' : 'hit');
+				if (miss) expect(state.party[0]!.hp).toBe(start.party[0]!.hp);
 			}
 		}
 		// Under 0.5 s alone (every species pair, 40 seeds); over 1.4 s on a loaded machine.
@@ -698,7 +716,10 @@ describe('the leash', () => {
 			const spec = getAnimal(w);
 			for (const hp of [1, Math.ceil(spec.maxHp * 0.1), Math.ceil(spec.maxHp * 0.5), spec.maxHp]) {
 				for (let seed = 0; seed < SEEDS; seed++) {
-					const start = deepFreeze(startBattle(makeParty(['fox']), makeWild(w, hp)));
+					// A fox on land; out on the water, where the sea animals are, an otter.
+					const p = arena('fox', w) ? 'fox' : 'otter';
+					const realm = arena(p, w)!;
+					const start = deepFreeze(startBattle(makeParty([p]), makeWild(w, hp), { realm }));
 					const { state, events } = applyBattleIntent(start, { type: 'throw-leash' }, seed);
 					const chance = catchProbability(hp / spec.maxHp, spec.catchRate, 1);
 					const success = new Rng(hashInts(seed, 0)).next() < chance;
@@ -745,7 +766,9 @@ describe('fleeing', () => {
 	it('always works and costs nothing', () => {
 		for (const w of ids) {
 			for (let seed = 0; seed < 5; seed++) {
-				const start = deepFreeze(startBattle(makeParty(['squirrel']), makeWild(w)));
+				const p = arena('squirrel', w) ? 'squirrel' : 'frog';
+				const realm = arena(p, w)!;
+				const start = deepFreeze(startBattle(makeParty([p]), makeWild(w), { realm }));
 				const { state, events } = applyBattleIntent(start, { type: 'flee' }, seed);
 				expect(events).toEqual([{ type: 'fled' }, { type: 'ended', outcome: 'fled' }]);
 				expect(outcome(state)).toBe('fled');
@@ -1002,9 +1025,12 @@ describe('switching', () => {
 		for (const a of ids) {
 			for (const b of ids) {
 				for (const w of ids) {
+					// All three where they can all fight: a sea animal's trio only out on the water.
+					const realm = arena(a, b, w);
+					if (realm === null) continue;
 					for (let seed = 0; seed < 5; seed++) {
 						const party = makeParty([a, b]);
-						const start = deepFreeze(startBattle(party, makeWild(w)));
+						const start = deepFreeze(startBattle(party, makeWild(w), { realm }));
 						const { state, events } = applyBattleIntent(
 							start,
 							{ type: 'switch', partyIndex: 1 },
@@ -1049,9 +1075,13 @@ describe('switching', () => {
 			return { type: 'switch', partyIndex: standing[s.turn % standing.length]! };
 		};
 		for (const w of ids) {
+			// A big one and two small ones: on land a bear, a squirrel and a rabbit; out on the
+			// water, where the sea animals are, a whale, a frog and a crab.
+			const realm = arena('bear', w) ? 'land' : 'water';
+			const team = realm === 'land' ? ['bear', 'squirrel', 'rabbit'] : ['whale', 'frog', 'crab'];
 			for (let seed = 0; seed < SEEDS; seed++) {
-				const party = makeParty(['bear', 'squirrel', 'rabbit']);
-				const { state } = drive(seed, party, makeWild(w), onlySwitch);
+				const party = makeParty(team);
+				const { state } = drive(seed, party, makeWild(w), onlySwitch, undefined, realm);
 				const where = `vs ${w}, seed ${seed}`;
 				expect(outcome(state), where).toBe('lost');
 				expect(state.opponent.hp).toBe(maxHp(state.opponent));
@@ -1067,16 +1097,20 @@ describe('switching', () => {
 		const model: PlayerModel = { accuracy: 0.6, policy: 'random', leash: 0.1, switch: 0.2 };
 		let checked = 0;
 		for (const w of ids) {
+			// Out on the water, where the sea animals are, a squirrel in the boat that can't step in.
+			const realm = arena('fox', w) ? 'land' : 'water';
+			const team = realm === 'land' ? ['squirrel', 'fox', 'bear'] : ['frog', 'squirrel', 'whale'];
 			for (let seed = 0; seed < 5; seed++) {
-				const party = makeParty(['squirrel', 'fox', 'bear']);
+				const party = makeParty(team);
 				party[2]!.hp = seed % 2 === 0 ? 0 : 50;
-				playBattle(seed, party, makeWild(w), model, (before) => {
+				const check = (before: BattleState) => {
 					for (const i of [-1, 0, 1, 2, 3, 0.5]) {
 						const step = applyBattleIntent(before, { type: 'switch', partyIndex: i }, seed);
 						expect(canSwitchTo(before, i)).toBe(step.events[0]!.type === 'switched');
 						checked++;
 					}
-				});
+				};
+				playBattle(seed, party, makeWild(w), model, check, 2000, realm);
 			}
 		}
 		expect(checked).toBeGreaterThan(1000);

@@ -402,9 +402,9 @@ export class DoctorController {
 
 	/**
 	 * A bundle's row: pick every one of the kind that may go (the engine's
-	 * `kindGoingHome`: all of them, or all but the first standing when nobody
-	 * else would stand), or, once they all are, take the whole kind back. A
-	 * kind none of whom may go gives the row a little shake.
+	 * `kindGoingHome`: all of them, or all but the first that could walk on
+	 * with the kid when no other would), or, once they all are, take the whole
+	 * kind back. A kind none of whom may go gives the row a little shake.
 	 */
 	private toggleKind(speciesId: string): void {
 		const joining = kindGoingHome(doctor.party, doctor.marked, speciesId);

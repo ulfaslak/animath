@@ -3,6 +3,7 @@
 		getAnimal,
 		getItem,
 		homeTokens,
+		keepsATeam,
 		mustStay,
 		needsHealing,
 		tokensForTier,
@@ -64,8 +65,13 @@
 	const markedAnimals = $derived(doctor.party.filter((a) => marked.has(a.id)));
 	/** What the animals picked bring together: the running total, before the sum is asked. */
 	const reward = $derived(homeTokens(markedAnimals));
-	/** Animals not picked who have to stay: picking one more would leave nobody standing. */
+	/**
+	 * Animals not picked who have to stay: picking one more would leave no
+	 * friend who can walk on with the kid (the engine's `keepsATeam`).
+	 */
 	const staying = $derived(new Set(mustStay(doctor.party, doctor.marked)));
+	/** Nobody at all can walk on with the kid (only tired or sea animals standing): nobody may go yet. */
+	const noWalker = $derived(!keepsATeam(doctor.party));
 	const leaving = $derived(new Set(doctor.leaving ?? []));
 	/** While a heal is open: the species it helps, whose rows light up together. */
 	const patientSpecies = $derived(
@@ -442,8 +448,9 @@
 				{/if}
 			{:else if highlighted?.kind === 'animal' && doctor.party[highlighted.partyIndex]}
 				{@const animal = doctor.party[highlighted.partyIndex]!}
+				<!-- The one who has to stay walks on with the kid; with nobody who can, say what it brings. -->
 				<div class="detail strong">
-					{staying.has(animal.id)
+					{staying.has(animal.id) && !noWalker
 						? t('doctor.home.stays', { animal: animalWords(animal) })
 						: t('doctor.home.worth', {
 								animal: animalWords(animal),
@@ -452,7 +459,9 @@
 				</div>
 			{/if}
 			{#if staying.size > 0 || kindKeepsOne}
-				<div class="detail">{t('doctor.home.keepOne')}</div>
+				<div class="detail">
+					{noWalker ? t('doctor.home.noWalker') : t('doctor.home.keepOne')}
+				</div>
 			{/if}
 			<div class="keys">{touch.on ? t('doctor.home.touch') : t('doctor.home.keys')}</div>
 		{:else if doctor.tab === 'shop'}

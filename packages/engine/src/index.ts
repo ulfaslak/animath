@@ -46,7 +46,7 @@ export type {
 
 export { applyDoctorIntent, startDoctorVisit } from './doctor/reducer.js';
 export type { DoctorVisitOptions } from './doctor/reducer.js';
-export { canGoHome, kindGoingHome, mustStay, needsHealing } from './doctor/party.js';
+export { canGoHome, keepsATeam, kindGoingHome, mustStay, needsHealing } from './doctor/party.js';
 export { homeTokens, tokenPuzzle, tokensForTier } from './doctor/tokens.js';
 export { takeToDoctor } from './doctor/knockout.js';
 export type { Rescue, RescueOptions } from './doctor/knockout.js';

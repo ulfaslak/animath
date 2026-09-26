@@ -54,7 +54,8 @@ export type Biome = 'meadow' | 'forest' | 'river' | 'mountain' | 'sea';
  * Land or water: where the player stands (`tileRealm`: water tiles, reached
  * by boat, are water; every other tile is land), where an animal can go and
  * fight (`AnimalSpec.realms`), and where an encounter happens
- * (`encounterRealm`: on land in the tall grass and the river's reeds).
+ * (`encounterRealm`: on land in the tall grass and the river's reeds, on the
+ * water out on the deep water of the sea).
  */
 export type Realm = 'land' | 'water';
 

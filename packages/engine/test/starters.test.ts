@@ -13,16 +13,17 @@ import { spawnPoint } from '../src/world/generate.js';
  */
 
 describe('starters', () => {
-	it('every tier-1 species is a starter, in catalog order, and nothing else is', () => {
+	it('every tier-1 species that can fight on land is a starter, in catalog order, and nothing else is', () => {
 		for (const spec of ANIMALS) {
-			expect(isStarter(spec.id), spec.id).toBe(spec.tier === 1);
+			const starts = spec.tier === 1 && spec.realms.includes('land');
+			expect(isStarter(spec.id), spec.id).toBe(starts);
 		}
 		expect(STARTER_TIER).toBe(1);
 		expect(STARTERS).toEqual(ANIMALS.map((a) => a.id).filter((id) => isStarter(id)));
-		// The prototype's small animals, named, so a catalog change that drops one is seen.
-		expect(STARTERS).toContain('squirrel');
-		expect(STARTERS).toContain('rabbit');
-		expect(STARTERS).not.toContain('fox');
+		// The prototype's small animals, named, so a catalog change that drops one is seen; the
+		// sea's small ones live only out on the deep water, and a new game starts on land.
+		expect(STARTERS).toEqual(['squirrel', 'rabbit', 'frog']);
+		expect(STARTERS).not.toContain('crab');
 	});
 
 	it('the starter of a game nobody chose one for is a starter too', () => {

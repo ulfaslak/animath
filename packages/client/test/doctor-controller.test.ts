@@ -625,6 +625,21 @@ describe('helping animals home', () => {
 		expect(t.doctorSent()).toEqual([]);
 	});
 
+	it('the one that stays walks on land with the kid: a crab or a whale standing is not enough', () => {
+		const t = setup([
+			{ id: 'a', speciesId: 'squirrel', hp: 20 },
+			{ id: 'b', speciesId: 'crab', hp: 22 },
+			{ id: 'c', speciesId: 'whale', hp: 100 }
+		]);
+		home(t);
+		t.press('Enter'); // the squirrel: the only one that walks
+		expect(doctor.marked).toEqual([]);
+		expect(doctor.shake).toMatchObject({ row: 0 });
+		t.press('ArrowDown', 'Enter', 'ArrowDown', 'Enter'); // the sea animals may both go
+		expect(doctor.marked).toEqual(['b', 'c']);
+		expect(t.doctorSent()).toEqual([]);
+	});
+
 	it('No, or Escape, goes back to the list with the animals still picked; nothing leaves', () => {
 		const t = setup(hurtParty());
 		home(t);
@@ -936,6 +951,36 @@ describe('helping a whole kind home', () => {
 		expect(doctor.marked).toEqual([]);
 		expect(doctor.shake).toMatchObject({ row: 0 });
 		expect(tired.cues).toEqual([]);
+	});
+
+	it('a sea animal is no one to walk on with: the foxes keep a fox beside the crabs', () => {
+		const t = setup([...many('fox', 2, 'f'), ...many('crab', 3, 'c')], { tokens: 5 });
+		home(t);
+		expect(shown()).toEqual(['all fox', 'f1', 'f2', 'all crab', 'c1', 'c2', 'c3', 'send', 'bye']);
+		// The foxes' row keeps the first fox: crabs alone could battle nothing on land.
+		t.press('Enter');
+		expect(doctor.marked).toEqual(['f2']);
+		expect(mustStay(doctor.party, doctor.marked)).toEqual(['f1']);
+		expect(kindGoing('fox', doctor).map((a) => a.id)).toEqual(['f2']);
+		// Every crab may go, and the last fox still won't: a little shake.
+		t.press(rowKey(3));
+		expect(doctor.marked).toEqual(['f2', 'c1', 'c2', 'c3']);
+		t.press(rowKey(1));
+		expect(doctor.marked).toEqual(['f2', 'c1', 'c2', 'c3']);
+		expect(doctor.shake).toMatchObject({ row: 1 });
+		// The authority takes exactly those picks: one fox walks on.
+		t.run(PICK_QUIET_SECONDS);
+		t.press(rowKey(7));
+		t.run(PICK_QUIET_SECONDS);
+		t.press(optionKey(1));
+		expect(t.doctorSent().at(-1)).toEqual({
+			type: 'doctor',
+			intent: { type: 'hand-over', ids: ['f2', 'c1', 'c2', 'c3'] }
+		});
+		expect(doctor.screen).toBe('puzzle');
+		t.press(...String(t.answer()), 'Enter');
+		t.run(0.85 + 1.6 + 1.7);
+		expect(t.saved().party).toEqual(['f1']);
 	});
 
 	it('a team of 120 across every kind: a row for each kind, every row a stop, up and down wrapping round', () => {

@@ -18,6 +18,15 @@ import { ANIMAL_COLORS, COLORS } from './palette';
  * The returned group's single child is the "rig" that holds the parts;
  * `animateIdle` scales the rig, so callers may scale or move the outer group
  * freely.
+ *
+ * Two measures read the parts, and both are rough on purpose. A figure's
+ * bounds (its feet on y = 0, its size) are three.js's `Box3.setFromObject`,
+ * which turns each part's own bounding box, not its vertices: a part that
+ * touches the ground and leans must lean in its geometry (see `starArm`), or
+ * its box dips under the ground though no vertex does. And resting reads
+ * which parts stand on the ground by their bottoms being within 0.005 of it
+ * (`ON_GROUND`): a part meant to stand on it sits exactly on 0, and one meant
+ * to be raised clears it well (the octopus's suckers sat on the edge).
  */
 type SpeciesColors = { fur: number; accent: number };
 type Builder = (c: SpeciesColors) => THREE.Object3D[];
@@ -90,6 +99,61 @@ function antler(hex: number, side: -1 | 1): THREE.Mesh[] {
 		rot(tube(0.018, 0.18, hex, side * 0.1, 1.3, 0.5), 0.9, 0, 0),
 		rot(tube(0.018, 0.18, hex, side * 0.14, 1.42, 0.4), -0.8, 0, 0)
 	];
+}
+
+/**
+ * An arm lying on the ground, from `from` tiles out from the middle to its
+ * tip, the way `yaw` points (0 is +z): a cone laid down and flattened to
+ * `flat` of its height, its underside on y = 0. The octopus's arms.
+ */
+function groundArm(
+	r: number,
+	length: number,
+	flat: number,
+	hex: number,
+	yaw: number,
+	from: number
+): THREE.Mesh {
+	const geo = new THREE.ConeGeometry(r, length, 5);
+	geo.rotateX(Math.PI / 2); // the tip forward, along +z
+	geo.scale(1, flat, 1);
+	geo.translate(0, r * flat, from + length / 2);
+	geo.rotateY(yaw);
+	return part(geo, hex, 0, 0, 0);
+}
+/**
+ * A starfish's arm, standing up: a cone from the middle at (0, `cy`) to its
+ * tip the way `angle` points in the x–y plane (0 is +x, π/2 straight up),
+ * flat front to back, and leaning back by `lean` about the x axis through
+ * the feet. The lean is in the shape itself, so its bounds are its own.
+ */
+function starArm(
+	r: number,
+	length: number,
+	hex: number,
+	angle: number,
+	cy: number,
+	lean: number
+): THREE.Mesh {
+	const geo = new THREE.ConeGeometry(r, length, 5);
+	geo.translate(0, length / 2, 0); // its base in the middle, its tip up
+	geo.scale(1, 1, 0.45);
+	geo.rotateZ(angle - Math.PI / 2);
+	geo.translate(0, cy, 0);
+	geo.rotateX(-lean);
+	return part(geo, hex, 0, 0, 0);
+}
+/** Where a standing starfish's middle is: its two lower arms, 54° below level, reach the ground. */
+const STAR_ARM = 0.3;
+const STAR_MIDDLE = STAR_ARM * Math.sin((54 * Math.PI) / 180);
+/** How far it leans back, so the camera above sees its face and not its edge. */
+const STAR_LEAN = 0.6;
+const X_AXIS = new THREE.Vector3(1, 0, 0);
+/** Lean a part back by `angle` about the x axis through the feet: where it is, and its turn. */
+function leanBack<T extends THREE.Object3D>(obj: T, angle: number): T {
+	obj.position.applyAxisAngle(X_AXIS, -angle);
+	obj.rotation.x -= angle;
+	return obj;
 }
 
 const BUILDERS: Record<string, Builder> = {
@@ -208,6 +272,99 @@ const BUILDERS: Record<string, Builder> = {
 		ball(0.05, COLORS.dark, 0, 0.78, 0.72),
 		ball(0.07, fur, -0.17, 0.98, 0.4),
 		ball(0.07, fur, 0.17, 0.98, 0.4)
+	],
+	// The sea animals: in the world they swim low in the water, so each one's
+	// tell is in its top half. Wide and flat on six thin legs, two big claws
+	// held up in front, and eyes on stalks.
+	crab: ({ fur, accent }) => [
+		ball(0.15, fur, 0, 0.12, 0, 1.35, 0.55, 1),
+		ball(0.1, accent, 0, 0.09, 0.03, 1.3, 0.4, 1),
+		...([-1, 1] as const).flatMap((side) => [
+			tube(0.012, 0.09, fur, side * 0.06, 0.22, 0.09),
+			ball(0.027, COLORS.white, side * 0.06, 0.27, 0.09),
+			ball(0.014, COLORS.dark, side * 0.06, 0.275, 0.113),
+			box(0.035, 0.035, 0.11, fur, side * 0.13, 0.14, 0.15),
+			ball(0.065, fur, side * 0.16, 0.17, 0.25, 1, 0.8, 1.2),
+			ball(0.04, accent, side * 0.17, 0.2, 0.31, 0.8, 0.5, 1),
+			...[-0.08, 0, 0.08].flatMap((z) => [
+				box(0.1, 0.025, 0.025, fur, side * 0.24, 0.07, z),
+				box(0.025, 0.07, 0.025, fur, side * 0.3, 0.035, z)
+			])
+		])
+	],
+	// A five-armed star standing on two of its arms and leaning back, a face in the middle.
+	starfish: ({ fur, accent }) => [
+		...[90, 18, -54, -126, 162].map((deg) =>
+			starArm(0.1, STAR_ARM, fur, (deg * Math.PI) / 180, STAR_MIDDLE, STAR_LEAN)
+		),
+		...[
+			ball(0.12, fur, 0, STAR_MIDDLE, 0, 1, 1, 0.5),
+			ball(0.07, accent, 0, STAR_MIDDLE - 0.02, 0.045, 1, 0.8, 0.45),
+			...([-1, 1] as const).flatMap((side) => [
+				ball(0.036, COLORS.white, side * 0.05, STAR_MIDDLE + 0.04, 0.055),
+				ball(0.018, COLORS.dark, side * 0.05, STAR_MIDDLE + 0.04, 0.085)
+			]),
+			box(0.06, 0.015, 0.015, COLORS.dark, 0, STAR_MIDDLE - 0.035, 0.075)
+		].map((p) => leanBack(p, STAR_LEAN))
+	],
+	// A domed shell over four wide flippers, and a round head poking out in front.
+	turtle: ({ fur, accent }) => [
+		ball(0.26, accent, 0, 0.2, 0, 1, 0.55, 1.2),
+		ball(0.2, fur, 0, 0.12, 0.02, 1.05, 0.3, 1.15),
+		ball(0.085, fur, 0, 0.2, 0.37, 1, 0.9, 1.2),
+		...([-1, 1] as const).flatMap((side) => [
+			ball(0.018, COLORS.dark, side * 0.05, 0.235, 0.44),
+			rot(box(0.24, 0.03, 0.09, fur, side * 0.27, 0.015, 0.15), 0, side * 0.45, 0),
+			rot(box(0.12, 0.03, 0.07, fur, side * 0.19, 0.015, -0.25), 0, -side * 0.5, 0)
+		]),
+		rot(cone(0.03, 0.09, fur, 0, 0.1, -0.36), -Math.PI / 2, 0, 0)
+	],
+	// Sleek and long, a pale belly, a beak of a nose and a fin standing up on
+	// its back; it rests on its side fins and its tail.
+	dolphin: ({ fur, accent }) => [
+		ball(0.16, fur, 0, 0.26, 0, 1, 1, 2.4),
+		ball(0.13, accent, 0, 0.21, 0.08, 0.9, 0.8, 2),
+		ball(0.13, fur, 0, 0.3, 0.38, 1, 0.95, 1.1),
+		rot(tube(0.045, 0.16, accent, 0, 0.25, 0.56), Math.PI / 2, 0, 0),
+		rot(cone(0.07, 0.18, fur, 0, 0.47, -0.04), -0.45, 0, 0),
+		ball(0.08, fur, 0, 0.13, -0.5, 1, 1, 2),
+		box(0.34, 0.025, 0.13, fur, 0, 0.0125, -0.7),
+		...([-1, 1] as const).flatMap((side) => [
+			ball(0.025, COLORS.dark, side * 0.1, 0.34, 0.45),
+			rot(box(0.18, 0.025, 0.09, fur, side * 0.16, 0.0125, 0.16), 0, side * 0.5, 0)
+		])
+	],
+	// A big round head with big eyes over eight arms spread on the ground.
+	octopus: ({ fur, accent }) => [
+		ball(0.2, fur, 0, 0.42, -0.04, 1, 1.25, 1),
+		ball(0.17, fur, 0, 0.14, 0, 1, 0.45, 1),
+		...Array.from({ length: 8 }, (_, i) =>
+			groundArm(0.065, 0.36, 0.75, fur, ((i + 0.5) * Math.PI) / 4, 0.1)
+		),
+		...([-1, 1] as const).flatMap((side) => [
+			ball(0.055, COLORS.white, side * 0.09, 0.42, 0.13),
+			ball(0.028, COLORS.dark, side * 0.09, 0.42, 0.18),
+			// A sucker on each front arm, standing on the ground as the arm does.
+			ball(0.03, accent, side * 0.14, 0.048, 0.3, 1, 1.6, 1),
+			ball(0.03, accent, side * 0.3, 0.048, 0.12, 1, 1.6, 1)
+		])
+	],
+	// Huge and long, a pale throat, a tail fluke flat on the water, and a
+	// fountain from the blowhole on top.
+	whale: ({ fur, accent }) => [
+		ball(0.3, fur, 0, 0.36, 0, 1, 0.95, 2),
+		ball(0.25, accent, 0, 0.26, 0.2, 0.95, 0.65, 1.55),
+		ball(0.14, fur, 0, 0.22, -0.72, 1, 0.8, 1.5),
+		box(0.3, 0.035, 0.2, fur, -0.15, 0.0175, -0.98),
+		box(0.3, 0.035, 0.2, fur, 0.15, 0.0175, -0.98),
+		tube(0.02, 0.14, COLORS.white, 0, 0.7, 0.25),
+		ball(0.06, COLORS.white, -0.05, 0.8, 0.25, 1, 0.6, 1),
+		ball(0.06, COLORS.white, 0.05, 0.8, 0.25, 1, 0.6, 1),
+		...([-1, 1] as const).flatMap((side) => [
+			ball(0.035, COLORS.white, side * 0.265, 0.38, 0.38),
+			ball(0.018, COLORS.dark, side * 0.285, 0.38, 0.4),
+			rot(box(0.3, 0.035, 0.12, fur, side * 0.32, 0.0175, 0.2), 0, side * 0.4, 0)
+		])
 	]
 };
 

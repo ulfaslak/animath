@@ -5,19 +5,20 @@ import { normalizeNickname } from './names.js';
 /**
  * Starting out ([[PRODUCT]] §4 "Starting out"): a new game begins with one
  * animal the player picks from the starters, every tier-1 species in the
- * catalog, so a species added at tier 1 is offered too. The rule is the
- * engine's, so a server authority would refuse exactly what the local one
- * refuses. The engine mints no ids: the starter comes back without one, and
- * the authority gives it its own.
+ * catalog that can fight on land, where a new game starts, so a species
+ * added at tier 1 is offered too unless it lives only in the sea. The rule
+ * is the engine's, so a server authority would refuse exactly what the local
+ * one refuses. The engine mints no ids: the starter comes back without one,
+ * and the authority gives it its own.
  */
 
 /** The tier of every starter: the smallest animals, where the puzzle ladder begins. */
 export const STARTER_TIER = 1;
 
 /** The species a new game can start with, by id, in catalog order. */
-export const STARTERS: readonly string[] = ANIMALS.filter((a) => a.tier === STARTER_TIER).map(
-	(a) => a.id
-);
+export const STARTERS: readonly string[] = ANIMALS.filter(
+	(a) => a.tier === STARTER_TIER && a.realms.includes('land')
+).map((a) => a.id);
 
 /** Whether a new game may start with `speciesId`. */
 export function isStarter(speciesId: unknown): boolean {

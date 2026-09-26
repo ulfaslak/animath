@@ -1,5 +1,5 @@
 import { canFightIn, getAnimal } from '../src/animals/catalog.js';
-import type { AnimalInstance, AttackLevel, Realm } from '../src/animals/types.js';
+import { REALMS, type AnimalInstance, type AttackLevel, type Realm } from '../src/animals/types.js';
 import { applyBattleIntent, startBattle } from '../src/battle/reducer.js';
 import type { BattleEvent, BattleIntent, BattleState, BattleStep } from '../src/battle/types.js';
 import { Rng, hashInts } from '../src/rng.js';
@@ -44,6 +44,14 @@ export function makeParty(speciesIds: readonly string[]): AnimalInstance[] {
 		speciesId,
 		hp: getAnimal(speciesId).maxHp
 	}));
+}
+
+/**
+ * Where two species meet in a battle: on land when both can fight there, else
+ * out on the water; null when they never meet (a squirrel and a crab).
+ */
+export function arena(...speciesIds: readonly string[]): Realm | null {
+	return REALMS.find((r) => speciesIds.every((id) => canFightIn(id, r))) ?? null;
 }
 
 export function makeWild(speciesId: string, hp?: number): AnimalInstance {

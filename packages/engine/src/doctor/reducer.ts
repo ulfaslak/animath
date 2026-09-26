@@ -142,10 +142,11 @@ function pickPatient(state: DoctorState, seed: number, partyIndex: number): Doct
 
 /**
  * Animals by id, each once, all in the party, and never so many that nobody
- * standing stays: the kid keeps at least one animal that isn't tired, so the
- * team can still battle when it walks away (and a reload, which rests a team
- * with nobody standing, is never a free heal). Tired animals may go too: the
- * doctor makes them better before they leave.
+ * standing stays: the kid keeps at least one animal that isn't tired and can
+ * fight on land, where every tent stands, so the team can still battle when
+ * it walks away (a sea animal alone could not), and a reload, which rests a
+ * team with nobody standing, is never a free heal. Tired animals may go too:
+ * the doctor makes them better before they leave.
  */
 function handOver(state: DoctorState, ids: readonly string[]): DoctorStep {
 	if (!Array.isArray(ids) || ids.length === 0) return reject(state, 'no-such-animal');
