@@ -39,11 +39,15 @@ const MAX_SEARCH_STEPS = 1_000_000;
 export interface TentSpot {
 	/** The tent's tile. */
 	tent: GridPos;
-	/** Where the player stands: a walkable tile next to the tent, reachable on foot from the start. */
+	/**
+	 * Where the player stands: a walkable tile next to the tent, reachable from
+	 * the start the way the player gets about (on foot, or with the boat over
+	 * the water too).
+	 */
 	stand: GridPos;
 	/** The way a player on `stand` faces to look at the tent. */
 	facing: Direction;
-	/** Steps on foot from the start to `stand`; 0 when the start is already beside the tent. */
+	/** Steps from the start to `stand`, the same way; 0 when the start is already beside the tent. */
 	steps: number;
 }
 

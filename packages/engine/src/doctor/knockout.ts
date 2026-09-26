@@ -1,5 +1,5 @@
 import { canFightIn, getAnimal } from '../animals/catalog.js';
-import type { AnimalInstance, Realm } from '../animals/types.js';
+import { REALMS, type AnimalInstance, type Realm } from '../animals/types.js';
 import { WorldEdits } from '../world/edits.js';
 import { TENT_SEARCH_STEPS, nearestTent } from '../world/tents.js';
 import { NO_GEAR, type Direction, type Gear, type GridPos } from '../world/types.js';
@@ -57,6 +57,7 @@ export function takeToDoctor(
 	options: RescueOptions = {}
 ): Rescue {
 	const realm = options.realm ?? 'land';
+	if (!REALMS.includes(realm)) throw new Error(`takeToDoctor: unknown realm ${String(realm)}`);
 	validateParty(party, 'takeToDoctor');
 	if (party.length === 0) throw new Error('takeToDoctor: the party is empty');
 	if (party.some((a) => a.hp > 0 && canFightIn(a.speciesId, realm))) {

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { ANIMALS, getAnimal } from '../src/animals/catalog.js';
-import type { AnimalInstance } from '../src/animals/types.js';
+import type { AnimalInstance, Realm } from '../src/animals/types.js';
 import { takeToDoctor } from '../src/doctor/knockout.js';
 import { needsHealing } from '../src/doctor/party.js';
 import { applyDoctorIntent, startDoctorVisit } from '../src/doctor/reducer.js';
@@ -967,6 +967,13 @@ describe('takeToDoctor', () => {
 		expect(() => takeToDoctor(PROTOTYPE, pos, partyOf(['bear'], ['frog', 0]))).toThrow(
 			/knocked out/
 		);
+		// A realm that is neither is refused, never read as one where nobody can fight.
+		for (const realm of ['sea', '', 7]) {
+			const options = { realm: realm as unknown as Realm };
+			expect(() =>
+				takeToDoctor(PROTOTYPE, pos, partyOf(['bear']), WorldEdits.none, options)
+			).toThrow(/realm/);
+		}
 	});
 
 	it('walks the paths the player cleared: out of a spot walled in by trees, once they are chopped', () => {
