@@ -170,10 +170,13 @@ const DUST_GEOMETRY = new THREE.IcosahedronGeometry(0.08, 1);
 const CONFETTI_GEOMETRY = new THREE.PlaneGeometry(0.09, 0.06);
 /** The poppers' pieces are bigger: they fly close to the camera, over the whole scene. */
 const POPPER_GEOMETRY = new THREE.PlaneGeometry(0.1, 0.066);
-/** A star one unit across, point to point. */
+/**
+ * A four-pointed star one unit across, point to point: eight triangles
+ * round its middle, built by hand (a `Shape` would bring its triangulator
+ * into the bundle for one star).
+ */
 const STAR_GEOMETRY = (() => {
-	const star = new THREE.Shape();
-	const points = [
+	const rim = [
 		[0, 0.5],
 		[0.13, 0.13],
 		[0.5, 0],
@@ -183,10 +186,14 @@ const STAR_GEOMETRY = (() => {
 		[-0.5, 0],
 		[-0.13, 0.13]
 	] as const;
-	star.moveTo(points[0][0], points[0][1]);
-	for (const [x, y] of points.slice(1)) star.lineTo(x, y);
-	star.closePath();
-	return new THREE.ShapeGeometry(star);
+	const positions: number[] = [];
+	rim.forEach(([ax, ay], i) => {
+		const [bx, by] = rim[(i + 1) % rim.length]!;
+		positions.push(0, 0, 0, bx, by, 0, ax, ay, 0);
+	});
+	const geometry = new THREE.BufferGeometry();
+	geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+	return geometry;
 })();
 const LOOP_GEOMETRY = new THREE.TorusGeometry(0.3, 0.05, 6, 16);
 /** A unit-length rope along +y from the origin; stretched and turned per frame. */
