@@ -57,7 +57,7 @@ For flows longer than one battle (catching, then switching, then a knock-out), s
 
 ## PR images: the repo is private
 
-`raw.githubusercontent.com` answers 404 for this repo's files without a token, so a PR body links its frames the way GitHub's own page serves them to a signed-in viewer: `https://github.com/ulfaslak/mathgame/blob/screenshots/<branch>/<file>.png?raw=true`. The frames go on a side branch `screenshots/<branch>` that holds nothing else; git's plumbing builds it without touching any worktree (`git hash-object -w` each file, `git mktree`, `git commit-tree`, `git push origin <commit>:refs/heads/screenshots/<branch>`).
+`raw.githubusercontent.com` answers 404 for this repo's files without a token, so a PR body links its frames the way GitHub's own page serves them to a signed-in viewer: `https://github.com/ulfaslak/mathgame/blob/screenshots/<branch>/<file>.png?raw=true`. The frames go on a side branch `screenshots/<branch>` that holds nothing else; git's plumbing builds it without touching any worktree (`git hash-object -w` each file, `git mktree`, `git commit-tree`, `git push origin <commit>:refs/heads/screenshots/<branch>`). The shell is zsh: with the commit in a variable, write `"${commit}:refs/heads/…"`. In `$commit:refs/…`, zsh reads `:r` as its "drop the extension" modifier, and git refuses the mangled refspec (2026-09-26).
 
 ## `page.waitForFunction` does not wait for an async predicate
 
