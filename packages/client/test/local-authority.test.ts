@@ -33,6 +33,7 @@ import {
 import { describe, expect, it } from 'vitest';
 import { LocalAuthority, WORLD_SEED, type LocalAuthorityOptions } from '../src/authority/local';
 import { parseParty } from '../src/flags';
+import { game } from '../src/state/game.svelte';
 import { besideA, gameBeside } from './clearing';
 
 /**
@@ -1448,7 +1449,9 @@ describe('LocalAuthority: trees and rocks', () => {
 		let far = WorldEdits.none;
 		for (let i = 0; i < 1800; i++) far = far.with({ x: 5000 + i * 16, y: -7000 - (i % 40) * 16 });
 		const s = from({ ...gameBeside(tree, ['axe', 'pickaxe']), edits: [...far.encode()] });
-		let view = WorldEdits.decode(welcome(s).edits);
+		// The UI's view of the game, filled from the events as `main.ts` fills it.
+		for (const e of s.events) game.apply(e);
+		expect(game.edits.encode()).toEqual(s.authority.snapshot().edits);
 		const rng = new Rng(5);
 		let regrown = 0;
 		for (let i = 0; i < 300; i++) {
@@ -1459,12 +1462,12 @@ describe('LocalAuthority: trees and rocks', () => {
 					: { type: 'move', dir: rng.pick(['up', 'down', 'left', 'right'] as const) }
 			);
 			for (const e of s.events.slice(before)) {
+				game.apply(e);
 				if (e.type === 'battle-started')
 					s.authority.dispatch({ type: 'battle', intent: { type: 'flee' } });
 				if (e.type !== 'tile-cleared') continue;
-				view = view.with(e.pos).without(e.regrown);
 				regrown += e.regrown.length;
-				expect(view.encode()).toEqual(s.authority.snapshot().edits);
+				expect(game.edits.encode()).toEqual(s.authority.snapshot().edits);
 			}
 		}
 		expect(regrown).toBeGreaterThan(0);
