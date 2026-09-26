@@ -326,14 +326,16 @@
 		width: min(420px, 42vw);
 		padding: 14px 14px 12px;
 	}
+	/* A row's right side that doesn't fit beside its label goes under it (Continue's long name). */
 	.row {
 		display: flex;
+		flex-wrap: wrap;
 		align-items: center;
-		gap: 10px;
+		gap: 2px 10px;
 		width: 100%;
 		box-sizing: border-box;
 		min-height: 52px;
-		padding: 0 12px 0 6px;
+		padding: 4px 12px 4px 6px;
 		border-radius: 12px;
 		font-weight: 800;
 		font-size: 22px;
@@ -359,8 +361,9 @@
 	.label {
 		flex: none;
 	}
+	/* As long as the name and the count need, so a long name wraps the pair under Continue whole. */
 	.team {
-		flex: 1;
+		flex: 1 1 auto;
 		min-width: 0;
 		display: flex;
 		justify-content: flex-end;
