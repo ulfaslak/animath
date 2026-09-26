@@ -13,6 +13,7 @@ import {
 	type SavedGame
 } from '@mathgame/engine';
 import { isIdentity, type Identity, type SaveServer } from './api';
+import type { BehindCause } from './behind';
 import type { SaveNotice } from './notices';
 import { KEYS, parseJson, type KeyValueStore } from './storage';
 
@@ -153,7 +154,8 @@ export class Autosave {
 	private played = false;
 	/** The server holds a save this build cannot read: no backup replaces it until the kid has played. */
 	private serverHeld = false;
-	private stale = false;
+	/** Why this page is behind, once it is (`behind`). It never stops being behind. */
+	private staleCause: BehindCause | null = null;
 	/**
 	 * A game is under way and saved as it changes: from `begin` (the plan's
 	 * game picked up) or a new game's `welcome`, until `game-left`.
@@ -196,9 +198,29 @@ export class Autosave {
 		this.bootWaitMs = options.bootWaitMs ?? BOOT_WAIT_MS;
 	}
 
-	/** True once another page has taken over the save: reload to pick up the newest game. */
-	get wantsReload(): boolean {
-		return this.stale;
+	/**
+	 * Null while this page's game is the newest. Once the browser's save has
+	 * moved past it, why: another page played on in the same game (`window`),
+	 * the save now holds another game, which this page or another took from the
+	 * server (`replaced`), or the save was removed from under it (`gone`). From
+	 * then on the page saves nothing, and should reload to pick up the newest
+	 * game (`save/behind.ts`).
+	 */
+	get behind(): BehindCause | null {
+		return this.staleCause;
+	}
+
+	/**
+	 * Check the save again, as a `storage` event would. For a page that may
+	 * have missed one: back from the back/forward cache, resumed after the
+	 * browser froze it, or just focused.
+	 */
+	recheck(): void {
+		this.onStorage(KEYS.save);
+	}
+
+	private get stale(): boolean {
+		return this.staleCause !== null;
 	}
 
 	/**
@@ -335,7 +357,7 @@ export class Autosave {
 		const now = this.store?.get(KEYS.save) ?? null;
 		if (now === this.seenText) return;
 		// The other page only walked: carry on from its save now, counters and all.
-		if (!this.carryOnFrom(now)) this.goStale();
+		if (!this.carryOnFrom(now)) this.goStale(this.causeOf(now));
 	}
 
 	/**
@@ -416,7 +438,7 @@ export class Autosave {
 					this.local = 'broken';
 				}
 			} else if (current !== this.seenText && !this.carryOnFrom(current)) {
-				this.goStale();
+				this.goStale(this.causeOf(current));
 				return;
 			}
 			if (this.local === 'held') {
@@ -500,8 +522,17 @@ export class Autosave {
 		return false;
 	}
 
-	private goStale(): void {
-		this.stale = true;
+	/**
+	 * Why a save this page cannot carry on from puts it behind: its own game
+	 * played on elsewhere keeps the lineage; another game in its place does not.
+	 */
+	private causeOf(text: string | null): BehindCause {
+		if (text === null) return 'gone';
+		return saveLineage(parseJson(text)) === this.lineage ? 'window' : 'replaced';
+	}
+
+	private goStale(cause: BehindCause): void {
+		this.staleCause ??= cause;
 		this.clearTimers();
 	}
 
@@ -674,7 +705,7 @@ export class Autosave {
 		const current = store.get(KEYS.save);
 		if (current !== this.seenText && current !== null) {
 			// Another page wrote meanwhile; it will settle with the server itself.
-			this.goStale();
+			this.goStale(this.causeOf(current));
 			return;
 		}
 		const aside = this.local === 'held' ? KEYS.unreadable : KEYS.replaced;
@@ -688,7 +719,7 @@ export class Autosave {
 			this.serverState = 'stopped';
 			return;
 		}
-		this.goStale();
+		this.goStale('replaced');
 	}
 
 	private async createIdentity(): Promise<void> {

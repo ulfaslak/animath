@@ -3,11 +3,13 @@
 	import { t } from '../copy';
 	import { flags } from '../flags';
 	import { battle } from '../state/battle.svelte';
+	import { behind } from '../state/behind.svelte';
 	import { doctor } from '../state/doctor.svelte';
 	import { game } from '../state/game.svelte';
 	import { pause } from '../state/pause.svelte';
 	import { title } from '../state/title.svelte';
 	import BattlePanel from './BattlePanel.svelte';
+	import BehindCard from './BehindCard.svelte';
 	import DoctorCard from './DoctorCard.svelte';
 	import Hud from './Hud.svelte';
 	import Iris from './Iris.svelte';
@@ -36,6 +38,10 @@
 <SoundChip low={title.open} />
 <!-- Over everything, the battle panel included: the encounter transition. -->
 <Iris />
+{#if behind.shown}
+	<!-- Over everything: this page is behind the save, and takes no play. -->
+	<BehindCard />
+{/if}
 
 {#if flags.debug && playing}
 	<!-- `?debug`: where the player stands and which way they face. -->
