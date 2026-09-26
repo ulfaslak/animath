@@ -11,11 +11,12 @@ import { BOAT_COLORS } from './palette';
  * (rotates, translates and scales) to sit under you, smooth like that".
  *
  * It is a child of the trainer's figure, so it walks and turns with them.
- * `poseBoat` puts it anywhere between its two poses: on the back (0), upside
- * down and small on the trainer's shoulders, and afloat (1), right side up
- * and full size under their feet, its bow the way they face, a pennant
- * standing at the stern. Between the two it rolls off to the trainer's right,
- * turning over as it grows, and drops under them.
+ * `poseBoat` puts it anywhere between its two poses: on the back (0), small,
+ * standing on its bow against the trainer's back like a shell, its bottom
+ * turned out, and afloat (1), right side up and full size under their feet,
+ * its bow the way they face, a pennant standing at the stern. Between the two
+ * it swings out to the trainer's right, tipping over as it grows, and drops
+ * under them.
  *
  * Units are tiles, like the figures: the hull is 0.9 long and 0.48 across at
  * the stern, narrowing to its bow. The trainer stands on its floor.
@@ -37,11 +38,22 @@ const KEEL_SINK = 0.06;
 /** How far over the water's surface the trainer's feet are, standing in the boat. */
 export const BOAT_STAND = FLOOR - KEEL_SINK;
 
-/** On the back: how small, and where its middle sits, from the trainer's feet. */
-const BACK_SCALE = 0.42;
-const BACK = new THREE.Vector3(0, 0.47, -0.13);
+/** On the back: how small, and where its middle sits, from the trainer's feet: against their back. */
+const BACK_SCALE = 0.62;
+const BACK = new THREE.Vector3(0, 0.4, -0.17);
+/**
+ * On the back it stands on its bow like a shell, its open side against the
+ * trainer's back and its bottom out, leaning back a little at the top.
+ */
+const BACK_TURN = new THREE.Quaternion().setFromEuler(new THREE.Euler(Math.PI / 2 - 0.3, 0, 0));
+
+
 /** Afloat: its middle, from the trainer's feet, so the floor is under them. */
 const AFLOAT = new THREE.Vector3(0, DEPTH / 2 - FLOOR, 0);
+const AFLOAT_TURN = new THREE.Quaternion();
+/** A little rocking on the water, reused. */
+const ROCK = new THREE.Quaternion();
+const ROCK_EULER = new THREE.Euler();
 /** How far to the trainer's right it swings on its way from one to the other, and how high. */
 const SWING_OUT = 0.5;
 const SWING_UP = 0.12;
@@ -130,7 +142,8 @@ export function buildBoatMesh(): THREE.Group {
 	for (const s of [-1, 1] as const) {
 		const rim = mesh(new THREE.BoxGeometry(0.035, 0.035, side), materials.trim);
 		rim.position.set((s * (STERN_R + BOW_R)) / 2, DEPTH / 2, 0);
-		rim.rotation.y = s * slant;
+		// From the wide stern to the narrow bow: each side slants in towards the middle.
+		rim.rotation.y = -s * slant;
 		boat.add(rim);
 	}
 	const transom = mesh(new THREE.BoxGeometry(STERN_R * 2, 0.035, 0.035), materials.trim);
@@ -154,9 +167,9 @@ export function buildBoatMesh(): THREE.Group {
 
 /**
  * Put the boat between its two poses: `afloat` 0 is on the trainer's back,
- * 1 under their feet. On the way it rolls off to their right and over as it
- * grows; with `calm` (reduced motion) it snaps from one to the other half
- * way. `bob` rocks it gently on the water, afloat only: 0 is still.
+ * 1 under their feet. On the way it swings out to their right and tips over
+ * as it grows; with `calm` (reduced motion) it snaps from one to the other
+ * half way. `bob` rocks it gently on the water, afloat only: 0 is still.
  */
 export function poseBoat(boat: THREE.Group, afloat: number, calm: boolean, bob = 0): void {
 	const a = Math.min(1, Math.max(0, afloat));
@@ -165,10 +178,13 @@ export function poseBoat(boat: THREE.Group, afloat: number, calm: boolean, bob =
 	boat.position.lerpVectors(BACK, AFLOAT, e);
 	boat.position.x += arc * SWING_OUT;
 	boat.position.y += arc * SWING_UP;
-	// Upside down on the back, right side up afloat: it turns over about its length.
-	const settled = e === 1 ? bob : 0;
-	boat.rotation.set(settled * 0.4, 0, Math.PI * (1 - e) + settled);
+	// Standing on its bow on the back, right side up afloat: one turn between.
+	boat.quaternion.slerpQuaternions(BACK_TURN, AFLOAT_TURN, e);
+	if (e === 1 && bob !== 0) {
+		boat.quaternion.multiply(ROCK.setFromEuler(ROCK_EULER.set(bob * 0.4, 0, bob)));
+	}
 	boat.scale.setScalar(BACK_SCALE + (1 - BACK_SCALE) * e);
+
 	const pennant = boat.getObjectByName('pennant');
 	if (pennant) pennant.scale.setScalar(Math.max(0.001, smoothstep((e - 0.7) / 0.3)));
 }

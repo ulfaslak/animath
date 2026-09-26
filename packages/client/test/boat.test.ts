@@ -20,14 +20,26 @@ function inTrainer(afloat: number, calm = false): { boat: THREE.Group; box: THRE
 }
 
 const pennantScale = (boat: THREE.Group) => boat.getObjectByName('pennant')!.scale.x;
+/** Which way one of the boat's own axes points in the trainer's frame. */
+const axis = (boat: THREE.Group, x: number, y: number, z: number) =>
+	new THREE.Vector3(x, y, z).applyQuaternion(boat.quaternion);
+/** How far the boat is turned from sitting right side up, in radians. */
+const turned = (boat: THREE.Group) => boat.quaternion.angleTo(new THREE.Quaternion());
 
 describe('the boat', () => {
-	it('on the back: upside down, small, off the ground and behind the trainer, its pennant down', () => {
+	it('on the back: its bottom turned out, small, off the ground and behind the trainer, its pennant down', () => {
 		const { boat, box } = inTrainer(0);
-		expect(boat.rotation.z).toBeCloseTo(Math.PI, 5);
-		expect(boat.scale.x).toBeLessThan(0.5);
-		// Up on the shoulders, never down by the feet.
-		expect(box.min.y).toBeGreaterThan(0.3);
+		// The open side against the trainer's back (+z, the way they face), the bow
+		// down, leaning back a little at the top: its bottom out, like a shell.
+		expect(axis(boat, 0, 1, 0).z).toBeGreaterThan(0.9);
+		expect(axis(boat, 0, 0, 1).y).toBeLessThan(-0.9);
+		expect(axis(boat, 0, 0, -1).z).toBeLessThan(0);
+		expect(boat.scale.x).toBeLessThan(0.7);
+		// On the back, from the shoulders down past the hips, never down by the feet.
+		expect(box.min.y).toBeGreaterThan(0.08);
+
+		expect(box.max.y).toBeGreaterThan(0.5);
+
 		// Behind the trainer, who faces +z: nothing of it in front of their face.
 		expect(box.max.z).toBeLessThan(0.12);
 		expect(pennantScale(boat)).toBeLessThan(0.01);
@@ -38,7 +50,7 @@ describe('the boat', () => {
 
 	it('afloat: right side up and full size under the trainer, the floor at their feet, the rim over them', () => {
 		const { boat, box } = inTrainer(1);
-		expect(boat.rotation.z).toBeCloseTo(0, 5);
+		expect(turned(boat)).toBeCloseTo(0, 5);
 		expect(boat.scale.x).toBe(1);
 		expect(pennantScale(boat)).toBe(1);
 		// The keel is under the feet by the floor's height, and the water comes up to
@@ -55,12 +67,12 @@ describe('the boat', () => {
 		expect(box.max.z - box.min.z).toBeLessThan(1);
 	});
 
-	it('swings from one to the other smoothly: no step of the way jumps, it grows all the way, and rolls over once', () => {
+	it('swings from one to the other smoothly: no step of the way jumps, it grows all the way, and turns once', () => {
 		const { boat } = inTrainer(0);
 		const at = new THREE.Vector3();
 		const last = new THREE.Vector3();
 		let lastScale = 0;
-		let lastRoll = Infinity;
+		let lastTurn = Infinity;
 		const steps = 200;
 		const jumps: string[] = [];
 		for (let i = 0; i <= steps; i++) {
@@ -68,10 +80,11 @@ describe('the boat', () => {
 			at.copy(boat.position);
 			if (i > 0 && at.distanceTo(last) > 0.02) jumps.push(`moved ${at.distanceTo(last)} at ${i}`);
 			if (boat.scale.x < lastScale) jumps.push(`shrank at ${i}`);
-			if (boat.rotation.z > lastRoll + 1e-9) jumps.push(`rolled back at ${i}`);
+			if (turned(boat) > lastTurn + 1e-9) jumps.push(`turned back at ${i}`);
+			if (i > 0 && lastTurn - turned(boat) > 0.05) jumps.push(`turned ${lastTurn - turned(boat)} at ${i}`);
 			last.copy(at);
 			lastScale = boat.scale.x;
-			lastRoll = boat.rotation.z;
+			lastTurn = turned(boat);
 		}
 		expect(jumps).toEqual([]);
 		// On the way it swings out to the trainer's side, clear of their body.
@@ -80,14 +93,17 @@ describe('the boat', () => {
 	});
 
 	it('with reduced motion, snaps from the back to the water half way, and rocks not at all', () => {
+		const back = turned(inTrainer(0).boat);
 		for (const a of [0, 0.2, 0.49]) {
-			expect(inTrainer(a, true).boat.rotation.z).toBeCloseTo(Math.PI, 5);
-			expect(inTrainer(a, true).boat.scale.x).toBeLessThan(0.5);
+			expect(turned(inTrainer(a, true).boat)).toBeCloseTo(back, 5);
+			expect(inTrainer(a, true).boat.scale.x).toBeLessThan(0.7);
+
 		}
 		for (const a of [0.5, 0.8, 1]) {
-			expect(inTrainer(a, true).boat.rotation.z).toBeCloseTo(0, 5);
+			expect(turned(inTrainer(a, true).boat)).toBeCloseTo(0, 5);
 			expect(inTrainer(a, true).boat.scale.x).toBe(1);
 		}
+
 	});
 
 	it('frees its own geometries, and only those: the materials are shared', () => {
