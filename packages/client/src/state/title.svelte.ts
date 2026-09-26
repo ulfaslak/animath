@@ -1,4 +1,10 @@
-import type { SavedGame } from '@mathgame/engine';
+import {
+	leadIndex,
+	tileAtWorld,
+	tileRealm,
+	type AnimalInstance,
+	type SavedGame
+} from '@mathgame/engine';
 import type { SaveNotice } from '../save/notices';
 
 /**
@@ -52,6 +58,20 @@ class TitleView {
 	/** The rows the menu shows now. */
 	get rows(): TitleRow[] {
 		return TITLE_ROWS.filter((row) => row !== 'continue' || this.saved !== null);
+	}
+
+	/**
+	 * The one Continue names: the saved team's first animal that is standing
+	 * and can fight where the game stands (out on the water, one that swims);
+	 * out on the water with none that swims, the one in the boat, the first
+	 * standing, as the game shows it.
+	 */
+	get lead(): AnimalInstance | null {
+		const saved = this.saved;
+		if (!saved) return null;
+		const party = saved.party;
+		const realm = tileRealm(tileAtWorld(saved.seed, saved.pos.x, saved.pos.y).kind);
+		return party[leadIndex(party, realm)] ?? party[leadIndex(party)] ?? party[0] ?? null;
 	}
 }
 
