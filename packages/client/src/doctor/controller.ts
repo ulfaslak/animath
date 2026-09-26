@@ -8,6 +8,7 @@ import {
 	type GameEvent
 } from '@mathgame/engine';
 import { answerKey } from '../input/answer';
+import { isShortcut, keyName } from '../input/keyboard';
 import { cursorStops, doctor, hurtIndexes, stepCursor } from '../state/doctor.svelte';
 import type { DoctorLine } from './lines';
 
@@ -99,13 +100,14 @@ export class DoctorController {
 		if (!doctor.active) return;
 		// Leave browser shortcuts alone, and never act on auto-repeat: an Enter
 		// or an arrow held down when the card opened does nothing until pressed again.
-		if (e.ctrlKey || e.metaKey || e.altKey) return;
+		if (isShortcut(e)) return;
 		if (e.repeat) {
 			e.preventDefault();
 			return;
 		}
+		const key = keyName(e);
 		// Escape leaves at any time, mid-puzzle and mid-beat included.
-		if (e.key === 'Escape') {
+		if (key === 'Escape') {
 			e.preventDefault();
 			this.send({ type: 'leave' });
 			return;
@@ -116,10 +118,10 @@ export class DoctorController {
 			case 'busy':
 				return; // a beat is playing
 			case 'list':
-				handled = this.listKey(e.key);
+				handled = this.listKey(key);
 				break;
 			case 'puzzle':
-				handled = this.puzzleKey(e.key);
+				handled = this.puzzleKey(key);
 				break;
 		}
 		if (handled) e.preventDefault();
