@@ -5,13 +5,16 @@ import { factorForShare, terrainShares, type Surroundings } from './habitat.js';
 import { encounterRealm, isEncounterTile, type GridPos, type Tile } from './types.js';
 
 /**
- * Wild encounters: which animal, if any, steps out of the tall grass.
+ * Wild encounters: which animal, if any, steps out of the tall grass, or out
+ * at sea comes up from the deep water.
  *
  * The authority calls `rollEncounter` once per completed step, with the tier of
- * the party's lead: the first animal that isn't tired, the one that steps into
- * the battle first. Only a step that lands on an encounter tile can start a
- * battle; the roll then draws the encounter chance and, on a hit, a species
- * from the table where the player stands (`encounterTableAt`).
+ * the party's lead where the player stands: the first animal that isn't tired
+ * and can fight there (out at sea, the first that swims), the one that steps
+ * into the battle first. Only a step that lands on an encounter tile (tall
+ * grass, deep water) can start a battle; the roll then draws the encounter
+ * chance and, on a hit, a species from the table where the player stands
+ * (`encounterTableAt`), in the tile's realm.
  *
  * The biome's table (`encounterTable`) is the catalog filtered by biome and
  * realm and weighted by how many tiers above the lead each species is, so that
@@ -138,8 +141,9 @@ function assertTier(tier: unknown, where: string): asserts tier is Tier {
  * in `biome` at `distance` tiles from spawn, with their normalised shares, in
  * catalog order, before the ground around a tile has a say.
  *
- * Only species living in `realm` are listed: on land, today's only realm with
- * encounters, every species in the catalog. Residents (species whose habitats
+ * Only species living in `realm` are listed: on land every species but the
+ * sea animals, and out at sea (the sea biome's deep water) only them, as no
+ * other species lives in the sea. Residents (species whose habitats
  * include the biome) are weighted by how many tiers above the lead they are;
  * residents two or more tiers below it are left out. In a visited biome (the
  * river, the mountains) where a resident is bigger than the lead, every
