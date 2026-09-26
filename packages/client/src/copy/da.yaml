@@ -279,6 +279,8 @@ pause:
   pick: Vælg et dyr
   pickHelp: Så kan du sætte det forrest, flytte det eller give det et nyt navn.
   tiredHelp: '{animal.the} er træt og kan ikke være først ud.'
+  pickOne: Vælg et af dem for at flytte det eller give det et navn.
+  allTiredHelp: De er alle sammen trætte og kan ikke være først ud.
   nameTitle: Nyt navn til {animal.the}
   nameRule: Bogstaver og tal, op til {max}.
   willBe: Navnet bliver {name}.

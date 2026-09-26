@@ -1,5 +1,11 @@
 <script lang="ts">
-	import { MAX_NICKNAME_LENGTH, getAnimal, leadIndex, normalizeNickname } from '@mathgame/engine';
+	import {
+		MAX_NICKNAME_LENGTH,
+		bundles,
+		getAnimal,
+		leadIndex,
+		normalizeNickname
+	} from '@mathgame/engine';
 	import { flip } from 'svelte/animate';
 	import { sfx } from '../audio/sfx.svelte';
 	import { LANGUAGES, language, languageName, t } from '../copy';
@@ -10,67 +16,89 @@
 	import { game } from '../state/game.svelte';
 	import {
 		MENU_ITEMS,
+		cardRows,
 		partyOptions,
 		pause,
+		type BundleOption,
 		type MenuItem,
 		type PartyOption
 	} from '../state/pause.svelte';
+	import BundleAnimals from './BundleAnimals.svelte';
 	import HpBar from './HpBar.svelte';
 	import Switch from './Switch.svelte';
 
 	/**
-	 * The pause menu: the team in battle order on the left, then the menu
-	 * items (the settings — Language with every language in its own words,
-	 * Sound with its switch — then "Keep playing"); on the right, what can be
-	 * done with the picked animal — the options, or the name box. It reads
+	 * The pause menu: the team's cards in battle order on the left (one per
+	 * species; a card of several animals shows how many, and how many can
+	 * play), then the menu items (the settings — Language with every language
+	 * in its own words, Sound with its switch — then "Keep playing"); on the
+	 * right, what can be done with the picked card or animal — a card's
+	 * options and its animals, an animal's options, or the name box. It reads
 	 * `game.party`, `pause`, `language` and `sfx.on`; keys are
 	 * `PauseController`'s, so nothing here dispatches. The name box binds
 	 * `pause.draft` and keeps the focus while it is open, so typing lands in it.
-	 * Every word comes from the copy files (`pause.*`, `hud.*`).
+	 * Every word comes from the copy files (`pause.*`, `hud.*`, `team.*`).
 	 *
 	 * A click or a tap is a key press (`data-press`, `input/taps.ts`, which
 	 * draws what the tap did before the tap is over, so the name box can bring
-	 * up a tablet's keyboard): a row on the left is its `row:<i>` key and an
-	 * option its `option:<i>` key, each done at once (the rows on the left
-	 * stay live beside the options, so the two lists never share a key); a
-	 * language on the Language row is its `language:<code>` key; the name
-	 * box's Save and Back are Enter and Escape. With the touch
-	 * controls on, the key reminder goes, and while
+	 * up a tablet's keyboard): a row on the left is its `row:<i>` key and a row
+	 * on the right (an option, or an animal of the open card) its `option:<i>`
+	 * key, each done at once (the rows on the left stay live beside the right
+	 * side, so the two lists never share a key); a language on the Language
+	 * row is its `language:<code>` key; the name box's Save and Back are Enter
+	 * and Escape. With the touch controls on, the key reminder goes, and while
 	 * naming the menu moves to the top of the screen, clear of the tablet's
 	 * own keyboard.
 	 */
-	const lead = $derived(leadIndex(game.party));
+	const cards = $derived(bundles(game.party));
+	const leadId = $derived(game.party[leadIndex(game.party)]?.id ?? null);
 	const pickedIndex = $derived(
 		pause.picked === null ? -1 : game.party.findIndex((a) => a.id === pause.picked)
 	);
 	const picked = $derived(pickedIndex >= 0 ? game.party[pickedIndex]! : null);
 	const options = $derived(pickedIndex >= 0 ? partyOptions(game.party, pickedIndex) : []);
-	/** The team row that is lit: the cursor, or the picked animal while its options are open. */
-	const lit = $derived(pause.screen === 'list' ? pause.cursor : pickedIndex);
+	/** The card open on the right, when it holds several animals. */
+	const card = $derived(
+		pause.screen === 'bundle' ? (cards.find((c) => c.speciesId === pause.species) ?? null) : null
+	);
+	const rows = $derived(card ? cardRows(game.party, card.speciesId) : []);
+	/** How many of the card's rows are options, before its animals. */
+	const cardOptions = $derived(rows.filter((r) => r.kind === 'option').length);
+	/** The animal whose row the cursor is on, on a card's screen. */
+	const litAnimal = $derived.by(() => {
+		const row = rows[pause.option];
+		return row?.kind === 'animal' ? row.animal.id : null;
+	});
+	/** The card that is lit on the left: the cursor, or the card whose options or animals are open. */
+	const lit = $derived.by(() => {
+		if (pause.screen === 'list') return pause.cursor;
+		const species = pause.species ?? picked?.speciesId;
+		return cards.findIndex((c) => c.speciesId === species);
+	});
 	/** The cursor is on the Sound row: the right side says what it does (and with a keyboard, that M does it too). */
-	const soundLit = $derived(MENU_ITEMS[pause.cursor - game.party.length] === 'sound');
+	const soundLit = $derived(MENU_ITEMS[pause.cursor - cards.length] === 'sound');
 
 	/**
-	 * The team's order before its latest change and after it, noted before the
+	 * The cards' order before its latest change and after it, noted before the
 	 * list is redrawn (`$effect.pre`), for `slide`, which runs once it has been.
 	 */
 	let orderBefore: string[] = [];
 	let orderNow: string[] = [];
 	$effect.pre(() => {
-		const order = game.party.map((a) => a.id);
+		const order = cards.map((c) => c.speciesId);
 		orderBefore = orderNow;
 		orderNow = order;
 	});
 
-	/** How long an animal's slide takes. */
+	/** How long a card's slide takes. */
 	const SLIDE_MS = 180;
-	/** When each animal's slide ends, so one cut short by the next move carries on to its place. */
+	/** When each card's slide ends, so one cut short by the next move carries on to its place. */
 	const slidingUntil = new Map<string, number>();
 
 	/**
-	 * The short slide of an animal that changes place in the team (Move up,
+	 * The short slide of a card that changes place in the team (Move up,
 	 * Move down, Go first), or is still on its way from the last change. A row
-	 * whose animal kept its place moves with the menu at once: on a tablet,
+	 * whose card kept its place moves with the menu at once: on a tablet,
 	 * Save puts the menu back in the middle in the frame the new name arrives,
 	 * and a row sliding down behind it took a tap meant for the animal it
 	 * passed (#52).
@@ -91,6 +119,15 @@
 		return clean === pause.draft.trim().replace(/\s+/g, ' ') ? '' : clean;
 	});
 
+	/** How many of a card can play: all of them, all tired, or how many of each. */
+	function summary(animals: readonly { hp: number }[]): string {
+		const tired = animals.filter((a) => a.hp === 0).length;
+		if (tired === 0) return t('team.allReady');
+		if (tired === animals.length) return t('team.allTired');
+		const ready = t('team.ready', { count: animals.length - tired });
+		return `${ready} · ${t('team.tired', { count: tired })}`;
+	}
+
 	function itemLabel(item: MenuItem): string {
 		switch (item) {
 			case 'language':
@@ -104,7 +141,7 @@
 		}
 	}
 
-	function optionLabel(option: PartyOption): string {
+	function optionLabel(option: PartyOption | BundleOption): string {
 		switch (option) {
 			case 'first':
 				return t('pause.goFirst');
@@ -134,6 +171,11 @@
 			window.scrollTo(0, 0);
 		};
 	}
+
+	/** The lit animal of a long card stays in view as the cursor walks it. */
+	function showRow(row: HTMLElement) {
+		row.scrollIntoView({ block: 'nearest' });
+	}
 </script>
 
 <div class="backdrop" class:typing={touch.on && pause.screen === 'naming'}>
@@ -142,38 +184,49 @@
 		<div class="columns">
 			<div class="team">
 				<div class="heading">{t('pause.team')}</div>
-				{#each game.party as animal, i (animal.id)}
-					{@const spec = getAnimal(animal.speciesId)}
-					{@const name = nameOf(animal)}
+				{#each cards as bundle, i (bundle.speciesId)}
+					{@const first = bundle.animals[0]!}
+					{@const single = bundle.animals.length === 1}
+					{@const name = single ? nameOf(first) : speciesName(first.speciesId)}
+					{@const allTired = bundle.animals.every((a) => a.hp === 0)}
+					{@const leads = cards.length > 1 && bundle.animals.some((a) => a.id === leadId)}
 					<button
 						type="button"
 						class="row animal"
+						class:stack={!single}
 						class:lit={lit === i}
-						class:picked={pickedIndex === i}
-						class:tired={animal.hp === 0}
-						animate:slide={animal.id}
+						class:picked={pause.screen !== 'list' && lit === i}
+						class:tired={allTired}
+						animate:slide={bundle.speciesId}
 						data-press={rowKey(i)}
 						{@attach unfocusable}
 					>
 						<span class="slot">{i + 1}</span>
 						<span class="who">
 							<span class="name">{name}</span>
-							{#if name !== speciesName(animal.speciesId)}
-								<span class="species">{speciesName(animal.speciesId)}</span>
+							{#if single && name !== speciesName(first.speciesId)}
+								<span class="species">{speciesName(first.speciesId)}</span>
+							{:else if !single}
+								<span class="count">{t('team.count', { count: bundle.animals.length })}</span>
 							{/if}
 						</span>
-						<span class="bar"><HpBar hp={animal.hp} max={spec.maxHp} /></span>
+						{#if single}
+							<span class="bar"><HpBar hp={first.hp} max={getAnimal(first.speciesId).maxHp} /></span
+							>
+						{:else}
+							<span class="bar summary">{summary(bundle.animals)}</span>
+						{/if}
 						<span class="tags">
-							{#if animal.hp === 0}
+							{#if allTired}
 								<span class="tag">{t('party.tired')}</span>
-							{:else if i === lead && game.party.length > 1}
+							{:else if leads}
 								<span class="tag lead">{t('hud.goesFirst')}</span>
 							{/if}
 						</span>
 					</button>
 				{/each}
 				{#each MENU_ITEMS as item, j (item)}
-					{@const row = game.party.length + j}
+					{@const row = cards.length + j}
 					<button
 						type="button"
 						class="row item"
@@ -227,6 +280,36 @@
 					{#if picked.hp === 0}
 						<div class="note">{t('pause.tiredHelp', { animal: animalWords(picked) })}</div>
 					{/if}
+				{:else if pause.screen === 'bundle' && card}
+					<div class="side-title">
+						{speciesName(card.speciesId)}
+						<span class="count">{t('team.count', { count: card.animals.length })}</span>
+					</div>
+					{#each rows as row, i (row.kind === 'option' ? row.id : row.animal.id)}
+						{#if row.kind === 'option'}
+							<button
+								type="button"
+								class="row option"
+								class:lit={pause.option === i}
+								class:off={!row.enabled}
+								data-press={optionKey(i)}
+								{@attach unfocusable}
+							>
+								<span class="caret">▸</span>{optionLabel(row.id)}
+							</button>
+						{/if}
+					{/each}
+					<div class="note">
+						{card.animals.every((a) => a.hp === 0) ? t('pause.allTiredHelp') : t('pause.pickOne')}
+					</div>
+					<BundleAnimals
+						animals={card.animals}
+						leadId={game.party.length > 1 ? leadId : null}
+						press={(_, i) => optionKey(cardOptions + i)}
+						lit={litAnimal}
+						class="members"
+						onlit={showRow}
+					/>
 				{:else if pause.screen === 'naming' && picked}
 					<div class="side-title wraps">
 						{t('pause.nameTitle', { animal: animalWords(picked) })}
@@ -273,13 +356,13 @@
 		<!-- The keys; with the touch controls on, every row is its own button and needs no reminder. -->
 		{#if !touch.on}
 			<div class="keys">
-				{#if pause.screen === 'list' && MENU_ITEMS[pause.cursor - game.party.length] === 'language'}
+				{#if pause.screen === 'list' && MENU_ITEMS[pause.cursor - cards.length] === 'language'}
 					{t('pause.keysLanguage')}
 				{:else if pause.screen === 'list' && soundLit}
 					{t('pause.keysSound')}
 				{:else if pause.screen === 'list'}
 					{t('pause.keysList')}
-				{:else if pause.screen === 'options'}
+				{:else if pause.screen === 'options' || pause.screen === 'bundle'}
 					{t('pause.keysOptions')}
 				{:else}
 					{t('pause.keysNaming')}
@@ -401,6 +484,25 @@
 		font-weight: 600;
 		font-size: 16px;
 		opacity: 0.7;
+	}
+	/* How many animals a card holds, beside its kind's name. */
+	.count {
+		flex: none;
+		font-size: 16px;
+		font-weight: 800;
+		padding: 0 7px;
+		border-radius: 8px;
+		background: rgba(45, 42, 50, 0.08);
+		font-variant-numeric: tabular-nums;
+	}
+	/* How many of a card can play, where one animal's HP bar would be. */
+	.summary {
+		font-weight: 600;
+		font-size: 16px;
+		opacity: 0.8;
+		white-space: nowrap;
+		overflow: hidden;
+		text-overflow: ellipsis;
 	}
 	.bar {
 		width: 150px;
@@ -557,6 +659,14 @@
 	}
 	.preview {
 		font-weight: 800;
+	}
+	/*
+	 * A card's animals, under its options: as many as it holds, in a box that
+	 * scrolls, so a card of a hundred keeps the menu on the screen.
+	 */
+	.side :global(.members) {
+		margin-top: 8px;
+		max-height: max(144px, calc(100vh - 430px));
 	}
 	.keys {
 		margin-top: 14px;

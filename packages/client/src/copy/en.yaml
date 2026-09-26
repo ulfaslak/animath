@@ -369,6 +369,10 @@ pause:
   pickHelp: Choose who goes first, move it, or give it a name.
   # Under the options of a tired animal, whose "Go first" is greyed.
   tiredHelp: "{animal.name} is tired, so it can't go first."
+  # A card of several animals, under its options: its animals are listed below.
+  pickOne: Pick one of them to move it or give it a name.
+  # The same, when they are all tired and the card's "Go first" is greyed.
+  allTiredHelp: "They are all tired, so they can't go first."
   # Above the name box.
   nameTitle: New name for {animal.name}
   # Under the name box; {max} is the most characters a name can have.

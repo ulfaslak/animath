@@ -225,9 +225,7 @@ describe('the party column', () => {
 		const t = setup();
 		for (const n of [1, 2, 3, 4, 5, 6]) t.down({ key: String(n), code: `Digit${n}` });
 		const kept = [1, 2, 3, 4, 5].map(() => t.keyboard.takeTeamPick());
-		expect(kept).toEqual(
-			[0, 1, 2, 3].map((index) => ({ kind: 'place', index })).concat([undefined])
-		);
+		expect(kept).toEqual([...[0, 1, 2, 3].map((index) => ({ kind: 'place', index })), undefined]);
 		t.down({ key: '2', code: 'Digit2' });
 		t.down({ key: openKey('fox') });
 		t.keyboard.setEnabled(false); // a battle
