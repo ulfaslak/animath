@@ -486,9 +486,26 @@ const sharesOf = (table: readonly EncounterEntry[]) =>
 const tierShare = (table: readonly EncounterEntry[], tiers: (t: number) => boolean) =>
 	total(table.filter((e) => tiers(e.species.tier)));
 
+/**
+ * Failures of a sweep, the first 20 of them with a count of the rest: a
+ * broken rule fails thousands of cells, and formatting every one of them
+ * would take longer than the sweep.
+ */
+function findings() {
+	const list: string[] = [];
+	let more = 0;
+	return {
+		list,
+		note(finding: string) {
+			if (list.length < 20) list.push(finding);
+			else list[19] = `…and ${++more} more`;
+		}
+	};
+}
+
 describe('encounterTableAt: the ground around the tall grass', () => {
 	it("lists exactly the biome's species, in its order, each at a quarter to four times its biome share", () => {
-		const bad: string[] = [];
+		const bad = findings();
 		let compared = 0;
 		for (const lead of LEADS) {
 			for (const biome of BIOMES) {
@@ -498,25 +515,25 @@ describe('encounterTableAt: the ground around the tall grass', () => {
 						const here = encounterTableAt(siteAt(biome, d, around), lead);
 						const where = `tier-${lead} lead in ${biome} @ ${d} on ${JSON.stringify(around)}`;
 						if (here.map((e) => e.species.id).join() !== inBiome.map((e) => e.species.id).join())
-							bad.push(`${where} lists ${here.map((e) => e.species.id)}`);
+							bad.note(`${where} lists ${here.map((e) => e.species.id)}`);
 						if (here.length > 0 && !(Math.abs(total(here) - 1) <= 1e-12))
-							bad.push(`${where} sums to ${total(here)}`);
+							bad.note(`${where} sums to ${total(here)}`);
 						here.forEach((e, i) => {
 							compared++;
 							const ratio = e.weight / inBiome[i]!.weight;
 							if (!(ratio >= 0.25 - 1e-12 && ratio <= 4 + 1e-12))
-								bad.push(`${e.species.id}, ${where}: ×${ratio}`);
+								bad.note(`${e.species.id}, ${where}: ×${ratio}`);
 						});
 					}
 				}
 			}
 		}
-		expect(bad).toEqual([]);
+		expect(bad.list).toEqual([]);
 		expect(compared).toBeGreaterThan(100_000);
 	});
 
 	it('for a tier-1 lead is the table [[PRODUCT]] §4 writes out, on every ground', () => {
-		const bad: string[] = [];
+		const bad = findings();
 		for (const biome of BIOMES) {
 			for (const d of [0, 20, 32, 50, 80, 127.5, 128, 1000]) {
 				for (const around of GROUND_GRID) {
@@ -524,18 +541,18 @@ describe('encounterTableAt: the ground around the tall grass', () => {
 					const expected = tierOneTableAt(ANIMALS, biome, d, around);
 					const where = `${biome} @ ${d} on ${JSON.stringify(around)}`;
 					if (here.map((e) => e.species.id).join() !== [...expected.keys()].join())
-						bad.push(`${where} lists ${here.map((e) => e.species.id)}`);
+						bad.note(`${where} lists ${here.map((e) => e.species.id)}`);
 					for (const e of here)
 						if (!(Math.abs(e.weight - expected.get(e.species.id)!) <= 1e-12))
-							bad.push(`${e.species.id} in ${where}: ${e.weight} vs ${expected.get(e.species.id)}`);
+							bad.note(`${e.species.id} in ${where}: ${e.weight} vs ${expected.get(e.species.id)}`);
 				}
 			}
 		}
-		expect(bad).toEqual([]);
+		expect(bad.list).toEqual([]);
 	});
 
 	it('from its own tier up, a tier-T lead meets what a tier-1 lead met in a world T − 1 tiers smaller, on every ground', () => {
-		const bad: string[] = [];
+		const bad = findings();
 		let compared = 0;
 		const grounds = GROUND_GRID.filter((g) =>
 			[g.water, g.trees, g.rocks].every((n) => n % 2 === 1 || n === 0)
@@ -557,17 +574,17 @@ describe('encounterTableAt: the ground around the tall grass', () => {
 						const mass = total(upper);
 						const expected = tierOneTableAt(shrunk, biome, d, around);
 						if (upper.map((e) => e.species.id).join() !== [...expected.keys()].join())
-							bad.push(`${where} lists ${upper.map((e) => e.species.id)}`);
+							bad.note(`${where} lists ${upper.map((e) => e.species.id)}`);
 						for (const e of upper) {
 							compared++;
 							if (!(Math.abs(e.weight / mass - expected.get(e.species.id)!) <= 1e-12))
-								bad.push(`${e.species.id}, ${where}: ${e.weight / mass}`);
+								bad.note(`${e.species.id}, ${where}: ${e.weight / mass}`);
 						}
 					}
 				}
 			}
 		}
-		expect(bad).toEqual([]);
+		expect(bad.list).toEqual([]);
 		expect(compared).toBeGreaterThan(20_000);
 	});
 
@@ -583,7 +600,7 @@ describe('encounterTableAt: the ground around the tall grass', () => {
 			for (const from of ['water', 'trees', 'rocks', 'open'] as const)
 				if (to !== from) moves.push({ to, from });
 		const index = (w: number, t: number, r: number) => w + 9 * t + 81 * r;
-		const bad: string[] = [];
+		const bad = findings();
 		let rose = 0;
 		let checked = 0;
 		for (const lead of LEADS) {
@@ -607,7 +624,7 @@ describe('encounterTableAt: the ground around the tall grass', () => {
 								const was = tables[i]!.get(id)!;
 								const now = tables[j]!.get(id)!;
 								if (now < was - 1e-12)
-									bad.push(
+									bad.note(
 										`${id}, tier-${lead} lead in ${biome} @ ${d}: ${from} → ${to} at ${JSON.stringify(before)}: ${was} → ${now}`
 									);
 								if (now > was + 1e-12) rose++;
@@ -617,14 +634,14 @@ describe('encounterTableAt: the ground around the tall grass', () => {
 				}
 			}
 		}
-		expect(bad).toEqual([]);
+		expect(bad.list).toEqual([]);
 		// Not a sweep of ties: the ground moved these shares tens of thousands of times.
 		expect(checked).toBeGreaterThan(50_000);
 		expect(rose).toBeGreaterThan(20_000);
 	});
 
 	it('on any ground, the share two tiers above the lead never falls and its own never rises with distance', () => {
-		const bad: string[] = [];
+		const bad = findings();
 		for (const lead of LEADS) {
 			for (const biome of BIOMES) {
 				if (isSilent(lead, biome)) continue;
@@ -636,15 +653,15 @@ describe('encounterTableAt: the ground around the tall grass', () => {
 						const fierce = tierShare(here, (t) => t >= lead + 2);
 						const own = tierShare(here, (t) => t === lead);
 						const where = `tier-${lead} lead in ${biome} @ ${d} on ${JSON.stringify(around)}`;
-						if (!(fierce >= prevFierce - 1e-12)) bad.push(`${where}: two up fell to ${fierce}`);
-						if (!(own <= prevOwn + 1e-12)) bad.push(`${where}: own tier rose to ${own}`);
+						if (!(fierce >= prevFierce - 1e-12)) bad.note(`${where}: two up fell to ${fierce}`);
+						if (!(own <= prevOwn + 1e-12)) bad.note(`${where}: own tier rose to ${own}`);
 						prevFierce = fierce;
 						prevOwn = own;
 					}
 				}
 			}
 		}
-		expect(bad).toEqual([]);
+		expect(bad.list).toEqual([]);
 	});
 
 	it('lists only animals that live in the realm the tile is in: on the water, only the frog and the otter so far', () => {
