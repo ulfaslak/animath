@@ -109,7 +109,7 @@ export const SWIM_DEPTH = 0.4;
  * tile, so it never reaches into a shore the boat faces. A small animal rides
  * near its own size, a big one made smaller, all big enough to know.
  */
-export const RIDE_AHEAD = 0.2;
+export const RIDE_AHEAD = 0.22;
 export const RIDE_LENGTH = 0.5;
 export const RIDE_HEIGHT = 0.6;
 

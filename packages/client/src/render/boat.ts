@@ -58,7 +58,7 @@ const AFLOAT = new THREE.Vector3(0, DEPTH / 2 - FLOOR, 0);
  * middle (`standAstern`), leaving the bow for an animal riding along
  * (`follower.ts`).
  */
-export const BOAT_ASTERN = 0.22;
+export const BOAT_ASTERN = 0.26;
 const AFLOAT_TURN = new THREE.Quaternion();
 /** A little rocking on the water, reused. */
 const ROCK = new THREE.Quaternion();
