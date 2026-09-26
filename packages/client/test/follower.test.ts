@@ -13,14 +13,16 @@ import {
 	type GridPos,
 	type SavedGame
 } from '@mathgame/engine';
-import type * as THREE from 'three';
+import * as THREE from 'three';
 import { describe, expect, it } from 'vitest';
 import { LocalAuthority, WORLD_SEED } from '../src/authority/local';
 import { DoctorController } from '../src/doctor/controller';
 import { ExploreController } from '../src/explore/controller';
 import { parseParty } from '../src/flags';
 import { Keyboard } from '../src/input/keyboard';
-import { Follower } from '../src/render/follower';
+import { BOAT_STAND } from '../src/render/boat';
+import { Follower, RIDE_AHEAD, RIDE_HEIGHT, RIDE_LENGTH } from '../src/render/follower';
+import { WATER_TOP } from '../src/render/tiles';
 import type { GameRenderer } from '../src/render/renderer';
 import { doctor } from '../src/state/doctor.svelte';
 import { game } from '../src/state/game.svelte';
@@ -210,21 +212,24 @@ describe('the lead walks behind the trainer', () => {
 			(f) => !standable(step(pos, BEHIND[f])) && placement(pos, f)
 		);
 		expect(facings.length).toBeGreaterThan(0);
+		// An otter could swim behind, but beside a trainer on land it stands on the ground.
 		for (const facing of facings) {
-			const s = setup('rabbit', {
-				seed: WORLD_SEED,
-				pos,
-				facing,
-				steps: 0,
-				visits: 0,
-				party: [{ id: 'r', speciesId: 'rabbit', hp: getAnimal('rabbit').maxHp }],
-				tokens: 0,
-				items: [],
-				battle: null,
-				edits: []
-			});
-			expect(s.follower.tile).toEqual(placement(pos, facing));
-			expect(standable(s.follower.tile!)).toBe(true);
+			for (const speciesId of ['rabbit', 'otter']) {
+				const s = setup(speciesId, {
+					seed: WORLD_SEED,
+					pos,
+					facing,
+					steps: 0,
+					visits: 0,
+					party: [{ id: 'r', speciesId, hp: getAnimal(speciesId).maxHp }],
+					tokens: 0,
+					items: [],
+					battle: null,
+					edits: []
+				});
+				expect(s.follower.tile, `${speciesId} facing ${facing}`).toEqual(placement(pos, facing));
+				expect(standable(s.follower.tile!)).toBe(true);
+			}
 		}
 	});
 
@@ -288,13 +293,16 @@ describe('who follows', () => {
 		const s = setup('squirrel:0,rabbit:0');
 		expect(s.follower.species).toBeNull();
 		expect(s.figures).toEqual([]);
-		expect(s.follower.tile).not.toBeNull();
+		// Nobody is there, so nobody stands anywhere yet.
+		expect(s.follower.tile).toBeNull();
 
 		// Seven steps right to (5, 6), bump the tent below, talk.
 		for (let i = 0; i < 7; i++) {
 			s.authority.dispatch({ type: 'move', dir: 'right' });
 			s.settle(0.2);
 		}
+		// Unseen, it keeps to the tile the trainer left: where the first one made fit comes out.
+		expect(s.follower.tile).toEqual({ x: s.trainer().x - 1, y: s.trainer().y });
 		s.authority.dispatch({ type: 'move', dir: 'down' });
 		s.authority.dispatch({ type: 'interact' });
 		s.settle();
@@ -320,6 +328,7 @@ describe('who follows', () => {
 		// Then the heal plays on the card, and the rabbit grows in behind the trainer.
 		s.settle(1.5);
 		expect(s.follower.species).toBe('rabbit');
+		expect(s.follower.tile).toEqual({ x: s.trainer().x - 1, y: s.trainer().y });
 		expect(standable(s.follower.tile!)).toBe(true);
 	});
 });
@@ -451,6 +460,49 @@ describe('out on the water', () => {
 		expect(s.follower.species).toBe('squirrel');
 		expect(standable(s.follower.tile!)).toBe(true);
 		expect(s.figures).toHaveLength(1);
+	});
+
+	it('picked up in the boat beside a beach: one that swims swims behind it, never on the sand (#79)', () => {
+		// On the shallows by the spawn facing the beach, and by the tree that can be chopped from the boat.
+		const spots = [
+			{ pos: { x: -2, y: 5 }, facing: 'down' },
+			{ pos: { x: 21, y: 33 }, facing: 'down' }
+		] as const;
+		for (const { pos, facing } of spots) {
+			const behind = step(pos, BEHIND[facing]);
+			expect(water(behind)).toBe(true);
+			// A beach beside the boat, where the lead used to be put before anyone knew who leads.
+			expect(SIDES[facing].some((d) => standable(step(pos, d)))).toBe(true);
+			for (const team of ['otter', 'frog', 'crab,rabbit']) {
+				const s = setup(team, { ...withBoat(team, pos), facing });
+				expect(s.follower.species).toBe(team.split(',')[0]);
+				expect(s.follower.tile, `${team} at ${pos.x}, ${pos.y}`).toEqual(behind);
+				// Swimming: low in the water, not standing on it.
+				const figure = s.figures.at(-1)!;
+				expect(figure.position.y).toBeLessThan(WATER_TOP);
+			}
+		}
+	});
+
+	it('with nobody who swims, the lead sits at the bow facing forward, big enough to know: every one that walks', () => {
+		for (const id of ['squirrel', 'rabbit', 'fox', 'deer', 'wolf', 'bear']) {
+			const s = setup(id, withBoat(id));
+			sail(s, ['up', 'up']);
+			expect(s.follower.inBoat, id).toBe(true);
+			const rider = s.figures.at(-1)!;
+			// Ahead of the trainer, who faces up (−z), and facing that way too.
+			expect(rider.position.x).toBeCloseTo(s.trainer().x, 6);
+			expect(rider.position.z).toBeCloseTo(s.trainer().y - RIDE_AHEAD, 6);
+			expect(rider.rotation.y).toBeCloseTo(Math.PI, 6);
+			// Made smaller only to fit: no longer or taller than the bow holds, and never tiny.
+			const box = new THREE.Box3().setFromObject(rider);
+			const size = box.getSize(new THREE.Vector3());
+			expect(Math.max(size.x, size.z), id).toBeLessThanOrEqual(RIDE_LENGTH + 1e-6);
+			expect(size.y, id).toBeLessThanOrEqual(RIDE_HEIGHT + 1e-6);
+			expect(Math.max(size.x, size.y, size.z), id).toBeGreaterThan(0.45);
+			// Sitting: its legs down in the hull, under the floor the trainer stands on.
+			expect(box.min.y, id).toBeLessThan(WATER_TOP + BOAT_STAND - 0.01);
+		}
 	});
 
 	it('picked up out on the water: one that swims beside the boat, or else the lead in it', () => {

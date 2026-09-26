@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { motion } from '../motion';
-import { ANIMAL_COLORS, COLORS } from './palette';
+import { ANIMAL_COLORS, COLORS, TILE_COLORS } from './palette';
 
 /**
  * Crude but recognisable figures built from primitives: one per species in
@@ -22,11 +22,17 @@ import { ANIMAL_COLORS, COLORS } from './palette';
  * Two measures read the parts, and both are rough on purpose. A figure's
  * bounds (its feet on y = 0, its size) are three.js's `Box3.setFromObject`,
  * which turns each part's own bounding box, not its vertices: a part that
- * touches the ground and leans must lean in its geometry (see `starArm`), or
- * its box dips under the ground though no vertex does. And resting reads
- * which parts stand on the ground by their bottoms being within 0.005 of it
- * (`ON_GROUND`): a part meant to stand on it sits exactly on 0, and one meant
- * to be raised clears it well (the octopus's suckers sat on the edge).
+ * touches the ground and is turned must be turned in its geometry (see
+ * `starArm`, `tentacle`), or its box dips under the ground though no vertex
+ * does. And resting reads which parts stand on the ground by their bottoms
+ * being within 0.005 of it (`ON_GROUND`): a part meant to stand on it sits
+ * exactly on 0, and one meant to be raised clears it well (the octopus's
+ * suckers once sat on the edge).
+ *
+ * The sea animals are met only at sea, where they swim with the lower 40% of
+ * their height under the water (`SWIM_DEPTH`), so each one's tell stands in
+ * its top 60%, and reads from the explore camera whichever way it swims: the
+ * octopus's arms curl up round its head, the starfish stands upright.
  */
 type SpeciesColors = { fur: number; accent: number };
 type Builder = (c: SpeciesColors) => THREE.Object3D[];
@@ -101,60 +107,163 @@ function antler(hex: number, side: -1 | 1): THREE.Mesh[] {
 	];
 }
 
+/** One coordinate of a Catmull-Rom curve through b and c, `t` of the way from b to c. */
+function catmull(a: number, b: number, c: number, d: number, t: number): number {
+	return (
+		0.5 *
+		(2 * b + (c - a) * t + (2 * a - 5 * b + 4 * c - d) * t * t + (3 * b - a - 3 * c + d) * t ** 3)
+	);
+}
+
+/** A curve in an upright plane: points `[out, up]`, out from where it starts and up. */
+type Path = readonly (readonly [number, number])[];
+
 /**
- * An arm lying on the ground, from `from` tiles out from the middle to its
- * tip, the way `yaw` points (0 is +z): a cone laid down and flattened to
- * `flat` of its height, its underside on y = 0. The octopus's arms.
+ * A tube tapering from `root` thick to a point, along a smooth curve through
+ * `path`, turned about y by `yaw` (0 is out along +z). Built by hand, as the
+ * z's are: three.js's `TubeGeometry` would bring its curve classes into the
+ * bundle.
  */
-function groundArm(
-	r: number,
-	length: number,
-	flat: number,
-	hex: number,
-	yaw: number,
-	from: number
-): THREE.Mesh {
-	const geo = new THREE.ConeGeometry(r, length, 5);
-	geo.rotateX(Math.PI / 2); // the tip forward, along +z
-	geo.scale(1, flat, 1);
-	geo.translate(0, r * flat, from + length / 2);
+function curvedTube(path: Path, root: number, yaw: number): THREE.BufferGeometry {
+	const SIDES = 5;
+	const PER_SPAN = 3;
+	const at = (i: number) => path[Math.min(path.length - 1, Math.max(0, i))]!;
+	const curve: [number, number][] = [];
+	for (let i = 0; i < path.length - 1; i++) {
+		const [a, b, c, d] = [at(i - 1), at(i), at(i + 1), at(i + 2)];
+		for (let s = 0; s < PER_SPAN; s++) {
+			const t = s / PER_SPAN;
+			curve.push([catmull(a[0], b[0], c[0], d[0], t), catmull(a[1], b[1], c[1], d[1], t)]);
+		}
+	}
+	curve.push([...at(path.length - 1)]);
+	// How far along the arm each point is, for the taper.
+	const along = [0];
+	for (let i = 1; i < curve.length; i++) {
+		const [o0, u0] = curve[i - 1]!;
+		const [o1, u1] = curve[i]!;
+		along.push(along[i - 1]! + Math.hypot(o1 - o0, u1 - u0));
+	}
+	const length = along[along.length - 1]!;
+	const positions: number[] = [];
+	curve.forEach(([out, up], i) => {
+		// Along the arm (up and out), and the arm's own plane's normal across it: a ring round it.
+		const [o0, u0] = curve[Math.max(0, i - 1)]!;
+		const [o1, u1] = curve[Math.min(curve.length - 1, i + 1)]!;
+		const d = Math.hypot(o1 - o0, u1 - u0) || 1;
+		const r = root * (1 - along[i]! / length) ** 0.75;
+		for (let k = 0; k < SIDES; k++) {
+			const angle = (k / SIDES) * Math.PI * 2;
+			const across = Math.cos(angle) * r;
+			const inPlane = Math.sin(angle) * r;
+			// The plane's normal in it, square to the arm: (up, -out) of the step along it.
+			positions.push(across, up + ((o1 - o0) / d) * inPlane, out - ((u1 - u0) / d) * inPlane);
+		}
+	});
+	const index: number[] = [];
+	for (let i = 0; i < curve.length - 1; i++) {
+		for (let k = 0; k < SIDES; k++) {
+			const a = i * SIDES + k;
+			const b = i * SIDES + ((k + 1) % SIDES);
+			const c = b + SIDES;
+			const d = a + SIDES;
+			index.push(a, b, c, a, c, d);
+		}
+	}
+	const geo = new THREE.BufferGeometry();
+	geo.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+	geo.setIndex(index);
 	geo.rotateY(yaw);
+	geo.computeVertexNormals();
+	return geo;
+}
+/**
+ * An octopus's arm along `path` from the middle, `yaw` the way it reaches:
+ * its lowest point stands exactly on the ground.
+ */
+function tentacle(path: Path, root: number, hex: number, yaw: number): THREE.Mesh {
+	const geo = curvedTube(path, root, yaw);
+	geo.computeBoundingBox();
+	geo.translate(0, -geo.boundingBox!.min.y, 0);
 	return part(geo, hex, 0, 0, 0);
 }
 /**
  * A starfish's arm, standing up: a cone from the middle at (0, `cy`) to its
  * tip the way `angle` points in the x–y plane (0 is +x, π/2 straight up),
- * flat front to back, and leaning back by `lean` about the x axis through
- * the feet. The lean is in the shape itself, so its bounds are its own.
+ * flat front to back. The turn is in the shape itself, so its bounds are its
+ * own: the arm it stands on ends exactly on the ground.
  */
-function starArm(
-	r: number,
-	length: number,
-	hex: number,
-	angle: number,
-	cy: number,
-	lean: number
-): THREE.Mesh {
+function starArm(r: number, length: number, hex: number, angle: number, cy: number): THREE.Mesh {
 	const geo = new THREE.ConeGeometry(r, length, 5);
 	geo.translate(0, length / 2, 0); // its base in the middle, its tip up
 	geo.scale(1, 1, 0.45);
 	geo.rotateZ(angle - Math.PI / 2);
 	geo.translate(0, cy, 0);
-	geo.rotateX(-lean);
 	return part(geo, hex, 0, 0, 0);
 }
-/** Where a standing starfish's middle is: its two lower arms, 54° below level, reach the ground. */
-const STAR_ARM = 0.3;
-const STAR_MIDDLE = STAR_ARM * Math.sin((54 * Math.PI) / 180);
-/** How far it leans back, so the camera above sees its face and not its edge. */
-const STAR_LEAN = 0.6;
-const X_AXIS = new THREE.Vector3(1, 0, 0);
-/** Lean a part back by `angle` about the x axis through the feet: where it is, and its turn. */
-function leanBack<T extends THREE.Object3D>(obj: T, angle: number): T {
-	obj.position.applyAxisAngle(X_AXIS, -angle);
-	obj.rotation.x -= angle;
-	return obj;
+/**
+ * An octopus's arm, `[out, up]`: from under its head, down to the ground, then
+ * up round the head, curling out and over at the top. The two in front stay
+ * lower, clear of its eyes.
+ */
+const OCTOPUS_ARM = [
+	[0.08, 0.14],
+	[0.17, 0.035],
+	[0.26, 0.1],
+	[0.3, 0.25],
+	[0.31, 0.4],
+	[0.35, 0.5],
+	[0.42, 0.52],
+	[0.46, 0.47],
+	[0.44, 0.41],
+	[0.4, 0.41]
+] as const;
+const OCTOPUS_ARM_LOW = [
+	[0.08, 0.13],
+	[0.18, 0.035],
+	[0.28, 0.07],
+	[0.33, 0.17],
+	[0.35, 0.29],
+	[0.4, 0.36],
+	[0.46, 0.35],
+	[0.47, 0.3],
+	[0.43, 0.28]
+] as const;
+/** One stream of a whale's spout, from the blowhole: up, arcing out, and falling. */
+const SPOUT_STREAM = [
+	[0, 0],
+	[0.015, 0.12],
+	[0.05, 0.2],
+	[0.11, 0.22],
+	[0.16, 0.18],
+	[0.19, 0.11]
+] as const;
+/**
+ * A whale's spout from the blowhole at (x, y, z): four streams of the
+ * shallows' blue rising together and arcing out and down, a white drop
+ * falling from each: a fountain from every side, never a cap on a stalk (a
+ * mushroom).
+ */
+function spout(x: number, y: number, z: number): THREE.Mesh[] {
+	const [end] = SPOUT_STREAM.slice(-1);
+	return Array.from({ length: 4 }, (_, i) => {
+		const yaw = ((i + 0.5) * Math.PI) / 2;
+		const out = end![0] + 0.02;
+		return [
+			part(curvedTube(SPOUT_STREAM, 0.045, yaw), TILE_COLORS.water, x, y, z),
+			ball(
+				0.036,
+				COLORS.white,
+				x + Math.sin(yaw) * out,
+				y + end![1] - 0.045,
+				z + Math.cos(yaw) * out
+			)
+		];
+	}).flat();
 }
+/** A starfish's arms, and where its middle is: an arm's length up, on the arm it stands on. */
+const STAR_ARM = 0.3;
+const STAR_MIDDLE = STAR_ARM;
 
 const BUILDERS: Record<string, Builder> = {
 	// Small and round, with a curled tail taller than the animal itself.
@@ -292,20 +401,20 @@ const BUILDERS: Record<string, Builder> = {
 			])
 		])
 	],
-	// A five-armed star standing on two of its arms and leaning back, a face in the middle.
+	// A five-armed star standing upright on one of its arms, a face in the
+	// middle: at sea the other four and the face stay over the water, and
+	// upright it is never edge-on to a camera above, whichever way it swims.
 	starfish: ({ fur, accent }) => [
-		...[90, 18, -54, -126, 162].map((deg) =>
-			starArm(0.1, STAR_ARM, fur, (deg * Math.PI) / 180, STAR_MIDDLE, STAR_LEAN)
+		...[-90, -18, 54, 126, 198].map((deg) =>
+			starArm(0.1, STAR_ARM, fur, (deg * Math.PI) / 180, STAR_MIDDLE)
 		),
-		...[
-			ball(0.12, fur, 0, STAR_MIDDLE, 0, 1, 1, 0.5),
-			ball(0.07, accent, 0, STAR_MIDDLE - 0.02, 0.045, 1, 0.8, 0.45),
-			...([-1, 1] as const).flatMap((side) => [
-				ball(0.036, COLORS.white, side * 0.05, STAR_MIDDLE + 0.04, 0.055),
-				ball(0.018, COLORS.dark, side * 0.05, STAR_MIDDLE + 0.04, 0.085)
-			]),
-			box(0.06, 0.015, 0.015, COLORS.dark, 0, STAR_MIDDLE - 0.035, 0.075)
-		].map((p) => leanBack(p, STAR_LEAN))
+		ball(0.12, fur, 0, STAR_MIDDLE, 0, 1, 1, 0.5),
+		ball(0.07, accent, 0, STAR_MIDDLE - 0.02, 0.045, 1, 0.8, 0.45),
+		...([-1, 1] as const).flatMap((side) => [
+			ball(0.036, COLORS.white, side * 0.05, STAR_MIDDLE + 0.04, 0.055),
+			ball(0.018, COLORS.dark, side * 0.05, STAR_MIDDLE + 0.04, 0.085)
+		]),
+		box(0.06, 0.015, 0.015, COLORS.dark, 0, STAR_MIDDLE - 0.035, 0.075)
 	],
 	// A domed shell over four wide flippers, and a round head poking out in front.
 	turtle: ({ fur, accent }) => [
@@ -334,32 +443,36 @@ const BUILDERS: Record<string, Builder> = {
 			rot(box(0.18, 0.025, 0.09, fur, side * 0.16, 0.0125, 0.16), 0, side * 0.5, 0)
 		])
 	],
-	// A big round head with big eyes over eight arms spread on the ground.
-	octopus: ({ fur, accent }) => [
+	// A big round head with big eyes, and eight arms that stand on the ground
+	// and curl up round it, so at sea, where only its top shows, the arms do too.
+	// Resting, they flop down (the `arms` joint, see `liePose`).
+	octopus: ({ fur }) => [
 		ball(0.2, fur, 0, 0.42, -0.04, 1, 1.25, 1),
 		ball(0.17, fur, 0, 0.14, 0, 1, 0.45, 1),
-		...Array.from({ length: 8 }, (_, i) =>
-			groundArm(0.065, 0.36, 0.75, fur, ((i + 0.5) * Math.PI) / 4, 0.1)
+		limb(
+			'arms',
+			0,
+			0,
+			Array.from({ length: 8 }, (_, i) => {
+				const yaw = ((i + 0.5) * Math.PI) / 4;
+				const front = Math.cos(yaw) > 0.9;
+				return tentacle(front ? OCTOPUS_ARM_LOW : OCTOPUS_ARM, 0.07, fur, yaw);
+			})
 		),
 		...([-1, 1] as const).flatMap((side) => [
-			ball(0.055, COLORS.white, side * 0.09, 0.42, 0.13),
-			ball(0.028, COLORS.dark, side * 0.09, 0.42, 0.18),
-			// A sucker on each front arm, standing on the ground as the arm does.
-			ball(0.03, accent, side * 0.14, 0.048, 0.3, 1, 1.6, 1),
-			ball(0.03, accent, side * 0.3, 0.048, 0.12, 1, 1.6, 1)
+			ball(0.07, COLORS.white, side * 0.095, 0.42, 0.13),
+			ball(0.035, COLORS.dark, side * 0.095, 0.42, 0.195)
 		])
 	],
 	// Huge and long, a pale throat, a tail fluke flat on the water, and a
-	// fountain from the blowhole on top.
+	// spout of water drops fountaining out of the blowhole on top.
 	whale: ({ fur, accent }) => [
 		ball(0.3, fur, 0, 0.36, 0, 1, 0.95, 2),
 		ball(0.25, accent, 0, 0.26, 0.2, 0.95, 0.65, 1.55),
 		ball(0.14, fur, 0, 0.22, -0.72, 1, 0.8, 1.5),
 		box(0.3, 0.035, 0.2, fur, -0.15, 0.0175, -0.98),
 		box(0.3, 0.035, 0.2, fur, 0.15, 0.0175, -0.98),
-		tube(0.02, 0.14, COLORS.white, 0, 0.7, 0.25),
-		ball(0.06, COLORS.white, -0.05, 0.8, 0.25, 1, 0.6, 1),
-		ball(0.06, COLORS.white, 0.05, 0.8, 0.25, 1, 0.6, 1),
+		...spout(0, 0.62, 0.25),
 		...([-1, 1] as const).flatMap((side) => [
 			ball(0.035, COLORS.white, side * 0.265, 0.38, 0.38),
 			ball(0.018, COLORS.dark, side * 0.285, 0.38, 0.4),
@@ -504,13 +617,15 @@ const REST_SINK = 0.04;
 const REST_SQUASH = 0.07;
 /** Radians a tail held up (a `tail` joint: the wolf's) swings back to lie behind a resting animal. */
 const REST_TAIL = 1.2;
+/** How much lower arms held up (an `arms` joint: the octopus's) flop as it rests. */
+const REST_ARMS = 0.6;
 
 /**
  * Lie the rig down by `rest` (0..1): flatter, lowered until its belly is on
  * the ground (and a little into it, so no gap shows under the tipped back),
- * turned about the middle of its belly so the head goes down, and a tail held
- * up laid down behind. Runs after the breathing scale, so the belly stays put
- * and only the back rises and falls.
+ * turned about the middle of its belly so the head goes down, a tail held up
+ * laid down behind, and arms held up flopped down round it. Runs after the
+ * breathing scale, so the belly stays put and only the back rises and falls.
  */
 function liePose(rig: THREE.Object3D, shape: RestShape, rest: number): void {
 	rig.scale.y *= 1 - REST_SQUASH * rest;
@@ -522,6 +637,8 @@ function liePose(rig: THREE.Object3D, shape: RestShape, rest: number): void {
 	rig.position.set(0, y - y * Math.cos(angle) - drop, -y * Math.sin(angle));
 	const tail = rig.getObjectByName('tail');
 	if (tail) tail.rotation.x = -REST_TAIL * rest;
+	const arms = rig.getObjectByName('arms');
+	if (arms) arms.scale.y = 1 - REST_ARMS * rest;
 }
 
 /** Seconds from one z leaving the head to the next; each lasts until the third one after it leaves. */

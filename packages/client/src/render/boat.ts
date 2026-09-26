@@ -47,8 +47,13 @@ const BACK = new THREE.Vector3(0, 0.4, -0.17);
  */
 const BACK_TURN = new THREE.Quaternion().setFromEuler(new THREE.Euler(Math.PI / 2 - 0.3, 0, 0));
 
-/** Afloat: its middle, from the trainer's feet, so the floor is under them. */
-const AFLOAT = new THREE.Vector3(0, DEPTH / 2 - FLOOR, 0);
+/**
+ * Afloat: its middle, from the trainer's feet, so the floor is under them,
+ * and a little ahead of them: the trainer stands towards the stern, and the
+ * bow has room for an animal riding along (`follower.ts`).
+ */
+export const AFLOAT_AHEAD = 0.12;
+const AFLOAT = new THREE.Vector3(0, DEPTH / 2 - FLOOR, AFLOAT_AHEAD);
 const AFLOAT_TURN = new THREE.Quaternion();
 /** A little rocking on the water, reused. */
 const ROCK = new THREE.Quaternion();
