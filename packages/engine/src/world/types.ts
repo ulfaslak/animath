@@ -2,12 +2,26 @@ import type { Biome, Realm } from '../animals/types.js';
 
 export const CHUNK_SIZE = 16;
 
-export type TileKind = 'grass' | 'tallgrass' | 'sand' | 'water' | 'rock' | 'tree' | 'tent';
+/**
+ * What a tile is. `water` is the shallows along every shore; `deepwater` is
+ * water with water all round it, `DEEP_WATER_MARGIN` tiles out (the middle
+ * of a lake, the sea biome). Both are the player's only with a boat.
+ */
+export type TileKind =
+	| 'grass'
+	| 'tallgrass'
+	| 'sand'
+	| 'water'
+	| 'deepwater'
+	| 'rock'
+	| 'tree'
+	| 'tent';
 
 export interface Tile {
 	kind: TileKind;
 	biome: Biome;
-	/** Ground height in tile units; water is 0, hills rise above. Purely visual for now. */
+	/** Ground height in tile units; water, shallow or deep, is 0, hills rise above. Purely visual for now. */
+
 	height: number;
 }
 
@@ -19,12 +33,42 @@ export interface Chunk {
 }
 
 /**
- * Ground a player can stand on. A doctor's tent is solid: the player talks to
- * the doctor from the tile beside it (see `world/tents.ts`), never inside it.
+ * Ground a player can stand on, on foot. A doctor's tent is solid: the
+ * player talks to the doctor from the tile beside it (see `world/tents.ts`),
+ * never inside it. Water takes a boat (`isPassable`).
  */
 export function isWalkable(kind: TileKind): boolean {
 	return kind === 'grass' || kind === 'tallgrass' || kind === 'sand';
 }
+
+/** Water, shallow or deep. */
+export function isWater(kind: TileKind): boolean {
+	return kind === 'water' || kind === 'deepwater';
+}
+
+/** Where a player standing on a tile of this kind is: out on the water, or on land. */
+export function tileRealm(kind: TileKind): Realm {
+	return isWater(kind) ? 'water' : 'land';
+}
+
+/** What the player carries that changes where they can go: `gearOf` reads it off what they own. */
+export interface Gear {
+	/** The boat: water, shallow and deep, is theirs to sail. */
+	readonly boat: boolean;
+}
+
+/** Gear of a player who owns nothing that changes where they go. */
+export const NO_GEAR: Gear = { boat: false };
+
+/**
+ * Where a player with `gear` can go: walkable ground on foot, and with the
+ * boat the water too. The one check behind every move, and behind where a
+ * saved player may stand and the way to the nearest doctor.
+ */
+export function isPassable(kind: TileKind, gear: Gear = NO_GEAR): boolean {
+	return isWalkable(kind) || (gear.boat && isWater(kind));
+}
+
 
 /**
  * Where an encounter on a tile of this kind happens, or null where none can:

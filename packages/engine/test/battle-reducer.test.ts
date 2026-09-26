@@ -269,8 +269,10 @@ describe('replay', () => {
 				{ id: 'rabbit-1', speciesId: 'rabbit', hp: 13 }
 			],
 			opponent: { id: 'wild-fox', speciesId: 'fox', hp: 0 },
+			realm: 'land',
 			phase: { kind: 'ended', outcome: 'won' }
 		});
+
 	});
 });
 

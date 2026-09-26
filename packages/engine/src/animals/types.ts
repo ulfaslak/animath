@@ -34,9 +34,11 @@ export interface AnimalSpec {
 	/** Biomes where this species spawns in the wild. */
 	habitats: readonly Biome[];
 	/**
-	 * Where it can be met: `['land']` for most, `['land', 'water']` for an
-	 * amphibious animal (the frog, the otter), `['water']` for one that lives
-	 * out on the water only.
+	 * Where it can go, and so where it can fight and be met: `['land']` for
+	 * most, `['land', 'water']` for an amphibious animal (the frog, the
+	 * otter), `['water']` for a sea animal that lives out on the water only.
+	 * An animal fights only where the player stands in one of its realms
+	 * (`canFightIn`): out on the water, in the boat, only the ones that swim.
 	 */
 	realms: readonly Realm[];
 	/**
@@ -47,15 +49,21 @@ export interface AnimalSpec {
 	favours: Terrain;
 }
 
-export type Biome = 'meadow' | 'forest' | 'river' | 'mountain';
+/**
+ * Where a species lives in the wild: the meadow, the forest, the river banks,
+ * the mountains, or the sea, which is the deep water out in the middle of the
+ * lakes (`deepwater` tiles), reached only by boat.
+ */
+export type Biome = 'meadow' | 'forest' | 'river' | 'mountain' | 'sea';
 
 /**
- * Where an encounter happens, and so where a species can be met: on land
- * (tall grass, the river's reeds) or out on the water. No tile starts a water
- * encounter yet; a boat will, and then an amphibious species (`realms` with
- * both) comes out in either, a sea animal (`['water']`) only on the water.
+ * Land or water: where the player stands (`tileRealm`: water tiles, reached
+ * by boat, are water; every other tile is land), where an animal can go and
+ * fight (`AnimalSpec.realms`), and where an encounter happens
+ * (`encounterRealm`: on land in the tall grass and the river's reeds).
  */
 export type Realm = 'land' | 'water';
+
 
 /** Every realm, land first. */
 export const REALMS: readonly Realm[] = ['land', 'water'];

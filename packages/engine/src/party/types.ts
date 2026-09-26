@@ -13,13 +13,15 @@ export type PlayerActivity = 'explore' | 'battle' | 'doctor';
  * the engine checks the intent and cleans up the name.
  *
  * The lead — the animal that steps into the next battle — is always the first
- * animal in party order that is not tired (`leadIndex`). There is no separate
- * "selected" flag: choosing a lead moves it to the front.
+ * animal in party order that is not tired and can fight where the player
+ * stands (`leadIndex`). There is no separate "selected" flag: choosing a lead
+ * moves it to the front.
  */
 export type PartyIntent =
 	/**
 	 * Choose who goes first: move this animal to the front of the party. Only an
-	 * animal that is not tired, and not already the lead, can be chosen.
+	 * animal that is not tired, can fight where the player stands (out on the
+	 * water, one that swims), and is not already the lead, can be chosen.
 	 */
 	| { type: 'select-lead'; animalId: string }
 	/**
@@ -46,6 +48,9 @@ export type PartyRejection =
 	| 'unknown-animal'
 	/** `select-lead` on an animal with 0 HP. */
 	| 'tired'
+	/** `select-lead` on an animal that can't fight where the player stands: one that can't swim, out on the water. */
+	| 'cannot-fight-here'
+
 	/** `select-lead` on the animal that already leads. */
 	| 'already-lead'
 	/** `to` is not a whole number in `0..party.length - 1`. */

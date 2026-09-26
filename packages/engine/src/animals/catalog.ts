@@ -1,4 +1,4 @@
-import type { AnimalSpec } from './types.js';
+import type { AnimalSpec, Realm } from './types.js';
 
 /**
  * The species catalog. Placeholder roster for the prototype — the real one
@@ -130,3 +130,15 @@ export function getAnimal(id: string): AnimalSpec {
 	if (!spec) throw new Error(`Unknown animal: ${id}`);
 	return spec;
 }
+
+/**
+ * Whether an animal of this species can fight where the player stands in
+ * `realm`: its realms include it. On land every land and amphibious animal
+ * can; out on the water, in the boat, only the ones that swim, the
+ * amphibious and the sea animals. The human's rule: "you can't fight on
+ * water unless you have an amphibious animal".
+ */
+export function canFightIn(speciesId: string, realm: Realm): boolean {
+	return getAnimal(speciesId).realms.includes(realm);
+}
+

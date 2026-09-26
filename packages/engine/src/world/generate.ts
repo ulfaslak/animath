@@ -15,10 +15,23 @@ import { CHUNK_SIZE, type Chunk, type Tile, type TileKind } from './types.js';
  * What it does today: value noise for elevation → water / sand / grass / rock,
  * a second noise for moisture → tall grass and tree density, a coarse biome
  * label per tile. River banks are sand with patches of reeds (tall grass) so
- * the river biome has encounter tiles. Doctor tents are placed on a sparse
- * lattice near water or trees. Rivers, paths, points of interest and proper
- * biome shaping are the real work, tracked as issues.
+ * the river biome has encounter tiles. Water with water all round it,
+ * `DEEP_WATER_MARGIN` tiles out, is deep water, the sea biome: the middle of
+ * a lake, never next to a shore. Doctor tents are placed on a sparse lattice
+ * near water or trees. Rivers, paths, points of interest and proper biome
+ * shaping are the real work, tracked as issues.
  */
+
+/** Below this elevation a tile is water. */
+const WATER_LEVEL = 0.36;
+
+/**
+ * Deep water is water whose every tile within this many tiles, diagonals
+ * included, is water too: the 5×5 square round it. So the shallows along
+ * every shore are two tiles wide, a river narrower than five tiles has no
+ * deep water, and deep water is at least three steps from any land.
+ */
+export const DEEP_WATER_MARGIN = 2;
 
 function valueNoise(seed: number, x: number, y: number, scale: number): number {
 	const fx = x / scale;
@@ -53,14 +66,38 @@ function biomeFor(elev: number, moist: number): Biome {
 	return moist > 0.55 ? 'forest' : 'meadow';
 }
 
-function tileAt(seed: number, x: number, y: number): Tile {
-	const elev = elevation(seed, x, y);
+/** The elevation at a world tile: `elevation`, or a cache of it that a whole chunk shares. */
+type ElevationAt = (x: number, y: number) => number;
+
+/** Whether the water tile at (x, y) is deep: water all round it, `DEEP_WATER_MARGIN` tiles out. */
+function isDeep(elev: ElevationAt, x: number, y: number): boolean {
+	// The nearest tiles first: along a shore the first land is found at once.
+	for (let r = 1; r <= DEEP_WATER_MARGIN; r++) {
+		for (let dy = -r; dy <= r; dy++) {
+			for (let dx = -r; dx <= r; dx++) {
+				if (Math.max(Math.abs(dx), Math.abs(dy)) !== r) continue;
+				if (elev(x + dx, y + dy) >= WATER_LEVEL) return false;
+			}
+		}
+	}
+	return true;
+}
+
+function tileAt(
+	seed: number,
+	x: number,
+	y: number,
+	elevAt: ElevationAt = (ex, ey) => elevation(seed, ex, ey),
+	depth = true
+): Tile {
+	const elev = elevAt(x, y);
 	const moist = moisture(seed, x, y);
-	const biome = biomeFor(elev, moist);
+	const deep = depth && elev < WATER_LEVEL && isDeep(elevAt, x, y);
+	const biome = deep ? 'sea' : biomeFor(elev, moist);
 	const local = new Rng(hashInts(seed, x, y, 7));
 
 	let kind: TileKind;
-	if (elev < 0.36) kind = 'water';
+	if (elev < WATER_LEVEL) kind = deep ? 'deepwater' : 'water';
 	// The bank: sand with patches of reeds, so river animals have tall grass to hide in.
 	else if (elev < 0.4) kind = local.chance(0.3) ? 'tallgrass' : 'sand';
 	else if (elev > 0.8) kind = 'rock';
@@ -79,7 +116,7 @@ function tileAt(seed: number, x: number, y: number): Tile {
 		kind = 'tent';
 	}
 
-	const height = kind === 'water' ? 0 : Math.max(0, Math.round((elev - 0.36) * 6));
+	const height = elev < WATER_LEVEL ? 0 : Math.max(0, Math.round((elev - WATER_LEVEL) * 6));
 	return { kind, biome, height };
 }
 
@@ -91,7 +128,7 @@ function mod(x: number, m: number): number {
 function hasWaterNearby(seed: number, x: number, y: number): boolean {
 	for (let dy = -3; dy <= 3; dy++) {
 		for (let dx = -3; dx <= 3; dx++) {
-			if (elevation(seed, x + dx, y + dy) < 0.36) return true;
+			if (elevation(seed, x + dx, y + dy) < WATER_LEVEL) return true;
 		}
 	}
 	return false;
@@ -99,18 +136,45 @@ function hasWaterNearby(seed: number, x: number, y: number): boolean {
 
 export function generateChunk(seed: number, cx: number, cy: number): Chunk {
 	const tiles: Tile[] = new Array(CHUNK_SIZE * CHUNK_SIZE);
+	const x0 = cx * CHUNK_SIZE;
+	const y0 = cy * CHUNK_SIZE;
+	// Every deep-water check reads the elevation up to DEEP_WATER_MARGIN tiles
+	// round a tile: read the chunk's window of it once. The same numbers as
+	// `elevation`, so a chunk's tiles are `tileAtWorld`'s.
+	const m = DEEP_WATER_MARGIN;
+	const span = CHUNK_SIZE + 2 * m;
+	const grid = new Float64Array(span * span);
+	for (let gy = 0; gy < span; gy++) {
+		for (let gx = 0; gx < span; gx++) {
+			grid[gy * span + gx] = elevation(seed, x0 - m + gx, y0 - m + gy);
+		}
+	}
+	const elevAt: ElevationAt = (x, y) => grid[(y - y0 + m) * span + (x - x0 + m)]!;
+
 	for (let y = 0; y < CHUNK_SIZE; y++) {
 		for (let x = 0; x < CHUNK_SIZE; x++) {
-			tiles[y * CHUNK_SIZE + x] = tileAt(seed, cx * CHUNK_SIZE + x, cy * CHUNK_SIZE + y);
+			tiles[y * CHUNK_SIZE + x] = tileAt(seed, x0 + x, y0 + y, elevAt);
 		}
 	}
 	return { cx, cy, tiles };
 }
 
+
 /** Convenience for callers that think in world coordinates. */
 export function tileAtWorld(seed: number, x: number, y: number): Tile {
 	return tileAt(seed, x, y);
 }
+
+/**
+ * The tile's kind as far as getting about goes: `tileAtWorld`'s, except that
+ * deep water is `water` too. Where a player can go and stand treats both
+ * alike, and telling them apart reads 24 more tiles of elevation, so a search
+ * over many tiles (`nearestTent`) reads this instead.
+ */
+export function travelKindAt(seed: number, x: number, y: number): TileKind {
+	return tileAt(seed, x, y, undefined, false).kind;
+}
+
 
 /**
  * Where a new player appears: the nearest walkable tile to the origin, scanning

@@ -1,3 +1,5 @@
+import type { Gear } from '../world/types.js';
+
 /**
  * What the doctor's shop sells, for the tokens the doctor gives for animals
  * helped home ([[PRODUCT]] §4 "Tokens and the doctor's shop"). Ids only: an
@@ -59,3 +61,9 @@ export function itemsForSale(): ItemId[] {
 export function hasItem(owner: { readonly items: readonly string[] }, id: ItemId): boolean {
 	return owner.items.includes(id);
 }
+
+/** What the player's items let them do about where they go: the boat sails on water (`isPassable`). */
+export function gearOf(owner: { readonly items: readonly string[] }): Gear {
+	return { boat: hasItem(owner, 'boat') };
+}
+
