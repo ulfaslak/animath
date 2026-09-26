@@ -114,3 +114,11 @@ Technical items we've intentionally postponed: tech debt, hardening shortcuts, k
 **Why deferred**: one kid cannot make two saves in the same instant. A page writes the save only on the kid's own input, with one exception, which happens once and rarely: taking a bigger game from the server.
 
 **Trigger**: a feature that writes the save without the kid's input (a timer, a reward that grows over time, a second player on one device), or a report of a game found kept aside after playing in two tabs. Then merge a walk-versus-progress race back into play: carry on from the other save when it only walked since this page's previous save, and write this page's progress on top.
+
+### The ground around a tall-grass tile is read from the generated world, not the one the kid has changed
+
+**What**: `surroundings(seed, pos)` (`world/habitat.ts`) counts the water, trees and rocks near a tile with `tileAtWorld`, the world as generated. Once the axe chops trees and the pickaxe breaks rocks ([[PRODUCT]] §6), a kid's cleared tiles would still count as trees or rocks for who comes out of the grass beside them.
+
+**Why deferred**: no tool changes a tile yet. Which world the ground should be read from — the generated one, or the one with the kid's changes, which would make encounters depend on a save's edits and on every authority knowing them — is a decision for that PR.
+
+**Trigger**: the PR that lets the axe or the pickaxe change a tile, or anything else that changes tiles while the game runs.
