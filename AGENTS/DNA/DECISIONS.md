@@ -58,6 +58,18 @@ Migrations are hand-written SQL in `packages/server/drizzle/`, idempotent (`IF N
 Player identity is anonymous: a `players` row with a client-held secret. Accounts, if ever, attach to it.
 Env from a repo-root `.env` loaded with `process.loadEnvFile`; no dotenv package.
 
+## Saves
+
+The save is local first, because the human asked for it: "need to persist state in localstorage so reloads are safe and users can come back to their game later and continue playing". The whole game lives in the browser's `localStorage` and is rewritten after every change (a step, a battle turn, a catch), so the game is persistent with no server at all.
+The server holds a backup of each player's save, sent in the background. The game never waits for it, except at start in a browser that has an identity but no readable save of its own, and then only briefly.
+A reload never loses progress: a battle in progress is saved too, and a reload picks it up where it was, mid-puzzle included.
+One document shape for both copies, `SaveV1`, defined and checked in the engine. A new field is optional and needs no version bump; `version` goes up only when an old document becomes unreadable, with an upgrade that reads it.
+A page never writes over a save it has not seen. Several tabs share one `localStorage`: before each write a page checks that the stored save is the one it last read or wrote, carries on from another tab's save only when that tab merely walked, and otherwise stops saving and reloads into the newer game.
+The server takes a backup only with a higher `seq` than the one it holds (`409` otherwise), and keeps any save it replaces with a different game, or cannot read, in `save_backups`.
+A save the game cannot read is set aside, never deleted: in `animath.save.unreadable` once the kid has played the new game, on the server in `save_backups`.
+There is no way in the game to delete a save. `?new` plays a throwaway game that reads and writes nothing. Clearing the site's data is the only ordinary way to lose one.
+Per-device preferences (the language) have their own `localStorage` keys and are never part of the save.
+
 ## Development
 
 All implementation work happens in a git worktree via `git gtr new`, never on `main`.

@@ -29,7 +29,19 @@ export type Intent =
 	| { type: 'party'; intent: PartyIntent };
 
 export type GameEvent =
-	| { type: 'welcome'; playerId: string; seed: number; pos: GridPos; party: AnimalInstance[] }
+	/**
+	 * The game starts, or starts over: a new game, or one picked up from a
+	 * save. Carries the facing too, so a restored player looks the way they
+	 * did. A `battle-started` follows when the save was taken mid-battle.
+	 */
+	| {
+			type: 'welcome';
+			playerId: string;
+			seed: number;
+			pos: GridPos;
+			facing: Direction;
+			party: AnimalInstance[];
+	  }
 	| { type: 'player-moved'; playerId: string; pos: GridPos; dir: Direction }
 	| { type: 'player-blocked'; playerId: string; dir: Direction }
 	/**

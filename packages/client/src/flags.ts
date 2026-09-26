@@ -9,8 +9,13 @@ export interface Flags {
 	zoo: boolean;
 	/** `?debug`: the player's grid position and facing in the top-right corner. */
 	debug: boolean;
-	/** `?party=bear:10,fox:0,rabbit`: start with this party instead of the one squirrel. */
+	/**
+	 * `?party=bear:10,fox:0,rabbit`: start with this party instead of the one
+	 * squirrel, in a throwaway game, like `?new`.
+	 */
 	party: AnimalInstance[] | null;
+	/** `?new`: a throwaway game that loads and saves nothing; the saved game is left alone. */
+	fresh: boolean;
 }
 
 export function readFlags(search: string): Flags {
@@ -18,7 +23,8 @@ export function readFlags(search: string): Flags {
 	return {
 		zoo: params.has('zoo'),
 		debug: params.has('debug'),
-		party: parseParty(params.get('party'))
+		party: parseParty(params.get('party')),
+		fresh: params.has('new')
 	};
 }
 

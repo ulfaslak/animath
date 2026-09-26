@@ -28,13 +28,14 @@ export class ExploreController {
 	handle(event: GameEvent): void {
 		switch (event.type) {
 			case 'welcome':
-				// The authority faces down at `welcome` too, so a second one (a
-				// reconnect) leaves both sides agreeing about which way the player looks.
+				// `welcome` carries the authority's facing (down in a new game, the
+				// saved one in a restored game), so after any `welcome` both sides
+				// agree about which way the player looks.
 				this.playerId = event.playerId;
 				this.seed = event.seed;
 				this.pos = this.from = event.pos;
 				this.progress = 1;
-				this.facing = 'down';
+				this.facing = event.facing;
 				this.renderer.setWorld(this.seed);
 				this.renderer.setPlayer(event.pos, event.pos, 1, this.facing);
 				break;

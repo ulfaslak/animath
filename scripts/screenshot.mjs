@@ -37,6 +37,11 @@
  * `--reduced-motion` opens the page as a system that asks for less motion
  * (`prefers-reduced-motion: reduce`).
  *
+ * Each run is a fresh browser, so a new player and a new game; `reload:` keeps
+ * the game, which is saved in the page's localStorage. The script exits
+ * non-zero on console errors and warnings, except failed `/api/` calls: the
+ * game saves locally without the API, so those are listed at the end instead.
+ *
  * Headless SwiftShader runs at a few frames per second, so buffered steps need
  * the `--settle` wait to finish before the screenshot. `--scale 3` renders the
  * same framing at three device pixels per CSS pixel and `--clip` keeps only a
@@ -91,12 +96,34 @@ const page = await browser.newPage({
 	reducedMotion: args['reduced-motion'] ? 'reduce' : 'no-preference'
 });
 const errors = [];
+// The game saves locally and backs up to the API when it can; it plays the same
+// without it. Failed API calls are listed, not counted as errors.
+const api = [];
+const isApi = (u) => {
+	try {
+		return new URL(u).pathname.startsWith('/api/');
+	} catch {
+		return false;
+	}
+};
 page.on('console', (m) => {
 	// SwiftShader (headless software GL) spams "GPU stall" performance notes; not ours.
 	if (/GPU stall/.test(m.text())) return;
+	// Chrome logs every failed request; the API ones are listed below instead.
+	if (/^Failed to load resource/.test(m.text()) && isApi(m.location().url)) return;
 	if (m.type() === 'error' || m.type() === 'warning') errors.push(`[${m.type()}] ${m.text()}`);
 });
 page.on('pageerror', (e) => errors.push(`[pageerror] ${e.message}`));
+page.on('response', (r) => {
+	if (isApi(r.url()) && r.status() >= 400) {
+		api.push(`${r.request().method()} ${new URL(r.url()).pathname} → ${r.status()}`);
+	}
+});
+page.on('requestfailed', (r) => {
+	if (isApi(r.url())) {
+		api.push(`${r.method()} ${new URL(r.url()).pathname} failed (${r.failure()?.errorText})`);
+	}
+});
 
 /** Text of the first element matching `selector`, or null when there is none. */
 async function textOf(selector) {
@@ -273,6 +300,10 @@ await page.waitForTimeout(script.length ? settle : 200);
 await shoot(out);
 await browser.close();
 
+if (api.length) {
+	console.log('api calls that did not succeed (the game plays on and saves locally):');
+	for (const line of api) console.log('  ' + line);
+}
 if (errors.length) {
 	console.log('console errors/warnings:');
 	for (const e of errors) console.log('  ' + e);

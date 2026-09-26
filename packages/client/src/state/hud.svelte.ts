@@ -9,6 +9,7 @@ import { sfx } from '../audio/sfx.svelte';
 import { t } from '../copy';
 import { doctorWords, type DoctorLine } from '../doctor/lines';
 import { nameOf } from '../names';
+import type { SaveNotice } from '../save/notices';
 import { game } from './game.svelte';
 
 /**
@@ -19,9 +20,10 @@ import { game } from './game.svelte';
  * Things said are the authority's `message` events, plus lines the client
  * words itself from events that carry no words: the doctor's goodbye
  * (`doctor-visit-ended`), the doctor's line after a lost battle
- * (`taken-to-doctor`), how to find a doctor (`nothing-to-interact`), and who
- * goes first after a party edit (`party-edited`, see `leadNotice`).
- * They are kept as data and worded when shown, in the language on screen.
+ * (`taken-to-doctor`), how to find a doctor (`nothing-to-interact`), who
+ * goes first after a party edit (`party-edited`, see `leadNotice`), and what
+ * start-up found about the save (`notice`, from `main.ts`). They are kept as
+ * data and worded when shown, in the language on screen.
  *
  * Their seconds count only while the explore HUD is on screen (`tick`, from
  * the frame loop), so a line said while the battle screen or the doctor's
@@ -51,12 +53,15 @@ export type Said =
 	| { doctor: DoctorLine }
 	/** `interact` found no tent in front of the player. */
 	| { explore: 'notAtTent' }
-	| { party: PartyNotice };
+	| { party: PartyNotice }
+	/** What start-up found about the save: a copy key from `SAVE_NOTICES`. */
+	| { save: SaveNotice };
 
 export function saidWords(said: Said): string {
 	if ('text' in said) return said.text;
 	if ('doctor' in said) return doctorWords(said.doctor);
 	if ('party' in said) return partyWords(said.party);
+	if ('save' in said) return t(said.save);
 	return t('explore.notAtTent');
 }
 
@@ -164,6 +169,11 @@ class HudView {
 				if (this.#said && 'party' in this.#said) this.#said = null;
 				break;
 		}
+	}
+
+	/** Say what start-up found about the save. Call after `welcome`, which clears the line. */
+	notice(key: SaveNotice): void {
+		this.say({ save: key });
 	}
 
 	/** Put a line on the message line; it stays for `MESSAGE_SECONDS` of the HUD on screen. */

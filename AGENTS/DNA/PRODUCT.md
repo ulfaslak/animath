@@ -12,7 +12,7 @@ The game is called **Animath**. The repo and package names (`mathgame`, `@mathga
 
 - **Kids aged roughly 6–12**. Reading level: short words, big text. The puzzle ladder spans from single-digit addition to three-digit multiplication and square roots.
 - **Devices**: a laptop/desktop browser with a keyboard first. Tablets with touch controls are a planned follow-up, not a v1 target.
-- **No login.** Open the link and you are in. Identity is an anonymous id the browser remembers, so progress survives a reload.
+- **No login.** Open the link and you are in. The game is saved in the browser as you play, so a reload, or coming back another day, picks up where you left off; the server keeps a backup under an anonymous id the browser remembers.
 
 ## 3. Core loop
 
@@ -110,6 +110,15 @@ Two modes only, borrowed from the Game Boy games: **Explore** and **Battle**. Fi
 
 A new player starts with one tier-1 animal (a squirrel in the prototype). A starter choice of three is planned.
 
+### Saving
+
+- **Always saved, never a save button.** The game is saved in this browser after every step, every battle turn and every catch, and when the page is closed. A reload, or coming back another day on the same browser and the same address, carries on exactly where you were: the same place, facing the same way, the same animals with the same HP.
+- **A reload is not an escape.** A battle in progress is saved too: a reload picks it up with the same wild animal, the same HP, and the same puzzle if one was up. The step count is saved, so the animals ahead on a walk stay the ones they were; reloading never rerolls an encounter, a puzzle or a throw.
+- **A backup on the server.** Each player's save is also copied to the server, in the background, when the server can be reached. A browser that still knows the player but has lost its save gets the game back from there. The game never waits on the server, and plays and saves the same without it.
+- **Two windows.** Both show the same game. A window that falls behind a catch, a battle or anything else made in the other one reloads into the newer game when you look at it, so nothing is ever rolled back. Walking around in both is fine: the window you play in carries on from where you are.
+- **A save that won't load** starts a new game with a message ("Your saved game didn't load, so here is a new one."). The old save is kept: it stays where it was until you have played the new game (a battle, a catch), then it is set aside, never deleted. A save made by a newer version of the game is left alone, and this page asks for a reload.
+- **Starting fresh** is clearing the site's data in the browser; nothing in the game deletes a save. `?new` in the address plays a new game that is saved nowhere, leaving the saved one alone.
+
 ### Multiplayer (future, shapes today's architecture)
 
 - One shared world per server. Kids see each other walking around.
@@ -142,6 +151,13 @@ What is built and observable today. Keep current: add a bullet when a feature sh
 - HP lost in a battle stays lost afterwards; a knocked-out animal stays tired and sits out battles until healed.
 - Losing: when the whole party is tired, the result card says "Good try!", and the player is back in the world beside the nearest tent on foot, facing it, with the whole party healed and the doctor's line on the message line (§4 "Knock-out and healing").
 
+### Saving
+
+- The game saves itself in the browser after every step, battle turn and catch, and on closing the page; a reload or a later visit carries on exactly where you were, in the middle of a battle or a puzzle included (§4 "Saving"). "Welcome back!" on the message line when a saved game is picked up.
+- A backup on the server, sent in the background when it can be reached; a browser that lost its save but still knows the player gets its game back from it.
+- Two windows of the game never undo each other: the one that falls behind reloads into the newer game when looked at.
+- A save that cannot be read starts a new game with a message and is kept, set aside once the new game has been played; a newer version's save is left alone. `?new` plays a game that is saved nowhere.
+
 ### Sound and feel
 
 - Sound: short, soft sounds made while the game runs, no sound files ([[DESIGN]] § Sound) — a jingle when a wild animal jumps out, blips on the menus, a chime for a right answer and a soft bonk for a miss, a thump for a hit, a puff when an animal gets tired, the leash's whoosh, tick-tock and its fanfare or boing, a sparkle at the doctor, a ding for a new lead and a fanfare for a win. Every sound goes with something on screen.
@@ -167,18 +183,17 @@ What is built and observable today. Keep current: add a bullet when a feature sh
 
 - Health endpoint reporting database reachability.
 - Anonymous identity: a player is created with one request and gets an id plus a secret; no account, no login.
-- One save per player, stored and returned as a versioned document (world seed, position, party of up to six). The client does not use it yet.
+- One backup save per player, stored and returned as a versioned document (world seed, position, facing, step count, party of up to six, a battle in progress). A backup lands only with a higher save number than the one stored; a different game or an unreadable save it replaces is kept aside.
 
 ## 6. Not yet built
 
 In rough priority order. Each becomes a GitHub issue when picked up.
 
-1. Save/load in the client: create the anonymous player on first visit, keep the secret, load the save on boot and write it as the game progresses (the server routes exist, see [[ARCHITECTURE]] § HTTP API).
-2. A title screen.
-3. Real low-poly animal models (glTF, CC0 sources, see [[DECISIONS]]) with attack animations, replacing the primitive figures.
-4. The whole game in Danish and English: every line in both, and a Language setting in the pause menu that switches every word at once and is remembered on this device. The copy files and `t()` exist (§5, [[ARCHITECTURE]] § Copy); the doctor's words are in them, the rest have not moved yet.
-5. Procedural world v2: rivers that flow, paths, biome shaping, landmarks, spawn tables.
-6. Puzzle catalog v2: fractions, decimals, negatives, word problems, per-child adaptive difficulty.
-7. Touch controls for tablets.
-8. Multiplayer: shared world, other players visible, PvP battles, tokens, shop.
-9. Deployment to the Hetzner VPS.
+1. A title screen.
+2. Real low-poly animal models (glTF, CC0 sources, see [[DECISIONS]]) with attack animations, replacing the primitive figures.
+3. The whole game in Danish and English: every line in both, and a Language setting in the pause menu that switches every word at once and is remembered on this device. The copy files and `t()` exist (§5, [[ARCHITECTURE]] § Copy); the doctor's, the party's and the save's words are in them, the rest have not moved yet.
+4. Procedural world v2: rivers that flow, paths, biome shaping, landmarks, spawn tables.
+5. Puzzle catalog v2: fractions, decimals, negatives, word problems, per-child adaptive difficulty.
+6. Touch controls for tablets.
+7. Multiplayer: shared world, other players visible, PvP battles, tokens, shop.
+8. Deployment to the Hetzner VPS.

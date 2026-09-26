@@ -86,7 +86,14 @@ describe('the explore message line', () => {
 
 	it("words the doctor's goodbye and the line after a lost battle from their events", () => {
 		setup();
-		game.apply({ type: 'welcome', playerId: 'p', seed: 1, pos: { x: 0, y: 0 }, party: [] });
+		game.apply({
+			type: 'welcome',
+			playerId: 'p',
+			seed: 1,
+			pos: { x: 0, y: 0 },
+			facing: 'down',
+			party: []
+		});
 		hud.apply({
 			type: 'doctor-visit-ended',
 			visit: 1,
@@ -163,10 +170,25 @@ describe('the explore message line', () => {
 			playerId: 'p',
 			seed: hashString('prototype'),
 			pos: { x: 5, y: 6 },
+			facing: 'left',
 			party: []
 		});
+		expect(hud.hint).toBe(t('explore.controls'));
 		game.apply({ type: 'player-blocked', playerId: 'p', dir: 'down' });
 		expect(game.steps).toBeLessThan(HINT_STEPS);
+		expect(hud.hint).toBe(t('explore.talkPrompt'));
+	});
+
+	it('a game picked up facing a tent shows the prompt at once', () => {
+		// Saved while facing the tent below (5, 6): `welcome` carries the facing.
+		game.apply({
+			type: 'welcome',
+			playerId: 'p',
+			seed: hashString('prototype'),
+			pos: { x: 5, y: 6 },
+			facing: 'down',
+			party: []
+		});
 		expect(hud.hint).toBe(t('explore.talkPrompt'));
 	});
 });
