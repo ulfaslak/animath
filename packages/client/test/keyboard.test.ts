@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { Keyboard, keyName } from '../src/input/keyboard';
 import { PICK_QUIET_SECONDS } from '../src/input/pick-guard';
+import { animalKey, bundleKey, moveKey, openKey } from '../src/input/press';
 import { everyMash } from './mash';
 
 /**
@@ -60,13 +61,13 @@ function setup({ on = true, settled = true } = {}) {
 		tap: keyboard.takeTap(),
 		held: keyboard.heldDirection(),
 		interact: keyboard.takeInteract(),
-		slot: keyboard.takeSlot()
+		pick: keyboard.takeTeamPick()
 	});
 	const fire = (type: string) => listeners.get(type)!({});
 	return { keyboard, listeners, down, up, take, fire };
 }
 
-const nothing = { tap: undefined, held: undefined, interact: false, slot: undefined };
+const nothing = { tap: undefined, held: undefined, interact: false, pick: undefined };
 
 describe('keyName', () => {
 	it('reads a letter the same whatever Caps Lock and Shift say, and W A S D by place on other alphabets', () => {
@@ -191,6 +192,47 @@ describe('explore keyboard', () => {
 			t.fire(type);
 			expect(t.take()).toEqual(nothing);
 		}
+	});
+});
+
+describe('the party column', () => {
+	it('a number key picks the card in that place, 1 the top card and 9 the ninth; 0 picks nothing', () => {
+		const t = setup();
+		for (let n = 1; n <= 9; n++) {
+			expect(t.down({ key: String(n), code: `Digit${n}` })).toBe(true);
+			expect(t.keyboard.takeTeamPick()).toEqual({ kind: 'place', index: n - 1 });
+		}
+		expect(t.down({ key: '0', code: 'Digit0' })).toBe(false);
+		expect(t.take()).toEqual(nothing);
+	});
+
+	it("takes the column's pointer keys: a card, an animal, a card to open, a card dropped", () => {
+		const t = setup();
+		t.down({ key: bundleKey('rabbit') });
+		t.down({ key: animalKey('party-7') });
+		t.down({ key: openKey('fox') });
+		t.down({ key: moveKey('bear', 3) });
+		expect([1, 2, 3, 4, 5].map(() => t.keyboard.takeTeamPick())).toEqual([
+			{ kind: 'bundle', speciesId: 'rabbit' },
+			{ kind: 'animal', animalId: 'party-7' },
+			{ kind: 'open', speciesId: 'fox' },
+			{ kind: 'move', speciesId: 'bear', to: 3 },
+			undefined
+		]);
+	});
+
+	it('keeps at most four picks for the next frame, and drops them all when explore loses the screen', () => {
+		const t = setup();
+		for (const n of [1, 2, 3, 4, 5, 6]) t.down({ key: String(n), code: `Digit${n}` });
+		const kept = [1, 2, 3, 4, 5].map(() => t.keyboard.takeTeamPick());
+		expect(kept).toEqual(
+			[0, 1, 2, 3].map((index) => ({ kind: 'place', index })).concat([undefined])
+		);
+		t.down({ key: '2', code: 'Digit2' });
+		t.down({ key: openKey('fox') });
+		t.keyboard.setEnabled(false); // a battle
+		t.keyboard.setEnabled(true);
+		expect(t.take()).toEqual(nothing);
 	});
 });
 

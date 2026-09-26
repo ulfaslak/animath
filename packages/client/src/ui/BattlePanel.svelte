@@ -1,7 +1,6 @@
 <script lang="ts">
 	import {
 		ATTACK_LEVELS,
-		MAX_PARTY,
 		attackDamage,
 		catchProbability,
 		getAnimal,
@@ -41,11 +40,6 @@
 	const rows = $derived(spec ? attackRows(spec, battle.levels) : []);
 	/** Someone could step in; with nobody, the Switch row is greyed and says why. */
 	const canSwitch = $derived(battle.pickable.some(Boolean));
-	/**
-	 * No room for a caught animal: the team already has `MAX_PARTY`, so a catch
-	 * goes home. The Leash row says so in words, in place of the odds.
-	 */
-	const teamFull = $derived(battle.party.length >= MAX_PARTY);
 	/** Go on the highlighted row would do nothing: a greyed Switch, or an animal that can't step in. */
 	const goIdle = $derived(
 		battle.screen === 'party'
@@ -81,11 +75,7 @@
 				animal: animalWords(opponent)
 			});
 		}
-		if (action.kind === 'leash') {
-			return teamFull
-				? t('battle.leash.teamFullDetail')
-				: t('battle.leash.detail', { animal: animalWords(opponent) });
-		}
+		if (action.kind === 'leash') return t('battle.leash.detail', { animal: animalWords(opponent) });
 		if (action.kind === 'switch') {
 			if (canSwitch) return t('battle.switch.detail');
 			return battle.party.length < 2 ? t('battle.switch.alone') : t('battle.switch.allTired');
@@ -156,11 +146,11 @@
 
 	/**
 	 * How the result card celebrates: big for an animal that joined the team
-	 * (its name in big letters, a burst of rays, stars), small for a win or a
-	 * good throw that went home (a few stars round the headline).
+	 * (its name in big letters, a burst of rays, stars), small for a win (a
+	 * few stars round the headline).
 	 */
 	const celebration = $derived.by(() => {
-		if (battle.outcome === 'caught') return battle.letGo ? 'small' : 'big';
+		if (battle.outcome === 'caught') return 'big';
 		return battle.outcome === 'won' ? 'small' : null;
 	});
 
@@ -169,8 +159,6 @@
 			case 'won':
 				return t('battle.result.won');
 			case 'caught':
-				// Caught, but the team was full and it went home: a good throw, not a new friend.
-				if (battle.letGo) return t('battle.result.letGo');
 				return opponent
 					? t('battle.result.caught', { animal: animalWords(opponent) })
 					: t('battle.leash.caught');
@@ -289,9 +277,7 @@
 					<span class="caret">▸</span>
 					<span class="label">{t('battle.leash.row')}</span>
 					<span class="how">
-						{#if teamFull}
-							{t('battle.leash.teamFull')}
-						{:else if leashBand === 'good'}
+						{#if leashBand === 'good'}
 							{t('battle.leash.good')}
 						{:else if leashBand === 'warn'}
 							{t('battle.leash.maybe')}
@@ -299,10 +285,8 @@
 							{t('battle.leash.hard')}
 						{/if}
 					</span>
-					<!-- The dot is the odds; with the team full the odds don't matter, so no dot. -->
-					{#if !teamFull}
-						<span class="dot {leashBand}"></span>
-					{/if}
+					<!-- The dot is the odds, in colour; the words beside it say the same. -->
+					<span class="dot {leashBand}"></span>
 				</button>
 				<button
 					type="button"

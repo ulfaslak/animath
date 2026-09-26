@@ -1,6 +1,6 @@
 import { getAnimal } from '@mathgame/engine';
 import { describe, expect, it } from 'vitest';
-import { parseParty, readFlags } from '../src/flags';
+import { MAX_SEEDED_PARTY, parseParty, readFlags } from '../src/flags';
 
 /** The URL switches (CHEATSHEET § Hidden behaviour): a typo must start an ordinary game. */
 describe('URL switches', () => {
@@ -50,6 +50,24 @@ describe('URL switches', () => {
 		]);
 	});
 
+	it('?party= takes a count for many of one kind, as many animals as a kid could catch', () => {
+		const big = parseParty('squirrel*3,rabbit:0*2,fox,bear:10*2')!;
+		expect(big.map((a) => `${a.speciesId}:${a.hp}`)).toEqual([
+			'squirrel:20',
+			'squirrel:20',
+			'squirrel:20',
+			'rabbit:0',
+			'rabbit:0',
+			`fox:${getAnimal('fox').maxHp}`,
+			'bear:10',
+			'bear:10'
+		]);
+		expect(big.map((a) => a.id)).toEqual(big.map((_, i) => `party-${i + 1}`));
+		// Seven of a kind, which the six-animal build refused, and the most it seeds.
+		expect(parseParty(Array(7).fill('rabbit').join(','))).toHaveLength(7);
+		expect(parseParty(`squirrel*${MAX_SEEDED_PARTY - 1},rabbit`)).toHaveLength(MAX_SEEDED_PARTY);
+	});
+
 	it('?party= with anything wrong is ignored as a whole', () => {
 		for (const bad of [
 			'',
@@ -65,7 +83,14 @@ describe('URL switches', () => {
 			'bear:0x5',
 			'bear:+3',
 			'Squirrel',
-			Array(7).fill('rabbit').join(',')
+			'rabbit*0',
+			'rabbit*',
+			'rabbit*2.5',
+			'rabbit*-1',
+			'rabbit*2*3',
+			'rabbit*3:5',
+			`rabbit*${MAX_SEEDED_PARTY + 1}`,
+			`rabbit*${MAX_SEEDED_PARTY},fox`
 		]) {
 			expect(parseParty(bad), bad).toBeNull();
 		}

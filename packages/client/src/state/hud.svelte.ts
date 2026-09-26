@@ -1,4 +1,5 @@
 import {
+	bundles,
 	canTalkToDoctor,
 	leadIndex,
 	type AnimalInstance,
@@ -42,12 +43,11 @@ export const HINT_STEPS = 5;
 /**
  * A line about who goes first, after a party edit: the new lead (`chosen`),
  * or why the one asked for can't be (`tired`, `already`). The animal is named
- * by id and its name read when the line is shown, so a new name shows at once.
+ * by id and its name read when the line is shown, so a new name shows at once;
+ * a card whose animals are all tired is named by its species (`speciesId`).
  */
-export interface PartyNotice {
-	lead: 'chosen' | 'tired' | 'already';
-	animalId: string;
-}
+export type PartyNotice =
+	{ lead: 'chosen' | 'tired' | 'already'; animalId: string } | { lead: 'tired'; speciesId: string };
 
 /** A line on the message line, as data. */
 export type Said =
@@ -69,6 +69,12 @@ export function saidWords(said: Said): string {
 }
 
 function partyWords(notice: PartyNotice): string {
+	if ('speciesId' in notice) {
+		// A card whose animals are all tired: one is named, several are "all".
+		const kin = game.party.filter((a) => a.speciesId === notice.speciesId);
+		if (kin.length > 1) return t('party.leadAllTired');
+		return kin[0] ? t('party.leadTired', { animal: animalWords(kin[0]) }) : '';
+	}
 	const animal = game.party.find((a) => a.id === notice.animalId);
 	if (!animal) return '';
 	const params = { animal: animalWords(animal) };
@@ -86,30 +92,57 @@ function partyWords(notice: PartyNotice): string {
  * The line a party edit puts on the message line, if any, from the party
  * after it and what happened. A lead that can't be chosen is told why —
  * nothing else on screen would say. Otherwise, whenever the edit changed who
- * goes first (a number key, a move in the pause menu), the line names the
- * new lead, so an earlier "Fox goes first!" never outlives the fox's place at
- * the front. A move is undone on a copy to see who led before it.
+ * goes first (a number key, a card dropped at the top, a move in the pause
+ * menu), the line names the new lead, so an earlier "Fox goes first!" never
+ * outlives the fox's place at the front. A move is undone on a copy to see
+ * who led before it.
  */
 export function leadNotice(
 	after: readonly AnimalInstance[],
 	events: readonly PartyEvent[]
 ): PartyNotice | null {
 	for (const e of events) {
-		if (e.type === 'rejected' && e.animalId !== undefined) {
-			if (e.reason === 'tired') return { lead: 'tired', animalId: e.animalId };
-			if (e.reason === 'already-lead') return { lead: 'already', animalId: e.animalId };
+		if (e.type === 'rejected') {
+			if (e.reason === 'tired' && e.animalId !== undefined) {
+				return { lead: 'tired', animalId: e.animalId };
+			}
+			if (e.reason === 'tired' && e.speciesId !== undefined) {
+				return { lead: 'tired', speciesId: e.speciesId };
+			}
+			if (e.reason === 'already-lead' && e.animalId !== undefined) {
+				return { lead: 'already', animalId: e.animalId };
+			}
 		}
 		if (e.type === 'lead-selected') return { lead: 'chosen', animalId: e.animalId };
-		if (e.type === 'reordered') {
-			const before = [...after];
-			const [moved] = before.splice(e.to, 1);
-			before.splice(e.from, 0, moved!);
+		if (e.type === 'reordered' || e.type === 'species-moved') {
+			const before =
+				e.type === 'reordered' ? unmoved(after, e.from, e.to) : unmovedBundle(after, e.from, e.to);
 			const was = before[leadIndex(before)];
 			const is = after[leadIndex(after)];
 			if (is && was?.id !== is.id) return { lead: 'chosen', animalId: is.id };
 		}
 	}
 	return null;
+}
+
+/** The party as it was before the animal in slot `from` moved to slot `to`. */
+function unmoved(after: readonly AnimalInstance[], from: number, to: number): AnimalInstance[] {
+	const before = [...after];
+	const [moved] = before.splice(to, 1);
+	before.splice(from, 0, moved!);
+	return before;
+}
+
+/** The party as it was before the bundle in place `from` moved to place `to`. */
+function unmovedBundle(
+	after: readonly AnimalInstance[],
+	from: number,
+	to: number
+): AnimalInstance[] {
+	const list = bundles(after);
+	const [moved] = list.splice(to, 1);
+	list.splice(from, 0, moved!);
+	return list.flatMap((b) => b.animals);
 }
 
 class HudView {

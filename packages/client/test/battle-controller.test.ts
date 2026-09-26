@@ -946,27 +946,19 @@ describe('a battle picked up from a save', () => {
 	});
 });
 
-describe('a full team', () => {
-	it('a catch with room joins the team; with six already, the card says the animal went home', () => {
-		const t = setup({ party: 'squirrel,squirrel,squirrel,squirrel,squirrel' });
-		t.catchOne();
-		expect(battle.letGo).toBe(false);
-		expect(t.partyNow()).toHaveLength(6);
-		expect(t.partyNow().map((a) => a.id)).toContain(battle.opponent!.id);
-		expect(battle.closing?.key).toBe('battle.closing.joined');
-		t.leaveResult();
-
-		t.catchOne();
-		expect(battle.outcome).toBe('caught');
-		expect(battle.letGo).toBe(true);
-		expect(t.partyNow()).toHaveLength(6);
-		expect(t.partyNow().map((a) => a.id)).not.toContain(battle.opponent!.id);
-		expect(battle.closing && words(battle.closing)).toBe(
-			`Your team is full, so the wild ${name(battle.opponent!)} hops home.`
-		);
-		// Leaving the card forgets it.
-		t.leaveResult();
-		expect(battle.letGo).toBe(false);
+describe('a big team', () => {
+	it('a catch always joins the team, the seventh and the eighth too, and the card says so', () => {
+		const t = setup({ party: 'squirrel*6' });
+		for (const size of [7, 8]) {
+			t.catchOne();
+			expect(battle.outcome).toBe('caught');
+			expect(t.partyNow()).toHaveLength(size);
+			expect(t.partyNow().map((a) => a.id)).toContain(battle.opponent!.id);
+			expect(battle.closing && words(battle.closing)).toBe(
+				`${name(battle.opponent!)} joins your team!`
+			);
+			t.leaveResult();
+		}
 	});
 });
 

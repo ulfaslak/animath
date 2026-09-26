@@ -3,7 +3,9 @@ import {
 	attackDamage,
 	canTalkToDoctor,
 	getAnimal,
+	isBundled,
 	isEncounterTile,
+	joinParty,
 	leadIndex,
 	nearestTent,
 	readSave,
@@ -477,33 +479,27 @@ describe('LocalAuthority: outcomes', () => {
 		expect(position(s)).toEqual({ x: 3, y: 7 });
 	});
 
-	it('caught: joins the party with the HP it had; a seventh animal is let go', () => {
+	it('caught: joins the party with the HP it had, at the end of its bundle, the seventh and on too', () => {
 		const s = session();
-		let caught = 0;
-		for (let battles = 0; battles < 200 && party(s).length < 7; battles++) {
-			const before = party(s).length;
+		for (let battles = 0; battles < 300 && party(s).length < 9; battles++) {
+			const before = party(s);
 			walkIntoBattle(s);
 			tryToCatch(s);
 			const end = latestBattle(s);
 			if (end.phase.kind !== 'ended' || end.phase.outcome !== 'caught') continue;
-			caught++;
 			const ended = closingEvents(s).find((e) => e.type === 'battle-updated');
 			const event =
 				ended?.type === 'battle-updated' ? ended.events.find((e) => e.type === 'ended') : null;
 			const animal = event?.type === 'ended' ? event.caught : undefined;
 			expect(animal).toBeDefined();
-			if (before < 6) {
-				expect(party(s)).toHaveLength(before + 1);
-				expect(party(s).at(-1)).toEqual(animal);
-				expect(lastMessage(s)).toBe('battle.closing.joined');
-			} else {
-				expect(party(s)).toHaveLength(6);
-				expect(party(s).map((a) => a.id)).not.toContain(animal!.id);
-				expect(lastMessage(s)).toBe('battle.closing.teamFull');
-				return;
-			}
+			// No cap: every catch joins, behind the others of its kind (the party's HP as
+			// the battle left it).
+			expect(party(s)).toEqual(joinParty(end.party, animal!));
+			expect(isBundled(party(s))).toBe(true);
+			expect(lastMessage(s)).toBe('battle.closing.joined');
+			expect(party(s)).toHaveLength(before.length + 1);
 		}
-		throw new Error(`the party never filled up (${caught} caught)`);
+		expect(party(s)).toHaveLength(9);
 	});
 });
 

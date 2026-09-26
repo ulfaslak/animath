@@ -82,11 +82,6 @@ export class BattleController {
 	 * so a key mashed through the battle text never picks for the kid.
 	 */
 	private guard = new PickGuard();
-	/**
-	 * The battle ended in a catch, and the party the authority wrote back has
-	 * no place for the caught animal: the team was full, so it went home.
-	 */
-	private letGo = false;
 	/** Seconds left before the battle screen replaces the world. */
 	private enterIn = 0;
 	/** Where the player stands, to pick the battle's backdrop. */
@@ -127,15 +122,6 @@ export class BattleController {
 				this.latest = event.state;
 				battle.screen = 'busy';
 				for (const e of event.events) this.beats.push(...this.narrate(e, replacing));
-				break;
-			}
-			case 'party-changed': {
-				// After a catch, the party the authority wrote back says whether the
-				// caught animal joined: with the team full, it went home instead.
-				const ended = battle.active ? this.latest : null;
-				if (ended?.phase.kind !== 'ended' || ended.phase.outcome !== 'caught') return;
-				this.letGo = !event.party.some((a) => a.id === ended.opponent.id);
-				if (battle.screen === 'result') battle.letGo = this.letGo;
 				break;
 			}
 			case 'message':
@@ -247,7 +233,6 @@ export class BattleController {
 		battle.pickable = state.party.map((_, i) => canSwitchTo(state, i));
 		this.latest = state;
 		this.closing = null;
-		this.letGo = false;
 		this.beats = [];
 		this.wait = 0;
 
@@ -322,7 +307,6 @@ export class BattleController {
 					sfx.play('won');
 				}
 				battle.outcome = state.phase.outcome;
-				battle.letGo = this.letGo;
 				battle.closing = this.closing;
 				battle.line = null;
 				this.guard.show();

@@ -133,13 +133,28 @@ hud:
   goesFirst: først ud
   pickLead: Vælg hvem der er først ud
   pickLeadTouch: Tryk på et dyr for at vælge hvem der er først ud
+  openTouch: Tryk på et kort for at åbne det, og tryk så på den, der skal først ud
+  dragMouse: Træk i et kort for at flytte det
+  dragTouch: Hold på et kort, og træk det så hen, hvor det skal være
   menu: Menu
+
+team:
+  count: '×{count}'
+  allReady: Alle er klar
+  allTired: Alle er trætte
+  ready:
+    one: '{count} klar'
+    other: '{count} klar'
+  tired:
+    one: '{count} træt'
+    other: '{count} trætte'
 
 party:
   tired: træt
   leadChosen: '{animal.the} er først ud!'
   leadTired: '{animal.the} er træt. Gå til dyrlægen!'
   leadAlready: '{animal.the} er allerede først ud!'
+  leadAllTired: De er alle sammen trætte. Gå til dyrlægen!
 
 battle:
   wildName: '{animal.wild}'
@@ -187,8 +202,6 @@ battle:
     good: God chance!
     maybe: Måske
     hard: Svært at fange
-    teamFull: Holdet er fuldt
-    teamFullDetail: Dit hold er fuldt. Fanger du dyret, hopper det hjem.
     throw: Du kaster snoren…
     caught: Fanget!
     brokeFree: Snoren gled af!
@@ -215,7 +228,6 @@ battle:
   result:
     won: Du vandt!
     caught: 'Du fangede {animal.a}!'
-    letGo: Flot kast!
     lost: Godt forsøgt!
     fled: Du slap væk!
     button: Gå videre
@@ -223,7 +235,6 @@ battle:
     won: '{animal.theWild} løber hjem og hviler sig.'
     fled: '{animal.theWild} bliver i græsset.'
     joined: '{animal.the} kommer med på dit hold!'
-    teamFull: 'Dit hold er fuldt, så {animal.theWild} hopper hjem.'
 
 doctor:
   title: Dyrlæge
