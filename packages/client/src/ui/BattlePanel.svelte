@@ -454,6 +454,8 @@
 		font-weight: 800;
 		font-size: 18px;
 		text-align: center;
+		/* A line too long for one (a long nickname) breaks into two even halves, not a lone word. */
+		text-wrap: balance;
 	}
 
 	.panel {
@@ -610,7 +612,7 @@
 	}
 	:global(.touch) .party {
 		grid-auto-rows: var(--tap);
-		row-gap: 0;
+		gap: 0 8px;
 	}
 	.party .row {
 		grid-column: 1 / -1;
@@ -682,12 +684,25 @@
 		align-items: center;
 		gap: 10px;
 	}
+	/*
+	 * Too narrow for the reminder beside the buttons (the card beside the party
+	 * list), the reminder takes a line of its own above them; the buttons stay
+	 * at the right edge.
+	 */
 	:global(.touch) .footer {
 		flex-direction: row;
+		flex-wrap: wrap;
 		justify-content: space-between;
 		align-self: stretch;
+		gap: 8px 10px;
 		margin-top: 6px;
 		text-align: left;
+	}
+	:global(.touch) .footer .keys {
+		flex: 1 1 12em;
+	}
+	:global(.touch) .buttons {
+		margin-left: auto;
 	}
 	.buttons {
 		display: flex;

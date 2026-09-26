@@ -174,7 +174,8 @@ const BUILDERS: Record<string, Builder> = {
 		...antler(accent, 1),
 		ball(0.05, COLORS.white, 0, 0.66, -0.3)
 	],
-	// A bigger, greyer fox with a light chest and a tail held straight up.
+	// A bigger, greyer fox with a light chest and a tail held straight up (it
+	// lays it down behind when it rests: the `tail` joint, see `liePose`).
 	wolf: ({ fur, accent }) => [
 		box(0.3, 0.28, 0.62, fur, 0, 0.44, 0),
 		box(0.26, 0.12, 0.14, accent, 0, 0.38, 0.28),
@@ -184,8 +185,16 @@ const BUILDERS: Record<string, Builder> = {
 		ball(0.035, COLORS.dark, 0, 0.6, 0.63),
 		cone(0.06, 0.15, fur, -0.09, 0.79, 0.34),
 		cone(0.06, 0.15, fur, 0.09, 0.79, 0.34),
-		rot(ball(0.08, fur, 0, 0.66, -0.36, 1, 3.2, 1), -0.35, 0, 0),
-		ball(0.07, accent, 0, 0.9, -0.45)
+		limb(
+			'tail',
+			0,
+			0.42,
+			[
+				rot(ball(0.08, fur, 0, 0.66, -0.36, 1, 3.2, 1), -0.35, 0, 0),
+				ball(0.07, accent, 0, 0.9, -0.45)
+			],
+			-0.27
+		)
 	],
 	// Big and round on thick legs, a tan muzzle, ears too small for its head.
 	bear: ({ fur, accent }) => [
@@ -258,17 +267,18 @@ const HIP_Y = 0.2;
 const SHOULDER_Y = 0.46;
 
 /**
- * A limb hung from a joint at `(x, y)`: a group named `name` at the joint,
+ * A limb hung from a joint at `(x, y, z)`: a group named `name` at the joint,
  * holding `parts` placed as if the group were not there. Turning the group
  * about x swings the limb from the joint.
  */
-function limb(name: string, x: number, y: number, parts: THREE.Mesh[]): THREE.Group {
+function limb(name: string, x: number, y: number, parts: THREE.Mesh[], z = 0): THREE.Group {
 	const joint = new THREE.Group();
 	joint.name = name;
-	joint.position.set(x, y, 0);
+	joint.position.set(x, y, z);
 	for (const p of parts) {
 		p.position.x -= x;
 		p.position.y -= y;
+		p.position.z -= z;
 		joint.add(p);
 	}
 	return joint;
@@ -335,12 +345,15 @@ const REST_PITCH = 0.12;
 const REST_SINK = 0.04;
 /** How much flatter a resting animal is: slumped, not standing to attention. */
 const REST_SQUASH = 0.07;
+/** Radians a tail held up (a `tail` joint: the wolf's) swings back to lie behind a resting animal. */
+const REST_TAIL = 1.2;
 
 /**
  * Lie the rig down by `rest` (0..1): flatter, lowered until its belly is on
  * the ground (and a little into it, so no gap shows under the tipped back),
- * turned about the middle of its belly so the head goes down. Runs after the
- * breathing scale, so the belly stays put and only the back rises and falls.
+ * turned about the middle of its belly so the head goes down, and a tail held
+ * up laid down behind. Runs after the breathing scale, so the belly stays put
+ * and only the back rises and falls.
  */
 function liePose(rig: THREE.Object3D, shape: RestShape, rest: number): void {
 	rig.scale.y *= 1 - REST_SQUASH * rest;
@@ -350,6 +363,8 @@ function liePose(rig: THREE.Object3D, shape: RestShape, rest: number): void {
 	const drop = (shape.belly + REST_SINK * shape.height) * rest;
 	rig.rotation.x = angle;
 	rig.position.set(0, y - y * Math.cos(angle) - drop, -y * Math.sin(angle));
+	const tail = rig.getObjectByName('tail');
+	if (tail) tail.rotation.x = -REST_TAIL * rest;
 }
 
 /** Seconds from one z leaving the head to the next; each lasts until the third one after it leaves. */
@@ -413,19 +428,19 @@ function snooze(
 	});
 }
 
-/** A "Z" one unit tall, in the x-y plane, facing +z: a top bar, a slash and a bottom bar. */
+/** A bold "Z" one unit tall, in the x-y plane, facing +z: a top bar, a slash and a bottom bar. */
 function zShape(): THREE.Shape {
 	const s = new THREE.Shape();
 	s.moveTo(-0.5, 0.5);
 	s.lineTo(0.5, 0.5);
-	s.lineTo(0.5, 0.3);
-	s.lineTo(-0.16, -0.3);
-	s.lineTo(0.5, -0.3);
+	s.lineTo(0.5, 0.24);
+	s.lineTo(-0.1, -0.24);
+	s.lineTo(0.5, -0.24);
 	s.lineTo(0.5, -0.5);
 	s.lineTo(-0.5, -0.5);
-	s.lineTo(-0.5, -0.3);
-	s.lineTo(0.16, 0.3);
-	s.lineTo(-0.5, 0.3);
+	s.lineTo(-0.5, -0.24);
+	s.lineTo(0.1, 0.24);
+	s.lineTo(-0.5, 0.24);
 	s.closePath();
 	return s;
 }
@@ -435,7 +450,7 @@ function buildZs(): THREE.Group {
 	zs.name = 'zs';
 	const geometry = new THREE.ShapeGeometry(zShape());
 	for (let i = 0; i < 3; i++) {
-		const z = new THREE.Mesh(geometry, mat(COLORS.white));
+		const z = new THREE.Mesh(geometry, mat(COLORS.dark));
 		z.visible = false;
 		zs.add(z);
 	}
