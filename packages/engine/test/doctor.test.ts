@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { ANIMALS, getAnimal } from '../src/animals/catalog.js';
 import type { AnimalInstance, Realm } from '../src/animals/types.js';
 import { takeToDoctor } from '../src/doctor/knockout.js';
-import { needsHealing } from '../src/doctor/party.js';
+import { canGoHome, kindGoingHome, needsHealing } from '../src/doctor/party.js';
 import { applyDoctorIntent, startDoctorVisit } from '../src/doctor/reducer.js';
 import { homeTokens, tokenPuzzle, tokensForTier } from '../src/doctor/tokens.js';
 import type { DoctorEvent, DoctorIntent, DoctorState, DoctorStep } from '../src/doctor/types.js';
@@ -595,6 +595,98 @@ describe('helping animals home', () => {
 		const alone = startDoctorVisit(partyOf(['squirrel', 0]));
 		const s = apply(alone, { type: 'hand-over', ids: ['squirrel-0'] }, 1);
 		expect(s.events).toEqual([{ type: 'rejected', reason: 'keep-one' }]);
+	});
+});
+
+describe('helping a whole kind home', () => {
+	/** `n` foxes at full HP, `fox-0` first. */
+	const foxes = (n: number) => partyOf(...Array.from({ length: n }, () => ['fox'] as [string]));
+	const idsOf = (animals: readonly AnimalInstance[]) => animals.map((a) => a.id);
+
+	it('picks every one of the kind; when nobody else is standing, the first of them standing stays', () => {
+		const forty = foxes(40);
+		// Forty foxes and nobody else: all but the first go, so one who isn't tired stays.
+		expect(kindGoingHome(forty, [], 'fox')).toEqual(idsOf(forty.slice(1)));
+		// Beside a squirrel standing, all forty go.
+		const squirrel: AnimalInstance = { id: 'sq', speciesId: 'squirrel', hp: 3 };
+		expect(kindGoingHome([...forty, squirrel], [], 'fox')).toEqual(idsOf(forty));
+		// The squirrel picked first: a fox stays again. A tired squirrel is nobody standing.
+		expect(kindGoingHome([...forty, squirrel], ['sq'], 'fox')).toEqual(idsOf(forty.slice(1)));
+		expect(kindGoingHome([...forty, { ...squirrel, hp: 0 }], [], 'fox')).toEqual(
+			idsOf(forty.slice(1))
+		);
+		// The first fox tired: it goes, and the first one standing stays.
+		const tiredFirst = partyOf(['fox', 0], ['fox', 5], ['fox'], ['squirrel', 0]);
+		expect(kindGoingHome(tiredFirst, [], 'fox')).toEqual(['fox-0', 'fox-2']);
+		// A fox the kid picked stays picked; of the rest, the first standing stays.
+		expect(kindGoingHome(tiredFirst, ['fox-1'], 'fox')).toEqual(['fox-0']);
+		// Nothing more can join: the whole kind picked, or all but the one who stays.
+		expect(kindGoingHome([...forty, squirrel], idsOf(forty), 'fox')).toEqual([]);
+		expect(kindGoingHome(forty, idsOf(forty.slice(1)), 'fox')).toEqual([]);
+		// Nobody standing at all (a `?party=` of tired animals): nobody may go.
+		expect(kindGoingHome(partyOf(['fox', 0], ['fox', 0]), [], 'fox')).toEqual([]);
+		// A kind the team doesn't have.
+		expect(kindGoingHome(forty, [], 'bear')).toEqual([]);
+	});
+
+	it('over random teams: picks all it may, never the last one standing, and the reducer takes it', () => {
+		const species = ANIMALS.map((a) => a.id);
+		const bad: string[] = [];
+		const note = (what: string, party: readonly AnimalInstance[], picked: readonly string[]) => {
+			if (bad.length < 20) bad.push(`${what}: ${JSON.stringify({ party, picked })}`);
+		};
+		for (let seed = 0; seed < 400; seed++) {
+			const rng = new Rng(hashInts(seed, 0x4b1d));
+			// A team of 1 to 16 in any order, some of them tired.
+			const party: AnimalInstance[] = Array.from({ length: rng.int(1, 16) }, (_, i) => {
+				const speciesId = rng.pick(species.slice(0, rng.int(1, species.length)));
+				const max = getAnimal(speciesId).maxHp;
+				return { id: `a${i}`, speciesId, hp: rng.chance(0.35) ? 0 : rng.int(1, max) };
+			});
+			const standing = party.some((a) => a.hp > 0);
+			for (let round = 0; round < 4; round++) {
+				// Some picked already, as a kid's picks on the card: none, some, or every one.
+				const odds = [0, 0.3, 0.7, 1][round]!;
+				const picked = idsOf(party.filter(() => rng.chance(odds)));
+				for (const speciesId of new Set(party.map((a) => a.speciesId))) {
+					const joins = kindGoingHome(party, picked, speciesId);
+					const rest = party.filter((a) => a.speciesId === speciesId && !picked.includes(a.id));
+					const after = [...picked, ...joins];
+					// Only animals of the kind not picked yet, each once, in party order.
+					const expected = idsOf(rest).filter((id) => joins.includes(id));
+					if (JSON.stringify(joins) !== JSON.stringify(expected))
+						note('not the kind, in party order', party, picked);
+					// Never so many that nobody standing stays.
+					if (joins.length > 0 && !canGoHome(party, after))
+						note('left nobody standing', party, picked);
+					// As many as may go: nothing more of the kind can join after it.
+					if (kindGoingHome(party, after, speciesId).length > 0)
+						note('could pick more', party, picked);
+					// At most one of the kind stays, and only one who must: the first standing of the rest.
+					const left = rest.filter((a) => !joins.includes(a.id));
+					if (canGoHome(party, picked) && standing) {
+						const all = [...picked, ...idsOf(rest)];
+						const mustStay = canGoHome(party, all) ? [] : [rest.find((a) => a.hp > 0)!];
+						if (JSON.stringify(idsOf(left)) !== JSON.stringify(idsOf(mustStay)))
+							note('the wrong one stays', party, picked);
+					}
+					// The reducer takes the same picks, and refuses the whole kind exactly when one stays.
+					if (after.length > 0 && joins.length > 0) {
+						const visit = startDoctorVisit(party);
+						const take = applyDoctorIntent(visit, { type: 'hand-over', ids: after }, seed);
+						if (take.events[0]?.type !== 'hand-over-shown')
+							note('the reducer refused', party, picked);
+						if (left.length > 0) {
+							const whole = [...picked, ...idsOf(rest)];
+							const refused = applyDoctorIntent(visit, { type: 'hand-over', ids: whole }, seed);
+							if (refused.events[0]?.type !== 'rejected')
+								note('one stayed for nothing', party, picked);
+						}
+					}
+				}
+			}
+		}
+		expect(bad).toEqual([]);
 	});
 });
 

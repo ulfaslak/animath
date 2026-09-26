@@ -5,7 +5,7 @@ import { healingDifficulty } from '../puzzles/difficulty.js';
 import { checkAnswer, generatePuzzle } from '../puzzles/registry.js';
 import type { Puzzle, PuzzleKind } from '../puzzles/types.js';
 import { Rng, hashInts } from '../rng.js';
-import { needsHealing, validateParty } from './party.js';
+import { canGoHome, needsHealing, validateParty } from './party.js';
 import { homeTokens, tokenPuzzle } from './tokens.js';
 import type {
 	DoctorEvent,
@@ -155,7 +155,7 @@ function handOver(state: DoctorState, ids: readonly string[]): DoctorStep {
 		if (!state.party.some((a) => a.id === id)) return reject(state, 'no-such-animal');
 		picked.add(id);
 	}
-	if (!state.party.some((a) => !picked.has(a.id) && a.hp > 0)) return reject(state, 'keep-one');
+	if (!canGoHome(state.party, picked)) return reject(state, 'keep-one');
 
 	const leaving = state.party.filter((a) => picked.has(a.id));
 	const reward = homeTokens(leaving);
