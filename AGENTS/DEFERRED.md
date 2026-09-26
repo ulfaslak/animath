@@ -10,7 +10,7 @@ Technical items we've intentionally postponed: tech debt, hardening shortcuts, k
 
 **What**: `packages/server` has no bundling step; `pnpm start` is `tsx src/index.ts`. Fine locally. For a VPS deploy the image should ship compiled JS (or a single esbuild bundle) so startup doesn't depend on a dev-time transpiler.
 
-**Why deferred**: there is no deploy yet, and the server is a health endpoint and a migration script. Bundling now is config with nothing to protect.
+**Why deferred**: there is no deploy yet, and the server is a health check, the player and save routes, and a migration script. Bundling now is config with nothing to protect.
 
 **Trigger**: the first deploy to the Hetzner VPS (the Dockerfile PR).
 
@@ -32,7 +32,7 @@ Technical items we've intentionally postponed: tech debt, hardening shortcuts, k
 
 ### Anonymous player identity is unauthenticated
 
-**What**: the player secret is a random token the client holds in `localStorage` (`animath.player`) and sends as a bearer header. Only its hash is stored, so a database dump is useless, but anyone who copies the token from the browser owns the player and its backup. No rate limiting on `POST /api/players`: anyone can mint rows, and the game itself leaves unused ones behind (every screenshot run is a new player; a page reloaded before its first `POST` answered makes another). No rotation, and no way to recover a lost secret: a kid whose browser forgets the site (cleared data, another browser or device, Safari deleting a site's storage after seven days without a visit) starts a new game, and their backup waits on the server under an identity nothing holds any more. Only by hand ([[DEVELOPMENT]] § Database) can it be moved to their new player.
+**What**: the player secret is a random token the client holds in `localStorage` (`animath.player`) and sends as a bearer header. Only its hash is stored, so a database dump is useless, but anyone who copies the token from the browser owns the player and its backup. No rate limiting on `POST /api/players`: anyone can mint rows, and the game itself leaves unused ones behind (every fresh browser that starts a game is a new player; a page reloaded before its first `POST` answered makes another). No rotation, and no way to recover a lost secret: a kid whose browser forgets the site (cleared data, another browser or device, Safari deleting a site's storage after seven days without a visit) starts a new game, and their backup waits on the server under an identity nothing holds any more. Moving it to their new player takes a query written by hand; [[DEVELOPMENT]] § Database only restores a player's own backups.
 
 **Why deferred**: there is nothing to steal until multiplayer, tokens and a shop exist, and the players are a handful of kids on a tunnel URL. Moving a game between browsers is a feature (a recovery code, or accounts), not a hardening.
 
@@ -75,7 +75,7 @@ Technical items we've intentionally postponed: tech debt, hardening shortcuts, k
 ### `normalizeNickname` follows the host's Unicode tables, and keeps accents for listed scripts only
 
 **What**: two limits of the nickname cleaner.
-- **Host tables.** It uses `\p{L}`, `\p{M}`, `\p{Script=…}`, `\p{Script_Extensions=…}`, `\p{Default_Ignorable_Code_Point}` and `normalize('NFKC')`, whose answers come from the JavaScript engine's Unicode version. A letter added in a recent Unicode version is kept by a newer Node and dropped (as unassigned) by an older browser, and Script_Extensions data changes more often still. So two engines can clean the same typed name differently. That is harmless while the authority is the only one that cleans: it stores its result, and every screen shows that. The name box's "It will be called …" preview is the one place the client cleans for itself, and it could disagree in that rare case.
+- **Host tables.** It uses `\p{L}`, `\p{M}`, `\p{Script=…}`, `\p{Script_Extensions=…}`, `\p{Default_Ignorable_Code_Point}` and `normalize('NFKC')`, whose answers come from the JavaScript engine's Unicode version. A letter added in a recent Unicode version is kept by a newer Node and dropped (as unassigned) by an older browser, and Script_Extensions data changes more often still. So two engines can clean the same typed name differently. That is harmless while the authority is the only one that cleans: it stores its result, and every screen shows that. The name boxes' "It will be called …" previews (the pause menu's and the title's) are the only places the client cleans for itself, and they could disagree in that rare case.
 - **Listed scripts only.** Accent marks are kept for Latin, Greek and Cyrillic and for the scripts in `SCRIPTS_WITH_MARKS`. Rarer scripts (Meetei Mayek, N'Ko, Adlam, Tai Tham, Baybayin…) keep their letters and lose their vowel signs.
 - **Joining controls.** ZWJ and ZWNJ are dropped as default-ignorable, although they change how Sinhala ("ශ්‍රී") and Persian ("علی‌رضا") letters join.
 
