@@ -13,6 +13,7 @@ import { isSoundKey, typingNow } from './input/sound-key';
 import { watchTaps } from './input/taps';
 import { touch, watchInput } from './input/touch.svelte';
 import { PauseController } from './pause/controller';
+import { Follower } from './render/follower';
 import { GameRenderer } from './render/renderer';
 import { TitleScenery } from './render/title-scenery';
 import { buildZoo } from './render/zoo';
@@ -55,7 +56,8 @@ document.addEventListener('touchstart', () => {}, { passive: true });
 const authority = new LocalAuthority({ party: flags.party ?? undefined });
 const renderer = new GameRenderer(canvas);
 const keyboard = new Keyboard(window);
-const explore = new ExploreController(authority, renderer, keyboard);
+// The lead walks behind the trainer: a view of the party and of the trainer's steps.
+const explore = new ExploreController(authority, renderer, keyboard, new Follower(renderer));
 const battleController = new BattleController(authority, renderer);
 const doctorController = new DoctorController(authority);
 const pauseController = new PauseController(authority);

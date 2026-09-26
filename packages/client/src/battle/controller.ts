@@ -317,7 +317,8 @@ export class BattleController {
 			}
 			case 'ended':
 				if (state.phase.outcome === 'won') {
-					this.scene?.hop('player');
+					// A little celebration for a win: a hop and a few stars, with the fanfare.
+					this.scene?.winCheer('player');
 					sfx.play('won');
 				}
 				battle.outcome = state.phase.outcome;
