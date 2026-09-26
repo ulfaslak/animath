@@ -192,7 +192,9 @@
 						<div class="note">{t('pause.tiredHelp', { animal: animalWords(picked) })}</div>
 					{/if}
 				{:else if pause.screen === 'naming' && picked}
-					<div class="side-title">{t('pause.nameTitle', { animal: animalWords(picked) })}</div>
+					<div class="side-title wraps">
+						{t('pause.nameTitle', { animal: animalWords(picked) })}
+					</div>
 					<input
 						class="name-box"
 						type="text"
@@ -261,8 +263,12 @@
 		align-items: start;
 		padding-top: 16px;
 	}
+	/*
+	 * Wide enough, at 1024 px, for a team of twelve-letter names of the widest
+	 * letters beside the picked one's name in the side panel.
+	 */
 	.menu {
-		width: min(920px, calc(100vw - 32px));
+		width: min(1000px, calc(100vw - 32px));
 		max-height: calc(100vh - 32px);
 		box-sizing: border-box;
 		overflow: auto;
@@ -279,9 +285,14 @@
 		line-height: 1.1;
 		margin-bottom: 12px;
 	}
+	/*
+	 * The team takes what its longest name needs; the side panel has the rest
+	 * and never pushes the menu wider than the screen (a name too wide for it
+	 * ends in "…" there, never in the list).
+	 */
 	.columns {
 		display: grid;
-		grid-template-columns: 3fr 2fr;
+		grid-template-columns: 3fr minmax(0, 2fr);
 		gap: 16px;
 		align-items: start;
 	}
@@ -326,12 +337,19 @@
 		opacity: 0.6;
 		font-variant-numeric: tabular-nums;
 	}
+	/*
+	 * The species beside a nickname, or under it when a long one leaves no
+	 * room: two lines fit a row's 48 px at the font's own line height. Never a
+	 * tighter one: the name clips its box for the "…", and a tight line cuts
+	 * the ring off an Å.
+	 */
 	.who {
 		flex: 1;
 		min-width: 0;
 		display: flex;
+		flex-wrap: wrap;
 		align-items: baseline;
-		gap: 8px;
+		gap: 0 8px;
 	}
 	.name {
 		min-width: 0;
@@ -450,6 +468,10 @@
 		overflow: hidden;
 		text-overflow: ellipsis;
 		white-space: nowrap;
+	}
+	/* A sentence round a name ("New name for …") breaks between its words. */
+	.side-title.wraps {
+		white-space: normal;
 	}
 	.option {
 		gap: 6px;

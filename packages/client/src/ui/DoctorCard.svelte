@@ -29,9 +29,11 @@
 	 * The heal's sparkles: little stars that pop up along the healed animal's
 	 * HP bar as it fills. `x` is where along the bar (%), `dx`/`dy` how far each
 	 * flies (px), `d` its delay (s). With reduced motion they twinkle in place.
+	 * None flies further left than the gap before the bar: a long name ends
+	 * there.
 	 */
 	const SPARKS = [
-		{ x: 4, dx: -10, dy: -26, d: 0, c: 'gold' },
+		{ x: 8, dx: -6, dy: -26, d: 0, c: 'gold' },
 		{ x: 16, dx: 8, dy: 22, d: 0.12, c: 'green' },
 		{ x: 28, dx: -6, dy: -32, d: 0.05, c: 'white' },
 		{ x: 40, dx: 10, dy: 20, d: 0.18, c: 'gold' },
@@ -64,21 +66,23 @@
 			>
 				<span class="caret">▸</span>
 				<span class="label">{nameOf(animal)}</span>
-				{#if animal.hp === 0}<span class="tag">{t('party.tired')}</span>{/if}
-				<span class="bar"><HpBar hp={animal.hp} max={spec.maxHp} /></span>
-				{#if doctor.healed?.index === i}
-					{#key doctor.healed.n}
-						<span class="sparkles" aria-hidden="true">
-							{#each SPARKS as s, k (k)}
-								<i
-									class="spark {s.c}"
-									style="left: {s.x}%; --dx: {s.dx}px; --dy: {s.dy}px; animation-delay: {s.d}s"
-								></i>
-							{/each}
-						</span>
-						<span class="heal">+{doctor.healed.amount}</span>
-					{/key}
-				{/if}
+				<!-- "tired" in the empty bar, so the name has the row; the heal's stars and "+N" over the bar. -->
+				<span class="bar">
+					<HpBar hp={animal.hp} max={spec.maxHp} emptyTag={t('party.tired')} />
+					{#if doctor.healed?.index === i}
+						{#key doctor.healed.n}
+							<span class="sparkles" aria-hidden="true">
+								{#each SPARKS as s, k (k)}
+									<i
+										class="spark {s.c}"
+										style="left: {s.x}%; --dx: {s.dx}px; --dy: {s.dy}px; animation-delay: {s.d}s"
+									></i>
+								{/each}
+							</span>
+							<span class="heal">+{doctor.healed.amount}</span>
+						{/key}
+					{/if}
+				</span>
 			</button>
 		{/each}
 		<button
@@ -96,17 +100,19 @@
 
 	<div class="card puzzle" class:correct={doctor.judged?.correct === true}>
 		{#if doctor.puzzle}
+			<!-- "Help another animal" under the puzzle's own reminder: beside the pad on touch,
+			     where a doctor's line on three lines leaves the card no room for it below. -->
 			<PuzzlePanel
 				puzzle={doctor.puzzle}
 				input={doctor.input}
 				judged={doctor.judged}
 				typing={doctor.screen === 'puzzle'}
+				note={hurt.length > 1
+					? touch.on
+						? t('doctor.puzzleTouch')
+						: t('doctor.puzzleKeys')
+					: undefined}
 			/>
-			{#if hurt.length > 1}
-				<div class="keys">
-					{touch.on ? t('doctor.puzzleTouch') : t('doctor.puzzleKeys')}
-				</div>
-			{/if}
 		{:else if hurt.length === 0}
 			<div class="soft">{t('doctor.allFit')}</div>
 			<div class="keys">{touch.on ? t('doctor.allFitTouch') : t('doctor.allFitKeys')}</div>
@@ -130,7 +136,16 @@
 		bottom: 0;
 		height: var(--doctor-panel);
 		display: grid;
-		grid-template-columns: minmax(300px, 2fr) 3fr;
+		/*
+		 * The party list has its 2 of 5 of the card, or as much more as its
+		 * longest name needs beside an HP bar (twelve of the widest letters at
+		 * 1024 px); the puzzle has the rest, and never less than
+		 * `--puzzle-least`: the number pad beside the widest prompt on one line.
+		 */
+		--puzzle-least: 534px;
+		grid-template-columns:
+			minmax(min(calc((100% - 12px) * 0.4), calc(100% - 12px - var(--puzzle-least))), max-content)
+			minmax(var(--puzzle-least), 1fr);
 		grid-template-rows: auto minmax(0, 1fr);
 		gap: 12px;
 		padding: 0 16px 16px;
@@ -150,12 +165,15 @@
 	:global(.touch) .patients {
 		grid-column: 1;
 		grid-row: 1 / span 2;
-		gap: 0;
+		grid-auto-rows: var(--tap);
+		gap: 0 8px;
 		padding: 6px 12px;
 	}
+	/* Beside the pad the prompt needs the width more than the card's edges do. */
 	:global(.touch) .puzzle {
 		grid-column: 2;
 		grid-row: 2;
+		padding: 12px 14px;
 	}
 	.card {
 		background: var(--panel-bg);
@@ -188,31 +206,37 @@
 		font-size: 20px;
 	}
 
+	/*
+	 * The rows line up in shared columns — caret, name, HP bar — sized by the
+	 * longest name there, so every name shows whole and the bars start
+	 * together; a tired animal's "tired" is written in its empty bar. A row is
+	 * a subgrid of the list; a browser without subgrid lays each row out on its
+	 * own, in the same columns. A subgrid's padding counts as a margin on the
+	 * items at its edges, so the edge columns are sized with it: the caret's
+	 * `auto` holds the row's 10 px beside the caret's 16, and the bar's column
+	 * holds 10 px beside a bar of at least 120.
+	 */
 	.patients {
-		display: flex;
-		flex-direction: column;
-		justify-content: center;
-		gap: 2px;
+		display: grid;
+		grid-template-columns: auto minmax(0, max-content) minmax(130px, 1fr);
+		grid-auto-rows: minmax(30px, 40px);
+		align-content: center;
+		gap: 2px 8px;
 		padding: 8px 12px;
 		overflow: hidden;
 	}
 	.row {
+		grid-column: 1 / -1;
 		position: relative;
-		display: flex;
+		display: grid;
+		grid-template-columns: 16px minmax(0, max-content) minmax(120px, 1fr);
+		grid-template-columns: subgrid;
+		column-gap: 8px;
 		align-items: center;
-		gap: 8px;
-		flex: 0 1 40px;
-		width: 100%;
-		box-sizing: border-box;
-		min-height: 30px;
 		padding: 0 10px;
 		border-radius: 12px;
 		font-weight: 800;
 		font-size: 18px;
-	}
-	:global(.touch) .row {
-		flex: 0 0 var(--tap);
-		min-height: var(--tap);
 	}
 	/* A mouse over a row it can press. Never on touch, where hover sticks after a tap. */
 	@media (hover: hover) and (pointer: fine) {
@@ -232,7 +256,6 @@
 		animation: cheer 0.5s ease-out;
 	}
 	.caret {
-		flex: none;
 		width: 16px;
 		visibility: hidden;
 		color: var(--accent);
@@ -241,31 +264,26 @@
 		visibility: visible;
 	}
 	.label {
-		flex: 0 1 auto;
-		min-width: 3em;
+		min-width: 0;
 		overflow: hidden;
 		text-overflow: ellipsis;
 		white-space: nowrap;
 	}
-	.tag {
-		flex: none;
-		font-size: 16px;
-		padding: 0 8px;
-		border-radius: 8px;
-		background: rgba(0, 0, 0, 0.1);
-	}
+	/* At the right of its column, at most 220 px long. */
 	.bar {
-		flex: 1 0 120px;
-		margin-left: auto;
+		position: relative;
+		justify-self: end;
+		width: 100%;
 		max-width: 220px;
 	}
-	.bye .label {
-		flex: 1;
+	.bye kbd {
+		justify-self: end;
 	}
+	/* The heal's "+N", over the bar's numbers. */
 	.heal {
 		position: absolute;
-		right: 14px;
-		top: -8px;
+		right: 4px;
+		top: -14px;
 		font-weight: 800;
 		font-size: 24px;
 		color: var(--good);
@@ -275,12 +293,12 @@
 		pointer-events: none;
 		animation: pop 1.2s ease-out forwards;
 	}
-	/* Over the HP bar (right of the row), where it fills. */
+	/* Along the HP bar, where it fills. */
 	.sparkles {
 		position: absolute;
-		right: 14px;
+		left: 0;
+		right: 0;
 		top: 50%;
-		width: min(220px, 50%);
 		height: 0;
 		pointer-events: none;
 	}
