@@ -336,14 +336,16 @@ export class Follower {
 		}
 		const figure = buildAnimalMesh(species);
 		figure.userData.idlePhase = 0.6;
-		figure.scale.setScalar(0.001);
-		this.figure = figure;
-		this.shown = species;
 		this.riding = this.wantRide;
 		if (this.riding) {
+			// Measured at its own size, before it starts growing in from nothing.
 			const size = new THREE.Box3().setFromObject(figure).getSize(new THREE.Vector3());
 			this.rideScale = Math.min(1, RIDE_SIZE / Math.max(size.x, size.y, size.z));
 		}
+		figure.scale.setScalar(0.001);
+		this.figure = figure;
+		this.shown = species;
+
 		this.swap = { phase: 'in', t: 0, from: 0 };
 		this.host.addFigure(figure);
 	}

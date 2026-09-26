@@ -2,8 +2,11 @@ import {
 	Rng,
 	getAnimal,
 	isWalkable,
+	isWater,
+	newGame,
 	step,
 	tileAtWorld,
+
 	type BattleState,
 	type Direction,
 	type DoctorState,
@@ -297,5 +300,103 @@ describe('who follows', () => {
 		s.settle(1.5);
 		expect(s.follower.species).toBe('rabbit');
 		expect(standable(s.follower.tile!)).toBe(true);
+	});
+});
+
+describe('out on the water', () => {
+	/** A game at the spawn tile with the boat, this party, standing at `pos`. */
+	const withBoat = (team: string, pos?: GridPos): SavedGame => ({
+		...newGame(WORLD_SEED),
+		party: parseParty(team)!,
+		items: ['boat'],
+		...(pos ? { pos } : {})
+	});
+	const water = (p: GridPos | null) => !!p && isWater(tileAtWorld(WORLD_SEED, p.x, p.y).kind);
+	/** Straight up from the spawn tile: the lake, shallow for three tiles, then deep. */
+	const sail = (s: ReturnType<typeof setup>, dirs: Direction[]) => {
+		for (const dir of dirs) {
+			s.authority.dispatch({ type: 'move', dir });
+			// A step into the boat or out of it takes longer, while the boat swings, and
+			// then the lead may hop in or out.
+			s.settle(1.2);
+		}
+	};
+
+
+	it('one that swims swims behind the boat: over 600 random steps, beside the trainer, never where it can’t go', () => {
+		const s = setup('otter', withBoat('otter'));
+		const rng = new Rng(77);
+		const dirs: Direction[] = ['up', 'down', 'left', 'right'];
+		const bad: string[] = [];
+		let wet = 0;
+		for (let i = 0; i < 600; i++) {
+			const before = { ...s.trainer() };
+			const from = s.events.length;
+			// Mostly up and down across the lake's shore, so it sails out and lands often.
+			const dir = rng.next() < 0.6 ? (rng.next() < 0.55 ? 'up' : 'down') : dirs[rng.int(0, 3)]!;
+			s.authority.dispatch({ type: 'move', dir });
+			if (s.events.slice(from).some((e) => e.type === 'battle-started')) {
+				s.authority.dispatch({ type: 'battle', intent: { type: 'flee' } });
+			}
+			s.settle(0.7);
+			const now = s.follower.tile;
+			const at = `step ${i} (${dir}, trainer ${before.x},${before.y})`;
+			if (s.follower.species !== 'otter') bad.push(`${at}: ${s.follower.species} follows`);
+			if (s.follower.inBoat) bad.push(`${at}: in the boat`);
+			if (!now || !(standable(now) || water(now))) bad.push(`${at}: on ${JSON.stringify(now)}`);
+			if (!beside(now, s.trainer())) bad.push(`${at}: not beside the trainer`);
+			if (water(now)) wet++;
+		}
+		expect(bad.slice(0, 5)).toEqual([]);
+		expect(wet).toBeGreaterThan(100);
+	});
+
+	it('with nobody standing who swims, the lead rides in the boat once the trainer is in it, and walks on land', () => {
+		const s = setup('squirrel', withBoat('squirrel'));
+		expect(s.follower.species).toBe('squirrel');
+		sail(s, ['up']);
+		expect(s.follower.inBoat).toBe(true);
+		expect(s.follower.species).toBe('squirrel');
+		expect(s.follower.tile).toBeNull();
+		// It sails along with the trainer: in the boat, right there with them.
+		sail(s, ['up', 'up', 'left', 'right']);
+		expect(s.follower.inBoat).toBe(true);
+		const rider = s.figures.at(-1)!;
+		expect(Math.hypot(rider.position.x - s.trainer().x, rider.position.z - s.trainer().y)).toBeLessThan(
+			0.5
+		);
+		// Its figure is small enough to fit in the boat.
+		expect(rider.scale.x).toBeLessThan(1);
+		// Back on land it walks behind again, on ground, never on the water it left.
+		sail(s, ['down', 'down', 'down', 'down']);
+		expect(tileAtWorld(WORLD_SEED, s.trainer().x, s.trainer().y).kind).toBe('grass');
+		expect(s.follower.inBoat).toBe(false);
+		expect(s.follower.species).toBe('squirrel');
+		expect(standable(s.follower.tile!)).toBe(true);
+		expect(beside(s.follower.tile, s.trainer())).toBe(true);
+		expect(s.figures).toHaveLength(1);
+	});
+
+	it('a squirrel first and an otter behind it: out on the water the otter follows, on land the squirrel', () => {
+		const s = setup('squirrel,otter', withBoat('squirrel,otter'));
+		expect(s.follower.species).toBe('squirrel');
+		sail(s, ['up', 'up']);
+		expect(s.follower.species).toBe('otter');
+		expect(water(s.follower.tile)).toBe(true);
+		sail(s, ['down', 'down']);
+		expect(s.follower.species).toBe('squirrel');
+		expect(standable(s.follower.tile!)).toBe(true);
+		expect(s.figures).toHaveLength(1);
+	});
+
+	it('picked up out on the water: one that swims beside the boat, or else the lead in it', () => {
+		const deep = { x: -2, y: 2 };
+		const swimmer = setup('otter', withBoat('otter', deep));
+		expect(swimmer.follower.species).toBe('otter');
+		expect(water(swimmer.follower.tile)).toBe(true);
+		expect(beside(swimmer.follower.tile, deep)).toBe(true);
+		const rider = setup('squirrel', withBoat('squirrel', deep));
+		expect(rider.follower.species).toBe('squirrel');
+		expect(rider.follower.inBoat).toBe(true);
 	});
 });
