@@ -63,6 +63,10 @@ For flows longer than one battle (catching, then switching, then a knock-out), s
 
 It takes the returned Promise as a truthy value and resolves at once. On 2026-09-26 a flow that waited for `(await import('/src/state/battle.svelte.ts')).battle.screen === 'party'` went on at once, and every key after it landed on the battle intro. Import the page's modules once with `page.evaluate`, keep them on `window` (`window.__battle = (await import(…)).battle`), and wait with a plain function (`() => window.__battle.screen === 'party'`).
 
+## Two pages' `localStorage` without a server
+
+To try how two pages of one origin share `localStorage` (a race, a `storage` event), no dev server is needed. Give a Playwright context a made-up origin, `ctx.route('http://s2.test/**', (r) => r.fulfill({ status: 200, contentType: 'text/html', body: '<html></html>' }))`, and open two pages on it: each gets real `localStorage`. On 2026-09-26 two such pages, each running a read-compare-write loop in one task, both passed every check, and 4,999 of 10,000 writes were lost. A page's view of the key is brought up to date only between tasks. The unit tests stand in for it with `LaggingView` in `autosave.test.ts`.
+
 ## The dev server can keep serving an error after the file is fixed
 
 Twice on 2026-09-26 a worktree's Vite kept showing its red error overlay on every fresh page load for a Svelte file that was valid again. `svelte-check` passed, and so did the tests. The first time, the file had been written twice in quick succession: a scripted edit in two steps, the first leaving a tag unclosed. The second time, a `git merge` left conflict markers in it for a moment. The overlay also blocks every click and tap (Playwright reports `<vite-error-overlay> intercepts pointer events`). When a fresh load shows an overlay for code that type-checks, restart your Vite before debugging anything.
