@@ -95,11 +95,13 @@ After every frame the script prints what the screen says: on the title its menu 
 node scripts/screenshot.mjs --url 'http://localhost:<port>/?debug&party=squirrel:5,rabbit:0,fox' --keys "ArrowRight*7,ArrowDown,shot:prompt,Enter,wait:700,shot:card,Enter,wait:500,shot:puzzle,Escape" --out screenshots/doctor.png
 ```
 
-**The doctor's tabs and the shop.** Left and Right go through Heal, Help home and Shop. No tool is on sale until its effect lands, so to look at buying, start with tokens and the whole catalog for sale (`?tokens=` and `?shop`, a throwaway game; [[CHEATSHEET]] § Hidden behaviour). The script prints the tabs and the tokens (`tabs:`), the tab's list with picks ticked (`patients:`), the confirm (`confirm:`), a token sum's story (`story:`), and in explore the tokens and tools in the corner (`belongings:`):
+**The doctor's tabs and the shop.** Left and Right go through Heal, Help home and Shop. No tool is on sale until its effect lands, so to look at buying, start with tokens and the whole catalog for sale (`?tokens=` and `?shop`, a throwaway game; [[CHEATSHEET]] § Hidden behaviour). The script prints the tabs and the tokens (`tabs:`), the tab's list (`patients:`: picks ticked, a kind picked in part with "–", the one who has to stay marked "(stays)"), what the right-hand side says (`side:`, a hand-over's running total among it), the confirm (`confirm:`), a token sum's story (`story:`), and in explore the tokens and tools in the corner (`belongings:`):
 
 ```bash
 node scripts/screenshot.mjs --url 'http://localhost:<port>/?debug&party=squirrel:5,rabbit:0,fox&tokens=23&shop' --keys "ArrowRight*7,ArrowDown,wait:1200,Enter,wait:1500,ArrowRight,wait:600,shot:home,ArrowRight,wait:600,shot:shop,Enter,wait:600,shot:sum" --out screenshots/shop.png
 ```
+
+Help home's row for a whole kind is the first row of the tab when the team starts with a kind of several (`?party=fox*40,squirrel`: Right to the tab, then Enter picks all forty); with `?party=fox*40` alone it picks all but the first fox, who stays.
 
 In a throwaway Playwright script, the number pad's keys have no `data-press` (they press as the finger lands): tap them by their text, `page.locator('.pad .key').getByText('7', { exact: true }).tap()`, and OK as `.pad .ok`. The open puzzle's answer, a token sum's too, is `doctor.puzzle.answer` in `/src/state/doctor.svelte.ts`.
 
