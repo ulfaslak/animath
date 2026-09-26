@@ -1,5 +1,7 @@
 import type { AnimalInstance, PartyIntent } from '@mathgame/engine';
 import { describe, expect, it } from 'vitest';
+import type { CueName } from '../src/audio/cues';
+import { sfx } from '../src/audio/sfx.svelte';
 import { LocalAuthority } from '../src/authority/local';
 import { t } from '../src/copy';
 import { parseParty } from '../src/flags';
@@ -56,6 +58,23 @@ describe('the line about who goes first', () => {
 		expect(hud.message).toBe(t('party.leadTired', { animal: 'Rabbit' }));
 		edit({ type: 'select-lead', animalId: squirrel!.id });
 		expect(hud.message).toBe(t('party.leadAlready', { animal: 'Squirrel' }));
+	});
+
+	it('a new lead dings with its line; a refusal, or an edit that keeps the lead, is quiet', () => {
+		const { edit } = setup('squirrel,rabbit:0,fox');
+		const [squirrel, rabbit, fox] = game.party;
+		const cues: CueName[] = [];
+		const stop = sfx.onCue((cue) => cues.push(cue));
+		edit({ type: 'select-lead', animalId: rabbit!.id }); // tired
+		edit({ type: 'select-lead', animalId: squirrel!.id }); // already first
+		edit({ type: 'rename', animalId: squirrel!.id, nickname: 'Pip' });
+		expect(cues).toEqual([]);
+		edit({ type: 'select-lead', animalId: fox!.id });
+		expect(cues).toEqual(['lead']);
+		// Moving the fox to the back puts the squirrel in front: a new lead too.
+		edit({ type: 'reorder', animalId: fox!.id, to: 2 });
+		expect(cues).toEqual(['lead', 'lead']);
+		stop();
 	});
 
 	it('the newest line is the one shown', () => {

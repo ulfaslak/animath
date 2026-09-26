@@ -286,6 +286,12 @@ pause:
   # The row that switches every word to another language; each language is
   # listed by its own name (language.name above).
   language: Language
+  # The Sound setting's row: its name, then the word beside its switch.
+  sound: Sound
+  soundOn: 'On'
+  soundOff: 'Off'
+  # The right-hand panel while the Sound row is highlighted.
+  soundHelp: Enter or ← → turns the sound on and off. You can also press M.
   # The picked animal's options: become the lead, move one place, get a nickname.
   goFirst: Go first
   moveUp: Move up
@@ -306,6 +312,7 @@ pause:
   # The key reminder at the bottom, one per screen of the menu.
   keysList: ↑ ↓ choose · Enter pick · Esc close
   keysLanguage: ↑ ↓ choose · ← → or Enter change the language · Esc close
+  keysSound: ↑ ↓ choose · ← → or Enter sound off or on · Esc close
   keysOptions: ↑ ↓ choose · Enter do it · Esc back
   keysNaming: Enter save · Esc back
 
@@ -318,3 +325,10 @@ save:
   newerGame: Your game was saved by a newer Animath. Reload the page to play it!
   # The browser will not let the page store anything, so nothing is saved.
   cannotSave: This browser can't keep your game, so it starts new every time.
+
+sound:
+  # The chip at the top of the screen after M turned the sound on or off.
+  chipOn: Sound is on
+  chipOff: Sound is off
+  # Under "Sound is off": how to get it back.
+  chipHint: Press M to turn it back on
