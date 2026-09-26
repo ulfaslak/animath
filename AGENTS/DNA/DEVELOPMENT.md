@@ -108,6 +108,8 @@ The running page's modules can be read from the script (`await page.evaluate(() 
 
 **Standing anywhere.** To look at a place far from the spawn (a biome, a mountain's peaks), put a save there before the page loads, in a throwaway Playwright script with the API blocked: `context.addInitScript` writes `localStorage['animath.save']` (once, behind a `sessionStorage` flag, so a reload keeps the game's own saves) with `{ version: 1, seed: <WORLD_SEED>, pos, facing, steps, visits: 0, lineage, seq: 1, party }`, and Enter on the title is Continue. In the prototype world: meadow (49, 37), forest (-20, 52), a river bank of reed beds (-6, -10), the mountains (48, -18), their peaks (-101, -119). A save on a tile no one can stand on puts the player on the spawn tile instead.
 
+**Long names.** `?party=` takes no nicknames; a seeded save does. Its `party` holds `{ id, speciesId, hp, nickname }`, so the recipe above with six animals named "WWWWWWWWWWWW" (the widest twelve letters at 242 px), "ÆØÅÆØÅÆØÅÆØÅ" and "MMMMMMMMMMMM", some at 0 HP and one a bear (three-digit HP), puts the widest rows on every screen at once: the title's Continue, the party cards, the pause menu and, from `pos: { x: 5, y: 6 }` facing `down`, the doctor one Enter away. Check each screen at 1024×768 and 1280×720, in both languages, and with `hasTouch`. A name cut short is `scrollWidth > clientWidth` on its element, and a card that scrolls sideways (the pause menu once did while naming) has a `scrollLeft`.
+
 ### Hearing the game
 
 Headless Chrome plays sound to no one, and an agent can't listen. Three checks instead:
