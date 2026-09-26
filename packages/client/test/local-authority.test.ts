@@ -8,8 +8,11 @@ import {
 	canTalkToDoctor,
 	getAnimal,
 	isEncounterTile,
+	isWalkable,
 	leadIndex,
 	nearestTent,
+	startBattle,
+	step as stepFrom,
 	readSave,
 	restoreGame,
 	STARTERS,
@@ -28,7 +31,7 @@ import {
 	type SavedGame
 } from '@mathgame/engine';
 import { describe, expect, it } from 'vitest';
-import { LocalAuthority, type LocalAuthorityOptions } from '../src/authority/local';
+import { LocalAuthority, WORLD_SEED, type LocalAuthorityOptions } from '../src/authority/local';
 import { parseParty } from '../src/flags';
 import { besideA, gameBeside } from './clearing';
 
@@ -1466,5 +1469,39 @@ describe('LocalAuthority: trees and rocks', () => {
 		}
 		expect(regrown).toBeGreaterThan(0);
 		expect(JSON.stringify(s.authority.snapshot().edits).length).toBeLessThanOrEqual(EDITS_BUDGET);
+	});
+
+	it('a battle lost in a spot walled in by trees the kid chopped open: off to the tent along the path they cut', () => {
+		// A walkable tile with a tree or a rock on every side and a tent in reach once they are
+		// cleared: the kid chopped their way in, and a wild animal was waiting.
+		let found: { pos: GridPos; edits: WorldEdits } | null = null;
+		for (let y = -150; y < 150 && !found; y++)
+			for (let x = -150; x < 150 && !found; x++) {
+				if (!isWalkable(tileAtWorld(WORLD_SEED, x, y).kind)) continue;
+				const around = (['up', 'down', 'left', 'right'] as const).map((d) => stepFrom({ x, y }, d));
+				const walls = around.map((p) => tileAtWorld(WORLD_SEED, p.x, p.y).kind);
+				if (!walls.every((k) => k === 'tree' || k === 'rock')) continue;
+				const edits = around.reduce((e, p) => e.with(p), WorldEdits.none);
+				if (nearestTent(WORLD_SEED, { x, y }, undefined, edits)) found = { pos: { x, y }, edits };
+			}
+		expect(found).not.toBeNull();
+		const { pos, edits } = found!;
+		const party = [animal('squirrel', 1)];
+		const s = from({
+			...gameBeside(tree, ['axe']),
+			pos,
+			party,
+			edits: [...edits.encode()],
+			battle: startBattle(party, { id: 'wild-bear', speciesId: 'bear', hp: 50 })
+		});
+		lose(s);
+		const spot = nearestTent(WORLD_SEED, pos, undefined, edits)!;
+		expect(s.events.find((e) => e.type === 'taken-to-doctor')).toMatchObject({
+			pos: spot.stand,
+			dir: spot.facing,
+			tent: spot.tent
+		});
+		// The seeded world alone has the spot walled in: a doctor would have come to the player.
+		expect(nearestTent(WORLD_SEED, pos)).toBeNull();
 	});
 });
