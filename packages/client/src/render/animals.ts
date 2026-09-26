@@ -256,3 +256,13 @@ export function animateIdle(figure: THREE.Group, t: number): void {
 	const phase = (figure.userData.idlePhase as number | undefined) ?? 0;
 	rig.scale.y = 1 + IDLE_DEPTH * Math.sin(t * IDLE_RATE + phase);
 }
+
+/**
+ * Free a figure that leaves the screen for good: its geometries. Its
+ * materials are shared by every figure (cached above) and stay.
+ */
+export function disposeFigure(figure: THREE.Object3D): void {
+	figure.traverse((o) => {
+		if (o instanceof THREE.Mesh) o.geometry.dispose();
+	});
+}

@@ -1,6 +1,6 @@
 import { Rng } from '@mathgame/engine';
 import * as THREE from 'three';
-import { animateIdle, buildAnimalMesh } from './animals';
+import { animateIdle, buildAnimalMesh, disposeFigure } from './animals';
 import { COLORS, TILE_COLORS } from './palette';
 import type { Stage } from './renderer';
 
@@ -75,7 +75,7 @@ export class StarterScene implements Stage {
 	show(speciesIds: readonly string[]): void {
 		for (const figure of this.figures) {
 			this.scene.remove(figure);
-			disposeGeometries(figure);
+			disposeFigure(figure);
 		}
 		this.figures = speciesIds.map((id, i) => {
 			const figure = buildAnimalMesh(id);
@@ -182,13 +182,6 @@ export class StarterScene implements Stage {
 
 function lambert(hex: number): THREE.MeshLambertMaterial {
 	return new THREE.MeshLambertMaterial({ color: hex, flatShading: true });
-}
-
-/** Free a figure's geometries. Materials are shared across figures (animals.ts caches them). */
-function disposeGeometries(root: THREE.Object3D): void {
-	root.traverse((o) => {
-		if (o instanceof THREE.Mesh) o.geometry.dispose();
-	});
 }
 
 /**

@@ -1,6 +1,6 @@
 import { isWalkable, tileAtWorld, type Direction, type GridPos } from '@mathgame/engine';
 import type * as THREE from 'three';
-import { buildAnimalMesh } from './animals';
+import { buildAnimalMesh, disposeFigure } from './animals';
 import type { GameRenderer } from './renderer';
 import { StarterScene } from './starter-scene';
 import { groundTop } from './tiles';
@@ -93,7 +93,7 @@ export class TitleScenery implements TitleView3D {
 
 	update(dt: number): void {
 		this.t += dt;
-		const aside = TRAINER_AT * VIEW_HEIGHT_TILES * (window.innerWidth / window.innerHeight);
+		const aside = TRAINER_AT * VIEW_HEIGHT_TILES * this.renderer.aspect();
 		const x = this.center.x - SCREEN_RIGHT.x * aside + DRIFT.x * Math.sin(this.t * DRIFT.rateX);
 		const z = this.center.y - SCREEN_RIGHT.z * aside + DRIFT.z * Math.sin(this.t * DRIFT.rateZ);
 		this.renderer.lookAt(x, z);
@@ -105,7 +105,10 @@ export class TitleScenery implements TitleView3D {
 	}
 
 	private clearWorld(): void {
-		for (const figure of this.figures) this.renderer.removeFigure(figure);
+		for (const figure of this.figures) {
+			this.renderer.removeFigure(figure);
+			disposeFigure(figure);
+		}
 		this.figures = [];
 	}
 }

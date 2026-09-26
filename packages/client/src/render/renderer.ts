@@ -1,14 +1,9 @@
-import {
-	CHUNK_SIZE,
-	generateChunk,
-	tileAtWorld,
-	type Direction,
-	type GridPos
-} from '@mathgame/engine';
+import { tileAtWorld, type Direction, type GridPos } from '@mathgame/engine';
 import * as THREE from 'three';
 import { animateIdle, buildPlayerMesh } from './animals';
+import { ChunkRing } from './chunks';
 import { COLORS } from './palette';
-import { buildChunkGroup, groundTop } from './tiles';
+import { groundTop } from './tiles';
 
 /**
  * A scene drawn instead of the world, with its own camera: the battle scene,
@@ -26,14 +21,14 @@ export interface Stage {
 /**
  * Owns the Three.js scene: a fixed-angle orthographic camera (no zoom, no
  * rotation — the world reads like a diorama), flat-shaded low-poly meshes,
- * one directional light with soft shadows. Chunks are built lazily as the
- * player approaches them and cached by key. Figures (the player and anything
- * added with `addFigure`) breathe a little every frame.
+ * one directional light with soft shadows. The chunks around the player are
+ * built as the player approaches them and freed when they fall behind
+ * (`chunks.ts`). Figures (the player and anything added with `addFigure`)
+ * breathe a little every frame.
  */
 const VIEW_HEIGHT_TILES = 14; // how many tiles tall the viewport is
 const CAMERA_PITCH = THREE.MathUtils.degToRad(50);
 const CAMERA_YAW = THREE.MathUtils.degToRad(35);
-const CHUNK_RADIUS = 2;
 
 export class GameRenderer {
 	private renderer: THREE.WebGLRenderer;
@@ -41,7 +36,7 @@ export class GameRenderer {
 	private camera: THREE.OrthographicCamera;
 	private player: THREE.Group;
 	private figures: THREE.Group[] = [];
-	private chunks = new Map<string, THREE.Group>();
+	private chunks = new ChunkRing(this.scene);
 	private seed = 0;
 	private cameraTarget = new THREE.Vector3();
 	/** While set, this scene is drawn instead of the world. */
@@ -89,31 +84,11 @@ export class GameRenderer {
 	setWorld(seed: number): void {
 		if (seed === this.seed && this.chunks.size > 0) return;
 		this.seed = seed;
-		for (const g of this.chunks.values()) this.scene.remove(g);
-		this.chunks.clear();
+		this.chunks.reset(seed);
 	}
 
 	ensureChunksAround(pos: GridPos): void {
-		const cx = Math.floor(pos.x / CHUNK_SIZE);
-		const cy = Math.floor(pos.y / CHUNK_SIZE);
-		const wanted = new Set<string>();
-		for (let dy = -CHUNK_RADIUS; dy <= CHUNK_RADIUS; dy++) {
-			for (let dx = -CHUNK_RADIUS; dx <= CHUNK_RADIUS; dx++) {
-				const key = `${cx + dx},${cy + dy}`;
-				wanted.add(key);
-				if (!this.chunks.has(key)) {
-					const group = buildChunkGroup(generateChunk(this.seed, cx + dx, cy + dy));
-					this.chunks.set(key, group);
-					this.scene.add(group);
-				}
-			}
-		}
-		for (const [key, group] of this.chunks) {
-			if (!wanted.has(key)) {
-				this.scene.remove(group);
-				this.chunks.delete(key);
-			}
-		}
+		this.chunks.update(pos);
 	}
 
 	/** Position the player between two tiles (progress 0..1) and face `dir`. */
@@ -188,6 +163,12 @@ export class GameRenderer {
 
 	private groundAt(pos: GridPos): number {
 		return groundTop(tileAtWorld(this.seed, pos.x, pos.y));
+	}
+
+	/** The canvas's width over its height: how many tiles wide the world view is, per tile tall. */
+	aspect(): number {
+		const { w, h } = this.size();
+		return w / Math.max(1, h);
 	}
 
 	/** The canvas size in CSS pixels. */
