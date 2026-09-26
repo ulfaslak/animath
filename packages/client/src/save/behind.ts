@@ -39,8 +39,8 @@ export interface PageState {
 /**
  * Behind another window, a page reloads only when it is the window in use:
  * one on screen while the kid plays in the other waits for them, with the
- * card. The other causes happen once, to a page on its own, so it catches up
- * as soon as it is on screen.
+ * card. Another game in its place, or none, is not the kid playing
+ * elsewhere, and happens once: the page catches up as soon as it is on screen.
  */
 export function behindAction(page: PageState): BehindAction {
 	if (page.behind === null) return 'play';
