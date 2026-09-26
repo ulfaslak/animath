@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { ANIMALS, getAnimal } from '../src/animals/catalog.js';
+import { ANIMALS, canFightIn, getAnimal } from '../src/animals/catalog.js';
 import { REALMS, type AnimalInstance } from '../src/animals/types.js';
 import { applyBattleIntent, startBattle } from '../src/battle/reducer.js';
 import type { BattleState } from '../src/battle/types.js';
@@ -394,6 +394,25 @@ describe('newGame and restoreGame', () => {
 		]);
 	});
 
+	it('gives a party of only sea animals the starter too, behind them: the grass is never out of reach', () => {
+		const pos = findTile(v1.seed, true);
+		const sea = [animal(1, { speciesId: 'crab', hp: 0 }), animal(2, { speciesId: 'whale' })];
+		for (const items of [[], ['boat']]) {
+			const game = restoreGame({ ...v1, pos, items, party: sea } as SaveV1);
+			expect(game.party.map((a) => a.speciesId)).toEqual(['crab', 'whale', STARTER_SPECIES]);
+			expect(game.party[leadIndex(game.party, 'land')]!.speciesId).toBe(STARTER_SPECIES);
+			// Somebody stood already: nobody is rested, the tired crab included.
+			expect(game.party[0]!.hp).toBe(0);
+		}
+		// Its id is new to the party, whatever the save called its animals.
+		const taken = [animal(1, { id: 'starter', speciesId: 'turtle' })];
+		const ids = restoreGame({ ...v1, pos, party: taken } as SaveV1).party.map((a) => a.id);
+		expect(new Set(ids).size).toBe(2);
+		// An animal that walks, even tired, is enough: the doctor is a walk away.
+		const walker = [animal(1, { speciesId: 'crab' }), animal(2, { speciesId: 'frog', hp: 0 })];
+		expect(restoreGame({ ...v1, pos, party: walker } as SaveV1).party).toHaveLength(2);
+	});
+
 	it('over random saves of every shape, the restored game is always playable', () => {
 		for (let s = 0; s < 400; s++) {
 			const rng = new Rng(hashInts(7, s));
@@ -434,7 +453,12 @@ describe('newGame and restoreGame', () => {
 			expect(game.steps).toBe(save.steps);
 			// In bundles: every animal once, each species behind its first, in its own order.
 			expect(isBundled(game.party)).toBe(true);
-			if (size > 0) expect(game.party.map((a) => a.id)).toEqual(bundled(party).map((a) => a.id));
+			// Always an animal that can fight on land: a party of only sea animals gets the starter.
+			expect(game.party.some((a) => canFightIn(a.speciesId, 'land'))).toBe(true);
+			const walks = party.some((a) => canFightIn(a.speciesId, 'land'));
+			const kept = bundled(party).map((a) => a.id);
+			if (size > 0)
+				expect(game.party.map((a) => a.id)).toEqual(walks ? kept : [...kept, 'starter']);
 		}
 	});
 
