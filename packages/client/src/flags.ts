@@ -1,4 +1,4 @@
-import { ANIMALS, type AnimalInstance } from '@mathgame/engine';
+import { ANIMALS, ITEM_IDS, type AnimalInstance, type ItemId } from '@mathgame/engine';
 
 /**
  * The page's URL switches, read once at load. None is a setting a player
@@ -21,9 +21,21 @@ export interface Flags {
 	/** `?new`: a throwaway game that loads and saves nothing; the saved game is left alone. */
 	fresh: boolean;
 	/**
-	 * `?new`, `?party=` or `?zoo`: a throwaway game, straight into explore
-	 * without the title. Nothing is loaded or saved, so a look at a screen
-	 * never touches a kid's game.
+	 * `?tokens=40`: start with this many tokens, in a throwaway game, like
+	 * `?new`, to look at the doctor's shop. A whole number up to 9999; any
+	 * other value ignores the switch.
+	 */
+	tokens: number | null;
+	/**
+	 * `?shop`: the doctor's shop sells every item of the catalog, on sale or
+	 * not, in a throwaway game, to look at buying before any item is on sale.
+	 * `null` without the switch.
+	 */
+	shop: ItemId[] | null;
+	/**
+	 * `?new`, `?party=`, `?zoo`, `?tokens=` or `?shop`: a throwaway game,
+	 * straight into explore without the title. Nothing is loaded or saved, so
+	 * a look at a screen never touches a kid's game.
 	 */
 	throwaway: boolean;
 }
@@ -33,12 +45,16 @@ export function readFlags(search: string): Flags {
 	const zoo = params.has('zoo') ? (params.get('zoo') === 'tired' ? 'tired' : 'standing') : null;
 	const party = parseParty(params.get('party'));
 	const fresh = params.has('new');
+	const tokens = parseTokens(params.get('tokens'));
+	const shop = params.has('shop') ? [...ITEM_IDS] : null;
 	return {
 		zoo,
 		debug: params.has('debug'),
 		party,
 		fresh,
-		throwaway: fresh || party !== null || zoo !== null
+		tokens,
+		shop,
+		throwaway: fresh || party !== null || zoo !== null || tokens !== null || shop !== null
 	};
 }
 
@@ -47,6 +63,12 @@ export const MAX_SEEDED_PARTY = 1000;
 
 /** One `?party=` entry: a species id, an optional HP after `:`, an optional count after `*`. */
 const PARTY_ENTRY = /^([^:*]+)(?::(-?\d+))?(?:\*(\d+))?$/;
+
+/** `?tokens=`: a whole number of tokens from 0 to 9999, or null for anything else. */
+export function parseTokens(text: string | null): number | null {
+	if (text === null || !/^\d{1,4}$/.test(text)) return null;
+	return Number(text);
+}
 
 /**
  * `species[:hp][*count]`, comma-separated (`bear:10,fox:0,rabbit*30`): the

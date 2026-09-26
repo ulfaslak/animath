@@ -213,6 +213,8 @@ describe('the lead walks behind the trainer', () => {
 				steps: 0,
 				visits: 0,
 				party: [{ id: 'r', speciesId: 'rabbit', hp: getAnimal('rabbit').maxHp }],
+				tokens: 0,
+				items: [],
 				battle: null
 			});
 			expect(s.follower.tile).toEqual(placement(pos, facing));

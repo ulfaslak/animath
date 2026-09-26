@@ -1,9 +1,11 @@
 <script lang="ts">
-	import { bundles, leadIndex, type Bundle } from '@mathgame/engine';
+	import { bundles, isItemId, leadIndex, type Bundle } from '@mathgame/engine';
 	import { untrack } from 'svelte';
 	import { fade } from 'svelte/transition';
 	import { t } from '../copy';
+	import { flags } from '../flags';
 	import { animalKey, bundleKey, moveKey, openKey, press, unfocusable } from '../input/press';
+	import { itemName } from '../items';
 	import { touch } from '../input/touch.svelte';
 	import { motion } from '../motion';
 	import { game } from '../state/game.svelte';
@@ -11,6 +13,8 @@
 	import { team } from '../state/team.svelte';
 	import BundleAnimals from './BundleAnimals.svelte';
 	import BundleCard from './BundleCard.svelte';
+	import Coin from './Coin.svelte';
+	import ItemIcon from './ItemIcon.svelte';
 
 	/**
 	 * The explore HUD. The party column: one card per species, in battle
@@ -36,6 +40,9 @@
 	 * sends as `move-species`; until the party comes back in its new order the
 	 * cards stay where the drop left them. Every action is a key press, so a
 	 * pointer goes through the same screen and guards a key does.
+	 *
+	 * At the top right, the player's tokens, and under them the tools they
+	 * own, each with its name.
 	 */
 	const list = $derived(bundles(game.party));
 	const leadId = $derived(game.party[leadIndex(game.party)]?.id ?? null);
@@ -47,6 +54,8 @@
 	const KEYS = 9;
 	/** The cards' order, to see when a dropped card has landed. */
 	const order = $derived(list.map((b) => b.speciesId).join());
+	/** The tools owned, in the order bought; an id this build doesn't know shows nothing. */
+	const tools = $derived(game.items.filter(isItemId));
 
 	/** What a click or a tap on a card presses: open a stack, or choose its one animal. */
 	function cardKey(bundle: Bundle): string | null {
@@ -360,6 +369,15 @@
 	{/if}
 </div>
 
+<!-- The player's tokens, and the tools they own. -->
+<!-- With `?debug` the position and the cues have the corner; these go under them. -->
+<div class="belongings" class:below-debug={flags.debug}>
+	<div class="purse"><Coin />{t('hud.tokens', { count: game.tokens })}</div>
+	{#each tools as id (id)}
+		<div class="tool"><ItemIcon {id} size={24} />{itemName(id)}</div>
+	{/each}
+</div>
+
 <!-- The message line: the latest message while it is fresh, then the doctor
      prompt or the controls hint (see `state/hud.svelte.ts`). -->
 {#if hud.message || hud.hint}
@@ -525,5 +543,38 @@
 	}
 	.message + .prompt {
 		margin-top: 2px;
+	}
+	/* The top right: the tokens, and the tools under them. */
+	.belongings {
+		position: absolute;
+		top: 16px;
+		right: 16px;
+		display: flex;
+		flex-direction: column;
+		align-items: flex-end;
+		gap: 6px;
+		pointer-events: none;
+	}
+	.belongings.below-debug {
+		top: 100px;
+	}
+	.purse,
+	.tool {
+		display: flex;
+		align-items: center;
+		gap: 6px;
+		background: var(--panel-bg);
+		border-radius: var(--radius);
+		box-shadow: var(--hud-shadow);
+		font-weight: 800;
+		white-space: nowrap;
+	}
+	.purse {
+		padding: 6px 14px 6px 8px;
+		font-size: 18px;
+	}
+	.tool {
+		padding: 3px 12px 3px 6px;
+		font-size: 16px;
 	}
 </style>

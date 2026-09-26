@@ -27,6 +27,10 @@ class GameView {
 	 */
 	steps = $state(0);
 	party = $state<AnimalInstance[]>([]);
+	/** The player's tokens: `welcome`'s, then every `belongings-changed`. */
+	tokens = $state(0);
+	/** The ids of the items the player owns (`hasItem`), in the order bought. */
+	items = $state<string[]>([]);
 
 	apply(event: GameEvent): void {
 		switch (event.type) {
@@ -37,6 +41,8 @@ class GameView {
 				this.facing = event.facing;
 				this.steps = 0;
 				this.party = event.party;
+				this.tokens = event.tokens;
+				this.items = event.items;
 				this.mode = 'explore';
 				break;
 			case 'player-moved':
@@ -69,6 +75,10 @@ class GameView {
 			case 'party-changed':
 			case 'party-edited':
 				this.party = event.party;
+				break;
+			case 'belongings-changed':
+				this.tokens = event.tokens;
+				this.items = event.items;
 				break;
 			case 'doctor-visit-ended':
 				this.party = event.state.party.map((a) => ({ ...a }));

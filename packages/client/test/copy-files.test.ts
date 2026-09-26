@@ -1,4 +1,4 @@
-import { ALL_PUZZLE_TOPICS, ANIMALS, LINES } from '@mathgame/engine';
+import { ALL_PUZZLE_TOPICS, ANIMALS, ITEMS, LINES } from '@mathgame/engine';
 import { describe, expect, it } from 'vitest';
 import { FALLBACK_LANGUAGE, LANGUAGES } from '../src/copy/languages';
 import {
@@ -11,6 +11,7 @@ import {
 	type CopyTree,
 	type Message
 } from '../src/copy/translate';
+import { ITEM_FORMS } from '../src/items';
 import { ANIMAL_FORMS } from '../src/names';
 import { copyCalls, svelteSources, tsSources } from './source';
 
@@ -168,6 +169,25 @@ describe('copy files', () => {
 			const id = /^species\.([^.]+)\./.exec(key)?.[1];
 			if (id !== undefined && !known.has(id))
 				problems.push(`en.yaml has ${key}, but no species ${id}`);
+		}
+		expect(problems).toEqual([]);
+	});
+
+	it('every item in the catalog has every form and what it does, on sale or not', () => {
+		const problems: string[] = [];
+		for (const item of ITEMS) {
+			for (const part of [...ITEM_FORMS, 'use']) {
+				const key = `items.${item.id}.${part}`;
+				const message = english.get(key);
+				if (message === undefined) problems.push(`en.yaml lacks ${key}`);
+				else if (paramsOf(message).size > 0) problems.push(`${key} reads params; it is plain text`);
+			}
+		}
+		const known = new Set(ITEMS.map((i) => i.id));
+		for (const key of english.keys()) {
+			const id = /^items\.([^.]+)\./.exec(key)?.[1];
+			if (id !== undefined && !known.has(id as never))
+				problems.push(`en.yaml has ${key}, but no item ${id}`);
 		}
 		expect(problems).toEqual([]);
 	});

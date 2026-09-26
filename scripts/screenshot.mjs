@@ -39,10 +39,11 @@
  * The final frame goes to `--out`. After every frame the script prints what
  * the screen says — on the title its menu, the confirm, the starters and the
  * name box; the message line in explore (and the grid position and
- * facing with `?debug` in the URL) and the party cards (and an open card's
- * animals); in the pause menu its
+ * facing with `?debug` in the URL), the party cards (and an open card's
+ * animals) and the tokens and tools in the corner; in the pause menu its
  * rows, the picked animal's options and the name box (with whether it has
- * the focus); at the doctor the doctor's line and the party; and in a battle
+ * the focus); at the doctor the doctor's line, the tokens, the tabs and the
+ * tab's list; and in a battle
  * the narration line, the puzzle, the typed answer, the judgement, the status
  * boxes and the result card — so a flow can be asserted from the console
  * output, not only the images. With `?debug`, it also prints the last sound
@@ -254,16 +255,46 @@ async function describe() {
 	}
 	const doctorLine = await textOf('.doctor-line');
 	if (doctorLine !== null) lines.push(`doctor: ${doctorLine}`);
+	// The doctor's tabs (the one on screen in brackets) and the player's tokens.
+	const tabs = await page
+		.locator('.doctor .tab')
+		.evaluateAll((els) =>
+			els.map((el) =>
+				el.classList.contains('on') ? `[${el.textContent.trim()}]` : el.textContent.trim()
+			)
+		);
+	if (tabs.length)
+		lines.push(`tabs: ${tabs.join(' | ')} · ${await textOf('.doctor .purse .tokens')}`);
+	// The tab's list: the highlighted row in brackets, a picked animal with ✓,
+	// what an animal brings or an item costs, a greyed row marked.
 	const patients = await page.locator('.patients .row').evaluateAll((els) =>
 		els.map((el) => {
 			const label = el.querySelector('.label')?.textContent ?? '';
 			const tag = el.querySelector('.tag')?.textContent;
 			const hp = el.querySelector('.hp .text')?.textContent;
-			const text = [label, tag && `(${tag})`, hp].filter(Boolean).join(' ');
+			const worth = el.querySelector('.worth')?.textContent.trim();
+			const picked = el.classList.contains('marked') ? '✓ ' : '';
+			const off = el.classList.contains('healthy') || el.classList.contains('off');
+			const text =
+				picked + [label, tag && `(${tag})`, hp, worth, off && '(greyed)'].filter(Boolean).join(' ');
 			return el.classList.contains('selected') ? `[${text}]` : text;
 		})
 	);
 	if (patients.length) lines.push(`patients: ${patients.join(' | ')}`);
+	const choices = await page
+		.locator('.doctor .choice')
+		.evaluateAll((els) =>
+			els.map((el) =>
+				el.classList.contains('lit') ? `[${el.textContent.trim()}]` : el.textContent.trim()
+			)
+		);
+	if (choices.length)
+		lines.push(`confirm: ${await textOf('.doctor .question')} ${choices.join(' | ')}`);
+	const story = await textOf('.story');
+	if (story !== null) lines.push(`story: ${story}`);
+	// The tokens and tools in explore's top right corner.
+	const belongings = await page.locator('.belongings > *').allTextContents();
+	if (belongings.length) lines.push(`belongings: ${belongings.map((b) => b.trim()).join(' · ')}`);
 	// Party cards in explore, one per species, the lead's in brackets and an open one in braces:
 	// "[1 Pip 20/20 goes first] | {2 Rabbit ×4 3 ready · 1 tired}"; then the open card's animals.
 	const cards = await page.locator('.party .cards .bundle').evaluateAll((els) =>

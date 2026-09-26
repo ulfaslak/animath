@@ -33,6 +33,7 @@ import {
 	type GameEvent,
 	type GridPos,
 	type Intent,
+	type ItemId,
 	type Line,
 	type PartyIntent,
 	type PlayerActivity,
@@ -61,6 +62,17 @@ export interface LocalAuthorityOptions {
 	 * (`bundled`), and nicknames are cleaned on the way in, like a rename.
 	 */
 	party?: readonly AnimalInstance[];
+	/**
+	 * Start with this many tokens instead of none: the `?tokens=` URL switch,
+	 * for looking at the doctor's shop. A whole number.
+	 */
+	tokens?: number;
+	/**
+	 * What the doctor's shop sells, instead of the catalog's items on sale:
+	 * the `?shop` URL switch (every item), for looking at the shop before an
+	 * item is on sale. Only in a game that is saved nowhere.
+	 */
+	shop?: readonly ItemId[];
 }
 
 /** How a session begins: a saved game to pick up, or a new game when absent. */
@@ -106,6 +118,10 @@ export class LocalAuthority implements Authority {
 	 */
 	private facing: Direction = 'down';
 	private party: AnimalInstance[] = [];
+	/** The tokens the doctor gave, less what the shop took. Saved with the game. */
+	private tokens = 0;
+	/** The ids of the items the player owns (`hasItem`). Saved with the game. */
+	private items: string[] = [];
 	/** Completed steps in this game, saved with it. Keys the encounter roll and the battle and doctor seeds. */
 	private steps = 0;
 	/** Doctor visits opened in this game, saved with it, so a later visit at the same step asks new puzzles. */
@@ -146,6 +162,8 @@ export class LocalAuthority implements Authority {
 		// name cleaning, like a rename: the party only ever holds cleaned
 		// nicknames, so every screen can show one as stored.
 		this.party = game.party.map(withCleanNickname);
+		this.tokens = game.tokens;
+		this.items = [...game.items];
 		this.battle = null;
 		this.doctor = null;
 		this.started = true;
@@ -156,6 +174,8 @@ export class LocalAuthority implements Authority {
 			pos: { ...this.pos },
 			facing: this.facing,
 			party: this.partyCopy(),
+			tokens: this.tokens,
+			items: [...this.items],
 			newGame: isNew
 		});
 		if (game.battle) {
@@ -180,6 +200,8 @@ export class LocalAuthority implements Authority {
 			steps: this.steps,
 			visits: this.visits,
 			party: party.map((a) => ({ ...a })),
+			tokens: this.tokens,
+			items: [...this.items],
 			battle: this.battle ? this.battle.state : null
 		};
 	}
@@ -203,9 +225,12 @@ export class LocalAuthority implements Authority {
 		if (this.battle) this.battle.seed = this.battleSeed();
 	}
 
-	/** A new game in the prototype world, with the `?party=` party, in bundles, when there is one. */
+	/**
+	 * A new game in the prototype world, with the `?party=` party, in bundles,
+	 * when there is one, and the `?tokens=` tokens.
+	 */
 	private newGame(): SavedGame {
-		const game = newGame(WORLD_SEED);
+		const game = { ...newGame(WORLD_SEED), tokens: this.options.tokens ?? 0 };
 		// An empty `?party=` is no party: the starter, as without one.
 		return this.options.party?.length
 			? { ...game, party: bundled(this.options.party).map((a) => ({ ...a })) }
@@ -411,7 +436,11 @@ export class LocalAuthority implements Authority {
 			return;
 		}
 		this.visits += 1;
-		const state = startDoctorVisit(this.party);
+		const state = startDoctorVisit(this.party, {
+			tokens: this.tokens,
+			items: this.items,
+			shop: this.options.shop
+		});
 		// A fresh seed per visit, keyed like everything else here so a session
 		// replays; the visit count keeps a second visit from asking the same
 		// puzzles, and tells the visits apart in their events.
@@ -424,9 +453,10 @@ export class LocalAuthority implements Authority {
 	}
 
 	/**
-	 * Apply one doctor intent. A heal is written back at once (the kid earned
-	 * it, whatever happens to the visit after); leaving ends the visit, and
-	 * the client says the doctor's goodbye.
+	 * Apply one doctor intent. What it did is written back at once — a heal,
+	 * animals gone home, tokens given, an item bought: the kid earned it,
+	 * whatever happens to the visit after. Leaving ends the visit, and the
+	 * client says the doctor's goodbye.
 	 */
 	private applyDoctor(intent: DoctorIntent): void {
 		const doctor = this.doctor!;
@@ -434,9 +464,14 @@ export class LocalAuthority implements Authority {
 		const { state, events } = applyDoctorIntent(doctor.state, intent, doctor.seed);
 		doctor.state = state;
 		this.emit({ type: 'doctor-visit-updated', visit, state, events });
-		if (events.some((e) => e.type === 'healed')) {
+		if (events.some((e) => e.type === 'healed' || e.type === 'went-home')) {
 			this.party = state.party.map((a) => ({ ...a }));
 			this.emit({ type: 'party-changed', party: this.partyCopy() });
+		}
+		if (events.some((e) => e.type === 'tokens-given' || e.type === 'bought')) {
+			this.tokens = state.tokens;
+			this.items = [...state.items];
+			this.emit({ type: 'belongings-changed', tokens: this.tokens, items: [...this.items] });
 		}
 		if (state.phase.kind !== 'ended') return;
 		this.doctor = null;

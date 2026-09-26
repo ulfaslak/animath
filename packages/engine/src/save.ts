@@ -52,6 +52,10 @@ export interface SavedGame {
 	 * many animals as the player caught. During a battle, HP as it stands in the battle.
 	 */
 	party: AnimalInstance[];
+	/** The tokens the doctor has given, less what the shop took. A whole number. */
+	tokens: number;
+	/** The ids of the items the player owns, each once, in the order bought (`hasItem`). */
+	items: string[];
 	/** The battle in progress, or null. Its seed is not saved: the authority derives it from `steps`. */
 	battle: BattleState | null;
 }
@@ -84,6 +88,18 @@ export interface SaveV1 {
 	lineage?: string;
 	/** This document's number within its game: every save is numbered one above the last. */
 	seq?: number;
+	/**
+	 * The player's tokens, since the doctor's shop. Optional in a write too: a
+	 * page that loaded before tokens existed backs up without them, and a save
+	 * without them has none.
+	 */
+	tokens?: number;
+	/**
+	 * The ids of the items the player owns, since the doctor's shop; optional
+	 * like `tokens`. An id this build doesn't know is kept as it is and does
+	 * nothing, so a save never becomes unreadable over an item.
+	 */
+	items?: string[];
 	/** The battle in progress when it was saved. Checked on load (`readBattle`), dropped if unusable. */
 	battle?: unknown;
 }
@@ -103,6 +119,8 @@ const SAVE_KEYS: ReadonlySet<string> = new Set([
 	'visits',
 	'lineage',
 	'seq',
+	'tokens',
+	'items',
 	'battle'
 ]);
 
@@ -235,10 +253,14 @@ function findSaveError(input: Doc): string | null {
 	if (input.facing !== undefined && !DIRECTIONS.has(input.facing as string)) {
 		return 'facing must be up, down, left or right';
 	}
-	for (const key of ['steps', 'visits', 'seq'] as const) {
+	for (const key of ['steps', 'visits', 'seq', 'tokens'] as const) {
 		if (input[key] !== undefined && !isWhole(input[key])) {
 			return `${key} must be a whole number of 0 or more`;
 		}
+	}
+	const items = input.items;
+	if (items !== undefined && (!Array.isArray(items) || !items.every(isId))) {
+		return `items must be a list of ids of 1–${MAX_SAVE_ID_LENGTH} characters`;
 	}
 	if (input.lineage !== undefined && !isId(input.lineage)) {
 		return `lineage must be a string of 1–${MAX_SAVE_ID_LENGTH} characters`;
@@ -304,8 +326,9 @@ export function readSave(input: unknown): SaveRead {
 
 /**
  * A new game in world `seed`: the spawn tile, facing down, nothing walked,
- * and one animal, `starter` (the chosen one, `chooseStarter`'s with an id
- * from the authority), or else the default starter at full HP.
+ * no tokens and no items, and one animal, `starter` (the chosen one,
+ * `chooseStarter`'s with an id from the authority), or else the default
+ * starter at full HP.
  */
 export function newGame(seed: number, starter?: AnimalInstance): SavedGame {
 	return {
@@ -319,6 +342,8 @@ export function newGame(seed: number, starter?: AnimalInstance): SavedGame {
 				? { ...starter }
 				: { id: 'starter', speciesId: STARTER_SPECIES, hp: getAnimal(STARTER_SPECIES).maxHp }
 		],
+		tokens: 0,
+		items: [],
 		battle: null
 	};
 }
@@ -334,7 +359,8 @@ function cleanAnimal(animal: AnimalInstance): AnimalInstance {
  * The game a readable save describes, made playable. Nicknames go through
  * the same cleaning as a rename (`normalizeNickname`), in the party and in a
  * saved battle's party alike. Fields an older v1
- * document lacks get their defaults (facing down, no steps or visits), and nothing in
+ * document lacks get their defaults (facing down, no steps or visits, no
+ * tokens or items; an item listed twice is owned once), and nothing in
  * it can leave the player stuck: a position that is not walkable (the world
  * generator changed under it) becomes the spawn tile, an HP above the
  * species' maximum is cut to it, an empty party gets the starter, and a party
@@ -366,6 +392,8 @@ export function restoreGame(save: SaveV1): SavedGame {
 		steps: save.steps ?? 0,
 		visits: save.visits ?? 0,
 		party: bundled(party),
+		tokens: save.tokens ?? 0,
+		items: [...new Set(save.items ?? [])],
 		battle: battle && bundledBattle(battle)
 	};
 }
@@ -465,6 +493,8 @@ export function saveDocument(
 		steps: game.steps,
 		visits: game.visits,
 		party: game.party.map((a) => ({ ...a })),
+		tokens: game.tokens,
+		items: [...game.items],
 		lineage: stamp.lineage,
 		seq: stamp.seq
 	};
@@ -516,14 +546,26 @@ export function replacesAnotherGame(
  * around can take the save back without losing anything a kid would miss.
  */
 export function sameProgress(a: SaveV1, b: SaveV1): boolean {
-	const keys = new Set([...Object.keys(a), ...Object.keys(b)]);
+	const left = withProgressDefaults(a);
+	const right = withProgressDefaults(b);
+	const keys = new Set([...Object.keys(left), ...Object.keys(right)]);
 	for (const key of keys) {
 		if (WHEREABOUTS.has(key)) continue;
-		const left = (a as unknown as Doc)[key];
-		const right = (b as unknown as Doc)[key];
-		if (canonical(left) !== canonical(right)) return false;
+		if (canonical(left[key]) !== canonical(right[key])) return false;
 	}
 	return true;
+}
+
+/**
+ * A document with what an older save leaves unsaid said: no tokens and no
+ * items. A save from before the shop holds the same progress as one that
+ * writes none out.
+ */
+function withProgressDefaults(doc: SaveV1): Doc {
+	const out: Doc = { ...(doc as unknown as Doc) };
+	if (out.tokens === undefined) out.tokens = 0;
+	if (out.items === undefined) out.items = [];
+	return out;
 }
 
 /** JSON text with object keys sorted and `undefined` fields dropped, for comparing values. */

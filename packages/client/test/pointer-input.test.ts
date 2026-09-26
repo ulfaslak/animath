@@ -5,10 +5,12 @@ import {
 	levelKey,
 	optionKey,
 	rowKey,
+	tabKey,
 	tappedLanguage,
 	tappedLevel,
 	tappedOption,
-	tappedRow
+	tappedRow,
+	tappedTab
 } from '../src/input/press';
 import { TAP_SLOP_PX, Taps, type Pressable } from '../src/input/taps';
 import { touchAfter } from '../src/input/touch.svelte';
@@ -19,23 +21,30 @@ import { touchAfter } from '../src/input/touch.svelte';
  * tap is.
  */
 describe("the pointer's keys", () => {
-	it('name a row, an option, a level or a language, and nothing a keyboard sends', () => {
+	it('name a row, an option, a level, a language or a tab, and nothing a keyboard sends', () => {
 		expect(tappedRow(rowKey(0))).toBe(0);
 		expect(tappedRow(rowKey(12))).toBe(12);
 		expect(tappedOption(optionKey(4))).toBe(4);
 		expect(tappedLevel(levelKey(3))).toBe(3);
 		expect(tappedLanguage(languageKey('da'))).toBe('da');
+		expect(tappedTab(tabKey('home'))).toBe('home');
 		// The pause menu's team and its options are on screen together: neither's key is the other's (#45).
+		// So are the doctor's tabs, its rows and its confirm's choices.
 		expect(tappedOption(rowKey(0))).toBeUndefined();
 		expect(tappedRow(optionKey(0))).toBeUndefined();
+		for (const key of [rowKey(0), optionKey(1), 'tab:bank', 'tab:']) {
+			expect(tappedTab(key), key).toBeUndefined();
+		}
+		expect(tappedRow(tabKey('heal'))).toBeUndefined();
 		// What a keyboard sends is never one of them: one character, or a key's name.
 		for (const key of ['Enter', ' ', '1', 'r', 'ArrowUp', 'Escape', 'Backspace', '-', 'Process']) {
-			expect([tappedRow(key), tappedOption(key), tappedLevel(key), tappedLanguage(key)]).toEqual([
-				undefined,
-				undefined,
-				undefined,
-				undefined
-			]);
+			expect([
+				tappedRow(key),
+				tappedOption(key),
+				tappedLevel(key),
+				tappedLanguage(key),
+				tappedTab(key)
+			]).toEqual([undefined, undefined, undefined, undefined, undefined]);
 		}
 		expect(tappedLevel('level:4')).toBeUndefined();
 		expect(tappedRow('row:-1')).toBeUndefined();

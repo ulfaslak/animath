@@ -120,6 +120,20 @@ describe('validateSave', () => {
 		expect(error({ ...written, seq: '3' })).toMatch(/seq/);
 		expect(error({ ...written, lineage: '' })).toMatch(/lineage/);
 		expect(error({ ...written, lineage: 7 })).toMatch(/lineage/);
+		for (const tokens of [-1, 2.5, '8', null, Infinity]) {
+			expect(error({ ...written, tokens }), String(tokens)).toMatch(/tokens/);
+		}
+		for (const items of ['axe', [7], [''], ['x'.repeat(65)], [null], { axe: true }]) {
+			expect(error({ ...written, items }), JSON.stringify(items)).toMatch(/items/);
+		}
+	});
+
+	it('takes tokens and items, an item it does not know included, and needs neither', () => {
+		expect(error({ ...written, tokens: 0, items: [] })).toBe('');
+		expect(error({ ...written, tokens: 40, items: ['axe', 'boat'] })).toBe('');
+		// An item a later build sells: kept as it is, never a reason to set the save aside.
+		expect(error({ ...written, items: ['lantern'] })).toBe('');
+		expect(validateSaveWrite(written).ok).toBe(true);
 	});
 
 	it('does not look inside a battle, but a battle must still be storable', () => {
@@ -233,7 +247,7 @@ function findTile(seed: number, walkable: boolean): { x: number; y: number } {
 }
 
 describe('newGame and restoreGame', () => {
-	it('a new game starts on the spawn tile, facing down, with one full-HP starter', () => {
+	it('a new game starts on the spawn tile, facing down, with one full-HP starter, no tokens and no items', () => {
 		const game = newGame(SEED);
 		expect(game).toEqual({
 			seed: SEED,
@@ -242,11 +256,13 @@ describe('newGame and restoreGame', () => {
 			steps: 0,
 			visits: 0,
 			party: [{ id: 'starter', speciesId: STARTER_SPECIES, hp: getAnimal(STARTER_SPECIES).maxHp }],
+			tokens: 0,
+			items: [],
 			battle: null
 		});
 	});
 
-	it('an older v1 save gets facing down and no steps', () => {
+	it('an older v1 save gets facing down, no steps, no tokens and no items', () => {
 		const pos = findTile(v1.seed, true);
 		const game = restoreGame({ ...v1, pos } as SaveV1);
 		expect(game).toMatchObject({
@@ -255,12 +271,14 @@ describe('newGame and restoreGame', () => {
 			facing: 'down',
 			steps: 0,
 			visits: 0,
+			tokens: 0,
+			items: [],
 			battle: null
 		});
 		expect(game.party).toEqual(v1.party);
 	});
 
-	it('a save of a game restores exactly that game', () => {
+	it('a save of a game restores exactly that game, its tokens and items included', () => {
 		const game: SavedGame = {
 			seed: SEED,
 			pos: findTile(SEED, true),
@@ -271,12 +289,25 @@ describe('newGame and restoreGame', () => {
 				{ id: 'a', speciesId: 'fox', hp: 3, nickname: 'Rusty' },
 				{ id: 'b', speciesId: 'bear', hp: 0 }
 			],
+			tokens: 17,
+			// 'lantern' is an item this build doesn't know: kept, doing nothing.
+			items: ['boat', 'axe', 'lantern'],
 			battle: null
 		};
 		const doc = saveDocument(game, { lineage: 'L', seq: 9 });
+		expect(validateSaveWrite(doc).ok).toBe(true);
 		const read = readSave(JSON.parse(JSON.stringify(doc)));
 		expect(read.ok).toBe(true);
 		if (read.ok) expect(restoreGame(read.save)).toEqual(game);
+	});
+
+	it('an item listed twice is owned once, and the list is never shared with the save', () => {
+		const pos = findTile(v1.seed, true);
+		const save = { ...v1, pos, tokens: 5, items: ['axe', 'boat', 'axe'] } as SaveV1;
+		const game = restoreGame(save);
+		expect(game.items).toEqual(['axe', 'boat']);
+		game.items.push('pickaxe');
+		expect(save.items).toEqual(['axe', 'boat', 'axe']);
 	});
 
 	it('never strands the player: a blocked tile becomes the spawn tile', () => {
@@ -516,7 +547,17 @@ describe('readBattle', () => {
 		const party = makeParty(['squirrel']);
 		const battle = startBattle(party, makeWild('rabbit'));
 		const doc = saveDocument(
-			{ seed: SEED, pos, facing: 'left', steps: 11, visits: 0, party, battle },
+			{
+				seed: SEED,
+				pos,
+				facing: 'left',
+				steps: 11,
+				visits: 0,
+				party,
+				tokens: 0,
+				items: [],
+				battle
+			},
 			{ lineage: 'L', seq: 2 }
 		);
 		const read = readSave(JSON.parse(JSON.stringify(doc)));
@@ -579,6 +620,10 @@ describe('which save wins', () => {
 		// Key order and absent-versus-undefined do not matter.
 		const reordered = JSON.parse(JSON.stringify({ party: written.party, ...written }));
 		expect(sameProgress(written as SaveV1, { ...reordered, extra: undefined })).toBe(true);
+		// A save from before the shop has no tokens and no items: the same as none written out.
+		expect(sameProgress(written as SaveV1, { ...moved, tokens: 0, items: [] } as SaveV1)).toBe(
+			true
+		);
 		for (const changed of [
 			{ ...written, party: [animal(1, { nickname: 'Nutkin', hp: 3 }), written.party[1]] },
 			{ ...written, party: [...written.party].reverse() },
@@ -586,7 +631,10 @@ describe('which save wins', () => {
 			{ ...written, party: [animal(1), written.party[1]] },
 			{ ...written, seed: 1 },
 			{ ...written, battle: { step: 0 } },
-			{ ...written, inventory: { leashes: 1 } }
+			{ ...written, inventory: { leashes: 1 } },
+			// Tokens and items are what a kid has, not where they are.
+			{ ...written, tokens: 8 },
+			{ ...written, items: ['axe'] }
 		]) {
 			expect(sameProgress(written as SaveV1, changed as SaveV1)).toBe(false);
 		}

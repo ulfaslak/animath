@@ -1,5 +1,6 @@
 import {
 	ATTACK_LEVELS,
+	ITEM_IDS,
 	attackDamage,
 	canTalkToDoctor,
 	getAnimal,
@@ -233,10 +234,11 @@ function hurtParty(): AnimalInstance[] {
 	];
 }
 
-/** Answer the open doctor puzzle, right or wrong on purpose. */
+/** Answer the open doctor puzzle (a heal, or a token sum), right or wrong on purpose. */
 function answerDoctor(s: Session, correct: boolean): void {
 	const phase = visit(s).phase;
-	if (phase.kind !== 'solving') throw new Error(`expected a doctor puzzle, got ${phase.kind}`);
+	if (phase.kind === 'choose-patient' || phase.kind === 'ended')
+		throw new Error(`expected a doctor puzzle, got ${phase.kind}`);
 	doctorIntent(s, {
 		type: 'answer',
 		input: String(correct ? phase.puzzle.answer : phase.puzzle.answer + 1)
@@ -919,7 +921,7 @@ describe('LocalAuthority: facing', () => {
 });
 
 describe('LocalAuthority: the doctor', () => {
-	it('heals one animal per solved puzzle; a miss costs nothing; walking waits', () => {
+	it('heals the picked animal (and its kind) per solved puzzle; a miss costs nothing; walking waits', () => {
 		const s = session({ party: hurtParty() });
 		walkToTent(s);
 		s.authority.dispatch({ type: 'interact' });
@@ -979,7 +981,70 @@ describe('LocalAuthority: the doctor', () => {
 		expect(position(s)).toEqual({ x: pos.x - 1, y: pos.y });
 	});
 
-	it('with nobody hurt, a visit still opens, and can only end', () => {
+	it('animals gone home and tokens given, and an item bought, are written back at once; a miss changes nothing', () => {
+		const s = session({ party: hurtParty(), tokens: 20, shop: ITEM_IDS });
+		expect(s.events[0]).toMatchObject({ type: 'welcome', tokens: 20, items: [] });
+		walkToTent(s);
+		s.authority.dispatch({ type: 'interact' });
+		expect(visit(s)).toMatchObject({ tokens: 20, items: [], shop: ['axe', 'pickaxe', 'boat'] });
+
+		doctorIntent(s, { type: 'hand-over', ids: ['a'] });
+		expect(visit(s).phase).toMatchObject({ kind: 'handing-over', reward: 2 });
+		let from = s.events.length;
+		answerDoctor(s, false);
+		expect(s.events.slice(from).map((e) => e.type)).toEqual(['doctor-visit-updated']);
+		from = s.events.length;
+		answerDoctor(s, true);
+		expect(s.events.slice(from)).toMatchObject([
+			{ type: 'doctor-visit-updated' },
+			{ type: 'party-changed', party: [hurtParty()[1], hurtParty()[2]] },
+			{ type: 'belongings-changed', tokens: 22, items: [] }
+		]);
+
+		doctorIntent(s, { type: 'buy', itemId: 'axe' });
+		from = s.events.length;
+		answerDoctor(s, false);
+		expect(s.events.slice(from).map((e) => e.type)).toEqual(['doctor-visit-updated']);
+		from = s.events.length;
+		answerDoctor(s, true);
+		expect(s.events.slice(from)).toMatchObject([
+			{ type: 'doctor-visit-updated' },
+			{ type: 'belongings-changed', tokens: 14, items: ['axe'] }
+		]);
+		doctorIntent(s, { type: 'leave' });
+
+		// The game holds it all, through a save and a reload; the next visit starts from it.
+		const game = s.authority.snapshot();
+		expect(game).toMatchObject({ tokens: 14, items: ['axe'] });
+		expect(game.party.map((a) => a.id)).toEqual(['b', 'c']);
+		const t: Session = { authority: new LocalAuthority({ shop: ITEM_IDS }), events: [] };
+		t.authority.subscribe((e) => t.events.push(e));
+		const doc = saveDocument(game, { lineage: 'test', seq: 1 });
+		const read = readSave(JSON.parse(JSON.stringify(doc)));
+		if (!read.ok) throw new Error(read.error);
+		t.authority.start({ game: restoreGame(read.save) });
+		expect(t.events[0]).toMatchObject({ type: 'welcome', tokens: 14, items: ['axe'] });
+		t.authority.dispatch({ type: 'interact' });
+		expect(visit(t)).toMatchObject({ tokens: 14, items: ['axe'] });
+		doctorIntent(t, { type: 'buy', itemId: 'axe' });
+		expect(t.events.at(-1)).toMatchObject({
+			type: 'doctor-visit-updated',
+			events: [{ type: 'rejected', reason: 'already-owned' }]
+		});
+	});
+
+	it('sells only what the catalog has on sale, unless it was started with the whole shop (`?shop`)', () => {
+		const s = session({ party: hurtParty(), tokens: 50 });
+		walkToTent(s);
+		s.authority.dispatch({ type: 'interact' });
+		expect(visit(s).shop).toEqual([]);
+		doctorIntent(s, { type: 'buy', itemId: 'boat' });
+		expect(s.events.at(-1)).toMatchObject({
+			events: [{ type: 'rejected', reason: 'not-for-sale' }]
+		});
+	});
+
+	it('with nobody hurt, a visit still opens, and nobody can be picked to heal', () => {
 		const s = session();
 		walkToTent(s);
 		s.authority.dispatch({ type: 'interact' });

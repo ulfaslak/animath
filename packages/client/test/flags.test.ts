@@ -1,24 +1,37 @@
 import { getAnimal } from '@mathgame/engine';
 import { describe, expect, it } from 'vitest';
-import { MAX_SEEDED_PARTY, parseParty, readFlags } from '../src/flags';
+import { MAX_SEEDED_PARTY, parseParty, parseTokens, readFlags } from '../src/flags';
 
 /** The URL switches (CHEATSHEET § Hidden behaviour): a typo must start an ordinary game. */
 describe('URL switches', () => {
-	it('reads ?zoo, ?debug, ?party= and ?new', () => {
+	it('reads ?zoo, ?debug, ?party=, ?new, ?tokens= and ?shop', () => {
 		expect(readFlags('')).toEqual({
 			zoo: null,
 			debug: false,
 			party: null,
 			fresh: false,
+			tokens: null,
+			shop: null,
 			throwaway: false
 		});
-		expect(readFlags('?zoo&debug&party=fox&new')).toEqual({
+		expect(readFlags('?zoo&debug&party=fox&new&tokens=40&shop')).toEqual({
 			zoo: 'standing',
 			debug: true,
 			party: [{ id: 'party-1', speciesId: 'fox', hp: getAnimal('fox').maxHp }],
 			fresh: true,
+			tokens: 40,
+			shop: ['axe', 'pickaxe', 'boat'],
 			throwaway: true
 		});
+	});
+
+	it('?tokens= takes a whole number up to 9999, and anything else is no switch', () => {
+		expect(parseTokens('0')).toBe(0);
+		expect(parseTokens('21')).toBe(21);
+		expect(parseTokens('9999')).toBe(9999);
+		for (const bad of [null, '', '-3', '1.5', '10000', '1e3', ' 8', 'lots', '0x10']) {
+			expect(parseTokens(bad), String(bad)).toBeNull();
+		}
 	});
 
 	it('?zoo=tired lays the line-up down to rest; any other value is the standing zoo', () => {
@@ -28,12 +41,20 @@ describe('URL switches', () => {
 		expect(readFlags('?zoo=tired').throwaway).toBe(true);
 	});
 
-	it('?new, ?party= and ?zoo each play a throwaway game past the title; ?debug and ?lang do not', () => {
-		for (const search of ['?new', '?party=bear', '?zoo', '?debug&new', '?lang=da&zoo']) {
+	it('?new, ?party=, ?zoo, ?tokens= and ?shop each play a throwaway game past the title; ?debug and ?lang do not', () => {
+		for (const search of [
+			'?new',
+			'?party=bear',
+			'?zoo',
+			'?debug&new',
+			'?lang=da&zoo',
+			'?tokens=30',
+			'?shop'
+		]) {
 			expect(readFlags(search).throwaway, search).toBe(true);
 		}
-		// A misspelt party is no party: the title, as without it.
-		for (const search of ['', '?debug', '?lang=da', '?party=dragon', '?party=']) {
+		// A misspelt party or tokens is no switch: the title, as without it.
+		for (const search of ['', '?debug', '?lang=da', '?party=dragon', '?party=', '?tokens=lots']) {
 			expect(readFlags(search).throwaway, search).toBe(false);
 		}
 	});

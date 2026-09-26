@@ -137,6 +137,9 @@ hud:
   dragMouse: Træk i et kort for at flytte det
   dragTouch: Hold på et kort, og træk det
   menu: Menu
+  tokens:
+    one: '{count} mønt'
+    other: '{count} mønter'
 
 team:
   count: '×{count}'
@@ -241,24 +244,108 @@ doctor:
   hello: Hej! Hvem skal jeg hjælpe i dag?
   helloAllFit: Hej! Alle dine dyr er friske og glade.
   letsHelp: Lad os hjælpe {animal.the}! Kan du løse den her?
+  letsHelpMore: Lad os hjælpe {animal.the} og {others} til! Kan du løse den her?
   notQuite: Ikke helt! Lad os prøve en anden.
+  tryAgain: Ikke helt! Prøv igen.
   healedNext: Godt klaret! {animal.the} har det godt igen! Hvem skal jeg hjælpe nu?
   healedAll: Godt klaret! {animal.the} har det godt igen! Alle er friske og glade!
+  healedMoreNext: Godt klaret! {animal.the} og {others} til har det godt igen! Hvem skal jeg hjælpe nu?
+  healedMoreAll: Godt klaret! {animal.the} og {others} til har det godt igen! Alle er friske og glade!
   goodbye: Hej hej! Kom bare igen, når du vil.
   rescuedAtTent: Dyrlægen har passet godt på dine dyr. Nu har alle det godt igen!
   rescuedHere: En dyrlæge kom forbi og passede godt på dine dyr. Nu har alle det godt igen!
   bye: Farvel
   byeKey: Esc
+  back: Tilbage
+  tabs:
+    heal: Gør rask
+    home: Hjælp hjem
+    shop: Butik
+  tokens:
+    one: '{count} mønt'
+    other: '{count} mønter'
   pick: Vælg et dyr
   pickDetail: Løs en opgave, så får {animal.the} det godt igen!
+  pickDetailMore: Løs én opgave, så får {animal.the} og {others} til det godt igen!
   byeDetail: Sig farvel og gå på opdagelse.
-  listKeys: ↑ ↓ flyt · Enter vælg · Esc farvel
+  listKeys: ↑ ↓ flyt · ← → faner · Enter vælg · Esc farvel
   listTouch: Tryk på et dyr for at hjælpe det
-  puzzleKeys: ↑ ↓ hjælp et andet dyr · Esc farvel
+  puzzleKeys: ↑ ↓ hjælp et andet dyr
   puzzleTouch: Tryk på et andet dyr for at hjælpe det i stedet
   allFit: Ud på eventyr!
-  allFitKeys: Enter eller Esc for at sige farvel
+  allFitKeys: ← → faner · Enter eller Esc for at sige farvel
   allFitTouch: Tryk på Farvel for at gå på opdagelse
+
+  home:
+    intro: Vilde dyr er lidt syge. Derfor er de så gnavne!
+    title: Hjælp dyr hjem
+    how: Vælg de dyr, der skal hjem. Jeg gør dem helt raske, og du får mønter som tak!
+    worth:
+      one: '{animal.the} giver {count} mønt.'
+      other: '{animal.the} giver {count} mønter.'
+    picked:
+      one: '1 dyr valgt: {amount} mønter.'
+      other: '{count} dyr valgt: {amount} mønter.'
+    keepOne: Ét dyr, der ikke er træt, bliver altid hos dig.
+    send: Hjælp dem hjem
+    keys: ↑ ↓ flyt · ← → faner · Enter vælg · Esc farvel
+    touch: Tryk på de dyr, der skal hjem
+    sure: Er du sikker? De bliver glade ude i naturen!
+    sureTitle: Sig farvel til {names.the}?
+    sureTitleMany: Sig farvel til {many} dyr?
+    sureDetail: De kommer hjem til naturen, helt raske. Du får {amount} mønter.
+    keep: Nej, ikke nu
+    yes: Ja, farvel!
+    sureKeys: ← → flyt · Enter vælg · Esc tilbage
+    count: Tak skal du have! Kan du tælle dine mønter?
+    story:
+      one: Du har {count} mønt. Du får {amount} til. Hvor mange har du så?
+      other: Du har {count} mønter. Du får {amount} til. Hvor mange har du så?
+    wentHomeOne: Farvel, {animal.name}! {animal.the} har det meget bedre nu.
+    wentHomeFew: Farvel, {names.name}! De har det meget bedre nu.
+    wentHomeMany: Farvel til alle {many}! De har det meget bedre nu.
+    tokensGiven:
+      one: Tak skal du have! Her er {amount} mønter. Nu har du {count} mønt.
+      other: Tak skal du have! Her er {amount} mønter. Nu har du {count} mønter.
+
+  shop:
+    intro: Se, hvad jeg har! Du betaler med mønter.
+    introEmpty: Min butik åbner snart!
+    emptyTitle: Intet til salg endnu
+    emptyDetail: Der kommer snart nye ting. Gem dine mønter!
+    price:
+      one: '{count} mønt'
+      other: '{count} mønter'
+    owned: Du har {item.the}!
+    short:
+      one: Du mangler {count} mønt.
+      other: Du mangler {count} mønter.
+    keys: ↑ ↓ flyt · ← → faner · Enter køb · Esc farvel
+    touch: Tryk på en ting for at købe den
+    count: Godt valg! Kan du tælle dine mønter?
+    story:
+      one: Du har {count} mønt. {item.the} koster {price}. Hvor mange har du tilbage?
+      other: Du har {count} mønter. {item.the} koster {price}. Hvor mange har du tilbage?
+    bought:
+      one: Værsgo, her er {item.your}! Du har {count} mønt tilbage.
+      other: Værsgo, her er {item.your}! Du har {count} mønter tilbage.
+
+items:
+  axe:
+    name: Økse
+    the: øksen
+    your: din økse
+    use: Fælder træer.
+  pickaxe:
+    name: Hakke
+    the: hakken
+    your: din hakke
+    use: Knuser sten.
+  boat:
+    name: Båd
+    the: båden
+    your: din båd
+    use: Sejler på vandet.
 
 pause:
   title: Pause

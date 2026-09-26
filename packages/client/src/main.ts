@@ -53,7 +53,11 @@ window.addEventListener('contextmenu', (e) => {
 // Safari shows `:active` (a pressed key, a pressed button) only on a page that listens for touches.
 document.addEventListener('touchstart', () => {}, { passive: true });
 
-const authority = new LocalAuthority({ party: flags.party ?? undefined });
+const authority = new LocalAuthority({
+	party: flags.party ?? undefined,
+	tokens: flags.tokens ?? undefined,
+	shop: flags.shop ?? undefined
+});
 const renderer = new GameRenderer(canvas);
 const keyboard = new Keyboard(window);
 // The lead walks behind the trainer: a view of the party and of the trainer's steps.
@@ -64,8 +68,8 @@ const pauseController = new PauseController(authority);
 // `?zoo` lines up one of every species by the spawn tile (a check for the meshes),
 // once for the page; `?zoo=tired` lays them down to rest.
 const zoo = flags.zoo ? new Zoo(renderer, flags.zoo === 'tired') : null;
-// `?new`, `?party=` (a party to look at) and `?zoo` play a throwaway game:
-// nothing is loaded or saved, and the saved game is left alone.
+// `?new`, `?party=` (a party to look at), `?zoo`, `?tokens=` and `?shop` play a
+// throwaway game: nothing is loaded or saved, and the saved game is left alone.
 const autosave = new Autosave({
 	store: browserStore(),
 	server: httpSaveServer(),
@@ -175,7 +179,7 @@ function noteScreen(): void {
 					: battle.active
 						? `battle:${battle.screen}`
 						: doctor.active
-							? `doctor:${doctor.screen}`
+							? `doctor:${doctor.screen}:${doctor.tab}`
 							: pause.open
 								? `pause:${pause.screen}:${pause.species ?? ''}:${pause.picked ?? ''}`
 								: game.mode;
@@ -322,7 +326,7 @@ function frame(now: number) {
 requestAnimationFrame(frame);
 
 // The title comes first: nothing is started, rolled or saved behind it. A
-// throwaway game (`?new`, `?party=`, `?zoo`) goes straight into explore, and so
+// throwaway game (`?new`, `?party=`, `?zoo`, `?tokens=`, `?shop`) goes straight into explore, and so
 // does a page that reloaded itself mid-game to catch up with another window: it
 // picks the newest game up at once and says so, instead of "Welcome back!".
 const caughtUp = takeCaughtUp();
