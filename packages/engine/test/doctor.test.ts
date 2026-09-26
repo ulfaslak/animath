@@ -183,7 +183,7 @@ describe('applyDoctorIntent', () => {
 
 describe('healing, for every species', () => {
 	for (const spec of ANIMALS) {
-		it(`${spec.name}: a puzzle at its healing difficulty; a wrong answer changes nothing; a right one heals it to full`, () => {
+		it(`${spec.id}: a puzzle at its healing difficulty; a wrong answer changes nothing; a right one heals it to full`, () => {
 			const kinds = new Set(spec.attacks.flatMap((a) => a.kinds));
 			for (const hp of [0, 1, spec.maxHp - 1]) {
 				for (let seed = 0; seed < SEEDS; seed++) {
@@ -237,7 +237,9 @@ describe('healing, for every species', () => {
 					expect(s.state.phase).toEqual({ kind: 'choose-patient' });
 				}
 			}
-		});
+			// Up to 2 s alone per species (three HP levels, 25 seeds, every shape of wrong
+			// answer); nearly 3 s with two browsers drawing beside it.
+		}, 30_000);
 	}
 
 	it('judges only with checkAnswer, whatever the input', () => {
@@ -493,7 +495,8 @@ describe('takeToDoctor', () => {
 				expect(takeToDoctor(seed, pos, party)).toEqual(rescue);
 			}
 		}
-	});
+		// About 1 s alone (24 lost battles, three tent searches each); over 5 s under a heavy load.
+	}, 30_000);
 
 	it('keeps each animal as it was, nickname and extra fields included, only with full HP', () => {
 		const party = [

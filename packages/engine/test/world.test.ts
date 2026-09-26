@@ -73,7 +73,8 @@ describe('generateChunk', () => {
 				}
 		expect([...quadrants].sort()).toEqual(['EN', 'ES', 'WN', 'WS']);
 		expect(offLattice).toEqual([]);
-	});
+		// Under 1 s alone (576 chunks generated); over 5 s under a heavy load.
+	}, 30_000);
 });
 
 describe('spawnPoint', () => {

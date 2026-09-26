@@ -135,7 +135,8 @@ describe('the chunks around the player', () => {
 		// Nothing still on screen was freed (a shared shape disposed under another chunk).
 		expect(kinds(ledger.disposedIn(parent))).toEqual([]);
 		expect(kinds([...SHARED_GEOMETRIES].filter((g) => ledger.isDisposed(g)))).toEqual([]);
-	});
+		// About 1.8 s alone (hundreds of chunks built and freed); over 5 s under a heavy load.
+	}, 30_000);
 
 	it('free the whole ring on a jump, and every chunk of the old world when the world changes', () => {
 		const parent = new THREE.Group();
@@ -154,7 +155,8 @@ describe('the chunks around the player', () => {
 		expect(kinds(ledger.owned())).toEqual([]);
 		ring.update(start);
 		expect(ring.size).toBe(RING);
-	});
+		// About 1 s alone (three whole rings of chunks built); over 5 s under a heavy load.
+	}, 30_000);
 
 	it('draw only shared shapes: a chunk owns no geometry of its own', () => {
 		const parent = new THREE.Group();
