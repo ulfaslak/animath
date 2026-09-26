@@ -13,7 +13,11 @@
 	 * an arrow held down while the finger stays, Enter, Escape. So walking
 	 * holds, taps and stops exactly as the arrow keys do, and a finger still
 	 * down when a battle, the doctor or the menu takes the screen lets go
-	 * there: this component goes, and explore drops held keys meanwhile.
+	 * there: this component goes, and explore drops held keys meanwhile; lifted
+	 * over the new screen, the finger presses nothing there (`input/taps.ts`).
+	 * Each finger is its own: the D-pad follows the one that steers by its
+	 * `pointerId`, and Talk and Menu take a tap (`data-press`) from any other,
+	 * so a thumb walking on the D-pad never stops the other thumb's tap.
 	 */
 
 	/** How far from the D-pad's centre, as a share of its width, a finger starts to press an arrow. */
@@ -100,12 +104,7 @@
 	<span class="hub"></span>
 </div>
 
-<button
-	type="button"
-	class="round menu-button"
-	onclick={() => press('Escape')}
-	{@attach unfocusable}
->
+<button type="button" class="round menu-button" data-press="Escape" {@attach unfocusable}>
 	<span class="bars" aria-hidden="true"><span></span><span></span><span></span></span>
 	{t('hud.menu')}
 </button>
@@ -114,7 +113,7 @@
 	type="button"
 	class="round talk-button"
 	class:ready={hud.facingTent}
-	onclick={() => press('Enter')}
+	data-press="Enter"
 	{@attach unfocusable}
 >
 	{t('explore.talk')}

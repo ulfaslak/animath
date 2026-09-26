@@ -2,7 +2,7 @@
 	import { getAnimal, leadIndex, type AnimalInstance } from '@mathgame/engine';
 	import { fade } from 'svelte/transition';
 	import { t } from '../copy';
-	import { press, unfocusable } from '../input/press';
+	import { unfocusable } from '../input/press';
 	import { touch } from '../input/touch.svelte';
 	import { nameOf } from '../names';
 	import { game } from '../state/game.svelte';
@@ -48,7 +48,7 @@
 				class="member"
 				class:tired={animal.hp === 0}
 				class:lead={i === lead}
-				onclick={() => press(String(i + 1))}
+				data-press={String(i + 1)}
 				{@attach unfocusable}
 			>
 				{@render card(animal, i)}
@@ -66,7 +66,7 @@
 			{#if choosing}
 				<span><kbd>1</kbd>–<kbd>{game.party.length}</kbd> {t('hud.pickLead')}</span>
 			{/if}
-			<button type="button" class="esc" onclick={() => press('Escape')} {@attach unfocusable}>
+			<button type="button" class="esc" data-press="Escape" {@attach unfocusable}>
 				<kbd>{t('keys.esc')}</kbd>
 				{t('hud.menu')}
 			</button>

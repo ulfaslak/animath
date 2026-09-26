@@ -2,7 +2,7 @@
 	import { getAnimal, needsHealing } from '@mathgame/engine';
 	import { t } from '../copy';
 	import { doctorWords } from '../doctor/lines';
-	import { press, rowKey, unfocusable } from '../input/press';
+	import { rowKey, unfocusable } from '../input/press';
 	import { touch } from '../input/touch.svelte';
 	import { animalWords, nameOf } from '../names';
 	import { doctor, hurtIndexes } from '../state/doctor.svelte';
@@ -16,9 +16,9 @@
 	 * the right in the same `PuzzlePanel` as battle, and Bye. Everything comes
 	 * from `doctor` (the presentation view) and every word from the copy files
 	 * (`doctor.*`); keys are handled by `DoctorController`, so nothing here
-	 * dispatches. A click or a tap is a key press (`input/press.ts`): an
-	 * animal's row is its `row:<i>` key, which picks it at once, and Bye is
-	 * Escape, which leaves at any time. With the touch controls on, the
+	 * dispatches. A click or a tap is a key press (`data-press`,
+	 * `input/taps.ts`): an animal's row is its `row:<i>` key, which picks it at
+	 * once, and Bye is Escape, which leaves at any time. With the touch controls on, the
 	 * doctor's line sits over the puzzle, so the list has the card's height
 	 * for rows a finger tall.
 	 */
@@ -59,7 +59,7 @@
 				class:selected={doctor.cursor === i}
 				class:cheer
 				class:healthy={!needsHealing(animal) && !cheer}
-				onclick={() => press(rowKey(i))}
+				data-press={rowKey(i)}
 				{@attach unfocusable}
 			>
 				<span class="caret">▸</span>
@@ -85,7 +85,7 @@
 			type="button"
 			class="row bye"
 			class:selected={doctor.cursor === doctor.party.length}
-			onclick={() => press('Escape')}
+			data-press="Escape"
 			{@attach unfocusable}
 		>
 			<span class="caret">▸</span>

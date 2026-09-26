@@ -1,9 +1,8 @@
 <script lang="ts">
 	import { MAX_NICKNAME_LENGTH, STARTERS, leadIndex, normalizeNickname } from '@mathgame/engine';
-	import { flushSync } from 'svelte';
 	import { sfx } from '../audio/sfx.svelte';
 	import { LANGUAGES, language, languageName, t } from '../copy';
-	import { languageKey, press, rowKey, unfocusable } from '../input/press';
+	import { languageKey, rowKey, unfocusable } from '../input/press';
 	import { touch } from '../input/touch.svelte';
 	import { kindList, speciesTopics } from '../kinds';
 	import { animalWords, nameOf, speciesName } from '../names';
@@ -19,7 +18,9 @@
 	 * binds `title.draft` and keeps the focus while it is open. Every word
 	 * comes from the copy files.
 	 *
-	 * A click or a tap is a key press (`input/press.ts`): a menu or confirm
+	 * A click or a tap is a key press (`data-press`, `input/taps.ts`, which
+	 * draws what the tap did before the tap is over, so the name box can bring
+	 * up a tablet's keyboard): a menu or confirm
 	 * row is its `row:<i>` key, a language its `language:<code>`, a starter's
 	 * tag (and the space over its figure) its `row:<i>`, which lights it; the
 	 * card's buttons are Enter and Escape. With the touch controls on, the key
@@ -70,24 +71,6 @@
 		};
 	}
 
-	/**
-	 * Press `key` for a tap, and draw what it did before the tap is over: a
-	 * tablet brings up its keyboard for the name box only when the box takes
-	 * the focus inside the tap itself.
-	 */
-	function tap(key: string): void {
-		press(key);
-		flushSync();
-	}
-
-	/** A tap on the Language row: on one of its languages, that one; anywhere else, the row. */
-	function tapLanguage(row: number) {
-		return (e: MouseEvent) => {
-			const code = (e.target as HTMLElement).closest<HTMLElement>('[data-language]')?.dataset
-				.language;
-			tap(code ? languageKey(code) : rowKey(row));
-		};
-	}
 </script>
 
 {#if title.screen === 'menu' || title.screen === 'confirm'}
@@ -104,7 +87,7 @@
 					type="button"
 					class="row"
 					class:lit={title.screen === 'menu' && title.cursor === i}
-					onclick={row === 'language' ? tapLanguage(i) : () => tap(rowKey(i))}
+					data-press={rowKey(i)}
 					{@attach unfocusable}
 				>
 					<span class="caret">▸</span>
@@ -126,14 +109,15 @@
 						</span>
 					{:else}
 						<span class="label">{t('title.language')}</span>
-						<!-- Each language in its own words, so a kid finds theirs in any language. -->
+						<!-- Each language in its own words, so a kid finds theirs in any language;
+						     a tap on one is that language, anywhere else on the row the row. -->
 						<span class="choices">
 							{#each LANGUAGES as code (code)}
 								<span
 									class="choice"
 									class:on={language.current === code}
 									lang={code}
-									data-language={code}
+									data-press={languageKey(code)}
 								>
 									{languageName(code)}
 								</span>
@@ -164,7 +148,7 @@
 							type="button"
 							class="row confirm-row"
 							class:lit={title.confirm === i}
-							onclick={() => tap(rowKey(i))}
+							data-press={rowKey(i)}
 							{@attach unfocusable}
 						>
 							<span class="caret">▸</span>
@@ -193,7 +177,7 @@
 					aria-hidden="true"
 					tabindex="-1"
 					style="left: {spot.x * 100}%; top: {spot.y * 100}%"
-					onclick={() => tap(rowKey(i))}
+					data-press={rowKey(i)}
 					{@attach unfocusable}
 				></button>
 				<button
@@ -201,7 +185,7 @@
 					class="tag"
 					class:lit={title.starter === i}
 					style="left: {spot.x * 100}%; top: {spot.y * 100}%"
-					onclick={() => tap(rowKey(i))}
+					data-press={rowKey(i)}
 					{@attach unfocusable}
 				>
 					{speciesName(id)}
@@ -220,10 +204,10 @@
 				</div>
 				<!-- Enter and Escape, for a finger or a mouse: picking starts the game, so a tap on a tag only lights it. -->
 				<div class="card-buttons">
-					<button type="button" class="pill" onclick={() => tap('Escape')} {@attach unfocusable}>
+					<button type="button" class="pill" data-press="Escape" {@attach unfocusable}>
 						{t('title.back')}
 					</button>
-					<button type="button" class="pill go" onclick={() => tap('Enter')} {@attach unfocusable}>
+					<button type="button" class="pill go" data-press="Enter" {@attach unfocusable}>
 						{t('title.starter.pick', { animal: starter })}
 					</button>
 				</div>
@@ -253,10 +237,10 @@
 					<div class="note">{t('title.naming.empty', { animal: starter })}</div>
 				{/if}
 				<div class="card-buttons">
-					<button type="button" class="pill" onclick={() => tap('Escape')} {@attach unfocusable}>
+					<button type="button" class="pill" data-press="Escape" {@attach unfocusable}>
 						{t('title.back')}
 					</button>
-					<button type="button" class="pill go" onclick={() => tap('Enter')} {@attach unfocusable}>
+					<button type="button" class="pill go" data-press="Enter" {@attach unfocusable}>
 						{t('title.naming.start')}
 					</button>
 				</div>

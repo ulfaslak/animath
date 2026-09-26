@@ -1,10 +1,10 @@
 <script lang="ts">
 	import { t } from '../copy';
-	import { press, unfocusable } from '../input/press';
+	import { unfocusable } from '../input/press';
 	import { touch } from '../input/touch.svelte';
 	import { behind } from '../state/behind.svelte';
 
-	// The button is Enter (`input/press.ts`), which catches up while the page is
+	// The button is Enter (`input/taps.ts`), which catches up while the page is
 	// behind (`main.ts`): the kid may well click or tap a window that is not in use.
 	// Asked for, the reload does not count against the limit.
 </script>
@@ -22,7 +22,7 @@
 				{t('save.behindGone')}
 			{/if}
 		</div>
-		<button type="button" class="button" onclick={() => press('Enter')} {@attach unfocusable}>
+		<button type="button" class="button" data-press="Enter" {@attach unfocusable}>
 			{t('save.behindGo')}
 			{#if !touch.on}<kbd>{t('keys.enter')}</kbd>{/if}
 		</button>

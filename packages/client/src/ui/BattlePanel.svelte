@@ -7,12 +7,11 @@
 		getAnimal,
 		puzzleDifficulty,
 		puzzleTopics,
-		type AttackLevel,
 		type PuzzleTopic
 	} from '@mathgame/engine';
 	import { actionAt, attackRows, levelWord, rowOf } from '../battle/menu';
 	import { t } from '../copy';
-	import { levelKey, press, rowKey, unfocusable } from '../input/press';
+	import { levelKey, rowKey, unfocusable } from '../input/press';
 	import { touch } from '../input/touch.svelte';
 	import { kindList } from '../kinds';
 	import { messageWords, words } from '../lines';
@@ -27,10 +26,11 @@
 	 * and the result card. Everything it shows comes from `battle` (the
 	 * presentation view) and every word from the copy files; keys are handled
 	 * by `BattleController`, so nothing here dispatches. A click or a tap is a
-	 * key press (`input/press.ts`): a row is its `row:<i>` key and a level
-	 * button its `level:<n>`, which only highlight and set, since a pick spends
-	 * the turn; Go is Enter, which does the highlighted row; Back is Escape;
-	 * and the result card, all of it, is Enter.
+	 * key press (`data-press`, `input/taps.ts`): a row is its `row:<i>` key and
+	 * a level button its `level:<n>`, which only highlight and set, since a pick
+	 * spends the turn; Go is Enter, which does the highlighted row; Back is
+	 * Escape; and the result card, all of it, is Enter. Go and the result card's
+	 * button stay dimmed until a pick would count (`battle.ready`).
 	 */
 	const front = $derived(battle.party[battle.front] ?? null);
 	const spec = $derived(front ? getAnimal(front.speciesId) : null);
@@ -51,14 +51,6 @@
 			? !battle.pickable[battle.partyCursor]
 			: !!spec && battle.cursor === rowOf('switch', spec.attacks.length) && !canSwitch
 	);
-
-	/** A tap on attack row `i`: on one of its level buttons, that level; anywhere else, the row. */
-	function tapAttack(i: number) {
-		return (e: MouseEvent) => {
-			const level = (e.target as HTMLElement).closest<HTMLElement>('[data-level]')?.dataset.level;
-			press(level ? levelKey(Number(level) as AttackLevel) : rowKey(i));
-		};
-	}
 
 	/** "adding, taking away, or missing numbers": the language's own "or" list. */
 	function kindWords(topics: readonly PuzzleTopic[]): string {
@@ -177,7 +169,7 @@
 						class:selected
 						class:off={!battle.pickable[i]}
 						class:nudge={selected && battle.refused > 0}
-						onclick={() => press(rowKey(i))}
+						data-press={rowKey(i)}
 						{@attach unfocusable}
 					>
 						<span class="caret">▸</span>
@@ -204,7 +196,7 @@
 						type="button"
 						class="row"
 						class:selected={battle.cursor === i}
-						onclick={tapAttack(i)}
+						data-press={rowKey(i)}
 						{@attach unfocusable}
 					>
 						<span class="caret">▸</span>
@@ -214,7 +206,7 @@
 							     finger that lands near one presses it, not the row. -->
 							<span class="levels">
 								{#each ATTACK_LEVELS as level (level)}
-									<span class="pill" class:on={row.level === level} data-level={level}
+									<span class="pill" class:on={row.level === level} data-press={levelKey(level)}
 										><span class="face">{levelWord(level)}</span></span
 									>
 								{/each}
@@ -228,7 +220,7 @@
 					type="button"
 					class="row"
 					class:selected={battle.cursor === spec.attacks.length}
-					onclick={() => press(rowKey(spec.attacks.length))}
+					data-press={rowKey(spec.attacks.length)}
 					{@attach unfocusable}
 				>
 					<span class="caret">▸</span>
@@ -254,7 +246,7 @@
 					class="row"
 					class:selected={battle.cursor === rowOf('switch', spec.attacks.length)}
 					class:off={!canSwitch}
-					onclick={() => press(rowKey(rowOf('switch', spec.attacks.length)))}
+					data-press={rowKey(rowOf('switch', spec.attacks.length))}
 					{@attach unfocusable}
 				>
 					<span class="caret">▸</span>
@@ -264,7 +256,7 @@
 					type="button"
 					class="row"
 					class:selected={battle.cursor === rowOf('run', spec.attacks.length)}
-					onclick={() => press(rowKey(rowOf('run', spec.attacks.length)))}
+					data-press={rowKey(rowOf('run', spec.attacks.length))}
 					{@attach unfocusable}
 				>
 					<span class="caret">▸</span>
@@ -298,7 +290,7 @@
 						<button
 							type="button"
 							class="pill-button"
-							onclick={() => press('Escape')}
+							data-press="Escape"
 							{@attach unfocusable}
 						>
 							{t('battle.backButton')}
@@ -308,8 +300,8 @@
 					<button
 						type="button"
 						class="pill-button go"
-						class:idle={goIdle}
-						onclick={() => press('Enter')}
+						class:idle={goIdle || !battle.ready}
+						data-press="Enter"
 						{@attach unfocusable}
 					>
 						{t('battle.goButton')}
@@ -326,8 +318,8 @@
 					<button
 						type="button"
 						class="pill-button go"
-						class:idle={goIdle || battle.screen !== 'actions'}
-						onclick={() => press('Enter')}
+						class:idle={goIdle || battle.screen !== 'actions' || !battle.ready}
+						data-press="Enter"
 						{@attach unfocusable}
 					>
 						{t('battle.goButton')}
@@ -341,13 +333,13 @@
 
 {#if battle.screen === 'result'}
 	<!-- All of it is the button: a tap anywhere goes on, as Enter does (and waits as Enter waits). -->
-	<button type="button" class="result" onclick={() => press('Enter')} {@attach unfocusable}>
+	<button type="button" class="result" data-press="Enter" {@attach unfocusable}>
 		<span class="card result-card">
 			<span class="result-title">{headline}</span>
 			{#if battle.closing}
 				<span class="result-text">{messageWords(battle.closing)}</span>
 			{/if}
-			<span class="button">
+			<span class="button" class:idle={!battle.ready}>
 				{t('battle.result.button')}
 				{#if !touch.on}<kbd>{t('keys.enter')}</kbd>{/if}
 			</span>
@@ -640,9 +632,17 @@
 	.pill-button.go kbd {
 		background: rgba(255, 255, 255, 0.3);
 	}
-	/* Pressing it now would do nothing (a greyed Switch, a turn playing), as Enter would. */
-	.pill-button.idle {
+	/*
+	 * Pressing it now would do nothing (a greyed Switch, a turn playing, the
+	 * quiet moment before a new choice takes a pick), as Enter would.
+	 */
+	.pill-button.idle,
+	.button.idle {
 		opacity: 0.45;
+	}
+	.pill-button.go,
+	.button {
+		transition: opacity 0.2s ease-out;
 	}
 	.pill-button:active {
 		transform: scale(0.97);

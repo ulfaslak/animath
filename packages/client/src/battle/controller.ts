@@ -16,6 +16,7 @@ import { levelPitch } from '../audio/cues';
 import { sfx } from '../audio/sfx.svelte';
 import { answerKey } from '../input/answer';
 import { isShortcut, keyName } from '../input/keyboard';
+import { isMashKey, PickGuard } from '../input/pick-guard';
 import { line, type Line } from '../lines';
 import { motion } from '../motion';
 import { BattleScene, LEASH_FLIGHT_SECONDS } from '../render/battle-scene';
@@ -54,42 +55,6 @@ interface Beat {
 }
 
 /**
- * Seconds the result card ignores keys after it appears, so an Enter mashed
- * through the last beats cannot dismiss it unread.
- */
-const RESULT_GUARD_SECONDS = 0.8;
-
-/**
- * Seconds the "who goes next?" list ignores a pick after a knock-out brings it
- * up, so an Enter mashed through the narration cannot choose for the kid.
- */
-const PICK_GUARD_SECONDS = 0.8;
-
-/**
- * Seconds the action menu ignores a pick (Enter, Space, 1, 2, 3) after a
- * turn's narration brings it back, so an Enter or a digit mashed through the
- * battle text cannot choose the next action before the kid has seen the menu.
- * The arrows move at once. The same guard as the list and the result card.
- */
-export const MENU_GUARD_SECONDS = 0.8;
-
-/**
- * Milliseconds between two presses of Enter, Space or a digit below which the
- * second is part of a mash: a kid hurrying the battle text along, three or
- * more presses a second. A mashed press never picks on a screen the narration
- * brings up (the action menu, the knock-out list, the result card), however
- * long the mash goes on past its guard; the first press after a pause does.
- * Measured on the key events' own clock, so a busy page can't squeeze a
- * pause into a mash.
- */
-export const MASH_GAP_MS = 300;
-
-/** Keys that pick on some battle screen, or type an answer: the ones a kid mashes. */
-function isPickKey(key: string): boolean {
-	return key === 'Enter' || key === ' ' || /^[0-9]$/.test(key);
-}
-
-/**
  * Seconds the iris takes to close on the player after `battle-started`. It
  * starts slowly, so the step into the grass lands in plain view (a step takes
  * 0.18 s).
@@ -111,14 +76,12 @@ export class BattleController {
 	private wait = 0;
 	/** The authority's closing `message`, kept for the result card. */
 	private closing: MessageLine | null = null;
-	/** Seconds the result card has been up. */
-	private resultAge = 0;
-	/** Seconds the party list has been up. */
-	private listAge = 0;
-	/** Seconds the action menu has been up since the narration last brought it back. */
-	private menuAge = 0;
-	/** When Enter, Space or a digit was last pressed (the key event's `timeStamp`, ms). */
-	private lastPickPress = -Infinity;
+	/**
+	 * The quiet moment every choice here waits for before it takes a pick —
+	 * the menu, both switch lists, the result card (`input/pick-guard.ts`) —
+	 * so a key mashed through the battle text never picks for the kid.
+	 */
+	private guard = new PickGuard();
 	/**
 	 * The battle ended in a catch, and the party the authority wrote back has
 	 * no place for the caught animal: the team was full, so it went home.
@@ -202,9 +165,7 @@ export class BattleController {
 			transition.p += dt / IRIS_OPEN_SECONDS;
 			if (transition.p >= 1) battle.transition = null;
 		}
-		if (battle.screen === 'result') this.resultAge += dt;
-		if (battle.screen === 'party') this.listAge += dt;
-		if (battle.screen === 'actions') this.menuAge += dt;
+		this.guard.tick(dt);
 		this.wait -= dt;
 		while (this.wait <= 0 && this.beats.length > 0) {
 			const beat = this.beats.shift()!;
@@ -213,6 +174,7 @@ export class BattleController {
 			this.wait = beat.hold;
 		}
 		if (this.wait <= 0 && this.beats.length === 0 && battle.screen === 'busy') this.settle();
+		this.showReady();
 	}
 
 	/** Keyboard input while the battle screen is up. */
@@ -226,36 +188,40 @@ export class BattleController {
 			return;
 		}
 		const key = keyName(e);
-		// Part of a mash: pressed hard on the heels of the last Enter, Space or
-		// digit, on any screen (the mash usually starts while the turn plays).
-		let mashed = false;
-		if (isPickKey(key)) {
-			mashed = e.timeStamp - this.lastPickPress < MASH_GAP_MS;
-			this.lastPickPress = e.timeStamp;
-		}
+		// Whether a pick may go now: after a quiet moment on the choice on screen.
+		// A key a kid mashes starts the moment again, on every screen (the mash
+		// usually starts while the turn plays), whether it picks or not.
+		const fresh = isMashKey(key) ? this.guard.press() : this.guard.ready;
 		let handled: boolean;
 		switch (battle.screen) {
 			case 'busy':
 				handled = true; // swallow mashing while events play
 				break;
 			case 'actions':
-				handled = this.menuKey(key, mashed);
+				handled = this.menuKey(key, fresh);
 				break;
 			case 'party':
-				handled = this.partyKey(key, mashed);
+				handled = this.partyKey(key, fresh);
 				break;
 			case 'puzzle':
 				handled = this.puzzleKey(key);
 				break;
 			case 'result':
 				handled = key === 'Enter' || key === ' ';
-				if (handled && this.resultAge >= RESULT_GUARD_SECONDS && !mashed) {
+				if (handled && fresh) {
 					sfx.play('confirm');
 					this.leave();
 				}
 				break;
 		}
 		if (handled) e.preventDefault();
+		this.showReady();
+	}
+
+	/** Go! (and the result card's button) light up once a pick would count. */
+	private showReady(): void {
+		const ready = battle.active && this.guard.ready;
+		if (battle.ready !== ready) battle.ready = ready;
 	}
 
 	// --- screens -------------------------------------------------------------
@@ -319,7 +285,7 @@ export class BattleController {
 				battle.judged = null;
 				battle.input = '';
 				battle.line = line('battle.whatNow', { animal: front });
-				this.menuAge = 0;
+				this.guard.show();
 				battle.screen = 'actions';
 				break;
 			}
@@ -358,7 +324,7 @@ export class BattleController {
 				battle.letGo = this.letGo;
 				battle.closing = this.closing;
 				battle.line = null;
-				this.resultAge = 0;
+				this.guard.show();
 				battle.screen = 'result';
 				break;
 		}
@@ -381,17 +347,16 @@ export class BattleController {
 
 	// --- keys ----------------------------------------------------------------
 
-	private menuKey(key: string, mashed: boolean): boolean {
+	private menuKey(key: string, fresh: boolean): boolean {
 		const spec = getAnimal(this.front().speciesId);
 		const { menu, handled, choice } = menuKey(
 			{ cursor: battle.cursor, levels: battle.levels },
 			key,
 			spec
 		);
-		// A menu the narration has just brought back waits a moment before it
-		// takes a pick, and never takes one from a mash; a pick it ignores
-		// changes nothing, not even a level, and makes no sound.
-		if (choice && (this.menuAge < MENU_GUARD_SECONDS || mashed)) return handled;
+		// The menu takes a pick only after a quiet moment, so never from a mash;
+		// a pick it ignores changes nothing, not even a level, and makes no sound.
+		if (choice && !fresh) return handled;
 		const moved = menu.cursor !== battle.cursor;
 		const leveled = menu.levels !== battle.levels;
 		battle.cursor = menu.cursor;
@@ -427,26 +392,28 @@ export class BattleController {
 		return handled;
 	}
 
-	/** Show the party list: after a knock-out (`mustPick`, no way back) or from the Switch row. */
+	/**
+	 * Show the party list: after a knock-out (`mustPick`, no way back) or from
+	 * the Switch row. Either way a new choice, which waits a quiet moment.
+	 */
 	private openParty(mustPick: boolean): void {
 		battle.mustPick = mustPick;
 		battle.partyCursor = firstPickable(battle.pickable);
 		battle.refused = 0;
-		this.listAge = 0;
+		this.guard.show();
 		battle.screen = 'party';
 	}
 
-	private partyKey(key: string, mashed: boolean): boolean {
+	private partyKey(key: string, fresh: boolean): boolean {
 		const { cursor, handled, choice } = listKey(battle.partyCursor, key, battle.party.length);
 		if (cursor !== battle.partyCursor) {
 			battle.refused = 0;
 			sfx.play('move');
 		}
 		battle.partyCursor = cursor;
-		// A list that came up by itself waits a moment before taking a pick, and
-		// never takes one from a mash. The list the kid opened from Switch takes any.
-		const guarded = this.listAge < PICK_GUARD_SECONDS || mashed;
-		if (choice === 'pick' && battle.mustPick && guarded) return handled;
+		// The list takes a pick only after a quiet moment, so never from a mash,
+		// nor from a second Enter on the heels of the one on Switch.
+		if (choice === 'pick' && !fresh) return handled;
 		if (choice === 'pick') {
 			// The engine would refuse a tired or current animal; say no here instead.
 			// The row's shake says it; no sound scolds a pick.

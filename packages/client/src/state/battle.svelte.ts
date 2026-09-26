@@ -46,6 +46,12 @@ class BattleView {
 	/** The leash's quality multiplier (1 is the starter leash), for the Leash row's hint. */
 	leashQuality = $state(1);
 	screen = $state<BattleScreen>('busy');
+	/**
+	 * The choice on screen (the menu, a switch list, the result card) takes a
+	 * pick now: its quiet moment has passed (`input/pick-guard.ts`). Go! and
+	 * the result card's button stay dimmed until then.
+	 */
+	ready = $state(false);
 	/** Highlighted row of the action menu: the attacks, then Leash, Switch and Run. */
 	cursor = $state(0);
 	/** Each attack's own level, by species and attack (`menu.ts`). Kept from battle to battle. */
@@ -83,6 +89,7 @@ class BattleView {
 		this.opponent = null;
 		this.leashQuality = 1;
 		this.screen = 'busy';
+		this.ready = false;
 		this.cursor = 0;
 		this.partyCursor = 0;
 		this.pickable = [];

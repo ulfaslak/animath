@@ -1,4 +1,5 @@
 import { MAX_PARTY, type Direction } from '@mathgame/engine';
+import { isMashKey, PickGuard } from './pick-guard';
 
 const DIRECTION_KEYS: Record<string, Direction> = {
 	ArrowUp: 'up',
@@ -63,31 +64,25 @@ export class Keyboard {
 	private interactQueued = false;
 	/** The party slot (0-based) whose number was pressed last, until it is taken. */
 	private slotQueued: number | undefined;
-	private enabled = true;
+	/**
+	 * Off until explore has the screen (`setEnabled`): a key pressed while the
+	 * page loads or the title is up is never explore's.
+	 */
+	private enabled = false;
+	/**
+	 * Talk (Enter, Space) takes a quiet moment after explore takes the screen
+	 * back and after every mashed key, as every choice does (`pick-guard.ts`):
+	 * an Enter mashed through a result card, a doctor's goodbye or the title
+	 * doesn't talk to the doctor behind it.
+	 */
+	private talk = new PickGuard();
 
+	/**
+	 * Releases are heard here, always: a key let go anywhere lets go of what
+	 * it held. Presses come from `main.ts`, and only while explore has the
+	 * screen (`keydown`).
+	 */
 	constructor(target: Window) {
-		target.addEventListener('keydown', (e) => {
-			// A shortcut is the browser's, and it stops the walk: macOS sends no
-			// keyup for a key let go while Cmd is down, which would leave it held.
-			if (isShortcut(e)) {
-				this.held.clear();
-				return;
-			}
-			if (!this.enabled || e.repeat) return;
-			const key = keyName(e);
-			const dir = DIRECTION_KEYS[key];
-			if (dir) {
-				this.held.set(e.code || key, { dir, since: performance.now() });
-				if (this.taps.length < TAP_BUFFER) this.taps.push(dir);
-				e.preventDefault();
-			} else if (key === 'Enter' || key === ' ') {
-				this.interactQueued = true;
-				e.preventDefault();
-			} else if (slotKey(key) !== undefined) {
-				this.slotQueued = slotKey(key);
-				e.preventDefault();
-			}
-		});
 		target.addEventListener('keyup', (e) => {
 			this.held.delete(e.code || keyName(e));
 		});
@@ -97,14 +92,51 @@ export class Keyboard {
 	}
 
 	/**
+	 * A key pressed while explore has the screen. `main.ts` hands each key to
+	 * exactly one screen, chosen before any of them acts on it, so the key
+	 * that closes another screen (Continue, the result card, Bye) is never
+	 * also a step or a word with the doctor.
+	 */
+	keydown(e: KeyboardEvent): void {
+		// A shortcut is the browser's, and it stops the walk: macOS sends no
+		// keyup for a key let go while Cmd is down, which would leave it held.
+		if (isShortcut(e)) {
+			this.held.clear();
+			return;
+		}
+		if (!this.enabled || e.repeat) return;
+		const key = keyName(e);
+		const dir = DIRECTION_KEYS[key];
+		const fresh = isMashKey(key) ? this.talk.press() : this.talk.ready;
+		if (dir) {
+			this.held.set(e.code || key, { dir, since: performance.now() });
+			if (this.taps.length < TAP_BUFFER) this.taps.push(dir);
+			e.preventDefault();
+		} else if (key === 'Enter' || key === ' ') {
+			if (fresh) this.interactQueued = true;
+			e.preventDefault();
+		} else if (slotKey(key) !== undefined) {
+			this.slotQueued = slotKey(key);
+			e.preventDefault();
+		}
+	}
+
+	/** Frame time, from explore's `update`: Talk's quiet moment runs on it. */
+	tick(dt: number): void {
+		this.talk.tick(dt);
+	}
+
+	/**
 	 * Explore input is only read in explore mode. Disabling drops whatever was
 	 * held or buffered, so a key held into a battle does not walk the player
 	 * when the battle ends, and keys typed in the battle never become steps.
+	 * Enabling starts Talk's quiet moment: explore has just taken the screen.
 	 */
 	setEnabled(on: boolean): void {
 		if (this.enabled === on) return;
 		this.enabled = on;
 		if (!on) this.clear();
+		else this.talk.show();
 	}
 
 	private clear(): void {

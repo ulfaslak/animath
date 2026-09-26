@@ -1,10 +1,9 @@
 <script lang="ts">
 	import { MAX_NICKNAME_LENGTH, getAnimal, leadIndex, normalizeNickname } from '@mathgame/engine';
-	import { flushSync } from 'svelte';
 	import { flip } from 'svelte/animate';
 	import { sfx } from '../audio/sfx.svelte';
 	import { LANGUAGES, language, languageName, t } from '../copy';
-	import { languageKey, press, rowKey, unfocusable } from '../input/press';
+	import { languageKey, rowKey, unfocusable } from '../input/press';
 	import { touch } from '../input/touch.svelte';
 	import { animalWords, nameOf, speciesName } from '../names';
 	import { game } from '../state/game.svelte';
@@ -28,10 +27,12 @@
 	 * `pause.draft` and keeps the focus while it is open, so typing lands in it.
 	 * Every word comes from the copy files (`pause.*`, `hud.*`).
 	 *
-	 * A click or a tap is a key press (`input/press.ts`): a row or an option
-	 * is its `row:<i>` key, which does it at once; a language on the Language
-	 * row is its `language:<code>` key; the name box's Save and Back are Enter
-	 * and Escape. With the touch controls on, the key reminder goes, and while
+	 * A click or a tap is a key press (`data-press`, `input/taps.ts`, which
+	 * draws what the tap did before the tap is over, so the name box can bring
+	 * up a tablet's keyboard): a row or an option is its `row:<i>` key, which
+	 * does it at once; a language on the Language row is its `language:<code>`
+	 * key; the name box's Save and Back are Enter and Escape. With the touch
+	 * controls on, the key reminder goes, and while
 	 * naming the menu moves to the top of the screen, clear of the tablet's
 	 * own keyboard.
 	 */
@@ -97,24 +98,6 @@
 		};
 	}
 
-	/**
-	 * Press `key` for a tap, and draw what it did before the tap is over: a
-	 * tablet brings up its keyboard for the name box only when the box takes
-	 * the focus inside the tap itself.
-	 */
-	function tap(key: string): void {
-		press(key);
-		flushSync();
-	}
-
-	/** A tap on the Language row: on one of its languages, that one; anywhere else, the row. */
-	function tapLanguage(row: number) {
-		return (e: MouseEvent) => {
-			const code = (e.target as HTMLElement).closest<HTMLElement>('[data-language]')?.dataset
-				.language;
-			tap(code ? languageKey(code) : rowKey(row));
-		};
-	}
 </script>
 
 <div class="backdrop" class:typing={touch.on && pause.screen === 'naming'}>
@@ -133,7 +116,7 @@
 						class:picked={pickedIndex === i}
 						class:tired={animal.hp === 0}
 						animate:flip={{ duration: 180 }}
-						onclick={() => tap(rowKey(i))}
+						data-press={rowKey(i)}
 						{@attach unfocusable}
 					>
 						<span class="slot">{i + 1}</span>
@@ -159,11 +142,12 @@
 						type="button"
 						class="row item"
 						class:lit={pause.screen === 'list' && lit === row}
-						onclick={item === 'language' ? tapLanguage(row) : () => tap(rowKey(row))}
+						data-press={rowKey(row)}
 						{@attach unfocusable}
 					>
 						{#if item === 'language'}
-							<!-- Each language in its own words, so a kid finds theirs in any language. -->
+							<!-- Each language in its own words, so a kid finds theirs in any language;
+							     a tap on one is that language, anywhere else on the row the row. -->
 							<span class="setting">{itemLabel(item)}</span>
 							<span class="choices">
 								{#each LANGUAGES as code (code)}
@@ -171,7 +155,7 @@
 										class="choice"
 										class:on={language.current === code}
 										lang={code}
-										data-language={code}
+										data-press={languageKey(code)}
 									>
 										{languageName(code)}
 									</span>
@@ -198,7 +182,7 @@
 							class="row option"
 							class:lit={pause.option === i}
 							class:off={!option.enabled}
-							onclick={() => tap(rowKey(i))}
+							data-press={rowKey(i)}
 							{@attach unfocusable}
 						>
 							<span class="caret">▸</span>{optionLabel(option.id)}
@@ -229,20 +213,10 @@
 					{/if}
 					<!-- Enter and Escape, for a finger or a mouse. -->
 					<div class="name-buttons">
-						<button
-							type="button"
-							class="pill back"
-							onclick={() => tap('Escape')}
-							{@attach unfocusable}
-						>
+						<button type="button" class="pill back" data-press="Escape" {@attach unfocusable}>
 							{t('pause.back')}
 						</button>
-						<button
-							type="button"
-							class="pill save"
-							onclick={() => tap('Enter')}
-							{@attach unfocusable}
-						>
+						<button type="button" class="pill save" data-press="Enter" {@attach unfocusable}>
 							{t('pause.save')}
 						</button>
 					</div>
