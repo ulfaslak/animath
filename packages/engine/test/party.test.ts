@@ -202,23 +202,34 @@ function markedName(rng: Rng): string {
 describe('normalizeNickname', () => {
 	it('returns a clean name or no name, for any text at all', () => {
 		let named = 0;
+		// Collected and asserted once: an `expect` per string cost more than the cleaner.
+		const dirty: { raw: string; name: string; problems: string[] }[] = [];
 		for (const raw of fuzzed) {
 			const name = normalizeNickname(raw);
 			if (name === undefined) continue;
 			named++;
-			expect({ raw, name, problems: problems(name) }).toEqual({ raw, name, problems: [] });
+			const found = problems(name);
+			if (found.length > 0) dirty.push({ raw, name, problems: found });
 		}
+		expect(dirty).toEqual([]);
 		// The fuzzer must reach both sides, or the sweep proves little.
 		expect(named).toBeGreaterThan(FUZZ / 3);
 		expect(named).toBeLessThan(FUZZ);
-	});
+		// Up to 2 s alone (6,000 hostile strings, cleaned until a pass changes nothing);
+		// over vitest's 5 s default when other agents' browsers load the machine.
+	}, 30_000);
 
 	it('is idempotent', () => {
+		const moved: { raw: string; once: string; twice: string | undefined }[] = [];
 		for (const raw of fuzzed) {
 			const once = normalizeNickname(raw);
-			if (once !== undefined) expect(normalizeNickname(once)).toBe(once);
+			if (once === undefined) continue;
+			const twice = normalizeNickname(once);
+			if (twice !== once) moved.push({ raw, once, twice });
 		}
-	});
+		expect(moved).toEqual([]);
+		// About 1 s alone (12,000 cleanings); over 5 s under a heavy load.
+	}, 30_000);
 
 	it('keeps a name a kid typed exactly as typed', () => {
 		for (let i = 0; i < 2000; i++) {
@@ -441,7 +452,9 @@ describe('applyPartyIntent: reorder', () => {
 				}
 			}
 		}
-	});
+		// Up to 2 s alone (every move of every animal in every test party, each checked
+		// in full); nearly 4 s with two browsers drawing beside it.
+	}, 30_000);
 
 	it('refuses a slot off either end, a slot that is not a whole number, and an unknown animal', () => {
 		for (const party of PARTIES.slice(0, 40)) {
@@ -571,7 +584,9 @@ describe('applyPartyIntent: when', () => {
 				}
 			}
 		}
-	});
+		// About 1 s alone (3,000 edits, a third of them cleaning a hostile name); over 1.5 s
+		// with two browsers drawing beside it.
+	}, 30_000);
 });
 
 describe('leadIndex', () => {

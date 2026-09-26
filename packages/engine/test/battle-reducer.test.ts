@@ -646,7 +646,8 @@ describe('the wild animal', () => {
 				}
 			}
 		}
-	});
+		// Under 0.5 s alone (every species pair, 40 seeds); over 1.4 s on a loaded machine.
+	}, 30_000);
 
 	it('misses a wary match about as often as WILD_MISS_CHANCE says', () => {
 		let misses = 0;
@@ -914,7 +915,8 @@ describe('switching', () => {
 				}
 			}
 		}
-	});
+		// Under 0.5 s alone (every species trio, five seeds); over 1.3 s on a loaded machine.
+	}, 30_000);
 
 	it('never stalls: a player who switches whenever they can loses every battle, the wild animal untouched', () => {
 		// Switch while anyone else is standing; with nobody left to switch to, answer wrong.

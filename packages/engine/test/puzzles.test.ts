@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { ANIMALS } from '../src/animals/catalog.js';
-import { ATTACK_LEVELS } from '../src/animals/types.js';
+import { ATTACK_LEVELS, type AttackLevel } from '../src/animals/types.js';
+import { attackDamage } from '../src/battle/damage.js';
 import { Rng } from '../src/rng.js';
 import { healingDifficulty, puzzleDifficulty } from '../src/puzzles/difficulty.js';
 import {
@@ -180,6 +181,9 @@ describe('difficulty ladder', () => {
 	}
 
 	it('ten is never a factor: "10 × 7" is a freebie at any difficulty', () => {
+		// Collected and asserted once: an `expect` per sample cost more than the rule
+		// (1 s alone, 2 s with two browsers drawing beside it).
+		const tens: string[] = [];
 		for (const kind of ['mul', 'div', 'missing'] as const) {
 			const g = getGenerator(kind);
 			for (let d = g.minDifficulty; d <= g.maxDifficulty; d++) {
@@ -195,11 +199,12 @@ describe('difficulty ladder', () => {
 							: p.prompt.includes('×')
 								? [a, b]
 								: [];
-					expect(factors, `${kind} d=${d}: ${p.prompt}`).not.toContain(10);
+					if (factors.includes(10)) tens.push(`${kind} d=${d}: ${p.prompt}`);
 				}
 			}
 		}
-	});
+		expect(tens).toEqual([]);
+	}, 30_000);
 
 	it('sequence: counting steps climb with difficulty; only difficulty 1 counts by ones', () => {
 		const g = getGenerator('sequence');
@@ -367,6 +372,47 @@ describe('difficulty mapping', () => {
 		expect(puzzleDifficulty(1, 1, 1)).toBe(MIN_DIFFICULTY);
 		expect(puzzleDifficulty(5, 4, 3)).toBe(MAX_DIFFICULTY);
 		expect(healingDifficulty(5)).toBeGreaterThan(healingDifficulty(1));
+	});
+
+	// A level that hits harder must ask at a higher difficulty, or it is a trap:
+	// the bear's Maul and Crush once asked 10 on medium and on hard alike (#32).
+	it('every attack in the catalog: a level that hits harder asks at a higher difficulty than the one below', () => {
+		const problems: string[] = [];
+		for (const spec of ANIMALS) {
+			spec.attacks.forEach((attack, i) => {
+				const n = i + 1;
+				for (const level of ATTACK_LEVELS.slice(0, -1)) {
+					const up = (level + 1) as AttackLevel;
+					const hitsHarder = attackDamage(spec, n, up, true) > attackDamage(spec, n, level, true);
+					const asksHarder =
+						puzzleDifficulty(spec.tier, n, up) > puzzleDifficulty(spec.tier, n, level);
+					if (hitsHarder && !asksHarder) {
+						problems.push(
+							`${spec.id}/${attack.id}: level ${up} hits harder but asks ${puzzleDifficulty(spec.tier, n, up)}, as level ${level} does`
+						);
+					}
+				}
+			});
+		}
+		expect(problems).toEqual([]);
+	});
+
+	it('any tier, any attack up to the eighth: each level is one step harder, and hard never passes the top', () => {
+		const problems: string[] = [];
+		for (let tier = 1; tier <= 5; tier++) {
+			for (let n = 1; n <= 8; n++) {
+				const ladder = ATTACK_LEVELS.map((level) => puzzleDifficulty(tier, n, level));
+				const steps = ladder.slice(1).map((d, i) => d - ladder[i]!);
+				if (
+					steps.some((s) => s !== 1) ||
+					ladder.at(-1)! > MAX_DIFFICULTY ||
+					ladder[0]! < MIN_DIFFICULTY
+				) {
+					problems.push(`tier ${tier}, attack ${n}: ${ladder.join(', ')}`);
+				}
+			}
+		}
+		expect(problems).toEqual([]);
 	});
 });
 
