@@ -17,7 +17,7 @@ The categories that keep coming back. Each names where its guard lives, or the p
 - **`git gtr new` skips the `.env` copy and `pnpm install`**: five worktrees on 2026-09-25 and 2026-09-26, the last `docs/dna-drift-sweep`; without `.env` the server tests fail like a broken merge. [[ENVIRONMENT_NOTES]] says to check every time.
 - **A worktree's Vite backs up to the human's database**, because every Vite proxies `/api` to the primary clone's API unless `API_PORT` says otherwise: PR #21, PR #28 and other runs on 2026-09-26. Since PR #36 `scripts/screenshot.mjs` blocks `/api` unless `--api`; CLAUDE.md Phase 2 still says `/play` starts "both dev servers".
 - **A stale-event guard on the mode or the order, not the identity**: PR #13 (a battle), PR #14 (a doctor visit).
-- **An effect sized by its numbers, not in a frame**: PR #28, PR #42 (three times), PR #49 (a layout moved a long name next to the heal's stars), PR #69 (the boat's rims crossed, its back pose unreadable at game size), PR #74 (a starfish edge-on to the camera, a speck at game size).
+- **An effect sized by its numbers, not in a frame**: PR #28, PR #42 (three times), PR #49 (a layout moved a long name next to the heal's stars), PR #69 (the boat's rims crossed, its back pose unreadable at game size), PR #74 (a starfish edge-on to the camera, a speck at game size), PR #76 (a party card lifted by a finger held still showed it only by a deeper shadow, invisible at tablet size; it now grows 2.5% too).
 - **Prose that says more than the code or its test shows**: DNA written from memory (PR #11), a claim pinned only where it is vacuous (PR #12), a weight quoted as a share (PR #17), a sample's window stated as a rule (PR #21), a promise one step past what the test measures (PR #34), a mean pooled over worlds stated for each world and an extreme read off a sample (PR #64), a lower bound stated as exact and a distance off by one (PR #69).
 
 ---
@@ -390,12 +390,14 @@ To keep the party in species bundles, the first cut of `bundled` gathered each k
 
 ### 2026-09-26 — PR #66 (no party cap) — lists built for six, checked at a hundred `[not codified]`
 
-Three layout bugs appeared only once the party grew past what the old screens were sized for:
+Three layout bugs appeared only once the party grew past what the old screens were sized for (and a fourth in PR #76, below):
 - **The HUD column squeezed its cards instead of scrolling.** A flex column given a `max-height` shrinks its items first (`flex-shrink: 1`), so at 1024×768 on touch the eight cards overlapped each other and the column scrolled 6 px. Fix: `flex: none` on the cards.
 - **The doctor's list kept its cursor in view on the animal rows but not on Bye.** Up from the first animal wrapped to Bye, below the fold. Fix: the same attachment on Bye.
 - **Names of twelve W's were cut short in the new lists**: a 440 px cap on the open card, and the pause menu's side panel, where a one-line row can't hold a name, a bar and a tag. Fix: the open card grows with its names, and the side panel's rows put the bar under the name (`BundleAnimals`' `stacked`).
 
 The flex and scroll bugs were found by reading the touch and doctor frames with 30 to 120 animals. The names were found by a DOM probe (`scrollWidth > clientWidth`) at 1024×768 in Danish. Category: **a list that can grow gets checked at its largest, in its narrowest home**: the most rows, the longest names, the smallest screen, every row the cursor can reach. Would become `[learned]` with a Phase 2 taxonomy line in CLAUDE.md: "Scaling: a list that grows with the player's progress is checked with a hundred entries, twelve-letter names and the cursor on its first and last rows".
+
+- **PR #76: a card's words that grew, fitted to the widest home first.** A stack's new three-part summary ("2 klar · 3 snart trætte · 1 træt") fit the HUD card, but the pause menu's row cut it at 150 px ("2 klar · 3 snart træ…"). Moved under the kind's name with a slim bar beside it, it fit at eight kinds, but at 300 animals in Danish ("25 klar · 10 snart trætte · 5 trætte") three rows wrapped to 68 px and the menu no longer fit 1024×768. Found by the frames, then by a probe of every row's height. Fix: the pause menu shows the words only, running on under the bar's column; every row stays 48 px. The same category: the widest words, three counts of two and three figures in Danish, in the narrowest home that shows them.
 
 ### 2026-09-26 — feat/axe-pickaxe — a test that did the copying itself could not see the copy drift `[learned]`
 
@@ -449,3 +451,7 @@ Both were found by the figure tests. Fix: the lean is in the arms' geometry, the
 ### 2026-09-26 — PR #74 (sea animals) — copy written for the one place that existed `[learned]`
 
 The end-of-battle lines and the Run row said the wild animal "stays in the grass" and "runs home". At sea they would have told a kid a dolphin stays in the grass. Found while reading the copy to plan the frames, before any frame showed it. Fix: sea variants picked by the battle's realm. Category: **a new place for an old sentence**. CLAUDE.md Phase 2's "Prose is a claim" says to grep for words describing the old world ("grass"). This PR did so late, not first.
+
+### 2026-09-26 — PR #76 (the party column) — a template's edge spaces taken for text `[not codified]`
+
+The stack summary's parts were joined in the markup as `<span class="dot"> · </span>`. Svelte 5 drops whitespace at the start and end of an element's content, so the card read "2 ready·3 tired soon·1 tired". `svelte-check` and the tests passed. Found in the first frame of the new cards, and in the screenshot script's printed `party:` line under it. Fix: the separator is an expression, `{' · '}`, which keeps its spaces. Category: **whitespace that is part of the words, written as markup**. Would become `[learned]` with a line in [[DEVELOPMENT]] § Copy and languages: text with spaces at its ends goes in as an expression, never as an element's content.
