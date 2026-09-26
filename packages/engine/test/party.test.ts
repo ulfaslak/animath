@@ -742,7 +742,8 @@ describe('applyPartyIntent: rename', () => {
 	];
 
 	it('stores the cleaned name, or no nickname at all when nothing usable is left', () => {
-		for (const party of PARTIES.slice(0, 60)) {
+		// Thirty parties of up to twelve: about the animals the sixty parties of up to six held.
+		for (const party of PARTIES.slice(0, 30)) {
 			for (const animal of party) {
 				for (const raw of typed) {
 					const intent: PartyIntent = { type: 'rename', animalId: animal.id, nickname: raw };
@@ -767,7 +768,9 @@ describe('applyPartyIntent: rename', () => {
 				}
 			}
 		}
-	});
+		// About 0.8 s at a load average of 40 (some 200 animals, each renamed eight ways and
+		// checked in full), and past vitest's 5 s at 77, with other agents' browsers drawing.
+	}, 30_000);
 
 	it('refuses a name that is not text, and an unknown animal', () => {
 		const party = PARTIES[0]!;
