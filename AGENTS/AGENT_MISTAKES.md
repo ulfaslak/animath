@@ -6,7 +6,19 @@ Entries tagged `[learned]` have been reviewed AND addressed with a **referenced 
 
 Entries tagged `[not codified]` are the counterpart: the lesson is real, no guardrail states it anywhere, and the entry names what would have to be written for the tag to become `[learned]`. That set is the backlog.
 
-Format: `### YYYY-MM-DD — <issue/PR ref> — <one-line category>` followed by what was wrong, what caused it, how it was found, and the fix.
+Format: `### YYYY-MM-DD — <issue/PR ref> — <one-line category>` followed by what was wrong, what caused it, how it was found, and the fix. A category that recurs is one entry with an incident per bullet, not a new entry each time.
+
+## Patterns
+
+The categories that keep coming back. Each names where its guard lives, or the proposal that would make one; proposed CLAUDE.md lines wait for the human in [[HUMAN_TODO]].
+
+- **A negative control put back on uncommitted work**, by `git checkout -- <file>` or by rewriting the lines back, which reverts to the last commit and takes the fix with it: three times (PR #6, PR #8, PR #30). Not codified.
+- **Sibling agents share one scratchpad folder** (one orchestrator, one `$CLAUDE_CODE_SESSION_ID`): a sibling's `pr-body.md` replaced another branch's between two edits (2026-09-25). [[ENVIRONMENT_NOTES]] says to use a subfolder per branch; not in CLAUDE.md.
+- **`git gtr new` skips the `.env` copy and `pnpm install`**: five worktrees on 2026-09-25 and 2026-09-26, the last `docs/dna-drift-sweep`; without `.env` the server tests fail like a broken merge. [[ENVIRONMENT_NOTES]] says to check every time.
+- **A worktree's Vite backs up to the human's database**, because every Vite proxies `/api` to the primary clone's API unless `API_PORT` says otherwise: PR #21, PR #28 and other runs on 2026-09-26. Since PR #36 `scripts/screenshot.mjs` blocks `/api` unless `--api`; CLAUDE.md Phase 2 still says `/play` starts "both dev servers".
+- **A stale-event guard on the mode or the order, not the identity**: PR #13 (a battle), PR #14 (a doctor visit).
+- **An effect sized by its numbers, not in a frame**: PR #28, PR #42 (three times).
+- **Prose that says more than the code or its test shows**: DNA written from memory (PR #11), a claim pinned only where it is vacuous (PR #12), a weight quoted as a share (PR #17), a sample's window stated as a rule (PR #21), a promise one step past what the test measures (PR #34).
 
 ---
 
@@ -18,13 +30,23 @@ The client dev server was configured on Vite's default port 5173, which another 
 
 `svelte-check` and `vite build` were both clean while every ground tile rendered black: the instanced mesh material had `vertexColors: true` with no colour attribute on the geometry, so the shader read zeros. Only the screenshot caught it. Fix: removed the flag; CLAUDE.md Phase 2 now says a rendering change is unverified until an agent has read a screenshot of it. Category: **rendered result vs. passing gate**.
 
+### 2026-09-24 — repo setup — a test that greps source matched its own explanatory comment `[learned]`
+
+The engine purity test asserts no `Math.random` in `src/`; the first run failed on the doc comment in `rng.ts` that says "the engine never calls `Math.random`". Fix: the test strips comments before matching. Lesson: a source-scanning test must decide up front whether prose counts. The later source tests parse instead of grepping (`no-words.test.ts`, and the client's `copy-files.test.ts` and `hardcoded-text.test.ts` through `test/source.ts`), so a comment never counts, and [[DEVELOPMENT]] § Testing ideology says so.
+
 ### 2026-09-25 — PR #8 battle reducer — put the authority's secret in client-visible state `[learned]`
 
 The first cut of `BattleState` carried the battle `seed` so the reducer could derive each intent's Rng from the state alone. The state is what `battle-updated` sends to the client, so under a server authority a client could recompute the next leash roll and only throw when it would land. Found by the Phase 2.5 adversarial review. Fix: the seed is passed to `applyBattleIntent` by the authority on every call and is not in the state; [[INVARIANTS]] § "A battle is a pure function of…" states it and `battle-reducer.test.ts` asserts the state has no `seed` key. Category: **seam** — anything in client-visible state is readable by the client; a value that lets it predict the authority's next move must not be there, however convenient for replay.
 
-### 2026-09-25 — PR #8 battle reducer — used `git checkout -- <file>` to undo a negative control, on uncommitted work `[not codified]`
+### 2026-09-25 — PR #6, PR #8, PR #30 — a negative control put back on uncommitted work `[not codified]`
 
-Negative controls (break a guard with `sed`, watch its test fail) were "restored" with `git checkout -- <file>`, which reverts to the last *commit* — and the review fixes in those files had not been committed yet, so they were wiped and had to be re-written from the conversation. Nothing was lost only because the content was still in context. Cause: treating `git checkout -- file` as "undo my last sed" when it means "discard everything since HEAD". Fix here: commit before any negative control; restore with `cp` from a backup taken beside the file (`cp f f.bak … cp f.bak f`), never with git. Category: **destructive git on uncommitted work** — CLAUDE.md already bans `git checkout <ref> -- .` as a diagnostic; the same command with a single path is no safer. Would become `[learned]` with a line in CLAUDE.md § Protecting existing work naming the negative-control recipe (commit first, back up with `cp`).
+A negative control breaks a guard, watches its test fail, and puts the guard back. Three times the putting back reverted to the last *commit* while the fix under test was not committed yet:
+
+- **PR #6.** A guard was stripped from `encounters.ts` with `sed` and the file "restored" with `git checkout -- <file>`. The file also held uncommitted fix commits' worth of edits, so the checkout reverted those too; noticed only because a `grep -c` after the restore printed 0. The edits were re-applied.
+- **PR #8.** Negative controls in the battle reducer's files were "restored" with `git checkout -- <file>`, and the review fixes in those files had not been committed yet, so they were wiped and had to be re-written from the conversation. Nothing was lost only because the content was still in context.
+- **PR #30.** The `keyName` refinement (the entry "a fallback that named what it was not for" below) was edited but not committed. Its negative control rewrote the new lines back to the old ones with `perl`, which left the file identical to HEAD, so the edit existed nowhere on disk. It was typed again from the conversation. The brief for that session said to commit first.
+
+Cause: treating `git checkout -- file`, or rewriting the lines back, as "undo my last edit" when it means "discard everything since HEAD". CLAUDE.md § Protecting existing work bans `git checkout <ref> -- .` as a diagnostic; the same command with a single path is no safer, and does not count as that rule (PR #6's entry was once tagged `[learned]` on it). Category: **destructive restore on uncommitted work**. Would become `[learned]` with a line in CLAUDE.md § Protecting existing work: commit before every negative control, and restore with `git show HEAD:<path> > <path>` or a `cp` backup beside the file, never with `git checkout`.
 
 ### 2026-09-25 — PR #8 battle reducer — validated values at the boundary, not identity or shape `[not codified]`
 
@@ -37,14 +59,6 @@ Negative controls (break a guard with `sed`, watch its test fail) were "restored
 ### 2026-09-25 — PR #6 — a malformed coordinate degraded to the worst outcome instead of failing `[learned]`
 
 A `NaN` distance (a missing `pos` or `spawn`) made every table weight `NaN`, and the weighted pick's float-rounding fallback then returned the last entry: the fiercest species, every time, on the safest tile, with every test green. Found by the adversarial review. Fix: `encounterTable` and `rollEncounter` throw on a non-finite distance, pinned by a test in `encounters.test.ts`. Category: **a fallback branch written for rounding also absorbed garbage input** — a "can't happen" fallback needs a guard upstream, or it becomes the behaviour for every invalid input.
-
-### 2026-09-25 — PR #6 — restored a negative control with `git checkout --` and lost uncommitted fixes `[learned]`
-
-To watch a test go red, a guard was stripped from `encounters.ts` with `sed` and the file "restored" with `git checkout -- <file>`. The file also held uncommitted fix commits' worth of edits, so the checkout reverted those too; noticed only because a `grep -c` after the restore printed 0. Fix: re-applied the edits. Rule already in CLAUDE.md § Protecting existing work (`git checkout <ref> -- .` is not a diagnostic). Category: **a restore that targets the last commit, not the last state** — before flipping a line for a negative control, commit first, or restore by re-editing, never with git.
-
-### 2026-09-24 — repo setup — a test that greps source matched its own explanatory comment `[not codified]`
-
-The engine purity test asserts no `Math.random` in `src/`; the first run failed on the doc comment in `rng.ts` that says "the engine never calls `Math.random`". Fix: the test strips comments before matching. Lesson: a source-scanning test must decide up front whether prose counts. Would become `[learned]` with a line in [[DEVELOPMENT]] § Testing ideology about source-scanning tests.
 
 ### 2026-09-25 — PR #5 (save routes) — compared a database timestamp to an application one `[learned]`
 
@@ -82,9 +96,12 @@ The battle panel's first pass sized itself with `var(--battle-panel)` and colour
 
 The brief asked for "Not quite — it was 12" after a wrong answer; UI_SPEC says the right answer is not shown. The PR built the brief and rewrote the UI_SPEC line to match, reasoning that the spec's rationale no longer held. The orchestrator corrected it: where a brief contradicts the DNA, the DNA wins. Fix: the answer is hidden again and UI_SPEC restored; the one real DNA drift in the same area (UI_SPEC's "Escape backs out to actions" against PRODUCT §4's "no backing out") was fixed the other way, toward PRODUCT and the reducer. Category: **brief vs guardrail** — a brief is written without the DNA in front of it; when they disagree, build the DNA and flag the conflict rather than editing the guardrail to fit. Would become `[learned]` with a line in CLAUDE.md § DNA: "A task brief never overrides DNA: build the DNA and raise the conflict."
 
-### 2026-09-25 — PR #13 (battle UI) — a guard checked the mode, not the identity `[learned]`
+### 2026-09-25 — PR #13, PR #14 — a stale-event guard checked the mode or the order, not the identity `[learned]`
 
-The battle screen ignored `battle-updated` "when no battle is on screen", so a late update from an earlier battle, arriving during the next one, would have ended the new battle on screen. A negative control that removed the guard stayed green, which is how it was found: the test fed the stale event only after leaving the battle, where the guard's absence changed nothing visible. Fix: updates must carry the on-screen battle's wild-animal id (minted per encounter), and `battle-controller.test.ts` delivers a stale update in the middle of the next battle. Category: **a negative control that stays green** means the test never reaches the case the guard is for; and a stale-event guard needs identity (which battle), not just state (is there one).
+- **PR #13 (battle UI).** The battle screen ignored `battle-updated` "when no battle is on screen", so a late update from an earlier battle, arriving during the next one, would have ended the new battle on screen. A negative control that removed the guard stayed green, which is how it was found: the test fed the stale event only after leaving the battle, where the guard's absence changed nothing visible. Fix: updates must carry the on-screen battle's wild-animal id (minted per encounter), and `battle-controller.test.ts` delivers a stale update in the middle of the next battle.
+- **PR #14 (doctor client), one PR later.** The doctor's card dropped a `doctor-visit-updated` older than the one shown ("only the visit on screen", said the comment), by comparing `step`. But every visit starts `step` at 0, so a late event of the previous visit, further along than the new one, would have been played on the new card, and a late `doctor-visit-ended` would have closed it. Found by the adversarial review. Fix: doctor events carry the visit's number and the card ignores other numbers; `doctor-controller.test.ts` replays the old visit's update (at step 3) and end into a new visit at step 1 (negative control: red without the number).
+
+Categories: **a negative control that stays green** means the test never reaches the case the guard is for; and **ordering is not identity** — a stale-event guard needs identity (which battle, which visit), not state (is there one) or a counter that restarts per session (`step`), which orders events within one session but cannot tell two apart.
 
 ### 2026-09-25 — PR #13 (battle UI) — a word next to a colour promised more than the colour encodes `[learned]`
 
@@ -130,10 +147,6 @@ The doctor's list greys out every animal at full HP, because the doctor can't he
 
 The controls hint was to go "after the player has moved a few times", and the first build counted every `player-moved` and `player-blocked`. But explore sends a move every frame while a direction is held and no step is under way, and a blocked move never starts a step, so a key held against the river sent sixty bumps a second and cleared the hint in 80 ms. Found by the adversarial review. Fix: the hint counts steps walked (`game.steps`); `hud.test.ts` holds a key against the river for thirty frames and the hint stays (negative control: red when bumps count). Category: **an event's rate is not the player's** — before counting or reacting to an event, find out how often it fires while the player does one thing; input-driven events repeat per frame, per key repeat or per retry.
 
-### 2026-09-25 — PR #14 (doctor client) — a guard checked the order, not the identity, again `[learned]`
-
-The doctor's card dropped a `doctor-visit-updated` older than the one shown ("only the visit on screen", said the comment), by comparing `step`. But every visit starts `step` at 0, so a late event of the previous visit, further along than the new one, would have been played on the new card, and a late `doctor-visit-ended` would have closed it. PR #13's entry above ("a guard checked the mode, not the identity") is the same category, one PR later. Found by the adversarial review. Fix: doctor events carry the visit's number and the card ignores other numbers; `doctor-controller.test.ts` replays the old visit's update (at step 3) and end into a new visit at step 1 (negative control: red without the number). Category: **ordering is not identity** — a counter that restarts per session (`step`) orders events within one; telling sessions apart needs an id that differs between them.
-
 ### 2026-09-25 — PR #14 (doctor client) — `Number()` as a digit check `[learned]`
 
 `?party=` HP was parsed with `Number(text)` plus `Number.isInteger`, which the doc comment read as "a whole number or the switch is ignored". `Number(' ')` is 0, and `'1e1'`, `'0x5'` and `'+3'` are whole numbers too, so `bear:%20` started a tired bear. Found by the adversarial review. Fix: `/^-?\d+$/` before `Number`; `flags.test.ts` lists those inputs. Category: **a parser wider than its doc** — `Number` accepts whitespace, exponents, hex and signs; check the text's shape before converting it.
@@ -152,7 +165,7 @@ To keep English out of the authority, the "Walk up to a tent" line stopped being
 
 ### 2026-09-25 — PR #15 (party and pause menu) — a message line outlived the state it described `[learned]`
 
-After "Fox goes first!", moving the fox down in the pause menu left the line in place, contradicting the cards under it. Messages stay until the next one, and only a pick made a new line. Found by the adversarial review. Fix: the game view's notice names the lead again after any edit that changes who it is (`leadNotice`), with `game-view.test.ts` walking pick, menu move, rename and unrelated edits. Category: **derived text that outlives its state**. A line stating a fact about state must be refreshed whenever any path changes that state, not only the path that first said it.
+After "Fox goes first!", moving the fox down in the pause menu left the line in place, contradicting the cards under it. Messages stay until the next one, and only a pick made a new line. Found by the adversarial review. Fix: the game view's notice names the lead again after any edit that changes who it is (`leadNotice`, now in `state/hud.svelte.ts`), with `game-view.test.ts` (now `lead-notice.test.ts`) walking pick, menu move, rename and unrelated edits. Category: **derived text that outlives its state**. A line stating a fact about state must be refreshed whenever any path changes that state, not only the path that first said it.
 
 ### 2026-09-25 — PR #15 (party and pause menu) — a Unicode rule tested only on the alphabets the author reads `[learned]`
 
@@ -194,9 +207,12 @@ To decide which of two games wins, the page compared `seq`, and a tie went to th
 
 `sameProgress` rightly ignores the step and doctor-visit counts: a tab that only walked has made no progress a kid would miss. But carrying on from such a tab then wrote this tab's own snapshot on top, so the counts went backwards. The steps the other tab had walked keyed their encounter rolls a second time, and its last doctor visit's seed was reused. Found by the adversarial review. Fix: carrying on raises the authority's counts to the other save's (`LocalAuthority.catchUp`, never lower, never mid-battle), and the storage event does it at once. `autosave.test.ts` and `local-authority.test.ts` pin it. Category: **ignored is not mergeable**. A monotonic counter left out of an equality check still has to be merged by its maximum when two copies meet.
 
-### 2026-09-26 — PR #28 (sound and juice) — sized an effect by its numbers, not against what it frames `[learned]`
+### 2026-09-26 — PR #28, PR #42 — an effect sized by its numbers, not against what it frames `[learned]`
 
-The ring of dust a tired animal lies down in was eight opaque, facetted puffs, each swelling to a third of a tile, in a ring barely wider than the animal. In the first frame of a knock-out they covered the rabbit completely and read as a heap of pebbles. The confetti of a catch, launched at up to 3.6 tiles a second, reached the top edge of the scene at 1280×800. Both looked reasonable as numbers in the code. Found by reading the knock-out and catch frames. Fix: the dust is ten small rounded bits in a ring that starts outside the animal, spreads and fades, and the confetti rises about half a tile. [[DESIGN]] § Aesthetic direction now says a flourish never hides the animal it is about or leaves the scene, and is sized in a frame, against the thing it frames. Category: **an effect tuned in isolation**. A flourish exists to frame something, and only a frame shows whether it does.
+- **PR #28 (sound and juice).** The ring of dust a tired animal lies down in was eight opaque, facetted puffs, each swelling to a third of a tile, in a ring barely wider than the animal. In the first frame of a knock-out they covered the rabbit completely and read as a heap of pebbles. The confetti of a catch, launched at up to 3.6 tiles a second, reached the top edge of the scene at 1280×800. Both looked reasonable as numbers in the code. Found by reading the knock-out and catch frames. Fix: the dust is ten small rounded bits in a ring that starts outside the animal, spreads and fades, and the confetti rises about half a tile. [[DESIGN]] § Aesthetic direction now says a flourish never hides the animal it is about or leaves the scene, and is sized in a frame, against the thing it frames.
+- **PR #42 (delight polish), three times in one PR.** The poppers aimed their confetti at the upper middle of the battle scene, which is where the wild animal stands, so the burst for a catch converged on the animal it celebrates. The river backdrop's reeds kept the grass tufts' scatter while standing twice as tall, and one stood between the camera and the wild animal. The result card's stars for a win flew out from the middle of "You won!" across its letters. All three read fine as numbers. Found by reading the first frames of a catch (frozen clock) and a win. Fix: the poppers rise up the scene's sides, clear of the wild animal; the backdrop's reeds are shorter and keep off the line from the camera to either animal; the win's stars pop up off the top of the headline, and the catch's come out from behind the name's letters. [[UI_SPEC]] § Battle mode now says no star crosses a word and no reed stands on the camera's line to an animal, next to [[DESIGN]]'s rule that a flourish never hides text or the animal it is about.
+
+Category: **an effect tuned in isolation**. A flourish exists to frame something and is aimed at a spot on the screen; only a frame shows what is standing there.
 
 ### 2026-09-26 — PR #28 (sound and juice) — trusted "a key press unlocks audio" without its exceptions `[learned]`
 
@@ -206,9 +222,12 @@ The sound woke on the first `keydown` of any key. Chrome doesn't count Shift, Es
 
 The cues were first tuned by reading their gains. The attack's thump sat at 55–160 Hz, below what laptop and tablet speakers play, so on the machines kids use a hit would have been nearly silent. Raising the wrong-answer bonk above 200 Hz, for the same reason, at an unchanged gain made it peak at −19.6 dBFS through the game's own master and limiter: louder than every cue but the fanfares and the chimes. Found by rendering every cue into an `OfflineAudioContext` in headless Chrome and measuring peak and RMS. Fix: the thump moved up to 220–80 Hz with a 330 Hz knock on top, and the bonk's gain went down by a third (−23.0 dBFS). [[DEVELOPMENT]] § Hearing the game has the render recipe, and the PR carries the measured table. Category: **reading the knobs, not the output**. A limiter, envelopes and the ear's weighting sit between a gain in the code and what a kid hears, so measure the rendered samples, and remember that small speakers drop the bass.
 
-### 2026-09-26 — PR #28 (sound and juice) — a dev server started before a merge kept pointing at the human's API `[learned]`
+### 2026-09-26 — PR #21, PR #28 — a worktree's Vite backed up to the human's database `[learned]`
 
-This worktree's Vite was started before saving (#19) was merged in. Its `/api` proxy pointed at 3000, the primary clone's API, which did not matter while the client made no API calls. After the merge, the dev server hot-reloaded the new client, and one run that tested a reload mid-battle without `?new` created a player and a backup in the human's `mathgame` database. PR #21's entry above is the same trap, one merge later. Found by reading that entry while merging #20. Fix: the one row (a battle left at the menu, the only one in that state) was matched to the run's timestamps and deleted by id. The dev server was restarted with `API_PORT=3999`, and the throwaway runs use `?new`. [[ENVIRONMENT_NOTES]] § This machine already says every Vite proxies to 3000. Category: **a merge changes what a long-lived process does**. Anything started before a merge (a dev server, a watcher) runs the merged code with the old settings. Re-check its defaults against what the merged code now touches.
+- **PR #21 (the frog).** The PR's frames were taken from `vite preview` of the worktree's build. Its `/api` proxy defaults to port 3000, the primary clone's API that serves the kids. Pages loaded from a crafted save (not `?new`) created five players in the `mathgame` database. Found when the console showed a backup refused because main's server did not know the frog. The rows were deleted by id.
+- **PR #28 (sound and juice), one merge later.** This worktree's Vite was started before saving (#19) was merged in. Its `/api` proxy pointed at 3000, which did not matter while the client made no API calls. After the merge, the dev server hot-reloaded the new client, and one run that tested a reload mid-battle without `?new` created a player and a backup in `mathgame`. Found by reading PR #21's entry while merging #20. The one row (a battle left at the menu, the only one in that state) was matched to the run's timestamps and deleted by id. The dev server was restarted with `API_PORT=3999`, and the throwaway runs use `?new`.
+
+Fix: [[ENVIRONMENT_NOTES]] § This machine says every Vite proxies to 3000 unless `API_PORT` says otherwise, and gives the command to start one against a dead port; since PR #36, `scripts/screenshot.mjs` aborts every `/api/` request unless `--api`. Categories: **a default that points at shared state** — like the port collision of 2026-09-24, a tool's default is only safe on a machine running nothing else; and **a merge changes what a long-lived process does** — anything started before a merge (a dev server, a watcher) runs the merged code with the old settings, so re-check its defaults against what the merged code now touches.
 
 ### 2026-09-26 — PR #21 (the frog) — an undo that forgot the saves depending on it `[learned]`
 
@@ -217,10 +236,6 @@ The first HUMAN_TODO note said the frog could be undone by deleting it from `cat
 ### 2026-09-26 — PR #21 (the frog) — a sample's window stated as a rule `[not codified]`
 
 The CHEATSHEET said that with a fox in front the reed meets "an Otter every time but the 147th" step. That was read off a test that walks 200 steps; frogs come again on steps 345, 395, 683 and later. Found by the adversarial review. Fix: the CHEATSHEET names the first frog and the rate after it. Category: **a finite observation is not a rule**. A statement read off the first N steps or seeds says its bound, or gives the rate instead. It would become `[learned]` with that line in [[DEVELOPMENT]] § Testing ideology.
-
-### 2026-09-26 — PR #21 (the frog) — a worktree's Vite backed up to the human's database `[learned]`
-
-The PR's frames were taken from `vite preview` of the worktree's build. Its `/api` proxy defaults to port 3000, the primary clone's API that serves the kids. Pages loaded from a crafted save (not `?new`) created five players in the `mathgame` database. Found when the console showed a backup refused because main's server did not know the frog. Fix: the rows were deleted by id. [[ENVIRONMENT_NOTES]] now says every Vite proxies to 3000 unless `API_PORT` says otherwise, and gives the command to start one against a dead port. Category: **a default that points at shared state**. Like the port collision of 2026-09-24, a tool's default is only safe on a machine running nothing else.
 
 ### 2026-09-26 — PR #20 (Danish and English) — a rule for our copy also rewrote the kid's own words `[learned]`
 
@@ -237,10 +252,6 @@ The first fix for #27 gave the action menu the 0.8 s guard the knock-out list ha
 ### 2026-09-26 — PR #30 (#22, Caps Lock) — a fallback that named what it was not for `[learned]`
 
 `keyName` read W A S D by where they sit whenever a key was not a Latin letter, so that Russian and Greek keyboards could walk. The same rule also caught key names: an input method's `Process` on the W key, `Unidentified`, `Dead`. Each of those would have walked the trainer. Found by walking the input edges of the Phase 2 taxonomy. Fix: only a one-character key falls back to its position, and `keyboard.test.ts` lists the three names (red with the old rule). Category: **a condition written as "not X"**. A fallback's test should name the case it serves ("a character of another alphabet"), not the case it excludes ("not a-z"). Everything else the platform can send also passes "not X".
-
-### 2026-09-26 — PR #30 — a negative control on an uncommitted edit, again `[not codified]`
-
-The `keyName` refinement above was edited but not committed. Its negative control rewrote the new lines back to the old ones with `perl`, which left the file identical to HEAD, so the edit existed nowhere on disk. It was typed again from the conversation. This is the category of the PR #8 entry ("used `git checkout -- <file>` to undo a negative control"), with a different tool. The brief for this session said to commit first. Would become `[learned]` with the line that entry asks for in CLAUDE.md § Protecting existing work: commit before every negative control, and restore with `git show HEAD:<path> > <path>`.
 
 ### 2026-09-26 — PR #34 (#32, the level clamp) — promised something about the puzzles from a property of the difficulty `[learned]`
 
@@ -285,10 +296,6 @@ The first cut of the battle's pointer rule was "a tap on a row highlights it, an
 ### 2026-09-26 — PR #35 (touch controls) — an ID selector outranked a component's `pointer-events: none` `[learned]`
 
 `styles.css` gave every direct child of the overlay the pointer with `#ui > * { pointer-events: auto }`. An ID selector outranks any component's scoped class. So the `?debug` badges' `pointer-events: none` never applied, and the badges took every tap in the top-right corner. That included taps on the full-screen result card, which then never went on. The iris and the sound chip had already met this, and each worked round it with `!important`. Nobody had clicked there before this PR. Found by the Phase 2 touch run, whose taps on the result card at the top right timed out with `?debug` on. Fix: the rule is `:where(#ui) > *`, specificity zero, so a component's own `pointer-events: none` wins; the badge drops its workaround. Category: **a global rule with an ID in it**. A catch-all style meant as a default must have zero specificity (`:where`), or every exception turns into `!important`.
-
-### 2026-09-26 — PR #42 (delight polish) — three flourishes placed by their numbers, not in the frame `[learned]`
-
-The PR #28 category again, three times in one PR. The poppers aimed their confetti at the upper middle of the battle scene, which is where the wild animal stands, so the burst for a catch converged on the animal it celebrates. The river backdrop's reeds kept the grass tufts' scatter while standing twice as tall, and one stood between the camera and the wild animal. The result card's stars for a win flew out from the middle of "You won!" across its letters. All three read fine as numbers. Found by reading the first frames of a catch (frozen clock) and a win. Fix: the poppers rise up the scene's sides, clear of the wild animal; the backdrop's reeds are shorter and keep off the line from the camera to either animal; the win's stars pop up off the top of the headline, and the catch's come out from behind the name's letters. [[UI_SPEC]] § Battle mode now says no star crosses a word and no reed stands on the camera's line to an animal, next to [[DESIGN]]'s rule that a flourish never hides text or the animal it is about. Category: **an effect tuned in isolation**. A flourish is aimed at a spot on the screen, and only a frame shows what is standing there.
 
 ### 2026-09-26 — PR #42 — a companion that stepped round the trainer on the camera's side `[learned]`
 
