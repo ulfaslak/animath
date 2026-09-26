@@ -24,15 +24,15 @@
 	 * flies (px), `d` its delay (s). With reduced motion they twinkle in place.
 	 */
 	const SPARKS = [
-		{ x: 4, dx: -8, dy: -20, d: 0, c: 'gold' },
-		{ x: 16, dx: 6, dy: 18, d: 0.12, c: 'green' },
-		{ x: 28, dx: -4, dy: -26, d: 0.05, c: 'white' },
-		{ x: 40, dx: 8, dy: 16, d: 0.18, c: 'gold' },
-		{ x: 52, dx: -6, dy: -22, d: 0.08, c: 'green' },
-		{ x: 64, dx: 4, dy: 20, d: 0.22, c: 'white' },
-		{ x: 76, dx: -8, dy: -18, d: 0.02, c: 'gold' },
-		{ x: 88, dx: 6, dy: 22, d: 0.15, c: 'green' },
-		{ x: 98, dx: 10, dy: -24, d: 0.25, c: 'white' }
+		{ x: 4, dx: -10, dy: -26, d: 0, c: 'gold' },
+		{ x: 16, dx: 8, dy: 22, d: 0.12, c: 'green' },
+		{ x: 28, dx: -6, dy: -32, d: 0.05, c: 'white' },
+		{ x: 40, dx: 10, dy: 20, d: 0.18, c: 'gold' },
+		{ x: 52, dx: -8, dy: -28, d: 0.08, c: 'green' },
+		{ x: 64, dx: 6, dy: 24, d: 0.22, c: 'white' },
+		{ x: 76, dx: -10, dy: -24, d: 0.02, c: 'gold' },
+		{ x: 88, dx: 8, dy: 26, d: 0.15, c: 'green' },
+		{ x: 98, dx: 12, dy: -30, d: 0.25, c: 'white' }
 	];
 </script>
 
@@ -239,14 +239,14 @@
 		height: 0;
 		pointer-events: none;
 	}
-	/* A four-pointed star. */
+	/* A chunky four-pointed star, big enough to read as one beside an 8 px bar. */
 	.spark {
 		position: absolute;
-		top: -7px;
-		width: 14px;
-		height: 14px;
-		margin-left: -7px;
-		clip-path: polygon(50% 0, 62% 38%, 100% 50%, 62% 62%, 50% 100%, 38% 62%, 0 50%, 38% 38%);
+		top: -10px;
+		width: 20px;
+		height: 20px;
+		margin-left: -10px;
+		clip-path: polygon(50% 0, 64% 36%, 100% 50%, 64% 64%, 50% 100%, 36% 64%, 0 50%, 36% 36%);
 		opacity: 0;
 		animation: sparkle 0.9s ease-out forwards;
 	}

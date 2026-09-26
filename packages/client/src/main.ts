@@ -7,6 +7,7 @@ import { DoctorController } from './doctor/controller';
 import { ExploreController } from './explore/controller';
 import { flags } from './flags';
 import { Keyboard } from './input/keyboard';
+import { isSoundKey, typingNow } from './input/sound-key';
 import { PauseController } from './pause/controller';
 import { GameRenderer } from './render/renderer';
 import { buildZoo } from './render/zoo';
@@ -59,13 +60,6 @@ authority.subscribe((event) => {
 const exploreInput = () =>
 	game.mode !== 'loading' && !battle.active && !doctor.active && !pause.open;
 
-/** Typing an answer or a name: M is a letter there, not the sound key. */
-const typing = (e: KeyboardEvent) =>
-	e.target instanceof HTMLInputElement ||
-	(battle.active && battle.screen === 'puzzle') ||
-	(doctor.active && doctor.screen === 'puzzle') ||
-	(pause.open && pause.screen === 'naming');
-
 // Browsers let a page make sound only after a key press, click or touch; each
 // one wakes the sound (the first makes it), before any screen plays a cue.
 for (const type of ['keydown', 'pointerdown', 'touchend']) {
@@ -79,8 +73,7 @@ for (const type of ['keydown', 'pointerdown', 'touchend']) {
 // key that opens the menu is the last one walking sees. M turns the sound on
 // or off on every screen, except while an answer or a name is being typed.
 window.addEventListener('keydown', (e) => {
-	const soundKey = (e.key === 'm' || e.key === 'M') && !e.ctrlKey && !e.metaKey && !e.altKey;
-	if (soundKey && game.mode !== 'loading' && !typing(e)) {
+	if (isSoundKey(e) && game.mode !== 'loading' && !typingNow(e.target)) {
 		e.preventDefault();
 		if (!e.repeat) sfx.flip();
 	} else if (battle.active) battleController.onKey(e);
