@@ -29,6 +29,11 @@ The rules are [[PRODUCT]] §4; these are the choices behind them.
 A battle lets the player switch animals, because the human asked for it ("need ability to change combat animal during fight"). A switch costs the turn.
 Who comes out of the tall grass is sized to the lead's tier, because the human asked for it ("index challenger animals based on the tier of the selected animal"), and nothing more than one tier below the lead ever comes out.
 The player chooses the lead while exploring, because the human asked for it ("the ability to change the *selected* animal during explore mode").
+Tokens are earned in single player, at the doctor, for animals helped home, because the human asked for it: "the doctor could take some of these animals off you for "tokens". the whole narrative is that the animals you catch (that attack you in the wild) are actally a little bit sick and the ones the doctor takes of you gets healing and released into the wild". Winning against another kid may earn them too once multiplayer comes.
+The doctor sells things for tokens, because the human asked for it: "then we introduce that the witch doctor can actually sell things. my son requested a wood axe for chopping down trees, a pickaxe for chopping down rock and a boat for allowing him to go on water (where on deep water he could encounter wild sea animals)". The seller is the same doctor (dyrlæge); "witch doctor" was the human's shorthand, not a new character.
+An item goes on sale only once what it does is built: each item in the engine's catalog carries `available`, and the change that builds an item's effect turns it on. Kids play `main` live, and a kid never pays for a tool that does nothing.
+Every token that changes hands is a sum the kid works out, because the human asked for it: "obviously for buying stuff (token transaction) there's an easy math puzzle the player has to solve, forcing them to calc how many tokensthey have left after spending thetokens". A purchase completes only on the right answer to `tokens − price`, and a hand-over only on the right answer to `tokens + reward`: one sum per hand-over, however many animals go home.
+One healing puzzle heals every hurt animal of the picked animal's species, at that species' healing difficulty: with a team of many of a kind, a puzzle per animal would be a chore.
 
 ## Client
 

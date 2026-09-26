@@ -16,7 +16,7 @@ Technical items we've intentionally postponed: tech debt, hardening shortcuts, k
 
 ### The puzzle's answer travels to the client inside `BattleState` and `DoctorState`
 
-**What**: `BattlePhase` (`solving`) and the `puzzle-shown` event carry the whole `Puzzle`, `answer` included, and `answer-judged` repeats it. The doctor reducer copies the shape: `DoctorPhase` (`solving`) and its `puzzle-shown` carry the answer too. With `LocalAuthority` that is harmless — the client already runs the engine. With a server authority, a modified client could read the answer and never miss (or heal for free).
+**What**: `BattlePhase` (`solving`) and the `puzzle-shown` event carry the whole `Puzzle`, `answer` included, and `answer-judged` repeats it. The doctor reducer copies the shape: `DoctorPhase` (`solving`, `handing-over`, `buying`) and its `puzzle-shown`, `hand-over-shown` and `purchase-shown` carry the answer too (a token sum's answer is the balance after it, which a client can work out anyway). With `LocalAuthority` that is harmless — the client already runs the engine. With a server authority, a modified client could read the answer and never miss (or heal for free).
 
 **Why deferred**: there is no server authority yet, and stripping the answer means a second `Puzzle` shape (or a redacting step in the protocol) for a cheat nobody can attempt today.
 
@@ -40,7 +40,7 @@ Technical items we've intentionally postponed: tech debt, hardening shortcuts, k
 
 ### The server stores whatever save the client sends
 
-**What**: `PUT /api/players/:id/save` checks the document's shape, not that the game in it could have happened: an HP above the species' maximum (`restoreGame` cuts it on load), a party of any animals, a position anywhere, a `battle` the server never looks inside (the client checks it with `readBattle` on load). A modified client, or a hand-edited `localStorage` save, is backed up as sent. The saved battle also carries the puzzle's answer, as `BattleState` does ([[CHEATSHEET]] § Exploits).
+**What**: `PUT /api/players/:id/save` checks the document's shape, not that the game in it could have happened: an HP above the species' maximum (`restoreGame` cuts it on load), a party of any animals, a position anywhere, any number of tokens and any tools, a `battle` the server never looks inside (the client checks it with `readBattle` on load). A modified client, or a hand-edited `localStorage` save, is backed up as sent. The saved battle also carries the puzzle's answer, as `BattleState` does ([[CHEATSHEET]] § Exploits).
 
 **Why deferred**: the save is the single-player authority's state, and that authority is the client; the server has nothing to check it against until it runs the game itself.
 
@@ -98,3 +98,11 @@ Technical items we've intentionally postponed: tech debt, hardening shortcuts, k
 **Why deferred**: the client opens no WebSocket and the server serves none. Playwright's WebSocket routing (`routeWebSocket`) swaps the page's `WebSocket` class for its own, which Vite's hot-reload socket would then go through as well: a risk to every run, for a path nothing uses yet.
 
 **Trigger**: the first client code that opens a WebSocket (the `RemoteAuthority` PR).
+
+### The doctor's lists are a grouped, scrolling list of their own, not the team's bundled species cards
+
+**What**: the doctor's card lists the team one row per animal, grouped by species (`groupedIndexes`), in a list that scrolls, with its own rows on each tab (HP bars on heal, check boxes and tokens on help home). `feat/unlimited-party` is building reusable bundled species cards (a bundle per species that fans out, scrolls and drags) for a team with no cap. Two ways of showing a big team would drift apart: a kid would meet their rabbits as a bundle in the HUD and as a list at the doctor.
+
+**Why deferred**: the bundle component had not landed when the doctor's card was revamped, and the doctor needs a row per animal on help home anyway (a kid picks which rabbit goes home, by name).
+
+**Trigger**: `feat/unlimited-party` merging. Then build the doctor's heal and help-home tabs on its bundles (a bundle's fan-out for picking animals to go home, a whole bundle for a heal, since one puzzle heals a species), and drop `groupedIndexes` if the bundles give the order.
