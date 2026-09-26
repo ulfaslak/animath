@@ -1,5 +1,6 @@
 import { getAnimal } from '../animals/catalog.js';
 import type { AnimalInstance } from '../animals/types.js';
+import { WorldEdits } from '../world/edits.js';
 import { nearestTent } from '../world/tents.js';
 import type { Direction, GridPos } from '../world/types.js';
 import { validateParty } from './party.js';
@@ -33,9 +34,15 @@ export interface Rescue {
 
 /**
  * Call on `ended { outcome: 'lost' }` with the world seed, the tile the battle
- * was fought on and the battle's final party (every animal knocked out).
+ * was fought on and the battle's final party (every animal knocked out), and
+ * the tiles the player has cleared, so a path they chopped counts as a path.
  */
-export function takeToDoctor(seed: number, pos: GridPos, party: readonly AnimalInstance[]): Rescue {
+export function takeToDoctor(
+	seed: number,
+	pos: GridPos,
+	party: readonly AnimalInstance[],
+	edits: WorldEdits = WorldEdits.none
+): Rescue {
 	validateParty(party, 'takeToDoctor');
 	if (party.length === 0) throw new Error('takeToDoctor: the party is empty');
 	if (party.some((a) => a.hp > 0)) {
@@ -43,7 +50,7 @@ export function takeToDoctor(seed: number, pos: GridPos, party: readonly AnimalI
 	}
 
 	const healed = party.map((a) => ({ ...a, hp: getAnimal(a.speciesId).maxHp }));
-	const spot = nearestTent(seed, pos);
+	const spot = nearestTent(seed, pos, undefined, edits);
 	if (!spot) {
 		return { pos: { x: pos.x, y: pos.y }, facing: 'down', tent: null, party: healed };
 	}

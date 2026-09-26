@@ -26,6 +26,7 @@ import {
 	type SaveV1,
 	type SavedGame
 } from '../src/save.js';
+import { WorldEdits } from '../src/world/edits.js';
 import { spawnPoint, tileAtWorld } from '../src/world/generate.js';
 import { isWalkable, type Direction } from '../src/world/types.js';
 import { makeParty, makeWild, playBattle } from './battle-sim.js';
@@ -256,11 +257,12 @@ describe('newGame and restoreGame', () => {
 			party: [{ id: 'starter', speciesId: STARTER_SPECIES, hp: getAnimal(STARTER_SPECIES).maxHp }],
 			tokens: 0,
 			items: [],
-			battle: null
+			battle: null,
+			edits: []
 		});
 	});
 
-	it('an older v1 save gets facing down, no steps, no tokens and no items', () => {
+	it('an older v1 save gets facing down, no steps, no tokens, no items and nothing cleared', () => {
 		const pos = findTile(v1.seed, true);
 		const game = restoreGame({ ...v1, pos } as SaveV1);
 		expect(game).toMatchObject({
@@ -271,7 +273,8 @@ describe('newGame and restoreGame', () => {
 			visits: 0,
 			tokens: 0,
 			items: [],
-			battle: null
+			battle: null,
+			edits: []
 		});
 		expect(game.party).toEqual(v1.party);
 	});
@@ -290,7 +293,8 @@ describe('newGame and restoreGame', () => {
 			tokens: 17,
 			// 'lantern' is an item this build doesn't know: kept, doing nothing.
 			items: ['boat', 'axe', 'lantern'],
-			battle: null
+			battle: null,
+			edits: []
 		};
 		const doc = saveDocument(game, { lineage: 'L', seq: 9 });
 		expect(validateSaveWrite(doc).ok).toBe(true);
@@ -381,6 +385,73 @@ function battleStates(seed: number, speciesIds: string[], wild: string) {
 	);
 	return states;
 }
+
+/** The trees and rocks nearest the spawn: tiles a kid could clear. */
+function clearableNearSpawn(seed: number, n: number): { x: number; y: number }[] {
+	const spawn = spawnPoint(seed);
+	const out: { x: number; y: number }[] = [];
+	for (let r = 1; out.length < n && r < 200; r++) {
+		for (let dy = -r; dy <= r; dy++) {
+			for (let dx = -r; dx <= r; dx++) {
+				if (Math.max(Math.abs(dx), Math.abs(dy)) !== r) continue;
+				const kind = tileAtWorld(seed, spawn.x + dx, spawn.y + dy).kind;
+				if (kind === 'tree' || kind === 'rock') out.push({ x: spawn.x + dx, y: spawn.y + dy });
+			}
+		}
+	}
+	return out.slice(0, n);
+}
+
+describe('the tiles a kid cleared', () => {
+	const cleared = clearableNearSpawn(SEED, 40);
+	const edits = cleared.reduce((e, p) => e.with(p), WorldEdits.none);
+
+	it('come back through a save, JSON and all, exactly as they were', () => {
+		const game: SavedGame = { ...newGame(SEED), edits: [...edits.encode()] };
+		const doc = saveDocument(game, { lineage: 'L', seq: 4 });
+		expect(validateSaveWrite(doc).ok).toBe(true);
+		const read = readSave(JSON.parse(JSON.stringify(doc)));
+		expect(read.ok).toBe(true);
+		if (!read.ok) return;
+		const restored = restoreGame(read.save);
+		expect(restored).toEqual(game);
+		const back = WorldEdits.decode(restored.edits);
+		for (const p of cleared) expect(back.has(p.x, p.y)).toBe(true);
+		expect(back.size).toBe(40);
+		// The restored list is the game's own, never the document's.
+		restored.edits.push('9,9:00');
+		expect(read.save.edits).toHaveLength(edits.encode().length);
+	});
+
+	it('are written only once something is cleared, so a game that never used a tool saves as before', () => {
+		expect('edits' in saveDocument(newGame(SEED), { lineage: 'L', seq: 1 })).toBe(false);
+		expect(restoreGame(v1 as SaveV1).edits).toEqual([]);
+	});
+
+	it('are written canonically, whatever order a save held them in', () => {
+		const shuffled = new Rng(4).shuffle([...edits.encode()]);
+		const pos = findTile(SEED, true);
+		const restored = restoreGame({ ...written, seed: SEED, pos, edits: shuffled } as SaveV1);
+		expect(restored.edits).toEqual(edits.encode());
+	});
+
+	it('keep a player standing where they cleared: a cleared tree is ground to stand on', () => {
+		// Stand on a cleared tree or rock: without the overlay that tile is blocked.
+		const on = cleared[0]!;
+		const save = { ...written, seed: SEED, pos: on, edits: [...edits.encode()] } as SaveV1;
+		expect(restoreGame(save).pos).toEqual(on);
+		// The same save without its edits cannot stand there, and goes to the spawn tile.
+		expect(restoreGame({ ...save, edits: undefined }).pos).toEqual(spawnPoint(SEED));
+	});
+
+	it('refuses an overlay that is not one', () => {
+		for (const bad of ['0,0:00', [1], ['0,0:'], ['x'], [null], ['0,0:0'], { '0,0': '00' }]) {
+			expect(error({ ...written, edits: bad })).toMatch(/edits/);
+		}
+		expect(validateSave({ ...written, edits: [] }).ok).toBe(true);
+		expect(validateSave({ ...written, edits: ['3,-4:00ff', '-1,0:10'] }).ok).toBe(true);
+	});
+});
 
 describe('readBattle', () => {
 	it('picks up every state of real battles, and the battle goes on exactly as it would have', () => {
@@ -489,7 +560,8 @@ describe('readBattle', () => {
 				party,
 				tokens: 0,
 				items: [],
-				battle
+				battle,
+				edits: []
 			},
 			{ lineage: 'L', seq: 2 }
 		);
@@ -557,6 +629,8 @@ describe('which save wins', () => {
 		expect(sameProgress(written as SaveV1, { ...moved, tokens: 0, items: [] } as SaveV1)).toBe(
 			true
 		);
+		// And one from before the tools has cleared nothing: the same as an empty overlay.
+		expect(sameProgress(written as SaveV1, { ...moved, edits: [] } as SaveV1)).toBe(true);
 		for (const changed of [
 			{ ...written, party: [animal(1, { nickname: 'Nutkin', hp: 3 }), written.party[1]] },
 			{ ...written, party: [...written.party].reverse() },
@@ -567,7 +641,9 @@ describe('which save wins', () => {
 			{ ...written, inventory: { leashes: 1 } },
 			// Tokens and items are what a kid has, not where they are.
 			{ ...written, tokens: 8 },
-			{ ...written, items: ['axe'] }
+			{ ...written, items: ['axe'] },
+			// A tree chopped down is something done, too.
+			{ ...written, edits: ['0,0:11'] }
 		]) {
 			expect(sameProgress(written as SaveV1, changed as SaveV1)).toBe(false);
 		}
