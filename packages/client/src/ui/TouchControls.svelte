@@ -60,7 +60,20 @@
 	}
 
 	function up(e: PointerEvent): void {
-		if (e.pointerId !== steering) return;
+		if (e.pointerId === steering) letGo();
+	}
+
+	/**
+	 * Let go of the arrow and forget the finger. Away from the page (the window
+	 * loses the focus to another app or window, or the page is hidden), a finger
+	 * can lift where the page never hears it, so explore's `Keyboard` drops
+	 * every key it held; the D-pad lets go with it. Otherwise its arrow would
+	 * stay lit while nothing walks, and the finger it still followed would keep
+	 * every other finger off the pad. A finger still resting there when the kid
+	 * comes back walks nothing until it is lifted and pressed again, as a held
+	 * key does.
+	 */
+	function letGo(): void {
 		steering = null;
 		steer(null);
 	}
@@ -73,8 +86,11 @@
 	}
 
 	// The screen is changing (a battle, the doctor, the menu): let go of the arrow.
-	onDestroy(() => steer(null));
+	onDestroy(letGo);
 </script>
+
+<svelte:window onblur={letGo} />
+<svelte:document onvisibilitychange={letGo} />
 
 <div
 	class="dpad"
