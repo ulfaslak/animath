@@ -315,6 +315,13 @@ describe('Autosave: the save in this browser', () => {
 		tab.autosave.handle(edited([{ type: 'rejected', reason: 'already-lead' }]));
 		await settle();
 		expect(store.writes).toBe(before + 2);
+		// Tokens given or an item bought at the doctor: saved at once, mid-visit.
+		tab.game.tokens = 12;
+		tab.game.items = ['axe'];
+		tab.autosave.handle({ type: 'belongings-changed', tokens: 12, items: ['axe'] });
+		await settle();
+		expect(store.writes).toBe(before + 3);
+		expect(store.save()).toMatchObject({ tokens: 12, items: ['axe'] });
 	});
 
 	it('a party edit is playing, a refused one or a doctor visit alone is not', async () => {

@@ -1,4 +1,11 @@
-import { getAnimal, type AnimalInstance, type GameEvent, type Intent } from '@mathgame/engine';
+import {
+	ITEM_IDS,
+	getAnimal,
+	type AnimalInstance,
+	type GameEvent,
+	type Intent,
+	type ItemId
+} from '@mathgame/engine';
 import { beforeEach, describe, expect, it } from 'vitest';
 import type { CueName } from '../src/audio/cues';
 import { sfx } from '../src/audio/sfx.svelte';
@@ -6,8 +13,8 @@ import { LocalAuthority } from '../src/authority/local';
 import { DoctorController } from '../src/doctor/controller';
 import { doctorWords } from '../src/doctor/lines';
 import { PICK_QUIET_SECONDS } from '../src/input/pick-guard';
-import { rowKey } from '../src/input/press';
-import { doctor } from '../src/state/doctor.svelte';
+import { optionKey, rowKey, tabKey } from '../src/input/press';
+import { doctor, tabRows } from '../src/state/doctor.svelte';
 import { everyMash } from './mash';
 
 /**
@@ -40,8 +47,11 @@ function hurtParty(): AnimalInstance[] {
 /** The previous test's cue listener, dropped when the next one starts listening. */
 let stopListening: (() => void) | undefined;
 
-function setup(party?: AnimalInstance[]) {
-	const authority = new LocalAuthority(party ? { party } : {});
+function setup(
+	party?: AnimalInstance[],
+	options: { tokens?: number; shop?: readonly ItemId[] } = {}
+) {
+	const authority = new LocalAuthority({ ...(party ? { party } : {}), ...options });
 	const controller = new DoctorController(authority);
 	const events: GameEvent[] = [];
 	const sent: Intent[] = [];
@@ -76,19 +86,26 @@ function setup(party?: AnimalInstance[]) {
 		authority.dispatch({ type: 'interact' });
 		expect(doctor.active).toBe(true);
 	};
-	/** The open puzzle's answer, from the authority's latest doctor event. */
+	/** The open puzzle's answer (a heal's, or a token sum's), from the authority's latest doctor event. */
 	const answer = (): number => {
 		for (let i = events.length - 1; i >= 0; i--) {
 			const e = events[i]!;
 			if (e.type === 'doctor-visit-updated' || e.type === 'doctor-visit-started') {
-				if (e.state.phase.kind !== 'solving') throw new Error('no puzzle open');
-				return e.state.phase.puzzle.answer;
+				const phase = e.state.phase;
+				if (phase.kind === 'choose-patient' || phase.kind === 'ended')
+					throw new Error('no puzzle open');
+				return phase.puzzle.answer;
 			}
 		}
 		throw new Error('no visit');
 	};
 	const doctorSent = () => sent.filter((i) => i.type === 'doctor');
-	return { authority, controller, events, sent, cues, doctorSent, run, press, talk, answer };
+	/** The authority's own tokens and party, as a save would hold them. */
+	const saved = () => {
+		const game = authority.snapshot();
+		return { tokens: game.tokens, items: game.items, party: game.party.map((a) => a.id) };
+	};
+	return { authority, controller, events, sent, cues, doctorSent, run, press, talk, answer, saved };
 }
 
 beforeEach(() => doctor.reset());
@@ -156,7 +173,7 @@ describe("the doctor's card", () => {
 		expect(doctor.party[0]!.hp).toBe(5); // the heal waits for "Correct!" to be read
 		t.run(0.85);
 		expect(doctor.party[0]!.hp).toBe(20);
-		expect(doctor.healed).toMatchObject({ index: 0, amount: 15 });
+		expect(doctor.healed).toMatchObject({ amounts: { 0: 15 } });
 		expect(t.cues).toEqual(['correct', 'heal']); // the sparkle with the heal
 		expect(doctor.line).toMatchObject({
 			say: 'healed',
@@ -223,14 +240,28 @@ describe("the doctor's card", () => {
 		expect(doctor.patient).toBe(0);
 	});
 
-	it('Escape leaves at any time — at once, mid-puzzle, mid-beat — and walking comes back', () => {
+	it('Escape goes back from a puzzle, and says bye from the list or mid-beat; walking comes back', () => {
 		const t = setup(hurtParty());
 		t.talk();
 		t.press('Escape'); // inside the opening moment too
 		expect(doctor.active).toBe(false);
 		expect(t.events.at(-1)).toMatchObject({ type: 'doctor-visit-ended' });
 
+		// In a puzzle, Escape puts it away: back on the list, the animal as it was.
 		t.authority.dispatch({ type: 'interact' });
+		t.run(PICK_QUIET_SECONDS);
+		t.press('Enter', '4');
+		expect(doctor.screen).toBe('puzzle');
+		t.press('Escape');
+		expect(t.doctorSent().at(-1)).toEqual({ type: 'doctor', intent: { type: 'back' } });
+		expect(doctor.active).toBe(true);
+		expect(doctor.screen).toBe('list');
+		expect(doctor.puzzle).toBeNull();
+		expect(doctor.cursor).toBe(0);
+		expect(doctor.line).toEqual({ say: 'hello' });
+		expect(doctor.party[0]!.hp).toBe(5);
+
+		// While a beat plays, Escape says bye.
 		t.run(PICK_QUIET_SECONDS);
 		t.press('Enter');
 		t.press(...String(t.answer() + 1), 'Enter');
@@ -289,7 +320,7 @@ describe("the doctor's card", () => {
 		t.press(...String(t.answer() + 1), 'Enter');
 		t.run(1.3);
 		const lateUpdate = t.events.filter((e) => e.type === 'doctor-visit-updated').at(-1)!;
-		t.press('Escape');
+		t.press('Escape', 'Escape'); // back to the list, then bye
 		const lateEnd = t.events.filter((e) => e.type === 'doctor-visit-ended').at(-1)!;
 
 		// Visit 2, one step in: the late events of visit 1 change nothing on screen.
@@ -417,5 +448,386 @@ describe("the doctor's card under a pointer", () => {
 		t.press(...String(t.answer()), 'Enter');
 		t.run(3);
 		expect(doctor.party[1]!.hp).toBe(getAnimal('rabbit').maxHp);
+	});
+});
+
+/** Two tired rabbits and a hurt fox between them, a squirrel at full HP, a frog at 4. */
+function bigParty(): AnimalInstance[] {
+	return [
+		{ id: 'r1', speciesId: 'rabbit', hp: 0 },
+		{ id: 'f', speciesId: 'fox', hp: 9 },
+		{ id: 'r2', speciesId: 'rabbit', hp: 3 },
+		{ id: 's', speciesId: 'squirrel', hp: getAnimal('squirrel').maxHp },
+		{ id: 'g', speciesId: 'frog', hp: 4 }
+	];
+}
+
+describe("the doctor's tabs", () => {
+	it('left and right go round heal, help home and shop, each with its own line and cursor', () => {
+		const t = setup(hurtParty());
+		t.talk();
+		expect(doctor.tab).toBe('heal');
+		t.cues.length = 0;
+		t.press('ArrowRight');
+		expect(doctor.tab).toBe('home');
+		expect(doctor.line).toEqual({ say: 'homeIntro' });
+		expect(doctor.cursor).toBe(0); // every animal can go home, the fit fox too
+		t.press('d');
+		expect(doctor.tab).toBe('shop');
+		// Nothing is for sale yet: the shop says so, and its list is only Bye.
+		expect(doctor.line).toEqual({ say: 'shopIntro', empty: true });
+		expect(doctor.shop).toEqual([]);
+		expect(doctor.cursor).toBe(0);
+		t.press('ArrowRight');
+		expect(doctor.tab).toBe('heal');
+		t.press('ArrowLeft', 'a');
+		expect(doctor.tab).toBe('home');
+		expect(t.cues).toEqual(['move', 'move', 'move', 'move', 'move']);
+		// A tap on a tab goes there; on the tab on screen, nothing.
+		t.press(tabKey('shop'));
+		expect(doctor.tab).toBe('shop');
+		t.press(tabKey('shop'));
+		expect(doctor.tab).toBe('shop');
+		expect(t.doctorSent()).toEqual([]);
+	});
+
+	it('in a puzzle, a tab puts it away and goes there', () => {
+		const t = setup(hurtParty());
+		t.talk();
+		t.run(PICK_QUIET_SECONDS);
+		t.press('Enter', '4');
+		t.press(tabKey('home'));
+		expect(t.doctorSent().at(-1)).toEqual({ type: 'doctor', intent: { type: 'back' } });
+		expect(doctor.screen).toBe('list');
+		expect(doctor.tab).toBe('home');
+		expect(doctor.puzzle).toBeNull();
+		expect(doctor.line).toEqual({ say: 'homeIntro' });
+	});
+});
+
+describe("the doctor's card: one puzzle heals a species", () => {
+	it('lists the animals by species, and one right answer heals every hurt one of the kind, in one beat', () => {
+		const t = setup(bigParty());
+		t.talk();
+		// Rabbits together, then the fox, the squirrel, the frog; the fit squirrel is skipped.
+		const order = () =>
+			tabRowsOf().map((r) => (r.kind === 'animal' ? doctor.party[r.partyIndex]!.id : r.kind));
+		expect(order()).toEqual(['r1', 'r2', 'f', 's', 'g', 'bye']);
+		expect(doctor.cursor).toBe(0);
+		t.run(PICK_QUIET_SECONDS);
+		t.press('ArrowDown');
+		expect(doctor.cursor).toBe(1); // the other rabbit
+		t.press('Enter');
+		expect(t.doctorSent().at(-1)).toEqual({
+			type: 'doctor',
+			intent: { type: 'pick-patient', partyIndex: 2 }
+		});
+		expect(doctor.line).toMatchObject({ say: 'letsHelp', animal: { id: 'r2' }, others: 1 });
+		t.cues.length = 0;
+		t.press(...String(t.answer()), 'Enter');
+		t.run(0.85);
+		expect(doctor.party.map((a) => a.hp)).toEqual([22, 9, 22, 20, 4]);
+		expect(doctor.healed).toMatchObject({ amounts: { 0: 22, 2: 19 } });
+		expect(t.cues).toEqual(['correct', 'heal']);
+		expect(doctor.line).toMatchObject({
+			say: 'healed',
+			animal: { id: 'r2' },
+			others: 1,
+			someoneStillHurt: true
+		});
+		t.run(1.3);
+		expect(doctor.screen).toBe('list');
+		expect(doctor.cursor).toBe(2); // the fox, the next one down that needs the doctor
+	});
+
+	it('up and down in a heal swap to the next species that needs the doctor, never to its own kind', () => {
+		const t = setup(bigParty());
+		t.talk();
+		t.run(PICK_QUIET_SECONDS);
+		t.press('Enter'); // the tired rabbit
+		const picked = () => (t.doctorSent().at(-1)!.intent as { partyIndex: number }).partyIndex;
+		expect(picked()).toBe(0);
+		t.press('ArrowDown');
+		expect(picked()).toBe(1); // the fox, not the other rabbit
+		t.press('ArrowDown');
+		expect(picked()).toBe(4); // the frog, past the fit squirrel
+		t.press('ArrowDown');
+		expect(picked()).toBe(0); // round to the rabbits
+		// A tap on the other rabbit: the puzzle open already helps it.
+		const sent = t.doctorSent().length;
+		t.press(rowKey(1));
+		expect(t.doctorSent()).toHaveLength(sent);
+	});
+});
+
+/** The tab on screen's rows, as the card lists them. */
+function tabRowsOf() {
+	return tabRows(doctor.tab, doctor.party, doctor.shop);
+}
+
+describe('helping animals home', () => {
+	/** Talk, wait out the opening moment, and go to the home tab. */
+	const home = (t: ReturnType<typeof setup>) => {
+		t.talk();
+		t.run(PICK_QUIET_SECONDS);
+		t.press('ArrowRight');
+		expect(doctor.tab).toBe('home');
+	};
+
+	it('picks animals with Enter, never the last one, and asks before anything leaves', () => {
+		const t = setup(hurtParty());
+		home(t);
+		t.cues.length = 0;
+		t.press('Enter'); // the squirrel
+		t.press('ArrowDown', 'Enter'); // the rabbit
+		expect(doctor.marked).toEqual(['a', 'b']);
+		// The fox is the last one: it stays, with a little shake and no sound.
+		t.press('ArrowDown', 'Enter');
+		expect(doctor.marked).toEqual(['a', 'b']);
+		expect(doctor.shake).toMatchObject({ row: 2 });
+		expect(t.cues).toEqual(['confirm', 'move', 'confirm', 'move']);
+		// Enter again unpicks.
+		t.press('ArrowUp', 'Enter');
+		expect(doctor.marked).toEqual(['a']);
+		t.press('Enter');
+		expect(doctor.marked).toEqual(['a', 'b']);
+		// Help home comes after the animals, then Bye. It waits a quiet moment, as a pick does.
+		t.press('ArrowDown', 'ArrowDown');
+		expect(tabRowsOf()[doctor.cursor]).toEqual({ kind: 'send' });
+		t.press('Enter');
+		expect(doctor.screen).toBe('list');
+		t.run(PICK_QUIET_SECONDS);
+		t.press('Enter');
+		expect(doctor.screen).toBe('confirm');
+		expect(doctor.confirm).toBe(0); // "No, not now" is lit first
+		expect(doctor.line).toEqual({ say: 'homeSure' });
+		expect(t.doctorSent()).toEqual([]);
+	});
+
+	it('the last animal standing stays: keeping only tired ones is keeping nobody who can battle', () => {
+		const t = setup([
+			{ id: 'a', speciesId: 'squirrel', hp: 0 },
+			{ id: 'b', speciesId: 'fox', hp: 5 },
+			{ id: 'c', speciesId: 'rabbit', hp: 0 }
+		]);
+		home(t);
+		t.press('ArrowDown', 'Enter'); // the fox: the only one standing
+		expect(doctor.marked).toEqual([]);
+		expect(doctor.shake).toMatchObject({ row: 1 });
+		t.press('ArrowUp', 'Enter', 'ArrowDown', 'ArrowDown', 'Enter'); // both tired ones may go
+		expect(doctor.marked).toEqual(['a', 'c']);
+		t.press('ArrowUp', 'Enter'); // and still not the fox
+		expect(doctor.marked).toEqual(['a', 'c']);
+		expect(t.doctorSent()).toEqual([]);
+	});
+
+	it('No, or Escape, goes back to the list with the animals still picked; nothing leaves', () => {
+		const t = setup(hurtParty());
+		home(t);
+		t.press('Enter', 'ArrowDown', 'ArrowDown', 'ArrowDown');
+		t.run(PICK_QUIET_SECONDS);
+		t.press('Enter');
+		expect(doctor.screen).toBe('confirm');
+		t.run(PICK_QUIET_SECONDS);
+		t.press('Enter');
+		expect(doctor.screen).toBe('list');
+		expect(doctor.marked).toEqual(['a']);
+		t.run(PICK_QUIET_SECONDS);
+		t.press('Enter');
+		expect(doctor.screen).toBe('confirm');
+		t.press('Escape');
+		expect(doctor.screen).toBe('list');
+		expect(doctor.active).toBe(true);
+		expect(doctor.marked).toEqual(['a']);
+		expect(t.doctorSent()).toEqual([]);
+		expect(t.saved().party).toEqual(['a', 'b', 'c']);
+	});
+
+	it('Yes asks the sum; a wrong answer asks it again and changes nothing; the right one sends them home and pays', () => {
+		const t = setup(hurtParty(), { tokens: 5 });
+		home(t);
+		t.press('Enter', 'ArrowDown', 'Enter', 'ArrowDown', 'ArrowDown');
+		t.run(PICK_QUIET_SECONDS);
+		t.press('Enter');
+		expect(doctor.screen).toBe('confirm');
+		t.run(PICK_QUIET_SECONDS);
+		t.press('ArrowRight');
+		expect(doctor.confirm).toBe(1);
+		t.press('Enter');
+		expect(t.doctorSent().at(-1)).toEqual({
+			type: 'doctor',
+			intent: { type: 'hand-over', ids: ['a', 'b'] }
+		});
+		expect(doctor.screen).toBe('puzzle');
+		expect(doctor.trade).toEqual({ kind: 'home', ids: ['a', 'b'], reward: 4 });
+		expect(doctor.balance).toBe(5);
+		expect(doctor.puzzle?.prompt).toBe('5 + 4 = ?');
+		expect(doctor.line).toEqual({ say: 'homeCount' });
+
+		t.press('8', 'Enter');
+		t.run(1.3);
+		expect(doctor.screen).toBe('puzzle');
+		expect(doctor.line).toEqual({ say: 'tryAgain' });
+		expect(doctor.puzzle?.prompt).toBe('5 + 4 = ?');
+		expect(doctor.input).toBe('');
+		expect(t.saved()).toEqual({ tokens: 5, items: [], party: ['a', 'b', 'c'] });
+
+		t.cues.length = 0;
+		t.press('9', 'Enter');
+		t.run(0.85);
+		expect(doctor.leaving).toEqual(['a', 'b']);
+		expect(doctor.line).toMatchObject({ say: 'wentHome', animals: [{ id: 'a' }, { id: 'b' }] });
+		t.run(1.6);
+		expect(doctor.party.map((a) => a.id)).toEqual(['c']);
+		expect(doctor.tokens).toBe(9);
+		expect(doctor.tokenPop).toMatchObject({ amount: 4 });
+		expect(doctor.line).toEqual({ say: 'tokensGiven', amount: 4, tokens: 9 });
+		expect(t.cues).toEqual(['correct', 'heal', 'coins']);
+		t.run(1.7);
+		expect(doctor.screen).toBe('list');
+		expect(doctor.marked).toEqual([]);
+		expect(doctor.cursor).toBe(0);
+		// Written back at once: the save holds it, whatever happens to the visit.
+		expect(t.saved()).toEqual({ tokens: 9, items: [], party: ['c'] });
+		const kinds = t.events.slice(-3).map((e) => e.type);
+		expect(kinds).toEqual(['doctor-visit-updated', 'party-changed', 'belongings-changed']);
+	});
+
+	it('Escape in the sum puts it away: the animals stay, still picked', () => {
+		const t = setup(hurtParty());
+		home(t);
+		t.press('Enter', 'ArrowDown', 'ArrowDown', 'ArrowDown');
+		t.run(PICK_QUIET_SECONDS);
+		t.press('Enter');
+		t.run(PICK_QUIET_SECONDS);
+		t.press('ArrowDown', 'Enter');
+		expect(doctor.screen).toBe('puzzle');
+		t.press('2', 'Escape');
+		expect(doctor.screen).toBe('list');
+		expect(doctor.tab).toBe('home');
+		expect(doctor.marked).toEqual(['a']);
+		expect(t.saved().party).toEqual(['a', 'b', 'c']);
+	});
+
+	it('an Enter mashed as the confirm comes up never says yes, at any pace', () => {
+		for (const { name, gaps } of everyMash(3)) {
+			const t = setup(hurtParty());
+			home(t);
+			t.press('Enter', 'ArrowDown', 'ArrowDown', 'ArrowDown');
+			expect(tabRowsOf()[doctor.cursor], name).toEqual({ kind: 'send' });
+			t.run(PICK_QUIET_SECONDS);
+			// The mash's first Enter opens the confirm; the rest land on it.
+			for (const gap of gaps) {
+				t.controller.onKey(key('Enter'));
+				t.run(gap);
+			}
+			expect(doctor.screen, name).toBe('confirm');
+			// Even with "Yes" lit, a mash never picks it.
+			t.press('ArrowRight');
+			for (const gap of gaps) {
+				t.controller.onKey(key('Enter'));
+				t.run(gap);
+			}
+			expect(doctor.screen, name).toBe('confirm');
+			expect(t.doctorSent(), name).toEqual([]);
+		}
+	});
+
+	it('a tap on a choice of the confirm does it, after the quiet moment; the list under it takes no tap', () => {
+		const t = setup(hurtParty());
+		home(t);
+		t.press(rowKey(0));
+		expect(doctor.marked).toEqual(['a']);
+		const send = tabRowsOf().findIndex((r) => r.kind === 'send');
+		t.run(PICK_QUIET_SECONDS);
+		t.press(rowKey(send));
+		expect(doctor.screen).toBe('confirm');
+		t.press(optionKey(1)); // too soon
+		expect(doctor.screen).toBe('confirm');
+		t.run(PICK_QUIET_SECONDS);
+		t.press(rowKey(1)); // the list waits under the confirm
+		expect(doctor.marked).toEqual(['a']);
+		t.run(PICK_QUIET_SECONDS);
+		t.press(optionKey(1));
+		expect(t.doctorSent().at(-1)).toEqual({
+			type: 'doctor',
+			intent: { type: 'hand-over', ids: ['a'] }
+		});
+	});
+});
+
+describe('the shop', () => {
+	/** Talk, wait out the opening moment, and go to the shop, every item for sale. */
+	const shop = (tokens: number) => {
+		const t = setup(hurtParty(), { tokens, shop: ITEM_IDS });
+		t.talk();
+		t.run(PICK_QUIET_SECONDS);
+		t.press('ArrowLeft');
+		expect(doctor.tab).toBe('shop');
+		expect(doctor.shop).toEqual(['axe', 'pickaxe', 'boat']);
+		return t;
+	};
+
+	it('an item a kid cannot pay for gives a little shake, and nothing is bought', () => {
+		const t = shop(10);
+		t.press('ArrowDown'); // the pickaxe, 13
+		t.cues.length = 0;
+		t.press('Enter');
+		expect(doctor.shake).toMatchObject({ row: 1 });
+		expect(t.cues).toEqual([]);
+		expect(t.doctorSent()).toEqual([]);
+	});
+
+	it('buying asks the tokens left; a wrong answer asks it again; the right one buys it', () => {
+		const t = shop(23);
+		t.press('Enter'); // the axe, 8
+		expect(t.doctorSent().at(-1)).toEqual({
+			type: 'doctor',
+			intent: { type: 'buy', itemId: 'axe' }
+		});
+		expect(doctor.screen).toBe('puzzle');
+		expect(doctor.trade).toEqual({ kind: 'buy', itemId: 'axe', price: 8 });
+		expect(doctor.puzzle?.prompt).toBe('23 − 8 = ?');
+		expect(doctor.line).toEqual({ say: 'shopCount' });
+		t.press('1', '6', 'Enter');
+		t.run(1.3);
+		expect(doctor.line).toEqual({ say: 'tryAgain' });
+		expect(doctor.puzzle?.prompt).toBe('23 − 8 = ?');
+		expect(t.saved()).toMatchObject({ tokens: 23, items: [] });
+
+		t.cues.length = 0;
+		t.press('1', '5', 'Enter');
+		t.run(0.85);
+		expect(doctor.tokens).toBe(15);
+		expect(doctor.items).toEqual(['axe']);
+		expect(doctor.bought).toBe('axe');
+		expect(doctor.tokenPop).toMatchObject({ amount: -8 });
+		expect(doctor.line).toEqual({ say: 'bought', itemId: 'axe', tokens: 15 });
+		expect(t.cues).toEqual(['correct', 'coins']);
+		expect(t.saved()).toMatchObject({ tokens: 15, items: ['axe'] });
+		t.run(1.7);
+		expect(doctor.screen).toBe('list');
+		// One is all anyone needs: now it shakes.
+		t.run(PICK_QUIET_SECONDS);
+		t.press('Enter');
+		expect(doctor.shake).toMatchObject({ row: 0 });
+		expect(t.doctorSent().filter((i) => i.intent.type === 'buy')).toHaveLength(1);
+	});
+
+	it('Escape in the sum, or a tap on Back, puts it away and buys nothing', () => {
+		const t = shop(30);
+		t.press('ArrowDown', 'ArrowDown', 'Enter'); // the boat, 21
+		expect(doctor.puzzle?.prompt).toBe('30 − 21 = ?');
+		t.press('9', 'Escape');
+		expect(doctor.screen).toBe('list');
+		expect(doctor.tab).toBe('shop');
+		expect(doctor.cursor).toBe(2);
+		expect(t.saved()).toMatchObject({ tokens: 30, items: [] });
+		// Bye in the list leaves at any time, from a sum too.
+		t.run(PICK_QUIET_SECONDS);
+		t.press('Enter');
+		t.press(rowKey(tabRowsOf().length - 1));
+		expect(doctor.active).toBe(false);
+		expect(t.saved()).toMatchObject({ tokens: 30, items: [] });
 	});
 });

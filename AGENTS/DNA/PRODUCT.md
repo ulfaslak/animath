@@ -16,7 +16,7 @@ The game is called **Animath**. The repo and package names (`mathgame`, `@mathga
 
 ## 3. Core loop
 
-Explore → step into tall grass → wild encounter → battle by solving puzzles → catch it (leash) or beat it → heal knocked-out animals at a doctor's tent → venture into fiercer biomes with a stronger party.
+Explore → step into tall grass → wild encounter → battle by solving puzzles → catch it (leash) or beat it → heal knocked-out animals at a doctor's tent, and help the animals you don't keep home to the wild for tokens → buy tools with the tokens → venture into fiercer biomes with a stronger party.
 
 ## 4. Game rules
 
@@ -81,10 +81,21 @@ Two modes only, borrowed from the Game Boy games: **Explore** and **Battle**. Fi
 - An animal at 0 HP is **knocked out** and can't battle until healed.
 - **Talking to a doctor**: stand on a tile next to a tent, face it and interact. Walking into a tent turns you to face it. Standing beside it without facing it is not enough.
 - The doctor helps any animal below full HP, knocked out or only hurt.
-- Doctors heal one animal in exchange for a solved puzzle: pick an animal, solve its puzzle, and it is back to full HP. Difficulty scales with the animal's tier (`base[tier] + 1`: squirrel, rabbit and frog 2, fox and otter 3, deer 5, wolf 6, bear 8), so healing a bear is harder than healing a squirrel. The puzzle's kind is one the animal's own attacks ask, so a kid meets the kind of sum they already know from battle.
-- **A wrong answer at the doctor costs nothing.** HP stays where it was and a different puzzle takes its place, as many times as it takes. The player can pick another animal or leave at any time.
+- Doctors heal a whole species in exchange for a solved puzzle: pick an animal, solve its puzzle, and it and every other hurt animal of its species in the team are back to full HP. Difficulty scales with the tier (`base[tier] + 1`: squirrel, rabbit and frog 2, fox and otter 3, deer 5, wolf 6, bear 8), so healing bears is harder than healing squirrels, and it is the same for one bear as for three. The puzzle's kind is one the animal's own attacks ask, so a kid meets the kind of sum they already know from battle.
+- **A wrong answer at the doctor costs nothing.** HP stays where it was and a different puzzle takes its place, as many times as it takes. The player can pick another animal, go back to the list or leave at any time.
 - If every animal in the party is knocked out, the player is taken to the nearest doctor's tent and stands beside it, facing it, and the doctor heals the whole party for free. No other penalty (assumption: this is a kids' game).
 - **Nearest means on foot**: the fewest steps over walkable ground, never through water, rock, trees or another tent. A tent on an island or boxed in by trees is never where the player wakes up, so they always land somewhere they could have walked to. Ties go to the tent further up, then further left, then the side in front of the door (below the tent), then left, right and behind. If no tent is within 200 steps, a doctor comes to the player instead: they stay where they are, and the party is healed all the same.
+
+### Tokens and the doctor's shop
+
+- **Why wild animals attack.** They are a little bit sick, which makes them grumpy. An animal the kid brings to the doctor is made better and goes home to the wild, and the doctor thanks the kid with **tokens**.
+- **Tokens** are a whole number, never below 0, saved with the game. A new game starts with none.
+- **Helping animals home.** At the doctor the kid picks any animals of the team, tired ones too (the doctor makes them better first), and always keeps at least one that isn't tired, so the team can still battle when it walks on. Each animal of tier `k` brings `k·(k + 1)` tokens: **2, 6, 12, 20, 30** for tiers 1 to 5. A bigger animal is harder to catch and needs a bigger lead to meet (§4 "Wild encounters"), so it brings more, and catching the smallest animals over and over is the slow way to the shop.
+- **The shop** sells tools, one of each, for good: the **axe** (8 tokens; chops trees), the **pickaxe** (13; breaks rocks) and the **boat** (21; sails on water). A tool is on sale only once what it does is built; until then the shop says new things are coming soon. With too few tokens, or a tool already owned, the tool can't be bought, and the card says why.
+- **Every token that changes hands is a sum.** Helping animals home asks "You have 12 tokens. You get 8 more. How many will you have?" (`12 + 8 = ?`), once per hand-over however many animals go; buying asks "You have 23 tokens. The axe costs 8. How many will you have left?" (`23 − 8 = ?`). The numbers are the real ones, the engine judges the answer, and only the right answer completes it: the animals go home and the tokens are counted in, or the tool is the kid's and its price comes off. A wrong answer says "Not quite! Try again." and asks the same sum again, at no cost. Backing out, picking something else or leaving is always free, and nothing happens that was not answered.
+- **A gentle confirm** comes before a hand-over's sum: "Say bye bye to Fox and Rabbit?", with "No, not now" lit first.
+- **What the numbers are for** (a model, not a promise; the numbers are for tuning after play): a kid battles near home with the starter in front, about one battle a minute and a half, catches something in about 2 battles of 5, and hands most catches over. By the engine's own battles, encounter tables and catch odds, with a 7-year-old's pace for each puzzle and beat, that is **0.6 tokens a minute** if every catch goes home and 0.46 if 3 in 4 do, so the axe is in reach after **13–17 minutes**, the pickaxe after **21–28** and the boat after **34–46**: the three prices keep the 3 : 5 : 8 of the 15, 25 and 40 minutes aimed at. A kid who farms squirrels and rabbits at the reed by the start, throwing the leash at every one, gets about 1.2–1.4 tokens a minute: the axe in 6–7 minutes and the boat in about 15–17, twice as fast, not ten times. A fox in front earns about 1.6 a minute, a bear far out about 4.4, so a stronger team brings the later tools sooner.
+- **Losing is not a way to tokens**: nothing about a lost battle gives or takes any.
 
 ### Puzzles
 
@@ -112,24 +123,24 @@ Two modes only, borrowed from the Game Boy games: **Explore** and **Battle**. Fi
 - The game opens on a **title screen**: Continue (when there is a saved game), New game, and the Language and Sound settings. A throwaway game (below) skips it.
 - **New game** lets the player pick their first animal from the **starters**: every tier-1 species (the squirrel, the rabbit and the frog in the prototype; a species added at tier 1 is a starter too). The picked animal can be given a name, or none; the name is cleaned like any nickname (§4 "Party"). The game starts at the spawn tile, facing down, with that one animal at full HP, nothing walked and no doctor visited.
 - Every starter is the same size, so every starter meets the same animals on the same steps.
-- A throwaway game (`?new`, `?zoo`, or a `?party=` without a typo) skips the title, is saved nowhere, and starts with a squirrel, or the `?party=` party.
+- A throwaway game (`?new`, `?zoo`, `?shop`, or a `?party=` or `?tokens=` without a typo) skips the title, is saved nowhere, and starts with a squirrel, or the `?party=` party, and no tokens, or the `?tokens=` tokens.
 - **New game while a game is saved** asks first, and the answer starts on "No". Starting over puts the saved game away: it is kept in the browser and on the server, never deleted, but the game has no way to go back to it; that is a job for the human ([[DEVELOPMENT]] § Database).
 
 ### Saving
 
-- **Always saved, never a save button.** The game is saved in this browser after every change (a step or a bump, a battle turn, a catch, a heal, a change to the team), and when the page is hidden or closed. A reload, or coming back another day on the same browser and the same address, carries on exactly where you were: the same place, facing the same way, the same animals with the same HP.
-- **A reload is not an escape.** A battle in progress is saved too: a reload picks it up with the same wild animal, the same HP, and the same puzzle if one was up. The step count is saved, so the animals ahead on a walk stay the ones they were; reloading never rerolls an encounter, a battle's puzzle or a throw. A doctor visit is not saved: a reload ends it, and what it healed stays healed.
+- **Always saved, never a save button.** The game is saved in this browser after every change (a step or a bump, a battle turn, a catch, a heal, animals helped home, tokens given or spent, a change to the team), and when the page is hidden or closed. A reload, or coming back another day on the same browser and the same address, carries on exactly where you were: the same place, facing the same way, the same animals with the same HP.
+- **A reload is not an escape.** A battle in progress is saved too: a reload picks it up with the same wild animal, the same HP, and the same puzzle if one was up. The step count is saved, so the animals ahead on a walk stay the ones they were; reloading never rerolls an encounter, a battle's puzzle or a throw. A doctor visit is not saved: a reload ends it, what it healed stays healed, and a hand-over or a purchase whose sum was answered stays done; one waiting for its sum never happened.
 - **A backup on the server.** Each player's save is also copied to the server, in the background, when the server can be reached. A browser that still knows the player but has lost its save gets the game back from there. The game never waits on the server, except for a moment at start in that case (2.5 s at most), and plays and saves the same without it. A browser that won't store anything says so ("This browser can't keep your game, so it starts new every time.").
 - **Two windows.** Both show the same game. A window that falls behind a catch, a battle or anything else made in the other one takes no more play. When you come to it, it loads the newer game and says "You were playing in another window. Here's your newest game!". While it is on screen but you play in the other one, a card says "You kept playing in another window." When the other window starts a new game, this one goes back to the title as soon as you look at it, with Continue on the new game. Nothing is ever rolled back, and nothing played in a window that is behind is thrown away, because none is taken. Walking around in both is fine: the window you play in carries on from where you are.
 - **A save that won't load** leaves the title with New game only (unless the server's backup of the game can be read: then Continue picks that up), and the new game starts with a message ("Your saved game didn't load, so here is a new one."). The old save is kept: it stays where it was until you have picked a starter, then it is set aside, never deleted. A save made by a newer version of the game is left alone, and the title asks for a reload.
-- **Starting fresh** is New game on the title (§4 "Starting out"): the saved game is put away, not deleted. Nothing in the game deletes a save; clearing the site's data in the browser does. `?new` in the address (like `?party=` and `?zoo`) plays a throwaway game that is saved nowhere, leaving the saved one alone.
+- **Starting fresh** is New game on the title (§4 "Starting out"): the saved game is put away, not deleted. Nothing in the game deletes a save; clearing the site's data in the browser does. `?new` in the address (like `?party=`, `?zoo`, `?tokens=` and `?shop`) plays a throwaway game that is saved nowhere, leaving the saved one alone.
 - **Quit to title** (the pause menu's Start screen row) saves the game as it stands and goes back to the title, where Continue picks it up exactly there.
 
 ### Multiplayer (future, shapes today's architecture)
 
 - One shared world per server. Kids see each other walking around.
-- Kids can battle each other; winning earns tokens.
-- Tokens buy better leashes, potions and the like from a shop.
+- Kids can battle each other; winning earns tokens too (§4 "Tokens and the doctor's shop").
+- The doctor's shop sells more: better leashes, potions and the like.
 - Still login-free: an anonymous identity is enough.
 
 ## 5. Feature inventory
@@ -158,10 +169,11 @@ What is built and observable today. Keep current: add a bullet when a feature sh
 - The player is a small trainer figure — a kid in a cap — that faces the way it walks, swings its arms and legs with every step, stands on top of hills and breathes while idle.
 - A crude but recognisable low-poly figure for every species, built from primitives with one exaggerated tell each. They fight in battles; the `?zoo` line-up (see [[CHEATSHEET]]) shows them all at once.
 - Party HUD: one card per animal in battle order with its name (nickname if it has one) and an HP bar with numbers; a knocked-out animal is greyed with a "tired" tag. With two or more animals each card shows its number key, and the lead is outlined and tagged "goes first".
+- Tokens in the top right corner (a gold coin with a heart, "23 tokens"), and under them the tools the kid owns, each with its picture and name.
 - Choosing the lead from explore: the number keys pick who goes first (§4 "Party"); a tired animal can't go first, and the message line says so.
 - Pause menu (Escape in explore): the team in battle order, where an animal can go first, move up or down, or get a nickname typed in a name box, then the Language and Sound settings, "Keep playing" and "Start screen" (Quit to title). Walking waits while it is open.
 - Message line: the latest message for a few seconds, the controls hint for the first few steps, and "Press Enter to talk to the doctor" while the player faces a tent ([[UI_SPEC]] § Explore mode).
-- Doctor's tents: facing a tent, Enter opens the doctor's card ([[UI_SPEC]] § Doctor). Pick a hurt or tired animal, solve its puzzle and it is back to full HP; a wrong answer just brings another puzzle; the list stays live during a puzzle; Bye or Escape leaves at any time. With nobody hurt, the doctor says everyone is fit and happy. The doctor speaks English and Danish, like the rest of the game.
+- Doctor's tents: facing a tent, Enter opens the doctor's card ([[UI_SPEC]] § Doctor), with three tabs, the kid's tokens beside the doctor's line, and a list that scrolls, grouped by species, for a team of any size. **Heal**: pick a hurt or tired animal, solve its puzzle and it and every other hurt animal of its kind are back to full HP; a wrong answer just brings another puzzle; the list stays live during a puzzle. **Help home**: pick animals to go home to the wild (never the last one that isn't tired), each showing the tokens it brings; "Help them home" asks "Say bye bye to …?" with "No, not now" first, then the sum of the tokens the kid will have; the right answer waves them goodbye ("Bye bye, Fox! It feels much better now.") and counts the tokens in. **Shop**: the tools on sale with their pictures, prices and what they do; buying asks the sum of the tokens left, and the right answer hands the tool over. While no tool is on sale, the shop says new things are coming soon. Escape or Back goes back from a puzzle, Bye leaves at any time. The doctor speaks English and Danish, like the rest of the game, and tells why wild animals are grumpy: they are a little bit sick.
 
 ### Encounters and battle
 
@@ -175,14 +187,14 @@ What is built and observable today. Keep current: add a bullet when a feature sh
 
 ### Saving
 
-- The game saves itself in the browser after every change, and when the page is hidden or closed; a reload or a later visit carries on exactly where you were, in the middle of a battle or a puzzle included (§4 "Saving"). "Welcome back!" on the message line when the first Continue after opening the page picks the saved game up.
+- The game saves itself in the browser after every change (the tokens and tools too), and when the page is hidden or closed; a reload or a later visit carries on exactly where you were, in the middle of a battle or a puzzle included (§4 "Saving"). "Welcome back!" on the message line when the first Continue after opening the page picks the saved game up.
 - A backup on the server, sent in the background when it can be reached; a browser that lost its save but still knows the player gets its game back from it.
 - Two windows of the game never undo each other: the one that falls behind takes no play, says so on a card while you play in the other, and loads the newer game ("Here's your newest game!") when you come to it.
-- A save that cannot be read starts a new game with a message and is kept, set aside once the new game has been played; a newer version's save is left alone. `?new`, `?party=` and `?zoo` play a game that is saved nowhere.
+- A save that cannot be read starts a new game with a message and is kept, set aside once the new game has been played; a newer version's save is left alone. `?new`, `?party=`, `?zoo`, `?tokens=` and `?shop` play a game that is saved nowhere.
 
 ### Sound and feel
 
-- Sound: short, soft sounds made while the game runs, no sound files ([[DESIGN]] § Sound) — a jingle when a wild animal jumps out, blips on the menus, a chime for a right answer and a soft bonk for a miss, a thump for a hit, a puff when an animal gets tired, the leash's whoosh, tick-tock and its fanfare or boing, a sparkle at the doctor, a ding for a new lead and a fanfare for a win. Every sound goes with something on screen.
+- Sound: short, soft sounds made while the game runs, no sound files ([[DESIGN]] § Sound) — a jingle when a wild animal jumps out, blips on the menus, a chime for a right answer and a soft bonk for a miss, a thump for a hit, a puff when an animal gets tired, the leash's whoosh, tick-tock and its fanfare or boing, a sparkle at the doctor, coins clinking when tokens change hands, a ding for a new lead and a fanfare for a win. Every sound goes with something on screen.
 - Sound setting: on by default, a Sound row in the pause menu and on the title, and M on any screen except while typing; remembered on this device.
 - Little flourishes ([[UI_SPEC]] § Sound and juice): an iris that closes on the player and opens on the wild animal, a tired animal lying down to rest in a ring of dust with z's rising over it, sparkles along a healed animal's HP bar, the trainer's walk and the lead's bouncing behind it. A system set to reduce motion gets calmer versions.
 - Big moments feel big: a caught animal cheers with a spin and stars while confetti bursts round it and two poppers rain confetti over the scene, and its result card shows its name in big letters over a burst of rays; a win gets a hop and a few stars, and stars round "You won!".
@@ -202,8 +214,9 @@ What is built and observable today. Keep current: add a bullet when a feature sh
 - Party rules (§4 "Party"): `applyPartyIntent` chooses the lead, moves an animal or names it, only while exploring; `normalizeNickname` cleans a typed name; `leadIndex` is the lead that battles and encounters use.
 - The starter rule (§4 "Starting out"): `STARTERS` (every tier-1 species) and `chooseStarter`, which refuses anything else and cleans the starter's name; the authority's `new-game` intent asks it.
 - World generation (§4 "World"): `generateChunk` builds any 16×16 chunk from the seed (biomes, tall grass and reeds, trees, rocks, water, tents on a sparse lattice), `spawnPoint` finds the start, and `nearestTent` the nearest tent on foot.
-- The save document (§4 "Saving"): one shape, `SaveV1`, that the client and the server check and read the same way (`validateSave`, `readSave`, `restoreGame`, and `canReplace` for which save wins).
-- Doctor rules (§4 "Knock-out and healing"): whether the player faces a tent, a doctor visit that heals one hurt animal per solved puzzle (`startDoctorVisit` and `applyDoctorIntent`, intents in, events out), and the knock-out rule (`takeToDoctor`), which finds the nearest tent on foot and heals the whole party.
+- The save document (§4 "Saving"): one shape, `SaveV1`, that the client and the server check and read the same way (`validateSave`, `readSave`, `restoreGame`, and `canReplace` for which save wins), with the tokens and the tools owned.
+- Doctor rules (§4 "Knock-out and healing", "Tokens and the doctor's shop"): whether the player faces a tent, a doctor visit (`startDoctorVisit` and `applyDoctorIntent`, intents in, events out) that heals a hurt species per solved puzzle, helps animals home for tokens (`tokensForTier`) and sells tools, each behind the sum of the tokens after it (`tokenPuzzle`), and the knock-out rule (`takeToDoctor`), which finds the nearest tent on foot and heals the whole party.
+- The item catalog: `ITEMS` (the axe, the pickaxe and the boat, with prices and whether each is on sale) and `hasItem`, the check a tool's effect asks.
 
 ### Server
 
@@ -215,8 +228,9 @@ What is built and observable today. Keep current: add a bullet when a feature sh
 
 In rough priority order. Each becomes a GitHub issue when picked up.
 
-1. Real low-poly animal models (glTF, CC0 sources, see [[DECISIONS]]) with attack animations, replacing the primitive figures.
-2. Procedural world v2: rivers that flow, paths, biome shaping, landmarks.
-3. Puzzle catalog v2: fractions, decimals, negatives, percentages, word problems, per-child adaptive difficulty.
-4. Multiplayer: shared world, other players visible, PvP battles, tokens, shop.
-5. Deployment to the Hetzner VPS.
+1. The tools doing their jobs, each going on sale in the shop as it lands: the axe chops trees, the pickaxe breaks rocks, the boat sails on water (with sea animals on deep water, the human's son asked).
+2. Real low-poly animal models (glTF, CC0 sources, see [[DECISIONS]]) with attack animations, replacing the primitive figures.
+3. Procedural world v2: rivers that flow, paths, biome shaping, landmarks.
+4. Puzzle catalog v2: fractions, decimals, negatives, percentages, word problems, per-child adaptive difficulty.
+5. Multiplayer: shared world, other players visible, PvP battles, tokens for winning, more in the shop.
+6. Deployment to the Hetzner VPS.

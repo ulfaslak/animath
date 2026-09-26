@@ -153,6 +153,10 @@ hud:
   pickLeadTouch: Tap an animal to pick who goes first
   # Under the party cards, after the Esc key cap; and the touch controls' menu button.
   menu: Menu
+  # The player's tokens, at the top right.
+  tokens:
+    one: '{count} token'
+    other: '{count} tokens'
 
 party:
   # The tag on an animal at 0 HP.
@@ -294,12 +298,19 @@ doctor:
   helloAllFit: Hello! Your animals are all fit and happy.
   # A puzzle for {animal}, just picked.
   letsHelp: Let's help {animal.name}! Can you solve this?
+  # The same, when {others} more of its kind are hurt too: one puzzle helps them all.
+  letsHelpMore: Let's help {animal.name} and {others} more! Can you solve this?
   # After a wrong answer; a new puzzle follows.
   notQuite: Not quite! Let's try another one.
+  # After a wrong answer to a token sum: the same sum stays.
+  tryAgain: Not quite! Try again.
   # After a right answer, while someone else still needs the doctor.
   healedNext: Well done! {animal.name} feels all better! Who is next?
   # After a right answer that leaves everyone at full HP.
   healedAll: Well done! {animal.name} feels all better! Everyone is fit and happy!
+  # The same two, when {others} more of its kind were healed with it.
+  healedMoreNext: Well done! {animal.name} and {others} more feel all better! Who is next?
+  healedMoreAll: Well done! {animal.name} and {others} more feel all better! Everyone is fit and happy!
   # On the message line after leaving the card.
   goodbye: Bye! Come back any time.
   # After a lost battle, woken beside a tent.
@@ -309,20 +320,120 @@ doctor:
   # The last row of the list, and its key.
   bye: Bye
   byeKey: Esc
-  # The puzzle area before an animal is picked.
+  # The button that puts a puzzle away, back to the list, and its key.
+  back: Back
+  # The card's tabs: heal the hurt animals, help animals home to the wild, the shop.
+  tabs:
+    heal: Heal
+    home: Help home
+    shop: Shop
+  # The player's tokens, at the top right of the card.
+  tokens:
+    one: '{count} token'
+    other: '{count} tokens'
+  # The heal tab's right-hand side before an animal is picked.
   pick: Pick an animal
   pickDetail: Solve a puzzle and {animal.name} feels all better!
+  # The same, when {others} more of its kind are hurt too.
+  pickDetailMore: Solve one puzzle and {animal.name} and {others} more feel all better!
   byeDetail: Say bye and go exploring.
-  listKeys: ↑ ↓ choose · Enter pick · Esc bye
+  listKeys: ↑ ↓ choose · ← → tabs · Enter pick · Esc bye
   # The same, with the touch controls on.
   listTouch: Tap an animal to help it
   # Under a doctor's puzzle while another animal needs help too.
-  puzzleKeys: ↑ ↓ help another animal · Esc bye
+  puzzleKeys: ↑ ↓ help another animal
   puzzleTouch: Tap another animal to help it instead
-  # The puzzle area when nobody needs the doctor.
+  # The heal tab when nobody needs the doctor.
   allFit: Time to explore!
-  allFitKeys: Enter or Esc to say bye
+  allFitKeys: ← → tabs · Enter or Esc to say bye
   allFitTouch: Tap Bye to go exploring
+
+  # The help-home tab: animals go home to the wild, all better, for tokens.
+  home:
+    # The doctor's line on the tab: why wild animals attack.
+    intro: Wild animals are a little bit sick. That's why they are so grumpy!
+    title: Help animals home
+    how: Pick animals to go home. I make them all better, and you get tokens as a thank-you!
+    # The highlighted animal, and what it brings.
+    worth:
+      one: '{animal.name} brings {count} token.'
+      other: '{animal.name} brings {count} tokens.'
+    # How many animals are picked, and what they bring together.
+    picked:
+      one: '1 animal picked: {amount} tokens.'
+      other: '{count} animals picked: {amount} tokens.'
+    # When every animal but one is picked.
+    keepOne: One animal that isn't tired always stays with you.
+    # The button under the animals.
+    send: Help them home
+    keys: ↑ ↓ choose · ← → tabs · Enter pick · Esc bye
+    touch: Tap the animals that go home
+    # The confirm before a hand-over: the doctor's line, the question, and the choices.
+    sure: Are you sure? They will be happy in the wild!
+    sureTitle: Say bye bye to {names.name}?
+    sureTitleMany: Say bye bye to {many} animals?
+    sureDetail: They go home to the wild, all better. You get {amount} tokens.
+    keep: No, not now
+    yes: Yes, bye bye!
+    sureKeys: ← → choose · Enter pick · Esc back
+    # The token sum for a hand-over: the doctor's line, then the story round the sum.
+    count: Thank you! Can you count your tokens?
+    story:
+      one: You have {count} token. You get {amount} more. How many will you have?
+      other: You have {count} tokens. You get {amount} more. How many will you have?
+    # After the right answer: the animals leave, then the tokens come.
+    wentHomeOne: Bye bye, {animal.name}! It feels much better now.
+    wentHomeFew: Bye bye, {names.name}! They feel much better now.
+    wentHomeMany: Bye bye, all {many}! They feel much better now.
+    tokensGiven:
+      one: Thank you! Here are {amount} tokens. Now you have {count} token.
+      other: Thank you! Here are {amount} tokens. Now you have {count} tokens.
+
+  # The shop tab: tools bought with tokens.
+  shop:
+    intro: Look what I have! You pay with tokens.
+    # The doctor's line while nothing is for sale.
+    introEmpty: My shop opens soon!
+    emptyTitle: Nothing for sale yet
+    emptyDetail: New things are coming soon. Keep your tokens!
+    # An item's price.
+    price:
+      one: '{count} token'
+      other: '{count} tokens'
+    # Why an item can't be bought: it is owned, or {count} tokens are missing.
+    owned: You have {item.the}!
+    short:
+      one: You need {count} more token.
+      other: You need {count} more tokens.
+    keys: ↑ ↓ choose · ← → tabs · Enter buy · Esc bye
+    touch: Tap a thing to buy it
+    # The token sum for a purchase: the doctor's line, then the story round the sum.
+    count: Good choice! Can you count your tokens?
+    story:
+      one: You have {count} token. {item.the} costs {price}. How many will you have left?
+      other: You have {count} tokens. {item.the} costs {price}. How many will you have left?
+    # After the right answer.
+    bought:
+      one: Here is {item.your}! You have {count} token left.
+      other: Here is {item.your}! You have {count} tokens left.
+
+# What the doctor's shop sells: as a label, with "the" and "your", and what it does.
+items:
+  axe:
+    name: Axe
+    the: the axe
+    your: your axe
+    use: Chops down trees.
+  pickaxe:
+    name: Pickaxe
+    the: the pickaxe
+    your: your pickaxe
+    use: Breaks rocks.
+  boat:
+    name: Boat
+    the: the boat
+    your: your boat
+    use: Sails on water.
 
 pause:
   # The pause menu's title.

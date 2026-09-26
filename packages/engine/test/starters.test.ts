@@ -84,7 +84,7 @@ describe('starters', () => {
 describe('newGame with a starter', () => {
 	const SEED = 12345;
 
-	it('puts the chosen starter alone in the party, at the spawn tile, facing down, nothing walked', () => {
+	it('puts the chosen starter alone in the party, at the spawn tile, facing down, nothing walked or owned', () => {
 		const game = newGame(SEED, { id: 'a1', speciesId: 'rabbit', nickname: 'Hop', hp: 22 });
 		expect(game).toStrictEqual({
 			seed: SEED,
@@ -93,6 +93,8 @@ describe('newGame with a starter', () => {
 			steps: 0,
 			visits: 0,
 			party: [{ id: 'a1', speciesId: 'rabbit', nickname: 'Hop', hp: 22 }],
+			tokens: 0,
+			items: [],
 			battle: null
 		});
 		// A game that starts this way saves like any other.

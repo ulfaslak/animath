@@ -50,9 +50,10 @@ export type GameEvent =
 	/**
 	 * The game starts, or starts over: a new game, or one picked up from a
 	 * save. Carries the facing too, so a restored player looks the way they
-	 * did. A `battle-started` follows when the save was taken mid-battle.
-	 * `newGame` tells the two apart: true for a game that begins here (a
-	 * starter just picked, or a throwaway game), false for one picked up.
+	 * did, and the tokens and items. A `battle-started` follows when the save
+	 * was taken mid-battle. `newGame` tells the two apart: true for a game
+	 * that begins here (a starter just picked, or a throwaway game), false for
+	 * one picked up.
 	 */
 	| {
 			type: 'welcome';
@@ -61,6 +62,8 @@ export type GameEvent =
 			pos: GridPos;
 			facing: Direction;
 			party: AnimalInstance[];
+			tokens: number;
+			items: string[];
 			newGame: boolean;
 	  }
 	/** `new-game` was refused, and nothing started: why, as a code. */
@@ -85,10 +88,17 @@ export type GameEvent =
 	| { type: 'battle-ended'; state: BattleState }
 	/**
 	 * The party changed outside a battle turn: HP written back after a battle
-	 * that was not lost, a caught animal joining, an animal healed at the
-	 * doctor (sent at once, mid-visit). Always the whole party, in order.
+	 * that was not lost, a caught animal joining, animals healed at the
+	 * doctor or gone home from there (sent at once, mid-visit). Always the
+	 * whole party, in order.
 	 */
 	| { type: 'party-changed'; party: AnimalInstance[] }
+	/**
+	 * The player's tokens or items changed: the doctor gave tokens for animals
+	 * helped home, or the shop sold an item (sent at once, mid-visit). Always
+	 * both, whole.
+	 */
+	| { type: 'belongings-changed'; tokens: number; items: string[] }
 	/**
 	 * Something to say on the message line, as a copy key and its values; the
 	 * client words it in the language on screen. Never a finished sentence.

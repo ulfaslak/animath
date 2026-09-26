@@ -45,6 +45,8 @@ Hex values are the ones in `packages/client/src/render/palette.ts` and `styles.c
 | Dust                 | `#f6efe2` | The ring a tired animal lies down in; fades as it spreads. Never grey smoke. |
 | Confetti             | accent, good, warn, water, trainer shirt, off-white, rabbit pink | `CONFETTI_COLORS`: only colours already in the game. |
 | Sparkles             | warn `#f5b83d` and good `#56c271`, with off-white in the battle scene, coral and blue on the result card, white at the doctor | The doctor's chunky four-pointed stars: along a healed animal's HP bar, in the battle scene (unlit, so they shine) and round the result card's headline. |
+| Token                | warn `#f5b83d`, rim `#c98a12`, inner ring `#fbd67a`, heart `--panel-cream` | A gold coin with a cream heart, the doctor's thank-you: on the doctor's card, in the HUD, beside each price; a "+N" in good, a "−N" in amber `#d99a1e`. |
+| Tools                | trunk `#8b5a3c` (mast `#6e4630`), rock `#a8a39e` with a pale edge `#e9e6e2`, water `#5ec8f2`, trainer coral | The shop's pictures (`ItemIcon`): an axe, a pickaxe, a boat with a coral sail, flat and chunky in the world's own colours. |
 | Result card's rays   | warn at half strength | A burst behind a new friend's name, fading out at its rim. |
 | Butterflies          | rabbit pink `#f5b8c4`, amber `#f5b83d`, off-white, trainer coral, sky `#8fd3f4` | `BUTTERFLY_COLORS`: two five-sided wings on a dark body, a little under half a tile across. |
 | UI panel             | `rgba(255,252,245,.92)` | Cream, slightly translucent. Opaque (`--panel-cream`, `#fffcf5`) as the rim round big lettering. |
@@ -92,6 +94,7 @@ Short, warm, second person. One idea per line. Words a seven-year-old reads with
 - "Not quite! The bear shrugs it off." not "Incorrect answer."
 - "You caught a Fox!" with an exclamation mark. Big moments get big copy.
 - "Good try!" when the whole party is tired, never "You lost".
+- An animal the doctor takes goes **home**, made better: "Bye bye, Fox! It feels much better now." Never "released", "given away", "traded" or "sold"; the tokens are the doctor's thank-you, not a price. Wild animals are grumpy because they are "a little bit sick", never ill, hurt or mean.
 - No sarcasm, no "oops", no "error". No text the game can't stand behind if a kid reads it aloud.
 
 Every line exists in each language the game speaks ([[DECISIONS]] § Copy and languages). Each language is written, not translated word for word: say what a kid who speaks it would say.
@@ -128,7 +131,13 @@ The words the game uses for its things, the same on every screen:
 | --- | --- | --- |
 | tired | træt (trætte) | an animal at 0 HP: the tag, every line about it |
 | wild | vild / vildt / vilde | a wild animal, following its gender |
-| doctor | dyrlæge | the tents, the card ("Dyrlæge"), every line |
+| doctor | dyrlæge | the tents, the card ("Dyrlæge"), every line; also when the human says "witch doctor" |
+| token | mønt (mønter) | what the doctor gives and the shop takes: "Du har 23 mønter", "2 mønter" on a row |
+| heal (the tab) | gør rask | the doctor's first tab ("Gør rask") |
+| help home | hjælpe hjem | the tab ("Hjælp hjem"), its button ("Hjælp dem hjem"), "Hjælp dyr hjem" |
+| shop | butik | the tab ("Butik"), "Min butik åbner snart" |
+| axe / pickaxe / boat | økse / hakke / båd (en) | the tools: "Øksen koster 8", "Her er din økse!"; each form written out in `da.yaml` (`items.*`) |
+| bye bye (an animal going home) | farvel | "Sig farvel til ræven?", "Farvel, Ræv!" — never "slip", "smid ud" or anything that sounds like getting rid of it |
 | leash | snor | the battle row ("Snor"), its card ("Kast snoren"), "Du kaster snoren…" |
 | catch | fange | "Du fangede en ræv!", "Svært at fange" |
 | team | hold | "Dit hold", "kommer med på dit hold" |
