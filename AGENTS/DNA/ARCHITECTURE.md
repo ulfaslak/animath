@@ -320,7 +320,7 @@ Vite proxies `/api` and `/ws` to 3000, or to `API_PORT` when it is set (a worktr
 
 ## Repo-level files
 
-- `scripts/screenshot.mjs` — headless Chrome driving the running game with a key script and saving frames (`playwright-core`, `channel: 'chrome'`). The visual verification tool; see `/play` and [[DEVELOPMENT]] § Looking at the game. Each run is a fresh browser, so a new player and a new game; failed `/api/` calls are listed, not counted as errors, since the game saves locally without the API.
+- `scripts/screenshot.mjs` — headless Chrome driving the running game with a key script and saving frames (`playwright-core`, `channel: 'chrome'`). The visual verification tool; see `/play` and [[DEVELOPMENT]] § Looking at the game. Each run is a fresh browser, so a new player and a new game. It aborts every `/api/` request in the browser unless `--api`, so a run reaches no API and writes to no database; blocked and failed calls are listed, not counted as errors, since the game saves locally without the API.
 - `docker-compose.yml` — local Postgres only.
 - `.gtrconfig` — worktree creation copies `.env` and runs `pnpm install`.
 - `AGENTS/` — persistent context (this file's siblings). `AGENTS/DNA/` is the guardrail set; the rest is record-keeping.

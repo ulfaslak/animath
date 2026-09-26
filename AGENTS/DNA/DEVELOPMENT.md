@@ -30,11 +30,15 @@ Health check: `curl localhost:3000/api/health` → `{"ok":true,"db":true}`.
 
 Production shape: `pnpm build` then `pnpm -F @mathgame/server start` serves the built client from `packages/client/dist` and the API from one process.
 
-The game saves in the browser without the API; the API only holds the backup ([[ARCHITECTURE]] § Saving). From a worktree, run your own API on a free port against your own database and point your Vite at it:
+The game saves in the browser without the API; the API only holds the backup ([[ARCHITECTURE]] § Saving). From a worktree, run your own API on a free port against a database of your own on the same Postgres, never `mathgame` (the kids' games) or `mathgame_test` (the server tests empty it), and point your Vite at it. The shell's `DATABASE_URL` and `PORT` win over `.env`'s:
 
 ```bash
-DATABASE_URL=postgres://postgres:postgres@localhost:5433/<yours> PORT=3021 pnpm dev:server
+docker compose -p mathgame exec -T postgres createdb -U postgres mathgame_<yours>
+DATABASE_URL=postgres://postgres:postgres@localhost:5433/mathgame_<yours> pnpm db:migrate
+DATABASE_URL=postgres://postgres:postgres@localhost:5433/mathgame_<yours> PORT=3021 pnpm dev:server
 API_PORT=3021 pnpm -F @mathgame/client exec vite --port 5191 --strictPort
+# done: stop both, then
+docker compose -p mathgame exec -T postgres dropdb -U postgres mathgame_<yours>
 ```
 
 A browser's save lives under the page's address: `localhost:5180`, `localhost:5191` and the tunnel link are three separate games, each with its own `localStorage`.
@@ -52,7 +56,9 @@ node scripts/screenshot.mjs --reduced-motion   # as a system that asks for less 
 
 Headless Chrome via `playwright-core`. On a Mac, WebGL draws on the GPU (`--gpu metal`, ANGLE over Metal, as Chrome itself draws there) at 15–20 frames a second; `--gpu swiftshader`, the default elsewhere, draws in software at under 3 (see [[ENVIRONMENT_NOTES]] § Looking at the game). The first line printed names the renderer that drew. The script exits non-zero and prints console errors (and warnings) if the page logged any. **Read the image** — a saved file you never looked at verifies nothing. The `/play` command wraps this.
 
-Every run is a fresh browser: a new player with no game, so the page opens on the title with New game only. `?new` (like `?party=` and `?zoo`) skips the title into a throwaway game at the spawn tile with a squirrel, which touches neither storage nor the API, so walks from the start always behave the same. For a game that is saved, go through the title as a kid does: `Enter,wait:3000,Enter,wait:3000,Enter,wait:4000` is New game, the first starter, no name (the starters and the name box ignore Enter for half a second of game time, which a loaded machine stretches; see [[ENVIRONMENT_NOTES]]). `reload:` keeps the game (the save is in the page's `localStorage`) and comes back to the title, where `Enter` is Continue: that is how to check that something survives a reload. API calls that fail (no API server behind the proxy, a `409`) are listed at the end and do not fail the run; the game plays and saves without the API.
+Every run is a fresh browser: a new player with no game, so the page opens on the title with New game only. `?new` (like `?party=` and `?zoo`) skips the title into a throwaway game at the spawn tile with a squirrel, which touches neither storage nor the API, so walks from the start always behave the same. For a game that is saved, go through the title as a kid does: `Enter,wait:3000,Enter,wait:3000,Enter,wait:4000` is New game, the first starter, no name (the starters and the name box ignore Enter for half a second of game time, which a loaded machine stretches; see [[ENVIRONMENT_NOTES]]). `reload:` keeps the game (the save is in the page's `localStorage`) and comes back to the title, where `Enter` is Continue: that is how to check that something survives a reload.
+
+**The API is blocked.** The script aborts every request to `/api/` in the browser, as if the server were down, and counts the blocked calls in one line at the end; an API response that arrives anyway fails the run. A game started in a fresh browser makes a player on the server, and every Vite proxies `/api` to 3000, the primary clone's API with the kids' games in its database, unless `API_PORT` says otherwise, so unblocked runs filled that database with throwaway players. The game plays and saves in the page all the same. `--api` lets the calls through, for a run that tests the backup, against your own API and database (§ Running); there, calls that fail (no API server behind the proxy, a `409`) are listed at the end and do not fail the run. A throwaway Playwright script (the recipes below) is a fresh browser too: block the API the same way before its first `goto`, with `await context.route((u) => /^\/api(\/|$)/.test(u.pathname), (r) => r.abort())`.
 
 `--keys` is a comma-separated script run in order. A plain token is a key name, optionally `*n` to repeat it (`ArrowRight*5`, `Enter`, `3`). The rest take an argument:
 
