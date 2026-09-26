@@ -25,8 +25,6 @@ export interface DoctorState {
 	/** The party at the doctor; HP here is the truth after the visit. */
 	party: readonly AnimalInstance[];
 	phase: DoctorPhase;
-	/** What the doctor has said, newest last. */
-	log: readonly string[];
 }
 
 /** What the player can choose. Never an outcome: the reducer judges and heals. */
@@ -36,9 +34,21 @@ export type DoctorIntent =
 	| { type: 'answer'; input: string }
 	| { type: 'leave' };
 
+/** Why an intent was refused: a code for developers, never words (as in battle). */
+export type DoctorRejection =
+	/** Not an object with a `type`, or a `type` the reducer does not know. */
+	| 'not-an-intent'
+	| 'visit-over'
+	| 'no-such-animal'
+	/** A pick of an animal at full HP. */
+	| 'not-hurt'
+	/** An answer with no puzzle open. */
+	| 'no-puzzle';
+
 /**
  * What happened, in order, as a result of one intent. `answer-judged` carries
- * the correct answer, as in battle.
+ * the correct answer, as in battle. No event carries words: the client
+ * chooses what the doctor says from them (`doctor/lines.ts`).
  */
 export type DoctorEvent =
 	| { type: 'puzzle-shown'; partyIndex: number; puzzle: Puzzle }
@@ -47,7 +57,7 @@ export type DoctorEvent =
 	| { type: 'healed'; partyIndex: number; animal: AnimalInstance }
 	| { type: 'ended' }
 	/** The intent was not valid in the current phase. The state is unchanged. */
-	| { type: 'rejected'; reason: string };
+	| { type: 'rejected'; reason: DoctorRejection };
 
 export interface DoctorStep {
 	state: DoctorState;

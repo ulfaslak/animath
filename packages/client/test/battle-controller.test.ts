@@ -18,6 +18,8 @@ import { LocalAuthority } from '../src/authority/local';
 import { BattleController, MENU_GUARD_SECONDS } from '../src/battle/controller';
 import { actionAt, attackRows } from '../src/battle/menu';
 import { parseParty } from '../src/flags';
+import { words } from '../src/lines';
+import { nameOf } from '../src/names';
 import type { GameRenderer } from '../src/render/renderer';
 import { battle } from '../src/state/battle.svelte';
 
@@ -45,8 +47,16 @@ function key(name: string, repeat = false): KeyboardEvent {
 }
 
 function name(animal: AnimalInstance): string {
-	return animal.nickname ?? getAnimal(animal.speciesId).name;
+	return nameOf(animal);
 }
+
+/** The narration line as the panel words it: in English, as tests run. */
+function said(): string {
+	return battle.line ? words(battle.line) : '';
+}
+
+/** A closing line that arrives after its battle is over. */
+const LATE = { key: 'battle.closing.fled', params: { animal: { speciesId: 'fox' } } } as const;
 
 /** A save round trip, as a reload does it: JSON through storage, then restored. */
 function throughSave(game: SavedGame): SavedGame {
@@ -243,11 +253,11 @@ describe('battle screen', () => {
 		t.run(0.4);
 		expect(battle.entering).toBe(false);
 		expect(t.shown).toHaveLength(1);
-		expect(battle.line).toBe(`A wild ${name(battle.opponent!)} appears!`);
+		expect(said()).toBe(`A wild ${name(battle.opponent!)} appears!`);
 		expect(battle.screen).toBe('busy');
 		t.run(3);
 		expect(battle.screen).toBe('actions');
-		expect(battle.line).toBe('What will Squirrel do?');
+		expect(said()).toBe('What will Squirrel do?');
 	});
 
 	it('ignores a key held down from walking and every key while a turn plays', () => {
@@ -307,9 +317,9 @@ describe('battle screen', () => {
 		t.press(...String(answer + 1), 'Enter');
 		t.run(0.1);
 		expect(battle.judged).toEqual({ correct: false });
-		expect(battle.line).toBe('Not quite!');
+		expect(said()).toBe('Not quite!');
 		t.run(1.1);
-		expect(battle.line).toBe(`Missed! The wild ${name(battle.opponent!)} shrugs it off.`);
+		expect(said()).toBe(`Missed! The wild ${name(battle.opponent!)} shrugs it off.`);
 		t.run(8);
 		expect(battle.screen).toBe('actions');
 		expect(battle.opponent!.hp).toBe(hp);
@@ -322,7 +332,9 @@ describe('battle screen', () => {
 		t.press('ArrowUp', 'Enter'); // Run
 		t.runUntil(() => battle.screen === 'result');
 		expect(battle.outcome).toBe('fled');
-		expect(battle.closing).toBe(`The wild ${name(battle.opponent!)} stays in the grass.`);
+		expect(battle.closing && words(battle.closing)).toBe(
+			`The wild ${name(battle.opponent!)} stays in the grass.`
+		);
 		t.press('Enter');
 		expect(battle.active).toBe(true);
 		t.run(1);
@@ -362,7 +374,7 @@ describe('battle screen', () => {
 
 		// Back in explore: a late update changes nothing.
 		t.controller.handle(stale);
-		t.controller.handle({ type: 'message', text: 'late' });
+		t.controller.handle({ type: 'message', line: LATE });
 		t.run(3);
 		expect(battle.active).toBe(false);
 		expect(t.shown).toHaveLength(shown);
@@ -373,7 +385,7 @@ describe('battle screen', () => {
 		expect(battle.screen).toBe('actions');
 		const view = { line: battle.line, opponent: battle.opponent };
 		t.controller.handle(stale);
-		t.controller.handle({ type: 'message', text: 'late' });
+		t.controller.handle({ type: 'message', line: LATE });
 		t.run(3);
 		expect(battle.screen).toBe('actions');
 		expect({ line: battle.line, opponent: battle.opponent }).toEqual(view);
@@ -482,16 +494,16 @@ describe('switching animals', () => {
 		t.press('s', 'Enter');
 		expect(t.sent.at(-1)).toEqual({ type: 'battle', intent: { type: 'switch', partyIndex: 1 } });
 		t.run(0.1);
-		expect(battle.line).toBe(`Come back, ${name(first!)}!`);
+		expect(said()).toBe(`Come back, ${name(first!)}!`);
 		expect(battle.front).toBe(0);
 		t.run(0.9);
-		expect(battle.line).toBe(`Go, ${name(second!)}!`);
+		expect(said()).toBe(`Go, ${name(second!)}!`);
 		expect(battle.front).toBe(1);
 		// The switch took the turn: the wild animal's reply comes next.
 		t.run(1.0);
-		expect(battle.line).toMatch(new RegExp(`^Wild ${name(battle.opponent!)} used `));
+		expect(said()).toMatch(new RegExp(`^Wild ${name(battle.opponent!)} used `));
 		t.runUntil(() => battle.screen === 'actions');
-		expect(battle.line).toBe(`What will ${name(second!)} do?`);
+		expect(said()).toBe(`What will ${name(second!)} do?`);
 		expect(battle.cursor).toBe(0);
 		expect(battle.party[0]).toEqual(first);
 		expect(t.latest().active).toBe(1);
@@ -526,7 +538,7 @@ describe('switching animals', () => {
 		const next = battle.party[1]!;
 		knockOutFront(t);
 		expect(battle.mustPick).toBe(true);
-		expect(battle.line).toBe(`${name(tired)} is tired. Who goes next?`);
+		expect(said()).toBe(`${name(tired)} is tired. Who goes next?`);
 		expect(battle.party[0]).toEqual(tired);
 		expect(battle.partyCursor).toBe(1);
 
@@ -551,9 +563,9 @@ describe('switching animals', () => {
 			'switched'
 		]);
 		t.run(0.1);
-		expect(battle.line).toBe(`Go, ${name(next)}!`);
+		expect(said()).toBe(`Go, ${name(next)}!`);
 		t.runUntil(() => battle.screen === 'actions');
-		expect(battle.line).toBe(`What will ${name(next)} do?`);
+		expect(said()).toBe(`What will ${name(next)} do?`);
 		expect(battle.cursor).toBe(0);
 		expect({ wild: battle.opponent!.hp, next: battle.party[1]!.hp }).toEqual(hp);
 	});
@@ -718,7 +730,7 @@ describe('a battle picked up from a save', () => {
 		expect(battle.cursor).toBe(1);
 		const rows = attackRows(getAnimal('squirrel'), battle.levels);
 		expect(rows.map((r) => r.word)).toEqual(['easy', 'hard']);
-		expect(battle.line).toBe(`Squirrel tries ${rows[1]!.name}!`);
+		expect(said()).toBe(`Squirrel tries ${rows[1]!.name}!`);
 	});
 });
 
@@ -729,7 +741,7 @@ describe('a full team', () => {
 		expect(battle.letGo).toBe(false);
 		expect(t.partyNow()).toHaveLength(6);
 		expect(t.partyNow().map((a) => a.id)).toContain(battle.opponent!.id);
-		expect(battle.closing).toMatch(/joins your team/);
+		expect(battle.closing?.key).toBe('battle.closing.joined');
 		t.leaveResult();
 
 		t.catchOne();
@@ -737,7 +749,7 @@ describe('a full team', () => {
 		expect(battle.letGo).toBe(true);
 		expect(t.partyNow()).toHaveLength(6);
 		expect(t.partyNow().map((a) => a.id)).not.toContain(battle.opponent!.id);
-		expect(battle.closing).toBe(
+		expect(battle.closing && words(battle.closing)).toBe(
 			`Your team is full, so the wild ${name(battle.opponent!)} hops home.`
 		);
 		// Leaving the card forgets it.

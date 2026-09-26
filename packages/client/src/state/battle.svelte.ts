@@ -1,5 +1,6 @@
-import type { AnimalInstance, BattleOutcome, Puzzle } from '@mathgame/engine';
+import type { AnimalInstance, BattleOutcome, Line as MessageLine, Puzzle } from '@mathgame/engine';
 import type { Levels } from '../battle/menu';
+import type { Line } from '../lines';
 
 /**
  * What the battle screen shows. Filled only by `BattleController`, which
@@ -46,15 +47,15 @@ class BattleView {
 	input = $state('');
 	/** How the last answer was judged. Never the right answer: UI_SPEC keeps it hidden. */
 	judged = $state<{ correct: boolean } | null>(null);
-	/** The one-line narration above the panel. */
-	line = $state('');
+	/** The one-line narration above the panel, as data: worded when drawn. */
+	line = $state<Line | null>(null);
 	/** The latest hit, for the damage number that pops over a status box; `n` restarts it. */
 	hit = $state<{ side: 'player' | 'opponent'; damage: number; n: number } | null>(null);
 	outcome = $state<BattleOutcome | null>(null);
 	/** A catch that didn't join the team: it was full, so the animal went home. */
 	letGo = $state(false);
-	/** The authority's closing message, shown under the result headline. */
-	closing = $state('');
+	/** The authority's closing line, shown under the result headline. */
+	closing = $state<MessageLine | null>(null);
 
 	/** Clear everything but the attack levels. */
 	reset(): void {
@@ -73,11 +74,11 @@ class BattleView {
 		this.puzzle = null;
 		this.input = '';
 		this.judged = null;
-		this.line = '';
+		this.line = null;
 		this.hit = null;
 		this.outcome = null;
 		this.letGo = false;
-		this.closing = '';
+		this.closing = null;
 	}
 }
 

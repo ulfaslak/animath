@@ -381,6 +381,10 @@ describe('readBattle', () => {
 			...patch
 		});
 		expect(readBattle(json({}), party)).not.toBeNull();
+		// A battle saved by a build whose engine still wrote an English `log` reads, without it.
+		const old = readBattle(json({ log: ['A wild Rabbit appears!', 'Go, Squirrel!'] }), party);
+		expect(old).toEqual(readBattle(json({}), party));
+		expect(old).not.toHaveProperty('log');
 		for (const broken of [
 			null,
 			'battle',
@@ -394,7 +398,7 @@ describe('readBattle', () => {
 			json({ opponent: { ...state!.opponent, id: party[0]!.id } }),
 			json({ leashQuality: 0 }),
 			json({ leashQuality: 'strong' }),
-			json({ log: [1, 2] }),
+
 			json({ phase: { kind: 'ended', outcome: 'won' } }),
 			json({ phase: { kind: 'wild-turn' } }),
 			json({

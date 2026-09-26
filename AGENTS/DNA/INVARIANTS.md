@@ -20,6 +20,10 @@ No DOM, no Three.js, no Node built-ins, no npm packages. It must run byte-for-by
 
 Every random draw goes through an `Rng` the caller constructed from a seed, and nothing reads `Date.now`. A battle, a chunk, a puzzle can then be replayed exactly from `(seed, intents)`, which is what lets a client predict and a server verify without disagreeing. Enforced by `test/purity.test.ts` (comment-stripped source grep) and by `rng.test.ts` / `world.test.ts` / `puzzles.test.ts` asserting equal output for equal seeds. Design-time.
 
+### The engine holds no player-facing words
+
+Species and attacks are ids; events say what happened; a refusal is a code; a `message` line is a copy key from `LINES` with numbers and species by id. A sentence written in the engine would reach a Danish kid in English, and would have to be shipped twice once a server authority sends it. Enforced by `test/no-words.test.ts` (TypeScript's parser over every source file: no literal that reads as a sentence outside `new Error`), by the battle and doctor sweeps (`words.ts`: no worded string in any state or event, nicknames aside), by the types (`LINES` gives each param a kind, a species or a number, and `Line` is typed from it), and on the client by `messageWords`, which takes nothing else from a `message` line. Design-time.
+
 ### A chunk is a pure function of `(seed, cx, cy)`
 
 Generating chunk `(4, −2)` alone yields the same tiles as generating it after `(3, −2)`, and tile `(x, y)` is the same whether asked via its chunk or via `tileAtWorld`. Per-tile randomness is derived from `hashInts(seed, x, y, …)`, never from a shared generator whose state depends on call order. Enforced by `world.test.ts` ("pure function", "no seams"). Design-time.
@@ -37,6 +41,10 @@ For every kind but `sequence`, the smallest and the largest number shown in a pr
 ### A sequence prompt has exactly one right answer
 
 Every sequence prompt fits exactly one of the patterns a kid is taught — equal gaps, a constant ratio, adding the last two, gaps that grow by a constant — and its last three numbers are evenly spaced only when the whole prompt counts, so the generator's answer is the only right one. Add-the-last-two never starts with a pair `a, b` where `2b = 3a` (its gaps then also grow by a constant) or `b = a` (it then ends in a counting run). Enforced by `puzzles.test.ts` ("no prompt fits two patterns"), which reads every prompt with each pattern, and with "count on from the last three", independently of the generator; sampled over 900 fixed seeds per difficulty. Incident: PR #10 — "2, 3, 5, 8, ?" was asked at difficulty 7–10 expecting 13, while "the gaps grow by one" answers 12; "4, 4, 8, 12, ?" expected 20 where counting on says 16.
+
+### An attack's description names exactly what its puzzles can be
+
+The sentence about the highlighted attack lists the engine's `puzzleTopics(kinds, difficulty)` for that attack at its level, and every topic listed must be one a puzzle there can have, and every topic a puzzle there can have must be listed. The starter's Scurry Kick on hard said "adding, taking away or missing numbers" and asked "7 × ? = 56": a missing number sat in a times table, and the words came from the attack's kinds, not from what the generator produces at that difficulty (QA, the i18n PR). Enforced by `puzzles.test.ts` ("what an attack says it asks": every species × attack × level and every kind × difficulty, the topics met over 300 seeds, read from the prompts by an independent classifier, equal the topics promised) and by `copy-files.test.ts` (every topic has its words). Design-time.
 
 ### Answers are judged in the engine, never in the UI
 

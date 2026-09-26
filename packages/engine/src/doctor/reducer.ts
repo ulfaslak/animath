@@ -4,8 +4,15 @@ import { healingDifficulty } from '../puzzles/difficulty.js';
 import { checkAnswer, generatePuzzle } from '../puzzles/registry.js';
 import type { Puzzle, PuzzleKind } from '../puzzles/types.js';
 import { Rng, hashInts } from '../rng.js';
-import { animalName, needsHealing, validateParty } from './party.js';
-import type { DoctorEvent, DoctorIntent, DoctorPhase, DoctorState, DoctorStep } from './types.js';
+import { needsHealing, validateParty } from './party.js';
+import type {
+	DoctorEvent,
+	DoctorIntent,
+	DoctorPhase,
+	DoctorRejection,
+	DoctorState,
+	DoctorStep
+} from './types.js';
 
 /**
  * The doctor reducer: pure rules for one visit to a doctor's tent.
@@ -26,6 +33,9 @@ import type { DoctorEvent, DoctorIntent, DoctorPhase, DoctorState, DoctorStep } 
  * answer heals that one animal to full. A wrong answer costs nothing: the HP
  * stays as it was and a different puzzle takes its place, as many times as it
  * takes. Leaving is always allowed.
+ *
+ * The doctor says nothing here: the client chooses the doctor's words from
+ * the events, in the player's language.
  */
 
 /** How often a wrong answer's replacement is redrawn to avoid repeating the prompt just missed. */
@@ -34,16 +44,7 @@ const REDRAWS = 8;
 export function startDoctorVisit(party: readonly AnimalInstance[]): DoctorState {
 	validateParty(party, 'startDoctorVisit');
 	const copy = party.map((a) => ({ ...a }));
-	return {
-		step: 0,
-		party: copy,
-		phase: { kind: 'choose-patient' },
-		log: [
-			copy.some(needsHealing)
-				? 'Hello! Who needs help today?'
-				: 'Hello! Your animals are all fit and happy.'
-		]
-	};
+	return { step: 0, party: copy, phase: { kind: 'choose-patient' } };
 }
 
 /**
@@ -58,17 +59,17 @@ export function applyDoctorIntent(
 	if (!Number.isInteger(seed) || seed < 0 || seed > 0xffffffff) {
 		throw new Error(`applyDoctorIntent: seed must be a 32-bit unsigned integer, got ${seed}`);
 	}
-	if (!intent || typeof intent !== 'object') return reject(state, 'That is not an intent.');
-	if (state.phase.kind === 'ended') return reject(state, 'The visit is over.');
+	if (!intent || typeof intent !== 'object') return reject(state, 'not-an-intent');
+	if (state.phase.kind === 'ended') return reject(state, 'visit-over');
 	switch (intent.type) {
 		case 'pick-patient':
 			return pickPatient(state, seed, intent.partyIndex);
 		case 'answer':
 			return answer(state, seed, intent.input);
 		case 'leave':
-			return accept(state, { kind: 'ended' }, [{ type: 'ended' }], ['Bye! Come back any time.']);
+			return accept(state, { kind: 'ended' }, [{ type: 'ended' }]);
 		default:
-			return reject(state, `Unknown intent ${String((intent as { type: unknown }).type)}.`);
+			return reject(state, 'not-an-intent');
 	}
 }
 
@@ -76,21 +77,17 @@ export function applyDoctorIntent(
 
 function pickPatient(state: DoctorState, seed: number, partyIndex: number): DoctorStep {
 	const animal = Number.isInteger(partyIndex) ? state.party[partyIndex] : undefined;
-	if (!animal) return reject(state, 'There is no animal there.');
-	if (!needsHealing(animal))
-		return reject(state, `${animalName(animal)} is already fit and happy.`);
+	if (!animal) return reject(state, 'no-such-animal');
+	if (!needsHealing(animal)) return reject(state, 'not-hurt');
 
 	const puzzle = healingPuzzle(rngFor(seed, state), animal);
-	return accept(
-		state,
-		{ kind: 'solving', partyIndex, puzzle },
-		[{ type: 'puzzle-shown', partyIndex, puzzle }],
-		[`Let's help ${animalName(animal)}! Can you solve this?`]
-	);
+	return accept(state, { kind: 'solving', partyIndex, puzzle }, [
+		{ type: 'puzzle-shown', partyIndex, puzzle }
+	]);
 }
 
 function answer(state: DoctorState, seed: number, input: string): DoctorStep {
-	if (state.phase.kind !== 'solving') return reject(state, 'There is no puzzle to answer.');
+	if (state.phase.kind !== 'solving') return reject(state, 'no-puzzle');
 	const { partyIndex, puzzle } = state.phase;
 	const animal = state.party[partyIndex]!;
 	const correct = checkAnswer(puzzle, input);
@@ -98,12 +95,10 @@ function answer(state: DoctorState, seed: number, input: string): DoctorStep {
 
 	if (!correct) {
 		const next = healingPuzzle(rngFor(seed, state), animal, puzzle.prompt);
-		return accept(
-			state,
-			{ kind: 'solving', partyIndex, puzzle: next },
-			[judged, { type: 'puzzle-shown', partyIndex, puzzle: next }],
-			["Not quite! Let's try another one."]
-		);
+		return accept(state, { kind: 'solving', partyIndex, puzzle: next }, [
+			judged,
+			{ type: 'puzzle-shown', partyIndex, puzzle: next }
+		]);
 	}
 
 	const healed = { ...animal, hp: getAnimal(animal.speciesId).maxHp };
@@ -113,10 +108,6 @@ function answer(state: DoctorState, seed: number, input: string): DoctorStep {
 		state,
 		{ kind: 'choose-patient' },
 		[judged, { type: 'healed', partyIndex, animal: healed }],
-		[
-			`Well done! ${animalName(healed)} feels all better!`,
-			party.some(needsHealing) ? 'Who is next?' : 'Everyone is fit and happy!'
-		],
 		party
 	);
 }
@@ -147,15 +138,11 @@ function accept(
 	state: DoctorState,
 	phase: DoctorPhase,
 	events: DoctorEvent[],
-	lines: readonly string[],
 	party: readonly AnimalInstance[] = state.party
 ): DoctorStep {
-	return {
-		state: { ...state, step: state.step + 1, party, phase, log: [...state.log, ...lines] },
-		events
-	};
+	return { state: { ...state, step: state.step + 1, party, phase }, events };
 }
 
-function reject(state: DoctorState, reason: string): DoctorStep {
+function reject(state: DoctorState, reason: DoctorRejection): DoctorStep {
 	return { state, events: [{ type: 'rejected', reason }] };
 }

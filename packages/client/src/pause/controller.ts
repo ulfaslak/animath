@@ -1,4 +1,5 @@
 import type { Authority, GameEvent, PartyIntent } from '@mathgame/engine';
+import { LANGUAGES, language } from '../copy';
 import { isShortcut, keyName } from '../input/keyboard';
 import { game } from '../state/game.svelte';
 import {
@@ -100,6 +101,15 @@ export class PauseController {
 				else this.chooseItem(MENU_ITEMS[pause.cursor - game.party.length]!);
 				return true;
 			}
+			case 'ArrowLeft':
+			case 'a':
+			case 'ArrowRight':
+			case 'd': {
+				// Left and right change the language on its row, and do nothing elsewhere.
+				if (MENU_ITEMS[pause.cursor - game.party.length] !== 'language') return false;
+				nextLanguage(key === 'ArrowLeft' || key === 'a' ? -1 : 1);
+				return true;
+			}
 			case 'Escape':
 				this.close();
 				return true;
@@ -109,6 +119,9 @@ export class PauseController {
 
 	private chooseItem(item: MenuItem): void {
 		switch (item) {
+			case 'language':
+				nextLanguage(1);
+				break;
 			case 'resume':
 				this.close();
 				break;
@@ -234,4 +247,14 @@ function nextEnabled(options: readonly PartyOptionRow[], from: number, dir: 1 | 
 		if (options[at]!.enabled) return at;
 	}
 	return from;
+}
+
+/**
+ * Switch to the language `step` places along `LANGUAGES`, wrapping round:
+ * every word on screen changes at once, and the choice is remembered on this
+ * device (`language.set`).
+ */
+function nextLanguage(step: 1 | -1): void {
+	const i = LANGUAGES.indexOf(language.current);
+	language.set(LANGUAGES[(i + step + LANGUAGES.length) % LANGUAGES.length]!);
 }

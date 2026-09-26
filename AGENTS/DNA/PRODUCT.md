@@ -141,7 +141,7 @@ What is built and observable today. Keep current: add a bullet when a feature sh
 - Choosing the lead from explore: the number keys pick who goes first (§4 "Party"); a tired animal can't go first, and the message line says so.
 - Pause menu (Escape in explore): the team in battle order, where an animal can go first, move up or down, or get a nickname typed in a name box. Walking waits while it is open.
 - Message line: the latest message for a few seconds, the controls hint for the first few steps, and "Press Enter to talk to the doctor" while the player faces a tent ([[UI_SPEC]] § Explore mode).
-- Doctor's tents: facing a tent, Enter opens the doctor's card ([[UI_SPEC]] § Doctor). Pick a hurt or tired animal, solve its puzzle and it is back to full HP; a wrong answer just brings another puzzle; the list stays live during a puzzle; Bye or Escape leaves at any time. With nobody hurt, the doctor says everyone is fit and happy. The doctor speaks English and Danish (its words are in the copy files; the animals' names are still English).
+- Doctor's tents: facing a tent, Enter opens the doctor's card ([[UI_SPEC]] § Doctor). Pick a hurt or tired animal, solve its puzzle and it is back to full HP; a wrong answer just brings another puzzle; the list stays live during a puzzle; Bye or Escape leaves at any time. With nobody hurt, the doctor says everyone is fit and happy. The doctor speaks English and Danish, like the rest of the game.
 
 ### Encounters and battle
 
@@ -162,7 +162,7 @@ What is built and observable today. Keep current: add a bullet when a feature sh
 
 ### Language
 
-- The game starts in Danish when the browser prefers Danish, and in English otherwise (`?lang=da` / `?lang=en` in the address overrides). So far the line under a puzzle, the doctor (the card, everything the doctor says, the tent prompt and hints on the message line), the party's "tired" tag, and in battle the attack levels (let, mellem, svær), the menu's key reminder, the sentence about the highlighted attack, "Kom så, …!", everything about switching animals and about a full team are in Danish; everything else is English, the animals' and attacks' names included, and there is no Language setting yet (§6).
+- The whole game in Danish and English, the animals' and attacks' names included. It starts in the language the browser prefers (Danish or English, else English); Language in the pause menu switches every word on screen at once and is remembered on this device (`?lang=da` / `?lang=en` in the address picks one for a visit).
 
 ### Engine
 
@@ -185,11 +185,10 @@ What is built and observable today. Keep current: add a bullet when a feature sh
 
 In rough priority order. Each becomes a GitHub issue when picked up.
 
-1. A title screen, and sound with its setting in the pause menu (where the Language setting also goes, below).
+1. A title screen, and sound with its setting in the pause menu, beside Language.
 2. Real low-poly animal models (glTF, CC0 sources, see [[DECISIONS]]) with attack animations, replacing the primitive figures.
-3. The whole game in Danish and English: every line in both, and a Language setting in the pause menu that switches every word at once and is remembered on this device. The copy files and `t()` exist (§5, [[ARCHITECTURE]] § Copy); the doctor's, the party's and the save's words are in them, the rest have not moved yet.
-4. Procedural world v2: rivers that flow, paths, biome shaping, landmarks, spawn tables.
-5. Puzzle catalog v2: fractions, decimals, negatives, word problems, per-child adaptive difficulty.
-6. Touch controls for tablets.
-7. Multiplayer: shared world, other players visible, PvP battles, tokens, shop.
-8. Deployment to the Hetzner VPS.
+3. Procedural world v2: rivers that flow, paths, biome shaping, landmarks, spawn tables.
+4. Puzzle catalog v2: fractions, decimals, negatives, word problems, per-child adaptive difficulty.
+5. Touch controls for tablets.
+6. Multiplayer: shared world, other players visible, PvP battles, tokens, shop.
+7. Deployment to the Hetzner VPS.

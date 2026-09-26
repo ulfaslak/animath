@@ -2,15 +2,47 @@
 # file, reading the same {params}; test/copy-files.test.ts checks.
 # How to add a line: AGENTS/DNA/DEVELOPMENT.md § Copy and languages.
 # How it should sound: AGENTS/DNA/DESIGN.md § Voice and copy.
+#
+# {animal.form} picks one of a species' forms below (name, a, the, wild, aWild,
+# theWild); a nickname stands for every form, spelled as the kid wrote it. A
+# form that starts a sentence gets a capital letter by itself.
 
 language:
   # This language's own name, as the Language setting lists it.
   name: English
 
-# Every species by its engine id: its forms, and its attacks by id. Only the
-# frog so far: the other species' names still come from the engine's catalog
-# until the copy extraction moves them here.
+app:
+  # While the world is being built.
+  loading: Loading…
+
+keys:
+  # Key caps, as printed on the keyboard.
+  esc: Esc
+  enter: Enter
+
+# Every species by its engine id: its forms, and its attacks by id.
 species:
+  squirrel:
+    name: Squirrel
+    a: a Squirrel
+    the: the Squirrel
+    wild: wild Squirrel
+    aWild: a wild Squirrel
+    theWild: the wild Squirrel
+    attacks:
+      nut-toss: Nut Toss
+      scurry-kick: Scurry Kick
+  rabbit:
+    name: Rabbit
+    a: a Rabbit
+    the: the Rabbit
+    wild: wild Rabbit
+    aWild: a wild Rabbit
+    theWild: the wild Rabbit
+    attacks:
+      hop: Hop
+      thump: Thump
+      burrow-bite: Burrow Bite
   frog:
     name: Frog
     a: a Frog
@@ -22,33 +54,124 @@ species:
       croak: Croak
       tongue-flick: Tongue Flick
       big-splash: Big Splash
+  fox:
+    name: Fox
+    a: a Fox
+    the: the Fox
+    wild: wild Fox
+    aWild: a wild Fox
+    theWild: the wild Fox
+    attacks:
+      nip: Nip
+      pounce: Pounce
+      trick: Trick
+  otter:
+    name: Otter
+    a: an Otter
+    the: the Otter
+    wild: wild Otter
+    aWild: a wild Otter
+    theWild: the wild Otter
+    attacks:
+      splash: Splash
+      tail-whip: Tail Whip
+  deer:
+    name: Deer
+    a: a Deer
+    the: the Deer
+    wild: wild Deer
+    aWild: a wild Deer
+    theWild: the wild Deer
+    attacks:
+      kick: Kick
+      antler-charge: Antler Charge
+  wolf:
+    name: Wolf
+    a: a Wolf
+    the: the Wolf
+    wild: wild Wolf
+    aWild: a wild Wolf
+    theWild: the wild Wolf
+    attacks:
+      bite: Bite
+      howl: Howl
+      lunge: Lunge
+  bear:
+    name: Bear
+    a: a Bear
+    the: the Bear
+    wild: wild Bear
+    aWild: a wild Bear
+    theWild: the wild Bear
+    attacks:
+      swipe: Swipe
+      roar: Roar
+      maul: Maul
+      crush: Crush
 
 puzzle:
   # Under a puzzle until it is answered.
   keys: Type the answer, then press Enter
+  # After an answer, on the puzzle card and in the battle's narration.
+  correct: Correct!
+  notQuite: Not quite!
+
+explore:
+  # Under the latest message for a player's first few moves.
+  controls: Arrows / WASD to walk
+  # Under the latest message while the player faces a doctor's tent.
+  talkPrompt: Press Enter to talk to the doctor
+  # Enter anywhere but facing a tent.
+  notAtTent: Walk up to a tent to talk to the doctor.
+
+hud:
+  # The tag on the card of the lead: the animal that steps into the next battle.
+  goesFirst: goes first
+  # Under the party cards, after the number keys 1–n.
+  pickLead: Pick who goes first
+  # Under the party cards, after the Esc key cap.
+  menu: Menu
+
+party:
+  # The tag on an animal at 0 HP.
+  tired: tired
+  # The message line, when a number key or "Go first" made {animal} the lead,
+  # or a change in the pause menu left {animal} in front.
+  leadChosen: '{animal.name} goes first!'
+  # The message line, when the number of a tired animal was pressed.
+  leadTired: '{animal.name} is tired. Visit the doctor!'
+  # The message line, when the lead's own number was pressed.
+  leadAlready: '{animal.name} already goes first!'
 
 battle:
-  # On the Leash row: how likely a throw is to catch the wild animal right now.
-  leashGood: Good chance!
-  leashMaybe: Maybe
-  leashHard: Hard to catch
-  # On the Leash row in place of the odds, when the team already has six animals.
-  leashTeamFull: Team is full
-  # What the Leash row says when highlighted with the team full: a catch goes home.
-  leashTeamFullDetail: Your team is full. If you catch it, it hops home.
-  # The result card after a catch that went home, because the team was full.
-  resultLetGo: Good throw!
-  # An attack's three levels: the highlighted row's buttons, and every other row's word.
-  level:
-    easy: easy
-    medium: medium
-    hard: hard
+  # The status box over the wild animal.
+  wildName: '{animal.wild}'
+  # Narration, one line per beat. {animal} is yours, unless it says wild.
+  appears: '{animal.aWild} appears!'
+  go: 'Go, {animal.name}!'
+  whatNow: 'What will {animal.name} do?'
+  tries: '{animal.name} tries {attack}!'
+  used: '{animal.name} used {attack}!'
+  usedDamage: '{animal.name} used {attack}! {damage} damage.'
+  # Your wrong answer: the wild animal shrugs it off.
+  youMissed: 'Missed! {animal.theWild} shrugs it off.'
+  wildUsed: '{animal.wild} used {attack}!'
+  wildUsedDamage: '{animal.wild} used {attack}! {damage} damage.'
+  wildMissed: '{animal.wild} used {attack}! It missed.'
+  tired: '{animal.name} is tired.'
+  wildTired: '{animal.wild} is tired!'
+  gotAway: You got away!
+  # The puzzle area before an attack is picked.
+  pickAttack: Pick an attack
   # The key reminder under "Pick an attack".
   menuKeys: ↑ ↓ choose · ← → how hard · Enter go
   # The highlighted attack. {attack}: its name; {level}: its level's word;
   # {kinds}: what its sums are about (the words below, in an "or" list); {damage}: how much it hits for.
   attackDetail: '{attack} on {level}: {kinds}. It hits for {damage}.'
-  # What each kind of puzzle is about, as {kinds} lists them.
+  # What a puzzle looks like to the kid, as {kinds} lists the ones an attack's
+  # puzzles can be at its level (the engine's puzzleTopics). `missing` is a
+  # number missing from a sum ("7 + ? = 12"); one missing from a times table
+  # ("7 × ? = 56") is listed as `mul`.
   kinds:
     add: adding
     sub: taking away
@@ -57,8 +180,29 @@ battle:
     missing: missing numbers
     sequence: number patterns
     sqrt: square roots
-  # Narration: your animal steps in, at the start or after a switch.
-  go: 'Go, {name}!'
+  # An attack's three levels: the highlighted row's buttons, and every other row's word.
+  level:
+    easy: easy
+    medium: medium
+    hard: hard
+  leash:
+    row: Leash
+    detail: Throw the leash to catch it! It works best when its HP is low.
+    # Beside the row: how likely a throw is to catch the wild animal right now.
+    good: Good chance!
+    maybe: Maybe
+    hard: Hard to catch
+    # Beside the row in place of the odds, when the team already has six animals.
+    teamFull: Team is full
+    # What the row says when highlighted with the team full: a catch goes home.
+    teamFullDetail: Your team is full. If you catch it, it hops home.
+    # Narration of a throw.
+    throw: You throw the leash…
+    caught: Caught!
+    brokeFree: It broke free!
+  run:
+    row: Run
+    detail: Run away. The wild animal stays in the grass.
   switch:
     # The Switch row of the action menu, and what it says when highlighted.
     row: Switch
@@ -71,34 +215,31 @@ battle:
     mustPickKeys: ↑ ↓ choose · Enter go
     tiredTag: tired
     inBattleTag: in battle
-    # The highlighted animal of the list; {name} is its name.
-    sendIn: 'Send in {name}. Then the wild animal gets a turn.'
-    sendInFree: "Send in {name}. Then it's your turn."
-    tired: '{name} is tired and needs a rest.'
-    inBattle: '{name} is already in the battle.'
+    # The highlighted animal of the list.
+    sendIn: 'Send in {animal.name}. Then the wild animal gets a turn.'
+    sendInFree: "Send in {animal.name}. Then it's your turn."
+    tired: '{animal.name} is tired and needs a rest.'
+    inBattle: '{animal.name} is already in the battle.'
     # Narration: the animal in front is tired and someone must go in.
-    whoIsNext: '{name} is tired. Who goes next?'
+    whoIsNext: '{animal.name} is tired. Who goes next?'
     # Narration: the animal in front goes back to make room.
-    comeBack: 'Come back, {name}!'
-
-explore:
-  # Under the latest message for a player's first few moves.
-  controls: Arrows / WASD to walk
-  # Under the latest message while the player faces a doctor's tent.
-  talkPrompt: Press Enter to talk to the doctor
-  # Enter anywhere but facing a tent.
-  notAtTent: Walk up to a tent to talk to the doctor.
-
-party:
-  # The tag on an animal at 0 HP.
-  tired: tired
-  # The message line, when a number key or "Go first" made {name} the lead,
-  # or a change in the pause menu left {name} in front.
-  leadChosen: '{name} goes first!'
-  # The message line, when the number of a tired animal was pressed.
-  leadTired: '{name} is tired. Visit the doctor!'
-  # The message line, when the lead's own number was pressed.
-  leadAlready: '{name} already goes first!'
+    comeBack: 'Come back, {animal.name}!'
+  # The card at the end, and its button.
+  result:
+    won: You won!
+    caught: 'You caught {animal.a}!'
+    # Caught, but the team was full, so the animal went home: never "You caught…".
+    letGo: Good throw!
+    lost: Good try!
+    fled: You got away!
+    button: Keep exploring
+  # The authority's closing line under the result card, then on the message
+  # line. These keys are the engine's LINES; {animal} is the wild animal.
+  closing:
+    won: '{animal.theWild} runs home to rest.'
+    fled: '{animal.theWild} stays in the grass.'
+    joined: '{animal.name} joins your team!'
+    teamFull: 'Your team is full, so {animal.theWild} hops home.'
 
 doctor:
   # The name tag in front of what the doctor says.
@@ -107,14 +248,14 @@ doctor:
   hello: Hello! Who needs help today?
   # Opening the card with nobody to help.
   helloAllFit: Hello! Your animals are all fit and happy.
-  # A puzzle for {name}, just picked.
-  letsHelp: Let's help {name}! Can you solve this?
+  # A puzzle for {animal}, just picked.
+  letsHelp: Let's help {animal.name}! Can you solve this?
   # After a wrong answer; a new puzzle follows.
   notQuite: Not quite! Let's try another one.
   # After a right answer, while someone else still needs the doctor.
-  healedNext: Well done! {name} feels all better! Who is next?
+  healedNext: Well done! {animal.name} feels all better! Who is next?
   # After a right answer that leaves everyone at full HP.
-  healedAll: Well done! {name} feels all better! Everyone is fit and happy!
+  healedAll: Well done! {animal.name} feels all better! Everyone is fit and happy!
   # On the message line after leaving the card.
   goodbye: Bye! Come back any time.
   # After a lost battle, woken beside a tent.
@@ -126,7 +267,7 @@ doctor:
   byeKey: Esc
   # The puzzle area before an animal is picked.
   pick: Pick an animal
-  pickDetail: Solve a puzzle and {name} feels all better!
+  pickDetail: Solve a puzzle and {animal.name} feels all better!
   byeDetail: Say bye and go exploring.
   listKeys: ↑ ↓ choose · Enter pick · Esc bye
   # Under a doctor's puzzle while another animal needs help too.
@@ -135,18 +276,6 @@ doctor:
   allFit: Time to explore!
   allFitKeys: Enter or Esc to say bye
 
-keys:
-  # A key cap, as printed on the keyboard.
-  esc: Esc
-
-hud:
-  # The tag on the card of the lead: the animal that steps into the next battle.
-  goesFirst: goes first
-  # Under the party cards, after the number keys 1–n.
-  pickLead: Pick who goes first
-  # Under the party cards, after the Esc key cap.
-  menu: Menu
-
 pause:
   # The pause menu's title.
   title: Paused
@@ -154,6 +283,9 @@ pause:
   team: Your team
   # The row that closes the menu.
   resume: Keep playing
+  # The row that switches every word to another language; each language is
+  # listed by its own name (language.name above).
+  language: Language
   # The picked animal's options: become the lead, move one place, get a nickname.
   goFirst: Go first
   moveUp: Move up
@@ -164,15 +296,16 @@ pause:
   pick: Pick an animal
   pickHelp: Choose who goes first, move it, or give it a name.
   # Under the options of a tired animal, whose "Go first" is greyed.
-  tiredHelp: "{name} is tired, so it can't go first."
+  tiredHelp: "{animal.name} is tired, so it can't go first."
   # Above the name box.
-  nameTitle: New name for {name}
+  nameTitle: New name for {animal.name}
   # Under the name box; {max} is the most characters a name can have.
   nameRule: Letters and numbers, up to {max}.
   # Under the name box, when the typed name will be stored differently.
   willBe: Its name will be {name}.
   # The key reminder at the bottom, one per screen of the menu.
   keysList: ↑ ↓ choose · Enter pick · Esc close
+  keysLanguage: ↑ ↓ choose · ← → or Enter change the language · Esc close
   keysOptions: ↑ ↓ choose · Enter do it · Esc back
   keysNaming: Enter save · Esc back
 

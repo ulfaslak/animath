@@ -163,6 +163,7 @@ export const sequence: PuzzleGenerator = {
 	kind: 'sequence',
 	minDifficulty: 1,
 	maxDifficulty: 10,
+	topics: () => ['sequence'],
 	generate(rng: Rng, difficulty: number): Puzzle {
 		const family = rng.pick(familiesFor(difficulty));
 		const seq = terms(family, rng, difficulty);

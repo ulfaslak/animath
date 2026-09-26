@@ -26,7 +26,7 @@ const words = (spec: AnimalSpec, menu: Menu) => attackRows(spec, menu.levels).ma
 
 describe('attack rows', () => {
 	for (const spec of ANIMALS) {
-		it(`${spec.name}: every row's level is its own, and reads easy, medium, hard`, () => {
+		it(`${spec.id}: every row's level is its own, and reads easy, medium, hard`, () => {
 			const n = spec.attacks.length;
 			for (let row = 0; row < n; row++) {
 				// Walk to the row from the top, then step its level up and back down.
@@ -61,7 +61,7 @@ describe('attack rows', () => {
 
 describe('menu keys', () => {
 	for (const spec of ANIMALS) {
-		it(`${spec.name}: the cursor wraps, and each row does its own thing`, () => {
+		it(`${spec.id}: the cursor wraps, and each row does its own thing`, () => {
 			const n = spec.attacks.length;
 			const rows = actionCount(n);
 			expect(rows).toBe(n + 3);
