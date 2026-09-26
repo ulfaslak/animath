@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import { ANIMALS, getAnimal } from '../src/animals/catalog.js';
-import type { AttackLevel } from '../src/animals/types.js';
+import type { AttackLevel, Biome } from '../src/animals/types.js';
+import { hashString } from '../src/rng.js';
+import { SAFE_RADIUS, distanceFromSpawn, encounterTableAt } from '../src/world/encounters.js';
+import { spawnPoint, tileAtWorld } from '../src/world/generate.js';
+import { surroundings } from '../src/world/habitat.js';
 import { makeParty, makeWild, playBattle, type PlayerModel, type Policy } from './battle-sim.js';
 
 /**
@@ -82,18 +86,49 @@ function grid(model: PlayerModel): string {
 }
 
 /**
- * The starter against its own tier near spawn. In the meadow a wild squirrel
- * or a wild rabbit, equally likely; at the river a squirrel, a rabbit or a
- * frog (the squirrels and rabbits come down to the frogs' reeds), and the reed
- * beside the prototype world's spawn tile is where a new game's first battles
- * happen.
+ * The tier-1 animals a starter meets near home, and how often: over every
+ * tall-grass tile of the prototype world within the safe radius of spawn (of
+ * one biome, or all), the tier-1 part of the table the ground there makes,
+ * normalised. Mostly rabbits in the open meadow, frogs by the water and
+ * squirrels by the trees.
  */
-const STARTER_MIXES: Record<string, readonly string[]> = {
-	'squirrel or rabbit (the meadow)': ['squirrel', 'rabbit'],
-	'squirrel, rabbit or frog (the river)': ['squirrel', 'rabbit', 'frog']
+function nearHomeMix(biome?: Biome): Map<string, number> {
+	const seed = hashString('prototype');
+	const spawn = spawnPoint(seed);
+	const mix = new Map<string, number>();
+	for (let y = spawn.y - SAFE_RADIUS; y <= spawn.y + SAFE_RADIUS; y++) {
+		for (let x = spawn.x - SAFE_RADIUS; x <= spawn.x + SAFE_RADIUS; x++) {
+			const pos = { x, y };
+			const tile = tileAtWorld(seed, x, y);
+			if (tile.kind !== 'tallgrass' || distanceFromSpawn(pos, spawn) > SAFE_RADIUS) continue;
+			if (biome && tile.biome !== biome) continue;
+			const site = { tile, pos, spawn, around: surroundings(seed, pos) };
+			for (const e of encounterTableAt(site, 1))
+				if (e.species.tier === 1) mix.set(e.species.id, (mix.get(e.species.id) ?? 0) + e.weight);
+		}
+	}
+	const sum = [...mix.values()].reduce((a, b) => a + b, 0);
+	return new Map([...mix].map(([id, w]) => [id, w / sum]));
+}
+
+/**
+ * The starter against its own tier near spawn, as the ground brings them
+ * out: all the tall grass near home, then the meadow's and the river's alone.
+ * The reed beside the prototype world's spawn tile, by the lake, is where a
+ * new game's first battles happen.
+ */
+const STARTER_MIXES: Record<string, ReadonlyMap<string, number>> = {
+	'the tier-1 animals near home': nearHomeMix(),
+	'the meadow near home': nearHomeMix('meadow'),
+	'the river near home': nearHomeMix('river')
 };
-const starterWin = (model: PlayerModel, wild: readonly string[]) =>
-	mean(wild.map((w) => simulate('squirrel', w, model, TARGET_SEEDS).win));
+const mixWords = (mix: ReadonlyMap<string, number>) =>
+	[...mix].map(([id, w]) => `${id} ${pct(w)}`).join(', ');
+const starterWin = (model: PlayerModel, mix: ReadonlyMap<string, number>) =>
+	[...mix].reduce(
+		(sum, [w, share]) => sum + share * simulate('squirrel', w, model, TARGET_SEEDS).win,
+		0
+	);
 
 function targets(): string {
 	const rows: string[] = [
@@ -111,14 +146,14 @@ function targets(): string {
 	row('same tier', 0, easiest(0.7), '40–55%');
 	row('one tier up', 1, easiest(1), 'under 35%');
 	row('two tiers up', 2, easiest(1), 'under 10%');
-	for (const [mix, wild] of Object.entries(STARTER_MIXES)) {
+	for (const [name, mix] of Object.entries(STARTER_MIXES)) {
 		for (const [acc, target] of [
 			[1, '65–80%'],
 			[0.85, '—'],
 			[0.7, '40–55%']
 		] as const) {
 			rows.push(
-				`| starter squirrel vs ${mix} | easiest puzzle, right ${pct(acc)} | ${target} | ${pct(starterWin(easiest(acc), wild))} | — |`
+				`| starter squirrel vs ${name} (${mixWords(mix)}) | easiest puzzle, right ${pct(acc)} | ${target} | ${pct(starterWin(easiest(acc), mix))} | — |`
 			);
 		}
 	}
@@ -173,10 +208,18 @@ describe('balance simulation', () => {
 	}, 30_000);
 
 	it('the starter squirrel meets the same targets against its own near-spawn tier', () => {
-		for (const [mix, wild] of Object.entries(STARTER_MIXES)) {
-			expectInBand(starterWin(easiest(1), wild), 0.65, 0.8, `starter vs ${mix}, always right`);
-			expectInBand(starterWin(easiest(0.7), wild), 0.4, 0.55, `starter vs ${mix}, right 70%`);
+		for (const name of ['the tier-1 animals near home', 'the river near home']) {
+			const mix = STARTER_MIXES[name]!;
+			expectInBand(starterWin(easiest(1), mix), 0.65, 0.8, `starter vs ${name}, always right`);
+			expectInBand(starterWin(easiest(0.7), mix), 0.4, 0.55, `starter vs ${name}, right 70%`);
 		}
+		// The open meadow is the rabbits' ground (3 in 4 of its tier-1 animals
+		// near home), and the rabbit is the strongest tier-1 animal: there a
+		// squirrel starter right 7 times in 10 wins about 37%, below the band,
+		// and never less than one fight in three.
+		const meadow = STARTER_MIXES['the meadow near home']!;
+		expectInBand(starterWin(easiest(1), meadow), 0.65, 0.8, 'starter vs the meadow, always right');
+		expectInBand(starterWin(easiest(0.7), meadow), 1 / 3, 0.4, 'starter vs the meadow, right 70%');
 	});
 
 	it('on the easiest puzzle, one tier up is hard and two tiers up is out of reach', () => {
