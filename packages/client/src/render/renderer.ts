@@ -174,7 +174,7 @@ export class GameRenderer {
 		}
 		animateIdle(this.player, t);
 		animateWalk(this.player, this.step.progress, this.step.stride, motion.reduced ? 0.4 : 1);
-		for (const f of this.figures) animateIdle(f, t);
+		for (const f of this.figures) animateIdle(f, t, this.camera);
 		const dt = this.lastT < 0 ? 0 : Math.min(0.1, Math.max(0, t - this.lastT));
 		this.lastT = t;
 		this.butterflies.update({ x: this.cameraTarget.x, z: this.cameraTarget.z }, dt, t);

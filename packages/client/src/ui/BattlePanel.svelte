@@ -66,10 +66,14 @@
 		return kindList(topics, 'disjunction');
 	}
 
+	/** What the highlighted row of the action menu does: an attack, the leash, a switch or running. */
+	const action = $derived(spec ? actionAt(battle.cursor, spec.attacks.length) : null);
+	/** The highlighted row can't be done (a greyed Switch): Enter and Go do nothing there. */
+	const greyed = $derived(action?.kind === 'switch' && !canSwitch);
+
 	/** What the highlighted row will do, in words a kid can read. */
 	const detail = $derived.by(() => {
-		if (!spec) return '';
-		const action = actionAt(battle.cursor, spec.attacks.length);
+		if (!spec || !action || !opponent) return '';
 		if (action.kind === 'attack') {
 			const row = rows[action.index - 1]!;
 			const damage = attackDamage(spec, row.index, row.level, true);
@@ -77,16 +81,54 @@
 			// missing number can sit in a times table, and then it says so.
 			const difficulty = puzzleDifficulty(spec.tier, row.index, row.level);
 			const kinds = kindWords(puzzleTopics(spec.attacks[row.index - 1]!.kinds, difficulty));
-			return t('battle.attackDetail', { attack: row.name, level: row.word, kinds, damage });
+			return t('battle.attackDetail', {
+				attack: row.name,
+				level: row.word,
+				kinds,
+				damage,
+				animal: animalWords(opponent)
+			});
 		}
 		if (action.kind === 'leash') {
-			return teamFull ? t('battle.leash.teamFullDetail') : t('battle.leash.detail');
+			return teamFull
+				? t('battle.leash.teamFullDetail')
+				: t('battle.leash.detail', { animal: animalWords(opponent) });
 		}
 		if (action.kind === 'switch') {
 			if (canSwitch) return t('battle.switch.detail');
 			return battle.party.length < 2 ? t('battle.switch.alone') : t('battle.switch.allTired');
 		}
-		return t('battle.run.detail');
+		return t('battle.run.detail', { animal: animalWords(opponent) });
+	});
+
+	/** The puzzle area's title for the highlighted row: what picking it does. */
+	const rowTitle = $derived.by(() => {
+		switch (action?.kind) {
+			case 'leash':
+				return t('battle.menu.leash');
+			case 'switch':
+				return t('battle.menu.switch');
+			case 'run':
+				return t('battle.menu.run');
+			default:
+				return t('battle.menu.attack');
+		}
+	});
+
+	/**
+	 * The key reminder for the highlighted row: left and right only on an
+	 * attack row (the only one with a level), and no Enter where it does
+	 * nothing. With the touch controls on, a tap hint instead; on a greyed
+	 * row, where Go does nothing, the way to an attack.
+	 */
+	const rowKeys = $derived.by(() => {
+		if (touch.on) {
+			return action?.kind === 'attack' || greyed
+				? t('battle.menu.touchAttack')
+				: t('battle.menu.touch');
+		}
+		if (action?.kind === 'attack') return t('battle.menu.keysAttack');
+		return greyed ? t('battle.menu.keysGreyed') : t('battle.menu.keys');
 	});
 
 	/** What picking the highlighted animal of the party list would do. */
@@ -114,6 +156,11 @@
 		const chance = catchProbability(hp, opponentSpec.catchRate, battle.leashQuality);
 		return chance >= 0.5 ? 'good' : chance >= 0.2 ? 'warn' : 'bad';
 	});
+
+	/** A narration beat split after each ".", "!" or "?" that ends a sentence. */
+	function sentences(text: string): string[] {
+		return text.split(/(?<=[.!?])\s+/);
+	}
 
 	/**
 	 * How the result card celebrates: big for an animal that joined the team
@@ -173,10 +220,15 @@
 {/if}
 
 {#if battle.line}
-	<div class="battle-line">{words(battle.line)}</div>
+	<!-- Each sentence holds together, so a beat too long for one line breaks between them. -->
+	<div class="battle-line">
+		{#each sentences(words(battle.line)) as sentence, i (i)}{#if i > 0}{' '}{/if}<span
+				class="sentence">{sentence}</span
+			>{/each}
+	</div>
 {/if}
 
-<div class="panel">
+<div class="panel" class:listing={battle.screen === 'party'}>
 	{#if battle.screen === 'party'}
 		<div class="card actions party">
 			{#key battle.refused}
@@ -329,10 +381,10 @@
 				</div>
 			</div>
 		{:else}
-			<div class="soft">{t('battle.pickAttack')}</div>
+			<div class="soft">{rowTitle}</div>
 			<div class="detail">{detail}</div>
 			<div class="footer">
-				<div class="keys">{touch.on ? t('battle.menuTouch') : t('battle.menuKeys')}</div>
+				<div class="keys">{rowKeys}</div>
 				<div class="buttons">
 					<button
 						type="button"
@@ -370,9 +422,10 @@
 {/if}
 
 <style>
+	/* Wide enough for a twelve-letter nickname of the widest letters (WWWWWWWWWWWW is 242 px). */
 	.status {
 		position: absolute;
-		width: 240px;
+		width: 280px;
 		max-width: calc(50vw - 24px);
 		box-sizing: border-box;
 		background: var(--panel-bg);
@@ -425,6 +478,12 @@
 		font-weight: 800;
 		font-size: 18px;
 		text-align: center;
+		/* A line too long for one (a long nickname) breaks into even halves, not a lone word. */
+		text-wrap: balance;
+	}
+	/* A sentence stays whole on a line when it fits. */
+	.sentence {
+		display: inline-block;
 	}
 
 	.panel {
@@ -439,9 +498,18 @@
 		padding: 0 16px 16px;
 		box-sizing: border-box;
 	}
+	/*
+	 * The party list takes the wider side: each row holds a name of up to
+	 * twelve letters, an HP bar and a tag, and the card beside it only a
+	 * sentence and two buttons.
+	 */
+	.panel.listing {
+		grid-template-columns: 3fr minmax(300px, 2fr);
+	}
 	/* Below the supported sizes, give the attack names the room before the puzzle. */
 	@media (max-width: 900px) {
-		.panel {
+		.panel,
+		.panel.listing {
 			grid-template-columns: 1fr 1fr;
 		}
 	}
@@ -556,6 +624,31 @@
 		flex: 0 1 150px;
 		min-width: 100px;
 	}
+	/*
+	 * The party list lines its rows up in shared columns — caret, name, HP bar,
+	 * tag — sized by the longest name there, so every name shows whole (up to
+	 * twelve letters of the widest, at 1024 px) and the bars start together.
+	 * A row is a subgrid of the list; a browser without subgrid lays each row
+	 * out on its own, in the same columns.
+	 */
+	.party {
+		display: grid;
+		grid-template-columns: 16px minmax(0, max-content) minmax(100px, 1fr) auto;
+		grid-auto-rows: minmax(32px, 40px);
+		align-content: center;
+		gap: 2px 8px;
+	}
+	:global(.touch) .party {
+		grid-auto-rows: var(--tap);
+		gap: 0 8px;
+	}
+	.party .row {
+		grid-column: 1 / -1;
+		display: grid;
+		grid-template-columns: 16px minmax(0, max-content) minmax(100px, 1fr) auto;
+		grid-template-columns: subgrid;
+		min-height: 0;
+	}
 	.party .how {
 		min-width: 4.6em;
 		text-align: right;
@@ -619,12 +712,25 @@
 		align-items: center;
 		gap: 10px;
 	}
+	/*
+	 * Too narrow for the reminder beside the buttons (the card beside the party
+	 * list), the reminder takes a line of its own above them; the buttons stay
+	 * at the right edge.
+	 */
 	:global(.touch) .footer {
 		flex-direction: row;
+		flex-wrap: wrap;
 		justify-content: space-between;
 		align-self: stretch;
+		gap: 8px 10px;
 		margin-top: 6px;
 		text-align: left;
+	}
+	:global(.touch) .footer .keys {
+		flex: 1 1 12em;
+	}
+	:global(.touch) .buttons {
+		margin-left: auto;
 	}
 	.buttons {
 		display: flex;

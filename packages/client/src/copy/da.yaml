@@ -108,8 +108,8 @@ species:
       crush: Kæmpetramp
 
 puzzle:
-  keys: Skriv svaret, og tryk så på Enter
-  keysTouch: Tast svaret, og tryk så på OK
+  keys: Skriv svaret og tryk på Enter
+  keysTouch: Tast svaret og tryk på OK
   ok: OK
   minus: Minus
   delete: Slet
@@ -138,7 +138,7 @@ hud:
 party:
   tired: træt
   leadChosen: '{animal.the} er først ud!'
-  leadTired: '{animal.the} er træt. Besøg dyrlægen!'
+  leadTired: '{animal.the} er træt. Gå til dyrlægen!'
   leadAlready: '{animal.the} er allerede først ud!'
 
 battle:
@@ -148,20 +148,27 @@ battle:
   whatNow: 'Hvad skal {animal.the} gøre?'
   tries: '{animal.the} prøver {attack}!'
   used: '{animal.the} bruger {attack}!'
-  usedDamage: '{animal.the} bruger {attack}! {damage} i skade.'
+  usedDamage: '{animal.the} bruger {attack}! {target.theWild} mister {damage} point.'
   youMissed: 'Forbi! {animal.theWild} ryster det af sig.'
   wildUsed: '{animal.theWild} bruger {attack}!'
-  wildUsedDamage: '{animal.theWild} bruger {attack}! {damage} i skade.'
+  wildUsedDamage: '{animal.theWild} bruger {attack}! {target.the} mister {damage} point.'
   wildMissed: '{animal.theWild} bruger {attack}! Forbi!'
   tired: '{animal.the} er træt.'
   wildTired: '{animal.theWild} er træt!'
   gotAway: Du slap væk!
-  pickAttack: Vælg et angreb
-  menuKeys: ↑ ↓ vælg · ← → hvor svært · Enter kør
-  menuTouch: Tryk på et angreb, og så på Kør!
+  menu:
+    attack: Vælg et angreb
+    leash: Kast snoren
+    switch: Skift dyr
+    run: Løb væk
+    keys: ↑ ↓ flyt · Enter kør
+    keysAttack: ↑ ↓ flyt · ← → lettere eller sværere · Enter kør
+    keysGreyed: ↑ ↓ flyt
+    touch: Tryk på Kør!
+    touchAttack: Tryk på et angreb og så på Kør!
   goButton: Kør!
   backButton: Tilbage
-  attackDetail: '{attack} på {level}: {kinds}. Det gør {damage} i skade.'
+  attackDetail: '{attack} på {level}: {kinds}. {animal.theWild} mister {damage} point.'
   kinds:
     add: plus
     sub: minus
@@ -176,7 +183,7 @@ battle:
     hard: svær
   leash:
     row: Snor
-    detail: Kast snoren, og fang dyret! Det virker bedst, når dyret er svagt.
+    detail: 'Prøv at fange {animal.theWild}! Det virker bedst, når dyret er svagt.'
     good: God chance!
     maybe: Måske
     hard: Svært at fange
@@ -187,16 +194,16 @@ battle:
     brokeFree: Snoren gled af!
   run:
     row: Løb væk
-    detail: Løb væk. Det vilde dyr bliver i græsset.
+    detail: 'Du slipper altid væk. {animal.theWild} bliver i græsset.'
   switch:
     row: Skift
-    detail: Send et andet dyr ind. Det bruger din tur.
+    detail: Send et andet dyr ind. Det koster din tur.
     alone: Du skal have to dyr for at skifte. Fang et med snoren!
     allTired: Dine andre dyr er trætte.
     title: Vælg et dyr
-    keys: ↑ ↓ vælg · Enter kør · Esc tilbage
-    mustPickKeys: ↑ ↓ vælg · Enter kør
-    touch: Tryk på et dyr, og så på Kør!
+    keys: ↑ ↓ flyt · Enter kør · Esc tilbage
+    mustPickKeys: ↑ ↓ flyt · Enter kør
+    touch: Tryk på et dyr og så på Kør!
     tiredTag: træt
     inBattleTag: på banen
     sendIn: 'Send {animal.the} ind. Så får det vilde dyr en tur.'
@@ -224,7 +231,7 @@ doctor:
   helloAllFit: Hej! Alle dine dyr er friske og glade.
   letsHelp: Lad os hjælpe {animal.the}! Kan du løse den her?
   notQuite: Ikke helt! Lad os prøve en anden.
-  healedNext: Godt klaret! {animal.the} har det godt igen! Hvem er den næste?
+  healedNext: Godt klaret! {animal.the} har det godt igen! Hvem skal jeg hjælpe nu?
   healedAll: Godt klaret! {animal.the} har det godt igen! Alle er friske og glade!
   goodbye: Hej hej! Kom bare igen, når du vil.
   rescuedAtTent: Dyrlægen har passet godt på dine dyr. Nu har alle det godt igen!
@@ -233,7 +240,7 @@ doctor:
   byeKey: Esc
   pick: Vælg et dyr
   pickDetail: Løs en opgave, så får {animal.the} det godt igen!
-  byeDetail: Sig farvel, og gå på opdagelse.
+  byeDetail: Sig farvel og gå på opdagelse.
   listKeys: ↑ ↓ flyt · Enter vælg · Esc farvel
   listTouch: Tryk på et dyr for at hjælpe det
   puzzleKeys: ↑ ↓ hjælp et andet dyr · Esc farvel
@@ -258,7 +265,7 @@ pause:
   newName: Nyt navn
   back: Tilbage
   pick: Vælg et dyr
-  pickHelp: Vælg hvem der er først ud, flyt det, eller giv det et navn.
+  pickHelp: Så kan du sætte det forrest, flytte det eller give det et nyt navn.
   tiredHelp: '{animal.the} er træt og kan ikke være først ud.'
   nameTitle: Nyt navn til {animal.the}
   nameRule: Bogstaver og tal, op til {max}.
@@ -266,7 +273,7 @@ pause:
   keysList: ↑ ↓ flyt · Enter vælg · Esc luk
   keysLanguage: ↑ ↓ flyt · ← → eller Enter skift sprog · Esc luk
   keysSound: ↑ ↓ flyt · ← → eller Enter slå lyden fra eller til · Esc luk
-  keysOptions: ↑ ↓ flyt · Enter gør det · Esc tilbage
+  keysOptions: ↑ ↓ flyt · Enter vælg · Esc tilbage
   keysNaming: Enter gem · Esc tilbage
   save: Gem
 
@@ -285,10 +292,10 @@ save:
   behind: Du spillede videre i et andet vindue.
   # The same card when the newest game came from somewhere else (the server backup),
   # shown only when the page has already reloaded by itself three times in a minute.
-  behindReady: Dit nyeste spil er klar.
+  behindReady: Dit nyeste spil er klart.
   # The same card when the saved game was cleared (a new game comes next), shown only
   # when the page has already reloaded by itself three times in a minute.
-  behindGone: Et nyt spil er klar.
+  behindGone: Et nyt spil er klart.
   # The button on that card.
   behindGo: Hent dit nyeste spil
 
@@ -319,12 +326,12 @@ title:
     keys: ↑ ↓ flyt · Enter vælg · Esc tilbage
   starter:
     title: Vælg dit første dyr!
-    loves: '{animal.the} elsker {kinds}!'
+    loves: '{animal.the} er mester i {kinds}!'
     keys: ← → flyt · Enter vælg · Esc tilbage
     pick: 'Vælg {animal.the}!'
   naming:
     title: Hvad skal {animal.the} hedde?
     empty: Uden et navn hedder dyret bare {animal.name}.
     keys: Enter færdig · Esc tilbage
-    start: Afsted!
+    start: Så kører vi!
   back: Tilbage

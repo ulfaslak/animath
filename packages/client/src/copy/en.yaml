@@ -174,28 +174,40 @@ battle:
   whatNow: 'What will {animal.name} do?'
   tries: '{animal.name} tries {attack}!'
   used: '{animal.name} used {attack}!'
-  usedDamage: '{animal.name} used {attack}! {damage} damage.'
+  # A hit: {target} is the animal hit (the wild one here, yours below); {damage}
+  # is the HP it loses, said the same way as in battle.attackDetail.
+  usedDamage: '{animal.name} used {attack}! It hits {target.theWild} for {damage}.'
   # Your wrong answer: the wild animal shrugs it off.
   youMissed: 'Missed! {animal.theWild} shrugs it off.'
   wildUsed: '{animal.wild} used {attack}!'
-  wildUsedDamage: '{animal.wild} used {attack}! {damage} damage.'
+  wildUsedDamage: '{animal.wild} used {attack}! It hits {target.name} for {damage}.'
   wildMissed: '{animal.wild} used {attack}! It missed.'
   tired: '{animal.name} is tired.'
   wildTired: '{animal.wild} is tired!'
   gotAway: You got away!
-  # The puzzle area before an attack is picked.
-  pickAttack: Pick an attack
-  # The key reminder under "Pick an attack".
-  menuKeys: ↑ ↓ choose · ← → how hard · Enter go
-  # The same, with the touch controls on. "Go!" is battle.goButton.
-  menuTouch: Tap an attack, then Go!
+  # The puzzle area while the action menu is up, before anything is picked: a
+  # title for what the highlighted row does, and the key reminder for that row.
+  # Only an attack row has a level for left and right to change.
+  menu:
+    attack: Pick an attack
+    leash: Throw the leash
+    switch: Switch animals
+    run: Run away
+    keys: ↑ ↓ choose · Enter go
+    keysAttack: ↑ ↓ choose · ← → how hard · Enter go
+    # A greyed row (Switch with nobody to send in), where Enter does nothing.
+    keysGreyed: ↑ ↓ choose
+    # The same, with the touch controls on. "Go!" is battle.goButton.
+    touch: Tap Go!
+    touchAttack: Tap an attack, then Go!
   # The button that does the highlighted row (an attack, the leash, a switch),
   # and the one that leaves the party list, as Enter and Esc do.
   goButton: Go!
   backButton: Back
   # The highlighted attack. {attack}: its name; {level}: its level's word;
-  # {kinds}: what its sums are about (the words below, in an "or" list); {damage}: how much it hits for.
-  attackDetail: '{attack} on {level}: {kinds}. It hits for {damage}.'
+  # {kinds}: what its sums are about (the words below, in an "or" list);
+  # {animal}: the wild animal it would hit; {damage}: the HP it would lose.
+  attackDetail: '{attack} on {level}: {kinds}. It hits {animal.theWild} for {damage}.'
   # What a puzzle looks like to the kid, as {kinds} lists the ones an attack's
   # puzzles can be at its level (the engine's puzzleTopics). `missing` is a
   # number missing from a sum ("7 + ? = 12"); one missing from a times table
@@ -215,7 +227,8 @@ battle:
     hard: hard
   leash:
     row: Leash
-    detail: Throw the leash to catch it! It works best when its HP is low.
+    # What the row says when highlighted. {animal}: the wild animal.
+    detail: 'Try to catch {animal.theWild}! It works best when its HP is low.'
     # Beside the row: how likely a throw is to catch the wild animal right now.
     good: Good chance!
     maybe: Maybe
@@ -230,7 +243,8 @@ battle:
     brokeFree: It broke free!
   run:
     row: Run
-    detail: Run away. The wild animal stays in the grass.
+    # What the row says when highlighted. {animal}: the wild animal.
+    detail: 'You always get away. {animal.theWild} stays in the grass.'
   switch:
     # The Switch row of the action menu, and what it says when highlighted.
     row: Switch
@@ -344,12 +358,12 @@ pause:
   # Under the name box; {max} is the most characters a name can have.
   nameRule: Letters and numbers, up to {max}.
   # Under the name box, when the typed name will be stored differently.
-  willBe: Its name will be {name}.
+  willBe: It will be called {name}.
   # The key reminder at the bottom, one per screen of the menu.
   keysList: ↑ ↓ choose · Enter pick · Esc close
   keysLanguage: ↑ ↓ choose · ← → or Enter change the language · Esc close
   keysSound: ↑ ↓ choose · ← → or Enter sound off or on · Esc close
-  keysOptions: ↑ ↓ choose · Enter do it · Esc back
+  keysOptions: ↑ ↓ choose · Enter pick · Esc back
   keysNaming: Enter save · Esc back
   # The name box's buttons, as Enter and Esc do.
   save: Save
@@ -417,7 +431,7 @@ title:
   # The name box for the animal just picked. {animal}: its species.
   naming:
     title: What will you call your {animal.name}?
-    empty: Leave it empty and it is just called {animal.name}.
+    empty: "Leave it empty and it's just called {animal.name}."
     keys: Enter done · Esc back
     # The card's button that starts the game, as Enter does.
     start: "Let's go!"

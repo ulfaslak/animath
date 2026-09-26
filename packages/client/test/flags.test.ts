@@ -6,19 +6,26 @@ import { parseParty, readFlags } from '../src/flags';
 describe('URL switches', () => {
 	it('reads ?zoo, ?debug, ?party= and ?new', () => {
 		expect(readFlags('')).toEqual({
-			zoo: false,
+			zoo: null,
 			debug: false,
 			party: null,
 			fresh: false,
 			throwaway: false
 		});
 		expect(readFlags('?zoo&debug&party=fox&new')).toEqual({
-			zoo: true,
+			zoo: 'standing',
 			debug: true,
 			party: [{ id: 'party-1', speciesId: 'fox', hp: getAnimal('fox').maxHp }],
 			fresh: true,
 			throwaway: true
 		});
+	});
+
+	it('?zoo=tired lays the line-up down to rest; any other value is the standing zoo', () => {
+		expect(readFlags('?zoo=tired').zoo).toBe('tired');
+		expect(readFlags('?zoo=').zoo).toBe('standing');
+		expect(readFlags('?zoo=sleepy').zoo).toBe('standing');
+		expect(readFlags('?zoo=tired').throwaway).toBe(true);
 	});
 
 	it('?new, ?party= and ?zoo each play a throwaway game past the title; ?debug and ?lang do not', () => {
