@@ -29,9 +29,11 @@
 	 * The heal's sparkles: little stars that pop up along the healed animal's
 	 * HP bar as it fills. `x` is where along the bar (%), `dx`/`dy` how far each
 	 * flies (px), `d` its delay (s). With reduced motion they twinkle in place.
+	 * None flies further left than the gap before the bar: a long name ends
+	 * there.
 	 */
 	const SPARKS = [
-		{ x: 4, dx: -10, dy: -26, d: 0, c: 'gold' },
+		{ x: 8, dx: -6, dy: -26, d: 0, c: 'gold' },
 		{ x: 16, dx: 8, dy: 22, d: 0.12, c: 'green' },
 		{ x: 28, dx: -6, dy: -32, d: 0.05, c: 'white' },
 		{ x: 40, dx: 10, dy: 20, d: 0.18, c: 'gold' },
@@ -64,23 +66,23 @@
 			>
 				<span class="caret">▸</span>
 				<span class="label">{nameOf(animal)}</span>
-				<!-- "tired" in the empty bar, so the name has the row. -->
-				<span class="bar"
-					><HpBar hp={animal.hp} max={spec.maxHp} emptyTag={t('party.tired')} /></span
-				>
-				{#if doctor.healed?.index === i}
-					{#key doctor.healed.n}
-						<span class="sparkles" aria-hidden="true">
-							{#each SPARKS as s, k (k)}
-								<i
-									class="spark {s.c}"
-									style="left: {s.x}%; --dx: {s.dx}px; --dy: {s.dy}px; animation-delay: {s.d}s"
-								></i>
-							{/each}
-						</span>
-						<span class="heal">+{doctor.healed.amount}</span>
-					{/key}
-				{/if}
+				<!-- "tired" in the empty bar, so the name has the row; the heal's stars and "+N" over the bar. -->
+				<span class="bar">
+					<HpBar hp={animal.hp} max={spec.maxHp} emptyTag={t('party.tired')} />
+					{#if doctor.healed?.index === i}
+						{#key doctor.healed.n}
+							<span class="sparkles" aria-hidden="true">
+								{#each SPARKS as s, k (k)}
+									<i
+										class="spark {s.c}"
+										style="left: {s.x}%; --dx: {s.dx}px; --dy: {s.dy}px; animation-delay: {s.d}s"
+									></i>
+								{/each}
+							</span>
+							<span class="heal">+{doctor.healed.amount}</span>
+						{/key}
+					{/if}
+				</span>
 			</button>
 		{/each}
 		<button
@@ -267,6 +269,7 @@
 	}
 	/* At the right of its column, at most 220 px long. */
 	.bar {
+		position: relative;
 		justify-self: end;
 		width: 100%;
 		max-width: 220px;
@@ -274,13 +277,11 @@
 	.bye kbd {
 		justify-self: end;
 	}
-	/* The heal's "+N" and sparkles, over the bar: its column is where they are placed. */
+	/* The heal's "+N", over the bar's numbers. */
 	.heal {
 		position: absolute;
-		grid-column: 3;
-		grid-row: 1;
 		right: 4px;
-		top: -8px;
+		top: -14px;
 		font-weight: 800;
 		font-size: 24px;
 		color: var(--good);
@@ -290,14 +291,12 @@
 		pointer-events: none;
 		animation: pop 1.2s ease-out forwards;
 	}
-	/* Over the HP bar, where it fills: never over the name. */
+	/* Along the HP bar, where it fills. */
 	.sparkles {
 		position: absolute;
-		grid-column: 3;
-		grid-row: 1;
+		left: 0;
 		right: 0;
 		top: 50%;
-		width: min(100%, 220px);
 		height: 0;
 		pointer-events: none;
 	}
