@@ -140,6 +140,18 @@ interface Leash {
 /** Where the leash comes from: the trainer's hand, just off the lower-left edge. */
 const HAND = new THREE.Vector3(-2.4, 0.9, 3.4);
 const UP = new THREE.Vector3(0, 1, 0);
+/** The loop leans back towards the camera, so it reads as a ring, not a line. */
+const LOOP_TILT = Math.PI / 2 - 0.6;
+/** The throw arcs at most a tile over the straight line from the hand to the animal. */
+const LEASH_ARC = 1;
+/**
+ * The sky a throw keeps clear over its loop, as a share of the scene's
+ * height on screen (the canvas above the panel): the loop comes no nearer
+ * than this to the top of the picture.
+ */
+const LEASH_HEADROOM = 0.05;
+/** Points along the throw at which its arc is measured against the picture's top. */
+const LEASH_SAMPLES = 32;
 
 function lambert(hex: number): THREE.MeshLambertMaterial {
 	return new THREE.MeshLambertMaterial({ color: hex, flatShading: true });
@@ -673,25 +685,86 @@ export class BattleScene {
 		this.updateLeash(dt, t);
 	}
 
+	/** Where the loop settles on the wild animal, a little above its middle. */
+	private leashHold(): THREE.Vector3 {
+		const to = SPOT.opponent;
+		return new THREE.Vector3(to.x, this.heights.opponent * 0.55, to.z);
+	}
+
+	/** Big enough to go round the wild animal: a squirrel's loop is small, a bear's wide. */
+	private loopSize(): number {
+		return Math.max(0.8, Math.min(1.6, this.heights.opponent / 0.7));
+	}
+
+	/**
+	 * How high the throw arcs over the straight line from the hand to the
+	 * animal, at its middle, with full motion: `LEASH_ARC`, or lower where the
+	 * picture has no room for it, so that the loop's top stays
+	 * `LEASH_HEADROOM` below the top edge all the way. Measured through the
+	 * camera as it is, against every point of this animal's loop: the camera
+	 * sees little sky above the animals, and a taller animal is held higher in
+	 * a bigger loop, so a deer's throw arcs lower than a frog's.
+	 */
+	private leashArc(): number {
+		const camera = this.camera;
+		camera.updateMatrixWorld();
+		// The line the loop keeps under, in the camera's -1..1 (the canvas's top edge is 1).
+		const free = Math.max(1, this.height - battlePanelHeight(this.height));
+		const edge = 1 - (2 * free * LEASH_HEADROOM) / Math.max(1, this.height);
+		// Whatever the camera shows below that line lies below this plane through the eye.
+		const ceiling = new THREE.Plane().setFromCoplanarPoints(
+			camera.getWorldPosition(new THREE.Vector3()),
+			new THREE.Vector3(-1, edge, 0.5).unproject(camera),
+			new THREE.Vector3(1, edge, 0.5).unproject(camera)
+		);
+		const { normal, constant } = ceiling;
+		// The loop's points as it flies (tilted and sized, never turned), around its middle.
+		const shape = new THREE.Matrix4().compose(
+			new THREE.Vector3(),
+			new THREE.Quaternion().setFromEuler(new THREE.Euler(LOOP_TILT, 0, 0)),
+			new THREE.Vector3().setScalar(this.loopSize())
+		);
+		const rim = LOOP_GEOMETRY.getAttribute('position');
+		const points = Array.from({ length: rim.count }, (_, i) =>
+			new THREE.Vector3().fromBufferAttribute(rim, i).applyMatrix4(shape)
+		);
+		const hold = this.leashHold();
+		const at = new THREE.Vector3();
+		let arc = LEASH_ARC;
+		for (let i = 1; i < LEASH_SAMPLES; i++) {
+			const p = i / LEASH_SAMPLES;
+			at.lerpVectors(HAND, hold, p);
+			// How far this point of the straight throw can rise before a point of the loop meets the plane.
+			let room = Infinity;
+			for (const q of points) {
+				const x = at.x + q.x;
+				const z = at.z + q.z;
+				room = Math.min(room, -(normal.x * x + normal.z * z + constant) / normal.y - (at.y + q.y));
+			}
+			arc = Math.min(arc, room / Math.sin(p * Math.PI));
+		}
+		return Number.isFinite(arc) ? Math.max(0, arc) : 0;
+	}
+
 	private updateLeash(dt: number, t: number): void {
 		const leash = this.leash;
 		if (!leash) return;
 		leash.t += dt;
 		const to = SPOT.opponent;
-		const holdY = this.heights.opponent * 0.55;
-		// Big enough to go round the animal: a squirrel's loop is small, a bear's wide.
-		const size = Math.max(0.8, Math.min(1.6, this.heights.opponent / 0.7));
+		const holdY = this.leashHold().y;
+		const size = this.loopSize();
 		const { loop, rope } = leash;
 		loop.scale.setScalar(size);
-		// Tilted towards the camera so the loop reads as a ring, not a line.
-		loop.rotation.set(Math.PI / 2 - 0.6, 0, 0);
+		loop.rotation.set(LOOP_TILT, 0, 0);
 		// With reduced motion the throw arcs a third as high, and a loop that pops off rises a third as far.
-		const arc = motion.reduced ? 0.35 : 1;
+		const calm = motion.reduced ? 0.35 : 1;
 		if (leash.state === 'flying') {
 			const p = Math.min(1, leash.t / LEASH_FLIGHT_SECONDS);
+			// Measured each frame: a resize can change the picture mid-throw.
+			const lift = p < 1 ? Math.sin(p * Math.PI) * this.leashArc() * calm : 0;
 			loop.position.set(
 				HAND.x + (to.x - HAND.x) * p,
-				HAND.y + (holdY - HAND.y) * p + Math.sin(p * Math.PI) * 1.0 * arc,
+				HAND.y + (holdY - HAND.y) * p + lift,
 				HAND.z + (to.z - HAND.z) * p
 			);
 			// Settled on the animal: it wobbles while everyone waits, a swing each
@@ -704,7 +777,7 @@ export class BattleScene {
 			loop.scale.setScalar(size * (1 - 0.15 * Math.min(1, leash.t / 0.2)));
 		} else {
 			const p = Math.min(1, leash.t / LEASH_POP_SECONDS);
-			loop.position.set(to.x, holdY + p * 0.8 * arc, to.z);
+			loop.position.set(to.x, holdY + p * 0.8 * calm, to.z);
 			loop.scale.setScalar(Math.max(0.001, size * (1 - p)));
 			if (p >= 1) {
 				this.dropLeash();
