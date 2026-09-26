@@ -115,19 +115,37 @@ function groundArm(
 /**
  * A starfish's arm, standing up: a cone from the middle at (0, `cy`) to its
  * tip the way `angle` points in the x–y plane (0 is +x, π/2 straight up),
- * flat front to back.
+ * flat front to back, and leaning back by `lean` about the x axis through
+ * the feet. The lean is in the shape itself, so its bounds are its own.
  */
-function starArm(r: number, length: number, hex: number, angle: number, cy: number): THREE.Mesh {
+function starArm(
+	r: number,
+	length: number,
+	hex: number,
+	angle: number,
+	cy: number,
+	lean: number
+): THREE.Mesh {
 	const geo = new THREE.ConeGeometry(r, length, 5);
 	geo.translate(0, length / 2, 0); // its base in the middle, its tip up
 	geo.scale(1, 1, 0.45);
 	geo.rotateZ(angle - Math.PI / 2);
 	geo.translate(0, cy, 0);
+	geo.rotateX(-lean);
 	return part(geo, hex, 0, 0, 0);
 }
 /** Where a standing starfish's middle is: its two lower arms, 54° below level, reach the ground. */
-const STAR_ARM = 0.2;
+const STAR_ARM = 0.3;
 const STAR_MIDDLE = STAR_ARM * Math.sin((54 * Math.PI) / 180);
+/** How far it leans back, so the camera above sees its face and not its edge. */
+const STAR_LEAN = 0.6;
+const X_AXIS = new THREE.Vector3(1, 0, 0);
+/** Lean a part back by `angle` about the x axis through the feet: where it is, and its turn. */
+function leanBack<T extends THREE.Object3D>(obj: T, angle: number): T {
+	obj.position.applyAxisAngle(X_AXIS, -angle);
+	obj.rotation.x -= angle;
+	return obj;
+}
 
 const BUILDERS: Record<string, Builder> = {
 	// Small and round, with a curled tail taller than the animal itself.
@@ -265,18 +283,20 @@ const BUILDERS: Record<string, Builder> = {
 			])
 		])
 	],
-	// A five-armed star standing up on two of its arms, a face in the middle.
+	// A five-armed star standing on two of its arms and leaning back, a face in the middle.
 	starfish: ({ fur, accent }) => [
 		...[90, 18, -54, -126, 162].map((deg) =>
-			starArm(0.075, STAR_ARM, fur, (deg * Math.PI) / 180, STAR_MIDDLE)
+			starArm(0.1, STAR_ARM, fur, (deg * Math.PI) / 180, STAR_MIDDLE, STAR_LEAN)
 		),
-		ball(0.085, fur, 0, STAR_MIDDLE, 0, 1, 1, 0.5),
-		ball(0.05, accent, 0, STAR_MIDDLE - 0.015, 0.03, 1, 0.8, 0.45),
-		...([-1, 1] as const).flatMap((side) => [
-			ball(0.026, COLORS.white, side * 0.035, STAR_MIDDLE + 0.03, 0.04),
-			ball(0.013, COLORS.dark, side * 0.035, STAR_MIDDLE + 0.03, 0.062)
-		]),
-		box(0.045, 0.012, 0.012, COLORS.dark, 0, STAR_MIDDLE - 0.025, 0.055)
+		...[
+			ball(0.12, fur, 0, STAR_MIDDLE, 0, 1, 1, 0.5),
+			ball(0.07, accent, 0, STAR_MIDDLE - 0.02, 0.045, 1, 0.8, 0.45),
+			...([-1, 1] as const).flatMap((side) => [
+				ball(0.036, COLORS.white, side * 0.05, STAR_MIDDLE + 0.04, 0.055),
+				ball(0.018, COLORS.dark, side * 0.05, STAR_MIDDLE + 0.04, 0.085)
+			]),
+			box(0.06, 0.015, 0.015, COLORS.dark, 0, STAR_MIDDLE - 0.035, 0.075)
+		].map((p) => leanBack(p, STAR_LEAN))
 	],
 	// A domed shell over four wide flippers, and a round head poking out in front.
 	turtle: ({ fur, accent }) => [
