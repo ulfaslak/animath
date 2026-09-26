@@ -26,6 +26,7 @@ export const sqrt: PuzzleGenerator = {
 	kind: 'sqrt',
 	minDifficulty: 3,
 	maxDifficulty: 10,
+	topics: () => ['sqrt'],
 	generate(rng: Rng, difficulty: number): Puzzle {
 		const [lo, hi] = band(ROOT_BAND, difficulty);
 		const root = rng.int(lo, hi);

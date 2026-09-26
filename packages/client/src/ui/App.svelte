@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { t } from '../copy';
 	import { flags } from '../flags';
 	import { battle } from '../state/battle.svelte';
 	import { doctor } from '../state/doctor.svelte';
@@ -18,7 +19,7 @@
 {#if title.open}
 	<TitleScreen />
 {:else if !playing}
-	<div class="loading">Loading…</div>
+	<div class="loading">{t('app.loading')}</div>
 {:else if battle.active}
 	{#if !battle.entering}<BattlePanel />{/if}
 {:else if doctor.active}

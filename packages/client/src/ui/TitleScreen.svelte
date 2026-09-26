@@ -1,8 +1,8 @@
 <script lang="ts">
 	import { MAX_NICKNAME_LENGTH, STARTERS, leadIndex, normalizeNickname } from '@mathgame/engine';
 	import { LANGUAGES, language, languageName, t } from '../copy';
-	import { kindList, speciesKinds } from '../kinds';
-	import { nameOf, speciesName } from '../names';
+	import { kindList, speciesTopics } from '../kinds';
+	import { animalWords, nameOf, speciesName } from '../names';
 	import { CONFIRM_CHOICES, title, type ConfirmChoice } from '../state/title.svelte';
 
 	/**
@@ -23,6 +23,8 @@
 	const rows = $derived(title.rows);
 	const litRow = $derived(title.screen === 'menu' ? rows[title.cursor] : undefined);
 	const species = $derived(STARTERS[title.starter] ?? STARTERS[0]!);
+	/** The lit starter's forms, for sentences: "your Rabbit", "kaninen". */
+	const starter = $derived(animalWords({ speciesId: species }));
 
 	/** What the typed name will turn into, when that is not just what the box shows. */
 	const preview = $derived.by(() => {
@@ -99,7 +101,7 @@
 			<div class="shade">
 				<div class="card confirm">
 					<div class="heading">{t('title.confirm.title')}</div>
-					<p>{t('title.confirm.away', { name: nameOf(lead) })}</p>
+					<p>{t('title.confirm.away', { animal: animalWords(lead) })}</p>
 					<p>{t('title.confirm.fresh')}</p>
 					{#each CONFIRM_CHOICES as choice, i (choice)}
 						<div class="row confirm-row" class:lit={title.confirm === i}>
@@ -135,13 +137,13 @@
 				<div class="heading">{speciesName(species)}</div>
 				<div class="loves">
 					{t('title.starter.loves', {
-						animal: speciesName(species),
-						kinds: kindList(speciesKinds(species), 'conjunction')
+						animal: starter,
+						kinds: kindList(speciesTopics(species), 'conjunction')
 					})}
 				</div>
 				<div class="keys">{t('title.starter.keys')}</div>
 			{:else}
-				<div class="heading">{t('title.naming.title', { animal: speciesName(species) })}</div>
+				<div class="heading">{t('title.naming.title', { animal: starter })}</div>
 				<input
 					class="name-box"
 					type="text"
@@ -150,14 +152,14 @@
 					placeholder={speciesName(species)}
 					autocomplete="off"
 					spellcheck="false"
-					aria-label={t('title.naming.title', { animal: speciesName(species) })}
+					aria-label={t('title.naming.title', { animal: starter })}
 					{@attach nameBox}
 				/>
 				<div class="note">{t('pause.nameRule', { max: MAX_NICKNAME_LENGTH })}</div>
 				{#if preview}
 					<div class="note preview">{t('pause.willBe', { name: preview })}</div>
 				{:else}
-					<div class="note">{t('title.naming.empty', { animal: speciesName(species) })}</div>
+					<div class="note">{t('title.naming.empty', { animal: starter })}</div>
 				{/if}
 				<div class="keys">{t('title.naming.keys')}</div>
 			{/if}

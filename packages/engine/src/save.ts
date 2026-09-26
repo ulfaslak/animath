@@ -366,11 +366,12 @@ export function restoreGame(save: SaveV1): SavedGame {
  * in front (or, waiting for a replacement after a knock-out, a tired one with
  * someone standing behind it), a wild animal that is still standing, and a
  * phase the reducer can take the next intent in. Anything else is null, and the player is back
- * in explore as if they had run away, with the HP they had.
+ * in explore as if they had run away, with the HP they had. A `log` of English lines, from a
+ * build before the engine held no words, is ignored.
  */
 export function readBattle(value: unknown, party: readonly AnimalInstance[]): BattleState | null {
 	if (!isRecord(value)) return null;
-	const { step, turn, active, opponent, leashQuality, phase, log } = value;
+	const { step, turn, active, opponent, leashQuality, phase } = value;
 	if (!isWhole(step) || !Number.isSafeInteger(turn) || (turn as number) < 1) return null;
 	if (!Array.isArray(value.party)) return null;
 	// Cleaned as the restored party was, so the two compare as the game would see them.
@@ -395,7 +396,6 @@ export function readBattle(value: unknown, party: readonly AnimalInstance[]): Ba
 	if (typeof leashQuality !== 'number' || !Number.isFinite(leashQuality) || leashQuality <= 0) {
 		return null;
 	}
-	if (!Array.isArray(log) || !log.every((line) => typeof line === 'string')) return null;
 	if (!isRecord(phase)) return null;
 	if (phase.kind === 'solving') {
 		const attacks = getAnimal(front.speciesId).attacks.length;
@@ -418,8 +418,7 @@ export function readBattle(value: unknown, party: readonly AnimalInstance[]): Ba
 		active: active as number,
 		opponent: { ...wild },
 		leashQuality,
-		phase: JSON.parse(JSON.stringify(phase)) as BattleState['phase'],
-		log: [...(log as string[])]
+		phase: JSON.parse(JSON.stringify(phase)) as BattleState['phase']
 	};
 }
 

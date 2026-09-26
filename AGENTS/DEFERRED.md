@@ -83,14 +83,6 @@ Technical items we've intentionally postponed: tech debt, hardening shortcuts, k
 
 **Trigger**: a player whose name needs one of these, or the server-side authority PR. At that PR, check that nothing but the server cleans a name that is stored, and decide whether the preview needs the server's answer.
 
-### The engine still words lines that no screen shows
-
-**What**: `BattleState.log`, `DoctorState.log` and `Rescue.message` hold English sentences the engine writes ("Let's help Squirrel! Can you solve this?", "The doctor looked after your animals…"), against [[DECISIONS]] § Copy and languages ("the engine is language-free"). The client words every line itself from events — the battle narration in `battle/controller.ts`, everything the doctor says through `doctor/lines.ts` and the copy files — so these strings reach no screen, but they are still generated, tested and carried in every state event.
-
-**Why deferred**: removing them changes the engine's state shapes and its tests, which is its own PR; nothing reads them, so they cost nothing but bytes.
-
-**Trigger**: the copy extraction (the follow-up to the copy files, PR #16, that moves the game's words into `copy/`). Drop the three fields (or turn them into data the client words) there, and move the authority's own `message` texts (the battle results in `LocalAuthority.endBattle`) to keys at the same time.
-
 ### A browser keeps at most 200 games left for a new one
 
 **What**: New game on the title moves the saved game to the first free slot of `animath.save.previous` (`.2` … `.200`) and never writes over one. With all of them taken, the saved game stays in `animath.save` and the new game is not saved in the browser: it plays, is backed up to the server when that is reachable, and after a reload the title offers the old game again (or, once the backup has landed, the page settles with the server and takes the new one). Nothing is lost, but the new game doesn't stick without a server, and nothing tells the kid.

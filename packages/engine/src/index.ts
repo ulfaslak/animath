@@ -1,8 +1,19 @@
 export { Rng, hashInts, hashString } from './rng.js';
 
-export type { Puzzle, PuzzleGenerator, PuzzleKind } from './puzzles/types.js';
-export { ALL_PUZZLE_KINDS, MAX_DIFFICULTY, MIN_DIFFICULTY } from './puzzles/types.js';
-export { checkAnswer, clampDifficulty, generatePuzzle, getGenerator } from './puzzles/registry.js';
+export type { Puzzle, PuzzleGenerator, PuzzleKind, PuzzleTopic } from './puzzles/types.js';
+export {
+	ALL_PUZZLE_KINDS,
+	ALL_PUZZLE_TOPICS,
+	MAX_DIFFICULTY,
+	MIN_DIFFICULTY
+} from './puzzles/types.js';
+export {
+	checkAnswer,
+	clampDifficulty,
+	generatePuzzle,
+	getGenerator,
+	puzzleTopics
+} from './puzzles/registry.js';
 export { healingDifficulty, puzzleDifficulty } from './puzzles/difficulty.js';
 
 export type {
@@ -25,6 +36,7 @@ export type {
 	BattleIntent,
 	BattleOutcome,
 	BattlePhase,
+	BattleRejection,
 	BattleSide,
 	BattleState,
 	BattleStep
@@ -38,6 +50,7 @@ export type {
 	DoctorEvent,
 	DoctorIntent,
 	DoctorPhase,
+	DoctorRejection,
 	DoctorState,
 	DoctorStep
 } from './doctor/types.js';
@@ -70,6 +83,9 @@ export {
 	encounterTable,
 	rollEncounter
 } from './world/encounters.js';
+
+export { LINES } from './lines.js';
+export type { Line, LineKey, LineParam, LineParamKind, SpeciesRef } from './lines.js';
 
 export type { Authority, GameEvent, Intent } from './protocol.js';
 

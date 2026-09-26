@@ -14,10 +14,12 @@ export type PauseScreen = 'list' | 'options' | 'naming';
  * The rows under the team, in order. A new one (Settings) is a new id here,
  * its label in `PauseMenu.svelte`, and its case in
  * `PauseController.chooseItem` — the cursor, keys and layout already count
- * every row listed. `quit` is Quit to title: the game is saved as it stands,
- * and Continue on the title picks it up.
+ * every row listed. `language` switches every word on screen to the next
+ * language at once (Enter, or ← → on the row) and remembers it on this device.
+ * `quit` is Quit to title: the game is saved as it stands, and Continue on
+ * the title picks it up.
  */
-export const MENU_ITEMS = ['resume', 'quit'] as const;
+export const MENU_ITEMS = ['language', 'resume', 'quit'] as const;
 export type MenuItem = (typeof MENU_ITEMS)[number];
 
 class PauseView {

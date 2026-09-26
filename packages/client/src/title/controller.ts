@@ -6,7 +6,7 @@ import {
 	type SavedGame
 } from '@mathgame/engine';
 import { WORLD_SEED } from '../authority/local';
-import { LANGUAGES, language } from '../copy';
+import { nextLanguage } from '../copy';
 import type { TitleView3D } from '../render/title-scenery';
 import type { SaveNotice } from '../save/notices';
 import { CONFIRM_CHOICES, title, type TitleRow } from '../state/title.svelte';
@@ -271,16 +271,6 @@ export class TitleController {
 		title.starter = index;
 		this.scenery.select(index);
 	}
-}
-
-/**
- * Switch to the language `step` places along `LANGUAGES`, wrapping round:
- * every word on screen changes at once, and the choice is remembered on this
- * device (`language.set`).
- */
-function nextLanguage(step: 1 | -1): void {
-	const i = LANGUAGES.indexOf(language.current);
-	language.set(LANGUAGES[(i + step + LANGUAGES.length) % LANGUAGES.length]!);
 }
 
 function sameSpots(

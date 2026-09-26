@@ -16,6 +16,24 @@ export const ALL_PUZZLE_KINDS: readonly PuzzleKind[] = [
 	'sqrt'
 ];
 
+/**
+ * What a puzzle looks like to the kid, for the words that describe an attack:
+ * mostly its kind, except that a missing number in a times table
+ * ("7 × ? = 56") is `mul` — times tables to the kid — while one in a sum
+ * ("7 + ? = 12") stays `missing`.
+ */
+export type PuzzleTopic = 'add' | 'sub' | 'mul' | 'div' | 'missing' | 'sequence' | 'sqrt';
+
+export const ALL_PUZZLE_TOPICS: readonly PuzzleTopic[] = [
+	'add',
+	'sub',
+	'mul',
+	'div',
+	'missing',
+	'sequence',
+	'sqrt'
+];
+
 /** Difficulty is an integer scalar. 1 is a first-grader's warm-up, 10 is hard. */
 export const MIN_DIFFICULTY = 1;
 export const MAX_DIFFICULTY = 10;
@@ -40,4 +58,9 @@ export interface PuzzleGenerator {
 	minDifficulty: number;
 	maxDifficulty: number;
 	generate(rng: Rng, difficulty: number): Puzzle;
+	/**
+	 * Every topic `generate` can produce at `difficulty` (inside its range),
+	 * and no other: what an attack's description promises the kid.
+	 */
+	topics(difficulty: number): readonly PuzzleTopic[];
 }

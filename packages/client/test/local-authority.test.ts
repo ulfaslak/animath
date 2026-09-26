@@ -39,8 +39,9 @@ import { parseParty } from '../src/flags';
  *
  * The prototype world's spawn tile, (-2, 6), has a river reed (tall grass)
  * straight to its left, so walking left and right from it meets animals
- * (with the starter squirrel in front: squirrels and rabbits near home, now
- * and then an otter). Seven steps right, all on grass, is (5, 6), just above
+ * (with the starter squirrel in front: the frogs that live there, the
+ * squirrels and rabbits that come down to the water near home, now and then
+ * an otter). Seven steps right, all on grass, is (5, 6), just above
  * the tent at (5, 7).
  */
 type Session = { authority: LocalAuthority; events: GameEvent[] };
@@ -156,9 +157,10 @@ function party(s: Session): AnimalInstance[] {
 	throw new Error('no party');
 }
 
+/** The key of the last line the authority said: which line, not its words (those are the client's). */
 function lastMessage(s: Session): string {
 	const m = s.events.filter((e) => e.type === 'message').at(-1);
-	return m?.type === 'message' ? m.text : '';
+	return m?.type === 'message' ? m.line.key : '';
 }
 
 /** Where the player stands, from the events. */
@@ -347,15 +349,16 @@ describe('LocalAuthority: encounters', () => {
 });
 
 describe('LocalAuthority: the lead decides who comes out', () => {
-	it('with the starter in front, the reed meets a Rabbit on step 11, a Squirrel on step 15 and the first Otter on step 97', () => {
+	it('with the starter in front, the reed meets a Rabbit on step 11, a Squirrel on step 15, the first Frog on step 71 and the first Otter on step 97', () => {
 		const met = reedWalk(session(), 97);
 		expect(met[0]).toEqual({ step: 11, wild: 'rabbit', lead: 'squirrel' });
 		expect(met[1]).toEqual({ step: 15, wild: 'squirrel', lead: 'squirrel' });
+		expect(met.find((m) => m.wild === 'frog')?.step).toBe(71);
 		expect(met.find((m) => m.wild === 'otter')?.step).toBe(97);
-		expect(met.every((m) => ['squirrel', 'rabbit', 'otter'].includes(m.wild))).toBe(true);
+		expect(met.every((m) => ['squirrel', 'rabbit', 'frog', 'otter'].includes(m.wild))).toBe(true);
 	});
 
-	it('the first animal that is not tired leads: with a fox in front the reed has only otters, on the same steps', () => {
+	it('the first animal that is not tired leads: with a fox in front the reed has otters and now and then a frog, on the same steps', () => {
 		const starter = reedWalk(session(), 200);
 		for (const party of [
 			[animal('fox'), animal('squirrel')],
@@ -365,7 +368,9 @@ describe('LocalAuthority: the lead decides who comes out', () => {
 			giveParty(s, party);
 			const met = reedWalk(s, 200);
 			expect(met.map((m) => m.step)).toEqual(starter.map((m) => m.step));
-			expect(new Set(met.map((m) => m.wild))).toEqual(new Set(['otter']));
+			// A frog is one tier below a fox: 1 challenger in 11 at the river.
+			expect(met.filter((m) => m.wild === 'frog').map((m) => m.step)).toEqual([147]);
+			expect(met.filter((m) => m.wild !== 'frog').every((m) => m.wild === 'otter')).toBe(true);
 			expect(new Set(met.map((m) => m.lead))).toEqual(new Set(['fox']));
 		}
 		// Behind a standing squirrel, a fox changes nothing.
@@ -430,7 +435,7 @@ describe('LocalAuthority: outcomes', () => {
 		s.authority.dispatch({ type: 'battle', intent: { type: 'flee' } });
 		expect(latestBattle(s).phase).toEqual({ kind: 'ended', outcome: 'fled' });
 		expect(party(s)).toEqual(before);
-		expect(lastMessage(s)).toMatch(/stays in the grass/);
+		expect(lastMessage(s)).toBe('battle.closing.fled');
 	});
 
 	it('lost: taken to the nearest tent on foot, facing it, with everyone healed', () => {
@@ -490,11 +495,11 @@ describe('LocalAuthority: outcomes', () => {
 			if (before < 6) {
 				expect(party(s)).toHaveLength(before + 1);
 				expect(party(s).at(-1)).toEqual(animal);
-				expect(lastMessage(s)).toMatch(/joins your team/);
+				expect(lastMessage(s)).toBe('battle.closing.joined');
 			} else {
 				expect(party(s)).toHaveLength(6);
 				expect(party(s).map((a) => a.id)).not.toContain(animal!.id);
-				expect(lastMessage(s)).toMatch(/team is full/);
+				expect(lastMessage(s)).toBe('battle.closing.teamFull');
 				return;
 			}
 		}
@@ -805,7 +810,6 @@ describe('LocalAuthority: the party', () => {
 		expect(party(s)[0]!.nickname).toBe('Sir Fluffing');
 		const battle = walkIntoBattle(s);
 		expect(battle.party[battle.active]!.nickname).toBe('Sir Fluffing');
-		expect(battle.log).toContain('Go, Sir Fluffing!');
 	});
 
 	it('a party it starts with is cleaned like a rename', () => {

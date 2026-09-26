@@ -4,11 +4,15 @@
 		attackDamage,
 		catchProbability,
 		getAnimal,
-		type AnimalInstance,
-		type PuzzleKind
+		puzzleDifficulty,
+		puzzleTopics,
+		type PuzzleTopic
 	} from '@mathgame/engine';
 	import { actionAt, attackRows, levelWord, rowOf } from '../battle/menu';
-	import { language, t } from '../copy';
+	import { t } from '../copy';
+	import { kindList } from '../kinds';
+	import { messageWords, words } from '../lines';
+	import { animalWords, nameOf } from '../names';
 	import { battle } from '../state/battle.svelte';
 	import HpBar from './HpBar.svelte';
 	import PuzzlePanel from './PuzzlePanel.svelte';
@@ -17,8 +21,8 @@
 	 * The battle screen's overlay: status boxes over the scene, a narration
 	 * line, the two-column bottom panel (actions or the party list | puzzle)
 	 * and the result card. Everything it shows comes from `battle` (the
-	 * presentation view); keys are handled by `BattleController`, so nothing
-	 * here dispatches.
+	 * presentation view) and every word from the copy files; keys are handled
+	 * by `BattleController`, so nothing here dispatches.
 	 */
 	const front = $derived(battle.party[battle.front] ?? null);
 	const spec = $derived(front ? getAnimal(front.speciesId) : null);
@@ -29,39 +33,9 @@
 	/** Someone could step in; with nobody, the Switch row is greyed and says why. */
 	const canSwitch = $derived(battle.pickable.some(Boolean));
 
-	/** What a kind of puzzle is about, in the language on screen. */
-	function kindWord(kind: PuzzleKind): string {
-		switch (kind) {
-			case 'add':
-				return t('battle.kinds.add');
-			case 'sub':
-				return t('battle.kinds.sub');
-			case 'mul':
-				return t('battle.kinds.mul');
-			case 'div':
-				return t('battle.kinds.div');
-			case 'missing':
-				return t('battle.kinds.missing');
-			case 'sequence':
-				return t('battle.kinds.sequence');
-			case 'sqrt':
-				return t('battle.kinds.sqrt');
-		}
-	}
-
-	function nameOf(animal: AnimalInstance): string {
-		return animal.nickname ?? getAnimal(animal.speciesId).name;
-	}
-
-	/** "a Fox", "an Otter". */
-	function withArticle(name: string): string {
-		return `${/^[aeiou]/i.test(name) ? 'an' : 'a'} ${name}`;
-	}
-
 	/** "adding, taking away, or missing numbers": the language's own "or" list. */
-	function kindWords(kinds: readonly PuzzleKind[]): string {
-		const list = new Intl.ListFormat(language.current, { type: 'disjunction' });
-		return list.format(kinds.map(kindWord));
+	function kindWords(topics: readonly PuzzleTopic[]): string {
+		return kindList(topics, 'disjunction');
 	}
 
 	/** What the highlighted row will do, in words a kid can read. */
@@ -71,32 +45,31 @@
 		if (action.kind === 'attack') {
 			const row = rows[action.index - 1]!;
 			const damage = attackDamage(spec, row.index, row.level, true);
-			const kinds = kindWords(spec.attacks[row.index - 1]!.kinds);
+			// What the puzzles at this level can actually be, from the engine: a hard
+			// missing number can sit in a times table, and then it says so.
+			const difficulty = puzzleDifficulty(spec.tier, row.index, row.level);
+			const kinds = kindWords(puzzleTopics(spec.attacks[row.index - 1]!.kinds, difficulty));
 			return t('battle.attackDetail', { attack: row.name, level: row.word, kinds, damage });
 		}
-		if (action.kind === 'leash') {
-			return 'Throw the leash to catch it! It works best when its HP is low.';
-		}
+		if (action.kind === 'leash') return t('battle.leash.detail');
 		if (action.kind === 'switch') {
 			if (canSwitch) return t('battle.switch.detail');
 			return battle.party.length < 2 ? t('battle.switch.alone') : t('battle.switch.allTired');
 		}
-		return 'Run away. The wild animal stays in the grass.';
+		return t('battle.run.detail');
 	});
 
 	/** What picking the highlighted animal of the party list would do. */
 	const partyDetail = $derived.by(() => {
 		const animal = battle.party[battle.partyCursor];
 		if (!animal || !opponent) return '';
-		const name = nameOf(animal);
+		const params = { animal: animalWords(animal) };
 		if (battle.pickable[battle.partyCursor]) {
 			return battle.mustPick
-				? t('battle.switch.sendInFree', { name })
-				: t('battle.switch.sendIn', { name });
+				? t('battle.switch.sendInFree', params)
+				: t('battle.switch.sendIn', params);
 		}
-		return animal.hp === 0
-			? t('battle.switch.tired', { name })
-			: t('battle.switch.inBattle', { name });
+		return animal.hp === 0 ? t('battle.switch.tired', params) : t('battle.switch.inBattle', params);
 	});
 
 	/**
@@ -115,13 +88,15 @@
 	const headline = $derived.by(() => {
 		switch (battle.outcome) {
 			case 'won':
-				return 'You won!';
+				return t('battle.result.won');
 			case 'caught':
-				return opponent ? `You caught ${withArticle(nameOf(opponent))}!` : 'Caught!';
+				return opponent
+					? t('battle.result.caught', { animal: animalWords(opponent) })
+					: t('battle.leash.caught');
 			case 'lost':
-				return 'Good try!';
+				return t('battle.result.lost');
 			case 'fled':
-				return 'You got away!';
+				return t('battle.result.fled');
 			default:
 				return '';
 		}
@@ -130,7 +105,7 @@
 
 {#if opponent && opponentSpec}
 	<div class="status opponent">
-		<div class="name">Wild {nameOf(opponent)}</div>
+		<div class="name">{t('battle.wildName', { animal: animalWords(opponent) })}</div>
 		<HpBar hp={opponent.hp} max={opponentSpec.maxHp} />
 		{#if battle.hit?.side === 'opponent'}
 			{#key battle.hit.n}
@@ -156,7 +131,7 @@
 {/if}
 
 {#if battle.line}
-	<div class="battle-line">{battle.line}</div>
+	<div class="battle-line">{words(battle.line)}</div>
 {/if}
 
 <div class="panel">
@@ -207,14 +182,14 @@
 				{/each}
 				<div class="row" class:selected={battle.cursor === spec.attacks.length}>
 					<span class="caret">▸</span>
-					<span class="label">Leash</span>
+					<span class="label">{t('battle.leash.row')}</span>
 					<span class="how">
 						{#if leashBand === 'good'}
-							{t('battle.leashGood')}
+							{t('battle.leash.good')}
 						{:else if leashBand === 'warn'}
-							{t('battle.leashMaybe')}
+							{t('battle.leash.maybe')}
 						{:else}
-							{t('battle.leashHard')}
+							{t('battle.leash.hard')}
 						{/if}
 					</span>
 					<span class="dot {leashBand}"></span>
@@ -229,7 +204,7 @@
 				</div>
 				<div class="row" class:selected={battle.cursor === rowOf('run', spec.attacks.length)}>
 					<span class="caret">▸</span>
-					<span class="label">Run</span>
+					<span class="label">{t('battle.run.row')}</span>
 				</div>
 			{/if}
 		</div>
@@ -250,7 +225,7 @@
 				{battle.mustPick ? t('battle.switch.mustPickKeys') : t('battle.switch.keys')}
 			</div>
 		{:else}
-			<div class="soft">Pick an attack</div>
+			<div class="soft">{t('battle.pickAttack')}</div>
 			<div class="detail">{detail}</div>
 			<div class="keys">{t('battle.menuKeys')}</div>
 		{/if}
@@ -262,9 +237,9 @@
 		<div class="card result-card">
 			<div class="result-title">{headline}</div>
 			{#if battle.closing}
-				<div class="result-text">{battle.closing}</div>
+				<div class="result-text">{messageWords(battle.closing)}</div>
 			{/if}
-			<div class="button">Keep exploring <kbd>Enter</kbd></div>
+			<div class="button">{t('battle.result.button')} <kbd>{t('keys.enter')}</kbd></div>
 		</div>
 	</div>
 {/if}

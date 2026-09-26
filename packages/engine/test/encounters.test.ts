@@ -13,7 +13,7 @@ import {
 	type EncounterEntry,
 	type EncounterSite
 } from '../src/world/encounters.js';
-import { generateChunk, spawnPoint } from '../src/world/generate.js';
+import { generateChunk, spawnPoint, tileAtWorld } from '../src/world/generate.js';
 import type { GridPos, Tile, TileKind } from '../src/world/types.js';
 
 const BIOMES: readonly Biome[] = ['meadow', 'forest', 'river', 'mountain'];
@@ -59,20 +59,22 @@ interface Kind {
 }
 
 /**
- * The encounter table from before the lead mattered (PR #12), written out
- * again from [[PRODUCT]] §4 for any roster, with its numbers as literals: a
- * tier-t resident weighs 5^−(t−1)(1−danger) with danger = clamp((d − 32)/96),
- * and a biome with residents but no tier-1 resident also gets every tier-1
- * species as a visitor weighing 1 − danger. Shares, in roster order.
+ * A tier-1 lead's encounter table, written out again from [[PRODUCT]] §4 for
+ * any roster, with its numbers as literals: a tier-t resident weighs
+ * 5^−(t−1)(1−danger) with danger = clamp((d − 32)/96), and at the river and in
+ * the mountains, where a resident is bigger than tier 1, every tier-1 species
+ * that doesn't live there visits, weighing 1 − danger. Shares, in roster order.
+ * Before the frog it was PR #12's table: the river and the mountains were
+ * exactly the biomes with residents but no tier-1 animal.
  */
-function tableBeforeLeads(
+function tierOneTable(
 	roster: readonly Kind[],
 	biome: Biome,
 	distance: number
 ): Map<string, number> {
 	const danger = Math.min(1, Math.max(0, (distance - 32) / 96));
 	const living = roster.filter((a) => a.habitats.includes(biome));
-	const visited = living.length > 0 && !living.some((a) => a.tier === 1);
+	const visited = (biome === 'river' || biome === 'mountain') && living.some((a) => a.tier > 1);
 	const raw = new Map<string, number>();
 	for (const a of roster) {
 		if (a.habitats.includes(biome)) raw.set(a.id, Math.pow(5, -(a.tier - 1) * (1 - danger)));
@@ -83,11 +85,11 @@ function tableBeforeLeads(
 	return new Map([...raw].map(([id, w]) => [id, w / sum]));
 }
 
-/** The roll from before the lead mattered: the chance, then a pick down the table. */
-function rollBeforeLeads(rng: Rng, site: EncounterSite): string | null {
+/** A tier-1 lead's roll: the chance, then a pick down `tierOneTable`. */
+function tierOneRoll(rng: Rng, site: EncounterSite): string | null {
 	if (site.tile.kind !== 'tallgrass') return null;
 	if (!rng.chance(0.1)) return null;
-	const table = tableBeforeLeads(ANIMALS, site.tile.biome, distanceFromSpawn(site.pos, site.spawn));
+	const table = tierOneTable(ANIMALS, site.tile.biome, distanceFromSpawn(site.pos, site.spawn));
 	let r = rng.next();
 	let last: string | null = null;
 	for (const [id, w] of table) {
@@ -114,16 +116,16 @@ const SILENT: readonly (readonly [Tier, Biome])[] = [
 const isSilent = (lead: Tier, biome: Biome) => SILENT.some(([l, b]) => l === lead && b === biome);
 
 describe('encounterTable', () => {
-	it('for a tier-1 lead is the table from before the lead mattered, at every distance', () => {
+	it('for a tier-1 lead is the table [[PRODUCT]] §4 writes out, at every distance', () => {
 		const bad: string[] = [];
 		for (const biome of BIOMES) {
 			for (const d of SWEEP) {
 				const table = encounterTable(biome, d, 1);
-				const before = tableBeforeLeads(ANIMALS, biome, d);
+				const expected = tierOneTable(ANIMALS, biome, d);
 				const ids = table.map((e) => e.species.id).join();
-				if (ids !== [...before.keys()].join()) bad.push(`${biome} @ ${d} lists ${ids}`);
+				if (ids !== [...expected.keys()].join()) bad.push(`${biome} @ ${d} lists ${ids}`);
 				for (const e of table) {
-					if (!(Math.abs(e.weight - before.get(e.species.id)!) <= 1e-14))
+					if (!(Math.abs(e.weight - expected.get(e.species.id)!) <= 1e-14))
 						bad.push(`${e.species.id} in ${biome} @ ${d}: ${e.weight}`);
 				}
 			}
@@ -138,11 +140,51 @@ describe('encounterTable', () => {
 			encounterTable('forest', 0, 1),
 			normalised({ squirrel: 1, fox: 0.2, deer: 0.04, wolf: 0.008, bear: 0.0016 })
 		);
-		expectShares(encounterTable('river', 0, 1), normalised({ squirrel: 1, rabbit: 1, otter: 0.2 }));
+		expectShares(
+			encounterTable('river', 0, 1),
+			normalised({ squirrel: 1, rabbit: 1, frog: 1, otter: 0.2 })
+		);
 		expectShares(
 			encounterTable('mountain', 0, 1),
-			normalised({ squirrel: 1, rabbit: 1, wolf: 0.008, bear: 0.0016 })
+			normalised({ squirrel: 1, rabbit: 1, frog: 1, wolf: 0.008, bear: 0.0016 })
 		);
+	});
+
+	it('the frog lives in the river reeds: every lead it may challenge meets it there, near and far, and no bigger one ever does', () => {
+		const frog = getAnimal('frog');
+		expect(frog.tier).toBe(1);
+		expect(frog.habitats).toEqual(['river']);
+		const frogShare = (biome: Biome, d: number, lead: Tier) =>
+			encounterTable(biome, d, lead).find((e) => e.species.id === 'frog')?.weight ?? 0;
+		// A tier-1 lead: a third of the reeds near home, beside the squirrels and
+		// rabbits that come down to the water; half of them far out, beside the otters.
+		expect(frogShare('river', 0, 1)).toBeCloseTo(1 / 3.2, 12);
+		expect(frogShare('river', SAFE_RADIUS, 1)).toBeCloseTo(1 / 3.2, 12);
+		expect(frogShare('river', WILD_RADIUS, 1)).toBeCloseTo(1 / 2, 12);
+		expect(frogShare('river', 1000, 1)).toBeCloseTo(1 / 2, 12);
+		// It comes up the hills near home too, like the other tier-1 animals.
+		expect(frogShare('mountain', 0, 1)).toBeCloseTo(1 / 3.0096, 12);
+		expect(frogShare('mountain', WILD_RADIUS, 1)).toBe(0);
+		// A tier-2 lead: one tier below, 1/10 of an otter, near and far, and never a visitor.
+		for (const d of [0, SAFE_RADIUS, 80, WILD_RADIUS, 1000]) {
+			expect(frogShare('river', d, 2), `river @ ${d}`).toBeCloseTo(0.1 / 1.1, 12);
+			expect(frogShare('mountain', d, 2), `mountain @ ${d}`).toBe(0);
+		}
+		// Two or more tiers above it, never; and no meadow or forest, for anyone.
+		for (const lead of LEADS) {
+			for (const d of [0, 64, 1000]) {
+				if (lead >= 3) expect(frogShare('river', d, lead), `tier-${lead} @ ${d}`).toBe(0);
+				expect(frogShare('meadow', d, lead)).toBe(0);
+				expect(frogShare('forest', d, lead)).toBe(0);
+			}
+		}
+		// And the reed straight left of the prototype world's spawn tile is one of its homes.
+		const seed = hashString('prototype');
+		const spawn = spawnPoint(seed);
+		expect(tileAtWorld(seed, spawn.x - 1, spawn.y)).toMatchObject({
+			kind: 'tallgrass',
+			biome: 'river'
+		});
 	});
 
 	it('never lists an animal two or more tiers below the lead', () => {
@@ -179,7 +221,7 @@ describe('encounterTable', () => {
 					const where = `tier-${lead} lead in ${biome} @ ${d}`;
 					const upper = encounterTable(biome, d, lead).filter((e) => e.species.tier >= lead);
 					const mass = total(upper);
-					const expected = tableBeforeLeads(shrunk, biome, d);
+					const expected = tierOneTable(shrunk, biome, d);
 					const ids = upper.map((e) => e.species.id).join();
 					if (ids !== [...expected.keys()].join()) bad.push(`${where} lists ${ids}`);
 					for (const e of upper) {
@@ -226,21 +268,24 @@ describe('encounterTable', () => {
 			encounterTable('forest', 0, 2),
 			normalised({ squirrel: 0.1, fox: 1, deer: 0.2, wolf: 0.04, bear: 0.008 })
 		);
-		expectShares(encounterTable('river', 0, 2), { otter: 1 });
+		expectShares(encounterTable('river', 0, 2), normalised({ frog: 0.1, otter: 1 }));
 		expectShares(
 			encounterTable('mountain', 0, 2),
 			normalised({ fox: 1, otter: 1, wolf: 0.04, bear: 0.008 })
 		);
 	});
 
-	it("lists the residents from one tier below the lead up, plus visitors of the lead's tier where only bigger animals live", () => {
+	it("lists the residents from one tier below the lead up, plus, at the river and in the mountains, visitors of the lead's tier where bigger animals live", () => {
 		const visited: string[] = [];
 		for (const lead of LEADS) {
 			for (const biome of BIOMES) {
 				const living = residents(biome);
-				const needsVisitors =
-					living.some((a) => a.tier >= lead) && !living.some((a) => a.tier === lead);
-				if (needsVisitors) visited.push(`${lead}:${biome}`);
+				const guests =
+					(biome === 'river' || biome === 'mountain') && living.some((a) => a.tier > lead)
+						? ANIMALS.filter((a) => a.tier === lead && !a.habitats.includes(biome))
+						: [];
+				if (guests.length > 0)
+					visited.push(`${lead}:${biome}:${guests.map((a) => a.id).join('+')}`);
 				for (const d of [
 					0,
 					SAFE_RADIUS,
@@ -249,10 +294,7 @@ describe('encounterTable', () => {
 					WILD_RADIUS,
 					1000
 				]) {
-					const visitors =
-						needsVisitors && d < WILD_RADIUS
-							? ANIMALS.filter((a) => a.tier === lead && !a.habitats.includes(biome))
-							: [];
+					const visitors = d < WILD_RADIUS ? guests : [];
 					const expected = [...living.filter((a) => a.tier >= lead - 1), ...visitors]
 						.map((a) => a.id)
 						.sort();
@@ -266,9 +308,16 @@ describe('encounterTable', () => {
 				}
 			}
 		}
-		// With the prototype catalog: the starter's river and mountains, and the
-		// mountains for a fox, an otter or a deer.
-		expect(visited).toEqual(['1:river', '1:mountain', '2:mountain', '3:mountain']);
+		// With the prototype catalog: squirrels and rabbits come down to the frogs'
+		// river for the starter, the tier-1 animals up the mountains, and the
+		// mountains for a fox, an otter or a deer. The river has nothing bigger
+		// than an otter, so a fox or an otter in front meets no visitors there.
+		expect(visited).toEqual([
+			'1:river:squirrel+rabbit',
+			'1:mountain:squirrel+rabbit+frog',
+			'2:mountain:fox+otter',
+			'3:mountain:deer'
+		]);
 	});
 
 	it('is empty exactly where nothing living there is within one tier below the lead', () => {
@@ -389,14 +438,14 @@ describe('rollEncounter', () => {
 		}
 	});
 
-	it('for a tier-1 lead draws exactly as before the lead mattered', () => {
+	it('for a tier-1 lead draws exactly as [[PRODUCT]] §4 says: the chance, then a pick down the table', () => {
 		for (const biome of BIOMES) {
 			for (const d of [0, 16, 40, 64, 100, 127.5, 160]) {
 				const now = new Rng(hashString(`before:${biome}:${d}`));
-				const before = new Rng(hashString(`before:${biome}:${d}`));
+				const spec = new Rng(hashString(`before:${biome}:${d}`));
 				const rolls = Array.from({ length: 1500 }, () => [
 					rollEncounter(now, siteAt(biome, d), 1)?.speciesId ?? null,
-					rollBeforeLeads(before, siteAt(biome, d))
+					tierOneRoll(spec, siteAt(biome, d))
 				]);
 				expect(
 					rolls.filter(([a, b]) => a !== b),

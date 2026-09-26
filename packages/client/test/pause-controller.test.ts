@@ -1,6 +1,7 @@
 import type { GameEvent, Intent } from '@mathgame/engine';
-import { beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { LocalAuthority } from '../src/authority/local';
+import { language } from '../src/copy';
 import { parseParty } from '../src/flags';
 import { PauseController } from '../src/pause/controller';
 import { game } from '../src/state/game.svelte';
@@ -68,6 +69,10 @@ beforeEach(() => {
 	pause.reset();
 });
 
+afterEach(() => {
+	language.set('en');
+});
+
 describe('pause menu', () => {
 	it('opens on Escape, closes on Escape or "Keep playing", and ignores a held Escape', () => {
 		const { controller, press, sent } = setup();
@@ -123,6 +128,29 @@ describe('pause menu', () => {
 		expect(sent.length).toBe(count);
 	});
 
+	it('the Language row switches every word at once: Enter, or left and right on the row', () => {
+		const { press } = setup();
+		language.set('en');
+		const row = game.party.length + MENU_ITEMS.indexOf('language');
+		press('Escape', ...Array<string>(row).fill('s'));
+		expect(pause.cursor).toBe(row);
+		press('Enter');
+		expect(language.current).toBe('da');
+		expect(pause.open).toBe(true); // the menu stays, now in Danish
+		press('Enter');
+		expect(language.current).toBe('en');
+		press('ArrowRight', 'd');
+		expect(language.current).toBe('en'); // two languages: right twice is back where it began
+		expect(press('ArrowLeft').prevented).toBe(true);
+		expect(language.current).toBe('da');
+		press('a');
+		expect(language.current).toBe('en');
+		// Left and right mean nothing on a team row: they are not the menu's.
+		press('w');
+		expect(press('ArrowRight').prevented).toBe(false);
+		expect(language.current).toBe('en');
+	});
+
 	it('"Go first" sends select-lead and comes back to the list on the animal, now first', () => {
 		const { press, sent, species } = setup();
 		const fox = game.party[2]!;
@@ -141,7 +169,7 @@ describe('pause menu', () => {
 
 	it('moves an animal up one step at a time, and a mashed Enter stops at the top', () => {
 		const { press, species } = setup();
-		// Up past the menu's rows to the fox.
+		// Up past every menu item to the fox.
 		press('Escape', ...Array<string>(MENU_ITEMS.length + 1).fill('ArrowUp'), 'Enter');
 		press('s'); // from "Go first" down to "Move up"
 		expect(pause.option).toBe(1);

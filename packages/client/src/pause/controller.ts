@@ -1,4 +1,5 @@
 import type { Authority, GameEvent, PartyIntent } from '@mathgame/engine';
+import { nextLanguage } from '../copy';
 import { game } from '../state/game.svelte';
 import {
 	MENU_ITEMS,
@@ -98,6 +99,15 @@ export class PauseController {
 				else this.chooseItem(MENU_ITEMS[pause.cursor - game.party.length]!);
 				return true;
 			}
+			case 'ArrowLeft':
+			case 'a':
+			case 'ArrowRight':
+			case 'd': {
+				// Left and right change the language on its row, and do nothing elsewhere.
+				if (MENU_ITEMS[pause.cursor - game.party.length] !== 'language') return false;
+				nextLanguage(key === 'ArrowLeft' || key === 'a' ? -1 : 1);
+				return true;
+			}
 			case 'Escape':
 				this.close();
 				return true;
@@ -107,6 +117,9 @@ export class PauseController {
 
 	private chooseItem(item: MenuItem): void {
 		switch (item) {
+			case 'language':
+				nextLanguage(1);
+				break;
 			case 'resume':
 				this.close();
 				break;

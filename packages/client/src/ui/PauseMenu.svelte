@@ -1,8 +1,8 @@
 <script lang="ts">
 	import { MAX_NICKNAME_LENGTH, getAnimal, leadIndex, normalizeNickname } from '@mathgame/engine';
 	import { flip } from 'svelte/animate';
-	import { t } from '../copy';
-	import { nameOf, speciesName } from '../names';
+	import { LANGUAGES, language, languageName, t } from '../copy';
+	import { animalWords, nameOf, speciesName } from '../names';
 	import { game } from '../state/game.svelte';
 	import {
 		MENU_ITEMS,
@@ -39,6 +39,8 @@
 
 	function itemLabel(item: MenuItem): string {
 		switch (item) {
+			case 'language':
+				return t('pause.language');
 			case 'resume':
 				return t('pause.resume');
 			case 'quit':
@@ -112,7 +114,19 @@
 						class="row item"
 						class:lit={pause.screen === 'list' && lit === game.party.length + j}
 					>
-						<span class="button" class:secondary={item !== 'resume'}>{itemLabel(item)}</span>
+						{#if item === 'language'}
+							<!-- Each language in its own words, so a kid finds theirs in any language. -->
+							<span class="setting">{itemLabel(item)}</span>
+							<span class="choices">
+								{#each LANGUAGES as code (code)}
+									<span class="choice" class:on={language.current === code} lang={code}>
+										{languageName(code)}
+									</span>
+								{/each}
+							</span>
+						{:else}
+							<span class="button" class:secondary={item !== 'resume'}>{itemLabel(item)}</span>
+						{/if}
 					</div>
 				{/each}
 			</div>
@@ -126,10 +140,10 @@
 						</div>
 					{/each}
 					{#if picked.hp === 0}
-						<div class="note">{t('pause.tiredHelp', { name: nameOf(picked) })}</div>
+						<div class="note">{t('pause.tiredHelp', { animal: animalWords(picked) })}</div>
 					{/if}
 				{:else if pause.screen === 'naming' && picked}
-					<div class="side-title">{t('pause.nameTitle', { name: nameOf(picked) })}</div>
+					<div class="side-title">{t('pause.nameTitle', { animal: animalWords(picked) })}</div>
 					<input
 						class="name-box"
 						type="text"
@@ -152,7 +166,9 @@
 			</div>
 		</div>
 		<div class="keys">
-			{#if pause.screen === 'list'}
+			{#if pause.screen === 'list' && MENU_ITEMS[pause.cursor - game.party.length] === 'language'}
+				{t('pause.keysLanguage')}
+			{:else if pause.screen === 'list'}
 				{t('pause.keysList')}
 			{:else if pause.screen === 'options'}
 				{t('pause.keysOptions')}
@@ -268,6 +284,27 @@
 	}
 	.item {
 		margin-top: 6px;
+	}
+	.setting {
+		flex: 1;
+	}
+	/* The Language row: every language in its own words, the one on screen lit. */
+	.choices {
+		display: flex;
+		gap: 6px;
+	}
+	.choice {
+		display: grid;
+		place-items: center;
+		height: 32px;
+		padding: 0 12px;
+		border-radius: 16px;
+		background: rgba(0, 0, 0, 0.08);
+		font-size: 16px;
+	}
+	.choice.on {
+		background: var(--accent);
+		color: white;
 	}
 	.button {
 		display: inline-flex;
