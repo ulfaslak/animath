@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { ANIMALS, getAnimal } from '../src/animals/catalog.js';
 import type { AnimalInstance, Realm } from '../src/animals/types.js';
 import { takeToDoctor } from '../src/doctor/knockout.js';
-import { canGoHome, kindGoingHome, needsHealing } from '../src/doctor/party.js';
+import { canGoHome, kindGoingHome, mustStay, needsHealing } from '../src/doctor/party.js';
 import { applyDoctorIntent, startDoctorVisit } from '../src/doctor/reducer.js';
 import { homeTokens, tokenPuzzle, tokensForTier } from '../src/doctor/tokens.js';
 import type { DoctorEvent, DoctorIntent, DoctorState, DoctorStep } from '../src/doctor/types.js';
@@ -627,6 +627,12 @@ describe('helping a whole kind home', () => {
 		expect(kindGoingHome(partyOf(['fox', 0], ['fox', 0]), [], 'fox')).toEqual([]);
 		// A kind the team doesn't have.
 		expect(kindGoingHome(forty, [], 'bear')).toEqual([]);
+		// Who has to stay: nobody while two not picked are standing, then the last of them,
+		// and every one not picked when none of them is standing.
+		expect(mustStay(forty, [])).toEqual([]);
+		expect(mustStay(forty, idsOf(forty.slice(1)))).toEqual(['fox-0']);
+		expect(mustStay(tiredFirst, ['fox-1'])).toEqual(['fox-2']);
+		expect(mustStay(partyOf(['fox', 0], ['fox', 0]), [])).toEqual(['fox-0', 'fox-1']);
 	});
 
 	it('over random teams: picks all it may, never the last one standing, and the reducer takes it', () => {
@@ -648,6 +654,12 @@ describe('helping a whole kind home', () => {
 				// Some picked already, as a kid's picks on the card: none, some, or every one.
 				const odds = [0, 0.3, 0.7, 1][round]!;
 				const picked = idsOf(party.filter(() => rng.chance(odds)));
+				// Who has to stay is who can't join the picks by the rule itself.
+				const refused = party.filter(
+					(a) => !picked.includes(a.id) && !canGoHome(party, [...picked, a.id])
+				);
+				if (JSON.stringify(mustStay(party, picked)) !== JSON.stringify(idsOf(refused)))
+					note('not who has to stay', party, picked);
 				for (const speciesId of new Set(party.map((a) => a.speciesId))) {
 					const joins = kindGoingHome(party, picked, speciesId);
 					const rest = party.filter((a) => a.speciesId === speciesId && !picked.includes(a.id));
@@ -666,8 +678,8 @@ describe('helping a whole kind home', () => {
 					const left = rest.filter((a) => !joins.includes(a.id));
 					if (canGoHome(party, picked) && standing) {
 						const all = [...picked, ...idsOf(rest)];
-						const mustStay = canGoHome(party, all) ? [] : [rest.find((a) => a.hp > 0)!];
-						if (JSON.stringify(idsOf(left)) !== JSON.stringify(idsOf(mustStay)))
+						const stays = canGoHome(party, all) ? [] : [rest.find((a) => a.hp > 0)!];
+						if (JSON.stringify(idsOf(left)) !== JSON.stringify(idsOf(stays)))
 							note('the wrong one stays', party, picked);
 					}
 					// The reducer takes the same picks, and refuses the whole kind exactly when one stays.

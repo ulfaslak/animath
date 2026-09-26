@@ -3,6 +3,7 @@ import {
 	getAnimal,
 	homeTokens,
 	itemsForSale,
+	mustStay,
 	type AnimalInstance,
 	type GameEvent,
 	type Intent,
@@ -16,7 +17,7 @@ import { DoctorController } from '../src/doctor/controller';
 import { doctorWords } from '../src/doctor/lines';
 import { PICK_QUIET_SECONDS } from '../src/input/pick-guard';
 import { optionKey, rowKey, tabKey } from '../src/input/press';
-import { doctor, kindPicked, mustStay, tabRows } from '../src/state/doctor.svelte';
+import { doctor, kindPicked, tabRows } from '../src/state/doctor.svelte';
 import { everyMash } from './mash';
 
 /**
@@ -845,11 +846,11 @@ describe('helping a whole kind home', () => {
 		);
 		home(t);
 		// Before anything is picked, nobody has to stay.
-		expect(doctor.party.filter((a) => mustStay(a, doctor))).toEqual([]);
+		expect(mustStay(doctor.party, doctor.marked)).toEqual([]);
 		t.press('Enter');
 		expect(doctor.marked).toEqual(['f1', 'f3']);
 		// The fox who stays: its check box says so, and a pick on it gives a little shake and no sound.
-		expect(doctor.party.filter((a) => mustStay(a, doctor)).map((a) => a.id)).toEqual(['f2']);
+		expect(mustStay(doctor.party, doctor.marked)).toEqual(['f2']);
 		expect(kindPicked('fox', doctor)).toBe('all');
 		t.cues.length = 0;
 		t.press('ArrowDown', 'ArrowDown', 'Enter');

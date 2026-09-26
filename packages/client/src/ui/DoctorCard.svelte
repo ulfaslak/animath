@@ -3,6 +3,7 @@
 		getAnimal,
 		getItem,
 		homeTokens,
+		mustStay,
 		needsHealing,
 		tokensForTier,
 		type ItemId
@@ -19,7 +20,6 @@
 		doctor,
 		hurtIndexes,
 		kindPicked,
-		mustStay,
 		tabRows,
 		type DoctorRow,
 		type DoctorTab
@@ -64,9 +64,7 @@
 	/** What the animals picked bring together: the running total, before the sum is asked. */
 	const reward = $derived(homeTokens(markedAnimals));
 	/** Animals not picked who have to stay: picking one more would leave nobody standing. */
-	const staying = $derived(
-		new Set(doctor.party.filter((a) => mustStay(a, doctor)).map((a) => a.id))
-	);
+	const staying = $derived(new Set(mustStay(doctor.party, doctor.marked)));
 	const leaving = $derived(new Set(doctor.leaving ?? []));
 	/** While a heal is open: the species it helps, whose rows light up together. */
 	const patientSpecies = $derived(
@@ -651,22 +649,23 @@
 
 	/*
 	 * The rows line up in shared columns sized by the longest name there, so
-	 * every name shows whole and the bars start together. On heal: caret,
-	 * name, HP bar (a tired animal's "tired" written in its empty bar). On
-	 * help home: caret, check, name, HP bar, the bar a little shorter for the
-	 * check (a bundle's row: its kind and how many, and what they all bring,
-	 * in the bar's place). In the shop: caret, picture, name, price. A row is
-	 * a subgrid of the list; a browser without subgrid lays each row out on
-	 * its own, in the same columns. A subgrid's padding counts as a margin on
-	 * the items at its edges, so the edge columns are `auto`: the caret's
-	 * holds the row's 10 px beside the caret's 16, and the last one holds
-	 * 10 px beside what it shows.
+	 * every name shows whole and the bars start together. On heal: name, HP
+	 * bar (a tired animal's "tired" written in its empty bar). On help home:
+	 * check, name, HP bar, a little closer together, so that "tired" and its
+	 * numbers fit beside twelve of the widest letters at 1024 px (a bundle's
+	 * row: its kind and how many, and what they all bring, in the bar's
+	 * place). In the shop: picture, name, price. The caret sits in the row's
+	 * left padding, outside the columns. A row is a subgrid of the list; a
+	 * browser without subgrid lays each row out on its own, in the same
+	 * columns. A subgrid's padding counts as a margin on the items at its
+	 * edges, so the edge columns are sized by their content, never fixed: the
+	 * first holds the row's 14 px beside what it shows, and the last one 10 px.
 	 */
 	.list {
 		flex: 1;
 		min-height: 0;
 		display: grid;
-		grid-template-columns: auto minmax(0, max-content) minmax(130px, 1fr);
+		grid-template-columns: minmax(0, max-content) minmax(130px, 1fr);
 		grid-auto-rows: minmax(30px, 36px);
 		align-content: start;
 		gap: 2px 8px;
@@ -695,15 +694,19 @@
 		);
 	}
 	.list.tab-home {
-		grid-template-columns: auto auto minmax(0, max-content) minmax(100px, 1fr);
+		grid-template-columns: auto minmax(0, max-content) minmax(100px, 1fr);
+		column-gap: 6px;
 	}
 	.list.tab-shop {
-		grid-template-columns: auto auto minmax(0, max-content) minmax(max-content, 1fr);
+		grid-template-columns: auto minmax(0, max-content) minmax(max-content, 1fr);
 	}
 	.list .row {
 		grid-column: 1 / -1;
 		display: grid;
 		grid-template-columns: subgrid;
+	}
+	.list.tab-home .row {
+		column-gap: 6px;
 	}
 	.footer {
 		flex: none;
@@ -719,7 +722,7 @@
 		position: relative;
 		column-gap: 8px;
 		align-items: center;
-		padding: 0 10px;
+		padding: 0 10px 0 14px;
 		border-radius: 12px;
 		font-weight: 800;
 		font-size: 18px;
@@ -774,8 +777,14 @@
 	.row.shake-b {
 		animation: nope-b 0.35s ease-out;
 	}
+	/* In the row's left padding, clear of what the row shows. */
 	.caret {
-		width: 16px;
+		position: absolute;
+		left: 3px;
+		top: 0;
+		bottom: 0;
+		display: flex;
+		align-items: center;
 		visibility: hidden;
 		color: var(--accent);
 	}

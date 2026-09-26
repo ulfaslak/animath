@@ -1,6 +1,5 @@
 import {
 	bundles,
-	canGoHome,
 	getItem,
 	kindGoingHome,
 	needsHealing,
@@ -187,31 +186,22 @@ export interface StopsView {
 	marked: readonly string[];
 }
 
-/** What the helpers for picking animals to go home read. */
+/** What `kindPicked` reads. */
 export interface PicksView {
 	party: readonly AnimalInstance[];
 	marked: readonly string[];
 }
 
 /**
- * Whether `animal`, not picked, has to stay: picking it too would leave
- * nobody standing (the engine's `canGoHome`, the rule behind `keep-one`).
- * Its check box shows it before the kid tries.
- */
-export function mustStay(animal: AnimalInstance, view: PicksView): boolean {
-	return !view.marked.includes(animal.id) && !canGoHome(view.party, [...view.marked, animal.id]);
-}
-
-/**
  * How much of a kind is picked to go home, for its bundle row's check box:
  * `none`; `all`, once every one of the kind that may go is picked (the one
- * who stays aside, when one must: `kindGoingHome` adds nobody more); else
- * `some`. A pick on the row adds the rest while it is `none` or `some`, and
- * takes the whole kind back while it is `all`.
+ * who stays aside, when one must: the engine's `kindGoingHome` adds nobody
+ * more); else `some`. A pick on the row adds the rest while it is `none` or
+ * `some`, and takes the whole kind back while it is `all`.
  */
 export function kindPicked(speciesId: string, view: PicksView): 'none' | 'some' | 'all' {
-	const kind = view.party.filter((a) => a.speciesId === speciesId);
-	if (!kind.some((a) => view.marked.includes(a.id))) return 'none';
+	const marked = new Set(view.marked);
+	if (!view.party.some((a) => a.speciesId === speciesId && marked.has(a.id))) return 'none';
 	return kindGoingHome(view.party, view.marked, speciesId).length === 0 ? 'all' : 'some';
 }
 

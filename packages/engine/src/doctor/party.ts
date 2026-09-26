@@ -20,6 +20,21 @@ export function canGoHome(party: readonly AnimalInstance[], ids: Iterable<string
 }
 
 /**
+ * The animals not `picked` that have to stay: picking any one of them too
+ * would leave nobody standing (`canGoHome`). The last one standing while
+ * only one is left not picked; every animal not picked when none of them is
+ * standing; else nobody. The card marks them before the kid tries.
+ */
+export function mustStay(party: readonly AnimalInstance[], picked: Iterable<string>): string[] {
+	const going = new Set(picked);
+	const standing = party.filter((a) => a.hp > 0 && !going.has(a.id));
+	if (standing.length > 1) return [];
+	return party
+		.filter((a) => !going.has(a.id) && (standing.length === 0 || a === standing[0]))
+		.map((a) => a.id);
+}
+
+/**
  * A whole kind picked to go home at once: the animals of `speciesId` that
  * join the ones `picked`, in party order. Every one of the kind not picked
  * yet joins, except that when all of them going would leave nobody standing,
