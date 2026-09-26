@@ -3,7 +3,7 @@ import * as THREE from 'three';
 import { touch } from '../input/touch.svelte';
 import { motion } from '../motion';
 import { animateIdle, buildAnimalMesh, disposeFigure } from './animals';
-import { COLORS, CONFETTI_COLORS, TILE_COLORS } from './palette';
+import { BIOME_LOOK, CANOPY, COLORS, CONFETTI_COLORS, PROP_COLORS, TILE_COLORS } from './palette';
 import { PROP_GEOMETRY } from './tiles';
 
 /**
@@ -55,11 +55,12 @@ export function battlePanelHeight(height: number, touchControls = touch.on): num
 	return Math.min(360, Math.max(260, 0.4 * height));
 }
 
+/** The ground a battle is fought on: the biome's own, as the world shows it round the grass. */
 const GROUND: Record<Biome, number> = {
-	meadow: TILE_COLORS.grass,
-	forest: TILE_COLORS.grass,
-	river: TILE_COLORS.sand,
-	mountain: TILE_COLORS.rock
+	meadow: BIOME_LOOK.meadow.ground,
+	forest: BIOME_LOOK.forest.ground,
+	river: BIOME_LOOK.river.ground,
+	mountain: BIOME_LOOK.mountain.ground
 };
 
 const LUNGE_SECONDS = 0.35;
@@ -117,10 +118,10 @@ const UP = new THREE.Vector3(0, 1, 0);
 function lambert(hex: number): THREE.MeshLambertMaterial {
 	return new THREE.MeshLambertMaterial({ color: hex, flatShading: true });
 }
-const tuftMaterial = lambert(0x4fa83d);
 const trunkMaterial = lambert(COLORS.trunk);
-const canopyMaterials = [lambert(COLORS.canopy), lambert(COLORS.canopyLight)];
 const boulderMaterial = lambert(COLORS.rock);
+const snowMaterial = lambert(PROP_COLORS.snow);
+const cattailMaterial = lambert(PROP_COLORS.cattail);
 const waterMaterial = lambert(TILE_COLORS.water);
 const puffMaterial = lambert(COLORS.white);
 const dustMaterial = lambert(COLORS.dust);
@@ -596,13 +597,17 @@ function applyEffect(figure: THREE.Group, effect: Effect): void {
 
 /**
  * The biome's scenery, kept clear of both figures and of the line between
- * them: tall grass everywhere, plus trees in the forest, boulders on the
- * mountain and a strip of water behind a river bank. A fixed scatter, so
- * every battle in a biome looks the same.
+ * them, in the biome's own colours (`BIOME_LOOK`): tall grass everywhere
+ * (reeds at the river), plus trees in the forest, boulders on the mountain,
+ * the biggest capped with snow, and a strip of water behind a river bank. A
+ * fixed scatter, so every battle in a biome looks the same.
  */
 function buildBackdrop(biome: Biome): THREE.Group {
 	const group = new THREE.Group();
 	const rng = new Rng(7);
+	const look = BIOME_LOOK[biome];
+	const tuftMaterial = lambert(look.blade);
+	const canopyMaterials = CANOPY.map((hex) => lambert(hex));
 	const clear = (x: number, z: number, r: number) =>
 		Object.values(SPOT).every((s) => Math.hypot(x - s.x, z - s.z) > r);
 
@@ -616,10 +621,27 @@ function buildBackdrop(biome: Biome): THREE.Group {
 		if (z > SPOT.player.z + 0.6 || !clear(x, z, 0.9)) continue;
 		const tuft = new THREE.Group();
 		for (let b = 0; b < 3; b++) {
-			const blade = new THREE.Mesh(PROP_GEOMETRY.blade, tuftMaterial);
-			blade.position.set(rng.next() * 0.5 - 0.25, 0.17, rng.next() * 0.5 - 0.25);
-			blade.castShadow = true;
-			tuft.add(blade);
+			const bx = rng.next() * 0.5 - 0.25;
+			const bz = rng.next() * 0.5 - 0.25;
+			if (biome === 'river') {
+				// A reed: a tall stalk, most with a brown head.
+				const height = 0.45 + rng.next() * 0.3;
+				const stalk = new THREE.Mesh(PROP_GEOMETRY.reed, tuftMaterial);
+				stalk.scale.set(1, height, 1);
+				stalk.position.set(bx, height / 2, bz);
+				stalk.castShadow = true;
+				tuft.add(stalk);
+				if (b < 2) {
+					const head = new THREE.Mesh(PROP_GEOMETRY.cattail, cattailMaterial);
+					head.position.set(bx, height + 0.04, bz);
+					tuft.add(head);
+				}
+			} else {
+				const blade = new THREE.Mesh(PROP_GEOMETRY.blade, tuftMaterial);
+				blade.position.set(bx, 0.17, bz);
+				blade.castShadow = true;
+				tuft.add(blade);
+			}
 		}
 		tuft.position.set(x, 0, z);
 		group.add(tuft);
@@ -640,7 +662,7 @@ function buildBackdrop(biome: Biome): THREE.Group {
 			trunk.position.y = 0.25;
 			const canopy = new THREE.Mesh(
 				PROP_GEOMETRY.canopy,
-				canopyMaterials[Math.floor(rng.next() * 2)]
+				canopyMaterials[Math.floor(rng.next() * canopyMaterials.length)]
 			);
 			canopy.position.y = 0.95;
 			trunk.castShadow = canopy.castShadow = true;
@@ -661,9 +683,18 @@ function buildBackdrop(biome: Biome): THREE.Group {
 			const rock = new THREE.Mesh(PROP_GEOMETRY.rock, boulderMaterial);
 			rock.scale.setScalar(r);
 			rock.position.set(x, r * 0.6, z);
-			rock.rotation.set(rng.next(), rng.next(), rng.next());
+			// The big ones stand upright under a cap of snow, as on the world's peaks.
+			const peak = r >= 0.8;
+			rock.rotation.set(peak ? 0 : rng.next(), rng.next(), peak ? 0 : rng.next());
 			rock.castShadow = true;
 			group.add(rock);
+			if (peak) {
+				const cap = new THREE.Mesh(PROP_GEOMETRY.rock, snowMaterial);
+				cap.scale.set(r * 0.82, r * 0.42, r * 0.82);
+				cap.position.set(x, r * 0.6 + r * 0.72, z);
+				cap.rotation.y = rock.rotation.y;
+				group.add(cap);
+			}
 		}
 	} else if (biome === 'river') {
 		const water = new THREE.Mesh(new THREE.BoxGeometry(40, 0.2, 6), waterMaterial);

@@ -1,4 +1,4 @@
-import type { TileKind } from '@mathgame/engine';
+import type { Biome, TileKind } from '@mathgame/engine';
 
 /** Flat, saturated, cheerful. Hex values mirror AGENTS/DNA/DESIGN.md § Palette. */
 export const TILE_COLORS: Record<TileKind, number> = {
@@ -30,6 +30,51 @@ export const COLORS = {
 	dark: 0x2f2a28,
 	// The little cloud a tired animal lies down in: a warm near-white, never grey smoke.
 	dust: 0xf6efe2
+} as const;
+
+/**
+ * How each biome looks, so a kid can tell where they are at a glance: its
+ * ground, and its encounter tiles. Tall grass is always a patch darker and
+ * greener than the ground round it, with blades standing up in it; the
+ * river's is a reed bed on the sand, yellower, with tall reeds.
+ */
+export interface BiomeLook {
+	/** Plain ground: grass, and the ground under a tree or a tent. */
+	ground: number;
+	/** The ground of an encounter tile. */
+	tallgrass: number;
+	/** The blades (or reeds) standing in it. */
+	blade: number;
+}
+
+export const BIOME_LOOK: Record<Biome, BiomeLook> = {
+	meadow: { ground: TILE_COLORS.grass, tallgrass: TILE_COLORS.tallgrass, blade: 0x4fa83d },
+	// A darker floor under the trees.
+	forest: { ground: 0x68b258, tallgrass: 0x4b9a44, blade: 0x357d33 },
+	// Sand, and reed beds yellower and lighter than the meadow's tall grass, so reeds never read as it.
+	river: { ground: TILE_COLORS.sand, tallgrass: 0x9fc45c, blade: 0x5e9233 },
+	// Grey-green turf, paler and greyer than any meadow.
+	mountain: { ground: 0xa6b88f, tallgrass: 0x7b9b5a, blade: 0x587d3c }
+};
+
+/** Trees grow only in the forest: three dark greens, mixed at random, so it reads as deep woods. */
+export const CANOPY: readonly number[] = [0x2c7a43, 0x3a8f4c, 0x2f8a55];
+
+/** What else grows or lies about: rocks, snow on the peaks, reeds' heads, bushes, flowers. */
+export const PROP_COLORS = {
+	/** A mountain boulder's second grey (the first is `COLORS.rock`), and the pebbles on its turf. */
+	boulderLight: 0xa39e98,
+	pebble: 0x97928c,
+	/** The snow cap on the highest boulders: a cool white, never the figures' warm one. */
+	snow: 0xf3f6f4,
+	/** Rock tiles high on a mountain, paler round the snow. */
+	rockHigh: 0xbdb9b4,
+	/** A reed's head: the trunks' brown. */
+	cattail: COLORS.trunk,
+	/** Round bushes at the foot of the forest's trees. */
+	bush: [0x2f7d44, 0x3b8a47] as readonly number[],
+	/** Flowers in the meadow: off-white, the trainer's coral, the fire's amber. */
+	flower: [COLORS.white, COLORS.playerShirt, COLORS.fire] as readonly number[]
 } as const;
 
 /**
