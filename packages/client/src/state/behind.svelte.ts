@@ -1,10 +1,15 @@
+import type { BehindCause } from '../save/behind';
+
 /**
- * Whether the card that says this window is behind another one is up (see
- * `save/behind.ts`): the page has stopped taking play, and waits for the kid
- * to come to it, or to press Enter. Written only by `main.ts`, each frame.
+ * The card that says this page is behind (see `save/behind.ts`): the page has
+ * stopped taking play, and waits for the kid to come to it, or to ask for the
+ * newest game. Written only by `main.ts`, each frame.
  */
 class BehindView {
+	/** The card is up. */
 	shown = $state(false);
+	/** Why the page is behind: another window played on, or something else. */
+	cause = $state<BehindCause>('window');
 }
 
 export const behind = new BehindView();

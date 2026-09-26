@@ -13,6 +13,7 @@ import {
 	type SavedGame
 } from '@mathgame/engine';
 import { isIdentity, type Identity, type SaveServer } from './api';
+import type { BehindCause } from './behind';
 import type { SaveNotice } from './notices';
 import { KEYS, parseJson, type KeyValueStore } from './storage';
 
@@ -140,7 +141,8 @@ export class Autosave {
 	private played = false;
 	/** The server holds a save this build cannot read: no backup replaces it until the kid has played. */
 	private serverHeld = false;
-	private stale = false;
+	/** Why this page is behind, once it is (`behind`). It never stops being behind. */
+	private staleCause: BehindCause | null = null;
 	/** `begin` was called: the authority has started from the plan. */
 	private begun = false;
 
@@ -166,9 +168,20 @@ export class Autosave {
 		this.bootWaitMs = options.bootWaitMs ?? BOOT_WAIT_MS;
 	}
 
-	/** True once another page has taken over the save: reload to pick up the newest game. */
-	get wantsReload(): boolean {
-		return this.stale;
+	/**
+	 * Null while this page's game is the newest. Once the browser's save has
+	 * moved past it, why: another page of the game saved progress this one does
+	 * not have (`window`), this page took a bigger game from the server into
+	 * the browser's save (`server`), or the save was removed from under it
+	 * (`gone`). From then on the page saves nothing, and should reload to pick
+	 * up the newest game (`save/behind.ts`).
+	 */
+	get behind(): BehindCause | null {
+		return this.staleCause;
+	}
+
+	private get stale(): boolean {
+		return this.staleCause !== null;
 	}
 
 	/**
@@ -292,7 +305,7 @@ export class Autosave {
 		const now = this.store?.get(KEYS.save) ?? null;
 		if (now === this.seenText) return;
 		// The other page only walked: carry on from its save now, counters and all.
-		if (!this.carryOnFrom(now)) this.goStale();
+		if (!this.carryOnFrom(now)) this.goStale(now === null ? 'gone' : 'window');
 	}
 
 	// --- local ----------------------------------------------------------------
@@ -327,7 +340,7 @@ export class Autosave {
 		if (store !== null && (this.local === 'ok' || this.local === 'held')) {
 			const current = store.get(KEYS.save);
 			if (current !== this.seenText && !this.carryOnFrom(current)) {
-				this.goStale();
+				this.goStale(current === null ? 'gone' : 'window');
 				return;
 			}
 			if (this.local === 'held') {
@@ -409,8 +422,8 @@ export class Autosave {
 		return false;
 	}
 
-	private goStale(): void {
-		this.stale = true;
+	private goStale(cause: BehindCause): void {
+		this.staleCause ??= cause;
 		this.clearTimers();
 	}
 
@@ -572,7 +585,7 @@ export class Autosave {
 		const current = store.get(KEYS.save);
 		if (current !== this.seenText && current !== null) {
 			// Another page wrote meanwhile; it will settle with the server itself.
-			this.goStale();
+			this.goStale('window');
 			return;
 		}
 		const aside = this.local === 'held' ? KEYS.unreadable : KEYS.replaced;
@@ -586,7 +599,7 @@ export class Autosave {
 			this.serverState = 'stopped';
 			return;
 		}
-		this.goStale();
+		this.goStale('server');
 	}
 
 	private async createIdentity(): Promise<void> {

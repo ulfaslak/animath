@@ -168,5 +168,8 @@ save:
   caughtUp: You were playing in another window. Here's your newest game!
   # On a window that another window of the game has played past, until it catches up.
   behind: You kept playing in another window.
+  # The same card when the newest game came from somewhere else (the server backup),
+  # shown only when the page has already reloaded by itself three times in a minute.
+  behindReady: Your newest game is ready.
   # The button on that card.
   behindGo: Get your newest game

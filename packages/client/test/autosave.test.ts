@@ -396,7 +396,7 @@ describe('Autosave: the save in this browser', () => {
 		const next = new Tab(store, server);
 		await next.open();
 		await later();
-		expect(next.autosave.wantsReload).toBe(true);
+		expect(next.autosave.behind).toBe('server');
 		expect(store.save()!.party).toHaveLength(2);
 	});
 });
@@ -426,7 +426,7 @@ describe('Autosave: two tabs', () => {
 		const { store, a, b } = await twoTabs();
 		await a.catchOne();
 		b.autosave.onStorage(KEYS.save);
-		expect(b.autosave.wantsReload).toBe(true);
+		expect(b.autosave.behind).toBe('window');
 		const saved = store.get(KEYS.save);
 		await b.walk();
 		b.autosave.flush();
@@ -438,7 +438,7 @@ describe('Autosave: two tabs', () => {
 		await a.catchOne();
 		const saved = store.get(KEYS.save);
 		await b.walk();
-		expect(b.autosave.wantsReload).toBe(true);
+		expect(b.autosave.behind).toBe('window');
 		expect(store.get(KEYS.save)).toBe(saved);
 	});
 
@@ -448,7 +448,7 @@ describe('Autosave: two tabs', () => {
 		await a.walk();
 		const theirs = store.save()!;
 		b.autosave.onStorage(KEYS.save);
-		expect(b.autosave.wantsReload).toBe(false);
+		expect(b.autosave.behind).toBeNull();
 		await b.catchOne();
 		const mine = store.save()!;
 		expect(mine.seq).toBe(theirs.seq + 1);
@@ -456,7 +456,7 @@ describe('Autosave: two tabs', () => {
 		expect(mine.party).toHaveLength(2);
 		// And now the first tab is the one behind.
 		await a.walk();
-		expect(a.autosave.wantsReload).toBe(true);
+		expect(a.autosave.behind).toBe('window');
 		expect(store.save()).toEqual(mine);
 	});
 
@@ -467,7 +467,7 @@ describe('Autosave: two tabs', () => {
 		const theirs = store.save()!;
 		await a.walk();
 		const mine = store.save()!;
-		expect(a.autosave.wantsReload).toBe(false);
+		expect(a.autosave.behind).toBeNull();
 		expect(mine.steps).toBeGreaterThanOrEqual(theirs.steps);
 		expect(mine.visits).toBe(theirs.visits);
 		// A storage event does the same before this tab's next save.
@@ -485,7 +485,7 @@ describe('Autosave: two tabs', () => {
 		expect(store.save()!.party).toHaveLength(2);
 		// Only now does A hear about B's walk: late, and already built on.
 		a.autosave.onStorage(KEYS.save);
-		expect(a.autosave.wantsReload).toBe(false);
+		expect(a.autosave.behind).toBeNull();
 		await a.walk();
 		expect(store.save()!.steps).toBe(a.game.steps);
 	});
@@ -511,7 +511,7 @@ describe('Autosave: two tabs', () => {
 		expect(store.writes).toBe(writes);
 		expect(store.get(KEYS.save)).toBe(saved);
 		a.autosave.onStorage(KEYS.save);
-		expect(a.autosave.wantsReload).toBe(false);
+		expect(a.autosave.behind).toBeNull();
 	});
 
 	it('a save removed from under the page (site data cleared) is not written back', async () => {
@@ -520,7 +520,17 @@ describe('Autosave: two tabs', () => {
 		await a.walk();
 		a.autosave.flush();
 		expect(store.get(KEYS.save)).toBeNull();
-		expect(a.autosave.wantsReload).toBe(true);
+		expect(a.autosave.behind).toBe('gone');
+	});
+
+	it('the same, found by the storage event', async () => {
+		const { store, a } = await twoTabs();
+		store.remove(KEYS.save);
+		a.autosave.onStorage(KEYS.save);
+		expect(a.autosave.behind).toBe('gone');
+		await a.walk();
+		a.autosave.flush();
+		expect(store.get(KEYS.save)).toBeNull();
 	});
 });
 
@@ -554,7 +564,7 @@ describe('Autosave: the server backup', () => {
 
 		server.online = true;
 		await later(10_000);
-		expect(tab.autosave.wantsReload).toBe(true);
+		expect(tab.autosave.behind).toBe('server');
 		expect(store.save()).toMatchObject({ lineage: 'from-server', seq: 40 });
 		expect(store.get(KEYS.replaced)).toBe(fresh);
 		expect(server.saveOf(who)).toEqual(theirs);
@@ -575,7 +585,7 @@ describe('Autosave: the server backup', () => {
 		await next.open();
 		await later();
 		expect(server.saveOf(who)).toEqual(store.save());
-		expect(next.autosave.wantsReload).toBe(false);
+		expect(next.autosave.behind).toBeNull();
 		const puts = server.calls.filter((c) => c === 'put').length;
 		const third = new Tab(store, server);
 		await third.open();
@@ -595,7 +605,7 @@ describe('Autosave: the server backup', () => {
 		await next.open();
 		await next.walk();
 		await later();
-		expect(next.autosave.wantsReload).toBe(false);
+		expect(next.autosave.behind).toBeNull();
 		expect(server.saveOf(who)).toEqual(unreadable);
 		await next.catchOne();
 		await later();
@@ -647,7 +657,7 @@ describe('Autosave: the server backup', () => {
 		expect(await tab.open()).toEqual({ notice: 'save.couldNotLoad' });
 		server.online = true;
 		await later(10_000);
-		expect(tab.autosave.wantsReload).toBe(false);
+		expect(tab.autosave.behind).toBeNull();
 		// The kid plays the new game, and it is backed up over the old one.
 		await tab.catchOne();
 		await later();
@@ -656,7 +666,7 @@ describe('Autosave: the server backup', () => {
 		const again = new Tab(store, server);
 		await again.open();
 		await later();
-		expect(again.autosave.wantsReload).toBe(false);
+		expect(again.autosave.behind).toBeNull();
 	});
 
 	it('a game adopted from the server never overwrites a game already kept aside', async () => {
@@ -673,7 +683,7 @@ describe('Autosave: the server backup', () => {
 		const fresh = store.get(KEYS.save);
 		server.online = true;
 		await later(10_000);
-		expect(tab.autosave.wantsReload).toBe(true);
+		expect(tab.autosave.behind).toBe('server');
 		expect(store.get(KEYS.replaced)).toBe('an earlier game');
 		expect(store.get(`${KEYS.replaced}.2`)).toBe(fresh);
 	});
@@ -692,7 +702,7 @@ describe('Autosave: the server backup', () => {
 		await tab.catchOne();
 		await later(20_000);
 		expect(server.saveOf(who)).toEqual(newer);
-		expect(tab.autosave.wantsReload).toBe(false);
+		expect(tab.autosave.behind).toBeNull();
 	});
 
 	it('while the server is down the game saves locally, retries quietly, then rests until a catch', async () => {
@@ -781,7 +791,7 @@ describe('Autosave: the server backup', () => {
 		// The server stored the save, but the page never heard back.
 		server.players.get(who.id)!.save = JSON.parse(store.get(KEYS.save)!);
 		await later();
-		expect(tab.autosave.wantsReload).toBe(false);
+		expect(tab.autosave.behind).toBeNull();
 		expect(readSave(server.saveOf(who)).ok).toBe(true);
 		await tab.walk();
 		await later();

@@ -71,7 +71,12 @@ const exploreInput = () =>
 	!battle.active &&
 	!doctor.active &&
 	!pause.open &&
-	!autosave.wantsReload;
+	autosave.behind === null;
+
+/** A text box has the focus (the pause menu's name box): a Space there is a letter. */
+const typing = () =>
+	document.activeElement instanceof HTMLInputElement ||
+	document.activeElement instanceof HTMLTextAreaElement;
 
 // Keys go to exactly one screen: the battle while it is up, else the doctor's
 // card while it is open, else the pause menu while it is open (Escape in
@@ -79,13 +84,14 @@ const exploreInput = () =>
 // Explore's own listener runs first and is switched off here at once, so the
 // key that opens the menu is the last one walking sees.
 window.addEventListener('keydown', (e) => {
-	if (autosave.wantsReload) {
-		// Behind another window: no key reaches the game. Enter or Space catch up.
+	if (autosave.behind !== null) {
+		// Behind (`save/behind.ts`): no key reaches the game, nor a letter the name box.
+		// The browser's own keys (with Ctrl, Alt or Cmd, and F1–F12) still work. Enter,
+		// or Space outside a text box, catches up.
 		keyboard.setEnabled(false);
-		if (!e.ctrlKey && !e.metaKey && !e.altKey && behindKey(e.key) === 'reload') {
-			e.preventDefault();
-			catchUp(true);
-		}
+		if (e.ctrlKey || e.metaKey || e.altKey || /^F\d+$/.test(e.key)) return;
+		e.preventDefault();
+		if (behindKey(e.key, typing()) === 'reload') catchUp(false);
 		return;
 	}
 	if (battle.active) battleController.onKey(e);
@@ -105,35 +111,33 @@ window.addEventListener('storage', (e) => autosave.onStorage(e.key));
 mount(App, { target: uiRoot });
 
 /**
- * Reload into the newest game. Asked for by the kid (Enter on the card), it
- * always goes; on its own it goes at most `RELOADS_PER_MINUTE` times a
- * minute (`mayReloadNow`), so no bug can trap a kid in a loop of reloads.
- * False when it may not go: the page shows the card instead.
+ * Reload into the newest game, once. A reload the page makes on its own counts
+ * against `RELOADS_PER_MINUTE`; one the kid asked for (Enter, Space, the card's
+ * button) does not. Behind another window, the reloaded page says so.
  */
 let reloading = false;
-let mayReloadItself = true;
-function catchUp(asked: boolean): boolean {
-	if (reloading) return true;
-	if (!asked && !(mayReloadItself &&= mayReloadNow())) return false;
+function catchUp(onItsOwn: boolean): void {
+	if (reloading) return;
 	reloading = true;
-	reloadIntoNewestGame();
-	return true;
+	reloadIntoNewestGame({ onItsOwn, caughtUp: autosave.behind === 'window' });
 }
 
 let last = performance.now();
 function frame(now: number) {
 	const dt = Math.min(0.1, (now - last) / 1000);
 	last = now;
-	// Another window has played on past this one (`save/behind.ts`): this page takes no
-	// play. In use, it reloads into the newest game; on screen but not in use, or after
-	// reloading too often, it says so and waits; hidden, it waits to be shown.
+	// Behind (`save/behind.ts`): this page takes no play. It reloads into the newest
+	// game as soon as it may; until then it shows the card, or, hidden, waits.
+	const cause = autosave.behind;
 	const action = behindAction({
-		behind: autosave.wantsReload,
+		behind: cause,
 		visible: document.visibilityState === 'visible',
 		focused: document.hasFocus(),
-		mayReload: mayReloadItself
+		mayReload: cause !== null && mayReloadNow()
 	});
-	const card = action === 'card' || (action === 'reload' && !catchUp(false));
+	if (action === 'reload') catchUp(true);
+	const card = action === 'card' && !reloading;
+	if (cause !== null && behind.cause !== cause) behind.cause = cause;
 	if (behind.shown !== card) behind.shown = card;
 	const loading = game.mode === 'loading';
 	keyboard.setEnabled(exploreInput());

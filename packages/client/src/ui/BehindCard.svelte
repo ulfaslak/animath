@@ -1,13 +1,21 @@
 <script lang="ts">
 	import { t } from '../copy';
+	import { reloadIntoNewestGame } from '../save/behind';
+	import { behind } from '../state/behind.svelte';
+
+	// The one button in the game that takes a click: the kid may well click a window
+	// that is not in use. Asked for, the reload does not count against the limit.
+	const go = () => reloadIntoNewestGame({ onItsOwn: false, caughtUp: behind.cause === 'window' });
 </script>
 
-<!-- Another window of the game has played on: this one takes no play until it
-     has the newest game (`save/behind.ts`). Over every screen, battle included. -->
+<!-- This page is behind the save and takes no play until it has the newest game
+     (`save/behind.ts`). Over every screen, battle included. -->
 <div class="behind">
 	<div class="card">
-		<div class="title">{t('save.behind')}</div>
-		<div class="button">{t('save.behindGo')} <kbd>{t('keys.enter')}</kbd></div>
+		<div class="title">
+			{behind.cause === 'window' ? t('save.behind') : t('save.behindReady')}
+		</div>
+		<button class="button" onclick={go}>{t('save.behindGo')} <kbd>{t('keys.enter')}</kbd></button>
 	</div>
 </div>
 
@@ -41,11 +49,14 @@
 		margin-top: 22px;
 		min-height: 48px;
 		padding: 0 26px;
+		border: none;
 		border-radius: 24px;
 		background: var(--accent);
 		color: white;
+		font-family: inherit;
 		font-weight: 800;
 		font-size: 18px;
+		cursor: pointer;
 	}
 	kbd {
 		font-family: inherit;

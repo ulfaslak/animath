@@ -1,11 +1,19 @@
 /**
- * A page is *behind* when another page of the game has saved progress it
- * does not have (`Autosave.wantsReload`). Such a page never takes the kid's
- * play: its input is off and nothing it did could be saved. It catches up by
- * reloading into the newest game — at once when it is the page in use,
- * otherwise when the kid comes to it — and never behind the kid's back
- * ([[DECISIONS]] § Saves).
+ * A page is *behind* when the browser's save has moved on past the game it
+ * shows (`Autosave.behind`). Such a page never takes the kid's play: its
+ * input is off and nothing it did could be saved. It catches up by reloading
+ * into the newest game, and never behind the kid's back ([[DECISIONS]] §
+ * Saves).
  */
+
+/** Why a page is behind. */
+export type BehindCause =
+	/** Another window of the game saved progress this page does not have. */
+	| 'window'
+	/** This page took a bigger game from the server into the browser's save. */
+	| 'server'
+	/** The save was removed from under the page (site data cleared). */
+	| 'gone';
 
 /** What a page does this frame. */
 export type BehindAction =
@@ -13,87 +21,104 @@ export type BehindAction =
 	| 'play'
 	/** Behind and hidden: wait, and catch up when shown. */
 	| 'wait'
-	/** Behind and in use (visible, focused): catch up now. */
+	/** Behind and it may catch up now: reload. */
 	| 'reload'
-	/** Behind and on screen but not in use, or it has reloaded too often: say so, and wait for Enter. */
+	/** Behind, on screen, and it should not or may not reload by itself: say so, and wait for the kid. */
 	| 'card';
 
 export interface PageState {
-	behind: boolean;
+	behind: BehindCause | null;
 	/** `document.visibilityState === 'visible'` */
 	visible: boolean;
 	/** `document.hasFocus()`: the window the kid is using. */
 	focused: boolean;
-	/** False once this page has reloaded itself as often as it may (`mayReload`). */
+	/** Whether a reload now stays within `RELOADS_PER_MINUTE` (`mayReloadNow`). */
 	mayReload: boolean;
 }
 
+/**
+ * Behind another window, a page reloads only when it is the window in use:
+ * one on screen while the kid plays in the other waits for them, with the
+ * card. The other causes happen once, to a page on its own, so it catches up
+ * as soon as it is on screen.
+ */
 export function behindAction(page: PageState): BehindAction {
-	if (!page.behind) return 'play';
+	if (page.behind === null) return 'play';
 	if (!page.visible) return 'wait';
-	return page.focused && page.mayReload ? 'reload' : 'card';
+	const inUse = page.behind === 'window' ? page.focused : true;
+	return inUse && page.mayReload ? 'reload' : 'card';
 }
 
 /**
- * A key pressed while the page is behind: Enter or Space catch up (the kid
- * asked, so no limit applies); any other key does nothing, and never
- * reaches the game.
+ * A key pressed while the page is behind: Enter catches up, and so does
+ * Space, unless a text box has the focus (a Space there is a letter being
+ * typed). Any other key does nothing, and never reaches the game.
  */
-export function behindKey(key: string): 'reload' | 'ignore' {
-	return key === 'Enter' || key === ' ' ? 'reload' : 'ignore';
+export function behindKey(key: string, typing: boolean): 'reload' | 'ignore' {
+	if (key === 'Enter') return 'reload';
+	return key === ' ' && !typing ? 'reload' : 'ignore';
 }
 
 /** How many times a minute a page may reload itself without being asked. */
 export const RELOADS_PER_MINUTE = 3;
 
 /**
- * Whether a page that has reloaded itself at `times` (ms) may do so again at
- * `now`, and the times to remember if it does: the ones from the last minute,
- * plus `now`. The limit is what stops any bug from trapping a kid in a loop
- * of reloads; a reload the kid asked for (Enter) does not count against it.
+ * The reloads, at `times` (ms), that still count at `now`: the last
+ * minute's, none from the future. A page may reload itself while there are
+ * fewer than `RELOADS_PER_MINUTE` of them. The limit stops any bug from
+ * trapping a kid in a loop of reloads; a reload the kid asked for (Enter, the
+ * card's button) does not count against it.
  */
-export function reloadAllowed(
-	times: readonly number[],
-	now: number
-): { allowed: boolean; times: number[] } {
-	const recent = times.filter((t) => now - t < 60_000 && t <= now);
-	if (recent.length >= RELOADS_PER_MINUTE) return { allowed: false, times: recent };
-	return { allowed: true, times: [...recent, now] };
+export function recentReloads(times: readonly number[], now: number): number[] {
+	return times.filter((t) => t <= now && now - t < 60_000);
 }
 
 const RELOADS_KEY = 'animath.reloads';
 const CAUGHT_UP_KEY = 'animath.caughtUp';
 
 /**
- * The browser side of `reloadAllowed`: the times live in this tab's
- * sessionStorage, which a reload keeps. With no sessionStorage, a page may
- * always reload.
+ * This tab's own reloads, kept in sessionStorage, which a reload keeps. None
+ * when there is no sessionStorage or the record is unreadable (the next
+ * reload writes a good one).
  */
-export function mayReloadNow(now = Date.now()): boolean {
+function storedReloads(): number[] {
 	try {
 		const parsed: unknown = JSON.parse(sessionStorage.getItem(RELOADS_KEY) ?? '[]');
-		const times = Array.isArray(parsed)
-			? parsed.filter((t): t is number => typeof t === 'number')
-			: [];
-		const verdict = reloadAllowed(times, now);
-		if (verdict.allowed) sessionStorage.setItem(RELOADS_KEY, JSON.stringify(verdict.times));
-		return verdict.allowed;
+		return Array.isArray(parsed) ? parsed.filter((t): t is number => typeof t === 'number') : [];
 	} catch {
-		return true;
+		return [];
 	}
 }
 
-/** Reload into the newest game, and say so after the reload ("Here's your newest game!"). */
-export function reloadIntoNewestGame(): void {
+/** Without sessionStorage there is no limit to keep, and the page says "Welcome back!". */
+function remember(key: string, value: string): void {
 	try {
-		sessionStorage.setItem(CAUGHT_UP_KEY, '1');
+		sessionStorage.setItem(key, value);
 	} catch {
-		// Without the note the reloaded page says "Welcome back!" instead.
+		// Nothing to do.
 	}
+}
+
+/** Whether this page may reload itself now. */
+export function mayReloadNow(now = Date.now()): boolean {
+	return recentReloads(storedReloads(), now).length < RELOADS_PER_MINUTE;
+}
+
+/**
+ * Reload into the newest game. `onItsOwn` counts it against the limit;
+ * `caughtUp` makes the reloaded page say "You were playing in another window.
+ * Here's your newest game!" instead of "Welcome back!".
+ */
+export function reloadIntoNewestGame(options: { onItsOwn: boolean; caughtUp: boolean }): void {
+	if (options.onItsOwn) {
+		const now = Date.now();
+		remember(RELOADS_KEY, JSON.stringify([...recentReloads(storedReloads(), now), now]));
+	}
+	if (options.caughtUp) remember(CAUGHT_UP_KEY, '1');
 	location.reload();
 }
 
-/** Whether this page load is one `reloadIntoNewestGame` asked for. Reads the note once. */
+/** Whether this page load is one `reloadIntoNewestGame` asked to say so. Reads the note once. */
 export function takeCaughtUp(): boolean {
 	try {
 		const caughtUp = sessionStorage.getItem(CAUGHT_UP_KEY) === '1';

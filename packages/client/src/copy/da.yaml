@@ -168,5 +168,8 @@ save:
   caughtUp: Du spillede i et andet vindue. Her er dit nyeste spil!
   # On a window that another window of the game has played past, until it catches up.
   behind: Du spillede videre i et andet vindue.
+  # The same card when the newest game came from somewhere else (the server backup),
+  # shown only when the page has already reloaded by itself three times in a minute.
+  behindReady: Dit nyeste spil er klar.
   # The button on that card.
   behindGo: Hent dit nyeste spil
