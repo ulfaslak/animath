@@ -62,16 +62,26 @@
 		orderNow = order;
 	});
 
+	/** How long an animal's slide takes. */
+	const SLIDE_MS = 180;
+	/** When each animal's slide ends, so one cut short by the next move carries on to its place. */
+	const slidingUntil = new Map<string, number>();
+
 	/**
 	 * The short slide of an animal that changes place in the team (Move up,
-	 * Move down, Go first). A row whose animal kept its place moves with the
-	 * menu at once: on a tablet, Save puts the menu back in the middle in the
-	 * frame the new name arrives, and a row sliding down behind it took a tap
-	 * meant for the animal it passed (#52).
+	 * Move down, Go first), or is still on its way from the last change. A row
+	 * whose animal kept its place moves with the menu at once: on a tablet,
+	 * Save puts the menu back in the middle in the frame the new name arrives,
+	 * and a row sliding down behind it took a tap meant for the animal it
+	 * passed (#52).
 	 */
 	function slide(node: Element, rects: { from: DOMRect; to: DOMRect }, id: string) {
+		const now = performance.now();
 		const moved = orderBefore.indexOf(id) !== orderNow.indexOf(id);
-		return flip(node, rects, { duration: motion.reduced || !moved ? 0 : 180 });
+		const going = moved || now < (slidingUntil.get(id) ?? 0);
+		const duration = motion.reduced || !going ? 0 : SLIDE_MS;
+		if (duration > 0) slidingUntil.set(id, now + duration);
+		return flip(node, rects, { duration });
 	}
 
 	/** What the typed name will turn into, when that is not just what the box shows. */
