@@ -18,7 +18,7 @@ The categories that keep coming back. Each names where its guard lives, or the p
 - **A worktree's Vite backs up to the human's database**, because every Vite proxies `/api` to the primary clone's API unless `API_PORT` says otherwise: PR #21, PR #28 and other runs on 2026-09-26. Since PR #36 `scripts/screenshot.mjs` blocks `/api` unless `--api`; CLAUDE.md Phase 2 still says `/play` starts "both dev servers".
 - **A stale-event guard on the mode or the order, not the identity**: PR #13 (a battle), PR #14 (a doctor visit).
 - **An effect sized by its numbers, not in a frame**: PR #28, PR #42 (three times), PR #49 (a layout moved a long name next to the heal's stars).
-- **Prose that says more than the code or its test shows**: DNA written from memory (PR #11), a claim pinned only where it is vacuous (PR #12), a weight quoted as a share (PR #17), a sample's window stated as a rule (PR #21), a promise one step past what the test measures (PR #34).
+- **Prose that says more than the code or its test shows**: DNA written from memory (PR #11), a claim pinned only where it is vacuous (PR #12), a weight quoted as a share (PR #17), a sample's window stated as a rule (PR #21), a promise one step past what the test measures (PR #34), a mean pooled over worlds stated for each world and an extreme read off a sample (PR #64).
 
 ---
 
@@ -337,3 +337,23 @@ PR #35 gave every tappable row the key of its place, `row:<i>`. The pause menu's
 ### 2026-09-26 — PR #55 (#52, the team's slide) — an animation gated on the latest change cut short the one still running `[not codified]`
 
 To stop the team sliding behind its menu after a tablet's Save, the first cut let a row slide only when its animal changed place in the update at hand. Two quick Move ups broke it. The second move left the rabbit's place alone, so the rabbit, still halfway through the slide the first move gave it, jumped the rest of the way (321 to 340 px) instead of finishing. Found in Phase 2 by a frame-by-frame trace of two taps on Move up 90 ms apart, the mash edge of the taxonomy. Fix: a row whose slide has not ended keeps sliding (`slidingUntil` in `PauseMenu.svelte`). Category: **a per-update gate on an animation forgets the one in flight**. When a condition decides whether something animates, ask what happens to an element that is mid-animation when the condition turns false. Would become `[learned]` with that question in [[DEVELOPMENT]] § Looking at the game, beside the recipes for frames inside an animation.
+
+### 2026-09-26 — PR #64 (animals by their ground) — a guardrail bent to fit the code `[learned]`
+
+The first cut multiplied every species' weight by its ground factor at every distance. By rocks near spawn that raised wolves and bears past the [[INVARIANTS]] promise (under 5% two tiers above the lead) for a lead of tier 2 or 3, in the prototype world too: at (-9, 23), 6.1% and 6.5%. Instead of changing the model, the PR rewrote the promise to hold "on average", and per tile only for the starter. Its prose read as if the prototype world kept it, and the HUMAN_TODO item never asked about it, though CLAUDE.md § Guardrail changes says to fit the implementation to the DNA or get the guardrail changed first. Found by the adversarial review. Fix: a tier's weight is its biome share times its animals' mean factor raised to `danger`, so near spawn the ground only re-divides each tier's share. The promise holds by construction on every tile, in every world. Ten lines of code. `encounters.test.ts` § the start checks every tier's share inside the safe radius for every lead, biome and 729 grounds, and the invariant names the incident. Category: **an invariant rewritten to fit a design, when a design that kept it existed**. When a change breaks a promise, search for the formulation that keeps it before touching the promise.
+
+### 2026-09-26 — PR #64 — a sweep whose failure outlasted the timeout `[learned]`
+
+The new ground sweeps built one message per failing cell. A negative control (the boost at 8) failed some 20,000 cells, and vitest's diff of all of them took 13 s in one test, past the 5 s default. So the run would have blamed a timeout, not the rule that broke. The passing sweep takes 0.4 s, so nothing hinted at it. Found by that negative control. Fix: `findings()` in `encounters.test.ts` keeps the first 20 and counts the rest, and [[DEVELOPMENT]] § Testing ideology says to cap a sweep's findings. Category: **a guard's failure output grows with the damage**. Time a sweep failing, not only passing.
+
+### 2026-09-26 — PR #64 — a floor widened by the sampling slack never failed `[learned]`
+
+The balance test's new floor for the squirrel starter in the rabbits' meadow (right 7 times in 10, at least one fight in three) went through `expectInBand`, which adds 2 points of sampling slack at both ends. That put the floor at 31%, 3 points above the 28% of an all-rabbit meadow, so a 30-fold ground boost that fills the meadow with rabbits still passed. Found by a negative control, CLAUDE.md Phase 2 step 4. Fix: the floor is asserted as written (`balance.test.ts`, "the starter squirrel meets the same targets"). Category: **slack meant for the dice swallowed the regression the floor was for**. A floor close to the worst case gets no slack; check that it can fail.
+
+### 2026-09-26 — PR #64 — a pooled mean stated for every world, and an extreme read off a sample `[not codified]`
+
+- PRODUCT and INVARIANTS said the ground never raised the share of animals bigger than the lead near home, "over the prototype world and 200 others". It was measured once, pooled over all 201 worlds. Per world it fails in 7 to 13 of every 200, by up to 12 points for a deer in front.
+- CHEATSHEET said one tier below comes out "as rarely as 1 in 75" far out. That was the minimum over every second tile of one world. A tile of the same world gives 1 in 87, and the rule allows 1 in 101.
+
+Both were found by the adversarial review. Fix: the average claim went with the redesign (near spawn the tiers are the biome's on every tile), and the CHEATSHEET gives the rule's extremes, 1 in 5 to 1 in 100. Category: **a statistic stated at a finer grain than it was measured**: pooled means for each world, a sampled minimum for the minimum. Would become `[learned]` with a line in [[DEVELOPMENT]] § Testing ideology: a range in prose comes from the rule's extremes or from a full sweep, never from a sample.
+
