@@ -60,7 +60,11 @@ const AROUND: readonly (readonly [number, number])[] = (() => {
 /** How many tiles `surroundings` reads: 28. */
 export const HABITAT_TILES = AROUND.length;
 
-/** What a tile of this kind counts as around an encounter; null is open ground. */
+/**
+ * What a tile of this kind counts as around an encounter; null is open
+ * ground. Every kind is named, so a new one fails to compile until it is
+ * placed here.
+ */
 function coverOf(kind: TileKind): keyof Surroundings | null {
 	switch (kind) {
 		case 'water':
@@ -69,7 +73,10 @@ function coverOf(kind: TileKind): keyof Surroundings | null {
 			return 'trees';
 		case 'rock':
 			return 'rocks';
-		default:
+		case 'grass':
+		case 'tallgrass':
+		case 'sand':
+		case 'tent':
 			return null;
 	}
 }

@@ -43,7 +43,7 @@ export const ENCOUNTER_CHANCE = 0.1;
 /** Up to this many tiles from spawn the tier mix is at its gentlest. */
 export const SAFE_RADIUS = 32;
 
-/** From this many tiles out, every tier from the lead's up is equally likely. */
+/** From this many tiles out, every tier from the lead's up is equally likely on the biome's table. */
 export const WILD_RADIUS = 128;
 
 /** Inside the safe radius each tier above the lead is this many times rarer than the tier below it. */
