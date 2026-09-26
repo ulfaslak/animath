@@ -1,7 +1,8 @@
 import { ANIMALS } from '../animals/catalog.js';
-import type { AnimalInstance, AnimalSpec, Biome, Tier } from '../animals/types.js';
+import type { AnimalInstance, AnimalSpec, Biome, Realm, Tier } from '../animals/types.js';
 import type { Rng } from '../rng.js';
-import { isEncounterTile, type GridPos, type Tile } from './types.js';
+import { factorForShare, terrainShares, type Surroundings } from './habitat.js';
+import { encounterRealm, isEncounterTile, type GridPos, type Tile } from './types.js';
 
 /**
  * Wild encounters: which animal, if any, steps out of the tall grass.
@@ -12,17 +13,24 @@ import { isEncounterTile, type GridPos, type Tile } from './types.js';
  * battle; the roll then draws the encounter chance and, on a hit, a species
  * from the biome's table.
  *
- * The table is the catalog filtered by habitat and weighted by how many tiers
- * above the lead each species is, so that animals fiercer than the lead are
- * rare near the spawn tile and ordinary far from it. An animal two or more
- * tiers below the lead never challenges it; one tier below does, rarely. Near
- * spawn, animals of the lead's size come down to the water and up the hills:
- * the river and the mountains, wherever something bigger than the lead lives
- * there, also get every species of the lead's tier that doesn't live there as
- * a visitor, so the first few minutes are fair wherever the player walks. From
- * its own tier up, a tier-L lead's table is a tier-1 lead's table in a catalog
- * L − 1 tiers smaller. [[PRODUCT]] §4 "Wild encounters" states the numbers in
- * prose; they must agree with the constants below.
+ * The biome's table (`encounterTable`) is the catalog filtered by biome and
+ * realm and weighted by how many tiers above the lead each species is, so that
+ * animals fiercer than the lead are rare near the spawn tile and ordinary far
+ * from it. An animal two or more tiers below the lead never challenges it; one
+ * tier below does, rarely. Near spawn, animals of the lead's size come down to
+ * the water and up the hills: the river and the mountains, wherever something
+ * bigger than the lead lives there, also get every species of the lead's tier
+ * that doesn't live there as a visitor, so the first few minutes are fair
+ * wherever the player walks. From its own tier up, a tier-L lead's table is a
+ * tier-1 lead's table in a catalog L − 1 tiers smaller.
+ *
+ * The table where the player stands (`encounterTableAt`) is the biome's, each
+ * species' weight multiplied by how much of the ground it favours lies around
+ * (`habitat.ts`): the frogs by the water, the rabbits in the open. It lists the
+ * same species, so the ground never changes whether a step can start a battle
+ * or who could come out, only who is likely to. [[PRODUCT]] §4 "Wild
+ * encounters" states the numbers in prose; they must agree with the constants
+ * here and in `habitat.ts`.
  *
  * Every draw comes from the caller's `Rng`, so a walk replays exactly from
  * (seed, intents). The rng is only touched when the tile can hold an encounter
@@ -53,15 +61,19 @@ export const ONE_TIER_BELOW_WEIGHT = 0.1;
 
 export interface EncounterEntry {
 	species: AnimalSpec;
-	/** Share of encounters in this biome at this distance; a table's weights sum to 1. */
+	/** Share of the encounters the table stands for; a table's weights sum to 1. */
 	weight: number;
 }
 
-/** Where the player just stepped. `spawn` is `spawnPoint(seed)` for the world. */
+/**
+ * Where the player just stepped. `spawn` is `spawnPoint(seed)` for the world,
+ * and `around` is `surroundings(seed, pos)`: the ground near the tile.
+ */
 export interface EncounterSite {
 	tile: Tile;
 	pos: GridPos;
 	spawn: GridPos;
+	around: Surroundings;
 }
 
 /**
@@ -117,26 +129,35 @@ function assertTier(tier: unknown, where: string): asserts tier is Tier {
 }
 
 /**
- * The species that can challenge a lead of tier `leadTier` in `biome` at
- * `distance` tiles from spawn, with their normalised shares, in catalog order.
+ * The biome's table: the species that can challenge a lead of tier `leadTier`
+ * in `biome` at `distance` tiles from spawn, with their normalised shares, in
+ * catalog order, before the ground around a tile has a say.
  *
- * Residents (species whose habitats include the biome) are weighted by how
- * many tiers above the lead they are; residents two or more tiers below it are
- * left out. In a visited biome (the river, the mountains) where a resident is
- * bigger than the lead, every species of the lead's tier that doesn't live
- * there is listed too, as a visitor weighted by `visitorWeight`. Empty when
- * nothing living in the biome is within one tier below the lead: a bear meets
- * nothing in the meadow.
+ * Only species living in `realm` are listed: on land, today's only realm with
+ * encounters, every species in the catalog. Residents (species whose habitats
+ * include the biome) are weighted by how many tiers above the lead they are;
+ * residents two or more tiers below it are left out. In a visited biome (the
+ * river, the mountains) where a resident is bigger than the lead, every
+ * species of the lead's tier that doesn't live there is listed too, as a
+ * visitor weighted by `visitorWeight`. Empty when nothing living in the biome
+ * is within one tier below the lead: a bear meets nothing in the meadow.
  */
-export function encounterTable(biome: Biome, distance: number, leadTier: Tier): EncounterEntry[] {
+export function encounterTable(
+	biome: Biome,
+	distance: number,
+	leadTier: Tier,
+	realm: Realm = 'land'
+): EncounterEntry[] {
 	if (!Number.isFinite(distance)) throw new Error(`encounterTable: distance is ${distance}`);
 	assertTier(leadTier, 'encounterTable');
-	const residents = ANIMALS.filter((a) => a.habitats.includes(biome));
+	const lives = (a: AnimalSpec) => a.realms.includes(realm);
+	const residents = ANIMALS.filter((a) => lives(a) && a.habitats.includes(biome));
 	const visitors =
 		VISITED_BIOMES.includes(biome) && residents.some((a) => a.tier > leadTier)
 			? visitorWeight(distance)
 			: 0;
 	const raw = ANIMALS.flatMap((species) => {
+		if (!lives(species)) return [];
 		const above = species.tier - leadTier;
 		if (species.habitats.includes(biome)) {
 			const weight = challengerWeight(above, distance);
@@ -150,19 +171,41 @@ export function encounterTable(biome: Biome, distance: number, leadTier: Tier): 
 }
 
 /**
+ * The table where the player stands: the biome's table for the tile's realm
+ * and distance from spawn, each species' weight multiplied by its habitat
+ * factor for the ground around (`habitat.ts`), normalised again. It lists the
+ * same species as the biome's table, in the same order. Empty on a tile where
+ * no encounter can happen. Throws on a site whose position, spawn or
+ * surroundings are not real, or a lead that is not a tier.
+ */
+export function encounterTableAt(site: EncounterSite, leadTier: Tier): EncounterEntry[] {
+	assertTier(leadTier, 'encounterTableAt');
+	const realm = encounterRealm(site.tile.kind);
+	if (realm === null) return [];
+	const distance = distanceFromSpawn(site.pos, site.spawn);
+	if (!Number.isFinite(distance)) throw new Error(`encounterTableAt: distance is ${distance}`);
+	const shares = terrainShares(site.around);
+	const raw = encounterTable(site.tile.biome, distance, leadTier, realm).map((e) => ({
+		species: e.species,
+		weight: e.weight * factorForShare(shares[e.species.favours])
+	}));
+	const total = raw.reduce((sum, e) => sum + e.weight, 0);
+	return raw.map((e) => ({ species: e.species, weight: e.weight / total }));
+}
+
+/**
  * Roll for a wild encounter after a step, for a party led by an animal of
  * tier `leadTier`. Returns the wild animal at full HP, or `null` when nothing
- * happens. The chance is `ENCOUNTER_CHANCE` whatever the lead, wherever
- * anything could challenge it; where nothing could, the roll is `null` without
- * a draw. Throws on a site whose position or spawn is not a real coordinate,
- * or a lead that is not a tier, rather than guessing a table.
+ * happens. The chance is `ENCOUNTER_CHANCE` whatever the lead and the ground,
+ * wherever anything could challenge the lead; where nothing could, the roll is
+ * `null` without a draw. On a hit, the animal is picked from
+ * `encounterTableAt`. Throws on a site whose position, spawn or surroundings
+ * are not real, or a lead that is not a tier, rather than guessing a table.
  */
 export function rollEncounter(rng: Rng, site: EncounterSite, leadTier: Tier): WildAnimal | null {
 	assertTier(leadTier, 'rollEncounter');
 	if (!isEncounterTile(site.tile.kind)) return null;
-	const distance = distanceFromSpawn(site.pos, site.spawn);
-	if (!Number.isFinite(distance)) throw new Error(`rollEncounter: distance is ${distance}`);
-	const table = encounterTable(site.tile.biome, distance, leadTier);
+	const table = encounterTableAt(site, leadTier);
 	if (table.length === 0) return null;
 	if (!rng.chance(ENCOUNTER_CHANCE)) return null;
 	const species = pickWeighted(rng, table);

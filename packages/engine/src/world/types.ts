@@ -1,4 +1,4 @@
-import type { Biome } from '../animals/types.js';
+import type { Biome, Realm } from '../animals/types.js';
 
 export const CHUNK_SIZE = 16;
 
@@ -26,9 +26,18 @@ export function isWalkable(kind: TileKind): boolean {
 	return kind === 'grass' || kind === 'tallgrass' || kind === 'sand';
 }
 
+/**
+ * Where an encounter on a tile of this kind happens, or null where none can:
+ * tall grass (the river's reeds included) is land. Nothing is water yet; the
+ * boat's water will be, and then only species living in that realm come out.
+ */
+export function encounterRealm(kind: TileKind): Realm | null {
+	return kind === 'tallgrass' ? 'land' : null;
+}
+
 /** Tiles where wild animals may appear. */
 export function isEncounterTile(kind: TileKind): boolean {
-	return kind === 'tallgrass';
+	return encounterRealm(kind) !== null;
 }
 
 export interface GridPos {
