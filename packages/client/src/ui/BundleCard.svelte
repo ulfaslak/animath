@@ -2,6 +2,7 @@
 	import { getAnimal, type AnimalInstance } from '@mathgame/engine';
 	import type { HTMLAttributes } from 'svelte/elements';
 	import { t } from '../copy';
+	import { stackHealth, stackSummary } from '../hp';
 	import { unfocusable } from '../input/press';
 	import { nameOf, speciesName } from '../names';
 	import HpBar from './HpBar.svelte';
@@ -10,10 +11,11 @@
 	 * One card of the party: every animal of one species, stacked (UI_SPEC §
 	 * Explore mode, "Party cards"). One animal shows as itself, its name and
 	 * its HP bar. Several show as a stack, with cards peeking out behind: the
-	 * species' name, how many ("×4"), and how many can play ("3 ready · 1
-	 * tired"); their names and HP are on the open card (`BundleAnimals`). The
-	 * card is marked "goes first" when the lead is one of its animals, and
-	 * "tired" when all of them are.
+	 * species' name, how many ("×4"), how they are ("3 ready · 1 tired soon ·
+	 * 1 tired", `stackSummary`), and a slim bar of all their HP together;
+	 * their names and HP are on the open card (`BundleAnimals`). The card is
+	 * marked "goes first" when the lead is one of its animals, and "tired"
+	 * when all of them are.
 	 *
 	 * A reader, like every card: a click or a tap is the key it names in
 	 * `press` (`data-press`, `input/taps.ts`); without one it is not a button.
@@ -47,17 +49,10 @@
 
 	const first = $derived(animals[0]!);
 	const single = $derived(animals.length === 1);
-	const tired = $derived(animals.filter((a) => a.hp === 0).length);
-	const allTired = $derived(tired === animals.length);
+	const allTired = $derived(animals.every((a) => a.hp === 0));
 	const leads = $derived(showLead && leadId !== null && animals.some((a) => a.id === leadId));
-
-	/** How many of a stack can play: all of them, all tired, or how many of each. */
-	const summary = $derived.by(() => {
-		if (tired === 0) return t('team.allReady');
-		if (allTired) return t('team.allTired');
-		const ready = t('team.ready', { count: animals.length - tired });
-		return `${ready} · ${t('team.tired', { count: tired })}`;
-	});
+	/** A stack's HP, all of it together, for its slim bar. */
+	const health = $derived(single ? null : stackHealth(animals));
 </script>
 
 <svelte:element
@@ -85,7 +80,12 @@
 	{#if single}
 		<span class="hp"><HpBar hp={first.hp} max={getAnimal(first.speciesId).maxHp} /></span>
 	{:else}
-		<span class="summary">{summary}</span>
+		<span class="summary">
+			{#each stackSummary(animals) as part, i (i)}
+				{#if i > 0}{' · '}{/if}<span class="part">{part}</span>
+			{/each}
+		</span>
+		{#if health}<span class="hp all"><HpBar hp={health.hp} max={health.max} thin /></span>{/if}
 	{/if}
 </svelte:element>
 
@@ -196,6 +196,14 @@
 		font-size: 16px;
 		line-height: 20px;
 		opacity: 0.8;
+	}
+	/* A line that runs out of room breaks between the parts, never inside one ("2 tired soon"). */
+	.part {
+		white-space: nowrap;
+	}
+	/* A stack's HP, all of it together: a slim bar under its words. */
+	.hp.all {
+		margin-top: 4px;
 	}
 	kbd {
 		display: inline-block;

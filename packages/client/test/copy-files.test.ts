@@ -213,4 +213,26 @@ describe('copy files', () => {
 		expect(Object.keys(LINES).length).toBeGreaterThan(0);
 		expect(problems).toEqual([]);
 	});
+
+	it('Danish has no comma before "og" or "eller" unless a sentence with its own subject follows (#73)', () => {
+		// DESIGN § Voice and copy, Danish: "Skriv svaret og tryk på Enter", never with a
+		// comma between two commands or before a list's last item; but "Jeg gør dem helt
+		// raske, og du får mønter som tak!" keeps it, "du" being the next sentence's
+		// subject. A subject is known by its pronoun or by an animal's placeholder.
+		const SUBJECTS = new Set(
+			'jeg du han hun den det vi de man der min mit mine din dit dine vores jeres deres'.split(' ')
+		);
+		const problems: string[] = [];
+		for (const [key, message] of messages.get('da') ?? []) {
+			for (const text of textsOf(message)) {
+				for (const [comma, , next] of text.matchAll(/,\s+(og|eller)\s+(\S+)/g)) {
+					if (!SUBJECTS.has(next!.toLowerCase()) && !next!.startsWith('{')) {
+						problems.push(`da.yaml ${key}: "${comma}…" in "${text}"`);
+					}
+				}
+			}
+		}
+		expect(messages.has('da')).toBe(true);
+		expect(problems).toEqual([]);
+	});
 });

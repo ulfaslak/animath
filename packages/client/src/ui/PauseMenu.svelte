@@ -9,6 +9,7 @@
 	import { flip } from 'svelte/animate';
 	import { sfx } from '../audio/sfx.svelte';
 	import { LANGUAGES, language, languageName, t } from '../copy';
+	import { stackSummary } from '../hp';
 	import { languageKey, optionKey, rowKey, unfocusable } from '../input/press';
 	import { touch } from '../input/touch.svelte';
 	import { motion } from '../motion';
@@ -121,15 +122,6 @@
 		return clean === pause.draft.trim().replace(/\s+/g, ' ') ? '' : clean;
 	});
 
-	/** How many of a card can play: all of them, all tired, or how many of each. */
-	function summary(animals: readonly { hp: number }[]): string {
-		const tired = animals.filter((a) => a.hp === 0).length;
-		if (tired === 0) return t('team.allReady');
-		if (tired === animals.length) return t('team.allTired');
-		const ready = t('team.ready', { count: animals.length - tired });
-		return `${ready} · ${t('team.tired', { count: tired })}`;
-	}
-
 	function itemLabel(item: MenuItem): string {
 		switch (item) {
 			case 'language':
@@ -210,13 +202,16 @@
 								<span class="species">{speciesName(first.speciesId)}</span>
 							{:else if !single}
 								<span class="count">{t('team.count', { count: bundle.animals.length })}</span>
+								<span class="summary">
+									{#each stackSummary(bundle.animals) as part, j (j)}
+										{#if j > 0}{' · '}{/if}<span class="part">{part}</span>
+									{/each}
+								</span>
 							{/if}
 						</span>
 						{#if single}
 							<span class="bar"><HpBar hp={first.hp} max={getAnimal(first.speciesId).maxHp} /></span
 							>
-						{:else}
-							<span class="bar summary">{summary(bundle.animals)}</span>
 						{/if}
 						<span class="tags">
 							{#if allTired}
@@ -502,14 +497,21 @@
 		background: rgba(45, 42, 50, 0.08);
 		font-variant-numeric: tabular-nums;
 	}
-	/* How many of a card can play, where one animal's HP bar would be. */
+	/*
+	 * How a card of several is, on its own line under its kind's name, as on
+	 * the HUD's card, running on where one animal's HP bar would be, so the
+	 * row keeps its 48 px with three counts of three figures in Danish. A
+	 * line that runs out of room breaks between the parts, never inside one
+	 * ("3 tired soon").
+	 */
 	.summary {
+		flex-basis: 100%;
 		font-weight: 600;
 		font-size: 16px;
 		opacity: 0.8;
+	}
+	.part {
 		white-space: nowrap;
-		overflow: hidden;
-		text-overflow: ellipsis;
 	}
 	.bar {
 		width: 150px;

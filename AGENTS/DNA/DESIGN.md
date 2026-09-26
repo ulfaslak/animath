@@ -71,7 +71,7 @@ Each biome has its own ground and tall grass (`BIOME_LOOK` in `palette.ts`), so 
 | Mountain | `#a6b88f` | `#7b9b5a` / `#587d3c`   | Grey-green turf with pebbles (`#97928c`), too small to look like a rock that blocks; boulder fields, a big boulder with smaller ones round it; snow on the peaks. |
 | Sea      | deep water `#3f9fdc` | none; the shallows' `#5ec8f2` in a battle's crests of waves | Nothing grows. In a battle, the deep water's surface over the animals' feet, and a sandy shore far behind. |
 
-Colour is never the only signal: a wrong answer also shakes, a low HP bar also shows a number.
+Colour is never the only signal: a wrong answer also shakes, a low HP bar also shows a number (a stack's slim bar of all its animals' HP, the count of them tired soon, "3 tired soon").
 
 ## Typography
 
