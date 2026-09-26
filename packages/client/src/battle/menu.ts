@@ -1,5 +1,6 @@
 import { ATTACK_LEVELS, type AnimalSpec, type AttackLevel } from '@mathgame/engine';
 import { t } from '../copy';
+import { tappedLevel, tappedRow } from '../input/press';
 import { attackName } from '../names';
 
 /**
@@ -110,10 +111,21 @@ export interface MenuKey {
  * cursor, wrapping round; left/right (A/D) change the highlighted attack's
  * own level and nothing else; 1/2/3 set that level and attack at once;
  * Enter or Space pick the highlighted row.
+ *
+ * A pointer's keys (`input/press.ts`): a tap on a row highlights it, and a
+ * tap on the row already highlighted picks it, as Enter does, since a pick
+ * spends the turn and the kid should see what the row does first; a tap on
+ * a level button sets the highlighted attack's level, as left/right do.
  */
 export function menuKey(menu: Menu, key: string, spec: AnimalSpec): MenuKey {
 	const rows = actionCount(spec.attacks.length);
 	const cursor = Math.min(Math.max(0, menu.cursor), rows - 1);
+	const row = tappedRow(key);
+	if (row !== undefined) {
+		if (row >= rows) return { menu, handled: true };
+		if (row !== cursor) return { menu: { ...menu, cursor: row }, handled: true };
+		return menuKey({ ...menu, cursor }, 'Enter', spec);
+	}
 	const action = actionAt(cursor, spec.attacks.length);
 	const attack = action.kind === 'attack' ? action.index : 0;
 	const level = attack ? levelOf(menu.levels, spec.id, spec.attacks[attack - 1]!.id) : 1;
@@ -121,6 +133,10 @@ export function menuKey(menu: Menu, key: string, spec: AnimalSpec): MenuKey {
 		cursor,
 		levels: withLevel(menu.levels, spec, attack, to)
 	});
+	const tapped = tappedLevel(key);
+	if (tapped !== undefined) {
+		return { menu: attack ? setLevel(tapped) : menu, handled: true };
+	}
 	switch (key) {
 		case 'ArrowUp':
 		case 'w':
@@ -164,13 +180,19 @@ export type ListChoice = 'pick' | 'back';
  * One key on the party list of `count` animals. Up/down (W/S) move the
  * cursor over every animal, wrapping round, tired ones included; Enter or
  * Space pick the highlighted one; Escape goes back. Whether a pick or going
- * back is allowed is the caller's to decide.
+ * back is allowed is the caller's to decide. A tap on a row highlights it,
+ * and a tap on the highlighted row picks it, as on the action menu.
  */
 export function listKey(
 	cursor: number,
 	key: string,
 	count: number
 ): { cursor: number; handled: boolean; choice?: ListChoice } {
+	const row = tappedRow(key);
+	if (row !== undefined) {
+		if (row >= count) return { cursor, handled: true };
+		return row === cursor ? { cursor, handled: true, choice: 'pick' } : { cursor: row, handled: true };
+	}
 	switch (key) {
 		case 'ArrowUp':
 		case 'w':

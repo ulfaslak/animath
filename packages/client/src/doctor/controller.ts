@@ -8,6 +8,7 @@ import {
 	type GameEvent
 } from '@mathgame/engine';
 import { answerKey } from '../input/answer';
+import { tappedRow } from '../input/press';
 import { cursorStops, doctor, hurtIndexes, stepCursor } from '../state/doctor.svelte';
 import type { DoctorLine } from './lines';
 
@@ -192,6 +193,15 @@ export class DoctorController {
 
 	private listKey(key: string): boolean {
 		const stops = cursorStops(doctor.party);
+		// A tap on an animal picks it at once, as the arrows and Enter would: at
+		// the doctor nothing is spent. A fit animal can't be picked, so its row
+		// does nothing. (Bye is Escape's, which leaves at any time.)
+		const row = tappedRow(key);
+		if (row !== undefined) {
+			if (!stops.includes(row)) return true;
+			doctor.cursor = row;
+			return this.listKey('Enter');
+		}
 		switch (key) {
 			case 'ArrowUp':
 			case 'w':
@@ -215,6 +225,15 @@ export class DoctorController {
 	}
 
 	private puzzleKey(key: string): boolean {
+		// A tap on another animal who needs the doctor swaps the puzzle to it,
+		// as up/down do; the patient's own row and fit animals do nothing.
+		const row = tappedRow(key);
+		if (row !== undefined) {
+			if (row !== doctor.patient && hurtIndexes(doctor.party).includes(row)) {
+				this.send({ type: 'pick-patient', partyIndex: row });
+			}
+			return true;
+		}
 		switch (key) {
 			case 'ArrowUp':
 			case 'w':
