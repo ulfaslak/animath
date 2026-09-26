@@ -1,5 +1,7 @@
 import type { GameEvent, Intent } from '@mathgame/engine';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import type { CueName } from '../src/audio/cues';
+import { sfx } from '../src/audio/sfx.svelte';
 import { LocalAuthority } from '../src/authority/local';
 import { language } from '../src/copy';
 import { parseParty } from '../src/flags';
@@ -62,7 +64,10 @@ function setup(startingParty = 'squirrel,rabbit,fox') {
 		return last;
 	};
 	const species = () => game.party.map((a) => a.speciesId);
-	return { authority, controller, events, sent, press, species };
+	/** Presses of ArrowDown that take the cursor from the top to a menu row. */
+	const downTo = (item: (typeof MENU_ITEMS)[number]) =>
+		Array<string>(game.party.length + MENU_ITEMS.indexOf(item)).fill('ArrowDown');
+	return { authority, controller, events, sent, press, species, downTo };
 }
 
 beforeEach(() => {
@@ -70,12 +75,14 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+	// The settings are the page's; leave them as every test found them.
 	language.set('en');
+	sfx.set(true);
 });
 
 describe('pause menu', () => {
 	it('opens on Escape, closes on Escape or "Keep playing", and ignores a held Escape', () => {
-		const { controller, press } = setup();
+		const { controller, press, downTo } = setup();
 		expect(press('ArrowDown').prevented).toBe(false); // closed: explore's key, not the menu's
 		expect(pause.open).toBe(false);
 		expect(press('Escape').prevented).toBe(true);
@@ -87,9 +94,12 @@ describe('pause menu', () => {
 		controller.onKey(key('Escape', { repeat: true }));
 		expect(pause.open).toBe(false);
 
-		// Down past the team lands on the menu items; Enter on "Keep playing" closes.
+		// Up from the top wraps to the last menu row; down past the team and the
+		// settings lands on "Keep playing", and Enter there closes.
 		press('Escape', 'ArrowUp');
 		expect(pause.cursor).toBe(game.party.length + MENU_ITEMS.length - 1);
+		press('Escape', 'Escape', ...downTo('resume')); // closed, opened again at the top
+		expect(pause.cursor).toBe(game.party.length + MENU_ITEMS.indexOf('resume'));
 		press('Enter');
 		expect(pause.open).toBe(false);
 	});
@@ -111,6 +121,30 @@ describe('pause menu', () => {
 		expect(pause.cursor).toBe(0);
 		press('W');
 		expect(pause.cursor).toBe(rows - 1);
+	});
+
+	it('the Sound row: Enter flips it, left turns it off and right on, and the menu stays open', () => {
+		const { press, sent, downTo } = setup();
+		const cues: CueName[] = [];
+		const stop = sfx.onCue((cue) => cues.push(cue));
+		press('Escape', ...downTo('sound'));
+		expect(sfx.on).toBe(true);
+		press('Enter');
+		expect(sfx.on).toBe(false);
+		expect(pause.open).toBe(true);
+		press('ArrowRight');
+		expect(sfx.on).toBe(true);
+		press('ArrowRight'); // already on: stays on
+		expect(sfx.on).toBe(true);
+		press('a');
+		expect(sfx.on).toBe(false);
+		press(' ');
+		expect(sfx.on).toBe(true);
+		// Turned on, it says so in sound; turned off, only the switch says so.
+		expect(cues.slice(-4)).toEqual(['move', 'move', 'confirm', 'confirm']);
+		expect(pause.screen).toBe('list');
+		expect(sent).toEqual([]);
+		stop();
 	});
 
 	it('the Language row switches every word at once: Enter, or left and right on the row', () => {

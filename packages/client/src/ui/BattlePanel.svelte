@@ -562,4 +562,32 @@
 			transform: translateY(-22px) scale(1);
 		}
 	}
+
+	/* Less motion: the damage fades in and out where it is; a refused pick barely nudges. */
+	@keyframes pop-still {
+		0%,
+		100% {
+			opacity: 0;
+		}
+		15%,
+		70% {
+			opacity: 1;
+		}
+	}
+	@keyframes nudge-small {
+		30% {
+			transform: translateX(-2px);
+		}
+		60% {
+			transform: translateX(2px);
+		}
+	}
+	@media (prefers-reduced-motion: reduce) {
+		.damage {
+			animation-name: pop-still;
+		}
+		.row.nudge {
+			animation-name: nudge-small;
+		}
+	}
 </style>
