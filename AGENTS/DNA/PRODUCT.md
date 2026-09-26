@@ -11,7 +11,7 @@ The game is called **Animath**. The repo and package names (`mathgame`, `@mathga
 ## 2. Players
 
 - **Kids aged roughly 6–12**. Reading level: short words, big text. The puzzle ladder spans from single-digit addition to three-digit multiplication and square roots.
-- **Devices**: a laptop/desktop browser with a keyboard first. Tablets with touch controls are a planned follow-up, not a v1 target.
+- **Devices**: a laptop or desktop browser with a keyboard, or a tablet held sideways, played with fingers alone (touch controls, [[UI_SPEC]] § Pointer and touch). A mouse works every menu too. Phones are not a target.
 - **No login.** Open the link and you are in. The game is saved in the browser as you play, so a reload, or coming back another day, picks up where you left off; the server keeps a backup under an anonymous id the browser remembers.
 
 ## 3. Core loop
@@ -141,6 +141,13 @@ What is built and observable today. Keep current: add a bullet when a feature sh
 - The title screen comes first ([[UI_SPEC]] § Title): "Animath" in big bouncing letters over the world where the game stands, the trainer and the team (or, for a new player, the starters) breathing beside it, the camera drifting slowly. Continue (with the saved team's first animal and how many there are), New game, and the Language and Sound settings.
 - New game shows the starters side by side, big, each with the kinds of sums its attacks ask; the kid picks one with the arrows and Enter, and names it or not. With a saved game, New game asks first ("Start a new game?"), and only a deliberate "Yes" starts over.
 - Quit to title: the pause menu's Start screen row saves and goes back to the title; Continue carries on from the same spot.
+- Every row, language and choice takes a click or a tap; on the starters a tap on an animal or its name lights it and "Pick the Frog!" picks it.
+
+### Touch and mouse
+
+- Pointer everywhere ([[UI_SPEC]] § Pointer and touch): every row, button and card a key reaches also takes a click or a tap, as the same key press, behind the same guards. In a battle a tap only highlights an attack or sets its level, and Go! does it, since a pick spends the turn; everywhere else a tap does the row at once. The result card goes on from a tap anywhere.
+- Touch controls on a tablet, or after any touch: a D-pad that walks as the arrow keys do (hold to keep walking), Talk and Menu buttons, and a number pad beside every puzzle, so the tablet's own keyboard never covers a sum. Rows and buttons a finger tall; hints that say "tap"; the name boxes use the tablet's keyboard, with the box moved clear of it. A key pressed on a real keyboard switches back to the keys.
+- The page behaves as a game on a tablet: no zooming, scrolling, pull-to-refresh or text selection under a finger, and a tablet held upright is asked to turn sideways.
 
 ### Explore
 
@@ -206,6 +213,5 @@ In rough priority order. Each becomes a GitHub issue when picked up.
 1. Real low-poly animal models (glTF, CC0 sources, see [[DECISIONS]]) with attack animations, replacing the primitive figures.
 2. Procedural world v2: rivers that flow, paths, biome shaping, landmarks, spawn tables.
 3. Puzzle catalog v2: fractions, decimals, negatives, word problems, per-child adaptive difficulty.
-4. Touch controls for tablets.
-5. Multiplayer: shared world, other players visible, PvP battles, tokens, shop.
-6. Deployment to the Hetzner VPS.
+4. Multiplayer: shared world, other players visible, PvP battles, tokens, shop.
+5. Deployment to the Hetzner VPS.

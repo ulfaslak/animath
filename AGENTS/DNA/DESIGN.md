@@ -4,7 +4,7 @@ Brand, look and voice. Screen layouts are in [[UI_SPEC]]; gameplay is in [[PRODU
 
 ## Users
 
-Kids aged roughly 6–12, playing alone on a laptop or with friends in the same room. Some are early readers. All of them will find every bug, so the game has to be forgiving of mashed keys and wrong answers.
+Kids aged roughly 6–12, playing alone or with friends in the same room, on a laptop with its keyboard or on a tablet held sideways, with their fingers only. Some are early readers. All of them will find every bug, so the game has to be forgiving of mashed keys, mashed taps and wrong answers.
 
 ## Personality
 
@@ -65,7 +65,9 @@ Colour is never the only signal: a wrong answer also shakes, a low HP bar also s
 
 ## UI shapes
 
-Cream panels with 16 px radius and a soft drop shadow floating over the 3D scene. Big touch-sized targets (≥ 48 px) even on desktop, so touch controls need no redesign later. Buttons are pill-shaped with the accent colour for the primary action.
+Cream panels with 16 px radius and a soft drop shadow floating over the 3D scene. Buttons are pill-shaped with the accent colour for the primary action (Go!, OK, Talk, Save).
+
+Touch-sized targets: with the touch controls on, every row and button is at least 48 px tall (`--tap` in `styles.css`), the panels that hold lists grow to fit seven such rows, and the controls a hand uses most sit in the bottom corners, under the thumbs of a kid holding a tablet: the D-pad on the left; Talk, Menu, Go! and the number pad's OK on the right. With a keyboard the battle and doctor lists are tighter (rows from 32 px), leaving the scene more room; everything else is 48 px on every screen. A pressed button or key gives way a little, so a tap is seen to land.
 
 ## Voice and copy
 
@@ -143,6 +145,7 @@ Gentle, synthesized, short. Every sound is made while the game runs, with WebAud
 - A word shown beside a colour says exactly what the colour encodes, and no more. If the word promises something the colour does not measure ("good chance" on a colour that only tracks HP), change what the colour measures or change the word.
 - Every state is readable without sound (§ Sound): no cue plays for something the screen does not show.
 - Keyboard-only play is complete: arrows/WASD, number keys, Enter, Escape, M.
+- Touch-only play is complete: the D-pad, Talk, Menu, the number pad, and a tap on every row, button and card ([[UI_SPEC]] § Pointer and touch). A mouse reaches everything a finger does but walking, which is the keyboard's on a laptop. Nothing is only on hover.
 - Motion is gentle; no full-screen flashes on a hit. The iris into a battle is a wipe, not a flash.
 - A system set to reduce motion (`prefers-reduced-motion: reduce`) gets less of it: smaller movements, a dim instead of the iris, sparkles that twinkle in place ([[UI_SPEC]] § Sound and juice). What happened still shows.
 - Text never below 16 px; puzzle prompt never below 32 px.

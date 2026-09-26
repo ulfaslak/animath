@@ -47,7 +47,37 @@ Everything a player can do in **today's build**, and how: every key, every hidde
 | Enter                 | Puzzle (battle or doctor) | Answer. Nothing happens until you have typed at least one digit.                                      |
 | Enter / Space         | Result card | Back to exploring.                                                                                                  |
 
-Escape opens the pause menu in explore and leaves the doctor's card; in a battle it only backs out of the switch list — not even in a battle puzzle: once a battle puzzle is up, the only way on is to answer it. M is the one key that works the same on every screen. W A S D work the same with Caps Lock on or Shift held, in every menu too, and on a Russian or Greek keyboard they are the keys where W A S D sit on an English one. A key pressed with Ctrl, Cmd or Alt belongs to the browser everywhere: Cmd+D bookmarks, Ctrl+S saves the page, Alt+← goes back, and none of them moves the trainer. The mouse and touch are ignored everywhere (the result card's and the doctor's buttons, the party cards, the pause menu's and the title's rows look clickable but aren't; a click in a name box only moves the caret). The page has no debug keys or console hooks; its URL parameters are `?zoo`, `?lang`, `?debug`, `?party=` and `?new` (see § Hidden behaviour and § Saving). `?new`, `?party=` and `?zoo` skip the title: the game starts at once, and is saved nowhere.
+Escape opens the pause menu in explore and leaves the doctor's card; in a battle it only backs out of the switch list — not even in a battle puzzle: once a battle puzzle is up, the only way on is to answer it. M is the one key that works the same on every screen. W A S D work the same with Caps Lock on or Shift held, in every menu too, and on a Russian or Greek keyboard they are the keys where W A S D sit on an English one. A key pressed with Ctrl, Cmd or Alt belongs to the browser everywhere: Cmd+D bookmarks, Ctrl+S saves the page, Alt+← goes back, and none of them moves the trainer. A mouse or a finger works every row, button and card too (§ Touch and mouse); walking takes the keys on a laptop and the D-pad on a tablet. The page has no debug keys or console hooks; its URL parameters are `?zoo`, `?lang`, `?debug`, `?party=` and `?new` (see § Hidden behaviour and § Saving). `?new`, `?party=` and `?zoo` skip the title: the game starts at once, and is saved nowhere.
+
+## Touch and mouse
+
+Everything below is a click with a mouse or a tap with a finger, and each is the key beside it: the same thing happens, behind the same waits. The D-pad, Talk, Menu and the number pad are the **touch controls**: they are there from the start on a tablet (a screen whose main pointer is a finger); anywhere, the first touch brings them and the first key pressed on a real keyboard puts them away. A mouse changes nothing.
+
+| Tap or click               | Where                        | What it does                                                                                     |
+| -------------------------- | ---------------------------- | ------------------------------------------------------------------------------------------------ |
+| D-pad arrow (bottom left)  | Explore, touch               | The arrow key: a tap is one step, a finger held keeps walking, sliding onto another arrow turns, lifting stops. The middle presses nothing. |
+| Talk (bottom right)        | Explore, touch               | Enter: facing a tent, talk to the doctor (Talk glows orange there, and the bottom line says "Tap Talk to talk to the doctor"); anywhere else, "Walk up to a tent to talk to the doctor." |
+| Menu (beside Talk)         | Explore, touch               | Escape: the pause menu.                                                                          |
+| A party card               | Explore                      | Its number key: that animal goes first ("Fox goes first!", or "Rabbit is tired. Visit the doctor!"). With one animal, nothing. |
+| "Esc Menu" under the cards | Explore, mouse               | Escape: the pause menu.                                                                          |
+| An attack, Leash, Switch or Run | Battle menu             | Highlights it, and nothing more, the highlighted row too: a tap never spends the turn.          |
+| easy / medium / hard       | Battle menu, the highlighted attack | Sets that attack's level, and nothing more.                                               |
+| Go!                        | Battle menu, switch list     | Enter: do the highlighted row (attack at its level, throw the leash, open the switch list, run), or send the highlighted animal in (a greyed one shakes). Dimmed where Enter would do nothing. |
+| An animal                  | Battle switch list           | Highlights it.                                                                                   |
+| Back                       | Battle switch list           | Escape: back to the menu, on Switch. Not there after a knock-out.                                |
+| Number pad                 | Battle or doctor puzzle, touch | The keys: 1–9, 0, − (only as the first character), ⌫ deletes, OK answers (only once a digit is typed). Each key counts as the finger lands. |
+| Anywhere                   | Result card                  | Enter: back to exploring. Not in its first moment, and not from a mash.                          |
+| An animal who needs the doctor | Doctor                   | Picks it at once; in a puzzle, swaps to it (what was typed is dropped). A fit one, or the patient itself, does nothing. Nothing at all in the card's first half second. |
+| Bye                        | Doctor                       | Escape: leave, at any time.                                                                      |
+| A row                      | Pause menu                   | Does it at once: an animal opens its options, Language switches, Sound flips, Keep playing closes, Start screen goes to the title. |
+| English / Dansk            | Pause menu, title            | That language. The one already on does nothing.                                                  |
+| An option                  | Pause menu, an animal's options | Does it at once; a greyed one does nothing.                                                   |
+| Save / Back                | Pause menu's name box        | Enter / Escape.                                                                                  |
+| A row                      | Title                        | Does it at once: Continue, New game, Sound.                                                      |
+| No, go back / Yes, new game | Title, "Start a new game?"  | Does it at once, after the question's first moment.                                              |
+| An animal, or its name     | Title, the starters          | Lights it, and nothing more.                                                                     |
+| "Pick the Frog!" / Back    | Title, the starters          | Enter / Escape.                                                                                  |
+| "Let's go!" / Back         | Title, the name box          | Enter / Escape.                                                                                  |
 
 ## The world
 
@@ -123,6 +153,11 @@ To meet smaller animals again, put a smaller animal in front: press its number, 
 - **Switching windows stops you.** If you tab away with a key held, or the page is hidden, you stop walking and any queued taps are dropped. So does pressing Ctrl, Cmd or Alt mid-walk; press the arrow again to walk on.
 - **Letting go always stops you.** A key let go with Shift held down stops the walk like any other.
 - **Keys don't leak between walking and battling.** An arrow still held down when a battle starts does nothing in the battle until you press it again, and keys pressed in a battle never become steps.
+- **Nor does the D-pad.** A finger still on the D-pad when a battle, the doctor or the menu takes the screen walks nothing there, and nothing when you are back, until you lift it and press again.
+- **Taps wait where keys wait.** The result card's first moment, the menu's first moment after the battle text, the doctor's card's first half second, a turn playing: a tap does nothing there, as Enter does nothing.
+- **A key hides the touch controls; a touch brings them back.** Typing a name with the tablet's own keyboard hides nothing.
+- **A tablet held upright** shows "Turn your tablet sideways to play!" over everything, and takes no taps until it is turned.
+- **No zooming or scrolling on a tablet**: pinching, double-tapping, pulling down or pressing long on the game does nothing (the name boxes still select and edit).
 - **Attack levels are remembered, per attack and per kind of animal, until you reload.** Set a squirrel's Nut Toss to hard and it is hard in the next battle too, and for every squirrel you have; a rabbit's attacks keep their own. After a switch the menu starts on the new animal's first attack.
 - **Switching can't be used to stall.** Every switch you choose gives the wild animal a turn, so switching back and forth only wears your party down.
 - **Keys wait while a battle turn plays.** From your answer until the menu comes back, every key is ignored, and for the menu's first moment (0.8 s) after the battle text ends — after the opening lines too — Enter, Space and 1 / 2 / 3 still do nothing. Mashing never picks: an Enter, Space or number pressed less than 0.3 s after the one before does nothing on the menu, however long you keep it up, so mashing through the text can't pick the next attack by accident. Stop for a moment, press once, and it picks. The arrows move at once. The result card and the "Who goes next?" list after a knock-out work the same way (Enter and Space; the arrows move at once).
@@ -131,7 +166,7 @@ To meet smaller animals again, put a smaller animal in front: press its number, 
 - **The controls hint goes away** after your first 5 steps. Bumping into things doesn't count, however long you hold the key. It comes back for 5 steps after every reload.
 - **The same walk meets the same animals.** Encounters are decided by how many steps you have taken in this game, so two new games walked the same way meet the same animals at the same steps (see § Finding a battle fast). The count is saved, so a reload carries on with the next step: it never replays the animals behind you. The doctor's puzzles work the same way.
 - **Leading zeros are fine**: "09" is the same answer as "9".
-- **Sound waits for your first key.** The game is silent until you press a key, because browsers allow sound only after one. Escape and Shift don't count; the first arrow, letter, number or Enter wakes it.
+- **Sound waits for your first key.** The game is silent until you press a key or touch the screen, because browsers allow sound only after one. Escape and Shift don't count; the first arrow, letter, number or Enter wakes it, and so does the first tap or click.
 - **Sound off is remembered** on this device, across reloads. The first time, it is on.
 - **Less motion if your computer asks for it.** With "reduce motion" turned on in the system's settings, the game moves less: a soft dim instead of the circle that closes into a battle, a lower hop and smaller arm swings when walking, smaller lunges and shakes, fewer confetti pieces, numbers and sparkles that fade in place.
 - **Walking waits in the pause menu.** Opening it mid-step lets that step land, then nothing moves until the menu closes. An arrow still held when the menu opens or closes does nothing until you press it again, and a battle can never start while the menu is open. A reload with the menu open comes back to the world, the menu closed; a name typed but not yet saved with Enter is gone.

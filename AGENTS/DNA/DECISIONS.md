@@ -32,6 +32,8 @@ Placeholder geometry (boxes, cones) is acceptable until real models arrive. Real
 Ground tiles render as one `InstancedMesh` per chunk.
 Font: Nunito (Google Fonts). Rounded, friendly.
 Sound is synthesized while the game runs, with WebAudio, from cue data in `src/audio/`: no sound files, no audio library. Cues play from the screens (controllers, the HUD), where events become visuals; the authority and the engine know nothing of sound.
+Mouse and touch are key presses: a click or a tap on the overlay sends the key it stands for through the keyboard's own path (`input/press.ts`), plus the pointer's own keys for a row, a level or a language. There is no second path from a pointer to an action.
+Touch controls (D-pad, Talk, Menu, number pad, finger-sized rows) show where the main pointer is coarse, then follow the latest input: a touch shows them, a real keyboard's key hides them. The same build serves laptops and tablets.
 Dev server on port **5180** (5173 belongs to another project on this machine).
 
 ## Copy and languages
