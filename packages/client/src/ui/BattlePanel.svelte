@@ -156,6 +156,11 @@
 		return chance >= 0.5 ? 'good' : chance >= 0.2 ? 'warn' : 'bad';
 	});
 
+	/** A narration beat split after each ".", "!" or "?" that ends a sentence. */
+	function sentences(text: string): string[] {
+		return text.split(/(?<=[.!?])\s+/);
+	}
+
 	const headline = $derived.by(() => {
 		switch (battle.outcome) {
 			case 'won':
@@ -204,7 +209,12 @@
 {/if}
 
 {#if battle.line}
-	<div class="battle-line">{words(battle.line)}</div>
+	<!-- Each sentence holds together, so a beat too long for one line breaks between them. -->
+	<div class="battle-line">
+		{#each sentences(words(battle.line)) as sentence, i (i)}{#if i > 0}{' '}{/if}<span
+				class="sentence">{sentence}</span
+			>{/each}
+	</div>
 {/if}
 
 <div class="panel" class:listing={battle.screen === 'party'}>
@@ -454,8 +464,12 @@
 		font-weight: 800;
 		font-size: 18px;
 		text-align: center;
-		/* A line too long for one (a long nickname) breaks into two even halves, not a lone word. */
+		/* A line too long for one (a long nickname) breaks into even halves, not a lone word. */
 		text-wrap: balance;
+	}
+	/* A sentence stays whole on a line when it fits. */
+	.sentence {
+		display: inline-block;
 	}
 
 	.panel {
