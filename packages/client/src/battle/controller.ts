@@ -60,6 +60,22 @@ const PICK_GUARD_SECONDS = 0.8;
 export const MENU_GUARD_SECONDS = 0.8;
 
 /**
+ * Milliseconds between two presses of Enter, Space or a digit below which the
+ * second is part of a mash: a kid hurrying the battle text along, three or
+ * more presses a second. A mashed press never picks on a screen the narration
+ * brings up (the action menu, the knock-out list, the result card), however
+ * long the mash goes on past its guard; the first press after a pause does.
+ * Measured on the key events' own clock, so a busy page can't squeeze a
+ * pause into a mash.
+ */
+export const MASH_GAP_MS = 300;
+
+/** Keys that pick on some battle screen, or type an answer: the ones a kid mashes. */
+function isPickKey(key: string): boolean {
+	return key === 'Enter' || key === ' ' || /^[0-9]$/.test(key);
+}
+
+/**
  * Seconds the world stays on screen after `battle-started`, so the step into
  * the grass lands before the battle appears (a step takes 0.18 s).
  */
@@ -80,6 +96,8 @@ export class BattleController {
 	private listAge = 0;
 	/** Seconds the action menu has been up since the narration last brought it back. */
 	private menuAge = 0;
+	/** When Enter, Space or a digit was last pressed (the key event's `timeStamp`, ms). */
+	private lastPickPress = -Infinity;
 	/**
 	 * The battle ended in a catch, and the party the authority wrote back has
 	 * no place for the caught animal: the team was full, so it went home.
@@ -177,23 +195,30 @@ export class BattleController {
 			return;
 		}
 		const key = keyName(e);
+		// Part of a mash: pressed hard on the heels of the last Enter, Space or
+		// digit, on any screen (the mash usually starts while the turn plays).
+		let mashed = false;
+		if (isPickKey(key)) {
+			mashed = e.timeStamp - this.lastPickPress < MASH_GAP_MS;
+			this.lastPickPress = e.timeStamp;
+		}
 		let handled: boolean;
 		switch (battle.screen) {
 			case 'busy':
 				handled = true; // swallow mashing while events play
 				break;
 			case 'actions':
-				handled = this.menuKey(key);
+				handled = this.menuKey(key, mashed);
 				break;
 			case 'party':
-				handled = this.partyKey(key);
+				handled = this.partyKey(key, mashed);
 				break;
 			case 'puzzle':
 				handled = this.puzzleKey(key);
 				break;
 			case 'result':
 				handled = key === 'Enter' || key === ' ';
-				if (handled && this.resultAge >= RESULT_GUARD_SECONDS) this.leave();
+				if (handled && this.resultAge >= RESULT_GUARD_SECONDS && !mashed) this.leave();
 				break;
 		}
 		if (handled) e.preventDefault();
@@ -306,7 +331,7 @@ export class BattleController {
 
 	// --- keys ----------------------------------------------------------------
 
-	private menuKey(key: string): boolean {
+	private menuKey(key: string, mashed: boolean): boolean {
 		const spec = getAnimal(this.front().speciesId);
 		const { menu, handled, choice } = menuKey(
 			{ cursor: battle.cursor, levels: battle.levels },
@@ -314,8 +339,9 @@ export class BattleController {
 			spec
 		);
 		// A menu the narration has just brought back waits a moment before it
-		// takes a pick; a pick it ignores changes nothing, not even a level.
-		if (choice && this.menuAge < MENU_GUARD_SECONDS) return handled;
+		// takes a pick, and never takes one from a mash; a pick it ignores
+		// changes nothing, not even a level.
+		if (choice && (this.menuAge < MENU_GUARD_SECONDS || mashed)) return handled;
 		battle.cursor = menu.cursor;
 		if (menu.levels !== battle.levels) battle.levels = menu.levels;
 		switch (choice?.kind) {
@@ -345,12 +371,14 @@ export class BattleController {
 		battle.screen = 'party';
 	}
 
-	private partyKey(key: string): boolean {
+	private partyKey(key: string, mashed: boolean): boolean {
 		const { cursor, handled, choice } = listKey(battle.partyCursor, key, battle.party.length);
 		if (cursor !== battle.partyCursor) battle.refused = 0;
 		battle.partyCursor = cursor;
-		// A list that came up by itself waits a moment before taking a pick.
-		if (choice === 'pick' && battle.mustPick && this.listAge < PICK_GUARD_SECONDS) return handled;
+		// A list that came up by itself waits a moment before taking a pick, and
+		// never takes one from a mash. The list the kid opened from Switch takes any.
+		const guarded = this.listAge < PICK_GUARD_SECONDS || mashed;
+		if (choice === 'pick' && battle.mustPick && guarded) return handled;
 		if (choice === 'pick') {
 			// The engine would refuse a tired or current animal; say no here instead.
 			if (battle.pickable[cursor]) this.send({ type: 'switch', partyIndex: cursor });

@@ -28,10 +28,15 @@ import { battle } from '../src/state/battle.svelte';
  * Enter skipping the result card), and that events for a battle no longer on
  * screen are ignored. The Three.js scene is built but never drawn.
  */
+
+/** The page's clock in ms, for the key events' `timeStamp`: every frame below moves it on. */
+let now = 0;
+
 function key(name: string, repeat = false): KeyboardEvent {
 	return {
 		key: name,
 		repeat,
+		timeStamp: now,
 		ctrlKey: false,
 		metaKey: false,
 		altKey: false,
@@ -69,23 +74,32 @@ function setup(from: { party?: string; game?: SavedGame } = {}) {
 		controller.handle(e);
 	});
 	authority.start(from.game ? { game: from.game } : {});
+	/** One frame of the game loop. */
+	const frame = () => {
+		controller.update(1 / 60);
+		now += 1000 / 60;
+	};
 	/** Advance the screen by `seconds`, a frame at a time. */
 	const run = (seconds: number) => {
-		for (let t = 0; t < seconds; t += 1 / 60) controller.update(1 / 60);
+		for (let t = 0; t < seconds; t += 1 / 60) frame();
 	};
 	/** Advance a frame at a time until `done()`; fail after `max` seconds. */
 	const runUntil = (done: () => boolean, max = 20) => {
 		for (let t = 0; !done(); t += 1 / 60) {
 			if (t > max) throw new Error('timed out');
-			controller.update(1 / 60);
+			frame();
 		}
 	};
-	/** Press keys, one frame apart, as the game loop would see them. */
-	const press = (...names: string[]) =>
+	/**
+	 * Press keys, as the game loop would see them: a frame apart, or `gap`
+	 * seconds apart, which is slower than a mash (`MASH_GAP_MS`) by default.
+	 */
+	const pressEvery = (gap: number, ...names: string[]) =>
 		names.forEach((n) => {
 			controller.onKey(key(n));
-			controller.update(1 / 60);
+			run(gap);
 		});
+	const press = (...names: string[]) => pressEvery(0.35, ...names);
 	/** Play the narration until the action menu is back and past its guard, so it takes a pick. */
 	const toMenu = () => {
 		runUntil(() => battle.screen === 'actions');
@@ -203,6 +217,7 @@ function setup(from: { party?: string; game?: SavedGame } = {}) {
 		run,
 		runUntil,
 		press,
+		pressEvery,
 		toMenu,
 		walkIntoBattle,
 		latest,
@@ -300,7 +315,7 @@ describe('battle screen', () => {
 		expect(battle.opponent!.hp).toBe(hp);
 	});
 
-	it('keeps the result card up through a mashed Enter, then leaves on the next one', () => {
+	it('keeps the result card up through a mashed Enter, however long, then leaves on the next one', () => {
 		const t = setup();
 		t.walkIntoBattle();
 		t.toMenu();
@@ -314,6 +329,23 @@ describe('battle screen', () => {
 		t.press('Enter');
 		expect(battle.active).toBe(false);
 		expect(t.shown.at(-1)).toBeNull();
+
+		// An Enter mashed from the pick through the narration and on for two
+		// seconds of the card doesn't skip it either; after a pause, one does.
+		t.walkIntoBattle();
+		t.toMenu();
+		t.press('ArrowUp');
+		t.pressEvery(0.15, 'Enter'); // Run
+		expect(battle.screen).not.toBe('actions');
+		for (let i = 0; battle.screen !== 'result'; i++) {
+			if (i > 100) throw new Error('no result card');
+			t.pressEvery(0.15, 'Enter');
+		}
+		t.pressEvery(0.15, ...Array<string>(14).fill('Enter'));
+		expect(battle.active).toBe(true);
+		t.run(0.2);
+		t.press('Enter');
+		expect(battle.active).toBe(false);
 	});
 
 	it('ignores events for a battle that is no longer on screen', () => {
@@ -465,6 +497,25 @@ describe('switching animals', () => {
 		expect(t.latest().active).toBe(1);
 	});
 
+	/**
+	 * Answer wrong, with the second attack, until the animal in front is tired
+	 * and the list of who goes next is up; with `mash`, Enter is mashed from
+	 * every answer on, as a kid hurrying the text along would.
+	 */
+	function knockOutFront(t: ReturnType<typeof setup>, mash = false): void {
+		t.press('ArrowDown');
+		for (let i = 0; battle.screen !== 'party'; i++) {
+			if (i > 40) throw new Error('never knocked out');
+			t.press('1');
+			t.press(...String(battle.puzzle!.answer + 1), 'Enter');
+			for (let j = 0; j < 300 && !['actions', 'party'].includes(battle.screen); j++) {
+				if (mash) t.pressEvery(0.15, 'Enter');
+				else t.run(1 / 60);
+			}
+			if (battle.screen === 'actions') t.run(1);
+		}
+	}
+
 	it('after a knock-out: who goes next, no way back, no to a tired one, and the pick is free', () => {
 		const t = setup();
 		t.growParty(2);
@@ -473,21 +524,13 @@ describe('switching animals', () => {
 		t.toMenu();
 		const tired = { ...battle.party[0]!, hp: 0 };
 		const next = battle.party[1]!;
-		// Answer wrong, with the second attack, until the one in front is tired.
-		t.press('ArrowDown');
-		for (let i = 0; battle.screen !== 'party'; i++) {
-			if (i > 40) throw new Error('never knocked out');
-			t.press('1');
-			t.press(...String(battle.puzzle!.answer + 1), 'Enter');
-			t.runUntil(() => battle.screen === 'actions' || battle.screen === 'party', 30);
-			if (battle.screen === 'actions') t.run(MENU_GUARD_SECONDS);
-		}
+		knockOutFront(t);
 		expect(battle.mustPick).toBe(true);
 		expect(battle.line).toBe(`${name(tired)} is tired. Who goes next?`);
 		expect(battle.party[0]).toEqual(tired);
 		expect(battle.partyCursor).toBe(1);
 
-		// An Enter mashed through the knock-out doesn't pick for the kid.
+		// An Enter pressed the moment the list comes up doesn't pick for the kid.
 		const before = t.sent.length;
 		t.press('Enter', ' ', 'Enter');
 		expect(t.sent.length).toBe(before);
@@ -515,6 +558,25 @@ describe('switching animals', () => {
 		expect({ wild: battle.opponent!.hp, next: battle.party[1]!.hp }).toEqual(hp);
 	});
 
+	it('after a knock-out, an Enter mashed on and on through the list never picks', () => {
+		const t = setup();
+		t.growParty(2);
+		t.restAll();
+		t.walkIntoBattle();
+		t.toMenu();
+		knockOutFront(t, true);
+		// The mash goes on for two seconds of the list: nothing is picked, nothing refused.
+		const before = t.sent.length;
+		t.pressEvery(0.15, ...Array<string>(14).fill('Enter'));
+		expect(t.sent.length).toBe(before);
+		expect(battle.refused).toBe(0);
+		expect(battle.screen).toBe('party');
+		// After a pause, one press picks.
+		t.run(0.2);
+		t.press('Enter');
+		expect(t.sent.at(-1)).toEqual({ type: 'battle', intent: { type: 'switch', partyIndex: 1 } });
+	});
+
 	it('after a switch, even one that ends back on the same animal, the menu starts at the top', () => {
 		const t = setup();
 		t.growParty(2); // no rest: the caught animal is weak, so a reply can knock it out on arrival
@@ -539,7 +601,7 @@ describe('switching animals', () => {
 });
 
 describe('mashing through the narration', () => {
-	it('an Enter, Space or level key mashed through a turn waits until the menu has been up a moment', () => {
+	it('Enter, Space or a level key mashed through a turn never picks, however long the mash goes on', () => {
 		const t = setup();
 		t.walkIntoBattle();
 		t.toMenu();
@@ -547,32 +609,51 @@ describe('mashing through the narration', () => {
 		t.press(...String(battle.puzzle!.answer), 'Enter');
 		const answered = t.sent.length;
 		const levels = { ...battle.levels };
-		// Every key that picks on the menu, about eight a second, through the
-		// whole turn and on into the menu for most of its guard.
+		// Every key that picks on the menu, about six a second (the issue's own
+		// mash), through the whole turn and on for two seconds of the menu.
 		const mash = ['Enter', '3', ' ', '2', 'Enter', '1'];
 		let pressed = 0;
 		const hit = () => {
 			t.controller.onKey(key(mash[pressed++ % mash.length]!));
-			t.run(0.12);
+			t.run(0.18);
 		};
 		while (battle.screen !== 'actions') {
 			if (pressed > 200) throw new Error('the menu never came back');
 			hit();
 		}
-		for (let s = 0.12; s < MENU_GUARD_SECONDS - 0.2; s += 0.12) hit();
-		expect(pressed).toBeGreaterThan(20);
+		for (let s = 0; s < 2; s += 0.18) hit();
+		expect(pressed).toBeGreaterThan(30);
 		expect(t.sent.length).toBe(answered);
 		expect(battle.screen).toBe('actions');
 		expect(battle.levels).toEqual(levels);
-		// The arrows move at once; once the menu has been up a moment, a pick is taken.
-		t.press('ArrowDown');
+		// The arrows move at once; after a pause, one press picks.
+		t.pressEvery(0.2, 'ArrowDown');
 		expect(battle.cursor).toBe(1);
-		t.run(MENU_GUARD_SECONDS);
 		t.press('Enter');
 		expect(t.sent.at(-1)).toEqual({
 			type: 'battle',
 			intent: { type: 'attack', attackIndex: 2, level: 1 }
 		});
+	});
+
+	it('a single key the moment the menu comes back waits too; a mash of one key is still a mash', () => {
+		const t = setup();
+		t.walkIntoBattle();
+		t.toMenu();
+		t.press('1');
+		t.press(...String(battle.puzzle!.answer), 'Enter');
+		const answered = t.sent.length;
+		t.runUntil(() => battle.screen === 'actions');
+		// One press, slow and deliberate, but before the kid has seen the menu.
+		t.press('Enter');
+		expect(t.sent.length).toBe(answered);
+		// Enter alone, four times a second, on past the guard: a mash.
+		t.pressEvery(0.25, ...Array<string>(8).fill('Enter'));
+		expect(t.sent.length).toBe(answered);
+		// Three times a second is a kid pressing again, not a mash: the next one picks.
+		t.pressEvery(0.1, 'ArrowDown');
+		t.press('Enter');
+		expect(t.sent.length).toBe(answered + 1);
 	});
 
 	it('the first menu of a battle waits too, after the opening lines', () => {
