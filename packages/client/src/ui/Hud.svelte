@@ -239,9 +239,16 @@
 		return to;
 	}
 
-	/** How far the lifted card has been carried, the column's scroll included. */
+	/**
+	 * How far the lifted card has been carried, the column's scroll included,
+	 * and never past the first card's top or the last card's bottom, where the
+	 * column would cut it off.
+	 */
 	function lifted(d: Drag): number {
-		return d.y - d.startY + (d.scroll - d.startScroll);
+		const last = d.tops.length - 1;
+		const least = d.tops[0]! - d.tops[d.from]!;
+		const most = d.tops[last]! + d.heights[last]! - (d.tops[d.from]! + d.heights[d.from]!);
+		return Math.min(most, Math.max(least, d.y - d.startY + (d.scroll - d.startScroll)));
 	}
 
 	/** How far card `k` is drawn from its place while a card is lifted or dropped. */
@@ -402,6 +409,10 @@
 		scrollbar-width: thin;
 		padding: 4px 16px 14px 4px;
 		margin: -4px -16px -14px -4px;
+	}
+	/* A card keeps its height: the column scrolls rather than squeeze them. */
+	.cards :global(.bundle) {
+		flex: none;
 	}
 	.cards :global(.bundle.still) {
 		transition: transform 0.16s ease-out;

@@ -635,6 +635,8 @@
 		overscroll-behavior: contain;
 		touch-action: pan-y;
 		scrollbar-width: thin;
+		/* The highlighted row, scrolled into view, stops short of the card's edge. */
+		scroll-padding-block: 8px;
 	}
 	/* The heading over several animals of one kind: their name and how many. */
 	.party .group {

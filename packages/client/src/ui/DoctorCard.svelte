@@ -234,6 +234,7 @@
 		overscroll-behavior: contain;
 		touch-action: pan-y;
 		scrollbar-width: thin;
+		scroll-padding-block: 8px;
 	}
 	.row {
 		grid-column: 1 / -1;
