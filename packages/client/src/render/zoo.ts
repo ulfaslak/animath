@@ -1,7 +1,32 @@
 import { ANIMALS, isWalkable, tileAtWorld, type GridPos } from '@mathgame/engine';
 import type * as THREE from 'three';
 import { buildAnimalMesh } from './animals';
+import type { FigureHost } from './follower';
 import { groundTop } from './tiles';
+
+/**
+ * The line-up in the world, put up once for the page (`main.ts`, on every
+ * `welcome`). A `?zoo` page plays only throwaway games in the prototype world,
+ * so a later `welcome` (Continue after the Start screen, a new game started
+ * from the title) comes back to the line-up already standing by the spawn
+ * tile. Put up again, a second line-up would stand by wherever the player
+ * had walked to.
+ */
+export class Zoo {
+	private standing = false;
+
+	constructor(
+		private readonly world: Pick<FigureHost, 'addFigure'>,
+		private readonly tired: boolean
+	) {}
+
+	/** A game starts at `pos` in world `seed`. The first puts the line-up up by `pos`. */
+	welcome(seed: number, pos: GridPos): void {
+		if (this.standing) return;
+		this.standing = true;
+		for (const figure of buildZoo(seed, pos, this.tired)) this.world.addFigure(figure);
+	}
+}
 
 /**
  * Verification line-up, reached with `?zoo` in the URL and never on the
