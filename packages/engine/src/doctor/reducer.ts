@@ -100,9 +100,9 @@ export function startDoctorVisit(
  * to walk on with: one of them isn't tired and can fight on land, where every
  * tent stands (a sea animal alone could battle nothing in the grass). The
  * rule behind `keep-one`, for a screen to show before it is asked. It keeps
- * a hand-over from leaving the kid without one; a battle won at sea by a sea
- * animal, the land's animals tired, can, and then the grass is quiet until a
- * doctor heals one.
+ * a hand-over from leaving the kid without one; a battle at sea that a sea
+ * animal ends standing (won, run from or caught), the land's animals tired,
+ * can, and then the grass is quiet until a doctor heals one.
  */
 export function keepsATeam(staying: readonly AnimalInstance[]): boolean {
 	return leadIndex(staying, 'land') >= 0;

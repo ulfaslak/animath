@@ -408,6 +408,15 @@ describe('newGame and restoreGame', () => {
 		const taken = [animal(1, { id: 'starter', speciesId: 'turtle' })];
 		const ids = restoreGame({ ...v1, pos, party: taken } as SaveV1).party.map((a) => a.id);
 		expect(new Set(ids).size).toBe(2);
+		// A battle saved with such a party is dropped: it was not fought with the starter.
+		const deep = findKind(v1.seed, 'deepwater');
+		const whale = [animal(1, { speciesId: 'whale', hp: 50 })];
+		const battle = startBattle(whale, makeWild('crab'), { realm: 'water' });
+		const atSea = { ...v1, pos: deep, items: ['boat'], party: whale, battle } as SaveV1;
+		const back = restoreGame(JSON.parse(JSON.stringify(atSea)));
+		expect(back.battle).toBeNull();
+		expect(back.pos).toEqual(deep);
+		expect(back.party.map((a) => a.speciesId)).toEqual(['whale', STARTER_SPECIES]);
 		// An animal that walks, even tired, is enough: the doctor is a walk away.
 		const walker = [animal(1, { speciesId: 'crab' }), animal(2, { speciesId: 'frog', hp: 0 })];
 		expect(restoreGame({ ...v1, pos, party: walker } as SaveV1).party).toHaveLength(2);

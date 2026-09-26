@@ -388,12 +388,13 @@ function cleanAnimal(animal: AnimalInstance): AnimalInstance {
  * world as they left it, with what they own (the world generator changed
  * under it, or water without a boat) becomes the spawn tile, an HP above the
  * species' maximum is cut to it, an empty party gets the starter, a party with
- * no animal that can fight on land (only sea animals: no game writes one) gets
- * it too, behind the others, so the grass is never out of reach, and a party
- * with nobody standing rests back to full, the same rest a lost battle gives.
- * The battle comes back only if `readBattle` accepts it where the player
- * stands, and never when the position had to move. See [[INVARIANTS]] § "A
- * loaded save never strands the player".
+ * no animal that can fight on land (only sea animals: no save a kid's game
+ * writes holds one) gets it too, behind the others, so the grass is never out
+ * of reach, and a party with nobody standing rests back to full, the same
+ * rest a lost battle gives. The battle comes back only if `readBattle`
+ * accepts it where the player stands, and never when the position had to
+ * move, nor when the starter joined (it was not in the battle). See
+ * [[INVARIANTS]] § "A loaded save never strands the player".
  *
  * The party comes back in species bundles (`bundled`), a saved battle's
  * party in the same order with the same animal in front. A save this build
