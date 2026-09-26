@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { buildPlayerMesh } from '../src/render/animals';
 import {
 	BOAT_ASTERN,
+	BOAT_DECK,
 	BOAT_STAND,
 	buildBoatMesh,
 	disposeBoat,
@@ -92,6 +93,16 @@ describe('the boat', () => {
 		expect(floor.min.z).toBeLessThan(-BOAT_ASTERN - 0.06);
 		expect(floor.max.z).toBeGreaterThan(-BOAT_ASTERN + 0.06);
 		expect(box.max.z + BOAT_ASTERN).toBeGreaterThan(0.6);
+		// The rider's deck: flat, level with the rim, BOAT_DECK over the floor at the
+		// trainer's feet, from the boat's middle to its bow, no wider than the hull.
+		const deck = new THREE.Box3().setFromObject(boat.getObjectByName('deck')!);
+		expect(deck.min.y).toBeCloseTo(BOAT_DECK, 6);
+		expect(deck.max.y).toBeCloseTo(BOAT_DECK, 6);
+		expect(deck.min.z).toBeCloseTo(0, 6);
+		expect(deck.max.z).toBeCloseTo(box.max.z, 1);
+		const hull = new THREE.Box3().setFromObject(boat.children[0]!);
+		expect(hull.max.y).toBeCloseTo(BOAT_DECK, 6);
+		expect(deck.max.x).toBeLessThanOrEqual(hull.max.x);
 	});
 
 	it('swings from one to the other smoothly: no step of the way jumps, it grows all the way, and turns once', () => {
