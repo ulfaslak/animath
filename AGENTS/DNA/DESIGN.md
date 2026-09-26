@@ -41,7 +41,7 @@ Hex values are the ones in `packages/client/src/render/palette.ts` and `styles.c
 | Tent cloth           | `#f2a65a` | Door `#d47c2a`.                              |
 | Fire / warm accent   | `#ffb347` | Also the UI accent (`--accent: #ff9f43`).    |
 | Trainer (player)     | `#ff7e6b` shirt, `#ffcfb0` skin, `#2f4fa8` shorts, `#3d7be8` cap | The only blue figure, so it never reads as an animal. |
-| Animal fur           | Squirrel `#c9733a`, rabbit `#d9cbb8`, frog `#3aa66a`, fox `#e8762b`, otter `#8a5a3a`, deer `#c48a52`, wolf `#7f858f`, bear `#5a3a28` | `ANIMAL_COLORS`: one fur (or skin) per species plus an accent for its tell (white tail tip, pink ear, tan muzzle, the frog's pale throat `#e3eea4`). The frog's green is bluer and darker than grass and tall grass, so it never melts into them. |
+| Animal fur           | Squirrel `#c9733a`, rabbit `#d9cbb8`, frog `#3aa66a`, fox `#e8762b`, otter `#8a5a3a`, deer `#c48a52`, wolf `#7f858f`, bear `#5a3a28`; at sea crab `#e0553f`, starfish `#f2894e`, turtle `#8cc47e` (shell `#3f7f4c`), dolphin `#6f9fc4`, octopus `#b4589e`, whale `#3d6b9a` | `ANIMAL_COLORS`: one fur (or skin) per species plus an accent for its tell (white tail tip, pink ear, tan muzzle, the frog's pale throat `#e3eea4`). The frog's green is bluer and darker than grass and tall grass, so it never melts into them. |
 | Figure details       | `#fff4e6` / `#2f2a28` | Off-white and near-black for tail tips, chests, noses, eyes. |
 | Dust                 | `#f6efe2` | The ring a tired animal lies down in; fades as it spreads. Never grey smoke. |
 | Confetti             | accent, good, warn, water, trainer shirt, off-white, rabbit pink | `CONFETTI_COLORS`: only colours already in the game. |
@@ -128,6 +128,12 @@ The same voice for a Danish seven-year-old reading alone: short, warm, one idea 
 | Deer     | hjort  | en      | hjorten | en vild hjort   | den vilde hjort |
 | Wolf     | ulv    | en      | ulven   | en vild ulv     | den vilde ulv   |
 | Bear     | bjørn  | en      | bjørnen | en vild bjørn   | den vilde bjørn |
+| Crab     | krabbe | en      | krabben | en vild krabbe  | den vilde krabbe |
+| Starfish | søstjerne | en   | søstjernen | en vild søstjerne | den vilde søstjerne |
+| Turtle   | skildpadde | en  | skildpadden | en vild skildpadde | den vilde skildpadde |
+| Dolphin  | delfin | en      | delfinen | en vild delfin | den vilde delfin |
+| Octopus  | blæksprutte | en | blæksprutten | en vild blæksprutte | den vilde blæksprutte |
+| Whale    | hval   | en      | hvalen  | en vild hval    | den vilde hval  |
 
 The words the game uses for its things, the same on every screen:
 
@@ -143,6 +149,8 @@ The words the game uses for its things, the same on every screen:
 | axe / pickaxe / boat | økse / hakke / båd (en) | the tools: "Øksen koster 8", "Her er din økse!"; each form written out in `da.yaml` (`items.*`) |
 | chop (a tree) / break (a rock) | fælde / knuse | the prompts ("Tryk på Enter for at fælde træet", "… for at knuse stenen"), the touch button ("Fæld", "Knus"), "Du skal bruge en økse for at fælde træer." |
 | can't swim | kan ikke svømme | out on the water: the switch list's tag, "Ræven kan ikke svømme og bliver i båden.", "Dine andre dyr kan ikke svømme." |
+| lives in the sea | bor i havet | on land, a sea animal: the switch list's tag, "Krabben bor i havet!", "Dine andre dyr bor i havet." — never "kan ikke gå", which a crab on a beach can |
+| stays in the water / swims home | bliver i vandet / svømmer hjem | the end of a battle at sea, and its Run row: never "græsset" out there |
 | bye bye (an animal going home) | farvel | "Sig farvel til ræven?", "Farvel, Ræv!" — never "slip", "smid ud" or anything that sounds like getting rid of it |
 | leash | snor | the battle row ("Snor"), its card ("Kast snoren"), "Du kaster snoren…" |
 | catch | fange | "Du fangede en ræv!", "Svært at fange" |
