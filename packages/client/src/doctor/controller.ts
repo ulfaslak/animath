@@ -10,6 +10,7 @@ import {
 import { sfx } from '../audio/sfx.svelte';
 import { answerKey } from '../input/answer';
 import { isShortcut, keyName } from '../input/keyboard';
+import { isMashKey, PickGuard } from '../input/pick-guard';
 import { tappedRow } from '../input/press';
 import { cursorStops, doctor, hurtIndexes, stepCursor } from '../state/doctor.svelte';
 import type { DoctorLine } from './lines';
@@ -32,11 +33,6 @@ interface Beat {
 	hold: number;
 }
 
-/**
- * Seconds after the card opens in which it takes no key but Escape, so an
- * Enter mashed at the tent cannot pick an animal (or say bye) unseen.
- */
-export const OPEN_GUARD_SECONDS = 0.5;
 /** "Not quite!" stays up this long before the next puzzle replaces it. */
 const MISS_HOLD = 1.2;
 /** "Correct!" stays up this long before the heal. */
@@ -51,8 +47,12 @@ export class DoctorController {
 	private latest: DoctorState | null = null;
 	private beats: Beat[] = [];
 	private wait = 0;
-	/** Seconds the card has been open. */
-	private age = 0;
+	/**
+	 * The list takes a pick only after a quiet moment, when the card opens and
+	 * each time it comes back after a heal (`input/pick-guard.ts`): an Enter
+	 * mashed at the tent or through a heal picks nobody, and says no bye.
+	 */
+	private guard = new PickGuard();
 	/** What the doctor says about the latest state; shown with its beat, or at `settle`. */
 	private said: DoctorLine | null = null;
 	private heals = 0;
@@ -88,7 +88,7 @@ export class DoctorController {
 	/** Play beats as their holds expire; `dt` is seconds. */
 	update(dt: number): void {
 		if (!doctor.active) return;
-		this.age += dt;
+		this.guard.tick(dt);
 		this.wait -= dt;
 		while (this.wait <= 0 && this.beats.length > 0) {
 			const beat = this.beats.shift()!;
@@ -115,13 +115,15 @@ export class DoctorController {
 			this.send({ type: 'leave' });
 			return;
 		}
-		if (this.age < OPEN_GUARD_SECONDS) return;
+		// Whether a pick may go now. A key a kid mashes starts the quiet moment
+		// again on every screen, a beat and a puzzle included.
+		const fresh = isMashKey(key) ? this.guard.press() : this.guard.ready;
 		let handled = false;
 		switch (doctor.screen) {
 			case 'busy':
 				return; // a beat is playing
 			case 'list':
-				handled = this.listKey(key);
+				handled = this.listKey(key, fresh);
 				break;
 			case 'puzzle':
 				handled = this.puzzleKey(key);
@@ -139,7 +141,6 @@ export class DoctorController {
 		this.latest = state;
 		this.beats = [];
 		this.wait = 0;
-		this.age = 0;
 		this.said = { say: state.party.some(needsHealing) ? 'hello' : 'helloAllFit' };
 		doctor.cursor = hurtIndexes(state.party)[0] ?? state.party.length;
 		sfx.play('confirm');
@@ -165,6 +166,8 @@ export class DoctorController {
 					const hurt = hurtIndexes(doctor.party);
 					doctor.cursor = hurt.find((i) => i > doctor.cursor) ?? hurt[0] ?? doctor.party.length;
 				}
+				// The card opening, or the list back after a heal: a new choice.
+				if (doctor.screen !== 'list') this.guard.show();
 				doctor.screen = 'list';
 				break;
 			}
@@ -196,16 +199,17 @@ export class DoctorController {
 
 	// --- keys ----------------------------------------------------------------
 
-	private listKey(key: string): boolean {
+	private listKey(key: string, fresh: boolean): boolean {
 		const stops = cursorStops(doctor.party);
 		// A tap on an animal picks it at once, as the arrows and Enter would: at
 		// the doctor nothing is spent. A fit animal can't be picked, so its row
-		// does nothing. (Bye is Escape's, which leaves at any time.)
+		// does nothing. (Bye is Escape's, which leaves at any time.) A tap is a
+		// pick like Enter, and waits for the same quiet moment.
 		const row = tappedRow(key);
 		if (row !== undefined) {
-			if (!stops.includes(row)) return true;
+			if (!stops.includes(row) || !fresh) return true;
 			doctor.cursor = row;
-			return this.listKey('Enter');
+			return this.listKey('Enter', fresh);
 		}
 		switch (key) {
 			case 'ArrowUp':
@@ -220,6 +224,7 @@ export class DoctorController {
 			}
 			case 'Enter':
 			case ' ': {
+				if (!fresh) return true;
 				const animal = doctor.party[doctor.cursor];
 				if (!animal) {
 					sfx.play('confirm');

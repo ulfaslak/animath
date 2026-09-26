@@ -9,6 +9,7 @@ import { sfx } from '../audio/sfx.svelte';
 import { WORLD_SEED } from '../authority/local';
 import { isLanguage, language, nextLanguage } from '../copy';
 import { isShortcut, keyName } from '../input/keyboard';
+import { isMashKey, PickGuard } from '../input/pick-guard';
 import { tappedLanguage, tappedRow } from '../input/press';
 import type { TitleView3D } from '../render/title-scenery';
 import type { SaveNotice } from '../save/notices';
@@ -25,11 +26,12 @@ import { CONFIRM_CHOICES, title, type TitleRow } from '../state/title.svelte';
  * Continue is the host's to do (`hooks.continueGame`): the saved game is the
  * client's, so the authority is handed it rather than asked for it.
  *
- * Screens that choose something ignore Enter and Space for a moment after
- * they open, counted in frame time like the battle's result card, so a key
- * mashed on the screen before can't choose on this one unseen. The confirm
- * starts on its safe choice, so however Enter is mashed, a new game needs a
- * deliberate arrow first.
+ * The screens that choose something for the game — the confirm, the
+ * starters, the name box — take a pick only after a quiet moment
+ * (`input/pick-guard.ts`), so a key mashed on the screen before can't choose
+ * on this one unseen. The confirm starts on its safe choice, so even a
+ * deliberate Enter needs a deliberate arrow first to start over. The menu
+ * picks at once: Continue carries on, and New game asks first.
  *
  * A click or a tap is a key press too (`input/press.ts`): on the menu and
  * the confirm a row does its thing at once, as the arrows and Enter would,
@@ -38,19 +40,14 @@ import { CONFIRM_CHOICES, title, type TitleRow } from '../state/title.svelte';
  * since picking starts a game, and the card's button (Enter) picks.
  */
 
-/** Frame seconds the confirm ignores Enter and Space after it opens. */
-export const CONFIRM_GUARD_SECONDS = 0.8;
-/** Frame seconds the starter screen, and then the name box, ignore Enter (and Space) after opening. */
-export const PICK_GUARD_SECONDS = 0.5;
-
 export interface TitleHooks {
 	/** Continue: the authority picks up `game`, and saving begins. */
 	continueGame(game: SavedGame): void;
 }
 
 export class TitleController {
-	/** Frame seconds since the screen on show opened. */
-	private age = 0;
+	/** The quiet moment the confirm, the starters and the name box wait for before a pick. */
+	private guard = new PickGuard();
 	/** `new-game` is sent and not answered yet: keys wait. */
 	private sent = false;
 
@@ -96,7 +93,7 @@ export class TitleController {
 
 	update(dt: number): void {
 		if (!title.open) return;
-		this.age += dt;
+		this.guard.tick(dt);
 		this.scenery.update(dt);
 		if (title.screen === 'starter' || title.screen === 'naming') {
 			const spots = this.scenery.spots();
@@ -120,12 +117,14 @@ export class TitleController {
 		}
 		// W A S D by where they sit, whatever the layout, and in capitals with Caps Lock on.
 		const key = keyName(e);
+		// Whether a pick may go now; a key a kid mashes starts the quiet moment again.
+		const fresh = isMashKey(key) ? this.guard.press() : this.guard.ready;
 		const handled =
 			title.screen === 'menu'
 				? this.menuKey(key)
 				: title.screen === 'confirm'
-					? this.confirmKey(key)
-					: this.starterKey(key);
+					? this.confirmKey(key, fresh)
+					: this.starterKey(key, fresh);
 		if (handled) e.preventDefault();
 	}
 
@@ -198,7 +197,7 @@ export class TitleController {
 				if (title.saved) {
 					title.screen = 'confirm';
 					title.confirm = 0;
-					this.age = 0;
+					this.guard.show();
 				} else this.toStarters(0);
 				break;
 			case 'language':
@@ -211,12 +210,13 @@ export class TitleController {
 		}
 	}
 
-	private confirmKey(key: string): boolean {
+	private confirmKey(key: string, fresh: boolean): boolean {
 		const tapped = tappedRow(key);
 		if (tapped !== undefined) {
-			if (tapped >= CONFIRM_CHOICES.length) return true;
+			// A tap on a choice picks it, so it waits the quiet moment as Enter does.
+			if (tapped >= CONFIRM_CHOICES.length || !fresh) return true;
 			title.confirm = tapped;
-			return this.confirmKey('Enter');
+			return this.confirmKey('Enter', fresh);
 		}
 		switch (key) {
 			case 'ArrowUp':
@@ -231,7 +231,7 @@ export class TitleController {
 				return true;
 			case 'Enter':
 			case ' ':
-				if (this.age < CONFIRM_GUARD_SECONDS) return true;
+				if (!fresh) return true;
 				sfx.play('confirm');
 				if (CONFIRM_CHOICES[title.confirm] === 'yes') this.toStarters(0);
 				else this.toMenu('new');
@@ -243,7 +243,7 @@ export class TitleController {
 		return false;
 	}
 
-	private starterKey(key: string): boolean {
+	private starterKey(key: string, fresh: boolean): boolean {
 		const count = STARTERS.length;
 		const tapped = tappedRow(key);
 		if (tapped !== undefined) {
@@ -265,12 +265,12 @@ export class TitleController {
 				return true;
 			case 'Enter':
 			case ' ':
-				if (this.age < PICK_GUARD_SECONDS) return true;
+				if (!fresh) return true;
 				sfx.play('confirm');
 				this.scenery.cheer(title.starter);
 				title.draft = '';
 				title.screen = 'naming';
-				this.age = 0;
+				this.guard.show();
 				return true;
 			case 'Escape':
 				this.toMenu('new');
@@ -284,8 +284,10 @@ export class TitleController {
 		if (isShortcut(e)) return;
 		if (e.key === 'Enter') {
 			e.preventDefault();
-			// A held Enter, or one mashed through the pick, must not name the animal unseen.
-			if (e.repeat || this.age < PICK_GUARD_SECONDS) return;
+			// A held Enter, or one mashed through the pick, must not name the animal
+			// unseen. Here Enter alone is the key a kid mashes: Space and the
+			// numbers are letters of the name.
+			if (e.repeat || !this.guard.press()) return;
 			const speciesId = STARTERS[title.starter];
 			if (speciesId === undefined) return;
 			this.sent = true;
@@ -306,7 +308,6 @@ export class TitleController {
 	private toMenu(row: TitleRow): void {
 		title.screen = 'menu';
 		title.cursor = Math.max(0, title.rows.indexOf(row));
-		this.age = 0;
 		const saved = title.saved;
 		if (saved) {
 			this.scenery.showWorld(
@@ -322,7 +323,7 @@ export class TitleController {
 	private toStarters(index: number): void {
 		title.screen = 'starter';
 		title.starter = index;
-		this.age = 0;
+		this.guard.show();
 		this.scenery.showStarters(STARTERS);
 		this.scenery.select(index);
 		title.spots = this.scenery.spots();

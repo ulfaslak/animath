@@ -19,6 +19,7 @@ function setup(startingParty: string) {
 			listeners.set(type, listener)
 	} as unknown as Window;
 	const keyboard = new Keyboard(target);
+	keyboard.setEnabled(true); // explore has the screen, as main.ts says each frame
 	const renderer = {
 		setWorld() {},
 		setPlayer() {},
@@ -33,15 +34,16 @@ function setup(startingParty: string) {
 		explore.handle(e);
 	});
 	authority.start();
+	/** A key pressed in explore, handed over as main.ts hands it. */
 	const press = (key: string) =>
-		listeners.get('keydown')!({
+		keyboard.keydown({
 			key,
 			repeat: false,
 			ctrlKey: false,
 			metaKey: false,
 			altKey: false,
 			preventDefault() {}
-		});
+		} as unknown as KeyboardEvent);
 	const release = (key: string) => listeners.get('keyup')!({ key });
 	return { authority, explore, events, press, release };
 }

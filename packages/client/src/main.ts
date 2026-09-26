@@ -1,6 +1,6 @@
 import './styles.css';
 import type { SavedGame } from '@mathgame/engine';
-import { mount } from 'svelte';
+import { flushSync, mount } from 'svelte';
 import { sfx } from './audio/sfx.svelte';
 import { LocalAuthority, mintId } from './authority/local';
 import { BattleController } from './battle/controller';
@@ -8,7 +8,9 @@ import { DoctorController } from './doctor/controller';
 import { ExploreController } from './explore/controller';
 import { flags } from './flags';
 import { Keyboard } from './input/keyboard';
+import { press } from './input/press';
 import { isSoundKey, typingNow } from './input/sound-key';
+import { watchTaps } from './input/taps';
 import { touch, watchInput } from './input/touch.svelte';
 import { PauseController } from './pause/controller';
 import { Follower } from './render/follower';
@@ -124,33 +126,84 @@ authority.subscribe((event) => {
 });
 
 /**
+ * The screen that takes keys now, one at a time: the title while it is up,
+ * else the battle while it is up, else the doctor's card while it is open,
+ * else the pause menu while it is open, else explore (Escape there opens the
+ * pause menu). None while the page loads.
+ */
+type KeyScreen = 'title' | 'battle' | 'doctor' | 'pause' | 'explore';
+function keyScreen(): KeyScreen | null {
+	if (title.open) return 'title';
+	if (game.mode === 'loading' || game.mode === 'title') return null;
+	if (battle.active) return 'battle';
+	if (doctor.active) return 'doctor';
+	if (pause.open) return 'pause';
+	return game.mode === 'explore' ? 'explore' : null;
+}
+
+/**
  * Walking reads the keyboard only in explore, while a game is under way, with
  * no card or menu open, and never on a page that is behind the save.
  */
-const exploreInput = () =>
-	!title.open &&
-	game.mode !== 'loading' &&
-	game.mode !== 'title' &&
-	!battle.active &&
-	!doctor.active &&
-	!pause.open &&
-	autosave.behind === null;
+const exploreInput = () => keyScreen() === 'explore' && autosave.behind === null;
+
+/**
+ * Counts every change of what takes keys, down to the screen inside a screen
+ * (the battle's menu, its turn playing, its result card), so a tap counts only
+ * on the screen it began on (`input/taps.ts`): a finger that went down on a
+ * row while the turn played does nothing when it lifts over the menu. A
+ * tablet turned upright is a screen of its own, which takes no taps.
+ */
+let screenSeen = '';
+let screenCount = 0;
+function noteScreen(): void {
+	const now =
+		autosave.behind !== null
+			? 'behind'
+			: touch.on && touch.portrait
+				? 'portrait'
+				: title.open
+					? `title:${title.screen}`
+					: battle.active
+						? `battle:${battle.screen}`
+						: doctor.active
+							? `doctor:${doctor.screen}`
+							: pause.open
+								? `pause:${pause.screen}`
+								: game.mode;
+	if (now !== screenSeen) {
+		screenSeen = now;
+		screenCount++;
+	}
+}
 
 // Browsers let a page make sound only after a key press, click or touch; each
-// one wakes the sound (the first makes it), before any screen plays a cue.
-for (const type of ['keydown', 'pointerdown', 'touchend']) {
+// one wakes the sound (the first makes it), before any screen plays a cue. A
+// finger's tap presses its key as it lifts, which is when the browser counts it.
+for (const type of ['keydown', 'pointerdown', 'pointerup', 'touchend']) {
 	window.addEventListener(type, () => sfx.unlock(), { capture: true });
 }
 
-// Keys go to exactly one screen: the title while it is up, else the battle
-// while it is up, else the doctor's card while it is open, else the pause
-// menu while it is open (Escape in explore opens it), else explore, which
-// reads them through `keyboard`. Explore's own listener runs first and is
-// switched off here at once, so the key that opens the menu is the last one
-// walking sees, and the key that closes the title is not a step. M turns the
-// sound on or off on every screen, the title's too, except while an answer
-// or a name is being typed. A page that is behind the save takes no key at all.
-// A click or a tap arrives here too, as a key press (`input/press.ts`).
+// A tap on a button is the key it stands for (`input/taps.ts`), drawn before
+// the tap is over: a tablet brings up its keyboard for a name box only when
+// the box takes the focus inside the tap itself.
+watchTaps(
+	window,
+	() => screenCount,
+	(key) => {
+		press(key);
+		flushSync();
+	}
+);
+
+// Each key goes to exactly one screen, chosen before any screen acts on it
+// (`keyScreen`), so a key that closes a screen is used up there: the Enter on
+// Continue or on the result card is never also a step or a word with the
+// doctor. Explore reads its keys through `keyboard`, which hears only what is
+// handed to it here. M turns the sound on or off on every screen, the title's
+// too, except while an answer or a name is being typed. A page that is behind
+// the save takes no key at all. A click or a tap arrives here too, as a key
+// press (`input/press.ts`).
 window.addEventListener('keydown', (e) => {
 	if (autosave.behind !== null) {
 		// Behind (`save/behind.ts`): no key reaches the game, nor a letter the name box.
@@ -162,14 +215,21 @@ window.addEventListener('keydown', (e) => {
 		if (behindKey(e.key, typingNow(e.target)) === 'reload') catchUp(false);
 		return;
 	}
+	const screen = keyScreen();
+	keyboard.setEnabled(screen === 'explore');
 	if (isSoundKey(e) && (title.open || game.mode !== 'loading') && !typingNow(e.target)) {
 		e.preventDefault();
 		if (!e.repeat) sfx.flip();
-	} else if (title.open) titleController.onKey(e);
-	else if (battle.active) battleController.onKey(e);
-	else if (doctor.active) doctorController.onKey(e);
-	else if (game.mode === 'explore') pauseController.onKey(e);
+	} else if (screen === 'title') titleController.onKey(e);
+	else if (screen === 'battle') battleController.onKey(e);
+	else if (screen === 'doctor') doctorController.onKey(e);
+	else if (screen === 'pause') pauseController.onKey(e);
+	else if (screen === 'explore') {
+		keyboard.keydown(e);
+		pauseController.onKey(e);
+	}
 	keyboard.setEnabled(exploreInput());
+	noteScreen();
 });
 
 // Leaving or hiding the page saves at once and sends the backup with `keepalive`.
@@ -248,6 +308,7 @@ function frame(now: number) {
 		}
 		renderer.render();
 	}
+	noteScreen();
 	requestAnimationFrame(frame);
 }
 requestAnimationFrame(frame);

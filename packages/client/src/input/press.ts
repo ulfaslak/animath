@@ -1,10 +1,10 @@
 import type { AttackLevel } from '@mathgame/engine';
 
 /**
- * The pointer's way into the game: a tap or a click becomes a key press on
- * `window`, the same event a keyboard sends, so it reaches the same
- * listeners, guards and handlers a real key does (`main.ts` sends it to the
- * screen that is up; explore's `Keyboard` hears it too). A pointer is never
+ * The pointer's way into the game: a tap or a click (`input/taps.ts`)
+ * becomes a key press on `window`, the same event a keyboard sends, so it
+ * reaches the same listeners, guards and handlers a real key does (`main.ts`
+ * sends it to the screen that is up, explore's `Keyboard` included). A pointer is never
  * a second path to an action: Go is Enter, Back is Escape, the number pad's
  * 7 is the 7 key, the D-pad's arrow is the arrow key held down.
  *
