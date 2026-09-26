@@ -65,10 +65,14 @@
 		return kindList(topics, 'disjunction');
 	}
 
+	/** What the highlighted row of the action menu does: an attack, the leash, a switch or running. */
+	const action = $derived(spec ? actionAt(battle.cursor, spec.attacks.length) : null);
+	/** The highlighted row can't be done (a greyed Switch): Enter and Go do nothing there. */
+	const greyed = $derived(action?.kind === 'switch' && !canSwitch);
+
 	/** What the highlighted row will do, in words a kid can read. */
 	const detail = $derived.by(() => {
-		if (!spec) return '';
-		const action = actionAt(battle.cursor, spec.attacks.length);
+		if (!spec || !action || !opponent) return '';
 		if (action.kind === 'attack') {
 			const row = rows[action.index - 1]!;
 			const damage = attackDamage(spec, row.index, row.level, true);
@@ -76,16 +80,54 @@
 			// missing number can sit in a times table, and then it says so.
 			const difficulty = puzzleDifficulty(spec.tier, row.index, row.level);
 			const kinds = kindWords(puzzleTopics(spec.attacks[row.index - 1]!.kinds, difficulty));
-			return t('battle.attackDetail', { attack: row.name, level: row.word, kinds, damage });
+			return t('battle.attackDetail', {
+				attack: row.name,
+				level: row.word,
+				kinds,
+				damage,
+				animal: animalWords(opponent)
+			});
 		}
 		if (action.kind === 'leash') {
-			return teamFull ? t('battle.leash.teamFullDetail') : t('battle.leash.detail');
+			return teamFull
+				? t('battle.leash.teamFullDetail')
+				: t('battle.leash.detail', { animal: animalWords(opponent) });
 		}
 		if (action.kind === 'switch') {
 			if (canSwitch) return t('battle.switch.detail');
 			return battle.party.length < 2 ? t('battle.switch.alone') : t('battle.switch.allTired');
 		}
-		return t('battle.run.detail');
+		return t('battle.run.detail', { animal: animalWords(opponent) });
+	});
+
+	/** The puzzle area's title for the highlighted row: what picking it does. */
+	const rowTitle = $derived.by(() => {
+		switch (action?.kind) {
+			case 'leash':
+				return t('battle.menu.leash');
+			case 'switch':
+				return t('battle.menu.switch');
+			case 'run':
+				return t('battle.menu.run');
+			default:
+				return t('battle.menu.attack');
+		}
+	});
+
+	/**
+	 * The key reminder for the highlighted row: left and right only on an
+	 * attack row (the only one with a level), and no Enter where it does
+	 * nothing. With the touch controls on, a tap hint instead; on a greyed
+	 * row, where Go does nothing, the way to an attack.
+	 */
+	const rowKeys = $derived.by(() => {
+		if (touch.on) {
+			return action?.kind === 'attack' || greyed
+				? t('battle.menu.touchAttack')
+				: t('battle.menu.touch');
+		}
+		if (action?.kind === 'attack') return t('battle.menu.keysAttack');
+		return greyed ? t('battle.menu.keysGreyed') : t('battle.menu.keys');
 	});
 
 	/** What picking the highlighted animal of the party list would do. */
@@ -318,10 +360,10 @@
 				</div>
 			</div>
 		{:else}
-			<div class="soft">{t('battle.pickAttack')}</div>
+			<div class="soft">{rowTitle}</div>
 			<div class="detail">{detail}</div>
 			<div class="footer">
-				<div class="keys">{touch.on ? t('battle.menuTouch') : t('battle.menuKeys')}</div>
+				<div class="keys">{rowKeys}</div>
 				<div class="buttons">
 					<button
 						type="button"
