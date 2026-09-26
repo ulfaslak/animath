@@ -478,21 +478,31 @@
 		flex: none;
 	}
 	.cards :global(.bundle.still) {
-		transition: transform 0.16s ease-out;
+		transition:
+			transform 0.16s ease-out,
+			scale 0.12s ease-out;
 	}
 	:global(.touch) .cards :global(.bundle) {
 		min-height: var(--tap);
 	}
-	/* The card being carried: above the others, and lifted a little. */
+	/*
+	 * The card lifted or carried: above the others, a little bigger, with a
+	 * deeper shadow, so a finger held still sees it can move the card now.
+	 */
 	.cards :global(.bundle.carried) {
 		z-index: 2;
 		cursor: grabbing;
+		/* No more than the column's 4 px of padding to the left holds, at the widest card (320 px). */
+		scale: 1.025;
+		transition: scale 0.12s ease-out;
 		box-shadow:
 			0 10px 24px rgba(45, 42, 50, 0.28),
 			var(--hud-shadow);
 	}
 	.cards :global(.bundle.dropped) {
-		transition: transform 0.12s ease-out;
+		transition:
+			transform 0.12s ease-out,
+			scale 0.12s ease-out;
 	}
 	@media (hover: hover) and (pointer: fine) {
 		.cards :global(button.bundle.still) {
@@ -504,6 +514,7 @@
 	}
 	@media (prefers-reduced-motion: reduce) {
 		.cards :global(.bundle.still),
+		.cards :global(.bundle.carried),
 		.cards :global(.bundle.dropped) {
 			transition: none;
 		}
