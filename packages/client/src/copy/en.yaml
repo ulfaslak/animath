@@ -400,6 +400,10 @@ doctor:
     stays: '{animal.name} stays with you.'
     # The highlighted row of a kind ("Fox ×40"), which picks them all: how many, and what they all bring.
     kindWorth: All {count} bring {amount} tokens.
+    # The same, when one of the kind has to stay: how many of them can go, and what they bring.
+    kindWorthSome:
+      one: '1 of them brings {amount} tokens.'
+      other: '{count} of them bring {amount} tokens.'
     # How many animals are picked, and what they bring together: the running total.
     picked:
       one: '1 animal picked: {amount} tokens.'

@@ -19,6 +19,7 @@
 		cannotBuy,
 		doctor,
 		hurtIndexes,
+		kindGoing,
 		kindPicked,
 		tabRows,
 		type DoctorRow,
@@ -92,6 +93,12 @@
 	function kindOf(speciesId: string) {
 		return doctor.party.filter((a) => a.speciesId === speciesId);
 	}
+
+	/** The highlighted kind's row leaves one of its kind behind when picked: the one who stays, and why. */
+	const kindKeepsOne = $derived(
+		highlighted?.kind === 'bundle' &&
+			kindGoing(highlighted.speciesId, doctor).length < kindOf(highlighted.speciesId).length
+	);
 
 	/** A bundle row goes with its animals when fewer than two of them stay: it is gone after the goodbye. */
 	function kindLeaves(speciesId: string): boolean {
@@ -230,6 +237,7 @@
 					<!-- Several of one kind, as their card reads in the HUD: a pick here picks them all. -->
 					{@const kind = kindOf(row.speciesId)}
 					{@const picked = kindPicked(row.speciesId, doctor)}
+					{@const going = kindGoing(row.speciesId, doctor)}
 					<button
 						type="button"
 						class="row bundle"
@@ -251,7 +259,8 @@
 							>{speciesName(row.speciesId)}
 							<span class="count">{t('team.count', { count: kind.length })}</span></span
 						>
-						<span class="worth">+{homeTokens(kind)} <Coin size={16} /></span>
+						<!-- What the pick brings: the one who stays, when one must, is not counted. -->
+						<span class="worth">+{homeTokens(going)} <Coin size={16} /></span>
 					</button>
 				{:else if row.kind === 'animal'}
 					{@const animal = doctor.party[row.partyIndex]!}
@@ -423,9 +432,14 @@
 			{/if}
 			{#if highlighted?.kind === 'bundle'}
 				{@const kind = kindOf(highlighted.speciesId)}
-				<div class="detail strong">
-					{t('doctor.home.kindWorth', { count: kind.length, amount: homeTokens(kind) })}
-				</div>
+				{@const going = kindGoing(highlighted.speciesId, doctor)}
+				{#if going.length > 0}
+					<div class="detail strong">
+						{going.length === kind.length
+							? t('doctor.home.kindWorth', { count: going.length, amount: homeTokens(going) })
+							: t('doctor.home.kindWorthSome', { count: going.length, amount: homeTokens(going) })}
+					</div>
+				{/if}
 			{:else if highlighted?.kind === 'animal' && doctor.party[highlighted.partyIndex]}
 				{@const animal = doctor.party[highlighted.partyIndex]!}
 				<div class="detail strong">
@@ -437,7 +451,7 @@
 							})}
 				</div>
 			{/if}
-			{#if staying.size > 0}
+			{#if staying.size > 0 || kindKeepsOne}
 				<div class="detail">{t('doctor.home.keepOne')}</div>
 			{/if}
 			<div class="keys">{touch.on ? t('doctor.home.touch') : t('doctor.home.keys')}</div>

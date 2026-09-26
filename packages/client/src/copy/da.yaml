@@ -297,6 +297,9 @@ doctor:
       other: '{animal.the} giver {count} mønter.'
     stays: '{animal.the} bliver hos dig.'
     kindWorth: Alle {count} giver {amount} mønter.
+    kindWorthSome:
+      one: '1 af dem giver {amount} mønter.'
+      other: '{count} af dem giver {amount} mønter.'
     picked:
       one: '1 dyr valgt: {amount} mønter.'
       other: '{count} dyr valgt: {amount} mønter.'

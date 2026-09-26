@@ -186,10 +186,22 @@ export interface StopsView {
 	marked: readonly string[];
 }
 
-/** What `kindPicked` reads. */
+/** What `kindPicked` and `kindGoing` read. */
 export interface PicksView {
 	party: readonly AnimalInstance[];
 	marked: readonly string[];
+}
+
+/**
+ * The animals of a kind that go home once its row is picked: the ones
+ * picked already and the ones a pick on the row adds (the engine's
+ * `kindGoingHome`), in party order. All of the kind, but for the one who
+ * stays when the kind is all that stands. Its row says what they bring, so
+ * the number on the row is the number the sum adds.
+ */
+export function kindGoing(speciesId: string, view: PicksView): AnimalInstance[] {
+	const going = new Set([...view.marked, ...kindGoingHome(view.party, view.marked, speciesId)]);
+	return view.party.filter((a) => a.speciesId === speciesId && going.has(a.id));
 }
 
 /**

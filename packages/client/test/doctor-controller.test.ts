@@ -17,7 +17,7 @@ import { DoctorController } from '../src/doctor/controller';
 import { doctorWords } from '../src/doctor/lines';
 import { PICK_QUIET_SECONDS } from '../src/input/pick-guard';
 import { optionKey, rowKey, tabKey } from '../src/input/press';
-import { doctor, kindPicked, tabRows } from '../src/state/doctor.svelte';
+import { doctor, kindGoing, kindPicked, tabRows } from '../src/state/doctor.svelte';
 import { everyMash } from './mash';
 
 /**
@@ -798,6 +798,8 @@ describe('helping a whole kind home', () => {
 		// A kind of one needs no row of its own; the heal tab has none at all.
 		expect(shown()).toEqual(['all fox', 'f1', 'f2', 'f3', 's', 'r', 'send', 'bye']);
 		expect(doctor.cursor).toBe(0);
+		// With the squirrel standing, the row's pick sends all three: 18 tokens.
+		expect(homeTokens(kindGoing('fox', doctor))).toBe(18);
 		t.cues.length = 0;
 		// Picks go at once, as an animal's do: nothing leaves before the confirm and the sum.
 		t.press('Enter');
@@ -845,10 +847,15 @@ describe('helping a whole kind home', () => {
 			{ tokens: 3 }
 		);
 		home(t);
-		// Before anything is picked, nobody has to stay.
+		// Before anything is picked, nobody has to stay, but the row already counts only
+		// the foxes its pick sends: 12 tokens, not the 18 of all three.
 		expect(mustStay(doctor.party, doctor.marked)).toEqual([]);
+		const going = () => kindGoing('fox', doctor).map((a) => a.id);
+		expect(going()).toEqual(['f1', 'f3']);
+		expect(homeTokens(kindGoing('fox', doctor))).toBe(12);
 		t.press('Enter');
 		expect(doctor.marked).toEqual(['f1', 'f3']);
+		expect(going()).toEqual(['f1', 'f3']);
 		// The fox who stays: its check box says so, and a pick on it gives a little shake and no sound.
 		expect(mustStay(doctor.party, doctor.marked)).toEqual(['f2']);
 		expect(kindPicked('fox', doctor)).toBe('all');

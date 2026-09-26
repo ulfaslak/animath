@@ -522,8 +522,9 @@ export class DoctorController {
 
 	/**
 	 * Where the cursor starts on a tab: the first animal who needs the doctor
-	 * (or Bye, when nobody does), the first animal, the first item (or Bye,
-	 * when the shop has nothing).
+	 * (or Bye, when nobody does); the first row, a kind's own row when the
+	 * team starts with a kind of several; the first item (or Bye, when the
+	 * shop has nothing).
 	 */
 	private firstStop(tab: DoctorTab): number {
 		const rows = tabRows(tab, doctor.party, doctor.shop);
