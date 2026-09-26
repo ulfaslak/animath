@@ -136,6 +136,8 @@ export class Autosave {
 	private seq = 0;
 	/** The exact text of the save key when this page last read or wrote it; null when it was empty. */
 	private seenText: string | null = null;
+	/** The text of this page's own last write of the save key. */
+	private writtenText: string | null = null;
 	/** The save this page's game grows from: the one it loaded, carried on from, or last wrote. */
 	private base: SaveV1 | null = null;
 	/** Fields a newer build left in the loaded save, written back unchanged. */
@@ -484,8 +486,10 @@ export class Autosave {
 		}
 		if (writesLocal) {
 			const text = JSON.stringify(doc);
-			if (store.set(KEYS.save, text)) this.seenText = text;
-			else this.local = 'broken';
+			if (store.set(KEYS.save, text)) {
+				this.seenText = text;
+				this.writtenText = text;
+			} else this.local = 'broken';
 		}
 		this.replacing = false;
 		this.seq = doc.seq;
@@ -555,8 +559,44 @@ export class Autosave {
 	}
 
 	private goStale(cause: BehindCause): void {
+		if (this.staleCause === null && cause !== 'gone') this.keepOwnSave();
 		this.staleCause ??= cause;
 		this.clearTimers();
+	}
+
+	/**
+	 * This page is behind. Whoever wrote the save in its place either played
+	 * on from this page's last save (the same game, a higher `seq`) or kept it
+	 * aside (another game took the key). Two pages writing in the same
+	 * instant break that: a page's view of `localStorage` is only brought up
+	 * to date between tasks, so both pass compare-before-write and the one
+	 * written first is lost. Then this page keeps its own last save aside, so
+	 * what the kid did in it is never gone.
+	 */
+	private keepOwnSave(): void {
+		const store = this.store;
+		const text = this.writtenText;
+		// Nothing of this page's that no other page has seen.
+		if (!store || text === null || text !== this.seenText) return;
+		const current = store.get(KEYS.save);
+		if (current === null || current === text) return;
+		const doc = parseJson(current);
+		if (saveLineage(doc) === this.lineage && saveSeq(doc) > this.seq) return;
+		const prefixes = [KEYS.replaced, KEYS.previous, KEYS.unreadable];
+		if (prefixes.some((prefix) => this.keptUnder(prefix, text))) return;
+		this.setAside(KEYS.replaced, text);
+	}
+
+	/** Whether `text` is in one of `prefix`'s set-aside slots (they fill in order). */
+	private keptUnder(prefix: string, text: string): boolean {
+		const store = this.store;
+		if (!store) return false;
+		for (let n = 1; n <= MAX_PUT_AWAY; n++) {
+			const there = store.get(n === 1 ? prefix : `${prefix}.${n}`);
+			if (there === null) return false;
+			if (there === text) return true;
+		}
+		return false;
 	}
 
 	private readIdentity(store: KeyValueStore): void {

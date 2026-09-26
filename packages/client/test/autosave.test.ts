@@ -54,6 +54,36 @@ class MemoryStore implements KeyValueStore {
 	}
 }
 
+/**
+ * One tab's view of the shared store. A browser brings a page's view of
+ * `localStorage` up to date only between tasks, so a write another page makes
+ * in the same instant is not in it yet: `freeze` holds a key as it is now
+ * until this tab writes it or `thaw` is called.
+ */
+class LaggingView extends MemoryStore {
+	private held = new Map<string, string | null>();
+	constructor(private shared: MemoryStore) {
+		super();
+	}
+	freeze(key: string): void {
+		this.held.set(key, this.shared.get(key));
+	}
+	thaw(): void {
+		this.held.clear();
+	}
+	override get(key: string): string | null {
+		return this.held.has(key) ? this.held.get(key)! : this.shared.get(key);
+	}
+	override set(key: string, value: string): boolean {
+		this.held.delete(key);
+		return this.shared.set(key, value);
+	}
+	override remove(key: string): void {
+		this.held.delete(key);
+		this.shared.remove(key);
+	}
+}
+
 class FakeServer implements SaveServer {
 	players = new Map<string, { secret: string; save: unknown }>();
 	online = true;
@@ -551,6 +581,26 @@ describe('Autosave: two tabs', () => {
 		expect(a.autosave.behind).toBeNull();
 	});
 
+	it('two tabs writing in the same instant: the save that lost is kept aside, never gone', async () => {
+		const store = new MemoryStore();
+		const a = new Tab(store, null);
+		await a.open();
+		await a.walk();
+		const view = new LaggingView(store);
+		const b = new Tab(view, null);
+		await b.open();
+		// B's view of the save has not caught up with A's catch when B saves its step.
+		view.freeze(KEYS.save);
+		await a.catchOne();
+		const caught = store.get(KEYS.save)!;
+		await b.walk();
+		expect(store.get(KEYS.save)).not.toBe(caught);
+		view.thaw();
+		a.autosave.onStorage(KEYS.save);
+		expect(a.autosave.behind).toBe('window');
+		expect(store.get(KEYS.replaced)).toBe(caught);
+	});
+
 	it('a save removed from under the page (site data cleared) is not written back', async () => {
 		const { store, a } = await twoTabs();
 		store.remove(KEYS.save);
@@ -1005,6 +1055,36 @@ describe('Autosave: the server backup', () => {
 		const third = identityIn(store)!;
 		expect([ghost.id, second.id]).not.toContain(third.id);
 		expect(server.saveOf(third)).toEqual(store.save());
+	});
+
+	it('a tab taking the server’s game in the same instant another tab saves a catch: the catch is kept aside', async () => {
+		const store = new MemoryStore();
+		const server = new FakeServer();
+		const theirs = { ...newGame(SEED), version: 1, lineage: 'from-server', seq: 40 };
+		const who = server.seed(theirs);
+		const first = new Tab(store, null);
+		await first.open();
+		await first.walk();
+		store.set(KEYS.player, JSON.stringify(who));
+		const a = new Tab(store, null);
+		await a.open();
+		// B starts cut off from the server; its view of the save lags A's next save.
+		server.online = false;
+		const view = new LaggingView(store);
+		const b = new Tab(view, server);
+		await b.open();
+		view.freeze(KEYS.save);
+		await a.catchOne();
+		const caught = store.get(KEYS.save)!;
+		server.online = true;
+		await later(5_000);
+		expect(b.autosave.behind).toBe('replaced');
+		expect(store.save()!.lineage).toBe('from-server');
+		view.thaw();
+		a.autosave.onStorage(KEYS.save);
+		expect(a.autosave.behind).toBe('replaced');
+		const kept = [KEYS.replaced, `${KEYS.replaced}.2`].map((k) => store.get(k));
+		expect(kept).toContain(caught);
 	});
 
 	it("a server answer that comes before another tab's storage event does not put this tab behind a walk", async () => {
