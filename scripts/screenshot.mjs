@@ -10,7 +10,7 @@
  *                               [--settle 1500] [--key-interval 700] [--tap-ms 100]
  *                               [--width 1280 --height 800] [--scale 1]
  *                               [--clip x,y,w,h] [--gpu metal|swiftshader]
- *                               [--reduced-motion] [--touch]
+ *                               [--reduced-motion] [--touch] [--api]
  *
  * `--touch` opens the page as a touch tablet would (`hasTouch`, `isMobile`:
  * the page sees `pointer: coarse` and shows its touch controls), for the
@@ -55,6 +55,16 @@
  * the game, which is saved in the page's localStorage. The script exits
  * non-zero on console errors and warnings, except failed `/api/` calls: the
  * game saves locally without the API, so those are listed at the end instead.
+ *
+ * The game's API is blocked: every request to `/api/` is aborted in the
+ * browser, as if the server were down, and the blocked calls are counted at
+ * the end. A game started in a fresh browser makes a player on the server,
+ * and every Vite of this repo proxies `/api` to port 3000 (the primary
+ * clone's API, with the kids' games in its database) unless `API_PORT` says
+ * otherwise, so unblocked runs filled that database with throwaway players.
+ * The game saves in the page and plays the same. `--api` lets the calls
+ * through, for a run that tests the backup: against your own API and a
+ * throwaway database.
  *
  * WebGL draws on the GPU by default on a Mac (`--gpu metal`: ANGLE over Metal,
  * as Chrome itself draws there), at 15–20 frames a second headless.
@@ -119,6 +129,12 @@ if (!GPU_ARGS[gpu]) {
 	console.error(`--gpu is metal or swiftshader, not "${gpu}"`);
 	process.exit(2);
 }
+// A lone flag: a value after it would be read as "not asked for" and block the API silently.
+if (args.api !== undefined && args.api !== 'true') {
+	console.error(`--api takes no value, not "${args.api}"`);
+	process.exit(2);
+}
+const allowApi = args.api === 'true';
 const browser = await chromium.launch({ channel: 'chrome', headless: true, args: GPU_ARGS[gpu] });
 const context = await browser.newContext({
 	viewport: { width, height },
@@ -127,18 +143,29 @@ const context = await browser.newContext({
 	hasTouch: touchScreen,
 	isMobile: touchScreen
 });
+/** A request to the game's API (`/api` and below; a module such as `/src/save/api.ts` is not one). */
+const isApi = (u) => {
+	try {
+		return /^\/api(\/|$)/.test(new URL(u).pathname);
+	} catch {
+		return false;
+	}
+};
+// Unless `--api`, every API request is aborted before it leaves the browser, on
+// every page of the context, and counted here ("POST /api/players" → 2).
+const blocked = new Map();
+if (!allowApi) {
+	await context.route(isApi, (route) => {
+		const call = `${route.request().method()} ${new URL(route.request().url()).pathname}`;
+		blocked.set(call, (blocked.get(call) ?? 0) + 1);
+		return route.abort('blockedbyclient');
+	});
+}
 const page = await context.newPage();
 const errors = [];
 // The game saves locally and backs up to the API when it can; it plays the same
 // without it. Failed API calls are listed, not counted as errors.
 const api = [];
-const isApi = (u) => {
-	try {
-		return new URL(u).pathname.startsWith('/api/');
-	} catch {
-		return false;
-	}
-};
 page.on('console', (m) => {
 	// SwiftShader (headless software GL) spams "GPU stall" performance notes; not ours.
 	if (/GPU stall/.test(m.text())) return;
@@ -148,12 +175,15 @@ page.on('console', (m) => {
 });
 page.on('pageerror', (e) => errors.push(`[pageerror] ${e.message}`));
 page.on('response', (r) => {
-	if (isApi(r.url()) && r.status() >= 400) {
-		api.push(`${r.request().method()} ${new URL(r.url()).pathname} → ${r.status()}`);
-	}
+	if (!isApi(r.url())) return;
+	const call = `${r.request().method()} ${new URL(r.url()).pathname}`;
+	// Blocked, no API call gets an answer; one that did got past the block, which fails the run.
+	if (!allowApi) errors.push(`[api] ${call} reached a server though the API is blocked`);
+	else if (r.status() >= 400) api.push(`${call} → ${r.status()}`);
 });
 page.on('requestfailed', (r) => {
-	if (isApi(r.url())) {
+	// The blocked calls fail here too; they are counted in `blocked` instead.
+	if (allowApi && isApi(r.url())) {
 		api.push(`${r.method()} ${new URL(r.url()).pathname} failed (${r.failure()?.errorText})`);
 	}
 });
@@ -324,6 +354,7 @@ const renderer = await page.evaluate(() => {
 	return name ?? 'no WebGL';
 });
 console.log(`gpu: ${gpu} (${renderer})`);
+if (allowApi) console.log("api: on, to whatever this page's server proxies /api to");
 await page.waitForTimeout(wait);
 for (const { op, arg } of script) {
 	switch (op) {
@@ -411,6 +442,12 @@ await page.waitForTimeout(script.length ? settle : 200);
 await shoot(out);
 await browser.close();
 
+if (blocked.size) {
+	const calls = [...blocked].map(([call, n]) => (n > 1 ? `${call} ×${n}` : call));
+	console.log(
+		`api calls blocked (the game saves locally; --api lets them through): ${calls.join(', ')}`
+	);
+}
 if (api.length) {
 	console.log('api calls that did not succeed (the game plays on and saves locally):');
 	for (const line of api) console.log('  ' + line);
