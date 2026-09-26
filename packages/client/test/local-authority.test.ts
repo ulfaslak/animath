@@ -895,7 +895,7 @@ describe('LocalAuthority: facing', () => {
 });
 
 describe('LocalAuthority: the doctor', () => {
-	it('heals one animal per solved puzzle; a miss costs nothing; walking waits', () => {
+	it('heals the picked animal (and its kind) per solved puzzle; a miss costs nothing; walking waits', () => {
 		const s = session({ party: hurtParty() });
 		walkToTent(s);
 		s.authority.dispatch({ type: 'interact' });
