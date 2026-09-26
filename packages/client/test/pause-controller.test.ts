@@ -5,7 +5,7 @@ import { sfx } from '../src/audio/sfx.svelte';
 import { LocalAuthority } from '../src/authority/local';
 import { language } from '../src/copy';
 import { parseParty } from '../src/flags';
-import { languageKey, rowKey } from '../src/input/press';
+import { languageKey, optionKey, rowKey } from '../src/input/press';
 import { PauseController } from '../src/pause/controller';
 import { game } from '../src/state/game.svelte';
 import { MENU_ITEMS, pause } from '../src/state/pause.svelte';
@@ -305,9 +305,9 @@ describe('pause menu', () => {
 
 /**
  * A click or a tap reaches the menu as a key press (`input/press.ts`): a row
- * or an option is its row key, which does it at once, a language on the
- * Language row its language key, and the name box's Save and Back are Enter
- * and Escape.
+ * on the left is its row key and an option its option key, each done at once,
+ * a language on the Language row its language key, and the name box's Save
+ * and Back are Enter and Escape.
  */
 describe('pause menu under a pointer', () => {
 	it('a tap on an animal opens its options; a tap on an option does it, and a greyed one nothing', () => {
@@ -316,14 +316,14 @@ describe('pause menu under a pointer', () => {
 		expect(pause.screen).toBe('options');
 		expect(pause.picked).toBe(game.party[2]!.id);
 		// The fox is at the bottom: Move down is greyed, and its tap sends nothing.
-		press(rowKey(2));
+		press(optionKey(2));
 		expect(sent).toEqual([]);
 		expect(pause.screen).toBe('options');
-		press(rowKey(1));
+		press(optionKey(1));
 		expect(species()).toEqual(['squirrel', 'fox', 'rabbit']);
 		expect(pause.option).toBe(1);
 		// New name, typed, then Save (Enter).
-		press(rowKey(3));
+		press(optionKey(3));
 		expect(pause.screen).toBe('naming');
 		pause.draft = 'Pip';
 		press('Enter');
@@ -353,6 +353,78 @@ describe('pause menu under a pointer', () => {
 		press('Escape', rowKey(game.party.length + MENU_ITEMS.length));
 		expect(pause.screen).toBe('list');
 		expect(pause.open).toBe(true);
+		expect(sent).toEqual([]);
+	});
+
+	it('with any animal’s options open, a tap on the left does that row as on the list, never an option (#45)', () => {
+		// Every row on the left with every animal's options open, in teams of one to six.
+		// The team's rows and the options share their numbers (the first team row was Go
+		// first), and so do the settings with one animal ("Start screen" was Back).
+		const teams = [
+			'squirrel',
+			'squirrel,rabbit',
+			'squirrel,rabbit,fox',
+			'squirrel,rabbit:0,fox,frog,otter,bear'
+		];
+		const bad: string[] = [];
+		for (const team of teams) {
+			const size = team.split(',').length;
+			for (let picked = 0; picked < size; picked++) {
+				for (let row = 0; row < size + MENU_ITEMS.length; row++) {
+					pause.reset();
+					language.set('en');
+					sfx.set(true);
+					const { press, sent } = setup(team);
+					const ids = game.party.map((a) => a.id);
+					press('Escape', rowKey(picked));
+					press(rowKey(row));
+					const item = MENU_ITEMS[row - size];
+					const closes = item === 'resume' || item === 'quit';
+					const got = {
+						at: pause.open ? [pause.screen, pause.picked, pause.cursor] : 'closed',
+						language: language.current,
+						sound: sfx.on,
+						sent
+					};
+					const want = {
+						// An animal opens its own options; a setting is done on the list, the cursor on it.
+						at: closes ? 'closed' : row < size ? ['options', ids[row], row] : ['list', null, row],
+						language: item === 'language' ? 'da' : 'en',
+						sound: item !== 'sound',
+						sent: item === 'quit' ? [{ type: 'leave-game' }] : []
+					};
+					if (JSON.stringify(got) !== JSON.stringify(want)) {
+						bad.push(`${team}, options of ${picked}, tap on row ${row}: ${JSON.stringify(got)}`);
+					}
+				}
+			}
+		}
+		expect(bad).toEqual([]);
+	});
+
+	it('beside the options a language is that language; beside the name box, the left does nothing', () => {
+		const { press, sent } = setup();
+		const rows = game.party.length + MENU_ITEMS.length;
+		press('Escape', rowKey(2), languageKey('da'));
+		expect(language.current).toBe('da');
+		expect([pause.screen, pause.picked, pause.cursor]).toEqual([
+			'list',
+			null,
+			game.party.length + MENU_ITEMS.indexOf('language')
+		]);
+		// The fox's name box: a tap on the team or a setting is neither typing nor a row.
+		press(rowKey(2), optionKey(3));
+		expect(pause.screen).toBe('naming');
+		pause.draft = 'Pip';
+		for (let row = 0; row < rows; row++) press(rowKey(row));
+		press(languageKey('en'), optionKey(0));
+		expect([pause.open, pause.screen, pause.draft, language.current, sfx.on]).toEqual([
+			true,
+			'naming',
+			'Pip',
+			'da',
+			true
+		]);
 		expect(sent).toEqual([]);
 	});
 });

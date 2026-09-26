@@ -2,7 +2,7 @@ import type { Authority, GameEvent, PartyIntent } from '@mathgame/engine';
 import { sfx } from '../audio/sfx.svelte';
 import { isLanguage, language, nextLanguage } from '../copy';
 import { isShortcut, keyName } from '../input/keyboard';
-import { tappedLanguage, tappedRow } from '../input/press';
+import { tappedLanguage, tappedOption, tappedRow } from '../input/press';
 import { game } from '../state/game.svelte';
 import {
 	MENU_ITEMS,
@@ -190,6 +190,13 @@ export class PauseController {
 	}
 
 	private optionsKey(key: string): boolean {
+		// The team and the settings stay on screen beside the options, and a tap on
+		// one of them does that row, as on the list: the options close (as Escape
+		// closes them), then the row is done. Never an option of the picked animal (#45).
+		if (tappedRow(key) !== undefined || tappedLanguage(key) !== undefined) {
+			this.backToList();
+			return this.listKey(key);
+		}
 		const index = this.pickedIndex();
 		if (index < 0) {
 			this.backToList();
@@ -197,10 +204,10 @@ export class PauseController {
 		}
 		const options = partyOptions(game.party, index);
 		// A tap on an option does it, as the arrows and Enter would; a greyed one does nothing.
-		const row = tappedRow(key);
-		if (row !== undefined) {
-			if (!options[row]?.enabled) return true;
-			pause.option = row;
+		const tapped = tappedOption(key);
+		if (tapped !== undefined) {
+			if (!options[tapped]?.enabled) return true;
+			pause.option = tapped;
 			return this.optionsKey('Enter');
 		}
 		switch (key) {

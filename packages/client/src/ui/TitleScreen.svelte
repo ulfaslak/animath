@@ -21,7 +21,8 @@
 	 * A click or a tap is a key press (`data-press`, `input/taps.ts`, which
 	 * draws what the tap did before the tap is over, so the name box can bring
 	 * up a tablet's keyboard): a menu or confirm
-	 * row is its `row:<i>` key, a language its `language:<code>`, a starter's
+	 * row is its `row:<i>` key (the menu is inert under the confirm, so the two
+	 * never answer one key), a language its `language:<code>`, a starter's
 	 * tag (and the space over its figure) its `row:<i>`, which lights it; the
 	 * card's buttons are Enter and Escape. With the touch controls on, the key
 	 * reminders go, and the name box moves to the top, clear of a tablet's
@@ -80,7 +81,9 @@
 			{/each}
 		</h1>
 
-		<div class="card menu-card">
+		<!-- Under the confirm the menu is out of reach, a screen reader's click too: its
+		     rows' keys are the confirm's (New game's `row:1` is Yes). -->
+		<div class="card menu-card" inert={title.screen === 'confirm'}>
 			{#each rows as row, i (row)}
 				<button
 					type="button"
