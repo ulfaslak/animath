@@ -731,7 +731,7 @@ describe('LocalAuthority: saved games', () => {
 		expect(restored.battle?.party[0]!.nickname).toBe('Bob');
 	});
 
-	it('catches up with another tab: counts only rise, and never mid-battle', () => {
+	it('catches up with another tab: counts only rise', () => {
 		const s = session();
 		move(s, 'right', 'left');
 		expect(s.authority.snapshot().steps).toBe(2);
@@ -739,11 +739,41 @@ describe('LocalAuthority: saved games', () => {
 		expect(s.authority.snapshot()).toMatchObject({ steps: 40, visits: 3 });
 		s.authority.catchUp({ steps: 10, visits: 1 });
 		expect(s.authority.snapshot()).toMatchObject({ steps: 40, visits: 3 });
+	});
+
+	it('catches up during a doctor visit: the visit keeps its number, the next one follows on (#58)', () => {
+		const s = session();
+		walkToTent(s);
+		s.authority.dispatch({ type: 'interact' });
+		const opened = s.events[lastIndexOf(s, 'doctor-visit-started')];
+		if (opened?.type !== 'doctor-visit-started') throw new Error('no visit');
+		const steps = s.authority.snapshot().steps;
+		s.authority.catchUp({ steps: steps + 50, visits: 9 });
+		expect(s.authority.snapshot()).toMatchObject({ steps: steps + 50, visits: 9 });
+		doctorIntent(s, { type: 'leave' });
+		const ended = s.events[lastIndexOf(s, 'doctor-visit-ended')];
+		expect(ended?.type === 'doctor-visit-ended' && ended.visit).toBe(opened.visit);
+		s.authority.dispatch({ type: 'interact' });
+		const next = s.events[lastIndexOf(s, 'doctor-visit-started')];
+		expect(next?.type === 'doctor-visit-started' && next.visit).toBe(10);
+	});
+
+	it('catches up mid-battle keyed as its save is: a restored copy plays on the same (#58)', () => {
 		const b = session();
 		walkIntoBattle(b);
 		const steps = b.authority.snapshot().steps;
 		b.authority.catchUp({ steps: steps + 50, visits: 9 });
-		expect(b.authority.snapshot()).toMatchObject({ steps, visits: 0 });
+		const saved = b.authority.snapshot();
+		expect(saved).toMatchObject({ steps: steps + 50, visits: 9 });
+		const c = session();
+		c.authority.start({ game: saved });
+		for (let i = 0; i < 8 && latestBattle(b).phase.kind !== 'ended'; i++) {
+			stepIn(b);
+			stepIn(c);
+			attack(b, 1, 1, i % 3 === 0);
+			attack(c, 1, 1, i % 3 === 0);
+			expect(latestBattle(c)).toEqual(latestBattle(b));
+		}
 	});
 
 	it('ignores intents until it has started', () => {

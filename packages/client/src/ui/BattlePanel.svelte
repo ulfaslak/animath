@@ -424,6 +424,11 @@
 		box-shadow: var(--hud-shadow);
 		padding: 10px 16px 12px;
 	}
+	/*
+	 * The leash's loop flies in under this box, never behind it:
+	 * `WILD_STATUS_BOX` in `render/battle-scene.ts` mirrors where it is and how
+	 * big (with `.status` above). Change both together.
+	 */
 	.status.opponent {
 		top: 16px;
 		left: 16px;

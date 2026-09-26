@@ -144,7 +144,13 @@
 			<div class="shade">
 				<div class="card confirm">
 					<div class="heading">{t('title.confirm.title')}</div>
-					<p>{t('title.confirm.away', { animal: animalWords(lead) })}</p>
+					<p>
+						{#if title.keeps}
+							{t('title.confirm.away', { animal: animalWords(lead) })}
+						{:else}
+							{t('title.confirm.notKept', { animal: animalWords(lead) })}
+						{/if}
+					</p>
 					<p>{t('title.confirm.fresh')}</p>
 					{#each CONFIRM_CHOICES as choice, i (choice)}
 						<button

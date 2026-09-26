@@ -57,11 +57,15 @@ For flows longer than one battle (catching, then switching, then a knock-out), s
 
 ## PR images: the repo is private
 
-`raw.githubusercontent.com` answers 404 for this repo's files without a token, so a PR body links its frames the way GitHub's own page serves them to a signed-in viewer: `https://github.com/ulfaslak/mathgame/blob/screenshots/<branch>/<file>.png?raw=true`. The frames go on a side branch `screenshots/<branch>` that holds nothing else; git's plumbing builds it without touching any worktree (`git hash-object -w` each file, `git mktree`, `git commit-tree`, `git push origin <commit>:refs/heads/screenshots/<branch>`).
+`raw.githubusercontent.com` answers 404 for this repo's files without a token, so a PR body links its frames the way GitHub's own page serves them to a signed-in viewer: `https://github.com/ulfaslak/mathgame/blob/screenshots/<branch>/<file>.png?raw=true`. The frames go on a side branch `screenshots/<branch>` that holds nothing else; git's plumbing builds it without touching any worktree (`git hash-object -w` each file, `git mktree`, `git commit-tree`, `git push origin <commit>:refs/heads/screenshots/<branch>`). The shell is zsh: with the commit in a variable, write `"${commit}:refs/heads/…"`. In `$commit:refs/…`, zsh reads `:r` as its "drop the extension" modifier, and git refuses the mangled refspec (2026-09-26).
 
 ## `page.waitForFunction` does not wait for an async predicate
 
 It takes the returned Promise as a truthy value and resolves at once. On 2026-09-26 a flow that waited for `(await import('/src/state/battle.svelte.ts')).battle.screen === 'party'` went on at once, and every key after it landed on the battle intro. Import the page's modules once with `page.evaluate`, keep them on `window` (`window.__battle = (await import(…)).battle`), and wait with a plain function (`() => window.__battle.screen === 'party'`).
+
+## Two pages' `localStorage` without a server
+
+To try how two pages of one origin share `localStorage` (a race, a `storage` event), no dev server is needed. Give a Playwright context a made-up origin, `ctx.route('http://s2.test/**', (r) => r.fulfill({ status: 200, contentType: 'text/html', body: '<html></html>' }))`, and open two pages on it: each gets real `localStorage`. On 2026-09-26 two such pages, each running a read-compare-write loop in one task, both passed every check, and 4,999 of 10,000 writes were lost. A page's view of the key is brought up to date only between tasks. The unit tests stand in for it with `LaggingView` in `autosave.test.ts`.
 
 ## The dev server can keep serving an error after the file is fixed
 

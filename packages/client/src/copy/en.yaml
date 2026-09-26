@@ -397,6 +397,8 @@ save:
   newerGame: Your game was saved by a newer Animath. Reload the page to play it!
   # The browser will not let the page store anything, so nothing is saved.
   cannotSave: This browser can't keep your game, so it starts new every time.
+  # On the title, after writing the save failed (the browser's storage is full).
+  storageFull: This browser has no room left to keep your game.
   # After a window that another window of the game had played past loads the newest game.
   caughtUp: You were playing in another window. Here's your newest game!
   # On a window that another window of the game has played past, until it catches up.
@@ -436,6 +438,8 @@ title:
   confirm:
     title: Start a new game?
     away: Your game with {animal.the} is put away safely.
+    # Instead of `away`, on a page that keeps nothing (no storage, or a newer build's save waiting).
+    notKept: Your game with {animal.the} can't be kept on this page.
     fresh: You start again with a new animal.
     back: No, go back
     yes: Yes, new game

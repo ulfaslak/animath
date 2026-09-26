@@ -213,7 +213,7 @@ update saves set data = jsonb_set(b.data, '{seq}', to_jsonb((saves.data->>'seq')
   from save_backups b where b.id = <backup id> and saves.player_id = b.player_id;
 ```
 
-The browser keeps its own set-aside copies too: `animath.save.unreadable` (a save it could not read), `animath.save.replaced` (its game, when a bigger one came from the server) and `animath.save.previous` (a game the kid left for New game on the title), each followed by `.2`, `.3`, … when the key was taken, oldest first. To give a kid back a game they left, in their browser's developer tools copy that text into `animath.save` with its `seq` raised above the current save's (and above the server's, or the server's newer game wins at the next start), then reload: the title offers it as Continue.
+The browser keeps its own set-aside copies too: `animath.save.unreadable` (a save it could not read), `animath.save.replaced` (its game, when a bigger one came from the server or another tab wrote over it in the same instant) and `animath.save.previous` (a game the kid left for New game on the title), each followed by `.2`, `.3`, … when the key was taken, oldest first. To give a kid back a game they left, in their browser's developer tools copy that text into `animath.save` with its `seq` raised above the current save's (and above the server's, or the server's newer game wins at the next start), then reload: the title offers it as Continue.
 ### Migrations
 
 Hand-written SQL, applied by `pnpm db:migrate` (`drizzle-orm`'s migrator, journal-driven).

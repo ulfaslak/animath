@@ -99,6 +99,14 @@ Technical items we've intentionally postponed: tech debt, hardening shortcuts, k
 
 **Trigger**: the first client code that opens a WebSocket (the `RemoteAuthority` PR).
 
+### Two tabs writing the save in the same instant: the one written over is kept aside, not merged
+
+**What**: compare-before-write (`Autosave.commit`) is not atomic across tabs. A page's view of `localStorage` is brought up to date only between tasks, so two tabs that write in the same instant both pass the check, and the first write is lost from the key. A two-page probe in headless Chrome lost 4,999 of 10,000 checked writes. The page written over keeps its own save aside when it finds itself behind (`keepOwnSave`, into `animath.save.replaced`), so nothing is gone. But what the kid did there is no longer in play: they see the other tab's game, and only the human can put the kept one back ([[DEVELOPMENT]] § Database). A lock around the write (Web Locks) would not close it on its own, because the lock's grant and the other page's write reach a page by different routes.
+
+**Why deferred**: one kid cannot make two saves in the same instant. A page writes the save only on the kid's own input, with one exception, which happens once and rarely: taking a bigger game from the server.
+
+**Trigger**: a feature that writes the save without the kid's input (a timer, a reward that grows over time, a second player on one device), or a report of a game found kept aside after playing in two tabs. Then merge a walk-versus-progress race back into play: carry on from the other save when it only walked since this page's previous save, and write this page's progress on top.
+
 ### A save over 1 MiB is not backed up, and one over 64 KiB misses the backup sent as the page closes
 
 **What**: a party has no cap, so a save grows with it: about 80 bytes an animal, up to 140 with a long name in 4-byte letters, twice that mid-battle. The server refuses a body over `SAVE_MAX_BYTES` (1 MiB, about 3,500 animals in the worst case) with a `413`, which the autosave treats as a bug: one `console.error`, and no more backups that visit; the game in the browser is saved as always. Separately, the backup sent on `pagehide` and when the page is hidden uses `fetch`'s `keepalive`, which browsers cap at 64 KiB of body: a bigger save (some 230 animals mid-battle with long names, 400 without) fails that request quietly, and the server's copy waits for the next ordinary backup (1 s after something that matters, 15 s after walking), which a hidden tab still sends.
