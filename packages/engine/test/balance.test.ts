@@ -16,7 +16,7 @@ const SEEDS = 200;
 /** More seeds where a test compares a win rate with a target band. */
 const TARGET_SEEDS = 1000;
 /**
- * Sampling slack on a target band. A mean over 11 same-tier pairs at 1000
+ * Sampling slack on a target band. A mean over the 16 same-tier pairs at 1000
  * seeds each has a standard error under half a point, so 2 points is over
  * four standard errors: the band, not the dice, decides the test.
  */

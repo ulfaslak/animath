@@ -92,10 +92,11 @@ function challengerWeight(above: number, distance: number): number {
 }
 
 /**
- * Where visitors come near spawn: the water and the hills, which animals from
- * the meadow and the forest come down to and up to. Not a property of the
- * catalog: the river has had a tier-1 animal of its own since the frog, and
- * its squirrels and rabbits still keep the otters rare near home.
+ * Where visitors come near spawn: the water and the hills, which animals of
+ * the lead's size that don't live there come down to and up to (squirrels
+ * and rabbits to the river, and frogs too to the mountains). Not a property
+ * of the catalog: the river has had a tier-1 animal of its own since the
+ * frog, and its squirrels and rabbits still keep the otters rare near home.
  */
 const VISITED_BIOMES: readonly Biome[] = ['river', 'mountain'];
 
