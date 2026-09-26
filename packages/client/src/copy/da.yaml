@@ -321,6 +321,8 @@ title:
   confirm:
     title: Vil du starte et nyt spil?
     away: Dit spil med {animal.the} bliver gemt godt væk.
+    # Instead of `away`, on a page that keeps nothing (no storage, or a newer build's save waiting).
+    notKept: Dit spil med {animal.the} kan ikke gemmes på denne side.
     fresh: Du starter forfra med et nyt dyr.
     back: Nej, tilbage
     yes: Ja, nyt spil

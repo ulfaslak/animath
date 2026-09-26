@@ -113,9 +113,14 @@ authority.subscribe((event) => {
 	autosave.handle(event);
 	// A new game from the title: after `welcome`, which clears the message line.
 	if (event.type === 'welcome' && event.newGame) sayStartNotice(true);
-	// Quit to title: the game just left is the one Continue picks up.
+	// Quit to title: the game just left is the one Continue picks up. A page that cannot
+	// keep it says so on this title too.
 	if (event.type === 'game-left') {
-		titleController.open(autosave.resumable() ?? authority.snapshot());
+		titleController.open(
+			autosave.resumable() ?? authority.snapshot(),
+			autosave.titleNotice,
+			autosave.keeps
+		);
 	}
 	// `?zoo` lines up one of every species by the spawn tile (a check for the meshes);
 	// `?zoo=tired` lays them down to rest.
@@ -333,8 +338,6 @@ void autosave.boot().then((plan) => {
 		continueGame(plan.game);
 		return;
 	}
-	// A save this page can't pick up is worth saying before a starter is chosen.
-	const onTitle =
-		plan.notice === 'save.newerGame' || plan.notice === 'save.cannotSave' ? plan.notice : null;
-	titleController.open(plan.game ?? null, onTitle);
+	// A page that cannot keep the game says so before a starter is chosen.
+	titleController.open(plan.game ?? null, autosave.titleNotice, autosave.keeps);
 });

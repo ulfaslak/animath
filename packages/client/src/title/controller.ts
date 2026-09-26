@@ -59,12 +59,14 @@ export class TitleController {
 
 	/**
 	 * Show the title. `saved` is the game Continue picks up (null: there is
-	 * none, and New game is the only way on); `notice`, what start-up found
-	 * about the save when the title should say it.
+	 * none, and New game is the only way on); `notice`, what the title says
+	 * about the save (this page cannot keep the game); `keeps`, whether this
+	 * page keeps its game, so New game puts `saved` away.
 	 */
-	open(saved: SavedGame | null, notice: SaveNotice | null = null): void {
+	open(saved: SavedGame | null, notice: SaveNotice | null = null, keeps = true): void {
 		title.saved = saved;
 		title.notice = notice;
+		title.keeps = keeps;
 		title.cursor = 0;
 		title.confirm = 0;
 		title.starter = 0;

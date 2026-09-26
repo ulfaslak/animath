@@ -2,10 +2,11 @@ import type { SaveWrite } from '@mathgame/engine';
 
 /**
  * The server backup's HTTP API ([[ARCHITECTURE]] § HTTP API), reduced to the
- * outcomes the autosave acts on. Anything it cannot place — a network error,
- * a timeout, a 5xx, a page from something that is not our API (a proxy's
- * error, a tunnel's warning page) — is `offline`: the state of the server is
- * unknown, so nothing is decided from it.
+ * outcomes the autosave acts on. Every outcome needs the API's own JSON
+ * answer, not only its status. Anything it cannot place — a network error, a
+ * timeout, a 5xx, a page from something that is not our API (a proxy's
+ * error, a tunnel's warning page, whatever its status) — is `offline`: the
+ * state of the server is unknown, so nothing is decided from it.
  */
 
 export interface Identity {
@@ -77,10 +78,22 @@ async function send(
 	}
 }
 
+/** The `error` of one of the API's JSON error answers (`{ error: string }`). */
 function errorOf(body: unknown): string | undefined {
 	if (typeof body !== 'object' || body === null) return undefined;
 	const error = (body as Record<string, unknown>).error;
 	return typeof error === 'string' ? error : undefined;
+}
+
+/** The API's answer to a stored backup: `{ ok: true }`. */
+function isStored(body: unknown): boolean {
+	return typeof body === 'object' && body !== null && (body as Record<string, unknown>).ok === true;
+}
+
+/** 401, a missing or wrong secret, or 404 `no such player`: the API does not know this player. */
+function unknownPlayer(res: { status: number; body: unknown }): boolean {
+	const error = errorOf(res.body);
+	return (res.status === 401 && error !== undefined) || (res.status === 404 && error === NO_PLAYER);
 }
 
 function auth(who: Identity): Record<string, string> {
@@ -104,9 +117,7 @@ export function httpSaveServer(base = '/api'): SaveServer {
 			if (!res) return { kind: 'offline' };
 			if (res.status === 200 && res.body !== undefined) return { kind: 'found', doc: res.body };
 			if (res.status === 404 && errorOf(res.body) === NO_SAVE) return { kind: 'none' };
-			if (res.status === 401 || (res.status === 404 && errorOf(res.body) === NO_PLAYER)) {
-				return { kind: 'unknown-player' };
-			}
+			if (unknownPlayer(res)) return { kind: 'unknown-player' };
 			return { kind: 'offline' };
 		},
 
@@ -119,14 +130,13 @@ export function httpSaveServer(base = '/api'): SaveServer {
 				body: JSON.stringify(doc)
 			});
 			if (!res) return { kind: 'offline' };
-			if (res.status === 200) return { kind: 'saved' };
-			if (res.status === 409) return { kind: 'conflict' };
-			if (res.status === 400 || res.status === 413) {
-				return { kind: 'refused', error: errorOf(res.body) ?? `status ${res.status}` };
+			if (res.status === 200 && isStored(res.body)) return { kind: 'saved' };
+			const error = errorOf(res.body);
+			if (res.status === 409 && error !== undefined) return { kind: 'conflict' };
+			if ((res.status === 400 || res.status === 413) && error !== undefined) {
+				return { kind: 'refused', error };
 			}
-			if (res.status === 401 || (res.status === 404 && errorOf(res.body) === NO_PLAYER)) {
-				return { kind: 'unknown-player' };
-			}
+			if (unknownPlayer(res)) return { kind: 'unknown-player' };
 			return { kind: 'offline' };
 		}
 	};

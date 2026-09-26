@@ -417,6 +417,8 @@ title:
   confirm:
     title: Start a new game?
     away: Your game with {animal.the} is put away safely.
+    # Instead of `away`, on a page that keeps nothing (no storage, or a newer build's save waiting).
+    notKept: Your game with {animal.the} can't be kept on this page.
     fresh: You start again with a new animal.
     back: No, go back
     yes: Yes, new game

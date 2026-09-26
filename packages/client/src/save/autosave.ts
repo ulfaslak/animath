@@ -211,6 +211,29 @@ export class Autosave {
 	}
 
 	/**
+	 * What every title this page opens says about keeping the game: this page
+	 * cannot keep it (`save.cannotSave`: the browser gives it no storage) or
+	 * will not (`save.newerGame`: a newer build's save waits in the key, never
+	 * written over). Null when the game is kept, and on a throwaway page,
+	 * which says nothing about it.
+	 */
+	get titleNotice(): SaveNotice | null {
+		if (this.throwaway) return null;
+		if (this.local === 'frozen') return 'save.newerGame';
+		if (this.local === 'none') return 'save.cannotSave';
+		return null;
+	}
+
+	/**
+	 * Whether this page keeps the game it plays: then a game left for a new
+	 * one is put away. False with no storage, a newer build's save waiting,
+	 * or a throwaway game.
+	 */
+	get keeps(): boolean {
+		return this.local !== 'none' && this.local !== 'frozen';
+	}
+
+	/**
 	 * Check the save again, as a `storage` event would. For a page that may
 	 * have missed one: back from the back/forward cache, resumed after the
 	 * browser froze it, or just focused.
@@ -544,7 +567,7 @@ export class Autosave {
 			this.identity = { id: parsed.id, secret: parsed.secret };
 			return;
 		}
-		store.set(KEYS.previousPlayer, text);
+		this.setAside(KEYS.previousPlayer, text);
 		store.remove(KEYS.player);
 	}
 
@@ -686,7 +709,7 @@ export class Autosave {
 		}
 		// A tie goes to the server's game, but only a tie between saves: at 0 neither has one.
 		if (theirs > this.seq || (theirs === this.seq && theirs > 0 && !sameGame)) {
-			this.adopt(read.save);
+			this.adopt(read.save, doc);
 			return;
 		}
 		this.pushed = sameGame ? theirs : 0;
@@ -699,13 +722,16 @@ export class Autosave {
 	 * `KEYS.replaced` (or `KEYS.unreadable`), make the server's the saved
 	 * game, and reload into it.
 	 */
-	private adopt(save: SaveV1): void {
+	private adopt(save: SaveV1, doc: unknown): void {
 		const store = this.store;
 		if (!store || this.local === 'frozen' || this.local === 'none') return;
 		const current = store.get(KEYS.save);
 		if (current !== this.seenText && current !== null) {
-			// Another page wrote meanwhile; it will settle with the server itself.
-			this.goStale(this.causeOf(current));
+			// Another page wrote meanwhile, and its storage event has not come yet. If it only
+			// walked, carry on from it, as the event would have, and settle again: the server
+			// may hold that very walk. Otherwise it will settle with the server itself.
+			if (this.carryOnFrom(current)) this.settleWith(doc);
+			else this.goStale(this.causeOf(current));
 			return;
 		}
 		const aside = this.local === 'held' ? KEYS.unreadable : KEYS.replaced;
@@ -751,10 +777,14 @@ export class Autosave {
 		this.schedulePush(true);
 	}
 
-	/** The server does not know this identity: keep it aside, and start a new one. */
+	/**
+	 * The server does not know this identity: keep it aside, beside any kept
+	 * before (the server may have been the one that was wrong), and start a
+	 * new one.
+	 */
 	private retireIdentity(): void {
 		if (this.identity && this.store) {
-			this.store.set(KEYS.previousPlayer, JSON.stringify(this.identity));
+			this.setAside(KEYS.previousPlayer, JSON.stringify(this.identity));
 			this.store.remove(KEYS.player);
 		}
 		this.identity = null;
