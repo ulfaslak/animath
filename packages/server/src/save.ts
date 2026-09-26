@@ -8,8 +8,17 @@ import { players, saveBackups, saves } from './db/schema.js';
  * (`SaveV1`, `validateSaveWrite`); this module decides whether a write lands.
  */
 
-/** Hard cap on a PUT body. A full party mid-battle, with nicknames, is a few KB. */
-export const SAVE_MAX_BYTES = 64 * 1024;
+/**
+ * Hard cap on a PUT body, and so on a backup. A party has no cap, so this is
+ * what bounds a save. An animal takes about 80 bytes of one (a uuid, a
+ * species, its HP), up to 140 with a twelve-letter name of 4-byte letters,
+ * and twice that mid-battle, when the battle holds a second copy of the
+ * party: 1 MiB holds over 3,500 such animals, and 6,000 without names. At
+ * one catch every two minutes that is over a hundred hours of catching. The
+ * 64 KB before it held about 230 in the worst case, which a keen kid could
+ * reach.
+ */
+export const SAVE_MAX_BYTES = 1024 * 1024;
 
 export type WriteResult = 'saved' | 'stale';
 

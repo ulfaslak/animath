@@ -26,8 +26,9 @@ export type {
 	Terrain,
 	Tier
 } from './animals/types.js';
-export { ATTACK_LEVELS, MAX_PARTY, REALMS, TERRAINS } from './animals/types.js';
+export { ATTACK_LEVELS, REALMS, TERRAINS } from './animals/types.js';
 export { ANIMALS, canFightIn, getAnimal } from './animals/catalog.js';
+
 
 export { attackDamage } from './battle/damage.js';
 export { catchProbability } from './battle/catch.js';
@@ -69,6 +70,8 @@ export type {
 	DoctorStep
 } from './doctor/types.js';
 
+export { bundled, bundles, isBundled, joinParty } from './party/bundles.js';
+export type { Bundle } from './party/bundles.js';
 export { MAX_NICKNAME_LENGTH, normalizeNickname } from './party/names.js';
 export { applyPartyIntent, leadIndex } from './party/reducer.js';
 export { STARTERS, STARTER_TIER, chooseStarter, isStarter } from './party/starters.js';

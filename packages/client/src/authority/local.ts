@@ -1,9 +1,9 @@
 import {
-	MAX_PARTY,
 	Rng,
 	applyBattleIntent,
 	applyDoctorIntent,
 	applyPartyIntent,
+	bundled,
 	canTalkToDoctor,
 	chooseStarter,
 	gearOf,
@@ -12,6 +12,8 @@ import {
 	hashString,
 	isEncounterTile,
 	isPassable,
+	joinParty,
+
 	leadIndex,
 	newGame,
 	normalizeNickname,
@@ -61,8 +63,9 @@ export interface LocalAuthorityOptions {
 	/**
 	 * Start with this party instead of the one squirrel: the `?party=` URL
 	 * switch, for looking at screens that need a bigger or hurt party. Every
-	 * animal must be valid (a catalog species, HP in `0..maxHp`, unique ids);
-	 * at most `MAX_PARTY`. Nicknames are cleaned on the way in, like a rename.
+	 * animal must be valid (a catalog species, HP in `0..maxHp`, unique ids),
+	 * as many as it likes. The game starts with it in species bundles
+	 * (`bundled`), and nicknames are cleaned on the way in, like a rename.
 	 */
 	party?: readonly AnimalInstance[];
 	/**
@@ -229,14 +232,14 @@ export class LocalAuthority implements Authority {
 	}
 
 	/**
-	 * A new game in the prototype world, with the `?party=` party when there
-	 * is one, and the `?tokens=` tokens.
+	 * A new game in the prototype world, with the `?party=` party, in bundles,
+	 * when there is one, and the `?tokens=` tokens.
 	 */
 	private newGame(): SavedGame {
 		const game = { ...newGame(WORLD_SEED), tokens: this.options.tokens ?? 0 };
 		// An empty `?party=` is no party: the starter, as without one.
 		return this.options.party?.length
-			? { ...game, party: this.options.party.map((a) => ({ ...a })) }
+			? { ...game, party: bundled(this.options.party).map((a) => ({ ...a })) }
 			: game;
 	}
 
@@ -386,7 +389,8 @@ export class LocalAuthority implements Authority {
 
 	/**
 	 * Write the battle's result back into the world: HP lost stays lost, a
-	 * caught animal joins the party if there is room, and a lost battle takes
+	 * caught animal joins the party (the engine's `joinParty`: at the end of
+	 * its species' bundle, and there is no cap), and a lost battle takes
 	 * the player to the nearest doctor's tent, where the whole party is healed
 	 * (the engine's knock-out rule, `takeToDoctor`). That one has no `message`:
 	 * the client words the doctor's line from `taken-to-doctor`. The closing
@@ -409,12 +413,8 @@ export class LocalAuthority implements Authority {
 				// The reducer always reports the caught animal on `ended`.
 				const ended = events.find((e) => e.type === 'ended');
 				const caught = ended?.type === 'ended' ? ended.caught : undefined;
-				if (caught && this.party.length >= MAX_PARTY) {
-					line = { key: 'battle.closing.teamFull', params: { animal } };
-				} else {
-					if (caught) this.party.push({ ...caught });
-					line = { key: 'battle.closing.joined', params: { animal } };
-				}
+				if (caught) this.party = joinParty(this.party, caught);
+				line = { key: 'battle.closing.joined', params: { animal } };
 				break;
 			}
 			case 'lost':

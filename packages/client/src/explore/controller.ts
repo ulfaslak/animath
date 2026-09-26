@@ -1,15 +1,18 @@
 import {
+	bundles,
 	leadIndex,
 	type Authority,
 	type Direction,
 	type GameEvent,
-	type GridPos
+	type GridPos,
+	type PartyIntent
 } from '@mathgame/engine';
-import type { Keyboard } from '../input/keyboard';
+import type { Keyboard, TeamPick } from '../input/keyboard';
 import type { Follower } from '../render/follower';
 import type { GameRenderer } from '../render/renderer';
 import { doctor } from '../state/doctor.svelte';
 import { game } from '../state/game.svelte';
+import { team } from '../state/team.svelte';
 
 const STEP_SECONDS = 0.18; // one tile per step; Game Boy pace is ~0.25
 
@@ -17,8 +20,12 @@ const STEP_SECONDS = 0.18; // one tile per step; Game Boy pace is ~0.25
  * Explore mode: turns held keys into `move` intents, one per tile, and
  * animates the player mesh between tiles as `player-moved` events arrive.
  * Enter is sent as `interact` (after the keyboard's quiet moment); what came
- * of it is the authority's to say. A number key sends `select-lead` for the
- * animal in that party slot.
+ * of it is the authority's to say. The party column's picks become party
+ * intents: a number key, or a click or tap on a card, `lead-species` for that
+ * card's species (its first animal standing goes first); an animal on an
+ * open card, `select-lead`; a card dropped at another place, `move-species`.
+ * A tap on a card of several animals on a touch screen opens it (`team`),
+ * and a step closes it.
  *
  * The lead walks behind the trainer (`render/follower.ts`): it steps onto
  * the tile each step leaves, is put beside the trainer whenever the trainer
@@ -58,6 +65,8 @@ export class ExploreController {
 				break;
 			case 'player-moved':
 				if (event.playerId !== this.playerId) break;
+				// Walking on puts an open card away.
+				team.close();
 				this.from = this.pos;
 				this.pos = event.pos;
 				this.progress = 0;
@@ -95,13 +104,8 @@ export class ExploreController {
 		// A number key chooses who goes first, at once, even mid-step — and before
 		// any step this frame sends: that step can start a battle, and the animal
 		// chosen on the same frame must be the one that fights.
-		const slot = this.keyboard.takeSlot();
-		const animal = slot === undefined ? undefined : game.party[slot];
-		if (animal) {
-			this.authority.dispatch({
-				type: 'party',
-				intent: { type: 'select-lead', animalId: animal.id }
-			});
+		for (let pick = this.keyboard.takeTeamPick(); pick; pick = this.keyboard.takeTeamPick()) {
+			this.teamPick(pick);
 		}
 		if (this.progress < 1) {
 			this.progress = Math.min(1, this.progress + dt / STEP_SECONDS);
@@ -118,5 +122,35 @@ export class ExploreController {
 			this.follower.lead(party[leadIndex(party)]?.speciesId ?? null);
 			this.follower.update(this.progress, dt);
 		}
+	}
+
+	/** What the party column asked for, as the authority's party intent or an open card. */
+	private teamPick(pick: TeamPick): void {
+		switch (pick.kind) {
+			case 'place': {
+				// The card in that place, as the column shows it (the party is in bundles).
+				const bundle = bundles(game.party)[pick.index];
+				if (bundle) this.party({ type: 'lead-species', speciesId: bundle.speciesId });
+				break;
+			}
+			case 'bundle':
+				this.party({ type: 'lead-species', speciesId: pick.speciesId });
+				break;
+			case 'animal':
+				// Chosen from an open card: the card has done its job.
+				team.close();
+				this.party({ type: 'select-lead', animalId: pick.animalId });
+				break;
+			case 'open':
+				team.toggle(pick.speciesId);
+				break;
+			case 'move':
+				this.party({ type: 'move-species', speciesId: pick.speciesId, to: pick.to });
+				break;
+		}
+	}
+
+	private party(intent: PartyIntent): void {
+		this.authority.dispatch({ type: 'party', intent });
 	}
 }

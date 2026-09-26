@@ -1,5 +1,6 @@
 import { canFightIn } from '../animals/catalog.js';
 import type { AnimalInstance, Realm } from '../animals/types.js';
+import { bundled, bundles } from './bundles.js';
 import { normalizeNickname } from './names.js';
 import type {
 	PartyEvent,
@@ -23,15 +24,16 @@ export function leadIndex(party: readonly AnimalInstance[], realm: Realm = 'land
 }
 
 /**
- * Apply one party intent: choose the lead, move an animal to another slot,
- * or name it.
+ * Apply one party intent: choose the lead (an animal, or a bundle's first
+ * animal standing), move an animal within its bundle, move a bundle, or name
+ * an animal.
  *
  * Pure: the input party is never changed, and an accepted intent returns a
- * new party (fresh animal objects, same ids, HP and species). An intent that
- * does not fit — anything outside explore, an animal not in the party, a
- * tired animal chosen to lead, a slot off the end, a move to where the animal
- * already is — returns the same party reference with a single `rejected`
- * event.
+ * new party (fresh animal objects, same ids, HP and species), in bundles. An
+ * intent that does not fit — anything outside explore, an animal or a
+ * species not in the party, a tired animal chosen to lead, a slot off its
+ * bundle, a move to where it already is — returns the same party reference
+ * with a single `rejected` event.
  */
 export function applyPartyIntent(
 	party: readonly AnimalInstance[],
@@ -44,8 +46,12 @@ export function applyPartyIntent(
 	switch (intent.type) {
 		case 'select-lead':
 			return selectLead(party, intent.animalId, realm);
+		case 'lead-species':
+			return leadSpecies(party, intent.speciesId, realm);
 		case 'reorder':
 			return reorder(party, intent.animalId, intent.to);
+		case 'move-species':
+			return moveSpecies(party, intent.speciesId, intent.to);
 		case 'rename':
 			return rename(party, intent.animalId, intent.nickname);
 		default:
@@ -55,40 +61,90 @@ export function applyPartyIntent(
 
 /**
  * Choose who goes first where the player stands: an animal that can fight
- * there (out on the water, one that swims) and isn't tired moves to the front.
+ * there (out on the water, one that swims) and isn't tired goes to the front.
  */
 function selectLead(party: readonly AnimalInstance[], animalId: unknown, realm: Realm): PartyStep {
-	const from = indexOf(party, animalId);
+	const base = bundled(party);
+	const from = indexOf(base, animalId);
 	if (from < 0) return reject(party, 'unknown-animal');
-	const animal = party[from]!;
-	if (!canFightIn(animal.speciesId, realm)) return reject(party, 'cannot-fight-here', animal.id);
-	if (animal.hp <= 0) return reject(party, 'tired', animal.id);
-	if (leadIndex(party, realm) === from) return reject(party, 'already-lead', animal.id);
+	const animal = base[from]!;
+	if (!canFightIn(animal.speciesId, realm)) {
+		return reject(party, 'cannot-fight-here', { animalId: animal.id });
+	}
+	if (animal.hp <= 0) return reject(party, 'tired', { animalId: animal.id });
+	if (leadIndex(base, realm) === from) return reject(party, 'already-lead', { animalId: animal.id });
+	return leadFrom(base, from);
+}
 
+function leadSpecies(party: readonly AnimalInstance[], speciesId: unknown, realm: Realm): PartyStep {
+	const base = bundled(party);
+	if (typeof speciesId !== 'string' || !base.some((a) => a.speciesId === speciesId)) {
+		return reject(party, 'unknown-species');
+	}
+	if (!canFightIn(speciesId, realm)) return reject(party, 'cannot-fight-here', { speciesId });
+	const lead = base[leadIndex(base, realm)];
+	if (lead?.speciesId === speciesId) {
+		return reject(party, 'already-lead', { animalId: lead.id, speciesId });
+	}
+	const from = base.findIndex((a) => a.speciesId === speciesId && a.hp > 0);
+	if (from < 0) return reject(party, 'tired', { speciesId });
+	return leadFrom(base, from);
+}
+
+/**
+ * `base[from]` goes first: its bundle moves to the front, and it to the
+ * front of its bundle; every other animal keeps its order.
+ */
+function leadFrom(base: readonly AnimalInstance[], from: number): PartyStep {
+	const animal = base[from]!;
+	const kin = base.filter((a) => a.speciesId === animal.speciesId && a !== animal);
+	const rest = base.filter((a) => a.speciesId !== animal.speciesId);
 	return {
-		party: moved(party, from, 0),
+		party: [animal, ...kin, ...rest].map((a) => ({ ...a })),
 		events: [{ type: 'lead-selected', animalId: animal.id, from }]
 	};
 }
 
 function reorder(party: readonly AnimalInstance[], animalId: unknown, to: unknown): PartyStep {
-	const from = indexOf(party, animalId);
+	const base = bundled(party);
+	const from = indexOf(base, animalId);
 	if (from < 0) return reject(party, 'unknown-animal');
-	const id = party[from]!.id;
-	if (typeof to !== 'number' || !Number.isInteger(to) || to < 0 || to >= party.length) {
-		return reject(party, 'no-such-slot', id);
+	const { id, speciesId } = base[from]!;
+	// The animal's bundle: the slots of its species, one after another in a party in bundles.
+	const first = base.findIndex((a) => a.speciesId === speciesId);
+	let last = first;
+	while (base[last + 1]?.speciesId === speciesId) last++;
+	if (typeof to !== 'number' || !Number.isInteger(to) || to < first || to > last) {
+		return reject(party, 'no-such-slot', { animalId: id });
 	}
-	if (to === from) return reject(party, 'already-there', id);
+	if (to === from) return reject(party, 'already-there', { animalId: id });
 	return {
-		party: moved(party, from, to),
+		party: moved(base, from, to),
 		events: [{ type: 'reordered', animalId: id, from, to }]
+	};
+}
+
+function moveSpecies(party: readonly AnimalInstance[], speciesId: unknown, to: unknown): PartyStep {
+	// The bundles of the party in bundles, as every other move sees it.
+	const list = bundles(bundled(party));
+	const from = list.findIndex((b) => b.speciesId === speciesId);
+	if (typeof speciesId !== 'string' || from < 0) return reject(party, 'unknown-species');
+	if (typeof to !== 'number' || !Number.isInteger(to) || to < 0 || to >= list.length) {
+		return reject(party, 'no-such-slot', { speciesId });
+	}
+	if (to === from) return reject(party, 'already-there', { speciesId });
+	const [bundle] = list.splice(from, 1);
+	list.splice(to, 0, bundle!);
+	return {
+		party: list.flatMap((b) => b.animals).map((a) => ({ ...a })),
+		events: [{ type: 'species-moved', speciesId, from, to }]
 	};
 }
 
 function rename(party: readonly AnimalInstance[], animalId: unknown, raw: unknown): PartyStep {
 	const index = indexOf(party, animalId);
 	if (index < 0) return reject(party, 'unknown-animal');
-	if (typeof raw !== 'string') return reject(party, 'not-text', party[index]!.id);
+	if (typeof raw !== 'string') return reject(party, 'not-text', { animalId: party[index]!.id });
 	const nickname = normalizeNickname(raw);
 	const next = party.map((a) => ({ ...a }));
 	const animal = next[index]!;
@@ -120,9 +176,8 @@ function indexOf(party: readonly AnimalInstance[], animalId: unknown): number {
 function reject(
 	party: readonly AnimalInstance[],
 	reason: PartyRejection,
-	animalId?: string
+	about: { animalId?: string; speciesId?: string } = {}
 ): PartyStep {
-	const event: PartyEvent =
-		animalId === undefined ? { type: 'rejected', reason } : { type: 'rejected', reason, animalId };
+	const event: PartyEvent = { type: 'rejected', reason, ...about };
 	return { party, events: [event] };
 }

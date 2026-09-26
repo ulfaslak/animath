@@ -26,6 +26,15 @@ import { DOCTOR_TABS, type DoctorTab } from '../doctor/tabs';
  *   title's).
  * - `tab:<id>`: a tab of the doctor's card (`heal`, `home`, `shop`).
  *
+ * The explore HUD's party column names what it shows by what it is, never
+ * by its place, since a drag can re-sort the column under a resting finger:
+ * - `bundle:<speciesId>`: a species' card; its first animal standing goes
+ *   first.
+ * - `animal:<animalId>`: an animal on an open card; it goes first.
+ * - `open:<speciesId>`: a card of several animals on a touch screen, which
+ *   opens it to show them (and closes it again).
+ * - `move:<speciesId>:<to>`: a card dropped at place `to` of the column.
+ *
  * No keyboard sends these names: a key's `key` is one character or a named
  * key such as `ArrowUp`.
  */
@@ -34,6 +43,10 @@ const ROW = /^row:(\d+)$/;
 const OPTION = /^option:(\d+)$/;
 const LEVEL = /^level:([1-3])$/;
 const LANGUAGE = /^language:([a-z]{2,3})$/;
+const BUNDLE = /^bundle:(.+)$/;
+const ANIMAL = /^animal:(.+)$/;
+const OPEN = /^open:(.+)$/;
+const MOVE = /^move:([^:]+):(\d+)$/;
 const TAB = /^tab:([a-z]+)$/;
 
 /** The key name of a tap on row `i` of the list on screen. */
@@ -77,6 +90,47 @@ export function languageKey(code: string): string {
 /** The language code a key name taps, or undefined for any other key. */
 export function tappedLanguage(key: string): string | undefined {
 	return LANGUAGE.exec(key)?.[1];
+}
+
+/** The key name of a tap on a species' card in the party column. */
+export function bundleKey(speciesId: string): string {
+	return `bundle:${speciesId}`;
+}
+
+/** The species whose card a key name taps, or undefined for any other key. */
+export function tappedBundle(key: string): string | undefined {
+	return BUNDLE.exec(key)?.[1];
+}
+
+/** The key name of a tap on an animal of an open card. */
+export function animalKey(animalId: string): string {
+	return `animal:${animalId}`;
+}
+
+/** The animal a key name taps, or undefined for any other key. */
+export function tappedAnimal(key: string): string | undefined {
+	return ANIMAL.exec(key)?.[1];
+}
+
+/** The key name of a tap that opens (or closes) a species' card on a touch screen. */
+export function openKey(speciesId: string): string {
+	return `open:${speciesId}`;
+}
+
+/** The species whose card a key name opens, or undefined for any other key. */
+export function tappedOpen(key: string): string | undefined {
+	return OPEN.exec(key)?.[1];
+}
+
+/** The key name of a species' card dropped at place `to` of the party column. */
+export function moveKey(speciesId: string, to: number): string {
+	return `move:${speciesId}:${to}`;
+}
+
+/** The card a key name drops and the place it lands on, or undefined for any other key. */
+export function droppedBundle(key: string): { speciesId: string; to: number } | undefined {
+	const m = MOVE.exec(key);
+	return m ? { speciesId: m[1]!, to: Number(m[2]) } : undefined;
 }
 
 /** The key name of a tap on a tab of the doctor's card. */

@@ -15,7 +15,7 @@
 	--radius: 16px;
 	/* Height of the battle screen's bottom panel (actions | puzzle). */
 	--battle-panel: clamp(260px, 40vh, 360px);
-	/* Height of the doctor's card: its line, then party | puzzle (up to six animals and Bye). */
+	/* Height of the doctor's card: its line, then party | puzzle (six animals and Bye; a longer team scrolls). */
 	--doctor-panel: clamp(300px, 44vh, 400px);
 	/* The least a row or a button is tall with the touch controls on: a finger's width. */
 	--tap: 48px;

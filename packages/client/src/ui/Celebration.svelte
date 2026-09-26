@@ -4,7 +4,7 @@
 	 * its headline. `big`, for an animal that joined the team: its name in
 	 * big letters, in the title's colours and rim, popping in one by one over
 	 * a burst of warm rays that turns slowly, with the doctor's stars flying
-	 * out from behind the letters. `small`, for a win or a good throw: a few
+	 * out from behind the letters. `small`, for a win: a few
 	 * stars popping up off the top of the headline. Stars never cross a word.
 	 * Decoration only: the headline says what happened, the name is read from
 	 * it, and nothing here takes a click or a tap. With reduced motion the
