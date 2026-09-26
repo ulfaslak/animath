@@ -4,6 +4,17 @@
 	import { fade } from 'svelte/transition';
 	import { t } from '../copy';
 	import { flags } from '../flags';
+	import {
+		HOLD_MS,
+		carriedBy,
+		dragPhase,
+		edgeSpeed,
+		landing,
+		shiftOf,
+		type Column,
+		type DragPhase,
+		type Pointer
+	} from '../input/drag';
 	import { animalKey, bundleKey, moveKey, openKey, press, unfocusable } from '../input/press';
 	import { itemName } from '../items';
 	import { touch } from '../input/touch.svelte';
@@ -34,12 +45,15 @@
 	 * goes first. The number keys pick the first nine cards.
 	 *
 	 * A card is dragged up or down the column to another place: with a mouse
-	 * as soon as it moves, with a finger after holding it still for a moment
-	 * (moving first scrolls the column). Dropped, it is the key
-	 * `move:<species>:<to>` (`input/press.ts`), which the explore controller
-	 * sends as `move-species`; until the party comes back in its new order the
-	 * cards stay where the drop left them. Every action is a key press, so a
-	 * pointer goes through the same screen and guards a key does.
+	 * once it moves, with a finger once it has held still for a moment and
+	 * then moves (moving first scrolls the column); a press that never moved
+	 * is a tap, however long it rested (`input/drag.ts`). Carried to the
+	 * column's top or bottom edge, the card keeps the column scrolling while it
+	 * is held there. Dropped, it is the key `move:<species>:<to>`
+	 * (`input/press.ts`), which the explore controller sends as
+	 * `move-species`; until the party comes back in its new order the cards
+	 * stay where the drop left them. Every action is a key press, so a pointer
+	 * goes through the same screen and guards a key does.
 	 *
 	 * At the top right, the player's tokens, and under them the tools they
 	 * own, each with its name.
@@ -68,9 +82,9 @@
 	/** The stack a mouse points at, if any. */
 	let hovered = $state<string | null>(null);
 	let hideTimer: ReturnType<typeof setTimeout> | undefined;
-	/** The stack whose animals show: the one opened, else the one pointed at; none while dragging. */
+	/** The stack whose animals show: the one opened, else the one pointed at; none while a card is lifted. */
 	const shown = $derived.by(() => {
-		if (drag?.lifted) return null;
+		if (drag && drag.phase !== 'pressed') return null;
 		const id = team.open ?? hovered;
 		return list.find((b) => b.speciesId === id && b.animals.length > 1) ?? null;
 	});
@@ -130,39 +144,32 @@
 		clearTimeout(hideTimer);
 		clearTimeout(holdTimer);
 		clearTimeout(dropTimer);
+		stopScrolling();
 	});
 
 	// --- dragging a card --------------------------------------------------------
 
-	/** A mouse lifts a card once it has moved this far up or down. */
-	const LIFT_PX = 8;
-	/** A finger lifts a card after holding it this still for this long. */
-	const HOLD_MS = 350;
-	/** A finger that moves further than this first is scrolling the column. */
-	const HOLD_SLOP_PX = 10;
-	/** Within this far of the column's top or bottom, a lifted card scrolls it. */
-	const EDGE_PX = 40;
-
 	interface Drag {
 		speciesId: string;
 		pointerId: number;
-		mouse: boolean;
+		pointer: Pointer;
 		/** The card's place when it was picked up. */
 		from: number;
 		/** The cards' order then: a drag only draws over the column it was measured on. */
 		order: string;
+		/** When the pointer went down (`performance.now()`), and where, and where it is. */
+		downAt: number;
 		startY: number;
 		y: number;
-		lifted: boolean;
+		/** Pressed, lifted (it still taps if let go), or carried (a drag, never a tap). */
+		phase: DragPhase;
 		/** Dropped at `to`, waiting for the party to come back in that order. */
 		dropped: boolean;
 		to: number;
 		startScroll: number;
 		scroll: number;
-		/** Each card's top in the column, and its height, when the card was lifted. */
-		tops: number[];
-		heights: number[];
-		gap: number;
+		/** The column when the card lifted: each card's top and height. */
+		column: Column;
 	}
 	let drag = $state<Drag | null>(null);
 	let holdTimer: ReturnType<typeof setTimeout> | undefined;
@@ -173,112 +180,148 @@
 		drag = {
 			speciesId,
 			pointerId: e.pointerId,
-			mouse: e.pointerType === 'mouse',
+			pointer: e.pointerType === 'mouse' ? 'mouse' : 'finger',
 			from,
 			order,
+			downAt: performance.now(),
 			startY: e.clientY,
 			y: e.clientY,
-			lifted: false,
+			phase: 'pressed',
 			dropped: false,
 			to: from,
 			startScroll: 0,
 			scroll: 0,
-			tops: [],
-			heights: [],
-			gap: 0
+			column: { tops: [], heights: [] }
 		};
-		if (!drag.mouse) holdTimer = setTimeout(lift, HOLD_MS);
+		if (drag.pointer === 'finger') holdTimer = setTimeout(() => advance(HOLD_MS), HOLD_MS);
 	}
 
-	function lift() {
-		if (!drag || drag.lifted || !column) return;
+	/**
+	 * The press moves on as the pointer moves or holds still (`dragPhase`):
+	 * the card lifts, is carried, or a finger that moved first lets it go to
+	 * scroll the column. `heldMs`: how long it has been down, if not now.
+	 */
+	function advance(heldMs?: number) {
+		const d = drag;
+		if (!d || d.dropped) return;
+		const held = heldMs ?? performance.now() - d.downAt;
+		const next = dragPhase(d.pointer, d.phase, Math.abs(d.y - d.startY), held);
+		if (next === 'scroll') return letGo();
+		if (d.phase === 'pressed' && next !== 'pressed') lift(d);
+		d.phase = next;
+		if (next === 'carried') keepScrolling();
+	}
+
+	/** The card lifts: measure the column it lifts from. */
+	function lift(d: Drag) {
+		if (!column) return;
 		const cards = [...column.querySelectorAll<HTMLElement>('.bundle')];
-		drag.tops = cards.map((c) => c.offsetTop);
-		drag.heights = cards.map((c) => c.offsetHeight);
-		drag.gap = cards.length > 1 ? drag.tops[1]! - drag.tops[0]! - drag.heights[0]! : 0;
-		drag.startScroll = drag.scroll = column.scrollTop;
-		drag.lifted = true;
+		d.column = { tops: cards.map((c) => c.offsetTop), heights: cards.map((c) => c.offsetHeight) };
+		d.startScroll = d.scroll = column.scrollTop;
 		hovered = null;
 	}
 
 	function drift(e: PointerEvent) {
 		if (!drag || e.pointerId !== drag.pointerId || drag.dropped) return;
 		drag.y = e.clientY;
-		if (!drag.lifted) {
-			const moved = Math.abs(e.clientY - drag.startY);
-			if (drag.mouse && moved > LIFT_PX) lift();
-			else if (!drag.mouse && moved > HOLD_SLOP_PX) letGo();
-			return;
-		}
-		// Near the column's top or bottom, the column scrolls under the card.
-		if (column) {
-			const box = column.getBoundingClientRect();
-			if (e.clientY < box.top + EDGE_PX) column.scrollTop -= 8;
-			else if (e.clientY > box.bottom - EDGE_PX) column.scrollTop += 8;
-			drag.scroll = column.scrollTop;
-		}
+		advance();
 	}
 
 	function drop(e: PointerEvent) {
-		if (!drag || e.pointerId !== drag.pointerId || drag.dropped) return;
+		const d = drag;
+		if (!d || e.pointerId !== d.pointerId || d.dropped) return;
 		clearTimeout(holdTimer);
-		const to = drag.lifted ? landing(drag) : drag.from;
-		if (to === drag.from || order !== drag.order) {
+		stopScrolling();
+		// Never carried: a tap, which `input/taps.ts` has already pressed, as the card still named its key.
+		const to = d.phase === 'carried' ? landing(d.column, d.from, offset(d)) : d.from;
+		if (to === d.from || order !== d.order) {
 			drag = null;
 			return;
 		}
-		drag.dropped = true;
-		drag.to = to;
-		press(moveKey(drag.speciesId, to));
+		d.dropped = true;
+		d.to = to;
+		press(moveKey(d.speciesId, to));
 		// The party comes back in its new order on the next frame; should nothing come, let go.
 		dropTimer = setTimeout(() => (drag = null), 600);
 	}
 
 	function letGo() {
 		clearTimeout(holdTimer);
+		stopScrolling();
 		drag = null;
 	}
 
-	/** The place a lifted card would land on: among the others, by where its middle is. */
-	function landing(d: Drag): number {
-		const middle = d.tops[d.from]! + d.heights[d.from]! / 2 + lifted(d);
-		let to = 0;
-		for (let k = 0; k < d.tops.length; k++) {
-			if (k !== d.from && d.tops[k]! + d.heights[k]! / 2 < middle) to++;
-		}
-		return to;
-	}
-
-	/**
-	 * How far the lifted card has been carried, the column's scroll included,
-	 * and never past the first card's top or the last card's bottom, where the
-	 * column would cut it off.
-	 */
-	function lifted(d: Drag): number {
-		const last = d.tops.length - 1;
-		const least = d.tops[0]! - d.tops[d.from]!;
-		const most = d.tops[last]! + d.heights[last]! - (d.tops[d.from]! + d.heights[d.from]!);
-		return Math.min(most, Math.max(least, d.y - d.startY + (d.scroll - d.startScroll)));
+	/** How far the lifted card is drawn from its place: as far as the pointer and the column's scroll have carried it. */
+	function offset(d: Drag): number {
+		return carriedBy(d.column, d.from, d.y - d.startY + (d.scroll - d.startScroll));
 	}
 
 	/** How far card `k` is drawn from its place while a card is lifted or dropped. */
 	function shift(k: number): number {
 		const d = drag;
-		if (!d?.lifted || order !== d.order) return 0;
-		const to = d.dropped ? d.to : landing(d);
-		if (k === d.from) {
-			if (!d.dropped) return lifted(d);
-			// Dropped: into its new place, where the party will put it.
-			let at = 0;
-			for (let j = Math.min(d.from, to); j <= Math.max(d.from, to); j++) {
-				if (j !== d.from) at += (d.heights[j]! + d.gap) * (to > d.from ? 1 : -1);
-			}
-			return at;
+		if (!d || d.phase === 'pressed' || order !== d.order) return 0;
+		const by = offset(d);
+		const to = d.dropped ? d.to : landing(d.column, d.from, by);
+		return shiftOf(d.column, d.from, to, k, by, d.dropped);
+	}
+
+	/** The column scrolled (the edge, a wheel): a lifted card stays under the pointer. */
+	function scrolled() {
+		placeAnimals();
+		if (drag && drag.phase !== 'pressed' && !drag.dropped && column) drag.scroll = column.scrollTop;
+	}
+
+	// --- scrolling the column under a card held at its edge --------------------
+
+	let edgeFrame = 0;
+	/** The last frame's time, and the scroll owed below a whole pixel, carried to the next frame. */
+	let edgeClock = 0;
+	let edgeOwed = 0;
+
+	/**
+	 * While the carried card is at the column's top or bottom edge, the column
+	 * scrolls under it frame by frame, whether the pointer moves or rests
+	 * (`edgeSpeed`), until the column's end shows or the card leaves the edge;
+	 * the next move starts it again.
+	 */
+	function keepScrolling() {
+		if (edgeFrame) return;
+		edgeClock = 0;
+		edgeFrame = requestAnimationFrame(scrollStep);
+	}
+
+	function stopScrolling() {
+		cancelAnimationFrame(edgeFrame);
+		edgeFrame = 0;
+		edgeOwed = 0;
+	}
+
+	function scrollStep(now: number) {
+		edgeFrame = 0;
+		const d = drag;
+		if (!d || d.phase !== 'carried' || d.dropped || !column) return;
+		const card = column.querySelector<HTMLElement>(`[data-species="${d.speciesId}"]`);
+		const speed = card
+			? edgeSpeed(card.getBoundingClientRect(), column.getBoundingClientRect(), d.y - d.startY)
+			: 0;
+		if (speed === 0) {
+			edgeOwed = 0;
+			return;
 		}
-		const room = d.heights[d.from]! + d.gap;
-		if (d.from < to && k > d.from && k <= to) return -room;
-		if (to < d.from && k >= to && k < d.from) return room;
-		return 0;
+		// A frame's time, never more than a tenth of a second: a page that was away doesn't jump.
+		const dt = edgeClock ? Math.min(0.1, (now - edgeClock) / 1000) : 1 / 60;
+		edgeClock = now;
+		edgeOwed += speed * dt;
+		const step = Math.trunc(edgeOwed);
+		edgeOwed -= step;
+		if (step !== 0) {
+			const before = column.scrollTop;
+			column.scrollTop = before + step;
+			d.scroll = column.scrollTop;
+			// The column's end: nothing more to show that way.
+			if (column.scrollTop === before) return;
+		}
+		edgeFrame = requestAnimationFrame(scrollStep);
 	}
 
 	// The party came back in another order: the drop has landed, and the column is itself again.
@@ -299,7 +342,7 @@
 	 */
 	function holdStill(node: HTMLElement) {
 		const still = (e: TouchEvent) => {
-			if (drag?.lifted && e.cancelable) e.preventDefault();
+			if (drag && drag.phase !== 'pressed' && e.cancelable) e.preventDefault();
 		};
 		node.addEventListener('touchmove', still, { passive: false });
 		return () => node.removeEventListener('touchmove', still);
@@ -307,17 +350,18 @@
 </script>
 
 <div class="party" bind:this={root}>
-	<div class="cards" bind:this={column} onscroll={placeAnimals} {@attach holdStill}>
+	<div class="cards" bind:this={column} onscroll={scrolled} {@attach holdStill}>
 		{#each list as bundle, i (bundle.speciesId)}
-			{@const carried = drag?.lifted && drag.speciesId === bundle.speciesId}
+			{@const mine = drag?.speciesId === bundle.speciesId ? drag : null}
+			{@const up = mine !== null && mine.phase !== 'pressed'}
 			<BundleCard
 				animals={bundle.animals}
 				{leadId}
 				showLead={choosing}
 				keyCap={choosing && i < KEYS ? String(i + 1) : null}
-				press={carried ? 'drag' : cardKey(bundle)}
+				press={mine?.phase === 'carried' ? 'drag' : cardKey(bundle)}
 				open={shown?.speciesId === bundle.speciesId}
-				class={carried ? (drag?.dropped ? 'carried dropped' : 'carried') : 'still'}
+				class={up ? (mine?.dropped ? 'carried dropped' : 'carried') : 'still'}
 				style="transform: translateY({shift(i)}px)"
 				data-species={bundle.speciesId}
 				onpointerdown={(e: PointerEvent) => pickUp(e, i, bundle.speciesId)}

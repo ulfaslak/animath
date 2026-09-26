@@ -23,10 +23,25 @@
  * (`detail` 0: a screen reader, or a keyboard on a focused button) still
  * presses. The number pad and the D-pad don't take part: they press as the
  * finger lands.
+ *
+ * A tap has no time limit: a pointer that rests on its button however long
+ * still taps it as it lifts. And the second half of a double click or a
+ * double tap presses nothing when the first half moved what it pressed away
+ * from under the pointer (the party column re-sorted, the screen changed):
+ * it lands on whatever slid into that place, which the kid never aimed at
+ * (#72: a double click on Pip put Pip first, then Rusty, who had slid into
+ * Pip's row).
  */
 
 /** CSS pixels a pointer may move and still tap the button it left: a finger's wobble. */
 export const TAP_SLOP_PX = 20;
+
+/**
+ * A press this soon after a tap, where it lifted, can be the second half of
+ * a double click or tap. Longer than a computer's usual half second: young
+ * kids double-click slowly.
+ */
+export const DOUBLE_TAP_MS = 700;
 
 /** Where a pointer is, in CSS pixels. */
 export interface Point {
@@ -42,6 +57,14 @@ interface Down<B> {
 	at: Point;
 }
 
+/** A tap that pressed: its key, its button, where it lifted and when (ms). */
+interface Tapped<B> {
+	key: string;
+	button: B;
+	at: Point;
+	time: number;
+}
+
 /** Anything a pointer lands on and lifts over: an element in the page, a stand-in in tests. */
 export interface Pressable {
 	contains(other: Pressable | null): boolean;
@@ -51,21 +74,41 @@ export interface Pressable {
  * The pointers down on buttons, by `pointerId`. Pure: `watchTaps` feeds it
  * the page's pointer events; tests feed it their own. `keyOf` reads the key
  * a button presses as it stands (`data-press`), asked as the pointer lands
- * and again as it lifts.
+ * and again as it lifts. `standsAt` says whether a button still stands on a
+ * spot, on the page: asked of the last button tapped, where it was tapped,
+ * when another press lands close by soon after.
  */
 export class Taps<B extends Pressable = Pressable> {
 	private downs = new Map<number, Down<B>>();
+	private last: Tapped<B> | null = null;
 
-	constructor(private keyOf: (button: B) => string | undefined) {}
+	constructor(
+		private keyOf: (button: B) => string | undefined,
+		private standsAt: (button: B, at: Point) => boolean = () => true
+	) {}
 
 	/**
 	 * Pointer `id` went down at `at` on `button` (none: on no button), while
-	 * screen `screen` took keys.
+	 * screen `screen` took keys, at `time` (ms, the clock `up` is given).
 	 */
-	down(id: number, button: B | null, screen: number, at: Point): void {
+	down(id: number, button: B | null, screen: number, at: Point, time = 0): void {
 		const key = button === null ? undefined : this.keyOf(button);
-		if (key === undefined || button === null) this.downs.delete(id);
-		else this.downs.set(id, { key, button, screen, at });
+		if (key === undefined || button === null || this.slidUnder(key, at, time)) {
+			this.downs.delete(id);
+		} else this.downs.set(id, { key, button, screen, at });
+	}
+
+	/**
+	 * Whether a press of `key` landing at `at` is the second half of a double
+	 * click or tap on a button that has since moved away: soon after the last
+	 * tap and close to where it lifted, on a button with another key, while
+	 * the button tapped no longer stands there.
+	 */
+	private slidUnder(key: string, at: Point, time: number): boolean {
+		const last = this.last;
+		if (!last || key === last.key || time - last.time > DOUBLE_TAP_MS) return false;
+		if (Math.hypot(at.x - last.at.x, at.y - last.at.y) > TAP_SLOP_PX) return false;
+		return !this.standsAt(last.button, last.at);
 	}
 
 	/**
@@ -74,14 +117,16 @@ export class Taps<B extends Pressable = Pressable> {
 	 * `target` is part of (the button keeps a pointer it holds, and loses it
 	 * when it leaves the page), on this screen, it is still on that button
 	 * (`onButton`) or hardly moved, and the button still presses the key it
-	 * did when the pointer landed.
+	 * did when the pointer landed. However long it rested there. `time` is
+	 * when it lifted (ms).
 	 */
 	up(
 		id: number,
 		target: B | null,
 		screen: number,
 		at: Point,
-		onButton: (button: B) => boolean
+		onButton: (button: B) => boolean,
+		time = 0
 	): string | undefined {
 		const down = this.downs.get(id);
 		this.downs.delete(id);
@@ -91,6 +136,7 @@ export class Taps<B extends Pressable = Pressable> {
 		// A row whose place changed under the finger (another finger moved an animal)
 		// stands for another row now; which one the finger meant, nobody can say.
 		if (this.keyOf(down.button) !== down.key) return undefined;
+		this.last = { key: down.key, button: down.button, at, time };
 		return down.key;
 	}
 
@@ -114,6 +160,11 @@ function pressableIn(e: Event): HTMLElement | null {
 	return null;
 }
 
+/** Whether a point is inside a box on the screen, its edges included. */
+function inside(box: DOMRect, at: Point): boolean {
+	return at.x >= box.left && at.x <= box.right && at.y >= box.top && at.y <= box.bottom;
+}
+
 /**
  * Turn taps and clicks on the page's buttons into key presses. `screen` says
  * which screen takes keys now (`main.ts` counts every change), and `press`
@@ -122,7 +173,10 @@ function pressableIn(e: Event): HTMLElement | null {
  * handler, so the screen a press begins on is the one the finger saw.
  */
 export function watchTaps(target: Window, screen: () => number, press: (key: string) => void) {
-	const taps = new Taps<HTMLElement>((button) => button.dataset.press);
+	const taps = new Taps<HTMLElement>(
+		(button) => button.dataset.press,
+		(button, at) => button.isConnected && inside(button.getBoundingClientRect(), at)
+	);
 	const early = { capture: true };
 	target.addEventListener(
 		'pointerdown',
@@ -134,10 +188,7 @@ export function watchTaps(target: Window, screen: () => number, press: (key: str
 			} catch {
 				// Not a pointer the page can hold, or a button already off the page.
 			}
-			taps.down(e.pointerId, button, screen(), {
-				x: e.clientX,
-				y: e.clientY
-			});
+			taps.down(e.pointerId, button, screen(), { x: e.clientX, y: e.clientY }, e.timeStamp);
 		},
 		early
 	);
@@ -150,10 +201,8 @@ export function watchTaps(target: Window, screen: () => number, press: (key: str
 				e.target instanceof HTMLElement ? e.target : null,
 				screen(),
 				at,
-				(button) => {
-					const box = button.getBoundingClientRect();
-					return at.x >= box.left && at.x <= box.right && at.y >= box.top && at.y <= box.bottom;
-				}
+				(button) => inside(button.getBoundingClientRect(), at),
+				e.timeStamp
 			);
 			if (key !== undefined) press(key);
 		},
