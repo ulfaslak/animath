@@ -336,7 +336,12 @@
 		opacity: 0.6;
 		font-variant-numeric: tabular-nums;
 	}
-	/* The species beside a nickname, or under it when a long one leaves no room (a row is two lines tall). */
+	/*
+	 * The species beside a nickname, or under it when a long one leaves no
+	 * room: two lines fit a row's 48 px at the font's own line height. Never a
+	 * tighter one: the name clips its box for the "…", and a tight line cuts
+	 * the ring off an Å.
+	 */
 	.who {
 		flex: 1;
 		min-width: 0;
@@ -344,7 +349,6 @@
 		flex-wrap: wrap;
 		align-items: baseline;
 		gap: 0 8px;
-		line-height: 1.2;
 	}
 	.name {
 		min-width: 0;
@@ -467,7 +471,6 @@
 	/* A sentence round a name ("New name for …") breaks between its words. */
 	.side-title.wraps {
 		white-space: normal;
-		line-height: 1.25;
 	}
 	.option {
 		gap: 6px;
