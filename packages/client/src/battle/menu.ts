@@ -110,7 +110,8 @@ export interface MenuKey {
  * One key on the action menu of the animal `spec`. Up/down (W/S) move the
  * cursor, wrapping round; left/right (A/D) change the highlighted attack's
  * own level and nothing else; 1/2/3 set that level and attack at once;
- * Enter or Space pick the highlighted row.
+ * Enter or Space pick the highlighted row. `key` is the key's `keyName`, so
+ * a W typed with Caps Lock on is a `w` here.
  *
  * A pointer's keys (`input/press.ts`): a tap on a row highlights it, and a
  * tap on the row already highlighted picks it, as Enter does, since a pick
@@ -171,6 +172,25 @@ export function menuKey(menu: Menu, key: string, spec: AnimalSpec): MenuKey {
 			return { menu, handled: true, choice: { kind: action.kind as OtherAction } };
 	}
 	return { menu, handled: false };
+}
+
+/**
+ * The menu as it stands while the puzzle of attack `attackIndex` (1-based)
+ * at `level` is up: the cursor on that attack, set to that level. After a
+ * pick nothing changes; a battle picked up from a save mid-puzzle needs it,
+ * since the page forgot where the cursor was and every level but this one.
+ */
+export function pickedMenu(
+	menu: Menu,
+	spec: AnimalSpec,
+	attackIndex: number,
+	level: AttackLevel
+): Menu {
+	const attack = spec.attacks[attackIndex - 1];
+	if (!attack) return menu;
+	const cursor = attackIndex - 1;
+	if (levelOf(menu.levels, spec.id, attack.id) === level) return { ...menu, cursor };
+	return { cursor, levels: withLevel(menu.levels, spec, attackIndex, level) };
 }
 
 /** What a key on the party list picked: the highlighted animal, or going back to the menu. */
