@@ -271,7 +271,7 @@ describe('the leash', () => {
 	it('never goes behind the wild animal’s status box: its loop keeps clear, and its rope never crosses it', () => {
 		const bad = everyThrow(({ box, boxWhen, rope, ropeWhen }) =>
 			box < CLEAR
-				? `the loop ${box.toFixed(1)} px from the status box, ${boxWhen}`
+				? `the loop ${box > 0 ? `${box.toFixed(1)} px from` : 'behind'} the status box, ${boxWhen}`
 				: rope <= 0
 					? `the rope crosses the status box, ${ropeWhen}`
 					: null
