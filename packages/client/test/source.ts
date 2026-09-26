@@ -99,7 +99,13 @@ export function* walk(root: unknown, seen = new WeakSet<object>()): Generator<As
 	}
 }
 
-/** A call to `t()` with the keys its first argument can be, and the param names its second passes. */
+/**
+ * The functions whose first argument is a copy key: `t(key, params)`, and
+ * `line(key, params)`, which keeps a line to be worded later.
+ */
+const COPY_FUNCTIONS = new Set(['t', 'line']);
+
+/** A call to `t()` or `line()` with the keys its first argument can be, and the param names its second passes. */
 export interface CopyCall {
 	file: string;
 	line: number;
@@ -134,8 +140,8 @@ function svelteCopyCalls(file: string, source: string): CopyCall[] {
 	const calls: CopyCall[] = [];
 	for (const node of walk(parseSvelte(source))) {
 		const callee = node.callee as AstNode | undefined;
-		if (node.type !== 'CallExpression' || callee?.type !== 'Identifier' || callee.name !== 't')
-			continue;
+		if (node.type !== 'CallExpression' || callee?.type !== 'Identifier') continue;
+		if (!COPY_FUNCTIONS.has(String(callee.name))) continue;
 		const [key, params] = node.arguments as (AstNode | undefined)[];
 		const keys = keysOf(key);
 		if (keys.length === 0) continue;
@@ -170,7 +176,7 @@ function tsCopyCalls(file: string, source: string): CopyCall[] {
 		if (
 			ts.isCallExpression(node) &&
 			ts.isIdentifier(node.expression) &&
-			node.expression.text === 't'
+			COPY_FUNCTIONS.has(node.expression.text)
 		) {
 			const [key, params] = node.arguments;
 			const keys = tsKeysOf(key);
@@ -197,4 +203,45 @@ function tsCopyCalls(file: string, source: string): CopyCall[] {
 	};
 	visit(sf);
 	return calls;
+}
+
+/**
+ * Whether a literal reads as words: a letter, a space and a letter, or two
+ * letters in a row and a closing `.`, `!`, `?` or `…` ("Caught!"). Keys
+ * (`battle.go`), ids (`choose-action`), key names (`Enter`) and sums do not.
+ */
+function worded(text: string): boolean {
+	return /\p{L}\s+\p{L}/u.test(text) || /\p{L}{2}.*[.!?…]$/u.test(text);
+}
+
+/**
+ * String literals in TypeScript that read as words, as `file:line text`. A
+ * template literal's `${…}` counts as a one-letter word, so a sentence around
+ * a name is caught and `${a} × ${b} = ?` is not. Messages for developers are
+ * skipped: anything inside `new Error(…)` or `console.*(…)`.
+ */
+export function wordedLiterals(file: string, source: string): string[] {
+	const sf = ts.createSourceFile(file, source, ts.ScriptTarget.Latest, true);
+	const found: string[] = [];
+	const forDevelopers = (node: ts.Node): boolean => {
+		for (let p = node.parent; p; p = p.parent) {
+			if (ts.isNewExpression(p) && p.expression.getText(sf) === 'Error') return true;
+			if (ts.isCallExpression(p) && /^console\./.test(p.expression.getText(sf))) return true;
+		}
+		return false;
+	};
+	const visit = (node: ts.Node): void => {
+		let text: string | null = null;
+		if (ts.isStringLiteral(node) || ts.isNoSubstitutionTemplateLiteral(node)) text = node.text;
+		if (ts.isTemplateExpression(node)) {
+			text = node.head.text + node.templateSpans.map((s) => 'x' + s.literal.text).join('');
+		}
+		if (text !== null && worded(text.trim()) && !forDevelopers(node)) {
+			const line = sf.getLineAndCharacterOfPosition(node.getStart(sf)).line + 1;
+			found.push(`${file}:${line} ${text.trim()}`);
+		}
+		ts.forEachChild(node, visit);
+	};
+	visit(sf);
+	return found;
 }

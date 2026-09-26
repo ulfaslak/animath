@@ -1,3 +1,4 @@
+import { ALL_PUZZLE_TOPICS, ANIMALS, LINES } from '@mathgame/engine';
 import { describe, expect, it } from 'vitest';
 import { FALLBACK_LANGUAGE, LANGUAGES } from '../src/copy/languages';
 import {
@@ -10,6 +11,7 @@ import {
 	type CopyTree,
 	type Message
 } from '../src/copy/translate';
+import { ANIMAL_FORMS } from '../src/names';
 import { copyCalls, svelteSources, tsSources } from './source';
 
 /**
@@ -141,6 +143,53 @@ describe('copy files', () => {
 					problems.push(`${where}: passes ${unused.join(', ')}, which its message never reads`);
 			}
 		}
+		expect(problems).toEqual([]);
+	});
+
+	it('every species in the catalog has every form, and a name for every attack', () => {
+		const problems: string[] = [];
+		for (const spec of ANIMALS) {
+			const keys = [
+				...ANIMAL_FORMS.map((form) => `species.${spec.id}.${form}`),
+				...spec.attacks.map((attack) => `species.${spec.id}.attacks.${attack.id}`)
+			];
+			for (const key of keys) if (!english.has(key)) problems.push(`en.yaml lacks ${key}`);
+			// A form is a phrase to fill in, never a sentence with a slot of its own.
+			for (const form of ANIMAL_FORMS) {
+				const message = english.get(`species.${spec.id}.${form}`);
+				if (message !== undefined && paramsOf(message).size > 0) {
+					problems.push(`species.${spec.id}.${form} reads params; a form is plain text`);
+				}
+			}
+		}
+		const known = new Set(ANIMALS.map((a) => a.id));
+		for (const key of english.keys()) {
+			const id = /^species\.([^.]+)\./.exec(key)?.[1];
+			if (id !== undefined && !known.has(id))
+				problems.push(`en.yaml has ${key}, but no species ${id}`);
+		}
+		expect(problems).toEqual([]);
+	});
+
+	it('every puzzle topic has its words, so an attack can say what it asks', () => {
+		const missing = ALL_PUZZLE_TOPICS.filter((topic) => !english.has(`battle.kinds.${topic}`));
+		expect(missing).toEqual([]);
+	});
+
+	it("every line the engine can send is in English, reading exactly the engine's params", () => {
+		const problems: string[] = [];
+		for (const [key, kinds] of Object.entries(LINES)) {
+			const params = Object.keys(kinds);
+			const message = english.get(key);
+			if (message === undefined) {
+				problems.push(`en.yaml lacks ${key}`);
+				continue;
+			}
+			const reads = [...paramsOf(message)].sort().join(', ');
+			const sent = [...params].sort().join(', ');
+			if (reads !== sent) problems.push(`${key} reads {${reads}}; the engine sends {${sent}}`);
+		}
+		expect(Object.keys(LINES).length).toBeGreaterThan(0);
 		expect(problems).toEqual([]);
 	});
 });

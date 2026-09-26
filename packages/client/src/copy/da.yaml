@@ -1,16 +1,46 @@
 # Dansk. Every key in en.yaml exists here, reading the same {params};
 # test/copy-files.test.ts checks.
 # How to add a line: AGENTS/DNA/DEVELOPMENT.md § Copy and languages.
-# How it should sound: AGENTS/DNA/DESIGN.md § Voice and copy (Danish).
+# How it should sound, and the glossary: AGENTS/DNA/DESIGN.md § Voice and copy, Danish.
+#
+# {animal.form} picks one of a species' forms below. Your own animal is
+# called by name in a label or a call ("Kom så, Ræv!") and with "the" in a
+# sentence ("Ræven er træt."); a wild one is "den vilde …" or "en vild …".
+# A nickname stands for every form, spelled as the kid wrote it. A form that
+# starts a sentence gets a capital letter by itself.
 
 language:
-  # This language's own name, as the Language setting lists it.
   name: Dansk
 
-# Every species by its engine id: its forms, and its attacks by id. Only the
-# frog so far: the other species' names still come from the engine's catalog
-# until the copy extraction moves them here.
+app:
+  loading: Vent lidt…
+
+keys:
+  esc: Esc
+  enter: Enter
+
 species:
+  squirrel:
+    name: Egern
+    a: et egern
+    the: egernet
+    wild: vildt egern
+    aWild: et vildt egern
+    theWild: det vilde egern
+    attacks:
+      nut-toss: Nøddekast
+      scurry-kick: Lynspark
+  rabbit:
+    name: Kanin
+    a: en kanin
+    the: kaninen
+    wild: vild kanin
+    aWild: en vild kanin
+    theWild: den vilde kanin
+    attacks:
+      hop: Hop
+      thump: Stamp
+      burrow-bite: Hulebid
   frog:
     name: Frø
     a: en frø
@@ -22,27 +52,100 @@ species:
       croak: Kvæk
       tongue-flick: Tungesnert
       big-splash: Stort plask
+  fox:
+    name: Ræv
+    a: en ræv
+    the: ræven
+    wild: vild ræv
+    aWild: en vild ræv
+    theWild: den vilde ræv
+    attacks:
+      nip: Nap
+      pounce: Spring
+      trick: Rævestreg
+  otter:
+    name: Odder
+    a: en odder
+    the: odderen
+    wild: vild odder
+    aWild: en vild odder
+    theWild: den vilde odder
+    attacks:
+      splash: Plask
+      tail-whip: Halesmæk
+  deer:
+    name: Hjort
+    a: en hjort
+    the: hjorten
+    wild: vild hjort
+    aWild: en vild hjort
+    theWild: den vilde hjort
+    attacks:
+      kick: Spark
+      antler-charge: Hornstød
+  wolf:
+    name: Ulv
+    a: en ulv
+    the: ulven
+    wild: vild ulv
+    aWild: en vild ulv
+    theWild: den vilde ulv
+    attacks:
+      bite: Bid
+      howl: Hyl
+      lunge: Ulvespring
+  bear:
+    name: Bjørn
+    a: en bjørn
+    the: bjørnen
+    wild: vild bjørn
+    aWild: en vild bjørn
+    theWild: den vilde bjørn
+    attacks:
+      swipe: Labeslag
+      roar: Brøl
+      maul: Bjørnekram
+      crush: Kæmpetramp
 
 puzzle:
-  # Under a puzzle until it is answered.
   keys: Skriv svaret, og tryk så på Enter
+  correct: Rigtigt!
+  notQuite: Ikke helt!
+
+explore:
+  controls: Gå med piletasterne eller WASD
+  talkPrompt: Tryk på Enter for at snakke med dyrlægen
+  notAtTent: Gå hen til et telt for at snakke med dyrlægen.
+
+hud:
+  goesFirst: først ud
+  pickLead: Vælg hvem der er først ud
+  menu: Menu
+
+party:
+  tired: træt
+  leadChosen: '{animal.the} er først ud!'
+  leadTired: '{animal.the} er træt. Besøg dyrlægen!'
+  leadAlready: '{animal.the} er allerede først ud!'
 
 battle:
-  # On the Leash row: how likely a throw is to catch the wild animal right now.
-  leashGood: God chance!
-  leashMaybe: Måske
-  leashHard: Svært at fange
-  # An attack's three levels: the highlighted row's buttons, and every other row's word.
-  level:
-    easy: let
-    medium: mellem
-    hard: svær
-  # The key reminder under "Pick an attack".
+  wildName: '{animal.wild}'
+  appears: '{animal.aWild} dukker op!'
+  go: 'Kom så, {animal.name}!'
+  whatNow: 'Hvad skal {animal.the} gøre?'
+  tries: '{animal.the} prøver {attack}!'
+  used: '{animal.the} bruger {attack}!'
+  usedDamage: '{animal.the} bruger {attack}! {damage} i skade.'
+  youMissed: 'Forbi! {animal.theWild} ryster det af sig.'
+  wildUsed: '{animal.theWild} bruger {attack}!'
+  wildUsedDamage: '{animal.theWild} bruger {attack}! {damage} i skade.'
+  wildMissed: '{animal.theWild} bruger {attack}! Forbi!'
+  tired: '{animal.the} er træt.'
+  wildTired: '{animal.theWild} er træt!'
+  gotAway: Du slap væk!
+  pickAttack: Vælg et angreb
   menuKeys: ↑ ↓ vælg · ← → hvor svært · Enter kør
-  # The highlighted attack. {attack}: its name; {level}: its level's word;
-  # {kinds}: what its sums are about (the words below, in an "or" list); {damage}: how much it hits for.
-  attackDetail: '{attack} på {level}: {kinds}. Det gør {damage} skade.'
-  # What each kind of puzzle is about, as {kinds} lists them.
+  attackDetail: '{attack} på {level}: {kinds}. Det gør {damage} i skade.'
   kinds:
     add: plus
     sub: minus
@@ -51,122 +154,89 @@ battle:
     missing: manglende tal
     sequence: talmønstre
     sqrt: kvadratrødder
-  # Narration: your animal steps in, at the start or after a switch.
-  go: 'Kom så, {name}!'
+  level:
+    easy: let
+    medium: mellem
+    hard: svær
+  leash:
+    row: Snor
+    detail: Kast snoren, og fang dyret! Det virker bedst, når dyret er svagt.
+    good: God chance!
+    maybe: Måske
+    hard: Svært at fange
+    throw: Du kaster snoren…
+    caught: Fanget!
+    brokeFree: Snoren gled af!
+  run:
+    row: Løb væk
+    detail: Løb væk. Det vilde dyr bliver i græsset.
   switch:
-    # The Switch row of the action menu, and what it says when highlighted.
     row: Skift
     detail: Send et andet dyr ind. Det bruger din tur.
     alone: Du skal have to dyr for at skifte. Fang et med snoren!
     allTired: Dine andre dyr er trætte.
-    # The party list: its title, its keys (no way back after a knock-out), its tags.
     title: Vælg et dyr
     keys: ↑ ↓ vælg · Enter kør · Esc tilbage
     mustPickKeys: ↑ ↓ vælg · Enter kør
     tiredTag: træt
     inBattleTag: på banen
-    # The highlighted animal of the list; {name} is its name.
-    sendIn: 'Send {name} ind. Så får det vilde dyr en tur.'
-    sendInFree: 'Send {name} ind. Så er det din tur.'
-    tired: '{name} er træt og skal hvile sig.'
-    inBattle: '{name} er allerede på banen.'
-    # Narration: the animal in front is tired and someone must go in.
-    whoIsNext: '{name} er træt. Hvem skal ind nu?'
-    # Narration: the animal in front goes back to make room.
-    comeBack: 'Kom tilbage, {name}!'
-
-explore:
-  # Under the latest message for a player's first few moves.
-  controls: Brug piletasterne eller WASD for at gå
-  # Under the latest message while the player faces a doctor's tent.
-  talkPrompt: Tryk på Enter for at tale med dyrlægen
-  # Enter anywhere but facing a tent.
-  notAtTent: Gå hen til et telt for at tale med dyrlægen.
-
-party:
-  # The tag on an animal at 0 HP.
-  tired: træt
-  # The message line, when a number key or "Sæt forrest" made {name} the lead,
-  # or a change in the pause menu left {name} in front.
-  leadChosen: '{name} er først ud!'
-  # The message line, when the number of a tired animal was pressed.
-  leadTired: '{name} er træt. Besøg dyrlægen!'
-  # The message line, when the lead's own number was pressed.
-  leadAlready: '{name} er allerede først ud!'
+    sendIn: 'Send {animal.the} ind. Så får det vilde dyr en tur.'
+    sendInFree: 'Send {animal.the} ind. Så er det din tur.'
+    tired: '{animal.the} er træt og skal hvile sig.'
+    inBattle: '{animal.the} er allerede på banen.'
+    whoIsNext: '{animal.the} er træt. Hvem skal ind nu?'
+    comeBack: 'Kom tilbage, {animal.name}!'
+  result:
+    won: Du vandt!
+    caught: 'Du fangede {animal.a}!'
+    lost: Godt forsøgt!
+    fled: Du slap væk!
+    button: Gå videre
+  closing:
+    won: '{animal.theWild} løber hjem og hviler sig.'
+    fled: '{animal.theWild} bliver i græsset.'
+    joined: '{animal.the} kommer med på dit hold!'
+    teamFull: 'Dit hold er fuldt, så {animal.the} løber tilbage i græsset.'
 
 doctor:
-  # The name tag in front of what the doctor says.
   title: Dyrlæge
-  # Opening the card with someone to help.
   hello: Hej! Hvem skal jeg hjælpe i dag?
-  # Opening the card with nobody to help.
   helloAllFit: Hej! Alle dine dyr er friske og glade.
-  # A puzzle for {name}, just picked.
-  letsHelp: Lad os hjælpe {name}! Kan du løse den her?
-  # After a wrong answer; a new puzzle follows.
+  letsHelp: Lad os hjælpe {animal.the}! Kan du løse den her?
   notQuite: Ikke helt! Lad os prøve en anden.
-  # After a right answer, while someone else still needs the doctor.
-  healedNext: Godt klaret! {name} har det godt igen! Hvem er den næste?
-  # After a right answer that leaves everyone at full HP.
-  healedAll: Godt klaret! {name} har det godt igen! Alle er friske og glade!
-  # On the message line after leaving the card.
+  healedNext: Godt klaret! {animal.the} har det godt igen! Hvem er den næste?
+  healedAll: Godt klaret! {animal.the} har det godt igen! Alle er friske og glade!
   goodbye: Hej hej! Kom bare igen, når du vil.
-  # After a lost battle, woken beside a tent.
   rescuedAtTent: Dyrlægen har passet godt på dine dyr. Nu har alle det godt igen!
-  # After a lost battle with no tent near: a doctor came to the player.
   rescuedHere: En dyrlæge kom forbi og passede godt på dine dyr. Nu har alle det godt igen!
-  # The last row of the list, and its key.
   bye: Farvel
   byeKey: Esc
-  # The puzzle area before an animal is picked.
   pick: Vælg et dyr
-  pickDetail: Løs en opgave, så får {name} det godt igen!
+  pickDetail: Løs en opgave, så får {animal.the} det godt igen!
   byeDetail: Sig farvel, og gå på opdagelse.
   listKeys: ↑ ↓ flyt · Enter vælg · Esc farvel
-  # Under a doctor's puzzle while another animal needs help too.
   puzzleKeys: ↑ ↓ hjælp et andet dyr · Esc farvel
-  # The puzzle area when nobody needs the doctor.
   allFit: Ud på eventyr!
   allFitKeys: Enter eller Esc for at sige farvel
 
-keys:
-  # A key cap, as printed on the keyboard.
-  esc: Esc
-
-hud:
-  # The tag on the card of the lead: the animal that steps into the next battle.
-  goesFirst: først ud
-  # Under the party cards, after the number keys 1–n.
-  pickLead: Vælg hvem der er først ud
-  # Under the party cards, after the Esc key cap.
-  menu: Menu
-
 pause:
-  # The pause menu's title.
   title: Pause
-  # Above the list of the party's animals.
   team: Dit hold
-  # The row that closes the menu.
   resume: Spil videre
-  # The picked animal's options: become the lead, move one place, get a nickname.
+  language: Sprog
   goFirst: Sæt forrest
   moveUp: Flyt op
   moveDown: Flyt ned
   newName: Nyt navn
   back: Tilbage
-  # The right-hand panel before an animal is picked.
   pick: Vælg et dyr
   pickHelp: Vælg hvem der er først ud, flyt det, eller giv det et navn.
-  # Under the options of a tired animal, whose "Sæt forrest" is greyed.
-  tiredHelp: '{name} er træt og kan ikke være først ud.'
-  # Above the name box.
-  nameTitle: Nyt navn til {name}
-  # Under the name box; {max} is the most characters a name can have.
-  nameRule: Bogstaver og tal, højst {max}.
-  # Under the name box, when the typed name will be stored differently.
+  tiredHelp: '{animal.the} er træt og kan ikke være først ud.'
+  nameTitle: Nyt navn til {animal.the}
+  nameRule: Bogstaver og tal, op til {max}.
   willBe: Navnet bliver {name}.
-  # The key reminder at the bottom, one per screen of the menu.
   keysList: ↑ ↓ flyt · Enter vælg · Esc luk
+  keysLanguage: ↑ ↓ flyt · ← → eller Enter skift sprog · Esc luk
   keysOptions: ↑ ↓ flyt · Enter gør det · Esc tilbage
   keysNaming: Enter gem · Esc tilbage
 
@@ -176,6 +246,6 @@ save:
   # The saved game could not be read. It is kept aside; this is a new game.
   couldNotLoad: Dit gemte spil virkede ikke, så her er et nyt.
   # The saved game was written by a newer version of the game than this page.
-  newerGame: Dit spil er gemt af en nyere Animath. Genindlæs siden for at spille det!
+  newerGame: Dit spil er gemt i en nyere udgave af Animath. Genindlæs siden for at spille videre!
   # The browser will not let the page store anything, so nothing is saved.
   cannotSave: Denne browser kan ikke gemme dit spil, så det starter forfra hver gang.

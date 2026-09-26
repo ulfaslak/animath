@@ -1,6 +1,7 @@
 import type { AnimalInstance } from './animals/types.js';
 import type { BattleEvent, BattleIntent, BattleState } from './battle/types.js';
 import type { DoctorEvent, DoctorIntent, DoctorState } from './doctor/types.js';
+import type { Line } from './lines.js';
 import type { PartyEvent, PartyIntent } from './party/types.js';
 import type { Direction, GridPos } from './world/types.js';
 
@@ -64,7 +65,11 @@ export type GameEvent =
 	 * doctor (sent at once, mid-visit). Always the whole party, in order.
 	 */
 	| { type: 'party-changed'; party: AnimalInstance[] }
-	| { type: 'message'; text: string }
+	/**
+	 * Something to say on the message line, as a copy key and its values; the
+	 * client words it in the language on screen. Never a finished sentence.
+	 */
+	| { type: 'message'; line: Line }
 	/**
 	 * `interact` found nothing to talk to: no tent in front of the player, as
 	 * the authority saw them. Nothing changed; the client may say how to find a
