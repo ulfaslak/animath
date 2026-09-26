@@ -111,9 +111,10 @@ export interface SaveV1 {
 	battle?: unknown;
 	/**
 	 * The tiles the player has cleared with a tool, since the axe and the
-	 * pickaxe: `WorldEdits`' text form, within `EDITS_BUDGET`. Optional, and
-	 * written only once something is cleared: a save without it has cleared
-	 * nothing.
+	 * pickaxe: `WorldEdits`' text form, within `EDITS_BUDGET` (every clear
+	 * keeps it so, and `restoreGame` trims a save that holds more). Optional,
+	 * and written only once something is cleared: a save without it has
+	 * cleared nothing.
 	 */
 	edits?: string[];
 }
@@ -380,7 +381,8 @@ function cleanAnimal(animal: AnimalInstance): AnimalInstance {
  * saved battle's party alike. Fields an older v1
  * document lacks get their defaults (facing down, no steps or visits, no
  * tokens or items, nothing cleared; an item listed twice is owned once; the
- * edits in their canonical text), and nothing in
+ * edits in their canonical text, within `EDITS_BUDGET`, trimmed round the
+ * player as a clear trims them when a save holds more), and nothing in
  * it can leave the player stuck: a position that is not walkable in the world
  * as the player left it (the world generator changed under it) becomes the spawn tile, an HP above the
  * species' maximum is cut to it, an empty party gets the starter, and a party
@@ -396,7 +398,11 @@ function cleanAnimal(animal: AnimalInstance): AnimalInstance {
  */
 export function restoreGame(save: SaveV1): SavedGame {
 	const { seed } = save;
-	const edits = save.edits ? WorldEdits.decode(save.edits) : WorldEdits.none;
+	// Kept within the budget as a clear keeps it, whatever wrote the save (a hand-edited
+	// one can hold more): the chunks round the player are the last to go, and never go.
+	const edits = (save.edits ? WorldEdits.decode(save.edits) : WorldEdits.none).trimmedAround(
+		save.pos
+	).edits;
 	const standable = isWalkable(editedTileAt(seed, edits, save.pos.x, save.pos.y).kind);
 	let party = save.party.map((a) =>
 		cleanAnimal({ ...a, hp: Math.min(a.hp, getAnimal(a.speciesId).maxHp) })

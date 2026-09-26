@@ -28,7 +28,7 @@ import {
 	type SaveV1,
 	type SavedGame
 } from '../src/save.js';
-import { WorldEdits } from '../src/world/edits.js';
+import { EDITS_BUDGET, WorldEdits } from '../src/world/edits.js';
 import { spawnPoint, tileAtWorld } from '../src/world/generate.js';
 import { isWalkable, type Direction } from '../src/world/types.js';
 import { makeParty, makeWild, playBattle } from './battle-sim.js';
@@ -517,6 +517,27 @@ describe('the tiles a kid cleared', () => {
 		}
 		expect(validateSave({ ...written, edits: [] }).ok).toBe(true);
 		expect(validateSave({ ...written, edits: ['3,-4:00ff', '-1,0:10'] }).ok).toBe(true);
+	});
+
+	it('come back within the budget from a save that holds more (a hand-edited one), trimmed far from the player', () => {
+		// One tile in each of 3,000 far-flung chunks: half again over the budget.
+		let over = edits;
+		for (let i = 0; i < 3000; i++) over = over.with({ x: 70_000 + i * 16, y: -70_000 - i * 16 });
+		expect(over.textLength).toBeGreaterThan(EDITS_BUDGET * 1.4);
+		const on = cleared[0]!;
+		const doc = { ...written, seed: SEED, pos: on, edits: [...over.encode()] };
+		const read = readSave(JSON.parse(JSON.stringify(doc)));
+		expect(read.ok).toBe(true);
+		if (!read.ok) return;
+		const restored = restoreGame(read.save);
+		const back = WorldEdits.decode(restored.edits);
+		expect(back.textLength).toBeLessThanOrEqual(EDITS_BUDGET);
+		// Every tile cleared round home is kept, so the player still stands where they cleared.
+		expect(restored.pos).toEqual(on);
+		for (const p of cleared) expect(back.has(p.x, p.y)).toBe(true);
+		// And the save written from it stays within the budget too.
+		const text = saveDocument(restored, { lineage: 'L', seq: 2 }).edits!;
+		expect(JSON.stringify(text).length).toBeLessThanOrEqual(EDITS_BUDGET);
 	});
 });
 
