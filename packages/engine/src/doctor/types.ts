@@ -13,7 +13,7 @@ import type { Puzzle } from '../puzzles/types.js';
  *   HP; a wrong one changes nothing but the puzzle.
  * - **Helping animals home.** The player hands animals over; the doctor
  *   makes them better, lets them go back to the wild and gives tokens for
- *   each. The player always keeps one.
+ *   each. The player always keeps one animal that isn't tired.
  * - **The shop.** The player buys an item with tokens.
  * A hand-over and a purchase each complete only when the player works out
  * the tokens they will have afterwards; a wrong answer asks the same sum
@@ -75,7 +75,7 @@ export type DoctorRejection =
 	| 'no-such-animal'
 	/** A pick of an animal at full HP. */
 	| 'not-hurt'
-	/** A hand-over that would leave the player without an animal. */
+	/** A hand-over that would leave the player without an animal that isn't tired. */
 	| 'keep-one'
 	/** An item this shop doesn't sell. */
 	| 'not-for-sale'

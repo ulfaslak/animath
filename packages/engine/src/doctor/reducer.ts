@@ -37,10 +37,10 @@ import type {
  *   answer heals every hurt animal of that species to full. A wrong answer
  *   costs nothing: the HP stays as it was and a different puzzle takes its
  *   place, as many times as it takes.
- * - Hand animals over (any of them, tired ones too, but never all): the
- *   doctor asks the tokens you will have, `tokens + reward`. Right, and they
- *   go home to the wild, made better, and the tokens are yours. Wrong, and
- *   the same sum is asked again.
+ * - Hand animals over (any of them, tired ones too, but never the last one
+ *   standing): the doctor asks the tokens you will have, `tokens + reward`.
+ *   Right, and they go home to the wild, made better, and the tokens are
+ *   yours. Wrong, and the same sum is asked again.
  * - Buy an item the shop sells, not owned yet, with enough tokens: the doctor
  *   asks the tokens you will have left, `tokens − price`. Right, and it is
  *   yours. Wrong, and the same sum is asked again.
@@ -141,9 +141,11 @@ function pickPatient(state: DoctorState, seed: number, partyIndex: number): Doct
 }
 
 /**
- * Animals by id, each once, all in the party, and never all of it: the kid
- * keeps at least one. Tired animals may go too: the doctor makes them better
- * before they leave.
+ * Animals by id, each once, all in the party, and never so many that nobody
+ * standing stays: the kid keeps at least one animal that isn't tired, so the
+ * team can still battle when it walks away (and a reload, which rests a team
+ * with nobody standing, is never a free heal). Tired animals may go too: the
+ * doctor makes them better before they leave.
  */
 function handOver(state: DoctorState, ids: readonly string[]): DoctorStep {
 	if (!Array.isArray(ids) || ids.length === 0) return reject(state, 'no-such-animal');
@@ -153,7 +155,7 @@ function handOver(state: DoctorState, ids: readonly string[]): DoctorStep {
 		if (!state.party.some((a) => a.id === id)) return reject(state, 'no-such-animal');
 		picked.add(id);
 	}
-	if (picked.size >= state.party.length) return reject(state, 'keep-one');
+	if (!state.party.some((a) => !picked.has(a.id) && a.hp > 0)) return reject(state, 'keep-one');
 
 	const leaving = state.party.filter((a) => picked.has(a.id));
 	const reward = homeTokens(leaving);

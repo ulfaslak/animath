@@ -67,7 +67,11 @@ function apply(state: DoctorState, intent: DoctorIntent, seed: number): DoctorSt
 		if (state.phase.kind !== 'handing-over') throw new Error('went home with no hand-over open');
 		expect(home.animals.map((a) => a.id)).toEqual(state.phase.ids);
 		for (const a of home.animals) expect(a.hp, 'goes home better').toBe(maxHp(a));
-		expect(after.party.length).toBeGreaterThan(0);
+		// Somebody standing always stays: the team can still battle, and no reload rests it for free.
+		expect(
+			after.party.some((a) => a.hp > 0),
+			'nobody standing stayed'
+		).toBe(true);
 	}
 	const staying = state.party.filter((a) => !leaving.has(a.id));
 	expect(after.party.map((a) => a.id)).toEqual(staying.map((a) => a.id));
@@ -563,15 +567,24 @@ describe('helping animals home', () => {
 		expect(s.state.phase).toEqual({ kind: 'choose-patient' });
 	});
 
-	it('never takes the last animal, nor an animal twice, nor one that is not there', () => {
+	it('never takes the last animal standing, nor an animal twice, nor one that is not there', () => {
 		const party = partyOf(['squirrel', 0], ['fox'], ['rabbit']);
 		const start = startDoctorVisit(party, { tokens: 3 });
-		const reason = (ids: unknown) => {
-			const s = apply(start, { type: 'hand-over', ids: ids as string[] }, 1);
+		const reason = (ids: unknown, from = start) => {
+			const s = apply(from, { type: 'hand-over', ids: ids as string[] }, 1);
 			return s.events[0]?.type === 'rejected' ? s.events[0].reason : 'accepted';
 		};
 		expect(reason(['squirrel-0', 'fox-1', 'rabbit-2'])).toBe('keep-one');
 		expect(reason(['squirrel-0', 'fox-1'])).toBe('accepted');
+		// Keeping only the tired squirrel is keeping nobody who can battle.
+		expect(reason(['fox-1', 'rabbit-2'])).toBe('keep-one');
+		expect(reason(['fox-1'])).toBe('accepted');
+		const tiredButOne = startDoctorVisit(partyOf(['squirrel', 0], ['otter', 0], ['fox', 1]));
+		expect(reason(['fox-2'], tiredButOne)).toBe('keep-one');
+		expect(reason(['squirrel-0', 'otter-1'], tiredButOne)).toBe('accepted');
+		// Nobody standing at all (a `?party=` of tired animals): nobody can go until one is healed.
+		const allTired = startDoctorVisit(partyOf(['squirrel', 0], ['fox', 0]));
+		expect(reason(['squirrel-0'], allTired)).toBe('keep-one');
 		for (const bad of [[], ['wolf-9'], ['fox-1', 'fox-1'], [1], 'fox-1', undefined, null, [null]]) {
 			expect(reason(bad), JSON.stringify(bad)).toBe('no-such-animal');
 		}
