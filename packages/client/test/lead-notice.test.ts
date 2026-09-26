@@ -5,6 +5,7 @@ import { sfx } from '../src/audio/sfx.svelte';
 import { LocalAuthority } from '../src/authority/local';
 import { t } from '../src/copy';
 import { parseParty } from '../src/flags';
+import { animalWords } from '../src/names';
 import { game } from '../src/state/game.svelte';
 import { hud, leadNotice } from '../src/state/hud.svelte';
 
@@ -83,6 +84,23 @@ describe('the line about who goes first', () => {
 		expect(hud.message).toBe(t('party.leadTired', { animal: 'Rabbit' }));
 		edit({ type: 'select-lead', animalId: squirrel!.id });
 		expect(hud.message).toBe(t('party.leadAlready', { animal: 'Squirrel' }));
+	});
+
+	it('on land, says a sea animal lives in the sea, by its number or its card', () => {
+		const { edit } = setup('squirrel,crab,whale,whale');
+		const crab = game.party.find((a) => a.speciesId === 'crab')!;
+		edit({ type: 'select-lead', animalId: crab.id });
+		expect(hud.message).toBe(t('party.leadInTheSea', { animal: 'Crab' }));
+		edit({ type: 'lead-species', speciesId: 'crab' });
+		expect(hud.message).toBe(t('party.leadInTheSea', { animal: 'Crab' }));
+		// A card of two: named by their kind.
+		edit({ type: 'lead-species', speciesId: 'whale' });
+		const whales = t('party.leadInTheSea', { animal: animalWords({ speciesId: 'whale' }) });
+		expect(hud.message).toBe(whales);
+		expect(whales).not.toBe(
+			t('party.leadCantSwim', { animal: animalWords({ speciesId: 'whale' }) })
+		);
+		expect(game.party[0]!.speciesId).toBe('squirrel');
 	});
 
 	it('a new lead dings with its line; a refusal, or an edit that keeps the lead, is quiet', () => {

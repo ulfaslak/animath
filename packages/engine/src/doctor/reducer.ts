@@ -99,6 +99,16 @@ export function startDoctorVisit(
  * Apply one intent. `seed` is the visit's seed, held by the authority; the same
  * seed must be passed for every intent of one visit.
  */
+/**
+ * Whether the animals that stay with the kid when others go home are a team
+ * to walk on with: one of them isn't tired and can fight on land, where every
+ * tent stands (a sea animal alone could battle nothing on the way). The rule
+ * behind `keep-one`, for a screen to show before it is asked.
+ */
+export function keepsATeam(staying: readonly AnimalInstance[]): boolean {
+	return leadIndex(staying, 'land') >= 0;
+}
+
 export function applyDoctorIntent(
 	state: DoctorState,
 	intent: DoctorIntent,
@@ -157,8 +167,7 @@ function handOver(state: DoctorState, ids: readonly string[]): DoctorStep {
 		if (!state.party.some((a) => a.id === id)) return reject(state, 'no-such-animal');
 		picked.add(id);
 	}
-	const staying = state.party.filter((a) => !picked.has(a.id));
-	if (leadIndex(staying, 'land') < 0) return reject(state, 'keep-one');
+	if (!keepsATeam(state.party.filter((a) => !picked.has(a.id)))) return reject(state, 'keep-one');
 
 	const leaving = state.party.filter((a) => picked.has(a.id));
 	const reward = homeTokens(leaving);

@@ -1176,12 +1176,36 @@ describe('LocalAuthority: the boat', () => {
 		expect(s.events.at(-1)).toMatchObject({ type: 'player-blocked', dir: 'down' });
 	});
 
-	it('out on the water, nothing comes out of it: it is no one’s tall grass', () => {
+	it('the deep water is the sea animals’ tall grass: with a swimmer in front only they come out, and never in the shallows', () => {
 		const s = withItems(['boat'], [animal('otter'), animal('frog')]);
-		move(s, ...UP_TO_DEEP);
-		for (let i = 0; i < 300; i++) move(s, i % 2 === 0 ? 'left' : 'right');
-		expect(isWater(tileAtWorld(WORLD_SEED, position(s).x, position(s).y).kind)).toBe(true);
+		// The shallows, three tiles of them: nobody's.
+		move(s, 'up', 'up', 'up');
 		expect(s.events.some((e) => e.type === 'battle-started')).toBe(false);
+		// Out on the deep water, back and forth, running from each one that comes out.
+		const met: string[] = [];
+		move(s, 'up');
+		for (let i = 0; i < 300; i++) {
+			const from = s.events.length;
+			move(s, i % 2 === 0 ? 'left' : 'right');
+			for (const e of s.events.slice(from)) {
+				if (e.type !== 'battle-started') continue;
+				met.push(e.state.opponent.speciesId);
+				expect(e.state.realm).toBe('water');
+				expect(e.state.party[e.state.active]!.speciesId).toBe('otter');
+				s.authority.dispatch({ type: 'battle', intent: { type: 'flee' } });
+			}
+			expect(tileAtWorld(WORLD_SEED, position(s).x, position(s).y).kind).toBe('deepwater');
+		}
+		// About one step in ten, and every one a sea animal (near home, turtles mostly).
+		expect(met.length).toBeGreaterThan(15);
+		expect(met.length).toBeLessThan(50);
+		for (const id of met) expect(getAnimal(id).realms, id).toEqual(['water']);
+		// With nobody standing who swims, nothing comes out, deep water or not.
+		const dry = withItems(['boat'], [animal('squirrel'), animal('otter', 0)]);
+		move(dry, ...UP_TO_DEEP);
+		for (let i = 0; i < 300; i++) move(dry, i % 2 === 0 ? 'left' : 'right');
+		expect(isWater(tileAtWorld(WORLD_SEED, position(dry).x, position(dry).y).kind)).toBe(true);
+		expect(dry.events.some((e) => e.type === 'battle-started')).toBe(false);
 	});
 
 	it('out on the water only an animal that swims goes first; the refusal names the one that can’t', () => {

@@ -3,6 +3,7 @@
 		getAnimal,
 		getItem,
 		homeTokens,
+		keepsATeam,
 		needsHealing,
 		tokensForTier,
 		type ItemId
@@ -54,8 +55,10 @@
 	const marked = $derived(new Set(doctor.marked));
 	const markedAnimals = $derived(doctor.party.filter((a) => marked.has(a.id)));
 	const reward = $derived(homeTokens(markedAnimals));
-	/** Animals not picked who aren't tired: one of them always stays. */
-	const standingLeft = $derived(doctor.party.filter((a) => !marked.has(a.id) && a.hp > 0).length);
+	/** Animals not picked who aren't tired and can walk on with the kid: one of them always stays. */
+	const standingLeft = $derived(
+		doctor.party.filter((a) => !marked.has(a.id) && keepsATeam([a])).length
+	);
 	const leaving = $derived(new Set(doctor.leaving ?? []));
 	/** While a heal is open: the species it helps, whose rows light up together. */
 	const patientSpecies = $derived(

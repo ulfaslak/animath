@@ -623,6 +623,21 @@ describe('helping animals home', () => {
 		expect(t.doctorSent()).toEqual([]);
 	});
 
+	it('the one that stays walks on land with the kid: a crab or a whale standing is not enough', () => {
+		const t = setup([
+			{ id: 'a', speciesId: 'squirrel', hp: 20 },
+			{ id: 'b', speciesId: 'crab', hp: 22 },
+			{ id: 'c', speciesId: 'whale', hp: 100 }
+		]);
+		home(t);
+		t.press('Enter'); // the squirrel: the only one that walks
+		expect(doctor.marked).toEqual([]);
+		expect(doctor.shake).toMatchObject({ row: 0 });
+		t.press('ArrowDown', 'Enter', 'ArrowDown', 'Enter'); // the sea animals may both go
+		expect(doctor.marked).toEqual(['b', 'c']);
+		expect(t.doctorSent()).toEqual([]);
+	});
+
 	it('No, or Escape, goes back to the list with the animals still picked; nothing leaves', () => {
 		const t = setup(hurtParty());
 		home(t);

@@ -4,6 +4,7 @@ import { touch } from '../input/touch.svelte';
 import { motion } from '../motion';
 import { animateIdle, buildAnimalMesh, disposeFigure } from './animals';
 import { appearScale, recallScale, smoothstep } from './ease';
+import { SWIM_DEPTH } from './follower';
 import {
 	BIOME_LOOK,
 	CANOPY,
@@ -74,8 +75,10 @@ const GROUND: Record<Biome, number> = {
 };
 
 /**
- * Out on the deep water the surface stands this high over the figures' feet,
- * so both animals swim with the lower part of them under it.
+ * Out on the deep water the surface stands this high over the ground, and
+ * each animal swims in it as it does behind the boat: the lower `SWIM_DEPTH`
+ * of its height under the surface, so a crab shows as much of itself as a
+ * whale does.
  */
 export const SEA_WATERLINE = 0.2;
 
@@ -246,8 +249,12 @@ export class BattleScene {
 	private groundMaterial = lambert(GROUND.meadow);
 	private backdrops = new Map<Biome, THREE.Group>();
 	private figures: Record<BattleSide, THREE.Group | null> = { player: null, opponent: null };
-	/** Each figure's resting height above the ground (for effects aimed at its middle). */
+	/** Each figure's resting height above its feet (for effects aimed at its middle). */
 	private heights: Record<BattleSide, number> = { player: 0.5, opponent: 0.5 };
+	/** Where each figure's feet are: on the ground, or out at sea, sunk into the water. */
+	private feet: Record<BattleSide, number> = { player: 0, opponent: 0 };
+	/** The biome the battle is fought in: at sea the figures swim. */
+	private biome: Biome = 'meadow';
 	private effects: Effect[] = [];
 	private puffs: Puff[] = [];
 	private dusts: Dust[] = [];
@@ -288,6 +295,7 @@ export class BattleScene {
 	/** Dress the scene for a new battle: backdrop, both figures, no leftover effects. */
 	begin(biome: Biome, playerSpecies: string, opponentSpecies: string): void {
 		this.end();
+		this.biome = biome;
 		this.groundMaterial.color.setHex(GROUND[biome]);
 		for (const [b, group] of this.backdrops) group.visible = b === biome;
 		if (!this.backdrops.has(biome)) {
@@ -340,12 +348,14 @@ export class BattleScene {
 		figure.scale.setScalar(scale);
 		figure.userData.baseScale = scale;
 		this.heights[side] = height * scale;
+		this.feet[side] = this.biome === 'sea' ? SEA_WATERLINE - height * scale * SWIM_DEPTH : 0;
 		const other = SPOT[side === 'player' ? 'opponent' : 'player'];
 		// Face the other animal: the player's from behind, the wild one three-quarters on.
 		figure.rotation.y = Math.atan2(other.x - SPOT[side].x, other.z - SPOT[side].z);
 		figure.userData.baseYaw = figure.rotation.y;
 		figure.userData.idlePhase = side === 'player' ? 0 : 1.3;
 		figure.position.copy(SPOT[side]);
+		figure.position.y += this.feet[side];
 		this.figures[side] = figure;
 		this.scene.add(figure);
 		this.effects = this.effects.filter((e) => e.side !== side);
@@ -397,7 +407,7 @@ export class BattleScene {
 			group.add(bit);
 		}
 		const spot = SPOT[side];
-		group.position.set(spot.x + 0.35, this.heights[side] * 0.6, spot.z + 0.3);
+		group.position.set(spot.x + 0.35, this.feet[side] + this.heights[side] * 0.6, spot.z + 0.3);
 		this.puffs.push({ group, t: 0 });
 		this.scene.add(group);
 	}
@@ -419,7 +429,8 @@ export class BattleScene {
 		// Round the animal where it lies: it lies down on the spot it stood on.
 		const spot = SPOT[side];
 		const size = this.heights[side];
-		group.position.set(spot.x, 0, spot.z);
+		// At sea it rises off the water's surface, a splash more than dust.
+		group.position.set(spot.x, this.biome === 'sea' ? SEA_WATERLINE : 0, spot.z);
 		group.userData.size = size;
 		group.userData.material = material;
 		group.visible = false;
@@ -433,7 +444,7 @@ export class BattleScene {
 		const reduced = motion.reduced;
 		const count = reduced ? 12 : 30;
 		const spot = SPOT[side];
-		const from = new THREE.Vector3(spot.x, this.heights[side] * 0.8, spot.z);
+		const from = new THREE.Vector3(spot.x, this.feet[side] + this.heights[side] * 0.8, spot.z);
 		for (let i = 0; i < count; i++) {
 			const mesh = new THREE.Mesh(
 				CONFETTI_GEOMETRY,
@@ -464,7 +475,7 @@ export class BattleScene {
 	 */
 	screenPoint(side: BattleSide): { x: number; y: number } {
 		const p = SPOT[side].clone();
-		p.y = this.heights[side] * 0.5;
+		p.y = this.feet[side] + this.heights[side] * 0.5;
 		this.camera.updateMatrixWorld();
 		p.project(this.camera);
 		return { x: ((p.x + 1) / 2) * this.width, y: ((1 - p.y) / 2) * this.height };
@@ -508,7 +519,7 @@ export class BattleScene {
 			const r = 0.3 + h * 0.4 + rng.next() * 0.15;
 			const from = new THREE.Vector3(
 				spot.x + Math.cos(angle) * r,
-				h * (0.25 + rng.next() * 0.9),
+				this.feet[side] + h * (0.25 + rng.next() * 0.9),
 				spot.z + Math.sin(angle) * r * 0.6
 			);
 			const drift = new THREE.Vector3(Math.cos(angle), 0.9, Math.sin(angle) * 0.6).multiplyScalar(
@@ -612,6 +623,7 @@ export class BattleScene {
 			const figure = this.figures[side];
 			if (!figure) continue;
 			figure.position.copy(SPOT[side]);
+			figure.position.y += this.feet[side];
 			figure.rotation.z = 0;
 			figure.rotation.x = 0;
 			figure.rotation.y = (figure.userData.baseYaw as number | undefined) ?? figure.rotation.y;
@@ -716,7 +728,7 @@ export class BattleScene {
 	/** Where the loop settles on the wild animal, a little above its middle. */
 	private leashHold(): THREE.Vector3 {
 		const to = SPOT.opponent;
-		return new THREE.Vector3(to.x, this.heights.opponent * 0.55, to.z);
+		return new THREE.Vector3(to.x, this.feet.opponent + this.heights.opponent * 0.55, to.z);
 	}
 
 	/** Big enough to go round the wild animal: a squirrel's loop is small, a bear's wide. */
@@ -829,7 +841,8 @@ export class BattleScene {
 			if (p >= 1) loop.rotation.z = Math.sin(t * 9) * (motion.reduced ? 0.1 : 0.3);
 		} else if (leash.state === 'caught') {
 			// Snug on the animal, and up with it as it hops for joy.
-			const lift = (this.figures.opponent?.position.y ?? to.y) - to.y;
+			const standing = to.y + this.feet.opponent;
+			const lift = (this.figures.opponent?.position.y ?? standing) - standing;
 			loop.position.set(to.x, holdY + lift, to.z);
 			loop.scale.setScalar(size * (1 - 0.15 * Math.min(1, leash.t / 0.2)));
 		} else {

@@ -44,7 +44,7 @@ export type {
 	BattleStep
 } from './battle/types.js';
 
-export { applyDoctorIntent, startDoctorVisit } from './doctor/reducer.js';
+export { applyDoctorIntent, keepsATeam, startDoctorVisit } from './doctor/reducer.js';
 export type { DoctorVisitOptions } from './doctor/reducer.js';
 export { needsHealing } from './doctor/party.js';
 export { homeTokens, tokenPuzzle, tokensForTier } from './doctor/tokens.js';
