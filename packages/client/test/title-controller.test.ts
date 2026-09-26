@@ -163,6 +163,22 @@ describe('title: the menu', () => {
 		expect(title.open).toBe(true);
 	});
 
+	it('W A S D steer the same in capitals, and a shortcut is the browser’s', () => {
+		const { press, controller } = setup(savedGame());
+		press('S', 'S');
+		expect(title.rows[title.cursor]).toBe('language');
+		const first = language.current;
+		press('D');
+		expect(language.current).not.toBe(first);
+		press('A', 'W');
+		expect(language.current).toBe(first);
+		expect(title.rows[title.cursor]).toBe('new');
+		// Ctrl+Enter, Cmd+W: never the title's.
+		const shortcut = { ...key('Enter'), ctrlKey: true } as KeyboardEvent;
+		controller.onKey(shortcut);
+		expect(title.screen).toBe('menu');
+	});
+
 	it('left and right switch the language on its row, and do nothing on the others', () => {
 		const { press } = setup();
 		const first = language.current;

@@ -164,6 +164,8 @@ battle:
     good: God chance!
     maybe: Måske
     hard: Svært at fange
+    teamFull: Holdet er fuldt
+    teamFullDetail: Dit hold er fuldt. Fanger du dyret, hopper det hjem.
     throw: Du kaster snoren…
     caught: Fanget!
     brokeFree: Snoren gled af!
@@ -189,6 +191,7 @@ battle:
   result:
     won: Du vandt!
     caught: 'Du fangede {animal.a}!'
+    letGo: Flot kast!
     lost: Godt forsøgt!
     fled: Du slap væk!
     button: Gå videre
@@ -196,7 +199,7 @@ battle:
     won: '{animal.theWild} løber hjem og hviler sig.'
     fled: '{animal.theWild} bliver i græsset.'
     joined: '{animal.the} kommer med på dit hold!'
-    teamFull: 'Dit hold er fuldt, så {animal.the} løber tilbage i græsset.'
+    teamFull: 'Dit hold er fuldt, så {animal.theWild} hopper hjem.'
 
 doctor:
   title: Dyrlæge

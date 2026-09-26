@@ -1,6 +1,7 @@
 <script lang="ts">
 	import {
 		ATTACK_LEVELS,
+		MAX_PARTY,
 		attackDamage,
 		catchProbability,
 		getAnimal,
@@ -32,6 +33,11 @@
 	const rows = $derived(spec ? attackRows(spec, battle.levels) : []);
 	/** Someone could step in; with nobody, the Switch row is greyed and says why. */
 	const canSwitch = $derived(battle.pickable.some(Boolean));
+	/**
+	 * No room for a caught animal: the team already has `MAX_PARTY`, so a catch
+	 * goes home. The Leash row says so in words, in place of the odds.
+	 */
+	const teamFull = $derived(battle.party.length >= MAX_PARTY);
 
 	/** "adding, taking away, or missing numbers": the language's own "or" list. */
 	function kindWords(topics: readonly PuzzleTopic[]): string {
@@ -51,7 +57,9 @@
 			const kinds = kindWords(puzzleTopics(spec.attacks[row.index - 1]!.kinds, difficulty));
 			return t('battle.attackDetail', { attack: row.name, level: row.word, kinds, damage });
 		}
-		if (action.kind === 'leash') return t('battle.leash.detail');
+		if (action.kind === 'leash') {
+			return teamFull ? t('battle.leash.teamFullDetail') : t('battle.leash.detail');
+		}
 		if (action.kind === 'switch') {
 			if (canSwitch) return t('battle.switch.detail');
 			return battle.party.length < 2 ? t('battle.switch.alone') : t('battle.switch.allTired');
@@ -90,6 +98,8 @@
 			case 'won':
 				return t('battle.result.won');
 			case 'caught':
+				// Caught, but the team was full and it went home: a good throw, not a new friend.
+				if (battle.letGo) return t('battle.result.letGo');
 				return opponent
 					? t('battle.result.caught', { animal: animalWords(opponent) })
 					: t('battle.leash.caught');
@@ -184,7 +194,9 @@
 					<span class="caret">▸</span>
 					<span class="label">{t('battle.leash.row')}</span>
 					<span class="how">
-						{#if leashBand === 'good'}
+						{#if teamFull}
+							{t('battle.leash.teamFull')}
+						{:else if leashBand === 'good'}
 							{t('battle.leash.good')}
 						{:else if leashBand === 'warn'}
 							{t('battle.leash.maybe')}
@@ -192,7 +204,10 @@
 							{t('battle.leash.hard')}
 						{/if}
 					</span>
-					<span class="dot {leashBand}"></span>
+					<!-- The dot is the odds; with the team full the odds don't matter, so no dot. -->
+					{#if !teamFull}
+						<span class="dot {leashBand}"></span>
+					{/if}
 				</div>
 				<div
 					class="row"

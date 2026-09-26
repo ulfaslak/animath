@@ -7,6 +7,7 @@ import {
 } from '@mathgame/engine';
 import { WORLD_SEED } from '../authority/local';
 import { nextLanguage } from '../copy';
+import { isShortcut, keyName } from '../input/keyboard';
 import type { TitleView3D } from '../render/title-scenery';
 import type { SaveNotice } from '../save/notices';
 import { CONFIRM_CHOICES, title, type TitleRow } from '../state/title.svelte';
@@ -103,18 +104,20 @@ export class TitleController {
 			this.namingKey(e);
 			return;
 		}
-		if (e.ctrlKey || e.metaKey || e.altKey) return; // leave browser shortcuts alone
+		if (isShortcut(e)) return; // leave browser shortcuts alone
 		// Never act on auto-repeat: a key held since the last screen must be pressed again.
 		if (e.repeat) {
 			e.preventDefault();
 			return;
 		}
+		// W A S D by where they sit, whatever the layout, and in capitals with Caps Lock on.
+		const key = keyName(e);
 		const handled =
 			title.screen === 'menu'
-				? this.menuKey(e.key)
+				? this.menuKey(key)
 				: title.screen === 'confirm'
-					? this.confirmKey(e.key)
-					: this.starterKey(e.key);
+					? this.confirmKey(key)
+					: this.starterKey(key);
 		if (handled) e.preventDefault();
 	}
 
@@ -221,7 +224,8 @@ export class TitleController {
 	}
 
 	private namingKey(e: KeyboardEvent): void {
-		if (e.ctrlKey || e.metaKey) return; // paste, select all: the name box's own
+		// Paste, select all, Alt+Enter: the name box's and the browser's own.
+		if (isShortcut(e)) return;
 		if (e.key === 'Enter') {
 			e.preventDefault();
 			// A held Enter, or one mashed through the pick, must not name the animal unseen.
