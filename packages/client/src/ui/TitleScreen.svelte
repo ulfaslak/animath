@@ -86,6 +86,7 @@
 					type="button"
 					class="row"
 					class:lit={title.screen === 'menu' && title.cursor === i}
+					class:continue={row === 'continue'}
 					data-press={rowKey(i)}
 					{@attach unfocusable}
 				>
@@ -335,10 +336,14 @@
 		width: 100%;
 		box-sizing: border-box;
 		min-height: 52px;
-		padding: 4px 12px 4px 6px;
+		padding: 0 12px 0 6px;
 		border-radius: 12px;
 		font-weight: 800;
 		font-size: 22px;
+	}
+	/* Room round Continue's two lines when the name goes under it; every other row keeps its height. */
+	.row.continue {
+		padding-block: 4px;
 	}
 	/* A mouse over a row it can press. Never on touch, where hover sticks after a tap. */
 	@media (hover: hover) and (pointer: fine) {
