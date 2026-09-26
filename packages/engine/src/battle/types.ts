@@ -42,8 +42,6 @@ export interface BattleState {
 	/** Multiplier for leash throws; 1 is the starter leash. Set at `startBattle`. */
 	leashQuality: number;
 	phase: BattlePhase;
-	/** Messages to show in the battle log, newest last. */
-	log: readonly string[];
 }
 
 /**
@@ -63,9 +61,31 @@ export type BattleIntent =
 	| { type: 'switch'; partyIndex: number };
 
 /**
+ * Why an intent was refused. A code, never words: the client never shows it
+ * to the player (it greys out what would be refused), and logs it for
+ * developers.
+ */
+export type BattleRejection =
+	/** Not an object with a `type`, or a `type` the reducer does not know. */
+	| 'not-an-intent'
+	| 'battle-over'
+	/** An attack, the leash or running, outside `choose-action`. */
+	| 'not-choosing-an-action'
+	/** An answer with no puzzle open. */
+	| 'no-puzzle'
+	| 'no-such-attack'
+	| 'no-such-level'
+	/** A switch outside `choose-action` and `choose-animal`. */
+	| 'not-choosing'
+	| 'no-such-animal'
+	| 'already-in-front'
+	| 'tired';
+
+/**
  * What happened, in order, as a result of one intent. Detailed enough to
  * animate without re-running the rules: every hit carries the damage and the
- * target's remaining HP, every judgement carries the correct answer.
+ * target's remaining HP, every judgement carries the correct answer. No
+ * event carries words: the client words each one (`battle/controller.ts`).
  */
 export type BattleEvent =
 	| { type: 'puzzle-shown'; attackIndex: number; level: AttackLevel; puzzle: Puzzle }
@@ -87,7 +107,7 @@ export type BattleEvent =
 	| { type: 'fled' }
 	| { type: 'ended'; outcome: BattleOutcome; caught?: AnimalInstance }
 	/** The intent was not valid in the current phase. The state is unchanged. */
-	| { type: 'rejected'; reason: string };
+	| { type: 'rejected'; reason: BattleRejection };
 
 export interface BattleStep {
 	state: BattleState;

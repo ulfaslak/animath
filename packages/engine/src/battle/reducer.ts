@@ -11,6 +11,7 @@ import type {
 	BattleIntent,
 	BattleOutcome,
 	BattlePhase,
+	BattleRejection,
 	BattleState,
 	BattleStep
 } from './types.js';
@@ -40,6 +41,9 @@ import type {
  * When the animal in front is knocked out and someone else is standing, the
  * battle waits in `choose-animal` for the player to say who steps in. That
  * switch is free: the wild animal has just had its turn.
+ *
+ * Nothing here is worded: events say what happened and a refusal is a code.
+ * The client narrates the events in the player's language.
  */
 
 /**
@@ -86,8 +90,7 @@ export function startBattle(
 		active,
 		opponent: { ...wild },
 		leashQuality,
-		phase: { kind: 'choose-action' },
-		log: [`A wild ${animalName(wild)} appears!`, `Go, ${animalName(party[active]!)}!`]
+		phase: { kind: 'choose-action' }
 	};
 }
 
@@ -116,13 +119,13 @@ export function canSwitchTo(state: BattleState, partyIndex: number): boolean {
 }
 
 /** Why a switch to `partyIndex` would be rejected, or null when it would not. */
-function switchRefusal(state: BattleState, partyIndex: number): string | null {
+function switchRefusal(state: BattleState, partyIndex: number): BattleRejection | null {
 	const { kind } = state.phase;
-	if (kind !== 'choose-action' && kind !== 'choose-animal') return 'Not the time to switch.';
+	if (kind !== 'choose-action' && kind !== 'choose-animal') return 'not-choosing';
 	const animal = Number.isInteger(partyIndex) ? state.party[partyIndex] : undefined;
-	if (!animal) return `There is no party member ${partyIndex}.`;
-	if (partyIndex === state.active) return `${animalName(animal)} is already in front.`;
-	if (animal.hp === 0) return `${animalName(animal)} is too tired to switch in.`;
+	if (!animal) return 'no-such-animal';
+	if (partyIndex === state.active) return 'already-in-front';
+	if (animal.hp === 0) return 'tired';
 	return null;
 }
 
@@ -138,8 +141,8 @@ export function applyBattleIntent(
 	if (!Number.isInteger(seed) || seed < 0 || seed > 0xffffffff) {
 		throw new Error(`applyBattleIntent: seed must be a 32-bit unsigned integer, got ${seed}`);
 	}
-	if (!intent || typeof intent !== 'object') return reject(state, 'That is not an intent.');
-	if (state.phase.kind === 'ended') return reject(state, 'The battle is over.');
+	if (!intent || typeof intent !== 'object') return reject(state, 'not-an-intent');
+	if (state.phase.kind === 'ended') return reject(state, 'battle-over');
 	switch (intent.type) {
 		case 'attack':
 			return chooseAttack(state, seed, intent.attackIndex, intent.level);
@@ -152,7 +155,7 @@ export function applyBattleIntent(
 		case 'switch':
 			return switchAnimal(state, seed, intent.partyIndex);
 		default:
-			return reject(state, `Unknown intent ${String((intent as { type: unknown }).type)}.`);
+			return reject(state, 'not-an-intent');
 	}
 }
 
@@ -164,13 +167,11 @@ function chooseAttack(
 	attackIndex: number,
 	level: AttackLevel
 ): BattleStep {
-	if (state.phase.kind !== 'choose-action') return reject(state, 'Not the time to attack.');
+	if (state.phase.kind !== 'choose-action') return reject(state, 'not-choosing-an-action');
 	const spec = getAnimal(activeAnimal(state).speciesId);
 	const attack = spec.attacks[attackIndex - 1];
-	if (!Number.isInteger(attackIndex) || !attack) {
-		return reject(state, `${spec.name} has no attack ${attackIndex}.`);
-	}
-	if (!ATTACK_LEVELS.includes(level)) return reject(state, `There is no level ${level}.`);
+	if (!Number.isInteger(attackIndex) || !attack) return reject(state, 'no-such-attack');
+	if (!ATTACK_LEVELS.includes(level)) return reject(state, 'no-such-level');
 
 	const draft = Draft.from(state, seed);
 	const puzzle = generatePuzzle(
@@ -184,12 +185,10 @@ function chooseAttack(
 }
 
 function answer(state: BattleState, seed: number, input: string): BattleStep {
-	if (state.phase.kind !== 'solving') return reject(state, 'There is no puzzle to answer.');
+	if (state.phase.kind !== 'solving') return reject(state, 'no-puzzle');
 	const { attackIndex, level, puzzle } = state.phase;
 	const draft = Draft.from(state, seed);
-	const attacker = draft.active();
-	const spec = getAnimal(attacker.speciesId);
-	const attackName = spec.attacks[attackIndex - 1]!.name;
+	const spec = getAnimal(draft.active().speciesId);
 
 	const correct = checkAnswer(puzzle, input);
 	draft.events.push({ type: 'answer-judged', input, correct, answer: puzzle.answer });
@@ -205,16 +204,13 @@ function answer(state: BattleState, seed: number, input: string): BattleStep {
 			damage,
 			targetHp: draft.opponent.hp
 		});
-		draft.say(`${animalName(attacker)} used ${attackName}! ${damage} damage.`);
 		if (draft.opponent.hp === 0) {
 			draft.events.push({ type: 'fainted', side: 'opponent', animal: draft.opponent });
-			draft.say(`Wild ${animalName(draft.opponent)} is tired. You win!`);
 			draft.end('won');
 			return draft.finish();
 		}
 	} else {
 		draft.events.push({ type: 'missed', attacker: 'player', attackIndex, level });
-		draft.say(`Not quite! ${attackName} missed.`);
 	}
 
 	opponentTurn(draft);
@@ -222,7 +218,7 @@ function answer(state: BattleState, seed: number, input: string): BattleStep {
 }
 
 function throwLeash(state: BattleState, seed: number): BattleStep {
-	if (state.phase.kind !== 'choose-action') return reject(state, 'Not the time for the leash.');
+	if (state.phase.kind !== 'choose-action') return reject(state, 'not-choosing-an-action');
 	const draft = Draft.from(state, seed);
 	const spec = getAnimal(draft.opponent.speciesId);
 	const chance = catchProbability(
@@ -232,24 +228,20 @@ function throwLeash(state: BattleState, seed: number): BattleStep {
 	);
 	const success = draft.rng.chance(chance);
 	draft.events.push({ type: 'leash-thrown', chance, success });
-	draft.say('You throw the leash…');
 
 	if (success) {
-		draft.say(`You caught a ${animalName(draft.opponent)}!`);
 		draft.end('caught', draft.opponent);
 		return draft.finish();
 	}
 
-	draft.say('It broke free!');
 	opponentTurn(draft);
 	return draft.finish();
 }
 
 function flee(state: BattleState, seed: number): BattleStep {
-	if (state.phase.kind !== 'choose-action') return reject(state, 'Not the time to run.');
+	if (state.phase.kind !== 'choose-action') return reject(state, 'not-choosing-an-action');
 	const draft = Draft.from(state, seed);
 	draft.events.push({ type: 'fled' });
-	draft.say('You got away!');
 	draft.end('fled');
 	return draft.finish();
 }
@@ -266,9 +258,7 @@ function switchAnimal(state: BattleState, seed: number, partyIndex: number): Bat
 	if (refusal !== null) return reject(state, refusal);
 	const draft = Draft.from(state, seed);
 	draft.activeIndex = partyIndex;
-	const fresh = draft.active();
-	draft.events.push({ type: 'switched', animal: fresh, partyIndex });
-	draft.say(`Go, ${animalName(fresh)}!`);
+	draft.events.push({ type: 'switched', animal: draft.active(), partyIndex });
 	if (state.phase.kind === 'choose-animal') {
 		draft.phase = { kind: 'choose-action' };
 		return draft.finish();
@@ -302,11 +292,9 @@ function opponentTurn(draft: Draft): void {
 	const target = draft.active();
 	const wary = spec.tier <= getAnimal(target.speciesId).tier;
 	const missRoll = draft.rng.next();
-	const attackName = spec.attacks[attackIndex - 1]!.name;
 
 	if (wary && missRoll < WILD_MISS_CHANCE) {
 		draft.events.push({ type: 'missed', attacker: 'opponent', attackIndex, level });
-		draft.say(`Wild ${animalName(draft.opponent)} used ${attackName}! It missed.`);
 		draft.nextRound();
 		return;
 	}
@@ -322,19 +310,15 @@ function opponentTurn(draft: Draft): void {
 		damage,
 		targetHp: hp
 	});
-	draft.say(`Wild ${animalName(draft.opponent)} used ${attackName}! ${damage} damage.`);
 
 	if (hp > 0) {
 		draft.nextRound();
 		return;
 	}
 
-	const fainted = draft.active();
-	draft.events.push({ type: 'fainted', side: 'player', animal: fainted });
-	draft.say(`${animalName(fainted)} is tired.`);
+	draft.events.push({ type: 'fainted', side: 'player', animal: draft.active() });
 
 	if (leadIndex(draft.party) < 0) {
-		draft.say('All your animals are tired.');
 		draft.end('lost');
 		return;
 	}
@@ -356,7 +340,6 @@ class Draft {
 	opponent: AnimalInstance;
 	phase: BattlePhase;
 	turn: number;
-	readonly log: string[];
 	readonly events: BattleEvent[] = [];
 
 	private constructor(
@@ -369,7 +352,6 @@ class Draft {
 		this.opponent = base.opponent;
 		this.phase = base.phase;
 		this.turn = base.turn;
-		this.log = base.log.slice();
 	}
 
 	static from(state: BattleState, seed: number): Draft {
@@ -378,10 +360,6 @@ class Draft {
 
 	active(): AnimalInstance {
 		return this.party[this.activeIndex]!;
-	}
-
-	say(line: string): void {
-		this.log.push(line);
 	}
 
 	end(outcome: BattleOutcome, caught?: AnimalInstance): void {
@@ -404,18 +382,13 @@ class Draft {
 				party: this.party,
 				active: this.activeIndex,
 				opponent: this.opponent,
-				phase: this.phase,
-				log: this.log
+				phase: this.phase
 			},
 			events: this.events
 		};
 	}
 }
 
-function reject(state: BattleState, reason: string): BattleStep {
+function reject(state: BattleState, reason: BattleRejection): BattleStep {
 	return { state, events: [{ type: 'rejected', reason }] };
-}
-
-function animalName(animal: AnimalInstance): string {
-	return animal.nickname ?? getAnimal(animal.speciesId).name;
 }

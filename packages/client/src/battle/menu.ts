@@ -1,5 +1,6 @@
 import { ATTACK_LEVELS, type AnimalSpec, type AttackLevel } from '@mathgame/engine';
 import { t } from '../copy';
+import { attackName } from '../names';
 
 /**
  * The battle menus as pure data: which row the cursor is on, the level each
@@ -67,10 +68,11 @@ export function levelWord(level: AttackLevel): string {
 	}
 }
 
-/** One attack row as the panel draws it: its own level and that level's word. */
+/** One attack row as the panel draws it: its name, its own level and that level's word. */
 export interface AttackRow {
 	/** 1-based, as the engine counts attacks. */
 	index: number;
+	/** In the language on screen. */
 	name: string;
 	level: AttackLevel;
 	word: string;
@@ -79,7 +81,7 @@ export interface AttackRow {
 export function attackRows(spec: AnimalSpec, levels: Levels): AttackRow[] {
 	return spec.attacks.map((attack, i) => {
 		const level = levelOf(levels, spec.id, attack.id);
-		return { index: i + 1, name: attack.name, level, word: levelWord(level) };
+		return { index: i + 1, name: attackName(spec.id, i + 1), level, word: levelWord(level) };
 	});
 }
 

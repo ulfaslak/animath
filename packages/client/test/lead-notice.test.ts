@@ -26,7 +26,8 @@ function setup(startingParty: string) {
 	return { authority, edit };
 }
 
-const chosen = (name: string) => t('party.leadChosen', { name });
+/** A name is every form of itself, as a nickname is. */
+const chosen = (name: string) => t('party.leadChosen', { animal: name });
 
 describe('the line about who goes first', () => {
 	it('names the lead after any edit that changes who it is, and only then', () => {
@@ -52,9 +53,9 @@ describe('the line about who goes first', () => {
 		const { edit } = setup('squirrel,rabbit:0');
 		const [squirrel, rabbit] = game.party;
 		edit({ type: 'select-lead', animalId: rabbit!.id });
-		expect(hud.message).toBe(t('party.leadTired', { name: 'Rabbit' }));
+		expect(hud.message).toBe(t('party.leadTired', { animal: 'Rabbit' }));
 		edit({ type: 'select-lead', animalId: squirrel!.id });
-		expect(hud.message).toBe(t('party.leadAlready', { name: 'Squirrel' }));
+		expect(hud.message).toBe(t('party.leadAlready', { animal: 'Squirrel' }));
 	});
 
 	it('the newest line is the one shown', () => {

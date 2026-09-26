@@ -1,8 +1,20 @@
 import { describe, expect, it } from 'vitest';
+import { ANIMALS } from '../src/animals/catalog.js';
+import { ATTACK_LEVELS } from '../src/animals/types.js';
 import { Rng } from '../src/rng.js';
 import { healingDifficulty, puzzleDifficulty } from '../src/puzzles/difficulty.js';
-import { checkAnswer, generatePuzzle, getGenerator } from '../src/puzzles/registry.js';
-import { ALL_PUZZLE_KINDS, MAX_DIFFICULTY, MIN_DIFFICULTY } from '../src/puzzles/types.js';
+import {
+	checkAnswer,
+	generatePuzzle,
+	getGenerator,
+	puzzleTopics
+} from '../src/puzzles/registry.js';
+import {
+	ALL_PUZZLE_KINDS,
+	MAX_DIFFICULTY,
+	MIN_DIFFICULTY,
+	type PuzzleKind
+} from '../src/puzzles/types.js';
 
 /** Recompute the answer from the prompt, independently of the generator. */
 function solve(prompt: string): number {
@@ -355,5 +367,83 @@ describe('difficulty mapping', () => {
 		expect(puzzleDifficulty(1, 1, 1)).toBe(MIN_DIFFICULTY);
 		expect(puzzleDifficulty(5, 4, 3)).toBe(MAX_DIFFICULTY);
 		expect(healingDifficulty(5)).toBeGreaterThan(healingDifficulty(1));
+	});
+});
+
+/**
+ * What a kid sees in a prompt, read from the prompt alone: the operation, and
+ * whether a number is missing from a sum. Independent of the generators, like
+ * `solve`; the topics each generator declares must agree with it.
+ */
+function topicOf(prompt: string): string {
+	if (/^([\d, ]+), \?$/.test(prompt)) return 'sequence';
+	if (/^√\d+ = \?$/.test(prompt)) return 'sqrt';
+	const missing = prompt.match(/^\d+ ([+×]) \? = \d+$/);
+	if (missing) return missing[1] === '+' ? 'missing' : 'mul';
+	const bin = prompt.match(/^\d+ ([+−×÷]) \d+ = \?$/);
+	if (!bin) throw new Error(`unparseable prompt: ${prompt}`);
+	return { '+': 'add', '−': 'sub', '×': 'mul', '÷': 'div' }[bin[1] as '+' | '−' | '×' | '÷'];
+}
+
+describe('what an attack says it asks', () => {
+	const SEEDS_PER_CASE = 300;
+
+	/** The topics met over many seeds, against what `puzzleTopics` promises. */
+	function metAndPromised(kinds: readonly PuzzleKind[], difficulty: number) {
+		const met = new Set<string>();
+		for (let seed = 0; seed < SEEDS_PER_CASE; seed++) {
+			met.add(topicOf(generatePuzzle(new Rng(seed), difficulty, kinds).prompt));
+		}
+		return { met: [...met].sort(), promised: [...puzzleTopics(kinds, difficulty)].sort() };
+	}
+
+	// An attack's description is `puzzleTopics` in words (BattlePanel). It must
+	// name everything a puzzle at that level can be, and nothing it can't: the
+	// starter's Scurry Kick on hard once said "adding, taking away or missing
+	// numbers" and asked "7 × ? = 56".
+	it('every attack of every species, at every level, promises exactly what it asks', () => {
+		const problems: string[] = [];
+		for (const spec of ANIMALS) {
+			spec.attacks.forEach((attack, i) => {
+				for (const level of ATTACK_LEVELS) {
+					const d = puzzleDifficulty(spec.tier, i + 1, level);
+					const { met, promised } = metAndPromised(attack.kinds, d);
+					if (met.join() !== promised.join()) {
+						problems.push(
+							`${spec.id}/${attack.id} level ${level} (d${d}): asks ${met}, says ${promised}`
+						);
+					}
+				}
+			});
+		}
+		expect(problems).toEqual([]);
+	});
+
+	it('every kind alone, at every difficulty, promises exactly what it asks', () => {
+		const problems: string[] = [];
+		for (const kind of ALL_PUZZLE_KINDS) {
+			for (let d = MIN_DIFFICULTY; d <= MAX_DIFFICULTY; d++) {
+				const { met, promised } = metAndPromised([kind], d);
+				if (met.join() !== promised.join())
+					problems.push(`${kind} d${d}: asks ${met}, says ${promised}`);
+			}
+		}
+		expect(problems).toEqual([]);
+	});
+
+	it('the hard Scurry Kick names times tables', () => {
+		const squirrel = ANIMALS.find((a) => a.id === 'squirrel')!;
+		const kick = squirrel.attacks.find((a) => a.id === 'scurry-kick')!;
+		expect(puzzleTopics(kick.kinds, puzzleDifficulty(squirrel.tier, 2, 3))).toEqual([
+			'add',
+			'sub',
+			'missing',
+			'mul'
+		]);
+		expect(puzzleTopics(kick.kinds, puzzleDifficulty(squirrel.tier, 2, 1))).toEqual([
+			'add',
+			'sub',
+			'missing'
+		]);
 	});
 });

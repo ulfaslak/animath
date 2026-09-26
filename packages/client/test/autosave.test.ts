@@ -233,7 +233,10 @@ describe('Autosave: the save in this browser', () => {
 		expect(store.writes).toBe(before + 1);
 		expect(store.save()!.steps).toBe(1);
 		// A message changes nothing and writes nothing.
-		tab.autosave.handle({ type: 'message', text: 'hi' });
+		tab.autosave.handle({
+			type: 'message',
+			line: { key: 'battle.closing.fled', params: { animal: { speciesId: 'rabbit' } } }
+		});
 		await settle();
 		expect(store.writes).toBe(before + 1);
 		// A lead chosen, an animal moved or renamed in the pause menu is saved at once;
@@ -302,8 +305,7 @@ describe('Autosave: the save in this browser', () => {
 			active: 0,
 			opponent: { id: 'wild-1', speciesId: 'rabbit', hp: 20 },
 			leashQuality: 1,
-			phase: { kind: 'choose-action' as const },
-			log: []
+			phase: { kind: 'choose-action' as const }
 		};
 		await tab.play((g) => (g.battle = battle), 'battle-started');
 		expect(store.save()!.battle).toEqual(battle);
@@ -499,8 +501,7 @@ describe('Autosave: two tabs', () => {
 			active: 0,
 			opponent: { id: 'wild-1', speciesId: 'rabbit', hp: 20 },
 			leashQuality: 1,
-			phase: { kind: 'choose-action' as const },
-			log: []
+			phase: { kind: 'choose-action' as const }
 		};
 		await a.play((g) => (g.battle = battle), 'battle-updated');
 		const saved = store.get(KEYS.save);
