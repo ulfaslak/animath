@@ -11,11 +11,12 @@ import type { GridPos, TileKind } from './types.js';
  * reeds, sand, a tent) is open ground. Every species favours one terrain
  * (`AnimalSpec.favours`), and `habitatFactor` is how many times as often it
  * comes out here as where none of that terrain is near: 1 with none of it, up
- * to `HABITAT_BOOST` with plenty. The encounter table multiplies each
- * species' biome × tier weight by it (`encounterTableAt` in `encounters.ts`),
- * so the ground changes which animal comes out, never whether one does, nor
- * which ones could. [[PRODUCT]] §4 "Wild encounters" states the rule in prose;
- * it must agree with the constants below.
+ * to `HABITAT_BOOST` with plenty. The encounter table weighs each species by
+ * it (`encounterTableAt` in `encounters.ts`): near spawn only against the
+ * animals of its own tier, further out against the others too. So the ground
+ * changes which animal comes out, never whether one does, nor which ones
+ * could. [[PRODUCT]] §4 "Wild encounters" states the rule in prose; it must
+ * agree with the constants below.
  *
  * A terrain's share of the surroundings runs from 0 to 1. Water, trees and
  * rocks each count fully from `HABITAT_FULL` tiles of them. Open ground counts

@@ -130,20 +130,41 @@ function groundFactor(favours: Terrain, around: Surroundings): number {
 	return 4 ** s;
 }
 
-/** `tierOneTable` on a tile with the ground `around` it: each share times its `groundFactor`, normalised again. */
+/**
+ * `tierOneTable` on a tile with the ground `around` it, as [[PRODUCT]] §4
+ * writes it out: within a tier, each animal's share of its tier goes by its
+ * biome share times its `groundFactor`; a tier's share is its biome share
+ * times its animals' mean factor (weighted by their biome shares) raised to
+ * danger = clamp((d − 32) / 96), normalised.
+ */
 function tierOneTableAt(
 	roster: readonly Kind[],
 	biome: Biome,
 	distance: number,
 	around: Surroundings
 ): Map<string, number> {
-	const favours = new Map(roster.map((a) => [a.id, a.favours]));
-	const raw = new Map<string, number>();
-	for (const [id, w] of tierOneTable(roster, biome, distance))
-		raw.set(id, w * groundFactor(favours.get(id)!, around));
+	const danger = Math.min(1, Math.max(0, (distance - 32) / 96));
+	const kinds = new Map(roster.map((a) => [a.id, a]));
+	const table = tierOneTable(roster, biome, distance);
+	const tiers = new Map<number, { share: number; weighed: number }>();
+	for (const [id, w] of table) {
+		const a = kinds.get(id)!;
+		const t = tiers.get(a.tier) ?? { share: 0, weighed: 0 };
+		t.share += w;
+		t.weighed += w * groundFactor(a.favours, around);
+		tiers.set(a.tier, t);
+	}
+	const tierWeight = (t: { share: number; weighed: number }) =>
+		t.share * (t.weighed / t.share) ** danger;
 	let sum = 0;
-	for (const w of raw.values()) sum += w;
-	return new Map([...raw].map(([id, w]) => [id, w / sum]));
+	for (const t of tiers.values()) sum += tierWeight(t);
+	return new Map(
+		[...table].map(([id, w]) => {
+			const a = kinds.get(id)!;
+			const t = tiers.get(a.tier)!;
+			return [id, (tierWeight(t) / sum) * ((w * groundFactor(a.favours, around)) / t.weighed)];
+		})
+	);
 }
 
 /** A tier-1 lead's roll: the chance, then a pick down `tierOneTableAt`. */
@@ -686,80 +707,49 @@ describe('encounterTableAt: the ground around the tall grass', () => {
 	});
 });
 
-describe('the start: the ground near spawn in the prototype world', () => {
-	const seed = hashString('prototype');
-	const spawn = spawnPoint(seed);
-	/** Every tall-grass tile within the safe radius of spawn, with the ground around it. */
-	const nearHome: { site: EncounterSite; biome: Biome }[] = [];
-	for (let y = spawn.y - SAFE_RADIUS; y <= spawn.y + SAFE_RADIUS; y++) {
-		for (let x = spawn.x - SAFE_RADIUS; x <= spawn.x + SAFE_RADIUS; x++) {
-			const pos = { x, y };
-			if (distanceFromSpawn(pos, spawn) > SAFE_RADIUS) continue;
-			const tile = tileAtWorld(seed, x, y);
-			if (tile.kind !== 'tallgrass') continue;
-			nearHome.push({
-				site: { tile, pos, spawn, around: surroundings(seed, pos) },
-				biome: tile.biome
-			});
-		}
-	}
-
-	it('at the reed beside spawn a frog is the likeliest animal, and an otter no more than 1 in 8', () => {
-		const reed = nearHome.find((h) => h.site.pos.x === spawn.x - 1 && h.site.pos.y === spawn.y)!;
-		expect(reed.biome).toBe('river');
-		// The lake all round: the frog and the otter four times as likely as on
-		// open ground, the squirrels and rabbits come down from the meadow as usual.
-		expectShares(
-			encounterTableAt(reed.site, 1),
-			normalised({ squirrel: 1, rabbit: 1, frog: 4, otter: 0.8 })
-		);
-		expect(sharesOf(encounterTableAt(reed.site, 1)).get('otter')).toBeLessThan(1 / 8);
-		// A fox or an otter in front: otters, and a frog 1 time in 11 as before.
-		expectShares(encounterTableAt(reed.site, 2), normalised({ frog: 0.1, otter: 1 }));
-	});
-
-	it("with the starter in front, every tile near home keeps its tier the majority and two tiers up under 5%, and the ground doesn't make the start fiercer", () => {
-		expect(nearHome.length).toBeGreaterThan(300);
-		const bad: string[] = [];
-		let above = 0;
-		let aboveInBiome = 0;
-		for (const { site, biome } of nearHome) {
-			const here = encounterTableAt(site, 1);
-			const where = `${biome} at (${site.pos.x}, ${site.pos.y}) on ${JSON.stringify(site.around)}`;
-			const own = tierShare(here, (t) => t === 1);
-			const fierce = tierShare(here, (t) => t >= 3);
-			if (!(own > 0.5)) bad.push(`${where}: own tier ${own}`);
-			if (!(fierce < 0.05)) bad.push(`${where}: two up ${fierce}`);
-			above += tierShare(here, (t) => t > 1);
-			aboveInBiome += tierShare(
-				encounterTable(biome, distanceFromSpawn(site.pos, spawn), 1),
-				(t) => t > 1
-			);
-		}
-		expect(bad).toEqual([]);
-		expect(above / nearHome.length).toBeLessThanOrEqual(aboveInBiome / nearHome.length);
-	});
-
-	it('whoever leads, its own tier is the majority on every tile near home, and on average animals two tiers up stay under 5%', () => {
-		const bad: string[] = [];
+describe('the start: the ground near spawn', () => {
+	it("inside the safe radius the ground never moves a tier: on every ground, each tier's share is the biome table's, whoever leads", () => {
+		const bad = findings();
+		let compared = 0;
 		for (const lead of LEADS) {
-			let tiles = 0;
-			let fierce = 0;
-			for (const { site, biome } of nearHome) {
-				if (!ANIMALS.some((a) => a.habitats.includes(biome) && a.tier >= lead)) continue;
-				const here = encounterTableAt(site, lead);
-				tiles++;
-				const own = tierShare(here, (t) => t === lead);
-				if (!(own > 0.5))
-					bad.push(
-						`tier-${lead} lead in ${biome} at (${site.pos.x}, ${site.pos.y}): own tier ${own}`
-					);
-				fierce += tierShare(here, (t) => t >= lead + 2);
+			for (const biome of BIOMES) {
+				for (const d of [0, 8, 16, 24, SAFE_RADIUS]) {
+					const inBiome = encounterTable(biome, d, lead);
+					for (const around of GROUND_GRID) {
+						const here = encounterTableAt(siteAt(biome, d, around), lead);
+						for (const tier of [1, 2, 3, 4, 5]) {
+							compared++;
+							const was = tierShare(inBiome, (t) => t === tier);
+							const now = tierShare(here, (t) => t === tier);
+							if (!(Math.abs(now - was) <= 1e-12))
+								bad.note(
+									`tier ${tier}, tier-${lead} lead in ${biome} @ ${d} on ${JSON.stringify(around)}: ${was} → ${now}`
+								);
+						}
+					}
+				}
 			}
-			if (tiles > 0 && !(fierce / tiles < 0.05))
-				bad.push(`tier-${lead} lead: two up ${fierce / tiles} on average`);
 		}
-		expect(bad).toEqual([]);
+		expect(bad.list).toEqual([]);
+		expect(compared).toBeGreaterThan(300_000);
+	});
+
+	it("at the reed beside the prototype world's spawn, with the lake all round it, most battles are frogs and the otter stays 1 in 16", () => {
+		const seed = hashString('prototype');
+		const spawn = spawnPoint(seed);
+		const pos = { x: spawn.x - 1, y: spawn.y };
+		const tile = tileAtWorld(seed, pos.x, pos.y);
+		expect(tile).toMatchObject({ kind: 'tallgrass', biome: 'river' });
+		const site = { tile, pos, spawn, around: surroundings(seed, pos) };
+		// The squirrels and rabbits that come down to the water keep a third of
+		// the tier-1 share each on open sand; here the frogs, four times as
+		// likely by the water, take two thirds of it.
+		expectShares(
+			encounterTableAt(site, 1),
+			normalised({ squirrel: 1, rabbit: 1, frog: 4, otter: 0.4 })
+		);
+		// A fox or an otter in front: otters, and a frog 1 time in 11, as on the biome's table.
+		expectShares(encounterTableAt(site, 2), normalised({ frog: 0.1, otter: 1 }));
 	});
 });
 

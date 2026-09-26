@@ -11,7 +11,7 @@ import { encounterRealm, isEncounterTile, type GridPos, type Tile } from './type
  * the party's lead: the first animal that isn't tired, the one that steps into
  * the battle first. Only a step that lands on an encounter tile can start a
  * battle; the roll then draws the encounter chance and, on a hit, a species
- * from the biome's table.
+ * from the table where the player stands (`encounterTableAt`).
  *
  * The biome's table (`encounterTable`) is the catalog filtered by biome and
  * realm and weighted by how many tiers above the lead each species is, so that
@@ -24,13 +24,16 @@ import { encounterRealm, isEncounterTile, type GridPos, type Tile } from './type
  * wherever the player walks. From its own tier up, a tier-L lead's table is a
  * tier-1 lead's table in a catalog L − 1 tiers smaller.
  *
- * The table where the player stands (`encounterTableAt`) is the biome's, each
- * species' weight multiplied by how much of the ground it favours lies around
- * (`habitat.ts`): the frogs by the water, the rabbits in the open. It lists the
- * same species, so the ground never changes whether a step can start a battle
- * or who could come out, only who is likely to. [[PRODUCT]] §4 "Wild
- * encounters" states the numbers in prose; they must agree with the constants
- * here and in `habitat.ts`.
+ * The table where the player stands (`encounterTableAt`) is the biome's,
+ * weighed again by how much of the ground each species favours lies around
+ * (`habitat.ts`): the frogs by the water, the rabbits in the open. Near spawn
+ * the ground only chooses among the animals of each tier, so every tier keeps
+ * the share the biome's table gives it and the start is exactly as gentle as
+ * before; further out it also moves the tiers, fully from the wild radius. It
+ * lists the same species, so the ground never changes whether a step can
+ * start a battle or who could come out, only who is likely to. [[PRODUCT]] §4
+ * "Wild encounters" states the numbers in prose; they must agree with the
+ * constants here and in `habitat.ts`.
  *
  * Every draw comes from the caller's `Rng`, so a walk replays exactly from
  * (seed, intents). The rng is only touched when the tile can hold an encounter
@@ -174,11 +177,21 @@ export function encounterTable(
 
 /**
  * The table where the player stands: the biome's table for the tile's realm
- * and distance from spawn, each species' weight multiplied by its habitat
- * factor for the ground around (`habitat.ts`), normalised again. It lists the
- * same species as the biome's table, in the same order. Empty on a tile where
- * no encounter can happen. Throws on a site whose position, spawn or
- * surroundings are not real, or a lead that is not a tier.
+ * and distance from spawn, weighed again by the ground around (`habitat.ts`).
+ *
+ * Within a tier, each species' share of its tier goes by its biome weight
+ * times its habitat factor. Between tiers, a tier's biome share is multiplied
+ * by its animals' mean factor (weighted as the biome weights them) raised to
+ * `danger`. So inside the safe radius every tier keeps exactly the share the
+ * biome's table gives it, and the ground only picks which animal of that size
+ * comes out; from the wild radius out each species' weight is simply its
+ * biome weight times its factor; in between the ground moves the tiers more
+ * with every step out.
+ *
+ * It lists the same species as the biome's table, in the same order, each at
+ * a quarter to four times its biome share. Empty on a tile where no encounter
+ * can happen. Throws on a site whose position, spawn or surroundings are not
+ * real, or a lead that is not a tier.
  */
 export function encounterTableAt(site: EncounterSite, leadTier: Tier): EncounterEntry[] {
 	assertTier(leadTier, 'encounterTableAt');
@@ -187,12 +200,30 @@ export function encounterTableAt(site: EncounterSite, leadTier: Tier): Encounter
 	const distance = distanceFromSpawn(site.pos, site.spawn);
 	if (!Number.isFinite(distance)) throw new Error(`encounterTableAt: distance is ${distance}`);
 	const shares = terrainShares(site.around);
-	const raw = encounterTable(site.tile.biome, distance, leadTier, realm).map((e) => ({
+	const inBiome = encounterTable(site.tile.biome, distance, leadTier, realm);
+	// Per tier: its share of the biome's table, and that share weighed by the ground.
+	const tiers = new Map<Tier, { share: number; weighed: number }>();
+	const weighed = inBiome.map((e) => {
+		const weight = e.weight * factorForShare(shares[e.species.favours]);
+		const tier = tiers.get(e.species.tier) ?? { share: 0, weighed: 0 };
+		tier.share += e.weight;
+		tier.weighed += weight;
+		tiers.set(e.species.tier, tier);
+		return { species: e.species, weight };
+	});
+	const reach = danger(distance);
+	const tierWeight = new Map<Tier, number>();
+	let total = 0;
+	for (const [tier, t] of tiers) {
+		const weight = t.share * Math.pow(t.weighed / t.share, reach);
+		tierWeight.set(tier, weight);
+		total += weight;
+	}
+	return weighed.map((e) => ({
 		species: e.species,
-		weight: e.weight * factorForShare(shares[e.species.favours])
+		weight:
+			(tierWeight.get(e.species.tier)! / total) * (e.weight / tiers.get(e.species.tier)!.weighed)
 	}));
-	const total = raw.reduce((sum, e) => sum + e.weight, 0);
-	return raw.map((e) => ({ species: e.species, weight: e.weight / total }));
 }
 
 /**
