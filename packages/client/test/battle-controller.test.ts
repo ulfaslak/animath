@@ -282,7 +282,8 @@ describe('battle screen', () => {
 		t.walkIntoBattle();
 		t.run(3);
 		const scene = t.shown[0] as BattleScene;
-		const figures = () => scene.scene.children.filter((o) => ANIMALS.some((a) => a.id === o.name));
+		const figures = () =>
+			scene.scene.children.filter((o) => ANIMALS.some((a) => a.id === o.name)).map((o) => o.name);
 		expect(figures()).toHaveLength(2);
 		t.press('ArrowUp', 'Enter'); // Run
 		t.runUntil(() => battle.screen === 'result');
