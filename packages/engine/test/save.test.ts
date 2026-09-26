@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { ANIMALS, getAnimal } from '../src/animals/catalog.js';
-import type { AnimalInstance } from '../src/animals/types.js';
+import { REALMS, type AnimalInstance } from '../src/animals/types.js';
 import { applyBattleIntent, startBattle } from '../src/battle/reducer.js';
 import type { BattleState } from '../src/battle/types.js';
 import { bundled, isBundled } from '../src/party/bundles.js';
@@ -203,7 +203,22 @@ describe('readSave and the upgrade seam', () => {
 		// species the catalog no longer has is unreadable (set aside, and a new game
 		// takes its place), so removing one takes a version bump and an upgrade
 		// that turns it into a species still in the catalog. Adding one: add it here.
-		const shipped = ['squirrel', 'rabbit', 'frog', 'fox', 'otter', 'deer', 'wolf', 'bear'];
+		const shipped = [
+			'squirrel',
+			'rabbit',
+			'frog',
+			'fox',
+			'otter',
+			'deer',
+			'wolf',
+			'bear',
+			'crab',
+			'starfish',
+			'turtle',
+			'dolphin',
+			'octopus',
+			'whale'
+		];
 		expect(ANIMALS.map((a) => a.id).filter((id) => !shipped.includes(id))).toEqual([]);
 		for (const speciesId of shipped) {
 			const doc = { ...written, party: [animal(1, { speciesId, hp: 1 })] };
@@ -406,8 +421,12 @@ describe('newGame and restoreGame', () => {
 				expect(a.hp).toBeGreaterThanOrEqual(0);
 				expect(a.hp).toBeLessThanOrEqual(getAnimal(a.speciesId).maxHp);
 			}
-			// A battle can start with it: the party is one `startBattle` accepts.
-			expect(() => startBattle(game.party, makeWild('rabbit'))).not.toThrow();
+			// A battle can start with it where an animal standing can fight: the party is one
+			// `startBattle` accepts there (only sea animals standing, out on the water).
+			const realm = REALMS.find((r) => leadIndex(game.party, r) >= 0);
+			expect(realm).toBeDefined();
+			const wild = makeWild(realm === 'land' ? 'rabbit' : 'crab');
+			expect(() => startBattle(game.party, wild, { realm })).not.toThrow();
 			// What was fine to begin with comes back unchanged, out on the water with a boat too.
 			if (isPassable(tileAtWorld(seed, save.pos.x, save.pos.y).kind, gear))
 				expect(game.pos).toEqual(save.pos);

@@ -73,12 +73,13 @@ export function isPassable(kind: TileKind, gear: Gear = NO_GEAR): boolean {
 
 /**
  * Where an encounter on a tile of this kind happens, or null where none can:
- * tall grass (the river's reeds included) is land. No water tile is one yet,
- * so sailing starts no battle: the sea animals, when they come, live out on
- * the deep water, and only species living in the water realm come out there.
+ * tall grass (the river's reeds included) is land, and deep water, out in the
+ * sea, is water, where only the species living in that realm come out. The
+ * shallows along a shore are nobody's: crossing a river starts no battle.
  */
 export function encounterRealm(kind: TileKind): Realm | null {
-	return kind === 'tallgrass' ? 'land' : null;
+	if (kind === 'tallgrass') return 'land';
+	return kind === 'deepwater' ? 'water' : null;
 }
 
 /** Tiles where wild animals may appear. */

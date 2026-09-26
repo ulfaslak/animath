@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { ANIMALS, getAnimal } from '../src/animals/catalog.js';
-import type { Biome, Terrain, Tier } from '../src/animals/types.js';
+import type { Biome, Realm, Terrain, Tier } from '../src/animals/types.js';
 import { Rng, hashString } from '../src/rng.js';
 import {
 	ENCOUNTER_CHANCE,
@@ -16,12 +16,21 @@ import {
 } from '../src/world/encounters.js';
 import { generateChunk, spawnPoint, tileAtWorld } from '../src/world/generate.js';
 import { surroundings, type Surroundings } from '../src/world/habitat.js';
-import type { GridPos, Tile, TileKind } from '../src/world/types.js';
+import { isEncounterTile, type GridPos, type Tile, type TileKind } from '../src/world/types.js';
 
-const BIOMES: readonly Biome[] = ['meadow', 'forest', 'river', 'mountain'];
+/** Where encounters happen: the tall grass of the four biomes on land, and the sea's deep water. */
+const BIOMES: readonly Biome[] = ['meadow', 'forest', 'river', 'mountain', 'sea'];
 const LEADS: readonly Tier[] = [1, 2, 3, 4, 5];
 const ORIGIN = { x: 0, y: 0 };
 const tallgrass = (biome: Biome): Tile => ({ kind: 'tallgrass', biome, height: 0 });
+/** The realm of an encounter in a biome: out on the sea's deep water, the water; else land. */
+const realmOf = (biome: Biome): Realm => (biome === 'sea' ? 'water' : 'land');
+/** The tile an encounter in a biome happens on: tall grass, or out in the sea, deep water. */
+const encounterTile = (biome: Biome): Tile =>
+	biome === 'sea' ? { kind: 'deepwater', biome, height: 0 } : tallgrass(biome);
+/** The biome's table in its own realm. */
+const tableIn = (biome: Biome, distance: number, lead: Tier) =>
+	encounterTable(biome, distance, lead, realmOf(biome));
 
 /** Open ground: no water, trees or rocks within 3 tiles. */
 const OPEN: Surroundings = { water: 0, trees: 0, rocks: 0 };
@@ -53,7 +62,7 @@ const GROUND_GRID: readonly Surroundings[] = Array.from({ length: 9 ** 3 }, (_, 
 
 /** Site `distance` tiles east of an origin spawn, with the ground `around` it. */
 const siteAt = (biome: Biome, distance: number, around: Surroundings = OPEN): EncounterSite => ({
-	tile: tallgrass(biome),
+	tile: encounterTile(biome),
 	pos: { x: distance, y: 0 },
 	spawn: ORIGIN,
 	around
@@ -65,7 +74,7 @@ const SWEEP = [...Array.from({ length: 2 * (WILD_RADIUS + 64) + 1 }, (_, i) => i
 const total = (entries: readonly EncounterEntry[]) => entries.reduce((s, e) => s + e.weight, 0);
 
 function share(biome: Biome, distance: number, lead: Tier, tiers: (t: number) => boolean): number {
-	return total(encounterTable(biome, distance, lead).filter((e) => tiers(e.species.tier)));
+	return total(tableIn(biome, distance, lead).filter((e) => tiers(e.species.tier)));
 }
 
 /** Species whose habitats include the biome. */
@@ -87,17 +96,20 @@ interface Kind {
 	id: string;
 	tier: number;
 	habitats: readonly Biome[];
+	realms: readonly Realm[];
 	favours: Terrain;
 }
 
 /**
  * A tier-1 lead's encounter table, written out again from [[PRODUCT]] §4 for
- * any roster, with its numbers as literals: a tier-t resident weighs
- * 5^−(t−1)(1−danger) with danger = clamp((d − 32)/96), and at the river and in
- * the mountains, where a resident is bigger than tier 1, every tier-1 species
- * that doesn't live there visits, weighing 1 − danger. Shares, in roster order.
- * Before the frog it was PR #12's table: the river and the mountains were
- * exactly the biomes with residents but no tier-1 animal.
+ * any roster, with its numbers as literals: only animals living in the
+ * biome's realm (the water out in the sea, land everywhere else) come out; a
+ * tier-t resident weighs 5^−(t−1)(1−danger) with danger = clamp((d − 32)/96),
+ * and at the river and in the mountains, where a resident is bigger than
+ * tier 1, every tier-1 species of the realm that doesn't live there visits,
+ * weighing 1 − danger. Shares, in roster order. Before the frog it was PR
+ * #12's table: the river and the mountains were exactly the biomes with
+ * residents but no tier-1 animal.
  */
 function tierOneTable(
 	roster: readonly Kind[],
@@ -105,10 +117,12 @@ function tierOneTable(
 	distance: number
 ): Map<string, number> {
 	const danger = Math.min(1, Math.max(0, (distance - 32) / 96));
-	const living = roster.filter((a) => a.habitats.includes(biome));
+	const realm = realmOf(biome);
+	const here = roster.filter((a) => a.realms.includes(realm));
+	const living = here.filter((a) => a.habitats.includes(biome));
 	const visited = (biome === 'river' || biome === 'mountain') && living.some((a) => a.tier > 1);
 	const raw = new Map<string, number>();
-	for (const a of roster) {
+	for (const a of here) {
 		if (a.habitats.includes(biome)) raw.set(a.id, Math.pow(5, -(a.tier - 1) * (1 - danger)));
 		else if (a.tier === 1 && visited && danger < 1) raw.set(a.id, 1 - danger);
 	}
@@ -167,9 +181,9 @@ function tierOneTableAt(
 	);
 }
 
-/** A tier-1 lead's roll: the chance, then a pick down `tierOneTableAt`. */
+/** A tier-1 lead's roll on tall grass or deep water: the chance, then a pick down `tierOneTableAt`. */
 function tierOneRoll(rng: Rng, site: EncounterSite): string | null {
-	if (site.tile.kind !== 'tallgrass') return null;
+	if (site.tile.kind !== 'tallgrass' && site.tile.kind !== 'deepwater') return null;
 	if (!rng.chance(0.1)) return null;
 	const table = tierOneTableAt(
 		ANIMALS,
@@ -207,7 +221,7 @@ describe('encounterTable', () => {
 		const bad: string[] = [];
 		for (const biome of BIOMES) {
 			for (const d of SWEEP) {
-				const table = encounterTable(biome, d, 1);
+				const table = tableIn(biome, d, 1);
 				const expected = tierOneTable(ANIMALS, biome, d);
 				const ids = table.map((e) => e.species.id).join();
 				if (ids !== [...expected.keys()].join()) bad.push(`${biome} @ ${d} lists ${ids}`);
@@ -234,6 +248,18 @@ describe('encounterTable', () => {
 		expectShares(
 			encounterTable('mountain', 0, 1),
 			normalised({ squirrel: 1, rabbit: 1, frog: 1, wolf: 0.008, bear: 0.0016 })
+		);
+		// Out on the deep water: the sea animals only, the frog in the boat's lead or not.
+		expectShares(
+			encounterTable('sea', 0, 1, 'water'),
+			normalised({
+				crab: 1,
+				starfish: 1,
+				turtle: 0.2,
+				dolphin: 0.04,
+				octopus: 0.008,
+				whale: 0.0016
+			})
 		);
 	});
 
@@ -280,7 +306,7 @@ describe('encounterTable', () => {
 		for (const lead of LEADS) {
 			for (const biome of BIOMES) {
 				for (const d of SWEEP) {
-					for (const e of encounterTable(biome, d, lead)) {
+					for (const e of tableIn(biome, d, lead)) {
 						listed++;
 						if (e.species.tier < lead - 1)
 							bad.push(`${e.species.id} vs a tier-${lead} lead in ${biome} @ ${d}`);
@@ -302,12 +328,13 @@ describe('encounterTable', () => {
 				id: a.id,
 				tier: a.tier - (lead - 1),
 				habitats: a.habitats,
+				realms: a.realms,
 				favours: a.favours
 			}));
 			for (const biome of BIOMES) {
 				for (const d of SWEEP) {
 					const where = `tier-${lead} lead in ${biome} @ ${d}`;
-					const upper = encounterTable(biome, d, lead).filter((e) => e.species.tier >= lead);
+					const upper = tableIn(biome, d, lead).filter((e) => e.species.tier >= lead);
 					const mass = total(upper);
 					const expected = tierOneTable(shrunk, biome, d);
 					const ids = upper.map((e) => e.species.id).join();
@@ -330,7 +357,7 @@ describe('encounterTable', () => {
 		for (const lead of LEADS) {
 			for (const biome of BIOMES) {
 				for (const d of SWEEP) {
-					const table = encounterTable(biome, d, lead);
+					const table = tableIn(biome, d, lead);
 					const below = table.filter((e) => e.species.tier === lead - 1);
 					const own = table.filter(
 						(e) => e.species.tier === lead && e.species.habitats.includes(biome)
@@ -361,6 +388,11 @@ describe('encounterTable', () => {
 			encounterTable('mountain', 0, 2),
 			normalised({ fox: 1, otter: 1, wolf: 0.04, bear: 0.008 })
 		);
+		// An otter in front, out on the deep water: turtles, and the small ones 1 time in 10 of a turtle.
+		expectShares(
+			encounterTable('sea', 0, 2, 'water'),
+			normalised({ crab: 0.1, starfish: 0.1, turtle: 1, dolphin: 0.2, octopus: 0.04, whale: 0.008 })
+		);
 	});
 
 	it("lists the residents from one tier below the lead up, plus, at the river and in the mountains, visitors of the lead's tier where bigger animals live", () => {
@@ -370,7 +402,12 @@ describe('encounterTable', () => {
 				const living = residents(biome);
 				const guests =
 					(biome === 'river' || biome === 'mountain') && living.some((a) => a.tier > lead)
-						? ANIMALS.filter((a) => a.tier === lead && !a.habitats.includes(biome))
+						? ANIMALS.filter(
+								(a) =>
+									a.tier === lead &&
+									!a.habitats.includes(biome) &&
+									a.realms.includes(realmOf(biome))
+							)
 						: [];
 				if (guests.length > 0)
 					visited.push(`${lead}:${biome}:${guests.map((a) => a.id).join('+')}`);
@@ -386,7 +423,7 @@ describe('encounterTable', () => {
 					const expected = [...living.filter((a) => a.tier >= lead - 1), ...visitors]
 						.map((a) => a.id)
 						.sort();
-					const table = encounterTable(biome, d, lead);
+					const table = tableIn(biome, d, lead);
 					expect(
 						table.map((e) => e.species.id).sort(),
 						`tier-${lead} lead in ${biome} @ ${d}`
@@ -415,7 +452,7 @@ describe('encounterTable', () => {
 			for (const biome of BIOMES) {
 				const anyone = residents(biome).some((a) => a.tier >= lead - 1);
 				for (const d of SWEEP) {
-					if (encounterTable(biome, d, lead).length > 0 !== anyone)
+					if (tableIn(biome, d, lead).length > 0 !== anyone)
 						bad.push(`tier-${lead} lead in ${biome} @ ${d}`);
 				}
 				if (!anyone) silent.push([lead, biome]);
@@ -429,9 +466,7 @@ describe('encounterTable', () => {
 		for (const lead of LEADS) {
 			for (const a of ANIMALS.filter((a) => a.tier >= lead - 1)) {
 				for (const d of [0, 1000]) {
-					const met = BIOMES.some((b) =>
-						encounterTable(b, d, lead).some((e) => e.species.id === a.id)
-					);
+					const met = BIOMES.some((b) => tableIn(b, d, lead).some((e) => e.species.id === a.id));
 					expect(met, `${a.id} never challenges a tier-${lead} lead (d = ${d})`).toBe(true);
 				}
 			}
@@ -472,11 +507,11 @@ describe('encounterTable', () => {
 					prevFierce = fierce;
 					prevOwn = own;
 				}
-				const far = encounterTable(biome, WILD_RADIUS, lead);
+				const far = tableIn(biome, WILD_RADIUS, lead);
 				for (const e of far) expect(e.species.habitats, 'no visitor far out').toContain(biome);
 				const upper = far.filter((e) => e.species.tier >= lead);
 				for (const e of upper) expect(e.weight).toBeCloseTo(upper[0]!.weight, 12);
-				expect(encounterTable(biome, WILD_RADIUS * 4, lead)).toEqual(far);
+				expect(tableIn(biome, WILD_RADIUS * 4, lead)).toEqual(far);
 			}
 		}
 		expect(bad).toEqual([]);
@@ -531,7 +566,7 @@ describe('encounterTableAt: the ground around the tall grass', () => {
 		for (const lead of LEADS) {
 			for (const biome of BIOMES) {
 				for (const d of [0, 16, 48, 80, 127, 400]) {
-					const inBiome = encounterTable(biome, d, lead);
+					const inBiome = tableIn(biome, d, lead);
 					for (const around of GROUND_GRID) {
 						const here = encounterTableAt(siteAt(biome, d, around), lead);
 						const where = `tier-${lead} lead in ${biome} @ ${d} on ${JSON.stringify(around)}`;
@@ -583,6 +618,7 @@ describe('encounterTableAt: the ground around the tall grass', () => {
 				id: a.id,
 				tier: a.tier - (lead - 1),
 				habitats: a.habitats,
+				realms: a.realms,
 				favours: a.favours
 			}));
 			for (const biome of BIOMES) {
@@ -685,23 +721,28 @@ describe('encounterTableAt: the ground around the tall grass', () => {
 		expect(bad.list).toEqual([]);
 	});
 
-	it('lists only animals that live in the realm the tile is in: on the water, only the frog and the otter so far', () => {
-		// Nothing starts a water encounter yet (the boat will); the realm is
-		// already in the tables, so a sea animal added to the catalog will
-		// never come out of the tall grass, and a land animal never out of the water.
+	it('lists only animals that live in the realm the tile is in: out on the deep water only the sea animals, in the tall grass never one', () => {
+		// The frog and the otter swim, but live by the river: out at sea only the
+		// animals that live nowhere else come out, and none of them ever in the reeds.
+		const sea = ANIMALS.filter((a) => a.habitats.includes('sea')).map((a) => a.id);
 		for (const lead of LEADS) {
 			for (const biome of BIOMES) {
 				for (const d of [0, 64, 400]) {
-					for (const e of encounterTable(biome, d, lead, 'water'))
-						expect(e.species.realms, `${e.species.id} on the water`).toContain('water');
-					for (const e of encounterTable(biome, d, lead, 'land'))
-						expect(e.species.realms, `${e.species.id} on land`).toContain('land');
+					for (const e of encounterTableAt(siteAt(biome, d), lead)) {
+						const where = `${e.species.id} in ${biome}, tier-${lead} lead @ ${d}`;
+						expect(e.species.realms, where).toContain(realmOf(biome));
+						expect(sea.includes(e.species.id), where).toBe(biome === 'sea');
+					}
 					expect(encounterTable(biome, d, lead, 'land')).toEqual(encounterTable(biome, d, lead));
 				}
 			}
+			// The shallows along a shore are no one's: nothing comes out of them.
+			for (const biome of ['river', 'meadow', 'sea'] as const) {
+				const shallows = { ...siteAt(biome, 0), tile: { kind: 'water', biome, height: 0 } };
+				expect(encounterTableAt(shallows as EncounterSite, lead)).toEqual([]);
+			}
 		}
-		expectShares(encounterTable('river', 0, 1, 'water'), normalised({ frog: 1, otter: 0.2 }));
-		expectShares(encounterTable('river', 0, 2, 'water'), normalised({ frog: 0.1, otter: 1 }));
+		expect(sea).toEqual(['crab', 'starfish', 'turtle', 'dolphin', 'octopus', 'whale']);
 		for (const biome of ['meadow', 'forest', 'mountain'] as const)
 			expect(encounterTable(biome, 0, 1, 'water')).toEqual([]);
 	});
@@ -714,7 +755,7 @@ describe('the start: the ground near spawn', () => {
 		for (const lead of LEADS) {
 			for (const biome of BIOMES) {
 				for (const d of [0, 8, 16, 24, SAFE_RADIUS]) {
-					const inBiome = encounterTable(biome, d, lead);
+					const inBiome = tableIn(biome, d, lead);
 					for (const around of GROUND_GRID) {
 						const here = encounterTableAt(siteAt(biome, d, around), lead);
 						for (const tier of [1, 2, 3, 4, 5]) {
@@ -754,7 +795,7 @@ describe('the start: the ground near spawn', () => {
 });
 
 describe('rollEncounter', () => {
-	it('is empty on every tile kind but tall grass, and leaves the rng untouched', () => {
+	it('is empty on every tile kind but tall grass and deep water, and leaves the rng untouched', () => {
 		const kinds: readonly TileKind[] = ['grass', 'sand', 'water', 'rock', 'tree', 'tent'];
 		for (const lead of LEADS) {
 			for (const kind of kinds) {
@@ -909,7 +950,7 @@ describe('rollEncounter', () => {
 					for (const o of offsets) {
 						const pos = { x: spawn.x + o.x, y: spawn.y + o.y };
 						const around = GROUNDS[(o.x + o.y + spawn.x) & 7]!;
-						const site = { tile: tallgrass(biome), pos, spawn, around };
+						const site = { tile: encounterTile(biome), pos, spawn, around };
 						const table = encounterTableAt(site, lead);
 						const rng = new Rng(hashString(`${lead}:${biome}:${pos.x}:${pos.y}`));
 						let here = 0;
@@ -973,7 +1014,7 @@ describe('rollEncounter', () => {
 });
 
 describe('the generated world offers every habitat', () => {
-	it('grows tall grass in at least one habitat of every species, within 8 chunks of spawn', () => {
+	it('grows tall grass or deep water in at least one habitat of every species, within 8 chunks of spawn', () => {
 		for (const seed of [hashString('prototype'), 1, 2, 3]) {
 			const grassy = new Set<Biome>();
 			const spawn = spawnPoint(seed);
@@ -982,10 +1023,10 @@ describe('the generated world offers every habitat', () => {
 			for (let cy = scy - 8; cy <= scy + 8; cy++)
 				for (let cx = scx - 8; cx <= scx + 8; cx++)
 					for (const t of generateChunk(seed, cx, cy).tiles)
-						if (t.kind === 'tallgrass') grassy.add(t.biome);
+						if (isEncounterTile(t.kind)) grassy.add(t.biome);
 			for (const a of ANIMALS) {
 				const reachable = a.habitats.some((b) => grassy.has(b));
-				expect(reachable, `${a.id} has no tall grass to be met in (seed ${seed})`).toBe(true);
+				expect(reachable, `${a.id} has nowhere to be met (seed ${seed})`).toBe(true);
 			}
 		}
 		// About 1.5 s alone (1,156 chunks generated); over 2 s with two browsers drawing beside it.

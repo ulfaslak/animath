@@ -1,6 +1,7 @@
 import { getAnimal } from '../animals/catalog.js';
 import type { AnimalInstance } from '../animals/types.js';
 import { ITEM_IDS, getItem, isItemId, itemsForSale, type ItemId } from '../items/catalog.js';
+import { leadIndex } from '../party/reducer.js';
 import { healingDifficulty } from '../puzzles/difficulty.js';
 import { checkAnswer, generatePuzzle } from '../puzzles/registry.js';
 import type { Puzzle, PuzzleKind } from '../puzzles/types.js';
@@ -142,10 +143,11 @@ function pickPatient(state: DoctorState, seed: number, partyIndex: number): Doct
 
 /**
  * Animals by id, each once, all in the party, and never so many that nobody
- * standing stays: the kid keeps at least one animal that isn't tired, so the
- * team can still battle when it walks away (and a reload, which rests a team
- * with nobody standing, is never a free heal). Tired animals may go too: the
- * doctor makes them better before they leave.
+ * standing stays: the kid keeps at least one animal that isn't tired and can
+ * fight on land, where every tent stands, so the team can still battle when
+ * it walks away (a sea animal alone could not), and a reload, which rests a
+ * team with nobody standing, is never a free heal. Tired animals may go too:
+ * the doctor makes them better before they leave.
  */
 function handOver(state: DoctorState, ids: readonly string[]): DoctorStep {
 	if (!Array.isArray(ids) || ids.length === 0) return reject(state, 'no-such-animal');
@@ -155,7 +157,8 @@ function handOver(state: DoctorState, ids: readonly string[]): DoctorStep {
 		if (!state.party.some((a) => a.id === id)) return reject(state, 'no-such-animal');
 		picked.add(id);
 	}
-	if (!state.party.some((a) => !picked.has(a.id) && a.hp > 0)) return reject(state, 'keep-one');
+	const staying = state.party.filter((a) => !picked.has(a.id));
+	if (leadIndex(staying, 'land') < 0) return reject(state, 'keep-one');
 
 	const leaving = state.party.filter((a) => picked.has(a.id));
 	const reward = homeTokens(leaving);
