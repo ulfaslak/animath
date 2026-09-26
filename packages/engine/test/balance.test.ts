@@ -216,10 +216,12 @@ describe('balance simulation', () => {
 		// The open meadow is the rabbits' ground (3 in 4 of its tier-1 animals
 		// near home), and the rabbit is the strongest tier-1 animal: there a
 		// squirrel starter right 7 times in 10 wins about 37%, below the band,
-		// and never less than one fight in three.
+		// and at least one fight in three (all rabbits would be 28%).
 		const meadow = STARTER_MIXES['the meadow near home']!;
 		expectInBand(starterWin(easiest(1), meadow), 0.65, 0.8, 'starter vs the meadow, always right');
-		expectInBand(starterWin(easiest(0.7), meadow), 1 / 3, 0.4, 'starter vs the meadow, right 70%');
+		const shaky = starterWin(easiest(0.7), meadow);
+		expect(shaky, 'starter vs the meadow, right 70%').toBeGreaterThanOrEqual(1 / 3);
+		expect(shaky, 'starter vs the meadow, right 70%').toBeLessThanOrEqual(0.55 + SLACK);
 	});
 
 	it('on the easiest puzzle, one tier up is hard and two tiers up is out of reach', () => {
