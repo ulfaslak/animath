@@ -146,9 +146,10 @@ export class Follower {
 		this.at = { ...from };
 		this.facing = direction(at, from) ?? this.facing;
 		// The trainer steps onto its tile: the two swap, and it steps round them,
-		// on the camera's side, so neither walks through the other.
+		// on the side away from the camera, so neither walks through the other and
+		// a big animal never hides the trainer.
 		const swapping = to.x === at.x && to.y === at.y;
-		this.aside = swapping ? (from.x === at.x ? { x: 1, z: 0 } : { x: 0, z: 1 }) : null;
+		this.aside = swapping ? (from.x === at.x ? { x: -1, z: 0 } : { x: 0, z: -1 }) : null;
 	}
 
 	/** Who follows: the lead's species, or null when every animal is tired. */
