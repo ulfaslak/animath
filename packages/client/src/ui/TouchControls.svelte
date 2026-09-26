@@ -228,4 +228,13 @@
 				var(--hud-shadow);
 		}
 	}
+	/* Less motion: the glow stays lit round Talk instead of pulsing out. */
+	@media (prefers-reduced-motion: reduce) {
+		.talk-button.ready {
+			animation: none;
+			box-shadow:
+				0 0 0 6px color-mix(in srgb, var(--accent) 35%, transparent),
+				var(--hud-shadow);
+		}
+	}
 </style>

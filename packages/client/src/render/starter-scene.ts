@@ -1,5 +1,6 @@
 import { Rng } from '@mathgame/engine';
 import * as THREE from 'three';
+import { motion } from '../motion';
 import { animateIdle, buildAnimalMesh, disposeFigure } from './animals';
 import { COLORS, TILE_COLORS } from './palette';
 import type { Stage } from './renderer';
@@ -12,7 +13,8 @@ import type { Stage } from './renderer';
  *
  * The one that is lit stands on a warm ring, faces the camera and bounces;
  * the others idle, turned a little towards it. Picking one makes it hop for
- * joy. The row is as long as the list it is given, so a species added to the
+ * joy. With reduced motion the bounce is a third as high and the joy one
+ * small hop. The row is as long as the list it is given, so a species added to the
  * starters simply stands in it. The words (the names under the animals) are
  * the DOM's: `spots()` says where each animal's feet are on screen.
  */
@@ -138,12 +140,15 @@ export class StarterScene implements Stage {
 			figure.rotation.y = lit ? 0 : toward;
 			let y = 0;
 			if (lit && this.joy >= 0 && this.joy < JOY_SECONDS) {
-				// Two quick hops, the second smaller.
+				// Two quick hops, the second smaller; with reduced motion one small hop.
 				const p = this.joy / JOY_SECONDS;
-				y = Math.abs(Math.sin(p * Math.PI * 2)) * (p < 0.5 ? 0.45 : 0.25);
+				y = motion.reduced
+					? Math.sin(Math.min(1, p * 2) * Math.PI) * 0.15
+					: Math.abs(Math.sin(p * Math.PI * 2)) * (p < 0.5 ? 0.45 : 0.25);
 			} else if (lit) {
+				// A bounce now and then, a third as high with reduced motion.
 				const p = (t % BOUNCE_SECONDS) / BOUNCE_SECONDS;
-				y = p < 0.35 ? Math.sin((p / 0.35) * Math.PI) * 0.16 : 0;
+				y = p < 0.35 ? Math.sin((p / 0.35) * Math.PI) * (motion.reduced ? 0.05 : 0.16) : 0;
 			}
 			figure.position.y = y;
 		});

@@ -591,11 +591,13 @@ export class BattleScene {
 			if (figure) animateIdle(figure, t, this.camera);
 		}
 
+		// With reduced motion a miss's puff swells less and stays where it is.
+		const calm = motion.reduced;
 		for (const puff of this.puffs) {
 			puff.t += dt;
 			const p = Math.min(1, puff.t / PUFF_SECONDS);
-			puff.group.scale.setScalar(Math.sin(p * Math.PI) * 1.4 + 0.01);
-			puff.group.position.y += dt * 0.4;
+			puff.group.scale.setScalar(Math.sin(p * Math.PI) * (calm ? 1 : 1.4) + 0.01);
+			if (!calm) puff.group.position.y += dt * 0.4;
 		}
 		for (const puff of this.puffs) if (puff.t >= PUFF_SECONDS) this.scene.remove(puff.group);
 		this.puffs = this.puffs.filter((p) => p.t < PUFF_SECONDS);
@@ -607,12 +609,14 @@ export class BattleScene {
 			if (!dust.group.visible) continue;
 			// A ring rolling out along the ground from round the animal, rising a
 			// little, puffing up and thinning away: it frames the animal, never hides it.
+			// With reduced motion it rolls out and rises a third as far.
 			const size = dust.group.userData.size as number;
-			const ring = size * (0.55 + p * 0.5);
+			const travel = calm ? 0.35 : 1;
+			const ring = size * (0.55 + p * 0.5 * travel);
 			const ease = Math.sin(Math.min(1, p * 2) * (Math.PI / 2));
 			for (const bit of dust.group.children) {
 				const dir = bit.userData.dir as THREE.Vector3;
-				bit.position.set(dir.x * ring, 0.05 + p * 0.12, dir.z * ring);
+				bit.position.set(dir.x * ring, 0.05 + p * 0.12 * travel, dir.z * ring);
 				bit.scale.setScalar(Math.max(0.01, (0.4 + 0.6 * ease) * Math.min(1.3, size)));
 			}
 			(dust.group.userData.material as THREE.Material).opacity = 0.8 * (1 - p);
@@ -681,11 +685,13 @@ export class BattleScene {
 		loop.scale.setScalar(size);
 		// Tilted towards the camera so the loop reads as a ring, not a line.
 		loop.rotation.set(Math.PI / 2 - 0.6, 0, 0);
+		// With reduced motion the throw arcs a third as high, and a loop that pops off rises a third as far.
+		const arc = motion.reduced ? 0.35 : 1;
 		if (leash.state === 'flying') {
 			const p = Math.min(1, leash.t / LEASH_FLIGHT_SECONDS);
 			loop.position.set(
 				HAND.x + (to.x - HAND.x) * p,
-				HAND.y + (holdY - HAND.y) * p + Math.sin(p * Math.PI) * 1.0,
+				HAND.y + (holdY - HAND.y) * p + Math.sin(p * Math.PI) * 1.0 * arc,
 				HAND.z + (to.z - HAND.z) * p
 			);
 			// Settled on the animal: it wobbles while everyone waits, a swing each
@@ -698,7 +704,7 @@ export class BattleScene {
 			loop.scale.setScalar(size * (1 - 0.15 * Math.min(1, leash.t / 0.2)));
 		} else {
 			const p = Math.min(1, leash.t / LEASH_POP_SECONDS);
-			loop.position.set(to.x, holdY + p * 0.8, to.z);
+			loop.position.set(to.x, holdY + p * 0.8 * arc, to.z);
 			loop.scale.setScalar(Math.max(0.001, size * (1 - p)));
 			if (p >= 1) {
 				this.dropLeash();
@@ -741,7 +747,8 @@ function effectSeconds(kind: EffectKind): number {
  * Offset a figure (already reset to its spot) for one running effect. With
  * reduced motion the lunge, shake and hop travel about a third as far; the
  * faint, the recall and the appearance keep their shape, since they say
- * what happened.
+ * what happened, but the recall rises a third as high and the appearance
+ * grows to its size without bouncing past it.
  */
 function applyEffect(figure: THREE.Group, effect: Effect): void {
 	const p = Math.min(1, effect.t / effectSeconds(effect.kind));
@@ -770,10 +777,10 @@ function applyEffect(figure: THREE.Group, effect: Effect): void {
 			break;
 		case 'recall':
 			figure.scale.multiplyScalar(recallScale(p));
-			figure.position.y += Math.sin(p * Math.PI) * 0.15;
+			figure.position.y += Math.sin(p * Math.PI) * 0.15 * k;
 			break;
 		case 'appear':
-			figure.scale.multiplyScalar(appearScale(p));
+			figure.scale.multiplyScalar(appearScale(p, motion.reduced));
 			break;
 		case 'cheer': {
 			// Two hops for joy, the first higher and with a whole turn; with less

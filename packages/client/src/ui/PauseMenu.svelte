@@ -5,6 +5,7 @@
 	import { LANGUAGES, language, languageName, t } from '../copy';
 	import { languageKey, optionKey, rowKey, unfocusable } from '../input/press';
 	import { touch } from '../input/touch.svelte';
+	import { motion } from '../motion';
 	import { animalWords, nameOf, speciesName } from '../names';
 	import { game } from '../state/game.svelte';
 	import {
@@ -116,7 +117,7 @@
 						class:lit={lit === i}
 						class:picked={pickedIndex === i}
 						class:tired={animal.hp === 0}
-						animate:flip={{ duration: 180 }}
+						animate:flip={{ duration: motion.reduced ? 0 : 180 }}
 						data-press={rowKey(i)}
 						{@attach unfocusable}
 					>
