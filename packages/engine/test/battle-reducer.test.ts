@@ -919,7 +919,7 @@ describe('on the water', () => {
 					party,
 					makeWild(wild),
 					model,
-					(before, intent, step) => {
+					(before, _intent, step) => {
 						const front = step.state.party[step.state.active]!;
 						const waiting = step.state.phase.kind === 'choose-animal';
 						if (!swims(front)) bad.push(`${wild} ${seed}: ${front.speciesId} fights on water`);
@@ -929,8 +929,8 @@ describe('on the water', () => {
 						for (const [i, a] of step.state.party.entries())
 							if (!swims(a) && a.hp !== before.party[i]!.hp)
 								bad.push(`${wild} ${seed}: ${a.speciesId} in the boat lost HP`);
-						void intent;
 					},
+
 					2000,
 					'water'
 				);

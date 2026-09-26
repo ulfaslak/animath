@@ -426,7 +426,60 @@ describe('applyPartyIntent: select-lead', () => {
 			expectRejected(party, applyPartyIntent(party, intent, 'explore'), 'unknown-animal');
 		}
 	});
+
+	it('out on the water, only an animal that swims goes first, and it is the one that fights there', () => {
+		const swims = (a: AnimalInstance) => ANIMALS.find((s) => s.id === a.speciesId)!.realms;
+		const wild: AnimalInstance = { id: 'wild', speciesId: 'otter', hp: 32 };
+		let chosen = 0;
+		let cannot = 0;
+		for (const party of PARTIES) {
+			for (const [from, animal] of party.entries()) {
+				const step = applyPartyIntent(
+					party,
+					{ type: 'select-lead', animalId: animal.id },
+					'explore',
+					'water'
+				);
+				if (!swims(animal).includes('water')) {
+					cannot++;
+					expectRejected(party, step, 'cannot-fight-here', animal.id);
+					continue;
+				}
+				if (animal.hp === 0) {
+					expectRejected(party, step, 'tired', animal.id);
+					continue;
+				}
+				if (leadIndex(party, 'water') === from) {
+					expectRejected(party, step, 'already-lead', animal.id);
+					continue;
+				}
+				chosen++;
+				expect(step.events).toEqual([{ type: 'lead-selected', animalId: animal.id, from }]);
+				expect(leadIndex(step.party, 'water')).toBe(0);
+				const battle = startBattle(step.party, wild, { realm: 'water' });
+				expect(battle.party[battle.active]!.id).toBe(animal.id);
+			}
+		}
+		expect(chosen).toBeGreaterThan(20);
+		expect(cannot).toBeGreaterThan(100);
+	});
 });
+
+describe('leadIndex', () => {
+	it('is the first animal that is standing and can fight where the player stands, or -1', () => {
+		for (const party of PARTIES) {
+			for (const realm of ['land', 'water'] as const) {
+				const expected = party.findIndex(
+					(a) => a.hp > 0 && ANIMALS.find((s) => s.id === a.speciesId)!.realms.includes(realm)
+				);
+				expect(leadIndex(party, realm)).toBe(expected);
+			}
+			// Land unless said otherwise.
+			expect(leadIndex(party)).toBe(leadIndex(party, 'land'));
+		}
+	});
+});
+
 
 describe('applyPartyIntent: reorder', () => {
 	it('moves one animal to the slot asked for and keeps everyone else in order', () => {

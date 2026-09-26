@@ -11,8 +11,8 @@ import { healingDifficulty } from '../src/puzzles/difficulty.js';
 import { checkAnswer } from '../src/puzzles/registry.js';
 import { Rng, hashInts, hashString } from '../src/rng.js';
 import { spawnPoint, tileAtWorld } from '../src/world/generate.js';
-import { canTalkToDoctor, nearestTent } from '../src/world/tents.js';
-import { isWalkable, step, type Direction, type GridPos } from '../src/world/types.js';
+import { TENT_SEARCH_STEPS, canTalkToDoctor, nearestTent } from '../src/world/tents.js';
+import { isWalkable, isWater, step, type Direction, type GridPos } from '../src/world/types.js';
 import { makeParty, makeWild, playBattle } from './battle-sim.js';
 import { wordedStrings } from './words.js';
 
@@ -918,7 +918,47 @@ describe('takeToDoctor', () => {
 		});
 	});
 
+	it('out on the water with the boat: over the water to the nearest tent, stood on the ground beside it', () => {
+		const spawn = spawnPoint(PROTOTYPE);
+		const boat = { boat: true };
+		let rescued = 0;
+		for (let dy = -12; dy <= 12 && rescued < 8; dy += 3) {
+			for (let dx = -40; dx <= 40 && rescued < 8; dx += 5) {
+				const pos = { x: spawn.x + dx, y: spawn.y + dy };
+				if (!isWater(tileAtWorld(PROTOTYPE, pos.x, pos.y).kind)) continue;
+				rescued++;
+				// The otter is tired; the squirrel, who can't swim, sat it out in the boat.
+				const party = deepFreeze(partyOf(['squirrel', 20], ['otter', 0]));
+				const rescue = takeToDoctor(PROTOTYPE, pos, party, { gear: boat, realm: 'water' });
+				const spot = nearestTent(PROTOTYPE, pos, TENT_SEARCH_STEPS, boat)!;
+				expect(rescue).toEqual({
+					pos: spot.stand,
+					facing: spot.facing,
+					tent: spot.tent,
+					party: partyOf(['squirrel'], ['otter'])
+				});
+				expect(isWalkable(tileAtWorld(PROTOTYPE, rescue.pos.x, rescue.pos.y).kind)).toBe(true);
+				expect(canTalkToDoctor(PROTOTYPE, rescue.pos, rescue.facing)).toBe(true);
+			}
+		}
+		expect(rescued).toBe(8);
+	});
+
+	it('out on the water, the battle is lost with animals that cannot swim still standing, never a swimmer', () => {
+		const pos = spawnPoint(PROTOTYPE);
+		const water = { realm: 'water' as const, gear: { boat: true } };
+		expect(() => takeToDoctor(PROTOTYPE, pos, partyOf(['bear'], ['frog', 0]), water)).not.toThrow();
+		expect(() => takeToDoctor(PROTOTYPE, pos, partyOf(['bear', 0], ['frog', 3]), water)).toThrow(
+			/knocked out/
+		);
+		// On land a standing bear is someone to fight on, as ever.
+		expect(() => takeToDoctor(PROTOTYPE, pos, partyOf(['bear'], ['frog', 0]))).toThrow(
+			/knocked out/
+		);
+	});
+
 	it('only takes a party that is all knocked out, and a real one', () => {
+
 		const pos = spawnPoint(PROTOTYPE);
 		expect(() => takeToDoctor(PROTOTYPE, pos, partyOf(['squirrel', 0], ['fox', 1]))).toThrow(
 			/knocked out/
