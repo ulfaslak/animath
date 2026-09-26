@@ -147,7 +147,8 @@ const exploreInput = () => keyScreen() === 'explore' && autosave.behind === null
  * Counts every change of what takes keys, down to the screen inside a screen
  * (the battle's menu, its turn playing, its result card), so a tap counts only
  * on the screen it began on (`input/taps.ts`): a finger that went down on a
- * row while the turn played does nothing when it lifts over the menu.
+ * row while the turn played does nothing when it lifts over the menu. A
+ * tablet turned upright is a screen of its own, which takes no taps.
  */
 let screenSeen = '';
 let screenCount = 0;
@@ -155,15 +156,17 @@ function noteScreen(): void {
 	const now =
 		autosave.behind !== null
 			? 'behind'
-			: title.open
-				? `title:${title.screen}`
-				: battle.active
-					? `battle:${battle.screen}`
-					: doctor.active
-						? `doctor:${doctor.screen}`
-						: pause.open
-							? `pause:${pause.screen}`
-							: game.mode;
+			: touch.on && touch.portrait
+				? 'portrait'
+				: title.open
+					? `title:${title.screen}`
+					: battle.active
+						? `battle:${battle.screen}`
+						: doctor.active
+							? `doctor:${doctor.screen}`
+							: pause.open
+								? `pause:${pause.screen}`
+								: game.mode;
 	if (now !== screenSeen) {
 		screenSeen = now;
 		screenCount++;
