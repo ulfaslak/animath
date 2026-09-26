@@ -259,6 +259,7 @@ pause:
   soundOn: Til
   soundOff: Fra
   soundHelp: Enter eller ← → tænder og slukker lyden. Du kan også trykke på M.
+  soundHelpTouch: Tryk på Lyd for at tænde og slukke lyden.
   goFirst: Sæt forrest
   moveUp: Flyt op
   moveDown: Flyt ned
