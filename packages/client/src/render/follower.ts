@@ -106,7 +106,7 @@ export const SWIM_DEPTH = 0.4;
  * how long (nose to tail, or across) and how tall it may be. A small animal
  * rides near its own size, a big one made smaller, all big enough to know.
  */
-export const RIDE_AHEAD = 0.38;
+export const RIDE_AHEAD = 0.46;
 export const RIDE_LENGTH = 0.55;
 export const RIDE_HEIGHT = 0.6;
 

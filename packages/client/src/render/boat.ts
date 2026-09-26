@@ -52,7 +52,7 @@ const BACK_TURN = new THREE.Quaternion().setFromEuler(new THREE.Euler(Math.PI / 
  * and a little ahead of them: the trainer stands towards the stern, and the
  * bow has room for an animal riding along (`follower.ts`).
  */
-export const AFLOAT_AHEAD = 0.12;
+export const AFLOAT_AHEAD = 0.18;
 const AFLOAT = new THREE.Vector3(0, DEPTH / 2 - FLOOR, AFLOAT_AHEAD);
 const AFLOAT_TURN = new THREE.Quaternion();
 /** A little rocking on the water, reused. */
