@@ -1,6 +1,6 @@
 import type { Authority, GameEvent, PartyIntent } from '@mathgame/engine';
 import { sfx } from '../audio/sfx.svelte';
-import { LANGUAGES, language } from '../copy';
+import { nextLanguage } from '../copy';
 import { isShortcut, keyName } from '../input/keyboard';
 import { game } from '../state/game.svelte';
 import {
@@ -29,6 +29,7 @@ export class PauseController {
 	handle(event: GameEvent): void {
 		switch (event.type) {
 			case 'welcome':
+			case 'game-left':
 			case 'battle-started':
 			case 'doctor-visit-started':
 				// Something else has the screen now; the menu never stays open under it.
@@ -131,6 +132,13 @@ export class PauseController {
 			case 'resume':
 				this.close();
 				break;
+			case 'quit':
+				// Back to the title: the authority stops the game, the autosave saves it as it
+				// stands, and the title opens with it as Continue (`game-left`, in main.ts).
+				sfx.play('confirm');
+				this.close();
+				this.authority.dispatch({ type: 'leave-game' });
+				break;
 			case 'sound':
 				this.setSound(!sfx.on);
 				break;
@@ -151,6 +159,7 @@ export class PauseController {
 				if (sfx.on !== right) this.setSound(right);
 				return true;
 			case 'resume':
+			case 'quit':
 				return false;
 		}
 	}
@@ -288,14 +297,4 @@ function nextEnabled(options: readonly PartyOptionRow[], from: number, dir: 1 | 
 		if (options[at]!.enabled) return at;
 	}
 	return from;
-}
-
-/**
- * Switch to the language `step` places along `LANGUAGES`, wrapping round:
- * every word on screen changes at once, and the choice is remembered on this
- * device (`language.set`).
- */
-function nextLanguage(step: 1 | -1): void {
-	const i = LANGUAGES.indexOf(language.current);
-	language.set(LANGUAGES[(i + step + LANGUAGES.length) % LANGUAGES.length]!);
 }

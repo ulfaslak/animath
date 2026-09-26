@@ -1,7 +1,7 @@
 import { Rng, type Biome } from '@mathgame/engine';
 import * as THREE from 'three';
 import { motion } from '../motion';
-import { animateIdle, buildAnimalMesh } from './animals';
+import { animateIdle, buildAnimalMesh, disposeFigure } from './animals';
 import { COLORS, CONFETTI_COLORS, TILE_COLORS } from './palette';
 import { PROP_GEOMETRY } from './tiles';
 
@@ -203,7 +203,7 @@ export class BattleScene {
 			const figure = this.figures[side];
 			if (!figure) continue;
 			this.scene.remove(figure);
-			disposeGeometries(figure);
+			disposeFigure(figure);
 			this.figures[side] = null;
 		}
 		for (const puff of this.puffs) this.scene.remove(puff.group);
@@ -224,7 +224,7 @@ export class BattleScene {
 		const old = this.figures[side];
 		if (old) {
 			this.scene.remove(old);
-			disposeGeometries(old);
+			disposeFigure(old);
 		}
 		const figure = buildAnimalMesh(speciesId);
 		const height = new THREE.Box3().setFromObject(figure).getSize(new THREE.Vector3()).y;
@@ -588,13 +588,6 @@ function applyEffect(figure: THREE.Group, effect: Effect): void {
 			break;
 		}
 	}
-}
-
-/** Free a figure's geometries. Materials are shared across figures (animals.ts caches them). */
-function disposeGeometries(root: THREE.Object3D): void {
-	root.traverse((o) => {
-		if (o instanceof THREE.Mesh) o.geometry.dispose();
-	});
 }
 
 /**

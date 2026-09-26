@@ -10,7 +10,8 @@
 		type PuzzleTopic
 	} from '@mathgame/engine';
 	import { actionAt, attackRows, levelWord, rowOf } from '../battle/menu';
-	import { language, t } from '../copy';
+	import { t } from '../copy';
+	import { kindList } from '../kinds';
 	import { messageWords, words } from '../lines';
 	import { animalWords, nameOf } from '../names';
 	import { battle } from '../state/battle.svelte';
@@ -38,30 +39,9 @@
 	 */
 	const teamFull = $derived(battle.party.length >= MAX_PARTY);
 
-	/** What a kind of puzzle looks like to the kid, in the language on screen. */
-	function kindWord(topic: PuzzleTopic): string {
-		switch (topic) {
-			case 'add':
-				return t('battle.kinds.add');
-			case 'sub':
-				return t('battle.kinds.sub');
-			case 'mul':
-				return t('battle.kinds.mul');
-			case 'div':
-				return t('battle.kinds.div');
-			case 'missing':
-				return t('battle.kinds.missing');
-			case 'sequence':
-				return t('battle.kinds.sequence');
-			case 'sqrt':
-				return t('battle.kinds.sqrt');
-		}
-	}
-
 	/** "adding, taking away, or missing numbers": the language's own "or" list. */
 	function kindWords(topics: readonly PuzzleTopic[]): string {
-		const list = new Intl.ListFormat(language.current, { type: 'disjunction' });
-		return list.format(topics.map(kindWord));
+		return kindList(topics, 'disjunction');
 	}
 
 	/** What the highlighted row will do, in words a kid can read. */

@@ -1,11 +1,10 @@
 <script lang="ts">
 	import { t } from '../copy';
-	import { reloadIntoNewestGame } from '../save/behind';
 	import { behind } from '../state/behind.svelte';
 
 	// The one button in the game that takes a click: the kid may well click a window
 	// that is not in use. Asked for, the reload does not count against the limit.
-	const go = () => reloadIntoNewestGame({ onItsOwn: false, caughtUp: behind.cause === 'window' });
+	const go = () => behind.go();
 </script>
 
 <!-- This page is behind the save and takes no play until it has the newest game

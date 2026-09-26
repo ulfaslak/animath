@@ -125,6 +125,17 @@ export function languageName(lang: Language): string {
 	return translate(lang, 'language.name');
 }
 
+/**
+ * Switch to the language `step` places along `LANGUAGES`, wrapping round:
+ * every word on screen changes at once, and the choice is remembered on this
+ * device (`language.set`). What the Language rows of the pause menu and the
+ * title do.
+ */
+export function nextLanguage(step: 1 | -1): void {
+	const i = LANGUAGES.indexOf(language.current);
+	language.set(LANGUAGES[(i + step + LANGUAGES.length) % LANGUAGES.length]!);
+}
+
 // Dev server: an edited copy file swaps the words in place, without a reload
 // and without losing the game on screen. The update stops here, so the
 // `language` above is never re-created.

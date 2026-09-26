@@ -1,4 +1,5 @@
 import './styles.css';
+import type { SavedGame } from '@mathgame/engine';
 import { mount } from 'svelte';
 import { sfx } from './audio/sfx.svelte';
 import { LocalAuthority, mintId } from './authority/local';
@@ -10,6 +11,7 @@ import { Keyboard } from './input/keyboard';
 import { isSoundKey, typingNow } from './input/sound-key';
 import { PauseController } from './pause/controller';
 import { GameRenderer } from './render/renderer';
+import { TitleScenery } from './render/title-scenery';
 import { buildZoo } from './render/zoo';
 import { httpSaveServer } from './save/api';
 import { Autosave } from './save/autosave';
@@ -20,6 +22,7 @@ import {
 	reloadIntoNewestGame,
 	takeCaughtUp
 } from './save/behind';
+import type { SaveNotice } from './save/notices';
 import { browserStore } from './save/storage';
 import { battle } from './state/battle.svelte';
 import { behind } from './state/behind.svelte';
@@ -27,6 +30,8 @@ import { doctor } from './state/doctor.svelte';
 import { game } from './state/game.svelte';
 import { hud } from './state/hud.svelte';
 import { pause } from './state/pause.svelte';
+import { title } from './state/title.svelte';
+import { TitleController } from './title/controller';
 import App from './ui/App.svelte';
 
 const canvas = document.getElementById('game') as HTMLCanvasElement;
@@ -39,15 +44,45 @@ const explore = new ExploreController(authority, renderer, keyboard);
 const battleController = new BattleController(authority, renderer);
 const doctorController = new DoctorController(authority);
 const pauseController = new PauseController(authority);
-// `?new` (and `?party=`, a party to look at) play a throwaway game: nothing is
-// loaded or saved, and the saved game is left alone.
+// `?new`, `?party=` (a party to look at) and `?zoo` play a throwaway game:
+// nothing is loaded or saved, and the saved game is left alone.
 const autosave = new Autosave({
 	store: browserStore(),
 	server: httpSaveServer(),
 	snapshot: () => authority.snapshot(),
 	catchUp: (counts) => authority.catchUp(counts),
 	mintId,
-	throwaway: flags.fresh || flags.party !== null
+	throwaway: flags.throwaway
+});
+
+/**
+ * What start-up found about the save, said on the message line once the
+ * first game is under way: "Welcome back!" (or, after a reload that caught up
+ * with another window, "You were playing in another window…") when the saved
+ * game is picked up, anything else when a new game starts. Said once, then
+ * forgotten.
+ */
+let startNotice: SaveNotice | undefined;
+function sayStartNotice(newGame: boolean): void {
+	const notice = startNotice;
+	startNotice = undefined;
+	const onContinue = notice === 'save.welcomeBack' || notice === 'save.caughtUp';
+	if (notice && onContinue !== newGame) hud.notice(notice);
+}
+
+/**
+ * Pick the saved game up: as it is now, not as the title found it, because
+ * another tab may have walked on meanwhile, and its step count must not go back.
+ */
+function continueGame(saved: SavedGame): void {
+	authority.start({ game: autosave.resumable() ?? saved });
+	// After `welcome`, which clears the message line.
+	sayStartNotice(false);
+	autosave.begin();
+}
+
+const titleController = new TitleController(authority, new TitleScenery(renderer), {
+	continueGame
 });
 
 authority.subscribe((event) => {
@@ -57,7 +92,14 @@ authority.subscribe((event) => {
 	battleController.handle(event);
 	doctorController.handle(event);
 	pauseController.handle(event);
+	titleController.handle(event);
 	autosave.handle(event);
+	// A new game from the title: after `welcome`, which clears the message line.
+	if (event.type === 'welcome' && event.newGame) sayStartNotice(true);
+	// Quit to title: the game just left is the one Continue picks up.
+	if (event.type === 'game-left') {
+		titleController.open(autosave.resumable() ?? authority.snapshot());
+	}
 	// `?zoo` lines up one of every species by the spawn tile (a check for the meshes).
 	if (flags.zoo && event.type === 'welcome') {
 		for (const figure of buildZoo(event.seed, event.pos)) renderer.addFigure(figure);
@@ -65,11 +107,13 @@ authority.subscribe((event) => {
 });
 
 /**
- * Walking reads the keyboard only in explore, once the game has started, with
+ * Walking reads the keyboard only in explore, while a game is under way, with
  * no card or menu open, and never on a page that is behind the save.
  */
 const exploreInput = () =>
+	!title.open &&
 	game.mode !== 'loading' &&
+	game.mode !== 'title' &&
 	!battle.active &&
 	!doctor.active &&
 	!pause.open &&
@@ -81,13 +125,14 @@ for (const type of ['keydown', 'pointerdown', 'touchend']) {
 	window.addEventListener(type, () => sfx.unlock(), { capture: true });
 }
 
-// Keys go to exactly one screen: the battle while it is up, else the doctor's
-// card while it is open, else the pause menu while it is open (Escape in
-// explore opens it), else explore, which reads them through `keyboard`.
-// Explore's own listener runs first and is switched off here at once, so the
-// key that opens the menu is the last one walking sees. M turns the sound on
-// or off on every screen, except while an answer or a name is being typed. A
-// page that is behind the save takes no key at all.
+// Keys go to exactly one screen: the title while it is up, else the battle
+// while it is up, else the doctor's card while it is open, else the pause
+// menu while it is open (Escape in explore opens it), else explore, which
+// reads them through `keyboard`. Explore's own listener runs first and is
+// switched off here at once, so the key that opens the menu is the last one
+// walking sees, and the key that closes the title is not a step. M turns the
+// sound on or off on every screen, the title's too, except while an answer
+// or a name is being typed. A page that is behind the save takes no key at all.
 window.addEventListener('keydown', (e) => {
 	if (autosave.behind !== null) {
 		// Behind (`save/behind.ts`): no key reaches the game, nor a letter the name box.
@@ -99,10 +144,11 @@ window.addEventListener('keydown', (e) => {
 		if (behindKey(e.key, typingNow(e.target)) === 'reload') catchUp(false);
 		return;
 	}
-	if (isSoundKey(e) && game.mode !== 'loading' && !typingNow(e.target)) {
+	if (isSoundKey(e) && (title.open || game.mode !== 'loading') && !typingNow(e.target)) {
 		e.preventDefault();
 		if (!e.repeat) sfx.flip();
-	} else if (battle.active) battleController.onKey(e);
+	} else if (title.open) titleController.onKey(e);
+	else if (battle.active) battleController.onKey(e);
 	else if (doctor.active) doctorController.onKey(e);
 	else if (game.mode === 'explore') pauseController.onKey(e);
 	keyboard.setEnabled(exploreInput());
@@ -138,14 +184,17 @@ mount(App, { target: uiRoot });
 /**
  * Reload into the newest game, once. A reload the page makes on its own counts
  * against `RELOADS_PER_MINUTE`; one the kid asked for (Enter, Space, the card's
- * button) does not. Behind another window, the reloaded page says so.
+ * button) does not. Behind another window in the middle of a game, the reloaded
+ * page skips the title and says so; on the title, it opens the title again.
  */
 let reloading = false;
 function catchUp(onItsOwn: boolean): void {
 	if (reloading) return;
 	reloading = true;
-	reloadIntoNewestGame({ onItsOwn, caughtUp: autosave.behind === 'window' });
+	const midGame = !title.open && game.mode !== 'title' && game.mode !== 'loading';
+	reloadIntoNewestGame({ onItsOwn, caughtUp: autosave.behind === 'window' && midGame });
 }
+behind.go = () => catchUp(false);
 
 let last = performance.now();
 function frame(now: number) {
@@ -164,9 +213,12 @@ function frame(now: number) {
 	const card = action === 'card' && !reloading;
 	if (cause !== null && behind.cause !== cause) behind.cause = cause;
 	if (behind.shown !== card) behind.shown = card;
-	const loading = game.mode === 'loading';
 	keyboard.setEnabled(exploreInput());
-	if (!loading) {
+	if (title.open) {
+		// The title's world drifts, or its starter stage is drawn instead.
+		if (action === 'play') titleController.update(dt);
+		renderer.render();
+	} else if (game.mode !== 'loading' && game.mode !== 'title') {
 		if (action === 'play') {
 			// While a battle is entering, the world keeps drawing so the step into the
 			// grass can land; explore input is already off, so no new step starts.
@@ -183,12 +235,25 @@ function frame(now: number) {
 }
 requestAnimationFrame(frame);
 
+// The title comes first: nothing is started, rolled or saved behind it. A
+// throwaway game (`?new`, `?party=`, `?zoo`) goes straight into explore, and so
+// does a page that reloaded itself mid-game to catch up with another window: it
+// picks the newest game up at once and says so, instead of "Welcome back!".
 const caughtUp = takeCaughtUp();
 void autosave.boot().then((plan) => {
-	authority.start({ game: plan.game });
-	// After `welcome`, which clears the message line. A page that reloaded to catch up
-	// with another window says so instead of "Welcome back!".
-	const notice = caughtUp && plan.notice === 'save.welcomeBack' ? 'save.caughtUp' : plan.notice;
-	if (notice) hud.notice(notice);
-	autosave.begin();
+	if (flags.throwaway) {
+		authority.start();
+		autosave.begin();
+		return;
+	}
+	startNotice = plan.notice;
+	if (caughtUp && plan.game && plan.notice === 'save.welcomeBack') {
+		startNotice = 'save.caughtUp';
+		continueGame(plan.game);
+		return;
+	}
+	// A save this page can't pick up is worth saying before a starter is chosen.
+	const onTitle =
+		plan.notice === 'save.newerGame' || plan.notice === 'save.cannotSave' ? plan.notice : null;
+	titleController.open(plan.game ?? null, onTitle);
 });

@@ -13,6 +13,7 @@
 		type PartyOption
 	} from '../state/pause.svelte';
 	import HpBar from './HpBar.svelte';
+	import Switch from './Switch.svelte';
 
 	/**
 	 * The pause menu: the team in battle order on the left, then the menu
@@ -48,6 +49,8 @@
 				return t('pause.language');
 			case 'resume':
 				return t('pause.resume');
+			case 'quit':
+				return t('pause.quit');
 			case 'sound':
 				return t('pause.sound');
 		}
@@ -132,12 +135,10 @@
 						{:else if item === 'sound'}
 							<!-- A setting: its name, a switch, and the switch's state in words. -->
 							<span class="setting">{itemLabel(item)}</span>
-							<span class="switch" class:on={sfx.on} aria-hidden="true"
-								><span class="knob"></span></span
-							>
+							<Switch on={sfx.on} />
 							<span class="setting-state">{sfx.on ? t('pause.soundOn') : t('pause.soundOff')}</span>
 						{:else}
-							<span class="button">{itemLabel(item)}</span>
+							<span class="button" class:secondary={item !== 'resume'}>{itemLabel(item)}</span>
 						{/if}
 					</div>
 				{/each}
@@ -332,42 +333,14 @@
 		background: var(--accent);
 		color: white;
 	}
-	/* The Sound row: an on/off switch, the knob right and the track green when on. */
-	.switch {
-		position: relative;
-		flex: none;
-		width: 52px;
-		height: 28px;
-		border-radius: 14px;
-		background: rgba(0, 0, 0, 0.18);
-		transition: background-color 0.2s;
-	}
-	.switch.on {
-		background: var(--good);
-	}
-	.knob {
-		position: absolute;
-		top: 3px;
-		left: 3px;
-		width: 22px;
-		height: 22px;
-		border-radius: 50%;
-		background: white;
-		box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
-		transition: transform 0.2s;
-	}
-	.switch.on .knob {
-		transform: translateX(24px);
+	/* The primary action is Keep playing; the others are quieter pills. */
+	.button.secondary {
+		background: rgba(0, 0, 0, 0.08);
+		color: var(--panel-ink);
 	}
 	.setting-state {
 		min-width: 3em;
 		text-align: left;
-	}
-	@media (prefers-reduced-motion: reduce) {
-		.switch,
-		.knob {
-			transition: none;
-		}
 	}
 	.side {
 		background: rgba(0, 0, 0, 0.04);

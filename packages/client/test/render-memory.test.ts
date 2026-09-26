@@ -1,9 +1,19 @@
-import { ANIMALS, CHUNK_SIZE, spawnPoint, type Biome, type GridPos } from '@mathgame/engine';
+import {
+	ANIMALS,
+	CHUNK_SIZE,
+	STARTERS,
+	spawnPoint,
+	type Biome,
+	type GridPos
+} from '@mathgame/engine';
 import * as THREE from 'three';
 import { describe, expect, it } from 'vitest';
 import { WORLD_SEED } from '../src/authority/local';
 import { BattleScene } from '../src/render/battle-scene';
 import { ChunkRing } from '../src/render/chunks';
+import type { GameRenderer } from '../src/render/renderer';
+import { StarterScene } from '../src/render/starter-scene';
+import { TitleScenery } from '../src/render/title-scenery';
 import { SHARED_GEOMETRIES } from '../src/render/tiles';
 
 /**
@@ -216,5 +226,64 @@ describe('the battle scene', () => {
 			if (i === biomes.length - 1) between = ledger.live.size;
 			if (between !== null) expect(ledger.live.size).toBe(between);
 		}
+	});
+});
+
+describe('the title', () => {
+	const figureGeometries = (root: THREE.Object3D) => {
+		const out = new Set<THREE.BufferGeometry>();
+		root.traverse((o) => {
+			if (o instanceof THREE.Mesh && ANIMALS.some((a) => a.id === o.parent?.parent?.name)) {
+				out.add(o.geometry as THREE.BufferGeometry);
+			}
+		});
+		return out;
+	};
+
+	it('the starter stage frees the animals it showed each time it shows them again', () => {
+		const stage = new StarterScene();
+		const ledger = new Ledger();
+		const shown: THREE.BufferGeometry[] = [];
+		for (let i = 0; i < 5; i++) {
+			stage.show(STARTERS);
+			ledger.see(stage.scene);
+			const now = figureGeometries(stage.scene);
+			expect(now.size).toBeGreaterThan(0);
+			shown.push(...now);
+		}
+		const last = figureGeometries(stage.scene);
+		expect(kinds(shown.filter((g) => !last.has(g) && !ledger.isDisposed(g)))).toEqual([]);
+		expect(kinds([...last].filter((g) => ledger.isDisposed(g)))).toEqual([]);
+	});
+
+	it("the menu's world frees its team when the game starts, and when it shows another", () => {
+		// The renderer's side of it, without WebGL: a group the figures stand in.
+		const world = new THREE.Group();
+		const renderer = {
+			setStage() {},
+			setWorld() {},
+			setPlayer() {},
+			ensureChunksAround() {},
+			lookAt() {},
+			aspect: () => 1.6,
+			addFigure: (figure: THREE.Group) => world.add(figure),
+			removeFigure: (figure: THREE.Group) => world.remove(figure)
+		} as unknown as GameRenderer;
+		const scenery = new TitleScenery(renderer);
+		const ledger = new Ledger();
+		const team = ['bear', 'fox', 'rabbit', 'otter', 'deer', 'squirrel'];
+		const spawn = spawnPoint(WORLD_SEED);
+		scenery.showWorld(WORLD_SEED, spawn, 'down', team);
+		ledger.see(world);
+		const first = [...figureGeometries(world)];
+		expect(world.children).toHaveLength(team.length);
+		scenery.showWorld(WORLD_SEED, spawn, 'left', STARTERS);
+		ledger.see(world);
+		expect(world.children.map((f) => f.name)).toEqual([...STARTERS]);
+		expect(kinds(first.filter((g) => !ledger.isDisposed(g)))).toEqual([]);
+		const second = [...figureGeometries(world)];
+		scenery.hide();
+		expect(world.children).toEqual([]);
+		expect(kinds(second.filter((g) => !ledger.isDisposed(g)))).toEqual([]);
 	});
 });

@@ -226,6 +226,7 @@ pause:
   title: Pause
   team: Dit hold
   resume: Spil videre
+  quit: Startskærm
   language: Sprog
   sound: Lyd
   soundOn: Til
@@ -276,3 +277,30 @@ sound:
   chipOff: Lyden er slukket
   # Under "Lyden er slukket": how to get it back.
   chipHint: Tryk på M for at tænde den igen
+
+title:
+  name: Animath
+  continue: Fortsæt
+  newGame: Nyt spil
+  language: Sprog
+  sound: Lyd
+  animals:
+    one: '{count} dyr'
+    other: '{count} dyr'
+  keys: ↑ ↓ flyt · Enter vælg
+  keysSetting: ↑ ↓ flyt · ← → skift
+  confirm:
+    title: Vil du starte et nyt spil?
+    away: Dit spil med {animal.the} bliver gemt godt væk.
+    fresh: Du starter forfra med et nyt dyr.
+    back: Nej, tilbage
+    yes: Ja, nyt spil
+    keys: ↑ ↓ flyt · Enter vælg · Esc tilbage
+  starter:
+    title: Vælg dit første dyr!
+    loves: '{animal.the} elsker {kinds}!'
+    keys: ← → flyt · Enter vælg · Esc tilbage
+  naming:
+    title: Hvad skal {animal.the} hedde?
+    empty: Uden et navn hedder dyret bare {animal.name}.
+    keys: Enter færdig · Esc tilbage

@@ -9,6 +9,7 @@ export {
 	isLanguage,
 	language,
 	languageName,
+	nextLanguage,
 	t,
 	type Language
 } from './language.svelte';

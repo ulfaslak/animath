@@ -82,7 +82,7 @@ afterEach(() => {
 
 describe('pause menu', () => {
 	it('opens on Escape, closes on Escape or "Keep playing", and ignores a held Escape', () => {
-		const { controller, press, downTo } = setup();
+		const { controller, press, sent, downTo } = setup();
 		expect(press('ArrowDown').prevented).toBe(false); // closed: explore's key, not the menu's
 		expect(pause.open).toBe(false);
 		expect(press('Escape').prevented).toBe(true);
@@ -102,25 +102,45 @@ describe('pause menu', () => {
 		expect(pause.cursor).toBe(game.party.length + MENU_ITEMS.indexOf('resume'));
 		press('Enter');
 		expect(pause.open).toBe(false);
+		expect(sent).not.toContainEqual({ type: 'leave-game' });
 	});
 
 	it('walks the list with arrows and W / S, wrapping, and never on auto-repeat', () => {
 		const { controller, press } = setup();
+		const last = game.party.length + MENU_ITEMS.length - 1;
 		press('Escape');
-		const rows = game.party.length + MENU_ITEMS.length;
 		press('s', 's', 'ArrowDown');
 		expect(pause.cursor).toBe(3);
-		press(...Array<string>(rows - 3).fill('ArrowDown'));
+		press(...Array<string>(last - 3).fill('ArrowDown'));
+		expect(pause.cursor).toBe(last);
+		press('ArrowDown');
 		expect(pause.cursor).toBe(0);
 		press('w');
-		expect(pause.cursor).toBe(rows - 1);
+		expect(pause.cursor).toBe(last);
 		controller.onKey(key('ArrowUp', { repeat: true }));
-		expect(pause.cursor).toBe(rows - 1);
+		expect(pause.cursor).toBe(last);
 		// With Caps Lock on, W and S come in capitals and steer the same.
 		press('S');
 		expect(pause.cursor).toBe(0);
 		press('W');
-		expect(pause.cursor).toBe(rows - 1);
+		expect(pause.cursor).toBe(last);
+	});
+
+	it('"Start screen" closes the menu and leaves the game for the title', () => {
+		const { press, sent, events } = setup();
+		press('Escape', ...Array<string>(game.party.length + MENU_ITEMS.indexOf('quit')).fill('s'));
+		expect(MENU_ITEMS[pause.cursor - game.party.length]).toBe('quit');
+		const sound = sfx.on;
+		press('Enter');
+		expect(pause.open).toBe(false);
+		// Only that: no setting changes on the way out.
+		expect(sfx.on).toBe(sound);
+		expect(sent.at(-1)).toEqual({ type: 'leave-game' });
+		expect(events.at(-1)).toEqual({ type: 'game-left' });
+		// No game under way: the pause menu's keys do nothing to it.
+		const count = sent.length;
+		press('Escape');
+		expect(sent.length).toBe(count);
 	});
 
 	it('the Sound row: Enter flips it, left turns it off and right on, and the menu stays open', () => {

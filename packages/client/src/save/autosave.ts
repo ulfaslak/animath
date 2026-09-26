@@ -32,6 +32,13 @@ import { KEYS, parseJson, type KeyValueStore } from './storage';
  * reloads into the newer game ([[INVARIANTS]] § Saves). The server takes a
  * backup only with a higher `seq` than it holds, and keeps any game a
  * backup replaces (`replacesAnotherGame`).
+ *
+ * The title comes first. Nothing is written until a game starts: `begin`
+ * after the authority picked up the plan's game (Continue), or a `welcome`
+ * that says the game is new (a starter picked on the title), which is a game
+ * of its own, a new lineage that takes the save key's place, the save there
+ * kept aside first (`KEYS.previous`). `game-left` (Quit to title) saves what
+ * is there and stops until the next start.
  */
 
 export interface Timers {
@@ -98,6 +105,12 @@ const MAX_FAILURES = 6;
 const BOOT_WAIT_MS = 2500;
 /** How many saves each set-aside key can keep (`animath.save.unreadable`, `.2`, … `.20`). */
 const MAX_SET_ASIDE = 20;
+/**
+ * How many games `animath.save.previous` can keep. Those are put away on
+ * purpose, and a kid trying the starters one after another puts one away
+ * per try, so the key has room for far more than the accidents above.
+ */
+const MAX_PUT_AWAY = 200;
 
 const browserTimers: Timers = {
 	setTimeout: (fn, ms) => setTimeout(fn, ms),
@@ -143,8 +156,25 @@ export class Autosave {
 	private serverHeld = false;
 	/** Why this page is behind, once it is (`behind`). It never stops being behind. */
 	private staleCause: BehindCause | null = null;
-	/** `begin` was called: the authority has started from the plan. */
+	/**
+	 * A game is under way and saved as it changes: from `begin` (the plan's
+	 * game picked up) or a new game's `welcome`, until `game-left`.
+	 */
 	private begun = false;
+	/**
+	 * The kid started a new game here: the next write takes the save key
+	 * whatever it holds, which is kept aside first (`KEYS.previous`).
+	 */
+	private replacing = false;
+	/**
+	 * The games the kid left for a new one on this page, by lineage. The
+	 * server's copy of one of those never comes back in place of the new
+	 * game: it gives way, and the server keeps it aside, as it keeps every
+	 * game a backup replaces. Any other game the server holds is settled as
+	 * usual, so a game the kid never saw on the title is never put away
+	 * without their knowing.
+	 */
+	private putAway = new Set<string>();
 
 	private pushTimer: unknown = null;
 	private pushDue = Infinity;
@@ -258,7 +288,10 @@ export class Autosave {
 		return plan;
 	}
 
-	/** Call once the authority has started from the plan. */
+	/**
+	 * Call once the authority has picked up a saved game (the plan's, or the
+	 * one left for the title): save its changes from now on.
+	 */
 	begin(): void {
 		this.begun = true;
 		if (this.firstWrite) this.changed(false);
@@ -269,11 +302,21 @@ export class Autosave {
 	 * Every authority event: anything that changes the game is saved. Events
 	 * before `begin` are the authority starting from the plan (a restored
 	 * battle's `battle-started` among them); they change nothing, so they
-	 * write nothing.
+	 * write nothing. A new game's `welcome` starts saving by itself, and
+	 * `game-left` stops it.
 	 */
 	handle(event: GameEvent): void {
+		if (event.type === 'welcome' && event.newGame) {
+			this.newGameStarted();
+			return;
+		}
 		if (!this.begun) return;
 		switch (event.type) {
+			case 'game-left':
+				// Back to the title: save what there is, send the backup, and write nothing more.
+				this.flush();
+				this.begun = false;
+				break;
 			case 'battle-ended':
 			case 'party-changed':
 			case 'taken-to-doctor':
@@ -317,6 +360,39 @@ export class Autosave {
 		if (!this.carryOnFrom(now)) this.goStale(this.causeOf(now));
 	}
 
+	/**
+	 * A new game began (its `welcome`): the kid picked a starter on the
+	 * title. It is a game of its own, with a lineage of its own, numbered on
+	 * from every save this page has seen, so the server takes it over the
+	 * game the kid left (`putAway`). Picking a starter counts as playing: an
+	 * unreadable save waiting in the key goes aside at once. Saved now, and
+	 * from now on.
+	 */
+	private newGameStarted(): void {
+		// The game the title offered as Continue, if it offered one; else a lineage no game has.
+		this.putAway.add(this.lineage);
+		this.lineage = this.mintId();
+		this.extras = {};
+		this.base = null;
+		this.latest = null;
+		this.pushed = 0;
+		this.firstWrite = false;
+		this.replacing = true;
+		this.begun = true;
+		this.changed(true);
+		this.startServer();
+	}
+
+	/**
+	 * The game Continue picks up: the save this page carries on from, as it
+	 * is now. That is the one it loaded, or last wrote, or took on from
+	 * another tab that walked on while the title was up, so the step and
+	 * visit counts never go back. Undefined when the page saves nothing.
+	 */
+	resumable(): SavedGame | undefined {
+		return this.base ? restoreGame(this.base) : undefined;
+	}
+
 	// --- local ----------------------------------------------------------------
 
 	/** The game changed; `matters` when the kid has played (a battle ended, the party changed). */
@@ -348,7 +424,20 @@ export class Autosave {
 		const store = this.store;
 		if (store !== null && (this.local === 'ok' || this.local === 'held')) {
 			const current = store.get(KEYS.save);
-			if (current !== this.seenText && !this.carryOnFrom(current)) {
+			if (this.replacing) {
+				// A new game the kid chose takes the key, whatever it holds now: the game they
+				// left, or another tab's later save of it. That is kept aside first, never
+				// written over; with nowhere to keep it, it stays and this game is not saved here.
+				// (An unreadable save waiting in the key goes to its own place, below.)
+				this.seq = Math.max(this.seq, saveSeq(current === null ? null : parseJson(current)));
+				if (
+					this.local === 'ok' &&
+					current !== null &&
+					!this.setAside(KEYS.previous, current, MAX_PUT_AWAY)
+				) {
+					this.local = 'broken';
+				}
+			} else if (current !== this.seenText && !this.carryOnFrom(current)) {
 				this.goStale(this.causeOf(current));
 				return;
 			}
@@ -375,6 +464,7 @@ export class Autosave {
 			if (store.set(KEYS.save, text)) this.seenText = text;
 			else this.local = 'broken';
 		}
+		this.replacing = false;
 		this.seq = doc.seq;
 		this.base = doc;
 		this.latest = doc;
@@ -416,13 +506,14 @@ export class Autosave {
 	}
 
 	/**
-	 * Keep `text` under `prefix`, or the first free `prefix.2`, `prefix.3`, …:
-	 * a save set aside is never written over. False when nowhere is left.
+	 * Keep `text` under `prefix`, or the first free `prefix.2`, `prefix.3`, …
+	 * up to `slots`: a save set aside is never written over. False when
+	 * nowhere is left.
 	 */
-	private setAside(prefix: string, text: string): boolean {
+	private setAside(prefix: string, text: string, slots = MAX_SET_ASIDE): boolean {
 		const store = this.store;
 		if (!store) return false;
-		for (let n = 1; n <= MAX_SET_ASIDE; n++) {
+		for (let n = 1; n <= slots; n++) {
 			const key = n === 1 ? prefix : `${prefix}.${n}`;
 			const there = store.get(key);
 			if (there === text) return true;
@@ -582,6 +673,17 @@ export class Autosave {
 			return;
 		}
 		const sameGame = saveLineage(doc) === this.lineage;
+		if (!sameGame && this.putAway.has(saveLineage(doc))) {
+			// The server's copy of a game the kid left for this one on the title gives way:
+			// saves are numbered past it, and the server keeps it aside when the backup lands.
+			this.pushed = 0;
+			this.serverState = 'ready';
+			if (theirs >= this.seq) {
+				this.seq = theirs;
+				this.markDirty(true);
+			} else this.schedulePush(true);
+			return;
+		}
 		// A tie goes to the server's game, but only a tie between saves: at 0 neither has one.
 		if (theirs > this.seq || (theirs === this.seq && theirs > 0 && !sameGame)) {
 			this.adopt(read.save);

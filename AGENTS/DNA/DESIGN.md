@@ -44,7 +44,8 @@ Hex values are the ones in `packages/client/src/render/palette.ts` and `styles.c
 | Figure details       | `#fff4e6` / `#2f2a28` | Off-white and near-black for tail tips, chests, noses, eyes. |
 | Dust                 | `#f6efe2` | The ring a tired animal lies down in; fades as it spreads. Never grey smoke. |
 | Confetti             | accent, good, warn, water, trainer shirt, off-white, rabbit pink | `CONFETTI_COLORS`: only colours already in the game. |
-| UI panel             | `rgba(255,252,245,.92)` | Cream, slightly translucent.       |
+| UI panel             | `rgba(255,252,245,.92)` | Cream, slightly translucent. Opaque (`--panel-cream`, `#fffcf5`) as the rim round big lettering. |
+| Title letters        | `#ff7e6b`, `#ff9f43`, `#56c271`, `#3d7be8`, `#f5b83d` | "Animath" letter by letter: the trainer's coral and blue (`--coral`, `--blue`), the accent, good and warn. |
 | UI ink               | `#2d2a32` |                                              |
 | Good (HP, correct)   | `#56c271` |                                              |
 | Warn (HP under half) | `#f5b83d` | Amber: an HP bar between a half and a fifth, the leash's "maybe". |
@@ -57,6 +58,7 @@ Colour is never the only signal: a wrong answer also shakes, a low HP bar also s
 **Nunito** (Google Fonts), weights 600 and 800. Rounded terminals suit the low-poly look and read well for kids.
 
 - Puzzle prompt: 800, very large (≥ 40 px on a laptop). It is the most important text in the game.
+- The game's name on the title: 800, 64–112 px, each letter its own colour with a cream rim and a soft shadow, bobbing gently out of step.
 - HUD labels: 800, 16–18 px.
 - Hints and body: 600, 16 px.
 - Numbers in prompts use real operator glyphs: `×`, `÷`, `−`, `√`. Never `*` or `/`.

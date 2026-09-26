@@ -1,7 +1,12 @@
 :root {
 	--font-ui: 'Nunito', system-ui, sans-serif;
 	--panel-bg: rgba(255, 252, 245, 0.92);
+	/* The panels' cream, opaque: the rim round the title's letters. */
+	--panel-cream: #fffcf5;
 	--panel-ink: #2d2a32;
+	/* The trainer's shirt and cap (DESIGN § Palette), which the title's letters wear too. */
+	--coral: #ff7e6b;
+	--blue: #3d7be8;
 	--accent: #ff9f43;
 	--good: #56c271;
 	--warn: #f5b83d;
