@@ -16,6 +16,8 @@ import { SHARED_GEOMETRIES } from '../src/render/tiles';
  * every chunk ever walked past stayed live.
  */
 type Resource = THREE.BufferGeometry | THREE.InstancedMesh;
+/** What a list of resources is, short enough for a failure message ("InstancedMesh", "ConeGeometry"). */
+const kinds = (list: Resource[]) => list.map((r) => r.type);
 
 class Ledger {
 	readonly live = new Set<Resource>();
@@ -115,14 +117,14 @@ describe('the chunks around the player', () => {
 		}
 
 		expect(ring.size).toBe(RING);
-		expect(parent.children).toHaveLength(RING);
+		expect(parent.children.length).toBe(RING);
 		// Back where it began, the chunks own exactly as much as they did then,
 		// and on the way it never held more than a ring's worth and a column.
-		expect(ledger.owned()).toHaveLength(atStart);
+		expect(ledger.owned().length).toBe(atStart);
 		expect(most).toBeLessThanOrEqual((atStart / RING) * (RING + 5));
 		// Nothing still on screen was freed (a shared shape disposed under another chunk).
-		expect(ledger.disposedIn(parent)).toEqual([]);
-		for (const g of SHARED_GEOMETRIES) expect(ledger.isDisposed(g)).toBe(false);
+		expect(kinds(ledger.disposedIn(parent))).toEqual([]);
+		expect(kinds([...SHARED_GEOMETRIES].filter((g) => ledger.isDisposed(g)))).toEqual([]);
 	});
 
 	it('free every chunk of the old world when the world changes', () => {
@@ -135,8 +137,8 @@ describe('the chunks around the player', () => {
 			ledger.see(parent);
 		}
 		ring.reset(WORLD_SEED + 1);
-		expect(parent.children).toEqual([]);
-		expect(ledger.owned()).toEqual([]);
+		expect(parent.children.length).toBe(0);
+		expect(kinds(ledger.owned())).toEqual([]);
 		ring.update(start);
 		expect(ring.size).toBe(RING);
 	});
@@ -193,8 +195,8 @@ describe('the battle scene', () => {
 			look();
 			scene.end();
 
-			expect(scene.scene.children.filter(isFigure)).toEqual([]);
-			expect([...figures].filter((g) => !ledger.isDisposed(g))).toEqual([]);
+			expect(scene.scene.children.filter(isFigure).map((o) => o.name)).toEqual([]);
+			expect(kinds([...figures].filter((g) => !ledger.isDisposed(g)))).toEqual([]);
 			// Once every biome's backdrop is built, what a battle leaves behind is the same every time.
 			if (i === biomes.length - 1) between = ledger.live.size;
 			if (between !== null) expect(ledger.live.size).toBe(between);
