@@ -461,4 +461,28 @@ describe('the title', () => {
 		expect(world.children).toEqual([]);
 		expect(kinds(second.filter((g) => !ledger.isDisposed(g)))).toEqual([]);
 	});
+
+	it("the menu's world gathers the team on the ground the saved game cleared: a stump is a place to stand", () => {
+		const world = new THREE.Group();
+		const renderer = {
+			setStage() {},
+			setWorld() {},
+			setPlayer() {},
+			ensureChunksAround() {},
+			lookAt() {},
+			aspect: () => 1.6,
+			addFigure: (figure: THREE.Group) => world.add(figure),
+			removeFigure: (figure: THREE.Group) => world.remove(figure)
+		} as unknown as GameRenderer;
+		const scenery = new TitleScenery(renderer);
+		const { stand, target } = besideA('tree');
+		const team = ANIMALS.map((a) => a.id);
+		const onTarget = () =>
+			world.children.some((f) => f.position.x === target.x && f.position.z === target.y);
+		scenery.showWorld(WORLD_SEED, stand, 'down', team);
+		expect(onTarget()).toBe(false);
+		scenery.showWorld(WORLD_SEED, stand, 'down', team, WorldEdits.none.with(target));
+		expect(onTarget()).toBe(true);
+		scenery.hide();
+	});
 });

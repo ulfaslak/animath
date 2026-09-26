@@ -38,6 +38,14 @@ Technical items we've intentionally postponed: tech debt, hardening shortcuts, k
 
 **Trigger**: multiplayer with any persistent economy (tokens, purchasable leashes/potions), the first public deploy (rate limiting, and sweeping players with no save), or the first report of a kid losing their save.
 
+### World edits are each player's own; a shared world has to decide whose they are
+
+**What**: the tiles a kid clears with the axe and the pickaxe (`WorldEdits`) live in that kid's game and save, and the authority walks, restores and knocks out through them. In a shared world two kids would see two different forests: a gap one kid chopped is a tree to the other, who would watch them walk through it. The choice to make then: **shared** (one overlay per world on the server; a kid can open a path for friends, or clear a forest bare for everyone, and every walkability check reads the world's overlay) or **per player** (each keeps their own; the renderer then draws another kid on a tile that is a tree on this screen, and battles between them need one world to stand in). Either way two things change: the whole overlay rides on `welcome` today (up to 24 KB), where a server should send each chunk's edits as the chunk comes into view; and `tile-cleared` goes to everyone who sees that chunk, with the chunks that grew back.
+
+**Why deferred**: there is one player per world today, and the right answer depends on how kids play together, which the shared world will show.
+
+**Trigger**: the shared-world / `RemoteAuthority` PR. Decide shared or per-player with the human first, then move the overlay onto the server, keyed by world (shared) or by player.
+
 ### The server stores whatever save the client sends
 
 **What**: `PUT /api/players/:id/save` checks the document's shape, not that the game in it could have happened: an HP above the species' maximum (`restoreGame` cuts it on load), a party of any animals, a position anywhere, any number of tokens and any tools, a `battle` the server never looks inside (the client checks it with `readBattle` on load). A modified client, or a hand-edited `localStorage` save, is backed up as sent. The saved battle also carries the puzzle's answer, as `BattleState` does ([[CHEATSHEET]] § Exploits).

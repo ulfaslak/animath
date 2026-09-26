@@ -138,6 +138,18 @@ A backup lands only with a higher `seq` than the stored save (`canReplace`); a s
 
 `spawnPoint(seed)` returns the grass tile nearest the origin, so a player never starts inside water or a tree. It searches square rings out to 63 tiles and past that falls back to `(0, 0)` unchecked, which no seed tested reaches. Enforced by `world.test.ts`, which checks the tile is walkable for 25 seeds. Design-time.
 
+### Only a tree or a rock is ever cleared, only by its tool, from beside it and facing it
+
+`clearTile` clears a tile only when it is the one next to the player that they face, it is a tree or a rock in the world as they left it, and they own its tool (`CLEARING_TOOL`: the axe, the pickaxe); anything else is a refusal that changes nothing. And whatever the overlay holds (a hand-edited save may name any tile), `clearedTile` turns only a tree or a rock into ground: an edit never touches water, a tent or tall grass, never closes a tile that was walkable, and never makes a tile start a battle. A tent a kid could clear would remove a doctor; water would let them walk off the map before the boat exists. Enforced by `edits.test.ts` (every kind of tile edited round three seeds; walkability only ever gained; `clearTile` from every walkable tile near spawn facing every way checked against `clearableAhead` and the tools owned; each refusal), each red with its check removed. Design-time: the human's son asked for an axe for trees and a pickaxe for rock.
+
+### Everything that walks reads the world as the player left it
+
+A tile the player cleared is ground everywhere a tile is judged walkable for them: the authority's `move`, `restoreGame` (a save standing on a stump stays there, not sent to the spawn tile), the knock-out search (`takeToDoctor` → `nearestTent` walks the paths they cut), the lead walking behind (`Follower.place`), the chunks on screen (`ChunkRing`, `editedChunk`) and the title's scenery. One site reading the seeded world instead would disagree with the others: a kid standing in a gap they chopped would be moved to the spawn on reload, or taken past the gap to a tent, or the follower put inside a tree. Enforced by `save.test.ts` ("keep a player standing where they cleared"), `tents.test.ts` ("walks the paths a player chopped", against its own flood fill), `doctor.test.ts` and `local-authority.test.ts` (a battle lost in a spot chopped open), `follower.test.ts` (put on a stump), `render-memory.test.ts` (the chunk comes back without the tree; the title's team gathers on a stump), each red with its site reading the seeded world. Design-time.
+
+### The cleared tiles in a save stay within their budget, and only far chunks grow back
+
+A clear that takes the overlay's text past `EDITS_BUDGET` (24,000 characters) lets whole chunks grow back, farthest from the player first, until it is within it again; the budget holds the 25 chunks round the player at their fullest (`MAX_ENTRY_LENGTH` each), so no chunk on screen ever grows back and nothing appears under the kid. The text is canonical, so the same tiles are the same save (`sameProgress`), and a client applying `tile-cleared`'s `pos` and `regrown` holds the authority's overlay exactly. Without the budget a keen chopper's save would outgrow the server's body limit (64 KB), and the backup would stop. Enforced by `edits.test.ts` (5,000 tiles round home fit and load fast; the worst case trims only the farthest chunks and none within two of the player) and `local-authority.test.ts` (the UI's view equals the authority's while far chunks grow back). Design-time.
+
 ## Encounters
 
 ### Every species in the catalog can be met somewhere
