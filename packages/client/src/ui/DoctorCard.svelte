@@ -258,7 +258,8 @@
 						{@attach unfocusable}
 					>
 						<span class="caret">▸</span>
-						<span class="check" aria-hidden="true"
+						<!-- Dashed, as its animals', when none of the kind may go (no one left to walk on with). -->
+						<span class="check" class:stays={going.length === 0} aria-hidden="true"
 							>{picked === 'all' ? '✓' : picked === 'some' ? '–' : ''}</span
 						>
 						<span class="label"
@@ -266,7 +267,9 @@
 							<span class="count">{t('team.count', { count: kind.length })}</span></span
 						>
 						<!-- What the pick brings: the one who stays, when one must, is not counted. -->
-						<span class="worth">+{homeTokens(going)} <Coin size={16} /></span>
+						{#if going.length > 0}
+							<span class="worth">+{homeTokens(going)} <Coin size={16} /></span>
+						{/if}
 					</button>
 				{:else if row.kind === 'animal'}
 					{@const animal = doctor.party[row.partyIndex]!}
