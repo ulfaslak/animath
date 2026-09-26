@@ -96,7 +96,8 @@
 		}
 		const base = root.getBoundingClientRect();
 		const box = card.getBoundingClientRect();
-		const bottom = window.innerHeight - 16;
+		// Clear of the message line at the bottom of the screen.
+		const bottom = window.innerHeight - 84;
 		// Beside the card when there is room for a few rows below it, else as low as fits.
 		const want = Math.min(bottom - 16, 280);
 		const top = bottom - box.top >= want ? box.top : bottom - want;
@@ -488,7 +489,8 @@
 		flex-direction: column;
 		width: max-content;
 		min-width: 300px;
-		max-width: min(440px, calc(100vw - 360px));
+		/* As wide as a name of twelve of the widest letters needs beside its bar and tag, when there is room. */
+		max-width: calc(100vw - 340px);
 		box-sizing: border-box;
 		background: var(--panel-bg);
 		border-radius: var(--radius);

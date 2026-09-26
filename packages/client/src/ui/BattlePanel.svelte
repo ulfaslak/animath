@@ -235,6 +235,7 @@
 							type="button"
 							class="row"
 							class:selected
+							class:heads={k === 0 && group.animals.length > 1}
 							class:off={!battle.pickable[i]}
 							class:nudge={selected && battle.refused > 0}
 							data-press={rowKey(i)}
@@ -637,6 +638,10 @@
 		scrollbar-width: thin;
 		/* The highlighted row, scrolled into view, stops short of the card's edge. */
 		scroll-padding-block: 8px;
+	}
+	/* The first of a kind's group, scrolled into view from below, brings its heading with it. */
+	.party .row.heads {
+		scroll-margin-top: 40px;
 	}
 	/* The heading over several animals of one kind: their name and how many. */
 	.party .group {

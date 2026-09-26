@@ -16,7 +16,9 @@
 	 * A reader: a click or a tap on a row is the key `press` names for its
 	 * animal (`data-press`); without `press`, or where it names none, the row
 	 * is not a button. `lit` lights one animal's row (a cursor) and
-	 * `outlined` rings one (the one picked).
+	 * `outlined` rings one (the one picked). `stacked` puts each row on two
+	 * lines, the HP bar under the name and its tag, for a narrow box: a name
+	 * of twelve of the widest letters still shows whole there.
 	 */
 	interface Props {
 		animals: readonly AnimalInstance[];
@@ -28,6 +30,8 @@
 		lit?: string | null;
 		/** The id of the animal whose row is outlined. */
 		outlined?: string | null;
+		/** Each row on two lines, the HP bar under the name, for a narrow box. */
+		stacked?: boolean;
 		class?: string;
 		/** Called with the lit row's element whenever the lit row changes, to scroll it into view. */
 		onlit?: (row: HTMLElement) => void;
@@ -38,6 +42,7 @@
 		press,
 		lit = null,
 		outlined = null,
+		stacked = false,
 		class: className = '',
 		onlit
 	}: Props = $props();
@@ -48,7 +53,7 @@
 	}
 </script>
 
-<div class="animals {className}">
+<div class="animals {className}" class:stacked>
 	{#each animals as animal, i (animal.id)}
 		{@const key = press?.(animal, i)}
 		{@const isLit = lit === animal.id}
@@ -86,7 +91,7 @@
 	 */
 	.animals {
 		display: grid;
-		grid-template-columns: minmax(0, max-content) minmax(110px, 1fr) auto;
+		grid-template-columns: minmax(0, max-content) minmax(160px, 1fr) auto;
 		grid-auto-rows: minmax(40px, auto);
 		gap: 2px 0;
 		overflow-y: auto;
@@ -101,7 +106,7 @@
 	.animal {
 		grid-column: 1 / -1;
 		display: grid;
-		grid-template-columns: minmax(0, max-content) minmax(110px, 1fr) auto;
+		grid-template-columns: minmax(0, max-content) minmax(160px, 1fr) auto;
 		grid-template-columns: subgrid;
 		column-gap: 10px;
 		align-items: center;
@@ -149,5 +154,29 @@
 	}
 	.tag.lead {
 		background: color-mix(in srgb, var(--accent) 40%, white);
+	}
+	/* Two lines a row: the name and its tag, then the HP bar the row's full width. */
+	.stacked {
+		display: flex;
+		flex-direction: column;
+		gap: 2px;
+	}
+	.stacked .animal {
+		grid-template-columns: minmax(0, 1fr) auto;
+		grid-template-areas:
+			'name how'
+			'bar bar';
+		gap: 2px 10px;
+		padding: 5px 10px 6px;
+		flex: none;
+	}
+	.stacked .name {
+		grid-area: name;
+	}
+	.stacked .bar {
+		grid-area: bar;
+	}
+	.stacked .how {
+		grid-area: how;
 	}
 </style>

@@ -155,7 +155,7 @@ hud:
   openTouch: Tap a card to open it, then tap who goes first
   # Under the party cards, with two or more: how to put them in another order.
   dragMouse: Drag a card to move it
-  dragTouch: Hold a card, then drag it to move it
+  dragTouch: Hold a card, then drag it
   # Under the party cards, after the Esc key cap; and the touch controls' menu button.
   menu: Menu
 

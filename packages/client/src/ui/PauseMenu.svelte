@@ -307,6 +307,7 @@
 						leadId={game.party.length > 1 ? leadId : null}
 						press={(_, i) => optionKey(cardOptions + i)}
 						lit={litAnimal}
+						stacked
 						class="members"
 						onlit={showRow}
 					/>
@@ -401,11 +402,15 @@
 		box-shadow: var(--hud-shadow);
 		padding: 18px 22px 16px;
 	}
+	/*
+	 * The spacing is trimmed so a team of all eight kinds, with the settings
+	 * under it, fits 1024×768 without the menu scrolling.
+	 */
 	.title {
 		font-weight: 800;
 		font-size: 32px;
 		line-height: 1.1;
-		margin-bottom: 12px;
+		margin-bottom: 8px;
 	}
 	/*
 	 * The team takes what its longest name needs; the side panel has the rest
@@ -526,7 +531,7 @@
 		background: color-mix(in srgb, var(--accent) 40%, white);
 	}
 	.item {
-		margin-top: 6px;
+		margin-top: 4px;
 	}
 	.setting {
 		flex: 1;
@@ -666,10 +671,10 @@
 	 */
 	.side :global(.members) {
 		margin-top: 8px;
-		max-height: max(144px, calc(100vh - 430px));
+		max-height: max(120px, calc(100vh - 500px));
 	}
 	.keys {
-		margin-top: 14px;
+		margin-top: 10px;
 		font-weight: 600;
 		font-size: 16px;
 		opacity: 0.7;
