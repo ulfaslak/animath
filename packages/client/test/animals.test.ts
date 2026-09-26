@@ -1,8 +1,10 @@
-import { ANIMALS } from '@mathgame/engine';
+import { ANIMALS, spawnPoint } from '@mathgame/engine';
 import * as THREE from 'three';
 import { describe, expect, it } from 'vitest';
+import { WORLD_SEED } from '../src/authority/local';
 import { motion } from '../src/motion';
 import { animateIdle, animateWalk, buildAnimalMesh, buildPlayerMesh } from '../src/render/animals';
+import { Zoo } from '../src/render/zoo';
 
 /**
  * The figures' contract (see animals.ts): every catalog species has one,
@@ -115,6 +117,22 @@ describe('a tired animal, resting', () => {
 			expect(zs!.visible).toBe(false);
 		});
 	}
+});
+
+describe('the ?zoo line-up', () => {
+	it('stands once in the page: a game picked up again or started anew puts up no second one', () => {
+		const world: THREE.Group[] = [];
+		const zoo = new Zoo({ addFigure: (figure) => world.push(figure) }, false);
+		const spawn = spawnPoint(WORLD_SEED);
+		zoo.welcome(WORLD_SEED, spawn);
+		const lineUp = [...world];
+		expect(lineUp).toHaveLength(ANIMALS.length);
+		// Continue after the Start screen, seven steps on; then a new game from the title.
+		zoo.welcome(WORLD_SEED, { x: spawn.x + 7, y: spawn.y });
+		zoo.welcome(WORLD_SEED, spawn);
+		expect(world).toHaveLength(ANIMALS.length);
+		expect(world.every((figure, i) => figure === lineUp[i])).toBe(true);
+	});
 });
 
 describe('the trainer walking', () => {
