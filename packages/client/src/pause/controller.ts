@@ -25,6 +25,7 @@ export class PauseController {
 	handle(event: GameEvent): void {
 		switch (event.type) {
 			case 'welcome':
+			case 'game-left':
 			case 'battle-started':
 			case 'doctor-visit-started':
 				// Something else has the screen now; the menu never stays open under it.
@@ -108,6 +109,12 @@ export class PauseController {
 		switch (item) {
 			case 'resume':
 				this.close();
+				break;
+			case 'quit':
+				// Back to the title: the authority stops the game, the autosave saves it as it
+				// stands, and the title opens with it as Continue (`game-left`, in main.ts).
+				this.close();
+				this.authority.dispatch({ type: 'leave-game' });
 				break;
 		}
 	}

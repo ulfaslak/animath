@@ -4,13 +4,20 @@
 	import { doctor } from '../state/doctor.svelte';
 	import { game } from '../state/game.svelte';
 	import { pause } from '../state/pause.svelte';
+	import { title } from '../state/title.svelte';
 	import BattlePanel from './BattlePanel.svelte';
 	import DoctorCard from './DoctorCard.svelte';
 	import Hud from './Hud.svelte';
 	import PauseMenu from './PauseMenu.svelte';
+	import TitleScreen from './TitleScreen.svelte';
+
+	/** A game is under way: not loading, not at the title. */
+	const playing = $derived(!title.open && game.mode !== 'loading' && game.mode !== 'title');
 </script>
 
-{#if game.mode === 'loading'}
+{#if title.open}
+	<TitleScreen />
+{:else if !playing}
 	<div class="loading">Loading…</div>
 {:else if battle.active}
 	{#if !battle.entering}<BattlePanel />{/if}
@@ -22,7 +29,7 @@
 	<Hud />
 {/if}
 
-{#if flags.debug && game.mode !== 'loading'}
+{#if flags.debug && playing}
 	<!-- `?debug`: where the player stands and which way they face. -->
 	<div class="debug">{game.pos.x}, {game.pos.y} · {game.facing}</div>
 {/if}

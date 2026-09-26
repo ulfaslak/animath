@@ -70,7 +70,7 @@ beforeEach(() => {
 
 describe('pause menu', () => {
 	it('opens on Escape, closes on Escape or "Keep playing", and ignores a held Escape', () => {
-		const { controller, press } = setup();
+		const { controller, press, sent } = setup();
 		expect(press('ArrowDown').prevented).toBe(false); // closed: explore's key, not the menu's
 		expect(pause.open).toBe(false);
 		expect(press('Escape').prevented).toBe(true);
@@ -82,24 +82,45 @@ describe('pause menu', () => {
 		controller.onKey(key('Escape', { repeat: true }));
 		expect(pause.open).toBe(false);
 
-		// Down past the team lands on the menu items; Enter on "Keep playing" closes.
+		// Up from the top wraps to the menu's last row; Enter on "Keep playing" closes, and
+		// the game goes on.
 		press('Escape', 'ArrowUp');
 		expect(pause.cursor).toBe(game.party.length + MENU_ITEMS.length - 1);
+		press(...Array<string>(MENU_ITEMS.length - 1 - MENU_ITEMS.indexOf('resume')).fill('ArrowUp'));
+		expect(MENU_ITEMS[pause.cursor - game.party.length]).toBe('resume');
 		press('Enter');
 		expect(pause.open).toBe(false);
+		expect(sent).not.toContainEqual({ type: 'leave-game' });
 	});
 
 	it('walks the list with arrows and W / S, wrapping, and never on auto-repeat', () => {
 		const { controller, press } = setup();
+		const last = game.party.length + MENU_ITEMS.length - 1;
 		press('Escape');
 		press('s', 's', 'ArrowDown');
 		expect(pause.cursor).toBe(3);
+		press(...Array<string>(last - 3).fill('ArrowDown'));
+		expect(pause.cursor).toBe(last);
 		press('ArrowDown');
 		expect(pause.cursor).toBe(0);
 		press('w');
-		expect(pause.cursor).toBe(3);
+		expect(pause.cursor).toBe(last);
 		controller.onKey(key('ArrowUp', { repeat: true }));
-		expect(pause.cursor).toBe(3);
+		expect(pause.cursor).toBe(last);
+	});
+
+	it('"Start screen" closes the menu and leaves the game for the title', () => {
+		const { press, sent, events } = setup();
+		press('Escape', ...Array<string>(game.party.length + MENU_ITEMS.indexOf('quit')).fill('s'));
+		expect(MENU_ITEMS[pause.cursor - game.party.length]).toBe('quit');
+		press('Enter');
+		expect(pause.open).toBe(false);
+		expect(sent.at(-1)).toEqual({ type: 'leave-game' });
+		expect(events.at(-1)).toEqual({ type: 'game-left' });
+		// No game under way: the pause menu's keys do nothing to it.
+		const count = sent.length;
+		press('Escape');
+		expect(sent.length).toBe(count);
 	});
 
 	it('"Go first" sends select-lead and comes back to the list on the animal, now first', () => {
@@ -120,7 +141,8 @@ describe('pause menu', () => {
 
 	it('moves an animal up one step at a time, and a mashed Enter stops at the top', () => {
 		const { press, species } = setup();
-		press('Escape', 'ArrowUp', 'ArrowUp', 'Enter'); // up past "Keep playing" to the fox
+		// Up past the menu's rows to the fox.
+		press('Escape', ...Array<string>(MENU_ITEMS.length + 1).fill('ArrowUp'), 'Enter');
 		press('s'); // from "Go first" down to "Move up"
 		expect(pause.option).toBe(1);
 		press('Enter');

@@ -132,6 +132,8 @@ pause:
   team: Your team
   # The row that closes the menu.
   resume: Keep playing
+  # The row that leaves the game for the title screen (the game is saved; Continue picks it up).
+  quit: Start screen
   # The picked animal's options: become the lead, move one place, get a nickname.
   goFirst: Go first
   moveUp: Move up
@@ -163,3 +165,37 @@ save:
   newerGame: Your game was saved by a newer Animath. Reload the page to play it!
   # The browser will not let the page store anything, so nothing is saved.
   cannotSave: This browser can't keep your game, so it starts new every time.
+
+title:
+  # The game's name, big, at the top of the title screen.
+  name: Animath
+  # The menu's rows.
+  continue: Continue
+  newGame: New game
+  language: Language
+  # Beside Continue, after the name of the saved team's first animal: how big the team is.
+  animals:
+    one: '{count} animal'
+    other: '{count} animals'
+  # The key reminder under the menu; on a setting's row, how to change it.
+  keys: ↑ ↓ choose · Enter pick
+  keysSetting: ↑ ↓ choose · ← → change
+  # Asked before a new game puts the saved one away. {name}: the saved team's first animal.
+  confirm:
+    title: Start a new game?
+    away: Your game with {name} is put away safely.
+    fresh: You start again with a new animal.
+    back: No, go back
+    yes: Yes, new game
+    keys: ↑ ↓ choose · Enter pick · Esc back
+  # The starters side by side.
+  starter:
+    title: Pick your first animal!
+    # Under the lit one. {animal}: its species; {kinds}: every kind of sum its attacks ask, as a list.
+    loves: '{animal.name} loves {kinds}!'
+    keys: ← → choose · Enter pick · Esc back
+  # The name box for the animal just picked. {animal}: its species.
+  naming:
+    title: What will you call your {animal.name}?
+    empty: Leave it empty and it is just called {animal.name}.
+    keys: Enter done · Esc back

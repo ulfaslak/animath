@@ -25,7 +25,8 @@
  *                 second `down:` of the same key is an auto-repeat
  *   up:<key>      let go of a key pressed with `down:`
  * The final frame goes to `--out`. After every frame the script prints what
- * the screen says — the message line in explore (and the grid position and
+ * the screen says — on the title its menu, the confirm, the starters and the
+ * name box; the message line in explore (and the grid position and
  * facing with `?debug` in the URL) and the party cards; in the pause menu its
  * rows, the picked animal's options and the name box (with whether it has
  * the focus); at the doctor the doctor's line and the party; and in a battle
@@ -33,7 +34,8 @@
  * boxes and the result card — so a flow can be asserted from the console
  * output, not only the images.
  *
- * Each run is a fresh browser, so a new player and a new game; `reload:` keeps
+ * Each run is a fresh browser, so a new player with no game: the title, with
+ * New game only (`?new` goes past it into a throwaway game); `reload:` keeps
  * the game, which is saved in the page's localStorage. The script exits
  * non-zero on console errors and warnings, except failed `/api/` calls: the
  * game saves locally without the API, so those are listed at the end instead.
@@ -128,6 +130,29 @@ async function textOf(selector) {
 /** What the screen says right now, one `key: value` per line. */
 async function describe() {
 	const lines = [];
+	// The title: its menu rows (the lit one in brackets), the confirm's choices,
+	// the starters' name tags (the lit one in brackets) and the card under them.
+	const lit = (selector) =>
+		page.locator(selector).evaluateAll((els) =>
+			els.map((el) => {
+				const text = el.textContent.replace(/[▸\s]+/g, ' ').trim();
+				return el.classList.contains('lit') ? `[${text}]` : text;
+			})
+		);
+	const titleRows = await lit('.menu-card .row');
+	if (titleRows.length) lines.push(`title: ${titleRows.join(' | ')}`);
+	const confirm = await textOf('.confirm .heading');
+	if (confirm !== null)
+		lines.push(`confirm: ${confirm} ${(await lit('.confirm .row')).join(' | ')}`);
+	const starters = await lit('.starter-screen .tag');
+	if (starters.length) lines.push(`starters: ${starters.join(' | ')}`);
+	const starterCard = await textOf('.starter-card .heading');
+	if (starterCard !== null) {
+		const loves = await textOf('.starter-card .loves');
+		lines.push(`starter: ${[starterCard, loves].filter((t) => t !== null).join(' — ')}`);
+	}
+	const titleNotes = await page.locator('.menu-card .note, .starter-card .note').allTextContents();
+	if (titleNotes.length) lines.push(`title notes: ${titleNotes.map((n) => n.trim()).join(' | ')}`);
 	const debug = await textOf('.debug');
 	if (debug !== null) lines.push(`at: ${debug}`);
 	const message = await textOf('.hint .message');
@@ -218,7 +243,9 @@ async function describe() {
 
 async function shoot(path) {
 	mkdirSync(dirname(path), { recursive: true });
-	await page.screenshot({ path, clip });
+	// A loaded machine (several headless Chromes on SwiftShader) can take longer than
+	// Playwright's 30 s default to draw one frame.
+	await page.screenshot({ path, clip, timeout: 180_000 });
 	console.log(`saved ${path}`);
 	for (const line of await describe()) console.log(`  ${line}`);
 }

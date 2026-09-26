@@ -41,6 +41,8 @@
 		switch (item) {
 			case 'resume':
 				return t('pause.resume');
+			case 'quit':
+				return t('pause.quit');
 		}
 	}
 

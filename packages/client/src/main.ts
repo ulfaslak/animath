@@ -8,15 +8,19 @@ import { flags } from './flags';
 import { Keyboard } from './input/keyboard';
 import { PauseController } from './pause/controller';
 import { GameRenderer } from './render/renderer';
+import { TitleScenery } from './render/title-scenery';
 import { buildZoo } from './render/zoo';
 import { httpSaveServer } from './save/api';
 import { Autosave } from './save/autosave';
+import type { SaveNotice } from './save/notices';
 import { browserStore } from './save/storage';
 import { battle } from './state/battle.svelte';
 import { doctor } from './state/doctor.svelte';
 import { game } from './state/game.svelte';
 import { hud } from './state/hud.svelte';
 import { pause } from './state/pause.svelte';
+import { title } from './state/title.svelte';
+import { TitleController } from './title/controller';
 import App from './ui/App.svelte';
 
 const canvas = document.getElementById('game') as HTMLCanvasElement;
@@ -29,15 +33,36 @@ const explore = new ExploreController(authority, renderer, keyboard);
 const battleController = new BattleController(authority, renderer);
 const doctorController = new DoctorController(authority);
 const pauseController = new PauseController(authority);
-// `?new` (and `?party=`, a party to look at) play a throwaway game: nothing is
-// loaded or saved, and the saved game is left alone.
+// `?new`, `?party=` (a party to look at) and `?zoo` play a throwaway game:
+// nothing is loaded or saved, and the saved game is left alone.
 const autosave = new Autosave({
 	store: browserStore(),
 	server: httpSaveServer(),
 	snapshot: () => authority.snapshot(),
 	catchUp: (counts) => authority.catchUp(counts),
 	mintId,
-	throwaway: flags.fresh || flags.party !== null
+	throwaway: flags.throwaway
+});
+
+/**
+ * What start-up found about the save, said on the message line once the
+ * first game is under way: "Welcome back!" when Continue picks the saved game
+ * up, anything else when a new game starts. Said once, then forgotten.
+ */
+let startNotice: SaveNotice | undefined;
+function sayStartNotice(newGame: boolean): void {
+	const notice = startNotice;
+	startNotice = undefined;
+	if (notice && (notice === 'save.welcomeBack') !== newGame) hud.notice(notice);
+}
+
+const titleController = new TitleController(authority, new TitleScenery(renderer), {
+	continueGame(saved) {
+		authority.start({ game: saved });
+		// After `welcome`, which clears the message line.
+		sayStartNotice(false);
+		autosave.begin();
+	}
 });
 
 authority.subscribe((event) => {
@@ -47,24 +72,36 @@ authority.subscribe((event) => {
 	battleController.handle(event);
 	doctorController.handle(event);
 	pauseController.handle(event);
+	titleController.handle(event);
 	autosave.handle(event);
+	// A new game from the title: after `welcome`, which clears the message line.
+	if (event.type === 'welcome' && event.newGame) sayStartNotice(true);
+	// Quit to title: the game just left is the one Continue picks up.
+	if (event.type === 'game-left') titleController.open(authority.snapshot());
 	// `?zoo` lines up one of every species by the spawn tile (a check for the meshes).
 	if (flags.zoo && event.type === 'welcome') {
 		for (const figure of buildZoo(event.seed, event.pos)) renderer.addFigure(figure);
 	}
 });
 
-/** Walking reads the keyboard only in explore, once the game has started, with no card or menu open. */
+/** Walking reads the keyboard only in explore, while a game is under way, with no card or menu open. */
 const exploreInput = () =>
-	game.mode !== 'loading' && !battle.active && !doctor.active && !pause.open;
+	!title.open &&
+	game.mode !== 'loading' &&
+	game.mode !== 'title' &&
+	!battle.active &&
+	!doctor.active &&
+	!pause.open;
 
-// Keys go to exactly one screen: the battle while it is up, else the doctor's
-// card while it is open, else the pause menu while it is open (Escape in
-// explore opens it), else explore, which reads them through `keyboard`.
-// Explore's own listener runs first and is switched off here at once, so the
-// key that opens the menu is the last one walking sees.
+// Keys go to exactly one screen: the title while it is up, else the battle
+// while it is up, else the doctor's card while it is open, else the pause
+// menu while it is open (Escape in explore opens it), else explore, which
+// reads them through `keyboard`. Explore's own listener runs first and is
+// switched off here at once, so the key that opens the menu is the last one
+// walking sees, and the key that closes the title is not a step.
 window.addEventListener('keydown', (e) => {
-	if (battle.active) battleController.onKey(e);
+	if (title.open) titleController.onKey(e);
+	else if (battle.active) battleController.onKey(e);
 	else if (doctor.active) doctorController.onKey(e);
 	else if (game.mode === 'explore') pauseController.onKey(e);
 	keyboard.setEnabled(exploreInput());
@@ -112,9 +149,12 @@ function frame(now: number) {
 		reloading = true;
 		if (mayReload()) location.reload();
 	}
-	const loading = game.mode === 'loading';
 	keyboard.setEnabled(exploreInput());
-	if (!loading) {
+	if (title.open) {
+		// The title's world drifts, or its starter stage is drawn instead.
+		titleController.update(dt);
+		renderer.render();
+	} else if (game.mode !== 'loading' && game.mode !== 'title') {
 		// While a battle is entering, the world keeps drawing so the step into the
 		// grass can land; explore input is already off, so no new step starts.
 		// The doctor's card is drawn over the world, which keeps drawing under it.
@@ -129,9 +169,17 @@ function frame(now: number) {
 }
 requestAnimationFrame(frame);
 
+// The title comes first: nothing is started, rolled or saved behind it. A
+// throwaway game (`?new`, `?party=`, `?zoo`) goes straight into explore.
 void autosave.boot().then((plan) => {
-	authority.start({ game: plan.game });
-	// After `welcome`, which clears the message line.
-	if (plan.notice) hud.notice(plan.notice);
-	autosave.begin();
+	if (flags.throwaway) {
+		authority.start();
+		autosave.begin();
+		return;
+	}
+	startNotice = plan.notice;
+	// A save this page can't pick up is worth saying before a starter is chosen.
+	const onTitle =
+		plan.notice === 'save.newerGame' || plan.notice === 'save.cannotSave' ? plan.notice : null;
+	titleController.open(plan.game ?? null, onTitle);
 });

@@ -31,7 +31,10 @@ describe('starters', () => {
 
 	it('refuses anything that is not a starter id', () => {
 		for (const speciesId of ['fox', 'otter', 'deer', 'wolf', 'bear', 'dragon', '', 'Squirrel']) {
-			expect(chooseStarter({ speciesId }), speciesId).toEqual({ ok: false, reason: 'not-a-starter' });
+			expect(chooseStarter({ speciesId }), speciesId).toEqual({
+				ok: false,
+				reason: 'not-a-starter'
+			});
 		}
 		for (const choice of [null, undefined, 'squirrel', 7, [], { speciesId: 7 }, {}]) {
 			expect(chooseStarter(choice)).toEqual({ ok: false, reason: 'not-a-starter' });

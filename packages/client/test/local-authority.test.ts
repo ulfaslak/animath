@@ -1110,7 +1110,10 @@ describe('LocalAuthority: the title', () => {
 		// The reed by the start: a walk here with a game under way meets animals.
 		for (let i = 0; i < 40; i++) move(s, i % 2 === 0 ? 'left' : 'right');
 		s.authority.dispatch({ type: 'interact' });
-		s.authority.dispatch({ type: 'party', intent: { type: 'rename', animalId: 'starter', nickname: 'Pip' } });
+		s.authority.dispatch({
+			type: 'party',
+			intent: { type: 'rename', animalId: 'starter', nickname: 'Pip' }
+		});
 		s.authority.dispatch({ type: 'leave-game' });
 		expect(s.events.length).toBe(left);
 		expect(s.authority.snapshot()).toEqual(game);

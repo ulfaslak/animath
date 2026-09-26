@@ -5,13 +5,30 @@ import { parseParty, readFlags } from '../src/flags';
 /** The URL switches (CHEATSHEET § Hidden behaviour): a typo must start an ordinary game. */
 describe('URL switches', () => {
 	it('reads ?zoo, ?debug, ?party= and ?new', () => {
-		expect(readFlags('')).toEqual({ zoo: false, debug: false, party: null, fresh: false });
+		expect(readFlags('')).toEqual({
+			zoo: false,
+			debug: false,
+			party: null,
+			fresh: false,
+			throwaway: false
+		});
 		expect(readFlags('?zoo&debug&party=fox&new')).toEqual({
 			zoo: true,
 			debug: true,
 			party: [{ id: 'party-1', speciesId: 'fox', hp: getAnimal('fox').maxHp }],
-			fresh: true
+			fresh: true,
+			throwaway: true
 		});
+	});
+
+	it('?new, ?party= and ?zoo each play a throwaway game past the title; ?debug and ?lang do not', () => {
+		for (const search of ['?new', '?party=bear', '?zoo', '?debug&new', '?lang=da&zoo']) {
+			expect(readFlags(search).throwaway, search).toBe(true);
+		}
+		// A misspelt party is no party: the title, as without it.
+		for (const search of ['', '?debug', '?lang=da', '?party=dragon', '?party=']) {
+			expect(readFlags(search).throwaway, search).toBe(false);
+		}
 	});
 
 	it('?party= takes species with an optional HP, clamped to the species', () => {

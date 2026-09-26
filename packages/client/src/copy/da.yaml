@@ -132,6 +132,8 @@ pause:
   team: Dit hold
   # The row that closes the menu.
   resume: Spil videre
+  # The row that leaves the game for the title screen (the game is saved; Continue picks it up).
+  quit: Startskærm
   # The picked animal's options: become the lead, move one place, get a nickname.
   goFirst: Sæt forrest
   moveUp: Flyt op
@@ -163,3 +165,37 @@ save:
   newerGame: Dit spil er gemt af en nyere Animath. Genindlæs siden for at spille det!
   # The browser will not let the page store anything, so nothing is saved.
   cannotSave: Denne browser kan ikke gemme dit spil, så det starter forfra hver gang.
+
+title:
+  # The game's name, big, at the top of the title screen.
+  name: Animath
+  # The menu's rows.
+  continue: Fortsæt
+  newGame: Nyt spil
+  language: Sprog
+  # Beside Continue, after the name of the saved team's first animal: how big the team is.
+  animals:
+    one: '{count} dyr'
+    other: '{count} dyr'
+  # The key reminder under the menu; on a setting's row, how to change it.
+  keys: ↑ ↓ flyt · Enter vælg
+  keysSetting: ↑ ↓ flyt · ← → skift
+  # Asked before a new game puts the saved one away. {name}: the saved team's first animal.
+  confirm:
+    title: Vil du starte et nyt spil?
+    away: Dit spil med {name} bliver gemt godt væk.
+    fresh: Du starter forfra med et nyt dyr.
+    back: Nej, tilbage
+    yes: Ja, nyt spil
+    keys: ↑ ↓ flyt · Enter vælg · Esc tilbage
+  # The starters side by side.
+  starter:
+    title: Vælg dit første dyr!
+    # Under the lit one. {animal}: its species; {kinds}: every kind of sum its attacks ask, as a list.
+    loves: '{animal.name} elsker {kinds}!'
+    keys: ← → flyt · Enter vælg · Esc tilbage
+  # The name box for the animal just picked. {animal}: its species.
+  naming:
+    title: Hvad skal {animal.the} hedde?
+    empty: Uden et navn hedder dyret bare {animal.name}.
+    keys: Enter færdig · Esc tilbage
