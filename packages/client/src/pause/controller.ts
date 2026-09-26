@@ -1,5 +1,6 @@
 import type { Authority, GameEvent, PartyIntent } from '@mathgame/engine';
 import { sfx } from '../audio/sfx.svelte';
+import { LANGUAGES, language } from '../copy';
 import { game } from '../state/game.svelte';
 import {
 	MENU_ITEMS,
@@ -13,7 +14,7 @@ import {
 /**
  * The pause menu, opened with Escape in explore: the team in battle order,
  * where an animal can be moved (which picks who goes first) or named, then
- * "Keep playing" and the Sound setting.
+ * the settings (Language, Sound) and "Keep playing".
  *
  * Keys become menu moves and `party` intents; the menu then shows whatever
  * the authority's `party-edited` says, so a refused edit simply changes
@@ -96,12 +97,6 @@ export class PauseController {
 				pause.cursor = (pause.cursor + 1) % rows;
 				sfx.play('move');
 				return true;
-			case 'ArrowLeft':
-			case 'a':
-			case 'ArrowRight':
-			case 'd':
-				if (item) this.settingKey(item, key === 'ArrowRight' || key === 'd');
-				return true;
 			case 'Enter':
 			case ' ': {
 				const animal = game.party[pause.cursor];
@@ -111,6 +106,12 @@ export class PauseController {
 				} else if (item) this.chooseItem(item);
 				return true;
 			}
+			case 'ArrowLeft':
+			case 'a':
+			case 'ArrowRight':
+			case 'd':
+				// Left and right set the setting on its row, and do nothing elsewhere.
+				return item !== undefined && this.settingKey(item, key === 'ArrowRight' || key === 'd');
 			case 'Escape':
 				this.close();
 				return true;
@@ -120,6 +121,10 @@ export class PauseController {
 
 	private chooseItem(item: MenuItem): void {
 		switch (item) {
+			case 'language':
+				sfx.play('confirm');
+				nextLanguage(1);
+				break;
 			case 'resume':
 				this.close();
 				break;
@@ -129,14 +134,21 @@ export class PauseController {
 		}
 	}
 
-	/** Left (off) or right (on) on a setting's row; other rows ignore it. */
-	private settingKey(item: MenuItem, right: boolean): void {
+	/**
+	 * Left or right on a setting's row: the next or previous language; sound
+	 * off (left) or on (right). False on a row that is not a setting.
+	 */
+	private settingKey(item: MenuItem, right: boolean): boolean {
 		switch (item) {
+			case 'language':
+				sfx.play('confirm');
+				nextLanguage(right ? 1 : -1);
+				return true;
 			case 'sound':
 				if (sfx.on !== right) this.setSound(right);
-				break;
+				return true;
 			case 'resume':
-				break;
+				return false;
 		}
 	}
 
@@ -276,4 +288,14 @@ function nextEnabled(options: readonly PartyOptionRow[], from: number, dir: 1 | 
 		if (options[at]!.enabled) return at;
 	}
 	return from;
+}
+
+/**
+ * Switch to the language `step` places along `LANGUAGES`, wrapping round:
+ * every word on screen changes at once, and the choice is remembered on this
+ * device (`language.set`).
+ */
+function nextLanguage(step: 1 | -1): void {
+	const i = LANGUAGES.indexOf(language.current);
+	language.set(LANGUAGES[(i + step + LANGUAGES.length) % LANGUAGES.length]!);
 }

@@ -49,6 +49,7 @@ export const CONFETTI_COLORS: readonly number[] = [
 export const ANIMAL_COLORS: Record<string, { fur: number; accent: number }> = {
 	squirrel: { fur: 0xc9733a, accent: 0xf2d9b8 },
 	rabbit: { fur: 0xd9cbb8, accent: 0xf5b8c4 },
+	frog: { fur: 0x3aa66a, accent: 0xe3eea4 },
 	fox: { fur: 0xe8762b, accent: 0xfff4e6 },
 	otter: { fur: 0x8a5a3a, accent: 0xdbb98f },
 	deer: { fur: 0xc48a52, accent: 0x6b4a2f },

@@ -12,6 +12,7 @@ import { spawnPoint, tileAtWorld } from '../src/world/generate.js';
 import { canTalkToDoctor, nearestTent } from '../src/world/tents.js';
 import { isWalkable, step, type Direction, type GridPos } from '../src/world/types.js';
 import { makeParty, makeWild, playBattle } from './battle-sim.js';
+import { wordedStrings } from './words.js';
 
 const SEEDS = 25;
 const PROTOTYPE = hashString('prototype');
@@ -81,25 +82,23 @@ const WRONG_INPUTS: readonly ((a: number) => string)[] = [
 ];
 
 describe('startDoctorVisit', () => {
-	it('copies the party and greets by whether anyone is hurt', () => {
+	it('copies the party, whoever is hurt', () => {
 		const party = partyOf(['squirrel', 0], ['fox']);
 		const state = startDoctorVisit(party);
-		expect(state).toEqual({
-			step: 0,
-			party,
-			phase: { kind: 'choose-patient' },
-			log: ['Hello! Who needs help today?']
-		});
+		expect(state).toEqual({ step: 0, party, phase: { kind: 'choose-patient' } });
 		expect(state.party[0]).not.toBe(party[0]);
 
 		for (const healthy of [partyOf(['squirrel'], ['bear']), []]) {
-			expect(startDoctorVisit(healthy).log).toEqual(['Hello! Your animals are all fit and happy.']);
+			expect(startDoctorVisit(healthy)).toEqual({
+				step: 0,
+				party: healthy,
+				phase: { kind: 'choose-patient' }
+			});
 		}
 	});
 
-	it('carries no seed: nothing in the state lets a client predict a puzzle', () => {
+	it('carries no seed and no words: a client can neither predict a puzzle nor show English', () => {
 		expect(Object.keys(startDoctorVisit(partyOf(['fox', 3]))).sort()).toEqual([
-			'log',
 			'party',
 			'phase',
 			'step'
@@ -142,7 +141,7 @@ describe('applyDoctorIntent', () => {
 		for (const bad of [undefined, null, 42, 'leave']) {
 			const step = applyDoctorIntent(start, bad as unknown as DoctorIntent, 1);
 			expect(step.state).toBe(start);
-			expect(step.events).toEqual([{ type: 'rejected', reason: 'That is not an intent.' }]);
+			expect(step.events).toEqual([{ type: 'rejected', reason: 'not-an-intent' }]);
 		}
 	});
 
@@ -154,9 +153,7 @@ describe('applyDoctorIntent', () => {
 			expect(step.events).toEqual([{ type: 'rejected', reason: expect.any(String) }]);
 			return (step.events[0] as { reason: string }).reason;
 		};
-		expect(rejected(start, { type: 'pick-patient', partyIndex: 1 })).toBe(
-			'Rabbit is already fit and happy.'
-		);
+		expect(rejected(start, { type: 'pick-patient', partyIndex: 1 })).toBe('not-hurt');
 		for (const partyIndex of [
 			-1,
 			2,
@@ -165,16 +162,14 @@ describe('applyDoctorIntent', () => {
 			'0' as unknown as number,
 			undefined as unknown as number
 		])
-			expect(rejected(start, { type: 'pick-patient', partyIndex })).toBe(
-				'There is no animal there.'
-			);
-		expect(rejected(start, { type: 'answer', input: '4' })).toBe('There is no puzzle to answer.');
-		rejected(start, { type: 'heal-everyone' } as unknown as DoctorIntent);
+			expect(rejected(start, { type: 'pick-patient', partyIndex })).toBe('no-such-animal');
+		expect(rejected(start, { type: 'answer', input: '4' })).toBe('no-puzzle');
+		expect(rejected(start, { type: 'heal-everyone' } as unknown as DoctorIntent)).toBe(
+			'not-an-intent'
+		);
 
 		const puzzle = applyDoctorIntent(start, { type: 'pick-patient', partyIndex: 0 }, 9).state;
-		expect(rejected(puzzle, { type: 'pick-patient', partyIndex: 1 })).toBe(
-			'Rabbit is already fit and happy.'
-		);
+		expect(rejected(puzzle, { type: 'pick-patient', partyIndex: 1 })).toBe('not-hurt');
 
 		const ended = applyDoctorIntent(puzzle, { type: 'leave' }, 9).state;
 		for (const intent of [
@@ -182,7 +177,7 @@ describe('applyDoctorIntent', () => {
 			{ type: 'answer', input: String(solving(puzzle).puzzle.answer) },
 			{ type: 'leave' }
 		] as DoctorIntent[])
-			expect(rejected(ended, intent)).toBe('The visit is over.');
+			expect(rejected(ended, intent)).toBe('visit-over');
 	});
 });
 
@@ -308,12 +303,6 @@ describe('healing, for every species', () => {
 			expect(after[partyIndex]).toBe(maxHp(state.party[partyIndex]!));
 		}
 		expect(state.party.every((a) => !needsHealing(a))).toBe(true);
-		expect(state.log.slice(-4)).toEqual([
-			'Who is next?',
-			"Let's help Bear! Can you solve this?",
-			'Well done! Bear feels all better!',
-			'Everyone is fit and happy!'
-		]);
 	});
 
 	it('picking another animal mid-puzzle swaps the puzzle, at no cost', () => {
@@ -333,7 +322,6 @@ describe('healing, for every species', () => {
 			expect(s.events).toEqual([{ type: 'ended' }]);
 			expect(s.state.phase).toEqual({ kind: 'ended' });
 			expect(s.state.party).toEqual(start.party);
-			expect(s.state.log.at(-1)).toBe('Bye! Come back any time.');
 		}
 	});
 });
@@ -374,6 +362,8 @@ describe('replay', () => {
 				const again = playVisit(seed, party, 0.6);
 				expect(again).toEqual(first);
 				expect(first.state.phase.kind).toBe('ended');
+				// The doctor's words are the client's: nothing here is a sentence.
+				expect(wordedStrings(first)).toEqual([]);
 			}
 		}
 	});
@@ -433,15 +423,15 @@ describe('replay', () => {
 			'rejected'
 		]);
 		expect(events.filter((e) => e.type === 'healed' || e.type === 'rejected')).toEqual([
-			{ type: 'rejected', reason: 'Rabbit is already fit and happy.' },
+			{ type: 'rejected', reason: 'not-hurt' },
 			{
 				type: 'healed',
 				partyIndex: 0,
 				animal: { id: 'squirrel-0', speciesId: 'squirrel', hp: 20 }
 			},
-			{ type: 'rejected', reason: 'Squirrel is already fit and happy.' },
+			{ type: 'rejected', reason: 'not-hurt' },
 			{ type: 'healed', partyIndex: 1, animal: { id: 'fox-1', speciesId: 'fox', hp: 35 } },
-			{ type: 'rejected', reason: 'The visit is over.' }
+			{ type: 'rejected', reason: 'visit-over' }
 		]);
 		expect(
 			events
@@ -455,20 +445,7 @@ describe('replay', () => {
 				{ id: 'fox-1', speciesId: 'fox', hp: 35 },
 				{ id: 'rabbit-2', speciesId: 'rabbit', hp: 22 }
 			],
-			phase: { kind: 'ended' },
-			log: [
-				'Hello! Who needs help today?',
-				"Let's help Squirrel! Can you solve this?",
-				"Not quite! Let's try another one.",
-				'Well done! Squirrel feels all better!',
-				'Who is next?',
-				"Let's help Fox! Can you solve this?",
-				"Not quite! Let's try another one.",
-				"Not quite! Let's try another one.",
-				'Well done! Fox feels all better!',
-				'Everyone is fit and happy!',
-				'Bye! Come back any time.'
-			]
+			phase: { kind: 'ended' }
 		});
 	});
 });
@@ -508,8 +485,7 @@ describe('takeToDoctor', () => {
 					party: [
 						{ id: 'squirrel-0', speciesId: 'squirrel', hp: 20 },
 						{ id: 'rabbit-1', speciesId: 'rabbit', hp: 22 }
-					],
-					message: 'The doctor looked after your animals. Everyone feels better!'
+					]
 				});
 				expect(isWalkable(tileAtWorld(seed, rescue.pos.x, rescue.pos.y).kind)).toBe(true);
 				expect(step(rescue.pos, rescue.facing)).toEqual(rescue.tent);
@@ -545,8 +521,7 @@ describe('takeToDoctor', () => {
 			pos: walled,
 			facing: 'down',
 			tent: null,
-			party: partyOf(['bear']),
-			message: 'A doctor came by and looked after your animals. Everyone feels better!'
+			party: partyOf(['bear'])
 		});
 	});
 

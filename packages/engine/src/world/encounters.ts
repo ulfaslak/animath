@@ -15,13 +15,14 @@ import { isEncounterTile, type GridPos, type Tile } from './types.js';
  * The table is the catalog filtered by habitat and weighted by how many tiers
  * above the lead each species is, so that animals fiercer than the lead are
  * rare near the spawn tile and ordinary far from it. An animal two or more
- * tiers below the lead never challenges it; one tier below does, rarely. A
- * biome where the only animals at least the lead's size are bigger than it
- * (for a tier-1 lead: the river, the mountains) also gets the animals of the
- * lead's own tier as visitors near spawn, so the first few minutes are fair
- * wherever the player walks. For a tier-1 lead, nothing is below it, and this
- * is the rule from before the lead mattered. [[PRODUCT]] §4 "Wild encounters"
- * states the numbers in prose; they must agree with the constants below.
+ * tiers below the lead never challenges it; one tier below does, rarely. Near
+ * spawn, animals of the lead's size come down to the water and up the hills:
+ * the river and the mountains, wherever something bigger than the lead lives
+ * there, also get every species of the lead's tier that doesn't live there as
+ * a visitor, so the first few minutes are fair wherever the player walks. From
+ * its own tier up, a tier-L lead's table is a tier-1 lead's table in a catalog
+ * L − 1 tiers smaller. [[PRODUCT]] §4 "Wild encounters" states the numbers in
+ * prose; they must agree with the constants below.
  *
  * Every draw comes from the caller's `Rng`, so a walk replays exactly from
  * (seed, intents). The rng is only touched when the tile can hold an encounter
@@ -91,10 +92,19 @@ function challengerWeight(above: number, distance: number): number {
 }
 
 /**
- * How welcome visitors of the lead's tier are in a biome that has no animal of
- * that tier of its own: 1 inside the safe radius, thinning out linearly to 0
- * at the wild radius. Beyond it, for a tier-1 lead, the river is otters and
- * the mountains are wolves and bears.
+ * Where visitors come near spawn: the water and the hills, which animals of
+ * the lead's size that don't live there come down to and up to (squirrels
+ * and rabbits to the river, and frogs too to the mountains). Not a property
+ * of the catalog: the river has had a tier-1 animal of its own since the
+ * frog, and its squirrels and rabbits still keep the otters rare near home.
+ */
+const VISITED_BIOMES: readonly Biome[] = ['river', 'mountain'];
+
+/**
+ * What a visitor of the lead's tier weighs: 1 inside the safe radius, as much
+ * as a resident of that tier, thinning out linearly to 0 at the wild radius.
+ * Beyond it, for a tier-1 lead, the river is frogs and otters and the
+ * mountains are wolves and bears.
  */
 function visitorWeight(distance: number): number {
 	return challengerWeight(0, distance) * (1 - danger(distance));
@@ -112,17 +122,18 @@ function assertTier(tier: unknown, where: string): asserts tier is Tier {
  *
  * Residents (species whose habitats include the biome) are weighted by how
  * many tiers above the lead they are; residents two or more tiers below it are
- * left out. A biome with residents at or above the lead's tier but none of
- * its tier also lists every species of the lead's tier as a visitor, weighted
- * by `visitorWeight`. Empty when nothing living in the biome is within one
- * tier below the lead: a bear meets nothing in the meadow.
+ * left out. In a visited biome (the river, the mountains) where a resident is
+ * bigger than the lead, every species of the lead's tier that doesn't live
+ * there is listed too, as a visitor weighted by `visitorWeight`. Empty when
+ * nothing living in the biome is within one tier below the lead: a bear meets
+ * nothing in the meadow.
  */
 export function encounterTable(biome: Biome, distance: number, leadTier: Tier): EncounterEntry[] {
 	if (!Number.isFinite(distance)) throw new Error(`encounterTable: distance is ${distance}`);
 	assertTier(leadTier, 'encounterTable');
 	const residents = ANIMALS.filter((a) => a.habitats.includes(biome));
 	const visitors =
-		residents.some((a) => a.tier >= leadTier) && !residents.some((a) => a.tier === leadTier)
+		VISITED_BIOMES.includes(biome) && residents.some((a) => a.tier > leadTier)
 			? visitorWeight(distance)
 			: 0;
 	const raw = ANIMALS.flatMap((species) => {

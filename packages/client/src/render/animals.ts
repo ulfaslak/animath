@@ -115,6 +115,23 @@ const BUILDERS: Record<string, Builder> = {
 		box(0.09, 0.05, 0.16, fur, -0.1, 0.025, 0.03),
 		box(0.09, 0.05, 0.16, fur, 0.1, 0.025, 0.03)
 	],
+	// Squat and wide, big eyes on top of the head, a mouth right across it, and
+	// back legs folded along its sides.
+	frog: ({ fur, accent }) => [
+		ball(0.185, fur, 0, 0.142, -0.044, 1.3, 0.72, 1.15),
+		ball(0.142, fur, 0, 0.196, 0.109, 1.3, 0.75, 1),
+		ball(0.109, accent, 0, 0.142, 0.164, 1.3, 0.6, 0.8),
+		box(0.26, 0.018, 0.022, COLORS.dark, 0, 0.18, 0.245),
+		...([-1, 1] as const).flatMap((side) => [
+			ball(0.076, fur, side * 0.104, 0.294, 0.109),
+			ball(0.061, COLORS.white, side * 0.104, 0.311, 0.136),
+			ball(0.031, COLORS.dark, side * 0.104, 0.316, 0.187),
+			ball(0.093, fur, side * 0.207, 0.098, -0.109, 0.75, 0.95, 1.55),
+			box(0.109, 0.026, 0.185, fur, side * 0.24, 0.013, 0.044),
+			box(0.049, 0.098, 0.049, fur, side * 0.109, 0.049, 0.196),
+			box(0.076, 0.022, 0.065, fur, side * 0.12, 0.011, 0.218)
+		])
+	],
 	// Slim, pointed ears, dark legs, and a long tail with a white tip.
 	fox: ({ fur, accent }) => [
 		box(0.2, 0.18, 0.42, fur, 0, 0.3, 0),

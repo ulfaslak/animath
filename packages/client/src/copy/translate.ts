@@ -141,10 +141,11 @@ function pluralForm(
 
 /**
  * Fill every placeholder. One with no value is left as it is, so the gap shows
- * on screen. A value that starts a sentence (the message's start, or after
+ * on screen. A form that starts a sentence (the message's start, or after
  * `.`, `!` or `?` and a space) gets a capital first letter, so forms are
  * written the way they read mid-sentence ("et vildt egern") and still read
- * right first ("Et vildt egern dukker op!").
+ * right first ("Et vildt egern dukker op!"). A plain string — a nickname, a
+ * typed name — is never changed: it is shown as the kid wrote it.
  */
 function fill(
 	text: string,
@@ -157,16 +158,18 @@ function fill(
 		(whole: string, name: string, form: string | undefined, at: number) => {
 			const value = params?.[name];
 			let out: unknown;
+			let isForm = false;
 			if (typeof value === 'string' || typeof value === 'number') out = String(value);
 			else if (typeof value === 'object' && value !== null && form !== undefined) {
 				out = value[form];
+				isForm = true;
 			}
 			// Only text prints: `{animal.constructor}` finds a function, not a form.
 			if (typeof out !== 'string') {
 				missing(whole);
 				return whole;
 			}
-			return /(^|[.!?]\s+)$/.test(text.slice(0, at)) ? capitalize(out, lang) : out;
+			return isForm && /(^|[.!?]\s+)$/.test(text.slice(0, at)) ? capitalize(out, lang) : out;
 		}
 	);
 }

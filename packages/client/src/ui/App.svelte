@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { sfx } from '../audio/sfx.svelte';
+	import { t } from '../copy';
 	import { flags } from '../flags';
 	import { battle } from '../state/battle.svelte';
 	import { doctor } from '../state/doctor.svelte';
@@ -14,7 +15,7 @@
 </script>
 
 {#if game.mode === 'loading'}
-	<div class="loading">Loading…</div>
+	<div class="loading">{t('app.loading')}</div>
 {:else if battle.active}
 	{#if !battle.entering}<BattlePanel />{/if}
 {:else if doctor.active}

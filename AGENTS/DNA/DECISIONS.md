@@ -36,12 +36,13 @@ Dev server on port **5180** (5173 belongs to another project on this machine).
 
 ## Copy and languages
 
-All player-facing copy lives in per-language YAML files, `packages/client/src/copy/<code>.yaml`. Code refers to copy by key (`t('puzzle.keys')`) and holds no player-facing words, in TypeScript or in a Svelte template. Words written into code before this rule are listed in `packages/client/test/hardcoded-text.baseline.yaml` until they move.
-The game speaks English (`en`) and Danish (`da`). English is the fallback, so every key exists in English.
+All player-facing copy lives in per-language YAML files, `packages/client/src/copy/<code>.yaml`. Code refers to copy by key (`t('puzzle.keys')`) and holds no player-facing words, in TypeScript or in a Svelte template.
+The game speaks English (`en`) and Danish (`da`). English is the fallback, so every key exists in English. The player switches language in the pause menu; the choice is remembered on the device.
 Adding a language is adding a file and one registry line.
 YAML is parsed at build time. The browser gets plain objects and ships no YAML parser.
-The engine is language-free: it emits ids, codes and numbers, and the client picks the words.
+The engine is language-free: species and attacks have ids, not names; events and refusals are codes; a line an authority sends is a copy key with numbers and species by id, never a string. The client picks the words.
 Words are picked when they are shown, from the language on screen. State and events carry keys and params, never finished sentences, so changing the language re-words everything at once, without a reload.
+A species' names, articles included, are written out per language as forms (`name`, `a`, `the`, `wild`, `aWild`, `theWild`), never built from rules: Danish articles and adjectives follow the noun's gender.
 
 ## Assets
 

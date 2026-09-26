@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import type { CueName } from '../src/audio/cues';
 import { sfx } from '../src/audio/sfx.svelte';
 import { LocalAuthority } from '../src/authority/local';
+import { language } from '../src/copy';
 import { parseParty } from '../src/flags';
 import { PauseController } from '../src/pause/controller';
 import { game } from '../src/state/game.svelte';
@@ -74,7 +75,9 @@ beforeEach(() => {
 });
 
 afterEach(() => {
-	sfx.set(true); // the setting is the page's; leave it as every test found it
+	// The settings are the page's; leave them as every test found them.
+	language.set('en');
+	sfx.set(true);
 });
 
 describe('pause menu', () => {
@@ -91,30 +94,28 @@ describe('pause menu', () => {
 		controller.onKey(key('Escape', { repeat: true }));
 		expect(pause.open).toBe(false);
 
-		// Up from the top wraps to the last menu row; down past the team lands on
-		// "Keep playing", and Enter there closes.
+		// Up from the top wraps to the last menu row; down past the team and the
+		// settings lands on "Keep playing", and Enter there closes.
 		press('Escape', 'ArrowUp');
 		expect(pause.cursor).toBe(game.party.length + MENU_ITEMS.length - 1);
 		press('Escape', 'Escape', ...downTo('resume')); // closed, opened again at the top
-		expect(pause.cursor).toBe(game.party.length);
+		expect(pause.cursor).toBe(game.party.length + MENU_ITEMS.indexOf('resume'));
 		press('Enter');
 		expect(pause.open).toBe(false);
 	});
 
 	it('walks the list with arrows and W / S, wrapping, and never on auto-repeat', () => {
 		const { controller, press } = setup();
-		const last = game.party.length + MENU_ITEMS.length - 1;
 		press('Escape');
+		const rows = game.party.length + MENU_ITEMS.length;
 		press('s', 's', 'ArrowDown');
 		expect(pause.cursor).toBe(3);
-		press(...Array<string>(last - 3).fill('ArrowDown'));
-		expect(pause.cursor).toBe(last);
-		press('ArrowDown');
+		press(...Array<string>(rows - 3).fill('ArrowDown'));
 		expect(pause.cursor).toBe(0);
 		press('w');
-		expect(pause.cursor).toBe(last);
+		expect(pause.cursor).toBe(rows - 1);
 		controller.onKey(key('ArrowUp', { repeat: true }));
-		expect(pause.cursor).toBe(last);
+		expect(pause.cursor).toBe(rows - 1);
 	});
 
 	it('the Sound row: Enter flips it, left turns it off and right on, and the menu stays open', () => {
@@ -135,10 +136,33 @@ describe('pause menu', () => {
 		press(' ');
 		expect(sfx.on).toBe(true);
 		// Turned on, it says so in sound; turned off, only the switch says so.
-		expect(cues.slice(-6)).toEqual(['move', 'move', 'move', 'move', 'confirm', 'confirm']);
+		expect(cues.slice(-4)).toEqual(['move', 'move', 'confirm', 'confirm']);
 		expect(pause.screen).toBe('list');
 		expect(sent).toEqual([]);
 		stop();
+	});
+
+	it('the Language row switches every word at once: Enter, or left and right on the row', () => {
+		const { press } = setup();
+		language.set('en');
+		const row = game.party.length + MENU_ITEMS.indexOf('language');
+		press('Escape', ...Array<string>(row).fill('s'));
+		expect(pause.cursor).toBe(row);
+		press('Enter');
+		expect(language.current).toBe('da');
+		expect(pause.open).toBe(true); // the menu stays, now in Danish
+		press('Enter');
+		expect(language.current).toBe('en');
+		press('ArrowRight', 'd');
+		expect(language.current).toBe('en'); // two languages: right twice is back where it began
+		expect(press('ArrowLeft').prevented).toBe(true);
+		expect(language.current).toBe('da');
+		press('a');
+		expect(language.current).toBe('en');
+		// Left and right mean nothing on a team row: they are not the menu's.
+		press('w');
+		expect(press('ArrowRight').prevented).toBe(false);
+		expect(language.current).toBe('en');
 	});
 
 	it('"Go first" sends select-lead and comes back to the list on the animal, now first', () => {
@@ -159,7 +183,7 @@ describe('pause menu', () => {
 
 	it('moves an animal up one step at a time, and a mashed Enter stops at the top', () => {
 		const { press, species } = setup();
-		// Up past the menu rows to the fox.
+		// Up past every menu item to the fox.
 		press('Escape', ...Array<string>(MENU_ITEMS.length + 1).fill('ArrowUp'), 'Enter');
 		press('s'); // from "Go first" down to "Move up"
 		expect(pause.option).toBe(1);

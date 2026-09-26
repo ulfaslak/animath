@@ -1,7 +1,8 @@
 <script lang="ts">
 	import { getAnimal, needsHealing } from '@mathgame/engine';
 	import { t } from '../copy';
-	import { doctorWords, nameOf } from '../doctor/lines';
+	import { doctorWords } from '../doctor/lines';
+	import { animalWords, nameOf } from '../names';
 	import { doctor, hurtIndexes } from '../state/doctor.svelte';
 	import HpBar from './HpBar.svelte';
 	import PuzzlePanel from './PuzzlePanel.svelte';
@@ -96,7 +97,7 @@
 			<div class="soft">{t('doctor.pick')}</div>
 			<div class="detail">
 				{highlighted
-					? t('doctor.pickDetail', { name: nameOf(highlighted) })
+					? t('doctor.pickDetail', { animal: animalWords(highlighted) })
 					: t('doctor.byeDetail')}
 			</div>
 			<div class="keys">{t('doctor.listKeys')}</div>

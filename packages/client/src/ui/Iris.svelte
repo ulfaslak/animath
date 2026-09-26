@@ -6,8 +6,8 @@
 	 * everything: a circle of world closing on the player, rimmed in the
 	 * accent colour, then a circle of the battle opening on the wild animal.
 	 * With reduced motion the screen dims and clears instead. The battle
-	 * controller moves it (`battle.transition`); this only draws it. It never
-	 * takes a click or a key.
+	 * controller moves it (`battle.transition`); this works out the circle and
+	 * hands it to the CSS as custom properties. It never takes a click or a key.
 	 */
 	let width = $state(0);
 	let height = $state(0);
@@ -15,13 +15,9 @@
 	/** The rim's width in CSS pixels, while the circle is wide enough to carry it. */
 	const RIM = 12;
 
-	const style = $derived.by(() => {
+	const circle = $derived.by(() => {
 		const tr = battle.transition;
-		if (!tr) return '';
-		if (tr.kind === 'fade') {
-			const dim = tr.closing ? tr.p : 1 - tr.p;
-			return `background: var(--panel-ink); opacity: ${(0.75 * dim).toFixed(3)};`;
-		}
+		if (!tr || tr.kind !== 'iris') return null;
 		// Far enough to clear the corner furthest from the centre: fully open.
 		const far =
 			Math.max(
@@ -34,25 +30,53 @@
 		// opening springs wide and slows at the edges.
 		const open = tr.closing ? 1 - tr.p ** 3 : 1 - (1 - tr.p) ** 3;
 		const r = far * open;
-		const rim = Math.min(RIM, r * 0.3);
-		return (
-			`background: radial-gradient(circle at ${tr.x.toFixed(1)}px ${tr.y.toFixed(1)}px, ` +
-			`transparent ${r.toFixed(1)}px, var(--accent) ${(r + 0.5).toFixed(1)}px, ` +
-			`var(--accent) ${(r + rim).toFixed(1)}px, var(--panel-ink) ${(r + rim + 0.5).toFixed(1)}px);`
-		);
+		return { x: tr.x, y: tr.y, r, rim: Math.min(RIM, r * 0.3) };
+	});
+
+	/** How dark the reduced-motion dim is, 0..0.75. */
+	const dim = $derived.by(() => {
+		const tr = battle.transition;
+		if (!tr || tr.kind !== 'fade') return 0;
+		return 0.75 * (tr.closing ? tr.p : 1 - tr.p);
 	});
 </script>
 
 <svelte:window bind:innerWidth={width} bind:innerHeight={height} />
 
-{#if battle.transition}
-	<div class="iris" {style} aria-hidden="true"></div>
+{#if circle}
+	<div
+		class="iris"
+		style:--iris-x="{circle.x.toFixed(1)}px"
+		style:--iris-y="{circle.y.toFixed(1)}px"
+		style:--iris-r="{circle.r.toFixed(1)}px"
+		style:--iris-rim="{circle.rim.toFixed(1)}px"
+		aria-hidden="true"
+	></div>
+{:else if battle.transition}
+	<div class="dim" style:opacity={dim.toFixed(3)} aria-hidden="true"></div>
 {/if}
 
 <style>
-	.iris {
+	.iris,
+	.dim {
 		position: absolute;
 		inset: 0;
 		pointer-events: none !important;
+	}
+	.iris {
+		--iris-x: 50%;
+		--iris-y: 50%;
+		--iris-r: 0px;
+		--iris-rim: 0px;
+		background: radial-gradient(
+			circle at var(--iris-x) var(--iris-y),
+			transparent var(--iris-r),
+			var(--accent) calc(var(--iris-r) + 0.5px),
+			var(--accent) calc(var(--iris-r) + var(--iris-rim)),
+			var(--panel-ink) calc(var(--iris-r) + var(--iris-rim) + 0.5px)
+		);
+	}
+	.dim {
+		background: var(--panel-ink);
 	}
 </style>

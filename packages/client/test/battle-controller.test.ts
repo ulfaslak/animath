@@ -14,6 +14,8 @@ import { sfx } from '../src/audio/sfx.svelte';
 import { LocalAuthority } from '../src/authority/local';
 import { BattleController, ENTER_SECONDS, IRIS_OPEN_SECONDS } from '../src/battle/controller';
 import { actionAt, attackRows } from '../src/battle/menu';
+import { words } from '../src/lines';
+import { nameOf } from '../src/names';
 import type { GameRenderer } from '../src/render/renderer';
 import { battle } from '../src/state/battle.svelte';
 
@@ -36,8 +38,16 @@ function key(name: string, repeat = false): KeyboardEvent {
 }
 
 function name(animal: AnimalInstance): string {
-	return animal.nickname ?? getAnimal(animal.speciesId).name;
+	return nameOf(animal);
 }
+
+/** The narration line as the panel words it: in English, as tests run. */
+function said(): string {
+	return battle.line ? words(battle.line) : '';
+}
+
+/** A closing line that arrives after its battle is over. */
+const LATE = { key: 'battle.closing.fled', params: { animal: { speciesId: 'fox' } } } as const;
 
 /** The previous test's cue listener, dropped when the next one starts listening. */
 let stopListening: (() => void) | undefined;
@@ -200,11 +210,11 @@ describe('battle screen', () => {
 		t.run(ENTER_SECONDS + 0.05);
 		expect(battle.entering).toBe(false);
 		expect(t.shown).toHaveLength(1);
-		expect(battle.line).toBe(`A wild ${name(battle.opponent!)} appears!`);
+		expect(said()).toBe(`A wild ${name(battle.opponent!)} appears!`);
 		expect(battle.screen).toBe('busy');
 		t.run(3);
 		expect(battle.screen).toBe('actions');
-		expect(battle.line).toBe('What will Squirrel do?');
+		expect(said()).toBe('What will Squirrel do?');
 	});
 
 	it('closes an iris on the player, then opens it on the wild animal while the first line reads', () => {
@@ -221,7 +231,7 @@ describe('battle screen', () => {
 		t.run(ENTER_SECONDS * 0.5 + 0.05);
 		expect(t.shown).toHaveLength(1);
 		expect(battle.transition).toMatchObject({ kind: 'iris', closing: false });
-		expect(battle.line).toBe(`A wild ${name(battle.opponent!)} appears!`);
+		expect(said()).toBe(`A wild ${name(battle.opponent!)} appears!`);
 		t.run(IRIS_OPEN_SECONDS + 0.05);
 		expect(battle.transition).toBeNull();
 		// Leaving never leaves a transition behind.
@@ -290,9 +300,9 @@ describe('battle screen', () => {
 		t.press(...String(answer + 1), 'Enter');
 		t.run(0.1);
 		expect(battle.judged).toEqual({ correct: false });
-		expect(battle.line).toBe('Not quite!');
+		expect(said()).toBe('Not quite!');
 		t.run(1.1);
-		expect(battle.line).toBe(`Missed! The wild ${name(battle.opponent!)} shrugs it off.`);
+		expect(said()).toBe(`Missed! The wild ${name(battle.opponent!)} shrugs it off.`);
 		t.run(8);
 		expect(battle.screen).toBe('actions');
 		expect(battle.opponent!.hp).toBe(hp);
@@ -305,7 +315,9 @@ describe('battle screen', () => {
 		t.press('ArrowUp', 'Enter'); // Run
 		t.runUntil(() => battle.screen === 'result');
 		expect(battle.outcome).toBe('fled');
-		expect(battle.closing).toBe(`The wild ${name(battle.opponent!)} stays in the grass.`);
+		expect(battle.closing && words(battle.closing)).toBe(
+			`The wild ${name(battle.opponent!)} stays in the grass.`
+		);
 		t.press('Enter');
 		expect(battle.active).toBe(true);
 		t.run(1);
@@ -328,7 +340,7 @@ describe('battle screen', () => {
 
 		// Back in explore: a late update changes nothing.
 		t.controller.handle(stale);
-		t.controller.handle({ type: 'message', text: 'late' });
+		t.controller.handle({ type: 'message', line: LATE });
 		t.run(3);
 		expect(battle.active).toBe(false);
 		expect(t.shown).toHaveLength(shown);
@@ -339,7 +351,7 @@ describe('battle screen', () => {
 		expect(battle.screen).toBe('actions');
 		const view = { line: battle.line, opponent: battle.opponent };
 		t.controller.handle(stale);
-		t.controller.handle({ type: 'message', text: 'late' });
+		t.controller.handle({ type: 'message', line: LATE });
 		t.run(3);
 		expect(battle.screen).toBe('actions');
 		expect({ line: battle.line, opponent: battle.opponent }).toEqual(view);
@@ -448,16 +460,16 @@ describe('switching animals', () => {
 		t.press('s', 'Enter');
 		expect(t.sent.at(-1)).toEqual({ type: 'battle', intent: { type: 'switch', partyIndex: 1 } });
 		t.run(0.1);
-		expect(battle.line).toBe(`Come back, ${name(first!)}!`);
+		expect(said()).toBe(`Come back, ${name(first!)}!`);
 		expect(battle.front).toBe(0);
 		t.run(0.9);
-		expect(battle.line).toBe(`Go, ${name(second!)}!`);
+		expect(said()).toBe(`Go, ${name(second!)}!`);
 		expect(battle.front).toBe(1);
 		// The switch took the turn: the wild animal's reply comes next.
 		t.run(1.0);
-		expect(battle.line).toMatch(new RegExp(`^Wild ${name(battle.opponent!)} used `));
+		expect(said()).toMatch(new RegExp(`^Wild ${name(battle.opponent!)} used `));
 		t.runUntil(() => battle.screen === 'actions');
-		expect(battle.line).toBe(`What will ${name(second!)} do?`);
+		expect(said()).toBe(`What will ${name(second!)} do?`);
 		expect(battle.cursor).toBe(0);
 		expect(battle.party[0]).toEqual(first);
 		expect(t.latest().active).toBe(1);
@@ -480,7 +492,7 @@ describe('switching animals', () => {
 			t.runUntil(() => battle.screen === 'actions' || battle.screen === 'party', 30);
 		}
 		expect(battle.mustPick).toBe(true);
-		expect(battle.line).toBe(`${name(tired)} is tired. Who goes next?`);
+		expect(said()).toBe(`${name(tired)} is tired. Who goes next?`);
 		expect(battle.party[0]).toEqual(tired);
 		expect(battle.partyCursor).toBe(1);
 
@@ -505,9 +517,9 @@ describe('switching animals', () => {
 			'switched'
 		]);
 		t.run(0.1);
-		expect(battle.line).toBe(`Go, ${name(next)}!`);
+		expect(said()).toBe(`Go, ${name(next)}!`);
 		t.runUntil(() => battle.screen === 'actions');
-		expect(battle.line).toBe(`What will ${name(next)} do?`);
+		expect(said()).toBe(`What will ${name(next)} do?`);
 		expect(battle.cursor).toBe(0);
 		expect({ wild: battle.opponent!.hp, next: battle.party[1]!.hp }).toEqual(hp);
 	});

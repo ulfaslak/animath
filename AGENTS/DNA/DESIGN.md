@@ -18,7 +18,7 @@ Rules that follow from that:
 
 - **Fixed camera.** Orthographic, pitched about 50°, yawed about 35°. No zoom, no rotation, ever. The world reads as a diorama because the angle never changes.
 - **Facets, not textures.** Colour comes from materials and lighting, not image textures. `flatShading: true` everywhere.
-- **Chunky silhouettes.** Trees are a cone on a cylinder, rocks are a dodecahedron, tents are a pyramid. Animals are boxes, spheres and cones with one exaggerated tell each — the squirrel's curled tail, the rabbit's ears, the deer's antlers — because at the game's camera a bear is 40 px tall and a squirrel 15. Real models keep that vocabulary: few polygons, readable at 40 px tall.
+- **Chunky silhouettes.** Trees are a cone on a cylinder, rocks are a dodecahedron, tents are a pyramid. Animals are boxes, spheres and cones with one exaggerated tell each — the squirrel's curled tail, the rabbit's ears, the frog's eyes on top of its head, the deer's antlers — because at the game's camera a bear is 40 px tall and a squirrel 15. Real models keep that vocabulary: few polygons, readable at 40 px tall.
 - **Warm light.** One sun (slightly warm white) casting soft shadows, plus a hemisphere fill so shadows stay coloured, never black.
 - **Gentle motion.** Steps hop and swing the trainer's arms, grass could sway, fire flickers. Nothing snaps.
 - **A little juice, no new assets.** Moments get a small flourish made from what is already in the game — a lunge, a shake, a ring of dust, a burst of confetti in the palette's colours, sparkles along an HP bar, an iris into battle. A flourish marks a moment the screen already shows; it never hides text or the animal it is about, never leaves the scene, never delays a key and never fills the screen with a flash ([[UI_SPEC]] § Sound and juice). Size one against the thing it frames, in a frame, not by its numbers.
@@ -40,7 +40,7 @@ Hex values are the ones in `packages/client/src/render/palette.ts` and `styles.c
 | Tent cloth           | `#f2a65a` | Door `#d47c2a`.                              |
 | Fire / warm accent   | `#ffb347` | Also the UI accent (`--accent: #ff9f43`).    |
 | Trainer (player)     | `#ff7e6b` shirt, `#ffcfb0` skin, `#2f4fa8` shorts, `#3d7be8` cap | The only blue figure, so it never reads as an animal. |
-| Animal fur           | Squirrel `#c9733a`, rabbit `#d9cbb8`, fox `#e8762b`, otter `#8a5a3a`, deer `#c48a52`, wolf `#7f858f`, bear `#5a3a28` | `ANIMAL_COLORS`: one fur per species plus an accent for its tell (white tail tip, pink ear, tan muzzle). |
+| Animal fur           | Squirrel `#c9733a`, rabbit `#d9cbb8`, frog `#3aa66a`, fox `#e8762b`, otter `#8a5a3a`, deer `#c48a52`, wolf `#7f858f`, bear `#5a3a28` | `ANIMAL_COLORS`: one fur (or skin) per species plus an accent for its tell (white tail tip, pink ear, tan muzzle, the frog's pale throat `#e3eea4`). The frog's green is bluer and darker than grass and tall grass, so it never melts into them. |
 | Figure details       | `#fff4e6` / `#2f2a28` | Off-white and near-black for tail tips, chests, noses, eyes. |
 | Dust                 | `#f6efe2` | The ring a tired animal lies down in; fades as it spreads. Never grey smoke. |
 | Confetti             | accent, good, warn, water, trainer shirt, off-white, rabbit pink | `CONFETTI_COLORS`: only colours already in the game. |
@@ -79,25 +79,50 @@ Every line exists in each language the game speaks ([[DECISIONS]] § Copy and la
 
 ### Danish
 
-The same voice for a Danish seven-year-old reading alone: short, warm, one idea per line, everyday words.
+The same voice for a Danish seven-year-old reading alone: short, warm, one idea per line, everyday words. Read every line aloud before it ships; if it sounds like a textbook or a translation, say it the way a Danish parent would.
 
 - Second person "du", never "De".
-- "træt" for tired: "Ræv er træt." Never "besvimet", "slået ud" or "død".
-- "Ikke helt! Bjørnen ryster det af sig." not "Forkert svar." Big moments get big copy and an exclamation mark: "Du fangede en ræv!" "Godt forsøgt!" when the whole party is tired, never "Du tabte".
-- No anglicisms where Danish has a word a kid knows: "hold", not "team". Nothing scary: no "dø", "dræbe" or "blod".
-- The animal that goes first is "først ud" ("Ræv er først ud!"), and the menu option that puts one there is "Sæt forrest". The pause menu is "Pause", and closing it is "Spil videre".
-- A species is a noun. Your own animal goes by its name, the nickname or else the species with a capital ("Kom så, Ræv!"). A wild one gets an article, lower case: "En vild ræv dukker op!", "Den vilde ræv er træt."
-- Danish nouns are *en* or *et*, and the article and "vild" follow: en vild ræv / den vilde ræv, but et vildt egern / det vilde egern. The copy files give each species its forms, so a sentence never guesses.
+- "træt" for tired, never "besvimet", "slået ud" or "død".
+- "Ikke helt! Bjørnen ryster det af sig." not "Forkert svar." Big moments get big copy and an exclamation mark: "Du fangede en ræv!", "Du vandt!". "Godt forsøgt!" when the whole party is tired, never "Du tabte".
+- No anglicisms where Danish has a word a kid knows: "hold", not "team"; "snor", not "leash". Nothing scary: no "dø", "dræbe" or "blod"; the bear hugs ("Bjørnekram"), it doesn't maul.
+- Your own animal is called by its name in a label or a call ("Ræv", "Kom så, Ræv!") and with "the" in a sentence ("Ræven er træt.", "Lad os hjælpe ræven!"). A wild one is "en vild ræv" or "den vilde ræv". A nickname replaces all of them and is never translated.
+- Danish nouns are *en* or *et*, and the article and "vild" follow: en vild ræv / den vilde ræv, but et vildt egern / det vilde egern. Each species' forms are written out in `da.yaml`, so a sentence never guesses. Don't use a pronoun for an animal ("den", "det") where its gender could be either: "Forbi!" rather than "Den ramte ikke", "Snoren gled af!" rather than "Den slap fri".
+- Species names are lower case inside a sentence ("Du fangede et egern!") and capitalised alone, as a name or a label.
 
-| English  | Dansk  | en / et | the …   |
-| -------- | ------ | ------- | ------- |
-| Squirrel | egern  | et      | egernet |
-| Rabbit   | kanin  | en      | kaninen |
-| Fox      | ræv    | en      | ræven   |
-| Otter    | odder  | en      | odderen |
-| Deer     | hjort  | en      | hjorten |
-| Wolf     | ulv    | en      | ulven   |
-| Bear     | bjørn  | en      | bjørnen |
+| English  | Dansk  | en / et | the …   | a wild …        | the wild …      |
+| -------- | ------ | ------- | ------- | --------------- | --------------- |
+| Squirrel | egern  | et      | egernet | et vildt egern  | det vilde egern |
+| Rabbit   | kanin  | en      | kaninen | en vild kanin   | den vilde kanin |
+| Frog     | frø    | en      | frøen   | en vild frø     | den vilde frø   |
+| Fox      | ræv    | en      | ræven   | en vild ræv     | den vilde ræv   |
+| Otter    | odder  | en      | odderen | en vild odder   | den vilde odder |
+| Deer     | hjort  | en      | hjorten | en vild hjort   | den vilde hjort |
+| Wolf     | ulv    | en      | ulven   | en vild ulv     | den vilde ulv   |
+| Bear     | bjørn  | en      | bjørnen | en vild bjørn   | den vilde bjørn |
+
+The words the game uses for its things, the same on every screen:
+
+| English | Dansk | Where |
+| --- | --- | --- |
+| tired | træt (trætte) | an animal at 0 HP: the tag, every line about it |
+| wild | vild / vildt / vilde | a wild animal, following its gender |
+| doctor | dyrlæge | the tents, the card ("Dyrlæge"), every line |
+| leash | snor | the battle row ("Snor"), "Du kaster snoren…" |
+| catch | fange | "Du fangede en ræv!", "Svært at fange" |
+| team | hold | "Dit hold", "kommer med på dit hold" |
+| goes first | først ud | the lead's tag, "Ræven er først ud!", "Sæt forrest" in the menu |
+| attack | angreb | "Vælg et angreb" |
+| easy / medium / hard | let / mellem / svær | an attack's three levels |
+| puzzle | opgave | "Løs en opgave" (the sum itself needs no words) |
+| switch | skifte | the battle row ("Skift") |
+| run away | løbe væk | the battle row ("Løb væk"), "Du slap væk!" |
+| in battle | på banen | the switch list's tag |
+| Correct! / Not quite! | Rigtigt! / Ikke helt! | every judged answer |
+| damage | skade | "12 i skade." |
+| Keep playing | Spil videre | the pause menu |
+| Language | Sprog | the pause menu, listing "English" and "Dansk" |
+
+Attack names are short, concrete Danish words or playful compounds a kid can say: Nøddekast, Lynspark, Hop, Stamp, Hulebid, Kvæk, Tungesnert, Stort plask, Nap, Spring, Rævestreg, Plask, Halesmæk, Spark, Hornstød, Bid, Hyl, Ulvespring, Labeslag, Brøl, Bjørnekram, Kæmpetramp.
 
 ## Sound
 

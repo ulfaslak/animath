@@ -2,8 +2,8 @@
 	import { MAX_NICKNAME_LENGTH, getAnimal, leadIndex, normalizeNickname } from '@mathgame/engine';
 	import { flip } from 'svelte/animate';
 	import { sfx } from '../audio/sfx.svelte';
-	import { t } from '../copy';
-	import { nameOf, speciesName } from '../names';
+	import { LANGUAGES, language, languageName, t } from '../copy';
+	import { animalWords, nameOf, speciesName } from '../names';
 	import { game } from '../state/game.svelte';
 	import {
 		MENU_ITEMS,
@@ -16,9 +16,10 @@
 
 	/**
 	 * The pause menu: the team in battle order on the left, then the menu
-	 * items ("Keep playing", then the Sound setting with its switch); on the
-	 * right, what can be done with the picked animal — the options, or the
-	 * name box. It reads `game.party`, `pause` and `sfx.on`; keys are
+	 * items (the settings — Language with every language in its own words,
+	 * Sound with its switch — then "Keep playing"); on the right, what can be
+	 * done with the picked animal — the options, or the name box. It reads
+	 * `game.party`, `pause`, `language` and `sfx.on`; keys are
 	 * `PauseController`'s, so nothing here dispatches. The name box binds
 	 * `pause.draft` and keeps the focus while it is open, so typing lands in it.
 	 * Every word comes from the copy files (`pause.*`, `hud.*`).
@@ -43,6 +44,8 @@
 
 	function itemLabel(item: MenuItem): string {
 		switch (item) {
+			case 'language':
+				return t('pause.language');
 			case 'resume':
 				return t('pause.resume');
 			case 'sound':
@@ -116,7 +119,17 @@
 						class="row item"
 						class:lit={pause.screen === 'list' && lit === game.party.length + j}
 					>
-						{#if item === 'sound'}
+						{#if item === 'language'}
+							<!-- Each language in its own words, so a kid finds theirs in any language. -->
+							<span class="setting">{itemLabel(item)}</span>
+							<span class="choices">
+								{#each LANGUAGES as code (code)}
+									<span class="choice" class:on={language.current === code} lang={code}>
+										{languageName(code)}
+									</span>
+								{/each}
+							</span>
+						{:else if item === 'sound'}
 							<!-- A setting: its name, a switch, and the switch's state in words. -->
 							<span class="setting">{itemLabel(item)}</span>
 							<span class="switch" class:on={sfx.on} aria-hidden="true"
@@ -139,10 +152,10 @@
 						</div>
 					{/each}
 					{#if picked.hp === 0}
-						<div class="note">{t('pause.tiredHelp', { name: nameOf(picked) })}</div>
+						<div class="note">{t('pause.tiredHelp', { animal: animalWords(picked) })}</div>
 					{/if}
 				{:else if pause.screen === 'naming' && picked}
-					<div class="side-title">{t('pause.nameTitle', { name: nameOf(picked) })}</div>
+					<div class="side-title">{t('pause.nameTitle', { animal: animalWords(picked) })}</div>
 					<input
 						class="name-box"
 						type="text"
@@ -168,7 +181,11 @@
 			</div>
 		</div>
 		<div class="keys">
-			{#if pause.screen === 'list'}
+			{#if pause.screen === 'list' && MENU_ITEMS[pause.cursor - game.party.length] === 'language'}
+				{t('pause.keysLanguage')}
+			{:else if pause.screen === 'list' && soundLit}
+				{t('pause.keysSound')}
+			{:else if pause.screen === 'list'}
 				{t('pause.keysList')}
 			{:else if pause.screen === 'options'}
 				{t('pause.keysOptions')}
@@ -285,6 +302,27 @@
 	.item {
 		margin-top: 6px;
 	}
+	.setting {
+		flex: 1;
+	}
+	/* The Language row: every language in its own words, the one on screen lit. */
+	.choices {
+		display: flex;
+		gap: 6px;
+	}
+	.choice {
+		display: grid;
+		place-items: center;
+		height: 32px;
+		padding: 0 12px;
+		border-radius: 16px;
+		background: rgba(0, 0, 0, 0.08);
+		font-size: 16px;
+	}
+	.choice.on {
+		background: var(--accent);
+		color: white;
+	}
 	.button {
 		display: inline-flex;
 		align-items: center;
@@ -294,10 +332,7 @@
 		background: var(--accent);
 		color: white;
 	}
-	.setting {
-		min-width: 5em;
-	}
-	/* An on/off switch: the knob slides right and the track fills green when on. */
+	/* The Sound row: an on/off switch, the knob right and the track green when on. */
 	.switch {
 		position: relative;
 		flex: none;
@@ -326,6 +361,7 @@
 	}
 	.setting-state {
 		min-width: 3em;
+		text-align: left;
 	}
 	@media (prefers-reduced-motion: reduce) {
 		.switch,
