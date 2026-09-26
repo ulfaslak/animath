@@ -1,6 +1,7 @@
 import type { Authority, GameEvent, PartyIntent } from '@mathgame/engine';
 import { sfx } from '../audio/sfx.svelte';
 import { LANGUAGES, language } from '../copy';
+import { isShortcut, keyName } from '../input/keyboard';
 import { game } from '../state/game.svelte';
 import {
 	MENU_ITEMS,
@@ -51,23 +52,25 @@ export class PauseController {
 		// that keydown says `isComposing: false`; its keyCode is still 229.
 		if (e.isComposing || e.keyCode === 229) return;
 		if (!pause.open) {
-			if (e.key === 'Escape' && !e.repeat && !modified(e)) {
+			if (e.key === 'Escape' && !e.repeat && !isShortcut(e)) {
 				this.open();
 				e.preventDefault();
 			}
 			return;
 		}
+		// The name box takes letters as typed, so it reads the key itself.
 		if (pause.screen === 'naming') {
 			this.namingKey(e);
 			return;
 		}
-		if (modified(e)) return; // leave browser shortcuts alone
+		if (isShortcut(e)) return; // leave browser shortcuts alone
 		// Never act on auto-repeat: an arrow still held from walking must not scroll the menu.
 		if (e.repeat) {
 			e.preventDefault();
 			return;
 		}
-		const handled = pause.screen === 'list' ? this.listKey(e.key) : this.optionsKey(e.key);
+		const key = keyName(e);
+		const handled = pause.screen === 'list' ? this.listKey(key) : this.optionsKey(key);
 		if (handled) e.preventDefault();
 	}
 
@@ -196,7 +199,8 @@ export class PauseController {
 	}
 
 	private namingKey(e: KeyboardEvent): void {
-		if (e.ctrlKey || e.metaKey) return; // paste, select all: the name box's own
+		// Paste, select all, Alt+Enter: the name box's and the browser's own.
+		if (isShortcut(e)) return;
 		if (e.key === 'Enter') {
 			e.preventDefault();
 			// A held Enter that opened the box must not save it straight away.
@@ -275,10 +279,6 @@ export class PauseController {
 	private send(intent: PartyIntent): void {
 		this.authority.dispatch({ type: 'party', intent });
 	}
-}
-
-function modified(e: KeyboardEvent): boolean {
-	return e.ctrlKey || e.metaKey || e.altKey;
 }
 
 /** The next option in `dir` that can be chosen, wrapping round; `from` when there is no other. */

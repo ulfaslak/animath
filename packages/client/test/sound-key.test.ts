@@ -10,6 +10,7 @@ import { pause } from '../src/state/pause.svelte';
  */
 const key = (k: string, mods: Partial<Record<'ctrlKey' | 'metaKey' | 'altKey', boolean>> = {}) => ({
 	key: k,
+	code: /^[a-z]$/i.test(k) ? `Key${k.toUpperCase()}` : '',
 	ctrlKey: false,
 	metaKey: false,
 	altKey: false,

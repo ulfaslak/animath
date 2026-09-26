@@ -192,6 +192,10 @@ battle:
     good: Good chance!
     maybe: Maybe
     hard: Hard to catch
+    # Beside the row in place of the odds, when the team already has six animals.
+    teamFull: Team is full
+    # What the row says when highlighted with the team full: a catch goes home.
+    teamFullDetail: Your team is full. If you catch it, it hops home.
     # Narration of a throw.
     throw: You throw the leash…
     caught: Caught!
@@ -224,6 +228,8 @@ battle:
   result:
     won: You won!
     caught: 'You caught {animal.a}!'
+    # Caught, but the team was full, so the animal went home: never "You caught…".
+    letGo: Good throw!
     lost: Good try!
     fled: You got away!
     button: Keep exploring
@@ -233,7 +239,7 @@ battle:
     won: '{animal.theWild} runs home to rest.'
     fled: '{animal.theWild} stays in the grass.'
     joined: '{animal.name} joins your team!'
-    teamFull: 'Your team is full, so {animal.the} goes back into the grass.'
+    teamFull: 'Your team is full, so {animal.theWild} hops home.'
 
 doctor:
   # The name tag in front of what the doctor says.
