@@ -135,6 +135,7 @@ Everything below is a click with a mouse or a tap with a finger, and each is the
 - **With nobody standing who swims**, your animal that goes first on land hops into the boat once you are in it and rides at the front, small; it hops out beside you when you land.
 - **Nothing comes out of the water yet.** Sailing never starts a battle, deep water included: the sea animals are still to come.
 - **A reload out on the water** (Continue) puts you back in the boat where you were, the swimmer beside you or the rider in the boat. A save with you on water and no boat (only by editing the save by hand) starts you on the spawn tile instead.
+- **Chopping from the boat**: with the axe too, a tree right beside the water can be chopped from the boat, and its stump is somewhere to land. The nearest is 50 steps from the start: sail to (21, 33) and face down, at the tree on (21, 34).
 - **The doctor from the water**: no tent stands right beside water (a sand bank is always between), so land first and talk from the ground.
 
 ## Finding a battle fast
