@@ -136,6 +136,11 @@ export class Autosave {
 	private seq = 0;
 	/** The exact text of the save key when this page last read or wrote it; null when it was empty. */
 	private seenText: string | null = null;
+	/** The text of this page's own last write of the save key, and its `seq`. */
+	private writtenText: string | null = null;
+	private writtenSeq = 0;
+	/** Start-up found this player's game on the server, written by a newer build. */
+	private newerOnServer = false;
 	/** The save this page's game grows from: the one it loaded, carried on from, or last wrote. */
 	private base: SaveV1 | null = null;
 	/** Fields a newer build left in the loaded save, written back unchanged. */
@@ -211,6 +216,30 @@ export class Autosave {
 	}
 
 	/**
+	 * What every title this page opens says about the save: this page cannot
+	 * keep the game (`save.cannotSave`: the browser gives it no storage;
+	 * `save.storageFull`: a write failed), or a newer build's game waits
+	 * (`save.newerGame`: in the key, never written over, or on the server).
+	 * Null otherwise, and on a throwaway page, which says nothing about it.
+	 */
+	get titleNotice(): SaveNotice | null {
+		if (this.throwaway) return null;
+		if (this.local === 'frozen' || this.newerOnServer) return 'save.newerGame';
+		if (this.local === 'none') return 'save.cannotSave';
+		if (this.local === 'broken') return 'save.storageFull';
+		return null;
+	}
+
+	/**
+	 * Whether this page keeps the game it plays: then a game left for a new
+	 * one is put away. False with no storage, a newer build's save waiting in
+	 * the key, a write that failed, or a throwaway game.
+	 */
+	get keeps(): boolean {
+		return this.local !== 'none' && this.local !== 'frozen' && this.local !== 'broken';
+	}
+
+	/**
 	 * Check the save again, as a `storage` event would. For a page that may
 	 * have missed one: back from the back/forward cache, resumed after the
 	 * browser froze it, or just focused.
@@ -271,6 +300,7 @@ export class Autosave {
 				// The kid's game is on the server, but this page cannot read it: a new game, said so.
 				if (read.reason === 'newer') {
 					this.serverState = 'stopped';
+					this.newerOnServer = true;
 					plan = { notice: 'save.newerGame' };
 				} else {
 					// Saves are numbered past it, and it waits until the kid has played the new game;
@@ -349,10 +379,16 @@ export class Autosave {
 		void this.push(true);
 	}
 
-	/** A `storage` event: another page of this site changed `key` (null: storage was cleared). */
-	onStorage(key: string | null): void {
-		if (this.stale || (this.local !== 'ok' && this.local !== 'held')) return;
+	/**
+	 * A `storage` event: another page of this site changed `key` (null:
+	 * storage was cleared), to `written` when the event says.
+	 */
+	onStorage(key: string | null, written: string | null = null): void {
 		if (key !== null && key !== KEYS.save) return;
+		// A save of this game numbered no higher than this page's last one, and not it, was
+		// written over it without seeing it: keep this page's aside, whatever comes after.
+		if (written !== null && this.overwrittenUnseen(written)) this.keepOwnSave(true);
+		if (this.stale || (this.local !== 'ok' && this.local !== 'held')) return;
 		// Judge the save as it is now, not the value the event carried: events arrive late,
 		// and that value may already be replaced, by this page's own next save among others.
 		const now = this.store?.get(KEYS.save) ?? null;
@@ -462,8 +498,11 @@ export class Autosave {
 		}
 		if (writesLocal) {
 			const text = JSON.stringify(doc);
-			if (store.set(KEYS.save, text)) this.seenText = text;
-			else this.local = 'broken';
+			if (store.set(KEYS.save, text)) {
+				this.seenText = text;
+				this.writtenText = text;
+				this.writtenSeq = doc.seq;
+			} else this.local = 'broken';
 		}
 		this.replacing = false;
 		this.seq = doc.seq;
@@ -533,8 +572,58 @@ export class Autosave {
 	}
 
 	private goStale(cause: BehindCause): void {
+		if (this.staleCause === null && cause !== 'gone') this.keepOwnSave();
 		this.staleCause ??= cause;
 		this.clearTimers();
+	}
+
+	/**
+	 * This page is behind. Whoever wrote the save in its place either played
+	 * on from this page's last save (the same game, a higher `seq`) or kept it
+	 * aside (another game took the key). Two pages writing in the same
+	 * instant break that: a page's view of `localStorage` is only brought up
+	 * to date between tasks, so both pass compare-before-write and the one
+	 * written first is lost. Then this page keeps its own last save aside, so
+	 * what the kid did in it is never gone.
+	 */
+	private keepOwnSave(knownLost = false): void {
+		const store = this.store;
+		const text = this.writtenText;
+		// Nothing of this page's that no other page has seen.
+		if (!store || text === null || text !== this.seenText) return;
+		const current = store.get(KEYS.save);
+		if (current === null || current === text) return;
+		// A later save of this game played on from this page's, unless a storage event showed
+		// this page's written over first (`overwrittenUnseen`): the seq alone cannot tell.
+		const doc = parseJson(current);
+		const later = saveLineage(doc) === this.lineage && saveSeq(doc) > this.writtenSeq;
+		if (later && !knownLost) return;
+		const prefixes = [KEYS.replaced, KEYS.previous, KEYS.unreadable];
+		if (prefixes.some((prefix) => this.keptUnder(prefix, text))) return;
+		this.setAside(KEYS.replaced, text);
+	}
+
+	/**
+	 * Whether `written`, a save another page just wrote, went over this page's
+	 * last save without seeing it: the same game, numbered no higher. A page
+	 * that had seen it would have carried on from it, and numbered past it.
+	 */
+	private overwrittenUnseen(written: string): boolean {
+		if (this.writtenText === null || written === this.writtenText) return false;
+		const doc = parseJson(written);
+		return saveLineage(doc) === this.lineage && saveSeq(doc) <= this.writtenSeq;
+	}
+
+	/** Whether `text` is in one of `prefix`'s set-aside slots (they fill in order). */
+	private keptUnder(prefix: string, text: string): boolean {
+		const store = this.store;
+		if (!store) return false;
+		for (let n = 1; n <= MAX_PUT_AWAY; n++) {
+			const there = store.get(n === 1 ? prefix : `${prefix}.${n}`);
+			if (there === null) return false;
+			if (there === text) return true;
+		}
+		return false;
 	}
 
 	private readIdentity(store: KeyValueStore): void {
@@ -545,7 +634,7 @@ export class Autosave {
 			this.identity = { id: parsed.id, secret: parsed.secret };
 			return;
 		}
-		store.set(KEYS.previousPlayer, text);
+		this.setAside(KEYS.previousPlayer, text);
 		store.remove(KEYS.player);
 	}
 
@@ -687,7 +776,7 @@ export class Autosave {
 		}
 		// A tie goes to the server's game, but only a tie between saves: at 0 neither has one.
 		if (theirs > this.seq || (theirs === this.seq && theirs > 0 && !sameGame)) {
-			this.adopt(read.save);
+			this.adopt(read.save, doc);
 			return;
 		}
 		this.pushed = sameGame ? theirs : 0;
@@ -700,13 +789,16 @@ export class Autosave {
 	 * `KEYS.replaced` (or `KEYS.unreadable`), make the server's the saved
 	 * game, and reload into it.
 	 */
-	private adopt(save: SaveV1): void {
+	private adopt(save: SaveV1, doc: unknown): void {
 		const store = this.store;
 		if (!store || this.local === 'frozen' || this.local === 'none') return;
 		const current = store.get(KEYS.save);
 		if (current !== this.seenText && current !== null) {
-			// Another page wrote meanwhile; it will settle with the server itself.
-			this.goStale(this.causeOf(current));
+			// Another page wrote meanwhile, and its storage event has not come yet. If it only
+			// walked, carry on from it, as the event would have, and settle again: the server
+			// may hold that very walk. Otherwise it will settle with the server itself.
+			if (this.carryOnFrom(current)) this.settleWith(doc);
+			else this.goStale(this.causeOf(current));
 			return;
 		}
 		const aside = this.local === 'held' ? KEYS.unreadable : KEYS.replaced;
@@ -752,10 +844,14 @@ export class Autosave {
 		this.schedulePush(true);
 	}
 
-	/** The server does not know this identity: keep it aside, and start a new one. */
+	/**
+	 * The server does not know this identity: keep it aside, beside any kept
+	 * before (the server may have been the one that was wrong), and start a
+	 * new one.
+	 */
 	private retireIdentity(): void {
 		if (this.identity && this.store) {
-			this.store.set(KEYS.previousPlayer, JSON.stringify(this.identity));
+			this.setAside(KEYS.previousPlayer, JSON.stringify(this.identity));
 			this.store.remove(KEYS.player);
 		}
 		this.identity = null;

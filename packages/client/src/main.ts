@@ -16,7 +16,7 @@ import { PauseController } from './pause/controller';
 import { Follower } from './render/follower';
 import { GameRenderer } from './render/renderer';
 import { TitleScenery } from './render/title-scenery';
-import { buildZoo } from './render/zoo';
+import { Zoo } from './render/zoo';
 import { httpSaveServer } from './save/api';
 import { Autosave } from './save/autosave';
 import {
@@ -65,6 +65,9 @@ const explore = new ExploreController(authority, renderer, keyboard, new Followe
 const battleController = new BattleController(authority, renderer);
 const doctorController = new DoctorController(authority);
 const pauseController = new PauseController(authority);
+// `?zoo` lines up one of every species by the spawn tile (a check for the meshes),
+// once for the page; `?zoo=tired` lays them down to rest.
+const zoo = flags.zoo ? new Zoo(renderer, flags.zoo === 'tired') : null;
 // `?new`, `?party=` (a party to look at), `?zoo`, `?tokens=` and `?shop` play a
 // throwaway game: nothing is loaded or saved, and the saved game is left alone.
 const autosave = new Autosave({
@@ -117,16 +120,18 @@ authority.subscribe((event) => {
 	autosave.handle(event);
 	// A new game from the title: after `welcome`, which clears the message line.
 	if (event.type === 'welcome' && event.newGame) sayStartNotice(true);
-	// Quit to title: the game just left is the one Continue picks up.
+	// Quit to title: the game just left is the one Continue picks up. A page that cannot
+	// keep it says so on this title too.
 	if (event.type === 'game-left') {
-		titleController.open(autosave.resumable() ?? authority.snapshot());
+		titleController.open(
+			autosave.resumable() ?? authority.snapshot(),
+			autosave.titleNotice,
+			autosave.keeps
+		);
 	}
-	// `?zoo` lines up one of every species by the spawn tile (a check for the meshes);
-	// `?zoo=tired` lays them down to rest.
-	if (flags.zoo && event.type === 'welcome') {
-		const figures = buildZoo(event.seed, event.pos, flags.zoo === 'tired');
-		for (const figure of figures) renderer.addFigure(figure);
-	}
+	// The first game of the page puts the `?zoo` line-up up; Continue after the
+	// Start screen, or a new game from the title, finds it standing.
+	if (event.type === 'welcome') zoo?.welcome(event.seed, event.pos);
 });
 
 /**
@@ -245,7 +250,7 @@ document.addEventListener('visibilitychange', () => {
 	if (document.visibilityState === 'hidden') autosave.flush();
 });
 // Another tab of the game saved: this one may be behind now.
-window.addEventListener('storage', (e) => autosave.onStorage(e.key));
+window.addEventListener('storage', (e) => autosave.onStorage(e.key, e.newValue));
 // A page back from the back/forward cache, or resumed after the browser froze it, gets
 // no `storage` events for the time it was away: it checks the save again, and so does
 // a window the kid comes to.
@@ -337,8 +342,6 @@ void autosave.boot().then((plan) => {
 		continueGame(plan.game);
 		return;
 	}
-	// A save this page can't pick up is worth saying before a starter is chosen.
-	const onTitle =
-		plan.notice === 'save.newerGame' || plan.notice === 'save.cannotSave' ? plan.notice : null;
-	titleController.open(plan.game ?? null, onTitle);
+	// A page that cannot keep the game says so before a starter is chosen.
+	titleController.open(plan.game ?? null, autosave.titleNotice, autosave.keeps);
 });

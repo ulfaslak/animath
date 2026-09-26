@@ -4,12 +4,16 @@ import {
 	hashString,
 	newGame,
 	readSave,
+	restoreGame,
 	saveDocument,
+	type BattleState,
 	type GameEvent,
+	type Intent,
 	type SaveWrite,
 	type SavedGame
 } from '@mathgame/engine';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { LocalAuthority, mintId } from '../src/authority/local';
 import type { Identity, SaveServer, ServerRead, ServerWrite } from '../src/save/api';
 import { Autosave } from '../src/save/autosave';
 import { COPY, LANGUAGES } from '../src/copy/languages';
@@ -47,6 +51,36 @@ class MemoryStore implements KeyValueStore {
 	save(): SaveWrite | null {
 		const text = this.get(KEYS.save);
 		return text === null ? null : (JSON.parse(text) as SaveWrite);
+	}
+}
+
+/**
+ * One tab's view of the shared store. A browser brings a page's view of
+ * `localStorage` up to date only between tasks, so a write another page makes
+ * in the same instant is not in it yet: `freeze` holds a key as it is now
+ * until this tab writes it or `thaw` is called.
+ */
+class LaggingView extends MemoryStore {
+	private held = new Map<string, string | null>();
+	constructor(private shared: MemoryStore) {
+		super();
+	}
+	freeze(key: string): void {
+		this.held.set(key, this.shared.get(key));
+	}
+	thaw(): void {
+		this.held.clear();
+	}
+	override get(key: string): string | null {
+		return this.held.has(key) ? this.held.get(key)! : this.shared.get(key);
+	}
+	override set(key: string, value: string): boolean {
+		this.held.delete(key);
+		return this.shared.set(key, value);
+	}
+	override remove(key: string): void {
+		this.held.delete(key);
+		this.shared.remove(key);
 	}
 }
 
@@ -554,6 +588,63 @@ describe('Autosave: two tabs', () => {
 		expect(a.autosave.behind).toBeNull();
 	});
 
+	it('two tabs writing in the same instant: the save that lost is kept aside, never gone', async () => {
+		const store = new MemoryStore();
+		const a = new Tab(store, null);
+		await a.open();
+		await a.walk();
+		const view = new LaggingView(store);
+		const b = new Tab(view, null);
+		await b.open();
+		// B's view of the save has not caught up with A's catch when B saves its step.
+		view.freeze(KEYS.save);
+		await a.catchOne();
+		const caught = store.get(KEYS.save)!;
+		await b.walk();
+		expect(store.get(KEYS.save)).not.toBe(caught);
+		view.thaw();
+		a.autosave.onStorage(KEYS.save);
+		expect(a.autosave.behind).toBe('window');
+		expect(store.get(KEYS.replaced)).toBe(caught);
+	});
+
+	it('the same, when the other tab saved again before this one heard of it: the event shows it', async () => {
+		const store = new MemoryStore();
+		const a = new Tab(store, null);
+		await a.open();
+		await a.walk();
+		const view = new LaggingView(store);
+		const b = new Tab(view, null);
+		await b.open();
+		view.freeze(KEYS.save);
+		await a.catchOne();
+		const caught = store.get(KEYS.save)!;
+		await b.walk();
+		const over = store.get(KEYS.save)!;
+		await b.walk();
+		view.thaw();
+		// A hears the first of B's saves only now, with the key already at B's second.
+		a.autosave.onStorage(KEYS.save, over);
+		a.autosave.onStorage(KEYS.save, store.get(KEYS.save));
+		expect(a.autosave.behind).toBe('window');
+		expect(store.get(KEYS.replaced)).toBe(caught);
+	});
+
+	it('a tab that played on from this one’s save puts it behind, and nothing is kept aside', async () => {
+		const store = new MemoryStore();
+		const a = new Tab(store, null);
+		const b = new Tab(store, null);
+		await a.open();
+		await b.open();
+		await a.walk();
+		b.autosave.onStorage(KEYS.save, store.get(KEYS.save));
+		expect(b.autosave.behind).toBeNull();
+		await b.catchOne();
+		a.autosave.onStorage(KEYS.save, store.get(KEYS.save));
+		expect(a.autosave.behind).toBe('window');
+		expect(store.get(KEYS.replaced)).toBeNull();
+	});
+
 	it('a save removed from under the page (site data cleared) is not written back', async () => {
 		const { store, a } = await twoTabs();
 		store.remove(KEYS.save);
@@ -599,6 +690,147 @@ describe('Autosave: two tabs', () => {
 		await a.catchOne();
 		b.autosave.recheck();
 		expect(b.autosave.behind).toBe('window');
+	});
+});
+
+describe('Autosave: two tabs, each with the real authority', () => {
+	/**
+	 * One page as `main.ts` wires it: the authority's events go to the
+	 * autosave, and the autosave carries the authority's counts on (#58).
+	 * Storage events are handed over by the test, so it decides when a tab
+	 * hears of the other's saves.
+	 */
+	class Page {
+		authority = new LocalAuthority();
+		events: GameEvent[] = [];
+		autosave: Autosave;
+		constructor(store: MemoryStore) {
+			this.autosave = new Autosave({
+				store,
+				server: null,
+				snapshot: () => this.authority.snapshot(),
+				catchUp: (counts) => this.authority.catchUp(counts),
+				mintId
+			});
+			this.authority.subscribe((e) => {
+				this.events.push(e);
+				this.autosave.handle(e);
+			});
+		}
+		async continue(): Promise<void> {
+			const plan = await this.autosave.boot();
+			this.authority.start({ game: this.autosave.resumable() ?? plan.game });
+			this.autosave.begin();
+		}
+		async act(intent: Intent): Promise<GameEvent[]> {
+			const from = this.events.length;
+			this.authority.dispatch(intent);
+			await settle();
+			return this.events.slice(from);
+		}
+	}
+
+	function savedAt(store: MemoryStore, game: Partial<SavedGame>): void {
+		const base = newGame(SEED);
+		store.set(
+			KEYS.save,
+			JSON.stringify(saveDocument({ ...base, ...game }, { lineage: 'kid-game', seq: 1 }))
+		);
+	}
+	const savedCounts = (store: MemoryStore) => {
+		const save = store.save()!;
+		return { steps: save.steps, visits: save.visits };
+	};
+	function readSaveOrThrow(save: SaveWrite) {
+		const read = readSave(JSON.parse(JSON.stringify(save)));
+		if (!read.ok) throw new Error(read.error);
+		return read.save;
+	}
+	function latestBattle(events: GameEvent[]): BattleState {
+		for (let i = events.length - 1; i >= 0; i--) {
+			const e = events[i]!;
+			if (e.type === 'battle-updated' || e.type === 'battle-started') return e.state;
+		}
+		throw new Error('no battle');
+	}
+	/** What a kid does next in a battle: the first attack, easy, answered wrong; or send in who stands. */
+	function battleStep(state: BattleState): Intent {
+		if (state.phase.kind === 'choose-animal') {
+			const partyIndex = state.party.findIndex((a) => a.hp > 0);
+			return { type: 'battle', intent: { type: 'switch', partyIndex } };
+		}
+		if (state.phase.kind === 'solving') {
+			const input = String(state.phase.puzzle.answer + 1);
+			return { type: 'battle', intent: { type: 'answer', input } };
+		}
+		return { type: 'battle', intent: { type: 'attack', attackIndex: 1, level: 1 } };
+	}
+
+	it('a tab at the doctor carries the other tab’s walk on: the counts never go back (#58)', async () => {
+		const store = new MemoryStore();
+		// One step above the tent at (5, 7), facing it.
+		savedAt(store, { pos: { x: 5, y: 6 }, facing: 'down', steps: 10 });
+		const a = new Page(store);
+		const b = new Page(store);
+		await a.continue();
+		await b.continue();
+		expect((await a.act({ type: 'interact' })).map((e) => e.type)).toContain(
+			'doctor-visit-started'
+		);
+		b.autosave.onStorage(KEYS.save);
+		for (const dir of ['left', 'right', 'left', 'right', 'left', 'right'] as const) {
+			await b.act({ type: 'move', dir });
+			a.autosave.onStorage(KEYS.save);
+		}
+		const walked = savedCounts(store);
+		expect(walked.steps).toBe(16);
+		expect(a.autosave.behind).toBeNull();
+		await a.act({ type: 'doctor', intent: { type: 'leave' } });
+		await a.act({ type: 'move', dir: 'left' });
+		const after = savedCounts(store);
+		expect(after.steps).toBe(17);
+		expect(after.visits).toBeGreaterThanOrEqual(walked.visits);
+	});
+
+	it('a battle that starts before the tab hears of the other’s walk is keyed on the walk, as its save is (#58)', async () => {
+		// A game on the spawn tile from which one step left, onto the reed, meets an animal.
+		let steps = 0;
+		for (; steps < 2000; steps++) {
+			const probe = new LocalAuthority();
+			const seen: GameEvent[] = [];
+			probe.subscribe((e) => seen.push(e));
+			probe.start({ game: { ...newGame(SEED), steps } });
+			probe.dispatch({ type: 'move', dir: 'left' });
+			if (seen.some((e) => e.type === 'battle-started')) break;
+		}
+		const store = new MemoryStore();
+		savedAt(store, { steps });
+		const a = new Page(store);
+		const b = new Page(store);
+		await a.continue();
+		await b.continue();
+		// B walks on the grass to the right and back; A hears nothing of it yet.
+		for (const dir of ['right', 'left', 'right', 'left'] as const)
+			await b.act({ type: 'move', dir });
+		const walked = savedCounts(store).steps;
+		expect(walked).toBe(steps + 4);
+		const started = await a.act({ type: 'move', dir: 'left' });
+		expect(started.map((e) => e.type)).toContain('battle-started');
+		expect(a.autosave.behind).toBeNull();
+		const save = store.save()!;
+		expect(save.steps).toBeGreaterThanOrEqual(walked);
+		expect(save.battle).not.toBeNull();
+		// A page picked up from that save plays the battle on exactly as A does.
+		const c = new Page(new MemoryStore());
+		c.authority.start({ game: restoreGame(readSaveOrThrow(save)) });
+		for (let i = 0; i < 6; i++) {
+			const state = latestBattle(a.events);
+			if (state.phase.kind === 'ended') break;
+			const intent = battleStep(state);
+			await a.act(intent);
+			c.authority.dispatch(intent);
+			expect(latestBattle(c.events)).toEqual(latestBattle(a.events));
+		}
 	});
 });
 
@@ -848,6 +1080,86 @@ describe('Autosave: the server backup', () => {
 		expect(server.saveOf(who)).toEqual(store.save());
 	});
 
+	it('a second identity the server stops knowing is kept beside the first, never over it', async () => {
+		const store = new MemoryStore();
+		const server = new FakeServer();
+		const ghost = { id: '00000000-0000-4000-8000-999999999999', secret: 'gone' };
+		store.set(KEYS.player, JSON.stringify(ghost));
+		const tab = new Tab(store, server);
+		await tab.open();
+		await tab.catchOne();
+		await later();
+		const second = identityIn(store)!;
+		// The server loses the new player too (a database reset, say).
+		server.players.delete(second.id);
+		await tab.catchOne();
+		await later();
+		expect(JSON.parse(store.get(KEYS.previousPlayer)!)).toEqual(ghost);
+		expect(JSON.parse(store.get(`${KEYS.previousPlayer}.2`)!)).toEqual(second);
+		const third = identityIn(store)!;
+		expect([ghost.id, second.id]).not.toContain(third.id);
+		expect(server.saveOf(third)).toEqual(store.save());
+	});
+
+	it('a tab taking the server’s game in the same instant another tab saves a catch: the catch is kept aside', async () => {
+		const store = new MemoryStore();
+		const server = new FakeServer();
+		const theirs = { ...newGame(SEED), version: 1, lineage: 'from-server', seq: 40 };
+		const who = server.seed(theirs);
+		const first = new Tab(store, null);
+		await first.open();
+		await first.walk();
+		store.set(KEYS.player, JSON.stringify(who));
+		const a = new Tab(store, null);
+		await a.open();
+		// B starts cut off from the server; its view of the save lags A's next save.
+		server.online = false;
+		const view = new LaggingView(store);
+		const b = new Tab(view, server);
+		await b.open();
+		view.freeze(KEYS.save);
+		await a.catchOne();
+		const caught = store.get(KEYS.save)!;
+		server.online = true;
+		await later(5_000);
+		expect(b.autosave.behind).toBe('replaced');
+		expect(store.save()!.lineage).toBe('from-server');
+		view.thaw();
+		a.autosave.onStorage(KEYS.save);
+		expect(a.autosave.behind).toBe('replaced');
+		const kept = [KEYS.replaced, `${KEYS.replaced}.2`].map((k) => store.get(k));
+		expect(kept).toContain(caught);
+	});
+
+	it("a server answer that comes before another tab's storage event does not put this tab behind a walk", async () => {
+		const store = new MemoryStore();
+		const server = new FakeServer();
+		const first = new Tab(store, server);
+		await first.open();
+		await first.catchOne();
+		await later();
+		const who = identityIn(store)!;
+		// This tab starts while the server is out of reach: its first check waits for a retry.
+		server.online = false;
+		const tab = new Tab(store, server);
+		await tab.open();
+		// Another tab (no server of its own here) walks on, and its backup lands first.
+		const other = new Tab(store, null);
+		await other.open();
+		await other.walk();
+		server.players.get(who.id)!.save = JSON.parse(store.get(KEYS.save)!);
+		const walked = store.get(KEYS.save);
+		// The server answers this tab before the other tab's storage event reaches it.
+		server.online = true;
+		await later(5_000);
+		expect(tab.autosave.behind).toBeNull();
+		expect(store.get(KEYS.replaced)).toBeNull();
+		expect(store.get(KEYS.save)).toBe(walked);
+		// It carried on from the walk: its next save goes on top.
+		await tab.catchOne();
+		expect(store.save()!.seq).toBe(JSON.parse(walked!).seq + 1);
+	});
+
 	it('a 409 for a backup that already landed (its answer was lost) settles without a reload', async () => {
 		const store = new MemoryStore();
 		const server = new FakeServer();
@@ -868,6 +1180,58 @@ describe('Autosave: the server backup', () => {
 });
 
 describe('Autosave: the title', () => {
+	it('every title a page opens says whether it keeps the game, Start screen’s too (#61)', async () => {
+		const says = (tab: Tab) => [tab.autosave.titleNotice, tab.autosave.keeps];
+		// No storage: every title says this browser cannot keep the game.
+		const blocked = new Tab(null, null);
+		await blocked.title();
+		expect(says(blocked)).toEqual(['save.cannotSave', false]);
+		await blocked.startNew();
+		await blocked.quit();
+		expect(says(blocked)).toEqual(['save.cannotSave', false]);
+		// A newer build's save waiting: every title says so, and it is never touched.
+		const store = new MemoryStore();
+		const newer = JSON.stringify({ version: 2, whatever: true });
+		store.set(KEYS.save, newer);
+		const frozen = new Tab(store, null);
+		await frozen.title();
+		expect(says(frozen)).toEqual(['save.newerGame', false]);
+		await frozen.startNew();
+		await frozen.quit();
+		expect(says(frozen)).toEqual(['save.newerGame', false]);
+		expect(store.get(KEYS.save)).toBe(newer);
+		// A newer build's game on the server, none here: every title says so; a new game is kept here.
+		const server = new FakeServer();
+		const who = server.seed({ version: 2, whatever: true });
+		const fresh = new MemoryStore();
+		fresh.set(KEYS.player, JSON.stringify(who));
+		const behindServer = new Tab(fresh, server);
+		expect(await behindServer.title()).toEqual({ notice: 'save.newerGame' });
+		expect(says(behindServer)).toEqual(['save.newerGame', true]);
+		await behindServer.startNew();
+		await behindServer.quit();
+		expect(says(behindServer)).toEqual(['save.newerGame', true]);
+		// Writing failed (storage full): from then on every title says so, and nothing is put away.
+		const full = new MemoryStore();
+		const filling = new Tab(full, null);
+		await filling.title();
+		await filling.startNew();
+		full.failWrites = true;
+		await filling.catchOne();
+		await filling.quit();
+		expect(says(filling)).toEqual(['save.storageFull', false]);
+		// A throwaway game keeps nothing, and says nothing about it.
+		const throwaway = new Tab(new MemoryStore(), null, { throwaway: true });
+		await throwaway.open();
+		expect(says(throwaway)).toEqual([null, false]);
+		// A page that saves keeps its game, and needs no line.
+		const saving = new Tab(new MemoryStore(), null);
+		await saving.title();
+		await saving.startNew();
+		await saving.quit();
+		expect(says(saving)).toEqual([null, true]);
+	});
+
 	/** A saved game with progress in it, as this browser holds it: `seq` 5, a caught fox. */
 	function savedGame(store: MemoryStore, lineage = 'old-game'): string {
 		const game = newGame(SEED);

@@ -106,3 +106,11 @@ Technical items we've intentionally postponed: tech debt, hardening shortcuts, k
 **Why deferred**: the bundle component had not landed when the doctor's card was revamped, and the doctor needs a row per animal on help home anyway (a kid picks which rabbit goes home, by name).
 
 **Trigger**: `feat/unlimited-party` merging. Then build the doctor's heal and help-home tabs on its bundles (a bundle's fan-out for picking animals to go home, a whole bundle for a heal, since one puzzle heals a species), and drop `groupedIndexes` if the bundles give the order.
+
+### Two tabs writing the save in the same instant: the one written over is kept aside, not merged
+
+**What**: compare-before-write (`Autosave.commit`) is not atomic across tabs. A page's view of `localStorage` is brought up to date only between tasks, so two tabs that write in the same instant both pass the check, and the first write is lost from the key. A two-page probe in headless Chrome lost 4,999 of 10,000 checked writes. The page written over keeps its own save aside when it finds itself behind (`keepOwnSave`, into `animath.save.replaced`), so nothing is gone. But what the kid did there is no longer in play: they see the other tab's game, and only the human can put the kept one back ([[DEVELOPMENT]] § Database). A lock around the write (Web Locks) would not close it on its own, because the lock's grant and the other page's write reach a page by different routes.
+
+**Why deferred**: one kid cannot make two saves in the same instant. A page writes the save only on the kid's own input, with one exception, which happens once and rarely: taking a bigger game from the server.
+
+**Trigger**: a feature that writes the save without the kid's input (a timer, a reward that grows over time, a second player on one device), or a report of a game found kept aside after playing in two tabs. Then merge a walk-versus-progress race back into play: carry on from the other save when it only walked since this page's previous save, and write this page's progress on top.

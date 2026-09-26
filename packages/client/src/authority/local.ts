@@ -177,7 +177,8 @@ export class LocalAuthority implements Authority {
 			newGame: isNew
 		});
 		if (game.battle) {
-			// The battle's seed is the one it started with: the steps have not moved since.
+			// The battle's seed is the one it started with: the steps have not moved since
+			// (or `catchUp` moved it with them).
 			this.battle = { state: game.battle, seed: this.battleSeed() };
 			this.emit({ type: 'battle-started', state: game.battle });
 		}
@@ -206,14 +207,20 @@ export class LocalAuthority implements Authority {
 	/**
 	 * Another tab of this game walked further, and the save this page carries
 	 * on from has its counts: raise this page's to them, so its next
-	 * encounters and doctor puzzles follow on instead of repeating. Never
-	 * lowers a count, and leaves a battle or visit in progress alone (their
-	 * seeds are fixed already).
+	 * encounters and doctor puzzles follow on instead of repeating, and the
+	 * next save keeps them. Never lowers a count.
+	 *
+	 * A doctor visit in progress keeps its number and seed, fixed when it
+	 * opened. A battle in progress is keyed on the step count from here on,
+	 * as a reload would key it from the save. (In practice a battle only gets
+	 * here in the save right after it started, before its seed was used: only
+	 * then can another tab's save hold the same progress with more steps.)
 	 */
 	catchUp(counts: { steps: number; visits: number }): void {
-		if (this.battle || this.doctor) return;
-		this.steps = Math.max(this.steps, counts.steps);
 		this.visits = Math.max(this.visits, counts.visits);
+		if (counts.steps <= this.steps) return;
+		this.steps = counts.steps;
+		if (this.battle) this.battle.seed = this.battleSeed();
 	}
 
 	/**

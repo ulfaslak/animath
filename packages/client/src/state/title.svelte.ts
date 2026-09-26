@@ -33,8 +33,13 @@ class TitleView {
 	cursor = $state(0);
 	/** The game Continue picks up: its lead and its size are shown on the row. Null: no Continue. */
 	saved = $state.raw<SavedGame | null>(null);
-	/** Something start-up found about the save that the title says (a newer build's save, no storage). */
+	/** What the title says about the save: this page cannot keep the game (no storage, a newer build's save). */
 	notice = $state<SaveNotice | null>(null);
+	/**
+	 * Whether this page keeps its game, so New game puts the one Continue
+	 * offers away. False on a page that saves nothing: its confirm says so.
+	 */
+	keeps = $state(true);
 	/** The lit choice of the confirm, an index into `CONFIRM_CHOICES`. */
 	confirm = $state(0);
 	/** The lit starter, an index into the engine's `STARTERS`. */
