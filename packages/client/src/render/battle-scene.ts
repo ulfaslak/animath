@@ -13,7 +13,8 @@ import { PROP_GEOMETRY } from './tiles';
  * One instance lives for the whole session: `begin` dresses it for a new
  * battle (backdrop, figures, no leftover effects) and `end` frees the figures
  * once the battle is left, so nothing is rebuilt or leaked per battle; each
- * biome's backdrop is built once and kept. Units are tiles like the world; figures come from
+ * biome's backdrop is built once and kept, from the world's shared prop
+ * shapes. Units are tiles like the world; figures come from
  * `animals.ts`, idle the same way, and are scaled towards a common height so
  * an otter and a deer both read at battle size (a bear still looks bigger
  * than a squirrel).
