@@ -180,6 +180,19 @@ describe('readSave and the upgrade seam', () => {
 		for (let v = 1; v < SAVE_VERSION; v++) expect(SAVE_UPGRADES[v]).toBeTypeOf('function');
 	});
 
+	it('still reads a party of any species that has shipped: one leaves the catalog only through an upgrade', () => {
+		// Every species a kid may have caught and saved, by id. A save naming a
+		// species the catalog no longer has is unreadable (set aside, and a new game
+		// takes its place), so removing one takes a version bump and an upgrade
+		// that turns it into a species still in the catalog. Adding one: add it here.
+		const shipped = ['squirrel', 'rabbit', 'frog', 'fox', 'otter', 'deer', 'wolf', 'bear'];
+		expect(ANIMALS.map((a) => a.id).filter((id) => !shipped.includes(id))).toEqual([]);
+		for (const speciesId of shipped) {
+			const doc = { ...written, party: [animal(1, { speciesId, hp: 1 })] };
+			expect(readSave(doc), speciesId).toMatchObject({ ok: true });
+		}
+	});
+
 	it('chains upgrades from any older version, and refuses a gap', () => {
 		const upgrades = {
 			1: (d: Record<string, unknown>) => ({ ...d, version: 2, a: true }),
