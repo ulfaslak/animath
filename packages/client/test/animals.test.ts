@@ -8,8 +8,9 @@ import { Zoo } from '../src/render/zoo';
 
 /**
  * The figures' contract (see animals.ts): every catalog species has one,
- * feet on y = 0, centred on x, flat-shaded and shadow-casting, and the bear
- * is the biggest while the squirrel is the smallest. Whether they *look*
+ * feet on y = 0, centred on x, flat-shaded and shadow-casting, and bigger
+ * with its tier: on land the bear is the biggest while the squirrel is the
+ * smallest, at sea the whale the biggest. Whether they *look*
  * like the animal is checked by eye with `?zoo`; this pins what a screenshot
  * cannot.
  */
@@ -63,15 +64,27 @@ describe('figures', () => {
 		});
 	}
 
-	it('sizes the bear biggest and the squirrel smallest', () => {
+	it('sizes by tier: on land the bear biggest and the squirrel smallest, at sea the whale biggest, and two tiers up always bigger', () => {
 		const volumes = new Map(ANIMALS.map((s) => [s.id, volume(bounds(buildAnimalMesh(s.id)))]));
+		const onLand = ANIMALS.filter((s) => s.realms.includes('land'));
+		const atSea = ANIMALS.filter((s) => !s.realms.includes('land'));
 		const bear = volumes.get('bear')!;
 		const squirrel = volumes.get('squirrel')!;
-		for (const [id, v] of volumes) {
+		for (const { id } of onLand) {
+			const v = volumes.get(id)!;
 			if (id !== 'bear') expect(v, `${id} vs bear`).toBeLessThan(bear);
 			if (id !== 'squirrel') expect(v, `${id} vs squirrel`).toBeGreaterThan(squirrel);
 		}
 		expect(bear / squirrel).toBeGreaterThan(5);
+		const whale = volumes.get('whale')!;
+		for (const { id } of atSea)
+			if (id !== 'whale') expect(volumes.get(id)!, id).toBeLessThan(whale);
+		for (const big of ANIMALS)
+			for (const small of ANIMALS)
+				if (big.tier >= small.tier + 2)
+					expect(volumes.get(big.id)!, `${big.id} vs ${small.id}`).toBeGreaterThan(
+						volumes.get(small.id)!
+					);
 	});
 
 	it('refuses a species that is not in the catalog', () => {

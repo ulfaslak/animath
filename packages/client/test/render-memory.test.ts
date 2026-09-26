@@ -3,6 +3,8 @@ import {
 	CHUNK_SIZE,
 	STARTERS,
 	WorldEdits,
+	isWalkable,
+	isWater,
 	spawnPoint,
 	tileAtWorld,
 	type Biome,
@@ -14,11 +16,11 @@ import { WORLD_SEED } from '../src/authority/local';
 import { BattleScene } from '../src/render/battle-scene';
 import { ChunkRing } from '../src/render/chunks';
 import { ClearingEffects } from '../src/render/clearing';
-import { Follower } from '../src/render/follower';
+import { Follower, SWIM_DEPTH } from '../src/render/follower';
 import type { GameRenderer } from '../src/render/renderer';
 import { StarterScene } from '../src/render/starter-scene';
 import { TitleScenery } from '../src/render/title-scenery';
-import { SHARED_GEOMETRIES } from '../src/render/tiles';
+import { SHARED_GEOMETRIES, WATER_TOP } from '../src/render/tiles';
 import { besideA } from './clearing';
 
 /**
@@ -461,6 +463,36 @@ describe('the title', () => {
 		scenery.hide();
 		expect(world.children).toEqual([]);
 		expect(kinds(second.filter((g) => !ledger.isDisposed(g)))).toEqual([]);
+	});
+
+	it("the menu's world puts the sea animals in the water, low in it as they swim, and the land's on the ground", () => {
+		const world = new THREE.Group();
+		const renderer = {
+			setStage() {},
+			setWorld() {},
+			setBoat() {},
+			setPlayer() {},
+			ensureChunksAround() {},
+			lookAt() {},
+			aspect: () => 1.6,
+			addFigure: (figure: THREE.Group) => world.add(figure),
+			removeFigure: (figure: THREE.Group) => world.remove(figure)
+		} as unknown as GameRenderer;
+		const scenery = new TitleScenery(renderer);
+		// Beside the lake north of the start.
+		scenery.showWorld(WORLD_SEED, spawnPoint(WORLD_SEED), 'up', ['squirrel', 'crab', 'whale']);
+		expect(world.children.map((f) => f.name)).toEqual(['squirrel', 'crab', 'whale']);
+		for (const figure of world.children) {
+			const kind = tileAtWorld(WORLD_SEED, figure.position.x, figure.position.z).kind;
+			const height = (figure.userData.restShape as { height: number }).height;
+			if (figure.name === 'squirrel') {
+				expect(isWalkable(kind)).toBe(true);
+			} else {
+				expect(isWater(kind), figure.name).toBe(true);
+				expect(figure.position.y, figure.name).toBeCloseTo(WATER_TOP - height * SWIM_DEPTH, 6);
+			}
+		}
+		scenery.hide();
 	});
 
 	it("the menu's world gathers the team on the ground the saved game cleared: a stump is a place to stand", () => {

@@ -1,5 +1,6 @@
 import {
 	getItem,
+	keepsATeam,
 	needsHealing,
 	type AnimalInstance,
 	type ItemId,
@@ -185,14 +186,15 @@ export interface StopsView {
 
 /**
  * Whether `animal` may be picked to go home, with `marked` picked already:
- * somebody who isn't tired must stay (the engine's `keep-one`).
+ * somebody who isn't tired and can walk on with the kid must stay (the
+ * engine's `keep-one`, `keepsATeam`).
  */
 export function canGoHome(
 	animal: AnimalInstance,
 	party: readonly AnimalInstance[],
 	marked: readonly string[]
 ): boolean {
-	return party.some((a) => a.id !== animal.id && !marked.includes(a.id) && a.hp > 0);
+	return keepsATeam(party.filter((a) => a.id !== animal.id && !marked.includes(a.id)));
 }
 
 /** Why an item can't be bought now, or null when it can. */
