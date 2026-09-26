@@ -101,7 +101,8 @@ describe('the explore message line', () => {
 			party: [],
 			tokens: 0,
 			items: [],
-			newGame: true
+			newGame: true,
+			edits: []
 		});
 		hud.apply({
 			type: 'doctor-visit-ended',
@@ -183,7 +184,8 @@ describe('the explore message line', () => {
 			party: [],
 			tokens: 0,
 			items: [],
-			newGame: false
+			newGame: false,
+			edits: []
 		});
 		expect(hud.hint).toBe(t('explore.controls'));
 		game.apply({ type: 'player-blocked', playerId: 'p', dir: 'down' });
@@ -202,7 +204,8 @@ describe('the explore message line', () => {
 			party: [],
 			tokens: 0,
 			items: [],
-			newGame: false
+			newGame: false,
+			edits: []
 		});
 		expect(hud.hint).toBe(t('explore.talkPrompt'));
 	});

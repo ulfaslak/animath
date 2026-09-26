@@ -1,5 +1,6 @@
 import {
 	STARTERS,
+	WorldEdits,
 	spawnPoint,
 	type Authority,
 	type GameEvent,
@@ -316,7 +317,8 @@ export class TitleController {
 				saved.seed,
 				saved.pos,
 				saved.facing,
-				saved.party.map((a) => a.speciesId)
+				saved.party.map((a) => a.speciesId),
+				WorldEdits.decode(saved.edits)
 			);
 		} else this.scenery.showWorld(WORLD_SEED, spawnPoint(WORLD_SEED), 'down', STARTERS);
 	}

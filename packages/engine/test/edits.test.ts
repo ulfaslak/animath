@@ -364,17 +364,19 @@ describe('clearing a tile', () => {
 				reason: 'not-facing'
 			});
 		}
-		// No tool, or the other one: it says which one it takes.
+		// No tool, or the other one: it says what stands there and which tool it takes.
 		for (const items of [[], ['pickaxe'], ['boat', 'lantern']]) {
 			expect(refuse(player(stand, facing, items), target)).toEqual({
 				ok: false,
 				reason: 'needs-tool',
+				kind: 'tree',
 				tool: 'axe'
 			});
 		}
 		expect(refuse(player(rock.stand, rock.facing, ['axe']), rock.target)).toEqual({
 			ok: false,
 			reason: 'needs-tool',
+			kind: 'rock',
 			tool: 'pickaxe'
 		});
 	});
@@ -431,7 +433,12 @@ describe('clearing a tile', () => {
 						const expected = !ahead
 							? { ok: false, reason: 'nothing-to-clear' }
 							: !items.includes(CLEARING_TOOL[ahead.kind])
-								? { ok: false, reason: 'needs-tool', tool: CLEARING_TOOL[ahead.kind] }
+								? {
+										ok: false,
+										reason: 'needs-tool',
+										kind: ahead.kind,
+										tool: CLEARING_TOOL[ahead.kind]
+									}
 								: null;
 						if (expected) {
 							if (JSON.stringify(result) !== JSON.stringify(expected))

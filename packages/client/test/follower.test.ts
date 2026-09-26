@@ -39,7 +39,8 @@ function setup(party: string, game0?: SavedGame) {
 	const renderer = {
 		setWorld() {},
 		setPlayer() {},
-		ensureChunksAround() {}
+		ensureChunksAround() {},
+		cleared() {}
 	} as unknown as GameRenderer;
 	const authority = new LocalAuthority({ party: parseParty(party)! });
 	const follower = new Follower(host);
@@ -215,7 +216,8 @@ describe('the lead walks behind the trainer', () => {
 				party: [{ id: 'r', speciesId: 'rabbit', hp: getAnimal('rabbit').maxHp }],
 				tokens: 0,
 				items: [],
-				battle: null
+				battle: null,
+				edits: []
 			});
 			expect(s.follower.tile).toEqual(placement(pos, facing));
 			expect(standable(s.follower.tile!)).toBe(true);

@@ -474,9 +474,9 @@ describe("the doctor's tabs", () => {
 		expect(doctor.cursor).toBe(0); // every animal can go home, the fit fox too
 		t.press('d');
 		expect(doctor.tab).toBe('shop');
-		// Nothing is for sale yet: the shop says so, and its list is only Bye.
-		expect(doctor.line).toEqual({ say: 'shopIntro', empty: true });
-		expect(doctor.shop).toEqual([]);
+		// What is on sale: the axe and the pickaxe, the cursor on the first.
+		expect(doctor.line).toEqual({ say: 'shopIntro', empty: false });
+		expect(doctor.shop).toEqual(['axe', 'pickaxe']);
 		expect(doctor.cursor).toBe(0);
 		t.press('ArrowRight');
 		expect(doctor.tab).toBe('heal');

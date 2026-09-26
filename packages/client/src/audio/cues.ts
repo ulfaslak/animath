@@ -28,7 +28,9 @@ export type CueName =
 	| 'heal'
 	| 'coins'
 	| 'lead'
-	| 'won';
+	| 'won'
+	| 'chop'
+	| 'crack';
 
 export type Wave = 'sine' | 'triangle' | 'noise';
 
@@ -274,6 +276,55 @@ export const CUES: Record<CueName, Cue> = {
 			held(0.42, G5, 0.7, 0.25, 0.28),
 			held(0.42, C5, 0.7, 0.25, 0.1, 'sine'),
 			held(0.42, C4, 0.7, 0.25, 0.14, 'sine')
+		]
+	},
+	/**
+	 * The axe bites: a woody knock with a click of the blade on top, and as
+	 * the tree comes down a soft thud and a rustle of its needles.
+	 */
+	chop: {
+		voices: [
+			{ at: 0, dur: 0.09, wave: 'triangle', freq: 520, to: 260, gain: 0.34, attack: 0.002 },
+			{
+				at: 0,
+				dur: 0.05,
+				wave: 'noise',
+				freq: 0,
+				gain: 0.26,
+				attack: 0.002,
+				filter: { type: 'bandpass', freq: 2200, to: 900, q: 1.5 }
+			},
+			{ at: 0.42, dur: 0.22, wave: 'sine', freq: 150, to: 70, gain: 0.3, attack: 0.004 },
+			{
+				at: 0.4,
+				dur: 0.28,
+				wave: 'noise',
+				freq: 0,
+				gain: 0.14,
+				attack: 0.03,
+				filter: { type: 'lowpass', freq: 1800, to: 500 }
+			}
+		]
+	},
+	/**
+	 * The pickaxe cracks a rock: a sharp crack over a low thump, then the
+	 * pebbles ticking down round it.
+	 */
+	crack: {
+		voices: [
+			{
+				at: 0,
+				dur: 0.07,
+				wave: 'noise',
+				freq: 0,
+				gain: 0.32,
+				attack: 0.002,
+				filter: { type: 'bandpass', freq: 3000, to: 1200, q: 2 }
+			},
+			{ at: 0, dur: 0.14, wave: 'sine', freq: 190, to: 90, gain: 0.34, attack: 0.003 },
+			pluck(0.2, 1800, 0.04, 0.12),
+			pluck(0.27, 2300, 0.04, 0.1),
+			pluck(0.34, 2000, 0.04, 0.09)
 		]
 	}
 };

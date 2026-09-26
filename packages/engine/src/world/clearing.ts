@@ -63,7 +63,8 @@ export interface Cleared {
 
 export type ClearStep =
 	| { ok: true; edits: WorldEdits; cleared: Cleared }
-	| { ok: false; reason: ClearRejection; tool?: ItemId };
+	/** Refused. With `needs-tool`, what stands there and the tool it takes. */
+	| { ok: false; reason: ClearRejection; kind?: ClearableKind; tool?: ItemId };
 
 /** The player as a clear needs them: where they stand, which way they face, what they own. */
 export interface Clearer {
@@ -96,7 +97,9 @@ export function clearTile(
 	if (front.x !== target.x || front.y !== target.y) return { ok: false, reason: 'not-facing' };
 	const ahead = clearableAhead(seed, edits, pos, facing);
 	if (!ahead) return { ok: false, reason: 'nothing-to-clear' };
-	if (!hasItem(player, ahead.tool)) return { ok: false, reason: 'needs-tool', tool: ahead.tool };
+	if (!hasItem(player, ahead.tool)) {
+		return { ok: false, reason: 'needs-tool', kind: ahead.kind, tool: ahead.tool };
+	}
 	const { edits: kept, regrown } = edits.with(ahead.pos).trimmedAround(pos);
 	return {
 		ok: true,

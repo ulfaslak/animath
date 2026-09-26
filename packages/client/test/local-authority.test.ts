@@ -1041,7 +1041,8 @@ describe('LocalAuthority: the doctor', () => {
 		const s = session({ party: hurtParty(), tokens: 50 });
 		walkToTent(s);
 		s.authority.dispatch({ type: 'interact' });
-		expect(visit(s).shop).toEqual([]);
+		// The axe and the pickaxe clear trees and rocks; the boat sails nowhere yet.
+		expect(visit(s).shop).toEqual(['axe', 'pickaxe']);
 		doctorIntent(s, { type: 'buy', itemId: 'boat' });
 		expect(s.events.at(-1)).toMatchObject({
 			events: [{ type: 'rejected', reason: 'not-for-sale' }]

@@ -184,8 +184,10 @@ describe('cues', () => {
 			[
 				'boing',
 				'caught',
+				'chop',
 				'coins',
 				'confirm',
+				'crack',
 				'correct',
 				'encounter',
 				'faint',
