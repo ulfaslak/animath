@@ -188,7 +188,6 @@ describe('nearestTent', () => {
 		// most of them out on a lake); several seconds under load.
 	}, 30_000);
 
-
 	it('without the boat, searches exactly as on foot', () => {
 		for (const from of samplePositions(PROTOTYPE, 15))
 			expect(nearestTent(PROTOTYPE, from, TENT_SEARCH_STEPS, { boat: false })).toEqual(
@@ -197,7 +196,6 @@ describe('nearestTent', () => {
 	});
 
 	it('stands the player on walkable ground next to the tent, facing it', () => {
-
 		for (const seed of SEEDS) {
 			for (const from of samplePositions(seed, 60)) {
 				const spot = nearestTent(seed, from);

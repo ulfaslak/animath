@@ -296,7 +296,6 @@ export class GameRenderer {
 		return groundTop(tile) + (this.boatOwned && isWater(tile.kind) ? BOAT_STAND : 0);
 	}
 
-
 	/** The canvas's width over its height: how many tiles wide the world view is, per tile tall. */
 	aspect(): number {
 		const { w, h } = this.size();

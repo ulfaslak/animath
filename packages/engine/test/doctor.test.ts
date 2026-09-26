@@ -958,7 +958,6 @@ describe('takeToDoctor', () => {
 	});
 
 	it('only takes a party that is all knocked out, and a real one', () => {
-
 		const pos = spawnPoint(PROTOTYPE);
 		expect(() => takeToDoctor(PROTOTYPE, pos, partyOf(['squirrel', 0], ['fox', 1]))).toThrow(
 			/knocked out/

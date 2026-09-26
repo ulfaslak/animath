@@ -1,6 +1,10 @@
 import {
 	bundles,
+	hasItem,
+	isWater,
 	leadIndex,
+	tileAtWorld,
+	type AnimalInstance,
 	type Authority,
 	type Direction,
 	type GameEvent,
@@ -8,6 +12,8 @@ import {
 	type PartyIntent
 } from '@mathgame/engine';
 import type { Keyboard, TeamPick } from '../input/keyboard';
+import { motion } from '../motion';
+import { BOAT_SWING_SECONDS } from '../render/boat';
 import type { Follower } from '../render/follower';
 import type { GameRenderer } from '../render/renderer';
 import { doctor } from '../state/doctor.svelte';
@@ -31,12 +37,21 @@ const STEP_SECONDS = 0.18; // one tile per step; Game Boy pace is ~0.25
  * the tile each step leaves, is put beside the trainer whenever the trainer
  * is put somewhere without walking, and shows whoever leads the party the
  * screen shows (the doctor's card's while it is open, which heals on its
- * beat). Nothing it does goes to the authority.
+ * beat) where the trainer is: out on the water the first animal that swims,
+ * swimming behind the boat, or with none standing, the lead on land riding in
+ * the boat once the trainer is in it. Nothing it does goes to the authority.
+ *
+ * With the boat (`renderer.setBoat`), a step onto the water or back onto land
+ * takes `BOAT_SWING_SECONDS` instead of a step's usual time, while the boat
+ * swings under the trainer or back onto their back (the usual time with
+ * reduced motion, when it snaps).
  */
 export class ExploreController {
 	private pos: GridPos = { x: 0, y: 0 };
 	private from: GridPos = { x: 0, y: 0 };
 	private progress = 1; // 0..1 along from → pos
+	/** How long the step under way takes: longer onto the water or off it, while the boat swings. */
+	private stepSeconds = STEP_SECONDS;
 	private facing: Direction = 'down';
 	private seed = 0;
 	private playerId = '';
@@ -60,8 +75,13 @@ export class ExploreController {
 				this.progress = 1;
 				this.facing = event.facing;
 				this.renderer.setWorld(this.seed);
+				this.renderer.setBoat(hasItem(event, 'boat'));
 				this.renderer.setPlayer(event.pos, event.pos, 1, this.facing);
 				this.follower?.place(this.seed, event.pos, this.facing);
+				break;
+			case 'belongings-changed':
+				// Bought at the doctor: it grows onto the trainer's back.
+				this.renderer.setBoat(hasItem(event, 'boat'), true);
 				break;
 			case 'player-moved':
 				if (event.playerId !== this.playerId) break;
@@ -71,6 +91,11 @@ export class ExploreController {
 				this.pos = event.pos;
 				this.progress = 0;
 				this.facing = event.dir;
+				// Into the boat or out of it: the boat takes its time to swing.
+				this.stepSeconds =
+					this.onWater(this.from) !== this.onWater(this.pos) && !motion.reduced
+						? BOAT_SWING_SECONDS
+						: STEP_SECONDS;
 				this.follower?.follow(this.from, this.pos);
 				break;
 			case 'player-blocked':
@@ -108,7 +133,7 @@ export class ExploreController {
 			this.teamPick(pick);
 		}
 		if (this.progress < 1) {
-			this.progress = Math.min(1, this.progress + dt / STEP_SECONDS);
+			this.progress = Math.min(1, this.progress + dt / this.stepSeconds);
 		} else {
 			const dir = this.keyboard.takeTap() ?? this.keyboard.heldDirection();
 			if (dir) this.authority.dispatch({ type: 'move', dir });
@@ -119,9 +144,34 @@ export class ExploreController {
 		if (this.follower) {
 			// The party on screen: the doctor's card heals on its beat, after the authority has.
 			const party = doctor.active ? doctor.party : game.party;
-			this.follower.lead(party[leadIndex(party)]?.speciesId ?? null);
+			this.leadFollower(this.follower, party);
 			this.follower.update(this.progress, dt);
 		}
+	}
+
+	/**
+	 * Who follows where the trainer is: on land the lead; out on the water the
+	 * first animal standing that swims, or with none, the lead on land, riding
+	 * in the boat once the trainer has stepped into it.
+	 */
+	private leadFollower(follower: Follower, party: readonly AnimalInstance[]): void {
+		const onLand = party[leadIndex(party, 'land')]?.speciesId ?? null;
+		if (!this.onWater(this.pos)) {
+			follower.lead(onLand);
+			return;
+		}
+		const swimmer = party[leadIndex(party, 'water')];
+		if (swimmer) {
+			follower.lead(swimmer.speciesId);
+			return;
+		}
+		const boarding = this.progress < 1 && !this.onWater(this.from);
+		follower.lead(onLand, !boarding);
+	}
+
+	/** Water, shallow or deep, at a tile: where the trainer is in the boat. */
+	private onWater(pos: GridPos): boolean {
+		return isWater(tileAtWorld(this.seed, pos.x, pos.y).kind);
 	}
 
 	/** What the party column asked for, as the authority's party intent or an open card. */

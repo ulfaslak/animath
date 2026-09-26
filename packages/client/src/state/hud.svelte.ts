@@ -5,7 +5,8 @@ import {
 	type AnimalInstance,
 	type GameEvent,
 	type Line as MessageLine,
-	type PartyEvent
+	type PartyEvent,
+	type Realm
 } from '@mathgame/engine';
 import { sfx } from '../audio/sfx.svelte';
 import { t } from '../copy';
@@ -42,12 +43,14 @@ export const HINT_STEPS = 5;
 
 /**
  * A line about who goes first, after a party edit: the new lead (`chosen`),
- * or why the one asked for can't be (`tired`, `already`). The animal is named
- * by id and its name read when the line is shown, so a new name shows at once;
- * a card whose animals are all tired is named by its species (`speciesId`).
+ * or why the one asked for can't be (`tired`, `already`, and out on the water
+ * `cantSwim`). The animal is named by id and its name read when the line is
+ * shown, so a new name shows at once; a card whose animals are all tired, or
+ * can't swim, is named by its species (`speciesId`).
  */
 export type PartyNotice =
-	{ lead: 'chosen' | 'tired' | 'already'; animalId: string } | { lead: 'tired'; speciesId: string };
+	| { lead: 'chosen' | 'tired' | 'already' | 'cantSwim'; animalId: string }
+	| { lead: 'tired' | 'cantSwim'; speciesId: string };
 
 /** A line on the message line, as data. */
 export type Said =
@@ -70,8 +73,13 @@ export function saidWords(said: Said): string {
 
 function partyWords(notice: PartyNotice): string {
 	if ('speciesId' in notice) {
-		// A card whose animals are all tired: one is named, several are "all".
 		const kin = game.party.filter((a) => a.speciesId === notice.speciesId);
+		// A card of animals that can't swim: one is named, several by their kind.
+		if (notice.lead === 'cantSwim') {
+			const named = kin.length === 1 ? kin[0]! : { speciesId: notice.speciesId };
+			return t('party.leadCantSwim', { animal: animalWords(named) });
+		}
+		// A card whose animals are all tired: one is named, several are "all".
 		if (kin.length > 1) return t('party.leadAllTired');
 		return kin[0] ? t('party.leadTired', { animal: animalWords(kin[0]) }) : '';
 	}
@@ -85,6 +93,8 @@ function partyWords(notice: PartyNotice): string {
 			return t('party.leadTired', params);
 		case 'already':
 			return t('party.leadAlready', params);
+		case 'cantSwim':
+			return t('party.leadCantSwim', params);
 	}
 }
 
@@ -99,10 +109,18 @@ function partyWords(notice: PartyNotice): string {
  */
 export function leadNotice(
 	after: readonly AnimalInstance[],
-	events: readonly PartyEvent[]
+	events: readonly PartyEvent[],
+	realm: Realm = 'land'
 ): PartyNotice | null {
 	for (const e of events) {
 		if (e.type === 'rejected') {
+			// Out on the water, an animal that can't swim can't go first there.
+			if (e.reason === 'cannot-fight-here' && e.animalId !== undefined) {
+				return { lead: 'cantSwim', animalId: e.animalId };
+			}
+			if (e.reason === 'cannot-fight-here' && e.speciesId !== undefined) {
+				return { lead: 'cantSwim', speciesId: e.speciesId };
+			}
 			if (e.reason === 'tired' && e.animalId !== undefined) {
 				return { lead: 'tired', animalId: e.animalId };
 			}
@@ -117,8 +135,8 @@ export function leadNotice(
 		if (e.type === 'reordered' || e.type === 'species-moved') {
 			const before =
 				e.type === 'reordered' ? unmoved(after, e.from, e.to) : unmovedBundle(after, e.from, e.to);
-			const was = before[leadIndex(before)];
-			const is = after[leadIndex(after)];
+			const was = before[leadIndex(before, realm)];
+			const is = after[leadIndex(after, realm)];
 			if (is && was?.id !== is.id) return { lead: 'chosen', animalId: is.id };
 		}
 	}
@@ -200,7 +218,8 @@ class HudView {
 				if (event.playerId === game.playerId) this.say({ explore: 'notAtTent' });
 				break;
 			case 'party-edited': {
-				const notice = leadNotice(event.party, event.events);
+				const notice = leadNotice(event.party, event.events, game.realm);
+
 				if (notice) this.say({ party: notice });
 				// A new animal in front: ding-ding, with its "goes first!" line.
 				if (notice?.lead === 'chosen') sfx.play('lead');

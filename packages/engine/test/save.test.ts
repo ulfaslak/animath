@@ -354,7 +354,6 @@ describe('newGame and restoreGame', () => {
 				spawnPoint(SEED)
 			);
 		}
-
 	});
 
 	it('cuts an HP above the maximum, gives an empty party the starter, and rests an all-tired party', () => {
@@ -637,7 +636,15 @@ describe('readBattle', () => {
 		const pos = waterNearSpawn('deepwater');
 		const party = makeParty(['squirrel', 'otter']);
 		const battle = startBattle(party, makeWild('otter'), { realm: 'water' });
-		const game = { seed: SEED, pos, facing: 'left' as const, steps: 11, visits: 0, party, tokens: 0 };
+		const game = {
+			seed: SEED,
+			pos,
+			facing: 'left' as const,
+			steps: 11,
+			visits: 0,
+			party,
+			tokens: 0
+		};
 		const withBoat = saveDocument({ ...game, items: ['boat'], battle }, { lineage: 'L', seq: 2 });
 		expect(restoreGame(JSON.parse(JSON.stringify(withBoat))).battle).toEqual(battle);
 		const noBoat = saveDocument({ ...game, items: [], battle }, { lineage: 'L', seq: 2 });
@@ -648,7 +655,6 @@ describe('readBattle', () => {
 	});
 
 	it('comes back with the saved game only while the player stands where the battle is', () => {
-
 		const pos = findTile(SEED, true);
 		const party = makeParty(['squirrel']);
 		const battle = startBattle(party, makeWild('rabbit'));

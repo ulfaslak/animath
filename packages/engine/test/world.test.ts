@@ -119,7 +119,12 @@ describe('generateChunk', () => {
 
 describe('deep water', () => {
 	/** Every tile's kind in a box and a margin round it, read once. */
-	function kinds(seed: number, x0: number, y0: number, size: number): (x: number, y: number) => TileKind {
+	function kinds(
+		seed: number,
+		x0: number,
+		y0: number,
+		size: number
+	): (x: number, y: number) => TileKind {
 		const m = DEEP_WATER_MARGIN;
 		const span = size + 2 * m;
 		const all: TileKind[] = [];
@@ -245,7 +250,6 @@ describe('getting about', () => {
 });
 
 describe('spawnPoint', () => {
-
 	it('lands on walkable ground for many seeds', () => {
 		for (let seed = 0; seed < 25; seed++) {
 			const p = spawnPoint(seed);

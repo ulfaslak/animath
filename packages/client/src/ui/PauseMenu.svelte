@@ -51,17 +51,19 @@
 	 * own keyboard.
 	 */
 	const cards = $derived(bundles(game.party));
-	const leadId = $derived(game.party[leadIndex(game.party)]?.id ?? null);
+	const leadId = $derived(game.party[leadIndex(game.party, game.realm)]?.id ?? null);
 	const pickedIndex = $derived(
 		pause.picked === null ? -1 : game.party.findIndex((a) => a.id === pause.picked)
 	);
 	const picked = $derived(pickedIndex >= 0 ? game.party[pickedIndex]! : null);
-	const options = $derived(pickedIndex >= 0 ? partyOptions(game.party, pickedIndex) : []);
+	const options = $derived(
+		pickedIndex >= 0 ? partyOptions(game.party, pickedIndex, game.realm) : []
+	);
 	/** The card open on the right, when it holds several animals. */
 	const card = $derived(
 		pause.screen === 'bundle' ? (cards.find((c) => c.speciesId === pause.species) ?? null) : null
 	);
-	const rows = $derived(card ? cardRows(game.party, card.speciesId) : []);
+	const rows = $derived(card ? cardRows(game.party, card.speciesId, game.realm) : []);
 	/** How many of the card's rows are options, before its animals. */
 	const cardOptions = $derived(rows.filter((r) => r.kind === 'option').length);
 	/** The animal whose row the cursor is on, on a card's screen. */

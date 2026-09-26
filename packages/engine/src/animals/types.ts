@@ -58,7 +58,6 @@ export type Biome = 'meadow' | 'forest' | 'river' | 'mountain' | 'sea';
  */
 export type Realm = 'land' | 'water';
 
-
 /** Every realm, land first. */
 export const REALMS: readonly Realm[] = ['land', 'water'];
 

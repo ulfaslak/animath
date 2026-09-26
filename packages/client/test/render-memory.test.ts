@@ -345,6 +345,7 @@ describe('the title', () => {
 		const renderer = {
 			setStage() {},
 			setWorld() {},
+			setBoat() {},
 			setPlayer() {},
 			ensureChunksAround() {},
 			lookAt() {},

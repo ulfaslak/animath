@@ -3,6 +3,7 @@
 		ATTACK_LEVELS,
 		attackDamage,
 		bundles,
+		canFightIn,
 		catchProbability,
 		getAnimal,
 		puzzleDifficulty,
@@ -86,7 +87,12 @@
 		if (action.kind === 'leash') return t('battle.leash.detail', { animal: animalWords(opponent) });
 		if (action.kind === 'switch') {
 			if (canSwitch) return t('battle.switch.detail');
-			return battle.party.length < 2 ? t('battle.switch.alone') : t('battle.switch.allTired');
+			if (battle.party.length < 2) return t('battle.switch.alone');
+			// Out on the water, the others may be standing, only not swimmers.
+			const others = battle.party.filter((_, i) => i !== battle.front);
+			return others.some((a) => a.hp > 0 && !canFightIn(a.speciesId, battle.realm))
+				? t('battle.switch.noSwimmers')
+				: t('battle.switch.allTired');
 		}
 		return t('battle.run.detail', { animal: animalWords(opponent) });
 	});
@@ -131,6 +137,7 @@
 				? t('battle.switch.sendInFree', params)
 				: t('battle.switch.sendIn', params);
 		}
+		if (!canFightIn(animal.speciesId, battle.realm)) return t('battle.switch.cantSwim', params);
 		return animal.hp === 0 ? t('battle.switch.tired', params) : t('battle.switch.inBattle', params);
 	});
 
@@ -248,7 +255,9 @@
 								><HpBar hp={animal.hp} max={getAnimal(animal.speciesId).maxHp} /></span
 							>
 							<span class="how">
-								{#if animal.hp === 0}
+								{#if !canFightIn(animal.speciesId, battle.realm)}
+									{t('battle.switch.cantSwimTag')}
+								{:else if animal.hp === 0}
 									{t('battle.switch.tiredTag')}
 								{:else if i === battle.front}
 									{t('battle.switch.inBattleTag')}

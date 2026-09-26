@@ -962,7 +962,6 @@ function buildBackdrop(biome: Biome): THREE.Group {
 	}
 
 	for (let i = 0; i < 40; i++) {
-
 		const angle = rng.next() * Math.PI * 2;
 		const radius = 1.4 + rng.next() * 6;
 		const x = Math.cos(angle) * radius;
@@ -1098,4 +1097,3 @@ function buildSea(
 	grass.position.set(0, 0.2, -15);
 	group.add(sand, grass);
 }
-

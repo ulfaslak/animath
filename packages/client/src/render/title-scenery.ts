@@ -29,8 +29,18 @@ const VIEW_HEIGHT_TILES = 14;
 
 /** What the title controller asks of the scenery; tests give it a stand-in. */
 export interface TitleView3D {
-	/** The menu's world: the trainer at `pos` in world `seed`, facing `facing`, `species` round it. */
-	showWorld(seed: number, pos: GridPos, facing: Direction, species: readonly string[]): void;
+	/**
+	 * The menu's world: the trainer at `pos` in world `seed`, facing `facing`,
+	 * `species` round it, and the boat on their back, or under them out on the
+	 * water, when the game has one.
+	 */
+	showWorld(
+		seed: number,
+		pos: GridPos,
+		facing: Direction,
+		species: readonly string[],
+		boat?: boolean
+	): void;
 	/** The starter stage, these species in a row, the first lit. */
 	showStarters(species: readonly string[]): void;
 	/** Light a starter. */
@@ -53,12 +63,20 @@ export class TitleScenery implements TitleView3D {
 
 	constructor(private renderer: GameRenderer) {}
 
-	showWorld(seed: number, pos: GridPos, facing: Direction, species: readonly string[]): void {
+	showWorld(
+		seed: number,
+		pos: GridPos,
+		facing: Direction,
+		species: readonly string[],
+		boat = false
+	): void {
 		this.clearWorld();
 		this.renderer.setStage(null);
 		this.center = { x: pos.x, y: pos.y };
 		this.renderer.setWorld(seed);
+		this.renderer.setBoat(boat);
 		this.renderer.setPlayer(pos, pos, 1, facing);
+
 		this.renderer.ensureChunksAround(pos);
 		const spots = standingSpots(seed, pos, species.length);
 		species.forEach((id, i) => {

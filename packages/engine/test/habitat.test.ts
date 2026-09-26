@@ -34,7 +34,6 @@ function countAround(seed: number, x: number, y: number): Surroundings & { open:
 			const kind = tileAtWorld(seed, x + dx, y + dy).kind;
 			// Water is water, shallow or deep.
 			if (kind === 'water' || kind === 'deepwater') c.water++;
-
 			else if (kind === 'tree') c.trees++;
 			else if (kind === 'rock') c.rocks++;
 			else c.open++;

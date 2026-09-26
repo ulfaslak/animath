@@ -75,7 +75,6 @@ export const BOAT_COLORS = {
 	pennant: COLORS.playerShirt
 } as const;
 
-
 /** Trees grow only in the forest: three dark greens, mixed at random, so it reads as deep woods. */
 export const CANOPY: readonly number[] = [0x2c7a43, 0x3a8f4c, 0x2f8a55];
 

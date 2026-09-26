@@ -401,7 +401,6 @@ export function restoreGame(save: SaveV1): SavedGame {
 		tokens: save.tokens ?? 0,
 		items,
 		battle: battle && bundledBattle(battle)
-
 	};
 }
 
@@ -485,7 +484,6 @@ export function readBattle(
 		phase: JSON.parse(JSON.stringify(phase)) as BattleState['phase']
 	};
 }
-
 
 /** The top-level fields of a document that `SaveV1` does not name. */
 export function saveExtras(doc: SaveV1): Doc {

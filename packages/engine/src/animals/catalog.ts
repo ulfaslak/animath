@@ -141,4 +141,3 @@ export function getAnimal(id: string): AnimalSpec {
 export function canFightIn(speciesId: string, realm: Realm): boolean {
 	return getAnimal(speciesId).realms.includes(realm);
 }
-

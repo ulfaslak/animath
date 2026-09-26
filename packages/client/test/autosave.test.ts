@@ -380,7 +380,6 @@ describe('Autosave: the save in this browser', () => {
 			leashQuality: 1,
 			realm: 'land' as const,
 			phase: { kind: 'choose-action' as const }
-
 		};
 		await tab.play((g) => (g.battle = battle), 'battle-started');
 		expect(store.save()!.battle).toEqual(battle);
@@ -578,7 +577,6 @@ describe('Autosave: two tabs', () => {
 			leashQuality: 1,
 			realm: 'land' as const,
 			phase: { kind: 'choose-action' as const }
-
 		};
 		await a.play((g) => (g.battle = battle), 'battle-updated');
 		const saved = store.get(KEYS.save);

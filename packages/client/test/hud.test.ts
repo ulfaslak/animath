@@ -20,6 +20,7 @@ function setup() {
 	const authority = new LocalAuthority();
 	const renderer = {
 		setWorld() {},
+		setBoat() {},
 		setPlayer() {},
 		ensureChunksAround() {}
 	} as unknown as GameRenderer;

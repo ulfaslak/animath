@@ -45,7 +45,7 @@
 	 * own, each with its name.
 	 */
 	const list = $derived(bundles(game.party));
-	const leadId = $derived(game.party[leadIndex(game.party)]?.id ?? null);
+	const leadId = $derived(game.party[leadIndex(game.party, game.realm)]?.id ?? null);
 	/** With one card there is nobody to choose between: no numbers, no tag, nothing to drag. */
 	const choosing = $derived(list.length > 1);
 	/** Some card holds several animals, which open to show them. */

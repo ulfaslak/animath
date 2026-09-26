@@ -98,7 +98,9 @@ export function startBattle(
 	}
 	const active = leadIndex(party, realm);
 	if (active < 0) {
-		throw new Error(`startBattle: every animal in the party that fights on ${realm} is knocked out`);
+		throw new Error(
+			`startBattle: every animal in the party that fights on ${realm} is knocked out`
+		);
 	}
 
 	const leashQuality = options.leashQuality ?? 1;
@@ -393,7 +395,6 @@ class Draft {
 	get realm(): Realm {
 		return this.base.realm;
 	}
-
 
 	end(outcome: BattleOutcome, caught?: AnimalInstance): void {
 		this.phase = { kind: 'ended', outcome };

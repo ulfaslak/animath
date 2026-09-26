@@ -38,6 +38,7 @@ function setup(party: string, game0?: SavedGame) {
 	};
 	const renderer = {
 		setWorld() {},
+		setBoat() {},
 		setPlayer() {},
 		ensureChunksAround() {}
 	} as unknown as GameRenderer;

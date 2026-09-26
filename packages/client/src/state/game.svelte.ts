@@ -1,4 +1,12 @@
-import type { AnimalInstance, Direction, GameEvent, GridPos } from '@mathgame/engine';
+import {
+	tileAtWorld,
+	tileRealm,
+	type AnimalInstance,
+	type Direction,
+	type GameEvent,
+	type GridPos,
+	type Realm
+} from '@mathgame/engine';
 
 /**
  * The UI's read-only view of the game. It is filled exclusively from
@@ -31,6 +39,11 @@ class GameView {
 	tokens = $state(0);
 	/** The ids of the items the player owns (`hasItem`), in the order bought. */
 	items = $state<string[]>([]);
+	/**
+	 * Where the player stands: out on the water, in the boat, or on land (the
+	 * engine's `tileRealm` of their tile). Who goes first is the lead there.
+	 */
+	realm = $derived<Realm>(tileRealm(tileAtWorld(this.seed, this.pos.x, this.pos.y).kind));
 
 	apply(event: GameEvent): void {
 		switch (event.type) {

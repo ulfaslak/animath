@@ -72,11 +72,16 @@ function selectLead(party: readonly AnimalInstance[], animalId: unknown, realm: 
 		return reject(party, 'cannot-fight-here', { animalId: animal.id });
 	}
 	if (animal.hp <= 0) return reject(party, 'tired', { animalId: animal.id });
-	if (leadIndex(base, realm) === from) return reject(party, 'already-lead', { animalId: animal.id });
+	if (leadIndex(base, realm) === from)
+		return reject(party, 'already-lead', { animalId: animal.id });
 	return leadFrom(base, from);
 }
 
-function leadSpecies(party: readonly AnimalInstance[], speciesId: unknown, realm: Realm): PartyStep {
+function leadSpecies(
+	party: readonly AnimalInstance[],
+	speciesId: unknown,
+	realm: Realm
+): PartyStep {
 	const base = bundled(party);
 	if (typeof speciesId !== 'string' || !base.some((a) => a.speciesId === speciesId)) {
 		return reject(party, 'unknown-species');

@@ -273,7 +273,6 @@ describe('replay', () => {
 			realm: 'land',
 			phase: { kind: 'ended', outcome: 'won' }
 		});
-
 	});
 });
 
@@ -948,7 +947,6 @@ describe('on the water', () => {
 
 describe('rejected intents', () => {
 	function expectRejected(state: BattleState, intent: BattleIntent): void {
-
 		const step = applyBattleIntent(deepFreeze(state), intent, 9);
 		expect(step.state).toBe(state);
 		expect(step.events).toHaveLength(1);

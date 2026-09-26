@@ -29,7 +29,6 @@ export type {
 export { ATTACK_LEVELS, REALMS, TERRAINS } from './animals/types.js';
 export { ANIMALS, canFightIn, getAnimal } from './animals/catalog.js';
 
-
 export { attackDamage } from './battle/damage.js';
 export { catchProbability } from './battle/catch.js';
 export { activeAnimal, applyBattleIntent, canSwitchTo, startBattle } from './battle/reducer.js';

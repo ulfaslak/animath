@@ -66,4 +66,3 @@ export function hasItem(owner: { readonly items: readonly string[] }, id: ItemId
 export function gearOf(owner: { readonly items: readonly string[] }): Gear {
 	return { boat: hasItem(owner, 'boat') };
 }
-

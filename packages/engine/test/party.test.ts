@@ -592,7 +592,6 @@ describe('applyPartyIntent: select-lead', () => {
 	});
 });
 
-
 describe('applyPartyIntent: lead-species', () => {
 	it("leads with the bundle's first animal standing; refuses a bundle of tired ones, and the lead's own", () => {
 		const seen = new Set<string>();
@@ -664,7 +663,6 @@ describe('applyPartyIntent: lead-species', () => {
 	});
 
 	it('refuses a species that is not in the party, and anything that is not a species', () => {
-
 		for (const party of PARTIES.slice(0, 40)) {
 			const absent = ANIMALS.map((a) => a.id).filter(
 				(id) => !party.some((a) => a.speciesId === id)
@@ -1019,4 +1017,3 @@ describe('leadIndex', () => {
 		}
 	});
 });
-

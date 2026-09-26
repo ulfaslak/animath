@@ -89,7 +89,6 @@ export type BattleRejection =
 	/** An animal that can't go where the battle is fought: one that can't swim, out on the water. */
 	| 'cannot-fight-here';
 
-
 /**
  * What happened, in order, as a result of one intent. Detailed enough to
  * animate without re-running the rules: every hit carries the damage and the

@@ -8,14 +8,7 @@ export const CHUNK_SIZE = 16;
  * of a lake, the sea biome). Both are the player's only with a boat.
  */
 export type TileKind =
-	| 'grass'
-	| 'tallgrass'
-	| 'sand'
-	| 'water'
-	| 'deepwater'
-	| 'rock'
-	| 'tree'
-	| 'tent';
+	'grass' | 'tallgrass' | 'sand' | 'water' | 'deepwater' | 'rock' | 'tree' | 'tent';
 
 export interface Tile {
 	kind: TileKind;
@@ -68,7 +61,6 @@ export const NO_GEAR: Gear = { boat: false };
 export function isPassable(kind: TileKind, gear: Gear = NO_GEAR): boolean {
 	return isWalkable(kind) || (gear.boat && isWater(kind));
 }
-
 
 /**
  * Where an encounter on a tile of this kind happens, or null where none can:

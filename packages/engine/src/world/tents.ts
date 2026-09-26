@@ -127,7 +127,6 @@ export function nearestTent(
 				if (seen.has(k)) continue;
 				seen.add(k);
 				if (isPassable(kindAt(n), gear)) next.push(n);
-
 			}
 		}
 		if (next.length === 0) return null;

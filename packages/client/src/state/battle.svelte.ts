@@ -1,4 +1,10 @@
-import type { AnimalInstance, BattleOutcome, Line as MessageLine, Puzzle } from '@mathgame/engine';
+import type {
+	AnimalInstance,
+	BattleOutcome,
+	Line as MessageLine,
+	Puzzle,
+	Realm
+} from '@mathgame/engine';
 import type { Levels } from '../battle/menu';
 import type { Line } from '../lines';
 
@@ -45,6 +51,9 @@ class BattleView {
 	opponent = $state<AnimalInstance | null>(null);
 	/** The leash's quality multiplier (1 is the starter leash), for the Leash row's hint. */
 	leashQuality = $state(1);
+	/** Where the battle is fought: on land, or out on the water, where only the animals that swim fight. */
+	realm = $state<Realm>('land');
+
 	screen = $state<BattleScreen>('busy');
 	/**
 	 * The choice on screen (the menu, a switch list, the result card) takes a
@@ -86,7 +95,9 @@ class BattleView {
 		this.front = 0;
 		this.opponent = null;
 		this.leashQuality = 1;
+		this.realm = 'land';
 		this.screen = 'busy';
+
 		this.ready = false;
 		this.cursor = 0;
 		this.partyCursor = 0;

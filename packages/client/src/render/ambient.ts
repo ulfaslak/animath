@@ -240,7 +240,6 @@ export class Butterflies {
 			const x = centre.x + Math.cos(angle) * r;
 			const z = centre.z + Math.sin(angle) * r;
 			if (!isWater(tileAtWorld(this.seed, Math.round(x), Math.round(z)).kind) || tries === 7) {
-
 				b.target.set(x, z);
 				return;
 			}

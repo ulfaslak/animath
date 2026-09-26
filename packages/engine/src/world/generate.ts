@@ -159,7 +159,6 @@ export function generateChunk(seed: number, cx: number, cy: number): Chunk {
 	return { cx, cy, tiles };
 }
 
-
 /** Convenience for callers that think in world coordinates. */
 export function tileAtWorld(seed: number, x: number, y: number): Tile {
 	return tileAt(seed, x, y);
@@ -174,7 +173,6 @@ export function tileAtWorld(seed: number, x: number, y: number): Tile {
 export function travelKindAt(seed: number, x: number, y: number): TileKind {
 	return tileAt(seed, x, y, undefined, false).kind;
 }
-
 
 /**
  * Where a new player appears: the nearest walkable tile to the origin, scanning

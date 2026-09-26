@@ -13,7 +13,6 @@ import {
 	isEncounterTile,
 	isPassable,
 	joinParty,
-
 	leadIndex,
 	newGame,
 	normalizeNickname,
@@ -509,12 +508,7 @@ export class LocalAuthority implements Authority {
 	 * on screen.
 	 */
 	private editParty(intent: PartyIntent): void {
-		const { party, events } = applyPartyIntent(
-			this.party,
-			intent,
-			this.activity(),
-			this.realm()
-		);
+		const { party, events } = applyPartyIntent(this.party, intent, this.activity(), this.realm());
 
 		this.party = party.map((a) => ({ ...a }));
 		this.emit({ type: 'party-edited', party: this.partyCopy(), events });
