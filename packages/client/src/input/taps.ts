@@ -88,50 +88,69 @@ export class Taps<B extends Pressable = Pressable> {
 	}
 }
 
-/** The button a pointer is on (the innermost with a key), and its key. */
-function pressableAt(target: EventTarget | null): HTMLElement | null {
-	return target instanceof Element ? target.closest<HTMLElement>('[data-press]') : null;
+/**
+ * The button an event happened on (the innermost with a key), found along
+ * the path the event took when it began. A listener before this one may
+ * already have redrawn the page: the first touch after keys brings the touch
+ * controls, which takes Go!'s key cap, the very element the finger landed
+ * on, off the page before this listener runs.
+ */
+function pressableIn(e: Event): HTMLElement | null {
+	for (const node of e.composedPath()) {
+		if (node instanceof HTMLElement && node.dataset.press !== undefined) return node;
+	}
+	return null;
 }
 
 /**
  * Turn taps and clicks on the page's buttons into key presses. `screen` says
  * which screen takes keys now (`main.ts` counts every change), and `press`
  * presses a key. Every pointer is heard, wherever it goes down or up, so a
- * pointer never keeps a button it left.
+ * pointer never keeps a button it left, and before any button's own
+ * handler, so the screen a press begins on is the one the finger saw.
  */
 export function watchTaps(target: Window, screen: () => number, press: (key: string) => void) {
 	const taps = new Taps<HTMLElement>();
-	target.addEventListener('pointerdown', (e) => {
-		const button = e.button === 0 ? pressableAt(e.target) : null;
-		// The button holds the pointer until it lifts, whatever is drawn under it meanwhile.
-		try {
-			button?.setPointerCapture(e.pointerId);
-		} catch {
-			// Not a pointer the page can hold (one the browser has already let go of).
-		}
-		taps.down(e.pointerId, button?.dataset.press, button, screen(), {
-			x: e.clientX,
-			y: e.clientY
-		});
-	});
-	target.addEventListener('pointerup', (e) => {
-		const at = { x: e.clientX, y: e.clientY };
-		const key = taps.up(
-			e.pointerId,
-			e.target instanceof HTMLElement ? e.target : null,
-			screen(),
-			at,
-			(button) => {
-				const box = button.getBoundingClientRect();
-				return at.x >= box.left && at.x <= box.right && at.y >= box.top && at.y <= box.bottom;
+	const early = { capture: true };
+	target.addEventListener(
+		'pointerdown',
+		(e) => {
+			const button = e.button === 0 ? pressableIn(e) : null;
+			// The button holds the pointer until it lifts, whatever is drawn under it meanwhile.
+			try {
+				button?.setPointerCapture(e.pointerId);
+			} catch {
+				// Not a pointer the page can hold, or a button already off the page.
 			}
-		);
-		if (key !== undefined) press(key);
-	});
-	target.addEventListener('pointercancel', (e) => taps.cancel(e.pointerId));
+			taps.down(e.pointerId, button?.dataset.press, button, screen(), {
+				x: e.clientX,
+				y: e.clientY
+			});
+		},
+		early
+	);
+	target.addEventListener(
+		'pointerup',
+		(e) => {
+			const at = { x: e.clientX, y: e.clientY };
+			const key = taps.up(
+				e.pointerId,
+				e.target instanceof HTMLElement ? e.target : null,
+				screen(),
+				at,
+				(button) => {
+					const box = button.getBoundingClientRect();
+					return at.x >= box.left && at.x <= box.right && at.y >= box.top && at.y <= box.bottom;
+				}
+			);
+			if (key !== undefined) press(key);
+		},
+		early
+	);
+	target.addEventListener('pointercancel', (e) => taps.cancel(e.pointerId), early);
 	target.addEventListener('click', (e) => {
 		if (e.detail !== 0) return; // a pointer's click: its tap has pressed, or must not
-		const key = pressableAt(e.target)?.dataset.press;
+		const key = pressableIn(e)?.dataset.press;
 		if (key !== undefined) press(key);
 	});
 }
