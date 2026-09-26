@@ -16,6 +16,7 @@ No React, ever. No SvelteKit either: the client is a plain Vite app.
 The engine is a **pure TypeScript package with zero dependencies** and no access to the DOM, Three.js, Node or the network. `lib: ["ES2022"]` in its tsconfig enforces it at compile time; a test enforces it at runtime.
 All randomness comes from a seeded `Rng`, or a seed, passed in by the caller. `Math.random` and `Date.now` are banned in the engine.
 The world is a pure function of `(seed, chunkX, chunkY)`; per-tile randomness is keyed by coordinates via `hashInts`, never by call order.
+A species lists the realms it lives in (`land`, `water`), and an encounter happens in the realm of its tile: only species living there come out. An amphibious species lives in both. An animal of the water is a species in the catalog living in the water realm, not a catalog of its own.
 Instance ids (`AnimalInstance.id`) are minted by the authority, never by the engine. An engine function that creates an animal returns it without an id (`WildAnimal`).
 Grid world, 16×16 chunks, four-direction movement, screen-space `y` grows downward.
 Puzzle answers are whole numbers only. Prompts are plain strings until a kind needs more.
@@ -28,6 +29,7 @@ Game state changes only through **intents** validated by an **authority** that e
 The rules are [[PRODUCT]] §4; these are the choices behind them.
 A battle lets the player switch animals, because the human asked for it ("need ability to change combat animal during fight"). A switch costs the turn.
 Who comes out of the tall grass is sized to the lead's tier, because the human asked for it ("index challenger animals based on the tier of the selected animal"), and nothing more than one tier below the lead ever comes out.
+Who comes out of the tall grass also depends on the ground around it, because the human asked for it ("idk if animals are located near their natural habitats but that would make sense. amphibious near water, wood animals near trees, animals that like clifffs and terrain near rocks, etc."). Every species favours one kind of ground: water, trees, rocks or open grass. The ground only weighs the animals the biome and the lead already allow, and never decides whether a step starts a battle. Near spawn it only chooses among animals of the same tier, so the start stays exactly as gentle as the biome tables make it; it moves the tiers themselves only as `danger` rises.
 The player chooses the lead while exploring, because the human asked for it ("the ability to change the *selected* animal during explore mode").
 A party has no cap: every animal caught joins it, because the human asked for it ("let's not put a cap on how many animals you can carry. indeed, let the user carry as many as they want").
 The party is shown as one card per species, the animals of a kind stacked on it, and the player orders the cards by dragging them, because the human asked for it ("let's [stack] cards for same animals in the UI. user can mouseover cards to reveal the animal and HP underneath. and simply scroll cards on overflow. user can drag animal card (bundles) to change the vertical alignment").

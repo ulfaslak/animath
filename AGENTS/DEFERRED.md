@@ -115,6 +115,14 @@ Technical items we've intentionally postponed: tech debt, hardening shortcuts, k
 
 **Trigger**: a feature that writes the save without the kid's input (a timer, a reward that grows over time, a second player on one device), or a report of a game found kept aside after playing in two tabs. Then merge a walk-versus-progress race back into play: carry on from the other save when it only walked since this page's previous save, and write this page's progress on top.
 
+### The ground around a tall-grass tile is read from the generated world, not the one the kid has changed
+
+**What**: `surroundings(seed, pos)` (`world/habitat.ts`) counts the water, trees and rocks near a tile with `tileAtWorld`, the world as generated. Once the axe chops trees and the pickaxe breaks rocks ([[PRODUCT]] §6), a kid's cleared tiles would still count as trees or rocks for who comes out of the grass beside them.
+
+**Why deferred**: no tool changes a tile yet. Which world the ground should be read from — the generated one, or the one with the kid's changes, which would make encounters depend on a save's edits and on every authority knowing them — is a decision for that PR.
+
+**Trigger**: the PR that lets the axe or the pickaxe change a tile, or anything else that changes tiles while the game runs.
+
 ### A save over 1 MiB is not backed up, and one over 64 KiB misses the backup sent as the page closes
 
 **What**: a party has no cap, so a save grows with it: about 80 bytes an animal, up to 140 with a long name in 4-byte letters, twice that mid-battle. The server refuses a body over `SAVE_MAX_BYTES` (1 MiB, about 3,500 animals in the worst case) with a `413`, which the autosave treats as a bug: one `console.error`, and no more backups that visit; the game in the browser is saved as always. Separately, the backup sent on `pagehide` and when the page is hidden uses `fetch`'s `keepalive`, which browsers cap at 64 KiB of body: a bigger save (some 230 animals mid-battle with long names, 400 without) fails that request quietly, and the server's copy waits for the next ordinary backup (1 s after something that matters, 15 s after walking), which a hidden tab still sends.

@@ -19,6 +19,7 @@ import {
 	startBattle,
 	startDoctorVisit,
 	step,
+	surroundings,
 	takeToDoctor,
 	tileAtWorld,
 	type AnimalInstance,
@@ -341,7 +342,7 @@ export class LocalAuthority implements Authority {
 		// One roll per completed step, keyed by the step count so a replayed
 		// walk meets the same animals; the engine only draws on tall grass.
 		const rng = new Rng(hashInts(this.seed, ENCOUNTER_SALT, this.steps));
-		const site = { tile, pos: next, spawn: this.spawn };
+		const site = { tile, pos: next, spawn: this.spawn, around: surroundings(this.seed, next) };
 		const wild = rollEncounter(rng, site, getAnimal(lead.speciesId).tier);
 		if (wild) this.beginBattle({ ...wild, id: mintId() });
 	}

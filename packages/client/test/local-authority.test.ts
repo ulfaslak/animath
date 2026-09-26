@@ -41,11 +41,11 @@ import { parseParty } from '../src/flags';
  * `doctor.test.ts` and `party.test.ts`).
  *
  * The prototype world's spawn tile, (-2, 6), has a river reed (tall grass)
- * straight to its left, so walking left and right from it meets animals
- * (with the starter squirrel in front: the frogs that live there, the
- * squirrels and rabbits that come down to the water near home, now and then
- * an otter). Seven steps right, all on grass, is (5, 6), just above
- * the tent at (5, 7).
+ * straight to its left, with the lake all round it, so walking left and right
+ * from it meets animals (with the starter squirrel in front: mostly the frogs
+ * that live by the water, the squirrels and rabbits that come down to it near
+ * home, now and then an otter). Seven steps right, all on grass, is (5, 6),
+ * just above the tent at (5, 7).
  */
 type Session = { authority: LocalAuthority; events: GameEvent[] };
 
@@ -353,11 +353,11 @@ describe('LocalAuthority: encounters', () => {
 });
 
 describe('LocalAuthority: the lead decides who comes out', () => {
-	it('with the starter in front, the reed meets a Rabbit on step 11, a Squirrel on step 15, the first Frog on step 71 and the first Otter on step 97', () => {
+	it('with the starter in front, the reed meets a Frog on step 11, a Rabbit on step 15, the first Squirrel on step 69 and the first Otter on step 97', () => {
 		const met = reedWalk(session(), 97);
-		expect(met[0]).toEqual({ step: 11, wild: 'rabbit', lead: 'squirrel' });
-		expect(met[1]).toEqual({ step: 15, wild: 'squirrel', lead: 'squirrel' });
-		expect(met.find((m) => m.wild === 'frog')?.step).toBe(71);
+		expect(met[0]).toEqual({ step: 11, wild: 'frog', lead: 'squirrel' });
+		expect(met[1]).toEqual({ step: 15, wild: 'rabbit', lead: 'squirrel' });
+		expect(met.find((m) => m.wild === 'squirrel')?.step).toBe(69);
 		expect(met.find((m) => m.wild === 'otter')?.step).toBe(97);
 		expect(met.every((m) => ['squirrel', 'rabbit', 'frog', 'otter'].includes(m.wild))).toBe(true);
 	});
