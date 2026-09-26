@@ -33,7 +33,7 @@
 	<Hud />
 {/if}
 
-<SoundChip />
+<SoundChip low={title.open} />
 <!-- Over everything, the battle panel included: the encounter transition. -->
 <Iris />
 
