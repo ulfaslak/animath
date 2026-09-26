@@ -1,0 +1,99 @@
+import { STARTERS } from '@mathgame/engine';
+import { afterEach, describe, expect, it } from 'vitest';
+import { motion } from '../src/motion';
+import { StarterScene, liftFor } from '../src/render/starter-scene';
+
+/**
+ * The starters keep to the room the starter screen leaves them (#78): the
+ * card at the bottom grows for the name box, and the name tags under the
+ * animals' feet must stay clear of it. The screen measures the room; the
+ * stage moves the row into it, no further than it must.
+ */
+describe('liftFor', () => {
+	const row = { feet: 400, top: 200 };
+
+	it('leaves a row that fits where it is', () => {
+		expect(liftFor(row, null)).toBe(0);
+		expect(liftFor(row, { top: 100, bottom: 450 })).toBe(0);
+		expect(liftFor(row, { top: 200, bottom: 400 })).toBe(0);
+	});
+
+	it('lifts the feet above the band’s bottom, and lowers the tops below its top, by just that much', () => {
+		expect(liftFor(row, { top: 0, bottom: 350 })).toBe(50);
+		expect(liftFor(row, { top: 230, bottom: 700 })).toBe(-30);
+	});
+
+	it('never lowers the feet out of the band, and when it is too short, the feet win', () => {
+		expect(liftFor(row, { top: 260, bottom: 420 })).toBe(-20);
+		expect(liftFor(row, { top: 300, bottom: 350 })).toBe(50);
+	});
+});
+
+describe('the starter stage in its room', () => {
+	const SIZES: [number, number][] = [
+		[1280, 720],
+		[1024, 768],
+		[1180, 820],
+		[1920, 1080]
+	];
+	/** Where the starters' feet are on the stage's own camera, in CSS pixels from the top. */
+	const feet = (stage: StarterScene, height: number) => stage.spots().map((s) => s.y * height);
+	const reduced = motion.reduced;
+	afterEach(() => {
+		motion.reduced = reduced;
+	});
+
+	function shown(width: number, height: number): StarterScene {
+		const stage = new StarterScene();
+		stage.resize(width, height);
+		stage.show(STARTERS);
+		return stage;
+	}
+
+	it('slides up above a card that grows under it, and back down when it shrinks', () => {
+		for (const [width, height] of SIZES) {
+			const size = `${width}×${height}`;
+			const stage = shown(width, height);
+			const natural = feet(stage, height);
+			// A room the row fits in as it stands: nothing moves.
+			stage.setRoom({ top: 0, bottom: height });
+			expect(feet(stage, height), size).toEqual(natural);
+			// The name box opens, and the card's top rises past the feet.
+			const bottom = natural[0]! - 60;
+			stage.setRoom({ top: 0, bottom });
+			stage.slide(1 / 60);
+			const first = feet(stage, height)[0]!;
+			expect(first, size).toBeLessThan(natural[0]!);
+			expect(first, size).toBeGreaterThan(bottom);
+			for (let i = 0; i < 60; i++) stage.slide(1 / 60);
+			for (const y of feet(stage, height)) expect(y, size).toBeCloseTo(bottom, 1);
+			// The name box closes: back where it stood.
+			stage.setRoom({ top: 0, bottom: height });
+			for (let i = 0; i < 60; i++) stage.slide(1 / 60);
+			expect(feet(stage, height), size).toEqual(natural);
+		}
+	});
+
+	it('takes its first room at once, and with reduced motion every room', () => {
+		const stage = shown(1280, 720);
+		const natural = feet(stage, 720)[0]!;
+		stage.setRoom({ top: 0, bottom: natural - 40 });
+		expect(feet(stage, 720)[0]).toBeCloseTo(natural - 40, 1);
+		// Shown again (back to the title and New game): the first room places it again.
+		stage.show(STARTERS);
+		stage.setRoom({ top: 0, bottom: 720 });
+		expect(feet(stage, 720)[0]).toBeCloseTo(natural, 1);
+		motion.reduced = true;
+		stage.setRoom({ top: 0, bottom: natural - 70 });
+		stage.slide(1 / 60);
+		expect(feet(stage, 720)[0]).toBeCloseTo(natural - 70, 1);
+	});
+
+	it('keeps to its room at once through a new size', () => {
+		const stage = shown(1280, 720);
+		const room = { top: 0, bottom: feet(stage, 720)[0]! - 50 };
+		stage.setRoom(room);
+		stage.resize(1024, 768);
+		expect(feet(stage, 768)[0]).toBeCloseTo(room.bottom, 1);
+	});
+});

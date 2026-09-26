@@ -17,6 +17,13 @@ import type { Stage } from './renderer';
  * small hop. The row is as long as the list it is given, so a species added to the
  * starters simply stands in it. The words (the names under the animals) are
  * the DOM's: `spots()` says where each animal's feet are on screen.
+ *
+ * The DOM's card takes the bottom of the screen, and grows when the name box
+ * opens (on a touch screen it moves to the top instead, clear of the
+ * tablet's keyboard). The DOM measures the band it leaves the row
+ * (`setRoom`), and the row slides up or down into it (a lens shift, so
+ * nothing turns or grows), no further than it must: its name tags never
+ * slip under the card (#78).
  */
 
 /** Tiles between two animals' centres. */
@@ -29,6 +36,33 @@ const ROW_SHARE = 0.72;
 const ROW_AT = 0.45;
 const BOUNCE_SECONDS = 1.3;
 const JOY_SECONDS = 0.9;
+/** How quickly the row slides into its room: seconds for the gap to shrink to a third. */
+const LIFT_EASE = 0.08;
+
+/** A band of the screen, in CSS pixels from its top. */
+export interface StarterRoom {
+	/** The animals' tops stay below this. */
+	top: number;
+	/** Their feet stay above this. */
+	bottom: number;
+}
+
+/**
+ * How far to lift the row on screen, in CSS pixels (negative: lower it), for
+ * a row whose feet and tallest top stand at `row.feet` and `row.top` unlifted:
+ * as little as puts it in `room`, the feet above its bottom and the tops
+ * below its top. When the band is too short for both, the feet win, so the
+ * name tags under them stay clear of the card below.
+ */
+export function liftFor(row: { feet: number; top: number }, room: StarterRoom | null): number {
+	if (!room) return 0;
+	// Feet below the band: up, whatever that does to the tops.
+	const low = row.feet - room.bottom;
+	if (low > 0) return low;
+	// Tops above it: down, but never so far that the feet leave it.
+	const high = room.top - row.top;
+	return high > 0 ? -Math.min(high, -low) : 0;
+}
 
 export class StarterScene implements Stage {
 	readonly scene = new THREE.Scene();
@@ -40,6 +74,15 @@ export class StarterScene implements Stage {
 	private lastT = -1;
 	private width = 1;
 	private height = 1;
+	/** Where the row's feet and its tallest top are on screen, unlifted, in CSS pixels. */
+	private row = { feet: 0, top: 0 };
+	private room: StarterRoom | null = null;
+	/** How far the row is lifted on screen now, in CSS pixels (negative: lowered). */
+	private lift = 0;
+	/** Where `lift` is sliding to: `liftFor` the room. */
+	private liftTarget = 0;
+	/** The row has taken its first room since `show`: it starts there, and slides only after. */
+	private settled = false;
 
 	constructor() {
 		this.scene.background = new THREE.Color(COLORS.sky);
@@ -88,6 +131,7 @@ export class StarterScene implements Stage {
 			const scale = Math.min(1.9, Math.max(1, Math.sqrt(1.1 / size)));
 			figure.scale.setScalar(scale);
 			figure.userData.baseScale = scale;
+			figure.userData.height = box.y * scale;
 			// The ring under the lit one goes round its feet, however wide they are.
 			figure.userData.ringScale = Math.max(1, ((Math.max(box.x, box.z) * scale) / 2 + 0.12) / 0.46);
 			figure.userData.idlePhase = i * 1.1;
@@ -97,6 +141,7 @@ export class StarterScene implements Stage {
 		});
 		this.lit = 0;
 		this.joy = -1;
+		this.settled = false;
 		this.frame();
 	}
 
@@ -124,6 +169,31 @@ export class StarterScene implements Stage {
 		this.width = Math.max(1, width);
 		this.height = Math.max(1, height);
 		this.frame();
+	}
+
+	/**
+	 * Keep the row within `room` (null: anywhere). The first room after `show`
+	 * places it at once; a new one it slides to, as `slide` is called.
+	 */
+	setRoom(room: StarterRoom | null): void {
+		this.room = room;
+		this.liftTarget = liftFor(this.row, room);
+		if (!this.settled && room) {
+			this.settled = true;
+			this.lift = this.liftTarget;
+			this.applyLift();
+		}
+	}
+
+	/** Slide the row towards its room by `dt` seconds of frame time; at once with reduced motion. */
+	slide(dt: number): void {
+		const gap = this.liftTarget - this.lift;
+		if (gap === 0) return;
+		this.lift =
+			motion.reduced || Math.abs(gap) < 0.5
+				? this.liftTarget
+				: this.lift + gap * (1 - Math.exp(-dt / LIFT_EASE));
+		this.applyLift();
 	}
 
 	update(t: number): void {
@@ -167,7 +237,8 @@ export class StarterScene implements Stage {
 	/**
 	 * Frame the row: far enough back that it takes `ROW_SHARE` of the width
 	 * (and never so close that two animals fill the screen), its middle at
-	 * `ROW_AT` from the top.
+	 * `ROW_AT` from the top, then lifted into its room. A new size places it
+	 * there at once.
 	 */
 	private frame(): void {
 		const aspect = this.width / this.height;
@@ -180,8 +251,27 @@ export class StarterScene implements Stage {
 		this.camera.aspect = aspect;
 		this.camera.position.set(0, 1.5 + distance * 0.18, distance);
 		this.camera.lookAt(0, middle - (0.5 - ROW_AT) * visible, 0);
-		this.camera.updateProjectionMatrix();
+		this.camera.clearViewOffset();
 		this.camera.updateMatrixWorld();
+		// Where the feet and the tallest top (the lit one is a little bigger) are, unlifted.
+		const tallest = Math.max(0, ...this.figures.map((f) => (f.userData.height as number) ?? 0));
+		this.row = { feet: this.screenY(0), top: this.screenY(tallest * 1.12) };
+		this.liftTarget = liftFor(this.row, this.room);
+		this.lift = this.liftTarget;
+		this.applyLift();
+	}
+
+	/** Where a point at `height` over the row's middle is on screen, in CSS pixels from the top. */
+	private screenY(height: number): number {
+		const p = new THREE.Vector3(0, height, 0).project(this.camera);
+		return ((1 - p.y) / 2) * this.height;
+	}
+
+	/** Shift the picture by `lift`: up when positive, down when negative. */
+	private applyLift(): void {
+		const { width, height } = this;
+		if (this.lift === 0) this.camera.clearViewOffset();
+		else this.camera.setViewOffset(width, height, 0, this.lift, width, height);
 	}
 }
 
