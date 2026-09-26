@@ -493,7 +493,8 @@ export class BattleController {
 							return line(wild ? 'battle.wildUsedDamage' : 'battle.usedDamage', {
 								animal: who,
 								attack,
-								damage: e.damage
+								damage: e.damage,
+								target: this.animalOn(target)
 							});
 						},
 						hold: 1.2

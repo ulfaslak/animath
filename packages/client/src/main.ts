@@ -117,9 +117,11 @@ authority.subscribe((event) => {
 	if (event.type === 'game-left') {
 		titleController.open(autosave.resumable() ?? authority.snapshot());
 	}
-	// `?zoo` lines up one of every species by the spawn tile (a check for the meshes).
+	// `?zoo` lines up one of every species by the spawn tile (a check for the meshes);
+	// `?zoo=tired` lays them down to rest.
 	if (flags.zoo && event.type === 'welcome') {
-		for (const figure of buildZoo(event.seed, event.pos)) renderer.addFigure(figure);
+		const figures = buildZoo(event.seed, event.pos, flags.zoo === 'tired');
+		for (const figure of figures) renderer.addFigure(figure);
 	}
 });
 

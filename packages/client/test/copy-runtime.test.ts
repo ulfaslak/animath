@@ -165,7 +165,7 @@ describe('the language on screen', () => {
 		expect(t('puzzle.keys')).toBe('Type the answer, then press Enter');
 		language.set('da');
 		expect(language.current).toBe('da');
-		expect(t('puzzle.keys')).toBe('Skriv svaret, og tryk så på Enter');
+		expect(t('puzzle.keys')).toBe('Skriv svaret og tryk på Enter');
 	});
 
 	it('names every language in itself, whatever is on screen', () => {
@@ -212,7 +212,7 @@ describe('the language on screen', () => {
 			}
 		});
 		language.set('da');
-		expect(t('puzzle.keys')).toBe('Skriv svaret, og tryk så på Enter');
+		expect(t('puzzle.keys')).toBe('Skriv svaret og tryk på Enter');
 	});
 
 	it('reads ?lang=, the saved choice and the browser languages from the page', () => {

@@ -76,6 +76,46 @@ describe('figures', () => {
 	});
 });
 
+/**
+ * A tired animal lies down to rest (UI_SPEC § Battle mode): on its belly, legs
+ * tucked out of sight, never tipped onto its side — a deer on its side read as
+ * fallen furniture. Every species, so a new one's figure lies down too.
+ */
+describe('a tired animal, resting', () => {
+	const camera = new THREE.PerspectiveCamera();
+	for (const spec of ANIMALS) {
+		it(`${spec.id} lies on its belly, upright and lower, with z's only once it is down`, () => {
+			const figure = buildAnimalMesh(spec.id);
+			const rig = figure.children[0]!;
+			const standing = bounds(rig);
+			const width = standing.max.x - standing.min.x;
+			// What stands clear of the ground: the body over the legs, the head, a tail.
+			const raised = rig.children.filter((part) => bounds(part).min.y > 0.005);
+
+			figure.userData.rest = 0.5;
+			animateIdle(figure, 1, camera);
+			expect(figure.getObjectByName('zs')?.visible ?? false, 'z-s on the way down').toBe(false);
+
+			figure.userData.rest = 1;
+			animateIdle(figure, 1, camera);
+			const lying = bounds(rig);
+			const body = raised.map((part) => bounds(part).min.y);
+			// Down on the ground, the body touching it, and still standing up out of it.
+			expect(Math.min(...body)).toBeLessThanOrEqual(0.01);
+			expect(lying.max.y).toBeLessThan(standing.max.y * 0.95);
+			expect(lying.max.y).toBeGreaterThan(standing.max.y * 0.45);
+			// Upright: as wide as it stands, where a figure on its side is as wide as it was tall.
+			expect(Math.abs(lying.max.x - lying.min.x - width)).toBeLessThan(width * 0.1);
+			// The z's rise over it once it is down, and only where there is a camera to face.
+			const zs = figure.getObjectByName('zs');
+			expect(zs?.visible).toBe(true);
+			expect(zs!.children.some((z) => z.visible)).toBe(true);
+			animateIdle(figure, 2);
+			expect(zs!.visible).toBe(false);
+		});
+	}
+});
+
 describe('the trainer walking', () => {
 	const JOINTS = ['armL', 'armR', 'legL', 'legR'];
 

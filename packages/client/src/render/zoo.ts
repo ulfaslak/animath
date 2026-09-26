@@ -7,9 +7,10 @@ import { groundTop } from './tiles';
  * Verification line-up, reached with `?zoo` in the URL and never on the
  * normal path: one figure per species in catalog order, standing in a row
  * near the spawn tile and facing the camera, so every species can be checked
- * in one screenshot. Documented in AGENTS/DNA/CHEATSHEET.md.
+ * in one screenshot. With `tired` (`?zoo=tired`) every one lies down to rest,
+ * as a tired animal does in a battle. Documented in AGENTS/DNA/CHEATSHEET.md.
  */
-export function buildZoo(seed: number, origin: GridPos): THREE.Group[] {
+export function buildZoo(seed: number, origin: GridPos, tired = false): THREE.Group[] {
 	const half = Math.floor(ANIMALS.length / 2);
 	const row = pickRow(seed, origin, half);
 	return ANIMALS.map((spec, i) => {
@@ -17,6 +18,7 @@ export function buildZoo(seed: number, origin: GridPos): THREE.Group[] {
 		const figure = buildAnimalMesh(spec.id);
 		figure.position.set(x, groundTop(tileAtWorld(seed, x, row)), row);
 		figure.userData.idlePhase = i * 0.9;
+		if (tired) figure.userData.rest = 1;
 		return figure;
 	});
 }

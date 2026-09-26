@@ -40,23 +40,25 @@
 {/snippet}
 
 <div class="party">
-	{#each game.party as animal, i (animal.id)}
-		<!-- With more than one animal a card is a button: its number key, which puts it first. -->
-		{#if choosing}
-			<button
-				type="button"
-				class="member"
-				class:tired={animal.hp === 0}
-				class:lead={i === lead}
-				data-press={String(i + 1)}
-				{@attach unfocusable}
-			>
-				{@render card(animal, i)}
-			</button>
-		{:else}
-			<div class="member" class:tired={animal.hp === 0}>{@render card(animal, i)}</div>
-		{/if}
-	{/each}
+	<div class="cards">
+		{#each game.party as animal, i (animal.id)}
+			<!-- With more than one animal a card is a button: its number key, which puts it first. -->
+			{#if choosing}
+				<button
+					type="button"
+					class="member"
+					class:tired={animal.hp === 0}
+					class:lead={i === lead}
+					data-press={String(i + 1)}
+					{@attach unfocusable}
+				>
+					{@render card(animal, i)}
+				</button>
+			{:else}
+				<div class="member" class:tired={animal.hp === 0}>{@render card(animal, i)}</div>
+			{/if}
+		{/each}
+	</div>
 	{#if touch.on}
 		{#if choosing}
 			<div class="keys">{t('hud.pickLeadTouch')}</div>
@@ -97,13 +99,25 @@
 		align-items: flex-start;
 		gap: 8px;
 	}
+	/*
+	 * The cards are as wide as the widest of them needs (from 260 px), all the
+	 * same, so a nickname of twelve of the widest letters shows whole; a tag
+	 * that no longer fits beside it goes under it.
+	 */
+	.cards {
+		display: flex;
+		flex-direction: column;
+		align-items: stretch;
+		gap: 8px;
+	}
 	.member {
 		display: block;
 		background: var(--panel-bg);
 		border-radius: var(--radius);
 		box-shadow: var(--hud-shadow);
 		padding: 7px 14px 8px 10px;
-		width: 260px;
+		min-width: 260px;
+		max-width: 320px;
 		box-sizing: border-box;
 		font-weight: 800;
 	}
@@ -134,13 +148,14 @@
 	}
 	.top {
 		display: flex;
+		flex-wrap: wrap;
 		align-items: center;
-		gap: 8px;
+		gap: 4px 8px;
 		margin-bottom: 4px;
 		font-size: 18px;
 	}
 	.name {
-		flex: 1;
+		flex: 1 1 auto;
 		min-width: 0;
 		overflow: hidden;
 		text-overflow: ellipsis;
@@ -148,6 +163,7 @@
 	}
 	.tag {
 		flex: none;
+		margin-left: auto;
 		font-size: 16px;
 		font-weight: 800;
 		padding: 1px 8px;
