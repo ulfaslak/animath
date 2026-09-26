@@ -238,6 +238,17 @@ describe('title: a new game over a saved one', () => {
 		expect(newGames(sent)).toEqual([]);
 	});
 
+	it('on a page that keeps nothing, every title says so and the confirm knows it; the next title forgets it (#61)', () => {
+		const { controller, press } = setup(savedGame());
+		controller.open(savedGame(), 'save.cannotSave', false);
+		expect([title.notice, title.keeps]).toEqual(['save.cannotSave', false]);
+		press('s', 'Enter');
+		expect(title.screen).toBe('confirm');
+		expect(title.keeps).toBe(false);
+		controller.open(savedGame());
+		expect([title.notice, title.keeps]).toEqual([null, true]);
+	});
+
 	it('Enter mashed through the confirm never starts a new game', () => {
 		const { press, wait, sent } = setup(savedGame());
 		press('s');
