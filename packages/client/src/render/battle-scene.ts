@@ -3,7 +3,16 @@ import * as THREE from 'three';
 import { touch } from '../input/touch.svelte';
 import { motion } from '../motion';
 import { animateIdle, buildAnimalMesh, disposeFigure } from './animals';
-import { COLORS, CONFETTI_COLORS, TILE_COLORS } from './palette';
+import { appearScale, recallScale, smoothstep } from './ease';
+import {
+	BIOME_LOOK,
+	CANOPY,
+	COLORS,
+	CONFETTI_COLORS,
+	PROP_COLORS,
+	SPARKLE_COLORS,
+	TILE_COLORS
+} from './palette';
 import { PROP_GEOMETRY } from './tiles';
 
 /**
@@ -55,11 +64,12 @@ export function battlePanelHeight(height: number, touchControls = touch.on): num
 	return Math.min(360, Math.max(260, 0.4 * height));
 }
 
+/** The ground a battle is fought on: the biome's own, as the world shows it round the grass. */
 const GROUND: Record<Biome, number> = {
-	meadow: TILE_COLORS.grass,
-	forest: TILE_COLORS.grass,
-	river: TILE_COLORS.sand,
-	mountain: TILE_COLORS.rock
+	meadow: BIOME_LOOK.meadow.ground,
+	forest: BIOME_LOOK.forest.ground,
+	river: BIOME_LOOK.river.ground,
+	mountain: BIOME_LOOK.mountain.ground
 };
 
 const LUNGE_SECONDS = 0.35;
@@ -77,9 +87,15 @@ const DUST_DELAY_SECONDS = FAINT_SECONDS * 0.75;
 const DUST_SECONDS = 0.7;
 /** A confetti piece's life; each lives a little longer or shorter so they don't vanish at once. */
 const CONFETTI_SECONDS = 1.3;
+/** The poppers' pieces fly further and live longer: they rain over the whole scene. */
+const POPPER_SECONDS = 1.9;
 const GRAVITY = 6;
+/** A caught animal's cheer: two hops, the first with a spin. */
+const CHEER_SECONDS = 0.9;
+/** A sparkle's life, from popping up to twinkling out; each waits its turn first. */
+const SPARKLE_SECONDS = 0.8;
 
-type EffectKind = 'lunge' | 'shake' | 'faint' | 'hop' | 'recall' | 'appear';
+type EffectKind = 'lunge' | 'shake' | 'faint' | 'hop' | 'recall' | 'appear' | 'cheer';
 /** Effects that leave the figure where they end until `setFigure` replaces it. */
 const LASTING: readonly EffectKind[] = ['faint', 'recall'];
 interface Effect {
@@ -104,6 +120,17 @@ interface ConfettiPiece {
 	t: number;
 	life: number;
 }
+/** A four-pointed star that pops up beside a figure, turns and twinkles out. */
+interface Sparkle {
+	mesh: THREE.Mesh;
+	/** Where it pops up, and the way it drifts (both world units). */
+	from: THREE.Vector3;
+	drift: THREE.Vector3;
+	size: number;
+	/** Seconds it waits before it shows. */
+	delay: number;
+	t: number;
+}
 interface Leash {
 	loop: THREE.Mesh;
 	rope: THREE.Mesh;
@@ -117,10 +144,10 @@ const UP = new THREE.Vector3(0, 1, 0);
 function lambert(hex: number): THREE.MeshLambertMaterial {
 	return new THREE.MeshLambertMaterial({ color: hex, flatShading: true });
 }
-const tuftMaterial = lambert(0x4fa83d);
 const trunkMaterial = lambert(COLORS.trunk);
-const canopyMaterials = [lambert(COLORS.canopy), lambert(COLORS.canopyLight)];
 const boulderMaterial = lambert(COLORS.rock);
+const snowMaterial = lambert(PROP_COLORS.snow);
+const cattailMaterial = lambert(PROP_COLORS.cattail);
 const waterMaterial = lambert(TILE_COLORS.water);
 const puffMaterial = lambert(COLORS.white);
 const dustMaterial = lambert(COLORS.dust);
@@ -130,10 +157,44 @@ const confettiMaterials = CONFETTI_COLORS.map((hex) => {
 	material.side = THREE.DoubleSide; // a flat piece shows from both faces as it tumbles
 	return material;
 });
+/**
+ * The sparkles: the doctor's chunky four-pointed stars, in its gold, green
+ * and white. Unlit, so they shine whatever the light.
+ */
+const sparkleMaterials = SPARKLE_COLORS.map(
+	(hex) => new THREE.MeshBasicMaterial({ color: hex, side: THREE.DoubleSide })
+);
 const PUFF_GEOMETRY = new THREE.IcosahedronGeometry(0.12, 0);
 /** Rounder than a miss's puff, so a cloud of it never reads as a heap of pebbles. */
 const DUST_GEOMETRY = new THREE.IcosahedronGeometry(0.08, 1);
 const CONFETTI_GEOMETRY = new THREE.PlaneGeometry(0.09, 0.06);
+/** The poppers' pieces are bigger: they fly close to the camera, over the whole scene. */
+const POPPER_GEOMETRY = new THREE.PlaneGeometry(0.1, 0.066);
+/**
+ * A four-pointed star one unit across, point to point: eight triangles
+ * round its middle, built by hand (a `Shape` would bring its triangulator
+ * into the bundle for one star).
+ */
+const STAR_GEOMETRY = (() => {
+	const rim = [
+		[0, 0.5],
+		[0.13, 0.13],
+		[0.5, 0],
+		[0.13, -0.13],
+		[0, -0.5],
+		[-0.13, -0.13],
+		[-0.5, 0],
+		[-0.13, 0.13]
+	] as const;
+	const positions: number[] = [];
+	rim.forEach(([ax, ay], i) => {
+		const [bx, by] = rim[(i + 1) % rim.length]!;
+		positions.push(0, 0, 0, bx, by, 0, ax, ay, 0);
+	});
+	const geometry = new THREE.BufferGeometry();
+	geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+	return geometry;
+})();
 const LOOP_GEOMETRY = new THREE.TorusGeometry(0.3, 0.05, 6, 16);
 /** A unit-length rope along +y from the origin; stretched and turned per frame. */
 const ROPE_GEOMETRY = new THREE.CylinderGeometry(0.025, 0.025, 1, 5).translate(0, 0.5, 0);
@@ -151,6 +212,7 @@ export class BattleScene {
 	private puffs: Puff[] = [];
 	private dusts: Dust[] = [];
 	private confetti: ConfettiPiece[] = [];
+	private sparkles: Sparkle[] = [];
 	/** Counts confetti bursts, to seed each one's scatter. */
 	private bursts = 0;
 	private leash: Leash | null = null;
@@ -219,6 +281,8 @@ export class BattleScene {
 		this.dusts = [];
 		for (const piece of this.confetti) this.scene.remove(piece.mesh);
 		this.confetti = [];
+		for (const sparkle of this.sparkles) this.scene.remove(sparkle.mesh);
+		this.sparkles = [];
 		this.dropLeash();
 		this.effects = [];
 	}
@@ -239,6 +303,7 @@ export class BattleScene {
 		const other = SPOT[side === 'player' ? 'opponent' : 'player'];
 		// Face the other animal: the player's from behind, the wild one three-quarters on.
 		figure.rotation.y = Math.atan2(other.x - SPOT[side].x, other.z - SPOT[side].z);
+		figure.userData.baseYaw = figure.rotation.y;
 		figure.userData.idlePhase = side === 'player' ? 0 : 1.3;
 		figure.position.copy(SPOT[side]);
 		this.figures[side] = figure;
@@ -258,6 +323,12 @@ export class BattleScene {
 	/** A happy hop in place. */
 	hop(side: BattleSide): void {
 		this.effects.push({ side, kind: 'hop', t: 0 });
+	}
+
+	/** A win: the winner hops, and a few stars twinkle round it. */
+	winCheer(side: BattleSide): void {
+		this.hop(side);
+		this.sparkle(side, 6);
 	}
 
 	/** Tip the figure over into a puff of dust; it stays down until `setFigure` replaces it. */
@@ -372,15 +443,110 @@ export class BattleScene {
 		this.scene.add(loop, rope);
 	}
 
-	/** How the throw ended: the loop holds (and the animal hops), or it pops off. */
+	/**
+	 * How the throw ended: the loop holds, or it pops off. Held, it is the
+	 * biggest moment a battle has: the animal cheers (two hops, a spin),
+	 * stars twinkle round it, confetti bursts round it and two poppers go
+	 * off near the camera, raining bigger confetti over the whole scene.
+	 */
 	leashResult(success: boolean): void {
 		if (!this.leash) return;
 		this.leash.state = success ? 'caught' : 'broke';
 		this.leash.t = 0;
 		if (success) {
-			this.hop('opponent');
+			this.effects.push({ side: 'opponent', kind: 'cheer', t: 0 });
 			this.celebrate('opponent');
+			this.sparkle('opponent', 10);
+			this.poppers();
 		} else this.shake('opponent');
+	}
+
+	/** Stars that pop up round a figure one after another, turn a little and twinkle out. */
+	sparkle(side: BattleSide, count: number): void {
+		const rng = new Rng(++this.bursts * 3571);
+		const spot = SPOT[side];
+		const h = this.heights[side];
+		for (let i = 0; i < count; i++) {
+			const angle = (i / count) * Math.PI * 2 + rng.next() * 0.5;
+			const r = 0.3 + h * 0.4 + rng.next() * 0.15;
+			const from = new THREE.Vector3(
+				spot.x + Math.cos(angle) * r,
+				h * (0.25 + rng.next() * 0.9),
+				spot.z + Math.sin(angle) * r * 0.6
+			);
+			const drift = new THREE.Vector3(Math.cos(angle), 0.9, Math.sin(angle) * 0.6).multiplyScalar(
+				0.3
+			);
+			const mesh = new THREE.Mesh(STAR_GEOMETRY, sparkleMaterials[i % sparkleMaterials.length]);
+			mesh.visible = false;
+			this.sparkles.push({
+				mesh,
+				from,
+				drift,
+				size: 0.2 + rng.next() * 0.12,
+				delay: i * 0.06 + rng.next() * 0.05,
+				t: 0
+			});
+			this.scene.add(mesh);
+		}
+	}
+
+	/**
+	 * Two poppers go off in the scene's lower corners, close to the camera,
+	 * and throw bigger confetti up and in over the whole scene: nearer the
+	 * camera, it reads big, and it frames both animals rather than covering
+	 * one. With reduced motion, fewer pieces that rise less and never tumble.
+	 */
+	private poppers(): void {
+		const rng = new Rng(++this.bursts * 104729);
+		const reduced = motion.reduced;
+		const gravity = reduced ? GRAVITY * 0.4 : GRAVITY;
+		this.camera.updateMatrixWorld();
+		const eye = this.camera.position;
+		// Where the canvas's free part begins, above the panel, in the camera's -1..1.
+		const bottom = -1 + (2 * battlePanelHeight(this.height)) / Math.max(1, this.height);
+		const at = (x: number, y: number, distance: number) =>
+			new THREE.Vector3(x, y, 0.5)
+				.unproject(this.camera)
+				.sub(eye)
+				.normalize()
+				.multiplyScalar(distance)
+				.add(eye);
+		for (const side of [-1, 1]) {
+			const from = at(side * 0.84, bottom + 0.08, 3.2);
+			// Up the sides, clear of the wild animal at the upper right: the left one
+			// towards the open sky at the upper left, the right one almost straight up.
+			const to = at(side < 0 ? -0.3 : 0.74, bottom + (1 - bottom) * 0.9, 3.8);
+			const count = reduced ? 8 : 26;
+			for (let i = 0; i < count; i++) {
+				const mesh = new THREE.Mesh(
+					POPPER_GEOMETRY,
+					confettiMaterials[(i + (side > 0 ? 3 : 0)) % confettiMaterials.length]
+				);
+				mesh.position.copy(from);
+				mesh.rotation.set(rng.next() * 6, rng.next() * 6, rng.next() * 6);
+				// Aimed at the upper middle, fanned out: up enough to get there, across in about 0.7 s.
+				const aim = to.clone().sub(from);
+				aim.x += (rng.next() - 0.5) * 1.4;
+				aim.z += (rng.next() - 0.5) * 1.0;
+				const rise = Math.max(0.2, aim.y + (rng.next() - 0.3) * 0.5) * (reduced ? 0.5 : 1);
+				const velocity = new THREE.Vector3(
+					(aim.x / 0.7) * (reduced ? 0.6 : 1),
+					Math.sqrt(2 * gravity * rise) * 1.25,
+					(aim.z / 0.7) * (reduced ? 0.6 : 1)
+				);
+				this.confetti.push({
+					mesh,
+					velocity,
+					spin: reduced
+						? new THREE.Vector3()
+						: new THREE.Vector3(rng.next() * 10 - 5, rng.next() * 10 - 5, rng.next() * 10 - 5),
+					t: 0,
+					life: POPPER_SECONDS * (0.8 + rng.next() * 0.4)
+				});
+				this.scene.add(mesh);
+			}
+		}
 	}
 
 	/**
@@ -412,6 +578,7 @@ export class BattleScene {
 			figure.position.copy(SPOT[side]);
 			figure.rotation.z = 0;
 			figure.rotation.x = 0;
+			figure.rotation.y = (figure.userData.baseYaw as number | undefined) ?? figure.rotation.y;
 			figure.scale.setScalar((figure.userData.baseScale as number | undefined) ?? 1);
 		}
 		for (const effect of this.effects) {
@@ -475,6 +642,29 @@ export class BattleScene {
 		for (const piece of this.confetti) if (piece.t >= piece.life) this.scene.remove(piece.mesh);
 		this.confetti = this.confetti.filter((c) => c.t < c.life);
 
+		// Each star faces the camera, pops up past its size, turns an eighth and
+		// shrinks away as it drifts out; with reduced motion it twinkles in place.
+		for (const s of this.sparkles) {
+			s.t += dt;
+			const p = (s.t - s.delay) / SPARKLE_SECONDS;
+			s.mesh.visible = p > 0 && p < 1;
+			if (!s.mesh.visible) continue;
+			const reduced = motion.reduced;
+			const grow = reduced
+				? Math.sin(p * Math.PI)
+				: p < 0.3
+					? 0.2 + (p / 0.3) * 0.9
+					: 1.1 - ((p - 0.3) / 0.7) * 0.8;
+			s.mesh.position.copy(s.from).addScaledVector(s.drift, reduced ? 0 : p);
+			s.mesh.quaternion.copy(this.camera.quaternion);
+			s.mesh.rotateZ(reduced ? 0 : p * (Math.PI / 4));
+			s.mesh.scale.setScalar(Math.max(0.001, grow * s.size));
+		}
+		for (const s of this.sparkles) {
+			if (s.t >= s.delay + SPARKLE_SECONDS) this.scene.remove(s.mesh);
+		}
+		this.sparkles = this.sparkles.filter((s) => s.t < s.delay + SPARKLE_SECONDS);
+
 		this.updateLeash(dt, t);
 	}
 
@@ -501,7 +691,9 @@ export class BattleScene {
 			// way every 0.35 s (the pace of the `wobble` cue's ticks).
 			if (p >= 1) loop.rotation.z = Math.sin(t * 9) * (motion.reduced ? 0.1 : 0.3);
 		} else if (leash.state === 'caught') {
-			loop.position.set(to.x, holdY, to.z);
+			// Snug on the animal, and up with it as it hops for joy.
+			const lift = (this.figures.opponent?.position.y ?? to.y) - to.y;
+			loop.position.set(to.x, holdY + lift, to.z);
 			loop.scale.setScalar(size * (1 - 0.15 * Math.min(1, leash.t / 0.2)));
 		} else {
 			const p = Math.min(1, leash.t / LEASH_POP_SECONDS);
@@ -539,6 +731,8 @@ function effectSeconds(kind: EffectKind): number {
 			return RECALL_SECONDS;
 		case 'appear':
 			return APPEAR_SECONDS;
+		case 'cheer':
+			return CHEER_SECONDS;
 	}
 }
 
@@ -581,28 +775,51 @@ function applyEffect(figure: THREE.Group, effect: Effect): void {
 			break;
 		}
 		case 'recall':
-			// Shrinks to nothing; a sliver of scale keeps the matrix invertible.
-			figure.scale.multiplyScalar(Math.max(0.001, 1 - p * p));
+			figure.scale.multiplyScalar(recallScale(p));
 			figure.position.y += Math.sin(p * Math.PI) * 0.15;
 			break;
-		case 'appear': {
-			// Grows past its size and settles back (an ease-out with a little overshoot).
-			const grow = 1 + 2.2 * Math.pow(p - 1, 3) + 1.2 * Math.pow(p - 1, 2);
-			figure.scale.multiplyScalar(Math.max(0.001, grow));
+		case 'appear':
+			figure.scale.multiplyScalar(appearScale(p));
+			break;
+		case 'cheer': {
+			// Two hops for joy, the first higher and with a whole turn; with less
+			// motion, one small hop and no turn.
+			if (motion.reduced) {
+				figure.position.y += Math.sin(Math.min(1, p * 2) * Math.PI) * 0.1;
+				break;
+			}
+			const first = p < 0.5;
+			const q = first ? p / 0.5 : (p - 0.5) / 0.5;
+			figure.position.y += Math.sin(q * Math.PI) * (first ? 0.4 : 0.22);
+			if (first) figure.rotation.y += smoothstep(q) * Math.PI * 2;
 			break;
 		}
 	}
 }
 
+/** Whether the ground point (x, z) is within `r` of the line from under the camera to `spot`. */
+function nearSightLine(x: number, z: number, spot: THREE.Vector3, r: number): boolean {
+	const ax = CAMERA_POSITION.x;
+	const az = CAMERA_POSITION.z;
+	const dx = spot.x - ax;
+	const dz = spot.z - az;
+	const along = Math.max(0, Math.min(1, ((x - ax) * dx + (z - az) * dz) / (dx * dx + dz * dz)));
+	return Math.hypot(x - (ax + dx * along), z - (az + dz * along)) < r;
+}
+
 /**
  * The biome's scenery, kept clear of both figures and of the line between
- * them: tall grass everywhere, plus trees in the forest, boulders on the
- * mountain and a strip of water behind a river bank. A fixed scatter, so
- * every battle in a biome looks the same.
+ * them, in the biome's own colours (`BIOME_LOOK`): tall grass everywhere
+ * (reeds at the river), plus trees in the forest, boulders on the mountain,
+ * the biggest capped with snow, and a strip of water behind a river bank. A
+ * fixed scatter, so every battle in a biome looks the same.
  */
 function buildBackdrop(biome: Biome): THREE.Group {
 	const group = new THREE.Group();
 	const rng = new Rng(7);
+	const look = BIOME_LOOK[biome];
+	const tuftMaterial = lambert(look.blade);
+	const canopyMaterials = CANOPY.map((hex) => lambert(hex));
 	const clear = (x: number, z: number, r: number) =>
 		Object.values(SPOT).every((s) => Math.hypot(x - s.x, z - s.z) > r);
 
@@ -614,12 +831,34 @@ function buildBackdrop(biome: Biome): THREE.Group {
 		// Nothing between the camera and the player's animal: a tuft that close
 		// would fill the screen and show through the bottom panel.
 		if (z > SPOT.player.z + 0.6 || !clear(x, z, 0.9)) continue;
+		// Reeds stand taller than grass: none on the line from the camera to either animal.
+		if (biome === 'river' && Object.values(SPOT).some((s) => nearSightLine(x, z, s, 0.8))) {
+			continue;
+		}
 		const tuft = new THREE.Group();
 		for (let b = 0; b < 3; b++) {
-			const blade = new THREE.Mesh(PROP_GEOMETRY.blade, tuftMaterial);
-			blade.position.set(rng.next() * 0.5 - 0.25, 0.17, rng.next() * 0.5 - 0.25);
-			blade.castShadow = true;
-			tuft.add(blade);
+			const bx = rng.next() * 0.5 - 0.25;
+			const bz = rng.next() * 0.5 - 0.25;
+			if (biome === 'river') {
+				// A reed: a stalk a little taller than the grass, most with a brown head.
+				if (b === 2) continue;
+				const height = 0.3 + rng.next() * 0.14;
+				const stalk = new THREE.Mesh(PROP_GEOMETRY.reed, tuftMaterial);
+				stalk.scale.set(1, height, 1);
+				stalk.position.set(bx, height / 2, bz);
+				stalk.castShadow = true;
+				tuft.add(stalk);
+				if (b === 0) {
+					const head = new THREE.Mesh(PROP_GEOMETRY.cattail, cattailMaterial);
+					head.position.set(bx, height + 0.04, bz);
+					tuft.add(head);
+				}
+			} else {
+				const blade = new THREE.Mesh(PROP_GEOMETRY.blade, tuftMaterial);
+				blade.position.set(bx, 0.17, bz);
+				blade.castShadow = true;
+				tuft.add(blade);
+			}
 		}
 		tuft.position.set(x, 0, z);
 		group.add(tuft);
@@ -640,7 +879,7 @@ function buildBackdrop(biome: Biome): THREE.Group {
 			trunk.position.y = 0.25;
 			const canopy = new THREE.Mesh(
 				PROP_GEOMETRY.canopy,
-				canopyMaterials[Math.floor(rng.next() * 2)]
+				canopyMaterials[Math.floor(rng.next() * canopyMaterials.length)]
 			);
 			canopy.position.y = 0.95;
 			trunk.castShadow = canopy.castShadow = true;
@@ -661,9 +900,18 @@ function buildBackdrop(biome: Biome): THREE.Group {
 			const rock = new THREE.Mesh(PROP_GEOMETRY.rock, boulderMaterial);
 			rock.scale.setScalar(r);
 			rock.position.set(x, r * 0.6, z);
-			rock.rotation.set(rng.next(), rng.next(), rng.next());
+			// The big ones stand upright under a cap of snow, as on the world's peaks.
+			const peak = r >= 0.8;
+			rock.rotation.set(peak ? 0 : rng.next(), rng.next(), peak ? 0 : rng.next());
 			rock.castShadow = true;
 			group.add(rock);
+			if (peak) {
+				const cap = new THREE.Mesh(PROP_GEOMETRY.rock, snowMaterial);
+				cap.scale.set(r * 0.82, r * 0.42, r * 0.82);
+				cap.position.set(x, r * 0.6 + r * 0.72, z);
+				cap.rotation.y = rock.rotation.y;
+				group.add(cap);
+			}
 		}
 	} else if (biome === 'river') {
 		const water = new THREE.Mesh(new THREE.BoxGeometry(40, 0.2, 6), waterMaterial);

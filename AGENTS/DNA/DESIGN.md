@@ -18,7 +18,7 @@ Rules that follow from that:
 
 - **Fixed camera.** Orthographic, pitched about 50°, yawed about 35°. No zoom, no rotation, ever. The world reads as a diorama because the angle never changes.
 - **Facets, not textures.** Colour comes from materials and lighting, not image textures. `flatShading: true` everywhere.
-- **Chunky silhouettes.** Trees are a cone on a cylinder, rocks are a dodecahedron, tents are a pyramid. Animals are boxes, spheres and cones with one exaggerated tell each — the squirrel's curled tail, the rabbit's ears, the frog's eyes on top of its head, the deer's antlers — because at the game's camera a bear is 40 px tall and a squirrel 15. Real models keep that vocabulary: few polygons, readable at 40 px tall.
+- **Chunky silhouettes.** Trees are a cone on a cylinder, rocks are a dodecahedron, tents are a pyramid, reeds a thin stalk with a brown head, flowers and bushes a twenty-sided ball. Animals are boxes, spheres and cones with one exaggerated tell each — the squirrel's curled tail, the rabbit's ears, the frog's eyes on top of its head, the deer's antlers — because at the game's camera a bear is 40 px tall and a squirrel 15. Real models keep that vocabulary: few polygons, readable at 40 px tall.
 - **Warm light.** One sun (slightly warm white) casting soft shadows, plus a hemisphere fill so shadows stay coloured, never black.
 - **Gentle motion.** Steps hop and swing the trainer's arms, grass could sway, fire flickers. Nothing snaps.
 - **A little juice, no new assets.** Moments get a small flourish made from what is already in the game — a lunge, a shake, a ring of dust, a burst of confetti in the palette's colours, sparkles along an HP bar, an iris into battle. A flourish marks a moment the screen already shows; it never hides text or the animal it is about, never leaves the scene, never delays a key and never fills the screen with a flash ([[UI_SPEC]] § Sound and juice). Size one against the thing it frames, in a frame, not by its numbers.
@@ -30,13 +30,22 @@ Hex values are the ones in `packages/client/src/render/palette.ts` and `styles.c
 | Role                 | Hex       | Notes                                        |
 | -------------------- | --------- | -------------------------------------------- |
 | Sky / background     | `#8fd3f4` | Also the fog colour.                         |
-| Grass                | `#8bd66b` | Per-tile lightness jitter ±5% breaks the grid |
-| Tall grass           | `#63b94a` | Darker, so encounter tiles read at a glance. |
+| Grass                | `#8bd66b` | The meadow's. Per-tile lightness jitter ±5% breaks the grid |
+| Tall grass           | `#63b94a` | Darker, so encounter tiles read at a glance; blades `#4fa83d`. |
 | Sand                 | `#f3d9a4` |                                              |
 | Water                | `#5ec8f2` | Sits lower than land.                        |
-| Rock                 | `#a8a39e` / `#8e8a86` | Tile / boulder.                    |
+| Rock                 | `#a8a39e` / `#8e8a86`, `#a39e98` | Tile / boulder, in two greys. The peaks (rock at height 3) are paler, `#bdb9b4`, and most of their boulders wear a snow cap, `#f3f6f4` (a cool white, never the figures' warm one). |
 | Tree trunk           | `#8b5a3c` |                                              |
-| Tree canopy          | `#3e9e4f` / `#62bf5f` | Two greens, mixed randomly.        |
+| Tree canopy          | `#2c7a43` / `#3a8f4c` / `#2f8a55` | Three dark greens, mixed randomly: trees grow only in the forest. The starter stage's bushes keep `#3e9e4f` / `#62bf5f`. |
+
+Each biome has its own ground and tall grass (`BIOME_LOOK` in `palette.ts`), so a kid can tell where they are without reading anything. Tall grass keeps one grammar everywhere: a patch darker and greener than the ground round it, with blades standing in it.
+
+| Biome    | Ground    | Tall grass / blades     | What else grows or lies about |
+| -------- | --------- | ----------------------- | ----------------------------- |
+| Meadow   | `#8bd66b` | `#63b94a` / `#4fa83d`   | Flowers on one grass tile in five, in the off-white, coral and amber already in the game. |
+| Forest   | `#68b258` | `#4b9a44` / `#357d33`   | A darker floor. Crowded trees: often a young one beside the big one, and a bush (`#2f7d44` / `#3b8a47`) at their foot; never taller than before, since a tree hides the tile behind it. |
+| River    | sand      | `#9fc45c` / `#5e9233`   | Reed beds: a yellow-green patch with tall thin reeds, most with a brown head (the trunks' `#8b5a3c`), never the meadow's tall grass on sand. |
+| Mountain | `#a6b88f` | `#7b9b5a` / `#587d3c`   | Grey-green turf with pebbles (`#97928c`), too small to look like a rock that blocks; boulder fields, a big boulder with smaller ones round it; snow on the peaks. |
 | Tent cloth           | `#f2a65a` | Door `#d47c2a`.                              |
 | Fire / warm accent   | `#ffb347` | Also the UI accent (`--accent: #ff9f43`).    |
 | Trainer (player)     | `#ff7e6b` shirt, `#ffcfb0` skin, `#2f4fa8` shorts, `#3d7be8` cap | The only blue figure, so it never reads as an animal. |
@@ -44,6 +53,9 @@ Hex values are the ones in `packages/client/src/render/palette.ts` and `styles.c
 | Figure details       | `#fff4e6` / `#2f2a28` | Off-white and near-black for tail tips, chests, noses, eyes. |
 | Dust                 | `#f6efe2` | The ring a tired animal lies down in; fades as it spreads. Never grey smoke. |
 | Confetti             | accent, good, warn, water, trainer shirt, off-white, rabbit pink | `CONFETTI_COLORS`: only colours already in the game. |
+| Sparkles             | warn `#f5b83d`, good `#56c271`, off-white; on the result card also coral and blue | The doctor's chunky four-pointed stars, in the battle scene (unlit, so they shine) and round the result card's headline. |
+| Result card's rays   | warn at half strength | A burst behind a new friend's name, fading out at its rim. |
+| Butterflies          | rabbit pink `#f5b8c4`, amber `#f5b83d`, off-white, trainer coral, sky `#8fd3f4` | `BUTTERFLY_COLORS`: two five-sided wings on a dark body, a little under half a tile across. |
 | UI panel             | `rgba(255,252,245,.92)` | Cream, slightly translucent. Opaque (`--panel-cream`, `#fffcf5`) as the rim round big lettering. |
 | Title letters        | `#ff7e6b`, `#ff9f43`, `#56c271`, `#3d7be8`, `#f5b83d` | "Animath" letter by letter: the trainer's coral and blue (`--coral`, `--blue`), the accent, good and warn. |
 | UI ink               | `#2d2a32` |                                              |
