@@ -188,6 +188,7 @@ export class DoctorController {
 		doctor.judged = null;
 		doctor.healed = null;
 		doctor.leaving = null;
+		doctor.tokenPop = null;
 		doctor.bought = null;
 		// A mark for an animal that is no longer here goes with it.
 		doctor.marked = doctor.marked.filter((id) => state.party.some((a) => a.id === id));

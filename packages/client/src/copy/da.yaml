@@ -280,7 +280,7 @@ doctor:
     keys: ↑ ↓ flyt · ← → faner · Enter vælg · Esc farvel
     touch: Tryk på de dyr, der skal hjem
     sure: Er du sikker? De bliver glade ude i naturen!
-    sureTitle: Sig farvel til {names}?
+    sureTitle: Sig farvel til {names.the}?
     sureTitleMany: Sig farvel til {many} dyr?
     sureDetail: De kommer hjem til naturen, helt raske. Du får {amount} mønter.
     keep: Nej, ikke nu
@@ -291,7 +291,7 @@ doctor:
       one: Du har {count} mønt. Du får {amount} til. Hvor mange har du så?
       other: Du har {count} mønter. Du får {amount} til. Hvor mange har du så?
     wentHomeOne: Farvel, {animal.name}! {animal.the} har det meget bedre nu.
-    wentHomeFew: Farvel, {names}! De har det meget bedre nu.
+    wentHomeFew: Farvel, {names.name}! De har det meget bedre nu.
     wentHomeMany: Farvel til alle {many}! De har det meget bedre nu.
     tokensGiven:
       one: Tak skal du have! Her er {amount} mønter. Nu har du {count} mønt.

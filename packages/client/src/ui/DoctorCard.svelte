@@ -125,12 +125,29 @@
 		{ x: 98, dx: 12, dy: -30, d: 0.25, c: 'white' }
 	];
 
-	/** The list scrolls: the highlighted row stays in view. */
+	/**
+	 * The list scrolls: the highlighted row stays in view, and an edge with
+	 * more rows past it fades out, so a kid sees there are more.
+	 */
 	let list: HTMLElement | undefined = $state();
+	let moreAbove = $state(false);
+	let moreBelow = $state(false);
+	function measure(): void {
+		if (!list) return;
+		moreAbove = list.scrollTop > 1;
+		moreBelow = list.scrollTop + list.clientHeight < list.scrollHeight - 1;
+	}
 	$effect(() => {
 		void doctor.cursor;
 		void doctor.tab;
-		list?.querySelector('.selected')?.scrollIntoView({ block: 'nearest' });
+		void doctor.party.length;
+		// While the confirm asks and the goodbye plays, the animals it is about are in view.
+		const about =
+			doctor.screen === 'confirm' || doctor.leaving !== null
+				? list?.querySelector('.marked, .leaving')
+				: null;
+		(about ?? list?.querySelector('.selected'))?.scrollIntoView({ block: 'nearest' });
+		measure();
 	});
 </script>
 
@@ -166,7 +183,13 @@
 			{/each}
 		</div>
 
-		<div class="list {doctor.tab}" bind:this={list}>
+		<div
+			class="list tab-{doctor.tab}"
+			class:more-above={moreAbove}
+			class:more-below={moreBelow}
+			bind:this={list}
+			onscroll={measure}
+		>
 			{#each listed as { row, k } (row.kind === 'animal' ? doctor.party[row.partyIndex]!.id : row.itemId)}
 				{#if row.kind === 'animal'}
 					{@const animal = doctor.party[row.partyIndex]!}
@@ -517,7 +540,7 @@
 		transition: opacity 0.2s;
 	}
 	/* Under the confirm: shown, but waiting. */
-	.patients.asking {
+	.patients.asking > * {
 		opacity: 0.55;
 	}
 	.tabs {
@@ -572,15 +595,33 @@
 		align-content: start;
 		gap: 2px 8px;
 		overflow-y: auto;
+		/* The highlighted row keeps clear of a faded edge as the list scrolls to it. */
+		scroll-padding-block: 24px;
 		overscroll-behavior: contain;
 		/* The one thing a finger may scroll here, when the list is longer than the card. */
 		touch-action: pan-y;
 		scrollbar-width: thin;
 	}
-	.list.home {
+	/* More rows past an edge: that edge fades out. */
+	.list.more-below {
+		mask-image: linear-gradient(to bottom, black calc(100% - 22px), transparent);
+	}
+	.list.more-above {
+		mask-image: linear-gradient(to top, black calc(100% - 22px), transparent);
+	}
+	.list.more-above.more-below {
+		mask-image: linear-gradient(
+			to bottom,
+			transparent,
+			black 22px,
+			black calc(100% - 22px),
+			transparent
+		);
+	}
+	.list.tab-home {
 		grid-template-columns: auto auto minmax(0, max-content) minmax(max-content, 1fr);
 	}
-	.list.shop {
+	.list.tab-shop {
 		grid-template-columns: auto auto minmax(0, max-content) minmax(max-content, 1fr);
 	}
 	.list .row {

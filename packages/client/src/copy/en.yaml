@@ -370,7 +370,7 @@ doctor:
     touch: Tap the animals that go home
     # The confirm before a hand-over: the doctor's line, the question, and the choices.
     sure: Are you sure? They will be happy in the wild!
-    sureTitle: Say bye bye to {names}?
+    sureTitle: Say bye bye to {names.name}?
     sureTitleMany: Say bye bye to {many} animals?
     sureDetail: They go home to the wild, all better. You get {amount} tokens.
     keep: No, not now
@@ -383,7 +383,7 @@ doctor:
       other: You have {count} tokens. You get {amount} more. How many will you have?
     # After the right answer: the animals leave, then the tokens come.
     wentHomeOne: Bye bye, {animal.name}! It feels much better now.
-    wentHomeFew: Bye bye, {names}! They feel much better now.
+    wentHomeFew: Bye bye, {names.name}! They feel much better now.
     wentHomeMany: Bye bye, all {many}! They feel much better now.
     tokensGiven:
       one: Thank you! Here are {amount} tokens. Now you have {count} token.

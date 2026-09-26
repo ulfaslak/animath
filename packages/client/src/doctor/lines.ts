@@ -1,5 +1,5 @@
 import type { AnimalInstance, ItemId } from '@mathgame/engine';
-import { language, t } from '../copy';
+import { language, t, type ParamValue } from '../copy';
 import { itemWords } from '../items';
 import { animalWords, nameOf } from '../names';
 
@@ -95,7 +95,17 @@ export function doctorWords(line: DoctorLine): string {
 /** Up to this many animals going home are named; more are counted. */
 export const NAMES_LISTED = 3;
 
-/** Animals' names as the language lists them: "Pip, Fox and Rabbit", "Pip, Ræv og Kanin". */
-export function namesOf(animals: readonly AnimalInstance[]): string {
-	return new Intl.ListFormat(language.current, { type: 'conjunction' }).format(animals.map(nameOf));
+/**
+ * Animals as the language lists them, as a `{names.form}` param: `name`, the
+ * way a call or a label names them ("Pip, Fox and Rabbit", "Pip, Ræv og
+ * Kanin"), and `the`, the way a Danish sentence does ("Pip, ræven og
+ * kaninen"). A nickname stands for both.
+ */
+export function namesOf(animals: readonly AnimalInstance[]): ParamValue {
+	const list = (words: string[]) =>
+		new Intl.ListFormat(language.current, { type: 'conjunction' }).format(words);
+	return {
+		name: list(animals.map(nameOf)),
+		the: list(animals.map((a) => a.nickname ?? t(`species.${a.speciesId}.the`)))
+	};
 }
