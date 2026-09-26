@@ -51,7 +51,7 @@ Escape opens the pause menu in explore and leaves the doctor's card; in a battle
 
 ## Touch and mouse
 
-Everything below is a click with a mouse or a tap with a finger, and each is the key beside it: the same thing happens, behind the same waits. A tap counts as the finger lifts, and only on what it went down on, on the same screen; the number pad and the D-pad count as the finger lands. Each finger counts on its own: tap Talk or Menu with one thumb while the other walks. The **touch controls** are the D-pad, Talk, Menu and the number pad: they are there from the start on a tablet (a screen whose main pointer is a finger); anywhere, the first touch brings them and the first key pressed on a real keyboard puts them away. A mouse changes nothing.
+Everything below is a click with a mouse or a tap with a finger, and each is the key beside it: the same thing happens, behind the same waits. A tap counts as the finger lifts, and only on what it went down on, on the same screen, and not if that moved meanwhile (a team row another finger moved up); the number pad and the D-pad count as the finger lands. Each finger counts on its own: tap Talk or Menu with one thumb while the other walks. The **touch controls** are the D-pad, Talk, Menu and the number pad: they are there from the start on a tablet (a screen whose main pointer is a finger); anywhere, the first touch brings them and the first key pressed on a real keyboard puts them away. A mouse changes nothing.
 
 | Tap or click               | Where                        | What it does                                                                                     |
 | -------------------------- | ---------------------------- | ------------------------------------------------------------------------------------------------ |
@@ -69,7 +69,7 @@ Everything below is a click with a mouse or a tap with a finger, and each is the
 | Anywhere                   | Result card                  | Enter: back to exploring. Not before its quiet moment, and not from a mash; its button is dimmed until then. |
 | An animal who needs the doctor | Doctor                   | Picks it at once, once the list's quiet moment has passed; in a puzzle, swaps to it (what was typed is dropped). A fit one, or the patient itself, does nothing. |
 | Bye                        | Doctor                       | Escape: leave, at any time.                                                                      |
-| A row                      | Pause menu                   | Does it at once: an animal opens its options, Language switches, Sound flips, Keep playing closes, Start screen goes to the title. |
+| A row                      | Pause menu                   | Does it at once: an animal opens its options, Language switches, Sound flips, Keep playing closes, Start screen goes to the title. The same with an animal's options open beside it (they go away first); with the name box open, nothing. |
 | English / Dansk            | Pause menu, title            | That language. The one already on does nothing.                                                  |
 | An option                  | Pause menu, an animal's options | Does it at once; a greyed one does nothing.                                                   |
 | Save / Back                | Pause menu's name box        | Enter / Escape.                                                                                  |
