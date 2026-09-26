@@ -4,7 +4,7 @@
 
 	/**
 	 * What M just did to the sound, on any screen (UI_SPEC § Sound and juice):
-	 * a chip at the top of the screen for a couple of seconds, so turning the
+	 * a chip at the top of the screen for three seconds, so turning the
 	 * sound off is never only heard as silence. Keyed by `sfx.flips`, so each
 	 * press shows it afresh. It never takes a click.
 	 */
@@ -33,7 +33,8 @@
 		border-radius: var(--radius);
 		box-shadow: var(--hud-shadow);
 		pointer-events: none !important;
-		animation: chip 2.2s ease-in forwards;
+		/* Long enough for a slow reader: three seconds, the last half-second fading. */
+		animation: chip 3s ease-in forwards;
 	}
 	.state {
 		font-weight: 800;
@@ -45,7 +46,7 @@
 	}
 	@keyframes chip {
 		0%,
-		75% {
+		83% {
 			opacity: 1;
 		}
 		100% {

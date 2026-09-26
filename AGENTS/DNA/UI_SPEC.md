@@ -150,7 +150,7 @@ The rules are in [[DESIGN]] § Sound and § Aesthetic direction; this is where e
 
 Silent on purpose: typing an answer or a name, a key that does nothing (a greyed row, a tired animal picked), a miss's puff, running away, "Good try!".
 
-**M, anywhere.** M turns the sound off and on over any screen — explore, a battle, the doctor's card, the pause menu — except while an answer or a name is being typed, where it is a letter. A held M flips once. A chip at the top centre says what happened for about two seconds: "Sound is on", or "Sound is off" with "Press M to turn it back on" under it. The chip takes no keys.
+**M, anywhere.** M turns the sound off and on over any screen — explore, a battle, the doctor's card, the pause menu — except while an answer or a name is being typed, where it is a letter. A held M flips once. A chip at the top centre says what happened for three seconds, fading over the last half: "Sound is on", or "Sound is off" with "Press M to turn it back on" under it. The chip takes no keys.
 
 **Flourishes.** Small, made of what the game already has, and always inside the beats that already exist: none adds a wait or takes a key.
 

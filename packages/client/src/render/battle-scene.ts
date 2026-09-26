@@ -312,7 +312,8 @@ export class BattleScene {
 			mesh.rotation.set(rng.next() * 6, rng.next() * 6, rng.next() * 6);
 			const angle = rng.next() * Math.PI * 2;
 			const out = (0.5 + rng.next() * 1.1) * (reduced ? 0.4 : 1);
-			const up = (2.2 + rng.next() * 1.4) * (reduced ? 0.45 : 1);
+			// Up to about half a tile over the animal: a burst round it, never off the top of the scene.
+			const up = (1.7 + rng.next() * 1.1) * (reduced ? 0.5 : 1);
 			this.confetti.push({
 				mesh,
 				velocity: new THREE.Vector3(Math.cos(angle) * out, up, Math.sin(angle) * out),

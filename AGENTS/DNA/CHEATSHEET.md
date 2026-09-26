@@ -12,7 +12,7 @@ Everything a player can do in **today's build**, and how: every key, every hidde
 | Enter / Space         | Explore | Facing a doctor's tent: talk to the doctor (the bottom line says "Press Enter to talk to the doctor" there). Anywhere else it says "Walk up to a tent to talk to the doctor." |
 | 1–6                   | Explore | Choose who goes first: the animal on that card moves to the top of your team ("Fox goes first!"), even mid-step. A tired one stays where it is ("Rabbit is tired. Visit the doctor!"), and so does the one that already goes first ("Fox already goes first!"). A number with no card does nothing, and with one animal there are no numbers. |
 | Escape                | Explore | Open the pause menu. Walking waits until it closes. |
-| M                     | Anywhere | Sound off, or back on. A chip at the top says "Sound is off" (with "Press M to turn it back on") or "Sound is on" for two seconds. Not while you type an answer or a name: there M is a letter (and in a puzzle, nothing). Held down, it flips once. |
+| M                     | Anywhere | Sound off, or back on. A chip at the top says "Sound is off" (with "Press M to turn it back on") or "Sound is on" for three seconds. Not while you type an answer or a name: there M is a letter (and in a puzzle, nothing). Held down, it flips once. |
 | Up / Down, W / S      | Pause menu | Move the cursor through your team, then "Keep playing" and "Sound". It wraps round. |
 | Enter / Space         | Pause menu | On an animal: open its options on the right. On "Keep playing": close the menu. On "Sound": turn the sound off or on; the menu stays open. |
 | Left / Right, A / D   | Pause menu | On "Sound": off (left) or on (right). Anywhere else in the list: nothing. |
