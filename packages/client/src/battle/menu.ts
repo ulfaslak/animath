@@ -200,11 +200,17 @@ export type ListChoice = 'pick' | 'back';
  * Space pick the highlighted one; Escape goes back. Whether a pick or going
  * back is allowed is the caller's to decide. A tap on a row highlights it
  * and never picks: sending an animal in is Go's (Enter's), as on the menu.
+ *
+ * `groups` are the rows where each species' animals start (the party is in
+ * bundles): left/right (A/D) jump to the first animal of the previous or
+ * next species, wrapping round, so a long list is a few presses from end to
+ * end. Without them, left and right do nothing.
  */
 export function listKey(
 	cursor: number,
 	key: string,
-	count: number
+	count: number,
+	groups: readonly number[] = []
 ): { cursor: number; handled: boolean; choice?: ListChoice } {
 	const row = tappedRow(key);
 	if (row !== undefined) return { cursor: row < count ? row : cursor, handled: true };
@@ -215,6 +221,17 @@ export function listKey(
 		case 'ArrowDown':
 		case 's':
 			return { cursor: (cursor + 1) % count, handled: true };
+		case 'ArrowLeft':
+		case 'a':
+		case 'ArrowRight':
+		case 'd': {
+			if (groups.length < 2) return { cursor, handled: false };
+			// The group the cursor is in: the last one starting at or before it.
+			let at = 0;
+			for (let g = 0; g < groups.length; g++) if (groups[g]! <= cursor) at = g;
+			const by = key === 'ArrowLeft' || key === 'a' ? -1 : 1;
+			return { cursor: groups[(at + by + groups.length) % groups.length]!, handled: true };
+		}
 		case 'Enter':
 		case ' ':
 			return { cursor, handled: true, choice: 'pick' };

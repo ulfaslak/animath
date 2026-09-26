@@ -1,4 +1,4 @@
-import type { Authority, GameEvent, PartyIntent } from '@mathgame/engine';
+import { bundles, type Authority, type GameEvent, type PartyIntent } from '@mathgame/engine';
 import { sfx } from '../audio/sfx.svelte';
 import { isLanguage, language, nextLanguage } from '../copy';
 import { isShortcut, keyName } from '../input/keyboard';
@@ -6,17 +6,23 @@ import { tappedLanguage, tappedOption, tappedRow } from '../input/press';
 import { game } from '../state/game.svelte';
 import {
 	MENU_ITEMS,
+	cardRows,
 	partyOptions,
 	pause,
+	type BundleOption,
 	type MenuItem,
-	type PartyOption,
-	type PartyOptionRow
+	type PartyOption
 } from '../state/pause.svelte';
 
 /**
- * The pause menu, opened with Escape in explore: the team in battle order,
- * where an animal can be moved (which picks who goes first) or named, then
- * the settings (Language, Sound) and "Keep playing".
+ * The pause menu, opened with Escape in explore: the team's cards in battle
+ * order (one per species), where a card can move up or down (which picks who
+ * goes first) and its animals can go first, move within the card or get a
+ * name; then the settings (Language, Sound), "Keep playing" and "Start
+ * screen". A card of one animal is that animal: picking it opens the
+ * animal's options, and its moves move the card. A card of several opens
+ * its own screen on the right: its options, then its animals, each of which
+ * opens its options.
  *
  * Keys become menu moves and `party` intents; the menu then shows whatever
  * the authority's `party-edited` says, so a refused edit simply changes
@@ -37,8 +43,14 @@ export class PauseController {
 				this.close();
 				break;
 			case 'party-edited':
-				for (const e of event.events) {
-					if (e.type === 'rejected') console.warn(`party intent rejected: ${e.reason}`);
+				// The menu greys what the engine would refuse, so a refusal while it is open
+				// is a bug worth a word to developers. With it closed the edit came from
+				// explore (a number key, a card), where a refusal is an answer the HUD words
+				// ("Rabbit is tired"), not a bug (#59).
+				if (pause.open) {
+					for (const e of event.events) {
+						if (e.type === 'rejected') console.warn(`party intent rejected: ${e.reason}`);
+					}
 				}
 				this.settle();
 				break;
@@ -72,7 +84,12 @@ export class PauseController {
 			return;
 		}
 		const key = keyName(e);
-		const handled = pause.screen === 'list' ? this.listKey(key) : this.optionsKey(key);
+		const handled =
+			pause.screen === 'list'
+				? this.listKey(key)
+				: pause.screen === 'bundle'
+					? this.cardKey(key)
+					: this.optionsKey(key);
 		if (handled) e.preventDefault();
 	}
 
@@ -89,7 +106,8 @@ export class PauseController {
 	// --- screens -------------------------------------------------------------
 
 	private listKey(key: string): boolean {
-		const rows = game.party.length + MENU_ITEMS.length;
+		const cards = bundles(game.party);
+		const rows = cards.length + MENU_ITEMS.length;
 		// A tap on a row does it at once, as the arrows and Enter would: nothing
 		// here spends anything, and every move can be moved back.
 		const row = tappedRow(key);
@@ -101,14 +119,14 @@ export class PauseController {
 		// A tap on a language on the Language row: that language, whichever is on now.
 		const code = tappedLanguage(key);
 		if (code !== undefined) {
-			pause.cursor = game.party.length + MENU_ITEMS.indexOf('language');
+			pause.cursor = cards.length + MENU_ITEMS.indexOf('language');
 			if (isLanguage(code) && code !== language.current) {
 				sfx.play('confirm');
 				language.set(code);
 			}
 			return true;
 		}
-		const item = MENU_ITEMS[pause.cursor - game.party.length];
+		const item = MENU_ITEMS[pause.cursor - cards.length];
 		switch (key) {
 			case 'ArrowUp':
 			case 'w':
@@ -122,10 +140,12 @@ export class PauseController {
 				return true;
 			case 'Enter':
 			case ' ': {
-				const animal = game.party[pause.cursor];
-				if (animal) {
+				const card = cards[pause.cursor];
+				if (card) {
 					sfx.play('confirm');
-					this.pick(animal.id);
+					// A card of one animal is that animal; a card of several opens its own screen.
+					if (card.animals.length === 1) this.pick(card.animals[0]!.id, null);
+					else this.openCard(card.speciesId);
 				} else if (item) this.chooseItem(item);
 				return true;
 			}
@@ -189,6 +209,61 @@ export class PauseController {
 		if (on) sfx.play('confirm');
 	}
 
+	/** A card of several animals: its options, then its animals, one cursor over them all. */
+	private cardKey(key: string): boolean {
+		// The team and the settings stay on screen beside the card, and a tap on one of
+		// them does that row, as on the list (as the options do).
+		if (tappedRow(key) !== undefined || tappedLanguage(key) !== undefined) {
+			this.backToList();
+			return this.listKey(key);
+		}
+		const speciesId = pause.species;
+		const rows = speciesId === null ? [] : cardRows(game.party, speciesId);
+		if (speciesId === null || rows.filter((r) => r.kind === 'animal').length < 2) {
+			this.backToList();
+			return true;
+		}
+		// A tap on a row does it, as the arrows and Enter would; a greyed one does nothing.
+		const tapped = tappedOption(key);
+		if (tapped !== undefined) {
+			if (!rows[tapped]?.enabled) return true;
+			pause.option = tapped;
+			return this.cardKey('Enter');
+		}
+		switch (key) {
+			case 'ArrowUp':
+			case 'w':
+				pause.option = nextEnabled(rows, pause.option, -1);
+				sfx.play('move');
+				return true;
+			case 'ArrowDown':
+			case 's':
+				pause.option = nextEnabled(rows, pause.option, 1);
+				sfx.play('move');
+				return true;
+			case 'Enter':
+			case ' ': {
+				// An option that has just become impossible (the card reached the top)
+				// keeps the cursor and does nothing: mashing Enter can't overshoot.
+				const row = rows[pause.option];
+				if (!row?.enabled) return true;
+				if (row.kind === 'animal') {
+					sfx.play('confirm');
+					this.pick(row.animal.id, speciesId);
+				} else {
+					// "Go first" is heard as the lead's own ding (`hud`), once it is true.
+					if (row.id !== 'first') sfx.play('confirm');
+					this.chooseCard(row.id, speciesId);
+				}
+				return true;
+			}
+			case 'Escape':
+				this.backToList();
+				return true;
+		}
+		return false;
+	}
+
 	private optionsKey(key: string): boolean {
 		// The team and the settings stay on screen beside the options, and a tap on
 		// one of them does that row, as on the list: the options close (as Escape
@@ -234,7 +309,7 @@ export class PauseController {
 				return true;
 			}
 			case 'Escape':
-				this.backToList();
+				this.back();
 				return true;
 		}
 		return false;
@@ -252,7 +327,7 @@ export class PauseController {
 				this.send({ type: 'rename', animalId, nickname: pause.draft });
 			}
 			sfx.play('confirm');
-			this.backToList();
+			this.back();
 		} else if (e.key === 'Escape') {
 			e.preventDefault();
 			if (!e.repeat) pause.screen = 'options';
@@ -262,8 +337,10 @@ export class PauseController {
 		// Anything else is typing, and the name box takes it.
 	}
 
-	private pick(animalId: string): void {
+	/** An animal's options, opened from the team (`species` null) or from its card's screen. */
+	private pick(animalId: string, species: string | null): void {
 		pause.picked = animalId;
+		pause.species = species;
 		pause.screen = 'options';
 		const options = partyOptions(game.party, this.pickedIndex());
 		pause.option = Math.max(
@@ -272,22 +349,34 @@ export class PauseController {
 		);
 	}
 
-	private choose(option: PartyOption, index: number): void {
-		const animal = game.party[index]!;
+	/** The screen of a card of several animals, the cursor on `animalId`'s row when given. */
+	private openCard(speciesId: string, animalId?: string): void {
+		pause.screen = 'bundle';
+		pause.species = speciesId;
+		pause.picked = null;
+		const rows = cardRows(game.party, speciesId);
+		const on = rows.findIndex((r) => r.kind === 'animal' && r.animal.id === animalId);
+		pause.option =
+			on >= 0
+				? on
+				: Math.max(
+						0,
+						rows.findIndex((r) => r.enabled)
+					);
+	}
+
+	private chooseCard(option: BundleOption, speciesId: string): void {
+		const place = bundles(game.party).findIndex((b) => b.speciesId === speciesId);
 		switch (option) {
 			case 'first':
-				this.send({ type: 'select-lead', animalId: animal.id });
+				this.send({ type: 'lead-species', speciesId });
 				this.backToList();
 				break;
 			case 'up':
-				this.send({ type: 'reorder', animalId: animal.id, to: index - 1 });
+				this.send({ type: 'move-species', speciesId, to: place - 1 });
 				break;
 			case 'down':
-				this.send({ type: 'reorder', animalId: animal.id, to: index + 1 });
-				break;
-			case 'name':
-				pause.draft = animal.nickname ?? '';
-				pause.screen = 'naming';
+				this.send({ type: 'move-species', speciesId, to: place + 1 });
 				break;
 			case 'back':
 				this.backToList();
@@ -295,12 +384,56 @@ export class PauseController {
 		}
 	}
 
-	/** Back to the team, with the cursor on the animal that was picked, wherever it is now. */
+	private choose(option: PartyOption, index: number): void {
+		const animal = game.party[index]!;
+		const list = bundles(game.party);
+		const place = list.findIndex((b) => b.speciesId === animal.speciesId);
+		// Alone on its card, an animal moves with its card; beside others of its kind, within it.
+		const alone = list[place]!.animals.length === 1;
+		switch (option) {
+			case 'first':
+				this.send({ type: 'select-lead', animalId: animal.id });
+				this.backToList();
+				break;
+			case 'up':
+			case 'down': {
+				const by = option === 'up' ? -1 : 1;
+				this.send(
+					alone
+						? { type: 'move-species', speciesId: animal.speciesId, to: place + by }
+						: { type: 'reorder', animalId: animal.id, to: index + by }
+				);
+				break;
+			}
+			case 'name':
+				pause.draft = animal.nickname ?? '';
+				pause.screen = 'naming';
+				break;
+			case 'back':
+				this.back();
+				break;
+		}
+	}
+
+	/** Back from an animal: to its card's screen when it came from one, else to the team. */
+	private back(): void {
+		const species = pause.species;
+		const animalId = pause.picked ?? undefined;
+		const kin = game.party.filter((a) => a.speciesId === species).length;
+		if (species !== null && kin > 1) {
+			this.openCard(species, animalId);
+			this.settle();
+		} else this.backToList();
+	}
+
+	/** Back to the team, with the cursor on the card that was open, wherever it is now. */
 	private backToList(): void {
-		const index = this.pickedIndex();
+		const species = pause.species ?? game.party[this.pickedIndex()]?.speciesId;
 		pause.screen = 'list';
 		pause.picked = null;
-		if (index >= 0) pause.cursor = index;
+		pause.species = null;
+		const place = bundles(game.party).findIndex((b) => b.speciesId === species);
+		if (place >= 0) pause.cursor = place;
 		this.settle();
 	}
 
@@ -309,9 +442,17 @@ export class PauseController {
 		if (!pause.open) return;
 		if (pause.picked !== null && this.pickedIndex() < 0) {
 			pause.picked = null;
+			pause.species = null;
 			pause.screen = 'list';
 		}
-		pause.cursor = Math.min(pause.cursor, game.party.length + MENU_ITEMS.length - 1);
+		if (pause.screen === 'bundle') {
+			const rows = pause.species === null ? [] : cardRows(game.party, pause.species);
+			if (rows.filter((r) => r.kind === 'animal').length < 2) {
+				pause.species = null;
+				pause.screen = 'list';
+			} else pause.option = Math.min(pause.option, rows.length - 1);
+		}
+		pause.cursor = Math.min(pause.cursor, bundles(game.party).length + MENU_ITEMS.length - 1);
 	}
 
 	private pickedIndex(): number {
@@ -323,11 +464,11 @@ export class PauseController {
 	}
 }
 
-/** The next option in `dir` that can be chosen, wrapping round; `from` when there is no other. */
-function nextEnabled(options: readonly PartyOptionRow[], from: number, dir: 1 | -1): number {
-	for (let i = 1; i <= options.length; i++) {
-		const at = (from + dir * i + options.length * i) % options.length;
-		if (options[at]!.enabled) return at;
+/** The next row in `dir` that can be chosen, wrapping round; `from` when there is no other. */
+function nextEnabled(rows: readonly { enabled: boolean }[], from: number, dir: 1 | -1): number {
+	for (let i = 1; i <= rows.length; i++) {
+		const at = (from + dir * i + rows.length * i) % rows.length;
+		if (rows[at]!.enabled) return at;
 	}
 	return from;
 }

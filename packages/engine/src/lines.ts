@@ -26,9 +26,7 @@ export const LINES = {
 	/** The player ran: the wild animal stays. */
 	'battle.closing.fled': { animal: 'species' },
 	/** A caught animal joined the party. */
-	'battle.closing.joined': { animal: 'species' },
-	/** A caught animal went back, because the party was full. */
-	'battle.closing.teamFull': { animal: 'species' }
+	'battle.closing.joined': { animal: 'species' }
 } as const satisfies Record<string, Record<string, LineParamKind>>;
 
 export type LineKey = keyof typeof LINES;

@@ -156,6 +156,18 @@ describe('party list keys', () => {
 		expect(listKey(1, 'ArrowLeft', 3)).toEqual({ cursor: 1, handled: false });
 	});
 
+	it('left and right jump to the first animal of the previous or next species, wrapping round', () => {
+		// Squirrels in rows 0–2, rabbits in 3–7, a fox in 8.
+		const groups = [0, 3, 8];
+		const jump = (cursor: number, key: string) => listKey(cursor, key, 9, groups).cursor;
+		expect([0, 1, 2, 3, 5, 8].map((c) => jump(c, 'ArrowRight'))).toEqual([3, 3, 3, 8, 8, 0]);
+		expect([0, 1, 3, 5, 8].map((c) => jump(c, 'ArrowLeft'))).toEqual([8, 8, 0, 0, 3]);
+		expect(jump(4, 'd')).toBe(8);
+		expect(jump(4, 'a')).toBe(0);
+		// With one species there is nowhere to jump.
+		expect(listKey(2, 'ArrowRight', 4, [0])).toEqual({ cursor: 2, handled: false });
+	});
+
 	it('a tap on an animal highlights it and never picks, the highlighted one included', () => {
 		expect(listKey(0, rowKey(2), 3)).toEqual({ cursor: 2, handled: true });
 		expect(listKey(2, rowKey(2), 3)).toEqual({ cursor: 2, handled: true });

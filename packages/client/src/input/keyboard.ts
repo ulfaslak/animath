@@ -1,5 +1,6 @@
-import { MAX_PARTY, type Direction } from '@mathgame/engine';
+import type { Direction } from '@mathgame/engine';
 import { isMashKey, PickGuard } from './pick-guard';
+import { droppedBundle, tappedAnimal, tappedBundle, tappedOpen } from './press';
 
 const DIRECTION_KEYS: Record<string, Direction> = {
 	ArrowUp: 'up',
@@ -47,10 +48,38 @@ export function isShortcut(e: Pick<KeyboardEvent, 'ctrlKey' | 'metaKey' | 'altKe
  */
 const TAP_BUFFER = 2;
 
-/** The number keys 1 to `MAX_PARTY` choose the party slot that goes first. */
-function slotKey(key: string): number | undefined {
-	const n = /^[1-9]$/.test(key) ? Number(key) : 0;
-	return n >= 1 && n <= MAX_PARTY ? n - 1 : undefined;
+/**
+ * What the party column was asked for, by a key or a pointer: a number key's
+ * card (`place`, 0-based: the key 1 is the top card), a card clicked or
+ * tapped, an animal on an open card, a card to open or close on a touch
+ * screen, a card dropped at another place. The explore controller turns each
+ * into a party intent, or opens the card.
+ */
+export type TeamPick =
+	| { kind: 'place'; index: number }
+	| { kind: 'bundle'; speciesId: string }
+	| { kind: 'animal'; animalId: string }
+	| { kind: 'open'; speciesId: string }
+	| { kind: 'move'; speciesId: string; to: number };
+
+/** Picks kept until explore's next frame takes them: a few, so a mash can't queue a long chain. */
+const PICK_BUFFER = 4;
+
+/** The number keys 1 to 9 choose the card in that place (0-based), whose first animal standing goes first. */
+function placeKey(key: string): number | undefined {
+	return /^[1-9]$/.test(key) ? Number(key) - 1 : undefined;
+}
+
+/** What a pointer key of the party column asks for, if it is one. */
+function pointerPick(key: string): TeamPick | undefined {
+	const speciesId = tappedBundle(key);
+	if (speciesId !== undefined) return { kind: 'bundle', speciesId };
+	const animalId = tappedAnimal(key);
+	if (animalId !== undefined) return { kind: 'animal', animalId };
+	const open = tappedOpen(key);
+	if (open !== undefined) return { kind: 'open', speciesId: open };
+	const drop = droppedBundle(key);
+	return drop && { kind: 'move', ...drop };
 }
 
 export class Keyboard {
@@ -62,8 +91,8 @@ export class Keyboard {
 	private held = new Map<string, { dir: Direction; since: number }>();
 	private taps: Direction[] = [];
 	private interactQueued = false;
-	/** The party slot (0-based) whose number was pressed last, until it is taken. */
-	private slotQueued: number | undefined;
+	/** What the party column was asked for since explore's last frame, oldest first. */
+	private picks: TeamPick[] = [];
 	/**
 	 * Off until explore has the screen (`setEnabled`): a key pressed while the
 	 * page loads or the title is up is never explore's.
@@ -115,9 +144,14 @@ export class Keyboard {
 		} else if (key === 'Enter' || key === ' ') {
 			if (fresh) this.interactQueued = true;
 			e.preventDefault();
-		} else if (slotKey(key) !== undefined) {
-			this.slotQueued = slotKey(key);
-			e.preventDefault();
+		} else {
+			const place = placeKey(key);
+			const pick =
+				place === undefined ? pointerPick(key) : { kind: 'place' as const, index: place };
+			if (pick) {
+				if (this.picks.length < PICK_BUFFER) this.picks.push(pick);
+				e.preventDefault();
+			}
 		}
 	}
 
@@ -143,7 +177,7 @@ export class Keyboard {
 		this.held.clear();
 		this.taps.length = 0;
 		this.interactQueued = false;
-		this.slotQueued = undefined;
+		this.picks.length = 0;
 	}
 
 	/** The next buffered tap, if any. Consumed once. */
@@ -170,10 +204,8 @@ export class Keyboard {
 		return v;
 	}
 
-	/** The party slot (0-based) the player asked to go first, if any. Consumed once. */
-	takeSlot(): number | undefined {
-		const slot = this.slotQueued;
-		this.slotQueued = undefined;
-		return slot;
+	/** The oldest thing the party column was asked for, if any. Consumed once. */
+	takeTeamPick(): TeamPick | undefined {
+		return this.picks.shift();
 	}
 }

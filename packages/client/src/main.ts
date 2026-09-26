@@ -181,7 +181,7 @@ function noteScreen(): void {
 						: doctor.active
 							? `doctor:${doctor.screen}:${doctor.tab}`
 							: pause.open
-								? `pause:${pause.screen}:${pause.picked ?? ''}`
+								? `pause:${pause.screen}:${pause.species ?? ''}:${pause.picked ?? ''}`
 								: game.mode;
 	if (now !== screenSeen) {
 		screenSeen = now;

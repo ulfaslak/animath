@@ -24,7 +24,7 @@ Technical items we've intentionally postponed: tech debt, hardening shortcuts, k
 
 ### A battle's result is written back by the client's authority, not the engine
 
-**What**: when a battle ends, `LocalAuthority.endBattle` decides what it means for the world: the party takes the battle's HP, a caught animal joins if there is room (the cap is the engine's `MAX_PARTY`, but the let-it-go decision is in the authority), and the closing line is chosen. Only a lost battle is the engine's (`takeToDoctor`). A server authority would have to repeat the rest, and the two copies could drift.
+**What**: when a battle ends, `LocalAuthority.endBattle` decides what it means for the world: the party takes the battle's HP, a caught animal joins (where it goes is the engine's `joinParty`, and with no cap nothing is let go, but the call is the authority's), and the closing line is chosen. Only a lost battle is the engine's (`takeToDoctor`). A server authority would have to repeat the rest, and the two copies could drift.
 
 **Why deferred**: there is one authority today, and the brief for the battle work put the outcomes there.
 
@@ -66,7 +66,7 @@ Technical items we've intentionally postponed: tech debt, hardening shortcuts, k
 
 ### `reorder` names an absolute slot, which a remote authority's latency can turn stale
 
-**What**: the `reorder` party intent carries the slot to move to (`to`), which the pause menu computes from the party it last saw. With the in-process `LocalAuthority` every `party-edited` arrives before the next key, so that view is never stale. Over a network, a kid pressing "Move up" twice before the first answer returns sends the same `to` twice: the second is refused (`already-there`) and the press is lost. `select-lead` and `rename` name the animal, not a slot, and are unaffected.
+**What**: the `reorder` and `move-species` party intents carry the slot, or the place among the cards, to move to (`to`), which the pause menu computes from the party it last saw and the HUD from where a card was dropped. With the in-process `LocalAuthority` every `party-edited` arrives before the next key, so that view is never stale. Over a network, a kid pressing "Move up" twice before the first answer returns sends the same `to` twice: the second is refused (`already-there`) and the press is lost. A drop that lands after another change is refused the same way (`no-such-slot`, `already-there`), or moves the card to a place the kid did not see. `select-lead`, `lead-species` and `rename` name the animal or the species, not a slot, and are unaffected.
 
 **Why deferred**: there is no remote authority, and a relative move (`{ by: -1 }`) is a protocol change best made when the latency is real and can be tried.
 
@@ -122,3 +122,28 @@ Technical items we've intentionally postponed: tech debt, hardening shortcuts, k
 **Why deferred**: no tool changes a tile yet. Which world the ground should be read from — the generated one, or the one with the kid's changes, which would make encounters depend on a save's edits and on every authority knowing them — is a decision for that PR.
 
 **Trigger**: the PR that lets the axe or the pickaxe change a tile, or anything else that changes tiles while the game runs.
+
+### A save over 1 MiB is not backed up, and one over 64 KiB misses the backup sent as the page closes
+
+**What**: a party has no cap, so a save grows with it: about 80 bytes an animal, up to 140 with a long name in 4-byte letters, twice that mid-battle. The server refuses a body over `SAVE_MAX_BYTES` (1 MiB, about 3,500 animals in the worst case) with a `413`, which the autosave treats as a bug: one `console.error`, and no more backups that visit; the game in the browser is saved as always. Separately, the backup sent on `pagehide` and when the page is hidden uses `fetch`'s `keepalive`, which browsers cap at 64 KiB of body: a bigger save (some 230 animals mid-battle with long names, 400 without) fails that request quietly, and the server's copy waits for the next ordinary backup (1 s after something that matters, 15 s after walking), which a hidden tab still sends.
+
+**Why deferred**: no kid is near either size; catching 400 animals takes well over ten hours of play.
+
+**Trigger**: a save in the `saves` table over 48 KB (`pg_column_size(data)`), or any party past 300 animals. Then send a save too big for `keepalive` without it, and split or compress the backup before it nears `SAVE_MAX_BYTES`.
+
+### A card's list is built whole, however many animals it holds
+
+**What**: opening a card in the HUD or the pause menu builds a row for every animal of that kind at once (the switch list and the doctor's list likewise list the whole team). A card of 120 rabbits took 60–100 ms of script and layout to come up at a load average of 40–77 (six took 4 ms): a hitch of a few frames when the card opens, none while it is open or while walking.
+
+**Why deferred**: a card of a hundred of one kind is far from any kid's team today, and drawing only the rows in view fights the lists' shared columns, which are sized by the longest name.
+
+**Trigger**: a kid's save with a card past 150 animals, or a stutter reported when a card opens. Then draw only the rows in view (fixed row heights, the name column sized from all the names), or build the rows over a few frames.
+
+### A save with more than six animals reads as unreadable to a build from before #66
+
+**What**: the party lost its cap without a new save `version`, since every old document still reads (the rule in [[DECISIONS]] § Saves bumps `version` only when an old document becomes unreadable). But a build from before #66 refuses a party of more than six, and calls such a save `invalid`, not `newer`: it starts a new game, and once the kid has played, sets the big team aside in `animath.save.unreadable` (and the server keeps its copy in `save_backups`). Nothing is lost, but the kid sees "Your saved game didn't load", and the team comes back only by hand. A save of six or fewer still reads in an old build.
+
+**Why deferred**: only an older build meeting a newer save hits it, which today means rolling the tunnel's game back past #66; a `version` bump instead would make every save, small ones too, unreadable to such a build.
+
+**Trigger**: before rolling the game back past #66, or serving two builds behind one address. Then bump `SAVE_VERSION` with an upgrade that only renumbers, so an older build calls a big save `newer` and leaves it alone.
+
