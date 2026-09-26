@@ -137,12 +137,20 @@ interface Leash {
 	t: number;
 	state: 'flying' | 'caught' | 'broke';
 }
-/** Where the leash comes from: the trainer's hand, just off the lower-left edge. */
+/** Where the rope is held: the trainer's hand, just off the lower-left edge. */
 const HAND = new THREE.Vector3(-2.4, 0.9, 3.4);
+/**
+ * Where the loop leaves the trainer's hand: low down, off the picture, so it
+ * comes in from the lower left under the wild animal's status box, with room
+ * to arc once past it. The rope stays in the hand, higher up: held this low,
+ * it would run through the player's animal while the loop wobbles on the
+ * wild one.
+ */
+const RELEASE = new THREE.Vector3(-2.4, 0.3, 3.8);
 const UP = new THREE.Vector3(0, 1, 0);
 /** The loop leans back towards the camera, so it reads as a ring, not a line. */
 const LOOP_TILT = Math.PI / 2 - 0.6;
-/** The throw arcs at most a tile over the straight line from the hand to the animal. */
+/** The throw arcs at most a tile over the straight line from where the loop leaves the hand to the animal. */
 const LEASH_ARC = 1;
 /**
  * The sky a throw keeps clear over its loop, as a share of the scene's
@@ -150,7 +158,17 @@ const LEASH_ARC = 1;
  * than this to the top of the picture.
  */
 const LEASH_HEADROOM = 0.05;
-/** Points along the throw at which its arc is measured against the picture's top. */
+/**
+ * The wild animal's status box over the picture's top-left corner, in CSS
+ * pixels from the canvas's top left: `.status.opponent` in
+ * `BattlePanel.svelte` sits 16 px in from the corner and is 280 px wide, and
+ * its name and HP bar make it 74 px tall (75 here, rounded up). Change both
+ * together.
+ */
+export const WILD_STATUS_BOX = { right: 16 + 280, bottom: 16 + 75 };
+/** How far the leash's loop keeps from the wild animal's status box, in CSS pixels. */
+const LEASH_BOX_CLEARANCE = 16;
+/** Points along the throw at which its arc is measured against the picture's top and the status box. */
 const LEASH_SAMPLES = 32;
 
 function lambert(hex: number): THREE.MeshLambertMaterial {
@@ -697,27 +715,50 @@ export class BattleScene {
 	}
 
 	/**
-	 * How high the throw arcs over the straight line from the hand to the
-	 * animal, at its middle, with full motion: `LEASH_ARC`, or lower where the
-	 * picture has no room for it, so that the loop's top stays
-	 * `LEASH_HEADROOM` below the top edge all the way. Measured through the
-	 * camera as it is, against every point of this animal's loop: the camera
-	 * sees little sky above the animals, and a taller animal is held higher in
-	 * a bigger loop, so a deer's throw arcs lower than a frog's.
+	 * How high the throw arcs over the straight line from where the loop
+	 * leaves the hand to the animal, at its middle, with full motion:
+	 * `LEASH_ARC`, or lower where the picture has no room for it, so that all
+	 * the way the loop's top stays `LEASH_HEADROOM` below the top edge and the
+	 * whole loop stays `LEASH_BOX_CLEARANCE` clear of the wild animal's status
+	 * box. Measured through the camera as it is, against every point of this
+	 * animal's loop: the camera sees little sky above the animals, and a
+	 * taller animal is held higher in a bigger loop, so a deer's throw arcs
+	 * lower than a frog's.
 	 */
 	private leashArc(): number {
 		const camera = this.camera;
 		camera.updateMatrixWorld();
-		// The line the loop keeps under, in the camera's -1..1 (the canvas's top edge is 1).
-		const free = Math.max(1, this.height - battlePanelHeight(this.height));
-		const edge = 1 - (2 * free * LEASH_HEADROOM) / Math.max(1, this.height);
-		// Whatever the camera shows below that line lies below this plane through the eye.
-		const ceiling = new THREE.Plane().setFromCoplanarPoints(
-			camera.getWorldPosition(new THREE.Vector3()),
-			new THREE.Vector3(-1, edge, 0.5).unproject(camera),
-			new THREE.Vector3(1, edge, 0.5).unproject(camera)
-		);
-		const { normal, constant } = ceiling;
+		const eye = camera.getWorldPosition(new THREE.Vector3());
+		const width = Math.max(1, this.width);
+		const height = Math.max(1, this.height);
+		// A line on the canvas, between two points given in the camera's -1..1, as
+		// the plane through the eye that the camera sees on that line.
+		const seen = (x0: number, y0: number, x1: number, y1: number) =>
+			new THREE.Plane().setFromCoplanarPoints(
+				eye,
+				new THREE.Vector3(x0, y0, 0.5).unproject(camera),
+				new THREE.Vector3(x1, y1, 0.5).unproject(camera)
+			);
+		/** The line across the canvas `y` CSS pixels below its top edge. */
+		const across = (y: number) => seen(-1, 1 - (2 * y) / height, 1, 1 - (2 * y) / height);
+		const free = Math.max(1, height - battlePanelHeight(height));
+		// The loop keeps under the first line…
+		const ceiling = across(free * LEASH_HEADROOM);
+		// …and out of the corner above the second and left of the third: the box and its margin.
+		const boxBottom = across(WILD_STATUS_BOX.bottom + LEASH_BOX_CLEARANCE);
+		const boxRight = (2 * (WILD_STATUS_BOX.right + LEASH_BOX_CLEARANCE)) / width - 1;
+		const boxSide = seen(boxRight, -1, boxRight, 1);
+		// Signed so that the box's side of the line (where the canvas's left edge is) is negative.
+		if (boxSide.distanceToPoint(new THREE.Vector3(-1, 0, 0.5).unproject(camera)) > 0) {
+			boxSide.negate();
+		}
+		// How a point's distance from that line changes for each tile it rises: the
+		// camera looks a little down, so uprights lean on the canvas.
+		const drift = boxSide.normal.y;
+		/** How far `point` can rise before it meets `plane`, a line across the canvas. */
+		const rise = (plane: THREE.Plane, point: THREE.Vector3) =>
+			-(plane.normal.x * point.x + plane.normal.z * point.z + plane.constant) / plane.normal.y -
+			point.y;
 		// The loop's points as it flies (tilted and sized, never turned), around its middle.
 		const shape = new THREE.Matrix4().compose(
 			new THREE.Vector3(),
@@ -730,16 +771,22 @@ export class BattleScene {
 		);
 		const hold = this.leashHold();
 		const at = new THREE.Vector3();
+		const point = new THREE.Vector3();
 		let arc = LEASH_ARC;
 		for (let i = 1; i < LEASH_SAMPLES; i++) {
 			const p = i / LEASH_SAMPLES;
-			at.lerpVectors(HAND, hold, p);
-			// How far this point of the straight throw can rise before a point of the loop meets the plane.
+			at.lerpVectors(RELEASE, hold, p);
+			// How far this point of the straight throw can rise before a point of the loop meets a line.
 			let room = Infinity;
 			for (const q of points) {
-				const x = at.x + q.x;
-				const z = at.z + q.z;
-				room = Math.min(room, -(normal.x * x + normal.z * z + constant) / normal.y - (at.y + q.y));
+				point.addVectors(at, q);
+				room = Math.min(room, rise(ceiling, point));
+				// Into the box's corner: up past its bottom line while beside the box, or
+				// drifting in over the box as it rises on.
+				const past = Math.max(0, rise(boxBottom, point));
+				const side = boxSide.distanceToPoint(point);
+				if (side + drift * past < 0) room = Math.min(room, past);
+				else if (drift < 0) room = Math.min(room, -side / drift);
 			}
 			arc = Math.min(arc, room / Math.sin(p * Math.PI));
 		}
@@ -763,9 +810,9 @@ export class BattleScene {
 			// Measured each frame: a resize can change the picture mid-throw.
 			const lift = p < 1 ? Math.sin(p * Math.PI) * this.leashArc() * calm : 0;
 			loop.position.set(
-				HAND.x + (to.x - HAND.x) * p,
-				HAND.y + (holdY - HAND.y) * p + lift,
-				HAND.z + (to.z - HAND.z) * p
+				RELEASE.x + (to.x - RELEASE.x) * p,
+				RELEASE.y + (holdY - RELEASE.y) * p + lift,
+				RELEASE.z + (to.z - RELEASE.z) * p
 			);
 			// Settled on the animal: it wobbles while everyone waits, a swing each
 			// way every 0.35 s (the pace of the `wobble` cue's ticks).
