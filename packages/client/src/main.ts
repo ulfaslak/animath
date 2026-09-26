@@ -32,10 +32,11 @@ const uiRoot = document.getElementById('ui') as HTMLElement;
 // Touch controls or keys (`input/touch.svelte.ts`), decided before anything is laid out.
 watchInput(window);
 // A game, not a page: no pinch zoom (Safari's own gesture events; the CSS
-// takes care of the rest), and no long-press menu under a finger.
+// takes care of the rest), and no long-press menu under a finger — except in
+// a name box, where a long press is how a tablet pastes.
 document.addEventListener('gesturestart', (e) => e.preventDefault());
 window.addEventListener('contextmenu', (e) => {
-	if (touch.on) e.preventDefault();
+	if (touch.on && !(e.target instanceof HTMLInputElement)) e.preventDefault();
 });
 // Safari shows `:active` (a pressed key, a pressed button) only on a page that listens for touches.
 document.addEventListener('touchstart', () => {}, { passive: true });
