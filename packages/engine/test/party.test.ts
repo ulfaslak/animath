@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { ANIMALS } from '../src/animals/catalog.js';
+import { ANIMALS, canFightIn } from '../src/animals/catalog.js';
 import type { AnimalInstance } from '../src/animals/types.js';
 import { startBattle } from '../src/battle/reducer.js';
 import { bundled, bundles, isBundled, joinParty } from '../src/party/bundles.js';
@@ -509,6 +509,11 @@ describe('applyPartyIntent: select-lead', () => {
 					{ type: 'select-lead', animalId: animal.id },
 					'explore'
 				);
+				// A sea animal never goes first on land: it can't fight there.
+				if (!canFightIn(animal.speciesId, 'land')) {
+					expectRejected(party, step, 'cannot-fight-here', { animalId: animal.id });
+					continue;
+				}
 				if (animal.hp === 0) {
 					expectRejected(party, step, 'tired', { animalId: animal.id });
 					continue;
@@ -534,7 +539,7 @@ describe('applyPartyIntent: select-lead', () => {
 	it('the chosen lead is the animal that steps into the next battle', () => {
 		const wild: AnimalInstance = { id: 'wild', speciesId: 'rabbit', hp: 22 };
 		for (const party of PARTIES) {
-			for (const animal of party.filter((a) => a.hp > 0)) {
+			for (const animal of party.filter((a) => a.hp > 0 && canFightIn(a.speciesId, 'land'))) {
 				const step = applyPartyIntent(
 					party,
 					{ type: 'select-lead', animalId: animal.id },
@@ -601,7 +606,10 @@ describe('applyPartyIntent: lead-species', () => {
 				const { speciesId } = bundle;
 				const step = applyPartyIntent(party, { type: 'lead-species', speciesId }, 'explore');
 				const standing = bundle.animals.find((a) => a.hp > 0);
-				if (lead?.speciesId === speciesId) {
+				if (!canFightIn(speciesId, 'land')) {
+					expectRejected(party, step, 'cannot-fight-here', { speciesId });
+					seen.add('sea');
+				} else if (lead?.speciesId === speciesId) {
 					expectRejected(party, step, 'already-lead', { animalId: lead.id, speciesId });
 					seen.add('already');
 				} else if (!standing) {
@@ -620,7 +628,7 @@ describe('applyPartyIntent: lead-species', () => {
 				}
 			}
 		}
-		expect([...seen].sort()).toEqual(['already', 'led', 'tired']);
+		expect([...seen].sort()).toEqual(['already', 'led', 'sea', 'tired']);
 	});
 
 	it('out on the water, leads only with a species that swims, as choosing its animal would', () => {

@@ -1,6 +1,7 @@
 import { getAnimal } from '../animals/catalog.js';
 import type { AnimalInstance } from '../animals/types.js';
 import { ITEM_IDS, getItem, isItemId, itemsForSale, type ItemId } from '../items/catalog.js';
+import { leadIndex } from '../party/reducer.js';
 import { healingDifficulty } from '../puzzles/difficulty.js';
 import { checkAnswer, generatePuzzle } from '../puzzles/registry.js';
 import type { Puzzle, PuzzleKind } from '../puzzles/types.js';
@@ -95,6 +96,19 @@ export function startDoctorVisit(
 }
 
 /**
+ * Whether the animals that stay with the kid when others go home are a team
+ * to walk on with: one of them isn't tired and can fight on land, where every
+ * tent stands (a sea animal alone could battle nothing in the grass). The
+ * rule behind `keep-one`, for a screen to show before it is asked. It keeps
+ * a hand-over from leaving the kid without one; a battle at sea that a sea
+ * animal ends standing (won, run from or caught), the land's animals tired,
+ * can, and then the grass is quiet until a doctor heals one.
+ */
+export function keepsATeam(staying: readonly AnimalInstance[]): boolean {
+	return leadIndex(staying, 'land') >= 0;
+}
+
+/**
  * Apply one intent. `seed` is the visit's seed, held by the authority; the same
  * seed must be passed for every intent of one visit.
  */
@@ -142,10 +156,11 @@ function pickPatient(state: DoctorState, seed: number, partyIndex: number): Doct
 
 /**
  * Animals by id, each once, all in the party, and never so many that nobody
- * standing stays: the kid keeps at least one animal that isn't tired, so the
- * team can still battle when it walks away (and a reload, which rests a team
- * with nobody standing, is never a free heal). Tired animals may go too: the
- * doctor makes them better before they leave.
+ * standing stays: the kid keeps at least one animal that isn't tired and can
+ * fight on land, where every tent stands, so the team can still battle when
+ * it walks away (a sea animal alone could not), and a reload, which rests a
+ * team with nobody standing, is never a free heal. Tired animals may go too:
+ * the doctor makes them better before they leave.
  */
 function handOver(state: DoctorState, ids: readonly string[]): DoctorStep {
 	if (!Array.isArray(ids) || ids.length === 0) return reject(state, 'no-such-animal');
@@ -155,7 +170,7 @@ function handOver(state: DoctorState, ids: readonly string[]): DoctorStep {
 		if (!state.party.some((a) => a.id === id)) return reject(state, 'no-such-animal');
 		picked.add(id);
 	}
-	if (!state.party.some((a) => !picked.has(a.id) && a.hp > 0)) return reject(state, 'keep-one');
+	if (!keepsATeam(state.party.filter((a) => !picked.has(a.id)))) return reject(state, 'keep-one');
 
 	const leaving = state.party.filter((a) => picked.has(a.id));
 	const reward = homeTokens(leaving);

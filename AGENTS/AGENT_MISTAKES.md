@@ -17,7 +17,7 @@ The categories that keep coming back. Each names where its guard lives, or the p
 - **`git gtr new` skips the `.env` copy and `pnpm install`**: five worktrees on 2026-09-25 and 2026-09-26, the last `docs/dna-drift-sweep`; without `.env` the server tests fail like a broken merge. [[ENVIRONMENT_NOTES]] says to check every time.
 - **A worktree's Vite backs up to the human's database**, because every Vite proxies `/api` to the primary clone's API unless `API_PORT` says otherwise: PR #21, PR #28 and other runs on 2026-09-26. Since PR #36 `scripts/screenshot.mjs` blocks `/api` unless `--api`; CLAUDE.md Phase 2 still says `/play` starts "both dev servers".
 - **A stale-event guard on the mode or the order, not the identity**: PR #13 (a battle), PR #14 (a doctor visit).
-- **An effect sized by its numbers, not in a frame**: PR #28, PR #42 (three times), PR #49 (a layout moved a long name next to the heal's stars), PR #69 (the boat's rims crossed, its back pose unreadable at game size).
+- **An effect sized by its numbers, not in a frame**: PR #28, PR #42 (three times), PR #49 (a layout moved a long name next to the heal's stars), PR #69 (the boat's rims crossed, its back pose unreadable at game size), PR #74 (a starfish edge-on to the camera, a speck at game size).
 - **Prose that says more than the code or its test shows**: DNA written from memory (PR #11), a claim pinned only where it is vacuous (PR #12), a weight quoted as a share (PR #17), a sample's window stated as a rule (PR #21), a promise one step past what the test measures (PR #34), a mean pooled over worlds stated for each world and an extreme read off a sample (PR #64), a lower bound stated as exact and a distance off by one (PR #69).
 
 ---
@@ -436,3 +436,16 @@ PR #66's party column passed its own test plan ("hold-and-drag moves a card two 
 - **A slow tap lifted the card instead (found with them).** A finger held still 350 ms made a drag, whose card key replaced the tap's, so a kid's slow tap did nothing.
 
 Fix (fix/party-column): the landing is the slot nearest where the card is drawn, and property tests over 2,000 random columns carry every card to both ends; the edge scrolls in a frame loop while the card is held there; `Taps` drops the second half of a double click on a button that left the first half's spot; time alone never makes a drag. `pointer-input.test.ts` covers the first, third and fourth (each red with the old rule); the second is a frame loop, checked on screen. Category: **a gesture checked where it is easy, not where it ends or at a kid's pace**: the first and last place, input that rests, a second press after the page moved, a press held long. Would become `[learned]` with the Phase 2 taxonomy line [[HUMAN_TODO]] 15 (h) proposes.
+
+### 2026-09-26 — PR #74 (sea animals) — a figure built against the tests' measures, not with them `[learned]`
+
+Two figure tests failed on geometry that looked right:
+
+- **The leaning starfish's feet measured 0.02 under the ground.** Its parts were leaned by turning their meshes, and `Box3.setFromObject` measures a turned part by turning its own bounding box, not its vertices, so the box's corner dipped where no vertex did.
+- **The octopus barely lay down to rest.** Its suckers' bottoms sat 0.005 above the ground, exactly the edge at which resting counts a part as standing on it. They counted as raised, became its "belly", and the rest pose lowered it by that much.
+
+Both were found by the figure tests. Fix: the lean is in the arms' geometry, the suckers stand on the ground, and `animals.ts`'s module comment now names both measures and their edges. Category: **a shape tuned by eye against a measure it never read**.
+
+### 2026-09-26 — PR #74 (sea animals) — copy written for the one place that existed `[learned]`
+
+The end-of-battle lines and the Run row said the wild animal "stays in the grass" and "runs home". At sea they would have told a kid a dolphin stays in the grass. Found while reading the copy to plan the frames, before any frame showed it. Fix: sea variants picked by the battle's realm. Category: **a new place for an old sentence**. CLAUDE.md Phase 2's "Prose is a claim" says to grep for words describing the old world ("grass"). This PR did so late, not first.

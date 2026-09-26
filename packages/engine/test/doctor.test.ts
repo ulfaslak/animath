@@ -595,6 +595,15 @@ describe('helping animals home', () => {
 		const alone = startDoctorVisit(partyOf(['squirrel', 0]));
 		const s = apply(alone, { type: 'hand-over', ids: ['squirrel-0'] }, 1);
 		expect(s.events).toEqual([{ type: 'rejected', reason: 'keep-one' }]);
+		// The tent stands on land: a crab or a whale standing is nobody to walk on with, so one
+		// that can fight on land stays too. A frog swims and walks: it will do.
+		const seaside = startDoctorVisit(partyOf(['squirrel'], ['crab'], ['whale'], ['frog']));
+		expect(reason(['squirrel-0', 'frog-3'], seaside)).toBe('keep-one');
+		expect(reason(['squirrel-0', 'crab-1', 'whale-2'], seaside)).toBe('accepted');
+		expect(reason(['squirrel-0'], seaside)).toBe('accepted');
+		expect(reason(['crab-1', 'whale-2', 'frog-3'], seaside)).toBe('accepted');
+		const onlySea = startDoctorVisit(partyOf(['crab'], ['squirrel', 0]));
+		expect(reason(['squirrel-1'], onlySea)).toBe('keep-one');
 	});
 });
 

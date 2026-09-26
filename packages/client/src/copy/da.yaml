@@ -106,6 +106,72 @@ species:
       roar: Brøl
       maul: Bjørnekram
       crush: Kæmpetramp
+  # Havdyrene, som man møder ude på det dybe vand fra båden.
+  crab:
+    name: Krabbe
+    a: en krabbe
+    the: krabben
+    wild: vild krabbe
+    aWild: en vild krabbe
+    theWild: den vilde krabbe
+    attacks:
+      pinch: Knib
+      claw-clap: Kloklap
+      crab-walk: Krabbegang
+  starfish:
+    name: Søstjerne
+    a: en søstjerne
+    the: søstjernen
+    wild: vild søstjerne
+    aWild: en vild søstjerne
+    theWild: den vilde søstjerne
+    attacks:
+      spin: Snurretur
+      arm-slap: Armklask
+      star-slam: Stjerneslag
+  turtle:
+    name: Skildpadde
+    a: en skildpadde
+    the: skildpadden
+    wild: vild skildpadde
+    aWild: en vild skildpadde
+    theWild: den vilde skildpadde
+    attacks:
+      flipper-flap: Luffeplask
+      shell-bump: Skjoldstød
+  dolphin:
+    name: Delfin
+    a: en delfin
+    the: delfinen
+    wild: vild delfin
+    aWild: en vild delfin
+    theWild: den vilde delfin
+    attacks:
+      click: Klik
+      leap: Delfinspring
+  octopus:
+    name: Blæksprutte
+    a: en blæksprutte
+    the: blæksprutten
+    wild: vild blæksprutte
+    aWild: en vild blæksprutte
+    theWild: den vilde blæksprutte
+    attacks:
+      wiggle: Vrik
+      ink-puff: Blæksky
+      octo-hug: Armekram
+  whale:
+    name: Hval
+    a: en hval
+    the: hvalen
+    wild: vild hval
+    aWild: en vild hval
+    theWild: den vilde hval
+    attacks:
+      bubbles: Bobler
+      whale-song: Hvalsang
+      spout: Sprøjt
+      big-wave: Kæmpebølge
 
 puzzle:
   keys: Skriv svaret og tryk på Enter
@@ -168,6 +234,7 @@ party:
   tired: træt
   leadChosen: '{animal.the} er først ud!'
   leadCantSwim: '{animal.the} kan ikke svømme! På vandet er et dyr, der kan svømme, først ud.'
+  leadInTheSea: '{animal.the} bor i havet! På land er et dyr, der kan gå, først ud.'
   leadTired: '{animal.the} er træt. Gå til dyrlægen!'
   leadAlready: '{animal.the} er allerede først ud!'
   leadAllTired: De er alle sammen trætte. Gå til dyrlægen!
@@ -224,12 +291,14 @@ battle:
   run:
     row: Løb væk
     detail: 'Du slipper altid væk. {animal.theWild} bliver i græsset.'
+    detailSea: 'Du slipper altid væk. {animal.theWild} bliver i vandet.'
   switch:
     row: Skift
     detail: Send et andet dyr ind. Det koster din tur.
     alone: Du skal have to dyr for at skifte. Fang et med snoren!
     allTired: Dine andre dyr er trætte.
     noSwimmers: Dine andre dyr kan ikke svømme.
+    noWalkers: Dine andre dyr bor i havet.
     title: Vælg et dyr
     keys: ↑ ↓ flyt · Enter kør · Esc tilbage
     mustPickKeys: ↑ ↓ flyt · Enter kør
@@ -237,11 +306,13 @@ battle:
     tiredTag: træt
     inBattleTag: på banen
     cantSwimTag: kan ikke svømme
+    seaTag: bor i havet
     sendIn: 'Send {animal.the} ind. Så får det vilde dyr en tur.'
     sendInFree: 'Send {animal.the} ind. Så er det din tur.'
     tired: '{animal.the} er træt og skal hvile sig.'
     inBattle: '{animal.the} er allerede på banen.'
     cantSwim: '{animal.the} kan ikke svømme og bliver i båden.'
+    inTheSea: '{animal.the} bor i havet og kæmper kun ude på vandet.'
     whoIsNext: '{animal.the} er træt. Hvem skal ind nu?'
     comeBack: 'Kom tilbage, {animal.name}!'
   result:
@@ -253,6 +324,8 @@ battle:
   closing:
     won: '{animal.theWild} løber hjem og hviler sig.'
     fled: '{animal.theWild} bliver i græsset.'
+    wonSea: '{animal.theWild} svømmer hjem og hviler sig.'
+    fledSea: '{animal.theWild} bliver i vandet.'
     joined: '{animal.the} kommer med på dit hold!'
 
 doctor:
@@ -302,7 +375,7 @@ doctor:
     picked:
       one: '1 dyr valgt: {amount} mønter.'
       other: '{count} dyr valgt: {amount} mønter.'
-    keepOne: Ét dyr, der ikke er træt, bliver altid hos dig.
+    keepOne: Ét dyr, der ikke er træt og kan gå på land, bliver altid hos dig.
     send: Hjælp dem hjem
     keys: ↑ ↓ flyt · ← → faner · Enter vælg · Esc farvel
     touch: Tryk på de dyr, der skal hjem

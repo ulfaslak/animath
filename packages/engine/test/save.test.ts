@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { ANIMALS, getAnimal } from '../src/animals/catalog.js';
-import type { AnimalInstance } from '../src/animals/types.js';
+import { ANIMALS, canFightIn, getAnimal } from '../src/animals/catalog.js';
+import { REALMS, type AnimalInstance } from '../src/animals/types.js';
 import { applyBattleIntent, startBattle } from '../src/battle/reducer.js';
 import type { BattleState } from '../src/battle/types.js';
 import { bundled, isBundled } from '../src/party/bundles.js';
@@ -203,7 +203,22 @@ describe('readSave and the upgrade seam', () => {
 		// species the catalog no longer has is unreadable (set aside, and a new game
 		// takes its place), so removing one takes a version bump and an upgrade
 		// that turns it into a species still in the catalog. Adding one: add it here.
-		const shipped = ['squirrel', 'rabbit', 'frog', 'fox', 'otter', 'deer', 'wolf', 'bear'];
+		const shipped = [
+			'squirrel',
+			'rabbit',
+			'frog',
+			'fox',
+			'otter',
+			'deer',
+			'wolf',
+			'bear',
+			'crab',
+			'starfish',
+			'turtle',
+			'dolphin',
+			'octopus',
+			'whale'
+		];
 		expect(ANIMALS.map((a) => a.id).filter((id) => !shipped.includes(id))).toEqual([]);
 		for (const speciesId of shipped) {
 			const doc = { ...written, party: [animal(1, { speciesId, hp: 1 })] };
@@ -379,6 +394,34 @@ describe('newGame and restoreGame', () => {
 		]);
 	});
 
+	it('gives a party of only sea animals the starter too, behind them: the grass is never out of reach', () => {
+		const pos = findTile(v1.seed, true);
+		const sea = [animal(1, { speciesId: 'crab', hp: 0 }), animal(2, { speciesId: 'whale' })];
+		for (const items of [[], ['boat']]) {
+			const game = restoreGame({ ...v1, pos, items, party: sea } as SaveV1);
+			expect(game.party.map((a) => a.speciesId)).toEqual(['crab', 'whale', STARTER_SPECIES]);
+			expect(game.party[leadIndex(game.party, 'land')]!.speciesId).toBe(STARTER_SPECIES);
+			// Somebody stood already: nobody is rested, the tired crab included.
+			expect(game.party[0]!.hp).toBe(0);
+		}
+		// Its id is new to the party, whatever the save called its animals.
+		const taken = [animal(1, { id: 'starter', speciesId: 'turtle' })];
+		const ids = restoreGame({ ...v1, pos, party: taken } as SaveV1).party.map((a) => a.id);
+		expect(new Set(ids).size).toBe(2);
+		// A battle saved with such a party is dropped: it was not fought with the starter.
+		const deep = findKind(v1.seed, 'deepwater');
+		const whale = [animal(1, { speciesId: 'whale', hp: 50 })];
+		const battle = startBattle(whale, makeWild('crab'), { realm: 'water' });
+		const atSea = { ...v1, pos: deep, items: ['boat'], party: whale, battle } as SaveV1;
+		const back = restoreGame(JSON.parse(JSON.stringify(atSea)));
+		expect(back.battle).toBeNull();
+		expect(back.pos).toEqual(deep);
+		expect(back.party.map((a) => a.speciesId)).toEqual(['whale', STARTER_SPECIES]);
+		// An animal that walks, even tired, is enough: the doctor is a walk away.
+		const walker = [animal(1, { speciesId: 'crab' }), animal(2, { speciesId: 'frog', hp: 0 })];
+		expect(restoreGame({ ...v1, pos, party: walker } as SaveV1).party).toHaveLength(2);
+	});
+
 	it('over random saves of every shape, the restored game is always playable', () => {
 		for (let s = 0; s < 400; s++) {
 			const rng = new Rng(hashInts(7, s));
@@ -406,8 +449,12 @@ describe('newGame and restoreGame', () => {
 				expect(a.hp).toBeGreaterThanOrEqual(0);
 				expect(a.hp).toBeLessThanOrEqual(getAnimal(a.speciesId).maxHp);
 			}
-			// A battle can start with it: the party is one `startBattle` accepts.
-			expect(() => startBattle(game.party, makeWild('rabbit'))).not.toThrow();
+			// A battle can start with it where an animal standing can fight: the party is one
+			// `startBattle` accepts there (only sea animals standing, out on the water).
+			const realm = REALMS.find((r) => leadIndex(game.party, r) >= 0);
+			expect(realm).toBeDefined();
+			const wild = makeWild(realm === 'land' ? 'rabbit' : 'crab');
+			expect(() => startBattle(game.party, wild, { realm })).not.toThrow();
 			// What was fine to begin with comes back unchanged, out on the water with a boat too.
 			if (isPassable(tileAtWorld(seed, save.pos.x, save.pos.y).kind, gear))
 				expect(game.pos).toEqual(save.pos);
@@ -415,7 +462,12 @@ describe('newGame and restoreGame', () => {
 			expect(game.steps).toBe(save.steps);
 			// In bundles: every animal once, each species behind its first, in its own order.
 			expect(isBundled(game.party)).toBe(true);
-			if (size > 0) expect(game.party.map((a) => a.id)).toEqual(bundled(party).map((a) => a.id));
+			// Always an animal that can fight on land: a party of only sea animals gets the starter.
+			expect(game.party.some((a) => canFightIn(a.speciesId, 'land'))).toBe(true);
+			const walks = party.some((a) => canFightIn(a.speciesId, 'land'));
+			const kept = bundled(party).map((a) => a.id);
+			if (size > 0)
+				expect(game.party.map((a) => a.id)).toEqual(walks ? kept : [...kept, 'starter']);
 		}
 	});
 

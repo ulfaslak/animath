@@ -3,7 +3,7 @@ import { ATTACK_LEVELS } from './animals/types.js';
 import { ANIMALS, canFightIn, getAnimal } from './animals/catalog.js';
 import type { BattleState } from './battle/types.js';
 import { gearOf } from './items/catalog.js';
-import { bundled } from './party/bundles.js';
+import { bundled, joinParty } from './party/bundles.js';
 import { normalizeNickname } from './party/names.js';
 import { ALL_PUZZLE_KINDS, MAX_DIFFICULTY, MIN_DIFFICULTY } from './puzzles/types.js';
 import { WorldEdits, editedTileAt, isEditsText } from './world/edits.js';
@@ -387,11 +387,14 @@ function cleanAnimal(animal: AnimalInstance): AnimalInstance {
  * it can leave the player stuck: a position the player can't be on, in the
  * world as they left it, with what they own (the world generator changed
  * under it, or water without a boat) becomes the spawn tile, an HP above the
- * species' maximum is cut to it, an empty party gets the starter, and a party
- * with nobody standing rests back to full, the same rest a lost battle gives.
- * The battle comes back only if `readBattle` accepts it where the player
- * stands, and never when the position had to move. See [[INVARIANTS]] § "A
- * loaded save never strands the player".
+ * species' maximum is cut to it, an empty party gets the starter, a party with
+ * no animal that can fight on land (only sea animals: no save a kid's game
+ * writes holds one) gets it too, behind the others, so the grass is never out
+ * of reach, and a party with nobody standing rests back to full, the same
+ * rest a lost battle gives. The battle comes back only if `readBattle`
+ * accepts it where the player stands, and never when the position had to
+ * move, nor when the starter joined (it was not in the battle). See
+ * [[INVARIANTS]] § "A loaded save never strands the player".
  *
  * The party comes back in species bundles (`bundled`), a saved battle's
  * party in the same order with the same animal in front. A save this build
@@ -414,7 +417,16 @@ export function restoreGame(save: SaveV1): SavedGame {
 		cleanAnimal({ ...a, hp: Math.min(a.hp, getAnimal(a.speciesId).maxHp) })
 	);
 	if (party.length === 0) party = newGame(seed).party;
-	else if (!party.some((a) => a.hp > 0)) {
+	else if (!party.some((a) => canFightIn(a.speciesId, 'land'))) {
+		let id = 'starter';
+		for (let n = 2; party.some((a) => a.id === id); n++) id = `starter-${n}`;
+		party = joinParty(party, {
+			id,
+			speciesId: STARTER_SPECIES,
+			hp: getAnimal(STARTER_SPECIES).maxHp
+		});
+	}
+	if (!party.some((a) => a.hp > 0)) {
 		party = party.map((a) => ({ ...a, hp: getAnimal(a.speciesId).maxHp }));
 	}
 	const battle = standable ? readBattle(save.battle, party, tileRealm(here)) : null;

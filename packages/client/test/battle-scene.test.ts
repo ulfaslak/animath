@@ -1,10 +1,16 @@
-import { ANIMALS } from '@mathgame/engine';
+import { ANIMALS, getAnimal } from '@mathgame/engine';
 import { parse, type AST } from 'svelte/compiler';
 import * as THREE from 'three';
 import { afterEach, describe, expect, it } from 'vitest';
 import { touch } from '../src/input/touch.svelte';
 import { motion } from '../src/motion';
-import { BattleScene, LEASH_FLIGHT_SECONDS, WILD_STATUS_BOX } from '../src/render/battle-scene';
+import {
+	BattleScene,
+	LEASH_FLIGHT_SECONDS,
+	SEA_WATERLINE,
+	WILD_STATUS_BOX
+} from '../src/render/battle-scene';
+import { SWIM_DEPTH } from '../src/render/follower';
 import { svelteSources } from './source';
 
 /**
@@ -165,7 +171,9 @@ interface Throw {
 function throwAt(size: (typeof SIZES)[number], species: string, ending: 'caught' | 'broke'): Throw {
 	touch.on = size.touch;
 	scene.resize(size.width, size.height);
-	scene.begin('meadow', 'squirrel', species);
+	// Where it is met: a sea animal out at sea, sunk in the water, facing one that swims.
+	const atSea = !getAnimal(species).realms.includes('land');
+	scene.begin(atSea ? 'sea' : 'meadow', atSea ? 'otter' : 'squirrel', species);
 	let t = 0;
 	scene.update(t);
 	scene.throwLeash();
@@ -298,6 +306,30 @@ describe('the leash', () => {
 				}
 			}
 		}
+		expect(bad).toEqual([]);
+	});
+});
+
+describe('out at sea', () => {
+	it('every animal swims with the lower SWIM_DEPTH of its height under the surface, and stands on the ground on land', () => {
+		const figures = () => (scene as unknown as { figures: Record<string, THREE.Group> }).figures;
+		const bad: string[] = [];
+		for (const { id } of ANIMALS) {
+			for (const biome of ['sea', 'meadow'] as const) {
+				scene.begin(biome, id, id);
+				scene.update(0);
+				for (const side of ['player', 'opponent'] as const) {
+					const figure = figures()[side]!;
+					figure.updateMatrixWorld(true);
+					const box = new THREE.Box3().setFromObject(figure);
+					const height = box.max.y - box.min.y;
+					const under = biome === 'sea' ? (SEA_WATERLINE - box.min.y) / height : box.min.y;
+					const want = biome === 'sea' ? SWIM_DEPTH : 0;
+					if (Math.abs(under - want) > 0.03) bad.push(`${id} (${side}) in the ${biome}: ${under}`);
+				}
+			}
+		}
+		scene.end();
 		expect(bad).toEqual([]);
 	});
 });

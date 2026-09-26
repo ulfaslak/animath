@@ -198,25 +198,45 @@ describe('terrainShares and habitatFactor', () => {
 });
 
 describe('where each species lives', () => {
-	it('every species favours one terrain and lives on land, and the amphibious ones are the frog and the otter', () => {
+	it('every species favours one terrain; the amphibious ones are the frog and the otter, and only the sea animals live only in the water', () => {
 		for (const species of ANIMALS) {
 			expect(TERRAINS, species.id).toContain(species.favours);
 			expect(species.realms.length, species.id).toBeGreaterThan(0);
 			expect(new Set(species.realms).size, species.id).toBe(species.realms.length);
 			for (const realm of species.realms) expect(REALMS, species.id).toContain(realm);
-			// Every encounter today is on land, so a species that didn't live
-			// there could never be met (a sea animal waits for the boat).
-			expect(species.realms, species.id).toContain('land');
+			// Living only in the water is living in the sea, the deep water's biome, and nowhere
+			// else: an encounter out there is the only way to meet one.
+			const aquatic = !species.realms.includes('land');
+			expect(aquatic, species.id).toBe(species.habitats.includes('sea'));
+			if (aquatic) expect(species.habitats, species.id).toEqual(['sea']);
 		}
 		const amphibious = ANIMALS.filter(
 			(a) => a.realms.includes('land') && a.realms.includes('water')
 		);
 		expect(amphibious.map((a) => a.id)).toEqual(['frog', 'otter']);
+		const aquatic = ANIMALS.filter((a) => !a.realms.includes('land'));
+		expect(aquatic.map((a) => a.id)).toEqual([
+			'crab',
+			'starfish',
+			'turtle',
+			'dolphin',
+			'octopus',
+			'whale'
+		]);
 	});
 
-	it('the prototype catalog: the frog and the otter by the water, the squirrel, fox and deer by trees, the wolf and bear by rocks, the rabbit in the open', () => {
+	it('the prototype catalog: the frog, the otter and the sea animals by the water, the squirrel, fox and deer by trees, the wolf and bear by rocks, the rabbit in the open', () => {
 		const by = (t: Terrain) => ANIMALS.filter((a) => a.favours === t).map((a) => a.id);
-		expect(by('water')).toEqual(['frog', 'otter']);
+		expect(by('water')).toEqual([
+			'frog',
+			'otter',
+			'crab',
+			'starfish',
+			'turtle',
+			'dolphin',
+			'octopus',
+			'whale'
+		]);
 		expect(by('trees')).toEqual(['squirrel', 'fox', 'deer']);
 		expect(by('rocks')).toEqual(['wolf', 'bear']);
 		expect(by('open')).toEqual(['rabbit']);

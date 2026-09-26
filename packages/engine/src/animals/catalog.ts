@@ -120,6 +120,99 @@ export const ANIMALS: readonly AnimalSpec[] = [
 			{ id: 'maul', kinds: ['div', 'sqrt'], power: 22 },
 			{ id: 'crush', kinds: ['sqrt', 'sequence'], power: 28 }
 		]
+	},
+	// The sea animals: they live out on the deep water, in the sea biome, and
+	// only there (realm water), so a kid meets them only from the boat, with
+	// an animal that swims. One tier each from 1 to 5, as on land, each the
+	// twin in numbers of the land animal of its tier (HP, catch rate, and its
+	// attacks' number and powers: the crab the rabbit's, the starfish the
+	// frog's, the turtle the otter's, the dolphin the deer's, the octopus the
+	// wolf's, the whale the bear's), so a battle at sea is exactly as hard as
+	// one on land of its size; only what the puzzles ask is their own. The two
+	// small ones ask sums and number patterns, never a times-table sum (a
+	// pattern may double, as the rabbit's and the frog's do).
+	{
+		id: 'crab',
+		tier: 1,
+		maxHp: 22,
+		catchRate: 0.85,
+		habitats: ['sea'],
+		realms: ['water'],
+		favours: 'water',
+		attacks: [
+			{ id: 'pinch', kinds: ['add'], power: 4 },
+			{ id: 'claw-clap', kinds: ['add', 'sub'], power: 6 },
+			{ id: 'crab-walk', kinds: ['sequence'], power: 8 }
+		]
+	},
+	{
+		id: 'starfish',
+		tier: 1,
+		maxHp: 21,
+		catchRate: 0.8,
+		habitats: ['sea'],
+		realms: ['water'],
+		favours: 'water',
+		attacks: [
+			{ id: 'spin', kinds: ['sequence'], power: 4 },
+			{ id: 'arm-slap', kinds: ['add', 'sub'], power: 5 },
+			{ id: 'star-slam', kinds: ['add', 'sub'], power: 7 }
+		]
+	},
+	{
+		id: 'turtle',
+		tier: 2,
+		maxHp: 32,
+		catchRate: 0.65,
+		habitats: ['sea'],
+		realms: ['water'],
+		favours: 'water',
+		attacks: [
+			{ id: 'flipper-flap', kinds: ['add', 'sub'], power: 5 },
+			{ id: 'shell-bump', kinds: ['sequence', 'missing'], power: 9 }
+		]
+	},
+	{
+		id: 'dolphin',
+		tier: 3,
+		maxHp: 50,
+		catchRate: 0.5,
+		habitats: ['sea'],
+		realms: ['water'],
+		favours: 'water',
+		attacks: [
+			{ id: 'click', kinds: ['sequence', 'add'], power: 8 },
+			{ id: 'leap', kinds: ['div', 'mul'], power: 12 }
+		]
+	},
+	{
+		id: 'octopus',
+		tier: 4,
+		maxHp: 70,
+		catchRate: 0.35,
+		habitats: ['sea'],
+		realms: ['water'],
+		favours: 'water',
+		attacks: [
+			{ id: 'wiggle', kinds: ['mul'], power: 10 },
+			{ id: 'ink-puff', kinds: ['sequence'], power: 14 },
+			{ id: 'octo-hug', kinds: ['div', 'sqrt'], power: 18 }
+		]
+	},
+	{
+		id: 'whale',
+		tier: 5,
+		maxHp: 100,
+		catchRate: 0.2,
+		habitats: ['sea'],
+		realms: ['water'],
+		favours: 'water',
+		attacks: [
+			{ id: 'bubbles', kinds: ['mul'], power: 12 },
+			{ id: 'whale-song', kinds: ['sequence'], power: 16 },
+			{ id: 'spout', kinds: ['div', 'sqrt'], power: 22 },
+			{ id: 'big-wave', kinds: ['sqrt', 'sequence'], power: 28 }
+		]
 	}
 ];
 

@@ -1,23 +1,29 @@
 import {
 	WorldEdits,
 	editedTileAt,
+	getAnimal,
 	isWalkable,
+	isWater,
 	tileAtWorld,
 	type Direction,
-	type GridPos
+	type GridPos,
+	type TileKind
 } from '@mathgame/engine';
 import type * as THREE from 'three';
 import { motion } from '../motion';
 import { buildAnimalMesh, disposeFigure } from './animals';
+import { SWIM_DEPTH } from './follower';
 import type { GameRenderer } from './renderer';
 import { StarterScene } from './starter-scene';
-import { groundTop } from './tiles';
+import { WATER_TOP, groundTop } from './tiles';
 
 /**
  * What the title draws ([[UI_SPEC]] § Title). Behind the menu: the world
  * where the game stands (the saved spot, or the spawn tile for a new
- * player), the trainer, the team gathered round (or, with no game yet, the
- * starters), all breathing, and the camera drifting slowly over them (still
+ * player), the trainer, the team gathered round (the sea animals in the
+ * water nearby, low in it as they swim, and left out with no water near; or,
+ * with no game yet, the starters), all breathing, and the camera drifting
+ * slowly over them (still
  * with reduced motion). It is the explore camera, only pointed a little
  * aside: the same angle, no zoom, no turn ([[DESIGN]] § Aesthetic
  * direction). Behind the starter screen: the
@@ -87,12 +93,25 @@ export class TitleScenery implements TitleView3D {
 		this.renderer.setBoat(boat);
 		this.renderer.setPlayer(pos, pos, 1, facing);
 		this.renderer.ensureChunksAround(pos);
-		const spots = standingSpots(seed, edits, pos, species.length);
+		// The land's animals on the ground round the trainer, the sea's in the water.
+		const walks = (id: string) => getAnimal(id).realms.includes('land');
+		const onLand = standingSpots(seed, edits, pos, species.filter(walks).length, isWalkable);
+		const inWater = standingSpots(
+			seed,
+			edits,
+			pos,
+			species.filter((id) => !walks(id)).length,
+			isWater
+		);
 		species.forEach((id, i) => {
-			const spot = spots[i];
+			const spot = (walks(id) ? onLand : inWater).shift();
 			if (!spot) return;
 			const figure = buildAnimalMesh(id);
-			figure.position.set(spot.x, groundTop(tileAtWorld(seed, spot.x, spot.y)), spot.y);
+			const height = (figure.userData.restShape as { height: number }).height;
+			const y = walks(id)
+				? groundTop(tileAtWorld(seed, spot.x, spot.y))
+				: WATER_TOP - height * SWIM_DEPTH;
+			figure.position.set(spot.x, y, spot.y);
 			// Facing the camera, each turned a little its own way, breathing out of step.
 			figure.rotation.y = (i % 2 === 0 ? 0.35 : -0.35) * (1 + (i % 3) * 0.3);
 			figure.userData.idlePhase = i * 0.9;
@@ -144,11 +163,18 @@ export class TitleScenery implements TitleView3D {
 }
 
 /**
- * The `count` walkable tiles nearest `pos` (not `pos` itself), nearest first,
- * ties in a fixed order, so the same game always gathers the same way. A tile
- * the game cleared is ground to stand on.
+ * The `count` tiles nearest `pos` (not `pos` itself) of a kind that `fits`
+ * (ground to stand on, or water to swim in), nearest first, ties in a fixed
+ * order, so the same game always gathers the same way. A tile the game
+ * cleared is ground to stand on.
  */
-function standingSpots(seed: number, edits: WorldEdits, pos: GridPos, count: number): GridPos[] {
+function standingSpots(
+	seed: number,
+	edits: WorldEdits,
+	pos: GridPos,
+	count: number,
+	fits: (kind: TileKind) => boolean
+): GridPos[] {
 	const found: GridPos[] = [];
 	for (let r = 1; r <= 4 && found.length < count; r++) {
 		const ring: GridPos[] = [];
@@ -156,7 +182,7 @@ function standingSpots(seed: number, edits: WorldEdits, pos: GridPos, count: num
 			for (let dx = -r; dx <= r; dx++) {
 				if (Math.max(Math.abs(dx), Math.abs(dy)) !== r) continue;
 				const spot = { x: pos.x + dx, y: pos.y + dy };
-				if (isWalkable(editedTileAt(seed, edits, spot.x, spot.y).kind)) ring.push(spot);
+				if (fits(editedTileAt(seed, edits, spot.x, spot.y).kind)) ring.push(spot);
 			}
 		}
 		// Nearest first within the ring; the scan order above settles ties.

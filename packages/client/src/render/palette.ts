@@ -131,5 +131,11 @@ export const ANIMAL_COLORS: Record<string, { fur: number; accent: number }> = {
 	otter: { fur: 0x8a5a3a, accent: 0xdbb98f },
 	deer: { fur: 0xc48a52, accent: 0x6b4a2f },
 	wolf: { fur: 0x7f858f, accent: 0xc5cad2 },
-	bear: { fur: 0x5a3a28, accent: 0xb08560 }
+	bear: { fur: 0x5a3a28, accent: 0xb08560 },
+	crab: { fur: 0xe0553f, accent: 0xf7b89a },
+	starfish: { fur: 0xf2894e, accent: 0xffd08a },
+	turtle: { fur: 0x8cc47e, accent: 0x3f7f4c },
+	dolphin: { fur: 0x6f9fc4, accent: 0xe6eef4 },
+	octopus: { fur: 0xb4589e, accent: 0xf0a8d8 },
+	whale: { fur: 0x3d6b9a, accent: 0xdfe8ee }
 };

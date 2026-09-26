@@ -11,8 +11,8 @@ import { validateParty } from './party.js';
  * The player is taken to the nearest doctor's tent, on foot or, with the
  * boat, over the water too (see `nearestTent`), and stands beside it on the
  * ground, facing it, and the doctor heals the whole party to full for free.
- * There is no other penalty. A kid is never left with a party that cannot
- * battle, and never put somewhere they could not have got to.
+ * There is no other penalty. A knock-out never leaves a kid with a party that
+ * cannot battle, and never puts them somewhere they could not have got to.
  *
  * If no tent is within reach (`nearestTent` gives up), a doctor comes to the
  * player instead: they stay where they are, facing down, and the party is

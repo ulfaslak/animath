@@ -25,6 +25,10 @@ export const LINES = {
 	'battle.closing.won': { animal: 'species' },
 	/** The player ran: the wild animal stays. */
 	'battle.closing.fled': { animal: 'species' },
+	/** A battle won out on the water: the wild animal swims home. */
+	'battle.closing.wonSea': { animal: 'species' },
+	/** The player ran out on the water: the wild animal stays in it. */
+	'battle.closing.fledSea': { animal: 'species' },
 	/** A caught animal joined the party. */
 	'battle.closing.joined': { animal: 'species' }
 } as const satisfies Record<string, Record<string, LineParamKind>>;

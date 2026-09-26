@@ -108,6 +108,72 @@ species:
       roar: Roar
       maul: Maul
       crush: Crush
+  # The sea animals, met out on the deep water from the boat.
+  crab:
+    name: Crab
+    a: a Crab
+    the: the Crab
+    wild: wild Crab
+    aWild: a wild Crab
+    theWild: the wild Crab
+    attacks:
+      pinch: Pinch
+      claw-clap: Claw Clap
+      crab-walk: Crab Walk
+  starfish:
+    name: Starfish
+    a: a Starfish
+    the: the Starfish
+    wild: wild Starfish
+    aWild: a wild Starfish
+    theWild: the wild Starfish
+    attacks:
+      spin: Spin
+      arm-slap: Arm Slap
+      star-slam: Star Slam
+  turtle:
+    name: Turtle
+    a: a Turtle
+    the: the Turtle
+    wild: wild Turtle
+    aWild: a wild Turtle
+    theWild: the wild Turtle
+    attacks:
+      flipper-flap: Flipper Flap
+      shell-bump: Shell Bump
+  dolphin:
+    name: Dolphin
+    a: a Dolphin
+    the: the Dolphin
+    wild: wild Dolphin
+    aWild: a wild Dolphin
+    theWild: the wild Dolphin
+    attacks:
+      click: Click
+      leap: Leap
+  octopus:
+    name: Octopus
+    a: an Octopus
+    the: the Octopus
+    wild: wild Octopus
+    aWild: a wild Octopus
+    theWild: the wild Octopus
+    attacks:
+      wiggle: Wiggle
+      ink-puff: Ink Puff
+      octo-hug: Octo Hug
+  whale:
+    name: Whale
+    a: a Whale
+    the: the Whale
+    wild: wild Whale
+    aWild: a wild Whale
+    theWild: the wild Whale
+    attacks:
+      bubbles: Bubbles
+      whale-song: Whale Song
+      spout: Spout
+      big-wave: Big Wave
 
 puzzle:
   # Under a puzzle until it is answered.
@@ -209,6 +275,8 @@ party:
   leadChosen: '{animal.name} goes first!'
   # The message line, out on the water, when the number of an animal that can't swim was pressed.
   leadCantSwim: "{animal.name} can't swim! On the water, an animal that swims goes first."
+  # The message line, on land, when the number of a sea animal was pressed.
+  leadInTheSea: '{animal.name} lives in the sea! On land, an animal that walks goes first.'
   # The message line, when the number of a tired animal was pressed.
   leadTired: '{animal.name} is tired. Visit the doctor!'
   # The message line, when the lead's own number was pressed.
@@ -292,6 +360,8 @@ battle:
     row: Run
     # What the row says when highlighted. {animal}: the wild animal.
     detail: 'You always get away. {animal.theWild} stays in the grass.'
+    # The same, out on the water.
+    detailSea: 'You always get away. {animal.theWild} stays in the water.'
   switch:
     # The Switch row of the action menu, and what it says when highlighted.
     row: Switch
@@ -300,6 +370,8 @@ battle:
     allTired: Your other animals are tired.
     # Out on the water, when every other animal standing can't swim.
     noSwimmers: Your other animals can't swim.
+    # On land, when every other animal standing is a sea animal.
+    noWalkers: Your other animals live in the sea.
     # The party list: its title, its keys (no way back after a knock-out), its tags.
     title: Pick an animal
     keys: ↑ ↓ choose · Enter go · Esc back
@@ -310,12 +382,15 @@ battle:
     inBattleTag: in battle
     # Out on the water, on an animal that can't swim: it sits the battle out in the boat.
     cantSwimTag: can't swim
+    # On land, on a sea animal: it only fights out on the water.
+    seaTag: lives in the sea
     # The highlighted animal of the list.
     sendIn: 'Send in {animal.name}. Then the wild animal gets a turn.'
     sendInFree: "Send in {animal.name}. Then it's your turn."
     tired: '{animal.name} is tired and needs a rest.'
     inBattle: '{animal.name} is already in the battle.'
     cantSwim: "{animal.name} can't swim. It stays in the boat."
+    inTheSea: '{animal.name} lives in the sea. It only fights out on the water.'
     # Narration: the animal in front is tired and someone must go in.
     whoIsNext: '{animal.name} is tired. Who goes next?'
     # Narration: the animal in front goes back to make room.
@@ -332,6 +407,9 @@ battle:
   closing:
     won: '{animal.theWild} runs home to rest.'
     fled: '{animal.theWild} stays in the grass.'
+    # The same, out on the water.
+    wonSea: '{animal.theWild} swims home to rest.'
+    fledSea: '{animal.theWild} stays in the water.'
     joined: '{animal.name} joins your team!'
 
 doctor:
@@ -408,7 +486,7 @@ doctor:
       one: '1 animal picked: {amount} tokens.'
       other: '{count} animals picked: {amount} tokens.'
     # When every animal but one is picked.
-    keepOne: One animal that isn't tired always stays with you.
+    keepOne: One animal that isn't tired and walks on land always stays with you.
     # The button under the animals.
     send: Help them home
     keys: ↑ ↓ choose · ← → tabs · Enter pick · Esc bye
