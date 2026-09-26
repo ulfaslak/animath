@@ -10,7 +10,8 @@ import type { SaveNotice } from '../save/notices';
 /**
  * What the title shows and which screen the keys drive ([[UI_SPEC]] §
  * Title). Written only by `TitleController`, except `draft`, which the name
- * box binds as the player types.
+ * box binds as the player types, and `room`, which the starter screen
+ * measures.
  *
  * `screen`: `menu` is Continue, New game and the settings; `confirm` asks
  * before a new game puts a saved one away; `starter` is the starters side by
@@ -54,6 +55,15 @@ class TitleView {
 	draft = $state('');
 	/** Where each starter's feet are on screen, as fractions of the canvas, for the name tags. */
 	spots = $state.raw<readonly { x: number; y: number }[]>([]);
+	/**
+	 * The band of the screen the starters keep to, in CSS pixels from its top,
+	 * measured by the starter screen: the animals' tops below `top` (the
+	 * heading, or the card when it is at the top), their feet above `bottom`
+	 * (the card at the bottom, less the name tags under the feet). Null while
+	 * no starter screen is up. The stage moves the row into it
+	 * (`StarterScene.setRoom`).
+	 */
+	room = $state.raw<{ top: number; bottom: number } | null>(null);
 
 	/** The rows the menu shows now. */
 	get rows(): TitleRow[] {

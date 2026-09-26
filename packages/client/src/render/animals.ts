@@ -472,7 +472,8 @@ export function buildPlayerMesh(): THREE.Group {
 }
 
 const IDLE_RATE = 2.4; // radians per second: one breath every ~2.6 s
-const IDLE_DEPTH = 0.03;
+/** How much taller a figure stands at the top of a breath, as a share of its height. */
+export const IDLE_DEPTH = 0.03;
 
 /**
  * A breathing scale on the figure's rig, about the feet so they stay on the

@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { MAX_NICKNAME_LENGTH, STARTERS, normalizeNickname } from '@mathgame/engine';
+	import { untrack } from 'svelte';
 	import { sfx } from '../audio/sfx.svelte';
 	import { LANGUAGES, language, languageName, t } from '../copy';
 	import { languageKey, rowKey, unfocusable } from '../input/press';
@@ -27,6 +28,12 @@
 	 * card's buttons are Enter and Escape. With the touch controls on, the key
 	 * reminders go, and the name box moves to the top, clear of a tablet's
 	 * own keyboard.
+	 *
+	 * The starter screen measures the band it leaves the animals (`title.room`,
+	 * which the stage slides the row into): below the heading, or below the
+	 * card when it is at the top, and above the card at the bottom, less the
+	 * name tags' reach under the feet. The card grows for the name box, and
+	 * the tags stay clear of it (#78).
 	 */
 	const letters = $derived(Array.from(t('title.name')));
 	const saved = $derived(title.saved);
@@ -53,6 +60,44 @@
 				return t('title.confirm.yes');
 		}
 	}
+
+	/** Room kept between the starters (their tops, their name tags) and what they must stay clear of. */
+	const ROOM_GAP = 12;
+	let starterScreen = $state<HTMLElement>();
+	let pickTitle = $state<HTMLElement>();
+	let starterCard = $state<HTMLElement>();
+	let screenHeight = $state(0);
+	let cardHeight = $state(0);
+	/** Naming on a touch screen: the card is at the top, clear of the tablet's keyboard rising from the bottom. */
+	const cardOnTop = $derived(touch.on && title.screen === 'naming');
+	/** The name tags are up: the stage has said where the animals stand. */
+	const tagged = $derived(title.spots.length > 0);
+
+	// Measured again whenever the screen, the card or the tags change size or place.
+	$effect(() => {
+		void screenHeight;
+		void cardHeight;
+		void cardOnTop;
+		void tagged;
+		void title.screen;
+		const screen = starterScreen?.getBoundingClientRect();
+		const card = starterCard?.getBoundingClientRect();
+		if (!screen || !card) {
+			title.room = null;
+			return;
+		}
+		// How far a name tag reaches under the feet it stands at.
+		const spot = untrack(() => title.spots[0]);
+		const tag = starterScreen?.querySelector('.tag')?.getBoundingClientRect();
+		const reach = spot && tag ? tag.bottom - (screen.top + spot.y * screen.height) : 0;
+		const above =
+			pickTitle?.getBoundingClientRect().bottom ?? (cardOnTop ? card.bottom : screen.top);
+		const below = cardOnTop ? screen.bottom : card.top;
+		title.room = {
+			top: above - screen.top + ROOM_GAP,
+			bottom: below - screen.top - ROOM_GAP - reach
+		};
+	});
 
 	/** Focus the name box (typing lands in it), and keep the focus there while it is open. */
 	function nameBox(input: HTMLInputElement) {
@@ -169,9 +214,9 @@
 		{/if}
 	</div>
 {:else}
-	<div class="starter-screen">
+	<div class="starter-screen" bind:this={starterScreen} bind:clientHeight={screenHeight}>
 		{#if title.screen === 'starter'}
-			<h2 class="pick-title">{t('title.starter.title')}</h2>
+			<h2 class="pick-title" bind:this={pickTitle}>{t('title.starter.title')}</h2>
 		{/if}
 		{#each STARTERS as id, i (id)}
 			{@const spot = title.spots[i]}
@@ -199,7 +244,12 @@
 			{/if}
 		{/each}
 
-		<div class="card starter-card" class:typing={touch.on && title.screen === 'naming'}>
+		<div
+			class="card starter-card"
+			class:typing={cardOnTop}
+			bind:this={starterCard}
+			bind:clientHeight={cardHeight}
+		>
 			{#if title.screen === 'starter'}
 				<div class="heading">{speciesName(species)}</div>
 				<div class="loves">

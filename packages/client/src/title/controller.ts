@@ -99,8 +99,12 @@ export class TitleController {
 	update(dt: number): void {
 		if (!title.open) return;
 		this.guard.tick(dt);
+		const starters = title.screen === 'starter' || title.screen === 'naming';
+		// The room the starter screen leaves the row (its card grows for the name box),
+		// before the stage slides: the name tags then follow the animals in the same frame.
+		if (starters) this.scenery.setRoom(title.room);
 		this.scenery.update(dt);
-		if (title.screen === 'starter' || title.screen === 'naming') {
+		if (starters) {
 			const spots = this.scenery.spots();
 			if (!sameSpots(spots, title.spots)) title.spots = spots;
 		}
