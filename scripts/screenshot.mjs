@@ -9,7 +9,7 @@
  *                               [--keys "ArrowRight*5,ArrowDown*3"] [--wait 1500]
  *                               [--settle 1500] [--key-interval 700] [--tap-ms 100]
  *                               [--width 1280 --height 800] [--scale 1]
- *                               [--clip x,y,w,h]
+ *                               [--clip x,y,w,h] [--gpu metal|swiftshader]
  *
  * `--keys` is a comma-separated script. A token is a key name (`ArrowRight`,
  * `Enter`, `2`), optionally `*n` to press it n times; or one of
@@ -38,11 +38,14 @@
  * non-zero on console errors and warnings, except failed `/api/` calls: the
  * game saves locally without the API, so those are listed at the end instead.
  *
- * Headless SwiftShader runs at a few frames per second, so buffered steps need
- * the `--settle` wait to finish before the screenshot. `--scale 3` renders the
- * same framing at three device pixels per CSS pixel and `--clip` keeps only a
- * region of it (CSS pixels): together they magnify a detail without changing
- * what the camera sees.
+ * WebGL draws on the GPU by default on a Mac (`--gpu metal`: ANGLE over Metal,
+ * as Chrome itself draws there), at 15–20 frames a second headless.
+ * `--gpu swiftshader` draws in software instead, the default elsewhere: well
+ * under 3 frames a second, so buffered steps need the `--settle` wait to finish
+ * before the screenshot. The first line printed names the renderer that drew.
+ * `--scale 3` renders the same framing at three device pixels per CSS pixel
+ * and `--clip` keeps only a region of it (CSS pixels): together they magnify a
+ * detail without changing what the camera sees.
  */
 import { chromium } from 'playwright-core';
 import { mkdirSync } from 'node:fs';
@@ -58,8 +61,8 @@ const url = args.url ?? 'http://localhost:5180/';
 const out = resolve(args.out ?? `screenshots/shot-${Date.now()}.png`);
 const wait = Number(args.wait ?? 1500);
 const settle = Number(args.settle ?? 1500);
-// One grid step takes ~3 frames at SwiftShader's frame rate; the client buffers
-// only two taps by design, so keys are spaced out to let each step complete.
+// A grid step takes a few frames, a second or more in software; the client
+// buffers only two taps by design, so keys are spaced out to let each step complete.
 const keyInterval = Number(args['key-interval'] ?? 700);
 // How long a key token holds its key. A step takes 0.18 s, and a key still
 // down when a step lands walks another tile, so a hold longer than a step is
@@ -81,11 +84,18 @@ const script = (args.keys ?? '')
 		return Array(Number(n ?? 1)).fill({ op: 'key', arg: key });
 	});
 
-const browser = await chromium.launch({
-	channel: 'chrome',
-	headless: true,
-	args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist']
-});
+// The Mac's GPU through ANGLE's Metal backend, or SwiftShader, Chrome's software
+// renderer: the fallback for a machine without Metal, or to rule the GPU out.
+const GPU_ARGS = {
+	metal: ['--use-angle=metal', '--enable-gpu', '--ignore-gpu-blocklist'],
+	swiftshader: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist']
+};
+const gpu = args.gpu ?? (process.platform === 'darwin' ? 'metal' : 'swiftshader');
+if (!GPU_ARGS[gpu]) {
+	console.error(`--gpu is metal or swiftshader, not "${gpu}"`);
+	process.exit(2);
+}
+const browser = await chromium.launch({ channel: 'chrome', headless: true, args: GPU_ARGS[gpu] });
 const page = await browser.newPage({ viewport: { width, height }, deviceScaleFactor: scale });
 const errors = [];
 // The game saves locally and backs up to the API when it can; it plays the same
@@ -227,6 +237,15 @@ const ext = extname(out);
 const stem = join(dirname(out), basename(out, ext));
 
 await page.goto(url, { waitUntil: 'networkidle' });
+// Which renderer drew the frames: a fresh canvas, so the game's context keeps its settings.
+const renderer = await page.evaluate(() => {
+	const gl = document.createElement('canvas').getContext('webgl2');
+	const info = gl?.getExtension('WEBGL_debug_renderer_info');
+	const name = info ? gl.getParameter(info.UNMASKED_RENDERER_WEBGL) : gl?.getParameter(gl.RENDERER);
+	gl?.getExtension('WEBGL_lose_context')?.loseContext();
+	return name ?? 'no WebGL';
+});
+console.log(`gpu: ${gpu} (${renderer})`);
 await page.waitForTimeout(wait);
 for (const { op, arg } of script) {
 	switch (op) {

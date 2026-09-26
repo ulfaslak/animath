@@ -1,4 +1,5 @@
 import {
+	ANIMALS,
 	ATTACK_LEVELS,
 	attackDamage,
 	getAnimal,
@@ -20,6 +21,7 @@ import { actionAt, attackRows } from '../src/battle/menu';
 import { parseParty } from '../src/flags';
 import { words } from '../src/lines';
 import { nameOf } from '../src/names';
+import type { BattleScene } from '../src/render/battle-scene';
 import type { GameRenderer } from '../src/render/renderer';
 import { battle } from '../src/state/battle.svelte';
 
@@ -358,6 +360,24 @@ describe('battle screen', () => {
 		t.run(0.2);
 		t.press('Enter');
 		expect(battle.active).toBe(false);
+	});
+
+	it('frees both figures once the result card is left', () => {
+		const t = setup();
+		t.walkIntoBattle();
+		t.run(3);
+		const scene = t.shown[0] as BattleScene;
+		const figures = () =>
+			scene.scene.children.filter((o) => ANIMALS.some((a) => a.id === o.name)).map((o) => o.name);
+		expect(figures()).toHaveLength(2);
+		t.press('ArrowUp', 'Enter'); // Run
+		t.runUntil(() => battle.screen === 'result');
+		t.run(1);
+		// Still on screen behind the result card.
+		expect(figures()).toHaveLength(2);
+		t.press('Enter');
+		expect(battle.active).toBe(false);
+		expect(figures()).toEqual([]);
 	});
 
 	it('ignores events for a battle that is no longer on screen', () => {
