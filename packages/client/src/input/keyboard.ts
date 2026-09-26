@@ -18,10 +18,13 @@ const WASD_BY_POSITION: Record<string, string> = { KeyW: 'w', KeyA: 'a', KeyS: '
  * The name every screen's key map reads for a key press: a letter in lower
  * case whatever Caps Lock and Shift say ("D" is "d"); on a keyboard that
  * types another alphabet (Russian, Greek), W A S D by where they sit; and
- * anything else as the browser names it ("Enter", "ArrowUp", "3", " ").
+ * anything else as the browser names it ("Enter", "ArrowUp", "3", " ", and
+ * "Process" while an input method is using the key, which is no W).
  */
 export function keyName(e: Pick<KeyboardEvent, 'key' | 'code'>): string {
-	const key = e.key.length === 1 ? e.key.toLowerCase() : e.key;
+	// One character is a letter, a digit or a sign; longer is a name.
+	if ([...e.key].length !== 1) return e.key;
+	const key = e.key.toLowerCase();
 	if (/^[a-z]$/.test(key)) return key;
 	return WASD_BY_POSITION[e.code] ?? key;
 }

@@ -75,7 +75,10 @@ describe('keyName', () => {
 			[{ key: '7', code: 'Numpad7' }, '7'],
 			[{ key: 'ArrowUp', code: 'ArrowUp' }, 'ArrowUp'],
 			[{ key: 'Escape', code: 'Escape' }, 'Escape'],
-			[{ key: 'S', code: '' }, 's'] // no code at all (a synthetic event)
+			[{ key: 'S', code: '' }, 's'], // no code at all (a synthetic event)
+			[{ key: 'Process', code: 'KeyW' }, 'Process'], // an input method at work: not a W
+			[{ key: 'Unidentified', code: 'KeyA' }, 'Unidentified'],
+			[{ key: 'Dead', code: 'KeyD' }, 'Dead']
 		];
 		expect(cases.map(([e]) => keyName(e))).toEqual(cases.map(([, name]) => name));
 	});
