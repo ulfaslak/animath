@@ -89,6 +89,11 @@ input {
 	pointer-events: none;
 }
 
-#ui > * {
+/*
+ * The overlay's own pieces take the pointer; the canvas behind takes the rest.
+ * Zero specificity, so a piece that must let taps through (a badge, the iris)
+ * says `pointer-events: none` in its own styles and wins.
+ */
+:where(#ui) > * {
 	pointer-events: auto;
 }

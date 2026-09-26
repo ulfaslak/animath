@@ -123,6 +123,7 @@
 		font-weight: 600;
 		font-size: 16px;
 		font-variant-numeric: tabular-nums;
+		/* A badge never takes a tap meant for what is under it. */
 		pointer-events: none;
 	}
 	.debug-cue {
