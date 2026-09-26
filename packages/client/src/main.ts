@@ -64,7 +64,7 @@ authority.subscribe((event) => {
 
 /**
  * Walking reads the keyboard only in explore, once the game has started, with
- * no card or menu open, and never on a page that is behind another window.
+ * no card or menu open, and never on a page that is behind the save.
  */
 const exploreInput = () =>
 	game.mode !== 'loading' &&

@@ -25,7 +25,7 @@
 {/if}
 
 {#if behind.shown}
-	<!-- Over everything: this window is behind another, and takes no play. -->
+	<!-- Over everything: this page is behind the save, and takes no play. -->
 	<BehindCard />
 {/if}
 
