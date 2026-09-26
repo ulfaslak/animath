@@ -22,9 +22,11 @@ export type {
 	AttackLevel,
 	AttackSpec,
 	Biome,
+	Realm,
+	Terrain,
 	Tier
 } from './animals/types.js';
-export { ATTACK_LEVELS, MAX_PARTY } from './animals/types.js';
+export { ATTACK_LEVELS, MAX_PARTY, REALMS, TERRAINS } from './animals/types.js';
 export { ANIMALS, getAnimal } from './animals/catalog.js';
 
 export { attackDamage } from './battle/damage.js';
@@ -72,7 +74,7 @@ export type {
 } from './party/types.js';
 
 export type { Chunk, Direction, GridPos, Tile, TileKind } from './world/types.js';
-export { CHUNK_SIZE, isEncounterTile, isWalkable, step } from './world/types.js';
+export { CHUNK_SIZE, encounterRealm, isEncounterTile, isWalkable, step } from './world/types.js';
 export { generateChunk, spawnPoint, tileAtWorld } from './world/generate.js';
 export { TENT_SEARCH_STEPS, canTalkToDoctor, nearestTent } from './world/tents.js';
 export type { TentSpot } from './world/tents.js';
@@ -85,8 +87,19 @@ export {
 	WILD_RADIUS,
 	distanceFromSpawn,
 	encounterTable,
+	encounterTableAt,
 	rollEncounter
 } from './world/encounters.js';
+export type { Surroundings } from './world/habitat.js';
+export {
+	HABITAT_BOOST,
+	HABITAT_FULL,
+	HABITAT_RADIUS,
+	HABITAT_TILES,
+	habitatFactor,
+	surroundings,
+	terrainShares
+} from './world/habitat.js';
 
 export { LINES } from './lines.js';
 export type { Line, LineKey, LineParam, LineParamKind, SpeciesRef } from './lines.js';
