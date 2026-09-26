@@ -17,7 +17,18 @@ import { SHARED_GEOMETRIES } from '../src/render/tiles';
  */
 type Resource = THREE.BufferGeometry | THREE.InstancedMesh;
 /** What a list of resources is, short enough for a failure message ("InstancedMesh", "ConeGeometry"). */
-const kinds = (list: Resource[]) => list.map((r) => r.type);
+const kinds = (list: Resource[]) =>
+	list.map((r) => (r instanceof THREE.InstancedMesh ? 'InstancedMesh' : r.type));
+
+/** Every resource the scene under `root` would draw. */
+function resourcesIn(root: THREE.Object3D): Set<Resource> {
+	const out = new Set<Resource>();
+	root.traverse((o) => {
+		if (o instanceof THREE.InstancedMesh) out.add(o);
+		if (o instanceof THREE.Mesh) out.add(o.geometry as THREE.BufferGeometry);
+	});
+	return out;
+}
 
 class Ledger {
 	readonly live = new Set<Resource>();
@@ -26,10 +37,7 @@ class Ledger {
 
 	/** Note everything under `root`, as drawing a frame of it would. */
 	see(root: THREE.Object3D): void {
-		root.traverse((o) => {
-			if (o instanceof THREE.InstancedMesh) this.track(o);
-			if (o instanceof THREE.Mesh) this.track(o.geometry as THREE.BufferGeometry);
-		});
+		for (const r of resourcesIn(root)) this.track(r);
 	}
 
 	isDisposed(r: Resource): boolean {
@@ -43,14 +51,15 @@ class Ledger {
 		);
 	}
 
+	/** Owned resources still live although the scene under `root` no longer shows them: leaks. */
+	ownedOutside(root: THREE.Object3D): Resource[] {
+		const shown = resourcesIn(root);
+		return this.owned().filter((r) => !shown.has(r));
+	}
+
 	/** Resources under `root` that were disposed while the scene still shows them. */
 	disposedIn(root: THREE.Object3D): Resource[] {
-		const out: Resource[] = [];
-		root.traverse((o) => {
-			if (o instanceof THREE.InstancedMesh && this.disposed.has(o)) out.push(o);
-			if (o instanceof THREE.Mesh && this.disposed.has(o.geometry)) out.push(o.geometry);
-		});
-		return out;
+		return [...resourcesIn(root)].filter((r) => this.disposed.has(r));
 	}
 
 	private track(r: Resource): void {
@@ -103,8 +112,8 @@ describe('the chunks around the player', () => {
 			[southWest, south],
 			[south, start]
 		];
-		let most = 0;
 		let chunk = chunkOf(start);
+		const leaks: string[] = [];
 		for (const [from, to] of legs) {
 			for (const p of line(from, to)) {
 				ring.update(p);
@@ -112,16 +121,17 @@ describe('the chunks around the player', () => {
 				if (chunkOf(p) === chunk) continue;
 				chunk = chunkOf(p);
 				ledger.see(parent);
-				most = Math.max(most, ledger.owned().length);
+				// At every crossing, what the chunks own is exactly what is on screen.
+				const leaked = ledger.ownedOutside(parent);
+				if (leaked.length) leaks.push(`${chunk}: ${kinds(leaked).length} left behind`);
+				if (ring.size !== RING) leaks.push(`${chunk}: ${ring.size} chunks built`);
 			}
 		}
 
-		expect(ring.size).toBe(RING);
+		expect(leaks.slice(0, 5)).toEqual([]);
 		expect(parent.children.length).toBe(RING);
-		// Back where it began, the chunks own exactly as much as they did then,
-		// and on the way it never held more than a ring's worth and a column.
+		// Back where it began, the chunks own exactly as much as they did then.
 		expect(ledger.owned().length).toBe(atStart);
-		expect(most).toBeLessThanOrEqual((atStart / RING) * (RING + 5));
 		// Nothing still on screen was freed (a shared shape disposed under another chunk).
 		expect(kinds(ledger.disposedIn(parent))).toEqual([]);
 		expect(kinds([...SHARED_GEOMETRIES].filter((g) => ledger.isDisposed(g)))).toEqual([]);
