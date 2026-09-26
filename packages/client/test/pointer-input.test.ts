@@ -235,7 +235,8 @@ describe('taps', () => {
 				super(key);
 			}
 		}
-		const standsAt = (row: Row, at: Point) => row.top >= 0 && at.y >= row.top && at.y < row.top + 40;
+		const standsAt = (row: Row, at: Point) =>
+			row.top >= 0 && at.y >= row.top && at.y < row.top + 40;
 		const middle = (row: Row): Point => ({ x: 400, y: row.top + 20 });
 		const newRows = () => new Taps<Row>((row) => row.key, standsAt);
 		/** Down on `row` at `at` at `time` ms, up 80 ms later: the key it pressed. */
@@ -338,13 +339,19 @@ describe('dragging a party card', () => {
 			const { tops } = column;
 			const last = tops.length - 1;
 			for (let from = 0; from <= last; from++) {
-				if (landing(column, from, 0) !== from) bad.push(`${column.heights.join('/')}: ${from} moved`);
+				if (landing(column, from, 0) !== from)
+					bad.push(`${column.heights.join('/')}: ${from} moved`);
 				for (let to = 0; to <= last; to++) {
 					const at = landing(column, from, slotTop(column, from, to) - tops[from]!);
-					if (at !== to) bad.push(`${column.heights.join('/')}: ${from} drawn at ${to} lands ${at}`);
+					if (at !== to)
+						bad.push(`${column.heights.join('/')}: ${from} drawn at ${to} lands ${at}`);
 				}
 				let was = 0;
-				for (let by = carriedBy(column, from, -10_000); by <= carriedBy(column, from, 10_000); by += 2) {
+				for (
+					let by = carriedBy(column, from, -10_000);
+					by <= carriedBy(column, from, 10_000);
+					by += 2
+				) {
 					const to = landing(column, from, by);
 					if (to < was) bad.push(`${column.heights.join('/')}: ${from} at ${by} back to ${to}`);
 					was = to;
@@ -367,7 +374,8 @@ describe('dragging a party card', () => {
 					let y = tops[0]!;
 					for (const k of order) {
 						const drawn = tops[k]! + shiftOf(column, from, to, k, 0, true);
-						if (drawn !== y) bad.push(`${heights.join('/')}: ${from}→${to}, card ${k} at ${drawn}, not ${y}`);
+						if (drawn !== y)
+							bad.push(`${heights.join('/')}: ${from}→${to}, card ${k} at ${drawn}, not ${y}`);
 						y += heights[k]! + 8;
 					}
 				}
@@ -385,7 +393,8 @@ describe('dragging a party card', () => {
 				phase = dragPhase(pointer, phase, ms % 100 ? 3 : 0, ms);
 				if (phase === 'carried' || phase === 'scroll') bad.push(`${pointer} at ${ms} ms: ${phase}`);
 			}
-			if (phase !== (pointer === 'finger' ? 'lifted' : 'pressed')) bad.push(`${pointer} ends ${phase}`);
+			if (phase !== (pointer === 'finger' ? 'lifted' : 'pressed'))
+				bad.push(`${pointer} ends ${phase}`);
 		}
 		expect(bad).toEqual([]);
 	});

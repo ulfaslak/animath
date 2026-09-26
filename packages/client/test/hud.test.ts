@@ -315,7 +315,11 @@ describe('trees and rocks in the way', () => {
 
 describe('a card of several animals', () => {
 	let made = 0;
-	const one = (speciesId: string, hp: number): AnimalInstance => ({ id: `a${made++}`, speciesId, hp });
+	const one = (speciesId: string, hp: number): AnimalInstance => ({
+		id: `a${made++}`,
+		speciesId,
+		hp
+	});
 	const fox = (hp: number) => one('fox', hp);
 	const FOX = getAnimal('fox').maxHp;
 
@@ -327,9 +331,12 @@ describe('a card of several animals', () => {
 				const red = low > 0 && hpBand(low, maxHp) === 'bad';
 				const words = stackSummary(card);
 				const { ready, tiredSoon, tired } = stackHealth(card);
-				if (ready + tiredSoon + tired !== 2) bad.push(`${id} at ${low}: counts ${ready}/${tiredSoon}/${tired}`);
-				if (red !== (tiredSoon === 1)) bad.push(`${id} at ${low}: tired soon ${tiredSoon}, bar red ${red}`);
-				if (red && words.includes(t('team.allReady'))) bad.push(`${id} at ${low}: ${words.join(' · ')}`);
+				if (ready + tiredSoon + tired !== 2)
+					bad.push(`${id} at ${low}: counts ${ready}/${tiredSoon}/${tired}`);
+				if (red !== (tiredSoon === 1))
+					bad.push(`${id} at ${low}: tired soon ${tiredSoon}, bar red ${red}`);
+				if (red && words.includes(t('team.allReady')))
+					bad.push(`${id} at ${low}: ${words.join(' · ')}`);
 			}
 		}
 		expect(bad.slice(0, 20), `${bad.length} in all`).toEqual([]);

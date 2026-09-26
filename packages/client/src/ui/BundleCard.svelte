@@ -82,7 +82,7 @@
 	{:else}
 		<span class="summary">
 			{#each stackSummary(animals) as part, i (i)}
-				{#if i > 0}<span class="dot"> · </span>{/if}<span class="part">{part}</span>
+				{#if i > 0}{' · '}{/if}<span class="part">{part}</span>
 			{/each}
 		</span>
 		{#if health}<span class="hp all"><HpBar hp={health.hp} max={health.max} thin /></span>{/if}
