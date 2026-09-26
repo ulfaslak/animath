@@ -9,21 +9,22 @@ import type { GridPos, TileKind } from './types.js';
  * `surroundings` counts the water, trees and rocks among the tiles within
  * `HABITAT_RADIUS` of the tile; everything else there (grass, tall grass,
  * reeds, sand, a tent) is open ground. Every species favours one terrain
- * (`AnimalSpec.favours`), and `habitatFactor` is how many times as often it
- * comes out here as where none of that terrain is near: 1 with none of it, up
- * to `HABITAT_BOOST` with plenty. The encounter table weighs each species by
- * it (`encounterTableAt` in `encounters.ts`): near spawn only against the
- * animals of its own tier, further out against the others too. So the ground
- * changes which animal comes out, never whether one does, nor which ones
- * could. [[PRODUCT]] §4 "Wild encounters" states the rule in prose; it must
- * agree with the constants below.
+ * (`AnimalSpec.favours`), and `habitatFactor` is the weight the ground gives
+ * it: 1 with none of that terrain near, up to `HABITAT_BOOST` with plenty.
+ * The encounter table weighs each species by it (`encounterTableAt` in
+ * `encounters.ts`): near spawn only against the animals of its own tier, so
+ * an animal alone in its tier comes out as often on any ground; further out
+ * against the others too. So the ground changes which animal comes out, never
+ * whether one does, nor which ones could. [[PRODUCT]] §4 "Wild encounters"
+ * states the rule in prose; it must agree with the constants below.
  *
  * A terrain's share of the surroundings runs from 0 to 1. Water, trees and
  * rocks each count fully from `HABITAT_FULL` tiles of them. Open ground counts
  * fully when none of the three is near, and not at all once they make
- * `HABITAT_FULL` tiles together. A species comes out `HABITAT_BOOST ^ share`
- * times as often: twice with half as much of its terrain, four times with
- * plenty.
+ * `HABITAT_FULL` tiles together. A species' factor is `HABITAT_BOOST ^ share`:
+ * 2 with half as much of its terrain, 4 with plenty. Against an animal it
+ * competes with that has none of its own ground, it comes out that many times
+ * as often.
  *
  * Adding a terrain (the boat's deep water, say) is a `Terrain` value, a case
  * in `coverOf`, a count in `Surroundings` and a share in `terrainShares`; the
@@ -36,7 +37,7 @@ export const HABITAT_RADIUS = 3;
 /** Water, trees or rocks count fully from this many of the tiles within the radius. */
 export const HABITAT_FULL = 7;
 
-/** With plenty of its favourite terrain near, a species comes out this many times as often as with none. */
+/** A species' factor with plenty of its favourite terrain near, against 1 with none. */
 export const HABITAT_BOOST = 4;
 
 /** How many of the tiles within `HABITAT_RADIUS` of a tile, not counting the tile itself, are water, trees and rocks. */
@@ -126,8 +127,10 @@ export function factorForShare(share: number): number {
 }
 
 /**
- * How many times as often `species` comes out where the ground is `around`
- * as where none of the terrain it favours is near: 1 to `HABITAT_BOOST`.
+ * The weight the ground `around` gives `species`: 1 with none of the terrain
+ * it favours near, up to `HABITAT_BOOST` with plenty. `encounterTableAt`
+ * weighs it against the other animals of its tier near spawn, and against
+ * every animal from the wild radius out.
  */
 export function habitatFactor(species: AnimalSpec, around: Surroundings): number {
 	return factorForShare(terrainShares(around)[species.favours]);
