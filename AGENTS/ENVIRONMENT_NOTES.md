@@ -24,7 +24,7 @@ Use `pnpm db:psql -c "<sql>"` (wraps `docker compose exec postgres psql`), or `d
 
 ## `git gtr new` may skip the `.env` copy and the `pnpm install` hook
 
-`.gtrconfig` asks gtr to copy `.env` and run `pnpm install` into every new worktree, and on 2026-09-25 it did neither, twice (the second time for `balance/starter-mirror-fights`): the fresh worktree had no `.env` and no `node_modules`. Without `.env` the server tests fail at startup with `DATABASE_URL is not set` (their vitest config derives the test database URL from it), which looks like a broken merge and isn't. After `git gtr new`, check `ls .env node_modules` in the worktree; if either is missing, `cp ../../mathgame/.env .` and `pnpm install` by hand. It happened a third time on the same day, for `feat/encounters-by-lead`.
+`.gtrconfig` asks gtr to copy `.env` and run `pnpm install` into every new worktree, and on 2026-09-25 it did neither, twice (the second time for `balance/starter-mirror-fights`): the fresh worktree had no `.env` and no `node_modules`. Without `.env` the server tests fail at startup with `DATABASE_URL is not set` (their vitest config derives the test database URL from it), which looks like a broken merge and isn't. After `git gtr new`, check `ls .env node_modules` in the worktree; if either is missing, `cp ../../mathgame/.env .` and `pnpm install` by hand. It happened a third time on the same day, for `feat/encounters-by-lead`, and again on 2026-09-26 for `fix/input-and-battle-ux`: assume it will, and check every time.
 
 ## Sibling agents share one scratchpad folder
 
