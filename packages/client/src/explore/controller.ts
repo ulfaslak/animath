@@ -116,7 +116,10 @@ export class ExploreController {
 				this.follower?.follow(this.from, this.pos);
 				break;
 			case 'player-blocked':
-				if (event.playerId === this.playerId) this.facing = event.dir;
+				if (event.playerId !== this.playerId) break;
+				// Turned where they stand: in the boat, a rider turns with it.
+				this.facing = event.dir;
+				this.follower?.face(event.dir);
 				break;
 			case 'player-placed':
 				// Put down, not walked: no tween, and the figure keeps its facing.

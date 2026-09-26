@@ -12,7 +12,7 @@ import {
 import * as THREE from 'three';
 import { motion } from '../motion';
 import { buildAnimalMesh, disposeFigure } from './animals';
-import { BOAT_STAND } from './boat';
+import { BOAT_DECK, BOAT_STAND } from './boat';
 import { appearScale, recallScale, smoothstep } from './ease';
 import { WATER_TOP, groundTop } from './tiles';
 
@@ -28,14 +28,16 @@ import { WATER_TOP, groundTop } from './tiles';
  * is ground, and it follows through). Out on the water, in the boat, the
  * trainer's last tile is water: an animal that swims swims behind the boat,
  * low in the water, and one that can't swim never stands there — it rides in
- * the boat instead, at the bow, made small enough to fit (`lead(…, riding)`),
- * and whoever comes out on a tile comes out beside the trainer. When the
- * trainer is put somewhere without walking (a new game, a game picked up, the
- * trip to the tent after a lost battle), it is put beside them at once —
- * behind, else to a side, else in front, on the first of those it could stand
- * on — and never walks across the map. When the trainer steps back onto its
- * tile, the two swap, and it steps round the trainer rather than through
- * them.
+ * the boat instead, standing on its deck at the bow facing forward, a big one
+ * made smaller to fit (`lead(…, riding)`), turning with the boat when the
+ * trainer bumps into something (`face`), and whoever comes out on a tile comes out beside
+ * the trainer. When the trainer is put somewhere without walking (a new game,
+ * a game picked up, the trip to the tent after a lost battle), it is put
+ * beside them at once — behind, else to a side, else in front, on the first
+ * of those it could stand on, in the trainer's realm first (the water behind
+ * the boat, the ground beside a trainer on land) — and never walks across the
+ * map. When the trainer steps back onto its tile, the two swap, and it steps
+ * round the trainer rather than through them.
  *
  * Who it is: the lead, the first animal that isn't tired (out on the water,
  * the first one that swims; with none standing, the lead on land rides in the
@@ -100,9 +102,18 @@ const DODGE = 0.38;
 const TURN_RATE = 16;
 /** Swimming, how much of its height is under the water. */
 export const SWIM_DEPTH = 0.4;
-/** Riding in the boat: how far ahead of the trainer it sits, at the bow, and how big it may be. */
-const RIDE_AHEAD = 0.27;
-export const RIDE_SIZE = 0.32;
+/**
+ * Riding in the boat, standing on its little deck at the bow (`BOAT_DECK`):
+ * how far its middle sits ahead of the middle of the boat, whose trainer
+ * stands back towards the stern (`BOAT_ASTERN`), and how long (nose to tail,
+ * or across) and how tall it may be. Nose to tail it stays between the
+ * trainer and the bow, inside its own tile, so it never reaches into a shore
+ * the boat faces. A small animal rides near its own size, a big one made
+ * smaller, all big enough to know.
+ */
+export const RIDE_AHEAD = 0.22;
+export const RIDE_LENGTH = 0.5;
+export const RIDE_HEIGHT = 0.6;
 
 export class Follower {
 	/** The tile it stands on or walks to; null until it is placed beside the trainer. */
@@ -128,8 +139,9 @@ export class Follower {
 	/** The species of the figure on screen, and whether it rides. */
 	private shown: string | null = null;
 	private riding = false;
-	/** A rider's size, to fit in the boat. */
+	/** A rider's size, to fit in the boat, and at its own size how far forward of its origin its middle is, nose to tail. */
 	private rideScale = 1;
+	private rideMiddle = 0;
 	/** Seconds of frame time, for the swimmers' bob. */
 	private t = 0;
 	/**
@@ -163,8 +175,10 @@ export class Follower {
 	/**
 	 * The trainer was put at `trainer` without walking, facing `facing`: stand
 	 * beside them at once, on the first tile it could stand on behind them, to
-	 * a side, or in front, in the world as `edits` leave it. With none, it
-	 * waits for the trainer's first step.
+	 * a side, or in front, in the world as `edits` leave it (`spotBeside`).
+	 * With none, it waits for the trainer's first step. With nobody on screen
+	 * yet (a game picked up), the lead picks its spot as it comes out
+	 * (`growIn`): where an otter goes is not where a squirrel would.
 	 */
 	place(
 		seed: number,
@@ -177,7 +191,7 @@ export class Follower {
 		this.trainerFrom = { ...trainer };
 		this.trainerTo = { ...trainer };
 		this.trainerFacing = facing;
-		const spot = this.spotBeside(this.shown ?? this.wanted);
+		const spot = this.shown === null ? null : this.spotBeside(this.shown);
 		this.at = spot;
 		this.from = spot;
 		this.aside = null;
@@ -215,6 +229,14 @@ export class Follower {
 		// a big animal never hides the trainer.
 		const swapping = to.x === at.x && to.y === at.y;
 		this.aside = swapping ? (from.x === at.x ? { x: -1, z: 0 } : { x: 0, z: -1 }) : null;
+	}
+
+	/**
+	 * The trainer turned without a step (they bumped into something): a rider
+	 * turns with the boat, to its bow; one following on a tile stays as it is.
+	 */
+	face(facing: Direction): void {
+		this.trainerFacing = facing;
 	}
 
 	/**
@@ -287,22 +309,28 @@ export class Follower {
 		this.aside = null;
 	}
 
-	/** In the boat, at the bow, looking where the trainer looks, as the trainer glides. */
+	/**
+	 * In the boat, standing on its deck at the bow, looking where the trainer
+	 * looks, as the trainer glides. Its middle stays put as it grows in or
+	 * shrinks away.
+	 */
 	private ride(figure: THREE.Group, progress: number): void {
 		const from = this.trainerFrom;
 		const to = this.trainerTo;
 		if (!from || !to) return;
 		const t = smoothstep(progress);
 		const ahead = AHEAD[this.trainerFacing];
+		const scale = this.rideScale * this.swapScale();
+		const reach = RIDE_AHEAD - this.rideMiddle * scale;
 		const yFrom = this.standAt(from);
 		figure.position.set(
-			from.x + (to.x - from.x) * t + ahead.x * RIDE_AHEAD,
-			yFrom + (this.standAt(to) - yFrom) * t + this.swapLift(),
-			from.y + (to.y - from.y) * t + ahead.z * RIDE_AHEAD
+			from.x + (to.x - from.x) * t + ahead.x * reach,
+			yFrom + (this.standAt(to) - yFrom) * t + BOAT_DECK + this.swapLift(),
+			from.y + (to.y - from.y) * t + ahead.z * reach
 		);
 		this.yaw = ANGLE[this.trainerFacing];
 		figure.rotation.y = this.yaw;
-		figure.scale.setScalar(this.rideScale * this.swapScale());
+		figure.scale.setScalar(scale);
 	}
 
 	/** Swap the figure when the lead changed: shrink the old one away, grow the new one in. */
@@ -354,8 +382,10 @@ export class Follower {
 		this.riding = this.wantRide;
 		if (this.riding) {
 			// Measured at its own size, before it starts growing in from nothing.
-			const size = new THREE.Box3().setFromObject(figure).getSize(new THREE.Vector3());
-			this.rideScale = Math.min(1, RIDE_SIZE / Math.max(size.x, size.y, size.z));
+			const box = new THREE.Box3().setFromObject(figure);
+			const size = box.getSize(new THREE.Vector3());
+			this.rideScale = Math.min(1, RIDE_LENGTH / Math.max(size.x, size.z), RIDE_HEIGHT / size.y);
+			this.rideMiddle = (box.min.z + box.max.z) / 2;
 		}
 		figure.scale.setScalar(0.001);
 		this.figure = figure;
@@ -390,14 +420,21 @@ export class Follower {
 
 	/**
 	 * The first tile beside the trainer, behind them, to a side, then in front,
-	 * that `species` could stand on; null when there is none.
+	 * that `species` could stand on, where the trainer is first: out on the
+	 * water, the water (an otter swims behind the boat rather than wait on the
+	 * beach beside it), on land, the ground. Null when there is none.
 	 */
-	private spotBeside(species: string | null): GridPos | null {
+	private spotBeside(species: string): GridPos | null {
 		const trainer = this.trainerTo;
 		if (!trainer) return null;
 		const facing = this.trainerFacing;
-		const order: Direction[] = [BEHIND[facing], ...SIDES[facing], facing];
-		return order.map((d) => step(trainer, d)).find((p) => this.canStand(p, species)) ?? null;
+		const spots = [BEHIND[facing], ...SIDES[facing], facing].map((d) => step(trainer, d));
+		const wet = this.waterAt(trainer);
+		return (
+			spots.find((p) => this.canStand(p, species) && this.waterAt(p) === wet) ??
+			spots.find((p) => this.canStand(p, species)) ??
+			null
+		);
 	}
 
 	/** Whether a tile is next to the one the trainer stands on or walks to: not that tile itself. */
