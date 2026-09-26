@@ -1,20 +1,26 @@
 <script lang="ts">
 	/**
-	 * The one HP bar, used by the party HUD and the battle status boxes.
+	 * The one HP bar, wherever an animal's HP shows (UI_SPEC § Component reuse).
 	 * Colour follows the fraction left (green, then amber under half, then red
 	 * under a fifth) and the numbers are always printed, so the state is
 	 * readable without colour. Any HP above zero shows at least a sliver, so
-	 * 1/100 never looks the same as a tired 0/100.
+	 * 1/100 never looks the same as a tired 0/100. `emptyTag` is a word written
+	 * in the empty track at 0 HP, where the bar would fill: the doctor's list
+	 * says "tired" there, beside a name of twelve wide letters that leaves no
+	 * room for a tag of its own. The track stays, so the bar still fills from
+	 * empty when the animal is healed.
 	 */
-	let { hp, max }: { hp: number; max: number } = $props();
+	let { hp, max, emptyTag }: { hp: number; max: number; emptyTag?: string } = $props();
 	const fraction = $derived(max > 0 ? Math.max(0, Math.min(1, hp / max)) : 0);
 	const band = $derived(fraction > 0.5 ? 'good' : fraction > 0.2 ? 'warn' : 'bad');
 	const width = $derived(hp > 0 ? Math.max(4, fraction * 100) : 0);
+	const tag = $derived(hp === 0 ? emptyTag : undefined);
 </script>
 
 <div class="hp">
-	<div class="track">
+	<div class="track" class:tagged={tag !== undefined}>
 		<div class="bar {band}" style:width="{width}%"></div>
+		{#if tag !== undefined}<span class="tag">{tag}</span>{/if}
 	</div>
 	<span class="text">{hp}/{max}</span>
 </div>
@@ -45,6 +51,20 @@
 	}
 	.bar.bad {
 		background: var(--bad);
+	}
+	/* The empty track holding its word: a tag as long as the bar, as tall as the word. */
+	.track.tagged {
+		display: flex;
+		align-items: center;
+		height: auto;
+		border-radius: 8px;
+		overflow: visible;
+	}
+	.tag {
+		padding: 1px 8px;
+		font-weight: 800;
+		font-size: 16px;
+		white-space: nowrap;
 	}
 	.text {
 		font-weight: 800;
