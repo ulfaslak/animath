@@ -397,6 +397,50 @@ describe('out on the water', () => {
 		expect(s.figures).toHaveLength(1);
 	});
 
+	it('back on land at once, before the lead has hopped into the boat: it comes back beside the trainer, never on their tile', () => {
+		const s = setup('squirrel', withBoat('squirrel'));
+		// Onto the water: the step lands, and the squirrel starts to hop into the boat…
+		s.authority.dispatch({ type: 'move', dir: 'up' });
+		s.settle(0.6);
+		// …as the trainer steps straight back onto the shore it was standing on.
+		s.authority.dispatch({ type: 'move', dir: 'down' });
+		s.settle(1.2);
+		expect(s.trainer()).toEqual({ x: -2, y: 6 });
+		expect(s.follower.species).toBe('squirrel');
+		expect(s.follower.inBoat).toBe(false);
+		expect(same(s.follower.tile, s.trainer())).toBe(false);
+		expect(beside(s.follower.tile, s.trainer())).toBe(true);
+		expect(standable(s.follower.tile!)).toBe(true);
+		expect(s.figures).toHaveLength(1);
+	});
+
+	it('one that can’t swim, over 600 quick steps on and off the water: never on the trainer’s tile, never in the water', () => {
+		const s = setup('squirrel', withBoat('squirrel'));
+		const rng = new Rng(78);
+		const dirs: Direction[] = ['up', 'down', 'left', 'right'];
+		const bad: string[] = [];
+		let rides = 0;
+		for (let i = 0; i < 600; i++) {
+			const before = { ...s.trainer() };
+			const dir = rng.next() < 0.6 ? (rng.next() < 0.5 ? 'up' : 'down') : dirs[rng.int(0, 3)]!;
+			s.authority.dispatch({ type: 'move', dir });
+			// Just long enough for a step into the boat or out of it to land: the next one
+			// often comes while the lead is still hopping in or out.
+			s.settle(rng.next() < 0.5 ? 0.6 : 0.7);
+			const at = `step ${i} (${dir}, trainer ${before.x},${before.y})`;
+			if (s.follower.inBoat) {
+				rides++;
+				continue;
+			}
+			const now = s.follower.tile;
+			if (s.follower.species && same(now, s.trainer())) bad.push(`${at}: on the trainer's tile`);
+			if (s.follower.species && now && water(now)) bad.push(`${at}: in the water`);
+			if (s.figures.length > 1) bad.push(`${at}: ${s.figures.length} figures`);
+		}
+		expect(bad.slice(0, 5)).toEqual([]);
+		expect(rides).toBeGreaterThan(50);
+	});
+
 	it('a squirrel first and an otter behind it: out on the water the otter follows, on land the squirrel', () => {
 		const s = setup('squirrel,otter', withBoat('squirrel,otter'));
 		expect(s.follower.species).toBe('squirrel');

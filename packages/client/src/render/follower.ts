@@ -24,11 +24,12 @@ import { WATER_TOP, groundTop } from './tiles';
  * nothing, and the authority never hears of it.
  *
  * Where it stands: the trainer's last tile, which the trainer stood on, so
- * never rock, a tree or a tent (a stump where the trainer chopped a tree
- * down is ground, and it follows through). Out on the water, in the boat, the trainer's
- * last tile is water: an animal that swims swims behind the boat, low in the
- * water, and one that can't swim never stands there — it rides in the boat
- * instead, at the bow, made small enough to fit (`lead(…, riding)`). When the
+ * never rock, a tree or a tent (a stump where the trainer chopped a tree down
+ * is ground, and it follows through). Out on the water, in the boat, the
+ * trainer's last tile is water: an animal that swims swims behind the boat,
+ * low in the water, and one that can't swim never stands there — it rides in
+ * the boat instead, at the bow, made small enough to fit (`lead(…, riding)`),
+ * and whoever comes out on a tile comes out beside the trainer. When the
  * trainer is put somewhere without walking (a new game, a game picked up, the
  * trip to the tent after a lost battle), it is put beside them at once —
  * behind, else to a side, else in front, on the first of those it could stand
@@ -333,13 +334,15 @@ export class Follower {
 	/**
 	 * The lead comes out: in the boat when it rides, else on the tile it stands
 	 * on, or, when it can't stand there (one that can't swim, and the trainer's
-	 * last tile was water), beside the trainer. With nowhere beside them it
-	 * waits for the trainer's next step.
+	 * last tile was water) or that tile is no longer beside the trainer (they
+	 * stepped back onto it while the lead was hopping into the boat), beside
+	 * the trainer. With nowhere beside them it waits for the trainer's next step.
 	 */
 	private growIn(): void {
 		const species = this.wanted;
 		if (species === null) return;
-		if (!this.wantRide && (!this.at || !this.canStand(this.at, species))) {
+		const stays = this.at && this.besideTrainer(this.at) && this.canStand(this.at, species);
+		if (!this.wantRide && !stays) {
 			const spot = this.spotBeside(species);
 			if (!spot) return;
 			this.at = spot;
@@ -395,6 +398,11 @@ export class Follower {
 		const facing = this.trainerFacing;
 		const order: Direction[] = [BEHIND[facing], ...SIDES[facing], facing];
 		return order.map((d) => step(trainer, d)).find((p) => this.canStand(p, species)) ?? null;
+	}
+
+	/** Whether a tile is next to the one the trainer stands on or walks to: not that tile itself. */
+	private besideTrainer(p: GridPos): boolean {
+		return !!this.trainerTo && adjacent(p, this.trainerTo);
 	}
 
 	/**
