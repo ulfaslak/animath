@@ -11,8 +11,16 @@ import { GameRenderer } from './render/renderer';
 import { buildZoo } from './render/zoo';
 import { httpSaveServer } from './save/api';
 import { Autosave } from './save/autosave';
+import {
+	behindAction,
+	behindKey,
+	mayReloadNow,
+	reloadIntoNewestGame,
+	takeCaughtUp
+} from './save/behind';
 import { browserStore } from './save/storage';
 import { battle } from './state/battle.svelte';
+import { behind } from './state/behind.svelte';
 import { doctor } from './state/doctor.svelte';
 import { game } from './state/game.svelte';
 import { hud } from './state/hud.svelte';
@@ -54,9 +62,16 @@ authority.subscribe((event) => {
 	}
 });
 
-/** Walking reads the keyboard only in explore, once the game has started, with no card or menu open. */
+/**
+ * Walking reads the keyboard only in explore, once the game has started, with
+ * no card or menu open, and never on a page that is behind another window.
+ */
 const exploreInput = () =>
-	game.mode !== 'loading' && !battle.active && !doctor.active && !pause.open;
+	game.mode !== 'loading' &&
+	!battle.active &&
+	!doctor.active &&
+	!pause.open &&
+	!autosave.wantsReload;
 
 // Keys go to exactly one screen: the battle while it is up, else the doctor's
 // card while it is open, else the pause menu while it is open (Escape in
@@ -64,6 +79,15 @@ const exploreInput = () =>
 // Explore's own listener runs first and is switched off here at once, so the
 // key that opens the menu is the last one walking sees.
 window.addEventListener('keydown', (e) => {
+	if (autosave.wantsReload) {
+		// Behind another window: no key reaches the game. Enter or Space catch up.
+		keyboard.setEnabled(false);
+		if (!e.ctrlKey && !e.metaKey && !e.altKey && behindKey(e.key) === 'reload') {
+			e.preventDefault();
+			catchUp(true);
+		}
+		return;
+	}
 	if (battle.active) battleController.onKey(e);
 	else if (doctor.active) doctorController.onKey(e);
 	else if (game.mode === 'explore') pauseController.onKey(e);
@@ -81,57 +105,61 @@ window.addEventListener('storage', (e) => autosave.onStorage(e.key));
 mount(App, { target: uiRoot });
 
 /**
- * Whether the page may reload itself now: at most 3 times a minute, so no
- * bug can trap a kid in a reload loop. A page that may not stays as it is,
- * behind and no longer saving, until the kid reloads it.
+ * Reload into the newest game. Asked for by the kid (Enter on the card), it
+ * always goes; on its own it goes at most `RELOADS_PER_MINUTE` times a
+ * minute (`mayReloadNow`), so no bug can trap a kid in a loop of reloads.
+ * False when it may not go: the page shows the card instead.
  */
-function mayReload(): boolean {
-	try {
-		const now = Date.now();
-		const recent = (
-			JSON.parse(sessionStorage.getItem('animath.reloads') ?? '[]') as number[]
-		).filter((t) => now - t < 60_000);
-		if (recent.length >= 3) {
-			console.warn('Animath: not reloading again so soon; this tab has stopped saving.');
-			return false;
-		}
-		sessionStorage.setItem('animath.reloads', JSON.stringify([...recent, now]));
-	} catch {
-		// No session storage: reload anyway.
-	}
+let reloading = false;
+let mayReloadItself = true;
+function catchUp(asked: boolean): boolean {
+	if (reloading) return true;
+	if (!asked && !(mayReloadItself &&= mayReloadNow())) return false;
+	reloading = true;
+	reloadIntoNewestGame();
 	return true;
 }
 
-let reloading = false;
 let last = performance.now();
 function frame(now: number) {
 	const dt = Math.min(0.1, (now - last) / 1000);
 	last = now;
-	// Another tab took the game further: pick up the newest save, once this tab is looked at.
-	if (autosave.wantsReload && !reloading && document.visibilityState === 'visible') {
-		reloading = true;
-		if (mayReload()) location.reload();
-	}
+	// Another window has played on past this one (`save/behind.ts`): this page takes no
+	// play. In use, it reloads into the newest game; on screen but not in use, or after
+	// reloading too often, it says so and waits; hidden, it waits to be shown.
+	const action = behindAction({
+		behind: autosave.wantsReload,
+		visible: document.visibilityState === 'visible',
+		focused: document.hasFocus(),
+		mayReload: mayReloadItself
+	});
+	const card = action === 'card' || (action === 'reload' && !catchUp(false));
+	if (behind.shown !== card) behind.shown = card;
 	const loading = game.mode === 'loading';
 	keyboard.setEnabled(exploreInput());
 	if (!loading) {
-		// While a battle is entering, the world keeps drawing so the step into the
-		// grass can land; explore input is already off, so no new step starts.
-		// The doctor's card is drawn over the world, which keeps drawing under it.
-		if (!battle.active || battle.entering) explore.update(dt);
-		if (battle.active) battleController.update(dt);
-		if (doctor.active) doctorController.update(dt);
-		// The message line's clock runs only while the explore HUD is on screen.
-		if (!battle.active && !doctor.active && !pause.open) hud.tick(dt);
+		if (action === 'play') {
+			// While a battle is entering, the world keeps drawing so the step into the
+			// grass can land; explore input is already off, so no new step starts.
+			// The doctor's card is drawn over the world, which keeps drawing under it.
+			if (!battle.active || battle.entering) explore.update(dt);
+			if (battle.active) battleController.update(dt);
+			if (doctor.active) doctorController.update(dt);
+			// The message line's clock runs only while the explore HUD is on screen.
+			if (!battle.active && !doctor.active && !pause.open) hud.tick(dt);
+		}
 		renderer.render();
 	}
 	requestAnimationFrame(frame);
 }
 requestAnimationFrame(frame);
 
+const caughtUp = takeCaughtUp();
 void autosave.boot().then((plan) => {
 	authority.start({ game: plan.game });
-	// After `welcome`, which clears the message line.
-	if (plan.notice) hud.notice(plan.notice);
+	// After `welcome`, which clears the message line. A page that reloaded to catch up
+	// with another window says so instead of "Welcome back!".
+	const notice = caughtUp && plan.notice === 'save.welcomeBack' ? 'save.caughtUp' : plan.notice;
+	if (notice) hud.notice(notice);
 	autosave.begin();
 });

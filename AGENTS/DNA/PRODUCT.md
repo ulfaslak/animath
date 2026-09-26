@@ -115,7 +115,7 @@ A new player starts with one tier-1 animal (a squirrel in the prototype). A star
 - **Always saved, never a save button.** The game is saved in this browser after every step, every battle turn and every catch, and when the page is closed. A reload, or coming back another day on the same browser and the same address, carries on exactly where you were: the same place, facing the same way, the same animals with the same HP.
 - **A reload is not an escape.** A battle in progress is saved too: a reload picks it up with the same wild animal, the same HP, and the same puzzle if one was up. The step count is saved, so the animals ahead on a walk stay the ones they were; reloading never rerolls an encounter, a puzzle or a throw.
 - **A backup on the server.** Each player's save is also copied to the server, in the background, when the server can be reached. A browser that still knows the player but has lost its save gets the game back from there. The game never waits on the server, and plays and saves the same without it.
-- **Two windows.** Both show the same game. A window that falls behind a catch, a battle or anything else made in the other one reloads into the newer game when you look at it, so nothing is ever rolled back. Walking around in both is fine: the window you play in carries on from where you are.
+- **Two windows.** Both show the same game. A window that falls behind a catch, a battle or anything else made in the other one takes no more play. When you come to it, it loads the newer game and says "You were playing in another window. Here's your newest game!". While it is on screen but you play in the other one, a card says "You kept playing in another window." Nothing is ever rolled back, and nothing played in a window that is behind is thrown away, because none is taken. Walking around in both is fine: the window you play in carries on from where you are.
 - **A save that won't load** starts a new game with a message ("Your saved game didn't load, so here is a new one."). The old save is kept: it stays where it was until you have played the new game (a battle, a catch), then it is set aside, never deleted. A save made by a newer version of the game is left alone, and this page asks for a reload.
 - **Starting fresh** is clearing the site's data in the browser; nothing in the game deletes a save. `?new` in the address plays a new game that is saved nowhere, leaving the saved one alone.
 
@@ -155,7 +155,7 @@ What is built and observable today. Keep current: add a bullet when a feature sh
 
 - The game saves itself in the browser after every step, battle turn and catch, and on closing the page; a reload or a later visit carries on exactly where you were, in the middle of a battle or a puzzle included (§4 "Saving"). "Welcome back!" on the message line when a saved game is picked up.
 - A backup on the server, sent in the background when it can be reached; a browser that lost its save but still knows the player gets its game back from it.
-- Two windows of the game never undo each other: the one that falls behind reloads into the newer game when looked at.
+- Two windows of the game never undo each other: the one that falls behind takes no play, says so on a card while you play in the other, and loads the newer game ("Here's your newest game!") when you come to it.
 - A save that cannot be read starts a new game with a message and is kept, set aside once the new game has been played; a newer version's save is left alone. `?new` plays a game that is saved nowhere.
 
 ### Language

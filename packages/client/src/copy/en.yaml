@@ -116,6 +116,7 @@ doctor:
 keys:
   # A key cap, as printed on the keyboard.
   esc: Esc
+  enter: Enter
 
 hud:
   # The tag on the card of the lead: the animal that steps into the next battle.
@@ -163,3 +164,9 @@ save:
   newerGame: Your game was saved by a newer Animath. Reload the page to play it!
   # The browser will not let the page store anything, so nothing is saved.
   cannotSave: This browser can't keep your game, so it starts new every time.
+  # After a window that another window of the game had played past loads the newest game.
+  caughtUp: You were playing in another window. Here's your newest game!
+  # On a window that another window of the game has played past, until it catches up.
+  behind: You kept playing in another window.
+  # The button on that card.
+  behindGo: Get your newest game

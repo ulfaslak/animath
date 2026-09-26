@@ -1,10 +1,12 @@
 <script lang="ts">
 	import { flags } from '../flags';
 	import { battle } from '../state/battle.svelte';
+	import { behind } from '../state/behind.svelte';
 	import { doctor } from '../state/doctor.svelte';
 	import { game } from '../state/game.svelte';
 	import { pause } from '../state/pause.svelte';
 	import BattlePanel from './BattlePanel.svelte';
+	import BehindCard from './BehindCard.svelte';
 	import DoctorCard from './DoctorCard.svelte';
 	import Hud from './Hud.svelte';
 	import PauseMenu from './PauseMenu.svelte';
@@ -20,6 +22,11 @@
 	<PauseMenu />
 {:else}
 	<Hud />
+{/if}
+
+{#if behind.shown}
+	<!-- Over everything: this window is behind another, and takes no play. -->
+	<BehindCard />
 {/if}
 
 {#if flags.debug && game.mode !== 'loading'}

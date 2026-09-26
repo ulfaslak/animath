@@ -116,6 +116,7 @@ doctor:
 keys:
   # A key cap, as printed on the keyboard.
   esc: Esc
+  enter: Enter
 
 hud:
   # The tag on the card of the lead: the animal that steps into the next battle.
@@ -163,3 +164,9 @@ save:
   newerGame: Dit spil er gemt af en nyere Animath. Genindlæs siden for at spille det!
   # The browser will not let the page store anything, so nothing is saved.
   cannotSave: Denne browser kan ikke gemme dit spil, så det starter forfra hver gang.
+  # After a window that another window of the game had played past loads the newest game.
+  caughtUp: Du spillede i et andet vindue. Her er dit nyeste spil!
+  # On a window that another window of the game has played past, until it catches up.
+  behind: Du spillede videre i et andet vindue.
+  # The button on that card.
+  behindGo: Hent dit nyeste spil
