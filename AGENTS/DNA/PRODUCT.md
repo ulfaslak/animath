@@ -40,7 +40,7 @@ Two modes only, borrowed from the Game Boy games: **Explore** and **Battle**. Fi
 - **Animals have no levels.** A species' strength is entirely its attack table and HP. Tier is a label for "how fierce", used to scale puzzles and catch odds.
 - Attacks are ordered weakest to strongest, n = 1..N. Each attack can be used at level 1, 2 or 3.
 - **Damage** grows with both: `damage(n, level) = power_n × [1, 1.6, 2.4][level]`, rounded. Attack N at level 3 is the species' hardest hit; attack 1 at level 1 its softest. Within a species `power` strictly increases with n.
-- **Puzzle difficulty** grows the same way: `difficulty(tier, n, level) = base[tier] + 0.75·(n−1) + (level−1)`, clamped to 1..10, with `base = [1, 2, 4, 5, 7]` for tiers 1–5. So a squirrel asks difficulty 1–4 and a bear 7–10.
+- **Puzzle difficulty** grows the same way. An attack's easy level asks `base[tier] + 0.75·(n−1)`, rounded, with `base = [1, 2, 4, 5, 7]` for tiers 1–5, but never more than 8; each level up asks exactly one more: `difficulty(tier, n, level) = min(round(base[tier] + 0.75·(n−1)), 8) + (level−1)`. So a squirrel asks difficulty 1–4 and a bear 7–10, and every level of an attack asks one difficulty more than the one below it, all the way to 10: medium and hard never ask at the same difficulty. Neighbouring difficulties can still share a puzzle now and then ("Puzzles" below promises bigger numbers two difficulties apart), so a harder level asks harder sums on average, not every time. The cap of 8 only reaches the bear's two strongest attacks, Maul and Crush, which ask 8, 9 and 10 (they asked 9, 10 and 10 before it, #32): their easy and medium each got a step easier for the same damage. Four attacks in the bear's four difficulties must share ladders. Roar, Maul and Crush all ask 8, 9 and 10, so at a given difficulty only the kind of sum and the damage set them apart, and Crush hits hardest.
 - Tier ladder in the prototype catalog: squirrel, rabbit, frog (1) · fox, otter (2) · deer (3) · wolf (4) · bear (5). Don't face a bear with a squirrel.
 - Each animal has its own mix of puzzles. The squirrel and the rabbit ask sums (adding, taking away, missing numbers; the rabbit's strongest attack a number pattern). The frog counts in hops: its weakest attack asks number patterns, the other two times tables (the strongest either). It lives in the river reeds and sits between the squirrel and the rabbit: 21 HP, attacks of power 4, 5 and 7.
 
@@ -134,12 +134,12 @@ What is built and observable today. Keep current: add a bullet when a feature sh
 ### Explore
 
 - Procedural chunked world with four biomes, water, sand, tall grass (including reeds on river banks), trees, rocks and doctor tents, rendered low-poly with a fixed camera.
-- Grid movement with arrow keys / WASD; blocked tiles (water, rock, trees, doctor tents) stop you; a tap always moves one tile.
-- The player is a small trainer figure — a kid in a cap — that faces the way it walks, stands on top of hills and breathes while idle.
+- Grid movement with arrow keys / WASD (Caps Lock or not); blocked tiles (water, rock, trees, doctor tents) stop you; a tap always moves one tile. Browser shortcuts (Cmd+D, Ctrl+S) are left to the browser.
+- The player is a small trainer figure — a kid in a cap — that faces the way it walks, swings its arms and legs with every step, stands on top of hills and breathes while idle.
 - A crude but recognisable low-poly figure for every species, built from primitives with one exaggerated tell each. They fight in battles; the `?zoo` line-up (see [[CHEATSHEET]]) shows them all at once.
 - Party HUD: one card per animal in battle order with its number key, its name (nickname if it has one) and an HP bar with numbers; a knocked-out animal is greyed with a "tired" tag, and the lead is outlined and tagged "goes first".
 - Choosing the lead from explore: the number keys pick who goes first (§4 "Party"); a tired animal can't go first, and the message line says so.
-- Pause menu (Escape in explore): the team in battle order, where an animal can go first, move up or down, or get a nickname typed in a name box. Walking waits while it is open.
+- Pause menu (Escape in explore): the team in battle order, where an animal can go first, move up or down, or get a nickname typed in a name box, then the Language and Sound settings and "Keep playing". Walking waits while it is open.
 - Message line: the latest message for a few seconds, the controls hint for the first few steps, and "Press Enter to talk to the doctor" while the player faces a tent ([[UI_SPEC]] § Explore mode).
 - Doctor's tents: facing a tent, Enter opens the doctor's card ([[UI_SPEC]] § Doctor). Pick a hurt or tired animal, solve its puzzle and it is back to full HP; a wrong answer just brings another puzzle; the list stays live during a puzzle; Bye or Escape leaves at any time. With nobody hurt, the doctor says everyone is fit and happy. The doctor speaks English and Danish, like the rest of the game.
 
@@ -149,7 +149,7 @@ What is built and observable today. Keep current: add a bullet when a feature sh
 - Frogs live in the river reeds, the first of them one step from the start: a third tier-1 animal, green and squat with big eyes, whose attacks ask number patterns and times tables. Squirrels and rabbits still come down to the water near home, so the otters there stay rare.
 - Battle mode, Game Boy style ([[UI_SPEC]] § Battle mode): the two animals face each other on a patch of the biome, with status boxes, a narration line, an action menu (every attack with its own level — easy, medium or hard — then Leash, with a word for how likely a catch is, Switch and Run) and the puzzle panel. Every attack is a puzzle answered by typing a number. The wild animal's reply and knock-outs are played out one line at a time.
 - Switching animals mid-battle (§4 "Battle"): Switch opens the party list, with tired animals greyed and the one in front marked; the switch takes the turn. After a knock-out the same list asks who goes next, and that pick is free. With a party of one the Switch row is greyed and says to catch a second animal.
-- Catching with the leash; a caught animal joins the party (up to six) with the HP it had. With six already, it goes back into the grass.
+- Catching with the leash; a caught animal joins the party (up to six) with the HP it had. With six already, the Leash row says the team is full in place of the odds, and a caught animal hops home: the card says "Good throw!", never that it was caught.
 - HP lost in a battle stays lost afterwards; a knocked-out animal stays tired and sits out battles until healed.
 - Losing: when the whole party is tired, the result card says "Good try!", and the player is back in the world beside the nearest tent on foot, facing it, with the whole party healed and the doctor's line on the message line (§4 "Knock-out and healing").
 
@@ -159,6 +159,12 @@ What is built and observable today. Keep current: add a bullet when a feature sh
 - A backup on the server, sent in the background when it can be reached; a browser that lost its save but still knows the player gets its game back from it.
 - Two windows of the game never undo each other: the one that falls behind takes no play, says so on a card while you play in the other, and loads the newer game ("Here's your newest game!") when you come to it.
 - A save that cannot be read starts a new game with a message and is kept, set aside once the new game has been played; a newer version's save is left alone. `?new` plays a game that is saved nowhere.
+
+### Sound and feel
+
+- Sound: short, soft sounds made while the game runs, no sound files ([[DESIGN]] § Sound) — a jingle when a wild animal jumps out, blips on the menus, a chime for a right answer and a soft bonk for a miss, a thump for a hit, a puff when an animal gets tired, the leash's whoosh, tick-tock and its fanfare or boing, a sparkle at the doctor, a ding for a new lead and a fanfare for a win. Every sound goes with something on screen.
+- Sound setting: on by default, a Sound row in the pause menu, and M on any screen except while typing; remembered on this device.
+- Little flourishes ([[UI_SPEC]] § Sound and juice): an iris that closes on the player and opens on the wild animal, a ring of dust round a tired animal, confetti round a caught one, sparkles along a healed animal's HP bar, the trainer's walk. A system set to reduce motion gets calmer versions.
 
 ### Language
 
@@ -185,7 +191,7 @@ What is built and observable today. Keep current: add a bullet when a feature sh
 
 In rough priority order. Each becomes a GitHub issue when picked up.
 
-1. A title screen, and sound with its setting in the pause menu, beside Language.
+1. A title screen.
 2. Real low-poly animal models (glTF, CC0 sources, see [[DECISIONS]]) with attack animations, replacing the primitive figures.
 3. Procedural world v2: rivers that flow, paths, biome shaping, landmarks, spawn tables.
 4. Puzzle catalog v2: fractions, decimals, negatives, word problems, per-child adaptive difficulty.

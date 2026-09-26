@@ -192,6 +192,10 @@ battle:
     good: Good chance!
     maybe: Maybe
     hard: Hard to catch
+    # Beside the row in place of the odds, when the team already has six animals.
+    teamFull: Team is full
+    # What the row says when highlighted with the team full: a catch goes home.
+    teamFullDetail: Your team is full. If you catch it, it hops home.
     # Narration of a throw.
     throw: You throw the leash…
     caught: Caught!
@@ -224,6 +228,8 @@ battle:
   result:
     won: You won!
     caught: 'You caught {animal.a}!'
+    # Caught, but the team was full, so the animal went home: never "You caught…".
+    letGo: Good throw!
     lost: Good try!
     fled: You got away!
     button: Keep exploring
@@ -233,7 +239,7 @@ battle:
     won: '{animal.theWild} runs home to rest.'
     fled: '{animal.theWild} stays in the grass.'
     joined: '{animal.name} joins your team!'
-    teamFull: 'Your team is full, so {animal.the} goes back into the grass.'
+    teamFull: 'Your team is full, so {animal.theWild} hops home.'
 
 doctor:
   # The name tag in front of what the doctor says.
@@ -280,6 +286,12 @@ pause:
   # The row that switches every word to another language; each language is
   # listed by its own name (language.name above).
   language: Language
+  # The Sound setting's row: its name, then the word beside its switch.
+  sound: Sound
+  soundOn: 'On'
+  soundOff: 'Off'
+  # The right-hand panel while the Sound row is highlighted.
+  soundHelp: Enter or ← → turns the sound on and off. You can also press M.
   # The picked animal's options: become the lead, move one place, get a nickname.
   goFirst: Go first
   moveUp: Move up
@@ -300,6 +312,7 @@ pause:
   # The key reminder at the bottom, one per screen of the menu.
   keysList: ↑ ↓ choose · Enter pick · Esc close
   keysLanguage: ↑ ↓ choose · ← → or Enter change the language · Esc close
+  keysSound: ↑ ↓ choose · ← → or Enter sound off or on · Esc close
   keysOptions: ↑ ↓ choose · Enter do it · Esc back
   keysNaming: Enter save · Esc back
 
@@ -324,3 +337,10 @@ save:
   behindGone: A new game is ready.
   # The button on that card.
   behindGo: Get your newest game
+
+sound:
+  # The chip at the top of the screen after M turned the sound on or off.
+  chipOn: Sound is on
+  chipOff: Sound is off
+  # Under "Sound is off": how to get it back.
+  chipHint: Press M to turn it back on

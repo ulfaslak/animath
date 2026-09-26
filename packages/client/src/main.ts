@@ -1,11 +1,13 @@
 import './styles.css';
 import { mount } from 'svelte';
+import { sfx } from './audio/sfx.svelte';
 import { LocalAuthority, mintId } from './authority/local';
 import { BattleController } from './battle/controller';
 import { DoctorController } from './doctor/controller';
 import { ExploreController } from './explore/controller';
 import { flags } from './flags';
 import { Keyboard } from './input/keyboard';
+import { isSoundKey, typingNow } from './input/sound-key';
 import { PauseController } from './pause/controller';
 import { GameRenderer } from './render/renderer';
 import { buildZoo } from './render/zoo';
@@ -73,28 +75,34 @@ const exploreInput = () =>
 	!pause.open &&
 	autosave.behind === null;
 
-/** A text box has the focus (the pause menu's name box): a Space there is a letter. */
-const typing = () =>
-	document.activeElement instanceof HTMLInputElement ||
-	document.activeElement instanceof HTMLTextAreaElement;
+// Browsers let a page make sound only after a key press, click or touch; each
+// one wakes the sound (the first makes it), before any screen plays a cue.
+for (const type of ['keydown', 'pointerdown', 'touchend']) {
+	window.addEventListener(type, () => sfx.unlock(), { capture: true });
+}
 
 // Keys go to exactly one screen: the battle while it is up, else the doctor's
 // card while it is open, else the pause menu while it is open (Escape in
 // explore opens it), else explore, which reads them through `keyboard`.
 // Explore's own listener runs first and is switched off here at once, so the
-// key that opens the menu is the last one walking sees.
+// key that opens the menu is the last one walking sees. M turns the sound on
+// or off on every screen, except while an answer or a name is being typed. A
+// page that is behind the save takes no key at all.
 window.addEventListener('keydown', (e) => {
 	if (autosave.behind !== null) {
 		// Behind (`save/behind.ts`): no key reaches the game, nor a letter the name box.
 		// The browser's own keys (with Ctrl, Alt or Cmd, and F1–F12) still work. Enter,
-		// or Space outside a text box, catches up.
+		// or Space while nothing is being typed, catches up.
 		keyboard.setEnabled(false);
 		if (e.ctrlKey || e.metaKey || e.altKey || /^F\d+$/.test(e.key)) return;
 		e.preventDefault();
-		if (behindKey(e.key, typing()) === 'reload') catchUp(false);
+		if (behindKey(e.key, typingNow(e.target)) === 'reload') catchUp(false);
 		return;
 	}
-	if (battle.active) battleController.onKey(e);
+	if (isSoundKey(e) && game.mode !== 'loading' && !typingNow(e.target)) {
+		e.preventDefault();
+		if (!e.repeat) sfx.flip();
+	} else if (battle.active) battleController.onKey(e);
 	else if (doctor.active) doctorController.onKey(e);
 	else if (game.mode === 'explore') pauseController.onKey(e);
 	keyboard.setEnabled(exploreInput());

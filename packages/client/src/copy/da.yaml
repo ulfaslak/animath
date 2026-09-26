@@ -164,6 +164,8 @@ battle:
     good: God chance!
     maybe: Måske
     hard: Svært at fange
+    teamFull: Holdet er fuldt
+    teamFullDetail: Dit hold er fuldt. Fanger du dyret, hopper det hjem.
     throw: Du kaster snoren…
     caught: Fanget!
     brokeFree: Snoren gled af!
@@ -189,6 +191,7 @@ battle:
   result:
     won: Du vandt!
     caught: 'Du fangede {animal.a}!'
+    letGo: Flot kast!
     lost: Godt forsøgt!
     fled: Du slap væk!
     button: Gå videre
@@ -196,7 +199,7 @@ battle:
     won: '{animal.theWild} løber hjem og hviler sig.'
     fled: '{animal.theWild} bliver i græsset.'
     joined: '{animal.the} kommer med på dit hold!'
-    teamFull: 'Dit hold er fuldt, så {animal.the} løber tilbage i græsset.'
+    teamFull: 'Dit hold er fuldt, så {animal.theWild} hopper hjem.'
 
 doctor:
   title: Dyrlæge
@@ -224,6 +227,10 @@ pause:
   team: Dit hold
   resume: Spil videre
   language: Sprog
+  sound: Lyd
+  soundOn: Til
+  soundOff: Fra
+  soundHelp: Enter eller ← → tænder og slukker lyden. Du kan også trykke på M.
   goFirst: Sæt forrest
   moveUp: Flyt op
   moveDown: Flyt ned
@@ -237,6 +244,7 @@ pause:
   willBe: Navnet bliver {name}.
   keysList: ↑ ↓ flyt · Enter vælg · Esc luk
   keysLanguage: ↑ ↓ flyt · ← → eller Enter skift sprog · Esc luk
+  keysSound: ↑ ↓ flyt · ← → eller Enter slå lyden fra eller til · Esc luk
   keysOptions: ↑ ↓ flyt · Enter gør det · Esc tilbage
   keysNaming: Enter gem · Esc tilbage
 
@@ -261,3 +269,10 @@ save:
   behindGone: Et nyt spil er klar.
   # The button on that card.
   behindGo: Hent dit nyeste spil
+
+sound:
+  # The chip at the top of the screen after M turned the sound on or off.
+  chipOn: Lyden er tændt
+  chipOff: Lyden er slukket
+  # Under "Lyden er slukket": how to get it back.
+  chipHint: Tryk på M for at tænde den igen

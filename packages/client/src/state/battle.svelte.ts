@@ -15,6 +15,20 @@ import type { Line } from '../lines';
  */
 export type BattleScreen = 'actions' | 'party' | 'puzzle' | 'busy' | 'result';
 
+/**
+ * The encounter transition over the whole screen (UI_SPEC § Battle mode):
+ * an iris closing on the player (`closing`), then opening on the wild
+ * animal; or, with reduced motion, a soft dim that comes and goes (`fade`).
+ * `p` runs 0..1 through each half; `x`, `y` are the centre in CSS pixels.
+ */
+export interface BattleTransition {
+	kind: 'iris' | 'fade';
+	closing: boolean;
+	p: number;
+	x: number;
+	y: number;
+}
+
 class BattleView {
 	/** True from `battle-started` until the player leaves the result card. */
 	active = $state(false);
@@ -23,6 +37,8 @@ class BattleView {
 	 * finishes on screen; the battle screen appears when it turns false.
 	 */
 	entering = $state(false);
+	/** The encounter transition while it plays, else null. Written only by the controller. */
+	transition = $state<BattleTransition | null>(null);
 	party = $state<AnimalInstance[]>([]);
 	/** Index into `party` of the animal in front. */
 	front = $state(0);
@@ -52,6 +68,8 @@ class BattleView {
 	/** The latest hit, for the damage number that pops over a status box; `n` restarts it. */
 	hit = $state<{ side: 'player' | 'opponent'; damage: number; n: number } | null>(null);
 	outcome = $state<BattleOutcome | null>(null);
+	/** A catch that didn't join the team: it was full, so the animal went home. */
+	letGo = $state(false);
 	/** The authority's closing line, shown under the result headline. */
 	closing = $state<MessageLine | null>(null);
 
@@ -59,6 +77,7 @@ class BattleView {
 	reset(): void {
 		this.active = false;
 		this.entering = false;
+		this.transition = null;
 		this.party = [];
 		this.front = 0;
 		this.opponent = null;
@@ -75,6 +94,7 @@ class BattleView {
 		this.line = null;
 		this.hit = null;
 		this.outcome = null;
+		this.letGo = false;
 		this.closing = null;
 	}
 }

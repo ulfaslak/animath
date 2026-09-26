@@ -7,7 +7,9 @@ import {
 	type DoctorState,
 	type GameEvent
 } from '@mathgame/engine';
+import { sfx } from '../audio/sfx.svelte';
 import { answerKey } from '../input/answer';
+import { isShortcut, keyName } from '../input/keyboard';
 import { cursorStops, doctor, hurtIndexes, stepCursor } from '../state/doctor.svelte';
 import type { DoctorLine } from './lines';
 
@@ -18,8 +20,9 @@ import type { DoctorLine } from './lines';
  * a beat at a time — the judgement of an answer, then the heal — before it
  * shows the latest state and takes keys again, the way the battle screen
  * does. What the doctor says is chosen by event, as a `DoctorLine` the card
- * words when it shows it. Nothing here decides anything: the engine judges
- * answers and heals.
+ * words when it shows it, and each sound plays with the beat that shows its
+ * moment (the chime with "Correct!", the sparkle with the heal). Nothing here
+ * decides anything: the engine judges answers and heals.
  */
 
 /** One beat: change the view, then hold for `hold` seconds. */
@@ -99,13 +102,14 @@ export class DoctorController {
 		if (!doctor.active) return;
 		// Leave browser shortcuts alone, and never act on auto-repeat: an Enter
 		// or an arrow held down when the card opened does nothing until pressed again.
-		if (e.ctrlKey || e.metaKey || e.altKey) return;
+		if (isShortcut(e)) return;
 		if (e.repeat) {
 			e.preventDefault();
 			return;
 		}
+		const key = keyName(e);
 		// Escape leaves at any time, mid-puzzle and mid-beat included.
-		if (e.key === 'Escape') {
+		if (key === 'Escape') {
 			e.preventDefault();
 			this.send({ type: 'leave' });
 			return;
@@ -116,10 +120,10 @@ export class DoctorController {
 			case 'busy':
 				return; // a beat is playing
 			case 'list':
-				handled = this.listKey(e.key);
+				handled = this.listKey(key);
 				break;
 			case 'puzzle':
-				handled = this.puzzleKey(e.key);
+				handled = this.puzzleKey(key);
 				break;
 		}
 		if (handled) e.preventDefault();
@@ -137,6 +141,7 @@ export class DoctorController {
 		this.age = 0;
 		this.said = { say: state.party.some(needsHealing) ? 'hello' : 'helloAllFit' };
 		doctor.cursor = hurtIndexes(state.party)[0] ?? state.party.length;
+		sfx.play('confirm');
 		this.settle();
 	}
 
@@ -195,17 +200,22 @@ export class DoctorController {
 		switch (key) {
 			case 'ArrowUp':
 			case 'w':
-				doctor.cursor = stepCursor(stops, doctor.cursor, -1);
-				return true;
 			case 'ArrowDown':
-			case 's':
-				doctor.cursor = stepCursor(stops, doctor.cursor, 1);
+			case 's': {
+				const up = key === 'ArrowUp' || key === 'w';
+				const cursor = stepCursor(stops, doctor.cursor, up ? -1 : 1);
+				if (cursor !== doctor.cursor) sfx.play('move');
+				doctor.cursor = cursor;
 				return true;
+			}
 			case 'Enter':
 			case ' ': {
 				const animal = doctor.party[doctor.cursor];
-				if (!animal) this.send({ type: 'leave' });
-				else if (needsHealing(animal)) {
+				if (!animal) {
+					sfx.play('confirm');
+					this.send({ type: 'leave' });
+				} else if (needsHealing(animal)) {
+					sfx.play('confirm');
 					this.send({ type: 'pick-patient', partyIndex: doctor.cursor });
 				}
 				return true;
@@ -223,7 +233,10 @@ export class DoctorController {
 				// The list stays live: up and down swap the puzzle for the next animal's.
 				const delta = key === 'ArrowUp' || key === 'w' ? -1 : 1;
 				const next = stepCursor(hurtIndexes(doctor.party), doctor.patient ?? 0, delta);
-				if (next !== doctor.patient) this.send({ type: 'pick-patient', partyIndex: next });
+				if (next !== doctor.patient) {
+					sfx.play('move');
+					this.send({ type: 'pick-patient', partyIndex: next });
+				}
 				return true;
 			}
 		}
@@ -246,6 +259,7 @@ export class DoctorController {
 					{
 						run: () => {
 							doctor.judged = { correct: e.correct };
+							sfx.play(e.correct ? 'correct' : 'wrong');
 							if (!e.correct && said) doctor.line = said;
 						},
 						hold: e.correct ? CORRECT_HOLD : MISS_HOLD
@@ -263,6 +277,7 @@ export class DoctorController {
 								amount: max - (before?.hp ?? 0),
 								n: ++this.heals
 							};
+							sfx.play('heal');
 							if (said) doctor.line = said;
 						},
 						hold: HEAL_HOLD

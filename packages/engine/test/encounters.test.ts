@@ -490,7 +490,8 @@ describe('rollEncounter', () => {
 				expect(hits / steps, where).toBeCloseTo(ENCOUNTER_CHANCE, 1);
 			}
 		}
-	});
+		// Under 1 s alone (8,000 rolls per lead and biome); over 5 s under a heavy load.
+	}, 30_000);
 
 	it('is deterministic: same seed, site and lead, same sequence', () => {
 		for (const lead of LEADS) {
@@ -587,7 +588,8 @@ describe('rollEncounter', () => {
 				}
 			}
 		}
-	});
+		// Under 1 s alone (4,000 encounters per lead, biome and distance); over 5 s under a heavy load.
+	}, 30_000);
 });
 
 describe('the generated world offers every habitat', () => {
@@ -606,5 +608,6 @@ describe('the generated world offers every habitat', () => {
 				expect(reachable, `${a.id} has no tall grass to be met in (seed ${seed})`).toBe(true);
 			}
 		}
-	});
+		// About 1.5 s alone (1,156 chunks generated); over 2 s with two browsers drawing beside it.
+	}, 30_000);
 });

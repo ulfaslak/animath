@@ -160,15 +160,17 @@ describe('balance simulation', () => {
 		}
 	});
 
+	// The three sweeps below each take about 1 s alone (every same-tier pair, 1,000 battles
+	// each, or every pair twice) and 2 s with two browsers drawing beside them.
 	it('the easiest puzzle, always right, usually beats an animal of your own tier (65–80%)', () => {
 		const rates = winRates(0, easiest(1));
 		for (const { p, w, win } of rates) expect(win, `${p} vs ${w}`).toBeGreaterThan(0.5);
 		expectInBand(mean(rates.map((r) => r.win)), 0.65, 0.8, 'same-tier mean');
-	});
+	}, 30_000);
 
 	it('the easiest puzzle at 70% right makes a same-tier fight close to a coin flip (40–55%)', () => {
 		expectInBand(mean(winRates(0, easiest(0.7)).map((r) => r.win)), 0.4, 0.55, 'same-tier mean');
-	});
+	}, 30_000);
 
 	it('the starter squirrel meets the same targets against its own near-spawn tier', () => {
 		for (const [mix, wild] of Object.entries(STARTER_MIXES)) {
@@ -194,7 +196,7 @@ describe('balance simulation', () => {
 				}
 			}
 		}
-	});
+	}, 30_000);
 
 	it('a stronger attack at a higher level never hurts an always-right player', () => {
 		for (const p of ids) {

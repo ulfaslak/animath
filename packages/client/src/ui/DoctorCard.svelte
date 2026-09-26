@@ -18,6 +18,23 @@
 	 */
 	const hurt = $derived(hurtIndexes(doctor.party));
 	const highlighted = $derived(doctor.party[doctor.cursor] ?? null);
+
+	/**
+	 * The heal's sparkles: little stars that pop up along the healed animal's
+	 * HP bar as it fills. `x` is where along the bar (%), `dx`/`dy` how far each
+	 * flies (px), `d` its delay (s). With reduced motion they twinkle in place.
+	 */
+	const SPARKS = [
+		{ x: 4, dx: -10, dy: -26, d: 0, c: 'gold' },
+		{ x: 16, dx: 8, dy: 22, d: 0.12, c: 'green' },
+		{ x: 28, dx: -6, dy: -32, d: 0.05, c: 'white' },
+		{ x: 40, dx: 10, dy: 20, d: 0.18, c: 'gold' },
+		{ x: 52, dx: -8, dy: -28, d: 0.08, c: 'green' },
+		{ x: 64, dx: 6, dy: 24, d: 0.22, c: 'white' },
+		{ x: 76, dx: -10, dy: -24, d: 0.02, c: 'gold' },
+		{ x: 88, dx: 8, dy: 26, d: 0.15, c: 'green' },
+		{ x: 98, dx: 12, dy: -30, d: 0.25, c: 'white' }
+	];
 </script>
 
 <div class="doctor">
@@ -42,6 +59,14 @@
 				<span class="bar"><HpBar hp={animal.hp} max={spec.maxHp} /></span>
 				{#if doctor.healed?.index === i}
 					{#key doctor.healed.n}
+						<span class="sparkles" aria-hidden="true">
+							{#each SPARKS as s, k (k)}
+								<i
+									class="spark {s.c}"
+									style="left: {s.x}%; --dx: {s.dx}px; --dy: {s.dy}px; animation-delay: {s.d}s"
+								></i>
+							{/each}
+						</span>
 						<span class="heal">+{doctor.healed.amount}</span>
 					{/key}
 				{/if}
@@ -206,6 +231,35 @@
 		pointer-events: none;
 		animation: pop 1.2s ease-out forwards;
 	}
+	/* Over the HP bar (right of the row), where it fills. */
+	.sparkles {
+		position: absolute;
+		right: 14px;
+		top: 50%;
+		width: min(220px, 50%);
+		height: 0;
+		pointer-events: none;
+	}
+	/* A chunky four-pointed star, big enough to read as one beside an 8 px bar. */
+	.spark {
+		position: absolute;
+		top: -10px;
+		width: 20px;
+		height: 20px;
+		margin-left: -10px;
+		clip-path: polygon(50% 0, 64% 36%, 100% 50%, 64% 64%, 50% 100%, 36% 64%, 0 50%, 36% 36%);
+		opacity: 0;
+		animation: sparkle 0.9s ease-out forwards;
+	}
+	.spark.gold {
+		background: var(--warn);
+	}
+	.spark.green {
+		background: var(--good);
+	}
+	.spark.white {
+		background: white;
+	}
 	kbd {
 		font-family: inherit;
 		font-size: 16px;
@@ -269,6 +323,51 @@
 		100% {
 			opacity: 0;
 			transform: translateY(-22px) scale(1);
+		}
+	}
+	@keyframes sparkle {
+		0% {
+			opacity: 0;
+			transform: translate(0, 0) scale(0.2) rotate(0deg);
+		}
+		30% {
+			opacity: 1;
+			transform: translate(calc(var(--dx) * 0.5), calc(var(--dy) * 0.5)) scale(1.1) rotate(45deg);
+		}
+		100% {
+			opacity: 0;
+			transform: translate(var(--dx), var(--dy)) scale(0.4) rotate(90deg);
+		}
+	}
+	/* Less motion: the row doesn't hop, the "+N" fades without rising, the sparkles twinkle in place. */
+	@keyframes pop-still {
+		0%,
+		100% {
+			opacity: 0;
+		}
+		15%,
+		70% {
+			opacity: 1;
+		}
+	}
+	@keyframes twinkle {
+		0%,
+		100% {
+			opacity: 0;
+		}
+		40% {
+			opacity: 1;
+		}
+	}
+	@media (prefers-reduced-motion: reduce) {
+		.row.cheer {
+			animation: none;
+		}
+		.heal {
+			animation-name: pop-still;
+		}
+		.spark {
+			animation-name: twinkle;
 		}
 	}
 </style>
