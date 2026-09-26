@@ -100,17 +100,19 @@
 
 	<div class="card puzzle" class:correct={doctor.judged?.correct === true}>
 		{#if doctor.puzzle}
+			<!-- "Help another animal" under the puzzle's own reminder: beside the pad on touch,
+			     where a doctor's line on three lines leaves the card no room for it below. -->
 			<PuzzlePanel
 				puzzle={doctor.puzzle}
 				input={doctor.input}
 				judged={doctor.judged}
 				typing={doctor.screen === 'puzzle'}
+				note={hurt.length > 1
+					? touch.on
+						? t('doctor.puzzleTouch')
+						: t('doctor.puzzleKeys')
+					: undefined}
 			/>
-			{#if hurt.length > 1}
-				<div class="keys">
-					{touch.on ? t('doctor.puzzleTouch') : t('doctor.puzzleKeys')}
-				</div>
-			{/if}
 		{:else if hurt.length === 0}
 			<div class="soft">{t('doctor.allFit')}</div>
 			<div class="keys">{touch.on ? t('doctor.allFitTouch') : t('doctor.allFitKeys')}</div>
