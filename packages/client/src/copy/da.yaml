@@ -235,6 +235,6 @@ save:
   # The saved game could not be read. It is kept aside; this is a new game.
   couldNotLoad: Dit gemte spil virkede ikke, så her er et nyt.
   # The saved game was written by a newer version of the game than this page.
-  newerGame: Dit spil er gemt af en nyere Animath. Genindlæs siden for at spille det!
+  newerGame: Dit spil er gemt i en nyere udgave af Animath. Genindlæs siden for at spille videre!
   # The browser will not let the page store anything, so nothing is saved.
   cannotSave: Denne browser kan ikke gemme dit spil, så det starter forfra hver gang.
