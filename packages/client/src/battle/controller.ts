@@ -12,11 +12,12 @@ import {
 	type GridPos
 } from '@mathgame/engine';
 import { answerKey } from '../input/answer';
+import { isShortcut, keyName } from '../input/keyboard';
 import { BattleScene } from '../render/battle-scene';
 import type { GameRenderer } from '../render/renderer';
 import { t } from '../copy';
 import { battle } from '../state/battle.svelte';
-import { actionCount, firstPickable, listKey, menuKey, rowOf } from './menu';
+import { actionCount, firstPickable, listKey, menuKey, pickedMenu, rowOf } from './menu';
 
 /**
  * Battle mode: owns the battle screen from `battle-started` until the player
@@ -51,6 +52,14 @@ const RESULT_GUARD_SECONDS = 0.8;
 const PICK_GUARD_SECONDS = 0.8;
 
 /**
+ * Seconds the action menu ignores a pick (Enter, Space, 1, 2, 3) after a
+ * turn's narration brings it back, so an Enter or a digit mashed through the
+ * battle text cannot choose the next action before the kid has seen the menu.
+ * The arrows move at once. The same guard as the list and the result card.
+ */
+export const MENU_GUARD_SECONDS = 0.8;
+
+/**
  * Seconds the world stays on screen after `battle-started`, so the step into
  * the grass lands before the battle appears (a step takes 0.18 s).
  */
@@ -69,6 +78,13 @@ export class BattleController {
 	private resultAge = 0;
 	/** Seconds the party list has been up. */
 	private listAge = 0;
+	/** Seconds the action menu has been up since the narration last brought it back. */
+	private menuAge = 0;
+	/**
+	 * The battle ended in a catch, and the party the authority wrote back has
+	 * no place for the caught animal: the team was full, so it went home.
+	 */
+	private letGo = false;
 	/** Seconds left before the battle screen replaces the world. */
 	private enterIn = 0;
 	/** Where the player stands, to pick the battle's backdrop. */
@@ -111,6 +127,15 @@ export class BattleController {
 				for (const e of event.events) this.beats.push(...this.narrate(e, replacing));
 				break;
 			}
+			case 'party-changed': {
+				// After a catch, the party the authority wrote back says whether the
+				// caught animal joined: with the team full, it went home instead.
+				const ended = battle.active ? this.latest : null;
+				if (ended?.phase.kind !== 'ended' || ended.phase.outcome !== 'caught') return;
+				this.letGo = !event.party.some((a) => a.id === ended.opponent.id);
+				if (battle.screen === 'result') battle.letGo = this.letGo;
+				break;
+			}
 			case 'message':
 				if (!battle.active || this.latest?.phase.kind !== 'ended') return;
 				this.closing = event.text;
@@ -130,6 +155,7 @@ export class BattleController {
 		}
 		if (battle.screen === 'result') this.resultAge += dt;
 		if (battle.screen === 'party') this.listAge += dt;
+		if (battle.screen === 'actions') this.menuAge += dt;
 		this.wait -= dt;
 		while (this.wait <= 0 && this.beats.length > 0) {
 			const beat = this.beats.shift()!;
@@ -145,27 +171,28 @@ export class BattleController {
 		if (!battle.active) return;
 		// Leave browser shortcuts alone, and never act on auto-repeat: a key held
 		// down when the battle began (a walking arrow) must not scroll the menu.
-		if (e.ctrlKey || e.metaKey || e.altKey) return;
+		if (isShortcut(e)) return;
 		if (e.repeat) {
 			e.preventDefault();
 			return;
 		}
+		const key = keyName(e);
 		let handled: boolean;
 		switch (battle.screen) {
 			case 'busy':
 				handled = true; // swallow mashing while events play
 				break;
 			case 'actions':
-				handled = this.menuKey(e.key);
+				handled = this.menuKey(key);
 				break;
 			case 'party':
-				handled = this.partyKey(e.key);
+				handled = this.partyKey(key);
 				break;
 			case 'puzzle':
-				handled = this.puzzleKey(e.key);
+				handled = this.puzzleKey(key);
 				break;
 			case 'result':
-				handled = e.key === 'Enter' || e.key === ' ';
+				handled = key === 'Enter' || key === ' ';
 				if (handled && this.resultAge >= RESULT_GUARD_SECONDS) this.leave();
 				break;
 		}
@@ -187,6 +214,7 @@ export class BattleController {
 		battle.pickable = state.party.map((_, i) => canSwitchTo(state, i));
 		this.latest = state;
 		this.closing = '';
+		this.letGo = false;
 		this.beats = [];
 		this.wait = 0;
 
@@ -224,6 +252,7 @@ export class BattleController {
 				battle.judged = null;
 				battle.input = '';
 				battle.line = `What will ${nameOf(front)} do?`;
+				this.menuAge = 0;
 				battle.screen = 'actions';
 				break;
 			}
@@ -235,16 +264,25 @@ export class BattleController {
 				this.openParty(true);
 				battle.line = t('battle.switch.whoIsNext', { name: nameOf(front) });
 				break;
-			case 'solving':
+			case 'solving': {
+				// The menu beside the puzzle shows the attack it belongs to, at its
+				// level, also when the puzzle came back with a saved battle.
+				const { attackIndex, level } = state.phase;
+				const menu = { cursor: battle.cursor, levels: battle.levels };
+				const picked = pickedMenu(menu, getAnimal(front.speciesId), attackIndex, level);
+				battle.cursor = picked.cursor;
+				if (picked.levels !== battle.levels) battle.levels = picked.levels;
 				battle.puzzle = state.phase.puzzle;
 				battle.input = '';
 				battle.judged = null;
-				battle.line = `${nameOf(front)} tries ${attackName(front, state.phase.attackIndex)}!`;
+				battle.line = `${nameOf(front)} tries ${attackName(front, attackIndex)}!`;
 				battle.screen = 'puzzle';
 				break;
+			}
 			case 'ended':
 				if (state.phase.outcome === 'won') this.scene?.hop('player');
 				battle.outcome = state.phase.outcome;
+				battle.letGo = this.letGo;
 				battle.closing = this.closing;
 				battle.line = '';
 				this.resultAge = 0;
@@ -275,6 +313,9 @@ export class BattleController {
 			key,
 			spec
 		);
+		// A menu the narration has just brought back waits a moment before it
+		// takes a pick; a pick it ignores changes nothing, not even a level.
+		if (choice && this.menuAge < MENU_GUARD_SECONDS) return handled;
 		battle.cursor = menu.cursor;
 		if (menu.levels !== battle.levels) battle.levels = menu.levels;
 		switch (choice?.kind) {

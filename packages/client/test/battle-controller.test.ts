@@ -2,16 +2,22 @@ import {
 	ATTACK_LEVELS,
 	attackDamage,
 	getAnimal,
+	readSave,
+	restoreGame,
+	saveDocument,
 	type AnimalInstance,
 	type AttackLevel,
+	type BattleOutcome,
 	type BattleState,
 	type GameEvent,
-	type Intent
+	type Intent,
+	type SavedGame
 } from '@mathgame/engine';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { LocalAuthority } from '../src/authority/local';
-import { BattleController } from '../src/battle/controller';
+import { BattleController, MENU_GUARD_SECONDS } from '../src/battle/controller';
 import { actionAt, attackRows } from '../src/battle/menu';
+import { parseParty } from '../src/flags';
 import type { GameRenderer } from '../src/render/renderer';
 import { battle } from '../src/state/battle.svelte';
 
@@ -37,8 +43,17 @@ function name(animal: AnimalInstance): string {
 	return animal.nickname ?? getAnimal(animal.speciesId).name;
 }
 
-function setup() {
-	const authority = new LocalAuthority();
+/** A save round trip, as a reload does it: JSON through storage, then restored. */
+function throughSave(game: SavedGame): SavedGame {
+	const doc = saveDocument(game, { lineage: 'test', seq: 1 });
+	const read = readSave(JSON.parse(JSON.stringify(doc)));
+	if (!read.ok) throw new Error(read.error);
+	return restoreGame(read.save);
+}
+
+/** A game to play: a starting party (`?party=` style), or a saved game to pick up. */
+function setup(from: { party?: string; game?: SavedGame } = {}) {
+	const authority = new LocalAuthority(from.party ? { party: parseParty(from.party)! } : {});
 	const shown: unknown[] = [];
 	const renderer = { setBattle: (scene: unknown) => shown.push(scene) } as unknown as GameRenderer;
 	const controller = new BattleController(authority, renderer);
@@ -53,7 +68,7 @@ function setup() {
 		events.push(e);
 		controller.handle(e);
 	});
-	authority.start();
+	authority.start(from.game ? { game: from.game } : {});
 	/** Advance the screen by `seconds`, a frame at a time. */
 	const run = (seconds: number) => {
 		for (let t = 0; t < seconds; t += 1 / 60) controller.update(1 / 60);
@@ -71,6 +86,11 @@ function setup() {
 			controller.onKey(key(n));
 			controller.update(1 / 60);
 		});
+	/** Play the narration until the action menu is back and past its guard, so it takes a pick. */
+	const toMenu = () => {
+		runUntil(() => battle.screen === 'actions');
+		run(MENU_GUARD_SECONDS);
+	};
 	/** Walk left/right past the reed by the spawn tile until an otter jumps out. */
 	const walkIntoBattle = () => {
 		for (let i = 0; !battle.active; i++) {
@@ -97,45 +117,63 @@ function setup() {
 		return [];
 	};
 	/**
-	 * Catch animals until the party has `size`, driving the authority directly
-	 * (the screen plays along), and leave each result card. The wild animal is
-	 * worn down with the hardest hit that leaves it standing, then leashed.
+	 * Play one battle out trying to catch the wild animal, driving the
+	 * authority directly (the screen plays along), until its result card is
+	 * up. The wild animal is worn down with the hardest hit that leaves it
+	 * standing, then leashed. The outcome: a catch, or a battle won or lost.
 	 */
+	const playForCatch = (): BattleOutcome => {
+		walkIntoBattle();
+		for (let turn = 0; turn < 80 && latest().phase.kind !== 'ended'; turn++) {
+			const s = latest();
+			if (s.phase.kind === 'choose-animal') {
+				const partyIndex = s.party.findIndex((a) => a.hp > 0);
+				authority.dispatch({ type: 'battle', intent: { type: 'switch', partyIndex } });
+				continue;
+			}
+			const mine = getAnimal(s.party[s.active]!.speciesId);
+			let best: { attackIndex: number; level: AttackLevel; damage: number } | null = null;
+			for (let n = 1; n <= mine.attacks.length; n++) {
+				for (const level of ATTACK_LEVELS) {
+					const damage = attackDamage(mine, n, level, true);
+					if (damage < s.opponent.hp && (!best || damage > best.damage)) {
+						best = { attackIndex: n, level, damage };
+					}
+				}
+			}
+			if (best && s.opponent.hp * 3 > getAnimal(s.opponent.speciesId).maxHp) {
+				const { attackIndex, level } = best;
+				authority.dispatch({ type: 'battle', intent: { type: 'attack', attackIndex, level } });
+				const phase = latest().phase;
+				if (phase.kind !== 'solving') throw new Error(`no puzzle: ${phase.kind}`);
+				const input = String(phase.puzzle.answer);
+				authority.dispatch({ type: 'battle', intent: { type: 'answer', input } });
+			} else {
+				authority.dispatch({ type: 'battle', intent: { type: 'throw-leash' } });
+			}
+		}
+		runUntil(() => battle.screen === 'result', 300);
+		return battle.outcome!;
+	};
+	/** Leave the result card: wait out its guard, then Enter. */
+	const leaveResult = () => {
+		run(1);
+		press('Enter');
+		expect(battle.active).toBe(false);
+	};
+	/** Catch animals until the party has `size`, leaving each result card. */
 	const growParty = (size: number) => {
 		for (let battles = 0; partyNow().length < size; battles++) {
 			if (battles > 60) throw new Error('caught nothing');
-			walkIntoBattle();
-			for (let turn = 0; turn < 80 && latest().phase.kind !== 'ended'; turn++) {
-				const s = latest();
-				if (s.phase.kind === 'choose-animal') {
-					const partyIndex = s.party.findIndex((a) => a.hp > 0);
-					authority.dispatch({ type: 'battle', intent: { type: 'switch', partyIndex } });
-					continue;
-				}
-				const mine = getAnimal(s.party[s.active]!.speciesId);
-				let best: { attackIndex: number; level: AttackLevel; damage: number } | null = null;
-				for (let n = 1; n <= mine.attacks.length; n++) {
-					for (const level of ATTACK_LEVELS) {
-						const damage = attackDamage(mine, n, level, true);
-						if (damage < s.opponent.hp && (!best || damage > best.damage)) {
-							best = { attackIndex: n, level, damage };
-						}
-					}
-				}
-				if (best && s.opponent.hp * 3 > getAnimal(s.opponent.speciesId).maxHp) {
-					const { attackIndex, level } = best;
-					authority.dispatch({ type: 'battle', intent: { type: 'attack', attackIndex, level } });
-					const phase = latest().phase;
-					if (phase.kind !== 'solving') throw new Error(`no puzzle: ${phase.kind}`);
-					const input = String(phase.puzzle.answer);
-					authority.dispatch({ type: 'battle', intent: { type: 'answer', input } });
-				} else {
-					authority.dispatch({ type: 'battle', intent: { type: 'throw-leash' } });
-				}
-			}
-			runUntil(() => battle.screen === 'result', 300);
-			run(1);
-			press('Enter');
+			playForCatch();
+			leaveResult();
+		}
+	};
+	/** Play battles until one ends in a catch, and stay on its result card. */
+	const catchOne = () => {
+		for (let battles = 0; playForCatch() !== 'caught'; battles++) {
+			if (battles > 60) throw new Error('caught nothing');
+			leaveResult();
 		}
 	};
 	/** Lose a battle on purpose, every answer wrong: the trip to the tent heals everyone. */
@@ -165,10 +203,13 @@ function setup() {
 		run,
 		runUntil,
 		press,
+		toMenu,
 		walkIntoBattle,
 		latest,
 		partyNow,
 		growParty,
+		catchOne,
+		leaveResult,
 		restAll
 	};
 }
@@ -199,7 +240,7 @@ describe('battle screen', () => {
 		t.walkIntoBattle();
 		// The arrow that walked into the grass is still down: only repeats arrive.
 		for (let i = 0; i < 20; i++) t.controller.onKey(key('ArrowDown', true));
-		t.run(3);
+		t.toMenu();
 		for (let i = 0; i < 3; i++) t.controller.onKey(key('ArrowDown', true));
 		expect(battle.cursor).toBe(0);
 		t.press('ArrowDown');
@@ -218,7 +259,7 @@ describe('battle screen', () => {
 	it('does not take an empty answer, caps its length and lets Backspace fix it', () => {
 		const t = setup();
 		t.walkIntoBattle();
-		t.run(3);
+		t.toMenu();
 		t.press('1');
 		expect(battle.screen).toBe('puzzle');
 		const before = t.sent.length;
@@ -244,7 +285,7 @@ describe('battle screen', () => {
 	it('says "Not quite!" after a wrong answer and never shows the right one', () => {
 		const t = setup();
 		t.walkIntoBattle();
-		t.run(3);
+		t.toMenu();
 		const hp = battle.opponent!.hp;
 		t.press('1');
 		const answer = battle.puzzle!.answer;
@@ -262,7 +303,7 @@ describe('battle screen', () => {
 	it('keeps the result card up through a mashed Enter, then leaves on the next one', () => {
 		const t = setup();
 		t.walkIntoBattle();
-		t.run(3);
+		t.toMenu();
 		t.press('ArrowUp', 'Enter'); // Run
 		t.runUntil(() => battle.screen === 'result');
 		expect(battle.outcome).toBe('fled');
@@ -278,7 +319,7 @@ describe('battle screen', () => {
 	it('ignores events for a battle that is no longer on screen', () => {
 		const t = setup();
 		t.walkIntoBattle();
-		t.run(3);
+		t.toMenu();
 		t.press('ArrowUp', 'Enter'); // Run
 		t.runUntil(() => battle.screen === 'result');
 		t.run(1);
@@ -311,7 +352,7 @@ describe('attack levels', () => {
 	it('each attack row has its own level, read as easy, medium or hard, kept from battle to battle', () => {
 		const t = setup();
 		t.walkIntoBattle();
-		t.run(3);
+		t.toMenu();
 		const squirrel = getAnimal('squirrel');
 		const words = () => attackRows(squirrel, battle.levels).map((r) => r.word);
 		expect(words()).toEqual(['easy', 'easy']);
@@ -334,7 +375,7 @@ describe('attack levels', () => {
 			intent: { type: 'attack', attackIndex: 2, level: 2 }
 		});
 		t.press(...String(battle.puzzle!.answer + 1), 'Enter');
-		t.runUntil(() => battle.screen === 'actions');
+		t.toMenu();
 		t.press('ArrowUp', 'ArrowUp', 'Enter'); // Scurry Kick → Nut Toss → Run
 		t.runUntil(() => battle.screen === 'result');
 		t.run(1);
@@ -342,7 +383,7 @@ describe('attack levels', () => {
 
 		// The next battle remembers both rows; a level key sets its row and attacks.
 		t.walkIntoBattle();
-		t.run(3);
+		t.toMenu();
 		expect(words()).toEqual(['hard', 'medium']);
 		t.press('1');
 		expect(t.sent.at(-1)).toEqual({
@@ -366,7 +407,7 @@ describe('switching animals', () => {
 	it('with a party of one, the Switch row does nothing', () => {
 		const t = setup();
 		t.walkIntoBattle();
-		t.run(3);
+		t.toMenu();
 		toSwitchRow(t);
 		expect(battle.pickable).toEqual([false]);
 		const before = t.sent.length;
@@ -382,7 +423,7 @@ describe('switching animals', () => {
 		t.walkIntoBattle();
 		// Who could step in is known from the first line, so Switch never shows greyed first.
 		expect(battle.pickable).toEqual([false, true]);
-		t.run(3);
+		t.toMenu();
 		const [first, second] = battle.party.map((a) => ({ ...a }));
 		expect(battle.front).toBe(0);
 		toSwitchRow(t);
@@ -429,7 +470,7 @@ describe('switching animals', () => {
 		t.growParty(2);
 		t.restAll();
 		t.walkIntoBattle();
-		t.run(3);
+		t.toMenu();
 		const tired = { ...battle.party[0]!, hp: 0 };
 		const next = battle.party[1]!;
 		// Answer wrong, with the second attack, until the one in front is tired.
@@ -439,6 +480,7 @@ describe('switching animals', () => {
 			t.press('1');
 			t.press(...String(battle.puzzle!.answer + 1), 'Enter');
 			t.runUntil(() => battle.screen === 'actions' || battle.screen === 'party', 30);
+			if (battle.screen === 'actions') t.run(MENU_GUARD_SECONDS);
 		}
 		expect(battle.mustPick).toBe(true);
 		expect(battle.line).toBe(`${name(tired)} is tired. Who goes next?`);
@@ -477,13 +519,14 @@ describe('switching animals', () => {
 		const t = setup();
 		t.growParty(2); // no rest: the caught animal is weak, so a reply can knock it out on arrival
 		t.walkIntoBattle();
-		t.run(3);
+		t.toMenu();
 		// Switch from the Switch row until the wild animal's reply knocks the newcomer out.
 		for (let i = 0; !(battle.screen === 'party' && battle.mustPick); i++) {
 			if (i > 20 || battle.screen === 'result') throw new Error('no newcomer was knocked out');
 			toSwitchRow(t);
 			t.press('Enter', 'Enter');
 			t.runUntil(() => ['actions', 'party', 'result'].includes(battle.screen), 30);
+			if (battle.screen === 'actions') t.run(MENU_GUARD_SECONDS);
 		}
 		// The animal that was in front before the switch goes back in: it is its menu again.
 		const back = battle.partyCursor;
@@ -492,5 +535,132 @@ describe('switching animals', () => {
 		t.runUntil(() => battle.screen === 'actions');
 		expect(battle.front).toBe(back);
 		expect(battle.cursor).toBe(0);
+	});
+});
+
+describe('mashing through the narration', () => {
+	it('an Enter, Space or level key mashed through a turn waits until the menu has been up a moment', () => {
+		const t = setup();
+		t.walkIntoBattle();
+		t.toMenu();
+		t.press('1');
+		t.press(...String(battle.puzzle!.answer), 'Enter');
+		const answered = t.sent.length;
+		const levels = { ...battle.levels };
+		// Every key that picks on the menu, about eight a second, through the
+		// whole turn and on into the menu for most of its guard.
+		const mash = ['Enter', '3', ' ', '2', 'Enter', '1'];
+		let pressed = 0;
+		const hit = () => {
+			t.controller.onKey(key(mash[pressed++ % mash.length]!));
+			t.run(0.12);
+		};
+		while (battle.screen !== 'actions') {
+			if (pressed > 200) throw new Error('the menu never came back');
+			hit();
+		}
+		for (let s = 0.12; s < MENU_GUARD_SECONDS - 0.2; s += 0.12) hit();
+		expect(pressed).toBeGreaterThan(20);
+		expect(t.sent.length).toBe(answered);
+		expect(battle.screen).toBe('actions');
+		expect(battle.levels).toEqual(levels);
+		// The arrows move at once; once the menu has been up a moment, a pick is taken.
+		t.press('ArrowDown');
+		expect(battle.cursor).toBe(1);
+		t.run(MENU_GUARD_SECONDS);
+		t.press('Enter');
+		expect(t.sent.at(-1)).toEqual({
+			type: 'battle',
+			intent: { type: 'attack', attackIndex: 2, level: 1 }
+		});
+	});
+
+	it('the first menu of a battle waits too, after the opening lines', () => {
+		const t = setup();
+		t.walkIntoBattle();
+		const before = t.sent.length;
+		t.runUntil(() => battle.screen === 'actions');
+		t.press('Enter', '2', ' ');
+		expect(t.sent.length).toBe(before);
+		expect(battle.screen).toBe('actions');
+		t.run(MENU_GUARD_SECONDS);
+		t.press('2');
+		expect(t.sent.at(-1)).toEqual({
+			type: 'battle',
+			intent: { type: 'attack', attackIndex: 1, level: 2 }
+		});
+	});
+});
+
+describe('W A S D', () => {
+	it('steer the menu and the switch list in capitals, as Caps Lock sends them', () => {
+		const t = setup();
+		t.growParty(2);
+		t.restAll();
+		t.walkIntoBattle();
+		t.toMenu();
+		const squirrel = getAnimal('squirrel');
+		t.press('S');
+		expect(battle.cursor).toBe(1);
+		t.press('D');
+		expect(attackRows(squirrel, battle.levels)[1]!.level).toBe(2);
+		t.press('A', 'W');
+		expect(attackRows(squirrel, battle.levels)[1]!.level).toBe(1);
+		expect(battle.cursor).toBe(0);
+		// Down past Leash to Switch, into the list, and up the list.
+		t.press('S', 'S', 'S');
+		expect(actionAt(battle.cursor, squirrel.attacks.length).kind).toBe('switch');
+		t.press('Enter');
+		expect(battle.screen).toBe('party');
+		expect(battle.partyCursor).toBe(1);
+		t.press('W');
+		expect(battle.partyCursor).toBe(0);
+	});
+});
+
+describe('a battle picked up from a save', () => {
+	it('mid-puzzle, the menu beside the puzzle lights the attack and level it belongs to', () => {
+		const t = setup();
+		t.walkIntoBattle();
+		t.toMenu();
+		t.press('ArrowDown', '3'); // Scurry Kick, on hard
+		t.runUntil(() => battle.screen === 'puzzle');
+		const puzzle = battle.puzzle;
+		const saved = throughSave(t.authority.snapshot());
+
+		// A reload: a new page, which knows no levels, picks the battle up from the save.
+		battle.reset();
+		battle.levels = {};
+		const u = setup({ game: saved });
+		u.runUntil(() => battle.screen === 'puzzle');
+		expect(battle.puzzle).toEqual(puzzle);
+		expect(battle.cursor).toBe(1);
+		const rows = attackRows(getAnimal('squirrel'), battle.levels);
+		expect(rows.map((r) => r.word)).toEqual(['easy', 'hard']);
+		expect(battle.line).toBe(`Squirrel tries ${rows[1]!.name}!`);
+	});
+});
+
+describe('a full team', () => {
+	it('a catch with room joins the team; with six already, the card says the animal went home', () => {
+		const t = setup({ party: 'squirrel,squirrel,squirrel,squirrel,squirrel' });
+		t.catchOne();
+		expect(battle.letGo).toBe(false);
+		expect(t.partyNow()).toHaveLength(6);
+		expect(t.partyNow().map((a) => a.id)).toContain(battle.opponent!.id);
+		expect(battle.closing).toMatch(/joins your team/);
+		t.leaveResult();
+
+		t.catchOne();
+		expect(battle.outcome).toBe('caught');
+		expect(battle.letGo).toBe(true);
+		expect(t.partyNow()).toHaveLength(6);
+		expect(t.partyNow().map((a) => a.id)).not.toContain(battle.opponent!.id);
+		expect(battle.closing).toBe(
+			`Your team is full, so the wild ${name(battle.opponent!)} hops home.`
+		);
+		// Leaving the card forgets it.
+		t.leaveResult();
+		expect(battle.letGo).toBe(false);
 	});
 });

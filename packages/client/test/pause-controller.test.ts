@@ -100,6 +100,11 @@ describe('pause menu', () => {
 		expect(pause.cursor).toBe(3);
 		controller.onKey(key('ArrowUp', { repeat: true }));
 		expect(pause.cursor).toBe(3);
+		// With Caps Lock on, W and S come in capitals and steer the same.
+		press('S');
+		expect(pause.cursor).toBe(0);
+		press('W');
+		expect(pause.cursor).toBe(3);
 	});
 
 	it('"Go first" sends select-lead and comes back to the list on the animal, now first', () => {

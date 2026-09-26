@@ -100,6 +100,11 @@ describe("the doctor's card", () => {
 		expect(doctor.cursor).toBe(0); // round to the top
 		t.press('ArrowUp', 'w');
 		expect(doctor.cursor).toBe(1);
+		// With Caps Lock on, W and S come in capitals and steer the same.
+		t.press('S');
+		expect(doctor.cursor).toBe(3);
+		t.press('W');
+		expect(doctor.cursor).toBe(1);
 		expect(t.doctorSent()).toEqual([]);
 	});
 

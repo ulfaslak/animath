@@ -304,7 +304,7 @@ export class LocalAuthority implements Authority {
 				const ended = events.find((e) => e.type === 'ended');
 				const caught = ended?.type === 'ended' ? ended.caught : undefined;
 				if (caught && this.party.length >= MAX_PARTY) {
-					text = `Your team is full, so ${wildName} goes back into the grass.`;
+					text = `Your team is full, so the wild ${wildName} hops home.`;
 				} else {
 					if (caught) this.party.push({ ...caught });
 					text = `${wildName} joins your team!`;

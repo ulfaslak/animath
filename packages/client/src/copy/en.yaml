@@ -16,6 +16,12 @@ battle:
   leashGood: Good chance!
   leashMaybe: Maybe
   leashHard: Hard to catch
+  # On the Leash row in place of the odds, when the team already has six animals.
+  leashTeamFull: Team is full
+  # What the Leash row says when highlighted with the team full: a catch goes home.
+  leashTeamFullDetail: Your team is full. If you catch it, it hops home.
+  # The result card after a catch that went home, because the team was full.
+  resultLetGo: Good throw!
   # An attack's three levels: the highlighted row's buttons, and every other row's word.
   level:
     easy: easy

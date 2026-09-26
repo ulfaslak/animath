@@ -16,6 +16,12 @@ battle:
   leashGood: God chance!
   leashMaybe: Måske
   leashHard: Svært at fange
+  # On the Leash row in place of the odds, when the team already has six animals.
+  leashTeamFull: Holdet er fuldt
+  # What the Leash row says when highlighted with the team full: a catch goes home.
+  leashTeamFullDetail: Dit hold er fuldt. Fanger du dyret, hopper det hjem.
+  # The result card after a catch that went home, because the team was full.
+  resultLetGo: Flot kast!
   # An attack's three levels: the highlighted row's buttons, and every other row's word.
   level:
     easy: let
