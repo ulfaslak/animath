@@ -5,8 +5,10 @@ import { MAX_DIFFICULTY } from './types.js';
 /**
  * Maps where an attack sits — the animal's tier, the attack's index n (1-based)
  * and the chosen level (1..3) — to a puzzle difficulty. Fiercer animals ask
- * harder questions; within an animal, later attacks and higher levels are
- * harder. This is the single knob that ties "how strong" to "how hard".
+ * harder questions; within an animal a later attack asks the same or harder
+ * (the bear's last three share one ladder under the cap below), and each
+ * higher level asks exactly one more. This is the single knob that ties "how
+ * strong" to "how hard".
  */
 const TIER_BASE = [1, 2, 4, 5, 7] as const; // index = tier - 1
 const PER_ATTACK = 0.75;

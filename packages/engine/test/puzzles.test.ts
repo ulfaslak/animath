@@ -374,9 +374,9 @@ describe('difficulty mapping', () => {
 		expect(healingDifficulty(5)).toBeGreaterThan(healingDifficulty(1));
 	});
 
-	// A level that hits harder must ask a harder sum, or it is a trap: the
-	// bear's Maul and Crush once asked 10 on medium and on hard alike (#32).
-	it('every attack in the catalog: each level hits harder and asks a harder puzzle than the one below', () => {
+	// A level that hits harder must ask at a higher difficulty, or it is a trap:
+	// the bear's Maul and Crush once asked 10 on medium and on hard alike (#32).
+	it('every attack in the catalog: a level that hits harder asks at a higher difficulty than the one below', () => {
 		const problems: string[] = [];
 		for (const spec of ANIMALS) {
 			spec.attacks.forEach((attack, i) => {

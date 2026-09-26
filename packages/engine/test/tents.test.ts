@@ -298,7 +298,7 @@ describe('canTalkToDoctor', () => {
 				] as const) {
 					const at = { x: tent.x + dx, y: tent.y + dy };
 					for (const dir of DIRECTIONS)
-						if (canTalkToDoctor(seed, at, dir))
+						if (canTalkToDoctor(seed, at, dir) !== false)
 							wrong.push(`seed ${seed}: ${at.x},${at.y} facing ${dir}`);
 				}
 			}
