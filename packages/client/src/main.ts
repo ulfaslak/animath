@@ -107,6 +107,23 @@ document.addEventListener('visibilitychange', () => {
 });
 // Another tab of the game saved: this one may be behind now.
 window.addEventListener('storage', (e) => autosave.onStorage(e.key));
+// A page back from the back/forward cache, or resumed after the browser froze it, gets
+// no `storage` events for the time it was away: it checks the save again, and so does
+// a window the kid comes to.
+window.addEventListener('pageshow', (e) => {
+	if (e.persisted) autosave.recheck();
+});
+document.addEventListener('resume', () => autosave.recheck());
+window.addEventListener('focus', () => autosave.recheck());
+// Behind: nothing typed (AltGr and Option letters too), pasted or dropped reaches a text
+// box either. Only an input method's composition cannot be cancelled.
+window.addEventListener(
+	'beforeinput',
+	(e) => {
+		if (autosave.behind !== null) e.preventDefault();
+	},
+	true
+);
 
 mount(App, { target: uiRoot });
 

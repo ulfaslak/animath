@@ -8,10 +8,10 @@
 
 /** Why a page is behind. */
 export type BehindCause =
-	/** Another window of the game saved progress this page does not have. */
+	/** Another window played on in this page's game: saved progress this page does not have. */
 	| 'window'
-	/** This page took a bigger game from the server into the browser's save. */
-	| 'server'
+	/** The save holds another game now: this page, or another, took a bigger one from the server. */
+	| 'replaced'
 	/** The save was removed from under the page (site data cleared). */
 	| 'gone';
 

@@ -398,7 +398,7 @@ describe('Autosave: the save in this browser', () => {
 		const next = new Tab(store, server);
 		await next.open();
 		await later();
-		expect(next.autosave.behind).toBe('server');
+		expect(next.autosave.behind).toBe('replaced');
 		expect(store.save()!.party).toHaveLength(2);
 	});
 });
@@ -533,6 +533,34 @@ describe('Autosave: two tabs', () => {
 		a.autosave.flush();
 		expect(store.get(KEYS.save)).toBeNull();
 	});
+
+	it('this game played on elsewhere puts a tab behind another window; another game in its place does not', async () => {
+		for (const lineage of ['same', 'other'] as const) {
+			const { store, a, b } = await twoTabs();
+			const current = store.save()!;
+			const theirs = {
+				...current,
+				lineage: lineage === 'same' ? current.lineage : 'from-server',
+				seq: current.seq + 5,
+				party: [...current.party, { id: 'fox', speciesId: 'fox', hp: 9 }]
+			};
+			store.set(KEYS.save, JSON.stringify(theirs));
+			const cause = lineage === 'same' ? 'window' : 'replaced';
+			a.autosave.onStorage(KEYS.save);
+			expect(a.autosave.behind).toBe(cause);
+			// Found at write time, the same.
+			await b.catchOne();
+			expect(b.autosave.behind).toBe(cause);
+			expect(store.get(KEYS.save)).toBe(JSON.stringify(theirs));
+		}
+	});
+
+	it('a tab that missed the storage event finds out when it checks again', async () => {
+		const { a, b } = await twoTabs();
+		await a.catchOne();
+		b.autosave.recheck();
+		expect(b.autosave.behind).toBe('window');
+	});
 });
 
 describe('Autosave: the server backup', () => {
@@ -565,7 +593,7 @@ describe('Autosave: the server backup', () => {
 
 		server.online = true;
 		await later(10_000);
-		expect(tab.autosave.behind).toBe('server');
+		expect(tab.autosave.behind).toBe('replaced');
 		expect(store.save()).toMatchObject({ lineage: 'from-server', seq: 40 });
 		expect(store.get(KEYS.replaced)).toBe(fresh);
 		expect(server.saveOf(who)).toEqual(theirs);
@@ -684,7 +712,7 @@ describe('Autosave: the server backup', () => {
 		const fresh = store.get(KEYS.save);
 		server.online = true;
 		await later(10_000);
-		expect(tab.autosave.behind).toBe('server');
+		expect(tab.autosave.behind).toBe('replaced');
 		expect(store.get(KEYS.replaced)).toBe('an earlier game');
 		expect(store.get(`${KEYS.replaced}.2`)).toBe(fresh);
 	});

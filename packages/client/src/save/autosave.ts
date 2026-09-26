@@ -170,14 +170,23 @@ export class Autosave {
 
 	/**
 	 * Null while this page's game is the newest. Once the browser's save has
-	 * moved past it, why: another page of the game saved progress this one does
-	 * not have (`window`), this page took a bigger game from the server into
-	 * the browser's save (`server`), or the save was removed from under it
-	 * (`gone`). From then on the page saves nothing, and should reload to pick
-	 * up the newest game (`save/behind.ts`).
+	 * moved past it, why: another page played on in the same game (`window`),
+	 * the save now holds another game, which this page or another took from the
+	 * server (`replaced`), or the save was removed from under it (`gone`). From
+	 * then on the page saves nothing, and should reload to pick up the newest
+	 * game (`save/behind.ts`).
 	 */
 	get behind(): BehindCause | null {
 		return this.staleCause;
+	}
+
+	/**
+	 * Check the save again, as a `storage` event would. For a page that may
+	 * have missed one: back from the back/forward cache, resumed after the
+	 * browser froze it, or just focused.
+	 */
+	recheck(): void {
+		this.onStorage(KEYS.save);
 	}
 
 	private get stale(): boolean {
@@ -305,7 +314,7 @@ export class Autosave {
 		const now = this.store?.get(KEYS.save) ?? null;
 		if (now === this.seenText) return;
 		// The other page only walked: carry on from its save now, counters and all.
-		if (!this.carryOnFrom(now)) this.goStale(now === null ? 'gone' : 'window');
+		if (!this.carryOnFrom(now)) this.goStale(this.causeOf(now));
 	}
 
 	// --- local ----------------------------------------------------------------
@@ -340,7 +349,7 @@ export class Autosave {
 		if (store !== null && (this.local === 'ok' || this.local === 'held')) {
 			const current = store.get(KEYS.save);
 			if (current !== this.seenText && !this.carryOnFrom(current)) {
-				this.goStale(current === null ? 'gone' : 'window');
+				this.goStale(this.causeOf(current));
 				return;
 			}
 			if (this.local === 'held') {
@@ -420,6 +429,15 @@ export class Autosave {
 			if (there === null) return store.set(key, text);
 		}
 		return false;
+	}
+
+	/**
+	 * Why a save this page cannot carry on from puts it behind: its own game
+	 * played on elsewhere keeps the lineage; another game in its place does not.
+	 */
+	private causeOf(text: string | null): BehindCause {
+		if (text === null) return 'gone';
+		return saveLineage(parseJson(text)) === this.lineage ? 'window' : 'replaced';
 	}
 
 	private goStale(cause: BehindCause): void {
@@ -585,7 +603,7 @@ export class Autosave {
 		const current = store.get(KEYS.save);
 		if (current !== this.seenText && current !== null) {
 			// Another page wrote meanwhile; it will settle with the server itself.
-			this.goStale('window');
+			this.goStale(this.causeOf(current));
 			return;
 		}
 		const aside = this.local === 'held' ? KEYS.unreadable : KEYS.replaced;
@@ -599,7 +617,7 @@ export class Autosave {
 			this.serverState = 'stopped';
 			return;
 		}
-		this.goStale('server');
+		this.goStale('replaced');
 	}
 
 	private async createIdentity(): Promise<void> {

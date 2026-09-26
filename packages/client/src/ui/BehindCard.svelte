@@ -13,7 +13,13 @@
 <div class="behind">
 	<div class="card">
 		<div class="title">
-			{behind.cause === 'window' ? t('save.behind') : t('save.behindReady')}
+			{#if behind.cause === 'window'}
+				{t('save.behind')}
+			{:else if behind.cause === 'replaced'}
+				{t('save.behindReady')}
+			{:else}
+				{t('save.behindGone')}
+			{/if}
 		</div>
 		<button class="button" onclick={go}>{t('save.behindGo')} <kbd>{t('keys.enter')}</kbd></button>
 	</div>
