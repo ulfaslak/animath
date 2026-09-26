@@ -2,6 +2,8 @@
 	import { getAnimal, needsHealing } from '@mathgame/engine';
 	import { t } from '../copy';
 	import { doctorWords } from '../doctor/lines';
+	import { press, rowKey, unfocusable } from '../input/press';
+	import { touch } from '../input/touch.svelte';
 	import { animalWords, nameOf } from '../names';
 	import { doctor, hurtIndexes } from '../state/doctor.svelte';
 	import HpBar from './HpBar.svelte';
@@ -14,7 +16,11 @@
 	 * the right in the same `PuzzlePanel` as battle, and Bye. Everything comes
 	 * from `doctor` (the presentation view) and every word from the copy files
 	 * (`doctor.*`); keys are handled by `DoctorController`, so nothing here
-	 * dispatches.
+	 * dispatches. A click or a tap is a key press (`input/press.ts`): an
+	 * animal's row is its `row:<i>` key, which picks it at once, and Bye is
+	 * Escape, which leaves at any time. With the touch controls on, the
+	 * doctor's line sits over the puzzle, so the list has the card's height
+	 * for rows a finger tall.
 	 */
 	const hurt = $derived(hurtIndexes(doctor.party));
 	const highlighted = $derived(doctor.party[doctor.cursor] ?? null);
@@ -30,11 +36,14 @@
 		{#each doctor.party as animal, i (animal.id)}
 			{@const spec = getAnimal(animal.speciesId)}
 			{@const cheer = doctor.healed?.index === i}
-			<div
+			<button
+				type="button"
 				class="row"
 				class:selected={doctor.cursor === i}
 				class:cheer
 				class:healthy={!needsHealing(animal) && !cheer}
+				onclick={() => press(rowKey(i))}
+				{@attach unfocusable}
 			>
 				<span class="caret">▸</span>
 				<span class="label">{nameOf(animal)}</span>
@@ -45,13 +54,19 @@
 						<span class="heal">+{doctor.healed.amount}</span>
 					{/key}
 				{/if}
-			</div>
+			</button>
 		{/each}
-		<div class="row bye" class:selected={doctor.cursor === doctor.party.length}>
+		<button
+			type="button"
+			class="row bye"
+			class:selected={doctor.cursor === doctor.party.length}
+			onclick={() => press('Escape')}
+			{@attach unfocusable}
+		>
 			<span class="caret">▸</span>
 			<span class="label">{t('doctor.bye')}</span>
-			<kbd>{t('doctor.byeKey')}</kbd>
-		</div>
+			{#if !touch.on}<kbd>{t('doctor.byeKey')}</kbd>{/if}
+		</button>
 	</div>
 
 	<div class="card puzzle" class:correct={doctor.judged?.correct === true}>
@@ -63,11 +78,13 @@
 				typing={doctor.screen === 'puzzle'}
 			/>
 			{#if hurt.length > 1}
-				<div class="keys">{t('doctor.puzzleKeys')}</div>
+				<div class="keys">
+					{touch.on ? t('doctor.puzzleTouch') : t('doctor.puzzleKeys')}
+				</div>
 			{/if}
 		{:else if hurt.length === 0}
 			<div class="soft">{t('doctor.allFit')}</div>
-			<div class="keys">{t('doctor.allFitKeys')}</div>
+			<div class="keys">{touch.on ? t('doctor.allFitTouch') : t('doctor.allFitKeys')}</div>
 		{:else}
 			<div class="soft">{t('doctor.pick')}</div>
 			<div class="detail">
@@ -75,7 +92,7 @@
 					? t('doctor.pickDetail', { animal: animalWords(highlighted) })
 					: t('doctor.byeDetail')}
 			</div>
-			<div class="keys">{t('doctor.listKeys')}</div>
+			<div class="keys">{touch.on ? t('doctor.listTouch') : t('doctor.listKeys')}</div>
 		{/if}
 	</div>
 </div>
@@ -99,6 +116,21 @@
 		.doctor {
 			grid-template-columns: 1fr 1fr;
 		}
+	}
+	/* Touch: the doctor's line over the puzzle, the list the card's full height. */
+	:global(.touch) .talk {
+		grid-column: 2;
+		grid-row: 1;
+	}
+	:global(.touch) .patients {
+		grid-column: 1;
+		grid-row: 1 / span 2;
+		gap: 0;
+		padding: 6px 12px;
+	}
+	:global(.touch) .puzzle {
+		grid-column: 2;
+		grid-row: 2;
 	}
 	.card {
 		background: var(--panel-bg);
@@ -145,11 +177,23 @@
 		align-items: center;
 		gap: 8px;
 		flex: 0 1 40px;
+		width: 100%;
+		box-sizing: border-box;
 		min-height: 30px;
 		padding: 0 10px;
 		border-radius: 12px;
 		font-weight: 800;
 		font-size: 18px;
+	}
+	:global(.touch) .row {
+		flex: 0 0 var(--tap);
+		min-height: var(--tap);
+	}
+	/* A mouse over a row it can press. Never on touch, where hover sticks after a tap. */
+	@media (hover: hover) and (pointer: fine) {
+		.row:not(.selected):not(.healthy):hover {
+			background: rgba(255, 159, 67, 0.1);
+		}
 	}
 	.row.selected {
 		background: rgba(255, 159, 67, 0.22);

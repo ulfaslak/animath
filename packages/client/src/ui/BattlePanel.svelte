@@ -7,10 +7,13 @@
 		getAnimal,
 		puzzleDifficulty,
 		puzzleTopics,
+		type AttackLevel,
 		type PuzzleTopic
 	} from '@mathgame/engine';
 	import { actionAt, attackRows, levelWord, rowOf } from '../battle/menu';
 	import { language, t } from '../copy';
+	import { levelKey, press, rowKey, unfocusable } from '../input/press';
+	import { touch } from '../input/touch.svelte';
 	import { messageWords, words } from '../lines';
 	import { animalWords, nameOf } from '../names';
 	import { battle } from '../state/battle.svelte';
@@ -22,7 +25,11 @@
 	 * line, the two-column bottom panel (actions or the party list | puzzle)
 	 * and the result card. Everything it shows comes from `battle` (the
 	 * presentation view) and every word from the copy files; keys are handled
-	 * by `BattleController`, so nothing here dispatches.
+	 * by `BattleController`, so nothing here dispatches. A click or a tap is a
+	 * key press (`input/press.ts`): a row is its `row:<i>` key and a level
+	 * button its `level:<n>`, which only highlight and set, since a pick spends
+	 * the turn; Go is Enter, which does the highlighted row; Back is Escape;
+	 * and the result card, all of it, is Enter.
 	 */
 	const front = $derived(battle.party[battle.front] ?? null);
 	const spec = $derived(front ? getAnimal(front.speciesId) : null);
@@ -37,6 +44,20 @@
 	 * goes home. The Leash row says so in words, in place of the odds.
 	 */
 	const teamFull = $derived(battle.party.length >= MAX_PARTY);
+	/** Go on the highlighted row would do nothing: a greyed Switch, or an animal that can't step in. */
+	const goIdle = $derived(
+		battle.screen === 'party'
+			? !battle.pickable[battle.partyCursor]
+			: !!spec && battle.cursor === rowOf('switch', spec.attacks.length) && !canSwitch
+	);
+
+	/** A tap on attack row `i`: on one of its level buttons, that level; anywhere else, the row. */
+	function tapAttack(i: number) {
+		return (e: MouseEvent) => {
+			const level = (e.target as HTMLElement).closest<HTMLElement>('[data-level]')?.dataset.level;
+			press(level ? levelKey(Number(level) as AttackLevel) : rowKey(i));
+		};
+	}
 
 	/** What a kind of puzzle looks like to the kid, in the language on screen. */
 	function kindWord(topic: PuzzleTopic): string {
@@ -170,11 +191,14 @@
 			{#key battle.refused}
 				{#each battle.party as animal, i (animal.id)}
 					{@const selected = battle.partyCursor === i}
-					<div
+					<button
+						type="button"
 						class="row"
 						class:selected
 						class:off={!battle.pickable[i]}
 						class:nudge={selected && battle.refused > 0}
+						onclick={() => press(rowKey(i))}
+						{@attach unfocusable}
 					>
 						<span class="caret">▸</span>
 						<span class="label">{nameOf(animal)}</span>
@@ -188,7 +212,7 @@
 								{t('battle.switch.inBattleTag')}
 							{/if}
 						</span>
-					</div>
+					</button>
 				{/each}
 			{/key}
 		</div>
@@ -196,21 +220,37 @@
 		<div class="card actions" class:dim={battle.screen !== 'actions'}>
 			{#if spec}
 				{#each rows as row, i (row.index)}
-					<div class="row" class:selected={battle.cursor === i}>
+					<button
+						type="button"
+						class="row"
+						class:selected={battle.cursor === i}
+						onclick={tapAttack(i)}
+						{@attach unfocusable}
+					>
 						<span class="caret">▸</span>
 						<span class="label">{row.name}</span>
 						{#if battle.cursor === i}
+							<!-- Each level button's box runs the row's height and meets the next, so a
+							     finger that lands near one presses it, not the row. -->
 							<span class="levels">
 								{#each ATTACK_LEVELS as level (level)}
-									<span class="pill" class:on={row.level === level}>{levelWord(level)}</span>
+									<span class="pill" class:on={row.level === level} data-level={level}
+										><span class="face">{levelWord(level)}</span></span
+									>
 								{/each}
 							</span>
 						{:else}
 							<span class="how">{row.word}</span>
 						{/if}
-					</div>
+					</button>
 				{/each}
-				<div class="row" class:selected={battle.cursor === spec.attacks.length}>
+				<button
+					type="button"
+					class="row"
+					class:selected={battle.cursor === spec.attacks.length}
+					onclick={() => press(rowKey(spec.attacks.length))}
+					{@attach unfocusable}
+				>
 					<span class="caret">▸</span>
 					<span class="label">{t('battle.leash.row')}</span>
 					<span class="how">
@@ -228,19 +268,28 @@
 					{#if !teamFull}
 						<span class="dot {leashBand}"></span>
 					{/if}
-				</div>
-				<div
+				</button>
+				<button
+					type="button"
 					class="row"
 					class:selected={battle.cursor === rowOf('switch', spec.attacks.length)}
 					class:off={!canSwitch}
+					onclick={() => press(rowKey(rowOf('switch', spec.attacks.length)))}
+					{@attach unfocusable}
 				>
 					<span class="caret">▸</span>
 					<span class="label">{t('battle.switch.row')}</span>
-				</div>
-				<div class="row" class:selected={battle.cursor === rowOf('run', spec.attacks.length)}>
+				</button>
+				<button
+					type="button"
+					class="row"
+					class:selected={battle.cursor === rowOf('run', spec.attacks.length)}
+					onclick={() => press(rowKey(rowOf('run', spec.attacks.length)))}
+					{@attach unfocusable}
+				>
 					<span class="caret">▸</span>
 					<span class="label">{t('battle.run.row')}</span>
-				</div>
+				</button>
 			{/if}
 		</div>
 	{/if}
@@ -256,27 +305,74 @@
 		{:else if battle.screen === 'party'}
 			<div class="soft">{t('battle.switch.title')}</div>
 			<div class="detail">{partyDetail}</div>
-			<div class="keys">
-				{battle.mustPick ? t('battle.switch.mustPickKeys') : t('battle.switch.keys')}
+			<div class="footer">
+				<div class="keys">
+					{touch.on
+						? t('battle.switch.touch')
+						: battle.mustPick
+							? t('battle.switch.mustPickKeys')
+							: t('battle.switch.keys')}
+				</div>
+				<div class="buttons">
+					{#if !battle.mustPick}
+						<button
+							type="button"
+							class="pill-button"
+							onclick={() => press('Escape')}
+							{@attach unfocusable}
+						>
+							{t('battle.backButton')}
+							{#if !touch.on}<kbd>{t('keys.esc')}</kbd>{/if}
+						</button>
+					{/if}
+					<button
+						type="button"
+						class="pill-button go"
+						class:idle={goIdle}
+						onclick={() => press('Enter')}
+						{@attach unfocusable}
+					>
+						{t('battle.goButton')}
+						{#if !touch.on}<kbd>{t('keys.enter')}</kbd>{/if}
+					</button>
+				</div>
 			</div>
 		{:else}
 			<div class="soft">{t('battle.pickAttack')}</div>
 			<div class="detail">{detail}</div>
-			<div class="keys">{t('battle.menuKeys')}</div>
+			<div class="footer">
+				<div class="keys">{touch.on ? t('battle.menuTouch') : t('battle.menuKeys')}</div>
+				<div class="buttons">
+					<button
+						type="button"
+						class="pill-button go"
+						class:idle={goIdle || battle.screen !== 'actions'}
+						onclick={() => press('Enter')}
+						{@attach unfocusable}
+					>
+						{t('battle.goButton')}
+						{#if !touch.on}<kbd>{t('keys.enter')}</kbd>{/if}
+					</button>
+				</div>
+			</div>
 		{/if}
 	</div>
 </div>
 
 {#if battle.screen === 'result'}
-	<div class="result">
-		<div class="card result-card">
-			<div class="result-title">{headline}</div>
+	<!-- All of it is the button: a tap anywhere goes on, as Enter does (and waits as Enter waits). -->
+	<button type="button" class="result" onclick={() => press('Enter')} {@attach unfocusable}>
+		<span class="card result-card">
+			<span class="result-title">{headline}</span>
 			{#if battle.closing}
-				<div class="result-text">{messageWords(battle.closing)}</div>
+				<span class="result-text">{messageWords(battle.closing)}</span>
 			{/if}
-			<div class="button">{t('battle.result.button')} <kbd>{t('keys.enter')}</kbd></div>
-		</div>
-	</div>
+			<span class="button">
+				{t('battle.result.button')}
+				{#if !touch.on}<kbd>{t('keys.enter')}</kbd>{/if}
+			</span>
+		</span>
+	</button>
 {/if}
 
 <style>
@@ -379,6 +475,8 @@
 		align-items: center;
 		gap: 8px;
 		flex: 0 1 40px;
+		width: 100%;
+		box-sizing: border-box;
 		min-height: 32px;
 		padding: 0 10px;
 		border-radius: 12px;
@@ -387,6 +485,24 @@
 	}
 	.row.selected {
 		background: rgba(255, 159, 67, 0.22);
+	}
+	/* Touch: every row a finger tall, seven of them in the taller panel (styles.css). */
+	:global(.touch) .actions {
+		gap: 0;
+		padding: 6px 12px;
+	}
+	:global(.touch) .row {
+		flex: 0 0 var(--tap);
+		min-height: var(--tap);
+	}
+	/* A mouse over a row it can press. Never on touch, where hover sticks after a tap. */
+	@media (hover: hover) and (pointer: fine) {
+		.actions:not(.dim) .row:not(.selected):hover {
+			background: rgba(255, 159, 67, 0.1);
+		}
+		.pill:hover .face {
+			box-shadow: inset 0 0 0 2px var(--accent);
+		}
 	}
 	.caret {
 		width: 16px;
@@ -411,9 +527,15 @@
 	}
 	.levels {
 		display: flex;
-		gap: 4px;
+		align-self: stretch;
 	}
+	/* The button's box (what a finger hits) runs the row's height; its face is the pill drawn. */
 	.pill {
+		display: grid;
+		place-items: center;
+		padding: 0 2px;
+	}
+	.face {
 		display: grid;
 		place-items: center;
 		height: 28px;
@@ -422,7 +544,13 @@
 		background: rgba(0, 0, 0, 0.08);
 		font-size: 16px;
 	}
-	.row.selected .pill.on {
+	:global(.touch) .face {
+		height: 36px;
+		min-width: 48px;
+		box-sizing: border-box;
+		border-radius: 18px;
+	}
+	.row.selected .pill.on .face {
 		background: var(--accent);
 		color: white;
 	}
@@ -486,24 +614,81 @@
 		font-size: 16px;
 		opacity: 0.7;
 	}
+	/*
+	 * Go (and Back on the party list), the highlighted row's Enter and the
+	 * list's Escape, above the key reminder; with the touch controls on, beside
+	 * the reminder at the card's right edge, under the right thumb.
+	 */
+	.footer {
+		display: flex;
+		flex-direction: column-reverse;
+		align-items: center;
+		gap: 10px;
+	}
+	:global(.touch) .footer {
+		flex-direction: row;
+		justify-content: space-between;
+		align-self: stretch;
+		margin-top: 6px;
+		text-align: left;
+	}
+	.buttons {
+		display: flex;
+		flex: none;
+		gap: 12px;
+	}
+	.pill-button {
+		display: inline-flex;
+		align-items: center;
+		gap: 10px;
+		min-height: var(--tap);
+		padding: 0 24px;
+		border-radius: 24px;
+		background: rgba(0, 0, 0, 0.08);
+		font-weight: 800;
+		font-size: 18px;
+	}
+	.pill-button kbd {
+		background: rgba(0, 0, 0, 0.08);
+	}
+	.pill-button.go {
+		min-width: 120px;
+		justify-content: center;
+		background: var(--accent);
+		color: white;
+	}
+	.pill-button.go kbd {
+		background: rgba(255, 255, 255, 0.3);
+	}
+	/* Pressing it now would do nothing (a greyed Switch, a turn playing), as Enter would. */
+	.pill-button.idle {
+		opacity: 0.45;
+	}
+	.pill-button:active {
+		transform: scale(0.97);
+	}
 	.result {
 		position: absolute;
 		inset: 0;
 		display: grid;
 		place-items: center;
+		width: 100%;
 		background: rgba(45, 42, 50, 0.25);
 	}
 	.result-card {
+		display: block;
 		padding: 28px 40px 32px;
 		max-width: min(calc(100vw - 32px), 520px);
 		text-align: center;
 	}
 	.result-title {
+		display: block;
 		font-weight: 800;
 		font-size: 40px;
 		line-height: 1.1;
 	}
 	.result-text {
+		display: block;
 		margin-top: 10px;
 		font-weight: 600;
 		font-size: 18px;

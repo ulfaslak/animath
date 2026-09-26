@@ -6,6 +6,7 @@ import { DoctorController } from './doctor/controller';
 import { ExploreController } from './explore/controller';
 import { flags } from './flags';
 import { Keyboard } from './input/keyboard';
+import { touch, watchInput } from './input/touch.svelte';
 import { PauseController } from './pause/controller';
 import { GameRenderer } from './render/renderer';
 import { buildZoo } from './render/zoo';
@@ -21,6 +22,17 @@ import App from './ui/App.svelte';
 
 const canvas = document.getElementById('game') as HTMLCanvasElement;
 const uiRoot = document.getElementById('ui') as HTMLElement;
+
+// Touch controls or keys (`input/touch.svelte.ts`), decided before anything is laid out.
+watchInput(window);
+// A game, not a page: no pinch zoom (Safari's own gesture events; the CSS
+// takes care of the rest), and no long-press menu under a finger.
+document.addEventListener('gesturestart', (e) => e.preventDefault());
+window.addEventListener('contextmenu', (e) => {
+	if (touch.on) e.preventDefault();
+});
+// Safari shows `:active` (a pressed key, a pressed button) only on a page that listens for touches.
+document.addEventListener('touchstart', () => {}, { passive: true });
 
 const authority = new LocalAuthority({ party: flags.party ?? undefined });
 const renderer = new GameRenderer(canvas);
@@ -60,7 +72,8 @@ const exploreInput = () =>
 
 // Keys go to exactly one screen: the battle while it is up, else the doctor's
 // card while it is open, else the pause menu while it is open (Escape in
-// explore opens it), else explore, which reads them through `keyboard`.
+// explore opens it), else explore, which reads them through `keyboard`. A
+// click or a tap arrives here too, as a key press (`input/press.ts`).
 // Explore's own listener runs first and is switched off here at once, so the
 // key that opens the menu is the last one walking sees.
 window.addEventListener('keydown', (e) => {

@@ -112,6 +112,13 @@ species:
 puzzle:
   # Under a puzzle until it is answered.
   keys: Type the answer, then press Enter
+  # The same, with the touch controls on: the number pad beside the puzzle.
+  keysTouch: Tap the answer, then OK
+  # The number pad's keys that have words: the one that answers, and what a
+  # screen reader calls the minus and the delete key.
+  ok: OK
+  minus: Minus
+  delete: Delete
   # After an answer, on the puzzle card and in the battle's narration.
   correct: Correct!
   notQuite: Not quite!
@@ -119,8 +126,21 @@ puzzle:
 explore:
   # Under the latest message for a player's first few moves.
   controls: Arrows / WASD to walk
+  # The same, with the touch controls on: the arrow pad in the corner.
+  controlsTouch: Hold an arrow to walk
   # Under the latest message while the player faces a doctor's tent.
   talkPrompt: Press Enter to talk to the doctor
+  # The same, with the touch controls on; "Talk" is explore.talk.
+  talkPromptTouch: Tap Talk to talk to the doctor
+  # The touch controls' round button: talk to the doctor, as Enter does.
+  talk: Talk
+  # What a screen reader calls the arrow pad's four arrows.
+  walkUp: Walk up
+  walkDown: Walk down
+  walkLeft: Walk left
+  walkRight: Walk right
+  # Over the whole screen when a touch screen is held upright.
+  turnSideways: Turn your tablet sideways to play!
   # Enter anywhere but facing a tent.
   notAtTent: Walk up to a tent to talk to the doctor.
 
@@ -129,7 +149,9 @@ hud:
   goesFirst: goes first
   # Under the party cards, after the number keys 1–n.
   pickLead: Pick who goes first
-  # Under the party cards, after the Esc key cap.
+  # The same, with the touch controls on: the cards themselves are tapped.
+  pickLeadTouch: Tap an animal to pick who goes first
+  # Under the party cards, after the Esc key cap; and the touch controls' menu button.
   menu: Menu
 
 party:
@@ -165,6 +187,12 @@ battle:
   pickAttack: Pick an attack
   # The key reminder under "Pick an attack".
   menuKeys: ↑ ↓ choose · ← → how hard · Enter go
+  # The same, with the touch controls on. "Go!" is battle.goButton.
+  menuTouch: Tap an attack, then Go!
+  # The button that does the highlighted row (an attack, the leash, a switch),
+  # and the one that leaves the party list, as Enter and Esc do.
+  goButton: Go!
+  backButton: Back
   # The highlighted attack. {attack}: its name; {level}: its level's word;
   # {kinds}: what its sums are about (the words below, in an "or" list); {damage}: how much it hits for.
   attackDetail: '{attack} on {level}: {kinds}. It hits for {damage}.'
@@ -213,6 +241,8 @@ battle:
     title: Pick an animal
     keys: ↑ ↓ choose · Enter go · Esc back
     mustPickKeys: ↑ ↓ choose · Enter go
+    # Both lists, with the touch controls on.
+    touch: Tap an animal, then Go!
     tiredTag: tired
     inBattleTag: in battle
     # The highlighted animal of the list.
@@ -270,11 +300,15 @@ doctor:
   pickDetail: Solve a puzzle and {animal.name} feels all better!
   byeDetail: Say bye and go exploring.
   listKeys: ↑ ↓ choose · Enter pick · Esc bye
+  # The same, with the touch controls on.
+  listTouch: Tap an animal to help it
   # Under a doctor's puzzle while another animal needs help too.
   puzzleKeys: ↑ ↓ help another animal · Esc bye
+  puzzleTouch: Tap another animal to help it instead
   # The puzzle area when nobody needs the doctor.
   allFit: Time to explore!
   allFitKeys: Enter or Esc to say bye
+  allFitTouch: Tap Bye to go exploring
 
 pause:
   # The pause menu's title.
@@ -308,6 +342,8 @@ pause:
   keysLanguage: ↑ ↓ choose · ← → or Enter change the language · Esc close
   keysOptions: ↑ ↓ choose · Enter do it · Esc back
   keysNaming: Enter save · Esc back
+  # The name box's buttons, as Enter and Esc do.
+  save: Save
 
 save:
   # On the message line when a saved game is picked up.

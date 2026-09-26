@@ -11,9 +11,9 @@ import type { AttackLevel } from '@mathgame/engine';
  * A pointer can also name what it touched, which no key can: three key
  * names of its own, read by the screens that have such things.
  * - `row:<i>`: row `i` of the list on screen. What that does is the
- *   screen's to say — the doctor and the pause menu do the row at once; the
- *   battle, where a pick spends the turn, highlights it first and does it
- *   on the second tap.
+ *   screen's to say: the doctor and the pause menu do the row at once; the
+ *   battle, where a pick spends the turn, only highlights it, and Go
+ *   (Enter) does it.
  * - `level:<n>`: a level button on the highlighted attack (1 easy, 2
  *   medium, 3 hard). It sets the level; it does not attack.
  * - `language:<code>`: a language on the pause menu's Language row.

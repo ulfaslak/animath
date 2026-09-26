@@ -113,19 +113,17 @@ export interface MenuKey {
  * Enter or Space pick the highlighted row. `key` is the key's `keyName`, so
  * a W typed with Caps Lock on is a `w` here.
  *
- * A pointer's keys (`input/press.ts`): a tap on a row highlights it, and a
- * tap on the row already highlighted picks it, as Enter does, since a pick
- * spends the turn and the kid should see what the row does first; a tap on
- * a level button sets the highlighted attack's level, as left/right do.
+ * A pointer's keys (`input/press.ts`): a tap on a row highlights it and a
+ * tap on a level button sets the highlighted attack's level, as the arrows
+ * do; neither ever picks. A pick spends the turn, so it is Go's (Enter's)
+ * alone: the kid sees what the row does, and at what level, before it goes.
  */
 export function menuKey(menu: Menu, key: string, spec: AnimalSpec): MenuKey {
 	const rows = actionCount(spec.attacks.length);
 	const cursor = Math.min(Math.max(0, menu.cursor), rows - 1);
 	const row = tappedRow(key);
 	if (row !== undefined) {
-		if (row >= rows) return { menu, handled: true };
-		if (row !== cursor) return { menu: { ...menu, cursor: row }, handled: true };
-		return menuKey({ ...menu, cursor }, 'Enter', spec);
+		return { menu: row < rows ? { ...menu, cursor: row } : menu, handled: true };
 	}
 	const action = actionAt(cursor, spec.attacks.length);
 	const attack = action.kind === 'attack' ? action.index : 0;
@@ -200,8 +198,8 @@ export type ListChoice = 'pick' | 'back';
  * One key on the party list of `count` animals. Up/down (W/S) move the
  * cursor over every animal, wrapping round, tired ones included; Enter or
  * Space pick the highlighted one; Escape goes back. Whether a pick or going
- * back is allowed is the caller's to decide. A tap on a row highlights it,
- * and a tap on the highlighted row picks it, as on the action menu.
+ * back is allowed is the caller's to decide. A tap on a row highlights it
+ * and never picks: sending an animal in is Go's (Enter's), as on the menu.
  */
 export function listKey(
 	cursor: number,
@@ -209,10 +207,7 @@ export function listKey(
 	count: number
 ): { cursor: number; handled: boolean; choice?: ListChoice } {
 	const row = tappedRow(key);
-	if (row !== undefined) {
-		if (row >= count) return { cursor, handled: true };
-		return row === cursor ? { cursor, handled: true, choice: 'pick' } : { cursor: row, handled: true };
-	}
+	if (row !== undefined) return { cursor: row < count ? row : cursor, handled: true };
 	switch (key) {
 		case 'ArrowUp':
 		case 'w':

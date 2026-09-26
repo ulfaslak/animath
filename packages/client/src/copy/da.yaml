@@ -109,17 +109,30 @@ species:
 
 puzzle:
   keys: Skriv svaret, og tryk så på Enter
+  keysTouch: Tast svaret, og tryk så på OK
+  ok: OK
+  minus: Minus
+  delete: Slet
   correct: Rigtigt!
   notQuite: Ikke helt!
 
 explore:
   controls: Gå med piletasterne eller WASD
+  controlsTouch: Hold på en pil for at gå
   talkPrompt: Tryk på Enter for at snakke med dyrlægen
+  talkPromptTouch: Tryk på Snak for at snakke med dyrlægen
+  talk: Snak
+  walkUp: Gå op
+  walkDown: Gå ned
+  walkLeft: Gå til venstre
+  walkRight: Gå til højre
+  turnSideways: Hold din tablet på tværs for at spille!
   notAtTent: Gå hen til et telt for at snakke med dyrlægen.
 
 hud:
   goesFirst: først ud
   pickLead: Vælg hvem der er først ud
+  pickLeadTouch: Tryk på et dyr for at vælge hvem der er først ud
   menu: Menu
 
 party:
@@ -145,6 +158,9 @@ battle:
   gotAway: Du slap væk!
   pickAttack: Vælg et angreb
   menuKeys: ↑ ↓ vælg · ← → hvor svært · Enter kør
+  menuTouch: Tryk på et angreb, og så på Kør!
+  goButton: Kør!
+  backButton: Tilbage
   attackDetail: '{attack} på {level}: {kinds}. Det gør {damage} i skade.'
   kinds:
     add: plus
@@ -180,6 +196,7 @@ battle:
     title: Vælg et dyr
     keys: ↑ ↓ vælg · Enter kør · Esc tilbage
     mustPickKeys: ↑ ↓ vælg · Enter kør
+    touch: Tryk på et dyr, og så på Kør!
     tiredTag: træt
     inBattleTag: på banen
     sendIn: 'Send {animal.the} ind. Så får det vilde dyr en tur.'
@@ -218,9 +235,12 @@ doctor:
   pickDetail: Løs en opgave, så får {animal.the} det godt igen!
   byeDetail: Sig farvel, og gå på opdagelse.
   listKeys: ↑ ↓ flyt · Enter vælg · Esc farvel
+  listTouch: Tryk på et dyr for at hjælpe det
   puzzleKeys: ↑ ↓ hjælp et andet dyr · Esc farvel
+  puzzleTouch: Tryk på et andet dyr for at hjælpe det i stedet
   allFit: Ud på eventyr!
   allFitKeys: Enter eller Esc for at sige farvel
+  allFitTouch: Tryk på Farvel for at gå på opdagelse
 
 pause:
   title: Pause
@@ -242,6 +262,7 @@ pause:
   keysLanguage: ↑ ↓ flyt · ← → eller Enter skift sprog · Esc luk
   keysOptions: ↑ ↓ flyt · Enter gør det · Esc tilbage
   keysNaming: Enter gem · Esc tilbage
+  save: Gem
 
 save:
   # On the message line when a saved game is picked up.
