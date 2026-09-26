@@ -1,7 +1,8 @@
 import type { AnimalInstance } from './animals/types.js';
-import { ATTACK_LEVELS, MAX_PARTY } from './animals/types.js';
+import { ATTACK_LEVELS } from './animals/types.js';
 import { ANIMALS, getAnimal } from './animals/catalog.js';
 import type { BattleState } from './battle/types.js';
+import { bundled } from './party/bundles.js';
 import { normalizeNickname } from './party/names.js';
 import { ALL_PUZZLE_KINDS, MAX_DIFFICULTY, MIN_DIFFICULTY } from './puzzles/types.js';
 import { spawnPoint, tileAtWorld } from './world/generate.js';
@@ -46,7 +47,10 @@ export interface SavedGame {
 	steps: number;
 	/** Doctor visits opened. With `steps`, keys each visit's puzzles, so a reload carries those on too. */
 	visits: number;
-	/** The party, in slot order, at most `MAX_PARTY`. During a battle, HP as it stands in the battle. */
+	/**
+	 * The party, in slot order and in species bundles (`party/bundles.ts`), as
+	 * many animals as the player caught. During a battle, HP as it stands in the battle.
+	 */
 	party: AnimalInstance[];
 	/** The battle in progress, or null. Its seed is not saved: the authority derives it from `steps`. */
 	battle: BattleState | null;
@@ -218,8 +222,8 @@ function findSaveError(input: Doc): string | null {
 		return 'pos must be an object with whole-number x and y';
 	}
 	const party = input.party;
+	// Any number of animals: a party has no cap. What bounds a document is the server's body limit.
 	if (!Array.isArray(party)) return 'party must be a list';
-	if (party.length > MAX_PARTY) return `party must have at most ${MAX_PARTY} animals`;
 	const ids = new Set<string>();
 	for (let i = 0; i < party.length; i++) {
 		const error = validateAnimal(party[i], `party[${i}]`);
@@ -338,6 +342,11 @@ function cleanAnimal(animal: AnimalInstance): AnimalInstance {
  * The battle comes back only if `readBattle` accepts it, and never when the
  * position had to move. See [[INVARIANTS]] § "A loaded save never strands the
  * player".
+ *
+ * The party comes back in species bundles (`bundled`), a saved battle's
+ * party in the same order with the same animal in front. A save this build
+ * wrote is in bundles already and comes back as it was; one from before
+ * bundles is put in them, each species behind its first animal.
  */
 export function restoreGame(save: SaveV1): SavedGame {
 	const { seed } = save;
@@ -349,15 +358,23 @@ export function restoreGame(save: SaveV1): SavedGame {
 	else if (!party.some((a) => a.hp > 0)) {
 		party = party.map((a) => ({ ...a, hp: getAnimal(a.speciesId).maxHp }));
 	}
+	const battle = standable ? readBattle(save.battle, party) : null;
 	return {
 		seed,
 		pos: standable ? { x: save.pos.x, y: save.pos.y } : spawnPoint(seed),
 		facing: save.facing ?? 'down',
 		steps: save.steps ?? 0,
 		visits: save.visits ?? 0,
-		party,
-		battle: standable ? readBattle(save.battle, party) : null
+		party: bundled(party),
+		battle: battle && bundledBattle(battle)
 	};
+}
+
+/** The battle with its party in bundles and the same animal in front. */
+function bundledBattle(state: BattleState): BattleState {
+	const front = state.party[state.active]!.id;
+	const party = bundled(state.party);
+	return { ...state, party, active: party.findIndex((a) => a.id === front) };
 }
 
 /**

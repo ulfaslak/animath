@@ -3,12 +3,6 @@ import type { PuzzleKind } from '../puzzles/types.js';
 /** 1 = squirrel-easy, 5 = bear-hard. Drives HP, catch rate and puzzle difficulty. */
 export type Tier = 1 | 2 | 3 | 4 | 5;
 
-/**
- * A party holds at most this many animals. The authority lets a catch beyond
- * it go back into the grass, and the server refuses a save with more.
- */
-export const MAX_PARTY = 6;
-
 export const ATTACK_LEVELS = [1, 2, 3] as const;
 export type AttackLevel = (typeof ATTACK_LEVELS)[number];
 
