@@ -10,7 +10,11 @@
  *                               [--settle 1500] [--key-interval 700] [--tap-ms 100]
  *                               [--width 1280 --height 800] [--scale 1]
  *                               [--clip x,y,w,h] [--gpu metal|swiftshader]
- *                               [--reduced-motion]
+ *                               [--reduced-motion] [--touch]
+ *
+ * `--touch` opens the page as a touch tablet would (`hasTouch`, `isMobile`:
+ * the page sees `pointer: coarse` and shows its touch controls), for the
+ * `tap:` and `touch:` tokens below.
  *
  * `--keys` is a comma-separated script. A token is a key name (`ArrowRight`,
  * `Enter`, `2`), optionally `*n` to press it n times; or one of
@@ -25,6 +29,13 @@
  *   down:<key>    press a key and keep it down while the next tokens run; a
  *                 second `down:` of the same key is an auto-repeat
  *   up:<key>      let go of a key pressed with `down:`
+ *   tap:<css>     tap the first element matching a CSS selector with a finger
+ *                 (`--touch` only), e.g. `tap:.talk`, `tap:.pad .ok`
+ *   touch:<css>:<ms>  keep a finger on that element for <ms>, e.g. an arrow
+ *                 of the D-pad held down: `touch:.dpad .up:1200`
+ *   click:<css>   click it with the mouse, e.g. `click:.actions .row.selected`
+ * A selector never holds a comma (the script's separator); `:nth-child(2)`
+ * and friends are fine.
  * The final frame goes to `--out`. After every frame the script prints what
  * the screen says — on the title its menu, the confirm, the starters and the
  * name box; the message line in explore (and the grid position and
@@ -58,10 +69,15 @@ import { chromium } from 'playwright-core';
 import { mkdirSync } from 'node:fs';
 import { basename, dirname, extname, join, resolve } from 'node:path';
 
+// `--name value`, or a lone `--name` (followed by another `--flag` or nothing) for true.
 const args = Object.fromEntries(
 	process.argv
 		.slice(2)
-		.map((a, i, all) => (a.startsWith('--') ? [a.slice(2), all[i + 1] ?? 'true'] : null))
+		.map((a, i, all) => {
+			if (!a.startsWith('--')) return null;
+			const next = all[i + 1];
+			return [a.slice(2), next === undefined || next.startsWith('--') ? 'true' : next];
+		})
 		.filter(Boolean)
 );
 const url = args.url ?? 'http://localhost:5180/';
@@ -75,6 +91,7 @@ const keyInterval = Number(args['key-interval'] ?? 700);
 // down when a step lands walks another tile, so a hold longer than a step is
 // two steps whenever the page draws fast. Keep taps shorter than a step.
 const tapMs = Number(args['tap-ms'] ?? 100);
+const touchScreen = args.touch === 'true';
 const width = Number(args.width ?? 1280);
 const height = Number(args.height ?? 800);
 const scale = Number(args.scale ?? 1);
@@ -85,7 +102,7 @@ const script = (args.keys ?? '')
 	.split(',')
 	.filter(Boolean)
 	.flatMap((token) => {
-		const m = /^(type|wait|shot|hold|size|reload|down|up):(.*)$/.exec(token);
+		const m = /^(type|wait|shot|hold|size|reload|down|up|tap|touch|click):(.*)$/.exec(token);
 		if (m) return [{ op: m[1], arg: m[2] }];
 		const [key, n] = token.split('*');
 		return Array(Number(n ?? 1)).fill({ op: 'key', arg: key });
@@ -103,11 +120,14 @@ if (!GPU_ARGS[gpu]) {
 	process.exit(2);
 }
 const browser = await chromium.launch({ channel: 'chrome', headless: true, args: GPU_ARGS[gpu] });
-const page = await browser.newPage({
+const context = await browser.newContext({
 	viewport: { width, height },
 	deviceScaleFactor: scale,
-	reducedMotion: args['reduced-motion'] ? 'reduce' : 'no-preference'
+	reducedMotion: args['reduced-motion'] ? 'reduce' : 'no-preference',
+	hasTouch: touchScreen,
+	isMobile: touchScreen
 });
+const page = await context.newPage();
 const errors = [];
 // The game saves locally and backs up to the API when it can; it plays the same
 // without it. Failed API calls are listed, not counted as errors.
@@ -176,6 +196,26 @@ async function describe() {
 	if (debug !== null) lines.push(`at: ${debug}`);
 	const cue = await textOf('.debug-cue');
 	if (cue !== null) lines.push(`cue: ${cue}`);
+	// The touch controls on screen: the D-pad (and the arrow held), Talk (lit
+	// when facing a tent), Menu, the number pad; and the turn-sideways screen.
+	const controls = await page.evaluate(() => {
+		const out = [];
+		if (!document.documentElement.classList.contains('touch')) return out;
+		out.push('on');
+		const dpad = document.querySelector('.dpad');
+		if (dpad)
+			out.push(
+				`dpad${dpad.querySelector('.on') ? ` (${dpad.querySelector('.on').className.split(' ')[1]} held)` : ''}`
+			);
+		const talk = document.querySelector('.talk-button');
+		if (talk) out.push(`talk${talk.classList.contains('ready') ? ' (lit)' : ''}`);
+		if (document.querySelector('.menu-button')) out.push('menu');
+		const pad = document.querySelector('.pad');
+		if (pad) out.push(`number pad${pad.classList.contains('off') ? ' (dimmed)' : ''}`);
+		if (document.querySelector('.turn')) out.push('TURN SIDEWAYS');
+		return out;
+	});
+	if (controls.length) lines.push(`touch: ${controls.join(', ')}`);
 	const message = await textOf('.hint .message');
 	const prompt = await textOf('.hint .prompt');
 	if (message !== null || prompt !== null) {
@@ -337,6 +377,30 @@ for (const { op, arg } of script) {
 			await page.keyboard.up(arg);
 			await page.waitForTimeout(keyInterval);
 			break;
+		case 'tap':
+			if (!touchScreen) throw new Error('tap: needs --touch; a mouse clicks with click:');
+			await page.locator(arg).first().tap({ timeout: 20_000 });
+			await page.waitForTimeout(keyInterval);
+			break;
+		case 'click':
+			await page.locator(arg).first().click({ timeout: 20_000 });
+			await page.waitForTimeout(keyInterval);
+			break;
+		case 'touch': {
+			// A finger held down on the element's centre, then lifted: `touch:<css>:<ms>`.
+			if (!touchScreen) throw new Error('touch: needs --touch');
+			const cut = arg.lastIndexOf(':');
+			const box = await page.locator(arg.slice(0, cut)).first().boundingBox({ timeout: 20_000 });
+			if (!box) throw new Error(`touch: nothing to touch at ${arg.slice(0, cut)}`);
+			const finger = { x: box.x + box.width / 2, y: box.y + box.height / 2 };
+			const cdp = await context.newCDPSession(page);
+			await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [finger] });
+			await page.waitForTimeout(Number(arg.slice(cut + 1)));
+			await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+			await cdp.detach();
+			await page.waitForTimeout(keyInterval);
+			break;
+		}
 		case 'shot':
 			await page.waitForTimeout(400);
 			await shoot(`${stem}-${arg}${ext || '.png'}`);

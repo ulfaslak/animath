@@ -17,6 +17,18 @@
 	--battle-panel: clamp(260px, 40vh, 360px);
 	/* Height of the doctor's card: its line, then party | puzzle (up to six animals and Bye). */
 	--doctor-panel: clamp(300px, 44vh, 400px);
+	/* The least a row or a button is tall with the touch controls on: a finger's width. */
+	--tap: 48px;
+}
+
+/*
+ * The touch controls are on (`input/touch.svelte.ts`): every row is `--tap`
+ * tall, so the battle panel and the doctor's card grow to hold seven of them.
+ * `battlePanelHeight` in `render/battle-scene.ts` mirrors the battle's.
+ */
+:root.touch {
+	--battle-panel: clamp(364px, 48vh, 400px);
+	--doctor-panel: clamp(364px, 48vh, 400px);
 }
 
 html,
@@ -27,6 +39,40 @@ body {
 	background: #8fd3f4;
 	font-family: var(--font-ui);
 	color: var(--panel-ink);
+	/*
+	 * A game, not a page: a finger never pans, pinches or double-tap zooms it,
+	 * never pulls it to refresh or rubber-bands it, and never selects its text
+	 * or opens a long-press menu. The name box types and selects as usual.
+	 */
+	touch-action: none;
+	overscroll-behavior: none;
+	-webkit-user-select: none;
+	user-select: none;
+	-webkit-touch-callout: none;
+	-webkit-tap-highlight-color: transparent;
+	-webkit-text-size-adjust: 100%;
+	text-size-adjust: 100%;
+}
+
+input {
+	-webkit-user-select: text;
+	user-select: text;
+	-webkit-touch-callout: default;
+}
+
+/*
+ * A button in the overlay looks like what it is drawn as (a row, a card, a
+ * key); only its own component's styles show. Zero specificity, so those win.
+ */
+:where(#ui) button {
+	font: inherit;
+	color: inherit;
+	text-align: inherit;
+	background: none;
+	border: 0;
+	margin: 0;
+	padding: 0;
+	cursor: pointer;
 }
 
 #game {
@@ -43,6 +89,11 @@ body {
 	pointer-events: none;
 }
 
-#ui > * {
+/*
+ * The overlay's own pieces take the pointer; the canvas behind takes the rest.
+ * Zero specificity, so a piece that must let taps through (a badge, the iris)
+ * says `pointer-events: none` in its own styles and wins.
+ */
+:where(#ui) > * {
 	pointer-events: auto;
 }

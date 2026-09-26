@@ -10,8 +10,6 @@ class BehindView {
 	shown = $state(false);
 	/** Why the page is behind: another window played on, or something else. */
 	cause = $state<BehindCause>('window');
-	/** Reload into the newest game, as the kid asked (the card's button). Set by `main.ts`. */
-	go: () => void = () => {};
 }
 
 export const behind = new BehindView();

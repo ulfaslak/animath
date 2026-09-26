@@ -9,6 +9,7 @@ import {
 import { sfx } from '../audio/sfx.svelte';
 import { t } from '../copy';
 import { doctorWords, type DoctorLine } from '../doctor/lines';
+import { touch } from '../input/touch.svelte';
 import { messageWords } from '../lines';
 import { animalWords } from '../names';
 import type { SaveNotice } from '../save/notices';
@@ -116,22 +117,30 @@ class HudView {
 	#fresh = $state(false);
 	private age = MESSAGE_SECONDS;
 
-	#facingTent = $derived(canTalkToDoctor(game.seed, game.pos, game.facing));
+	/** The player faces a doctor's tent: interacting now talks to the doctor. */
+	facingTent = $derived(canTalkToDoctor(game.seed, game.pos, game.facing));
 	/**
 	 * The latest thing said while it is fresh, worded now, else ''. "Walk up to
 	 * a tent" is over once the player faces one: the prompt below says what next.
 	 */
 	message = $derived(
-		this.#fresh && this.#said && !('explore' in this.#said && this.#facingTent)
+		this.#fresh && this.#said && !('explore' in this.#said && this.facingTent)
 			? saidWords(this.#said)
 			: ''
 	);
-	/** The line under it: the doctor prompt, the controls hint, or ''. */
+	/**
+	 * The line under it: the doctor prompt, the controls hint, or ''. With the
+	 * touch controls on, both name the buttons on screen instead of keys.
+	 */
 	hint = $derived(
-		this.#facingTent
-			? t('explore.talkPrompt')
+		this.facingTent
+			? touch.on
+				? t('explore.talkPromptTouch')
+				: t('explore.talkPrompt')
 			: game.steps < HINT_STEPS
-				? t('explore.controls')
+				? touch.on
+					? t('explore.controlsTouch')
+					: t('explore.controls')
 				: ''
 	);
 

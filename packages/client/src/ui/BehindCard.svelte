@@ -1,10 +1,12 @@
 <script lang="ts">
 	import { t } from '../copy';
+	import { press, unfocusable } from '../input/press';
+	import { touch } from '../input/touch.svelte';
 	import { behind } from '../state/behind.svelte';
 
-	// The one button in the game that takes a click: the kid may well click a window
-	// that is not in use. Asked for, the reload does not count against the limit.
-	const go = () => behind.go();
+	// The button is Enter (`input/press.ts`), which catches up while the page is
+	// behind (`main.ts`): the kid may well click or tap a window that is not in use.
+	// Asked for, the reload does not count against the limit.
 </script>
 
 <!-- This page is behind the save and takes no play until it has the newest game
@@ -20,7 +22,10 @@
 				{t('save.behindGone')}
 			{/if}
 		</div>
-		<button class="button" onclick={go}>{t('save.behindGo')} <kbd>{t('keys.enter')}</kbd></button>
+		<button type="button" class="button" onclick={() => press('Enter')} {@attach unfocusable}>
+			{t('save.behindGo')}
+			{#if !touch.on}<kbd>{t('keys.enter')}</kbd>{/if}
+		</button>
 	</div>
 </div>
 

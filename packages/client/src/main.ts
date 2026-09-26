@@ -9,6 +9,7 @@ import { ExploreController } from './explore/controller';
 import { flags } from './flags';
 import { Keyboard } from './input/keyboard';
 import { isSoundKey, typingNow } from './input/sound-key';
+import { touch, watchInput } from './input/touch.svelte';
 import { PauseController } from './pause/controller';
 import { GameRenderer } from './render/renderer';
 import { TitleScenery } from './render/title-scenery';
@@ -36,6 +37,18 @@ import App from './ui/App.svelte';
 
 const canvas = document.getElementById('game') as HTMLCanvasElement;
 const uiRoot = document.getElementById('ui') as HTMLElement;
+
+// Touch controls or keys (`input/touch.svelte.ts`), decided before anything is laid out.
+watchInput(window);
+// A game, not a page: no pinch zoom (Safari's own gesture events; the CSS
+// takes care of the rest), and no long-press menu under a finger — except in
+// a name box, where a long press is how a tablet pastes.
+document.addEventListener('gesturestart', (e) => e.preventDefault());
+window.addEventListener('contextmenu', (e) => {
+	if (touch.on && !(e.target instanceof HTMLInputElement)) e.preventDefault();
+});
+// Safari shows `:active` (a pressed key, a pressed button) only on a page that listens for touches.
+document.addEventListener('touchstart', () => {}, { passive: true });
 
 const authority = new LocalAuthority({ party: flags.party ?? undefined });
 const renderer = new GameRenderer(canvas);
@@ -133,6 +146,7 @@ for (const type of ['keydown', 'pointerdown', 'touchend']) {
 // walking sees, and the key that closes the title is not a step. M turns the
 // sound on or off on every screen, the title's too, except while an answer
 // or a name is being typed. A page that is behind the save takes no key at all.
+// A click or a tap arrives here too, as a key press (`input/press.ts`).
 window.addEventListener('keydown', (e) => {
 	if (autosave.behind !== null) {
 		// Behind (`save/behind.ts`): no key reaches the game, nor a letter the name box.
@@ -184,7 +198,7 @@ mount(App, { target: uiRoot });
 /**
  * Reload into the newest game, once. A reload the page makes on its own counts
  * against `RELOADS_PER_MINUTE`; one the kid asked for (Enter, Space, the card's
- * button) does not. Behind another window in the middle of a game, the reloaded
+ * button, which presses Enter) does not. Behind another window in the middle of a game, the reloaded
  * page skips the title and says so; on the title, it opens the title again.
  */
 let reloading = false;
@@ -194,7 +208,6 @@ function catchUp(onItsOwn: boolean): void {
 	const midGame = !title.open && game.mode !== 'title' && game.mode !== 'loading';
 	reloadIntoNewestGame({ onItsOwn, caughtUp: autosave.behind === 'window' && midGame });
 }
-behind.go = () => catchUp(false);
 
 let last = performance.now();
 function frame(now: number) {

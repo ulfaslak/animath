@@ -51,6 +51,10 @@ Under SwiftShader, two pages of the game in one headless browser crawl. The firs
 
 For flows longer than one battle (catching, then switching, then a knock-out), such a script can also dispatch every intent it causes to its own Node-side `LocalAuthority` (run it with `packages/server/node_modules/.bin/tsx`, importing `playwright-core` and `local.ts` by absolute path, from a `.mts` file so top-level `await` works): the mirror sees the same steps and intents, so it knows each puzzle's answer and each battle's outcome before the screen shows them. Under the same load the result card's 0.8 s key guard lasts several seconds of wall-clock time (it counts frame time, capped at 0.1 s a frame), so press Enter again until the HUD is back rather than once after a fixed wait.
 
+## The dev server can keep serving an error after the file is fixed
+
+Twice on 2026-09-26 a worktree's Vite kept showing its red error overlay on every fresh page load for a Svelte file that was valid again. `svelte-check` passed, and so did the tests. The first time, the file had been written twice in quick succession: a scripted edit in two steps, the first leaving a tag unclosed. The second time, a `git merge` left conflict markers in it for a moment. The overlay also blocks every click and tap (Playwright reports `<vite-error-overlay> intercepts pointer events`). When a fresh load shows an overlay for code that type-checks, restart your Vite before debugging anything.
+
 ## pnpm 12 build-script approval
 
 pnpm 12 refuses to run dependency postinstall scripts unless approved in `pnpm-workspace.yaml` under `allowBuilds` (the older `onlyBuiltDependencies` key is read but not honoured). `esbuild` is approved there. If `pnpm install` ever ends with `ERR_PNPM_IGNORED_BUILDS`, run `pnpm approve-builds <pkg> --yes` — it edits the file for you.

@@ -1,6 +1,8 @@
 <script lang="ts">
 	import type { Puzzle } from '@mathgame/engine';
 	import { t } from '../copy';
+	import { touch } from '../input/touch.svelte';
+	import NumberPad from './NumberPad.svelte';
 
 	/**
 	 * One puzzle being answered: the prompt in very large type, the answer
@@ -9,7 +11,8 @@
 	 * The one puzzle view for every screen that asks one (battle now, the
 	 * doctor later; see UI_SPEC § Component reuse). It only shows: keys are
 	 * turned into text by `input/answer.ts` and answers are judged by the
-	 * engine, so nothing here decides anything.
+	 * engine, so nothing here decides anything. With the touch controls on,
+	 * the number pad stands to the right of it, and its keys are keys too.
 	 */
 	let {
 		puzzle,
@@ -25,28 +28,61 @@
 	} = $props();
 </script>
 
-<div class="puzzle-prompt">{puzzle.prompt}</div>
-<div
-	class="answer"
-	class:correct={judged?.correct === true}
-	class:wrong={judged?.correct === false}
->
-	{input}<span class="cursor" class:blink={typing}></span>
-</div>
-{#if judged}
-	<div class="judgement" class:good={judged.correct} class:bad={!judged.correct}>
-		{judged.correct ? t('puzzle.correct') : t('puzzle.notQuite')}
+<div class="puzzle-panel" class:with-pad={touch.on}>
+	<div class="question">
+		<div class="puzzle-prompt" class:long={puzzle.prompt.length > 11}>{puzzle.prompt}</div>
+		<div
+			class="answer"
+			class:correct={judged?.correct === true}
+			class:wrong={judged?.correct === false}
+		>
+			{input}<span class="cursor" class:blink={typing}></span>
+		</div>
+		{#if judged}
+			<div class="judgement" class:good={judged.correct} class:bad={!judged.correct}>
+				{judged.correct ? t('puzzle.correct') : t('puzzle.notQuite')}
+			</div>
+		{:else}
+			<div class="keys">{touch.on ? t('puzzle.keysTouch') : t('puzzle.keys')}</div>
+		{/if}
 	</div>
-{:else}
-	<div class="keys">{t('puzzle.keys')}</div>
-{/if}
+	{#if touch.on}
+		<NumberPad active={typing} />
+	{/if}
+</div>
 
 <style>
+	/* Without the pad, the prompt, the answer and the judgement stack in the card that holds them. */
+	.puzzle-panel,
+	.question {
+		display: contents;
+	}
+	.puzzle-panel.with-pad {
+		display: flex;
+		align-items: center;
+		gap: 16px;
+		width: 100%;
+	}
+	.with-pad .question {
+		display: flex;
+		flex: 1;
+		min-width: 0;
+		flex-direction: column;
+		align-items: center;
+		gap: 10px;
+	}
 	.puzzle-prompt {
 		font-weight: 800;
 		font-size: clamp(40px, 7vh, 64px);
 		line-height: 1.1;
 		overflow-wrap: anywhere;
+	}
+	/* Beside the pad the prompt has half the card: smaller, and a long one smaller still. */
+	.with-pad .puzzle-prompt {
+		font-size: clamp(32px, 6vh, 52px);
+	}
+	.with-pad .puzzle-prompt.long {
+		font-size: clamp(32px, 4.5vh, 40px);
 	}
 	.answer {
 		min-width: 4em;

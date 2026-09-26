@@ -1,8 +1,11 @@
 <script lang="ts">
 	import { MAX_NICKNAME_LENGTH, getAnimal, leadIndex, normalizeNickname } from '@mathgame/engine';
+	import { flushSync } from 'svelte';
 	import { flip } from 'svelte/animate';
 	import { sfx } from '../audio/sfx.svelte';
 	import { LANGUAGES, language, languageName, t } from '../copy';
+	import { languageKey, press, rowKey, unfocusable } from '../input/press';
+	import { touch } from '../input/touch.svelte';
 	import { animalWords, nameOf, speciesName } from '../names';
 	import { game } from '../state/game.svelte';
 	import {
@@ -24,6 +27,13 @@
 	 * `PauseController`'s, so nothing here dispatches. The name box binds
 	 * `pause.draft` and keeps the focus while it is open, so typing lands in it.
 	 * Every word comes from the copy files (`pause.*`, `hud.*`).
+	 *
+	 * A click or a tap is a key press (`input/press.ts`): a row or an option
+	 * is its `row:<i>` key, which does it at once; a language on the Language
+	 * row is its `language:<code>` key; the name box's Save and Back are Enter
+	 * and Escape. With the touch controls on, the key reminder goes, and while
+	 * naming the menu moves to the top of the screen, clear of the tablet's
+	 * own keyboard.
 	 */
 	const lead = $derived(leadIndex(game.party));
 	const pickedIndex = $derived(
@@ -80,11 +90,34 @@
 				if (pause.screen === 'naming' && input.isConnected) input.focus();
 			});
 		input.addEventListener('blur', refocus);
-		return () => input.removeEventListener('blur', refocus);
+		return () => {
+			input.removeEventListener('blur', refocus);
+			// A tablet's keyboard may have slid the page up to show the box; put it back.
+			window.scrollTo(0, 0);
+		};
+	}
+
+	/**
+	 * Press `key` for a tap, and draw what it did before the tap is over: a
+	 * tablet brings up its keyboard for the name box only when the box takes
+	 * the focus inside the tap itself.
+	 */
+	function tap(key: string): void {
+		press(key);
+		flushSync();
+	}
+
+	/** A tap on the Language row: on one of its languages, that one; anywhere else, the row. */
+	function tapLanguage(row: number) {
+		return (e: MouseEvent) => {
+			const code = (e.target as HTMLElement).closest<HTMLElement>('[data-language]')?.dataset
+				.language;
+			tap(code ? languageKey(code) : rowKey(row));
+		};
 	}
 </script>
 
-<div class="backdrop">
+<div class="backdrop" class:typing={touch.on && pause.screen === 'naming'}>
 	<div class="menu">
 		<div class="title">{t('pause.title')}</div>
 		<div class="columns">
@@ -93,12 +126,15 @@
 				{#each game.party as animal, i (animal.id)}
 					{@const spec = getAnimal(animal.speciesId)}
 					{@const name = nameOf(animal)}
-					<div
+					<button
+						type="button"
 						class="row animal"
 						class:lit={lit === i}
 						class:picked={pickedIndex === i}
 						class:tired={animal.hp === 0}
 						animate:flip={{ duration: 180 }}
+						onclick={() => tap(rowKey(i))}
+						{@attach unfocusable}
 					>
 						<span class="slot">{i + 1}</span>
 						<span class="who">
@@ -115,19 +151,28 @@
 								<span class="tag lead">{t('hud.goesFirst')}</span>
 							{/if}
 						</span>
-					</div>
+					</button>
 				{/each}
 				{#each MENU_ITEMS as item, j (item)}
-					<div
+					{@const row = game.party.length + j}
+					<button
+						type="button"
 						class="row item"
-						class:lit={pause.screen === 'list' && lit === game.party.length + j}
+						class:lit={pause.screen === 'list' && lit === row}
+						onclick={item === 'language' ? tapLanguage(row) : () => tap(rowKey(row))}
+						{@attach unfocusable}
 					>
 						{#if item === 'language'}
 							<!-- Each language in its own words, so a kid finds theirs in any language. -->
 							<span class="setting">{itemLabel(item)}</span>
 							<span class="choices">
 								{#each LANGUAGES as code (code)}
-									<span class="choice" class:on={language.current === code} lang={code}>
+									<span
+										class="choice"
+										class:on={language.current === code}
+										lang={code}
+										data-language={code}
+									>
 										{languageName(code)}
 									</span>
 								{/each}
@@ -140,7 +185,7 @@
 						{:else}
 							<span class="button" class:secondary={item !== 'resume'}>{itemLabel(item)}</span>
 						{/if}
-					</div>
+					</button>
 				{/each}
 			</div>
 
@@ -148,9 +193,16 @@
 				{#if pause.screen === 'options' && picked}
 					<div class="side-title">{nameOf(picked)}</div>
 					{#each options as option, i (option.id)}
-						<div class="row option" class:lit={pause.option === i} class:off={!option.enabled}>
+						<button
+							type="button"
+							class="row option"
+							class:lit={pause.option === i}
+							class:off={!option.enabled}
+							onclick={() => tap(rowKey(i))}
+							{@attach unfocusable}
+						>
 							<span class="caret">▸</span>{optionLabel(option.id)}
-						</div>
+						</button>
 					{/each}
 					{#if picked.hp === 0}
 						<div class="note">{t('pause.tiredHelp', { animal: animalWords(picked) })}</div>
@@ -164,7 +216,10 @@
 						maxlength={MAX_NICKNAME_LENGTH}
 						placeholder={speciesName(picked.speciesId)}
 						autocomplete="off"
+						autocapitalize="words"
+						autocorrect="off"
 						spellcheck="false"
+						enterkeyhint="done"
 						aria-label={t('pause.newName')}
 						{@attach nameBox}
 					/>
@@ -172,6 +227,25 @@
 					{#if preview}
 						<div class="note preview">{t('pause.willBe', { name: preview })}</div>
 					{/if}
+					<!-- Enter and Escape, for a finger or a mouse. -->
+					<div class="name-buttons">
+						<button
+							type="button"
+							class="pill back"
+							onclick={() => tap('Escape')}
+							{@attach unfocusable}
+						>
+							{t('pause.back')}
+						</button>
+						<button
+							type="button"
+							class="pill save"
+							onclick={() => tap('Enter')}
+							{@attach unfocusable}
+						>
+							{t('pause.save')}
+						</button>
+					</div>
 				{:else if pause.screen === 'list' && soundLit}
 					<div class="side-title">{t('pause.sound')}</div>
 					<div class="note">{t('pause.soundHelp')}</div>
@@ -181,19 +255,22 @@
 				{/if}
 			</div>
 		</div>
-		<div class="keys">
-			{#if pause.screen === 'list' && MENU_ITEMS[pause.cursor - game.party.length] === 'language'}
-				{t('pause.keysLanguage')}
-			{:else if pause.screen === 'list' && soundLit}
-				{t('pause.keysSound')}
-			{:else if pause.screen === 'list'}
-				{t('pause.keysList')}
-			{:else if pause.screen === 'options'}
-				{t('pause.keysOptions')}
-			{:else}
-				{t('pause.keysNaming')}
-			{/if}
-		</div>
+		<!-- The keys; with the touch controls on, every row is its own button and needs no reminder. -->
+		{#if !touch.on}
+			<div class="keys">
+				{#if pause.screen === 'list' && MENU_ITEMS[pause.cursor - game.party.length] === 'language'}
+					{t('pause.keysLanguage')}
+				{:else if pause.screen === 'list' && soundLit}
+					{t('pause.keysSound')}
+				{:else if pause.screen === 'list'}
+					{t('pause.keysList')}
+				{:else if pause.screen === 'options'}
+					{t('pause.keysOptions')}
+				{:else}
+					{t('pause.keysNaming')}
+				{/if}
+			</div>
+		{/if}
 	</div>
 </div>
 
@@ -205,11 +282,18 @@
 		place-items: center;
 		background: rgba(45, 42, 50, 0.3);
 	}
+	/* Naming on a touch screen: at the top, so the tablet's keyboard, which rises from the bottom, leaves the name box in view. */
+	.backdrop.typing {
+		align-items: start;
+		padding-top: 16px;
+	}
 	.menu {
 		width: min(920px, calc(100vw - 32px));
 		max-height: calc(100vh - 32px);
 		box-sizing: border-box;
 		overflow: auto;
+		/* The one thing a finger may scroll, on a screen too short for it. */
+		touch-action: pan-y;
 		background: var(--panel-bg);
 		border-radius: var(--radius);
 		box-shadow: var(--hud-shadow);
@@ -237,11 +321,19 @@
 		display: flex;
 		align-items: center;
 		gap: 10px;
-		min-height: 48px;
+		width: 100%;
+		box-sizing: border-box;
+		min-height: var(--tap);
 		padding: 0 12px;
 		border-radius: 12px;
 		font-weight: 800;
 		font-size: 18px;
+	}
+	/* A mouse over a row it can press. Never on touch, where hover sticks after a tap. */
+	@media (hover: hover) and (pointer: fine) {
+		.row:not(.lit):not(.off):hover {
+			background: rgba(255, 159, 67, 0.1);
+		}
 	}
 	.row.lit {
 		background: rgba(255, 159, 67, 0.22);
@@ -320,6 +412,13 @@
 		background: rgba(0, 0, 0, 0.08);
 		font-size: 16px;
 	}
+	/* Touch: each language a finger's height, so a tap near one lands on it, not on the row. */
+	:global(.touch) .choice {
+		height: var(--tap);
+		min-width: 64px;
+		box-sizing: border-box;
+		border-radius: 24px;
+	}
 	.choice.on {
 		background: var(--accent);
 		color: white;
@@ -330,6 +429,27 @@
 		min-height: 40px;
 		padding: 0 22px;
 		border-radius: 20px;
+		background: var(--accent);
+		color: white;
+	}
+	/* The name box's Back and Save. */
+	.name-buttons {
+		display: flex;
+		justify-content: flex-end;
+		gap: 10px;
+		margin-top: 12px;
+	}
+	.pill {
+		display: inline-flex;
+		align-items: center;
+		min-height: var(--tap);
+		padding: 0 22px;
+		border-radius: 24px;
+		background: rgba(0, 0, 0, 0.08);
+		font-weight: 800;
+		font-size: 18px;
+	}
+	.pill.save {
 		background: var(--accent);
 		color: white;
 	}

@@ -5,6 +5,7 @@ import { sfx } from '../src/audio/sfx.svelte';
 import { LocalAuthority } from '../src/authority/local';
 import { DoctorController, OPEN_GUARD_SECONDS } from '../src/doctor/controller';
 import { doctorWords } from '../src/doctor/lines';
+import { rowKey } from '../src/input/press';
 import { doctor } from '../src/state/doctor.svelte';
 
 /**
@@ -304,5 +305,53 @@ describe("the doctor's card", () => {
 		t.controller.handle(lateEnd);
 		t.run(3);
 		expect(view()).toEqual(before);
+	});
+});
+
+/**
+ * A click or a tap reaches the card as a key press (`input/press.ts`): an
+ * animal's row is its row key, which picks it at once, since nothing is
+ * spent at the doctor; Bye is Escape.
+ */
+describe("the doctor's card under a pointer", () => {
+	it('a tap picks a hurt animal at once, but not in the opening half second, and never a fit one', () => {
+		const t = setup(hurtParty());
+		t.talk();
+		// A tap straight after the tent is inside the opening guard, as Enter is.
+		t.press(rowKey(1));
+		expect(t.doctorSent()).toEqual([]);
+		t.run(OPEN_GUARD_SECONDS);
+		// The fox is fit: its row does nothing, and the cursor stays where it was.
+		t.press(rowKey(2));
+		expect(t.doctorSent()).toEqual([]);
+		expect(doctor.cursor).toBe(0);
+		t.press(rowKey(1));
+		expect(t.doctorSent()).toEqual([
+			{ type: 'doctor', intent: { type: 'pick-patient', partyIndex: 1 } }
+		]);
+		expect(doctor.screen).toBe('puzzle');
+		expect(doctor.patient).toBe(1);
+	});
+
+	it("in a puzzle, a tap on another hurt animal swaps to it; the patient's own row and a fit one do nothing", () => {
+		const t = setup(hurtParty());
+		t.talk();
+		t.run(OPEN_GUARD_SECONDS);
+		t.press(rowKey(0));
+		expect(doctor.patient).toBe(0);
+		t.press('4');
+		const picks = () => t.doctorSent().filter((i) => i.intent.type === 'pick-patient');
+		t.press(rowKey(0), rowKey(2));
+		expect(picks()).toHaveLength(1);
+		expect(doctor.input).toBe('4');
+		t.press(rowKey(1));
+		expect(picks()).toHaveLength(2);
+		expect(doctor.patient).toBe(1);
+		// A fresh puzzle: what was typed is dropped, as with the arrows.
+		expect(doctor.input).toBe('');
+		// And it is answered the same way: the pad's keys are the keys.
+		t.press(...String(t.answer()), 'Enter');
+		t.run(3);
+		expect(doctor.party[1]!.hp).toBe(getAnimal('rabbit').maxHp);
 	});
 });

@@ -1,7 +1,8 @@
 import type { Authority, GameEvent, PartyIntent } from '@mathgame/engine';
 import { sfx } from '../audio/sfx.svelte';
-import { nextLanguage } from '../copy';
+import { isLanguage, language, nextLanguage } from '../copy';
 import { isShortcut, keyName } from '../input/keyboard';
+import { tappedLanguage, tappedRow } from '../input/press';
 import { game } from '../state/game.svelte';
 import {
 	MENU_ITEMS,
@@ -89,6 +90,24 @@ export class PauseController {
 
 	private listKey(key: string): boolean {
 		const rows = game.party.length + MENU_ITEMS.length;
+		// A tap on a row does it at once, as the arrows and Enter would: nothing
+		// here spends anything, and every move can be moved back.
+		const row = tappedRow(key);
+		if (row !== undefined) {
+			if (row >= rows) return true;
+			pause.cursor = row;
+			return this.listKey('Enter');
+		}
+		// A tap on a language on the Language row: that language, whichever is on now.
+		const code = tappedLanguage(key);
+		if (code !== undefined) {
+			pause.cursor = game.party.length + MENU_ITEMS.indexOf('language');
+			if (isLanguage(code) && code !== language.current) {
+				sfx.play('confirm');
+				language.set(code);
+			}
+			return true;
+		}
 		const item = MENU_ITEMS[pause.cursor - game.party.length];
 		switch (key) {
 			case 'ArrowUp':
@@ -177,6 +196,13 @@ export class PauseController {
 			return true;
 		}
 		const options = partyOptions(game.party, index);
+		// A tap on an option does it, as the arrows and Enter would; a greyed one does nothing.
+		const row = tappedRow(key);
+		if (row !== undefined) {
+			if (!options[row]?.enabled) return true;
+			pause.option = row;
+			return this.optionsKey('Enter');
+		}
 		switch (key) {
 			case 'ArrowUp':
 			case 'w':

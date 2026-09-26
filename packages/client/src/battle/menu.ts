@@ -1,5 +1,6 @@
 import { ATTACK_LEVELS, type AnimalSpec, type AttackLevel } from '@mathgame/engine';
 import { t } from '../copy';
+import { tappedLevel, tappedRow } from '../input/press';
 import { attackName } from '../names';
 
 /**
@@ -111,10 +112,19 @@ export interface MenuKey {
  * own level and nothing else; 1/2/3 set that level and attack at once;
  * Enter or Space pick the highlighted row. `key` is the key's `keyName`, so
  * a W typed with Caps Lock on is a `w` here.
+ *
+ * A pointer's keys (`input/press.ts`): a tap on a row highlights it and a
+ * tap on a level button sets the highlighted attack's level, as the arrows
+ * do; neither ever picks. A pick spends the turn, so it is Go's (Enter's)
+ * alone: the kid sees what the row does, and at what level, before it goes.
  */
 export function menuKey(menu: Menu, key: string, spec: AnimalSpec): MenuKey {
 	const rows = actionCount(spec.attacks.length);
 	const cursor = Math.min(Math.max(0, menu.cursor), rows - 1);
+	const row = tappedRow(key);
+	if (row !== undefined) {
+		return { menu: row < rows ? { ...menu, cursor: row } : menu, handled: true };
+	}
 	const action = actionAt(cursor, spec.attacks.length);
 	const attack = action.kind === 'attack' ? action.index : 0;
 	const level = attack ? levelOf(menu.levels, spec.id, spec.attacks[attack - 1]!.id) : 1;
@@ -122,6 +132,10 @@ export function menuKey(menu: Menu, key: string, spec: AnimalSpec): MenuKey {
 		cursor,
 		levels: withLevel(menu.levels, spec, attack, to)
 	});
+	const tapped = tappedLevel(key);
+	if (tapped !== undefined) {
+		return { menu: attack ? setLevel(tapped) : menu, handled: true };
+	}
 	switch (key) {
 		case 'ArrowUp':
 		case 'w':
@@ -184,13 +198,16 @@ export type ListChoice = 'pick' | 'back';
  * One key on the party list of `count` animals. Up/down (W/S) move the
  * cursor over every animal, wrapping round, tired ones included; Enter or
  * Space pick the highlighted one; Escape goes back. Whether a pick or going
- * back is allowed is the caller's to decide.
+ * back is allowed is the caller's to decide. A tap on a row highlights it
+ * and never picks: sending an animal in is Go's (Enter's), as on the menu.
  */
 export function listKey(
 	cursor: number,
 	key: string,
 	count: number
 ): { cursor: number; handled: boolean; choice?: ListChoice } {
+	const row = tappedRow(key);
+	if (row !== undefined) return { cursor: row < count ? row : cursor, handled: true };
 	switch (key) {
 		case 'ArrowUp':
 		case 'w':

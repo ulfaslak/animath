@@ -1,5 +1,6 @@
 import { Rng, type Biome } from '@mathgame/engine';
 import * as THREE from 'three';
+import { touch } from '../input/touch.svelte';
 import { motion } from '../motion';
 import { animateIdle, buildAnimalMesh, disposeFigure } from './animals';
 import { COLORS, CONFETTI_COLORS, TILE_COLORS } from './palette';
@@ -45,9 +46,12 @@ const SCENE_FOV = 25;
 /**
  * Height in CSS pixels of the battle screen's bottom panel for a canvas
  * `height` pixels tall. Mirrors `--battle-panel` in `styles.css`
- * (`clamp(260px, 40vh, 360px)`); change both together.
+ * (`clamp(260px, 40vh, 360px)`, and `clamp(364px, 48vh, 400px)` with the
+ * touch controls on, where seven rows a finger tall must fit); change both
+ * together.
  */
-export function battlePanelHeight(height: number): number {
+export function battlePanelHeight(height: number, touchControls = touch.on): number {
+	if (touchControls) return Math.min(400, Math.max(364, 0.48 * height));
 	return Math.min(360, Math.max(260, 0.4 * height));
 }
 

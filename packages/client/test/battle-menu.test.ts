@@ -10,6 +10,7 @@ import {
 	rowOf,
 	type Menu
 } from '../src/battle/menu';
+import { levelKey, rowKey } from '../src/input/press';
 
 /**
  * The battle menu's rows and levels as the panel draws them (`attackRows`)
@@ -103,6 +104,46 @@ describe('menu keys', () => {
 	});
 });
 
+describe('taps on the menu', () => {
+	for (const spec of ANIMALS) {
+		it(`${spec.id}: a tap on a row only highlights it, a level button only sets its level; neither picks`, () => {
+			const n = spec.attacks.length;
+			const rows = actionCount(n);
+			for (let from = 0; from < rows; from++) {
+				for (let row = 0; row < rows; row++) {
+					// A tap on any row, the highlighted one too, moves the cursor there and picks nothing.
+					const tapped = menuKey({ cursor: from, levels: {} }, rowKey(row), spec);
+					expect(tapped).toEqual({ menu: { cursor: row, levels: {} }, handled: true });
+				}
+				// A row past the last is nothing to tap.
+				expect(menuKey({ cursor: from, levels: {} }, rowKey(rows), spec).menu.cursor).toBe(from);
+				for (const level of ATTACK_LEVELS) {
+					const set = menuKey({ cursor: from, levels: {} }, levelKey(level), spec);
+					expect(set.choice).toBeUndefined();
+					expect(set.menu.cursor).toBe(from);
+					const words = attackRows(spec, set.menu.levels).map((r) => r.level);
+					// Only the highlighted attack takes the level; off an attack, nothing changes.
+					expect(words).toEqual(
+						spec.attacks.map((_, i) =>
+							i === from && actionAt(from, n).kind === 'attack' ? level : 1
+						)
+					);
+				}
+			}
+		});
+	}
+
+	it('a tap, a level, then Enter: the tapped attack goes, at the level tapped', () => {
+		const squirrel = ANIMALS[0]!;
+		const menu = press({ cursor: 0, levels: {} }, squirrel, rowKey(1), levelKey(3));
+		expect(menuKey(menu, 'Enter', squirrel).choice).toEqual({
+			kind: 'attack',
+			attackIndex: 2,
+			level: 3
+		});
+	});
+});
+
 describe('party list keys', () => {
 	it('moves over every animal, wrapping round, and picks or goes back', () => {
 		expect(listKey(0, 'ArrowUp', 3).cursor).toBe(2);
@@ -113,6 +154,12 @@ describe('party list keys', () => {
 		expect(listKey(1, ' ', 3).choice).toBe('pick');
 		expect(listKey(1, 'Escape', 3)).toEqual({ cursor: 1, handled: true, choice: 'back' });
 		expect(listKey(1, 'ArrowLeft', 3)).toEqual({ cursor: 1, handled: false });
+	});
+
+	it('a tap on an animal highlights it and never picks, the highlighted one included', () => {
+		expect(listKey(0, rowKey(2), 3)).toEqual({ cursor: 2, handled: true });
+		expect(listKey(2, rowKey(2), 3)).toEqual({ cursor: 2, handled: true });
+		expect(listKey(1, rowKey(3), 3)).toEqual({ cursor: 1, handled: true });
 	});
 
 	it('starts on the first animal who can step in', () => {

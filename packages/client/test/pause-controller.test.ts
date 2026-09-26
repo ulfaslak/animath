@@ -5,6 +5,7 @@ import { sfx } from '../src/audio/sfx.svelte';
 import { LocalAuthority } from '../src/authority/local';
 import { language } from '../src/copy';
 import { parseParty } from '../src/flags';
+import { languageKey, rowKey } from '../src/input/press';
 import { PauseController } from '../src/pause/controller';
 import { game } from '../src/state/game.svelte';
 import { MENU_ITEMS, pause } from '../src/state/pause.svelte';
@@ -299,5 +300,59 @@ describe('pause menu', () => {
 		press('Escape');
 		controller.handle({ type: 'battle-started' } as GameEvent);
 		expect(pause.open).toBe(false);
+	});
+});
+
+/**
+ * A click or a tap reaches the menu as a key press (`input/press.ts`): a row
+ * or an option is its row key, which does it at once, a language on the
+ * Language row its language key, and the name box's Save and Back are Enter
+ * and Escape.
+ */
+describe('pause menu under a pointer', () => {
+	it('a tap on an animal opens its options; a tap on an option does it, and a greyed one nothing', () => {
+		const { press, sent, species } = setup();
+		press('Escape', rowKey(2));
+		expect(pause.screen).toBe('options');
+		expect(pause.picked).toBe(game.party[2]!.id);
+		// The fox is at the bottom: Move down is greyed, and its tap sends nothing.
+		press(rowKey(2));
+		expect(sent).toEqual([]);
+		expect(pause.screen).toBe('options');
+		press(rowKey(1));
+		expect(species()).toEqual(['squirrel', 'fox', 'rabbit']);
+		expect(pause.option).toBe(1);
+		// New name, typed, then Save (Enter).
+		press(rowKey(3));
+		expect(pause.screen).toBe('naming');
+		pause.draft = 'Pip';
+		press('Enter');
+		expect(game.party[1]!.nickname).toBe('Pip');
+		expect(pause.screen).toBe('list');
+		// A tap on the last row, "Keep playing", closes the menu.
+		press(rowKey(game.party.length + MENU_ITEMS.indexOf('resume')));
+		expect(pause.open).toBe(false);
+	});
+
+	it('a tap on a language switches to it; on the one already on, nothing changes', () => {
+		const { press } = setup();
+		const row = game.party.length + MENU_ITEMS.indexOf('language');
+		press('Escape', languageKey('en'));
+		expect(language.current).toBe('en');
+		expect(pause.cursor).toBe(row);
+		press(languageKey('da'), languageKey('da'));
+		expect(language.current).toBe('da');
+		// A tap on the row's name, not on a language, is Enter on the row: the next one.
+		press(rowKey(row));
+		expect(language.current).toBe('en');
+		expect(pause.open).toBe(true);
+	});
+
+	it('a tap on a row past the last does nothing', () => {
+		const { press, sent } = setup();
+		press('Escape', rowKey(game.party.length + MENU_ITEMS.length));
+		expect(pause.screen).toBe('list');
+		expect(pause.open).toBe(true);
+		expect(sent).toEqual([]);
 	});
 });
