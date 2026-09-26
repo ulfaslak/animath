@@ -3,7 +3,7 @@
 	import { flip } from 'svelte/animate';
 	import { sfx } from '../audio/sfx.svelte';
 	import { LANGUAGES, language, languageName, t } from '../copy';
-	import { languageKey, rowKey, unfocusable } from '../input/press';
+	import { languageKey, optionKey, rowKey, unfocusable } from '../input/press';
 	import { touch } from '../input/touch.svelte';
 	import { motion } from '../motion';
 	import { animalWords, nameOf, speciesName } from '../names';
@@ -30,9 +30,11 @@
 	 *
 	 * A click or a tap is a key press (`data-press`, `input/taps.ts`, which
 	 * draws what the tap did before the tap is over, so the name box can bring
-	 * up a tablet's keyboard): a row or an option is its `row:<i>` key, which
-	 * does it at once; a language on the Language row is its `language:<code>`
-	 * key; the name box's Save and Back are Enter and Escape. With the touch
+	 * up a tablet's keyboard): a row on the left is its `row:<i>` key and an
+	 * option its `option:<i>` key, each done at once (the rows on the left
+	 * stay live beside the options, so the two lists never share a key); a
+	 * language on the Language row is its `language:<code>` key; the name
+	 * box's Save and Back are Enter and Escape. With the touch
 	 * controls on, the key reminder goes, and while
 	 * naming the menu moves to the top of the screen, clear of the tablet's
 	 * own keyboard.
@@ -182,7 +184,7 @@
 							class="row option"
 							class:lit={pause.option === i}
 							class:off={!option.enabled}
-							data-press={rowKey(i)}
+							data-press={optionKey(i)}
 							{@attach unfocusable}
 						>
 							<span class="caret">▸</span>{optionLabel(option.id)}

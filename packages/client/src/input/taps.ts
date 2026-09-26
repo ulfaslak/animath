@@ -11,7 +11,10 @@
  * takes keys, still on the button or hardly moved (the button holds the
  * pointer, so a finger whose button changes shape under it — the first touch
  * after the keyboard brings the touch controls and their bigger panels —
- * still presses it). Each pointer is followed on its own, by `pointerId`, so
+ * still presses it), and the button still stands for the key it had when
+ * the pointer landed: a team row that another finger moved (Move up, Go
+ * first) is a different row by then, and presses nothing, rather than the
+ * row its old place now names. Each pointer is followed on its own, by `pointerId`, so
  * a thumb held on the D-pad never stops the other thumb's tap on Talk. The
  * browser's own `click` is not used for a pointer: it waits for every finger
  * to lift before it comes, and it lands on whatever is under a finger lifted
@@ -46,16 +49,21 @@ export interface Pressable {
 
 /**
  * The pointers down on buttons, by `pointerId`. Pure: `watchTaps` feeds it
- * the page's pointer events; tests feed it their own.
+ * the page's pointer events; tests feed it their own. `keyOf` reads the key
+ * a button presses as it stands (`data-press`), asked as the pointer lands
+ * and again as it lifts.
  */
 export class Taps<B extends Pressable = Pressable> {
 	private downs = new Map<number, Down<B>>();
 
+	constructor(private keyOf: (button: B) => string | undefined) {}
+
 	/**
-	 * Pointer `id` went down at `at` on `button`, which presses `key` (none:
-	 * it is on no button), while screen `screen` took keys.
+	 * Pointer `id` went down at `at` on `button` (none: on no button), while
+	 * screen `screen` took keys.
 	 */
-	down(id: number, key: string | undefined, button: B | null, screen: number, at: Point): void {
+	down(id: number, button: B | null, screen: number, at: Point): void {
+		const key = button === null ? undefined : this.keyOf(button);
 		if (key === undefined || button === null) this.downs.delete(id);
 		else this.downs.set(id, { key, button, screen, at });
 	}
@@ -64,8 +72,9 @@ export class Taps<B extends Pressable = Pressable> {
 	 * Pointer `id` came up at `at`, on `target`, while screen `screen` takes
 	 * keys: the key its tap presses, if it went down on a button that
 	 * `target` is part of (the button keeps a pointer it holds, and loses it
-	 * when it leaves the page), on this screen, and it is still on that
-	 * button (`onButton`) or hardly moved.
+	 * when it leaves the page), on this screen, it is still on that button
+	 * (`onButton`) or hardly moved, and the button still presses the key it
+	 * did when the pointer landed.
 	 */
 	up(
 		id: number,
@@ -79,6 +88,9 @@ export class Taps<B extends Pressable = Pressable> {
 		if (!down || down.screen !== screen || !down.button.contains(target)) return undefined;
 		const moved = Math.hypot(at.x - down.at.x, at.y - down.at.y);
 		if (moved > TAP_SLOP_PX && !onButton(down.button)) return undefined;
+		// A row whose place changed under the finger (another finger moved an animal)
+		// stands for another row now; which one the finger meant, nobody can say.
+		if (this.keyOf(down.button) !== down.key) return undefined;
 		return down.key;
 	}
 
@@ -110,7 +122,7 @@ function pressableIn(e: Event): HTMLElement | null {
  * handler, so the screen a press begins on is the one the finger saw.
  */
 export function watchTaps(target: Window, screen: () => number, press: (key: string) => void) {
-	const taps = new Taps<HTMLElement>();
+	const taps = new Taps<HTMLElement>((button) => button.dataset.press);
 	const early = { capture: true };
 	target.addEventListener(
 		'pointerdown',
@@ -122,7 +134,7 @@ export function watchTaps(target: Window, screen: () => number, press: (key: str
 			} catch {
 				// Not a pointer the page can hold, or a button already off the page.
 			}
-			taps.down(e.pointerId, button?.dataset.press, button, screen(), {
+			taps.down(e.pointerId, button, screen(), {
 				x: e.clientX,
 				y: e.clientY
 			});
