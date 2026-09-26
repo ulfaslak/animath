@@ -400,8 +400,14 @@ title:
     # Under the lit one. {animal}: its species; {kinds}: every kind of sum its attacks ask, as a list.
     loves: '{animal.the} loves {kinds}!'
     keys: ← → choose · Enter pick · Esc back
+    # The card's button that picks the lit one, as Enter does. {animal}: its species.
+    pick: 'Pick {animal.the}!'
   # The name box for the animal just picked. {animal}: its species.
   naming:
     title: What will you call your {animal.name}?
     empty: Leave it empty and it is just called {animal.name}.
     keys: Enter done · Esc back
+    # The card's button that starts the game, as Enter does.
+    start: "Let's go!"
+  # The card's button that goes back a screen, as Escape does.
+  back: Back

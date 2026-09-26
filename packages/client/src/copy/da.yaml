@@ -309,7 +309,10 @@ title:
     title: Vælg dit første dyr!
     loves: '{animal.the} elsker {kinds}!'
     keys: ← → flyt · Enter vælg · Esc tilbage
+    pick: 'Vælg {animal.the}!'
   naming:
     title: Hvad skal {animal.the} hedde?
     empty: Uden et navn hedder dyret bare {animal.name}.
     keys: Enter færdig · Esc tilbage
+    start: Afsted!
+  back: Tilbage

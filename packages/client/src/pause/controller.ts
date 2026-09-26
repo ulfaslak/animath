@@ -102,7 +102,10 @@ export class PauseController {
 		const code = tappedLanguage(key);
 		if (code !== undefined) {
 			pause.cursor = game.party.length + MENU_ITEMS.indexOf('language');
-			if (isLanguage(code) && code !== language.current) language.set(code);
+			if (isLanguage(code) && code !== language.current) {
+				sfx.play('confirm');
+				language.set(code);
+			}
 			return true;
 		}
 		const item = MENU_ITEMS[pause.cursor - game.party.length];

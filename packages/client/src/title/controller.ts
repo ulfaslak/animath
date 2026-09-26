@@ -7,8 +7,9 @@ import {
 } from '@mathgame/engine';
 import { sfx } from '../audio/sfx.svelte';
 import { WORLD_SEED } from '../authority/local';
-import { nextLanguage } from '../copy';
+import { isLanguage, language, nextLanguage } from '../copy';
 import { isShortcut, keyName } from '../input/keyboard';
+import { tappedLanguage, tappedRow } from '../input/press';
 import type { TitleView3D } from '../render/title-scenery';
 import type { SaveNotice } from '../save/notices';
 import { CONFIRM_CHOICES, title, type TitleRow } from '../state/title.svelte';
@@ -29,6 +30,12 @@ import { CONFIRM_CHOICES, title, type TitleRow } from '../state/title.svelte';
  * mashed on the screen before can't choose on this one unseen. The confirm
  * starts on its safe choice, so however Enter is mashed, a new game needs a
  * deliberate arrow first.
+ *
+ * A click or a tap is a key press too (`input/press.ts`): on the menu and
+ * the confirm a row does its thing at once, as the arrows and Enter would,
+ * behind the same guards (a tap on "Yes" is a deliberate choice, not a
+ * mash); a language is its language key; a starter's tag only lights it,
+ * since picking starts a game, and the card's button (Enter) picks.
  */
 
 /** Frame seconds the confirm ignores Enter and Space after it opens. */
@@ -126,6 +133,21 @@ export class TitleController {
 
 	private menuKey(key: string): boolean {
 		const rows = title.rows;
+		const tapped = tappedRow(key);
+		if (tapped !== undefined) {
+			if (tapped >= rows.length) return true;
+			title.cursor = tapped;
+			return this.menuKey('Enter');
+		}
+		const code = tappedLanguage(key);
+		if (code !== undefined) {
+			title.cursor = Math.max(0, rows.indexOf('language'));
+			if (isLanguage(code) && code !== language.current) {
+				sfx.play('confirm');
+				language.set(code);
+			}
+			return true;
+		}
 		const row = rows[title.cursor];
 		switch (key) {
 			case 'ArrowUp':
@@ -190,6 +212,12 @@ export class TitleController {
 	}
 
 	private confirmKey(key: string): boolean {
+		const tapped = tappedRow(key);
+		if (tapped !== undefined) {
+			if (tapped >= CONFIRM_CHOICES.length) return true;
+			title.confirm = tapped;
+			return this.confirmKey('Enter');
+		}
 		switch (key) {
 			case 'ArrowUp':
 			case 'w':
@@ -217,6 +245,11 @@ export class TitleController {
 
 	private starterKey(key: string): boolean {
 		const count = STARTERS.length;
+		const tapped = tappedRow(key);
+		if (tapped !== undefined) {
+			if (tapped < count && tapped !== title.starter) this.light(tapped);
+			return true;
+		}
 		switch (key) {
 			case 'ArrowLeft':
 			case 'a':

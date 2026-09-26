@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { sfx } from '../src/audio/sfx.svelte';
 import { LocalAuthority } from '../src/authority/local';
 import { language } from '../src/copy';
+import { languageKey, rowKey } from '../src/input/press';
 import type { TitleView3D } from '../src/render/title-scenery';
 import { game } from '../src/state/game.svelte';
 import { title } from '../src/state/title.svelte';
@@ -401,5 +402,69 @@ describe('title: the name box', () => {
 		// Keys work again.
 		press('Escape');
 		expect(title.screen).toBe('starter');
+	});
+});
+
+/**
+ * A click or a tap reaches the title as a key press (`input/press.ts`): a
+ * menu or confirm row does its thing at once, behind the same guards; a
+ * language is its language key; a starter's tag only lights it, and the
+ * card's button (Enter) picks.
+ */
+describe('title: a pointer', () => {
+	it('a tap on a menu row does it; on a language, that language; on the sound, it flips', () => {
+		const { press, continued } = setup(savedGame());
+		const rows = title.rows;
+		press(languageKey('da'));
+		expect(language.current).toBe('da');
+		expect(title.cursor).toBe(rows.indexOf('language'));
+		press(languageKey('da'));
+		expect(language.current).toBe('da');
+		const on = sfx.on;
+		press(rowKey(rows.indexOf('sound')));
+		expect(sfx.on).toBe(!on);
+		press(rowKey(rows.indexOf('sound')));
+		expect(sfx.on).toBe(on);
+		press(rowKey(rows.length));
+		expect(title.screen).toBe('menu');
+		press(rowKey(rows.indexOf('continue')));
+		expect(continued).toHaveLength(1);
+	});
+
+	it('the confirm: a tap on Yes starts over, but not in its first moment; a tap on No goes back', () => {
+		const { press, wait } = setup(savedGame());
+		press(rowKey(title.rows.indexOf('new')));
+		expect(title.screen).toBe('confirm');
+		// A second tap straight away, wherever it lands, waits out the guard as Enter does.
+		press(rowKey(1));
+		expect(title.screen).toBe('confirm');
+		wait(CONFIRM_GUARD_SECONDS + 0.05);
+		press(rowKey(0));
+		expect(title.screen).toBe('menu');
+		press(rowKey(title.rows.indexOf('new')));
+		wait(CONFIRM_GUARD_SECONDS + 0.05);
+		press(rowKey(1));
+		expect(title.screen).toBe('starter');
+	});
+
+	it('a tap on a starter only lights it; the button (Enter) picks it, after the screen’s moment', () => {
+		const { press, wait, scenery, sent } = setup();
+		press(rowKey(title.rows.indexOf('new')));
+		expect(title.screen).toBe('starter');
+		press(rowKey(2), rowKey(2));
+		expect(title.starter).toBe(2);
+		expect(title.screen).toBe('starter');
+		press('Enter');
+		expect(title.screen).toBe('starter'); // too soon
+		wait(PICK_GUARD_SECONDS + 0.05);
+		press(rowKey(STARTERS.length), 'Enter');
+		expect(title.screen).toBe('naming');
+		expect(scenery.shown.at(-1)).toBe('cheer 2');
+		// In the name box a tag's tap is not typing and does nothing; Let's go (Enter) starts.
+		press(rowKey(0));
+		expect(title.starter).toBe(2);
+		wait(PICK_GUARD_SECONDS + 0.05);
+		press('Enter');
+		expect(newGames(sent)).toEqual([{ type: 'new-game', speciesId: STARTERS[2], nickname: '' }]);
 	});
 });
