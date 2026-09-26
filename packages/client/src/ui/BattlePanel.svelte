@@ -97,7 +97,8 @@
 				? t('battle.switch.noSwimmers')
 				: t('battle.switch.noWalkers');
 		}
-		return t('battle.run.detail', { animal: animalWords(opponent) });
+		const run = battle.realm === 'water' ? 'battle.run.detailSea' : 'battle.run.detail';
+		return t(run, { animal: animalWords(opponent) });
 	});
 
 	/** The puzzle area's title for the highlighted row: what picking it does. */

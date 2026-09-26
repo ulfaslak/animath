@@ -1193,6 +1193,8 @@ describe('LocalAuthority: the boat', () => {
 				expect(e.state.realm).toBe('water');
 				expect(e.state.party[e.state.active]!.speciesId).toBe('otter');
 				s.authority.dispatch({ type: 'battle', intent: { type: 'flee' } });
+				// It stays in the water, not in the grass.
+				expect(lastMessage(s)).toBe('battle.closing.fledSea');
 			}
 			expect(tileAtWorld(WORLD_SEED, position(s).x, position(s).y).kind).toBe('deepwater');
 		}

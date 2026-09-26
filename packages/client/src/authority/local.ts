@@ -412,12 +412,14 @@ export class LocalAuthority implements Authority {
 		const animal: SpeciesRef = { speciesId: state.opponent.speciesId };
 		let rescue: Rescue | null = null;
 		let line: Line | null = null;
+		// Out on the water the wild animal swims home, or stays in the water, not the grass.
+		const sea = state.realm === 'water';
 		switch (state.phase.outcome) {
 			case 'won':
-				line = { key: 'battle.closing.won', params: { animal } };
+				line = { key: sea ? 'battle.closing.wonSea' : 'battle.closing.won', params: { animal } };
 				break;
 			case 'fled':
-				line = { key: 'battle.closing.fled', params: { animal } };
+				line = { key: sea ? 'battle.closing.fledSea' : 'battle.closing.fled', params: { animal } };
 				break;
 			case 'caught': {
 				// The reducer always reports the caught animal on `ended`.

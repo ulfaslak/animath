@@ -288,6 +288,7 @@ battle:
   run:
     row: Løb væk
     detail: 'Du slipper altid væk. {animal.theWild} bliver i græsset.'
+    detailSea: 'Du slipper altid væk. {animal.theWild} bliver i vandet.'
   switch:
     row: Skift
     detail: Send et andet dyr ind. Det koster din tur.
@@ -320,6 +321,8 @@ battle:
   closing:
     won: '{animal.theWild} løber hjem og hviler sig.'
     fled: '{animal.theWild} bliver i græsset.'
+    wonSea: '{animal.theWild} svømmer hjem og hviler sig.'
+    fledSea: '{animal.theWild} bliver i vandet.'
     joined: '{animal.the} kommer med på dit hold!'
 
 doctor:

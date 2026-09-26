@@ -354,6 +354,8 @@ battle:
     row: Run
     # What the row says when highlighted. {animal}: the wild animal.
     detail: 'You always get away. {animal.theWild} stays in the grass.'
+    # The same, out on the water.
+    detailSea: 'You always get away. {animal.theWild} stays in the water.'
   switch:
     # The Switch row of the action menu, and what it says when highlighted.
     row: Switch
@@ -399,6 +401,9 @@ battle:
   closing:
     won: '{animal.theWild} runs home to rest.'
     fled: '{animal.theWild} stays in the grass.'
+    # The same, out on the water.
+    wonSea: '{animal.theWild} swims home to rest.'
+    fledSea: '{animal.theWild} stays in the water.'
     joined: '{animal.name} joins your team!'
 
 doctor:
