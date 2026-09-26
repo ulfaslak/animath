@@ -393,7 +393,7 @@ doctor:
   shop:
     intro: Look what I have! You pay with tokens.
     # The doctor's line while nothing is for sale.
-    introEmpty: My shop opens soon. Keep your tokens!
+    introEmpty: My shop opens soon!
     emptyTitle: Nothing for sale yet
     emptyDetail: New things are coming soon. Keep your tokens!
     # An item's price.

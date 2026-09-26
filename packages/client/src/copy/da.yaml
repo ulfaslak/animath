@@ -299,7 +299,7 @@ doctor:
 
   shop:
     intro: Se, hvad jeg har! Du betaler med mønter.
-    introEmpty: Min butik åbner snart. Gem dine mønter!
+    introEmpty: Min butik åbner snart!
     emptyTitle: Intet til salg endnu
     emptyDetail: Der kommer snart nye ting. Gem dine mønter!
     price:
