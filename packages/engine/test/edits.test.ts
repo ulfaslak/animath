@@ -407,8 +407,9 @@ describe('clearing a tile', () => {
 				}
 			}
 		}
-		// Deep water is never beside ground to stand on (two tiles of shallows lie between), so
-		// no stand faces it; `clearTile` refuses it with the other kinds in the random sweeps.
+		// Deep water is never beside ground to stand on (at least two tiles of shallows lie
+		// between), so no stand faces it; `clearTile` refuses it with the other kinds in the
+		// random sweeps.
 		expect([...seen].sort()).toEqual(['grass', 'sand', 'tallgrass', 'tent', 'water']);
 		// About 2.5 s alone (3.1 s before the elevation cache), up to eight stands beside every
 		// kind on every seed, each found by a scan round spawn; over 5 s under load.

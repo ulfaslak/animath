@@ -76,9 +76,10 @@ type ElevationAt = (x: number, y: number) => number;
  * a tall-grass tile, the tiles under the figures) reads each one once. A
  * cache, not state: it holds exactly what `elevation` gives, forgets it all
  * past `MEMO_LIMIT` tiles or when another seed is asked about, and leaves out
- * coordinates too far out to pack into one key.
+ * coordinates too far out to pack into one key. The sweeps are local, so a
+ * small cache does it: 16,384 tiles (about 1 MB) are as quick as 262,144.
  */
-const MEMO_LIMIT = 1 << 18;
+const MEMO_LIMIT = 1 << 14;
 const MEMO_SPAN = 2 ** 26;
 const memo = new Map<number, number>();
 let memoSeed: number | null = null;
