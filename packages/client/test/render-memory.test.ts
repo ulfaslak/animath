@@ -2,7 +2,9 @@ import {
 	ANIMALS,
 	CHUNK_SIZE,
 	STARTERS,
+	WorldEdits,
 	spawnPoint,
+	tileAtWorld,
 	type Biome,
 	type GridPos
 } from '@mathgame/engine';
@@ -11,11 +13,13 @@ import { describe, expect, it } from 'vitest';
 import { WORLD_SEED } from '../src/authority/local';
 import { BattleScene } from '../src/render/battle-scene';
 import { ChunkRing } from '../src/render/chunks';
+import { ClearingEffects } from '../src/render/clearing';
 import { Follower } from '../src/render/follower';
 import type { GameRenderer } from '../src/render/renderer';
 import { StarterScene } from '../src/render/starter-scene';
 import { TitleScenery } from '../src/render/title-scenery';
 import { SHARED_GEOMETRIES } from '../src/render/tiles';
+import { besideA } from './clearing';
 
 /**
  * What the renderer keeps alive on the GPU, counted without WebGL. three.js
@@ -186,6 +190,94 @@ describe('the chunks around the player', () => {
 		expect([...own].map((g) => g.type)).toEqual([]);
 		// Every kind of prop was on the way, so none escaped the check.
 		expect(shared.size).toBe(SHARED_GEOMETRIES.size);
+	});
+});
+
+describe('a tree chopped down, a rock broken', () => {
+	const start = spawnPoint(WORLD_SEED);
+	/** How many of a prop the scene under `root` draws: canopies are trees, rocks are boulders and pebbles. */
+	const instances = (root: THREE.Object3D, name: string) => {
+		let n = 0;
+		root.traverse((o) => {
+			if (o instanceof THREE.InstancedMesh && o.name === name) n += o.count;
+		});
+		return n;
+	};
+
+	it('rebuilds only the chunk it is in, frees the old one, and the chunk comes back without it after a walk away', () => {
+		const parent = new THREE.Group();
+		const ring = new ChunkRing(parent);
+		const ledger = new Ledger();
+		ring.reset(WORLD_SEED);
+		ring.update(start);
+		ledger.see(parent);
+		const tree = besideA('tree').target;
+		const canopies = instances(parent, 'canopy');
+		const before = [...parent.children];
+		const edits = WorldEdits.none.with(tree);
+		ring.setEdits(edits, [
+			{ cx: Math.floor(tree.x / CHUNK_SIZE), cy: Math.floor(tree.y / CHUNK_SIZE) },
+			// A chunk far out of the ring (grown back, say): nothing to rebuild.
+			{ cx: 400, cy: 400 }
+		]);
+		ledger.see(parent);
+		expect(parent.children.filter((c) => before.includes(c)).length).toBe(RING - 1);
+		expect(ring.size).toBe(RING);
+		expect(kinds(ledger.ownedOutside(parent))).toEqual([]);
+		const chopped = instances(parent, 'canopy');
+		// The big tree, and the young one that often grows beside it.
+		expect(canopies - chopped).toBeGreaterThanOrEqual(1);
+		expect(canopies - chopped).toBeLessThanOrEqual(2);
+		// Walk five chunks away and back: the chunk is built again as the player left it.
+		const away = { x: start.x - FAR, y: start.y };
+		for (const p of line(start, away)) ring.update(p);
+		for (const p of line(away, start)) ring.update(p);
+		ledger.see(parent);
+		expect(instances(parent, 'canopy')).toBe(chopped);
+		expect(kinds(ledger.ownedOutside(parent))).toEqual([]);
+		// About 1 s alone (the walk builds some fifty chunks); over 5 s under a heavy load.
+	}, 30_000);
+
+	it('frees everything the chop and the break built once they are over, with reduced motion too, and at once on a new world', () => {
+		for (const calm of [false, true]) {
+			const parent = new THREE.Group();
+			const effects = new ClearingEffects(parent);
+			const ledger = new Ledger();
+			const tree = besideA('tree');
+			const rock = besideA('rock');
+			for (const [spot, t0] of [
+				[tree, 0],
+				[rock, 0.3]
+			] as const) {
+				effects.play(
+					tileAtWorld(WORLD_SEED, spot.target.x, spot.target.y),
+					spot.target,
+					spot.facing,
+					t0
+				);
+			}
+			for (let t = 0; t < 3; t += 1 / 60) {
+				effects.update(t, calm);
+				ledger.see(parent);
+			}
+			expect(effects.size).toBe(0);
+			expect(parent.children).toEqual([]);
+			// Only shared shapes were ever drawn; the flourishes' own instanced meshes are freed.
+			expect(kinds(ledger.owned())).toEqual([]);
+			// A new world takes one still playing down with it.
+			effects.play(tileAtWorld(WORLD_SEED, tree.target.x, tree.target.y), tree.target, 'up', 10);
+			effects.update(10.4, calm);
+			ledger.see(parent);
+			expect(ledger.owned().length).toBeGreaterThan(0);
+			effects.clear();
+			expect(parent.children).toEqual([]);
+			expect(kinds(ledger.owned())).toEqual([]);
+		}
+		// Nothing plays for a tile that is not a tree or a rock.
+		const parent = new THREE.Group();
+		const effects = new ClearingEffects(parent);
+		effects.play(tileAtWorld(WORLD_SEED, start.x, start.y), start, 'up', 0);
+		expect(parent.children).toEqual([]);
 	});
 });
 

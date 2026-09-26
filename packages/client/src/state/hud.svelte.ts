@@ -30,7 +30,7 @@ import { game } from './game.svelte';
  * (`doctor-visit-ended`), the doctor's line after a lost battle
  * (`taken-to-doctor`), how to find a doctor (`nothing-to-interact`), that
  * the doctor sells the tool a tree or a rock takes (`tool-needed`, and the
- * first bump into one without it, once a page), who
+ * first bump into one without it, once a game), who
  * goes first after a party edit (`party-edited`, see `leadNotice`), and what
  * start-up found about the save (`notice`, from `main.ts`). They are kept as
  * data and worded when shown, in the language on screen.
@@ -130,7 +130,10 @@ class HudView {
 	#said = $state<Said | null>(null);
 	#fresh = $state(false);
 	private age = MESSAGE_SECONDS;
-	/** The kinds whose "the doctor sells one" this page has said: a bump says it once, not every time. */
+	/**
+	 * The kinds whose "the doctor sells one" has been said since the game on
+	 * screen started (`welcome`): a bump says it once, not every time.
+	 */
 	private toolHints = new Set<ClearableKind>();
 
 	/** The player faces a doctor's tent: interacting now talks to the doctor. */
@@ -191,7 +194,7 @@ class HudView {
 		switch (event.type) {
 			case 'player-blocked': {
 				// The first bump into a tree or a rock the kid has no tool for says the doctor
-				// sells one, once a page: a key held against a tree bumps every frame.
+				// sells one, once a game: a key held against a tree bumps every frame.
 				if (event.playerId !== game.playerId) break;
 				const ahead = this.ahead;
 				if (!ahead || game.items.includes(ahead.tool) || this.toolHints.has(ahead.kind)) break;
@@ -213,6 +216,7 @@ class HudView {
 				this.#said = null;
 				this.age = MESSAGE_SECONDS;
 				this.#fresh = false;
+				this.toolHints.clear();
 				break;
 			case 'message':
 				this.say({ line: event.line });
