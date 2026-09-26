@@ -2,6 +2,7 @@ import { Rng, type Biome } from '@mathgame/engine';
 import * as THREE from 'three';
 import { animateIdle, buildAnimalMesh } from './animals';
 import { COLORS, TILE_COLORS } from './palette';
+import { PROP_GEOMETRY } from './tiles';
 
 /**
  * The battle scene: a patch of the biome the battle started in, the player's
@@ -10,8 +11,10 @@ import { COLORS, TILE_COLORS } from './palette';
  * — the Game Boy framing (see [[UI_SPEC]] § Battle mode).
  *
  * One instance lives for the whole session: `begin` dresses it for a new
- * battle (backdrop, figures, no leftover effects), so nothing is rebuilt or
- * leaked per battle. Units are tiles like the world; figures come from
+ * battle (backdrop, figures, no leftover effects) and `end` frees the figures
+ * once the battle is left, so nothing is rebuilt or leaked per battle; each
+ * biome's backdrop is built once and kept, from the world's shared prop
+ * shapes. Units are tiles like the world; figures come from
  * `animals.ts`, idle the same way, and are scaled towards a common height so
  * an otter and a deer both read at battle size (a bear still looks bigger
  * than a squirrel).
@@ -139,6 +142,7 @@ export class BattleScene {
 
 	/** Dress the scene for a new battle: backdrop, both figures, no leftover effects. */
 	begin(biome: Biome, playerSpecies: string, opponentSpecies: string): void {
+		this.end();
 		this.groundMaterial.color.setHex(GROUND[biome]);
 		for (const [b, group] of this.backdrops) group.visible = b === biome;
 		if (!this.backdrops.has(biome)) {
@@ -146,12 +150,27 @@ export class BattleScene {
 			this.backdrops.set(biome, backdrop);
 			this.scene.add(backdrop);
 		}
+		this.setFigure('player', playerSpecies);
+		this.setFigure('opponent', opponentSpecies);
+	}
+
+	/**
+	 * The battle is over and off screen: free both figures and clear every
+	 * effect, so nothing of it stays in memory until the next battle. The
+	 * backdrops stay, one per biome, for the next battle there.
+	 */
+	end(): void {
+		for (const side of ['player', 'opponent'] as const) {
+			const figure = this.figures[side];
+			if (!figure) continue;
+			this.scene.remove(figure);
+			disposeGeometries(figure);
+			this.figures[side] = null;
+		}
 		for (const puff of this.puffs) this.scene.remove(puff.group);
 		this.puffs = [];
 		this.dropLeash();
 		this.effects = [];
-		this.setFigure('player', playerSpecies);
-		this.setFigure('opponent', opponentSpecies);
 	}
 
 	/** Put a species' figure on one side, replacing (and freeing) whatever stood there. */
@@ -423,7 +442,7 @@ function buildBackdrop(biome: Biome): THREE.Group {
 		if (z > SPOT.player.z + 0.6 || !clear(x, z, 0.9)) continue;
 		const tuft = new THREE.Group();
 		for (let b = 0; b < 3; b++) {
-			const blade = new THREE.Mesh(new THREE.ConeGeometry(0.08, 0.35, 3), tuftMaterial);
+			const blade = new THREE.Mesh(PROP_GEOMETRY.blade, tuftMaterial);
 			blade.position.set(rng.next() * 0.5 - 0.25, 0.17, rng.next() * 0.5 - 0.25);
 			blade.castShadow = true;
 			tuft.add(blade);
@@ -443,10 +462,10 @@ function buildBackdrop(biome: Biome): THREE.Group {
 			[6.8, -7.0, 1.5]
 		] as const) {
 			const tree = new THREE.Group();
-			const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.14, 0.5, 5), trunkMaterial);
+			const trunk = new THREE.Mesh(PROP_GEOMETRY.trunk, trunkMaterial);
 			trunk.position.y = 0.25;
 			const canopy = new THREE.Mesh(
-				new THREE.ConeGeometry(0.45, 1.1, 6),
+				PROP_GEOMETRY.canopy,
 				canopyMaterials[Math.floor(rng.next() * 2)]
 			);
 			canopy.position.y = 0.95;
@@ -465,7 +484,8 @@ function buildBackdrop(biome: Biome): THREE.Group {
 			[-5.2, -0.4, 0.7],
 			[6.0, -6.5, 1.1]
 		] as const) {
-			const rock = new THREE.Mesh(new THREE.DodecahedronGeometry(r, 0), boulderMaterial);
+			const rock = new THREE.Mesh(PROP_GEOMETRY.rock, boulderMaterial);
+			rock.scale.setScalar(r);
 			rock.position.set(x, r * 0.6, z);
 			rock.rotation.set(rng.next(), rng.next(), rng.next());
 			rock.castShadow = true;
