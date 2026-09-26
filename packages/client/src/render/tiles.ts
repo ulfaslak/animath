@@ -1,4 +1,5 @@
-import { CHUNK_SIZE, Rng, hashInts, type Chunk, type Tile } from '@mathgame/engine';
+import { CHUNK_SIZE, Rng, hashInts, isWater, type Chunk, type Tile } from '@mathgame/engine';
+
 import * as THREE from 'three';
 import { BIOME_LOOK, CANOPY, COLORS, PROP_COLORS, TILE_COLORS } from './palette';
 
@@ -55,9 +56,12 @@ export const SHARED_GEOMETRIES: ReadonlySet<THREE.BufferGeometry> = new Set([
 /** From this height up a mountain's rocks are its peaks: paler, the boulders capped with snow. */
 export const PEAK_HEIGHT = 3;
 
-/** Height of a tile's top face. Figures stand here; water sits below the land. */
+/** The height of the water's surface: it sits below the land. */
+export const WATER_TOP = 0.2;
+
+/** Height of a tile's top face. Figures stand here; water, shallow or deep, sits below the land. */
 export function groundTop(tile: Tile): number {
-	return tile.kind === 'water' ? 0.2 : 0.5 + tile.height * 0.25;
+	return isWater(tile.kind) ? WATER_TOP : 0.5 + tile.height * 0.25;
 }
 
 /** The colour of a tile's ground: its kind in its biome's look. */

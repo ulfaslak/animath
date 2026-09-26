@@ -6,10 +6,12 @@ import {
 	applyPartyIntent,
 	canTalkToDoctor,
 	chooseStarter,
+	gearOf,
 	getAnimal,
 	hashInts,
 	hashString,
-	isWalkable,
+	isEncounterTile,
+	isPassable,
 	leadIndex,
 	newGame,
 	normalizeNickname,
@@ -21,6 +23,7 @@ import {
 	surroundings,
 	takeToDoctor,
 	tileAtWorld,
+	tileRealm,
 	type AnimalInstance,
 	type Authority,
 	type BattleEvent,
@@ -37,6 +40,7 @@ import {
 	type Line,
 	type PartyIntent,
 	type PlayerActivity,
+	type Realm,
 	type Rescue,
 	type SavedGame
 } from '@mathgame/engine';
@@ -321,7 +325,8 @@ export class LocalAuthority implements Authority {
 		this.facing = dir;
 		const next = step(this.pos, dir);
 		const tile = tileAtWorld(this.seed, next.x, next.y);
-		if (!isWalkable(tile.kind)) {
+		// Ground on foot, and with the boat the water too.
+		if (!isPassable(tile.kind, gearOf({ items: this.items }))) {
 			this.emit({ type: 'player-blocked', playerId: this.playerId, dir });
 			return;
 		}
@@ -329,26 +334,37 @@ export class LocalAuthority implements Authority {
 		this.steps += 1;
 		this.emit({ type: 'player-moved', playerId: this.playerId, pos: next, dir });
 
-		// The lead (the engine's `leadIndex`: the first animal that isn't tired)
-		// is the one `startBattle` sends out first, and the one wild animals size
-		// up before they come out, so choosing a lead changes what the grass
-		// holds. A party with nobody standing can't battle (`startBattle` refuses
-		// it). Losing takes everyone to the doctor, so only a `?party=` of tired
-		// animals walks here; it meets nothing until the doctor has helped.
-		const lead = this.party[leadIndex(this.party)];
+		// Only an encounter tile can start a battle, and the engine draws nothing
+		// on any other: the ground around one is read only there.
+		if (!isEncounterTile(tile.kind)) return;
+		// The lead where the player now stands (the engine's `leadIndex`: the
+		// first animal that isn't tired and can fight there; out on the water, one
+		// that swims) is the one `startBattle` sends out first, and the one wild
+		// animals size up before they come out, so choosing a lead changes what
+		// the grass holds. With nobody standing who can fight here, nothing
+		// challenges the player: a team of only tired animals (a `?party=` of
+		// them, since losing takes everyone to the doctor) until the doctor has
+		// helped, and out on the water a team with no swimmer standing.
+		const realm = tileRealm(tile.kind);
+		const lead = this.party[leadIndex(this.party, realm)];
 		if (!lead) return;
 		// One roll per completed step, keyed by the step count so a replayed
-		// walk meets the same animals; the engine only draws on tall grass.
+		// walk meets the same animals.
 		const rng = new Rng(hashInts(this.seed, ENCOUNTER_SALT, this.steps));
 		const site = { tile, pos: next, spawn: this.spawn, around: surroundings(this.seed, next) };
 		const wild = rollEncounter(rng, site, getAnimal(lead.speciesId).tier);
-		if (wild) this.beginBattle({ ...wild, id: mintId() });
+		if (wild) this.beginBattle({ ...wild, id: mintId() }, realm);
+	}
+
+	/** Where the player stands: out on the water in the boat, or on land. */
+	private realm(): Realm {
+		return tileRealm(tileAtWorld(this.seed, this.pos.x, this.pos.y).kind);
 	}
 
 	// --- battle ------------------------------------------------------------
 
-	private beginBattle(wild: AnimalInstance): void {
-		const state = startBattle(this.party, wild);
+	private beginBattle(wild: AnimalInstance, realm: Realm): void {
+		const state = startBattle(this.party, wild, { realm });
 		this.battle = { state, seed: this.battleSeed() };
 		this.emit({ type: 'battle-started', state });
 	}
@@ -402,8 +418,13 @@ export class LocalAuthority implements Authority {
 				break;
 			}
 			case 'lost':
-				// Every animal is tired: off to the nearest tent on foot, facing it.
-				rescue = takeToDoctor(this.seed, this.pos, this.party);
+				// Every animal that could fight here is tired: off to the nearest tent,
+				// over the water too with the boat, facing it.
+
+				rescue = takeToDoctor(this.seed, this.pos, this.party, {
+					gear: gearOf({ items: this.items }),
+					realm: state.realm
+				});
 				this.party = rescue.party;
 				this.pos = rescue.pos;
 				this.facing = rescue.facing;
@@ -488,7 +509,13 @@ export class LocalAuthority implements Authority {
 	 * on screen.
 	 */
 	private editParty(intent: PartyIntent): void {
-		const { party, events } = applyPartyIntent(this.party, intent, this.activity());
+		const { party, events } = applyPartyIntent(
+			this.party,
+			intent,
+			this.activity(),
+			this.realm()
+		);
+
 		this.party = party.map((a) => ({ ...a }));
 		this.emit({ type: 'party-edited', party: this.partyCopy(), events });
 	}
