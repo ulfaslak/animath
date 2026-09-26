@@ -1,4 +1,4 @@
-import { MAX_NICKNAME_LENGTH, MAX_PARTY, normalizeNickname } from '@mathgame/engine';
+import { MAX_NICKNAME_LENGTH, normalizeNickname } from '@mathgame/engine';
 import { eq } from 'drizzle-orm';
 import { randomUUID } from 'node:crypto';
 import { afterAll, describe, expect, it } from 'vitest';
@@ -306,11 +306,29 @@ describe('PUT validation', () => {
 		);
 	});
 
-	it(`400 for a party of ${MAX_PARTY + 1}, 200 for a party of ${MAX_PARTY}`, async () => {
-		const full = Array.from({ length: MAX_PARTY }, (_, i) => animal(i));
+	it('stores a party of 2,000 animals mid-battle, each with the longest name, under the size cap', async () => {
+		// A party has no cap. The body limit is what bounds a save: the battle holds a
+		// second copy of the party, and a twelve-letter name of 4-byte letters is the
+		// most bytes a rename can store.
+		const nickname = normalizeNickname('\u{10400}'.repeat(MAX_NICKNAME_LENGTH + 5))!;
+		const party = Array.from({ length: 2000 }, (_, i) =>
+			animal(i, { id: randomUUID(), speciesId: 'squirrel', hp: 20, nickname })
+		);
+		const battle = {
+			step: 7,
+			turn: 3,
+			party,
+			active: 1999,
+			opponent: { id: randomUUID(), speciesId: 'bear', hp: 60 },
+			leashQuality: 1,
+			phase: { kind: 'choose-action' }
+		};
+		const sent = doc(1, 'game-a', { party, battle });
+		const body = JSON.stringify(sent);
+		expect(Buffer.byteLength(body)).toBeLessThan(SAVE_MAX_BYTES);
 		const player = await createPlayer();
-		expect((await putSave(player, doc(1, 'game-a', { party: full }))).status).toBe(200);
-		await expectRejected(doc(1, 'game-a', { party: [...full, animal(MAX_PARTY)] }), /party/);
+		expect((await putSave(player, body)).status).toBe(200);
+		expect(await (await getSave(player)).json()).toEqual(sent);
 	});
 
 	it('400 for a write without the fields every write carries', async () => {
