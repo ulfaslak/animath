@@ -47,8 +47,42 @@
 	const options = $derived(pickedIndex >= 0 ? partyOptions(game.party, pickedIndex) : []);
 	/** The team row that is lit: the cursor, or the picked animal while its options are open. */
 	const lit = $derived(pause.screen === 'list' ? pause.cursor : pickedIndex);
-	/** The cursor is on the Sound row: the right side says what it does, and that M does it too. */
+	/** The cursor is on the Sound row: the right side says what it does (and with a keyboard, that M does it too). */
 	const soundLit = $derived(MENU_ITEMS[pause.cursor - game.party.length] === 'sound');
+
+	/**
+	 * The team's order before its latest change and after it, noted before the
+	 * list is redrawn (`$effect.pre`), for `slide`, which runs once it has been.
+	 */
+	let orderBefore: string[] = [];
+	let orderNow: string[] = [];
+	$effect.pre(() => {
+		const order = game.party.map((a) => a.id);
+		orderBefore = orderNow;
+		orderNow = order;
+	});
+
+	/** How long an animal's slide takes. */
+	const SLIDE_MS = 180;
+	/** When each animal's slide ends, so one cut short by the next move carries on to its place. */
+	const slidingUntil = new Map<string, number>();
+
+	/**
+	 * The short slide of an animal that changes place in the team (Move up,
+	 * Move down, Go first), or is still on its way from the last change. A row
+	 * whose animal kept its place moves with the menu at once: on a tablet,
+	 * Save puts the menu back in the middle in the frame the new name arrives,
+	 * and a row sliding down behind it took a tap meant for the animal it
+	 * passed (#52).
+	 */
+	function slide(node: Element, rects: { from: DOMRect; to: DOMRect }, id: string) {
+		const now = performance.now();
+		const moved = orderBefore.indexOf(id) !== orderNow.indexOf(id);
+		const going = moved || now < (slidingUntil.get(id) ?? 0);
+		const duration = motion.reduced || !going ? 0 : SLIDE_MS;
+		if (duration > 0) slidingUntil.set(id, now + duration);
+		return flip(node, rects, { duration });
+	}
 
 	/** What the typed name will turn into, when that is not just what the box shows. */
 	const preview = $derived.by(() => {
@@ -117,7 +151,7 @@
 						class:lit={lit === i}
 						class:picked={pickedIndex === i}
 						class:tired={animal.hp === 0}
-						animate:flip={{ duration: motion.reduced ? 0 : 180 }}
+						animate:slide={animal.id}
 						data-press={rowKey(i)}
 						{@attach unfocusable}
 					>
@@ -226,7 +260,10 @@
 					</div>
 				{:else if pause.screen === 'list' && soundLit}
 					<div class="side-title">{t('pause.sound')}</div>
-					<div class="note">{t('pause.soundHelp')}</div>
+					<!-- With the touch controls on, what a tap does; the keys only with a keyboard (#53). -->
+					<div class="note">
+						{touch.on ? t('pause.soundHelpTouch') : t('pause.soundHelp')}
+					</div>
 				{:else}
 					<div class="soft">{t('pause.pick')}</div>
 					<div class="note">{t('pause.pickHelp')}</div>
