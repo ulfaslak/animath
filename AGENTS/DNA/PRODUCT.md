@@ -153,6 +153,7 @@ What is built and observable today. Keep current: add a bullet when a feature sh
 
 - Procedural chunked world with four biomes that read at a glance ([[DESIGN]] § Palette): the meadow's bright grass and flowers, the forest's darker floor crowded with dark pines, young trees and bushes, river banks of sand with reed beds, the mountains' grey-green turf with pebbles, boulder fields and snow on the peaks. Water, tall grass (reeds at the river), trees, rocks and doctor tents, rendered low-poly with a fixed camera.
 - The lead walks behind the trainer ([[UI_SPEC]] § Explore mode): the animal that goes first follows one tile behind, bouncing along and turning as it walks, and never gets in the way. When who goes first changes it swaps with a little pop; while every animal is tired nobody follows, until the doctor makes one fit.
+- Butterflies flutter over the land round the trainer (and behind the title): decoration, never an animal to meet.
 - Grid movement with arrow keys / WASD (Caps Lock or not); blocked tiles (water, rock, trees, doctor tents) stop you; a tap always moves one tile. Browser shortcuts (Cmd+D, Ctrl+S) are left to the browser.
 - The player is a small trainer figure — a kid in a cap — that faces the way it walks, swings its arms and legs with every step, stands on top of hills and breathes while idle.
 - A crude but recognisable low-poly figure for every species, built from primitives with one exaggerated tell each. They fight in battles; the `?zoo` line-up (see [[CHEATSHEET]]) shows them all at once.

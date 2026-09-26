@@ -86,6 +86,11 @@ export const CONFETTI_COLORS: readonly number[] = [
 	0xff9f43, 0x56c271, 0xf5b83d, 0x5ec8f2, 0xff7e6b, 0xfff4e6, 0xf5b8c4
 ];
 
+/** The butterflies' wings: the rabbit's pink, amber, off-white, the trainer's coral, the sky's blue. */
+export const BUTTERFLY_COLORS: readonly number[] = [
+	0xf5b8c4, 0xf5b83d, 0xfff4e6, 0xff7e6b, 0x8fd3f4
+];
+
 /** The stars that twinkle round a caught animal or a winner: the doctor's gold, green and white. */
 export const SPARKLE_COLORS: readonly number[] = [0xf5b83d, 0x56c271, 0xfff4e6];
 

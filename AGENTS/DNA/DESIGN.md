@@ -55,6 +55,7 @@ Each biome has its own ground and tall grass (`BIOME_LOOK` in `palette.ts`), so 
 | Confetti             | accent, good, warn, water, trainer shirt, off-white, rabbit pink | `CONFETTI_COLORS`: only colours already in the game. |
 | Sparkles             | warn `#f5b83d`, good `#56c271`, off-white; on the result card also coral and blue | The doctor's chunky four-pointed stars, in the battle scene (unlit, so they shine) and round the result card's headline. |
 | Result card's rays   | warn at half strength | A burst behind a new friend's name, fading out at its rim. |
+| Butterflies          | rabbit pink `#f5b8c4`, amber `#f5b83d`, off-white, trainer coral, sky `#8fd3f4` | `BUTTERFLY_COLORS`: two five-sided wings on a dark body, a little under half a tile across. |
 | UI panel             | `rgba(255,252,245,.92)` | Cream, slightly translucent. Opaque (`--panel-cream`, `#fffcf5`) as the rim round big lettering. |
 | Title letters        | `#ff7e6b`, `#ff9f43`, `#56c271`, `#3d7be8`, `#f5b83d` | "Animath" letter by letter: the trainer's coral and blue (`--coral`, `--blue`), the accent, good and warn. |
 | UI ink               | `#2d2a32` |                                              |
