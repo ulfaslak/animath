@@ -228,6 +228,10 @@ pause:
   resume: Spil videre
   quit: Startskærm
   language: Sprog
+  sound: Lyd
+  soundOn: Til
+  soundOff: Fra
+  soundHelp: Enter eller ← → tænder og slukker lyden. Du kan også trykke på M.
   goFirst: Sæt forrest
   moveUp: Flyt op
   moveDown: Flyt ned
@@ -241,6 +245,7 @@ pause:
   willBe: Navnet bliver {name}.
   keysList: ↑ ↓ flyt · Enter vælg · Esc luk
   keysLanguage: ↑ ↓ flyt · ← → eller Enter skift sprog · Esc luk
+  keysSound: ↑ ↓ flyt · ← → eller Enter slå lyden fra eller til · Esc luk
   keysOptions: ↑ ↓ flyt · Enter gør det · Esc tilbage
   keysNaming: Enter gem · Esc tilbage
 
@@ -254,11 +259,19 @@ save:
   # The browser will not let the page store anything, so nothing is saved.
   cannotSave: Denne browser kan ikke gemme dit spil, så det starter forfra hver gang.
 
+sound:
+  # The chip at the top of the screen after M turned the sound on or off.
+  chipOn: Lyden er tændt
+  chipOff: Lyden er slukket
+  # Under "Lyden er slukket": how to get it back.
+  chipHint: Tryk på M for at tænde den igen
+
 title:
   name: Animath
   continue: Fortsæt
   newGame: Nyt spil
   language: Sprog
+  sound: Lyd
   animals:
     one: '{count} dyr'
     other: '{count} dyr'

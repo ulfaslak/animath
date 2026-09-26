@@ -1,4 +1,5 @@
 import type { Authority, GameEvent, PartyIntent } from '@mathgame/engine';
+import { sfx } from '../audio/sfx.svelte';
 import { nextLanguage } from '../copy';
 import { isShortcut, keyName } from '../input/keyboard';
 import { game } from '../state/game.svelte';
@@ -13,7 +14,8 @@ import {
 
 /**
  * The pause menu, opened with Escape in explore: the team in battle order,
- * where an animal can be moved (which picks who goes first) or named.
+ * where an animal can be moved (which picks who goes first) or named, then
+ * the settings (Language, Sound) and "Keep playing".
  *
  * Keys become menu moves and `party` intents; the menu then shows whatever
  * the authority's `party-edited` says, so a refused edit simply changes
@@ -76,6 +78,7 @@ export class PauseController {
 	private open(): void {
 		pause.reset();
 		pause.open = true;
+		sfx.play('confirm');
 	}
 
 	close(): void {
@@ -86,31 +89,33 @@ export class PauseController {
 
 	private listKey(key: string): boolean {
 		const rows = game.party.length + MENU_ITEMS.length;
+		const item = MENU_ITEMS[pause.cursor - game.party.length];
 		switch (key) {
 			case 'ArrowUp':
 			case 'w':
 				pause.cursor = (pause.cursor + rows - 1) % rows;
+				sfx.play('move');
 				return true;
 			case 'ArrowDown':
 			case 's':
 				pause.cursor = (pause.cursor + 1) % rows;
+				sfx.play('move');
 				return true;
 			case 'Enter':
 			case ' ': {
 				const animal = game.party[pause.cursor];
-				if (animal) this.pick(animal.id);
-				else this.chooseItem(MENU_ITEMS[pause.cursor - game.party.length]!);
+				if (animal) {
+					sfx.play('confirm');
+					this.pick(animal.id);
+				} else if (item) this.chooseItem(item);
 				return true;
 			}
 			case 'ArrowLeft':
 			case 'a':
 			case 'ArrowRight':
-			case 'd': {
-				// Left and right change the language on its row, and do nothing elsewhere.
-				if (MENU_ITEMS[pause.cursor - game.party.length] !== 'language') return false;
-				nextLanguage(key === 'ArrowLeft' || key === 'a' ? -1 : 1);
-				return true;
-			}
+			case 'd':
+				// Left and right set the setting on its row, and do nothing elsewhere.
+				return item !== undefined && this.settingKey(item, key === 'ArrowRight' || key === 'd');
 			case 'Escape':
 				this.close();
 				return true;
@@ -121,6 +126,7 @@ export class PauseController {
 	private chooseItem(item: MenuItem): void {
 		switch (item) {
 			case 'language':
+				sfx.play('confirm');
 				nextLanguage(1);
 				break;
 			case 'resume':
@@ -129,10 +135,39 @@ export class PauseController {
 			case 'quit':
 				// Back to the title: the authority stops the game, the autosave saves it as it
 				// stands, and the title opens with it as Continue (`game-left`, in main.ts).
+				sfx.play('confirm');
 				this.close();
 				this.authority.dispatch({ type: 'leave-game' });
 				break;
+			case 'sound':
+				this.setSound(!sfx.on);
+				break;
 		}
+	}
+
+	/**
+	 * Left or right on a setting's row: the next or previous language; sound
+	 * off (left) or on (right). False on a row that is not a setting.
+	 */
+	private settingKey(item: MenuItem, right: boolean): boolean {
+		switch (item) {
+			case 'language':
+				sfx.play('confirm');
+				nextLanguage(right ? 1 : -1);
+				return true;
+			case 'sound':
+				if (sfx.on !== right) this.setSound(right);
+				return true;
+			case 'resume':
+			case 'quit':
+				return false;
+		}
+	}
+
+	/** Turned on, the sound says so itself; turned off, only the switch does. */
+	private setSound(on: boolean): void {
+		sfx.set(on);
+		if (on) sfx.play('confirm');
 	}
 
 	private optionsKey(key: string): boolean {
@@ -146,17 +181,23 @@ export class PauseController {
 			case 'ArrowUp':
 			case 'w':
 				pause.option = nextEnabled(options, pause.option, -1);
+				sfx.play('move');
 				return true;
 			case 'ArrowDown':
 			case 's':
 				pause.option = nextEnabled(options, pause.option, 1);
+				sfx.play('move');
 				return true;
 			case 'Enter':
 			case ' ': {
 				// An option that has just become impossible (the animal reached the
 				// top) keeps the cursor and does nothing: mashing Enter can't overshoot.
 				const option = options[pause.option];
-				if (option?.enabled) this.choose(option.id, index);
+				if (option?.enabled) {
+					// "Go first" is heard as the lead's own ding (`hud`), once it is true.
+					if (option.id !== 'first') sfx.play('confirm');
+					this.choose(option.id, index);
+				}
 				return true;
 			}
 			case 'Escape':
@@ -177,6 +218,7 @@ export class PauseController {
 			if (animalId !== null && this.pickedIndex() >= 0) {
 				this.send({ type: 'rename', animalId, nickname: pause.draft });
 			}
+			sfx.play('confirm');
 			this.backToList();
 		} else if (e.key === 'Escape') {
 			e.preventDefault();

@@ -1,5 +1,6 @@
 import { STARTERS, getAnimal, type GameEvent, type Intent, type SavedGame } from '@mathgame/engine';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { sfx } from '../src/audio/sfx.svelte';
 import { LocalAuthority } from '../src/authority/local';
 import { language } from '../src/copy';
 import type { TitleView3D } from '../src/render/title-scenery';
@@ -125,7 +126,7 @@ describe('title: the menu', () => {
 	it('with no saved game: New game and the settings, the cursor on New game, the starters behind', () => {
 		const { scenery } = setup();
 		expect(title.open).toBe(true);
-		expect(title.rows).toEqual(['new', 'language']);
+		expect(title.rows).toEqual(['new', 'language', 'sound']);
 		expect(title.cursor).toBe(0);
 		expect(scenery.shown).toEqual([`world ${STARTERS.join(',')}`]);
 	});
@@ -133,7 +134,7 @@ describe('title: the menu', () => {
 	it('with a saved game: Continue first, lit, and the team behind; Enter picks it up at once', () => {
 		const saved = savedGame();
 		const { scenery, continued, events, press } = setup(saved);
-		expect(title.rows).toEqual(['continue', 'new', 'language']);
+		expect(title.rows).toEqual(['continue', 'new', 'language', 'sound']);
 		expect(title.rows[title.cursor]).toBe('continue');
 		expect(scenery.shown).toEqual(['world squirrel,fox']);
 		press('Enter');
@@ -147,18 +148,18 @@ describe('title: the menu', () => {
 
 	it('walks the rows with arrows and W / S, wrapping, and never on auto-repeat', () => {
 		const { controller, press } = setup(savedGame());
-		press('s', 'ArrowDown');
-		expect(title.rows[title.cursor]).toBe('language');
+		press('s', 'ArrowDown', 'ArrowDown');
+		expect(title.rows[title.cursor]).toBe('sound');
 		press('ArrowDown');
 		expect(title.cursor).toBe(0);
 		press('w');
-		expect(title.rows[title.cursor]).toBe('language');
+		expect(title.rows[title.cursor]).toBe('sound');
 		const held = key('ArrowUp', { repeat: true });
 		controller.onKey(held);
-		expect(title.rows[title.cursor]).toBe('language');
+		expect(title.rows[title.cursor]).toBe('sound');
 		expect(held.prevented).toBe(true);
 		// A held Enter never picks anything either.
-		press('w', 'w');
+		press('w', 'w', 'w');
 		controller.onKey(key('Enter', { repeat: true }));
 		expect(title.open).toBe(true);
 	});
@@ -192,6 +193,25 @@ describe('title: the menu', () => {
 		press('Enter');
 		expect(language.current).toBe(second);
 		expect(title.screen).toBe('menu');
+	});
+
+	it('the Sound row: Enter switches the sound, left turns it off and right on', () => {
+		const { press } = setup();
+		const was = sfx.on;
+		press('ArrowDown', 'ArrowDown');
+		expect(title.rows[title.cursor]).toBe('sound');
+		press('Enter');
+		expect(sfx.on).toBe(!was);
+		press('ArrowLeft');
+		expect(sfx.on).toBe(false);
+		press('a');
+		expect(sfx.on).toBe(false);
+		press('ArrowRight');
+		expect(sfx.on).toBe(true);
+		press('d');
+		expect(sfx.on).toBe(true);
+		expect(title.screen).toBe('menu');
+		sfx.set(was);
 	});
 
 	it('Escape on the menu does nothing', () => {

@@ -1,9 +1,11 @@
 <script lang="ts">
 	import { MAX_NICKNAME_LENGTH, STARTERS, leadIndex, normalizeNickname } from '@mathgame/engine';
+	import { sfx } from '../audio/sfx.svelte';
 	import { LANGUAGES, language, languageName, t } from '../copy';
 	import { kindList, speciesTopics } from '../kinds';
 	import { animalWords, nameOf, speciesName } from '../names';
 	import { CONFIRM_CHOICES, title, type ConfirmChoice } from '../state/title.svelte';
+	import Switch from './Switch.svelte';
 
 	/**
 	 * The title ([[UI_SPEC]] § Title): the name of the game, the menu over the
@@ -77,6 +79,12 @@
 						{/if}
 					{:else if row === 'new'}
 						<span class="label">{t('title.newGame')}</span>
+					{:else if row === 'sound'}
+						<span class="label">{t('title.sound')}</span>
+						<span class="setting">
+							<Switch on={sfx.on} />
+							<span class="setting-state">{sfx.on ? t('pause.soundOn') : t('pause.soundOff')}</span>
+						</span>
 					{:else}
 						<span class="label">{t('title.language')}</span>
 						<!-- Each language in its own words, so a kid finds theirs in any language. -->
@@ -94,7 +102,7 @@
 				<div class="note">{t(title.notice)}</div>
 			{/if}
 			<div class="keys">
-				{litRow === 'language' ? t('title.keysSetting') : t('title.keys')}
+				{litRow === 'language' || litRow === 'sound' ? t('title.keysSetting') : t('title.keys')}
 			</div>
 		</div>
 
@@ -306,6 +314,18 @@
 	.choice.on {
 		background: var(--accent);
 		color: white;
+	}
+	/* The Sound row: the switch and its state in words, at the right. */
+	.setting {
+		flex: 1;
+		display: flex;
+		justify-content: flex-end;
+		align-items: center;
+		gap: 10px;
+		font-size: 16px;
+	}
+	.setting-state {
+		min-width: 2.5em;
 	}
 	.note {
 		font-weight: 600;

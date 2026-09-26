@@ -14,10 +14,11 @@ export type TitleScreen = 'menu' | 'confirm' | 'starter' | 'naming';
 
 /**
  * The menu's rows, in order. `continue` shows only when there is a game to
- * pick up. A new row (Sound) is a new id here, its label in
- * `TitleScreen.svelte` and its case in `TitleController.chooseRow`.
+ * pick up. `language` and `sound` are the settings the pause menu has too,
+ * on the same stores. A new row is a new id here, its label in
+ * `TitleScreen.svelte` and its cases in `TitleController`.
  */
-export const TITLE_ROWS = ['continue', 'new', 'language'] as const;
+export const TITLE_ROWS = ['continue', 'new', 'language', 'sound'] as const;
 export type TitleRow = (typeof TITLE_ROWS)[number];
 
 /** The confirm's choices, in order: the safe one first, where the cursor starts. */

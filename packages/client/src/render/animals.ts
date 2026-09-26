@@ -220,18 +220,47 @@ export function buildAnimalMesh(speciesId: string): THREE.Group {
 	return group;
 }
 
-/** The trainer: a kid in a coral shirt and a blue cap, eyes on the +z face. */
+/** Where the trainer's legs and arms turn when it walks. */
+const HIP_Y = 0.2;
+const SHOULDER_Y = 0.46;
+
+/**
+ * A limb hung from a joint at `(x, y)`: a group named `name` at the joint,
+ * holding `parts` placed as if the group were not there. Turning the group
+ * about x swings the limb from the joint.
+ */
+function limb(name: string, x: number, y: number, parts: THREE.Mesh[]): THREE.Group {
+	const joint = new THREE.Group();
+	joint.name = name;
+	joint.position.set(x, y, 0);
+	for (const p of parts) {
+		p.position.x -= x;
+		p.position.y -= y;
+		joint.add(p);
+	}
+	return joint;
+}
+
+/**
+ * The trainer: a kid in a coral shirt and a blue cap, eyes on the +z face.
+ * Its legs and arms hang from joints (`legL`, `legR`, `armL`, `armR`) that
+ * `animateWalk` swings.
+ */
 export function buildPlayerMesh(): THREE.Group {
 	const { playerShirt: shirt, playerSkin: skin, playerShorts: shorts, playerCap: cap } = COLORS;
 	const dome = new THREE.SphereGeometry(0.15, 8, 4, 0, Math.PI * 2, 0, Math.PI / 2);
 	const group = wrap([
-		box(0.1, 0.2, 0.11, shorts, -0.065, 0.1, 0),
-		box(0.1, 0.2, 0.11, shorts, 0.065, 0.1, 0),
+		limb('legL', -0.065, HIP_Y, [box(0.1, 0.2, 0.11, shorts, -0.065, 0.1, 0)]),
+		limb('legR', 0.065, HIP_Y, [box(0.1, 0.2, 0.11, shorts, 0.065, 0.1, 0)]),
 		box(0.28, 0.28, 0.17, shirt, 0, 0.34, 0),
-		box(0.07, 0.24, 0.08, shirt, -0.185, 0.36, 0),
-		box(0.07, 0.24, 0.08, shirt, 0.185, 0.36, 0),
-		box(0.06, 0.06, 0.07, skin, -0.185, 0.21, 0),
-		box(0.06, 0.06, 0.07, skin, 0.185, 0.21, 0),
+		limb('armL', -0.185, SHOULDER_Y, [
+			box(0.07, 0.24, 0.08, shirt, -0.185, 0.36, 0),
+			box(0.06, 0.06, 0.07, skin, -0.185, 0.21, 0)
+		]),
+		limb('armR', 0.185, SHOULDER_Y, [
+			box(0.07, 0.24, 0.08, shirt, 0.185, 0.36, 0),
+			box(0.06, 0.06, 0.07, skin, 0.185, 0.21, 0)
+		]),
 		box(0.24, 0.22, 0.22, skin, 0, 0.6, 0),
 		box(0.035, 0.05, 0.02, COLORS.dark, -0.055, 0.61, 0.11),
 		box(0.035, 0.05, 0.02, COLORS.dark, 0.055, 0.61, 0.11),
@@ -255,6 +284,44 @@ export function animateIdle(figure: THREE.Group, t: number): void {
 	if (!rig) return;
 	const phase = (figure.userData.idlePhase as number | undefined) ?? 0;
 	rig.scale.y = 1 + IDLE_DEPTH * Math.sin(t * IDLE_RATE + phase);
+}
+
+/** Radians an arm swings forward at the middle of a step; the legs swing a little less. */
+const ARM_SWING = 0.6;
+const LEG_SWING = 0.45;
+/** Radians the body rocks towards the foot it lands on: a little waddle. */
+const WADDLE = 0.09;
+/** How much taller the body gets in the air (squash and stretch). */
+const STRETCH = 0.06;
+
+/**
+ * A walking step on a figure with limbs (the trainer), after `animateIdle`:
+ * one arm forward and the other back, the legs the other way, the body rocking
+ * onto the landing foot and stretching a little in the air. `progress` runs
+ * 0..1 through one step and everything is at rest at both ends, so steps chain
+ * smoothly; `stride` (1 or -1) says which foot leads, and alternates from step
+ * to step. `amount` scales it all (0 is standing still). The limbs swing
+ * about their joints, so the feet stay put while the figure hops.
+ */
+export function animateWalk(
+	figure: THREE.Group,
+	progress: number,
+	stride: 1 | -1,
+	amount = 1
+): void {
+	const rig = figure.children[0];
+	if (!rig) return;
+	const s = Math.sin(Math.min(1, Math.max(0, progress)) * Math.PI) * amount;
+	const swing = (joint: string, radians: number) => {
+		const limb = rig.getObjectByName(joint);
+		if (limb) limb.rotation.x = radians;
+	};
+	swing('armL', stride * ARM_SWING * s);
+	swing('armR', -stride * ARM_SWING * s);
+	swing('legL', -stride * LEG_SWING * s);
+	swing('legR', stride * LEG_SWING * s);
+	rig.rotation.z = stride * WADDLE * s;
+	rig.scale.y *= 1 + STRETCH * s;
 }
 
 /**

@@ -5,6 +5,7 @@ import {
 	type GameEvent,
 	type SavedGame
 } from '@mathgame/engine';
+import { sfx } from '../audio/sfx.svelte';
 import { WORLD_SEED } from '../authority/local';
 import { nextLanguage } from '../copy';
 import { isShortcut, keyName } from '../input/keyboard';
@@ -130,19 +131,31 @@ export class TitleController {
 			case 'ArrowUp':
 			case 'w':
 				title.cursor = (title.cursor + rows.length - 1) % rows.length;
+				sfx.play('move');
 				return true;
 			case 'ArrowDown':
 			case 's':
 				title.cursor = (title.cursor + 1) % rows.length;
+				sfx.play('move');
 				return true;
 			case 'ArrowLeft':
 			case 'a':
 			case 'ArrowRight':
-			case 'd':
-				// Left and right change the setting on its row, and do nothing elsewhere.
-				if (row !== 'language') return false;
-				nextLanguage(key === 'ArrowLeft' || key === 'a' ? -1 : 1);
-				return true;
+			case 'd': {
+				// Left and right change the setting on its row, and do nothing elsewhere:
+				// the next or previous language; sound off (left) or on (right).
+				const right = key === 'ArrowRight' || key === 'd';
+				if (row === 'language') {
+					sfx.play('confirm');
+					nextLanguage(right ? 1 : -1);
+					return true;
+				}
+				if (row === 'sound') {
+					if (sfx.on !== right) setSound(right);
+					return true;
+				}
+				return false;
+			}
 			case 'Enter':
 			case ' ':
 				if (row) this.chooseRow(row);
@@ -154,9 +167,11 @@ export class TitleController {
 	private chooseRow(row: TitleRow): void {
 		switch (row) {
 			case 'continue':
+				sfx.play('confirm');
 				if (title.saved) this.hooks.continueGame(title.saved);
 				break;
 			case 'new':
+				sfx.play('confirm');
 				// A saved game would be put away: ask first. Without one, straight to the starters.
 				if (title.saved) {
 					title.screen = 'confirm';
@@ -165,7 +180,11 @@ export class TitleController {
 				} else this.toStarters(0);
 				break;
 			case 'language':
+				sfx.play('confirm');
 				nextLanguage(1);
+				break;
+			case 'sound':
+				setSound(!sfx.on);
 				break;
 		}
 	}
@@ -174,15 +193,18 @@ export class TitleController {
 		switch (key) {
 			case 'ArrowUp':
 			case 'w':
+				if (title.confirm !== 0) sfx.play('move');
 				title.confirm = 0;
 				return true;
 			case 'ArrowDown':
 			case 's':
+				if (title.confirm !== 1) sfx.play('move');
 				title.confirm = 1;
 				return true;
 			case 'Enter':
 			case ' ':
 				if (this.age < CONFIRM_GUARD_SECONDS) return true;
+				sfx.play('confirm');
 				if (CONFIRM_CHOICES[title.confirm] === 'yes') this.toStarters(0);
 				else this.toMenu('new');
 				return true;
@@ -211,6 +233,7 @@ export class TitleController {
 			case 'Enter':
 			case ' ':
 				if (this.age < PICK_GUARD_SECONDS) return true;
+				sfx.play('confirm');
 				this.scenery.cheer(title.starter);
 				title.draft = '';
 				title.screen = 'naming';
@@ -233,6 +256,7 @@ export class TitleController {
 			const speciesId = STARTERS[title.starter];
 			if (speciesId === undefined) return;
 			this.sent = true;
+			sfx.play('confirm');
 			this.authority.dispatch({ type: 'new-game', speciesId, nickname: title.draft });
 		} else if (e.key === 'Escape') {
 			e.preventDefault();
@@ -273,8 +297,15 @@ export class TitleController {
 
 	private light(index: number): void {
 		title.starter = index;
+		sfx.play('move');
 		this.scenery.select(index);
 	}
+}
+
+/** Turned on, the sound says so itself; turned off, only the switch does (as in the pause menu). */
+function setSound(on: boolean): void {
+	sfx.set(on);
+	if (on) sfx.play('confirm');
 }
 
 function sameSpots(

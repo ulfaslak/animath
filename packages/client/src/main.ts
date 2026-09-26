@@ -1,11 +1,13 @@
 import './styles.css';
 import { mount } from 'svelte';
+import { sfx } from './audio/sfx.svelte';
 import { LocalAuthority, mintId } from './authority/local';
 import { BattleController } from './battle/controller';
 import { DoctorController } from './doctor/controller';
 import { ExploreController } from './explore/controller';
 import { flags } from './flags';
 import { Keyboard } from './input/keyboard';
+import { isSoundKey, typingNow } from './input/sound-key';
 import { PauseController } from './pause/controller';
 import { GameRenderer } from './render/renderer';
 import { TitleScenery } from './render/title-scenery';
@@ -97,14 +99,25 @@ const exploreInput = () =>
 	!doctor.active &&
 	!pause.open;
 
+// Browsers let a page make sound only after a key press, click or touch; each
+// one wakes the sound (the first makes it), before any screen plays a cue.
+for (const type of ['keydown', 'pointerdown', 'touchend']) {
+	window.addEventListener(type, () => sfx.unlock(), { capture: true });
+}
+
 // Keys go to exactly one screen: the title while it is up, else the battle
 // while it is up, else the doctor's card while it is open, else the pause
 // menu while it is open (Escape in explore opens it), else explore, which
 // reads them through `keyboard`. Explore's own listener runs first and is
 // switched off here at once, so the key that opens the menu is the last one
-// walking sees, and the key that closes the title is not a step.
+// walking sees, and the key that closes the title is not a step. M turns the
+// sound on or off on every screen, the title's too, except while an answer
+// or a name is being typed.
 window.addEventListener('keydown', (e) => {
-	if (title.open) titleController.onKey(e);
+	if (isSoundKey(e) && (title.open || game.mode !== 'loading') && !typingNow(e.target)) {
+		e.preventDefault();
+		if (!e.repeat) sfx.flip();
+	} else if (title.open) titleController.onKey(e);
 	else if (battle.active) battleController.onKey(e);
 	else if (doctor.active) doctorController.onKey(e);
 	else if (game.mode === 'explore') pauseController.onKey(e);

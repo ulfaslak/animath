@@ -138,7 +138,7 @@ What is built and observable today. Keep current: add a bullet when a feature sh
 
 ### Title
 
-- The title screen comes first ([[UI_SPEC]] § Title): "Animath" in big bouncing letters over the world where the game stands, the trainer and the team (or, for a new player, the starters) breathing beside it, the camera drifting slowly. Continue (with the saved team's first animal and how many there are), New game and Language.
+- The title screen comes first ([[UI_SPEC]] § Title): "Animath" in big bouncing letters over the world where the game stands, the trainer and the team (or, for a new player, the starters) breathing beside it, the camera drifting slowly. Continue (with the saved team's first animal and how many there are), New game, and the Language and Sound settings.
 - New game shows the starters side by side, big, each with the kinds of sums its attacks ask; the kid picks one with the arrows and Enter, and names it or not. With a saved game, New game asks first ("Start a new game?"), and only a deliberate "Yes" starts over.
 - Quit to title: the pause menu's Start screen row saves and goes back to the title; Continue carries on from the same spot.
 
@@ -146,11 +146,11 @@ What is built and observable today. Keep current: add a bullet when a feature sh
 
 - Procedural chunked world with four biomes, water, sand, tall grass (including reeds on river banks), trees, rocks and doctor tents, rendered low-poly with a fixed camera.
 - Grid movement with arrow keys / WASD (Caps Lock or not); blocked tiles (water, rock, trees, doctor tents) stop you; a tap always moves one tile. Browser shortcuts (Cmd+D, Ctrl+S) are left to the browser.
-- The player is a small trainer figure — a kid in a cap — that faces the way it walks, stands on top of hills and breathes while idle.
+- The player is a small trainer figure — a kid in a cap — that faces the way it walks, swings its arms and legs with every step, stands on top of hills and breathes while idle.
 - A crude but recognisable low-poly figure for every species, built from primitives with one exaggerated tell each. They fight in battles; the `?zoo` line-up (see [[CHEATSHEET]]) shows them all at once.
 - Party HUD: one card per animal in battle order with its number key, its name (nickname if it has one) and an HP bar with numbers; a knocked-out animal is greyed with a "tired" tag, and the lead is outlined and tagged "goes first".
 - Choosing the lead from explore: the number keys pick who goes first (§4 "Party"); a tired animal can't go first, and the message line says so.
-- Pause menu (Escape in explore): the team in battle order, where an animal can go first, move up or down, or get a nickname typed in a name box. Walking waits while it is open.
+- Pause menu (Escape in explore): the team in battle order, where an animal can go first, move up or down, or get a nickname typed in a name box, then the Language and Sound settings, "Keep playing" and "Start screen" (Quit to title). Walking waits while it is open.
 - Message line: the latest message for a few seconds, the controls hint for the first few steps, and "Press Enter to talk to the doctor" while the player faces a tent ([[UI_SPEC]] § Explore mode).
 - Doctor's tents: facing a tent, Enter opens the doctor's card ([[UI_SPEC]] § Doctor). Pick a hurt or tired animal, solve its puzzle and it is back to full HP; a wrong answer just brings another puzzle; the list stays live during a puzzle; Bye or Escape leaves at any time. With nobody hurt, the doctor says everyone is fit and happy. The doctor speaks English and Danish, like the rest of the game.
 
@@ -170,6 +170,12 @@ What is built and observable today. Keep current: add a bullet when a feature sh
 - A backup on the server, sent in the background when it can be reached; a browser that lost its save but still knows the player gets its game back from it.
 - Two windows of the game never undo each other: the one that falls behind reloads into the newer game when looked at.
 - A save that cannot be read starts a new game with a message and is kept, set aside once the new game has been played; a newer version's save is left alone. `?new` plays a game that is saved nowhere.
+
+### Sound and feel
+
+- Sound: short, soft sounds made while the game runs, no sound files ([[DESIGN]] § Sound) — a jingle when a wild animal jumps out, blips on the menus, a chime for a right answer and a soft bonk for a miss, a thump for a hit, a puff when an animal gets tired, the leash's whoosh, tick-tock and its fanfare or boing, a sparkle at the doctor, a ding for a new lead and a fanfare for a win. Every sound goes with something on screen.
+- Sound setting: on by default, a Sound row in the pause menu and on the title, and M on any screen except while typing; remembered on this device.
+- Little flourishes ([[UI_SPEC]] § Sound and juice): an iris that closes on the player and opens on the wild animal, a ring of dust round a tired animal, confetti round a caught one, sparkles along a healed animal's HP bar, the trainer's walk. A system set to reduce motion gets calmer versions.
 
 ### Language
 
@@ -197,10 +203,9 @@ What is built and observable today. Keep current: add a bullet when a feature sh
 
 In rough priority order. Each becomes a GitHub issue when picked up.
 
-1. Sound, with its setting in the pause menu and on the title, beside Language.
-2. Real low-poly animal models (glTF, CC0 sources, see [[DECISIONS]]) with attack animations, replacing the primitive figures.
-3. Procedural world v2: rivers that flow, paths, biome shaping, landmarks, spawn tables.
-4. Puzzle catalog v2: fractions, decimals, negatives, word problems, per-child adaptive difficulty.
-5. Touch controls for tablets.
-6. Multiplayer: shared world, other players visible, PvP battles, tokens, shop.
-7. Deployment to the Hetzner VPS.
+1. Real low-poly animal models (glTF, CC0 sources, see [[DECISIONS]]) with attack animations, replacing the primitive figures.
+2. Procedural world v2: rivers that flow, paths, biome shaping, landmarks, spawn tables.
+3. Puzzle catalog v2: fractions, decimals, negatives, word problems, per-child adaptive difficulty.
+4. Touch controls for tablets.
+5. Multiplayer: shared world, other players visible, PvP battles, tokens, shop.
+6. Deployment to the Hetzner VPS.
