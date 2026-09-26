@@ -365,7 +365,7 @@ describe('battle screen', () => {
 	it('frees both figures once the result card is left', () => {
 		const t = setup();
 		t.walkIntoBattle();
-		t.run(3);
+		t.toMenu();
 		const scene = t.shown[0] as BattleScene;
 		const figures = () =>
 			scene.scene.children.filter((o) => ANIMALS.some((a) => a.id === o.name)).map((o) => o.name);
