@@ -181,6 +181,9 @@ describe('difficulty ladder', () => {
 	}
 
 	it('ten is never a factor: "10 × 7" is a freebie at any difficulty', () => {
+		// Collected and asserted once: an `expect` per sample cost more than the rule
+		// (1 s alone, 2 s with two browsers drawing beside it).
+		const tens: string[] = [];
 		for (const kind of ['mul', 'div', 'missing'] as const) {
 			const g = getGenerator(kind);
 			for (let d = g.minDifficulty; d <= g.maxDifficulty; d++) {
@@ -196,11 +199,12 @@ describe('difficulty ladder', () => {
 							: p.prompt.includes('×')
 								? [a, b]
 								: [];
-					expect(factors, `${kind} d=${d}: ${p.prompt}`).not.toContain(10);
+					if (factors.includes(10)) tens.push(`${kind} d=${d}: ${p.prompt}`);
 				}
 			}
 		}
-	});
+		expect(tens).toEqual([]);
+	}, 30_000);
 
 	it('sequence: counting steps climb with difficulty; only difficulty 1 counts by ones', () => {
 		const g = getGenerator('sequence');

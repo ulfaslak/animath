@@ -123,7 +123,9 @@ describe('nearestTent', () => {
 			}
 			// Some random starts are in a lake or walled in by trees; most find a tent.
 			expect(found).toBeGreaterThan(20);
-		});
+			// Up to 2 s alone (40 searches, each checked by a flood fill of its own);
+			// over vitest's 5 s default when other agents' browsers load the machine.
+		}, 30_000);
 	}
 
 	it('stands the player on walkable ground next to the tent, facing it', () => {
@@ -140,7 +142,8 @@ describe('nearestTent', () => {
 				expect(spot.steps).toBeGreaterThanOrEqual(manhattan);
 			}
 		}
-	});
+		// Over 1 s alone (180 searches); over 3 s with two browsers drawing beside it.
+	}, 30_000);
 
 	it('beside a tent, that tent is nearest: zero steps, facing it — at any sign and across chunk edges', () => {
 		let onChunkEdge = 0;
@@ -220,7 +223,8 @@ describe('nearestTent', () => {
 			}
 		}
 		expect(tied).toBeGreaterThan(0);
-	});
+		// Up to 2 s alone (every tent in a 1600-tile box, searched around); over 3 s under load.
+	}, 30_000);
 
 	it('is deterministic and does not depend on what was asked before', () => {
 		const positions = samplePositions(PROTOTYPE, 25);
@@ -273,14 +277,16 @@ describe('nearestTent', () => {
 
 describe('canTalkToDoctor', () => {
 	it('holds exactly when the tile in front of the player is a tent', () => {
+		// Thousands of checks: collected and asserted once, since an `expect` each
+		// cost more than the rule (1.5 s alone, over 5 s under load).
+		const wrong: string[] = [];
 		for (const seed of SEEDS) {
 			for (const tent of tentsNearOrigin(seed)) {
 				for (const [facing, dx, dy] of SIDES) {
 					const stand = { x: tent.x + dx, y: tent.y + dy };
 					for (const dir of DIRECTIONS) {
-						expect(canTalkToDoctor(seed, stand, dir), `${stand.x},${stand.y} ${dir}`).toBe(
-							dir === facing
-						);
+						if (canTalkToDoctor(seed, stand, dir) !== (dir === facing))
+							wrong.push(`seed ${seed}: ${stand.x},${stand.y} facing ${dir}`);
 					}
 				}
 				// Diagonal to the tent, or two tiles away, is not beside it.
@@ -290,10 +296,13 @@ describe('canTalkToDoctor', () => {
 					[0, 2],
 					[-2, 0]
 				] as const) {
+					const at = { x: tent.x + dx, y: tent.y + dy };
 					for (const dir of DIRECTIONS)
-						expect(canTalkToDoctor(seed, { x: tent.x + dx, y: tent.y + dy }, dir)).toBe(false);
+						if (canTalkToDoctor(seed, at, dir))
+							wrong.push(`seed ${seed}: ${at.x},${at.y} facing ${dir}`);
 				}
 			}
 		}
-	});
+		expect(wrong).toEqual([]);
+	}, 30_000);
 });

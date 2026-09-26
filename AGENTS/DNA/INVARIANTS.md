@@ -50,9 +50,9 @@ The sentence about the highlighted attack lists the engine's `puzzleTopics(kinds
 
 `checkAnswer(puzzle, input)` is the only place a submitted answer is compared. The UI passes the raw string through; the authority calls `checkAnswer` and emits the result. When the authority moves to the server, a client cannot claim a hit it did not earn. Enforced by review (grep the client for `=== puzzle.answer` / `.answer ===` during Phase 2.5). Design-time.
 
-### Difficulty is monotonic in tier, attack index and level
+### Difficulty is monotonic in tier and attack index, and strictly increasing in level
 
-`puzzleDifficulty(tier, n, level)` never decreases when any argument increases, and `(1, 1, 1)` maps to 1 while `(5, 4, 3)` maps to 10. Enforced by `puzzles.test.ts` § difficulty mapping. Design-time.
+`puzzleDifficulty(tier, n, level)` never decreases when the tier or the attack index increases, and `(1, 1, 1)` maps to 1 while `(5, 4, 3)` maps to 10. Within an attack every level asks exactly one more than the level below it, and hard never passes 10, so a level that hits harder always asks a harder puzzle. This holds because an attack's easy level is capped at 8 before the levels are added; a clamp on the finished difficulty would fold the top levels together instead. Enforced by `puzzles.test.ts` § difficulty mapping: every attack in the catalog asks a harder puzzle wherever it hits harder, and any tier's first eight attacks climb one step per level. Incident: #32. The final clamp at 10 gave a bear's Maul and Crush difficulty 10 on medium and on hard, so medium asked the same sums for less damage.
 
 ## Battle
 
