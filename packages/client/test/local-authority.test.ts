@@ -155,9 +155,10 @@ function party(s: Session): AnimalInstance[] {
 	throw new Error('no party');
 }
 
+/** The key of the last line the authority said: which line, not its words (those are the client's). */
 function lastMessage(s: Session): string {
 	const m = s.events.filter((e) => e.type === 'message').at(-1);
-	return m?.type === 'message' ? m.text : '';
+	return m?.type === 'message' ? m.line.key : '';
 }
 
 /** Where the player stands, from the events. */
@@ -432,7 +433,7 @@ describe('LocalAuthority: outcomes', () => {
 		s.authority.dispatch({ type: 'battle', intent: { type: 'flee' } });
 		expect(latestBattle(s).phase).toEqual({ kind: 'ended', outcome: 'fled' });
 		expect(party(s)).toEqual(before);
-		expect(lastMessage(s)).toMatch(/stays in the grass/);
+		expect(lastMessage(s)).toBe('battle.closing.fled');
 	});
 
 	it('lost: taken to the nearest tent on foot, facing it, with everyone healed', () => {
@@ -492,11 +493,11 @@ describe('LocalAuthority: outcomes', () => {
 			if (before < 6) {
 				expect(party(s)).toHaveLength(before + 1);
 				expect(party(s).at(-1)).toEqual(animal);
-				expect(lastMessage(s)).toMatch(/joins your team/);
+				expect(lastMessage(s)).toBe('battle.closing.joined');
 			} else {
 				expect(party(s)).toHaveLength(6);
 				expect(party(s).map((a) => a.id)).not.toContain(animal!.id);
-				expect(lastMessage(s)).toMatch(/team is full/);
+				expect(lastMessage(s)).toBe('battle.closing.teamFull');
 				return;
 			}
 		}
@@ -807,7 +808,6 @@ describe('LocalAuthority: the party', () => {
 		expect(party(s)[0]!.nickname).toBe('Sir Fluffing');
 		const battle = walkIntoBattle(s);
 		expect(battle.party[battle.active]!.nickname).toBe('Sir Fluffing');
-		expect(battle.log).toContain('Go, Sir Fluffing!');
 	});
 
 	it('a party it starts with is cleaned like a rename', () => {

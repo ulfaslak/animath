@@ -6,6 +6,7 @@ import {
 	readLanguageHints
 } from '../src/copy/language.svelte';
 import { createTranslator, type CopyTree } from '../src/copy/translate';
+import { line, messageWords, words } from '../src/lines';
 
 /**
  * How `t()` turns a key into words: placeholders, forms, plurals, capitals,
@@ -60,7 +61,13 @@ describe('createTranslator', () => {
 		expect(tr('da', 'caught', { animal: 'Nøddi' })).toBe('Du fangede Nøddi!');
 	});
 
-	it('capitalises a value that starts a sentence, and only then', () => {
+	it('never changes a plain string: a nickname reads as the kid wrote it, even first', () => {
+		const { tr } = translator();
+		expect(tr('en', 'appears', { animal: 'nøddi' })).toBe('nøddi appears!');
+		expect(tr('da', 'missed', { animal: 'iPad' })).toBe('Forbi! iPad ryster det af sig.');
+	});
+
+	it('capitalises a form that starts a sentence, and only then', () => {
 		const { tr } = translator();
 		expect(tr('da', 'appears', { animal: squirrel })).toBe('Et vildt egern dukker op!');
 		expect(tr('da', 'missed', { animal: squirrel })).toBe(
@@ -226,5 +233,42 @@ describe('the language on screen', () => {
 			navigator: { languages: [], language: 'da-DK' }
 		});
 		expect(readLanguageHints()).toEqual({ query: null, saved: null, preferred: ['da-DK'] });
+	});
+});
+
+describe('lines kept as data', () => {
+	afterEach(() => language.set('en'));
+
+	it('word themselves in the language on screen when drawn, not when said', () => {
+		language.set('en');
+		const said = line('battle.appears', { animal: { speciesId: 'squirrel' } });
+		expect(words(said)).toBe('A wild Squirrel appears!');
+		language.set('da');
+		expect(words(said)).toBe('Et vildt egern dukker op!');
+	});
+
+	it('name an attack by its species and index, and keep a nickname as written', () => {
+		const said = line('battle.tries', {
+			animal: { speciesId: 'squirrel', nickname: 'nøddi' },
+			attack: { speciesId: 'squirrel', attackIndex: 2 }
+		});
+		expect(words(said)).toBe('nøddi tries Scurry Kick!');
+	});
+
+	it("take an authority's line for no more than LINES allows: a string riding along is dropped", () => {
+		const smuggled = {
+			key: 'battle.closing.won',
+			params: { animal: { speciesId: 'fox', nickname: 'You lost all your animals' } }
+		} as const;
+		expect(messageWords(smuggled)).toBe('The wild Fox runs home to rest.');
+	});
+
+	it('show a malformed value as a gap, never a crash', () => {
+		for (const animal of [null, 'fox', true, { id: 3 }] as never[]) {
+			expect(messageWords({ key: 'battle.closing.won', params: { animal } })).toBe(
+				'{animal.theWild} runs home to rest.'
+			);
+			expect(words({ key: 'battle.appears', params: { animal } })).toBe('{animal.aWild} appears!');
+		}
 	});
 });

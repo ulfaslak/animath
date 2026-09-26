@@ -9,12 +9,13 @@ import {
 	type BattleSide,
 	type BattleState,
 	type GameEvent,
-	type GridPos
+	type GridPos,
+	type Line as MessageLine
 } from '@mathgame/engine';
 import { answerKey } from '../input/answer';
+import { line, type Line } from '../lines';
 import { BattleScene } from '../render/battle-scene';
 import type { GameRenderer } from '../render/renderer';
-import { t } from '../copy';
 import { battle } from '../state/battle.svelte';
 import { actionCount, firstPickable, listKey, menuKey, rowOf } from './menu';
 
@@ -29,12 +30,13 @@ import { actionCount, firstPickable, listKey, menuKey, rowOf } from './menu';
  * key means on the menu and the list is `menu.ts`'s to say.
  *
  * The authority answers every intent synchronously; the beats are purely
- * presentation and nothing here decides an outcome.
+ * presentation and nothing here decides an outcome. Lines are kept as data
+ * (`lines.ts`) and worded by the panel when drawn.
  */
 
 /** One beat: change something and maybe say a line, then hold for `hold` seconds. */
 interface Beat {
-	run: () => string | undefined;
+	run: () => Line | undefined;
 	hold: number;
 }
 
@@ -64,7 +66,7 @@ export class BattleController {
 	private beats: Beat[] = [];
 	private wait = 0;
 	/** The authority's closing `message`, kept for the result card. */
-	private closing = '';
+	private closing: MessageLine | null = null;
 	/** Seconds the result card has been up. */
 	private resultAge = 0;
 	/** Seconds the party list has been up. */
@@ -113,8 +115,8 @@ export class BattleController {
 			}
 			case 'message':
 				if (!battle.active || this.latest?.phase.kind !== 'ended') return;
-				this.closing = event.text;
-				if (battle.screen === 'result') battle.closing = event.text;
+				this.closing = event.line;
+				if (battle.screen === 'result') battle.closing = event.line;
 				break;
 		}
 	}
@@ -186,7 +188,7 @@ export class BattleController {
 		// Known from the start, so the Switch row doesn't show greyed through the opening lines.
 		battle.pickable = state.party.map((_, i) => canSwitchTo(state, i));
 		this.latest = state;
-		this.closing = '';
+		this.closing = null;
 		this.beats = [];
 		this.wait = 0;
 
@@ -194,13 +196,13 @@ export class BattleController {
 		this.scene ??= new BattleScene();
 		this.scene.begin(biome, this.front().speciesId, state.opponent.speciesId);
 
-		const wild = nameOf(state.opponent);
-		const mine = nameOf(this.front());
-		this.beats.push({ run: () => `A wild ${wild} appears!`, hold: 1.4 });
+		const wild = state.opponent;
+		const mine = this.front();
+		this.beats.push({ run: () => line('battle.appears', { animal: wild }), hold: 1.4 });
 		// A battle picked up where the animal in front is already tired (a
 		// restored one, waiting for the player to pick) shows it lying down.
-		if (this.front().hp > 0) {
-			this.beats.push({ run: () => t('battle.go', { name: mine }), hold: 1.0 });
+		if (mine.hp > 0) {
+			this.beats.push({ run: () => line('battle.go', { animal: mine }), hold: 1.0 });
 		} else {
 			this.scene.faint('player');
 		}
@@ -223,7 +225,7 @@ export class BattleController {
 				battle.puzzle = null;
 				battle.judged = null;
 				battle.input = '';
-				battle.line = `What will ${nameOf(front)} do?`;
+				battle.line = line('battle.whatNow', { animal: front });
 				battle.screen = 'actions';
 				break;
 			}
@@ -233,20 +235,23 @@ export class BattleController {
 				battle.judged = null;
 				battle.input = '';
 				this.openParty(true);
-				battle.line = t('battle.switch.whoIsNext', { name: nameOf(front) });
+				battle.line = line('battle.switch.whoIsNext', { animal: front });
 				break;
 			case 'solving':
 				battle.puzzle = state.phase.puzzle;
 				battle.input = '';
 				battle.judged = null;
-				battle.line = `${nameOf(front)} tries ${attackName(front, state.phase.attackIndex)}!`;
+				battle.line = line('battle.tries', {
+					animal: front,
+					attack: { speciesId: front.speciesId, attackIndex: state.phase.attackIndex }
+				});
 				battle.screen = 'puzzle';
 				break;
 			case 'ended':
 				if (state.phase.outcome === 'won') this.scene?.hop('player');
 				battle.outcome = state.phase.outcome;
 				battle.closing = this.closing;
-				battle.line = '';
+				battle.line = null;
 				this.resultAge = 0;
 				battle.screen = 'result';
 				break;
@@ -349,22 +354,23 @@ export class BattleController {
 					{
 						run: () => {
 							battle.judged = { correct: e.correct };
-							return e.correct ? 'Correct!' : 'Not quite!';
+							return line(e.correct ? 'puzzle.correct' : 'puzzle.notQuite');
 						},
 						hold: 1.0
 					}
 				];
 			case 'hit': {
 				const target: BattleSide = e.attacker === 'player' ? 'opponent' : 'player';
-				let said = '';
+				const wild = e.attacker === 'opponent';
+				// Who attacked is read when the beat runs: a switch earlier in the turn counts.
+				let who: AnimalInstance;
 				return [
 					{
 						run: () => {
 							scene.lunge(e.attacker);
-							const who = this.animalOn(e.attacker);
-							const prefix = e.attacker === 'opponent' ? 'Wild ' : '';
-							said = `${prefix}${nameOf(who)} used ${attackName(who, e.attackIndex)}!`;
-							return said;
+							who = this.animalOn(e.attacker);
+							const attack = { speciesId: who.speciesId, attackIndex: e.attackIndex };
+							return line(wild ? 'battle.wildUsed' : 'battle.used', { animal: who, attack });
 						},
 						hold: 0.35
 					},
@@ -379,7 +385,12 @@ export class BattleController {
 								);
 							}
 							battle.hit = { side: target, damage: e.damage, n: ++this.hits };
-							return `${said} ${e.damage} damage.`;
+							const attack = { speciesId: who.speciesId, attackIndex: e.attackIndex };
+							return line(wild ? 'battle.wildUsedDamage' : 'battle.usedDamage', {
+								animal: who,
+								attack,
+								damage: e.damage
+							});
 						},
 						hold: 1.2
 					}
@@ -392,7 +403,7 @@ export class BattleController {
 							run: () => {
 								scene.lunge('player');
 								scene.puff('opponent');
-								return `Missed! The wild ${nameOf(battle.opponent!)} shrugs it off.`;
+								return line('battle.youMissed', { animal: battle.opponent! });
 							},
 							hold: 1.3
 						}
@@ -400,21 +411,20 @@ export class BattleController {
 				}
 				{
 					// A wild animal facing one its own size or bigger sometimes misses.
-					let said = '';
+					const wild = battle.opponent!;
+					const attack = { speciesId: wild.speciesId, attackIndex: e.attackIndex };
 					return [
 						{
 							run: () => {
 								scene.lunge('opponent');
-								const wild = battle.opponent!;
-								said = `Wild ${nameOf(wild)} used ${attackName(wild, e.attackIndex)}!`;
-								return said;
+								return line('battle.wildUsed', { animal: wild, attack });
 							},
 							hold: 0.35
 						},
 						{
 							run: () => {
 								scene.puff('player');
-								return `${said} It missed.`;
+								return line('battle.wildMissed', { animal: wild, attack });
 							},
 							hold: 1.2
 						}
@@ -425,9 +435,9 @@ export class BattleController {
 					{
 						run: () => {
 							scene.faint(e.side);
-							return e.side === 'opponent'
-								? `Wild ${nameOf(e.animal)} is tired!`
-								: `${nameOf(e.animal)} is tired.`;
+							return line(e.side === 'opponent' ? 'battle.wildTired' : 'battle.tired', {
+								animal: e.animal
+							});
 						},
 						hold: 1.2
 					}
@@ -439,7 +449,7 @@ export class BattleController {
 						battle.cursor = 0; // a new animal's menu starts at its first attack
 						scene.setFigure('player', e.animal.speciesId);
 						scene.appear('player');
-						return t('battle.go', { name: nameOf(e.animal) });
+						return line('battle.go', { animal: e.animal });
 					},
 					hold: 1.0
 				};
@@ -447,7 +457,7 @@ export class BattleController {
 				const leave: Beat = {
 					run: () => {
 						scene.recall('player');
-						return t('battle.switch.comeBack', { name: nameOf(this.front()) });
+						return line('battle.switch.comeBack', { animal: this.front() });
 					},
 					hold: 0.9
 				};
@@ -458,20 +468,20 @@ export class BattleController {
 					{
 						run: () => {
 							scene.throwLeash();
-							return 'You throw the leash…';
+							return line('battle.leash.throw');
 						},
 						hold: 1.8
 					},
 					{
 						run: () => {
 							scene.leashResult(e.success);
-							return e.success ? 'Caught!' : 'It broke free!';
+							return line(e.success ? 'battle.leash.caught' : 'battle.leash.brokeFree');
 						},
 						hold: 1.2
 					}
 				];
 			case 'fled':
-				return [{ run: () => 'You got away!', hold: 0.8 }];
+				return [{ run: () => line('battle.gotAway'), hold: 0.8 }];
 			case 'ended':
 				return []; // `settle` shows the result card
 			case 'rejected':
@@ -487,12 +497,4 @@ export class BattleController {
 	private animalOn(side: BattleSide): AnimalInstance {
 		return side === 'player' ? this.front() : battle.opponent!;
 	}
-}
-
-function nameOf(animal: AnimalInstance): string {
-	return animal.nickname ?? getAnimal(animal.speciesId).name;
-}
-
-function attackName(animal: AnimalInstance, attackIndex: number): string {
-	return getAnimal(animal.speciesId).attacks[attackIndex - 1]?.name ?? 'its attack';
 }

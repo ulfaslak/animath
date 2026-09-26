@@ -72,6 +72,7 @@ export const add: PuzzleGenerator = {
 	kind: 'add',
 	minDifficulty: 1,
 	maxDifficulty: 10,
+	topics: () => ['add'],
 	generate(rng: Rng, difficulty: number): Puzzle {
 		const b = band(ADD_BAND, difficulty);
 		const x = draw(rng, b);
@@ -85,6 +86,7 @@ export const sub: PuzzleGenerator = {
 	kind: 'sub',
 	minDifficulty: 1,
 	maxDifficulty: 10,
+	topics: () => ['sub'],
 	generate(rng: Rng, difficulty: number): Puzzle {
 		const b = band(ADD_BAND, difficulty);
 		const x = draw(rng, b);
@@ -97,6 +99,7 @@ export const mul: PuzzleGenerator = {
 	kind: 'mul',
 	minDifficulty: 2,
 	maxDifficulty: 10,
+	topics: () => ['mul'],
 	generate(rng: Rng, difficulty: number): Puzzle {
 		const big = draw(rng, band(MUL_BIG_BAND, difficulty));
 		const small = draw(rng, band(MUL_SMALL_BAND, difficulty));
@@ -109,6 +112,7 @@ export const div: PuzzleGenerator = {
 	kind: 'div',
 	minDifficulty: 3,
 	maxDifficulty: 10,
+	topics: () => ['div'],
 	generate(rng: Rng, difficulty: number): Puzzle {
 		const big = draw(rng, band(MUL_BIG_BAND, difficulty));
 		const small = draw(rng, band(MUL_SMALL_BAND, difficulty));
@@ -121,13 +125,20 @@ export const div: PuzzleGenerator = {
 	}
 };
 
+/**
+ * From this difficulty on, half of the missing-number puzzles hide a number in
+ * a times table ("4 × ? = 20") instead of a sum.
+ */
+export const MISSING_TIMES_FROM = 4;
+
 /** "7 + ? = 12" / "4 × ? = 20": solve for the missing operand. */
 export const missing: PuzzleGenerator = {
 	kind: 'missing',
 	minDifficulty: 1,
 	maxDifficulty: 10,
+	topics: (difficulty) => (difficulty < MISSING_TIMES_FROM ? ['missing'] : ['missing', 'mul']),
 	generate(rng: Rng, difficulty: number): Puzzle {
-		if (difficulty <= 3 || rng.chance(0.5)) {
+		if (difficulty < MISSING_TIMES_FROM || rng.chance(0.5)) {
 			const b = band(ADD_BAND, difficulty);
 			const x = draw(rng, b);
 			const answer = draw(rng, b);

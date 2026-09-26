@@ -82,11 +82,3 @@ Technical items we've intentionally postponed: tech debt, hardening shortcuts, k
 **Why deferred**: the players are Danish and English-speaking kids, and there is one authority, in the browser. The fixes cost more than they are worth today. Every script's marks would need the full, generated list of Unicode scripts, guarded against engines that don't know the newest names. Joiners would need to be kept only between two letters of one script. With a server authority, the server's result is the truth and the client only displays it.
 
 **Trigger**: a player whose name needs one of these, or the server-side authority PR. At that PR, check that nothing but the server cleans a name that is stored, and decide whether the preview needs the server's answer.
-
-### The engine still words lines that no screen shows
-
-**What**: `BattleState.log`, `DoctorState.log` and `Rescue.message` hold English sentences the engine writes ("Let's help Squirrel! Can you solve this?", "The doctor looked after your animals…"), against [[DECISIONS]] § Copy and languages ("the engine is language-free"). The client words every line itself from events — the battle narration in `battle/controller.ts`, everything the doctor says through `doctor/lines.ts` and the copy files — so these strings reach no screen, but they are still generated, tested and carried in every state event.
-
-**Why deferred**: removing them changes the engine's state shapes and its tests, which is its own PR; nothing reads them, so they cost nothing but bytes.
-
-**Trigger**: the copy extraction (the follow-up to the copy files, PR #16, that moves the game's words into `copy/`). Drop the three fields (or turn them into data the client words) there, and move the authority's own `message` texts (the battle results in `LocalAuthority.endBattle`) to keys at the same time.

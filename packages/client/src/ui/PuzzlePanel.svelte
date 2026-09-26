@@ -35,7 +35,7 @@
 </div>
 {#if judged}
 	<div class="judgement" class:good={judged.correct} class:bad={!judged.correct}>
-		{judged.correct ? 'Correct!' : 'Not quite!'}
+		{judged.correct ? t('puzzle.correct') : t('puzzle.notQuite')}
 	</div>
 {:else}
 	<div class="keys">{t('puzzle.keys')}</div>

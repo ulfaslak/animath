@@ -12,18 +12,19 @@ export const MAX_PARTY = 6;
 export const ATTACK_LEVELS = [1, 2, 3] as const;
 export type AttackLevel = (typeof ATTACK_LEVELS)[number];
 
+/** An attack. Its name, in every language, is in the client's copy files under its id. */
 export interface AttackSpec {
+	/** Unique within its species; the copy key `species.<species id>.attacks.<id>`. */
 	id: string;
-	name: string;
 	/** Puzzle kinds this attack can ask. The engine picks one that fits the difficulty. */
 	kinds: readonly PuzzleKind[];
 	/** Base damage at level 1. Must increase with attack index within a species. */
 	power: number;
 }
 
+/** A species. Its names (and "a …", "the wild …") are in the client's copy files under its id. */
 export interface AnimalSpec {
 	id: string;
-	name: string;
 	tier: Tier;
 	maxHp: number;
 	/** Probability multiplier for leash success, 0..1. Lower = harder to catch. */

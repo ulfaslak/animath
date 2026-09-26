@@ -59,11 +59,16 @@ function setup() {
 	return { authority, events, move, pressEnter, tick };
 }
 
+/** The authority's closing lines after a battle with a wild rabbit, as it sends them. */
+const rabbit = { speciesId: 'rabbit' };
+const WON = { key: 'battle.closing.won', params: { animal: rabbit } } as const;
+const JOINED = { key: 'battle.closing.joined', params: { animal: rabbit } } as const;
+
 describe('the explore message line', () => {
 	it('shows what was said for a few seconds on screen, and again when it is said again', () => {
 		const s = setup();
 		expect(hud.message).toBe('');
-		hud.apply({ type: 'message', text: 'The wild Rabbit runs home to rest.' });
+		hud.apply({ type: 'message', line: WON });
 		hud.tick(0);
 		expect(hud.message).toBe('The wild Rabbit runs home to rest.');
 		s.tick(MESSAGE_SECONDS - 0.1);
@@ -71,7 +76,7 @@ describe('the explore message line', () => {
 		s.tick(0.2);
 		expect(hud.message).toBe('');
 
-		hud.apply({ type: 'message', text: 'The wild Rabbit runs home to rest.' });
+		hud.apply({ type: 'message', line: WON });
 		hud.tick(1 / 60);
 		expect(hud.message).toBe('The wild Rabbit runs home to rest.');
 	});
@@ -79,7 +84,7 @@ describe('the explore message line', () => {
 	it('keeps a line said while the HUD is off screen until it is back', () => {
 		setup();
 		// Said while the battle screen or the doctor's card is up: no ticks meanwhile.
-		hud.apply({ type: 'message', text: 'Rabbit joins your team!' });
+		hud.apply({ type: 'message', line: JOINED });
 		hud.tick(0.5);
 		expect(hud.message).toBe('Rabbit joins your team!');
 	});
@@ -97,7 +102,7 @@ describe('the explore message line', () => {
 		hud.apply({
 			type: 'doctor-visit-ended',
 			visit: 1,
-			state: { step: 1, party: [], phase: { kind: 'ended' }, log: [] }
+			state: { step: 1, party: [], phase: { kind: 'ended' } }
 		});
 		hud.tick(0);
 		expect(hud.message).toBe(doctorWords({ say: 'goodbye' }));
