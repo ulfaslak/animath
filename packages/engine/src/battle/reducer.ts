@@ -1,5 +1,11 @@
-import { getAnimal } from '../animals/catalog.js';
-import { ATTACK_LEVELS, type AnimalInstance, type AttackLevel } from '../animals/types.js';
+import { canFightIn, getAnimal } from '../animals/catalog.js';
+import {
+	ATTACK_LEVELS,
+	REALMS,
+	type AnimalInstance,
+	type AttackLevel,
+	type Realm
+} from '../animals/types.js';
 import { leadIndex } from '../party/reducer.js';
 import { puzzleDifficulty } from '../puzzles/difficulty.js';
 import { checkAnswer, generatePuzzle } from '../puzzles/registry.js';
@@ -42,6 +48,12 @@ import type {
  * battle waits in `choose-animal` for the player to say who steps in. That
  * switch is free: the wild animal has just had its turn.
  *
+ * A battle is fought on land or out on the water (`BattleState.realm`), and
+ * only an animal that can go there fights in it (`canFightIn`): out on the
+ * water, the ones that swim. The others sit it out in the boat, as if they
+ * were not in the party: none of them starts, steps in or keeps the battle
+ * going once every one that can fight there is tired.
+ *
  * Nothing here is worded: events say what happened and a refusal is a code.
  * The client narrates the events in the player's language.
  */
@@ -59,6 +71,8 @@ export const WILD_MISS_CHANCE = 0.44;
 export interface StartBattleOptions {
 	/** Multiplier for leash throws; 1 is the starter leash. */
 	leashQuality?: number;
+	/** Where the battle is fought: land (the default), or the water, from the boat. */
+	realm?: Realm;
 }
 
 export function startBattle(
@@ -77,8 +91,17 @@ export function startBattle(
 		ids.add(animal.id);
 	}
 
-	const active = leadIndex(party);
-	if (active < 0) throw new Error('startBattle: every animal in the party is knocked out');
+	const realm = options.realm ?? 'land';
+	if (!REALMS.includes(realm)) throw new Error(`startBattle: no realm ${String(realm)}`);
+	if (!canFightIn(wild.speciesId, realm)) {
+		throw new Error(`startBattle: a wild ${wild.speciesId} can't fight on ${realm}`);
+	}
+	const active = leadIndex(party, realm);
+	if (active < 0) {
+		throw new Error(
+			`startBattle: every animal in the party that fights on ${realm} is knocked out`
+		);
+	}
 
 	const leashQuality = options.leashQuality ?? 1;
 	if (!(leashQuality > 0)) throw new Error('startBattle: leashQuality must be positive');
@@ -90,6 +113,7 @@ export function startBattle(
 		active,
 		opponent: { ...wild },
 		leashQuality,
+		realm,
 		phase: { kind: 'choose-action' }
 	};
 }
@@ -111,8 +135,9 @@ export function activeAnimal(state: BattleState): AnimalInstance {
 /**
  * Whether a `switch` to party member `partyIndex` would be accepted now: the
  * player is choosing (an action, or who replaces a tired animal), and the
- * animal is in the party, standing and not already in front. The reducer
- * decides by this, and the client greys out whoever it rules out.
+ * animal is in the party, can fight where the battle is fought, is standing
+ * and is not already in front. The reducer decides by this, and the client
+ * greys out whoever it rules out.
  */
 export function canSwitchTo(state: BattleState, partyIndex: number): boolean {
 	return switchRefusal(state, partyIndex) === null;
@@ -125,6 +150,7 @@ function switchRefusal(state: BattleState, partyIndex: number): BattleRejection 
 	const animal = Number.isInteger(partyIndex) ? state.party[partyIndex] : undefined;
 	if (!animal) return 'no-such-animal';
 	if (partyIndex === state.active) return 'already-in-front';
+	if (!canFightIn(animal.speciesId, state.realm)) return 'cannot-fight-here';
 	if (animal.hp === 0) return 'tired';
 	return null;
 }
@@ -318,7 +344,9 @@ function opponentTurn(draft: Draft): void {
 
 	draft.events.push({ type: 'fainted', side: 'player', animal: draft.active() });
 
-	if (leadIndex(draft.party) < 0) {
+	// Nobody left who can fight here: out on the water, animals that can't swim
+	// may still be standing, and it is lost all the same.
+	if (leadIndex(draft.party, draft.realm) < 0) {
 		draft.end('lost');
 		return;
 	}
@@ -360,6 +388,11 @@ class Draft {
 
 	active(): AnimalInstance {
 		return this.party[this.activeIndex]!;
+	}
+
+	/** Where the battle is fought; it never changes. */
+	get realm(): Realm {
+		return this.base.realm;
 	}
 
 	end(outcome: BattleOutcome, caught?: AnimalInstance): void {

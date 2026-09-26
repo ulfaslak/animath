@@ -69,8 +69,15 @@ const GROUND: Record<Biome, number> = {
 	meadow: BIOME_LOOK.meadow.ground,
 	forest: BIOME_LOOK.forest.ground,
 	river: BIOME_LOOK.river.ground,
-	mountain: BIOME_LOOK.mountain.ground
+	mountain: BIOME_LOOK.mountain.ground,
+	sea: BIOME_LOOK.sea.ground
 };
+
+/**
+ * Out on the deep water the surface stands this high over the figures' feet,
+ * so both animals swim with the lower part of them under it.
+ */
+export const SEA_WATERLINE = 0.2;
 
 const LUNGE_SECONDS = 0.35;
 const SHAKE_SECONDS = 0.45;
@@ -179,6 +186,9 @@ const boulderMaterial = lambert(COLORS.rock);
 const snowMaterial = lambert(PROP_COLORS.snow);
 const cattailMaterial = lambert(PROP_COLORS.cattail);
 const waterMaterial = lambert(TILE_COLORS.water);
+const deepWaterMaterial = lambert(TILE_COLORS.deepwater);
+const sandMaterial = lambert(TILE_COLORS.sand);
+const shoreGrassMaterial = lambert(TILE_COLORS.grass);
 const puffMaterial = lambert(COLORS.white);
 const dustMaterial = lambert(COLORS.dust);
 const leashMaterial = lambert(COLORS.fire);
@@ -932,8 +942,10 @@ function nearSightLine(x: number, z: number, spot: THREE.Vector3, r: number): bo
  * The biome's scenery, kept clear of both figures and of the line between
  * them, in the biome's own colours (`BIOME_LOOK`): tall grass everywhere
  * (reeds at the river), plus trees in the forest, boulders on the mountain,
- * the biggest capped with snow, and a strip of water behind a river bank. A
- * fixed scatter, so every battle in a biome looks the same.
+ * the biggest capped with snow, and a strip of water behind a river bank. Out
+ * on the sea, the deep water's surface over the animals' feet, a few crests of
+ * waves, and a shore far behind. A fixed scatter, so every battle in a biome
+ * looks the same.
  */
 function buildBackdrop(biome: Biome): THREE.Group {
 	const group = new THREE.Group();
@@ -943,6 +955,11 @@ function buildBackdrop(biome: Biome): THREE.Group {
 	const canopyMaterials = CANOPY.map((hex) => lambert(hex));
 	const clear = (x: number, z: number, r: number) =>
 		Object.values(SPOT).every((s) => Math.hypot(x - s.x, z - s.z) > r);
+
+	if (biome === 'sea') {
+		buildSea(group, rng, tuftMaterial, clear);
+		return group;
+	}
 
 	for (let i = 0; i < 40; i++) {
 		const angle = rng.next() * Math.PI * 2;
@@ -1041,4 +1058,42 @@ function buildBackdrop(biome: Biome): THREE.Group {
 		group.add(water);
 	}
 	return group;
+}
+
+/**
+ * The sea's scenery: the deep water's surface at `SEA_WATERLINE`, over the
+ * ground and the animals' feet, crests of waves in the shallows' paler blue,
+ * kept off the line from the camera to either animal, and far behind, a sandy
+ * shore with the meadow's green beyond it.
+ */
+function buildSea(
+	group: THREE.Group,
+	rng: Rng,
+	crestMaterial: THREE.Material,
+	clear: (x: number, z: number, r: number) => boolean
+): void {
+	const surface = new THREE.Mesh(new THREE.CylinderGeometry(16, 16, 0.1, 24), deepWaterMaterial);
+	surface.position.y = SEA_WATERLINE - 0.05;
+	surface.receiveShadow = true;
+	group.add(surface);
+	for (let i = 0; i < 26; i++) {
+		const angle = rng.next() * Math.PI * 2;
+		const radius = 1.4 + rng.next() * 6;
+		const x = Math.cos(angle) * radius;
+		const z = Math.sin(angle) * radius - 1;
+		if (z > SPOT.player.z + 0.6 || !clear(x, z, 1)) continue;
+		if (Object.values(SPOT).some((s) => nearSightLine(x, z, s, 0.6))) continue;
+		const crest = new THREE.Mesh(PROP_GEOMETRY.ball, crestMaterial);
+		const size = 0.12 + rng.next() * 0.1;
+		crest.scale.set(size * 2.2, size * 0.35, size);
+		crest.rotation.y = rng.next() * 0.6 - 0.3;
+		crest.position.set(x, SEA_WATERLINE, z);
+		group.add(crest);
+	}
+	const sand = new THREE.Mesh(new THREE.BoxGeometry(40, 0.5, 3), sandMaterial);
+	sand.position.set(0, 0.1, -10.5);
+	sand.receiveShadow = true;
+	const grass = new THREE.Mesh(new THREE.BoxGeometry(40, 0.6, 6), shoreGrassMaterial);
+	grass.position.set(0, 0.2, -15);
+	group.add(sand, grass);
 }

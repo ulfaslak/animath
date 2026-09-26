@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { ANIMALS, getAnimal } from '../src/animals/catalog.js';
-import type { AnimalInstance } from '../src/animals/types.js';
+import type { AnimalInstance, Realm } from '../src/animals/types.js';
 import { takeToDoctor } from '../src/doctor/knockout.js';
 import { needsHealing } from '../src/doctor/party.js';
 import { applyDoctorIntent, startDoctorVisit } from '../src/doctor/reducer.js';
@@ -12,8 +12,8 @@ import { checkAnswer } from '../src/puzzles/registry.js';
 import { Rng, hashInts, hashString } from '../src/rng.js';
 import { WorldEdits, editedTileAt } from '../src/world/edits.js';
 import { spawnPoint, tileAtWorld } from '../src/world/generate.js';
-import { canTalkToDoctor, nearestTent } from '../src/world/tents.js';
-import { isWalkable, step, type Direction, type GridPos } from '../src/world/types.js';
+import { TENT_SEARCH_STEPS, canTalkToDoctor, nearestTent } from '../src/world/tents.js';
+import { isWalkable, isWater, step, type Direction, type GridPos } from '../src/world/types.js';
 import { makeParty, makeWild, playBattle } from './battle-sim.js';
 import { wordedStrings } from './words.js';
 
@@ -496,8 +496,8 @@ describe('the shop', () => {
 		// The change that builds an item's effect (chopping, breaking rocks, sailing)
 		// turns its `available` on and adds it here, and nothing else does. The axe
 		// and the pickaxe clear trees and rocks (`world/clearing.ts`); the boat
-		// does nothing yet.
-		expect(itemsForSale()).toEqual(['axe', 'pickaxe']);
+		// sails: water is passable with it.
+		expect(itemsForSale()).toEqual(['axe', 'pickaxe', 'boat']);
 	});
 });
 
@@ -605,8 +605,11 @@ describe('buying', () => {
 			const s = apply(state, { type: 'buy', itemId }, 1);
 			return s.events[0]?.type === 'rejected' ? s.events[0].reason : 'accepted';
 		};
-		// The shop sells what the visit's shop lists: by default what is on sale, not the boat yet.
-		expect(reason(startDoctorVisit(party, { tokens: 99 }), 'boat')).toBe('not-for-sale');
+		// The shop sells what the visit's shop lists: by default what is on sale (all three tools).
+		expect(reason(startDoctorVisit(party, { tokens: 99, shop: ['axe'] }), 'boat')).toBe(
+			'not-for-sale'
+		);
+		expect(reason(startDoctorVisit(party, { tokens: 99 }), 'boat')).toBe('accepted');
 		expect(reason(startDoctorVisit(party, { tokens: 99 }), 'axe')).toBe('accepted');
 		const rich = shopVisit(party, 21, ['pickaxe']);
 		expect(reason(rich, 'sword')).toBe('not-for-sale');
@@ -840,7 +843,7 @@ describe('replay', () => {
 			],
 			tokens: 0,
 			items: [],
-			shop: ['axe', 'pickaxe'],
+			shop: itemsForSale(),
 			phase: { kind: 'ended' }
 		});
 	});
@@ -920,6 +923,57 @@ describe('takeToDoctor', () => {
 			tent: null,
 			party: partyOf(['bear'])
 		});
+	});
+
+	it('out on the water with the boat: over the water to the nearest tent, stood on the ground beside it', () => {
+		const spawn = spawnPoint(PROTOTYPE);
+		const boat = { boat: true };
+		let rescued = 0;
+		for (let dy = -12; dy <= 12 && rescued < 8; dy += 3) {
+			for (let dx = -40; dx <= 40 && rescued < 8; dx += 5) {
+				const pos = { x: spawn.x + dx, y: spawn.y + dy };
+				if (!isWater(tileAtWorld(PROTOTYPE, pos.x, pos.y).kind)) continue;
+				rescued++;
+				// The otter is tired; the squirrel, who can't swim, sat it out in the boat.
+				const party = deepFreeze(partyOf(['squirrel', 20], ['otter', 0]));
+				const rescue = takeToDoctor(PROTOTYPE, pos, party, WorldEdits.none, {
+					gear: boat,
+					realm: 'water'
+				});
+				const spot = nearestTent(PROTOTYPE, pos, TENT_SEARCH_STEPS, WorldEdits.none, boat)!;
+				expect(rescue).toEqual({
+					pos: spot.stand,
+					facing: spot.facing,
+					tent: spot.tent,
+					party: partyOf(['squirrel'], ['otter'])
+				});
+				expect(isWalkable(tileAtWorld(PROTOTYPE, rescue.pos.x, rescue.pos.y).kind)).toBe(true);
+				expect(canTalkToDoctor(PROTOTYPE, rescue.pos, rescue.facing)).toBe(true);
+			}
+		}
+		expect(rescued).toBe(8);
+	});
+
+	it('out on the water, the battle is lost with animals that cannot swim still standing, never a swimmer', () => {
+		const pos = spawnPoint(PROTOTYPE);
+		const water = { realm: 'water' as const, gear: { boat: true } };
+		expect(() =>
+			takeToDoctor(PROTOTYPE, pos, partyOf(['bear'], ['frog', 0]), WorldEdits.none, water)
+		).not.toThrow();
+		expect(() =>
+			takeToDoctor(PROTOTYPE, pos, partyOf(['bear', 0], ['frog', 3]), WorldEdits.none, water)
+		).toThrow(/knocked out/);
+		// On land a standing bear is someone to fight on, as ever.
+		expect(() => takeToDoctor(PROTOTYPE, pos, partyOf(['bear'], ['frog', 0]))).toThrow(
+			/knocked out/
+		);
+		// A realm that is neither is refused, never read as one where nobody can fight.
+		for (const realm of ['sea', '', 7]) {
+			const options = { realm: realm as unknown as Realm };
+			expect(() =>
+				takeToDoctor(PROTOTYPE, pos, partyOf(['bear']), WorldEdits.none, options)
+			).toThrow(/realm/);
+		}
 	});
 
 	it('walks the paths the player cleared: out of a spot walled in by trees, once they are chopped', () => {

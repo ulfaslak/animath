@@ -7,19 +7,23 @@ import {
 	attackDamage,
 	canTalkToDoctor,
 	getAnimal,
+	TENT_SEARCH_STEPS,
 	isBundled,
 	isEncounterTile,
 	isWalkable,
+	isWater,
+	itemsForSale,
 	joinParty,
 	leadIndex,
 	nearestTent,
-	startBattle,
+	newGame,
 	step as stepFrom,
 	readSave,
 	restoreGame,
 	STARTERS,
 	saveDocument,
 	spawnPoint,
+	startBattle,
 	takeToDoctor,
 	tileAtWorld,
 	type AnimalInstance,
@@ -1045,12 +1049,18 @@ describe('LocalAuthority: the doctor', () => {
 		const s = session({ party: hurtParty(), tokens: 50 });
 		walkToTent(s);
 		s.authority.dispatch({ type: 'interact' });
-		// The axe and the pickaxe clear trees and rocks; the boat sails nowhere yet.
-		expect(visit(s).shop).toEqual(['axe', 'pickaxe']);
+		expect(visit(s).shop).toEqual(itemsForSale());
+		// Every tool does its job now (the axe and the pickaxe clear, the boat sails);
+		// anything not on sale can't be bought.
+		expect(visit(s).shop).toEqual(['axe', 'pickaxe', 'boat']);
+		for (const itemId of ITEM_IDS.filter((id) => !itemsForSale().includes(id))) {
+			doctorIntent(s, { type: 'buy', itemId });
+			expect(s.events.at(-1)).toMatchObject({
+				events: [{ type: 'rejected', reason: 'not-for-sale' }]
+			});
+		}
 		doctorIntent(s, { type: 'buy', itemId: 'boat' });
-		expect(s.events.at(-1)).toMatchObject({
-			events: [{ type: 'rejected', reason: 'not-for-sale' }]
-		});
+		expect(visit(s).phase).toMatchObject({ kind: 'buying', itemId: 'boat' });
 	});
 
 	it('with nobody hurt, a visit still opens, and nobody can be picked to heal', () => {
@@ -1116,6 +1126,123 @@ describe('LocalAuthority: the doctor', () => {
 		for (const e of s.events) {
 			if (e.type.startsWith('doctor-')) expect(JSON.stringify(e)).not.toMatch(/seed/i);
 		}
+	});
+});
+
+describe('LocalAuthority: the boat', () => {
+	// Straight up from the spawn tile, (-2, 6): the lake, shallow at (-2, 5),
+	// (-2, 4) and (-2, 3), deep from (-2, 2) on.
+	const UP_TO_DEEP: Direction[] = ['up', 'up', 'up', 'up'];
+
+	/** A game at the spawn tile with this party and these items, as a save would hand it over. */
+	function withItems(items: string[], team: AnimalInstance[] = [animal('squirrel')]): Session {
+		const authority = new LocalAuthority();
+		const events: GameEvent[] = [];
+		authority.subscribe((e) => events.push(e));
+		authority.start({ game: { ...newGame(WORLD_SEED), party: team, items } });
+		return { authority, events };
+	}
+
+	it('without the boat the water stops the trainer; with it, they sail out, shallow and deep, and back', () => {
+		const onFoot = withItems(['axe']);
+		move(onFoot, 'up');
+		expect(onFoot.events.at(-1)).toMatchObject({ type: 'player-blocked', dir: 'up' });
+		expect(position(onFoot)).toEqual({ x: -2, y: 6 });
+
+		const s = withItems(['boat']);
+		const been: string[] = [];
+		for (const dir of [...UP_TO_DEEP, 'left', 'right', 'down', 'down', 'down', 'down'] as const) {
+			move(s, dir);
+			expect(s.events.at(-1)).toMatchObject({ type: 'player-moved', dir });
+			const at = position(s);
+			been.push(tileAtWorld(WORLD_SEED, at.x, at.y).kind);
+		}
+		expect(been).toEqual([
+			'water',
+			'water',
+			'water',
+			'deepwater',
+			'deepwater',
+			'deepwater',
+			'water',
+			'water',
+			'water',
+			'grass'
+		]);
+		// A tent stops a boat as it stops a walk: the one at (5, 7), from above.
+		for (let i = 0; i < 7; i++) move(s, 'right');
+		expect(position(s)).toEqual({ x: 5, y: 6 });
+		move(s, 'down');
+		expect(s.events.at(-1)).toMatchObject({ type: 'player-blocked', dir: 'down' });
+	});
+
+	it('out on the water, nothing comes out of it: it is no one’s tall grass', () => {
+		const s = withItems(['boat'], [animal('otter'), animal('frog')]);
+		move(s, ...UP_TO_DEEP);
+		for (let i = 0; i < 300; i++) move(s, i % 2 === 0 ? 'left' : 'right');
+		expect(isWater(tileAtWorld(WORLD_SEED, position(s).x, position(s).y).kind)).toBe(true);
+		expect(s.events.some((e) => e.type === 'battle-started')).toBe(false);
+	});
+
+	it('out on the water only an animal that swims goes first; the refusal names the one that can’t', () => {
+		const s = withItems(['boat'], [animal('squirrel'), animal('otter')]);
+		const [squirrel, otter] = party(s);
+		move(s, 'up');
+		const pick = (animalId: string) =>
+			s.authority.dispatch({ type: 'party', intent: { type: 'select-lead', animalId } });
+		pick(squirrel!.id);
+		expect(s.events.at(-1)).toMatchObject({
+			type: 'party-edited',
+			events: [{ type: 'rejected', reason: 'cannot-fight-here', animalId: squirrel!.id }]
+		});
+		// The otter leads out here already, behind the squirrel on land.
+		pick(otter!.id);
+		expect(s.events.at(-1)).toMatchObject({
+			events: [{ type: 'rejected', reason: 'already-lead', animalId: otter!.id }]
+		});
+		// Back on land the squirrel leads, and the otter can be chosen to.
+		move(s, 'down');
+		pick(otter!.id);
+		expect(s.events.at(-1)).toMatchObject({
+			events: [{ type: 'lead-selected', animalId: otter!.id }]
+		});
+		expect(party(s).map((a) => a.speciesId)).toEqual(['otter', 'squirrel']);
+	});
+
+	it('a battle lost on the water, the squirrel still in the boat: over the water to a tent, everyone healed', () => {
+		const team = [animal('squirrel'), animal('otter', 3)];
+		const at = { x: -2, y: 2 };
+		const battle = startBattle(
+			team,
+			{ id: 'wild', speciesId: 'otter', hp: 32 },
+			{ realm: 'water' }
+		);
+		const authority = new LocalAuthority();
+		const events: GameEvent[] = [];
+		authority.subscribe((e) => events.push(e));
+		authority.start({
+			game: { ...newGame(WORLD_SEED), pos: at, party: team, items: ['boat'], battle }
+		});
+		const s = { authority, events };
+		expect(latestBattle(s).realm).toBe('water');
+		while (latestBattle(s).phase.kind !== 'ended') attack(s, 1, 1, false);
+		const end = latestBattle(s);
+		expect(end.phase).toEqual({ kind: 'ended', outcome: 'lost' });
+		expect(end.party.map((a) => a.hp)).toEqual([20, 0]);
+		const rescue = takeToDoctor(WORLD_SEED, at, end.party, WorldEdits.none, {
+			gear: { boat: true },
+			realm: 'water'
+		});
+		expect(rescue.pos).toEqual(
+			nearestTent(WORLD_SEED, at, TENT_SEARCH_STEPS, WorldEdits.none, { boat: true })!.stand
+		);
+		expect(events.find((e) => e.type === 'taken-to-doctor')).toMatchObject({
+			pos: rescue.pos,
+			dir: rescue.facing,
+			party: [animal('squirrel'), { ...team[1]!, hp: 32 }]
+		});
+		expect(isWalkable(tileAtWorld(WORLD_SEED, rescue.pos.x, rescue.pos.y).kind)).toBe(true);
+		expect(canTalkToDoctor(WORLD_SEED, position(s), facing(s))).toBe(true);
 	});
 });
 

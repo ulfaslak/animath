@@ -28,9 +28,10 @@ import {
 	type SaveV1,
 	type SavedGame
 } from '../src/save.js';
+import { gearOf } from '../src/items/catalog.js';
 import { EDITS_BUDGET, WorldEdits } from '../src/world/edits.js';
 import { spawnPoint, tileAtWorld } from '../src/world/generate.js';
-import { isWalkable, type Direction } from '../src/world/types.js';
+import { isPassable, isWalkable, isWater, type Direction } from '../src/world/types.js';
 import { makeParty, makeWild, playBattle } from './battle-sim.js';
 
 /**
@@ -232,6 +233,22 @@ describe('readSave and the upgrade seam', () => {
 	});
 });
 
+/** The nearest water of a depth to the prototype spawn. */
+function waterNearSpawn(kind: 'water' | 'deepwater'): { x: number; y: number } {
+	return findKind(SEED, kind);
+}
+
+/** A tile of this kind near spawn, found by scanning outward. */
+function findKind(seed: number, kind: string): { x: number; y: number } {
+	const spawn = spawnPoint(seed);
+	for (let r = 1; r < 200; r++)
+		for (let dx = -r; dx <= r; dx++)
+			for (const dy of [-r, r])
+				if (tileAtWorld(seed, spawn.x + dx, spawn.y + dy).kind === kind)
+					return { x: spawn.x + dx, y: spawn.y + dy };
+	throw new Error(`no ${kind} near spawn`);
+}
+
 /** A tile of `kind`-ness near spawn, found by scanning outward. */
 function findTile(seed: number, walkable: boolean): { x: number; y: number } {
 	const spawn = spawnPoint(seed);
@@ -320,6 +337,29 @@ describe('newGame and restoreGame', () => {
 		expect(game.pos).toEqual(spawnPoint(v1.seed));
 	});
 
+	it('out on the water with the boat, the player is still in it; without the boat, back on the spawn tile', () => {
+		const prototype = { ...v1, seed: SEED };
+		const shallow = waterNearSpawn('water');
+		const deep = waterNearSpawn('deepwater');
+		for (const pos of [shallow, deep]) {
+			const withBoat = restoreGame({ ...prototype, pos, items: ['axe', 'boat'] } as SaveV1);
+			expect(withBoat.pos).toEqual(pos);
+			// A game that somehow lost its boat (a hand-edited save) never leaves the
+			// kid stuck out on the water: it starts again from the spawn tile.
+			for (const items of [[], ['axe', 'pickaxe'], undefined]) {
+				const without = restoreGame({ ...prototype, pos, items } as SaveV1);
+				expect(without.pos).toEqual(spawnPoint(SEED));
+			}
+		}
+		// Rock, trees and tents are no place for anyone, boat or not.
+		for (const kind of ['rock', 'tree', 'tent']) {
+			const pos = findKind(SEED, kind);
+			expect(restoreGame({ ...prototype, pos, items: ['boat'] } as SaveV1).pos).toEqual(
+				spawnPoint(SEED)
+			);
+		}
+	});
+
 	it('cuts an HP above the maximum, gives an empty party the starter, and rests an all-tired party', () => {
 		const pos = findTile(v1.seed, true);
 		const over = restoreGame({ ...v1, pos, party: [animal(1, { hp: 999 })] } as SaveV1);
@@ -354,10 +394,12 @@ describe('newGame and restoreGame', () => {
 				pos: { x: rng.int(-300, 300), y: rng.int(-300, 300) },
 				party,
 				facing: rng.pick(['up', 'down', 'left', 'right'] as Direction[]),
-				steps: rng.int(0, 10_000)
+				steps: rng.int(0, 10_000),
+				items: rng.pick([[], ['boat'], ['axe'], ['boat', 'boat']])
 			} as SaveV1;
 			const game = restoreGame(save);
-			expect(isWalkable(tileAtWorld(seed, game.pos.x, game.pos.y).kind)).toBe(true);
+			const gear = gearOf(game);
+			expect(isPassable(tileAtWorld(seed, game.pos.x, game.pos.y).kind, gear)).toBe(true);
 			expect(game.party.length).toBeGreaterThan(0);
 			expect(game.party.some((a) => a.hp > 0)).toBe(true);
 			for (const a of game.party) {
@@ -366,8 +408,8 @@ describe('newGame and restoreGame', () => {
 			}
 			// A battle can start with it: the party is one `startBattle` accepts.
 			expect(() => startBattle(game.party, makeWild('rabbit'))).not.toThrow();
-			// What was fine to begin with comes back unchanged.
-			if (isWalkable(tileAtWorld(seed, save.pos.x, save.pos.y).kind))
+			// What was fine to begin with comes back unchanged, out on the water with a boat too.
+			if (isPassable(tileAtWorld(seed, save.pos.x, save.pos.y).kind, gear))
 				expect(game.pos).toEqual(save.pos);
 			expect(game.facing).toBe(save.facing);
 			expect(game.steps).toBe(save.steps);
@@ -632,6 +674,77 @@ describe('readBattle', () => {
 		// A tired animal cannot be the one in front.
 		const tiredFront = party.map((a, i) => (i === state!.active ? { ...a, hp: 0 } : a));
 		expect(readBattle({ ...json({}), party: tiredFront }, tiredFront)).toBeNull();
+	});
+
+	it('picks up a battle on the water, fought only by the animals that swim', () => {
+		let states = 0;
+		for (let seed = 1; seed <= 10; seed++) {
+			const all: { state: BattleState; next: Parameters<typeof applyBattleIntent>[1] }[] = [];
+			playBattle(
+				seed,
+				makeParty(['squirrel', 'otter', 'frog']),
+				makeWild('otter'),
+				{ accuracy: 0.6, policy: 'random', leash: 0.1, switch: 0.2 },
+				(before, intent) => all.push({ state: before, next: intent }),
+				2000,
+				'water'
+			);
+			for (const { state, next } of all) {
+				states++;
+				const party = state.party.map((a) => ({ ...a }));
+				const doc = JSON.parse(JSON.stringify(state));
+				const restored = readBattle(doc, party, 'water');
+				expect(restored).toEqual(state);
+				expect(applyBattleIntent(restored!, next, seed)).toEqual(
+					applyBattleIntent(state, next, seed)
+				);
+				// Never on land: the player is not where it was fought.
+				expect(readBattle(doc, party, 'land')).toBeNull();
+			}
+		}
+		expect(states).toBeGreaterThan(50);
+
+		const party = makeParty(['squirrel', 'otter']);
+		const water = startBattle(party, makeWild('frog'), { realm: 'water' });
+		const json = (patch: Record<string, unknown>) => ({
+			...JSON.parse(JSON.stringify(water)),
+			...patch
+		});
+		expect(readBattle(json({}), party, 'water')).toEqual(water);
+		// The squirrel can't swim: it is never the one in front out on the water.
+		expect(readBattle(json({ active: 0 }), party, 'water')).toBeNull();
+		// Nor is a wild animal that can't swim met there.
+		const squirrel = { id: 'wild-squirrel', speciesId: 'squirrel', hp: 20 };
+		expect(readBattle(json({ opponent: squirrel }), party, 'water')).toBeNull();
+		// A battle saved before battles had a realm was fought on land.
+		const onLand = startBattle(party, makeWild('frog'));
+		const { realm: _realm, ...old } = JSON.parse(JSON.stringify(onLand));
+		expect(readBattle(old, party, 'land')).toEqual(onLand);
+		expect(readBattle(old, party, 'water')).toBeNull();
+		expect(readBattle(json({ realm: 'lava' }), party, 'water')).toBeNull();
+	});
+
+	it('comes back with the saved game out on the water only with the boat', () => {
+		const pos = waterNearSpawn('deepwater');
+		const party = makeParty(['squirrel', 'otter']);
+		const battle = startBattle(party, makeWild('otter'), { realm: 'water' });
+		const game = {
+			seed: SEED,
+			pos,
+			facing: 'left' as const,
+			steps: 11,
+			visits: 0,
+			party,
+			tokens: 0,
+			edits: []
+		};
+		const withBoat = saveDocument({ ...game, items: ['boat'], battle }, { lineage: 'L', seq: 2 });
+		expect(restoreGame(JSON.parse(JSON.stringify(withBoat))).battle).toEqual(battle);
+		const noBoat = saveDocument({ ...game, items: [], battle }, { lineage: 'L', seq: 2 });
+		const restored = restoreGame(JSON.parse(JSON.stringify(noBoat)));
+		expect(restored.battle).toBeNull();
+		expect(restored.pos).toEqual(spawnPoint(SEED));
+		expect(isWater(tileAtWorld(SEED, pos.x, pos.y).kind)).toBe(true);
 	});
 
 	it('comes back with the saved game only while the player stands where the battle is', () => {

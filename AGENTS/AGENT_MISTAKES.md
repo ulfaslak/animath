@@ -17,8 +17,8 @@ The categories that keep coming back. Each names where its guard lives, or the p
 - **`git gtr new` skips the `.env` copy and `pnpm install`**: five worktrees on 2026-09-25 and 2026-09-26, the last `docs/dna-drift-sweep`; without `.env` the server tests fail like a broken merge. [[ENVIRONMENT_NOTES]] says to check every time.
 - **A worktree's Vite backs up to the human's database**, because every Vite proxies `/api` to the primary clone's API unless `API_PORT` says otherwise: PR #21, PR #28 and other runs on 2026-09-26. Since PR #36 `scripts/screenshot.mjs` blocks `/api` unless `--api`; CLAUDE.md Phase 2 still says `/play` starts "both dev servers".
 - **A stale-event guard on the mode or the order, not the identity**: PR #13 (a battle), PR #14 (a doctor visit).
-- **An effect sized by its numbers, not in a frame**: PR #28, PR #42 (three times), PR #49 (a layout moved a long name next to the heal's stars).
-- **Prose that says more than the code or its test shows**: DNA written from memory (PR #11), a claim pinned only where it is vacuous (PR #12), a weight quoted as a share (PR #17), a sample's window stated as a rule (PR #21), a promise one step past what the test measures (PR #34), a mean pooled over worlds stated for each world and an extreme read off a sample (PR #64).
+- **An effect sized by its numbers, not in a frame**: PR #28, PR #42 (three times), PR #49 (a layout moved a long name next to the heal's stars), PR #69 (the boat's rims crossed, its back pose unreadable at game size).
+- **Prose that says more than the code or its test shows**: DNA written from memory (PR #11), a claim pinned only where it is vacuous (PR #12), a weight quoted as a share (PR #17), a sample's window stated as a rule (PR #21), a promise one step past what the test measures (PR #34), a mean pooled over worlds stated for each world and an extreme read off a sample (PR #64), a lower bound stated as exact and a distance off by one (PR #69).
 
 ---
 
@@ -404,3 +404,24 @@ The test that the screen's copy of the world edits stays the authority's, far ch
 ### 2026-09-26 — PR #68 (the axe and the pickaxe) — a budget kept where the data is made, not where it comes back in `[learned]`
 
 The cleared tiles in a save are kept within `EDITS_BUDGET` so a save can't outgrow the backup's limits. The budget was applied inside `clearTile`, the one place this build makes an edit. A save arrives by another way too: a hand-edited one, or one another client wrote. `readSave` checked only the shape, and `restoreGame` decoded and re-encoded the edits untrimmed, so a save half again over the budget went back to storage and the server as it was, while the docstring and INVARIANTS said the save "stays within" it. Found by the adversarial review of #68, with a throwaway script. Fix: `restoreGame` trims round the player as a clear does; `save.test.ts` restores a save over the budget (red without the trim); INVARIANTS says both places. Category: **a limit is a property of the data, not of the one path that writes it**. When a rule bounds what a document holds, enforce it where the document is read as well as where this build writes it, or state it only for the writes.
+
+### 2026-09-26 — PR #69 (the boat) — a boat built by its numbers, and read only in a frame `[learned]`
+
+Two bugs in the boat's mesh passed every test and showed in the first close frames:
+
+- **The rims crossed in an X.** Each side's rim was turned by `rotation.y = s * slant`, the sign guessed. It slanted each rim away from the middle at the bow, so the two crossed over the hull. Fix: the sign flipped, and `boat.test.ts` ("has a coral rim along both sides") pins both ends of each rim inside the hull; its negative control goes red.
+- **The boat on the back did not read as a boat at game size.** A keel-up plank, then a thin shell, looked like a board or a backpack from the camera's height. Fix: it stands on its bow like a shell, leaning back, at 0.62 of its size, chosen from frames at game zoom from four sides.
+
+Category: an effect sized by its numbers, not in a frame (Patterns). The guard is CLAUDE.md Phase 2, "read every screenshot", which found both.
+
+### 2026-09-26 — PR #69 (the boat) — measured an object after shrinking it for its entrance `[learned]`
+
+The lead rides in the boat scaled to fit, `RIDE_SIZE / size`. `growIn` measured the figure after setting its scale to 0.001 for the grow-in, so the fit came out a thousand times too big and was clamped to 1: the rider rode at full size. Found by `follower.test.ts` ("its figure is small enough to fit in the boat"). Fix: measure first, then shrink. Category: **a size read after an animation's first frame had already changed it**.
+
+### 2026-09-26 — PR #69 (the boat) — tests that let every animation finish never saw one interrupted `[not codified]`
+
+A lead that can't swim stays on the shore tile to shrink away as the trainer sails out, then grows in at the bow. A trainer who stepped straight back onto that shore tile within the 0.2 s shrink got the lead back on their own tile: it grew in again where it stood. Every follower test settled 1.2 s after each step, so none took a step mid-change. Found by the adversarial review. Fix: the lead grows in only on a tile beside the trainer, and two tests step at 0.6 to 0.7 s, just long enough for a step onto the water to land; both were red before. Would become `[learned]` with a line in [[DEVELOPMENT]] § Testing ideology: drive a view at the pace a kid presses keys, not only after each animation settles.
+
+### 2026-09-26 — PR #69 (the boat) — a scripted edit's diff not read line by line `[not codified]`
+
+The exact-replace script used for edits appended the heredoc's final newline to each last replacement. That left a stray blank line in about 30 places. Some split a Markdown table in ARCHITECTURE, DESIGN and CHEATSHEET: a blank line ends a table, so the rows after it rendered as text. Prettier keeps a single blank line between statements and anywhere in Markdown, so `pnpm lint` passed. Found while resolving the merge with main. Fix: the script corrected and every blank line removed. Would become `[learned]` with a line in CLAUDE.md § Keeping context spendable: after any scripted edit, read `git diff` for blank lines it added.

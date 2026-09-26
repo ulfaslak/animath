@@ -397,6 +397,7 @@ describe('Autosave: the save in this browser', () => {
 			active: 0,
 			opponent: { id: 'wild-1', speciesId: 'rabbit', hp: 20 },
 			leashQuality: 1,
+			realm: 'land' as const,
 			phase: { kind: 'choose-action' as const }
 		};
 		await tab.play((g) => (g.battle = battle), 'battle-started');
@@ -608,6 +609,7 @@ describe('Autosave: two tabs', () => {
 			active: 0,
 			opponent: { id: 'wild-1', speciesId: 'rabbit', hp: 20 },
 			leashQuality: 1,
+			realm: 'land' as const,
 			phase: { kind: 'choose-action' as const }
 		};
 		await a.play((g) => (g.battle = battle), 'battle-updated');

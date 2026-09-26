@@ -288,7 +288,7 @@ describe('the battle scene', () => {
 	it('frees every figure a battle showed once it ends, ten battles in a row', () => {
 		const scene = new BattleScene();
 		const ledger = new Ledger();
-		const biomes: Biome[] = ['meadow', 'forest', 'river', 'mountain'];
+		const biomes: Biome[] = ['meadow', 'forest', 'river', 'mountain', 'sea'];
 		let between: number | null = null;
 		for (let i = 0; i < 10; i++) {
 			const figures = new Set<THREE.BufferGeometry>();
@@ -437,6 +437,7 @@ describe('the title', () => {
 		const renderer = {
 			setStage() {},
 			setWorld() {},
+			setBoat() {},
 			setPlayer() {},
 			ensureChunksAround() {},
 			lookAt() {},
@@ -467,6 +468,7 @@ describe('the title', () => {
 		const renderer = {
 			setStage() {},
 			setWorld() {},
+			setBoat() {},
 			setPlayer() {},
 			ensureChunksAround() {},
 			lookAt() {},

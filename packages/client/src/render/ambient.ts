@@ -1,4 +1,4 @@
-import { Rng, tileAtWorld } from '@mathgame/engine';
+import { Rng, isWater, tileAtWorld } from '@mathgame/engine';
 import * as THREE from 'three';
 import { motion } from '../motion';
 import { BUTTERFLY_COLORS } from './palette';
@@ -239,7 +239,7 @@ export class Butterflies {
 			const r = this.rng.next() * ROAM;
 			const x = centre.x + Math.cos(angle) * r;
 			const z = centre.z + Math.sin(angle) * r;
-			if (tileAtWorld(this.seed, Math.round(x), Math.round(z)).kind !== 'water' || tries === 7) {
+			if (!isWater(tileAtWorld(this.seed, Math.round(x), Math.round(z)).kind) || tries === 7) {
 				b.target.set(x, z);
 				return;
 			}

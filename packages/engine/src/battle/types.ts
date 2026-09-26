@@ -1,4 +1,4 @@
-import type { AnimalInstance, AttackLevel } from '../animals/types.js';
+import type { AnimalInstance, AttackLevel, Realm } from '../animals/types.js';
 import type { Puzzle } from '../puzzles/types.js';
 
 /**
@@ -41,6 +41,12 @@ export interface BattleState {
 	opponent: AnimalInstance;
 	/** Multiplier for leash throws; 1 is the starter leash. Set at `startBattle`. */
 	leashQuality: number;
+	/**
+	 * Where it is fought: on land, or out on the water from the boat. Only an
+	 * animal that can go there (`canFightIn`) steps in, so on the water only
+	 * the ones that swim; the battle is lost once every one of those is tired.
+	 */
+	realm: Realm;
 	phase: BattlePhase;
 }
 
@@ -79,7 +85,9 @@ export type BattleRejection =
 	| 'not-choosing'
 	| 'no-such-animal'
 	| 'already-in-front'
-	| 'tired';
+	| 'tired'
+	/** An animal that can't go where the battle is fought: one that can't swim, out on the water. */
+	| 'cannot-fight-here';
 
 /**
  * What happened, in order, as a result of one intent. Detailed enough to

@@ -15,24 +15,27 @@ export type PlayerActivity = 'explore' | 'battle' | 'doctor';
  * The party is kept in species bundles (`bundles.ts`): every animal of a
  * species stands with the others of its kind, and the bundles stand in the
  * order the player chose. The lead — the animal that steps into the next
- * battle — is always the first animal in party order that is not tired
- * (`leadIndex`): the first one standing in the first bundle that has one.
- * There is no separate "selected" flag: choosing a lead moves it, and its
- * bundle, to the front. Every intent that moves an animal keeps the party in
- * bundles; a party that is not in bundles is put in them first, and the
- * slots an event names are the slots of that party in bundles.
+ * battle — is always the first animal in party order that is not tired and
+ * can fight where the player stands (`leadIndex`): the first one standing in
+ * the first bundle that has one, and out on the water the first one standing
+ * that swims. There is no separate "selected" flag: choosing a lead moves it,
+ * and its bundle, to the front. Every intent that moves an animal keeps the
+ * party in bundles; a party that is not in bundles is put in them first, and
+ * the slots an event names are the slots of that party in bundles.
  */
 export type PartyIntent =
 	/**
 	 * Choose who goes first: this animal's bundle moves to the front of the
 	 * party, and the animal to the front of its bundle. Only an animal that is
-	 * not tired, and not already the lead, can be chosen.
+	 * not tired, can fight where the player stands (out on the water, one that
+	 * swims), and is not already the lead there, can be chosen.
 	 */
 	| { type: 'select-lead'; animalId: string }
 	/**
 	 * Choose the bundle that goes first: its first animal standing leads, as
-	 * `select-lead` of that animal would make it. Refused when every animal of
-	 * the species is tired, or one of them already leads.
+	 * `select-lead` of that animal would make it. Refused when the species
+	 * can't fight where the player stands, every animal of it is tired, or one
+	 * of them already leads there.
 	 */
 	| { type: 'lead-species'; speciesId: string }
 	/**
@@ -68,6 +71,11 @@ export type PartyRejection =
 	| 'unknown-species'
 	/** `select-lead` on an animal with 0 HP; `lead-species` when every animal of the species is. */
 	| 'tired'
+	/**
+	 * `select-lead` on an animal, or `lead-species` on a species, that can't
+	 * fight where the player stands: one that can't swim, out on the water.
+	 */
+	| 'cannot-fight-here'
 	/** `select-lead` on the animal that already leads; `lead-species` when one of its kind does. */
 	| 'already-lead'
 	/** `to` is not a whole number naming a slot of the animal's bundle, or a place among the bundles. */

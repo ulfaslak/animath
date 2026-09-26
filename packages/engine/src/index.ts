@@ -27,7 +27,7 @@ export type {
 	Tier
 } from './animals/types.js';
 export { ATTACK_LEVELS, REALMS, TERRAINS } from './animals/types.js';
-export { ANIMALS, getAnimal } from './animals/catalog.js';
+export { ANIMALS, canFightIn, getAnimal } from './animals/catalog.js';
 
 export { attackDamage } from './battle/damage.js';
 export { catchProbability } from './battle/catch.js';
@@ -49,8 +49,16 @@ export type { DoctorVisitOptions } from './doctor/reducer.js';
 export { needsHealing } from './doctor/party.js';
 export { homeTokens, tokenPuzzle, tokensForTier } from './doctor/tokens.js';
 export { takeToDoctor } from './doctor/knockout.js';
-export type { Rescue } from './doctor/knockout.js';
-export { ITEMS, ITEM_IDS, getItem, hasItem, isItemId, itemsForSale } from './items/catalog.js';
+export type { Rescue, RescueOptions } from './doctor/knockout.js';
+export {
+	ITEMS,
+	ITEM_IDS,
+	gearOf,
+	getItem,
+	hasItem,
+	isItemId,
+	itemsForSale
+} from './items/catalog.js';
 export type { ItemId, ItemSpec } from './items/catalog.js';
 export type {
 	DoctorEvent,
@@ -75,9 +83,27 @@ export type {
 	PlayerActivity
 } from './party/types.js';
 
-export type { Chunk, ClearableKind, Direction, GridPos, Tile, TileKind } from './world/types.js';
-export { CHUNK_SIZE, encounterRealm, isEncounterTile, isWalkable, step } from './world/types.js';
-export { generateChunk, spawnPoint, tileAtWorld } from './world/generate.js';
+export type {
+	Chunk,
+	ClearableKind,
+	Direction,
+	Gear,
+	GridPos,
+	Tile,
+	TileKind
+} from './world/types.js';
+export {
+	CHUNK_SIZE,
+	NO_GEAR,
+	encounterRealm,
+	isEncounterTile,
+	isPassable,
+	isWalkable,
+	isWater,
+	step,
+	tileRealm
+} from './world/types.js';
+export { DEEP_WATER_MARGIN, generateChunk, spawnPoint, tileAtWorld } from './world/generate.js';
 export {
 	EDITS_BUDGET,
 	MAX_ENTRY_LENGTH,

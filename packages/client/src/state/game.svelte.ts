@@ -1,9 +1,12 @@
 import {
 	WorldEdits,
+	tileAtWorld,
+	tileRealm,
 	type AnimalInstance,
 	type Direction,
 	type GameEvent,
-	type GridPos
+	type GridPos,
+	type Realm
 } from '@mathgame/engine';
 
 /**
@@ -37,6 +40,11 @@ class GameView {
 	tokens = $state(0);
 	/** The ids of the items the player owns (`hasItem`), in the order bought. */
 	items = $state<string[]>([]);
+	/**
+	 * Where the player stands: out on the water, in the boat, or on land (the
+	 * engine's `tileRealm` of their tile). Who goes first is the lead there.
+	 */
+	realm = $derived<Realm>(tileRealm(tileAtWorld(this.seed, this.pos.x, this.pos.y).kind));
 	/**
 	 * The tiles the player has cleared with a tool: `welcome`'s, then every
 	 * `tile-cleared`. Immutable, so it is replaced, never changed in place.

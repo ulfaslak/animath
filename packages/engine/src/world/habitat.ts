@@ -70,6 +70,7 @@ export const HABITAT_TILES = AROUND.length;
 function coverOf(kind: TileKind): keyof Surroundings | null {
 	switch (kind) {
 		case 'water':
+		case 'deepwater':
 			return 'water';
 		case 'tree':
 			return 'trees';

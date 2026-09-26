@@ -58,9 +58,9 @@ Technical items we've intentionally postponed: tech debt, hardening shortcuts, k
 
 **What**: a save holds a tile position and a step count, both meaningful only in the world `generateChunk` makes today. A change to world generation that moves tiles under an existing seed can leave a saved player on water or a tree (`restoreGame` then puts them on the spawn tile, far from where they were) or walled in on a patch of walkable tiles, which `restoreGame` does not detect.
 
-**Why deferred**: the generator has not changed since the first save, and the right fix depends on the change: keep old seeds on the old generator, or bump `SAVE_VERSION` with an upgrade that moves saved players to a safe tile near where they were (the knock-out rule's `nearestTent` search is the model).
+**Why deferred**: the generator has changed once since the first save: deep water turned water tiles out in the lakes into deep water, and moved no tile anyone could stand on (0 of 205,861 land tiles within 256 of the prototype spawn changed; `world.test.ts` pins the world within 64 of it by a checksum, [[INVARIANTS]] § World). No save could stand on water before the boat, so none moved. The right fix for a change that does move land depends on the change: keep old seeds on the old generator, or bump `SAVE_VERSION` with an upgrade that moves saved players to a safe tile near where they were (the knock-out rule's `nearestTent` search is the model).
 
-**Trigger**: any PR that changes what `generateChunk` returns for an existing seed (procedural world v2 in [[PRODUCT]] §6 is one).
+**Trigger**: any PR that changes where a player can stand in an existing seed's world (the checksum in `world.test.ts` goes red first; procedural world v2 in [[PRODUCT]] §6 is one), or one that changes the water a saved player may now be sailing on.
 
 ### `nearestTent` is a synchronous flood fill that costs up to a few hundred milliseconds
 
@@ -68,7 +68,10 @@ Technical items we've intentionally postponed: tech debt, hardening shortcuts, k
 
 **The game's own world**: the seed is fixed (`'prototype'`), so the numbers that matter are that world's. Over every tall-grass tile within 40 tiles of the start (where a battle can be lost), plus samples out to 400 tiles: median 5–11 ms, max 50 ms in node on an M-series Mac, and 20–40 ms at the slowest of those spots measured in Chrome. Losing at the reed by the start (the usual place): the whole keydown, battle reducer and `takeToDoctor` included, takes 2 ms (Chrome's Event Timing, 2026-09-25). Not perceptible: the first beat after an answer holds for a second anyway.
 
-**Why deferred**: in the game's world it costs at most a few frames, once per lost battle, and there is no server authority yet. Faster options change the algorithm (visit the tent lattice in order of distance and path-check each candidate, or cap by tiles visited), which is worth doing when there is a second caller or a real report.
+**With the boat** the search crosses water too, and a battle can be lost out on a lake. It reads the tiles' kinds with `travelKindAt`, which skips the deep-water check (24 more tiles of elevation per deep tile, which made the first cut up to 196 ms). In the prototype world, from 400 random water tiles within 600 of the start: median 7 ms, p99 44 ms, max 50 ms; every one found a tent, the furthest 91 steps away. From land, the boat adds a median 0.2 ms and at most 43 ms, where a lake opens the search out.
+
+**Why deferred**: in the game's world it costs at most a few frames, once per lost battle, and there is no server authority yet.
+ Faster options change the algorithm (visit the tent lattice in order of distance and path-check each candidate, or cap by tiles visited), which is worth doing when there is a second caller or a real report.
 
 **Trigger**: the server-side authority PR, a second caller of `nearestTent` on a per-step path (a "nearest doctor" hint), or a report of a pause after losing a battle.
 

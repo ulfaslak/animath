@@ -2,6 +2,7 @@ import {
 	STARTERS,
 	WorldEdits,
 	bundles,
+	hasItem,
 	spawnPoint,
 	type Authority,
 	type GameEvent,
@@ -320,7 +321,8 @@ export class TitleController {
 				saved.facing,
 				// One of each kind in the team, however many it holds: the scene stays light.
 				bundles(saved.party).map((b) => b.speciesId),
-				WorldEdits.decode(saved.edits)
+				WorldEdits.decode(saved.edits),
+				hasItem(saved, 'boat')
 			);
 		} else this.scenery.showWorld(WORLD_SEED, spawnPoint(WORLD_SEED), 'down', STARTERS);
 	}

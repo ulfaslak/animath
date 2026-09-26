@@ -218,7 +218,7 @@ export class PauseController {
 			return this.listKey(key);
 		}
 		const speciesId = pause.species;
-		const rows = speciesId === null ? [] : cardRows(game.party, speciesId);
+		const rows = speciesId === null ? [] : cardRows(game.party, speciesId, game.realm);
 		if (speciesId === null || rows.filter((r) => r.kind === 'animal').length < 2) {
 			this.backToList();
 			return true;
@@ -277,7 +277,7 @@ export class PauseController {
 			this.backToList();
 			return true;
 		}
-		const options = partyOptions(game.party, index);
+		const options = partyOptions(game.party, index, game.realm);
 		// A tap on an option does it, as the arrows and Enter would; a greyed one does nothing.
 		const tapped = tappedOption(key);
 		if (tapped !== undefined) {
@@ -342,7 +342,7 @@ export class PauseController {
 		pause.picked = animalId;
 		pause.species = species;
 		pause.screen = 'options';
-		const options = partyOptions(game.party, this.pickedIndex());
+		const options = partyOptions(game.party, this.pickedIndex(), game.realm);
 		pause.option = Math.max(
 			0,
 			options.findIndex((o) => o.enabled)
@@ -354,7 +354,7 @@ export class PauseController {
 		pause.screen = 'bundle';
 		pause.species = speciesId;
 		pause.picked = null;
-		const rows = cardRows(game.party, speciesId);
+		const rows = cardRows(game.party, speciesId, game.realm);
 		const on = rows.findIndex((r) => r.kind === 'animal' && r.animal.id === animalId);
 		pause.option =
 			on >= 0
@@ -446,7 +446,7 @@ export class PauseController {
 			pause.screen = 'list';
 		}
 		if (pause.screen === 'bundle') {
-			const rows = pause.species === null ? [] : cardRows(game.party, pause.species);
+			const rows = pause.species === null ? [] : cardRows(game.party, pause.species, game.realm);
 			if (rows.filter((r) => r.kind === 'animal').length < 2) {
 				pause.species = null;
 				pause.screen = 'list';

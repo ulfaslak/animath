@@ -1,14 +1,21 @@
 import { describe, expect, it } from 'vitest';
 import { Rng, hashString } from '../src/rng.js';
 import { WorldEdits } from '../src/world/edits.js';
-import { spawnPoint, tileAtWorld } from '../src/world/generate.js';
+import { spawnPoint, tileAtWorld, travelKindAt } from '../src/world/generate.js';
 import {
 	TENT_SEARCH_STEPS,
 	canTalkToDoctor,
 	nearestTent,
 	type TentSpot
 } from '../src/world/tents.js';
-import { CHUNK_SIZE, isWalkable, step, type Direction, type GridPos } from '../src/world/types.js';
+import {
+	CHUNK_SIZE,
+	isWalkable,
+	isWater,
+	step,
+	type Direction,
+	type GridPos
+} from '../src/world/types.js';
 
 const PROTOTYPE = hashString('prototype');
 const SEEDS = [PROTOTYPE, 1, 2];
@@ -40,12 +47,20 @@ const SIDES: readonly [Direction, number, number][] = [
 /**
  * Whether a tile is ground to walk on, with the tiles in `cleared` cleared:
  * written from the rule (a cleared tree or rock is ground), not with the
- * engine's overlay.
+ * engine's overlay; with a boat, water is open too.
  */
-function open(seed: number, x: number, y: number, cleared: ReadonlySet<string>): boolean {
-	const kind = tileAtWorld(seed, x, y).kind;
+function open(
+	seed: number,
+	x: number,
+	y: number,
+	cleared: ReadonlySet<string>,
+	boat = false
+): boolean {
+	// Over water, the kind that tells deep from shallow costs 24 more tiles of
+	// elevation, and getting about treats both alike (world.test.ts checks it).
+	const kind = boat ? travelKindAt(seed, x, y) : tileAtWorld(seed, x, y).kind;
 	if (cleared.has(`${x},${y}`) && (kind === 'tree' || kind === 'rock')) return true;
-	return isWalkable(kind);
+	return isWalkable(kind) || (boat && isWater(kind));
 }
 
 const NOTHING_CLEARED: ReadonlySet<string> = new Set();
@@ -55,7 +70,8 @@ function walkingField(
 	seed: number,
 	from: GridPos,
 	limit: number,
-	cleared = NOTHING_CLEARED
+	cleared = NOTHING_CLEARED,
+	boat = false
 ): Map<string, number> {
 	const dist = new Map<string, number>([[`${from.x},${from.y}`, 0]]);
 	let ring = [from];
@@ -65,7 +81,7 @@ function walkingField(
 			for (const dir of DIRECTIONS) {
 				const n = step(p, dir);
 				const k = `${n.x},${n.y}`;
-				if (dist.has(k) || !open(seed, n.x, n.y, cleared)) continue;
+				if (dist.has(k) || !open(seed, n.x, n.y, cleared, boat)) continue;
 				dist.set(k, d);
 				next.push(n);
 			}
@@ -90,9 +106,10 @@ function bruteForceNearest(
 	seed: number,
 	from: GridPos,
 	limit: number,
-	cleared = NOTHING_CLEARED
+	cleared = NOTHING_CLEARED,
+	boat = false
 ): TentSpot | null {
-	const field = walkingField(seed, from, limit, cleared);
+	const field = walkingField(seed, from, limit, cleared, boat);
 	const r = limit + 1;
 	let best: TentSpot | null = null;
 	for (const tent of tentsInBox(seed, from.x - r, from.y - r, from.x + r, from.y + r)) {
@@ -151,6 +168,53 @@ describe('nearestTent', () => {
 			// over vitest's 5 s default when other agents' browsers load the machine.
 		}, 30_000);
 	}
+
+	it('with the boat, is the nearest tent over ground and water, stood beside on ground: checked by brute force', () => {
+		// Starts out on the water of the prototype world, and on land beside it.
+		const rng = new Rng(0xb0a7);
+		const spawn = spawnPoint(PROTOTYPE);
+		const starts: GridPos[] = [];
+		let onWater = 0;
+		while (starts.length < 30) {
+			const p = { x: spawn.x + rng.int(-150, 150), y: spawn.y + rng.int(-150, 150) };
+			const kind = tileAtWorld(PROTOTYPE, p.x, p.y).kind;
+			if (starts.length < 20 ? !isWater(kind) : !isWalkable(kind)) continue;
+			if (isWater(kind)) onWater++;
+			starts.push(p);
+		}
+		let shorter = 0;
+		for (const from of starts) {
+			const spot = nearestTent(PROTOTYPE, from, TENT_SEARCH_STEPS, WorldEdits.none, {
+				boat: true
+			});
+			const expected = bruteForceNearest(
+				PROTOTYPE,
+				from,
+				spot ? spot.steps : TENT_SEARCH_STEPS,
+				NOTHING_CLEARED,
+				true
+			);
+			expect(spot, `from ${from.x},${from.y}`).toEqual(expected);
+			expect(spot, `from ${from.x},${from.y}`).not.toBeNull();
+			expect(isWalkable(tileAtWorld(PROTOTYPE, spot!.stand.x, spot!.stand.y).kind)).toBe(true);
+			expect(canTalkToDoctor(PROTOTYPE, spot!.stand, spot!.facing)).toBe(true);
+			const onFoot = nearestTent(PROTOTYPE, from);
+			if (onFoot && spot!.steps < onFoot.steps) shorter++;
+			if (onFoot) expect(spot!.steps).toBeLessThanOrEqual(onFoot.steps);
+		}
+		expect(onWater).toBe(20);
+		// From the land, across a lake is sometimes the shorter way.
+		expect(shorter).toBeGreaterThan(0);
+		// About 1 s alone (30 searches, each checked by a flood fill over land and water,
+		// most of them out on a lake); several seconds under load.
+	}, 30_000);
+
+	it('without the boat, searches exactly as on foot', () => {
+		for (const from of samplePositions(PROTOTYPE, 15))
+			expect(
+				nearestTent(PROTOTYPE, from, TENT_SEARCH_STEPS, WorldEdits.none, { boat: false })
+			).toEqual(nearestTent(PROTOTYPE, from));
+	});
 
 	it('walks the paths a player chopped and broke: the nearest tent on foot in the world as they left it', () => {
 		let shorter = 0;

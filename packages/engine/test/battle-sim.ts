@@ -1,5 +1,5 @@
-import { getAnimal } from '../src/animals/catalog.js';
-import type { AnimalInstance, AttackLevel } from '../src/animals/types.js';
+import { canFightIn, getAnimal } from '../src/animals/catalog.js';
+import type { AnimalInstance, AttackLevel, Realm } from '../src/animals/types.js';
 import { applyBattleIntent, startBattle } from '../src/battle/reducer.js';
 import type { BattleEvent, BattleIntent, BattleState, BattleStep } from '../src/battle/types.js';
 import { Rng, hashInts } from '../src/rng.js';
@@ -50,9 +50,11 @@ export function makeWild(speciesId: string, hp?: number): AnimalInstance {
 	return { id: `wild-${speciesId}`, speciesId, hp: hp ?? getAnimal(speciesId).maxHp };
 }
 
-/** Party indices that could step in: standing, and not the animal in front. */
+/** Party indices that could step in: standing, able to fight where the battle is, and not the animal in front. */
 export function others(state: BattleState): number[] {
-	return state.party.flatMap((a, i) => (i !== state.active && a.hp > 0 ? [i] : []));
+	return state.party.flatMap((a, i) =>
+		i !== state.active && a.hp > 0 && canFightIn(a.speciesId, state.realm) ? [i] : []
+	);
 }
 
 /** The intent a scripted player sends in `state`, or null when the battle is over. */
@@ -108,10 +110,11 @@ export function playBattle(
 	wild: AnimalInstance,
 	model: PlayerModel,
 	onStep?: (before: BattleState, intent: BattleIntent, step: BattleStep) => void,
-	maxIntents = 2000
+	maxIntents = 2000,
+	realm: Realm = 'land'
 ): PlayResult {
 	const playerRng = new Rng(hashInts(seed, 0x9e3779b9));
-	let state = startBattle(party, wild);
+	let state = startBattle(party, wild, { realm });
 	const events: BattleEvent[] = [];
 	const intents: BattleIntent[] = [];
 	for (let i = 0; i < maxIntents; i++) {

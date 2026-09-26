@@ -332,7 +332,10 @@ describe('clearing a tile', () => {
 				});
 			}
 		}
-	});
+		// About 1.7 s alone since deep water (every water tile's kind reads the 5×5 square round
+		// it; 0.9 s before), finding a tree and a rock beside a stand on every seed; over vitest's
+		// 5 s default when other agents' browsers load the machine.
+	}, 30_000);
 
 	it('refuses a tile not beside the player, one they do not face, and without the tool it takes', () => {
 		const seed = PROTOTYPE;
@@ -404,8 +407,13 @@ describe('clearing a tile', () => {
 				}
 			}
 		}
+		// Deep water is never beside ground to stand on (at least two tiles of shallows lie
+		// between), so no stand faces it; `clearTile` refuses it with the other kinds in the
+		// random sweeps.
 		expect([...seen].sort()).toEqual(['grass', 'sand', 'tallgrass', 'tent', 'water']);
-	});
+		// About 2.5 s alone (3.1 s before the elevation cache), up to eight stands beside every
+		// kind on every seed, each found by a scan round spawn; over 5 s under load.
+	}, 30_000);
 
 	it('from every tile near spawn, facing every way, clears exactly what the prompt offers, and changes nothing it was given', () => {
 		const bad: string[] = [];

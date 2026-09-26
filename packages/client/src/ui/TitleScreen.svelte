@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { MAX_NICKNAME_LENGTH, STARTERS, leadIndex, normalizeNickname } from '@mathgame/engine';
+	import { MAX_NICKNAME_LENGTH, STARTERS, normalizeNickname } from '@mathgame/engine';
 	import { sfx } from '../audio/sfx.svelte';
 	import { LANGUAGES, language, languageName, t } from '../copy';
 	import { languageKey, rowKey, unfocusable } from '../input/press';
@@ -30,10 +30,7 @@
 	 */
 	const letters = $derived(Array.from(t('title.name')));
 	const saved = $derived(title.saved);
-	/** The saved team's first animal that is standing, the one Continue names. */
-	const lead = $derived(
-		saved ? (saved.party[leadIndex(saved.party)] ?? saved.party[0] ?? null) : null
-	);
+	const lead = $derived(title.lead);
 	const rows = $derived(title.rows);
 	const litRow = $derived(title.screen === 'menu' ? rows[title.cursor] : undefined);
 	const species = $derived(STARTERS[title.starter] ?? STARTERS[0]!);

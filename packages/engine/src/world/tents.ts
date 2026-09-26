@@ -1,6 +1,15 @@
 import { editedTileAt, WorldEdits } from './edits.js';
-import { tileAtWorld } from './generate.js';
-import { isWalkable, step, type Direction, type GridPos, type TileKind } from './types.js';
+import { tileAtWorld, travelKindAt } from './generate.js';
+import {
+	NO_GEAR,
+	isPassable,
+	isWalkable,
+	step,
+	type Direction,
+	type Gear,
+	type GridPos,
+	type TileKind
+} from './types.js';
 
 /**
  * Doctor's tents, from the player's side: which one is nearest, where to stand
@@ -10,13 +19,15 @@ import { isWalkable, step, type Direction, type GridPos, type TileKind } from '.
  * the tent and facing it; walking into the tent is a bump that turns them
  * toward it.
  *
- * "Nearest" is measured on foot: the fewest steps over walkable ground, never
- * through water, rock, trees or another tent. A tent nobody can walk to (boxed
- * in by trees, or on an island) is never the nearest. So when a knock-out
- * takes the player to a tent, they land on ground they could have walked to
- * themselves, and they can always walk back. The ground is the world as the
- * player has left it (`world/edits.ts`): a path they chopped through the
- * trees is a path.
+ * "Nearest" is measured the way the player gets about: the fewest steps over
+ * walkable ground, never through water, rock, trees or another tent — or,
+ * with the boat, over walkable ground and water. A tent nobody can get to
+ * (boxed in by trees, or on an island without a boat) is never the nearest.
+ * The tile to stand on beside it is always ground, never water. So when a
+ * knock-out takes the player to a tent, they land on ground they could have
+ * got to themselves, and they can always get back. The ground is the world
+ * as the player has left it (`world/edits.ts`): a path they chopped through
+ * the trees is a path.
  */
 
 /** How far `nearestTent` looks by default, in steps, before it gives up. */
@@ -28,11 +39,15 @@ const MAX_SEARCH_STEPS = 1_000_000;
 export interface TentSpot {
 	/** The tent's tile. */
 	tent: GridPos;
-	/** Where the player stands: a walkable tile next to the tent, reachable on foot from the start. */
+	/**
+	 * Where the player stands: a walkable tile next to the tent, reachable from
+	 * the start the way the player gets about (on foot, or with the boat over
+	 * the water too).
+	 */
 	stand: GridPos;
 	/** The way a player on `stand` faces to look at the tent. */
 	facing: Direction;
-	/** Steps on foot from the start to `stand`; 0 when the start is already beside the tent. */
+	/** Steps from the start to `stand`, the same way; 0 when the start is already beside the tent. */
 	steps: number;
 }
 
@@ -45,24 +60,28 @@ export interface TentSpot {
 const TOWARD_TENT: readonly Direction[] = ['up', 'right', 'left', 'down'];
 
 /**
- * The tent nearest to `from` on foot, with the tile to stand on beside it.
+ * The tent nearest to `from` for a player with `gear` (on foot without a
+ * boat), with the tile to stand on beside it.
  *
- * The search spreads out one step at a time from `from` over walkable tiles.
- * The first ring that touches a tent wins; when that ring touches more than one
- * tent side, the tent further up (smaller `y`) wins, then the one further left
- * (smaller `x`), then the side in `TOWARD_TENT` order. `from` itself may be any
- * tile: it is where the search starts, and it is a stand only if it is
- * walkable.
+ * The search spreads out one step at a time from `from` over the tiles the
+ * player can go to (`isPassable`). The first ring that touches a tent from a
+ * walkable tile wins; when that ring touches more than one tent side, the
+ * tent further up (smaller `y`) wins, then the one further left (smaller
+ * `x`), then the side in `TOWARD_TENT` order. `from` itself may be any tile:
+ * it is where the search starts, and it is a stand only if it is walkable.
+ * Water is crossed with a boat, never stood on beside a tent.
  *
  * Returns `null` when no tent can be reached within `maxSteps` steps — `from`
  * is walled in, or there is simply no tent that close. `edits` are the tiles
- * the player has cleared (none by default).
+ * the player has cleared (none by default), `gear` what they carry (the boat
+ * crosses water).
  */
 export function nearestTent(
 	seed: number,
 	from: GridPos,
 	maxSteps: number = TENT_SEARCH_STEPS,
-	edits: WorldEdits = WorldEdits.none
+	edits: WorldEdits = WorldEdits.none,
+	gear: Gear = NO_GEAR
 ): TentSpot | null {
 	if (!from || !Number.isSafeInteger(from.x) || !Number.isSafeInteger(from.y)) {
 		throw new Error(
@@ -85,7 +104,11 @@ export function nearestTent(
 		const k = key(p);
 		let kind = kinds.get(k);
 		if (kind === undefined) {
-			kind = editedTileAt(seed, edits, p.x, p.y).kind;
+			// A tile the player cleared is ground; any other reads as the seed's, with
+			// deep water read as water: a boat crosses both alike.
+			kind = edits.has(p.x, p.y)
+				? editedTileAt(seed, edits, p.x, p.y).kind
+				: travelKindAt(seed, p.x, p.y);
 			kinds.set(k, kind);
 		}
 		return kind;
@@ -115,7 +138,7 @@ export function nearestTent(
 				const k = key(n);
 				if (seen.has(k)) continue;
 				seen.add(k);
-				if (isWalkable(kindAt(n))) next.push(n);
+				if (isPassable(kindAt(n), gear)) next.push(n);
 			}
 		}
 		if (next.length === 0) return null;

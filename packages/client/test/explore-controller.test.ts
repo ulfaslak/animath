@@ -27,6 +27,7 @@ function setup(startingParty: string) {
 	keyboard.setEnabled(true); // explore has the screen, as main.ts says each frame
 	const renderer = {
 		setWorld() {},
+		setBoat() {},
 		setPlayer() {},
 		ensureChunksAround() {}
 	} as unknown as GameRenderer;

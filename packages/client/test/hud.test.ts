@@ -22,6 +22,7 @@ function setup(start?: SavedGame) {
 	const authority = new LocalAuthority();
 	const renderer = {
 		setWorld() {},
+		setBoat() {},
 		setPlayer() {},
 		ensureChunksAround() {},
 		cleared() {}

@@ -1,17 +1,20 @@
 import {
 	WorldEdits,
 	editedTileAt,
+	getAnimal,
 	isWalkable,
+	isWater,
 	step,
 	tileAtWorld,
 	type Direction,
 	type GridPos
 } from '@mathgame/engine';
-import type * as THREE from 'three';
+import * as THREE from 'three';
 import { motion } from '../motion';
 import { buildAnimalMesh, disposeFigure } from './animals';
+import { BOAT_STAND } from './boat';
 import { appearScale, recallScale, smoothstep } from './ease';
-import { groundTop } from './tiles';
+import { WATER_TOP, groundTop } from './tiles';
 
 /**
  * The lead animal walking one tile behind the trainer, as in the Game Boy
@@ -21,19 +24,26 @@ import { groundTop } from './tiles';
  * nothing, and the authority never hears of it.
  *
  * Where it stands: the trainer's last tile, which the trainer stood on, so
- * never water, rock, a tree or a tent (a stump where the trainer chopped a
- * tree down is ground, and it follows through). When the trainer is put somewhere
- * without walking (a new game, a game picked up, the trip to the tent after a
- * lost battle), it is put beside them at once — behind, else to a side, else
- * in front, on the first of those a trainer could stand on — and never walks
- * across the map. When the trainer steps back onto its tile, the two swap,
- * and it steps round the trainer rather than through them.
+ * never rock, a tree or a tent (a stump where the trainer chopped a tree down
+ * is ground, and it follows through). Out on the water, in the boat, the
+ * trainer's last tile is water: an animal that swims swims behind the boat,
+ * low in the water, and one that can't swim never stands there — it rides in
+ * the boat instead, at the bow, made small enough to fit (`lead(…, riding)`),
+ * and whoever comes out on a tile comes out beside the trainer. When the
+ * trainer is put somewhere without walking (a new game, a game picked up, the
+ * trip to the tent after a lost battle), it is put beside them at once —
+ * behind, else to a side, else in front, on the first of those it could stand
+ * on — and never walks across the map. When the trainer steps back onto its
+ * tile, the two swap, and it steps round the trainer rather than through
+ * them.
  *
- * Who it is: the lead, the first animal that isn't tired. When that changes
- * (a number key, the menu, a knock-out, the doctor, a catch), the one
- * following shrinks away and the new one grows in with a little bounce, the
- * battle's own recall and appearance (with reduced motion, as there: a lower
- * rise and no bounce). When every animal is tired, nobody
+ * Who it is: the lead, the first animal that isn't tired (out on the water,
+ * the first one that swims; with none standing, the lead on land rides in the
+ * boat). When that changes (a number key, the menu, a knock-out, the doctor,
+ * a catch, the trainer stepping onto the water or back onto land, or into the
+ * boat), the one following shrinks away and the new one grows in with a
+ * little bounce, the battle's own recall and appearance (with reduced motion,
+ * as there: a lower rise and no bounce). When every animal is tired, nobody
  * follows: the team rests until the doctor has seen one.
  */
 
@@ -62,6 +72,13 @@ const SIDES: Record<Direction, [Direction, Direction]> = {
 	left: ['up', 'down'],
 	right: ['down', 'up']
 };
+/** A unit step for each way the trainer faces, in world x and z. */
+const AHEAD: Record<Direction, { x: number; z: number }> = {
+	up: { x: 0, z: -1 },
+	down: { x: 0, z: 1 },
+	left: { x: -1, z: 0 },
+	right: { x: 1, z: 0 }
+};
 
 /** Seconds the one following takes to shrink away, and the new lead to grow in. */
 export const SWAP_OUT_SECONDS = 0.2;
@@ -81,6 +98,11 @@ const HOP: Record<string, number> = {
 const DODGE = 0.38;
 /** How fast it turns to face where it walks: most of the way in a tenth of a second. */
 const TURN_RATE = 16;
+/** Swimming, how much of its height is under the water. */
+export const SWIM_DEPTH = 0.4;
+/** Riding in the boat: how far ahead of the trainer it sits, at the bow, and how big it may be. */
+const RIDE_AHEAD = 0.27;
+export const RIDE_SIZE = 0.32;
 
 export class Follower {
 	/** The tile it stands on or walks to; null until it is placed beside the trainer. */
@@ -92,13 +114,24 @@ export class Follower {
 	/** Which way it steps aside this step (a unit vector in x, z), when the trainer takes its tile. */
 	private aside: { x: number; z: number } | null = null;
 	private seed = 0;
+	/** The trainer's step: from, to, and which way they face; where a rider sits, and where to put it down. */
+	private trainerFrom: GridPos | null = null;
+	private trainerTo: GridPos | null = null;
+	private trainerFacing: Direction = 'down';
 	/** The tiles the player has cleared: ground to stand on. */
 	private edits = WorldEdits.none;
 	/** The lead's species: who should be following. Null when every animal is tired. */
 	private wanted: string | null = null;
+	/** Whether the lead should ride in the boat rather than follow on foot or swimming. */
+	private wantRide = false;
 	private figure: THREE.Group | null = null;
-	/** The species of the figure on screen. */
+	/** The species of the figure on screen, and whether it rides. */
 	private shown: string | null = null;
+	private riding = false;
+	/** A rider's size, to fit in the boat. */
+	private rideScale = 1;
+	/** Seconds of frame time, for the swimmers' bob. */
+	private t = 0;
 	/**
 	 * A change of lead under way: the old one shrinking away (from the size it
 	 * had, `from`), then the new one growing in.
@@ -107,14 +140,19 @@ export class Follower {
 
 	constructor(private host: FigureHost) {}
 
-	/** Where it stands (or is walking to), for tests and anything that asks. */
+	/** Where it stands (or is walking to), for tests and anything that asks; null while riding. */
 	get tile(): GridPos | null {
-		return this.at;
+		return this.riding ? null : this.at;
 	}
 
 	/** The species on screen, or null when nobody follows. */
 	get species(): string | null {
 		return this.figure ? this.shown : null;
+	}
+
+	/** Whether the one on screen rides in the boat. */
+	get inBoat(): boolean {
+		return this.figure !== null && this.riding;
 	}
 
 	/** Which way it faces. */
@@ -124,9 +162,9 @@ export class Follower {
 
 	/**
 	 * The trainer was put at `trainer` without walking, facing `facing`: stand
-	 * beside them at once, on the first tile a trainer could stand on behind
-	 * them, to a side, or in front, in the world as `edits` leave it. With
-	 * none, it waits for the trainer's first step.
+	 * beside them at once, on the first tile it could stand on behind them, to
+	 * a side, or in front, in the world as `edits` leave it. With none, it
+	 * waits for the trainer's first step.
 	 */
 	place(
 		seed: number,
@@ -136,8 +174,10 @@ export class Follower {
 	): void {
 		this.seed = seed;
 		this.edits = edits;
-		const order: Direction[] = [BEHIND[facing], ...SIDES[facing], facing];
-		const spot = order.map((d) => step(trainer, d)).find((p) => this.standable(p)) ?? null;
+		this.trainerFrom = { ...trainer };
+		this.trainerTo = { ...trainer };
+		this.trainerFacing = facing;
+		const spot = this.spotBeside(this.shown ?? this.wanted);
 		this.at = spot;
 		this.from = spot;
 		this.aside = null;
@@ -150,6 +190,12 @@ export class Follower {
 	 * tile the trainer is leaving, as the trainer walks on.
 	 */
 	follow(from: GridPos, to: GridPos): void {
+		this.trainerFrom = { ...from };
+		this.trainerTo = { ...to };
+		this.trainerFacing = direction(from, to) ?? this.trainerFacing;
+		// One that can't go where the trainer leaves (the land lead, as the trainer
+		// sails on from the shore) stays where it is: it is on its way out.
+		if (this.figure && !this.riding && !this.canStand(from, this.shown)) return;
 		const at = this.at;
 		if (!at || !adjacent(at, from)) {
 			// Not beside the trainer (nowhere to stand when it was placed): it turns up on
@@ -171,9 +217,13 @@ export class Follower {
 		this.aside = swapping ? (from.x === at.x ? { x: -1, z: 0 } : { x: 0, z: -1 }) : null;
 	}
 
-	/** Who follows: the lead's species, or null when every animal is tired. */
-	lead(speciesId: string | null): void {
+	/**
+	 * Who follows: the lead's species, or null when every animal is tired;
+	 * `riding` when it rides in the trainer's boat rather than following behind.
+	 */
+	lead(speciesId: string | null, riding = false): void {
 		this.wanted = speciesId;
+		this.wantRide = speciesId !== null && riding;
 	}
 
 	/**
@@ -182,9 +232,15 @@ export class Follower {
 	 * the turn.
 	 */
 	update(progress: number, dt: number): void {
+		this.t += dt;
 		this.updateSwap(dt);
 		const figure = this.figure;
-		if (!figure || !this.at || !this.from) return;
+		if (!figure) return;
+		if (this.riding) {
+			this.ride(figure, progress);
+			return;
+		}
+		if (!this.at || !this.from) return;
 		const walking = this.from.x !== this.at.x || this.from.y !== this.at.y;
 		const p = walking ? Math.min(1, Math.max(0, progress)) : 1;
 		const t = smoothstep(p);
@@ -192,12 +248,18 @@ export class Follower {
 		const z = this.from.y + (this.at.y - this.from.y) * t;
 		const yFrom = this.groundAt(this.from);
 		const y = yFrom + (this.groundAt(this.at) - yFrom) * t;
+		// Out on the water it swims: no bounce from tile to tile, a gentle bob.
+		const swimming = this.waterAt(this.from) && this.waterAt(this.at);
 		const lift = Math.sin(p * Math.PI);
-		const hop = walking ? lift * (HOP[this.shown ?? ''] ?? 0.08) * (motion.reduced ? 0.35 : 1) : 0;
+		const hop =
+			walking && !swimming
+				? lift * (HOP[this.shown ?? ''] ?? 0.08) * (motion.reduced ? 0.35 : 1)
+				: 0;
+		const bob = swimming && !motion.reduced ? Math.sin(this.t * 2.4) * 0.02 : 0;
 		const aside = this.aside && walking ? lift * DODGE : 0;
 		figure.position.set(
 			x + (this.aside?.x ?? 0) * aside,
-			y + hop + this.swapLift(),
+			y + hop + bob + this.swapLift(),
 			z + (this.aside?.z ?? 0) * aside
 		);
 		// Turn towards where it walks, the short way round.
@@ -219,40 +281,85 @@ export class Follower {
 		this.dropFigure();
 		this.swap = null;
 		this.wanted = null;
+		this.wantRide = false;
 		this.at = null;
 		this.from = null;
 		this.aside = null;
 	}
 
+	/** In the boat, at the bow, looking where the trainer looks, as the trainer glides. */
+	private ride(figure: THREE.Group, progress: number): void {
+		const from = this.trainerFrom;
+		const to = this.trainerTo;
+		if (!from || !to) return;
+		const t = smoothstep(progress);
+		const ahead = AHEAD[this.trainerFacing];
+		const yFrom = this.standAt(from);
+		figure.position.set(
+			from.x + (to.x - from.x) * t + ahead.x * RIDE_AHEAD,
+			yFrom + (this.standAt(to) - yFrom) * t + this.swapLift(),
+			from.y + (to.y - from.y) * t + ahead.z * RIDE_AHEAD
+		);
+		this.yaw = ANGLE[this.trainerFacing];
+		figure.rotation.y = this.yaw;
+		figure.scale.setScalar(this.rideScale * this.swapScale());
+	}
+
 	/** Swap the figure when the lead changed: shrink the old one away, grow the new one in. */
 	private updateSwap(dt: number): void {
 		if (this.swap) this.swap.t += dt;
-		const changed = this.shown !== this.wanted || (this.figure === null && this.wanted !== null);
+		const changed =
+			this.shown !== this.wanted ||
+			this.riding !== this.wantRide ||
+			(this.figure === null && this.wanted !== null);
 		if (!this.swap) {
-			if (!changed || !this.at) return;
+			if (!changed || !this.trainerTo) return;
 			if (this.figure) this.swap = { phase: 'out', t: 0, from: 1 };
 			else this.growIn();
 			return;
 		}
 		if (this.swap.phase === 'in') {
 			// A new lead while one was still growing in: it goes again at once, from the size it got to.
-			if (this.shown !== this.wanted) this.swap = { phase: 'out', t: 0, from: this.swapScale() };
+			if (this.shown !== this.wanted || this.riding !== this.wantRide)
+				this.swap = { phase: 'out', t: 0, from: this.swapScale() };
 			else if (this.swap.t >= SWAP_IN_SECONDS) this.swap = null;
 			return;
 		}
 		if (this.swap.t < SWAP_OUT_SECONDS) return;
 		this.dropFigure();
 		this.swap = null;
-		if (this.wanted !== null && this.at) this.growIn();
+		if (this.wanted !== null) this.growIn();
 	}
 
+	/**
+	 * The lead comes out: in the boat when it rides, else on the tile it stands
+	 * on, or, when it can't stand there (one that can't swim, and the trainer's
+	 * last tile was water) or that tile is no longer beside the trainer (they
+	 * stepped back onto it while the lead was hopping into the boat), beside
+	 * the trainer. With nowhere beside them it waits for the trainer's next step.
+	 */
 	private growIn(): void {
-		if (this.wanted === null) return;
-		const figure = buildAnimalMesh(this.wanted);
+		const species = this.wanted;
+		if (species === null) return;
+		const stays = this.at && this.besideTrainer(this.at) && this.canStand(this.at, species);
+		if (!this.wantRide && !stays) {
+			const spot = this.spotBeside(species);
+			if (!spot) return;
+			this.at = spot;
+			this.from = spot;
+			this.aside = null;
+		}
+		const figure = buildAnimalMesh(species);
 		figure.userData.idlePhase = 0.6;
+		this.riding = this.wantRide;
+		if (this.riding) {
+			// Measured at its own size, before it starts growing in from nothing.
+			const size = new THREE.Box3().setFromObject(figure).getSize(new THREE.Vector3());
+			this.rideScale = Math.min(1, RIDE_SIZE / Math.max(size.x, size.y, size.z));
+		}
 		figure.scale.setScalar(0.001);
 		this.figure = figure;
-		this.shown = this.wanted;
+		this.shown = species;
 		this.swap = { phase: 'in', t: 0, from: 0 };
 		this.host.addFigure(figure);
 	}
@@ -263,6 +370,7 @@ export class Follower {
 		disposeFigure(this.figure);
 		this.figure = null;
 		this.shown = null;
+		this.riding = false;
 	}
 
 	/** With reduced motion the new one grows in without its bounce, as in a battle. */
@@ -280,17 +388,58 @@ export class Follower {
 		return Math.sin(Math.min(1, this.swap.t / SWAP_OUT_SECONDS) * Math.PI) * rise;
 	}
 
+	/**
+	 * The first tile beside the trainer, behind them, to a side, then in front,
+	 * that `species` could stand on; null when there is none.
+	 */
+	private spotBeside(species: string | null): GridPos | null {
+		const trainer = this.trainerTo;
+		if (!trainer) return null;
+		const facing = this.trainerFacing;
+		const order: Direction[] = [BEHIND[facing], ...SIDES[facing], facing];
+		return order.map((d) => step(trainer, d)).find((p) => this.canStand(p, species)) ?? null;
+	}
+
+	/** Whether a tile is next to the one the trainer stands on or walks to: not that tile itself. */
+	private besideTrainer(p: GridPos): boolean {
+		return !!this.trainerTo && adjacent(p, this.trainerTo);
+	}
+
+	/**
+	 * Whether an animal of `species` could stand on a tile: ground a trainer
+	 * could walk on, for one that goes on land, and water, for one that swims.
+	 * Without a species yet, ground.
+	 */
+	private canStand(p: GridPos, species: string | null): boolean {
+		const kind = editedTileAt(this.seed, this.edits, p.x, p.y).kind;
+		const realms = species ? getAnimal(species).realms : (['land'] as const);
+		return (
+			(isWalkable(kind) && realms.includes('land')) || (isWater(kind) && realms.includes('water'))
+		);
+	}
+
 	/** The player cleared a tile: the world it stands in is as `edits` leave it. */
 	setEdits(edits: WorldEdits): void {
 		this.edits = edits;
 	}
 
-	private standable(p: GridPos): boolean {
-		return isWalkable(editedTileAt(this.seed, this.edits, p.x, p.y).kind);
+	private waterAt(p: GridPos): boolean {
+		return isWater(tileAtWorld(this.seed, p.x, p.y).kind);
 	}
 
+	/** Where its feet go on a tile: the ground's top, or swimming, low in the water. */
 	private groundAt(p: GridPos): number {
-		return groundTop(tileAtWorld(this.seed, p.x, p.y));
+		const tile = tileAtWorld(this.seed, p.x, p.y);
+		if (!isWater(tile.kind)) return groundTop(tile);
+		const height =
+			(this.figure?.userData.restShape as { height: number } | undefined)?.height ?? 0.4;
+		return WATER_TOP - height * SWIM_DEPTH;
+	}
+
+	/** Where the trainer's feet are on a tile: its top, or out on the water, the boat's floor. */
+	private standAt(p: GridPos): number {
+		const tile = tileAtWorld(this.seed, p.x, p.y);
+		return groundTop(tile) + (isWater(tile.kind) ? BOAT_STAND : 0);
 	}
 }
 

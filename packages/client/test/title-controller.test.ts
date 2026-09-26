@@ -10,6 +10,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { sfx } from '../src/audio/sfx.svelte';
 import { LocalAuthority } from '../src/authority/local';
 import { language } from '../src/copy';
+import { parseParty } from '../src/flags';
 import { PICK_QUIET_SECONDS } from '../src/input/pick-guard';
 import { languageKey, rowKey } from '../src/input/press';
 import type { TitleView3D } from '../src/render/title-scenery';
@@ -161,6 +162,26 @@ describe('title: the menu', () => {
 		expect(scenery.shown.at(-1)).toBe('hide');
 		// The title is gone: its keys do nothing now.
 		expect(press('ArrowDown').prevented).toBe(false);
+	});
+
+	it('Continue names the one that goes first where the game stands: out on the water one that swims, else the one in the boat', () => {
+		const at = (pos: { x: number; y: number }, party: string): SavedGame => ({
+			...savedGame(),
+			items: ['boat'],
+			pos,
+			party: parseParty(party)!
+		});
+		const deep = { x: -2, y: 2 };
+		const lead = (saved: SavedGame) => {
+			setup(saved);
+			return title.lead?.speciesId;
+		};
+		expect(lead(at(deep, 'squirrel,otter'))).toBe('otter');
+		// Nobody standing who swims: the first standing rides in the boat, not a tired one.
+		expect(lead(at(deep, 'squirrel:0,rabbit'))).toBe('rabbit');
+		expect(lead(at({ x: -2, y: 6 }, 'squirrel:0,otter,rabbit'))).toBe('otter');
+		// Everyone tired: the first of the team, as on land.
+		expect(lead(at(deep, 'squirrel:0,rabbit:0'))).toBe('squirrel');
 	});
 
 	it('walks the rows with arrows and W / S, wrapping, and never on auto-repeat', () => {

@@ -1,4 +1,5 @@
-import type { AnimalInstance } from '../animals/types.js';
+import { canFightIn } from '../animals/catalog.js';
+import type { AnimalInstance, Realm } from '../animals/types.js';
 import { bundled, bundles } from './bundles.js';
 import { normalizeNickname } from './names.js';
 import type {
@@ -10,13 +11,16 @@ import type {
 } from './types.js';
 
 /**
- * The lead: the animal that steps into the next battle, the first one in
- * party order that is not tired. -1 when every animal is tired. The battle
+ * The lead where the player stands in `realm` (land unless said otherwise):
+ * the animal that steps into the next battle there, the first one in party
+ * order that is not tired and can fight there (`canFightIn`). Out on the
+ * water that is the first one that swims. -1 when there is none: every
+ * animal is tired, or none of the standing ones can go there. The battle
  * reducer uses the same function for who starts and who steps in after a
  * knock-out, so the animal the HUD marks as the lead is the one that fights.
  */
-export function leadIndex(party: readonly AnimalInstance[]): number {
-	return party.findIndex((a) => a.hp > 0);
+export function leadIndex(party: readonly AnimalInstance[], realm: Realm = 'land'): number {
+	return party.findIndex((a) => a.hp > 0 && canFightIn(a.speciesId, realm));
 }
 
 /**
@@ -34,15 +38,16 @@ export function leadIndex(party: readonly AnimalInstance[]): number {
 export function applyPartyIntent(
 	party: readonly AnimalInstance[],
 	intent: PartyIntent,
-	activity: PlayerActivity
+	activity: PlayerActivity,
+	realm: Realm = 'land'
 ): PartyStep {
 	if (activity !== 'explore') return reject(party, 'not-exploring');
 	if (!intent || typeof intent !== 'object') return reject(party, 'not-an-intent');
 	switch (intent.type) {
 		case 'select-lead':
-			return selectLead(party, intent.animalId);
+			return selectLead(party, intent.animalId, realm);
 		case 'lead-species':
-			return leadSpecies(party, intent.speciesId);
+			return leadSpecies(party, intent.speciesId, realm);
 		case 'reorder':
 			return reorder(party, intent.animalId, intent.to);
 		case 'move-species':
@@ -54,22 +59,35 @@ export function applyPartyIntent(
 	}
 }
 
-function selectLead(party: readonly AnimalInstance[], animalId: unknown): PartyStep {
+/**
+ * Choose who goes first where the player stands: an animal that can fight
+ * there (out on the water, one that swims) and isn't tired goes to the front.
+ */
+function selectLead(party: readonly AnimalInstance[], animalId: unknown, realm: Realm): PartyStep {
 	const base = bundled(party);
 	const from = indexOf(base, animalId);
 	if (from < 0) return reject(party, 'unknown-animal');
 	const animal = base[from]!;
+	if (!canFightIn(animal.speciesId, realm)) {
+		return reject(party, 'cannot-fight-here', { animalId: animal.id });
+	}
 	if (animal.hp <= 0) return reject(party, 'tired', { animalId: animal.id });
-	if (leadIndex(base) === from) return reject(party, 'already-lead', { animalId: animal.id });
+	if (leadIndex(base, realm) === from)
+		return reject(party, 'already-lead', { animalId: animal.id });
 	return leadFrom(base, from);
 }
 
-function leadSpecies(party: readonly AnimalInstance[], speciesId: unknown): PartyStep {
+function leadSpecies(
+	party: readonly AnimalInstance[],
+	speciesId: unknown,
+	realm: Realm
+): PartyStep {
 	const base = bundled(party);
 	if (typeof speciesId !== 'string' || !base.some((a) => a.speciesId === speciesId)) {
 		return reject(party, 'unknown-species');
 	}
-	const lead = base[leadIndex(base)];
+	if (!canFightIn(speciesId, realm)) return reject(party, 'cannot-fight-here', { speciesId });
+	const lead = base[leadIndex(base, realm)];
 	if (lead?.speciesId === speciesId) {
 		return reject(party, 'already-lead', { animalId: lead.id, speciesId });
 	}

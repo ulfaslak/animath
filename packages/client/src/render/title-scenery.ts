@@ -38,14 +38,17 @@ const VIEW_HEIGHT_TILES = 14;
 export interface TitleView3D {
 	/**
 	 * The menu's world: the trainer at `pos` in world `seed` (as `edits` leave
-	 * it, the tiles the saved game cleared), facing `facing`, `species` round it.
+	 * it, the tiles the saved game cleared), facing `facing`, `species` round
+	 * it, and the boat on their back, or under them out on the water, when the
+	 * game has one.
 	 */
 	showWorld(
 		seed: number,
 		pos: GridPos,
 		facing: Direction,
 		species: readonly string[],
-		edits?: WorldEdits
+		edits?: WorldEdits,
+		boat?: boolean
 	): void;
 	/** The starter stage, these species in a row, the first lit. */
 	showStarters(species: readonly string[]): void;
@@ -74,12 +77,14 @@ export class TitleScenery implements TitleView3D {
 		pos: GridPos,
 		facing: Direction,
 		species: readonly string[],
-		edits: WorldEdits = WorldEdits.none
+		edits: WorldEdits = WorldEdits.none,
+		boat = false
 	): void {
 		this.clearWorld();
 		this.renderer.setStage(null);
 		this.center = { x: pos.x, y: pos.y };
 		this.renderer.setWorld(seed, edits);
+		this.renderer.setBoat(boat);
 		this.renderer.setPlayer(pos, pos, 1, facing);
 		this.renderer.ensureChunksAround(pos);
 		const spots = standingSpots(seed, edits, pos, species.length);

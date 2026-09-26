@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { ANIMALS, getAnimal } from '../src/animals/catalog.js';
+import { ANIMALS, canFightIn, getAnimal } from '../src/animals/catalog.js';
 import { ATTACK_LEVELS, type AnimalInstance, type AttackLevel } from '../src/animals/types.js';
 import { catchProbability } from '../src/battle/catch.js';
 import { attackDamage } from '../src/battle/damage.js';
@@ -269,6 +269,7 @@ describe('replay', () => {
 				{ id: 'rabbit-1', speciesId: 'rabbit', hp: 13 }
 			],
 			opponent: { id: 'wild-fox', speciesId: 'fox', hp: 0 },
+			realm: 'land',
 			phase: { kind: 'ended', outcome: 'won' }
 		});
 	});
@@ -819,6 +820,126 @@ describe('knock-outs', () => {
 		expect(outcome(state)).toBe('won');
 		expect(activeAnimal(state).hp).toBe(100);
 		expect(state.turn).toBe(1);
+	});
+});
+
+describe('on the water', () => {
+	// Out on the water, from the boat, only the animals that swim fight: the
+	// frog and the otter in the prototype catalog ("you can't fight on water
+	// unless you have an amphibious animal"). The others sit it out in the boat.
+	const swims = (a: AnimalInstance) => canFightIn(a.speciesId, 'water');
+
+	it('sends out the first standing animal that swims, whoever is first in the party', () => {
+		const party = makeParty(['squirrel', 'bear', 'frog', 'otter']);
+		const state = startBattle(party, makeWild('otter'), { realm: 'water' });
+		expect(state.realm).toBe('water');
+		expect(state.active).toBe(2);
+		party[2]!.hp = 0;
+		expect(startBattle(party, makeWild('otter'), { realm: 'water' }).active).toBe(3);
+		// On land, as ever, the first standing animal.
+		expect(startBattle(party, makeWild('otter')).active).toBe(0);
+		expect(startBattle(party, makeWild('otter')).realm).toBe('land');
+	});
+
+	it('is never started without a standing swimmer, or against an animal that cannot swim', () => {
+		expect(() =>
+			startBattle(makeParty(['squirrel', 'bear']), makeWild('otter'), { realm: 'water' })
+		).toThrow(/knocked out/);
+		const tiredFrog = makeParty(['squirrel', 'frog']);
+		tiredFrog[1]!.hp = 0;
+		expect(() => startBattle(tiredFrog, makeWild('otter'), { realm: 'water' })).toThrow(
+			/knocked out/
+		);
+		expect(() =>
+			startBattle(makeParty(['otter']), makeWild('squirrel'), { realm: 'water' })
+		).toThrow(/can't fight on water/);
+		expect(() =>
+			startBattle(makeParty(['otter']), makeWild('otter'), { realm: 'lava' as 'water' })
+		).toThrow(/realm/);
+	});
+
+	it('lets only a standing swimmer step in, and says why the others cannot', () => {
+		const party = makeParty(['frog', 'squirrel', 'otter', 'deer']);
+		const state = startBattle(party, makeWild('otter'), { realm: 'water' });
+		expect(party.map((_, i) => canSwitchTo(state, i))).toEqual([false, false, true, false]);
+		for (const partyIndex of [1, 3]) {
+			const step = applyBattleIntent(deepFreeze(state), { type: 'switch', partyIndex }, 3);
+			expect(step.state).toBe(state);
+			expect(step.events).toEqual([{ type: 'rejected', reason: 'cannot-fight-here' }]);
+		}
+		// On land, the same party can send in anyone standing.
+		const onLand = startBattle(party, makeWild('otter'));
+		expect(party.map((_, i) => canSwitchTo(onLand, i))).toEqual([false, true, true, true]);
+	});
+
+	it('is lost when the last swimmer is tired, whoever is still standing in the boat', () => {
+		const party = makeParty(['squirrel', 'frog', 'bear']);
+		party[1]!.hp = 1;
+		const start = startBattle(party, makeWild('otter'), { realm: 'water' });
+		expect(start.active).toBe(1);
+		// A wrong answer, and the otter's reply knocks the frog out (the frog is
+		// smaller, so the otter never misses it).
+		const { state, events } = attackAndAnswer(start, 1, 1, 1, false);
+		expect(events.map((e) => e.type)).toEqual([
+			'answer-judged',
+			'missed',
+			'hit',
+			'fainted',
+			'ended'
+		]);
+		expect(outcome(state)).toBe('lost');
+		expect(state.party.map((a) => a.hp)).toEqual([20, 0, 100]);
+	});
+
+	it('over random battles against every water animal, only swimmers ever fight, and it always ends', () => {
+		const model: PlayerModel = {
+			accuracy: 0.6,
+			policy: 'random',
+			leash: 0.15,
+			flee: 0.02,
+			switch: 0.3
+		};
+		const wilds = ANIMALS.filter((a) => a.realms.includes('water')).map((a) => a.id);
+		const bad: string[] = [];
+		const outcomes = new Set<string>();
+		for (const wild of wilds) {
+			for (let seed = 0; seed < SEEDS; seed++) {
+				const rng = new Rng(hashInts(seed, 77));
+				// Two to five animals, at least one of them a swimmer, some already tired.
+				const species = Array.from({ length: rng.int(2, 5) }, () => rng.pick(ids));
+				species[rng.int(0, species.length - 1)] = rng.pick(wilds);
+				const party = makeParty(species).map((a) => ({
+					...a,
+					hp: rng.chance(0.2) && !swims(a) ? 0 : a.hp
+				}));
+				const { state } = playBattle(
+					seed,
+					party,
+					makeWild(wild),
+					model,
+					(before, _intent, step) => {
+						const front = step.state.party[step.state.active]!;
+						const waiting = step.state.phase.kind === 'choose-animal';
+						if (!swims(front)) bad.push(`${wild} ${seed}: ${front.speciesId} fights on water`);
+						if (!waiting && step.state.phase.kind !== 'ended' && front.hp === 0)
+							bad.push(`${wild} ${seed}: a tired animal in front`);
+						if (step.state.realm !== 'water') bad.push(`${wild} ${seed}: the realm moved`);
+						for (const [i, a] of step.state.party.entries())
+							if (!swims(a) && a.hp !== before.party[i]!.hp)
+								bad.push(`${wild} ${seed}: ${a.speciesId} in the boat lost HP`);
+					},
+					2000,
+					'water'
+				);
+				const end = outcome(state);
+				if (end === null) bad.push(`${wild} ${seed}: never ended`);
+				else outcomes.add(end);
+				if (end === 'lost' && state.party.some((a) => swims(a) && a.hp > 0))
+					bad.push(`${wild} ${seed}: lost with a swimmer standing`);
+			}
+		}
+		expect(bad).toEqual([]);
+		expect([...outcomes].sort()).toEqual(['caught', 'fled', 'lost', 'won']);
 	});
 });
 

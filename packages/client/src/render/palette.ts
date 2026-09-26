@@ -6,6 +6,9 @@ export const TILE_COLORS: Record<TileKind, number> = {
 	tallgrass: 0x63b94a,
 	sand: 0xf3d9a4,
 	water: 0x5ec8f2,
+	// Deep water, out in the middle of a lake: bluer and darker than the shallows,
+	// so the sea animals' water reads at a glance, as tall grass does on land.
+	deepwater: 0x3f9fdc,
 	rock: 0xa8a39e,
 	tree: 0x8bd66b, // ground under the tree
 	tent: 0x8bd66b
@@ -54,8 +57,23 @@ export const BIOME_LOOK: Record<Biome, BiomeLook> = {
 	// Sand, and reed beds yellower and lighter than the meadow's tall grass, so reeds never read as it.
 	river: { ground: TILE_COLORS.sand, tallgrass: 0x9fc45c, blade: 0x5e9233 },
 	// Grey-green turf, paler and greyer than any meadow.
-	mountain: { ground: 0xa6b88f, tallgrass: 0x7b9b5a, blade: 0x587d3c }
+	mountain: { ground: 0xa6b88f, tallgrass: 0x7b9b5a, blade: 0x587d3c },
+	// Deep water all round: no ground, and no grass. A battle there is fought on
+	// the deep water's blue, with the shallows' paler blue in the crests of its waves.
+	sea: { ground: TILE_COLORS.deepwater, tallgrass: TILE_COLORS.deepwater, blade: TILE_COLORS.water }
 };
+
+/**
+ * The boat, in the shop picture's colours (`ItemIcon`): a hull of the trees'
+ * trunk brown, the mast's darker brown inside it, a rim and a pennant in the
+ * trainer's coral.
+ */
+export const BOAT_COLORS = {
+	hull: COLORS.trunk,
+	inside: 0x6e4630,
+	trim: COLORS.playerShirt,
+	pennant: COLORS.playerShirt
+} as const;
 
 /** Trees grow only in the forest: three dark greens, mixed at random, so it reads as deep woods. */
 export const CANOPY: readonly number[] = [0x2c7a43, 0x3a8f4c, 0x2f8a55];

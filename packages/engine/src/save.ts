@@ -1,14 +1,15 @@
-import type { AnimalInstance } from './animals/types.js';
+import type { AnimalInstance, Realm } from './animals/types.js';
 import { ATTACK_LEVELS } from './animals/types.js';
-import { ANIMALS, getAnimal } from './animals/catalog.js';
+import { ANIMALS, canFightIn, getAnimal } from './animals/catalog.js';
 import type { BattleState } from './battle/types.js';
+import { gearOf } from './items/catalog.js';
 import { bundled } from './party/bundles.js';
 import { normalizeNickname } from './party/names.js';
 import { ALL_PUZZLE_KINDS, MAX_DIFFICULTY, MIN_DIFFICULTY } from './puzzles/types.js';
 import { WorldEdits, editedTileAt, isEditsText } from './world/edits.js';
 import { spawnPoint } from './world/generate.js';
 import type { Direction, GridPos } from './world/types.js';
-import { isWalkable } from './world/types.js';
+import { isPassable, tileRealm } from './world/types.js';
 
 /**
  * The save: one document per game. The client writes it to the browser's
@@ -383,13 +384,14 @@ function cleanAnimal(animal: AnimalInstance): AnimalInstance {
  * tokens or items, nothing cleared; an item listed twice is owned once; the
  * edits in their canonical text, within `EDITS_BUDGET`, trimmed round the
  * player as a clear trims them when a save holds more), and nothing in
- * it can leave the player stuck: a position that is not walkable in the world
- * as the player left it (the world generator changed under it) becomes the spawn tile, an HP above the
+ * it can leave the player stuck: a position the player can't be on, in the
+ * world as they left it, with what they own (the world generator changed
+ * under it, or water without a boat) becomes the spawn tile, an HP above the
  * species' maximum is cut to it, an empty party gets the starter, and a party
  * with nobody standing rests back to full, the same rest a lost battle gives.
- * The battle comes back only if `readBattle` accepts it, and never when the
- * position had to move. See [[INVARIANTS]] § "A loaded save never strands the
- * player".
+ * The battle comes back only if `readBattle` accepts it where the player
+ * stands, and never when the position had to move. See [[INVARIANTS]] § "A
+ * loaded save never strands the player".
  *
  * The party comes back in species bundles (`bundled`), a saved battle's
  * party in the same order with the same animal in front. A save this build
@@ -398,12 +400,16 @@ function cleanAnimal(animal: AnimalInstance): AnimalInstance {
  */
 export function restoreGame(save: SaveV1): SavedGame {
 	const { seed } = save;
+	const items = [...new Set(save.items ?? [])];
 	// Kept within the budget as a clear keeps it, whatever wrote the save (a hand-edited
 	// one can hold more): the chunks round the player are the last to go, and never go.
 	const edits = (save.edits ? WorldEdits.decode(save.edits) : WorldEdits.none).trimmedAround(
 		save.pos
 	).edits;
-	const standable = isWalkable(editedTileAt(seed, edits, save.pos.x, save.pos.y).kind);
+	const here = editedTileAt(seed, edits, save.pos.x, save.pos.y).kind;
+	// Out on the water only with the boat; without it (a save from a game that
+	// somehow lost it) the player is back on the spawn tile, never stranded.
+	const standable = isPassable(here, gearOf({ items }));
 	let party = save.party.map((a) =>
 		cleanAnimal({ ...a, hp: Math.min(a.hp, getAnimal(a.speciesId).maxHp) })
 	);
@@ -411,7 +417,7 @@ export function restoreGame(save: SaveV1): SavedGame {
 	else if (!party.some((a) => a.hp > 0)) {
 		party = party.map((a) => ({ ...a, hp: getAnimal(a.speciesId).maxHp }));
 	}
-	const battle = standable ? readBattle(save.battle, party) : null;
+	const battle = standable ? readBattle(save.battle, party, tileRealm(here)) : null;
 	return {
 		seed,
 		pos: standable ? { x: save.pos.x, y: save.pos.y } : spawnPoint(seed),
@@ -420,7 +426,7 @@ export function restoreGame(save: SaveV1): SavedGame {
 		visits: save.visits ?? 0,
 		party: bundled(party),
 		tokens: save.tokens ?? 0,
-		items: [...new Set(save.items ?? [])],
+		items,
 		battle: battle && bundledBattle(battle),
 		edits: [...edits.encode()]
 	};
@@ -435,36 +441,46 @@ function bundledBattle(state: BattleState): BattleState {
 
 /**
  * A saved battle, if it can be picked up again with `party` (the party
- * restored beside it): the same animals with the same HP, a standing animal
- * in front (or, waiting for a replacement after a knock-out, a tired one with
- * someone standing behind it), a wild animal that is still standing, and a
- * phase the reducer can take the next intent in. Anything else is null, and the player is back
+ * restored beside it) where the player stands, in `realm`: fought there (a
+ * battle saved before battles had a realm was fought on land), the same
+ * animals with the same HP, a standing animal that can fight there in front
+ * (or, waiting for a replacement after a knock-out, a tired one with someone
+ * standing behind it who can), a wild animal that is still standing and can
+ * fight there, and a phase the reducer can take the next intent in. Anything
+ * else is null, and the player is back
  * in explore as if they had run away, with the HP they had. A `log` of English lines, from a
  * build before the engine held no words, is ignored.
  */
-export function readBattle(value: unknown, party: readonly AnimalInstance[]): BattleState | null {
+export function readBattle(
+	value: unknown,
+	party: readonly AnimalInstance[],
+	realm: Realm = 'land'
+): BattleState | null {
 	if (!isRecord(value)) return null;
 	const { step, turn, active, opponent, leashQuality, phase } = value;
+	if ((value.realm ?? 'land') !== realm) return null;
+	const fights = (a: AnimalInstance) => a.hp > 0 && canFightIn(a.speciesId, realm);
 	if (!isWhole(step) || !Number.isSafeInteger(turn) || (turn as number) < 1) return null;
 	if (!Array.isArray(value.party)) return null;
 	// Cleaned as the restored party was, so the two compare as the game would see them.
-	const fought = value.party.map((a) =>
+	const members = value.party.map((a) =>
 		isRecord(a) ? cleanAnimal(a as unknown as AnimalInstance) : a
 	);
-	if (canonical(fought) !== canonical(party)) return null;
+	if (canonical(members) !== canonical(party)) return null;
 	if (!Number.isSafeInteger(active)) return null;
 	const front = party[active as number];
 	if (!front) return null;
 	// After a knock-out (`choose-animal`) the tired animal is still in front, waiting to
 	// be replaced by one that is standing; in every other phase the front one stands.
 	if (isRecord(phase) && phase.kind === 'choose-animal') {
-		if (front.hp !== 0 || !party.some((a) => a.hp > 0)) return null;
-	} else if (front.hp === 0) {
+		if (front.hp !== 0 || !party.some(fights)) return null;
+	} else if (!fights(front)) {
 		return null;
 	}
 	if (validateAnimal(opponent, 'opponent') !== null) return null;
 	const wild = opponent as unknown as AnimalInstance;
 	if (wild.hp === 0 || wild.hp > getAnimal(wild.speciesId).maxHp) return null;
+	if (!canFightIn(wild.speciesId, realm)) return null;
 	if (party.some((a) => a.id === wild.id)) return null;
 	if (typeof leashQuality !== 'number' || !Number.isFinite(leashQuality) || leashQuality <= 0) {
 		return null;
@@ -491,6 +507,7 @@ export function readBattle(value: unknown, party: readonly AnimalInstance[]): Ba
 		active: active as number,
 		opponent: { ...wild },
 		leashQuality,
+		realm,
 		phase: JSON.parse(JSON.stringify(phase)) as BattleState['phase']
 	};
 }

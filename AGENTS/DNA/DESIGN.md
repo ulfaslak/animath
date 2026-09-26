@@ -18,7 +18,7 @@ Rules that follow from that:
 
 - **Fixed camera.** In explore, orthographic, pitched about 50°, yawed about 35°. No zoom, no rotation, ever. The world reads as a diorama because the angle never changes. The battle and the title's starter stage have fixed cameras of their own.
 - **Facets, not textures.** Colour comes from materials and lighting, not image textures. `flatShading: true` everywhere.
-- **Chunky silhouettes.** Trees are a cone on a cylinder, rocks are a dodecahedron, tents are a pyramid, reeds a thin stalk with a brown head, flowers and bushes a twenty-sided ball. Animals are boxes, spheres and cones with one exaggerated tell each — the squirrel's curled tail, the rabbit's ears, the frog's eyes on top of its head, the deer's antlers — because at the game's camera a bear is 40 px tall and a squirrel 15. Real models keep that vocabulary: few polygons, readable at 40 px tall.
+- **Chunky silhouettes.** Trees are a cone on a cylinder, rocks are a dodecahedron, tents are a pyramid, reeds a thin stalk with a brown head, flowers and bushes a twenty-sided ball, the boat half a cone laid on its side, wide at the stern, with a coral rim. Animals are boxes, spheres and cones with one exaggerated tell each — the squirrel's curled tail, the rabbit's ears, the frog's eyes on top of its head, the deer's antlers — because at the game's camera a bear is 40 px tall and a squirrel 15. Real models keep that vocabulary: few polygons, readable at 40 px tall.
 - **Warm light.** One sun (slightly warm white) casting soft shadows, plus a hemisphere fill so shadows stay coloured, never black, and a small warm light at each campfire.
 - **Gentle motion.** Steps hop and swing the trainer's arms; grass could sway and fire could flicker. Nothing snaps.
 - **A little juice, no new assets.** Moments get a small flourish made from what is already in the game — a lunge, a shake, a ring of dust, a burst of confetti in the palette's colours, sparkles along an HP bar, an iris into battle. A flourish marks a moment the screen already shows; it never hides text or the animal it is about, never leaves the scene, never delays a key and never fills the screen with a flash ([[UI_SPEC]] § Sound and juice). Size one against the thing it frames, in a frame, not by its numbers.
@@ -33,7 +33,8 @@ Hex values are the ones in `packages/client/src/render/palette.ts` and `styles.c
 | Grass                | `#8bd66b` | The meadow's.                                |
 | Tall grass           | `#63b94a` | Darker, so encounter tiles read at a glance; blades `#4fa83d`. |
 | Sand                 | `#f3d9a4` |                                              |
-| Water                | `#5ec8f2` | Sits lower than land.                        |
+| Water                | `#5ec8f2` | Sits lower than land. The shallows along every shore. |
+| Deep water           | `#3f9fdc` | The sea: water with water all round it, two tiles out. Bluer and darker than the shallows, so where sea animals live reads at a glance, as tall grass does on land. |
 | Rock                 | `#a8a39e` / `#8e8a86`, `#a39e98` | Tile / boulder, in two greys. The peaks (rock at height 3 and up) are paler, `#bdb9b4`, and most of their boulders wear a snow cap, `#f3f6f4` (a cool white, never the figures' warm one). |
 | Tree trunk           | `#8b5a3c` |                                              |
 | Tree canopy          | `#2c7a43` / `#3a8f4c` / `#2f8a55` | Three dark greens, mixed randomly: trees grow only in the forest. The starter stage's bushes keep `#3e9e4f` / `#62bf5f`. |
@@ -48,6 +49,7 @@ Hex values are the ones in `packages/client/src/render/palette.ts` and `styles.c
 | Token                | warn `#f5b83d`, rim `#c98a12`, inner ring `#fbd67a`, heart `--panel-cream` | A gold coin with a cream heart, the doctor's thank-you: on the doctor's card, in the HUD, beside each price; a "+N" in good, a "−N" in amber `#d99a1e`. |
 | Tools                | trunk `#8b5a3c` (mast `#6e4630`), rock `#a8a39e` with a pale edge `#e9e6e2`, water `#5ec8f2`, trainer coral | The shop's pictures (`ItemIcon`): an axe, a pickaxe, a boat with a coral sail, flat and chunky in the world's own colours. The axe and the pickaxe in the trainer's fist while it swings are the same colours, as boxes. |
 | Cleared ground       | gravel `#c9c0ad`, on the peaks `#d8d3ca`; fresh wood `#e8c48f` | Where a rock was broken: gravel, warmer and lighter than the rock round it, so it reads as a path, with the mountain's pebbles on it. Where a tree was chopped: the forest floor with a trunk-brown stump, its cut face and a few chips in fresh wood, which the axe also sends flying. |
+| The boat             | hull trunk `#8b5a3c`, inside mast `#6e4630`, rim and pennant trainer coral `#ff7e6b` | `BOAT_COLORS`: the shop picture's boat in the world, a rowboat on the trainer's back and under them on the water. |
 | Result card's rays   | warn at half strength | A burst behind a new friend's name, fading out at its rim. |
 | Butterflies          | rabbit pink `#f5b8c4`, amber `#f5b83d`, off-white, trainer coral, sky `#8fd3f4` | `BUTTERFLY_COLORS`: two five-sided wings on a dark body, a little under half a tile across. |
 | UI panel             | `rgba(255,252,245,.92)` | Cream, slightly translucent. Opaque (`--panel-cream`, `#fffcf5`) as the rim round big lettering. |
@@ -67,6 +69,7 @@ Each biome has its own ground and tall grass (`BIOME_LOOK` in `palette.ts`), so 
 | Forest   | `#68b258` | `#4b9a44` / `#357d33`   | A darker floor. Crowded trees: often a young one beside the big one, and a bush (`#2f7d44` / `#3b8a47`) at their foot; never taller than before, since a tree hides the tile behind it. |
 | River    | sand      | `#9fc45c` / `#5e9233`   | Reed beds: a yellow-green patch with tall thin reeds, most with a brown head (the trunks' `#8b5a3c`), never the meadow's tall grass on sand. |
 | Mountain | `#a6b88f` | `#7b9b5a` / `#587d3c`   | Grey-green turf with pebbles (`#97928c`), too small to look like a rock that blocks; boulder fields, a big boulder with smaller ones round it; snow on the peaks. |
+| Sea      | deep water `#3f9fdc` | none; the shallows' `#5ec8f2` in a battle's crests of waves | Nothing grows. In a battle, the deep water's surface over the animals' feet, and a sandy shore far behind. |
 
 Colour is never the only signal: a wrong answer also shakes, a low HP bar also shows a number.
 
@@ -139,6 +142,7 @@ The words the game uses for its things, the same on every screen:
 | shop | butik | the tab ("Butik"), "Min butik åbner snart" |
 | axe / pickaxe / boat | økse / hakke / båd (en) | the tools: "Øksen koster 8", "Her er din økse!"; each form written out in `da.yaml` (`items.*`) |
 | chop (a tree) / break (a rock) | fælde / knuse | the prompts ("Tryk på Enter for at fælde træet", "… for at knuse stenen"), the touch button ("Fæld", "Knus"), "Du skal bruge en økse for at fælde træer." |
+| can't swim | kan ikke svømme | out on the water: the switch list's tag, "Ræven kan ikke svømme og bliver i båden.", "Dine andre dyr kan ikke svømme." |
 | bye bye (an animal going home) | farvel | "Sig farvel til ræven?", "Farvel, Ræv!" — never "slip", "smid ud" or anything that sounds like getting rid of it |
 | leash | snor | the battle row ("Snor"), its card ("Kast snoren"), "Du kaster snoren…" |
 | catch | fange | "Du fangede en ræv!", "Svært at fange" |

@@ -1,4 +1,4 @@
-import { bundles, leadIndex, type AnimalInstance } from '@mathgame/engine';
+import { bundles, canFightIn, leadIndex, type AnimalInstance, type Realm } from '@mathgame/engine';
 
 /**
  * What the pause menu shows and which screen the keys drive. Written only by
@@ -67,16 +67,18 @@ export interface OptionRow<T extends string> {
 }
 
 /**
- * What can be done with the animal in slot `index`. "Go first" is the
- * engine's `select-lead`, so it is offered only where that would be
- * accepted: the animal is not tired and does not lead already. Moving is
+ * What can be done with the animal in slot `index`, where the player stands
+ * in `realm`. "Go first" is the engine's `select-lead`, so it is offered only
+ * where that would be accepted: the animal can fight there (out on the water,
+ * it swims), is not tired and does not lead there already. Moving is
  * within its card when the card holds others of its kind (the engine's
  * `reorder`), and the card itself when the animal is alone on it
  * (`move-species`), so it is greyed at the end it can't go past.
  */
 export function partyOptions(
 	party: readonly AnimalInstance[],
-	index: number
+	index: number,
+	realm: Realm = 'land'
 ): OptionRow<PartyOption>[] {
 	const animal = party[index];
 	const list = bundles(party);
@@ -85,7 +87,14 @@ export function partyOptions(
 	const alone = bundle?.animals.length === 1;
 	const at = bundle ? bundle.slots.indexOf(index) : -1;
 	return [
-		{ id: 'first', enabled: !!animal && animal.hp > 0 && leadIndex(party) !== index },
+		{
+			id: 'first',
+			enabled:
+				!!animal &&
+				animal.hp > 0 &&
+				canFightIn(animal.speciesId, realm) &&
+				leadIndex(party, realm) !== index
+		},
 		{ id: 'up', enabled: alone ? place > 0 : at > 0 },
 		{
 			id: 'down',
@@ -107,10 +116,14 @@ export type CardRow =
  * opens its own options. One cursor walks them all, and a tap on row `i` is
  * `option:<i>`.
  */
-export function cardRows(party: readonly AnimalInstance[], speciesId: string): CardRow[] {
+export function cardRows(
+	party: readonly AnimalInstance[],
+	speciesId: string,
+	realm: Realm = 'land'
+): CardRow[] {
 	const bundle = bundles(party).find((b) => b.speciesId === speciesId);
 	return [
-		...bundleOptions(party, speciesId).map((o) => ({ kind: 'option' as const, ...o })),
+		...bundleOptions(party, speciesId, realm).map((o) => ({ kind: 'option' as const, ...o })),
 		...(bundle?.animals ?? []).map((animal) => ({
 			kind: 'animal' as const,
 			animal,
@@ -120,22 +133,28 @@ export function cardRows(party: readonly AnimalInstance[], speciesId: string): C
 }
 
 /**
- * What can be done with the card of `speciesId`: go first (the engine's
- * `lead-species`, offered while one of its animals stands and none of them
- * leads already), move up or down among the cards (`move-species`), back.
+ * What can be done with the card of `speciesId`, where the player stands in
+ * `realm`: go first (the engine's `lead-species`, offered while the species
+ * can fight there, one of its animals stands and none of them leads there
+ * already), move up or down among the cards (`move-species`), back.
  */
 export function bundleOptions(
 	party: readonly AnimalInstance[],
-	speciesId: string
+	speciesId: string,
+	realm: Realm = 'land'
 ): OptionRow<BundleOption>[] {
 	const list = bundles(party);
 	const place = list.findIndex((b) => b.speciesId === speciesId);
 	const bundle = list[place];
-	const lead = party[leadIndex(party)];
+	const lead = party[leadIndex(party, realm)];
 	return [
 		{
 			id: 'first',
-			enabled: !!bundle && bundle.animals.some((a) => a.hp > 0) && lead?.speciesId !== speciesId
+			enabled:
+				!!bundle &&
+				canFightIn(speciesId, realm) &&
+				bundle.animals.some((a) => a.hp > 0) &&
+				lead?.speciesId !== speciesId
 		},
 		{ id: 'up', enabled: place > 0 },
 		{ id: 'down', enabled: place >= 0 && place < list.length - 1 },

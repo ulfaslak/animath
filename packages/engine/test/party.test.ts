@@ -553,6 +553,43 @@ describe('applyPartyIntent: select-lead', () => {
 			expectRejected(party, applyPartyIntent(party, intent, 'explore'), 'unknown-animal');
 		}
 	});
+
+	it('out on the water, only an animal that swims goes first, and it is the one that fights there', () => {
+		const swims = (a: AnimalInstance) => ANIMALS.find((s) => s.id === a.speciesId)!.realms;
+		const wild: AnimalInstance = { id: 'wild', speciesId: 'otter', hp: 32 };
+		let chosen = 0;
+		let cannot = 0;
+		for (const party of PARTIES) {
+			for (const [from, animal] of party.entries()) {
+				const step = applyPartyIntent(
+					party,
+					{ type: 'select-lead', animalId: animal.id },
+					'explore',
+					'water'
+				);
+				if (!swims(animal).includes('water')) {
+					cannot++;
+					expectRejected(party, step, 'cannot-fight-here', { animalId: animal.id });
+					continue;
+				}
+				if (animal.hp === 0) {
+					expectRejected(party, step, 'tired', { animalId: animal.id });
+					continue;
+				}
+				if (leadIndex(party, 'water') === from) {
+					expectRejected(party, step, 'already-lead', { animalId: animal.id });
+					continue;
+				}
+				chosen++;
+				expect(step.events).toEqual([{ type: 'lead-selected', animalId: animal.id, from }]);
+				expect(leadIndex(step.party, 'water')).toBe(0);
+				const battle = startBattle(step.party, wild, { realm: 'water' });
+				expect(battle.party[battle.active]!.id).toBe(animal.id);
+			}
+		}
+		expect(chosen).toBeGreaterThan(20);
+		expect(cannot).toBeGreaterThan(100);
+	});
 });
 
 describe('applyPartyIntent: lead-species', () => {
@@ -584,6 +621,44 @@ describe('applyPartyIntent: lead-species', () => {
 			}
 		}
 		expect([...seen].sort()).toEqual(['already', 'led', 'tired']);
+	});
+
+	it('out on the water, leads only with a species that swims, as choosing its animal would', () => {
+		const seen = new Set<string>();
+		for (const party of PARTIES) {
+			const lead = party[leadIndex(party, 'water')];
+			for (const bundle of bundles(party)) {
+				const { speciesId } = bundle;
+				const step = applyPartyIntent(
+					party,
+					{ type: 'lead-species', speciesId },
+					'explore',
+					'water'
+				);
+				const standing = bundle.animals.find((a) => a.hp > 0);
+				if (!ANIMALS.find((a) => a.id === speciesId)!.realms.includes('water')) {
+					expectRejected(party, step, 'cannot-fight-here', { speciesId });
+					seen.add('cannot');
+				} else if (lead?.speciesId === speciesId) {
+					expectRejected(party, step, 'already-lead', { animalId: lead.id, speciesId });
+					seen.add('already');
+				} else if (!standing) {
+					expectRejected(party, step, 'tired', { speciesId });
+					seen.add('tired');
+				} else {
+					const chosen = applyPartyIntent(
+						party,
+						{ type: 'select-lead', animalId: standing.id },
+						'explore',
+						'water'
+					);
+					expect(step).toEqual(chosen);
+					expect(step.party[leadIndex(step.party, 'water')]!.id).toBe(standing.id);
+					seen.add('led');
+				}
+			}
+		}
+		expect([...seen].sort()).toEqual(['already', 'cannot', 'led', 'tired']);
 	});
 
 	it('refuses a species that is not in the party, and anything that is not a species', () => {
@@ -926,5 +1001,18 @@ describe('leadIndex', () => {
 		expect(leadIndex(at(0, 0, 1))).toBe(2);
 		expect(leadIndex(at(0, 0))).toBe(-1);
 		expect(leadIndex([])).toBe(-1);
+	});
+
+	it('is the first animal that is standing and can fight where the player stands, or -1', () => {
+		for (const party of PARTIES) {
+			for (const realm of ['land', 'water'] as const) {
+				const expected = party.findIndex(
+					(a) => a.hp > 0 && ANIMALS.find((s) => s.id === a.speciesId)!.realms.includes(realm)
+				);
+				expect(leadIndex(party, realm)).toBe(expected);
+			}
+			// Land unless said otherwise.
+			expect(leadIndex(party)).toBe(leadIndex(party, 'land'));
+		}
 	});
 });
