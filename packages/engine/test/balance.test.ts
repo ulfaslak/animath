@@ -202,6 +202,30 @@ describe('balance simulation', () => {
 		}
 	});
 
+	it('each sea animal is its land twin in numbers, so the land balance holds at sea as it is', () => {
+		const twins: Record<string, string> = {
+			crab: 'rabbit',
+			starfish: 'frog',
+			turtle: 'otter',
+			dolphin: 'deer',
+			octopus: 'wolf',
+			whale: 'bear'
+		};
+		const sea = ANIMALS.filter((a) => !a.realms.includes('land')).map((a) => a.id);
+		expect(Object.keys(twins)).toEqual(sea);
+		const numbers = (id: string) => {
+			const a = getAnimal(id);
+			return [a.tier, a.maxHp, a.catchRate, a.attacks.map((k) => k.power)];
+		};
+		for (const [id, twin] of Object.entries(twins)) expect(numbers(id), id).toEqual(numbers(twin));
+		// The small ones ask sums and number patterns, never a times-table sum.
+		for (const id of sea.filter((s) => tier(s) === 1)) {
+			const kinds = new Set(getAnimal(id).attacks.flatMap((k) => k.kinds));
+			for (const kind of kinds)
+				expect(['add', 'sub', 'sequence'], `${id} asks ${kind}`).toContain(kind);
+		}
+	});
+
 	it('a bear beats a squirrel almost always, even at 70% accuracy, and a whale a crab', () => {
 		expect(simulate('bear', 'squirrel', hardest(0.7)).win).toBeGreaterThan(0.95);
 		expect(simulate('whale', 'crab', hardest(0.7)).win).toBeGreaterThan(0.95);

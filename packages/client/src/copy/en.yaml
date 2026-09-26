@@ -119,6 +119,7 @@ species:
     attacks:
       pinch: Pinch
       claw-clap: Claw Clap
+      crab-walk: Crab Walk
   starfish:
     name: Starfish
     a: a Starfish
@@ -140,7 +141,6 @@ species:
     attacks:
       flipper-flap: Flipper Flap
       shell-bump: Shell Bump
-      shell-spin: Shell Spin
   dolphin:
     name: Dolphin
     a: a Dolphin
@@ -150,7 +150,6 @@ species:
     theWild: the wild Dolphin
     attacks:
       click: Click
-      splash-dive: Splash Dive
       leap: Leap
   octopus:
     name: Octopus

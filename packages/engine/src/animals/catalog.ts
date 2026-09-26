@@ -123,9 +123,14 @@ export const ANIMALS: readonly AnimalSpec[] = [
 	},
 	// The sea animals: they live out on the deep water, in the sea biome, and
 	// only there (realm water), so a kid meets them only from the boat, with
-	// an animal that swims. One tier each from 1 to 5, as on land, with the
-	// numbers of a land animal of their tier; the two small ones ask sums and
-	// counting, never a times table.
+	// an animal that swims. One tier each from 1 to 5, as on land, each the
+	// twin in numbers of the land animal of its tier (HP, catch rate, and its
+	// attacks' number and powers: the crab the rabbit's, the starfish the
+	// frog's, the turtle the otter's, the dolphin the deer's, the octopus the
+	// wolf's, the whale the bear's), so a battle at sea is exactly as hard as
+	// one on land of its size; only what the puzzles ask is their own. The two
+	// small ones ask sums and number patterns, never a times-table sum (a hard
+	// pattern may double, as the rabbit's and the frog's do).
 	{
 		id: 'crab',
 		tier: 1,
@@ -136,14 +141,15 @@ export const ANIMALS: readonly AnimalSpec[] = [
 		favours: 'water',
 		attacks: [
 			{ id: 'pinch', kinds: ['add'], power: 4 },
-			{ id: 'claw-clap', kinds: ['add', 'sub'], power: 7 }
+			{ id: 'claw-clap', kinds: ['add', 'sub'], power: 6 },
+			{ id: 'crab-walk', kinds: ['sequence'], power: 8 }
 		]
 	},
 	{
 		id: 'starfish',
 		tier: 1,
 		maxHp: 21,
-		catchRate: 0.9,
+		catchRate: 0.8,
 		habitats: ['sea'],
 		realms: ['water'],
 		favours: 'water',
@@ -157,14 +163,13 @@ export const ANIMALS: readonly AnimalSpec[] = [
 		id: 'turtle',
 		tier: 2,
 		maxHp: 32,
-		catchRate: 0.6,
+		catchRate: 0.65,
 		habitats: ['sea'],
 		realms: ['water'],
 		favours: 'water',
 		attacks: [
 			{ id: 'flipper-flap', kinds: ['add', 'sub'], power: 5 },
-			{ id: 'shell-bump', kinds: ['mul', 'missing'], power: 7 },
-			{ id: 'shell-spin', kinds: ['sequence'], power: 9 }
+			{ id: 'shell-bump', kinds: ['sequence', 'missing'], power: 9 }
 		]
 	},
 	{
@@ -177,8 +182,7 @@ export const ANIMALS: readonly AnimalSpec[] = [
 		favours: 'water',
 		attacks: [
 			{ id: 'click', kinds: ['sequence', 'add'], power: 8 },
-			{ id: 'splash-dive', kinds: ['mul', 'sub'], power: 11 },
-			{ id: 'leap', kinds: ['div', 'mul'], power: 14 }
+			{ id: 'leap', kinds: ['div', 'mul'], power: 12 }
 		]
 	},
 	{
@@ -191,8 +195,8 @@ export const ANIMALS: readonly AnimalSpec[] = [
 		favours: 'water',
 		attacks: [
 			{ id: 'wiggle', kinds: ['mul'], power: 10 },
-			{ id: 'ink-puff', kinds: ['sequence'], power: 15 },
-			{ id: 'octo-hug', kinds: ['div', 'sqrt'], power: 21 }
+			{ id: 'ink-puff', kinds: ['sequence'], power: 14 },
+			{ id: 'octo-hug', kinds: ['div', 'sqrt'], power: 18 }
 		]
 	},
 	{

@@ -117,6 +117,7 @@ species:
     attacks:
       pinch: Knib
       claw-clap: Kloklap
+      crab-walk: Krabbegang
   starfish:
     name: Søstjerne
     a: en søstjerne
@@ -138,7 +139,6 @@ species:
     attacks:
       flipper-flap: Luffeplask
       shell-bump: Skjoldstød
-      shell-spin: Skjoldsnurr
   dolphin:
     name: Delfin
     a: en delfin
@@ -148,7 +148,6 @@ species:
     theWild: den vilde delfin
     attacks:
       click: Klik
-      splash-dive: Plaskedyk
       leap: Delfinspring
   octopus:
     name: Blæksprutte
