@@ -92,6 +92,9 @@ The same voice for a Danish seven-year-old reading alone: short, warm, one idea 
 - Your own animal is called by its name in a label or a call ("Ræv", "Kom så, Ræv!") and with "the" in a sentence ("Ræven er træt.", "Lad os hjælpe ræven!"). A wild one is "en vild ræv" or "den vilde ræv". A nickname replaces all of them and is never translated.
 - Danish nouns are *en* or *et*, and the article and "vild" follow: en vild ræv / den vilde ræv, but et vildt egern / det vilde egern. Each species' forms are written out in `da.yaml`, so a sentence never guesses. Don't use a pronoun for an animal ("den", "det") where its gender could be either: "Forbi!" rather than "Den ramte ikke", "Snoren gled af!" rather than "Den slap fri".
 - Species names are lower case inside a sentence ("Du fangede et egern!") and capitalised alone, as a name or a label.
+- The adjective after "er" follows the noun too: "spillet er klart", "holdet er fuldt", "egernet er godt til…". A line that can hold any species uses words that don't change with it: "Egernet er mester i plus og minus!", never "er god til".
+- No comma before "og" or "eller" between two commands ("Skriv svaret og tryk på Enter", "Sig farvel og gå på opdagelse") or before the last item of a list ("sætte det forrest, flytte det eller give det et nyt navn"). Two sentences with a subject each keep theirs: "Dit hold er fuldt, så den vilde ræv hopper hjem."
+- Say it the Danish way, not the English one: a hit takes points ("Den vilde ræv mister 4 point."), not "gør 4 i skade"; a switch costs a turn ("Det koster din tur."); a key reminder names what the key does in one word ("Enter vælg"), never "Enter gør det".
 
 | English  | Dansk  | en / et | the …   | a wild …        | the wild …      |
 | -------- | ------ | ------- | ------- | --------------- | --------------- |
@@ -111,18 +114,20 @@ The words the game uses for its things, the same on every screen:
 | tired | træt (trætte) | an animal at 0 HP: the tag, every line about it |
 | wild | vild / vildt / vilde | a wild animal, following its gender |
 | doctor | dyrlæge | the tents, the card ("Dyrlæge"), every line |
-| leash | snor | the battle row ("Snor"), "Du kaster snoren…" |
+| leash | snor | the battle row ("Snor"), its card ("Kast snoren"), "Du kaster snoren…" |
 | catch | fange | "Du fangede en ræv!", "Svært at fange" |
 | team | hold | "Dit hold", "kommer med på dit hold" |
 | goes first | først ud | the lead's tag, "Ræven er først ud!", "Sæt forrest" in the menu |
 | attack | angreb | "Vælg et angreb" |
 | easy / medium / hard | let / mellem / svær | an attack's three levels |
 | puzzle | opgave | "Løs en opgave" (the sum itself needs no words) |
-| switch | skifte | the battle row ("Skift") |
+| switch | skifte | the battle row ("Skift"), its card ("Skift dyr") |
 | run away | løbe væk | the battle row ("Løb væk"), "Du slap væk!" |
 | in battle | på banen | the switch list's tag |
 | Correct! / Not quite! | Rigtigt! / Ikke helt! | every judged answer |
-| damage | skade | "12 i skade." |
+| hits for (damage) | mister … point | every line about a hit, naming the animal hit: "Den vilde ræv mister 12 point." |
+| Go! | Kør! | the battle's button and its keys ("Enter kør"); "Så kører vi!" starts a new game |
+| choose (↑ ↓) | flyt | every key reminder: "↑ ↓ flyt" |
 | Keep playing | Spil videre | the pause menu |
 | Language | Sprog | the pause menu, listing "English" and "Dansk" |
 

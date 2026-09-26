@@ -51,6 +51,7 @@ node scripts/screenshot.mjs --url 'http://localhost:5180/?new' --keys "ArrowRigh
 node scripts/screenshot.mjs --url 'http://localhost:5180/?new' --width 1024 --height 768   # tablet landscape, keyboard
 node scripts/screenshot.mjs --touch --url 'http://localhost:5180/?new&debug' --width 1024 --height 768 --keys "tap:.dpad .right,touch:.dpad .down:1500,tap:.talk-button"   # a touch tablet: the D-pad, Talk
 node scripts/screenshot.mjs --url 'http://localhost:5180/?zoo' --scale 3 --clip 350,300,420,260   # every animal figure, magnified 3× (same camera)
+node scripts/screenshot.mjs --url 'http://localhost:5180/?zoo=tired' --wait 4000 --scale 3 --clip 350,300,420,260   # every animal lying down to rest
 node scripts/screenshot.mjs --reduced-motion   # as a system that asks for less motion
 ```
 
