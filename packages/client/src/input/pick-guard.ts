@@ -1,8 +1,8 @@
 /**
  * The one guard every screen that puts up a choice keeps on its picks: the
  * battle's menu, its switch lists and its result card, the doctor's list, the
- * title's confirm, starters and name box, and Talk in explore (UI_SPEC § Battle
- * mode, "A quiet moment"). A choice takes a pick only after a quiet moment:
+ * title's confirm, starters and name box, and Talk in explore ([[UI_SPEC]] §
+ * Battle mode, "A quiet moment"). A choice takes a pick only after a quiet moment:
  * `PICK_QUIET_SECONDS` of frame time since it came up on screen, and since the
  * last key a kid mashes (Enter, Space or a number key), whether that press
  * counted or not. So a key mashed through the battle text, a result or a
