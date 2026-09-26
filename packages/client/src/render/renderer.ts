@@ -1,6 +1,7 @@
 import { tileAtWorld, type Direction, type GridPos } from '@mathgame/engine';
 import * as THREE from 'three';
 import { motion } from '../motion';
+import { Butterflies } from './ambient';
 import { animateIdle, animateWalk, buildPlayerMesh } from './animals';
 import { ChunkRing } from './chunks';
 import { COLORS } from './palette';
@@ -45,6 +46,10 @@ export class GameRenderer {
 	private step = { progress: 1, stride: 1 as 1 | -1 };
 	/** While set, this scene is drawn instead of the world. */
 	private stage: Stage | null = null;
+	/** A few butterflies round the middle of the screen (`ambient.ts`). */
+	private butterflies = new Butterflies(this.scene);
+	/** When the world was last drawn, in seconds, for the butterflies' time step. */
+	private lastT = -1;
 
 	constructor(private canvas: HTMLCanvasElement) {
 		this.renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
@@ -89,6 +94,7 @@ export class GameRenderer {
 		if (seed === this.seed && this.chunks.size > 0) return;
 		this.seed = seed;
 		this.chunks.reset(seed);
+		this.butterflies.setWorld(seed);
 	}
 
 	ensureChunksAround(pos: GridPos): void {
@@ -169,6 +175,9 @@ export class GameRenderer {
 		animateIdle(this.player, t);
 		animateWalk(this.player, this.step.progress, this.step.stride, motion.reduced ? 0.4 : 1);
 		for (const f of this.figures) animateIdle(f, t, this.camera);
+		const dt = this.lastT < 0 ? 0 : Math.min(0.1, Math.max(0, t - this.lastT));
+		this.lastT = t;
+		this.butterflies.update({ x: this.cameraTarget.x, z: this.cameraTarget.z }, dt, t);
 		this.placeCamera();
 		this.sun.position.copy(this.cameraTarget).add(new THREE.Vector3(12, 20, 8));
 		this.sun.target.position.copy(this.cameraTarget);

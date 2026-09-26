@@ -18,6 +18,7 @@
 	import { messageWords, words } from '../lines';
 	import { animalWords, nameOf } from '../names';
 	import { battle } from '../state/battle.svelte';
+	import Celebration from './Celebration.svelte';
 	import HpBar from './HpBar.svelte';
 	import PuzzlePanel from './PuzzlePanel.svelte';
 
@@ -160,6 +161,16 @@
 	function sentences(text: string): string[] {
 		return text.split(/(?<=[.!?])\s+/);
 	}
+
+	/**
+	 * How the result card celebrates: big for an animal that joined the team
+	 * (its name in big letters, a burst of rays, stars), small for a win or a
+	 * good throw that went home (a few stars round the headline).
+	 */
+	const celebration = $derived.by(() => {
+		if (battle.outcome === 'caught') return battle.letGo ? 'small' : 'big';
+		return battle.outcome === 'won' ? 'small' : null;
+	});
 
 	const headline = $derived.by(() => {
 		switch (battle.outcome) {
@@ -395,6 +406,9 @@
 	<!-- All of it is the button: a tap anywhere goes on, as Enter does (and waits as Enter waits). -->
 	<button type="button" class="result" onclick={() => press('Enter')} {@attach unfocusable}>
 		<span class="card result-card">
+			{#if celebration}
+				<Celebration kind={celebration} name={opponent ? nameOf(opponent) : ''} />
+			{/if}
 			<span class="result-title">{headline}</span>
 			{#if battle.closing}
 				<span class="result-text">{messageWords(battle.closing)}</span>
