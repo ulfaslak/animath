@@ -5,6 +5,8 @@ import { parse } from 'yaml';
 // TUNNEL=1 lets an ngrok / cloudflared hostname reach the dev server (Vite
 // blocks unknown hosts by default). Only set it while a tunnel is up.
 const tunnel = process.env.TUNNEL === '1';
+// API_PORT points the proxy at another API server, e.g. a worktree's own.
+const apiPort = process.env.API_PORT ?? '3000';
 
 /**
  * `import en from './en.yaml'` gives the file's data. The YAML is parsed here,
@@ -31,8 +33,8 @@ export default defineConfig({
 		strictPort: true,
 		allowedHosts: tunnel ? true : undefined,
 		proxy: {
-			'/api': 'http://localhost:3000',
-			'/ws': { target: 'ws://localhost:3000', ws: true }
+			'/api': `http://localhost:${apiPort}`,
+			'/ws': { target: `ws://localhost:${apiPort}`, ws: true }
 		}
 	},
 	build: {

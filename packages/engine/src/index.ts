@@ -75,3 +75,24 @@ export { LINES } from './lines.js';
 export type { AnimalRef, Line, LineKey, LineParam } from './lines.js';
 
 export type { Authority, GameEvent, Intent } from './protocol.js';
+
+export {
+	MAX_SAVED_NICKNAME_LENGTH,
+	MAX_SAVE_ID_LENGTH,
+	SAVE_VERSION,
+	STARTER_SPECIES,
+	canReplace,
+	newGame,
+	readBattle,
+	readSave,
+	replacesAnotherGame,
+	restoreGame,
+	sameProgress,
+	saveDocument,
+	saveExtras,
+	saveLineage,
+	saveSeq,
+	validateSave,
+	validateSaveWrite
+} from './save.js';
+export type { SaveCheck, SaveRead, SaveV1, SaveWrite, SavedGame } from './save.js';

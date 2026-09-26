@@ -30,6 +30,15 @@ Health check: `curl localhost:3000/api/health` → `{"ok":true,"db":true}`.
 
 Production shape: `pnpm build` then `pnpm -F @mathgame/server start` serves the built client from `packages/client/dist` and the API from one process.
 
+The game saves in the browser without the API; the API only holds the backup ([[ARCHITECTURE]] § Saving). From a worktree, run your own API on a free port against your own database and point your Vite at it:
+
+```bash
+DATABASE_URL=postgres://postgres:postgres@localhost:5433/<yours> PORT=3021 pnpm dev:server
+API_PORT=3021 pnpm -F @mathgame/client exec vite --port 5191 --strictPort
+```
+
+A browser's save lives under the page's address: `localhost:5180`, `localhost:5191` and the tunnel link are three separate games, each with its own `localStorage`.
+
 ## Looking at the game
 
 ```bash
@@ -40,6 +49,8 @@ node scripts/screenshot.mjs --url 'http://localhost:5180/?zoo' --scale 3 --clip 
 ```
 
 Headless Chrome via `playwright-core`, WebGL through SwiftShader. The script exits non-zero and prints console errors (and warnings) if the page logged any. **Read the image** — a saved file you never looked at verifies nothing. The `/play` command wraps this.
+
+Every run is a fresh browser: a new player and a new game, so walks from the start always behave the same. `reload:` keeps the game (the save is in the page's `localStorage`), which is how to check that something survives a reload. API calls that fail (no API server behind the proxy, a `409`) are listed at the end and do not fail the run; the game plays and saves without the API. `?new` plays a game that touches neither storage nor the API.
 
 `--keys` is a comma-separated script run in order. A plain token is a key name, optionally `*n` to repeat it (`ArrowRight*5`, `Enter`, `3`). The rest take an argument:
 
@@ -98,7 +109,7 @@ All code is written by agents; the human reviews PRs and plays the game but does
 
 **Simulate balance, don't guess it.** When a change touches damage, HP, catch rates or difficulty, write (or run) a small simulation in `packages/engine/test/` or a scratch script: N battles between species pairs, win rates, average turns, catch attempts to success. Paste the table in the PR. A number in [[PRODUCT]] §4 that was never simulated is a guess.
 
-**Client**: no unit tests for rendering. Verification is a screenshot you read (see above), at the default viewport and at 1024×768. Pure client helpers (input mapping, tweens) may get vitest tests if they grow logic; Svelte components don't. `test/animals.test.ts` pins the figure contract (every catalog species builds, feet on `y = 0`, flat-shaded) because a species added to the engine without a figure would otherwise only fail at run time. `test/local-authority.test.ts` drives the real `LocalAuthority` over the real engine (the authority's rules around the engine: encounters, outcomes, the party cap, facing, the doctor visit, the trip to the tent), and `test/battle-controller.test.ts` and `test/doctor-controller.test.ts` press keys at the battle screen and the doctor's card against it — the input and pacing rules a screenshot can't pin (held keys, empty answers, mashing, stale events, keys during a beat). All read puzzle answers from the events, never from a hard-coded list. `test/hud.test.ts` pins the message line's timing and hints. `test/css-vars.test.ts` fails when a component reads a CSS custom property that `styles.css` never defines — the browser, `svelte-check` and the build all accept that silently. `test/copy-files.test.ts` and `test/hardcoded-text.test.ts` hold the copy rules in § Copy and languages; they parse the source (Svelte's and TypeScript's parsers, `test/source.ts`) rather than grep it, so a comment that mentions a key or a word never counts.
+**Client**: no unit tests for rendering. Verification is a screenshot you read (see above), at the default viewport and at 1024×768. Pure client helpers (input mapping, tweens) may get vitest tests if they grow logic; Svelte components don't. `test/animals.test.ts` pins the figure contract (every catalog species builds, feet on `y = 0`, flat-shaded) because a species added to the engine without a figure would otherwise only fail at run time. `test/local-authority.test.ts` drives the real `LocalAuthority` over the real engine (the authority's rules around the engine: encounters, outcomes, the party cap, facing, the doctor visit, the trip to the tent, games restored from a save), `test/autosave.test.ts` drives the autosave against a `localStorage` stand-in shared by several tabs and a server stand-in running the engine's real write guard, with fake timers, and `test/battle-controller.test.ts` and `test/doctor-controller.test.ts` press keys at the battle screen and the doctor's card against it — the input and pacing rules a screenshot can't pin (held keys, empty answers, mashing, stale events, keys during a beat). All read puzzle answers from the events, never from a hard-coded list. `test/hud.test.ts` pins the message line's timing and hints. `test/css-vars.test.ts` fails when a component reads a CSS custom property that `styles.css` never defines — the browser, `svelte-check` and the build all accept that silently. `test/copy-files.test.ts` and `test/hardcoded-text.test.ts` hold the copy rules in § Copy and languages; they parse the source (Svelte's and TypeScript's parsers, `test/source.ts`) rather than grep it, so a comment that mentions a key or a word never counts.
 
 **Server**: integration tests in `packages/server/test/*.test.ts` drive the real app through `app.request()` against a real `mathgame_test` database — no mocks below the HTTP layer. `test/global-setup.ts` creates the database on the same Postgres if missing, applies the journaled migrations and truncates it, and `vitest.config.ts` injects its URL as `DATABASE_URL`, so a test can never touch `mathgame`. Each test creates its own player, so tests share no rows. Mock the DB only for what cannot be exercised for real (`src/app.test.ts` mocks `pingDb` to see the 503).
 
@@ -152,6 +163,16 @@ Local Postgres runs in Docker (`docker-compose.yml`, host port 5433, database `m
 
 The server test suite uses a second database on the same instance, `mathgame_test`, created and migrated by the tests themselves (see § Testing ideology). `TEST_DATABASE_URL` overrides its URL; the name must end in `_test`.
 
+**Getting a kid's game back.** Every save the server was about to lose is in `save_backups`: one a different game replaced (`reason = 'replaced'`) or one the server could not read (`'unreadable'`). Find the player (the kid's browser holds the id in `localStorage['animath.player']`), look at their rows, and put one back with a `seq` far above the current save's. The browser's own save can be ahead of the server's copy, and at its next start the browser takes the server's game only when its `seq` is higher:
+
+```sql
+select id, reason, created_at, data->>'seq' as seq, data->'party' as party
+  from save_backups where player_id = '<id>' order by id;
+update saves set data = jsonb_set(b.data, '{seq}', to_jsonb((saves.data->>'seq')::int + 1000000)), updated_at = now()
+  from save_backups b where b.id = <backup id> and saves.player_id = b.player_id;
+```
+
+The browser keeps its own set-aside copies too: `animath.save.unreadable` (a save it could not read) and `animath.save.replaced` (its game, when a bigger one came from the server), each followed by `.2`, `.3`, … when the key was taken, oldest first.
 ### Migrations
 
 Hand-written SQL, applied by `pnpm db:migrate` (`drizzle-orm`'s migrator, journal-driven).
@@ -168,11 +189,13 @@ Never run `drizzle-kit generate` in a worktree (it emits a full `0000` dump that
 Until there is a deploy, the game is shared from this machine:
 
 ```bash
-TUNNEL=1 pnpm dev:client       # lets Vite accept the tunnel hostname
+TUNNEL=1 pnpm dev              # both dev servers; TUNNEL lets Vite accept the tunnel hostname
 ngrok http 5180                # or: cloudflared tunnel --url http://localhost:5180
 ```
 
 Send the printed URL. The API is reached through Vite's proxy, so one tunnel is enough. Installing and authenticating the tunnel client is a human task ([[HUMAN_TODO]]).
+
+Each kid's game is saved in their own browser, under the link they opened, and backed up to this machine's database when the API is running (`pnpm dev` starts both; with only `pnpm dev:client` the games are still saved, just not backed up). So keep sending the same link. ngrok's free plan gives the account one fixed `….ngrok-free.dev` address, reused on every `ngrok http 5180`; a new address, `localhost`, or another tunnel is a different place, where the kid starts a new game and their old one waits under the old address.
 
 ## Deployment
 

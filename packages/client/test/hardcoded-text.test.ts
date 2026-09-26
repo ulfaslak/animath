@@ -128,6 +128,15 @@ describe('hardcoded text in Svelte templates', () => {
 	});
 });
 
+/**
+ * Modules whose worded literals are for machines and developers, and why. A
+ * player never reads them; anything a player reads is a copy key.
+ */
+const FOR_DEVELOPERS: Readonly<Record<string, string>> = {
+	'src/save/api.ts':
+		"HTTP: the server's error bodies it compares ('no save yet'), the Authorization header, status notes for the console"
+};
+
 describe('worded literals in TypeScript', () => {
 	it('finds sentences, and skips errors, console lines, keys and sums', () => {
 		const source = `
@@ -158,7 +167,9 @@ describe('worded literals in TypeScript', () => {
 			)
 		);
 		// The copy engine handles text by trade; its only literals are for developers.
-		const modules = [...tsSources].filter(([file]) => !file.startsWith('src/copy/'));
+		const modules = [...tsSources].filter(
+			([file]) => !file.startsWith('src/copy/') && !(file in FOR_DEVELOPERS)
+		);
 		expect(modules.length).toBeGreaterThan(10);
 		const found = [...modules, ...scripts].flatMap(([file, source]) =>
 			wordedLiterals(file, source)
@@ -168,5 +179,6 @@ describe('worded literals in TypeScript', () => {
 			'A sentence in code. Put it in src/copy/en.yaml and da.yaml, and keep what the screen says as ' +
 				'a Line or a copy key (DEVELOPMENT § Copy and languages).'
 		).toEqual([]);
+		for (const file of Object.keys(FOR_DEVELOPERS)) expect([...tsSources.keys()]).toContain(file);
 	});
 });

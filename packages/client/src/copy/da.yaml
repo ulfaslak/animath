@@ -228,3 +228,13 @@ pause:
   keysLanguage: ↑ ↓ flyt · ← → eller Enter skift sprog · Esc luk
   keysOptions: ↑ ↓ flyt · Enter gør det · Esc tilbage
   keysNaming: Enter gem · Esc tilbage
+
+save:
+  # On the message line when a saved game is picked up.
+  welcomeBack: Velkommen tilbage!
+  # The saved game could not be read. It is kept aside; this is a new game.
+  couldNotLoad: Dit gemte spil virkede ikke, så her er et nyt.
+  # The saved game was written by a newer version of the game than this page.
+  newerGame: Dit spil er gemt af en nyere Animath. Genindlæs siden for at spille det!
+  # The browser will not let the page store anything, so nothing is saved.
+  cannotSave: Denne browser kan ikke gemme dit spil, så det starter forfra hver gang.

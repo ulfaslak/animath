@@ -52,6 +52,15 @@ export function wordedLiterals(file: string, source: string): string[] {
 const root = join(import.meta.dirname, '..', 'src');
 const files = walk(root);
 
+/**
+ * Files whose worded literals are for developers, and why. A player never
+ * reads them; anything a player reads is a copy key.
+ */
+const FOR_DEVELOPERS: Readonly<Record<string, string>> = {
+	'save.ts':
+		"the save validator's messages ('party must be a list') answer the API as { error } and go to the console"
+};
+
 describe('the engine holds no words', () => {
 	it('finds worded literals, and skips errors, prompts and comments', () => {
 		const source = `
@@ -74,8 +83,14 @@ describe('the engine holds no words', () => {
 
 	for (const file of files) {
 		const rel = file.slice(root.length + 1);
+		if (rel in FOR_DEVELOPERS) continue;
 		it(`${rel} has no worded string literals`, () => {
 			expect(wordedLiterals(rel, readFileSync(file, 'utf8'))).toEqual([]);
 		});
 	}
+
+	it('every file excused for developers exists', () => {
+		const rels = files.map((f) => f.slice(root.length + 1));
+		for (const rel of Object.keys(FOR_DEVELOPERS)) expect(rels).toContain(rel);
+	});
 });

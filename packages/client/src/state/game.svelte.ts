@@ -16,7 +16,7 @@ class GameView {
 	playerId = $state<string>('');
 	seed = $state<number>(0);
 	pos = $state<GridPos>({ x: 0, y: 0 });
-	/** The way the player faces: down from `welcome`, then every move's direction, walked or blocked. */
+	/** The way the player faces: `welcome`'s facing, then every move's direction, walked or blocked. */
 	facing = $state<Direction>('down');
 	/**
 	 * Steps walked since `welcome` (the controls hint counts them). Bumps are
@@ -31,7 +31,7 @@ class GameView {
 				this.playerId = event.playerId;
 				this.seed = event.seed;
 				this.pos = event.pos;
-				this.facing = 'down';
+				this.facing = event.facing;
 				this.steps = 0;
 				this.party = event.party;
 				this.mode = 'explore';

@@ -10,6 +10,7 @@ import {
 	hashString,
 	isWalkable,
 	leadIndex,
+	newGame,
 	normalizeNickname,
 	rollEncounter,
 	spawnPoint,
@@ -33,8 +34,12 @@ import {
 	type Line,
 	type PartyIntent,
 	type PlayerActivity,
-	type Rescue
+	type Rescue,
+	type SavedGame
 } from '@mathgame/engine';
+
+/** The prototype world. Every new game is played in it; a save carries its own seed. */
+export const WORLD_SEED = hashString('prototype');
 
 /**
  * Salts keep the per-step encounter roll, the battle seed and the doctor's
@@ -55,6 +60,11 @@ export interface LocalAuthorityOptions {
 	party?: readonly AnimalInstance[];
 }
 
+/** How a session begins: a saved game to pick up, or a new game when absent. */
+export interface StartOptions {
+	game?: SavedGame;
+}
+
 /**
  * Single-player authority: applies the rules in-process and emits events.
  *
@@ -69,55 +79,119 @@ export interface LocalAuthorityOptions {
  * running the same code would agree with it. The one exception is the id an
  * animal gets when it is caught, which must be unique across sessions and is
  * therefore minted, not derived.
+ *
+ * The whole game fits in a `SavedGame`: `snapshot()` takes one at any moment,
+ * a battle included, and `start({ game })` picks it up again, so a save
+ * continues the same step count, and a battle the same intents, as if the
+ * page had never reloaded.
  */
 export class LocalAuthority implements Authority {
 	private listeners = new Set<(e: GameEvent) => void>();
 	private readonly playerId = 'local';
-	private readonly seed = hashString('prototype');
+	private seed = WORLD_SEED;
 	private spawn: GridPos = { x: 0, y: 0 };
 	private pos: GridPos = { x: 0, y: 0 };
 	/**
-	 * The way the player faces, as the client shows it: down from `welcome`
-	 * until the first `move`, then the direction of every move, walked or
-	 * blocked, and the direction of `taken-to-doctor`. `interact` talks to a
-	 * doctor only when this faces a tent.
+	 * The way the player faces, as the client shows it: `down` in a new game
+	 * (the saved facing in a restored one), then the direction of every
+	 * move, walked or blocked, and the direction of `taken-to-doctor`.
+	 * `interact` talks to a doctor only when this faces a tent.
 	 */
 	private facing: Direction = 'down';
 	private party: AnimalInstance[] = [];
-	/** Completed steps this session. Keys the encounter roll and the battle and doctor seeds. */
+	/** Completed steps in this game, saved with it. Keys the encounter roll and the battle and doctor seeds. */
 	private steps = 0;
-	/** Doctor visits opened this session, so a second visit at the same step asks new puzzles. */
+	/** Doctor visits opened in this game, saved with it, so a later visit at the same step asks new puzzles. */
 	private visits = 0;
 	/** The battle in progress, with the seed every intent of it is applied with. */
 	private battle: { state: BattleState; seed: number } | null = null;
+	/** Intents before `start` have no game to act on. */
+	private started = false;
 	/**
 	 * The doctor visit in progress: its number (every event of it carries
-	 * that) and its seed, which like the battle's never leaves here.
+	 * that) and its seed, which like the battle's never leaves here. Not
+	 * saved: a reload closes the visit, and what it healed is in the party.
 	 */
 	private doctor: { visit: number; state: DoctorState; seed: number } | null = null;
 
 	constructor(private readonly options: LocalAuthorityOptions = {}) {}
 
-	start(): void {
+	/**
+	 * Begin a game: a new one, or `options.game` from a save. Emits `welcome`,
+	 * then `battle-started` if the save was taken mid-battle.
+	 */
+	start(options: StartOptions = {}): void {
+		const game = options.game ?? this.newGame();
+		this.seed = game.seed;
 		this.spawn = spawnPoint(this.seed);
-		this.pos = this.spawn;
-		this.facing = 'down';
-		// A party from outside (`?party=`, later a save) enters through the
-		// engine's name cleaning, like a rename: the party only ever holds
-		// cleaned nicknames, so every screen can show one as stored.
-		this.party = this.options.party?.length
-			? this.options.party.map(withCleanNickname)
-			: [{ id: 'starter', speciesId: 'squirrel', hp: 20 }];
+		this.pos = { x: game.pos.x, y: game.pos.y };
+		this.facing = game.facing;
+		this.steps = game.steps;
+		this.visits = game.visits;
+		// A party from outside (`?party=`, a save) enters through the engine's
+		// name cleaning, like a rename: the party only ever holds cleaned
+		// nicknames, so every screen can show one as stored.
+		this.party = game.party.map(withCleanNickname);
+		this.battle = null;
+		this.doctor = null;
+		this.started = true;
 		this.emit({
 			type: 'welcome',
 			playerId: this.playerId,
 			seed: this.seed,
-			pos: this.pos,
+			pos: { ...this.pos },
+			facing: this.facing,
 			party: this.partyCopy()
 		});
+		if (game.battle) {
+			// The battle's seed is the one it started with: the steps have not moved since.
+			this.battle = { state: game.battle, seed: this.battleSeed() };
+			this.emit({ type: 'battle-started', state: game.battle });
+		}
+	}
+
+	/**
+	 * The game as it stands, for a save. Mid-battle the party is the battle's,
+	 * HP as it is now, and the battle comes too (its state, never its seed).
+	 * A doctor visit is not saved; what it healed already is in the party.
+	 */
+	snapshot(): SavedGame {
+		const party = this.battle ? this.battle.state.party : this.party;
+		return {
+			seed: this.seed,
+			pos: { ...this.pos },
+			facing: this.facing,
+			steps: this.steps,
+			visits: this.visits,
+			party: party.map((a) => ({ ...a })),
+			battle: this.battle ? this.battle.state : null
+		};
+	}
+
+	/**
+	 * Another tab of this game walked further, and the save this page carries
+	 * on from has its counts: raise this page's to them, so its next
+	 * encounters and doctor puzzles follow on instead of repeating. Never
+	 * lowers a count, and leaves a battle or visit in progress alone (their
+	 * seeds are fixed already).
+	 */
+	catchUp(counts: { steps: number; visits: number }): void {
+		if (this.battle || this.doctor) return;
+		this.steps = Math.max(this.steps, counts.steps);
+		this.visits = Math.max(this.visits, counts.visits);
+	}
+
+	/** A new game in the prototype world, with the `?party=` party when there is one. */
+	private newGame(): SavedGame {
+		const game = newGame(WORLD_SEED);
+		// An empty `?party=` is no party: the starter, as without one.
+		return this.options.party?.length
+			? { ...game, party: this.options.party.map((a) => ({ ...a })) }
+			: game;
 	}
 
 	dispatch(intent: Intent): void {
+		if (!this.started) return;
 		if (intent.type === 'party') {
 			// In any mode: the engine is told what the player is doing and refuses
 			// an edit outside explore itself.
@@ -188,8 +262,13 @@ export class LocalAuthority implements Authority {
 
 	private beginBattle(wild: AnimalInstance): void {
 		const state = startBattle(this.party, wild);
-		this.battle = { state, seed: hashInts(this.seed, BATTLE_SALT, this.steps) };
+		this.battle = { state, seed: this.battleSeed() };
 		this.emit({ type: 'battle-started', state });
+	}
+
+	/** The seed of a battle that starts on the current step. */
+	private battleSeed(): number {
+		return hashInts(this.seed, BATTLE_SALT, this.steps);
 	}
 
 	private applyBattle(intent: BattleIntent): void {
@@ -344,7 +423,7 @@ function withCleanNickname(animal: AnimalInstance): AnimalInstance {
  * A fresh instance id. `crypto.randomUUID` needs a secure context, which a
  * LAN address over plain http is not, so fall back to random bytes there.
  */
-function mintId(): string {
+export function mintId(): string {
 	const c = globalThis.crypto;
 	if (typeof c.randomUUID === 'function') return c.randomUUID();
 	const bytes = c.getRandomValues(new Uint8Array(16));
