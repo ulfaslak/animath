@@ -42,15 +42,15 @@ A browser's save lives under the page's address: `localhost:5180`, `localhost:51
 ## Looking at the game
 
 ```bash
-node scripts/screenshot.mjs --out screenshots/what-i-changed.png
-node scripts/screenshot.mjs --keys "ArrowRight*5,ArrowDown*2" --out screenshots/after-walk.png
-node scripts/screenshot.mjs --width 1024 --height 768   # tablet landscape
+node scripts/screenshot.mjs --out screenshots/title.png   # a fresh browser: the title, New game only
+node scripts/screenshot.mjs --url 'http://localhost:5180/?new' --keys "ArrowRight*5,ArrowDown*2" --out screenshots/after-walk.png
+node scripts/screenshot.mjs --url 'http://localhost:5180/?new' --width 1024 --height 768   # tablet landscape
 node scripts/screenshot.mjs --url 'http://localhost:5180/?zoo' --scale 3 --clip 400,320,360,230   # every animal figure, magnified 3× (same camera)
 ```
 
 Headless Chrome via `playwright-core`, WebGL through SwiftShader. The script exits non-zero and prints console errors (and warnings) if the page logged any. **Read the image** — a saved file you never looked at verifies nothing. The `/play` command wraps this.
 
-Every run is a fresh browser: a new player and a new game, so walks from the start always behave the same. `reload:` keeps the game (the save is in the page's `localStorage`), which is how to check that something survives a reload. API calls that fail (no API server behind the proxy, a `409`) are listed at the end and do not fail the run; the game plays and saves without the API. `?new` plays a game that touches neither storage nor the API.
+Every run is a fresh browser: a new player with no game, so the page opens on the title with New game only. `?new` (like `?party=` and `?zoo`) skips the title into a throwaway game at the spawn tile with a squirrel, which touches neither storage nor the API, so walks from the start always behave the same. For a game that is saved, go through the title as a kid does: `Enter,wait:3000,Enter,wait:3000,Enter,wait:4000` is New game, the first starter, no name (the starters and the name box ignore Enter for half a second of game time, which a loaded machine stretches; see [[ENVIRONMENT_NOTES]]). `reload:` keeps the game (the save is in the page's `localStorage`) and comes back to the title, where `Enter` is Continue: that is how to check that something survives a reload. API calls that fail (no API server behind the proxy, a `409`) are listed at the end and do not fail the run; the game plays and saves without the API.
 
 `--keys` is a comma-separated script run in order. A plain token is a key name, optionally `*n` to repeat it (`ArrowRight*5`, `Enter`, `3`). The rest take an argument:
 
@@ -65,7 +65,7 @@ Every run is a fresh browser: a new player and a new game, so walks from the sta
 | `size:<w>x<h>`     | resizes the window mid-run                                                              |
 | `reload:`          | reloads the page                                                                        |
 
-After every frame the script prints what the screen says: the message line in explore (`hud:`), with `?debug` in the URL the grid position and facing (`at:`), and the party cards (`party:`, the lead in brackets); in the pause menu its rows (the lit one in brackets), the picked animal's options (greyed ones in parentheses), the name box with whether it has the focus, and the notes under it; at the doctor the doctor's line and the party (the highlighted row in brackets); in a battle the status boxes, the menu (the highlighted row in brackets; each attack with its level word, greyed rows marked) or the switch list in its place (`switch:`), the narration line, the puzzle, the typed answer, the judgement and the result card — so a run can be checked from its output as well as its images.
+After every frame the script prints what the screen says: on the title its menu (`title:`, the lit row in brackets), the confirm (`confirm:`), the starters' name tags (`starters:`, the lit one in brackets), the card under them (`starter:`) and its notes; the message line in explore (`hud:`), with `?debug` in the URL the grid position and facing (`at:`), and the party cards (`party:`, the lead in brackets); in the pause menu its rows (the lit one in brackets), the picked animal's options (greyed ones in parentheses), the name box with whether it has the focus, and the notes under it; at the doctor the doctor's line and the party (the highlighted row in brackets); in a battle the status boxes, the menu (the highlighted row in brackets; each attack with its level word, greyed rows marked) or the switch list in its place (`switch:`), the narration line, the puzzle, the typed answer, the judgement and the result card — so a run can be checked from its output as well as its images.
 
 `?party=` starts the game with any party (`?party=squirrel:5,rabbit:0,fox`: species, then HP, full by default), for screens that need a big or hurt one; `?debug` and `?party=` combine (see [[CHEATSHEET]] § Hidden behaviour).
 
@@ -75,10 +75,10 @@ After every frame the script prints what the screen says: the message line in ex
 node scripts/screenshot.mjs --url 'http://localhost:5180/?debug&party=squirrel:5,rabbit:0,fox' --keys "ArrowRight*7,ArrowDown,shot:prompt,Enter,wait:700,shot:card,Enter,wait:500,shot:puzzle,Escape" --out screenshots/doctor.png
 ```
 
-**Playing a battle.** The 11th step of Left, Right, Left, … from the start always meets a rabbit while the starting squirrel leads (see [[CHEATSHEET]] § Finding a battle fast; the animal changes whenever the encounter tables or the lead do, and `local-authority.test.ts` pins it). Walk in, look, run away:
+**Playing a battle.** The 11th step of Left, Right, Left, … from the start always meets a rabbit while a starter leads (see [[CHEATSHEET]] § Finding a battle fast; the animal changes whenever the encounter tables or the lead do, and `local-authority.test.ts` pins it). Walk in, look, run away:
 
 ```bash
-node scripts/screenshot.mjs --keys "ArrowLeft,ArrowRight,ArrowLeft,ArrowRight,ArrowLeft,ArrowRight,ArrowLeft,ArrowRight,ArrowLeft,ArrowRight,ArrowLeft,wait:8000,shot:menu,ArrowUp,Enter,wait:4000,shot:result,Enter" --out screenshots/ran.png
+node scripts/screenshot.mjs --url 'http://localhost:5180/?new' --keys "ArrowLeft,ArrowRight,ArrowLeft,ArrowRight,ArrowLeft,ArrowRight,ArrowLeft,ArrowRight,ArrowLeft,ArrowRight,ArrowLeft,wait:8000,shot:menu,ArrowUp,Enter,wait:4000,shot:result,Enter" --out screenshots/ran.png
 ```
 
 To attack, press the level key on the highlighted attack (`1`, or `ArrowDown,3` for the second attack at level 3), then `wait:1500,type:<answer>,Enter,wait:9000`. Answering wrong on purpose (a loss) needs no answers. Puzzles are seeded like everything else, so the same keys meet the same puzzles: to learn the right answers, replay the same walk and intents against the client's `LocalAuthority` (`packages/client/src/authority/local.ts`) in a throwaway script run with `packages/server/node_modules/.bin/tsx`, and read each `puzzle-shown` event's `puzzle.answer`. Answers change whenever the puzzle generators do, so never hard-code them in docs or tests.
@@ -151,7 +151,7 @@ A key missing from Danish shows in English and logs one warning in the console, 
 
 ### Looking at the game in another language
 
-`?lang=da` (or `?lang=en`) picks the language for that visit without remembering it: `node scripts/screenshot.mjs --url 'http://localhost:5180/?lang=da'`. Without it, the game starts in the language chosen before on this device, else the browser's. With the dev server running, an edited copy file changes the words on screen in place, without a reload.
+`?lang=da` (or `?lang=en`) picks the language for that visit without remembering it: `node scripts/screenshot.mjs --url 'http://localhost:5180/?lang=da'`. Without it, the game starts in the language chosen before on this device (the title's Language row), else the browser's. With the dev server running, an edited copy file changes the words on screen in place, without a reload.
 
 ## Database
 
@@ -168,7 +168,7 @@ update saves set data = jsonb_set(b.data, '{seq}', to_jsonb((saves.data->>'seq')
   from save_backups b where b.id = <backup id> and saves.player_id = b.player_id;
 ```
 
-The browser keeps its own set-aside copies too: `animath.save.unreadable` (a save it could not read) and `animath.save.replaced` (its game, when a bigger one came from the server), each followed by `.2`, `.3`, … when the key was taken, oldest first.
+The browser keeps its own set-aside copies too: `animath.save.unreadable` (a save it could not read), `animath.save.replaced` (its game, when a bigger one came from the server) and `animath.save.previous` (a game the kid left for New game on the title), each followed by `.2`, `.3`, … when the key was taken, oldest first. To give a kid back a game they left, in their browser's developer tools copy that text into `animath.save` with its `seq` raised above the current save's (and above the server's, or the server's newer game wins at the next start), then reload: the title offers it as Continue.
 ### Migrations
 
 Hand-written SQL, applied by `pnpm db:migrate` (`drizzle-orm`'s migrator, journal-driven).

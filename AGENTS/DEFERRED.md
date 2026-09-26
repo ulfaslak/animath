@@ -90,3 +90,11 @@ Technical items we've intentionally postponed: tech debt, hardening shortcuts, k
 **Why deferred**: removing them changes the engine's state shapes and its tests, which is its own PR; nothing reads them, so they cost nothing but bytes.
 
 **Trigger**: the copy extraction (the follow-up to the copy files, PR #16, that moves the game's words into `copy/`). Drop the three fields (or turn them into data the client words) there, and move the authority's own `message` texts (the battle results in `LocalAuthority.endBattle`) to keys at the same time.
+
+### A browser keeps at most 20 games left for a new one
+
+**What**: New game on the title moves the saved game to the first free slot of `animath.save.previous` (`.2` … `.20`) and never writes over one. With all twenty taken, the saved game stays in `animath.save` and the new game is not saved in the browser: it plays, is backed up to the server when that is reachable, and after a reload the title offers the old game again (or the server's copy of the new one, once the backup has landed and the page has settled with it). Nothing is lost, but a kid who has started twenty new games in one browser finds the twenty-first doesn't stick without a server.
+
+**Why deferred**: twenty deliberate new games, each behind a confirm, in one browser is far beyond what the players do today, and making room means deleting a kid's game, which [[DECISIONS]] § Saves rules out; the fix is a decision (a larger cap, a size budget, or letting the server's `save_backups` be the only copy past a point).
+
+**Trigger**: a report of a new game that did not stick, or `animath.save.previous.10` showing up in a kid's browser.

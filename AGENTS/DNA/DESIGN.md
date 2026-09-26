@@ -41,7 +41,8 @@ Hex values are the ones in `packages/client/src/render/palette.ts` and `styles.c
 | Trainer (player)     | `#ff7e6b` shirt, `#ffcfb0` skin, `#2f4fa8` shorts, `#3d7be8` cap | The only blue figure, so it never reads as an animal. |
 | Animal fur           | Squirrel `#c9733a`, rabbit `#d9cbb8`, fox `#e8762b`, otter `#8a5a3a`, deer `#c48a52`, wolf `#7f858f`, bear `#5a3a28` | `ANIMAL_COLORS`: one fur per species plus an accent for its tell (white tail tip, pink ear, tan muzzle). |
 | Figure details       | `#fff4e6` / `#2f2a28` | Off-white and near-black for tail tips, chests, noses, eyes. |
-| UI panel             | `rgba(255,252,245,.92)` | Cream, slightly translucent.       |
+| UI panel             | `rgba(255,252,245,.92)` | Cream, slightly translucent. Opaque (`--panel-cream`, `#fffcf5`) as the rim round big lettering. |
+| Title letters        | `#ff7e6b`, `#ff9f43`, `#56c271`, `#3d7be8`, `#f5b83d` | "Animath" letter by letter: the trainer's coral and blue (`--coral`, `--blue`), the accent, good and warn. |
 | UI ink               | `#2d2a32` |                                              |
 | Good (HP, correct)   | `#56c271` |                                              |
 | Warn (HP under half) | `#f5b83d` | Amber: an HP bar between a half and a fifth, the leash's "maybe". |
@@ -54,6 +55,7 @@ Colour is never the only signal: a wrong answer also shakes, a low HP bar also s
 **Nunito** (Google Fonts), weights 600 and 800. Rounded terminals suit the low-poly look and read well for kids.
 
 - Puzzle prompt: 800, very large (≥ 40 px on a laptop). It is the most important text in the game.
+- The game's name on the title: 800, 64–112 px, each letter its own colour with a cream rim and a soft shadow, bobbing gently out of step.
 - HUD labels: 800, 16–18 px.
 - Hints and body: 600, 16 px.
 - Numbers in prompts use real operator glyphs: `×`, `÷`, `−`, `√`. Never `*` or `/`.

@@ -108,7 +108,11 @@ Two modes only, borrowed from the Game Boy games: **Explore** and **Battle**. Fi
 
 ### Starting out
 
-A new player starts with one tier-1 animal (a squirrel in the prototype). A starter choice of three is planned.
+- The game opens on a **title screen**: Continue (when there is a saved game) and New game.
+- **New game** lets the player pick their first animal from the **starters**: every tier-1 species (the squirrel and the rabbit in the prototype; a species added at tier 1 is a starter too). The picked animal can be given a name, or none; the name is cleaned like any nickname (§4 "Party"). The game starts at the spawn tile, facing down, with that one animal at full HP, nothing walked and no doctor visited.
+- Every starter is the same size, so every starter meets the same animals on the same steps.
+- A game started without a choice (`?new`, `?party=`, `?zoo`, a throwaway game) starts with a squirrel, or the `?party=` party.
+- **New game while a game is saved** asks first, and the answer starts on "No". Starting over puts the saved game away: it is kept in the browser and on the server, never deleted, but the game has no way to go back to it; that is a job for the human ([[DEVELOPMENT]] § Database).
 
 ### Saving
 
@@ -116,8 +120,9 @@ A new player starts with one tier-1 animal (a squirrel in the prototype). A star
 - **A reload is not an escape.** A battle in progress is saved too: a reload picks it up with the same wild animal, the same HP, and the same puzzle if one was up. The step count is saved, so the animals ahead on a walk stay the ones they were; reloading never rerolls an encounter, a puzzle or a throw.
 - **A backup on the server.** Each player's save is also copied to the server, in the background, when the server can be reached. A browser that still knows the player but has lost its save gets the game back from there. The game never waits on the server, and plays and saves the same without it.
 - **Two windows.** Both show the same game. A window that falls behind a catch, a battle or anything else made in the other one reloads into the newer game when you look at it, so nothing is ever rolled back. Walking around in both is fine: the window you play in carries on from where you are.
-- **A save that won't load** starts a new game with a message ("Your saved game didn't load, so here is a new one."). The old save is kept: it stays where it was until you have played the new game (a battle, a catch), then it is set aside, never deleted. A save made by a newer version of the game is left alone, and this page asks for a reload.
-- **Starting fresh** is clearing the site's data in the browser; nothing in the game deletes a save. `?new` in the address plays a new game that is saved nowhere, leaving the saved one alone.
+- **A save that won't load** leaves the title with New game only, and the new game starts with a message ("Your saved game didn't load, so here is a new one."). The old save is kept: it stays where it was until you have picked a starter, then it is set aside, never deleted. A save made by a newer version of the game is left alone, and the title asks for a reload.
+- **Starting fresh** is New game on the title (§4 "Starting out"): the saved game is put away, not deleted. Nothing in the game deletes a save; clearing the site's data in the browser does. `?new` in the address plays a new game that is saved nowhere, leaving the saved one alone.
+- **Quit to title** (the pause menu's Start screen row) saves the game as it stands and goes back to the title, where Continue picks it up exactly there.
 
 ### Multiplayer (future, shapes today's architecture)
 
@@ -129,6 +134,12 @@ A new player starts with one tier-1 animal (a squirrel in the prototype). A star
 ## 5. Feature inventory
 
 What is built and observable today. Keep current: add a bullet when a feature ships, remove it when one is deleted, move items up from §6 as they land.
+
+### Title
+
+- The title screen comes first ([[UI_SPEC]] § Title): "Animath" in big bouncing letters over the world where the game stands, the trainer and the team (or, for a new player, the starters) breathing beside it, the camera drifting slowly. Continue (with the saved team's first animal and how many there are), New game and Language.
+- New game shows the starters side by side, big, each with the kinds of sums its attacks ask; the kid picks one with the arrows and Enter, and names it or not. With a saved game, New game asks first ("Start a new game?"), and only a deliberate "Yes" starts over.
+- Quit to title: the pause menu's Start screen row saves and goes back to the title; Continue carries on from the same spot.
 
 ### Explore
 
@@ -160,7 +171,7 @@ What is built and observable today. Keep current: add a bullet when a feature sh
 
 ### Language
 
-- The game starts in Danish when the browser prefers Danish, and in English otherwise (`?lang=da` / `?lang=en` in the address overrides). So far the line under a puzzle, the doctor (the card, everything the doctor says, the tent prompt and hints on the message line), the party's "tired" tag, and in battle the attack levels (let, mellem, svær), the menu's key reminder, the sentence about the highlighted attack, "Kom så, …!" and everything about switching animals are in Danish; everything else is English, the animals' and attacks' names included, and there is no Language setting yet (§6).
+- The game starts in Danish when the browser prefers Danish, and in English otherwise (`?lang=da` / `?lang=en` in the address overrides). The title's Language row switches every word on screen at once, and the choice is remembered on this device. The title and the starter screens are in both languages (the animals' names still English). So far the line under a puzzle, the doctor (the card, everything the doctor says, the tent prompt and hints on the message line), the party's "tired" tag, and in battle the attack levels (let, mellem, svær), the menu's key reminder, the sentence about the highlighted attack, "Kom så, …!" and everything about switching animals are in Danish; everything else is English, the animals' and attacks' names included, and there is no Language setting in the pause menu yet (§6).
 
 ### Engine
 
@@ -171,6 +182,7 @@ What is built and observable today. Keep current: add a bullet when a feature sh
 - Wild encounter tables and the per-step roll, indexed on the lead's tier, with visitors of the lead's tier near home where only bigger animals live (§4 "Wild encounters").
 - Battle reducer: `startBattle` and `applyBattleIntent` play a whole wild battle by the rules in §4 — attacks, puzzles, answers, the wild animal's reply (which can miss an animal its own size or bigger), leash, flee, switching, knock-outs and the player's pick of who steps in — as intents in, events out.
 - Party rules (§4 "Party"): `applyPartyIntent` chooses the lead, moves an animal or names it, only while exploring; `normalizeNickname` cleans a typed name; `leadIndex` is the lead that battles and encounters use.
+- The starter rule (§4 "Starting out"): `STARTERS` (every tier-1 species) and `chooseStarter`, which refuses anything else and cleans the starter's name; the authority's `new-game` intent asks it.
 - Doctor rules (§4 "Knock-out and healing"): whether the player faces a tent, a doctor visit that heals one hurt animal per solved puzzle (`startDoctorVisit` and `applyDoctorIntent`, intents in, events out), and the knock-out rule (`takeToDoctor`), which finds the nearest tent on foot and heals the whole party.
 
 ### Server
@@ -183,7 +195,7 @@ What is built and observable today. Keep current: add a bullet when a feature sh
 
 In rough priority order. Each becomes a GitHub issue when picked up.
 
-1. A title screen, and sound with its setting in the pause menu (where the Language setting also goes, below).
+1. Sound, with its setting in the pause menu and on the title (where the Language setting also goes, below).
 2. Real low-poly animal models (glTF, CC0 sources, see [[DECISIONS]]) with attack animations, replacing the primitive figures.
 3. The whole game in Danish and English: every line in both, and a Language setting in the pause menu that switches every word at once and is remembered on this device. The copy files and `t()` exist (§5, [[ARCHITECTURE]] § Copy); the doctor's, the party's and the save's words are in them, the rest have not moved yet.
 4. Procedural world v2: rivers that flow, paths, biome shaping, landmarks, spawn tables.
