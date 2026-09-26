@@ -102,9 +102,18 @@ Everything below is a click with a mouse or a tap with a finger, and each is the
 
 ## Finding a battle fast
 
-The tile straight left of the start, (-3, 6), is a river reed: tall grass on the river bank. Frogs live in the reeds, and near home squirrels and rabbits come down to the water too, and now and then an otter (the odds are in [[PRODUCT]] §4 "Wild encounters"). In a new game (New game on the title, with any starter, since they are all the same size; or `?new`), press Left and Right in turn (Left, Right, Left, …): every Left lands on the reed. **The 11th step (the sixth Left) always meets a Rabbit**, the 15th a Squirrel, the first Frog comes on the 71st step and the first Otter on the 97th. The steps are counted over the whole game and saved with it, so this only works from the start of a game, not after a reload. For foxes and the odd deer, walk to the meadow tall grass: the nearest is three steps straight down from the start, (-3, 9) to (-1, 9), and there is a strip at (2, 7)–(4, 7), beside the tent. There you meet squirrels and rabbits, sometimes a fox and rarely a deer.
+The tile straight left of the start, (-3, 6), is a river reed with the lake all round it: tall grass on the river bank. Frogs live in the reeds and love the water, so most of what comes out there is a frog; near home squirrels and rabbits come down to the water too, and now and then an otter, about 1 battle in 8.5 (the odds are in [[PRODUCT]] §4 "Wild encounters"). In a new game (New game on the title, with any starter, since they are all the same size; or `?new`), press Left and Right in turn (Left, Right, Left, …): every Left lands on the reed. **The 11th step (the sixth Left) always meets a Frog**, the 15th a Rabbit, the first Squirrel comes on the 69th step and the first Otter on the 97th. The steps are counted over the whole game and saved with it, so this only works from the start of a game, not after a reload. The nearest meadow tall grass is three steps straight down from the start, (-3, 9) to (-1, 9), and there is a strip at (2, 7)–(4, 7), beside the tent: open meadow, so about 3 battles in 4 are rabbits, most of the rest squirrels, with a fox 1 time in 20 and a deer rarely. For foxes and the odd deer, go where the trees are: the nearest forest tall grass on foot is (14, 8), 18 steps east of the start, where a fox comes out 1 time in 6.
 
-**Finding frogs**: any reed on a river bank, near home or far out. They live nowhere else, though near home, while a squirrel, a rabbit or a frog goes first, they also hop up into the mountain grass. With anything bigger than a fox or an otter in front, a frog never comes out.
+**Finding frogs**: any reed on a river bank, near home or far out, and the more water round the reed, the more of them. They live nowhere else, though near home, while a squirrel, a rabbit or a frog goes first, they also hop up into the mountain grass. With anything bigger than a fox or an otter in front, a frog never comes out.
+
+**Where each animal lives.** Every animal favours one kind of ground near the tall grass it comes out of, and with plenty of that ground within 3 tiles it comes out four times as often as with none ([[PRODUCT]] §4 "Wild encounters"):
+
+- **By the water**: frogs and otters (at the river's reeds).
+- **By the trees**: squirrels, foxes and deer (the forest, and the meadow along its edge).
+- **By the rocks**: wolves and bears (the mountains, and the forest beside them). Near home they are still rare, but the rocks are where they turn up.
+- **In open grass**, away from water, trees and rocks: rabbits (the open meadow).
+
+The ground only changes which animal comes out, never whether one does: the same steps start battles wherever you walk. Where every animal that could come out likes the same ground, it changes nothing: far from home a river's reeds are half frogs, half otters, wet or dry.
 
 Who comes out depends on who leads your party (§ Your party). With a frog or a rabbit in front, the same steps meet the same animals as with the squirrel. With a fox or an otter in front, the same steps on the reed meet an Otter each time until the 147th, which brings the first Frog; after that a frog now and then. With a deer in front the reed meets only otters, and with a wolf or a bear, the reed never starts a battle.
 
@@ -141,7 +150,7 @@ The cards in the top-left corner are your party, in battle order. You start with
 
 **Your lead decides what comes out of the grass.** Wild animals size up the animal that goes first:
 
-- Nothing two or more tiers smaller than the lead ever comes out. One tier smaller comes out now and then where animals the lead's size or bigger live too: near home 1 battle in 7 to 1 in 13 (a fox in the meadow meets a squirrel or a rabbit 1 time in 7), and far out, where big animals are common, as rarely as 1 in 40.
+- Nothing two or more tiers smaller than the lead ever comes out. One tier smaller comes out now and then where animals the lead's size or bigger live too: near home from 1 battle in 13 up to 1 in 3.4 on the smaller animals' own ground (a fox in the open meadow, where the rabbits are, meets a rabbit or a squirrel 1 time in 3.4; among the trees, 1 time in 11), and far out, where big animals are common, as rarely as 1 in 75.
 - Everything else is the mix the starter meets, moved up to the lead's size ([[PRODUCT]] §4 "Wild encounters" has the shares for a fox or an otter in front, and a bear).
 - It still starts a battle on 1 grass step in 10 wherever anything could, whoever leads: the same steps as with the starter, only the animal differs.
 - Where nothing is big enough, the grass is quiet, and where only one-tier-smaller animals live, every battle is one of them, still on 1 grass step in 10 ([[PRODUCT]] §4 "Wild encounters" says where; the quiet grass is also § Exploits and quirks).

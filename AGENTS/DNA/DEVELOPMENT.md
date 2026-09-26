@@ -95,7 +95,7 @@ After every frame the script prints what the screen says: on the title its menu 
 node scripts/screenshot.mjs --url 'http://localhost:<port>/?debug&party=squirrel:5,rabbit:0,fox' --keys "ArrowRight*7,ArrowDown,shot:prompt,Enter,wait:700,shot:card,Enter,wait:500,shot:puzzle,Escape" --out screenshots/doctor.png
 ```
 
-**Playing a battle.** The 11th step of Left, Right, Left, … from the start always meets a rabbit while a starter leads (see [[CHEATSHEET]] § Finding a battle fast; the animal changes whenever the encounter tables or the lead do, and `local-authority.test.ts` pins it). Walk in, look, run away:
+**Playing a battle.** The 11th step of Left, Right, Left, … from the start always meets a frog while a starter leads (see [[CHEATSHEET]] § Finding a battle fast; the animal changes whenever the encounter tables or the lead do, and `local-authority.test.ts` pins it). Walk in, look, run away:
 
 ```bash
 node scripts/screenshot.mjs --url 'http://localhost:<port>/?new' --keys "ArrowLeft,ArrowRight,ArrowLeft,ArrowRight,ArrowLeft,ArrowRight,ArrowLeft,ArrowRight,ArrowLeft,ArrowRight,ArrowLeft,wait:8000,shot:menu,ArrowUp,Enter,wait:4000,shot:result,Enter" --out screenshots/ran.png
