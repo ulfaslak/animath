@@ -183,6 +183,18 @@ export interface StopsView {
 	marked: readonly string[];
 }
 
+/**
+ * Whether `animal` may be picked to go home, with `marked` picked already:
+ * somebody who isn't tired must stay (the engine's `keep-one`).
+ */
+export function canGoHome(
+	animal: AnimalInstance,
+	party: readonly AnimalInstance[],
+	marked: readonly string[]
+): boolean {
+	return party.some((a) => a.id !== animal.id && !marked.includes(a.id) && a.hp > 0);
+}
+
 /** Why an item can't be bought now, or null when it can. */
 export function cannotBuy(
 	itemId: ItemId,

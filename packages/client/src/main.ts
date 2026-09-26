@@ -321,7 +321,7 @@ function frame(now: number) {
 requestAnimationFrame(frame);
 
 // The title comes first: nothing is started, rolled or saved behind it. A
-// throwaway game (`?new`, `?party=`, `?zoo`) goes straight into explore, and so
+// throwaway game (`?new`, `?party=`, `?zoo`, `?tokens=`, `?shop`) goes straight into explore, and so
 // does a page that reloaded itself mid-game to catch up with another window: it
 // picks the newest game up at once and says so, instead of "Welcome back!".
 const caughtUp = takeCaughtUp();

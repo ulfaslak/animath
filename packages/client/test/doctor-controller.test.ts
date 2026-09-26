@@ -604,6 +604,23 @@ describe('helping animals home', () => {
 		expect(t.doctorSent()).toEqual([]);
 	});
 
+	it('the last animal standing stays: keeping only tired ones is keeping nobody who can battle', () => {
+		const t = setup([
+			{ id: 'a', speciesId: 'squirrel', hp: 0 },
+			{ id: 'b', speciesId: 'fox', hp: 5 },
+			{ id: 'c', speciesId: 'rabbit', hp: 0 }
+		]);
+		home(t);
+		t.press('ArrowDown', 'Enter'); // the fox: the only one standing
+		expect(doctor.marked).toEqual([]);
+		expect(doctor.shake).toMatchObject({ row: 1 });
+		t.press('ArrowUp', 'Enter', 'ArrowDown', 'ArrowDown', 'Enter'); // both tired ones may go
+		expect(doctor.marked).toEqual(['a', 'c']);
+		t.press('ArrowUp', 'Enter'); // and still not the fox
+		expect(doctor.marked).toEqual(['a', 'c']);
+		expect(t.doctorSent()).toEqual([]);
+	});
+
 	it('No, or Escape, goes back to the list with the animals still picked; nothing leaves', () => {
 		const t = setup(hurtParty());
 		home(t);

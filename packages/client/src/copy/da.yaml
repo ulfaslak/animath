@@ -275,7 +275,7 @@ doctor:
     picked:
       one: '1 dyr valgt: {amount} mønter.'
       other: '{count} dyr valgt: {amount} mønter.'
-    keepOne: Ét dyr bliver altid hos dig.
+    keepOne: Ét dyr, der ikke er træt, bliver altid hos dig.
     send: Hjælp dem hjem
     keys: ↑ ↓ flyt · ← → faner · Enter vælg · Esc farvel
     touch: Tryk på de dyr, der skal hjem

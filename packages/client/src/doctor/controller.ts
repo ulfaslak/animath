@@ -15,6 +15,7 @@ import { isMashKey, PickGuard } from '../input/pick-guard';
 import { tappedOption, tappedRow, tappedTab } from '../input/press';
 import {
 	DOCTOR_TABS,
+	canGoHome,
 	cannotBuy,
 	doctor,
 	groupedIndexes,
@@ -380,14 +381,14 @@ export class DoctorController {
 		}
 	}
 
-	/** Pick or unpick an animal to go home. The last one unpicked always stays. */
+	/** Pick or unpick an animal to go home. The last one standing always stays. */
 	private toggleMark(animal: AnimalInstance): void {
 		if (doctor.marked.includes(animal.id)) {
 			doctor.marked = doctor.marked.filter((id) => id !== animal.id);
 			sfx.play('move');
 			return;
 		}
-		if (doctor.marked.length + 1 >= doctor.party.length) {
+		if (!canGoHome(animal, doctor.party, doctor.marked)) {
 			this.shakeRow(doctor.cursor);
 			return;
 		}

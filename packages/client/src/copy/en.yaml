@@ -363,7 +363,7 @@ doctor:
       one: '1 animal picked: {amount} tokens.'
       other: '{count} animals picked: {amount} tokens.'
     # When every animal but one is picked.
-    keepOne: One animal always stays with you.
+    keepOne: One animal that isn't tired always stays with you.
     # The button under the animals.
     send: Help them home
     keys: ↑ ↓ choose · ← → tabs · Enter pick · Esc bye
