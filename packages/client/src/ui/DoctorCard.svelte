@@ -97,6 +97,7 @@
 			class:selected={doctor.cursor === doctor.party.length}
 			data-press="Escape"
 			{@attach unfocusable}
+			{@attach doctor.cursor === doctor.party.length ? showRow : undefined}
 		>
 			<span class="caret">▸</span>
 			<span class="label">{t('doctor.bye')}</span>
