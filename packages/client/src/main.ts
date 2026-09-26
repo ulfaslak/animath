@@ -246,7 +246,7 @@ document.addEventListener('visibilitychange', () => {
 	if (document.visibilityState === 'hidden') autosave.flush();
 });
 // Another tab of the game saved: this one may be behind now.
-window.addEventListener('storage', (e) => autosave.onStorage(e.key));
+window.addEventListener('storage', (e) => autosave.onStorage(e.key, e.newValue));
 // A page back from the back/forward cache, or resumed after the browser froze it, gets
 // no `storage` events for the time it was away: it checks the save again, and so does
 // a window the kid comes to.

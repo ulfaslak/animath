@@ -601,6 +601,43 @@ describe('Autosave: two tabs', () => {
 		expect(store.get(KEYS.replaced)).toBe(caught);
 	});
 
+	it('the same, when the other tab saved again before this one heard of it: the event shows it', async () => {
+		const store = new MemoryStore();
+		const a = new Tab(store, null);
+		await a.open();
+		await a.walk();
+		const view = new LaggingView(store);
+		const b = new Tab(view, null);
+		await b.open();
+		view.freeze(KEYS.save);
+		await a.catchOne();
+		const caught = store.get(KEYS.save)!;
+		await b.walk();
+		const over = store.get(KEYS.save)!;
+		await b.walk();
+		view.thaw();
+		// A hears the first of B's saves only now, with the key already at B's second.
+		a.autosave.onStorage(KEYS.save, over);
+		a.autosave.onStorage(KEYS.save, store.get(KEYS.save));
+		expect(a.autosave.behind).toBe('window');
+		expect(store.get(KEYS.replaced)).toBe(caught);
+	});
+
+	it('a tab that played on from this one’s save puts it behind, and nothing is kept aside', async () => {
+		const store = new MemoryStore();
+		const a = new Tab(store, null);
+		const b = new Tab(store, null);
+		await a.open();
+		await b.open();
+		await a.walk();
+		b.autosave.onStorage(KEYS.save, store.get(KEYS.save));
+		expect(b.autosave.behind).toBeNull();
+		await b.catchOne();
+		a.autosave.onStorage(KEYS.save, store.get(KEYS.save));
+		expect(a.autosave.behind).toBe('window');
+		expect(store.get(KEYS.replaced)).toBeNull();
+	});
+
 	it('a save removed from under the page (site data cleared) is not written back', async () => {
 		const { store, a } = await twoTabs();
 		store.remove(KEYS.save);
@@ -1156,6 +1193,26 @@ describe('Autosave: the title', () => {
 		await frozen.quit();
 		expect(says(frozen)).toEqual(['save.newerGame', false]);
 		expect(store.get(KEYS.save)).toBe(newer);
+		// A newer build's game on the server, none here: every title says so; a new game is kept here.
+		const server = new FakeServer();
+		const who = server.seed({ version: 2, whatever: true });
+		const fresh = new MemoryStore();
+		fresh.set(KEYS.player, JSON.stringify(who));
+		const behindServer = new Tab(fresh, server);
+		expect(await behindServer.title()).toEqual({ notice: 'save.newerGame' });
+		expect(says(behindServer)).toEqual(['save.newerGame', true]);
+		await behindServer.startNew();
+		await behindServer.quit();
+		expect(says(behindServer)).toEqual(['save.newerGame', true]);
+		// Writing failed (storage full): from then on every title says so, and nothing is put away.
+		const full = new MemoryStore();
+		const filling = new Tab(full, null);
+		await filling.title();
+		await filling.startNew();
+		full.failWrites = true;
+		await filling.catchOne();
+		await filling.quit();
+		expect(says(filling)).toEqual(['save.storageFull', false]);
 		// A throwaway game keeps nothing, and says nothing about it.
 		const throwaway = new Tab(new MemoryStore(), null, { throwaway: true });
 		await throwaway.open();

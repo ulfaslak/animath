@@ -56,6 +56,11 @@ describe('putSave', () => {
 		],
 		["401 and a proxy's login page", { status: 401, html: page }, { kind: 'offline' }],
 		[
+			"401 and a proxy's JSON",
+			{ status: 401, json: { error: 'unauthorized' } },
+			{ kind: 'offline' }
+		],
+		[
 			'404 no such player',
 			{ status: 404, json: { error: 'no such player' } },
 			{ kind: 'unknown-player' }
@@ -74,8 +79,18 @@ describe('putSave', () => {
 
 describe('getSave', () => {
 	const cases: [string, Answer, unknown][] = [
-		['200 and a save', { status: 200, json: { seq: 3 } }, { kind: 'found', doc: { seq: 3 } }],
+		[
+			'200 and a save',
+			{ status: 200, json: { version: 1, seq: 3 } },
+			{ kind: 'found', doc: { version: 1, seq: 3 } }
+		],
+		[
+			"200 and a newer build's save",
+			{ status: 200, json: { version: 7 } },
+			{ kind: 'found', doc: { version: 7 } }
+		],
 		["200 and a tunnel's page", { status: 200, html: page }, { kind: 'offline' }],
+		['200 and JSON that is no save', { status: 200, json: { status: 'ok' } }, { kind: 'offline' }],
 		['404 no save yet', { status: 404, json: { error: 'no save yet' } }, { kind: 'none' }],
 		[
 			'404 no such player',
@@ -88,6 +103,11 @@ describe('getSave', () => {
 			{ kind: 'unknown-player' }
 		],
 		["401 and a proxy's login page", { status: 401, html: page }, { kind: 'offline' }],
+		[
+			"401 and a proxy's JSON",
+			{ status: 401, json: { error: 'unauthorized' } },
+			{ kind: 'offline' }
+		],
 		['a network error', 'network error', { kind: 'offline' }]
 	];
 	for (const [name, a, expected] of cases) {

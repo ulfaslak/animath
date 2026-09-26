@@ -41,6 +41,8 @@ export interface SaveServer {
 /** The server's 404 bodies, which tell "nothing saved yet" from "no such player". */
 const NO_SAVE = 'no save yet';
 const NO_PLAYER = 'no such player';
+/** The server's 401 bodies. */
+const SECRET_ERRORS: readonly string[] = ['missing player secret', 'wrong player secret'];
 
 /**
  * Background requests give up after this. Generous: the first ones go out
@@ -93,7 +95,20 @@ function isStored(body: unknown): boolean {
 /** 401, a missing or wrong secret, or 404 `no such player`: the API does not know this player. */
 function unknownPlayer(res: { status: number; body: unknown }): boolean {
 	const error = errorOf(res.body);
-	return (res.status === 401 && error !== undefined) || (res.status === 404 && error === NO_PLAYER);
+	if (error === undefined) return false;
+	return (
+		(res.status === 401 && SECRET_ERRORS.includes(error)) ||
+		(res.status === 404 && error === NO_PLAYER)
+	);
+}
+
+/** A stored save as the API returns it: every one it holds passed its check, and has a `version`. */
+function isStoredSave(body: unknown): boolean {
+	return (
+		typeof body === 'object' &&
+		body !== null &&
+		typeof (body as Record<string, unknown>).version === 'number'
+	);
 }
 
 function auth(who: Identity): Record<string, string> {
@@ -115,7 +130,7 @@ export function httpSaveServer(base = '/api'): SaveServer {
 			const url = `${base}/players/${encodeURIComponent(who.id)}/save`;
 			const res = await send(url, { headers: auth(who) }, timeoutMs);
 			if (!res) return { kind: 'offline' };
-			if (res.status === 200 && res.body !== undefined) return { kind: 'found', doc: res.body };
+			if (res.status === 200 && isStoredSave(res.body)) return { kind: 'found', doc: res.body };
 			if (res.status === 404 && errorOf(res.body) === NO_SAVE) return { kind: 'none' };
 			if (unknownPlayer(res)) return { kind: 'unknown-player' };
 			return { kind: 'offline' };

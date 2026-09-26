@@ -136,8 +136,11 @@ export class Autosave {
 	private seq = 0;
 	/** The exact text of the save key when this page last read or wrote it; null when it was empty. */
 	private seenText: string | null = null;
-	/** The text of this page's own last write of the save key. */
+	/** The text of this page's own last write of the save key, and its `seq`. */
 	private writtenText: string | null = null;
+	private writtenSeq = 0;
+	/** Start-up found this player's game on the server, written by a newer build. */
+	private newerOnServer = false;
 	/** The save this page's game grows from: the one it loaded, carried on from, or last wrote. */
 	private base: SaveV1 | null = null;
 	/** Fields a newer build left in the loaded save, written back unchanged. */
@@ -213,26 +216,27 @@ export class Autosave {
 	}
 
 	/**
-	 * What every title this page opens says about keeping the game: this page
-	 * cannot keep it (`save.cannotSave`: the browser gives it no storage) or
-	 * will not (`save.newerGame`: a newer build's save waits in the key, never
-	 * written over). Null when the game is kept, and on a throwaway page,
-	 * which says nothing about it.
+	 * What every title this page opens says about the save: this page cannot
+	 * keep the game (`save.cannotSave`: the browser gives it no storage;
+	 * `save.storageFull`: a write failed), or a newer build's game waits
+	 * (`save.newerGame`: in the key, never written over, or on the server).
+	 * Null otherwise, and on a throwaway page, which says nothing about it.
 	 */
 	get titleNotice(): SaveNotice | null {
 		if (this.throwaway) return null;
-		if (this.local === 'frozen') return 'save.newerGame';
+		if (this.local === 'frozen' || this.newerOnServer) return 'save.newerGame';
 		if (this.local === 'none') return 'save.cannotSave';
+		if (this.local === 'broken') return 'save.storageFull';
 		return null;
 	}
 
 	/**
 	 * Whether this page keeps the game it plays: then a game left for a new
-	 * one is put away. False with no storage, a newer build's save waiting,
-	 * or a throwaway game.
+	 * one is put away. False with no storage, a newer build's save waiting in
+	 * the key, a write that failed, or a throwaway game.
 	 */
 	get keeps(): boolean {
-		return this.local !== 'none' && this.local !== 'frozen';
+		return this.local !== 'none' && this.local !== 'frozen' && this.local !== 'broken';
 	}
 
 	/**
@@ -296,6 +300,7 @@ export class Autosave {
 				// The kid's game is on the server, but this page cannot read it: a new game, said so.
 				if (read.reason === 'newer') {
 					this.serverState = 'stopped';
+					this.newerOnServer = true;
 					plan = { notice: 'save.newerGame' };
 				} else {
 					// Saves are numbered past it, and it waits until the kid has played the new game;
@@ -373,10 +378,16 @@ export class Autosave {
 		void this.push(true);
 	}
 
-	/** A `storage` event: another page of this site changed `key` (null: storage was cleared). */
-	onStorage(key: string | null): void {
-		if (this.stale || (this.local !== 'ok' && this.local !== 'held')) return;
+	/**
+	 * A `storage` event: another page of this site changed `key` (null:
+	 * storage was cleared), to `written` when the event says.
+	 */
+	onStorage(key: string | null, written: string | null = null): void {
 		if (key !== null && key !== KEYS.save) return;
+		// A save of this game numbered no higher than this page's last one, and not it, was
+		// written over it without seeing it: keep this page's aside, whatever comes after.
+		if (written !== null && this.overwrittenUnseen(written)) this.keepOwnSave(true);
+		if (this.stale || (this.local !== 'ok' && this.local !== 'held')) return;
 		// Judge the save as it is now, not the value the event carried: events arrive late,
 		// and that value may already be replaced, by this page's own next save among others.
 		const now = this.store?.get(KEYS.save) ?? null;
@@ -489,6 +500,7 @@ export class Autosave {
 			if (store.set(KEYS.save, text)) {
 				this.seenText = text;
 				this.writtenText = text;
+				this.writtenSeq = doc.seq;
 			} else this.local = 'broken';
 		}
 		this.replacing = false;
@@ -573,18 +585,32 @@ export class Autosave {
 	 * written first is lost. Then this page keeps its own last save aside, so
 	 * what the kid did in it is never gone.
 	 */
-	private keepOwnSave(): void {
+	private keepOwnSave(knownLost = false): void {
 		const store = this.store;
 		const text = this.writtenText;
 		// Nothing of this page's that no other page has seen.
 		if (!store || text === null || text !== this.seenText) return;
 		const current = store.get(KEYS.save);
 		if (current === null || current === text) return;
+		// A later save of this game played on from this page's, unless a storage event showed
+		// this page's written over first (`overwrittenUnseen`): the seq alone cannot tell.
 		const doc = parseJson(current);
-		if (saveLineage(doc) === this.lineage && saveSeq(doc) > this.seq) return;
+		const later = saveLineage(doc) === this.lineage && saveSeq(doc) > this.writtenSeq;
+		if (later && !knownLost) return;
 		const prefixes = [KEYS.replaced, KEYS.previous, KEYS.unreadable];
 		if (prefixes.some((prefix) => this.keptUnder(prefix, text))) return;
 		this.setAside(KEYS.replaced, text);
+	}
+
+	/**
+	 * Whether `written`, a save another page just wrote, went over this page's
+	 * last save without seeing it: the same game, numbered no higher. A page
+	 * that had seen it would have carried on from it, and numbered past it.
+	 */
+	private overwrittenUnseen(written: string): boolean {
+		if (this.writtenText === null || written === this.writtenText) return false;
+		const doc = parseJson(written);
+		return saveLineage(doc) === this.lineage && saveSeq(doc) <= this.writtenSeq;
 	}
 
 	/** Whether `text` is in one of `prefix`'s set-aside slots (they fill in order). */

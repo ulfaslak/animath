@@ -287,6 +287,8 @@ save:
   newerGame: Dit spil er gemt i en nyere udgave af Animath. Genindlæs siden for at spille videre!
   # The browser will not let the page store anything, so nothing is saved.
   cannotSave: Denne browser kan ikke gemme dit spil, så det starter forfra hver gang.
+  # On the title, after writing the save failed (the browser's storage is full).
+  storageFull: Denne browser har ikke mere plads til at gemme dit spil.
   # After a window that another window of the game had played past loads the newest game.
   caughtUp: Du spillede i et andet vindue. Her er dit nyeste spil!
   # On a window that another window of the game has played past, until it catches up.
