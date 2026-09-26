@@ -137,15 +137,18 @@ describe('the chunks around the player', () => {
 		expect(kinds([...SHARED_GEOMETRIES].filter((g) => ledger.isDisposed(g)))).toEqual([]);
 	});
 
-	it('free every chunk of the old world when the world changes', () => {
+	it('free the whole ring on a jump, and every chunk of the old world when the world changes', () => {
 		const parent = new THREE.Group();
 		const ring = new ChunkRing(parent);
 		const ledger = new Ledger();
 		ring.reset(WORLD_SEED);
-		for (const p of [start, { x: start.x + 3 * CHUNK_SIZE, y: start.y }]) {
+		// A step, then a jump far off (a knock-out's trip to a tent is one).
+		for (const p of [start, { x: start.x + 1, y: start.y }, { x: -300, y: 200 }]) {
 			ring.update(p);
 			ledger.see(parent);
+			expect(kinds(ledger.ownedOutside(parent))).toEqual([]);
 		}
+		expect(ring.size).toBe(RING);
 		ring.reset(WORLD_SEED + 1);
 		expect(parent.children.length).toBe(0);
 		expect(kinds(ledger.owned())).toEqual([]);
