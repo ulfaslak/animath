@@ -4,51 +4,56 @@
 	 * its headline. `big`, for an animal that joined the team: its name in
 	 * big letters, in the title's colours and rim, popping in one by one over
 	 * a burst of warm rays that turns slowly, with the doctor's stars flying
-	 * out. `small`, for a win or a good throw: a few stars popping out round
-	 * the headline. Decoration only: the headline says what happened, the
-	 * name is read from it, and nothing here takes a click or a tap. With
-	 * reduced motion the rays stand still, the letters fade in and the stars
-	 * twinkle in place.
+	 * out from behind the letters. `small`, for a win or a good throw: a few
+	 * stars popping up off the top of the headline. Stars never cross a word.
+	 * Decoration only: the headline says what happened, the name is read from
+	 * it, and nothing here takes a click or a tap. With reduced motion the
+	 * rays stand still, the letters fade in and the stars twinkle in place.
 	 */
 	let { kind, name = '' }: { kind: 'big' | 'small'; name?: string } = $props();
 	const letters = $derived(Array.from(name));
 
-	/**
-	 * Where each star flies (px from the middle), when it sets off (s) and its
-	 * colour; `small` uses the first six.
-	 */
-	const STARS = [
-		{ dx: -150, dy: -34, d: 0.05, c: 'gold' },
-		{ dx: 146, dy: -26, d: 0.1, c: 'coral' },
-		{ dx: -96, dy: 30, d: 0.18, c: 'green' },
-		{ dx: 104, dy: 36, d: 0.02, c: 'blue' },
-		{ dx: -40, dy: -52, d: 0.24, c: 'coral' },
-		{ dx: 48, dy: -48, d: 0.14, c: 'gold' },
-		{ dx: -190, dy: 6, d: 0.3, c: 'blue' },
-		{ dx: 186, dy: 12, d: 0.26, c: 'green' },
-		{ dx: -130, dy: -84, d: 0.36, c: 'gold' },
-		{ dx: 134, dy: -80, d: 0.4, c: 'coral' }
+	/** Where each star flies (px from the middle of the name), when it sets off (s), its colour. */
+	const BIG = [
+		{ dx: -150, dy: -34, d: 0.25, c: 'gold' },
+		{ dx: 146, dy: -26, d: 0.3, c: 'coral' },
+		{ dx: -96, dy: 30, d: 0.38, c: 'green' },
+		{ dx: 104, dy: 36, d: 0.22, c: 'blue' },
+		{ dx: -40, dy: -62, d: 0.44, c: 'coral' },
+		{ dx: 48, dy: -58, d: 0.34, c: 'gold' },
+		{ dx: -190, dy: 6, d: 0.5, c: 'blue' },
+		{ dx: 186, dy: 12, d: 0.46, c: 'green' },
+		{ dx: -130, dy: -84, d: 0.56, c: 'gold' },
+		{ dx: 134, dy: -80, d: 0.6, c: 'coral' }
 	];
-	const stars = $derived(kind === 'big' ? STARS : STARS.slice(0, 6));
+	/** From the top edge of the headline, up and out: never over its words. */
+	const SMALL = [
+		{ dx: -120, dy: -34, d: 0.05, c: 'gold' },
+		{ dx: 118, dy: -30, d: 0.1, c: 'coral' },
+		{ dx: -60, dy: -48, d: 0.18, c: 'green' },
+		{ dx: 64, dy: -46, d: 0.02, c: 'blue' },
+		{ dx: -4, dy: -56, d: 0.24, c: 'gold' }
+	];
+	const stars = $derived(kind === 'big' ? BIG : SMALL);
 </script>
 
 <span class="celebration {kind}" aria-hidden="true">
 	{#if kind === 'big'}
 		<span class="burst"></span>
+	{/if}
+	<!-- Before the name, so the stars come out from behind its letters. -->
+	<span class="stars">
+		{#each stars as s, k (k)}
+			<i class="star {s.c}" style="--dx: {s.dx}px; --dy: {s.dy}px; animation-delay: {s.d}s"></i>
+		{/each}
+	</span>
+	{#if kind === 'big'}
 		<span class="name">
 			{#each letters as letter, i (i)}
 				<span class="letter" style="--i: {i}">{letter}</span>
 			{/each}
 		</span>
 	{/if}
-	<span class="stars">
-		{#each stars as s, k (k)}
-			<i
-				class="star {s.c}"
-				style="--dx: {s.dx}px; --dy: {s.dy}px; animation-delay: {s.d + (kind === 'big' ? 0.2 : 0)}s"
-			></i>
-		{/each}
-	</span>
 </span>
 
 <style>
@@ -57,10 +62,10 @@
 		display: block;
 		pointer-events: none;
 	}
-	/* Round the headline just under it: no room of its own. */
+	/* On the top edge of the headline just under it: no room of its own. */
 	.celebration.small {
 		height: 0;
-		top: 22px;
+		top: 4px;
 	}
 
 	/* Warm rays behind the name, spilling past the card's top edge, fading out at the rim. */

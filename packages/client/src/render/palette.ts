@@ -86,6 +86,9 @@ export const CONFETTI_COLORS: readonly number[] = [
 	0xff9f43, 0x56c271, 0xf5b83d, 0x5ec8f2, 0xff7e6b, 0xfff4e6, 0xf5b8c4
 ];
 
+/** The stars that twinkle round a caught animal or a winner: the doctor's gold, green and white. */
+export const SPARKLE_COLORS: readonly number[] = [0xf5b83d, 0x56c271, 0xfff4e6];
+
 /**
  * One fur colour per species, plus an accent used for the part that makes
  * the silhouette read (a fox's white tail tip, a rabbit's pink ear). Keyed by

@@ -4,7 +4,15 @@ import { touch } from '../input/touch.svelte';
 import { motion } from '../motion';
 import { animateIdle, buildAnimalMesh, disposeFigure } from './animals';
 import { appearScale, recallScale, smoothstep } from './ease';
-import { BIOME_LOOK, CANOPY, COLORS, CONFETTI_COLORS, PROP_COLORS, TILE_COLORS } from './palette';
+import {
+	BIOME_LOOK,
+	CANOPY,
+	COLORS,
+	CONFETTI_COLORS,
+	PROP_COLORS,
+	SPARKLE_COLORS,
+	TILE_COLORS
+} from './palette';
 import { PROP_GEOMETRY } from './tiles';
 
 /**
@@ -153,7 +161,7 @@ const confettiMaterials = CONFETTI_COLORS.map((hex) => {
  * The sparkles: the doctor's chunky four-pointed stars, in its gold, green
  * and white. Unlit, so they shine whatever the light.
  */
-const sparkleMaterials = [0xf5b83d, 0x56c271, 0xfff4e6].map(
+const sparkleMaterials = SPARKLE_COLORS.map(
 	(hex) => new THREE.MeshBasicMaterial({ color: hex, side: THREE.DoubleSide })
 );
 const PUFF_GEOMETRY = new THREE.IcosahedronGeometry(0.12, 0);

@@ -54,7 +54,7 @@ Two modes only, borrowed from the Game Boy games: **Explore** and **Battle**. Fi
 - **Nothing to meet.** Where nothing living in a biome is within one tier below the lead, its tall grass stays quiet. In the prototype: a wolf meets nothing at the river, and a bear nothing in the meadow or at the river. The 1/10 only thins smaller animals out where the lead's tier or bigger lives too: where nothing but one-tier-smaller animals lives, every battle is one of them, on the usual 1 grass step in 10, so a deer at the river meets only otters and a wolf in the meadow only deer. A kid meets smaller animals again with a smaller lead, chosen while exploring (§4 "Party").
 - With the prototype catalog, near spawn. **Starter (tier 1) in front**: meadow ≈ 45% squirrel, 45% rabbit, 9% fox, 2% deer; forest ≈ 80% squirrel, 16% fox, 3% deer, under 1% wolf or bear; river ≈ 31% each frog, squirrel and rabbit, 6% otter; mountains ≈ 33% each squirrel, rabbit and frog, under 1% wolf or bear. **Fox or otter**: meadow ≈ 71% fox, 14% deer, 7% squirrel, 7% rabbit; forest ≈ 74% fox, 15% deer, 7% squirrel, 4% wolf or bear; river ≈ 91% otter, 9% frog; mountains ≈ 49% fox, 49% otter, 2% wolf or bear. **Bear**: forest and mountains ≈ 91% bear, 9% wolf. Far out, every species living in the biome from the lead's tier up gets an equal share, so for the starter a far forest is 40% wolf or bear and a far river is half frogs, half otters.
 - Promises, for every lead: nothing two or more tiers below it ever comes out; inside the safe radius, in every biome where anything its size or bigger lives, its own tier is the majority and animals two or more tiers above it are under 5% together; the share of those never falls, and the share of its own tier never rises, as you walk away from spawn. With the prototype seed the spawn tile is one step from a river reed: with the starter in front an encounter there is a frog, a squirrel or a rabbit 15 times in 16 and an otter 1 time in 16; with a fox in front it is an otter 10 times in 11 and a frog 1 time in 11.
-- River banks are sand with **reeds**: ordinary tall-grass tiles, looking like any tall grass, on about 3 bank tiles in 10. That is where frogs and otters live.
+- River banks are sand with **reeds**: ordinary tall-grass tiles, where encounters go, drawn as reed beds so they read as the river's, on about 3 bank tiles in 10. That is where frogs and otters live.
 
 ### Battle
 
@@ -151,7 +151,8 @@ What is built and observable today. Keep current: add a bullet when a feature sh
 
 ### Explore
 
-- Procedural chunked world with four biomes, water, sand, tall grass (including reeds on river banks), trees, rocks and doctor tents, rendered low-poly with a fixed camera.
+- Procedural chunked world with four biomes that read at a glance ([[DESIGN]] § Palette): the meadow's bright grass and flowers, the forest's darker floor crowded with dark pines, young trees and bushes, river banks of sand with reed beds, the mountains' grey-green turf with pebbles, boulder fields and snow on the peaks. Water, tall grass (reeds at the river), trees, rocks and doctor tents, rendered low-poly with a fixed camera.
+- The lead walks behind the trainer ([[UI_SPEC]] § Explore mode): the animal that goes first follows one tile behind, bouncing along and turning as it walks, and never gets in the way. When who goes first changes it swaps with a little pop; while every animal is tired nobody follows, until the doctor makes one fit.
 - Grid movement with arrow keys / WASD (Caps Lock or not); blocked tiles (water, rock, trees, doctor tents) stop you; a tap always moves one tile. Browser shortcuts (Cmd+D, Ctrl+S) are left to the browser.
 - The player is a small trainer figure — a kid in a cap — that faces the way it walks, swings its arms and legs with every step, stands on top of hills and breathes while idle.
 - A crude but recognisable low-poly figure for every species, built from primitives with one exaggerated tell each. They fight in battles; the `?zoo` line-up (see [[CHEATSHEET]]) shows them all at once.
@@ -182,7 +183,8 @@ What is built and observable today. Keep current: add a bullet when a feature sh
 
 - Sound: short, soft sounds made while the game runs, no sound files ([[DESIGN]] § Sound) — a jingle when a wild animal jumps out, blips on the menus, a chime for a right answer and a soft bonk for a miss, a thump for a hit, a puff when an animal gets tired, the leash's whoosh, tick-tock and its fanfare or boing, a sparkle at the doctor, a ding for a new lead and a fanfare for a win. Every sound goes with something on screen.
 - Sound setting: on by default, a Sound row in the pause menu and on the title, and M on any screen except while typing; remembered on this device.
-- Little flourishes ([[UI_SPEC]] § Sound and juice): an iris that closes on the player and opens on the wild animal, a ring of dust round a tired animal, confetti round a caught one, sparkles along a healed animal's HP bar, the trainer's walk. A system set to reduce motion gets calmer versions.
+- Little flourishes ([[UI_SPEC]] § Sound and juice): an iris that closes on the player and opens on the wild animal, a ring of dust round a tired animal, sparkles along a healed animal's HP bar, the trainer's walk and the lead's bouncing behind it. A system set to reduce motion gets calmer versions.
+- Big moments feel big: a caught animal cheers with a spin and stars while confetti bursts round it and two poppers rain confetti over the scene, and its result card shows its name in big letters over a burst of rays; a win gets a hop and a few stars, and stars round "You won!".
 
 ### Language
 
