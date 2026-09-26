@@ -4,7 +4,9 @@ import type { AnimalInstance } from '../src/animals/types.js';
 import { takeToDoctor } from '../src/doctor/knockout.js';
 import { needsHealing } from '../src/doctor/party.js';
 import { applyDoctorIntent, startDoctorVisit } from '../src/doctor/reducer.js';
+import { homeTokens, tokenPuzzle, tokensForTier } from '../src/doctor/tokens.js';
 import type { DoctorEvent, DoctorIntent, DoctorState, DoctorStep } from '../src/doctor/types.js';
+import { ITEMS, ITEM_IDS, getItem, hasItem, itemsForSale } from '../src/items/catalog.js';
 import { healingDifficulty } from '../src/puzzles/difficulty.js';
 import { checkAnswer } from '../src/puzzles/registry.js';
 import { Rng, hashInts, hashString } from '../src/rng.js';
@@ -38,7 +40,13 @@ function partyOf(...members: [speciesId: string, hp?: number][]): AnimalInstance
 	}));
 }
 
-/** Apply an intent to a frozen state and check what every accepted doctor step must keep. */
+/**
+ * Apply an intent to a frozen state and check what every accepted doctor step
+ * must keep: HP changes only with a `healed` event; animals leave only on a
+ * right answer to a hand-over's sum, exactly the ones it named, never the last
+ * one; tokens move only on a right answer to a token sum, by exactly the
+ * reward or the price, and never below 0; an item arrives only when bought.
+ */
 function apply(state: DoctorState, intent: DoctorIntent, seed: number): DoctorStep {
 	const step = applyDoctorIntent(deepFreeze(state), intent, seed);
 	if (step.events[0]?.type === 'rejected') {
@@ -46,19 +54,56 @@ function apply(state: DoctorState, intent: DoctorIntent, seed: number): DoctorSt
 		expect(step.events).toHaveLength(1);
 		return step;
 	}
-	expect(step.state.step).toBe(state.step + 1);
-	expect(step.state).not.toHaveProperty('seed');
-	expect(step.state.party).toHaveLength(state.party.length);
-	for (const [i, after] of step.state.party.entries()) {
-		const before = state.party[i]!;
-		expect(after.id).toBe(before.id);
-		expect(after.hp).toBeGreaterThanOrEqual(before.hp);
-		expect(after.hp).toBeLessThanOrEqual(maxHp(after));
+	const after = step.state;
+	expect(after.step).toBe(state.step + 1);
+	expect(after).not.toHaveProperty('seed');
+	expect(after.shop).toEqual(state.shop);
+	const correct = step.events.some((e) => e.type === 'answer-judged' && e.correct);
+
+	const home = step.events.find((e) => e.type === 'went-home');
+	const leaving = new Set(home?.type === 'went-home' ? home.animals.map((a) => a.id) : []);
+	if (home?.type === 'went-home') {
+		expect(correct, 'animals left without a right answer').toBe(true);
+		if (state.phase.kind !== 'handing-over') throw new Error('went home with no hand-over open');
+		expect(home.animals.map((a) => a.id)).toEqual(state.phase.ids);
+		for (const a of home.animals) expect(a.hp, 'goes home better').toBe(maxHp(a));
+		expect(after.party.length).toBeGreaterThan(0);
+	}
+	const staying = state.party.filter((a) => !leaving.has(a.id));
+	expect(after.party.map((a) => a.id)).toEqual(staying.map((a) => a.id));
+	for (const [i, animal] of after.party.entries()) {
+		const before = staying[i]!;
+		expect(animal.hp).toBeGreaterThanOrEqual(before.hp);
+		expect(animal.hp).toBeLessThanOrEqual(maxHp(animal));
 		const healed = step.events.some((e) => e.type === 'healed' && e.partyIndex === i);
-		expect(after.hp, `animal ${i} changed without a healed event`).toBe(
-			healed ? maxHp(after) : before.hp
+		expect(animal.hp, `animal ${i} changed without a healed event`).toBe(
+			healed ? maxHp(animal) : before.hp
 		);
 	}
+
+	const given = step.events.find((e) => e.type === 'tokens-given');
+	const bought = step.events.find((e) => e.type === 'bought');
+	let tokens = state.tokens;
+	if (given?.type === 'tokens-given') {
+		expect(correct, 'tokens given without a right answer').toBe(true);
+		if (state.phase.kind !== 'handing-over') throw new Error('tokens given with no hand-over open');
+		expect(given.amount).toBe(state.phase.reward);
+		tokens += given.amount;
+		expect(given.tokens).toBe(tokens);
+	}
+	if (bought?.type === 'bought') {
+		expect(correct, 'bought without a right answer').toBe(true);
+		if (state.phase.kind !== 'buying') throw new Error('bought with no purchase open');
+		expect(bought.itemId).toBe(state.phase.itemId);
+		expect(bought.price).toBe(getItem(bought.itemId).price);
+		tokens -= bought.price;
+		expect(bought.tokens).toBe(tokens);
+		expect(after.items).toEqual([...state.items, bought.itemId]);
+	} else {
+		expect(after.items).toEqual(state.items);
+	}
+	expect(after.tokens).toBe(tokens);
+	expect(after.tokens).toBeGreaterThanOrEqual(0);
 	return step;
 }
 
@@ -82,14 +127,21 @@ const WRONG_INPUTS: readonly ((a: number) => string)[] = [
 ];
 
 describe('startDoctorVisit', () => {
-	it('copies the party, whoever is hurt', () => {
+	it('copies the party, whoever is hurt, with no tokens, no items and the shop as it stands', () => {
 		const party = partyOf(['squirrel', 0], ['fox']);
 		const state = startDoctorVisit(party);
-		expect(state).toEqual({ step: 0, party, phase: { kind: 'choose-patient' } });
+		expect(state).toEqual({
+			step: 0,
+			party,
+			tokens: 0,
+			items: [],
+			shop: itemsForSale(),
+			phase: { kind: 'choose-patient' }
+		});
 		expect(state.party[0]).not.toBe(party[0]);
 
 		for (const healthy of [partyOf(['squirrel'], ['bear']), []]) {
-			expect(startDoctorVisit(healthy)).toEqual({
+			expect(startDoctorVisit(healthy)).toMatchObject({
 				step: 0,
 				party: healthy,
 				phase: { kind: 'choose-patient' }
@@ -97,12 +149,37 @@ describe('startDoctorVisit', () => {
 		}
 	});
 
+	it("takes the player's tokens and items, and a shop in catalog order", () => {
+		const items = ['boat', 'lantern'];
+		const state = startDoctorVisit(partyOf(['fox']), {
+			tokens: 30,
+			items,
+			shop: ['boat', 'axe', 'boat']
+		});
+		expect(state).toMatchObject({ tokens: 30, items, shop: ['axe', 'boat'] });
+		expect(state.items).not.toBe(items);
+		expect(hasItem(state, 'boat')).toBe(true);
+		expect(hasItem(state, 'axe')).toBe(false);
+	});
+
 	it('carries no seed and no words: a client can neither predict a puzzle nor show English', () => {
 		expect(Object.keys(startDoctorVisit(partyOf(['fox', 3]))).sort()).toEqual([
+			'items',
 			'party',
 			'phase',
-			'step'
+			'shop',
+			'step',
+			'tokens'
 		]);
+	});
+
+	it('refuses tokens, items or a shop that cannot be real', () => {
+		const party = partyOf(['fox']);
+		for (const tokens of [-1, 1.5, NaN, '3' as unknown as number]) {
+			expect(() => startDoctorVisit(party, { tokens }), String(tokens)).toThrow(/tokens/);
+		}
+		expect(() => startDoctorVisit(party, { items: [3] as unknown as string[] })).toThrow(/items/);
+		expect(() => startDoctorVisit(party, { shop: ['sword'] as unknown as [] })).toThrow(/shop/);
 	});
 
 	it('refuses a party that cannot be real', () => {
@@ -185,9 +262,11 @@ describe('healing, for every species', () => {
 	for (const spec of ANIMALS) {
 		it(`${spec.id}: a puzzle at its healing difficulty; a wrong answer changes nothing; a right one heals it to full`, () => {
 			const kinds = new Set(spec.attacks.flatMap((a) => a.kinds));
+			// A hurt animal of another species beside it, which the heal leaves alone.
+			const other = spec.id === 'fox' ? 'otter' : 'fox';
 			for (const hp of [0, 1, spec.maxHp - 1]) {
 				for (let seed = 0; seed < SEEDS; seed++) {
-					let state = startDoctorVisit(partyOf([spec.id, hp], ['fox', 7], ['rabbit']));
+					let state = startDoctorVisit(partyOf([spec.id, hp], [other, 7], ['rabbit']));
 					let s = apply(state, { type: 'pick-patient', partyIndex: 0 }, seed);
 					state = s.state;
 					expect(s.events).toEqual([
@@ -289,22 +368,45 @@ describe('healing, for every species', () => {
 		expect(wrong).toBeGreaterThan(0);
 	});
 
-	it('heals one animal per right answer, and only the one picked', () => {
-		let state = startDoctorVisit(partyOf(['squirrel', 0], ['bear', 30], ['otter', 0], ['deer']));
+	it("one right answer heals every hurt animal of the patient's species, and no other", () => {
+		let state = startDoctorVisit(
+			partyOf(
+				['squirrel', 0],
+				['bear', 30],
+				['squirrel', 5],
+				['otter', 0],
+				['squirrel'],
+				['deer', 1]
+			)
+		);
 		const seed = 5;
-		for (const partyIndex of [2, 0, 1]) {
+		// The squirrel at 5 is picked; the tired one heals with it, the fit one has nothing to heal.
+		for (const [partyIndex, heals] of [
+			[2, [0, 2]],
+			[3, [3]],
+			[1, [1]]
+		] as const) {
 			const before = state.party.map((a) => a.hp);
 			state = apply(state, { type: 'pick-patient', partyIndex }, seed).state;
-			state = apply(
-				state,
-				{ type: 'answer', input: String(solving(state).puzzle.answer) },
-				seed
-			).state;
-			const after = state.party.map((a) => a.hp);
-			expect(after.filter((hp, i) => hp !== before[i])).toHaveLength(1);
-			expect(after[partyIndex]).toBe(maxHp(state.party[partyIndex]!));
+			expect(solving(state).puzzle.difficulty).toBe(
+				healingDifficulty(getAnimal(state.party[partyIndex]!.speciesId).tier)
+			);
+			const s = apply(state, { type: 'answer', input: String(solving(state).puzzle.answer) }, seed);
+			state = s.state;
+			expect(s.events.flatMap((e) => (e.type === 'healed' ? [e.partyIndex] : []))).toEqual([
+				...heals
+			]);
+			const changed = state.party.flatMap((a, i) => (a.hp !== before[i] ? [i] : []));
+			expect(changed).toEqual([...heals]);
 		}
-		expect(state.party.every((a) => !needsHealing(a))).toBe(true);
+		expect(state.party.map((a) => needsHealing(a))).toEqual([
+			false,
+			false,
+			false,
+			false,
+			false,
+			true
+		]);
 	});
 
 	it('picking another animal mid-puzzle swaps the puzzle, at no cost', () => {
@@ -328,23 +430,279 @@ describe('healing, for every species', () => {
 	});
 });
 
+describe('tokens', () => {
+	it('an animal of tier k brings k·(k + 1): bigger animals bring strictly more', () => {
+		expect([1, 2, 3, 4, 5].map(tokensForTier)).toEqual([2, 6, 12, 20, 30]);
+		for (const bad of [0, 6, 1.5, NaN]) expect(() => tokensForTier(bad)).toThrow(/tier/);
+		for (const a of ANIMALS)
+			for (const b of ANIMALS) {
+				if (a.tier > b.tier) expect(tokensForTier(a.tier)).toBeGreaterThan(tokensForTier(b.tier));
+			}
+		expect(homeTokens(partyOf(['squirrel', 0], ['fox'], ['bear', 3]))).toBe(2 + 6 + 30);
+		expect(homeTokens([])).toBe(0);
+	});
+
+	it('a token sum is the real numbers: the balance, plus what comes in or less what goes out', () => {
+		for (let balance = 0; balance <= 120; balance++) {
+			for (const change of [1, 2, 6, 30, 91, -1, -8, -13, -21]) {
+				if (balance + change < 0) {
+					expect(() => tokenPuzzle(balance, change)).toThrow();
+					continue;
+				}
+				const p = tokenPuzzle(balance, change);
+				const sign = change > 0 ? '+' : '−';
+				expect(p).toMatchObject({
+					kind: change > 0 ? 'add' : 'sub',
+					prompt: `${balance} ${sign} ${Math.abs(change)} = ?`,
+					answer: balance + change
+				});
+				expect(checkAnswer(p, String(balance + change))).toBe(true);
+				expect(p.difficulty).toBeGreaterThanOrEqual(1);
+				expect(p.difficulty).toBeLessThanOrEqual(10);
+			}
+		}
+		// The difficulty is the addition band of the bigger number, the scale a kid meets in battle.
+		expect(tokenPuzzle(0, 5).difficulty).toBe(1);
+		expect(tokenPuzzle(23, -8).difficulty).toBe(4);
+		expect(tokenPuzzle(150, 30).difficulty).toBe(6);
+		for (const [balance, change] of [
+			[0, 0],
+			[3, -4],
+			[-1, 2],
+			[1.5, 1],
+			[2, 0.5]
+		] as const)
+			expect(() => tokenPuzzle(balance, change), `${balance} ${change}`).toThrow();
+	});
+});
+
+describe('the shop', () => {
+	it('sells three tools with stable ids, cheapest first, each at a price a kid can count to', () => {
+		expect(ITEM_IDS).toEqual(['axe', 'pickaxe', 'boat']);
+		const prices = ITEMS.map((i) => i.price);
+		for (const [i, price] of prices.entries()) {
+			expect(Number.isInteger(price) && price > 0 && price < 100).toBe(true);
+			if (i > 0) expect(price).toBeGreaterThan(prices[i - 1]!);
+		}
+		expect(() => getItem('sword' as 'axe')).toThrow();
+	});
+
+	it('sells nothing whose effect is not built: a kid never pays for a tool that does nothing', () => {
+		// The change that builds an item's effect (chopping, breaking rocks, sailing)
+		// turns its `available` on and adds it here, and nothing else does.
+		expect(itemsForSale()).toEqual([]);
+	});
+});
+
+/** A visit with the whole catalog for sale, so the shop's rules can be tried before any item is. */
+function shopVisit(party: AnimalInstance[], tokens: number, items: string[] = []): DoctorState {
+	return startDoctorVisit(party, { tokens, items, shop: ITEM_IDS });
+}
+
+/** The open token sum's phase. */
+function trading(state: DoctorState) {
+	if (state.phase.kind !== 'handing-over' && state.phase.kind !== 'buying')
+		throw new Error(`expected a token sum, phase is ${state.phase.kind}`);
+	return state.phase;
+}
+
+describe('helping animals home', () => {
+	it('asks the tokens you will have: the balance plus what they bring, tired animals included', () => {
+		const party = partyOf(['squirrel', 0], ['fox', 12], ['rabbit'], ['bear']);
+		const start = startDoctorVisit(party, { tokens: 12 });
+		const s = apply(start, { type: 'hand-over', ids: ['bear-3', 'squirrel-0'] }, 4);
+		const phase = trading(s.state);
+		// In party order, whatever order the kid picked them in.
+		expect(phase).toEqual({
+			kind: 'handing-over',
+			ids: ['squirrel-0', 'bear-3'],
+			reward: 2 + 30,
+			puzzle: tokenPuzzle(12, 32)
+		});
+		expect(phase.puzzle.prompt).toBe('12 + 32 = ?');
+		expect(s.events).toEqual([
+			{ type: 'hand-over-shown', ids: ['squirrel-0', 'bear-3'], reward: 32, puzzle: phase.puzzle }
+		]);
+		expect(s.state.party).toEqual(party);
+		expect(s.state.tokens).toBe(12);
+	});
+
+	it('a wrong answer asks the same sum again and changes nothing; a right one sends them home and pays', () => {
+		const party = partyOf(['squirrel', 0], ['fox', 12], ['rabbit']);
+		let state = apply(
+			startDoctorVisit(party, { tokens: 5 }),
+			{ type: 'hand-over', ids: ['fox-1', 'squirrel-0'] },
+			2
+		).state;
+		const { puzzle } = trading(state);
+		for (const wrong of WRONG_INPUTS) {
+			const input = wrong(puzzle.answer);
+			const s = apply(state, { type: 'answer', input }, 2);
+			expect(s.events).toEqual([
+				{ type: 'answer-judged', input, correct: false, answer: puzzle.answer }
+			]);
+			expect(trading(s.state)).toEqual(trading(state));
+			expect(s.state.party).toEqual(party);
+			expect(s.state.tokens).toBe(5);
+			state = s.state;
+		}
+		const s = apply(state, { type: 'answer', input: '13' }, 2);
+		expect(s.events).toEqual([
+			{ type: 'answer-judged', input: '13', correct: true, answer: 13 },
+			{
+				type: 'went-home',
+				animals: [
+					{ id: 'squirrel-0', speciesId: 'squirrel', hp: 20 },
+					{ id: 'fox-1', speciesId: 'fox', hp: 35 }
+				]
+			},
+			{ type: 'tokens-given', amount: 8, tokens: 13 }
+		]);
+		expect(s.state.party).toEqual([party[2]]);
+		expect(s.state.tokens).toBe(13);
+		expect(s.state.phase).toEqual({ kind: 'choose-patient' });
+	});
+
+	it('never takes the last animal, nor an animal twice, nor one that is not there', () => {
+		const party = partyOf(['squirrel', 0], ['fox'], ['rabbit']);
+		const start = startDoctorVisit(party, { tokens: 3 });
+		const reason = (ids: unknown) => {
+			const s = apply(start, { type: 'hand-over', ids: ids as string[] }, 1);
+			return s.events[0]?.type === 'rejected' ? s.events[0].reason : 'accepted';
+		};
+		expect(reason(['squirrel-0', 'fox-1', 'rabbit-2'])).toBe('keep-one');
+		expect(reason(['squirrel-0', 'fox-1'])).toBe('accepted');
+		for (const bad of [[], ['wolf-9'], ['fox-1', 'fox-1'], [1], 'fox-1', undefined, null, [null]]) {
+			expect(reason(bad), JSON.stringify(bad)).toBe('no-such-animal');
+		}
+		// A party of one has nobody to spare.
+		const alone = startDoctorVisit(partyOf(['squirrel', 0]));
+		const s = apply(alone, { type: 'hand-over', ids: ['squirrel-0'] }, 1);
+		expect(s.events).toEqual([{ type: 'rejected', reason: 'keep-one' }]);
+	});
+});
+
+describe('buying', () => {
+	it('asks the tokens you will have left, and only sells what the shop has, once, to a kid who can pay', () => {
+		const party = partyOf(['fox']);
+		const reason = (state: DoctorState, itemId: string) => {
+			const s = apply(state, { type: 'buy', itemId }, 1);
+			return s.events[0]?.type === 'rejected' ? s.events[0].reason : 'accepted';
+		};
+		// The shop sells what the visit's shop lists: nothing, before any item is on sale.
+		expect(reason(startDoctorVisit(party, { tokens: 99 }), 'axe')).toBe('not-for-sale');
+		const rich = shopVisit(party, 21, ['pickaxe']);
+		expect(reason(rich, 'sword')).toBe('not-for-sale');
+		expect(reason(rich, 42 as unknown as string)).toBe('not-for-sale');
+		expect(reason(rich, 'pickaxe')).toBe('already-owned');
+		expect(reason(rich, 'boat')).toBe('accepted');
+		expect(reason(shopVisit(party, 20), 'boat')).toBe('not-enough-tokens');
+
+		const s = apply(rich, { type: 'buy', itemId: 'axe' }, 1);
+		const phase = trading(s.state);
+		expect(phase).toEqual({ kind: 'buying', itemId: 'axe', price: 8, puzzle: tokenPuzzle(21, -8) });
+		expect(phase.puzzle.prompt).toBe('21 − 8 = ?');
+		expect(s.events).toEqual([
+			{ type: 'purchase-shown', itemId: 'axe', price: 8, puzzle: phase.puzzle }
+		]);
+	});
+
+	it('a wrong answer asks the same sum again and buys nothing; a right one buys it, to exactly the balance less the price', () => {
+		for (const item of ITEMS) {
+			for (const extra of [0, 1, 7, 50]) {
+				const balance = item.price + extra;
+				let state = apply(
+					shopVisit(partyOf(['fox']), balance),
+					{ type: 'buy', itemId: item.id },
+					3
+				).state;
+				const { puzzle } = trading(state);
+				expect(puzzle.answer).toBe(extra);
+				for (const wrong of WRONG_INPUTS) {
+					const s = apply(state, { type: 'answer', input: wrong(extra) }, 3);
+					expect(trading(s.state)).toEqual(trading(state));
+					expect(s.state.tokens).toBe(balance);
+					expect(s.state.items).toEqual([]);
+					state = s.state;
+				}
+				const s = apply(state, { type: 'answer', input: String(extra) }, 3);
+				expect(s.events.at(-1)).toEqual({
+					type: 'bought',
+					itemId: item.id,
+					price: item.price,
+					tokens: extra
+				});
+				expect(s.state.tokens).toBe(extra);
+				expect(s.state.items).toEqual([item.id]);
+				expect(hasItem(s.state, item.id)).toBe(true);
+				// One is all anyone needs.
+				const again = apply(s.state, { type: 'buy', itemId: item.id }, 3);
+				expect(again.events).toEqual([{ type: 'rejected', reason: 'already-owned' }]);
+			}
+		}
+	});
+});
+
+describe('backing out', () => {
+	it('back, another pick or leaving puts any open puzzle away, and nothing happens that was not answered', () => {
+		const party = partyOf(['squirrel', 0], ['fox', 3], ['rabbit']);
+		const start = shopVisit(party, 30);
+		const opens: DoctorIntent[] = [
+			{ type: 'pick-patient', partyIndex: 0 },
+			{ type: 'hand-over', ids: ['fox-1'] },
+			{ type: 'buy', itemId: 'boat' }
+		];
+		for (const open of opens) {
+			const opened = apply(start, open, 6).state;
+			const back = apply(opened, { type: 'back' }, 6);
+			expect(back.events).toEqual([{ type: 'closed' }]);
+			expect(back.state).toMatchObject({
+				party,
+				tokens: 30,
+				items: [],
+				phase: { kind: 'choose-patient' }
+			});
+			for (const other of opens) {
+				const swapped = apply(opened, other, 6).state;
+				expect(swapped.phase.kind).toBe(apply(start, other, 6).state.phase.kind);
+				expect(swapped).toMatchObject({ party, tokens: 30, items: [] });
+			}
+			const left = apply(opened, { type: 'leave' }, 6).state;
+			expect(left).toMatchObject({ party, tokens: 30, items: [], phase: { kind: 'ended' } });
+		}
+		expect(apply(start, { type: 'back' }, 6).events).toEqual([
+			{ type: 'rejected', reason: 'no-puzzle' }
+		]);
+	});
+});
+
 /** A kid at the doctor: right with probability `accuracy`, picks hurt animals at random, sometimes walks off. */
-function playVisit(seed: number, party: AnimalInstance[], accuracy: number) {
+function playVisit(seed: number, party: AnimalInstance[], accuracy: number, tokens = 0) {
 	const rng = new Rng(hashInts(seed, 0xd0c));
-	let state = startDoctorVisit(party);
+	// The whole catalog on sale, so purchases happen before any item is on sale for real.
+	let state = shopVisit(party, tokens);
 	const events: DoctorEvent[] = [];
 	const intents: DoctorIntent[] = [];
 	for (let i = 0; i < 400 && state.phase.kind !== 'ended'; i++) {
 		let intent: DoctorIntent;
-		if (state.phase.kind === 'solving') {
-			const a = state.phase.puzzle.answer;
-			intent = { type: 'answer', input: String(rng.chance(accuracy) ? a : a + 1) };
+		const phase = state.phase;
+		if (phase.kind === 'solving' || phase.kind === 'handing-over' || phase.kind === 'buying') {
+			const a = phase.puzzle.answer;
+			// Now and then the kid backs out, or tries something else instead.
+			intent = rng.chance(0.05)
+				? { type: 'back' }
+				: { type: 'answer', input: String(rng.chance(accuracy) ? a : a + 1) };
 		} else {
 			const hurt = [...state.party.keys()].filter((j) => needsHealing(state.party[j]!));
-			intent =
-				hurt.length === 0 || rng.chance(0.03)
-					? { type: 'leave' }
-					: { type: 'pick-patient', partyIndex: rng.pick(hurt) };
+			const roll = rng.next();
+			if (roll < 0.04) intent = { type: 'leave' };
+			else if (roll < 0.3) {
+				// Any animals at all, even every one of them (which is refused) or none.
+				const ids = state.party.filter(() => rng.chance(0.4)).map((a) => a.id);
+				intent = { type: 'hand-over', ids };
+			} else if (roll < 0.5) intent = { type: 'buy', itemId: rng.pick(ITEM_IDS) };
+			else if (hurt.length > 0) intent = { type: 'pick-patient', partyIndex: rng.pick(hurt) };
+			else intent = rng.chance(0.3) ? { type: 'leave' } : { type: 'back' };
 		}
 		const s = apply(state, intent, seed);
 		intents.push(intent);
@@ -357,17 +715,33 @@ function playVisit(seed: number, party: AnimalInstance[], accuracy: number) {
 describe('replay', () => {
 	it('the same seed, party and intents always yield the same states and events, and every visit ends', () => {
 		const ids = ANIMALS.map((a) => a.id);
+		const seen = new Set<string>();
 		for (const [i, a] of ids.entries()) {
-			const party = partyOf([a, 0], [ids[(i + 3) % ids.length]!, 1], ['squirrel', 5]);
+			const party = partyOf([a, 0], [ids[(i + 3) % ids.length]!, 1], ['squirrel', 5], [a]);
 			for (let seed = 0; seed < 5; seed++) {
-				const first = playVisit(seed, party, 0.6);
-				const again = playVisit(seed, party, 0.6);
+				const tokens = [0, 7, 21, 60][seed % 4]!;
+				const first = playVisit(seed, party, 0.6, tokens);
+				const again = playVisit(seed, party, 0.6, tokens);
 				expect(again).toEqual(first);
 				expect(first.state.phase.kind).toBe('ended');
 				// The doctor's words are the client's: nothing here is a sentence.
 				expect(wordedStrings(first)).toEqual([]);
+				for (const e of first.events) seen.add(e.type === 'rejected' ? e.reason : e.type);
 			}
 		}
+		// The kid did everything there is to do, and ran into every refusal a kid can.
+		for (const what of [
+			'healed',
+			'went-home',
+			'tokens-given',
+			'bought',
+			'closed',
+			'keep-one',
+			'already-owned',
+			'not-enough-tokens',
+			'no-such-animal'
+		])
+			expect(seen, what).toContain(what);
 	});
 
 	it('a different seed asks different puzzles', () => {
@@ -447,6 +821,9 @@ describe('replay', () => {
 				{ id: 'fox-1', speciesId: 'fox', hp: 35 },
 				{ id: 'rabbit-2', speciesId: 'rabbit', hp: 22 }
 			],
+			tokens: 0,
+			items: [],
+			shop: [],
 			phase: { kind: 'ended' }
 		});
 	});
