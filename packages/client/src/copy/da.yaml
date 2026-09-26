@@ -141,9 +141,9 @@ hud:
   goesFirst: først ud
   pickLead: Vælg hvem der er først ud
   pickLeadTouch: Tryk på et dyr for at vælge hvem der er først ud
-  openTouch: Tryk på et kort for at åbne det, og tryk så på den, der skal først ud
+  openTouch: Tryk på et kort for at åbne det og tryk så på den, der skal først ud
   dragMouse: Træk i et kort for at flytte det
-  dragTouch: Hold på et kort, og træk det
+  dragTouch: Hold på et kort og træk det
   menu: Menu
   tokens:
     one: '{count} mønt'
@@ -152,10 +152,14 @@ hud:
 team:
   count: '×{count}'
   allReady: Alle er klar
+  allTiredSoon: Alle er snart trætte
   allTired: Alle er trætte
   ready:
     one: '{count} klar'
     other: '{count} klar'
+  tiredSoon:
+    one: '{count} snart træt'
+    other: '{count} snart trætte'
   tired:
     one: '{count} træt'
     other: '{count} trætte'

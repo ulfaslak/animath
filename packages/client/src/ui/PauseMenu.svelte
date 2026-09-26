@@ -9,6 +9,7 @@
 	import { flip } from 'svelte/animate';
 	import { sfx } from '../audio/sfx.svelte';
 	import { LANGUAGES, language, languageName, t } from '../copy';
+	import { stackSummary } from '../hp';
 	import { languageKey, optionKey, rowKey, unfocusable } from '../input/press';
 	import { touch } from '../input/touch.svelte';
 	import { motion } from '../motion';
@@ -121,15 +122,6 @@
 		return clean === pause.draft.trim().replace(/\s+/g, ' ') ? '' : clean;
 	});
 
-	/** How many of a card can play: all of them, all tired, or how many of each. */
-	function summary(animals: readonly { hp: number }[]): string {
-		const tired = animals.filter((a) => a.hp === 0).length;
-		if (tired === 0) return t('team.allReady');
-		if (tired === animals.length) return t('team.allTired');
-		const ready = t('team.ready', { count: animals.length - tired });
-		return `${ready} · ${t('team.tired', { count: tired })}`;
-	}
-
 	function itemLabel(item: MenuItem): string {
 		switch (item) {
 			case 'language':
@@ -216,7 +208,7 @@
 							<span class="bar"><HpBar hp={first.hp} max={getAnimal(first.speciesId).maxHp} /></span
 							>
 						{:else}
-							<span class="bar summary">{summary(bundle.animals)}</span>
+							<span class="bar summary">{stackSummary(bundle.animals).join(' · ')}</span>
 						{/if}
 						<span class="tags">
 							{#if allTired}

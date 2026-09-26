@@ -184,12 +184,19 @@ hud:
 team:
   # Beside the kind's name on a card of several animals.
   count: '×{count}'
-  # Under the name on a card of several animals: how many can play.
+  # Under the name on a card of several animals: how they are. Ready: more
+  # than a fifth of their HP left. Tired soon: still playing, but a fifth or
+  # less (their HP bar is red). Tired: none left. All of them one of those,
+  # or each count that isn't zero, with " · " between.
   allReady: All ready
+  allTiredSoon: All tired soon
   allTired: All tired
   ready:
     one: '{count} ready'
     other: '{count} ready'
+  tiredSoon:
+    one: '{count} tired soon'
+    other: '{count} tired soon'
   tired:
     one: '{count} tired'
     other: '{count} tired'
