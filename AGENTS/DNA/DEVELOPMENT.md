@@ -45,7 +45,7 @@ A browser's save lives under the page's address: `localhost:5180`, `localhost:51
 node scripts/screenshot.mjs --out screenshots/what-i-changed.png
 node scripts/screenshot.mjs --keys "ArrowRight*5,ArrowDown*2" --out screenshots/after-walk.png
 node scripts/screenshot.mjs --width 1024 --height 768   # tablet landscape
-node scripts/screenshot.mjs --url 'http://localhost:5180/?zoo' --scale 3 --clip 400,320,360,230   # every animal figure, magnified 3× (same camera)
+node scripts/screenshot.mjs --url 'http://localhost:5180/?zoo' --scale 3 --clip 350,300,420,260   # every animal figure, magnified 3× (same camera)
 ```
 
 Headless Chrome via `playwright-core`, WebGL through SwiftShader. The script exits non-zero and prints console errors (and warnings) if the page logged any. **Read the image** — a saved file you never looked at verifies nothing. The `/play` command wraps this.

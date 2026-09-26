@@ -193,3 +193,15 @@ To decide which of two games wins, the page compared `seq`, and a tie went to th
 ### 2026-09-26 — PR #19 (client save) — a field a comparison may ignore is not a field a write may lower `[learned]`
 
 `sameProgress` rightly ignores the step and doctor-visit counts: a tab that only walked has made no progress a kid would miss. But carrying on from such a tab then wrote this tab's own snapshot on top, so the counts went backwards. The steps the other tab had walked keyed their encounter rolls a second time, and its last doctor visit's seed was reused. Found by the adversarial review. Fix: carrying on raises the authority's counts to the other save's (`LocalAuthority.catchUp`, never lower, never mid-battle), and the storage event does it at once. `autosave.test.ts` and `local-authority.test.ts` pin it. Category: **ignored is not mergeable**. A monotonic counter left out of an equality check still has to be merged by its maximum when two copies meet.
+
+### 2026-09-26 — PR #21 (the frog) — an undo that forgot the saves depending on it `[learned]`
+
+The first HUMAN_TODO note said the frog could be undone by deleting it from `catalog.ts`. But `validateSave` refuses an animal whose species is not in the catalog, and a refused save is set aside for a new game. Once kids had caught frogs, that "undo" would have taken their games away. Found by the adversarial review. Fix: the note now says removing a species takes a save upgrade that remaps it. [[INVARIANTS]] § "A species that has shipped never makes a save unreadable" states the rule, and a `save.test.ts` guard reads a save of every shipped species id. Category: **an id that saved data names is one-way**. Before calling a change reversible, check what persisted data refers to it.
+
+### 2026-09-26 — PR #21 (the frog) — a sample's window stated as a rule `[not codified]`
+
+The CHEATSHEET said that with a fox in front the reed meets "an Otter every time but the 147th" step. That was read off a test that walks 200 steps; frogs come again on steps 345, 395, 683 and later. Found by the adversarial review. Fix: the CHEATSHEET names the first frog and the rate after it. Category: **a finite observation is not a rule**. A statement read off the first N steps or seeds says its bound, or gives the rate instead. It would become `[learned]` with that line in [[DEVELOPMENT]] § Testing ideology.
+
+### 2026-09-26 — PR #21 (the frog) — a worktree's Vite backed up to the human's database `[learned]`
+
+The PR's frames were taken from `vite preview` of the worktree's build. Its `/api` proxy defaults to port 3000, the primary clone's API that serves the kids. Pages loaded from a crafted save (not `?new`) created five players in the `mathgame` database. Found when the console showed a backup refused because main's server did not know the frog. Fix: the rows were deleted by id. [[ENVIRONMENT_NOTES]] now says every Vite proxies to 3000 unless `API_PORT` says otherwise, and gives the command to start one against a dead port. Category: **a default that points at shared state**. Like the port collision of 2026-09-24, a tool's default is only safe on a machine running nothing else.
