@@ -39,7 +39,8 @@
  * The final frame goes to `--out`. After every frame the script prints what
  * the screen says — on the title its menu, the confirm, the starters and the
  * name box; the message line in explore (and the grid position and
- * facing with `?debug` in the URL) and the party cards; in the pause menu its
+ * facing with `?debug` in the URL) and the party cards (and an open card's
+ * animals); in the pause menu its
  * rows, the picked animal's options and the name box (with whether it has
  * the focus); at the doctor the doctor's line and the party; and in a battle
  * the narration line, the puzzle, the typed answer, the judgement, the status
@@ -263,14 +264,26 @@ async function describe() {
 		})
 	);
 	if (patients.length) lines.push(`patients: ${patients.join(' | ')}`);
-	// Party cards in explore, the lead in brackets: "[1 Pip 20/20 goes first] | 2 Rabbit 0/22 tired".
-	const cards = await page.locator('.party .member').evaluateAll((els) =>
+	// Party cards in explore, one per species, the lead's in brackets and an open one in braces:
+	// "[1 Pip 20/20 goes first] | {2 Rabbit ×4 3 ready · 1 tired}"; then the open card's animals.
+	const cards = await page.locator('.party .cards .bundle').evaluateAll((els) =>
+		els.map((el) => {
+			const text = el.textContent.replace(/\s+/g, ' ').trim();
+			const shown = el.classList.contains('open') ? `{${text}}` : text;
+			return el.classList.contains('lead') ? `[${shown}]` : shown;
+		})
+	);
+	if (cards.length) lines.push(`party: ${cards.join(' | ')}`);
+	const fan = await page.locator('.party .fan .animal').evaluateAll((els) =>
 		els.map((el) => {
 			const text = el.textContent.replace(/\s+/g, ' ').trim();
 			return el.classList.contains('lead') ? `[${text}]` : text;
 		})
 	);
-	if (cards.length) lines.push(`party: ${cards.join(' | ')}`);
+	if (fan.length)
+		lines.push(
+			`open card (${fan.length}): ${fan.slice(0, 8).join(' | ')}${fan.length > 8 ? ' | …' : ''}`
+		);
 	// The pause menu: its rows (the lit one in brackets), the picked animal's
 	// options (greyed ones in parentheses), and the name box.
 	const pauseRows = await page.locator('.menu .team .row').evaluateAll((els) =>
@@ -280,6 +293,18 @@ async function describe() {
 		})
 	);
 	if (pauseRows.length) lines.push(`pause: ${pauseRows.join(' | ')}`);
+	// A card's animals on the right of the pause menu, the lit one in brackets.
+	const members = await page.locator('.menu .side .animal').evaluateAll((els) =>
+		els.map((el) => {
+			const text = el.textContent.replace(/\s+/g, ' ').trim();
+			return el.classList.contains('lit') ? `[${text}]` : text;
+		})
+	);
+	if (members.length) {
+		lines.push(
+			`card (${members.length}): ${members.slice(0, 8).join(' | ')}${members.length > 8 ? ' | …' : ''}`
+		);
+	}
 	const options = await page.locator('.menu .option').evaluateAll((els) =>
 		els.map((el) => {
 			const text = el.textContent.replace(/[▸\s]+/g, ' ').trim();

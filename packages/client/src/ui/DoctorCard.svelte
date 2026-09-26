@@ -43,6 +43,11 @@
 		{ x: 88, dx: 8, dy: 26, d: 0.15, c: 'green' },
 		{ x: 98, dx: 12, dy: -30, d: 0.25, c: 'white' }
 	];
+
+	/** The highlighted row of a long team stays in view as the cursor walks it. */
+	function showRow(row: HTMLElement) {
+		row.scrollIntoView({ block: 'nearest' });
+	}
 </script>
 
 <div class="doctor">
@@ -63,6 +68,7 @@
 				class:healthy={!needsHealing(animal) && !cheer}
 				data-press={rowKey(i)}
 				{@attach unfocusable}
+				{@attach doctor.cursor === i ? showRow : undefined}
 			>
 				<span class="caret">▸</span>
 				<span class="label">{nameOf(animal)}</span>
@@ -220,10 +226,14 @@
 		display: grid;
 		grid-template-columns: auto minmax(0, max-content) minmax(130px, 1fr);
 		grid-auto-rows: minmax(30px, 40px);
-		align-content: center;
+		/* Centred while it fits; a long team starts at the top and scrolls, the cursor kept in view. */
+		align-content: safe center;
 		gap: 2px 8px;
 		padding: 8px 12px;
-		overflow: hidden;
+		overflow: hidden auto;
+		overscroll-behavior: contain;
+		touch-action: pan-y;
+		scrollbar-width: thin;
 	}
 	.row {
 		grid-column: 1 / -1;

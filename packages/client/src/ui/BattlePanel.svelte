@@ -2,6 +2,7 @@
 	import {
 		ATTACK_LEVELS,
 		attackDamage,
+		bundles,
 		catchProbability,
 		getAnimal,
 		puzzleDifficulty,
@@ -14,7 +15,7 @@
 	import { touch } from '../input/touch.svelte';
 	import { kindList } from '../kinds';
 	import { messageWords, words } from '../lines';
-	import { animalWords, nameOf } from '../names';
+	import { animalWords, nameOf, speciesName } from '../names';
 	import { battle } from '../state/battle.svelte';
 	import Celebration from './Celebration.svelte';
 	import HpBar from './HpBar.svelte';
@@ -40,6 +41,13 @@
 	const rows = $derived(spec ? attackRows(spec, battle.levels) : []);
 	/** Someone could step in; with nobody, the Switch row is greyed and says why. */
 	const canSwitch = $derived(battle.pickable.some(Boolean));
+	/** The party list in species groups (the party is in bundles), each row still its party slot. */
+	const groups = $derived(bundles(battle.party));
+
+	/** The highlighted animal of a long party list stays in view as the cursor walks it. */
+	function showRow(row: HTMLElement) {
+		row.scrollIntoView({ block: 'nearest' });
+	}
 	/** Go on the highlighted row would do nothing: a greyed Switch, or an animal that can't step in. */
 	const goIdle = $derived(
 		battle.screen === 'party'
@@ -212,30 +220,41 @@
 	{#if battle.screen === 'party'}
 		<div class="card actions party">
 			{#key battle.refused}
-				{#each battle.party as animal, i (animal.id)}
-					{@const selected = battle.partyCursor === i}
-					<button
-						type="button"
-						class="row"
-						class:selected
-						class:off={!battle.pickable[i]}
-						class:nudge={selected && battle.refused > 0}
-						data-press={rowKey(i)}
-						{@attach unfocusable}
-					>
-						<span class="caret">▸</span>
-						<span class="label">{nameOf(animal)}</span>
-						<span class="hp-cell"
-							><HpBar hp={animal.hp} max={getAnimal(animal.speciesId).maxHp} /></span
+				{#each groups as group (group.speciesId)}
+					{#if group.animals.length > 1}
+						<!-- Several of one kind: a heading over them, as their card in the HUD reads. -->
+						<div class="group">
+							{speciesName(group.speciesId)}
+							<span class="count">{t('team.count', { count: group.animals.length })}</span>
+						</div>
+					{/if}
+					{#each group.animals as animal, k (animal.id)}
+						{@const i = group.slots[k]!}
+						{@const selected = battle.partyCursor === i}
+						<button
+							type="button"
+							class="row"
+							class:selected
+							class:off={!battle.pickable[i]}
+							class:nudge={selected && battle.refused > 0}
+							data-press={rowKey(i)}
+							{@attach unfocusable}
+							{@attach selected ? showRow : undefined}
 						>
-						<span class="how">
-							{#if animal.hp === 0}
-								{t('battle.switch.tiredTag')}
-							{:else if i === battle.front}
-								{t('battle.switch.inBattleTag')}
-							{/if}
-						</span>
-					</button>
+							<span class="caret">▸</span>
+							<span class="label">{nameOf(animal)}</span>
+							<span class="hp-cell"
+								><HpBar hp={animal.hp} max={getAnimal(animal.speciesId).maxHp} /></span
+							>
+							<span class="how">
+								{#if animal.hp === 0}
+									{t('battle.switch.tiredTag')}
+								{:else if i === battle.front}
+									{t('battle.switch.inBattleTag')}
+								{/if}
+							</span>
+						</button>
+					{/each}
 				{/each}
 			{/key}
 		</div>
@@ -609,8 +628,31 @@
 		display: grid;
 		grid-template-columns: auto minmax(0, max-content) minmax(100px, 1fr) auto;
 		grid-auto-rows: minmax(32px, 40px);
-		align-content: center;
+		/* Centred while it fits; a long team starts at the top and scrolls. */
+		align-content: safe center;
 		gap: 2px 8px;
+		overflow-y: auto;
+		overscroll-behavior: contain;
+		touch-action: pan-y;
+		scrollbar-width: thin;
+	}
+	/* The heading over several animals of one kind: their name and how many. */
+	.party .group {
+		grid-column: 1 / -1;
+		display: flex;
+		align-items: center;
+		gap: 8px;
+		padding: 0 10px;
+		font-weight: 800;
+		font-size: 16px;
+		opacity: 0.7;
+	}
+	.party .count {
+		font-size: 15px;
+		padding: 0 7px;
+		border-radius: 8px;
+		background: rgba(45, 42, 50, 0.08);
+		font-variant-numeric: tabular-nums;
 	}
 	:global(.touch) .party {
 		grid-auto-rows: var(--tap);

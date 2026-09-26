@@ -1,4 +1,5 @@
 import {
+	bundles,
 	canSwitchTo,
 	getAnimal,
 	tileAtWorld,
@@ -390,7 +391,14 @@ export class BattleController {
 	}
 
 	private partyKey(key: string, fresh: boolean): boolean {
-		const { cursor, handled, choice } = listKey(battle.partyCursor, key, battle.party.length);
+		// The party is in bundles: each species' animals start a group left and right jump between.
+		const groups = bundles(battle.party).map((b) => b.slots[0]!);
+		const { cursor, handled, choice } = listKey(
+			battle.partyCursor,
+			key,
+			battle.party.length,
+			groups
+		);
 		if (cursor !== battle.partyCursor) {
 			battle.refused = 0;
 			sfx.play('move');

@@ -620,7 +620,8 @@ describe('switching animals', () => {
 		expect(battle.screen).toBe('party');
 		t.run(1);
 
-		t.press('Escape', 'ArrowLeft', '1');
+		// No way back, and a level key means nothing here (left and right jump between kinds).
+		t.press('Escape', '1');
 		expect(battle.screen).toBe('party');
 		t.press('ArrowUp');
 		t.pick('Enter');
