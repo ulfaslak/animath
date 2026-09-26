@@ -427,15 +427,27 @@ describe('bundles', () => {
 	}
 	const kinds = (party: readonly AnimalInstance[]) => [...new Set(party.map((a) => a.speciesId))];
 
-	it('gathers each species behind its first animal, keeping every animal and every order it can', () => {
+	it('gathers each species behind its first animal, keeping every animal, who leads, and every order it can', () => {
 		let reordered = 0;
+		let leadKept = 0;
 		for (let seed = 1; seed <= 400; seed++) {
 			const party = deepFreeze(mixed(new Rng(hashInts(0xb0b, seed))));
 			const out = bundled(party);
 			expect(isBundled(out)).toBe(true);
 			expect([...ids(out)].sort()).toEqual([...ids(party)].sort());
-			// The bundles stand in the order their species first did, each in the party's order.
-			expect(kinds(out)).toEqual(kinds(party));
+			// The same animal leads: the first one standing.
+			const lead = party.find((a) => a.hp > 0);
+			expect(out.find((a) => a.hp > 0)).toBe(lead);
+			// The bundles stand in the order their species first did, each in the party's order;
+			// but when that order would put a standing animal in front of the lead, the lead's
+			// bundle goes first.
+			const gathered = kinds(party).flatMap((k) => party.filter((a) => a.speciesId === k));
+			const moves = lead !== undefined && gathered.find((a) => a.hp > 0) !== lead;
+			if (moves) leadKept++;
+			const order = moves
+				? [lead.speciesId, ...kinds(party).filter((k) => k !== lead.speciesId)]
+				: kinds(party);
+			expect(kinds(out)).toEqual(order);
 			for (const species of kinds(party)) {
 				const of = (p: readonly AnimalInstance[]) => ids(p.filter((a) => a.speciesId === species));
 				expect(of(out)).toEqual(of(party));
@@ -452,6 +464,7 @@ describe('bundles', () => {
 			expect(bundles(out).flatMap((b) => b.animals)).toEqual(out);
 		}
 		expect(reordered).toBeGreaterThan(100);
+		expect(leadKept).toBeGreaterThan(10);
 	});
 
 	it('a caught animal joins the end of its bundle, or starts a bundle at the end', () => {
@@ -846,36 +859,38 @@ describe('applyPartyIntent: when', () => {
 		// with two browsers drawing beside it.
 	}, 30_000);
 
-	it('puts a party that is not in bundles into them before it moves anyone', () => {
-		// Rabbit, squirrel, rabbit, fox: in bundles it is rabbit, rabbit, squirrel, fox.
+	it('puts a party that is not in bundles into them before it moves anyone, keeping who leads', () => {
+		// Rabbit (tired), squirrel, rabbit, fox: the squirrel leads. Gathered, the second rabbit
+		// would stand in front of it, so in bundles it is squirrel, rabbit, rabbit, fox.
 		const party: AnimalInstance[] = deepFreeze([
 			{ id: 'r1', speciesId: 'rabbit', hp: 0 },
 			{ id: 's', speciesId: 'squirrel', hp: 20 },
 			{ id: 'r2', speciesId: 'rabbit', hp: 5 },
 			{ id: 'f', speciesId: 'fox', hp: 30 }
 		]);
+		expect(ids(bundled(party))).toEqual(['s', 'r1', 'r2', 'f']);
 		const apply = (intent: PartyIntent) => applyPartyIntent(party, intent, 'explore');
 		expect(apply({ type: 'select-lead', animalId: 'f' })).toEqual({
-			party: [party[3], party[0], party[2], party[1]],
+			party: [party[3], party[1], party[0], party[2]],
 			events: [{ type: 'lead-selected', animalId: 'f', from: 3 }]
 		});
-		// In bundles the second rabbit leads, so the squirrel is chosen; a rabbit already is.
-		expect(apply({ type: 'select-lead', animalId: 's' }).events).toEqual([
-			{ type: 'lead-selected', animalId: 's', from: 2 }
-		]);
-		expectRejected(party, apply({ type: 'lead-species', speciesId: 'rabbit' }), 'already-lead', {
-			animalId: 'r2',
-			speciesId: 'rabbit'
+		// The squirrel already leads; the rabbits' card goes first with its first rabbit standing.
+		expectRejected(party, apply({ type: 'select-lead', animalId: 's' }), 'already-lead', {
+			animalId: 's'
 		});
-		expect(ids(apply({ type: 'move-species', speciesId: 'rabbit', to: 1 }).party)).toEqual([
+		expect(apply({ type: 'lead-species', speciesId: 'rabbit' })).toEqual({
+			party: [party[2], party[0], party[1], party[3]],
+			events: [{ type: 'lead-selected', animalId: 'r2', from: 2 }]
+		});
+		expect(ids(apply({ type: 'move-species', speciesId: 'fox', to: 0 }).party)).toEqual([
+			'f',
 			's',
 			'r1',
-			'r2',
-			'f'
+			'r2'
 		]);
-		expect(apply({ type: 'reorder', animalId: 'r2', to: 0 })).toEqual({
-			party: [party[2], party[0], party[1], party[3]],
-			events: [{ type: 'reordered', animalId: 'r2', from: 1, to: 0 }]
+		expect(apply({ type: 'reorder', animalId: 'r2', to: 1 })).toEqual({
+			party: [party[1], party[2], party[0], party[3]],
+			events: [{ type: 'reordered', animalId: 'r2', from: 2, to: 1 }]
 		});
 		// A name changes no one's place.
 		expect(ids(apply({ type: 'rename', animalId: 's', nickname: 'Pip' }).party)).toEqual(

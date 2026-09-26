@@ -40,11 +40,22 @@ export function bundles(party: readonly AnimalInstance[]): Bundle[] {
 /**
  * The party in bundles: each species' animals gathered behind its first one,
  * in their own order, and the bundles in the order their first animals
- * stood. A party already in bundles comes back in the same order. Always a
- * new array; the animals are the same objects.
+ * stood, keeping who leads. Gathering alone could put a standing animal in
+ * front of the lead: behind a tired squirrel, a fox leads a squirrel caught
+ * after it, and the squirrels gathered together would put that squirrel
+ * first. Then the lead's bundle goes first instead. A party already in
+ * bundles comes back in the same order. Always a new array; the animals are
+ * the same objects.
  */
 export function bundled(party: readonly AnimalInstance[]): AnimalInstance[] {
-	return bundles(party).flatMap((b) => b.animals);
+	const list = bundles(party);
+	const gathered = list.flatMap((b) => b.animals);
+	// The lead, as `leadIndex` finds it: the first animal standing.
+	const lead = party.find((a) => a.hp > 0);
+	if (!lead || gathered.find((a) => a.hp > 0) === lead) return gathered;
+	// Every animal of its kind in front of it was tired, so at the front of the party it leads again.
+	const own = list.find((b) => b.speciesId === lead.speciesId)!;
+	return [own, ...list.filter((b) => b !== own)].flatMap((b) => b.animals);
 }
 
 /** Whether every species' animals stand together. */

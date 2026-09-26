@@ -4,6 +4,7 @@ import type { AnimalInstance } from '../src/animals/types.js';
 import { applyBattleIntent, startBattle } from '../src/battle/reducer.js';
 import type { BattleState } from '../src/battle/types.js';
 import { bundled, isBundled } from '../src/party/bundles.js';
+import { leadIndex } from '../src/party/reducer.js';
 import { Rng, hashInts, hashString } from '../src/rng.js';
 import {
 	MAX_SAVED_NICKNAME_LENGTH,
@@ -341,6 +342,35 @@ describe('newGame and restoreGame', () => {
 		}
 	});
 
+	it('keeps who leads when it puts a party from before bundles in them', () => {
+		// A squirrel, tired; a fox, leading; a squirrel caught after the fox.
+		const party: AnimalInstance[] = [
+			{ id: 'sq1', speciesId: 'squirrel', hp: 0 },
+			{ id: 'fox', speciesId: 'fox', hp: getAnimal('fox').maxHp },
+			{ id: 'sq2', speciesId: 'squirrel', hp: getAnimal('squirrel').maxHp }
+		];
+		const pos = findTile(SEED, true);
+		const game = restoreGame({ ...written, seed: SEED, pos, party } as SaveV1);
+		expect(game.party.map((a) => a.id)).toEqual(['fox', 'sq1', 'sq2']);
+		expect(game.party[leadIndex(game.party)]!.id).toBe('fox');
+		// Over random parties of every kind in any order, the lead is the lead before.
+		const bad: string[] = [];
+		for (let s = 0; s < 300; s++) {
+			const rng = new Rng(hashInts(11, s));
+			const mixed: AnimalInstance[] = Array.from({ length: rng.int(1, 12) }, (_, i) => {
+				const spec = rng.pick(ANIMALS.slice(0, 4));
+				return { id: `m${i}`, speciesId: spec.id, hp: rng.next() < 0.4 ? 0 : spec.maxHp };
+			});
+			if (!mixed.some((a) => a.hp > 0)) continue;
+			const restored = restoreGame({ ...written, seed: SEED, pos, party: mixed } as SaveV1).party;
+			const was = mixed[leadIndex(mixed)]!.id;
+			const is = restored[leadIndex(restored)]!.id;
+			if (was !== is)
+				bad.push(`${mixed.map((a) => `${a.id}:${a.speciesId}:${a.hp}`).join(' ')}: ${was} → ${is}`);
+		}
+		expect(bad).toEqual([]);
+	});
+
 	it('puts a party from before bundles in them, a saved battle the same way with the same animal in front', () => {
 		// Squirrel, rabbit, squirrel: the kind of team the six-animal build let a kid make.
 		const party: AnimalInstance[] = [
@@ -356,8 +386,10 @@ describe('newGame and restoreGame', () => {
 		const pos = findTile(SEED, true);
 		const save = JSON.parse(JSON.stringify({ ...written, seed: SEED, pos, party, battle: state }));
 		const game = restoreGame(save);
-		expect(game.party.map((a) => a.id)).toEqual(['a', 'c', 'b']);
-		expect(game.battle!.party.map((a) => a.id)).toEqual(['a', 'c', 'b']);
+		// The rabbit led behind the tired squirrel, and still does: gathered, the second
+		// squirrel would have stood in front of it, so the rabbit's bundle goes first.
+		expect(game.party.map((a) => a.id)).toEqual(['b', 'a', 'c']);
+		expect(game.battle!.party.map((a) => a.id)).toEqual(['b', 'a', 'c']);
 		expect(game.battle!.party[game.battle!.active]!.id).toBe('b');
 		expect(game.battle!.phase).toEqual(state.phase);
 		// The same answer plays on as it would have: the same hits, the same HP for each animal.

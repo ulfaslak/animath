@@ -112,7 +112,8 @@ function reorder(party: readonly AnimalInstance[], animalId: unknown, to: unknow
 }
 
 function moveSpecies(party: readonly AnimalInstance[], speciesId: unknown, to: unknown): PartyStep {
-	const list = bundles(party);
+	// The bundles of the party in bundles, as every other move sees it.
+	const list = bundles(bundled(party));
 	const from = list.findIndex((b) => b.speciesId === speciesId);
 	if (typeof speciesId !== 'string' || from < 0) return reject(party, 'unknown-species');
 	if (typeof to !== 'number' || !Number.isInteger(to) || to < 0 || to >= list.length) {
