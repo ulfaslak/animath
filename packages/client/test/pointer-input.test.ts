@@ -8,7 +8,7 @@ import {
 	tappedLevel,
 	tappedRow
 } from '../src/input/press';
-import { Taps, type Pressable } from '../src/input/taps';
+import { TAP_SLOP_PX, Taps, type Pressable } from '../src/input/taps';
 import { touchAfter } from '../src/input/touch.svelte';
 
 /**
@@ -94,57 +94,76 @@ describe('taps', () => {
 	const go = new Box();
 	const menu = new Box();
 	const dpad = new Box();
+	const here = { x: 700, y: 630 };
+	const far = { x: 700, y: 630 + TAP_SLOP_PX + 1 };
+	/** Where the pointer lifts: on its button, or off it. */
+	const on = () => true;
+	const off = () => false;
 
-	it('a finger that goes down on a button and lifts over it presses its key, once', () => {
+	it('a finger that goes down on a button and lifts on it presses its key, once', () => {
 		const taps = new Taps();
-		taps.down(1, 'Enter', go, 7);
-		expect(taps.up(1, go, 7)).toBe('Enter');
-		expect(taps.up(1, go, 7)).toBeUndefined();
-		taps.down(2, rowKey(4), run, 7);
-		expect(taps.up(2, inner, 7)).toBe(rowKey(4)); // lifted over a part of it
+		taps.down(1, 'Enter', go, 7, here);
+		expect(taps.up(1, go, 7, here, on)).toBe('Enter');
+		expect(taps.up(1, go, 7, here, on)).toBeUndefined();
+		taps.down(2, rowKey(4), run, 7, here);
+		expect(taps.up(2, inner, 7, here, on)).toBe(rowKey(4)); // lifted over a part of it
+		// Moved along a wide row and still on it.
+		taps.down(3, rowKey(4), run, 7, here);
+		expect(taps.up(3, run, 7, far, on)).toBe(rowKey(4));
 	});
 
 	it('a finger lifted over a button it did not go down on presses nothing there (#39)', () => {
 		// A thumb held on the D-pad as a battle takes the screen, lifted over Run.
 		const taps = new Taps();
-		taps.down(1, undefined, null, 3); // the D-pad walks by itself: no key to tap
-		expect(taps.up(1, run, 4)).toBeUndefined();
-		// Down on a button, up somewhere else: slid off, nothing.
-		taps.down(2, 'Enter', go, 4);
-		expect(taps.up(2, run, 4)).toBeUndefined();
-		expect(taps.up(3, go, 4)).toBeUndefined(); // up with no down at all
+		taps.down(1, undefined, null, 3, here); // the D-pad walks by itself: no key to tap
+		expect(taps.up(1, run, 4, here, on)).toBeUndefined();
+		// Down on a button that left the page (the button lets go of it), up on another.
+		taps.down(2, 'Enter', go, 4, here);
+		expect(taps.up(2, run, 4, here, on)).toBeUndefined();
+		expect(taps.up(3, go, 4, here, on)).toBeUndefined(); // up with no down at all
+	});
+
+	it('a finger that slides off its button before lifting presses nothing', () => {
+		const taps = new Taps();
+		taps.down(1, 'Enter', go, 4, here);
+		expect(taps.up(1, go, 4, far, off)).toBeUndefined();
+	});
+
+	it('a button that changes shape under a still finger takes the tap (the first touch after keys)', () => {
+		// Go!'s key cap goes as the touch controls come on: the finger is no longer over it.
+		const taps = new Taps();
+		taps.down(1, 'Enter', go, 4, here);
+		expect(taps.up(1, go, 4, here, off)).toBe('Enter');
 	});
 
 	it('a press counts only on the screen it began on', () => {
 		// Down on Go! while the turn plays, lifted once the menu is back.
 		const taps = new Taps();
-		taps.down(1, 'Enter', go, 11);
-		expect(taps.up(1, go, 12)).toBeUndefined();
+		taps.down(1, 'Enter', go, 11, here);
+		expect(taps.up(1, go, 12, here, on)).toBeUndefined();
 	});
 
 	it('follows each finger on its own: a thumb on the D-pad never stops a tap on Menu (#40)', () => {
 		const taps = new Taps();
-		taps.down(1, undefined, dpad, 5); // walking, and staying down
-		taps.down(2, 'Escape', menu, 5);
-		expect(taps.up(2, menu, 5)).toBe('Escape');
-		expect(taps.up(1, dpad, 5)).toBeUndefined();
+		taps.down(1, undefined, dpad, 5, here); // walking, and staying down
+		taps.down(2, 'Escape', menu, 5, far);
+		expect(taps.up(2, menu, 5, far, on)).toBe('Escape');
+		expect(taps.up(1, dpad, 5, here, on)).toBeUndefined();
 		// Two taps at once, lifted in either order.
-		taps.down(3, 'Enter', go, 5);
-		taps.down(4, 'Escape', menu, 5);
-		expect(taps.up(4, menu, 5)).toBe('Escape');
-		expect(taps.up(3, go, 5)).toBe('Enter');
+		taps.down(3, 'Enter', go, 5, here);
+		taps.down(4, 'Escape', menu, 5, far);
+		expect(taps.up(4, menu, 5, far, on)).toBe('Escape');
+		expect(taps.up(3, go, 5, here, on)).toBe('Enter');
 	});
 
 	it('a pointer the browser takes for a scroll taps nothing, and a new press forgets an old one', () => {
 		const taps = new Taps();
-		taps.down(1, rowKey(2), run, 2);
+		taps.down(1, rowKey(2), run, 2, here);
 		taps.cancel(1);
-		expect(taps.up(1, run, 2)).toBeUndefined();
-		// The mouse (always pointer 1): down on Go!, released off it, then down elsewhere and
-		// dragged back over Go!: nothing.
-		taps.down(1, 'Enter', go, 2);
-		expect(taps.up(1, run, 2)).toBeUndefined();
-		taps.down(1, undefined, null, 2);
-		expect(taps.up(1, go, 2)).toBeUndefined();
+		expect(taps.up(1, run, 2, here, on)).toBeUndefined();
+		// The mouse (always pointer 1): down on Go!, then down on nothing and up over Go!.
+		taps.down(1, 'Enter', go, 2, here);
+		taps.down(1, undefined, null, 2, here);
+		expect(taps.up(1, go, 2, here, on)).toBeUndefined();
 	});
 });

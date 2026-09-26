@@ -7,9 +7,12 @@
  * an attack's row presses its level, not the row.
  *
  * A tap is a press that begins and ends on one button, on one screen: the
- * pointer goes down on the button and comes up over it again, while the same
- * screen takes keys. Each pointer is followed on its own, by `pointerId`, so a
- * thumb held on the D-pad never stops the other thumb's tap on Talk. The
+ * pointer goes down on the button and comes up again while the same screen
+ * takes keys, still on the button or hardly moved (the button holds the
+ * pointer, so a finger whose button changes shape under it — the first touch
+ * after the keyboard brings the touch controls and their bigger panels —
+ * still presses it). Each pointer is followed on its own, by `pointerId`, so
+ * a thumb held on the D-pad never stops the other thumb's tap on Talk. The
  * browser's own `click` is not used for a pointer: it waits for every finger
  * to lift before it comes, and it lands on whatever is under a finger lifted
  * after the screen changed (a thumb held on the D-pad into a battle would
@@ -19,11 +22,21 @@
  * finger lands.
  */
 
-/** A pointer down on a button: the key it presses, the button, and the screen it went down on. */
+/** CSS pixels a pointer may move and still tap the button it left: a finger's wobble. */
+export const TAP_SLOP_PX = 20;
+
+/** Where a pointer is, in CSS pixels. */
+export interface Point {
+	x: number;
+	y: number;
+}
+
+/** A pointer down on a button: the key it presses, the button, the screen and the spot. */
 interface Down<B> {
 	key: string;
 	button: B;
 	screen: number;
+	at: Point;
 }
 
 /** Anything a pointer lands on and lifts over: an element in the page, a stand-in in tests. */
@@ -39,22 +52,33 @@ export class Taps<B extends Pressable = Pressable> {
 	private downs = new Map<number, Down<B>>();
 
 	/**
-	 * Pointer `id` went down on `button`, which presses `key` (none: it is on
-	 * no button), while screen `screen` took keys.
+	 * Pointer `id` went down at `at` on `button`, which presses `key` (none:
+	 * it is on no button), while screen `screen` took keys.
 	 */
-	down(id: number, key: string | undefined, button: B | null, screen: number): void {
+	down(id: number, key: string | undefined, button: B | null, screen: number, at: Point): void {
 		if (key === undefined || button === null) this.downs.delete(id);
-		else this.downs.set(id, { key, button, screen });
+		else this.downs.set(id, { key, button, screen, at });
 	}
 
 	/**
-	 * Pointer `id` came up over `over` while screen `screen` takes keys: the key
-	 * its tap presses, if it went down on the button it lifts over, on this screen.
+	 * Pointer `id` came up at `at`, on `target`, while screen `screen` takes
+	 * keys: the key its tap presses, if it went down on a button that
+	 * `target` is part of (the button keeps a pointer it holds, and loses it
+	 * when it leaves the page), on this screen, and it is still on that
+	 * button (`onButton`) or hardly moved.
 	 */
-	up(id: number, over: B | null, screen: number): string | undefined {
+	up(
+		id: number,
+		target: B | null,
+		screen: number,
+		at: Point,
+		onButton: (button: B) => boolean
+	): string | undefined {
 		const down = this.downs.get(id);
 		this.downs.delete(id);
-		if (!down || down.screen !== screen || !down.button.contains(over)) return undefined;
+		if (!down || down.screen !== screen || !down.button.contains(target)) return undefined;
+		const moved = Math.hypot(at.x - down.at.x, at.y - down.at.y);
+		if (moved > TAP_SLOP_PX && !onButton(down.button)) return undefined;
 		return down.key;
 	}
 
@@ -79,13 +103,29 @@ export function watchTaps(target: Window, screen: () => number, press: (key: str
 	const taps = new Taps<HTMLElement>();
 	target.addEventListener('pointerdown', (e) => {
 		const button = e.button === 0 ? pressableAt(e.target) : null;
-		taps.down(e.pointerId, button?.dataset.press, button, screen());
+		// The button holds the pointer until it lifts, whatever is drawn under it meanwhile.
+		try {
+			button?.setPointerCapture(e.pointerId);
+		} catch {
+			// Not a pointer the page can hold (one the browser has already let go of).
+		}
+		taps.down(e.pointerId, button?.dataset.press, button, screen(), {
+			x: e.clientX,
+			y: e.clientY
+		});
 	});
 	target.addEventListener('pointerup', (e) => {
-		// What the pointer is over as it lifts: a finger is held by the button it
-		// landed on (implicit capture), so ask the page, not the event.
-		const over = target.document.elementFromPoint(e.clientX, e.clientY);
-		const key = taps.up(e.pointerId, over instanceof HTMLElement ? over : null, screen());
+		const at = { x: e.clientX, y: e.clientY };
+		const key = taps.up(
+			e.pointerId,
+			e.target instanceof HTMLElement ? e.target : null,
+			screen(),
+			at,
+			(button) => {
+				const box = button.getBoundingClientRect();
+				return at.x >= box.left && at.x <= box.right && at.y >= box.top && at.y <= box.bottom;
+			}
+		);
 		if (key !== undefined) press(key);
 	});
 	target.addEventListener('pointercancel', (e) => taps.cancel(e.pointerId));
