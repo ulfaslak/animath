@@ -1,12 +1,11 @@
 import { getAnimal } from '../animals/catalog.js';
 import type { AnimalInstance } from '../animals/types.js';
 import { ITEM_IDS, getItem, isItemId, itemsForSale, type ItemId } from '../items/catalog.js';
-import { leadIndex } from '../party/reducer.js';
 import { healingDifficulty } from '../puzzles/difficulty.js';
 import { checkAnswer, generatePuzzle } from '../puzzles/registry.js';
 import type { Puzzle, PuzzleKind } from '../puzzles/types.js';
 import { Rng, hashInts } from '../rng.js';
-import { needsHealing, validateParty } from './party.js';
+import { canGoHome, needsHealing, validateParty } from './party.js';
 import { homeTokens, tokenPuzzle } from './tokens.js';
 import type {
 	DoctorEvent,
@@ -96,19 +95,6 @@ export function startDoctorVisit(
 }
 
 /**
- * Whether the animals that stay with the kid when others go home are a team
- * to walk on with: one of them isn't tired and can fight on land, where every
- * tent stands (a sea animal alone could battle nothing in the grass). The
- * rule behind `keep-one`, for a screen to show before it is asked. It keeps
- * a hand-over from leaving the kid without one; a battle at sea that a sea
- * animal ends standing (won, run from or caught), the land's animals tired,
- * can, and then the grass is quiet until a doctor heals one.
- */
-export function keepsATeam(staying: readonly AnimalInstance[]): boolean {
-	return leadIndex(staying, 'land') >= 0;
-}
-
-/**
  * Apply one intent. `seed` is the visit's seed, held by the authority; the same
  * seed must be passed for every intent of one visit.
  */
@@ -170,7 +156,7 @@ function handOver(state: DoctorState, ids: readonly string[]): DoctorStep {
 		if (!state.party.some((a) => a.id === id)) return reject(state, 'no-such-animal');
 		picked.add(id);
 	}
-	if (!keepsATeam(state.party.filter((a) => !picked.has(a.id)))) return reject(state, 'keep-one');
+	if (!canGoHome(state.party, picked)) return reject(state, 'keep-one');
 
 	const leaving = state.party.filter((a) => picked.has(a.id));
 	const reward = homeTokens(leaving);

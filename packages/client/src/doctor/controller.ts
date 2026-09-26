@@ -1,5 +1,8 @@
 import {
+	bundles,
+	canGoHome,
 	getAnimal,
+	kindGoingHome,
 	needsHealing,
 	type AnimalInstance,
 	type Authority,
@@ -15,10 +18,8 @@ import { isMashKey, PickGuard } from '../input/pick-guard';
 import { tappedOption, tappedRow, tappedTab } from '../input/press';
 import {
 	DOCTOR_TABS,
-	canGoHome,
 	cannotBuy,
 	doctor,
-	groupedIndexes,
 	rowStops,
 	stepCursor,
 	tabRows,
@@ -333,10 +334,11 @@ export class DoctorController {
 	}
 
 	/**
-	 * A pick that only picks or unpicks an animal to go home: it can always be
-	 * taken back, so it goes at once, as the pause menu's rows do. Everything
-	 * else on the list waits the quiet moment, and the confirm and the sum
-	 * stand between a pick and a goodbye.
+	 * A pick that only picks or unpicks one animal to go home: it can always
+	 * be taken back, so it goes at once, as the pause menu's rows do.
+	 * Everything else on the list waits the quiet moment, a whole kind's row
+	 * too, so an Enter mashed through a goodbye never picks a stack; and the
+	 * confirm and the sum stand between a pick and a goodbye.
 	 */
 	private marks(row: DoctorRow | undefined): boolean {
 		return doctor.tab === 'home' && row?.kind === 'animal';
@@ -360,6 +362,9 @@ export class DoctorController {
 				}
 				return;
 			}
+			case 'bundle':
+				this.toggleKind(row.speciesId);
+				return;
 			case 'send':
 				if (doctor.marked.length === 0) return;
 				sfx.play('confirm');
@@ -388,12 +393,34 @@ export class DoctorController {
 			sfx.play('move');
 			return;
 		}
-		if (!canGoHome(animal, doctor.party, doctor.marked)) {
+		if (!canGoHome(doctor.party, [...doctor.marked, animal.id])) {
 			this.shakeRow(doctor.cursor);
 			return;
 		}
 		doctor.marked = [...doctor.marked, animal.id];
 		sfx.play('confirm');
+	}
+
+	/**
+	 * A bundle's row: pick every one of the kind that may go (the engine's
+	 * `kindGoingHome`: all of them, or all but the first that could walk on
+	 * with the kid when no other would), or, once they all are, take the whole
+	 * kind back. A kind none of whom may go gives the row a little shake.
+	 */
+	private toggleKind(speciesId: string): void {
+		const joining = kindGoingHome(doctor.party, doctor.marked, speciesId);
+		if (joining.length > 0) {
+			doctor.marked = [...doctor.marked, ...joining];
+			sfx.play('confirm');
+			return;
+		}
+		const kind = new Set(doctor.party.filter((a) => a.speciesId === speciesId).map((a) => a.id));
+		if (doctor.marked.some((id) => kind.has(id))) {
+			doctor.marked = doctor.marked.filter((id) => !kind.has(id));
+			sfx.play('move');
+			return;
+		}
+		this.shakeRow(doctor.cursor);
 	}
 
 	private confirmKey(key: string, fresh: boolean): boolean {
@@ -496,8 +523,9 @@ export class DoctorController {
 
 	/**
 	 * Where the cursor starts on a tab: the first animal who needs the doctor
-	 * (or Bye, when nobody does), the first animal, the first item (or Bye,
-	 * when the shop has nothing).
+	 * (or Bye, when nobody does); the first row, a kind's own row when the
+	 * team starts with a kind of several; the first item (or Bye, when the
+	 * shop has nothing).
 	 */
 	private firstStop(tab: DoctorTab): number {
 		const rows = tabRows(tab, doctor.party, doctor.shop);
@@ -526,12 +554,9 @@ export class DoctorController {
 
 	/** The party index of the first hurt animal of each species that needs the doctor, in list order. */
 	private healGroups(): number[] {
-		const seen = new Set<string>();
-		return groupedIndexes(doctor.party).filter((i) => {
-			const animal = doctor.party[i]!;
-			if (!needsHealing(animal) || seen.has(animal.speciesId)) return false;
-			seen.add(animal.speciesId);
-			return true;
+		return bundles(doctor.party).flatMap((bundle) => {
+			const first = bundle.slots.find((i) => needsHealing(doctor.party[i]!));
+			return first === undefined ? [] : [first];
 		});
 	}
 

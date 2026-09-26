@@ -372,10 +372,16 @@ doctor:
     worth:
       one: '{animal.the} giver {count} mønt.'
       other: '{animal.the} giver {count} mønter.'
+    stays: '{animal.the} bliver hos dig.'
+    kindWorth: Alle {count} giver {amount} mønter.
+    kindWorthSome:
+      one: '1 af dem giver {amount} mønter.'
+      other: '{count} af dem giver {amount} mønter.'
     picked:
       one: '1 dyr valgt: {amount} mønter.'
       other: '{count} dyr valgt: {amount} mønter.'
-    keepOne: Ét dyr, der ikke er træt og kan gå på land, bliver altid hos dig.
+    keepOne: Behold ét dyr, der kan gå med dig!
+    noWalker: Intet dyr kan gå med dig lige nu. Gør et dyr rask først!
     send: Hjælp dem hjem
     keys: ↑ ↓ flyt · ← → faner · Enter vælg · Esc farvel
     touch: Tryk på de dyr, der skal hjem

@@ -110,13 +110,13 @@ Technical items we've intentionally postponed: tech debt, hardening shortcuts, k
 
 **Trigger**: the first client code that opens a WebSocket (the `RemoteAuthority` PR).
 
-### The doctor's lists are a grouped, scrolling list of their own, not the team's bundled species cards
+### The doctor's Heal tab lists every animal of a kind, where the HUD shows one card
 
-**What**: the doctor's card lists the team one row per animal, grouped by species (`groupedIndexes`), in a list that scrolls, with its own rows on each tab (HP bars on heal, check boxes and tokens on help home). `feat/unlimited-party` is building reusable bundled species cards (a bundle per species that fans out, scrolls and drags) for a team with no cap. Two ways of showing a big team would drift apart: a kid would meet their rabbits as a bundle in the HUD and as a list at the doctor.
+**What**: the doctor's lists read the party's bundles (`bundles`), and Help home gives each kind of several a row of its own ("Rabbit ×12") that picks the whole kind (#75). Heal still lists each animal, grouped by kind with a line between kinds, and has no row for a kind. So a kid meets twelve rabbits as one card in the HUD and as twelve rows at the doctor's Heal tab.
 
-**Why deferred**: the bundle component had not landed when the doctor's card was revamped, and the doctor needs a row per animal on help home anyway (a kid picks which rabbit goes home, by name).
+**Why deferred**: Heal is where each animal's HP shows, and one puzzle already heals the whole kind whichever of its hurt animals is picked. A kind's row there would be a second way to the same puzzle, not a shortcut.
 
-**Trigger**: `feat/unlimited-party` merging. Then build the doctor's heal and help-home tabs on its bundles (a bundle's fan-out for picking animals to go home, a whole bundle for a heal, since one puzzle heals a species), and drop `groupedIndexes` if the bundles give the order.
+**Trigger**: a save with more than 20 hurt animals of one kind, so the heal list outgrows the card, or a report that Heal and the HUD read as different teams. Then give Heal a row per kind of several that opens its puzzle, as Help home's row picks its animals.
 
 ### Two tabs writing the save in the same instant: the one written over is kept aside, not merged
 

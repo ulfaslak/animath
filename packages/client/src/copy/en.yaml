@@ -481,12 +481,24 @@ doctor:
     worth:
       one: '{animal.name} brings {count} token.'
       other: '{animal.name} brings {count} tokens.'
-    # How many animals are picked, and what they bring together.
+    # The highlighted animal, when it has to stay: picking it too would leave no animal that can walk with the kid.
+    stays: '{animal.name} stays with you.'
+    # The highlighted row of a kind ("Fox ×40"), which picks them all: how many, and what they all bring.
+    kindWorth: All {count} bring {amount} tokens.
+    # The same, when one of the kind has to stay: how many of them can go, and what they bring.
+    kindWorthSome:
+      one: '1 of them brings {amount} tokens.'
+      other: '{count} of them bring {amount} tokens.'
+    # How many animals are picked, and what they bring together: the running total.
     picked:
       one: '1 animal picked: {amount} tokens.'
       other: '{count} animals picked: {amount} tokens.'
-    # When every animal but one is picked.
-    keepOne: One animal that isn't tired and walks on land always stays with you.
+    # When one animal has to stay: the last one left that isn't tired and walks on land
+    # (a sea animal can't), the one that walks on with the kid.
+    keepOne: Keep one animal that can walk with you!
+    # When no animal at all can walk on with the kid (only tired ones, or sea animals, standing):
+    # nobody can go home until one is healed.
+    noWalker: No animal can walk with you now. Heal one first!
     # The button under the animals.
     send: Help them home
     keys: ↑ ↓ choose · ← → tabs · Enter pick · Esc bye
