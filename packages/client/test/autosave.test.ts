@@ -4,6 +4,7 @@ import {
 	hashString,
 	newGame,
 	readSave,
+	saveDocument,
 	type GameEvent,
 	type SaveWrite,
 	type SavedGame
@@ -825,7 +826,8 @@ describe('Autosave: the title', () => {
 	function savedGame(store: MemoryStore, lineage = 'old-game'): string {
 		const game = newGame(SEED);
 		game.party.push({ id: 'fox-1', speciesId: 'fox', nickname: 'Rusty', hp: 9 });
-		const text = JSON.stringify({ ...game, version: 1, lineage, seq: 5 });
+		// As the game writes it (`saveDocument`): no battle, no `battle` key.
+		const text = JSON.stringify(saveDocument(game, { lineage, seq: 5 }));
 		store.set(KEYS.save, text);
 		return text;
 	}
@@ -885,10 +887,29 @@ describe('Autosave: the title', () => {
 		expect(store.save()).toMatchObject({ seq: 7, party: [{ speciesId: 'squirrel' }] });
 	});
 
+	it('a kid trying the starters one after another keeps every game they left', async () => {
+		const store = new MemoryStore();
+		const tab = new Tab(store, null);
+		await tab.title();
+		const left: string[] = [];
+		for (let n = 0; n < 30; n++) {
+			await tab.startNew(n % 2 === 0 ? 'rabbit' : 'squirrel');
+			await tab.quit();
+			left.push(store.get(KEYS.save)!);
+		}
+		await tab.startNew('squirrel');
+		await tab.catchOne();
+		expect(store.save()!.party).toHaveLength(2);
+		const kept = left.map((_, i) =>
+			store.get(i === 0 ? KEYS.previous : `${KEYS.previous}.${i + 1}`)
+		);
+		expect(kept).toEqual(left);
+	});
+
 	it('with nowhere left to keep the old save, a new game never writes over it', async () => {
 		const store = new MemoryStore();
 		const old = savedGame(store);
-		for (let n = 1; n <= 20; n++) {
+		for (let n = 1; n <= 200; n++) {
 			store.set(n === 1 ? KEYS.previous : `${KEYS.previous}.${n}`, `kept ${n}`);
 		}
 		const tab = new Tab(store, null);
@@ -896,7 +917,49 @@ describe('Autosave: the title', () => {
 		await tab.startNew('rabbit');
 		await tab.walk();
 		expect(store.get(KEYS.save)).toBe(old);
-		expect(store.get(`${KEYS.previous}.20`)).toBe('kept 20');
+		expect(store.get(`${KEYS.previous}.200`)).toBe('kept 200');
+	});
+
+	it('a new game started while the server was out of reach never puts away a game the title did not show', async () => {
+		const server = new FakeServer();
+		// The kid's real game is on the server; this browser has lost its own copy.
+		const theirs = { ...newGame(SEED), version: 1, lineage: 'kids-real-game', seq: 50 };
+		theirs.party = [...theirs.party, { id: 'bear-1', speciesId: 'bear', hp: 100 }];
+		const who = server.seed(theirs);
+		const store = new MemoryStore();
+		store.set(KEYS.player, JSON.stringify(who));
+		server.online = false;
+		const tab = new Tab(store, server);
+		// Out of reach at start: the title has no Continue, and New game asks nothing.
+		expect(await tab.title()).toEqual({});
+		await tab.startNew('rabbit');
+		const rabbitGame = store.get(KEYS.save);
+		server.online = true;
+		await later(60_000);
+		// The bigger game on the server wins, as without the title; the new one is kept too.
+		expect(tab.autosave.wantsReload).toBe(true);
+		expect(store.save()).toMatchObject({ lineage: 'kids-real-game', seq: 50 });
+		expect(store.get(KEYS.replaced)).toBe(rabbitGame);
+		expect(server.saveOf(who)).toEqual(theirs);
+	});
+
+	it('Continue after another tab walked on while the title was up carries on from that walk', async () => {
+		const store = new MemoryStore();
+		savedGame(store);
+		const title = new Tab(store, null);
+		const plan = await title.title();
+		const playing = new Tab(store, null);
+		await playing.open();
+		for (let i = 0; i < 5; i++) await playing.walk();
+		title.autosave.onStorage(KEYS.save);
+		expect(title.autosave.wantsReload).toBe(false);
+		const resumed = title.autosave.resumable()!;
+		expect(plan.game!.steps).toBe(0);
+		expect(resumed).toMatchObject({ steps: 5, pos: playing.game.pos });
+		// Continue from there: the next step is the sixth, never a second second.
+		await title.continueWith(resumed);
+		await title.walk();
+		expect(store.save()!.steps).toBe(6);
 	});
 
 	it('the new game takes the server over the old one, even when the server was ahead', async () => {

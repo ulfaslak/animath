@@ -1144,28 +1144,38 @@ describe('LocalAuthority: the title', () => {
 		expect(species(b, from.b)).toEqual(species(a, from.a));
 	});
 
-	it('leaving mid-battle keeps the battle in the game; leaving a doctor visit closes it', () => {
+	it('in a battle or at the doctor, leaving does nothing, so no new game opens a way out', () => {
 		const s = session();
 		walkIntoBattle(s);
-		attack(s, 1, 2, false);
+		// Mid-puzzle: the attack is committed.
+		s.authority.dispatch({ type: 'battle', intent: { type: 'attack', attackIndex: 1, level: 2 } });
 		const battle = latestBattle(s);
+		expect(battle.phase.kind).toBe('solving');
+		const inBattle = s.events.length;
 		s.authority.dispatch({ type: 'leave-game' });
-		expect(s.authority.snapshot().battle).toEqual(battle);
-		s.authority.start({ game: s.authority.snapshot() });
-		expect(s.events.slice(-2).map((e) => e.type)).toEqual(['welcome', 'battle-started']);
+		s.authority.dispatch({ type: 'new-game', speciesId: 'rabbit' });
+		expect(s.events.slice(inBattle)).toEqual([
+			{ type: 'new-game-refused', reason: 'game-in-progress' }
+		]);
+		expect(latestBattle(s)).toEqual(battle);
+		// The battle goes on: the puzzle is still there to answer.
+		if (battle.phase.kind !== 'solving') throw new Error('no puzzle');
+		const input = String(battle.phase.puzzle.answer);
+		s.authority.dispatch({ type: 'battle', intent: { type: 'answer', input } });
+		expect(s.events.slice(inBattle + 1).some((e) => e.type === 'battle-updated')).toBe(true);
 
 		const d = session({ party: hurtParty() });
 		walkToTent(d);
 		d.authority.dispatch({ type: 'interact' });
-		doctorIntent(d, { type: 'pick-patient', partyIndex: 1 });
-		answerDoctor(d, true);
+		const atDoctor = d.events.length;
 		d.authority.dispatch({ type: 'leave-game' });
-		d.authority.start({ game: d.authority.snapshot() });
-		const after = d.events.length;
-		// The visit is gone (walking works), and what it healed stayed healed.
-		move(d, 'up');
-		expect(d.events.length).toBeGreaterThan(after);
-		expect(d.authority.snapshot().party[1]!.hp).toBe(getAnimal('rabbit').maxHp);
+		expect(d.events.length).toBe(atDoctor);
+		doctorIntent(d, { type: 'pick-patient', partyIndex: 1 });
+		expect(visit(d).phase).toMatchObject({ kind: 'solving', partyIndex: 1 });
+		// Once the visit is over, leaving works.
+		doctorIntent(d, { type: 'leave' });
+		d.authority.dispatch({ type: 'leave-game' });
+		expect(d.events.at(-1)).toEqual({ type: 'game-left' });
 	});
 
 	it('a new game after leaving one starts fresh at the spawn tile, with the new starter only', () => {

@@ -58,7 +58,9 @@ function sayStartNotice(newGame: boolean): void {
 
 const titleController = new TitleController(authority, new TitleScenery(renderer), {
 	continueGame(saved) {
-		authority.start({ game: saved });
+		// The save as it is now, not as the title found it: another tab may have
+		// walked on meanwhile, and its step count must not go back.
+		authority.start({ game: autosave.resumable() ?? saved });
 		// After `welcome`, which clears the message line.
 		sayStartNotice(false);
 		autosave.begin();
@@ -77,7 +79,9 @@ authority.subscribe((event) => {
 	// A new game from the title: after `welcome`, which clears the message line.
 	if (event.type === 'welcome' && event.newGame) sayStartNotice(true);
 	// Quit to title: the game just left is the one Continue picks up.
-	if (event.type === 'game-left') titleController.open(authority.snapshot());
+	if (event.type === 'game-left') {
+		titleController.open(autosave.resumable() ?? authority.snapshot());
+	}
 	// `?zoo` lines up one of every species by the spawn tile (a check for the meshes).
 	if (flags.zoo && event.type === 'welcome') {
 		for (const figure of buildZoo(event.seed, event.pos)) renderer.addFigure(figure);

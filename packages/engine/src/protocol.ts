@@ -37,9 +37,10 @@ export type Intent =
 	 */
 	| { type: 'new-game'; speciesId: string; nickname?: string }
 	/**
-	 * Leave the game for the title (the pause menu's Quit to title). The game
-	 * stops where it is, as a reload stops it: a battle in progress stays in
-	 * the game (`snapshot()`), a doctor visit closes. Answered with
+	 * Leave the game for the title (the pause menu's Quit to title). Only
+	 * while exploring: in a battle or at the doctor it does nothing, so no
+	 * way out of either opens through the title. The game stops where it
+	 * stands, and a later start picks it up there. Answered with
 	 * `game-left`; after it nothing walks, rolls or saves until a game starts.
 	 */
 	| { type: 'leave-game' };

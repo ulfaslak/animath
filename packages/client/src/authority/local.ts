@@ -208,7 +208,9 @@ export class LocalAuthority implements Authority {
 		}
 		if (!this.started) return;
 		if (intent.type === 'leave-game') {
-			this.leave();
+			// Only while exploring, as the pause menu is: a battle or a doctor visit is
+			// finished first, so no way out of one opens through the title.
+			if (!this.battle && !this.doctor) this.leave();
 			return;
 		}
 		if (intent.type === 'party') {
@@ -268,13 +270,11 @@ export class LocalAuthority implements Authority {
 	}
 
 	/**
-	 * `leave-game`: back to the title. The game stays as it stood, so
-	 * `snapshot()` still holds it (a battle in progress too) and `start` can
-	 * pick it up again; a doctor visit closes, as a reload closes it, keeping
-	 * what it healed. Nothing is accepted after this but `new-game`.
+	 * `leave-game`, while exploring: back to the title. The game stays as it
+	 * stood, so `snapshot()` still holds it and `start` can pick it up again.
+	 * Nothing is accepted after this but `new-game`.
 	 */
 	private leave(): void {
-		this.doctor = null;
 		this.started = false;
 		this.emit({ type: 'game-left' });
 	}
