@@ -118,6 +118,13 @@
 			transform: rotate(-90deg);
 		}
 	}
+	/* Less motion: the tablet lies still on its side, the way to hold it. */
+	@media (prefers-reduced-motion: reduce) {
+		.tablet {
+			animation: none;
+			transform: rotate(-90deg);
+		}
+	}
 	.debug {
 		position: absolute;
 		top: 16px;

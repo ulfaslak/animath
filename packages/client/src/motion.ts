@@ -3,7 +3,8 @@
  * reduce`), kept current as the setting changes. The Three.js layer and the
  * battle screen's transition read it every frame and tone their movement
  * down (UI_SPEC § Sound and juice); the Svelte overlay's CSS reads the same
- * media query itself.
+ * media query itself, and a Svelte animation, which CSS can't reach (the
+ * pause menu's re-sort), reads this when it starts.
  */
 export const motion = { reduced: false };
 

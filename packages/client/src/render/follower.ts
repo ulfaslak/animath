@@ -23,7 +23,8 @@ import { groundTop } from './tiles';
  * Who it is: the lead, the first animal that isn't tired. When that changes
  * (a number key, the menu, a knock-out, the doctor, a catch), the one
  * following shrinks away and the new one grows in with a little bounce, the
- * battle's own recall and appearance. When every animal is tired, nobody
+ * battle's own recall and appearance (with reduced motion, as there: a lower
+ * rise and no bounce). When every animal is tired, nobody
  * follows: the team rests until the doctor has seen one.
  */
 
@@ -246,17 +247,19 @@ export class Follower {
 		this.shown = null;
 	}
 
+	/** With reduced motion the new one grows in without its bounce, as in a battle. */
 	private swapScale(): number {
 		if (!this.swap) return 1;
 		return this.swap.phase === 'out'
 			? this.swap.from * recallScale(this.swap.t / SWAP_OUT_SECONDS)
-			: appearScale(this.swap.t / SWAP_IN_SECONDS);
+			: appearScale(this.swap.t / SWAP_IN_SECONDS, motion.reduced);
 	}
 
-	/** Going away, it rises a little as it shrinks, as a battle's recall does. */
+	/** Going away, it rises a little as it shrinks, as a battle's recall does (a third as high with reduced motion). */
 	private swapLift(): number {
 		if (this.swap?.phase !== 'out') return 0;
-		return Math.sin(Math.min(1, this.swap.t / SWAP_OUT_SECONDS) * Math.PI) * 0.15;
+		const rise = motion.reduced ? 0.05 : 0.15;
+		return Math.sin(Math.min(1, this.swap.t / SWAP_OUT_SECONDS) * Math.PI) * rise;
 	}
 
 	private standable(p: GridPos): boolean {

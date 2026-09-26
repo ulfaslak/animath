@@ -1,5 +1,6 @@
 import { isWalkable, tileAtWorld, type Direction, type GridPos } from '@mathgame/engine';
 import type * as THREE from 'three';
+import { motion } from '../motion';
 import { buildAnimalMesh, disposeFigure } from './animals';
 import type { GameRenderer } from './renderer';
 import { StarterScene } from './starter-scene';
@@ -9,9 +10,10 @@ import { groundTop } from './tiles';
  * What the title draws ([[UI_SPEC]] § Title). Behind the menu: the world
  * where the game stands (the saved spot, or the spawn tile for a new
  * player), the trainer, the team gathered round (or, with no game yet, the
- * starters), all breathing, and the camera drifting slowly over them. It is
- * the explore camera, only pointed a little aside: the same angle, no zoom,
- * no turn ([[DESIGN]] § Aesthetic direction). Behind the starter screen: the
+ * starters), all breathing, and the camera drifting slowly over them (still
+ * with reduced motion). It is the explore camera, only pointed a little
+ * aside: the same angle, no zoom, no turn ([[DESIGN]] § Aesthetic
+ * direction). Behind the starter screen: the
  * starter stage, drawn instead of the world. The animals are scenery, and go
  * when the game starts.
  */
@@ -92,7 +94,8 @@ export class TitleScenery implements TitleView3D {
 	}
 
 	update(dt: number): void {
-		this.t += dt;
+		// With reduced motion the camera holds still, wherever the drift had got to.
+		if (!motion.reduced) this.t += dt;
 		const aside = TRAINER_AT * VIEW_HEIGHT_TILES * this.renderer.aspect();
 		const x = this.center.x - SCREEN_RIGHT.x * aside + DRIFT.x * Math.sin(this.t * DRIFT.rateX);
 		const z = this.center.y - SCREEN_RIGHT.z * aside + DRIFT.z * Math.sin(this.t * DRIFT.rateZ);

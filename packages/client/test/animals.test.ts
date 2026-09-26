@@ -1,6 +1,7 @@
 import { ANIMALS } from '@mathgame/engine';
 import * as THREE from 'three';
 import { describe, expect, it } from 'vitest';
+import { motion } from '../src/motion';
 import { animateIdle, animateWalk, buildAnimalMesh, buildPlayerMesh } from '../src/render/animals';
 
 /**
@@ -149,5 +150,28 @@ describe('the trainer walking', () => {
 		animateWalk(figure, 0.5, 1, 0);
 		const rig = figure.children[0]!;
 		for (const joint of JOINTS) expect(rig.getObjectByName(joint)!.rotation.x).toBeCloseTo(0, 9);
+	});
+
+	it('with reduced motion, swings its limbs less and never rocks (UI_SPEC § Sound and juice)', () => {
+		const figure = buildPlayerMesh();
+		const rig = figure.children[0]!;
+		const swing = (reduced: boolean, progress: number) => {
+			motion.reduced = reduced;
+			try {
+				animateIdle(figure, 0);
+				animateWalk(figure, progress, 1);
+			} finally {
+				motion.reduced = false;
+			}
+			return { arm: rig.getObjectByName('armL')!.rotation.x, rock: rig.rotation.z };
+		};
+		for (const progress of [0.1, 0.25, 0.5, 0.75, 0.9]) {
+			const full = swing(false, progress);
+			const calm = swing(true, progress);
+			expect(Math.abs(full.rock)).toBeGreaterThan(0);
+			expect(calm.rock).toBe(0);
+			expect(Math.abs(calm.arm)).toBeGreaterThan(0);
+			expect(Math.abs(calm.arm)).toBeLessThan(Math.abs(full.arm) / 2);
+		}
 	});
 });

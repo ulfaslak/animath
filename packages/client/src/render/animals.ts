@@ -468,6 +468,8 @@ const LEG_SWING = 0.45;
 const WADDLE = 0.09;
 /** How much taller the body gets in the air (squash and stretch). */
 const STRETCH = 0.06;
+/** With reduced motion, how far the limbs swing and the body stretches, of the full step. */
+const CALM_STEP = 0.4;
 
 /**
  * A walking step on a figure with limbs (the trainer), after `animateIdle`:
@@ -476,7 +478,8 @@ const STRETCH = 0.06;
  * 0..1 through one step and everything is at rest at both ends, so steps chain
  * smoothly; `stride` (1 or -1) says which foot leads, and alternates from step
  * to step. `amount` scales it all (0 is standing still). The limbs swing
- * about their joints, so the feet stay put while the figure hops.
+ * about their joints, so the feet stay put while the figure hops. With
+ * reduced motion the limbs swing less and the body never rocks.
  */
 export function animateWalk(
 	figure: THREE.Group,
@@ -486,7 +489,9 @@ export function animateWalk(
 ): void {
 	const rig = figure.children[0];
 	if (!rig) return;
-	const s = Math.sin(Math.min(1, Math.max(0, progress)) * Math.PI) * amount;
+	const calm = motion.reduced;
+	const s =
+		Math.sin(Math.min(1, Math.max(0, progress)) * Math.PI) * amount * (calm ? CALM_STEP : 1);
 	const swing = (joint: string, radians: number) => {
 		const limb = rig.getObjectByName(joint);
 		if (limb) limb.rotation.x = radians;
@@ -495,7 +500,7 @@ export function animateWalk(
 	swing('armR', -stride * ARM_SWING * s);
 	swing('legL', -stride * LEG_SWING * s);
 	swing('legR', stride * LEG_SWING * s);
-	rig.rotation.z = stride * WADDLE * s;
+	rig.rotation.z = calm ? 0 : stride * WADDLE * s;
 	rig.scale.y *= 1 + STRETCH * s;
 }
 

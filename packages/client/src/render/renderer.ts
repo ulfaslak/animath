@@ -32,11 +32,34 @@ export interface Stage {
 const VIEW_HEIGHT_TILES = 14; // how many tiles tall the viewport is
 const CAMERA_PITCH = THREE.MathUtils.degToRad(50);
 const CAMERA_YAW = THREE.MathUtils.degToRad(35);
+/** Where the camera rides relative to what it looks at: pitch and yaw never change. */
+const CAMERA_OFFSET = new THREE.Vector3(
+	Math.sin(CAMERA_YAW) * Math.cos(CAMERA_PITCH),
+	Math.sin(CAMERA_PITCH),
+	Math.cos(CAMERA_YAW) * Math.cos(CAMERA_PITCH)
+).multiplyScalar(40);
+
+/** Fit the world's camera to a canvas `aspect` wide: always 14 tiles tall, as wide as the window. */
+export function frameWorldCamera(camera: THREE.OrthographicCamera, aspect: number): void {
+	const halfH = VIEW_HEIGHT_TILES / 2;
+	camera.left = -halfH * aspect;
+	camera.right = halfH * aspect;
+	camera.top = halfH;
+	camera.bottom = -halfH;
+	camera.updateProjectionMatrix();
+}
+
+/** Point the world's camera at `target` (on the ground) from its one fixed angle. */
+export function aimWorldCamera(camera: THREE.OrthographicCamera, target: THREE.Vector3): void {
+	camera.position.copy(target).add(CAMERA_OFFSET);
+	camera.lookAt(target);
+	camera.updateMatrixWorld();
+}
 
 export class GameRenderer {
 	private renderer: THREE.WebGLRenderer;
 	private scene = new THREE.Scene();
-	private camera: THREE.OrthographicCamera;
+	private camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0.1, 200);
 	private player: THREE.Group;
 	private figures: THREE.Group[] = [];
 	private chunks = new ChunkRing(this.scene);
@@ -46,8 +69,8 @@ export class GameRenderer {
 	private step = { progress: 1, stride: 1 as 1 | -1 };
 	/** While set, this scene is drawn instead of the world. */
 	private stage: Stage | null = null;
-	/** A few butterflies round the middle of the screen (`ambient.ts`). */
-	private butterflies = new Butterflies(this.scene);
+	/** A few butterflies round the middle of the screen (`ambient.ts`), kept out of view but for there. */
+	private butterflies = new Butterflies(this.scene, this.camera);
 	/** When the world was last drawn, in seconds, for the butterflies' time step. */
 	private lastT = -1;
 
@@ -61,7 +84,6 @@ export class GameRenderer {
 		this.scene.background = new THREE.Color(COLORS.sky);
 		this.scene.fog = new THREE.Fog(COLORS.sky, 40, 70);
 
-		this.camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0.1, 200);
 		this.scene.add(this.camera);
 
 		const hemi = new THREE.HemisphereLight(0xffffff, 0x88aa66, 1.1);
@@ -173,12 +195,13 @@ export class GameRenderer {
 			return;
 		}
 		animateIdle(this.player, t);
-		animateWalk(this.player, this.step.progress, this.step.stride, motion.reduced ? 0.4 : 1);
+		animateWalk(this.player, this.step.progress, this.step.stride);
 		for (const f of this.figures) animateIdle(f, t, this.camera);
 		const dt = this.lastT < 0 ? 0 : Math.min(0.1, Math.max(0, t - this.lastT));
 		this.lastT = t;
-		this.butterflies.update({ x: this.cameraTarget.x, z: this.cameraTarget.z }, dt, t);
+		// Aimed first: the butterflies keep out of this frame's view, not the last one's.
 		this.placeCamera();
+		this.butterflies.update({ x: this.cameraTarget.x, z: this.cameraTarget.z }, dt, t);
 		this.sun.position.copy(this.cameraTarget).add(new THREE.Vector3(12, 20, 8));
 		this.sun.target.position.copy(this.cameraTarget);
 		this.renderer.render(this.scene, this.camera);
@@ -186,15 +209,7 @@ export class GameRenderer {
 
 	/** The camera rides a fixed offset from the target: pitch and yaw never change. */
 	private placeCamera(): void {
-		const dist = 40;
-		const offset = new THREE.Vector3(
-			Math.sin(CAMERA_YAW) * Math.cos(CAMERA_PITCH),
-			Math.sin(CAMERA_PITCH),
-			Math.cos(CAMERA_YAW) * Math.cos(CAMERA_PITCH)
-		).multiplyScalar(dist);
-		this.camera.position.copy(this.cameraTarget).add(offset);
-		this.camera.lookAt(this.cameraTarget);
-		this.camera.updateMatrixWorld();
+		aimWorldCamera(this.camera, this.cameraTarget);
 	}
 
 	private groundAt(pos: GridPos): number {
@@ -218,13 +233,7 @@ export class GameRenderer {
 	private resize(): void {
 		const { w, h } = this.size();
 		this.renderer.setSize(w, h, false);
-		const aspect = w / h;
-		const halfH = VIEW_HEIGHT_TILES / 2;
-		this.camera.left = -halfH * aspect;
-		this.camera.right = halfH * aspect;
-		this.camera.top = halfH;
-		this.camera.bottom = -halfH;
-		this.camera.updateProjectionMatrix();
+		frameWorldCamera(this.camera, w / h);
 		this.stage?.resize(w, h);
 	}
 }
