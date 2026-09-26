@@ -7,8 +7,10 @@ import {
 	attackDamage,
 	canTalkToDoctor,
 	getAnimal,
+	isBundled,
 	isEncounterTile,
 	isWalkable,
+	joinParty,
 	leadIndex,
 	nearestTent,
 	startBattle,
@@ -47,11 +49,11 @@ import { besideA, gameBeside } from './clearing';
  * `doctor.test.ts` and `party.test.ts`).
  *
  * The prototype world's spawn tile, (-2, 6), has a river reed (tall grass)
- * straight to its left, so walking left and right from it meets animals
- * (with the starter squirrel in front: the frogs that live there, the
- * squirrels and rabbits that come down to the water near home, now and then
- * an otter). Seven steps right, all on grass, is (5, 6), just above
- * the tent at (5, 7).
+ * straight to its left, with the lake all round it, so walking left and right
+ * from it meets animals (with the starter squirrel in front: mostly the frogs
+ * that live by the water, the squirrels and rabbits that come down to it near
+ * home, now and then an otter). Seven steps right, all on grass, is (5, 6),
+ * just above the tent at (5, 7).
  */
 type Session = { authority: LocalAuthority; events: GameEvent[] };
 
@@ -359,11 +361,11 @@ describe('LocalAuthority: encounters', () => {
 });
 
 describe('LocalAuthority: the lead decides who comes out', () => {
-	it('with the starter in front, the reed meets a Rabbit on step 11, a Squirrel on step 15, the first Frog on step 71 and the first Otter on step 97', () => {
+	it('with the starter in front, the reed meets a Frog on step 11, a Rabbit on step 15, the first Squirrel on step 69 and the first Otter on step 97', () => {
 		const met = reedWalk(session(), 97);
-		expect(met[0]).toEqual({ step: 11, wild: 'rabbit', lead: 'squirrel' });
-		expect(met[1]).toEqual({ step: 15, wild: 'squirrel', lead: 'squirrel' });
-		expect(met.find((m) => m.wild === 'frog')?.step).toBe(71);
+		expect(met[0]).toEqual({ step: 11, wild: 'frog', lead: 'squirrel' });
+		expect(met[1]).toEqual({ step: 15, wild: 'rabbit', lead: 'squirrel' });
+		expect(met.find((m) => m.wild === 'squirrel')?.step).toBe(69);
 		expect(met.find((m) => m.wild === 'otter')?.step).toBe(97);
 		expect(met.every((m) => ['squirrel', 'rabbit', 'frog', 'otter'].includes(m.wild))).toBe(true);
 	});
@@ -487,33 +489,27 @@ describe('LocalAuthority: outcomes', () => {
 		expect(position(s)).toEqual({ x: 3, y: 7 });
 	});
 
-	it('caught: joins the party with the HP it had; a seventh animal is let go', () => {
+	it('caught: joins the party with the HP it had, at the end of its bundle, the seventh and on too', () => {
 		const s = session();
-		let caught = 0;
-		for (let battles = 0; battles < 200 && party(s).length < 7; battles++) {
-			const before = party(s).length;
+		for (let battles = 0; battles < 300 && party(s).length < 9; battles++) {
+			const before = party(s);
 			walkIntoBattle(s);
 			tryToCatch(s);
 			const end = latestBattle(s);
 			if (end.phase.kind !== 'ended' || end.phase.outcome !== 'caught') continue;
-			caught++;
 			const ended = closingEvents(s).find((e) => e.type === 'battle-updated');
 			const event =
 				ended?.type === 'battle-updated' ? ended.events.find((e) => e.type === 'ended') : null;
 			const animal = event?.type === 'ended' ? event.caught : undefined;
 			expect(animal).toBeDefined();
-			if (before < 6) {
-				expect(party(s)).toHaveLength(before + 1);
-				expect(party(s).at(-1)).toEqual(animal);
-				expect(lastMessage(s)).toBe('battle.closing.joined');
-			} else {
-				expect(party(s)).toHaveLength(6);
-				expect(party(s).map((a) => a.id)).not.toContain(animal!.id);
-				expect(lastMessage(s)).toBe('battle.closing.teamFull');
-				return;
-			}
+			// No cap: every catch joins, behind the others of its kind (the party's HP as
+			// the battle left it).
+			expect(party(s)).toEqual(joinParty(end.party, animal!));
+			expect(isBundled(party(s))).toBe(true);
+			expect(lastMessage(s)).toBe('battle.closing.joined');
+			expect(party(s)).toHaveLength(before.length + 1);
 		}
-		throw new Error(`the party never filled up (${caught} caught)`);
+		expect(party(s)).toHaveLength(9);
 	});
 });
 

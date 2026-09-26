@@ -167,12 +167,32 @@ hud:
   pickLead: Pick who goes first
   # The same, with the touch controls on: the cards themselves are tapped.
   pickLeadTouch: Tap an animal to pick who goes first
+  # With the touch controls on, when a card holds several animals of one kind.
+  openTouch: Tap a card to open it, then tap who goes first
+  # Under the party cards, with two or more: how to put them in another order.
+  dragMouse: Drag a card to move it
+  dragTouch: Hold a card, then drag it
   # Under the party cards, after the Esc key cap; and the touch controls' menu button.
   menu: Menu
   # The player's tokens, at the top right.
   tokens:
     one: '{count} token'
     other: '{count} tokens'
+
+# A card of the party: every animal of one kind, stacked (the HUD, the pause
+# menu, the battle's switch list).
+team:
+  # Beside the kind's name on a card of several animals.
+  count: '×{count}'
+  # Under the name on a card of several animals: how many can play.
+  allReady: All ready
+  allTired: All tired
+  ready:
+    one: '{count} ready'
+    other: '{count} ready'
+  tired:
+    one: '{count} tired'
+    other: '{count} tired'
 
 party:
   # The tag on an animal at 0 HP.
@@ -184,6 +204,8 @@ party:
   leadTired: '{animal.name} is tired. Visit the doctor!'
   # The message line, when the lead's own number was pressed.
   leadAlready: '{animal.name} already goes first!'
+  # The message line, when the number of a card whose animals are all tired was pressed.
+  leadAllTired: They are all tired. Visit the doctor!
 
 battle:
   # The status box over the wild animal.
@@ -253,10 +275,6 @@ battle:
     good: Good chance!
     maybe: Maybe
     hard: Hard to catch
-    # Beside the row in place of the odds, when the team already has six animals.
-    teamFull: Team is full
-    # What the row says when highlighted with the team full: a catch goes home.
-    teamFullDetail: Your team is full. If you catch it, it hops home.
     # Narration of a throw.
     throw: You throw the leash…
     caught: Caught!
@@ -292,8 +310,6 @@ battle:
   result:
     won: You won!
     caught: 'You caught {animal.a}!'
-    # Caught, but the team was full, so the animal went home: never "You caught…".
-    letGo: Good throw!
     lost: Good try!
     fled: You got away!
     button: Keep exploring
@@ -303,7 +319,6 @@ battle:
     won: '{animal.theWild} runs home to rest.'
     fled: '{animal.theWild} stays in the grass.'
     joined: '{animal.name} joins your team!'
-    teamFull: 'Your team is full, so {animal.theWild} hops home.'
 
 doctor:
   # The name tag in front of what the doctor says.
@@ -481,6 +496,10 @@ pause:
   pickHelp: Choose who goes first, move it, or give it a name.
   # Under the options of a tired animal, whose "Go first" is greyed.
   tiredHelp: "{animal.name} is tired, so it can't go first."
+  # A card of several animals, under its options: its animals are listed below.
+  pickOne: Pick one of them to move it or give it a name.
+  # The same, when they are all tired and the card's "Go first" is greyed.
+  allTiredHelp: "They are all tired, so they can't go first."
   # Above the name box.
   nameTitle: New name for {animal.name}
   # Under the name box; {max} is the most characters a name can have.

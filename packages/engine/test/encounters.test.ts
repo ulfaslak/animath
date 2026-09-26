@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { ANIMALS, getAnimal } from '../src/animals/catalog.js';
-import type { Biome, Tier } from '../src/animals/types.js';
+import type { Biome, Terrain, Tier } from '../src/animals/types.js';
 import { Rng, hashString } from '../src/rng.js';
 import {
 	ENCOUNTER_CHANCE,
@@ -9,11 +9,13 @@ import {
 	WILD_RADIUS,
 	distanceFromSpawn,
 	encounterTable,
+	encounterTableAt,
 	rollEncounter,
 	type EncounterEntry,
 	type EncounterSite
 } from '../src/world/encounters.js';
 import { generateChunk, spawnPoint, tileAtWorld } from '../src/world/generate.js';
+import { surroundings, type Surroundings } from '../src/world/habitat.js';
 import type { GridPos, Tile, TileKind } from '../src/world/types.js';
 
 const BIOMES: readonly Biome[] = ['meadow', 'forest', 'river', 'mountain'];
@@ -21,11 +23,40 @@ const LEADS: readonly Tier[] = [1, 2, 3, 4, 5];
 const ORIGIN = { x: 0, y: 0 };
 const tallgrass = (biome: Biome): Tile => ({ kind: 'tallgrass', biome, height: 0 });
 
-/** Site `distance` tiles east of an origin spawn. */
-const siteAt = (biome: Biome, distance: number): EncounterSite => ({
+/** Open ground: no water, trees or rocks within 3 tiles. */
+const OPEN: Surroundings = { water: 0, trees: 0, rocks: 0 };
+
+/**
+ * A handful of grounds for the sweeps that don't need every one: open, each
+ * terrain in plenty, a little of each, and a mix of two.
+ */
+const GROUNDS: readonly Surroundings[] = [
+	OPEN,
+	{ water: 9, trees: 0, rocks: 0 },
+	{ water: 0, trees: 12, rocks: 0 },
+	{ water: 0, trees: 0, rocks: 7 },
+	{ water: 1, trees: 1, rocks: 1 },
+	{ water: 3, trees: 4, rocks: 0 },
+	{ water: 0, trees: 2, rocks: 5 },
+	{ water: 5, trees: 0, rocks: 2 }
+];
+
+/**
+ * Every ground that makes a difference, and one past it: water, trees and
+ * rocks each 0 to 8 tiles (from 7 each counts in full, so 8 behaves like 7).
+ */
+const GROUND_GRID: readonly Surroundings[] = Array.from({ length: 9 ** 3 }, (_, i) => ({
+	water: i % 9,
+	trees: Math.floor(i / 9) % 9,
+	rocks: Math.floor(i / 81)
+}));
+
+/** Site `distance` tiles east of an origin spawn, with the ground `around` it. */
+const siteAt = (biome: Biome, distance: number, around: Surroundings = OPEN): EncounterSite => ({
 	tile: tallgrass(biome),
 	pos: { x: distance, y: 0 },
-	spawn: ORIGIN
+	spawn: ORIGIN,
+	around
 });
 
 /** Every half tile from spawn to past the wild radius, and far away. */
@@ -56,6 +87,7 @@ interface Kind {
 	id: string;
 	tier: number;
 	habitats: readonly Biome[];
+	favours: Terrain;
 }
 
 /**
@@ -85,11 +117,66 @@ function tierOneTable(
 	return new Map([...raw].map(([id, w]) => [id, w / sum]));
 }
 
-/** A tier-1 lead's roll: the chance, then a pick down `tierOneTable`. */
+/**
+ * What the ground does, written out again from [[PRODUCT]] §4 with its numbers
+ * as literals: a species comes out 4^s times as often, s being how much of the
+ * terrain it favours lies within 3 tiles. Water, trees or rocks count fully
+ * from 7 of the 28 tiles there; open ground counts fully with none of those
+ * three near and not at all once they make 7 together.
+ */
+function groundFactor(favours: Terrain, around: Surroundings): number {
+	const cover = around.water + around.trees + around.rocks;
+	const s = favours === 'open' ? 1 - Math.min(1, cover / 7) : Math.min(1, around[favours] / 7);
+	return 4 ** s;
+}
+
+/**
+ * `tierOneTable` on a tile with the ground `around` it, as [[PRODUCT]] §4
+ * writes it out: within a tier, each animal's share of its tier goes by its
+ * biome share times its `groundFactor`; a tier's share is its biome share
+ * times its animals' mean factor (weighted by their biome shares) raised to
+ * danger = clamp((d − 32) / 96), normalised.
+ */
+function tierOneTableAt(
+	roster: readonly Kind[],
+	biome: Biome,
+	distance: number,
+	around: Surroundings
+): Map<string, number> {
+	const danger = Math.min(1, Math.max(0, (distance - 32) / 96));
+	const kinds = new Map(roster.map((a) => [a.id, a]));
+	const table = tierOneTable(roster, biome, distance);
+	const tiers = new Map<number, { share: number; weighed: number }>();
+	for (const [id, w] of table) {
+		const a = kinds.get(id)!;
+		const t = tiers.get(a.tier) ?? { share: 0, weighed: 0 };
+		t.share += w;
+		t.weighed += w * groundFactor(a.favours, around);
+		tiers.set(a.tier, t);
+	}
+	const tierWeight = (t: { share: number; weighed: number }) =>
+		t.share * (t.weighed / t.share) ** danger;
+	let sum = 0;
+	for (const t of tiers.values()) sum += tierWeight(t);
+	return new Map(
+		[...table].map(([id, w]) => {
+			const a = kinds.get(id)!;
+			const t = tiers.get(a.tier)!;
+			return [id, (tierWeight(t) / sum) * ((w * groundFactor(a.favours, around)) / t.weighed)];
+		})
+	);
+}
+
+/** A tier-1 lead's roll: the chance, then a pick down `tierOneTableAt`. */
 function tierOneRoll(rng: Rng, site: EncounterSite): string | null {
 	if (site.tile.kind !== 'tallgrass') return null;
 	if (!rng.chance(0.1)) return null;
-	const table = tierOneTable(ANIMALS, site.tile.biome, distanceFromSpawn(site.pos, site.spawn));
+	const table = tierOneTableAt(
+		ANIMALS,
+		site.tile.biome,
+		distanceFromSpawn(site.pos, site.spawn),
+		site.around
+	);
 	let r = rng.next();
 	let last: string | null = null;
 	for (const [id, w] of table) {
@@ -214,7 +301,8 @@ describe('encounterTable', () => {
 			const shrunk = ANIMALS.filter((a) => a.tier >= lead).map((a) => ({
 				id: a.id,
 				tier: a.tier - (lead - 1),
-				habitats: a.habitats
+				habitats: a.habitats,
+				favours: a.favours
 			}));
 			for (const biome of BIOMES) {
 				for (const d of SWEEP) {
@@ -411,6 +499,260 @@ describe('encounterTable', () => {
 	});
 });
 
+/** Shares of a table by species id. */
+const sharesOf = (table: readonly EncounterEntry[]) =>
+	new Map(table.map((e) => [e.species.id, e.weight] as const));
+
+/** The share of a table held by species whose tier passes `tiers`. */
+const tierShare = (table: readonly EncounterEntry[], tiers: (t: number) => boolean) =>
+	total(table.filter((e) => tiers(e.species.tier)));
+
+/**
+ * Failures of a sweep, the first 20 of them with a count of the rest: a
+ * broken rule fails thousands of cells, and formatting every one of them
+ * would take longer than the sweep.
+ */
+function findings() {
+	const list: string[] = [];
+	let more = 0;
+	return {
+		list,
+		note(finding: string) {
+			if (list.length < 20) list.push(finding);
+			else list[19] = `…and ${++more} more`;
+		}
+	};
+}
+
+describe('encounterTableAt: the ground around the tall grass', () => {
+	it("lists exactly the biome's species, in its order, each at a quarter to four times its biome share", () => {
+		const bad = findings();
+		let compared = 0;
+		for (const lead of LEADS) {
+			for (const biome of BIOMES) {
+				for (const d of [0, 16, 48, 80, 127, 400]) {
+					const inBiome = encounterTable(biome, d, lead);
+					for (const around of GROUND_GRID) {
+						const here = encounterTableAt(siteAt(biome, d, around), lead);
+						const where = `tier-${lead} lead in ${biome} @ ${d} on ${JSON.stringify(around)}`;
+						if (here.map((e) => e.species.id).join() !== inBiome.map((e) => e.species.id).join())
+							bad.note(`${where} lists ${here.map((e) => e.species.id)}`);
+						if (here.length > 0 && !(Math.abs(total(here) - 1) <= 1e-12))
+							bad.note(`${where} sums to ${total(here)}`);
+						here.forEach((e, i) => {
+							compared++;
+							const ratio = e.weight / inBiome[i]!.weight;
+							if (!(ratio >= 0.25 - 1e-12 && ratio <= 4 + 1e-12))
+								bad.note(`${e.species.id}, ${where}: ×${ratio}`);
+						});
+					}
+				}
+			}
+		}
+		expect(bad.list).toEqual([]);
+		expect(compared).toBeGreaterThan(100_000);
+	});
+
+	it('for a tier-1 lead is the table [[PRODUCT]] §4 writes out, on every ground', () => {
+		const bad = findings();
+		for (const biome of BIOMES) {
+			for (const d of [0, 20, 32, 50, 80, 127.5, 128, 1000]) {
+				for (const around of GROUND_GRID) {
+					const here = encounterTableAt(siteAt(biome, d, around), 1);
+					const expected = tierOneTableAt(ANIMALS, biome, d, around);
+					const where = `${biome} @ ${d} on ${JSON.stringify(around)}`;
+					if (here.map((e) => e.species.id).join() !== [...expected.keys()].join())
+						bad.note(`${where} lists ${here.map((e) => e.species.id)}`);
+					for (const e of here)
+						if (!(Math.abs(e.weight - expected.get(e.species.id)!) <= 1e-12))
+							bad.note(`${e.species.id} in ${where}: ${e.weight} vs ${expected.get(e.species.id)}`);
+				}
+			}
+		}
+		expect(bad.list).toEqual([]);
+	});
+
+	it('from its own tier up, a tier-T lead meets what a tier-1 lead met in a world T − 1 tiers smaller, on every ground', () => {
+		const bad = findings();
+		let compared = 0;
+		const grounds = GROUND_GRID.filter((g) =>
+			[g.water, g.trees, g.rocks].every((n) => n % 2 === 1 || n === 0)
+		);
+		for (const lead of LEADS) {
+			const shrunk = ANIMALS.filter((a) => a.tier >= lead).map((a) => ({
+				id: a.id,
+				tier: a.tier - (lead - 1),
+				habitats: a.habitats,
+				favours: a.favours
+			}));
+			for (const biome of BIOMES) {
+				for (const d of [0, 16, 32, 48, 80, 127, 128, 400]) {
+					for (const around of grounds) {
+						const where = `tier-${lead} lead in ${biome} @ ${d} on ${JSON.stringify(around)}`;
+						const upper = encounterTableAt(siteAt(biome, d, around), lead).filter(
+							(e) => e.species.tier >= lead
+						);
+						const mass = total(upper);
+						const expected = tierOneTableAt(shrunk, biome, d, around);
+						if (upper.map((e) => e.species.id).join() !== [...expected.keys()].join())
+							bad.note(`${where} lists ${upper.map((e) => e.species.id)}`);
+						for (const e of upper) {
+							compared++;
+							if (!(Math.abs(e.weight / mass - expected.get(e.species.id)!) <= 1e-12))
+								bad.note(`${e.species.id}, ${where}: ${e.weight / mass}`);
+						}
+					}
+				}
+			}
+		}
+		expect(bad.list).toEqual([]);
+		expect(compared).toBeGreaterThan(20_000);
+	});
+
+	it('more of a terrain nearby never lowers the share of an animal that favours it', () => {
+		// One tile around turns into terrain `to`, from open ground or from
+		// another terrain; `open` gains when a tile of water, trees or rocks
+		// turns into ground with none of them. Every animal favouring the
+		// terrain that gained keeps its share or grows it, whoever leads,
+		// wherever, at any distance.
+		type Move = { to: Terrain; from: Terrain };
+		const moves: Move[] = [];
+		for (const to of ['water', 'trees', 'rocks', 'open'] as const)
+			for (const from of ['water', 'trees', 'rocks', 'open'] as const)
+				if (to !== from) moves.push({ to, from });
+		const index = (w: number, t: number, r: number) => w + 9 * t + 81 * r;
+		const bad = findings();
+		let rose = 0;
+		let checked = 0;
+		for (const lead of LEADS) {
+			for (const biome of BIOMES) {
+				if (isSilent(lead, biome)) continue;
+				for (const d of [0, 48, 400]) {
+					const tables = GROUND_GRID.map((around) =>
+						sharesOf(encounterTableAt(siteAt(biome, d, around), lead))
+					);
+					const ids = [...tables[0]!.keys()];
+					GROUND_GRID.forEach((before, i) => {
+						for (const { to, from } of moves) {
+							const after = { ...before };
+							if (from !== 'open') after[from] -= 1;
+							if (to !== 'open') after[to] += 1;
+							if ([after.water, after.trees, after.rocks].some((n) => n < 0 || n > 8)) continue;
+							const j = index(after.water, after.trees, after.rocks);
+							for (const id of ids) {
+								if (getAnimal(id).favours !== to) continue;
+								checked++;
+								const was = tables[i]!.get(id)!;
+								const now = tables[j]!.get(id)!;
+								if (now < was - 1e-12)
+									bad.note(
+										`${id}, tier-${lead} lead in ${biome} @ ${d}: ${from} → ${to} at ${JSON.stringify(before)}: ${was} → ${now}`
+									);
+								if (now > was + 1e-12) rose++;
+							}
+						}
+					});
+				}
+			}
+		}
+		expect(bad.list).toEqual([]);
+		// Not a sweep of ties: the ground moved these shares tens of thousands of times.
+		expect(checked).toBeGreaterThan(50_000);
+		expect(rose).toBeGreaterThan(20_000);
+	});
+
+	it('on any ground, the share two tiers above the lead never falls and its own never rises with distance', () => {
+		const bad = findings();
+		for (const lead of LEADS) {
+			for (const biome of BIOMES) {
+				if (isSilent(lead, biome)) continue;
+				for (const around of GROUNDS) {
+					let prevFierce = -1;
+					let prevOwn = 2;
+					for (let d = 0; d <= WILD_RADIUS + 64; d += 1) {
+						const here = encounterTableAt(siteAt(biome, d, around), lead);
+						const fierce = tierShare(here, (t) => t >= lead + 2);
+						const own = tierShare(here, (t) => t === lead);
+						const where = `tier-${lead} lead in ${biome} @ ${d} on ${JSON.stringify(around)}`;
+						if (!(fierce >= prevFierce - 1e-12)) bad.note(`${where}: two up fell to ${fierce}`);
+						if (!(own <= prevOwn + 1e-12)) bad.note(`${where}: own tier rose to ${own}`);
+						prevFierce = fierce;
+						prevOwn = own;
+					}
+				}
+			}
+		}
+		expect(bad.list).toEqual([]);
+	});
+
+	it('lists only animals that live in the realm the tile is in: on the water, only the frog and the otter so far', () => {
+		// Nothing starts a water encounter yet (the boat will); the realm is
+		// already in the tables, so a sea animal added to the catalog will
+		// never come out of the tall grass, and a land animal never out of the water.
+		for (const lead of LEADS) {
+			for (const biome of BIOMES) {
+				for (const d of [0, 64, 400]) {
+					for (const e of encounterTable(biome, d, lead, 'water'))
+						expect(e.species.realms, `${e.species.id} on the water`).toContain('water');
+					for (const e of encounterTable(biome, d, lead, 'land'))
+						expect(e.species.realms, `${e.species.id} on land`).toContain('land');
+					expect(encounterTable(biome, d, lead, 'land')).toEqual(encounterTable(biome, d, lead));
+				}
+			}
+		}
+		expectShares(encounterTable('river', 0, 1, 'water'), normalised({ frog: 1, otter: 0.2 }));
+		expectShares(encounterTable('river', 0, 2, 'water'), normalised({ frog: 0.1, otter: 1 }));
+		for (const biome of ['meadow', 'forest', 'mountain'] as const)
+			expect(encounterTable(biome, 0, 1, 'water')).toEqual([]);
+	});
+});
+
+describe('the start: the ground near spawn', () => {
+	it("inside the safe radius the ground never moves a tier: on every ground, each tier's share is the biome table's, whoever leads", () => {
+		const bad = findings();
+		let compared = 0;
+		for (const lead of LEADS) {
+			for (const biome of BIOMES) {
+				for (const d of [0, 8, 16, 24, SAFE_RADIUS]) {
+					const inBiome = encounterTable(biome, d, lead);
+					for (const around of GROUND_GRID) {
+						const here = encounterTableAt(siteAt(biome, d, around), lead);
+						for (const tier of [1, 2, 3, 4, 5]) {
+							compared++;
+							const was = tierShare(inBiome, (t) => t === tier);
+							const now = tierShare(here, (t) => t === tier);
+							if (!(Math.abs(now - was) <= 1e-12))
+								bad.note(
+									`tier ${tier}, tier-${lead} lead in ${biome} @ ${d} on ${JSON.stringify(around)}: ${was} → ${now}`
+								);
+						}
+					}
+				}
+			}
+		}
+		expect(bad.list).toEqual([]);
+		expect(compared).toBeGreaterThan(300_000);
+	});
+
+	it("at the reed beside the prototype world's spawn, with the lake all round it, most battles are frogs and the otter stays 1 in 16", () => {
+		const seed = hashString('prototype');
+		const spawn = spawnPoint(seed);
+		const pos = { x: spawn.x - 1, y: spawn.y };
+		const tile = tileAtWorld(seed, pos.x, pos.y);
+		expect(tile).toMatchObject({ kind: 'tallgrass', biome: 'river' });
+		const site = { tile, pos, spawn, around: surroundings(seed, pos) };
+		// The squirrels and rabbits that come down to the water keep a third of
+		// the tier-1 share each on open sand; here the frogs, four times as
+		// likely by the water, take two thirds of it.
+		expectShares(
+			encounterTableAt(site, 1),
+			normalised({ squirrel: 1, rabbit: 1, frog: 4, otter: 0.4 })
+		);
+		// A fox or an otter in front: otters, and a frog 1 time in 11, as on the biome's table.
+		expectShares(encounterTableAt(site, 2), normalised({ frog: 0.1, otter: 1 }));
+	});
+});
+
 describe('rollEncounter', () => {
 	it('is empty on every tile kind but tall grass, and leaves the rng untouched', () => {
 		const kinds: readonly TileKind[] = ['grass', 'sand', 'water', 'rock', 'tree', 'tent'];
@@ -418,7 +760,7 @@ describe('rollEncounter', () => {
 			for (const kind of kinds) {
 				for (const biome of BIOMES) {
 					const rng = new Rng(1);
-					const site = { tile: { kind, biome, height: 0 }, pos: { x: 300, y: 0 }, spawn: ORIGIN };
+					const site = { ...siteAt(biome, 300), tile: { kind, biome, height: 0 } };
 					const rolls = Array.from({ length: 100 }, () => rollEncounter(rng, site, lead));
 					expect(rolls.filter((w) => w !== null)).toEqual([]);
 					expect(rng.next()).toBe(new Rng(1).next());
@@ -427,53 +769,66 @@ describe('rollEncounter', () => {
 		}
 	});
 
-	it('stays quiet without a draw where nothing could challenge the lead', () => {
+	it('stays quiet without a draw where nothing could challenge the lead, on any ground', () => {
 		for (const [lead, biome] of SILENT) {
 			for (const d of [0, 64, 400]) {
-				const rng = new Rng(7);
-				const rolls = Array.from({ length: 500 }, () => rollEncounter(rng, siteAt(biome, d), lead));
-				expect(rolls.filter((w) => w !== null)).toEqual([]);
-				expect(rng.next()).toBe(new Rng(7).next());
-			}
-		}
-	});
-
-	it('for a tier-1 lead draws exactly as [[PRODUCT]] §4 says: the chance, then a pick down the table', () => {
-		for (const biome of BIOMES) {
-			for (const d of [0, 16, 40, 64, 100, 127.5, 160]) {
-				const now = new Rng(hashString(`before:${biome}:${d}`));
-				const spec = new Rng(hashString(`before:${biome}:${d}`));
-				const rolls = Array.from({ length: 1500 }, () => [
-					rollEncounter(now, siteAt(biome, d), 1)?.speciesId ?? null,
-					tierOneRoll(spec, siteAt(biome, d))
-				]);
-				expect(
-					rolls.filter(([a, b]) => a !== b),
-					`${biome} @ ${d}`
-				).toEqual([]);
-				expect(rolls.filter(([a]) => a !== null).length).toBeGreaterThan(100);
-			}
-		}
-	});
-
-	it('the lead never changes whether a step starts a battle, only which animal comes out', () => {
-		let battles = 0;
-		for (const lead of LEADS) {
-			for (const biome of BIOMES) {
-				if (isSilent(lead, biome)) continue;
-				for (const d of [0, 64, 400]) {
-					const seeds = Array.from({ length: 400 }, (_, i) => hashString(`${biome}:${d}:${i}`));
-					const withLead = seeds.map((s) => rollEncounter(new Rng(s), siteAt(biome, d), lead));
-					const withStarter = seeds.map((s) => rollEncounter(new Rng(s), siteAt(biome, d), 1));
-					expect(
-						withLead.map((w) => w !== null),
-						`tier-${lead} lead in ${biome} @ ${d}`
-					).toEqual(withStarter.map((w) => w !== null));
-					battles += withLead.filter((w) => w !== null).length;
+				for (const around of GROUNDS) {
+					const rng = new Rng(7);
+					const site = siteAt(biome, d, around);
+					const rolls = Array.from({ length: 100 }, () => rollEncounter(rng, site, lead));
+					expect(rolls.filter((w) => w !== null)).toEqual([]);
+					expect(rng.next()).toBe(new Rng(7).next());
 				}
 			}
 		}
-		expect(battles).toBeGreaterThan(1000);
+	});
+
+	it('for a tier-1 lead draws exactly as [[PRODUCT]] §4 says: the chance, then a pick down the table for the ground around', () => {
+		const bad: string[] = [];
+		let met = 0;
+		for (const biome of BIOMES) {
+			for (const d of [0, 16, 40, 64, 100, 127.5, 160]) {
+				for (const around of GROUNDS) {
+					const now = new Rng(hashString(`before:${biome}:${d}:${JSON.stringify(around)}`));
+					const spec = new Rng(hashString(`before:${biome}:${d}:${JSON.stringify(around)}`));
+					const site = siteAt(biome, d, around);
+					for (let i = 0; i < 400; i++) {
+						const a = rollEncounter(now, site, 1)?.speciesId ?? null;
+						const b = tierOneRoll(spec, site);
+						if (a !== b) bad.push(`${biome} @ ${d} on ${JSON.stringify(around)}: ${a} vs ${b}`);
+						if (a !== null) met++;
+					}
+				}
+			}
+		}
+		expect(bad).toEqual([]);
+		expect(met).toBeGreaterThan(8000);
+	});
+
+	it('neither the lead nor the ground changes whether a step starts a battle, only which animal comes out', () => {
+		const bad: string[] = [];
+		let battles = 0;
+		for (const biome of BIOMES) {
+			for (const d of [0, 64, 400]) {
+				const seeds = Array.from({ length: 200 }, (_, i) => hashString(`${biome}:${d}:${i}`));
+				const starterOnOpen = seeds.map(
+					(s) => rollEncounter(new Rng(s), siteAt(biome, d), 1) !== null
+				);
+				for (const lead of LEADS) {
+					if (isSilent(lead, biome)) continue;
+					for (const around of GROUNDS) {
+						const met = seeds.map(
+							(s) => rollEncounter(new Rng(s), siteAt(biome, d, around), lead) !== null
+						);
+						if (met.join() !== starterOnOpen.join())
+							bad.push(`tier-${lead} lead in ${biome} @ ${d} on ${JSON.stringify(around)}`);
+						battles += met.filter(Boolean).length;
+					}
+				}
+			}
+		}
+		expect(bad).toEqual([]);
+		expect(battles).toBeGreaterThan(5000);
 	});
 
 	it('starts one encounter per 8–12 grass steps wherever anything could challenge the lead', () => {
@@ -483,7 +838,8 @@ describe('rollEncounter', () => {
 				if (isSilent(lead, biome)) continue;
 				const rng = new Rng(hashString(`${lead}:${biome}`));
 				let hits = 0;
-				for (let i = 0; i < steps; i++) if (rollEncounter(rng, siteAt(biome, 50), lead)) hits++;
+				for (let i = 0; i < steps; i++)
+					if (rollEncounter(rng, siteAt(biome, 50, GROUNDS[i % GROUNDS.length]), lead)) hits++;
 				const where = `tier-${lead} lead in ${biome}`;
 				expect(hits / steps, where).toBeGreaterThan(1 / 12);
 				expect(hits / steps, where).toBeLessThan(1 / 8);
@@ -497,18 +853,39 @@ describe('rollEncounter', () => {
 		for (const lead of LEADS) {
 			const run = (seed: number) => {
 				const rng = new Rng(seed);
-				return Array.from({ length: 300 }, () => rollEncounter(rng, siteAt('forest', 200), lead));
+				const site = siteAt('forest', 200, { water: 0, trees: 4, rocks: 3 });
+				return Array.from({ length: 300 }, () => rollEncounter(rng, site, lead));
 			};
 			expect(run(42)).toEqual(run(42));
 			expect(run(42)).not.toEqual(run(43));
 		}
 	});
 
-	it('refuses a site with a broken position instead of guessing a table', () => {
-		const broken = { tile: tallgrass('forest'), pos: { x: NaN, y: 0 }, spawn: ORIGIN };
-		for (const lead of LEADS) expect(() => rollEncounter(new Rng(3), broken, lead)).toThrow();
+	it('refuses a site with a broken position or ground instead of guessing a table', () => {
+		const broken = { ...siteAt('forest', 0), pos: { x: NaN, y: 0 } };
+		for (const lead of LEADS) {
+			expect(() => rollEncounter(new Rng(3), broken, lead)).toThrow(/distance/);
+			expect(() => encounterTableAt(broken, lead)).toThrow(/distance/);
+		}
 		expect(() => encounterTable('forest', NaN, 1)).toThrow();
 		expect(() => encounterTable('forest', Infinity, 3)).toThrow();
+		// A missing or malformed ground would weigh every species NaN, and the
+		// pick's rounding fallback would then return the fiercest one every time.
+		for (const around of [undefined, null, { water: NaN, trees: 0, rocks: 0 }, { water: 1 }]) {
+			const site = { ...siteAt('forest', 0), around } as unknown as EncounterSite;
+			for (const lead of LEADS) {
+				expect(() => rollEncounter(new Rng(3), site, lead), JSON.stringify(around)).toThrow(
+					/surroundings/
+				);
+				expect(() => encounterTableAt(site, lead)).toThrow(/surroundings/);
+			}
+			// Where no encounter can happen, the ground is never read.
+			const onSand = {
+				...site,
+				tile: { kind: 'sand', biome: 'forest', height: 0 }
+			} as EncounterSite;
+			expect(rollEncounter(new Rng(3), onSand, 1)).toBeNull();
+		}
 	});
 
 	it('anywhere on the map, returns only an animal that may challenge the lead, at full HP', () => {
@@ -531,8 +908,9 @@ describe('rollEncounter', () => {
 				for (const spawn of spawns) {
 					for (const o of offsets) {
 						const pos = { x: spawn.x + o.x, y: spawn.y + o.y };
-						const site = { tile: tallgrass(biome), pos, spawn };
-						const table = encounterTable(biome, distanceFromSpawn(pos, spawn), lead);
+						const around = GROUNDS[(o.x + o.y + spawn.x) & 7]!;
+						const site = { tile: tallgrass(biome), pos, spawn, around };
+						const table = encounterTableAt(site, lead);
 						const rng = new Rng(hashString(`${lead}:${biome}:${pos.x}:${pos.y}`));
 						let here = 0;
 						for (let i = 0; i < 200; i++) {
@@ -571,12 +949,14 @@ describe('rollEncounter', () => {
 					const rng = new EveryStepMeets(hashString(`sample:${lead}:${biome}:${d}`));
 					const counts = new Map<string, number>();
 					const encounters = 4000;
+					// A ground with some of every terrain, so no species is at its floor.
+					const site = siteAt(biome, d, { water: 2, trees: 2, rocks: 2 });
 					for (let n = 0; n < encounters; n++) {
-						const wild = rollEncounter(rng, siteAt(biome, d), lead);
+						const wild = rollEncounter(rng, site, lead);
 						if (!wild) throw new Error(`no encounter for a tier-${lead} lead in ${biome}`);
 						counts.set(wild.speciesId, (counts.get(wild.speciesId) ?? 0) + 1);
 					}
-					const table = encounterTable(biome, d, lead);
+					const table = encounterTableAt(site, lead);
 					for (const e of table) {
 						const observed = (counts.get(e.species.id) ?? 0) / encounters;
 						expect(

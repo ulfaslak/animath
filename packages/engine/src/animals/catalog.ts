@@ -5,6 +5,8 @@ import type { AnimalSpec } from './types.js';
  * grows with art. Ordering of `attacks` matters: index 1 is weakest.
  * Species and attacks have ids, never names: what a player calls them is in
  * the client's copy files (`species.<id>.name`, `species.<id>.attacks.<id>`).
+ * Where each one lives — its biomes, its realms and the ground it favours —
+ * is [[PRODUCT]] §4 "Wild encounters", with a reason for each.
  */
 export const ANIMALS: readonly AnimalSpec[] = [
 	{
@@ -13,6 +15,8 @@ export const ANIMALS: readonly AnimalSpec[] = [
 		maxHp: 20,
 		catchRate: 0.9,
 		habitats: ['meadow', 'forest'],
+		realms: ['land'],
+		favours: 'trees',
 		attacks: [
 			{ id: 'nut-toss', kinds: ['add', 'sub'], power: 4 },
 			{ id: 'scurry-kick', kinds: ['add', 'sub', 'missing'], power: 6 }
@@ -24,6 +28,8 @@ export const ANIMALS: readonly AnimalSpec[] = [
 		maxHp: 22,
 		catchRate: 0.85,
 		habitats: ['meadow'],
+		realms: ['land'],
+		favours: 'open',
 		attacks: [
 			{ id: 'hop', kinds: ['add'], power: 4 },
 			{ id: 'thump', kinds: ['sub', 'missing'], power: 6 },
@@ -38,6 +44,8 @@ export const ANIMALS: readonly AnimalSpec[] = [
 		maxHp: 21,
 		catchRate: 0.8,
 		habitats: ['river'],
+		realms: ['land', 'water'],
+		favours: 'water',
 		attacks: [
 			{ id: 'croak', kinds: ['sequence'], power: 4 },
 			{ id: 'tongue-flick', kinds: ['mul'], power: 5 },
@@ -50,6 +58,8 @@ export const ANIMALS: readonly AnimalSpec[] = [
 		maxHp: 35,
 		catchRate: 0.6,
 		habitats: ['meadow', 'forest'],
+		realms: ['land'],
+		favours: 'trees',
 		attacks: [
 			{ id: 'nip', kinds: ['sub', 'missing'], power: 6 },
 			{ id: 'pounce', kinds: ['mul'], power: 9 },
@@ -62,6 +72,8 @@ export const ANIMALS: readonly AnimalSpec[] = [
 		maxHp: 32,
 		catchRate: 0.65,
 		habitats: ['river'],
+		realms: ['land', 'water'],
+		favours: 'water',
 		attacks: [
 			{ id: 'splash', kinds: ['add', 'sub'], power: 5 },
 			{ id: 'tail-whip', kinds: ['mul', 'missing'], power: 9 }
@@ -73,6 +85,8 @@ export const ANIMALS: readonly AnimalSpec[] = [
 		maxHp: 50,
 		catchRate: 0.5,
 		habitats: ['forest', 'meadow'],
+		realms: ['land'],
+		favours: 'trees',
 		attacks: [
 			{ id: 'kick', kinds: ['mul'], power: 8 },
 			{ id: 'antler-charge', kinds: ['div', 'mul'], power: 12 }
@@ -84,6 +98,8 @@ export const ANIMALS: readonly AnimalSpec[] = [
 		maxHp: 70,
 		catchRate: 0.35,
 		habitats: ['forest', 'mountain'],
+		realms: ['land'],
+		favours: 'rocks',
 		attacks: [
 			{ id: 'bite', kinds: ['mul'], power: 10 },
 			{ id: 'howl', kinds: ['sequence'], power: 14 },
@@ -96,6 +112,8 @@ export const ANIMALS: readonly AnimalSpec[] = [
 		maxHp: 100,
 		catchRate: 0.2,
 		habitats: ['mountain', 'forest'],
+		realms: ['land'],
+		favours: 'rocks',
 		attacks: [
 			{ id: 'swipe', kinds: ['mul'], power: 12 },
 			{ id: 'roar', kinds: ['sequence'], power: 16 },

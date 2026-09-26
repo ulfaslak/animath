@@ -22,9 +22,11 @@ export type {
 	AttackLevel,
 	AttackSpec,
 	Biome,
+	Realm,
+	Terrain,
 	Tier
 } from './animals/types.js';
-export { ATTACK_LEVELS, MAX_PARTY } from './animals/types.js';
+export { ATTACK_LEVELS, REALMS, TERRAINS } from './animals/types.js';
 export { ANIMALS, getAnimal } from './animals/catalog.js';
 
 export { attackDamage } from './battle/damage.js';
@@ -59,6 +61,8 @@ export type {
 	DoctorStep
 } from './doctor/types.js';
 
+export { bundled, bundles, isBundled, joinParty } from './party/bundles.js';
+export type { Bundle } from './party/bundles.js';
 export { MAX_NICKNAME_LENGTH, normalizeNickname } from './party/names.js';
 export { applyPartyIntent, leadIndex } from './party/reducer.js';
 export { STARTERS, STARTER_TIER, chooseStarter, isStarter } from './party/starters.js';
@@ -72,7 +76,7 @@ export type {
 } from './party/types.js';
 
 export type { Chunk, ClearableKind, Direction, GridPos, Tile, TileKind } from './world/types.js';
-export { CHUNK_SIZE, isEncounterTile, isWalkable, step } from './world/types.js';
+export { CHUNK_SIZE, encounterRealm, isEncounterTile, isWalkable, step } from './world/types.js';
 export { generateChunk, spawnPoint, tileAtWorld } from './world/generate.js';
 export {
 	EDITS_BUDGET,
@@ -97,8 +101,19 @@ export {
 	WILD_RADIUS,
 	distanceFromSpawn,
 	encounterTable,
+	encounterTableAt,
 	rollEncounter
 } from './world/encounters.js';
+export type { Surroundings } from './world/habitat.js';
+export {
+	HABITAT_BOOST,
+	HABITAT_FULL,
+	HABITAT_RADIUS,
+	HABITAT_TILES,
+	habitatFactor,
+	surroundings,
+	terrainShares
+} from './world/habitat.js';
 
 export { LINES } from './lines.js';
 export type { Line, LineKey, LineParam, LineParamKind, SpeciesRef } from './lines.js';

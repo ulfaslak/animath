@@ -1,14 +1,16 @@
 import { describe, expect, it } from 'vitest';
 import { ANIMALS } from '../src/animals/catalog.js';
-import { MAX_PARTY, type AnimalInstance } from '../src/animals/types.js';
+import type { AnimalInstance } from '../src/animals/types.js';
 import { startBattle } from '../src/battle/reducer.js';
+import { bundled, bundles, isBundled, joinParty } from '../src/party/bundles.js';
 import { MAX_NICKNAME_LENGTH, normalizeNickname } from '../src/party/names.js';
 import { applyPartyIntent, leadIndex } from '../src/party/reducer.js';
 import type { PartyIntent, PartyRejection, PartyStep, PlayerActivity } from '../src/party/types.js';
 import { Rng, hashInts } from '../src/rng.js';
 
 /**
- * Party management: the nickname cleaner, reorder and rename. The cleaner is
+ * Party management: the nickname cleaner, the bundles, and the party
+ * reducer (choosing a lead, moving an animal or a bundle, naming). The cleaner is
  * fuzzed with strings built from the parts of Unicode that break naive name
  * handling (combining marks, compatibility letters that expand under NFKC,
  * Hangul jamo that compose, invisible "letters", emoji sequences, lone
@@ -336,9 +338,14 @@ describe('normalizeNickname', () => {
 
 // --- the reducer -------------------------------------------------------------
 
-function randomParty(rng: Rng, size = rng.int(1, MAX_PARTY)): AnimalInstance[] {
-	return Array.from({ length: size }, (_, i) => {
-		const spec = rng.pick(ANIMALS);
+/**
+ * A random party in bundles: `size` animals of up to `kinds` species (so
+ * most bundles hold several), a quarter of them tired, some named.
+ */
+function randomParty(rng: Rng, size = rng.int(1, 12), kinds = rng.int(1, 4)): AnimalInstance[] {
+	const species = Array.from({ length: kinds }, () => rng.pick(ANIMALS));
+	const animals = Array.from({ length: size }, (_, i) => {
+		const spec = rng.pick(species);
 		const animal: AnimalInstance = {
 			id: `${spec.id}-${i}`,
 			speciesId: spec.id,
@@ -348,34 +355,152 @@ function randomParty(rng: Rng, size = rng.int(1, MAX_PARTY)): AnimalInstance[] {
 		if (nickname !== undefined) animal.nickname = nickname;
 		return animal;
 	});
+	return bundled(animals);
 }
 
 const PARTIES = Array.from({ length: 200 }, (_, i) => deepFreeze(randomParty(new Rng(i + 1))));
+/** Parties no cap would have allowed: 60 to 150 animals of up to every species. */
+const BIG = Array.from({ length: 12 }, (_, i) => {
+	const rng = new Rng(hashInts(0xb16, i));
+	return deepFreeze(randomParty(rng, rng.int(60, 150), rng.int(1, ANIMALS.length)));
+});
 
-/** Refused: the very same party back, and one `rejected` event naming the animal when it is in the party. */
+/** Refused: the very same party back, and one `rejected` event naming what it was about. */
 function expectRejected(
 	party: readonly AnimalInstance[],
 	step: PartyStep,
 	reason: PartyRejection,
-	animalId?: string
+	about: { animalId?: string; speciesId?: string } = {}
 ): void {
 	expect(step.party).toBe(party);
-	expect(step.events).toEqual([
-		animalId === undefined ? { type: 'rejected', reason } : { type: 'rejected', reason, animalId }
-	]);
+	expect(step.events).toStrictEqual([{ type: 'rejected', reason, ...about }]);
 }
 
 function byId(party: readonly AnimalInstance[]): Map<string, AnimalInstance> {
 	return new Map(party.map((a) => [a.id, a]));
 }
 
+const ids = (party: readonly AnimalInstance[]) => party.map((a) => a.id);
+
 /** The party's ids with one left out: what must keep its order when that one moves. */
 function othersInOrder(party: readonly AnimalInstance[], left: string): string[] {
-	return party.map((a) => a.id).filter((id) => id !== left);
+	return ids(party).filter((id) => id !== left);
 }
 
+/** An accepted edit that moves animals: the same animals, nothing about them changed, none shared. */
+function expectSameAnimals(before: readonly AnimalInstance[], after: readonly AnimalInstance[]) {
+	expect(animalProblems(before, after)).toEqual([]);
+}
+
+/** What `expectSameAnimals` checks, as a list of what went wrong, for a hot loop to collect. */
+function animalProblems(before: readonly AnimalInstance[], after: readonly AnimalInstance[]) {
+	if (after.length !== before.length) return [`${before.length} animals became ${after.length}`];
+	const was = byId(before);
+	const bad: string[] = [];
+	for (const animal of after) {
+		const old = was.get(animal.id);
+		if (old === animal) bad.push(`${animal.id} is shared`);
+		else if (JSON.stringify(old) !== JSON.stringify(animal)) bad.push(`${animal.id} changed`);
+	}
+	return bad;
+}
+
+/** Whether a step is exactly this one event, the party untouched when it is a refusal. */
+function isStep(
+	party: readonly AnimalInstance[],
+	step: PartyStep,
+	event: PartyStep['events'][number]
+): boolean {
+	const same = JSON.stringify(step.events) === JSON.stringify([event]);
+	return event.type === 'rejected' ? same && step.party === party : same;
+}
+
+describe('bundles', () => {
+	/** Animals of one to five species in any order, not in bundles. */
+	function mixed(rng: Rng): AnimalInstance[] {
+		const species = Array.from({ length: rng.int(1, 5) }, () => rng.pick(ANIMALS).id);
+		return Array.from({ length: rng.int(0, 14) }, (_, i) => ({
+			id: `a${i}`,
+			speciesId: rng.pick(species),
+			hp: rng.int(0, 10)
+		}));
+	}
+	const kinds = (party: readonly AnimalInstance[]) => [...new Set(party.map((a) => a.speciesId))];
+
+	it('gathers each species behind its first animal, keeping every animal, who leads, and every order it can', () => {
+		let reordered = 0;
+		let leadKept = 0;
+		for (let seed = 1; seed <= 400; seed++) {
+			const party = deepFreeze(mixed(new Rng(hashInts(0xb0b, seed))));
+			const out = bundled(party);
+			expect(isBundled(out)).toBe(true);
+			expect([...ids(out)].sort()).toEqual([...ids(party)].sort());
+			// The same animal leads: the first one standing.
+			const lead = party.find((a) => a.hp > 0);
+			expect(out.find((a) => a.hp > 0)).toBe(lead);
+			// The bundles stand in the order their species first did, each in the party's order;
+			// but when that order would put a standing animal in front of the lead, the lead's
+			// bundle goes first.
+			const gathered = kinds(party).flatMap((k) => party.filter((a) => a.speciesId === k));
+			const moves = lead !== undefined && gathered.find((a) => a.hp > 0) !== lead;
+			if (moves) leadKept++;
+			const order = moves
+				? [lead.speciesId, ...kinds(party).filter((k) => k !== lead.speciesId)]
+				: kinds(party);
+			expect(kinds(out)).toEqual(order);
+			for (const species of kinds(party)) {
+				const of = (p: readonly AnimalInstance[]) => ids(p.filter((a) => a.speciesId === species));
+				expect(of(out)).toEqual(of(party));
+			}
+			// A party in bundles is left as it is, and only such a party is.
+			expect(ids(bundled(out))).toEqual(ids(out));
+			expect(isBundled(party)).toBe(ids(out).join() === ids(party).join());
+			if (!isBundled(party)) reordered++;
+			// Each bundle names its animals' slots, in order.
+			for (const bundle of bundles(party)) {
+				expect(bundle.slots.map((slot) => party[slot])).toEqual(bundle.animals);
+				expect(bundle.animals.every((a) => a.speciesId === bundle.speciesId)).toBe(true);
+			}
+			expect(bundles(out).flatMap((b) => b.animals)).toEqual(out);
+		}
+		expect(reordered).toBeGreaterThan(100);
+		expect(leadKept).toBeGreaterThan(10);
+	});
+
+	it('a caught animal joins the end of its bundle, or starts a bundle at the end', () => {
+		for (const party of [...PARTIES, ...BIG]) {
+			const rng = new Rng(party.length * 31 + party[0]!.hp);
+			const spec = rng.pick(ANIMALS);
+			const caught: AnimalInstance = {
+				id: 'caught',
+				speciesId: spec.id,
+				hp: rng.int(1, spec.maxHp)
+			};
+			const next = joinParty(party, caught);
+			expect(isBundled(next)).toBe(true);
+			expect(othersInOrder(next, 'caught')).toEqual(ids(party));
+			const kin = party.map((a) => a.speciesId).lastIndexOf(spec.id);
+			expect(next.findIndex((a) => a.id === 'caught')).toBe(kin < 0 ? party.length : kin + 1);
+			expect(next.find((a) => a.id === 'caught')).toStrictEqual(caught);
+			expectSameAnimals([...party, caught], next);
+		}
+	});
+
+	it('has no cap: every catch joins, however many there are', () => {
+		const rng = new Rng(0xca7c4);
+		let party: AnimalInstance[] = [{ id: 'starter', speciesId: 'squirrel', hp: 20 }];
+		for (let i = 0; i < 300; i++) {
+			const spec = rng.pick(ANIMALS);
+			party = joinParty(party, { id: `c${i}`, speciesId: spec.id, hp: spec.maxHp });
+		}
+		expect(party).toHaveLength(301);
+		expect(isBundled(party)).toBe(true);
+		expect(party[0]!.id).toBe('starter');
+	});
+});
+
 describe('applyPartyIntent: select-lead', () => {
-	it('moves a standing animal to the front, where it leads; refuses a tired one and the lead', () => {
+	it('puts a standing animal first, and its bundle with it; refuses a tired one and the lead', () => {
 		let chosen = 0;
 		for (const party of PARTIES) {
 			for (const [from, animal] of party.entries()) {
@@ -385,20 +510,22 @@ describe('applyPartyIntent: select-lead', () => {
 					'explore'
 				);
 				if (animal.hp === 0) {
-					expectRejected(party, step, 'tired', animal.id);
+					expectRejected(party, step, 'tired', { animalId: animal.id });
 					continue;
 				}
 				if (leadIndex(party) === from) {
-					expectRejected(party, step, 'already-lead', animal.id);
+					expectRejected(party, step, 'already-lead', { animalId: animal.id });
 					continue;
 				}
 				chosen++;
 				expect(step.events).toEqual([{ type: 'lead-selected', animalId: animal.id, from }]);
-				expect(step.party[0]!.id).toBe(animal.id);
 				expect(leadIndex(step.party)).toBe(0);
-				expect(othersInOrder(step.party, animal.id)).toEqual(othersInOrder(party, animal.id));
-				const before = byId(party);
-				for (const a of step.party) expect(a).toEqual(before.get(a.id));
+				// It, the rest of its kind in their order, then the other bundles in theirs.
+				const kin = party.filter((a) => a.speciesId === animal.speciesId && a !== animal);
+				const rest = party.filter((a) => a.speciesId !== animal.speciesId);
+				expect(ids(step.party)).toEqual([animal.id, ...ids(kin), ...ids(rest)]);
+				expect(isBundled(step.party)).toBe(true);
+				expectSameAnimals(party, step.party);
 			}
 		}
 		expect(chosen).toBeGreaterThan(100);
@@ -428,40 +555,96 @@ describe('applyPartyIntent: select-lead', () => {
 	});
 });
 
-describe('applyPartyIntent: reorder', () => {
-	it('moves one animal to the slot asked for and keeps everyone else in order', () => {
+describe('applyPartyIntent: lead-species', () => {
+	it("leads with the bundle's first animal standing; refuses a bundle of tired ones, and the lead's own", () => {
+		const seen = new Set<string>();
 		for (const party of PARTIES) {
-			for (const [from, animal] of party.entries()) {
-				for (let to = 0; to < party.length; to++) {
-					const intent: PartyIntent = { type: 'reorder', animalId: animal.id, to };
-					const step = applyPartyIntent(party, intent, 'explore');
-					if (to === from) {
-						expectRejected(party, step, 'already-there', animal.id);
-						continue;
-					}
-					expect(step.events).toEqual([{ type: 'reordered', animalId: animal.id, from, to }]);
-					expect(step.party).toHaveLength(party.length);
-					expect(step.party[to]!.id).toBe(animal.id);
-					expect(othersInOrder(step.party, animal.id)).toEqual(othersInOrder(party, animal.id));
-					// Nothing about any animal changes but its place, and no object is shared.
-					const before = byId(party);
-					for (const moved of step.party) {
-						expect(moved).toEqual(before.get(moved.id));
-						expect(moved).not.toBe(before.get(moved.id));
-					}
+			const lead = party[leadIndex(party)];
+			for (const bundle of bundles(party)) {
+				const { speciesId } = bundle;
+				const step = applyPartyIntent(party, { type: 'lead-species', speciesId }, 'explore');
+				const standing = bundle.animals.find((a) => a.hp > 0);
+				if (lead?.speciesId === speciesId) {
+					expectRejected(party, step, 'already-lead', { animalId: lead.id, speciesId });
+					seen.add('already');
+				} else if (!standing) {
+					expectRejected(party, step, 'tired', { speciesId });
+					seen.add('tired');
+				} else {
+					// Exactly what choosing that animal would do.
+					const chosen = applyPartyIntent(
+						party,
+						{ type: 'select-lead', animalId: standing.id },
+						'explore'
+					);
+					expect(step).toEqual(chosen);
+					expect(step.party[leadIndex(step.party)]!.id).toBe(standing.id);
+					seen.add('led');
 				}
 			}
 		}
-		// Up to 2 s alone (every move of every animal in every test party, each checked
-		// in full); nearly 4 s with two browsers drawing beside it.
-	}, 30_000);
+		expect([...seen].sort()).toEqual(['already', 'led', 'tired']);
+	});
+
+	it('refuses a species that is not in the party, and anything that is not a species', () => {
+		for (const party of PARTIES.slice(0, 40)) {
+			const absent = ANIMALS.map((a) => a.id).filter(
+				(id) => !party.some((a) => a.speciesId === id)
+			);
+			for (const speciesId of [...absent, 'dragon', '', 3, null, undefined]) {
+				const intent = { type: 'lead-species', speciesId } as unknown as PartyIntent;
+				expectRejected(party, applyPartyIntent(party, intent, 'explore'), 'unknown-species');
+			}
+		}
+	});
+});
+
+describe('applyPartyIntent: reorder', () => {
+	it('moves one animal to the slot asked for within its bundle, and keeps everyone else in order', () => {
+		const bad: unknown[] = [];
+		let moves = 0;
+		for (const party of PARTIES) {
+			const bundleOf = new Map(bundles(party).map((b) => [b.speciesId, b]));
+			for (const [from, animal] of party.entries()) {
+				const slots = bundleOf.get(animal.speciesId)!.slots;
+				const animalId = animal.id;
+				for (let to = 0; to < party.length; to++) {
+					const step = applyPartyIntent(party, { type: 'reorder', animalId, to }, 'explore');
+					const refusal = !slots.includes(to)
+						? 'no-such-slot'
+						: to === from
+							? 'already-there'
+							: null;
+					if (refusal) {
+						const event = { type: 'rejected', reason: refusal, animalId } as const;
+						if (!isStep(party, step, event)) bad.push({ animalId, to, events: step.events });
+						continue;
+					}
+					moves++;
+					const order = othersInOrder(party, animalId);
+					order.splice(to, 0, animalId);
+					if (
+						!isStep(party, step, { type: 'reordered', animalId, from, to }) ||
+						ids(step.party).join() !== order.join() ||
+						!isBundled(step.party)
+					) {
+						bad.push({ animalId, to, got: ids(step.party), events: step.events });
+					}
+					bad.push(...animalProblems(party, step.party));
+				}
+			}
+		}
+		expect(bad).toEqual([]);
+		expect(moves).toBeGreaterThan(500);
+	});
 
 	it('refuses a slot off either end, a slot that is not a whole number, and an unknown animal', () => {
 		for (const party of PARTIES.slice(0, 40)) {
 			const id = party[0]!.id;
 			for (const to of [-1, party.length, party.length + 5, 0.5, NaN, Infinity, '1', null]) {
 				const intent = { type: 'reorder', animalId: id, to } as unknown as PartyIntent;
-				expectRejected(party, applyPartyIntent(party, intent, 'explore'), 'no-such-slot', id);
+				const step = applyPartyIntent(party, intent, 'explore');
+				expectRejected(party, step, 'no-such-slot', { animalId: id });
 			}
 			for (const animalId of ['nobody', '', 3, null, undefined]) {
 				const intent = { type: 'reorder', animalId, to: 0 } as unknown as PartyIntent;
@@ -473,15 +656,89 @@ describe('applyPartyIntent: reorder', () => {
 	it('whoever is first and standing after a move steps into the next battle', () => {
 		const wild: AnimalInstance = { id: 'wild', speciesId: 'rabbit', hp: 22 };
 		for (const party of PARTIES) {
-			for (const animal of party) {
-				const intent: PartyIntent = { type: 'reorder', animalId: animal.id, to: 0 };
-				const next = applyPartyIntent(party, intent, 'explore').party;
-				if (leadIndex(next) < 0) continue;
-				const battle = startBattle(next, wild);
-				expect(battle.active).toBe(leadIndex(next));
-				if (animal.hp > 0) expect(battle.party[battle.active]!.id).toBe(animal.id);
+			for (const bundle of bundles(party)) {
+				for (const animal of bundle.animals) {
+					const intent: PartyIntent = {
+						type: 'reorder',
+						animalId: animal.id,
+						to: bundle.slots[0]!
+					};
+					const next = applyPartyIntent(party, intent, 'explore').party;
+					if (leadIndex(next) < 0) continue;
+					const battle = startBattle(next, wild);
+					expect(battle.active).toBe(leadIndex(next));
+				}
 			}
 		}
+	});
+});
+
+describe('applyPartyIntent: move-species', () => {
+	it('moves a whole bundle to the place asked for, every bundle keeping its own order', () => {
+		const bad: unknown[] = [];
+		let moves = 0;
+		for (const party of [...PARTIES, ...BIG]) {
+			const list = bundles(party);
+			for (const [from, bundle] of list.entries()) {
+				const { speciesId } = bundle;
+				for (let to = 0; to < list.length; to++) {
+					const step = applyPartyIntent(party, { type: 'move-species', speciesId, to }, 'explore');
+					if (to === from) {
+						const event = { type: 'rejected', reason: 'already-there', speciesId } as const;
+						if (!isStep(party, step, event)) bad.push({ speciesId, to, events: step.events });
+						continue;
+					}
+					moves++;
+					const order = list.filter((b) => b !== bundle);
+					order.splice(to, 0, bundle);
+					if (
+						!isStep(party, step, { type: 'species-moved', speciesId, from, to }) ||
+						ids(step.party).join() !== order.flatMap((b) => ids(b.animals)).join() ||
+						!isBundled(step.party)
+					) {
+						bad.push({ speciesId, to, got: ids(step.party), events: step.events });
+					}
+					bad.push(...animalProblems(party, step.party));
+				}
+			}
+		}
+		expect(bad).toEqual([]);
+		expect(moves).toBeGreaterThan(300);
+	});
+
+	it('refuses a place off the list, a place that is not a whole number, and a species not in the party', () => {
+		for (const party of PARTIES.slice(0, 40)) {
+			const speciesId = party[0]!.speciesId;
+			const places = bundles(party).length;
+			for (const to of [-1, places, places + 3, 0.5, NaN, Infinity, '0', null]) {
+				const intent = { type: 'move-species', speciesId, to } as unknown as PartyIntent;
+				const step = applyPartyIntent(party, intent, 'explore');
+				expectRejected(party, step, 'no-such-slot', { speciesId });
+			}
+			for (const other of ['dragon', '', 3, null, undefined]) {
+				const intent = { type: 'move-species', speciesId: other, to: 0 } as unknown as PartyIntent;
+				expectRejected(party, applyPartyIntent(party, intent, 'explore'), 'unknown-species');
+			}
+		}
+	});
+
+	it('a bundle of tired animals can go first; the first animal standing behind it leads', () => {
+		const wild: AnimalInstance = { id: 'wild', speciesId: 'rabbit', hp: 22 };
+		let tried = 0;
+		for (const party of PARTIES) {
+			const list = bundles(party);
+			for (const [from, bundle] of list.entries()) {
+				if (from === 0 || bundle.animals.some((a) => a.hp > 0)) continue;
+				const intent: PartyIntent = { type: 'move-species', speciesId: bundle.speciesId, to: 0 };
+				const next = applyPartyIntent(party, intent, 'explore').party;
+				expect(next[0]!.speciesId).toBe(bundle.speciesId);
+				if (leadIndex(next) < 0) continue;
+				tried++;
+				expect(next[leadIndex(next)]!.speciesId).not.toBe(bundle.speciesId);
+				expect(startBattle(next, wild).active).toBe(leadIndex(next));
+			}
+		}
+		expect(tried).toBeGreaterThan(10);
 	});
 });
 
@@ -498,7 +755,8 @@ describe('applyPartyIntent: rename', () => {
 	];
 
 	it('stores the cleaned name, or no nickname at all when nothing usable is left', () => {
-		for (const party of PARTIES.slice(0, 60)) {
+		// Thirty parties of up to twelve: about the animals the sixty parties of up to six held.
+		for (const party of PARTIES.slice(0, 30)) {
 			for (const animal of party) {
 				for (const raw of typed) {
 					const intent: PartyIntent = { type: 'rename', animalId: animal.id, nickname: raw };
@@ -516,26 +774,44 @@ describe('applyPartyIntent: rename', () => {
 					expect(Object.keys(renamed).includes('nickname')).toBe(clean !== undefined);
 					expect(Object.keys(step.events[0]!).includes('nickname')).toBe(clean !== undefined);
 					// Everyone else, and the order, stay exactly as they were.
-					expect(step.party.map((a) => a.id)).toEqual(party.map((a) => a.id));
+					expect(ids(step.party)).toEqual(ids(party));
 					for (const other of step.party) {
 						if (other.id !== animal.id) expect(other).toEqual(byId(party).get(other.id));
 					}
 				}
 			}
 		}
-	});
+		// About 0.8 s at a load average of 40 (some 200 animals, each renamed eight ways and
+		// checked in full), and past vitest's 5 s at 77, with other agents' browsers drawing.
+	}, 30_000);
 
 	it('refuses a name that is not text, and an unknown animal', () => {
 		const party = PARTIES[0]!;
 		for (const nickname of [7, null, undefined, ['Pip'], { name: 'Pip' }]) {
 			const id = party[0]!.id;
 			const intent = { type: 'rename', animalId: id, nickname } as unknown as PartyIntent;
-			expectRejected(party, applyPartyIntent(party, intent, 'explore'), 'not-text', id);
+			expectRejected(party, applyPartyIntent(party, intent, 'explore'), 'not-text', {
+				animalId: id
+			});
 		}
 		const intent: PartyIntent = { type: 'rename', animalId: 'nobody', nickname: 'Pip' };
 		expectRejected(party, applyPartyIntent(party, intent, 'explore'), 'unknown-animal');
 	});
 });
+
+/** One random intent for `party`, of every kind, slots and places anywhere near the party's. */
+function randomIntent(rng: Rng, party: readonly AnimalInstance[]): PartyIntent {
+	const animal = rng.pick(party);
+	const roll = rng.next();
+	if (roll < 0.2) return { type: 'select-lead', animalId: animal.id };
+	if (roll < 0.35) return { type: 'lead-species', speciesId: animal.speciesId };
+	if (roll < 0.55) return { type: 'reorder', animalId: animal.id, to: rng.int(-1, party.length) };
+	if (roll < 0.75) {
+		const to = rng.int(-1, bundles(party).length);
+		return { type: 'move-species', speciesId: animal.speciesId, to };
+	}
+	return { type: 'rename', animalId: animal.id, nickname: randomText(rng) };
+}
 
 describe('applyPartyIntent: when', () => {
 	it('changes nothing outside explore, whatever the intent', () => {
@@ -544,7 +820,9 @@ describe('applyPartyIntent: when', () => {
 				const animal = party.at(-1)!;
 				const intents: PartyIntent[] = [
 					{ type: 'select-lead', animalId: animal.id },
+					{ type: 'lead-species', speciesId: animal.speciesId },
 					{ type: 'reorder', animalId: animal.id, to: 0 },
+					{ type: 'move-species', speciesId: animal.speciesId, to: 0 },
 					{ type: 'rename', animalId: animal.id, nickname: 'Pip' },
 					{ type: 'rename', animalId: animal.id, nickname: '' }
 				];
@@ -563,30 +841,80 @@ describe('applyPartyIntent: when', () => {
 		}
 	});
 
-	it('keeps every animal, its HP and a clean name through any run of edits', () => {
+	it('keeps every animal, its HP, a clean name and the bundles through any run of edits', () => {
 		for (let seed = 1; seed <= 100; seed++) {
 			const rng = new Rng(hashInts(0xed17, seed));
-			let party: readonly AnimalInstance[] = deepFreeze(randomParty(rng));
+			let party: readonly AnimalInstance[] = deepFreeze(randomParty(rng, rng.int(1, 40)));
 			const hp = new Map(party.map((a) => [a.id, a.hp]));
 			for (let i = 0; i < 30; i++) {
-				const animal = rng.pick(party);
-				const roll = rng.next();
-				const intent: PartyIntent =
-					roll < 0.3
-						? { type: 'select-lead', animalId: animal.id }
-						: roll < 0.65
-							? { type: 'reorder', animalId: animal.id, to: rng.int(-1, party.length) }
-							: { type: 'rename', animalId: animal.id, nickname: randomText(rng) };
-				party = deepFreeze(applyPartyIntent(party, intent, 'explore').party);
+				party = deepFreeze(applyPartyIntent(party, randomIntent(rng, party), 'explore').party);
 				expect(new Map(party.map((a) => [a.id, a.hp]))).toEqual(hp);
+				expect(isBundled(party)).toBe(true);
 				for (const a of party) {
 					if (a.nickname !== undefined) expect(problems(a.nickname)).toEqual([]);
 				}
 			}
 		}
-		// About 1 s alone (3,000 edits, a third of them cleaning a hostile name); over 1.5 s
+		// About 1 s alone (3,000 edits, a fifth of them cleaning a hostile name); over 1.5 s
 		// with two browsers drawing beside it.
 	}, 30_000);
+
+	it('puts a party that is not in bundles into them before it moves anyone, keeping who leads', () => {
+		// Rabbit (tired), squirrel, rabbit, fox: the squirrel leads. Gathered, the second rabbit
+		// would stand in front of it, so in bundles it is squirrel, rabbit, rabbit, fox.
+		const party: AnimalInstance[] = deepFreeze([
+			{ id: 'r1', speciesId: 'rabbit', hp: 0 },
+			{ id: 's', speciesId: 'squirrel', hp: 20 },
+			{ id: 'r2', speciesId: 'rabbit', hp: 5 },
+			{ id: 'f', speciesId: 'fox', hp: 30 }
+		]);
+		expect(ids(bundled(party))).toEqual(['s', 'r1', 'r2', 'f']);
+		const apply = (intent: PartyIntent) => applyPartyIntent(party, intent, 'explore');
+		expect(apply({ type: 'select-lead', animalId: 'f' })).toEqual({
+			party: [party[3], party[1], party[0], party[2]],
+			events: [{ type: 'lead-selected', animalId: 'f', from: 3 }]
+		});
+		// The squirrel already leads; the rabbits' card goes first with its first rabbit standing.
+		expectRejected(party, apply({ type: 'select-lead', animalId: 's' }), 'already-lead', {
+			animalId: 's'
+		});
+		expect(apply({ type: 'lead-species', speciesId: 'rabbit' })).toEqual({
+			party: [party[2], party[0], party[1], party[3]],
+			events: [{ type: 'lead-selected', animalId: 'r2', from: 2 }]
+		});
+		expect(ids(apply({ type: 'move-species', speciesId: 'fox', to: 0 }).party)).toEqual([
+			'f',
+			's',
+			'r1',
+			'r2'
+		]);
+		expect(apply({ type: 'reorder', animalId: 'r2', to: 1 })).toEqual({
+			party: [party[1], party[2], party[0], party[3]],
+			events: [{ type: 'reordered', animalId: 'r2', from: 2, to: 1 }]
+		});
+		// A name changes no one's place.
+		expect(ids(apply({ type: 'rename', animalId: 's', nickname: 'Pip' }).party)).toEqual(
+			ids(party)
+		);
+	});
+});
+
+describe('a party with no cap', () => {
+	it('takes every edit in a party of a hundred and more, in bundles, the lead the one that fights', () => {
+		const wild: AnimalInstance = { id: 'wild', speciesId: 'bear', hp: 60 };
+		for (const [i, start] of BIG.entries()) {
+			const rng = new Rng(hashInts(0xb1d, i));
+			let party = start;
+			for (let n = 0; n < 40; n++) {
+				party = deepFreeze(applyPartyIntent(party, randomIntent(rng, party), 'explore').party);
+				expect(isBundled(party)).toBe(true);
+			}
+			expect(party).toHaveLength(start.length);
+			if (leadIndex(party) >= 0) {
+				expect(startBattle(party, wild).active).toBe(leadIndex(party));
+			}
+		}
+	});
 });
 
 describe('leadIndex', () => {

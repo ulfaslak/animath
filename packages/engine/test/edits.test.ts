@@ -534,7 +534,7 @@ describe('keeping the save small', () => {
 		expect(edits.textLength).toBeLessThanOrEqual(EDITS_BUDGET);
 		const game = { ...newGame(seed), edits: [...edits.encode()] };
 		const text = JSON.stringify(saveDocument(game, { lineage: 'L', seq: 1 }));
-		// Well inside the server's body limit (64 KB), with room for a battle and a full team.
+		// Well inside the 64 KiB of the backup sent as the page closes, with room for a team mid-battle.
 		expect(text.length).toBeLessThan(EDITS_BUDGET + 2000);
 		const started = performance.now();
 		const read = readSave(JSON.parse(text));

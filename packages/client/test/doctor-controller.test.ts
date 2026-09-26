@@ -453,10 +453,11 @@ describe("the doctor's card under a pointer", () => {
 
 /** Two tired rabbits and a hurt fox between them, a squirrel at full HP, a frog at 4. */
 function bigParty(): AnimalInstance[] {
+	// In species bundles, as every party in a game is (the authority puts one in them).
 	return [
 		{ id: 'r1', speciesId: 'rabbit', hp: 0 },
-		{ id: 'f', speciesId: 'fox', hp: 9 },
 		{ id: 'r2', speciesId: 'rabbit', hp: 3 },
+		{ id: 'f', speciesId: 'fox', hp: 9 },
 		{ id: 's', speciesId: 'squirrel', hp: getAnimal('squirrel').maxHp },
 		{ id: 'g', speciesId: 'frog', hp: 4 }
 	];
@@ -520,14 +521,14 @@ describe("the doctor's card: one puzzle heals a species", () => {
 		t.press('Enter');
 		expect(t.doctorSent().at(-1)).toEqual({
 			type: 'doctor',
-			intent: { type: 'pick-patient', partyIndex: 2 }
+			intent: { type: 'pick-patient', partyIndex: 1 }
 		});
 		expect(doctor.line).toMatchObject({ say: 'letsHelp', animal: { id: 'r2' }, others: 1 });
 		t.cues.length = 0;
 		t.press(...String(t.answer()), 'Enter');
 		t.run(0.85);
-		expect(doctor.party.map((a) => a.hp)).toEqual([22, 9, 22, 20, 4]);
-		expect(doctor.healed).toMatchObject({ amounts: { 0: 22, 2: 19 } });
+		expect(doctor.party.map((a) => a.hp)).toEqual([22, 22, 9, 20, 4]);
+		expect(doctor.healed).toMatchObject({ amounts: { 0: 22, 1: 19 } });
 		expect(t.cues).toEqual(['correct', 'heal']);
 		expect(doctor.line).toMatchObject({
 			say: 'healed',
@@ -548,7 +549,7 @@ describe("the doctor's card: one puzzle heals a species", () => {
 		const picked = () => (t.doctorSent().at(-1)!.intent as { partyIndex: number }).partyIndex;
 		expect(picked()).toBe(0);
 		t.press('ArrowDown');
-		expect(picked()).toBe(1); // the fox, not the other rabbit
+		expect(picked()).toBe(2); // the fox, not the other rabbit
 		t.press('ArrowDown');
 		expect(picked()).toBe(4); // the frog, past the fit squirrel
 		t.press('ArrowDown');

@@ -1,4 +1,4 @@
-import type { GameEvent, Intent } from '@mathgame/engine';
+import { bundles, type GameEvent, type Intent } from '@mathgame/engine';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import type { CueName } from '../src/audio/cues';
 import { sfx } from '../src/audio/sfx.svelte';
@@ -65,10 +65,12 @@ function setup(startingParty = 'squirrel,rabbit,fox') {
 		return last;
 	};
 	const species = () => game.party.map((a) => a.speciesId);
+	/** The cards' species, top to bottom. */
+	const cards = () => bundles(game.party).map((b) => b.speciesId);
 	/** Presses of ArrowDown that take the cursor from the top to a menu row. */
 	const downTo = (item: (typeof MENU_ITEMS)[number]) =>
-		Array<string>(game.party.length + MENU_ITEMS.indexOf(item)).fill('ArrowDown');
-	return { authority, controller, events, sent, press, species, downTo };
+		Array<string>(bundles(game.party).length + MENU_ITEMS.indexOf(item)).fill('ArrowDown');
+	return { authority, controller, events, sent, press, species, cards, downTo };
 }
 
 beforeEach(() => {
@@ -309,6 +311,156 @@ describe('pause menu', () => {
  * a language on the Language row its language key, and the name box's Save
  * and Back are Enter and Escape.
  */
+describe('pause menu with cards of several animals', () => {
+	it("opens a card's screen: its options, then its animals, the cursor skipping what can't be done", () => {
+		const { press, cards } = setup('squirrel,rabbit*3,fox');
+		expect(cards()).toEqual(['squirrel', 'rabbit', 'fox']);
+		press('Escape', 's', 'Enter');
+		expect([pause.screen, pause.species, pause.picked]).toEqual(['bundle', 'rabbit', null]);
+		// Go first (no rabbit leads), Move up, Move down, Back, then three rabbits.
+		expect(pause.option).toBe(0);
+		press('w');
+		expect(pause.option).toBe(6); // wraps round to the last rabbit
+		press('s', 's', 's', 's', 's');
+		expect(pause.option).toBe(4); // past the four options, on the first rabbit
+		press('Escape');
+		expect([pause.screen, pause.cursor]).toEqual(['list', 1]);
+	});
+
+	it("the card's Go first leads with its first rabbit standing; its moves move the whole card", () => {
+		const { press, sent, cards } = setup('squirrel,rabbit:0,rabbit*2,fox');
+		press('Escape', 's', 'Enter', 's'); // the rabbits' Move up
+		press('Enter');
+		expect(sent.at(-1)).toEqual({
+			type: 'party',
+			intent: { type: 'move-species', speciesId: 'rabbit', to: 0 }
+		});
+		expect(cards()).toEqual(['rabbit', 'squirrel', 'fox']);
+		// At the top Move up is greyed: a mashed Enter stops there.
+		press('Enter', 'Enter');
+		expect(cards()).toEqual(['rabbit', 'squirrel', 'fox']);
+		press('s', 'Enter', 'Enter');
+		expect(cards()).toEqual(['squirrel', 'fox', 'rabbit']);
+		expect(pause.screen).toBe('bundle');
+		// Go first: its first rabbit standing leads, and the menu goes back to the list, on the top card.
+		press('w', 'w', 'Enter'); // from the greyed Move down, up past Move up to Go first
+		expect(sent.at(-1)).toEqual({
+			type: 'party',
+			intent: { type: 'lead-species', speciesId: 'rabbit' }
+		});
+		expect(cards()).toEqual(['rabbit', 'squirrel', 'fox']);
+		expect(game.party[0]!.hp).toBeGreaterThan(0);
+		expect([pause.screen, pause.cursor]).toEqual(['list', 0]);
+	});
+
+	it('an animal of a card goes first, moves within its card, and comes back to the card', () => {
+		const { press, sent, species } = setup('squirrel,rabbit*3');
+		const rabbits = game.party.filter((a) => a.speciesId === 'rabbit').map((a) => a.id);
+		// Go first, Move up, (Move down: greyed, the last card), Back, then the second rabbit.
+		press('Escape', 's', 'Enter', ...Array<string>(4).fill('s'), 'Enter');
+		expect([pause.screen, pause.species, pause.picked]).toEqual(['options', 'rabbit', rabbits[1]]);
+		press('s', 'Enter'); // Move up, within the card
+		expect(sent.at(-1)).toEqual({
+			type: 'party',
+			intent: { type: 'reorder', animalId: rabbits[1], to: 1 }
+		});
+		expect(game.party.map((a) => a.id)).toEqual([
+			game.party[0]!.id,
+			rabbits[1],
+			rabbits[0],
+			rabbits[2]
+		]);
+		// At the top of its card Move up is greyed, though the squirrel's card is above it.
+		press('Enter');
+		expect(species()).toEqual(['squirrel', 'rabbit', 'rabbit', 'rabbit']);
+		expect(game.party[1]!.id).toBe(rabbits[1]);
+		// Back: the card's screen, the cursor on this rabbit, now its first.
+		press('Escape');
+		expect([pause.screen, pause.species, pause.option]).toEqual(['bundle', 'rabbit', 4]);
+		// A new name, saved: back on the card's screen, on the rabbit.
+		press('Enter', 's', 's', 'Enter'); // Go first, (Move up: greyed), Move down, New name
+		expect(pause.screen).toBe('naming');
+		pause.draft = 'Hop';
+		press('Enter');
+		expect(game.party[1]!.nickname).toBe('Hop');
+		expect([pause.screen, pause.species, pause.option]).toEqual(['bundle', 'rabbit', 4]);
+		// Go first: the rabbits' card to the top, Hop at its front, and back to the list.
+		press('Enter', 'Enter');
+		expect(game.party[0]!.id).toBe(rabbits[1]);
+		expect([pause.screen, pause.cursor]).toEqual(['list', 0]);
+	});
+
+	it('a card of tired animals greys its Go first', () => {
+		const { press, sent } = setup('squirrel,rabbit:0*2');
+		press('Escape', 's', 'Enter');
+		expect(pause.option).toBe(1); // Go first is greyed: Move up
+		press(optionKey(0));
+		expect(sent).toEqual([]);
+	});
+
+	it('a tap on an animal of the open card opens its options; the left still does its rows (#45)', () => {
+		const teams = [
+			'squirrel*2',
+			'squirrel,rabbit*3',
+			'squirrel*2,rabbit:0*2,fox,frog*3,otter,bear*2'
+		];
+		const bad: string[] = [];
+		for (const team of teams) {
+			pause.reset();
+			const probe = setup(team);
+			const list = bundles(game.party);
+			probe.controller.close();
+			for (const [place, card] of list.entries()) {
+				if (card.animals.length < 2) continue;
+				for (let row = 0; row < list.length + MENU_ITEMS.length; row++) {
+					// With the card's screen open, and with one of its animals picked.
+					for (const deep of [false, true]) {
+						pause.reset();
+						language.set('en');
+						sfx.set(true);
+						const { press, sent } = setup(team);
+						press('Escape', rowKey(place));
+						if (deep) press(optionKey(4));
+						press(rowKey(row));
+						const item = MENU_ITEMS[row - list.length];
+						const closes = item === 'resume' || item === 'quit';
+						const target = list[row];
+						const opened = !target
+							? ['list', null, null, row]
+							: target.animals.length > 1
+								? ['bundle', target.speciesId, null, row]
+								: ['options', null, target.animals[0]!.id, row];
+						const got = {
+							at: pause.open ? [pause.screen, pause.species, pause.picked, pause.cursor] : 'closed',
+							language: language.current,
+							sound: sfx.on,
+							sent
+						};
+						const want = {
+							at: closes ? 'closed' : opened,
+							language: item === 'language' ? 'da' : 'en',
+							sound: item !== 'sound',
+							sent: item === 'quit' ? [{ type: 'leave-game' }] : []
+						};
+						if (JSON.stringify(got) !== JSON.stringify(want)) {
+							bad.push(
+								`${team}, card ${place}${deep ? ' animal' : ''}, row ${row}: ${JSON.stringify(got)}`
+							);
+						}
+					}
+				}
+			}
+		}
+		expect(bad).toEqual([]);
+		// And a tap on an animal of the card opens its options.
+		pause.reset();
+		const { press } = setup('squirrel,rabbit*3');
+		const third = game.party[3]!.id;
+		press('Escape', rowKey(1), optionKey(6));
+		expect([pause.screen, pause.species, pause.picked]).toEqual(['options', 'rabbit', third]);
+	});
+});
+
 describe('pause menu under a pointer', () => {
 	it('a tap on an animal opens its options; a tap on an option does it, and a greyed one nothing', () => {
 		const { press, sent, species } = setup();

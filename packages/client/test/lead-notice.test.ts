@@ -39,16 +39,41 @@ describe('the line about who goes first', () => {
 
 		edit({ type: 'select-lead', animalId: fox!.id });
 		expect(hud.message).toBe(chosen('Fox'));
-		// The pause menu moves the fox to the back: the squirrel leads again.
-		edit({ type: 'reorder', animalId: fox!.id, to: 2 });
+		// The fox's card goes to the back (dragged, or the pause menu): the squirrel leads again.
+		edit({ type: 'move-species', speciesId: fox!.speciesId, to: 2 });
 		expect(hud.message).toBe(chosen('Squirrel'));
 		// A new name for the lead shows in the line at once.
 		edit({ type: 'rename', animalId: squirrel!.id, nickname: 'Pip' });
 		expect(hud.message).toBe(chosen('Pip'));
 		// Edits that leave the lead where it was say nothing new.
 		edit({ type: 'rename', animalId: rabbit!.id, nickname: 'Hop' });
-		edit({ type: 'reorder', animalId: rabbit!.id, to: 2 });
+		edit({ type: 'move-species', speciesId: rabbit!.speciesId, to: 2 });
 		expect(hud.message).toBe(chosen('Pip'));
+	});
+
+	it('names the lead a card chose, and the one a card dropped at the top leads with', () => {
+		const { edit } = setup('squirrel,rabbit*3,fox');
+		const [, hop] = game.party.filter((a) => a.speciesId === 'rabbit');
+		edit({ type: 'rename', animalId: hop!.id, nickname: 'Hop' });
+		// The rabbits' card goes first: its first rabbit standing leads.
+		edit({ type: 'lead-species', speciesId: 'rabbit' });
+		expect(hud.message).toBe(chosen('Rabbit'));
+		// Chosen from the open card: that rabbit.
+		edit({ type: 'select-lead', animalId: hop!.id });
+		expect(hud.message).toBe(chosen('Hop'));
+		// The fox's card dropped at the top.
+		edit({ type: 'move-species', speciesId: 'fox', to: 0 });
+		expect(hud.message).toBe(chosen('Fox'));
+	});
+
+	it('says when every animal of a card is tired, and names one that is alone', () => {
+		const { edit } = setup('squirrel,rabbit:0*3,fox:0');
+		edit({ type: 'lead-species', speciesId: 'rabbit' });
+		expect(hud.message).toBe(t('party.leadAllTired'));
+		edit({ type: 'lead-species', speciesId: 'fox' });
+		expect(hud.message).toBe(t('party.leadTired', { animal: 'Fox' }));
+		edit({ type: 'lead-species', speciesId: 'squirrel' });
+		expect(hud.message).toBe(t('party.leadAlready', { animal: 'Squirrel' }));
 	});
 
 	it('says why a lead was not chosen', () => {
@@ -72,7 +97,7 @@ describe('the line about who goes first', () => {
 		edit({ type: 'select-lead', animalId: fox!.id });
 		expect(cues).toEqual(['lead']);
 		// Moving the fox to the back puts the squirrel in front: a new lead too.
-		edit({ type: 'reorder', animalId: fox!.id, to: 2 });
+		edit({ type: 'move-species', speciesId: fox!.speciesId, to: 2 });
 		expect(cues).toEqual(['lead', 'lead']);
 		stop();
 	});
@@ -123,5 +148,18 @@ describe('leadNotice', () => {
 		expect(
 			leadNotice(tiredFirst, [{ type: 'reordered', animalId: 'a0', from: 1, to: 0 }])
 		).toBeNull();
+	});
+
+	it('undoes a card moved to another place to see who led before it', () => {
+		const party = (...kinds: [string, number][]): AnimalInstance[] =>
+			kinds.map(([speciesId, hp], i) => ({ id: `${speciesId}${i}`, speciesId, hp }));
+		// Rabbits, then a fox: the fox's card moved from the back to the top.
+		const after = party(['fox', 30], ['rabbit', 20], ['rabbit', 20]);
+		const moved = { type: 'species-moved', speciesId: 'fox', from: 1, to: 0 } as const;
+		expect(leadNotice(after, [moved])).toEqual({ lead: 'chosen', animalId: 'fox0' });
+		// A card of tired rabbits moved to the top: the fox still leads.
+		const tired = party(['rabbit', 0], ['rabbit', 0], ['fox', 30]);
+		const back = { type: 'species-moved', speciesId: 'rabbit', from: 1, to: 0 } as const;
+		expect(leadNotice(tired, [back])).toBeNull();
 	});
 });

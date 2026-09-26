@@ -3,12 +3,6 @@ import type { PuzzleKind } from '../puzzles/types.js';
 /** 1 = squirrel-easy, 5 = bear-hard. Drives HP, catch rate and puzzle difficulty. */
 export type Tier = 1 | 2 | 3 | 4 | 5;
 
-/**
- * A party holds at most this many animals. The authority lets a catch beyond
- * it go back into the grass, and the server refuses a save with more.
- */
-export const MAX_PARTY = 6;
-
 export const ATTACK_LEVELS = [1, 2, 3] as const;
 export type AttackLevel = (typeof ATTACK_LEVELS)[number];
 
@@ -33,9 +27,42 @@ export interface AnimalSpec {
 	attacks: readonly AttackSpec[];
 	/** Biomes where this species spawns in the wild. */
 	habitats: readonly Biome[];
+	/**
+	 * Where it can be met: `['land']` for most, `['land', 'water']` for an
+	 * amphibious animal (the frog, the otter), `['water']` for one that lives
+	 * out on the water only.
+	 */
+	realms: readonly Realm[];
+	/**
+	 * The ground it favours around the tall grass it comes out of: the more of
+	 * it nearby, the more often it comes out ([[PRODUCT]] §4 "Wild encounters",
+	 * `world/habitat.ts`).
+	 */
+	favours: Terrain;
 }
 
 export type Biome = 'meadow' | 'forest' | 'river' | 'mountain';
+
+/**
+ * Where an encounter happens, and so where a species can be met: on land
+ * (tall grass, the river's reeds) or out on the water. No tile starts a water
+ * encounter yet; a boat will, and then an amphibious species (`realms` with
+ * both) comes out in either, a sea animal (`['water']`) only on the water.
+ */
+export type Realm = 'land' | 'water';
+
+/** Every realm, land first. */
+export const REALMS: readonly Realm[] = ['land', 'water'];
+
+/**
+ * A kind of ground around an encounter tile that a species can favour:
+ * water, trees, rocks (the mountains' boulders and peaks), or open ground
+ * with none of those three nearby.
+ */
+export type Terrain = 'water' | 'trees' | 'rocks' | 'open';
+
+/** Every terrain, in the order the rules name them. */
+export const TERRAINS: readonly Terrain[] = ['water', 'trees', 'rocks', 'open'];
 
 /** An animal the player owns (or a wild one in a battle). */
 export interface AnimalInstance {

@@ -74,8 +74,6 @@ class BattleView {
 	/** The latest hit, for the damage number that pops over a status box; `n` restarts it. */
 	hit = $state<{ side: 'player' | 'opponent'; damage: number; n: number } | null>(null);
 	outcome = $state<BattleOutcome | null>(null);
-	/** A catch that didn't join the team: it was full, so the animal went home. */
-	letGo = $state(false);
 	/** The authority's closing line, shown under the result headline. */
 	closing = $state<MessageLine | null>(null);
 
@@ -101,7 +99,6 @@ class BattleView {
 		this.line = null;
 		this.hit = null;
 		this.outcome = null;
-		this.letGo = false;
 		this.closing = null;
 	}
 }

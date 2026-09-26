@@ -31,7 +31,7 @@ function setup(start?: SavedGame) {
 		tick: () => {},
 		takeTap: () => undefined,
 		heldDirection: () => undefined,
-		takeSlot: () => undefined,
+		takeTeamPick: () => undefined,
 		takeInteract: () => {
 			const pressed = enter;
 			enter = false;
