@@ -16,11 +16,11 @@ Cheerful, kind, a little silly. The world is sunny and safe. Nothing is scary: a
 
 Rules that follow from that:
 
-- **Fixed camera.** Orthographic, pitched about 50°, yawed about 35°. No zoom, no rotation, ever. The world reads as a diorama because the angle never changes.
+- **Fixed camera.** In explore, orthographic, pitched about 50°, yawed about 35°. No zoom, no rotation, ever. The world reads as a diorama because the angle never changes. The battle and the title's starter stage have fixed cameras of their own.
 - **Facets, not textures.** Colour comes from materials and lighting, not image textures. `flatShading: true` everywhere.
 - **Chunky silhouettes.** Trees are a cone on a cylinder, rocks are a dodecahedron, tents are a pyramid, reeds a thin stalk with a brown head, flowers and bushes a twenty-sided ball. Animals are boxes, spheres and cones with one exaggerated tell each — the squirrel's curled tail, the rabbit's ears, the frog's eyes on top of its head, the deer's antlers — because at the game's camera a bear is 40 px tall and a squirrel 15. Real models keep that vocabulary: few polygons, readable at 40 px tall.
-- **Warm light.** One sun (slightly warm white) casting soft shadows, plus a hemisphere fill so shadows stay coloured, never black.
-- **Gentle motion.** Steps hop and swing the trainer's arms, grass could sway, fire flickers. Nothing snaps.
+- **Warm light.** One sun (slightly warm white) casting soft shadows, plus a hemisphere fill so shadows stay coloured, never black, and a small warm light at each campfire.
+- **Gentle motion.** Steps hop and swing the trainer's arms; grass could sway and fire could flicker. Nothing snaps.
 - **A little juice, no new assets.** Moments get a small flourish made from what is already in the game — a lunge, a shake, a ring of dust, a burst of confetti in the palette's colours, sparkles along an HP bar, an iris into battle. A flourish marks a moment the screen already shows; it never hides text or the animal it is about, never leaves the scene, never delays a key and never fills the screen with a flash ([[UI_SPEC]] § Sound and juice). Size one against the thing it frames, in a frame, not by its numbers.
 
 ## Palette
@@ -30,22 +30,13 @@ Hex values are the ones in `packages/client/src/render/palette.ts` and `styles.c
 | Role                 | Hex       | Notes                                        |
 | -------------------- | --------- | -------------------------------------------- |
 | Sky / background     | `#8fd3f4` | Also the fog colour.                         |
-| Grass                | `#8bd66b` | The meadow's. Per-tile lightness jitter ±5% breaks the grid |
+| Grass                | `#8bd66b` | The meadow's.                                |
 | Tall grass           | `#63b94a` | Darker, so encounter tiles read at a glance; blades `#4fa83d`. |
 | Sand                 | `#f3d9a4` |                                              |
 | Water                | `#5ec8f2` | Sits lower than land.                        |
-| Rock                 | `#a8a39e` / `#8e8a86`, `#a39e98` | Tile / boulder, in two greys. The peaks (rock at height 3) are paler, `#bdb9b4`, and most of their boulders wear a snow cap, `#f3f6f4` (a cool white, never the figures' warm one). |
+| Rock                 | `#a8a39e` / `#8e8a86`, `#a39e98` | Tile / boulder, in two greys. The peaks (rock at height 3 and up) are paler, `#bdb9b4`, and most of their boulders wear a snow cap, `#f3f6f4` (a cool white, never the figures' warm one). |
 | Tree trunk           | `#8b5a3c` |                                              |
 | Tree canopy          | `#2c7a43` / `#3a8f4c` / `#2f8a55` | Three dark greens, mixed randomly: trees grow only in the forest. The starter stage's bushes keep `#3e9e4f` / `#62bf5f`. |
-
-Each biome has its own ground and tall grass (`BIOME_LOOK` in `palette.ts`), so a kid can tell where they are without reading anything. Tall grass keeps one grammar everywhere: a patch darker and greener than the ground round it, with blades standing in it.
-
-| Biome    | Ground    | Tall grass / blades     | What else grows or lies about |
-| -------- | --------- | ----------------------- | ----------------------------- |
-| Meadow   | `#8bd66b` | `#63b94a` / `#4fa83d`   | Flowers on one grass tile in five, in the off-white, coral and amber already in the game. |
-| Forest   | `#68b258` | `#4b9a44` / `#357d33`   | A darker floor. Crowded trees: often a young one beside the big one, and a bush (`#2f7d44` / `#3b8a47`) at their foot; never taller than before, since a tree hides the tile behind it. |
-| River    | sand      | `#9fc45c` / `#5e9233`   | Reed beds: a yellow-green patch with tall thin reeds, most with a brown head (the trunks' `#8b5a3c`), never the meadow's tall grass on sand. |
-| Mountain | `#a6b88f` | `#7b9b5a` / `#587d3c`   | Grey-green turf with pebbles (`#97928c`), too small to look like a rock that blocks; boulder fields, a big boulder with smaller ones round it; snow on the peaks. |
 | Tent cloth           | `#f2a65a` | Door `#d47c2a`.                              |
 | Fire / warm accent   | `#ffb347` | Also the UI accent (`--accent: #ff9f43`).    |
 | Trainer (player)     | `#ff7e6b` shirt, `#ffcfb0` skin, `#2f4fa8` shorts, `#3d7be8` cap | The only blue figure, so it never reads as an animal. |
@@ -53,7 +44,7 @@ Each biome has its own ground and tall grass (`BIOME_LOOK` in `palette.ts`), so 
 | Figure details       | `#fff4e6` / `#2f2a28` | Off-white and near-black for tail tips, chests, noses, eyes. |
 | Dust                 | `#f6efe2` | The ring a tired animal lies down in; fades as it spreads. Never grey smoke. |
 | Confetti             | accent, good, warn, water, trainer shirt, off-white, rabbit pink | `CONFETTI_COLORS`: only colours already in the game. |
-| Sparkles             | warn `#f5b83d`, good `#56c271`, off-white; on the result card also coral and blue | The doctor's chunky four-pointed stars, in the battle scene (unlit, so they shine) and round the result card's headline. |
+| Sparkles             | warn `#f5b83d` and good `#56c271`, with off-white in the battle scene, coral and blue on the result card, white at the doctor | The doctor's chunky four-pointed stars: along a healed animal's HP bar, in the battle scene (unlit, so they shine) and round the result card's headline. |
 | Result card's rays   | warn at half strength | A burst behind a new friend's name, fading out at its rim. |
 | Butterflies          | rabbit pink `#f5b8c4`, amber `#f5b83d`, off-white, trainer coral, sky `#8fd3f4` | `BUTTERFLY_COLORS`: two five-sided wings on a dark body, a little under half a tile across. |
 | UI panel             | `rgba(255,252,245,.92)` | Cream, slightly translucent. Opaque (`--panel-cream`, `#fffcf5`) as the rim round big lettering. |
@@ -62,6 +53,17 @@ Each biome has its own ground and tall grass (`BIOME_LOOK` in `palette.ts`), so 
 | Good (HP, correct)   | `#56c271` |                                              |
 | Warn (HP under half) | `#f5b83d` | Amber: an HP bar between a half and a fifth, the leash's "maybe". |
 | Bad (damage, wrong)  | `#f25f5c` | Also an HP bar under a fifth. Text on Good, Warn and Bad is ink, never white. |
+
+Every ground tile's lightness is shifted by up to ±2.5 points (HSL), so a big field never reads as a grid.
+
+Each biome has its own ground and tall grass (`BIOME_LOOK` in `palette.ts`), so a kid can tell where they are without reading anything. Tall grass keeps one grammar everywhere: a patch darker and greener than the ground round it, with blades standing in it.
+
+| Biome    | Ground    | Tall grass / blades     | What else grows or lies about |
+| -------- | --------- | ----------------------- | ----------------------------- |
+| Meadow   | `#8bd66b` | `#63b94a` / `#4fa83d`   | Flowers on one grass tile in five, in the off-white, coral and fire orange already in the game. |
+| Forest   | `#68b258` | `#4b9a44` / `#357d33`   | A darker floor. Crowded trees: often a young one beside the big one, and a bush (`#2f7d44` / `#3b8a47`) at their foot; never taller than before, since a tree hides the tile behind it. |
+| River    | sand      | `#9fc45c` / `#5e9233`   | Reed beds: a yellow-green patch with tall thin reeds, most with a brown head (the trunks' `#8b5a3c`), never the meadow's tall grass on sand. |
+| Mountain | `#a6b88f` | `#7b9b5a` / `#587d3c`   | Grey-green turf with pebbles (`#97928c`), too small to look like a rock that blocks; boulder fields, a big boulder with smaller ones round it; snow on the peaks. |
 
 Colour is never the only signal: a wrong answer also shakes, a low HP bar also shows a number.
 
@@ -79,7 +81,7 @@ Colour is never the only signal: a wrong answer also shakes, a low HP bar also s
 
 Cream panels with 16 px radius and a soft drop shadow floating over the 3D scene. Buttons are pill-shaped with the accent colour for the primary action (Go!, OK, Talk, Save).
 
-Touch-sized targets: with the touch controls on, every row and button is at least 48 px tall (`--tap` in `styles.css`), the panels that hold lists grow to fit seven such rows, and the controls a hand uses most sit in the bottom corners, under the thumbs of a kid holding a tablet: the D-pad on the left; Talk, Menu, Go! and the number pad's OK on the right. With a keyboard the battle and doctor lists are tighter (rows from 32 px), leaving the scene more room; everything else is 48 px on every screen. A pressed button or key gives way a little, so a tap is seen to land.
+Touch-sized targets: with the touch controls on, every row and button is at least 48 px tall (`--tap` in `styles.css`), the panels that hold lists grow to fit seven such rows, and the controls a hand uses most sit in the bottom corners, under the thumbs of a kid holding a tablet: the D-pad on the left; Talk, Menu, Go! and the number pad's OK on the right. With a keyboard the battle and doctor lists are tighter (rows from 32 px in battle, 30 px at the doctor), leaving the scene more room; everything else is 48 px on every screen. A pressed button or key gives way a little, so a tap is seen to land.
 
 ## Voice and copy
 
@@ -139,9 +141,9 @@ The words the game uses for its things, the same on every screen:
 | Correct! / Not quite! | Rigtigt! / Ikke helt! | every judged answer |
 | hits for (damage) | mister … point | every line about a hit, naming the animal hit: "Den vilde ræv mister 12 point." |
 | Go! | Kør! | the battle's button and its keys ("Enter kør"); "Så kører vi!" starts a new game |
-| choose (↑ ↓) | flyt | every key reminder: "↑ ↓ flyt" |
+| choose (↑ ↓) | flyt | every list's key reminder: "↑ ↓ flyt" |
 | Keep playing | Spil videre | the pause menu |
-| Language | Sprog | the pause menu, listing "English" and "Dansk" |
+| Language | Sprog | the title and the pause menu, listing "English" and "Dansk" |
 
 Attack names are short, concrete Danish words or playful compounds a kid can say: Nøddekast, Lynspark, Hop, Stamp, Hulebid, Kvæk, Tungesnert, Stort plask, Nap, Spring, Rævestreg, Plask, Halesmæk, Spark, Hornstød, Bid, Hyl, Ulvespring, Labeslag, Brøl, Bjørnekram, Kæmpetramp.
 
@@ -153,8 +155,8 @@ Gentle, synthesized, short. Every sound is made while the game runs, with WebAud
 - **Happy things rise.** Good moments climb a major chord: the encounter jingle, the correct chime, the caught and won fanfares, the heal sparkle, the new lead's ding-ding. Menus blip quietly, and an attack's level blip climbs with its level.
 - **A miss is a soft bonk.** One round, low note. Never a buzzer, never a falling "wah-wah" that could sound like teasing. A key that can't do anything (a tired animal picked, a greyed row) makes no sound: the screen already says why, and a kid mashing keys must not be scolded.
 - **Every cue goes with something on screen.** Sound is never the only signal. The chime comes with "Correct!", the thump with the shake and the "−10", the puff with the animal lying down, the fanfare with the result card. A kid playing with the sound off misses nothing.
-- **Off is always one step away.** Sound is on by default. The pause menu's Sound row and the M key turn it off and on, and the choice is remembered on this device. Turning it off cuts what is playing.
-- **Silent until the first key.** Browsers let a page make sound only after a key press, so the game starts silent and wakes on the first key.
+- **Off is always one step away.** Sound is on by default. The Sound row (on the title and in the pause menu) and the M key turn it off and on, and the choice is remembered on this device. Turning it off cuts what is playing.
+- **Silent until the first press.** Browsers let a page make sound only after a key press, a click or a tap they count as the player's (Escape and the modifier keys don't count), so the game starts silent and wakes on the first one.
 
 ## Accessibility
 
