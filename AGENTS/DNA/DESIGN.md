@@ -76,6 +76,7 @@ Colour is never the only signal: a wrong answer also shakes, a low HP bar also s
 - HUD labels: 800, 16–18 px.
 - Hints and body: 600, 16 px.
 - Numbers in prompts use real operator glyphs: `×`, `÷`, `−`, `√`. Never `*` or `/`.
+- A name in a box that would end it with "…" keeps the font's own line height. The box clips its top too, and a tighter line cuts the ring off an Å.
 
 ## UI shapes
 

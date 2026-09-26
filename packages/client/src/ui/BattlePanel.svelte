@@ -616,11 +616,14 @@
 	 * tag — sized by the longest name there, so every name shows whole (up to
 	 * twelve letters of the widest, at 1024 px) and the bars start together.
 	 * A row is a subgrid of the list; a browser without subgrid lays each row
-	 * out on its own, in the same columns.
+	 * out on its own, in the same columns. A subgrid's padding counts as a
+	 * margin on the items at its edges, so the caret's column is `auto`, to
+	 * hold the row's 10 px beside the caret's 16 (a fixed 16 px pushed the
+	 * caret into the gap, against the name).
 	 */
 	.party {
 		display: grid;
-		grid-template-columns: 16px minmax(0, max-content) minmax(100px, 1fr) auto;
+		grid-template-columns: auto minmax(0, max-content) minmax(100px, 1fr) auto;
 		grid-auto-rows: minmax(32px, 40px);
 		align-content: center;
 		gap: 2px 8px;

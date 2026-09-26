@@ -13,18 +13,24 @@
 	 * turned into text by `input/answer.ts` and answers are judged by the
 	 * engine, so nothing here decides anything. With the touch controls on,
 	 * the number pad stands to the right of it, and its keys are keys too.
+	 * `note` is one more line under the key reminder, from the screen that
+	 * asks: beside the pad it takes the room left under the answer, not a line
+	 * of the card's height below the pad.
 	 */
 	let {
 		puzzle,
 		input,
 		judged,
-		typing
+		typing,
+		note
 	}: {
 		puzzle: Puzzle;
 		input: string;
 		judged: { correct: boolean } | null;
 		/** True while keys type into the answer (shows a blinking cursor). */
 		typing: boolean;
+		/** The doctor's "↑ ↓ help another animal", when someone else is hurt too. */
+		note?: string;
 	} = $props();
 </script>
 
@@ -44,6 +50,9 @@
 			</div>
 		{:else}
 			<div class="keys">{touch.on ? t('puzzle.keysTouch') : t('puzzle.keys')}</div>
+		{/if}
+		{#if note}
+			<div class="keys">{note}</div>
 		{/if}
 	</div>
 	{#if touch.on}
