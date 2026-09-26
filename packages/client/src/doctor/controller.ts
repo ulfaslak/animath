@@ -334,13 +334,14 @@ export class DoctorController {
 	}
 
 	/**
-	 * A pick that only picks or unpicks animals to go home, one or a whole
-	 * kind: it can always be taken back, so it goes at once, as the pause
-	 * menu's rows do. Everything else on the list waits the quiet moment, and
-	 * the confirm and the sum stand between a pick and a goodbye.
+	 * A pick that only picks or unpicks one animal to go home: it can always
+	 * be taken back, so it goes at once, as the pause menu's rows do.
+	 * Everything else on the list waits the quiet moment, a whole kind's row
+	 * too, so an Enter mashed through a goodbye never picks a stack; and the
+	 * confirm and the sum stand between a pick and a goodbye.
 	 */
 	private marks(row: DoctorRow | undefined): boolean {
-		return doctor.tab === 'home' && (row?.kind === 'animal' || row?.kind === 'bundle');
+		return doctor.tab === 'home' && row?.kind === 'animal';
 	}
 
 	/** Enter on a row of the list. */

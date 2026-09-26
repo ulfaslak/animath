@@ -816,19 +816,26 @@ describe('helping a whole kind home', () => {
 		// With the squirrel standing, the row's pick sends all three: 18 tokens.
 		expect(homeTokens(kindGoing('fox', doctor))).toBe(18);
 		t.cues.length = 0;
-		// Picks go at once, as an animal's do: nothing leaves before the confirm and the sum.
+		// The row picks them all; nothing leaves before the confirm and the sum.
 		t.press('Enter');
 		expect(doctor.marked).toEqual(['f1', 'f2', 'f3']);
 		expect(kindPicked('fox', doctor)).toBe('all');
+		// Unlike one animal's, a kind's pick waits the list's quiet moment: a second Enter
+		// straight after does nothing, so a mash never picks or drops a stack.
+		t.press('Enter');
+		expect(doctor.marked).toEqual(['f1', 'f2', 'f3']);
+		t.run(PICK_QUIET_SECONDS);
 		t.press('Enter');
 		expect(doctor.marked).toEqual([]);
 		expect(kindPicked('fox', doctor)).toBe('none');
-		// One picked by hand: the row adds the rest, then takes the whole kind back.
+		// One picked by hand (at once): the row adds the rest, then takes the whole kind back.
 		t.press('ArrowDown', 'ArrowDown', 'Enter', 'ArrowUp', 'ArrowUp');
 		expect(doctor.marked).toEqual(['f2']);
 		expect(kindPicked('fox', doctor)).toBe('some');
+		t.run(PICK_QUIET_SECONDS);
 		t.press('Enter');
 		expect(doctor.marked).toEqual(['f2', 'f1', 'f3']);
+		t.run(PICK_QUIET_SECONDS);
 		t.press('Enter');
 		expect(doctor.marked).toEqual([]);
 		expect(t.cues).toEqual([
@@ -842,10 +849,16 @@ describe('helping a whole kind home', () => {
 			'confirm',
 			'move'
 		]);
-		// Another kind's picks stay as they were.
+		// Another kind's picks stay as they were. A tap on the row waits the same moment.
 		t.press('ArrowDown', 'ArrowDown', 'ArrowDown', 'ArrowDown', 'Enter');
 		expect(doctor.marked).toEqual(['s']);
-		t.press(rowKey(0), rowKey(0));
+		t.press(rowKey(0));
+		expect(doctor.marked).toEqual(['s']);
+		t.run(PICK_QUIET_SECONDS);
+		t.press(rowKey(0));
+		// With the squirrel going, the foxes are the last who can walk on: the first stays.
+		expect(doctor.marked).toEqual(['s', 'f2', 'f3']);
+		t.press(rowKey(0));
 		expect(doctor.marked).toEqual(['s']);
 		expect(tabRows('heal', doctor.party, doctor.shop).some((r) => r.kind === 'bundle')).toBe(false);
 		expect(t.doctorSent()).toEqual([]);
@@ -953,6 +966,41 @@ describe('helping a whole kind home', () => {
 		expect(tired.cues).toEqual([]);
 	});
 
+	it('an Enter mashed through a goodbye never picks the whole kind the cursor comes back to, at any pace', () => {
+		// Forty foxes first, so after the goodbye the cursor is back on their row.
+		const party = [
+			...many('fox', 40, 'f'),
+			...many('rabbit', 10, 'r'),
+			{ id: 's', speciesId: 'squirrel', hp: 20 }
+		];
+		for (const { name, gaps } of everyMash(6)) {
+			const t = setup(party, { tokens: 5 });
+			home(t);
+			const rabbit = tabRowsOf().findIndex((r) => r.kind === 'animal' && r.partyIndex === 40);
+			t.press(rowKey(rabbit), rowKey(rabbit + 1));
+			expect(doctor.marked, name).toEqual(['r1', 'r2']);
+			t.run(PICK_QUIET_SECONDS);
+			t.press(rowKey(tabRowsOf().findIndex((r) => r.kind === 'send')));
+			t.run(PICK_QUIET_SECONDS);
+			t.press(optionKey(1));
+			expect(doctor.screen, name).toBe('puzzle');
+			// The answer, then Enter mashed on through the goodbye and the tokens, and on.
+			t.press(...String(t.answer()));
+			for (const gap of gaps) {
+				t.controller.onKey(key('Enter'));
+				t.run(gap);
+			}
+			expect(doctor.screen, name).toBe('list');
+			expect(tabRowsOf()[doctor.cursor], name).toEqual({
+				kind: 'bundle',
+				speciesId: 'fox',
+				groupStart: false
+			});
+			expect(doctor.marked, name).toEqual([]);
+			expect(t.saved().party, name).not.toContain('r1');
+		}
+	});
+
 	it('a sea animal is no one to walk on with: the foxes keep a fox beside the crabs', () => {
 		const t = setup([...many('fox', 2, 'f'), ...many('crab', 3, 'c')], { tokens: 5 });
 		home(t);
@@ -963,6 +1011,7 @@ describe('helping a whole kind home', () => {
 		expect(mustStay(doctor.party, doctor.marked)).toEqual(['f1']);
 		expect(kindGoing('fox', doctor).map((a) => a.id)).toEqual(['f2']);
 		// Every crab may go, and the last fox still won't: a little shake.
+		t.run(PICK_QUIET_SECONDS);
 		t.press(rowKey(3));
 		expect(doctor.marked).toEqual(['f2', 'c1', 'c2', 'c3']);
 		t.press(rowKey(1));
