@@ -1,5 +1,6 @@
 import {
 	bundles,
+	canFightIn,
 	canTalkToDoctor,
 	clearableAhead,
 	itemsForSale,
@@ -119,11 +120,14 @@ function partyWords(notice: PartyNotice): string {
 /**
  * The line a party edit puts on the message line, if any, from the party
  * after it and what happened. A lead that can't be chosen is told why —
- * nothing else on screen would say. Otherwise, whenever the edit changed who
- * goes first (a number key, a card dropped at the top, a move in the pause
- * menu), the line names the new lead, so an earlier "Fox goes first!" never
- * outlives the fox's place at the front. A move is undone on a copy to see
- * who led before it.
+ * nothing else on screen would say — and so is a card put at the top that
+ * can't go first where the player stands (a sea animal's on land, one that
+ * can't swim out on the water), since the card at the top goes first
+ * everywhere else. Otherwise, whenever the edit changed who goes first (a
+ * number key, a card dropped at the top, a move in the pause menu), the line
+ * names the new lead, so an earlier "Fox goes first!" never outlives the
+ * fox's place at the front. A move is undone on a copy to see who led before
+ * it.
  */
 export function leadNotice(
 	after: readonly AnimalInstance[],
@@ -149,6 +153,10 @@ export function leadNotice(
 			}
 		}
 		if (e.type === 'lead-selected') return { lead: 'chosen', animalId: e.animalId };
+		// On top, and still not first: its animals can't fight here, so the lead stays where it was.
+		if (e.type === 'species-moved' && e.to === 0 && !canFightIn(e.speciesId, realm)) {
+			return { lead: realm === 'water' ? 'cantSwim' : 'inTheSea', speciesId: e.speciesId };
+		}
 		if (e.type === 'reordered' || e.type === 'species-moved') {
 			const before =
 				e.type === 'reordered' ? unmoved(after, e.from, e.to) : unmovedBundle(after, e.from, e.to);

@@ -20,6 +20,8 @@
 		cardRows,
 		partyOptions,
 		pause,
+		whyCardNotFirst,
+		whyNotFirst,
 		type BundleOption,
 		type MenuItem,
 		type PartyOption
@@ -60,6 +62,10 @@
 	const options = $derived(
 		pickedIndex >= 0 ? partyOptions(game.party, pickedIndex, game.realm) : []
 	);
+	/** Why the picked animal's "Go first" is greyed, said under its options; null when it isn't. */
+	const pickedNotFirst = $derived(
+		pickedIndex >= 0 ? whyNotFirst(game.party, pickedIndex, game.realm) : null
+	);
 	/** The card open on the right, when it holds several animals. */
 	const card = $derived(
 		pause.screen === 'bundle' ? (cards.find((c) => c.speciesId === pause.species) ?? null) : null
@@ -67,6 +73,10 @@
 	const rows = $derived(card ? cardRows(game.party, card.speciesId, game.realm) : []);
 	/** How many of the card's rows are options, before its animals. */
 	const cardOptions = $derived(rows.filter((r) => r.kind === 'option').length);
+	/** Why the open card's "Go first" is greyed; null when it isn't. */
+	const cardNotFirst = $derived(
+		card ? whyCardNotFirst(game.party, card.speciesId, game.realm) : null
+	);
 	/** The animal whose row the cursor is on, on a card's screen. */
 	const litAnimal = $derived.by(() => {
 		const row = rows[pause.option];
@@ -274,8 +284,15 @@
 							<span class="caret">▸</span>{optionLabel(option.id)}
 						</button>
 					{/each}
-					{#if picked.hp === 0}
+					<!-- Why "Go first" is greyed, when it is: a kid can't tell from the grey alone. -->
+					{#if pickedNotFirst === 'cantSwim'}
+						<div class="note">{t('pause.cantSwimHelp', { animal: animalWords(picked) })}</div>
+					{:else if pickedNotFirst === 'inTheSea'}
+						<div class="note">{t('pause.inTheSeaHelp', { animal: animalWords(picked) })}</div>
+					{:else if pickedNotFirst === 'tired'}
 						<div class="note">{t('pause.tiredHelp', { animal: animalWords(picked) })}</div>
+					{:else if pickedNotFirst === 'already'}
+						<div class="note">{t('pause.leadHelp', { animal: animalWords(picked) })}</div>
 					{/if}
 				{:else if pause.screen === 'bundle' && card}
 					<div class="side-title">
@@ -296,8 +313,15 @@
 							</button>
 						{/if}
 					{/each}
+					<!-- Why "Go first" is greyed, when they can't go first here or are all tired; else what the list below is for. -->
 					<div class="note">
-						{card.animals.every((a) => a.hp === 0) ? t('pause.allTiredHelp') : t('pause.pickOne')}
+						{cardNotFirst === 'cantSwim'
+							? t('pause.allCantSwimHelp')
+							: cardNotFirst === 'inTheSea'
+								? t('pause.allInTheSeaHelp')
+								: cardNotFirst === 'tired'
+									? t('pause.allTiredHelp')
+									: t('pause.pickOne')}
 					</div>
 					<BundleAnimals
 						animals={card.animals}

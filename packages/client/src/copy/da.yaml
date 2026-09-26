@@ -461,8 +461,13 @@ pause:
   pick: Vælg et dyr
   pickHelp: Så kan du sætte det forrest, flytte det eller give det et nyt navn.
   tiredHelp: '{animal.the} er træt og kan ikke være først ud.'
+  cantSwimHelp: '{animal.the} kan ikke svømme og kan kun være først ud på land.'
+  inTheSeaHelp: '{animal.the} bor i havet og kan kun være først ud på vandet.'
+  leadHelp: '{animal.the} er allerede først ud.'
   pickOne: Vælg et af dem for at flytte det eller give det et navn.
   allTiredHelp: De er alle sammen trætte og kan ikke være først ud.
+  allCantSwimHelp: De kan ikke svømme og kan kun være først ud på land.
+  allInTheSeaHelp: De bor i havet og kan kun være først ud på vandet.
   nameTitle: Nyt navn til {animal.the}
   nameRule: Bogstaver og tal, op til {max}.
   willBe: Navnet bliver {name}.
