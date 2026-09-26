@@ -46,7 +46,8 @@ Hex values are the ones in `packages/client/src/render/palette.ts` and `styles.c
 | Confetti             | accent, good, warn, water, trainer shirt, off-white, rabbit pink | `CONFETTI_COLORS`: only colours already in the game. |
 | Sparkles             | warn `#f5b83d` and good `#56c271`, with off-white in the battle scene, coral and blue on the result card, white at the doctor | The doctor's chunky four-pointed stars: along a healed animal's HP bar, in the battle scene (unlit, so they shine) and round the result card's headline. |
 | Token                | warn `#f5b83d`, rim `#c98a12`, inner ring `#fbd67a`, heart `--panel-cream` | A gold coin with a cream heart, the doctor's thank-you: on the doctor's card, in the HUD, beside each price; a "+N" in good, a "−N" in amber `#d99a1e`. |
-| Tools                | trunk `#8b5a3c` (mast `#6e4630`), rock `#a8a39e` with a pale edge `#e9e6e2`, water `#5ec8f2`, trainer coral | The shop's pictures (`ItemIcon`): an axe, a pickaxe, a boat with a coral sail, flat and chunky in the world's own colours. |
+| Tools                | trunk `#8b5a3c` (mast `#6e4630`), rock `#a8a39e` with a pale edge `#e9e6e2`, water `#5ec8f2`, trainer coral | The shop's pictures (`ItemIcon`): an axe, a pickaxe, a boat with a coral sail, flat and chunky in the world's own colours. The axe and the pickaxe in the trainer's fist while it swings are the same colours, as boxes. |
+| Cleared ground       | gravel `#c9c0ad`, on the peaks `#d8d3ca`; fresh wood `#e8c48f` | Where a rock was broken: gravel, warmer and lighter than the rock round it, so it reads as a path, with the mountain's pebbles on it. Where a tree was chopped: the forest floor with a trunk-brown stump, its cut face and a few chips in fresh wood, which the axe also sends flying. |
 | Result card's rays   | warn at half strength | A burst behind a new friend's name, fading out at its rim. |
 | Butterflies          | rabbit pink `#f5b8c4`, amber `#f5b83d`, off-white, trainer coral, sky `#8fd3f4` | `BUTTERFLY_COLORS`: two five-sided wings on a dark body, a little under half a tile across. |
 | UI panel             | `rgba(255,252,245,.92)` | Cream, slightly translucent. Opaque (`--panel-cream`, `#fffcf5`) as the rim round big lettering. |
@@ -137,6 +138,7 @@ The words the game uses for its things, the same on every screen:
 | help home | hjælpe hjem | the tab ("Hjælp hjem"), its button ("Hjælp dem hjem"), "Hjælp dyr hjem" |
 | shop | butik | the tab ("Butik"), "Min butik åbner snart" |
 | axe / pickaxe / boat | økse / hakke / båd (en) | the tools: "Øksen koster 8", "Her er din økse!"; each form written out in `da.yaml` (`items.*`) |
+| chop (a tree) / break (a rock) | fælde / knuse | the prompts ("Tryk på Enter for at fælde træet", "… for at knuse stenen"), the touch button ("Fæld", "Knus"), "Du skal bruge en økse for at fælde træer." |
 | bye bye (an animal going home) | farvel | "Sig farvel til ræven?", "Farvel, Ræv!" — never "slip", "smid ud" or anything that sounds like getting rid of it |
 | leash | snor | the battle row ("Snor"), its card ("Kast snoren"), "Du kaster snoren…" |
 | catch | fange | "Du fangede en ræv!", "Svært at fange" |

@@ -125,14 +125,19 @@
 	{t('hud.menu')}
 </button>
 
+<!-- Enter: named for what it does in front of the player, and lit when it does something. -->
 <button
 	type="button"
 	class="round talk-button"
-	class:ready={hud.facingTent}
+	class:ready={hud.action !== null}
 	data-press="Enter"
 	{@attach unfocusable}
 >
-	{t('explore.talk')}
+	{hud.action === 'chop'
+		? t('explore.chop')
+		: hud.action === 'break'
+			? t('explore.break')
+			: t('explore.talk')}
 </button>
 
 <style>
@@ -205,7 +210,8 @@
 		height: calc(var(--tap) * 2);
 		font-size: 20px;
 	}
-	/* Facing a tent: Talk is what to press, so it lights up (the prompt says so in words too). */
+	/* Facing a tent, or a tree or a rock with its tool: Talk is what to press, so it lights up
+	   (the prompt says so in words too). */
 	.talk-button.ready {
 		background: var(--accent);
 		color: white;

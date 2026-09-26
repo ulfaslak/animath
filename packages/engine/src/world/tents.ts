@@ -1,3 +1,4 @@
+import { editedTileAt, WorldEdits } from './edits.js';
 import { tileAtWorld } from './generate.js';
 import { isWalkable, step, type Direction, type GridPos, type TileKind } from './types.js';
 
@@ -13,7 +14,9 @@ import { isWalkable, step, type Direction, type GridPos, type TileKind } from '.
  * through water, rock, trees or another tent. A tent nobody can walk to (boxed
  * in by trees, or on an island) is never the nearest. So when a knock-out
  * takes the player to a tent, they land on ground they could have walked to
- * themselves, and they can always walk back.
+ * themselves, and they can always walk back. The ground is the world as the
+ * player has left it (`world/edits.ts`): a path they chopped through the
+ * trees is a path.
  */
 
 /** How far `nearestTent` looks by default, in steps, before it gives up. */
@@ -52,12 +55,14 @@ const TOWARD_TENT: readonly Direction[] = ['up', 'right', 'left', 'down'];
  * walkable.
  *
  * Returns `null` when no tent can be reached within `maxSteps` steps — `from`
- * is walled in, or there is simply no tent that close.
+ * is walled in, or there is simply no tent that close. `edits` are the tiles
+ * the player has cleared (none by default).
  */
 export function nearestTent(
 	seed: number,
 	from: GridPos,
-	maxSteps: number = TENT_SEARCH_STEPS
+	maxSteps: number = TENT_SEARCH_STEPS,
+	edits: WorldEdits = WorldEdits.none
 ): TentSpot | null {
 	if (!from || !Number.isSafeInteger(from.x) || !Number.isSafeInteger(from.y)) {
 		throw new Error(
@@ -80,7 +85,7 @@ export function nearestTent(
 		const k = key(p);
 		let kind = kinds.get(k);
 		if (kind === undefined) {
-			kind = tileAtWorld(seed, p.x, p.y).kind;
+			kind = editedTileAt(seed, edits, p.x, p.y).kind;
 			kinds.set(k, kind);
 		}
 		return kind;

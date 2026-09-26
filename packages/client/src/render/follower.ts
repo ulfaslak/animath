@@ -1,4 +1,12 @@
-import { isWalkable, step, tileAtWorld, type Direction, type GridPos } from '@mathgame/engine';
+import {
+	WorldEdits,
+	editedTileAt,
+	isWalkable,
+	step,
+	tileAtWorld,
+	type Direction,
+	type GridPos
+} from '@mathgame/engine';
 import type * as THREE from 'three';
 import { motion } from '../motion';
 import { buildAnimalMesh, disposeFigure } from './animals';
@@ -13,7 +21,8 @@ import { groundTop } from './tiles';
  * nothing, and the authority never hears of it.
  *
  * Where it stands: the trainer's last tile, which the trainer stood on, so
- * never water, rock, a tree or a tent. When the trainer is put somewhere
+ * never water, rock, a tree or a tent (a stump where the trainer chopped a
+ * tree down is ground, and it follows through). When the trainer is put somewhere
  * without walking (a new game, a game picked up, the trip to the tent after a
  * lost battle), it is put beside them at once — behind, else to a side, else
  * in front, on the first of those a trainer could stand on — and never walks
@@ -83,6 +92,8 @@ export class Follower {
 	/** Which way it steps aside this step (a unit vector in x, z), when the trainer takes its tile. */
 	private aside: { x: number; z: number } | null = null;
 	private seed = 0;
+	/** The tiles the player has cleared: ground to stand on. */
+	private edits = WorldEdits.none;
 	/** The lead's species: who should be following. Null when every animal is tired. */
 	private wanted: string | null = null;
 	private figure: THREE.Group | null = null;
@@ -114,10 +125,17 @@ export class Follower {
 	/**
 	 * The trainer was put at `trainer` without walking, facing `facing`: stand
 	 * beside them at once, on the first tile a trainer could stand on behind
-	 * them, to a side, or in front. With none, it waits for the trainer's first step.
+	 * them, to a side, or in front, in the world as `edits` leave it. With
+	 * none, it waits for the trainer's first step.
 	 */
-	place(seed: number, trainer: GridPos, facing: Direction): void {
+	place(
+		seed: number,
+		trainer: GridPos,
+		facing: Direction,
+		edits: WorldEdits = WorldEdits.none
+	): void {
 		this.seed = seed;
+		this.edits = edits;
 		const order: Direction[] = [BEHIND[facing], ...SIDES[facing], facing];
 		const spot = order.map((d) => step(trainer, d)).find((p) => this.standable(p)) ?? null;
 		this.at = spot;
@@ -262,8 +280,13 @@ export class Follower {
 		return Math.sin(Math.min(1, this.swap.t / SWAP_OUT_SECONDS) * Math.PI) * rise;
 	}
 
+	/** The player cleared a tile: the world it stands in is as `edits` leave it. */
+	setEdits(edits: WorldEdits): void {
+		this.edits = edits;
+	}
+
 	private standable(p: GridPos): boolean {
-		return isWalkable(tileAtWorld(this.seed, p.x, p.y).kind);
+		return isWalkable(editedTileAt(this.seed, this.edits, p.x, p.y).kind);
 	}
 
 	private groundAt(p: GridPos): number {

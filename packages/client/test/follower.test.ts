@@ -22,6 +22,7 @@ import { Follower } from '../src/render/follower';
 import type { GameRenderer } from '../src/render/renderer';
 import { doctor } from '../src/state/doctor.svelte';
 import { game } from '../src/state/game.svelte';
+import { besideA, gameBeside } from './clearing';
 
 /**
  * The lead walking behind the trainer, driven as the game drives it: the real
@@ -39,7 +40,8 @@ function setup(party: string, game0?: SavedGame) {
 	const renderer = {
 		setWorld() {},
 		setPlayer() {},
-		ensureChunksAround() {}
+		ensureChunksAround() {},
+		cleared() {}
 	} as unknown as GameRenderer;
 	const authority = new LocalAuthority({ party: parseParty(party)! });
 	const follower = new Follower(host);
@@ -215,11 +217,31 @@ describe('the lead walks behind the trainer', () => {
 				party: [{ id: 'r', speciesId: 'rabbit', hp: getAnimal('rabbit').maxHp }],
 				tokens: 0,
 				items: [],
-				battle: null
+				battle: null,
+				edits: []
 			});
 			expect(s.follower.tile).toEqual(placement(pos, facing));
 			expect(standable(s.follower.tile!)).toBe(true);
 		}
+	});
+
+	it('follows through a tree the trainer chopped down, and is put on its stump when the trainer turns from it', () => {
+		const tree = besideA('tree');
+		const s = setup('rabbit', { ...gameBeside(tree, ['axe']), party: parseParty('rabbit')! });
+		s.authority.dispatch({ type: 'interact' });
+		s.authority.dispatch({ type: 'move', dir: tree.facing });
+		s.settle();
+		expect(s.trainer()).toEqual(tree.target);
+		expect(s.follower.tile).toEqual(tree.stand);
+		// Picked up again facing back where it came from: the stump is behind the trainer.
+		s.authority.dispatch({ type: 'move', dir: BEHIND[tree.facing] });
+		s.settle();
+		expect(s.trainer()).toEqual(tree.stand);
+		const saved = { ...s.authority.snapshot(), facing: BEHIND[tree.facing] };
+		const t = setup('rabbit', saved);
+		// The seeded world calls it a tree; the world as the kid left it, a stump to stand on.
+		expect(standable(tree.target)).toBe(false);
+		expect(t.follower.tile).toEqual(tree.target);
 	});
 });
 

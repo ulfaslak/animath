@@ -341,6 +341,25 @@ describe('Autosave: the save in this browser', () => {
 		expect(store.save()!.party[0]!.nickname).toBe('Nut');
 	});
 
+	it('a tree chopped down is playing: saved at once, with the tiles cleared', async () => {
+		const broken = '{"version":1,"broken":true}';
+		const store = new MemoryStore();
+		store.set(KEYS.save, broken);
+		const tab = new Tab(store, null);
+		await tab.open();
+		const cleared: GameEvent = {
+			type: 'tile-cleared',
+			playerId: 'local',
+			pos: { x: 3, y: -4 },
+			was: 'tree',
+			tool: 'axe',
+			regrown: []
+		};
+		await tab.play((g) => (g.edits = ['0,-1:c3']), cleared);
+		expect(store.get(KEYS.unreadable)).toBe(broken);
+		expect(store.save()!.edits).toEqual(['0,-1:c3']);
+	});
+
 	it('a second unreadable save is kept beside the first, never over it', async () => {
 		const store = new MemoryStore();
 		store.set(KEYS.unreadable, 'the first one');
@@ -506,6 +525,21 @@ describe('Autosave: two tabs', () => {
 		await b.walk();
 		b.autosave.flush();
 		expect(store.get(KEYS.save)).toBe(saved);
+	});
+
+	it('so does one that falls behind a tree chopped down in the other: it is progress, not a walk', async () => {
+		const { store, a, b } = await twoTabs();
+		await a.play((g) => (g.edits = ['0,0:11']), {
+			type: 'tile-cleared',
+			playerId: 'local',
+			pos: { x: 1, y: 1 },
+			was: 'tree',
+			tool: 'axe',
+			regrown: []
+		});
+		b.autosave.onStorage(KEYS.save);
+		expect(b.autosave.behind).toBe('window');
+		expect(store.save()!.edits).toEqual(['0,0:11']);
 	});
 
 	it('the same, found at write time when no storage event came', async () => {

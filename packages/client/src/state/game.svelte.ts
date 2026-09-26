@@ -1,4 +1,10 @@
-import type { AnimalInstance, Direction, GameEvent, GridPos } from '@mathgame/engine';
+import {
+	WorldEdits,
+	type AnimalInstance,
+	type Direction,
+	type GameEvent,
+	type GridPos
+} from '@mathgame/engine';
 
 /**
  * The UI's read-only view of the game. It is filled exclusively from
@@ -31,6 +37,11 @@ class GameView {
 	tokens = $state(0);
 	/** The ids of the items the player owns (`hasItem`), in the order bought. */
 	items = $state<string[]>([]);
+	/**
+	 * The tiles the player has cleared with a tool: `welcome`'s, then every
+	 * `tile-cleared`. Immutable, so it is replaced, never changed in place.
+	 */
+	edits = $state.raw<WorldEdits>(WorldEdits.none);
 
 	apply(event: GameEvent): void {
 		switch (event.type) {
@@ -43,7 +54,13 @@ class GameView {
 				this.party = event.party;
 				this.tokens = event.tokens;
 				this.items = event.items;
+				this.edits = WorldEdits.decode(event.edits);
 				this.mode = 'explore';
+				break;
+			case 'tile-cleared':
+				if (event.playerId === this.playerId) {
+					this.edits = this.edits.with(event.pos).without(event.regrown);
+				}
 				break;
 			case 'player-moved':
 				if (event.playerId !== this.playerId) break;

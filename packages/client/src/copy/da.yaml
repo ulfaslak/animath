@@ -122,6 +122,14 @@ explore:
   talkPrompt: Tryk på Enter for at snakke med dyrlægen
   talkPromptTouch: Tryk på Snak for at snakke med dyrlægen
   talk: Snak
+  chopPrompt: Tryk på Enter for at fælde træet
+  chopPromptTouch: Tryk på Fæld for at fælde træet
+  breakPrompt: Tryk på Enter for at knuse stenen
+  breakPromptTouch: Tryk på Knus for at knuse stenen
+  chop: Fæld
+  break: Knus
+  needAxe: Du skal bruge en økse for at fælde træer. Dyrlægen sælger en!
+  needPickaxe: Du skal bruge en hakke for at knuse sten. Dyrlægen sælger en!
   walkUp: Gå op
   walkDown: Gå ned
   walkLeft: Gå til venstre

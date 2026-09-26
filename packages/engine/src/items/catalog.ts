@@ -26,10 +26,10 @@ export interface ItemSpec {
  * 15, 25 and 40 minutes of ordinary play ([[PRODUCT]] §4 has the model).
  */
 export const ITEMS: readonly ItemSpec[] = [
-	/** Chops a tree down. */
-	{ id: 'axe', price: 8, available: false },
-	/** Breaks a rock. */
-	{ id: 'pickaxe', price: 13, available: false },
+	/** Chops a tree down (`world/clearing.ts`). */
+	{ id: 'axe', price: 8, available: true },
+	/** Breaks a rock (`world/clearing.ts`). */
+	{ id: 'pickaxe', price: 13, available: true },
 	/** Sails on water. */
 	{ id: 'boat', price: 21, available: false }
 ];

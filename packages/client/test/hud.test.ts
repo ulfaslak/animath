@@ -1,13 +1,15 @@
-import { hashString, type Direction } from '@mathgame/engine';
+import { hashString, type Direction, type SavedGame } from '@mathgame/engine';
 import { describe, expect, it } from 'vitest';
 import { LocalAuthority } from '../src/authority/local';
 import { t } from '../src/copy';
 import { doctorWords } from '../src/doctor/lines';
 import { ExploreController } from '../src/explore/controller';
 import type { Keyboard } from '../src/input/keyboard';
+import { touch } from '../src/input/touch.svelte';
 import type { GameRenderer } from '../src/render/renderer';
 import { game } from '../src/state/game.svelte';
 import { HINT_STEPS, MESSAGE_SECONDS, hud } from '../src/state/hud.svelte';
+import { besideA, gameBeside } from './clearing';
 
 /**
  * The explore message line (UI_SPEC § Explore mode): what was said last fades
@@ -16,12 +18,13 @@ import { HINT_STEPS, MESSAGE_SECONDS, hud } from '../src/state/hud.svelte';
  * no tent in front says how to find one. Lines the client words itself are
  * worded when shown (DECISIONS § Copy and languages).
  */
-function setup() {
+function setup(start?: SavedGame) {
 	const authority = new LocalAuthority();
 	const renderer = {
 		setWorld() {},
 		setPlayer() {},
-		ensureChunksAround() {}
+		ensureChunksAround() {},
+		cleared() {}
 	} as unknown as GameRenderer;
 	let enter = false;
 	const keyboard = {
@@ -43,7 +46,7 @@ function setup() {
 		hud.apply(e);
 		explore.handle(e);
 	});
-	authority.start();
+	authority.start(start ? { game: start } : {});
 	hud.tick(0);
 	const move = (...dirs: Direction[]) =>
 		dirs.forEach((dir) => authority.dispatch({ type: 'move', dir }));
@@ -101,7 +104,8 @@ describe('the explore message line', () => {
 			party: [],
 			tokens: 0,
 			items: [],
-			newGame: true
+			newGame: true,
+			edits: []
 		});
 		hud.apply({
 			type: 'doctor-visit-ended',
@@ -183,7 +187,8 @@ describe('the explore message line', () => {
 			party: [],
 			tokens: 0,
 			items: [],
-			newGame: false
+			newGame: false,
+			edits: []
 		});
 		expect(hud.hint).toBe(t('explore.controls'));
 		game.apply({ type: 'player-blocked', playerId: 'p', dir: 'down' });
@@ -202,8 +207,98 @@ describe('the explore message line', () => {
 			party: [],
 			tokens: 0,
 			items: [],
-			newGame: false
+			newGame: false,
+			edits: []
 		});
 		expect(hud.hint).toBe(t('explore.talkPrompt'));
+	});
+});
+
+describe('trees and rocks in the way', () => {
+	const tree = besideA('tree');
+	const rock = besideA('rock');
+
+	it('facing a tree with the axe: the prompt says Enter chops it, the Talk button says Chop, and then it is gone', () => {
+		const s = setup(gameBeside(tree, ['axe']));
+		expect(game.facing).toBe(tree.facing);
+		expect(hud.action).toBe('chop');
+		expect(hud.hint).toBe(t('explore.chopPrompt'));
+		touch.on = true;
+		expect(hud.hint).toBe(t('explore.chopPromptTouch'));
+		touch.on = false;
+		s.pressEnter();
+		expect(s.events.at(-1)).toBe('tile-cleared');
+		// Nothing left to chop: the controls hint is back, and nothing is said.
+		expect(hud.action).toBeNull();
+		expect(hud.hint).toBe(t('explore.controls'));
+		hud.tick(0);
+		expect(hud.message).toBe('');
+		// The UI's world is the authority's.
+		expect(game.edits.encode()).toEqual(s.authority.snapshot().edits);
+		expect(game.edits.has(tree.target.x, tree.target.y)).toBe(true);
+	});
+
+	it('facing a rock with the pickaxe: Enter breaks it; with only the axe, nothing is offered', () => {
+		setup(gameBeside(rock, ['axe']));
+		expect(hud.action).toBeNull();
+		expect(hud.hint).toBe(t('explore.controls'));
+		const s = setup(gameBeside(rock, ['pickaxe']));
+		expect(hud.action).toBe('break');
+		expect(hud.hint).toBe(t('explore.breakPrompt'));
+		touch.on = true;
+		expect(hud.hint).toBe(t('explore.breakPromptTouch'));
+		touch.on = false;
+		s.pressEnter();
+		expect(s.events.at(-1)).toBe('tile-cleared');
+		expect(hud.action).toBeNull();
+	});
+
+	it('without the tool, the first bump says the doctor sells one, once a game; Enter says it every time', () => {
+		const back = { up: 'down', down: 'up', left: 'right', right: 'left' } as const;
+		const s = setup(gameBeside(tree, []));
+		s.move(back[tree.facing]); // turned away (or a step away), then back to the tree
+		if (game.pos.x !== tree.stand.x || game.pos.y !== tree.stand.y) s.move(tree.facing);
+		s.tick(MESSAGE_SECONDS);
+		expect(hud.message).toBe('');
+		s.move(tree.facing); // a bump into the tree
+		expect(s.events.at(-1)).toBe('player-blocked');
+		hud.tick(0);
+		expect(hud.message).toBe(t('explore.needAxe'));
+		expect(hud.hint).not.toBe(t('explore.chopPrompt'));
+		s.tick(MESSAGE_SECONDS);
+		// A key held against the tree bumps every frame: said once, not on every bump.
+		for (let i = 0; i < 30; i++) s.move(tree.facing);
+		hud.tick(0);
+		expect(hud.message).toBe('');
+		// Enter asks: it is said again.
+		s.pressEnter();
+		expect(s.events.at(-1)).toBe('tool-needed');
+		hud.tick(0);
+		expect(hud.message).toBe(t('explore.needAxe'));
+		// A rock is its own hint, and a new game says each again.
+		setup(gameBeside(rock, ['axe']));
+		const r = setup(gameBeside(rock, ['axe']));
+		r.move(rock.facing);
+		hud.tick(0);
+		expect(hud.message).toBe(t('explore.needPickaxe'));
+	});
+
+	it('Enter at tall grass, water or a tent never clears it, whatever tools the kid has', () => {
+		// On the spawn tile a river reed is to the left and water above; the tent is at (5, 7).
+		const at = { ...gameBeside(tree, ['axe', 'pickaxe']), pos: { x: -2, y: 6 } };
+		const s = setup({ ...at, facing: 'left' });
+		expect(hud.action).toBeNull();
+		s.pressEnter();
+		expect(s.events.at(-1)).toBe('nothing-to-interact');
+		const t2 = setup({ ...at, facing: 'up' });
+		expect(hud.action).toBeNull();
+		t2.pressEnter();
+		expect(t2.events.at(-1)).toBe('nothing-to-interact');
+		t2.move(...Array<Direction>(7).fill('right'), 'down');
+		expect(hud.action).toBe('talk');
+		t2.pressEnter();
+		expect(t2.events.at(-1)).toBe('doctor-visit-started');
+		expect(t2.authority.snapshot().edits).toEqual([]);
+		expect(s.authority.snapshot().edits).toEqual([]);
 	});
 });

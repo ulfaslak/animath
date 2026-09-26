@@ -1,4 +1,4 @@
-import { MAX_NICKNAME_LENGTH, normalizeNickname } from '@mathgame/engine';
+import { EDITS_BUDGET, MAX_NICKNAME_LENGTH, WorldEdits, normalizeNickname } from '@mathgame/engine';
 import { eq } from 'drizzle-orm';
 import { randomUUID } from 'node:crypto';
 import { afterAll, describe, expect, it } from 'vitest';
@@ -142,6 +142,26 @@ describe('save round trip', () => {
 		expect(Array.from(nickname)).toHaveLength(MAX_NICKNAME_LENGTH);
 		const player = await createPlayer();
 		const sent = doc(1, 'game-a', { party: [animal(1, { nickname })] });
+		expect((await putSave(player, sent)).status).toBe(200);
+		expect(await (await getSave(player)).json()).toEqual(sent);
+	});
+
+	it('stores the most cleared tiles a save can hold, beside six named animals mid-battle, under the body limits', async () => {
+		// The worst case for the overlay's text: one tile in each of many far-flung chunks,
+		// grown back to its budget as a clear would leave it.
+		let edits = WorldEdits.none;
+		for (let i = 0; i < 1700; i++) edits = edits.with({ x: 90_000 + i * 16, y: -90_000 - i * 16 });
+		edits = edits.trimmedAround({ x: 0, y: 0 }).edits;
+		expect(edits.textLength).toBeLessThanOrEqual(EDITS_BUDGET);
+		expect(edits.textLength).toBeGreaterThan(EDITS_BUDGET - 40);
+		const party = Array.from({ length: 6 }, (_, i) =>
+			animal(i, { speciesId: 'bear', hp: 100, nickname: 'W'.repeat(MAX_NICKNAME_LENGTH) })
+		);
+		const sent = doc(1, 'game-a', { party, edits: [...edits.encode()], battle: { party } });
+		expect(JSON.stringify(sent).length).toBeLessThan(SAVE_MAX_BYTES);
+		// And under the 64 KiB a browser lets the backup sent as the page closes carry.
+		expect(JSON.stringify(sent).length).toBeLessThan(64 * 1024);
+		const player = await createPlayer();
 		expect((await putSave(player, sent)).status).toBe(200);
 		expect(await (await getSave(player)).json()).toEqual(sent);
 	});
