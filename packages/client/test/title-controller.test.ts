@@ -472,11 +472,11 @@ describe('title: a pointer', () => {
 		expect(continued).toHaveLength(1);
 	});
 
-	it('the confirm: a tap on Yes starts over, but not in its first moment; a tap on No goes back', () => {
+	it('the confirm: a tap on Yes starts over, but not before its quiet moment; a tap on No goes back', () => {
 		const { press, wait } = setup(savedGame());
 		press(rowKey(title.rows.indexOf('new')));
 		expect(title.screen).toBe('confirm');
-		// A second tap straight away, wherever it lands, waits out the guard as Enter does.
+		// A second tap straight away, wherever it lands, waits the quiet moment as Enter does.
 		press(rowKey(1));
 		expect(title.screen).toBe('confirm');
 		wait(PICK_QUIET_SECONDS + 0.05);
@@ -488,7 +488,7 @@ describe('title: a pointer', () => {
 		expect(title.screen).toBe('starter');
 	});
 
-	it('a tap on a starter only lights it; the button (Enter) picks it, after the screen’s moment', () => {
+	it('a tap on a starter only lights it; the button (Enter) picks it, after the screen’s quiet moment', () => {
 		const { press, wait, scenery, sent } = setup();
 		press(rowKey(title.rows.indexOf('new')));
 		expect(title.screen).toBe('starter');
