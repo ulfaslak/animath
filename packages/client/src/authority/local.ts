@@ -1,11 +1,14 @@
 import {
 	Rng,
+	WorldEdits,
 	applyBattleIntent,
 	applyDoctorIntent,
 	applyPartyIntent,
 	bundled,
 	canTalkToDoctor,
 	chooseStarter,
+	clearTile,
+	editedTileAt,
 	gearOf,
 	getAnimal,
 	hashInts,
@@ -23,7 +26,6 @@ import {
 	step,
 	surroundings,
 	takeToDoctor,
-	tileAtWorld,
 	tileRealm,
 	type AnimalInstance,
 	type Authority,
@@ -127,6 +129,11 @@ export class LocalAuthority implements Authority {
 	private tokens = 0;
 	/** The ids of the items the player owns (`hasItem`). Saved with the game. */
 	private items: string[] = [];
+	/**
+	 * The tiles the player has cleared with a tool: the world is the seed's,
+	 * as they left it (`editedTileAt`). Saved with the game.
+	 */
+	private edits = WorldEdits.none;
 	/** Completed steps in this game, saved with it. Keys the encounter roll and the battle and doctor seeds. */
 	private steps = 0;
 	/** Doctor visits opened in this game, saved with it, so a later visit at the same step asks new puzzles. */
@@ -169,6 +176,7 @@ export class LocalAuthority implements Authority {
 		this.party = game.party.map(withCleanNickname);
 		this.tokens = game.tokens;
 		this.items = [...game.items];
+		this.edits = WorldEdits.decode(game.edits);
 		this.battle = null;
 		this.doctor = null;
 		this.started = true;
@@ -181,7 +189,8 @@ export class LocalAuthority implements Authority {
 			party: this.partyCopy(),
 			tokens: this.tokens,
 			items: [...this.items],
-			newGame: isNew
+			newGame: isNew,
+			edits: [...this.edits.encode()]
 		});
 		if (game.battle) {
 			// The battle's seed is the one it started with: the steps have not moved since
@@ -207,7 +216,8 @@ export class LocalAuthority implements Authority {
 			party: party.map((a) => ({ ...a })),
 			tokens: this.tokens,
 			items: [...this.items],
-			battle: this.battle ? this.battle.state : null
+			battle: this.battle ? this.battle.state : null,
+			edits: [...this.edits.encode()]
 		};
 	}
 
@@ -326,8 +336,9 @@ export class LocalAuthority implements Authority {
 		// Walked or blocked, the player turns to face the way they tried to go.
 		this.facing = dir;
 		const next = step(this.pos, dir);
-		const tile = tileAtWorld(this.seed, next.x, next.y);
-		// Ground on foot, and with the boat the water too.
+		// The world as the player left it: a tree they chopped down is ground to walk
+		// on; and with the boat the water is theirs too.
+		const tile = editedTileAt(this.seed, this.edits, next.x, next.y);
 		if (!isPassable(tile.kind, gearOf({ items: this.items }))) {
 			this.emit({ type: 'player-blocked', playerId: this.playerId, dir });
 			return;
@@ -360,7 +371,7 @@ export class LocalAuthority implements Authority {
 
 	/** Where the player stands: out on the water in the boat, or on land. */
 	private realm(): Realm {
-		return tileRealm(tileAtWorld(this.seed, this.pos.x, this.pos.y).kind);
+		return tileRealm(editedTileAt(this.seed, this.edits, this.pos.x, this.pos.y).kind);
 	}
 
 	// --- battle ------------------------------------------------------------
@@ -418,9 +429,9 @@ export class LocalAuthority implements Authority {
 			}
 			case 'lost':
 				// Every animal that could fight here is tired: off to the nearest tent,
-				// over the water too with the boat, facing it.
-
-				rescue = takeToDoctor(this.seed, this.pos, this.party, {
+				// facing it, by the paths the player cleared, and over the water too with
+				// the boat.
+				rescue = takeToDoctor(this.seed, this.pos, this.party, this.edits, {
 					gear: gearOf({ items: this.items }),
 					realm: state.realm
 				});
@@ -445,18 +456,38 @@ export class LocalAuthority implements Authority {
 		if (line !== null) this.emit({ type: 'message', line });
 	}
 
-	// --- doctor ------------------------------------------------------------
+	// --- interact: a tent, a tree, a rock ---------------------------------
 
 	/**
-	 * Enter/Space: talk to the doctor when facing a tent. Anywhere else there
-	 * is nothing to talk to, and the event says so without words: the client
-	 * says how to find a doctor, in the player's language.
+	 * Enter/Space: whatever the player faces. A tent: talk to the doctor. A
+	 * tree or a rock: clear it with its tool (the engine's `clearTile` checks
+	 * the whole action), or, without the tool, say which one it takes. Anywhere
+	 * else there is nothing to talk to, and the event says so without words:
+	 * the client says how to find a doctor, in the player's language.
 	 */
 	private interact(): void {
-		if (!canTalkToDoctor(this.seed, this.pos, this.facing)) {
-			this.emit({ type: 'nothing-to-interact', playerId: this.playerId });
+		if (canTalkToDoctor(this.seed, this.pos, this.facing)) {
+			this.visitDoctor();
 			return;
 		}
+		const player = { pos: this.pos, facing: this.facing, items: this.items };
+		const result = clearTile(this.seed, this.edits, player, step(this.pos, this.facing));
+		if (result.ok) {
+			this.edits = result.edits;
+			const { pos, was, tool, regrown } = result.cleared;
+			this.emit({ type: 'tile-cleared', playerId: this.playerId, pos, was, tool, regrown });
+		} else if (result.reason === 'needs-tool' && result.kind && result.tool) {
+			const { kind, tool } = result;
+			this.emit({ type: 'tool-needed', playerId: this.playerId, kind, tool });
+		} else {
+			this.emit({ type: 'nothing-to-interact', playerId: this.playerId });
+		}
+	}
+
+	// --- doctor ------------------------------------------------------------
+
+	/** Open a doctor visit: the player faces a tent. */
+	private visitDoctor(): void {
 		this.visits += 1;
 		const state = startDoctorVisit(this.party, {
 			tokens: this.tokens,
@@ -509,7 +540,6 @@ export class LocalAuthority implements Authority {
 	 */
 	private editParty(intent: PartyIntent): void {
 		const { party, events } = applyPartyIntent(this.party, intent, this.activity(), this.realm());
-
 		this.party = party.map((a) => ({ ...a }));
 		this.emit({ type: 'party-edited', party: this.partyCopy(), events });
 	}

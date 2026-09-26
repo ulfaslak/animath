@@ -1,5 +1,6 @@
 import { canFightIn, getAnimal } from '../animals/catalog.js';
 import type { AnimalInstance, Realm } from '../animals/types.js';
+import { WorldEdits } from '../world/edits.js';
 import { TENT_SEARCH_STEPS, nearestTent } from '../world/tents.js';
 import { NO_GEAR, type Direction, type Gear, type GridPos } from '../world/types.js';
 import { validateParty } from './party.js';
@@ -45,12 +46,14 @@ export interface RescueOptions {
 /**
  * Call on `ended { outcome: 'lost' }` with the world seed, the tile the battle
  * was fought on and the battle's final party: every animal that could fight
- * there knocked out.
+ * there knocked out; and the tiles the player has cleared, so a path they
+ * chopped counts as a path.
  */
 export function takeToDoctor(
 	seed: number,
 	pos: GridPos,
 	party: readonly AnimalInstance[],
+	edits: WorldEdits = WorldEdits.none,
 	options: RescueOptions = {}
 ): Rescue {
 	const realm = options.realm ?? 'land';
@@ -63,8 +66,7 @@ export function takeToDoctor(
 	}
 
 	const healed = party.map((a) => ({ ...a, hp: getAnimal(a.speciesId).maxHp }));
-	const spot = nearestTent(seed, pos, TENT_SEARCH_STEPS, options.gear ?? NO_GEAR);
-
+	const spot = nearestTent(seed, pos, TENT_SEARCH_STEPS, edits, options.gear ?? NO_GEAR);
 	if (!spot) {
 		return { pos: { x: pos.x, y: pos.y }, facing: 'down', tent: null, party: healed };
 	}

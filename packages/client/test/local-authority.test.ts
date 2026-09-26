@@ -1,6 +1,9 @@
 import {
 	ATTACK_LEVELS,
+	EDITS_BUDGET,
 	ITEM_IDS,
+	Rng,
+	WorldEdits,
 	attackDamage,
 	canTalkToDoctor,
 	getAnimal,
@@ -14,6 +17,7 @@ import {
 	leadIndex,
 	nearestTent,
 	newGame,
+	step as stepFrom,
 	readSave,
 	restoreGame,
 	STARTERS,
@@ -35,6 +39,8 @@ import {
 import { describe, expect, it } from 'vitest';
 import { LocalAuthority, WORLD_SEED, type LocalAuthorityOptions } from '../src/authority/local';
 import { parseParty } from '../src/flags';
+import { game } from '../src/state/game.svelte';
+import { besideA, gameBeside } from './clearing';
 
 /**
  * The single-player authority's own rules — the ones around the engine, not
@@ -1044,8 +1050,9 @@ describe('LocalAuthority: the doctor', () => {
 		walkToTent(s);
 		s.authority.dispatch({ type: 'interact' });
 		expect(visit(s).shop).toEqual(itemsForSale());
-		// The boat sails since it went on sale; what is not on sale can't be bought.
-		expect(visit(s).shop).toContain('boat');
+		// Every tool does its job now (the axe and the pickaxe clear, the boat sails);
+		// anything not on sale can't be bought.
+		expect(visit(s).shop).toEqual(['axe', 'pickaxe', 'boat']);
 		for (const itemId of ITEM_IDS.filter((id) => !itemsForSale().includes(id))) {
 			doctorIntent(s, { type: 'buy', itemId });
 			expect(s.events.at(-1)).toMatchObject({
@@ -1222,12 +1229,12 @@ describe('LocalAuthority: the boat', () => {
 		const end = latestBattle(s);
 		expect(end.phase).toEqual({ kind: 'ended', outcome: 'lost' });
 		expect(end.party.map((a) => a.hp)).toEqual([20, 0]);
-		const rescue = takeToDoctor(WORLD_SEED, at, end.party, {
+		const rescue = takeToDoctor(WORLD_SEED, at, end.party, WorldEdits.none, {
 			gear: { boat: true },
 			realm: 'water'
 		});
 		expect(rescue.pos).toEqual(
-			nearestTent(WORLD_SEED, at, TENT_SEARCH_STEPS, { boat: true })!.stand
+			nearestTent(WORLD_SEED, at, TENT_SEARCH_STEPS, WorldEdits.none, { boat: true })!.stand
 		);
 		expect(events.find((e) => e.type === 'taken-to-doctor')).toMatchObject({
 			pos: rescue.pos,
@@ -1423,5 +1430,204 @@ describe('LocalAuthority: the title', () => {
 		const s = atTitle();
 		s.authority.start({ game: session().authority.snapshot() });
 		expect(welcome(s)).toMatchObject({ newGame: false });
+	});
+});
+
+describe('LocalAuthority: trees and rocks', () => {
+	const tree = besideA('tree');
+	const rock = besideA('rock', (height) => height < 3);
+	const peak = besideA('rock', (height) => height >= 3);
+	const BACK: Record<Direction, Direction> = {
+		up: 'down',
+		down: 'up',
+		left: 'right',
+		right: 'left'
+	};
+
+	function from(game: SavedGame): Session {
+		const authority = new LocalAuthority();
+		const events: GameEvent[] = [];
+		authority.subscribe((e) => events.push(e));
+		authority.start({ game });
+		return { authority, events };
+	}
+
+	/** A save round trip, as the autosave and a reload do it: JSON through storage, then restore. */
+	function throughSave(game: SavedGame): SavedGame {
+		const read = readSave(JSON.parse(JSON.stringify(saveDocument(game, { lineage: 't', seq: 1 }))));
+		if (!read.ok) throw new Error(read.error);
+		return restoreGame(read.save);
+	}
+
+	it('Enter facing a tree with the axe chops it down: ground to walk on from then on, in the save too', () => {
+		const s = from(gameBeside(tree, ['axe']));
+		expect(welcome(s).edits).toEqual([]);
+		move(s, tree.facing);
+		expect(s.events.at(-1)).toMatchObject({ type: 'player-blocked', dir: tree.facing });
+		s.authority.dispatch({ type: 'interact' });
+		expect(s.events.at(-1)).toEqual({
+			type: 'tile-cleared',
+			playerId: 'local',
+			pos: tree.target,
+			was: 'tree',
+			tool: 'axe',
+			regrown: []
+		});
+		move(s, tree.facing);
+		expect(position(s)).toEqual(tree.target);
+		expect(s.authority.snapshot().edits).toEqual(WorldEdits.none.with(tree.target).encode());
+		// A second Enter where the tree stood chops nothing more.
+		move(s, BACK[tree.facing], tree.facing);
+		move(s, BACK[tree.facing]);
+		const before = s.events.length;
+		s.authority.dispatch({ type: 'interact' });
+		expect(s.events.slice(before).map((e) => e.type)).toEqual(['nothing-to-interact']);
+	});
+
+	it('the pickaxe breaks a rock, a snow-capped peak too; the axe does not, nor bare hands, and then nothing changes', () => {
+		for (const spot of [rock, peak]) {
+			for (const items of [[], ['axe'], ['axe', 'boat']]) {
+				const s = from(gameBeside(spot, items));
+				s.authority.dispatch({ type: 'interact' });
+				expect(s.events.at(-1)).toEqual({
+					type: 'tool-needed',
+					playerId: 'local',
+					kind: 'rock',
+					tool: 'pickaxe'
+				});
+				move(s, spot.facing);
+				expect(s.events.at(-1)).toMatchObject({ type: 'player-blocked' });
+				expect(s.authority.snapshot().edits).toEqual([]);
+			}
+			const s = from(gameBeside(spot, ['pickaxe']));
+			s.authority.dispatch({ type: 'interact' });
+			expect(s.events.at(-1)).toMatchObject({ type: 'tile-cleared', was: 'rock', tool: 'pickaxe' });
+			move(s, spot.facing);
+			expect(position(s)).toEqual(spot.target);
+		}
+		// And without the axe, a tree says which tool it takes.
+		const t = from(gameBeside(tree, ['pickaxe']));
+		t.authority.dispatch({ type: 'interact' });
+		expect(t.events.at(-1)).toMatchObject({ type: 'tool-needed', kind: 'tree', tool: 'axe' });
+	});
+
+	it('a game picked up from a save keeps the gap, stands in it and walks through it', () => {
+		const a = from(gameBeside(tree, ['axe']));
+		a.authority.dispatch({ type: 'interact' });
+		move(a, tree.facing);
+		const saved = throughSave(a.authority.snapshot());
+		// Standing where the tree stood: not moved to the spawn tile as a tree would have it.
+		expect(saved.pos).toEqual(tree.target);
+		const b = from(saved);
+		expect(welcome(b)).toMatchObject({ pos: tree.target, edits: saved.edits });
+		move(b, BACK[tree.facing]);
+		expect(position(b)).toEqual(tree.stand);
+		move(b, tree.facing);
+		expect(position(b)).toEqual(tree.target);
+	});
+
+	it('a walk that chops and breaks replays exactly, and so does a copy picked up from a save anywhere along it', () => {
+		/** A kid wandering the woods by the tree with both tools: walks, Enter, and runs from any battle. */
+		const script = (s: Session, i: number): Intent => {
+			if (lastIndexOf(s, 'battle-started') > lastIndexOf(s, 'battle-ended')) {
+				return { type: 'battle', intent: { type: 'flee' } };
+			}
+			const rng = new Rng(i * 7919 + 13);
+			if (rng.chance(0.3)) return { type: 'interact' };
+			return { type: 'move', dir: rng.pick(['up', 'down', 'left', 'right'] as const) };
+		};
+		/** An event without the ids minted for wild animals, which differ from run to run by design. */
+		const strip = (e: GameEvent) =>
+			e.type === 'battle-started' || e.type === 'battle-updated' || e.type === 'battle-ended'
+				? { type: e.type, opponent: e.state.opponent.speciesId, hp: e.state.opponent.hp }
+				: e;
+		const start = gameBeside(tree, ['axe', 'pickaxe']);
+		const a = from(start);
+		const b = from(start);
+		for (let i = 0; i < 400; i++) {
+			a.authority.dispatch(script(a, i));
+			b.authority.dispatch(script(b, i));
+		}
+		expect(b.events.map(strip)).toEqual(a.events.map(strip));
+		const cleared = a.events.filter((e) => e.type === 'tile-cleared');
+		expect(cleared.length).toBeGreaterThan(3);
+		// Cut the walk through a save at a few points: the copy plays on the same.
+		for (const cut of [37, 150, 290]) {
+			const c = from(start);
+			let i = 0;
+			for (; i < cut; i++) c.authority.dispatch(script(c, i));
+			const d = from(throughSave(c.authority.snapshot()));
+			const [fromC, fromD] = [c.events.length, d.events.length];
+			for (let j = i; j < 400; j++) {
+				c.authority.dispatch(script(c, j));
+				d.authority.dispatch(script(d, j));
+			}
+			expect(d.events.slice(fromD).map(strip)).toEqual(c.events.slice(fromC).map(strip));
+			expect(d.authority.snapshot().edits).toEqual(c.authority.snapshot().edits);
+		}
+	});
+
+	it("the screen's copy of the world is the authority's after every clear, far chunks growing back included", () => {
+		// A save already near the budget: one tile cleared in each of many far chunks.
+		let far = WorldEdits.none;
+		for (let i = 0; i < 1800; i++) far = far.with({ x: 5000 + i * 16, y: -7000 - (i % 40) * 16 });
+		const s = from({ ...gameBeside(tree, ['axe', 'pickaxe']), edits: [...far.encode()] });
+		// The UI's view of the game, filled from the events as `main.ts` fills it.
+		for (const e of s.events) game.apply(e);
+		expect(game.edits.encode()).toEqual(s.authority.snapshot().edits);
+		const rng = new Rng(5);
+		let regrown = 0;
+		for (let i = 0; i < 300; i++) {
+			const before = s.events.length;
+			s.authority.dispatch(
+				rng.chance(0.4)
+					? { type: 'interact' }
+					: { type: 'move', dir: rng.pick(['up', 'down', 'left', 'right'] as const) }
+			);
+			for (const e of s.events.slice(before)) {
+				game.apply(e);
+				if (e.type === 'battle-started')
+					s.authority.dispatch({ type: 'battle', intent: { type: 'flee' } });
+				if (e.type !== 'tile-cleared') continue;
+				regrown += e.regrown.length;
+				expect(game.edits.encode()).toEqual(s.authority.snapshot().edits);
+			}
+		}
+		expect(regrown).toBeGreaterThan(0);
+		expect(JSON.stringify(s.authority.snapshot().edits).length).toBeLessThanOrEqual(EDITS_BUDGET);
+	});
+
+	it('a battle lost in a spot walled in by trees the kid chopped open: off to the tent along the path they cut', () => {
+		// A walkable tile with a tree or a rock on every side and a tent in reach once they are
+		// cleared: the kid chopped their way in, and a wild animal was waiting.
+		let found: { pos: GridPos; edits: WorldEdits } | null = null;
+		for (let y = -150; y < 150 && !found; y++)
+			for (let x = -150; x < 150 && !found; x++) {
+				if (!isWalkable(tileAtWorld(WORLD_SEED, x, y).kind)) continue;
+				const around = (['up', 'down', 'left', 'right'] as const).map((d) => stepFrom({ x, y }, d));
+				const walls = around.map((p) => tileAtWorld(WORLD_SEED, p.x, p.y).kind);
+				if (!walls.every((k) => k === 'tree' || k === 'rock')) continue;
+				const edits = around.reduce((e, p) => e.with(p), WorldEdits.none);
+				if (nearestTent(WORLD_SEED, { x, y }, undefined, edits)) found = { pos: { x, y }, edits };
+			}
+		expect(found).not.toBeNull();
+		const { pos, edits } = found!;
+		const party = [animal('squirrel', 1)];
+		const s = from({
+			...gameBeside(tree, ['axe']),
+			pos,
+			party,
+			edits: [...edits.encode()],
+			battle: startBattle(party, { id: 'wild-bear', speciesId: 'bear', hp: 50 })
+		});
+		lose(s);
+		const spot = nearestTent(WORLD_SEED, pos, undefined, edits)!;
+		expect(s.events.find((e) => e.type === 'taken-to-doctor')).toMatchObject({
+			pos: spot.stand,
+			dir: spot.facing,
+			tent: spot.tent
+		});
+		// The seeded world alone has the spot walled in: a doctor would have come to the player.
+		expect(nearestTent(WORLD_SEED, pos)).toBeNull();
 	});
 });

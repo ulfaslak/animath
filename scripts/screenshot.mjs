@@ -228,8 +228,9 @@ async function describe() {
 	if (debug !== null) lines.push(`at: ${debug}`);
 	const cue = await textOf('.debug-cue');
 	if (cue !== null) lines.push(`cue: ${cue}`);
-	// The touch controls on screen: the D-pad (and the arrow held), Talk (lit
-	// when facing a tent), Menu, the number pad; and the turn-sideways screen.
+	// The touch controls on screen: the D-pad (and the arrow held), Talk (its
+	// label, and lit when it does something: a tent, a tree or a rock with its
+	// tool), Menu, the number pad; and the turn-sideways screen.
 	const controls = await page.evaluate(() => {
 		const out = [];
 		if (!document.documentElement.classList.contains('touch')) return out;
@@ -240,7 +241,11 @@ async function describe() {
 				`dpad${dpad.querySelector('.on') ? ` (${dpad.querySelector('.on').className.split(' ')[1]} held)` : ''}`
 			);
 		const talk = document.querySelector('.talk-button');
-		if (talk) out.push(`talk${talk.classList.contains('ready') ? ' (lit)' : ''}`);
+		if (talk) {
+			out.push(
+				`talk "${talk.textContent.trim()}"${talk.classList.contains('ready') ? ' (lit)' : ''}`
+			);
+		}
 		if (document.querySelector('.menu-button')) out.push('menu');
 		const pad = document.querySelector('.pad');
 		if (pad) out.push(`number pad${pad.classList.contains('off') ? ' (dimmed)' : ''}`);

@@ -1,4 +1,5 @@
 import {
+	WorldEdits,
 	bundles,
 	hasItem,
 	isWater,
@@ -11,9 +12,11 @@ import {
 	type GridPos,
 	type PartyIntent
 } from '@mathgame/engine';
+import { sfx } from '../audio/sfx.svelte';
 import type { Keyboard, TeamPick } from '../input/keyboard';
 import { motion } from '../motion';
 import { BOAT_SWING_SECONDS } from '../render/boat';
+import { SWING_STRIKE } from '../render/clearing';
 import type { Follower } from '../render/follower';
 import type { GameRenderer } from '../render/renderer';
 import { doctor } from '../state/doctor.svelte';
@@ -26,7 +29,10 @@ const STEP_SECONDS = 0.18; // one tile per step; Game Boy pace is ~0.25
  * Explore mode: turns held keys into `move` intents, one per tile, and
  * animates the player mesh between tiles as `player-moved` events arrive.
  * Enter is sent as `interact` (after the keyboard's quiet moment); what came
- * of it is the authority's to say. The party column's picks become party
+ * of it is the authority's to say. When it cleared a tile (`tile-cleared`),
+ * the world on screen takes the change and the chop plays: the trainer's
+ * swing, the tree tipping or the rock cracking, its sound as the tool lands.
+ * The party column's picks become party
  * intents: a number key, or a click or tap on a card, `lead-species` for that
  * card's species (its first animal standing goes first); an animal on an
  * open card, `select-lead`; a card dropped at another place, `move-species`.
@@ -55,6 +61,8 @@ export class ExploreController {
 	private facing: Direction = 'down';
 	private seed = 0;
 	private playerId = '';
+	/** The tiles the player has cleared: `welcome`'s, then every `tile-cleared`. */
+	private edits = WorldEdits.none;
 
 	constructor(
 		private authority: Authority,
@@ -71,13 +79,22 @@ export class ExploreController {
 				// agree about which way the player looks.
 				this.playerId = event.playerId;
 				this.seed = event.seed;
+				this.edits = WorldEdits.decode(event.edits);
 				this.pos = this.from = event.pos;
 				this.progress = 1;
 				this.facing = event.facing;
-				this.renderer.setWorld(this.seed);
+				this.renderer.setWorld(this.seed, this.edits);
 				this.renderer.setBoat(hasItem(event, 'boat'));
 				this.renderer.setPlayer(event.pos, event.pos, 1, this.facing);
-				this.follower?.place(this.seed, event.pos, this.facing);
+				this.follower?.place(this.seed, event.pos, this.facing, this.edits);
+				break;
+			case 'tile-cleared':
+				if (event.playerId !== this.playerId) break;
+				this.edits = this.edits.with(event.pos).without(event.regrown);
+				this.renderer.cleared(event.pos, event.tool, this.facing, this.edits, event.regrown);
+				this.follower?.setEdits(this.edits);
+				// As the tool lands: a woody chop, or a rock's crack.
+				sfx.play(event.was === 'tree' ? 'chop' : 'crack', { delay: SWING_STRIKE });
 				break;
 			case 'belongings-changed':
 				// Bought at the doctor: it grows onto the trainer's back.
@@ -106,7 +123,7 @@ export class ExploreController {
 				if (event.playerId !== this.playerId) break;
 				this.pos = this.from = event.pos;
 				this.progress = 1;
-				this.follower?.place(this.seed, event.pos, this.facing);
+				this.follower?.place(this.seed, event.pos, this.facing, this.edits);
 				break;
 			case 'taken-to-doctor':
 				// After a lost battle: beside a tent that can be far away, so no
@@ -115,7 +132,7 @@ export class ExploreController {
 				this.pos = this.from = event.pos;
 				this.progress = 1;
 				this.facing = event.dir;
-				this.follower?.place(this.seed, event.pos, this.facing);
+				this.follower?.place(this.seed, event.pos, this.facing, this.edits);
 				break;
 			case 'game-left':
 				// Quit to the title, which gathers the team round the trainer itself.

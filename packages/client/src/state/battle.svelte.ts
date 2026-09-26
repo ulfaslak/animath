@@ -53,7 +53,6 @@ class BattleView {
 	leashQuality = $state(1);
 	/** Where the battle is fought: on land, or out on the water, where only the animals that swim fight. */
 	realm = $state<Realm>('land');
-
 	screen = $state<BattleScreen>('busy');
 	/**
 	 * The choice on screen (the menu, a switch list, the result card) takes a
@@ -97,7 +96,6 @@ class BattleView {
 		this.leashQuality = 1;
 		this.realm = 'land';
 		this.screen = 'busy';
-
 		this.ready = false;
 		this.cursor = 0;
 		this.partyCursor = 0;

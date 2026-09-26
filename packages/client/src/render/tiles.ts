@@ -1,5 +1,4 @@
 import { CHUNK_SIZE, Rng, hashInts, isWater, type Chunk, type Tile } from '@mathgame/engine';
-
 import * as THREE from 'three';
 import { BIOME_LOOK, CANOPY, COLORS, PROP_COLORS, TILE_COLORS } from './palette';
 
@@ -27,6 +26,8 @@ import { BIOME_LOOK, CANOPY, COLORS, PROP_COLORS, TILE_COLORS } from './palette'
  * naturally.
  */
 const TILE_GEO = new THREE.BoxGeometry(1, 1, 1);
+/** The unit box every chunk's ground is made of, shared (the tools in the trainer's hand are boxes too). */
+export const BOX_GEOMETRY: THREE.BufferGeometry = TILE_GEO;
 const MATERIAL = new THREE.MeshLambertMaterial({ flatShading: true });
 
 /** One shape per prop kind, shared by every chunk (and by the battle backdrop). */
@@ -64,9 +65,16 @@ export function groundTop(tile: Tile): number {
 	return isWater(tile.kind) ? WATER_TOP : 0.5 + tile.height * 0.25;
 }
 
-/** The colour of a tile's ground: its kind in its biome's look. */
+/**
+ * The colour of a tile's ground: its kind in its biome's look. Where a tree
+ * was chopped down it is the ground the tree stood on; where a rock was
+ * broken, gravel.
+ */
 export function groundColor(tile: Tile): number {
 	const look = BIOME_LOOK[tile.biome];
+	if (tile.cleared === 'rock') {
+		return tile.height >= PEAK_HEIGHT ? PROP_COLORS.gravelHigh : PROP_COLORS.gravel;
+	}
 	switch (tile.kind) {
 		case 'grass':
 		case 'tree':
@@ -110,6 +118,20 @@ export function buildChunkGroup(chunk: Chunk): THREE.Group {
 	ground.instanceMatrix.needsUpdate = true;
 	if (ground.instanceColor) ground.instanceColor.needsUpdate = true;
 	group.add(ground);
+	for (const mesh of props.build()) group.add(mesh);
+	return group;
+}
+
+/**
+ * What stands on one tile (a tree and its bushes, a rock and its snow), as a
+ * group of instanced meshes of the shared shapes, placed in the world as a
+ * chunk places them: the chop's flourish tips or breaks exactly what the
+ * chunk drew. Free it with `disposeChunkGroup`.
+ */
+export function buildTileProps(tile: Tile, x: number, z: number): THREE.Group {
+	const group = new THREE.Group();
+	const props = new Props();
+	decorate(props, group, tile, x, z, groundTop(tile));
 	for (const mesh of props.build()) group.add(mesh);
 	return group;
 }
@@ -284,6 +306,53 @@ function decorate(props: Props, group: THREE.Group, tile: Tile, x: number, z: nu
 			return;
 		}
 		case 'grass': {
+			if (tile.cleared === 'tree') {
+				// A stump where the tree stood, set back from the middle (away from the
+				// camera), so the trainer or the lead standing on the tile never stands in
+				// it; its pale cut face on top, and a few chips of fresh wood about.
+				const [sx, sz] = [x - 0.24, z - 0.2];
+				const turn: [number, number, number] = [0, rng.next() * Math.PI * 2, 0];
+				props.add('trunk', sx, top + 0.06, sz, COLORS.trunk, [1.3, 0.24, 1.3], turn);
+				props.add('trunk', sx, top + 0.125, sz, PROP_COLORS.wood, [0.95, 0.02, 0.95], turn);
+				for (let k = 0; k < 3; k++) {
+					const [cx, cz] = near(0.34);
+					props.add(
+						'ball',
+						cx,
+						top + 0.01,
+						cz,
+						PROP_COLORS.wood,
+						[0.04, 0.012, 0.028],
+						[0, rng.next() * Math.PI, 0]
+					);
+				}
+				return;
+			}
+			if (tile.cleared === 'rock') {
+				// Gravel where the rock stood: pebbles and chips small enough never to
+				// look like a rock you can't pass, and on the peaks a little snow.
+				const peak = tile.height >= PEAK_HEIGHT;
+				const count = 4 + Math.floor(rng.next() * 3);
+				for (let k = 0; k < count; k++) {
+					const [px, pz] = near(0.36);
+					const s = 0.04 + rng.next() * 0.05;
+					const colour = pick(rng, [COLORS.rock, PROP_COLORS.boulderLight, PROP_COLORS.pebble]);
+					props.add('rock', px, top + s * 0.3, pz, colour, s, [rng.next(), rng.next(), 0]);
+				}
+				if (peak) {
+					const [px, pz] = near(0.3);
+					props.add(
+						'rock',
+						px,
+						top + 0.01,
+						pz,
+						PROP_COLORS.snow,
+						[0.09, 0.025, 0.07],
+						[0, rng.next() * Math.PI, 0]
+					);
+				}
+				return;
+			}
 			if (tile.biome === 'meadow' && rng.chance(0.2)) {
 				// A few flowers in the meadow grass.
 				const count = 2 + (rng.chance(0.5) ? 1 : 0);

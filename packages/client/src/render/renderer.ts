@@ -1,10 +1,20 @@
-import { isWater, tileAtWorld, type Direction, type GridPos } from '@mathgame/engine';
+import {
+	CHUNK_SIZE,
+	WorldEdits,
+	isWater,
+	tileAtWorld,
+	type ChunkRef,
+	type Direction,
+	type GridPos,
+	type ItemId
+} from '@mathgame/engine';
 import * as THREE from 'three';
 import { motion } from '../motion';
 import { Butterflies } from './ambient';
 import { animateIdle, animateWalk, buildPlayerMesh } from './animals';
 import { BOAT_STAND, buildBoatMesh, poseBoat } from './boat';
 import { ChunkRing } from './chunks';
+import { ClearingEffects, SWING_SECONDS, animateSwing, buildTool } from './clearing';
 import { appearScale } from './ease';
 import { COLORS } from './palette';
 import { groundTop } from './tiles';
@@ -27,9 +37,11 @@ export interface Stage {
  * rotation — the world reads like a diorama), flat-shaded low-poly meshes,
  * one directional light with soft shadows. The chunks around the player are
  * built as the player approaches them and freed when they fall behind
- * (`chunks.ts`). Figures (the player and anything added with `addFigure`)
+ * (`chunks.ts`), each as the player left it (a tree they chopped is a
+ * stump). Figures (the player and anything added with `addFigure`)
  * breathe a little every frame, and the player swings its arms and legs
- * through each step (smaller with reduced motion).
+ * through each step (smaller with reduced motion), and its tool when it
+ * clears a tile (`clearing.ts`).
  *
  * Once the player owns the boat (`setBoat`) the trainer carries it upside
  * down on their back (`boat.ts`); a step onto the water swings it under
@@ -56,6 +68,13 @@ const CALM_HOP = 0.05;
 /** Seconds the boat takes to grow onto the trainer's back when it is bought. */
 const BOAT_ARRIVES_SECONDS = 0.45;
 
+/** Whether two overlays clear the same tiles: their text forms are canonical. */
+function sameEdits(a: WorldEdits, b: WorldEdits): boolean {
+	if (a === b) return true;
+	const [x, y] = [a.encode(), b.encode()];
+	return x.length === y.length && x.every((entry, i) => entry === y[i]);
+}
+
 /** Fit the world's camera to a canvas `aspect` wide: always 14 tiles tall, as wide as the window. */
 export function frameWorldCamera(camera: THREE.OrthographicCamera, aspect: number): void {
 	const halfH = VIEW_HEIGHT_TILES / 2;
@@ -81,6 +100,12 @@ export class GameRenderer {
 	private figures: THREE.Group[] = [];
 	private chunks = new ChunkRing(this.scene);
 	private seed = 0;
+	/** The tiles the player has cleared, as the chunks on screen show them. */
+	private edits = WorldEdits.none;
+	/** Trees tipping over and rocks cracking, until each is gone. */
+	private clearings = new ClearingEffects(this.scene);
+	/** The trainer's swing in progress: the tool in its hand and when it started (seconds). */
+	private swing: { tool: THREE.Group; start: number } | null = null;
 	private cameraTarget = new THREE.Vector3();
 	/** The player's step as last placed: how far through it (1 is standing) and which foot leads. */
 	private step = { progress: 1, stride: 1 as 1 | -1 };
@@ -137,12 +162,58 @@ export class GameRenderer {
 	}
 	private sun: THREE.DirectionalLight;
 
-	/** Draw world `seed`. The chunks already built stay when it is the world on screen. */
-	setWorld(seed: number): void {
-		if (seed === this.seed && this.chunks.size > 0) return;
+	/**
+	 * Draw world `seed`, as `edits` leave it. The chunks already built stay
+	 * when it is the world on screen with the same edits; with other edits
+	 * (a new game after the title showed a saved one) they are built again.
+	 */
+	setWorld(seed: number, edits: WorldEdits = WorldEdits.none): void {
+		if (seed === this.seed && this.chunks.size > 0) {
+			if (sameEdits(edits, this.edits)) return;
+			this.edits = edits;
+			this.chunks.reset(seed, edits);
+			return;
+		}
 		this.seed = seed;
-		this.chunks.reset(seed);
+		this.edits = edits;
+		this.chunks.reset(seed, edits);
+		this.clearings.clear();
 		this.butterflies.setWorld(seed);
+	}
+
+	/**
+	 * The player cleared the tile at `pos` (and the far chunks in `regrown`
+	 * grew back): from now on the world is as `edits` leave it. The chunk
+	 * holding it is built again with the stump or the gravel, and the chop
+	 * plays: the trainer swings `tool`, and what stood there (the seed's own
+	 * tile) tips over or cracks, away from the way the trainer faces.
+	 */
+	cleared(
+		pos: GridPos,
+		tool: ItemId,
+		facing: Direction,
+		edits: WorldEdits,
+		regrown: readonly ChunkRef[]
+	): void {
+		this.edits = edits;
+		const chunk = { cx: Math.floor(pos.x / CHUNK_SIZE), cy: Math.floor(pos.y / CHUNK_SIZE) };
+		this.chunks.setEdits(edits, [chunk, ...regrown]);
+		const now = performance.now() / 1000;
+		this.clearings.play(tileAtWorld(this.seed, pos.x, pos.y), pos, facing, now);
+		this.startSwing(tool, now);
+	}
+
+	/** Put the tool in the trainer's right hand and swing it; a swing already going is replaced. */
+	private startSwing(tool: ItemId, now: number): void {
+		this.endSwing();
+		const held = buildTool(tool);
+		this.player.children[0]?.getObjectByName('armR')?.add(held);
+		this.swing = { tool: held, start: now };
+	}
+
+	private endSwing(): void {
+		this.swing?.tool.removeFromParent();
+		this.swing = null;
 	}
 
 	ensureChunksAround(pos: GridPos): void {
@@ -247,6 +318,12 @@ export class GameRenderer {
 		// Standing in the boat, the trainer's legs don't walk.
 		animateWalk(this.player, this.step.progress, this.step.stride, this.afloat === 1 ? 0 : 1);
 		this.poseBoat(t);
+		if (this.swing) {
+			const progress = (t - this.swing.start) / SWING_SECONDS;
+			animateSwing(this.player, progress, motion.reduced);
+			if (progress >= 1) this.endSwing();
+		}
+		this.clearings.update(t, motion.reduced);
 		for (const f of this.figures) animateIdle(f, t, this.camera);
 		const dt = this.lastT < 0 ? 0 : Math.min(0.1, Math.max(0, t - this.lastT));
 		this.lastT = t;

@@ -1,8 +1,11 @@
 import {
 	bundles,
 	canTalkToDoctor,
+	clearableAhead,
+	itemsForSale,
 	leadIndex,
 	type AnimalInstance,
+	type ClearableKind,
 	type GameEvent,
 	type Line as MessageLine,
 	type PartyEvent,
@@ -19,13 +22,17 @@ import { game } from './game.svelte';
 
 /**
  * What the explore HUD's message line says (UI_SPEC § Explore mode): the
- * latest thing said, for a few seconds, and under it the doctor prompt while
- * the player faces a tent, or the controls hint for the first few steps.
+ * latest thing said, for a few seconds, and under it the prompt for what
+ * Enter does in front of the player (talk to the doctor at a tent, chop a
+ * tree or break a rock with the tool it takes), or the controls hint for the
+ * first few steps.
  *
  * Things said are the authority's `message` events, plus lines the client
  * words itself from events that carry no words: the doctor's goodbye
  * (`doctor-visit-ended`), the doctor's line after a lost battle
- * (`taken-to-doctor`), how to find a doctor (`nothing-to-interact`), who
+ * (`taken-to-doctor`), how to find a doctor (`nothing-to-interact`), that
+ * the doctor sells the tool a tree or a rock takes (`tool-needed`, and the
+ * first bump into one without it, once a game), who
  * goes first after a party edit (`party-edited`, see `leadNotice`), and what
  * start-up found about the save (`notice`, from `main.ts`). They are kept as
  * data and worded when shown, in the language on screen.
@@ -59,6 +66,8 @@ export type Said =
 	| { doctor: DoctorLine }
 	/** `interact` found no tent in front of the player. */
 	| { explore: 'notAtTent' }
+	/** A tree or a rock is in the way without the tool it takes: the doctor sells one. */
+	| { needs: ClearableKind }
 	| { party: PartyNotice }
 	/** What start-up found about the save: a copy key from `SAVE_NOTICES`. */
 	| { save: SaveNotice };
@@ -68,8 +77,13 @@ export function saidWords(said: Said): string {
 	if ('doctor' in said) return doctorWords(said.doctor);
 	if ('party' in said) return partyWords(said.party);
 	if ('save' in said) return t(said.save);
+	if ('needs' in said)
+		return said.needs === 'tree' ? t('explore.needAxe') : t('explore.needPickaxe');
 	return t('explore.notAtTent');
 }
+
+/** What Enter (the touch controls' Talk) does in front of the player: talk, chop, break, or nothing. */
+export type ExploreAction = 'talk' | 'chop' | 'break' | null;
 
 function partyWords(notice: PartyNotice): string {
 	if ('speciesId' in notice) {
@@ -167,9 +181,31 @@ class HudView {
 	#said = $state<Said | null>(null);
 	#fresh = $state(false);
 	private age = MESSAGE_SECONDS;
+	/**
+	 * The kinds whose "the doctor sells one" has been said since the game on
+	 * screen started (`welcome`): a bump says it once, not every time.
+	 */
+	private toolHints = new Set<ClearableKind>();
 
 	/** The player faces a doctor's tent: interacting now talks to the doctor. */
 	facingTent = $derived(canTalkToDoctor(game.seed, game.pos, game.facing));
+	/** A tree or a rock in front of the player, and the tool it takes (owned or not); else null. */
+	ahead = $derived(clearableAhead(game.seed, game.edits, game.pos, game.facing));
+	/**
+	 * What Enter does now: talk to the doctor at a tent, chop the tree or break
+	 * the rock in front with the tool it takes, when the player owns it; else
+	 * null (Enter only says how to find a doctor). The prompt below says it,
+	 * and the touch controls' Talk button is named and lit by it.
+	 */
+	action = $derived<ExploreAction>(
+		this.facingTent
+			? 'talk'
+			: this.ahead && game.items.includes(this.ahead.tool)
+				? this.ahead.kind === 'tree'
+					? 'chop'
+					: 'break'
+				: null
+	);
 	/**
 	 * The latest thing said while it is fresh, worded now, else ''. "Walk up to
 	 * a tent" is over once the player faces one: the prompt below says what next.
@@ -180,28 +216,58 @@ class HudView {
 			: ''
 	);
 	/**
-	 * The line under it: the doctor prompt, the controls hint, or ''. With the
-	 * touch controls on, both name the buttons on screen instead of keys.
+	 * The line under it: what Enter does here (talk, chop, break), the controls
+	 * hint, or ''. With the touch controls on, each names the button on screen
+	 * instead of a key.
 	 */
 	hint = $derived(
-		this.facingTent
+		this.action === 'talk'
 			? touch.on
 				? t('explore.talkPromptTouch')
 				: t('explore.talkPrompt')
-			: game.steps < HINT_STEPS
+			: this.action === 'chop'
 				? touch.on
-					? t('explore.controlsTouch')
-					: t('explore.controls')
-				: ''
+					? t('explore.chopPromptTouch')
+					: t('explore.chopPrompt')
+				: this.action === 'break'
+					? touch.on
+						? t('explore.breakPromptTouch')
+						: t('explore.breakPrompt')
+					: game.steps < HINT_STEPS
+						? touch.on
+							? t('explore.controlsTouch')
+							: t('explore.controls')
+						: ''
 	);
 
-	/** Call after `game.apply(event)`, which knows who the player is. */
+	/** Call after `game.apply(event)`, which knows who the player is and which way they face. */
 	apply(event: GameEvent): void {
 		switch (event.type) {
+			case 'player-blocked': {
+				// The first bump into a tree or a rock the kid has no tool for says the doctor
+				// sells one, once a game: a key held against a tree bumps every frame.
+				if (event.playerId !== game.playerId) break;
+				const ahead = this.ahead;
+				if (!ahead || game.items.includes(ahead.tool) || this.toolHints.has(ahead.kind)) break;
+				if (!itemsForSale().includes(ahead.tool)) break;
+				this.toolHints.add(ahead.kind);
+				this.say({ needs: ahead.kind });
+				break;
+			}
+			case 'tool-needed':
+				// Enter at a tree or a rock without its tool: always said, since the kid asked
+				// (and, were the tool not on sale, only how to find a doctor).
+				if (event.playerId !== game.playerId) break;
+				this.toolHints.add(event.kind);
+				this.say(
+					itemsForSale().includes(event.tool) ? { needs: event.kind } : { explore: 'notAtTent' }
+				);
+				break;
 			case 'welcome':
 				this.#said = null;
 				this.age = MESSAGE_SECONDS;
 				this.#fresh = false;
+				this.toolHints.clear();
 				break;
 			case 'message':
 				this.say({ line: event.line });
@@ -219,7 +285,6 @@ class HudView {
 				break;
 			case 'party-edited': {
 				const notice = leadNotice(event.party, event.events, game.realm);
-
 				if (notice) this.say({ party: notice });
 				// A new animal in front: ding-ding, with its "goes first!" line.
 				if (notice?.lead === 'chosen') sfx.play('lead');

@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest';
 import { ANIMALS, canFightIn, getAnimal } from '../src/animals/catalog.js';
-
 import { ATTACK_LEVELS, type AnimalInstance, type AttackLevel } from '../src/animals/types.js';
 import { catchProbability } from '../src/battle/catch.js';
 import { attackDamage } from '../src/battle/damage.js';
@@ -929,7 +928,6 @@ describe('on the water', () => {
 							if (!swims(a) && a.hp !== before.party[i]!.hp)
 								bad.push(`${wild} ${seed}: ${a.speciesId} in the boat lost HP`);
 					},
-
 					2000,
 					'water'
 				);

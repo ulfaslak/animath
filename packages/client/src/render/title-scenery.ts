@@ -1,4 +1,11 @@
-import { isWalkable, tileAtWorld, type Direction, type GridPos } from '@mathgame/engine';
+import {
+	WorldEdits,
+	editedTileAt,
+	isWalkable,
+	tileAtWorld,
+	type Direction,
+	type GridPos
+} from '@mathgame/engine';
 import type * as THREE from 'three';
 import { motion } from '../motion';
 import { buildAnimalMesh, disposeFigure } from './animals';
@@ -30,15 +37,17 @@ const VIEW_HEIGHT_TILES = 14;
 /** What the title controller asks of the scenery; tests give it a stand-in. */
 export interface TitleView3D {
 	/**
-	 * The menu's world: the trainer at `pos` in world `seed`, facing `facing`,
-	 * `species` round it, and the boat on their back, or under them out on the
-	 * water, when the game has one.
+	 * The menu's world: the trainer at `pos` in world `seed` (as `edits` leave
+	 * it, the tiles the saved game cleared), facing `facing`, `species` round
+	 * it, and the boat on their back, or under them out on the water, when the
+	 * game has one.
 	 */
 	showWorld(
 		seed: number,
 		pos: GridPos,
 		facing: Direction,
 		species: readonly string[],
+		edits?: WorldEdits,
 		boat?: boolean
 	): void;
 	/** The starter stage, these species in a row, the first lit. */
@@ -68,17 +77,17 @@ export class TitleScenery implements TitleView3D {
 		pos: GridPos,
 		facing: Direction,
 		species: readonly string[],
+		edits: WorldEdits = WorldEdits.none,
 		boat = false
 	): void {
 		this.clearWorld();
 		this.renderer.setStage(null);
 		this.center = { x: pos.x, y: pos.y };
-		this.renderer.setWorld(seed);
+		this.renderer.setWorld(seed, edits);
 		this.renderer.setBoat(boat);
 		this.renderer.setPlayer(pos, pos, 1, facing);
-
 		this.renderer.ensureChunksAround(pos);
-		const spots = standingSpots(seed, pos, species.length);
+		const spots = standingSpots(seed, edits, pos, species.length);
 		species.forEach((id, i) => {
 			const spot = spots[i];
 			if (!spot) return;
@@ -136,9 +145,10 @@ export class TitleScenery implements TitleView3D {
 
 /**
  * The `count` walkable tiles nearest `pos` (not `pos` itself), nearest first,
- * ties in a fixed order, so the same game always gathers the same way.
+ * ties in a fixed order, so the same game always gathers the same way. A tile
+ * the game cleared is ground to stand on.
  */
-function standingSpots(seed: number, pos: GridPos, count: number): GridPos[] {
+function standingSpots(seed: number, edits: WorldEdits, pos: GridPos, count: number): GridPos[] {
 	const found: GridPos[] = [];
 	for (let r = 1; r <= 4 && found.length < count; r++) {
 		const ring: GridPos[] = [];
@@ -146,7 +156,7 @@ function standingSpots(seed: number, pos: GridPos, count: number): GridPos[] {
 			for (let dx = -r; dx <= r; dx++) {
 				if (Math.max(Math.abs(dx), Math.abs(dy)) !== r) continue;
 				const spot = { x: pos.x + dx, y: pos.y + dy };
-				if (isWalkable(tileAtWorld(seed, spot.x, spot.y).kind)) ring.push(spot);
+				if (isWalkable(editedTileAt(seed, edits, spot.x, spot.y).kind)) ring.push(spot);
 			}
 		}
 		// Nearest first within the ring; the scan order above settles ties.

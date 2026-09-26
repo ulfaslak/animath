@@ -87,6 +87,12 @@ export const PROP_COLORS = {
 	snow: 0xf3f6f4,
 	/** Rock tiles high on a mountain, paler round the snow. */
 	rockHigh: 0xbdb9b4,
+	/** Where a rock was broken: gravel, warmer and lighter than the rock, so it reads as a path. */
+	gravel: 0xc9c0ad,
+	/** The same high on a mountain, paler like the peaks' rock. */
+	gravelHigh: 0xd8d3ca,
+	/** Fresh wood: the cut face of a stump, and the chips an axe sends flying. */
+	wood: 0xe8c48f,
 	/** A reed's head: the trunks' brown. */
 	cattail: COLORS.trunk,
 	/** Round bushes at the foot of the forest's trees. */

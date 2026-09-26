@@ -10,6 +10,7 @@ import { ITEMS, ITEM_IDS, getItem, hasItem, itemsForSale } from '../src/items/ca
 import { healingDifficulty } from '../src/puzzles/difficulty.js';
 import { checkAnswer } from '../src/puzzles/registry.js';
 import { Rng, hashInts, hashString } from '../src/rng.js';
+import { WorldEdits, editedTileAt } from '../src/world/edits.js';
 import { spawnPoint, tileAtWorld } from '../src/world/generate.js';
 import { TENT_SEARCH_STEPS, canTalkToDoctor, nearestTent } from '../src/world/tents.js';
 import { isWalkable, isWater, step, type Direction, type GridPos } from '../src/world/types.js';
@@ -493,9 +494,10 @@ describe('the shop', () => {
 
 	it('sells nothing whose effect is not built: a kid never pays for a tool that does nothing', () => {
 		// The change that builds an item's effect (chopping, breaking rocks, sailing)
-		// turns its `available` on and adds it here, and nothing else does. The boat
+		// turns its `available` on and adds it here, and nothing else does. The axe
+		// and the pickaxe clear trees and rocks (`world/clearing.ts`); the boat
 		// sails: water is passable with it.
-		expect(itemsForSale()).toEqual(['boat']);
+		expect(itemsForSale()).toEqual(['axe', 'pickaxe', 'boat']);
 	});
 });
 
@@ -603,8 +605,12 @@ describe('buying', () => {
 			const s = apply(state, { type: 'buy', itemId }, 1);
 			return s.events[0]?.type === 'rejected' ? s.events[0].reason : 'accepted';
 		};
-		// The shop sells what the visit's shop lists: nothing, before any item is on sale.
-		expect(reason(startDoctorVisit(party, { tokens: 99 }), 'axe')).toBe('not-for-sale');
+		// The shop sells what the visit's shop lists: by default what is on sale (all three tools).
+		expect(reason(startDoctorVisit(party, { tokens: 99, shop: ['axe'] }), 'boat')).toBe(
+			'not-for-sale'
+		);
+		expect(reason(startDoctorVisit(party, { tokens: 99 }), 'boat')).toBe('accepted');
+		expect(reason(startDoctorVisit(party, { tokens: 99 }), 'axe')).toBe('accepted');
 		const rich = shopVisit(party, 21, ['pickaxe']);
 		expect(reason(rich, 'sword')).toBe('not-for-sale');
 		expect(reason(rich, 42 as unknown as string)).toBe('not-for-sale');
@@ -838,7 +844,6 @@ describe('replay', () => {
 			tokens: 0,
 			items: [],
 			shop: itemsForSale(),
-
 			phase: { kind: 'ended' }
 		});
 	});
@@ -931,8 +936,11 @@ describe('takeToDoctor', () => {
 				rescued++;
 				// The otter is tired; the squirrel, who can't swim, sat it out in the boat.
 				const party = deepFreeze(partyOf(['squirrel', 20], ['otter', 0]));
-				const rescue = takeToDoctor(PROTOTYPE, pos, party, { gear: boat, realm: 'water' });
-				const spot = nearestTent(PROTOTYPE, pos, TENT_SEARCH_STEPS, boat)!;
+				const rescue = takeToDoctor(PROTOTYPE, pos, party, WorldEdits.none, {
+					gear: boat,
+					realm: 'water'
+				});
+				const spot = nearestTent(PROTOTYPE, pos, TENT_SEARCH_STEPS, WorldEdits.none, boat)!;
 				expect(rescue).toEqual({
 					pos: spot.stand,
 					facing: spot.facing,
@@ -949,14 +957,47 @@ describe('takeToDoctor', () => {
 	it('out on the water, the battle is lost with animals that cannot swim still standing, never a swimmer', () => {
 		const pos = spawnPoint(PROTOTYPE);
 		const water = { realm: 'water' as const, gear: { boat: true } };
-		expect(() => takeToDoctor(PROTOTYPE, pos, partyOf(['bear'], ['frog', 0]), water)).not.toThrow();
-		expect(() => takeToDoctor(PROTOTYPE, pos, partyOf(['bear', 0], ['frog', 3]), water)).toThrow(
-			/knocked out/
-		);
+		expect(() =>
+			takeToDoctor(PROTOTYPE, pos, partyOf(['bear'], ['frog', 0]), WorldEdits.none, water)
+		).not.toThrow();
+		expect(() =>
+			takeToDoctor(PROTOTYPE, pos, partyOf(['bear', 0], ['frog', 3]), WorldEdits.none, water)
+		).toThrow(/knocked out/);
 		// On land a standing bear is someone to fight on, as ever.
 		expect(() => takeToDoctor(PROTOTYPE, pos, partyOf(['bear'], ['frog', 0]))).toThrow(
 			/knocked out/
 		);
+	});
+
+	it('walks the paths the player cleared: out of a spot walled in by trees, once they are chopped', () => {
+		// A walkable tile walled in by trees and rocks, a tent within reach once they are cleared.
+		let found: { pos: GridPos; edits: WorldEdits } | null = null;
+		for (let y = -150; y < 150 && !found; y++)
+			for (let x = -150; x < 150 && !found; x++) {
+				if (!isWalkable(tileAtWorld(PROTOTYPE, x, y).kind)) continue;
+				const around = (['up', 'down', 'left', 'right'] as Direction[]).map((d) =>
+					step({ x, y }, d)
+				);
+				const kinds = around.map((n) => tileAtWorld(PROTOTYPE, n.x, n.y).kind);
+				if (!kinds.every((k) => k === 'tree' || k === 'rock')) continue;
+				const edits = around.reduce((e, n) => e.with(n), WorldEdits.none);
+				if (nearestTent(PROTOTYPE, { x, y }, undefined, edits)) found = { pos: { x, y }, edits };
+			}
+		expect(found).not.toBeNull();
+		const { pos, edits } = found!;
+		const party = partyOf(['bear', 0]);
+		// Without the overlay the trees still stand, and a doctor comes to the player.
+		expect(takeToDoctor(PROTOTYPE, pos, party).tent).toBeNull();
+		const rescue = takeToDoctor(PROTOTYPE, pos, party, edits);
+		const spot = nearestTent(PROTOTYPE, pos, undefined, edits)!;
+		expect(rescue).toEqual({
+			pos: spot.stand,
+			facing: spot.facing,
+			tent: spot.tent,
+			party: partyOf(['bear'])
+		});
+		expect(isWalkable(editedTileAt(PROTOTYPE, edits, rescue.pos.x, rescue.pos.y).kind)).toBe(true);
+		expect(canTalkToDoctor(PROTOTYPE, rescue.pos, rescue.facing)).toBe(true);
 	});
 
 	it('only takes a party that is all knocked out, and a real one', () => {

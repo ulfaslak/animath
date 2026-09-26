@@ -350,7 +350,6 @@ function opponentTurn(draft: Draft): void {
 		draft.end('lost');
 		return;
 	}
-
 	// Someone is still standing: the player picks who steps in (a free `switch`).
 	draft.nextRound('choose-animal');
 }

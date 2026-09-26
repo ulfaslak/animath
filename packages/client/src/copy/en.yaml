@@ -134,6 +134,22 @@ explore:
   talkPromptTouch: Tap Talk to talk to the doctor
   # The touch controls' round button: talk to the doctor, as Enter does.
   talk: Talk
+  # Under the latest message while the player faces a tree and owns the axe.
+  chopPrompt: Press Enter to chop the tree
+  # The same, with the touch controls on; "Chop" is explore.chop.
+  chopPromptTouch: Tap Chop to chop the tree
+  # Under the latest message while the player faces a rock and owns the pickaxe.
+  breakPrompt: Press Enter to break the rock
+  # The same, with the touch controls on; "Break" is explore.break.
+  breakPromptTouch: Tap Break to break the rock
+  # The touch controls' round button (explore.talk) while it chops a tree.
+  chop: Chop
+  # The same button while it breaks a rock.
+  break: Break
+  # The first bump into a tree without the axe, and Enter facing one.
+  needAxe: You need an axe to chop trees. The doctor sells one!
+  # The first bump into a rock without the pickaxe, and Enter facing one.
+  needPickaxe: You need a pickaxe to break rocks. The doctor sells one!
   # What a screen reader calls the arrow pad's four arrows.
   walkUp: Walk up
   walkDown: Walk down
@@ -141,7 +157,7 @@ explore:
   walkRight: Walk right
   # Over the whole screen when a touch screen is held upright.
   turnSideways: Turn your tablet sideways to play!
-  # Enter anywhere but facing a tent.
+  # Enter with nothing in front to talk to, chop or break.
   notAtTent: Walk up to a tent to talk to the doctor.
 
 hud:
@@ -186,7 +202,6 @@ party:
   leadChosen: '{animal.name} goes first!'
   # The message line, out on the water, when the number of an animal that can't swim was pressed.
   leadCantSwim: "{animal.name} can't swim! On the water, an animal that swims goes first."
-
   # The message line, when the number of a tired animal was pressed.
   leadTired: '{animal.name} is tired. Visit the doctor!'
   # The message line, when the lead's own number was pressed.

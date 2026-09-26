@@ -156,7 +156,6 @@ export function bundleOptions(
 				bundle.animals.some((a) => a.hp > 0) &&
 				lead?.speciesId !== speciesId
 		},
-
 		{ id: 'up', enabled: place > 0 },
 		{ id: 'down', enabled: place >= 0 && place < list.length - 1 },
 		{ id: 'back', enabled: true }

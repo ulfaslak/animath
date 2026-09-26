@@ -1,4 +1,5 @@
 import {
+	WorldEdits,
 	tileAtWorld,
 	tileRealm,
 	type AnimalInstance,
@@ -44,6 +45,11 @@ class GameView {
 	 * engine's `tileRealm` of their tile). Who goes first is the lead there.
 	 */
 	realm = $derived<Realm>(tileRealm(tileAtWorld(this.seed, this.pos.x, this.pos.y).kind));
+	/**
+	 * The tiles the player has cleared with a tool: `welcome`'s, then every
+	 * `tile-cleared`. Immutable, so it is replaced, never changed in place.
+	 */
+	edits = $state.raw<WorldEdits>(WorldEdits.none);
 
 	apply(event: GameEvent): void {
 		switch (event.type) {
@@ -56,7 +62,13 @@ class GameView {
 				this.party = event.party;
 				this.tokens = event.tokens;
 				this.items = event.items;
+				this.edits = WorldEdits.decode(event.edits);
 				this.mode = 'explore';
+				break;
+			case 'tile-cleared':
+				if (event.playerId === this.playerId) {
+					this.edits = this.edits.with(event.pos).without(event.regrown);
+				}
 				break;
 			case 'player-moved':
 				if (event.playerId !== this.playerId) break;

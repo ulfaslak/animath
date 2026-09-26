@@ -144,7 +144,6 @@ export function buildBoatMesh(): THREE.Group {
 		// From the wide stern to the narrow bow: each side slants in towards the middle.
 		rim.rotation.y = -s * slant;
 		rim.name = 'rim';
-
 		boat.add(rim);
 	}
 	const transom = mesh(new THREE.BoxGeometry(STERN_R * 2, 0.035, 0.035), materials.trim);
@@ -185,7 +184,6 @@ export function poseBoat(boat: THREE.Group, afloat: number, calm: boolean, bob =
 		boat.quaternion.multiply(ROCK.setFromEuler(ROCK_EULER.set(bob * 0.4, 0, bob)));
 	}
 	boat.scale.setScalar(BACK_SCALE + (1 - BACK_SCALE) * e);
-
 	const pennant = boat.getObjectByName('pennant');
 	if (pennant) pennant.scale.setScalar(Math.max(0.001, smoothstep((e - 0.7) / 0.3)));
 }

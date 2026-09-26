@@ -83,7 +83,15 @@ export type {
 	PlayerActivity
 } from './party/types.js';
 
-export type { Chunk, Direction, Gear, GridPos, Tile, TileKind } from './world/types.js';
+export type {
+	Chunk,
+	ClearableKind,
+	Direction,
+	Gear,
+	GridPos,
+	Tile,
+	TileKind
+} from './world/types.js';
 export {
 	CHUNK_SIZE,
 	NO_GEAR,
@@ -96,7 +104,18 @@ export {
 	tileRealm
 } from './world/types.js';
 export { DEEP_WATER_MARGIN, generateChunk, spawnPoint, tileAtWorld } from './world/generate.js';
-
+export {
+	EDITS_BUDGET,
+	MAX_ENTRY_LENGTH,
+	WorldEdits,
+	clearedTile,
+	editedChunk,
+	editedTileAt,
+	isEditsText
+} from './world/edits.js';
+export type { ChunkRef } from './world/edits.js';
+export { CLEARING_TOOL, clearTile, clearableAhead, isClearable } from './world/clearing.js';
+export type { ClearRejection, ClearStep, Clearable, Cleared, Clearer } from './world/clearing.js';
 export { TENT_SEARCH_STEPS, canTalkToDoctor, nearestTent } from './world/tents.js';
 export type { TentSpot } from './world/tents.js';
 export type { EncounterEntry, EncounterSite, WildAnimal } from './world/encounters.js';

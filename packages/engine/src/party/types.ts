@@ -78,7 +78,6 @@ export type PartyRejection =
 	| 'cannot-fight-here'
 	/** `select-lead` on the animal that already leads; `lead-species` when one of its kind does. */
 	| 'already-lead'
-
 	/** `to` is not a whole number naming a slot of the animal's bundle, or a place among the bundles. */
 	| 'no-such-slot'
 	/** `to` is where the animal, or the bundle, already is. */

@@ -595,7 +595,6 @@ describe('applyPartyIntent: select-lead', () => {
 describe('applyPartyIntent: lead-species', () => {
 	it("leads with the bundle's first animal standing; refuses a bundle of tired ones, and the lead's own", () => {
 		const seen = new Set<string>();
-
 		for (const party of PARTIES) {
 			const lead = party[leadIndex(party)];
 			for (const bundle of bundles(party)) {

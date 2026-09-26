@@ -3,8 +3,10 @@ import type { BattleEvent, BattleIntent, BattleState } from './battle/types.js';
 import type { DoctorEvent, DoctorIntent, DoctorState } from './doctor/types.js';
 import type { Line } from './lines.js';
 import type { NewGameRejection } from './party/starters.js';
+import type { ItemId } from './items/catalog.js';
 import type { PartyEvent, PartyIntent } from './party/types.js';
-import type { Direction, GridPos } from './world/types.js';
+import type { ChunkRef } from './world/edits.js';
+import type { ClearableKind, Direction, GridPos } from './world/types.js';
 
 /**
  * The client ↔ authority protocol.
@@ -19,6 +21,12 @@ import type { Direction, GridPos } from './world/types.js';
 
 export type Intent =
 	| { type: 'move'; dir: Direction }
+	/**
+	 * Enter, or the touch controls' Talk: whatever the player faces. A tent
+	 * opens a doctor visit (`canTalkToDoctor`); a tree or a rock is cleared
+	 * with its tool (`clearTile`: `tile-cleared`, or `tool-needed` without
+	 * the tool); anything else is `nothing-to-interact`.
+	 */
 	| { type: 'interact' }
 	| { type: 'battle'; intent: BattleIntent }
 	/** Only during a doctor visit. A visit starts with `interact` while `canTalkToDoctor` holds. */
@@ -53,7 +61,8 @@ export type GameEvent =
 	 * did, and the tokens and items. A `battle-started` follows when the save
 	 * was taken mid-battle. `newGame` tells the two apart: true for a game
 	 * that begins here (a starter just picked, or a throwaway game), false for
-	 * one picked up.
+	 * one picked up. `edits` are the tiles the player has cleared, in
+	 * `WorldEdits`' text form: the world is the seed's, as they left it.
 	 */
 	| {
 			type: 'welcome';
@@ -65,6 +74,7 @@ export type GameEvent =
 			tokens: number;
 			items: string[];
 			newGame: boolean;
+			edits: string[];
 	  }
 	/** `new-game` was refused, and nothing started: why, as a code. */
 	| { type: 'new-game-refused'; reason: NewGameRejection }
@@ -106,8 +116,8 @@ export type GameEvent =
 	| { type: 'message'; line: Line }
 	/**
 	 * `interact` found nothing to talk to: no tent in front of the player, as
-	 * the authority saw them. Nothing changed; the client may say how to find a
-	 * doctor, in its own words.
+	 * the authority saw them, and no tree or rock to clear. Nothing changed;
+	 * the client may say how to find a doctor, in its own words.
 	 */
 	| { type: 'nothing-to-interact'; playerId: string }
 	/**
@@ -150,7 +160,27 @@ export type GameEvent =
 	 * `renamed`, or `rejected`, when the party is unchanged) and `party` is the
 	 * whole party after it, in order.
 	 */
-	| { type: 'party-edited'; party: AnimalInstance[]; events: readonly PartyEvent[] };
+	| { type: 'party-edited'; party: AnimalInstance[]; events: readonly PartyEvent[] }
+	/**
+	 * `interact` cleared the tile the player faces (`clearTile`): the tree at
+	 * `pos` chopped down with the axe, or the rock broken with the pickaxe.
+	 * It is plain ground from now on. `regrown` are the chunks whose cleared
+	 * tiles grew back to keep the save small (far away, and nearly always
+	 * none). Apply both to the world on screen (`WorldEdits.with`, `without`).
+	 */
+	| {
+			type: 'tile-cleared';
+			playerId: string;
+			pos: GridPos;
+			was: ClearableKind;
+			tool: ItemId;
+			regrown: ChunkRef[];
+	  }
+	/**
+	 * `interact` while facing a tree or a rock without the tool it takes.
+	 * Nothing changed; the client may say that the doctor sells one.
+	 */
+	| { type: 'tool-needed'; playerId: string; kind: ClearableKind; tool: ItemId };
 
 export interface Authority {
 	dispatch(intent: Intent): void;

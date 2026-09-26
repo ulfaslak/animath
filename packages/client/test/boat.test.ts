@@ -37,7 +37,6 @@ describe('the boat', () => {
 		expect(boat.scale.x).toBeLessThan(0.7);
 		// On the back, from the shoulders down past the hips, never down by the feet.
 		expect(box.min.y).toBeGreaterThan(0.08);
-
 		expect(box.max.y).toBeGreaterThan(0.5);
 
 		// Behind the trainer, who faces +z: nothing of it in front of their face.

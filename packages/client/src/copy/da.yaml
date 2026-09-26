@@ -122,6 +122,14 @@ explore:
   talkPrompt: Tryk på Enter for at snakke med dyrlægen
   talkPromptTouch: Tryk på Snak for at snakke med dyrlægen
   talk: Snak
+  chopPrompt: Tryk på Enter for at fælde træet
+  chopPromptTouch: Tryk på Fæld for at fælde træet
+  breakPrompt: Tryk på Enter for at knuse stenen
+  breakPromptTouch: Tryk på Knus for at knuse stenen
+  chop: Fæld
+  break: Knus
+  needAxe: Du skal bruge en økse for at fælde træer. Dyrlægen sælger en!
+  needPickaxe: Du skal bruge en hakke for at knuse sten. Dyrlægen sælger en!
   walkUp: Gå op
   walkDown: Gå ned
   walkLeft: Gå til venstre
@@ -156,7 +164,6 @@ party:
   tired: træt
   leadChosen: '{animal.the} er først ud!'
   leadCantSwim: '{animal.the} kan ikke svømme! På vandet er et dyr, der kan svømme, først ud.'
-
   leadTired: '{animal.the} er træt. Gå til dyrlægen!'
   leadAlready: '{animal.the} er allerede først ud!'
   leadAllTired: De er alle sammen trætte. Gå til dyrlægen!

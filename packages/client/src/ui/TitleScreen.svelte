@@ -46,7 +46,6 @@
 		const realm = tileRealm(tileAtWorld(saved.seed, saved.pos.x, saved.pos.y).kind);
 		return saved.party[leadIndex(saved.party, realm)] ?? saved.party[0] ?? null;
 	});
-
 	const rows = $derived(title.rows);
 	const litRow = $derived(title.screen === 'menu' ? rows[title.cursor] : undefined);
 	const species = $derived(STARTERS[title.starter] ?? STARTERS[0]!);

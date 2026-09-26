@@ -69,6 +69,37 @@ function biomeFor(elev: number, moist: number): Biome {
 /** The elevation at a world tile: `elevation`, or a cache of it that a whole chunk shares. */
 type ElevationAt = (x: number, y: number) => number;
 
+/**
+ * Elevations read lately, in the world last asked about: the deep-water check
+ * reads the 24 tiles round a water tile, and its neighbour's check most of
+ * them again, so a sweep over nearby tiles (a way to a tent, the ground round
+ * a tall-grass tile, the tiles under the figures) reads each one once. A
+ * cache, not state: it holds exactly what `elevation` gives, forgets it all
+ * past `MEMO_LIMIT` tiles or when another seed is asked about, and leaves out
+ * coordinates too far out to pack into one key.
+ */
+const MEMO_LIMIT = 1 << 18;
+const MEMO_SPAN = 2 ** 26;
+const memo = new Map<number, number>();
+let memoSeed: number | null = null;
+
+function memoElevation(seed: number, x: number, y: number): number {
+	const half = MEMO_SPAN / 2;
+	if (!(Math.abs(x) < half && Math.abs(y) < half)) return elevation(seed, x, y);
+	if (memoSeed !== seed) {
+		memo.clear();
+		memoSeed = seed;
+	}
+	const key = (x + half) * MEMO_SPAN + (y + half);
+	let e = memo.get(key);
+	if (e === undefined) {
+		if (memo.size >= MEMO_LIMIT) memo.clear();
+		e = elevation(seed, x, y);
+		memo.set(key, e);
+	}
+	return e;
+}
+
 /** Whether the water tile at (x, y) is deep: water all round it, `DEEP_WATER_MARGIN` tiles out. */
 function isDeep(elev: ElevationAt, x: number, y: number): boolean {
 	// The nearest tiles first: along a shore the first land is found at once.
@@ -87,7 +118,7 @@ function tileAt(
 	seed: number,
 	x: number,
 	y: number,
-	elevAt: ElevationAt = (ex, ey) => elevation(seed, ex, ey),
+	elevAt: ElevationAt = (ex, ey) => memoElevation(seed, ex, ey),
 	depth = true
 ): Tile {
 	const elev = elevAt(x, y);

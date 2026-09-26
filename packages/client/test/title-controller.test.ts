@@ -1,4 +1,11 @@
-import { STARTERS, getAnimal, type GameEvent, type Intent, type SavedGame } from '@mathgame/engine';
+import {
+	STARTERS,
+	WorldEdits,
+	getAnimal,
+	type GameEvent,
+	type Intent,
+	type SavedGame
+} from '@mathgame/engine';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { sfx } from '../src/audio/sfx.svelte';
 import { LocalAuthority } from '../src/authority/local';
@@ -43,8 +50,17 @@ function key(name: string, options: { repeat?: boolean; isComposing?: boolean } 
 
 class FakeScenery implements TitleView3D {
 	shown: string[] = [];
-	showWorld(_seed: number, _pos: unknown, _facing: unknown, species: readonly string[]): void {
+	/** The tiles cleared in the world last shown, as text. */
+	cleared: readonly string[] = [];
+	showWorld(
+		_seed: number,
+		_pos: unknown,
+		_facing: unknown,
+		species: readonly string[],
+		edits = WorldEdits.none
+	): void {
 		this.shown.push(`world ${species.join(',')}`);
+		this.cleared = edits.encode();
 	}
 	showStarters(species: readonly string[]): void {
 		this.shown.push(`starters ${species.join(',')}`);
@@ -131,11 +147,13 @@ describe('title: the menu', () => {
 	});
 
 	it('with a saved game: Continue first, lit, and the team behind; Enter picks it up at once', () => {
-		const saved = savedGame();
+		// The game chopped two trees: the world behind the title shows it as the kid left it.
+		const saved = { ...savedGame(), edits: ['-1,0:9091'] };
 		const { scenery, continued, events, press } = setup(saved);
 		expect(title.rows).toEqual(['continue', 'new', 'language', 'sound']);
 		expect(title.rows[title.cursor]).toBe('continue');
 		expect(scenery.shown).toEqual(['world squirrel,fox']);
+		expect(scenery.cleared).toEqual(['-1,0:9091']);
 		press('Enter');
 		expect(continued).toEqual([saved]);
 		expect(events[0]).toMatchObject({ type: 'welcome', newGame: false });

@@ -115,7 +115,6 @@ export function playBattle(
 ): PlayResult {
 	const playerRng = new Rng(hashInts(seed, 0x9e3779b9));
 	let state = startBattle(party, wild, { realm });
-
 	const events: BattleEvent[] = [];
 	const intents: BattleIntent[] = [];
 	for (let i = 0; i < maxIntents; i++) {

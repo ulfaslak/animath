@@ -38,6 +38,14 @@ Technical items we've intentionally postponed: tech debt, hardening shortcuts, k
 
 **Trigger**: multiplayer with any persistent economy (tokens, purchasable leashes/potions), the first public deploy (rate limiting, and sweeping players with no save), or the first report of a kid losing their save.
 
+### World edits are each player's own; a shared world has to decide whose they are
+
+**What**: the tiles a kid clears with the axe and the pickaxe (`WorldEdits`) live in that kid's game and save, and the authority walks, restores and knocks out through them. In a shared world two kids would see two different forests: a gap one kid chopped is a tree to the other, who would watch them walk through it. The choice to make then: **shared** (one overlay per world on the server; a kid can open a path for friends, or clear a forest bare for everyone, and every walkability check reads the world's overlay) or **per player** (each keeps their own; the renderer then draws another kid on a tile that is a tree on this screen, and battles between them need one world to stand in). Either way two things change: the whole overlay rides on `welcome` today (up to 24 KB), where a server should send each chunk's edits as the chunk comes into view; and `tile-cleared` goes to everyone who sees that chunk, with the chunks that grew back.
+
+**Why deferred**: there is one player per world today, and the right answer depends on how kids play together, which the shared world will show.
+
+**Trigger**: the shared-world / `RemoteAuthority` PR. Decide shared or per-player with the human first, then move the overlay onto the server, keyed by world (shared) or by player.
+
 ### The server stores whatever save the client sends
 
 **What**: `PUT /api/players/:id/save` checks the document's shape, not that the game in it could have happened: an HP above the species' maximum (`restoreGame` cuts it on load), a party of any animals, a position anywhere, any number of tokens and any tools, a `battle` the server never looks inside (the client checks it with `readBattle` on load). A modified client, or a hand-edited `localStorage` save, is backed up as sent. The saved battle also carries the puzzle's answer, as `BattleState` does ([[CHEATSHEET]] § Exploits).
@@ -118,17 +126,9 @@ Technical items we've intentionally postponed: tech debt, hardening shortcuts, k
 
 **Trigger**: a feature that writes the save without the kid's input (a timer, a reward that grows over time, a second player on one device), or a report of a game found kept aside after playing in two tabs. Then merge a walk-versus-progress race back into play: carry on from the other save when it only walked since this page's previous save, and write this page's progress on top.
 
-### The ground around a tall-grass tile is read from the generated world, not the one the kid has changed
-
-**What**: `surroundings(seed, pos)` (`world/habitat.ts`) counts the water, trees and rocks near a tile with `tileAtWorld`, the world as generated. Once the axe chops trees and the pickaxe breaks rocks ([[PRODUCT]] §6), a kid's cleared tiles would still count as trees or rocks for who comes out of the grass beside them.
-
-**Why deferred**: no tool changes a tile yet. Which world the ground should be read from — the generated one, or the one with the kid's changes, which would make encounters depend on a save's edits and on every authority knowing them — is a decision for that PR.
-
-**Trigger**: the PR that lets the axe or the pickaxe change a tile, or anything else that changes tiles while the game runs.
-
 ### A save over 1 MiB is not backed up, and one over 64 KiB misses the backup sent as the page closes
 
-**What**: a party has no cap, so a save grows with it: about 80 bytes an animal, up to 140 with a long name in 4-byte letters, twice that mid-battle. The server refuses a body over `SAVE_MAX_BYTES` (1 MiB, about 3,500 animals in the worst case) with a `413`, which the autosave treats as a bug: one `console.error`, and no more backups that visit; the game in the browser is saved as always. Separately, the backup sent on `pagehide` and when the page is hidden uses `fetch`'s `keepalive`, which browsers cap at 64 KiB of body: a bigger save (some 230 animals mid-battle with long names, 400 without) fails that request quietly, and the server's copy waits for the next ordinary backup (1 s after something that matters, 15 s after walking), which a hidden tab still sends.
+**What**: a party has no cap, so a save grows with it: about 80 bytes an animal, up to 140 with a long name in 4-byte letters, twice that mid-battle. The tiles a kid cleared take up to `EDITS_BUDGET` more (24,000 characters, far from home past it), which brings the `keepalive` limit below closer: a kid who has chopped thousands of tiles reaches it with some 150 animals mid-battle with long names. The server refuses a body over `SAVE_MAX_BYTES` (1 MiB, about 3,500 animals in the worst case) with a `413`, which the autosave treats as a bug: one `console.error`, and no more backups that visit; the game in the browser is saved as always. Separately, the backup sent on `pagehide` and when the page is hidden uses `fetch`'s `keepalive`, which browsers cap at 64 KiB of body: a bigger save (some 230 animals mid-battle with long names, 400 without) fails that request quietly, and the server's copy waits for the next ordinary backup (1 s after something that matters, 15 s after walking), which a hidden tab still sends.
 
 **Why deferred**: no kid is near either size; catching 400 animals takes well over ten hours of play.
 

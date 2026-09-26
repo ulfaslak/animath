@@ -1,4 +1,6 @@
 import {
+	WorldEdits,
+	editedTileAt,
 	getAnimal,
 	isWalkable,
 	isWater,
@@ -22,7 +24,8 @@ import { WATER_TOP, groundTop } from './tiles';
  * nothing, and the authority never hears of it.
  *
  * Where it stands: the trainer's last tile, which the trainer stood on, so
- * never rock, a tree or a tent. Out on the water, in the boat, the trainer's
+ * never rock, a tree or a tent (a stump where the trainer chopped a tree
+ * down is ground, and it follows through). Out on the water, in the boat, the trainer's
  * last tile is water: an animal that swims swims behind the boat, low in the
  * water, and one that can't swim never stands there — it rides in the boat
  * instead, at the bow, made small enough to fit (`lead(…, riding)`). When the
@@ -114,6 +117,8 @@ export class Follower {
 	private trainerFrom: GridPos | null = null;
 	private trainerTo: GridPos | null = null;
 	private trainerFacing: Direction = 'down';
+	/** The tiles the player has cleared: ground to stand on. */
+	private edits = WorldEdits.none;
 	/** The lead's species: who should be following. Null when every animal is tired. */
 	private wanted: string | null = null;
 	/** Whether the lead should ride in the boat rather than follow on foot or swimming. */
@@ -157,10 +162,17 @@ export class Follower {
 	/**
 	 * The trainer was put at `trainer` without walking, facing `facing`: stand
 	 * beside them at once, on the first tile it could stand on behind them, to
-	 * a side, or in front. With none, it waits for the trainer's first step.
+	 * a side, or in front, in the world as `edits` leave it. With none, it
+	 * waits for the trainer's first step.
 	 */
-	place(seed: number, trainer: GridPos, facing: Direction): void {
+	place(
+		seed: number,
+		trainer: GridPos,
+		facing: Direction,
+		edits: WorldEdits = WorldEdits.none
+	): void {
 		this.seed = seed;
+		this.edits = edits;
 		this.trainerFrom = { ...trainer };
 		this.trainerTo = { ...trainer };
 		this.trainerFacing = facing;
@@ -345,7 +357,6 @@ export class Follower {
 		figure.scale.setScalar(0.001);
 		this.figure = figure;
 		this.shown = species;
-
 		this.swap = { phase: 'in', t: 0, from: 0 };
 		this.host.addFigure(figure);
 	}
@@ -392,11 +403,16 @@ export class Follower {
 	 * Without a species yet, ground.
 	 */
 	private canStand(p: GridPos, species: string | null): boolean {
-		const kind = tileAtWorld(this.seed, p.x, p.y).kind;
+		const kind = editedTileAt(this.seed, this.edits, p.x, p.y).kind;
 		const realms = species ? getAnimal(species).realms : (['land'] as const);
 		return (
 			(isWalkable(kind) && realms.includes('land')) || (isWater(kind) && realms.includes('water'))
 		);
+	}
+
+	/** The player cleared a tile: the world it stands in is as `edits` leave it. */
+	setEdits(edits: WorldEdits): void {
+		this.edits = edits;
 	}
 
 	private waterAt(p: GridPos): boolean {

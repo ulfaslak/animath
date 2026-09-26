@@ -476,11 +476,10 @@ describe("the doctor's tabs", () => {
 		expect(doctor.cursor).toBe(0); // every animal can go home, the fit fox too
 		t.press('d');
 		expect(doctor.tab).toBe('shop');
-		// What the catalog has on sale (the boat, since sailing works), under the shop's line.
+		// What the catalog has on sale (the axe, the pickaxe and the boat), the cursor on the first.
 		expect(doctor.line).toEqual({ say: 'shopIntro', empty: itemsForSale().length === 0 });
 		expect(doctor.shop).toEqual(itemsForSale());
 		expect(doctor.cursor).toBe(0);
-
 		t.press('ArrowRight');
 		expect(doctor.tab).toBe('heal');
 		t.press('ArrowLeft', 'a');

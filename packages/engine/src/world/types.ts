@@ -10,12 +10,21 @@ export const CHUNK_SIZE = 16;
 export type TileKind =
 	'grass' | 'tallgrass' | 'sand' | 'water' | 'deepwater' | 'rock' | 'tree' | 'tent';
 
+/** The tiles a tool can clear: a tree (the axe) and a rock (the pickaxe). See `world/edits.ts`. */
+export type ClearableKind = 'tree' | 'rock';
+
 export interface Tile {
 	kind: TileKind;
 	biome: Biome;
 	/** Ground height in tile units; water, shallow or deep, is 0, hills rise above. Purely visual for now. */
-
 	height: number;
+	/**
+	 * What a tool took from this tile: a tree chopped down or a rock broken
+	 * (`world/edits.ts`). The tile is plain ground (`grass`) from then on, and
+	 * this says what the renderer draws on it: a stump, or gravel. Absent on
+	 * every tile of the seeded world itself.
+	 */
+	cleared?: ClearableKind;
 }
 
 export interface Chunk {

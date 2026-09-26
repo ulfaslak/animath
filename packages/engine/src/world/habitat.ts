@@ -72,7 +72,6 @@ function coverOf(kind: TileKind): keyof Surroundings | null {
 		case 'water':
 		case 'deepwater':
 			return 'water';
-
 		case 'tree':
 			return 'trees';
 		case 'rock':

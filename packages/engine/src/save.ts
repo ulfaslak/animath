@@ -6,7 +6,8 @@ import { gearOf } from './items/catalog.js';
 import { bundled } from './party/bundles.js';
 import { normalizeNickname } from './party/names.js';
 import { ALL_PUZZLE_KINDS, MAX_DIFFICULTY, MIN_DIFFICULTY } from './puzzles/types.js';
-import { spawnPoint, tileAtWorld } from './world/generate.js';
+import { WorldEdits, editedTileAt, isEditsText } from './world/edits.js';
+import { spawnPoint } from './world/generate.js';
 import type { Direction, GridPos } from './world/types.js';
 import { isPassable, tileRealm } from './world/types.js';
 
@@ -59,6 +60,12 @@ export interface SavedGame {
 	items: string[];
 	/** The battle in progress, or null. Its seed is not saved: the authority derives it from `steps`. */
 	battle: BattleState | null;
+	/**
+	 * The tiles the player has cleared with a tool: `WorldEdits`' text form
+	 * (`encode`), canonical, so two games with the same edits hold the same
+	 * text. Empty in a new game.
+	 */
+	edits: string[];
 }
 
 /**
@@ -103,6 +110,14 @@ export interface SaveV1 {
 	items?: string[];
 	/** The battle in progress when it was saved. Checked on load (`readBattle`), dropped if unusable. */
 	battle?: unknown;
+	/**
+	 * The tiles the player has cleared with a tool, since the axe and the
+	 * pickaxe: `WorldEdits`' text form, within `EDITS_BUDGET` (every clear
+	 * keeps it so, and `restoreGame` trims a save that holds more). Optional,
+	 * and written only once something is cleared: a save without it has
+	 * cleared nothing.
+	 */
+	edits?: string[];
 }
 
 /** A document ready to be written: every field a write must carry is present. */
@@ -122,7 +137,8 @@ const SAVE_KEYS: ReadonlySet<string> = new Set([
 	'seq',
 	'tokens',
 	'items',
-	'battle'
+	'battle',
+	'edits'
 ]);
 
 /** Fields that say where the player is, or which write a document is — not what they have. */
@@ -266,6 +282,9 @@ function findSaveError(input: Doc): string | null {
 	if (input.lineage !== undefined && !isId(input.lineage)) {
 		return `lineage must be a string of 1–${MAX_SAVE_ID_LENGTH} characters`;
 	}
+	if (input.edits !== undefined && !isEditsText(input.edits)) {
+		return 'edits must be a list of "cx,cy:" entries with tile indices in hex, each of a chunk a save can hold';
+	}
 	return null;
 }
 
@@ -327,7 +346,7 @@ export function readSave(input: unknown): SaveRead {
 
 /**
  * A new game in world `seed`: the spawn tile, facing down, nothing walked,
- * no tokens and no items, and one animal, `starter` (the chosen one,
+ * no tokens, no items and nothing cleared, and one animal, `starter` (the chosen one,
  * `chooseStarter`'s with an id from the authority), or else the default
  * starter at full HP.
  */
@@ -345,7 +364,8 @@ export function newGame(seed: number, starter?: AnimalInstance): SavedGame {
 		],
 		tokens: 0,
 		items: [],
-		battle: null
+		battle: null,
+		edits: []
 	};
 }
 
@@ -361,10 +381,12 @@ function cleanAnimal(animal: AnimalInstance): AnimalInstance {
  * the same cleaning as a rename (`normalizeNickname`), in the party and in a
  * saved battle's party alike. Fields an older v1
  * document lacks get their defaults (facing down, no steps or visits, no
- * tokens or items; an item listed twice is owned once), and nothing in
- * it can leave the player stuck: a position the player can't be on with what
- * they own (the world generator changed under it, or water without a boat)
- * becomes the spawn tile, an HP above the
+ * tokens or items, nothing cleared; an item listed twice is owned once; the
+ * edits in their canonical text, within `EDITS_BUDGET`, trimmed round the
+ * player as a clear trims them when a save holds more), and nothing in
+ * it can leave the player stuck: a position the player can't be on, in the
+ * world as they left it, with what they own (the world generator changed
+ * under it, or water without a boat) becomes the spawn tile, an HP above the
  * species' maximum is cut to it, an empty party gets the starter, and a party
  * with nobody standing rests back to full, the same rest a lost battle gives.
  * The battle comes back only if `readBattle` accepts it where the player
@@ -379,7 +401,12 @@ function cleanAnimal(animal: AnimalInstance): AnimalInstance {
 export function restoreGame(save: SaveV1): SavedGame {
 	const { seed } = save;
 	const items = [...new Set(save.items ?? [])];
-	const here = tileAtWorld(seed, save.pos.x, save.pos.y).kind;
+	// Kept within the budget as a clear keeps it, whatever wrote the save (a hand-edited
+	// one can hold more): the chunks round the player are the last to go, and never go.
+	const edits = (save.edits ? WorldEdits.decode(save.edits) : WorldEdits.none).trimmedAround(
+		save.pos
+	).edits;
+	const here = editedTileAt(seed, edits, save.pos.x, save.pos.y).kind;
 	// Out on the water only with the boat; without it (a save from a game that
 	// somehow lost it) the player is back on the spawn tile, never stranded.
 	const standable = isPassable(here, gearOf({ items }));
@@ -400,7 +427,8 @@ export function restoreGame(save: SaveV1): SavedGame {
 		party: bundled(party),
 		tokens: save.tokens ?? 0,
 		items,
-		battle: battle && bundledBattle(battle)
+		battle: battle && bundledBattle(battle),
+		edits: [...edits.encode()]
 	};
 }
 
@@ -431,7 +459,6 @@ export function readBattle(
 	if (!isRecord(value)) return null;
 	const { step, turn, active, opponent, leashQuality, phase } = value;
 	if ((value.realm ?? 'land') !== realm) return null;
-
 	const fights = (a: AnimalInstance) => a.hp > 0 && canFightIn(a.speciesId, realm);
 	if (!isWhole(step) || !Number.isSafeInteger(turn) || (turn as number) < 1) return null;
 	if (!Array.isArray(value.party)) return null;
@@ -517,6 +544,8 @@ export function saveDocument(
 		seq: stamp.seq
 	};
 	if (game.battle) doc.battle = JSON.parse(JSON.stringify(game.battle));
+	// Only once something is cleared: a game that never used a tool saves as it did before tools.
+	if (game.edits.length > 0) doc.edits = [...game.edits];
 	return doc;
 }
 
@@ -575,14 +604,15 @@ export function sameProgress(a: SaveV1, b: SaveV1): boolean {
 }
 
 /**
- * A document with what an older save leaves unsaid said: no tokens and no
- * items. A save from before the shop holds the same progress as one that
- * writes none out.
+ * A document with what an older save leaves unsaid said: no tokens, no
+ * items, nothing cleared. A save from before the shop, or from before the
+ * tools, holds the same progress as one that writes none out.
  */
 function withProgressDefaults(doc: SaveV1): Doc {
 	const out: Doc = { ...(doc as unknown as Doc) };
 	if (out.tokens === undefined) out.tokens = 0;
 	if (out.items === undefined) out.items = [];
+	if (out.edits === undefined) out.edits = [];
 	return out;
 }
 

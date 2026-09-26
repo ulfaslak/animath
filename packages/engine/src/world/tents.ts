@@ -1,5 +1,5 @@
+import { editedTileAt, WorldEdits } from './edits.js';
 import { tileAtWorld, travelKindAt } from './generate.js';
-
 import {
 	NO_GEAR,
 	isPassable,
@@ -25,7 +25,9 @@ import {
  * (boxed in by trees, or on an island without a boat) is never the nearest.
  * The tile to stand on beside it is always ground, never water. So when a
  * knock-out takes the player to a tent, they land on ground they could have
- * got to themselves, and they can always get back.
+ * got to themselves, and they can always get back. The ground is the world
+ * as the player has left it (`world/edits.ts`): a path they chopped through
+ * the trees is a path.
  */
 
 /** How far `nearestTent` looks by default, in steps, before it gives up. */
@@ -66,12 +68,15 @@ const TOWARD_TENT: readonly Direction[] = ['up', 'right', 'left', 'down'];
  * Water is crossed with a boat, never stood on beside a tent.
  *
  * Returns `null` when no tent can be reached within `maxSteps` steps — `from`
- * is walled in, or there is simply no tent that close.
+ * is walled in, or there is simply no tent that close. `edits` are the tiles
+ * the player has cleared (none by default), `gear` what they carry (the boat
+ * crosses water).
  */
 export function nearestTent(
 	seed: number,
 	from: GridPos,
 	maxSteps: number = TENT_SEARCH_STEPS,
+	edits: WorldEdits = WorldEdits.none,
 	gear: Gear = NO_GEAR
 ): TentSpot | null {
 	if (!from || !Number.isSafeInteger(from.x) || !Number.isSafeInteger(from.y)) {
@@ -95,8 +100,11 @@ export function nearestTent(
 		const k = key(p);
 		let kind = kinds.get(k);
 		if (kind === undefined) {
-			kind = travelKindAt(seed, p.x, p.y);
-
+			// A tile the player cleared is ground; any other reads as the seed's, with
+			// deep water read as water: a boat crosses both alike.
+			kind = edits.has(p.x, p.y)
+				? editedTileAt(seed, edits, p.x, p.y).kind
+				: travelKindAt(seed, p.x, p.y);
 			kinds.set(k, kind);
 		}
 		return kind;
