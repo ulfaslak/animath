@@ -157,7 +157,10 @@ battle:
   # The highlighted attack. {attack}: its name; {level}: its level's word;
   # {kinds}: what its sums are about (the words below, in an "or" list); {damage}: how much it hits for.
   attackDetail: '{attack} on {level}: {kinds}. It hits for {damage}.'
-  # What each kind of puzzle is about, as {kinds} lists them.
+  # What a puzzle looks like to the kid, as {kinds} lists the ones an attack's
+  # puzzles can be at its level (the engine's puzzleTopics). `missing` is a
+  # number missing from a sum ("7 + ? = 12"); one missing from a times table
+  # ("7 × ? = 56") is listed as `mul`.
   kinds:
     add: adding
     sub: taking away

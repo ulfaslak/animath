@@ -4,7 +4,9 @@
 		attackDamage,
 		catchProbability,
 		getAnimal,
-		type PuzzleKind
+		puzzleDifficulty,
+		puzzleTopics,
+		type PuzzleTopic
 	} from '@mathgame/engine';
 	import { actionAt, attackRows, levelWord, rowOf } from '../battle/menu';
 	import { language, t } from '../copy';
@@ -30,9 +32,9 @@
 	/** Someone could step in; with nobody, the Switch row is greyed and says why. */
 	const canSwitch = $derived(battle.pickable.some(Boolean));
 
-	/** What a kind of puzzle is about, in the language on screen. */
-	function kindWord(kind: PuzzleKind): string {
-		switch (kind) {
+	/** What a kind of puzzle looks like to the kid, in the language on screen. */
+	function kindWord(topic: PuzzleTopic): string {
+		switch (topic) {
 			case 'add':
 				return t('battle.kinds.add');
 			case 'sub':
@@ -51,9 +53,9 @@
 	}
 
 	/** "adding, taking away, or missing numbers": the language's own "or" list. */
-	function kindWords(kinds: readonly PuzzleKind[]): string {
+	function kindWords(topics: readonly PuzzleTopic[]): string {
 		const list = new Intl.ListFormat(language.current, { type: 'disjunction' });
-		return list.format(kinds.map(kindWord));
+		return list.format(topics.map(kindWord));
 	}
 
 	/** What the highlighted row will do, in words a kid can read. */
@@ -63,7 +65,10 @@
 		if (action.kind === 'attack') {
 			const row = rows[action.index - 1]!;
 			const damage = attackDamage(spec, row.index, row.level, true);
-			const kinds = kindWords(spec.attacks[row.index - 1]!.kinds);
+			// What the puzzles at this level can actually be, from the engine: a hard
+			// missing number can sit in a times table, and then it says so.
+			const difficulty = puzzleDifficulty(spec.tier, row.index, row.level);
+			const kinds = kindWords(puzzleTopics(spec.attacks[row.index - 1]!.kinds, difficulty));
 			return t('battle.attackDetail', { attack: row.name, level: row.word, kinds, damage });
 		}
 		if (action.kind === 'leash') return t('battle.leash.detail');

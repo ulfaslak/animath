@@ -1,4 +1,4 @@
-import { ANIMALS, LINES } from '@mathgame/engine';
+import { ALL_PUZZLE_TOPICS, ANIMALS, LINES } from '@mathgame/engine';
 import { describe, expect, it } from 'vitest';
 import { FALLBACK_LANGUAGE, LANGUAGES } from '../src/copy/languages';
 import {
@@ -169,6 +169,11 @@ describe('copy files', () => {
 				problems.push(`en.yaml has ${key}, but no species ${id}`);
 		}
 		expect(problems).toEqual([]);
+	});
+
+	it('every puzzle topic has its words, so an attack can say what it asks', () => {
+		const missing = ALL_PUZZLE_TOPICS.filter((topic) => !english.has(`battle.kinds.${topic}`));
+		expect(missing).toEqual([]);
 	});
 
 	it("every line the engine can send is in English, reading exactly the engine's params", () => {
