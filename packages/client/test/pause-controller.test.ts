@@ -21,7 +21,7 @@ interface Key extends KeyboardEvent {
 
 function key(
 	name: string,
-	options: { repeat?: boolean; isComposing?: boolean; keyCode?: number } = {}
+	options: { repeat?: boolean; isComposing?: boolean; keyCode?: number; altKey?: boolean } = {}
 ): Key {
 	const event = {
 		key: name,
@@ -30,7 +30,7 @@ function key(
 		keyCode: options.keyCode ?? 0,
 		ctrlKey: false,
 		metaKey: false,
-		altKey: false,
+		altKey: options.altKey ?? false,
 		prevented: false,
 		preventDefault() {
 			event.prevented = true;
@@ -210,6 +210,13 @@ describe('pause menu', () => {
 		// A held Enter does not save.
 		controller.onKey(key('Enter', { repeat: true }));
 		expect(pause.screen).toBe('naming');
+		// Alt+Enter and Alt+Escape are the browser's, like every shortcut.
+		for (const name of ['Enter', 'Escape']) {
+			const alt = key(name, { altKey: true });
+			controller.onKey(alt);
+			expect(alt.prevented).toBe(false);
+			expect(pause.screen).toBe('naming');
+		}
 
 		press('Enter');
 		expect(sent.at(-1)).toEqual({

@@ -160,7 +160,8 @@ export class PauseController {
 	}
 
 	private namingKey(e: KeyboardEvent): void {
-		if (e.ctrlKey || e.metaKey) return; // paste, select all: the name box's own
+		// Paste, select all, Alt+Enter: the name box's and the browser's own.
+		if (isShortcut(e)) return;
 		if (e.key === 'Enter') {
 			e.preventDefault();
 			// A held Enter that opened the box must not save it straight away.
