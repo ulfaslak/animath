@@ -295,6 +295,8 @@ export class BattleController {
 
 	private leave(): void {
 		this.renderer.setBattle(null);
+		// Off screen now: the figures' geometries are freed until the next battle.
+		this.scene?.end();
 		this.latest = null;
 		this.beats = [];
 		this.wait = 0;

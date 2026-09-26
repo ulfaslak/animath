@@ -7,12 +7,35 @@ import { COLORS, TILE_COLORS } from './palette';
  * per chunk (16×16 = 256 boxes) so a screen of ~20 chunks stays a handful of
  * draw calls. Decorations (trees, rocks, tents) are small groups on top.
  *
+ * Every geometry and material here is built once and shared by every chunk:
+ * a decoration is a mesh placed, turned and scaled, never a shape of its own.
+ * So the only GPU state a chunk owns is its ground's instance buffers, which
+ * `disposeChunkGroup` frees when the chunk is dropped.
+ *
  * Coordinates: engine grid (x, y) → Three (x, height, z). +y on the grid is
  * "down" on screen, which is +z here; the camera's yaw makes that read
  * naturally.
  */
 const TILE_GEO = new THREE.BoxGeometry(1, 1, 1);
 const MATERIAL = new THREE.MeshLambertMaterial({ flatShading: true });
+
+/** One shape per prop kind, shared by every chunk (and by the battle backdrop). */
+export const PROP_GEOMETRY = {
+	trunk: new THREE.CylinderGeometry(0.1, 0.14, 0.5, 5),
+	canopy: new THREE.ConeGeometry(0.45, 1.1, 6),
+	/** Radius 1: each rock is scaled to its own size. */
+	rock: new THREE.DodecahedronGeometry(1, 0),
+	blade: new THREE.ConeGeometry(0.08, 0.35, 3),
+	tent: new THREE.ConeGeometry(0.55, 0.8, 4),
+	door: new THREE.ConeGeometry(0.2, 0.4, 4),
+	fire: new THREE.ConeGeometry(0.15, 0.3, 5)
+} as const;
+
+/** Every geometry the chunks share; `disposeChunkGroup` leaves these alone. */
+export const SHARED_GEOMETRIES: ReadonlySet<THREE.BufferGeometry> = new Set([
+	TILE_GEO,
+	...Object.values(PROP_GEOMETRY)
+]);
 
 /** Height of a tile's top face. Figures stand here; water sits below the land. */
 export function groundTop(tile: Tile): number {
@@ -51,6 +74,21 @@ export function buildChunkGroup(chunk: Chunk): THREE.Group {
 	return group;
 }
 
+/**
+ * Free the GPU state of a chunk that is no longer drawn: its ground's instance
+ * buffers and vertex arrays, any geometry of its own, and its lights. Removing
+ * the group from the scene is not enough: three.js keeps a mesh's buffers for
+ * as long as the renderer lives unless the mesh or geometry is disposed. The
+ * shared geometries and materials stay, since other chunks still draw them.
+ */
+export function disposeChunkGroup(group: THREE.Object3D): void {
+	group.traverse((o) => {
+		if (o instanceof THREE.InstancedMesh) o.dispose();
+		if (o instanceof THREE.Mesh && !SHARED_GEOMETRIES.has(o.geometry)) o.geometry.dispose();
+		if (o instanceof THREE.Light) o.dispose();
+	});
+}
+
 const trunkMat = new THREE.MeshLambertMaterial({ color: COLORS.trunk, flatShading: true });
 const canopyMat = new THREE.MeshLambertMaterial({ color: COLORS.canopy, flatShading: true });
 const canopyLightMat = new THREE.MeshLambertMaterial({
@@ -69,10 +107,10 @@ function buildDecoration(tile: Tile, x: number, z: number, top: number): THREE.O
 		case 'tree': {
 			const g = new THREE.Group();
 			const scale = 0.8 + rng.next() * 0.5;
-			const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.14, 0.5, 5), trunkMat);
+			const trunk = new THREE.Mesh(PROP_GEOMETRY.trunk, trunkMat);
 			trunk.position.y = 0.25;
 			const canopy = new THREE.Mesh(
-				new THREE.ConeGeometry(0.45, 1.1, 6),
+				PROP_GEOMETRY.canopy,
 				rng.chance(0.5) ? canopyMat : canopyLightMat
 			);
 			canopy.position.y = 0.95;
@@ -84,10 +122,8 @@ function buildDecoration(tile: Tile, x: number, z: number, top: number): THREE.O
 			return g;
 		}
 		case 'rock': {
-			const rock = new THREE.Mesh(
-				new THREE.DodecahedronGeometry(0.3 + rng.next() * 0.2, 0),
-				rockMat
-			);
+			const rock = new THREE.Mesh(PROP_GEOMETRY.rock, rockMat);
+			rock.scale.setScalar(0.3 + rng.next() * 0.2);
 			rock.position.set(x, top + 0.2, z);
 			rock.rotation.set(rng.next(), rng.next(), rng.next());
 			rock.castShadow = true;
@@ -96,7 +132,7 @@ function buildDecoration(tile: Tile, x: number, z: number, top: number): THREE.O
 		case 'tallgrass': {
 			const g = new THREE.Group();
 			for (let i = 0; i < 3; i++) {
-				const blade = new THREE.Mesh(new THREE.ConeGeometry(0.08, 0.35, 3), grassMat);
+				const blade = new THREE.Mesh(PROP_GEOMETRY.blade, grassMat);
 				blade.position.set(x + rng.next() * 0.6 - 0.3, top + 0.17, z + rng.next() * 0.6 - 0.3);
 				g.add(blade);
 			}
@@ -104,14 +140,14 @@ function buildDecoration(tile: Tile, x: number, z: number, top: number): THREE.O
 		}
 		case 'tent': {
 			const g = new THREE.Group();
-			const tent = new THREE.Mesh(new THREE.ConeGeometry(0.55, 0.8, 4), tentMat);
+			const tent = new THREE.Mesh(PROP_GEOMETRY.tent, tentMat);
 			tent.position.y = 0.4;
 			tent.rotation.y = Math.PI / 4;
 			tent.castShadow = true;
-			const door = new THREE.Mesh(new THREE.ConeGeometry(0.2, 0.4, 4), tentDoorMat);
+			const door = new THREE.Mesh(PROP_GEOMETRY.door, tentDoorMat);
 			door.position.set(0, 0.2, 0.42);
 			door.rotation.y = Math.PI / 4;
-			const fire = new THREE.Mesh(new THREE.ConeGeometry(0.15, 0.3, 5), fireMat);
+			const fire = new THREE.Mesh(PROP_GEOMETRY.fire, fireMat);
 			fire.position.set(0.9, 0.15, 0.6);
 			const light = new THREE.PointLight(COLORS.fire, 1.5, 4);
 			light.position.set(0.9, 0.6, 0.6);
