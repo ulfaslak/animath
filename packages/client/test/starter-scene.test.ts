@@ -1,4 +1,5 @@
 import { STARTERS } from '@mathgame/engine';
+import * as THREE from 'three';
 import { afterEach, describe, expect, it } from 'vitest';
 import { motion } from '../src/motion';
 import { StarterScene, liftFor } from '../src/render/starter-scene';
@@ -71,6 +72,45 @@ describe('the starter stage in its room', () => {
 			stage.setRoom({ top: 0, bottom: height });
 			for (let i = 0; i < 60; i++) stage.slide(1 / 60);
 			expect(feet(stage, height), size).toEqual(natural);
+		}
+	});
+
+	it('slides down under a card at the top until every animal, breathing and bouncing, is just below it', () => {
+		/** The highest any animal reaches on screen, over a whole bounce, in CSS pixels. */
+		const highest = (stage: StarterScene, height: number) => {
+			let top = Infinity;
+			for (let t = 0; t < 1.3; t += 0.05) {
+				stage.update(t);
+				stage.scene.updateMatrixWorld(true);
+				for (const figure of stage.scene.children.filter(
+					(c) => c.name && STARTERS.includes(c.name)
+				)) {
+					const box = new THREE.Box3().setFromObject(figure);
+					for (const x of [box.min.x, box.max.x])
+						for (const y of [box.min.y, box.max.y])
+							for (const z of [box.min.z, box.max.z]) {
+								const p = new THREE.Vector3(x, y, z).project(stage.camera);
+								top = Math.min(top, ((1 - p.y) / 2) * height);
+							}
+				}
+			}
+			return top;
+		};
+		for (const [width, height] of SIZES) {
+			const size = `${width}×${height}`;
+			for (let lit = 0; lit < STARTERS.length; lit++) {
+				const stage = shown(width, height);
+				stage.select(lit);
+				stage.setRoom({ top: 0, bottom: height });
+				// The name box on a touch screen: the card at the top, 60 px past the animals' tops.
+				const top = highest(stage, height) + 60;
+				stage.setRoom({ top, bottom: height });
+				for (let i = 0; i < 60; i++) stage.slide(1 / 60);
+				// Below the card, and no further than it must be: a few pixels of a box's corner.
+				const now = highest(stage, height);
+				expect(now, `${size}, ${STARTERS[lit]} lit`).toBeGreaterThanOrEqual(top);
+				expect(now - top, `${size}, ${STARTERS[lit]} lit`).toBeLessThan(8);
+			}
 		}
 	});
 
