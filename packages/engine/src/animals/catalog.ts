@@ -129,7 +129,7 @@ export const ANIMALS: readonly AnimalSpec[] = [
 	// frog's, the turtle the otter's, the dolphin the deer's, the octopus the
 	// wolf's, the whale the bear's), so a battle at sea is exactly as hard as
 	// one on land of its size; only what the puzzles ask is their own. The two
-	// small ones ask sums and number patterns, never a times-table sum (a hard
+	// small ones ask sums and number patterns, never a times-table sum (a
 	// pattern may double, as the rabbit's and the frog's do).
 	{
 		id: 'crab',
