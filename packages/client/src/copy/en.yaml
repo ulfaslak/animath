@@ -600,10 +600,20 @@ pause:
   pickHelp: Choose who goes first, move it, or give it a name.
   # Under the options of a tired animal, whose "Go first" is greyed.
   tiredHelp: "{animal.name} is tired, so it can't go first."
+  # Under the options, out on the water, of an animal that can't swim, whose "Go first" is greyed.
+  cantSwimHelp: "{animal.name} can't swim, so it can only go first on land."
+  # Under the options, on land, of a sea animal, whose "Go first" is greyed.
+  inTheSeaHelp: '{animal.name} lives in the sea, so it can only go first on the water.'
+  # Under the options of the animal that goes first already, whose "Go first" is greyed.
+  leadHelp: '{animal.name} already goes first.'
   # A card of several animals, under its options: its animals are listed below.
   pickOne: Pick one of them to move it or give it a name.
   # The same, when they are all tired and the card's "Go first" is greyed.
   allTiredHelp: "They are all tired, so they can't go first."
+  # The same, out on the water, when they can't swim and the card's "Go first" is greyed.
+  allCantSwimHelp: "They can't swim, so they can only go first on land."
+  # The same, on land, when they live in the sea and the card's "Go first" is greyed.
+  allInTheSeaHelp: They live in the sea, so they can only go first on the water.
   # Above the name box.
   nameTitle: New name for {animal.name}
   # Under the name box; {max} is the most characters a name can have.

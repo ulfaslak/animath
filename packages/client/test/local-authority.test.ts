@@ -1210,6 +1210,32 @@ describe('LocalAuthority: the boat', () => {
 		expect(dry.events.some((e) => e.type === 'battle-started')).toBe(false);
 	});
 
+	it('the sea recipe: a game at (-2, 2) with the otter in front meets a Turtle on step 11, Left and Right in turn', () => {
+		// [[CHEATSHEET]] § The sea animals and [[DEVELOPMENT]] § Looking at the game say so: change them
+		// with it. A game saved on the deep water with no steps walked yet: the steps are what the roll reads.
+		const authority = new LocalAuthority();
+		const events: GameEvent[] = [];
+		authority.subscribe((e) => events.push(e));
+		authority.start({
+			game: {
+				...newGame(WORLD_SEED),
+				pos: { x: -2, y: 2 },
+				party: [animal('otter'), animal('squirrel')],
+				items: ['boat']
+			}
+		});
+		const sea = { authority, events };
+		const met: { step: number; wild: string }[] = [];
+		for (let step = 1; step <= 11; step++) {
+			const from = sea.events.length;
+			move(sea, step % 2 === 1 ? 'left' : 'right');
+			for (const e of sea.events.slice(from)) {
+				if (e.type === 'battle-started') met.push({ step, wild: e.state.opponent.speciesId });
+			}
+		}
+		expect(met).toEqual([{ step: 11, wild: 'turtle' }]);
+	});
+
 	it('out on the water only an animal that swims goes first; the refusal names the one that can’t', () => {
 		const s = withItems(['boat'], [animal('squirrel'), animal('otter')]);
 		const [squirrel, otter] = party(s);

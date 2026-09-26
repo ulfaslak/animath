@@ -1,4 +1,12 @@
-import { bundles, type GameEvent, type Intent } from '@mathgame/engine';
+import {
+	applyPartyIntent,
+	bundled,
+	bundles,
+	type GameEvent,
+	type Intent,
+	type PartyIntent,
+	type Realm
+} from '@mathgame/engine';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import type { CueName } from '../src/audio/cues';
 import { sfx } from '../src/audio/sfx.svelte';
@@ -8,7 +16,15 @@ import { parseParty } from '../src/flags';
 import { languageKey, optionKey, rowKey } from '../src/input/press';
 import { PauseController } from '../src/pause/controller';
 import { game } from '../src/state/game.svelte';
-import { MENU_ITEMS, pause } from '../src/state/pause.svelte';
+import {
+	MENU_ITEMS,
+	bundleOptions,
+	partyOptions,
+	pause,
+	whyCardNotFirst,
+	whyNotFirst,
+	type NotFirst
+} from '../src/state/pause.svelte';
 
 /**
  * The pause menu's keys against the real authority: what each key does on
@@ -311,6 +327,57 @@ describe('pause menu', () => {
  * a language on the Language row its language key, and the name box's Save
  * and Back are Enter and Escape.
  */
+describe('why "Go first" is greyed', () => {
+	/** The engine's refusal of a lead, as the panel names it. */
+	function refusal(party: ReturnType<typeof bundled>, intent: PartyIntent, realm: Realm) {
+		const [event] = applyPartyIntent(party, intent, 'explore', realm).events;
+		if (event?.type !== 'rejected') return null;
+		const reasons: Record<string, NotFirst> = {
+			'cannot-fight-here': realm === 'water' ? 'cantSwim' : 'inTheSea',
+			tired: 'tired',
+			'already-lead': 'already'
+		};
+		return reasons[event.reason] ?? event.reason;
+	}
+
+	it('every greyed Go first has a reason, the one the engine refuses with, for an animal and a card', () => {
+		const teams = [
+			'squirrel,rabbit:0,crab,otter:0,whale*2,frog',
+			'otter,squirrel*3,crab:0,frog:0*2',
+			'rabbit:0,starfish,turtle:0,fox',
+			'squirrel'
+		];
+		for (const team of teams) {
+			const party = bundled(parseParty(team)!);
+			for (const realm of ['land', 'water'] as const) {
+				party.forEach((animal, i) => {
+					const why = whyNotFirst(party, i, realm);
+					const at = `${team} ${realm} #${i}`;
+					expect(partyOptions(party, i, realm)[0]!.enabled, at).toBe(why === null);
+					const intent = { type: 'select-lead', animalId: animal.id } as const;
+					expect(why, at).toBe(refusal(party, intent, realm));
+				});
+				for (const { speciesId } of bundles(party)) {
+					const why = whyCardNotFirst(party, speciesId, realm);
+					const at = `${team} ${realm} ${speciesId}`;
+					expect(bundleOptions(party, speciesId, realm)[0]!.enabled, at).toBe(why === null);
+					expect(why, at).toBe(refusal(party, { type: 'lead-species', speciesId }, realm));
+				}
+			}
+		}
+	});
+
+	it('says the sea first: a tired squirrel out on the water can’t swim, a tired crab on land lives in the sea', () => {
+		const party = bundled(parseParty('otter,squirrel:0,crab:0')!);
+		const index = (id: string) => party.findIndex((a) => a.speciesId === id);
+		expect(whyNotFirst(party, index('squirrel'), 'water')).toBe('cantSwim');
+		expect(whyNotFirst(party, index('squirrel'), 'land')).toBe('tired');
+		expect(whyNotFirst(party, index('crab'), 'land')).toBe('inTheSea');
+		expect(whyNotFirst(party, index('crab'), 'water')).toBe('tired');
+		expect(whyNotFirst(party, index('otter'), 'water')).toBe('already');
+	});
+});
+
 describe('pause menu with cards of several animals', () => {
 	it("opens a card's screen: its options, then its animals, the cursor skipping what can't be done", () => {
 		const { press, cards } = setup('squirrel,rabbit*3,fox');

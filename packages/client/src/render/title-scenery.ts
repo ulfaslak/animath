@@ -14,7 +14,7 @@ import { motion } from '../motion';
 import { buildAnimalMesh, disposeFigure } from './animals';
 import { SWIM_DEPTH } from './follower';
 import type { GameRenderer } from './renderer';
-import { StarterScene } from './starter-scene';
+import { StarterScene, type StarterRoom } from './starter-scene';
 import { WATER_TOP, groundTop } from './tiles';
 
 /**
@@ -64,7 +64,13 @@ export interface TitleView3D {
 	cheer(index: number): void;
 	/** Where each starter's feet are on screen, as fractions of the canvas. */
 	spots(): { x: number; y: number }[];
-	/** Advance the drift; `dt` is seconds of frame time. */
+	/**
+	 * The band of the screen the starters keep to, in CSS pixels from its
+	 * top, as the starter screen measured it (null: anywhere). The row slides
+	 * there, as `update` is called.
+	 */
+	setRoom(room: StarterRoom | null): void;
+	/** Advance the drift, and the starters' slide into their room; `dt` is seconds of frame time. */
 	update(dt: number): void;
 	/** The game starts: back to the world, the title's animals gone. */
 	hide(): void;
@@ -139,7 +145,12 @@ export class TitleScenery implements TitleView3D {
 		return this.stage?.spots() ?? [];
 	}
 
+	setRoom(room: StarterRoom | null): void {
+		this.stage?.setRoom(room);
+	}
+
 	update(dt: number): void {
+		this.stage?.slide(dt);
 		// With reduced motion the camera holds still, wherever the drift had got to.
 		if (!motion.reduced) this.t += dt;
 		const aside = TRAINER_AT * VIEW_HEIGHT_TILES * this.renderer.aspect();

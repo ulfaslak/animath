@@ -103,6 +103,36 @@ describe('the line about who goes first', () => {
 		expect(game.party[0]!.speciesId).toBe('squirrel');
 	});
 
+	it('on land, a sea animal’s card put at the top says why it still doesn’t go first', () => {
+		const { edit } = setup('squirrel,rabbit,crab,whale*2');
+		const cues: CueName[] = [];
+		const stop = sfx.onCue((cue) => cues.push(cue));
+		// Dropped at the top, or moved up to it in the pause menu: on top, and the squirrel leads.
+		edit({ type: 'move-species', speciesId: 'crab', to: 0 });
+		expect(game.party[0]!.speciesId).toBe('crab');
+		expect(hud.message).toBe(t('party.leadInTheSea', { animal: 'Crab' }));
+		edit({ type: 'move-species', speciesId: 'whale', to: 0 });
+		expect(hud.message).toBe(
+			t('party.leadInTheSea', { animal: animalWords({ speciesId: 'whale' }) })
+		);
+		// A refusal, heard as none: no ding.
+		expect(cues).toEqual([]);
+		stop();
+		// Anywhere below the top it makes no promise, and says nothing new.
+		edit({
+			type: 'rename',
+			animalId: game.party.find((a) => a.speciesId === 'rabbit')!.id,
+			nickname: 'Hop'
+		});
+		edit({ type: 'move-species', speciesId: 'crab', to: 2 });
+		expect(hud.message).toBe(
+			t('party.leadInTheSea', { animal: animalWords({ speciesId: 'whale' }) })
+		);
+		// A land animal's card at the top goes first, as ever.
+		edit({ type: 'move-species', speciesId: 'rabbit', to: 0 });
+		expect(hud.message).toBe(chosen('Hop'));
+	});
+
 	it('a new lead dings with its line; a refusal, or an edit that keeps the lead, is quiet', () => {
 		const { edit } = setup('squirrel,rabbit:0,fox');
 		const [squirrel, rabbit, fox] = game.party;
@@ -179,5 +209,19 @@ describe('leadNotice', () => {
 		const tired = party(['rabbit', 0], ['rabbit', 0], ['fox', 30]);
 		const back = { type: 'species-moved', speciesId: 'rabbit', from: 1, to: 0 } as const;
 		expect(leadNotice(tired, [back])).toBeNull();
+	});
+
+	it('out on the water, a card that can’t swim put at the top says so; one that swims goes first', () => {
+		const party = (...kinds: [string, number][]): AnimalInstance[] =>
+			kinds.map(([speciesId, hp], i) => ({ id: `${speciesId}${i}`, speciesId, hp }));
+		const after = party(['squirrel', 20], ['otter', 32], ['frog', 21]);
+		const up = { type: 'species-moved', speciesId: 'squirrel', from: 2, to: 0 } as const;
+		expect(leadNotice(after, [up], 'water')).toEqual({ lead: 'cantSwim', speciesId: 'squirrel' });
+		// The same card on land leads.
+		expect(leadNotice(after, [up], 'land')).toEqual({ lead: 'chosen', animalId: 'squirrel0' });
+		// The frog's card put above the otter's, out on the water: the frog leads there now.
+		const frogUp = party(['frog', 21], ['otter', 32], ['squirrel', 20]);
+		const moved = { type: 'species-moved', speciesId: 'frog', from: 2, to: 0 } as const;
+		expect(leadNotice(frogUp, [moved], 'water')).toEqual({ lead: 'chosen', animalId: 'frog0' });
 	});
 });

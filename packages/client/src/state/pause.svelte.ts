@@ -67,10 +67,46 @@ export interface OptionRow<T extends string> {
 }
 
 /**
+ * Why "Go first" is greyed, said under the options so a kid knows: the
+ * animal can't go first where the player stands (out on the water it can't
+ * swim, `cantSwim`; on land it lives in the sea, `inTheSea`), it is tired, or
+ * it goes first already. The first that holds, in the order the engine
+ * refuses in, so the panel says what the number key's line says.
+ */
+export type NotFirst = 'cantSwim' | 'inTheSea' | 'tired' | 'already';
+
+/** Why the animal in slot `index` can't go first where the player stands in `realm`; null if it can. */
+export function whyNotFirst(
+	party: readonly AnimalInstance[],
+	index: number,
+	realm: Realm = 'land'
+): NotFirst | null {
+	const animal = party[index];
+	if (!animal) return null;
+	if (!canFightIn(animal.speciesId, realm)) return realm === 'water' ? 'cantSwim' : 'inTheSea';
+	if (animal.hp <= 0) return 'tired';
+	return leadIndex(party, realm) === index ? 'already' : null;
+}
+
+/** Why the card of `speciesId` can't go first where the player stands in `realm`; null if it can. */
+export function whyCardNotFirst(
+	party: readonly AnimalInstance[],
+	speciesId: string,
+	realm: Realm = 'land'
+): NotFirst | null {
+	const bundle = bundles(party).find((b) => b.speciesId === speciesId);
+	if (!bundle) return null;
+	if (!canFightIn(speciesId, realm)) return realm === 'water' ? 'cantSwim' : 'inTheSea';
+	if (!bundle.animals.some((a) => a.hp > 0)) return 'tired';
+	return party[leadIndex(party, realm)]?.speciesId === speciesId ? 'already' : null;
+}
+
+/**
  * What can be done with the animal in slot `index`, where the player stands
  * in `realm`. "Go first" is the engine's `select-lead`, so it is offered only
- * where that would be accepted: the animal can fight there (out on the water,
- * it swims), is not tired and does not lead there already. Moving is
+ * where that would be accepted (`whyNotFirst`): the animal can fight there
+ * (out on the water, it swims), is not tired and does not lead there
+ * already. Moving is
  * within its card when the card holds others of its kind (the engine's
  * `reorder`), and the card itself when the animal is alone on it
  * (`move-species`), so it is greyed at the end it can't go past.
@@ -87,14 +123,7 @@ export function partyOptions(
 	const alone = bundle?.animals.length === 1;
 	const at = bundle ? bundle.slots.indexOf(index) : -1;
 	return [
-		{
-			id: 'first',
-			enabled:
-				!!animal &&
-				animal.hp > 0 &&
-				canFightIn(animal.speciesId, realm) &&
-				leadIndex(party, realm) !== index
-		},
+		{ id: 'first', enabled: !!animal && whyNotFirst(party, index, realm) === null },
 		{ id: 'up', enabled: alone ? place > 0 : at > 0 },
 		{
 			id: 'down',
@@ -136,7 +165,8 @@ export function cardRows(
  * What can be done with the card of `speciesId`, where the player stands in
  * `realm`: go first (the engine's `lead-species`, offered while the species
  * can fight there, one of its animals stands and none of them leads there
- * already), move up or down among the cards (`move-species`), back.
+ * already: `whyCardNotFirst`), move up or down among the cards
+ * (`move-species`), back.
  */
 export function bundleOptions(
 	party: readonly AnimalInstance[],
@@ -146,16 +176,8 @@ export function bundleOptions(
 	const list = bundles(party);
 	const place = list.findIndex((b) => b.speciesId === speciesId);
 	const bundle = list[place];
-	const lead = party[leadIndex(party, realm)];
 	return [
-		{
-			id: 'first',
-			enabled:
-				!!bundle &&
-				canFightIn(speciesId, realm) &&
-				bundle.animals.some((a) => a.hp > 0) &&
-				lead?.speciesId !== speciesId
-		},
+		{ id: 'first', enabled: !!bundle && whyCardNotFirst(party, speciesId, realm) === null },
 		{ id: 'up', enabled: place > 0 },
 		{ id: 'down', enabled: place >= 0 && place < list.length - 1 },
 		{ id: 'back', enabled: true }

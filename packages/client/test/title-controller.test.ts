@@ -75,6 +75,7 @@ class FakeScenery implements TitleView3D {
 	spots(): { x: number; y: number }[] {
 		return STARTERS.map((_, i) => ({ x: (i + 1) / (STARTERS.length + 1), y: 0.5 }));
 	}
+	setRoom(): void {}
 	update(): void {}
 	hide(): void {
 		this.shown.push('hide');
