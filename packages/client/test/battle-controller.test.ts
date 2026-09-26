@@ -15,8 +15,15 @@ import {
 	type SavedGame
 } from '@mathgame/engine';
 import { beforeEach, describe, expect, it } from 'vitest';
+import type { CueName } from '../src/audio/cues';
+import { sfx } from '../src/audio/sfx.svelte';
 import { LocalAuthority } from '../src/authority/local';
-import { BattleController, MENU_GUARD_SECONDS } from '../src/battle/controller';
+import {
+	BattleController,
+	ENTER_SECONDS,
+	IRIS_OPEN_SECONDS,
+	MENU_GUARD_SECONDS
+} from '../src/battle/controller';
 import { actionAt, attackRows, rowOf } from '../src/battle/menu';
 import { parseParty } from '../src/flags';
 import { levelKey, rowKey } from '../src/input/press';
@@ -61,6 +68,9 @@ function said(): string {
 /** A closing line that arrives after its battle is over. */
 const LATE = { key: 'battle.closing.fled', params: { animal: { speciesId: 'fox' } } } as const;
 
+/** The previous test's cue listener, dropped when the next one starts listening. */
+let stopListening: (() => void) | undefined;
+
 /** A save round trip, as a reload does it: JSON through storage, then restored. */
 function throughSave(game: SavedGame): SavedGame {
 	const doc = saveDocument(game, { lineage: 'test', seq: 1 });
@@ -73,7 +83,14 @@ function throughSave(game: SavedGame): SavedGame {
 function setup(from: { party?: string; game?: SavedGame } = {}) {
 	const authority = new LocalAuthority(from.party ? { party: parseParty(from.party)! } : {});
 	const shown: unknown[] = [];
-	const renderer = { setBattle: (scene: unknown) => shown.push(scene) } as unknown as GameRenderer;
+	const renderer = {
+		setBattle: (scene: unknown) => shown.push(scene),
+		playerScreenPoint: () => ({ x: 640, y: 380 })
+	} as unknown as GameRenderer;
+	// Every cue the screen asks for, in order (no sound in tests: nothing unlocks it).
+	const cues: CueName[] = [];
+	stopListening?.();
+	stopListening = sfx.onCue((cue) => cues.push(cue));
 	const controller = new BattleController(authority, renderer);
 	const events: GameEvent[] = [];
 	const sent: Intent[] = [];
@@ -227,6 +244,7 @@ function setup(from: { party?: string; game?: SavedGame } = {}) {
 		events,
 		sent,
 		shown,
+		cues,
 		run,
 		runUntil,
 		press,
@@ -253,7 +271,7 @@ describe('battle screen', () => {
 		t.walkIntoBattle();
 		expect(battle.entering).toBe(true);
 		expect(t.shown).toEqual([]);
-		t.run(0.4);
+		t.run(ENTER_SECONDS + 0.05);
 		expect(battle.entering).toBe(false);
 		expect(t.shown).toHaveLength(1);
 		expect(said()).toBe(`A wild ${name(battle.opponent!)} appears!`);
@@ -261,6 +279,32 @@ describe('battle screen', () => {
 		t.run(3);
 		expect(battle.screen).toBe('actions');
 		expect(said()).toBe('What will Squirrel do?');
+	});
+
+	it('closes an iris on the player, then opens it on the wild animal while the first line reads', () => {
+		const t = setup();
+		t.walkIntoBattle();
+		expect(t.cues).toEqual(['encounter']);
+		expect(battle.transition).toEqual({ kind: 'iris', closing: true, p: 0, x: 640, y: 380 });
+		t.run(ENTER_SECONDS * 0.5);
+		const closing = battle.transition!;
+		expect(closing.closing).toBe(true);
+		expect(closing.p).toBeGreaterThan(0.3);
+		expect(closing.p).toBeLessThan(1);
+		// Closed: the battle scene takes over and the iris opens on the wild animal.
+		t.run(ENTER_SECONDS * 0.5 + 0.05);
+		expect(t.shown).toHaveLength(1);
+		expect(battle.transition).toMatchObject({ kind: 'iris', closing: false });
+		expect(said()).toBe(`A wild ${name(battle.opponent!)} appears!`);
+		t.run(IRIS_OPEN_SECONDS + 0.05);
+		expect(battle.transition).toBeNull();
+		// Leaving never leaves a transition behind.
+		t.toMenu();
+		t.press('ArrowUp', 'Enter'); // Run
+		t.runUntil(() => battle.screen === 'result');
+		t.run(1);
+		t.press('Enter');
+		expect(battle.transition).toBeNull();
 	});
 
 	it('ignores a key held down from walking and every key while a turn plays', () => {
@@ -851,5 +895,100 @@ describe('a full team', () => {
 		// Leaving the card forgets it.
 		t.leaveResult();
 		expect(battle.letGo).toBe(false);
+	});
+});
+
+describe('sounds', () => {
+	/** Answer the puzzle on screen, right or wrong. */
+	const answer = (t: ReturnType<typeof setup>, right: boolean) => {
+		const correct = battle.puzzle!.answer;
+		t.press(...String(right ? correct : correct + 1), 'Enter');
+	};
+
+	it('each cue plays with the moment on screen it goes with', () => {
+		const t = setup();
+		t.walkIntoBattle();
+		t.toMenu();
+		expect(t.cues).toEqual(['encounter']);
+
+		// The menu: a blip per move, the level's blip a step higher, a confirm to attack.
+		t.press('ArrowDown', 'ArrowUp');
+		expect(t.cues.slice(1)).toEqual(['move', 'move']);
+		t.press('ArrowRight');
+		expect(t.cues.at(-1)).toBe('move');
+		t.cues.length = 0;
+		t.press('3');
+		expect(t.cues).toEqual(['confirm']);
+
+		// Typing is quiet; "Correct!" chimes, and the hit thumps with its damage.
+		t.press(...String(battle.puzzle!.answer));
+		expect(t.cues).toEqual(['confirm']);
+		t.press('Enter');
+		expect(battle.judged).toEqual({ correct: true });
+		expect(t.cues).toEqual(['confirm', 'correct']);
+		t.runUntil(() => battle.hit !== null);
+		expect(t.cues.at(-1)).toBe('hit');
+	});
+
+	it('a guarded or mashed pick makes no sound', () => {
+		const t = setup();
+		t.walkIntoBattle();
+		t.runUntil(() => battle.screen === 'actions');
+		t.cues.length = 0;
+		t.press('Enter'); // before the kid has seen the menu: ignored, and silent
+		expect(t.cues).toEqual([]);
+		t.pressEvery(0.25, 'Enter', 'Enter', 'Enter'); // a mash, past the guard: silent too
+		expect(t.cues).toEqual([]);
+	});
+
+	it('a miss bonks, the leash whooshes and ticks, then holds or springs free', () => {
+		const t = setup();
+		t.walkIntoBattle();
+		t.toMenu();
+		t.press('1');
+		t.cues.length = 0;
+		answer(t, false);
+		expect(t.cues).toEqual(['wrong']);
+		t.toMenu();
+
+		const spec = getAnimal(t.latest().party[t.latest().active]!.speciesId);
+		t.cues.length = 0;
+		for (let i = 0; i < spec.attacks.length; i++) t.press('ArrowDown'); // to Leash
+		t.press('Enter');
+		expect(t.cues).toEqual([
+			...Array(spec.attacks.length).fill('move'),
+			'confirm',
+			'throw',
+			'wobble'
+		]);
+		const thrown = t.events
+			.flatMap((e) => (e.type === 'battle-updated' ? e.events : []))
+			.find((e) => e.type === 'leash-thrown');
+		expect(thrown).toBeDefined();
+		// The loop holds or pops off 1.8 s after the throw, with its own sound.
+		t.run(1.2);
+		expect(t.cues.at(-1)).toBe('wobble');
+		t.run(0.4);
+		expect(t.cues.at(-1)).toBe(thrown!.success ? 'caught' : 'boing');
+	});
+
+	it('a win ends on a fanfare with the result card, and leaving it confirms', () => {
+		const t = setup();
+		t.walkIntoBattle();
+		const over = () => battle.screen === 'result';
+		for (let turn = 0; ; turn++) {
+			if (turn > 10) throw new Error('no win');
+			t.runUntil(() => battle.screen === 'actions' || over(), 30);
+			if (over()) break;
+			t.run(MENU_GUARD_SECONDS);
+			t.press('3'); // the first attack, hard
+			answer(t, true);
+		}
+		expect(battle.outcome).toBe('won');
+		expect(t.cues).toContain('faint');
+		expect(t.cues.at(-1)).toBe('won');
+		t.run(1);
+		t.press('Enter');
+		expect(t.cues.at(-1)).toBe('confirm');
 	});
 });

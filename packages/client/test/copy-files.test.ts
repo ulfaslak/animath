@@ -144,7 +144,8 @@ describe('copy files', () => {
 			}
 		}
 		expect(problems).toEqual([]);
-	});
+		// About 1 s alone (every client source file parsed with TypeScript); over 5 s under a heavy load.
+	}, 30_000);
 
 	it('every species in the catalog has every form, and a name for every attack', () => {
 		const problems: string[] = [];

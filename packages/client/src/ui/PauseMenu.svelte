@@ -2,6 +2,7 @@
 	import { MAX_NICKNAME_LENGTH, getAnimal, leadIndex, normalizeNickname } from '@mathgame/engine';
 	import { flushSync } from 'svelte';
 	import { flip } from 'svelte/animate';
+	import { sfx } from '../audio/sfx.svelte';
 	import { LANGUAGES, language, languageName, t } from '../copy';
 	import { languageKey, press, rowKey, unfocusable } from '../input/press';
 	import { touch } from '../input/touch.svelte';
@@ -15,11 +16,14 @@
 		type PartyOption
 	} from '../state/pause.svelte';
 	import HpBar from './HpBar.svelte';
+	import Switch from './Switch.svelte';
 
 	/**
 	 * The pause menu: the team in battle order on the left, then the menu
-	 * items; on the right, what can be done with the picked animal — the
-	 * options, or the name box. It reads `game.party` and `pause`; keys are
+	 * items (the settings — Language with every language in its own words,
+	 * Sound with its switch — then "Keep playing"); on the right, what can be
+	 * done with the picked animal — the options, or the name box. It reads
+	 * `game.party`, `pause`, `language` and `sfx.on`; keys are
 	 * `PauseController`'s, so nothing here dispatches. The name box binds
 	 * `pause.draft` and keeps the focus while it is open, so typing lands in it.
 	 * Every word comes from the copy files (`pause.*`, `hud.*`).
@@ -39,6 +43,8 @@
 	const options = $derived(pickedIndex >= 0 ? partyOptions(game.party, pickedIndex) : []);
 	/** The team row that is lit: the cursor, or the picked animal while its options are open. */
 	const lit = $derived(pause.screen === 'list' ? pause.cursor : pickedIndex);
+	/** The cursor is on the Sound row: the right side says what it does, and that M does it too. */
+	const soundLit = $derived(MENU_ITEMS[pause.cursor - game.party.length] === 'sound');
 
 	/** What the typed name will turn into, when that is not just what the box shows. */
 	const preview = $derived.by(() => {
@@ -53,6 +59,10 @@
 				return t('pause.language');
 			case 'resume':
 				return t('pause.resume');
+			case 'quit':
+				return t('pause.quit');
+			case 'sound':
+				return t('pause.sound');
 		}
 	}
 
@@ -167,8 +177,13 @@
 									</span>
 								{/each}
 							</span>
+						{:else if item === 'sound'}
+							<!-- A setting: its name, a switch, and the switch's state in words. -->
+							<span class="setting">{itemLabel(item)}</span>
+							<Switch on={sfx.on} />
+							<span class="setting-state">{sfx.on ? t('pause.soundOn') : t('pause.soundOff')}</span>
 						{:else}
-							<span class="button">{itemLabel(item)}</span>
+							<span class="button" class:secondary={item !== 'resume'}>{itemLabel(item)}</span>
 						{/if}
 					</button>
 				{/each}
@@ -231,6 +246,9 @@
 							{t('pause.save')}
 						</button>
 					</div>
+				{:else if pause.screen === 'list' && soundLit}
+					<div class="side-title">{t('pause.sound')}</div>
+					<div class="note">{t('pause.soundHelp')}</div>
 				{:else}
 					<div class="soft">{t('pause.pick')}</div>
 					<div class="note">{t('pause.pickHelp')}</div>
@@ -242,6 +260,8 @@
 			<div class="keys">
 				{#if pause.screen === 'list' && MENU_ITEMS[pause.cursor - game.party.length] === 'language'}
 					{t('pause.keysLanguage')}
+				{:else if pause.screen === 'list' && soundLit}
+					{t('pause.keysSound')}
 				{:else if pause.screen === 'list'}
 					{t('pause.keysList')}
 				{:else if pause.screen === 'options'}
@@ -432,6 +452,15 @@
 	.pill.save {
 		background: var(--accent);
 		color: white;
+	}
+	/* The primary action is Keep playing; the others are quieter pills. */
+	.button.secondary {
+		background: rgba(0, 0, 0, 0.08);
+		color: var(--panel-ink);
+	}
+	.setting-state {
+		min-width: 3em;
+		text-align: left;
 	}
 	.side {
 		background: rgba(0, 0, 0, 0.04);

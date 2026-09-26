@@ -40,7 +40,7 @@ Two modes only, borrowed from the Game Boy games: **Explore** and **Battle**. Fi
 - **Animals have no levels.** A species' strength is entirely its attack table and HP. Tier is a label for "how fierce", used to scale puzzles and catch odds.
 - Attacks are ordered weakest to strongest, n = 1..N. Each attack can be used at level 1, 2 or 3.
 - **Damage** grows with both: `damage(n, level) = power_n × [1, 1.6, 2.4][level]`, rounded. Attack N at level 3 is the species' hardest hit; attack 1 at level 1 its softest. Within a species `power` strictly increases with n.
-- **Puzzle difficulty** grows the same way: `difficulty(tier, n, level) = base[tier] + 0.75·(n−1) + (level−1)`, clamped to 1..10, with `base = [1, 2, 4, 5, 7]` for tiers 1–5. So a squirrel asks difficulty 1–4 and a bear 7–10.
+- **Puzzle difficulty** grows the same way. An attack's easy level asks `base[tier] + 0.75·(n−1)`, rounded, with `base = [1, 2, 4, 5, 7]` for tiers 1–5, but never more than 8; each level up asks exactly one more: `difficulty(tier, n, level) = min(round(base[tier] + 0.75·(n−1)), 8) + (level−1)`. So a squirrel asks difficulty 1–4 and a bear 7–10, and every level of an attack asks one difficulty more than the one below it, all the way to 10: medium and hard never ask at the same difficulty. Neighbouring difficulties can still share a puzzle now and then ("Puzzles" below promises bigger numbers two difficulties apart), so a harder level asks harder sums on average, not every time. The cap of 8 only reaches the bear's two strongest attacks, Maul and Crush, which ask 8, 9 and 10 (they asked 9, 10 and 10 before it, #32): their easy and medium each got a step easier for the same damage. Four attacks in the bear's four difficulties must share ladders. Roar, Maul and Crush all ask 8, 9 and 10, so at a given difficulty only the kind of sum and the damage set them apart, and Crush hits hardest.
 - Tier ladder in the prototype catalog: squirrel, rabbit, frog (1) · fox, otter (2) · deer (3) · wolf (4) · bear (5). Don't face a bear with a squirrel.
 - Each animal has its own mix of puzzles. The squirrel and the rabbit ask sums (adding, taking away, missing numbers; the rabbit's strongest attack a number pattern). The frog counts in hops: its weakest attack asks number patterns, the other two times tables (the strongest either). It lives in the river reeds and sits between the squirrel and the rabbit: 21 HP, attacks of power 4, 5 and 7.
 
@@ -109,7 +109,11 @@ Two modes only, borrowed from the Game Boy games: **Explore** and **Battle**. Fi
 
 ### Starting out
 
-A new player starts with one tier-1 animal (a squirrel in the prototype). A starter choice of three is planned: the squirrel, the rabbit and the frog, the catalog's three tier-1 animals.
+- The game opens on a **title screen**: Continue (when there is a saved game) and New game.
+- **New game** lets the player pick their first animal from the **starters**: every tier-1 species (the squirrel, the rabbit and the frog in the prototype; a species added at tier 1 is a starter too). The picked animal can be given a name, or none; the name is cleaned like any nickname (§4 "Party"). The game starts at the spawn tile, facing down, with that one animal at full HP, nothing walked and no doctor visited.
+- Every starter is the same size, so every starter meets the same animals on the same steps.
+- A game started without a choice (`?new`, `?party=`, `?zoo`, a throwaway game) starts with a squirrel, or the `?party=` party.
+- **New game while a game is saved** asks first, and the answer starts on "No". Starting over puts the saved game away: it is kept in the browser and on the server, never deleted, but the game has no way to go back to it; that is a job for the human ([[DEVELOPMENT]] § Database).
 
 ### Saving
 
@@ -117,8 +121,9 @@ A new player starts with one tier-1 animal (a squirrel in the prototype). A star
 - **A reload is not an escape.** A battle in progress is saved too: a reload picks it up with the same wild animal, the same HP, and the same puzzle if one was up. The step count is saved, so the animals ahead on a walk stay the ones they were; reloading never rerolls an encounter, a puzzle or a throw.
 - **A backup on the server.** Each player's save is also copied to the server, in the background, when the server can be reached. A browser that still knows the player but has lost its save gets the game back from there. The game never waits on the server, and plays and saves the same without it.
 - **Two windows.** Both show the same game. A window that falls behind a catch, a battle or anything else made in the other one reloads into the newer game when you look at it, so nothing is ever rolled back. Walking around in both is fine: the window you play in carries on from where you are.
-- **A save that won't load** starts a new game with a message ("Your saved game didn't load, so here is a new one."). The old save is kept: it stays where it was until you have played the new game (a battle, a catch), then it is set aside, never deleted. A save made by a newer version of the game is left alone, and this page asks for a reload.
-- **Starting fresh** is clearing the site's data in the browser; nothing in the game deletes a save. `?new` in the address plays a new game that is saved nowhere, leaving the saved one alone.
+- **A save that won't load** leaves the title with New game only, and the new game starts with a message ("Your saved game didn't load, so here is a new one."). The old save is kept: it stays where it was until you have picked a starter, then it is set aside, never deleted. A save made by a newer version of the game is left alone, and the title asks for a reload.
+- **Starting fresh** is New game on the title (§4 "Starting out"): the saved game is put away, not deleted. Nothing in the game deletes a save; clearing the site's data in the browser does. `?new` in the address plays a new game that is saved nowhere, leaving the saved one alone.
+- **Quit to title** (the pause menu's Start screen row) saves the game as it stands and goes back to the title, where Continue picks it up exactly there.
 
 ### Multiplayer (future, shapes today's architecture)
 
@@ -131,15 +136,21 @@ A new player starts with one tier-1 animal (a squirrel in the prototype). A star
 
 What is built and observable today. Keep current: add a bullet when a feature ships, remove it when one is deleted, move items up from §6 as they land.
 
+### Title
+
+- The title screen comes first ([[UI_SPEC]] § Title): "Animath" in big bouncing letters over the world where the game stands, the trainer and the team (or, for a new player, the starters) breathing beside it, the camera drifting slowly. Continue (with the saved team's first animal and how many there are), New game, and the Language and Sound settings.
+- New game shows the starters side by side, big, each with the kinds of sums its attacks ask; the kid picks one with the arrows and Enter, and names it or not. With a saved game, New game asks first ("Start a new game?"), and only a deliberate "Yes" starts over.
+- Quit to title: the pause menu's Start screen row saves and goes back to the title; Continue carries on from the same spot.
+
 ### Explore
 
 - Procedural chunked world with four biomes, water, sand, tall grass (including reeds on river banks), trees, rocks and doctor tents, rendered low-poly with a fixed camera.
 - Grid movement with arrow keys / WASD (Caps Lock or not); blocked tiles (water, rock, trees, doctor tents) stop you; a tap always moves one tile. Browser shortcuts (Cmd+D, Ctrl+S) are left to the browser.
-- The player is a small trainer figure — a kid in a cap — that faces the way it walks, stands on top of hills and breathes while idle.
+- The player is a small trainer figure — a kid in a cap — that faces the way it walks, swings its arms and legs with every step, stands on top of hills and breathes while idle.
 - A crude but recognisable low-poly figure for every species, built from primitives with one exaggerated tell each. They fight in battles; the `?zoo` line-up (see [[CHEATSHEET]]) shows them all at once.
 - Party HUD: one card per animal in battle order with its number key, its name (nickname if it has one) and an HP bar with numbers; a knocked-out animal is greyed with a "tired" tag, and the lead is outlined and tagged "goes first".
 - Choosing the lead from explore: the number keys pick who goes first (§4 "Party"); a tired animal can't go first, and the message line says so.
-- Pause menu (Escape in explore): the team in battle order, where an animal can go first, move up or down, or get a nickname typed in a name box. Walking waits while it is open.
+- Pause menu (Escape in explore): the team in battle order, where an animal can go first, move up or down, or get a nickname typed in a name box, then the Language and Sound settings, "Keep playing" and "Start screen" (Quit to title). Walking waits while it is open.
 - Message line: the latest message for a few seconds, the controls hint for the first few steps, and "Press Enter to talk to the doctor" while the player faces a tent ([[UI_SPEC]] § Explore mode).
 - Doctor's tents: facing a tent, Enter opens the doctor's card ([[UI_SPEC]] § Doctor). Pick a hurt or tired animal, solve its puzzle and it is back to full HP; a wrong answer just brings another puzzle; the list stays live during a puzzle; Bye or Escape leaves at any time. With nobody hurt, the doctor says everyone is fit and happy. The doctor speaks English and Danish, like the rest of the game.
 
@@ -160,9 +171,15 @@ What is built and observable today. Keep current: add a bullet when a feature sh
 - Two windows of the game never undo each other: the one that falls behind reloads into the newer game when looked at.
 - A save that cannot be read starts a new game with a message and is kept, set aside once the new game has been played; a newer version's save is left alone. `?new` plays a game that is saved nowhere.
 
+### Sound and feel
+
+- Sound: short, soft sounds made while the game runs, no sound files ([[DESIGN]] § Sound) — a jingle when a wild animal jumps out, blips on the menus, a chime for a right answer and a soft bonk for a miss, a thump for a hit, a puff when an animal gets tired, the leash's whoosh, tick-tock and its fanfare or boing, a sparkle at the doctor, a ding for a new lead and a fanfare for a win. Every sound goes with something on screen.
+- Sound setting: on by default, a Sound row in the pause menu and on the title, and M on any screen except while typing; remembered on this device.
+- Little flourishes ([[UI_SPEC]] § Sound and juice): an iris that closes on the player and opens on the wild animal, a ring of dust round a tired animal, confetti round a caught one, sparkles along a healed animal's HP bar, the trainer's walk. A system set to reduce motion gets calmer versions.
+
 ### Language
 
-- The whole game in Danish and English, the animals' and attacks' names included. It starts in the language the browser prefers (Danish or English, else English); Language in the pause menu switches every word on screen at once and is remembered on this device (`?lang=da` / `?lang=en` in the address picks one for a visit).
+- The whole game in Danish and English, the animals' and attacks' names included. It starts in the language the browser prefers (Danish or English, else English); Language in the pause menu and on the title switches every word on screen at once and is remembered on this device (`?lang=da` / `?lang=en` in the address picks one for a visit).
 
 ### Engine
 
@@ -173,6 +190,7 @@ What is built and observable today. Keep current: add a bullet when a feature sh
 - Wild encounter tables and the per-step roll, indexed on the lead's tier, with visitors of the lead's tier near home at the river and in the mountains where bigger animals live (§4 "Wild encounters").
 - Battle reducer: `startBattle` and `applyBattleIntent` play a whole wild battle by the rules in §4 — attacks, puzzles, answers, the wild animal's reply (which can miss an animal its own size or bigger), leash, flee, switching, knock-outs and the player's pick of who steps in — as intents in, events out.
 - Party rules (§4 "Party"): `applyPartyIntent` chooses the lead, moves an animal or names it, only while exploring; `normalizeNickname` cleans a typed name; `leadIndex` is the lead that battles and encounters use.
+- The starter rule (§4 "Starting out"): `STARTERS` (every tier-1 species) and `chooseStarter`, which refuses anything else and cleans the starter's name; the authority's `new-game` intent asks it.
 - Doctor rules (§4 "Knock-out and healing"): whether the player faces a tent, a doctor visit that heals one hurt animal per solved puzzle (`startDoctorVisit` and `applyDoctorIntent`, intents in, events out), and the knock-out rule (`takeToDoctor`), which finds the nearest tent on foot and heals the whole party.
 
 ### Server
@@ -185,10 +203,9 @@ What is built and observable today. Keep current: add a bullet when a feature sh
 
 In rough priority order. Each becomes a GitHub issue when picked up.
 
-1. A title screen, and sound with its setting in the pause menu, beside Language.
-2. Real low-poly animal models (glTF, CC0 sources, see [[DECISIONS]]) with attack animations, replacing the primitive figures.
-3. Procedural world v2: rivers that flow, paths, biome shaping, landmarks, spawn tables.
-4. Puzzle catalog v2: fractions, decimals, negatives, word problems, per-child adaptive difficulty.
-5. Touch controls for tablets.
-6. Multiplayer: shared world, other players visible, PvP battles, tokens, shop.
-7. Deployment to the Hetzner VPS.
+1. Real low-poly animal models (glTF, CC0 sources, see [[DECISIONS]]) with attack animations, replacing the primitive figures.
+2. Procedural world v2: rivers that flow, paths, biome shaping, landmarks, spawn tables.
+3. Puzzle catalog v2: fractions, decimals, negatives, word problems, per-child adaptive difficulty.
+4. Touch controls for tablets.
+5. Multiplayer: shared world, other players visible, PvP battles, tokens, shop.
+6. Deployment to the Hetzner VPS.

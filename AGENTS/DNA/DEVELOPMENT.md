@@ -42,15 +42,16 @@ A browser's save lives under the page's address: `localhost:5180`, `localhost:51
 ## Looking at the game
 
 ```bash
-node scripts/screenshot.mjs --out screenshots/what-i-changed.png
-node scripts/screenshot.mjs --keys "ArrowRight*5,ArrowDown*2" --out screenshots/after-walk.png
-node scripts/screenshot.mjs --width 1024 --height 768   # tablet landscape
+node scripts/screenshot.mjs --out screenshots/title.png   # a fresh browser: the title, New game only
+node scripts/screenshot.mjs --url 'http://localhost:5180/?new' --keys "ArrowRight*5,ArrowDown*2" --out screenshots/after-walk.png
+node scripts/screenshot.mjs --url 'http://localhost:5180/?new' --width 1024 --height 768   # tablet landscape
 node scripts/screenshot.mjs --url 'http://localhost:5180/?zoo' --scale 3 --clip 350,300,420,260   # every animal figure, magnified 3× (same camera)
+node scripts/screenshot.mjs --reduced-motion   # as a system that asks for less motion
 ```
 
 Headless Chrome via `playwright-core`. On a Mac, WebGL draws on the GPU (`--gpu metal`, ANGLE over Metal, as Chrome itself draws there) at 15–20 frames a second; `--gpu swiftshader`, the default elsewhere, draws in software at under 3 (see [[ENVIRONMENT_NOTES]] § Looking at the game). The first line printed names the renderer that drew. The script exits non-zero and prints console errors (and warnings) if the page logged any. **Read the image** — a saved file you never looked at verifies nothing. The `/play` command wraps this.
 
-Every run is a fresh browser: a new player and a new game, so walks from the start always behave the same. `reload:` keeps the game (the save is in the page's `localStorage`), which is how to check that something survives a reload. API calls that fail (no API server behind the proxy, a `409`) are listed at the end and do not fail the run; the game plays and saves without the API. `?new` plays a game that touches neither storage nor the API.
+Every run is a fresh browser: a new player with no game, so the page opens on the title with New game only. `?new` (like `?party=` and `?zoo`) skips the title into a throwaway game at the spawn tile with a squirrel, which touches neither storage nor the API, so walks from the start always behave the same. For a game that is saved, go through the title as a kid does: `Enter,wait:3000,Enter,wait:3000,Enter,wait:4000` is New game, the first starter, no name (the starters and the name box ignore Enter for half a second of game time, which a loaded machine stretches; see [[ENVIRONMENT_NOTES]]). `reload:` keeps the game (the save is in the page's `localStorage`) and comes back to the title, where `Enter` is Continue: that is how to check that something survives a reload. API calls that fail (no API server behind the proxy, a `409`) are listed at the end and do not fail the run; the game plays and saves without the API.
 
 `--keys` is a comma-separated script run in order. A plain token is a key name, optionally `*n` to repeat it (`ArrowRight*5`, `Enter`, `3`). The rest take an argument:
 
@@ -65,7 +66,7 @@ Every run is a fresh browser: a new player and a new game, so walks from the sta
 | `size:<w>x<h>`     | resizes the window mid-run                                                              |
 | `reload:`          | reloads the page                                                                        |
 
-After every frame the script prints what the screen says: the message line in explore (`hud:`), with `?debug` in the URL the grid position and facing (`at:`), and the party cards (`party:`, the lead in brackets); in the pause menu its rows (the lit one in brackets), the picked animal's options (greyed ones in parentheses), the name box with whether it has the focus, and the notes under it; at the doctor the doctor's line and the party (the highlighted row in brackets); in a battle the status boxes, the menu (the highlighted row in brackets; each attack with its level word, greyed rows marked) or the switch list in its place (`switch:`), the narration line, the puzzle, the typed answer, the judgement and the result card — so a run can be checked from its output as well as its images.
+After every frame the script prints what the screen says: on the title its menu (`title:`, the lit row in brackets), the confirm (`confirm:`), the starters' name tags (`starters:`, the lit one in brackets), the card under them (`starter:`) and its notes; the message line in explore (`hud:`), with `?debug` in the URL the grid position and facing (`at:`) and the last four sound cues the game asked for (`cue:`), and the party cards (`party:`, the lead in brackets); in the pause menu its rows (the lit one in brackets), the picked animal's options (greyed ones in parentheses), the name box with whether it has the focus, and the notes under it; at the doctor the doctor's line and the party (the highlighted row in brackets); in a battle the status boxes, the menu (the highlighted row in brackets; each attack with its level word, greyed rows marked) or the switch list in its place (`switch:`), the narration line, the puzzle, the typed answer, the judgement and the result card — so a run can be checked from its output as well as its images.
 
 `?party=` starts the game with any party (`?party=squirrel:5,rabbit:0,fox`: species, then HP, full by default), for screens that need a big or hurt one; `?debug` and `?party=` combine (see [[CHEATSHEET]] § Hidden behaviour).
 
@@ -75,13 +76,28 @@ After every frame the script prints what the screen says: the message line in ex
 node scripts/screenshot.mjs --url 'http://localhost:5180/?debug&party=squirrel:5,rabbit:0,fox' --keys "ArrowRight*7,ArrowDown,shot:prompt,Enter,wait:700,shot:card,Enter,wait:500,shot:puzzle,Escape" --out screenshots/doctor.png
 ```
 
-**Playing a battle.** The 11th step of Left, Right, Left, … from the start always meets a rabbit while the starting squirrel leads (see [[CHEATSHEET]] § Finding a battle fast; the animal changes whenever the encounter tables or the lead do, and `local-authority.test.ts` pins it). Walk in, look, run away:
+**Playing a battle.** The 11th step of Left, Right, Left, … from the start always meets a rabbit while a starter leads (see [[CHEATSHEET]] § Finding a battle fast; the animal changes whenever the encounter tables or the lead do, and `local-authority.test.ts` pins it). Walk in, look, run away:
 
 ```bash
-node scripts/screenshot.mjs --keys "ArrowLeft,ArrowRight,ArrowLeft,ArrowRight,ArrowLeft,ArrowRight,ArrowLeft,ArrowRight,ArrowLeft,ArrowRight,ArrowLeft,wait:8000,shot:menu,ArrowUp,Enter,wait:4000,shot:result,Enter" --out screenshots/ran.png
+node scripts/screenshot.mjs --url 'http://localhost:5180/?new' --keys "ArrowLeft,ArrowRight,ArrowLeft,ArrowRight,ArrowLeft,ArrowRight,ArrowLeft,ArrowRight,ArrowLeft,ArrowRight,ArrowLeft,wait:8000,shot:menu,ArrowUp,Enter,wait:4000,shot:result,Enter" --out screenshots/ran.png
 ```
 
 To attack, press the level key on the highlighted attack (`1`, or `ArrowDown,3` for the second attack at level 3), then `wait:1500,type:<answer>,Enter,wait:9000`. Answering wrong on purpose (a loss) needs no answers. Puzzles are seeded like everything else, so the same keys meet the same puzzles: to learn the right answers, replay the same walk and intents against the client's `LocalAuthority` (`packages/client/src/authority/local.ts`) in a throwaway script run with `packages/server/node_modules/.bin/tsx`, and read each `puzzle-shown` event's `puzzle.answer`. Answers change whenever the puzzle generators do, so never hard-code them in docs or tests.
+
+**A frame in the middle of an animation** (the iris, a lunge, the dust, the confetti, the heal's sparkles) is luck with fixed waits: a screenshot under load takes longer than the whole effect. Two kinds of animation need two tools, in a throwaway Playwright script:
+
+- **What the game animates itself** — the iris, everything in the Three.js scenes, the beats — runs on frame time. Freeze the page's clock: `page.clock.install()` before `goto`, play normally up to the key that starts it, then `page.clock.pauseAt(<the page's Date.now()> + 30)` (retry with a larger margin on "Cannot fast-forward to the past") and step with `page.clock.runFor(16)` — every `requestAnimationFrame` runs, one 16 ms frame at a time — taking a screenshot after the steps you want. A frozen page shows exactly the moment asked for, however slow the machine.
+- **CSS animations and transitions** — the heal's sparkles and "+N", the damage "−N", a shake, the sound chip — run on the document's own timeline, which the fake clock does not touch: under load they are over before the screenshot. Slow them down over CDP instead: `const cdp = await page.context().newCDPSession(page); await cdp.send('Animation.enable'); await cdp.send('Animation.setPlaybackRate', { playbackRate: 0.05 })` makes a 0.9 s sparkle last 18 s.
+
+The running page's modules can be read from the script (`await page.evaluate(() => import('/src/state/battle.svelte.ts'))`), which gives the puzzle on screen and its answer without a mirror authority. Only on a dev server that has not hot-updated that module since it started: after an edit or a merge, Vite serves it to the page as `…?t=<time>`, the plain path is a second copy with nothing in it, and the script types `undefined` as the answer. Restart the dev server first.
+
+### Hearing the game
+
+Headless Chrome plays sound to no one, and an agent can't listen. Three checks instead:
+
+- **Which cue played, and when.** `?debug` shows the last four cues under the position, and the screenshot script prints them (`cue:`). The controller tests pin the important ones (`sfx.onCue`).
+- **What a cue is made of.** `test/sfx.test.ts` checks every cue's data and the nodes `scheduleCue` builds.
+- **That it makes a sound.** Render the cues offline in the real browser: with the dev server up, a Playwright page runs `const { CUES, CUE_NAMES } = await import('/src/audio/cues.ts'); const { scheduleCue } = await import('/src/audio/synth.ts')`, renders each into an `OfflineAudioContext` (`scheduleCue(ctx, ctx.destination, CUES[name], 0)`, then `ctx.startRendering()`), and measures the samples: peak, RMS, and where the sound starts and stops. Every cue should be well above silence, under 1.2 s, and below clipping. To hear them, play the same in a normal browser tab's console on the dev server.
 
 ## Checks and tests
 
@@ -105,7 +121,7 @@ All code is written by agents; the human reviews PRs and plays the game but does
 - **Replay tests** for state machines: apply a fixed intent log to a fixed seed and assert the final state. When the battle reducer lands, this is how it is tested.
 - **Boundary tests** that pin the architecture: `purity.test.ts` fails if the engine grows an import. Keep it.
 
-**Keep every test well under vitest's 5 s default timeout**, including when other worktrees load the machine. A sweep costs the product of its dimensions, so when a new dimension joins an existing one (every lead, every species), time the file again. In a hot loop, collect failures into an array and assert once (`expect(bad).toEqual([])`): an `expect` per item costs more than the rule it checks. A sampling test can skip the draws it does not measure; `encounters.test.ts` samples species picks with an `Rng` whose every chance comes up.
+**Keep every test well under vitest's 5 s default timeout**, including when other worktrees load the machine. A sweep costs the product of its dimensions, so when a new dimension joins an existing one (every lead, every species), time the file again. In a hot loop, collect failures into an array and assert once (`expect(bad).toEqual([])`): an `expect` per item costs more than the rule it checks. A sampling test can skip the draws it does not measure; `encounters.test.ts` samples species picks with an `Rng` whose every chance comes up. Two browsers drawing beside a run (load average around 30) make a test 2–4 times slower. So a test that still takes about a second alone, after those savings, gets an explicit timeout of 30 s (60 s for the catalog's battle sweep). A comment above the timeout gives the reason: its measured cost alone and under load, and what it does that many times. Measure with `pnpm -F @mathgame/engine exec vitest run --reporter=json --outputFile=<file>` and read each test's `duration`. Never cut a sweep's count to fit the default without saying so.
 
 **Simulate balance, don't guess it.** When a change touches damage, HP, catch rates or difficulty, write (or run) a small simulation in `packages/engine/test/` or a scratch script: N battles between species pairs, win rates, average turns, catch attempts to success. Paste the table in the PR. A number in [[PRODUCT]] §4 that was never simulated is a guess.
 
@@ -155,7 +171,7 @@ A key missing from Danish shows in English and logs one warning in the console, 
 
 ### Looking at the game in another language
 
-`?lang=da` (or `?lang=en`) picks the language for that visit without remembering it: `node scripts/screenshot.mjs --url 'http://localhost:5180/?lang=da'`. Without it, the game starts in the language chosen before on this device, else the browser's. With the dev server running, an edited copy file changes the words on screen in place, without a reload.
+`?lang=da` (or `?lang=en`) picks the language for that visit without remembering it: `node scripts/screenshot.mjs --url 'http://localhost:5180/?lang=da'`. Without it, the game starts in the language chosen before on this device (the title's Language row), else the browser's. With the dev server running, an edited copy file changes the words on screen in place, without a reload.
 
 ## Database
 
@@ -172,7 +188,7 @@ update saves set data = jsonb_set(b.data, '{seq}', to_jsonb((saves.data->>'seq')
   from save_backups b where b.id = <backup id> and saves.player_id = b.player_id;
 ```
 
-The browser keeps its own set-aside copies too: `animath.save.unreadable` (a save it could not read) and `animath.save.replaced` (its game, when a bigger one came from the server), each followed by `.2`, `.3`, … when the key was taken, oldest first.
+The browser keeps its own set-aside copies too: `animath.save.unreadable` (a save it could not read), `animath.save.replaced` (its game, when a bigger one came from the server) and `animath.save.previous` (a game the kid left for New game on the title), each followed by `.2`, `.3`, … when the key was taken, oldest first. To give a kid back a game they left, in their browser's developer tools copy that text into `animath.save` with its `seq` raised above the current save's (and above the server's, or the server's newer game wins at the next start), then reload: the title offers it as Continue.
 ### Migrations
 
 Hand-written SQL, applied by `pnpm db:migrate` (`drizzle-orm`'s migrator, journal-driven).

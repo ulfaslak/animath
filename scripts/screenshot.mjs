@@ -9,11 +9,12 @@
  *                               [--keys "ArrowRight*5,ArrowDown*3"] [--wait 1500]
  *                               [--settle 1500] [--key-interval 700] [--tap-ms 100]
  *                               [--width 1280 --height 800] [--scale 1]
- *                               [--clip x,y,w,h] [--touch]
+ *                               [--clip x,y,w,h] [--gpu metal|swiftshader]
+ *                               [--reduced-motion] [--touch]
  *
  * `--touch` opens the page as a touch tablet would (`hasTouch`, `isMobile`:
  * the page sees `pointer: coarse` and shows its touch controls), for the
- * `tap:` and `touch:` tokens below. [--gpu metal|swiftshader]
+ * `tap:` and `touch:` tokens below.
  *
  * `--keys` is a comma-separated script. A token is a key name (`ArrowRight`,
  * `Enter`, `2`), optionally `*n` to press it n times; or one of
@@ -36,15 +37,21 @@
  * A selector never holds a comma (the script's separator); `:nth-child(2)`
  * and friends are fine.
  * The final frame goes to `--out`. After every frame the script prints what
- * the screen says — the message line in explore (and the grid position and
+ * the screen says — on the title its menu, the confirm, the starters and the
+ * name box; the message line in explore (and the grid position and
  * facing with `?debug` in the URL) and the party cards; in the pause menu its
  * rows, the picked animal's options and the name box (with whether it has
  * the focus); at the doctor the doctor's line and the party; and in a battle
  * the narration line, the puzzle, the typed answer, the judgement, the status
  * boxes and the result card — so a flow can be asserted from the console
- * output, not only the images.
+ * output, not only the images. With `?debug`, it also prints the last sound
+ * cues the game asked for (`cue:`), which headless Chrome plays to no one.
  *
- * Each run is a fresh browser, so a new player and a new game; `reload:` keeps
+ * `--reduced-motion` opens the page as a system that asks for less motion
+ * (`prefers-reduced-motion: reduce`).
+ *
+ * Each run is a fresh browser, so a new player with no game: the title, with
+ * New game only (`?new` goes past it into a throwaway game); `reload:` keeps
  * the game, which is saved in the page's localStorage. The script exits
  * non-zero on console errors and warnings, except failed `/api/` calls: the
  * game saves locally without the API, so those are listed at the end instead.
@@ -116,6 +123,7 @@ const browser = await chromium.launch({ channel: 'chrome', headless: true, args:
 const context = await browser.newContext({
 	viewport: { width, height },
 	deviceScaleFactor: scale,
+	reducedMotion: args['reduced-motion'] ? 'reduce' : 'no-preference',
 	hasTouch: touchScreen,
 	isMobile: touchScreen
 });
@@ -161,8 +169,33 @@ async function textOf(selector) {
 /** What the screen says right now, one `key: value` per line. */
 async function describe() {
 	const lines = [];
-	const debug = await textOf('.debug');
+	// The title: its menu rows (the lit one in brackets), the confirm's choices,
+	// the starters' name tags (the lit one in brackets) and the card under them.
+	const lit = (selector) =>
+		page.locator(selector).evaluateAll((els) =>
+			els.map((el) => {
+				const text = el.textContent.replace(/[▸\s]+/g, ' ').trim();
+				return el.classList.contains('lit') ? `[${text}]` : text;
+			})
+		);
+	const titleRows = await lit('.menu-card .row');
+	if (titleRows.length) lines.push(`title: ${titleRows.join(' | ')}`);
+	const confirm = await textOf('.confirm .heading');
+	if (confirm !== null)
+		lines.push(`confirm: ${confirm} ${(await lit('.confirm .row')).join(' | ')}`);
+	const starters = await lit('.starter-screen .tag');
+	if (starters.length) lines.push(`starters: ${starters.join(' | ')}`);
+	const starterCard = await textOf('.starter-card .heading');
+	if (starterCard !== null) {
+		const loves = await textOf('.starter-card .loves');
+		lines.push(`starter: ${[starterCard, loves].filter((t) => t !== null).join(' — ')}`);
+	}
+	const titleNotes = await page.locator('.menu-card .note, .starter-card .note').allTextContents();
+	if (titleNotes.length) lines.push(`title notes: ${titleNotes.map((n) => n.trim()).join(' | ')}`);
+	const debug = await textOf('.debug:not(.debug-cue)');
 	if (debug !== null) lines.push(`at: ${debug}`);
+	const cue = await textOf('.debug-cue');
+	if (cue !== null) lines.push(`cue: ${cue}`);
 	// The touch controls on screen: the D-pad (and the arrow held), Talk (lit
 	// when facing a tent), Menu, the number pad; and the turn-sideways screen.
 	const controls = await page.evaluate(() => {
@@ -271,7 +304,9 @@ async function describe() {
 
 async function shoot(path) {
 	mkdirSync(dirname(path), { recursive: true });
-	await page.screenshot({ path, clip });
+	// A loaded machine (several headless Chromes on SwiftShader) can take longer than
+	// Playwright's 30 s default to draw one frame.
+	await page.screenshot({ path, clip, timeout: 180_000 });
 	console.log(`saved ${path}`);
 	for (const line of await describe()) console.log(`  ${line}`);
 }

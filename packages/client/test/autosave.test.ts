@@ -1,8 +1,10 @@
 import {
 	canReplace,
+	getAnimal,
 	hashString,
 	newGame,
 	readSave,
+	saveDocument,
 	type GameEvent,
 	type SaveWrite,
 	type SavedGame
@@ -120,6 +122,36 @@ class Tab {
 			throwaway: options.throwaway,
 			bootWaitMs: 100
 		});
+	}
+
+	/** Boot only: the title is up, and no game has started. */
+	async title(): Promise<{ game?: SavedGame; notice?: string }> {
+		const plan = await this.autosave.boot();
+		await settle();
+		return plan;
+	}
+
+	/** Continue on the title: the authority picks up `game`, then the autosave begins, as in main.ts. */
+	async continueWith(game: SavedGame): Promise<void> {
+		this.game = JSON.parse(JSON.stringify(game)) as SavedGame;
+		this.autosave.handle({ type: 'welcome', newGame: false } as GameEvent);
+		if (this.game.battle) this.autosave.handle({ type: 'battle-started' } as GameEvent);
+		this.autosave.begin();
+		await settle();
+	}
+
+	/** A starter picked on the title: the authority's new game, and its `welcome`. */
+	async startNew(speciesId = 'rabbit'): Promise<void> {
+		const hp = getAnimal(speciesId).maxHp;
+		this.game = newGame(SEED, { id: `starter-${this.ids++}`, speciesId, hp });
+		this.autosave.handle({ type: 'welcome', newGame: true } as GameEvent);
+		await settle();
+	}
+
+	/** Quit to title: the authority's `game-left`. */
+	async quit(): Promise<void> {
+		this.autosave.handle({ type: 'game-left' });
+		await settle();
 	}
 
 	/** Boot and begin, as `main.ts` does; the game is whatever the plan says. */
@@ -787,5 +819,247 @@ describe('Autosave: the server backup', () => {
 		await tab.walk();
 		await later();
 		expect(server.saveOf(who)).toEqual(store.save());
+	});
+});
+
+describe('Autosave: the title', () => {
+	/** A saved game with progress in it, as this browser holds it: `seq` 5, a caught fox. */
+	function savedGame(store: MemoryStore, lineage = 'old-game'): string {
+		const game = newGame(SEED);
+		game.party.push({ id: 'fox-1', speciesId: 'fox', nickname: 'Rusty', hp: 9 });
+		// As the game writes it (`saveDocument`): no battle, no `battle` key.
+		const text = JSON.stringify(saveDocument(game, { lineage, seq: 5 }));
+		store.set(KEYS.save, text);
+		return text;
+	}
+
+	it('nothing is written or sent while the title is up, with a save or without one', async () => {
+		for (const withSave of [true, false]) {
+			const store = new MemoryStore();
+			const server = new FakeServer();
+			if (withSave) savedGame(store);
+			const writes = store.writes;
+			const tab = new Tab(store, server);
+			const plan = await tab.title();
+			expect(plan.game !== undefined).toBe(withSave);
+			await later(60_000);
+			expect(store.writes).toBe(writes);
+			expect(server.calls).toEqual([]);
+			// Events without a game under way change nothing either.
+			tab.autosave.handle({ type: 'player-moved' } as GameEvent);
+			await later();
+			expect(store.writes).toBe(writes);
+		}
+	});
+
+	it('a first visit saves nothing until a starter is picked, then saves that game at once', async () => {
+		const store = new MemoryStore();
+		const server = new FakeServer();
+		const tab = new Tab(store, server);
+		expect(await tab.title()).toEqual({});
+		expect(store.save()).toBeNull();
+		await tab.startNew('rabbit');
+		expect(store.save()).toMatchObject({ seq: 1, party: [{ speciesId: 'rabbit', hp: 22 }] });
+		expect(store.get(KEYS.previous)).toBeNull();
+		await later();
+		expect(server.saveOf(identityIn(store)!)).toEqual(store.save());
+	});
+
+	it('a new game over a saved one keeps the old save aside, never over it, and numbers past it', async () => {
+		const store = new MemoryStore();
+		const old = savedGame(store);
+		const tab = new Tab(store, null);
+		const plan = await tab.title();
+		expect(plan.game?.party).toHaveLength(2);
+		await tab.startNew('rabbit');
+		const now = store.save()!;
+		expect(now.party).toEqual([{ id: expect.any(String), speciesId: 'rabbit', hp: 22 }]);
+		expect(now.lineage).not.toBe('old-game');
+		expect(now.seq).toBe(6);
+		// Byte for byte, in the first free slot.
+		expect(store.get(KEYS.previous)).toBe(old);
+
+		// A second new game: the first new game goes beside the old one, not over it.
+		await tab.quit();
+		const first = store.get(KEYS.save);
+		await tab.startNew('squirrel');
+		expect(store.get(KEYS.previous)).toBe(old);
+		expect(store.get(`${KEYS.previous}.2`)).toBe(first);
+		expect(store.save()).toMatchObject({ seq: 7, party: [{ speciesId: 'squirrel' }] });
+	});
+
+	it('a kid trying the starters one after another keeps every game they left', async () => {
+		const store = new MemoryStore();
+		const tab = new Tab(store, null);
+		await tab.title();
+		const left: string[] = [];
+		for (let n = 0; n < 30; n++) {
+			await tab.startNew(n % 2 === 0 ? 'rabbit' : 'squirrel');
+			await tab.quit();
+			left.push(store.get(KEYS.save)!);
+		}
+		await tab.startNew('squirrel');
+		await tab.catchOne();
+		expect(store.save()!.party).toHaveLength(2);
+		const kept = left.map((_, i) =>
+			store.get(i === 0 ? KEYS.previous : `${KEYS.previous}.${i + 1}`)
+		);
+		expect(kept).toEqual(left);
+	});
+
+	it('with nowhere left to keep the old save, a new game never writes over it', async () => {
+		const store = new MemoryStore();
+		const old = savedGame(store);
+		for (let n = 1; n <= 200; n++) {
+			store.set(n === 1 ? KEYS.previous : `${KEYS.previous}.${n}`, `kept ${n}`);
+		}
+		const tab = new Tab(store, null);
+		await tab.title();
+		await tab.startNew('rabbit');
+		await tab.walk();
+		expect(store.get(KEYS.save)).toBe(old);
+		expect(store.get(`${KEYS.previous}.200`)).toBe('kept 200');
+	});
+
+	it('a new game started while the server was out of reach never puts away a game the title did not show', async () => {
+		const server = new FakeServer();
+		// The kid's real game is on the server; this browser has lost its own copy.
+		const theirs = { ...newGame(SEED), version: 1, lineage: 'kids-real-game', seq: 50 };
+		theirs.party = [...theirs.party, { id: 'bear-1', speciesId: 'bear', hp: 100 }];
+		const who = server.seed(theirs);
+		const store = new MemoryStore();
+		store.set(KEYS.player, JSON.stringify(who));
+		server.online = false;
+		const tab = new Tab(store, server);
+		// Out of reach at start: the title has no Continue, and New game asks nothing.
+		expect(await tab.title()).toEqual({});
+		await tab.startNew('rabbit');
+		const rabbitGame = store.get(KEYS.save);
+		server.online = true;
+		await later(60_000);
+		// The bigger game on the server wins, as without the title; the new one is kept too.
+		expect(tab.autosave.wantsReload).toBe(true);
+		expect(store.save()).toMatchObject({ lineage: 'kids-real-game', seq: 50 });
+		expect(store.get(KEYS.replaced)).toBe(rabbitGame);
+		expect(server.saveOf(who)).toEqual(theirs);
+	});
+
+	it('Continue after another tab walked on while the title was up carries on from that walk', async () => {
+		const store = new MemoryStore();
+		savedGame(store);
+		const title = new Tab(store, null);
+		const plan = await title.title();
+		const playing = new Tab(store, null);
+		await playing.open();
+		for (let i = 0; i < 5; i++) await playing.walk();
+		title.autosave.onStorage(KEYS.save);
+		expect(title.autosave.wantsReload).toBe(false);
+		const resumed = title.autosave.resumable()!;
+		expect(plan.game!.steps).toBe(0);
+		expect(resumed).toMatchObject({ steps: 5, pos: playing.game.pos });
+		// Continue from there: the next step is the sixth, never a second second.
+		await title.continueWith(resumed);
+		await title.walk();
+		expect(store.save()!.steps).toBe(6);
+	});
+
+	it('the new game takes the server over the old one, even when the server was ahead', async () => {
+		const server = new FakeServer();
+		const store = new MemoryStore();
+		savedGame(store);
+		// The server holds the old game further on than this browser does.
+		const ahead = { ...newGame(SEED), version: 1, lineage: 'old-game', seq: 50 };
+		const who = server.seed(ahead);
+		store.set(KEYS.player, JSON.stringify(who));
+		const tab = new Tab(store, server);
+		await tab.title();
+		await tab.startNew('rabbit');
+		await later();
+		expect(tab.autosave.wantsReload).toBe(false);
+		expect(store.save()).toMatchObject({ party: [{ speciesId: 'rabbit' }] });
+		expect(store.save()!.seq).toBeGreaterThan(50);
+		expect(server.saveOf(who)).toEqual(store.save());
+	});
+
+	it('an unreadable save waiting in the key goes aside as soon as a starter is picked', async () => {
+		const broken = '{"version":1,"broken":true}';
+		const store = new MemoryStore();
+		store.set(KEYS.save, broken);
+		const tab = new Tab(store, null);
+		expect(await tab.title()).toEqual({ notice: 'save.couldNotLoad' });
+		await tab.startNew('squirrel');
+		expect(store.get(KEYS.unreadable)).toBe(broken);
+		expect(store.get(KEYS.previous)).toBeNull();
+		expect(store.save()).toMatchObject({ party: [{ speciesId: 'squirrel' }] });
+	});
+
+	it("a newer build's save is never touched by a new game", async () => {
+		const newer = JSON.stringify({ version: 99, whatever: true });
+		const store = new MemoryStore();
+		store.set(KEYS.save, newer);
+		const tab = new Tab(store, null);
+		expect(await tab.title()).toEqual({ notice: 'save.newerGame' });
+		await tab.startNew('rabbit');
+		await tab.catchOne();
+		expect(store.get(KEYS.save)).toBe(newer);
+		expect(store.get(KEYS.previous)).toBeNull();
+	});
+
+	it('quit to title saves at once; nothing more is written until a game starts again', async () => {
+		const store = new MemoryStore();
+		const server = new FakeServer();
+		const tab = new Tab(store, server);
+		await tab.title();
+		await tab.startNew('rabbit');
+		await tab.walk();
+		// A step and the quit in one go: the quit saves it there and then, not a microtask later.
+		tab.game.steps += 1;
+		tab.autosave.handle({ type: 'player-moved' } as GameEvent);
+		tab.autosave.handle({ type: 'game-left' });
+		expect(store.save()!.steps).toBe(tab.game.steps);
+		await settle();
+		const writes = store.writes;
+		await tab.play((g) => (g.steps += 1));
+		await tab.catchOne();
+		await later(60_000);
+		expect(store.writes).toBe(writes);
+
+		// Continue: the same game, saved again from its next change, on the same lineage.
+		const { lineage, seq } = store.save()!;
+		await tab.continueWith(tab.game);
+		expect(store.writes).toBe(writes);
+		await tab.walk();
+		expect(store.save()).toMatchObject({ steps: tab.game.steps, lineage, seq: seq + 1 });
+		expect(store.writes).toBe(writes + 1);
+		await later();
+		expect(server.saveOf(identityIn(store)!)).toEqual(store.save());
+	});
+
+	it('a tab still playing the old game falls behind a new game, and the old game is kept', async () => {
+		const store = new MemoryStore();
+		savedGame(store);
+		const playing = new Tab(store, null);
+		await playing.open();
+		const title = new Tab(store, null);
+		await title.title();
+		await playing.walk();
+		const walked = store.get(KEYS.save);
+		await title.startNew('rabbit');
+		expect(store.get(KEYS.previous)).toBe(walked);
+		playing.autosave.onStorage(KEYS.save);
+		expect(playing.autosave.wantsReload).toBe(true);
+		await playing.catchOne();
+		expect(store.save()).toMatchObject({ party: [{ speciesId: 'rabbit' }] });
+	});
+
+	it('a throwaway page plays a new game and writes nothing', async () => {
+		const store = new MemoryStore();
+		const old = savedGame(store);
+		const tab = new Tab(store, new FakeServer(), { throwaway: true });
+		expect(await tab.title()).toEqual({});
+		await tab.startNew('rabbit');
+		await tab.catchOne();
+		expect(store.get(KEYS.save)).toBe(old);
+		expect(store.get(KEYS.previous)).toBeNull();
 	});
 });

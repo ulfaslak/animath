@@ -1,7 +1,7 @@
 import { ANIMALS } from '@mathgame/engine';
 import * as THREE from 'three';
 import { describe, expect, it } from 'vitest';
-import { animateIdle, buildAnimalMesh, buildPlayerMesh } from '../src/render/animals';
+import { animateIdle, animateWalk, buildAnimalMesh, buildPlayerMesh } from '../src/render/animals';
 
 /**
  * The figures' contract (see animals.ts): every catalog species has one,
@@ -73,5 +73,41 @@ describe('figures', () => {
 
 	it('refuses a species that is not in the catalog', () => {
 		expect(() => buildAnimalMesh('dragon')).toThrow(/dragon/);
+	});
+});
+
+describe('the trainer walking', () => {
+	const JOINTS = ['armL', 'armR', 'legL', 'legR'];
+
+	it('swings arms and legs through a step, from rest to rest, leading with each foot in turn', () => {
+		const figure = buildPlayerMesh();
+		const rig = figure.children[0]!;
+		const angle = (joint: string) => rig.getObjectByName(joint)!.rotation.x;
+		for (const progress of [0, 1]) {
+			animateIdle(figure, 0);
+			animateWalk(figure, progress, 1);
+			for (const joint of JOINTS) expect(angle(joint)).toBeCloseTo(0, 6);
+			expect(rig.rotation.z).toBeCloseTo(0, 6);
+		}
+		animateIdle(figure, 0);
+		animateWalk(figure, 0.5, 1);
+		const arm = angle('armL');
+		expect(Math.abs(arm)).toBeGreaterThan(0.3);
+		expect(angle('armR')).toBeCloseTo(-arm, 6);
+		// A left arm swings with the right leg, as people walk.
+		expect(Math.sign(angle('legR'))).toBe(Math.sign(arm));
+		// Mid-stride the feet stay on the ground; the step's hop lifts the whole figure.
+		expect(bounds(figure).min.y).toBeGreaterThan(-0.02);
+		animateIdle(figure, 0);
+		animateWalk(figure, 0.5, -1);
+		expect(angle('armL')).toBeCloseTo(-arm, 6);
+	});
+
+	it('with no amount, stands still', () => {
+		const figure = buildPlayerMesh();
+		animateIdle(figure, 0);
+		animateWalk(figure, 0.5, 1, 0);
+		const rig = figure.children[0]!;
+		for (const joint of JOINTS) expect(rig.getObjectByName(joint)!.rotation.x).toBeCloseTo(0, 9);
 	});
 });

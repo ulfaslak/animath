@@ -14,6 +14,8 @@ export const KEYS = {
 	unreadable: 'animath.save.unreadable',
 	/** The game in this browser that gave way to a bigger one found on the server. */
 	replaced: 'animath.save.replaced',
+	/** The game that was saved here when the kid started a new one from the title. */
+	previous: 'animath.save.previous',
 	/** An identity the server stopped recognising, kept in case it was the server that was wrong. */
 	previousPlayer: 'animath.player.previous'
 } as const;

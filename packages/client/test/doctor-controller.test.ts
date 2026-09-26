@@ -1,5 +1,7 @@
 import { getAnimal, type AnimalInstance, type GameEvent, type Intent } from '@mathgame/engine';
 import { beforeEach, describe, expect, it } from 'vitest';
+import type { CueName } from '../src/audio/cues';
+import { sfx } from '../src/audio/sfx.svelte';
 import { LocalAuthority } from '../src/authority/local';
 import { DoctorController, OPEN_GUARD_SECONDS } from '../src/doctor/controller';
 import { doctorWords } from '../src/doctor/lines';
@@ -33,11 +35,18 @@ function hurtParty(): AnimalInstance[] {
 	];
 }
 
+/** The previous test's cue listener, dropped when the next one starts listening. */
+let stopListening: (() => void) | undefined;
+
 function setup(party?: AnimalInstance[]) {
 	const authority = new LocalAuthority(party ? { party } : {});
 	const controller = new DoctorController(authority);
 	const events: GameEvent[] = [];
 	const sent: Intent[] = [];
+	// Every cue the card asks for, in order (no sound in tests: nothing unlocks it).
+	const cues: CueName[] = [];
+	stopListening?.();
+	stopListening = sfx.onCue((cue) => cues.push(cue));
 	const dispatch = authority.dispatch.bind(authority);
 	authority.dispatch = (intent) => {
 		sent.push(intent);
@@ -77,7 +86,7 @@ function setup(party?: AnimalInstance[]) {
 		throw new Error('no visit');
 	};
 	const doctorSent = () => sent.filter((i) => i.type === 'doctor');
-	return { authority, controller, events, sent, doctorSent, run, press, talk, answer };
+	return { authority, controller, events, sent, cues, doctorSent, run, press, talk, answer };
 }
 
 beforeEach(() => doctor.reset());
@@ -121,6 +130,7 @@ describe("the doctor's card", () => {
 		const right = t.answer();
 		t.press(...String(right + 1), 'Enter');
 		expect(doctor.judged).toEqual({ correct: false });
+		expect(t.cues.at(-1)).toBe('wrong'); // a soft bonk with "Not quite!"
 		expect(doctor.line).toEqual({ say: 'notQuite' });
 		expect(doctor.screen).toBe('busy');
 		expect(doctor.party[0]!.hp).toBe(5);
@@ -137,12 +147,15 @@ describe("the doctor's card", () => {
 		t.talk();
 		t.run(OPEN_GUARD_SECONDS);
 		t.press('Enter');
+		t.cues.length = 0;
 		t.press(...String(t.answer()), 'Enter');
 		expect(doctor.judged).toEqual({ correct: true });
+		expect(t.cues).toEqual(['correct']); // the chime with "Correct!"; typing is quiet
 		expect(doctor.party[0]!.hp).toBe(5); // the heal waits for "Correct!" to be read
 		t.run(0.85);
 		expect(doctor.party[0]!.hp).toBe(20);
 		expect(doctor.healed).toMatchObject({ index: 0, amount: 15 });
+		expect(t.cues).toEqual(['correct', 'heal']); // the sparkle with the heal
 		expect(doctor.line).toMatchObject({
 			say: 'healed',
 			animal: { speciesId: 'squirrel', hp: 20 },

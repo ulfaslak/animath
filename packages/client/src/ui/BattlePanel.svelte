@@ -11,9 +11,10 @@
 		type PuzzleTopic
 	} from '@mathgame/engine';
 	import { actionAt, attackRows, levelWord, rowOf } from '../battle/menu';
-	import { language, t } from '../copy';
+	import { t } from '../copy';
 	import { levelKey, press, rowKey, unfocusable } from '../input/press';
 	import { touch } from '../input/touch.svelte';
+	import { kindList } from '../kinds';
 	import { messageWords, words } from '../lines';
 	import { animalWords, nameOf } from '../names';
 	import { battle } from '../state/battle.svelte';
@@ -59,30 +60,9 @@
 		};
 	}
 
-	/** What a kind of puzzle looks like to the kid, in the language on screen. */
-	function kindWord(topic: PuzzleTopic): string {
-		switch (topic) {
-			case 'add':
-				return t('battle.kinds.add');
-			case 'sub':
-				return t('battle.kinds.sub');
-			case 'mul':
-				return t('battle.kinds.mul');
-			case 'div':
-				return t('battle.kinds.div');
-			case 'missing':
-				return t('battle.kinds.missing');
-			case 'sequence':
-				return t('battle.kinds.sequence');
-			case 'sqrt':
-				return t('battle.kinds.sqrt');
-		}
-	}
-
 	/** "adding, taking away, or missing numbers": the language's own "or" list. */
 	function kindWords(topics: readonly PuzzleTopic[]): string {
-		const list = new Intl.ListFormat(language.current, { type: 'disjunction' });
-		return list.format(topics.map(kindWord));
+		return kindList(topics, 'disjunction');
 	}
 
 	/** What the highlighted row will do, in words a kid can read. */
@@ -745,6 +725,34 @@
 		100% {
 			opacity: 0;
 			transform: translateY(-22px) scale(1);
+		}
+	}
+
+	/* Less motion: the damage fades in and out where it is; a refused pick barely nudges. */
+	@keyframes pop-still {
+		0%,
+		100% {
+			opacity: 0;
+		}
+		15%,
+		70% {
+			opacity: 1;
+		}
+	}
+	@keyframes nudge-small {
+		30% {
+			transform: translateX(-2px);
+		}
+		60% {
+			transform: translateX(2px);
+		}
+	}
+	@media (prefers-reduced-motion: reduce) {
+		.damage {
+			animation-name: pop-still;
+		}
+		.row.nudge {
+			animation-name: nudge-small;
 		}
 	}
 </style>

@@ -31,6 +31,7 @@ Svelte 5 (runes) for the DOM overlay only — HUD, menus, the puzzle panel. Svel
 Placeholder geometry (boxes, cones) is acceptable until real models arrive. Real models are glTF.
 Ground tiles render as one `InstancedMesh` per chunk.
 Font: Nunito (Google Fonts). Rounded, friendly.
+Sound is synthesized while the game runs, with WebAudio, from cue data in `src/audio/`: no sound files, no audio library. Cues play from the screens (controllers, the HUD), where events become visuals; the authority and the engine know nothing of sound.
 Dev server on port **5180** (5173 belongs to another project on this machine).
 
 ## Copy and languages
@@ -67,7 +68,8 @@ One document shape for both copies, `SaveV1`, defined and checked in the engine.
 A page never writes over a save it has not seen. Several tabs share one `localStorage`: before each write a page checks that the stored save is the one it last read or wrote, carries on from another tab's save only when that tab merely walked, and otherwise stops saving and reloads into the newer game.
 The server takes a backup only with a higher `seq` than the one it holds (`409` otherwise), and keeps any save it replaces with a different game, or cannot read, in `save_backups`.
 A save the game cannot read is set aside, never deleted: in `animath.save.unreadable` once the kid has played the new game, on the server in `save_backups`.
-There is no way in the game to delete a save. `?new` plays a throwaway game that reads and writes nothing. Clearing the site's data is the only ordinary way to lose one.
+There is no way in the game to delete a save. New game on the title puts the saved game away, never deletes it: in the browser under `animath.save.previous`, on the server in `save_backups`; the game has no way back to it, only the human does. `?new`, `?party=` and `?zoo` play a throwaway game that reads and writes nothing and skips the title. Clearing the site's data is the only ordinary way to lose one.
+A new game starts with a starter the player picks, and only a tier-1 species is a starter (the engine's rule, asked by the authority's `new-game` intent). Continue hands the authority the save the client holds (`start({ game })`); a server authority would take a `continue` intent instead.
 Per-device preferences (the language) have their own `localStorage` keys and are never part of the save.
 
 ## Development
