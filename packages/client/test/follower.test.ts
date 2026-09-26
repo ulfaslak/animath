@@ -20,7 +20,7 @@ import { DoctorController } from '../src/doctor/controller';
 import { ExploreController } from '../src/explore/controller';
 import { parseParty } from '../src/flags';
 import { Keyboard } from '../src/input/keyboard';
-import { BOAT_ASTERN, BOAT_STAND } from '../src/render/boat';
+import { BOAT_ASTERN, BOAT_DECK, BOAT_STAND, buildBoatMesh } from '../src/render/boat';
 import { Follower, RIDE_AHEAD, RIDE_HEIGHT, RIDE_LENGTH } from '../src/render/follower';
 import { WATER_TOP } from '../src/render/tiles';
 import type { GameRenderer } from '../src/render/renderer';
@@ -491,45 +491,108 @@ describe('out on the water', () => {
 		}
 	});
 
-	it('with nobody who swims, the lead sits at the bow facing forward, big enough to know, inside its own tile: every one that walks, every way', () => {
-		const forward: Record<Direction, [number, number]> = {
-			up: [0, -1],
-			down: [0, 1],
-			left: [-1, 0],
-			right: [1, 0]
-		};
+	/**
+	 * The boat's deck, where a rider stands: how wide it is, either side of the
+	 * boat's middle line, `ahead` of the boat's middle (the tile's), with the
+	 * coral rim along its edges (a paw may rest on the gunwale), or -1 off its
+	 * ends. Read from the boat's own mesh.
+	 */
+	const deckHalfWidth = (() => {
+		const boat = buildBoatMesh();
+		const deck = boat.getObjectByName('deck') as THREE.Mesh;
+		const rim = boat.getObjectByName('rim') as THREE.Mesh;
+		const rimHalf = (rim.geometry as THREE.BoxGeometry).parameters.width / 2;
+		const corners = deck.geometry.getAttribute('position');
+		let back = { at: Infinity, half: 0 };
+		let front = { at: -Infinity, half: 0 };
+		for (let i = 0; i < corners.count; i++) {
+			const corner = { at: corners.getZ(i), half: Math.abs(corners.getX(i)) };
+			if (corner.at < back.at) back = corner;
+			if (corner.at > front.at) front = corner;
+		}
+		return (ahead: number) =>
+			ahead < back.at - 1e-9 || ahead > front.at + 1e-9
+				? -1
+				: back.half +
+					((front.half - back.half) * (ahead - back.at)) / (front.at - back.at) +
+					rimHalf;
+	})();
+	const FORWARD: Record<Direction, [number, number]> = {
+		up: [0, -1],
+		down: [0, 1],
+		left: [-1, 0],
+		right: [1, 0]
+	};
+	/** The rider in the boat of a trainer on water facing `dir`: at the bow, on its deck, fitted, facing forward. */
+	function expectRiderAtTheBow(s: ReturnType<typeof setup>, dir: Direction, at: string): void {
+		const tile = s.trainer();
+		expect(water(tile), at).toBe(true);
+		expect(s.follower.inBoat, at).toBe(true);
+		const rider = s.figures.at(-1)!;
+		expect(rider.rotation.y, at).toBeCloseTo(ANGLE[dir], 6);
+		rider.updateMatrixWorld(true);
+		const box = new THREE.Box3().setFromObject(rider);
+		const size = box.getSize(new THREE.Vector3());
+		const middle = box.getCenter(new THREE.Vector3());
+		const [fx, fz] = FORWARD[dir];
+		// Along the boat, from the tile's middle, and across it.
+		const ahead = (x: number, z: number) => (x - tile.x) * fx + (z - tile.y) * fz;
+		const across = (x: number, z: number) => Math.abs((x - tile.x) * fz - (z - tile.y) * fx);
+		// Its middle at the bow, ahead of the tile's middle the way the trainer faces.
+		expect(middle.x - tile.x, at).toBeCloseTo(fx * RIDE_AHEAD, 6);
+		expect(middle.z - tile.y, at).toBeCloseTo(fz * RIDE_AHEAD, 6);
+		// Nose to tail inside its own tile, clear of a shore the boat faces, and ahead of
+		// the trainer, who stands back towards the stern.
+		const ends = [ahead(box.min.x, box.min.z), ahead(box.max.x, box.max.z)];
+		expect(Math.max(...ends), at).toBeLessThan(0.5);
+		expect(Math.min(...ends), at).toBeGreaterThan(-BOAT_ASTERN + 0.1);
+		// Made smaller only to fit: no longer or taller than the bow holds, and never tiny.
+		expect(Math.max(size.x, size.z), at).toBeLessThanOrEqual(RIDE_LENGTH + 1e-6);
+		expect(size.y, at).toBeLessThanOrEqual(RIDE_HEIGHT + 1e-6);
+		expect(Math.max(size.x, size.y, size.z), at).toBeGreaterThan(0.45);
+		// Standing on the deck, nothing of it lower: the hull at the bow is too shallow to
+		// hide a leg, so a foot below the deck would show through it. And every foot on it.
+		const deckY = WATER_TOP + BOAT_STAND + BOAT_DECK;
+		expect(box.min.y, at).toBeCloseTo(deckY, 6);
+		rider.traverse((part) => {
+			if (!(part instanceof THREE.Mesh)) return;
+			const foot = new THREE.Box3().setFromObject(part);
+			if (foot.min.y > deckY + 0.005) return;
+			for (const x of [foot.min.x, foot.max.x])
+				for (const z of [foot.min.z, foot.max.z])
+					expect(across(x, z), `${at}: a foot off the deck`).toBeLessThanOrEqual(
+						deckHalfWidth(ahead(x, z)) + 1e-6
+					);
+		});
+	}
+
+	it('with nobody who swims, the lead stands at the bow facing forward, big enough to know, inside its own tile: every one that walks, every way', () => {
 		for (const id of ['squirrel', 'rabbit', 'fox', 'deer', 'wolf', 'bear']) {
 			const s = setup(id, withBoat(id));
 			sail(s, ['up', 'up', 'up']);
 			// Round a square of the lake, a check facing each way.
 			for (const dir of ['up', 'left', 'down', 'right'] as const) {
 				if (dir !== 'up') sail(s, [dir]);
-				const at = `${id} facing ${dir}`;
-				const tile = s.trainer();
-				expect(water(tile), at).toBe(true);
-				expect(s.follower.inBoat, at).toBe(true);
-				const rider = s.figures.at(-1)!;
-				expect(rider.rotation.y, at).toBeCloseTo(ANGLE[dir], 6);
-				const box = new THREE.Box3().setFromObject(rider);
-				const size = box.getSize(new THREE.Vector3());
-				const middle = box.getCenter(new THREE.Vector3());
-				const [fx, fz] = forward[dir];
-				// Its middle at the bow, ahead of the trainer's tile's middle the way they face.
-				expect(middle.x - tile.x, at).toBeCloseTo(fx * RIDE_AHEAD, 6);
-				expect(middle.z - tile.y, at).toBeCloseTo(fz * RIDE_AHEAD, 6);
-				// Nose to tail inside its own tile, clear of a shore the boat faces, and ahead of
-				// the trainer, who stands back towards the stern.
-				const reach = (x: number, z: number) => (x - tile.x) * fx + (z - tile.y) * fz;
-				const ends = [reach(box.min.x, box.min.z), reach(box.max.x, box.max.z)];
-				expect(Math.max(...ends), at).toBeLessThan(0.5);
-				expect(Math.min(...ends), at).toBeGreaterThan(-BOAT_ASTERN + 0.1);
-				// Made smaller only to fit: no longer or taller than the bow holds, and never tiny.
-				expect(Math.max(size.x, size.z), at).toBeLessThanOrEqual(RIDE_LENGTH + 1e-6);
-				expect(size.y, at).toBeLessThanOrEqual(RIDE_HEIGHT + 1e-6);
-				expect(Math.max(size.x, size.y, size.z), at).toBeGreaterThan(0.45);
-				// Sitting: its legs down in the hull, under the floor the trainer stands on.
-				expect(box.min.y, at).toBeLessThan(WATER_TOP + BOAT_STAND - 0.01);
+				expectRiderAtTheBow(s, dir, `${id} facing ${dir}`);
 			}
+		}
+	});
+
+	it('a rider turns with the boat when the trainer bumps into something: never left behind, never in the trainer', () => {
+		// In the boat by the tree that can be chopped from it, facing away from it.
+		const pos = { x: 21, y: 33 };
+		const tree = step(pos, 'down');
+		expect(tileAtWorld(WORLD_SEED, tree.x, tree.y).kind).toBe('tree');
+		for (const id of ['squirrel', 'bear']) {
+			const s = setup(id, { ...withBoat(id, pos), facing: 'up' });
+			expectRiderAtTheBow(s, 'up', `${id} facing up`);
+			// Down into the tree: the trainer turns where they are, and the boat with them.
+			const from = s.events.length;
+			s.authority.dispatch({ type: 'move', dir: 'down' });
+			expect(s.events.slice(from).map((e) => e.type)).toContain('player-blocked');
+			s.settle();
+			expect(s.trainer()).toEqual(pos);
+			expectRiderAtTheBow(s, 'down', `${id} turned down`);
 		}
 	});
 

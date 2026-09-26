@@ -37,6 +37,13 @@ const FLOOR = 0.1;
 const KEEL_SINK = 0.06;
 /** How far over the water's surface the trainer's feet are, standing in the boat. */
 export const BOAT_STAND = FLOOR - KEEL_SINK;
+/**
+ * The little deck across the front half of the boat, level with the rim,
+ * where an animal riding along stands: how high it is over the floor the
+ * trainer stands on. The hull is too shallow at the bow for anything to stand
+ * lower there without its feet showing through.
+ */
+export const BOAT_DECK = DEPTH - FLOOR;
 
 /** On the back: how small, and where its middle sits, from the trainer's feet: against their back. */
 const BACK_SCALE = 0.62;
@@ -81,6 +88,7 @@ const materials = {
 		flatShading: true,
 		side: THREE.BackSide
 	}),
+	deck: new THREE.MeshLambertMaterial({ color: BOAT_COLORS.inside, flatShading: true }),
 	trim: new THREE.MeshLambertMaterial({ color: BOAT_COLORS.trim, flatShading: true }),
 	pennant: new THREE.MeshLambertMaterial({
 		color: BOAT_COLORS.pennant,
@@ -107,6 +115,27 @@ function hullGeometry(): THREE.BufferGeometry {
 	geometry.scale(1, FLATTEN, 1);
 	// The rim at the top, the middle of the hull at the origin.
 	geometry.translate(0, DEPTH / 2, 0);
+	return geometry;
+}
+
+/**
+ * The deck across the front half, level with the rim and exactly as wide as
+ * the hull there: a flat piece facing up, from the boat's middle to its bow.
+ */
+function deckGeometry(): THREE.BufferGeometry {
+	const middle = (STERN_R + BOW_R) / 2;
+	const y = DEPTH / 2;
+	// Two triangles, counter-clockwise from above.
+	const corners = [
+		[-middle, y, 0],
+		[-BOW_R, y, LENGTH / 2],
+		[BOW_R, y, LENGTH / 2],
+		[middle, y, 0]
+	];
+	const positions = [0, 1, 2, 0, 2, 3].flatMap((i) => corners[i]!);
+	const geometry = new THREE.BufferGeometry();
+	geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+	geometry.computeVertexNormals();
 	return geometry;
 }
 
@@ -146,6 +175,10 @@ export function buildBoatMesh(): THREE.Group {
 	floor.position.set(0, FLOOR - DEPTH / 2, -0.12);
 	floor.name = 'floor';
 	boat.add(floor);
+	// The little deck at the front, where an animal riding along stands.
+	const deck = mesh(deckGeometry(), materials.deck);
+	deck.name = 'deck';
+	boat.add(deck);
 	// A coral rim along both sides and across the stern.
 	const slant = Math.atan2(STERN_R - BOW_R, LENGTH);
 	const side = Math.hypot(LENGTH, STERN_R - BOW_R);

@@ -12,7 +12,7 @@ import {
 import * as THREE from 'three';
 import { motion } from '../motion';
 import { buildAnimalMesh, disposeFigure } from './animals';
-import { BOAT_STAND } from './boat';
+import { BOAT_DECK, BOAT_STAND } from './boat';
 import { appearScale, recallScale, smoothstep } from './ease';
 import { WATER_TOP, groundTop } from './tiles';
 
@@ -28,8 +28,9 @@ import { WATER_TOP, groundTop } from './tiles';
  * is ground, and it follows through). Out on the water, in the boat, the
  * trainer's last tile is water: an animal that swims swims behind the boat,
  * low in the water, and one that can't swim never stands there — it rides in
- * the boat instead, sitting at the bow facing forward, a big one made smaller
- * to fit (`lead(…, riding)`), and whoever comes out on a tile comes out beside
+ * the boat instead, standing on its deck at the bow facing forward, a big one
+ * made smaller to fit (`lead(…, riding)`), turning with the boat when the
+ * trainer bumps into something (`face`), and whoever comes out on a tile comes out beside
  * the trainer. When the trainer is put somewhere without walking (a new game,
  * a game picked up, the trip to the tent after a lost battle), it is put
  * beside them at once — behind, else to a side, else in front, on the first
@@ -102,12 +103,13 @@ const TURN_RATE = 16;
 /** Swimming, how much of its height is under the water. */
 export const SWIM_DEPTH = 0.4;
 /**
- * Riding in the boat, at the bow: how far its middle sits ahead of the
- * middle of the boat, whose trainer stands back towards the stern
- * (`BOAT_ASTERN`), and how long (nose to tail, or across) and how tall it may
- * be. Nose to tail it stays between the trainer and the bow, inside its own
- * tile, so it never reaches into a shore the boat faces. A small animal rides
- * near its own size, a big one made smaller, all big enough to know.
+ * Riding in the boat, standing on its little deck at the bow (`BOAT_DECK`):
+ * how far its middle sits ahead of the middle of the boat, whose trainer
+ * stands back towards the stern (`BOAT_ASTERN`), and how long (nose to tail,
+ * or across) and how tall it may be. Nose to tail it stays between the
+ * trainer and the bow, inside its own tile, so it never reaches into a shore
+ * the boat faces. A small animal rides near its own size, a big one made
+ * smaller, all big enough to know.
  */
 export const RIDE_AHEAD = 0.22;
 export const RIDE_LENGTH = 0.5;
@@ -137,13 +139,8 @@ export class Follower {
 	/** The species of the figure on screen, and whether it rides. */
 	private shown: string | null = null;
 	private riding = false;
-	/**
-	 * A rider's size, to fit in the boat; and at its own size, how high its
-	 * belly is (it sinks that far to sit, its belly on the floor) and how far
-	 * forward of its origin its middle is, nose to tail.
-	 */
+	/** A rider's size, to fit in the boat, and at its own size how far forward of its origin its middle is, nose to tail. */
 	private rideScale = 1;
-	private rideBelly = 0;
 	private rideMiddle = 0;
 	/** Seconds of frame time, for the swimmers' bob. */
 	private t = 0;
@@ -235,6 +232,14 @@ export class Follower {
 	}
 
 	/**
+	 * The trainer turned without a step (they bumped into something): a rider
+	 * turns with the boat, to its bow; one following on a tile stays as it is.
+	 */
+	face(facing: Direction): void {
+		this.trainerFacing = facing;
+	}
+
+	/**
 	 * Who follows: the lead's species, or null when every animal is tired;
 	 * `riding` when it rides in the trainer's boat rather than following behind.
 	 */
@@ -305,9 +310,9 @@ export class Follower {
 	}
 
 	/**
-	 * In the boat, sitting at the bow, its belly on the floor and its legs out
-	 * of sight in the hull, looking where the trainer looks, as the trainer
-	 * glides. Its middle stays put as it grows in or shrinks away.
+	 * In the boat, standing on its deck at the bow, looking where the trainer
+	 * looks, as the trainer glides. Its middle stays put as it grows in or
+	 * shrinks away.
 	 */
 	private ride(figure: THREE.Group, progress: number): void {
 		const from = this.trainerFrom;
@@ -320,7 +325,7 @@ export class Follower {
 		const yFrom = this.standAt(from);
 		figure.position.set(
 			from.x + (to.x - from.x) * t + ahead.x * reach,
-			yFrom + (this.standAt(to) - yFrom) * t - this.rideBelly * scale + this.swapLift(),
+			yFrom + (this.standAt(to) - yFrom) * t + BOAT_DECK + this.swapLift(),
 			from.y + (to.y - from.y) * t + ahead.z * reach
 		);
 		this.yaw = ANGLE[this.trainerFacing];
@@ -380,7 +385,6 @@ export class Follower {
 			const box = new THREE.Box3().setFromObject(figure);
 			const size = box.getSize(new THREE.Vector3());
 			this.rideScale = Math.min(1, RIDE_LENGTH / Math.max(size.x, size.z), RIDE_HEIGHT / size.y);
-			this.rideBelly = (figure.userData.restShape as { belly: number } | undefined)?.belly ?? 0;
 			this.rideMiddle = (box.min.z + box.max.z) / 2;
 		}
 		figure.scale.setScalar(0.001);

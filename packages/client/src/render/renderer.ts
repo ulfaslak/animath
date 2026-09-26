@@ -263,11 +263,14 @@ export class GameRenderer {
 
 	/**
 	 * Where the player's middle is on the canvas, in CSS pixels from the top
-	 * left: the encounter transition closes on it.
+	 * left: the encounter transition closes on it. Their body, which stands
+	 * back towards the stern in the boat, not the middle of their tile.
 	 */
 	playerScreenPoint(): { x: number; y: number } {
 		this.placeCamera();
-		const p = this.player.position.clone();
+		this.player.updateMatrixWorld(true);
+		const body = this.player.children[0] ?? this.player;
+		const p = body.getWorldPosition(new THREE.Vector3());
 		p.y += 0.35;
 		p.project(this.camera);
 		const { w, h } = this.size();
