@@ -11,6 +11,7 @@ import { describe, expect, it } from 'vitest';
 import { WORLD_SEED } from '../src/authority/local';
 import { BattleScene } from '../src/render/battle-scene';
 import { ChunkRing } from '../src/render/chunks';
+import { Follower } from '../src/render/follower';
 import type { GameRenderer } from '../src/render/renderer';
 import { StarterScene } from '../src/render/starter-scene';
 import { TitleScenery } from '../src/render/title-scenery';
@@ -226,6 +227,56 @@ describe('the battle scene', () => {
 			if (i === biomes.length - 1) between = ledger.live.size;
 			if (between !== null) expect(ledger.live.size).toBe(between);
 		}
+	});
+});
+
+describe('the lead walking behind the trainer', () => {
+	it('frees every figure it stops showing: ten changes of lead, a tired team, quit to the title', () => {
+		const world = new THREE.Group();
+		const follower = new Follower({
+			addFigure: (figure) => world.add(figure),
+			removeFigure: (figure) => world.remove(figure)
+		});
+		const ledger = new Ledger();
+		const shown = new Set<THREE.BufferGeometry>();
+		const look = () => {
+			ledger.see(world);
+			world.traverse((o) => {
+				if (o instanceof THREE.Mesh) shown.add(o.geometry as THREE.BufferGeometry);
+			});
+		};
+		const start = spawnPoint(WORLD_SEED);
+		follower.place(WORLD_SEED, start, 'down');
+		const leads = [
+			'fox',
+			'bear',
+			null,
+			'rabbit',
+			'deer',
+			null,
+			null,
+			'otter',
+			'wolf',
+			'frog',
+			'fox'
+		];
+		for (const lead of leads) {
+			follower.lead(lead);
+			// Long enough for the one following to shrink away and the next to grow in.
+			for (let i = 0; i < 8; i++) {
+				follower.update(1, 0.1);
+				look();
+			}
+			expect(world.children.map((f) => f.name)).toEqual(lead ? [lead] : []);
+		}
+		const current = new Set<THREE.BufferGeometry>();
+		world.traverse((o) => {
+			if (o instanceof THREE.Mesh) current.add(o.geometry as THREE.BufferGeometry);
+		});
+		expect(kinds([...shown].filter((g) => !current.has(g) && !ledger.isDisposed(g)))).toEqual([]);
+		follower.hide();
+		expect(world.children).toEqual([]);
+		expect(kinds([...shown].filter((g) => !ledger.isDisposed(g)))).toEqual([]);
 	});
 });
 

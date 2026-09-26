@@ -1,6 +1,14 @@
-import type { Authority, Direction, GameEvent, GridPos } from '@mathgame/engine';
+import {
+	leadIndex,
+	type Authority,
+	type Direction,
+	type GameEvent,
+	type GridPos
+} from '@mathgame/engine';
 import type { Keyboard } from '../input/keyboard';
+import type { Follower } from '../render/follower';
 import type { GameRenderer } from '../render/renderer';
+import { doctor } from '../state/doctor.svelte';
 import { game } from '../state/game.svelte';
 
 const STEP_SECONDS = 0.18; // one tile per step; Game Boy pace is ~0.25
@@ -10,6 +18,12 @@ const STEP_SECONDS = 0.18; // one tile per step; Game Boy pace is ~0.25
  * animates the player mesh between tiles as `player-moved` events arrive.
  * Enter is sent as `interact`; what came of it is the authority's to say.
  * A number key sends `select-lead` for the animal in that party slot.
+ *
+ * The lead walks behind the trainer (`render/follower.ts`): it steps onto
+ * the tile each step leaves, is put beside the trainer whenever the trainer
+ * is put somewhere without walking, and shows whoever leads the party the
+ * screen shows (the doctor's card's while it is open, which heals on its
+ * beat). Nothing it does goes to the authority.
  */
 export class ExploreController {
 	private pos: GridPos = { x: 0, y: 0 };
@@ -22,7 +36,8 @@ export class ExploreController {
 	constructor(
 		private authority: Authority,
 		private renderer: GameRenderer,
-		private keyboard: Keyboard
+		private keyboard: Keyboard,
+		private follower: Follower | null = null
 	) {}
 
 	handle(event: GameEvent): void {
@@ -38,6 +53,7 @@ export class ExploreController {
 				this.facing = event.facing;
 				this.renderer.setWorld(this.seed);
 				this.renderer.setPlayer(event.pos, event.pos, 1, this.facing);
+				this.follower?.place(this.seed, event.pos, this.facing);
 				break;
 			case 'player-moved':
 				if (event.playerId !== this.playerId) break;
@@ -45,6 +61,7 @@ export class ExploreController {
 				this.pos = event.pos;
 				this.progress = 0;
 				this.facing = event.dir;
+				this.follower?.follow(this.from, this.pos);
 				break;
 			case 'player-blocked':
 				if (event.playerId === this.playerId) this.facing = event.dir;
@@ -54,6 +71,7 @@ export class ExploreController {
 				if (event.playerId !== this.playerId) break;
 				this.pos = this.from = event.pos;
 				this.progress = 1;
+				this.follower?.place(this.seed, event.pos, this.facing);
 				break;
 			case 'taken-to-doctor':
 				// After a lost battle: beside a tent that can be far away, so no
@@ -62,6 +80,11 @@ export class ExploreController {
 				this.pos = this.from = event.pos;
 				this.progress = 1;
 				this.facing = event.dir;
+				this.follower?.place(this.seed, event.pos, this.facing);
+				break;
+			case 'game-left':
+				// Quit to the title, which gathers the team round the trainer itself.
+				this.follower?.hide();
 				break;
 		}
 	}
@@ -87,5 +110,11 @@ export class ExploreController {
 		}
 		this.renderer.setPlayer(this.from, this.pos, this.progress, this.facing);
 		this.renderer.ensureChunksAround(this.pos);
+		if (this.follower) {
+			// The party on screen: the doctor's card heals on its beat, after the authority has.
+			const party = doctor.active ? doctor.party : game.party;
+			this.follower.lead(party[leadIndex(party)]?.speciesId ?? null);
+			this.follower.update(this.progress, dt);
+		}
 	}
 }

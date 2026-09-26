@@ -3,6 +3,7 @@ import * as THREE from 'three';
 import { touch } from '../input/touch.svelte';
 import { motion } from '../motion';
 import { animateIdle, buildAnimalMesh, disposeFigure } from './animals';
+import { appearScale, recallScale } from './ease';
 import { BIOME_LOOK, CANOPY, COLORS, CONFETTI_COLORS, PROP_COLORS, TILE_COLORS } from './palette';
 import { PROP_GEOMETRY } from './tiles';
 
@@ -582,16 +583,12 @@ function applyEffect(figure: THREE.Group, effect: Effect): void {
 			break;
 		}
 		case 'recall':
-			// Shrinks to nothing; a sliver of scale keeps the matrix invertible.
-			figure.scale.multiplyScalar(Math.max(0.001, 1 - p * p));
+			figure.scale.multiplyScalar(recallScale(p));
 			figure.position.y += Math.sin(p * Math.PI) * 0.15;
 			break;
-		case 'appear': {
-			// Grows past its size and settles back (an ease-out with a little overshoot).
-			const grow = 1 + 2.2 * Math.pow(p - 1, 3) + 1.2 * Math.pow(p - 1, 2);
-			figure.scale.multiplyScalar(Math.max(0.001, grow));
+		case 'appear':
+			figure.scale.multiplyScalar(appearScale(p));
 			break;
-		}
 	}
 }
 
