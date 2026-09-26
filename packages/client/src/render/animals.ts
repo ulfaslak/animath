@@ -18,6 +18,15 @@ import { ANIMAL_COLORS, COLORS } from './palette';
  * The returned group's single child is the "rig" that holds the parts;
  * `animateIdle` scales the rig, so callers may scale or move the outer group
  * freely.
+ *
+ * Two measures read the parts, and both are rough on purpose. A figure's
+ * bounds (its feet on y = 0, its size) are three.js's `Box3.setFromObject`,
+ * which turns each part's own bounding box, not its vertices: a part that
+ * touches the ground and leans must lean in its geometry (see `starArm`), or
+ * its box dips under the ground though no vertex does. And resting reads
+ * which parts stand on the ground by their bottoms being within 0.005 of it
+ * (`ON_GROUND`): a part meant to stand on it sits exactly on 0, and one meant
+ * to be raised clears it well (the octopus's suckers sat on the edge).
  */
 type SpeciesColors = { fur: number; accent: number };
 type Builder = (c: SpeciesColors) => THREE.Object3D[];
