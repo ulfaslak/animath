@@ -11,7 +11,9 @@ export const SAVE_NOTICES = [
 	/** The saved game was written by a newer build than this page. */
 	'save.newerGame',
 	/** This browser will not let the page store anything. */
-	'save.cannotSave'
+	'save.cannotSave',
+	/** This page had fallen behind another window of the game, and reloaded into the newest game. */
+	'save.caughtUp'
 ] as const;
 
 export type SaveNotice = (typeof SAVE_NOTICES)[number];

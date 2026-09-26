@@ -363,6 +363,18 @@ save:
   newerGame: Your game was saved by a newer Animath. Reload the page to play it!
   # The browser will not let the page store anything, so nothing is saved.
   cannotSave: This browser can't keep your game, so it starts new every time.
+  # After a window that another window of the game had played past loads the newest game.
+  caughtUp: You were playing in another window. Here's your newest game!
+  # On a window that another window of the game has played past, until it catches up.
+  behind: You kept playing in another window.
+  # The same card when the newest game came from somewhere else (the server backup),
+  # shown only when the page has already reloaded by itself three times in a minute.
+  behindReady: Your newest game is ready.
+  # The same card when the saved game was cleared (a new game comes next), shown only
+  # when the page has already reloaded by itself three times in a minute.
+  behindGone: A new game is ready.
+  # The button on that card.
+  behindGo: Get your newest game
 
 sound:
   # The chip at the top of the screen after M turned the sound on or off.
