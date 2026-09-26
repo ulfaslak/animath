@@ -81,7 +81,8 @@ describe('the boat', () => {
 			if (i > 0 && at.distanceTo(last) > 0.02) jumps.push(`moved ${at.distanceTo(last)} at ${i}`);
 			if (boat.scale.x < lastScale) jumps.push(`shrank at ${i}`);
 			if (turned(boat) > lastTurn + 1e-9) jumps.push(`turned back at ${i}`);
-			if (i > 0 && lastTurn - turned(boat) > 0.05) jumps.push(`turned ${lastTurn - turned(boat)} at ${i}`);
+			if (i > 0 && lastTurn - turned(boat) > 0.05)
+				jumps.push(`turned ${lastTurn - turned(boat)} at ${i}`);
 			last.copy(at);
 			lastScale = boat.scale.x;
 			lastTurn = turned(boat);
@@ -92,18 +93,35 @@ describe('the boat', () => {
 		expect(boat.position.x).toBeGreaterThan(0.3);
 	});
 
+	it('has a coral rim along both sides of the hull, from the wide stern to the narrow bow', () => {
+		const boat = buildBoatMesh();
+		poseBoat(boat, 1, false);
+		boat.updateMatrixWorld(true);
+		const hull = new THREE.Box3().setFromObject(boat.children[0]!);
+		const rims = boat.children.filter((o) => o.name === 'rim') as THREE.Mesh[];
+		expect(rims).toHaveLength(2);
+		for (const rim of rims) {
+			const half = (rim.geometry as THREE.BoxGeometry).parameters.depth / 2;
+			const stern = new THREE.Vector3(0, 0, -half).applyMatrix4(rim.matrixWorld);
+			const bow = new THREE.Vector3(0, 0, half).applyMatrix4(rim.matrixWorld);
+			// Its stern end at the hull's widest, its bow end near the middle: never crossing it.
+			expect(Math.abs(stern.x)).toBeCloseTo(hull.max.x, 1);
+			expect(Math.abs(bow.x)).toBeLessThan(Math.abs(stern.x) / 2);
+			expect(Math.sign(stern.x)).toBe(Math.sign(bow.x));
+			expect(stern.z).toBeLessThan(bow.z);
+		}
+	});
+
 	it('with reduced motion, snaps from the back to the water half way, and rocks not at all', () => {
 		const back = turned(inTrainer(0).boat);
 		for (const a of [0, 0.2, 0.49]) {
 			expect(turned(inTrainer(a, true).boat)).toBeCloseTo(back, 5);
 			expect(inTrainer(a, true).boat.scale.x).toBeLessThan(0.7);
-
 		}
 		for (const a of [0.5, 0.8, 1]) {
 			expect(turned(inTrainer(a, true).boat)).toBeCloseTo(0, 5);
 			expect(inTrainer(a, true).boat.scale.x).toBe(1);
 		}
-
 	});
 
 	it('frees its own geometries, and only those: the materials are shared', () => {

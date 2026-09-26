@@ -47,7 +47,6 @@ const BACK = new THREE.Vector3(0, 0.4, -0.17);
  */
 const BACK_TURN = new THREE.Quaternion().setFromEuler(new THREE.Euler(Math.PI / 2 - 0.3, 0, 0));
 
-
 /** Afloat: its middle, from the trainer's feet, so the floor is under them. */
 const AFLOAT = new THREE.Vector3(0, DEPTH / 2 - FLOOR, 0);
 const AFLOAT_TURN = new THREE.Quaternion();
@@ -144,6 +143,8 @@ export function buildBoatMesh(): THREE.Group {
 		rim.position.set((s * (STERN_R + BOW_R)) / 2, DEPTH / 2, 0);
 		// From the wide stern to the narrow bow: each side slants in towards the middle.
 		rim.rotation.y = -s * slant;
+		rim.name = 'rim';
+
 		boat.add(rim);
 	}
 	const transom = mesh(new THREE.BoxGeometry(STERN_R * 2, 0.035, 0.035), materials.trim);
