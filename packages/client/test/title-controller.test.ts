@@ -3,15 +3,13 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { sfx } from '../src/audio/sfx.svelte';
 import { LocalAuthority } from '../src/authority/local';
 import { language } from '../src/copy';
+import { PICK_QUIET_SECONDS } from '../src/input/pick-guard';
 import { languageKey, rowKey } from '../src/input/press';
 import type { TitleView3D } from '../src/render/title-scenery';
 import { game } from '../src/state/game.svelte';
 import { title } from '../src/state/title.svelte';
-import {
-	CONFIRM_GUARD_SECONDS,
-	PICK_GUARD_SECONDS,
-	TitleController
-} from '../src/title/controller';
+import { TitleController } from '../src/title/controller';
+import { everyMash } from './mash';
 
 /**
  * The title's keys against the real authority: the menu, the confirm before
@@ -229,7 +227,7 @@ describe('title: a new game over a saved one', () => {
 		press('s', 'Enter');
 		expect(title.screen).toBe('confirm');
 		expect(title.confirm).toBe(0);
-		wait(CONFIRM_GUARD_SECONDS + 0.05);
+		wait(PICK_QUIET_SECONDS + 0.05);
 		press('Enter');
 		expect(title.screen).toBe('menu');
 		expect(title.rows[title.cursor]).toBe('new');
@@ -263,11 +261,54 @@ describe('title: a new game over a saved one', () => {
 		expect(title.confirm).toBe(1);
 		press('Enter');
 		expect(title.screen).toBe('confirm'); // too soon: nothing
-		wait(CONFIRM_GUARD_SECONDS + 0.05);
+		wait(PICK_QUIET_SECONDS + 0.05);
 		press('ArrowDown'); // no wrap: still Yes
 		press('Enter');
 		expect(title.screen).toBe('starter');
 		expect(scenery.shown).toContain(`starters ${STARTERS.join(',')}`);
+	});
+});
+
+/**
+ * An Enter mashed at 2, 4 or 8 presses a second, unevenly or late every
+ * fourth (#37): each screen that chooses something for the game takes a pick
+ * only after a quiet moment, so the mash never answers the confirm, picks a
+ * starter or names one; a pause and one press do.
+ */
+describe('title: a mash at any pace', () => {
+	it('an Enter mashed from New game on never answers the confirm', () => {
+		for (const { name, gaps } of everyMash(3)) {
+			const { press, wait, sent } = setup(savedGame());
+			press('s');
+			for (const gap of gaps) {
+				press('Enter');
+				wait(gap);
+			}
+			expect(title.screen, name).toBe('confirm');
+			expect(newGames(sent), name).toEqual([]);
+		}
+	});
+
+	it('an Enter mashed on a new player’s title picks no starter and names none', () => {
+		for (const { name, gaps } of everyMash(3)) {
+			const { press, wait, sent } = setup();
+			const mash = () =>
+				gaps.forEach((gap) => {
+					press('Enter');
+					wait(gap);
+				});
+			mash();
+			expect(title.screen, name).toBe('starter');
+			wait(PICK_QUIET_SECONDS);
+			press('Enter');
+			expect(title.screen, name).toBe('naming');
+			mash();
+			expect(title.screen, name).toBe('naming');
+			expect(newGames(sent), name).toEqual([]);
+			wait(PICK_QUIET_SECONDS);
+			press('Enter');
+			expect(newGames(sent), name).toHaveLength(1);
+		}
 	});
 });
 
@@ -277,7 +318,7 @@ describe('title: the starters', () => {
 		const s = setup();
 		s.press('Enter');
 		expect(title.screen).toBe('starter');
-		s.wait(PICK_GUARD_SECONDS + 0.05);
+		s.wait(PICK_QUIET_SECONDS + 0.05);
 		return s;
 	}
 
@@ -311,7 +352,7 @@ describe('title: the starters', () => {
 	it('an Enter mashed on New game does not pick a starter unseen', () => {
 		const { press, wait } = setup();
 		press('Enter', 'Enter', 'Enter');
-		wait(PICK_GUARD_SECONDS / 2);
+		wait(PICK_QUIET_SECONDS / 2);
 		press('Enter');
 		expect(title.screen).toBe('starter');
 	});
@@ -330,9 +371,9 @@ describe('title: the name box', () => {
 	function naming(index: number) {
 		const s = setup();
 		s.press('Enter');
-		s.wait(PICK_GUARD_SECONDS + 0.05);
+		s.wait(PICK_QUIET_SECONDS + 0.05);
 		s.press(...Array<string>(index).fill('ArrowRight'), 'Enter');
-		s.wait(PICK_GUARD_SECONDS + 0.05);
+		s.wait(PICK_QUIET_SECONDS + 0.05);
 		return s;
 	}
 
@@ -359,10 +400,10 @@ describe('title: the name box', () => {
 	it('an Enter mashed through the pick, or held, does not name the animal unseen', () => {
 		const { press, wait, controller, sent } = setup();
 		press('Enter');
-		wait(PICK_GUARD_SECONDS + 0.05);
+		wait(PICK_QUIET_SECONDS + 0.05);
 		press('Enter', 'Enter', 'Enter');
 		expect(title.screen).toBe('naming');
-		wait(PICK_GUARD_SECONDS + 0.05);
+		wait(PICK_QUIET_SECONDS + 0.05);
 		controller.onKey(key('Enter', { repeat: true }));
 		expect(newGames(sent)).toEqual([]);
 		expect(title.screen).toBe('naming');
@@ -438,11 +479,11 @@ describe('title: a pointer', () => {
 		// A second tap straight away, wherever it lands, waits out the guard as Enter does.
 		press(rowKey(1));
 		expect(title.screen).toBe('confirm');
-		wait(CONFIRM_GUARD_SECONDS + 0.05);
+		wait(PICK_QUIET_SECONDS + 0.05);
 		press(rowKey(0));
 		expect(title.screen).toBe('menu');
 		press(rowKey(title.rows.indexOf('new')));
-		wait(CONFIRM_GUARD_SECONDS + 0.05);
+		wait(PICK_QUIET_SECONDS + 0.05);
 		press(rowKey(1));
 		expect(title.screen).toBe('starter');
 	});
@@ -456,14 +497,14 @@ describe('title: a pointer', () => {
 		expect(title.screen).toBe('starter');
 		press('Enter');
 		expect(title.screen).toBe('starter'); // too soon
-		wait(PICK_GUARD_SECONDS + 0.05);
+		wait(PICK_QUIET_SECONDS + 0.05);
 		press(rowKey(STARTERS.length), 'Enter');
 		expect(title.screen).toBe('naming');
 		expect(scenery.shown.at(-1)).toBe('cheer 2');
 		// In the name box a tag's tap is not typing and does nothing; Let's go (Enter) starts.
 		press(rowKey(0));
 		expect(title.starter).toBe(2);
-		wait(PICK_GUARD_SECONDS + 0.05);
+		wait(PICK_QUIET_SECONDS + 0.05);
 		press('Enter');
 		expect(newGames(sent)).toEqual([{ type: 'new-game', speciesId: STARTERS[2], nickname: '' }]);
 	});

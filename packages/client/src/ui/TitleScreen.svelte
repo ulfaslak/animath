@@ -70,7 +70,6 @@
 			window.scrollTo(0, 0);
 		};
 	}
-
 </script>
 
 {#if title.screen === 'menu' || title.screen === 'confirm'}

@@ -97,7 +97,6 @@
 			window.scrollTo(0, 0);
 		};
 	}
-
 </script>
 
 <div class="backdrop" class:typing={touch.on && pause.screen === 'naming'}>

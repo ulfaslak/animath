@@ -287,12 +287,7 @@
 				</div>
 				<div class="buttons">
 					{#if !battle.mustPick}
-						<button
-							type="button"
-							class="pill-button"
-							data-press="Escape"
-							{@attach unfocusable}
-						>
+						<button type="button" class="pill-button" data-press="Escape" {@attach unfocusable}>
 							{t('battle.backButton')}
 							{#if !touch.on}<kbd>{t('keys.esc')}</kbd>{/if}
 						</button>

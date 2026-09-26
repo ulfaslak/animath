@@ -18,15 +18,12 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import type { CueName } from '../src/audio/cues';
 import { sfx } from '../src/audio/sfx.svelte';
 import { LocalAuthority } from '../src/authority/local';
-import {
-	BattleController,
-	ENTER_SECONDS,
-	IRIS_OPEN_SECONDS,
-	MENU_GUARD_SECONDS
-} from '../src/battle/controller';
+import { BattleController, ENTER_SECONDS, IRIS_OPEN_SECONDS } from '../src/battle/controller';
 import { actionAt, attackRows, rowOf } from '../src/battle/menu';
 import { parseParty } from '../src/flags';
+import { PICK_QUIET_SECONDS } from '../src/input/pick-guard';
 import { levelKey, rowKey } from '../src/input/press';
+import { everyMash } from './mash';
 import { words } from '../src/lines';
 import { nameOf } from '../src/names';
 import type { BattleScene } from '../src/render/battle-scene';
@@ -121,8 +118,9 @@ function setup(from: { party?: string; game?: SavedGame } = {}) {
 		}
 	};
 	/**
-	 * Press keys, as the game loop would see them: a frame apart, or `gap`
-	 * seconds apart, which is slower than a mash (`MASH_GAP_MS`) by default.
+	 * Press keys, as the game loop would see them: `gap` seconds apart, or
+	 * 0.35 s by default, a kid's quick deliberate pace. Two picks that close
+	 * together are a mash (`input/pick-guard.ts`): `pick` waits a quiet moment first.
 	 */
 	const pressEvery = (gap: number, ...names: string[]) =>
 		names.forEach((n) => {
@@ -130,10 +128,16 @@ function setup(from: { party?: string; game?: SavedGame } = {}) {
 			run(gap);
 		});
 	const press = (...names: string[]) => pressEvery(0.35, ...names);
-	/** Play the narration until the action menu is back and past its guard, so it takes a pick. */
+	/** A deliberate pick: a quiet moment, then each key. */
+	const pick = (...names: string[]) =>
+		names.forEach((n) => {
+			run(PICK_QUIET_SECONDS);
+			press(n);
+		});
+	/** Play the narration until the action menu is back and past its quiet moment, so it takes a pick. */
 	const toMenu = () => {
 		runUntil(() => battle.screen === 'actions');
-		run(MENU_GUARD_SECONDS);
+		run(PICK_QUIET_SECONDS);
 	};
 	/** Walk left/right past the reed by the spawn tile until an otter jumps out. */
 	const walkIntoBattle = () => {
@@ -249,6 +253,7 @@ function setup(from: { party?: string; game?: SavedGame } = {}) {
 		runUntil,
 		press,
 		pressEvery,
+		pick,
 		toMenu,
 		walkIntoBattle,
 		latest,
@@ -402,8 +407,7 @@ describe('battle screen', () => {
 		}
 		t.pressEvery(0.15, ...Array<string>(14).fill('Enter'));
 		expect(battle.active).toBe(true);
-		t.run(0.2);
-		t.press('Enter');
+		t.pick('Enter');
 		expect(battle.active).toBe(false);
 	});
 
@@ -548,15 +552,17 @@ describe('switching animals', () => {
 		expect(battle.cursor).toBe(switchRow);
 
 		// The animal already in front can be highlighted, but not picked.
-		t.press('Enter', 'ArrowUp');
+		t.pick('Enter');
+		t.press('ArrowUp');
 		expect(battle.partyCursor).toBe(0);
 		const before = t.sent.length;
-		t.press('Enter');
+		t.pick('Enter');
 		expect(t.sent.length).toBe(before);
 		expect(battle.refused).toBe(1);
 		expect(battle.screen).toBe('party');
 
-		t.press('s', 'Enter');
+		t.press('s');
+		t.pick('Enter');
 		expect(t.sent.at(-1)).toEqual({ type: 'battle', intent: { type: 'switch', partyIndex: 1 } });
 		t.run(0.1);
 		expect(said()).toBe(`Come back, ${name(first!)}!`);
@@ -616,12 +622,14 @@ describe('switching animals', () => {
 
 		t.press('Escape', 'ArrowLeft', '1');
 		expect(battle.screen).toBe('party');
-		t.press('ArrowUp', 'Enter');
+		t.press('ArrowUp');
+		t.pick('Enter');
 		expect(t.sent.length).toBe(before);
 		expect(battle.refused).toBe(1);
 
 		const hp = { wild: battle.opponent!.hp, next: next.hp };
-		t.press('ArrowDown', 'Enter');
+		t.press('ArrowDown');
+		t.pick('Enter');
 		expect(t.sent.at(-1)).toEqual({ type: 'battle', intent: { type: 'switch', partyIndex: 1 } });
 		const update = t.events.at(-1);
 		expect(update?.type === 'battle-updated' && update.events.map((e) => e.type)).toEqual([
@@ -642,15 +650,17 @@ describe('switching animals', () => {
 		t.walkIntoBattle();
 		t.toMenu();
 		knockOutFront(t, true);
-		// The mash goes on for two seconds of the list: nothing is picked, nothing refused.
+		// The mash goes on for three seconds of the list, at every pace: nothing is
+		// picked, nothing refused.
 		const before = t.sent.length;
-		t.pressEvery(0.15, ...Array<string>(14).fill('Enter'));
-		expect(t.sent.length).toBe(before);
-		expect(battle.refused).toBe(0);
-		expect(battle.screen).toBe('party');
+		for (const { name: mash, gaps } of everyMash(3)) {
+			for (const gap of gaps) t.pressEvery(gap, 'Enter');
+			expect(t.sent.length, mash).toBe(before);
+			expect(battle.refused, mash).toBe(0);
+			expect(battle.screen, mash).toBe('party');
+		}
 		// After a pause, one press picks.
-		t.run(0.2);
-		t.press('Enter');
+		t.pick('Enter');
 		expect(t.sent.at(-1)).toEqual({ type: 'battle', intent: { type: 'switch', partyIndex: 1 } });
 	});
 
@@ -663,9 +673,9 @@ describe('switching animals', () => {
 		for (let i = 0; !(battle.screen === 'party' && battle.mustPick); i++) {
 			if (i > 20 || battle.screen === 'result') throw new Error('no newcomer was knocked out');
 			toSwitchRow(t);
-			t.press('Enter', 'Enter');
+			t.pick('Enter', 'Enter');
 			t.runUntil(() => ['actions', 'party', 'result'].includes(battle.screen), 30);
-			if (battle.screen === 'actions') t.run(MENU_GUARD_SECONDS);
+			if (battle.screen === 'actions') t.run(PICK_QUIET_SECONDS);
 		}
 		// The animal that was in front before the switch goes back in: it is its menu again.
 		const back = battle.partyCursor;
@@ -703,7 +713,7 @@ describe('a pointer', () => {
 		});
 	});
 
-	it('a tap works while a turn is narrated only as far as a key does: Go waits out the menu’s guard', () => {
+	it('a tap works while a turn is narrated only as far as a key does: Go waits out the quiet moment', () => {
 		const t = setup();
 		t.walkIntoBattle();
 		t.runUntil(() => battle.screen === 'actions');
@@ -711,7 +721,7 @@ describe('a pointer', () => {
 		t.pressEvery(0.05, rowKey(1), 'Enter');
 		expect(battle.cursor).toBe(1);
 		expect(t.sent.filter((i) => i.type === 'battle')).toEqual([]);
-		t.run(MENU_GUARD_SECONDS);
+		t.run(PICK_QUIET_SECONDS);
 		t.press('Enter');
 		expect(t.sent.at(-1)).toMatchObject({ intent: { type: 'attack', attackIndex: 2 } });
 		// While the turn plays, a tap does nothing at all.
@@ -735,7 +745,8 @@ describe('a pointer', () => {
 		expect(battle.partyCursor).toBe(1);
 		// The one in front: highlighted by a tap, refused by Go, with a shake.
 		const before = t.sent.length;
-		t.press(rowKey(0), 'Enter');
+		t.press(rowKey(0));
+		t.pick('Enter');
 		expect(battle.partyCursor).toBe(0);
 		expect(battle.refused).toBe(1);
 		expect(t.sent.length).toBe(before);
@@ -778,17 +789,83 @@ describe('mashing through the narration', () => {
 		expect(t.sent.length).toBe(answered);
 		expect(battle.screen).toBe('actions');
 		expect(battle.levels).toEqual(levels);
-		// The arrows move at once; after a pause, one press picks.
-		t.pressEvery(0.2, 'ArrowDown');
+		// The arrows move at once, and Go stays dimmed; after a pause, one press picks.
+		t.press('ArrowDown');
 		expect(battle.cursor).toBe(1);
-		t.press('Enter');
+		expect(battle.ready).toBe(false);
+		t.pick('Enter');
 		expect(t.sent.at(-1)).toEqual({
 			type: 'battle',
 			intent: { type: 'attack', attackIndex: 2, level: 1 }
 		});
 	});
 
-	it('a single key the moment the menu comes back waits too; a mash of one key is still a mash', () => {
+	it('an Enter mashed at any pace — 2, 4 or 8 a second, uneven, or late every fourth — never picks', () => {
+		for (const { name: mash, gaps } of everyMash(3)) {
+			battle.reset();
+			const t = setup();
+			t.walkIntoBattle();
+			t.toMenu();
+			t.press('1');
+			t.press(...String(battle.puzzle!.answer));
+			const before = t.sent.length;
+			const hit = (gap: number) => {
+				t.controller.onKey(key('Enter'));
+				t.run(gap);
+			};
+			// The Enter that answers, then on through the turn and three seconds of the menu.
+			let g = 0;
+			for (; battle.screen !== 'actions'; g++) {
+				if (g > 400) throw new Error(`${mash}: the menu never came back`);
+				hit(gaps[g % gaps.length]!);
+			}
+			for (const gap of gaps) hit(gap);
+			expect(
+				t.sent.slice(before).map((i) => i.type === 'battle' && i.intent.type),
+				mash
+			).toEqual(['answer']);
+			expect(battle.screen, mash).toBe('actions');
+			expect(battle.ready, mash).toBe(false);
+			// A pause, and Go lights up: one press picks.
+			t.run(PICK_QUIET_SECONDS);
+			expect(battle.ready, mash).toBe(true);
+			t.press('Enter');
+			expect(t.sent.length, mash).toBe(before + 2);
+		}
+	});
+
+	it('"You won!" holds through an Enter mashed at any pace from the winning answer on', () => {
+		for (const { name: mash, gaps } of everyMash(3)) {
+			battle.reset();
+			const t = setup();
+			t.walkIntoBattle();
+			t.toMenu();
+			t.press('ArrowDown');
+			let g = 0;
+			const hit = () => {
+				t.controller.onKey(key('Enter'));
+				t.run(gaps[g++ % gaps.length]!);
+			};
+			// Scurry Kick on hard, answered right with the Enter that starts the mash,
+			// until the wild animal is down.
+			for (let turn = 0; battle.screen !== 'result'; turn++) {
+				if (turn > 10) throw new Error(`${mash}: the wild animal never went down`);
+				t.press('3');
+				t.press(...String(battle.puzzle!.answer));
+				hit();
+				while (!['actions', 'result'].includes(battle.screen)) hit();
+				if (battle.screen === 'actions') t.run(PICK_QUIET_SECONDS);
+			}
+			expect(battle.outcome, mash).toBe('won');
+			for (let i = 0; i < gaps.length; i++) hit();
+			expect(battle.screen, mash).toBe('result');
+			expect(battle.ready, mash).toBe(false);
+			t.pick('Enter');
+			expect(battle.active, mash).toBe(false);
+		}
+	});
+
+	it('a single key the moment the menu comes back waits too, slow and deliberate as it is', () => {
 		const t = setup();
 		t.walkIntoBattle();
 		t.toMenu();
@@ -796,15 +873,10 @@ describe('mashing through the narration', () => {
 		t.press(...String(battle.puzzle!.answer), 'Enter');
 		const answered = t.sent.length;
 		t.runUntil(() => battle.screen === 'actions');
-		// One press, slow and deliberate, but before the kid has seen the menu.
+		// One press, a long while after the answer, but before the kid has seen the menu.
 		t.press('Enter');
 		expect(t.sent.length).toBe(answered);
-		// Enter alone, four times a second, on past the guard: a mash.
-		t.pressEvery(0.25, ...Array<string>(8).fill('Enter'));
-		expect(t.sent.length).toBe(answered);
-		// Three times a second is a kid pressing again, not a mash: the next one picks.
-		t.pressEvery(0.1, 'ArrowDown');
-		t.press('Enter');
+		t.pick('Enter');
 		expect(t.sent.length).toBe(answered + 1);
 	});
 
@@ -816,7 +888,7 @@ describe('mashing through the narration', () => {
 		t.press('Enter', '2', ' ');
 		expect(t.sent.length).toBe(before);
 		expect(battle.screen).toBe('actions');
-		t.run(MENU_GUARD_SECONDS);
+		t.run(PICK_QUIET_SECONDS);
 		t.press('2');
 		expect(t.sent.at(-1)).toEqual({
 			type: 'battle',
@@ -980,7 +1052,7 @@ describe('sounds', () => {
 			if (turn > 10) throw new Error('no win');
 			t.runUntil(() => battle.screen === 'actions' || over(), 30);
 			if (over()) break;
-			t.run(MENU_GUARD_SECONDS);
+			t.run(PICK_QUIET_SECONDS);
 			t.press('3'); // the first attack, hard
 			answer(t, true);
 		}

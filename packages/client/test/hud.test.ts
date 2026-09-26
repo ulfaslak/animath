@@ -25,6 +25,7 @@ function setup() {
 	} as unknown as GameRenderer;
 	let enter = false;
 	const keyboard = {
+		tick: () => {},
 		takeTap: () => undefined,
 		heldDirection: () => undefined,
 		takeSlot: () => undefined,

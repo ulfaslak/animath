@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { Keyboard, keyName } from '../src/input/keyboard';
+import { PICK_QUIET_SECONDS } from '../src/input/pick-guard';
+import { everyMash } from './mash';
 
 /**
  * Explore's keyboard against key events as browsers send them: W A S D walk
@@ -17,17 +19,25 @@ interface Press {
 	altKey?: boolean;
 }
 
-function setup() {
+/**
+ * A keyboard as explore has it: on (explore has the screen) and past Talk's
+ * quiet moment, unless told otherwise. Presses come the way `main.ts`
+ * hands them over (`keydown`); releases, blur and a hidden page through the
+ * window's listeners.
+ */
+function setup({ on = true, settled = true } = {}) {
 	const listeners = new Map<string, (e: unknown) => void>();
 	const target = {
 		addEventListener: (type: string, listener: (e: unknown) => void) =>
 			listeners.set(type, listener)
 	} as unknown as Window;
 	const keyboard = new Keyboard(target);
+	if (on) keyboard.setEnabled(true);
+	if (settled) keyboard.tick(PICK_QUIET_SECONDS);
 	/** Send one key event; whether the page kept the key from the browser. */
 	const send = (type: 'keydown' | 'keyup', press: Press): boolean => {
 		let prevented = false;
-		listeners.get(type)!({
+		const event = {
 			repeat: false,
 			shiftKey: false,
 			ctrlKey: false,
@@ -38,7 +48,9 @@ function setup() {
 			preventDefault() {
 				prevented = true;
 			}
-		});
+		};
+		if (type === 'keydown') keyboard.keydown(event as unknown as KeyboardEvent);
+		else listeners.get(type)!(event);
 		return prevented;
 	};
 	const down = (press: Press) => send('keydown', press);
@@ -51,7 +63,7 @@ function setup() {
 		slot: keyboard.takeSlot()
 	});
 	const fire = (type: string) => listeners.get(type)!({});
-	return { keyboard, down, up, take, fire };
+	return { keyboard, listeners, down, up, take, fire };
 }
 
 const nothing = { tap: undefined, held: undefined, interact: false, slot: undefined };
@@ -179,5 +191,68 @@ describe('explore keyboard', () => {
 			t.fire(type);
 			expect(t.take()).toEqual(nothing);
 		}
+	});
+});
+
+/**
+ * One press, one screen (#38): the keyboard hears a key press only when
+ * `main.ts` hands it over, which it does only while explore has the screen,
+ * so the Enter on the title's Continue is never also a word with the doctor.
+ */
+describe('explore keyboard between screens', () => {
+	const enter = { key: 'Enter', code: 'Enter' };
+
+	it('listens for no key press itself, and takes none before explore has the screen', () => {
+		const t = setup({ on: false, settled: false });
+		expect([...t.listeners.keys()].sort()).toEqual(['blur', 'keyup', 'visibilitychange']);
+		// Keys pressed while the page loads or the title is up, before the first frame.
+		t.down(enter);
+		t.down({ key: 'ArrowUp', code: 'ArrowUp' });
+		t.down({ key: '2', code: 'Digit2' });
+		t.keyboard.setEnabled(true);
+		t.keyboard.tick(PICK_QUIET_SECONDS);
+		expect(t.take()).toEqual(nothing);
+	});
+
+	it('talks only after a quiet moment: explore just back, or an Enter mashed at any pace, says nothing', () => {
+		for (const { name, gaps } of everyMash(3)) {
+			// Explore has just taken the screen back (Continue, a result card, Bye),
+			// and the Enter that did it goes on, mashed.
+			const t = setup({ settled: false });
+			const talked = gaps.filter((gap) => {
+				t.down(enter);
+				t.keyboard.tick(gap);
+				return t.take().interact;
+			});
+			expect(talked, name).toEqual([]);
+			// A quiet moment, then one Enter talks; a held one repeats nothing.
+			t.keyboard.tick(PICK_QUIET_SECONDS);
+			t.down(enter);
+			t.down({ ...enter, repeat: true });
+			expect(t.take().interact, name).toBe(true);
+			t.keyboard.tick(PICK_QUIET_SECONDS);
+			t.down({ ...enter, repeat: true });
+			expect(t.take().interact, name).toBe(false);
+		}
+	});
+
+	it('walks at once while Talk waits, and a walk is no mash', () => {
+		const t = setup({ settled: false });
+		t.down({ key: 'ArrowLeft', code: 'ArrowLeft' });
+		expect(t.take()).toMatchObject({ tap: 'left', held: 'left', interact: false });
+		t.up({ key: 'ArrowLeft', code: 'ArrowLeft' });
+		t.keyboard.tick(PICK_QUIET_SECONDS);
+		t.down({ key: 'ArrowLeft', code: 'ArrowLeft' });
+		t.down(enter);
+		expect(t.take()).toMatchObject({ tap: 'left', interact: true });
+	});
+
+	it('starts the quiet moment again each time explore takes the screen back', () => {
+		const t = setup();
+		t.keyboard.setEnabled(false); // the doctor's card, say
+		t.keyboard.tick(5);
+		t.keyboard.setEnabled(true); // Bye
+		t.down(enter);
+		expect(t.take().interact).toBe(false);
 	});
 });

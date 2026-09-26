@@ -3,10 +3,12 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import type { CueName } from '../src/audio/cues';
 import { sfx } from '../src/audio/sfx.svelte';
 import { LocalAuthority } from '../src/authority/local';
-import { DoctorController, OPEN_GUARD_SECONDS } from '../src/doctor/controller';
+import { DoctorController } from '../src/doctor/controller';
 import { doctorWords } from '../src/doctor/lines';
+import { PICK_QUIET_SECONDS } from '../src/input/pick-guard';
 import { rowKey } from '../src/input/press';
 import { doctor } from '../src/state/doctor.svelte';
+import { everyMash } from './mash';
 
 /**
  * The doctor's card driven by keys against the real authority: what each key
@@ -101,7 +103,7 @@ describe("the doctor's card", () => {
 		// An Enter mashed at the tent does nothing for a moment.
 		t.press('Enter', ' ');
 		expect(t.doctorSent()).toEqual([]);
-		t.run(OPEN_GUARD_SECONDS);
+		t.run(PICK_QUIET_SECONDS);
 		t.press('ArrowDown');
 		expect(doctor.cursor).toBe(1); // the tired rabbit
 		t.press('s');
@@ -121,7 +123,7 @@ describe("the doctor's card", () => {
 	it('a miss says "Not quite!" and brings a new puzzle; the HP stays and the answer stays hidden', () => {
 		const t = setup(hurtParty());
 		t.talk();
-		t.run(OPEN_GUARD_SECONDS);
+		t.run(PICK_QUIET_SECONDS);
 		t.press('Enter');
 		expect(doctor.screen).toBe('puzzle');
 		expect(doctor.patient).toBe(0);
@@ -145,7 +147,7 @@ describe("the doctor's card", () => {
 	it('a right answer heals with a cheer, then moves on to the next animal who needs help', () => {
 		const t = setup(hurtParty());
 		t.talk();
-		t.run(OPEN_GUARD_SECONDS);
+		t.run(PICK_QUIET_SECONDS);
 		t.press('Enter');
 		t.cues.length = 0;
 		t.press(...String(t.answer()), 'Enter');
@@ -168,7 +170,9 @@ describe("the doctor's card", () => {
 		expect(doctor.cursor).toBe(1); // the rabbit, still tired
 		expect(doctor.healed).toBeNull(); // the cheer is over; the squirrel sits with the fit ones
 
-		// Heal the rabbit too: with everyone fit, the cursor rests on Bye.
+		// Heal the rabbit too, once the list has been back a quiet moment: with
+		// everyone fit, the cursor rests on Bye.
+		t.run(PICK_QUIET_SECONDS);
 		t.press('Enter');
 		t.press(...String(t.answer()), 'Enter');
 		t.run(2.2);
@@ -183,7 +187,7 @@ describe("the doctor's card", () => {
 	it('up and down swap the puzzle for another hurt animal, and never for a fit one', () => {
 		const t = setup(hurtParty());
 		t.talk();
-		t.run(OPEN_GUARD_SECONDS);
+		t.run(PICK_QUIET_SECONDS);
 		t.press('Enter', '4');
 		expect(doctor.input).toBe('4');
 		t.press('ArrowDown');
@@ -211,7 +215,7 @@ describe("the doctor's card", () => {
 			{ id: 'b', speciesId: 'rabbit', hp: getAnimal('rabbit').maxHp }
 		]);
 		u.talk();
-		u.run(OPEN_GUARD_SECONDS);
+		u.run(PICK_QUIET_SECONDS);
 		u.press('Enter');
 		const before = u.doctorSent().length;
 		u.press('ArrowUp', 'ArrowDown');
@@ -227,7 +231,7 @@ describe("the doctor's card", () => {
 		expect(t.events.at(-1)).toMatchObject({ type: 'doctor-visit-ended' });
 
 		t.authority.dispatch({ type: 'interact' });
-		t.run(OPEN_GUARD_SECONDS);
+		t.run(PICK_QUIET_SECONDS);
 		t.press('Enter');
 		t.press(...String(t.answer() + 1), 'Enter');
 		expect(doctor.screen).toBe('busy');
@@ -246,7 +250,7 @@ describe("the doctor's card", () => {
 		t.talk();
 		expect(doctor.line).toEqual({ say: 'helloAllFit' });
 		expect(doctor.cursor).toBe(1); // Bye, below the one squirrel
-		t.run(OPEN_GUARD_SECONDS);
+		t.run(PICK_QUIET_SECONDS);
 		t.press('ArrowDown', 'ArrowUp');
 		expect(doctor.cursor).toBe(1);
 		t.press('Enter');
@@ -257,7 +261,7 @@ describe("the doctor's card", () => {
 	it('ignores held keys, an empty answer, and every key but Escape while a beat plays', () => {
 		const t = setup(hurtParty());
 		t.talk();
-		t.run(OPEN_GUARD_SECONDS);
+		t.run(PICK_QUIET_SECONDS);
 		for (let i = 0; i < 10; i++) t.controller.onKey(key('Enter', true));
 		for (let i = 0; i < 10; i++) t.controller.onKey(key('ArrowDown', true));
 		expect(doctor.cursor).toBe(0);
@@ -277,7 +281,7 @@ describe("the doctor's card", () => {
 	it('ignores events from an earlier visit, even one further along than the visit on screen', () => {
 		const t = setup(hurtParty());
 		t.talk();
-		t.run(OPEN_GUARD_SECONDS);
+		t.run(PICK_QUIET_SECONDS);
 		// Visit 1: pick, miss twice (its step is 3 by then), leave.
 		t.press('Enter');
 		t.press(...String(t.answer() + 1), 'Enter');
@@ -290,7 +294,7 @@ describe("the doctor's card", () => {
 
 		// Visit 2, one step in: the late events of visit 1 change nothing on screen.
 		t.authority.dispatch({ type: 'interact' });
-		t.run(OPEN_GUARD_SECONDS);
+		t.run(PICK_QUIET_SECONDS);
 		t.press('Enter');
 		const view = () => ({
 			active: doctor.active,
@@ -309,18 +313,78 @@ describe("the doctor's card", () => {
 });
 
 /**
+ * A key mashed at the tent or through a heal (#37): the list takes a pick
+ * only after a quiet moment, when the card opens and each time it comes back,
+ * so a mash at any pace picks nobody and never says bye.
+ */
+describe("the doctor's card under a mash", () => {
+	/** Press Enter at each gap in turn; the kinds of doctor intent sent meanwhile. */
+	const mash = (t: ReturnType<typeof setup>, gaps: number[]) => {
+		const before = t.doctorSent().length;
+		for (const gap of gaps) {
+			t.controller.onKey(key('Enter'));
+			t.run(gap);
+		}
+		return t
+			.doctorSent()
+			.slice(before)
+			.map((i) => i.intent.type);
+	};
+
+	it('an Enter mashed at the tent, at any pace, picks nobody; after a pause one does', () => {
+		for (const { name, gaps } of everyMash(3)) {
+			const t = setup(hurtParty());
+			t.talk();
+			expect(mash(t, gaps), name).toEqual([]);
+			expect(doctor.screen, name).toBe('list');
+			t.run(PICK_QUIET_SECONDS);
+			t.press('Enter');
+			expect(t.doctorSent(), name).toEqual([
+				{ type: 'doctor', intent: { type: 'pick-patient', partyIndex: 0 } }
+			]);
+		}
+	});
+
+	it('an Enter mashed through a heal never picks the next animal, nor says bye after the last', () => {
+		for (const { name, gaps } of everyMash(5)) {
+			const t = setup([
+				{ id: 'a', speciesId: 'squirrel', hp: 5 },
+				{ id: 'b', speciesId: 'rabbit', hp: 3 }
+			]);
+			t.talk();
+			t.run(PICK_QUIET_SECONDS);
+			t.press('Enter');
+			t.press(...String(t.answer()));
+			// The mash's first Enter answers; the rest go on through "Correct!", the
+			// heal and for seconds of the list, which picks nothing from them.
+			expect(mash(t, gaps), name).toEqual(['answer']);
+			expect(doctor.screen, name).toBe('list');
+			expect(doctor.cursor, name).toBe(1); // the rabbit, waiting to be picked
+
+			// The same through the last heal: the cursor rests on Bye, and the card stays.
+			t.run(PICK_QUIET_SECONDS);
+			t.press('Enter');
+			t.press(...String(t.answer()));
+			expect(mash(t, gaps), name).toEqual(['answer']);
+			expect(doctor.active, name).toBe(true);
+			expect(doctor.cursor, name).toBe(2);
+		}
+	});
+});
+
+/**
  * A click or a tap reaches the card as a key press (`input/press.ts`): an
  * animal's row is its row key, which picks it at once, since nothing is
  * spent at the doctor; Bye is Escape.
  */
 describe("the doctor's card under a pointer", () => {
-	it('a tap picks a hurt animal at once, but not in the opening half second, and never a fit one', () => {
+	it('a tap picks a hurt animal at once, but not before the quiet moment, and never a fit one', () => {
 		const t = setup(hurtParty());
 		t.talk();
-		// A tap straight after the tent is inside the opening guard, as Enter is.
+		// A tap straight after the tent is inside the quiet moment, as Enter is.
 		t.press(rowKey(1));
 		expect(t.doctorSent()).toEqual([]);
-		t.run(OPEN_GUARD_SECONDS);
+		t.run(PICK_QUIET_SECONDS);
 		// The fox is fit: its row does nothing, and the cursor stays where it was.
 		t.press(rowKey(2));
 		expect(t.doctorSent()).toEqual([]);
@@ -336,7 +400,7 @@ describe("the doctor's card under a pointer", () => {
 	it("in a puzzle, a tap on another hurt animal swaps to it; the patient's own row and a fit one do nothing", () => {
 		const t = setup(hurtParty());
 		t.talk();
-		t.run(OPEN_GUARD_SECONDS);
+		t.run(PICK_QUIET_SECONDS);
 		t.press(rowKey(0));
 		expect(doctor.patient).toBe(0);
 		t.press('4');
