@@ -513,8 +513,7 @@ describe('encounterTableAt: the ground around the tall grass', () => {
 		}
 		expect(bad).toEqual([]);
 		expect(compared).toBeGreaterThan(100_000);
-		// About 1 s alone (120 lead × biome × distance cells, 729 grounds each); 3 s under load.
-	}, 30_000);
+	});
 
 	it('for a tier-1 lead is the table [[PRODUCT]] §4 writes out, on every ground', () => {
 		const bad: string[] = [];
@@ -533,8 +532,7 @@ describe('encounterTableAt: the ground around the tall grass', () => {
 			}
 		}
 		expect(bad).toEqual([]);
-		// About 0.3 s alone (32 biome × distance cells, 729 grounds each, twice).
-	}, 30_000);
+	});
 
 	it('from its own tier up, a tier-T lead meets what a tier-1 lead met in a world T − 1 tiers smaller, on every ground', () => {
 		const bad: string[] = [];
@@ -571,8 +569,7 @@ describe('encounterTableAt: the ground around the tall grass', () => {
 		}
 		expect(bad).toEqual([]);
 		expect(compared).toBeGreaterThan(20_000);
-		// About 0.5 s alone (160 lead × biome × distance cells, 125 grounds each).
-	}, 30_000);
+	});
 
 	it('more of a terrain nearby never lowers the share of an animal that favours it', () => {
 		// One tile around turns into terrain `to`, from open ground or from
@@ -624,8 +621,7 @@ describe('encounterTableAt: the ground around the tall grass', () => {
 		// Not a sweep of ties: the ground moved these shares tens of thousands of times.
 		expect(checked).toBeGreaterThan(50_000);
 		expect(rose).toBeGreaterThan(20_000);
-		// About 1 s alone (51 lead × biome × distance cells, 729 grounds, 12 moves each).
-	}, 30_000);
+	});
 
 	it('on any ground, the share two tiers above the lead never falls and its own never rises with distance', () => {
 		const bad: string[] = [];

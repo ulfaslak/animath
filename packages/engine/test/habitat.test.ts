@@ -88,8 +88,7 @@ describe('surroundings', () => {
 		expect(bad).toEqual([]);
 		// The sweep met every terrain, so it compared something.
 		for (const n of Object.values(sawEach)) expect(n).toBeGreaterThan(20);
-		// About 0.2 s alone (a few thousand tall-grass tiles, 28 tiles each, counted twice).
-	}, 30_000);
+	});
 
 	it('is a pure function of the seed and the tile, like the world', () => {
 		const seed = hashString('prototype');
