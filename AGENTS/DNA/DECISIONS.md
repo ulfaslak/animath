@@ -29,6 +29,9 @@ The rules are [[PRODUCT]] §4; these are the choices behind them.
 A battle lets the player switch animals, because the human asked for it ("need ability to change combat animal during fight"). A switch costs the turn.
 Who comes out of the tall grass is sized to the lead's tier, because the human asked for it ("index challenger animals based on the tier of the selected animal"), and nothing more than one tier below the lead ever comes out.
 The player chooses the lead while exploring, because the human asked for it ("the ability to change the *selected* animal during explore mode").
+A party has no cap: every animal caught joins it, because the human asked for it ("let's not put a cap on how many animals you can carry. indeed, let the user carry as many as they want").
+The party is shown as one card per species, the animals of a kind stacked on it, and the player orders the cards by dragging them, because the human asked for it ("let's [stack] cards for same animals in the UI. user can mouseover cards to reveal the animal and HP underneath. and simply scroll cards on overflow. user can drag animal card (bundles) to change the vertical alignment").
+The party is kept in species bundles, so the cards top to bottom are the battle order: a caught animal joins the end of its kind's bundle, and choosing a lead moves its bundle to the front.
 
 ## Client
 
@@ -39,7 +42,7 @@ Placeholder geometry (boxes, cones) is acceptable until real models arrive. Real
 Ground tiles render as one `InstancedMesh` per chunk.
 Font: Nunito (Google Fonts). Rounded, friendly.
 Sound is synthesized while the game runs, with WebAudio, from cue data in `src/audio/`: no sound files, no audio library. Cues play from the screens (controllers, the HUD), where events become visuals; the authority and the engine know nothing of sound.
-Mouse and touch are key presses: a click or a tap on the overlay sends the key it stands for through the keyboard's own path (`input/press.ts`), plus the pointer's own keys for a row, a level or a language. There is no second path from a pointer to an action.
+Mouse and touch are key presses: a click or a tap on the overlay sends the key it stands for through the keyboard's own path (`input/press.ts`), plus the pointer's own keys for a row, a level, a language, and the party column's cards, animals and dropped cards. There is no second path from a pointer to an action.
 Touch controls (D-pad, Talk, Menu, number pad, finger-sized rows) show where the main pointer is coarse, then follow the latest input: a touch shows them, a real keyboard's key hides them. The same build serves laptops and tablets.
 Dev server on port **5180** (5173 belongs to another project on this machine).
 
