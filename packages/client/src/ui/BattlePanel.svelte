@@ -207,7 +207,7 @@
 	<div class="battle-line">{words(battle.line)}</div>
 {/if}
 
-<div class="panel">
+<div class="panel" class:listing={battle.screen === 'party'}>
 	{#if battle.screen === 'party'}
 		<div class="card actions party">
 			{#key battle.refused}
@@ -398,9 +398,10 @@
 {/if}
 
 <style>
+	/* Wide enough for a twelve-letter nickname of the widest letters (WWWWWWWWWWWW is 242 px). */
 	.status {
 		position: absolute;
-		width: 240px;
+		width: 280px;
 		max-width: calc(50vw - 24px);
 		box-sizing: border-box;
 		background: var(--panel-bg);
@@ -467,9 +468,18 @@
 		padding: 0 16px 16px;
 		box-sizing: border-box;
 	}
+	/*
+	 * The party list takes the wider side: each row holds a name of up to
+	 * twelve letters, an HP bar and a tag, and the card beside it only a
+	 * sentence and two buttons.
+	 */
+	.panel.listing {
+		grid-template-columns: 3fr minmax(300px, 2fr);
+	}
 	/* Below the supported sizes, give the attack names the room before the puzzle. */
 	@media (max-width: 900px) {
-		.panel {
+		.panel,
+		.panel.listing {
 			grid-template-columns: 1fr 1fr;
 		}
 	}
@@ -583,6 +593,31 @@
 	.hp-cell {
 		flex: 0 1 150px;
 		min-width: 100px;
+	}
+	/*
+	 * The party list lines its rows up in shared columns — caret, name, HP bar,
+	 * tag — sized by the longest name there, so every name shows whole (up to
+	 * twelve letters of the widest, at 1024 px) and the bars start together.
+	 * A row is a subgrid of the list; a browser without subgrid lays each row
+	 * out on its own, in the same columns.
+	 */
+	.party {
+		display: grid;
+		grid-template-columns: 16px minmax(0, max-content) minmax(100px, 1fr) auto;
+		grid-auto-rows: minmax(32px, 40px);
+		align-content: center;
+		gap: 2px 8px;
+	}
+	:global(.touch) .party {
+		grid-auto-rows: var(--tap);
+		row-gap: 0;
+	}
+	.party .row {
+		grid-column: 1 / -1;
+		display: grid;
+		grid-template-columns: 16px minmax(0, max-content) minmax(100px, 1fr) auto;
+		grid-template-columns: subgrid;
+		min-height: 0;
 	}
 	.party .how {
 		min-width: 4.6em;

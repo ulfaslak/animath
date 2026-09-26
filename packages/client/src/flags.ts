@@ -5,8 +5,12 @@ import { ANIMALS, MAX_PARTY, type AnimalInstance } from '@mathgame/engine';
  * needs: each exists to look at something (CHEATSHEET § Hidden behaviour).
  */
 export interface Flags {
-	/** `?zoo`: one of every species stands by the spawn tile, to check the figures. A throwaway game. */
-	zoo: boolean;
+	/**
+	 * `?zoo`: one of every species stands by the spawn tile, to check the
+	 * figures; `?zoo=tired` lays every one of them down to rest, as a tired
+	 * animal lies in a battle. A throwaway game. `null` without the switch.
+	 */
+	zoo: 'standing' | 'tired' | null;
 	/** `?debug`: the player's grid position and facing in the top-right corner. */
 	debug: boolean;
 	/**
@@ -26,7 +30,7 @@ export interface Flags {
 
 export function readFlags(search: string): Flags {
 	const params = new URLSearchParams(search);
-	const zoo = params.has('zoo');
+	const zoo = params.has('zoo') ? (params.get('zoo') === 'tired' ? 'tired' : 'standing') : null;
 	const party = parseParty(params.get('party'));
 	const fresh = params.has('new');
 	return {
@@ -34,7 +38,7 @@ export function readFlags(search: string): Flags {
 		debug: params.has('debug'),
 		party,
 		fresh,
-		throwaway: fresh || party !== null || zoo
+		throwaway: fresh || party !== null || zoo !== null
 	};
 }
 

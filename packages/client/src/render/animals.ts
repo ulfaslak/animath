@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { motion } from '../motion';
 import { ANIMAL_COLORS, COLORS } from './palette';
 
 /**
@@ -217,7 +218,39 @@ export function buildAnimalMesh(speciesId: string): THREE.Group {
 	if (!build || !colors) throw new Error(`No mesh for species: ${speciesId}`);
 	const group = wrap(build(colors));
 	group.name = speciesId;
+	group.userData.restShape = restShape(group.children[0]!);
 	return group;
+}
+
+/**
+ * What lying down needs to know about a figure, measured once as it is
+ * built: `belly`, the height of its lowest part that does not stand on the
+ * ground (the body over the legs), so lowering the figure by it puts the body
+ * on the ground and sinks the legs out of sight; `height`, its full height;
+ * `front`, how far forward it reaches (its nose), where the z's rise.
+ */
+interface RestShape {
+	belly: number;
+	height: number;
+	front: number;
+}
+
+/** A part whose bottom is this close to the ground stands on it: a leg, a foot. */
+const ON_GROUND = 0.005;
+
+function restShape(rig: THREE.Object3D): RestShape {
+	rig.updateMatrixWorld(true);
+	const box = new THREE.Box3();
+	let belly = Infinity;
+	let height = 0;
+	let front = 0;
+	for (const part of rig.children) {
+		box.setFromObject(part);
+		height = Math.max(height, box.max.y);
+		front = Math.max(front, box.max.z);
+		if (box.min.y > ON_GROUND) belly = Math.min(belly, box.min.y);
+	}
+	return { belly: Number.isFinite(belly) ? belly : 0, height, front };
 }
 
 /** Where the trainer's legs and arms turn when it walks. */
@@ -278,12 +311,135 @@ const IDLE_DEPTH = 0.03;
  * A breathing scale on the figure's rig, about the feet so they stay on the
  * ground. `t` is seconds; `figure.userData.idlePhase` offsets a crowd so they
  * don't breathe in unison.
+ *
+ * A tired animal rests ([[UI_SPEC]] § Battle mode): `figure.userData.rest`,
+ * from 0 (standing) to 1 (down), lowers it onto its belly with its legs
+ * tucked under — sunk out of sight into the ground — its head a little low
+ * and its breath slow and deep, and once it is down little z's drift up over
+ * its head, turned to face `camera` (no camera, no z's).
  */
-export function animateIdle(figure: THREE.Group, t: number): void {
+export function animateIdle(figure: THREE.Group, t: number, camera?: THREE.Camera): void {
 	const rig = figure.children[0];
 	if (!rig) return;
 	const phase = (figure.userData.idlePhase as number | undefined) ?? 0;
-	rig.scale.y = 1 + IDLE_DEPTH * Math.sin(t * IDLE_RATE + phase);
+	const rest = Math.min(1, Math.max(0, (figure.userData.rest as number | undefined) ?? 0));
+	rig.scale.y = 1 + IDLE_DEPTH * (1 + rest) * Math.sin(t * IDLE_RATE + phase);
+	const shape = figure.userData.restShape as RestShape | undefined;
+	if (shape) liePose(rig, shape, rest);
+	snooze(figure, rig, shape, rest === 1 ? t : null, camera);
+}
+
+/** Radians a resting animal's front tips down about its middle: its head goes low. */
+const REST_PITCH = 0.12;
+/** How far below its belly a resting animal settles, as a share of its height: nestled in the grass. */
+const REST_SINK = 0.04;
+/** How much flatter a resting animal is: slumped, not standing to attention. */
+const REST_SQUASH = 0.07;
+
+/**
+ * Lie the rig down by `rest` (0..1): flatter, lowered until its belly is on
+ * the ground (and a little into it, so no gap shows under the tipped back),
+ * turned about the middle of its belly so the head goes down. Runs after the
+ * breathing scale, so the belly stays put and only the back rises and falls.
+ */
+function liePose(rig: THREE.Object3D, shape: RestShape, rest: number): void {
+	rig.scale.y *= 1 - REST_SQUASH * rest;
+	const angle = REST_PITCH * rest;
+	// The belly's middle (0, y, 0), scaled as the rig is, stays where it is as the rig turns.
+	const y = shape.belly * rig.scale.y;
+	const drop = (shape.belly + REST_SINK * shape.height) * rest;
+	rig.rotation.x = angle;
+	rig.position.set(0, y - y * Math.cos(angle) - drop, -y * Math.sin(angle));
+}
+
+/** Seconds from one z leaving the head to the next; each lasts until the third one after it leaves. */
+const Z_EVERY = 0.9;
+const Z_LIFE = Z_EVERY * 3;
+
+/**
+ * The z's of a resting animal: three at a time, each rising from above its
+ * head, drifting a little aside, growing in and shrinking away, turned to the
+ * camera so they always read as z's. `since` is the time now, once the animal
+ * is all the way down (null while it is not): the first z leaves as it
+ * settles. Built the first time they are needed, as part of the figure, so
+ * `disposeFigure` frees them with it.
+ */
+function snooze(
+	figure: THREE.Group,
+	rig: THREE.Object3D,
+	shape: RestShape | undefined,
+	now: number | null,
+	camera: THREE.Camera | undefined
+): void {
+	let zs = figure.getObjectByName('zs') as THREE.Group | undefined;
+	if (now === null || !camera || !shape) {
+		if (zs) zs.visible = false;
+		figure.userData.restSince = undefined;
+		return;
+	}
+	if (!zs) {
+		zs = buildZs();
+		figure.add(zs);
+	}
+	zs.visible = true;
+	if (typeof figure.userData.restSince !== 'number') figure.userData.restSince = now;
+	const elapsed = now - (figure.userData.restSince as number);
+	// Over the head: the top of the figure, a little in from its nose, as it lies.
+	rig.updateMatrix();
+	const head = new THREE.Vector3(0, shape.height, shape.front * 0.6).applyMatrix4(rig.matrix);
+	const size = shape.height;
+	// The camera's up and right, in the figure's own frame: the z's rise up the
+	// screen and drift to its right whichever way the animal faces, clear of it.
+	const turn = figure
+		.getWorldQuaternion(new THREE.Quaternion())
+		.invert()
+		.multiply(camera.quaternion);
+	const up = new THREE.Vector3(0, 1, 0).applyQuaternion(turn);
+	const right = new THREE.Vector3(1, 0, 0).applyQuaternion(turn);
+	const drift = motion.reduced ? 0.25 : 1;
+	zs.children.forEach((z, i) => {
+		// Each z is on its own loop, a third of a loop behind the one before.
+		const age = elapsed - i * Z_EVERY;
+		const p = age < 0 ? -1 : (age % Z_LIFE) / Z_LIFE;
+		z.visible = p >= 0 && p < 1;
+		if (!z.visible) return;
+		const grow = Math.min(1, p / 0.2) * Math.min(1, (1 - p) / 0.25);
+		z.scale.setScalar(Math.max(0.001, size * 0.14 * (0.7 + 0.5 * p) * grow));
+		z.position
+			.copy(head)
+			.addScaledVector(up, size * (0.2 + 0.4 * p * drift))
+			.addScaledVector(right, size * (0.12 + 0.2 * p * drift));
+		z.quaternion.copy(turn);
+	});
+}
+
+/** A "Z" one unit tall, in the x-y plane, facing +z: a top bar, a slash and a bottom bar. */
+function zShape(): THREE.Shape {
+	const s = new THREE.Shape();
+	s.moveTo(-0.5, 0.5);
+	s.lineTo(0.5, 0.5);
+	s.lineTo(0.5, 0.3);
+	s.lineTo(-0.16, -0.3);
+	s.lineTo(0.5, -0.3);
+	s.lineTo(0.5, -0.5);
+	s.lineTo(-0.5, -0.5);
+	s.lineTo(-0.5, -0.3);
+	s.lineTo(0.16, 0.3);
+	s.lineTo(-0.5, 0.3);
+	s.closePath();
+	return s;
+}
+
+function buildZs(): THREE.Group {
+	const zs = new THREE.Group();
+	zs.name = 'zs';
+	const geometry = new THREE.ShapeGeometry(zShape());
+	for (let i = 0; i < 3; i++) {
+		const z = new THREE.Mesh(geometry, mat(COLORS.white));
+		z.visible = false;
+		zs.add(z);
+	}
+	return zs;
 }
 
 /** Radians an arm swings forward at the middle of a step; the legs swing a little less. */

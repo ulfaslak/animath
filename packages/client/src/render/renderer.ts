@@ -168,7 +168,7 @@ export class GameRenderer {
 		}
 		animateIdle(this.player, t);
 		animateWalk(this.player, this.step.progress, this.step.stride, motion.reduced ? 0.4 : 1);
-		for (const f of this.figures) animateIdle(f, t);
+		for (const f of this.figures) animateIdle(f, t, this.camera);
 		this.placeCamera();
 		this.sun.position.copy(this.cameraTarget).add(new THREE.Vector3(12, 20, 8));
 		this.sun.target.position.copy(this.cameraTarget);

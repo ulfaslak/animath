@@ -27,9 +27,9 @@ import { PROP_GEOMETRY } from './tiles';
  * canvas the panel leaves free.
  *
  * Feedback is transient and presentational: an attacker lunges, a target
- * shakes, a miss puffs, a knocked-out animal tips over into a little cloud of
- * dust and stays down, the leash flies, wobbles, then holds (with a burst of
- * confetti) or pops off. With reduced motion (`motion.ts`) every movement is
+ * shakes, a miss puffs, a knocked-out animal lies down to rest in a little
+ * ring of dust and stays down with z's over its head (`animateIdle`), the
+ * leash flies, wobbles, then holds (with a burst of confetti) or pops off. With reduced motion (`motion.ts`) every movement is
  * smaller and the confetti fewer and slower; what happened still shows.
  */
 export type BattleSide = 'player' | 'opponent';
@@ -72,7 +72,7 @@ export const LEASH_FLIGHT_SECONDS = 0.55;
 const LEASH_POP_SECONDS = 0.3;
 const RECALL_SECONDS = 0.4;
 const APPEAR_SECONDS = 0.4;
-/** The dust rises as a fainting animal touches down, near the end of its fall. */
+/** The dust rises as a tired animal's belly touches down, near the end of lying down. */
 const DUST_DELAY_SECONDS = FAINT_SECONDS * 0.75;
 const DUST_SECONDS = 0.7;
 /** A confetti piece's life; each lives a little longer or shorter so they don't vanish at once. */
@@ -260,7 +260,7 @@ export class BattleScene {
 		this.effects.push({ side, kind: 'hop', t: 0 });
 	}
 
-	/** Tip the figure over into a puff of dust; it stays down until `setFigure` replaces it. */
+	/** The animal is tired: it lies down to rest in a ring of dust and stays down until `setFigure` replaces it. */
 	faint(side: BattleSide): void {
 		this.effects.push({ side, kind: 'faint', t: 0 });
 		this.dust(side);
@@ -305,13 +305,10 @@ export class BattleScene {
 			bit.userData.dir = new THREE.Vector3(Math.cos(angle), 0, Math.sin(angle));
 			group.add(bit);
 		}
-		// Round its middle once it lies down: `faint` tips it sideways about its
-		// own z (see `applyEffect`), so its head ends up that way from its feet.
+		// Round the animal where it lies: it lies down on the spot it stood on.
 		const spot = SPOT[side];
-		const tip = new THREE.Euler(0, this.figures[side]?.rotation.y ?? 0, faintTilt(side));
-		const head = new THREE.Vector3(0, 1, 0).applyEuler(tip);
 		const size = this.heights[side];
-		group.position.set(spot.x + head.x * size * 0.45, 0, spot.z + head.z * size * 0.45);
+		group.position.set(spot.x, 0, spot.z);
 		group.userData.size = size;
 		group.userData.material = material;
 		group.visible = false;
@@ -408,7 +405,6 @@ export class BattleScene {
 		for (const side of ['player', 'opponent'] as const) {
 			const figure = this.figures[side];
 			if (!figure) continue;
-			animateIdle(figure, t);
 			figure.position.copy(SPOT[side]);
 			figure.rotation.z = 0;
 			figure.rotation.x = 0;
@@ -422,6 +418,11 @@ export class BattleScene {
 		this.effects = this.effects.filter(
 			(e) => LASTING.includes(e.kind) || e.t < effectSeconds(e.kind)
 		);
+		// After the effects, so a tired animal is posed as far down as its faint has got.
+		for (const side of ['player', 'opponent'] as const) {
+			const figure = this.figures[side];
+			if (figure) animateIdle(figure, t, this.camera);
+		}
 
 		for (const puff of this.puffs) {
 			puff.t += dt;
@@ -542,11 +543,6 @@ function effectSeconds(kind: EffectKind): number {
 	}
 }
 
-/** How far over a tired animal tips, about its own z: away from the other one. */
-function faintTilt(side: BattleSide): number {
-	return (side === 'player' ? -1 : 1) * (Math.PI / 2);
-}
-
 /**
  * Offset a figure (already reset to its spot) for one running effect. With
  * reduced motion the lunge, shake and hop travel about a third as far; the
@@ -574,12 +570,10 @@ function applyEffect(figure: THREE.Group, effect: Effect): void {
 		case 'hop':
 			figure.position.y += Math.abs(Math.sin(p * Math.PI * 2)) * 0.25 * (1 - p * 0.5) * k;
 			break;
-		case 'faint': {
-			const ease = p * p;
-			figure.rotation.z = faintTilt(effect.side) * ease;
-			figure.position.y -= ease * 0.05;
+		case 'faint':
+			// Lies down (`animateIdle` poses it): slowly at first, then settling, and stays down.
+			figure.userData.rest = p * p * (3 - 2 * p);
 			break;
-		}
 		case 'recall':
 			// Shrinks to nothing; a sliver of scale keeps the matrix invertible.
 			figure.scale.multiplyScalar(Math.max(0.001, 1 - p * p));
