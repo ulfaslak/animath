@@ -1,9 +1,17 @@
-import { hashString, type Direction, type SavedGame } from '@mathgame/engine';
+import {
+	ANIMALS,
+	getAnimal,
+	hashString,
+	type AnimalInstance,
+	type Direction,
+	type SavedGame
+} from '@mathgame/engine';
 import { describe, expect, it } from 'vitest';
 import { LocalAuthority } from '../src/authority/local';
 import { t } from '../src/copy';
 import { doctorWords } from '../src/doctor/lines';
 import { ExploreController } from '../src/explore/controller';
+import { hpBand, stackHealth, stackSummary } from '../src/hp';
 import type { Keyboard } from '../src/input/keyboard';
 import { touch } from '../src/input/touch.svelte';
 import type { GameRenderer } from '../src/render/renderer';
@@ -16,7 +24,8 @@ import { besideA, gameBeside } from './clearing';
  * after a few seconds of the HUD being on screen, the controls hint goes after
  * a few steps, facing a tent shows how to talk to the doctor, and Enter with
  * no tent in front says how to find one. Lines the client words itself are
- * worded when shown (DECISIONS § Copy and languages).
+ * worded when shown (DECISIONS § Copy and languages). And what a card of
+ * several animals says about them.
  */
 function setup(start?: SavedGame) {
 	const authority = new LocalAuthority();
@@ -301,5 +310,57 @@ describe('trees and rocks in the way', () => {
 		expect(t2.events.at(-1)).toBe('doctor-visit-started');
 		expect(t2.authority.snapshot().edits).toEqual([]);
 		expect(s.authority.snapshot().edits).toEqual([]);
+	});
+});
+
+describe('a card of several animals', () => {
+	let made = 0;
+	const one = (speciesId: string, hp: number): AnimalInstance => ({
+		id: `a${made++}`,
+		speciesId,
+		hp
+	});
+	const fox = (hp: number) => one('fox', hp);
+	const FOX = getAnimal('fox').maxHp;
+
+	it('never says "All ready" while one of them is tired soon, its HP bar red, of any kind', () => {
+		const bad: string[] = [];
+		for (const { id, maxHp } of ANIMALS) {
+			for (let low = 0; low <= maxHp; low++) {
+				const card = [one(id, maxHp), one(id, low)];
+				const red = low > 0 && hpBand(low, maxHp) === 'bad';
+				const words = stackSummary(card);
+				const { ready, tiredSoon, tired } = stackHealth(card);
+				if (ready + tiredSoon + tired !== 2)
+					bad.push(`${id} at ${low}: counts ${ready}/${tiredSoon}/${tired}`);
+				if (red !== (tiredSoon === 1))
+					bad.push(`${id} at ${low}: tired soon ${tiredSoon}, bar red ${red}`);
+				if (red && words.includes(t('team.allReady')))
+					bad.push(`${id} at ${low}: ${words.join(' · ')}`);
+			}
+		}
+		expect(bad.slice(0, 20), `${bad.length} in all`).toEqual([]);
+	});
+
+	it('says how many are ready, tired soon and tired, or that all of them are one of those', () => {
+		const fifth = Math.floor(FOX / 5);
+		expect(stackSummary([fox(FOX), fox(fifth + 1)])).toEqual([t('team.allReady')]);
+		expect(stackSummary([fox(fifth), fox(1)])).toEqual([t('team.allTiredSoon')]);
+		expect(stackSummary([fox(0), fox(0)])).toEqual([t('team.allTired')]);
+		expect(stackSummary([fox(FOX), fox(0)])).toEqual([
+			t('team.ready', { count: 1 }),
+			t('team.tired', { count: 1 })
+		]);
+		expect(stackSummary([fox(FOX), fox(2), fox(3), fox(0), fox(FOX)])).toEqual([
+			t('team.ready', { count: 2 }),
+			t('team.tiredSoon', { count: 2 }),
+			t('team.tired', { count: 1 })
+		]);
+		expect(stackSummary([fox(2), fox(0), fox(0)])).toEqual([
+			t('team.tiredSoon', { count: 1 }),
+			t('team.tired', { count: 2 })
+		]);
+		// And their HP together, for the card's slim bar.
+		expect(stackHealth([fox(FOX), fox(2), fox(0)])).toMatchObject({ hp: FOX + 2, max: 3 * FOX });
 	});
 });

@@ -17,7 +17,7 @@ The categories that keep coming back. Each names where its guard lives, or the p
 - **`git gtr new` skips the `.env` copy and `pnpm install`**: five worktrees on 2026-09-25 and 2026-09-26, the last `docs/dna-drift-sweep`; without `.env` the server tests fail like a broken merge. [[ENVIRONMENT_NOTES]] says to check every time.
 - **A worktree's Vite backs up to the human's database**, because every Vite proxies `/api` to the primary clone's API unless `API_PORT` says otherwise: PR #21, PR #28 and other runs on 2026-09-26. Since PR #36 `scripts/screenshot.mjs` blocks `/api` unless `--api`; CLAUDE.md Phase 2 still says `/play` starts "both dev servers".
 - **A stale-event guard on the mode or the order, not the identity**: PR #13 (a battle), PR #14 (a doctor visit).
-- **An effect sized by its numbers, not in a frame**: PR #28, PR #42 (three times), PR #49 (a layout moved a long name next to the heal's stars), PR #69 (the boat's rims crossed, its back pose unreadable at game size), PR #74 (a starfish edge-on to the camera, a speck at game size).
+- **An effect sized by its numbers, not in a frame**: PR #28, PR #42 (three times), PR #49 (a layout moved a long name next to the heal's stars), PR #69 (the boat's rims crossed, its back pose unreadable at game size), PR #74 (a starfish edge-on to the camera, a speck at game size), PR #76 (a party card lifted by a finger held still showed it only by a deeper shadow, invisible at tablet size; it now grows 2.5% too).
 - **Prose that says more than the code or its test shows**: DNA written from memory (PR #11), a claim pinned only where it is vacuous (PR #12), a weight quoted as a share (PR #17), a sample's window stated as a rule (PR #21), a promise one step past what the test measures (PR #34), a mean pooled over worlds stated for each world and an extreme read off a sample (PR #64), a lower bound stated as exact and a distance off by one (PR #69).
 
 ---
@@ -392,7 +392,7 @@ To keep the party in species bundles, the first cut of `bundled` gathered each k
 
 ### 2026-09-26 — PR #66 (no party cap) — lists built for six, checked at a hundred `[not codified]`
 
-Three layout bugs appeared only once the party grew past what the old screens were sized for:
+Three layout bugs appeared only once the party grew past what the old screens were sized for (and a fourth in PR #76, below):
 - **The HUD column squeezed its cards instead of scrolling.** A flex column given a `max-height` shrinks its items first (`flex-shrink: 1`), so at 1024×768 on touch the eight cards overlapped each other and the column scrolled 6 px. Fix: `flex: none` on the cards.
 - **The doctor's list kept its cursor in view on the animal rows but not on Bye.** Up from the first animal wrapped to Bye, below the fold. Fix: the same attachment on Bye.
 - **Names of twelve W's were cut short in the new lists**: a 440 px cap on the open card, and the pause menu's side panel, where a one-line row can't hold a name, a bar and a tag. Fix: the open card grows with its names, and the side panel's rows put the bar under the name (`BundleAnimals`' `stacked`).
@@ -400,6 +400,7 @@ Three layout bugs appeared only once the party grew past what the old screens we
 The flex and scroll bugs were found by reading the touch and doctor frames with 30 to 120 animals. The names were found by a DOM probe (`scrollWidth > clientWidth`) at 1024×768 in Danish. Category: **a list that can grow gets checked at its largest, in its narrowest home**: the most rows, the longest names, the smallest screen, every row the cursor can reach. Would become `[learned]` with a Phase 2 taxonomy line in CLAUDE.md: "Scaling: a list that grows with the player's progress is checked with a hundred entries, twelve-letter names and the cursor on its first and last rows".
 
 - **PR #75 (Help home): a column added to rows sized for the widest name, first seen with short ones.** Help home's rows gained the HP bar beside their check box. Every frame with species' names looked right. At 1024 px, twelve W's beside a tired animal's bar left 98 px for "tired" and "0/35", which need 118: the numbers were cut to "0/3" and the list scrolled sideways by 10 px. Found by the long-names DOM probe of [[DEVELOPMENT]] § Looking at the game, run on every tab at 1024×768, 1280×720 and touch, in both languages. Fix: the caret moved into the row's padding on every tab, and Help home's columns sit 6 px apart. Same category: the widest name and the widest cell (a tired animal's tag and numbers), together, at the narrowest size, before the first frame counts.
+- **PR #76: a card's words that grew, fitted to the widest home first.** A stack's new three-part summary ("2 klar · 3 snart trætte · 1 træt") fit the HUD card, but the pause menu's row cut it at 150 px ("2 klar · 3 snart træ…"). Moved under the kind's name with a slim bar beside it, it fit at eight kinds, but at 300 animals in Danish ("25 klar · 10 snart trætte · 5 trætte") three rows wrapped to 68 px and the menu no longer fit 1024×768. Found by the frames, then by a probe of every row's height. Fix: the pause menu shows the words only, running on under the bar's column; every row stays 48 px. The same category: the widest words, three counts of two and three figures in Danish, in the narrowest home that shows them.
 
 ### 2026-09-26 — feat/axe-pickaxe — a test that did the copying itself could not see the copy drift `[learned]`
 
@@ -430,6 +431,17 @@ A lead that can't swim stays on the shore tile to shrink away as the trainer sai
 
 The exact-replace script used for edits appended the heredoc's final newline to each last replacement. That left a stray blank line in about 30 places. Some split a Markdown table in ARCHITECTURE, DESIGN and CHEATSHEET: a blank line ends a table, so the rows after it rendered as text. Prettier keeps a single blank line between statements and anywhere in Markdown, so `pnpm lint` passed. Found while resolving the merge with main. Fix: the script corrected and every blank line removed. Would become `[learned]` with a line in CLAUDE.md § Keeping context spendable: after any scripted edit, read `git diff` for blank lines it added.
 
+### 2026-09-26 — PR #66 (no party cap), found after merge as #70, #71, #72 — a gesture tried in the middle of its range, at an adult's pace `[not codified]`
+
+PR #66's party column passed its own test plan ("hold-and-drag moves a card two places"), and a QA pass found four ways the same column broke at the edges of how a kid uses it:
+
+- **The ends were out of reach (#70).** A carried card landed where its middle passed the others' middles, and could not be carried past the first card's top or the last card's bottom. So a card as tall as the last one, or taller than the first, could never pass it: dragged to the very top or bottom, it landed one place short, with a mouse and with a finger. Every drag the PR tried went to a place in the middle.
+- **The edge scrolled only while the finger moved (#71).** The column scrolled 8 px per `pointermove` near its edge, so a finger held still there, as a kid holds it, stopped it after one step, and the first places stayed out of reach on a tablet.
+- **A double click landed on what the first click moved there (#72).** The first click re-sorted the open card's animals, and the second, a quarter of a second later, pressed the animal that had slid into the row: Rusty went first, not Pip. A card of one animal did the same to the card that slid into its place.
+- **A slow tap lifted the card instead (found with them).** A finger held still 350 ms made a drag, whose card key replaced the tap's, so a kid's slow tap did nothing.
+
+Fix (fix/party-column): the landing is the slot nearest where the card is drawn, and property tests over 2,000 random columns carry every card to both ends; the edge scrolls in a frame loop while the card is held there; `Taps` drops the second half of a double click on a button that left the first half's spot; time alone never makes a drag. `pointer-input.test.ts` covers the first, third and fourth (each red with the old rule); the second is a frame loop, checked on screen. Category: **a gesture checked where it is easy, not where it ends or at a kid's pace**: the first and last place, input that rests, a second press after the page moved, a press held long. Would become `[learned]` with the Phase 2 taxonomy line [[HUMAN_TODO]] 15 (h) proposes.
+
 ### 2026-09-26 — PR #74 (sea animals) — a figure built against the tests' measures, not with them `[learned]`
 
 Two figure tests failed on geometry that looked right:
@@ -442,3 +454,7 @@ Both were found by the figure tests. Fix: the lean is in the arms' geometry, the
 ### 2026-09-26 — PR #74 (sea animals) — copy written for the one place that existed `[learned]`
 
 The end-of-battle lines and the Run row said the wild animal "stays in the grass" and "runs home". At sea they would have told a kid a dolphin stays in the grass. Found while reading the copy to plan the frames, before any frame showed it. Fix: sea variants picked by the battle's realm. Category: **a new place for an old sentence**. CLAUDE.md Phase 2's "Prose is a claim" says to grep for words describing the old world ("grass"). This PR did so late, not first.
+
+### 2026-09-26 — PR #76 (the party column) — a template's edge spaces taken for text `[not codified]`
+
+The stack summary's parts were joined in the markup as `<span class="dot"> · </span>`. Svelte 5 drops whitespace at the start and end of an element's content, so the card read "2 ready·3 tired soon·1 tired". `svelte-check` and the tests passed. Found in the first frame of the new cards, and in the screenshot script's printed `party:` line under it. Fix: the separator is an expression, `{' · '}`, which keeps its spaces. Category: **whitespace that is part of the words, written as markup**. Would become `[learned]` with a line in [[DEVELOPMENT]] § Copy and languages: text with spaces at its ends goes in as an expression, never as an element's content.

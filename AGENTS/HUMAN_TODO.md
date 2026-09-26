@@ -26,3 +26,4 @@ One numbered list: product questions first, then checks only a person can make, 
     - (e) Phase 2 taxonomy, a new line: "Input modes — a layout change is checked with the keyboard and with `--touch` at 1024×768; the touch rules restyle the same elements" (PR #44).
     - (f) A conflict to settle: CLAUDE.md's server-only check applies a new migration to the local `mathgame` database, which holds the kids' backups, before the PR merges, while [[DEVELOPMENT]] § Running keeps a worktree's servers off `mathgame`. Which rule wins?
     - (g) Phase 2 taxonomy, a new line: "Shared selectors — a rule added for one row, card or button to a class its siblings share is a change to every sibling; measure them all" (PR #49).
+    - (h) Phase 2 taxonomy, **Input edges**, added to the list: "a drag to the very first and last place, and held still at an edge; a double click on something that moves when clicked; a slow tap held still" (#70, #71, #72, found after PR #66 merged).
