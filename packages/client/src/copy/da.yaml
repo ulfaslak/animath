@@ -6,8 +6,8 @@
 # {animal.form} picks one of a species' forms below. Your own animal is
 # called by name in a label or a call ("Kom så, Ræv!") and with "the" in a
 # sentence ("Ræven er træt."); a wild one is "den vilde …" or "en vild …".
-# A nickname stands for every form. A value that starts a sentence gets a
-# capital letter by itself.
+# A nickname stands for every form, spelled as the kid wrote it. A form that
+# starts a sentence gets a capital letter by itself.
 
 language:
   name: Dansk

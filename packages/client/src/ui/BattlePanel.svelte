@@ -10,7 +10,7 @@
 	} from '@mathgame/engine';
 	import { actionAt, attackRows, levelWord, rowOf } from '../battle/menu';
 	import { language, t } from '../copy';
-	import { words } from '../lines';
+	import { messageWords, words } from '../lines';
 	import { animalWords, nameOf } from '../names';
 	import { battle } from '../state/battle.svelte';
 	import HpBar from './HpBar.svelte';
@@ -257,7 +257,7 @@
 		<div class="card result-card">
 			<div class="result-title">{headline}</div>
 			{#if battle.closing}
-				<div class="result-text">{words(battle.closing)}</div>
+				<div class="result-text">{messageWords(battle.closing)}</div>
 			{/if}
 			<div class="button">{t('battle.result.button')} <kbd>{t('keys.enter')}</kbd></div>
 		</div>

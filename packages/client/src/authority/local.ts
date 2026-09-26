@@ -27,7 +27,7 @@ import {
 	type Direction,
 	type DoctorIntent,
 	type DoctorState,
-	type AnimalRef,
+	type SpeciesRef,
 	type GameEvent,
 	type GridPos,
 	type Intent,
@@ -292,7 +292,7 @@ export class LocalAuthority implements Authority {
 	private endBattle(state: BattleState, events: readonly BattleEvent[]): void {
 		if (state.phase.kind !== 'ended') return;
 		this.party = state.party.map((a) => ({ ...a }));
-		const animal: AnimalRef = { speciesId: state.opponent.speciesId };
+		const animal: SpeciesRef = { speciesId: state.opponent.speciesId };
 		let rescue: Rescue | null = null;
 		let line: Line | null = null;
 		switch (state.phase.outcome) {

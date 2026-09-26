@@ -83,7 +83,7 @@ export {
 } from './world/encounters.js';
 
 export { LINES } from './lines.js';
-export type { AnimalRef, Line, LineKey, LineParam } from './lines.js';
+export type { Line, LineKey, LineParam, LineParamKind, SpeciesRef } from './lines.js';
 
 export type { Authority, GameEvent, Intent } from './protocol.js';
 

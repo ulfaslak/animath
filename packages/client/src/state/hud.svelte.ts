@@ -8,7 +8,7 @@ import {
 } from '@mathgame/engine';
 import { t } from '../copy';
 import { doctorWords, type DoctorLine } from '../doctor/lines';
-import { words } from '../lines';
+import { messageWords } from '../lines';
 import { animalWords } from '../names';
 import type { SaveNotice } from '../save/notices';
 import { game } from './game.svelte';
@@ -59,7 +59,7 @@ export type Said =
 	| { save: SaveNotice };
 
 export function saidWords(said: Said): string {
-	if ('line' in said) return words(said.line);
+	if ('line' in said) return messageWords(said.line);
 	if ('doctor' in said) return doctorWords(said.doctor);
 	if ('party' in said) return partyWords(said.party);
 	if ('save' in said) return t(said.save);

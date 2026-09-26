@@ -22,7 +22,7 @@ Every random draw goes through an `Rng` the caller constructed from a seed, and 
 
 ### The engine holds no player-facing words
 
-Species and attacks are ids; events say what happened; a refusal is a code; a `message` line is a copy key from `LINES` with numbers and animals by id. A sentence written in the engine would reach a Danish kid in English, and would have to be shipped twice once a server authority sends it. Enforced by `test/no-words.test.ts` (TypeScript's parser over every source file: no literal that reads as a sentence outside `new Error`), by the battle and doctor sweeps (`words.ts`: no worded string in any state or event, nicknames aside), and by the types (`Line` params are numbers or `AnimalRef`s, never strings). Design-time.
+Species and attacks are ids; events say what happened; a refusal is a code; a `message` line is a copy key from `LINES` with numbers and species by id. A sentence written in the engine would reach a Danish kid in English, and would have to be shipped twice once a server authority sends it. Enforced by `test/no-words.test.ts` (TypeScript's parser over every source file: no literal that reads as a sentence outside `new Error`), by the battle and doctor sweeps (`words.ts`: no worded string in any state or event, nicknames aside), by the types (`LINES` gives each param a kind, a species or a number, and `Line` is typed from it), and on the client by `messageWords`, which takes nothing else from a `message` line. Design-time.
 
 ### A chunk is a pure function of `(seed, cx, cy)`
 

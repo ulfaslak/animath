@@ -1,5 +1,11 @@
-import { getAnimal, type AnimalRef } from '@mathgame/engine';
+import { getAnimal } from '@mathgame/engine';
 import { t, type ParamValue } from './copy';
+
+/** An animal as the screen names it: its species, and its nickname when it has one. */
+export interface AnimalRef {
+	speciesId: string;
+	nickname?: string;
+}
 
 /**
  * What the screen calls animals and attacks, in the language on screen. The

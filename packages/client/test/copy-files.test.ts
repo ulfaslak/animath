@@ -178,7 +178,8 @@ describe('copy files', () => {
 
 	it("every line the engine can send is in English, reading exactly the engine's params", () => {
 		const problems: string[] = [];
-		for (const [key, params] of Object.entries(LINES)) {
+		for (const [key, kinds] of Object.entries(LINES)) {
+			const params = Object.keys(kinds);
 			const message = english.get(key);
 			if (message === undefined) {
 				problems.push(`en.yaml lacks ${key}`);

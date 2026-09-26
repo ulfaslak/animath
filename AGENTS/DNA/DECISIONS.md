@@ -39,7 +39,7 @@ All player-facing copy lives in per-language YAML files, `packages/client/src/co
 The game speaks English (`en`) and Danish (`da`). English is the fallback, so every key exists in English. The player switches language in the pause menu; the choice is remembered on the device.
 Adding a language is adding a file and one registry line.
 YAML is parsed at build time. The browser gets plain objects and ships no YAML parser.
-The engine is language-free: species and attacks have ids, not names; events and refusals are codes; a line an authority sends is a copy key with numbers and animals by id. The client picks the words.
+The engine is language-free: species and attacks have ids, not names; events and refusals are codes; a line an authority sends is a copy key with numbers and species by id, never a string. The client picks the words.
 Words are picked when they are shown, from the language on screen. State and events carry keys and params, never finished sentences, so changing the language re-words everything at once, without a reload.
 A species' names, articles included, are written out per language as forms (`name`, `a`, `the`, `wild`, `aWild`, `theWild`), never built from rules: Danish articles and adjectives follow the noun's gender.
 

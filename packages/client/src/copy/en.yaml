@@ -4,8 +4,8 @@
 # How it should sound: AGENTS/DNA/DESIGN.md § Voice and copy.
 #
 # {animal.form} picks one of a species' forms below (name, a, the, wild, aWild,
-# theWild); a nickname stands for every form. A value that starts a sentence
-# gets a capital letter by itself.
+# theWild); a nickname stands for every form, spelled as the kid wrote it. A
+# form that starts a sentence gets a capital letter by itself.
 
 language:
   # This language's own name, as the Language setting lists it.

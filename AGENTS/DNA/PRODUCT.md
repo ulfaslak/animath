@@ -140,7 +140,7 @@ What is built and observable today. Keep current: add a bullet when a feature sh
 - Choosing the lead from explore: the number keys pick who goes first (§4 "Party"); a tired animal can't go first, and the message line says so.
 - Pause menu (Escape in explore): the team in battle order, where an animal can go first, move up or down, or get a nickname typed in a name box. Walking waits while it is open.
 - Message line: the latest message for a few seconds, the controls hint for the first few steps, and "Press Enter to talk to the doctor" while the player faces a tent ([[UI_SPEC]] § Explore mode).
-- Doctor's tents: facing a tent, Enter opens the doctor's card ([[UI_SPEC]] § Doctor). Pick a hurt or tired animal, solve its puzzle and it is back to full HP; a wrong answer just brings another puzzle; the list stays live during a puzzle; Bye or Escape leaves at any time. With nobody hurt, the doctor says everyone is fit and happy. The doctor speaks English and Danish (its words are in the copy files; the animals' names are still English).
+- Doctor's tents: facing a tent, Enter opens the doctor's card ([[UI_SPEC]] § Doctor). Pick a hurt or tired animal, solve its puzzle and it is back to full HP; a wrong answer just brings another puzzle; the list stays live during a puzzle; Bye or Escape leaves at any time. With nobody hurt, the doctor says everyone is fit and happy. The doctor speaks English and Danish, like the rest of the game.
 
 ### Encounters and battle
 
