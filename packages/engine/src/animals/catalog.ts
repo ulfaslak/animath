@@ -31,6 +31,20 @@ export const ANIMALS: readonly AnimalSpec[] = [
 		]
 	},
 	{
+		// The river's own tier-1 animal. It counts in hops: sequences and times
+		// tables, where the squirrel and the rabbit ask sums.
+		id: 'frog',
+		tier: 1,
+		maxHp: 21,
+		catchRate: 0.8,
+		habitats: ['river'],
+		attacks: [
+			{ id: 'croak', kinds: ['sequence'], power: 4 },
+			{ id: 'tongue-flick', kinds: ['mul'], power: 5 },
+			{ id: 'big-splash', kinds: ['mul', 'sequence'], power: 7 }
+		]
+	},
+	{
 		id: 'fox',
 		tier: 2,
 		maxHp: 35,

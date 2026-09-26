@@ -41,6 +41,17 @@ species:
       hop: Hop
       thump: Stamp
       burrow-bite: Hulebid
+  frog:
+    name: Frø
+    a: en frø
+    the: frøen
+    wild: vild frø
+    aWild: en vild frø
+    theWild: den vilde frø
+    attacks:
+      croak: Kvæk
+      tongue-flick: Tungesnert
+      big-splash: Stort plask
   fox:
     name: Ræv
     a: en ræv

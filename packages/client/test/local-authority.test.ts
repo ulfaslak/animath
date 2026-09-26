@@ -37,8 +37,9 @@ import { parseParty } from '../src/flags';
  *
  * The prototype world's spawn tile, (-2, 6), has a river reed (tall grass)
  * straight to its left, so walking left and right from it meets animals
- * (with the starter squirrel in front: squirrels and rabbits near home, now
- * and then an otter). Seven steps right, all on grass, is (5, 6), just above
+ * (with the starter squirrel in front: the frogs that live there, the
+ * squirrels and rabbits that come down to the water near home, now and then
+ * an otter). Seven steps right, all on grass, is (5, 6), just above
  * the tent at (5, 7).
  */
 type Session = { authority: LocalAuthority; events: GameEvent[] };
@@ -346,15 +347,16 @@ describe('LocalAuthority: encounters', () => {
 });
 
 describe('LocalAuthority: the lead decides who comes out', () => {
-	it('with the starter in front, the reed meets a Rabbit on step 11, a Squirrel on step 15 and the first Otter on step 97', () => {
+	it('with the starter in front, the reed meets a Rabbit on step 11, a Squirrel on step 15, the first Frog on step 71 and the first Otter on step 97', () => {
 		const met = reedWalk(session(), 97);
 		expect(met[0]).toEqual({ step: 11, wild: 'rabbit', lead: 'squirrel' });
 		expect(met[1]).toEqual({ step: 15, wild: 'squirrel', lead: 'squirrel' });
+		expect(met.find((m) => m.wild === 'frog')?.step).toBe(71);
 		expect(met.find((m) => m.wild === 'otter')?.step).toBe(97);
-		expect(met.every((m) => ['squirrel', 'rabbit', 'otter'].includes(m.wild))).toBe(true);
+		expect(met.every((m) => ['squirrel', 'rabbit', 'frog', 'otter'].includes(m.wild))).toBe(true);
 	});
 
-	it('the first animal that is not tired leads: with a fox in front the reed has only otters, on the same steps', () => {
+	it('the first animal that is not tired leads: with a fox in front the reed has otters and now and then a frog, on the same steps', () => {
 		const starter = reedWalk(session(), 200);
 		for (const party of [
 			[animal('fox'), animal('squirrel')],
@@ -364,7 +366,9 @@ describe('LocalAuthority: the lead decides who comes out', () => {
 			giveParty(s, party);
 			const met = reedWalk(s, 200);
 			expect(met.map((m) => m.step)).toEqual(starter.map((m) => m.step));
-			expect(new Set(met.map((m) => m.wild))).toEqual(new Set(['otter']));
+			// A frog is one tier below a fox: 1 challenger in 11 at the river.
+			expect(met.filter((m) => m.wild === 'frog').map((m) => m.step)).toEqual([147]);
+			expect(met.filter((m) => m.wild !== 'frog').every((m) => m.wild === 'otter')).toBe(true);
 			expect(new Set(met.map((m) => m.lead))).toEqual(new Set(['fox']));
 		}
 		// Behind a standing squirrel, a fox changes nothing.

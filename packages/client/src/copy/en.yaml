@@ -43,6 +43,17 @@ species:
       hop: Hop
       thump: Thump
       burrow-bite: Burrow Bite
+  frog:
+    name: Frog
+    a: a Frog
+    the: the Frog
+    wild: wild Frog
+    aWild: a wild Frog
+    theWild: the wild Frog
+    attacks:
+      croak: Croak
+      tongue-flick: Tongue Flick
+      big-splash: Big Splash
   fox:
     name: Fox
     a: a Fox
