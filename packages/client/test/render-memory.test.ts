@@ -278,6 +278,38 @@ describe('the lead walking behind the trainer', () => {
 		expect(world.children).toEqual([]);
 		expect(kinds([...shown].filter((g) => !ledger.isDisposed(g)))).toEqual([]);
 	});
+
+	it('a number key mashed mid-swap: never two at once, the last lead stays, nothing left behind', () => {
+		const world = new THREE.Group();
+		const follower = new Follower({
+			addFigure: (figure) => world.add(figure),
+			removeFigure: (figure) => world.remove(figure)
+		});
+		const ledger = new Ledger();
+		const shown = new Set<THREE.BufferGeometry>();
+		follower.place(WORLD_SEED, spawnPoint(WORLD_SEED), 'down');
+		const crowded: number[] = [];
+		// A change of lead every 50 ms, faster than a swap plays out, landing on every phase of it.
+		const mash = ['fox', 'rabbit', 'fox', null, 'bear', 'fox', 'rabbit', null, null, 'deer', 'fox'];
+		for (const [i, lead] of mash.entries()) {
+			follower.lead(lead);
+			follower.update(1, 0.05);
+			ledger.see(world);
+			world.traverse((o) => {
+				if (o instanceof THREE.Mesh) shown.add(o.geometry as THREE.BufferGeometry);
+			});
+			if (world.children.length > 1) crowded.push(i);
+		}
+		for (let i = 0; i < 20; i++) follower.update(1, 0.05);
+		expect(crowded).toEqual([]);
+		expect(world.children.map((f) => f.name)).toEqual(['fox']);
+		expect(follower.species).toBe('fox');
+		const current = new Set<THREE.BufferGeometry>();
+		world.traverse((o) => {
+			if (o instanceof THREE.Mesh) current.add(o.geometry as THREE.BufferGeometry);
+		});
+		expect(kinds([...shown].filter((g) => !current.has(g) && !ledger.isDisposed(g)))).toEqual([]);
+	});
 });
 
 describe('the title', () => {
