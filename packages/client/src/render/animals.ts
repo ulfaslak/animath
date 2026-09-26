@@ -428,27 +428,31 @@ function snooze(
 	});
 }
 
-/** A bold "Z" one unit tall, in the x-y plane, facing +z: a top bar, a slash and a bottom bar. */
-function zShape(): THREE.Shape {
-	const s = new THREE.Shape();
-	s.moveTo(-0.5, 0.5);
-	s.lineTo(0.5, 0.5);
-	s.lineTo(0.5, 0.24);
-	s.lineTo(-0.1, -0.24);
-	s.lineTo(0.5, -0.24);
-	s.lineTo(0.5, -0.5);
-	s.lineTo(-0.5, -0.5);
-	s.lineTo(-0.5, -0.24);
-	s.lineTo(0.1, 0.24);
-	s.lineTo(-0.5, 0.24);
-	s.closePath();
-	return s;
+/**
+ * A bold "Z" one unit tall, in the x-y plane, facing +z: a top bar, a slash
+ * and a bottom bar, each a quad, counter-clockwise. Built by hand: a `Shape`
+ * would bring its triangulator into the bundle for three quads.
+ */
+const Z_QUADS = [
+	[-0.5, 0.24, 0.5, 0.24, 0.5, 0.5, -0.5, 0.5],
+	[-0.5, -0.24, -0.1, -0.24, 0.5, 0.24, 0.1, 0.24],
+	[-0.5, -0.5, 0.5, -0.5, 0.5, -0.24, -0.5, -0.24]
+] as const;
+
+function zGeometry(): THREE.BufferGeometry {
+	const positions: number[] = [];
+	for (const [ax, ay, bx, by, cx, cy, dx, dy] of Z_QUADS) {
+		positions.push(ax, ay, 0, bx, by, 0, cx, cy, 0, ax, ay, 0, cx, cy, 0, dx, dy, 0);
+	}
+	const geometry = new THREE.BufferGeometry();
+	geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+	return geometry;
 }
 
 function buildZs(): THREE.Group {
 	const zs = new THREE.Group();
 	zs.name = 'zs';
-	const geometry = new THREE.ShapeGeometry(zShape());
+	const geometry = zGeometry();
 	for (let i = 0; i < 3; i++) {
 		const z = new THREE.Mesh(geometry, mat(COLORS.dark));
 		z.visible = false;
