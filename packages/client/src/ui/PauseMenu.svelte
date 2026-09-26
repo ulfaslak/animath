@@ -112,7 +112,7 @@
 						class="row item"
 						class:lit={pause.screen === 'list' && lit === game.party.length + j}
 					>
-						<span class="button">{itemLabel(item)}</span>
+						<span class="button" class:secondary={item !== 'resume'}>{itemLabel(item)}</span>
 					</div>
 				{/each}
 			</div>
@@ -277,6 +277,11 @@
 		border-radius: 20px;
 		background: var(--accent);
 		color: white;
+	}
+	/* The primary action is Keep playing; the others are quieter pills. */
+	.button.secondary {
+		background: rgba(0, 0, 0, 0.08);
+		color: var(--panel-ink);
 	}
 	.side {
 		background: rgba(0, 0, 0, 0.04);
