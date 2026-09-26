@@ -28,8 +28,8 @@ const WATER_LEVEL = 0.36;
 /**
  * Deep water is water whose every tile within this many tiles, diagonals
  * included, is water too: the 5×5 square round it. So the shallows along
- * every shore are two tiles wide, a river narrower than five tiles has no
- * deep water, and deep water is at least three steps from any land.
+ * every shore are at least two tiles wide, a river narrower than five tiles
+ * has no deep water, and deep water is at least three steps from any land.
  */
 export const DEEP_WATER_MARGIN = 2;
 

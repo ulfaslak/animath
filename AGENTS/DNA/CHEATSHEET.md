@@ -166,7 +166,7 @@ Who comes out depends on who leads your party (§ Your party). With a frog or a 
 - **Switch** sends in another animal ("Come back, Squirrel!", "Go, Rabbit!"). It costs your turn: the wild animal has a go at the newcomer straight away. It is greyed with only one animal in your party ("You need a second animal to switch. Catch one with the leash!") and when everyone else is tired.
 - **When your animal is tired** (0 HP) and someone else isn't, the party list comes up: "Squirrel is tired. Who goes next?" Pick anyone who isn't tired. That pick is free (the wild animal doesn't get a turn), and then you choose what to do.
 - **Win, catch, or run**: a card says what happened; press Enter to walk on from the same tile. HP you lost stays lost.
-- **Lose** (every animal tired): "Good try!" — press Enter and you are standing beside the nearest doctor's tent (nearest on foot, never across water), facing it, with the whole party at full HP, and the bottom line says "The doctor looked after your animals. Everyone feels better!". From the reed by the start that is (4, 7), just left of the tent at (5, 7). If no tent is within 200 steps, you stay where you were and it says "A doctor came by…" instead.
+- **Lose** (every animal tired): "Good try!" — press Enter and you are standing beside the nearest doctor's tent (nearest the way you get about: on foot, round the water and through the trees you chopped, or with the boat across the water too), facing it, with the whole party at full HP, and the bottom line says "The doctor looked after your animals. Everyone feels better!". From the reed by the start that is (4, 7), just left of the tent at (5, 7). If no tent is within 200 steps, you stay where you were and it says "A doctor came by…" instead.
 
 ## The doctor
 
