@@ -99,12 +99,14 @@ describe('the explore message line', () => {
 			pos: { x: 0, y: 0 },
 			facing: 'down',
 			party: [],
+			tokens: 0,
+			items: [],
 			newGame: true
 		});
 		hud.apply({
 			type: 'doctor-visit-ended',
 			visit: 1,
-			state: { step: 1, party: [], phase: { kind: 'ended' } }
+			state: { step: 1, party: [], tokens: 0, items: [], shop: [], phase: { kind: 'ended' } }
 		});
 		hud.tick(0);
 		expect(hud.message).toBe(doctorWords({ say: 'goodbye' }));
@@ -179,6 +181,8 @@ describe('the explore message line', () => {
 			pos: { x: 5, y: 6 },
 			facing: 'left',
 			party: [],
+			tokens: 0,
+			items: [],
 			newGame: false
 		});
 		expect(hud.hint).toBe(t('explore.controls'));
@@ -196,6 +200,8 @@ describe('the explore message line', () => {
 			pos: { x: 5, y: 6 },
 			facing: 'down',
 			party: [],
+			tokens: 0,
+			items: [],
 			newGame: false
 		});
 		expect(hud.hint).toBe(t('explore.talkPrompt'));

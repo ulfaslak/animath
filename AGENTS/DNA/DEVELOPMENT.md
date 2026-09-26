@@ -59,7 +59,7 @@ node scripts/screenshot.mjs --url 'http://localhost:<port>/' --reduced-motion   
 
 Headless Chrome via `playwright-core`. On a Mac, WebGL draws on the GPU (`--gpu metal`, ANGLE over Metal, as Chrome itself draws there) at 15–20 frames a second; `--gpu swiftshader`, the default elsewhere, draws in software at under 3 (see [[ENVIRONMENT_NOTES]] § Looking at the game). The first line printed names the renderer that drew. The script exits non-zero and prints console errors (and warnings) if the page logged any. **Read the image** — a saved file you never looked at verifies nothing. The `/play` command wraps this.
 
-Every run is a fresh browser: a new player with no game, so the page opens on the title with no Continue. `?new` (like `?party=` and `?zoo`) skips the title into a throwaway game at the spawn tile with a squirrel, which touches neither storage nor the API, so walks from the start always behave the same. For a game that is saved, go through the title as a kid does: `Enter,wait:3000,Enter,wait:3000,Enter,wait:4000` is New game, the first starter, no name (the starters and the name box take Enter only after a quiet moment of 0.8 s of game time, which a loaded machine stretches, and which every Enter starts again; see [[ENVIRONMENT_NOTES]]). `reload:` keeps the game (the save is in the page's `localStorage`) and comes back to the title, where `Enter` is Continue: that is how to check that something survives a reload.
+Every run is a fresh browser: a new player with no game, so the page opens on the title with no Continue. `?new` (like `?party=`, `?zoo`, `?tokens=` and `?shop`) skips the title into a throwaway game at the spawn tile with a squirrel, which touches neither storage nor the API, so walks from the start always behave the same. For a game that is saved, go through the title as a kid does: `Enter,wait:3000,Enter,wait:3000,Enter,wait:4000` is New game, the first starter, no name (the starters and the name box take Enter only after a quiet moment of 0.8 s of game time, which a loaded machine stretches, and which every Enter starts again; see [[ENVIRONMENT_NOTES]]). `reload:` keeps the game (the save is in the page's `localStorage`) and comes back to the title, where `Enter` is Continue: that is how to check that something survives a reload.
 
 **The API is blocked.** The script aborts every request to `/api/` in the browser, as if the server were down, and counts the blocked calls in one line at the end; an API response that arrives anyway fails the run. A game started in a fresh browser makes a player on the server, and every Vite proxies `/api` to the primary clone's API, with the kids' games in its database, unless `API_PORT` says otherwise ([[ENVIRONMENT_NOTES]] § This machine is shared). The game plays and saves in the page all the same. `--api` lets the calls through, for a run that tests the backup, against your own API and database (§ Running); there, calls that fail (no API server behind the proxy, a `409`) are listed at the end and do not fail the run. A throwaway Playwright script (the recipes below) is a fresh browser too: block the API the same way before its first `goto`, with `await context.route((u) => /^\/api(\/|$)/.test(u.pathname), (r) => r.abort())`.
 
@@ -94,6 +94,14 @@ After every frame the script prints what the screen says: on the title its menu 
 ```bash
 node scripts/screenshot.mjs --url 'http://localhost:<port>/?debug&party=squirrel:5,rabbit:0,fox' --keys "ArrowRight*7,ArrowDown,shot:prompt,Enter,wait:700,shot:card,Enter,wait:500,shot:puzzle,Escape" --out screenshots/doctor.png
 ```
+
+**The doctor's tabs and the shop.** Left and Right go through Heal, Help home and Shop. No tool is on sale until its effect lands, so to look at buying, start with tokens and the whole catalog for sale (`?tokens=` and `?shop`, a throwaway game; [[CHEATSHEET]] § Hidden behaviour). The script prints the tabs and the tokens (`tabs:`), the tab's list with picks ticked (`patients:`), the confirm (`confirm:`), a token sum's story (`story:`), and in explore the tokens and tools in the corner (`belongings:`):
+
+```bash
+node scripts/screenshot.mjs --url 'http://localhost:<port>/?debug&party=squirrel:5,rabbit:0,fox&tokens=23&shop' --keys "ArrowRight*7,ArrowDown,wait:1200,Enter,wait:1500,ArrowRight,wait:600,shot:home,ArrowRight,wait:600,shot:shop,Enter,wait:600,shot:sum" --out screenshots/shop.png
+```
+
+In a throwaway Playwright script, the number pad's keys have no `data-press` (they press as the finger lands): tap them by their text, `page.locator('.pad .key').getByText('7', { exact: true }).tap()`, and OK as `.pad .ok`. The open puzzle's answer, a token sum's too, is `doctor.puzzle.answer` in `/src/state/doctor.svelte.ts`.
 
 **Playing a battle.** The 11th step of Left, Right, Left, … from the start always meets a frog while a starter leads (see [[CHEATSHEET]] § Finding a battle fast; the animal changes whenever the encounter tables or the lead do, and `local-authority.test.ts` pins it). Walk in, look, run away:
 
@@ -213,7 +221,7 @@ update saves set data = jsonb_set(b.data, '{seq}', to_jsonb((saves.data->>'seq')
   from save_backups b where b.id = <backup id> and saves.player_id = b.player_id;
 ```
 
-The browser keeps its own set-aside copies too: `animath.save.unreadable` (a save it could not read), `animath.save.replaced` (its game, when a bigger one came from the server) and `animath.save.previous` (a game the kid left for New game on the title), each followed by `.2`, `.3`, … when the key was taken, oldest first. To give a kid back a game they left, in their browser's developer tools copy that text into `animath.save` with its `seq` raised above the current save's (and above the server's, or the server's newer game wins at the next start), then reload: the title offers it as Continue.
+The browser keeps its own set-aside copies too: `animath.save.unreadable` (a save it could not read), `animath.save.replaced` (its game, when a bigger one came from the server or another tab wrote over it in the same instant) and `animath.save.previous` (a game the kid left for New game on the title), each followed by `.2`, `.3`, … when the key was taken, oldest first. To give a kid back a game they left, in their browser's developer tools copy that text into `animath.save` with its `seq` raised above the current save's (and above the server's, or the server's newer game wins at the next start), then reload: the title offers it as Continue.
 ### Migrations
 
 Hand-written SQL, applied by `pnpm db:migrate` (`drizzle-orm`'s migrator, journal-driven).

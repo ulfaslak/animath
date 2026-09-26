@@ -26,6 +26,7 @@ export type CueName =
 	| 'caught'
 	| 'boing'
 	| 'heal'
+	| 'coins'
 	| 'lead'
 	| 'won';
 
@@ -249,6 +250,16 @@ export const CUES: Record<CueName, Cue> = {
 			pluck(0.1, C7, 0.25, 0.12, 'sine'),
 			pluck(0.15, E7, 0.3, 0.08, 'sine'),
 			pluck(0.2, C7, 0.3, 0.04)
+		]
+	},
+	/** Tokens change hands at the doctor: bright little coins clinking up, over a soft note. */
+	coins: {
+		voices: [
+			pluck(0, C6, 0.3, 0.1, 'sine'),
+			pluck(0, E6, 0.09, 0.2, 'sine'),
+			pluck(0.07, G6, 0.09, 0.2, 'sine'),
+			pluck(0.14, C7, 0.09, 0.18, 'sine'),
+			pluck(0.21, E7, 0.28, 0.12, 'sine')
 		]
 	},
 	/** A new animal goes first: ding-ding! */

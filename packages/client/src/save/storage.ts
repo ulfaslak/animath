@@ -12,7 +12,10 @@ export const KEYS = {
 	player: 'animath.player',
 	/** A save this build could not read, moved here before a new game took its place. */
 	unreadable: 'animath.save.unreadable',
-	/** The game in this browser that gave way to a bigger one found on the server. */
+	/**
+	 * A game in this browser that gave way to another: a bigger one found on
+	 * the server, or a save another tab wrote in the same instant, unseen.
+	 */
 	replaced: 'animath.save.replaced',
 	/** The game that was saved here when the kid started a new one from the title. */
 	previous: 'animath.save.previous',

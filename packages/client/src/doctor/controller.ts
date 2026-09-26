@@ -1,6 +1,7 @@
 import {
 	getAnimal,
 	needsHealing,
+	type AnimalInstance,
 	type Authority,
 	type DoctorEvent,
 	type DoctorIntent,
@@ -11,20 +12,37 @@ import { sfx } from '../audio/sfx.svelte';
 import { answerKey } from '../input/answer';
 import { isShortcut, keyName } from '../input/keyboard';
 import { isMashKey, PickGuard } from '../input/pick-guard';
-import { tappedRow } from '../input/press';
-import { cursorStops, doctor, hurtIndexes, stepCursor } from '../state/doctor.svelte';
+import { tappedOption, tappedRow, tappedTab } from '../input/press';
+import {
+	DOCTOR_TABS,
+	canGoHome,
+	cannotBuy,
+	doctor,
+	groupedIndexes,
+	rowStops,
+	stepCursor,
+	tabRows,
+	type DoctorRow,
+	type DoctorTab
+} from '../state/doctor.svelte';
 import type { DoctorLine } from './lines';
 
 /**
  * The doctor's card: from `doctor-visit-started` to `doctor-visit-ended`, a
  * dialogue over explore mode (no mode switch; the world keeps drawing). It
  * turns keys into doctor intents and plays the authority's doctor events back
- * a beat at a time — the judgement of an answer, then the heal — before it
- * shows the latest state and takes keys again, the way the battle screen
- * does. What the doctor says is chosen by event, as a `DoctorLine` the card
- * words when it shows it, and each sound plays with the beat that shows its
- * moment (the chime with "Correct!", the sparkle with the heal). Nothing here
- * decides anything: the engine judges answers and heals.
+ * a beat at a time — the judgement of an answer, then the heal, the animals
+ * going home, the tokens changing hands — before it shows the latest state
+ * and takes keys again, the way the battle screen does. What the doctor says
+ * is chosen by event, as a `DoctorLine` the card words when it shows it, and
+ * each sound plays with the beat that shows its moment (the chime with
+ * "Correct!", the sparkle with the heal, the coins with the tokens). Nothing
+ * here decides anything: the engine judges answers, heals, pays and sells.
+ *
+ * Three tabs ([[UI_SPEC]] § Doctor): heal, help home and shop, left and right
+ * between them. The home tab's marks and its confirm are the card's own: the
+ * authority hears of a hand-over only once the kid says yes, and even then
+ * nothing leaves until the kid works out the tokens they will have.
  */
 
 /** One beat: change the view, then hold for `hold` seconds. */
@@ -33,12 +51,16 @@ interface Beat {
 	hold: number;
 }
 
-/** "Not quite!" stays up this long before the next puzzle replaces it. */
+/** "Not quite!" stays up this long before the next puzzle, or the same sum, is asked again. */
 const MISS_HOLD = 1.2;
-/** "Correct!" stays up this long before the heal. */
+/** "Correct!" stays up this long before what it earned. */
 const CORRECT_HOLD = 0.8;
-/** The heal (HP bar filling, "+N", the doctor's cheer) plays this long before the list takes keys. */
+/** The heal (HP bars filling, "+N", the doctor's cheer) plays this long before the list takes keys. */
 const HEAL_HOLD = 1.2;
+/** The animals going home wave goodbye this long before the tokens come. */
+const HOME_HOLD = 1.6;
+/** Tokens coming in or going out, with what the doctor says about it. */
+const TOKENS_HOLD = 1.6;
 
 export class DoctorController {
 	/** The visit on screen, as its events number it; null while the card is closed. */
@@ -48,14 +70,16 @@ export class DoctorController {
 	private beats: Beat[] = [];
 	private wait = 0;
 	/**
-	 * The list takes a pick only after a quiet moment, when the card opens and
-	 * each time it comes back after a heal (`input/pick-guard.ts`): an Enter
-	 * mashed at the tent or through a heal picks nobody, and says no bye.
+	 * The list and the confirm take a pick only after a quiet moment: when the
+	 * card opens, each time the list comes back after a beat, and when the
+	 * confirm comes up (`input/pick-guard.ts`). An Enter mashed at the tent,
+	 * through a heal or through a goodbye picks nothing, and says no bye.
 	 */
 	private guard = new PickGuard();
 	/** What the doctor says about the latest state; shown with its beat, or at `settle`. */
 	private said: DoctorLine | null = null;
-	private heals = 0;
+	/** Counts the pops and shakes, so each one starts its animation again. */
+	private pops = 0;
 
 	constructor(private authority: Authority) {}
 
@@ -69,11 +93,9 @@ export class DoctorController {
 				// another number), and never an older state of it than the one shown.
 				const latest = this.latest;
 				if (event.visit !== this.visit || !latest || event.state.step < latest.step) return;
-				const said = lineFor(event.events, event.state);
-				if (said) this.said = said;
 				this.latest = event.state;
 				doctor.screen = 'busy';
-				for (const e of event.events) this.beats.push(...this.narrate(e, said));
+				this.beats.push(...this.narrate(event.events, latest, event.state));
 				// Nothing to play (a pick, a swap, a rejection): show it now, so a key
 				// typed straight after an arrow lands in the new puzzle, not in a gap.
 				if (this.beats.length === 0 && this.wait <= 0) this.settle();
@@ -109,10 +131,11 @@ export class DoctorController {
 			return;
 		}
 		const key = keyName(e);
-		// Escape leaves at any time, mid-puzzle and mid-beat included.
+		// Escape goes back a step: from a puzzle or the confirm to the list, and
+		// from the list, or while a beat plays, it says bye.
 		if (key === 'Escape') {
 			e.preventDefault();
-			this.send({ type: 'leave' });
+			this.escape();
 			return;
 		}
 		// Whether a pick may go now. A key a kid mashes starts the quiet moment
@@ -124,6 +147,9 @@ export class DoctorController {
 				return; // a beat is playing
 			case 'list':
 				handled = this.listKey(key, fresh);
+				break;
+			case 'confirm':
+				handled = this.confirmKey(key, fresh);
 				break;
 			case 'puzzle':
 				handled = this.puzzleKey(key);
@@ -141,8 +167,11 @@ export class DoctorController {
 		this.latest = state;
 		this.beats = [];
 		this.wait = 0;
-		this.said = { say: state.party.some(needsHealing) ? 'hello' : 'helloAllFit' };
-		doctor.cursor = hurtIndexes(state.party)[0] ?? state.party.length;
+		doctor.tab = 'heal';
+		this.said = this.tabLine('heal', state);
+		doctor.party = state.party.map((a) => ({ ...a }));
+		doctor.shop = [...state.shop];
+		doctor.cursor = this.firstStop('heal');
 		sfx.play('confirm');
 		this.settle();
 	}
@@ -152,29 +181,54 @@ export class DoctorController {
 		const state = this.latest;
 		if (!state) return;
 		doctor.party = state.party.map((a) => ({ ...a }));
+		doctor.tokens = state.tokens;
+		doctor.items = [...state.items];
+		doctor.shop = [...state.shop];
 		doctor.line = this.said;
 		doctor.input = '';
 		doctor.judged = null;
 		doctor.healed = null;
-		switch (state.phase.kind) {
-			case 'choose-patient': {
+		doctor.leaving = null;
+		doctor.tokenPop = null;
+		doctor.bought = null;
+		// A mark for an animal that is no longer here goes with it.
+		doctor.marked = doctor.marked.filter((id) => state.party.some((a) => a.id === id));
+		const phase = state.phase;
+		switch (phase.kind) {
+			case 'choose-patient':
 				doctor.puzzle = null;
 				doctor.patient = null;
-				// After a heal the cursor moves on to the next animal who still needs
-				// the doctor, round the party, and to Bye only when nobody does.
-				if (!cursorStops(doctor.party).includes(doctor.cursor)) {
-					const hurt = hurtIndexes(doctor.party);
-					doctor.cursor = hurt.find((i) => i > doctor.cursor) ?? hurt[0] ?? doctor.party.length;
-				}
-				// The card opening, or the list back after a heal: a new choice.
+				doctor.trade = null;
+				this.fixCursor();
+				// The card opening, or the list back after a beat: a new choice.
 				if (doctor.screen !== 'list') this.guard.show();
 				doctor.screen = 'list';
 				break;
-			}
 			case 'solving':
-				doctor.puzzle = state.phase.puzzle;
-				doctor.patient = state.phase.partyIndex;
-				doctor.cursor = state.phase.partyIndex;
+				doctor.tab = 'heal';
+				doctor.puzzle = phase.puzzle;
+				doctor.patient = phase.partyIndex;
+				doctor.trade = null;
+				doctor.cursor = this.rowOf(phase.partyIndex);
+				doctor.screen = 'puzzle';
+				break;
+			case 'handing-over':
+				doctor.tab = 'home';
+				doctor.puzzle = phase.puzzle;
+				doctor.patient = null;
+				doctor.trade = { kind: 'home', ids: [...phase.ids], reward: phase.reward };
+				doctor.balance = state.tokens;
+				doctor.screen = 'puzzle';
+				break;
+			case 'buying':
+				doctor.tab = 'shop';
+				doctor.puzzle = phase.puzzle;
+				doctor.patient = null;
+				doctor.trade = { kind: 'buy', itemId: phase.itemId, price: phase.price };
+				doctor.balance = state.tokens;
+				doctor.cursor = this.rows().findIndex(
+					(r) => r.kind === 'item' && r.itemId === phase.itemId
+				);
 				doctor.screen = 'puzzle';
 				break;
 			case 'ended':
@@ -197,19 +251,58 @@ export class DoctorController {
 		this.authority.dispatch({ type: 'doctor', intent });
 	}
 
+	/** Escape: back a step, or bye. */
+	private escape(): void {
+		switch (doctor.screen) {
+			case 'confirm':
+				sfx.play('move');
+				this.backToList();
+				break;
+			case 'puzzle':
+				this.send({ type: 'back' });
+				break;
+			default:
+				this.send({ type: 'leave' });
+		}
+	}
+
+	/** From the confirm back to the list, the marks as they were: a new choice. */
+	private backToList(): void {
+		doctor.screen = 'list';
+		this.said = this.tabLine(doctor.tab);
+		doctor.line = this.said;
+		this.guard.show();
+	}
+
+	private switchTab(tab: DoctorTab): void {
+		if (tab === doctor.tab) return;
+		doctor.tab = tab;
+		doctor.cursor = this.firstStop(tab);
+		this.said = this.tabLine(tab);
+		doctor.line = this.said;
+		sfx.play('move');
+	}
+
 	// --- keys ----------------------------------------------------------------
 
 	private listKey(key: string, fresh: boolean): boolean {
-		const stops = cursorStops(doctor.party);
-		// A tap on an animal picks it at once, as the arrows and Enter would: at
-		// the doctor nothing is spent. A fit animal can't be picked, so its row
-		// does nothing. (Bye is Escape's, which leaves at any time.) A tap is a
-		// pick like Enter, and waits for the same quiet moment.
+		const tab = tappedTab(key);
+		if (tab !== undefined) {
+			this.switchTab(tab);
+			return true;
+		}
+		const rows = this.rows();
+		const stops = rowStops(rows, doctor);
+		// A tap on a row picks it at once, as the arrows and Enter would: at the
+		// doctor nothing is spent by a pick. A fit animal on the heal tab can't
+		// be picked, so its row does nothing. A tap is a pick like Enter, and
+		// waits for the same quiet moment.
 		const row = tappedRow(key);
 		if (row !== undefined) {
-			if (!stops.includes(row) || !fresh) return true;
+			if (!stops.includes(row) || !(fresh || this.marks(rows[row]))) return true;
 			doctor.cursor = row;
-			return this.listKey('Enter', fresh);
+			this.pick(rows[row]);
+			return true;
 		}
 		switch (key) {
 			case 'ArrowUp':
@@ -222,30 +315,146 @@ export class DoctorController {
 				doctor.cursor = cursor;
 				return true;
 			}
-			case 'Enter':
-			case ' ': {
-				if (!fresh) return true;
-				const animal = doctor.party[doctor.cursor];
-				if (!animal) {
-					sfx.play('confirm');
-					this.send({ type: 'leave' });
-				} else if (needsHealing(animal)) {
-					sfx.play('confirm');
-					this.send({ type: 'pick-patient', partyIndex: doctor.cursor });
-				}
+			case 'ArrowLeft':
+			case 'a':
+			case 'ArrowRight':
+			case 'd': {
+				const delta = key === 'ArrowLeft' || key === 'a' ? -1 : 1;
+				const at = DOCTOR_TABS.indexOf(doctor.tab);
+				this.switchTab(DOCTOR_TABS[(at + delta + DOCTOR_TABS.length) % DOCTOR_TABS.length]!);
 				return true;
 			}
+			case 'Enter':
+			case ' ':
+				if (fresh || this.marks(rows[doctor.cursor])) this.pick(rows[doctor.cursor]);
+				return true;
+		}
+		return false;
+	}
+
+	/**
+	 * A pick that only picks or unpicks an animal to go home: it can always be
+	 * taken back, so it goes at once, as the pause menu's rows do. Everything
+	 * else on the list waits the quiet moment, and the confirm and the sum
+	 * stand between a pick and a goodbye.
+	 */
+	private marks(row: DoctorRow | undefined): boolean {
+		return doctor.tab === 'home' && row?.kind === 'animal';
+	}
+
+	/** Enter on a row of the list. */
+	private pick(row: DoctorRow | undefined): void {
+		switch (row?.kind) {
+			case 'bye':
+				sfx.play('confirm');
+				this.send({ type: 'leave' });
+				return;
+			case 'animal': {
+				const animal = doctor.party[row.partyIndex];
+				if (!animal) return;
+				if (doctor.tab === 'home') {
+					this.toggleMark(animal);
+				} else if (needsHealing(animal)) {
+					sfx.play('confirm');
+					this.send({ type: 'pick-patient', partyIndex: row.partyIndex });
+				}
+				return;
+			}
+			case 'send':
+				if (doctor.marked.length === 0) return;
+				sfx.play('confirm');
+				doctor.confirm = 0;
+				doctor.screen = 'confirm';
+				this.said = { say: 'homeSure' };
+				doctor.line = this.said;
+				this.guard.show();
+				return;
+			case 'item':
+				// An item a kid owns, or can't pay for yet, gives a little shake: the card says why.
+				if (cannotBuy(row.itemId, doctor) !== null) {
+					this.shakeRow(doctor.cursor);
+					return;
+				}
+				sfx.play('confirm');
+				this.send({ type: 'buy', itemId: row.itemId });
+				return;
+		}
+	}
+
+	/** Pick or unpick an animal to go home. The last one standing always stays. */
+	private toggleMark(animal: AnimalInstance): void {
+		if (doctor.marked.includes(animal.id)) {
+			doctor.marked = doctor.marked.filter((id) => id !== animal.id);
+			sfx.play('move');
+			return;
+		}
+		if (!canGoHome(animal, doctor.party, doctor.marked)) {
+			this.shakeRow(doctor.cursor);
+			return;
+		}
+		doctor.marked = [...doctor.marked, animal.id];
+		sfx.play('confirm');
+	}
+
+	private confirmKey(key: string, fresh: boolean): boolean {
+		// A tap on a choice does it, once the confirm's quiet moment has passed.
+		const option = tappedOption(key);
+		if (option !== undefined) {
+			if ((option !== 0 && option !== 1) || !fresh) return true;
+			doctor.confirm = option === 0 ? 0 : 1;
+			return this.confirmKey('Enter', fresh);
+		}
+		switch (key) {
+			// The two choices stand side by side, "No" first: either pair of arrows
+			// moves between them, without wrapping round.
+			case 'ArrowLeft':
+			case 'a':
+			case 'ArrowUp':
+			case 'w':
+			case 'ArrowRight':
+			case 'd':
+			case 'ArrowDown':
+			case 's': {
+				const back = key === 'ArrowLeft' || key === 'a' || key === 'ArrowUp' || key === 'w';
+				const choice = back ? 0 : 1;
+				if (choice !== doctor.confirm) sfx.play('move');
+				doctor.confirm = choice;
+				return true;
+			}
+			case 'Enter':
+			case ' ':
+				if (!fresh) return true;
+				sfx.play('confirm');
+				if (doctor.confirm === 0) this.backToList();
+				else this.send({ type: 'hand-over', ids: [...doctor.marked] });
+				return true;
 		}
 		return false;
 	}
 
 	private puzzleKey(key: string): boolean {
-		// A tap on another animal who needs the doctor swaps the puzzle to it,
-		// as up/down do; the patient's own row and fit animals do nothing.
+		// A tab puts the puzzle away and goes there; Bye leaves at any time.
+		const tab = tappedTab(key);
+		if (tab !== undefined) {
+			if (tab !== doctor.tab) {
+				doctor.tab = tab;
+				doctor.cursor = this.firstStop(tab);
+			}
+			this.send({ type: 'back' });
+			return true;
+		}
 		const row = tappedRow(key);
 		if (row !== undefined) {
-			if (row !== doctor.patient && hurtIndexes(doctor.party).includes(row)) {
-				this.send({ type: 'pick-patient', partyIndex: row });
+			const tapped = this.rows()[row];
+			if (tapped?.kind === 'bye') this.send({ type: 'leave' });
+			// On the heal tab, another hurt species' animal swaps the puzzle to it.
+			else if (tapped?.kind === 'animal' && doctor.trade === null) {
+				const groups = this.healGroups();
+				const target = doctor.party[tapped.partyIndex];
+				const group = groups.find((i) => doctor.party[i]?.speciesId === target?.speciesId);
+				if (group !== undefined && group !== this.patientGroup()) {
+					this.send({ type: 'pick-patient', partyIndex: tapped.partyIndex });
+				}
 			}
 			return true;
 		}
@@ -254,10 +463,14 @@ export class DoctorController {
 			case 'w':
 			case 'ArrowDown':
 			case 's': {
-				// The list stays live: up and down swap the puzzle for the next animal's.
+				// A heal's list stays live: up and down swap the puzzle for the next
+				// species that needs the doctor. A token sum stays until it is answered.
+				if (doctor.trade !== null) return true;
 				const delta = key === 'ArrowUp' || key === 'w' ? -1 : 1;
-				const next = stepCursor(hurtIndexes(doctor.party), doctor.patient ?? 0, delta);
-				if (next !== doctor.patient) {
+				const groups = this.healGroups();
+				const from = this.patientGroup();
+				const next = from === undefined ? undefined : stepCursor(groups, from, delta);
+				if (next !== undefined && next !== from) {
 					sfx.play('move');
 					this.send({ type: 'pick-patient', partyIndex: next });
 				}
@@ -270,67 +483,226 @@ export class DoctorController {
 		return typed.handled;
 	}
 
+	// --- rows ----------------------------------------------------------------
+
+	private rows(): DoctorRow[] {
+		return tabRows(doctor.tab, doctor.party, doctor.shop);
+	}
+
+	/** The row of the animal at `partyIndex` on the tab on screen. */
+	private rowOf(partyIndex: number): number {
+		return this.rows().findIndex((r) => r.kind === 'animal' && r.partyIndex === partyIndex);
+	}
+
+	/**
+	 * Where the cursor starts on a tab: the first animal who needs the doctor
+	 * (or Bye, when nobody does), the first animal, the first item (or Bye,
+	 * when the shop has nothing).
+	 */
+	private firstStop(tab: DoctorTab): number {
+		const rows = tabRows(tab, doctor.party, doctor.shop);
+		const stops = rowStops(rows, { tab, party: doctor.party, marked: doctor.marked });
+		return stops[0] ?? rows.length - 1;
+	}
+
+	/**
+	 * The cursor on a row it can stop on. After a heal it moves on to the next
+	 * animal who still needs the doctor, round the list, and to Bye only when
+	 * nobody does; elsewhere, to the next stop down.
+	 */
+	private fixCursor(): void {
+		const rows = this.rows();
+		const stops = rowStops(rows, doctor);
+		if (stops.includes(doctor.cursor)) return;
+		const bye = rows.length - 1;
+		const before = stops.filter((s) => s !== bye);
+		doctor.cursor =
+			before.find((s) => s > doctor.cursor) ??
+			(doctor.tab === 'heal' ? before[0] : undefined) ??
+			stops.find((s) => s > doctor.cursor) ??
+			stops[0] ??
+			bye;
+	}
+
+	/** The party index of the first hurt animal of each species that needs the doctor, in list order. */
+	private healGroups(): number[] {
+		const seen = new Set<string>();
+		return groupedIndexes(doctor.party).filter((i) => {
+			const animal = doctor.party[i]!;
+			if (!needsHealing(animal) || seen.has(animal.speciesId)) return false;
+			seen.add(animal.speciesId);
+			return true;
+		});
+	}
+
+	/** The heal group of the patient on screen: the first hurt animal of its species. */
+	private patientGroup(): number | undefined {
+		const patient = doctor.patient === null ? undefined : doctor.party[doctor.patient];
+		return this.healGroups().find((i) => doctor.party[i]!.speciesId === patient?.speciesId);
+	}
+
+	private shakeRow(row: number): void {
+		doctor.shake = { row, n: ++this.pops };
+	}
+
+	/** What the doctor says on a tab. */
+	private tabLine(tab: DoctorTab, state: DoctorState | null = this.latest): DoctorLine {
+		switch (tab) {
+			case 'heal':
+				return { say: state?.party.some(needsHealing) ? 'hello' : 'helloAllFit' };
+			case 'home':
+				return { say: 'homeIntro' };
+			case 'shop':
+				return { say: 'shopIntro', empty: (state?.shop.length ?? 0) === 0 };
+		}
+	}
+
 	// --- beats ---------------------------------------------------------------
 
-	/** Turn one doctor event into beats. `said` is what the doctor says to the whole step. */
-	private narrate(e: DoctorEvent, said: DoctorLine | null): Beat[] {
-		switch (e.type) {
-			case 'puzzle-shown':
-				return []; // `settle` shows the puzzle once the beats have played
-			case 'answer-judged':
-				// The right answer is never shown (UI_SPEC): the next puzzle is a new one.
-				return [
-					{
+	/**
+	 * Turn one step's events into beats, and say what the doctor says about
+	 * the state they leave (`this.said`). The heals one right answer makes
+	 * play as one beat.
+	 */
+	private narrate(events: readonly DoctorEvent[], before: DoctorState, after: DoctorState): Beat[] {
+		const beats: Beat[] = [];
+		let heals: Extract<DoctorEvent, { type: 'healed' }>[] = [];
+		const flushHeals = () => {
+			if (heals.length > 0) beats.push(this.healBeat(heals, before, after));
+			heals = [];
+		};
+		for (const e of events) {
+			if (e.type === 'healed') {
+				heals.push(e);
+				continue;
+			}
+			flushHeals();
+			switch (e.type) {
+				case 'puzzle-shown': {
+					const patient = after.party[e.partyIndex]!;
+					const others = after.party.filter(
+						(a, i) => i !== e.partyIndex && a.speciesId === patient.speciesId && needsHealing(a)
+					).length;
+					this.said = { say: 'letsHelp', animal: { ...patient }, others };
+					break;
+				}
+				case 'hand-over-shown':
+					this.said = { say: 'homeCount' };
+					break;
+				case 'purchase-shown':
+					this.said = { say: 'shopCount' };
+					break;
+				case 'closed':
+					this.said = this.tabLine(doctor.tab, after);
+					break;
+				case 'answer-judged': {
+					// The right answer is never shown (UI_SPEC): a missed heal asks a new
+					// puzzle, a missed token sum the same one.
+					const trade = before.phase.kind === 'handing-over' || before.phase.kind === 'buying';
+					const miss: DoctorLine = { say: trade ? 'tryAgain' : 'notQuite' };
+					if (!e.correct) this.said = miss;
+					beats.push({
 						run: () => {
 							doctor.judged = { correct: e.correct };
 							sfx.play(e.correct ? 'correct' : 'wrong');
-							if (!e.correct && said) doctor.line = said;
+							if (!e.correct) doctor.line = miss;
 						},
 						hold: e.correct ? CORRECT_HOLD : MISS_HOLD
-					}
-				];
-			case 'healed':
-				return [
-					{
+					});
+					break;
+				}
+				case 'went-home': {
+					const line: DoctorLine = { say: 'wentHome', animals: e.animals.map((a) => ({ ...a })) };
+					this.said = line;
+					beats.push({
 						run: () => {
-							const before = doctor.party[e.partyIndex];
-							const max = getAnimal(e.animal.speciesId).maxHp;
-							doctor.party = doctor.party.map((a, i) => (i === e.partyIndex ? { ...e.animal } : a));
-							doctor.healed = {
-								index: e.partyIndex,
-								amount: max - (before?.hp ?? 0),
-								n: ++this.heals
-							};
+							doctor.leaving = e.animals.map((a) => a.id);
+							doctor.line = line;
 							sfx.play('heal');
-							if (said) doctor.line = said;
 						},
-						hold: HEAL_HOLD
-					}
-				];
-			case 'ended':
-				return [];
-			case 'rejected':
-				console.warn(`doctor intent rejected: ${e.reason}`);
-				return [];
+						hold: HOME_HOLD
+					});
+					break;
+				}
+				case 'tokens-given': {
+					const line: DoctorLine = { say: 'tokensGiven', amount: e.amount, tokens: e.tokens };
+					this.said = line;
+					beats.push({
+						run: () => {
+							const gone = new Set(doctor.leaving ?? []);
+							doctor.party = doctor.party.filter((a) => !gone.has(a.id));
+							doctor.leaving = null;
+							doctor.marked = [];
+							// Back at the top of the list, never on Bye, where a mash might land.
+							doctor.cursor = 0;
+							doctor.tokens = e.tokens;
+							doctor.tokenPop = { amount: e.amount, n: ++this.pops };
+							doctor.line = line;
+							sfx.play('coins');
+						},
+						hold: TOKENS_HOLD
+					});
+					break;
+				}
+				case 'bought': {
+					const line: DoctorLine = { say: 'bought', itemId: e.itemId, tokens: e.tokens };
+					this.said = line;
+					beats.push({
+						run: () => {
+							doctor.tokens = e.tokens;
+							doctor.items = [...doctor.items, e.itemId];
+							doctor.tokenPop = { amount: -e.price, n: ++this.pops };
+							doctor.bought = e.itemId;
+							doctor.line = line;
+							sfx.play('coins');
+						},
+						hold: TOKENS_HOLD
+					});
+					break;
+				}
+				case 'ended':
+					break;
+				case 'rejected':
+					console.warn(`doctor intent rejected: ${e.reason}`);
+					break;
+			}
 		}
+		flushHeals();
+		return beats;
 	}
-}
 
-/**
- * What the doctor says to one step's events, or null to keep the line as it
- * is (`ended` closes the card; `rejected` changes nothing).
- */
-function lineFor(events: readonly DoctorEvent[], state: DoctorState): DoctorLine | null {
-	for (const e of events) {
-		if (e.type === 'answer-judged' && !e.correct) return { say: 'notQuite' };
-		if (e.type === 'healed') {
-			const someoneStillHurt = state.party.some(needsHealing);
-			return { say: 'healed', animal: { ...e.animal }, someoneStillHurt };
+	/** One right answer's heals, all at once: every bar fills, every row lights up. */
+	private healBeat(
+		heals: readonly Extract<DoctorEvent, { type: 'healed' }>[],
+		before: DoctorState,
+		after: DoctorState
+	): Beat {
+		const amounts: Record<number, number> = {};
+		for (const h of heals) {
+			const max = getAnimal(h.animal.speciesId).maxHp;
+			amounts[h.partyIndex] = max - (before.party[h.partyIndex]?.hp ?? 0);
 		}
+		// The doctor names the animal picked, and counts the rest of its kind.
+		const picked = before.phase.kind === 'solving' ? before.phase.partyIndex : heals[0]!.partyIndex;
+		const animal = after.party[picked] ?? heals[0]!.animal;
+		const line: DoctorLine = {
+			say: 'healed',
+			animal: { ...animal },
+			others: heals.length - 1,
+			someoneStillHurt: after.party.some(needsHealing)
+		};
+		this.said = line;
+		return {
+			run: () => {
+				doctor.party = doctor.party.map((a, i) => {
+					const healed = heals.find((h) => h.partyIndex === i);
+					return healed ? { ...healed.animal } : a;
+				});
+				doctor.healed = { amounts, n: ++this.pops };
+				sfx.play('heal');
+				doctor.line = line;
+			},
+			hold: HEAL_HOLD
+		};
 	}
-	for (const e of events) {
-		const patient = e.type === 'puzzle-shown' ? state.party[e.partyIndex] : undefined;
-		if (patient) return { say: 'letsHelp', animal: { ...patient } };
-	}
-	return null;
 }
