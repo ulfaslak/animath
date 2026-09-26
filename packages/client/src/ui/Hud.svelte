@@ -1,13 +1,17 @@
 <script lang="ts">
-	import { getAnimal, leadIndex, type AnimalInstance } from '@mathgame/engine';
+	import { getAnimal, isItemId, leadIndex, type AnimalInstance } from '@mathgame/engine';
 	import { fade } from 'svelte/transition';
 	import { t } from '../copy';
+	import { flags } from '../flags';
 	import { unfocusable } from '../input/press';
 	import { touch } from '../input/touch.svelte';
 	import { nameOf } from '../names';
 	import { game } from '../state/game.svelte';
 	import { hud } from '../state/hud.svelte';
+	import { itemName } from '../items';
+	import Coin from './Coin.svelte';
 	import HpBar from './HpBar.svelte';
+	import ItemIcon from './ItemIcon.svelte';
 
 	/**
 	 * The explore HUD. One card per animal in battle order: the number key that
@@ -19,11 +23,14 @@
 	 * first after a party edit. A card is its number key and "Esc Menu" is
 	 * Escape, for a click or a tap (`input/press.ts`); with the touch controls
 	 * on, the panel under the cards says to tap them, and Menu is a button of
-	 * its own (`TouchControls`).
+	 * its own (`TouchControls`). At the top right, the player's tokens, and
+	 * under them the tools they own, each with its name.
 	 */
 	const lead = $derived(leadIndex(game.party));
 	/** With one animal there is nobody to choose between: no numbers, no tag. */
 	const choosing = $derived(game.party.length > 1);
+	/** The tools owned, in the order bought; an id this build doesn't know shows nothing. */
+	const tools = $derived(game.items.filter(isItemId));
 </script>
 
 {#snippet card(animal: AnimalInstance, i: number)}
@@ -74,6 +81,15 @@
 			</button>
 		</div>
 	{/if}
+</div>
+
+<!-- The player's tokens, and the tools they own. -->
+<!-- With `?debug` the position and the cues have the corner; these go under them. -->
+<div class="belongings" class:below-debug={flags.debug}>
+	<div class="purse"><Coin />{t('hud.tokens', { count: game.tokens })}</div>
+	{#each tools as id (id)}
+		<div class="tool"><ItemIcon {id} size={24} />{itemName(id)}</div>
+	{/each}
 </div>
 
 <!-- The message line: the latest message while it is fresh, then the doctor
@@ -227,5 +243,38 @@
 	}
 	.message + .prompt {
 		margin-top: 2px;
+	}
+	/* The top right: the tokens, and the tools under them. */
+	.belongings {
+		position: absolute;
+		top: 16px;
+		right: 16px;
+		display: flex;
+		flex-direction: column;
+		align-items: flex-end;
+		gap: 6px;
+		pointer-events: none;
+	}
+	.belongings.below-debug {
+		top: 100px;
+	}
+	.purse,
+	.tool {
+		display: flex;
+		align-items: center;
+		gap: 6px;
+		background: var(--panel-bg);
+		border-radius: var(--radius);
+		box-shadow: var(--hud-shadow);
+		font-weight: 800;
+		white-space: nowrap;
+	}
+	.purse {
+		padding: 6px 14px 6px 8px;
+		font-size: 18px;
+	}
+	.tool {
+		padding: 3px 12px 3px 6px;
+		font-size: 16px;
 	}
 </style>

@@ -1,6 +1,7 @@
 <script lang="ts">
 	import type { Puzzle } from '@mathgame/engine';
 	import { t } from '../copy';
+	import { unfocusable } from '../input/press';
 	import { touch } from '../input/touch.svelte';
 	import NumberPad from './NumberPad.svelte';
 
@@ -15,14 +16,19 @@
 	 * the number pad stands to the right of it, and its keys are keys too.
 	 * `note` is one more line under the key reminder, from the screen that
 	 * asks: beside the pad it takes the room left under the answer, not a line
-	 * of the card's height below the pad.
+	 * of the card's height below the pad. `story` is a line over the prompt
+	 * (the doctor's token sums tell what the numbers are), and `back` the
+	 * label of a button that puts the puzzle away (Escape), for a screen that
+	 * has a way back; a battle has none.
 	 */
 	let {
 		puzzle,
 		input,
 		judged,
 		typing,
-		note
+		note,
+		story,
+		back
 	}: {
 		puzzle: Puzzle;
 		input: string;
@@ -31,11 +37,16 @@
 		typing: boolean;
 		/** The doctor's "↑ ↓ help another animal", when someone else is hurt too. */
 		note?: string;
+		/** What the numbers are: "You have 23 tokens. The axe costs 8. How many will you have left?" */
+		story?: string;
+		/** The label of the button that goes back (Escape): the doctor's "Back". */
+		back?: string;
 	} = $props();
 </script>
 
 <div class="puzzle-panel" class:with-pad={touch.on}>
 	<div class="question">
+		{#if story}<div class="story">{story}</div>{/if}
 		<div class="puzzle-prompt" class:long={puzzle.prompt.length > 11}>{puzzle.prompt}</div>
 		<div
 			class="answer"
@@ -44,13 +55,21 @@
 		>
 			{input}<span class="cursor" class:blink={typing}></span>
 		</div>
-		{#if judged}
-			<div class="judgement" class:good={judged.correct} class:bad={!judged.correct}>
-				{judged.correct ? t('puzzle.correct') : t('puzzle.notQuite')}
-			</div>
-		{:else}
-			<div class="keys">{touch.on ? t('puzzle.keysTouch') : t('puzzle.keys')}</div>
-		{/if}
+		<div class="foot">
+			{#if back}
+				<button type="button" class="back" data-press="Escape" {@attach unfocusable}>
+					{back}
+					{#if !touch.on}<kbd>{t('keys.esc')}</kbd>{/if}
+				</button>
+			{/if}
+			{#if judged}
+				<div class="judgement" class:good={judged.correct} class:bad={!judged.correct}>
+					{judged.correct ? t('puzzle.correct') : t('puzzle.notQuite')}
+				</div>
+			{:else}
+				<div class="keys">{touch.on ? t('puzzle.keysTouch') : t('puzzle.keys')}</div>
+			{/if}
+		</div>
 		{#if note}
 			<div class="keys">{note}</div>
 		{/if}
@@ -79,6 +98,52 @@
 		flex-direction: column;
 		align-items: center;
 		gap: 10px;
+	}
+	/* The token sum's story: what the numbers are, over them. */
+	.story {
+		font-weight: 800;
+		font-size: 18px;
+		line-height: 1.3;
+		max-width: 26em;
+		text-align: center;
+	}
+	/* The judgement or the key reminder, with Back before it when there is a way back. */
+	.foot {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		justify-content: center;
+		gap: 8px 14px;
+	}
+	.back {
+		display: inline-flex;
+		align-items: center;
+		gap: 8px;
+		min-height: 36px;
+		padding: 0 16px;
+		border-radius: 18px;
+		background: rgba(0, 0, 0, 0.07);
+		font-weight: 800;
+		font-size: 16px;
+	}
+	:global(.touch) .back {
+		min-height: var(--tap);
+		padding: 0 22px;
+	}
+	.back:active {
+		transform: translateY(1px) scale(0.97);
+	}
+	@media (hover: hover) and (pointer: fine) {
+		.back:hover {
+			background: rgba(255, 159, 67, 0.18);
+		}
+	}
+	.back kbd {
+		font-family: inherit;
+		font-size: 14px;
+		padding: 0 6px;
+		border-radius: 6px;
+		background: rgba(0, 0, 0, 0.08);
 	}
 	.puzzle-prompt {
 		font-weight: 800;

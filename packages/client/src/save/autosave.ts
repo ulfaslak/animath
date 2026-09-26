@@ -319,6 +319,7 @@ export class Autosave {
 				break;
 			case 'battle-ended':
 			case 'party-changed':
+			case 'belongings-changed':
 			case 'taken-to-doctor':
 				this.changed(true);
 				break;

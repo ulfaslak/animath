@@ -53,7 +53,11 @@ window.addEventListener('contextmenu', (e) => {
 // Safari shows `:active` (a pressed key, a pressed button) only on a page that listens for touches.
 document.addEventListener('touchstart', () => {}, { passive: true });
 
-const authority = new LocalAuthority({ party: flags.party ?? undefined });
+const authority = new LocalAuthority({
+	party: flags.party ?? undefined,
+	tokens: flags.tokens ?? undefined,
+	shop: flags.shop ?? undefined
+});
 const renderer = new GameRenderer(canvas);
 const keyboard = new Keyboard(window);
 // The lead walks behind the trainer: a view of the party and of the trainer's steps.
@@ -61,8 +65,8 @@ const explore = new ExploreController(authority, renderer, keyboard, new Followe
 const battleController = new BattleController(authority, renderer);
 const doctorController = new DoctorController(authority);
 const pauseController = new PauseController(authority);
-// `?new`, `?party=` (a party to look at) and `?zoo` play a throwaway game:
-// nothing is loaded or saved, and the saved game is left alone.
+// `?new`, `?party=` (a party to look at), `?zoo`, `?tokens=` and `?shop` play a
+// throwaway game: nothing is loaded or saved, and the saved game is left alone.
 const autosave = new Autosave({
 	store: browserStore(),
 	server: httpSaveServer(),
@@ -170,7 +174,7 @@ function noteScreen(): void {
 					: battle.active
 						? `battle:${battle.screen}`
 						: doctor.active
-							? `doctor:${doctor.screen}`
+							? `doctor:${doctor.screen}:${doctor.tab}`
 							: pause.open
 								? `pause:${pause.screen}:${pause.picked ?? ''}`
 								: game.mode;
