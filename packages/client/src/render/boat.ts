@@ -48,12 +48,17 @@ const BACK = new THREE.Vector3(0, 0.4, -0.17);
 const BACK_TURN = new THREE.Quaternion().setFromEuler(new THREE.Euler(Math.PI / 2 - 0.3, 0, 0));
 
 /**
- * Afloat: its middle, from the trainer's feet, so the floor is under them,
- * and a little ahead of them: the trainer stands towards the stern, and the
- * bow has room for an animal riding along (`follower.ts`).
+ * Afloat: its middle, from where the trainer stands on land, so the floor is
+ * level with their feet: over the middle of the tile, so nothing of it
+ * reaches over the next tile's shore.
  */
-export const AFLOAT_AHEAD = 0.18;
-const AFLOAT = new THREE.Vector3(0, DEPTH / 2 - FLOOR, AFLOAT_AHEAD);
+const AFLOAT = new THREE.Vector3(0, DEPTH / 2 - FLOOR, 0);
+/**
+ * Afloat, the trainer stands this far towards the stern from the boat's
+ * middle (`standAstern`), leaving the bow for an animal riding along
+ * (`follower.ts`).
+ */
+export const BOAT_ASTERN = 0.22;
 const AFLOAT_TURN = new THREE.Quaternion();
 /** A little rocking on the water, reused. */
 const ROCK = new THREE.Quaternion();
@@ -136,9 +141,10 @@ export function buildBoatMesh(): THREE.Group {
 	for (const end of [stern, bow]) {
 		boat.add(mesh(end, materials.hull), mesh(end, materials.inside));
 	}
-	// The floor, just under the trainer's feet.
+	// The floor, just under the trainer's feet, where they stand towards the stern.
 	const floor = mesh(new THREE.BoxGeometry(0.2, 0.02, 0.44), materials.inside);
 	floor.position.set(0, FLOOR - DEPTH / 2, -0.12);
+	floor.name = 'floor';
 	boat.add(floor);
 	// A coral rim along both sides and across the stern.
 	const slant = Math.atan2(STERN_R - BOW_R, LENGTH);
@@ -177,8 +183,7 @@ export function buildBoatMesh(): THREE.Group {
  * half way. `bob` rocks it gently on the water, afloat only: 0 is still.
  */
 export function poseBoat(boat: THREE.Group, afloat: number, calm: boolean, bob = 0): void {
-	const a = Math.min(1, Math.max(0, afloat));
-	const e = calm ? (a < 0.5 ? 0 : 1) : smoothstep(a);
+	const e = swung(afloat, calm);
 	const arc = Math.sin(e * Math.PI);
 	boat.position.lerpVectors(BACK, AFLOAT, e);
 	boat.position.x += arc * SWING_OUT;
@@ -191,6 +196,21 @@ export function poseBoat(boat: THREE.Group, afloat: number, calm: boolean, bob =
 	boat.scale.setScalar(BACK_SCALE + (1 - BACK_SCALE) * e);
 	const pennant = boat.getObjectByName('pennant');
 	if (pennant) pennant.scale.setScalar(Math.max(0.001, smoothstep((e - 0.7) / 0.3)));
+}
+
+/** How far the boat has come from the back (0) to afloat (1): smoothly, or with `calm` at once half way. */
+function swung(afloat: number, calm: boolean): number {
+	const a = Math.min(1, Math.max(0, afloat));
+	return calm ? (a < 0.5 ? 0 : 1) : smoothstep(a);
+}
+
+/**
+ * How far back from the boat's middle the trainer stands at `afloat`: none
+ * on land, `BOAT_ASTERN` afloat, stepping back into it as it swings under
+ * them (with `calm`, at once half way, as the boat snaps).
+ */
+export function standAstern(afloat: number, calm: boolean): number {
+	return BOAT_ASTERN * swung(afloat, calm);
 }
 
 /** Free the boat's geometries, each once (the hull's two sides share one; its materials are shared, and stay). */

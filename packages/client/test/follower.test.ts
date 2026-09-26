@@ -20,7 +20,7 @@ import { DoctorController } from '../src/doctor/controller';
 import { ExploreController } from '../src/explore/controller';
 import { parseParty } from '../src/flags';
 import { Keyboard } from '../src/input/keyboard';
-import { BOAT_STAND } from '../src/render/boat';
+import { BOAT_ASTERN, BOAT_STAND } from '../src/render/boat';
 import { Follower, RIDE_AHEAD, RIDE_HEIGHT, RIDE_LENGTH } from '../src/render/follower';
 import { WATER_TOP } from '../src/render/tiles';
 import type { GameRenderer } from '../src/render/renderer';
@@ -77,6 +77,13 @@ const standable = (p: GridPos) => isWalkable(tileAtWorld(WORLD_SEED, p.x, p.y).k
 const same = (a: GridPos | null, b: GridPos | null) => !!a && !!b && a.x === b.x && a.y === b.y;
 const beside = (a: GridPos | null, b: GridPos) =>
 	!!a && Math.abs(a.x - b.x) + Math.abs(a.y - b.y) === 1;
+/** A figure's turn about y facing each way: figures face +z (grid "down") at rest. */
+const ANGLE: Record<Direction, number> = {
+	up: Math.PI,
+	down: 0,
+	left: -Math.PI / 2,
+	right: Math.PI / 2
+};
 const BEHIND: Record<Direction, Direction> = {
 	up: 'down',
 	down: 'up',
@@ -484,24 +491,45 @@ describe('out on the water', () => {
 		}
 	});
 
-	it('with nobody who swims, the lead sits at the bow facing forward, big enough to know: every one that walks', () => {
+	it('with nobody who swims, the lead sits at the bow facing forward, big enough to know, inside its own tile: every one that walks, every way', () => {
+		const forward: Record<Direction, [number, number]> = {
+			up: [0, -1],
+			down: [0, 1],
+			left: [-1, 0],
+			right: [1, 0]
+		};
 		for (const id of ['squirrel', 'rabbit', 'fox', 'deer', 'wolf', 'bear']) {
 			const s = setup(id, withBoat(id));
-			sail(s, ['up', 'up']);
-			expect(s.follower.inBoat, id).toBe(true);
-			const rider = s.figures.at(-1)!;
-			// Ahead of the trainer, who faces up (−z), and facing that way too.
-			expect(rider.position.x).toBeCloseTo(s.trainer().x, 6);
-			expect(rider.position.z).toBeCloseTo(s.trainer().y - RIDE_AHEAD, 6);
-			expect(rider.rotation.y).toBeCloseTo(Math.PI, 6);
-			// Made smaller only to fit: no longer or taller than the bow holds, and never tiny.
-			const box = new THREE.Box3().setFromObject(rider);
-			const size = box.getSize(new THREE.Vector3());
-			expect(Math.max(size.x, size.z), id).toBeLessThanOrEqual(RIDE_LENGTH + 1e-6);
-			expect(size.y, id).toBeLessThanOrEqual(RIDE_HEIGHT + 1e-6);
-			expect(Math.max(size.x, size.y, size.z), id).toBeGreaterThan(0.45);
-			// Sitting: its legs down in the hull, under the floor the trainer stands on.
-			expect(box.min.y, id).toBeLessThan(WATER_TOP + BOAT_STAND - 0.01);
+			sail(s, ['up', 'up', 'up']);
+			// Round a square of the lake, a check facing each way.
+			for (const dir of ['up', 'left', 'down', 'right'] as const) {
+				if (dir !== 'up') sail(s, [dir]);
+				const at = `${id} facing ${dir}`;
+				const tile = s.trainer();
+				expect(water(tile), at).toBe(true);
+				expect(s.follower.inBoat, at).toBe(true);
+				const rider = s.figures.at(-1)!;
+				expect(rider.rotation.y, at).toBeCloseTo(ANGLE[dir], 6);
+				const box = new THREE.Box3().setFromObject(rider);
+				const size = box.getSize(new THREE.Vector3());
+				const middle = box.getCenter(new THREE.Vector3());
+				const [fx, fz] = forward[dir];
+				// Its middle at the bow, ahead of the trainer's tile's middle the way they face.
+				expect(middle.x - tile.x, at).toBeCloseTo(fx * RIDE_AHEAD, 6);
+				expect(middle.z - tile.y, at).toBeCloseTo(fz * RIDE_AHEAD, 6);
+				// Nose to tail inside its own tile, clear of a shore the boat faces, and ahead of
+				// the trainer, who stands back towards the stern.
+				const reach = (x: number, z: number) => (x - tile.x) * fx + (z - tile.y) * fz;
+				const ends = [reach(box.min.x, box.min.z), reach(box.max.x, box.max.z)];
+				expect(Math.max(...ends), at).toBeLessThan(0.5);
+				expect(Math.min(...ends), at).toBeGreaterThan(-BOAT_ASTERN + 0.1);
+				// Made smaller only to fit: no longer or taller than the bow holds, and never tiny.
+				expect(Math.max(size.x, size.z), at).toBeLessThanOrEqual(RIDE_LENGTH + 1e-6);
+				expect(size.y, at).toBeLessThanOrEqual(RIDE_HEIGHT + 1e-6);
+				expect(Math.max(size.x, size.y, size.z), at).toBeGreaterThan(0.45);
+				// Sitting: its legs down in the hull, under the floor the trainer stands on.
+				expect(box.min.y, at).toBeLessThan(WATER_TOP + BOAT_STAND - 0.01);
+			}
 		}
 	});
 

@@ -102,12 +102,15 @@ const TURN_RATE = 16;
 /** Swimming, how much of its height is under the water. */
 export const SWIM_DEPTH = 0.4;
 /**
- * Riding in the boat: how far ahead of the trainer it sits, at the bow, and
- * how long (nose to tail, or across) and how tall it may be. A small animal
- * rides near its own size, a big one made smaller, all big enough to know.
+ * Riding in the boat, at the bow: how far its middle sits ahead of the
+ * middle of the boat, whose trainer stands back towards the stern
+ * (`BOAT_ASTERN`), and how long (nose to tail, or across) and how tall it may
+ * be. Nose to tail it stays between the trainer and the bow, inside its own
+ * tile, so it never reaches into a shore the boat faces. A small animal rides
+ * near its own size, a big one made smaller, all big enough to know.
  */
-export const RIDE_AHEAD = 0.46;
-export const RIDE_LENGTH = 0.55;
+export const RIDE_AHEAD = 0.2;
+export const RIDE_LENGTH = 0.5;
 export const RIDE_HEIGHT = 0.6;
 
 export class Follower {
@@ -134,9 +137,14 @@ export class Follower {
 	/** The species of the figure on screen, and whether it rides. */
 	private shown: string | null = null;
 	private riding = false;
-	/** A rider's size, to fit in the boat, and how far it sinks to sit in it: its belly on the floor. */
+	/**
+	 * A rider's size, to fit in the boat; and at its own size, how high its
+	 * belly is (it sinks that far to sit, its belly on the floor) and how far
+	 * forward of its origin its middle is, nose to tail.
+	 */
 	private rideScale = 1;
-	private rideSink = 0;
+	private rideBelly = 0;
+	private rideMiddle = 0;
 	/** Seconds of frame time, for the swimmers' bob. */
 	private t = 0;
 	/**
@@ -299,7 +307,7 @@ export class Follower {
 	/**
 	 * In the boat, sitting at the bow, its belly on the floor and its legs out
 	 * of sight in the hull, looking where the trainer looks, as the trainer
-	 * glides.
+	 * glides. Its middle stays put as it grows in or shrinks away.
 	 */
 	private ride(figure: THREE.Group, progress: number): void {
 		const from = this.trainerFrom;
@@ -307,15 +315,17 @@ export class Follower {
 		if (!from || !to) return;
 		const t = smoothstep(progress);
 		const ahead = AHEAD[this.trainerFacing];
+		const scale = this.rideScale * this.swapScale();
+		const reach = RIDE_AHEAD - this.rideMiddle * scale;
 		const yFrom = this.standAt(from);
 		figure.position.set(
-			from.x + (to.x - from.x) * t + ahead.x * RIDE_AHEAD,
-			yFrom + (this.standAt(to) - yFrom) * t - this.rideSink + this.swapLift(),
-			from.y + (to.y - from.y) * t + ahead.z * RIDE_AHEAD
+			from.x + (to.x - from.x) * t + ahead.x * reach,
+			yFrom + (this.standAt(to) - yFrom) * t - this.rideBelly * scale + this.swapLift(),
+			from.y + (to.y - from.y) * t + ahead.z * reach
 		);
 		this.yaw = ANGLE[this.trainerFacing];
 		figure.rotation.y = this.yaw;
-		figure.scale.setScalar(this.rideScale * this.swapScale());
+		figure.scale.setScalar(scale);
 	}
 
 	/** Swap the figure when the lead changed: shrink the old one away, grow the new one in. */
@@ -367,10 +377,11 @@ export class Follower {
 		this.riding = this.wantRide;
 		if (this.riding) {
 			// Measured at its own size, before it starts growing in from nothing.
-			const size = new THREE.Box3().setFromObject(figure).getSize(new THREE.Vector3());
+			const box = new THREE.Box3().setFromObject(figure);
+			const size = box.getSize(new THREE.Vector3());
 			this.rideScale = Math.min(1, RIDE_LENGTH / Math.max(size.x, size.z), RIDE_HEIGHT / size.y);
-			const belly = (figure.userData.restShape as { belly: number } | undefined)?.belly ?? 0;
-			this.rideSink = belly * this.rideScale;
+			this.rideBelly = (figure.userData.restShape as { belly: number } | undefined)?.belly ?? 0;
+			this.rideMiddle = (box.min.z + box.max.z) / 2;
 		}
 		figure.scale.setScalar(0.001);
 		this.figure = figure;

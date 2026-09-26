@@ -1,7 +1,14 @@
 import * as THREE from 'three';
 import { describe, expect, it } from 'vitest';
 import { buildPlayerMesh } from '../src/render/animals';
-import { BOAT_STAND, buildBoatMesh, disposeBoat, poseBoat } from '../src/render/boat';
+import {
+	BOAT_ASTERN,
+	BOAT_STAND,
+	buildBoatMesh,
+	disposeBoat,
+	poseBoat,
+	standAstern
+} from '../src/render/boat';
 
 /**
  * The boat on the trainer (`boat.ts`): upside down on their back, right side
@@ -64,6 +71,27 @@ describe('the boat', () => {
 		expect((box.min.x + box.max.x) / 2).toBeCloseTo(0, 1);
 		expect(box.max.z - box.min.z).toBeGreaterThan(0.8);
 		expect(box.max.z - box.min.z).toBeLessThan(1);
+	});
+
+	it('afloat: over the middle of its tile, the trainer standing back towards the stern on its floor', () => {
+		const { boat, box } = inTrainer(1);
+		// Nothing of it reaches over the next tile, a shore it may face.
+		for (const v of [box.min.x, box.max.x, box.min.z, box.max.z])
+			expect(Math.abs(v)).toBeLessThan(0.5);
+		// The trainer steps back as it swings under them: none on land, all of it afloat,
+		// with reduced motion at once half way, as the boat snaps.
+		expect(standAstern(0, false)).toBe(0);
+		expect(standAstern(1, false)).toBe(BOAT_ASTERN);
+		expect(standAstern(0.4, false)).toBeGreaterThan(0);
+		expect(standAstern(0.4, false)).toBeLessThan(BOAT_ASTERN);
+		expect(standAstern(0.4, true)).toBe(0);
+		expect(standAstern(0.6, true)).toBe(BOAT_ASTERN);
+		// Where they stand, towards the stern, the floor is under both feet, and the bow
+		// ahead of them has room for a rider.
+		const floor = new THREE.Box3().setFromObject(boat.getObjectByName('floor')!);
+		expect(floor.min.z).toBeLessThan(-BOAT_ASTERN - 0.06);
+		expect(floor.max.z).toBeGreaterThan(-BOAT_ASTERN + 0.06);
+		expect(box.max.z + BOAT_ASTERN).toBeGreaterThan(0.6);
 	});
 
 	it('swings from one to the other smoothly: no step of the way jumps, it grows all the way, and turns once', () => {

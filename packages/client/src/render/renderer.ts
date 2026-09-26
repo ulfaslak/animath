@@ -12,7 +12,7 @@ import * as THREE from 'three';
 import { motion } from '../motion';
 import { Butterflies } from './ambient';
 import { animateIdle, animateWalk, buildPlayerMesh } from './animals';
-import { BOAT_STAND, buildBoatMesh, poseBoat } from './boat';
+import { BOAT_STAND, buildBoatMesh, poseBoat, standAstern } from './boat';
 import { ChunkRing } from './chunks';
 import { ClearingEffects, SWING_SECONDS, animateSwing, buildTool } from './clearing';
 import { appearScale } from './ease';
@@ -343,16 +343,23 @@ export class GameRenderer {
 	/**
 	 * The boat where this frame's step puts it, rocking with the trainer once
 	 * afloat (not with reduced motion), and growing onto their back when just
-	 * bought.
+	 * bought. Afloat it stays over the middle of the tile and the trainer
+	 * stands back towards its stern (their rig moves; the boat, a child of the
+	 * figure, does not), leaving the bow for a rider.
 	 */
 	private poseBoat(t: number): void {
 		const boat = this.boat;
-		if (!boat || !this.boatOwned) return;
+		const rig = this.player.children[0];
+		if (!boat || !this.boatOwned) {
+			if (rig) rig.position.z = 0;
+			return;
+		}
 		const calm = motion.reduced;
 		const rocking = this.afloat === 1 && !calm;
 		this.player.position.copy(this.playerAt);
 		if (rocking) this.player.position.y += Math.sin(t * 2.1) * 0.012;
 		poseBoat(boat, this.afloat, calm, rocking ? Math.sin(t * 1.6) * 0.035 : 0);
+		if (rig) rig.position.z = -standAstern(this.afloat, calm);
 		if (this.boatArriving !== null) {
 			const dt = this.lastT < 0 ? 0 : Math.min(0.1, Math.max(0, t - this.lastT));
 			this.boatArriving += dt;
