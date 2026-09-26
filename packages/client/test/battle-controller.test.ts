@@ -17,8 +17,9 @@ import {
 import { beforeEach, describe, expect, it } from 'vitest';
 import { LocalAuthority } from '../src/authority/local';
 import { BattleController, MENU_GUARD_SECONDS } from '../src/battle/controller';
-import { actionAt, attackRows } from '../src/battle/menu';
+import { actionAt, attackRows, rowOf } from '../src/battle/menu';
 import { parseParty } from '../src/flags';
+import { levelKey, rowKey } from '../src/input/press';
 import { words } from '../src/lines';
 import { nameOf } from '../src/names';
 import type { BattleScene } from '../src/render/battle-scene';
@@ -629,6 +630,81 @@ describe('switching animals', () => {
 		t.runUntil(() => battle.screen === 'actions');
 		expect(battle.front).toBe(back);
 		expect(battle.cursor).toBe(0);
+	});
+});
+
+/**
+ * A click or a tap reaches the screen as a key press (`input/press.ts`): a
+ * row's key, a level button's, Go's Enter, Back's Escape. Nothing a pointer
+ * does spends the turn but Go, and Go waits wherever Enter waits.
+ */
+describe('a pointer', () => {
+	it('a tap highlights and a level button sets, sending nothing; Go does the tapped attack at that level', () => {
+		const t = setup();
+		t.walkIntoBattle();
+		t.toMenu();
+		const before = t.sent.length;
+		t.press(rowKey(1), levelKey(3), rowKey(1), rowKey(1));
+		expect(battle.cursor).toBe(1);
+		expect(attackRows(getAnimal('squirrel'), battle.levels).map((r) => r.word)).toEqual([
+			'easy',
+			'hard'
+		]);
+		expect(t.sent.length).toBe(before);
+		expect(battle.screen).toBe('actions');
+		t.press('Enter');
+		expect(t.sent.at(-1)).toEqual({
+			type: 'battle',
+			intent: { type: 'attack', attackIndex: 2, level: 3 }
+		});
+	});
+
+	it('a tap works while a turn is narrated only as far as a key does: Go waits out the menu’s guard', () => {
+		const t = setup();
+		t.walkIntoBattle();
+		t.runUntil(() => battle.screen === 'actions');
+		// The menu has just come back: a tap highlights at once, as the arrows do, but Go waits.
+		t.pressEvery(0.05, rowKey(1), 'Enter');
+		expect(battle.cursor).toBe(1);
+		expect(t.sent.filter((i) => i.type === 'battle')).toEqual([]);
+		t.run(MENU_GUARD_SECONDS);
+		t.press('Enter');
+		expect(t.sent.at(-1)).toMatchObject({ intent: { type: 'attack', attackIndex: 2 } });
+		// While the turn plays, a tap does nothing at all.
+		t.runUntil(() => battle.screen === 'busy' || battle.screen === 'puzzle');
+		const cursor = battle.cursor;
+		const sent = t.sent.length;
+		t.press(rowKey(0), levelKey(1), 'Enter');
+		expect(battle.cursor).toBe(cursor);
+		expect(t.sent.length).toBe(sent);
+	});
+
+	it('the switch list: a tap highlights, Go sends in or shakes, Back is Escape', () => {
+		const t = setup({ party: 'squirrel,rabbit' });
+		t.walkIntoBattle();
+		t.toMenu();
+		const switchRow = rowOf('switch', getAnimal('squirrel').attacks.length);
+		t.press(rowKey(switchRow));
+		expect(battle.screen).toBe('actions');
+		t.press('Enter');
+		expect(battle.screen).toBe('party');
+		expect(battle.partyCursor).toBe(1);
+		// The one in front: highlighted by a tap, refused by Go, with a shake.
+		const before = t.sent.length;
+		t.press(rowKey(0), 'Enter');
+		expect(battle.partyCursor).toBe(0);
+		expect(battle.refused).toBe(1);
+		expect(t.sent.length).toBe(before);
+		// A tap elsewhere stops the shake; Back goes back to the menu, on Switch.
+		t.press(rowKey(1));
+		expect(battle.refused).toBe(0);
+		t.press('Escape');
+		expect(battle.screen).toBe('actions');
+		expect(battle.cursor).toBe(switchRow);
+		t.press('Enter', rowKey(1), rowKey(1));
+		expect(t.sent.length).toBe(before);
+		t.press('Enter');
+		expect(t.sent.at(-1)).toEqual({ type: 'battle', intent: { type: 'switch', partyIndex: 1 } });
 	});
 });
 
