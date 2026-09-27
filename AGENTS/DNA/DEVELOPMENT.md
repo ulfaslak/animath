@@ -266,13 +266,13 @@ A name is matched the way the game matches it, whatever its case or however its 
 docker compose -f docker-compose.prod.yml exec app node dist/admin.mjs reset-password <name>
 ```
 
-**Trying the routes.** A POST or PUT under `/api/account` must declare JSON, and when it carries an `Origin` (a browser's always does) its host must be the request's `Host`; curl sends none. The session is the `animath_session` cookie, which a cookie jar keeps:
+**Trying the routes.** A POST or PUT under `/api/account` must declare JSON, and when it carries an `Origin` (a browser's always does) its host must be the request's `Host`; curl sends none. The session is the `animath_session` cookie, which a cookie jar keeps; the save routes also need the account named in `x-animath-account` (its name key: lower case, URI-encoded), as the game names it:
 
 ```bash
 API=http://localhost:3021   # your own API
 curl -s -c jar -b jar -H 'content-type: application/json' -d '{"name":"Pip","password":"1234"}' $API/api/account/register
 curl -s -c jar -b jar $API/api/account/me
-curl -s -c jar -b jar -X PUT -H 'content-type: application/json' --data @save.json $API/api/account/save
+curl -s -c jar -b jar -X PUT -H 'content-type: application/json' -H 'x-animath-account: pip' --data @save.json $API/api/account/save
 ```
 
 The login and register limits are counted in the API process's memory, so restarting your API clears them. The admin CLI is another process and cannot: a kid who guessed wrong ten times before the reset waits out the rest of that quarter-hour with the new password too.

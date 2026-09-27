@@ -84,8 +84,27 @@ function refused(what: string, res: { status: number; body: unknown }): { kind: 
 	return { kind: 'refused' };
 }
 
-function post(url: string, body: unknown): Promise<{ status: number; body: unknown } | null> {
-	return send(url, { method: 'POST', headers: JSON_TYPE, body: JSON.stringify(body) });
+function post(
+	url: string,
+	body: unknown,
+	headers: Record<string, string> = {}
+): Promise<{ status: number; body: unknown } | null> {
+	return send(url, {
+		method: 'POST',
+		headers: { ...JSON_TYPE, ...headers },
+		body: JSON.stringify(body)
+	});
+}
+
+/**
+ * The header naming the account a request is for (its `nameKey`,
+ * URI-encoded), on the save routes and on logout. The cookie names whichever
+ * account this browser logged in to last, in any tab; the server answers
+ * only for the account named, so a save sent just as another tab logs in to
+ * another account never lands there, and a logout never ends that one.
+ */
+function naming(name: string): Record<string, string> {
+	return { 'x-animath-account': encodeURIComponent(nameKey(name)) };
 }
 
 /**
@@ -148,9 +167,12 @@ export async function login(name: string, password: string, base = '/api'): Prom
 	return { kind: 'offline' };
 }
 
-/** End this browser's session. `offline` when the server did not hear it. */
-export async function logout(base = '/api'): Promise<'done' | 'offline'> {
-	const res = await post(`${base}/account/logout`, {});
+/**
+ * End this browser's session with `name`'s account (a session that is
+ * another account's is left alone). `offline` when the server did not hear it.
+ */
+export async function logout(name: string, base = '/api'): Promise<'done' | 'offline'> {
+	const res = await post(`${base}/account/logout`, {}, naming(name));
 	return res?.status === 200 && isStored(res.body) ? 'done' : 'offline';
 }
 
@@ -170,9 +192,13 @@ export async function whoAmI(base = '/api', timeoutMs?: number): Promise<WhoResu
 	return name === null ? { kind: 'offline' } : { kind: 'user', name };
 }
 
-/** An account's save, for `Autosave` (`session`: the cookie names the account). */
-export async function getAccountSave(base = '/api', timeoutMs?: number): Promise<ServerRead> {
-	const res = await send(`${base}/account/save`, {}, timeoutMs);
+/** `name`'s account's save, for `Autosave` (`session`) and for logging in. */
+export async function getAccountSave(
+	name: string,
+	base = '/api',
+	timeoutMs?: number
+): Promise<ServerRead> {
+	const res = await send(`${base}/account/save`, { headers: naming(name) }, timeoutMs);
 	if (!res) return { kind: 'offline' };
 	const error = errorOf(res.body);
 	if (res.status === 200 && isStoredSave(res.body)) return { kind: 'found', doc: res.body };
@@ -199,7 +225,7 @@ export class SessionCheck {
 
 	constructor(
 		/** The account this page plays. */
-		name: string,
+		readonly name: string,
 		/** Told each answer, `offline` included. */
 		private readonly heard: (answer: SessionAnswer) => void = () => {},
 		private readonly base = '/api'
@@ -226,8 +252,9 @@ export class SessionCheck {
 
 /**
  * The account's save as the autosave's server: `getSave` and `putSave` ask
- * about whoever the session cookie names (the identity they are handed is a
- * stand-in), once `session` has said that is this page's account.
+ * about `session`'s account (the identity they are handed is a stand-in),
+ * once `session` has said the cookie is that account's, and name it in each
+ * request, which the server checks against the cookie as it answers.
  * `unknown-player` is a session that has ended (or a cookie that is not this
  * account's), a `409` another device that got ahead (the autosave then asks
  * for the save and settles), and a `429` (too many saves a minute) is waited
@@ -253,7 +280,7 @@ export function accountSaveServer(session: SessionCheck, base = '/api'): SaveSer
 						]);
 			if (answer === 'ended') return { kind: 'unknown-player' };
 			if (answer === 'offline') return { kind: 'offline' };
-			return getAccountSave(base, timeoutMs);
+			return getAccountSave(session.name, base, timeoutMs);
 		},
 		async putSave(_who, doc, keepalive = false): Promise<ServerWrite> {
 			const answer = await session.check();
@@ -262,7 +289,7 @@ export function accountSaveServer(session: SessionCheck, base = '/api'): SaveSer
 			const res = await send(`${base}/account/save`, {
 				method: 'PUT',
 				keepalive,
-				headers: JSON_TYPE,
+				headers: { ...JSON_TYPE, ...naming(session.name) },
 				body: JSON.stringify(doc)
 			});
 			if (!res) return { kind: 'offline' };

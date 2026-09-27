@@ -133,14 +133,21 @@ export function takeAccountGame(store: KeyValueStore, name: string, theirs: unkn
 	}
 }
 
-/** A logout the server did not hear (it was out of reach), to send again at the next start. */
-export function rememberLogout(store: KeyValueStore): void {
-	store.set(ACCOUNT_KEYS.logoutPending, '1');
+/**
+ * A logout from `name`'s account the server did not hear (it was out of
+ * reach), to send again at the next start. Logging in and registering take
+ * the note while they wait (either ends the session the browser had), and
+ * put it back when they fail: a page starting meanwhile must not send it and
+ * end the session they are making.
+ */
+export function rememberLogout(store: KeyValueStore, name: string): void {
+	store.set(ACCOUNT_KEYS.logoutPending, name);
 }
 
-/** Whether a logout waits to be sent; the note stays until `forgetLogout`. */
-export function logoutPending(store: KeyValueStore | null): boolean {
-	return store?.get(ACCOUNT_KEYS.logoutPending) === '1';
+/** The account whose logout waits to be sent, if one does; the note stays until `forgetLogout`. */
+export function logoutPending(store: KeyValueStore | null): string | null {
+	const name = store?.get(ACCOUNT_KEYS.logoutPending) ?? null;
+	return name === '' ? null : name;
 }
 
 export function forgetLogout(store: KeyValueStore): void {

@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
 	SessionCheck,
 	accountSaveServer,
+	getAccountSave,
 	login,
 	logout,
 	register,
@@ -140,11 +141,11 @@ describe('login and logout', () => {
 
 	it('logout is done only on the API’s own { ok: true }', async () => {
 		answer({ status: 200, json: { ok: true } });
-		expect(await logout()).toBe('done');
+		expect(await logout('Ida')).toBe('done');
 		answer({ status: 200, html: page });
-		expect(await logout()).toBe('offline');
+		expect(await logout('Ida')).toBe('offline');
 		answer('network error');
-		expect(await logout()).toBe('offline');
+		expect(await logout('Ida')).toBe('offline');
 	});
 });
 
@@ -246,6 +247,27 @@ describe("the account's save, as the autosave's server", () => {
 			[save]: { status: 404, json: { error: 'no save yet' } }
 		});
 		expect(await accountSaveServer(new SessionCheck('Ida')).getSave(who)).toEqual({ kind: 'none' });
+	});
+
+	it('names its account in each request to the save routes, however its name is typed', async () => {
+		const heard: [string, string | null][] = [];
+		vi.stubGlobal('fetch', async (url: string, init?: RequestInit) => {
+			heard.push([url, new Headers(init?.headers).get('x-animath-account')]);
+			if (url === me) return reply({ status: 200, json: { user: { name: 'Søren' } } });
+			return reply({ status: 200, json: init?.method === undefined ? doc : { ok: true } });
+		});
+		const server = accountSaveServer(new SessionCheck('SØREN'));
+		expect(await server.getSave(who)).toEqual({ kind: 'found', doc });
+		expect(await server.putSave(who, doc)).toEqual({ kind: 'saved' });
+		expect(await getAccountSave('søren ')).toEqual({ kind: 'found', doc });
+		expect(await logout('Søren')).toBe('done');
+		expect(heard).toEqual([
+			[me, null],
+			[save, 's%C3%B8ren'],
+			[save, 's%C3%B8ren'],
+			[save, 's%C3%B8ren'],
+			['/api/account/logout', 's%C3%B8ren']
+		]);
 	});
 
 	it('start-up waits no longer than it asked, the session check included', async () => {

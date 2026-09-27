@@ -51,9 +51,14 @@ function freshName(): string {
 	return `Acc${process.pid % 1000}x${counter}`;
 }
 
-/** A browser: one cookie jar, which follows every Set-Cookie it is sent. */
+/**
+ * A browser: one cookie jar, which follows every Set-Cookie it is sent, and
+ * the account its page plays (logged in or registered here), which it names
+ * in `x-animath-account` on the save routes and on logout, as the game does.
+ */
 class Browser {
 	cookie: string | null = null;
+	account: string | null = null;
 	constructor(
 		readonly target = app,
 		readonly headers: Record<string, string> = {}
@@ -78,27 +83,39 @@ class Browser {
 		return res;
 	}
 
-	register(name: string, password = 'secret', save?: unknown) {
-		return this.request(
+	/** The header naming the account the page plays, when it plays one. */
+	named(extra: Record<string, string> = {}): Record<string, string> {
+		if (this.account === null) return extra;
+		return { 'x-animath-account': encodeURIComponent(nameKey(this.account)), ...extra };
+	}
+
+	async register(name: string, password = 'secret', save?: unknown) {
+		const res = await this.request(
 			'POST',
 			'/register',
 			save === undefined ? { name, password } : { name, password, save }
 		);
+		if (res.status === 201) this.account = name;
+		return res;
 	}
-	login(name: string, password = 'secret') {
-		return this.request('POST', '/login', { name, password });
+	async login(name: string, password = 'secret') {
+		const res = await this.request('POST', '/login', { name, password });
+		if (res.status === 200) this.account = name;
+		return res;
 	}
-	logout() {
-		return this.request('POST', '/logout', {});
+	async logout() {
+		const res = await this.request('POST', '/logout', {}, this.named());
+		if (res.status === 200) this.account = null;
+		return res;
 	}
 	async me(): Promise<unknown> {
 		return (await this.request('GET', '/me')).json();
 	}
 	getSave() {
-		return this.request('GET', '/save');
+		return this.request('GET', '/save', undefined, this.named());
 	}
 	putSave(doc: unknown, extra: Record<string, string> = {}) {
-		return this.request('PUT', '/save', doc, extra);
+		return this.request('PUT', '/save', doc, this.named(extra));
 	}
 }
 
@@ -398,7 +415,14 @@ describe('sessions', () => {
 		}
 		expect(await browser.me()).toEqual({ user: null });
 		expect((await browser.getSave()).status).toBe(401);
-		expect((await browser.logout()).headers.get('set-cookie')).toMatch(/Max-Age=0/);
+		// The game's logout names its account, whose session is over: nothing to end, and no cookie.
+		const named = await browser.logout();
+		expect(named.status).toBe(200);
+		expect(named.headers.get('set-cookie')).toBeNull();
+		// A logout that names no account clears whatever cookie there is.
+		expect((await browser.request('POST', '/logout', {})).headers.get('set-cookie')).toMatch(
+			/Max-Age=0/
+		);
 		expect(browser.cookie).toBeNull();
 	});
 
@@ -452,6 +476,67 @@ describe('sessions', () => {
 			.from(sessions)
 			.where(eq(sessions.userId, user!.id));
 		expect(Number(row!.days)).toBeGreaterThan(SESSION_DAYS - 0.01);
+	});
+});
+
+describe('the account a request names', () => {
+	it('the save routes need the account named, and a session that is another account’s is not logged in to it', async () => {
+		const { browser: mine, name } = await account(doc(5));
+		// Another tab of this browser logs in to another account: the cookie is that account's now.
+		const other = await account(doc(1));
+		const swapped = new Browser();
+		swapped.cookie = other.browser.cookie;
+		swapped.account = name;
+		for (const res of [await swapped.getSave(), await swapped.putSave(doc(50))]) {
+			expect(res.status).toBe(401);
+			expect(await res.json()).toEqual({ error: 'not logged in' });
+			expect(res.headers.get('set-cookie')).toBeNull();
+		}
+		// Neither account's save moved.
+		expect(await (await other.browser.getSave()).json()).toEqual(doc(1));
+		expect(await (await mine.getSave()).json()).toEqual(doc(5));
+		// With no account named, or a header that is not a name key, nothing is looked at.
+		const bare = new Browser();
+		bare.cookie = mine.cookie;
+		for (const res of [
+			await bare.getSave(),
+			await bare.putSave(doc(6)),
+			await bare.request('GET', '/save', undefined, { 'x-animath-account': '%E0%A4%A' }),
+			await bare.request('PUT', '/save', doc(6), { 'x-animath-account': '' })
+		]) {
+			expect(res.status).toBe(400);
+			expect(await res.json()).toEqual({ error: 'name the account in x-animath-account' });
+		}
+		expect(await (await mine.getSave()).json()).toEqual(doc(5));
+	});
+
+	it('names the account by its name key, however the name is written', async () => {
+		const browser = new Browser();
+		const name = `Øre ${freshName()}`;
+		expect((await browser.register(name, 'secret', doc(3))).status).toBe(201);
+		for (const typed of [name.toLowerCase(), ` ${name.toUpperCase()}  `, name]) {
+			browser.account = typed;
+			expect((await browser.getSave()).status, typed).toBe(200);
+		}
+	});
+
+	it('a logout that names another account leaves this browser’s session alone', async () => {
+		const { name } = await account();
+		const other = await account();
+		const late = new Browser();
+		late.cookie = other.browser.cookie;
+		late.account = name;
+		const res = await late.logout();
+		expect(res.status).toBe(200);
+		expect(await res.json()).toEqual({ ok: true });
+		expect(res.headers.get('set-cookie')).toBeNull();
+		expect(await other.browser.me()).toEqual({ user: { name: other.name } });
+		expect(await sessionRows(other.name)).toHaveLength(1);
+		// Its own account's logout ends it.
+		expect((await other.browser.logout()).headers.get('set-cookie')).toMatch(/Max-Age=0/);
+		expect(await sessionRows(other.name)).toHaveLength(0);
+		const odd = await new Browser().request('POST', '/logout', {}, { 'x-animath-account': '%' });
+		expect(odd.status).toBe(400);
 	});
 });
 
@@ -713,12 +798,17 @@ describe('sessionUser, for code outside these routes (the WebSocket upgrade)', (
 		const probe = new Hono().get('/who', async (c) => c.json(await sessionUser(c)));
 		const who = async (cookie?: string) =>
 			(await probe.request('/who', { headers: cookie ? { cookie } : {} })).json();
-		expect(await who(`other=1; ${SESSION_COOKIE}=${token}`)).toEqual({ id, name });
+		expect(await who(`other=1; ${SESSION_COOKIE}=${token}`)).toEqual({
+			id,
+			name,
+			nameKey: nameKey(name)
+		});
 		expect(await who()).toBeNull();
 		expect(await who(`${SESSION_COOKIE}=nope`)).toBeNull();
 		expect(await sessionUserFromCookieHeader(`a=b; ${SESSION_COOKIE}=${token}`)).toEqual({
 			id,
-			name
+			name,
+			nameKey: nameKey(name)
 		});
 		expect(await sessionUserFromCookieHeader(undefined)).toBeNull();
 		await browser.logout();
@@ -836,6 +926,7 @@ describe('rate limits', () => {
 		const as = (browser: Browser) => {
 			const b = new Browser(limited);
 			b.cookie = browser.cookie;
+			b.account = browser.account;
 			return b;
 		};
 		for (let seq = 1; seq <= 3; seq++)

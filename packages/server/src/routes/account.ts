@@ -81,6 +81,27 @@ function credentials(body: unknown): { name: string; password: string } | null {
  * name a later rule refuses can still log in. Null for a name too long to be
  * anyone's.
  */
+/**
+ * The header a page names its account in, on the save routes and on logout:
+ * the engine's `nameKey`, URI-encoded. The cookie names whichever account
+ * the browser logged in to last, in any tab; the header names the account
+ * the page plays, so a save sent as another tab logs in to another account
+ * never lands in that account, and a logout never ends its session.
+ */
+export const ACCOUNT_HEADER = 'x-animath-account';
+
+/** The account a request names: undefined when it names none, null when the header is not a name key. */
+function claimedAccount(c: Context): string | null | undefined {
+	const raw = c.req.header(ACCOUNT_HEADER);
+	if (raw === undefined) return undefined;
+	try {
+		const key = decodeURIComponent(raw);
+		return key.length > 0 && key.length <= MAX_TYPED_NAME ? key : null;
+	} catch {
+		return null;
+	}
+}
+
 function loginKey(typed: string): string | null {
 	return typed.length > MAX_TYPED_NAME ? null : nameKey(typed);
 }
@@ -113,10 +134,15 @@ export function accountRoute({ cookie, limits }: AccountRouteOptions) {
 	 * the old cookie when the browser logs in to another account would
 	 * otherwise answer after the login, and its cookie would replace the new
 	 * one. Only `/me` slides a session, and only once a month (`currentUser`).
+	 * The session must be the account the request names (`ACCOUNT_HEADER`):
+	 * a cookie that is another account's now is, for this one, not logged in.
 	 */
 	const requireSession: MiddlewareHandler<Env> = async (c, next) => {
 		const user = await sessionUser(c);
 		if (!user) return c.json({ error: 'not logged in' }, 401);
+		const claimed = claimedAccount(c);
+		if (!claimed) return c.json({ error: `name the account in ${ACCOUNT_HEADER}` }, 400);
+		if (claimed !== user.nameKey) return c.json({ error: 'not logged in' }, 401);
 		c.set('user', user);
 		await next();
 	};
@@ -206,6 +232,15 @@ export function accountRoute({ cookie, limits }: AccountRouteOptions) {
 			return c.json({ user: { name: user.name } });
 		})
 		.post('/logout', tooBig(LOGIN_MAX_BYTES), async (c) => {
+			const claimed = claimedAccount(c);
+			if (claimed === null) return c.json({ error: `name the account in ${ACCOUNT_HEADER}` }, 400);
+			if (claimed !== undefined) {
+				// A page logging its own account out. A cookie that is not that account's (another
+				// tab logged in to another one) is left as it is, session and all: no cookie is
+				// sent, so this answer cannot undo a login that lands before it.
+				const user = await sessionUser(c);
+				if (!user || user.nameKey !== claimed) return c.json({ ok: true });
+			}
 			const token = sessionToken(c);
 			if (token !== undefined) await deleteSession(token);
 			clearSessionCookie(c, cookie);

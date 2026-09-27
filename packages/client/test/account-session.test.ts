@@ -72,11 +72,11 @@ describe('which game the browser plays', () => {
 	});
 
 	it('remembers a logout the server did not hear, until it has', () => {
-		expect(logoutPending(store)).toBe(false);
-		rememberLogout(store);
-		expect(logoutPending(store)).toBe(true);
+		expect(logoutPending(store)).toBeNull();
+		rememberLogout(store, 'Ida');
+		expect(logoutPending(store)).toBe('Ida');
 		forgetLogout(store);
-		expect(logoutPending(store)).toBe(false);
+		expect(logoutPending(store)).toBeNull();
 	});
 });
 

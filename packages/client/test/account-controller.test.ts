@@ -2,7 +2,7 @@ import { newGame, saveDocument, type GameEvent, type SavedGame } from '@mathgame
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { AccountController } from '../src/account/controller';
 import type { AccountNote } from '../src/account/restart';
-import { currentAccount, gameKeys, logoutPending } from '../src/account/session';
+import { currentAccount, gameKeys, logoutPending, rememberLogout } from '../src/account/session';
 import { PICK_QUIET_SECONDS } from '../src/input/pick-guard';
 import { REVEAL_KEY, rowKey } from '../src/input/press';
 import { KEYS, type KeyValueStore } from '../src/save/storage';
@@ -57,9 +57,13 @@ function saveText(seq: number, name: string | null = 'Ida', lineage = 'game-a'):
 type Answer = { status: number; json?: unknown } | 'network error';
 /** Answer each path; keep every request made. */
 function server(answers: Record<string, Answer | (() => Answer)>) {
-	const requests: { url: string; body: unknown }[] = [];
+	const requests: { url: string; body: unknown; account: string | null }[] = [];
 	vi.stubGlobal('fetch', async (url: string, init?: RequestInit) => {
-		requests.push({ url, body: init?.body ? JSON.parse(String(init.body)) : undefined });
+		requests.push({
+			url,
+			body: init?.body ? JSON.parse(String(init.body)) : undefined,
+			account: new Headers(init?.headers).get('x-animath-account')
+		});
 		const a = answers[url];
 		const got = typeof a === 'function' ? a() : a;
 		if (!got) throw new Error(`unexpected request to ${url}`);
@@ -256,15 +260,46 @@ describe('logging in', () => {
 		expect(requests).toEqual([]);
 	});
 
-	it('a logout the server never heard is moot once this browser logs in or registers again', async () => {
-		server({
-			'/api/account/login': { status: 200, json: { user: { name: 'Ida' } } },
+	it('a logout the server never heard waits aside while this browser logs in or registers, and is moot once it has', async () => {
+		let store = new MemoryStore();
+		const waitingWhileAsked: (string | null)[] = [];
+		const asked = (a: Answer) => () => {
+			waitingWhileAsked.push(logoutPending(store));
+			return a;
+		};
+		const requests = server({
+			'/api/account/login': asked({ status: 200, json: { user: { name: 'Ida' } } }),
 			'/api/account/save': { status: 404, json: { error: 'no save yet' } },
-			'/api/account/register': { status: 201, json: { user: { name: 'Bo' } } }
+			'/api/account/register': asked({ status: 201, json: { user: { name: 'Bo' } } })
+		});
+		for (const card of ['login', 'register'] as const) {
+			const page = setup(card === 'login' ? null : 'Bo');
+			store = page.store;
+			rememberLogout(store, 'Old');
+			if (card === 'login') page.controller.openLogin('title');
+			else page.controller.openRegister('pause');
+			account.nameDraft = card === 'login' ? 'Ida' : 'Bo';
+			account.passwordDraft = 'secret';
+			page.quiet();
+			page.press('Enter');
+			await answered();
+			// Nothing waited while the server was asked: a page starting then sends no logout.
+			expect(waitingWhileAsked, card).toEqual([null]);
+			waitingWhileAsked.length = 0;
+			expect(logoutPending(store), card).toBeNull();
+		}
+		// The login's own save request names the account it logged in to.
+		expect(requests.find((r) => r.url === '/api/account/save')?.account).toBe('ida');
+	});
+
+	it('a login or a registration that fails leaves the waiting logout to be sent', async () => {
+		server({
+			'/api/account/login': { status: 401, json: { error: 'wrong name or password' } },
+			'/api/account/register': 'network error'
 		});
 		for (const card of ['login', 'register'] as const) {
 			const { store, controller, press, quiet } = setup(card === 'login' ? null : 'Bo');
-			store.set('animath.logout.pending', '1');
+			rememberLogout(store, 'Old');
 			if (card === 'login') controller.openLogin('title');
 			else controller.openRegister('pause');
 			account.nameDraft = card === 'login' ? 'Ida' : 'Bo';
@@ -272,7 +307,7 @@ describe('logging in', () => {
 			quiet();
 			press('Enter');
 			await answered();
-			expect(logoutPending(store), card).toBe(false);
+			expect(logoutPending(store), card).toBe('Old');
 		}
 	});
 
@@ -317,12 +352,16 @@ describe('logging out', () => {
 	it('saves, sends the newest save, ends the session, and starts again as a guest', async () => {
 		const requests = server({ '/api/account/logout': { status: 200, json: { ok: true } } });
 		const { store, controller, restarts, events } = setup();
-		store.set('animath.account', JSON.stringify({ name: 'Ida' }));
+		store.set('animath.account', JSON.stringify({ name: 'Søren' }));
+		account.name = 'Søren';
 		await controller.logOut();
 		expect(events).toEqual(['flush', 'pushNow']);
-		expect(requests.map((r) => r.url)).toEqual(['/api/account/logout']);
+		// The logout names its account: a session another tab made for another one stays.
+		expect(requests.map((r) => [r.url, r.account])).toEqual([
+			['/api/account/logout', 's%C3%B8ren']
+		]);
 		expect(currentAccount(store)).toBeNull();
-		expect(logoutPending(store)).toBe(false);
+		expect(logoutPending(store)).toBeNull();
 		expect(restarts).toEqual(['loggedOut']);
 	});
 
@@ -330,9 +369,10 @@ describe('logging out', () => {
 		server({ '/api/account/logout': 'network error' });
 		const { store, controller, restarts } = setup();
 		store.set('animath.account', JSON.stringify({ name: 'Ida' }));
+		account.name = 'Ida';
 		await controller.logOut();
 		expect(currentAccount(store)).toBeNull();
-		expect(logoutPending(store)).toBe(true);
+		expect(logoutPending(store)).toBe('Ida');
 		expect(restarts).toEqual(['loggedOut']);
 	});
 });

@@ -17,6 +17,7 @@ import {
 	guestGameFor,
 	logInHere,
 	logOutHere,
+	logoutPending,
 	moveGuestGameIn,
 	rememberLogout,
 	takeAccountGame
@@ -204,12 +205,12 @@ export class AccountController {
 		// The game as it stands goes with the account, with the account's name on it.
 		this.hooks.flush();
 		const save = guestGameFor(store, named.name) as SaveWrite | null;
+		const waiting = holdLogout(store);
 		const result = await register(named.name, account.passwordDraft, save);
+		if (result.kind !== 'registered') putBackLogout(store, waiting);
 		switch (result.kind) {
 			case 'registered':
 				sfx.play('confirm');
-				// This browser's new session replaced any old one: a logout still waiting is moot.
-				forgetLogout(store);
 				moveGuestGameIn(store, result.name);
 				this.hooks.restart('saved');
 				return;
@@ -235,15 +236,16 @@ export class AccountController {
 		if (!store) return this.refuse({ kind: 'offline' });
 		account.busy = true;
 		account.problem = null;
+		const waiting = holdLogout(store);
 		const result = await login(account.nameDraft, account.passwordDraft);
+		if (result.kind !== 'logged-in') putBackLogout(store, waiting);
 		switch (result.kind) {
 			case 'logged-in': {
 				sfx.play('confirm');
 				// The game on screen is saved first, where it lives (the guest's stays the guest's).
 				this.hooks.flush();
-				const theirs = await getAccountSave();
+				const theirs = await getAccountSave(result.name);
 				if (theirs.kind === 'found') takeAccountGame(store, result.name, theirs.doc);
-				forgetLogout(store);
 				logInHere(store, result.name);
 				this.hooks.restart('welcome');
 				return;
@@ -266,11 +268,12 @@ export class AccountController {
 	 */
 	async logOut(): Promise<void> {
 		const store = this.hooks.store;
-		if (account.leaving || !store) return;
+		const name = account.name;
+		if (account.leaving || !store || name === null) return;
 		account.leaving = true;
 		this.hooks.flush();
 		await this.hooks.pushNow();
-		if ((await logout()) === 'offline') rememberLogout(store);
+		if ((await logout(name)) === 'offline') rememberLogout(store, name);
 		logOutHere(store);
 		this.hooks.restart('loggedOut');
 	}
@@ -335,4 +338,20 @@ export class AccountController {
 		if (choice === 'save') this.openRegister('prompt');
 		else sfx.play('move');
 	}
+}
+
+/**
+ * A logout still waiting to be sent, taken while a login or a registration
+ * is on its way: either ends the session this browser had, and a page
+ * starting meanwhile must not send the logout and end the one being made.
+ */
+function holdLogout(store: KeyValueStore): string | null {
+	const waiting = logoutPending(store);
+	if (waiting !== null) forgetLogout(store);
+	return waiting;
+}
+
+/** The login or registration failed: the logout waits again, unless another is waiting now. */
+function putBackLogout(store: KeyValueStore, waiting: string | null): void {
+	if (waiting !== null && logoutPending(store) === null) rememberLogout(store, waiting);
 }

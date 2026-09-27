@@ -471,9 +471,10 @@ requestAnimationFrame(frame);
 const caughtUp = takeCaughtUp();
 const accountNote = takeAccountNote();
 // A logout the server could not hear before: it hears it now.
-if (store && !current && logoutPending(store)) {
-	void sendLogout().then((heard) => {
-		if (heard === 'done') forgetLogout(store);
+const waitingLogout = store && !current ? logoutPending(store) : null;
+if (store && waitingLogout !== null) {
+	void sendLogout(waitingLogout).then((heard) => {
+		if (heard === 'done' && logoutPending(store) === waitingLogout) forgetLogout(store);
 	});
 }
 // The first request to the account routes this page makes.
