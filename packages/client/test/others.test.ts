@@ -19,8 +19,15 @@ import {
 	trainerLook
 } from '../src/render/others';
 import { PLAYER_LOOK, TRAINER_LOOKS } from '../src/render/palette';
+import { SWAP_IN_SECONDS } from '../src/render/follower';
 import { POOF_SECONDS, PUFF_GEOMETRY, Poofs } from '../src/render/poof';
-import { STEP_SECONDS } from '../src/render/trainer';
+import {
+	CRUISE_HEIGHT,
+	DESCEND_SECONDS,
+	GLIDE_SECONDS,
+	RISE_SECONDS,
+	STEP_SECONDS
+} from '../src/render/trainer';
 
 // The other players on screen, drawn without WebGL: where each figure stands
 // frame by frame, what fades and poofs, and that everything a player who
@@ -248,6 +255,45 @@ describe('other players on screen', () => {
 		expect(figureOf('walker')!.getObjectByName('boat')!.scale.x).toBeLessThan(0.8);
 	});
 
+	it('glide the tiles they fly, high over the lake and without a hop, and come down where they say they are down', () => {
+		// From the start, up over the lake north of it, to the sand of its far shore.
+		const spawn = spawnPoint(WORLD_SEED);
+		const { others, frame, frames, figureOf, figures } = setup(spawn);
+		const lake = Array.from({ length: 14 }, (_, i) => ({ x: spawn.x, y: spawn.y - 1 - i }));
+		expect(lake.slice(0, 13).every((p) => isWater(tileAtWorld(WORLD_SEED, p.x, p.y).kind))).toBe(true);
+		others.seen(peer('ada', spawn, { lead: 'rabbit' }));
+		frames(FADE_SECONDS + SWAP_IN_SECONDS + 0.2);
+		const ada = figureOf('ada')!;
+		const ground = ada.position.y;
+		expect(figures.children.length).toBe(1); // her rabbit behind her
+		// Up where she stands, her canopy open, nobody following.
+		others.seen(peer('ada', spawn, { busy: 'flight' }));
+		frames(RISE_SECONDS + 0.1);
+		expect(ada.position.y).toBeCloseTo(ground + CRUISE_HEIGHT, 1);
+		expect(ada.getObjectByName('wing')?.visible).toBe(true);
+		frames(0.4);
+		expect(figures.children.length).toBe(0);
+		// Every tile of the lake glided over, high above the water, never a step's hop down to it.
+		let lowest = Infinity;
+		for (const p of lake) {
+			others.seen(peer('ada', p, { busy: 'flight' }));
+			for (let t = 0; t < GLIDE_SECONDS; t += 1 / 60) {
+				frame(1 / 60);
+				lowest = Math.min(lowest, ada.position.y);
+			}
+		}
+		expect(lowest).toBeGreaterThan(CRUISE_HEIGHT);
+		expect(others.tileOf('ada')).toEqual(lake.at(-1));
+		// Down on the sand: she comes down where she is, folds the glider, and the rabbit is back.
+		others.seen(peer('ada', lake.at(-1)!, { busy: 'explore' }));
+		frames(DESCEND_SECONDS + SWAP_IN_SECONDS + 0.3);
+		const sand = tileAtWorld(WORLD_SEED, lake.at(-1)!.x, lake.at(-1)!.y);
+		expect(sand.kind).toBe('sand');
+		expect(ada.position.y).toBeLessThan(ground + 0.3);
+		expect(ada.getObjectByName('wing')?.visible).toBe(false);
+		expect(figures.children.length).toBe(1);
+	});
+
 	it('fade away when gone, and a new world clears them all at once', () => {
 		const { others, frames, figureOf, centre } = setup();
 		others.seen(peer('a1', centre));
@@ -293,7 +339,10 @@ describe('other players on screen', () => {
 			others.seen(
 				peer(pid, centre, { name: `Kid${i}`, boat: i % 3 === 0, lead: i % 2 ? 'fox' : null })
 			);
-			for (const p of path) others.seen(peer(pid, p, { name: `Kid${i}`, boat: i % 3 === 0 }));
+			// Every other one flies the path, with a glider of their own to free.
+			const busy = i % 2 === 0 ? 'flight' : 'explore';
+			if (busy === 'flight') others.seen(peer(pid, centre, { name: `Kid${i}`, busy }));
+			for (const p of path) others.seen(peer(pid, p, { name: `Kid${i}`, boat: i % 3 === 0, busy }));
 			frames(0.3);
 			look();
 			if (i % 4 === 0)

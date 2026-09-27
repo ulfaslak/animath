@@ -53,6 +53,10 @@ export function trainerStep(
 
 /** Seconds the glider takes to fly one tile (walking is `STEP_SECONDS`): 20 tiles in 3 s. */
 export const GLIDE_SECONDS = 0.15;
+/** Seconds a trainer takes to rise to cruising height at take-off, the glider opening over them. */
+export const RISE_SECONDS = 0.35;
+/** Seconds they take to come down at the end, the glider folding away. */
+export const DESCEND_SECONDS = 0.4;
 /** How high over the ground under them a trainer flies with the glider: over the trees and the snowy peaks. */
 export const CRUISE_HEIGHT = 2.1;
 

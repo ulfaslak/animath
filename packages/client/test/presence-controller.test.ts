@@ -4,7 +4,8 @@ import {
 	byeCloseCode,
 	newGame,
 	type GameEvent,
-	type ServerMessage
+	type ServerMessage,
+	type WhereMessage
 } from '@mathgame/engine';
 import * as THREE from 'three';
 import { afterEach, describe, expect, it } from 'vitest';
@@ -222,6 +223,35 @@ describe('presence on the page', () => {
 		s.frame();
 		s.frame();
 		expect(s.sentOf('where').at(-1)).toMatchObject({ busy: 'battle' });
+	});
+
+	it('up in the air says so: each tile flown goes as a flight, and the landing tile as walking again', () => {
+		const s = setup();
+		s.authority.start({
+			game: { ...newGame(1, undefined, 'Ada'), items: ['glider'], facing: 'up' }
+		});
+		s.connect();
+		s.frame();
+		expect(s.sentOf('where').at(-1)).toMatchObject({ x: -2, y: 6, busy: 'explore' });
+		s.authority.dispatch({ type: 'take-off' });
+		s.frame();
+		s.frame();
+		expect(s.sentOf('where').at(-1)).toMatchObject({ x: -2, y: 6, busy: 'flight' });
+		s.authority.dispatch({ type: 'glide' });
+		s.frame();
+		s.frame();
+		expect(s.sentOf('where').at(-1)).toMatchObject({ x: -2, y: 5, busy: 'flight' });
+		// Let go over the lake: down on its far shore, walking again.
+		s.authority.dispatch({ type: 'land' });
+		s.frame();
+		s.frame();
+		expect(s.sentOf('where').at(-1)).toMatchObject({ x: -2, y: -8, busy: 'explore' });
+		// No moment of the flight was sent as a walk over the water.
+		const overWater = s
+			.sentOf('where')
+			.map((m) => m as unknown as WhereMessage)
+			.filter((m) => m.y < 6 && m.y > -8 && m.busy !== 'flight');
+		expect(overWater).toEqual([]);
 	});
 
 	it('never draws or lists the player themselves, whatever the server says', () => {

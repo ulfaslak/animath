@@ -179,7 +179,8 @@
 	let dropTimer: ReturnType<typeof setTimeout> | undefined;
 
 	function pickUp(e: PointerEvent, from: number, speciesId: string) {
-		if (!choosing || e.button !== 0 || drag) return;
+		// Up in the air the cards stay put, as a number key or a tap on them does nothing there.
+		if (!choosing || e.button !== 0 || drag || game.flying) return;
 		drag = {
 			speciesId,
 			pointerId: e.pointerId,

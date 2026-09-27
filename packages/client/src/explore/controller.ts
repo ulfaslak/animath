@@ -26,16 +26,12 @@ import { BOAT_SWING_SECONDS } from '../render/boat';
 import { SWING_STRIKE } from '../render/clearing';
 import type { Follower } from '../render/follower';
 import type { AirPose, GameRenderer } from '../render/renderer';
-import { GLIDE_SECONDS, STEP_SECONDS } from '../render/trainer';
+import { DESCEND_SECONDS, GLIDE_SECONDS, RISE_SECONDS, STEP_SECONDS } from '../render/trainer';
 import { doctor } from '../state/doctor.svelte';
 import { game } from '../state/game.svelte';
 import { hud } from '../state/hud.svelte';
 import { team } from '../state/team.svelte';
 
-/** Seconds the trainer takes to rise to cruising height at take-off, the glider opening over them. */
-export const RISE_SECONDS = 0.35;
-/** Seconds they take to come down at the end, the glider folding away. */
-export const DESCEND_SECONDS = 0.4;
 /** Seconds of the little hop in place when a take-off is refused. */
 const HOP_SECONDS = 0.3;
 
@@ -347,25 +343,22 @@ export class ExploreController {
 		this.keyboard.takeInteract();
 		this.keyboard.takeTakeOff();
 		while (this.keyboard.takeTeamPick());
-		switch (f.phase) {
-			case 'rise':
-				f.t += dt;
-				if (f.t >= RISE_SECONDS) {
-					f.phase = 'glide';
-					f.t = 0;
-				}
-				break;
-			case 'glide':
-				if (this.progress < 1) {
-					this.progress = Math.min(1, this.progress + dt / GLIDE_SECONDS);
-					break;
-				}
-				this.overTile(f);
-				break;
-			case 'descend':
-				f.t += dt;
-				if (f.t >= DESCEND_SECONDS) this.touchDown(f);
-				break;
+		if (f.phase === 'rise') {
+			f.t += dt;
+			if (f.t < RISE_SECONDS) {
+				this.showLanding(f);
+				return;
+			}
+			f.phase = 'glide';
+			f.t = 0;
+		}
+		if (f.phase === 'glide') {
+			this.progress = Math.min(1, this.progress + dt / GLIDE_SECONDS);
+			// Over the tile: the next one starts on this frame, so a glide never stalls a frame a tile.
+			if (this.progress >= 1) this.overTile(f);
+		} else {
+			f.t += dt;
+			if (f.t >= DESCEND_SECONDS) this.touchDown(f);
 		}
 		if (this.flight === f) this.showLanding(f);
 	}
