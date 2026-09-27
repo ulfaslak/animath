@@ -14,6 +14,7 @@ import {
 	type ServerMessage
 } from '@mathgame/engine';
 import { WebSocket, WebSocketServer, type RawData } from 'ws';
+import { clientAddress, rateKey } from '../request.js';
 import { PresenceHub, type Peer } from './hub.js';
 
 /**
@@ -35,8 +36,10 @@ import { PresenceHub, type Peer } from './hub.js';
  *   and one that keeps sending too many (`maxDropped` in ten seconds) is
  *   closed (`flood`); so is one that sends `maxInvalid` messages that are
  *   no message at all (`invalid`), or no hello within `helloTimeoutMs`.
- *   The server holds `maxSockets` sockets at most, and stops writing to a
- *   socket that stopped reading (`maxBuffered` bytes waiting).
+ *   The server holds `maxSockets` sockets at most, `maxPerAddress` from any
+ *   one address (the one our proxy saw, an IPv6 household's /64 as one), so
+ *   one machine can't take every place or fill a world, and stops writing to
+ *   a socket that stopped reading (`maxBuffered` bytes waiting).
  * - **Who is still there.** Every `heartbeatMs` each socket is pinged, and
  *   one that did not answer the last ping is dropped: a tab closed without
  *   a goodbye, a laptop lid shut.
@@ -66,6 +69,7 @@ export interface PresenceOptions {
 	helloTimeoutMs?: number;
 	rosterMs?: number;
 	maxSockets?: number;
+	maxPerAddress?: number;
 	maxPerWorld?: number;
 	ratePerSecond?: number;
 	burst?: number;
@@ -111,6 +115,7 @@ export function attachPresence(server: Server, options: PresenceOptions = {}): P
 	const helloTimeoutMs = options.helloTimeoutMs ?? 10_000;
 	const rosterMs = options.rosterMs ?? 2_000;
 	const maxSockets = options.maxSockets ?? 1_000;
+	const maxPerAddress = options.maxPerAddress ?? 40;
 	const ratePerSecond = options.ratePerSecond ?? 10;
 	const burst = options.burst ?? 20;
 	const maxDropped = options.maxDropped ?? 40;
@@ -134,6 +139,13 @@ export function attachPresence(server: Server, options: PresenceOptions = {}): P
 	const states = new WeakMap<WebSocket, SocketState>();
 	/** Upgrades waiting for their account lookup: they count against `maxSockets` too. */
 	let opening = 0;
+	/** Sockets open or opening, by the address they came from (`rateKey`). */
+	const byAddress = new Map<string, number>();
+	const release = (address: string) => {
+		const left = (byAddress.get(address) ?? 1) - 1;
+		if (left > 0) byAddress.set(address, left);
+		else byAddress.delete(address);
+	};
 	/** Every open socket's peer, for telling them all to come back when the server stops. */
 	const peers = new Map<WebSocket, Peer>();
 	/** The server is stopping: no new socket. */
@@ -152,6 +164,16 @@ export function attachPresence(server: Server, options: PresenceOptions = {}): P
 			return refuse(socket, '403 Forbidden');
 		}
 		if (wss.clients.size + opening >= maxSockets) return refuse(socket, '503 Service Unavailable');
+		const address = rateKey(
+			clientAddress(req.socket.remoteAddress, headerOf(req, 'x-forwarded-for'))
+		);
+		if ((byAddress.get(address) ?? 0) >= maxPerAddress) {
+			log(`presence: refused a socket from ${address} (it holds ${maxPerAddress})`);
+			return refuse(socket, '429 Too Many Requests');
+		}
+		byAddress.set(address, (byAddress.get(address) ?? 0) + 1);
+		// However it ends (refused below, a handshake `ws` turns down, a socket closed), the place is given back.
+		socket.once('close', () => release(address));
 		opening++;
 		// A database that does not answer makes a guest of an account holder, not a socket
 		// that waits for ever holding a place.
@@ -400,6 +422,12 @@ function sameOrigin(req: IncomingMessage): boolean {
 function refuse(socket: Duplex, status: string): void {
 	socket.once('finish', () => socket.destroy());
 	socket.end(`HTTP/1.1 ${status}\r\nConnection: close\r\nContent-Length: 0\r\n\r\n`);
+}
+
+/** One header of an upgrade request, repeated ones joined as one list. */
+function headerOf(req: IncomingMessage, name: string): string | undefined {
+	const value = req.headers[name];
+	return Array.isArray(value) ? value.join(', ') : value;
 }
 
 function headersOf(req: IncomingMessage): Headers {

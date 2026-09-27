@@ -191,14 +191,6 @@ Technical items we've intentionally postponed: tech debt, hardening shortcuts, k
 
 **Trigger**: the production domain is chosen (`MATHGAME_DOMAIN` in `deploy.env`, the one place it is set). Then write it into `og:image` (and add `og:url`), in `index.html` or from the build's environment. The image's build does not read `deploy.env` today (the `.dockerignore` allowlist leaves it out): pass it in as a build argument, as `GIT_SHA` is.
 
-### The presence socket caps sockets in all, not per address
-
-**What**: the presence server holds 1,000 sockets at most and a world 200 players (`presence/socket.ts`, `hub.ts`), and caps each socket's messages, but it does not cap how many sockets one address opens. Behind nginx every socket comes from nginx's own address, so a cap per address has to read the address nginx passes on (`X-Real-IP`), and trust it only from nginx.
-
-**Why deferred**: a cap per address read off the socket itself would count every player as one behind the proxy and lock everyone out together; the production proxy's headers are being set up now, and the players are a few kids who share a link.
-
-**Trigger**: the public deploy is live and its logs show one address holding many sockets, the socket count nears its cap, or a player reports the game saying nobody is here while friends are.
-
 ### Presence lives in one server process's memory
 
 **What**: who is in which world, where, and who sees whom (`PresenceHub`) is kept in the memory of the Node process that holds each socket. A restart forgets it (every page says where it is again as its socket comes back, within a second on a deploy), and two processes split every world in two, each half blind to the other: a deploy's swap does that for its few seconds, to a page that opens its socket while two copies run.
