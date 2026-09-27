@@ -1,6 +1,11 @@
 import pg from 'pg';
-import { afterAll, describe, expect, it } from 'vitest';
-import { ACCOUNT_TABLES, AccountsReady, accountTablesReady } from '../src/accounts.js';
+import { afterAll, describe, expect, it, vi } from 'vitest';
+import {
+	ACCOUNT_TABLES,
+	AccountsReady,
+	READY_QUERY_TIMEOUT_MS,
+	accountTablesReady
+} from '../src/accounts.js';
 import { createApp } from '../src/app.js';
 import { pool } from '../src/db/index.js';
 
@@ -51,6 +56,29 @@ describe('accountTablesReady', () => {
 		} finally {
 			await nowhere.end();
 		}
+	});
+
+	// A question stuck on a connection that went quiet (a database gone without a word) would
+	// keep `AccountsReady` from ever asking again, and every page told no, until the system
+	// gave the socket up: a quarter of an hour. pg's own read timeout ends it, and the pool
+	// drops the connection it timed out on.
+	it("asks the pool with pg's read timeout, which gives a stuck question up", async () => {
+		const asked: unknown[] = [];
+		const spy = vi.spyOn(pool, 'query').mockImplementation(((config: unknown) => {
+			asked.push(config);
+			return Promise.resolve({ rows: [{ missing: 0 }] });
+		}) as never);
+		try {
+			expect(await accountTablesReady()).toBe(true);
+		} finally {
+			spy.mockRestore();
+		}
+		expect(asked).toEqual([expect.objectContaining({ query_timeout: READY_QUERY_TIMEOUT_MS })]);
+		// The timeout holds through the pool with this pg: a question that outlasts it fails at once.
+		const slow = { text: 'select pg_sleep(5)', query_timeout: 200 };
+		const started = Date.now();
+		await expect(pool.query(slow)).rejects.toThrow(/timeout/i);
+		expect(Date.now() - started).toBeLessThan(3000);
 	});
 });
 
@@ -112,10 +140,15 @@ describe('AccountsReady', () => {
 });
 
 describe('GET /api/account/ready', () => {
-	it('says yes on a database with the tables, fresh on every ask (no-store)', async () => {
-		const res = await createApp().request('/api/account/ready');
+	it('says yes on a database with the tables, fresh on every ask (no-store), and sends no cookie', async () => {
+		// A page asks this before `/me`, with whatever cookie it has: only login, register,
+		// `/me` and a logout that names no account ever send one (INVARIANTS § Server).
+		const res = await createApp().request('/api/account/ready', {
+			headers: { cookie: 'animath_session=whatever' }
+		});
 		expect(res.status).toBe(200);
 		expect(res.headers.get('cache-control')).toBe('no-store');
+		expect(res.headers.get('set-cookie')).toBeNull();
 		expect(await res.json()).toEqual({ ready: true });
 	});
 

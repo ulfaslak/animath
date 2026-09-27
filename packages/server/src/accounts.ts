@@ -23,6 +23,15 @@ export const ACCOUNT_TABLES: readonly string[] = [
 export type Ask = (text: string, values: unknown[]) => Promise<{ rows: unknown[] }>;
 
 /**
+ * pg's read timeout on the question (`query_timeout`): past it the question
+ * fails, and the pool drops the connection it was stuck on. A connection
+ * that went quiet without a word (a database host gone from the network)
+ * would otherwise hold it until the system gave the socket up, a quarter of
+ * an hour, and `AccountsReady` asks no second question beside one still out.
+ */
+export const READY_QUERY_TIMEOUT_MS = 5_000;
+
+/**
  * Whether accounts can work in this database now: it answers, and every
  * table they use is there, found as the routes' queries find them (the
  * `search_path`). A server can run without them: a development database
