@@ -701,19 +701,38 @@ describe('the wild animal', () => {
 
 	it('misses an animal of its own tier or fiercer exactly when its roll says so, never a smaller one', () => {
 		// Recomputed from the seed: the attack pick, then the miss roll, are the
-		// wild turn's two draws from the answer intent's Rng (step 1).
-		for (const { p, w } of MEETINGS) {
+		// wild turn's two draws from the answer intent's Rng (step 1). Every pair that can
+		// meet, 40 seeds each: the findings are collected and checked once, since an
+		// `expect` per turn costs more than the turn (58,000 turns with #89's 41 animals).
+		const bad: string[] = [];
+		let turns = 0;
+		for (const { p, w, realm } of MEETINGS) {
 			const wary = getAnimal(w).tier <= getAnimal(p).tier;
 			for (let seed = 0; seed < 40; seed++) {
-				const { e, start, state } = wildTurn(p, w, seed);
+				turns++;
+				const start = startBattle(makeParty([p]), makeWild(w), { realm });
+				const { state, events } = attackAndAnswer(start, seed, 1, 1, false);
+				const turn = events.filter(
+					(e) => (e.type === 'hit' || e.type === 'missed') && e.attacker === 'opponent'
+				);
+				const where = `${p} vs ${w}, seed ${seed}`;
+				const e = turn[0];
+				if (turn.length !== 1 || !e || (e.type !== 'hit' && e.type !== 'missed')) {
+					bad.push(`${where}: ${turn.length} wild turns`);
+					continue;
+				}
 				const rng = new Rng(hashInts(seed, 1));
-				expect(e.attackIndex).toBe(rng.int(1, getAnimal(w).attacks.length));
+				if (e.attackIndex !== rng.int(1, getAnimal(w).attacks.length))
+					bad.push(`${where}: attack ${e.attackIndex}`);
 				const miss = wary && rng.next() < WILD_MISS_CHANCE;
-				expect(e.type, `${p} vs ${w}, seed ${seed}`).toBe(miss ? 'missed' : 'hit');
-				if (miss) expect(state.party[0]!.hp).toBe(start.party[0]!.hp);
+				if (e.type !== (miss ? 'missed' : 'hit')) bad.push(`${where}: ${e.type}`);
+				if (miss && state.party[0]!.hp !== start.party[0]!.hp) bad.push(`${where}: HP moved`);
 			}
 		}
-		// Under 0.5 s alone (every species pair, 40 seeds); over 1.4 s on a loaded machine.
+		expect(bad).toEqual([]);
+		expect(turns).toBe(MEETINGS.length * 40);
+		// 0.4 s alone at a load average of 24 (58,000 turns, #89's 41 animals); asserting every
+		// turn instead took over 30 s at a load average of 40.
 	}, 30_000);
 
 	it('misses a wary match about as often as WILD_MISS_CHANCE says', () => {

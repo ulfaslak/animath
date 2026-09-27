@@ -333,6 +333,116 @@ species:
     attacks:
       tail-slap: Halesmæk
       tree-gnaw: Træfæld
+  # De store dyr fra det nordiske landskab (#89, bølge 2).
+  wild-boar:
+    # "Vild" står allerede i navnet, så det siges aldrig to gange ("et vildt vildsvin").
+    name: Vildsvin
+    a: et vildsvin
+    the: vildsvinet
+    wild: vildsvin
+    aWild: et vildsvin
+    theWild: vildsvinet
+    bare: vildsvin
+    attacks:
+      snout-dig: Trynerod
+      tusk-charge: Hugtandsstød
+  mute-swan:
+    name: Knopsvane
+    a: en knopsvane
+    the: knopsvanen
+    wild: vild knopsvane
+    aWild: en vild knopsvane
+    theWild: den vilde knopsvane
+    bare: knopsvane
+    attacks:
+      big-hiss: Stort hvæs
+      wing-beat: Vingeslag
+  eagle-owl:
+    # To ord, for hornugle alene er en anden ugle. Tillægsordet bøjes: den store
+    # hornugle, Bos store hornugle.
+    name: Stor hornugle
+    a: en stor hornugle
+    the: den store hornugle
+    wild: vild stor hornugle
+    aWild: en vild stor hornugle
+    theWild: den vilde store hornugle
+    bare: store hornugle
+    attacks:
+      orange-eyes: Orange øjne
+      night-strike: Natangreb
+  lynx:
+    name: Los
+    a: en los
+    the: lossen
+    wild: vild los
+    aWild: en vild los
+    theWild: den vilde los
+    bare: los
+    attacks:
+      stalk: Snig
+      snow-paws: Snepoter
+      great-pounce: Stort spring
+  wolverine:
+    name: Jærv
+    a: en jærv
+    the: jærven
+    wild: vild jærv
+    aWild: en vild jærv
+    theWild: den vilde jærv
+    bare: jærv
+    attacks:
+      growl: Knurr
+      snow-dig: Snegrav
+      never-give-up: Giv aldrig op
+  golden-eagle:
+    name: Kongeørn
+    a: en kongeørn
+    the: kongeørnen
+    wild: vild kongeørn
+    aWild: en vild kongeørn
+    theWild: den vilde kongeørn
+    bare: kongeørn
+    attacks:
+      soar: Svæv
+      sky-dive: Styrtdyk
+      golden-talons: Gyldne kløer
+  white-tailed-eagle:
+    name: Havørn
+    a: en havørn
+    the: havørnen
+    wild: vild havørn
+    aWild: en vild havørn
+    theWild: den vilde havørn
+    bare: havørn
+    attacks:
+      glide: Glid
+      fish-grab: Fiskegreb
+      huge-wings: Kæmpevinger
+  moose:
+    name: Elg
+    a: en elg
+    the: elgen
+    wild: vild elg
+    aWild: en vild elg
+    theWild: den vilde elg
+    bare: elg
+    attacks:
+      munch: Gumle
+      lake-dip: Søbad
+      antler-shove: Skovlskub
+  european-bison:
+    name: Europæisk bison
+    a: en europæisk bison
+    the: den europæiske bison
+    wild: vild europæisk bison
+    aWild: en vild europæisk bison
+    theWild: den vilde europæiske bison
+    bare: europæiske bison
+    attacks:
+      stamp: Tramp
+      dust-bath: Støvbad
+      head-butt: Skalle
+      stampede: Flokstorm
   # Havdyrene, som man møder ude på det dybe vand fra båden.
   crab:
     name: Krabbe
