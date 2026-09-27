@@ -5,7 +5,7 @@ import {
 	parseServerMessage,
 	type ServerMessage
 } from '@mathgame/engine';
-import { randomUUID } from 'node:crypto';
+import { randomBytes, randomUUID } from 'node:crypto';
 import { createServer, type Server } from 'node:http';
 import { connect, type AddressInfo } from 'node:net';
 import { afterAll, afterEach, describe, expect, it } from 'vitest';
@@ -322,7 +322,75 @@ describe('presence socket', () => {
 	});
 });
 
+/** A WebSocket frame of text from a client, masked as a client's must be: for a raw socket that ignores the rules. */
+function frame(text: string): Buffer {
+	const payload = Buffer.from(text);
+	const mask = randomBytes(4);
+	const head =
+		payload.length < 126
+			? Buffer.from([0x81, 0x80 | payload.length])
+			: Buffer.from([0x81, 0x80 | 126, payload.length >> 8, payload.length & 255]);
+	const masked = Buffer.alloc(payload.length);
+	for (let i = 0; i < payload.length; i++) masked[i] = payload[i]! ^ mask[i % 4]!;
+	return Buffer.concat([head, mask, masked]);
+}
+
+/** A socket that shakes hands and then never answers a close: it goes on sending. */
+async function rawSocket(port: number) {
+	const s = connect(port, '127.0.0.1');
+	const got: Buffer[] = [];
+	s.on('data', (d: Buffer) => got.push(d));
+	s.on('error', () => {});
+	await new Promise((r) => s.once('connect', r));
+	s.write(
+		`GET ${PRESENCE_PATH} HTTP/1.1\r\nHost: 127.0.0.1:${port}\r\nUpgrade: websocket\r\n` +
+			`Connection: Upgrade\r\nSec-WebSocket-Key: ${randomBytes(16).toString('base64')}\r\n` +
+			'Sec-WebSocket-Version: 13\r\n\r\n'
+	);
+	await new Promise((r) => setTimeout(r, 100));
+	return { s, text: () => Buffer.concat(got).toString('latin1') };
+}
+
 describe('presence socket under attack', () => {
+	it('never lets a socket closed for cause back in, however it goes on sending', async () => {
+		const logs: string[] = [];
+		const { url, port, presence } = await start({ maxInvalid: 3, log: (l) => logs.push(l) });
+		const { c: kid } = await joined(url, 'Kid', 'k'.repeat(20));
+		kid.where(1, 0, 0);
+		const raw = await rawSocket(port);
+		for (let i = 0; i < 3; i++) raw.s.write(frame('junk'));
+		await new Promise((r) => setTimeout(r, 100));
+		expect(raw.text()).toContain('"bye"');
+		// It ignores the close, says hello and stands next to the kid.
+		raw.s.write(
+			frame(
+				JSON.stringify({ t: 'hello', v: PROTOCOL_VERSION, guest: 'z'.repeat(20), name: 'Ghost' })
+			)
+		);
+		await new Promise((r) => setTimeout(r, 50));
+		raw.s.write(
+			frame(
+				JSON.stringify({
+					t: 'where',
+					world: 1,
+					x: 1,
+					y: 0,
+					facing: 'down',
+					lead: null,
+					boat: false,
+					busy: 'battle'
+				})
+			)
+		);
+		// Then floods: nothing more is logged of a socket already on its way out.
+		for (let i = 0; i < 2000; i++) raw.s.write(frame('x'));
+		await new Promise((r) => setTimeout(r, 300));
+		expect(kid.got.filter((m) => m.t === 'peer')).toEqual([]);
+		expect(presence.hub.size).toBe(1);
+		expect(logs.length).toBeLessThanOrEqual(1);
+		raw.s.destroy();
+	});
+
 	it('survives upgrades that reset as they are refused: a wrong path, another site, a full server', async () => {
 		const { url, port } = await start({ maxSockets: 1 });
 		const { c: ada } = await joined(url, 'Ada', 'a'.repeat(20));
