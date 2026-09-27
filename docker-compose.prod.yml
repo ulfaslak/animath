@@ -43,6 +43,9 @@ services:
         max-size: '20m'
         max-file: '5'
 
+  # A deploy never recreates this service: a change here (above all a new
+  # image, since a new major version needs its data upgraded first) is applied
+  # by hand, .claude/commands/redeploy.md § Changing Postgres.
   postgres:
     image: postgres:18-alpine
     env_file: .env.production

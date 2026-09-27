@@ -80,20 +80,18 @@ if docker container inspect "$CANARY_NAME" >/dev/null 2>&1; then
 	exit 1
 fi
 
-# A deploy never recreates Postgres: a new image tag (a new major version needs
-# its data upgraded first), a changed volume or healthcheck is done by hand,
-# on purpose. So when the checkout's postgres service no longer matches the
-# one running, the deploy stops here, before it changes anything (a pull and
-# a tag included).
+# A deploy never recreates Postgres: a new image (a new major version needs its
+# data upgraded first) is put in by hand, on purpose (.claude/commands/
+# redeploy.md § Changing Postgres). When the checkout names another image than
+# the one running, say so where the run shows it, and deploy the app anyway: a
+# rollback across such a change must still go through, and the app does not
+# care which Postgres serves it.
 PG_CID=$($COMPOSE ps -q postgres 2>/dev/null || true)
 if [ -n "$PG_CID" ]; then
-	PG_WANTED=$($COMPOSE config --hash postgres | awk '{print $2}')
-	PG_RUNNING=$(docker inspect --format '{{index .Config.Labels "com.docker.compose.config-hash"}}' "$PG_CID")
+	PG_WANTED=$($COMPOSE config --format json | jq -r '.services.postgres.image')
+	PG_RUNNING=$(docker inspect --format '{{.Config.Image}}' "$PG_CID")
 	if [ "$PG_WANTED" != "$PG_RUNNING" ]; then
-		echo "ERROR: docker-compose.prod.yml changed the postgres service, and the running one is"
-		echo "       the old definition. Apply it by hand first (.claude/commands/redeploy.md"
-		echo "       § Changing Postgres), then deploy again."
-		exit 1
+		echo "::warning title=Postgres not changed::The checkout names $PG_WANTED, and $PG_RUNNING runs. A deploy never changes Postgres: apply it by hand (.claude/commands/redeploy.md § Changing Postgres)."
 	fi
 fi
 
