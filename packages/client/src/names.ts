@@ -1,4 +1,4 @@
-import { getAnimal } from '@mathgame/engine';
+import { MAX_NAME_LENGTH, MIN_NAME_LENGTH, getAnimal, type NameRejection } from '@mathgame/engine';
 import { t, type ParamValue } from './copy';
 
 /** An animal as the screen names it: its species, and its nickname when it has one. */
@@ -52,4 +52,29 @@ export function animalWords(animal: AnimalRef): ParamValue {
 export function attackName(speciesId: string, attackIndex: number): string {
 	const attack = getAnimal(speciesId).attacks[attackIndex - 1];
 	return t(`species.${speciesId}.attacks.${attack?.id ?? attackIndex}`);
+}
+
+/** What a player's name may be, under a name box: "2 to 16 letters or numbers." */
+export function nameRule(): string {
+	return t('playerName.rule', { min: MIN_NAME_LENGTH, max: MAX_NAME_LENGTH });
+}
+
+/**
+ * Why a player's name did not go (the engine's `checkName`), kindly, and
+ * what to do instead: type it first, a longer one, a shorter one, only
+ * letters and numbers, or another name.
+ */
+export function nameRefusal(reason: NameRejection): string {
+	switch (reason) {
+		case 'empty':
+			return t('playerName.refused.empty');
+		case 'short':
+			return t('playerName.refused.short', { min: MIN_NAME_LENGTH });
+		case 'long':
+			return t('playerName.refused.long', { max: MAX_NAME_LENGTH });
+		case 'chars':
+			return t('playerName.refused.chars');
+		case 'rude':
+			return t('playerName.refused.rude');
+	}
 }

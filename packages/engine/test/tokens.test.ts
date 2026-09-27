@@ -6,7 +6,8 @@ import type { BattleIntent } from '../src/battle/types.js';
 import { tokensForTier } from '../src/doctor/tokens.js';
 import { Rng, hashInts, hashString } from '../src/rng.js';
 import { encounterTable } from '../src/world/encounters.js';
-import { spawnPoint, tileAtWorld } from '../src/world/generate.js';
+import { tileAtWorld } from '../src/world/generate.js';
+import { spawnPoint } from '../src/world/spawn.js';
 import type { GridPos, Tile } from '../src/world/types.js';
 
 /**

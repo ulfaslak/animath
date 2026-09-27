@@ -46,5 +46,5 @@ export function besideA(kind: TileKind, where: (height: number) => boolean = () 
 
 /** A game standing beside `spot`, facing it, owning `items`. */
 export function gameBeside(spot: Beside, items: string[]): SavedGame {
-	return { ...newGame(WORLD_SEED), pos: { ...spot.stand }, facing: spot.facing, items };
+	return { ...newGame(1), pos: { ...spot.stand }, facing: spot.facing, items };
 }

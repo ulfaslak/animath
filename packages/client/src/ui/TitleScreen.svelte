@@ -1,23 +1,29 @@
 <script lang="ts">
-	import { MAX_NICKNAME_LENGTH, STARTERS, normalizeNickname } from '@mathgame/engine';
+	import {
+		MAX_NAME_LENGTH,
+		MAX_NICKNAME_LENGTH,
+		STARTERS,
+		normalizeNickname
+	} from '@mathgame/engine';
 	import { untrack } from 'svelte';
 	import { sfx } from '../audio/sfx.svelte';
 	import { LANGUAGES, language, languageName, t } from '../copy';
 	import { languageKey, rowKey, unfocusable } from '../input/press';
 	import { touch } from '../input/touch.svelte';
 	import { kindList, speciesTopics } from '../kinds';
-	import { animalWords, nameOf, speciesName } from '../names';
+	import { animalWords, nameOf, nameRefusal, nameRule, speciesName } from '../names';
 	import { CONFIRM_CHOICES, title, type ConfirmChoice } from '../state/title.svelte';
 	import Switch from './Switch.svelte';
 
 	/**
 	 * The title ([[UI_SPEC]] § Title): the name of the game, the menu over the
 	 * world where the game stands, the confirm before a new game puts a saved
-	 * one away, then the starters (drawn by the 3D stage behind this overlay,
-	 * named here at the spots it reports) and the name box. It reads `title`;
-	 * keys are `TitleController`'s, so nothing here dispatches. The name box
-	 * binds `title.draft` and keeps the focus while it is open. Every word
-	 * comes from the copy files.
+	 * one away, the player's name box, then the starters (drawn by the 3D
+	 * stage behind this overlay, named here at the spots it reports) and the
+	 * starter's name box. It reads `title`; keys are `TitleController`'s, so
+	 * nothing here dispatches. The name boxes bind `title.nameDraft` and
+	 * `title.draft` and keep the focus while they are open. Every word comes
+	 * from the copy files.
 	 *
 	 * A click or a tap is a key press (`data-press`, `input/taps.ts`, which
 	 * draws what the tap did before the tap is over, so the name box can bring
@@ -41,6 +47,11 @@
 	const rows = $derived(title.rows);
 	const litRow = $derived(title.screen === 'menu' ? rows[title.cursor] : undefined);
 	const species = $derived(STARTERS[title.starter] ?? STARTERS[0]!);
+	/**
+	 * How much the player's name box takes: well past the longest name, so a
+	 * name a character too long is typed out and told kindly, never cut off unseen.
+	 */
+	const MAX_TYPED_NAME = 2 * MAX_NAME_LENGTH;
 	/** The lit starter's forms, for sentences: "your Rabbit", "kaninen". */
 	const starter = $derived(animalWords({ speciesId: species }));
 
@@ -99,12 +110,15 @@
 		};
 	});
 
-	/** Focus the name box (typing lands in it), and keep the focus there while it is open. */
-	function nameBox(input: HTMLInputElement) {
+	/**
+	 * A name box on `screen`: focused (typing lands in it), and focused again
+	 * while that screen is up.
+	 */
+	const focusedOn = (screen: 'naming' | 'player') => (input: HTMLInputElement) => {
 		input.focus();
 		const refocus = () =>
 			requestAnimationFrame(() => {
-				if (title.screen === 'naming' && input.isConnected) input.focus();
+				if (title.screen === screen && input.isConnected) input.focus();
 			});
 		input.addEventListener('blur', refocus);
 		return () => {
@@ -112,10 +126,12 @@
 			// A tablet's keyboard may have slid the page up to show the box; put it back.
 			window.scrollTo(0, 0);
 		};
-	}
+	};
+	const nameBox = focusedOn('naming');
+	const playerNameBox = focusedOn('player');
 </script>
 
-{#if title.screen === 'menu' || title.screen === 'confirm'}
+{#if title.screen === 'menu' || title.screen === 'confirm' || title.screen === 'player'}
 	<div class="title-screen">
 		<h1 class="logo" aria-label={t('title.name')}>
 			{#each letters as letter, i (i)}
@@ -125,7 +141,7 @@
 
 		<!-- Under the confirm the menu is out of reach, a screen reader's click too: its
 		     rows' keys are the confirm's (New game's `row:1` is Yes). -->
-		<div class="card menu-card" inert={title.screen === 'confirm'}>
+		<div class="card menu-card" inert={title.screen !== 'menu'}>
 			{#each rows as row, i (row)}
 				<button
 					type="button"
@@ -208,6 +224,50 @@
 					{/each}
 					{#if !touch.on}
 						<div class="keys">{t('title.confirm.keys')}</div>
+					{/if}
+				</div>
+			</div>
+		{/if}
+
+		{#if title.screen === 'player'}
+			<!-- On a touch screen the card goes to the top, clear of the tablet's keyboard. -->
+			<div class="shade" class:typing={touch.on}>
+				<div class="card confirm player-card">
+					{#if title.nameFor === 'continue'}
+						<p>{t('title.player.waiting')}</p>
+					{/if}
+					<div class="heading">{t('title.player.title')}</div>
+					<input
+						class="name-box"
+						type="text"
+						bind:value={title.nameDraft}
+						maxlength={MAX_TYPED_NAME}
+						autocomplete="off"
+						autocapitalize="words"
+						autocorrect="off"
+						spellcheck="false"
+						enterkeyhint={title.nameFor === 'continue' ? 'go' : 'next'}
+						aria-label={t('title.player.title')}
+						aria-describedby="player-name-note"
+						{@attach playerNameBox}
+					/>
+					{#if title.nameRefused}
+						<div class="note refused" id="player-name-note" role="alert">
+							{nameRefusal(title.nameRefused)}
+						</div>
+					{:else}
+						<div class="note" id="player-name-note">{nameRule()}</div>
+					{/if}
+					<div class="card-buttons">
+						<button type="button" class="pill" data-press="Escape" {@attach unfocusable}>
+							{t('title.back')}
+						</button>
+						<button type="button" class="pill go" data-press="Enter" {@attach unfocusable}>
+							{title.nameFor === 'continue' ? t('title.player.go') : t('title.player.next')}
+						</button>
+					</div>
+					{#if !touch.on}
+						<div class="keys">{t('title.player.keys')}</div>
 					{/if}
 				</div>
 			</div>
@@ -522,6 +582,26 @@
 	}
 	.confirm-row {
 		margin-top: 6px;
+	}
+	/* The player's name box: at the top on a touch screen, so a tablet's keyboard leaves it in view. */
+	.shade.typing {
+		place-items: start center;
+	}
+	.player-card {
+		text-align: center;
+	}
+	.player-card .heading {
+		margin: 0 0 6px;
+	}
+	.player-card p {
+		margin: 0 0 4px;
+	}
+	/* Why a name did not go: in ink, on a soft tint of the game's "not quite" red. */
+	.refused {
+		font-weight: 800;
+		background: rgba(242, 95, 92, 0.16);
+		border-radius: 10px;
+		padding: 6px 10px;
 	}
 
 	.pick-title {

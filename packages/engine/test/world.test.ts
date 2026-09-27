@@ -2,10 +2,10 @@ import { describe, expect, it } from 'vitest';
 import {
 	DEEP_WATER_MARGIN,
 	generateChunk,
-	spawnPoint,
 	tileAtWorld,
 	travelKindAt
 } from '../src/world/generate.js';
+import { spawnPoint } from '../src/world/spawn.js';
 import {
 	CHUNK_SIZE,
 	isPassable,

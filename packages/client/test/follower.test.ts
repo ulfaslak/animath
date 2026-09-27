@@ -223,16 +223,10 @@ describe('the lead walks behind the trainer', () => {
 		for (const facing of facings) {
 			for (const speciesId of ['rabbit', 'otter']) {
 				const s = setup(speciesId, {
-					seed: WORLD_SEED,
+					...newGame(1),
 					pos,
 					facing,
-					steps: 0,
-					visits: 0,
-					party: [{ id: 'r', speciesId, hp: getAnimal(speciesId).maxHp }],
-					tokens: 0,
-					items: [],
-					battle: null,
-					edits: []
+					party: [{ id: 'r', speciesId, hp: getAnimal(speciesId).maxHp }]
 				});
 				expect(s.follower.tile, `${speciesId} facing ${facing}`).toEqual(placement(pos, facing));
 				expect(standable(s.follower.tile!)).toBe(true);
@@ -343,7 +337,7 @@ describe('who follows', () => {
 describe('out on the water', () => {
 	/** A game at the spawn tile with the boat, this party, standing at `pos`. */
 	const withBoat = (team: string, pos?: GridPos): SavedGame => ({
-		...newGame(WORLD_SEED),
+		...newGame(1),
 		party: parseParty(team)!,
 		items: ['boat'],
 		...(pos ? { pos } : {})

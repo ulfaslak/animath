@@ -2,8 +2,10 @@ import {
 	STARTERS,
 	WorldEdits,
 	bundles,
+	checkName,
 	hasItem,
 	spawnPoint,
+	worldSeed,
 	type Authority,
 	type GameEvent,
 	type SavedGame
@@ -16,21 +18,28 @@ import { isMashKey, PickGuard } from '../input/pick-guard';
 import { tappedLanguage, tappedRow } from '../input/press';
 import type { TitleView3D } from '../render/title-scenery';
 import type { SaveNotice } from '../save/notices';
-import { CONFIRM_CHOICES, title, type TitleRow } from '../state/title.svelte';
+import { CONFIRM_CHOICES, title, type NameFor, type TitleRow } from '../state/title.svelte';
 
 /**
  * The title ([[UI_SPEC]] § Title): the menu (Continue, New game, the
  * settings), the confirm before a new game puts a saved one away, the
- * starters side by side, and the name box for the one picked.
+ * player's name box, the starters side by side, and the name box for the one
+ * picked.
  *
  * Keys become cursor moves and, at the end, one intent: `new-game`, with
- * the starter and the name as typed; the engine checks the starter and
- * cleans the name, and the title closes on the `welcome` that answers it.
- * Continue is the host's to do (`hooks.continueGame`): the saved game is the
- * client's, so the authority is handed it rather than asked for it.
+ * the starter, its name as typed and the player's name; the engine checks
+ * the starter and cleans its name, and the title closes on the `welcome`
+ * that answers it. Continue is the host's to do (`hooks.continueGame`): the
+ * saved game is the client's, so the authority is handed it rather than
+ * asked for it. A game saved before names asks the player's name first, and
+ * Continue hands it on with the game.
  *
- * The screens that choose something for the game — the confirm, the
- * starters, the name box — take a pick only after a quiet moment
+ * The player's name goes on only when the engine's `checkName` takes it; the
+ * box says kindly why not (too short, only letters and numbers, another
+ * name) and stays open.
+ *
+ * The screens that choose something for the game — the confirm, the name
+ * boxes, the starters — take a pick only after a quiet moment
  * (`input/pick-guard.ts`), so a key mashed on the screen before can't choose
  * on this one unseen. The confirm starts on its safe choice, so even a
  * deliberate Enter needs a deliberate arrow first to start over. The menu
@@ -44,12 +53,16 @@ import { CONFIRM_CHOICES, title, type TitleRow } from '../state/title.svelte';
  */
 
 export interface TitleHooks {
-	/** Continue: the authority picks up `game`, and saving begins. */
-	continueGame(game: SavedGame): void;
+	/**
+	 * Continue: the authority picks up `game`, and saving begins. `name`: the
+	 * player's name, given just now for a game saved without one; the host
+	 * sends it on (`choose-name`) as soon as the game is under way.
+	 */
+	continueGame(game: SavedGame, name?: string): void;
 }
 
 export class TitleController {
-	/** The quiet moment the confirm, the starters and the name box wait for before a pick. */
+	/** The quiet moment the confirm, the name boxes and the starters wait for before a pick. */
 	private guard = new PickGuard();
 	/** `new-game` is sent and not answered yet: keys wait. */
 	private sent = false;
@@ -74,6 +87,10 @@ export class TitleController {
 		title.confirm = 0;
 		title.starter = 0;
 		title.draft = '';
+		title.nameDraft = '';
+		title.nameFor = 'new';
+		title.nameRefused = null;
+		title.playerName = null;
 		title.open = true;
 		this.sent = false;
 		this.toMenu('continue');
@@ -116,6 +133,10 @@ export class TitleController {
 		if (e.isComposing || e.keyCode === 229) return;
 		if (title.screen === 'naming') {
 			this.namingKey(e);
+			return;
+		}
+		if (title.screen === 'player') {
+			this.playerKey(e);
 			return;
 		}
 		if (isShortcut(e)) return; // leave browser shortcuts alone
@@ -198,16 +219,19 @@ export class TitleController {
 		switch (row) {
 			case 'continue':
 				sfx.play('confirm');
-				if (title.saved) this.hooks.continueGame(title.saved);
+				if (!title.saved) break;
+				// A game saved before names asks the player's name once, before it goes on.
+				if (title.saved.name === null) this.toPlayerName('continue');
+				else this.hooks.continueGame(title.saved);
 				break;
 			case 'new':
 				sfx.play('confirm');
-				// A saved game would be put away: ask first. Without one, straight to the starters.
+				// A saved game would be put away: ask first. Without one, straight to the name.
 				if (title.saved) {
 					title.screen = 'confirm';
 					title.confirm = 0;
 					this.guard.show();
-				} else this.toStarters(0);
+				} else this.toPlayerName('new');
 				break;
 			case 'language':
 				sfx.play('confirm');
@@ -242,7 +266,7 @@ export class TitleController {
 			case ' ':
 				if (!fresh) return true;
 				sfx.play('confirm');
-				if (CONFIRM_CHOICES[title.confirm] === 'yes') this.toStarters(0);
+				if (CONFIRM_CHOICES[title.confirm] === 'yes') this.toPlayerName('new');
 				else this.toMenu('new');
 				return true;
 			case 'Escape':
@@ -282,10 +306,47 @@ export class TitleController {
 				this.guard.show();
 				return true;
 			case 'Escape':
-				this.toMenu('new');
+				// Back to the name, as it was typed.
+				this.toPlayerName('new');
 				return true;
 		}
 		return false;
+	}
+
+	/**
+	 * The player's name box: every key but Enter, Escape and Tab types. Enter
+	 * goes on once `checkName` takes the name (after the quiet moment, never on
+	 * auto-repeat): to the starters, or into the saved game. A name it refuses
+	 * stays in the box, with why.
+	 */
+	private playerKey(e: KeyboardEvent): void {
+		// Paste, select all, Alt+Enter: the name box's and the browser's own.
+		if (isShortcut(e)) return;
+		if (e.key === 'Enter') {
+			e.preventDefault();
+			if (e.repeat || !this.guard.press()) return;
+			const named = checkName(title.nameDraft);
+			if (!named.ok) {
+				title.nameRefused = named.reason;
+				sfx.play('wrong');
+				return;
+			}
+			title.nameRefused = null;
+			title.nameDraft = named.name;
+			title.playerName = named.name;
+			sfx.play('confirm');
+			if (title.nameFor === 'continue') {
+				if (title.saved) this.hooks.continueGame(title.saved, named.name);
+			} else this.toStarters(0);
+		} else if (e.key === 'Escape') {
+			e.preventDefault();
+			if (!e.repeat) this.toMenu(title.nameFor === 'continue' ? 'continue' : 'new');
+		} else if (e.key === 'Tab') {
+			e.preventDefault(); // the focus stays in the name box
+		} else if (title.nameRefused !== null && e.key.length === 1) {
+			// Typing again: the reason goes until the next try.
+			title.nameRefused = null;
+		}
 	}
 
 	private namingKey(e: KeyboardEvent): void {
@@ -301,7 +362,12 @@ export class TitleController {
 			if (speciesId === undefined) return;
 			this.sent = true;
 			sfx.play('confirm');
-			this.authority.dispatch({ type: 'new-game', speciesId, nickname: title.draft });
+			this.authority.dispatch({
+				type: 'new-game',
+				speciesId,
+				nickname: title.draft,
+				...(title.playerName === null ? {} : { name: title.playerName })
+			});
 		} else if (e.key === 'Escape') {
 			e.preventDefault();
 			if (!e.repeat) this.toStarters(title.starter);
@@ -317,10 +383,30 @@ export class TitleController {
 	private toMenu(row: TitleRow): void {
 		title.screen = 'menu';
 		title.cursor = Math.max(0, title.rows.indexOf(row));
+		this.showWorld();
+	}
+
+	/**
+	 * The player's name box, over the title's world. `purpose`: where it leads.
+	 * It holds the name given already, else the saved game's, else nothing.
+	 */
+	private toPlayerName(purpose: NameFor): void {
+		// Back from the starters, the world comes back behind the box; from the menu it is there.
+		const fromStage = title.screen === 'starter' || title.screen === 'naming';
+		title.screen = 'player';
+		title.nameFor = purpose;
+		title.nameRefused = null;
+		title.nameDraft = title.playerName ?? title.saved?.name ?? '';
+		this.guard.show();
+		if (fromStage) this.showWorld();
+	}
+
+	/** The world behind the menu: where the saved game stands, or World 1's spawn with the starters. */
+	private showWorld(): void {
 		const saved = title.saved;
 		if (saved) {
 			this.scenery.showWorld(
-				saved.seed,
+				worldSeed(saved.world),
 				saved.pos,
 				saved.facing,
 				// One of each kind in the team, however many it holds: the scene stays light.

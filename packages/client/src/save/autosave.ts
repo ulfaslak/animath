@@ -1,4 +1,5 @@
 import {
+	SAVE_VERSION,
 	readSave,
 	restoreGame,
 	sameProgress,
@@ -6,9 +7,10 @@ import {
 	saveExtras,
 	saveLineage,
 	saveSeq,
+	saveVersion,
 	validateSaveWrite,
 	type GameEvent,
-	type SaveV1,
+	type SaveV2,
 	type SaveWrite,
 	type SavedGame
 } from '@mathgame/engine';
@@ -117,6 +119,12 @@ const browserTimers: Timers = {
 	clearTimeout: (handle) => clearTimeout(handle as ReturnType<typeof setTimeout>)
 };
 
+/** Whether `text` is a save an older build wrote: one this build reads only through the upgrade. */
+function isOlderVersion(text: string): boolean {
+	const version = saveVersion(parseJson(text));
+	return version > 0 && version < SAVE_VERSION;
+}
+
 export class Autosave {
 	private readonly store: KeyValueStore | null;
 	private readonly server: SaveServer | null;
@@ -142,7 +150,7 @@ export class Autosave {
 	/** Start-up found this player's game on the server, written by a newer build. */
 	private newerOnServer = false;
 	/** The save this page's game grows from: the one it loaded, carried on from, or last wrote. */
-	private base: SaveV1 | null = null;
+	private base: SaveV2 | null = null;
 	/** Fields a newer build left in the loaded save, written back unchanged. */
 	private extras: Record<string, unknown> = {};
 	/** The newest document built, for the server. */
@@ -351,8 +359,11 @@ export class Autosave {
 			case 'party-changed':
 			case 'belongings-changed':
 			case 'taken-to-doctor':
-			// A tree chopped down or a rock broken is something the kid did, as a catch is.
+			// A tree chopped down or a rock broken is something the kid did, as a catch is;
+			// so is going to another world, and choosing a name.
 			case 'tile-cleared':
+			case 'travelled':
+			case 'name-chosen':
 				this.changed(true);
 				break;
 			case 'party-edited':
@@ -484,6 +495,11 @@ export class Autosave {
 				// The unreadable save is kept aside before the new game takes its place; with
 				// nowhere to keep it, it stays where it is and this game is not saved here.
 				this.local = current === null || this.setAside(KEYS.unreadable, current) ? 'ok' : 'broken';
+			} else if (!this.replacing && current !== null && isOlderVersion(current)) {
+				// An older build's save, which this page read through the upgrade: its text is
+				// kept as it was before this version's first write takes the key. With nowhere
+				// to keep it, it stays where it is and this game is not saved here.
+				if (!this.setAside(KEYS.upgraded, current)) this.local = 'broken';
 			}
 		}
 		const writesLocal = store !== null && this.local === 'ok';
@@ -516,7 +532,7 @@ export class Autosave {
 	}
 
 	/** Take `save` as the one this page's game grows from. */
-	private carryOn(save: SaveV1): void {
+	private carryOn(save: SaveV2): void {
 		this.lineage = saveLineage(save) || this.mintId();
 		this.seq = Math.max(this.seq, saveSeq(save));
 		this.extras = saveExtras(save);
@@ -791,7 +807,7 @@ export class Autosave {
 	 * `KEYS.replaced` (or `KEYS.unreadable`), make the server's the saved
 	 * game, and reload into it.
 	 */
-	private adopt(save: SaveV1, doc: unknown): void {
+	private adopt(save: SaveV2, doc: unknown): void {
 		const store = this.store;
 		if (!store || this.local === 'frozen' || this.local === 'none') return;
 		const current = store.get(KEYS.save);
