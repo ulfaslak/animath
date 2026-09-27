@@ -179,8 +179,20 @@ export async function logout(name: string, base = '/api'): Promise<'done' | 'off
 }
 
 /**
+ * Whether the server can make and keep an account now: its database answers
+ * and has the accounts' tables. Only the API's own `{ ready: true }` is a
+ * yes; no answer, a proxy's page or a 5xx is a no, since an offer the server
+ * cannot keep is a promise broken to a kid.
+ */
+export async function accountsReady(base = '/api', timeoutMs?: number): Promise<boolean> {
+	const res = await send(`${base}/account/ready`, { cache: 'no-store' }, timeoutMs);
+	return res?.status === 200 && field(res.body, 'ready') === true;
+}
+
+/**
  * Who this browser's session cookie belongs to. Asked once as the page
- * starts, before anything else goes to the account routes: its answer may
+ * starts, before anything else that reads the session goes to the account
+ * routes (`accountsReady` reads no cookie and sends none): its answer may
  * send the cookie again ([[INVARIANTS]] § Server).
  */
 export async function whoAmI(base = '/api', timeoutMs?: number): Promise<WhoResult> {
