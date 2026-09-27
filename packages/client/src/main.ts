@@ -24,6 +24,7 @@ import { press } from './input/press';
 import { isSoundKey, typingNow } from './input/sound-key';
 import { watchTaps } from './input/taps';
 import { touch, watchInput } from './input/touch.svelte';
+import { MatchController } from './match/controller';
 import { PauseController } from './pause/controller';
 import { PresenceController } from './presence/controller';
 import { Follower } from './render/follower';
@@ -47,6 +48,7 @@ import { behind } from './state/behind.svelte';
 import { doctor } from './state/doctor.svelte';
 import { game } from './state/game.svelte';
 import { hud } from './state/hud.svelte';
+import { match } from './state/match.svelte';
 import { pause } from './state/pause.svelte';
 import { title } from './state/title.svelte';
 import { travel } from './state/travel.svelte';
@@ -143,9 +145,22 @@ const autosave = new Autosave({
 	mintId,
 	throwaway: flags.throwaway
 });
+// Friendly matches (`match/`): the Challenge button, the invite and the match, which the
+// server plays; they ride on presence's socket, and draw the match on the battle's screen.
+const matchController: MatchController = new MatchController({
+	send: (message): boolean => presenceController.send(message),
+	renderer,
+	// A match picked up after a reload takes the screen from the pause menu and the hourly
+	// card, which comes back the next time the player is exploring.
+	stepAside: () => {
+		pauseController.close();
+		account.prompt = false;
+	},
+	count: (events, side) => authority.countMatchAnswers(events, side)
+});
 // The other players in this world (`presence/`): never behind the title, never in a
 // throwaway game, never on a page behind the save; nothing waits on it.
-const presenceController = new PresenceController({
+const presenceController: PresenceController = new PresenceController({
 	authority,
 	renderer,
 	store: browserStore(),
@@ -153,7 +168,8 @@ const presenceController = new PresenceController({
 	throwaway: flags.throwaway,
 	behind: () => autosave.behind !== null,
 	flush: () => autosave.flush(),
-	reload: () => location.reload()
+	reload: () => location.reload(),
+	match: matchController
 });
 
 /** A guest's play, counted while the page is on screen: every hour the card offers an account. */
@@ -245,6 +261,7 @@ authority.subscribe((event) => {
 	accountController.handle(event);
 	autosave.handle(event);
 	presenceController.handle(event);
+	matchController.handle(event);
 	// A new game from the title: after `welcome`, which clears the message line.
 	if (event.type === 'welcome' && event.newGame) sayStartNotice(true);
 	// Quit to title: the game just left is the one Continue picks up. A page that cannot
@@ -263,19 +280,22 @@ authority.subscribe((event) => {
 
 /**
  * The screen that takes keys now, one at a time: an account card while one
- * is up, else the title while it is up,
- * else the battle while it is up, else the doctor's card while it is open,
- * else the pause menu while it is open, else explore (Escape there opens the
- * pause menu). None while the page loads, nor while a trip to another world
- * covers the screen.
+ * is up, else the title while it is up, else a friendly match while it has the
+ * screen (asking, starting, the match on the battle's screen, its result, the
+ * update card), else the battle while it is up, else the doctor's card while
+ * it is open, else the pause menu while it is open, else explore (Escape there
+ * opens the pause menu; an invite's card over it takes Enter and Escape
+ * first). None while the page loads, nor while a trip to another world covers
+ * the screen.
  */
-type KeyScreen = 'account' | 'title' | 'battle' | 'doctor' | 'pause' | 'explore';
+type KeyScreen = 'account' | 'title' | 'match' | 'battle' | 'doctor' | 'pause' | 'explore';
 function keyScreen(): KeyScreen | null {
 	// The account card, over the title, the pause menu or the game, and the hourly card.
 	if (account.card !== null || account.prompt) return 'account';
 	if (title.open) return 'title';
 	if (game.mode === 'loading' || game.mode === 'title') return null;
 	if (travel.active) return null;
+	if (matchController.onScreen) return 'match';
 	if (battle.active) return 'battle';
 	if (doctor.active) return 'doctor';
 	if (pause.open) return 'pause';
@@ -314,13 +334,15 @@ function noteScreen(): void {
 							? `title:${title.screen}`
 							: travel.active
 								? 'travel'
-								: battle.active
-									? `battle:${battle.screen}`
-									: doctor.active
-										? `doctor:${doctor.screen}:${doctor.tab}`
-										: pause.open
-											? `pause:${pause.screen}:${pause.species ?? ''}:${pause.picked ?? ''}`
-											: game.mode;
+								: matchController.onScreen
+									? `match:${match.stage}:${battle.screen}`
+									: battle.active
+										? `battle:${battle.screen}`
+										: doctor.active
+											? `doctor:${doctor.screen}:${doctor.tab}`
+											: pause.open
+												? `pause:${pause.screen}:${pause.species ?? ''}:${pause.picked ?? ''}`
+												: game.mode;
 	if (now !== screenSeen) {
 		screenSeen = now;
 		screenCount++;
@@ -377,10 +399,11 @@ window.addEventListener('keydown', (e) => {
 		if (!e.repeat) sfx.flip();
 	} else if (screen === 'account') accountController.onKey(e);
 	else if (screen === 'title') titleController.onKey(e);
+	else if (screen === 'match') matchController.onKey(e);
 	else if (screen === 'battle') battleController.onKey(e);
 	else if (screen === 'doctor') doctorController.onKey(e);
 	else if (screen === 'pause') pauseController.onKey(e);
-	else if (screen === 'explore') {
+	else if (screen === 'explore' && !matchController.exploreKey(e)) {
 		keyboard.keydown(e);
 		pauseController.onKey(e);
 	}
@@ -481,10 +504,11 @@ function catchUp(onItsOwn: boolean): void {
 /**
  * A guest's game, played with the page on screen: its hour of play is
  * counted, and once another hour has passed, the card offers to keep the
- * game safe, while exploring (never in a battle, at the doctor, in the menu
- * or on a trip to another world), and only while the server can keep an
- * account (`openPrompt`): until then the hour stays due. Not for an account's
- * game, a throwaway one, or a page that keeps nothing.
+ * game safe, while exploring (never in a battle, at the doctor, in the menu,
+ * in a friendly match or its invite, or on a trip to another world), and only
+ * while the server can keep an account (`openPrompt`): until then the hour
+ * stays due. Not for an account's game, a throwaway one, or a page that keeps
+ * nothing.
  */
 function countPlay(dt: number): void {
 	const lineage = autosave.playing;
@@ -497,7 +521,8 @@ function countPlay(dt: number): void {
 		!doctor.active &&
 		!pause.open &&
 		!title.open &&
-		!travel.active;
+		!travel.active &&
+		match.stage === 'none';
 	if (!exploring || account.prompt || account.card !== null || autosave.behind !== null) return;
 	if (playClock.due(lineage)) accountController.openPrompt();
 }
@@ -532,7 +557,9 @@ function frame(now: number) {
 			// grass can land; explore input is already off, so no new step starts.
 			// The doctor's card is drawn over the world, which keeps drawing under it.
 			if (!battle.active || battle.entering) explore.update(dt);
-			if (battle.active) battleController.update(dt);
+			// A friendly match plays on the battle's screen, but it is the match's to run.
+			if (battle.active && !battle.vs) battleController.update(dt);
+			matchController.update(dt);
 			if (doctor.active) doctorController.update(dt);
 			// A trip to another world: the cover closes, the world changes under it, and it opens.
 			travelController.update(dt);

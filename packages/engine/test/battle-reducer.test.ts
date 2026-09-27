@@ -32,6 +32,8 @@ import {
 } from './battle-sim.js';
 
 const SEEDS = 25;
+/** About how many battles the catalog sweep plays for each species, over every animal it meets. */
+const BATTLES_PER_SPECIES = 60;
 const ids = ANIMALS.map((a) => a.id);
 const PRINT = Boolean(process.env.SIM);
 /** Every (player, wild) pair of the catalog that can meet, and where: a sea animal only out on the water. */
@@ -308,11 +310,18 @@ describe('every battle in the catalog', () => {
 
 	for (const p of ids) {
 		it(`${p} vs everything it meets: terminates, keeps HP in bounds, never mutates its input, explains every change`, () => {
-			for (const { w, realm } of MEETINGS.filter((m) => m.p === p)) {
+			const meetings = MEETINGS.filter((m) => m.p === p);
+			// About `BATTLES_PER_SPECIES` battles for each species, spread over every animal it
+			// meets (a few seeds each, never fewer than 3): the sweep grows with the catalog
+			// instead of with its square. With the 14 animals before #89 this was 25 seeds a pair.
+			const seeds = Math.max(3, Math.ceil(BATTLES_PER_SPECIES / meetings.length));
+			for (const { w, realm } of meetings) {
 				// On land two to step in; out on the water one that swims and one that can't.
 				const team = realm === 'land' ? [p, 'rabbit', 'fox'] : [p, 'otter', 'squirrel'];
-				for (let seed = 0; seed < SEEDS; seed++) {
-					const rng = new Rng(hashInts(seed, 0x9e3779b9));
+				for (let seed = 0; seed < seeds; seed++) {
+					// The player's choices drawn afresh for every pair, not only every seed: with a
+					// few seeds a pair, shared streams would walk the same few choices everywhere.
+					const rng = new Rng(hashInts(seed, 0x9e3779b9, ids.indexOf(p), ids.indexOf(w)));
 					const said: BattleEvent[] = [];
 					const { state } = drive(
 						seed,
@@ -334,8 +343,9 @@ describe('every battle in the catalog', () => {
 					expect(wordedStrings({ state, said }), `${p} vs ${w} seed ${seed}`).toEqual([]);
 				}
 			}
-			// 1.2 to 3.4 s per species alone; the frog's took 40 s at a load average of 54, so
-			// a minute is too close.
+			// 0.3 to 1.5 s per species at a load average of 28 (about 80 battles each, every
+			// step checked). At 25 seeds a pair, before #89, one took 1.2 to 3.4 s alone and the
+			// frog's 40 s at a load average of 54: two minutes leaves that room.
 		}, 120_000);
 	}
 
@@ -1061,47 +1071,55 @@ describe('rejected intents', () => {
 
 describe('switching', () => {
 	it('takes the turn: the wild animal replies against the newcomer, and only its hit costs HP', () => {
-		for (const a of ids) {
-			for (const b of ids) {
-				for (const w of ids) {
-					// All three where they can all fight: a sea animal's trio only out on the water.
-					const realm = arena(a, b, w);
-					if (realm === null) continue;
-					for (let seed = 0; seed < 5; seed++) {
-						const party = makeParty([a, b]);
-						const start = deepFreeze(startBattle(party, makeWild(w), { realm }));
-						const { state, events } = applyBattleIntent(
-							start,
-							{ type: 'switch', partyIndex: 1 },
-							seed
-						);
-						const where = `${a} → ${b} vs ${w}, seed ${seed}`;
-						expect(events[0], where).toEqual({ type: 'switched', animal: party[1], partyIndex: 1 });
-						expect(state.active).toBe(1);
+		let checked = 0;
+		for (const b of ids) {
+			for (const w of ids) {
+				// Every newcomer against every wild animal it can meet. Who leaves never changes
+				// the reply, so each pair has one animal leaving, taken in turn from those that
+				// can fight there too (a sea animal's trio only out on the water): every trio
+				// would be the catalog's cube, 32,000 since #89, a minute on a busy machine.
+				const leavers = ids.filter((x) => arena(x, b, w) !== null);
+				if (leavers.length === 0) continue;
+				const a = leavers[checked % leavers.length]!;
+				const realm = arena(a, b, w)!;
+				checked++;
+				for (let seed = 0; seed < 5; seed++) {
+					const party = makeParty([a, b]);
+					const start = deepFreeze(startBattle(party, makeWild(w), { realm }));
+					const { state, events } = applyBattleIntent(
+						start,
+						{ type: 'switch', partyIndex: 1 },
+						seed
+					);
+					const where = `${a} → ${b} vs ${w}, seed ${seed}`;
+					expect(events[0], where).toEqual({ type: 'switched', animal: party[1], partyIndex: 1 });
+					expect(state.active).toBe(1);
 
-						// The wild turn's two draws, recomputed: against the newcomer, not the one who left.
-						const spec = getAnimal(w);
-						const rng = new Rng(hashInts(seed, 0));
-						const attackIndex = rng.int(1, spec.attacks.length);
-						const miss = spec.tier <= getAnimal(b).tier && rng.next() < WILD_MISS_CHANCE;
-						const power = spec.attacks[attackIndex - 1]!.power;
-						const hp = miss ? maxHp(party[1]!) : Math.max(0, maxHp(party[1]!) - power);
-						expect(events[1], where).toMatchObject({
-							type: miss ? 'missed' : 'hit',
-							attacker: 'opponent',
-							attackIndex
-						});
-						expect(state.party[1]!.hp, where).toBe(hp);
-						expect(state.party[0]).toEqual(start.party[0]);
-						expect(state.opponent).toEqual(start.opponent);
-						expect(state.turn).toBe(2);
-						// A newcomer knocked out at once hands the choice back: the first one still stands.
-						expect(state.phase).toEqual({ kind: hp === 0 ? 'choose-animal' : 'choose-action' });
-					}
+					// The wild turn's two draws, recomputed: against the newcomer, not the one who left.
+					const spec = getAnimal(w);
+					const rng = new Rng(hashInts(seed, 0));
+					const attackIndex = rng.int(1, spec.attacks.length);
+					const miss = spec.tier <= getAnimal(b).tier && rng.next() < WILD_MISS_CHANCE;
+					const power = spec.attacks[attackIndex - 1]!.power;
+					const hp = miss ? maxHp(party[1]!) : Math.max(0, maxHp(party[1]!) - power);
+					expect(events[1], where).toMatchObject({
+						type: miss ? 'missed' : 'hit',
+						attacker: 'opponent',
+						attackIndex
+					});
+					expect(state.party[1]!.hp, where).toBe(hp);
+					expect(state.party[0]).toEqual(start.party[0]);
+					expect(state.opponent).toEqual(start.opponent);
+					expect(state.turn).toBe(2);
+					// A newcomer knocked out at once hands the choice back: the first one still stands.
+					expect(state.phase).toEqual({ kind: hp === 0 ? 'choose-animal' : 'choose-action' });
 				}
 			}
 		}
-		// Under 0.5 s alone (every species trio, five seeds); over 1.3 s on a loaded machine.
+		// Every pair that can meet was a newcomer against a wild animal.
+		expect(checked).toBe(MEETINGS.length);
+		// Five seeds a pair: 1.4 s at a load average of about 100, where every trio took 67 s
+		// with the 32 animals of #89.
 	}, 30_000);
 
 	it('never stalls: a player who switches whenever they can loses every battle, the wild animal untouched', () => {

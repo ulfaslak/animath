@@ -50,6 +50,16 @@
  *   size:<w>x<h>       resize the window
  *   until:<css>        wait (up to 20 s) for an element to be on the page
  *   run:<command>      run a shell command and wait for it (restart a server)
+ *   solve:right / solve:wrong   answer the puzzle on this player's screen: the prompt
+ *                      read off the page, worked out here (the server never sends an
+ *                      answer), typed digit by digit, then Enter; `wrong` types one more
+ *                      than the answer.
+ *   turn:<level>       whatever this player's match screen asks of its kid now, if it
+ *                      asks anything: on the menu, attack at <level> (1, 2, 3) once Go!
+ *                      is lit; on the puzzle, solve it (`turn:3w` answers wrong); on the
+ *                      list after a knock-out, send in the one highlighted. Nothing on
+ *                      the other's turn. `all:turn:1,all:wait:3000`, again and again,
+ *                      plays a match to its end.
  * After every shot it prints what that player's screen says: where they are,
  * the names over the others and what they are busy with, the arrows, the
  * note at the top, the message line, the pause menu's rows and its list.
@@ -259,7 +269,7 @@ const steps: Step[] = (args.steps ?? '')
 		const who =
 			whoName === 'all' ? roster : [byLabel.get(whoName) ?? fail(`no player "${whoName}"`)];
 		const m =
-			/^(wait|shot|burst|press|type|hold|click|tap|reload|close|open|twin|hide|show|size|until|run):(.*)$/s.exec(
+			/^(wait|shot|burst|press|type|hold|click|tap|reload|close|open|twin|hide|show|size|until|run|solve|turn):(.*)$/s.exec(
 				rest
 			);
 		if (m?.[1] === 'twin') {
@@ -385,10 +395,64 @@ const DESCRIBE = `(() => {
 	if (pause.length) lines.push('pause: ' + pause.join(' | '));
 	const side = [...document.querySelectorAll('.menu .side .player, .menu .side .note')].map(lit);
 	if (side.length) lines.push('side: ' + side.join(' | '));
-	const battle = text(document.querySelector('.narration'));
+	const battle = text(document.querySelector('.battle-line'));
 	if (battle) lines.push('battle: ' + battle);
+	// Friendly matches: the button, the invite, the match's notes and its result.
+	const challenge = text(document.querySelector('.challenge'));
+	if (challenge) lines.push('challenge: ' + challenge);
+	const invite = text(document.querySelector('.invite'));
+	if (invite) lines.push('invite: ' + invite);
+	const notes = text(document.querySelector('.notes'));
+	if (notes) lines.push('notes: ' + notes);
+	const prompt = text(document.querySelector('.puzzle-prompt'));
+	if (prompt) lines.push('puzzle: ' + prompt);
+	const result = text(document.querySelector('.result-card'));
+	if (result) lines.push('result: ' + result);
 	return lines;
 })()`;
+
+/**
+ * The answer to a prompt as the game shows it, worked out here: the same
+ * independent solver the engine's puzzle tests use, never the game's own.
+ */
+function solve(prompt: string): number {
+	const seq = prompt.match(/^([\d, ]+), \?$/);
+	if (seq) return nextInSequence(seq[1]!.split(', ').map(Number));
+	const root = prompt.match(/^√(\d+) = \?$/);
+	if (root) return Math.sqrt(Number(root[1]));
+	const missing = prompt.match(/^(\d+) ([+×]) \? = (\d+)$/);
+	if (missing) {
+		const [, a, op, c] = missing;
+		return op === '+' ? Number(c) - Number(a) : Number(c) / Number(a);
+	}
+	const bin = prompt.match(/^(\d+) ([+−×÷]) (\d+) = \?$/);
+	if (!bin) fail(`no sum I can read: ${prompt}`);
+	const [, a, op, b] = bin;
+	const [x, y] = [Number(a), Number(b)];
+	return op === '+' ? x + y : op === '−' ? x - y : op === '×' ? x * y : x / y;
+}
+
+function nextInSequence(t: number[]): number {
+	const d = t.slice(1).map((v, i) => v - t[i]!);
+	if (d.every((v) => v === d[0])) return t.at(-1)! + d[0]!;
+	const r = t[1]! / t[0]!;
+	if (t.every((v, i) => i === 0 || v === t[i - 1]! * r)) return t.at(-1)! * r;
+	if (t.every((v, i) => i < 2 || v === t[i - 1]! + t[i - 2]!)) return t.at(-1)! + t.at(-2)!;
+	const dd = d.slice(1).map((v, i) => v - d[i]!);
+	if (dd.every((v) => v === dd[0])) return t.at(-1)! + d.at(-1)! + dd[0]!;
+	fail(`no pattern I can read: ${t.join(', ')}`);
+}
+
+/** Answer the puzzle on `page`'s screen, rightly (or, `wrong`, one more than right), then Enter. */
+async function answer(page: Page, wrong: boolean): Promise<void> {
+	const prompt = page.locator('.puzzle-prompt');
+	await prompt.waitFor({ timeout: 20_000 });
+	const sum = solve((await prompt.textContent()) ?? '') + (wrong ? 1 : 0);
+	for (const digit of String(sum)) await page.keyboard.press(digit);
+	await page.waitForTimeout(150);
+	await page.keyboard.press('Enter');
+	await page.waitForTimeout(400);
+}
 
 async function describe(p: Player): Promise<string[]> {
 	return (await p.page!.evaluate(DESCRIBE)) as string[];
@@ -486,6 +550,22 @@ async function run(step: Step): Promise<void> {
 			case 'run':
 				if (p === step.who[0]) execSync(step.arg, { stdio: 'inherit', shell: '/bin/zsh' });
 				break;
+			case 'solve':
+				await answer(page!, step.arg === 'wrong');
+				break;
+			case 'turn': {
+				const pg = page!;
+				if (await pg.locator('.puzzle-panel .cursor.blink').count()) {
+					await answer(pg, step.arg.endsWith('w'));
+				} else if (await pg.locator('.card.actions.party').count()) {
+					await pg.waitForSelector('.pill-button.go:not(.idle)', { timeout: 20_000 });
+					await pg.keyboard.press('Enter');
+				} else if (await pg.locator('.card.actions.menu:not(.dim)').count()) {
+					await pg.waitForSelector('.pill-button.go:not(.idle)', { timeout: 20_000 });
+					await pg.keyboard.press(step.arg.replace('w', '') || '1');
+				}
+				break;
+			}
 		}
 	}
 }
