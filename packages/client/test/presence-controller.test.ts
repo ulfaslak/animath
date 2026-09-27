@@ -220,6 +220,44 @@ describe('presence on the page', () => {
 		expect(s.sentOf('where').at(-1)).toMatchObject({ busy: 'battle' });
 	});
 
+	it('moves to another world with the player: the next where names it, and nobody from the last is shown', () => {
+		const s = setup();
+		s.start();
+		s.connect();
+		s.socket().say({
+			t: 'peer',
+			pid: 'friend0001',
+			name: 'Bo',
+			x: game.pos.x + 1,
+			y: game.pos.y,
+			facing: 'left',
+			lead: 'fox',
+			boat: false,
+			busy: 'explore'
+		});
+		s.socket().say({
+			t: 'roster',
+			world: 1,
+			players: [{ pid: 'friend0001', name: 'Bo', bearing: 4, steps: 1, busy: 'explore' }]
+		});
+		s.frame();
+		expect(s.others.pids()).toEqual(['friend0001']);
+		s.authority.dispatch({ type: 'travel', world: 7 });
+		expect(s.events.at(-1)).toMatchObject({ type: 'travelled', world: 7 });
+		expect(s.others.pids()).toEqual([]);
+		expect(presence.roster).toEqual([]);
+		s.frame();
+		s.frame();
+		expect(s.sentOf('where').at(-1)).toMatchObject({ world: 7, x: game.pos.x, y: game.pos.y });
+		// A roster of the world left, late, is not this world's.
+		s.socket().say({
+			t: 'roster',
+			world: 1,
+			players: [{ pid: 'friend0001', name: 'Bo', bearing: 4, steps: 1, busy: 'explore' }]
+		});
+		expect(presence.roster).toEqual([]);
+	});
+
 	it('goes to a player: asks the server, then the authority, and says so', () => {
 		const s = setup();
 		s.start();
