@@ -225,7 +225,10 @@ function throwAt(size: (typeof SIZES)[number], species: string, ending: 'caught'
 	touch.on = size.touch;
 	Object.assign(inset, size.inset);
 	scene.resize(size.width, size.height);
-	const statusBox = inside(size.height <= SHORT_SCREEN ? STATUS_BOX_SHORT! : STATUS_BOX!, size.inset);
+	const statusBox = inside(
+		size.height <= SHORT_SCREEN ? STATUS_BOX_SHORT! : STATUS_BOX!,
+		size.inset
+	);
 	// Where it is met: a sea animal out at sea, sunk in the water, facing one that swims.
 	const atSea = !getAnimal(species).realms.includes('land');
 	scene.begin(atSea ? 'sea' : 'meadow', atSea ? 'otter' : 'squirrel', species);
@@ -325,10 +328,12 @@ describe('the leash', () => {
 			top < CLEAR ? `${top.toFixed(1)} px from the top edge, ${topWhen}` : null
 		);
 		expect(bad).toEqual([]);
-		// About 6.6 s alone at a load average of 20 (392 throws, every point of the loop
-		// projected on each of their frames, against the top edge and the status box; the
-		// tests after it reuse them); 17 s at a load average of 54.
-	}, 60_000);
+		// About 6.6 s alone at a load average of 20 with the seven tablet and laptop sizes
+		// (392 throws, every point of the loop projected on each of their frames, against the
+		// top edge and the status box; the tests after it reuse them); 17 s at a load average
+		// of 54. With the four phone sizes (616 throws), 20 to 25 s at a load average of 100
+		// to 135, and once 61 s there.
+	}, 120_000);
 
 	it('knows where the wild animal’s status box is: its copy of the box covers the CSS’s', () => {
 		expect(WILD_STATUS_BOX.right).toBe(STATUS_BOX!.right);
@@ -370,8 +375,9 @@ describe('the leash', () => {
 			}
 		}
 		expect(bad).toEqual([]);
-		// About 1.4 s alone; 6.6 s at a load average of 54.
-	}, 30_000);
+		// About 1.4 s alone; 6.6 s at a load average of 54; with the phone sizes, 3 to 25 s at
+		// a load average of 135.
+	}, 60_000);
 });
 
 describe('out at sea', () => {

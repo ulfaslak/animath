@@ -11,7 +11,7 @@ The game is called **Animath**. The repo and package names (`mathgame`, `@mathga
 ## 2. Players
 
 - **Kids aged roughly 6–12**. Reading level: short words, big text. The puzzle ladder spans from single-digit addition to three-digit multiplication and square roots.
-- **Devices**: a laptop or desktop browser with a keyboard, or a tablet held sideways, played with fingers alone (touch controls, [[UI_SPEC]] § Pointer and touch). A mouse works every menu too. Phones are not a target.
+- **Devices**: a laptop or desktop browser with a keyboard, or a tablet held sideways, played with fingers alone (touch controls, [[UI_SPEC]] § Pointer and touch). A mouse works every menu too. Phones are not a target, except that the battle's screen, wild battles and friendly matches alike, is laid out for a phone held sideways too.
 - **No login needed.** Open the link and you are in. The game is saved in the browser as you play, so a reload, or coming back another day, picks up where you left off; while the game is shared from the human's machine, the server also keeps a backup under an anonymous id the browser remembers. An account is optional, never required: it keeps the game on the server and brings it to another tablet or computer (§4 "Saving").
 
 ## 3. Core loop
@@ -226,6 +226,7 @@ What is built and observable today. Keep current: add a bullet when a feature sh
 - Pointer everywhere ([[UI_SPEC]] § Pointer and touch): every row, button and card a key reaches also takes a click or a tap, as the same key press, behind the same guards. In a battle a tap only highlights a row (an attack, Leash, Switch, Run, an animal on the switch list) or sets an attack's level, and Go! does it, since a pick spends the turn; on the starters a tap only lights an animal; everywhere else a tap does the row at once. The result card goes on from a tap anywhere. A tap counts only on what the finger went down on, on the screen it went down on, so a thumb lifted as a battle starts presses nothing. A slow tap counts however long the finger rests, and a double click counts once when its first click sent what it pressed elsewhere.
 - Touch controls on a tablet, or after any touch: a D-pad that walks as the arrow keys do (hold to keep walking), Talk and Menu buttons that work with the other thumb still on the D-pad, and a number pad beside every puzzle, so the tablet's own keyboard never covers a sum. Rows and buttons a finger tall; hints that say "tap"; the name boxes use the tablet's keyboard, with the box moved clear of it. A key pressed on a real keyboard switches back to the keys.
 - The page behaves as a game on a tablet: no zooming, scrolling, pull-to-refresh or text selection under a finger, and a tablet (or a phone) held upright is asked to turn sideways. On a screen with a notch or a home indicator the world fills the screen and nothing to read or tap sits under them.
+- A battle on a phone held sideways (wild or a friendly match) packs its screen tighter so both animals stay in view: a shorter panel with the moves beside the attacks, a puzzle whose number pad takes the whole panel, smaller status boxes, and the narration line at the top right. Every button is still a finger tall ([[UI_SPEC]] § Battle mode, "On a phone held sideways").
 
 ### Explore
 
