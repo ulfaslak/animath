@@ -160,3 +160,24 @@ export function parseJson(text: string): unknown {
 		return undefined;
 	}
 }
+
+/**
+ * Whether two JSON values are the same document, whatever the order of their
+ * keys (the server's `jsonb` keeps its own).
+ */
+export function sameJson(a: unknown, b: unknown): boolean {
+	if (a === b) return true;
+	if (typeof a !== 'object' || typeof b !== 'object' || a === null || b === null) return false;
+	if (Array.isArray(a) !== Array.isArray(b)) return false;
+	if (Array.isArray(a)) {
+		const other = b as unknown[];
+		return a.length === other.length && a.every((v, i) => sameJson(v, other[i]));
+	}
+	const left = a as Record<string, unknown>;
+	const right = b as Record<string, unknown>;
+	const keys = Object.keys(left).filter((k) => left[k] !== undefined);
+	const others = Object.keys(right).filter((k) => right[k] !== undefined);
+	return (
+		keys.length === others.length && keys.every((k) => k in right && sameJson(left[k], right[k]))
+	);
+}

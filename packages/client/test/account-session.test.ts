@@ -152,6 +152,17 @@ describe('logging in', () => {
 		expect(JSON.parse(store.get(keys().save)!).seq).toBe(50);
 	});
 
+	it("a tie within one game, played differently on two devices, goes to the server's", () => {
+		const here = JSON.parse(saveText(10, 'game-a'));
+		here.tokens = 3;
+		store.set(keys().save, JSON.stringify(here));
+		const there = JSON.parse(saveText(10, 'game-a'));
+		there.tokens = 7;
+		takeAccountGame(store, 'Ida', there);
+		expect(JSON.parse(store.get(keys().save)!).tokens).toBe(7);
+		expect(JSON.parse(store.get(keys().replaced)!).tokens).toBe(3);
+	});
+
 	it("a tie between two games goes to the server's; the same game at the same seq changes nothing", () => {
 		store.set(keys().save, saveText(10, 'here'));
 		takeAccountGame(store, 'Ida', JSON.parse(saveText(10, 'there')));

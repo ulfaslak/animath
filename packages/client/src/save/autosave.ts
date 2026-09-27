@@ -22,6 +22,7 @@ import {
 	MAX_PUT_AWAY,
 	MAX_SET_ASIDE,
 	parseJson,
+	sameJson,
 	setAside,
 	type KeyValueStore,
 	type SaveKeys
@@ -217,6 +218,8 @@ export class Autosave {
 	private pushDue = Infinity;
 	private retryTimer: unknown = null;
 	private pushing = false;
+	/** An account's save the server just refused (`409`), until the server's copy is settled with. */
+	private refused: SaveWrite | null = null;
 	/** The newest `seq` already sent with `keepalive`, so hiding and then leaving send it once. */
 	private flushed = 0;
 	private creating = false;
@@ -784,6 +787,8 @@ export class Autosave {
 				if (this.latest && this.latest.seq > this.pushed) this.schedulePush(true);
 				return;
 			case 'conflict':
+				// An account's save, refused: another device's save got there first.
+				if (this.server?.session) this.refused = doc;
 				await this.checkServer();
 				return;
 			case 'refused':
@@ -869,14 +874,35 @@ export class Autosave {
 			} else this.schedulePush(true);
 			return;
 		}
+		// An account's save refused (`409`) because another device's got there first: the
+		// server's copy is the game now, even when this page has saved on since, unless it is
+		// this page's own save, sent before and not heard back. The refusal is kept until the
+		// adoption is done: carrying on from another tab's walk settles again, and must not
+		// then push that walk over the other device's game.
+		const refused = this.refused;
+		if (refused && sameGame && theirs >= refused.seq && !sameJson(refused, doc)) {
+			this.adopt(read.save, doc);
+			this.refused = null;
+			return;
+		}
+		this.refused = null;
 		// A tie goes to the server's game, but only a tie between saves: at 0 neither has one.
-		if (theirs > this.seq || (theirs === this.seq && theirs > 0 && !sameGame)) {
+		// An account's game is played on several devices, so a tie within the game goes to the
+		// server's too when the two saves differ.
+		const tie = theirs === this.seq && theirs > 0;
+		const fork = this.server?.session === true && sameGame && tie && !sameJson(this.ours(), doc);
+		if (theirs > this.seq || (tie && !sameGame) || fork) {
 			this.adopt(read.save, doc);
 			return;
 		}
 		this.pushed = sameGame ? theirs : 0;
 		this.serverState = 'ready';
 		if (this.seq > this.pushed) this.schedulePush(true);
+	}
+
+	/** This page's newest save: the one it built last, else the one it loaded. */
+	private ours(): unknown {
+		return this.latest ?? this.base;
 	}
 
 	/**

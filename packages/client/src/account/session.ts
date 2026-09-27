@@ -1,10 +1,11 @@
-import { nameKey, readSave, saveLineage, saveSeq } from '@mathgame/engine';
+import { nameKey, readSave, saveSeq } from '@mathgame/engine';
 import {
 	ACCOUNT_KEYS,
 	KEYS,
 	MAX_PUT_AWAY,
 	accountKeys,
 	parseJson,
+	sameJson,
 	setAside,
 	type KeyValueStore,
 	type SaveKeys
@@ -102,7 +103,8 @@ export function moveGuestGameIn(store: KeyValueStore, name: string): boolean {
  * Just logged in to `name`, which holds `theirs` on the server (null: no
  * save there yet): this browser's copy of the account's game becomes the
  * one that is further along, as the autosave settles it (the higher `seq`;
- * a tie between two games goes to the server's). The one that gives way is
+ * a tie goes to the server's when the two saves differ: another game, or
+ * this one played on another device). The one that gives way is
  * kept aside (`replaced`, or `unreadable` when this build could not read
  * it). A copy this browser holds from a newer build is never written over,
  * and a server copy this build cannot read is left on the server.
@@ -122,9 +124,9 @@ export function takeAccountGame(store: KeyValueStore, name: string, theirs: unkn
 	if (!read.ok && read.reason === 'newer') return;
 	const ours = read.ok ? saveSeq(doc) : 0;
 	const serverSeq = saveSeq(theirs);
+	// A tie goes to the server's: another game, or this one played on another device.
 	const serverAhead =
-		serverSeq > ours ||
-		(serverSeq === ours && serverSeq > 0 && saveLineage(theirs) !== saveLineage(doc));
+		serverSeq > ours || (serverSeq === ours && serverSeq > 0 && !sameJson(theirs, doc));
 	if (!read.ok || serverAhead) {
 		if (setAside(store, read.ok ? keys.replaced : keys.unreadable, mine))
 			store.set(keys.save, text);

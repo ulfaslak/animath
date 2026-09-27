@@ -274,6 +274,124 @@ describe("an account's game in the browser", () => {
 		expect(server.calls.filter((c) => c === 'put').length).toBe(puts + 1);
 	});
 
+	it('two devices at the same save number with different games: the one refused takes the server’s and keeps its own aside', async () => {
+		const server = new FakeAccountServer();
+		server.save = saveDocument(gameOf(), { lineage: 'shared', seq: 10 });
+		const x = new Page(new MemoryStore(), server);
+		const y = new Page(new MemoryStore(), server);
+		await x.open();
+		await y.open();
+		// Both write the same first save at 11: one lands, the other is the same game.
+		await later(2000);
+		expect(y.autosave.behind).toBeNull();
+		await x.catchOne();
+		await later(2000);
+		const xs = server.save as SaveWrite;
+		expect(xs.seq).toBe(12);
+		// Y caught something else, and saves the same number: refused, it takes X's.
+		y.game.party.push({ id: 'bear', speciesId: 'bear', hp: 9 });
+		y.autosave.handle({ type: 'party-changed' } as GameEvent);
+		await settle();
+		await later(2000);
+		expect(y.autosave.behind).toBe('replaced');
+		expect(server.save).toEqual(xs);
+		expect(y.saved()?.party.map((a) => a.id)).toEqual(xs.party.map((a) => a.id));
+		const kept = JSON.parse(y.store.get(KEYS_IDA.replaced)!) as SaveWrite;
+		expect(kept.party.some((a) => a.id === 'bear')).toBe(true);
+		// And Y pushes nothing over X's game.
+		expect(await y.autosave.pushNow(1000)).toBe(false);
+		expect(server.save).toEqual(xs);
+	});
+
+	it('refused, then saved on past the server’s number before hearing what it holds: still the server’s game, never pushed over it', async () => {
+		const server = new FakeAccountServer();
+		server.save = saveDocument(gameOf(), { lineage: 'shared', seq: 10 });
+		const x = new Page(new MemoryStore(), server);
+		const y = new Page(new MemoryStore(), server);
+		await x.open();
+		await y.open();
+		await later(2000);
+		await x.catchOne();
+		await later(2000);
+		const xs = server.save as SaveWrite;
+		expect(xs.seq).toBe(12);
+		// Y's own 12 is refused, and the answer to "what does the server hold?" is lost on the way.
+		const get = server.getSave.bind(server);
+		let lost = true;
+		server.getSave = async () => {
+			if (!lost) return get();
+			lost = false;
+			return { kind: 'offline' };
+		};
+		y.game.party.push({ id: 'bear', speciesId: 'bear', hp: 9 });
+		y.autosave.handle({ type: 'party-changed' } as GameEvent);
+		await settle();
+		await later(1500);
+		// Y plays on past the server's number before it asks again.
+		await y.walk();
+		await y.walk();
+		expect(y.saved()!.seq).toBeGreaterThan(xs.seq);
+		expect(y.autosave.behind).toBeNull();
+		await later(70_000);
+		expect(y.autosave.behind).toBe('replaced');
+		expect(server.save).toEqual(xs);
+		const kept = JSON.parse(y.store.get(KEYS_IDA.replaced)!) as SaveWrite;
+		expect(kept.seq).toBe(xs.seq + 2);
+		expect(kept.party.some((a) => a.id === 'bear')).toBe(true);
+	});
+
+	it('refused while another tab walked on unseen: the re-settle still takes the server’s game', async () => {
+		const server = new FakeAccountServer();
+		server.save = saveDocument(gameOf(), { lineage: 'shared', seq: 10 });
+		const shared = new MemoryStore();
+		const x = new Page(new MemoryStore(), server);
+		const y1 = new Page(shared, server);
+		await x.open();
+		await y1.open();
+		const y2 = new Page(shared, server);
+		await y2.open();
+		await later(2000);
+		await x.catchOne();
+		await later(2000);
+		const xs = server.save as SaveWrite;
+		expect(xs.seq).toBe(12);
+		// Tab 1 walks (12), and tab 2 walks on from it (13) before tab 1 hears of it.
+		await y1.walk();
+		await later(100);
+		await y2.walk();
+		expect(y1.saved()!.seq).toBe(13);
+		// Tab 1's walk is refused. Carrying on from tab 2's walk must not make it forget why.
+		await later(14_950);
+		expect(y1.autosave.behind).toBe('replaced');
+		expect(y1.saved()).toEqual(xs);
+		expect((JSON.parse(shared.get(KEYS_IDA.replaced)!) as SaveWrite).seq).toBe(13);
+		expect(server.save).toEqual(xs);
+	});
+
+	it('its own save, sent before and not heard back, is not another device’s: it goes on pushing', async () => {
+		const server = new FakeAccountServer();
+		const page = new Page(new MemoryStore(), server);
+		await page.open();
+		await page.catchOne();
+		await later(2000);
+		// The server already holds exactly this page's newest save (an answer lost on the way).
+		const mine = page.saved()!;
+		server.save = JSON.parse(JSON.stringify(mine));
+		const put = server.putSave.bind(server);
+		let once = true;
+		server.putSave = async (who, doc) => {
+			if (once) {
+				once = false;
+				return { kind: 'conflict' };
+			}
+			return put(who, doc);
+		};
+		await page.walk();
+		await later(20_000);
+		expect(page.autosave.behind).toBeNull();
+		expect((server.save as SaveWrite).seq).toBe(page.saved()!.seq);
+	});
+
 	it('names the game it plays while one is under way', async () => {
 		const page = new Page(new MemoryStore(), new FakeAccountServer());
 		expect(page.autosave.playing).toBeNull();
