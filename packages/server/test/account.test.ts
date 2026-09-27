@@ -535,6 +535,12 @@ describe('what a request must be', () => {
 			origin: 'http://localhost:5180'
 		});
 		expect((await proxied.register(freshName())).status).toBe(201);
+		// Behind a proxy that passes the name without its port (nginx's $host),
+		// the page on a port of its own is ours; a Host with a port must match it.
+		const portless = new Browser(app, { ...site, origin: 'https://animath.example:8443' });
+		expect((await portless.register(freshName())).status).toBe(201);
+		const otherPort = new Browser(app, { host: 'localhost:3000', origin: 'http://localhost:5180' });
+		expect((await otherPort.register(freshName())).status).toBe(403);
 		expect((await new Browser(app, site).register(freshName())).status).toBe(201);
 		// A logged-in browser's PUT from another site's page changes nothing.
 		const { browser } = await account();
@@ -679,6 +685,16 @@ describe('rate limits', () => {
 			expect(res.status).toBe(401);
 		}
 		expect((await from(limited, 'another-spoof, 10.8.0.2').login(freshName())).status).toBe(429);
+	});
+
+	it('counts an IPv6 client by its /64, where every address is theirs to pick', async () => {
+		const limited = createApp({ limits: TIGHT });
+		for (let i = 0; i < 6; i++) {
+			const res = await from(limited, `2001:db8:9:9::${i + 1}`).login(freshName(), 'wrong');
+			expect(res.status).toBe(401);
+		}
+		expect((await from(limited, '2001:db8:9:9:ffff::77').login(freshName())).status).toBe(429);
+		expect((await from(limited, '2001:db8:9:a::1').login(freshName())).status).toBe(401);
 	});
 
 	it('blocks an address after four registrations, and a name after two tries', async () => {

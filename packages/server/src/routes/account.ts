@@ -8,7 +8,7 @@ import { accountSaves } from '../db/schema.js';
 import { checkName, nameKey } from '../names-stub.js';
 import { hashPassword, verifyDecoy, verifyPassword } from '../passwords.js';
 import { RateLimiter, type AccountLimits, type Verdict } from '../rate-limit.js';
-import { clientIp, readJson, sameOriginJson } from '../request.js';
+import { clientIp, rateKey, readJson, sameOriginJson } from '../request.js';
 import { SAVE_MAX_BYTES, writeAccountSave } from '../save.js';
 import {
 	clearSessionCookie,
@@ -111,7 +111,7 @@ export function accountRoute({ cookie, limits }: AccountRouteOptions) {
 	return new Hono<Env>()
 		.use('*', sameOriginJson)
 		.post('/register', tooBig(REGISTER_MAX_BYTES), async (c) => {
-			const byIp = limit.registerPerIp.hit(clientIp(c));
+			const byIp = limit.registerPerIp.hit(rateKey(clientIp(c)));
 			if (!byIp.ok) return tooMany(c, byIp);
 			const body = await readJson(c);
 			if (body === undefined) return c.json({ error: 'body is not valid JSON' }, 400);
@@ -154,7 +154,7 @@ export function accountRoute({ cookie, limits }: AccountRouteOptions) {
 			return c.json({ user: { name: named.name } }, 201);
 		})
 		.post('/login', tooBig(LOGIN_MAX_BYTES), async (c) => {
-			const byIp = limit.loginPerIp.hit(clientIp(c));
+			const byIp = limit.loginPerIp.hit(rateKey(clientIp(c)));
 			if (!byIp.ok) return tooMany(c, byIp);
 			const body = await readJson(c);
 			if (body === undefined) return c.json({ error: 'body is not valid JSON' }, 400);

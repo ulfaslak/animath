@@ -38,10 +38,53 @@ export function clientIp(c: Context): string {
 	return last || peer || 'unknown';
 }
 
-/** The host a browser addressed: the proxy's `X-Forwarded-Host` when one set it, and `Host`. */
+/** The eight groups of an IPv6 address, in lower-case hex without leading zeros; null when it is not one. */
+function ipv6Groups(ip: string): string[] | null {
+	const address = ip.split('%')[0]!.toLowerCase();
+	if (!address.includes(':') || !/^[0-9a-f:.]+$/.test(address)) return null;
+	const halves = address.split('::');
+	if (halves.length > 2) return null;
+	const groupsOf = (part: string) => (part === '' ? [] : part.split(':'));
+	const head = groupsOf(halves[0]!);
+	const tail = halves.length === 2 ? groupsOf(halves[1]!) : [];
+	// An IPv4 address written at the end fills the last two groups.
+	const width = (groups: string[]) => groups.reduce((n, g) => n + (g.includes('.') ? 2 : 1), 0);
+	const missing = 8 - width(head) - width(tail);
+	if (halves.length === 2 ? missing < 1 : missing !== 0) return null;
+	const groups = [...head, ...Array<string>(Math.max(0, missing)).fill('0'), ...tail];
+	if (!groups.every((g) => /^[0-9a-f]{1,4}$/.test(g) || /^\d{1,3}(\.\d{1,3}){3}$/.test(g)))
+		return null;
+	return groups.map((g) => (g.includes('.') ? g : parseInt(g, 16).toString(16)));
+}
+
+/**
+ * The key a client's rate limits count under: an IPv4 address itself, and an
+ * IPv6 address's /64, the block one household or one server is given, since
+ * picking another address inside it costs nothing.
+ */
+export function rateKey(ip: string): string {
+	const v4 = ip.startsWith('::ffff:') ? ip.slice(7) : ip;
+	if (/^\d{1,3}(\.\d{1,3}){3}$/.test(v4)) return v4;
+	const groups = ipv6Groups(ip);
+	return groups ? `${groups.slice(0, 4).join(':')}::/64` : ip;
+}
+
+/** The hosts a browser may have addressed: `Host`, and a proxy's `X-Forwarded-Host` when one set it. */
 function requestHosts(c: Context): string[] {
 	const hosts = [c.req.header('host'), c.req.header('x-forwarded-host')?.split(',')[0]];
 	return hosts.flatMap((h) => (h ? [h.trim().toLowerCase()] : []));
+}
+
+/**
+ * Whether `origin` names `host`. A host with a port must match the origin's
+ * host and port; one without a port is compared by name alone, because a
+ * proxy may pass the name the browser used without its port (nginx's `$host`
+ * does), and a page on this name at another port is still a page of ours.
+ */
+function names(origin: URL, host: string): boolean {
+	return /:\d+$/.test(host)
+		? host === origin.host.toLowerCase()
+		: host === origin.hostname.toLowerCase();
 }
 
 /**
@@ -56,13 +99,13 @@ function requestHosts(c: Context): string[] {
 export function fromThisSite(c: Context): boolean {
 	const origin = c.req.header('origin');
 	if (origin === undefined) return true;
-	let host: string;
+	let url: URL;
 	try {
-		host = new URL(origin).host.toLowerCase();
+		url = new URL(origin);
 	} catch {
 		return false;
 	}
-	return host !== '' && requestHosts(c).includes(host);
+	return url.host !== '' && requestHosts(c).some((host) => names(url, host));
 }
 
 /**
