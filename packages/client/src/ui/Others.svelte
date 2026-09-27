@@ -284,12 +284,14 @@
 	 * puffs trail back down to the name.
 	 */
 	.thought {
+		/* Upright until the page says which way (the label's own `--lean`). */
+		--lean: 0;
 		position: relative;
 		display: flex;
 		flex-direction: column;
 		align-items: center;
 		padding-bottom: 12px;
-		translate: calc(var(--lean, 0) * 32%) 0;
+		translate: calc(var(--lean) * 32%) 0;
 	}
 	.cloud {
 		position: relative;
@@ -331,13 +333,13 @@
 		width: 9px;
 		height: 9px;
 		bottom: 3px;
-		left: calc(50% - 4.5px - var(--lean, 0) * 22%);
+		left: calc(50% - 4.5px - var(--lean) * 22%);
 	}
 	.trail.small {
 		width: 5px;
 		height: 5px;
 		bottom: -3px;
-		left: calc(50% - 2.5px - var(--lean, 0) * 30%);
+		left: calc(50% - 2.5px - var(--lean) * 30%);
 	}
 	/* Choosing what to do: three dots, one after the other. */
 	.dots {
