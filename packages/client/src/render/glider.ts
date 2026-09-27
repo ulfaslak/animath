@@ -6,8 +6,9 @@ import { GLIDER_COLORS } from './palette';
  * The paraglider ([[UI_SPEC]] § Explore mode): built from primitives, a
  * child of the trainer's figure like the boat, so it turns and moves with
  * them. Folded, it is a little rolled-up canopy strapped high on the
- * trainer's back, peeking out past both shoulders (above the boat's shell
- * when they carry the boat too). Open, it is a bright arched wing over their
+ * trainer's back, cream with two bands of the canopy's colour, peeking out
+ * past both shoulders (above the boat's shell when they carry the boat
+ * too). Open, it is a bright arched wing over their
  * head, its cells in their shirt's colour and cream, with four lines down to
  * their shoulders.
  *
@@ -110,17 +111,18 @@ export function buildGliderMesh(color: number = GLIDER_COLORS.canopy): THREE.Gro
 	const glider = new THREE.Group();
 	glider.name = 'glider';
 
-	// Folded: a roll across the back, in the canopy's colour with two cream bands.
+	// Folded: a cream roll across the back with two bands of the canopy's colour, so it reads
+	// against a shirt of that colour.
 	const roll = new THREE.Group();
 	roll.name = 'roll';
 	const body = new THREE.CylinderGeometry(ROLL_RADIUS, ROLL_RADIUS, ROLL_LENGTH, 8);
 	body.rotateZ(Math.PI / 2);
-	roll.add(mesh(body, cellMaterial(color)));
+	roll.add(mesh(body, creamMaterial));
 	for (const x of [-0.11, 0.11]) {
 		const band = new THREE.CylinderGeometry(ROLL_RADIUS * 1.08, ROLL_RADIUS * 1.08, 0.035, 8);
 		band.rotateZ(Math.PI / 2);
 		band.translate(x, 0, 0);
-		roll.add(mesh(band, creamMaterial));
+		roll.add(mesh(band, cellMaterial(color)));
 	}
 	glider.add(roll);
 

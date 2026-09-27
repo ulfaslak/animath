@@ -608,8 +608,10 @@ export class LocalAuthority implements Authority {
 	/**
 	 * `glide`: one tile on, a step like any (the step count keys what comes
 	 * after a flight, as after a walk), and never a battle: nothing on the
-	 * ground notices a kid up in the air. The glide onto the reach comes down
-	 * there; a glide past it is a landing.
+	 * ground notices a kid up in the air. At the reach it goes no further: a
+	 * glide past it is a landing there. The glide onto the reach does not land
+	 * by itself, so the tile is flown over (and said to be, to the others)
+	 * before it is landed on.
 	 */
 	private glide(flight: Flight): void {
 		const next = glideOn(flight);
@@ -622,7 +624,6 @@ export class LocalAuthority implements Authority {
 		this.steps += 1;
 		// #91 part 2, birds in the air: a bird may notice the glider on each tile it enters.
 		this.emit({ type: 'glided', playerId: this.playerId, pos: { ...this.pos }, flown: next.flown });
-		if (next.flown === next.reach) this.land(next);
 	}
 
 	/**

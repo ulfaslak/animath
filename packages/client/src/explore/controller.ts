@@ -34,6 +34,8 @@ import { team } from '../state/team.svelte';
 
 /** Seconds of the little hop in place when a take-off is refused. */
 const HOP_SECONDS = 0.3;
+/** How far the canopy has come out of its roll by the end of the wind-up (0 folded, 1 open): a jump is coming. */
+const WIND_UP_OPEN = 0.45;
 
 type TileCleared = Extract<GameEvent, { type: 'tile-cleared' }>;
 
@@ -434,13 +436,14 @@ export class ExploreController {
 		const f = this.flight;
 		const hop = this.hop ?? 0;
 		if (!f) {
+			// Winding up: knees bending, and the canopy already coming out of its roll.
 			const crouch = this.keyboard.windUp();
-			return { lift: 0, open: crouch * 0.3, crouch, hop };
+			return { lift: 0, open: crouch * WIND_UP_OPEN, crouch, hop };
 		}
 		switch (f.phase) {
 			case 'rise': {
 				const p = Math.min(1, f.t / RISE_SECONDS);
-				return { lift: p, open: 0.3 + 0.7 * p, crouch: 1 - p, hop: 0 };
+				return { lift: p, open: WIND_UP_OPEN + (1 - WIND_UP_OPEN) * p, crouch: 1 - p, hop: 0 };
 			}
 			case 'glide':
 				return { lift: 1, open: 1, crouch: 0, hop: 0 };

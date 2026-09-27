@@ -2393,8 +2393,9 @@ describe('LocalAuthority: the glider', () => {
 		for (let i = 0; i < 20; i++) {
 			const dir: Direction = i % 2 === 0 ? 'up' : 'down';
 			sea.authority.dispatch({ type: 'move', dir });
-			// The bump turned the trainer (or a step onto the water sailed): take off from there.
-			dispatchAll(sea, [{ type: 'take-off' }, ...glides(20)]);
+			// The bump turned the trainer (or a step onto the water sailed): take off from there,
+			// and hold on: twenty tiles, and a glide past the reach comes down on it.
+			dispatchAll(sea, [{ type: 'take-off' }, ...glides(21)]);
 			expect(landedAt(sea)?.flown).toBe(20);
 		}
 		expect(sea.events.some((e) => e.type === 'battle-started')).toBe(false);

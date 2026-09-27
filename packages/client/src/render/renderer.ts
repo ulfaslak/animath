@@ -547,8 +547,17 @@ export class GameRenderer {
 		const air = this.air;
 		const lift = smoothstep(air.lift);
 		if (rig && air.crouch > 0) {
-			// Knees bent for the jump: shorter, and a little lower, about the feet.
-			rig.scale.y *= 1 - 0.12 * air.crouch;
+			// Knees bent for the jump: shorter, about the feet.
+			rig.scale.y *= 1 - 0.2 * air.crouch;
+		}
+		// Up in the air the dark disc under them is their shadow: the sun's, cast off to one side
+		// and a little way off, would be a second one.
+		const up = lift > 0.02;
+		if (this.player.userData.airborne !== up) {
+			this.player.userData.airborne = up;
+			this.player.traverse((o) => {
+				if (o instanceof THREE.Mesh) o.castShadow = !up;
+			});
 		}
 		const flying = lift > 0 && !calm;
 		this.player.rotation.z = flying ? Math.sin(t * 1.3) * 0.05 * lift : 0;

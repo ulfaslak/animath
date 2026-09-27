@@ -84,8 +84,9 @@ export type Intent =
 	/**
 	 * In the air: one tile on (the screen sends one each time the last tile is
 	 * flown, at the glide's pace, for as long as Space is held and after it,
-	 * on to the landing tile). Answered with `glided`; the glide onto the
-	 * reach lands there too (`landed`).
+	 * on to the landing tile). Answered with `glided`. At the reach it goes no
+	 * further: a glide past it lands there (`landed`), so the reach is always
+	 * flown over before it is landed on.
 	 */
 	| { type: 'glide' }
 	/**
