@@ -215,6 +215,21 @@ describe('pause menu', () => {
 		expect(language.current).toBe('en');
 	});
 
+	it('Keep playing and Start screen stand side by side: left and right step between them', () => {
+		const { press, downTo, sent } = setup();
+		const at = (item: (typeof MENU_ITEMS)[number]) =>
+			bundles(game.party).length + MENU_ITEMS.indexOf(item);
+		press('Escape', ...downTo('resume'));
+		expect(press('ArrowRight').prevented).toBe(true);
+		expect(pause.cursor).toBe(at('quit'));
+		press('d');
+		expect(pause.cursor).toBe(at('quit'));
+		press('ArrowLeft');
+		expect(pause.cursor).toBe(at('resume'));
+		press('a');
+		expect([pause.open, pause.cursor, sent]).toEqual([true, at('resume'), []]);
+	});
+
 	it('"Go first" sends select-lead and comes back to the list on the animal, now first', () => {
 		const { press, sent, species } = setup();
 		const fox = game.party[2]!;

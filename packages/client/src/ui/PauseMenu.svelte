@@ -140,6 +140,9 @@
 		return clean === pause.draft.trim().replace(/\s+/g, ' ') ? '' : clean;
 	});
 
+	/** The menu's last two rows, drawn side by side (`PauseController`: left and right step between them). */
+	const PAIR: readonly MenuItem[] = ['resume', 'quit'];
+
 	/** The Worlds screen's rows, and why Go is greyed when it is. */
 	const worldOptions = $derived(worldRows(pause.worldDraft, game.world, game.home));
 	const noGo = $derived(whyNoGo(pause.worldDraft, game.world));
@@ -309,45 +312,60 @@
 					{/each}
 					{#each MENU_ITEMS as item, j (item)}
 						{@const row = cards.length + j}
-						<button
-							type="button"
-							class="row item"
-							class:lit={pause.screen === 'list' && lit === row}
-							data-press={rowKey(row)}
-							{@attach unfocusable}
-						>
-							{#if item === 'language'}
-								<!-- Each language in its own words, so a kid finds theirs in any language;
+						{#if !PAIR.includes(item)}
+							<button
+								type="button"
+								class="row item"
+								class:lit={pause.screen === 'list' && lit === row}
+								data-press={rowKey(row)}
+								{@attach unfocusable}
+							>
+								{#if item === 'language'}
+									<!-- Each language in its own words, so a kid finds theirs in any language;
 							     a tap on one is that language, anywhere else on the row the row. -->
-								<span class="setting">{itemLabel(item)}</span>
-								<span class="choices">
-									{#each LANGUAGES as code (code)}
-										<span
-											class="choice"
-											class:on={language.current === code}
-											lang={code}
-											data-press={languageKey(code)}
-										>
-											{languageName(code)}
-										</span>
-									{/each}
-								</span>
-							{:else if item === 'worlds'}
-								<!-- The world the kid is in, beside the row: the number to tell a friend. -->
-								<span class="setting">{itemLabel(item)}</span>
-								<span class="setting-value">{t('worlds.world', { world: game.world })}</span>
-							{:else if item === 'sound'}
-								<!-- A setting: its name, a switch, and the switch's state in words. -->
-								<span class="setting">{itemLabel(item)}</span>
-								<Switch on={sfx.on} />
-								<span class="setting-state"
-									>{sfx.on ? t('pause.soundOn') : t('pause.soundOff')}</span
-								>
-							{:else}
-								<span class="button" class:secondary={item !== 'resume'}>{itemLabel(item)}</span>
-							{/if}
-						</button>
+									<span class="setting">{itemLabel(item)}</span>
+									<span class="choices">
+										{#each LANGUAGES as code (code)}
+											<span
+												class="choice"
+												class:on={language.current === code}
+												lang={code}
+												data-press={languageKey(code)}
+											>
+												{languageName(code)}
+											</span>
+										{/each}
+									</span>
+								{:else if item === 'worlds'}
+									<!-- The world the kid is in, beside the row: the number to tell a friend. -->
+									<span class="setting">{itemLabel(item)}</span>
+									<span class="setting-value">{t('worlds.world', { world: game.world })}</span>
+								{:else if item === 'sound'}
+									<!-- A setting: its name, a switch, and the switch's state in words. -->
+									<span class="setting">{itemLabel(item)}</span>
+									<Switch on={sfx.on} />
+									<span class="setting-state"
+										>{sfx.on ? t('pause.soundOn') : t('pause.soundOff')}</span
+									>
+								{/if}
+							</button>
+						{/if}
 					{/each}
+					<!-- Keep playing and Start screen, side by side: two buttons, one row of the menu's height. -->
+					<div class="pair">
+						{#each PAIR as item (item)}
+							{@const row = cards.length + MENU_ITEMS.indexOf(item)}
+							<button
+								type="button"
+								class="row item"
+								class:lit={pause.screen === 'list' && lit === row}
+								data-press={rowKey(row)}
+								{@attach unfocusable}
+							>
+								<span class="button" class:secondary={item !== 'resume'}>{itemLabel(item)}</span>
+							</button>
+						{/each}
+					</div>
 				</div>
 
 				<div class="side">
@@ -510,8 +528,9 @@
 		padding: 18px 22px 16px;
 	}
 	/*
-	 * The spacing is trimmed so a team of all eight kinds, with the settings
-	 * under it, fits 1024×768 without the menu scrolling.
+	 * The spacing is trimmed, and Keep playing and Start screen share a row, so
+	 * a team of all eight kinds, with Worlds and the settings under it, fits
+	 * 1024×768 without the menu scrolling.
 	 */
 	.title {
 		font-weight: 800;
@@ -646,6 +665,13 @@
 	}
 	.item {
 		margin-top: 4px;
+	}
+	.pair {
+		display: flex;
+		gap: 8px;
+	}
+	.pair .row {
+		width: auto;
 	}
 	.setting {
 		flex: 1;

@@ -175,9 +175,20 @@ export class PauseController {
 			case 'ArrowLeft':
 			case 'a':
 			case 'ArrowRight':
-			case 'd':
+			case 'd': {
+				const right = key === 'ArrowRight' || key === 'd';
+				// Keep playing and Start screen stand side by side: left and right step between them.
+				if (item === 'resume' || item === 'quit') {
+					const to = right ? 'quit' : 'resume';
+					if (item !== to) {
+						pause.cursor = cards.length + MENU_ITEMS.indexOf(to);
+						sfx.play('move');
+					}
+					return true;
+				}
 				// Left and right set the setting on its row, and do nothing elsewhere.
-				return item !== undefined && this.settingKey(item, key === 'ArrowRight' || key === 'd');
+				return item !== undefined && this.settingKey(item, right);
+			}
 			case 'Escape':
 				this.close();
 				return true;
