@@ -284,7 +284,7 @@ Hand-written SQL, applied by `pnpm db:migrate` (`drizzle-orm`'s migrator, journa
 1. Edit `packages/server/src/db/schema.ts`.
 2. Add `packages/server/drizzle/NNNN_<name>.sql` with the next number. Use `IF NOT EXISTS` / `IF EXISTS` so it is idempotent.
 3. Append an entry to `packages/server/drizzle/meta/_journal.json`: `idx` +1, `tag` = filename without `.sql`, `version: "7"`, a larger `when`, `breakpoints: true`. **A `.sql` without a journal entry is never applied.**
-4. Run `pnpm db:migrate`, then confirm with `pnpm db:psql -c "\d <table>"` (from a worktree, the `-p mathgame` form in § Database).
+4. Run `pnpm db:migrate` against a database of your own, never `mathgame` (§ Running: `DATABASE_URL=postgres://postgres:postgres@localhost:5433/mathgame_<yours> pnpm db:migrate`), then confirm there with `\d <table>` (the `-p mathgame` form in § Database, with `-d mathgame_<yours>`). Production runs it at the deploy (§ How a merge reaches prod).
 
 Never run `drizzle-kit generate` in a worktree (it emits a full `0000` dump that collides with the real one).
 
