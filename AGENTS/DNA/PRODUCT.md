@@ -316,7 +316,7 @@ What is built and observable today. Keep current: add a bullet when a feature sh
 ### Server
 
 - Health endpoint reporting database reachability and the build that is running.
-- Ready to go online at its own address: every change deploys itself, with no gap while it does, and the page carries the build it came from. While the game does not answer (a first start, or the server down) the address shows "Back in a moment! The game is getting ready." in the kid's language, and reloads itself into the game. It goes live once the server and the domain exist ([[HUMAN_TODO]]); until then kids play over the tunnel.
+- Online at its own address, https://animath.xyz (www.animath.xyz leads there): every change deploys itself, with no gap while it does, and the page carries the build it came from. While the game does not answer (a first start, or the server down) the address shows "Back in a moment! The game is getting ready." in the kid's language, and reloads itself into the game. The kids who played before it went live still play over the tunnel until their games move over (§6).
 - Anonymous identity (development only: off on the public server): a player is created with one request and gets an id plus a secret, for the guest's backup.
 - Optional accounts: register (with the guest's game), log in and out, and the account's save, which lands only with a higher save number (an older one gets the server's copy back). A password is kept only as a slow, salted hash; logging in and registering are rate-limited; a grown-up resets a forgotten password with the admin command.
 - One backup save per player, stored and returned as a versioned document (the world number and home, the player's name, position, facing, the step and doctor-visit counts, the game's id and the save's number, a party of any size, a battle in progress). A page still open from before an update backs up as before (its save is upgraded on arrival). A backup lands only with a higher save number than the one stored; a different game or an unreadable save it replaces is kept aside.
@@ -327,7 +327,7 @@ What is built and observable today. Keep current: add a bullet when a feature sh
 
 In rough priority order. Each becomes a GitHub issue when picked up. The choices behind the first are [[DECISIONS]] § Deployment.
 
-1. **The public website.** The game at its own address on the internet, always on, instead of shared from the human's machine through a tunnel; a game played so far moves there with its player, without losing anything. The deploy is built (§5 Server); agents are putting it on its own server at animath.xyz ([[HUMAN_TODO]]), and moving a game there is not built yet.
+1. **Moving a game to the public website.** The game is live at https://animath.xyz (§5 Server), always on. A game played so far over the tunnel from the human's machine does not move there yet: it should move with its player, without losing anything.
 2. Real low-poly animal models (glTF, CC0 sources, see [[DECISIONS]]) with attack animations, replacing the primitive figures.
 3. Procedural world v2: rivers that flow, paths, biome shaping, landmarks.
 4. Puzzle catalog v2: fractions, decimals, negatives, percentages, word problems, per-child adaptive difficulty.
