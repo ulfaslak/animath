@@ -32,6 +32,11 @@
 #      at a start, and when its config is now step 1's, a reload. Otherwise a
 #      recreate, which renders it at the start.
 #
+# A reload counts once nginx runs new workers: nginx can still refuse, as it
+# applies it, a config `nginx -T` passed, and then keeps its old workers and
+# the config they run. That returns 1, and the deploy fails with nginx
+# serving as it was.
+#
 # A reload refuses no connection: nginx's new workers take the new ones at
 # once, and the old workers finish what they hold (a WebSocket stays with its
 # old worker until it closes). A recreate refuses every connection until nginx
@@ -85,7 +90,7 @@ apply_nginx_config() {
 	running=$(docker exec "$after" nginx -T 2>/dev/null </dev/null || true)
 	if [ "$candidate" = "$running" ]; then
 		echo "    nginx config: rendered template unchanged — reload only"
-		docker exec "$after" nginx -s reload </dev/null
+		reload_nginx "$after"
 		return
 	fi
 
@@ -97,7 +102,7 @@ apply_nginx_config() {
 	running=$(docker exec "$after" nginx -T 2>/dev/null </dev/null || true)
 	if [ "$candidate" = "$running" ]; then
 		echo "    nginx config: the template changed — rendered again in the running nginx, reload"
-		docker exec "$after" nginx -s reload </dev/null
+		reload_nginx "$after"
 		return
 	fi
 
@@ -105,6 +110,29 @@ apply_nginx_config() {
 	# shellcheck disable=SC2086
 	${compose_cmd} up -d --no-deps --force-recreate nginx || true
 	nginx_is_up "$compose_cmd"
+}
+
+# reload_nginx <container>: reloads nginx; 0 once it runs new workers. nginx
+# can refuse a config `nginx -T` passed as it applies it (a port another
+# process holds, say): `nginx -s reload` exits 0 all the same, and nginx says
+# why in its log and goes on with its old workers and the config they run.
+reload_nginx() {
+	local cid="$1" before now
+	before=$(nginx_workers "$cid")
+	docker exec "$cid" nginx -s reload </dev/null || return 1
+	for _ in $(seq 1 25); do
+		sleep 0.2
+		now=$(nginx_workers "$cid")
+		[ -n "$now" ] && [ "$now" != "$before" ] && return 0
+	done
+	echo "    !! nginx refused the new config and serves with the one it had. Why: docker logs --tail 20 ${cid:0:12}" >&2
+	return 1
+}
+
+# nginx_workers <container>: the PIDs of nginx's current workers, on one line
+# (a worker left from an earlier config is "worker process is shutting down").
+nginx_workers() {
+	docker top "$1" -eo pid,args 2>/dev/null </dev/null | awk '/nginx: worker process$/ { print $1 }' | sort | tr '\n' ' '
 }
 
 # nginx_is_up <compose-cmd>: 0 when nginx is running a few seconds after a
