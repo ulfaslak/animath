@@ -5,6 +5,7 @@ import { LocalAuthority } from '../src/authority/local';
 import { parseParty } from '../src/flags';
 import { motion } from '../src/motion';
 import { game } from '../src/state/game.svelte';
+import { pause } from '../src/state/pause.svelte';
 import { travel } from '../src/state/travel.svelte';
 import {
 	BANNER_SECONDS,
@@ -57,6 +58,7 @@ function setup() {
 
 beforeEach(() => {
 	travel.reset();
+	pause.reset();
 	motion.reduced = false;
 });
 
@@ -144,6 +146,23 @@ describe('a trip to another world', () => {
 		expect(travel.banner).toMatchObject({ world: 3, calm: true });
 		run(FADE_SECONDS + 0.01);
 		expect(travel.cover).toBeNull();
+	});
+
+	it('a menu or the doctor opened over the number puts it away for good', () => {
+		const { controller, run } = setup();
+		controller.go(42);
+		run(CLOSE_SECONDS + OPEN_SECONDS + 0.05);
+		expect(travel.banner).not.toBeNull();
+		pause.open = true;
+		run(0.1);
+		pause.open = false;
+		run(0.1);
+		expect(travel.banner).toBeNull();
+		controller.go(7);
+		run(CLOSE_SECONDS + OPEN_SECONDS + 0.05);
+		expect(travel.banner).not.toBeNull();
+		controller.handle({ type: 'doctor-visit-started' } as unknown as GameEvent);
+		expect(travel.banner).toBeNull();
 	});
 
 	it('leaving for the title, a new game or a battle clears it, and no trip goes after', () => {

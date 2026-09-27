@@ -2,7 +2,9 @@ import type { Authority, GameEvent } from '@mathgame/engine';
 import { sfx } from '../audio/sfx.svelte';
 import { motion } from '../motion';
 import type { GameRenderer } from '../render/renderer';
+import { doctor } from '../state/doctor.svelte';
 import { game } from '../state/game.svelte';
+import { pause } from '../state/pause.svelte';
 import { travel, type Arrival } from '../state/travel.svelte';
 
 /** Seconds the world takes to close into the sky round the trainer. */
@@ -26,7 +28,8 @@ export const BANNER_SECONDS = 2.6;
  *
  * `go` starts one, from the pause menu's Worlds screen; the frame loop calls
  * `update`, and `main.ts` lets no key through while the cover is up
- * (`travel.active`).
+ * (`travel.active`). The number is for the world: a menu or the doctor's
+ * card opened over it puts it away for good.
  */
 export class TravelController {
 	/** The world the cover is closing on the way to; null when no trip is on its way. */
@@ -68,6 +71,9 @@ export class TravelController {
 				this.to = null;
 				travel.reset();
 				break;
+			case 'doctor-visit-started':
+				travel.banner = null;
+				break;
 		}
 	}
 
@@ -93,7 +99,8 @@ export class TravelController {
 		const banner = travel.banner;
 		if (banner) {
 			const age = banner.age + dt;
-			travel.banner = age >= BANNER_SECONDS ? null : { ...banner, age };
+			const over = age >= BANNER_SECONDS || pause.open || doctor.active;
+			travel.banner = over ? null : { ...banner, age };
 		}
 	}
 }
