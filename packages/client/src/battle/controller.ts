@@ -61,7 +61,7 @@ interface Beat {
  * starts slowly, so the step into the grass lands in plain view (a step takes
  * 0.18 s).
  */
-const IRIS_CLOSE_SECONDS = 0.4;
+export const IRIS_CLOSE_SECONDS = 0.4;
 /** Seconds the screen stays closed before the battle scene opens. */
 const IRIS_HOLD_SECONDS = 0.1;
 /** Seconds the world stays on screen after `battle-started`: the iris closing, then the hold. */
@@ -186,6 +186,7 @@ export class BattleController {
 		let handled: boolean;
 		switch (battle.screen) {
 			case 'busy':
+			case 'waiting': // a match's, never a wild battle's
 				handled = true; // swallow mashing while events play
 				break;
 			case 'actions':

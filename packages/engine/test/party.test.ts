@@ -898,7 +898,7 @@ function randomIntent(rng: Rng, party: readonly AnimalInstance[]): PartyIntent {
 
 describe('applyPartyIntent: when', () => {
 	it('changes nothing outside explore, whatever the intent', () => {
-		for (const activity of ['battle', 'doctor', 'shopping'] as PlayerActivity[]) {
+		for (const activity of ['battle', 'doctor', 'flight', 'shopping'] as PlayerActivity[]) {
 			for (const party of PARTIES.slice(0, 40)) {
 				const animal = party.at(-1)!;
 				const intents: PartyIntent[] = [

@@ -4,7 +4,8 @@ import {
 	byeCloseCode,
 	newGame,
 	type GameEvent,
-	type ServerMessage
+	type ServerMessage,
+	type WhereMessage
 } from '@mathgame/engine';
 import * as THREE from 'three';
 import { afterEach, describe, expect, it } from 'vitest';
@@ -23,6 +24,7 @@ import {
 	REFRESHED_KEY,
 	edgeSpot,
 	following,
+	type MatchHooks,
 	type PresenceRenderer
 } from '../src/presence/controller';
 import { GUEST_KEY } from '../src/presence/identity';
@@ -77,7 +79,9 @@ afterEach(() => {
 	presence.reset();
 });
 
-function setup(options: { name?: string | null; throwaway?: boolean; session?: null } = {}) {
+function setup(
+	options: { name?: string | null; throwaway?: boolean; session?: null; match?: MatchHooks } = {}
+) {
 	let now = 100;
 	const sockets: FakeSocket[] = [];
 	const timers: { at: number; run: () => void }[] = [];
@@ -123,7 +127,8 @@ function setup(options: { name?: string | null; throwaway?: boolean; session?: n
 		flush: () => flushes++,
 		reload: () => reloads++,
 		clock: () => now,
-		connection: (onMessage, onStatus) => new PresenceConnection(onMessage, onStatus, deps)
+		connection: (onMessage, onStatus) => new PresenceConnection(onMessage, onStatus, deps),
+		match: options.match
 	});
 	const events: GameEvent[] = [];
 	authority.subscribe((e) => {
@@ -137,7 +142,7 @@ function setup(options: { name?: string | null; throwaway?: boolean; session?: n
 	const connect = () => {
 		socket().readyState = 1;
 		socket().onopen?.({});
-		socket().say({ t: 'hi', v: PROTOCOL_VERSION, pid: 'mine000001', name: 'Ada' });
+		socket().say({ t: 'hi', v: PROTOCOL_VERSION, pid: 'mine000001', name: 'Ada', match: null });
 	};
 	/** A frame, as main.ts runs one: timers due, the others drawn, then presence. */
 	const frame = (seconds = 0.1) => {
@@ -222,6 +227,93 @@ describe('presence on the page', () => {
 		s.frame();
 		s.frame();
 		expect(s.sentOf('where').at(-1)).toMatchObject({ busy: 'battle' });
+	});
+
+	it('up in the air says so: each tile flown goes as a flight, and the landing tile as walking again', () => {
+		const s = setup();
+		s.authority.start({
+			game: { ...newGame(1, undefined, 'Ada'), items: ['glider'], facing: 'up' }
+		});
+		s.connect();
+		s.frame();
+		expect(s.sentOf('where').at(-1)).toMatchObject({ x: -2, y: 6, busy: 'explore' });
+		s.authority.dispatch({ type: 'take-off' });
+		s.frame();
+		s.frame();
+		expect(s.sentOf('where').at(-1)).toMatchObject({ x: -2, y: 6, busy: 'flight' });
+		s.authority.dispatch({ type: 'glide' });
+		s.frame();
+		s.frame();
+		expect(s.sentOf('where').at(-1)).toMatchObject({ x: -2, y: 5, busy: 'flight' });
+		// Let go over the lake: down on its far shore, walking again.
+		s.authority.dispatch({ type: 'land' });
+		s.frame();
+		s.frame();
+		expect(s.sentOf('where').at(-1)).toMatchObject({ x: -2, y: -8, busy: 'explore' });
+		// No moment of the flight was sent as a walk over the water.
+		const overWater = s
+			.sentOf('where')
+			.map((m) => m as unknown as WhereMessage)
+			.filter((m) => m.y < 6 && m.y > -8 && m.busy !== 'flight');
+		expect(overWater).toEqual([]);
+	});
+
+	it('held to its reach, the flight sends the landing tile as flown before it sends it as walked', () => {
+		const s = setup();
+		// Three tiles of ground, then water past the 20th: the reach is the third tile.
+		s.authority.start({
+			game: {
+				...newGame(1, undefined, 'Ada'),
+				items: ['glider'],
+				pos: { x: 110, y: -154 },
+				facing: 'right'
+			}
+		});
+		s.connect();
+		s.frame();
+		s.authority.dispatch({ type: 'take-off' });
+		s.frame();
+		s.frame();
+		// Held on: a glide a tile, as the screen sends them, until it comes down by itself.
+		for (let i = 0; i < 4 && !s.events.some((e) => e.type === 'landed'); i++) {
+			s.authority.dispatch({ type: 'glide' });
+			s.frame();
+			s.frame();
+		}
+		const sent = s
+			.sentOf('where')
+			.map((m) => m as unknown as WhereMessage)
+			.filter((m) => m.x === 113);
+		expect(sent.map((m) => m.busy)).toEqual(['flight', 'explore']);
+	});
+
+	it("says a friendly match's screen as a match, and its asking and update cards as exploring", () => {
+		// The match draws on the battle's screen, but it is no wild battle: the others see a
+		// match, and while its cards are up (asking, the update card) the player can still be
+		// asked and asked back, which the server allows only to a player exploring.
+		const hooks = {
+			busy: false,
+			onScreen: false,
+			receive() {},
+			status() {},
+			peer() {},
+			gone() {}
+		};
+		const s = setup({ match: hooks });
+		s.start();
+		s.connect();
+		battle.active = true;
+		hooks.busy = true;
+		hooks.onScreen = true;
+		s.frame();
+		s.frame();
+		expect(s.sentOf('where').at(-1)).toMatchObject({ busy: 'match' });
+		// The server stopped mid-match: the update card is over the battle's screen.
+		hooks.busy = false;
+		s.frame();
+		s.frame();
+		expect(s.sentOf('where').at(-1)).toMatchObject({ busy: 'explore' });
+		battle.active = false;
 	});
 
 	it('never draws or lists the player themselves, whatever the server says', () => {
@@ -368,6 +460,29 @@ describe('presence on the page', () => {
 		const at = game.pos;
 		s.socket().say({ t: 'found', pid: 'friend0001', x: 140, y: -40 });
 		expect(game.pos).toEqual(at);
+	});
+
+	it('does not go when the player took off while the server answered, and sends no go-to into the flight', () => {
+		const s = setup();
+		s.authority.start({
+			game: { ...newGame(1, undefined, 'Ada'), items: ['glider'], facing: 'up' }
+		});
+		s.connect();
+		s.controller.goTo('friend0001');
+		s.authority.dispatch({ type: 'take-off' });
+		const asked: string[] = [];
+		const dispatch = s.authority.dispatch.bind(s.authority);
+		s.authority.dispatch = (intent) => {
+			asked.push(intent.type);
+			dispatch(intent);
+		};
+		const sentBefore = s.events.length;
+		s.socket().say({ t: 'found', pid: 'friend0001', x: 140, y: -40 });
+		expect(asked).toEqual([]);
+		expect(s.events.slice(sentBefore)).toEqual([]);
+		// Down again, the flight lands where it would have, not beside the friend.
+		s.authority.dispatch({ type: 'land' });
+		expect(game.pos).toEqual({ x: -2, y: -8 });
 	});
 
 	it('draws who the server says is near, and fades them all when the socket is gone a while', () => {

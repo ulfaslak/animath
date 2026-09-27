@@ -1,4 +1,19 @@
-import { ANIMALS } from '../animals/catalog.js';
+import { ANIMALS, getAnimal } from '../animals/catalog.js';
+import { ATTACK_LEVELS, type AnimalInstance, type AttackLevel } from '../animals/types.js';
+import { MATCH_TEAM_SIZE } from '../match/team.js';
+import {
+	MATCH_SIDES,
+	type MatchEndReason,
+	type MatchEvent,
+	type MatchIntent,
+	type MatchRejection,
+	type MatchSide,
+	type MatchView,
+	type MatchViewPhase,
+	type ShownPuzzle
+} from '../match/types.js';
+import { ALL_PUZZLE_KINDS, MAX_DIFFICULTY, MIN_DIFFICULTY } from '../puzzles/types.js';
+import { MAX_SAVE_ID_LENGTH } from '../save.js';
 import type { Direction } from '../world/types.js';
 
 /**
@@ -6,10 +21,13 @@ import type { Direction } from '../world/types.js';
  * the WebSocket at `/api/ws`, one JSON text message at a time.
  *
  * The server is the authority for what two players share ([[DECISIONS]]):
- * today that is presence — who is in which world, where, and what they are
- * doing. Everything else a player does is still decided in their own browser
- * (`LocalAuthority`), which tells the server where it stands (`where`), and
- * the server tells everyone else in that world who is near and who is about.
+ * presence — who is in which world, where, and what they are doing — and
+ * friendly matches. Everything else a player does is still decided in their
+ * own browser (`LocalAuthority`), which tells the server where it stands
+ * (`where`), and the server tells everyone else in that world who is near and
+ * who is about. A friendly match is played on the server: a page sends what
+ * its kid chose (`play`), and the server sends each page its own view of the
+ * match (`match`), which never holds a puzzle's answer.
  *
  * Both ends read every message through a parser here before using it: an
  * unknown kind, a missing field, a number out of its bounds or of the wrong
@@ -23,8 +41,13 @@ import type { Direction } from '../world/types.js';
  * understand the server. A page whose version the server no longer speaks is
  * told to `refresh` (it reloads at a calm moment: its game is saved in the
  * browser).
+ *
+ * Version 2: friendly matches. Version 3: the glider's `flight` joined
+ * `BUSY_STATES`. A version 2 server refuses a `where` that says it (junk, and
+ * a whole glide of them closes the socket as `invalid`), and a version 2 page
+ * drops a `peer` that says it, so the two could not speak.
  */
-export const PROTOCOL_VERSION = 1;
+export const PROTOCOL_VERSION = 3;
 
 /**
  * The most a message may take on the wire, in bytes (the server closes a
@@ -73,9 +96,12 @@ export const MAX_ROSTER = 50;
 /**
  * What a player is doing, which others see as a little bubble over them:
  * walking about (no bubble), in a battle with a wild animal, with the
- * doctor (the card, the shop), in the pause menu, or in a friendly match.
+ * doctor (the card, the shop), in the pause menu, or in a friendly match. Or
+ * up in the air with the glider (`flight`: no bubble, since the glider shows
+ * it): from take-off to touch-down, the tiles in a `where` are flown over,
+ * not walked, so the others draw them gliding.
  */
-export const BUSY_STATES = ['explore', 'battle', 'doctor', 'menu', 'match'] as const;
+export const BUSY_STATES = ['explore', 'battle', 'doctor', 'menu', 'match', 'flight'] as const;
 export type Busy = (typeof BUSY_STATES)[number];
 
 const DIRECTIONS: readonly Direction[] = ['up', 'down', 'left', 'right'];
@@ -145,16 +171,111 @@ export interface FindMessage {
 	pid: string;
 }
 
-export type ClientMessage = HelloMessage | WhereMessage | FindMessage;
+/**
+ * An animal a page brings to a friendly match, as it sends it: the team its
+ * party brings (`matchTeam`), without HP (everyone plays at full HP). The
+ * server builds the team again from these with `matchTeam`, which checks
+ * them and cleans the nicknames.
+ */
+export interface WireAnimal {
+	id: string;
+	speciesId: string;
+	nickname?: string;
+}
+
+/**
+ * "Would you like a friendly match?", to the player `pid`, bringing `team`.
+ * Answered with `asking` (the invite is out) or `uninvite` (it can't be).
+ */
+export interface ChallengeMessage {
+	t: 'challenge';
+	pid: string;
+	team: WireAnimal[];
+}
+
+/** The challenger takes their open challenge back. */
+export interface WithdrawMessage {
+	t: 'withdraw';
+}
+
+/** Yes to `pid`'s invite, bringing `team`: the match starts (`match`), or can't after all (`uninvite`). */
+export interface AcceptMessage {
+	t: 'accept';
+	pid: string;
+	team: WireAnimal[];
+}
+
+/** No to `pid`'s invite. */
+export interface DeclineMessage {
+	t: 'decline';
+	pid: string;
+}
+
+/** What a kid can choose in a match: every `MatchIntent` but `timeout`, which only the server reports. */
+export type PlayIntent = Exclude<MatchIntent, { type: 'timeout' }>;
+
+/** A choice in match `id`: an attack, an answer, a switch, who steps in, or leaving. */
+export interface PlayMessage {
+	t: 'play';
+	id: string;
+	intent: PlayIntent;
+}
+
+/**
+ * The kid is at the keys in match `id` (typing an answer, choosing, or
+ * "I'm here!" after `nudge`): the turn clock starts again.
+ */
+export interface HereMessage {
+	t: 'here';
+	id: string;
+}
+
+/**
+ * After match `id` ended: "Rematch?" — yes, bringing `team`. The next match
+ * starts once both players have said so.
+ */
+export interface RematchMessage {
+	t: 'rematch';
+	id: string;
+	team: WireAnimal[];
+}
+
+/**
+ * After match `id` ended: this page is done with it (Back to exploring). A
+ * rematch it asked for is taken back, and the other page hears it is off.
+ */
+export interface DoneMessage {
+	t: 'done';
+	id: string;
+}
+
+export type ClientMessage =
+	| HelloMessage
+	| WhereMessage
+	| FindMessage
+	| ChallengeMessage
+	| WithdrawMessage
+	| AcceptMessage
+	| DeclineMessage
+	| PlayMessage
+	| HereMessage
+	| RematchMessage
+	| DoneMessage;
 
 // --- from the server ---------------------------------------------------------
 
-/** Welcome: the socket's public id (`pid`), and the name the others see. */
+/**
+ * Welcome: the socket's public id (`pid`), the name the others see, and the
+ * friendly match this player is in (its id), if one is going on: a page that
+ * dropped out and came back is sent it again (`match`) at once. A page that
+ * was in another match knows from this that it is over.
+ */
 export interface HiMessage {
 	t: 'hi';
 	v: number;
 	pid: string;
 	name: string;
+	match: string | null;
 }
 
 /** The page speaks another version of this protocol (`v` is the server's): reload for the new game. */
@@ -222,6 +343,116 @@ export interface ByeMessage {
 	reason: ByeReason;
 }
 
+/** `pid` (called `name`) would like a friendly match: answer (`accept`, `decline`) within `ms`. */
+export interface InviteMessage {
+	t: 'invite';
+	pid: string;
+	name: string;
+	ms: number;
+}
+
+/** Your challenge is out: `pid` has `ms` to answer it. */
+export interface AskingMessage {
+	t: 'asking';
+	pid: string;
+	ms: number;
+}
+
+/**
+ * Why an invite is over without a match, said to each of its two players
+ * about the other one ("they"):
+ *
+ * - `no`: they said no;
+ * - `expired`: nobody answered in time;
+ * - `withdrawn`: they took their challenge back;
+ * - `gone`: they left the world or the game (or were never in yours);
+ * - `moved`: they are out of reach: too far off, or out on the water;
+ * - `busy`: they are busy: a battle, the doctor, the menu, a match;
+ * - `taken`: they are asking someone else, or being asked;
+ * - `wait`: they said no (or nothing) to you a moment ago: ask again soon;
+ * - `no-team`: you bring no animal that can fight on land;
+ * - `their-team`: they bring none;
+ * - `off`: it ended by what you did yourself (you walked off, got busy,
+ *   took it back, said no, or can't play now): nothing to tell you.
+ */
+export const INVITE_ENDS = [
+	'no',
+	'expired',
+	'withdrawn',
+	'gone',
+	'moved',
+	'busy',
+	'taken',
+	'wait',
+	'no-team',
+	'their-team',
+	'off'
+] as const;
+export type InviteEnd = (typeof INVITE_ENDS)[number];
+
+/** The invite between you and `pid` (whichever of you asked) is over, without a match. */
+export interface UninviteMessage {
+	t: 'uninvite';
+	pid: string;
+	reason: InviteEnd;
+}
+
+/**
+ * Why the server reported a side gone (`timeout`): its page dropped out and
+ * did not come back in time (`dropped`), or it sat on its turn past the turn
+ * clock (`idle`).
+ */
+export const MATCH_TIMEOUTS = ['dropped', 'idle'] as const;
+export type MatchTimeout = (typeof MATCH_TIMEOUTS)[number];
+
+/**
+ * A friendly match as this page may see it, sent at the start, after every
+ * intent the match took (with its `events`, which the page plays back), and
+ * again when anything else about it changes (a player dropped out or came
+ * back; `events` is empty then). `view` is `matchView` for this page's side
+ * (`view.you`): no answer anywhere. `pids` and `names` are both players', by
+ * side. `away`: the side whose page dropped out, and how long it has left to
+ * come back. `timeout`: why a side that timed out did (`view.phase` says it
+ * ended `timed-out`).
+ */
+export interface MatchMessage {
+	t: 'match';
+	id: string;
+	pids: Record<MatchSide, string>;
+	names: Record<MatchSide, string>;
+	view: MatchView;
+	events: WireMatchEvent[];
+	away: { side: MatchSide; ms: number } | null;
+	timeout: MatchTimeout | null;
+}
+
+/** The events a match message carries: every `MatchEvent` but `rejected`, which goes in its own message. */
+export type WireMatchEvent = Exclude<MatchEvent, { type: 'rejected' }>;
+
+/** The match took no intent from this page: `reason` says why. Only the page that sent it hears. */
+export interface RejectedMessage {
+	t: 'rejected';
+	id: string;
+	reason: MatchRejection;
+}
+
+/** "Still there?": this page's kid has not touched the keys for a while on their turn. */
+export interface NudgeMessage {
+	t: 'nudge';
+	id: string;
+}
+
+/**
+ * After match `id` ended: side `side` would play again (`yes`), or went back
+ * to exploring (`yes: false`), which puts a rematch off.
+ */
+export interface RematchWishMessage {
+	t: 'rematch-wish';
+	id: string;
+	side: MatchSide;
+	yes: boolean;
+}
+
 export type ServerMessage =
 	| HiMessage
 	| RefreshMessage
@@ -230,7 +461,14 @@ export type ServerMessage =
 	| RosterMessage
 	| FoundMessage
 	| LostMessage
-	| ByeMessage;
+	| ByeMessage
+	| InviteMessage
+	| AskingMessage
+	| UninviteMessage
+	| MatchMessage
+	| RejectedMessage
+	| NudgeMessage
+	| RematchWishMessage;
 
 // --- reading -----------------------------------------------------------------
 
@@ -313,6 +551,88 @@ function readSpot(o: Fields): Omit<WhereMessage, 't' | 'world'> | null {
 	return { x: o.x, y: o.y, facing: o.facing, lead: lead.lead, boat: o.boat, busy: o.busy };
 }
 
+// --- friendly matches on the wire --------------------------------------------
+
+/** A match's id: the server's, 6 to 32 characters of base64url. */
+export function isMatchId(value: unknown): value is string {
+	return isToken(value, 6, 32);
+}
+
+/** The most UTF-16 units a nickname takes on the wire (the cleaner keeps 12 letters, each with its marks). */
+const MAX_WIRE_NICKNAME = 64;
+/** An attack's number on the wire: 1-based, and no species has near this many. */
+const MAX_WIRE_ATTACK = 16;
+/** The most characters an answer takes on the wire: the page types at most seven. */
+const MAX_WIRE_ANSWER = 32;
+/** The longest prompt on the wire: every prompt is a short sum or a short row of numbers. */
+const MAX_WIRE_PROMPT = 80;
+/** The most events one match message carries: one intent causes at most five. */
+const MAX_MATCH_EVENTS = 16;
+/** The longest wait the wire says (an invite's, the time to come back): ten minutes. */
+const MAX_WIRE_MS = 600_000;
+/** HP, damage, turns and steps on the wire are whole numbers up to this. */
+const MAX_WIRE_COUNT = 2 ** 31;
+
+function isSide(value: unknown): value is MatchSide {
+	return MATCH_SIDES.includes(value as MatchSide);
+}
+
+function isLevel(value: unknown): value is AttackLevel {
+	return ATTACK_LEVELS.includes(value as AttackLevel);
+}
+
+function isTeamIndex(value: unknown): value is number {
+	return isWhole(value, 0, MATCH_TEAM_SIZE - 1);
+}
+
+function isNickname(value: unknown): value is string {
+	return typeof value === 'string' && value.length >= 1 && value.length <= MAX_WIRE_NICKNAME;
+}
+
+/** One animal a page brings: an id as a save holds it, a species this build knows, maybe a nickname. */
+function readWireAnimal(value: unknown): WireAnimal | null {
+	if (!isRecord(value)) return null;
+	const { id, speciesId, nickname } = value;
+	if (typeof id !== 'string' || id.length === 0 || id.length > MAX_SAVE_ID_LENGTH) return null;
+	if (typeof speciesId !== 'string' || !SPECIES.has(speciesId)) return null;
+	if (nickname === undefined) return { id, speciesId };
+	return isNickname(nickname) ? { id, speciesId, nickname } : null;
+}
+
+/** The team a page brings: one to `MATCH_TEAM_SIZE` animals. */
+function readWireTeam(value: unknown): WireAnimal[] | null {
+	if (!Array.isArray(value) || value.length === 0 || value.length > MATCH_TEAM_SIZE) return null;
+	const team: WireAnimal[] = [];
+	for (const entry of value) {
+		const animal = readWireAnimal(entry);
+		if (!animal) return null;
+		team.push(animal);
+	}
+	return team;
+}
+
+/** A kid's choice in a match; never `timeout`, which only the server reports. */
+function readPlayIntent(value: unknown): PlayIntent | null {
+	if (!isRecord(value)) return null;
+	switch (value.type) {
+		case 'attack':
+			return isWhole(value.attackIndex, 1, MAX_WIRE_ATTACK) && isLevel(value.level)
+				? { type: 'attack', attackIndex: value.attackIndex, level: value.level }
+				: null;
+		case 'answer':
+			return typeof value.input === 'string' && value.input.length <= MAX_WIRE_ANSWER
+				? { type: 'answer', input: value.input }
+				: null;
+		case 'switch':
+		case 'pick-next':
+			return isTeamIndex(value.teamIndex) ? { type: value.type, teamIndex: value.teamIndex } : null;
+		case 'leave':
+			return { type: 'leave' };
+		default:
+			return null;
+	}
+}
+
 const CLIENT_PARSERS: { [K in ClientMessage['t']]: Parser<Extract<ClientMessage, { t: K }>> } = {
 	hello: (o) =>
 		o.v === PROTOCOL_VERSION && isGuestId(o.guest) && isWireName(o.name)
@@ -322,7 +642,27 @@ const CLIENT_PARSERS: { [K in ClientMessage['t']]: Parser<Extract<ClientMessage,
 		const spot = readSpot(o);
 		return spot && isWireWorld(o.world) ? { t: 'where', world: o.world, ...spot } : null;
 	},
-	find: (o) => (isPid(o.pid) ? { t: 'find', pid: o.pid } : null)
+	find: (o) => (isPid(o.pid) ? { t: 'find', pid: o.pid } : null),
+	challenge: (o) => {
+		const team = readWireTeam(o.team);
+		return team && isPid(o.pid) ? { t: 'challenge', pid: o.pid, team } : null;
+	},
+	withdraw: () => ({ t: 'withdraw' }),
+	accept: (o) => {
+		const team = readWireTeam(o.team);
+		return team && isPid(o.pid) ? { t: 'accept', pid: o.pid, team } : null;
+	},
+	decline: (o) => (isPid(o.pid) ? { t: 'decline', pid: o.pid } : null),
+	play: (o) => {
+		const intent = readPlayIntent(o.intent);
+		return intent && isMatchId(o.id) ? { t: 'play', id: o.id, intent } : null;
+	},
+	here: (o) => (isMatchId(o.id) ? { t: 'here', id: o.id } : null),
+	rematch: (o) => {
+		const team = readWireTeam(o.team);
+		return team && isMatchId(o.id) ? { t: 'rematch', id: o.id, team } : null;
+	},
+	done: (o) => (isMatchId(o.id) ? { t: 'done', id: o.id } : null)
 };
 
 function readRosterEntry(value: unknown): RosterEntry | null {
@@ -333,11 +673,213 @@ function readRosterEntry(value: unknown): RosterEntry | null {
 	return { pid, name, bearing, steps, busy };
 }
 
+const END_REASONS: readonly MatchEndReason[] = ['all-tired', 'left', 'timed-out'];
+const REJECTIONS: ReadonlySet<string> = new Set<MatchRejection>([
+	'not-an-intent',
+	'match-over',
+	'not-your-turn',
+	'not-choosing-an-action',
+	'no-puzzle',
+	'no-such-attack',
+	'no-such-level',
+	'not-picking',
+	'no-such-animal',
+	'already-in-front',
+	'tired'
+]);
+
+/**
+ * A team member as a match shows it: its id (a save's, with the side before
+ * it), a species this build knows, maybe a nickname, and HP within the
+ * species' own.
+ */
+function readMatchAnimal(value: unknown): AnimalInstance | null {
+	if (!isRecord(value)) return null;
+	const { id, speciesId, nickname, hp } = value;
+	if (typeof id !== 'string' || id.length === 0 || id.length > MAX_SAVE_ID_LENGTH + 2) return null;
+	if (typeof speciesId !== 'string' || !SPECIES.has(speciesId)) return null;
+	if (!isWhole(hp, 0, getAnimal(speciesId).maxHp)) return null;
+	if (nickname === undefined) return { id, speciesId, hp };
+	return isNickname(nickname) ? { id, speciesId, nickname, hp } : null;
+}
+
+function readMatchTeam(value: unknown): AnimalInstance[] | null {
+	if (!Array.isArray(value) || value.length === 0 || value.length > MATCH_TEAM_SIZE) return null;
+	const team: AnimalInstance[] = [];
+	for (const entry of value) {
+		const animal = readMatchAnimal(entry);
+		if (!animal) return null;
+		team.push(animal);
+	}
+	return team;
+}
+
+/** Something for each side, read by `read`: a new object of `a` and `b` alone. */
+function readBySide<T>(
+	value: unknown,
+	read: (v: unknown) => T | null
+): Record<MatchSide, T> | null {
+	if (!isRecord(value)) return null;
+	const a = read(value.a);
+	const b = read(value.b);
+	return a === null || b === null ? null : { a, b };
+}
+
+/** A puzzle as a match shows it: its kind, difficulty and prompt. There is no answer to read. */
+function readShownPuzzle(value: unknown): ShownPuzzle | null {
+	if (!isRecord(value)) return null;
+	const { kind, difficulty, prompt } = value;
+	if (!ALL_PUZZLE_KINDS.includes(kind as ShownPuzzle['kind'])) return null;
+	if (!isWhole(difficulty, MIN_DIFFICULTY, MAX_DIFFICULTY)) return null;
+	if (typeof prompt !== 'string' || prompt.length === 0 || prompt.length > MAX_WIRE_PROMPT)
+		return null;
+	return { kind: kind as ShownPuzzle['kind'], difficulty, prompt };
+}
+
+function readViewPhase(value: unknown): MatchViewPhase | null {
+	if (!isRecord(value)) return null;
+	switch (value.kind) {
+		case 'choose-action':
+		case 'choose-animal':
+			return isSide(value.side) ? { kind: value.kind, side: value.side } : null;
+		case 'solving': {
+			const puzzle = readShownPuzzle(value.puzzle);
+			const { side, attackIndex, level } = value;
+			if (
+				!puzzle ||
+				!isSide(side) ||
+				!isWhole(attackIndex, 1, MAX_WIRE_ATTACK) ||
+				!isLevel(level)
+			) {
+				return null;
+			}
+			return { kind: 'solving', side, attackIndex, level, puzzle };
+		}
+		case 'ended':
+			return isSide(value.winner) && END_REASONS.includes(value.reason as MatchEndReason)
+				? { kind: 'ended', winner: value.winner, reason: value.reason as MatchEndReason }
+				: null;
+		default:
+			return null;
+	}
+}
+
+/** A match view: both teams, who is in front on each side (one of its own), and the phase. */
+function readMatchView(value: unknown): MatchView | null {
+	if (!isRecord(value)) return null;
+	const teams = readBySide(value.teams, readMatchTeam);
+	const phase = readViewPhase(value.phase);
+	if (!teams || !phase || !isSide(value.you)) return null;
+	if (!isWhole(value.step, 0, MAX_WIRE_COUNT) || !isWhole(value.turn, 1, MAX_WIRE_COUNT)) {
+		return null;
+	}
+	const active = readBySide(value.active, (v) => (isTeamIndex(v) ? v : null));
+	if (!active || active.a >= teams.a.length || active.b >= teams.b.length) return null;
+	return { you: value.you, step: value.step, turn: value.turn, teams, active, phase };
+}
+
+function readMatchEvent(value: unknown): WireMatchEvent | null {
+	if (!isRecord(value)) return null;
+	const { type } = value;
+	switch (type) {
+		case 'puzzle-shown': {
+			const puzzle = readShownPuzzle(value.puzzle);
+			const { side, attackIndex, level } = value;
+			if (
+				!puzzle ||
+				!isSide(side) ||
+				!isWhole(attackIndex, 1, MAX_WIRE_ATTACK) ||
+				!isLevel(level)
+			) {
+				return null;
+			}
+			return { type, side, attackIndex, level, puzzle };
+		}
+		case 'answer-judged':
+			return isSide(value.side) && typeof value.correct === 'boolean'
+				? { type, side: value.side, correct: value.correct }
+				: null;
+		case 'hit': {
+			const { attacker, attackIndex, level, damage, targetHp } = value;
+			if (!isSide(attacker) || !isWhole(attackIndex, 1, MAX_WIRE_ATTACK) || !isLevel(level)) {
+				return null;
+			}
+			if (!isWhole(damage, 0, MAX_WIRE_COUNT) || !isWhole(targetHp, 0, MAX_WIRE_COUNT)) return null;
+			return { type, attacker, attackIndex, level, damage, targetHp };
+		}
+		case 'missed': {
+			const { attacker, attackIndex, level } = value;
+			return isSide(attacker) && isWhole(attackIndex, 1, MAX_WIRE_ATTACK) && isLevel(level)
+				? { type, attacker, attackIndex, level }
+				: null;
+		}
+		case 'fainted': {
+			const animal = readMatchAnimal(value.animal);
+			return animal && isSide(value.side) ? { type, side: value.side, animal } : null;
+		}
+		case 'switched': {
+			const animal = readMatchAnimal(value.animal);
+			return animal && isSide(value.side) && isTeamIndex(value.teamIndex)
+				? { type, side: value.side, animal, teamIndex: value.teamIndex }
+				: null;
+		}
+		case 'ended':
+			return isSide(value.winner) && END_REASONS.includes(value.reason as MatchEndReason)
+				? { type, winner: value.winner, reason: value.reason as MatchEndReason }
+				: null;
+		default:
+			return null;
+	}
+}
+
+function readMatchEvents(value: unknown): WireMatchEvent[] | null {
+	if (!Array.isArray(value) || value.length > MAX_MATCH_EVENTS) return null;
+	const events: WireMatchEvent[] = [];
+	for (const entry of value) {
+		const event = readMatchEvent(entry);
+		if (!event) return null;
+		events.push(event);
+	}
+	return events;
+}
+
+function readAway(value: unknown): MatchMessage['away'] | undefined {
+	if (value === null) return null;
+	if (!isRecord(value) || !isSide(value.side) || !isWhole(value.ms, 0, MAX_WIRE_MS)) {
+		return undefined;
+	}
+	return { side: value.side, ms: value.ms };
+}
+
+function readMatchMessage(o: Fields): MatchMessage | null {
+	const pids = readBySide(o.pids, (v) => (isPid(v) ? v : null));
+	const names = readBySide(o.names, (v) => (isWireName(v) ? v : null));
+	const view = readMatchView(o.view);
+	const events = readMatchEvents(o.events);
+	const away = readAway(o.away);
+	const timeout = o.timeout === null || MATCH_TIMEOUTS.includes(o.timeout as MatchTimeout);
+	if (!isMatchId(o.id) || !pids || !names || !view || !events || away === undefined || !timeout) {
+		return null;
+	}
+	return {
+		t: 'match',
+		id: o.id,
+		pids,
+		names,
+		view,
+		events,
+		away,
+		timeout: o.timeout as MatchTimeout | null
+	};
+}
+
 const SERVER_PARSERS: { [K in ServerMessage['t']]: Parser<Extract<ServerMessage, { t: K }>> } = {
-	hi: (o) =>
-		isWhole(o.v, 0, 2 ** 31) && isPid(o.pid) && isWireName(o.name)
-			? { t: 'hi', v: o.v, pid: o.pid, name: o.name }
-			: null,
+	hi: (o) => {
+		const match = o.match === null ? null : isMatchId(o.match) ? o.match : undefined;
+		return isWhole(o.v, 0, 2 ** 31) && isPid(o.pid) && isWireName(o.name) && match !== undefined
+			? { t: 'hi', v: o.v, pid: o.pid, name: o.name, match }
+			: null;
+	},
 	refresh: (o) => (isWhole(o.v, 0, 2 ** 31) ? { t: 'refresh', v: o.v } : null),
 	peer: (o) => {
 		const spot = readSpot(o);
@@ -364,7 +906,29 @@ const SERVER_PARSERS: { [K in ServerMessage['t']]: Parser<Extract<ServerMessage,
 			: null,
 	lost: (o) => (isPid(o.pid) ? { t: 'lost', pid: o.pid } : null),
 	bye: (o) =>
-		BYE_REASONS.includes(o.reason as ByeReason) ? { t: 'bye', reason: o.reason as ByeReason } : null
+		BYE_REASONS.includes(o.reason as ByeReason)
+			? { t: 'bye', reason: o.reason as ByeReason }
+			: null,
+	invite: (o) =>
+		isPid(o.pid) && isWireName(o.name) && isWhole(o.ms, 0, MAX_WIRE_MS)
+			? { t: 'invite', pid: o.pid, name: o.name, ms: o.ms }
+			: null,
+	asking: (o) =>
+		isPid(o.pid) && isWhole(o.ms, 0, MAX_WIRE_MS) ? { t: 'asking', pid: o.pid, ms: o.ms } : null,
+	uninvite: (o) =>
+		isPid(o.pid) && INVITE_ENDS.includes(o.reason as InviteEnd)
+			? { t: 'uninvite', pid: o.pid, reason: o.reason as InviteEnd }
+			: null,
+	match: readMatchMessage,
+	rejected: (o) =>
+		isMatchId(o.id) && typeof o.reason === 'string' && REJECTIONS.has(o.reason)
+			? { t: 'rejected', id: o.id, reason: o.reason as MatchRejection }
+			: null,
+	nudge: (o) => (isMatchId(o.id) ? { t: 'nudge', id: o.id } : null),
+	'rematch-wish': (o) =>
+		isMatchId(o.id) && isSide(o.side) && typeof o.yes === 'boolean'
+			? { t: 'rematch-wish', id: o.id, side: o.side, yes: o.yes }
+			: null
 };
 
 function parseWith<M extends { t: string }>(

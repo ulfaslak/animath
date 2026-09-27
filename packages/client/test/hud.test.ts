@@ -33,6 +33,8 @@ function setup(start?: SavedGame) {
 	const renderer = {
 		setWorld() {},
 		setBoat() {},
+		setGlider() {},
+		setLandingSpot() {},
 		setPlayer() {},
 		ensureChunksAround() {},
 		cleared() {}
@@ -47,7 +49,13 @@ function setup(start?: SavedGame) {
 			const pressed = enter;
 			enter = false;
 			return pressed;
-		}
+		},
+		talkKey: 'enter',
+		setGlider: () => {},
+		takeTakeOff: () => false,
+		flyHeld: () => false,
+		windUp: () => 0,
+		dropTaps: () => {}
 	} as unknown as Keyboard;
 	const explore = new ExploreController(authority, renderer, keyboard);
 	const events: string[] = [];
@@ -94,6 +102,36 @@ describe('the explore message line', () => {
 		hud.apply({ type: 'message', line: WON });
 		hud.tick(1 / 60);
 		expect(hud.message).toBe('The wild Rabbit runs home to rest.');
+	});
+
+	it("says how to fly when the doctor's card closes on a glider just bought, and the goodbye otherwise", () => {
+		setup();
+		const visit = (before: string[], after: string[]) => {
+			const state = (items: string[]) => ({
+				step: 1,
+				party: [],
+				tokens: 0,
+				items,
+				shop: [],
+				phase: { kind: 'ended' as const }
+			});
+			hud.apply({ type: 'doctor-visit-started', visit: 1, state: state(before) });
+			hud.apply({ type: 'doctor-visit-ended', visit: 1, state: state(after) });
+			hud.tick(0);
+			return hud.message;
+		};
+		expect(visit([], ['glider'])).toBe(t('explore.holdToFly'));
+		expect(visit(['axe'], ['axe', 'glider'])).toBe(t('explore.holdToFly'));
+		// Owned already, or something else bought: the doctor's goodbye.
+		expect(visit(['glider'], ['glider'])).toBe(t('doctor.goodbye'));
+		expect(visit([], ['boat'])).toBe(t('doctor.goodbye'));
+		// With the touch controls on, it names the Fly button.
+		touch.on = true;
+		try {
+			expect(visit([], ['glider'])).toBe(t('explore.holdToFlyTouch'));
+		} finally {
+			touch.on = false;
+		}
 	});
 
 	it('keeps a line said while the HUD is off screen until it is back', () => {

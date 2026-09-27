@@ -4,24 +4,34 @@ import type {
 	BattleOutcome,
 	BattleSide,
 	Line as MessageLine,
-	Puzzle,
-	Realm
+	Realm,
+	ShownPuzzle
 } from '@mathgame/engine';
-import type { Levels } from '../battle/menu';
+import { WILD_MOVES, type FightMove, type Levels } from '../battle/menu';
 import type { Line } from '../lines';
 
 /**
- * What the battle screen shows. Filled only by `BattleController`, which
- * plays the authority's battle events back one beat at a time so HP bars and
- * the narration move at a pace a kid can follow. The authoritative state is
- * in the events; this view lags it by design ("animate the events, then show
- * the state"). Svelte components read it and never write it.
+ * What the battle screen shows. Filled by `BattleController` for a wild
+ * battle, which plays the authority's battle events back one beat at a time
+ * so HP bars and the narration move at a pace a kid can follow, and by
+ * `MatchController` for a friendly match (`vs`), which plays the server's
+ * match events back the same way: a match is drawn on the battle's screen.
+ * The authoritative state is in the events; this view lags it by design
+ * ("animate the events, then show the state"). Svelte components read it and
+ * never write it.
  *
  * `screen` says what the keyboard does: `actions` navigates the menu,
- * `party` picks an animal to send in, `puzzle` types an answer, `busy`
+ * `party` picks an animal to send in, `puzzle` types an answer, `waiting`
+ * watches the other player's turn in a match (nothing to press), `busy`
  * ignores everything while events play, `result` waits for Enter to leave.
  */
-export type BattleScreen = 'actions' | 'party' | 'puzzle' | 'busy' | 'result';
+export type BattleScreen = 'actions' | 'party' | 'puzzle' | 'waiting' | 'busy' | 'result';
+
+/** The two players of a friendly match on the battle's screen: the other (`name`) and this one (`me`). */
+export interface Versus {
+	name: string;
+	me: string;
+}
 
 /**
  * The encounter transition over the whole screen (UI_SPEC § Battle mode):
@@ -74,7 +84,8 @@ class BattleView {
 	mustPick = $state(false);
 	/** Counts picks of an animal who can't step in; each one shakes the highlighted row. */
 	refused = $state(0);
-	puzzle = $state<Puzzle | null>(null);
+	/** The puzzle on screen: the player's own, or in a match the other's while they think. Never an answer. */
+	puzzle = $state<ShownPuzzle | null>(null);
 	/** The answer typed so far. */
 	input = $state('');
 	/** How the last answer was judged. Never the right answer: UI_SPEC keeps it hidden. */
@@ -97,6 +108,10 @@ class BattleView {
 	outcome = $state<BattleOutcome | null>(null);
 	/** The authority's closing line, shown under the result headline. */
 	closing = $state<MessageLine | null>(null);
+	/** A friendly match on this screen: the other player. Null in a wild battle. */
+	vs = $state.raw<Versus | null>(null);
+	/** The row of moves after the attacks: a wild battle's Leash, Switch and Run, a match's Switch and Leave. */
+	moves = $state.raw<readonly FightMove[]>(WILD_MOVES);
 
 	/** Clear everything but the attack levels. */
 	reset(): void {
@@ -123,6 +138,8 @@ class BattleView {
 		this.turn = null;
 		this.outcome = null;
 		this.closing = null;
+		this.vs = null;
+		this.moves = WILD_MOVES;
 	}
 }
 

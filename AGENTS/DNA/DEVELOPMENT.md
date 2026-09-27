@@ -146,7 +146,16 @@ pnpm players --url http://localhost:<port>/ \
 
 Each player's game is a save put in their browser before the page opens (kept after a `reload:`), then Continue is pressed (tapped, for a touch player). `--player label:options`, options comma-separated: `name=` (a game without a name is seen by nobody), `world=` (1 by default), `at=x:y` (the world's spawn by default; a tile nobody could stand on starts at the spawn, as a loaded save does), `facing=`, `party=` (as `?party=` writes it, joined with `+`: `party=otter+rabbit:5*2`), `steps=` (steps walked so far: from the start tile, `steps=10` and one step Left meets a wild animal on the reed), `boat`, `touch`, `calm` (reduced motion), `lang=`, `size=1024x768`, `title` (stay on the title).
 
-`--steps` is a comma-separated script of `who:token`, `who` a player's label or `all`. The tokens are the screenshot script's keys (`ArrowRight*3`, `Enter`) and `wait:`, `shot:`, `type:`, `hold:`, `click:`, `tap:`, `reload:`, `size:`, plus: `burst:<name>:<n>` (n frames as fast as they come, for a poof), `press:<key>` (no pause after it), `close:` and `open:` (the player leaves, or comes back), `twin:<label>` (a second window of this player, same browser, which later steps call by its label: one player, two windows), `hide:` and `show:` (the tab hidden and shown, as the page sees it), `until:<css>` (wait for an element) and `run:<command>` (a shell command: `all:run:touch packages/server/src/index.ts` restarts a `tsx watch` server mid-play). After every shot it prints what that player's screen says: `at:` (with `?debug`, which it adds), `others:` (the names over the players on screen and what they are busy with), `arrows:`, `note:`, `message:`, `pause:` and `side:` (the pause menu and its list), `battle:`. Each player's console errors fail the run; a socket the server did not take (it was restarting) is counted, not failed.
+`--steps` is a comma-separated script of `who:token`, `who` a player's label or `all`. The tokens are the screenshot script's keys (`ArrowRight*3`, `Enter`) and `wait:`, `shot:`, `type:`, `hold:`, `click:`, `tap:`, `reload:`, `size:`, plus: `burst:<name>:<n>` (n frames as fast as they come, for a poof), `press:<key>` (no pause after it), `close:` and `open:` (the player leaves, or comes back), `twin:<label>` (a second window of this player, same browser, which later steps call by its label: one player, two windows), `hide:` and `show:` (the tab hidden and shown, as the page sees it), `until:<css>` (wait for an element), `run:<command>` (a shell command: `all:run:touch packages/server/src/index.ts` restarts a `tsx watch` server mid-play), `solve:right` or `solve:wrong` (answer the puzzle on that player's screen, its prompt read off the page and worked out by the script's own solver, since the server never sends an answer) and `turn:<level>` (whatever that player's friendly match asks of them now: on the menu, attack at that level once Go! is lit; on the puzzle, solve it, `turn:1w` wrongly; on the list after a knock-out, send in the highlighted one; on the other's turn, nothing). After every shot it prints what that player's screen says: `at:` (with `?debug`, which it adds), `others:` (the names over the players on screen and what they are busy with), `arrows:`, `note:`, `message:`, `pause:` and `side:` (the pause menu and its list), `battle:`, and a friendly match's `challenge:`, `invite:`, `notes:`, `puzzle:` and `result:`.
+
+A friendly match played to its end, Ada asking Bo beside her:
+
+```bash
+STEPS="all:wait:4000,ada:c,all:wait:1500,bo:wait:1200,bo:Enter,all:wait:4000"
+for i in $(seq 30); do STEPS="$STEPS,all:turn:3,all:wait:2000"; done
+pnpm players --url http://localhost:<port>/ --player "ada:name=Ada,at=-2:6" \
+  --player "bo:name=Bo,at=-1:6,facing=left,party=frog" --steps "$STEPS,all:shot:end" --out screenshots/m/end
+``` Each player's console errors fail the run; a socket the server did not take (it was restarting) is counted, not failed.
 
 **A deploy's hop, without Docker.** Production swaps the app behind nginx: the new copy takes new connections, then the old gets SIGTERM and sends its presence sockets on ([[ARCHITECTURE]] § Presence › Deploys). To watch it, stand a TCP switch in for nginx on your `API_PORT`, sending each new connection to the port a file names, and run the API twice behind it (`PORT=<a>` and `PORT=<b>`, `tsx src/index.ts` without `watch`, your own `DATABASE_URL`):
 
@@ -190,7 +199,7 @@ All code is written by agents; the human reviews PRs and plays the game but does
 
 **The engine is the backbone.** It is pure and seeded, so every rule can be tested exhaustively and deterministically. Prefer:
 
-- **Property tests over the whole space** rather than examples: every species in the catalog, every kind at every difficulty, 25 seeds. `battle.test.ts` and `puzzles.test.ts` are the pattern. A balance change that breaks monotonicity anywhere in the catalog must fail a test.
+- **Property tests over the whole space** rather than examples: every species in the catalog, every kind at every difficulty, 25 seeds. `battle.test.ts` and `puzzles.test.ts` are the pattern. A balance change that breaks monotonicity anywhere in the catalog must fail a test. A sweep over pairs or trios of species grows with the square or the cube of the catalog (32 species since #89, 49 to come), so it says how many it takes and why, and a cut never drops what a rule depends on; a check that a cut kept its coverage counts that (each species against others), never what every sample holds anyway (a species against itself). The catalog sweep in `battle-reducer.test.ts` plays every pair that can meet, with fewer seeds a pair as the catalog grows (about 60 battles per species, at least 3 a pair) and its own player's draws for each pair; § switching there switches every newcomer in against every wild animal it can meet, since who leaves never changes the reply; the leash's reduced-motion throws in the client's `battle-scene.test.ts` take a third of the species at each screen size, in turn, so that each is thrown at two or three sizes. The balance bands and the two "never hurts" checks keep every pair and the seeds they were set on.
 - **Independent re-derivation** for generators: the puzzle test re-solves each prompt with its own tiny solver instead of trusting `answer`. When you add a puzzle kind, extend the solver.
 - **Replay tests** for state machines: apply a fixed intent log to a fixed seed and assert the final state, as § replay does in `battle-reducer.test.ts` and `doctor.test.ts`.
 - **Boundary tests** that pin the architecture: `purity.test.ts` fails if the engine grows an import. Keep it.
@@ -328,7 +337,7 @@ update account_saves
 
 ## Sharing the game through a tunnel
 
-Until the prod server is up (§ Deployment), the game is shared from this machine:
+Before the prod server was up (§ Deployment), the game was shared from this machine, and the kids who played it then still play here until their games move over:
 
 ```bash
 TUNNEL=1 pnpm dev              # both dev servers; TUNNEL lets Vite accept the tunnel hostname
@@ -341,7 +350,7 @@ Each kid's game is saved in their own browser, under the link they opened, and b
 
 ## Deployment
 
-The game's own Hetzner VPS runs the production stack ([[ARCHITECTURE]] § Production). The runbook for everything done by hand on it (provisioning, DNS, the secrets, a restore, a rollback without GitHub Actions, the logs) is `/redeploy` (`.claude/commands/redeploy.md`). Until the server and the deploy secrets exist, nothing deploys: every push to main ends green at the workflow's first job, with a notice saying so.
+Production is **https://animath.xyz**: the game's own Hetzner VPS, `mathgame-prod` at **91.98.203.234**, runs the production stack ([[ARCHITECTURE]] § Production), live since 2026-09-27. The runbook for everything done by hand on it (provisioning, DNS, the secrets, a restore, a rollback without GitHub Actions, the logs) is `/redeploy` (`.claude/commands/redeploy.md`). The deploy secrets (`VPS_HOST`, the IP; `VPS_USER`; `VPS_SSH_KEY`) are set; without them every push to main would end green at the workflow's first job, with a notice saying so, and nothing would deploy.
 
 ### How a merge reaches prod
 
@@ -377,18 +386,24 @@ It dispatches the deploy workflow with that SHA: no build and no tests; `:prod` 
 
 ### Backups
 
-Three layers ([[ARCHITECTURE]] § Production): the `backup` service's dumps in `~/mathgame/backups/` on the server, every 6 hours, 30 days kept; their copy in `~/mathgame-backups/` on this Mac, pulled every 6 hours by the launchd agent once it is installed (`./scripts/install-backup-sync.sh`, after the server exists); and Hetzner's nightly image of the machine. Restoring one: `/redeploy` § Restore from a backup. Alerts go to Slack when `MONITORING_SLACK_WEBHOOK_URL` is set, in `~/mathgame/.env.monitoring` on the server and `~/.config/mathgame/monitoring.env` here; without it an alert is a log line.
+Three layers ([[ARCHITECTURE]] § Production): the `backup` service's dumps in `~/mathgame/backups/` on the server, every 6 hours, 30 days kept; their copy in `~/mathgame-backups/` on this Mac, pulled every 6 hours by the launchd agent `com.mathgame.backup-sync` (installed by `./scripts/install-backup-sync.sh`; its log is `~/Library/Logs/mathgame-backup-sync.log`); and Hetzner's nightly image of the machine, taken between 06:00 and 10:00 UTC. Restoring one: `/redeploy` § Restore from a backup. Alerts go to Slack when `MONITORING_SLACK_WEBHOOK_URL` is set, in `~/mathgame/.env.monitoring` on the server and `~/.config/mathgame/monitoring.env` here; without it an alert is a log line.
 
 ### Prod access
 
+An agent on this Mac reaches every part of prod by itself; none of it needs the human.
+
 ```bash
-. ./deploy.env
-curl -fsS https://$MATHGAME_DOMAIN/api/health     # {"ok":true,"db":true,"sha":"<the build>"}
-ssh -i ~/.ssh/mathgame_deploy deploy@$MATHGAME_DOMAIN
+curl -fsS https://animath.xyz/api/health     # {"ok":true,"db":true,"sha":"<the build>"}
+ssh -i ~/.ssh/mathgame_deploy deploy@animath.xyz
 cd ~/mathgame && docker compose -f docker-compose.prod.yml logs --tail 200 -f app
 ```
 
-More in `/redeploy` § Logs and a look inside. Never change a file on the server: the next deploy resets the checkout, and a change that belongs there belongs in a PR.
+- **The server.** `deploy` on `animath.xyz` (or `91.98.203.234`), with `~/.ssh/mathgame_deploy`, a key only this Mac holds; Terraform put its public half on the server. `deploy` runs Docker, and `sudo` without a password. Everything is under `~/mathgame` (`/redeploy` § Logs and a look inside), and the admin CLI runs there in the app container (§ Accounts).
+- **The Hetzner project.** Terraform, from the primary clone's `terraform/`, where its state is, with the API token in `terraform.tfvars` beside it (gitignored, mode 600, never printed). `terraform output` gives the addresses. The Cloud Console, the human's login, shows the server's nightly images.
+- **The keys the deploy uses.** The workflow logs in with a key of its own, whose private half is only in the `VPS_SSH_KEY` secret. The server fetches the repo with a read-only deploy key, `mathgame-prod` in the repo's settings, whose copy is in `~/mathgame-backups/.ssh/`.
+- **The domain.** At Porkbun, the human's account: an A record for `animath.xyz` to the IP and a CNAME `www` to `animath.xyz`, no AAAA (`/redeploy` § DNS). A new IP means changing that A record, and `VPS_HOST`.
+
+Never change a file on the server: the next deploy resets the checkout, and a change that belongs there belongs in a PR.
 
 ### Trying it on a Mac
 

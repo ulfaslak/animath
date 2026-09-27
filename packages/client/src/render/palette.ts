@@ -102,6 +102,21 @@ export const BOAT_COLORS = {
 	pennant: COLORS.playerShirt
 } as const;
 
+/**
+ * The paraglider, in the shop picture's colours (`ItemIcon`): cells of the
+ * trainer's coral and the figures' cream, never the trainer's blue nor a
+ * grass green, so the wing reads against the sky and the meadow alike; the
+ * lines near-black. Another player's canopy is their shirt's colour and cream.
+ */
+export const GLIDER_COLORS = {
+	canopy: COLORS.playerShirt,
+	cream: COLORS.white,
+	line: COLORS.dark,
+	/** The shadow under a trainer in the air, and the landing ring's cream. */
+	shadow: COLORS.dark,
+	ring: COLORS.white
+} as const;
+
 /** Trees grow only in the forest: three dark greens, mixed at random, so it reads as deep woods. */
 export const CANOPY: readonly number[] = [0x2c7a43, 0x3a8f4c, 0x2f8a55];
 
@@ -159,6 +174,25 @@ export const ANIMAL_COLORS: Record<string, { fur: number; accent: number }> = {
 	deer: { fur: 0xc48a52, accent: 0x6b4a2f },
 	wolf: { fur: 0x7f858f, accent: 0xc5cad2 },
 	bear: { fur: 0x5a3a28, accent: 0xb08560 },
+	// The small animals of #89 wave 1: none the trainer's blue, none a grass green.
+	shrew: { fur: 0x6b4f3f, accent: 0xd9c3a5 },
+	'wood-mouse': { fur: 0xa8743f, accent: 0xf3ece0 },
+	'brown-rat': { fur: 0x7a6a5a, accent: 0xe9a6a6 },
+	hedgehog: { fur: 0x8a6d4e, accent: 0xd8b98f },
+	mole: { fur: 0x2f2b33, accent: 0xf0a5a0 },
+	'common-lizard': { fur: 0x7d6b3a, accent: 0xe8b33c },
+	'common-toad': { fur: 0x9a7445, accent: 0xd9632b },
+	robin: { fur: 0x8a6a4a, accent: 0xe8622c },
+	'stag-beetle': { fur: 0x3b2418, accent: 0x8e3b1f },
+	'roe-deer': { fur: 0xb5703d, accent: 0xf3ece0 },
+	badger: { fur: 0x8c8c8c, accent: 0xf4f1ea },
+	'pine-marten': { fur: 0x6b3f22, accent: 0xf2c14e },
+	stoat: { fur: 0xa86a3a, accent: 0xfff4e6 },
+	adder: { fur: 0x8a8579, accent: 0x2f2a28 },
+	'grey-heron': { fur: 0xa7adb3, accent: 0xe3b341 },
+	'tawny-owl': { fur: 0x9b6a3f, accent: 0xd9b98a },
+	raccoon: { fur: 0x8f8a85, accent: 0x2f2a28 },
+	beaver: { fur: 0x6e4a2e, accent: 0xe0762e },
 	crab: { fur: 0xe0553f, accent: 0xf7b89a },
 	starfish: { fur: 0xf2894e, accent: 0xffd08a },
 	turtle: { fur: 0x8cc47e, accent: 0x3f7f4c },

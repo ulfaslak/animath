@@ -1,5 +1,6 @@
 import { ANIMALS, canFightIn, getAnimal } from '../animals/catalog.js';
 import type { AnimalInstance } from '../animals/types.js';
+import { isRude } from '../names.js';
 import { normalizeNickname } from '../party/names.js';
 import { MAX_SAVE_ID_LENGTH } from '../save.js';
 import type { TeamPick } from './types.js';
@@ -14,6 +15,9 @@ const SPECIES_IDS: ReadonlySet<string> = new Set(ANIMALS.map((a) => a.id));
  * matches"): its first `MATCH_TEAM_SIZE` animals in party order that can
  * fight on land, tired ones too, each a fresh copy at full HP with its
  * nickname cleaned (`normalizeNickname`). Fewer when the party has fewer.
+ * The other player sees these nicknames, the one piece of text a kid types
+ * that crosses to another kid, so one holding a rude word (`isRude`, the
+ * name rules' list) is dropped: that animal goes by its species' name.
  *
  * Takes anything, because the authority calls it on the party a client sent:
  * each entry it looks at, in order until the team is full, must be an animal
@@ -59,9 +63,14 @@ function readAnimal(entry: unknown): Entry | null {
 	return { id, speciesId, nickname };
 }
 
-/** A fresh team member: full HP, the nickname cleaned, none when nothing is left of it. */
+/**
+ * A fresh team member: full HP, the nickname cleaned, none when nothing is
+ * left of it or it holds a rude word.
+ */
 function teamMember({ id, speciesId, nickname }: Entry): AnimalInstance {
 	const hp = getAnimal(speciesId).maxHp;
 	const clean = normalizeNickname(nickname);
-	return clean === undefined ? { id, speciesId, hp } : { id, speciesId, nickname: clean, hp };
+	return clean === undefined || isRude(clean)
+		? { id, speciesId, hp }
+		: { id, speciesId, nickname: clean, hp };
 }

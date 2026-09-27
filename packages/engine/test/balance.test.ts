@@ -28,9 +28,9 @@ const SEEDS = 200;
 /** More seeds where a test compares a win rate with a target band. */
 const TARGET_SEEDS = 1000;
 /**
- * Sampling slack on a target band. A mean over the 16 same-tier pairs at 1000
- * seeds each has a standard error under half a point, so 2 points is over
- * four standard errors: the band, not the dice, decides the test.
+ * Sampling slack on a target band. A mean over the same-tier pairs (288 since
+ * #89) at 1000 seeds each has a standard error well under half a point, so 2
+ * points is over four standard errors: the band, not the dice, decides the test.
  */
 const SLACK = 0.02;
 const PRINT = Boolean(process.env.SIM);
@@ -42,6 +42,15 @@ interface Outcome {
 
 const ids = ANIMALS.map((a) => a.id);
 const tier = (id: string) => getAnimal(id).tier;
+
+/**
+ * Every (player, wild) pair that can meet: the two "never hurts" checks walk
+ * them all, so a balance change that breaks either anywhere in the catalog
+ * fails ([[DEVELOPMENT]] § Testing ideology). Over 700 pairs since #89.
+ */
+const MEETING_PAIRS: readonly (readonly [string, string])[] = ids.flatMap((p) =>
+	ids.flatMap((w) => (arena(p, w) !== null ? [[p, w] as const] : []))
+);
 
 /** Every (player, wild) pair that can meet, where the wild animal is `gap` tiers fiercer. */
 function pairs(gap: number): Array<[string, string]> {
@@ -103,8 +112,9 @@ function grid(model: PlayerModel): string {
  * The tier-1 animals a starter meets near home, and how often: over every
  * tall-grass tile of the prototype world within the safe radius of spawn (of
  * one biome, or all), the tier-1 part of the table the ground there makes,
- * normalised. Mostly rabbits in the open meadow, frogs by the water and
- * squirrels by the trees.
+ * normalised. Mostly rabbits, shrews, hedgehogs and moles in the open meadow,
+ * frogs, brown rats and toads by the water, and squirrels, wood mice and robins
+ * by the trees.
  */
 function nearHomeMix(biome?: Biome): Map<string, number> {
 	const seed = hashString('prototype');
@@ -194,10 +204,30 @@ describe('balance simulation', () => {
 
 	it("a squirrel almost never beats a bear, even when it's always right, nor a crab a whale", () => {
 		const small = ids.filter((id) => tier(id) === 1);
-		expect(small).toEqual(['squirrel', 'rabbit', 'frog', 'crab', 'starfish']);
-		for (const big of ['bear', 'whale']) {
+		expect(small).toEqual([
+			'squirrel',
+			'rabbit',
+			'frog',
+			'shrew',
+			'wood-mouse',
+			'brown-rat',
+			'hedgehog',
+			'mole',
+			'common-lizard',
+			'common-toad',
+			'robin',
+			'stag-beetle',
+			'crab',
+			'starfish'
+		]);
+		// Every small animal of the land meets the bear; at sea, the whale meets the two small
+		// sea animals and the two small ones that swim, the frog and the toad.
+		for (const [big, meeting] of [
+			['bear', 12],
+			['whale', 4]
+		] as const) {
 			const meet = small.filter((id) => arena(id, big) !== null);
-			expect(meet.length, `tier-1 animals that meet the ${big}`).toBe(3);
+			expect(meet.length, `tier-1 animals that meet the ${big}`).toBe(meeting);
 			for (const id of meet)
 				expect(simulate(id, big, hardest(1)).win, `${id} vs ${big}`).toBeLessThan(0.05);
 		}
@@ -238,17 +268,18 @@ describe('balance simulation', () => {
 		}
 	});
 
-	// The three sweeps below each take about 1 s alone (every same-tier pair, 1,000 battles
-	// each, or every pair twice) and 2 s with two browsers drawing beside them.
+	// The two sweeps below play every same-tier pair that can meet (about 300 since #89), 1,000
+	// battles each, with the seeds the bands were set on: about 7 s each at a load average of
+	// 28 with nothing else running, and 15 to 22 s beside the rest of the engine's suite.
 	it('the easiest puzzle, always right, usually beats an animal of your own tier (65–80%)', () => {
 		const rates = winRates(0, easiest(1));
 		for (const { p, w, win } of rates) expect(win, `${p} vs ${w}`).toBeGreaterThan(0.5);
 		expectInBand(mean(rates.map((r) => r.win)), 0.65, 0.8, 'same-tier mean');
-	}, 30_000);
+	}, 120_000);
 
 	it('the easiest puzzle at 70% right makes a same-tier fight close to a coin flip (40–55%)', () => {
 		expectInBand(mean(winRates(0, easiest(0.7)).map((r) => r.win)), 0.4, 0.55, 'same-tier mean');
-	}, 30_000);
+	}, 120_000);
 
 	it('the starter squirrel meets the same targets against its own near-spawn tier', () => {
 		for (const name of ['the tier-1 animals near home', 'the river near home']) {
@@ -256,10 +287,11 @@ describe('balance simulation', () => {
 			expectInBand(starterWin(easiest(1), mix), 0.65, 0.8, `starter vs ${name}, always right`);
 			expectInBand(starterWin(easiest(0.7), mix), 0.4, 0.55, `starter vs ${name}, right 70%`);
 		}
-		// The open meadow is the rabbits' ground (3 in 4 of its tier-1 animals
-		// near home), and the rabbit is the strongest tier-1 animal: there a
-		// squirrel starter right 7 times in 10 wins about 37%, below the band,
-		// and at least one fight in three (all rabbits would be 28%).
+		// The open meadow is the ground of the rabbits, shrews, hedgehogs and moles
+		// (18% each of its tier-1 animals near home), and the rabbit and the mole are
+		// the hardest small animals for a squirrel: there a squirrel starter right 7
+		// times in 10 wins about 36%, below the band, and at least one fight in three
+		// (all rabbits would be 28%, all moles 27%).
 		const meadow = STARTER_MIXES['the meadow near home']!;
 		expectInBand(starterWin(easiest(1), meadow), 0.65, 0.8, 'starter vs the meadow, always right');
 		const shaky = starterWin(easiest(0.7), meadow);
@@ -277,25 +309,22 @@ describe('balance simulation', () => {
 
 	it('being right more often never hurts', () => {
 		for (const model of [hardest, easiest]) {
-			for (const p of ids) {
-				for (const w of ids) {
-					if (arena(p, w) === null) continue;
-					const sure = simulate(p, w, model(1)).win;
-					const shaky = simulate(p, w, model(0.7)).win;
-					expect(sure, `${p} vs ${w}, ${model.name}`).toBeGreaterThanOrEqual(shaky - 0.05);
-				}
+			for (const [p, w] of MEETING_PAIRS) {
+				const sure = simulate(p, w, model(1)).win;
+				const shaky = simulate(p, w, model(0.7)).win;
+				expect(sure, `${p} vs ${w}, ${model.name}`).toBeGreaterThanOrEqual(shaky - 0.05);
 			}
 		}
-	}, 30_000);
+		// Every pair, four models, 200 battles each (about 600,000 battles with the 32
+		// animals of #89): 13 s at a load average of 53, so two minutes leaves room.
+	}, 120_000);
 
 	it('a stronger attack at a higher level never hurts an always-right player', () => {
-		for (const p of ids) {
-			for (const w of ids) {
-				if (arena(p, w) === null) continue;
-				const strong = simulate(p, w, hardest(1)).win;
-				const weak = simulate(p, w, easiest(1)).win;
-				expect(strong, `${p} vs ${w}`).toBeGreaterThanOrEqual(weak - 0.05);
-			}
+		for (const [p, w] of MEETING_PAIRS) {
+			const strong = simulate(p, w, hardest(1)).win;
+			const weak = simulate(p, w, easiest(1)).win;
+			expect(strong, `${p} vs ${w}`).toBeGreaterThanOrEqual(weak - 0.05);
 		}
-	});
+		// The two models' battles are the test above's, kept: well under a second.
+	}, 30_000);
 });

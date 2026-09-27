@@ -60,11 +60,13 @@ export const NEAR_TIER_RATIO = 5;
  * What a species one tier below the lead weighs, next to a species of the
  * lead's own tier (which weighs 1 at any distance); two or more tiers below
  * weighs nothing. A weight, not a share: where the lead's tier or bigger lives
- * too, smaller challengers are uncommon (2–14% of a biome's table in the
- * prototype catalog, and so of every tile's near spawn; 1–20% on a tile far
- * out, where the ground moves the tiers), but where nothing else lives — a
- * deer at the river, a wolf in the meadow — every encounter is one of them,
- * at the usual `ENCOUNTER_CHANCE`.
+ * too, smaller challengers are uncommon, one kind at a time (1–33% of a
+ * biome's table all together since #89's small animals, and so of every
+ * tile's near spawn: the most where many smaller kinds live beside few of the
+ * lead's, as five tier-2 kinds beside the one deer of the meadow; 1–52% on a
+ * tile far out, where the ground moves the tiers), but where nothing else
+ * lives — a deer at the river, a wolf in the meadow — every encounter is one
+ * of them, at the usual `ENCOUNTER_CHANCE`.
  */
 export const ONE_TIER_BELOW_WEIGHT = 0.1;
 
@@ -114,18 +116,19 @@ function challengerWeight(above: number, distance: number): number {
 
 /**
  * Where visitors come near spawn: the water and the hills, which animals of
- * the lead's size that don't live there come down to and up to (squirrels
- * and rabbits to the river, and frogs too to the mountains). Not a property
- * of the catalog: the river has had a tier-1 animal of its own since the
- * frog, and its squirrels and rabbits still keep the otters rare near home.
+ * the lead's size that don't live there come down to and up to (the small
+ * animals of the meadow and the forest to the river, and those of the river
+ * too to the mountains). Not a property of the catalog: the river and the
+ * mountains have small animals of their own (the frogs, brown rats and toads,
+ * the lizards), and the visitors still keep the bigger ones rare near home.
  */
 const VISITED_BIOMES: readonly Biome[] = ['river', 'mountain'];
 
 /**
  * What a visitor of the lead's tier weighs: 1 inside the safe radius, as much
  * as a resident of that tier, thinning out linearly to 0 at the wild radius.
- * Beyond it, for a tier-1 lead, the river is frogs and otters and the
- * mountains are wolves and bears.
+ * Beyond it, for a tier-1 lead, the river and the mountains are their own
+ * residents only.
  */
 function visitorWeight(distance: number): number {
 	return challengerWeight(0, distance) * (1 - danger(distance));

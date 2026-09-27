@@ -16,7 +16,9 @@ import {
 	countSolved,
 	editedTileAt,
 	fitWorlds,
+	flightPos,
 	gearOf,
+	glideOn,
 	hashInts,
 	hashString,
 	isEncounterTile,
@@ -24,6 +26,7 @@ import {
 	isWireCoord,
 	joinParty,
 	knockOut,
+	landFlight,
 	newGame,
 	normalizeNickname,
 	rollEncounterFor,
@@ -32,6 +35,7 @@ import {
 	startDoctorVisit,
 	step,
 	surroundings,
+	takeOff,
 	tileRealm,
 	travel,
 	worldSeed,
@@ -43,11 +47,13 @@ import {
 	type Direction,
 	type DoctorIntent,
 	type DoctorState,
+	type Flight,
 	type SpeciesRef,
 	type GameEvent,
 	type GridPos,
 	type Intent,
 	type ItemId,
+	type Landing,
 	type Line,
 	type MatchEvent,
 	type MatchSide,
@@ -184,6 +190,13 @@ export class LocalAuthority implements Authority {
 	/** The battle in progress, with the seed every intent of it is applied with. */
 	private battle: { state: BattleState; seed: number } | null = null;
 	/**
+	 * The flight in progress (the glider), from `take-off` to landing. While it
+	 * lasts, `pos` is the tile the glider is over, and nothing but `glide` and
+	 * `land` is taken. Never saved: `snapshot` lands it (`landFlight`), which is
+	 * where a reload finds the kid.
+	 */
+	private flight: Flight | null = null;
+	/**
 	 * A game is under way: from `start` or an accepted `new-game` until
 	 * `leave-game`. Without one there is nothing to act on but `new-game`.
 	 */
@@ -227,6 +240,7 @@ export class LocalAuthority implements Authority {
 		this.worlds = game.worlds.map(copyStay);
 		this.battle = null;
 		this.doctor = null;
+		this.flight = null;
 		this.started = true;
 		this.emit({
 			type: 'welcome',
@@ -256,24 +270,35 @@ export class LocalAuthority implements Authority {
 	 * The game as it stands, for a save. Mid-battle the party is the battle's,
 	 * HP as it is now, and the battle comes too (its state, never its seed).
 	 * A doctor visit is not saved; what it healed already is in the party.
+	 *
+	 * In the air it is the game as it will be once the kid comes down if they
+	 * let go now (`landFlight`: on the landing tile, every tile to it a step,
+	 * a tree or a rock there cleared), exactly what `land` would leave. So a
+	 * save never holds a flight: a reload lands the kid by the landing rule,
+	 * and a page on an older build, which knows no flying, finds them on
+	 * ground they can stand on.
 	 */
 	snapshot(): SavedGame {
 		const party = this.battle ? this.battle.state.party : this.party;
+		const flight = this.flight;
+		const landing = flight ? this.landing(flight) : null;
+		const edits = landing?.cleared ? landing.edits : this.edits;
+		const worlds = landing?.cleared ? fitWorlds(edits, this.worlds, this.home) : this.worlds;
 		return {
 			name: this.name,
 			home: this.home,
 			world: this.world,
-			pos: { ...this.pos },
+			pos: landing ? { ...landing.pos } : { ...this.pos },
 			facing: this.facing,
-			steps: this.steps,
+			steps: landing && flight ? this.steps + landing.flown - flight.flown : this.steps,
 			visits: this.visits,
 			party: party.map((a) => ({ ...a })),
 			tokens: this.tokens,
 			items: [...this.items],
 			solved: this.solved,
 			battle: this.battle ? this.battle.state : null,
-			edits: [...this.edits.encode()],
-			worlds: this.worlds.map(copyStay)
+			edits: [...edits.encode()],
+			worlds: worlds.map(copyStay)
 		};
 	}
 
@@ -330,9 +355,9 @@ export class LocalAuthority implements Authority {
 		}
 		if (!this.started) return;
 		if (intent.type === 'leave-game') {
-			// Only while exploring, as the pause menu is: a battle or a doctor visit is
-			// finished first, so no way out of one opens through the title.
-			if (!this.battle && !this.doctor) this.leave();
+			// Only while exploring, as the pause menu is: a battle, a doctor visit or a
+			// flight is finished first, so no way out of one opens through the title.
+			if (!this.battle && !this.doctor && !this.flight) this.leave();
 			return;
 		}
 		if (intent.type === 'party') {
@@ -356,6 +381,13 @@ export class LocalAuthority implements Authority {
 			if (intent.type === 'doctor') this.applyDoctor(intent.intent);
 			return;
 		}
+		if (this.flight) {
+			// In the air only the flight goes on: no walking, talking, clearing, travelling
+			// or going to anyone until the kid is down.
+			if (intent.type === 'glide') this.glide(this.flight);
+			else if (intent.type === 'land') this.land(this.flight);
+			return;
+		}
 		switch (intent.type) {
 			case 'move':
 				this.move(intent.dir);
@@ -369,9 +401,14 @@ export class LocalAuthority implements Authority {
 			case 'travel':
 				this.travel(intent.world);
 				break;
+			case 'take-off':
+				this.takeOff();
+				break;
 			case 'battle':
 			case 'doctor':
-				// Nothing to act in; the client is showing a result card or is stale.
+			case 'glide':
+			case 'land':
+				// Nothing to act in; the client is showing a result card, or a landing, or is stale.
 				break;
 		}
 	}
@@ -539,6 +576,81 @@ export class LocalAuthority implements Authority {
 	/** Where the player stands: out on the water in the boat, or on land. */
 	private realm(): Realm {
 		return tileRealm(editedTileAt(this.seed, this.edits, this.pos.x, this.pos.y).kind);
+	}
+
+	// --- the glider ----------------------------------------------------------
+
+	/**
+	 * `take-off`, while exploring: up in the air the way the player faces, with
+	 * the engine's `takeOff` (the glider owned, and somewhere to land in the
+	 * `GLIDE_TILES` ahead). From land or from the boat. Not a step.
+	 */
+	private takeOff(): void {
+		const player = { pos: this.pos, facing: this.facing, items: this.items };
+		const result = takeOff(this.seed, this.edits, player);
+		if (!result.ok) {
+			this.emit({ type: 'take-off-refused', playerId: this.playerId, reason: result.reason });
+			return;
+		}
+		this.flight = result.flight;
+		const { from, dir, reach } = result.flight;
+		this.emit({ type: 'took-off', playerId: this.playerId, from: { ...from }, dir, reach });
+	}
+
+	/**
+	 * `glide`: one tile on, a step like any (the step count keys what comes
+	 * after a flight, as after a walk), and never a battle: nothing on the
+	 * ground notices a kid up in the air. At the reach it goes no further: a
+	 * glide past it is a landing there. The glide onto the reach does not land
+	 * by itself, so the tile is flown over (and said to be, to the others)
+	 * before it is landed on.
+	 */
+	private glide(flight: Flight): void {
+		const next = glideOn(flight);
+		if (next === flight) {
+			this.land(flight);
+			return;
+		}
+		this.flight = next;
+		this.pos = flightPos(next);
+		this.steps += 1;
+		// #91 part 2, birds in the air: a bird may notice the glider on each tile it enters.
+		this.emit({ type: 'glided', playerId: this.playerId, pos: { ...this.pos }, flown: next.flown });
+	}
+
+	/**
+	 * `land`, or the reach: down on the first tile from the one the glider is
+	 * over that the player can stand on (`landFlight`), every tile flown on to
+	 * it a step. A tree or a rock there is cleared with its tool as they touch
+	 * down, and every world's cleared tiles share one budget, as after a chop.
+	 */
+	private land(flight: Flight): void {
+		const landing = this.landing(flight);
+		this.flight = null;
+		this.steps += landing.flown - flight.flown;
+		this.pos = { ...landing.pos };
+		this.facing = flight.dir;
+		const cleared = landing.cleared;
+		if (cleared) {
+			this.edits = landing.edits;
+			this.worlds = fitWorlds(this.edits, this.worlds, this.home);
+		}
+		this.emit({
+			type: 'landed',
+			playerId: this.playerId,
+			pos: { ...landing.pos },
+			dir: flight.dir,
+			flown: landing.flown
+		});
+		if (cleared) {
+			const { pos, was, tool, regrown } = cleared;
+			this.emit({ type: 'tile-cleared', playerId: this.playerId, pos, was, tool, regrown });
+		}
+	}
+
+	/** Where `flight` comes down if the kid lets go now, in this world as they left it. */
+	private landing(flight: Flight): Landing {
+		return landFlight(this.seed, this.edits, flight, { items: this.items });
 	}
 
 	// --- battle ------------------------------------------------------------
@@ -709,7 +821,9 @@ export class LocalAuthority implements Authority {
 
 	/** What the player is doing, for the engine's rules that depend on it. */
 	private activity(): PlayerActivity {
-		return this.battle ? 'battle' : this.doctor ? 'doctor' : 'explore';
+		if (this.battle) return 'battle';
+		if (this.doctor) return 'doctor';
+		return this.flight ? 'flight' : 'explore';
 	}
 
 	// --- helpers -----------------------------------------------------------

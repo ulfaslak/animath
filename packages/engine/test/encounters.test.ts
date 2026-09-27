@@ -234,22 +234,62 @@ describe('encounterTable', () => {
 			}
 		}
 		expect(bad).toEqual([]);
-		// Today's numbers near spawn, as [[PRODUCT]] §4 quotes them.
+		// Today's numbers near spawn, as [[PRODUCT]] §4 quotes them: every small animal of the
+		// biome at 1, a tier-2 one at 1/5, a deer at 1/25, and so on up; at the river and in
+		// the mountains, the small animals that live elsewhere come too, at 1 each.
+		const each = (w: number, ...ids: string[]) => Object.fromEntries(ids.map((id) => [id, w]));
 		expectShares(
 			encounterTable('meadow', 0, 1),
-			normalised({ squirrel: 1, rabbit: 1, fox: 0.2, deer: 0.04 })
+			normalised({
+				...each(1, 'squirrel', 'rabbit', 'shrew', 'wood-mouse', 'brown-rat', 'hedgehog'),
+				...each(1, 'mole', 'common-lizard', 'robin'),
+				fox: 0.2,
+				'roe-deer': 0.2,
+				badger: 0.2,
+				stoat: 0.2,
+				adder: 0.2,
+				deer: 0.04
+			})
 		);
 		expectShares(
 			encounterTable('forest', 0, 1),
-			normalised({ squirrel: 1, fox: 0.2, deer: 0.04, wolf: 0.008, bear: 0.0016 })
+			normalised({
+				...each(1, 'squirrel', 'shrew', 'wood-mouse', 'hedgehog', 'common-toad', 'robin'),
+				'stag-beetle': 1,
+				fox: 0.2,
+				'roe-deer': 0.2,
+				badger: 0.2,
+				'pine-marten': 0.2,
+				'tawny-owl': 0.2,
+				raccoon: 0.2,
+				deer: 0.04,
+				wolf: 0.008,
+				bear: 0.0016
+			})
 		);
 		expectShares(
 			encounterTable('river', 0, 1),
-			normalised({ squirrel: 1, rabbit: 1, frog: 1, otter: 0.2 })
+			normalised({
+				...each(1, 'frog', 'brown-rat', 'common-toad'),
+				...each(1, 'squirrel', 'rabbit', 'shrew', 'wood-mouse', 'hedgehog', 'mole'),
+				...each(1, 'common-lizard', 'robin', 'stag-beetle'),
+				otter: 0.2,
+				'grey-heron': 0.2,
+				raccoon: 0.2,
+				beaver: 0.2
+			})
 		);
 		expectShares(
 			encounterTable('mountain', 0, 1),
-			normalised({ squirrel: 1, rabbit: 1, frog: 1, wolf: 0.008, bear: 0.0016 })
+			normalised({
+				'common-lizard': 1,
+				...each(1, 'squirrel', 'rabbit', 'frog', 'shrew', 'wood-mouse', 'brown-rat'),
+				...each(1, 'hedgehog', 'mole', 'common-toad', 'robin', 'stag-beetle'),
+				stoat: 0.2,
+				adder: 0.2,
+				wolf: 0.008,
+				bear: 0.0016
+			})
 		);
 		// Out on the deep water: the sea animals only, the frog in the boat's lead or not.
 		expectShares(
@@ -271,18 +311,21 @@ describe('encounterTable', () => {
 		expect(frog.habitats).toEqual(['river']);
 		const frogShare = (biome: Biome, d: number, lead: Tier) =>
 			encounterTable(biome, d, lead).find((e) => e.species.id === 'frog')?.weight ?? 0;
-		// A tier-1 lead: a third of the reeds near home, beside the squirrels and
-		// rabbits that come down to the water; half of them far out, beside the otters.
-		expect(frogShare('river', 0, 1)).toBeCloseTo(1 / 3.2, 12);
-		expect(frogShare('river', SAFE_RADIUS, 1)).toBeCloseTo(1 / 3.2, 12);
-		expect(frogShare('river', WILD_RADIUS, 1)).toBeCloseTo(1 / 2, 12);
-		expect(frogShare('river', 1000, 1)).toBeCloseTo(1 / 2, 12);
+		// A tier-1 lead: one of the twelve small animals in the reeds near home, beside the
+		// brown rats and toads that live there too and the nine that come down to the water
+		// (the four tier-2 animals of the river weigh a fifth each); one in seven far out,
+		// beside the rats, the toads and the four bigger ones.
+		expect(frogShare('river', 0, 1)).toBeCloseTo(1 / 12.8, 12);
+		expect(frogShare('river', SAFE_RADIUS, 1)).toBeCloseTo(1 / 12.8, 12);
+		expect(frogShare('river', WILD_RADIUS, 1)).toBeCloseTo(1 / 7, 12);
+		expect(frogShare('river', 1000, 1)).toBeCloseTo(1 / 7, 12);
 		// It comes up the hills near home too, like the other tier-1 animals.
-		expect(frogShare('mountain', 0, 1)).toBeCloseTo(1 / 3.0096, 12);
+		expect(frogShare('mountain', 0, 1)).toBeCloseTo(1 / 12.4096, 12);
 		expect(frogShare('mountain', WILD_RADIUS, 1)).toBe(0);
-		// A tier-2 lead: one tier below, 1/10 of an otter, near and far, and never a visitor.
+		// A tier-2 lead: one tier below, 1/10 of each of the river's four tier-2 animals,
+		// near and far, and never a visitor.
 		for (const d of [0, SAFE_RADIUS, 80, WILD_RADIUS, 1000]) {
-			expect(frogShare('river', d, 2), `river @ ${d}`).toBeCloseTo(0.1 / 1.1, 12);
+			expect(frogShare('river', d, 2), `river @ ${d}`).toBeCloseTo(0.1 / 4.3, 12);
 			expect(frogShare('mountain', d, 2), `mountain @ ${d}`).toBe(0);
 		}
 		// Two or more tiers above it, never; and no meadow or forest, for anyone.
@@ -376,19 +419,47 @@ describe('encounterTable', () => {
 		}
 		expect(bad).toEqual([]);
 		expect(compared).toBeGreaterThan(1000);
-		// Near spawn with a fox or otter in front, as [[PRODUCT]] §4 quotes it.
+		// Near spawn with a tier-2 animal in front, as [[PRODUCT]] §4 quotes it: its own
+		// tier at 1, a small one at 1/10, a deer at 1/5, and so on up.
+		const each = (w: number, ...ids: string[]) => Object.fromEntries(ids.map((id) => [id, w]));
 		expectShares(
 			encounterTable('meadow', 0, 2),
-			normalised({ squirrel: 0.1, rabbit: 0.1, fox: 1, deer: 0.2 })
+			normalised({
+				...each(1, 'fox', 'roe-deer', 'badger', 'stoat', 'adder'),
+				deer: 0.2,
+				...each(0.1, 'squirrel', 'rabbit', 'shrew', 'wood-mouse', 'brown-rat', 'hedgehog'),
+				...each(0.1, 'mole', 'common-lizard', 'robin')
+			})
 		);
 		expectShares(
 			encounterTable('forest', 0, 2),
-			normalised({ squirrel: 0.1, fox: 1, deer: 0.2, wolf: 0.04, bear: 0.008 })
+			normalised({
+				...each(1, 'fox', 'roe-deer', 'badger', 'pine-marten', 'tawny-owl', 'raccoon'),
+				deer: 0.2,
+				wolf: 0.04,
+				bear: 0.008,
+				...each(0.1, 'squirrel', 'shrew', 'wood-mouse', 'hedgehog', 'common-toad', 'robin'),
+				'stag-beetle': 0.1
+			})
 		);
-		expectShares(encounterTable('river', 0, 2), normalised({ frog: 0.1, otter: 1 }));
+		expectShares(
+			encounterTable('river', 0, 2),
+			normalised({
+				...each(1, 'otter', 'grey-heron', 'raccoon', 'beaver'),
+				...each(0.1, 'frog', 'brown-rat', 'common-toad')
+			})
+		);
+		// The mountains' own stoats and adders, the other tier-2 animals come up the hills,
+		// and the lizard is one tier below.
 		expectShares(
 			encounterTable('mountain', 0, 2),
-			normalised({ fox: 1, otter: 1, wolf: 0.04, bear: 0.008 })
+			normalised({
+				...each(1, 'stoat', 'adder', 'fox', 'otter', 'roe-deer', 'badger', 'pine-marten'),
+				...each(1, 'grey-heron', 'tawny-owl', 'raccoon', 'beaver'),
+				'common-lizard': 0.1,
+				wolf: 0.04,
+				bear: 0.008
+			})
 		);
 		// An otter in front, out on the deep water: turtles, and the small ones 1 time in 10 of a turtle.
 		expectShares(
@@ -435,14 +506,13 @@ describe('encounterTable', () => {
 				}
 			}
 		}
-		// With the prototype catalog: squirrels and rabbits come down to the frogs'
-		// river for the starter, the tier-1 animals up the mountains, and the
-		// mountains for a fox, an otter or a deer. The river has nothing bigger
-		// than an otter, so a fox or an otter in front meets no visitors there.
+		// The small animals that live elsewhere come down to the river for the starter, and
+		// up the mountains; so do the tier-2 animals for a tier-2 lead, and the deer for a
+		// deer. The river has nothing bigger than tier 2, so a tier-2 lead meets no visitors there.
 		expect(visited).toEqual([
-			'1:river:squirrel+rabbit',
-			'1:mountain:squirrel+rabbit+frog',
-			'2:mountain:fox+otter',
+			'1:river:squirrel+rabbit+shrew+wood-mouse+hedgehog+mole+common-lizard+robin+stag-beetle',
+			'1:mountain:squirrel+rabbit+frog+shrew+wood-mouse+brown-rat+hedgehog+mole+common-toad+robin+stag-beetle',
+			'2:mountain:fox+otter+roe-deer+badger+pine-marten+grey-heron+tawny-owl+raccoon+beaver',
 			'3:mountain:deer'
 		]);
 	});
@@ -704,23 +774,27 @@ describe('encounterTableAt: the ground around the tall grass', () => {
 		// load average of 40.
 	}, 30_000);
 
-	it('on any ground, the share two tiers above the lead never falls and its own never rises with distance', () => {
+	it('on any ground, the share of animals bigger than the lead, and of those two tiers up, never falls with distance', () => {
+		// Its own tier's share may rise: where animals of one tier favour different ground, the
+		// ground's pull as danger rises takes share from the animals one tier below (#89), up to
+		// 7.4 points for a red deer on meadow grass among trees, where nothing bigger lives. The
+		// world never gets gentler as a kid walks out, which is what the promise is for.
 		const bad = findings();
 		for (const lead of LEADS) {
 			for (const biome of BIOMES) {
 				if (isSilent(lead, biome)) continue;
 				for (const around of GROUNDS) {
 					let prevFierce = -1;
-					let prevOwn = 2;
+					let prevBigger = -1;
 					for (let d = 0; d <= WILD_RADIUS + 64; d += 1) {
 						const here = encounterTableAt(siteAt(biome, d, around), lead);
 						const fierce = tierShare(here, (t) => t >= lead + 2);
-						const own = tierShare(here, (t) => t === lead);
+						const bigger = tierShare(here, (t) => t > lead);
 						const where = `tier-${lead} lead in ${biome} @ ${d} on ${JSON.stringify(around)}`;
 						if (!(fierce >= prevFierce - 1e-12)) bad.note(`${where}: two up fell to ${fierce}`);
-						if (!(own <= prevOwn + 1e-12)) bad.note(`${where}: own tier rose to ${own}`);
+						if (!(bigger >= prevBigger - 1e-12)) bad.note(`${where}: bigger fell to ${bigger}`);
 						prevFierce = fierce;
-						prevOwn = own;
+						prevBigger = bigger;
 					}
 				}
 			}
@@ -750,8 +824,14 @@ describe('encounterTableAt: the ground around the tall grass', () => {
 			}
 		}
 		expect(sea).toEqual(['crab', 'starfish', 'turtle', 'dolphin', 'octopus', 'whale']);
-		for (const biome of ['meadow', 'forest', 'mountain'] as const)
-			expect(encounterTable(biome, 0, 1, 'water')).toEqual([]);
+		// A land biome grows no water to meet anything in; were its table built for the water,
+		// it would hold only the amphibious animals living there (the toad in the forest).
+		for (const biome of ['meadow', 'forest', 'mountain'] as const) {
+			for (const e of encounterTable(biome, 0, 1, 'water')) {
+				expect(e.species.realms, e.species.id).toEqual(['land', 'water']);
+				expect(e.species.habitats, e.species.id).toContain(biome);
+			}
+		}
 	});
 });
 
@@ -783,22 +863,36 @@ describe('the start: the ground near spawn', () => {
 		// About 0.5 s alone (91,125 tables); 3.9 s at a load average of 40.
 	}, 30_000);
 
-	it("at the reed beside the prototype world's spawn, with the lake all round it, most battles are frogs and the otter stays 1 in 16", () => {
+	it("at the reed beside the prototype world's spawn, with the lake all round it, most battles are the water's small animals and the bigger ones stay 1 in 16", () => {
 		const seed = hashString('prototype');
 		const spawn = spawnPoint(seed);
 		const pos = { x: spawn.x - 1, y: spawn.y };
 		const tile = tileAtWorld(seed, pos.x, pos.y);
 		expect(tile).toMatchObject({ kind: 'tallgrass', biome: 'river' });
 		const site = { tile, pos, spawn, around: surroundings(seed, pos) };
-		// The squirrels and rabbits that come down to the water keep a third of
-		// the tier-1 share each on open sand; here the frogs, four times as
-		// likely by the water, take two thirds of it.
+		// Near home the ground only divides each tier's share: the frogs, brown rats and
+		// toads, four times as likely by the water as the nine small animals that come down
+		// to it, take four sevenths of the tier-1 share; the four tier-2 animals of the river,
+		// all at home by the water, split theirs (1 in 16 together) evenly.
+		const each = (w: number, ...ids: string[]) => Object.fromEntries(ids.map((id) => [id, w]));
 		expectShares(
 			encounterTableAt(site, 1),
-			normalised({ squirrel: 1, rabbit: 1, frog: 4, otter: 0.4 })
+			normalised({
+				...each(4, 'frog', 'brown-rat', 'common-toad'),
+				...each(1, 'squirrel', 'rabbit', 'shrew', 'wood-mouse', 'hedgehog', 'mole'),
+				...each(1, 'common-lizard', 'robin', 'stag-beetle'),
+				...each(0.35, 'otter', 'grey-heron', 'raccoon', 'beaver')
+			})
 		);
-		// A fox or an otter in front: otters, and a frog 1 time in 11, as on the biome's table.
-		expectShares(encounterTableAt(site, 2), normalised({ frog: 0.1, otter: 1 }));
+		// A tier-2 animal in front: the river's four tier-2 animals, and each small one of the
+		// water 1 time in 43, as on the biome's table.
+		expectShares(
+			encounterTableAt(site, 2),
+			normalised({
+				...each(1, 'otter', 'grey-heron', 'raccoon', 'beaver'),
+				...each(0.1, 'frog', 'brown-rat', 'common-toad')
+			})
+		);
 	});
 });
 

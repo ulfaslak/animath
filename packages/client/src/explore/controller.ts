@@ -1,13 +1,20 @@
 import {
+	CLEARING_TOOL,
 	WorldEdits,
 	bundles,
+	editedTileAt,
+	flightTile,
 	hasItem,
+	isClearable,
 	isWater,
+	landingDistance,
 	leadIndex,
+	step,
 	tileAtWorld,
 	type AnimalInstance,
 	type Authority,
 	type Direction,
+	type Flight,
 	type GameEvent,
 	type GridPos,
 	type PartyIntent
@@ -18,11 +25,38 @@ import { motion } from '../motion';
 import { BOAT_SWING_SECONDS } from '../render/boat';
 import { SWING_STRIKE } from '../render/clearing';
 import type { Follower } from '../render/follower';
-import type { GameRenderer } from '../render/renderer';
-import { STEP_SECONDS } from '../render/trainer';
+import type { AirPose, GameRenderer } from '../render/renderer';
+import { DESCEND_SECONDS, GLIDE_SECONDS, RISE_SECONDS, STEP_SECONDS } from '../render/trainer';
 import { doctor } from '../state/doctor.svelte';
 import { game } from '../state/game.svelte';
+import { hud } from '../state/hud.svelte';
 import { team } from '../state/team.svelte';
+
+/** Seconds of the little hop in place when a take-off is refused. */
+const HOP_SECONDS = 0.3;
+/** How far the canopy has come out of its roll by the end of the wind-up (0 folded, 1 open): a jump is coming. */
+const WIND_UP_OPEN = 0.45;
+
+type TileCleared = Extract<GameEvent, { type: 'tile-cleared' }>;
+
+/**
+ * A flight on screen, from `took-off` until the trainer touches down (a
+ * little after the authority's `landed`, once the descent is drawn).
+ */
+interface FlightOnScreen {
+	/** The flight as the authority has it: `took-off`'s, flown on by every `glided`. */
+	flight: Flight;
+	/** Rising over the take-off tile, gliding from tile to tile, or coming down. */
+	phase: 'rise' | 'glide' | 'descend';
+	/** Seconds into the rise or the descent. */
+	t: number;
+	/** The kid let go: glide on to the landing tile, and down. For good, whatever is pressed next. */
+	letGo: boolean;
+	/** Where the authority put them down (`landed`): glide on to it, then come down. */
+	landed: GridPos | null;
+	/** The tree or rock that landing cleared, chopped as they come down onto it. */
+	cleared: TileCleared | null;
+}
 
 /**
  * Explore mode: turns held keys into `move` intents, one per tile, and
@@ -50,6 +84,18 @@ import { team } from '../state/team.svelte';
  * takes `BOAT_SWING_SECONDS` instead of a step's usual time, while the boat
  * swings under the trainer or back onto their back (the usual time with
  * reduced motion, when it snaps).
+ *
+ * With the glider, Space held (the touch controls' Fly) sends `take-off` once
+ * the keyboard says the hold is long enough and the step under way is done;
+ * the trainer crouches as it winds up. In the air the trainer rises, then
+ * glides a tile per `glide`, sent each time the last tile is flown
+ * (`GLIDE_SECONDS`), for as long as Space is held. Let go, it glides on to
+ * where the engine says it comes down (`landingDistance`, where the landing
+ * ring stands), sends `land` there, and comes down; the reach lands it by
+ * itself. Nothing else is taken in the air: no step, no Talk, no pick, no
+ * menu. A landing that clears a tree or a rock chops it as the trainer comes
+ * down onto it. The lead shrinks away at take-off and grows back in beside
+ * the trainer once they are down.
  */
 export class ExploreController {
 	private pos: GridPos = { x: 0, y: 0 };
@@ -62,6 +108,12 @@ export class ExploreController {
 	private playerId = '';
 	/** The tiles the player has cleared: `welcome`'s, then every `tile-cleared`. */
 	private edits = WorldEdits.none;
+	/** The flight on screen, while the trainer is up in the air (or coming down). */
+	private flight: FlightOnScreen | null = null;
+	/** How far through the hop of a take-off refused, 0 to 1; null when none. */
+	private hop: number | null = null;
+	/** The landing ring as last put up, so it is worked out again only when the flight moves on. */
+	private ringKey = '';
 
 	constructor(
 		private authority: Authority,
@@ -82,8 +134,11 @@ export class ExploreController {
 				this.pos = this.from = event.pos;
 				this.progress = 1;
 				this.facing = event.facing;
+				this.grounded();
 				this.renderer.setWorld(this.seed, this.edits);
 				this.renderer.setBoat(hasItem(event, 'boat'));
+				this.renderer.setGlider(hasItem(event, 'glider'));
+				this.keyboard.setGlider(hasItem(event, 'glider'));
 				this.renderer.setPlayer(event.pos, event.pos, 1, this.facing);
 				this.follower?.place(this.seed, event.pos, this.facing, this.edits);
 				break;
@@ -97,22 +152,66 @@ export class ExploreController {
 				this.pos = this.from = event.pos;
 				this.progress = 1;
 				this.facing = event.facing;
+				this.grounded();
 				this.renderer.setWorld(this.seed, this.edits);
 				this.renderer.setPlayer(event.pos, event.pos, 1, this.facing);
 				this.follower?.place(this.seed, event.pos, this.facing, this.edits);
 				break;
 			case 'tile-cleared':
 				if (event.playerId !== this.playerId) break;
-				this.edits = this.edits.with(event.pos).without(event.regrown);
-				this.renderer.cleared(event.pos, event.tool, this.facing, this.edits, event.regrown);
-				this.follower?.setEdits(this.edits);
-				// As the tool lands: a woody chop, or a rock's crack.
-				sfx.play(event.was === 'tree' ? 'chop' : 'crack', { delay: SWING_STRIKE });
+				// Landing on it from the glider: chopped as the trainer comes down onto it.
+				if (this.flight?.landed) this.flight.cleared = event;
+				else this.clearTile(event);
 				break;
 			case 'belongings-changed':
 				// Bought at the doctor: it grows onto the trainer's back.
 				this.renderer.setBoat(hasItem(event, 'boat'), true);
+				this.renderer.setGlider(hasItem(event, 'glider'), true);
+				this.keyboard.setGlider(hasItem(event, 'glider'));
 				break;
+			case 'took-off': {
+				if (event.playerId !== this.playerId) break;
+				team.close();
+				const { from, dir, reach } = event;
+				this.flight = {
+					flight: { from, dir, reach, flown: 0 },
+					phase: 'rise',
+					t: 0,
+					letGo: false,
+					landed: null,
+					cleared: null
+				};
+				this.pos = this.from = from;
+				this.progress = 1;
+				this.facing = dir;
+				this.hop = null;
+				// The lead shrinks away: nobody follows a kid up into the air.
+				this.follower?.lead(null);
+				sfx.play('whoosh');
+				break;
+			}
+			case 'take-off-refused':
+				// Nowhere to land that way: a little hop where they stand (the message line says why).
+				if (event.playerId === this.playerId) this.hop = 0;
+				break;
+			case 'glided': {
+				const f = this.flight;
+				if (event.playerId !== this.playerId || !f) break;
+				f.flight = { ...f.flight, flown: event.flown };
+				this.from = this.pos;
+				this.pos = event.pos;
+				this.progress = 0;
+				break;
+			}
+			case 'landed': {
+				const f = this.flight;
+				if (event.playerId !== this.playerId || !f) break;
+				// Down, for good: glide on to the landing tile if the trainer is not over it yet.
+				f.landed = event.pos;
+				f.letGo = true;
+				this.facing = event.dir;
+				break;
+			}
 			case 'player-moved':
 				if (event.playerId !== this.playerId) break;
 				// Walking on puts an open card away.
@@ -142,6 +241,7 @@ export class ExploreController {
 				this.pos = this.from = event.pos;
 				this.progress = 1;
 				this.facing = event.dir;
+				this.grounded();
 				this.renderer.setPlayer(event.pos, event.pos, 1, this.facing);
 				this.renderer.poofAt(event.pos);
 				this.follower?.place(this.seed, event.pos, this.facing, this.edits);
@@ -149,12 +249,59 @@ export class ExploreController {
 			case 'game-left':
 				// Quit to the title, which gathers the team round the trainer itself.
 				this.follower?.hide();
+				this.grounded();
 				break;
 		}
 	}
 
+	/** Whether the trainer is up in the air (or coming down): the menu and the party column wait. */
+	get flying(): boolean {
+		return this.flight !== null;
+	}
+
+	/** A tile cleared, on screen: the world takes the change, and the chop or the crack plays. */
+	private clearTile(event: TileCleared): void {
+		this.edits = this.edits.with(event.pos).without(event.regrown);
+		this.renderer.cleared(event.pos, event.tool, this.facing, this.edits, event.regrown);
+		this.follower?.setEdits(this.edits);
+		// As the tool lands: a woody chop, or a rock's crack.
+		sfx.play(event.was === 'tree' ? 'chop' : 'crack', { delay: SWING_STRIKE });
+	}
+
+	/**
+	 * Put down at once, without a flight (a new game, a trip, a poof, the
+	 * tent): no glider open, no ring. None of them comes in the air, since the
+	 * authority takes nothing else there; this only makes sure.
+	 */
+	private grounded(): void {
+		this.flight = null;
+		this.hop = null;
+		this.ringKey = '';
+		this.renderer.setLandingSpot(null);
+	}
+
 	update(dt: number): void {
 		this.keyboard.tick(dt);
+		if (this.hop !== null) {
+			this.hop += dt / HOP_SECONDS;
+			if (this.hop >= 1) this.hop = null;
+		}
+		if (this.flight) this.fly(this.flight, dt);
+		else this.walk(dt);
+		this.renderer.setPlayer(this.from, this.pos, this.progress, this.facing, this.airPose());
+		this.renderer.ensureChunksAround(this.pos);
+		if (this.follower) {
+			// The party on screen: the doctor's card heals on its beat, after the authority has.
+			const party = doctor.active ? doctor.party : game.party;
+			// Up in the air nobody follows; the lead comes back once the trainer is down.
+			if (this.flight) this.follower.lead(null);
+			else this.leadFollower(this.follower, party);
+			this.follower.update(this.progress, dt);
+		}
+	}
+
+	/** On the ground: a pick, then a step, a take-off or a word, once the step under way is done. */
+	private walk(dt: number): void {
 		// A number key chooses who goes first, at once, even mid-step — and before
 		// any step this frame sends: that step can start a battle, and the animal
 		// chosen on the same frame must be the one that fights.
@@ -163,18 +310,137 @@ export class ExploreController {
 		}
 		if (this.progress < 1) {
 			this.progress = Math.min(1, this.progress + dt / this.stepSeconds);
-		} else {
-			const dir = this.keyboard.takeTap() ?? this.keyboard.heldDirection();
-			if (dir) this.authority.dispatch({ type: 'move', dir });
-			if (this.keyboard.takeInteract()) this.authority.dispatch({ type: 'interact' });
+			return;
 		}
-		this.renderer.setPlayer(this.from, this.pos, this.progress, this.facing);
-		this.renderer.ensureChunksAround(this.pos);
-		if (this.follower) {
-			// The party on screen: the doctor's card heals on its beat, after the authority has.
-			const party = doctor.active ? doctor.party : game.party;
-			this.leadFollower(this.follower, party);
-			this.follower.update(this.progress, dt);
+		// Space held long enough, the glider owned: up, the way the trainer faces.
+		if (this.keyboard.takeTakeOff()) this.authority.dispatch({ type: 'take-off' });
+		if (this.flight) return;
+		const dir = this.keyboard.takeTap() ?? this.keyboard.heldDirection();
+		if (dir) this.authority.dispatch({ type: 'move', dir });
+		if (this.keyboard.takeInteract()) {
+			// Which key asked: a tap of Space with nothing in front says how to fly.
+			hud.talked(this.keyboard.talkKey);
+			this.authority.dispatch({ type: 'interact' });
+		}
+	}
+
+	/**
+	 * In the air: rise, glide a tile at a time for as long as Space is held,
+	 * and once it is let go (however: Space up, the finger off Fly, a blur, a
+	 * shortcut) on to the landing tile and down. Nothing else is taken: a
+	 * press made now is dropped.
+	 */
+	private fly(f: FlightOnScreen, dt: number): void {
+		if (!f.letGo && !this.keyboard.flyHeld()) f.letGo = true;
+		this.keyboard.takeInteract();
+		this.keyboard.takeTakeOff();
+		while (this.keyboard.takeTeamPick());
+		if (f.phase === 'rise') {
+			f.t += dt;
+			if (f.t < RISE_SECONDS) {
+				this.showLanding(f);
+				return;
+			}
+			f.phase = 'glide';
+			f.t = 0;
+		}
+		if (f.phase === 'glide') {
+			this.progress = Math.min(1, this.progress + dt / GLIDE_SECONDS);
+			// Over the tile: the next one starts on this frame, so a glide never stalls a frame a tile.
+			if (this.progress >= 1) this.overTile(f);
+		} else {
+			f.t += dt;
+			if (f.t >= DESCEND_SECONDS) this.touchDown(f);
+		}
+		if (this.flight === f) this.showLanding(f);
+	}
+
+	/** Over a tile, in the air: glide on, go down to the landing tile, or come down here. */
+	private overTile(f: FlightOnScreen): void {
+		if (!f.landed) {
+			if (f.letGo) {
+				// Let go: on to where it comes down, then `land` there.
+				const target = landingDistance(this.seed, this.edits, f.flight, { items: game.items });
+				this.authority.dispatch({ type: f.flight.flown < target ? 'glide' : 'land' });
+			} else {
+				this.authority.dispatch({ type: 'glide' });
+			}
+			// A glide is under way now, or the answer was the landing, right here.
+			if (this.progress < 1 || !f.landed) return;
+		}
+		const at = f.landed;
+		if (this.pos.x === at.x && this.pos.y === at.y) {
+			this.descend(f);
+			return;
+		}
+		// The authority put the kid down further on (a `land` sent early): glide there.
+		this.from = this.pos;
+		this.pos = step(this.pos, f.flight.dir);
+		this.progress = 0;
+	}
+
+	/** Come down onto the landing tile: a tree or a rock there is chopped as the trainer does. */
+	private descend(f: FlightOnScreen): void {
+		f.phase = 'descend';
+		f.t = 0;
+		this.renderer.setLandingSpot(null);
+		const cleared = f.cleared;
+		f.cleared = null;
+		if (cleared) this.clearTile(cleared);
+	}
+
+	/** Down on the ground: the glider folded, the lead back beside the trainer, taps pressed in the air dropped. */
+	private touchDown(f: FlightOnScreen): void {
+		if (f.cleared) this.clearTile(f.cleared);
+		this.flight = null;
+		this.ringKey = '';
+		this.keyboard.dropTaps();
+		sfx.play('land');
+		this.follower?.place(this.seed, this.pos, this.facing, this.edits);
+	}
+
+	/**
+	 * The landing ring where the kid would come down if they let go now (the
+	 * engine's `landingDistance`; the landing tile once it is known), with the
+	 * tool that clears a tree or a rock there. Worked out again only when the
+	 * flight moves on.
+	 */
+	private showLanding(f: FlightOnScreen): void {
+		if (f.phase === 'descend') return;
+		const key = `${f.flight.flown}:${f.letGo}:${f.landed?.x},${f.landed?.y}`;
+		if (key === this.ringKey) return;
+		this.ringKey = key;
+		const at =
+			f.landed ??
+			flightTile(
+				f.flight.from,
+				f.flight.dir,
+				landingDistance(this.seed, this.edits, f.flight, { items: game.items })
+			);
+		const { kind } = editedTileAt(this.seed, this.edits, at.x, at.y);
+		this.renderer.setLandingSpot(at, isClearable(kind) ? CLEARING_TOOL[kind] : null);
+	}
+
+	/** The trainer's pose with the glider this frame: the wind-up, the rise, the glide, the descent. */
+	private airPose(): AirPose {
+		const f = this.flight;
+		const hop = this.hop ?? 0;
+		if (!f) {
+			// Winding up: knees bending, and the canopy already coming out of its roll.
+			const crouch = this.keyboard.windUp();
+			return { lift: 0, open: crouch * WIND_UP_OPEN, crouch, hop };
+		}
+		switch (f.phase) {
+			case 'rise': {
+				const p = Math.min(1, f.t / RISE_SECONDS);
+				return { lift: p, open: WIND_UP_OPEN + (1 - WIND_UP_OPEN) * p, crouch: 1 - p, hop: 0 };
+			}
+			case 'glide':
+				return { lift: 1, open: 1, crouch: 0, hop: 0 };
+			case 'descend': {
+				const p = Math.min(1, f.t / DESCEND_SECONDS);
+				return { lift: 1 - p, open: 1 - p, crouch: 0, hop: 0 };
+			}
 		}
 	}
 
