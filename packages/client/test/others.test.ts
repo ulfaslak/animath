@@ -20,6 +20,7 @@ import {
 } from '../src/render/others';
 import { PLAYER_LOOK, TRAINER_LOOKS } from '../src/render/palette';
 import { SWAP_IN_SECONDS } from '../src/render/follower';
+import { WING_TOP } from '../src/render/glider';
 import { POOF_SECONDS, PUFF_GEOMETRY, Poofs } from '../src/render/poof';
 import {
 	CRUISE_HEIGHT,
@@ -286,6 +287,9 @@ describe('other players on screen', () => {
 		}
 		expect(lowest).toBeGreaterThan(CRUISE_HEIGHT);
 		expect(others.tileOf('ada')).toEqual(lake.at(-1));
+		// Her name sits over her glider, not over her cap under it.
+		const head = others.heads().find((h) => h.pid === 'ada')!;
+		expect(head.at.y - ada.position.y).toBeGreaterThan(WING_TOP);
 		// Down on the sand: she comes down where she is, folds the glider, and the rabbit is back.
 		others.seen(peer('ada', lake.at(-1)!, { busy: 'explore' }));
 		frames(DESCEND_SECONDS + SWAP_IN_SECONDS + 0.3);

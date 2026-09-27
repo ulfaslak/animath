@@ -28,7 +28,7 @@ const WING_CHORD = 0.42;
 /** How many cells the wing is sewn from, alternating colours. */
 const CELLS = 6;
 /** How high over the trainer's feet the top of the open wing is. */
-const WING_TOP = 1.72;
+export const WING_TOP = 1.72;
 /** Where the lines meet the trainer: over the shoulders, a little out. */
 const HARNESS_Y = 0.46;
 const HARNESS_X = 0.15;

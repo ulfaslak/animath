@@ -15,7 +15,7 @@ import { animateIdle, animateWalk, buildPlayerMesh, disposeFigure } from './anim
 import { BOAT_SWING_SECONDS, buildBoatMesh, disposeBoat, poseBoat, standAstern } from './boat';
 import { smoothstep } from './ease';
 import { Follower, type FigureHost } from './follower';
-import { buildGliderMesh, disposeGlider, poseGlider } from './glider';
+import { WING_TOP, buildGliderMesh, disposeGlider, poseGlider } from './glider';
 import { TRAINER_LOOKS, type TrainerLook } from './palette';
 import type { Poofs } from './poof';
 import {
@@ -386,15 +386,22 @@ export class OtherPlayers {
 		return aside;
 	}
 
-	/** Everyone's head, where their name goes, as drawn this frame. */
+	/**
+	 * Everyone's head, where their name goes, as drawn this frame: over the
+	 * cap, and up in the air over the top of their glider, so the name never
+	 * hides the wing.
+	 */
 	heads(): Head[] {
-		return [...this.others.values()].map((other) => ({
-			pid: other.pid,
-			name: other.name,
-			busy: other.busy,
-			at: other.figure.position.clone().setY(other.figure.position.y + HEAD_HEIGHT),
-			opacity: Math.max(0, Math.min(1, other.opacity))
-		}));
+		return [...this.others.values()].map((other) => {
+			const over = HEAD_HEIGHT + (WING_TOP + 0.12 - HEAD_HEIGHT) * smoothstep(other.lift);
+			return {
+				pid: other.pid,
+				name: other.name,
+				busy: other.busy,
+				at: other.figure.position.clone().setY(other.figure.position.y + over),
+				opacity: Math.max(0, Math.min(1, other.opacity))
+			};
+		});
 	}
 
 	/** Where a player's figure is drawn to be, on the grid: the tile they are walking to. */
