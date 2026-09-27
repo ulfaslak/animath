@@ -89,7 +89,7 @@ Everything below is a click with a mouse or a tap with a finger, and each is the
 | A tool                     | Doctor, Shop                 | Its sum, once the list's quiet moment has passed; a little shake if you own it or can't pay.     |
 | Back                       | Doctor puzzle                | Escape: back to the list, nothing happens.                                                       |
 | Bye                        | Doctor                       | Leave, at any time, from a puzzle too.                                                           |
-| A row                      | Pause menu                   | Does it at once: an animal opens its options, Language switches, Sound flips, Keep playing closes, Start screen goes to the title. The same with an animal's options open beside it (they go away first); with the name box open, nothing. |
+| A row                      | Pause menu                   | Does it at once: an animal opens its options, Who's here opens the list of the other players, Language switches, Sound flips, Keep playing closes, Start screen goes to the title. The same with an animal's options open beside it (they go away first); with the name box open, nothing. |
 | English / Dansk            | Pause menu, title            | That language. The one already on does nothing.                                                  |
 | An option                  | Pause menu, an animal's options | Does it at once; a greyed one does nothing.                                                   |
 | A player                   | Pause menu, Who's here        | Goes to them at once, as Enter does.                                                           |
