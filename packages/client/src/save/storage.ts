@@ -5,9 +5,12 @@
  *
  * A browser that played before the anonymous backup was retired also holds
  * `animath.player` (`{ id, secret }`, its backup's) and maybe
- * `animath.player.previous`. The game no longer reads or writes them; they
- * stay as they are, since the id is how `admin export-local-save` finds that
- * browser's old game ([[DEVELOPMENT]] § Moving a kid's game to production).
+ * `animath.player.previous` (`.2`, …): ids set aside there when the kid made
+ * an account (the game that moved in), or when the server stopped knowing
+ * one, and `animath.player` may then be a later guest game's. The game no
+ * longer reads or writes any of them; they stay as they are, since the ids
+ * are how `admin export-local-save` finds that browser's old games
+ * ([[DEVELOPMENT]] § Moving a kid's game to production).
  */
 
 /**

@@ -6,8 +6,9 @@
 	 * `domain` now. The big button goes there, in this tab; Enter or Space
 	 * press it. The small link under it starts the game here after all
 	 * (`stay`), for a grown-up trying something out; no key of the game's
-	 * reaches it, only a click, a tap, or Tab and Enter, so a kid meets the
-	 * move before anything else.
+	 * reaches it, only a click, a tap, or Tab to it and Enter or Space (the
+	 * browser's own press of a focused button), so a kid meets the move
+	 * before anything else.
 	 */
 	let { domain, stay }: { domain: string; stay: () => void } = $props();
 
