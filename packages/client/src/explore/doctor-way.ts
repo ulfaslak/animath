@@ -117,15 +117,11 @@ export class DoctorWay {
 	/** The arrow at the screen's edge for the tent at `tent`, or null while the tent is on the screen. */
 	private arrowTo(tent: GridPos): { x: number; y: number; angle: number } | null {
 		const { w, h } = this.renderer.screenSize();
-		const me = this.renderer.groundToScreen(game.pos.x, game.pos.y);
 		const there = this.renderer.groundToScreen(tent.x, tent.y);
-		const spot = edgeSpot(me, there, w, h);
-		if (!spot) return null;
-		// Nearer the player than the edge the arrow would sit on: the tent is on the
-		// screen, in plain sight, and an arrow would only cover the world beside it.
-		const onScreen =
-			Math.hypot(there.x - me.x, there.y - me.y) <= Math.hypot(spot.x - me.x, spot.y - me.y);
-		return onScreen ? null : spot;
+		// Anywhere on the screen, as a friend on it: the tent is there to see, and at the
+		// very edge an arrow, which sits a little way in, would cover the tent it points to.
+		if (there.x >= 0 && there.x <= w && there.y >= 0 && there.y <= h) return null;
+		return edgeSpot(this.renderer.groundToScreen(game.pos.x, game.pos.y), there, w, h);
 	}
 }
 
