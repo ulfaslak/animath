@@ -430,7 +430,8 @@
 		will-change: transform;
 	}
 	.hp-name {
-		max-width: 8em;
+		/* Whole at any length: twelve of the widest letters, a nickname's most, or "Common lizard". */
+		max-width: 11em;
 		overflow: hidden;
 		text-overflow: ellipsis;
 		white-space: nowrap;
