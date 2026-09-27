@@ -505,6 +505,10 @@ hud:
   solved:
     one: '{count} puzzle'
     other: '{count} puzzles'
+  # Where the player stands, at the bottom right: steps to the right (x) and up
+  # the screen (y) from where their world begins, which is x 0 · y 0. Below
+  # zero the other way, with a real minus sign ("x −3 · y 12").
+  coordinates: 'x {x} · y {y}'
 
 # A card of the party: every animal of one kind, stacked (the HUD, the pause
 # menu, the battle's switch list).

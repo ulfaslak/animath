@@ -458,6 +458,7 @@ hud:
   solved:
     one: '{count} opgave'
     other: '{count} opgaver'
+  coordinates: 'x {x} · y {y}'
 
 team:
   count: '×{count}'

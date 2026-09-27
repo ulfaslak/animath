@@ -1,7 +1,8 @@
 <script lang="ts">
-	import { bundles, isItemId, leadIndex, type Bundle } from '@mathgame/engine';
+	import { bundles, isItemId, leadIndex, spawnPoint, type Bundle } from '@mathgame/engine';
 	import { untrack } from 'svelte';
 	import { fade } from 'svelte/transition';
+	import { coordinates, mathNumber } from '../coordinates';
 	import { t } from '../copy';
 	import { flags } from '../flags';
 	import {
@@ -60,7 +61,8 @@
 	 *
 	 * At the top right, the player's tokens and right under them the
 	 * puzzles they have solved, then the tools they own, each with its name,
-	 * and the world they are in.
+	 * and the world they are in. At the bottom right, where they stand in it:
+	 * their coordinates, counted from the world's spawn (`coordinates.ts`).
 	 */
 	const list = $derived(bundles(game.party));
 	const leadId = $derived(game.party[leadIndex(game.party, game.realm)]?.id ?? null);
@@ -74,6 +76,14 @@
 	const order = $derived(list.map((b) => b.speciesId).join());
 	/** The tools owned, in the order bought; an id this build doesn't know shows nothing. */
 	const tools = $derived(game.items.filter(isItemId));
+	/**
+	 * Where the player stands, from their world's spawn: after every step, and
+	 * tile by tile while they sail or glide. The spawn is the engine's, already
+	 * worked out for this world by the authority (`spawnPoint` keeps it).
+	 */
+	const here = $derived(coordinates(game.pos, spawnPoint(game.seed)));
+	/** With the glider, Fly stands over the touch controls' Talk, and the coordinates over it. */
+	const flies = $derived(game.items.includes('glider'));
 
 	/** What a click or a tap on a card presses: open a stack, or choose its one animal. */
 	function cardKey(bundle: Bundle): string | null {
@@ -436,6 +446,12 @@
 	<div class="world">{t('worlds.world', { world: game.world })}</div>
 </div>
 
+<!-- Where the player stands, x to the right and y up the screen, counted from the world's
+     spawn: in the bottom-right corner, or over the touch controls' buttons there. -->
+<div class="coords" class:over-fly={flies}>
+	{t('hud.coordinates', { x: mathNumber(here.x), y: mathNumber(here.y) })}
+</div>
+
 <!-- The bottom of the screen: the Challenge button, when another player stands within
      reach, over the message line: the latest message while it is fresh, then the doctor
      prompt or the controls hint (see `state/hud.svelte.ts`). One column, so however many
@@ -605,7 +621,11 @@
 		align-items: center;
 		gap: 10px;
 		width: max-content;
-		max-width: calc(100vw - 32px - 2 * max(var(--safe-left), var(--safe-right)));
+		/*
+		 * Clear of the coordinates in the bottom-right corner (`.coords`, up to
+		 * 160 px wide while x and y have four digits), on both sides, as it is centred.
+		 */
+		max-width: calc(100vw - 2 * (16px + 160px + 12px + max(var(--safe-left), var(--safe-right))));
 		/* Only what is in it takes a tap: the space between is the world's. */
 		pointer-events: none;
 	}
@@ -693,5 +713,48 @@
 		font-size: 16px;
 		white-space: nowrap;
 		font-variant-numeric: tabular-nums;
+	}
+	/*
+	 * The bottom-right corner: where the player stands, a pill like the
+	 * world's. Below where a friend's arrow can reach (96 px from the bottom
+	 * edge); the message line keeps clear of it (`.bottom`).
+	 */
+	.coords {
+		position: absolute;
+		right: calc(16px + var(--safe-right));
+		bottom: calc(16px + var(--safe-bottom));
+		padding: 3px 12px;
+		border-radius: var(--radius);
+		background: var(--panel-bg);
+		box-shadow: var(--hud-shadow);
+		font-weight: 800;
+		font-size: 16px;
+		white-space: nowrap;
+		font-variant-numeric: tabular-nums;
+		pointer-events: none;
+	}
+	/*
+	 * With the touch controls on, that corner is the right thumb's: Talk and
+	 * Menu (`TouchControls`: Talk stands 56 px up and is two taps tall). The
+	 * coordinates stand just over Talk, where the thumb doesn't cover them...
+	 */
+	:global(.touch) .coords {
+		bottom: calc(56px + var(--tap) * 2 + 12px + var(--safe-bottom));
+	}
+	/* ...and with the glider just over Fly, which stands 14 px over Talk, 1.6 taps tall. */
+	:global(.touch) .coords.over-fly {
+		bottom: calc(56px + var(--tap) * 3.6 + 14px + 12px + var(--safe-bottom));
+	}
+	/*
+	 * A phone held sideways has no room over Fly, under the tools and the
+	 * world: there the coordinates stand beside Fly, on its left, level with
+	 * its middle (Fly is centred over Talk, its left edge 24 px + 1.8 taps in).
+	 */
+	@media (max-height: 500px) {
+		:global(.touch) .coords.over-fly {
+			right: calc(24px + var(--tap) * 1.8 + 12px + var(--safe-right));
+			bottom: calc(56px + var(--tap) * 2.8 + 14px + var(--safe-bottom));
+			translate: 0 50%;
+		}
 	}
 </style>
