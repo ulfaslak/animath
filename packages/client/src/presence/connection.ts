@@ -149,6 +149,25 @@ export class PresenceConnection {
 		return true;
 	}
 
+	/**
+	 * A message about a friendly match, sent now. Where the page is goes first
+	 * if it changed, however soon after the last: the server judges a
+	 * challenge and a Yes by where the two last said they were. False when the
+	 * socket is not on.
+	 */
+	send(message: ClientMessage): boolean {
+		if (this.status !== 'on' || !this.socket) return false;
+		const latest = this.latest;
+		if (latest) {
+			const text = JSON.stringify(latest);
+			if (text !== this.lastSentText && this.sendText(this.socket, text)) {
+				this.lastSentText = text;
+				this.sentAt = this.deps.now();
+			}
+		}
+		return this.sendText(this.socket, JSON.stringify(message));
+	}
+
 	/** The window is in use again, or the network is back: a socket that waits tries at once. */
 	wake(): void {
 		if (!this.hello) return;

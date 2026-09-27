@@ -6,7 +6,9 @@ import {
 	type AnimalInstance,
 	type Authority,
 	type Busy,
+	type ClientMessage,
 	type GameEvent,
+	type PeerMessage,
 	type ServerMessage,
 	type WhereMessage
 } from '@mathgame/engine';
@@ -68,6 +70,34 @@ const ROUGH_AIM = 40;
 /** The session key that remembers which version a page reloaded for, so it never reloads in a loop. */
 export const REFRESHED_KEY = 'animath.refreshedFor';
 
+/**
+ * The friendly matches (`match/controller.ts`), as presence talks to them:
+ * the server's messages about matches (and `hi` and `bye`, which say whether
+ * a match survived a drop), the socket's status, the players near and where
+ * they stand, and whether the match screen is up (the page is busy with a
+ * match, and nothing of presence shows over it).
+ */
+export interface MatchHooks {
+	receive(message: ServerMessage): void;
+	status(status: PresenceStatus): void;
+	peer(message: PeerMessage): void;
+	gone(pid: string): void;
+	readonly busy: boolean;
+}
+
+/** The server's messages about friendly matches, which go to `MatchHooks`. */
+const MATCH_KINDS: ReadonlySet<ServerMessage['t']> = new Set([
+	'hi',
+	'bye',
+	'invite',
+	'asking',
+	'uninvite',
+	'match',
+	'rejected',
+	'nudge',
+	'rematch-wish'
+]);
+
 /** What the controller needs of the renderer: the others, and where things are on the canvas. */
 export type PresenceRenderer = Pick<
 	GameRenderer,
@@ -90,6 +120,8 @@ export interface PresenceOptions {
 	reload: () => void;
 	/** Seconds, for timers that count real time (the notes, waiting for an answer). */
 	clock?: () => number;
+	/** The friendly matches, which ride on the same socket. */
+	match?: MatchHooks;
 	/** A socket of the test's own. */
 	connection?: (
 		onMessage: (m: ServerMessage) => void,
@@ -265,6 +297,11 @@ export class PresenceController {
 		this.finding = { pid, name, since: this.clock() };
 	}
 
+	/** A message about a friendly match, sent now (where the page is first). False with no socket on. */
+	send(message: ClientMessage): boolean {
+		return this.underWay && !this.options.behind() && this.connection.send(message);
+	}
+
 	/** The window is looked at or the network is back: a socket that waits tries again now. */
 	wake(): void {
 		if (this.underWay && !this.options.behind()) this.connection.wake();
@@ -289,6 +326,7 @@ export class PresenceController {
 	private receive(m: ServerMessage): void {
 		const others = this.options.renderer.others;
 		const now = this.clock();
+		if (MATCH_KINDS.has(m.t)) this.options.match?.receive(m);
 		switch (m.t) {
 			case 'hi':
 				// Back after a drop, or here for the first time: whoever is still on screen
@@ -303,9 +341,11 @@ export class PresenceController {
 				if (m.pid === this.connection.pid) break;
 				this.unconfirmed.delete(m.pid);
 				others.seen(m);
+				this.options.match?.peer(m);
 				break;
 			case 'gone':
 				others.gone(m.pid);
+				this.options.match?.gone(m.pid);
 				break;
 			case 'roster': {
 				if (m.world !== this.who.world) break;
@@ -346,6 +386,7 @@ export class PresenceController {
 
 	private statusChanged(status: PresenceStatus): void {
 		presence.status = status;
+		this.options.match?.status(status);
 		if (status === 'on') {
 			this.offSince = null;
 			return;
@@ -373,13 +414,19 @@ export class PresenceController {
 			facing: game.facing,
 			lead: following(game.party, game.realm === 'water'),
 			boat: game.items.includes('boat'),
-			busy: busyNow()
+			busy: this.options.match?.busy ? 'match' : busyNow()
 		};
 	}
 
 	/** Exploring with nothing over it: the explore screen is up. */
 	private exploreOnScreen(): boolean {
-		return game.mode === 'explore' && !battle.active && !doctor.active && !pause.open;
+		return (
+			game.mode === 'explore' &&
+			!battle.active &&
+			!doctor.active &&
+			!pause.open &&
+			!this.options.match?.busy
+		);
 	}
 
 	/** A calm moment to reload: exploring, nothing open. */
