@@ -14,6 +14,15 @@
 	--hud-shadow: 0 6px 18px rgba(0, 0, 0, 0.18);
 	--radius: 16px;
 	/*
+	 * The chunky toy button (the battle's Go!, its attack tiles, its moves and
+	 * level buttons): a darker edge `--press` deep under the button's face,
+	 * which squashes flat when it is pressed. `--accent-edge` is the edge
+	 * under the accent (Go!), `--edge` the one under anything paler.
+	 */
+	--press: 4px;
+	--accent-edge: #d9771f;
+	--edge: rgba(45, 42, 50, 0.2);
+	/*
 	 * The screen's safe area: how far a notch, rounded corners or the home
 	 * indicator reach in from each edge. `viewport-fit=cover` (`index.html`)
 	 * lets the world draw under them; what a kid reads or taps keeps inside

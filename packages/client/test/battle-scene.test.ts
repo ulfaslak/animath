@@ -62,8 +62,8 @@ interface Box {
  * The wild animal's status box, in CSS pixels from the canvas's top left on
  * a screen with no safe-area insets (`inside` moves it in by them): where
  * `BattlePanel.svelte`'s CSS puts it and how wide, read from the component,
- * and 74 px tall, as Chrome draws its name and HP bar at every supported
- * size, in both languages (no rule sets its height).
+ * and 74 px tall, as Chrome draws `StatusBox`'s name and chunky HP bar at
+ * every supported size, in both languages (no rule sets its height).
  */
 const STATUS_BOX: Box = (() => {
 	const source = svelteSources.get('src/ui/BattlePanel.svelte');

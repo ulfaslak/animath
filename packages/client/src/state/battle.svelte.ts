@@ -1,6 +1,8 @@
 import type {
 	AnimalInstance,
+	AttackLevel,
 	BattleOutcome,
+	BattleSide,
 	Line as MessageLine,
 	Puzzle,
 	Realm
@@ -79,8 +81,19 @@ class BattleView {
 	judged = $state<{ correct: boolean } | null>(null);
 	/** The one-line narration above the panel, as data: worded when drawn. */
 	line = $state<Line | null>(null);
-	/** The latest hit, for the damage number that pops over a status box; `n` restarts it. */
-	hit = $state<{ side: 'player' | 'opponent'; damage: number; n: number } | null>(null);
+	/**
+	 * The latest hit, for the burst that pops beside the status box of the
+	 * animal hit: its damage, and its level, which sizes the burst; `n`
+	 * restarts it.
+	 */
+	hit = $state<{ side: BattleSide; damage: number; level: AttackLevel; n: number } | null>(null);
+	/**
+	 * Whose turn it is, for the cue on that animal's status box: the player's
+	 * while a choice or a puzzle is up and while its own move plays out, the
+	 * wild animal's while its reply does; nobody's through the opening lines
+	 * and on the result card.
+	 */
+	turn = $state<BattleSide | null>(null);
 	outcome = $state<BattleOutcome | null>(null);
 	/** The authority's closing line, shown under the result headline. */
 	closing = $state<MessageLine | null>(null);
@@ -107,6 +120,7 @@ class BattleView {
 		this.judged = null;
 		this.line = null;
 		this.hit = null;
+		this.turn = null;
 		this.outcome = null;
 		this.closing = null;
 	}
