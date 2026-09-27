@@ -40,10 +40,11 @@ Hex values are the ones in `packages/client/src/render/palette.ts` and `styles.c
 | Tree canopy          | `#2c7a43` / `#3a8f4c` / `#2f8a55` | Three dark greens, mixed randomly: trees grow only in the forest. The starter stage's bushes keep `#3e9e4f` / `#62bf5f`. |
 | Tent cloth           | `#f2a65a` | Door `#d47c2a`.                              |
 | Fire / warm accent   | `#ffb347` | Also the UI accent (`--accent: #ff9f43`).    |
-| Trainer (player)     | `#ff7e6b` shirt, `#ffcfb0` skin, `#2f4fa8` shorts, `#3d7be8` cap | The only blue figure, so it never reads as an animal. |
+| Trainer (player)     | `#ff7e6b` shirt, `#ffcfb0` skin, `#2f4fa8` shorts, `#3d7be8` cap | The trainers are the only figures in blue shorts, so none reads as an animal. |
+| Other trainers       | shirts `#f5c84a`, `#56c271`, `#9b6bd6`, `#f07fb0`, `#3cb8b0`, `#e0553f`, `#6cc3f0`, `#a8d84e`; caps `#2fa39a`, `#ff9f43`, `#f5c84a`, `#7a4fc0`, `#ff7e6b`, `#e0553f` | `TRAINER_LOOKS`: other players wear a shirt and a cap picked by their name, so a friend looks the same on every screen; the trainer's skin and blue shorts stay. No pair is the player's coral and blue, so nobody looks like you. Their boat's rim and pennant are their shirt's colour. |
 | Animal fur           | Squirrel `#c9733a`, rabbit `#d9cbb8`, frog `#3aa66a`, fox `#e8762b`, otter `#8a5a3a`, deer `#c48a52`, wolf `#7f858f`, bear `#5a3a28`; at sea crab `#e0553f`, starfish `#f2894e`, turtle `#8cc47e` (shell `#3f7f4c`), dolphin `#6f9fc4`, octopus `#b4589e`, whale `#3d6b9a` | `ANIMAL_COLORS`: one fur (or skin) per species plus an accent for its tell (white tail tip, pink ear, tan muzzle, the frog's pale throat `#e3eea4`). The frog's green is bluer and darker than grass and tall grass, so it never melts into them. The whale's spout is water: the shallows' `#5ec8f2`, with off-white drops. |
 | Figure details       | `#fff4e6` / `#2f2a28` | Off-white and near-black for tail tips, chests, noses, eyes. |
-| Dust                 | `#f6efe2` | The ring a tired animal lies down in; fades as it spreads. Never grey smoke. |
+| Dust                 | `#f6efe2` | The ring a tired animal lies down in, and the poof where a trainer turns up out of nowhere; fades as it spreads. Never grey smoke. |
 | Confetti             | accent, good, warn, water, trainer shirt, off-white, rabbit pink | `CONFETTI_COLORS`: only colours already in the game. |
 | Sparkles             | warn `#f5b83d` and good `#56c271`, with off-white in the battle scene, coral and blue on the result card, white at the doctor | The doctor's chunky four-pointed stars: along a healed animal's HP bar, in the battle scene (unlit, so they shine) and round the result card's headline. |
 | Token                | warn `#f5b83d`, rim `#c98a12`, inner ring `#fbd67a`, heart `--panel-cream` | A gold coin with a cream heart, the doctor's thank-you: on the doctor's card, in the HUD, beside each price; a "+N" in good, a "−N" in amber `#d99a1e`. |
@@ -171,7 +172,16 @@ The words the game uses for its things, the same on every screen:
 | Go! | Kør! | the battle's button and its keys ("Enter kør"); "Så kører vi!" starts a new game |
 | choose (↑ ↓) | flyt | every list's key reminder: "↑ ↓ flyt" |
 | Keep playing | Spil videre | the pause menu |
+| world | verden (verdener) | the Worlds row and screen ("Verdener", "Verden 42", "Du er i verden 42."), the HUD, the arrival ("Verden 42!") |
+| home (the kid's own world) | hjem | "Dit hjem er verden 7.", "Det her er din hjemverden.", "Tag hjem", "Hjemme igen!" |
+| go (to a world) | afsted | the Worlds screen's Go row ("Afsted til verden 42!") and its pad's big key ("Afsted") |
+| type (digits) | skriv | the Worlds screen's key reminder ("0–9 skriv") |
 | Language | Sprog | the title and the pause menu, listing "English" and "Dansk" |
+| Who's here | Hvem er her | the pause menu's row and its list of the other players |
+| Go to (a player) | gå hen til | "Gå hen til Ada", "Du er ved siden af Ada!" |
+| steps away | skridt væk | "7 skridt væk", "cirka 120 skridt væk" |
+| is here / went home | er her / gik hjem | the notes: "Ada er her!", "Bo gik hjem" |
+| taking a break (in the menu) | holder pause | what another player is busy with: also "kæmper mod et vildt dyr", "hos dyrlægen", "kæmper mod en ven" |
 
 Attack names are short, concrete Danish words or playful compounds a kid can say: Nøddekast, Lynspark, Hop, Stamp, Hulebid, Kvæk, Tungesnert, Stort plask, Nap, Spring, Rævestreg, Plask, Halesmæk, Spark, Hornstød, Bid, Hyl, Ulvespring, Labeslag, Brøl, Bjørnekram, Kæmpetramp.
 

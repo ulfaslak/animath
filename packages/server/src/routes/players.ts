@@ -5,7 +5,12 @@ import { bodyLimit } from 'hono/body-limit';
 import type { MiddlewareHandler } from 'hono';
 import { db } from '../db/index.js';
 import { players, saves } from '../db/schema.js';
-import { SAVE_MAX_BYTES, writeSave } from '../save.js';
+import {
+	SAVE_FROM_NEWER_BUILD,
+	SAVE_MAX_BYTES,
+	STORED_FROM_NEWER_BUILD,
+	writeSave
+} from '../save.js';
 import { hashSecret, newSecret, secretMatches } from '../secrets.js';
 
 /**
@@ -13,12 +18,14 @@ import { hashSecret, newSecret, secretMatches } from '../secrets.js';
  *
  *   POST /api/players             → 201 { id, secret }
  *   GET  /api/players/:id/save    → 200 SaveV2 | 404
- *   PUT  /api/players/:id/save    → 200 { ok: true } | 400 | 409 | 413
+ *   PUT  /api/players/:id/save    → 200 { ok: true } | 400 | 409 | 413 | 503
  *
  * Every `/:id/...` request carries `Authorization: Bearer <secret>`. Missing
  * or wrong secret → 401; unknown id → 404. Only the secret's hash is stored.
  * The two 404 bodies differ ("no save yet", "no such player"), and the client
- * tells them apart by that text.
+ * tells them apart by that text. A PUT gets 409 when the stored save has the
+ * same or a higher `seq`, or a newer build wrote it (never replaced), and 503
+ * when a newer build wrote the save sent: this server is the older one.
  */
 
 type Env = { Variables: { playerId: string } };
@@ -84,11 +91,15 @@ export const playersRoute = new Hono<Env>()
 				return c.json({ error: 'body is not valid JSON' }, 400);
 			}
 			const result = validateSaveWrite(body);
-			if (!result.ok) return c.json({ error: result.error }, 400);
+			if (!result.ok) {
+				if (result.reason === 'newer') return c.json({ error: SAVE_FROM_NEWER_BUILD }, 503);
+				return c.json({ error: result.error }, 400);
+			}
 			const written = await writeSave(c.get('playerId'), result.value);
 			if (written === 'stale') {
 				return c.json({ error: 'a save with the same or a higher seq is already stored' }, 409);
 			}
+			if (written === 'newer') return c.json({ error: STORED_FROM_NEWER_BUILD }, 409);
 			return c.json({ ok: true });
 		}
 	);

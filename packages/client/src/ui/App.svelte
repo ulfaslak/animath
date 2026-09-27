@@ -10,17 +10,21 @@
 	import { game } from '../state/game.svelte';
 	import { pause } from '../state/pause.svelte';
 	import { title } from '../state/title.svelte';
+	import { travel } from '../state/travel.svelte';
 	import AccountCard from './AccountCard.svelte';
 	import BattlePanel from './BattlePanel.svelte';
 	import BehindCard from './BehindCard.svelte';
 	import DoctorCard from './DoctorCard.svelte';
 	import Hud from './Hud.svelte';
 	import Iris from './Iris.svelte';
+	import Others from './Others.svelte';
 	import PauseMenu from './PauseMenu.svelte';
+	import PresenceNote from './PresenceNote.svelte';
 	import SavePrompt from './SavePrompt.svelte';
 	import SoundChip from './SoundChip.svelte';
 	import TitleScreen from './TitleScreen.svelte';
 	import TouchControls from './TouchControls.svelte';
+	import Travel from './Travel.svelte';
 
 	/** A game is under way: not loading, not at the title. */
 	const playing = $derived(!title.open && game.mode !== 'loading' && game.mode !== 'title');
@@ -29,7 +33,8 @@
 {#if title.open}
 	<TitleScreen />
 {:else if !playing}
-	<div class="loading">{t('app.loading')}</div>
+	<!-- Not under the behind card (a newer build's save found at start): the card says it all. -->
+	{#if !behind.shown}<div class="loading">{t('app.loading')}</div>{/if}
 {:else if battle.active}
 	{#if !battle.entering}<BattlePanel />{/if}
 {:else if doctor.active}
@@ -37,8 +42,13 @@
 {:else if pause.open}
 	<PauseMenu />
 {:else}
+	<!-- The other players' names and the arrows to them: over the world, under the HUD, and
+	     never under a card or the menu, whose panels they would show through. -->
+	<Others />
 	<Hud />
-	{#if touch.on}<TouchControls />{/if}
+	<!-- Not under a trip's cover, which takes no key: a thumb that lands there presses nothing. -->
+	{#if touch.on && !travel.active}<TouchControls />{/if}
+	<PresenceNote />
 {/if}
 
 <!-- Over the explore HUD: after an hour of a guest's play, the offer to keep the game safe. -->
@@ -53,6 +63,8 @@
 <SoundChip low={title.open} />
 <!-- Over everything, the battle panel included: the encounter transition. -->
 <Iris />
+<!-- Over the world: a trip to another world, and its number on arrival. -->
+<Travel />
 {#if behind.shown}
 	<!-- Over everything: this page is behind the save, and takes no play. -->
 	<BehindCard />
@@ -91,6 +103,8 @@
 	.turn {
 		position: absolute;
 		inset: 0;
+		/* Over everything: the HUD's open card (3) and a trip to another world (4) included. */
+		z-index: 5;
 		display: grid;
 		place-items: center;
 		padding: 16px;

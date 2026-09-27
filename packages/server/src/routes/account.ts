@@ -14,7 +14,12 @@ import { accountSaves } from '../db/schema.js';
 import { hashPassword, verifyDecoy, verifyPassword } from '../passwords.js';
 import { RateLimiter, type AccountLimits, type Verdict } from '../rate-limit.js';
 import { clientIp, rateKey, readJson, sameOriginJson } from '../request.js';
-import { SAVE_MAX_BYTES, writeAccountSave } from '../save.js';
+import {
+	SAVE_FROM_NEWER_BUILD,
+	SAVE_MAX_BYTES,
+	STORED_FROM_NEWER_BUILD,
+	writeAccountSave
+} from '../save.js';
 import {
 	clearSessionCookie,
 	createSession,
@@ -40,7 +45,9 @@ import {
  *
  * Every POST and PUT must be JSON from a page of this site (`sameOriginJson`).
  * The save routes answer 401 without a live session. Login and register are
- * rate limited per address and per name (429 with `Retry-After`).
+ * rate limited per address and per name (429 with `Retry-After`). A save a
+ * newer build wrote is never replaced (409 with it, whatever the `seq`), and
+ * one sent that a newer build wrote is 503: this server is the older one.
  */
 
 type Env = { Variables: { user: SessionUser } };
@@ -183,7 +190,10 @@ export function accountRoute({ cookie, limits }: AccountRouteOptions) {
 					return c.json({ error: `save is bigger than ${SAVE_MAX_BYTES} bytes` }, 413);
 				}
 				const checked = validateSaveWrite(guestSave);
-				if (!checked.ok) return c.json({ error: 'bad save', detail: checked.error }, 400);
+				if (!checked.ok) {
+					if (checked.reason === 'newer') return c.json({ error: SAVE_FROM_NEWER_BUILD }, 503);
+					return c.json({ error: 'bad save', detail: checked.error }, 400);
+				}
 				save = checked.value;
 			}
 			// Spare the slow hash for a name that is plainly taken; the unique
@@ -262,7 +272,10 @@ export function accountRoute({ cookie, limits }: AccountRouteOptions) {
 			const body = await readJson(c);
 			if (body === undefined) return c.json({ error: 'body is not valid JSON' }, 400);
 			const checked = validateSaveWrite(body);
-			if (!checked.ok) return c.json({ error: 'bad save', detail: checked.error }, 400);
+			if (!checked.ok) {
+				if (checked.reason === 'newer') return c.json({ error: SAVE_FROM_NEWER_BUILD }, 503);
+				return c.json({ error: 'bad save', detail: checked.error }, 400);
+			}
 			const written = await writeAccountSave(c.get('user').id, checked.value);
 			if (written.kind === 'gone') return c.json({ error: 'not logged in' }, 401);
 			if (written.kind === 'stale') {
@@ -270,6 +283,9 @@ export function accountRoute({ cookie, limits }: AccountRouteOptions) {
 					{ error: 'a save with the same or a higher seq is already stored', save: written.stored },
 					409
 				);
+			}
+			if (written.kind === 'newer') {
+				return c.json({ error: STORED_FROM_NEWER_BUILD, save: written.stored }, 409);
 			}
 			return c.json({ ok: true });
 		});

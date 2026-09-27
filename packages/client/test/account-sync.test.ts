@@ -226,23 +226,36 @@ describe("an account's game in the browser", () => {
 		expect(store.get(KEYS_IDA.save)).toBe(before);
 	});
 
-	it('a server save this build cannot read is never written over: at load, the page waits for a newer build', async () => {
-		for (const unreadable of [
-			{ version: 99, seq: 5, lineage: 'future' },
-			{ version: 2, seq: 5, lineage: 'odd', party: 'not a party' }
-		]) {
-			const server = new FakeAccountServer();
-			server.save = unreadable;
-			const store = new MemoryStore();
-			const page = new Page(store, server);
-			await page.open();
-			await page.catchOne();
-			await later(120_000);
-			expect(page.autosave.behind, JSON.stringify(unreadable)).toBe('newer');
-			expect(server.save).toEqual(unreadable);
-			expect(server.calls).not.toContain('put');
-			expect(store.get(KEYS_IDA.save)).toBeNull();
-		}
+	it('a newer build’s save on the server: at load, the page is behind it and writes nothing, here or there', async () => {
+		const future = { version: 99, seq: 5, lineage: 'future' };
+		const server = new FakeAccountServer();
+		server.save = future;
+		const store = new MemoryStore();
+		const page = new Page(store, server);
+		await page.open();
+		await page.catchOne();
+		await later(120_000);
+		expect(page.autosave.behind).toBe('newer');
+		expect(server.save).toEqual(future);
+		expect(server.calls).not.toContain('put');
+		expect(store.get(KEYS_IDA.save)).toBeNull();
+	});
+
+	it('a server save no build could read is saved past, as the backup does, once the kid has played', async () => {
+		const broken = { version: 2, seq: 5, lineage: 'odd', party: 'not a party' };
+		const server = new FakeAccountServer();
+		server.save = broken;
+		const page = new Page(new MemoryStore(), server);
+		await page.open();
+		await later(120_000);
+		// Nothing goes over it until the kid has played the new game.
+		expect(server.calls).not.toContain('put');
+		expect(server.save).toEqual(broken);
+		await page.catchOne();
+		await later(120_000);
+		expect(page.autosave.behind).toBeNull();
+		expect(server.save).toEqual(page.saved());
+		expect(page.saved()!.seq).toBeGreaterThan(5);
 	});
 
 	it('a server save this build cannot read, found while playing: both copies stay as they are, and nothing more is pushed', async () => {

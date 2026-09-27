@@ -66,15 +66,10 @@ describe('behindAction', () => {
 	});
 
 	it('behind for another reason: catches up as soon as it is on screen, in use or not', () => {
-		for (const cause of ['replaced', 'gone'] as const) {
+		// A newer version's save among them: the reload fetches the new version.
+		for (const cause of ['replaced', 'gone', 'newer'] as const) {
 			expect(behindAction(page({ behind: cause }))).toBe('reload');
 			expect(behindAction(page({ behind: cause, focused: false }))).toBe('reload');
-		}
-	});
-
-	it("an account's save only a newer build can read: the card, never a reload by itself", () => {
-		for (const state of everyPage('newer')) {
-			expect(behindAction(state)).toBe(state.visible ? 'card' : 'wait');
 		}
 	});
 

@@ -1,5 +1,6 @@
 import {
 	SAVE_VERSION,
+	isNewerSave,
 	readSave,
 	restoreGame,
 	sameProgress,
@@ -43,6 +44,12 @@ import {
  * reloads into the newer game ([[INVARIANTS]] § Saves). The server takes a
  * backup only with a higher `seq` than it holds, and keeps any game a
  * backup replaces (`replacesAnotherGame`).
+ *
+ * A save a newer version of the game wrote (`readSave`'s `newer`: a later
+ * version, or a species, or a battle's realm or puzzle kind, this build does not have)
+ * is never loaded, written over or set aside, in this browser or on the
+ * server. The page that meets one, at start or later, is behind (`newer`):
+ * it takes no play and reloads, which fetches the new version.
  *
  * The title comes first. Nothing is written until a game starts: `begin`
  * after the authority picked up the plan's game (Continue), or a `welcome`
@@ -108,7 +115,8 @@ export interface StartPlan {
  * - `held`: the save key holds a document this build cannot read. It stays
  *   untouched until the kid has played (a battle ended, the party changed),
  *   then moves to its `unreadable` key and the new game takes its place.
- * - `frozen`: the save key holds a newer build's save. Never touched.
+ * - `frozen`: the save key holds a newer build's save. Never touched, and the
+ *   page is behind it (`newer`) from the start.
  * - `broken`: writing failed (storage full). The server copy is the only one.
  * - `none`: no storage at all, or a throwaway game.
  */
@@ -172,8 +180,6 @@ export class Autosave {
 	/** The text of this page's own last write of the save key, and its `seq`. */
 	private writtenText: string | null = null;
 	private writtenSeq = 0;
-	/** Start-up found this player's game on the server, written by a newer build. */
-	private newerOnServer = false;
 	/** The save this page's game grows from: the one it loaded, carried on from, or last wrote. */
 	private base: SaveV2 | null = null;
 	/** Fields a newer build left in the loaded save, written back unchanged. */
@@ -244,9 +250,11 @@ export class Autosave {
 	 * Null while this page's game is the newest. Once the browser's save has
 	 * moved past it, why: another page played on in the same game (`window`),
 	 * the save now holds another game, which this page or another took from the
-	 * server (`replaced`), or the save was removed from under it (`gone`). From
-	 * then on the page saves nothing, and should reload to pick up the newest
-	 * game (`save/behind.ts`).
+	 * server (`replaced`), the save was removed from under it (`gone`), or a
+	 * newer version of the game saved the game, here or on the server
+	 * (`newer`: from the start, when start-up found it). From then on the page
+	 * saves nothing, and should reload to pick up the newest game
+	 * (`save/behind.ts`).
 	 */
 	get behind(): BehindCause | null {
 		return this.staleCause;
@@ -255,13 +263,12 @@ export class Autosave {
 	/**
 	 * What every title this page opens says about the save: this page cannot
 	 * keep the game (`save.cannotSave`: the browser gives it no storage;
-	 * `save.storageFull`: a write failed), or a newer build's game waits
-	 * (`save.newerGame`: in the key, never written over, or on the server).
-	 * Null otherwise, and on a throwaway page, which says nothing about it.
+	 * `save.storageFull`: a write failed). Null otherwise, and on a throwaway
+	 * page, which says nothing about it. (A page that met a newer build's save
+	 * is behind, and opens no title.)
 	 */
 	get titleNotice(): SaveNotice | null {
 		if (this.throwaway) return null;
-		if (this.local === 'frozen' || this.newerOnServer) return 'save.newerGame';
 		if (this.local === 'none') return 'save.cannotSave';
 		if (this.local === 'broken') return 'save.storageFull';
 		return null;
@@ -274,8 +281,8 @@ export class Autosave {
 
 	/**
 	 * Whether this page keeps the game it plays: then a game left for a new
-	 * one is put away. False with no storage, a newer build's save waiting in
-	 * the key, a write that failed, or a throwaway game.
+	 * one is put away. False with no storage, a newer build's save in the key,
+	 * a write that failed, or a throwaway game.
 	 */
 	get keeps(): boolean {
 		return this.local !== 'none' && this.local !== 'frozen' && this.local !== 'broken';
@@ -328,7 +335,8 @@ export class Autosave {
 	/**
 	 * Work out how the game starts. Instant when this browser holds a save;
 	 * waits up to `bootWaitMs` for the server only when it holds an identity
-	 * and no readable save.
+	 * and no readable save. A newer build's save, here or there, starts
+	 * nothing: the page is behind it (`newer`) and the plan is empty.
 	 */
 	async boot(): Promise<StartPlan> {
 		if (this.throwaway) return {};
@@ -348,8 +356,10 @@ export class Autosave {
 				return { game: restoreGame(read.save), notice: 'save.welcomeBack' };
 			}
 			if (read.reason === 'newer') {
+				// Never written over or set aside: a reload fetches the version that reads it.
 				this.local = 'frozen';
-				return { notice: 'save.newerGame' };
+				this.staleCause = 'newer';
+				return {};
 			}
 			this.local = 'held';
 			plan = { notice: 'save.couldNotLoad' };
@@ -370,24 +380,19 @@ export class Autosave {
 					this.played = true;
 					return { game: restoreGame(read.save), notice: 'save.welcomeBack' };
 				}
-				// The kid's game is on the server, but this page cannot read it: a new game, said so.
-				// An account's is never saved past (`settleWith`): the page waits for a newer build.
-				if (this.server.session) {
+				if (read.reason === 'newer') {
+					// The kid's game is on the server, saved by a newer version: this page neither
+					// plays a new game over it nor sends anything; a reload fetches the new version.
 					this.serverState = 'stopped';
-					this.newerOnServer = true;
-					this.goStale('newer');
-					plan = { notice: 'save.newerGame' };
-				} else if (read.reason === 'newer') {
-					this.serverState = 'stopped';
-					this.newerOnServer = true;
-					plan = { notice: 'save.newerGame' };
-				} else {
-					// Saves are numbered past it, and it waits until the kid has played the new game;
-					// then the server sets it aside when the first backup replaces it.
-					this.seq = Math.max(this.seq, saveSeq(got.doc));
-					this.serverHeld = true;
-					plan = { notice: 'save.couldNotLoad' };
+					this.staleCause = 'newer';
+					return {};
 				}
+				// The kid's game is on the server, but this page cannot read it: a new game, said so.
+				// Saves are numbered past it, and it waits until the kid has played the new game;
+				// then the server sets it aside when the first backup replaces it.
+				this.seq = Math.max(this.seq, saveSeq(got.doc));
+				this.serverHeld = true;
+				plan = { notice: 'save.couldNotLoad' };
 			} else if (got.kind === 'unknown-player') {
 				this.retireIdentity();
 			} else if (got.kind === 'offline') {
@@ -545,6 +550,14 @@ export class Autosave {
 		const store = this.store;
 		if (store !== null && (this.local === 'ok' || this.local === 'held')) {
 			const current = store.get(this.keys.save);
+			if (current !== this.seenText && current !== null && isNewerSave(parseJson(current))) {
+				// A newer version of the game saved here since this page last looked (another tab
+				// on the new version, its storage event not in yet): whatever this page was about
+				// to do, a new game or setting an unreadable save aside included, that save is
+				// never written over or moved.
+				this.goStale('newer');
+				return;
+			}
 			if (this.replacing) {
 				// A new game the kid chose takes the key, whatever it holds now: the game they
 				// left, or another tab's later save of it. That is kept aside first, never
@@ -648,12 +661,15 @@ export class Autosave {
 	}
 
 	/**
-	 * Why a save this page cannot carry on from puts it behind: its own game
-	 * played on elsewhere keeps the lineage; another game in its place does not.
+	 * Why a save this page cannot carry on from puts it behind: a newer
+	 * version of the game wrote it; its own game played on elsewhere keeps the
+	 * lineage; another game in its place does not.
 	 */
 	private causeOf(text: string | null): BehindCause {
 		if (text === null) return 'gone';
-		return saveLineage(parseJson(text)) === this.lineage ? 'window' : 'replaced';
+		const doc = parseJson(text);
+		if (isNewerSave(doc)) return 'newer';
+		return saveLineage(doc) === this.lineage ? 'window' : 'replaced';
 	}
 
 	private goStale(cause: BehindCause): void {
@@ -787,9 +803,10 @@ export class Autosave {
 				if (this.latest && this.latest.seq > this.pushed) this.schedulePush(true);
 				return;
 			case 'conflict':
-				// An account's save, refused: another device's save got there first.
+				// An account's save, refused: another device's save got there first, or a newer
+				// version's is there.
 				if (this.server?.session) this.refused = doc;
-				await this.checkServer();
+				await this.checkServer(doc.seq);
 				return;
 			case 'refused':
 				// The server and this build disagree about what a save is: stop, and say so to developers.
@@ -805,15 +822,19 @@ export class Autosave {
 		}
 	}
 
-	/** Compare with what the server holds, and settle who carries on. */
-	private async checkServer(): Promise<void> {
+	/**
+	 * Compare with what the server holds, and settle who carries on.
+	 * `refused`: the `seq` of a backup the server just turned away as a
+	 * conflict (409).
+	 */
+	private async checkServer(refused?: number): Promise<void> {
 		if (!this.server || !this.identity) return;
 		const got = await this.server.getSave(this.identity);
 		if (this.stale) return;
 		switch (got.kind) {
 			case 'offline':
 				this.serverState = this.serverState === 'ready' ? 'ready' : 'unknown';
-				this.retry(() => void this.checkServer());
+				this.retry(() => void this.checkServer(refused));
 				return;
 			case 'unknown-player':
 				this.retireIdentity();
@@ -825,6 +846,15 @@ export class Autosave {
 				this.schedulePush(true);
 				return;
 			case 'found':
+				if (refused !== undefined && saveSeq(got.doc) < refused && !isNewerSave(got.doc)) {
+					// The server turned away a save numbered past the one it holds, which `seq` does
+					// not explain: it cannot take this page's saves now (a server older than the save
+					// it holds, while a deploy swaps it, or after a rollback). Sent again at once it
+					// would be turned away again, for ever: try later, as when it is out of reach,
+					// backing off and then resting until the kid plays. The game is saved here.
+					this.retry(() => void this.push(false));
+					return;
+				}
 				this.succeeded();
 				this.settleWith(got.doc);
 				return;
@@ -834,24 +864,21 @@ export class Autosave {
 	/**
 	 * The server holds `doc`. The save with the higher `seq` is the game that
 	 * carries on: this page's, sent as the next backup, or the server's,
-	 * which this page adopts and reloads into.
+	 * which this page adopts and reloads into. A newer version's save there
+	 * puts this page behind (`newer`), and is never sent over.
 	 */
 	private settleWith(doc: unknown): void {
 		const read = readSave(doc);
 		const theirs = saveSeq(doc);
+		if (!read.ok && read.reason === 'newer') {
+			// A newer version of the game saved this player's game on the server: this page
+			// can neither read nor replace it, so it takes no more play, and a reload fetches
+			// the new version. Playing on here would fork the game behind the newer one.
+			this.serverState = 'stopped';
+			this.goStale('newer');
+			return;
+		}
 		if (!read.ok) {
-			if (this.server?.session) {
-				// An account's save this build cannot read: a newer build's, most likely, while
-				// a deploy has two builds alive. Neither copy is written over, here or on the
-				// server, and the page waits for the kid to load the newer build.
-				this.serverState = 'stopped';
-				this.goStale('newer');
-				return;
-			}
-			if (read.reason === 'newer') {
-				this.serverState = 'stopped';
-				return;
-			}
 			// Unreadable: once the kid has played, save past it; the server sets it aside when
 			// the backup replaces it.
 			this.serverState = 'ready';

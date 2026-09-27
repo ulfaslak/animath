@@ -15,10 +15,9 @@ export type BehindCause =
 	/** The save was removed from under the page (site data cleared). */
 	| 'gone'
 	/**
-	 * The account's save on the server is one this build cannot read (a newer
-	 * build wrote it, or it does not pass this build's checks): nothing is
-	 * written over, here or there, and the page waits for the kid to load the
-	 * newer build. It never reloads by itself: only a new build can read it.
+	 * A newer version of the game saved the game (in this browser or on the
+	 * server), and this page's build cannot read it: a reload fetches the new
+	 * version. Nothing here ever writes over that save.
 	 */
 	| 'newer';
 
@@ -46,14 +45,13 @@ export interface PageState {
 /**
  * Behind another window, a page reloads only when it is the window in use:
  * one on screen while the kid plays in the other waits for them, with the
- * card. Another game in its place, or none, is not the kid playing
- * elsewhere, and happens once: the page catches up as soon as it is on screen.
+ * card. Another game in its place, or none, or a newer version's save, is not
+ * the kid playing elsewhere, and happens once: the page catches up as soon as
+ * it is on screen.
  */
 export function behindAction(page: PageState): BehindAction {
 	if (page.behind === null) return 'play';
 	if (!page.visible) return 'wait';
-	// A reload helps only once a newer build is there to load: the kid asks for it.
-	if (page.behind === 'newer') return 'card';
 	const inUse = page.behind === 'window' ? page.focused : true;
 	return inUse && page.mayReload ? 'reload' : 'card';
 }

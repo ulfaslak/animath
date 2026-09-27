@@ -79,9 +79,19 @@ export type Said =
 	 * is saved in the new account, the player logged in, or another device's
 	 * newer save came in. Worded with the account's name when the line shows.
 	 */
-	| { account: 'saved' | 'welcome' | 'movedAhead' };
+	| { account: 'saved' | 'welcome' | 'movedAhead' }
+	/** How going to another player went, and whom to (`presence/controller.ts`). */
+	| { presence: PresenceLine; name: string };
+
+/**
+ * After "Go to <name>": next to them now, they left the world, the server
+ * could not be reached or did not answer, or there was nowhere near them to
+ * stand.
+ */
+export type PresenceLine = 'nextTo' | 'lost' | 'cantFind' | 'noRoom';
 
 export function saidWords(said: Said): string {
+	if ('presence' in said) return t(`presence.${said.presence}`, { name: said.name });
 	if ('line' in said) return messageWords(said.line);
 	if ('doctor' in said) return doctorWords(said.doctor);
 	if ('party' in said) return partyWords(said.party);
@@ -338,6 +348,11 @@ class HudView {
 	/** What the page says after starting again for the account (`account/restart.ts`). */
 	accountNotice(note: 'saved' | 'welcome' | 'movedAhead'): void {
 		this.say({ account: note });
+	}
+
+	/** Say how going to another player went. */
+	presence(line: PresenceLine, name: string): void {
+		this.say({ presence: line, name });
 	}
 
 	/** Put a line on the message line; it stays for `MESSAGE_SECONDS` of the HUD on screen. */

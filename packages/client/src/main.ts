@@ -23,6 +23,7 @@ import { isSoundKey, typingNow } from './input/sound-key';
 import { watchTaps } from './input/taps';
 import { touch, watchInput } from './input/touch.svelte';
 import { PauseController } from './pause/controller';
+import { PresenceController } from './presence/controller';
 import { Follower } from './render/follower';
 import { GameRenderer } from './render/renderer';
 import { TitleScenery } from './render/title-scenery';
@@ -46,7 +47,9 @@ import { game } from './state/game.svelte';
 import { hud } from './state/hud.svelte';
 import { pause } from './state/pause.svelte';
 import { title } from './state/title.svelte';
+import { travel } from './state/travel.svelte';
 import { TitleController } from './title/controller';
+import { TravelController } from './travel/controller';
 import App from './ui/App.svelte';
 
 const canvas = document.getElementById('game') as HTMLCanvasElement;
@@ -75,6 +78,8 @@ const keyboard = new Keyboard(window);
 const explore = new ExploreController(authority, renderer, keyboard, new Follower(renderer));
 const battleController = new BattleController(authority, renderer);
 const doctorController = new DoctorController(authority);
+// A trip to another world plays its transition, and sends `travel` under its cover.
+const travelController = new TravelController(authority, renderer);
 // `?zoo` lines up one of every species by the spawn tile (a check for the meshes),
 // once for the page; `?zoo=tired` lays them down to rest.
 const zoo = flags.zoo ? new Zoo(renderer, flags.zoo === 'tired') : null;
@@ -129,6 +134,18 @@ const autosave = new Autosave({
 	mintId,
 	throwaway: flags.throwaway
 });
+// The other players in this world (`presence/`): never behind the title, never in a
+// throwaway game, never on a page behind the save; nothing waits on it.
+const presenceController = new PresenceController({
+	authority,
+	renderer,
+	store: browserStore(),
+	session: browserStore('session'),
+	throwaway: flags.throwaway,
+	behind: () => autosave.behind !== null,
+	flush: () => autosave.flush(),
+	reload: () => location.reload()
+});
 
 /** A guest's play, counted while the page is on screen: every hour the card offers an account. */
 const playClock = new PlayClock(store, flags.hourSeconds ? flags.hourSeconds * 1000 : PLAY_HOUR_MS);
@@ -150,6 +167,8 @@ const accountController = new AccountController({
 });
 
 const pauseController = new PauseController(authority, {
+	travel: (world) => travelController.go(world),
+	goTo: (pid) => presenceController.goTo(pid),
 	makeAccount: () => accountController.openRegister('pause'),
 	logIn: () => accountController.openLogin('pause'),
 	logOut: () => void accountController.logOut()
@@ -197,9 +216,11 @@ authority.subscribe((event) => {
 	battleController.handle(event);
 	doctorController.handle(event);
 	pauseController.handle(event);
+	travelController.handle(event);
 	titleController.handle(event);
 	accountController.handle(event);
 	autosave.handle(event);
+	presenceController.handle(event);
 	// A new game from the title: after `welcome`, which clears the message line.
 	if (event.type === 'welcome' && event.newGame) sayStartNotice(true);
 	// Quit to title: the game just left is the one Continue picks up. A page that cannot
@@ -221,7 +242,8 @@ authority.subscribe((event) => {
  * is up, else the title while it is up,
  * else the battle while it is up, else the doctor's card while it is open,
  * else the pause menu while it is open, else explore (Escape there opens the
- * pause menu). None while the page loads.
+ * pause menu). None while the page loads, nor while a trip to another world
+ * covers the screen.
  */
 type KeyScreen = 'account' | 'title' | 'battle' | 'doctor' | 'pause' | 'explore';
 function keyScreen(): KeyScreen | null {
@@ -229,6 +251,7 @@ function keyScreen(): KeyScreen | null {
 	if (account.card !== null || account.prompt) return 'account';
 	if (title.open) return 'title';
 	if (game.mode === 'loading' || game.mode === 'title') return null;
+	if (travel.active) return null;
 	if (battle.active) return 'battle';
 	if (doctor.active) return 'doctor';
 	if (pause.open) return 'pause';
@@ -265,13 +288,15 @@ function noteScreen(): void {
 						? 'prompt'
 						: title.open
 							? `title:${title.screen}`
-							: battle.active
-								? `battle:${battle.screen}`
-								: doctor.active
-									? `doctor:${doctor.screen}:${doctor.tab}`
-									: pause.open
-										? `pause:${pause.screen}:${pause.species ?? ''}:${pause.picked ?? ''}`
-										: game.mode;
+							: travel.active
+								? 'travel'
+								: battle.active
+									? `battle:${battle.screen}`
+									: doctor.active
+										? `doctor:${doctor.screen}:${doctor.tab}`
+										: pause.open
+											? `pause:${pause.screen}:${pause.species ?? ''}:${pause.picked ?? ''}`
+											: game.mode;
 	if (now !== screenSeen) {
 		screenSeen = now;
 		screenCount++;
@@ -374,6 +399,13 @@ window.addEventListener('pageshow', (e) => {
 });
 document.addEventListener('resume', recheck);
 window.addEventListener('focus', recheck);
+// The kid is back at this window, or the network is: presence tries again at once.
+for (const type of ['focus', 'online', 'pageshow']) {
+	window.addEventListener(type, () => presenceController.wake());
+}
+document.addEventListener('visibilitychange', () => {
+	if (document.visibilityState === 'visible') presenceController.wake();
+});
 // Behind: nothing typed (AltGr and Option letters too), pasted or dropped reaches a text
 // box either. Only an input method's composition cannot be cancelled.
 window.addEventListener(
@@ -407,8 +439,8 @@ function catchUp(onItsOwn: boolean): void {
 /**
  * A guest's game, played with the page on screen: its hour of play is
  * counted, and once another hour has passed, the card offers to keep the
- * game safe, while exploring (never in a battle, at the doctor or in the
- * menu). Not for an account's game, a throwaway one, or a page that keeps
+ * game safe, while exploring (never in a battle, at the doctor, in the menu
+ * or on a trip to another world). Not for an account's game, a throwaway one, or a page that keeps
  * nothing.
  */
 function countPlay(dt: number): void {
@@ -417,7 +449,12 @@ function countPlay(dt: number): void {
 	if (document.visibilityState !== 'visible') return;
 	playClock.tick(lineage, dt);
 	const exploring =
-		game.mode === 'explore' && !battle.active && !doctor.active && !pause.open && !title.open;
+		game.mode === 'explore' &&
+		!battle.active &&
+		!doctor.active &&
+		!pause.open &&
+		!title.open &&
+		!travel.active;
 	if (!exploring || account.prompt || account.card !== null || autosave.behind !== null) return;
 	if (playClock.due(lineage)) accountController.openPrompt();
 }
@@ -453,12 +490,17 @@ function frame(now: number) {
 			if (!battle.active || battle.entering) explore.update(dt);
 			if (battle.active) battleController.update(dt);
 			if (doctor.active) doctorController.update(dt);
+			// A trip to another world: the cover closes, the world changes under it, and it opens.
+			travelController.update(dt);
 			// The message line's clock runs only while the explore HUD is on screen.
 			if (!battle.active && !doctor.active && !pause.open) hud.tick(dt);
 			countPlay(dt);
 		}
 		renderer.render();
 	}
+	// Where the player is goes to the others; theirs comes back as names over their heads.
+	presenceController.update();
+	presenceController.overlay();
 	noteScreen();
 	requestAnimationFrame(frame);
 }
@@ -485,6 +527,9 @@ void autosave.boot().then((plan) => {
 		autosave.begin();
 		return;
 	}
+	// A newer version of the game saved the game (`autosave.behind` is `newer`): nothing starts,
+	// not even the title. The page reloads for the new version, or its card says so.
+	if (autosave.behind !== null) return;
 	startNotice = plan.notice;
 	// Just logged out: the title, saying so, with the guest game if there is one.
 	if (accountNote === 'loggedOut') {

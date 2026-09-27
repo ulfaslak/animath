@@ -53,7 +53,7 @@ class TitleView {
 	cursor = $state(0);
 	/** The game Continue picks up: its lead and its size are shown on the row. Null: no Continue. */
 	saved = $state.raw<SavedGame | null>(null);
-	/** What the title says about the save: this page cannot keep the game (no storage, a newer build's save). */
+	/** What the title says about the save: this page cannot keep the game (no storage, a write that failed). */
 	notice = $state<SaveNotice | null>(null);
 	/**
 	 * Whether this page keeps its game, so New game puts the one Continue

@@ -115,13 +115,14 @@ export interface KeyValueStore {
 }
 
 /**
- * localStorage, or null when this browser will not let the page use it at
- * all (blocked cookies make even touching `window.localStorage` throw).
+ * localStorage (or this tab's sessionStorage, `session`), or null when this
+ * browser will not let the page use it at all (blocked cookies make even
+ * touching `window.localStorage` throw).
  */
-export function browserStore(): KeyValueStore | null {
+export function browserStore(which: 'local' | 'session' = 'local'): KeyValueStore | null {
 	let storage: Storage;
 	try {
-		storage = window.localStorage;
+		storage = which === 'session' ? window.sessionStorage : window.localStorage;
 		storage.getItem(KEYS.save);
 	} catch {
 		return null;
