@@ -569,6 +569,12 @@ describe("title: the player's name", () => {
 		}
 		press('x');
 		expect(title.nameRefused).toBeNull();
+		// Rubbing out clears it too.
+		wait(PICK_QUIET_SECONDS + 0.05);
+		press('Enter');
+		expect(title.nameRefused).toBe('long');
+		press('Backspace');
+		expect(title.nameRefused).toBeNull();
 		// A name that only needs tidying goes, tidied.
 		title.nameDraft = '  Ida   Marie ';
 		wait(PICK_QUIET_SECONDS + 0.05);

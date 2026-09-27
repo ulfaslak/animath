@@ -343,8 +343,8 @@ export class TitleController {
 			if (!e.repeat) this.toMenu(title.nameFor === 'continue' ? 'continue' : 'new');
 		} else if (e.key === 'Tab') {
 			e.preventDefault(); // the focus stays in the name box
-		} else if (title.nameRefused !== null && e.key.length === 1) {
-			// Typing again: the reason goes until the next try.
+		} else if (title.nameRefused !== null && (e.key.length === 1 || EDIT_KEYS.has(e.key))) {
+			// Typing again, or rubbing out: the reason goes until the next try.
 			title.nameRefused = null;
 		}
 	}
@@ -433,6 +433,9 @@ export class TitleController {
 		this.scenery.select(index);
 	}
 }
+
+/** Keys that change what a name box holds without typing a letter. */
+const EDIT_KEYS: ReadonlySet<string> = new Set(['Backspace', 'Delete']);
 
 /** Turned on, the sound says so itself; turned off, only the switch does (as in the pause menu). */
 function setSound(on: boolean): void {
