@@ -14,7 +14,7 @@ import {
 } from '@mathgame/engine';
 import { afterEach, describe, expect, it } from 'vitest';
 import { LocalAuthority, WORLD_SEED } from '../src/authority/local';
-import { DoctorWay, type DoctorWayRenderer } from '../src/explore/doctor-way';
+import { DoctorWay, TENT_CLEARANCE, type DoctorWayRenderer } from '../src/explore/doctor-way';
 import { edgeSpot } from '../src/presence/controller';
 import { battle } from '../src/state/battle.svelte';
 import { doctor } from '../src/state/doctor.svelte';
@@ -170,24 +170,49 @@ describe('the way to the doctor', () => {
 		expect(doctorWay.tent).toBeNull();
 	});
 
-	it('no arrow over a tent at the very edge of the screen: it is there to see, and the arrow would sit on it', () => {
-		// A tent 12 tiles across: 480 px from the middle, so on the screen but past where an
-		// arrow for it would sit (44 px in from the edge).
+	/** A tired game on walkable ground whose nearest tent is `dx` across and `dy` down from it. */
+	function besideTent(dx: number, dy: number): SavedGame {
 		// The tents' lattice runs every 23 columns and 19 rows through (5, 7).
-		let start: SavedGame | null = null;
-		for (let tx = 5 - 23 * 4; tx <= 5 + 23 * 4 && !start; tx += 23)
-			for (let ty = 7 - 19 * 4; ty <= 7 + 19 * 4 && !start; ty += 19) {
+		for (let tx = 5 - 23 * 4; tx <= 5 + 23 * 4; tx += 23)
+			for (let ty = 7 - 19 * 4; ty <= 7 + 19 * 4; ty += 19) {
 				if (tileAtWorld(WORLD_SEED, tx, ty).kind !== 'tent') continue;
-				for (let dy = -2; dy <= 2 && !start; dy++) {
-					const pos = { x: tx - 12, y: ty + dy };
-					if (!isWalkable(tileAtWorld(WORLD_SEED, pos.x, pos.y).kind)) continue;
-					const spot = nearestTent(WORLD_SEED, pos);
-					if (spot?.tent.x !== tx || spot.tent.y !== ty) continue;
-					start = { ...newGame(1), pos, party: [squirrel(0)] };
-				}
+				const pos = { x: tx - dx, y: ty - dy };
+				if (!isWalkable(tileAtWorld(WORLD_SEED, pos.x, pos.y).kind)) continue;
+				const spot = nearestTent(WORLD_SEED, pos);
+				if (spot?.tent.x !== tx || spot.tent.y !== ty) continue;
+				return { ...newGame(1), pos, party: [squirrel(0)] };
 			}
-		expect(start).not.toBeNull();
-		setup(start!);
+		throw new Error(`no tent ${dx} across and ${dy} down from walkable ground`);
+	}
+
+	it('a tent in the strip at the edge, half off the screen or behind the message line, has its arrow a little way before it, never on it', () => {
+		const me = { x: SCREEN.w / 2, y: SCREEN.h / 2 };
+		// 12 tiles across: 480 px right of the middle, past where an arrow sits (44 px in from
+		// the right edge); 8 down: 320 px below it, behind the message line (96 px from the bottom).
+		for (const [dx, dy] of [
+			[12, 0],
+			[12, 1],
+			[-12, 0],
+			[0, 8],
+			[1, 8]
+		] as const) {
+			setup(besideTent(dx, dy));
+			const there = { x: me.x + dx * TILE, y: me.y + dy * TILE };
+			const arrow = doctorWay.arrow;
+			expect(arrow, `${dx}, ${dy}`).not.toBeNull();
+			// Never on the tent: its whole disc and tip keep clear of the tent's ground.
+			expect(Math.hypot(there.x - arrow!.x, there.y - arrow!.y)).toBeGreaterThanOrEqual(
+				TENT_CLEARANCE - 1
+			);
+			// And it points at it, from where a friend's arrow would sit or nearer the middle.
+			const spot = edgeSpot(me, there, SCREEN.w, SCREEN.h)!;
+			expect(arrow!.angle).toBe(spot.angle);
+			expect(Math.hypot(arrow!.x - me.x, arrow!.y - me.y)).toBeLessThanOrEqual(
+				Math.hypot(spot.x - me.x, spot.y - me.y)
+			);
+		}
+		// 11 across is inside the frame the arrows keep to: in plain sight, no arrow.
+		setup(besideTent(11, 0));
 		expect(doctorWay.tent).not.toBeNull();
 		expect(doctorWay.arrow).toBeNull();
 	});
