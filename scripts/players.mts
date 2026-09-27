@@ -37,7 +37,8 @@
  * key (`ArrowRight`, `Enter`, `*n` to press it n times), or one of:
  *   wait:<ms>          everyone waits
  *   shot:<name>        a frame of that player, to `<out>-<label>-<name>.png`
- *   burst:<name>:<n>   n frames as fast as they come (`-1`, `-2`…): a flourish that is soon over
+ *   burst:<name>:<n>   n frames as fast as they come (`-1`, `-2`…): a flourish that is soon over;
+ *                      `burst:<name>:<n>:<x>:<y>:<w>:<h>` frames only that part of the page, quicker
  *   press:<key>        a key, going straight on to the next step (no pause after it)
  *   type:<text>        type into what has the focus
  *   hold:<key>:<ms>    hold a key down, auto-repeating
@@ -513,9 +514,14 @@ async function run(step: Step): Promise<void> {
 				break;
 			}
 			case 'burst': {
-				const [name, n] = step.arg.split(':');
+				// `burst:name:n`, or `burst:name:n:x:y:w:h` for only that part of the page: a
+				// smaller frame is quicker to take, so more of them land inside a flourish.
+				const [name, n, ...box] = step.arg.split(':');
+				const [x, y, width, height] = box.map(Number);
+				const clip =
+					box.length === 4 ? { x: x!, y: y!, width: width!, height: height! } : undefined;
 				for (let i = 1; i <= Number(n ?? 4); i++) {
-					await page!.screenshot({ path: `${stem}-${p.label}-${name}-${i}.png` });
+					await page!.screenshot({ path: `${stem}-${p.label}-${name}-${i}.png`, clip });
 				}
 				console.log(`${stem}-${p.label}-${name}-1..${n ?? 4}.png`);
 				break;
