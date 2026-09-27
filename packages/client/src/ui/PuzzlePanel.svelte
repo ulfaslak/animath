@@ -1,8 +1,9 @@
 <script lang="ts">
-	import type { Puzzle } from '@mathgame/engine';
+	import type { AttackLevel, Puzzle } from '@mathgame/engine';
 	import { t } from '../copy';
 	import { unfocusable } from '../input/press';
 	import { touch } from '../input/touch.svelte';
+	import HitBadge from './HitBadge.svelte';
 	import NumberPad from './NumberPad.svelte';
 
 	/**
@@ -19,7 +20,9 @@
 	 * of the card's height below the pad. `story` is a line over the prompt
 	 * (the doctor's token sums tell what the numbers are), and `back` the
 	 * label of a button that puts the puzzle away (Escape), for a screen that
-	 * has a way back; a battle has none.
+	 * has a way back; a battle has none. `reward` is what a right answer
+	 * wins, a battle's hit: "Correct!" shows its hit badge, so the sum and
+	 * the reward connect ("Correct! ✸24").
 	 */
 	let {
 		puzzle,
@@ -28,7 +31,8 @@
 		typing,
 		note,
 		story,
-		back
+		back,
+		reward
 	}: {
 		puzzle: Puzzle;
 		input: string;
@@ -41,6 +45,8 @@
 		story?: string;
 		/** The label of the button that goes back (Escape): the doctor's "Back". */
 		back?: string;
+		/** The hit a right answer lands, from the engine: the battle's. */
+		reward?: { damage: number; level: AttackLevel };
 	} = $props();
 </script>
 
@@ -65,6 +71,10 @@
 			{#if judged}
 				<div class="judgement" class:good={judged.correct} class:bad={!judged.correct}>
 					{judged.correct ? t('puzzle.correct') : t('puzzle.notQuite')}
+					{#if judged.correct && reward}<HitBadge
+							damage={reward.damage}
+							level={reward.level}
+						/>{/if}
 				</div>
 			{:else}
 				<div class="keys">{touch.on ? t('puzzle.keysTouch') : t('puzzle.keys')}</div>
@@ -190,6 +200,9 @@
 		animation: blink 1s steps(2) infinite;
 	}
 	.judgement {
+		display: inline-flex;
+		align-items: center;
+		gap: 10px;
 		font-weight: 800;
 		font-size: 24px;
 		padding: 2px 18px;

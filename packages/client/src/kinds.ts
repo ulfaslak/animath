@@ -32,6 +32,31 @@ export function kindWord(topic: PuzzleTopic): string {
 }
 
 /**
+ * What a kind of puzzle looks like as a picture, for a kid who can't read
+ * the words yet: its operator, in the glyphs the prompts use (DESIGN §
+ * Typography), a "?" where a sum has a number missing, a row of numbers
+ * for a pattern. The battle's operator chips show them beside the words.
+ */
+export function kindGlyph(topic: PuzzleTopic): string {
+	switch (topic) {
+		case 'add':
+			return '+';
+		case 'sub':
+			return '−';
+		case 'mul':
+			return '×';
+		case 'div':
+			return '÷';
+		case 'missing':
+			return '?';
+		case 'sequence':
+			return '2 4 6';
+		case 'sqrt':
+			return '√';
+	}
+}
+
+/**
  * Topics as the language lists them: "adding, taking away, or missing
  * numbers" (`disjunction`: one of them) or "adding, taking away and missing
  * numbers" (`conjunction`: all of them).

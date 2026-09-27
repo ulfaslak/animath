@@ -6,41 +6,66 @@
 		canFightIn,
 		catchProbability,
 		getAnimal,
+		landHit,
 		puzzleDifficulty,
 		puzzleTopics,
+		type AttackLevel,
 		type PuzzleTopic
 	} from '@mathgame/engine';
-	import { actionAt, attackRows, levelWord, rowOf } from '../battle/menu';
+	import {
+		actionAt,
+		attackRows,
+		levelWord,
+		rowOf,
+		WILD_MOVES,
+		type WildMove
+	} from '../battle/menu';
 	import { t } from '../copy';
-	import { levelKey, rowKey, unfocusable } from '../input/press';
+	import { rowKey, unfocusable } from '../input/press';
 	import { touch } from '../input/touch.svelte';
 	import { kindList } from '../kinds';
 	import { messageWords, words } from '../lines';
 	import { animalWords, nameOf, speciesName } from '../names';
 	import { battle } from '../state/battle.svelte';
+	import ActionPreview, { type Preview } from './ActionPreview.svelte';
+	import AttackTile from './AttackTile.svelte';
 	import Celebration from './Celebration.svelte';
 	import HpBar from './HpBar.svelte';
+	import MoveButton from './MoveButton.svelte';
 	import PuzzlePanel from './PuzzlePanel.svelte';
+	import StatusBox from './StatusBox.svelte';
 
 	/**
 	 * The battle screen's overlay: status boxes over the scene, a narration
-	 * line, the two-column bottom panel (actions or the party list | puzzle)
-	 * and the result card. Everything it shows comes from `battle` (the
-	 * presentation view) and every word from the copy files; keys are handled
-	 * by `BattleController`, so nothing here dispatches. A click or a tap is a
-	 * key press (`data-press`, `input/taps.ts`): a row is its `row:<i>` key and
-	 * a level button its `level:<n>`, which only highlight and set, since a pick
-	 * spends the turn; Go is Enter, which does the highlighted row; Back is
-	 * Escape; and the result card, all of it, is Enter. Go and the result card's
-	 * button stay dimmed until a pick would count (`battle.ready`).
+	 * line, the two-column bottom panel (the actions or the party list | the
+	 * preview card or the puzzle) and the result card. Everything it shows
+	 * comes from `battle` (the presentation view), every number from the
+	 * engine and every word from the copy files; keys are handled by
+	 * `BattleController`, so nothing here dispatches. It composes the battle's
+	 * pieces (`StatusBox`, `AttackTile`, `MoveButton`, `ActionPreview`), which
+	 * take their data as props, so a friendly match can build its screen from
+	 * the same ones (UI_SPEC § Component reuse). A click or a tap is a key
+	 * press (`data-press`, `input/taps.ts`): a tile or a move is its `row:<i>`
+	 * key and a level button its `level:<n>`, which only highlight and set,
+	 * since a pick spends the turn; Go is Enter, which does the highlighted
+	 * row; Back is Escape; and the result card, all of it, is Enter. Go and
+	 * the result card's button stay dimmed until a pick would count
+	 * (`battle.ready`).
 	 */
 	const front = $derived(battle.party[battle.front] ?? null);
 	const spec = $derived(front ? getAnimal(front.speciesId) : null);
 	const opponent = $derived(battle.opponent);
 	const opponentSpec = $derived(opponent ? getAnimal(opponent.speciesId) : null);
-	/** Each attack with its own level and that level's word. */
-	const rows = $derived(spec ? attackRows(spec, battle.levels) : []);
-	/** Someone could step in; with nobody, the Switch row is greyed and says why. */
+	/** Each attack with its own level, that level's word and what it hits for there (the engine's). */
+	const tiles = $derived(
+		spec
+			? attackRows(spec, battle.levels).map((row) => ({
+					...row,
+					damage: attackDamage(spec, row.index, row.level, true)
+				}))
+			: []
+	);
+	/** Someone could step in; with nobody, Switch is greyed and says why. */
 	const canSwitch = $derived(battle.pickable.some(Boolean));
 	/** The party list in species groups (the party is in bundles), each row still its party slot. */
 	const groups = $derived(bundles(battle.party));
@@ -53,7 +78,7 @@
 	const goIdle = $derived(
 		battle.screen === 'party'
 			? !battle.pickable[battle.partyCursor]
-			: !!spec && battle.cursor === rowOf('switch', spec.attacks.length) && !canSwitch
+			: !!spec && battle.cursor === rowOf('switch', spec.attacks.length, WILD_MOVES) && !canSwitch
 	);
 
 	/** "adding, taking away, or missing numbers": the language's own "or" list. */
@@ -62,25 +87,47 @@
 	}
 
 	/** What the highlighted row of the action menu does: an attack, the leash, a switch or running. */
-	const action = $derived(spec ? actionAt(battle.cursor, spec.attacks.length) : null);
+	const action = $derived(spec ? actionAt(battle.cursor, spec.attacks.length, WILD_MOVES) : null);
+	/** The attack tile the cursor is on, if it is on one. */
+	const tile = $derived(action?.kind === 'attack' ? (tiles[action.index - 1] ?? null) : null);
 	/** The highlighted row can't be done (a greyed Switch): Enter and Go do nothing there. */
 	const greyed = $derived(action?.kind === 'switch' && !canSwitch);
 
-	/** What the highlighted row will do, in words a kid can read. */
+	/** The leash's catch hint: a word and its colour (`leashBand`). */
+	const leashHint = $derived.by(() => {
+		const words =
+			leashBand === 'good'
+				? t('battle.leash.good')
+				: leashBand === 'warn'
+					? t('battle.leash.maybe')
+					: t('battle.leash.hard');
+		return { band: leashBand, words };
+	});
+
+	/**
+	 * The HP the highlighted attack at its level would leave the wild animal
+	 * with, from the engine's `landHit` on the HP on screen — the very
+	 * function the battle lands the hit with, so the preview on its HP bar
+	 * can never disagree with the hit. Shown while the menu is up and while
+	 * that attack's puzzle waits for its answer.
+	 */
+	const previewHp = $derived.by(() => {
+		if (!spec || !opponent || !tile) return null;
+		const choosing = battle.screen === 'actions' || (battle.screen === 'puzzle' && !battle.judged);
+		if (!choosing) return null;
+		return landHit(spec, tile.index, tile.level, opponent).target.hp;
+	});
+
+	/** What the highlighted move does, in words a kid can read: the sentence under its preview. */
 	const detail = $derived.by(() => {
 		if (!spec || !action || !opponent) return '';
 		if (action.kind === 'attack') {
-			const row = rows[action.index - 1]!;
-			const damage = attackDamage(spec, row.index, row.level, true);
-			// What the puzzles at this level can actually be, from the engine: a hard
-			// missing number can sit in a times table, and then it says so.
-			const difficulty = puzzleDifficulty(spec.tier, row.index, row.level);
-			const kinds = kindWords(puzzleTopics(spec.attacks[row.index - 1]!.kinds, difficulty));
+			if (!tile) return '';
 			return t('battle.attackDetail', {
-				attack: row.name,
-				level: row.word,
-				kinds,
-				damage,
+				attack: tile.name,
+				level: tile.word,
+				kinds: kindWords(topicsOf(tile.index, tile.level)),
+				damage: tile.damage,
 				animal: animalWords(opponent)
 			});
 		}
@@ -101,25 +148,80 @@
 		return t(run, { animal: animalWords(opponent) });
 	});
 
-	/** The puzzle area's title for the highlighted row: what picking it does. */
-	const rowTitle = $derived.by(() => {
-		switch (action?.kind) {
+	/**
+	 * What the puzzles of attack `index` can actually be at `level`, from the
+	 * engine: a hard missing number can sit in a times table, and then it
+	 * says so.
+	 */
+	function topicsOf(index: number, level: AttackLevel): PuzzleTopic[] {
+		if (!spec) return [];
+		const difficulty = puzzleDifficulty(spec.tier, index, level);
+		return puzzleTopics(spec.attacks[index - 1]!.kinds, difficulty);
+	}
+
+	/** A move's word on its button. */
+	function moveLabel(move: WildMove): string {
+		switch (move) {
+			case 'leash':
+				return t('battle.leash.row');
+			case 'switch':
+				return t('battle.switch.row');
+			case 'run':
+				return t('battle.run.row');
+		}
+	}
+
+	/** A move's title on the preview card: what picking it does. */
+	function moveTitle(move: WildMove): string {
+		switch (move) {
 			case 'leash':
 				return t('battle.menu.leash');
 			case 'switch':
 				return t('battle.menu.switch');
 			case 'run':
 				return t('battle.menu.run');
-			default:
-				return t('battle.menu.attack');
 		}
+	}
+
+	/** The preview card for the highlighted row, before anything is picked. */
+	const preview = $derived.by((): Preview | null => {
+		if (!spec || !action || !opponent) return null;
+		if (action.kind !== 'attack') {
+			return {
+				kind: 'move',
+				icon: action.kind,
+				title: moveTitle(action.kind),
+				line: detail,
+				hint: action.kind === 'leash' ? leashHint : undefined,
+				off: greyed
+			};
+		}
+		if (!tile) return null;
+		return {
+			kind: 'attack',
+			name: tile.name,
+			level: tile.level,
+			damage: tile.damage,
+			levels: ATTACK_LEVELS.map((level) => ({
+				level,
+				word: levelWord(level),
+				damage: attackDamage(spec, tile.index, level, true)
+			})),
+			topics: topicsOf(tile.index, tile.level),
+			line: detail,
+			tires: previewHp === 0 ? t('battle.tiresOut') : null
+		};
 	});
 
+	/** What a right answer to the puzzle on screen wins: its attack's hit, at its level. */
+	const reward = $derived(tile ? { damage: tile.damage, level: tile.level } : undefined);
+
 	/**
-	 * The key reminder for the highlighted row: left and right only on an
-	 * attack row (the only one with a level), and no Enter where it does
-	 * nothing. With the touch controls on, a tap hint instead; on a greyed
-	 * row, where Go does nothing, the way to an attack.
+	 * The key reminder for the highlighted row: left and right change the
+	 * level on an attack and go along the row on the other moves, and there
+	 * is no Enter where it does nothing. With the touch controls on, a tap
+	 * hint instead; on a greyed row, where Go does nothing, the way to an
+	 * attack.
 	 */
 	const rowKeys = $derived.by(() => {
 		if (touch.on) {
@@ -150,12 +252,12 @@
 	});
 
 	/**
-	 * The leash row hints at the real odds — the engine's `catchProbability`
-	 * for this animal at the HP on screen, with this leash — never as a number
+	 * The leash hints at the real odds — the engine's `catchProbability` for
+	 * this animal at the HP on screen, with this leash — never as a number
 	 * (UI_SPEC): at least one in two is a good chance, at least one in five is
 	 * a maybe, anything less is hard. The word says what the colour says.
 	 */
-	const leashBand = $derived.by(() => {
+	const leashBand = $derived.by((): 'good' | 'warn' | 'bad' => {
 		if (!opponent || !opponentSpec) return 'bad';
 		const hp = opponent.hp / opponentSpec.maxHp;
 		const chance = catchProbability(hp, opponentSpec.catchRate, battle.leashQuality);
@@ -196,29 +298,33 @@
 </script>
 
 {#if opponent && opponentSpec}
+	<!-- The leash flies under this box: `WILD_STATUS_BOX` in `render/battle-scene.ts` knows where it is. -->
 	<div class="status opponent">
-		<div class="name">{t('battle.wildName', { animal: animalWords(opponent) })}</div>
-		<HpBar hp={opponent.hp} max={opponentSpec.maxHp} />
-		{#if battle.hit?.side === 'opponent'}
-			{#key battle.hit.n}
-				<div class="damage">−{battle.hit.damage}</div>
-			{/key}
-		{/if}
+		<StatusBox
+			name={t('battle.wildName', { animal: animalWords(opponent) })}
+			id={opponent.id}
+			hp={opponent.hp}
+			max={opponentSpec.maxHp}
+			opponent
+			acting={battle.turn === 'opponent'}
+			preview={previewHp}
+			hit={battle.hit?.side === 'opponent' ? battle.hit : null}
+			burst="right"
+		/>
 	</div>
 {/if}
 
 {#if front && spec}
 	<div class="status player">
-		<div class="name">{nameOf(front)}</div>
-		<!-- A fresh bar per animal: the one that left must not slide into the newcomer's. -->
-		{#key front.id}
-			<HpBar hp={front.hp} max={spec.maxHp} />
-		{/key}
-		{#if battle.hit?.side === 'player'}
-			{#key battle.hit.n}
-				<div class="damage">−{battle.hit.damage}</div>
-			{/key}
-		{/if}
+		<StatusBox
+			name={nameOf(front)}
+			id={front.id}
+			hp={front.hp}
+			max={spec.maxHp}
+			acting={battle.turn === 'player'}
+			hit={battle.hit?.side === 'player' ? battle.hit : null}
+			burst="left"
+		/>
 	</div>
 {/if}
 
@@ -279,75 +385,35 @@
 			{/key}
 		</div>
 	{:else}
-		<div class="card actions" class:dim={battle.screen !== 'actions'}>
+		<div class="card actions menu" class:dim={battle.screen !== 'actions'}>
 			{#if spec}
-				{#each rows as row, i (row.index)}
-					<button
-						type="button"
-						class="row"
-						class:selected={battle.cursor === i}
-						data-press={rowKey(i)}
-						{@attach unfocusable}
-					>
-						<span class="caret">▸</span>
-						<span class="label">{row.name}</span>
-						{#if battle.cursor === i}
-							<!-- Each level button's box runs the row's height and meets the next, so a
-							     finger that lands near one presses it, not the row. -->
-							<span class="levels">
-								{#each ATTACK_LEVELS as level (level)}
-									<span class="pill" class:on={row.level === level} data-press={levelKey(level)}
-										><span class="face">{levelWord(level)}</span></span
-									>
-								{/each}
-							</span>
-						{:else}
-							<span class="how">{row.word}</span>
-						{/if}
-					</button>
-				{/each}
-				<button
-					type="button"
-					class="row"
-					class:selected={battle.cursor === spec.attacks.length}
-					data-press={rowKey(spec.attacks.length)}
-					{@attach unfocusable}
-				>
-					<span class="caret">▸</span>
-					<span class="label">{t('battle.leash.row')}</span>
-					<span class="how">
-						{#if leashBand === 'good'}
-							{t('battle.leash.good')}
-						{:else if leashBand === 'warn'}
-							{t('battle.leash.maybe')}
-						{:else}
-							{t('battle.leash.hard')}
-						{/if}
-					</span>
-					<!-- The dot is the odds, in colour; the words beside it say the same. -->
-					<span class="dot {leashBand}"></span>
-				</button>
-				<button
-					type="button"
-					class="row"
-					class:selected={battle.cursor === rowOf('switch', spec.attacks.length)}
-					class:off={!canSwitch}
-					data-press={rowKey(rowOf('switch', spec.attacks.length))}
-					{@attach unfocusable}
-				>
-					<span class="caret">▸</span>
-					<span class="label">{t('battle.switch.row')}</span>
-				</button>
-				<button
-					type="button"
-					class="row"
-					class:selected={battle.cursor === rowOf('run', spec.attacks.length)}
-					data-press={rowKey(rowOf('run', spec.attacks.length))}
-					{@attach unfocusable}
-				>
-					<span class="caret">▸</span>
-					<span class="label">{t('battle.run.row')}</span>
-				</button>
+				<!-- The attacks: the heroes, one chunky tile each. -->
+				<div class="attacks">
+					{#each tiles as row, i (row.index)}
+						<AttackTile
+							name={row.name}
+							word={row.word}
+							level={row.level}
+							damage={row.damage}
+							press={rowKey(i)}
+							selected={battle.cursor === i}
+						/>
+					{/each}
+				</div>
+				<!-- The other moves: a row of smaller round buttons under them. -->
+				<div class="moves">
+					{#each WILD_MOVES as move (move)}
+						{@const row = rowOf(move, spec.attacks.length, WILD_MOVES)}
+						<MoveButton
+							icon={move}
+							label={moveLabel(move)}
+							press={rowKey(row)}
+							selected={battle.cursor === row}
+							off={move === 'switch' && !canSwitch}
+							hint={move === 'leash' ? leashHint : undefined}
+						/>
+					{/each}
+				</div>
 			{/if}
 		</div>
 	{/if}
@@ -359,6 +425,7 @@
 				input={battle.input}
 				judged={battle.judged}
 				typing={battle.screen === 'puzzle'}
+				{reward}
 			/>
 		{:else if battle.screen === 'party'}
 			<div class="soft">{t('battle.switch.title')}</div>
@@ -391,14 +458,15 @@
 				</div>
 			</div>
 		{:else}
-			<div class="soft">{rowTitle}</div>
-			<div class="detail">{detail}</div>
-			<div class="footer">
+			{#if preview}
+				<ActionPreview {preview} />
+			{/if}
+			<div class="footer choosing">
 				<div class="keys">{rowKeys}</div>
 				<div class="buttons">
 					<button
 						type="button"
-						class="pill-button go"
+						class="pill-button go big"
 						class:idle={goIdle || battle.screen !== 'actions' || !battle.ready}
 						data-press="Enter"
 						{@attach unfocusable}
@@ -432,21 +500,20 @@
 {/if}
 
 <style>
-	/* Wide enough for a twelve-letter nickname of the widest letters (WWWWWWWWWWWW is 242 px). */
+	/*
+	 * Where the status boxes stand, and how wide: wide enough for a
+	 * twelve-letter nickname of the widest letters (WWWWWWWWWWWW is 242 px).
+	 * The box itself is `StatusBox`.
+	 */
 	.status {
 		position: absolute;
 		width: 280px;
 		max-width: calc(50vw - 24px);
-		box-sizing: border-box;
-		background: var(--panel-bg);
-		border-radius: var(--radius);
-		box-shadow: var(--hud-shadow);
-		padding: 10px 16px 12px;
 	}
 	/*
 	 * The leash's loop flies in under this box, never behind it:
 	 * `WILD_STATUS_BOX` in `render/battle-scene.ts` mirrors where it is and how
-	 * big (with `.status` above). Change both together.
+	 * big (with `.status` above and `StatusBox`'s height). Change both together.
 	 */
 	.status.opponent {
 		top: calc(16px + var(--safe-top));
@@ -455,27 +522,6 @@
 	.status.player {
 		right: calc(16px + var(--safe-right));
 		bottom: calc(var(--battle-panel) + 72px);
-	}
-	.status .name {
-		font-weight: 800;
-		font-size: 18px;
-		margin-bottom: 6px;
-		overflow: hidden;
-		text-overflow: ellipsis;
-		white-space: nowrap;
-	}
-	.damage {
-		position: absolute;
-		right: 14px;
-		top: -6px;
-		font-weight: 800;
-		font-size: 28px;
-		color: var(--bad);
-		text-shadow:
-			0 2px 0 white,
-			0 0 6px white;
-		pointer-events: none;
-		animation: pop 1.1s ease-out forwards;
 	}
 
 	.battle-line {
@@ -545,7 +591,34 @@
 		padding: 10px 12px;
 		overflow: hidden;
 	}
-	.actions.dim .row {
+	/*
+	 * The menu: the attack tiles over the row of other moves. Every tile and
+	 * move of a bear (four attacks and three moves) fits the card at
+	 * 1024×768 with the touch controls on, each a finger tall.
+	 */
+	.menu {
+		gap: 8px;
+	}
+	.attacks {
+		display: flex;
+		flex-direction: column;
+		gap: 5px;
+		min-height: 0;
+	}
+	:global(.touch) .attacks {
+		gap: 6px;
+	}
+	.moves {
+		display: flex;
+		justify-content: space-evenly;
+		align-items: flex-start;
+		gap: 6px;
+		padding-top: 8px;
+		border-top: 2px dashed rgba(45, 42, 50, 0.12);
+	}
+	/* A turn playing, or a puzzle up: the menu waits, dimmed, its pick still lit. */
+	.actions.dim .attacks,
+	.actions.dim .moves {
 		opacity: 0.55;
 	}
 	.row {
@@ -564,8 +637,8 @@
 	.row.selected {
 		background: rgba(255, 159, 67, 0.22);
 	}
-	/* Touch: every row a finger tall, seven of them in the taller panel (styles.css). */
-	:global(.touch) .actions {
+	/* Touch: every row a finger tall. */
+	:global(.touch) .actions.party {
 		gap: 0;
 		padding: 6px 12px;
 	}
@@ -577,9 +650,6 @@
 	@media (hover: hover) and (pointer: fine) {
 		.actions:not(.dim) .row:not(.selected):hover {
 			background: rgba(255, 159, 67, 0.1);
-		}
-		.pill:hover .face {
-			box-shadow: inset 0 0 0 2px var(--accent);
 		}
 	}
 	.caret {
@@ -603,36 +673,7 @@
 		opacity: 0.75;
 		white-space: nowrap;
 	}
-	.levels {
-		display: flex;
-		align-self: stretch;
-	}
-	/* The button's box (what a finger hits) runs the row's height; its face is the pill drawn. */
-	.pill {
-		display: grid;
-		place-items: center;
-		padding: 0 2px;
-	}
-	.face {
-		display: grid;
-		place-items: center;
-		height: 28px;
-		padding: 0 7px;
-		border-radius: 14px;
-		background: rgba(0, 0, 0, 0.08);
-		font-size: 16px;
-	}
-	:global(.touch) .face {
-		height: 36px;
-		min-width: 48px;
-		box-sizing: border-box;
-		border-radius: 18px;
-	}
-	.row.selected .pill.on .face {
-		background: var(--accent);
-		color: white;
-	}
-	/* Nobody to switch to, or an animal that can't step in: still readable, clearly out. */
+	/* An animal that can't step in: still readable, clearly out. */
 	.row.off > :not(.caret) {
 		opacity: 0.45;
 	}
@@ -704,28 +745,14 @@
 	.row.nudge {
 		animation: nudge 0.35s ease-out;
 	}
-	.dot {
-		width: 16px;
-		height: 16px;
-		margin: 0 6px;
-		border-radius: 8px;
-	}
-	.dot.good {
-		background: var(--good);
-	}
-	.dot.warn {
-		background: var(--warn);
-	}
-	.dot.bad {
-		background: var(--bad);
-	}
 
+	/* Centred while it fits; what could not fit would run off the bottom, never over the top. */
 	.puzzle {
 		display: flex;
 		flex-direction: column;
 		align-items: center;
-		justify-content: center;
-		gap: 10px;
+		justify-content: safe center;
+		gap: 8px;
 		padding: 12px 20px;
 		text-align: center;
 		overflow: hidden;
@@ -761,22 +788,27 @@
 		gap: 10px;
 	}
 	/*
-	 * Too narrow for the reminder beside the buttons (the card beside the party
-	 * list), the reminder takes a line of its own above them; the buttons stay
-	 * at the right edge.
+	 * Under the preview card, a row: the key reminder, then Go! at the right
+	 * edge, where it is at the doctor's and under the right thumb on touch.
 	 */
+	.footer.choosing,
 	:global(.touch) .footer {
 		flex-direction: row;
 		flex-wrap: wrap;
 		justify-content: space-between;
+		align-items: center;
 		align-self: stretch;
 		gap: 8px 10px;
-		margin-top: 6px;
 		text-align: left;
 	}
+	:global(.touch) .footer {
+		margin-top: 6px;
+	}
+	.footer.choosing .keys,
 	:global(.touch) .footer .keys {
 		flex: 1 1 12em;
 	}
+	.footer.choosing .buttons,
 	:global(.touch) .buttons {
 		margin-left: auto;
 	}
@@ -785,6 +817,7 @@
 		flex: none;
 		gap: 12px;
 	}
+	/* A chunky toy button: its darker edge squashes flat when it is pressed. */
 	.pill-button {
 		display: inline-flex;
 		align-items: center;
@@ -795,6 +828,8 @@
 		background: rgba(0, 0, 0, 0.08);
 		font-weight: 800;
 		font-size: 18px;
+		box-shadow: 0 var(--press) 0 var(--edge);
+		margin-bottom: var(--press);
 	}
 	.pill-button kbd {
 		background: rgba(0, 0, 0, 0.08);
@@ -804,6 +839,14 @@
 		justify-content: center;
 		background: var(--accent);
 		color: white;
+		box-shadow: 0 var(--press) 0 var(--accent-edge);
+	}
+	/* The preview card's Go!: big, the thing to press once the move is set. */
+	.pill-button.go.big {
+		min-width: 150px;
+		min-height: 50px;
+		font-size: 22px;
+		border-radius: 25px;
 	}
 	.pill-button.go kbd {
 		background: rgba(255, 255, 255, 0.3);
@@ -818,10 +861,17 @@
 	}
 	.pill-button.go,
 	.button {
-		transition: opacity 0.2s ease-out;
+		transition:
+			opacity 0.2s ease-out,
+			transform 0.08s ease-out,
+			box-shadow 0.08s ease-out;
 	}
 	.pill-button:active {
-		transform: scale(0.97);
+		transform: translateY(calc(var(--press) - 1px));
+		box-shadow: 0 1px 0 var(--edge);
+	}
+	.pill-button.go:active {
+		box-shadow: 0 1px 0 var(--accent-edge);
 	}
 	.result {
 		position: absolute;
@@ -861,6 +911,7 @@
 		color: white;
 		font-weight: 800;
 		font-size: 18px;
+		box-shadow: 0 var(--press) 0 var(--accent-edge);
 	}
 	kbd {
 		font-family: inherit;
@@ -885,36 +936,7 @@
 		}
 	}
 
-	@keyframes pop {
-		0% {
-			opacity: 0;
-			transform: translateY(8px) scale(0.8);
-		}
-		15% {
-			opacity: 1;
-			transform: translateY(0) scale(1.15);
-		}
-		70% {
-			opacity: 1;
-			transform: translateY(-10px) scale(1);
-		}
-		100% {
-			opacity: 0;
-			transform: translateY(-22px) scale(1);
-		}
-	}
-
-	/* Less motion: the damage fades in and out where it is; a refused pick barely nudges. */
-	@keyframes pop-still {
-		0%,
-		100% {
-			opacity: 0;
-		}
-		15%,
-		70% {
-			opacity: 1;
-		}
-	}
+	/* Less motion: a refused pick barely nudges. */
 	@keyframes nudge-small {
 		30% {
 			transform: translateX(-2px);
@@ -924,9 +946,6 @@
 		}
 	}
 	@media (prefers-reduced-motion: reduce) {
-		.damage {
-			animation-name: pop-still;
-		}
 		.row.nudge {
 			animation-name: nudge-small;
 		}
