@@ -268,7 +268,7 @@ curl -s -c jar -b jar $API/api/account/me
 curl -s -c jar -b jar -X PUT -H 'content-type: application/json' --data @save.json $API/api/account/save
 ```
 
-The login and register limits are counted in the API process's memory, so restarting your API clears them.
+The login and register limits are counted in the API process's memory, so restarting your API clears them. The admin CLI is another process and cannot: a kid who guessed wrong ten times before the reset waits out the rest of that quarter-hour with the new password too.
 
 **Getting a kid's account game back.** As with the anonymous backup (§ Database), what an account's save replaced (another game, from New game on the title, or one the server could not read) is in `account_save_backups`. Put one back with a `seq` far above the current save's, in the document and in its column:
 
