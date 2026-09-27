@@ -472,6 +472,12 @@ export class Autosave {
 			case 'player-moved':
 			case 'player-blocked':
 			case 'player-placed':
+			// The glider: each tile flown is a step, and the game saved in the air is the one
+			// letting go would leave (`LocalAuthority.snapshot`), so a reload lands where a let-go
+			// would; the landing saves where it came down.
+			case 'took-off':
+			case 'glided':
+			case 'landed':
 			case 'battle-started':
 			case 'battle-updated':
 			case 'doctor-visit-started':
