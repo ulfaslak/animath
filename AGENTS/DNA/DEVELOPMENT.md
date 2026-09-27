@@ -364,6 +364,8 @@ gh pr merge <N> --merge --subject "Merge pull request #<N> from ulfaslak/<branch
 
 Main then runs ahead of prod until the next deploy. Never `[skip ci]` or its kin: GitHub's own markers skip every workflow.
 
+A deploy costs GitHub Actions minutes: about 5 for the checks and 2 to 4 for the image, out of the 2,000 a month the free plan gives private repos, shared with lawcel. A skipped run costs a few seconds, and a merge touching nothing deployed costs nothing.
+
 ### Rolling back
 
 ```bash
