@@ -25,7 +25,9 @@ export type AccountProblem =
 	| { kind: 'password'; reason: PasswordRefusal }
 	| { kind: 'wrong' }
 	| { kind: 'too-many'; minutes: number }
-	| { kind: 'offline' };
+	| { kind: 'offline' }
+	/** The account was made with the game, but this browser keeps nothing: it cannot be logged in here. */
+	| { kind: 'storage' };
 
 /**
  * Whether the server still knows this page's account: `unknown` until the

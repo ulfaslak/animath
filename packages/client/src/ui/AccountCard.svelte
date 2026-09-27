@@ -41,6 +41,8 @@
 				return t('account.problem.tooMany', { count: problem.minutes });
 			case 'offline':
 				return t('account.problem.offline');
+			case 'storage':
+				return t('account.problem.storage');
 		}
 	}
 

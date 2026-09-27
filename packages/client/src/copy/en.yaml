@@ -737,6 +737,8 @@ account:
       one: Lots of tries! Take a little break and try again in a minute.
       other: 'Lots of tries! Take a little break and try again in {count} minutes.'
     offline: We can't reach the game's home right now. Try again soon!
+    # The account was made with the game, but this browser can't store anything, so it can't log in here.
+    storage: "This browser can't remember you. Your game is saved in your account: log in on another tablet or computer."
   # The card after every hour of a guest's play.
   prompt:
     title: Keep your animals safe!

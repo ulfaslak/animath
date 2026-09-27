@@ -153,6 +153,7 @@ const playClock = new PlayClock(store, flags.hourSeconds ? flags.hourSeconds * 1
 const accountController = new AccountController({
 	store,
 	flush: () => autosave.flush(),
+	currentSave: () => autosave.newest,
 	pushNow: () => autosave.pushNow(3000),
 	playerName: () => (title.open ? (title.saved?.name ?? null) : game.name),
 	answered: () => {

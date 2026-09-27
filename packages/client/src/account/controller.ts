@@ -45,6 +45,11 @@ export interface AccountHooks {
 	store: KeyValueStore | null;
 	/** Save the game as it stands, in the browser, now. */
 	flush(): void;
+	/**
+	 * The game on screen as a save, once `flush` has run: what a new account
+	 * takes along (the browser's copy can be older, when its storage is full).
+	 */
+	currentSave?(): SaveWrite | null;
 	/** Before logging out: the newest save to the server, waited for a moment. */
 	pushNow(): Promise<boolean>;
 	/** The player's name in the game on screen (or the title's saved game), for the name box. */
@@ -205,7 +210,10 @@ export class AccountController {
 		account.problem = null;
 		// The game as it stands goes with the account, with the account's name on it.
 		this.hooks.flush();
-		const save = guestGameFor(store, named.name) as SaveWrite | null;
+		const onScreen = this.hooks.currentSave?.() ?? null;
+		const save = onScreen
+			? { ...onScreen, name: named.name }
+			: (guestGameFor(store, named.name) as SaveWrite | null);
 		const waiting = holdLogout(store);
 		const result = await register(named.name, account.passwordDraft, save);
 		if (result.kind !== 'registered') releaseLogout(store, waiting);
@@ -214,7 +222,9 @@ export class AccountController {
 				sfx.play('confirm');
 				// This browser's new session replaced the old one: the logout held is moot.
 				forgetLogout(store);
-				moveGuestGameIn(store, result.name);
+				// The game is in the account now; a browser that keeps nothing cannot play it as
+				// the account's here, and says so instead of starting again as a guest.
+				if (!moveGuestGameIn(store, result.name)) return this.refuse({ kind: 'storage' });
 				this.hooks.restart('saved');
 				return;
 			case 'bad-name':

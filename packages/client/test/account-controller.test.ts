@@ -1,4 +1,10 @@
-import { newGame, saveDocument, type GameEvent, type SavedGame } from '@mathgame/engine';
+import {
+	newGame,
+	saveDocument,
+	type GameEvent,
+	type SaveWrite,
+	type SavedGame
+} from '@mathgame/engine';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { AccountController } from '../src/account/controller';
 import type { AccountNote } from '../src/account/restart';
@@ -76,13 +82,14 @@ function server(answers: Record<string, Answer | (() => Answer)>) {
 	return requests;
 }
 
-function setup(playerName: string | null = 'Ida') {
+function setup(playerName: string | null = 'Ida', currentSave?: () => SaveWrite | null) {
 	const store = new MemoryStore();
 	const restarts: AccountNote[] = [];
 	const events: string[] = [];
 	const controller = new AccountController({
 		store,
 		flush: () => events.push('flush'),
+		currentSave,
 		pushNow: async () => {
 			events.push('pushNow');
 			return true;
@@ -213,6 +220,39 @@ describe('making an account', () => {
 		expect(store.get(KEYS.save)).toBeNull();
 		expect(JSON.parse(store.get(gameKeys({ name: 'Ida B' }).save)!).name).toBe('Ida B');
 		expect(restarts).toEqual(['saved']);
+	});
+
+	it('takes the game on screen along, not an older copy the browser kept (its storage full)', async () => {
+		const requests = server({
+			'/api/account/register': { status: 201, json: { user: { name: 'Ida' } } }
+		});
+		const onScreen = JSON.parse(saveText(15, 'Guest')) as SaveWrite;
+		const { store, controller, press, quiet } = setup('Ida', () => onScreen);
+		store.set(KEYS.save, saveText(12, 'Guest'));
+		controller.openRegister('pause');
+		account.passwordDraft = 'secret';
+		quiet();
+		press('Enter');
+		await answered();
+		expect((requests[0]?.body as { save: SaveWrite }).save).toMatchObject({ name: 'Ida', seq: 15 });
+	});
+
+	it('made, but in a browser that keeps nothing: said kindly, and no start as a guest again', async () => {
+		server({ '/api/account/register': { status: 201, json: { user: { name: 'Ida' } } } });
+		const { store, controller, restarts, press, quiet } = setup('Ida');
+		const guest = saveText(5);
+		store.set(KEYS.save, guest);
+		// The browser's storage refuses every write from here on.
+		store.set = () => false;
+		controller.openRegister('pause');
+		account.passwordDraft = 'secret';
+		quiet();
+		press('Enter');
+		await answered();
+		expect(account.problem).toEqual({ kind: 'storage' });
+		expect(account.busy).toBe(false);
+		expect(restarts).toEqual([]);
+		expect(store.get(KEYS.save)).toBe(guest);
 	});
 
 	it('a taken name, too many tries or no server: said kindly, and nothing moved', async () => {

@@ -949,6 +949,15 @@ export class Autosave {
 		if (this.seq > this.pushed) this.schedulePush(true);
 	}
 
+	/**
+	 * The newest document of the game on screen: the one this page built last
+	 * (the browser may not hold it, when a write failed), else the one it
+	 * loaded. Null before any.
+	 */
+	get newest(): SaveWrite | null {
+		return this.latest;
+	}
+
 	/** This page's newest save: the one it built last, else the one it loaded. */
 	private ours(): unknown {
 		return this.latest ?? this.base;
