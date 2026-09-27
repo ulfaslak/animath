@@ -232,7 +232,7 @@
 		{#if title.screen === 'player'}
 			<!-- On a touch screen the card goes to the top, clear of the tablet's keyboard. -->
 			<div class="shade" class:typing={touch.on}>
-				<div class="card confirm player-card">
+				<div class="card player-card">
 					{#if title.nameFor === 'continue'}
 						<p>{t('title.player.waiting')}</p>
 					{/if}
@@ -565,7 +565,8 @@
 		background: rgba(45, 42, 50, 0.3);
 		padding: 16px;
 	}
-	.confirm {
+	.confirm,
+	.player-card {
 		width: min(520px, 100%);
 		padding: 18px 22px 14px;
 	}
@@ -575,7 +576,8 @@
 		line-height: 1.2;
 		margin: 0 0 8px 2px;
 	}
-	.confirm p {
+	.confirm p,
+	.player-card p {
 		margin: 0 0 8px 2px;
 		font-weight: 600;
 		font-size: 18px;
@@ -592,9 +594,6 @@
 	}
 	.player-card .heading {
 		margin: 0 0 6px;
-	}
-	.player-card p {
-		margin: 0 0 4px;
 	}
 	/* Why a name did not go: in ink, on a soft tint of the game's "not quite" red. */
 	.refused {

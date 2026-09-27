@@ -84,7 +84,8 @@ describe('world numbers', () => {
 		// About 0.28 each (the chance two tiles of unrelated worlds share a kind); identical is 1.
 		expect(Math.abs(mean(neighbours) - mean(strangers))).toBeLessThan(0.05);
 		expect(Math.max(...neighbours)).toBeLessThan(0.6);
-	});
+		// About a second alone; several under load.
+	}, 60_000);
 });
 
 /** How many tiles can be reached on foot from `from`, counting up to `cap`: this test's own walk. */
