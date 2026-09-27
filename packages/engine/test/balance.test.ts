@@ -28,9 +28,9 @@ const SEEDS = 200;
 /** More seeds where a test compares a win rate with a target band. */
 const TARGET_SEEDS = 1000;
 /**
- * Sampling slack on a target band. A mean over the 16 same-tier pairs at 1000
- * seeds each has a standard error under half a point, so 2 points is over
- * four standard errors: the band, not the dice, decides the test.
+ * Sampling slack on a target band. A mean over the same-tier pairs (288 since
+ * #89) at 1000 seeds each has a standard error well under half a point, so 2
+ * points is over four standard errors: the band, not the dice, decides the test.
  */
 const SLACK = 0.02;
 const PRINT = Boolean(process.env.SIM);
@@ -44,13 +44,12 @@ const ids = ANIMALS.map((a) => a.id);
 const tier = (id: string) => getAnimal(id).tier;
 
 /**
- * The pairs the two "never hurts" checks walk. Every pair that can meet is
- * the catalog's square, over 700 since #89 at 800 battles each, so these take
- * every third pair round the catalog, which puts every species on both sides
- * several times; the target bands still play every pair of their tiers.
+ * Every (player, wild) pair that can meet: the two "never hurts" checks walk
+ * them all, so a balance change that breaks either anywhere in the catalog
+ * fails ([[DEVELOPMENT]] § Testing ideology). Over 700 pairs since #89.
  */
-const SAMPLED_PAIRS: readonly (readonly [string, string])[] = ids.flatMap((p, i) =>
-	ids.flatMap((w, j) => ((i + 2 * j) % 3 === 0 && arena(p, w) !== null ? [[p, w] as const] : []))
+const MEETING_PAIRS: readonly (readonly [string, string])[] = ids.flatMap((p) =>
+	ids.flatMap((w) => (arena(p, w) !== null ? [[p, w] as const] : []))
 );
 
 /** Every (player, wild) pair that can meet, where the wild animal is `gap` tiers fiercer. */
@@ -308,25 +307,20 @@ describe('balance simulation', () => {
 		// About 0.4 s alone (31,000 battles); 3.6 s at a load average of 40.
 	}, 30_000);
 
-	it('walks every species on both sides in the sampled pairs', () => {
-		expect(new Set(SAMPLED_PAIRS.map(([p]) => p))).toEqual(new Set(ids));
-		expect(new Set(SAMPLED_PAIRS.map(([, w]) => w))).toEqual(new Set(ids));
-	});
-
 	it('being right more often never hurts', () => {
 		for (const model of [hardest, easiest]) {
-			for (const [p, w] of SAMPLED_PAIRS) {
+			for (const [p, w] of MEETING_PAIRS) {
 				const sure = simulate(p, w, model(1)).win;
 				const shaky = simulate(p, w, model(0.7)).win;
 				expect(sure, `${p} vs ${w}, ${model.name}`).toBeGreaterThanOrEqual(shaky - 0.05);
 			}
 		}
-		// About 3 s alone (a third of the pairs, four models, 200 battles each); several
-		// times that beside other agents' browsers.
+		// Every pair, four models, 200 battles each (about 600,000 battles with the 32
+		// animals of #89): 13 s at a load average of 53, so two minutes leaves room.
 	}, 120_000);
 
 	it('a stronger attack at a higher level never hurts an always-right player', () => {
-		for (const [p, w] of SAMPLED_PAIRS) {
+		for (const [p, w] of MEETING_PAIRS) {
 			const strong = simulate(p, w, hardest(1)).win;
 			const weak = simulate(p, w, easiest(1)).win;
 			expect(strong, `${p} vs ${w}`).toBeGreaterThanOrEqual(weak - 0.05);
