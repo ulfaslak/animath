@@ -94,11 +94,9 @@ Docker here runs in colima's Linux VM (context `colima`, x86_64 like the Hetzner
 
 ## Production access from this Mac
 
-`~/.ssh/mathgame_deploy` (made 2026-09-27) is the prod server's `deploy` key: Terraform puts its public half on the server, and the offsite backup sync logs in with it. There is no `terraform` or `hcloud` here: `brew tap hashicorp/tap && brew install hashicorp/tap/terraform`, or the `hashicorp/terraform` image. Terraform's state stays in the primary clone's `terraform/`: a worktree is removed after its merge, state and all.
+`~/.ssh/mathgame_deploy` (made 2026-09-27) is the prod server's `deploy` key: Terraform puts its public half on the server, and the offsite backup sync logs in with it. `terraform` is installed from `hashicorp/tap` (1.16.4 on 2026-09-27), and the primary clone's `terraform/` is initialised; there is no `hcloud` CLI. Terraform's state stays in the primary clone's `terraform/`: a worktree is removed after its merge, state and all.
 
-## The deploy workflow is not on main yet
-
-gh's token here lacks the `workflow` scope, and GitHub refuses a push that adds or changes `.github/workflows/*` without it. The workflow ([[DEVELOPMENT]] § Deployment) lands in a follow-up PR once the human runs `gh auth refresh -h github.com -s workflow`; until then nothing deploys and `pnpm rollback` has no workflow to dispatch. Delete this entry in that PR.
+gh's token has the `workflow` scope since 2026-09-27, which a push that adds or changes `.github/workflows/*` needs, and lives in the macOS keychain, no longer in `~/.config/gh/hosts.yml`.
 
 ## pnpm 12 build-script approval
 

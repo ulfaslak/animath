@@ -28,7 +28,7 @@ terraform state rm hcloud_server.mathgame   # only when replacing a dead server
 terraform apply
 ```
 
-No `terraform` on this Mac: `brew tap hashicorp/tap && brew install hashicorp/tap/terraform`. Note `server_ip`, then wait for the first boot (up to 5 minutes):
+On a Mac without `terraform`: `brew tap hashicorp/tap && brew install hashicorp/tap/terraform`. Note `server_ip`, then wait for the first boot (up to 5 minutes):
 
 ```bash
 ssh -i ~/.ssh/mathgame_deploy -o StrictHostKeyChecking=accept-new deploy@<server_ip> cloud-init status --wait
