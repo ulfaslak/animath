@@ -120,7 +120,7 @@ Technical items we've intentionally postponed: tech debt, hardening shortcuts, k
 
 ### The screenshot script blocks the API's HTTP requests, not a WebSocket
 
-**What**: `scripts/screenshot.mjs` keeps runs off every real server by aborting requests to `/api/` (`context.route`), and a route never sees a WebSocket. Vite also proxies `/ws` to the API, so once the client talks to the server over `/ws`, every screenshot run reaches the human's server again. The script then needs to refuse that socket too, as a server that is down would, unless `--api`.
+**What**: `scripts/screenshot.mjs` keeps runs off every real server by aborting requests to `/api/` (`context.route`), and a route never sees a WebSocket. Vite also proxies WebSocket upgrades on `/api` to the API, so once the client talks to the server over `/api/ws`, every screenshot run reaches the human's server again. The script then needs to refuse that socket too, as a server that is down would, unless `--api`.
 
 **Why deferred**: the client opens no WebSocket and the server serves none. Playwright's WebSocket routing (`routeWebSocket`) swaps the page's `WebSocket` class for its own, which Vite's hot-reload socket would then go through as well: a risk to every run, for a path nothing uses yet.
 

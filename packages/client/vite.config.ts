@@ -37,8 +37,9 @@ export default defineConfig({
 		strictPort: true,
 		allowedHosts: tunnel ? true : undefined,
 		proxy: {
-			'/api': `http://localhost:${apiPort}`,
-			'/ws': { target: `ws://localhost:${apiPort}`, ws: true }
+			// The API, WebSocket upgrades included (`/api/ws`), as nginx passes
+			// them on in production.
+			'/api': { target: `http://localhost:${apiPort}`, ws: true }
 		}
 	},
 	build: {

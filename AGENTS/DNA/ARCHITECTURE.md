@@ -366,7 +366,7 @@ Errors are JSON `{ error: string }`, except the health check's. All routes are u
 | API server  | 3000 | `pnpm dev:server` (`tsx watch`)  |
 | Postgres    | 5433 | `pnpm db:up` (docker compose)    |
 
-Vite proxies `/api` and `/ws` to 3000, or to `API_PORT` when it is set (a worktree's own API). In production the server serves the built client itself, and only nginx publishes ports (§ Production).
+Vite proxies `/api`, WebSocket upgrades included, to 3000, or to `API_PORT` when it is set (a worktree's own API). In production the server serves the built client itself, and only nginx publishes ports (§ Production).
 
 ## Production
 

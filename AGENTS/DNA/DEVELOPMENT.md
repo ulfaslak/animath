@@ -22,7 +22,7 @@ pnpm db:migrate       # applies packages/server/drizzle/*.sql
 
 ```bash
 pnpm dev              # both dev servers, interleaved output
-pnpm dev:client       # Vite on http://localhost:5180 (proxies /api, /ws → 3000)
+pnpm dev:client       # Vite on http://localhost:5180 (proxies /api → 3000, WebSockets too)
 pnpm dev:server       # Hono on http://localhost:3000 (tsx watch)
 ```
 

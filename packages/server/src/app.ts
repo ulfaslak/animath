@@ -30,7 +30,7 @@ export interface AppOptions {
 
 /**
  * The HTTP app: the API under `/api`, and the built client (in development Vite
- * serves the client and proxies `/api` and `/ws` here). A path that is not a
+ * serves the client and proxies `/api` here). A path that is not a
  * file of the client gets `index.html`, except the API's and the sockets'
  * paths and the client's file folders, where nothing found is a 404.
  */
