@@ -88,7 +88,7 @@ No generated-by-AI art claims without checking the generator's license terms.
 
 ## Server
 
-Node with Hono (`@hono/node-server`). Serves the built client in production; Vite proxies `/api` and `/ws` to it in development.
+Node with Hono (`@hono/node-server`). Serves the built client in production; Vite proxies `/api` to it in development, the presence WebSocket at `/api/ws` with it.
 WebSockets via `ws`, for presence and friendly matches. The server runs the same engine as the browser; which rules it decides, and which stay in the browser, is § Multiplayer.
 Postgres via Drizzle ORM (`node-postgres` driver). Local Postgres in Docker on host port **5433**.
 Migrations are hand-written SQL in `packages/server/drizzle/`, idempotent (`IF NOT EXISTS`), with a matching `_journal.json` entry. `drizzle-kit generate` is not used.

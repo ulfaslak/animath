@@ -110,14 +110,6 @@ Technical items we've intentionally postponed: tech debt, hardening shortcuts, k
 
 **Trigger**: a report of a new game that did not stick, or `animath.save.previous.100` showing up in a kid's browser.
 
-### The screenshot script blocks the API's HTTP requests, not a WebSocket
-
-**What**: `scripts/screenshot.mjs` keeps runs off every real server by aborting requests to `/api/` (`context.route`), and a route never sees a WebSocket. Vite also proxies `/ws` to the API, so once the client talks to the server over `/ws`, every screenshot run reaches the human's server again. The script then needs to refuse that socket too, as a server that is down would, unless `--api`.
-
-**Why deferred**: the client opens no WebSocket and the server serves none. Playwright's WebSocket routing (`routeWebSocket`) swaps the page's `WebSocket` class for its own, which Vite's hot-reload socket would then go through as well: a risk to every run, for a path nothing uses yet.
-
-**Trigger**: the first client code that opens a WebSocket (the presence PR, [[DECISIONS]] § Multiplayer).
-
 ### The doctor's Heal tab lists every animal of a kind, where the HUD shows one card
 
 **What**: the doctor's lists read the party's bundles (`bundles`), and Help home gives each kind of several a row of its own ("Rabbit ×12") that picks the whole kind (#75). Heal still lists each animal, grouped by kind with a line between kinds, and has no row for a kind. So a kid meets twelve rabbits as one card in the HUD and as twelve rows at the doctor's Heal tab.
@@ -166,3 +158,28 @@ Technical items we've intentionally postponed: tech debt, hardening shortcuts, k
 **Why deferred**: the game has no address of its own yet: the human has not chosen a domain, and until the production server is up the game is shared through a tunnel whose address changes. A hard-coded address would be wrong everywhere it is shared today.
 
 **Trigger**: the production domain is chosen (the single config value `feat/deploy` keeps). Then write it into `og:image` (and add `og:url`), in `index.html` or from the build's environment.
+
+### The presence socket caps sockets in all, not per address
+
+**What**: the presence server holds 1,000 sockets at most and a world 200 players (`presence/socket.ts`, `hub.ts`), and caps each socket's messages, but it does not cap how many sockets one address opens. Behind nginx every socket comes from nginx's own address, so a cap per address has to read the address nginx passes on (`X-Real-IP`), and trust it only from nginx.
+
+**Why deferred**: a cap per address read off the socket itself would count every player as one behind the proxy and lock everyone out together; the production proxy's headers are being set up now, and the players are a few kids who share a link.
+
+**Trigger**: the public deploy is live and its logs show one address holding many sockets, the socket count nears its cap, or a player reports the game saying nobody is here while friends are.
+
+### Presence lives in one server process's memory
+
+**What**: who is in which world, where, and who sees whom (`PresenceHub`) is kept in the memory of the one Node process that serves the game. A restart forgets it (every page says where it is again as its socket comes back, within seconds), and a second process would split every world in two, each half blind to the other.
+
+**Why deferred**: one process serves the game, and forgetting on a restart costs nothing a page doesn't put back by itself.
+
+**Trigger**: a second server process for the game (a second container, a cluster, zero-downtime deploys that overlap two servers): then presence moves to one place both reach, or each world to one process.
+
+### The presence socket knows no accounts yet
+
+**What**: `attachPresence` takes `accountOf`, the account a request's session cookie belongs to, and uses it before the hello's guest id: an account holder is present once, under their username, whichever browser they play in. Until accounts land (`feat/accounts-server`, whose session helper answers it) it is `noAccounts`, and every player is a guest.
+
+**Why deferred**: the accounts' sessions are being built at the same time; whichever of the two lands second wires them together.
+
+**Trigger**: `feat/accounts-server` merges: pass `accountOf: (headers) => …` built on its session helper in `packages/server/src/index.ts`, and delete this entry.
+

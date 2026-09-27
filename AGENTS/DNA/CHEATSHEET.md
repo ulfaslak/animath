@@ -24,7 +24,9 @@ Everything a player can do in **today's build**, and how: every key, every hidde
 | 1–9                   | Explore | Choose who goes first: the card in that place moves to the top and its first animal standing goes first ("Fox goes first!"), even mid-step. A card whose animals are all tired stays where it is ("Rabbit is tired. Visit the doctor!", or with several "They are all tired. Visit the doctor!"), and so does the card that already goes first ("Fox already goes first!"), and one that can't go first where you are: out on the water one that can't swim, on land a sea animal's (§ The boat, § The sea animals). A number with no card does nothing. With one card it shows no number, and 1 only says it already goes first. |
 | Escape                | Explore | Open the pause menu. Walking waits until it closes. |
 | M                     | Anywhere | Sound off, or back on. A chip at the top says "Sound is off" (with "Press M to turn it back on") or "Sound is on" for three seconds. Not while you type an answer or a name: there M is a letter (and in a puzzle, nothing). Held down, it flips once. Not in a window that another window has played past (§ Saving). |
-| Up / Down, W / S      | Pause menu | Move the cursor through your team's cards, then Language, Sound, "Keep playing" and "Start screen". It wraps round. |
+| Up / Down, W / S      | Pause menu | Move the cursor through your team's cards, then Who's here, Language, Sound, "Keep playing" and "Start screen". It wraps round. |
+| Enter / Space         | Pause menu, Who's here | On Who's here: the other players in your world, on the right. On one of them: go to them (the menu closes, and you are beside them in a poof). |
+| Up / Down, W / S; Escape | Pause menu, Who's here list | Walk the list (it wraps round); Escape goes back to your team. |
 | Enter / Space         | Pause menu | On a card of one animal: open its options on the right. On a card of several: open the card on the right, its options (Go first, Move up, Move down, Back) and then its animals. On Language: switch to the next language. On Sound: turn the sound off or on. On "Keep playing": close the menu. The menu stays open after a setting changes. On "Start screen": back to the title, the game saved as it stands; Continue there carries on from the same spot. |
 | Left / Right, A / D   | Pause menu | On Language: switch to the other language. On Sound: off (left) or on (right). Everywhere else: nothing. |
 | Up / Down, W / S; Enter / Space | A card of several | Choose and do: Go first (its first animal standing leads), Move up, Move down (the whole card), Back, then any of its animals, which opens that animal's options. Greyed options are skipped: Go first when all of them are tired, one of them already goes first, or they can't go first where you are (out on the water they can't swim, on land they live in the sea), Move up at the top, Move down at the bottom. When Go first is greyed for all of them, the line under the options says why ("They can't swim, so they can only go first on land."). Escape goes back to the list. |
@@ -87,6 +89,7 @@ Everything below is a click with a mouse or a tap with a finger, and each is the
 | A row                      | Pause menu                   | Does it at once: an animal opens its options, Language switches, Sound flips, Keep playing closes, Start screen goes to the title. The same with an animal's options open beside it (they go away first); with the name box open, nothing. |
 | English / Dansk            | Pause menu, title            | That language. The one already on does nothing.                                                  |
 | An option                  | Pause menu, an animal's options | Does it at once; a greyed one does nothing.                                                   |
+| A player                   | Pause menu, Who's here        | Goes to them at once, as Enter does.                                                           |
 | Save / Back                | Pause menu's name box        | Enter / Escape.                                                                                  |
 | A row                      | Title                        | Does it at once: Continue, New game, Language (the next one), Sound.                              |
 | No, go back / Yes, new game | Title, "Start a new game?"  | Does it at once, after the question's quiet moment.                                              |
@@ -212,6 +215,16 @@ The cards in the top-left corner are your party, one card per kind, in battle or
 
 To meet smaller animals again, put a smaller animal in front: press its card's number, drag its card to the top, or pick "Go first" in the pause menu. A lost battle heals everyone and keeps the order, so the first card leads again.
 
+## Other players
+
+- **Who you see**: everyone in your world who is playing, not at the title. Within 24 tiles you see them walk, with their name over them and their animal behind; everyone further is on the pause menu's Who's here list, and the four nearest you can't see have an arrow with their name at the edge of the screen. Nobody in another world, ever.
+- **What you see them doing**: a bubble over the name while they battle a wild animal (an amber "!"), are at the doctor (a heart), have the menu open (two bars) or play a friendly match (a star). No bubble: walking about.
+- **Go to**: Escape, Who's here, a name, Enter: you are next to them in a poof, facing them, however far away they were; "You're next to Ada!". No step is taken, so nothing jumps out even on tall grass, and the next walk meets what it would have. Out at sea without a boat it can't be done ("There's no room next to Ada right now."). Only from the menu, so only while exploring.
+- **Notes at the top**: "Ada is here!" when someone comes into your world, "Bo went home" ten seconds after someone leaves it; nothing about the players already there when you come, and nothing when someone reloads and is back within ten seconds.
+- **Players walk through each other**, and through trees and rocks they cleared and you did not: what a kid clears is their own.
+- **Two windows of the same game**: the one you play in last is the one the others see; the other says "You're playing in another window." and comes back when you play in it again.
+- **Where to see it**: two browsers (or a browser and a private window, which is another player) on the same address, each with a named game in the same world. With the game on this machine: `pnpm players` ([[DEVELOPMENT]] § Looking at the game).
+
 ## Hidden behaviour
 
 - **A tap is always one step.** A key press shorter than a frame still moves you one tile.
@@ -267,6 +280,9 @@ To meet smaller animals again, put a smaller animal in front: press its card's n
 
 ## Exploits and quirks
 
+- **Go to is a free trip.** Going to a friend skips the walk however far they are, and lands you wherever they are: out in the wild, next to the biggest animals, or right beside a doctor's tent. A kid who has wandered hundreds of tiles out can go straight back to a friend at home, and a small team can land far out, where fierce animals come out. Nothing is rolled on arrival, so the first danger is the first step onto tall grass.
+- **A name is all the others go by.** Two guests can take the same name, and a guest can take the name of someone they know (accounts' names are unique; a guest's is not): the colour of the shirt and cap comes from the name, so two with one name even look alike.
+- **Positions are the players' own word.** Anyone who edits their save can stand anywhere, and the others will see them there; nothing is gained by it but a surprise, and Go to takes you only beside them.
 - **The boat is a way round the wild.** The shallows never start a battle, and nothing on the water challenges a team with nobody standing who swims, so a kid with the boat can cross a river, or sail round a lake's shore, without a battle; only the deep water has animals, and only for a team with a swimmer. After a lost battle the trip to the nearest tent counts the water too, so with the boat you may wake up beside a tent across a lake.
 - **A quiet grass after a sea win.** End a battle at sea with a sea animal standing (win it, run from it or catch the wild one) while every animal of yours that walks is tired, and back on land nothing comes out of the grass and nobody follows, until a doctor makes one of them fit: a free repel. A reload doesn't heal them (someone is standing).
 - **Losing is a free full heal.** Healing at the doctor costs one puzzle per kind of animal, but losing a battle on purpose (answer wrong) heals the whole party for nothing and puts you by the nearest tent. It earns no tokens and costs none. Reloading heals nothing and forgets nothing.

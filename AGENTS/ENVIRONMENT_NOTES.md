@@ -76,6 +76,10 @@ To try how two pages of one origin share `localStorage` (a race, a `storage` eve
 
 Twice on 2026-09-26 a worktree's Vite kept showing its red error overlay on every fresh page load for a Svelte file that was valid again. `svelte-check` passed, and so did the tests. The first time, the file had been written twice in quick succession: a scripted edit in two steps, the first leaving a tag unclosed. The second time, a `git merge` left conflict markers in it for a moment. The overlay also blocks every click and tap (Playwright reports `<vite-error-overlay> intercepts pointer events`). When a fresh load shows an overlay for code that type-checks, restart your Vite before debugging anything.
 
+## A negative control's `git revert --abort` refuses after a file was touched
+
+`git revert --no-commit <fix>` then `git revert --abort` is the negative control's recipe, and `--abort` refuses (`Entry '<file>' not uptodate. Cannot merge.`) once any file the revert touched was written in between, even if it was written back exactly as the index has it (2026-09-27: a test file put back from the fix commit to run it against the reverted source). Write it back as the index holds it (`git show :<path> > <path>`), then `git update-index --refresh`, and `--abort` goes through. Better: commit a new test before its fix, so reverting the fix leaves the test in place.
+
 ## pnpm 12 build-script approval
 
 pnpm 12 refuses to run dependency postinstall scripts unless approved in `pnpm-workspace.yaml` under `allowBuilds` (the older `onlyBuiltDependencies` key is read but not honoured). `esbuild` is approved there. If `pnpm install` ever ends with `ERR_PNPM_IGNORED_BUILDS`, run `pnpm approve-builds <pkg> --yes` — it edits the file for you.
