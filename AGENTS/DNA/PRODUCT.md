@@ -196,7 +196,7 @@ Two players can battle each other, just for fun. The rules below are the engine'
 - **Once.** You are in the world once, however many windows you have open: the one you play in is the one the others see, and one you left says "You're playing in another window."
 - **What the others know of you.** Your name, your world, where you stand and which way you face, the animal following you, whether you have a boat, and whether you are busy. Not your team, not your tokens, not where in the world you have been. There is no chat.
 - **Seen by nobody**: a game that is not under way (the title), a practice game (`?new` and the other throwaway games), a window behind another, and a game without a name.
-- **Without the server** the game plays exactly as it does alone, and the others come back by themselves when it does. A game too old for the server reloads itself once, into the new version, while you are exploring, where you were.
+- **Without the server** the game plays exactly as it does alone, and the others come back by themselves when it does. When the server is updated, everyone moves to the new one in a blink nobody sees: the others stay where they are on screen, and nobody is said to have gone home. A game too old for the server reloads itself once, into the new version, while you are exploring, where you were.
 
 ## 5. Feature inventory
 

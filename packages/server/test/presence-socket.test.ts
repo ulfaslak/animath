@@ -1,6 +1,7 @@
 import {
-	BYE_REASONS,
 	PROTOCOL_VERSION,
+	REFRESH_CLOSE_CODE,
+	byeCloseCode,
 	nameKey,
 	parseServerMessage,
 	type ServerMessage
@@ -10,13 +11,7 @@ import { createServer, type Server } from 'node:http';
 import { connect, type AddressInfo } from 'node:net';
 import { afterAll, afterEach, describe, expect, it } from 'vitest';
 import { WebSocket, type ClientOptions } from 'ws';
-import {
-	BYE_CLOSE_CODE,
-	PRESENCE_PATH,
-	REFRESH_CLOSE_CODE,
-	attachPresence,
-	type PresenceOptions
-} from '../src/presence/socket.js';
+import { PRESENCE_PATH, attachPresence, type PresenceOptions } from '../src/presence/socket.js';
 import { createAccount } from '../src/accounts.js';
 import { pool } from '../src/db/index.js';
 import { sessionUserFromCookieHeader } from '../src/sessions.js';
@@ -124,9 +119,6 @@ async function joined(url: string, name: string, guest: string, options: ClientO
 	return { c, pid: hi.pid };
 }
 
-const byeCode = (reason: (typeof BYE_REASONS)[number]) =>
-	BYE_CLOSE_CODE + BYE_REASONS.indexOf(reason);
-
 describe('presence socket', () => {
 	it('says hi with the name as the rules clean it, and shows two players in one world to each other', async () => {
 		const { url } = await start();
@@ -179,7 +171,7 @@ describe('presence socket', () => {
 			await c.opened;
 			c.hello(name);
 			expect(await c.next('bye')).toEqual({ t: 'bye', reason: 'name' });
-			expect((await c.closed).code).toBe(byeCode('name'));
+			expect((await c.closed).code).toBe(byeCloseCode('name'));
 		}
 	});
 
@@ -201,7 +193,7 @@ describe('presence socket', () => {
 		await friend.next('peer');
 		const { c: second, pid } = await joined(url, 'Ada', 'same-guest-id-123');
 		expect(await first.next('bye')).toEqual({ t: 'bye', reason: 'replaced' });
-		expect((await first.closed).code).toBe(byeCode('replaced'));
+		expect((await first.closed).code).toBe(byeCloseCode('replaced'));
 		await friend.next('gone');
 		second.where(1, 2, 0);
 		const seen = friend.got.length;
@@ -282,7 +274,7 @@ describe('presence socket', () => {
 		const { c } = await joined(url, 'Ada', 'a'.repeat(20));
 		for (let i = 0; i < 200; i++) c.where(1, i, 0);
 		expect(await c.next('bye')).toEqual({ t: 'bye', reason: 'flood' });
-		expect((await c.closed).code).toBe(byeCode('flood'));
+		expect((await c.closed).code).toBe(byeCloseCode('flood'));
 	});
 
 	it('closes a socket that keeps sending what is no message, or says nothing', async () => {
@@ -312,6 +304,45 @@ describe('presence socket', () => {
 		expect((await quiet.closed).code).toBe(1006);
 		expect(await lively.next('gone')).toMatchObject({ t: 'gone' });
 		expect(presence.hub.size).toBe(1);
+	});
+
+	it('tells every socket to come straight back when the server stops, before anyone hears who left', async () => {
+		const { url, presence } = await start();
+		const { c: ada } = await joined(url, 'Ada', 'a'.repeat(20));
+		const { c: bo } = await joined(url, 'Bo', 'b'.repeat(20));
+		ada.where(1, 0, 0);
+		bo.where(1, 1, 0);
+		await ada.next('peer');
+		await bo.next('peer');
+		// One more that has not said hello yet.
+		const quiet = new Client(url);
+		await quiet.opened;
+		presence.restart();
+		for (const c of [ada, bo, quiet]) {
+			expect((await c.closed).code).toBe(byeCloseCode('restart'));
+			expect(c.got.at(-1)).toEqual({ t: 'bye', reason: 'restart' });
+			expect(c.got.some((m) => m.t === 'gone')).toBe(false);
+		}
+		// The server hears each close a moment after the page does.
+		for (let i = 0; i < 100 && presence.hub.size > 0; i++)
+			await new Promise((r) => setTimeout(r, 10));
+		expect(presence.hub.size).toBe(0);
+		// And no new socket: the next copy of the server takes them.
+		await expect(new Client(url).opened).rejects.toThrow('HTTP 503');
+	});
+
+	it('gives a player the same public id on every copy of the server that shares the secret', async () => {
+		const guest = 'c'.repeat(20);
+		const pids: string[] = [];
+		for (const idSecret of ['one secret', 'one secret', 'another secret', undefined, undefined]) {
+			const { url } = await start({ idSecret });
+			const { c, pid } = await joined(url, 'Cy', guest);
+			pids.push(pid);
+			c.ws.close();
+		}
+		const [first, again, other, random, random2] = pids;
+		expect(again).toBe(first);
+		expect(new Set([first, other, random, random2]).size).toBe(4);
 	});
 
 	it('holds at most maxSockets sockets', async () => {

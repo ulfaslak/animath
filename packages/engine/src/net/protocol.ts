@@ -66,9 +66,31 @@ export type Busy = (typeof BUSY_STATES)[number];
 
 const DIRECTIONS: readonly Direction[] = ['up', 'down', 'left', 'right'];
 
-/** Why the server closed a socket, as a code. */
-export const BYE_REASONS = ['replaced', 'name', 'full', 'flood', 'invalid'] as const;
+/**
+ * Why the server closed a socket: another window of this player took its
+ * place, the name was refused, the world is full, too many messages, junk,
+ * or this copy of the server is stopping (`restart`, a deploy's swap: come
+ * straight back, to the copy taking over). New reasons go on the end, since
+ * each one's place is its close code.
+ */
+export const BYE_REASONS = ['replaced', 'name', 'full', 'flood', 'invalid', 'restart'] as const;
 export type ByeReason = (typeof BYE_REASONS)[number];
+
+/** A socket closed with a `bye` is closed with this code plus the reason's place in `BYE_REASONS`. */
+export const BYE_CLOSE_CODE = 4000;
+/** A socket told to `refresh` is closed with this code. */
+export const REFRESH_CLOSE_CODE = 4100;
+
+/** The close code of a socket closed with a `bye` for `reason`. */
+export function byeCloseCode(reason: ByeReason): number {
+	return BYE_CLOSE_CODE + BYE_REASONS.indexOf(reason);
+}
+
+/** The reason a close code says, when it is a `bye`'s; else null. */
+export function byeReasonOf(code: unknown): ByeReason | null {
+	if (typeof code !== 'number' || !Number.isInteger(code)) return null;
+	return BYE_REASONS[code - BYE_CLOSE_CODE] ?? null;
+}
 
 // --- from a browser ----------------------------------------------------------
 

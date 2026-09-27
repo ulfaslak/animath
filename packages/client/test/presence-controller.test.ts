@@ -1,6 +1,7 @@
 import {
 	PROTOCOL_VERSION,
 	arrivalSpot,
+	byeCloseCode,
 	newGame,
 	type GameEvent,
 	type ServerMessage
@@ -11,6 +12,7 @@ import { LocalAuthority, WORLD_SEED } from '../src/authority/local';
 import { t } from '../src/copy';
 import {
 	PresenceConnection,
+	RESTART_RETRY_MS,
 	type ConnectionDeps,
 	type SocketLike
 } from '../src/presence/connection';
@@ -92,10 +94,11 @@ function setup(options: { name?: string | null; throwaway?: boolean; session?: n
 		random: () => 0.5
 	};
 	const scene = new THREE.Scene();
+	const poofs = new Poofs(scene);
 	const others = new OtherPlayers(
 		scene,
 		{ addFigure: (f) => scene.add(f), removeFigure: (f) => scene.remove(f) },
-		new Poofs(scene)
+		poofs
 	);
 	const renderer: PresenceRenderer = {
 		others,
@@ -167,6 +170,7 @@ function setup(options: { name?: string | null; throwaway?: boolean; session?: n
 		store,
 		session,
 		others,
+		poofs,
 		setBehind: (b: boolean) => (behind = b),
 		reloads: () => reloads,
 		flushes: () => flushes
@@ -380,6 +384,58 @@ describe('presence on the page', () => {
 		s.frame(HOLD_SECONDS);
 		expect(s.others.pids()).toEqual([]);
 		expect(presence.roster).toEqual([]);
+	});
+
+	it('hops to the next copy of the server on a deploy without a flicker: nobody drawn twice, no note, no poof', () => {
+		const s = setup();
+		s.start();
+		s.connect();
+		const bo: ServerMessage = {
+			t: 'peer',
+			pid: 'friend0001',
+			name: 'Bo',
+			x: game.pos.x + 1,
+			y: game.pos.y,
+			facing: 'left',
+			lead: 'fox',
+			boat: false,
+			busy: 'explore'
+		};
+		const roster: ServerMessage = {
+			t: 'roster',
+			world: 1,
+			players: [{ pid: 'friend0001', name: 'Bo', bearing: 4, steps: 1, busy: 'explore' }]
+		};
+		s.socket().say(bo);
+		s.socket().say(roster);
+		// A while later: Bo is known, anything about him coming is long over.
+		for (let i = 0; i < 300; i++) s.frame();
+		expect(s.others.pids()).toEqual(['friend0001']);
+		expect(presence.note).toBeNull();
+		// The server stops for a deploy, said with a bye and a close code; nobody is told who left.
+		const before = s.sockets.length;
+		s.socket().say({ t: 'bye', reason: 'restart' });
+		s.socket().readyState = 3;
+		s.socket().onclose?.({ code: byeCloseCode('restart') });
+		const unchanged = () => {
+			expect(s.others.pids()).toEqual(['friend0001']);
+			expect(presence.roster.map((p) => p.name)).toEqual(['Bo']);
+			expect(presence.note).toBeNull();
+			expect(s.poofs.playing).toBe(0);
+		};
+		s.frame(RESTART_RETRY_MS / 2000);
+		unchanged();
+		// Straight back, to the copy taking over, which knows Bo by the same id.
+		s.frame(RESTART_RETRY_MS / 1000);
+		expect(s.sockets.length).toBe(before + 1);
+		s.connect();
+		s.socket().say(bo);
+		s.socket().say(roster);
+		// Through the confirm and every note's grace: Bo stays put, once, and nothing is said.
+		for (let i = 0; i < 300; i++) {
+			s.frame();
+			unchanged();
+		}
 	});
 
 	it('reloads for a newer version once, at a calm moment, after saving', () => {

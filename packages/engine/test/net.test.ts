@@ -12,12 +12,16 @@ import {
 import {
 	BEARINGS,
 	BUSY_STATES,
+	BYE_CLOSE_CODE,
 	BYE_REASONS,
 	MAX_MESSAGE_BYTES,
 	MAX_ROSTER,
 	MAX_WIRE_COORD,
 	MAX_WIRE_NAME,
 	PROTOCOL_VERSION,
+	REFRESH_CLOSE_CODE,
+	byeCloseCode,
+	byeReasonOf,
 	helloVersion,
 	parseClientMessage,
 	parseServerMessage,
@@ -298,6 +302,40 @@ describe('the wire protocol', () => {
 		expect(
 			readWire(JSON.stringify({ t: 'x', pad: 'y'.repeat(MAX_MESSAGE_BYTES) }))
 		).toBeUndefined();
+	});
+});
+
+describe('close codes', () => {
+	it("give every bye's reason a code of its own, the application's range, and read it back", () => {
+		const codes = BYE_REASONS.map(byeCloseCode);
+		expect(new Set([...codes, REFRESH_CLOSE_CODE]).size).toBe(BYE_REASONS.length + 1);
+		for (const [i, reason] of BYE_REASONS.entries()) {
+			// The codes a server may send: 4000 to 4999 (RFC 6455), and a reason's place never moves.
+			expect(codes[i]).toBe(BYE_CLOSE_CODE + i);
+			expect(codes[i]).toBeGreaterThanOrEqual(4000);
+			expect(codes[i]).toBeLessThan(5000);
+			expect(byeReasonOf(codes[i])).toBe(reason);
+		}
+		expect(byeCloseCode('replaced')).toBe(4000);
+		expect(byeCloseCode('restart')).toBe(4005);
+		for (const other of [
+			1000,
+			1001,
+			1006,
+			3999,
+			4006,
+			4099,
+			REFRESH_CLOSE_CODE,
+			4000.5,
+			-1,
+			NaN,
+			'4005',
+			null,
+			undefined,
+			{}
+		]) {
+			expect(byeReasonOf(other)).toBeNull();
+		}
 	});
 });
 

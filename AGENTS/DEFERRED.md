@@ -8,11 +8,11 @@ Technical items we've intentionally postponed: tech debt, hardening shortcuts, k
 
 ### A deploy runs two app containers side by side for a few seconds
 
-**What**: `scripts/deploy.sh` swaps the app without a gap the way lawcel's does: a canary of the new image joins the network under the alias `app` beside the old app, nginx spreads requests over both, then the old one is replaced and the canary removed ([[ARCHITECTURE]] § Production). That works because the app keeps nothing between requests but what is in Postgres. A server that holds shared state in memory (who is in which world for presence, a friendly match's state, over `/api/ws`) would, for those seconds, be two servers with half the players each, and every socket would drop twice (the old app replaced, then the canary removed). On SIGTERM the server stops taking connections and finishes the HTTP requests in flight, but a socket is never done: it waits the full 8 s and is then cut, not closed.
+**What**: `scripts/deploy.sh` swaps the app without a gap the way lawcel's does: a canary of the new image joins the network under the alias `app` beside the old app, nginx spreads requests over both, then the old one is replaced and the canary removed ([[ARCHITECTURE]] § Production). Presence fits it: on SIGTERM every socket is told to come straight back, the pages put back all the server kept, and a player's public id is the same on every copy ([[ARCHITECTURE]] § Presence › Deploys), so the hop (twice a deploy: the old app replaced, then the canary removed) draws nobody twice. A friendly match's state, kept in one server's memory, would not survive a hop: a match under way when its server stops would be lost.
 
-**Why deferred**: the server is stateless today, and the right swap depends on what the presence and match server keeps: a plain stop-then-start with clients reconnecting (seconds of outage), state kept where two servers can share it, or a SIGTERM that closes each socket with 1001 so clients reconnect to the new app at once.
+**Why deferred**: there is no match server yet, and what a match does when its server stops (finish first, hand its state on, or end kindly for both kids) is that PR's call.
 
-**Trigger**: the first server code that keeps state in memory across requests or sockets, which [[DECISIONS]] § Multiplayer's presence and friendly matches do. In that PR, change `deploy.sh`'s swap to fit what it keeps, and close its sockets in `index.ts`'s SIGTERM handler.
+**Trigger**: the friendly-match server code ([[DECISIONS]] § Multiplayer). In that PR, decide what a match under way does on SIGTERM, and whether `deploy.sh`'s swap must wait for matches to end.
 
 ### A file under `/assets/` is downloaded whole on every visit
 
@@ -201,8 +201,8 @@ Technical items we've intentionally postponed: tech debt, hardening shortcuts, k
 
 ### Presence lives in one server process's memory
 
-**What**: who is in which world, where, and who sees whom (`PresenceHub`) is kept in the memory of the one Node process that serves the game. A restart forgets it (every page says where it is again as its socket comes back, within seconds), and a second process would split every world in two, each half blind to the other.
+**What**: who is in which world, where, and who sees whom (`PresenceHub`) is kept in the memory of the Node process that holds each socket. A restart forgets it (every page says where it is again as its socket comes back, within a second on a deploy), and two processes split every world in two, each half blind to the other: a deploy's swap does that for its few seconds, to a page that opens its socket while two copies run.
 
-**Why deferred**: one process serves the game, and forgetting on a restart costs nothing a page doesn't put back by itself.
+**Why deferred**: one process serves the game between deploys; forgetting on a restart costs nothing a page doesn't put back by itself, and a friend missing for the seconds of a swap is back at its next hop.
 
-**Trigger**: a second server process for the game (a second container, a cluster, zero-downtime deploys that overlap two servers): then presence moves to one place both reach, or each world to one process.
+**Trigger**: a second server process serving at the same time for longer than a deploy's swap (a cluster, a second container kept for load): then presence moves to one place both reach, or each world to one process.

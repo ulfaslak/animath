@@ -1,10 +1,11 @@
-import { createHash, randomBytes } from 'node:crypto';
+import { createHmac, randomBytes } from 'node:crypto';
 import type { IncomingMessage, Server } from 'node:http';
 import type { Duplex } from 'node:stream';
 import {
-	BYE_REASONS,
 	MAX_MESSAGE_BYTES,
 	PROTOCOL_VERSION,
+	REFRESH_CLOSE_CODE,
+	byeCloseCode,
 	checkName,
 	helloVersion,
 	parseClientMessage,
@@ -39,6 +40,11 @@ import { PresenceHub, type Peer } from './hub.js';
  * - **Who is still there.** Every `heartbeatMs` each socket is pinged, and
  *   one that did not answer the last ping is dropped: a tab closed without
  *   a goodbye, a laptop lid shut.
+ * - **Stopping.** A server that is about to stop (a deploy swapping it for
+ *   the next copy) tells every socket to come straight back (`restart`),
+ *   which reaches the copy taking over, and takes no new one. Public ids are
+ *   made from `idSecret`, which every copy shares, so a player keeps theirs
+ *   from one copy to the next, and the pages that see them draw them on.
  */
 export const PRESENCE_PATH = '/api/ws';
 
@@ -66,20 +72,29 @@ export interface PresenceOptions {
 	maxDropped?: number;
 	maxInvalid?: number;
 	maxBuffered?: number;
+	/**
+	 * What public ids are made from, with who each player is: a secret every
+	 * copy of the server shares, so a player keeps their id across a restart and
+	 * from one copy to the next, and nobody can work back from it to who they
+	 * are. Without one, a random one: ids last while this server runs.
+	 */
+	idSecret?: string;
 	/** A line for the server's log: a socket closed for cause. */
 	log?: (line: string) => void;
 }
 
 export interface Presence {
 	readonly hub: PresenceHub;
+	/**
+	 * This server is about to stop: every socket is told to come straight back
+	 * (`bye: restart`, closed with its code) and closed, and no new socket is
+	 * taken. The next copy of the server takes them; the pages come back to it
+	 * quietly.
+	 */
+	restart(): void;
 	/** Stop: every socket closed, the timers and the upgrade handler gone. */
 	close(): Promise<void>;
 }
-
-/** A socket closed with a `bye` carries the reason in its close code too. */
-export const BYE_CLOSE_CODE = 4000;
-/** A socket told to refresh is closed with this code. */
-export const REFRESH_CLOSE_CODE = 4100;
 
 interface SocketState {
 	alive: boolean;
@@ -103,16 +118,12 @@ export function attachPresence(server: Server, options: PresenceOptions = {}): P
 	const maxBuffered = options.maxBuffered ?? 256 * 1024;
 	const log = options.log ?? (() => {});
 
-	// Public ids: a hash of who it is, salted afresh each time the server starts, so the
-	// same player keeps one while it runs and nobody can work back to their guest id.
-	const salt = randomBytes(16);
+	// Public ids: a keyed hash of who it is, so the same player keeps one (on every copy
+	// of the server that shares the secret) and nobody can work back to their guest id.
+	const secret = options.idSecret ?? randomBytes(32);
 	const hub = new PresenceHub({
 		pidFor: (key, attempt) =>
-			createHash('sha256')
-				.update(salt)
-				.update(`${attempt}:${key}`)
-				.digest('base64url')
-				.slice(0, 12),
+			createHmac('sha256', secret).update(`${attempt}:${key}`).digest('base64url').slice(0, 12),
 		maxPerWorld: options.maxPerWorld
 	});
 	const wss = new WebSocketServer({
@@ -123,6 +134,10 @@ export function attachPresence(server: Server, options: PresenceOptions = {}): P
 	const states = new WeakMap<WebSocket, SocketState>();
 	/** Upgrades waiting for their account lookup: they count against `maxSockets` too. */
 	let opening = 0;
+	/** Every open socket's peer, for telling them all to come back when the server stops. */
+	const peers = new Map<WebSocket, Peer>();
+	/** The server is stopping: no new socket. */
+	let stopping = false;
 
 	const onUpgrade = (req: IncomingMessage, socket: Duplex, head: Buffer): void => {
 		// Node takes its own error listener off a socket it hands to `upgrade`: until `ws`
@@ -131,6 +146,7 @@ export function attachPresence(server: Server, options: PresenceOptions = {}): P
 		const quiet = () => {};
 		socket.on('error', quiet);
 		if (pathOf(req) !== PRESENCE_PATH) return refuse(socket, '404 Not Found');
+		if (stopping) return refuse(socket, '503 Service Unavailable');
 		if (!sameOrigin(req)) {
 			log(`presence: refused a socket from ${String(req.headers.origin)}`);
 			return refuse(socket, '403 Forbidden');
@@ -144,6 +160,7 @@ export function attachPresence(server: Server, options: PresenceOptions = {}): P
 			.then((account) => {
 				opening--;
 				if (socket.destroyed) return;
+				if (stopping) return refuse(socket, '503 Service Unavailable');
 				wss.handleUpgrade(req, socket, head, (ws) => {
 					socket.off('error', quiet);
 					open(ws, account);
@@ -189,9 +206,10 @@ export function attachPresence(server: Server, options: PresenceOptions = {}): P
 			close(reason: ByeReason) {
 				if (closing) return;
 				peer.send({ t: 'bye', reason });
-				goodbye(BYE_CLOSE_CODE + BYE_REASONS.indexOf(reason), reason);
+				goodbye(byeCloseCode(reason), reason);
 			}
 		};
+		peers.set(ws, peer);
 		/** Closed for cause: out of the hub first, so nobody sees it again; said once in the log. */
 		const dismiss = (reason: ByeReason) => {
 			if (closing) return;
@@ -216,6 +234,7 @@ export function attachPresence(server: Server, options: PresenceOptions = {}): P
 		});
 		ws.on('close', () => {
 			clearTimeout(helloTimer);
+			peers.delete(ws);
 			hub.leave(peer);
 		});
 		ws.on('message', (data: RawData, isBinary: boolean) => {
@@ -285,6 +304,14 @@ export function attachPresence(server: Server, options: PresenceOptions = {}): P
 
 	return {
 		hub,
+		restart() {
+			if (stopping) return;
+			stopping = true;
+			clearInterval(rosters);
+			// Every socket is told before any closes: a page hears `bye` before anyone's `gone`.
+			for (const peer of peers.values()) peer.close('restart');
+			log(`presence: stopping, ${peers.size} sockets told to come back`);
+		},
 		close() {
 			clearInterval(heartbeat);
 			clearInterval(rosters);

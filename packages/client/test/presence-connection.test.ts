@@ -1,10 +1,16 @@
-import { PROTOCOL_VERSION, type ServerMessage, type WhereMessage } from '@mathgame/engine';
+import {
+	PROTOCOL_VERSION,
+	byeCloseCode,
+	type ServerMessage,
+	type WhereMessage
+} from '@mathgame/engine';
 import { describe, expect, it } from 'vitest';
 import {
 	BACKOFF_MS,
 	FULL_RETRY_MS,
 	MIN_GAP_MS,
 	PresenceConnection,
+	RESTART_RETRY_MS,
 	presenceUrl,
 	type ConnectionDeps,
 	type PresenceStatus,
@@ -38,9 +44,10 @@ class FakeSocket implements SocketLike {
 	say(message: ServerMessage | string): void {
 		this.onmessage?.({ data: typeof message === 'string' ? message : JSON.stringify(message) });
 	}
-	drop(): void {
+	/** Closed from the other end, with a close code when given. */
+	drop(code?: number): void {
 		this.readyState = 3;
-		this.onclose?.({});
+		this.onclose?.(code === undefined ? {} : { code });
 	}
 }
 
@@ -189,6 +196,36 @@ describe('the presence connection', () => {
 		connection.wake();
 		expect(sockets.length).toBe(before + 1);
 		expect(connection.status).toBe('connecting');
+	});
+
+	it('comes straight back from a server stopping for a deploy, however it says so, and not as a failure', () => {
+		const { connection, sockets, last, pass } = setup();
+		connection.start('g'.repeat(22), 'Ada');
+		last().open();
+		last().say(hi);
+		// Said with a bye, then with the close code alone (a bye lost on the way).
+		for (const withBye of [true, false]) {
+			if (withBye) last().say({ t: 'bye', reason: 'restart' });
+			last().drop(withBye ? undefined : byeCloseCode('restart'));
+			expect(connection.status).toBe('waiting');
+			const before = sockets.length;
+			pass(RESTART_RETRY_MS * 0.75 - 1);
+			expect(sockets.length).toBe(before);
+			pass(RESTART_RETRY_MS * 0.5 + 1);
+			expect(sockets.length).toBe(before + 1);
+			// The next copy is not up yet: the tries go on from the first.
+			last().drop();
+			pass(BACKOFF_MS[0] * 0.75 - 1);
+			expect(sockets.length).toBe(before + 1);
+			pass(BACKOFF_MS[0] * 0.5 + 1);
+			expect(sockets.length).toBe(before + 2);
+			last().open();
+			last().say(hi);
+			expect(connection.status).toBe('on');
+		}
+		// Any bye's close code counts without its message: another window took this one's place.
+		last().drop(byeCloseCode('replaced'));
+		expect(connection.status).toBe('elsewhere');
 	});
 
 	it('waits for another name after a refused one, and a minute for a full world', () => {

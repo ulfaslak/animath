@@ -202,7 +202,8 @@
 				return presence.roster.length === 0 ? t('pause.nobody') : null;
 			case 'connecting':
 			case 'waiting':
-				return t('pause.looking');
+				// Back in a moment (a deploy, a hiccup): the list stays while the others are held.
+				return presence.roster.length === 0 ? t('pause.looking') : null;
 			case 'elsewhere':
 				return t('pause.elsewhere');
 			case 'outdated':
@@ -297,7 +298,7 @@
 						{:else if item === 'players'}
 							<!-- Who else is in this world: how many, when anyone is. -->
 							<span class="setting">{itemLabel(item)}</span>
-							{#if presence.status === 'on' && presence.roster.length > 0}
+							{#if unlisted === null}
 								<span class="count-badge">{presence.roster.length}</span>
 							{/if}
 						{:else}

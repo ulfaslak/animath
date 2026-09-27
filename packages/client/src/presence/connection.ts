@@ -1,5 +1,6 @@
 import {
 	PROTOCOL_VERSION,
+	byeReasonOf,
 	parseServerMessage,
 	readWire,
 	type ByeReason,
@@ -27,11 +28,16 @@ import {
  *   on every deploy, has everyone back within a few seconds of it. From the
  *   first again once one says `hi`. `wake` (the window is looked at again,
  *   the network is back) tries at once.
- * - **Ends.** A socket the server closes for good says why (`bye`): another
- *   window of this player took its place (`elsewhere`, until `wake`: the
- *   kid came back to this window), the name was refused (`refused`), or a
- *   full world (tried again after a minute). A `refresh` for a newer version
- *   is `outdated`: the page reloads at a calm moment (`controller.ts`).
+ * - **Ends.** A socket the server closes for good says why (`bye`, and the
+ *   close code says it too): another window of this player took its place
+ *   (`elsewhere`, until `wake`: the kid came back to this window), the name
+ *   was refused (`refused`), or a full world (tried again after a minute). A
+ *   `refresh` for a newer version is `outdated`: the page reloads at a calm
+ *   moment (`controller.ts`).
+ * - **Straight back.** A server that is stopping for a deploy says so
+ *   (`restart`): the copy taking over is already there, so the socket is
+ *   tried again after `RESTART_RETRY_MS`, not as a failure, and the tries
+ *   after that start from the beginning.
  */
 export type PresenceStatus =
 	'off' | 'connecting' | 'on' | 'waiting' | 'elsewhere' | 'refused' | 'outdated';
@@ -62,6 +68,8 @@ export interface ConnectionDeps {
 export const BACKOFF_MS = [500, 1_000, 2_000, 3_000, 5_000, 8_000, 13_000, 20_000, 30_000] as const;
 /** A full world is tried again after this long. */
 export const FULL_RETRY_MS = 60_000;
+/** A server that stopped for a deploy is tried again after this long (give or take a quarter). */
+export const RESTART_RETRY_MS = 250;
 /** The least time between two messages about where the page is. */
 export const MIN_GAP_MS = 100;
 const OPEN = 1;
@@ -182,9 +190,11 @@ export class PresenceConnection {
 		socket.onerror = () => {
 			// A close follows; that is where it is tried again.
 		};
-		socket.onclose = () => {
+		socket.onclose = (event) => {
 			if (this.socket !== socket) return;
 			this.socket = null;
+			// A `bye` that never arrived (or never parsed) is still in the close code.
+			this.ending ??= byeReasonOf((event as { code?: unknown } | null)?.code);
 			this.closed();
 		};
 	}
@@ -234,6 +244,12 @@ export class PresenceConnection {
 			case 'full':
 			case 'older':
 				this.tryAgain(FULL_RETRY_MS);
+				return;
+			case 'restart':
+				// Not a failure: the next copy of the server is up. Should it not answer
+				// yet, the tries go on from the first.
+				this.tryAgain(RESTART_RETRY_MS);
+				this.attempt = 0;
 				return;
 			default:
 				this.tryAgain();
