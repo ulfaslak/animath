@@ -1,11 +1,16 @@
 import {
+	MATCH_SIDES,
 	MAX_ROSTER,
 	MAX_SERVER_MESSAGE_BYTES,
 	bearingTo,
 	inView,
 	roughSteps,
 	type ByeReason,
+	type FightEvent,
+	type FightMessage,
+	type FightView,
 	type GridPos,
+	type MatchSide,
 	type PeerMessage,
 	type RosterEntry,
 	type ServerMessage,
@@ -28,6 +33,15 @@ import {
  *
  * One identity is present once: a second socket for the same guest or
  * account takes the first one's place, and the first is closed (`replaced`).
+ *
+ * A player in a battle is seen in it ([[PRODUCT]] §4 "Playing together"):
+ * the hub keeps how their battle stands (`Showing`, the engine's
+ * `FightView`), passes every step of it to the players who see them, and
+ * gives it to anyone who comes near later, so a late arrival sees the
+ * battle at once. A wild battle is its fighter's page's to report (`battle`),
+ * and only while that page says it is in one; a friendly match is the
+ * server's own (`match`, from `matches.ts`), seen round both its players and
+ * never by them. Nothing of it is kept past its end.
  *
  * The hub decides everything and does no I/O: a `Peer` is how it talks to
  * one socket (`socket.ts` wires it to `ws`; the tests to a list).
@@ -62,6 +76,17 @@ export interface Present {
 	readonly spot: Spot | null;
 }
 
+/**
+ * A battle as the players near it see it, while it goes on: whose it is
+ * (the fighter, or a match's side `a`, with side `b` as `vs`) and how it
+ * stands. A match's is one object, kept on both its players.
+ */
+interface Showing {
+	readonly pid: string;
+	readonly vs: string | null;
+	readonly view: FightView;
+}
+
 interface Member {
 	readonly peer: Peer;
 	readonly pid: string;
@@ -74,6 +99,8 @@ interface Member {
 	readonly sees: Set<Member>;
 	/** The last roster sent, as sent, so an unchanged one is not sent again. */
 	lastRoster: string;
+	/** The battle this player is in, as the players near them see it; null when there is none to see. */
+	showing: Showing | null;
 }
 
 export interface HubOptions {
@@ -131,7 +158,8 @@ export class PresenceHub {
 			room: null,
 			spot: null,
 			sees: new Set(),
-			lastRoster: ''
+			lastRoster: '',
+			showing: null
 		};
 		this.byPeer.set(peer, member);
 		this.byKey.set(key, member);
@@ -179,8 +207,63 @@ export class PresenceHub {
 		} else {
 			member.spot = spot;
 		}
+		// A wild battle is seen while its page says it is in one: back to exploring (or up in
+		// the air, or anywhere else), there is nothing more to see of it.
+		if (member.showing?.vs === null && spot.busy !== 'battle') member.showing = null;
 		this.refreshSight(member);
 		if (member.room && member.lastRoster === '') this.sendRoster(member);
+	}
+
+	/**
+	 * A page's report of its own battle with a wild animal: how it stands and
+	 * what just happened. Taken only while the page says it is in a battle
+	 * (its last `where`); kept for whoever comes near later, and passed on now
+	 * to everyone who sees the player. A report that says the battle ended is
+	 * passed on, so the others see the end, and then there is nothing to keep.
+	 */
+	battle(peer: Peer, view: FightView, events: FightEvent[]): void {
+		const member = this.byPeer.get(peer);
+		if (!member?.room || member.spot?.busy !== 'battle') return;
+		const ended = events.some((e) => e.type === 'ended');
+		member.showing = ended ? null : { pid: member.pid, vs: null, view };
+		const message: FightMessage = { t: 'fight', pid: member.pid, vs: null, view, events };
+		for (const other of member.sees) other.peer.send(message);
+	}
+
+	/**
+	 * A friendly match as the server's own state says it stands
+	 * (`matches.ts`): kept on both its players for whoever comes near later,
+	 * and passed on, once, to everyone who sees either of them, never to the
+	 * two themselves. `view` null, or events that say it ended: after this
+	 * there is nothing to keep. A player whose page is away is simply not
+	 * here (`peers`).
+	 */
+	match(
+		peers: Record<MatchSide, Peer | null>,
+		pids: Record<MatchSide, string>,
+		view: FightView | null,
+		events: FightEvent[]
+	): void {
+		const members: Member[] = [];
+		for (const side of MATCH_SIDES) {
+			const peer = peers[side];
+			const member = peer ? this.byPeer.get(peer) : undefined;
+			if (member) members.push(member);
+		}
+		const over = view === null || events.some((e) => e.type === 'ended');
+		const showing = over ? null : { pid: pids.a, vs: pids.b, view };
+		for (const member of members) member.showing = showing;
+		if (view === null) return;
+		const message: FightMessage = { t: 'fight', pid: pids.a, vs: pids.b, view, events };
+		const told = new Set<Member>(members);
+		for (const member of members) {
+			for (const other of member.sees) {
+				// Never one of its own players, even on a page the match has not heard is back.
+				if (told.has(other) || other.pid === pids.a || other.pid === pids.b) continue;
+				told.add(other);
+				other.peer.send(message);
+			}
+		}
 	}
 
 	/** "Where exactly is this player?": `found` in the asker's world, else `lost`. */
@@ -267,6 +350,8 @@ export class PresenceHub {
 			if (tellItself) member.peer.send({ t: 'gone', pid: other.pid });
 		}
 		member.sees.clear();
+		// A battle is fought where it started: out of the world, there is none to see.
+		member.showing = null;
 		const room = member.room;
 		if (!room) return;
 		room.members.delete(member);
@@ -283,6 +368,8 @@ export class PresenceHub {
 		const room = member.room;
 		const at = member.spot;
 		if (!room || !at) return;
+		// The battles `member` was shown now: a match's players, both come into view at once, show it once.
+		const shown = new Set<Showing>();
 		for (const other of room.members) {
 			if (other === member || !other.spot) continue;
 			const seeing = member.sees.has(other);
@@ -292,6 +379,12 @@ export class PresenceHub {
 					member.sees.add(other);
 					other.sees.add(member);
 					member.peer.send(peerMessage(other, other.spot));
+					// Each sees the other's battle as it stands, at once: both animals, and the puzzle.
+					showTo(other, member.showing);
+					if (other.showing && !shown.has(other.showing)) {
+						shown.add(other.showing);
+						showTo(member, other.showing);
+					}
 				}
 			} else if (seeing) {
 				member.sees.delete(other);
@@ -342,6 +435,18 @@ function presentOf(member: Member): Present {
 
 function peerMessage(member: Member, spot: Spot): PeerMessage {
 	return { t: 'peer', pid: member.pid, name: member.name, ...spot };
+}
+
+/** A battle as it stands, to someone who just came near it: never to one of its own players. */
+function showTo(member: Member, showing: Showing | null): void {
+	if (!showing || member.pid === showing.pid || member.pid === showing.vs) return;
+	member.peer.send({
+		t: 'fight',
+		pid: showing.pid,
+		vs: showing.vs,
+		view: showing.view,
+		events: []
+	});
 }
 
 /** Steps apart on the grid, exactly, for sorting the roster (it shows them rounded). */

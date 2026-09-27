@@ -16,6 +16,14 @@ export {
 } from './puzzles/registry.js';
 export { healingDifficulty, puzzleDifficulty } from './puzzles/difficulty.js';
 export { countSolved } from './puzzles/solved.js';
+export {
+	FACE_NUMBERS,
+	MAX_FACE_NUMBER,
+	facePrompt,
+	puzzleFace,
+	readPuzzleFace
+} from './puzzles/face.js';
+export type { PuzzleFace } from './puzzles/face.js';
 
 export type {
 	AnimalInstance,
@@ -253,6 +261,7 @@ export {
 export type {
 	AcceptMessage,
 	AskingMessage,
+	BattleMessage,
 	Busy,
 	ByeMessage,
 	ByeReason,
@@ -260,6 +269,7 @@ export type {
 	ClientMessage,
 	DeclineMessage,
 	DoneMessage,
+	FightMessage,
 	FindMessage,
 	FoundMessage,
 	GoneMessage,
@@ -288,6 +298,18 @@ export type {
 	WireMatchEvent,
 	WithdrawMessage
 } from './net/protocol.js';
+export {
+	FIGHT_ENDS,
+	MAX_FIGHT_EVENTS,
+	fightAnimal,
+	matchFight,
+	matchFightEvents,
+	readFightEvents,
+	readFightView,
+	wildFight,
+	wildFightEvents
+} from './net/fight.js';
+export type { FightAnimal, FightEnd, FightEvent, FightView } from './net/fight.js';
 export {
 	VIEW_KEEP,
 	VIEW_RADIUS,

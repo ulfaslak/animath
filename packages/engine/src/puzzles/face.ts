@@ -58,7 +58,7 @@ export function facePrompt(face: PuzzleFace): string {
 		case 'div':
 			return `${a} ÷ ${b} = ?`;
 		case 'missing':
-			return `${a} ${face.times ? '×' : '+'} ? = ${b}`;
+			return face.times ? `${a} × ? = ${b}` : `${a} + ? = ${b}`;
 		case 'sequence':
 			return `${face.numbers.join(', ')}, ?`;
 		case 'sqrt':
@@ -79,7 +79,12 @@ export function puzzleFace(puzzle: Pick<Puzzle, 'kind' | 'prompt'>): PuzzleFace 
 	if (numbers.length !== FACE_NUMBERS[kind]) return null;
 	if (numbers.some((n) => !Number.isSafeInteger(n) || n > MAX_FACE_NUMBER)) return null;
 	const faces: PuzzleFace[] =
-		kind === 'missing' ? [{ kind, numbers }, { kind, numbers, times: true }] : [{ kind, numbers }];
+		kind === 'missing'
+			? [
+					{ kind, numbers },
+					{ kind, numbers, times: true }
+				]
+			: [{ kind, numbers }];
 	return faces.find((face) => facePrompt(face) === prompt) ?? null;
 }
 

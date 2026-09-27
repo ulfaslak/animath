@@ -78,7 +78,12 @@ export const add: PuzzleGenerator = {
 		const b = band(ADD_BAND, difficulty);
 		const x = draw(rng, b);
 		const y = draw(rng, b);
-		return { kind: 'add', difficulty, prompt: facePrompt({ kind: 'add', numbers: [x, y] }), answer: x + y };
+		return {
+			kind: 'add',
+			difficulty,
+			prompt: facePrompt({ kind: 'add', numbers: [x, y] }),
+			answer: x + y
+		};
 	}
 };
 
@@ -92,7 +97,12 @@ export const sub: PuzzleGenerator = {
 		const b = band(ADD_BAND, difficulty);
 		const x = draw(rng, b);
 		const y = draw(rng, b);
-		return { kind: 'sub', difficulty, prompt: facePrompt({ kind: 'sub', numbers: [x + y, x] }), answer: y };
+		return {
+			kind: 'sub',
+			difficulty,
+			prompt: facePrompt({ kind: 'sub', numbers: [x + y, x] }),
+			answer: y
+		};
 	}
 };
 

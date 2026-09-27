@@ -51,7 +51,12 @@ export function tokenPuzzle(balance: number, change: number): Puzzle {
 	const band = ADD_BAND.findIndex(([, hi]) => biggest <= hi);
 	const difficulty = band === -1 ? ADD_BAND.length : band + 1;
 	return change > 0
-		? { kind: 'add', difficulty, prompt: facePrompt({ kind: 'add', numbers: [balance, change] }), answer }
+		? {
+				kind: 'add',
+				difficulty,
+				prompt: facePrompt({ kind: 'add', numbers: [balance, change] }),
+				answer
+			}
 		: {
 				kind: 'sub',
 				difficulty,

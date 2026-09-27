@@ -41,6 +41,14 @@ import {
 	type WireAnimal,
 	type WireMatchEvent
 } from '../src/net/protocol.js';
+import {
+	FIGHT_ENDS,
+	MAX_FIGHT_EVENTS,
+	type FightAnimal,
+	type FightEvent,
+	type FightView
+} from '../src/net/fight.js';
+import type { PuzzleFace } from '../src/puzzles/face.js';
 import { Rng } from '../src/rng.js';
 
 const FACINGS = ['up', 'down', 'left', 'right'] as const;
@@ -82,8 +90,70 @@ function randomPlay(rng: Rng): PlayIntent {
 	}
 }
 
+const FACES: readonly PuzzleFace[] = [
+	{ kind: 'mul', numbers: [7, 8] },
+	{ kind: 'missing', numbers: [4, 20], times: true },
+	{ kind: 'missing', numbers: [7, 12] },
+	{ kind: 'sequence', numbers: [0, 1, 2, 3] },
+	{ kind: 'sqrt', numbers: [99_999] }
+];
+
+/** Someone's animal in a fight: any species, HP within its own, maybe a nickname the rules keep. */
+function randomFighter(rng: Rng): FightAnimal {
+	const species = pick(rng, ANIMALS).id;
+	const hp = rng.int(0, getAnimal(species).maxHp);
+	const nickname = pick(rng, [undefined, 'Nini', 'Pip', 'Mr. Wu', 'WWWWWWWWWWWW']);
+	return nickname === undefined ? { species, hp } : { species, nickname, hp };
+}
+
+function randomFightView(rng: Rng): FightView {
+	return {
+		realm: pick(rng, ['land', 'water'] as const),
+		a: randomFighter(rng),
+		b: randomFighter(rng),
+		turn: pick(rng, ['a', 'b', null] as const),
+		puzzle: rng.chance(0.3) ? null : pick(rng, FACES)
+	};
+}
+
+function randomFightEvents(rng: Rng): FightEvent[] {
+	const side = () => pick(rng, ['a', 'b'] as const);
+	return Array.from({ length: rng.int(0, MAX_FIGHT_EVENTS) }, (): FightEvent => {
+		switch (rng.int(0, 7)) {
+			case 0:
+				return { type: 'puzzle', side: side(), puzzle: pick(rng, FACES) };
+			case 1:
+				return { type: 'judged', side: side(), correct: rng.chance(0.5) };
+			case 2:
+				return {
+					type: 'hit',
+					attacker: side(),
+					level: pick(rng, [1, 2, 3] as const),
+					damage: rng.int(0, 40),
+					hp: rng.int(0, 40)
+				};
+			case 3:
+				return { type: 'missed', attacker: side() };
+			case 4:
+				return { type: 'leash', caught: rng.chance(0.5) };
+			case 5:
+				return { type: 'switched', side: side(), animal: randomFighter(rng) };
+			case 6:
+				return { type: 'fainted', side: side() };
+			default:
+				return {
+					type: 'ended',
+					winner: pick(rng, ['a', 'b', null] as const),
+					how: pick(rng, FIGHT_ENDS)
+				};
+		}
+	});
+}
+
 function randomClient(rng: Rng): ClientMessage {
-	switch (rng.int(0, 10)) {
+	switch (rng.int(0, 11)) {
+		case 10:
+			return { t: 'battle', view: randomFightView(rng), events: randomFightEvents(rng) };
 		case 0:
 			return { t: 'hello', v: PROTOCOL_VERSION, guest: token(rng, 16, 64), name: pick(rng, names) };
 		case 1:
@@ -187,7 +257,15 @@ function randomEntry(rng: Rng): RosterEntry {
 
 function randomServer(rng: Rng): ServerMessage {
 	const pid = token(rng, 6, 32);
-	switch (rng.int(0, 14)) {
+	switch (rng.int(0, 15)) {
+		case 15:
+			return {
+				t: 'fight',
+				pid,
+				vs: rng.chance(0.5) ? null : `${pid}x`.slice(-32),
+				view: randomFightView(rng),
+				events: randomFightEvents(rng)
+			};
 		case 0:
 			return {
 				t: 'hi',
@@ -594,6 +672,81 @@ describe('friendly matches on the wire', () => {
 		const four = Array.from({ length: 4 }, (_, n) => ({ id: `id-${n}`, speciesId: 'fox' }));
 		expect(parseClientMessage({ t: 'challenge', pid: 'abcdef', team: four })).toBeNull();
 		expect(parseClientMessage({ t: 'accept', pid: 'abcdef', team: [] })).toBeNull();
+	});
+});
+
+describe('battles seen from outside on the wire', () => {
+	it('refuses a battle or a fight with anything inside it swapped for junk, or missing', () => {
+		const rng = new Rng(21);
+		const through: string[] = [];
+		for (let i = 0; i < 12; i++) {
+			const pid = token(rng, 6, 32);
+			const view = randomFightView(rng);
+			const events = randomFightEvents(rng);
+			for (const [message, parse] of [
+				[{ t: 'battle', view, events }, parseClientMessage],
+				[{ t: 'fight', pid, vs: null, view, events }, parseServerMessage]
+			] as const) {
+				// One copy, changed in place and put back after each try: no copy per try.
+				const copy = JSON.parse(JSON.stringify(message)) as Record<string, unknown>;
+				for (const path of leafPaths(copy)) {
+					const where = path.join('.');
+					let parent = copy as Record<string | number, unknown>;
+					for (const step of path.slice(0, -1))
+						parent = parent[step] as Record<string | number, unknown>;
+					const key = path[path.length - 1]!;
+					const original = parent[key];
+					// A nickname and a times table's sign are the fields that may be missing; no
+					// events is a whole message too (a battle just begun, a player just come near).
+					const optional = key === 'nickname' || key === 'times';
+					for (const junk of [...JUNK, DELETE]) {
+						if ((junk === undefined || junk === DELETE) && optional) continue;
+						if (where === 'events' && Array.isArray(junk) && junk.length === 0) continue;
+						// Two small numbers are a sum's two numbers: not junk there.
+						if (key === 'numbers' && Array.isArray(junk) && junk.length === 2) continue;
+						if (junk === DELETE) delete parent[key];
+						else parent[key] = junk;
+						if (parse(copy) !== null) through.push(`${where} = ${String(junk)}`);
+					}
+					parent[key] = original;
+				}
+			}
+		}
+		expect(through.slice(0, 20)).toEqual([]);
+		// About 30,000 parses of a whole message, each nickname through the name rules: 1.9 s at a
+		// load average of 66.
+	}, 30_000);
+
+	it('takes a fight between two players, never one with itself, and sends every battle a page makes within what it may send', () => {
+		const view = randomFightView(new Rng(22));
+		const fight = { t: 'fight', pid: 'abcdef', vs: 'ghijkl', view, events: [] };
+		expect(parseServerMessage(fight)).toEqual(fight);
+		expect(parseServerMessage({ ...fight, vs: 'abcdef' })).toBeNull();
+		expect(parseClientMessage({ ...fight, t: 'battle' })).toEqual({
+			t: 'battle',
+			view,
+			events: []
+		});
+		// A page's battle never reaches another page as it sent it, nor the server's fight a server.
+		expect(parseServerMessage({ t: 'battle', view, events: [] })).toBeNull();
+		expect(parseClientMessage(fight)).toBeNull();
+		// The longest nicknames the wire takes, in four-byte letters, on every animal of the most events one message carries.
+		const long: FightAnimal = { species: 'common-toad', nickname: '𝓦'.repeat(32), hp: 1 };
+		const events: FightEvent[] = Array.from({ length: MAX_FIGHT_EVENTS }, () => ({
+			type: 'switched',
+			side: 'a',
+			animal: long
+		}));
+		const bytes = new TextEncoder().encode(
+			JSON.stringify({
+				t: 'fight',
+				pid: 'x'.repeat(32),
+				vs: 'y'.repeat(32),
+				view: { ...view, a: long, b: long },
+				events
+			})
+		).length;
+		expect(bytes).toBeLessThan(MAX_SERVER_MESSAGE_BYTES);
 	});
 });
 

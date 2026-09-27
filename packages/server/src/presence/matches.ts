@@ -3,6 +3,8 @@ import {
 	MATCH_SIDES,
 	applyMatchIntent,
 	challengeRefusal,
+	matchFight,
+	matchFightEvents,
 	matchTeam,
 	matchView,
 	otherSide,
@@ -55,6 +57,10 @@ import type { Peer, PresenceHub, Present } from './hub.js';
  *   back to exploring (their `where` says so). "Rematch?" from both starts a
  *   new match between the same two, with a new seed; one who goes back puts
  *   it off, and so does `lingerMs` passing.
+ * - **Seen from outside.** The players near either of the two see the match
+ *   beside them in the world: the two animals, the puzzle of whoever's turn
+ *   it is, every hit and the end (`show`, through the hub), built from this
+ *   server's own state and never from what a page says.
  * - **Stopping** (a deploy): every match and invite ends at once, with no
  *   winner; the pages hear `bye: restart`, say the game is updating, and
  *   offer to play again once they are back.
@@ -237,6 +243,8 @@ export class Matches {
 		const match = player?.match;
 		if (!match) return;
 		for (const side of MATCH_SIDES) this.send(match, side, []);
+		// The players near the page that came back see the match again, if it goes on.
+		this.show(match, []);
 	}
 
 	/**
@@ -477,6 +485,7 @@ export class Matches {
 		this.startClock(match);
 		this.log(`matches: ${match.id} started`);
 		for (const side of MATCH_SIDES) this.send(match, side, []);
+		this.show(match, []);
 	}
 
 	private play(
@@ -505,6 +514,7 @@ export class Matches {
 		if (state.phase.kind === 'ended') this.ended(match);
 		else this.startClock(match);
 		for (const side of MATCH_SIDES) this.send(match, side, events);
+		this.show(match, events);
 	}
 
 	/** The server reports `side` gone: dropped out, or sat on its turn. The other side wins. */
@@ -667,6 +677,23 @@ export class Matches {
 			away: away ? { side: other, ms: Math.max(0, away.until - Date.now()) } : null,
 			timeout: match.timeout
 		});
+	}
+
+	/**
+	 * The match as the players near its two players see it (`hub.match`), from
+	 * this server's own state, never from what a page says: how it stands and
+	 * this step's events, with no answer and no word in them (`matchFight`).
+	 * A match that ended is shown ending once, and not again.
+	 */
+	private show(match: Match, events: WireMatchEvent[]): void {
+		const seen = matchFightEvents(events);
+		const over = match.state.phase.kind === 'ended' && !seen.some((e) => e.type === 'ended');
+		this.hub.match(
+			{ a: match.players.a.peer, b: match.players.b.peer },
+			{ a: match.pids.a, b: match.pids.b },
+			over ? null : matchFight(match.state),
+			seen
+		);
 	}
 
 	// --- players ----------------------------------------------------------------------

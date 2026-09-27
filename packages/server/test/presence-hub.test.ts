@@ -11,6 +11,8 @@ import {
 	readWire,
 	tilesApart,
 	type ByeReason,
+	type FightEvent,
+	type FightView,
 	type ServerMessage,
 	type WhereMessage
 } from '@mathgame/engine';
@@ -36,6 +38,13 @@ class FakePeer implements Peer {
 		this.got.push(message);
 		if (message.t === 'peer') this.drawing.set(message.pid, message);
 		if (message.t === 'gone') this.drawing.delete(message.pid);
+		if (message.t === 'fight') {
+			// A battle is seen only by a player who sees one of its players, and never by its own.
+			const near =
+				this.drawing.has(message.pid) || (message.vs !== null && this.drawing.has(message.vs));
+			expect(near, `a fight of ${message.pid} out of view`).toBe(true);
+			if (this.pid) expect([message.pid, message.vs]).not.toContain(this.pid);
+		}
 	}
 	close(reason: ByeReason): void {
 		this.closed = reason;
@@ -316,6 +325,18 @@ describe('presence hub', () => {
 					const p = peers[rng.int(0, peers.length - 1)]!;
 					hub.leave(p);
 					spots.delete(p);
+				} else if (roll < 0.25) {
+					// A page reports its battle, whatever it says it is doing: only one in a
+					// battle is passed on, and only to who sees it (`FakePeer.send` checks).
+					const p = peers[rng.int(0, peers.length - 1)]!;
+					const before = peers.map((q) => q.of('fight').length);
+					hub.battle(p, fightView(rng.int(0, 3)), rng.chance(0.2) ? [ENDED] : []);
+					const told = peers.filter((q, i) => q.of('fight').length > before[i]!);
+					const battling = hub.has(p) && spots.get(p)?.busy === 'battle';
+					if (!battling && told.length > 0) {
+						expect.fail(`run ${run} op ${op}: a battle passed on from a page not in one`);
+					}
+					continue;
 				} else {
 					const p = peers[rng.int(0, peers.length - 1)]!;
 					if (!hub.has(p)) continue;
@@ -368,4 +389,154 @@ describe('presence hub', () => {
 		// About 0.45 s alone (20 hubs of 400 joins, moves and leaves, every pair of browsers
 		// checked after each); 2 s at a load average of 35.
 	}, 30_000);
+});
+
+/** A battle as a page reports it: a rabbit against a fox, `hp` left, with 7 × 8 to solve. */
+function fightView(hp: number): FightView {
+	return {
+		realm: 'land',
+		a: { species: 'rabbit', nickname: 'Pip', hp },
+		b: { species: 'fox', hp: 1 },
+		turn: 'a',
+		puzzle: { kind: 'mul', numbers: [7, 8] }
+	};
+}
+const ENDED: FightEvent = { type: 'ended', winner: 'a', how: 'tired' };
+const HIT: FightEvent = { type: 'hit', attacker: 'a', level: 2, damage: 3, hp: 0 };
+
+describe('battles seen from outside', () => {
+	/** Ada in a battle at the origin; Bo near her, Cy far off, Dee near but in another world. */
+	function scene() {
+		const hub = newHub();
+		const [ada, bo, cy, dee] = [new FakePeer(), new FakePeer(), new FakePeer(), new FakePeer()];
+		for (const [p, name] of [
+			[ada, 'Ada'],
+			[bo, 'Bo'],
+			[cy, 'Cy'],
+			[dee, 'Dee']
+		] as const) {
+			p.pid = hub.join(p, `guest:${name}`, name);
+		}
+		hub.where(ada, where(1, 0, 0, { busy: 'battle' }));
+		hub.where(bo, where(1, 3, 0));
+		hub.where(cy, where(1, 100, 0));
+		hub.where(dee, where(2, 1, 0));
+		return { hub, ada, bo, cy, dee };
+	}
+
+	it("passes a player's battle, step by step, to everyone who sees them and to nobody else", () => {
+		const { hub, ada, bo, cy, dee } = scene();
+		hub.battle(ada, fightView(3), []);
+		hub.battle(ada, fightView(2), [HIT]);
+		expect(bo.of('fight')).toEqual([
+			{ t: 'fight', pid: ada.pid, vs: null, view: fightView(3), events: [] },
+			{ t: 'fight', pid: ada.pid, vs: null, view: fightView(2), events: [HIT] }
+		]);
+		for (const p of [ada, cy, dee]) expect(p.of('fight')).toEqual([]);
+	});
+
+	it('takes a report only from a page that says it is in a battle', () => {
+		const { hub, ada, bo } = scene();
+		for (const busy of ['explore', 'doctor', 'menu', 'match', 'flight'] as const) {
+			hub.where(ada, where(1, 0, 0, { busy }));
+			hub.battle(ada, fightView(3), []);
+		}
+		expect(bo.of('fight')).toEqual([]);
+		// Nor from a socket that never said where it is.
+		const eve = new FakePeer();
+		hub.join(eve, 'guest:Eve', 'Eve');
+		hub.battle(eve, fightView(3), []);
+		expect(bo.of('fight')).toEqual([]);
+	});
+
+	it('shows a player who comes near a battle as it stands, at once, and never a finished one', () => {
+		const { hub, ada, cy } = scene();
+		hub.battle(ada, fightView(3), []);
+		hub.battle(ada, fightView(2), [HIT]);
+		// Cy walks up: first Ada herself, then her battle as it stands now, with nothing to play back.
+		const mark = cy.got.length;
+		hub.where(cy, where(1, 5, 0));
+		const fresh = cy.got.slice(mark);
+		const i = fresh.findIndex((m) => m.t === 'peer' && m.pid === ada.pid);
+		expect(fresh[i]).toMatchObject({ t: 'peer', pid: ada.pid, busy: 'battle' });
+		expect(fresh[i + 1]).toEqual({
+			t: 'fight',
+			pid: ada.pid,
+			vs: null,
+			view: fightView(2),
+			events: []
+		});
+		expect(cy.of('fight')).toHaveLength(1);
+		// Ada never hears of her own battle, even when someone near her is the one to come.
+		expect(ada.of('fight')).toEqual([]);
+		// The end is shown to who is there; one who comes after it sees no battle.
+		hub.battle(ada, fightView(1), [ENDED]);
+		expect(cy.of('fight').at(-1)?.events).toEqual([ENDED]);
+		hub.where(cy, where(1, 100, 0));
+		hub.where(cy, where(1, 5, 0));
+		expect(cy.of('fight')).toHaveLength(2);
+	});
+
+	it('keeps nothing of a battle once its page is doing something else: exploring, up in the air, another world', () => {
+		for (const next of [
+			where(1, 0, 0, { busy: 'explore' }),
+			where(1, 0, 0, { busy: 'flight' }),
+			where(1, 0, 0, { busy: 'doctor' }),
+			where(3, 0, 0, { busy: 'battle' })
+		]) {
+			const { hub, ada, cy } = scene();
+			hub.battle(ada, fightView(3), []);
+			hub.where(ada, next);
+			hub.where(ada, where(1, 0, 0, { busy: 'battle' }));
+			hub.where(cy, where(1, 5, 0));
+			expect(cy.of('fight'), next.busy).toEqual([]);
+		}
+	});
+
+	it("shows a friendly match once to each player who sees either of its players, never to them, from the server's word", () => {
+		const hub = newHub();
+		const peers = ['Ada', 'Bo', 'Cy', 'Dee', 'Eve'].map((name) => {
+			const p = new FakePeer();
+			p.pid = hub.join(p, `guest:${name}`, name);
+			return p;
+		});
+		const [ada, bo, cy, dee, eve] = peers as [FakePeer, FakePeer, FakePeer, FakePeer, FakePeer];
+		hub.where(ada, where(1, 0, 0, { busy: 'match' }));
+		hub.where(bo, where(1, 1, 0, { busy: 'match' }));
+		// Cy sees both, Dee only Bo (just inside Bo's radius, outside Ada's), Eve neither.
+		hub.where(cy, where(1, 2, 3));
+		hub.where(dee, where(1, 1 + VIEW_RADIUS, 0));
+		hub.where(eve, where(1, 200, 0));
+		const pids = { a: ada.pid, b: bo.pid };
+		hub.match({ a: ada, b: bo }, pids, fightView(3), []);
+		hub.match({ a: ada, b: bo }, pids, fightView(2), [HIT]);
+		const sent = (view: FightView, events: FightEvent[]) => ({
+			t: 'fight',
+			pid: ada.pid,
+			vs: bo.pid,
+			view,
+			events
+		});
+		for (const p of [cy, dee])
+			expect(p.of('fight')).toEqual([sent(fightView(3), []), sent(fightView(2), [HIT])]);
+		for (const p of [ada, bo, eve]) expect(p.of('fight')).toEqual([]);
+		// Eve walks up to them: she sees the match as it stands.
+		hub.where(eve, where(1, 0, 4));
+		expect(eve.of('fight')).toEqual([sent(fightView(2), [])]);
+		// A player of the match whose page is away is not here; the match is still seen round the other.
+		hub.match({ a: null, b: bo }, pids, fightView(1), []);
+		expect(cy.of('fight').at(-1)).toEqual(sent(fightView(1), []));
+		// Over: shown ending, then nothing to see for one who comes later.
+		hub.match({ a: ada, b: bo }, pids, fightView(0), [ENDED]);
+		hub.where(eve, where(1, 200, 0));
+		hub.where(eve, where(1, 0, 4));
+		expect(eve.of('fight')).toHaveLength(3);
+		// Gone (the server stopped showing it): nothing is sent, nothing kept.
+		hub.match({ a: ada, b: bo }, pids, fightView(3), []);
+		hub.match({ a: ada, b: bo }, pids, null, []);
+		const count = cy.of('fight').length;
+		hub.where(cy, where(1, 200, 0));
+		hub.where(cy, where(1, 2, 3));
+		expect(cy.of('fight')).toHaveLength(count);
+	});
 });

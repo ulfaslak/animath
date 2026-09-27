@@ -1,5 +1,11 @@
 import { ANIMALS, getAnimal } from '../animals/catalog.js';
-import { ATTACK_LEVELS, REALMS, type AnimalInstance, type AttackLevel, type Realm } from '../animals/types.js';
+import {
+	ATTACK_LEVELS,
+	REALMS,
+	type AnimalInstance,
+	type AttackLevel,
+	type Realm
+} from '../animals/types.js';
 import type { BattleEvent, BattleOutcome, BattleState } from '../battle/types.js';
 import { MATCH_SIDES, type MatchEvent, type MatchSide, type MatchState } from '../match/types.js';
 import { isRude } from '../names.js';
@@ -82,7 +88,9 @@ export const MAX_FIGHT_EVENTS = 16;
  * keep it as it is (`normalizeNickname`, a fixed point) and it holds no rude
  * word (`isRude`); else none, and the animal goes by its kind.
  */
-export function fightAnimal(animal: Pick<AnimalInstance, 'speciesId' | 'nickname' | 'hp'>): FightAnimal {
+export function fightAnimal(
+	animal: Pick<AnimalInstance, 'speciesId' | 'nickname' | 'hp'>
+): FightAnimal {
 	const nickname = cleanNickname(animal.nickname);
 	return nickname === undefined
 		? { species: animal.speciesId, hp: animal.hp }
