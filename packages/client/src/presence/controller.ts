@@ -303,7 +303,6 @@ export class PresenceController {
 			bars.push({
 				key: bar.key,
 				species: bar.animal.species,
-				nickname: bar.animal.nickname ?? null,
 				hp: bar.animal.hp,
 				maxHp: bar.maxHp,
 				x: Math.round(p.x),

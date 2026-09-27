@@ -8,8 +8,6 @@ import {
 } from '../animals/types.js';
 import type { BattleEvent, BattleOutcome, BattleState } from '../battle/types.js';
 import { MATCH_SIDES, type MatchEvent, type MatchSide, type MatchState } from '../match/types.js';
-import { isRude } from '../names.js';
-import { normalizeNickname } from '../party/names.js';
 import { puzzleFace, readPuzzleFace, type PuzzleFace } from '../puzzles/face.js';
 
 /**
@@ -22,22 +20,22 @@ import { puzzleFace, readPuzzleFace, type PuzzleFace } from '../puzzles/face.js'
  * Side `a` is the player whose battle it is (in a friendly match, the
  * match's side `a`), side `b` the wild animal (the match's side `b`).
  *
- * Nothing in it is words: species by id, a nickname only as the nickname
- * rules keep it and without a rude word (else the animal goes by its kind),
- * numbers within bounds, and the puzzle as numbers (`PuzzleFace`), which the
- * watching page writes out with the engine's own formatter. So a page that
- * lies about its battle can show the others a made-up fight, but never put a
- * word in anyone's thought bubble: there is no chat. And never an answer:
- * the view holds the question, and an event only whether an answer was right.
+ * Nothing in it is words: species by id, numbers within bounds, and the
+ * puzzle as numbers (`PuzzleFace`), which the watching page writes out with
+ * the engine's own formatter. Animals go by their kind, never a nickname:
+ * a page that lies about its battle could put any words in a nickname, a new
+ * phrase every step, to every kid near it, which is chat. So such a page can
+ * show the others a made-up fight, but never put a word on anyone's screen.
+ * And never an answer: the view holds the question, and an event only
+ * whether an answer was right.
  *
  * A wild battle is its fighter's page's to report (the browser decides it);
  * a friendly match is the server's, built from its own state.
  */
 
-/** An animal in a fight, as a player near it sees it: its kind, the name its owner gave it, its HP. */
+/** An animal in a fight, as a player near it sees it: its kind and its HP. */
 export interface FightAnimal {
 	species: string;
-	nickname?: string;
 	hp: number;
 }
 
@@ -80,28 +78,17 @@ export type FightEvent =
 	/** It is over: `winner` won (null: nobody did, the player ran), and `how`. */
 	| { type: 'ended'; winner: MatchSide | null; how: FightEnd };
 
-/** The most events one fight message carries: one step causes at most eight. */
-export const MAX_FIGHT_EVENTS = 16;
-
 /**
- * An animal as the others see it: the nickname only when the nickname rules
- * keep it as it is (`normalizeNickname`, a fixed point) and it holds no rude
- * word (`isRude`); else none, and the animal goes by its kind.
+ * The most events one fight message carries: one step of a battle causes at
+ * most five (a wrong answer, the wild animal's hit, a knock-out and the end),
+ * and a page may send two steps together. It also bounds what one report can
+ * make the server send to every player near it.
  */
-export function fightAnimal(
-	animal: Pick<AnimalInstance, 'speciesId' | 'nickname' | 'hp'>
-): FightAnimal {
-	const nickname = cleanNickname(animal.nickname);
-	return nickname === undefined
-		? { species: animal.speciesId, hp: animal.hp }
-		: { species: animal.speciesId, nickname, hp: animal.hp };
-}
+export const MAX_FIGHT_EVENTS = 8;
 
-/** A nickname another player may read: one the rules keep as it is, with no rude word in it. */
-function cleanNickname(raw: unknown): string | undefined {
-	if (typeof raw !== 'string') return undefined;
-	const clean = normalizeNickname(raw);
-	return clean !== undefined && clean === raw && !isRude(clean) ? clean : undefined;
+/** An animal as the others see it: its kind and its HP, never its nickname. */
+export function fightAnimal(animal: Pick<AnimalInstance, 'speciesId' | 'hp'>): FightAnimal {
+	return { species: animal.speciesId, hp: animal.hp };
 }
 
 // --- a wild battle, from its fighter's page ------------------------------------------
@@ -237,8 +224,6 @@ export function matchFightEvents(events: readonly MatchEvent[]): FightEvent[] {
 const SPECIES: ReadonlySet<string> = new Set(ANIMALS.map((a) => a.id));
 /** The most HP any animal has: damage and HP on the wire are whole numbers up to it. */
 const MAX_FIGHT_HP = Math.max(...ANIMALS.map((a) => a.maxHp));
-/** The most UTF-16 units a nickname takes on the wire, before the rules read it. */
-const MAX_WIRE_NICKNAME = 64;
 
 type Fields = Readonly<Record<string, unknown>>;
 
@@ -255,18 +240,16 @@ function isSide(value: unknown): value is MatchSide {
 }
 
 /**
- * An animal off the wire: a species this build knows, HP within its own,
- * and a nickname only when the rules keep it as it is and it holds no rude
- * word; a nickname that is not one of those is dropped, not the animal.
+ * An animal off the wire: a species this build knows and HP within its own,
+ * as a new object of those two fields: anything else a page put in (a
+ * nickname, words) is not read, and goes no further.
  */
 function readFightAnimal(value: unknown): FightAnimal | null {
 	if (!isRecord(value)) return null;
-	const { species, nickname, hp } = value;
+	const { species, hp } = value;
 	if (typeof species !== 'string' || !SPECIES.has(species)) return null;
 	if (!isWhole(hp, 0, getAnimal(species).maxHp)) return null;
-	if (nickname === undefined) return { species, hp };
-	if (typeof nickname !== 'string' || nickname.length > MAX_WIRE_NICKNAME) return null;
-	return fightAnimal({ speciesId: species, nickname, hp });
+	return { species, hp };
 }
 
 /** A fight's view off the wire, or null: a new object of its known fields. */

@@ -479,7 +479,7 @@ describe('battles seen from outside, over the socket', () => {
 		puzzle: { kind: 'mul', numbers: [7, 8] }
 	});
 
-	it("passes a page's battle to a player near it, as numbers and a clean nickname and nothing else", async () => {
+	it("passes a page's battle to a player near it, as numbers and kinds and nothing else: no nickname, no words", async () => {
 		const { url } = await start();
 		const { c: ada, pid } = await joined(url, 'Ada', 'a'.repeat(20));
 		const { c: bo } = await joined(url, 'Bo', 'b'.repeat(20));
@@ -499,13 +499,23 @@ describe('battles seen from outside, over the socket', () => {
 			t: 'fight',
 			pid,
 			vs: null,
-			view: view(3, 'Pip'),
+			view: view(3),
 			events: [{ type: 'judged', side: 'a', correct: true }]
 		});
-		// A rude nickname reaches nobody: the rabbit goes by its kind.
+		// A nickname reaches nobody, however the page words it: the rabbit goes by its kind.
 		const after = bo.got.length;
-		ada.send({ t: 'battle', view: view(2, 'shit'), events: [] });
-		expect((await bo.next('fight', 2000, after)).view).toEqual(view(2));
+		ada.send({
+			t: 'battle',
+			view: view(2, 'come alone'),
+			events: [
+				{ type: 'switched', side: 'a', animal: { species: 'fox', nickname: 'hi im Sam', hp: 3 } }
+			]
+		});
+		const next = await bo.next('fight', 2000, after);
+		expect(next.view).toEqual(view(2));
+		expect(next.events).toEqual([
+			{ type: 'switched', side: 'a', animal: { species: 'fox', hp: 3 } }
+		]);
 		// A battle is never shown to its own page.
 		expect(ada.got.filter((m) => m.t === 'fight')).toEqual([]);
 	});

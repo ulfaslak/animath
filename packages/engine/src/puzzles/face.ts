@@ -3,7 +3,7 @@ import type { Puzzle, PuzzleKind } from './types.js';
 /**
  * A puzzle's question as numbers: what its prompt is written from
  * (`facePrompt`, the one formatter every prompt goes through), and all of a
- * puzzle a player near a battle is sent (`net/scene.ts`): numbers in the
+ * puzzle a player near a battle is sent (`net/fight.ts`): numbers in the
  * places a kind puts them, never words and never the answer. Whoever sends
  * one can put numbers in it, but only numbers: the formatter on the other
  * side writes the sum.

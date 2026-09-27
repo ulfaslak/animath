@@ -98,12 +98,10 @@ const FACES: readonly PuzzleFace[] = [
 	{ kind: 'sqrt', numbers: [99_999] }
 ];
 
-/** Someone's animal in a fight: any species, HP within its own, maybe a nickname the rules keep. */
+/** Someone's animal in a fight: any species, HP within its own (never a nickname: no words cross). */
 function randomFighter(rng: Rng): FightAnimal {
 	const species = pick(rng, ANIMALS).id;
-	const hp = rng.int(0, getAnimal(species).maxHp);
-	const nickname = pick(rng, [undefined, 'Nini', 'Pip', 'Mr. Wu', 'WWWWWWWWWWWW']);
-	return nickname === undefined ? { species, hp } : { species, nickname, hp };
+	return { species, hp: rng.int(0, getAnimal(species).maxHp) };
 }
 
 function randomFightView(rng: Rng): FightView {
@@ -696,9 +694,9 @@ describe('battles seen from outside on the wire', () => {
 						parent = parent[step] as Record<string | number, unknown>;
 					const key = path[path.length - 1]!;
 					const original = parent[key];
-					// A nickname and a times table's sign are the fields that may be missing; no
-					// events is a whole message too (a battle just begun, a player just come near).
-					const optional = key === 'nickname' || key === 'times';
+					// A times table's sign is the field that may be missing; no events is a whole
+					// message too (a battle just begun, a player just come near).
+					const optional = key === 'times';
 					for (const junk of [...JUNK, DELETE]) {
 						if ((junk === undefined || junk === DELETE) && optional) continue;
 						if (where === 'events' && Array.isArray(junk) && junk.length === 0) continue;
@@ -730,8 +728,9 @@ describe('battles seen from outside on the wire', () => {
 		// A page's battle never reaches another page as it sent it, nor the server's fight a server.
 		expect(parseServerMessage({ t: 'battle', view, events: [] })).toBeNull();
 		expect(parseClientMessage(fight)).toBeNull();
-		// The longest nicknames the wire takes, in four-byte letters, on every animal of the most events one message carries.
-		const long: FightAnimal = { species: 'common-toad', nickname: '𝓦'.repeat(32), hp: 1 };
+		// The longest species id the catalog has, on every animal of the most events one message carries.
+		const longest = ANIMALS.map((a) => a.id).sort((x, y) => y.length - x.length)[0]!;
+		const long: FightAnimal = { species: longest, hp: 1 };
 		const events: FightEvent[] = Array.from({ length: MAX_FIGHT_EVENTS }, () => ({
 			type: 'switched',
 			side: 'a',
@@ -746,7 +745,8 @@ describe('battles seen from outside on the wire', () => {
 				events
 			})
 		).length;
-		expect(bytes).toBeLessThan(MAX_SERVER_MESSAGE_BYTES);
+		// Small: a report fans out to every player near its page, so each one costs them little.
+		expect(bytes).toBeLessThan(1200);
 	});
 });
 

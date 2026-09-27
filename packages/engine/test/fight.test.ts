@@ -73,9 +73,7 @@ const TOKENS = new Set([
 	'div',
 	'missing',
 	'sequence',
-	'sqrt',
-	'Pip',
-	'Nini'
+	'sqrt'
 ]);
 
 /** What must hold of every view and events a fight sends, whatever the battle. */
@@ -267,31 +265,30 @@ function checkMatch(state: MatchState, view: FightView, bad: string[], where: st
 }
 
 describe('names in a fight', () => {
-	it('sends a nickname only as the nickname rules keep it, with no rude word in it; the animal goes by its kind otherwise', () => {
+	it('names every animal by its kind: no nickname crosses, whatever the battle or the page says', () => {
+		// A nickname is words a page could choose, a new phrase each step, to every kid near it: chat.
 		const fox = { speciesId: 'fox', hp: 5 };
-		expect(fightAnimal({ ...fox, nickname: 'Pip' })).toStrictEqual({
+		expect(fightAnimal({ ...fox, nickname: 'Pip' } as typeof fox)).toStrictEqual({
 			species: 'fox',
-			nickname: 'Pip',
 			hp: 5
 		});
-		expect(fightAnimal(fox)).toStrictEqual({ species: 'fox', hp: 5 });
-		for (const nickname of ['  Pip ', 'Pip\u0000', 'x'.repeat(40), 'shit', 'Fisse', '']) {
-			expect(fightAnimal({ ...fox, nickname }), nickname).toStrictEqual({ species: 'fox', hp: 5 });
-		}
-		// Off the wire the same: a nickname a rule would change or drop is dropped, the animal kept.
-		const view = (nickname: unknown) => ({
+		const view = (a: Record<string, unknown>) => ({
 			realm: 'land',
-			a: { species: 'fox', nickname, hp: 5 },
+			a,
 			b: { species: 'rabbit', hp: 1 },
 			turn: 'a',
 			puzzle: null
 		});
-		expect(readFightView(view('Pip'))?.a).toStrictEqual({ species: 'fox', nickname: 'Pip', hp: 5 });
-		expect(readFightView(view('shit'))?.a).toStrictEqual({ species: 'fox', hp: 5 });
-		expect(readFightView(view(' spaced  out '))?.a).toStrictEqual({ species: 'fox', hp: 5 });
-		// Not text at all, or longer than the wire takes: not an animal.
-		expect(readFightView(view(7))).toBeNull();
-		expect(readFightView(view('x'.repeat(65)))).toBeNull();
+		for (const nickname of ['Pip', 'where u live', 'x'.repeat(400), 7, null, { hi: 1 }]) {
+			const read = readFightView(view({ species: 'fox', nickname, hp: 5, words: 'hello' }));
+			expect(read?.a, String(nickname)).toStrictEqual({ species: 'fox', hp: 5 });
+		}
+		const events = readFightEvents([
+			{ type: 'switched', side: 'a', animal: { species: 'fox', nickname: 'come alone', hp: 5 } }
+		]);
+		expect(events).toStrictEqual([
+			{ type: 'switched', side: 'a', animal: { species: 'fox', hp: 5 } }
+		]);
 	});
 });
 

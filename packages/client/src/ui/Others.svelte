@@ -1,7 +1,7 @@
 <script lang="ts">
 	import type { Busy } from '@mathgame/engine';
 	import { t } from '../copy';
-	import { nameOf } from '../names';
+	import { speciesName } from '../names';
 	import { presence } from '../state/presence.svelte';
 
 	/**
@@ -93,9 +93,7 @@
 			style:opacity={bar.opacity}
 			aria-hidden="true"
 		>
-			<span class="hp-name"
-				>{nameOf({ speciesId: bar.species, nickname: bar.nickname ?? undefined })}</span
-			>
+			<span class="hp-name">{speciesName(bar.species)}</span>
 			<span class="track"
 				><span
 					class="fill"
@@ -432,7 +430,7 @@
 		will-change: transform;
 	}
 	.hp-name {
-		/* Whole at any length: twelve of the widest letters, a nickname's most, or "Common lizard". */
+		/* Whole at any species' name ("Common lizard", "Blæksprutte"). */
 		max-width: 11em;
 		overflow: hidden;
 		text-overflow: ellipsis;

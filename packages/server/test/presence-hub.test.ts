@@ -395,7 +395,7 @@ describe('presence hub', () => {
 function fightView(hp: number): FightView {
 	return {
 		realm: 'land',
-		a: { species: 'rabbit', nickname: 'Pip', hp },
+		a: { species: 'rabbit', hp },
 		b: { species: 'fox', hp: 1 },
 		turn: 'a',
 		puzzle: { kind: 'mul', numbers: [7, 8] }

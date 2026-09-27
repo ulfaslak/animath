@@ -56,8 +56,10 @@ import { Matches, type MatchOptions } from './matches.js';
  *   says hello, says where it is or closes, whatever closed it.
  * - **Battles seen from outside.** A page reports its own battle with a
  *   wild animal (`battle`), read like everything else through the engine's
- *   parser (numbers, species, a clean nickname: no words), and the hub
- *   passes it on to the players near it; at most `battleRatePerSecond`.
+ *   parser (numbers and species, never a nickname or any other words), and
+ *   the hub passes it on to the players near it: at most `battleRatePerSecond`
+ *   a second (a kid plays a step every second or two), so what one page can
+ *   make the server send each player near it stays small.
  */
 export const PRESENCE_PATH = '/api/ws';
 
@@ -143,8 +145,8 @@ export function attachPresence(server: Server, options: PresenceOptions = {}): P
 	const maxDropped = options.maxDropped ?? 40;
 	const maxInvalid = options.maxInvalid ?? 10;
 	const maxBuffered = options.maxBuffered ?? 256 * 1024;
-	const battleRatePerSecond = options.battleRatePerSecond ?? 4;
-	const battleBurst = options.battleBurst ?? 8;
+	const battleRatePerSecond = options.battleRatePerSecond ?? 2;
+	const battleBurst = options.battleBurst ?? 4;
 	const log = options.log ?? (() => {});
 
 	// Public ids: a keyed hash of who it is, so the same player keeps one (on every copy

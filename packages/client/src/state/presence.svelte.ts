@@ -37,11 +37,10 @@ export interface Thought {
 	lean: 1 | -1;
 }
 
-/** A small HP bar over an animal in someone's battle: whose it is, its HP, and where it goes. */
+/** A small HP bar over an animal in someone's battle: its kind, its HP, and where it goes. */
 export interface Bar {
 	key: string;
 	species: string;
-	nickname: string | null;
 	hp: number;
 	maxHp: number;
 	x: number;

@@ -80,7 +80,7 @@ function setup() {
 
 const view = (patch: Partial<FightView> = {}): FightView => ({
 	realm: 'land',
-	a: { species: 'squirrel', nickname: 'Pip', hp: 20 },
+	a: { species: 'squirrel', hp: 20 },
 	b: { species: 'brown-rat', hp: 22 },
 	turn: 'a',
 	puzzle: null,
@@ -135,10 +135,8 @@ describe('a wild battle seen from outside', () => {
 		expect(s.trainer('ada').rotation.y).toBeCloseTo(FACING_ANGLE.left);
 		const marks = s.fights.marks();
 		expect(marks.thoughts.get('ada')).toMatchObject({ puzzle: null, mood: null, beat: 0 });
-		expect(
-			marks.bars.map((b) => [b.animal.nickname ?? b.animal.species, b.animal.hp, b.maxHp])
-		).toEqual([
-			['Pip', 20, 20],
+		expect(marks.bars.map((b) => [b.animal.species, b.animal.hp, b.maxHp])).toEqual([
+			['squirrel', 20, 20],
 			['brown-rat', 22, 22]
 		]);
 		// A small animal is drawn bigger in a battle, so it reads from across the screen.
@@ -166,7 +164,7 @@ describe('a wild battle seen from outside', () => {
 		s.fights.show(
 			fight(
 				{
-					a: { species: 'squirrel', nickname: 'Pip', hp: 18 },
+					a: { species: 'squirrel', hp: 18 },
 					b: { species: 'brown-rat', hp: 15 }
 				},
 				[
@@ -261,7 +259,7 @@ describe('a wild battle seen from outside', () => {
 	it('shows a switch as a poof and a new animal, and a knock-out as an animal lying down', () => {
 		const s = adaInABattle();
 		s.fights.show(
-			fight({ a: { species: 'squirrel', nickname: 'Pip', hp: 0 } }, [
+			fight({ a: { species: 'squirrel', hp: 0 } }, [
 				{ type: 'hit', attacker: 'b', level: 2, damage: 20, hp: 0 },
 				{ type: 'fainted', side: 'a' }
 			])
@@ -319,7 +317,7 @@ describe('a wild battle seen from outside', () => {
 		// was fought (her squirrel lying down, the rat hopping), without her, and then it clears.
 		const lost = adaInABattle();
 		lost.fights.show(
-			fight({ a: { species: 'squirrel', nickname: 'Pip', hp: 0 }, turn: null }, [
+			fight({ a: { species: 'squirrel', hp: 0 }, turn: null }, [
 				{ type: 'hit', attacker: 'b', level: 1, damage: 20, hp: 0 },
 				{ type: 'fainted', side: 'a' },
 				{ type: 'ended', winner: 'b', how: 'tired' }
