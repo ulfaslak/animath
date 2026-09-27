@@ -220,6 +220,32 @@ describe('presence on the page', () => {
 		expect(s.sentOf('where').at(-1)).toMatchObject({ busy: 'battle' });
 	});
 
+	it('never draws or lists the player themselves, whatever the server says', () => {
+		const s = setup();
+		s.start();
+		s.connect();
+		const me = 'mine000001';
+		s.socket().say({
+			t: 'peer',
+			pid: me,
+			name: 'Ada',
+			x: game.pos.x,
+			y: game.pos.y,
+			facing: 'down',
+			lead: null,
+			boat: false,
+			busy: 'explore'
+		});
+		s.socket().say({
+			t: 'roster',
+			world: 1,
+			players: [{ pid: me, name: 'Ada', bearing: 0, steps: 0, busy: 'explore' }]
+		});
+		s.frame();
+		expect(s.others.pids()).toEqual([]);
+		expect(presence.roster).toEqual([]);
+	});
+
 	it('moves to another world with the player: the next where names it, and nobody from the last is shown', () => {
 		const s = setup();
 		s.start();

@@ -299,20 +299,24 @@ export class PresenceController {
 				this.confirmBy = this.unconfirmed.size > 0 ? now + CONFIRM_SECONDS : null;
 				break;
 			case 'peer':
+				// Never the player themselves: nobody is drawn twice, whatever a server says.
+				if (m.pid === this.connection.pid) break;
 				this.unconfirmed.delete(m.pid);
 				others.seen(m);
 				break;
 			case 'gone':
 				others.gone(m.pid);
 				break;
-			case 'roster':
+			case 'roster': {
 				if (m.world !== this.who.world) break;
-				presence.roster = m.players;
+				const players = m.players.filter((p) => p.pid !== this.connection.pid);
+				presence.roster = players;
 				this.notes.roster(
-					m.players.map((p) => p.name),
+					players.map((p) => p.name),
 					now
 				);
 				break;
+			}
 			case 'found': {
 				if (this.finding?.pid !== m.pid) break;
 				const name = this.finding.name;
