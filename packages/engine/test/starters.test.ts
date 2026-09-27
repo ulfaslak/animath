@@ -3,7 +3,8 @@ import { ANIMALS, getAnimal } from '../src/animals/catalog.js';
 import { MAX_NICKNAME_LENGTH } from '../src/party/names.js';
 import { STARTERS, STARTER_TIER, chooseStarter, isStarter } from '../src/party/starters.js';
 import { STARTER_SPECIES, newGame, validateSaveWrite, saveDocument } from '../src/save.js';
-import { spawnPoint } from '../src/world/generate.js';
+import { spawnPoint } from '../src/world/spawn.js';
+import { worldSeed } from '../src/world/worlds.js';
 
 /**
  * Starting out: a new game starts with a starter the player picks, and only
@@ -83,13 +84,15 @@ describe('starters', () => {
 });
 
 describe('newGame with a starter', () => {
-	const SEED = 12345;
+	const WORLD = 1234;
 
-	it('puts the chosen starter alone in the party, at the spawn tile, facing down, nothing walked, owned or cleared', () => {
-		const game = newGame(SEED, { id: 'a1', speciesId: 'rabbit', nickname: 'Hop', hp: 22 });
+	it('puts the chosen starter alone in the party, at the spawn tile of its home world, facing down, nothing walked, owned or cleared', () => {
+		const game = newGame(WORLD, { id: 'a1', speciesId: 'rabbit', nickname: 'Hop', hp: 22 }, 'Ida');
 		expect(game).toStrictEqual({
-			seed: SEED,
-			pos: spawnPoint(SEED),
+			name: 'Ida',
+			home: WORLD,
+			world: WORLD,
+			pos: spawnPoint(worldSeed(WORLD)),
 			facing: 'down',
 			steps: 0,
 			visits: 0,
@@ -97,7 +100,8 @@ describe('newGame with a starter', () => {
 			tokens: 0,
 			items: [],
 			battle: null,
-			edits: []
+			edits: [],
+			worlds: []
 		});
 		// A game that starts this way saves like any other.
 		expect(validateSaveWrite(saveDocument(game, { lineage: 'L', seq: 1 })).ok).toBe(true);
@@ -105,7 +109,7 @@ describe('newGame with a starter', () => {
 
 	it('copies the starter it is given', () => {
 		const starter = { id: 'a1', speciesId: 'squirrel', hp: 20 };
-		const game = newGame(SEED, starter);
+		const game = newGame(WORLD, starter);
 		game.party[0]!.hp = 3;
 		expect(starter.hp).toBe(20);
 	});

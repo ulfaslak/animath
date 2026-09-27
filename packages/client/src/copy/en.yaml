@@ -691,6 +691,17 @@ title:
     back: No, go back
     yes: Yes, new game
     keys: ↑ ↓ choose · Enter pick · Esc back
+  # The name box for the player's own name: a new game's first question, and Continue's
+  # once for a game saved before players had names.
+  player:
+    title: What's your name?
+    # Above the box on Continue, for a game saved before players had names.
+    waiting: Your animals are waiting for you!
+    keys: Enter done · Esc back
+    # The card's button that goes on, as Enter does: to the starters of a new game.
+    next: Next
+    # The same button on Continue: into the saved game.
+    go: "Let's go!"
   # The starters side by side.
   starter:
     title: Pick your first animal!
@@ -708,3 +719,15 @@ title:
     start: "Let's go!"
   # The card's button that goes back a screen, as Escape does.
   back: Back
+
+# A player's own name: what other players see above their character.
+playerName:
+  # Under a name box: what a name may be. {min}, {max}: how many letters at least and at most.
+  rule: '{min} to {max} letters or numbers.'
+  # Why a name did not go, under the box. Kind: the kid just tries again.
+  refused:
+    empty: Type your name first.
+    short: A name needs at least {min} letters.
+    long: "That's a long one! {max} letters at most."
+    chars: Only letters and numbers, please.
+    rude: "Let's pick another name."

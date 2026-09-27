@@ -6,8 +6,14 @@
 
 /** Every key the game keeps. Other per-device settings get keys of their own, never the save's. */
 export const KEYS = {
-	/** The save document (`SaveV1`). */
+	/** The save document (`SaveV2`). */
 	save: 'animath.save',
+	/**
+	 * A save an older build wrote, kept as it was, text and all, before this
+	 * build's first save of the game took its place (the game itself goes on,
+	 * upgraded, in `save`).
+	 */
+	upgraded: 'animath.save.upgraded',
 	/** `{ id, secret }` for the server backup. */
 	player: 'animath.player',
 	/** A save this build could not read, moved here before a new game took its place. */

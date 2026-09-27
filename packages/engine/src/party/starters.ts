@@ -34,6 +34,8 @@ export type NewGameRejection =
 	| 'not-a-starter'
 	/** A nickname came that is not text. */
 	| 'not-text'
+	/** A player's name came that `checkName` refuses. The authority's check. */
+	| 'not-a-name'
 	/** A game is under way: a new one starts only from the title. The authority's rule. */
 	| 'game-in-progress';
 

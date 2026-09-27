@@ -1,7 +1,7 @@
 import {
+	WORLD_ONE_SEED,
 	canReplace,
 	getAnimal,
-	hashString,
 	newGame,
 	readSave,
 	restoreGame,
@@ -29,7 +29,8 @@ import { KEYS, type KeyValueStore } from '../src/save/storage';
  * and the server backup never blocks or breaks the game.
  */
 
-const SEED = hashString('prototype');
+/** World 1: every game in these tests is played there. */
+const WORLD = 1;
 
 class MemoryStore implements KeyValueStore {
 	data = new Map<string, string>();
@@ -143,7 +144,7 @@ class Tab {
 		public server: FakeServer | null,
 		options: { throwaway?: boolean } = {}
 	) {
-		this.game = newGame(SEED);
+		this.game = newGame(WORLD);
 		this.autosave = new Autosave({
 			store,
 			server,
@@ -177,7 +178,7 @@ class Tab {
 	/** A starter picked on the title: the authority's new game, and its `welcome`. */
 	async startNew(speciesId = 'rabbit'): Promise<void> {
 		const hp = getAnimal(speciesId).maxHp;
-		this.game = newGame(SEED, { id: `starter-${this.ids++}`, speciesId, hp });
+		this.game = newGame(WORLD, { id: `starter-${this.ids++}`, speciesId, hp });
 		this.autosave.handle({ type: 'welcome', newGame: true } as GameEvent);
 		await settle();
 	}
@@ -191,7 +192,7 @@ class Tab {
 	/** Boot and begin, as `main.ts` does; the game is whatever the plan says. */
 	async open(): Promise<{ game?: SavedGame; notice?: string }> {
 		const plan = await this.autosave.boot();
-		this.game = plan.game ? JSON.parse(JSON.stringify(plan.game)) : newGame(SEED);
+		this.game = plan.game ? JSON.parse(JSON.stringify(plan.game)) : newGame(WORLD);
 		// What `authority.start(plan)` emits, before `begin` — as in main.ts.
 		this.autosave.handle({ type: 'welcome' } as GameEvent);
 		if (this.game.battle) this.autosave.handle({ type: 'battle-started' } as GameEvent);
@@ -262,7 +263,13 @@ describe('Autosave: the save in this browser', () => {
 		const tab = new Tab(store, server);
 		expect(await tab.open()).toEqual({});
 		const saved = store.save()!;
-		expect(saved).toMatchObject({ version: 1, seq: 1, seed: SEED, party: newGame(SEED).party });
+		expect(saved).toMatchObject({
+			version: 2,
+			seq: 1,
+			world: WORLD,
+			home: WORLD,
+			party: newGame(WORLD).party
+		});
 		expect(saved.lineage).toBeTruthy();
 		const who = identityIn(store)!;
 		expect(who).toBeTruthy();
@@ -445,7 +452,7 @@ describe('Autosave: the save in this browser', () => {
 
 	it("a newer build's save is never touched, and the server is left alone", async () => {
 		const store = new MemoryStore();
-		const newer = JSON.stringify({ version: 2, whatever: true });
+		const newer = JSON.stringify({ version: 3, whatever: true });
 		store.set(KEYS.save, newer);
 		const server = new FakeServer();
 		const tab = new Tab(store, server);
@@ -455,6 +462,130 @@ describe('Autosave: the save in this browser', () => {
 		await later();
 		expect(store.get(KEYS.save)).toBe(newer);
 		expect(server.calls).toEqual([]);
+	});
+
+	it("an older build's save plays on upgraded, and its text is kept as it was before the first write takes the key", async () => {
+		const store = new MemoryStore();
+		// A save the build before numbered worlds wrote: version 1, the world by its seed.
+		const old = JSON.stringify({
+			version: 1,
+			seed: WORLD_ONE_SEED,
+			pos: { x: -2, y: 6 },
+			facing: 'left',
+			steps: 5957,
+			visits: 34,
+			party: [{ id: 'nini', speciesId: 'rabbit', nickname: 'nini', hp: 22 }],
+			tokens: 9,
+			items: ['axe', 'boat'],
+			edits: ['0,0:11'],
+			lineage: 'kids-real-game',
+			seq: 19549
+		});
+		store.set(KEYS.save, old);
+		const server = new FakeServer();
+		const tab = new Tab(store, server);
+		const plan = await tab.open();
+		expect(plan.notice).toBe('save.welcomeBack');
+		expect(plan.game).toMatchObject({ world: 1, home: 1, name: null, steps: 5957, tokens: 9 });
+		// Nothing written yet: the key still holds the old text, and nothing is kept aside.
+		expect(store.get(KEYS.save)).toBe(old);
+		expect(store.get(KEYS.upgraded)).toBeNull();
+		await tab.walk();
+		expect(store.get(KEYS.upgraded)).toBe(old);
+		expect(store.save()).toMatchObject({
+			version: 2,
+			world: 1,
+			home: 1,
+			lineage: 'kids-real-game',
+			seq: 19550,
+			tokens: 9,
+			items: ['axe', 'boat'],
+			edits: ['0,0:11']
+		});
+		// Kept once: later saves are this build's own.
+		await tab.walk();
+		await tab.catchOne();
+		expect(store.get(`${KEYS.upgraded}.2`)).toBeNull();
+		await later();
+		expect(server.saveOf(identityIn(store)!)).toMatchObject({ version: 2, seq: 19552 });
+	});
+
+	it("an older build's save is kept beside one kept before, and with nowhere left to keep it, the game saves all the same", async () => {
+		const old = JSON.stringify({
+			version: 1,
+			seed: WORLD_ONE_SEED,
+			pos: { x: -2, y: 6 },
+			party: []
+		});
+		const beside = new MemoryStore();
+		beside.set(KEYS.upgraded, 'kept before');
+		beside.set(KEYS.save, old);
+		const tab = new Tab(beside, null);
+		await tab.open();
+		await tab.walk();
+		expect(beside.get(KEYS.upgraded)).toBe('kept before');
+		expect(beside.get(`${KEYS.upgraded}.2`)).toBe(old);
+
+		const full = new MemoryStore();
+		full.set(KEYS.upgraded, 'kept 1');
+		for (let n = 2; n <= 20; n++) full.set(`${KEYS.upgraded}.${n}`, `kept ${n}`);
+		full.set(KEYS.save, old);
+		const stuck = new Tab(full, null);
+		await stuck.open();
+		await stuck.catchOne();
+		expect(full.save()).toMatchObject({ version: 2, world: 1 });
+		// The starter the empty v1 party was given, and the one caught.
+		expect(full.save()!.party).toHaveLength(2);
+		expect(full.get(KEYS.upgraded)).toBe('kept 1');
+		expect(full.get(`${KEYS.upgraded}.20`)).toBe('kept 20');
+		expect(stuck.autosave.titleNotice).toBeNull();
+
+		// Storage too full for a second copy, room for the save itself: the save goes on.
+		class NoRoomAside extends MemoryStore {
+			override set(key: string, value: string): boolean {
+				return key.startsWith(KEYS.upgraded) ? false : super.set(key, value);
+			}
+		}
+		const tight = new NoRoomAside();
+		tight.set(KEYS.save, old);
+		const cramped = new Tab(tight, null);
+		await cramped.open();
+		await cramped.catchOne();
+		await cramped.walk();
+		expect(tight.save()).toMatchObject({ version: 2, world: 1, seq: 2, steps: 1 });
+		expect(tight.get(KEYS.upgraded)).toBeNull();
+		expect(cramped.autosave.titleNotice).toBeNull();
+		// And a reload carries on from it, not from the older save.
+		const again = new Tab(tight, null);
+		expect((await again.open()).game).toMatchObject({ steps: 1 });
+	});
+
+	it('going to another world and choosing a name are playing: saved at once', async () => {
+		const broken = '{"version":1,"broken":true}';
+		for (const event of [
+			{
+				type: 'travelled',
+				playerId: 'local',
+				world: 42,
+				seed: 1,
+				pos: { x: 0, y: 0 },
+				facing: 'down',
+				edits: [],
+				firstVisit: true
+			},
+			{ type: 'name-chosen', playerId: 'local', name: 'Nini' }
+		] as GameEvent[]) {
+			const store = new MemoryStore();
+			store.set(KEYS.save, broken);
+			const tab = new Tab(store, null);
+			await tab.open();
+			await tab.play((g) => {
+				g.world = 42;
+				g.name = 'Nini';
+			}, event);
+			expect(store.get(KEYS.unreadable), event.type).toBe(broken);
+			expect(store.save(), event.type).toMatchObject({ world: 42, name: 'Nini' });
+		}
 	});
 
 	it('with no storage the game plays and says it cannot keep the game; ?new plays and says nothing', async () => {
@@ -767,7 +898,7 @@ describe('Autosave: two tabs, each with the real authority', () => {
 	}
 
 	function savedAt(store: MemoryStore, game: Partial<SavedGame>): void {
-		const base = newGame(SEED);
+		const base = newGame(WORLD);
 		store.set(
 			KEYS.save,
 			JSON.stringify(saveDocument({ ...base, ...game }, { lineage: 'kid-game', seq: 1 }))
@@ -835,7 +966,7 @@ describe('Autosave: two tabs, each with the real authority', () => {
 			const probe = new LocalAuthority();
 			const seen: GameEvent[] = [];
 			probe.subscribe((e) => seen.push(e));
-			probe.start({ game: { ...newGame(SEED), steps } });
+			probe.start({ game: { ...newGame(WORLD), steps } });
 			probe.dispatch({ type: 'move', dir: 'left' });
 			if (seen.some((e) => e.type === 'battle-started')) break;
 		}
@@ -873,7 +1004,10 @@ describe('Autosave: two tabs, each with the real authority', () => {
 describe('Autosave: the server backup', () => {
 	it('with an identity but no save here, start waits briefly for the server and takes its game', async () => {
 		const server = new FakeServer();
-		const theirs = { ...newGame(SEED), version: 1, lineage: 'from-server', seq: 40, steps: 55 };
+		const theirs = {
+			...saveDocument(newGame(WORLD), { lineage: 'from-server', seq: 40 }),
+			steps: 55
+		};
 		theirs.party = [...theirs.party, { id: 'fox', speciesId: 'fox', hp: 9 }];
 		const who = server.seed(theirs);
 		const store = new MemoryStore();
@@ -887,7 +1021,10 @@ describe('Autosave: the server backup', () => {
 
 	it('an unknown server game at start (offline) is found later; the bigger game wins and this tab reloads', async () => {
 		const server = new FakeServer();
-		const theirs = { ...newGame(SEED), version: 1, lineage: 'from-server', seq: 40, steps: 55 };
+		const theirs = {
+			...saveDocument(newGame(WORLD), { lineage: 'from-server', seq: 40 }),
+			steps: 55
+		};
 		const who = server.seed(theirs);
 		const store = new MemoryStore();
 		store.set(KEYS.player, JSON.stringify(who));
@@ -968,7 +1105,7 @@ describe('Autosave: the server backup', () => {
 
 	it("with no save here, a newer build's backup gives a new game that says so and never sends", async () => {
 		const server = new FakeServer();
-		const newer = { version: 2, seq: 9, whatever: true };
+		const newer = { version: 3, seq: 9, whatever: true };
 		const who = server.seed(newer);
 		const store = new MemoryStore();
 		store.set(KEYS.player, JSON.stringify(who));
@@ -983,7 +1120,7 @@ describe('Autosave: the server backup', () => {
 
 	it('a server save from before seq and lineage never sends the page round a reload loop', async () => {
 		const server = new FakeServer();
-		const legacy = { version: 1, seed: SEED, pos: { x: -2, y: 6 }, party: [] };
+		const legacy = { version: 1, seed: WORLD_ONE_SEED, pos: { x: -2, y: 6 }, party: [] };
 		const who = server.seed(legacy);
 		const store = new MemoryStore();
 		store.set(KEYS.player, JSON.stringify(who));
@@ -1007,7 +1144,7 @@ describe('Autosave: the server backup', () => {
 
 	it('a game adopted from the server never overwrites a game already kept aside', async () => {
 		const server = new FakeServer();
-		const theirs = { ...newGame(SEED), version: 1, lineage: 'from-server', seq: 40 };
+		const theirs = { ...saveDocument(newGame(WORLD), { lineage: 'from-server', seq: 40 }) };
 		const who = server.seed(theirs);
 		const store = new MemoryStore();
 		store.set(KEYS.player, JSON.stringify(who));
@@ -1026,7 +1163,7 @@ describe('Autosave: the server backup', () => {
 
 	it("a newer build's save on the server is never overwritten", async () => {
 		const server = new FakeServer();
-		const newer = { version: 2, seq: 3 };
+		const newer = { version: 3, seq: 3 };
 		const who = server.seed(newer);
 		const store = new MemoryStore();
 		const first = new Tab(store, server);
@@ -1140,7 +1277,7 @@ describe('Autosave: the server backup', () => {
 	it('a tab taking the server’s game in the same instant another tab saves a catch: the catch is kept aside', async () => {
 		const store = new MemoryStore();
 		const server = new FakeServer();
-		const theirs = { ...newGame(SEED), version: 1, lineage: 'from-server', seq: 40 };
+		const theirs = { ...saveDocument(newGame(WORLD), { lineage: 'from-server', seq: 40 }) };
 		const who = server.seed(theirs);
 		const first = new Tab(store, null);
 		await first.open();
@@ -1227,7 +1364,7 @@ describe('Autosave: the title', () => {
 		expect(says(blocked)).toEqual(['save.cannotSave', false]);
 		// A newer build's save waiting: every title says so, and it is never touched.
 		const store = new MemoryStore();
-		const newer = JSON.stringify({ version: 2, whatever: true });
+		const newer = JSON.stringify({ version: 3, whatever: true });
 		store.set(KEYS.save, newer);
 		const frozen = new Tab(store, null);
 		await frozen.title();
@@ -1238,7 +1375,7 @@ describe('Autosave: the title', () => {
 		expect(store.get(KEYS.save)).toBe(newer);
 		// A newer build's game on the server, none here: every title says so; a new game is kept here.
 		const server = new FakeServer();
-		const who = server.seed({ version: 2, whatever: true });
+		const who = server.seed({ version: 3, whatever: true });
 		const fresh = new MemoryStore();
 		fresh.set(KEYS.player, JSON.stringify(who));
 		const behindServer = new Tab(fresh, server);
@@ -1270,7 +1407,7 @@ describe('Autosave: the title', () => {
 
 	/** A saved game with progress in it, as this browser holds it: `seq` 5, a caught fox. */
 	function savedGame(store: MemoryStore, lineage = 'old-game'): string {
-		const game = newGame(SEED);
+		const game = newGame(WORLD);
 		game.party.push({ id: 'fox-1', speciesId: 'fox', nickname: 'Rusty', hp: 9 });
 		// As the game writes it (`saveDocument`): no battle, no `battle` key.
 		const text = JSON.stringify(saveDocument(game, { lineage, seq: 5 }));
@@ -1369,7 +1506,7 @@ describe('Autosave: the title', () => {
 	it('a new game started while the server was out of reach never puts away a game the title did not show', async () => {
 		const server = new FakeServer();
 		// The kid's real game is on the server; this browser has lost its own copy.
-		const theirs = { ...newGame(SEED), version: 1, lineage: 'kids-real-game', seq: 50 };
+		const theirs = { ...saveDocument(newGame(WORLD), { lineage: 'kids-real-game', seq: 50 }) };
 		theirs.party = [...theirs.party, { id: 'bear-1', speciesId: 'bear', hp: 100 }];
 		const who = server.seed(theirs);
 		const store = new MemoryStore();
@@ -1413,7 +1550,7 @@ describe('Autosave: the title', () => {
 		const store = new MemoryStore();
 		savedGame(store);
 		// The server holds the old game further on than this browser does.
-		const ahead = { ...newGame(SEED), version: 1, lineage: 'old-game', seq: 50 };
+		const ahead = { ...saveDocument(newGame(WORLD), { lineage: 'old-game', seq: 50 }) };
 		const who = server.seed(ahead);
 		store.set(KEYS.player, JSON.stringify(who));
 		const tab = new Tab(store, server);

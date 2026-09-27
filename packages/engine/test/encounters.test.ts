@@ -14,7 +14,8 @@ import {
 	type EncounterEntry,
 	type EncounterSite
 } from '../src/world/encounters.js';
-import { generateChunk, spawnPoint, tileAtWorld } from '../src/world/generate.js';
+import { generateChunk, tileAtWorld } from '../src/world/generate.js';
+import { spawnPoint } from '../src/world/spawn.js';
 import { surroundings, type Surroundings } from '../src/world/habitat.js';
 import { isEncounterTile, type GridPos, type Tile, type TileKind } from '../src/world/types.js';
 

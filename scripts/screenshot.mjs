@@ -38,8 +38,8 @@
  * A selector never holds a comma (the script's separator); `:nth-child(2)`
  * and friends are fine.
  * The final frame goes to `--out`. After every frame the script prints what
- * the screen says — on the title its menu, the confirm, the starters and the
- * name box; the message line in explore (and the grid position and
+ * the screen says — on the title its menu, the confirm, the player's name
+ * box, the starters and the starter's name box; the message line in explore (and the grid position and
  * facing with `?debug` in the URL), the party cards (and an open card's
  * animals) and the tokens and tools in the corner; in the pause menu its
  * rows, the picked animal's options and the name box (with whether it has
@@ -225,7 +225,8 @@ async function textOf(selector) {
 async function describe() {
 	const lines = [];
 	// The title: its menu rows (the lit one in brackets), the confirm's choices,
-	// the starters' name tags (the lit one in brackets) and the card under them.
+	// the player's name box, the starters' name tags (the lit one in brackets)
+	// and the card under them.
 	const lit = (selector) =>
 		page.locator(selector).evaluateAll((els) =>
 			els.map((el) => {
@@ -238,6 +239,13 @@ async function describe() {
 	const confirm = await textOf('.confirm .heading');
 	if (confirm !== null)
 		lines.push(`confirm: ${confirm} ${(await lit('.confirm .row')).join(' | ')}`);
+	// The player's name box: its question, what is typed, and the rule or why a name did not go.
+	const playerName = await textOf('.player-card .heading');
+	if (playerName !== null) {
+		const typed = await page.locator('.player-card .name-box').inputValue();
+		const note = await textOf('.player-card .note');
+		lines.push(`player: ${playerName} [${typed}]${note === null ? '' : ` — ${note}`}`);
+	}
 	const starters = await lit('.starter-screen .tag');
 	if (starters.length) lines.push(`starters: ${starters.join(' | ')}`);
 	const starterCard = await textOf('.starter-card .heading');
