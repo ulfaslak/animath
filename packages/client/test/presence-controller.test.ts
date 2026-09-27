@@ -137,7 +137,7 @@ function setup(options: { name?: string | null; throwaway?: boolean; session?: n
 	const connect = () => {
 		socket().readyState = 1;
 		socket().onopen?.({});
-		socket().say({ t: 'hi', v: PROTOCOL_VERSION, pid: 'mine000001', name: 'Ada' });
+		socket().say({ t: 'hi', v: PROTOCOL_VERSION, pid: 'mine000001', name: 'Ada', match: null });
 	};
 	/** A frame, as main.ts runs one: timers due, the others drawn, then presence. */
 	const frame = (seconds = 0.1) => {

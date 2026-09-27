@@ -21,6 +21,13 @@ import { attackName } from '../names';
 export const WILD_MOVES = ['leash', 'switch', 'run'] as const;
 export type WildMove = (typeof WILD_MOVES)[number];
 
+/** A friendly match's moves: Switch, then Leave (the other player wins). */
+export const MATCH_MOVES = ['switch', 'leave'] as const;
+export type MatchMove = (typeof MATCH_MOVES)[number];
+
+/** Any move of either row. */
+export type FightMove = WildMove | MatchMove;
+
 /** What a row of the action menu does: every attack in order, then the moves. */
 export type BattleAction<M extends string = WildMove> =
 	{ kind: 'attack'; index: number } | { kind: M };

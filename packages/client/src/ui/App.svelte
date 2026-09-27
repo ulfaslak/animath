@@ -12,9 +12,11 @@
 	import { travel } from '../state/travel.svelte';
 	import BattlePanel from './BattlePanel.svelte';
 	import BehindCard from './BehindCard.svelte';
+	import ChallengeButton from './ChallengeButton.svelte';
 	import DoctorCard from './DoctorCard.svelte';
 	import Hud from './Hud.svelte';
 	import Iris from './Iris.svelte';
+	import MatchCard from './MatchCard.svelte';
 	import Others from './Others.svelte';
 	import PauseMenu from './PauseMenu.svelte';
 	import PresenceNote from './PresenceNote.svelte';
@@ -46,6 +48,9 @@
 	<!-- Not under a trip's cover, which takes no key: a thumb that lands there presses nothing. -->
 	{#if touch.on && !travel.active}<TouchControls />{/if}
 	<PresenceNote />
+	<!-- Friendly matches over the world: the Challenge button, and the invite. -->
+	<ChallengeButton />
+	<MatchCard />
 {/if}
 
 <SoundChip low={title.open} />

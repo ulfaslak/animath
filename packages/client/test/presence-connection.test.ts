@@ -118,7 +118,7 @@ function where(x: number, patch: Partial<WhereMessage> = {}): WhereMessage {
 	};
 }
 
-const hi = { t: 'hi', v: PROTOCOL_VERSION, pid: 'abcdef123', name: 'Ada' } as const;
+const hi = { t: 'hi', v: PROTOCOL_VERSION, pid: 'abcdef123', name: 'Ada', match: null } as const;
 
 describe('the presence connection', () => {
 	it('says hello on opening, is on after hi, and then says where it is', () => {

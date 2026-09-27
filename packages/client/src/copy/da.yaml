@@ -25,6 +25,7 @@ app:
 keys:
   esc: Esc
   enter: Enter
+  challenge: C
 
 species:
   squirrel:
@@ -34,6 +35,7 @@ species:
     wild: vildt egern
     aWild: et vildt egern
     theWild: det vilde egern
+    bare: egern
     attacks:
       nut-toss: Nøddekast
       scurry-kick: Lynspark
@@ -44,6 +46,7 @@ species:
     wild: vild kanin
     aWild: en vild kanin
     theWild: den vilde kanin
+    bare: kanin
     attacks:
       hop: Hop
       thump: Stamp
@@ -55,6 +58,7 @@ species:
     wild: vild frø
     aWild: en vild frø
     theWild: den vilde frø
+    bare: frø
     attacks:
       croak: Kvæk
       tongue-flick: Tungesnert
@@ -66,6 +70,7 @@ species:
     wild: vild ræv
     aWild: en vild ræv
     theWild: den vilde ræv
+    bare: ræv
     attacks:
       nip: Nap
       pounce: Spring
@@ -77,6 +82,7 @@ species:
     wild: vild odder
     aWild: en vild odder
     theWild: den vilde odder
+    bare: odder
     attacks:
       splash: Plask
       tail-whip: Halesmæk
@@ -87,6 +93,7 @@ species:
     wild: vild hjort
     aWild: en vild hjort
     theWild: den vilde hjort
+    bare: hjort
     attacks:
       kick: Spark
       antler-charge: Hornstød
@@ -97,6 +104,7 @@ species:
     wild: vild ulv
     aWild: en vild ulv
     theWild: den vilde ulv
+    bare: ulv
     attacks:
       bite: Bid
       howl: Hyl
@@ -108,6 +116,7 @@ species:
     wild: vild bjørn
     aWild: en vild bjørn
     theWild: den vilde bjørn
+    bare: bjørn
     attacks:
       swipe: Labeslag
       roar: Brøl
@@ -121,6 +130,7 @@ species:
     wild: vild krabbe
     aWild: en vild krabbe
     theWild: den vilde krabbe
+    bare: krabbe
     attacks:
       pinch: Knib
       claw-clap: Kloklap
@@ -132,6 +142,7 @@ species:
     wild: vild søstjerne
     aWild: en vild søstjerne
     theWild: den vilde søstjerne
+    bare: søstjerne
     attacks:
       spin: Snurretur
       arm-slap: Armklask
@@ -143,6 +154,7 @@ species:
     wild: vild skildpadde
     aWild: en vild skildpadde
     theWild: den vilde skildpadde
+    bare: skildpadde
     attacks:
       flipper-flap: Luffeplask
       shell-bump: Skjoldstød
@@ -153,6 +165,7 @@ species:
     wild: vild delfin
     aWild: en vild delfin
     theWild: den vilde delfin
+    bare: delfin
     attacks:
       click: Klik
       leap: Delfinspring
@@ -163,6 +176,7 @@ species:
     wild: vild blæksprutte
     aWild: en vild blæksprutte
     theWild: den vilde blæksprutte
+    bare: blæksprutte
     attacks:
       wiggle: Vrik
       ink-puff: Blæksky
@@ -174,6 +188,7 @@ species:
     wild: vild hval
     aWild: en vild hval
     theWild: den vilde hval
+    bare: hval
     attacks:
       bubbles: Bobler
       whale-song: Hvalsang
@@ -600,6 +615,95 @@ presence:
     doctor: hos dyrlægen
     menu: holder pause
     match: kæmper mod en ven
+match:
+  whose: '{name}s'
+  whoseAfterS: "{name}'"
+  button:
+    challenge: 'Udfordr {name}'
+    busy: '{name} har travlt lige nu.'
+    theyWater: '{name} er ude på vandet.'
+    water: Du er ude på vandet. Kampe er på land.
+    noTeam: Du skal have et dyr, der kan kæmpe på land.
+    wait: 'Spørg {name} igen om lidt.'
+  invite:
+    title: '{name} vil have en venskabskamp!'
+    'yes': Ja!
+    'no': Nej tak
+    asking: 'Spørger {name}…'
+    neverMind: Glem det
+    starting: Så kører vi!
+  said:
+    'no': '{name} sagde nej denne gang.'
+    expired: '{name} svarede ikke.'
+    withdrawn: '{name} ombestemte sig.'
+    gone: '{name} måtte gå.'
+    moved: '{name} gik væk.'
+    busy: '{name} har travlt lige nu.'
+    taken: '{name} er i gang med en anden. Prøv igen om lidt!'
+    wait: 'Spørg {name} igen om lidt.'
+    no-team: Du skal have et dyr, der kan kæmpe på land.
+    their-team: '{name} har intet dyr, der kan kæmpe på land.'
+    lost: 'Kan ikke nå {name} lige nu. Prøv igen om lidt!'
+    updating: Spillet bliver opdateret. Prøv igen om lidt!
+    youLeft: Du forlod kampen.
+  vs: 'En venskabskamp med {name}!'
+  youStart: Du starter!
+  theyStart: '{name} starter!'
+  backIn: 'Tilbage i kampen med {name}!'
+  thinking: '{name} tænker…'
+  picking: '{name} vælger, hvem der skal ind…'
+  theyTry: '{whose} {animal.bare} prøver {attack}!'
+  theyRight: '{name} fik den!'
+  theyWrong: '{name} fik den ikke.'
+  theirUsed: '{whose} {animal.bare} bruger {attack}!'
+  usedDamage: '{animal.the} bruger {attack}! {whose} {target.bare} mister {damage} point.'
+  theirUsedDamage: '{whose} {animal.bare} bruger {attack}! {target.the} mister {damage} point.'
+  youMissed: 'Forbi! {whose} {animal.bare} ryster det af sig.'
+  theirMissed: '{whose} {animal.bare} bruger {attack}! Forbi!'
+  theirTired: '{whose} {animal.bare} er træt!'
+  theirGo: '{name} sender {animal.the} ind!'
+  theirComeBack: '{name} kalder {animal.the} tilbage.'
+  theirName: '{whose} {animal.bare}'
+  theirTurn: '{whose} tur'
+  attackDetail: '{attack} på {level}: {kinds}. {whose} {animal.bare} mister {damage} point.'
+  tiresOut: Så bliver dyret træt!
+  switch:
+    alone: Du har kun ét dyr med i den her kamp.
+    sendIn: 'Send {animal.the} ind. Så er det {whose} tur.'
+  leave:
+    row: Forlad
+    title: Forlad kampen
+    detail: '{name} vinder, og du går på opdagelse igen.'
+  result:
+    won: Du vandt!
+    wonText: 'Sikke en kamp, {name}!'
+    lost: '{name} vandt denne gang!'
+    lostText: Godt kæmpet! Skal I spille igen?
+    theyLeft: '{name} forlod kampen.'
+    hadToGo: '{name} måtte gå.'
+    wanderedOff: '{name} gik fra spillet.'
+    idle: '{name} vinder den her.'
+    idleText: Du var væk fra kampen et stykke tid.
+    missed: Kampen er slut.
+    missedText: Den sluttede, mens du var væk.
+  rematch:
+    button: Omkamp?
+    waiting: 'Venter på {name}…'
+    theyWant: '{name} vil have omkamp!'
+    went: '{name} gik på opdagelse igen.'
+  back: Gå på opdagelse
+  resultKeys: ← → flyt · Enter vælg
+  updating:
+    title: Spillet bliver opdateret.
+    text: Lad os spille igen om lidt!
+    waiting: 'Venter på, at {name} kommer tilbage…'
+    asked: '{name} vil spille igen!'
+    again: Spil igen
+  notes:
+    offline: Finder kampen igen…
+    away: '{name} røg ud. Vi venter… {seconds}'
+    stillThere: Er du der stadig?
+    here: Jeg er her!
 worlds:
   world: 'Verden {world}'
   title: Verdener

@@ -82,7 +82,10 @@ export interface MatchHooks {
 	status(status: PresenceStatus): void;
 	peer(message: PeerMessage): void;
 	gone(pid: string): void;
+	/** The others see this player in a match. */
 	readonly busy: boolean;
+	/** A match's screen or card is up: presence's notes and names keep off it. */
+	readonly onScreen: boolean;
 }
 
 /** The server's messages about friendly matches, which go to `MatchHooks`. */
@@ -425,7 +428,7 @@ export class PresenceController {
 			!battle.active &&
 			!doctor.active &&
 			!pause.open &&
-			!this.options.match?.busy
+			!this.options.match?.onScreen
 		);
 	}
 
