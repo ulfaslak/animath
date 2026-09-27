@@ -171,7 +171,7 @@ The same voice for a Danish seven-year-old reading alone: short, warm, one idea 
 | Raccoon  | vaskebjørn | en  | vaskebjørnen | en vild vaskebjørn | den vilde vaskebjørn |
 | Beaver   | bæver  | en      | bæveren | en vild bæver   | den vilde bæver |
 
-A species is called by its everyday name, the species a kid can learn (*spidsmus*, never *mus*, since a shrew is not a mouse; *hugorm*, not *slange*), and a name of two words keeps both: *brun rotte*, whose adjective takes the definite form (*den brune rotte*). English names are British and capitalised mid-sentence as the others are ("a wild Grey heron", "an Adder"). Every name is 15 characters or fewer, so it fits the cards.
+A species is called by its everyday name, the species a kid can learn (*spidsmus*, never *mus*, since a shrew is not a mouse; *hugorm*, not *slange*), and a name of two words keeps both: *brun rotte*, whose adjective takes the definite form (*den brune rotte*), after an owner too (*Bos brune rotte*, its `bare` form). English names are British and capitalised mid-sentence as the others are ("a wild Grey heron", "an Adder"). Every name is 15 characters or fewer, so it fits the cards.
 
 The words the game uses for its things, the same on every screen:
 
