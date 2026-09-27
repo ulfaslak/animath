@@ -34,6 +34,7 @@ import { DOCTOR_TABS, type DoctorTab } from '../doctor/tabs';
  * - `open:<speciesId>`: a card of several animals on a touch screen, which
  *   opens it to show them (and closes it again).
  * - `move:<speciesId>:<to>`: a card dropped at place `to` of the column.
+ * - `reveal`: the account card's button that shows the password as typed, or hides it.
  *
  * No keyboard sends these names: a key's `key` is one character or a named
  * key such as `ArrowUp`.
@@ -48,6 +49,9 @@ const ANIMAL = /^animal:(.+)$/;
 const OPEN = /^open:(.+)$/;
 const MOVE = /^move:([^:]+):(\d+)$/;
 const TAB = /^tab:([a-z]+)$/;
+
+/** The key name of the account card's show-password button. */
+export const REVEAL_KEY = 'reveal';
 
 /** The key name of a tap on row `i` of the list on screen. */
 export function rowKey(i: number): string {

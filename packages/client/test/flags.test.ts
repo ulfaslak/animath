@@ -1,28 +1,40 @@
 import { getAnimal } from '@mathgame/engine';
 import { describe, expect, it } from 'vitest';
-import { MAX_SEEDED_PARTY, parseParty, parseTokens, readFlags } from '../src/flags';
+import { MAX_SEEDED_PARTY, parseHour, parseParty, parseTokens, readFlags } from '../src/flags';
 
 /** The URL switches (CHEATSHEET § Hidden behaviour): a typo must start an ordinary game. */
 describe('URL switches', () => {
-	it('reads ?zoo, ?debug, ?party=, ?new, ?tokens= and ?shop', () => {
+	it('reads ?zoo, ?debug, ?hour=, ?party=, ?new, ?tokens= and ?shop', () => {
 		expect(readFlags('')).toEqual({
 			zoo: null,
 			debug: false,
+			hourSeconds: null,
 			party: null,
 			fresh: false,
 			tokens: null,
 			shop: null,
 			throwaway: false
 		});
-		expect(readFlags('?zoo&debug&party=fox&new&tokens=40&shop')).toEqual({
+		expect(readFlags('?zoo&debug&hour=20&party=fox&new&tokens=40&shop')).toEqual({
 			zoo: 'standing',
 			debug: true,
+			hourSeconds: 20,
 			party: [{ id: 'party-1', speciesId: 'fox', hp: getAnimal('fox').maxHp }],
 			fresh: true,
 			tokens: 40,
 			shop: ['axe', 'pickaxe', 'boat'],
 			throwaway: true
 		});
+	});
+
+	it('?hour= takes whole seconds from 5 to 3600, is no throwaway, and anything else is no switch', () => {
+		expect(parseHour('5')).toBe(5);
+		expect(parseHour('30')).toBe(30);
+		expect(parseHour('3600')).toBe(3600);
+		for (const bad of [null, '', '4', '0', '3601', '-30', '1.5', 'soon', ' 30']) {
+			expect(parseHour(bad), String(bad)).toBeNull();
+		}
+		expect(readFlags('?hour=30').throwaway).toBe(false);
 	});
 
 	it('?tokens= takes a whole number up to 9999, and anything else is no switch', () => {

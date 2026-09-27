@@ -32,6 +32,13 @@ export type ServerWrite =
 	| { kind: 'offline' };
 
 export interface SaveServer {
+	/**
+	 * The server's copy is an account's save, named by the browser's session
+	 * cookie (`account/api.ts`): the autosave makes and keeps no identity for
+	 * it, and `unknown-player` means the session ended. Absent for the
+	 * anonymous backup, whose identity the autosave keeps.
+	 */
+	readonly session?: boolean;
 	createPlayer(): Promise<ServerCreate>;
 	getSave(who: Identity, timeoutMs?: number): Promise<ServerRead>;
 	/** `keepalive` lets the request outlive the page (`pagehide`); `sendBeacon` cannot send a header. */
@@ -60,7 +67,12 @@ export function isIdentity(v: unknown): v is Identity {
 	return typeof id === 'string' && UUID.test(id) && typeof secret === 'string' && secret.length > 0;
 }
 
-async function send(
+/**
+ * One request to the API, and its answer: the status and the JSON body (none
+ * when the answer is not JSON). Null for no answer at all: a network error,
+ * or no answer within `timeoutMs`.
+ */
+export async function send(
 	url: string,
 	init: RequestInit,
 	timeoutMs = TIMEOUT_MS
@@ -81,14 +93,14 @@ async function send(
 }
 
 /** The `error` of one of the API's JSON error answers (`{ error: string }`). */
-function errorOf(body: unknown): string | undefined {
+export function errorOf(body: unknown): string | undefined {
 	if (typeof body !== 'object' || body === null) return undefined;
 	const error = (body as Record<string, unknown>).error;
 	return typeof error === 'string' ? error : undefined;
 }
 
 /** The API's answer to a stored backup: `{ ok: true }`. */
-function isStored(body: unknown): boolean {
+export function isStored(body: unknown): boolean {
 	return typeof body === 'object' && body !== null && (body as Record<string, unknown>).ok === true;
 }
 
@@ -103,7 +115,7 @@ function unknownPlayer(res: { status: number; body: unknown }): boolean {
 }
 
 /** A stored save as the API returns it: every one it holds passed its check, and has a `version`. */
-function isStoredSave(body: unknown): boolean {
+export function isStoredSave(body: unknown): boolean {
 	return (
 		typeof body === 'object' &&
 		body !== null &&
