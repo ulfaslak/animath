@@ -55,6 +55,8 @@ Hex values are the ones in `packages/client/src/render/palette.ts` and `styles.c
 | Result card's rays   | warn at half strength | A burst behind a new friend's name, fading out at its rim. |
 | Butterflies          | rabbit pink `#f5b8c4`, amber `#f5b83d`, off-white, trainer coral, sky `#8fd3f4` | `BUTTERFLY_COLORS`: two five-sided wings on a dark body, a little under half a tile across. |
 | UI panel             | `rgba(255,252,245,.92)` | Cream, slightly translucent. Opaque (`--panel-cream`, `#fffcf5`) as the rim round big lettering. |
+| Button edges         | `#d9771f` under the accent, ink at 20% under the rest | `--accent-edge`, `--edge`: the chunky toy button's darker edge (§ UI shapes). |
+| Hits                 | warn, accent, coral | The hit badge's star and the hit's burst, by the hit's level: easy, medium, hard. A hot heat scale, the number always in ink. |
 | Title letters        | `#ff7e6b`, `#ff9f43`, `#56c271`, `#3d7be8`, `#f5b83d` | "Animath" letter by letter: the trainer's coral and blue (`--coral`, `--blue`), the accent, good and warn. |
 | UI ink               | `#2d2a32` |                                              |
 | Good (HP, correct)   | `#56c271` |                                              |
@@ -89,6 +91,15 @@ Colour is never the only signal: a wrong answer also shakes, a low HP bar also s
 ## UI shapes
 
 Cream panels with 16 px radius and a soft drop shadow floating over the 3D scene. Buttons are pill-shaped with the accent colour for the primary action (Go!, OK, Talk, Save).
+
+Shapes the battle made, for any screen to reuse ([[UI_SPEC]] § Component reuse):
+
+- **The chunky toy button**: a darker edge under the button's face, 4 px deep (`--press`), that squashes flat when it is pressed, as a toy's button does: under the accent `--accent-edge` (`#d9771f`), under anything paler `--edge` (ink at a fifth). The battle's Go!, its attack tiles, its moves and level buttons wear it; a highlighted one is lifted and ringed in the accent.
+- **The hit badge**: a little ten-pointed starburst and a number, what a hit is worth. A harder level's is bigger (16, 19, 22 px) and hotter: amber (warn), then the accent, then coral, with a thin ink rim. The number is always printed, in ink.
+- **The hit's burst**: the same colours as a comic starburst of twelve points with a cream rim, the damage in it in ink ("−14"), 60, 72 or 84 px across by the hit's level. It pops in and fades within its beat, beside the box it is about, never over a word or an animal.
+- **The icon button**: a round disc in a calm, pale blue with a flat picture on it in the world's colours (the leash's fire orange, the trainer's blue, the good green, a door in trunk brown) and its word under it; a hint rides as a coloured ring inside the rim and a word in a pill of the same colour under the button's word. The attack tiles beside them are warm (the accent over the cream), so attacks and other moves never look alike.
+- **Operator chips**: a sum's sign on a small tile of pale sky, in the trainer's blue, the prompts' own glyphs: a picture, never a button.
+- **A paw** before a name marks the other side (the wild animal's status box).
 
 Touch-sized targets: with the touch controls on, every row and button is at least 48 px tall (`--tap` in `styles.css`), the panels that hold lists grow to fit seven such rows, and the controls a hand uses most sit in the bottom corners, under the thumbs of a kid holding a tablet: the D-pad on the left; Talk, Menu, Go! and the number pad's OK on the right. With a keyboard the battle and doctor lists are tighter (rows from 32 px in battle, 30 px at the doctor), leaving the scene more room; everything else is 48 px on every screen. A pressed button or key gives way a little, so a tap is seen to land.
 
