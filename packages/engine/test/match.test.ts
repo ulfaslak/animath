@@ -859,7 +859,11 @@ describe('random matches', () => {
 		expect(switches).toBeGreaterThan(200);
 		expect(picks).toBeGreaterThan(200);
 		expect(solvingViews).toBeGreaterThan(2000);
-	});
+		// 250 whole matches, about 30 steps each, every step with two views, a
+		// twin view, ten canSendIn probes and a refused intent: 0.3 s on a quiet
+		// machine, 1.1 s alone at a load of 31, and 7 s inside the whole suite
+		// at 34 (2026-09-27).
+	}, 30_000);
 
 	it('a side that only ever switches never stalls a match against a side that attacks', () => {
 		for (let seed = 0; seed < 40; seed++) {

@@ -83,7 +83,9 @@ describe('friendly-match balance', () => {
 
 		const size = simulate(TIER_TEAMS[1]!, TIER_TEAMS[2]!, { a: kid(0.7), b: kid(0.7) }, 1000);
 		expect(size.aWins).toBeLessThan(0.05);
-	});
+		// 3,000 whole matches: 0.14 s on a quiet machine, 0.8 s alone at a load
+		// of 31 (2026-09-27), several times that inside the whole suite.
+	}, 30_000);
 
 	// The printed tables run only with SIM=1: 45,000 and 24,000 whole matches,
 	// about 2 s each alone and a minute under load.
