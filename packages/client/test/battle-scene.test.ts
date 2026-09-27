@@ -257,8 +257,43 @@ function throwAt(size: (typeof SIZES)[number], species: string, ending: 'caught'
 	return seen;
 }
 
-/** Every throw, thrown once for all the tests that read it. */
-let thrown: { where: string; seen: Throw }[] | null = null;
+/**
+ * A turn of the worker's event loop in the middle of the sweep, taken before
+ * any test could fake the timers: vitest reads its replies only when the loop
+ * turns, and `setup.ts` turns it only between tests, so a sweep that holds the
+ * worker for a minute ends the run with `Timeout calling "onTaskUpdate"`
+ * ([[DEVELOPMENT]] § Testing ideology). The throws below took over a minute at
+ * a load average of 150 with #89's 41 animals.
+ */
+const nextTurn = globalThis.setImmediate;
+const turn = () => new Promise<void>((resolve) => nextTurn(() => resolve()));
+
+/** Every throw, thrown once for all the tests that read it (the one sweep, awaited by each). */
+let throwing: Promise<{ where: string; seen: Throw }[]> | null = null;
+
+async function throwAll(): Promise<{ where: string; seen: Throw }[]> {
+	const thrown: { where: string; seen: Throw }[] = [];
+	for (const reduced of [false, true]) {
+		for (const [s, size] of SIZES.entries()) {
+			for (const [i, { id }] of ANIMALS.entries()) {
+				if (reduced && (i + s) % 3 !== 0) continue;
+				await turn();
+				motion.reduced = reduced;
+				for (const ending of ['caught', 'broke'] as const) {
+					const { top, right, bottom, left } = size.inset;
+					const insets =
+						size.inset === NO_INSET ? '' : `, insets ${top} ${right} ${bottom} ${left}`;
+					const where = `${id} at ${size.width}×${size.height}${size.touch ? ' (touch)' : ''}${insets}${reduced ? ', reduced motion' : ''}`;
+					thrown.push({ where, seen: throwAt(size, id, ending) });
+				}
+			}
+		}
+	}
+	motion.reduced = false;
+	touch.on = false;
+	Object.assign(inset, NO_INSET);
+	return thrown;
+}
 
 /**
  * What `check` finds wrong with every throw: at every size, for every
@@ -269,28 +304,9 @@ let thrown: { where: string; seen: Throw }[] | null = null;
  * the status box and 40 from the rope's crossing, where the full throw came
  * within 10, 13 and 1; throwing it for every species too doubled the sweep.
  */
-function everyThrow(check: (seen: Throw) => string | null): string[] {
-	if (!thrown) {
-		thrown = [];
-		for (const reduced of [false, true]) {
-			motion.reduced = reduced;
-			for (const [s, size] of SIZES.entries()) {
-				for (const [i, { id }] of ANIMALS.entries()) {
-					if (reduced && (i + s) % 3 !== 0) continue;
-					for (const ending of ['caught', 'broke'] as const) {
-						const { top, right, bottom, left } = size.inset;
-						const insets =
-							size.inset === NO_INSET ? '' : `, insets ${top} ${right} ${bottom} ${left}`;
-						const where = `${id} at ${size.width}×${size.height}${size.touch ? ' (touch)' : ''}${insets}${reduced ? ', reduced motion' : ''}`;
-						thrown.push({ where, seen: throwAt(size, id, ending) });
-					}
-				}
-			}
-		}
-		motion.reduced = false;
-		touch.on = false;
-		Object.assign(inset, NO_INSET);
-	}
+async function everyThrow(check: (seen: Throw) => string | null): Promise<string[]> {
+	throwing ??= throwAll();
+	const thrown = await throwing;
 	const bad = thrown.flatMap(({ where, seen }) => {
 		const wrong = check(seen);
 		return wrong ? [`${where}: ${wrong}`] : [];
@@ -300,24 +316,25 @@ function everyThrow(check: (seen: Throw) => string | null): string[] {
 }
 
 describe('the leash', () => {
-	it('keeps its loop in the picture at every size, for every species, with and without reduced motion', () => {
-		const bad = everyThrow(({ top, topWhen }) =>
+	it('keeps its loop in the picture at every size, for every species, with and without reduced motion', async () => {
+		const bad = await everyThrow(({ top, topWhen }) =>
 			top < CLEAR ? `${top.toFixed(1)} px from the top edge, ${topWhen}` : null
 		);
 		expect(bad).toEqual([]);
 		// About 6.6 s alone at a load average of 20 with the 392 throws of 14 animals (every
 		// point of the loop projected on each of their frames, against the top edge and the
-		// status box; the tests after it reuse them), 17 s at a load average of 54; about 600
-		// throws with the 32 animals of #89 (`everyThrow`).
-	}, 60_000);
+		// status box; the tests after it reuse them), 17 s at a load average of 54; about 770
+		// throws with the 41 animals of #89's second wave (`everyThrow`), 20 to 35 s under load
+		// and over a minute at a load average of 150, so it turns the worker's loop as it goes.
+	}, 180_000);
 
 	it('knows where the wild animal’s status box is: its copy of the box covers the CSS’s', () => {
 		expect(WILD_STATUS_BOX.right).toBe(STATUS_BOX.right);
 		expect(WILD_STATUS_BOX.bottom).toBeGreaterThanOrEqual(STATUS_BOX.bottom);
 	});
 
-	it('never goes behind the wild animal’s status box: its loop keeps clear, and its rope never crosses it', () => {
-		const bad = everyThrow(({ box, boxWhen, rope, ropeWhen }) =>
+	it('never goes behind the wild animal’s status box: its loop keeps clear, and its rope never crosses it', async () => {
+		const bad = await everyThrow(({ box, boxWhen, rope, ropeWhen }) =>
 			box < CLEAR
 				? `the loop ${box > 0 ? `${box.toFixed(1)} px from` : 'behind'} the status box, ${boxWhen}`
 				: rope <= 0
@@ -326,12 +343,13 @@ describe('the leash', () => {
 		);
 		expect(bad).toEqual([]);
 		// Reads the throws of the test above; run alone, it throws them itself, and takes as long.
-	}, 30_000);
+	}, 180_000);
 
-	it('still arcs, and arcs lower with reduced motion', () => {
+	it('still arcs, and arcs lower with reduced motion', async () => {
 		const bad: string[] = [];
 		for (const size of SIZES) {
 			for (const { id } of ANIMALS) {
+				await turn();
 				motion.reduced = false;
 				const full = throwAt(size, id, 'broke').arc;
 				motion.reduced = true;
@@ -348,9 +366,11 @@ describe('the leash', () => {
 				}
 			}
 		}
+		motion.reduced = false;
 		expect(bad).toEqual([]);
-		// About 1.4 s alone; 6.6 s at a load average of 54.
-	}, 30_000);
+		// About 1.4 s alone with the 32 animals of #89's first wave; 6.6 s at a load average of 54.
+		// With its 41, 12 to 15 s under load: it turns the worker's loop as it goes.
+	}, 60_000);
 });
 
 describe('out at sea', () => {
