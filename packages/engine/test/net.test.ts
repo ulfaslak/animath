@@ -295,6 +295,16 @@ describe('the wire protocol', () => {
 		).toBeNull();
 	});
 
+	it('keeps coordinates where the game draws a tile true: its matrices are 32-bit floats', () => {
+		// A ground tile's place is a float32 in its instance matrix: at 2^30 two neighbours
+		// would be drawn 128 tiles apart, and a friend's page could send a kid there.
+		for (const edge of [MAX_WIRE_COORD, -MAX_WIRE_COORD]) {
+			for (const within of [0.5, 0.37, 0.01]) {
+				expect(Math.abs(Math.fround(edge + within) - (edge + within))).toBeLessThan(0.01);
+			}
+		}
+	});
+
 	it('reads only JSON text short enough for the wire', () => {
 		expect(readWire('{"t":"find","pid":"abcdef"}')).toEqual({ t: 'find', pid: 'abcdef' });
 		expect(readWire('{"t":')).toBeUndefined();

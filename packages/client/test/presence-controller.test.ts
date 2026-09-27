@@ -316,6 +316,26 @@ describe('presence on the page', () => {
 		expect(s.sentOf('where').at(-1)).toMatchObject({ x: want.pos.x, y: want.pos.y });
 	});
 
+	it('never goes where no page could honestly be, however far the server says a player stands', () => {
+		const s = setup();
+		s.start();
+		s.connect();
+		s.socket().say({
+			t: 'roster',
+			world: 1,
+			players: [{ pid: 'friend0001', name: 'Bo', bearing: 4, steps: 150, busy: 'explore' }]
+		});
+		const at = { ...game.pos };
+		s.controller.goTo('friend0001');
+		// A page that lies about where it stands: a million tiles out, where the world can't be drawn true.
+		s.socket().say({ t: 'found', pid: 'friend0001', x: 1_000_000, y: 6 });
+		s.frame(FIND_SECONDS + 0.5);
+		expect(game.pos).toEqual(at);
+		expect(s.events.some((e) => e.type === 'player-placed')).toBe(false);
+		hud.tick(0);
+		expect(hud.message).toBe(t('presence.cantFind', { name: 'Bo' }));
+	});
+
 	it('says so kindly when the player left, or no answer came', () => {
 		const s = setup();
 		s.start();
