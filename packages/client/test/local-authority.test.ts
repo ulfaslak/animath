@@ -378,12 +378,12 @@ describe('LocalAuthority: encounters', () => {
 });
 
 describe('LocalAuthority: the lead decides who comes out', () => {
-	it('with the starter in front, the reed meets a Brown rat on step 11, a Frog on step 15, the first Otter on step 53 and the first Toad on step 71', () => {
+	it('with the starter in front, the reed meets a Brown rat on step 11, a Frog on step 15, the first Toad on step 71 and the first Otter on step 117', () => {
 		const met = reedWalk(session(), 200);
 		expect(met[0]).toEqual({ step: 11, wild: 'brown-rat', lead: 'squirrel' });
 		expect(met[1]).toEqual({ step: 15, wild: 'frog', lead: 'squirrel' });
-		expect(met.find((m) => m.wild === 'otter')?.step).toBe(53);
 		expect(met.find((m) => m.wild === 'common-toad')?.step).toBe(71);
+		expect(met.find((m) => m.wild === 'otter')?.step).toBe(117);
 		// Only what a tier-1 lead meets in the reeds: the river's own small and tier-2 animals,
 		// and the small ones that come down to the water.
 		const river = encounterTable('river', 0, 1).map((e) => e.species.id);
@@ -391,7 +391,7 @@ describe('LocalAuthority: the lead decides who comes out', () => {
 		expect(met.map((m) => m.wild)).toContain('wood-mouse');
 	});
 
-	it('the first animal that is not tired leads: with a fox in front the reed has tier-2 animals and now and then a small one, on the same steps', () => {
+	it('the first animal that is not tired leads: with a fox in front the reed has tier-2 animals, now and then a small one and a mute swan, on the same steps', () => {
 		const starter = reedWalk(session(), 200);
 		for (const party of [
 			[animal('fox'), animal('squirrel')],
@@ -401,15 +401,29 @@ describe('LocalAuthority: the lead decides who comes out', () => {
 			giveParty(s, party);
 			const met = reedWalk(s, 200);
 			expect(met.map((m) => m.step)).toEqual(starter.map((m) => m.step));
-			// The river's small animals are one tier below a fox: 3 challengers in 115 there.
+			// The river's small animals are one tier below a fox: e^−1/2 of the four bells of its
+			// tier there, the river's own four animals and, since bigger animals live at the river
+			// (#89), the seven that come down to the water. 13% of the reed's battles.
 			const small = ['frog', 'brown-rat', 'common-toad'];
-			expect(met.filter((m) => small.includes(m.wild)).map((m) => m.step)).toEqual([15]);
-			// The rest are its own size: the river's own four, and, since bigger animals live
-			// at the river too (#89), the tier-2 animals that come down to the water near home.
+			expect(met.filter((m) => small.includes(m.wild)).map((m) => m.step)).toEqual([
+				15, 53, 107, 117
+			]);
+			// The rest are its own size, but for one mute swan, a tier up (1/9 of a bell near home).
 			const others = met.filter((m) => !small.includes(m.wild));
-			expect(others.every((m) => getAnimal(m.wild).tier === 2)).toBe(true);
+			expect(others.filter((m) => getAnimal(m.wild).tier !== 2)).toEqual([
+				{ step: 97, wild: 'mute-swan', lead: 'fox' }
+			]);
 			expect(new Set(others.map((m) => m.wild))).toEqual(
-				new Set(['grey-heron', 'otter', 'raccoon', 'beaver', 'badger', 'pine-marten', 'adder'])
+				new Set([
+					'stoat',
+					'otter',
+					'raccoon',
+					'mute-swan',
+					'roe-deer',
+					'fox',
+					'adder',
+					'pine-marten'
+				])
 			);
 			expect(new Set(met.map((m) => m.lead))).toEqual(new Set(['fox']));
 		}
@@ -427,36 +441,25 @@ describe('LocalAuthority: the lead decides who comes out', () => {
 		const met = reedWalk(s, 60);
 		expect(met.length).toBeGreaterThan(0);
 		expect(met.map((m) => m.step)).toEqual(starter.map((m) => m.step));
-		expect(new Set(met.map((m) => m.wild))).toEqual(
-			new Set(['grey-heron', 'common-toad', 'badger'])
-		);
+		expect(new Set(met.map((m) => m.wild))).toEqual(new Set(['stoat', 'brown-rat', 'common-toad']));
 		expect(new Set(met.map((m) => m.lead))).toEqual(new Set(['fox']));
 	});
 
-	it("with a bear in front, the reed meets only the river's moose and now and then a sea eagle, and the meadow's grass stays quiet", () => {
+	it("with a bear in front, the reed meets the river's moose, its sea eagles and now and then a mute swan, on the same steps", () => {
 		const starter = reedWalk(session(), 400);
 		for (const party of [[animal('bear')], [animal('squirrel', 0), animal('bear')]]) {
 			const s = session();
 			giveParty(s, party);
 			const met = reedWalk(s, 400);
-			// The same steps start a battle as with the starter; only the moose (#89) is its size
-			// at the river, and the sea eagle one tier below.
 			expect(met.map((m) => m.step)).toEqual(starter.map((m) => m.step));
-			expect(met.filter((m) => m.wild !== 'moose').map((m) => m.step)).toEqual([147, 345, 395]);
-			expect(new Set(met.map((m) => m.wild))).toEqual(new Set(['moose', 'white-tailed-eagle']));
-			// Down to the meadow's tall grass, (-3, 9) to (-1, 9): nothing there is within one tier
-			// of a bear, the red deer being the biggest that lives in it.
-			const quiet = session();
-			giveParty(quiet, party);
-			for (const dir of ['down', 'down', 'down'] as const)
-				quiet.authority.dispatch({ type: 'move', dir });
-			expect(tileAtWorld(WORLD_SEED, -2, 9)).toMatchObject({ kind: 'tallgrass', biome: 'meadow' });
-			const from = quiet.events.length;
-			for (let step = 0; step < 400; step++)
-				quiet.authority.dispatch({ type: 'move', dir: step % 2 === 0 ? 'left' : 'right' });
-			const fresh = quiet.events.slice(from);
-			expect(fresh.filter((e) => e.type === 'player-moved')).toHaveLength(400);
-			expect(fresh.filter((e) => e.type === 'battle-started')).toEqual([]);
+			// The moose is a bear's size at the river (#89), 57% of the reed's battles; the sea
+			// eagle a tier below weighs e^−1/2 (35%), the mute swan two below e^−2 (8%), and the
+			// tier-2 and small animals, three and four tiers down, 1 battle in 150 between them.
+			expect(met.filter((m) => m.wild === 'mute-swan').map((m) => m.step)).toEqual([147, 345, 395]);
+			expect(new Set(met.map((m) => m.wild))).toEqual(
+				new Set(['moose', 'white-tailed-eagle', 'mute-swan'])
+			);
+			expect(new Set(met.map((m) => m.lead))).toEqual(new Set(['bear']));
 		}
 	});
 });

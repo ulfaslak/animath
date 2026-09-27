@@ -17,57 +17,64 @@ import { encounterRealm, isEncounterTile, type GridPos, type Tile } from './type
  * (`encounterTableAt`), in the tile's realm.
  *
  * The biome's table (`encounterTable`) is the catalog filtered by biome and
- * realm and weighted by how many tiers above the lead each species is, so that
- * animals fiercer than the lead are rare near the spawn tile and ordinary far
- * from it. An animal two or more tiers below the lead never challenges it; one
- * tier below does, rarely. Near spawn, animals of the lead's size come down to
- * the water and up the hills: the river and the mountains, wherever something
- * bigger than the lead lives there, also get every species of the lead's tier
- * that doesn't live there as a visitor, so the first few minutes are fair
- * wherever the player walks. From its own tier up, a tier-L lead's table is a
- * tier-1 lead's table in a catalog L − 1 tiers smaller.
+ * realm, its tiers weighed on a bell around the lead's (`tierWeight`), as the
+ * human asked: the lead's own tier is the likeliest, the tiers beside it next,
+ * and every tier living there is on the table (though near home four tiers
+ * above the lead weigh less than the rng's smallest step, so a starter never
+ * meets a bear or a whale there). A tier's share goes by its
+ * distance from the lead's, never by how many kinds of animal it has; its
+ * animals split it. The bell is symmetric from the wild radius out; nearer
+ * home its side above the lead is pulled in, so that bigger animals are rare
+ * near the spawn tile and the first minutes are kind. Near spawn, animals of
+ * the lead's size also come down to the water and up the hills: the river and
+ * the mountains, wherever something bigger than the lead lives there, get
+ * every species of the lead's tier that doesn't live there as a visitor: all
+ * of them together `VISITORS_WEIGHT` bells of the lead's tier, on top of it. As
+ * they thin out, the lead's tier loses weight; were they only to share out its
+ * bell, the ground round a reed or a rock, favouring the residents they leave
+ * behind, would make the lead's tier commoner on the way out and the bigger
+ * animals rarer ([[INVARIANTS]] § Encounters).
  *
  * The table where the player stands (`encounterTableAt`) is the biome's,
  * weighed again by how much of the ground each species favours lies around
  * (`habitat.ts`): the frogs by the water, the rabbits in the open. Near spawn
  * the ground only chooses among the animals of each tier, so every tier keeps
  * the share the biome's table gives it and the start is exactly as gentle as
- * before; further out it also moves the tiers, fully from the wild radius. It
- * lists the same species, so the ground never changes whether a step can
- * start a battle or who could come out, only who is likely to. [[PRODUCT]] §4
- * "Wild encounters" states the numbers in prose; they must agree with the
- * constants here and in `habitat.ts`.
+ * the bell makes it; further out it also moves the tiers, fully from the wild
+ * radius. It lists the same species, so the ground never changes whether a
+ * step can start a battle or who could come out, only who is likely to.
+ * [[PRODUCT]] §4 "Wild encounters" states the numbers in prose; they must
+ * agree with the constants here and in `habitat.ts`.
  *
  * Every draw comes from the caller's `Rng`, so a walk replays exactly from
  * (seed, intents). The rng is only touched when the tile can hold an encounter
- * and something in the biome could challenge the lead.
+ * and something of its realm lives in the biome.
  */
 
 /** Chance that a step landing on tall grass starts a battle: one encounter per ten grass steps. */
 export const ENCOUNTER_CHANCE = 0.1;
 
-/** Up to this many tiles from spawn the tier mix is at its gentlest. */
+/** Up to this many tiles from spawn the bigger animals are at their rarest. */
 export const SAFE_RADIUS = 32;
 
-/** From this many tiles out, every tier from the lead's up is equally likely on the biome's table. */
+/** From this many tiles out, the bell is symmetric: a tier above the lead weighs what one as far below does. */
 export const WILD_RADIUS = 128;
 
-/** Inside the safe radius each tier above the lead is this many times rarer than the tier below it. */
-export const NEAR_TIER_RATIO = 5;
+/**
+ * The bell's width, in tiers: a tier `k` tiers from the lead's weighs
+ * `e^(−k²/2σ²)` next to the lead's own, below the lead at any distance and
+ * above it from the wild radius out. With σ = 1: one tier away 0.61, two
+ * 0.14, three 0.011, four 0.0003.
+ */
+export const TIER_SIGMA = 1;
 
 /**
- * What a species one tier below the lead weighs, next to a species of the
- * lead's own tier (which weighs 1 at any distance); two or more tiers below
- * weighs nothing. A weight, not a share: where the lead's tier or bigger lives
- * too, smaller challengers are uncommon, one kind at a time (1–33% of a
- * biome's table all together since #89's animals, and so of every tile's
- * near spawn: the most where many smaller kinds live beside few of the
- * lead's, as five tier-2 kinds beside the one deer of the meadow; 1–53% on a
- * tile far out, where the ground moves the tiers), but where nothing else
- * lives — a wolf in the meadow — every encounter is one of them, at the
- * usual `ENCOUNTER_CHANCE`.
+ * Inside the safe radius, what a tier one above the lead weighs next to the
+ * lead's own; `k` tiers above weigh it to the power `k²`, the bell's upper
+ * side pulled in (σ ≈ 0.48). With only the lead's tier and the one above
+ * living in a biome, one encounter in ten near home is the bigger animal.
  */
-export const ONE_TIER_BELOW_WEIGHT = 0.1;
+export const NEAR_ONE_UP = 1 / 9;
 
 export interface EncounterEntry {
 	species: AnimalSpec;
@@ -104,13 +111,20 @@ function danger(distance: number): number {
 }
 
 /**
- * Relative weight of a resident `above` tiers above the lead (negative:
- * below it): `ratio^-above` near spawn and 1 far out for the lead's tier and
- * up, `ONE_TIER_BELOW_WEIGHT` one tier below at any distance, 0 further down.
+ * The bell: what a tier `above` tiers above the lead (negative: below it)
+ * weighs next to the lead's own tier, `distance` tiles from spawn. Below the
+ * lead, and above it from the wild radius out, `e^(−k²/2σ²)`; above it inside
+ * the safe radius, `NEAR_ONE_UP^(k²)`; in between, the logarithm of the weight
+ * moves in a straight line with `danger` from the one to the other, so every
+ * tier above the lead gains with every step out, the further above the
+ * faster, and never falls back.
  */
-function challengerWeight(above: number, distance: number): number {
-	if (above >= 0) return Math.pow(NEAR_TIER_RATIO, -above * (1 - danger(distance)));
-	return above === -1 ? ONE_TIER_BELOW_WEIGHT : 0;
+function tierWeight(above: number, distance: number): number {
+	const far = -(above * above) / (2 * TIER_SIGMA * TIER_SIGMA);
+	if (above <= 0) return Math.exp(far);
+	const near = above * above * Math.log(NEAR_ONE_UP);
+	const g = danger(distance);
+	return Math.exp((1 - g) * near + g * far);
 }
 
 /**
@@ -119,18 +133,30 @@ function challengerWeight(above: number, distance: number): number {
  * animals of the meadow and the forest to the river, and those of the river
  * too to the mountains). Not a property of the catalog: the river and the
  * mountains have small animals of their own (the frogs, brown rats and toads,
- * the lizards), and the visitors still keep the bigger ones rare near home.
+ * the lizards); near home the visitors make the lead's size commoner there,
+ * and give it a home where none of it lives (a red deer in the mountains).
  */
 const VISITED_BIOMES: readonly Biome[] = ['river', 'mountain'];
 
 /**
- * What a visitor of the lead's tier weighs: 1 inside the safe radius, as much
- * as a resident of that tier, thinning out linearly to 0 at the wild radius.
- * Beyond it, for a tier-1 lead, the river and the mountains are their own
- * residents only.
+ * What the visitors of the lead's tier weigh together inside the safe radius,
+ * in bells of that tier, on top of its residents' one: three, so that by the
+ * river's reeds the river's own small animals are a quarter of the small
+ * animals near home, as when every one of them weighed the same, and a new
+ * starter's battles there are no harder than they were. Any fixed number keeps
+ * the distance rule's proof; one that grew with the visitors' count would not
+ * keep a tier's weight free of how many kinds it has.
+ */
+export const VISITORS_WEIGHT = 3;
+
+/**
+ * What the visitors of the lead's tier weigh together, in bells of its tier:
+ * `VISITORS_WEIGHT` inside the safe radius, thinning out linearly to 0 at the
+ * wild radius. Beyond it the river and the mountains are their own residents
+ * only.
  */
 function visitorWeight(distance: number): number {
-	return challengerWeight(0, distance) * (1 - danger(distance));
+	return VISITORS_WEIGHT * (1 - danger(distance));
 }
 
 function assertTier(tier: unknown, where: string): asserts tier is Tier {
@@ -146,13 +172,18 @@ function assertTier(tier: unknown, where: string): asserts tier is Tier {
  *
  * Only species living in `realm` are listed: on land every species but the
  * sea animals, and out at sea (the sea biome's deep water) only them, as no
- * other species lives in the sea. Residents (species whose habitats
- * include the biome) are weighted by how many tiers above the lead they are;
- * residents two or more tiers below it are left out. In a visited biome (the
- * river, the mountains) where a resident is bigger than the lead, every
- * species of the lead's tier that doesn't live there is listed too, as a
- * visitor weighted by `visitorWeight`. Empty when nothing living in the biome
- * is within one tier below the lead: a bear meets nothing in the meadow.
+ * other species lives in the sea. Every resident (a species whose habitats
+ * include the biome) is listed, whatever its tier, and weighs its tier's bell
+ * (`tierWeight` of its distance from the lead's tier) divided by how many
+ * animals of its tier live there: a tier's residents together weigh its bell,
+ * however many kinds they are. In a visited biome (the river, the mountains)
+ * where a resident is bigger than the lead, every species of the lead's tier
+ * that doesn't live there is listed too, as a visitor; the visitors together
+ * weigh the lead's tier's bell times `visitorWeight`, however many kinds they
+ * are, on top of its residents: near home the lead's size is four times as
+ * common there as the bell alone would make it. The weights are then normalised, so
+ * a tier the biome doesn't hold never comes out there and the others share
+ * its place. Empty only where nothing of the realm lives in the biome.
  */
 export function encounterTable(
 	biome: Biome,
@@ -168,14 +199,17 @@ export function encounterTable(
 		VISITED_BIOMES.includes(biome) && residents.some((a) => a.tier > leadTier)
 			? visitorWeight(distance)
 			: 0;
+	// The animals of a tier living here split its bell evenly; the visitors split theirs.
+	const living = new Map<Tier, number>();
+	for (const a of residents) living.set(a.tier, (living.get(a.tier) ?? 0) + 1);
+	const isGuest = (a: AnimalSpec) =>
+		visitors > 0 && lives(a) && a.tier === leadTier && !a.habitats.includes(biome);
+	const guests = ANIMALS.filter(isGuest).length;
 	const raw = ANIMALS.flatMap((species) => {
-		if (!lives(species)) return [];
-		const above = species.tier - leadTier;
-		if (species.habitats.includes(biome)) {
-			const weight = challengerWeight(above, distance);
-			return weight > 0 ? [{ species, weight }] : [];
-		}
-		if (above === 0 && visitors > 0) return [{ species, weight: visitors }];
+		const bell = tierWeight(species.tier - leadTier, distance);
+		if (lives(species) && species.habitats.includes(biome))
+			return [{ species, weight: bell / living.get(species.tier)! }];
+		if (isGuest(species)) return [{ species, weight: (bell * visitors) / guests }];
 		return [];
 	});
 	const total = raw.reduce((sum, e) => sum + e.weight, 0);
@@ -237,8 +271,8 @@ export function encounterTableAt(site: EncounterSite, leadTier: Tier): Encounter
  * Roll for a wild encounter after a step, for a party led by an animal of
  * tier `leadTier`. Returns the wild animal at full HP, or `null` when nothing
  * happens. The chance is `ENCOUNTER_CHANCE` whatever the lead and the ground,
- * wherever anything could challenge the lead; where nothing could, the roll is
- * `null` without a draw. On a hit, the animal is picked from
+ * wherever anything of the tile's realm lives in its biome; where nothing
+ * does, the roll is `null` without a draw. On a hit, the animal is picked from
  * `encounterTableAt`. Throws on a site whose position, spawn or surroundings
  * are not real, or a lead that is not a tier, rather than guessing a table.
  */
