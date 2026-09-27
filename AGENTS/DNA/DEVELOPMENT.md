@@ -255,4 +255,4 @@ Each kid's game is saved in their own browser, under the link they opened, and b
 
 ## Deployment
 
-None yet. The plan ([[DECISIONS]] § Deployment): Docker image with the built client + server, Docker Compose with Postgres behind nginx on the existing Hetzner VPS, GitHub Actions build on merge. When that lands, this section grows the operational recipes and CLAUDE.md's Phase 5 gains its post-deploy checks.
+None yet. The plan ([[DECISIONS]] § Deployment): Docker image with the built client + server, Docker Compose with Postgres behind nginx on a dedicated Hetzner VPS, GitHub Actions build on merge. When that lands, this section grows the operational recipes and CLAUDE.md's Phase 5 gains its post-deploy checks.

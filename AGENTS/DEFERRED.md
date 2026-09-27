@@ -20,7 +20,7 @@ Technical items we've intentionally postponed: tech debt, hardening shortcuts, k
 
 **Why deferred**: there is no server authority for wild battles or the doctor, and stripping the answer there is a cheat fix nobody can attempt today.
 
-**Trigger**: the `RemoteAuthority` / server-side battle PR. Redact `answer` from what goes over the wire there, and decide whether `answer-judged` keeps reporting it after the fact (harmless: the puzzle is spent; the battle screen never shows it).
+**Trigger**: a wild battle or a doctor visit run on the server, which [[DECISIONS]] § Multiplayer allows only once a gain can flow between players. Redact `answer` from what goes over the wire there, and decide whether `answer-judged` keeps reporting it after the fact (harmless: the puzzle is spent; the battle screen never shows it). A friendly match is not this item: it runs on the server from the start and sends views without answers ([[DECISIONS]] § Multiplayer).
 
 ### A battle's result is written back by the client's authority, not the engine
 
@@ -28,7 +28,7 @@ Technical items we've intentionally postponed: tech debt, hardening shortcuts, k
 
 **Why deferred**: there is one authority today, and the brief for the battle work put the outcomes there.
 
-**Trigger**: the `RemoteAuthority` / server-side battle PR, or earlier if a second outcome rule lands. Move the write-back into an engine function (`concludeBattle(party, endedState) → { party, outcome }`, beside `takeToDoctor`) and call it from both authorities; let the client word the closing line from the outcome, as it already does for a lost battle.
+**Trigger**: a wild battle run on the server ([[DECISIONS]] § Multiplayer: only once a gain can flow between players), or earlier if a second outcome rule lands. Move the write-back into an engine function (`concludeBattle(party, endedState) → { party, outcome }`, beside `takeToDoctor`) and call it from both authorities; let the client word the closing line from the outcome, as it already does for a lost battle.
 
 ### Anonymous player identity is unauthenticated
 
@@ -38,21 +38,21 @@ Technical items we've intentionally postponed: tech debt, hardening shortcuts, k
 
 **Trigger**: multiplayer with any persistent economy (tokens, purchasable leashes/potions), the first public deploy (rate limiting, and sweeping players with no save), or the first report of a kid losing their save.
 
-### World edits are each player's own; a shared world has to decide whose they are
+### Cleared tiles are each player's own, so a friend can walk through a tree you still see
 
-**What**: the tiles a kid clears with the axe and the pickaxe (`WorldEdits`) live in that kid's game and save, and the authority walks, restores and knocks out through them. In a shared world two kids would see two different forests: a gap one kid chopped is a tree to the other, who would watch them walk through it. The choice to make then: **shared** (one overlay per world on the server; a kid can open a path for friends, or clear a forest bare for everyone, and every walkability check reads the world's overlay) or **per player** (each keeps their own; the renderer then draws another kid on a tile that is a tree on this screen, and battles between them need one world to stand in). Either way two things change: the whole overlay rides on `welcome` today (up to 24 KB), where a server should send each chunk's edits as the chunk comes into view; and `tile-cleared` goes to everyone who sees that chunk, with the chunks that grew back.
+**What**: the tiles a kid clears with the axe and the pickaxe (`WorldEdits`) live in that kid's game and save, and the authority walks, restores and knocks out through them ([[DECISIONS]] § Gameplay). With friends in one world, two kids see two different forests: a gap one kid chopped is a tree to the other, who watches them walk through it. Shared edits would put one overlay per world on the server, which would then decide where every kid in that world can walk. Two more things change then: the whole overlay rides on `welcome` today (up to 24 KB), where the server should send each chunk's edits as the chunk comes into view; and `tile-cleared` goes to everyone who sees that chunk, with the chunks that grew back.
 
-**Why deferred**: there is one player per world today, and the right answer depends on how kids play together, which the shared world will show.
+**Why deferred**: every single-player rule, walking included, stays in the browser ([[DECISIONS]] § Multiplayer), and a shared edit is a gain that flows between players, so its rule would have to move to the server first. How kids play together will show whether they want it.
 
-**Trigger**: the shared-world / `RemoteAuthority` PR. Decide shared or per-player with the human first, then move the overlay onto the server, keyed by world (shared) or by player.
+**Trigger**: the human asks for clearings friends share, or a report of a kid confused by a friend walking through a tree. Then decide with the human who may clear what in a shared world (a kid could open a path for friends, or clear a forest bare for everyone), and move clearing and the overlay onto the server, one overlay per world.
 
 ### The server stores whatever save the client sends
 
 **What**: `PUT /api/players/:id/save` checks the document's shape, not that the game in it could have happened: an HP above the species' maximum (`restoreGame` cuts it on load), a party of any animals, a position anywhere, any number of tokens and any tools, a `battle` the server never looks inside (the client checks it with `readBattle` on load). A modified client, or a hand-edited `localStorage` save, is backed up as sent. The saved battle also carries the puzzle's answer, as `BattleState` does ([[CHEATSHEET]] § Exploits).
 
-**Why deferred**: the save is the single-player authority's state, and that authority is the client; the server has nothing to check it against until it runs the game itself.
+**Why deferred**: the save is the single-player authority's state, and that authority is the client, by choice ([[DECISIONS]] § Multiplayer): nothing a player gains can reach another player, and a friendly match changes nothing, so cheating gains nothing.
 
-**Trigger**: the `RemoteAuthority` / server-side battle PR, or anything that makes one player's save matter to another (trading, PvP, a leaderboard). Then the server keeps the state and the client stops sending saves.
+**Trigger**: the first feature through which a gain can flow between players (trading, match rewards, shared world edits), or that otherwise makes one player's save matter to another (a leaderboard). Then move the rule behind that gain to the server, so the server stops taking the client's word for it.
 
 ### A saved position assumes today's world generator
 
@@ -81,7 +81,7 @@ Technical items we've intentionally postponed: tech debt, hardening shortcuts, k
 
 **Why deferred**: there is no remote authority, and a relative move (`{ by: -1 }`) is a protocol change best made when the latency is real and can be tried.
 
-**Trigger**: the `RemoteAuthority` / WebSocket PR.
+**Trigger**: the first party intent sent over a network, which [[DECISIONS]] § Multiplayer keeps in the browser until a gain can flow between players; presence and friendly matches send none.
 
 ### `normalizeNickname` follows the host's Unicode tables, and keeps accents for listed scripts only
 
@@ -116,7 +116,7 @@ Technical items we've intentionally postponed: tech debt, hardening shortcuts, k
 
 **Why deferred**: the client opens no WebSocket and the server serves none. Playwright's WebSocket routing (`routeWebSocket`) swaps the page's `WebSocket` class for its own, which Vite's hot-reload socket would then go through as well: a risk to every run, for a path nothing uses yet.
 
-**Trigger**: the first client code that opens a WebSocket (the `RemoteAuthority` PR).
+**Trigger**: the first client code that opens a WebSocket (the presence PR, [[DECISIONS]] § Multiplayer).
 
 ### The doctor's Heal tab lists every animal of a kind, where the HUD shows one card
 
