@@ -31,7 +31,8 @@ export type NameFor = 'new' | 'continue';
 /**
  * The menu's rows, in order. `continue` shows only when there is a game to
  * pick up. `login` ("I have an account → Log in") shows to a guest, and to a
- * player whose session has ended, but never on a throwaway page (`?new` and
+ * player whose session has ended, while the server says it can keep an
+ * account (`account.ready`), but never on a throwaway page (`?new` and
  * the like), which keeps nothing: a login there would switch every other tab
  * to the account and reload this one into a throwaway game again. `language`
  * and `sound` are the settings
@@ -91,7 +92,11 @@ class TitleView {
 		return TITLE_ROWS.filter((row) => {
 			if (row === 'continue') return this.saved !== null;
 			if (row === 'login') {
-				return !flags.throwaway && (account.name === null || account.session === 'ended');
+				return (
+					!flags.throwaway &&
+					account.ready &&
+					(account.name === null || account.session === 'ended')
+				);
 			}
 			return true;
 		});
