@@ -11,7 +11,7 @@ The game is called **Animath**. The repo and package names (`mathgame`, `@mathga
 ## 2. Players
 
 - **Kids aged roughly 6–12**. Reading level: short words, big text. The puzzle ladder spans from single-digit addition to three-digit multiplication and square roots.
-- **Devices**: a laptop or desktop browser with a keyboard, or a tablet held sideways, played with fingers alone (touch controls, [[UI_SPEC]] § Pointer and touch). A mouse works every menu too. Phones are not a target, except that the battle's screen, wild battles and friendly matches alike, is laid out for a phone held sideways too.
+- **Devices**: a laptop or desktop browser with a keyboard, or a tablet held sideways, played with fingers alone (touch controls, [[UI_SPEC]] § Pointer and touch). A mouse works every menu too. Phones are not a target, though a phone held sideways plays, and the battle's screen (wild battles and friendly matches alike) and the animal book are laid out for one.
 - **No login needed.** Open the link and you are in. The game is saved in the browser as you play, so a reload, or coming back another day, picks up where you left off; while the game is shared from the human's machine, the server also keeps a backup under an anonymous id the browser remembers. An account is optional, never required: it keeps the game on the server and brings it to another tablet or computer (§4 "Saving").
 
 ## 3. Core loop
