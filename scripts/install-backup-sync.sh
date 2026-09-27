@@ -87,7 +87,9 @@ echo "installed plist  -> $PLIST"
 # Remember where the log ends BEFORE bootstrapping, so the verification below
 # reads only this invocation's output. Tailing an append-only log would happily
 # show the PREVIOUS run's "Backup sync OK" and report a broken install as green.
-log_lines_before=$(wc -l < "$LOG" 2>/dev/null | tr -d ' ' || echo 0)
+# The first install has no log yet: 0 lines, and no "No such file" on the screen.
+log_lines_before=0
+if [ -f "$LOG" ]; then log_lines_before=$(wc -l < "$LOG" | tr -d ' '); fi
 
 agent_field() {  # $1 = field name ("state" / "runs")
   launchctl print "gui/$UID/$LABEL" 2>/dev/null \

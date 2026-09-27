@@ -1,11 +1,21 @@
-import { bundles, type BattleState, type GameEvent } from '@mathgame/engine';
+import {
+	bundles,
+	newGame,
+	type BattleState,
+	type Direction,
+	type GameEvent,
+	type GridPos,
+	type SavedGame
+} from '@mathgame/engine';
 import { describe, expect, it, vi } from 'vitest';
 import { LocalAuthority } from '../src/authority/local';
 import { t } from '../src/copy';
 import { parseParty } from '../src/flags';
 import { ExploreController } from '../src/explore/controller';
-import { Keyboard } from '../src/input/keyboard';
+import { HOLD_TO_FLY, Keyboard } from '../src/input/keyboard';
+import { PICK_QUIET_SECONDS } from '../src/input/pick-guard';
 import { animalKey, bundleKey, moveKey, openKey } from '../src/input/press';
+import { DESCEND_SECONDS, GLIDE_SECONDS, RISE_SECONDS } from '../src/render/trainer';
 import { PauseController } from '../src/pause/controller';
 import type { GameRenderer } from '../src/render/renderer';
 import { game } from '../src/state/game.svelte';
@@ -17,7 +27,7 @@ import { team } from '../src/state/team.svelte';
  * order. The window and the renderer are stand-ins; the keyboard, the
  * controller and the authority are the real ones.
  */
-function setup(startingParty: string) {
+function setup(startingParty: string, saved?: SavedGame) {
 	const listeners = new Map<string, (e: unknown) => void>();
 	const target = {
 		addEventListener: (type: string, listener: (e: unknown) => void) =>
@@ -25,11 +35,18 @@ function setup(startingParty: string) {
 	} as unknown as Window;
 	const keyboard = new Keyboard(target);
 	keyboard.setEnabled(true); // explore has the screen, as main.ts says each frame
+	/** Where the landing ring was put, each time, and the tool over it. */
+	const rings: ({ x: number; y: number; tool: string | null } | null)[] = [];
 	const renderer = {
 		setWorld() {},
 		setBoat() {},
+		setGlider() {},
+		setLandingSpot(at: GridPos | null, tool: string | null = null) {
+			rings.push(at && { ...at, tool });
+		},
 		setPlayer() {},
-		ensureChunksAround() {}
+		ensureChunksAround() {},
+		cleared() {}
 	} as unknown as GameRenderer;
 	const authority = new LocalAuthority({ party: parseParty(startingParty)! });
 	const explore = new ExploreController(authority, renderer, keyboard);
@@ -43,17 +60,20 @@ function setup(startingParty: string) {
 		explore.handle(e);
 		pauseMenu.handle(e);
 	});
-	authority.start();
+	authority.start(saved ? { game: saved } : {});
 	team.close();
+	// Past Talk's quiet moment: explore has had the screen a while.
+	keyboard.tick(PICK_QUIET_SECONDS);
 	/** A key pressed in explore, handed over as main.ts hands it. */
-	const press = (key: string) =>
+	const press = (key: string, extra: Partial<KeyboardEvent> = {}) =>
 		keyboard.keydown({
 			key,
 			repeat: false,
 			ctrlKey: false,
 			metaKey: false,
 			altKey: false,
-			preventDefault() {}
+			preventDefault() {},
+			...extra
 		} as unknown as KeyboardEvent);
 	const release = (key: string) => listeners.get('keyup')!({ key });
 	/** A key, then the frame that takes it. */
@@ -62,9 +82,16 @@ function setup(startingParty: string) {
 		explore.update(1 / 60);
 		hud.tick(1 / 60);
 	};
+	/** `seconds` of frames, a sixtieth at a time. */
+	const run = (seconds: number) => {
+		for (let s = 0; s < seconds - 1e-9; s += 1 / 60) {
+			explore.update(1 / 60);
+			hud.tick(1 / 60);
+		}
+	};
 	/** The species of the cards, top to bottom. */
 	const cards = () => bundles(game.party).map((b) => b.speciesId);
-	return { authority, explore, events, press, release, frame, cards };
+	return { authority, explore, events, press, release, frame, run, cards, rings, listeners };
 }
 
 describe('explore input', () => {
@@ -148,5 +175,143 @@ describe('explore input', () => {
 		explore.update(1 / 60);
 		release('ArrowRight');
 		expect(team.open).toBeNull();
+	});
+});
+
+describe('the glider', () => {
+	const SPAWN = { x: -2, y: 6 };
+	/** A game in World 1 at `pos`, facing `facing`, owning the glider and `items`. */
+	function flyer(pos: GridPos, facing: Direction, items: string[] = []): SavedGame {
+		return { ...newGame(1), pos, facing, items: ['glider', ...items] };
+	}
+	const count = (events: GameEvent[], type: GameEvent['type']) =>
+		events.filter((e) => e.type === type).length;
+
+	it('Space held flies over the lake: up after the wind-up, a glide a tile at a time while held, and let go, on to the far shore and down', () => {
+		const s = setup('squirrel', flyer(SPAWN, 'up'));
+		s.press(' ');
+		s.run(HOLD_TO_FLY * 0.8);
+		expect(count(s.events, 'took-off')).toBe(0);
+		s.run(HOLD_TO_FLY * 0.3);
+		expect(count(s.events, 'took-off')).toBe(1);
+		expect(game.flying).toBe(true);
+		expect(s.explore.flying).toBe(true);
+		// The ring stands on the sand of the far shore: letting go over the water lands there.
+		expect(s.rings.at(-1)).toEqual({ x: -2, y: -8, tool: null });
+		// Up, then a tile every GLIDE_SECONDS while Space is held.
+		s.run(RISE_SECONDS + GLIDE_SECONDS * 4 + 0.05);
+		expect(count(s.events, 'glided')).toBeGreaterThanOrEqual(4);
+		expect(count(s.events, 'glided')).toBeLessThanOrEqual(5);
+		s.release(' ');
+		s.run(GLIDE_SECONDS * 10 + 0.1);
+		// Let go over the water: glided on, a tile at a time, to the sand, and landed there.
+		const landed = s.events.find((e) => e.type === 'landed');
+		expect(landed).toMatchObject({ pos: { x: -2, y: -8 }, flown: 14 });
+		expect(count(s.events, 'glided')).toBe(14);
+		expect(game.flying).toBe(false);
+		// Coming down, then down: the ring gone, the menu and the party column free again.
+		expect(s.explore.flying).toBe(true);
+		s.run(DESCEND_SECONDS + 0.05);
+		expect(s.explore.flying).toBe(false);
+		expect(s.rings.at(-1)).toBeNull();
+		expect(s.authority.snapshot()).toMatchObject({ pos: { x: -2, y: -8 }, steps: 14 });
+	});
+
+	it('in the air, arrows, Enter and number keys do nothing; an arrow still held walks on from the landing tile', () => {
+		const s = setup('squirrel,rabbit', flyer(SPAWN, 'up'));
+		const cards = s.cards();
+		s.press(' ');
+		s.run(HOLD_TO_FLY + RISE_SECONDS + 0.05);
+		expect(count(s.events, 'took-off')).toBe(1);
+		s.press('ArrowRight');
+		s.press('2');
+		s.press('Enter');
+		s.press(bundleKey('rabbit'));
+		s.run(0.3);
+		expect(count(s.events, 'player-moved')).toBe(0);
+		expect(count(s.events, 'party-edited')).toBe(0);
+		expect(count(s.events, 'nothing-to-interact')).toBe(0);
+		expect(s.cards()).toEqual(cards);
+		s.release(' ');
+		s.run(3);
+		expect(count(s.events, 'landed')).toBe(1);
+		// Down, the arrow held all along walks on: a step right from the landing tile, onto the sand.
+		const moved = s.events.find((e) => e.type === 'player-moved');
+		expect(moved).toMatchObject({ pos: { x: -1, y: -8 }, dir: 'right' });
+		// The number key and the card pressed in the air did nothing, then or after.
+		expect(s.cards()).toEqual(cards);
+	});
+
+	it('who goes first stays who went first up in the air: over the water it is not the swimmer', () => {
+		const s = setup('squirrel', {
+			...flyer(SPAWN, 'up'),
+			party: [
+				{ id: 'nut', speciesId: 'squirrel', hp: 20 },
+				{ id: 'fin', speciesId: 'otter', hp: 25 }
+			]
+		});
+		expect(game.realm).toBe('land');
+		s.press(' ');
+		s.run(HOLD_TO_FLY + RISE_SECONDS + GLIDE_SECONDS * 3 + 0.05);
+		expect(game.flying).toBe(true);
+		expect(game.pos.y).toBeLessThanOrEqual(3);
+		expect(game.realm).toBe('land');
+		s.release(' ');
+		s.run(3);
+		expect(game.realm).toBe('land');
+	});
+
+	it('holding on comes down at the reach by itself, and Space still held takes nobody up again', () => {
+		// Three tiles of ground, then water, trees and rocks past the 20th.
+		const s = setup('squirrel', flyer({ x: 110, y: -154 }, 'right'));
+		s.press(' ');
+		s.run(HOLD_TO_FLY + RISE_SECONDS + GLIDE_SECONDS * 3 + DESCEND_SECONDS + 0.2);
+		expect(s.events.find((e) => e.type === 'landed')).toMatchObject({
+			pos: { x: 113, y: -154 },
+			flown: 3
+		});
+		expect(s.explore.flying).toBe(false);
+		s.run(2);
+		expect(count(s.events, 'took-off')).toBe(1);
+	});
+
+	it('a take-off with nowhere to land that way hops where it stands and says why', () => {
+		const s = setup('squirrel', flyer({ x: 144, y: -152 }, 'down'));
+		s.press(' ');
+		s.run(HOLD_TO_FLY + 0.05);
+		expect(count(s.events, 'take-off-refused')).toBe(1);
+		expect(s.explore.flying).toBe(false);
+		expect(hud.message).toBe(t('explore.tooFar'));
+		expect(s.authority.snapshot().pos).toEqual({ x: 144, y: -152 });
+	});
+
+	it('a tap of Space with nothing in front says how to fly; Enter there still says how to find a doctor', () => {
+		const s = setup('squirrel', flyer(SPAWN, 'up'));
+		s.press(' ');
+		s.run(HOLD_TO_FLY / 2);
+		s.release(' ');
+		s.run(1 / 60);
+		expect(count(s.events, 'nothing-to-interact')).toBe(1);
+		expect(hud.message).toBe(t('explore.holdToFly'));
+		s.run(PICK_QUIET_SECONDS);
+		s.frame('Enter');
+		expect(count(s.events, 'nothing-to-interact')).toBe(2);
+		expect(hud.message).toBe(t('explore.notAtTent'));
+	});
+
+	it('the ring over a tree the axe will clear carries the axe; the landing chops it as the trainer comes down', () => {
+		const s = setup('squirrel', flyer({ x: 96, y: -102 }, 'down', ['axe']));
+		s.press(' ');
+		s.run(HOLD_TO_FLY + 0.02);
+		expect(s.rings.at(-1)).toEqual({ x: 96, y: -101, tool: 'axe' });
+		s.run(RISE_SECONDS + GLIDE_SECONDS * 2);
+		s.release(' ');
+		s.run(0.5);
+		const landed = s.events.find((e) => e.type === 'landed');
+		expect(landed?.type === 'landed' && landed.flown).toBeGreaterThan(0);
+		const at = landed?.type === 'landed' ? landed.pos : null;
+		expect(s.events.find((e) => e.type === 'tile-cleared')).toMatchObject({ pos: at, was: 'tree' });
+		s.run(1);
+		expect(game.edits.has(at!.x, at!.y)).toBe(true);
 	});
 });

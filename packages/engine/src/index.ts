@@ -162,8 +162,33 @@ export {
 	isEditsText
 } from './world/edits.js';
 export type { ChunkRef } from './world/edits.js';
-export { CLEARING_TOOL, clearTile, clearableAhead, isClearable } from './world/clearing.js';
+export {
+	CLEARING_TOOL,
+	clearLanding,
+	clearTile,
+	clearableAhead,
+	isClearable
+} from './world/clearing.js';
 export type { ClearRejection, ClearStep, Clearable, Cleared, Clearer } from './world/clearing.js';
+export {
+	GLIDE_TILES,
+	flightPos,
+	flightReach,
+	flightTile,
+	glideOn,
+	isLandable,
+	landFlight,
+	landingDistance,
+	takeOff
+} from './world/flight.js';
+export type {
+	Flight,
+	FlightGear,
+	Flyer,
+	Landing,
+	TakeOff,
+	TakeOffRejection
+} from './world/flight.js';
 export { TENT_SEARCH_STEPS, canTalkToDoctor, nearestTent } from './world/tents.js';
 export type { TentSpot } from './world/tents.js';
 export { ARRIVAL_RADIUS, ESCAPE_REACH, arrivalRings, arrivalSpot } from './world/arrival.js';
