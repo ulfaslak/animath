@@ -16,9 +16,9 @@ Technical items we've intentionally postponed: tech debt, hardening shortcuts, k
 
 ### The puzzle's answer travels to the client inside `BattleState` and `DoctorState`
 
-**What**: `BattlePhase` (`solving`) and the `puzzle-shown` event carry the whole `Puzzle`, `answer` included, and `answer-judged` repeats it. The doctor reducer copies the shape: `DoctorPhase` (`solving`, `handing-over`, `buying`) and its `puzzle-shown`, `hand-over-shown` and `purchase-shown` carry the answer too (a token sum's answer is the balance after it, which a client can work out anyway). With `LocalAuthority` that is harmless — the client already runs the engine. With a server authority, a modified client could read the answer and never miss (or heal for free).
+**What**: `BattlePhase` (`solving`) and the `puzzle-shown` event carry the whole `Puzzle`, `answer` included, and `answer-judged` repeats it. The doctor reducer copies the shape: `DoctorPhase` (`solving`, `handing-over`, `buying`) and its `puzzle-shown`, `hand-over-shown` and `purchase-shown` carry the answer too (a token sum's answer is the balance after it, which a client can work out anyway). With `LocalAuthority` that is harmless — the client already runs the engine. With a server authority, a modified client could read the answer and never miss (or heal for free). Friendly matches, which a server runs, never carry it: their views and events hold a `ShownPuzzle` (`match/types.ts`, built by `shownPuzzle`), the answerless shape a redaction here can reuse.
 
-**Why deferred**: there is no server authority yet, and stripping the answer means a second `Puzzle` shape (or a redacting step in the protocol) for a cheat nobody can attempt today.
+**Why deferred**: there is no server authority for wild battles or the doctor, and stripping the answer there is a cheat fix nobody can attempt today.
 
 **Trigger**: a wild battle or a doctor visit run on the server, which [[DECISIONS]] § Multiplayer allows only once a gain can flow between players. Redact `answer` from what goes over the wire there, and decide whether `answer-judged` keeps reporting it after the fact (harmless: the puzzle is spent; the battle screen never shows it). A friendly match is not this item: it runs on the server from the start and sends views without answers ([[DECISIONS]] § Multiplayer).
 
@@ -94,6 +94,14 @@ Technical items we've intentionally postponed: tech debt, hardening shortcuts, k
 
 **Trigger**: a player whose name needs one of these, or the server-side authority PR. At that PR, check that nothing but the server cleans a name that is stored, and decide whether the preview needs the server's answer.
 
+### A match shows each player the other's nicknames, cleaned but not checked for rude words
+
+**What**: `matchTeam` keeps each animal's nickname, cleaned by `normalizeNickname`, and `matchView` sends both teams to both players, so a kid sees the other kid's nicknames. The cleaner keeps letters, not manners: a rude word typed as a nickname reaches the other kid, which is the one piece of free text that crosses between players ("There is no chat").
+
+**Why deferred**: the rude-word list comes with the engine's `checkName` (`names.ts`, being built in `feat/worlds-names`), and no screen shows a match yet.
+
+**Trigger**: the `feat/matches` PR that puts a match on screen. With `names.ts` landed by then, drop, in `matchTeam`, a nickname its rules call rude (the animal goes by its species' name), so the server never sends one; without it, show the other side's animals by their species' names only.
+
 ### A browser keeps at most 200 games left for a new one
 
 **What**: New game on the title moves the saved game to the first free slot of `animath.save.previous` (`.2` … `.200`) and never writes over one. With all of them taken, the saved game stays in `animath.save` and the new game is not saved in the browser: it plays, is backed up to the server when that is reachable, and after a reload the title offers the old game again (or, once the backup has landed, the page settles with the server and takes the new one). Nothing is lost, but the new game doesn't stick without a server, and nothing tells the kid.
@@ -150,3 +158,11 @@ Technical items we've intentionally postponed: tech debt, hardening shortcuts, k
 
 **Trigger**: before rolling the game back past #66, or serving two builds behind one address. Then bump `SAVE_VERSION` with an upgrade that only renumbers, so an older build calls a big save `newer` and leaves it alone.
 
+
+### The link preview's image is a relative URL
+
+**What**: `index.html` gives `og:image` as `/social-preview.jpg`. The Open Graph protocol asks for an absolute URL, and some messengers show no picture for a relative one, though iMessage, Slack and most others resolve it against the page's address.
+
+**Why deferred**: the game has no address of its own yet: the human has not chosen a domain, and until the production server is up the game is shared through a tunnel whose address changes. A hard-coded address would be wrong everywhere it is shared today.
+
+**Trigger**: the production domain is chosen (the single config value `feat/deploy` keeps). Then write it into `og:image` (and add `og:url`), in `index.html` or from the build's environment.

@@ -44,6 +44,26 @@ export type {
 	BattleStep
 } from './battle/types.js';
 
+export { MATCH_SIDES } from './match/types.js';
+export { MATCH_TEAM_SIZE, matchTeam } from './match/team.js';
+export { applyMatchIntent, canSendIn, otherSide, startMatch } from './match/reducer.js';
+export { matchView, shownPuzzle } from './match/view.js';
+export type {
+	MatchEndReason,
+	MatchEvent,
+	MatchIntent,
+	MatchPhase,
+	MatchRejection,
+	MatchSide,
+	MatchState,
+	MatchStep,
+	MatchView,
+	MatchViewPhase,
+	ShownPuzzle,
+	TeamPick,
+	TeamRefusal
+} from './match/types.js';
+
 export { applyDoctorIntent, startDoctorVisit } from './doctor/reducer.js';
 export type { DoctorVisitOptions } from './doctor/reducer.js';
 export { canGoHome, keepsATeam, kindGoingHome, mustStay, needsHealing } from './doctor/party.js';

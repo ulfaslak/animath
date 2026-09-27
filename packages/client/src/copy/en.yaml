@@ -14,6 +14,12 @@ language:
 app:
   # While the world is being built.
   loading: Loading…
+  # Instead of the game, when the browser cannot draw its world (no WebGL 2).
+  # The last line is for the grown-up who can fix it.
+  noWebGL:
+    title: This browser can't draw Animath's world.
+    ask: Ask a grown-up for help!
+    grownUps: "For grown-ups: Animath needs WebGL 2. Check that hardware acceleration is on in the browser's settings, or try another browser. On an iPad or iPhone, Lockdown Mode turns it off."
 
 keys:
   # Key caps, as printed on the keyboard.
@@ -222,7 +228,7 @@ explore:
   walkLeft: Walk left
   walkRight: Walk right
   # Over the whole screen when a touch screen is held upright.
-  turnSideways: Turn your tablet sideways to play!
+  turnSideways: Turn your screen sideways to play!
   # Enter with nothing in front to talk to, chop or break.
   notAtTent: Walk up to a tent to talk to the doctor.
 

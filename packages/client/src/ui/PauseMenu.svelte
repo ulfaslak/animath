@@ -479,20 +479,22 @@
 		inset: 0;
 		display: grid;
 		place-items: center;
+		box-sizing: border-box;
+		padding: var(--safe-top) var(--safe-right) var(--safe-bottom) var(--safe-left);
 		background: rgba(45, 42, 50, 0.3);
 	}
 	/* Naming on a touch screen: at the top, so the tablet's keyboard, which rises from the bottom, leaves the name box in view. */
 	.backdrop.typing {
 		align-items: start;
-		padding-top: 16px;
+		padding-top: calc(16px + var(--safe-top));
 	}
 	/*
 	 * Wide enough, at 1024 px, for a team of twelve-letter names of the widest
 	 * letters beside the picked one's name in the side panel.
 	 */
 	.menu {
-		width: min(1000px, calc(100vw - 32px));
-		max-height: calc(100vh - 32px);
+		width: min(1000px, calc(100vw - 32px - var(--safe-left) - var(--safe-right)));
+		max-height: calc(100vh - 32px - var(--safe-top) - var(--safe-bottom));
 		box-sizing: border-box;
 		overflow: auto;
 		/* The one thing a finger may scroll, on a screen too short for it. */

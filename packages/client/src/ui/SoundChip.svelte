@@ -24,7 +24,7 @@
 <style>
 	.chip {
 		position: absolute;
-		top: 16px;
+		top: calc(16px + var(--safe-top));
 		left: 50%;
 		transform: translateX(-50%);
 		display: flex;

@@ -449,11 +449,11 @@
 	 * big (with `.status` above). Change both together.
 	 */
 	.status.opponent {
-		top: 16px;
-		left: 16px;
+		top: calc(16px + var(--safe-top));
+		left: calc(16px + var(--safe-left));
 	}
 	.status.player {
-		right: 16px;
+		right: calc(16px + var(--safe-right));
 		bottom: calc(var(--battle-panel) + 72px);
 	}
 	.status .name {
@@ -510,7 +510,8 @@
 		display: grid;
 		grid-template-columns: minmax(300px, 2fr) 3fr;
 		gap: 12px;
-		padding: 0 16px 16px;
+		padding: 0 calc(16px + var(--safe-right)) calc(16px + var(--safe-bottom))
+			calc(16px + var(--safe-left));
 		box-sizing: border-box;
 	}
 	/*

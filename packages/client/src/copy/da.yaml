@@ -14,6 +14,10 @@ language:
 
 app:
   loading: Vent lidt…
+  noWebGL:
+    title: Denne browser kan ikke tegne Animaths verden.
+    ask: Bed en voksen om hjælp!
+    grownUps: 'Til voksne: Animath skal bruge WebGL 2. Tjek at hardwareacceleration er slået til i browserens indstillinger eller prøv en anden browser. På en iPad eller iPhone slår Låsetilstand det fra.'
 
 keys:
   esc: Esc
@@ -200,7 +204,7 @@ explore:
   walkDown: Gå ned
   walkLeft: Gå til venstre
   walkRight: Gå til højre
-  turnSideways: Hold din tablet på tværs for at spille!
+  turnSideways: Hold skærmen på tværs for at spille!
   notAtTent: Gå hen til et telt for at snakke med dyrlægen.
 
 hud:
