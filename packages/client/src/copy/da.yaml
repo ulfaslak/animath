@@ -566,7 +566,7 @@ account:
       one: Mange forsøg! Hold en lille pause og prøv igen om et minut.
       other: 'Mange forsøg! Hold en lille pause og prøv igen om {count} minutter.'
     offline: Vi kan ikke nå spillets hjem lige nu. Prøv igen om lidt!
-    storage: "Denne browser kan ikke huske dig. Dit spil er gemt på din konto: log ind på en anden tablet eller computer."
+    storage: 'Denne browser kan ikke huske dig. Dit spil er gemt på din konto: log ind på en anden tablet eller computer.'
   prompt:
     title: Pas godt på dine dyr!
     text: Vælg en hemmelig kode, så er dit spil gemt for altid. Så kan du også spille det på en anden tablet eller computer!
