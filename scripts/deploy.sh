@@ -69,6 +69,34 @@ IMAGE=$($COMPOSE config --format json | jq -r '.services.app.image')
 # A missing bind-mount source is created by Docker as root. Make it as us.
 mkdir -p backups
 
+# A canary still here means an earlier deploy stopped half way, and one that
+# stopped at the recreate left it serving on purpose. It answers as `app`
+# whatever this deploy does, so nothing goes on until someone has looked:
+# otherwise a first deploy's `up`, or an image that did not change, would
+# leave two builds answering for good.
+if docker container inspect "$CANARY_NAME" >/dev/null 2>&1; then
+	echo "ERROR: a canary from an earlier deploy is still there ($CANARY_NAME), answering as"
+	echo "       the app. Check the app ($COMPOSE ps; $COMPOSE logs app), then: docker rm -f $CANARY_NAME"
+	exit 1
+fi
+
+# A deploy never recreates Postgres: a new image tag (a new major version needs
+# its data upgraded first), a changed volume or healthcheck is done by hand,
+# on purpose. So when the checkout's postgres service no longer matches the
+# one running, the deploy stops here, before it changes anything (a pull and
+# a tag included).
+PG_CID=$($COMPOSE ps -q postgres 2>/dev/null || true)
+if [ -n "$PG_CID" ]; then
+	PG_WANTED=$($COMPOSE config --hash postgres | awk '{print $2}')
+	PG_RUNNING=$(docker inspect --format '{{index .Config.Labels "com.docker.compose.config-hash"}}' "$PG_CID")
+	if [ "$PG_WANTED" != "$PG_RUNNING" ]; then
+		echo "ERROR: docker-compose.prod.yml changed the postgres service, and the running one is"
+		echo "       the old definition. Apply it by hand first (.claude/commands/redeploy.md"
+		echo "       § Changing Postgres), then deploy again."
+		exit 1
+	fi
+fi
+
 if [ -n "$DEPLOY_SHA" ]; then
 	[[ "$DEPLOY_SHA" =~ ^[0-9a-f]{40}$ ]] || {
 		echo "ERROR: '$DEPLOY_SHA' is not a full 40-character commit SHA"
@@ -100,33 +128,6 @@ migrate() {
 	echo "Applying migrations with the new image..."
 	$COMPOSE run --rm --no-deps -T app node dist/migrate.mjs </dev/null
 }
-
-# A canary still here means an earlier deploy stopped half way, and one that
-# stopped at the recreate left it serving on purpose. It answers as `app`
-# whatever this deploy does, so nothing goes on until someone has looked:
-# otherwise a first deploy's `up`, or an image that did not change, would
-# leave two builds answering for good.
-if docker container inspect "$CANARY_NAME" >/dev/null 2>&1; then
-	echo "ERROR: a canary from an earlier deploy is still there ($CANARY_NAME), answering as"
-	echo "       the app. Check the app ($COMPOSE ps; $COMPOSE logs app), then: docker rm -f $CANARY_NAME"
-	exit 1
-fi
-
-# A deploy never recreates Postgres: a new image tag (a new major version needs
-# its data upgraded first), a changed volume or healthcheck is done by hand,
-# on purpose. So when the checkout's postgres service no longer matches the
-# one running, the deploy stops here, before it changes anything.
-PG_CID=$($COMPOSE ps -q postgres 2>/dev/null || true)
-if [ -n "$PG_CID" ]; then
-	PG_WANTED=$($COMPOSE config --hash postgres | awk '{print $2}')
-	PG_RUNNING=$(docker inspect --format '{{index .Config.Labels "com.docker.compose.config-hash"}}' "$PG_CID")
-	if [ "$PG_WANTED" != "$PG_RUNNING" ]; then
-		echo "ERROR: docker-compose.prod.yml changed the postgres service, and the running one is"
-		echo "       the old definition. Apply it by hand first (.claude/commands/redeploy.md"
-		echo "       § Changing Postgres), then deploy again."
-		exit 1
-	fi
-fi
 
 APP_CID=$($COMPOSE ps -q app 2>/dev/null || true)
 CURRENT_IMAGE=""
