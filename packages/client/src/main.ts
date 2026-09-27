@@ -488,7 +488,8 @@ function catchUp(onItsOwn: boolean): void {
  * A guest's game, played with the page on screen: its hour of play is
  * counted, and once another hour has passed, the card offers to keep the
  * game safe, while exploring (never in a battle, at the doctor, in the menu,
- * in a friendly match or its invite, or on a trip to another world), and only
+ * in a friendly match or its invite, on a trip to another world, or up in the
+ * air with the glider, until the trainer is down), and only
  * while the server can keep an account (`openPrompt`): until then the hour
  * stays due. Not for an account's game, a throwaway one, or a page that keeps
  * nothing.
@@ -500,6 +501,7 @@ function countPlay(dt: number): void {
 	playClock.tick(lineage, dt);
 	const exploring =
 		game.mode === 'explore' &&
+		!explore.flying &&
 		!battle.active &&
 		!doctor.active &&
 		!pause.open &&
