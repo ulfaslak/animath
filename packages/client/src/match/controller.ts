@@ -255,6 +255,10 @@ export class MatchController implements MatchHooks {
 			case 'starting':
 				if (now - this.since > START_SECONDS) this.letGo('lost');
 				break;
+			case 'updating':
+				// The friend's ask to play again runs out like any invite.
+				if (match.friendAsked && now > this.deadline) match.friendAsked = false;
+				break;
 			case 'playing':
 			case 'over':
 				this.play(dt, now);
@@ -313,16 +317,17 @@ export class MatchController implements MatchHooks {
 			this.socket === 'on';
 		let near: PeerMessage | null = null;
 		if (exploring) {
-			let best = Number.POSITIVE_INFINITY;
-			for (const peer of this.peers.values()) {
-				const apart = tilesApart(game.pos, peer);
-				if (apart > CHALLENGE_REACH) continue;
-				const rank = apart * 1000 + (peer.name < (near?.name ?? '￿') ? 0 : 1);
-				if (rank < best || (rank === best && near && peer.pid < near.pid)) {
-					best = rank;
-					near = peer;
-				}
-			}
+			// The nearest; between two as near, by name, then by id, so it never flickers.
+			const reach = [...this.peers.values()]
+				.map((peer) => ({ peer, apart: tilesApart(game.pos, peer) }))
+				.filter((p) => p.apart <= CHALLENGE_REACH)
+				.sort(
+					(p, q) =>
+						p.apart - q.apart ||
+						(p.peer.name < q.peer.name ? -1 : p.peer.name > q.peer.name ? 1 : 0) ||
+						(p.peer.pid < q.peer.pid ? -1 : 1)
+				);
+			near = reach[0]?.peer ?? null;
 		}
 		if (!near) {
 			if (match.button !== null) match.button = null;
