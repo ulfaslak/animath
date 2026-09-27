@@ -2,22 +2,29 @@ import {
 	leadIndex,
 	tileAtWorld,
 	tileRealm,
+	worldSeed,
 	type AnimalInstance,
+	type NameRejection,
 	type SavedGame
 } from '@mathgame/engine';
 import type { SaveNotice } from '../save/notices';
 
 /**
  * What the title shows and which screen the keys drive ([[UI_SPEC]] §
- * Title). Written only by `TitleController`, except `draft`, which the name
- * box binds as the player types, and `room`, which the starter screen
- * measures.
+ * Title). Written only by `TitleController`, except `draft` and `nameDraft`,
+ * which the name boxes bind as the player types, and `room`, which the
+ * starter screen measures.
  *
  * `screen`: `menu` is Continue, New game and the settings; `confirm` asks
- * before a new game puts a saved one away; `starter` is the starters side by
- * side; `naming` is the name box for the one picked.
+ * before a new game puts a saved one away; `player` is the name box for the
+ * player's own name (a new game's first question, and Continue's for a game
+ * saved before names); `starter` is the starters side by side; `naming` is
+ * the name box for the one picked.
  */
-export type TitleScreen = 'menu' | 'confirm' | 'starter' | 'naming';
+export type TitleScreen = 'menu' | 'confirm' | 'player' | 'starter' | 'naming';
+
+/** Where the player's name box leads: to the starters of a new game, or into the saved game. */
+export type NameFor = 'new' | 'continue';
 
 /**
  * The menu's rows, in order. `continue` shows only when there is a game to
@@ -51,8 +58,16 @@ class TitleView {
 	confirm = $state(0);
 	/** The lit starter, an index into the engine's `STARTERS`. */
 	starter = $state(0);
-	/** The name typed so far. */
+	/** The starter's name typed so far. */
 	draft = $state('');
+	/** The player's own name typed so far. */
+	nameDraft = $state('');
+	/** Where the player's name box leads. */
+	nameFor = $state<NameFor>('new');
+	/** Why the last name the player gave did not go (`checkName`), until they type again. */
+	nameRefused = $state<NameRejection | null>(null);
+	/** The player's name for the new game, once the name box took it: sent with `new-game`. */
+	playerName = $state<string | null>(null);
 	/** Where each starter's feet are on screen, as fractions of the canvas, for the name tags. */
 	spots = $state.raw<readonly { x: number; y: number }[]>([]);
 	/**
@@ -80,7 +95,7 @@ class TitleView {
 		const saved = this.saved;
 		if (!saved) return null;
 		const party = saved.party;
-		const realm = tileRealm(tileAtWorld(saved.seed, saved.pos.x, saved.pos.y).kind);
+		const realm = tileRealm(tileAtWorld(worldSeed(saved.world), saved.pos.x, saved.pos.y).kind);
 		return party[leadIndex(party, realm)] ?? party[leadIndex(party)] ?? party[0] ?? null;
 	}
 }

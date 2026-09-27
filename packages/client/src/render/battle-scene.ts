@@ -2,6 +2,7 @@ import { Rng, type Biome } from '@mathgame/engine';
 import * as THREE from 'three';
 import { touch } from '../input/touch.svelte';
 import { motion } from '../motion';
+import { safeArea } from '../safe-area';
 import { animateIdle, buildAnimalMesh, disposeFigure } from './animals';
 import { appearScale, recallScale, smoothstep } from './ease';
 import { SWIM_DEPTH } from './follower';
@@ -55,14 +56,20 @@ const SCENE_FOV = 25;
 
 /**
  * Height in CSS pixels of the battle screen's bottom panel for a canvas
- * `height` pixels tall. Mirrors `--battle-panel` in `styles.css`
- * (`clamp(260px, 40vh, 360px)`, and `clamp(364px, 48vh, 400px)` with the
- * touch controls on, where seven rows a finger tall must fit); change both
- * together.
+ * `height` pixels tall, from its bottom edge. Mirrors `--battle-panel` in
+ * `styles.css` (`clamp(260px, 40vh, 360px)`, and `clamp(364px, 48vh, 400px)`
+ * with the touch controls on, where seven rows a finger tall must fit; both
+ * over the safe area's bottom inset); change both together.
  */
-export function battlePanelHeight(height: number, touchControls = touch.on): number {
-	if (touchControls) return Math.min(400, Math.max(364, 0.48 * height));
-	return Math.min(360, Math.max(260, 0.4 * height));
+export function battlePanelHeight(
+	height: number,
+	touchControls = touch.on,
+	bottomInset = safeArea().bottom
+): number {
+	const cards = touchControls
+		? Math.min(400, Math.max(364, 0.48 * height))
+		: Math.min(360, Math.max(260, 0.4 * height));
+	return cards + bottomInset;
 }
 
 /** The ground a battle is fought on: the biome's own, as the world shows it round the grass. */
@@ -170,10 +177,10 @@ const LEASH_ARC = 1;
 const LEASH_HEADROOM = 0.05;
 /**
  * The wild animal's status box over the picture's top-left corner, in CSS
- * pixels from the canvas's top left: `.status.opponent` in
- * `BattlePanel.svelte` sits 16 px in from the corner and is 280 px wide, and
- * its name and HP bar make it 74 px tall (75 here, rounded up). Change both
- * together.
+ * pixels from the safe area's top left (the canvas's, on a screen with no
+ * insets; the leash adds them): `.status.opponent` in `BattlePanel.svelte`
+ * sits 16 px in from the corner and is 280 px wide, and its name and HP bar
+ * make it 74 px tall (75 here, rounded up). Change both together.
  */
 export const WILD_STATUS_BOX = { right: 16 + 280, bottom: 16 + 75 };
 /** How far the leash's loop keeps from the wild animal's status box, in CSS pixels. */
@@ -767,8 +774,9 @@ export class BattleScene {
 		// The loop keeps under the first line…
 		const ceiling = across(free * LEASH_HEADROOM);
 		// …and out of the corner above the second and left of the third: the box and its margin.
-		const boxBottom = across(WILD_STATUS_BOX.bottom + LEASH_BOX_CLEARANCE);
-		const boxRight = (2 * (WILD_STATUS_BOX.right + LEASH_BOX_CLEARANCE)) / width - 1;
+		const inset = safeArea();
+		const boxBottom = across(WILD_STATUS_BOX.bottom + inset.top + LEASH_BOX_CLEARANCE);
+		const boxRight = (2 * (WILD_STATUS_BOX.right + inset.left + LEASH_BOX_CLEARANCE)) / width - 1;
 		const boxSide = seen(boxRight, -1, boxRight, 1);
 		// Signed so that the box's side of the line (where the canvas's left edge is) is negative.
 		if (boxSide.distanceToPoint(new THREE.Vector3(-1, 0, 0.5).unproject(camera)) > 0) {

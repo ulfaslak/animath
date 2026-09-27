@@ -203,13 +203,15 @@ export class WorldEdits {
 	}
 
 	/**
-	 * The overlay within `EDITS_BUDGET`, and the chunks that grew back to get
-	 * there: whole chunks, farthest from the chunk `near` is in first (ties:
-	 * the one further down, then further right). The chunks round `near` are
-	 * the last to go, and with the budget as it is never go at all.
+	 * The overlay within `budget` characters (`EDITS_BUDGET` unless said), and
+	 * the chunks that grew back to get there: whole chunks, farthest from the
+	 * chunk `near` is in first (ties: the one further down, then further
+	 * right). The chunks round `near` are the last to go, and with the whole
+	 * budget never go at all. A world the player has left gets what is left of
+	 * the budget (`fitWorlds`).
 	 */
-	trimmedAround(near: GridPos): { edits: WorldEdits; regrown: ChunkRef[] } {
-		if (this.textLength <= EDITS_BUDGET) return { edits: this, regrown: [] };
+	trimmedAround(near: GridPos, budget = EDITS_BUDGET): { edits: WorldEdits; regrown: ChunkRef[] } {
+		if (this.textLength <= budget) return { edits: this, regrown: [] };
 		const home = locate(near.x, near.y);
 		const far = [...this.chunks.entries()]
 			.map(([key, mask]) => {
@@ -221,7 +223,7 @@ export class WorldEdits {
 		const regrown: ChunkRef[] = [];
 		let length = this.textLength;
 		for (const chunk of far) {
-			if (length <= EDITS_BUDGET) break;
+			if (length <= budget) break;
 			regrown.push({ cx: chunk.cx, cy: chunk.cy });
 			length -= chunk.length;
 		}

@@ -1,4 +1,10 @@
-import { EDITS_BUDGET, MAX_NICKNAME_LENGTH, WorldEdits, normalizeNickname } from '@mathgame/engine';
+import {
+	EDITS_BUDGET,
+	MAX_NICKNAME_LENGTH,
+	WORLD_ONE_SEED,
+	WorldEdits,
+	normalizeNickname
+} from '@mathgame/engine';
 import { eq } from 'drizzle-orm';
 import { randomUUID } from 'node:crypto';
 import { afterAll, describe, expect, it } from 'vitest';
@@ -56,8 +62,9 @@ function animal(i: number, overrides: Record<string, unknown> = {}) {
 /** A document ready to write: save number `seq` of game `lineage`. */
 function doc(seq: number, lineage = 'game-a', overrides: Record<string, unknown> = {}) {
 	return {
-		version: 1,
-		seed: 12345,
+		version: 2,
+		home: 7,
+		world: 7,
 		pos: { x: -7, y: 3 },
 		facing: 'left',
 		steps: 40 + seq,
@@ -67,6 +74,12 @@ function doc(seq: number, lineage = 'game-a', overrides: Record<string, unknown>
 		party: [animal(1, { nickname: 'Nutkin' }), animal(2, { speciesId: 'fox' })],
 		...overrides
 	};
+}
+
+/** The same save as an older build wrote it, before numbered worlds: version 1, in World 1. */
+function docV1(seq: number, lineage = 'game-a', overrides: Record<string, unknown> = {}) {
+	const { home: _home, world: _world, ...rest } = doc(seq, lineage);
+	return { ...rest, version: 1, seed: WORLD_ONE_SEED, ...overrides };
 }
 
 /** Sends every body at once; the statuses, in the same order. */
@@ -217,7 +230,7 @@ describe('the stale-write guard', () => {
 		// As if the catalog lost a species, or a newer build wrote it.
 		for (const bad of [
 			doc(3, 'game-a', { party: [animal(1, { speciesId: 'dragon' })] }),
-			doc(4, 'game-a', { version: 2 })
+			doc(4, 'game-a', { version: 3 })
 		]) {
 			await db
 				.insert(saves)
@@ -227,6 +240,34 @@ describe('the stale-write guard', () => {
 			expect((await putSave(player, doc(bad.seq + 1, 'game-a'))).status).toBe(200);
 			expect((await backups(player)).at(-1)).toEqual({ data: bad, reason: 'unreadable' });
 		}
+	});
+
+	it("a backup from a page still open from before an update (an older build's document) is taken, and kept upgraded", async () => {
+		const player = await createPlayer();
+		expect((await putSave(player, docV1(5))).status).toBe(200);
+		// Upgraded: World 1, its home, and everything else as it was sent.
+		expect(await stored(player)).toEqual({ ...doc(5), home: 1, world: 1 });
+		expect(await (await getSave(player)).json()).toEqual({ ...doc(5), home: 1, world: 1 });
+		// It numbers on with this build's backups, in either order, and keeps nothing aside.
+		expect((await putSave(player, doc(6, 'game-a', { home: 1, world: 1 }))).status).toBe(200);
+		expect((await putSave(player, docV1(6))).status).toBe(409);
+		expect((await putSave(player, docV1(7))).status).toBe(200);
+		expect(await backups(player)).toEqual([]);
+	});
+
+	it("the first backup after an update keeps the older build's save of the same game aside, as it was", async () => {
+		const player = await createPlayer();
+		// Stored before the update, as the older build sent it.
+		const old = docV1(5, 'game-a', { tokens: 9, items: ['axe', 'boat'], edits: ['0,0:11'] });
+		await db.insert(saves).values({ playerId: player.id, data: old });
+		expect((await putSave(player, doc(5, 'game-a', { home: 1, world: 1 }))).status).toBe(409);
+		const next = doc(6, 'game-a', { home: 1, world: 1, tokens: 9, items: ['axe', 'boat'] });
+		expect((await putSave(player, next)).status).toBe(200);
+		expect(await stored(player)).toEqual(next);
+		expect(await backups(player)).toEqual([{ data: old, reason: 'replaced' }]);
+		// Once: the next backup replaces this build's own document.
+		expect((await putSave(player, doc(7, 'game-a', { home: 1, world: 1 }))).status).toBe(200);
+		expect(await backups(player)).toHaveLength(1);
 	});
 
 	it('a save from before seq and lineage existed is replaced by any valid save, and kept', async () => {
@@ -319,7 +360,8 @@ describe('PUT validation', () => {
 
 	it("400 for a document the engine's validator refuses", async () => {
 		await expectRejected([1, 2, 3], /object/);
-		await expectRejected(doc(1, 'game-a', { version: 2 }), /version/);
+		await expectRejected(doc(1, 'game-a', { version: 3 }), /version/);
+		await expectRejected(docV1(1, 'game-a', { seed: 1.5 }), /world/);
 		await expectRejected(
 			doc(1, 'game-a', { party: [animal(1, { speciesId: 'dragon' })] }),
 			/species/

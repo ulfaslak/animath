@@ -90,6 +90,10 @@ Cream panels with 16 px radius and a soft drop shadow floating over the 3D scene
 
 Touch-sized targets: with the touch controls on, every row and button is at least 48 px tall (`--tap` in `styles.css`), the panels that hold lists grow to fit seven such rows, and the controls a hand uses most sit in the bottom corners, under the thumbs of a kid holding a tablet: the D-pad on the left; Talk, Menu, Go! and the number pad's OK on the right. With a keyboard the battle and doctor lists are tighter (rows from 32 px in battle, 30 px at the doctor), leaving the scene more room; everything else is 48 px on every screen. A pressed button or key gives way a little, so a tap is seen to land.
 
+## Icon
+
+The fox's face, faceted like the figures, on the sky: its fur `#e8762b` in three shades lit from the upper left, off-white cheeks, and near-black ear insides, eyes and nose (`public/favicon.svg`). It still reads as a fox at 16 px, in a tab. A shared link's picture is a real frame of the game, the starters' stage, with "Animath" over it in the title's own letters.
+
 ## Voice and copy
 
 Short, warm, second person. One idea per line. Words a seven-year-old reads without help.

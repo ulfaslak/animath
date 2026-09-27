@@ -6,6 +6,10 @@ import {
 	readSave,
 	restoreGame,
 	saveDocument,
+	spawnPoint,
+	step,
+	tileAtWorld,
+	worldSeed,
 	type AnimalInstance,
 	type AttackLevel,
 	type BattleOutcome,
@@ -14,7 +18,7 @@ import {
 	type Intent,
 	type SavedGame
 } from '@mathgame/engine';
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { CueName } from '../src/audio/cues';
 import { sfx } from '../src/audio/sfx.svelte';
 import { LocalAuthority } from '../src/authority/local';
@@ -26,7 +30,7 @@ import { levelKey, rowKey } from '../src/input/press';
 import { everyMash } from './mash';
 import { words } from '../src/lines';
 import { nameOf } from '../src/names';
-import type { BattleScene } from '../src/render/battle-scene';
+import { BattleScene } from '../src/render/battle-scene';
 import type { GameRenderer } from '../src/render/renderer';
 import { battle } from '../src/state/battle.svelte';
 
@@ -1055,5 +1059,42 @@ describe('sounds', () => {
 		t.run(1);
 		t.press('Enter');
 		expect(t.cues.at(-1)).toBe('confirm');
+	});
+});
+
+describe('another world', () => {
+	it("a battle after travelling is fought on the new world's ground, not the old one's", () => {
+		// A world whose spawn has tall grass beside it, on a biome World 1 does not have there.
+		const WORLD_ONE = worldSeed(1);
+		let found: {
+			world: number;
+			grass: { x: number; y: number };
+			dir: 'up' | 'down' | 'left' | 'right';
+		} | null = null;
+		for (let world = 2; world < 200 && !found; world++) {
+			const seed = worldSeed(world);
+			const spawn = spawnPoint(seed);
+			for (const dir of ['up', 'down', 'left', 'right'] as const) {
+				const grass = step(spawn, dir);
+				const tile = tileAtWorld(seed, grass.x, grass.y);
+				if (tile.kind !== 'tallgrass') continue;
+				if (tileAtWorld(WORLD_ONE, grass.x, grass.y).biome === tile.biome) continue;
+				found = { world, grass, dir };
+				break;
+			}
+		}
+		expect(found).not.toBeNull();
+		const { world, grass, dir } = found!;
+		const back = { up: 'down', down: 'up', left: 'right', right: 'left' } as const;
+		const begin = vi.spyOn(BattleScene.prototype, 'begin');
+		const { authority } = setup();
+		authority.dispatch({ type: 'travel', world });
+		for (let i = 0; !battle.active; i++) {
+			if (i > 400) throw new Error('no encounter');
+			authority.dispatch({ type: 'move', dir: i % 2 === 0 ? dir : back[dir] });
+		}
+		expect(begin).toHaveBeenCalledTimes(1);
+		expect(begin.mock.calls[0]![0]).toBe(tileAtWorld(worldSeed(world), grass.x, grass.y).biome);
+		begin.mockRestore();
 	});
 });

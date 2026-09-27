@@ -103,6 +103,12 @@ export class BattleController {
 				this.seed = event.seed;
 				this.pos = event.pos;
 				break;
+			case 'travelled':
+				// Another world: its battles are fought on its ground.
+				if (event.playerId !== this.playerId) break;
+				this.seed = event.seed;
+				this.pos = event.pos;
+				break;
 			case 'player-moved':
 			case 'player-placed':
 			case 'taken-to-doctor':

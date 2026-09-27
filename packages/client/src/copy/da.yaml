@@ -17,6 +17,10 @@ app:
   updating:
     title: Tilbage om lidt!
     body: Spillet gør sig klar.
+  noWebGL:
+    title: Denne browser kan ikke tegne Animaths verden.
+    ask: Bed en voksen om hjælp!
+    grownUps: 'Til voksne: Animath skal bruge WebGL 2. Tjek at hardwareacceleration er slået til i browserens indstillinger eller prøv en anden browser. På en iPad eller iPhone slår Låsetilstand det fra.'
 
 keys:
   esc: Esc
@@ -203,7 +207,7 @@ explore:
   walkDown: Gå ned
   walkLeft: Gå til venstre
   walkRight: Gå til højre
-  turnSideways: Hold din tablet på tværs for at spille!
+  turnSideways: Hold skærmen på tværs for at spille!
   notAtTent: Gå hen til et telt for at snakke med dyrlægen.
 
 hud:
@@ -532,6 +536,12 @@ title:
     back: Nej, tilbage
     yes: Ja, nyt spil
     keys: ↑ ↓ flyt · Enter vælg · Esc tilbage
+  player:
+    title: Hvad hedder du?
+    waiting: Dine dyr venter på dig!
+    keys: Enter færdig · Esc tilbage
+    next: Videre
+    go: Så kører vi!
   starter:
     title: Vælg dit første dyr!
     loves: '{animal.the} er mester i {kinds}!'
@@ -543,3 +553,12 @@ title:
     keys: Enter færdig · Esc tilbage
     start: Så kører vi!
   back: Tilbage
+
+playerName:
+  rule: '{min} til {max} bogstaver eller tal.'
+  refused:
+    empty: Skriv dit navn først.
+    short: Et navn skal have mindst {min} bogstaver.
+    long: Det er et langt navn! Højst {max} bogstaver.
+    chars: Kun bogstaver og tal.
+    rude: Vælg et andet navn.

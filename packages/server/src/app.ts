@@ -1,8 +1,30 @@
 import { serveStatic, type ServeStaticOptions } from '@hono/node-server/serve-static';
 import { Hono, type Context, type MiddlewareHandler } from 'hono';
 import { logger } from 'hono/logger';
+import { env } from './env.js';
+import { ACCOUNT_LIMITS, type AccountLimits } from './rate-limit.js';
+import { accountRoute } from './routes/account.js';
 import { health } from './routes/health.js';
 import { playersRoute } from './routes/players.js';
+
+export interface AppOptions {
+	/**
+	 * Production: session cookies are Secure, and the anonymous backup
+	 * (`/api/players`) is off. Defaults to `NODE_ENV === 'production'`.
+	 */
+	production?: boolean;
+	/** The login and register rate limits; tests pass small ones. */
+	limits?: AccountLimits;
+	/** Where the built client is, relative to the working directory. Tests point it at a fixture. */
+	clientDist?: string;
+}
+
+/**
+ * The anonymous backup in production: gone. Accounts keep a game on the
+ * server there; the backup stays in development until the kid's game has
+ * moved to production. Its tables are left as they are.
+ */
+const backupOff = new Hono().all('*', (c) => c.json({ error: 'the backup is off here' }, 410));
 
 /**
  * The built client, `packages/client/dist`, from the server package's own
@@ -23,22 +45,24 @@ export function cacheControl(requestPath: string): string {
 	return requestPath.startsWith('/immutable/') ? 'public, max-age=31536000, immutable' : 'no-cache';
 }
 
-export interface AppOptions {
-	/** Where the built client is, relative to the working directory. Tests point it at a fixture. */
-	clientDist?: string;
-}
-
 /**
  * The HTTP app: the API under `/api`, and the built client (in development Vite
  * serves the client and proxies `/api` here). A path that is not a
  * file of the client gets `index.html`, except the API's and the sockets'
  * paths and the client's file folders, where nothing found is a 404.
  */
-export function createApp({ clientDist = CLIENT_DIST }: AppOptions = {}) {
+export function createApp(options: AppOptions = {}) {
+	const production = options.production ?? env.NODE_ENV === 'production';
+	const clientDist = options.clientDist ?? CLIENT_DIST;
 	const app = new Hono();
 	app.use(logger());
 	app.route('/api/health', health);
-	app.route('/api/players', playersRoute);
+	if (production) app.route('/api/players', backupOff);
+	else app.route('/api/players', playersRoute);
+	app.route(
+		'/api/account',
+		accountRoute({ cookie: { secure: production }, limits: options.limits ?? ACCOUNT_LIMITS })
+	);
 	// No route answered. The API's own 404, never the game's page with a 200:
 	// a caller reading the status or the JSON must not be told an unknown path
 	// (or the WebSocket path asked without an upgrade) worked.

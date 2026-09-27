@@ -1,13 +1,14 @@
 import { build } from 'esbuild';
 
 /**
- * Bundles the server for production: `dist/index.mjs` (the server) and
- * `dist/migrate.mjs` (the migrations), each one file with every dependency
+ * Bundles the server for production: `dist/index.mjs` (the server),
+ * `dist/migrate.mjs` (the migrations) and `dist/admin.mjs` (the accounts'
+ * admin command, `/redeploy` § Logs), each one file with every dependency
  * inside, the engine's TypeScript included. The image runs them with plain
  * `node`: no `tsx`, and no `node_modules`.
  */
 await build({
-	entryPoints: { index: 'src/index.ts', migrate: 'scripts/migrate.ts' },
+	entryPoints: { index: 'src/index.ts', migrate: 'scripts/migrate.ts', admin: 'scripts/admin.ts' },
 	outdir: 'dist',
 	outExtension: { '.js': '.mjs' },
 	bundle: true,

@@ -4,13 +4,34 @@
 		<meta charset="UTF-8" />
 		<meta
 			name="viewport"
-			content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"
+			content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover"
 		/>
-		<meta name="mobile-web-app-capable" content="yes" />
-		<meta name="apple-mobile-web-app-capable" content="yes" />
 		<meta name="animath-build" content="%VITE_BUILD_SHA%" />
 		<title>Animath</title>
-		<link rel="icon" href="data:," />
+		<!-- A page, not a standalone web app, and kept out of search engines: DECISIONS § The page. -->
+		<meta
+			name="description"
+			content="A cheerful math game for kids: explore, catch animals and win battles by solving sums. / Et muntert regnespil for børn: gå på opdagelse, fang dyr og vind kampe ved at regne."
+		/>
+		<meta name="theme-color" content="#8fd3f4" />
+		<link rel="icon" href="/favicon.png" type="image/png" sizes="32x32" />
+		<link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+		<link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+		<meta property="og:type" content="website" />
+		<meta property="og:site_name" content="Animath" />
+		<meta property="og:title" content="Animath" />
+		<meta
+			property="og:description"
+			content="A cheerful math game for kids: explore, catch animals and win battles by solving sums. / Et muntert regnespil for børn: gå på opdagelse, fang dyr og vind kampe ved at regne."
+		/>
+		<meta property="og:image" content="/social-preview.jpg" />
+		<meta property="og:image:width" content="1200" />
+		<meta property="og:image:height" content="630" />
+		<meta
+			property="og:image:alt"
+			content="A squirrel, a rabbit and a frog in a sunny meadow, under the name Animath"
+		/>
+		<meta name="twitter:card" content="summary_large_image" />
 		<link rel="preconnect" href="https://fonts.googleapis.com" />
 		<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 		<link
@@ -19,8 +40,47 @@
 		/>
 	</head>
 	<body>
+		<noscript>
+			<!-- Without JavaScript no copy file can be read: both languages, here. -->
+			<div
+				style="
+					position: fixed;
+					inset: 0;
+					display: grid;
+					place-items: center;
+					padding: 16px;
+					background: #8fd3f4;
+					color: #2d2a32;
+					font:
+						600 20px/1.4 Nunito,
+						system-ui,
+						sans-serif;
+					text-align: center;
+				"
+			>
+				<div
+					style="
+						max-width: 520px;
+						padding: 28px 32px;
+						border-radius: 16px;
+						background: #fffcf5;
+						box-shadow: 0 6px 18px rgba(0, 0, 0, 0.18);
+					"
+				>
+					<img src="/favicon.svg" alt="" width="88" height="88" />
+					<p lang="en">
+						Animath needs JavaScript to play. Ask a grown-up to turn it on, then load the page
+						again.
+					</p>
+					<p lang="da">
+						Animath skal bruge JavaScript for at spille. Bed en voksen om at slå det til og hente
+						siden igen.
+					</p>
+				</div>
+			</div>
+		</noscript>
 		<canvas id="game"></canvas>
 		<div id="ui"></div>
-		<script type="module" src="/src/main.ts"></script>
+		<script type="module" src="/src/boot.ts"></script>
 	</body>
 </html>

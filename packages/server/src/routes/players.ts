@@ -12,7 +12,7 @@ import { hashSecret, newSecret, secretMatches } from '../secrets.js';
  * Anonymous players and the backup of their save.
  *
  *   POST /api/players             → 201 { id, secret }
- *   GET  /api/players/:id/save    → 200 SaveV1 | 404
+ *   GET  /api/players/:id/save    → 200 SaveV2 | 404
  *   PUT  /api/players/:id/save    → 200 { ok: true } | 400 | 409 | 413
  *
  * Every `/:id/...` request carries `Authorization: Bearer <secret>`. Missing

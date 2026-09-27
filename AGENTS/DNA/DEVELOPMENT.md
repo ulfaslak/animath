@@ -55,11 +55,12 @@ node scripts/screenshot.mjs --touch --url 'http://localhost:<port>/?new&debug' -
 node scripts/screenshot.mjs --url 'http://localhost:<port>/?zoo' --scale 3 --clip 350,300,420,260   # every animal figure, magnified 3× (same camera)
 node scripts/screenshot.mjs --url 'http://localhost:<port>/?zoo=tired' --wait 4000 --scale 3 --clip 350,300,420,260   # every animal lying down to rest
 node scripts/screenshot.mjs --url 'http://localhost:<port>/' --reduced-motion   # as a system that asks for less motion
+node scripts/screenshot.mjs --touch --safe-area 0,0,20,0 --url 'http://localhost:<port>/?new' --width 1024 --height 768   # an iPad's home indicator
 ```
 
 Headless Chrome via `playwright-core`. On a Mac, WebGL draws on the GPU (`--gpu metal`, ANGLE over Metal, as Chrome itself draws there) at 15–20 frames a second; `--gpu swiftshader`, the default elsewhere, draws in software at under 3 (see [[ENVIRONMENT_NOTES]] § Looking at the game). The first line printed names the renderer that drew. The script exits non-zero and prints console errors (and warnings) if the page logged any. **Read the image** — a saved file you never looked at verifies nothing. The `/play` command wraps this.
 
-Every run is a fresh browser: a new player with no game, so the page opens on the title with no Continue. `?new` (like `?party=`, `?zoo`, `?tokens=` and `?shop`) skips the title into a throwaway game at the spawn tile with a squirrel, which touches neither storage nor the API, so walks from the start always behave the same. For a game that is saved, go through the title as a kid does: `Enter,wait:3000,Enter,wait:3000,Enter,wait:4000` is New game, the first starter, no name (the starters and the name box take Enter only after a quiet moment of 0.8 s of game time, which a loaded machine stretches, and which every Enter starts again; see [[ENVIRONMENT_NOTES]]). `reload:` keeps the game (the save is in the page's `localStorage`) and comes back to the title, where `Enter` is Continue: that is how to check that something survives a reload.
+Every run is a fresh browser: a new player with no game, so the page opens on the title with no Continue. `?new` (like `?party=`, `?zoo`, `?tokens=` and `?shop`) skips the title into a throwaway game at the spawn tile with a squirrel, which touches neither storage nor the API, so walks from the start always behave the same. For a game that is saved, go through the title as a kid does: `Enter,type:Tester,wait:3000,Enter,wait:3000,Enter,wait:3000,Enter,wait:4000` is New game, the player's name, the first starter, no name for it (the name boxes and the starters take Enter only after a quiet moment of 0.8 s of game time, which a loaded machine stretches, and which every Enter starts again; see [[ENVIRONMENT_NOTES]]). `reload:` keeps the game (the save is in the page's `localStorage`) and comes back to the title, where `Enter` is Continue: that is how to check that something survives a reload. Such a game starts in a random home world, so its start differs from run to run: for the same walk every time, use `?new` (World 1) or a seeded save (§ Standing anywhere).
 
 **The API is blocked.** The script aborts every request to `/api/` in the browser, as if the server were down, and counts the blocked calls in one line at the end; an API response that arrives anyway fails the run. A game started in a fresh browser makes a player on the server, and every Vite proxies `/api` to the primary clone's API, with the kids' games in its database, unless `API_PORT` says otherwise ([[ENVIRONMENT_NOTES]] § This machine is shared). The game plays and saves in the page all the same. `--api` lets the calls through, for a run that tests the backup, against your own API and database (§ Running); there, calls that fail (no API server behind the proxy, a `409`) are listed at the end and do not fail the run. A throwaway Playwright script (the recipes below) is a fresh browser too: block the API the same way before its first `goto`, with `await context.route((u) => /^\/api(\/|$)/.test(u.pathname), (r) => r.abort())`.
 
@@ -85,7 +86,11 @@ Three flags pace a run: `--key-interval <ms>` between key tokens (700), `--tap-m
 
 **Two fingers at once** need a throwaway Playwright script (`hasTouch`, `isMobile`) that sends CDP's `Input.dispatchTouchEvent` itself, each finger with its own `id`: `touchStart` with every finger that is down (the one landing added to those still down), and `touchEnd` listing the fingers that lift. Not the ones that stay, whatever the protocol's description says: in Chrome 153, `touchEnd` with finger 1 listed lifts finger 1, and a `touchMove` that leaves a finger out lifts nothing. `touchEnd` with no fingers lifts them all.
 
-After every frame the script prints what the screen says: on the title its menu (`title:`, the lit row in brackets), the confirm (`confirm:`), the starters' name tags (`starters:`, the lit one in brackets), the card under them (`starter:`) and its notes; the message line in explore (`hud:`), with `?debug` in the URL the grid position and facing (`at:`) and the last four sound cues the game asked for (`cue:`), and the party cards (`party:`, the lead's in brackets, an open one in braces) with an open card's animals (`open card (n):`, the first eight); the touch controls on screen (`touch:` — the D-pad and the arrow held, Talk and whether it is lit, Menu, the number pad and whether it is dimmed, the turn-sideways screen); in the pause menu its rows (the lit one in brackets), an open card's animals (`card (n):`, the first eight), the picked animal's or card's options (greyed ones in parentheses), the name box with whether it has the focus, and the notes under it; at the doctor the doctor's line and the party (the highlighted row in brackets); in a battle the status boxes, the menu (the highlighted row in brackets; each attack with its level word, greyed rows marked) or the switch list in its place (`switch:`), the narration line, the puzzle, the typed answer, the judgement and the result card — so a run can be checked from its output as well as its images.
+**The safe area.** `--safe-area top,right,bottom,left` gives the page the insets a notch, rounded corners or a home indicator take, in CSS pixels, through Chrome's `Emulation.setSafeAreaInsetsOverride`, and tints the strips outside the safe area red in every frame, so anything under them shows. An iPad in Safari is `0,0,20,0`; an iPhone held sideways about `0,59,21,59` (`--width 844 --height 390`). Chrome reports them whether or not the page asks for `viewport-fit=cover`, which Safari needs before a page reaches under a notch at all ([[ENVIRONMENT_NOTES]] § Looking at the game).
+
+**Without WebGL or JavaScript.** A throwaway Playwright script shows the two cards the game gives instead of itself: Chrome launched with `args: ['--disable-3d-apis']` has no WebGL (the `NoWebGL` card, in the language `?lang=` asks for), and a context with `javaScriptEnabled: false` runs no script (the `<noscript>` card).
+
+After every frame the script prints what the screen says: on the title its menu (`title:`, the lit row in brackets), the confirm (`confirm:`), the player's name box (`player:`, what is typed in brackets, then the rule or why a name did not go), the starters' name tags (`starters:`, the lit one in brackets), the card under them (`starter:`) and its notes; the message line in explore (`hud:`), with `?debug` in the URL the grid position and facing (`at:`) and the last four sound cues the game asked for (`cue:`), and the party cards (`party:`, the lead's in brackets, an open one in braces) with an open card's animals (`open card (n):`, the first eight); the touch controls on screen (`touch:` — the D-pad and the arrow held, Talk and whether it is lit, Menu, the number pad and whether it is dimmed, the turn-sideways screen); in the pause menu its rows (the lit one in brackets), an open card's animals (`card (n):`, the first eight), the picked animal's or card's options (greyed ones in parentheses), the name box with whether it has the focus, and the notes under it; at the doctor the doctor's line and the party (the highlighted row in brackets); in a battle the status boxes, the menu (the highlighted row in brackets; each attack with its level word, greyed rows marked) or the switch list in its place (`switch:`), the narration line, the puzzle, the typed answer, the judgement and the result card — so a run can be checked from its output as well as its images.
 
 `?party=` starts the game with any party (`?party=squirrel:5,rabbit:0,fox`: species, then HP, full by default; `*` and a count for many of a kind, `rabbit*30`, `rabbit:0*5`, up to 1,000 animals in all), for screens that need a big or hurt one. A team of 120 across the eight land kinds: `?party=squirrel*15,rabbit*15,frog*15,fox*15,otter*15,deer*15,wolf*15,bear*15` (the sea animals are `crab`, `starfish`, `turtle`, `dolphin`, `octopus` and `whale`). The party column's hover, clicks and drags need a throwaway Playwright script (`page.mouse`), and a finger's hold-and-drag CDP's `Input.dispatchTouchEvent` (§ Two fingers at once) with a pause of 0.7 s after `touchStart` (the card lifts after 0.5 s held still) and then moves of more than 20 px (a lifted card let go closer to where it was is a tap); to see the column keep scrolling under a card held at its edge, move the finger there and wait before `touchEnd`; `?debug` and `?party=` combine (see [[CHEATSHEET]] § Hidden behaviour).
 
@@ -120,7 +125,7 @@ To attack, press the level key on the highlighted attack (`1`, or `ArrowDown,3` 
 
 The running page's modules can be read from the script (`await page.evaluate(() => import('/src/state/battle.svelte.ts'))`), which gives the puzzle on screen and its answer without a mirror authority. Only on a dev server that has not hot-updated that module since it started: after an edit or a merge, Vite serves it to the page as `…?t=<time>`, the plain path is a second copy with nothing in it, and the script types `undefined` as the answer. Restart the dev server first.
 
-**Standing anywhere.** To look at a place far from the spawn (a biome, a mountain's peaks), put a save there before the page loads, in a throwaway Playwright script with the API blocked: `context.addInitScript` writes `localStorage['animath.save']` (once, behind a `sessionStorage` flag, so a reload keeps the game's own saves) with `{ version: 1, seed: <WORLD_SEED>, pos, facing, steps, visits: 0, lineage, seq: 1, party }`, and Enter on the title is Continue. In the prototype world: meadow (49, 37), forest (-20, 52), a river bank of reed beds (-6, -10), the mountains (48, -18), their peaks (-101, -119). A save on a tile the player can't stand on (a rock, a tree or a tent, or water without the boat) puts the player on the spawn tile instead.
+**Standing anywhere.** To look at a place far from the spawn (a biome, a mountain's peaks), put a save there before the page loads, in a throwaway Playwright script with the API blocked: `context.addInitScript` writes `localStorage['animath.save']` (once, behind a `sessionStorage` flag, so a reload keeps the game's own saves) with `{ version: 2, home: 1, world: 1, name: 'Tester', pos, facing, steps, visits: 0, lineage, seq: 1, party }`, and Enter on the title is Continue (without a `name`, Continue asks for one first; a v1 document, `{ version: 1, seed: <WORLD_SEED>, … }`, still loads, into World 1, and asks too). In World 1: meadow (49, 37), forest (-20, 52), a river bank of reed beds (-6, -10), the mountains (48, -18), their peaks (-101, -119). A save on a tile the player can't stand on (a rock, a tree or a tent, or water without the boat) puts the player on the spawn tile instead.
 
 **Chopping and breaking.** The same save with `items: ['axe', 'pickaxe']` and the player beside a tree or a rock, facing it: (-16, 9) facing `right` has the tree at (-15, 9); (-2, 19) facing `right` a rock; (-29, -24) facing `right` a snow-capped peak. Continue, wait out Talk's quiet moment (the bottom line says "Press Enter to chop the tree"), and Enter. A save that already cleared tiles carries `edits` (`["-1,0:91"]` is that tree). The swing, the fall and the chips take under a second: freeze the clock for frames inside them (below). To buy the tools as a kid does, `?tokens=40&shop`: seven steps right, Down, Enter, Right twice to the shop, Enter on the axe, type 32, Enter; Down to the pickaxe, Enter, type 19, Enter. The screenshot script prints the touch button's label (`talk "Chop" (lit)`).
 
@@ -228,7 +233,7 @@ update saves set data = jsonb_set(b.data, '{seq}', to_jsonb((saves.data->>'seq')
   from save_backups b where b.id = <backup id> and saves.player_id = b.player_id;
 ```
 
-The browser keeps its own set-aside copies too: `animath.save.unreadable` (a save it could not read), `animath.save.replaced` (its game, when a bigger one came from the server or another tab wrote over it in the same instant) and `animath.save.previous` (a game the kid left for New game on the title), each followed by `.2`, `.3`, … when the key was taken, oldest first. To give a kid back a game they left, in their browser's developer tools copy that text into `animath.save` with its `seq` raised above the current save's (and above the server's, or the server's newer game wins at the next start), then reload: the title offers it as Continue.
+The browser keeps its own set-aside copies too: `animath.save.unreadable` (a save it could not read), `animath.save.replaced` (its game, when a bigger one came from the server or another tab wrote over it in the same instant), `animath.save.previous` (a game the kid left for New game on the title) and `animath.save.upgraded` (an older version's save, as it was before this version first saved over it; the server keeps its copy in `save_backups`), each followed by `.2`, `.3`, … when the key was taken, oldest first. To give a kid back a game they left, in their browser's developer tools copy that text into `animath.save` with its `seq` raised above the current save's (and above the server's, or the server's newer game wins at the next start), then reload: the title offers it as Continue.
 ### Migrations
 
 Hand-written SQL, applied by `pnpm db:migrate` (`drizzle-orm`'s migrator, journal-driven).
@@ -241,6 +246,47 @@ Hand-written SQL, applied by `pnpm db:migrate` (`drizzle-orm`'s migrator, journa
 Never run `drizzle-kit generate` in a worktree (it emits a full `0000` dump that collides with the real one).
 
 **A migration keeps the build before it working.** A deploy runs the new migrations while the old build still serves, the two builds then answer side by side for a few seconds, and a rollback runs an older build on the newer schema: migrations never go back. So add (a table, a nullable column, a column with a default); rename or drop only in a later PR, once no deployed build reads the old name.
+
+`migrations.test.ts` fails when a `.sql` file has no journal entry or is out of order, and when a migration after `0002` changes the anonymous backup's tables ([[INVARIANTS]] § Server).
+
+## Accounts
+
+An account is a row in `users` with its `sessions`, its `account_saves` row and its `account_save_backups` ([[ARCHITECTURE]] § Data model). There is no email, so a forgotten password is reset, and an account deleted, by the human with the admin CLI:
+
+```bash
+pnpm admin list                                    # every account: its save's seq and when, how many browsers are logged in
+pnpm admin reset-password <name> [<new password>]  # a made-up six-character password when none is given; logs every browser out
+pnpm admin delete-account <name>                   # only says what it would delete
+pnpm admin delete-account <name> --yes             # deletes the account, its sessions, its save and its set-aside saves
+```
+
+A name is matched the way the game matches it, whatever its case or however its letters were typed; quote one with a space (`"Anna Sofie"`). Locally the CLI uses `.env`'s `DATABASE_URL`, the `mathgame` database; from a worktree, give it your own database's. In production it runs in the app container, against production's database, from the directory that holds `docker-compose.prod.yml`:
+
+```bash
+docker compose -f docker-compose.prod.yml exec app node dist/admin.mjs reset-password <name>
+```
+
+**Trying the routes.** A POST or PUT under `/api/account` must declare JSON, and when it carries an `Origin` (a browser's always does) its host must be the request's `Host`; curl sends none. The session is the `animath_session` cookie, which a cookie jar keeps:
+
+```bash
+API=http://localhost:3021   # your own API
+curl -s -c jar -b jar -H 'content-type: application/json' -d '{"name":"Pip","password":"1234"}' $API/api/account/register
+curl -s -c jar -b jar $API/api/account/me
+curl -s -c jar -b jar -X PUT -H 'content-type: application/json' --data @save.json $API/api/account/save
+```
+
+The login and register limits are counted in the API process's memory, so restarting your API clears them. The admin CLI is another process and cannot: a kid who guessed wrong ten times before the reset waits out the rest of that quarter-hour with the new password too.
+
+**Getting a kid's account game back.** As with the anonymous backup (§ Database), what an account's save replaced (another game, from New game on the title, or one the server could not read) is in `account_save_backups`. Put one back with a `seq` far above the current save's, in the document and in its column:
+
+```sql
+select b.id, b.reason, b.created_at, b.data->>'seq' as seq, b.data->'party' as party
+  from account_save_backups b join users u on u.id = b.user_id where u.name = '<name>' order by b.id;
+update account_saves
+   set data = jsonb_set(b.data, '{seq}', to_jsonb(account_saves.seq + 1000000)),
+       seq = account_saves.seq + 1000000, updated_at = now()
+  from account_save_backups b where b.id = <backup id> and account_saves.user_id = b.user_id;
+```
 
 ## Sharing the game through a tunnel
 

@@ -11,6 +11,7 @@
  *                               [--width 1280 --height 800] [--scale 1]
  *                               [--clip x,y,w,h] [--gpu metal|swiftshader]
  *                               [--reduced-motion] [--touch] [--api]
+ *                               [--safe-area top,right,bottom,left]
  *
  * `--touch` opens the page as a touch tablet would (`hasTouch`, `isMobile`:
  * the page sees `pointer: coarse` and shows its touch controls), for the
@@ -37,8 +38,8 @@
  * A selector never holds a comma (the script's separator); `:nth-child(2)`
  * and friends are fine.
  * The final frame goes to `--out`. After every frame the script prints what
- * the screen says — on the title its menu, the confirm, the starters and the
- * name box; the message line in explore (and the grid position and
+ * the screen says — on the title its menu, the confirm, the player's name
+ * box, the starters and the starter's name box; the message line in explore (and the grid position and
  * facing with `?debug` in the URL), the party cards (and an open card's
  * animals) and the tokens and tools in the corner; in the pause menu its
  * rows, the picked animal's options and the name box (with whether it has
@@ -51,6 +52,12 @@
  *
  * `--reduced-motion` opens the page as a system that asks for less motion
  * (`prefers-reduced-motion: reduce`).
+ *
+ * `--safe-area 0,59,21,59` gives the screen a safe area, as a notch, rounded
+ * corners or the home indicator do (the insets in CSS pixels, top, right,
+ * bottom, left: an iPhone held sideways here; an iPad's home indicator is
+ * `0,0,20,0`): the page's `env(safe-area-inset-*)` reports them. The frames
+ * tint the strips outside the safe area red, so what sits under them shows.
  *
  * Each run is a fresh browser, so a new player with no game: the title, with
  * New game only (`?new` goes past it into a throwaway game); `reload:` keeps
@@ -164,6 +171,22 @@ if (!allowApi) {
 	});
 }
 const page = await context.newPage();
+if (args['safe-area']) {
+	const [top, right, bottom, left] = args['safe-area'].split(',').map(Number);
+	if (![top, right, bottom, left].every((n) => Number.isFinite(n) && n >= 0)) {
+		console.error(`--safe-area is four insets, top,right,bottom,left, not "${args['safe-area']}"`);
+		process.exit(2);
+	}
+	const cdp = await context.newCDPSession(page);
+	await cdp.send('Emulation.setSafeAreaInsetsOverride', { insets: { top, right, bottom, left } });
+	// Red strips where the notch and the home indicator would be, over everything, taking no taps.
+	await page.addInitScript(`addEventListener('DOMContentLoaded', () => {
+		const strips = document.createElement('div');
+		strips.style.cssText = 'position:fixed;inset:0;z-index:2147483647;pointer-events:none;' +
+			'border:solid rgba(242,95,92,0.45);border-width:${top}px ${right}px ${bottom}px ${left}px';
+		document.documentElement.append(strips);
+	});`);
+}
 const errors = [];
 // The game saves locally and backs up to the API when it can; it plays the same
 // without it. Failed API calls are listed, not counted as errors.
@@ -202,7 +225,8 @@ async function textOf(selector) {
 async function describe() {
 	const lines = [];
 	// The title: its menu rows (the lit one in brackets), the confirm's choices,
-	// the starters' name tags (the lit one in brackets) and the card under them.
+	// the player's name box, the starters' name tags (the lit one in brackets)
+	// and the card under them.
 	const lit = (selector) =>
 		page.locator(selector).evaluateAll((els) =>
 			els.map((el) => {
@@ -215,6 +239,13 @@ async function describe() {
 	const confirm = await textOf('.confirm .heading');
 	if (confirm !== null)
 		lines.push(`confirm: ${confirm} ${(await lit('.confirm .row')).join(' | ')}`);
+	// The player's name box: its question, what is typed, and the rule or why a name did not go.
+	const playerName = await textOf('.player-card .heading');
+	if (playerName !== null) {
+		const typed = await page.locator('.player-card .name-box').inputValue();
+		const note = await textOf('.player-card .note');
+		lines.push(`player: ${playerName} [${typed}]${note === null ? '' : ` — ${note}`}`);
+	}
 	const starters = await lit('.starter-screen .tag');
 	if (starters.length) lines.push(`starters: ${starters.join(' | ')}`);
 	const starterCard = await textOf('.starter-card .heading');

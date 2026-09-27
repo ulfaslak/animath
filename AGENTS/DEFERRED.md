@@ -48,11 +48,27 @@ Technical items we've intentionally postponed: tech debt, hardening shortcuts, k
 
 ### Anonymous player identity is unauthenticated
 
-**What**: the player secret is a random token the client holds in `localStorage` (`animath.player`) and sends as a bearer header. Only its hash is stored, so a database dump is useless, but anyone who copies the token from the browser owns the player and its backup. `POST /api/players` has only the prod nginx's limit on every POST per address (20 at once, then one every 6 s; `nginx/http.conf`), which still lets anyone mint rows slowly, and the game itself leaves unused ones behind (every fresh browser that starts a game is a new player; a page reloaded before its first `POST` answered makes another). No rotation, and no way to recover a lost secret: a kid whose browser forgets the site (cleared data, another browser or device, Safari deleting a site's storage after seven days without a visit) starts a new game, and their backup waits on the server under an identity nothing holds any more. Moving it to their new player takes a query written by hand; [[DEVELOPMENT]] § Database only restores a player's own backups.
+**What**: the player secret is a random token the client holds in `localStorage` (`animath.player`) and sends as a bearer header. Only its hash is stored, so a database dump is useless, but anyone who copies the token from the browser owns the player and its backup. No rate limiting on `POST /api/players` where it runs (development, over the tunnel, with no nginx in front): anyone can mint rows, and the game itself leaves unused ones behind (every fresh browser that starts a game is a new player; a page reloaded before its first `POST` answered makes another). No rotation, and no way to recover a lost secret: a kid whose browser forgets the site (cleared data, another browser or device, Safari deleting a site's storage after seven days without a visit) starts a new game, and their backup waits on the server under an identity nothing holds any more. Moving it to their new player takes a query written by hand; [[DEVELOPMENT]] § Database only restores a player's own backups.
 
-**Why deferred**: there is nothing to steal until multiplayer, tokens and a shop exist, and the players are a handful of kids on a tunnel URL. Moving a game between browsers is a feature (a recovery code, or accounts), not a hardening.
+**Why deferred**: the anonymous backup runs only in development now, for a handful of kids on this machine's tunnel: in production every `/api/players` route answers `410` ([[ARCHITECTURE]] § HTTP API), and the backup goes once the human's kid's save has moved to production ([[DECISIONS]] § Saves). A game moves between browsers with an account, which has a password, rate limits and an admin reset.
 
-**Trigger**: multiplayer with any persistent economy (tokens, purchasable leashes/potions), the prod server going live (sweeping players with no save; the rate limit is in place), or the first report of a kid losing their save. A limit per address holds because the game is served over IPv4 only: behind Docker's port proxy every IPv6 visitor would reach nginx from one address (`/redeploy` § DNS).
+**Trigger**: the cleanup PR that removes the anonymous backup after the kid's save has moved: delete this item with it. Before then, the first report of a kid losing their save.
+
+### The login and register rate limits live in one process's memory
+
+**What**: `RateLimiter` (`packages/server/src/rate-limit.ts`) counts tries per address, per name and per account in the API process's memory. A restart or a deploy forgets every count, and two processes serving the API at once would each allow the full limit. Wrong passwords from one address shut out only that address, but wrong passwords from five or more addresses together still shut a name out for everyone for a quarter of an hour at a time, the kid on their own device included, and the admin CLI (another process) cannot lift it; only a restart does.
+
+**Why deferred**: there is one API process, and the stakes are a kid's animals, not personal data ([[DECISIONS]] § Accounts). A shared store (a Postgres table, or Redis) is a moving part for a threat nobody has made yet.
+
+**Trigger**: a second process or container serving the API for longer than a deploy's hand-over, or a report of a kid locked out of their name, or of guessing (many `429`s for one name in the logs).
+
+### Many accounts can still fill the disk
+
+**What**: each account stores at most a 1 MiB save and 2 MiB of set-aside saves (`ACCOUNT_BACKUP_BYTES`), and registrations are limited to 30 an hour per address (an IPv4 address or an IPv6 /64). Someone with many addresses can still make many accounts and send each a megabyte of save, about 90 MiB an hour per address at most. Nothing counts the database's size or stops at a quota, so a determined attacker could fill the server's disk, and then every save would fail, the kids' included.
+
+**Why deferred**: there is no public address yet, the game is for a handful of kids, and a quota or a disk alarm is a moving part for an attack nobody has made. A kid's real save is a few kilobytes, so a quota low enough to matter would never touch them.
+
+**Trigger**: the production server's disk passing half full, a registration flood in the logs, or the first deploy with a public domain (then add at least a disk-usage alert to the backup sidecar's checks).
 
 ### Cleared tiles are each player's own, so a friend can walk through a tree you still see
 
@@ -72,9 +88,9 @@ Technical items we've intentionally postponed: tech debt, hardening shortcuts, k
 
 ### A saved position assumes today's world generator
 
-**What**: a save holds a tile position and a step count, both meaningful only in the world `generateChunk` makes today. A change to world generation that moves tiles under an existing seed can leave a saved player on water or a tree (`restoreGame` then puts them on the spawn tile, far from where they were) or walled in on a patch of walkable tiles, which `restoreGame` does not detect.
+**What**: a save holds tile positions (in the world the player is in, and in each world left behind) and a step count, all meaningful only in the worlds `generateChunk` makes today. A change to world generation that moves tiles under an existing seed can leave a saved player on water or a tree (`restoreGame` then puts them on the spawn tile, far from where they were) or walled in on a patch of walkable tiles, which `restoreGame` does not detect.
 
-**Why deferred**: the generator has changed once since the first save: deep water turned water tiles out in the lakes into deep water, and moved no tile anyone could stand on (0 of 205,861 land tiles within 256 of the prototype spawn changed; `world.test.ts` pins the world within 64 of it by a checksum, [[INVARIANTS]] § World). No save could stand on water before the boat, so none moved. The right fix for a change that does move land depends on the change: keep old seeds on the old generator, or bump `SAVE_VERSION` with an upgrade that moves saved players to a safe tile near where they were (the knock-out rule's `nearestTent` search is the model).
+**Why deferred**: the generator has changed once since the first save: deep water turned water tiles out in the lakes into deep water, and moved no tile anyone could stand on (0 of 205,861 land tiles within 256 of the prototype spawn changed; `world.test.ts` pins the world within 64 of it by a checksum, [[INVARIANTS]] § World). Only World 1 is pinned: saves stand in other worlds since numbered worlds, and a change to generation moves those too. No save could stand on water before the boat, so none moved. The right fix for a change that does move land depends on the change: keep old seeds on the old generator, or bump `SAVE_VERSION` with an upgrade that moves saved players to a safe tile near where they were (the knock-out rule's `nearestTent` search is the model).
 
 **Trigger**: any PR that changes where a player can stand in an existing seed's world (the checksum in `world.test.ts` goes red first; procedural world v2 in [[PRODUCT]] §6 is one), or one that changes the water a saved player may now be sailing on.
 
@@ -174,3 +190,11 @@ Technical items we've intentionally postponed: tech debt, hardening shortcuts, k
 
 **Trigger**: before rolling the game back past #66, or serving two builds behind one address. Then bump `SAVE_VERSION` with an upgrade that only renumbers, so an older build calls a big save `newer` and leaves it alone.
 
+
+### The link preview's image is a relative URL
+
+**What**: `index.html` gives `og:image` as `/social-preview.jpg`. The Open Graph protocol asks for an absolute URL, and some messengers show no picture for a relative one, though iMessage, Slack and most others resolve it against the page's address.
+
+**Why deferred**: the game has no address of its own yet: the human has not chosen a domain, and until the production server is up the game is shared through a tunnel whose address changes. A hard-coded address would be wrong everywhere it is shared today.
+
+**Trigger**: the production domain is chosen (`MATHGAME_DOMAIN` in `deploy.env`, the one place it is set). Then write it into `og:image` (and add `og:url`), in `index.html` or from the build's environment. The image's build does not read `deploy.env` today (the `.dockerignore` allowlist leaves it out): pass it in as a build argument, as `GIT_SHA` is.
