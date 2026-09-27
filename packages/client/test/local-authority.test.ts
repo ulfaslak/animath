@@ -378,12 +378,12 @@ describe('LocalAuthority: encounters', () => {
 });
 
 describe('LocalAuthority: the lead decides who comes out', () => {
-	it('with the starter in front, the reed meets a Brown rat on step 11, a Frog on step 15, the first Toad on step 71 and a Raccoon on step 97', () => {
+	it('with the starter in front, the reed meets a Brown rat on step 11, a Frog on step 15, the first Toad on step 71 and the first Otter on step 117', () => {
 		const met = reedWalk(session(), 200);
 		expect(met[0]).toEqual({ step: 11, wild: 'brown-rat', lead: 'squirrel' });
 		expect(met[1]).toEqual({ step: 15, wild: 'frog', lead: 'squirrel' });
 		expect(met.find((m) => m.wild === 'common-toad')?.step).toBe(71);
-		expect(met.find((m) => m.wild === 'raccoon')?.step).toBe(97);
+		expect(met.find((m) => m.wild === 'otter')?.step).toBe(117);
 		// Only what a tier-1 lead meets in the reeds: the river's own small and tier-2 animals,
 		// and the small ones that come down to the water.
 		const river = encounterTable('river', 0, 1).map((e) => e.species.id);

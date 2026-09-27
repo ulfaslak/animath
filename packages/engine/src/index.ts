@@ -199,6 +199,7 @@ export {
 	NEAR_ONE_UP,
 	SAFE_RADIUS,
 	TIER_SIGMA,
+	VISITORS_WEIGHT,
 	WILD_RADIUS,
 	distanceFromSpawn,
 	encounterTable,

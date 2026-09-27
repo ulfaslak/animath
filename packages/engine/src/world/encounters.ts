@@ -29,7 +29,7 @@ import { encounterRealm, isEncounterTile, type GridPos, type Tile } from './type
  * the lead's size also come down to the water and up the hills: the river and
  * the mountains, wherever something bigger than the lead lives there, get
  * every species of the lead's tier that doesn't live there as a visitor: all
- * of them together as much again as the lead's tier, on top of the bell. As
+ * of them together `VISITORS_WEIGHT` bells of the lead's tier, on top of it. As
  * they thin out, the lead's tier loses weight; were they only to share out its
  * bell, the ground round a reed or a rock, favouring the residents they leave
  * behind, would make the lead's tier commoner on the way out and the bigger
@@ -139,12 +139,24 @@ function tierWeight(above: number, distance: number): number {
 const VISITED_BIOMES: readonly Biome[] = ['river', 'mountain'];
 
 /**
- * What the visitors of the lead's tier weigh together, next to its bell: 1
- * inside the safe radius, thinning out linearly to 0 at the wild radius.
- * Beyond it the river and the mountains are their own residents only.
+ * What the visitors of the lead's tier weigh together inside the safe radius,
+ * in bells of that tier, on top of its residents' one: three, so that by the
+ * river's reeds the river's own small animals are a quarter of the small
+ * animals near home, as when every one of them weighed the same, and a new
+ * starter's battles there are no harder than they were. Any fixed number keeps
+ * the distance rule's proof; one that grew with the visitors' count would not
+ * keep a tier's weight free of how many kinds it has.
+ */
+export const VISITORS_WEIGHT = 3;
+
+/**
+ * What the visitors of the lead's tier weigh together, in bells of its tier:
+ * `VISITORS_WEIGHT` inside the safe radius, thinning out linearly to 0 at the
+ * wild radius. Beyond it the river and the mountains are their own residents
+ * only.
  */
 function visitorWeight(distance: number): number {
-	return 1 - danger(distance);
+	return VISITORS_WEIGHT * (1 - danger(distance));
 }
 
 function assertTier(tier: unknown, where: string): asserts tier is Tier {
@@ -168,8 +180,8 @@ function assertTier(tier: unknown, where: string): asserts tier is Tier {
  * where a resident is bigger than the lead, every species of the lead's tier
  * that doesn't live there is listed too, as a visitor; the visitors together
  * weigh the lead's tier's bell times `visitorWeight`, however many kinds they
- * are, on top of its residents: near home the lead's size is twice as common
- * there as the bell alone would make it. The weights are then normalised, so
+ * are, on top of its residents: near home the lead's size is four times as
+ * common there as the bell alone would make it. The weights are then normalised, so
  * a tier the biome doesn't hold never comes out there and the others share
  * its place. Empty only where nothing of the realm lives in the biome.
  */

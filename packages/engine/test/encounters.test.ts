@@ -7,6 +7,7 @@ import {
 	NEAR_ONE_UP,
 	SAFE_RADIUS,
 	TIER_SIGMA,
+	VISITORS_WEIGHT,
 	WILD_RADIUS,
 	distanceFromSpawn,
 	encounterTable,
@@ -123,8 +124,8 @@ function bell(k: number, distance: number): number {
  * resident weighs its tier's `bell` over the number of its tier's residents;
  * at the river and in the mountains, where a resident is bigger than the lead,
  * every species of the realm and the lead's tier that doesn't live there
- * visits, the visitors together weighing the lead's tier's bell times
- * 1 − danger, evenly. Shares, in roster order. With the starter in front near
+ * visits, the visitors together weighing three of the lead's tier's bells
+ * times 1 − danger, evenly. Shares, in roster order. With the starter in front near
  * spawn before the bell it was PR #12's table: the river and the mountains
  * were exactly the biomes with residents but no tier-1 animal.
  */
@@ -146,7 +147,7 @@ function bellTable(
 	const raw = new Map<string, number>();
 	for (const a of here) {
 		if (a.habitats.includes(biome)) raw.set(a.id, bell(a.tier - lead, distance) / count(a.tier));
-		else if (guest(a)) raw.set(a.id, (bell(0, distance) * (1 - danger)) / guests);
+		else if (guest(a)) raw.set(a.id, (3 * bell(0, distance) * (1 - danger)) / guests);
 	}
 	let sum = 0;
 	for (const w of raw.values()) sum += w;
@@ -269,11 +270,13 @@ describe('encounterTable', () => {
 		// The constants are the literals [[PRODUCT]] §4 states.
 		expect(TIER_SIGMA).toBe(1);
 		expect(NEAR_ONE_UP).toBe(1 / 9);
+		expect(VISITORS_WEIGHT).toBe(3);
 		// Today's numbers, as [[PRODUCT]] §4 quotes them. A tier weighs its bell, split
 		// evenly among the animals of it living there, however many they are: near spawn,
 		// for the starter, the small ones 1, the tier-2 ones 1/9, the red deer 1/9^4, the
 		// wolf 1/9^9 and the bear 1/9^16; at the river and in the mountains the small
-		// animals that live elsewhere come too, all together as much again as those living there.
+		// animals that live elsewhere come too, all together three times as much as those living
+		// there.
 		const split = (w: number, ...ids: string[]) =>
 			Object.fromEntries(ids.map((id) => [id, w / ids.length]));
 		const nearUp = (k: number) => Math.pow(9, -k * k);
@@ -317,13 +320,14 @@ describe('encounterTable', () => {
 			})
 		);
 		// The river's three small kinds share their bell, and the nine small visitors, on top,
-		// another: the small ones weigh 2 there, and one tier up is 1 in 19.
+		// three more: 1/3 each, as every small animal weighed before the bell; the small ones
+		// weigh 4 there, and one tier up is 1 in 37.
 		expectShares(
 			encounterTable('river', 0, 1),
 			normalised({
 				...split(1, 'frog', 'brown-rat', 'common-toad'),
 				...split(
-					1,
+					3,
 					'squirrel',
 					'rabbit',
 					'shrew',
@@ -337,14 +341,14 @@ describe('encounterTable', () => {
 				...split(nearUp(1), 'otter', 'grey-heron', 'raccoon', 'beaver')
 			})
 		);
-		expect(share('river', 0, 1, (t) => t === 2)).toBeCloseTo(1 / 19, 12);
-		// The lizard is the mountains' one small kind; the eleven visitors share a bell as well.
+		expect(share('river', 0, 1, (t) => t === 2)).toBeCloseTo(1 / 37, 12);
+		// The lizard is the mountains' one small kind; the eleven visitors share three bells.
 		expectShares(
 			encounterTable('mountain', 0, 1),
 			normalised({
 				'common-lizard': 1,
 				...split(
-					1,
+					3,
 					'squirrel',
 					'rabbit',
 					'frog',
@@ -418,13 +422,14 @@ describe('encounterTable', () => {
 				deer: down(2)
 			})
 		);
-		// A red deer in the mountains near home: the deer visits, the only tier-3 animal there.
+		// A red deer in the mountains near home: the deer visits, the only tier-3 animal there,
+		// with the visitors' three bells.
 		expectShares(
 			encounterTable('mountain', 0, 3),
 			normalised({
 				'common-lizard': down(2),
 				...split(down(1), 'stoat', 'adder'),
-				deer: 1,
+				deer: 3,
 				wolf: nearUp(1),
 				bear: nearUp(2)
 			})
@@ -439,17 +444,17 @@ describe('encounterTable', () => {
 		const frogShare = (biome: Biome, d: number, lead: Tier) =>
 			encounterTable(biome, d, lead).find((e) => e.species.id === 'frog')?.weight ?? 0;
 		// A tier-1 lead: in the reeds near home the frog is one of the three small kinds living
-		// there, which weigh 1 together, beside the nine that come down to the water (1 together
-		// too) and the river's four tier-2 animals (1/9); far out the small ones are
-		// 1 / (1 + e^−1/2) of the reeds, three kinds.
-		expect(frogShare('river', 0, 1)).toBeCloseTo(1 / 3 / (2 + 1 / 9), 12);
-		expect(frogShare('river', SAFE_RADIUS, 1)).toBeCloseTo(1 / 3 / (2 + 1 / 9), 12);
+		// there, which weigh 1 together, beside the nine that come down to the water (3 together)
+		// and the river's four tier-2 animals (1/9); far out the small ones are 1 / (1 + e^−1/2)
+		// of the reeds, three kinds.
+		expect(frogShare('river', 0, 1)).toBeCloseTo(1 / 3 / (4 + 1 / 9), 12);
+		expect(frogShare('river', SAFE_RADIUS, 1)).toBeCloseTo(1 / 3 / (4 + 1 / 9), 12);
 		expect(frogShare('river', WILD_RADIUS, 1)).toBeCloseTo(1 / (1 + Math.exp(-0.5)) / 3, 12);
 		expect(frogShare('river', 1000, 1)).toBeCloseTo(1 / (1 + Math.exp(-0.5)) / 3, 12);
-		// It comes up the hills near home too, one of eleven small visitors that weigh as much
-		// together as the lizard, the one small animal living there.
+		// It comes up the hills near home too, one of eleven small visitors that weigh three
+		// times the lizard together, the one small animal living there.
 		expect(frogShare('mountain', 0, 1)).toBeCloseTo(
-			1 / 11 / (2 + 1 / 9 + Math.pow(9, -9) + Math.pow(9, -16)),
+			3 / 11 / (4 + 1 / 9 + Math.pow(9, -9) + Math.pow(9, -16)),
 			12
 		);
 		expect(frogShare('mountain', WILD_RADIUS, 1)).toBe(0);
@@ -488,8 +493,8 @@ describe('encounterTable', () => {
 	it("a tier's share goes by its distance from the lead's, never by how many animals of it live there", () => {
 		// Between any two tiers in a biome's table, the ratio of their shares is the ratio of
 		// their bells, whatever the lead, the distance and the number of kinds in each. Near
-		// home at the river and in the mountains the visitors add a bell times 1 − danger to the
-		// lead's own tier, however many kinds they are.
+		// home at the river and in the mountains the visitors add three bells times 1 − danger to
+		// the lead's own tier, however many kinds they are.
 		const bad: string[] = [];
 		let compared = 0;
 		for (const lead of LEADS) {
@@ -507,7 +512,7 @@ describe('encounterTable', () => {
 					const danger = Math.min(1, Math.max(0, (d - 32) / 96));
 					const weight = (t: number) =>
 						bell(t - lead, d) *
-						((living.has(t) ? 1 : 0) + (t === lead && visited ? 1 - danger : 0));
+						((living.has(t) ? 1 : 0) + (t === lead && visited ? 3 * (1 - danger) : 0));
 					const shares = tierShares(biome, d, lead);
 					const present = [1, 2, 3, 4, 5].filter((t) => weight(t) > 0);
 					for (const t of present) {
@@ -995,7 +1000,7 @@ describe('the start: the ground near spawn', () => {
 		// About 0.5 s alone (91,125 tables); 3.9 s at a load average of 40.
 	}, 30_000);
 
-	it("at the reed beside the prototype world's spawn, with the lake all round it, three battles in four are the water's small animals and the bigger ones 1 in 19", () => {
+	it("at the reed beside the prototype world's spawn, with the lake all round it, most battles are the water's small animals and the bigger ones 1 in 37", () => {
 		const seed = hashString('prototype');
 		const spawn = spawnPoint(seed);
 		const pos = { x: spawn.x - 1, y: spawn.y };
@@ -1003,18 +1008,18 @@ describe('the start: the ground near spawn', () => {
 		expect(tile).toMatchObject({ kind: 'tallgrass', biome: 'river' });
 		const site = { tile, pos, spawn, around: surroundings(seed, pos) };
 		// Near home the ground only divides each tier's share. The three small kinds living in
-		// the reeds weigh as much as the nine that come down to the water, and by the water each
-		// comes out four times as often as one of those: 12 visitors' worth each, four fifths of
-		// the small animals' 18 in 19. The four tier-2 animals of the river, all at home by the
-		// water, split the 19th evenly (5/8 of a visitor each).
+		// the reeds weigh a third of the nine that come down to the water, each as much as one
+		// of those, and by the water four times as much: four sevenths of the small animals'
+		// 36 in 37. The four tier-2 animals of the river, all at home by the water, split the
+		// 37th evenly (7/48 of a visitor each).
 		const each = (w: number, ...ids: string[]) => Object.fromEntries(ids.map((id) => [id, w]));
 		expectShares(
 			encounterTableAt(site, 1),
 			normalised({
-				...each(12, 'frog', 'brown-rat', 'common-toad'),
+				...each(4, 'frog', 'brown-rat', 'common-toad'),
 				...each(1, 'squirrel', 'rabbit', 'shrew', 'wood-mouse', 'hedgehog', 'mole'),
 				...each(1, 'common-lizard', 'robin', 'stag-beetle'),
-				...each(5 / 8, 'otter', 'grey-heron', 'raccoon', 'beaver')
+				...each(7 / 48, 'otter', 'grey-heron', 'raccoon', 'beaver')
 			})
 		);
 		// A tier-2 animal in front: the river's four tier-2 animals, and the three small ones
