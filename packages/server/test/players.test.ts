@@ -83,13 +83,14 @@ function docV1(seq: number, lineage = 'game-a', overrides: Record<string, unknow
 }
 
 /**
- * Saves a newer build wrote, as this build sees them: a later version, and a
- * species or an item this build does not have (ids no catalog here has).
+ * Saves a newer build wrote, as this build sees them: a later version, a
+ * species this build does not have, and a battle in a realm it does not have
+ * (ids no catalog here has).
  */
 const NEWER_DOCS = [
 	doc(4, 'game-a', { version: 3 }),
 	doc(4, 'game-a', { party: [animal(1), animal(2, { speciesId: 'later-species' })] }),
-	doc(4, 'game-a', { items: ['axe', 'later-item'] })
+	doc(4, 'game-a', { battle: { realm: 'later-realm' } })
 ];
 
 /** Puts `data` in the player's save row directly, as another build of the server would have. */
@@ -405,6 +406,11 @@ describe('PUT validation', () => {
 			expect(await res.json()).toEqual({ error: SAVE_FROM_NEWER_BUILD });
 			expect(await stored(player)).toBeNull();
 		}
+		// An item this build does not sell is kept as sent: the save reads.
+		const player = await createPlayer();
+		const withItem = doc(1, 'game-a', { items: ['axe', 'lantern'] });
+		expect((await putSave(player, withItem)).status).toBe(200);
+		expect(await stored(player)).toEqual(withItem);
 	});
 
 	it('stores a party of 2,000 animals mid-battle, each with the longest name, under the size cap', async () => {

@@ -240,8 +240,8 @@ class Tab {
 const NEWER_KINDS = [
 	'a later version',
 	'a species this build does not have',
-	'an item this build does not have',
-	'a battle with a species this build does not have'
+	'a battle with a species this build does not have',
+	'a battle in a realm this build does not have'
 ] as const;
 
 /**
@@ -267,8 +267,8 @@ function newerSaves(
 	const saves = [
 		{ ...doc, version: 3 },
 		{ ...doc, party: [...doc.party, later] },
-		{ ...doc, items: [...(doc.items ?? []), 'later-item'] },
-		{ ...doc, battle }
+		{ ...doc, battle },
+		{ ...doc, battle: { ...battle, opponent: doc.party[0], realm: 'later-realm' } }
 	] as unknown as SaveWrite[];
 	for (const save of saves) expect(readSave(save)).toMatchObject({ ok: false, reason: 'newer' });
 	return NEWER_KINDS.map((kind, i) => [kind, saves[i]!]);
@@ -1349,7 +1349,7 @@ describe('Autosave: the server backup', () => {
 		expect(server.saveOf(who)).toEqual(newer);
 	});
 
-	it('a server that turns a save away for no reason its seq explains is not asked again and again', async () => {
+	it('a server that turns a save away for no reason its seq explains is asked again only as one out of reach is, and takes it once it can', async () => {
 		// A server older than the save it holds (a deploy half done, or a rollback) turns
 		// every backup away as a conflict, whatever its number: it will not replace a save
 		// it cannot read, which this page, on the newer version, reads.
@@ -1362,15 +1362,20 @@ describe('Autosave: the server backup', () => {
 		expect(server.saveOf(who)!.seq).toBe(1);
 		server.conflictAlways = true;
 		const asked = server.calls.length;
-		for (let i = 0; i < 10; i++) {
-			await tab.catchOne();
-			await later(10_000);
-		}
-		// One backup and one look at what the server holds, never a loop of the two.
-		expect(server.calls.slice(asked)).toEqual(['put', 'get']);
+		await tab.catchOne();
+		// Ten minutes with no play: a backup and a look at what the server holds, then again
+		// after 2, 4, 8, 16 and 32 s, and then rest; never a loop of the two.
+		await later(10 * 60_000);
+		expect(server.calls.slice(asked)).toEqual(
+			Array.from({ length: 6 }, () => ['put', 'get']).flat()
+		);
 		expect(tab.autosave.behind).toBeNull();
-		// The game saves here all the while.
-		expect(store.save()!.party).toHaveLength(11);
+		// The game saves here all the while, and goes up at the next catch once the server takes it.
+		server.conflictAlways = false;
+		await tab.catchOne();
+		await later();
+		expect(store.save()!.party).toHaveLength(3);
+		expect(server.saveOf(who)).toEqual(store.save());
 	});
 
 	it('while the server is down the game saves locally, retries quietly, then rests until a catch', async () => {

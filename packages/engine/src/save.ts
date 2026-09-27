@@ -2,7 +2,7 @@ import type { AnimalInstance, Realm } from './animals/types.js';
 import { ATTACK_LEVELS, REALMS } from './animals/types.js';
 import { ANIMALS, canFightIn, getAnimal } from './animals/catalog.js';
 import type { BattleState } from './battle/types.js';
-import { ITEM_IDS, gearOf } from './items/catalog.js';
+import { gearOf } from './items/catalog.js';
 import { checkName } from './names.js';
 import { bundled, joinParty } from './party/bundles.js';
 import { normalizeNickname } from './party/names.js';
@@ -170,9 +170,9 @@ export interface SaveV2 {
 	/** The player's tokens. Optional in a write too: a save without them has none. */
 	tokens?: number;
 	/**
-	 * The ids of the items the player owns. An id this build doesn't know
-	 * makes the whole save a newer build's (`readSave`: `newer`), as a species
-	 * it doesn't know does: left untouched for the build that sells it.
+	 * The ids of the items the player owns. An id this build doesn't know is
+	 * kept as it is and does nothing, so a save never becomes unreadable, or
+	 * a newer build's, over an item.
 	 */
 	items?: string[];
 	/** The battle in progress when it was saved. Checked on load (`readBattle`), dropped if unusable. */
@@ -227,7 +227,6 @@ const WHEREABOUTS: ReadonlySet<string> = new Set([
 
 const DIRECTIONS: ReadonlySet<string> = new Set(['up', 'down', 'left', 'right']);
 const SPECIES_IDS: ReadonlySet<string> = new Set(ANIMALS.map((a) => a.id));
-const ITEMS_KNOWN: ReadonlySet<string> = new Set(ITEM_IDS);
 const REALMS_KNOWN: ReadonlySet<string> = new Set(REALMS);
 const PUZZLE_KINDS: ReadonlySet<string> = new Set(ALL_PUZZLE_KINDS);
 
@@ -235,8 +234,8 @@ export type SaveCheck<T> = { ok: true; value: T } | { ok: false; error: string }
 
 /**
  * Why a document is not one this build can use: `newer` when a later build
- * wrote it (a later `version`, or content this build does not have: a
- * species, an item, a realm, a puzzle kind), `invalid` when it makes no
+ * wrote it (a later `version`, or content this build cannot carry on with:
+ * a species, or a battle's realm or puzzle kind), `invalid` when it makes no
  * sense to any build.
  */
 export type SaveProblem = 'newer' | 'invalid';
@@ -355,9 +354,7 @@ function findUnstorable(v: unknown, path: string): string | null {
 function validateAnimal(v: unknown, label: string): string | null {
 	if (!isRecord(v)) return `${label} must be an object`;
 	if (!isId(v.id)) return `${label}.id must be a string of 1–${MAX_SAVE_ID_LENGTH} characters`;
-	if (!isId(v.speciesId)) {
-		return `${label}.speciesId must be a string of 1–${MAX_SAVE_ID_LENGTH} characters`;
-	}
+	if (!isContentId(v.speciesId)) return `${label}.speciesId must be a species id`;
 	if (
 		v.nickname !== undefined &&
 		(typeof v.nickname !== 'string' ||
@@ -410,24 +407,23 @@ function checkSave(input: unknown): SaveRead {
 }
 
 /**
- * The first id in a well-formed document that none of this build's catalogs
- * has, as an error, or null. Content only grows (a species or an item that
- * has shipped never leaves its catalog: [[INVARIANTS]] § Saves), so such an
- * id comes from a later build: a species in the party, an item, or in a
- * saved battle its realm, an animal's species or the puzzle's kind. The
- * battle is otherwise only checked on load (`readBattle`); these are looked
- * at wherever they are text, so a battle a newer build saved is never
- * dropped as unusable by an older one.
+ * The first id in a well-formed document that this build cannot carry on
+ * with, as an error, or null: one none of its catalogs has, which only a
+ * later build writes (a species that has shipped never leaves the catalog:
+ * [[INVARIANTS]] § Saves). That is a species in the party, or in a saved
+ * battle its realm, an animal's species or the puzzle's kind: a game with
+ * such an animal cannot be played here, and such a battle could only be
+ * dropped. An item this build does not have is not one of them: it is kept
+ * as it is and does nothing, so the save plays on and loses nothing.
+ *
+ * Only ids are seen. A battle that a later build's other growth made (a new
+ * attack for an existing species, a realm it newly goes to, a new phase) is
+ * still dropped on load here as if the kid had run away ([[DEFERRED]]).
  */
 function findUnknownContent(doc: Doc): string | null {
 	const party = doc.party as { speciesId: string }[];
 	for (let i = 0; i < party.length; i++) {
 		const unknown = unknownId(party[i]!.speciesId, SPECIES_IDS, `party[${i}].speciesId`);
-		if (unknown) return unknown;
-	}
-	const items = (doc.items ?? []) as string[];
-	for (let i = 0; i < items.length; i++) {
-		const unknown = unknownId(items[i], ITEMS_KNOWN, `items[${i}]`);
 		if (unknown) return unknown;
 	}
 	const battle = doc.battle;
@@ -451,12 +447,25 @@ function findUnknownContent(doc: Doc): string | null {
 }
 
 /**
- * An error when `value` is an id (`isId`) that `known` lacks; null for
- * anything else, a known id or something that is no id at all.
+ * An error when `value` is shaped as a catalog id (`isContentId`) and
+ * `known` lacks it; null for anything else, a known id or something no
+ * catalog would name.
  */
 function unknownId(value: unknown, known: ReadonlySet<string>, label: string): string | null {
-	if (!isId(value) || known.has(value)) return null;
+	if (!isContentId(value) || known.has(value)) return null;
 	return `${label} is ${JSON.stringify(value)}, which a newer build has and this one does not`;
+}
+
+/**
+ * The shape of every id in the engine's catalogs (species, attacks, items,
+ * realms, puzzle kinds): lower-case letters and digits in words joined by
+ * single hyphens, as `save.test.ts` checks. An id of another shape was never
+ * written by any build, so it is broken, not newer.
+ */
+const CONTENT_ID = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
+
+export function isContentId(v: unknown): v is string {
+	return isId(v) && CONTENT_ID.test(v);
 }
 
 function findSaveError(input: Doc): string | null {

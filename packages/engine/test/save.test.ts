@@ -15,6 +15,7 @@ import {
 	STARTER_SPECIES,
 	V1_KEPT,
 	canReplace,
+	isContentId,
 	newGame,
 	readBattle,
 	readSave,
@@ -32,7 +33,7 @@ import {
 	type SaveV2,
 	type SavedGame
 } from '../src/save.js';
-import { ITEMS, ITEM_IDS, gearOf } from '../src/items/catalog.js';
+import { ITEM_IDS, gearOf } from '../src/items/catalog.js';
 import { ALL_PUZZLE_KINDS } from '../src/puzzles/types.js';
 import { EDITS_BUDGET, WorldEdits } from '../src/world/edits.js';
 import { tileAtWorld } from '../src/world/generate.js';
@@ -71,7 +72,6 @@ function animal(i: number, overrides: Record<string, unknown> = {}) {
  */
 const LATER = {
 	species: 'later-species',
-	item: 'later-item',
 	realm: 'later-realm',
 	kind: 'later-kind'
 };
@@ -207,12 +207,14 @@ describe('validateSave', () => {
 		}
 	});
 
-	it('takes tokens and items, and needs neither; an item it does not know is a later build’s', () => {
+	it('takes tokens and items, an item it does not know included, and needs neither', () => {
 		expect(error({ ...written, tokens: 0, items: [] })).toBe('');
 		expect(error({ ...written, tokens: 40, items: ['axe', 'boat'] })).toBe('');
+		// An item a later build sells: kept as it is, never a reason to set the save aside,
+		// nor to call it a newer build's.
+		expect(error({ ...written, items: ['lantern'] })).toBe('');
+		expect(readSave({ ...written, items: ['axe', 'lantern'] })).toMatchObject({ ok: true });
 		expect(validateSaveWrite(written).ok).toBe(true);
-		// An item a later build sells: not this build's to read (`readSave` calls it newer).
-		expect(error({ ...written, items: ['axe', LATER.item] })).toMatch(/items\[1\].*newer/);
 	});
 
 	it('does not look inside a battle, but a battle must still be storable', () => {
@@ -282,13 +284,17 @@ describe('readSave and the upgrade seam', () => {
 			{ ...written, version: 0 },
 			{ ...written, version: '2' },
 			{ ...written, version: 1.5 },
-			// No species at all is a broken animal, not a newer build's.
+			// A species no build could have written is a broken animal, not a newer build's:
+			// none, not text, too long, or not shaped as a catalog id.
 			{ ...written, party: [animal(1, { speciesId: '' })] },
 			{ ...written, party: [animal(1, { speciesId: 7 })] },
 			{ ...written, party: [animal(1, { speciesId: 'x'.repeat(65) })] },
+			{ ...written, party: [animal(1, { speciesId: 'Fox' })] },
+			{ ...written, party: [animal(1, { speciesId: 'wood mouse' })] },
+			{ ...written, party: [animal(1, { speciesId: 'wood--mouse' })] },
 			// A shape no build writes stays broken, whatever else the document names.
 			{ ...written, party: [animal(1, { speciesId: LATER.species, hp: -1 })] },
-			{ ...written, items: [LATER.item, ''] },
+			{ ...written, party: [animal(1, { speciesId: LATER.species })], items: [''] },
 			// A v1 document was unreadable without a whole-number seed, and stays so.
 			{ ...v1, seed: 1.5 },
 			{ ...v1, seed: undefined },
@@ -298,7 +304,7 @@ describe('readSave and the upgrade seam', () => {
 		}
 	});
 
-	it('calls a save that names a species, an item, a realm or a puzzle kind it does not have newer, never invalid', () => {
+	it('calls a save that names a species, or a battle realm or puzzle kind, it does not have newer, never invalid', () => {
 		const [{ state }] = battleStates(3, ['squirrel', 'fox'], 'rabbit');
 		const battle = JSON.parse(JSON.stringify(state)) as Record<string, unknown>;
 		const inBattle = (patch: Record<string, unknown>) => ({
@@ -316,7 +322,6 @@ describe('readSave and the upgrade seam', () => {
 		for (const later of [
 			{ ...written, party: [animal(1), animal(2, { speciesId: LATER.species })] },
 			{ ...writtenV1, party: [animal(1, { speciesId: LATER.species })] },
-			{ ...written, items: ['axe', LATER.item] },
 			inBattle({ realm: LATER.realm }),
 			inBattle({ opponent: { ...state!.opponent, speciesId: LATER.species } }),
 			inBattle({ party: [{ ...state!.party[0]!, speciesId: LATER.species }] }),
@@ -328,16 +333,22 @@ describe('readSave and the upgrade seam', () => {
 			const write = validateSaveWrite(JSON.parse(JSON.stringify(later)));
 			expect(write).toMatchObject({ ok: false, reason: 'newer' });
 		}
-		// Anything in a battle that is no id at all is the battle's own problem: it is
-		// dropped on load (`readBattle`), and the save reads.
-		for (const odd of [{ realm: 7 }, { realm: '' }, { opponent: { speciesId: null } }]) {
+		// Anything in a battle that no catalog would name is the battle's own problem: it is
+		// dropped on load (`readBattle`), as before, and the save reads.
+		for (const odd of [
+			{ realm: 7 },
+			{ realm: '' },
+			{ realm: 'Air' },
+			{ opponent: { speciesId: null } },
+			{ opponent: { ...state!.opponent, speciesId: 'Fox' } }
+		]) {
 			expect(readSave(inBattle(odd)), JSON.stringify(odd)).toMatchObject({ ok: true });
 		}
 	});
 
-	it('reads any save with one of its ids swapped for one it does not have as newer', () => {
+	it('reads any save with one of its species, or its battle realm or puzzle kind, swapped for one it does not have as newer', () => {
 		// Real saves of every shape (the v1 → v2 upgrade's generator, and real battles), each
-		// with one species, item, realm or puzzle kind a later build could have added.
+		// with one species, realm or puzzle kind a later build could have added.
 		let swapped = 0;
 		for (let s = 0; s < 300; s++) {
 			const rng = new Rng(hashInts(37, s));
@@ -363,11 +374,9 @@ describe('readSave and the upgrade seam', () => {
 					places.push(() => ((phase.puzzle as Record<string, unknown>).kind = LATER.kind));
 				}
 			}
-			const items = (doc.items ?? []) as string[];
 			(doc.party as Record<string, unknown>[]).forEach((a) =>
 				places.push(() => (a.speciesId = LATER.species))
 			);
-			items.forEach((_, i) => places.push(() => (items[i] = LATER.item)));
 			expect(readSave(doc), `${s}`).toMatchObject({ ok: true });
 			if (places.length === 0) continue;
 			rng.pick(places)();
@@ -384,11 +393,23 @@ describe('readSave and the upgrade seam', () => {
 		for (let v = 1; v < SAVE_VERSION; v++) expect(SAVE_UPGRADES[v]).toBeTypeOf('function');
 	});
 
-	it('stands for later content with ids no catalog of this build has', () => {
+	it('stands for later content with ids no catalog of this build has, shaped as every catalog id is', () => {
 		expect(ANIMALS.map((a) => a.id)).not.toContain(LATER.species);
-		expect(ITEM_IDS).not.toContain(LATER.item);
 		expect(REALMS).not.toContain(LATER.realm);
 		expect(ALL_PUZZLE_KINDS).not.toContain(LATER.kind);
+		// Every id a catalog has is shaped so: an id of another shape in a save is broken, not newer.
+		for (const id of [
+			...Object.values(LATER),
+			...ANIMALS.flatMap((a) => [a.id, ...a.attacks.map((k) => k.id)]),
+			...ITEM_IDS,
+			...REALMS,
+			...ALL_PUZZLE_KINDS
+		]) {
+			expect(isContentId(id), id).toBe(true);
+		}
+		for (const odd of ['', 'Fox', 'wood mouse', 'wood--mouse', '-fox', 'fox-', 'æble', 7, null]) {
+			expect(isContentId(odd), JSON.stringify(odd)).toBe(false);
+		}
 	});
 
 	it('still reads a party of any species that has shipped: one leaves the catalog only through an upgrade', () => {
@@ -418,21 +439,6 @@ describe('readSave and the upgrade seam', () => {
 			for (const doc of [written, writtenV1]) {
 				const save = { ...doc, party: [animal(1, { speciesId, hp: 1 })] };
 				expect(readSave(save), speciesId).toMatchObject({ ok: true });
-			}
-		}
-	});
-
-	it('still reads the items of every item that has shipped: one leaves the catalog only through an upgrade', () => {
-		// Every item a kid may have bought and saved, by id, for the same reason as the
-		// species above. An item that is in the catalog but not on sale yet (`available:
-		// false`) was never sold, and is not listed. Adding one to the shop: add it here.
-		const shipped = ['axe', 'pickaxe', 'boat'];
-		const onSale = ITEMS.filter((i) => i.available).map((i) => i.id);
-		expect(onSale.filter((id) => !shipped.includes(id))).toEqual([]);
-		for (const item of shipped) {
-			expect(ITEM_IDS, item).toContain(item);
-			for (const doc of [written, writtenV1]) {
-				expect(readSave({ ...doc, items: [item] }), item).toMatchObject({ ok: true });
 			}
 		}
 	});
@@ -481,7 +487,7 @@ function randomV1(rng: Rng, seed: unknown): Record<string, unknown> {
 	if (rng.chance(0.8)) doc.lineage = `lineage-${rng.int(0, 1e6)}`;
 	if (rng.chance(0.8)) doc.seq = rng.int(1, 30_000);
 	if (rng.chance(0.6)) doc.tokens = rng.int(0, 500);
-	if (rng.chance(0.6)) doc.items = rng.pick([[], ['axe'], ['boat', 'axe'], ['pickaxe']]);
+	if (rng.chance(0.6)) doc.items = rng.pick([[], ['axe'], ['boat', 'axe'], ['lantern']]);
 	if (rng.chance(0.3)) doc.battle = { step: rng.int(0, 5), anything: rng.int(0, 9) };
 	if (rng.chance(0.5)) {
 		let edits = WorldEdits.none;
@@ -685,7 +691,8 @@ describe('newGame and restoreGame', () => {
 				{ id: 'b', speciesId: 'bear', hp: 0 }
 			],
 			tokens: 17,
-			items: ['boat', 'axe', 'pickaxe'],
+			// 'lantern' is an item this build doesn't know: kept, doing nothing.
+			items: ['boat', 'axe', 'lantern'],
 			battle: null,
 			edits: [],
 			worlds: [
@@ -1301,15 +1308,17 @@ describe('which save wins', () => {
 		expect(canReplace(writtenV1, { seq: 3 })).toBe(false);
 		expect(canReplace(v1, { seq: 1 })).toBe(true);
 		expect(canReplace('garbage', { seq: 1 })).toBe(true);
-		// A save this build cannot read, but no newer build wrote either, is replaced like any other.
+		// A save this build cannot read, but no newer build wrote either, is replaced like any other,
+		// and so is one holding an item this build does not sell: it reads.
 		expect(canReplace({ ...written, pos: 'nowhere' }, { seq: 4 })).toBe(true);
+		expect(canReplace({ ...written, items: ['lantern'] }, { seq: 4 })).toBe(true);
 	});
 
 	it('the server never takes a save over one a newer build wrote, whatever the seq', () => {
 		for (const newer of [
 			{ ...written, version: SAVE_VERSION + 1 },
 			{ ...written, party: [animal(1, { speciesId: LATER.species })] },
-			{ ...written, items: [LATER.item] }
+			{ ...written, battle: { realm: LATER.realm } }
 		]) {
 			for (const seq of [1, 3, 4, 1_000_000]) {
 				expect(canReplace(newer, { seq }), `${JSON.stringify(newer)} ${seq}`).toBe(false);

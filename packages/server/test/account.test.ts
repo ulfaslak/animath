@@ -133,13 +133,14 @@ function doc(seq: number, lineage = 'game-a', overrides: Record<string, unknown>
 }
 
 /**
- * Saves a newer build wrote, as this build sees them: a later version, and a
- * species or an item this build does not have (ids no catalog here has).
+ * Saves a newer build wrote, as this build sees them: a later version, a
+ * species this build does not have, and a battle in a realm it does not have
+ * (ids no catalog here has).
  */
 const NEWER_DOCS = [
 	doc(4, 'game-a', { version: 3 }),
 	doc(4, 'game-a', { party: [{ id: 'a1', speciesId: 'later-species', hp: 11 }] }),
-	doc(4, 'game-a', { items: ['axe', 'later-item'] })
+	doc(4, 'game-a', { battle: { realm: 'later-realm' } })
 ];
 
 async function userRow(name: string) {

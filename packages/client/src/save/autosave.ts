@@ -37,7 +37,7 @@ import { KEYS, parseJson, type KeyValueStore } from './storage';
  * backup replaces (`replacesAnotherGame`).
  *
  * A save a newer version of the game wrote (`readSave`'s `newer`: a later
- * version, or a species, an item or anything else this build does not have)
+ * version, or a species, or a battle's realm or puzzle kind, this build does not have)
  * is never loaded, written over or set aside, in this browser or on the
  * server. The page that meets one, at start or later, is behind (`newer`):
  * it takes no play and reloads, which fetches the new version.
@@ -103,8 +103,7 @@ type Local = 'ok' | 'held' | 'frozen' | 'broken' | 'none';
  * - `ready`: backups are sent.
  * - `stopped`: no more backups this page load (no identity can be kept, the
  *   server holds a newer build's save, or it refused one of ours, or it has
- *   been out of reach too long, or it refused one for no reason its `seq`
- *   explains).
+ *   been out of reach too long).
  */
 type Server = 'unknown' | 'ready' | 'stopped';
 
@@ -781,8 +780,17 @@ export class Autosave {
 				this.schedulePush(true);
 				return;
 			case 'found':
+				if (refused !== undefined && saveSeq(got.doc) < refused && !isNewerSave(got.doc)) {
+					// The server turned away a save numbered past the one it holds, which `seq` does
+					// not explain: it cannot take this page's saves now (a server older than the save
+					// it holds, while a deploy swaps it, or after a rollback). Sent again at once it
+					// would be turned away again, for ever: try later, as when it is out of reach,
+					// backing off and then resting until the kid plays. The game is saved here.
+					this.retry(() => void this.push(false));
+					return;
+				}
 				this.succeeded();
-				this.settleWith(got.doc, refused);
+				this.settleWith(got.doc);
 				return;
 		}
 	}
@@ -791,10 +799,9 @@ export class Autosave {
 	 * The server holds `doc`. The save with the higher `seq` is the game that
 	 * carries on: this page's, sent as the next backup, or the server's,
 	 * which this page adopts and reloads into. A newer version's save there
-	 * puts this page behind (`newer`), and is never sent over. `refused`: as
-	 * for `checkServer`.
+	 * puts this page behind (`newer`), and is never sent over.
 	 */
-	private settleWith(doc: unknown, refused?: number): void {
+	private settleWith(doc: unknown): void {
 		const read = readSave(doc);
 		const theirs = saveSeq(doc);
 		if (!read.ok && read.reason === 'newer') {
@@ -803,14 +810,6 @@ export class Autosave {
 			// the new version. Playing on here would fork the game behind the newer one.
 			this.serverState = 'stopped';
 			this.goStale('newer');
-			return;
-		}
-		if (refused !== undefined && theirs < refused) {
-			// The server turned away a save numbered past the one it holds, which `seq` does not
-			// explain: it cannot take this page's saves (a server older than the save it holds,
-			// while a deploy swaps it, or after a rollback). Sent again, it would be turned away
-			// again, at once and for ever: no more backups this page load. The game is saved here.
-			this.serverState = 'stopped';
 			return;
 		}
 		if (!read.ok) {
