@@ -708,8 +708,13 @@ describe('helping animals home', () => {
 		expect(doctor.cursor).toBe(0);
 		// Written back at once: the save holds it, whatever happens to the visit.
 		expect(t.saved()).toEqual({ tokens: 9, items: [], party: ['c'] });
-		const kinds = t.events.slice(-3).map((e) => e.type);
-		expect(kinds).toEqual(['doctor-visit-updated', 'party-changed', 'belongings-changed']);
+		const kinds = t.events.slice(-4).map((e) => e.type);
+		expect(kinds).toEqual([
+			'doctor-visit-updated',
+			'solved-changed',
+			'party-changed',
+			'belongings-changed'
+		]);
 	});
 
 	it('Escape in the sum puts it away: the animals stay, still picked', () => {

@@ -258,6 +258,10 @@ hud:
   tokens:
     one: '{count} token'
     other: '{count} tokens'
+  # The puzzles the player has solved, under the tokens: every right answer adds one.
+  solved:
+    one: '{count} puzzle'
+    other: '{count} puzzles'
 
 # A card of the party: every animal of one kind, stacked (the HUD, the pause
 # menu, the battle's switch list).
