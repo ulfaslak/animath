@@ -44,7 +44,7 @@ import { acceptWelcome, welcomeState } from '../welcome.js';
  *   GET  /api/account/me                                  → 200 { user: { name } | null }
  *   GET  /api/account/save                                → 200 SaveV2 | 404 no save yet
  *   PUT  /api/account/save      SaveV2                    → 200 { ok: true } | 409 { error, save }
- *   GET  /api/account/welcome/:token                      → 200 { name } | 410 used or expired | 404
+ *   GET  /api/account/welcome   (x-animath-welcome: token) → 200 { name } | 410 used or expired | 404
  *   POST /api/account/welcome   { token, password }       → 200 { user: { name }, save } + cookie
  *
  * Every POST and PUT must be JSON from a page of this site (`sameOriginJson`).
@@ -58,8 +58,13 @@ import { acceptWelcome, welcomeState } from '../welcome.js';
  * one sent that a newer build wrote is 503: this server is the older one.
  * A welcome link (`welcome.ts`) is looked up and used under the login's
  * limit per address; its GET says only the name of a live link's account,
- * and nothing about a spent one but that it is spent.
+ * and nothing about a spent one but that it is spent. Its token travels in a
+ * header or a body, never in a path: a request line is what nginx's error
+ * log keeps whenever the app does not answer.
  */
+
+/** The header a welcome link's lookup carries its token in. */
+export const WELCOME_HEADER = 'x-animath-welcome';
 
 type Env = { Variables: { user: SessionUser } };
 
@@ -324,12 +329,14 @@ export function accountRoute({ cookie, limits, ready }: AccountRouteOptions) {
 			}
 			return c.json({ ok: true });
 		})
-		.get('/welcome/:token', async (c) => {
-			// The answer names an account for a token in the address: no cache keeps it.
+		.get('/welcome', async (c) => {
+			// The answer names an account for a secret: no cache keeps it.
 			c.header('Cache-Control', 'no-store');
 			const byIp = limit.welcomePerIp.hit(rateKey(clientIp(c)));
 			if (!byIp.ok) return tooMany(c, byIp);
-			const state = await welcomeState(c.req.param('token'));
+			const token = c.req.header(WELCOME_HEADER);
+			if (token === undefined) return c.json({ error: `send the link in ${WELCOME_HEADER}` }, 400);
+			const state = await welcomeState(token);
 			if (state.kind !== 'live') return welcomeGone(c, state.kind);
 			return c.json({ name: state.name });
 		})

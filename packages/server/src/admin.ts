@@ -317,6 +317,8 @@ export async function importSave(text: string, options: ImportOptions = {}): Pro
 	return [
 		`Made the account ${named.name}, with no password yet: ${describeSave(save)}.`,
 		`Its welcome link works once, until ${stamp(made.expiresAt)}:`,
-		`${origin}/?welcome=${made.token}`
+		// After `#`, which a browser never sends: the token is in no request line, and so in no
+		// server's log, nginx's error log included, whatever happens while the kid opens it.
+		`${origin}/#welcome=${made.token}`
 	];
 }
