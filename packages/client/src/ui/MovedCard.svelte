@@ -128,4 +128,14 @@
 		outline: 3px solid var(--accent-edge);
 		outline-offset: 4px;
 	}
+	/* A phone held upright, where the old link may still be opened: the button on one line. */
+	@media (max-width: 480px) {
+		.card {
+			padding: 24px 20px 20px;
+		}
+		.go {
+			padding: 0 22px;
+			font-size: 20px;
+		}
+	}
 </style>
