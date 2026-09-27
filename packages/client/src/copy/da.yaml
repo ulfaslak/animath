@@ -14,6 +14,9 @@ language:
 
 app:
   loading: Vent lidt…
+  updating:
+    title: Tilbage om lidt!
+    body: Spillet gør sig klar.
   noWebGL:
     title: Denne browser kan ikke tegne Animaths verden.
     ask: Bed en voksen om hjælp!

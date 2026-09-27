@@ -11,6 +11,12 @@ dist
 .env.local
 .env.*.local
 !.env.example
+# The prod server's secrets, beside its checkout (docker-compose.prod.yml)
+.env.production
+.env.monitoring
+
+# The prod server's database dumps, beside its checkout (scripts/backup.sh)
+/backups/
 
 # Vite
 vite.config.ts.timestamp-*

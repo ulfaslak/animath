@@ -1,0 +1,20 @@
+# nginx for the local stack (docker-compose.local.yml): the server's config
+# (../nginx.conf.template) without HTTPS and Let's Encrypt, on plain HTTP. How
+# the game is served is the same file, ../app.conf.
+
+worker_processes auto;
+
+events {
+    worker_connections 1024;
+}
+
+http {
+    include /etc/nginx/mathgame/http.conf;
+
+    server {
+        listen 80;
+        server_name _;
+
+        include /etc/nginx/mathgame/app.conf;
+    }
+}

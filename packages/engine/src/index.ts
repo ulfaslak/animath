@@ -92,6 +92,8 @@ export type {
 export { bundled, bundles, isBundled, joinParty } from './party/bundles.js';
 export type { Bundle } from './party/bundles.js';
 export { MAX_NICKNAME_LENGTH, normalizeNickname } from './party/names.js';
+export { PASSWORD_MAX_LENGTH, PASSWORD_MIN_LENGTH, checkPassword } from './password.js';
+export type { PasswordCheck, PasswordRefusal } from './password.js';
 export { applyPartyIntent, leadIndex } from './party/reducer.js';
 export { STARTERS, STARTER_TIER, chooseStarter, isStarter } from './party/starters.js';
 export type { NewGameRejection, Starter, StarterPick } from './party/starters.js';

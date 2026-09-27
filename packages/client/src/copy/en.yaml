@@ -14,6 +14,14 @@ language:
 app:
   # While the world is being built.
   loading: Loading…
+  # The page the game's address shows for the few seconds a new version of
+  # the game takes to start, or while the server is down. It reloads itself
+  # every 5 seconds, and is the game again as soon as the game answers. The
+  # page is nginx/502.html and holds a copy of these lines, in every language;
+  # test/updating-page.test.ts checks the copy.
+  updating:
+    title: Back in a moment!
+    body: The game is getting ready.
   # Instead of the game, when the browser cannot draw its world (no WebGL 2).
   # The last line is for the grown-up who can fix it.
   noWebGL:

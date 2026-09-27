@@ -88,7 +88,8 @@ No generated-by-AI art claims without checking the generator's license terms.
 
 ## Server
 
-Node with Hono (`@hono/node-server`). Serves the built client in production; Vite proxies `/api` and `/ws` to it in development.
+Node with Hono (`@hono/node-server`). Serves the built client in production; Vite proxies `/api` to it in development, WebSocket upgrades included.
+In production the server is one esbuild bundle, the engine inside, run with plain `node`; `tsx` runs it in development only.
 WebSockets via `ws`, for presence and friendly matches. The server runs the same engine as the browser; which rules it decides, and which stay in the browser, is § Multiplayer.
 Postgres via Drizzle ORM (`node-postgres` driver). Local Postgres in Docker on host port **5433**.
 Migrations are hand-written SQL in `packages/server/drizzle/`, idempotent (`IF NOT EXISTS`), with a matching `_journal.json` entry. `drizzle-kit generate` is not used.
@@ -98,7 +99,7 @@ Env from a repo-root `.env` loaded with `process.loadEnvFile`; no dotenv package
 ## Saves
 
 The save is local first, because the human asked for it: "need to persist state in localstorage so reloads are safe and users can come back to their game later and continue playing". The whole game lives in the browser's `localStorage` and is rewritten after every change (a step, a battle turn, a catch), so the game is persistent with no server at all.
-The server holds a backup of each player's save, sent in the background. The game never waits for it, except at start in a browser that has an identity but no readable save of its own, and then only briefly. This anonymous per-browser backup stays, working, in development until the human's kid's save has moved to production, and is off in production; then it goes, and a cleanup PR removes its code. No migration drops or alters its tables or their data.
+The server holds a backup of each player's save, sent in the background. The game never waits for it, except at start in a browser that has an identity but no readable save of its own, and then only briefly. This anonymous per-browser backup stays, working, in development until the human's kid's save has moved to production, and is off in production; then it goes, and a cleanup PR removes its code. No migration drops or alters its tables or their data ([[INVARIANTS]] § Server).
 A reload never loses progress: a battle in progress is saved too, and a reload picks it up where it was, mid-puzzle included.
 One document shape for both copies, `SaveV2`, defined and checked in the engine. A new field is optional and needs no version bump; `version` goes up only when an old document becomes unreadable, with an upgrade that reads it: numbered worlds took version 2, whose upgrade puts every v1 save in World 1. The text of a save an older build wrote is kept as it was before this build first writes over it, in the browser (`animath.save.upgraded`) and on the server (`save_backups`), so an upgrade that went wrong loses nothing.
 A page never writes over a save it has not seen; when two write in the same instant, which `localStorage` cannot order, the one written over keeps its save aside. Several tabs share one `localStorage`; a page that falls behind another tab's save takes no more play until it has reloaded into the newest game, and never reloads behind the kid's back (the rules: [[INVARIANTS]] § Saves).
@@ -131,4 +132,6 @@ Rendering changes are verified by reading a screenshot from `scripts/screenshot.
 ## Deployment
 
 The game runs on a dedicated Hetzner VPS that mirrors lawcel's setup (Docker Compose behind nginx, Postgres in the same compose), except that there is no staging: a push to main without `[skip deploy]` gates on check, test and lint and goes straight to production. The human asked for it ("i'd prefer it if you copied my setup on ../lawcel exactly [...] well it's just a fun game, so nevermind a staging environment, push to main (unless skip tags) builds and goes on prod immediately"). The server is the game's own, to keep it apart from the business product on lawcel's, and the setup is lawcel's because it works. Until it is up, the game is shared from this machine through a tunnel (ngrok or cloudflared; how: [[DEVELOPMENT]] § Sharing the game through a tunnel).
+Certificates come from Let's Encrypt through nginx's own ACME module over HTTP-01, as on lawcel, because the human asked for it ("look at how we've done certs on lawcel, that's how it should be done here too!"): no certbot, no DNS API.
+The checks gate the deploy inside the deploy workflow, since branch protection is not on this plan.
 No third-party backend services (no Convex, Supabase, Firebase). Postgres and a Node process are the whole stack.

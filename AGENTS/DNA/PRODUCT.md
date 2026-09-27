@@ -282,7 +282,8 @@ What is built and observable today. Keep current: add a bullet when a feature sh
 
 ### Server
 
-- Health endpoint reporting database reachability.
+- Health endpoint reporting database reachability and the build that is running.
+- Ready to go online at its own address: every change deploys itself, with no gap while it does, and the page carries the build it came from. While the game does not answer (a first start, or the server down) the address shows "Back in a moment! The game is getting ready." in the kid's language, and reloads itself into the game. It goes live once the server and the domain exist ([[HUMAN_TODO]]); until then kids play over the tunnel.
 - Anonymous identity: a player is created with one request and gets an id plus a secret; no account, no login.
 - One backup save per player, stored and returned as a versioned document (the world number and home, the player's name, position, facing, the step and doctor-visit counts, the game's id and the save's number, a party of any size, a battle in progress). A page still open from before an update backs up as before (its save is upgraded on arrival). A backup lands only with a higher save number than the one stored; a different game or an unreadable save it replaces is kept aside.
 
@@ -293,7 +294,7 @@ In rough priority order. Each becomes a GitHub issue when picked up. The choices
 1. **Optional accounts.** Play for as long as you like without one. After every hour of play a friendly card offers to keep your animals safe with a secret password ("Save my game" / "Not now"), and the pause menu and the title always offer to log in or make an account. No email: your name is your username. Log in on another device and your game is there.
 2. **Seeing friends.** Other players in your world walk about with their name above them and their lead animal following. The pause menu lists who is here and takes you next to any of them, and an arrow at the edge of the screen points to players out of sight. There is no chat.
 3. **Friendly matches.** Stand near another player and challenge them to a friendly match; they say yes or no. Each brings three animals at full health, and you take turns: pick an attack and its level and solve its puzzle, or switch animals. It is just for fun: afterwards nothing has changed, no tokens won or lost and no animal hurt, and both go back to exploring where they stood.
-4. **The public website.** The game at its own address on the internet, always on, instead of shared from the human's machine through a tunnel; a game played so far moves there with its player, without losing anything.
+4. **The public website.** The game at its own address on the internet, always on, instead of shared from the human's machine through a tunnel; a game played so far moves there with its player, without losing anything. The deploy is built (§5 Server); the server and the domain wait for the human ([[HUMAN_TODO]]), and moving a game there is not built yet.
 5. Real low-poly animal models (glTF, CC0 sources, see [[DECISIONS]]) with attack animations, replacing the primitive figures.
 6. Procedural world v2: rivers that flow, paths, biome shaping, landmarks.
 7. Puzzle catalog v2: fractions, decimals, negatives, percentages, word problems, per-child adaptive difficulty.

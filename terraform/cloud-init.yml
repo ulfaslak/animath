@@ -1,0 +1,36 @@
+#cloud-config
+
+# The server's first boot: a deploy user that logs in with the deploy key,
+# Docker, and security updates applied daily. The repo is cloned afterwards,
+# with a read-only deploy key (.claude/commands/redeploy.md): the repo is
+# private, so an HTTPS clone here would fail.
+
+users:
+  - name: deploy
+    groups: docker
+    shell: /bin/bash
+    sudo: ALL=(ALL) NOPASSWD:ALL
+    ssh_authorized_keys:
+      - ${deploy_public_key}
+
+package_update: true
+package_upgrade: true
+
+packages:
+  - ca-certificates
+  - curl
+  - gnupg
+  - jq
+  - unattended-upgrades
+
+write_files:
+  # Security updates every day. Ubuntu's image turns this on too; written here
+  # so it does not depend on the image.
+  - path: /etc/apt/apt.conf.d/20auto-upgrades
+    content: |
+      APT::Periodic::Update-Package-Lists "1";
+      APT::Periodic::Unattended-Upgrade "1";
+
+runcmd:
+  # Install Docker
+  - curl -fsSL https://get.docker.com | sh
