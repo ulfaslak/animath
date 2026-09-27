@@ -1,0 +1,46 @@
+# The production stack on a Mac, to try the image, nginx and the deploy script
+# before they ship. It changes only what has to differ from the server: no
+# secrets file, no Let's Encrypt, plain HTTP on port 8480, the image built
+# here, and a project name of its own (mathgame-local), so it never touches the
+# dev database or anything of the server's.
+#
+#   docker build --build-arg GIT_SHA=$(git rev-parse HEAD) -t mathgame:local .
+#   docker compose -f docker-compose.prod.yml -f docker-compose.local.yml up -d --wait
+#   curl localhost:8480/api/health
+#   docker compose -f docker-compose.prod.yml -f docker-compose.local.yml down -v
+#
+# The last line removes its containers, network and volumes. More, the deploy
+# script against this stack included: AGENTS/DNA/DEVELOPMENT.md § Deployment.
+name: mathgame-local
+
+services:
+  app:
+    image: mathgame:local
+    env_file: !reset []
+    environment:
+      DATABASE_URL: postgres://mathgame:local@postgres:5432/mathgame
+
+  postgres:
+    env_file: !reset []
+    environment: &database
+      POSTGRES_USER: mathgame
+      POSTGRES_PASSWORD: local
+      POSTGRES_DB: mathgame
+
+  nginx:
+    env_file: !reset []
+    # nginx/local/nginx.conf.template: the server's config without TLS.
+    environment:
+      NGINX_ENVSUBST_TEMPLATE_DIR: /etc/nginx/mathgame/local
+    ports: !override
+      - '127.0.0.1:8480:80'
+
+  backup:
+    env_file: !reset []
+    environment: *database
+    volumes: !override
+      - backups:/backups
+      - ./scripts:/opt/scripts:ro
+
+volumes:
+  backups:

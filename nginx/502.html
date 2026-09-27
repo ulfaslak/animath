@@ -1,0 +1,135 @@
+<!doctype html>
+<!--
+	What the game's address shows while the game does not answer: for the few
+	seconds a new version takes to start (scripts/deploy.sh), or while the
+	server is down. nginx serves it with the 502 (nginx/app.conf). It asks
+	again every 5 seconds, and is the game at the first load after it answers.
+-->
+<html lang="en">
+	<head>
+		<meta charset="UTF-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+		<meta http-equiv="refresh" content="5" />
+		<title>Animath</title>
+		<link rel="icon" href="data:," />
+		<link rel="preconnect" href="https://fonts.googleapis.com" />
+		<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+		<link
+			href="https://fonts.googleapis.com/css2?family=Nunito:wght@600;800&display=swap"
+			rel="stylesheet"
+		/>
+		<style>
+			/* The game's own sky, panel and ink (AGENTS/DNA/DESIGN.md § Palette). */
+			* {
+				margin: 0;
+				box-sizing: border-box;
+			}
+			body {
+				min-height: 100vh;
+				display: grid;
+				place-items: center;
+				padding: 24px;
+				background: #8fd3f4;
+				color: #2d2a32;
+				font-family: Nunito, ui-rounded, 'Segoe UI', system-ui, sans-serif;
+				text-align: center;
+			}
+			main {
+				max-width: 420px;
+				padding: 32px 40px;
+				border-radius: 16px;
+				background: rgba(255, 252, 245, 0.92);
+				box-shadow: 0 8px 24px rgba(45, 42, 50, 0.18);
+			}
+			h1 {
+				font-size: 32px;
+				font-weight: 800;
+				line-height: 1.2;
+			}
+			p {
+				margin-top: 8px;
+				font-size: 18px;
+				font-weight: 600;
+			}
+			.dots {
+				display: flex;
+				justify-content: center;
+				gap: 12px;
+				margin-bottom: 20px;
+			}
+			.dots span {
+				width: 16px;
+				height: 16px;
+				border-radius: 50%;
+				animation: bob 1.2s ease-in-out infinite;
+			}
+			.dots span:nth-child(1) {
+				background: #ff7e6b;
+			}
+			.dots span:nth-child(2) {
+				background: #ff9f43;
+				animation-delay: 0.2s;
+			}
+			.dots span:nth-child(3) {
+				background: #56c271;
+				animation-delay: 0.4s;
+			}
+			@keyframes bob {
+				50% {
+					transform: translateY(-10px);
+				}
+			}
+			@media (prefers-reduced-motion: reduce) {
+				.dots span {
+					animation: none;
+				}
+			}
+		</style>
+	</head>
+	<body>
+		<main>
+			<div class="dots" aria-hidden="true"><span></span><span></span><span></span></div>
+			<h1 id="title">Back in a moment!</h1>
+			<p id="body">The game is getting ready.</p>
+		</main>
+		<!--
+			The words in every language the game speaks: a copy of app.updating in
+			packages/client/src/copy/<language>.yaml, where they are written.
+			packages/client/test/updating-page.test.ts checks that they agree.
+		-->
+		<script id="copy" type="application/json">
+			{
+				"en": { "title": "Back in a moment!", "body": "The game is getting ready." },
+				"da": { "title": "Tilbage om lidt!", "body": "Spillet gør sig klar." }
+			}
+		</script>
+		<script>
+			// The language the game would start in (chooseLanguage in
+			// packages/client/src/copy/language.svelte.ts): ?lang=, else the one
+			// picked on this device, else the browser's, else English.
+			(function () {
+				var copy = JSON.parse(document.getElementById('copy').textContent);
+				var saved = null;
+				try {
+					saved = localStorage.getItem('animath.language');
+				} catch (e) {
+					// No storage: the browser's languages decide.
+				}
+				var query = new URLSearchParams(location.search).get('lang');
+				var tags = [query, saved].concat(navigator.languages || [navigator.language]);
+				for (var i = 0; i < tags.length; i++) {
+					var base = String(tags[i] || '')
+						.trim()
+						.toLowerCase()
+						.split(/[-_]/)[0];
+					if (Object.prototype.hasOwnProperty.call(copy, base)) {
+						document.documentElement.lang = base;
+						document.getElementById('title').textContent = copy[base].title;
+						document.getElementById('body').textContent = copy[base].body;
+						return;
+					}
+				}
+			})();
+		</script>
+	</body>
+</html>

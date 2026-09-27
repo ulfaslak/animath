@@ -19,5 +19,7 @@ function required(name: string): string {
 export const env = {
 	DATABASE_URL: required('DATABASE_URL'),
 	PORT: Number(process.env.PORT ?? 3000),
-	NODE_ENV: process.env.NODE_ENV ?? 'development'
+	NODE_ENV: process.env.NODE_ENV ?? 'development',
+	/** The commit this server was built from: the image's `GIT_SHA` build argument, `dev` outside an image. */
+	GIT_SHA: process.env.GIT_SHA || 'dev'
 };
