@@ -11,7 +11,7 @@ import { afterAll, describe, expect, it } from 'vitest';
 import { createApp } from '../src/app.js';
 import { db, pool } from '../src/db/index.js';
 import { players, saveBackups, saves } from '../src/db/schema.js';
-import { SAVE_MAX_BYTES } from '../src/save.js';
+import { SAVE_FROM_NEWER_BUILD, SAVE_MAX_BYTES, STORED_FROM_NEWER_BUILD } from '../src/save.js';
 import { hashSecret } from '../src/secrets.js';
 
 // Integration tests: the real app against the real driver and `mathgame_test`
@@ -80,6 +80,24 @@ function doc(seq: number, lineage = 'game-a', overrides: Record<string, unknown>
 function docV1(seq: number, lineage = 'game-a', overrides: Record<string, unknown> = {}) {
 	const { home: _home, world: _world, ...rest } = doc(seq, lineage);
 	return { ...rest, version: 1, seed: WORLD_ONE_SEED, ...overrides };
+}
+
+/**
+ * Saves a newer build wrote, as this build sees them: a later version, and a
+ * species or an item this build does not have (ids no catalog here has).
+ */
+const NEWER_DOCS = [
+	doc(4, 'game-a', { version: 3 }),
+	doc(4, 'game-a', { party: [animal(1), animal(2, { speciesId: 'later-species' })] }),
+	doc(4, 'game-a', { items: ['axe', 'later-item'] })
+];
+
+/** Puts `data` in the player's save row directly, as another build of the server would have. */
+async function store(player: Player, data: unknown): Promise<void> {
+	await db
+		.insert(saves)
+		.values({ playerId: player.id, data })
+		.onConflictDoUpdate({ target: saves.playerId, set: { data } });
 }
 
 /** Sends every body at once; the statuses, in the same order. */
@@ -227,18 +245,33 @@ describe('the stale-write guard', () => {
 
 	it('a stored save this build cannot read is kept aside when a backup replaces it', async () => {
 		const player = await createPlayer();
-		// As if the catalog lost a species, or a newer build wrote it.
+		// Broken for every build: an animal with no species, a party that is no list.
 		for (const bad of [
-			doc(3, 'game-a', { party: [animal(1, { speciesId: 'dragon' })] }),
-			doc(4, 'game-a', { version: 3 })
+			doc(3, 'game-a', { party: [animal(1, { speciesId: '' })] }),
+			doc(4, 'game-a', { party: 'none' })
 		]) {
-			await db
-				.insert(saves)
-				.values({ playerId: player.id, data: bad })
-				.onConflictDoUpdate({ target: saves.playerId, set: { data: bad } });
+			await store(player, bad);
 			expect((await putSave(player, doc(bad.seq, 'game-a'))).status).toBe(409);
 			expect((await putSave(player, doc(bad.seq + 1, 'game-a'))).status).toBe(200);
 			expect((await backups(player)).at(-1)).toEqual({ data: bad, reason: 'unreadable' });
+		}
+	});
+
+	it('a stored save a newer build wrote is never replaced, whatever the seq, and nothing is kept aside', async () => {
+		for (const newer of NEWER_DOCS) {
+			const player = await createPlayer();
+			await store(player, newer);
+			for (const seq of [newer.seq, newer.seq + 1, 1_000_000]) {
+				for (const lineage of ['game-a', 'game-b']) {
+					const res = await putSave(player, doc(seq, lineage));
+					expect(res.status, `${JSON.stringify(newer)} ${seq} ${lineage}`).toBe(409);
+					expect(await res.json()).toEqual({ error: STORED_FROM_NEWER_BUILD });
+				}
+			}
+			expect(await stored(player)).toEqual(newer);
+			expect(await backups(player)).toEqual([]);
+			// And the page that asks is given it as it is, to find it newer too.
+			expect(await (await getSave(player)).json()).toEqual(newer);
 		}
 	});
 
@@ -360,12 +393,18 @@ describe('PUT validation', () => {
 
 	it("400 for a document the engine's validator refuses", async () => {
 		await expectRejected([1, 2, 3], /object/);
-		await expectRejected(doc(1, 'game-a', { version: 3 }), /version/);
 		await expectRejected(docV1(1, 'game-a', { seed: 1.5 }), /world/);
-		await expectRejected(
-			doc(1, 'game-a', { party: [animal(1, { speciesId: 'dragon' })] }),
-			/species/
-		);
+		await expectRejected(doc(1, 'game-a', { party: [animal(1, { speciesId: '' })] }), /species/);
+	});
+
+	it('503 for a save a newer build wrote: this server is the older one, and stores nothing', async () => {
+		for (const newer of NEWER_DOCS) {
+			const player = await createPlayer();
+			const res = await putSave(player, newer);
+			expect(res.status, JSON.stringify(newer)).toBe(503);
+			expect(await res.json()).toEqual({ error: SAVE_FROM_NEWER_BUILD });
+			expect(await stored(player)).toBeNull();
+		}
 	});
 
 	it('stores a party of 2,000 animals mid-battle, each with the longest name, under the size cap', async () => {

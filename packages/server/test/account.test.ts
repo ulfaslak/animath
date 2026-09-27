@@ -7,7 +7,12 @@ import { createApp } from '../src/app.js';
 import { db, pool } from '../src/db/index.js';
 import { accountSaveBackups, accountSaves, sessions, users } from '../src/db/schema.js';
 import type { AccountLimits } from '../src/rate-limit.js';
-import { ACCOUNT_BACKUP_BYTES, SAVE_MAX_BYTES } from '../src/save.js';
+import {
+	ACCOUNT_BACKUP_BYTES,
+	SAVE_FROM_NEWER_BUILD,
+	SAVE_MAX_BYTES,
+	STORED_FROM_NEWER_BUILD
+} from '../src/save.js';
 import {
 	MAX_SESSIONS_PER_USER,
 	SESSION_COOKIE,
@@ -126,6 +131,16 @@ function doc(seq: number, lineage = 'game-a', overrides: Record<string, unknown>
 		...overrides
 	};
 }
+
+/**
+ * Saves a newer build wrote, as this build sees them: a later version, and a
+ * species or an item this build does not have (ids no catalog here has).
+ */
+const NEWER_DOCS = [
+	doc(4, 'game-a', { version: 3 }),
+	doc(4, 'game-a', { party: [{ id: 'a1', speciesId: 'later-species', hp: 11 }] }),
+	doc(4, 'game-a', { items: ['axe', 'later-item'] })
+];
 
 async function userRow(name: string) {
 	const [row] = await db.select().from(users).where(eq(users.name, name));
@@ -510,7 +525,8 @@ describe('the account save', () => {
 	it('a stored save this build cannot read is kept aside when a save replaces it', async () => {
 		const { browser, name } = await account(doc(1));
 		const user = await userRow(name);
-		const unreadable = { version: 99, whatever: true, seq: 4 };
+		// Broken for every build: no world, no party.
+		const unreadable = { version: 2, whatever: true, seq: 4 };
 		await db
 			.update(accountSaves)
 			.set({ data: unreadable })
@@ -523,6 +539,41 @@ describe('the account save', () => {
 			.from(accountSaveBackups)
 			.where(eq(accountSaveBackups.userId, user!.id));
 		expect(kept).toEqual([{ data: unreadable, reason: 'unreadable' }]);
+	});
+
+	it('a stored save a newer build wrote is never replaced, whatever the seq: 409 with it, nothing kept aside', async () => {
+		for (const newer of NEWER_DOCS) {
+			const { browser, name } = await account(doc(1));
+			const user = await userRow(name);
+			await db.update(accountSaves).set({ data: newer }).where(eq(accountSaves.userId, user!.id));
+			for (const seq of [4, 5, 1_000_000]) {
+				for (const lineage of ['game-a', 'game-b']) {
+					const res = await browser.putSave(doc(seq, lineage));
+					expect(res.status, `${JSON.stringify(newer)} ${seq} ${lineage}`).toBe(409);
+					expect(await res.json()).toEqual({ error: STORED_FROM_NEWER_BUILD, save: newer });
+				}
+			}
+			expect(await (await browser.getSave()).json()).toEqual(newer);
+			const kept = await db
+				.select()
+				.from(accountSaveBackups)
+				.where(eq(accountSaveBackups.userId, user!.id));
+			expect(kept).toEqual([]);
+		}
+	});
+
+	it('503 for a save a newer build wrote, at PUT and at register: this server is the older one', async () => {
+		for (const newer of NEWER_DOCS) {
+			const { browser } = await account();
+			const res = await browser.putSave(newer);
+			expect(res.status, JSON.stringify(newer)).toBe(503);
+			expect(await res.json()).toEqual({ error: SAVE_FROM_NEWER_BUILD });
+			expect((await browser.getSave()).status).toBe(404);
+			const name = freshName();
+			const registering = await new Browser().register(name, 'secret', newer);
+			expect(registering.status).toBe(503);
+			expect(await userRow(name)).toBeUndefined();
+		}
 	});
 
 	it("keeps an account's set-aside games within their budget, newest first, however big they are", async () => {

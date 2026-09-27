@@ -201,6 +201,7 @@ export {
 	STARTER_SPECIES,
 	V1_KEPT,
 	canReplace,
+	isNewerSave,
 	newGame,
 	readBattle,
 	readSave,
@@ -217,10 +218,12 @@ export {
 } from './save.js';
 export type {
 	SaveCheck,
+	SaveProblem,
 	SaveRead,
 	SaveV1,
 	SaveV2,
 	SaveWrite,
+	SaveWriteCheck,
 	SavedGame,
 	SavedWorldStay
 } from './save.js';
