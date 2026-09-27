@@ -112,7 +112,12 @@ services:
     volumes:
       - ./backups:/backups
       - ./scripts:/opt/scripts:ro
-    entrypoint: ['/bin/sh', '/opt/scripts/backup.sh']
+    # The loop runs a copy taken as the container starts: a running shell keeps
+    # reading the script it started with, whatever a deploy writes over it.
+    # scripts/deploy.sh compares that copy with the checkout's and restarts the
+    # service when they differ.
+    entrypoint:
+      ['/bin/sh', '-c', 'cp /opt/scripts/backup.sh /tmp/backup.sh && exec /bin/sh /tmp/backup.sh']
     init: true
     depends_on:
       postgres:

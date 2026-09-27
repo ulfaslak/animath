@@ -207,9 +207,19 @@ fi
 # The swap above only touches `app`. Without this, a change to the backup
 # service (its schedule, its mounts) would never be applied, and the old loop
 # would keep running and look healthy. Compose recreates it only when its
-# definition changed, so a dump in progress is not cut short for nothing.
+# definition changed, so a dump in progress is not cut short for nothing. A
+# change to scripts/backup.sh alone changes no definition: the loop runs the
+# copy it took at its start (docker-compose.prod.yml), so a different one means
+# a restart with the new script.
 echo "Reconciling the backup service..."
-$COMPOSE up -d --no-deps backup
+BACKUP_CID=$($COMPOSE ps -q backup 2>/dev/null || true)
+if [ -n "$BACKUP_CID" ] &&
+	! docker exec "$BACKUP_CID" cat /tmp/backup.sh </dev/null 2>/dev/null | cmp -s - scripts/backup.sh; then
+	echo "    scripts/backup.sh changed: restarting the backup service with it"
+	$COMPOSE up -d --no-deps --force-recreate backup
+else
+	$COMPOSE up -d --no-deps backup
+fi
 
 echo "Applying the nginx config..."
 apply_nginx_config "$COMPOSE" || {
