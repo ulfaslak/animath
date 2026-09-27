@@ -16,6 +16,7 @@ import {
 	currentUser,
 	deleteSession,
 	sessionToken,
+	sessionUser,
 	setSessionCookie,
 	type CookieOptions,
 	type SessionUser
@@ -101,8 +102,15 @@ export function accountRoute({ cookie, limits }: AccountRouteOptions) {
 		setSessionCookie(c, token, cookie);
 	}
 
+	/**
+	 * The save routes only read the session: they never send the cookie,
+	 * neither to slide it nor to clear it. An autosave still on its way with
+	 * the old cookie when the browser logs in to another account would
+	 * otherwise answer after the login, and its cookie would replace the new
+	 * one. `/me`, which the page asks once as it starts, slides and clears.
+	 */
 	const requireSession: MiddlewareHandler<Env> = async (c, next) => {
-		const user = await currentUser(c, cookie);
+		const user = await sessionUser(c);
 		if (!user) return c.json({ error: 'not logged in' }, 401);
 		c.set('user', user);
 		await next();
@@ -201,10 +209,7 @@ export function accountRoute({ cookie, limits }: AccountRouteOptions) {
 			const checked = validateSaveWrite(body);
 			if (!checked.ok) return c.json({ error: 'bad save', detail: checked.error }, 400);
 			const written = await writeAccountSave(c.get('user').id, checked.value);
-			if (written.kind === 'gone') {
-				clearSessionCookie(c, cookie);
-				return c.json({ error: 'not logged in' }, 401);
-			}
+			if (written.kind === 'gone') return c.json({ error: 'not logged in' }, 401);
 			if (written.kind === 'stale') {
 				return c.json(
 					{ error: 'a save with the same or a higher seq is already stored', save: written.stored },

@@ -350,20 +350,44 @@ describe('sessions', () => {
 		expect(forged.cookie).toBeNull();
 	});
 
-	it('an expired session logs nobody in, and its cookie is cleared', async () => {
+	it('an expired session logs nobody in; /me clears its cookie', async () => {
 		const { browser, name } = await account(doc(1));
 		const user = await userRow(name);
 		await db
 			.update(sessions)
 			.set({ expiresAt: sql`now() - interval '1 second'` })
 			.where(eq(sessions.userId, user!.id));
-		const token = browser.cookie!;
 		expect((await browser.getSave()).status).toBe(401);
+		expect((await browser.putSave(doc(2))).status).toBe(401);
+		expect(browser.cookie).not.toBeNull();
+		expect(await browser.me()).toEqual({ user: null });
 		expect(browser.cookie).toBeNull();
-		const again = new Browser();
-		again.cookie = token;
-		expect(await again.me()).toEqual({ user: null });
-		expect((await again.putSave(doc(2))).status).toBe(401);
+	});
+
+	it('a save route never sends the cookie, to slide a session or to clear one', async () => {
+		// An autosave still on its way with the old cookie when the browser logs
+		// in to another account must not put its cookie over the new one.
+		const { browser, name } = await account(doc(1));
+		const user = await userRow(name);
+		await db
+			.update(sessions)
+			.set({ expiresAt: sql`now() + interval '300 days'` })
+			.where(eq(sessions.userId, user!.id));
+		const reads = [await browser.getSave(), await browser.putSave(doc(2))];
+		for (const res of reads) {
+			expect(res.status).toBe(200);
+			expect(res.headers.get('set-cookie')).toBeNull();
+		}
+		const [row] = await sessionRows(name);
+		expect((row!.expiresAt.getTime() - Date.now()) / 86_400_000).toBeLessThan(301);
+		const old = browser.cookie!;
+		expect((await browser.register(freshName())).status).toBe(201);
+		const late = new Browser();
+		late.cookie = old;
+		for (const res of [await late.getSave(), await late.putSave(doc(3))]) {
+			expect(res.status).toBe(401);
+			expect(res.headers.get('set-cookie')).toBeNull();
+		}
 	});
 
 	it('a session in use slides a year out, in the database and in the cookie', async () => {

@@ -93,9 +93,9 @@ async function findSession(token: string | undefined): Promise<Found | null> {
 
 /**
  * The account a request is logged in to, or null: no cookie, a token that
- * matches no session, or a session that has expired. Reads only; the account
- * routes extend the session (`currentUser`). The presence server calls this
- * on the WebSocket upgrade.
+ * matches no session, or a session that has expired. Reads only, and sends
+ * no cookie: the save routes and the WebSocket upgrade use it, and only
+ * `/me` extends a session (`currentUser`).
  */
 export async function sessionUser(c: Context): Promise<SessionUser | null> {
 	return (await findSession(getCookie(c, SESSION_COOKIE)))?.user ?? null;
@@ -129,10 +129,13 @@ export function clearSessionCookie(c: Context, options: CookieOptions): void {
 }
 
 /**
- * The account a request to the account routes is logged in to, sliding the
+ * `/me`'s lookup: the account a request is logged in to, sliding the
  * session's end a year out when it is more than a day into its year, and
  * sending the cookie again with it. A cookie that names no live session is
- * cleared, so the browser stops sending it.
+ * cleared, so the browser stops sending it. Only `/me` may send the cookie
+ * this way (besides login, register and logout): a page asks it once as it
+ * starts, before it saves anything, so no answer of its can arrive after a
+ * login and put the old cookie back.
  */
 export async function currentUser(c: Context, options: CookieOptions): Promise<SessionUser | null> {
 	const token = getCookie(c, SESSION_COOKIE);
