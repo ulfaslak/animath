@@ -27,8 +27,8 @@ import {
  * The pause menu, opened with Escape in explore: the team's cards in battle
  * order (one per species), where a card can move up or down (which picks who
  * goes first) and its animals can go first, move within the card or get a
- * name; then the settings (Language, Sound), "Keep playing" and "Start
- * screen". A card of one animal is that animal: picking it opens the
+ * name; then Worlds, the settings (Language, Sound), and "Keep playing"
+ * and "Start screen" side by side. A card of one animal is that animal: picking it opens the
  * animal's options, and its moves move the card. A card of several opens
  * its own screen on the right: its options, then its animals, each of which
  * opens its options.

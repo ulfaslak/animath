@@ -23,10 +23,12 @@ export type PauseScreen = 'list' | 'bundle' | 'options' | 'naming' | 'worlds';
 
 /**
  * The rows under the team, in order: Worlds, the settings, then "Keep
- * playing" and Quit to title. A new one is a new id here, its label in
- * `PauseMenu.svelte`, and its case in `PauseController.chooseItem` — the
- * cursor, keys and layout already count every row listed. A setting's row
- * also takes left and right (`PauseController.settingKey`). `worlds` opens
+ * playing" and Quit to title, which are drawn side by side. A new one is a
+ * new id here, before those two, its label in `PauseMenu.svelte`, and its
+ * case in `PauseController.chooseItem` — the cursor, keys and layout
+ * already count every row listed. A setting's row also takes left and right
+ * (`PauseController.settingKey`); the last two take them to step between
+ * each other. `worlds` opens
  * the Worlds screen, with the world the player is in beside it; `language`
  * switches every word on screen to the next language at once and remembers
  * it on this device; `sound` turns the sound off and on (`sfx`); `quit`

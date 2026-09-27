@@ -38,8 +38,9 @@
 	/**
 	 * The pause menu: the team's cards in battle order on the left (one per
 	 * species; a card of several animals shows how many, and how many can
-	 * play), then the menu items (the settings — Language with every language
-	 * in its own words, Sound with its switch — then "Keep playing"); on the
+	 * play), then the menu items (Worlds, the settings — Language with every
+	 * language in its own words, Sound with its switch — then "Keep playing"
+	 * and "Start screen" side by side); on the
 	 * right, what can be done with the picked card or animal — a card's
 	 * options and its animals, an animal's options, or the name box. The
 	 * Worlds row (the world the kid is in beside it) opens the Worlds screen in
