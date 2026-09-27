@@ -823,9 +823,9 @@ const BUILDERS: Record<string, Builder> = {
 	],
 	// Round and heavy, a flat paddle of a tail, and orange front teeth.
 	beaver: ({ fur, accent }) => {
-		// Flat on the ground behind it (its five-sided edge's lowest corner on y = 0).
-		const tail = paddleTail(COLORS.dark, 0, 0.039, -0.38);
-		tail.scale.x = 1.6;
+		// A broad oval paddle, flat on the ground behind it (its underside on y = 0): the
+		// otter's pointed tail, widened, read from behind as a dark arrowhead.
+		const tail = ball(0.12, COLORS.dark, 0, 0.024, -0.42, 0.95, 0.2, 1.45);
 		return [
 			ball(0.2, fur, 0, 0.26, -0.03, 1, 0.9, 1.3),
 			ball(0.12, fur, 0, 0.32, 0.23),
