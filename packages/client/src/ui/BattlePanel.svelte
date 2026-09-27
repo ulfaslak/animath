@@ -1014,7 +1014,7 @@
 	 */
 	@media (max-height: 560px) {
 		.status {
-			width: 240px;
+			width: 200px;
 		}
 		.status.opponent {
 			top: calc(8px + var(--safe-top));
@@ -1034,7 +1034,7 @@
 			bottom: auto;
 			left: auto;
 			transform: none;
-			max-width: calc(100vw - 280px - var(--safe-left) - var(--safe-right));
+			max-width: calc(100vw - 240px - var(--safe-left) - var(--safe-right));
 			padding: 6px 14px;
 			font-size: 16px;
 		}

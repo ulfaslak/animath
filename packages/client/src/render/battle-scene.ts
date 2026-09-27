@@ -54,7 +54,7 @@ const CAMERA_TARGET = new THREE.Vector3(0, 0.3, 0);
 /** Vertical field of view, in degrees, of the canvas area above the panel. */
 const SCENE_FOV = 25;
 /** How much lower the scene sits in the canvas area above the panel on a short screen, as a share of that area. */
-const SHORT_DROP = 0.12;
+const SHORT_DROP = 0.08;
 
 /**
  * The tallest screen that is a short one, in CSS pixels: a phone held
@@ -212,11 +212,11 @@ const LEASH_HEADROOM = 0.05;
 export const WILD_STATUS_BOX = { right: 16 + 280, bottom: 16 + 75 };
 /**
  * The same box on a short screen (`SHORT_SCREEN`): 8 px down from the top,
- * 240 px wide and 60 px tall (61 here, rounded up), a size smaller. Change it
+ * 200 px wide and 60 px tall (61 here, rounded up), a size smaller. Change it
  * with the short screen's `.status` rules in `BattlePanel.svelte` and
  * `StatusBox.svelte`.
  */
-export const WILD_STATUS_BOX_SHORT = { right: 16 + 240, bottom: 8 + 61 };
+export const WILD_STATUS_BOX_SHORT = { right: 16 + 200, bottom: 8 + 61 };
 
 /** Where the wild animal's status box is on a canvas `height` pixels tall. */
 export function wildStatusBox(height: number): { right: number; bottom: number } {
