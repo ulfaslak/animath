@@ -21,6 +21,7 @@ import { buildGliderMesh, poseGlider } from './glider';
 import { OtherPlayers } from './others';
 import { COLORS, GLIDER_COLORS } from './palette';
 import { Poofs } from './poof';
+import { PortraitStudio } from './portraits';
 import { groundTop } from './tiles';
 import { FACING_ANGLE, strideOnto, trainerPose, trainerStep } from './trainer';
 
@@ -165,6 +166,8 @@ export class GameRenderer {
 	private poofs = new Poofs(this.scene);
 	/** Which witch doctors are greeting the trainer, who came near them. */
 	private greetings = new Greetings();
+	/** Draws the animal book's pictures, made the first time the book asks for one. */
+	private studio: PortraitStudio | null = null;
 	/** The other players in view, each with their lead (`others.ts`). */
 	readonly others: OtherPlayers = new OtherPlayers(this.scene, this, this.poofs);
 
@@ -459,6 +462,17 @@ export class GameRenderer {
 	/** Show a battle scene instead of the world, or `null` to return to it. */
 	setBattle(scene: Stage | null): void {
 		this.setStage(scene);
+	}
+
+	/**
+	 * A picture of `speciesId`'s figure for the animal book, drawn offscreen
+	 * with this renderer (`portraits.ts`): a PNG data URL, or null while the
+	 * WebGL context is lost. The screen is not touched; the next frame draws
+	 * as ever.
+	 */
+	portrait(speciesId: string): string | null {
+		this.studio ??= new PortraitStudio(this.renderer);
+		return this.studio.draw(speciesId);
 	}
 
 	/** Draw `stage` instead of the world (a battle, the starter stage), or `null` for the world. */

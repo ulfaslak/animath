@@ -229,7 +229,8 @@ describe('copy files', () => {
 		};
 		forbid('da', /dyrlæge/i, 'says dyrlæge, not heksedoktor');
 		forbid('da', /(?<!hekse)doktor/i, 'says doktor, not heksedoktor');
-		forbid('da', /\bhjælp\w*\s+(?:\S+\s+)?hjem\b/i, 'helps animals home, not slip fri');
+		// "hjælpe", "hjælp" and the past, "hjalp": "hjalp ræven hjem".
+		forbid('da', /\bhj[æa]lp\w*\s+(?:\S+\s+)?hjem\b/i, 'helps animals home, not slip fri');
 		forbid('en', /(?<!witch )doctor/i, 'says doctor, not witch doctor');
 		forbid('en', /\bhelp\w*\s+(?:\S+\s+)?home\b/i, 'helps animals home, not set free');
 		expect(messages.has('da')).toBe(true);
