@@ -1,7 +1,13 @@
 /**
  * The browser's localStorage, where the game keeps its save (the primary
- * copy) and the player's identity. Every access is wrapped: a blocked or full
- * storage must never stop the game, only the saving.
+ * copy). Every access is wrapped: a blocked or full storage must never stop
+ * the game, only the saving.
+ *
+ * A browser that played before the anonymous backup was retired also holds
+ * `animath.player` (`{ id, secret }`, its backup's) and maybe
+ * `animath.player.previous`. The game no longer reads or writes them; they
+ * stay as they are, since the id is how `admin export-local-save` finds that
+ * browser's old game ([[DEVELOPMENT]] § Moving a kid's game to production).
  */
 
 /**
@@ -11,11 +17,9 @@
 export interface SaveKeys {
 	save: string;
 	upgraded: string;
-	player: string;
 	unreadable: string;
 	replaced: string;
 	previous: string;
-	previousPlayer: string;
 }
 
 /**
@@ -32,8 +36,6 @@ export const KEYS = {
 	 * upgraded, in `save`).
 	 */
 	upgraded: 'animath.save.upgraded',
-	/** `{ id, secret }` for the server backup. */
-	player: 'animath.player',
 	/** A save this build could not read, moved here before a new game took its place. */
 	unreadable: 'animath.save.unreadable',
 	/**
@@ -42,9 +44,7 @@ export const KEYS = {
 	 */
 	replaced: 'animath.save.replaced',
 	/** The game that was saved here when the kid started a new one from the title. */
-	previous: 'animath.save.previous',
-	/** An identity the server stopped recognising, kept in case it was the server that was wrong. */
-	previousPlayer: 'animath.player.previous'
+	previous: 'animath.save.previous'
 } as const satisfies SaveKeys;
 
 /** The account this browser is logged in to (`account/session.ts`). */
@@ -58,20 +58,17 @@ export const ACCOUNT_KEYS = {
 /**
  * Where an account's game lives in this browser, apart from the guest game:
  * its own save and set-asides, under the account's name key (the engine's
- * `nameKey`, which every way of typing the name shares). `player` is never
- * written: an account's save is the account's, known to the server by the
- * session cookie, with no identity of its own.
+ * `nameKey`, which every way of typing the name shares). The server knows
+ * the account by the session cookie.
  */
 export function accountKeys(key: string): SaveKeys {
 	const base = `animath.account.${encodeURIComponent(key)}`;
 	return {
 		save: `${base}.save`,
 		upgraded: `${base}.save.upgraded`,
-		player: `${base}.player`,
 		unreadable: `${base}.save.unreadable`,
 		replaced: `${base}.save.replaced`,
-		previous: `${base}.save.previous`,
-		previousPlayer: `${base}.player.previous`
+		previous: `${base}.save.previous`
 	};
 }
 

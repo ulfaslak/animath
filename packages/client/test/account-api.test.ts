@@ -15,8 +15,8 @@ import {
 } from '../src/account/api';
 
 /**
- * The account client decides only from the API's own answers, as the backup's
- * does (#60): a status with the API's JSON error, never a status alone. And the
+ * The account client decides only from the API's own answers (#60): a status
+ * with the API's JSON error, never a status alone. And the
  * account's save goes to the server only once the session is known to be this
  * page's account: the cookie names whichever account every save request reaches.
  */
@@ -303,22 +303,20 @@ describe('SessionCheck', () => {
 describe("the account's save, as the autosave's server", () => {
 	const me = '/api/account/me';
 	const save = '/api/account/save';
-	const who = { id: '00000000-0000-4000-8000-000000000000', secret: 'session' };
 
 	it('sends nothing to the save routes while the session is not this account’s', async () => {
 		const seen = route({ [me]: { status: 200, json: { user: { name: 'Bo' } } } });
 		const server = accountSaveServer(new SessionCheck('Ida'));
-		expect(server.session).toBe(true);
-		expect(await server.getSave(who)).toEqual({ kind: 'unknown-player' });
-		expect(await server.putSave(who, doc)).toEqual({ kind: 'unknown-player' });
+		expect(await server.getSave()).toEqual({ kind: 'logged-out' });
+		expect(await server.putSave(doc)).toEqual({ kind: 'logged-out' });
 		expect(seen).toEqual([me]);
 	});
 
 	it('waits out a server it cannot reach, and asks who it is again next time', async () => {
 		const seen = route({ [me]: 'network error' });
 		const server = accountSaveServer(new SessionCheck('Ida'));
-		expect(await server.putSave(who, doc)).toEqual({ kind: 'offline' });
-		expect(await server.getSave(who)).toEqual({ kind: 'offline' });
+		expect(await server.putSave(doc)).toEqual({ kind: 'offline' });
+		expect(await server.getSave()).toEqual({ kind: 'offline' });
 		expect(seen).toEqual([me, me]);
 	});
 
@@ -326,7 +324,7 @@ describe("the account's save, as the autosave's server", () => {
 		const cases: [Answer, unknown][] = [
 			[{ status: 200, json: { ok: true } }, { kind: 'saved' }],
 			[{ status: 409, json: { error: 'higher', save: doc } }, { kind: 'conflict' }],
-			[{ status: 401, json: { error: 'not logged in' } }, { kind: 'unknown-player' }],
+			[{ status: 401, json: { error: 'not logged in' } }, { kind: 'logged-out' }],
 			[
 				{ status: 400, json: { error: 'bad save' } },
 				{ kind: 'refused', error: 'bad save' }
@@ -343,13 +341,13 @@ describe("the account's save, as the autosave's server", () => {
 		for (const [a, outcome] of cases) {
 			route({ [me]: { status: 200, json: { user: { name: 'Ida' } } }, [save]: a });
 			const server = accountSaveServer(new SessionCheck('Ida'));
-			expect(await server.putSave(who, doc), JSON.stringify(a)).toEqual(outcome);
+			expect(await server.putSave(doc), JSON.stringify(a)).toEqual(outcome);
 		}
 		route({
 			[me]: { status: 200, json: { user: { name: 'Ida' } } },
 			[save]: { status: 200, json: doc }
 		});
-		expect(await accountSaveServer(new SessionCheck('Ida')).getSave(who)).toEqual({
+		expect(await accountSaveServer(new SessionCheck('Ida')).getSave()).toEqual({
 			kind: 'found',
 			doc
 		});
@@ -357,7 +355,7 @@ describe("the account's save, as the autosave's server", () => {
 			[me]: { status: 200, json: { user: { name: 'Ida' } } },
 			[save]: { status: 404, json: { error: 'no save yet' } }
 		});
-		expect(await accountSaveServer(new SessionCheck('Ida')).getSave(who)).toEqual({ kind: 'none' });
+		expect(await accountSaveServer(new SessionCheck('Ida')).getSave()).toEqual({ kind: 'none' });
 	});
 
 	it('names its account in each request to the save routes and in the logout', async () => {
@@ -368,8 +366,8 @@ describe("the account's save, as the autosave's server", () => {
 			return reply({ status: 200, json: init?.method === undefined ? doc : { ok: true } });
 		});
 		const server = accountSaveServer(new SessionCheck('SØREN'));
-		expect(await server.getSave(who)).toEqual({ kind: 'found', doc });
-		expect(await server.putSave(who, doc)).toEqual({ kind: 'saved' });
+		expect(await server.getSave()).toEqual({ kind: 'found', doc });
+		expect(await server.putSave(doc)).toEqual({ kind: 'saved' });
 		expect(await getAccountSave('søren ')).toEqual({ kind: 'found', doc });
 		expect(await logout('Søren')).toBe('done');
 		// The name as the page has it: the server keys it by its own Unicode tables.
@@ -396,7 +394,7 @@ describe("the account's save, as the autosave's server", () => {
 		const server = accountSaveServer(new SessionCheck('Ida'));
 		const started = Date.now();
 		// 120 ms in all: not 100 for the check and then 120 more for the save.
-		expect(await server.getSave(who, 120)).toEqual({ kind: 'offline' });
+		expect(await server.getSave(120)).toEqual({ kind: 'offline' });
 		expect(Date.now() - started).toBeLessThan(180);
 	});
 
@@ -404,7 +402,7 @@ describe("the account's save, as the autosave's server", () => {
 		vi.stubGlobal('fetch', () => new Promise<Response>(() => {}));
 		const server = accountSaveServer(new SessionCheck('Ida'));
 		const started = Date.now();
-		expect(await server.getSave(who, 50)).toEqual({ kind: 'offline' });
+		expect(await server.getSave(50)).toEqual({ kind: 'offline' });
 		expect(Date.now() - started).toBeLessThan(2000);
 	});
 });

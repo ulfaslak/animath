@@ -1,7 +1,14 @@
-import { nameKey } from '@mathgame/engine';
+import {
+	EDITS_BUDGET,
+	MAX_NICKNAME_LENGTH,
+	WORLD_ONE_SEED,
+	WorldEdits,
+	nameKey,
+	normalizeNickname
+} from '@mathgame/engine';
 import { eq, sql } from 'drizzle-orm';
 import { Hono } from 'hono';
-import { createHash, randomBytes } from 'node:crypto';
+import { createHash, randomBytes, randomUUID } from 'node:crypto';
 import { afterAll, describe, expect, it, vi } from 'vitest';
 import { createApp } from '../src/app.js';
 import { db, pool } from '../src/db/index.js';
@@ -148,6 +155,42 @@ function doc(seq: number, lineage = 'game-a', overrides: Record<string, unknown>
 		party: [{ id: 'a1', speciesId: 'squirrel', hp: 11, nickname: 'Nutkin' }],
 		...overrides
 	};
+}
+
+function animal(i: number, overrides: Record<string, unknown> = {}) {
+	return { id: `a${i}`, speciesId: 'squirrel', hp: 10 + i, ...overrides };
+}
+
+/** The same save as an older build wrote it, before numbered worlds: version 1, in World 1. */
+function docV1(seq: number, lineage = 'game-a', overrides: Record<string, unknown> = {}) {
+	const { home: _home, world: _world, ...rest } = doc(seq, lineage);
+	return { ...rest, version: 1, seed: WORLD_ONE_SEED, ...overrides };
+}
+
+/** The account's save row, as stored, or null. */
+async function storedSave(name: string): Promise<unknown> {
+	const user = await userRow(name);
+	const [row] = await db.select().from(accountSaves).where(eq(accountSaves.userId, user!.id));
+	return row?.data ?? null;
+}
+
+/** Puts `data` in the account's save row directly, as another build of the server would have. */
+async function storeDirectly(name: string, data: unknown): Promise<void> {
+	const user = await userRow(name);
+	await db
+		.insert(accountSaves)
+		.values({ userId: user!.id, data, seq: 0 })
+		.onConflictDoUpdate({ target: accountSaves.userId, set: { data } });
+}
+
+/** What the account's set-asides hold, oldest first. */
+async function keptAside(name: string) {
+	const user = await userRow(name);
+	return db
+		.select({ data: accountSaveBackups.data, reason: accountSaveBackups.reason })
+		.from(accountSaveBackups)
+		.where(eq(accountSaveBackups.userId, user!.id))
+		.orderBy(accountSaveBackups.id);
 }
 
 /**
@@ -747,6 +790,154 @@ describe('the account save', () => {
 		expect(res.status).toBe(413);
 		expect(await userRow(name)).toBeUndefined();
 	});
+
+	it('gives back a field this build does not know, and a battle, as sent', async () => {
+		const { browser } = await account();
+		const sent = doc(1, 'game-a', {
+			inventory: { leashes: 3 },
+			party: [animal(1, { mood: 'happy' })],
+			battle: { step: 2, phase: { kind: 'choose-action' } }
+		});
+		expect((await browser.putSave(sent)).status).toBe(200);
+		expect(await (await browser.getSave()).json()).toEqual(sent);
+	});
+
+	it('stores the longest nickname the game can make, in the widest letters', async () => {
+		// The engine counts a nickname in code points and the save checks UTF-16
+		// units: a name of 4-byte letters is twice as long here. This fails if the
+		// engine's cap ever outgrows what a save accepts.
+		const nickname = normalizeNickname('\u{10400}'.repeat(MAX_NICKNAME_LENGTH + 5))!;
+		expect(Array.from(nickname)).toHaveLength(MAX_NICKNAME_LENGTH);
+		const { browser } = await account();
+		const sent = doc(1, 'game-a', { party: [animal(1, { nickname })] });
+		expect((await browser.putSave(sent)).status).toBe(200);
+		expect(await (await browser.getSave()).json()).toEqual(sent);
+	});
+
+	it('stores the most cleared tiles a save can hold, beside six named animals mid-battle, under the body limits', async () => {
+		// The worst case for the overlay's text: one tile in each of many far-flung chunks,
+		// grown back to its budget as a clear would leave it.
+		let edits = WorldEdits.none;
+		for (let i = 0; i < 1700; i++) edits = edits.with({ x: 90_000 + i * 16, y: -90_000 - i * 16 });
+		edits = edits.trimmedAround({ x: 0, y: 0 }).edits;
+		expect(edits.textLength).toBeLessThanOrEqual(EDITS_BUDGET);
+		expect(edits.textLength).toBeGreaterThan(EDITS_BUDGET - 40);
+		const party = Array.from({ length: 6 }, (_, i) =>
+			animal(i, { speciesId: 'bear', hp: 100, nickname: 'W'.repeat(MAX_NICKNAME_LENGTH) })
+		);
+		const sent = doc(1, 'game-a', { party, edits: [...edits.encode()], battle: { party } });
+		expect(JSON.stringify(sent).length).toBeLessThan(SAVE_MAX_BYTES);
+		// And under the 64 KiB a browser lets the save sent as the page closes carry.
+		expect(JSON.stringify(sent).length).toBeLessThan(64 * 1024);
+		const { browser } = await account();
+		expect((await browser.putSave(sent)).status).toBe(200);
+		expect(await (await browser.getSave()).json()).toEqual(sent);
+	});
+
+	it('stores a party of 2,000 animals mid-battle, each with the longest name, under the size cap', async () => {
+		// A party has no cap. The body limit is what bounds a save: the battle holds a
+		// second copy of the party, and a twelve-letter name of 4-byte letters is the
+		// most bytes a rename can store.
+		const nickname = normalizeNickname('\u{10400}'.repeat(MAX_NICKNAME_LENGTH + 5))!;
+		const party = Array.from({ length: 2000 }, (_, i) =>
+			animal(i, { id: randomUUID(), speciesId: 'squirrel', hp: 20, nickname })
+		);
+		const battle = {
+			step: 7,
+			turn: 3,
+			party,
+			active: 1999,
+			opponent: { id: randomUUID(), speciesId: 'bear', hp: 60 },
+			leashQuality: 1,
+			phase: { kind: 'choose-action' }
+		};
+		const sent = doc(1, 'game-a', { party, battle });
+		const body = JSON.stringify(sent);
+		expect(Buffer.byteLength(body)).toBeLessThan(SAVE_MAX_BYTES);
+		const { browser } = await account();
+		expect((await browser.putSave(body)).status).toBe(200);
+		expect(await (await browser.getSave()).json()).toEqual(sent);
+	});
+
+	it("a save from a page still open from before an update (an older build's document) is taken, and kept upgraded", async () => {
+		const { browser, name } = await account();
+		expect((await browser.putSave(docV1(5))).status).toBe(200);
+		// Upgraded: World 1, its home, and everything else as it was sent.
+		expect(await storedSave(name)).toEqual({ ...doc(5), home: 1, world: 1 });
+		expect(await (await browser.getSave()).json()).toEqual({ ...doc(5), home: 1, world: 1 });
+		// It numbers on with this build's saves, in either order, and keeps nothing aside.
+		expect((await browser.putSave(doc(6, 'game-a', { home: 1, world: 1 }))).status).toBe(200);
+		expect((await browser.putSave(docV1(6))).status).toBe(409);
+		expect((await browser.putSave(docV1(7))).status).toBe(200);
+		expect(await keptAside(name)).toEqual([]);
+	});
+
+	it("the first save after an update keeps the older build's save of the same game aside, as it was", async () => {
+		const { browser, name } = await account();
+		// Stored before the update, as the older build sent it.
+		const old = docV1(5, 'game-a', { tokens: 9, items: ['axe', 'boat'], edits: ['0,0:11'] });
+		await storeDirectly(name, old);
+		expect((await browser.putSave(doc(5, 'game-a', { home: 1, world: 1 }))).status).toBe(409);
+		const next = doc(6, 'game-a', { home: 1, world: 1, tokens: 9, items: ['axe', 'boat'] });
+		expect((await browser.putSave(next)).status).toBe(200);
+		expect(await storedSave(name)).toEqual(next);
+		expect(await keptAside(name)).toEqual([{ data: old, reason: 'replaced' }]);
+		// Once: the next save replaces this build's own document.
+		expect((await browser.putSave(doc(7, 'game-a', { home: 1, world: 1 }))).status).toBe(200);
+		expect(await keptAside(name)).toHaveLength(1);
+	});
+
+	it('a save from before seq and lineage existed is replaced by any valid save, and kept', async () => {
+		const { browser, name } = await account();
+		const legacy = { version: 1, seed: 3, pos: { x: 1, y: 1 }, party: [] };
+		await storeDirectly(name, legacy);
+		expect((await browser.putSave(doc(1))).status).toBe(200);
+		expect(await keptAside(name)).toEqual([{ data: legacy, reason: 'replaced' }]);
+	});
+
+	it('of many other games racing to replace one, exactly one lands and the old one is kept once', async () => {
+		const { browser, name } = await account(doc(4, 'game-a'));
+		const results = await Promise.all(
+			Array.from({ length: 6 }, (_, i) => browser.putSave(doc(5, `game-${i + 10}`)))
+		);
+		expect(results.filter((r) => r.status === 200)).toHaveLength(1);
+		expect(await keptAside(name)).toEqual([{ data: doc(4, 'game-a'), reason: 'replaced' }]);
+	});
+
+	it('400 for a write without the fields every write carries, and nothing is stored', async () => {
+		const { browser } = await account();
+		const refused = async (body: unknown, detail: RegExp) => {
+			const res = await browser.putSave(body);
+			expect(res.status, JSON.stringify(body).slice(0, 80)).toBe(400);
+			expect(((await res.json()) as { detail: string }).detail).toMatch(detail);
+		};
+		for (const key of ['seq', 'lineage', 'steps', 'visits', 'facing']) {
+			const partial: Record<string, unknown> = doc(1);
+			delete partial[key];
+			await refused(partial, new RegExp(key));
+		}
+		await refused(doc(0), /seq/);
+		await refused([1, 2, 3], /object/);
+		await refused(docV1(1, 'game-a', { seed: 1.5 }), /world/);
+		await refused(doc(1, 'game-a', { party: [animal(1, { speciesId: '' })] }), /species/);
+		expect((await browser.getSave()).status).toBe(404);
+	});
+
+	it('400, not 500, for text jsonb cannot store, anywhere in the body', async () => {
+		const { browser } = await account();
+		// Raw bodies: JSON.stringify would re-escape a lone surrogate into a pair.
+		const raw = JSON.stringify(doc(1)).slice(0, -1);
+		for (const [body, detail] of [
+			[`${raw},"note":"\\ud800"}`, /note/],
+			[`${raw},"a\\u0000b":1}`, /key/],
+			[`${raw},"big":1e400}`, /big/]
+		] as const) {
+			const res = await browser.putSave(body);
+			expect(res.status, body.slice(-20)).toBe(400);
+			expect(((await res.json()) as { detail: string }).detail).toMatch(detail);
+		}
+		expect((await browser.getSave()).status).toBe(404);
+	});
 });
 
 describe('what a request must be', () => {
@@ -827,25 +1018,9 @@ describe('what a request must be', () => {
 	});
 });
 
-describe('the anonymous backup', () => {
-	it('works in development', async () => {
-		const res = await createApp({ production: false, limits: NO_LIMITS }).request('/api/players', {
-			method: 'POST'
-		});
-		expect(res.status).toBe(201);
-	});
-
-	it('is off in production, where session cookies are Secure', async () => {
+describe('production', () => {
+	it('makes session cookies Secure', async () => {
 		const prod = createApp({ production: true, limits: NO_LIMITS });
-		for (const [method, path] of [
-			['POST', '/api/players'],
-			['GET', '/api/players/00000000-0000-0000-0000-000000000000/save'],
-			['PUT', '/api/players/00000000-0000-0000-0000-000000000000/save']
-		] as const) {
-			const res = await prod.request(path, { method });
-			expect(res.status, `${method} ${path}`).toBe(410);
-			expect(await res.json()).toEqual({ error: 'the backup is off here' });
-		}
 		const res = await new Browser(prod).register(freshName());
 		expect(res.status).toBe(201);
 		expect(res.headers.get('set-cookie')).toMatch(/; Secure/);
