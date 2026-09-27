@@ -423,9 +423,13 @@
 	<!-- Right under the tokens, one above the other: side by side, the corner would reach
 	     the note at the top of the screen on a tablet (`PresenceNote`). -->
 	<div class="solved"><Tick />{t('hud.solved', { count: game.solved })}</div>
-	{#each tools as id (id)}
-		<div class="tool"><ItemIcon {id} size={24} />{itemName(id)}</div>
-	{/each}
+	{#if tools.length > 0}
+		<div class="tools">
+			{#each tools as id (id)}
+				<div class="tool"><ItemIcon {id} size={24} />{itemName(id)}</div>
+			{/each}
+		</div>
+	{/if}
 	<!-- The number a kid reads out to a friend, a glance away. -->
 	<div class="world">{t('worlds.world', { world: game.world })}</div>
 </div>
@@ -624,6 +628,21 @@
 	}
 	.belongings.below-debug {
 		top: calc(100px + var(--safe-top));
+	}
+	.tools {
+		display: flex;
+		flex-direction: column;
+		align-items: flex-end;
+		gap: 6px;
+	}
+	/*
+	 * A phone held sideways: a column of all three tools would reach down to
+	 * the touch controls' Talk button, so the tools go side by side.
+	 */
+	@media (max-height: 500px) {
+		.tools {
+			flex-direction: row;
+		}
 	}
 	.solved,
 	.purse,
