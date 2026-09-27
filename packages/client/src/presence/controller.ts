@@ -418,8 +418,21 @@ export class PresenceController {
 			facing: game.facing,
 			lead: following(game.party, game.realm === 'water'),
 			boat: game.items.includes('boat'),
-			busy: this.options.match?.busy ? 'match' : busyNow()
+			busy: this.busyNow()
 		};
+	}
+
+	/**
+	 * What the player is busy with, as the others see it: a friendly match's
+	 * screen or result is a match; its other cards (asking, the update card
+	 * over the battle's screen) are exploring, since the player can still be
+	 * asked, and ask, from them; else the page's own screens (`busyNow`).
+	 */
+	private busyNow(): Busy {
+		const match = this.options.match;
+		if (match?.busy) return 'match';
+		if (match?.onScreen) return 'explore';
+		return busyNow();
 	}
 
 	/** Exploring with nothing over it: the explore screen is up. */
