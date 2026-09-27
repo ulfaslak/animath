@@ -271,6 +271,23 @@ describe('the Challenge button', () => {
 		expect(match.stage).toBe('none');
 	});
 
+	it('is not there up in the air: C asks nobody while the player glides', () => {
+		const t = setup();
+		// Ada owns the glider, and takes off from the start, down over the meadow.
+		(t.authority as unknown as { items: string[] }).items = ['glider'];
+		t.authority.dispatch({ type: 'take-off' });
+		expect(game.flying).toBe(true);
+		t.controller.peer(peer('Cy', 1));
+		t.frame();
+		expect(match.button).toBeNull();
+		t.exploreKey('c');
+		expect(t.sentOf('challenge')).toEqual([]);
+		// Down again, Cy can be asked.
+		t.authority.dispatch({ type: 'land' });
+		t.frame();
+		expect(match.button?.name).toBe('Cy');
+	});
+
 	it('greys with why: they are busy or on the water, or said no a moment ago', () => {
 		const t = setup();
 		t.controller.peer(peer('Bo', 1, 0, { busy: 'battle' }));
