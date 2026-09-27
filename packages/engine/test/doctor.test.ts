@@ -1,12 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import { ANIMALS, canFightIn, getAnimal } from '../src/animals/catalog.js';
-import type { AnimalInstance, Realm } from '../src/animals/types.js';
-import { takeToDoctor } from '../src/doctor/knockout.js';
+import { REALMS, type AnimalInstance, type Realm } from '../src/animals/types.js';
+import { doctorComes, knockOut } from '../src/doctor/knockout.js';
 import {
 	canGoHome,
 	keepsATeam,
 	kindGoingHome,
 	mustStay,
+	needsDoctor,
 	needsHealing
 } from '../src/doctor/party.js';
 import { applyDoctorIntent, startDoctorVisit } from '../src/doctor/reducer.js';
@@ -19,7 +20,7 @@ import { Rng, hashInts, hashString } from '../src/rng.js';
 import { WorldEdits, editedTileAt } from '../src/world/edits.js';
 import { tileAtWorld } from '../src/world/generate.js';
 import { spawnPoint } from '../src/world/spawn.js';
-import { TENT_SEARCH_STEPS, canTalkToDoctor, nearestTent } from '../src/world/tents.js';
+import { TENT_SEARCH_STEPS, nearestTent } from '../src/world/tents.js';
 import { isWalkable, isWater, step, type Direction, type GridPos } from '../src/world/types.js';
 import { makeParty, makeWild, playBattle } from './battle-sim.js';
 import { wordedStrings } from './words.js';
@@ -1025,108 +1026,119 @@ function lostBattleParty(seed: number): AnimalInstance[] {
 	return state.party.slice();
 }
 
-describe('takeToDoctor', () => {
-	it('after a lost battle: beside the nearest tent, facing it, the whole party healed for free', () => {
+/** A walkable tile of the prototype world with no walkable tile or tent beside it: no tent in reach. */
+function walledIn(): GridPos {
+	for (let y = -200; y < 200; y++)
+		for (let x = -200; x < 200; x++) {
+			if (!isWalkable(tileAtWorld(PROTOTYPE, x, y).kind)) continue;
+			const around = (['up', 'down', 'left', 'right'] as Direction[])
+				.map((d) => step({ x, y }, d))
+				.map((n) => tileAtWorld(PROTOTYPE, n.x, n.y).kind);
+			if (around.every((k) => !isWalkable(k) && k !== 'tent')) return { x, y };
+		}
+	throw new Error('no walled-in tile');
+}
+
+/** The party with every animal at full HP, nothing else changed. */
+function healed(party: readonly AnimalInstance[]): AnimalInstance[] {
+	return party.map((a) => ({ ...a, hp: maxHp(a) }));
+}
+
+describe('knockOut', () => {
+	it('after a lost battle: nobody is healed and nobody moves, a tent in reach', () => {
 		for (const seed of [PROTOTYPE, 3, 4]) {
 			for (const [i, pos] of grassNearSpawn(seed, 8).entries()) {
 				const party = deepFreeze(lostBattleParty(seed + i));
-				const rescue = takeToDoctor(seed, deepFreeze(pos), party);
-				const spot = nearestTent(seed, pos)!;
-				expect(rescue).toEqual({
-					pos: spot.stand,
-					facing: spot.facing,
-					tent: spot.tent,
+				const out = knockOut(seed, deepFreeze(pos), party);
+				expect(out).toEqual({
 					party: [
-						{ id: 'squirrel-0', speciesId: 'squirrel', hp: 20 },
-						{ id: 'rabbit-1', speciesId: 'rabbit', hp: 22 }
-					]
+						{ id: 'squirrel-0', speciesId: 'squirrel', hp: 0 },
+						{ id: 'rabbit-1', speciesId: 'rabbit', hp: 0 }
+					],
+					doctorCame: false
 				});
-				expect(isWalkable(tileAtWorld(seed, rescue.pos.x, rescue.pos.y).kind)).toBe(true);
-				expect(step(rescue.pos, rescue.facing)).toEqual(rescue.tent);
-				expect(canTalkToDoctor(seed, rescue.pos, rescue.facing)).toBe(true);
-				expect(takeToDoctor(seed, pos, party)).toEqual(rescue);
+				// Copies, never the battle's own animals.
+				expect(out.party[0]).not.toBe(party[0]);
+				// The tent the kid walks to is one they can get to.
+				expect(nearestTent(seed, pos)).not.toBeNull();
 			}
 		}
-		// About 1 s alone (24 lost battles, three tent searches each); over 5 s under a heavy load.
+		// About 1 s alone (24 lost battles, a tent search each); several under a heavy load.
 	}, 30_000);
 
-	it('keeps each animal as it was, nickname and extra fields included, only with full HP', () => {
+	it('keeps each animal as it was, nickname and extra fields included; a doctor who came changes only the HP', () => {
 		const party = [
 			{ id: 'a', speciesId: 'otter', nickname: 'Splashy', hp: 0 },
 			{ id: 'b', speciesId: 'wolf', hp: 0, caughtAt: 'river' } as AnimalInstance
 		];
-		expect(takeToDoctor(PROTOTYPE, spawnPoint(PROTOTYPE), deepFreeze(party)).party).toEqual([
+		expect(knockOut(PROTOTYPE, spawnPoint(PROTOTYPE), deepFreeze(party)).party).toEqual(party);
+		expect(knockOut(PROTOTYPE, walledIn(), deepFreeze(party)).party).toEqual([
 			{ id: 'a', speciesId: 'otter', nickname: 'Splashy', hp: getAnimal('otter').maxHp },
 			{ id: 'b', speciesId: 'wolf', hp: getAnimal('wolf').maxHp, caughtAt: 'river' }
 		]);
 	});
 
-	it('when no tent can be reached, a doctor comes to the player where they are', () => {
-		let walled: GridPos | null = null;
-		for (let y = -200; y < 200 && !walled; y++)
-			for (let x = -200; x < 200 && !walled; x++) {
-				if (!isWalkable(tileAtWorld(PROTOTYPE, x, y).kind)) continue;
-				const around = (['up', 'down', 'left', 'right'] as Direction[])
-					.map((d) => step({ x, y }, d))
-					.map((n) => tileAtWorld(PROTOTYPE, n.x, n.y).kind);
-				if (around.every((k) => !isWalkable(k) && k !== 'tent')) walled = { x, y };
-			}
-		expect(walled).not.toBeNull();
-		expect(takeToDoctor(PROTOTYPE, walled!, partyOf(['bear', 0]))).toEqual({
-			pos: walled,
-			facing: 'down',
-			tent: null,
-			party: partyOf(['bear'])
+	it('when no tent can be reached, a doctor comes to the player and looks after everyone', () => {
+		const walled = walledIn();
+		expect(nearestTent(PROTOTYPE, walled)).toBeNull();
+		expect(knockOut(PROTOTYPE, walled, partyOf(['bear', 0]))).toEqual({
+			party: partyOf(['bear']),
+			doctorCame: true
 		});
 	});
 
-	it('out on the water with the boat: over the water to the nearest tent, stood on the ground beside it', () => {
+	it('out on the water with the boat: a tent over the water is a tent in reach, and nobody comes', () => {
 		const spawn = spawnPoint(PROTOTYPE);
 		const boat = { boat: true };
-		let rescued = 0;
-		for (let dy = -12; dy <= 12 && rescued < 8; dy += 3) {
-			for (let dx = -40; dx <= 40 && rescued < 8; dx += 5) {
+		let lost = 0;
+		for (let dy = -12; dy <= 12 && lost < 8; dy += 3) {
+			for (let dx = -40; dx <= 40 && lost < 8; dx += 5) {
 				const pos = { x: spawn.x + dx, y: spawn.y + dy };
 				if (!isWater(tileAtWorld(PROTOTYPE, pos.x, pos.y).kind)) continue;
-				rescued++;
-				// The otter is tired; the squirrel, who can't swim, sat it out in the boat.
-				const party = deepFreeze(partyOf(['squirrel', 20], ['otter', 0]));
-				const rescue = takeToDoctor(PROTOTYPE, pos, party, WorldEdits.none, {
-					gear: boat,
-					realm: 'water'
-				});
-				const spot = nearestTent(PROTOTYPE, pos, TENT_SEARCH_STEPS, WorldEdits.none, boat)!;
-				expect(rescue).toEqual({
-					pos: spot.stand,
-					facing: spot.facing,
-					tent: spot.tent,
-					party: partyOf(['squirrel'], ['otter'])
-				});
-				expect(isWalkable(tileAtWorld(PROTOTYPE, rescue.pos.x, rescue.pos.y).kind)).toBe(true);
-				expect(canTalkToDoctor(PROTOTYPE, rescue.pos, rescue.facing)).toBe(true);
+				lost++;
+				// Only the otter swims, and it is tired: nobody stands at all.
+				const alone = deepFreeze(partyOf(['otter', 0]));
+				expect(
+					nearestTent(PROTOTYPE, pos, TENT_SEARCH_STEPS, WorldEdits.none, boat)
+				).not.toBeNull();
+				expect(
+					knockOut(PROTOTYPE, pos, alone, WorldEdits.none, { gear: boat, realm: 'water' })
+				).toEqual({ party: alone, doctorCame: false });
+				// The squirrel sat it out in the boat: it can still battle on land, and no doctor comes
+				// wherever the boat is, even with no tent in reach.
+				const inBoat = deepFreeze(partyOf(['squirrel', 20], ['otter', 0]));
+				for (const gear of [boat, { boat: false }]) {
+					expect(
+						knockOut(PROTOTYPE, pos, inBoat, WorldEdits.none, { gear, realm: 'water' })
+					).toEqual({
+						party: inBoat,
+						doctorCame: false
+					});
+				}
 			}
 		}
-		expect(rescued).toBe(8);
+		expect(lost).toBe(8);
 	});
 
 	it('out on the water, the battle is lost with animals that cannot swim still standing, never a swimmer', () => {
 		const pos = spawnPoint(PROTOTYPE);
 		const water = { realm: 'water' as const, gear: { boat: true } };
 		expect(() =>
-			takeToDoctor(PROTOTYPE, pos, partyOf(['bear'], ['frog', 0]), WorldEdits.none, water)
+			knockOut(PROTOTYPE, pos, partyOf(['bear'], ['frog', 0]), WorldEdits.none, water)
 		).not.toThrow();
 		expect(() =>
-			takeToDoctor(PROTOTYPE, pos, partyOf(['bear', 0], ['frog', 3]), WorldEdits.none, water)
+			knockOut(PROTOTYPE, pos, partyOf(['bear', 0], ['frog', 3]), WorldEdits.none, water)
 		).toThrow(/knocked out/);
 		// On land a standing bear is someone to fight on, as ever.
-		expect(() => takeToDoctor(PROTOTYPE, pos, partyOf(['bear'], ['frog', 0]))).toThrow(
-			/knocked out/
-		);
+		expect(() => knockOut(PROTOTYPE, pos, partyOf(['bear'], ['frog', 0]))).toThrow(/knocked out/);
 		// A realm that is neither is refused, never read as one where nobody can fight.
 		for (const realm of ['sea', '', 7]) {
 			const options = { realm: realm as unknown as Realm };
 			expect(() =>
-				takeToDoctor(PROTOTYPE, pos, partyOf(['bear']), WorldEdits.none, options)
+				knockOut(PROTOTYPE, pos, partyOf(['bear', 0]), WorldEdits.none, options)
+			).toThrow(/realm/);
+			expect(() =>
+				doctorComes(PROTOTYPE, pos, partyOf(['bear', 0]), WorldEdits.none, options)
 			).toThrow(/realm/);
 		}
 	});
@@ -1149,34 +1161,74 @@ describe('takeToDoctor', () => {
 		const { pos, edits } = found!;
 		const party = partyOf(['bear', 0]);
 		// Without the overlay the trees still stand, and a doctor comes to the player.
-		expect(takeToDoctor(PROTOTYPE, pos, party).tent).toBeNull();
-		const rescue = takeToDoctor(PROTOTYPE, pos, party, edits);
-		const spot = nearestTent(PROTOTYPE, pos, undefined, edits)!;
-		expect(rescue).toEqual({
-			pos: spot.stand,
-			facing: spot.facing,
-			tent: spot.tent,
-			party: partyOf(['bear'])
-		});
-		expect(isWalkable(editedTileAt(PROTOTYPE, edits, rescue.pos.x, rescue.pos.y).kind)).toBe(true);
-		expect(canTalkToDoctor(PROTOTYPE, rescue.pos, rescue.facing)).toBe(true);
+		expect(knockOut(PROTOTYPE, pos, party)).toEqual({ party: healed(party), doctorCame: true });
+		// With it, the path they cut is the way to a tent: they walk it, tired.
+		expect(knockOut(PROTOTYPE, pos, party, edits)).toEqual({ party, doctorCame: false });
+		expect(isWalkable(editedTileAt(PROTOTYPE, edits, pos.x, pos.y).kind)).toBe(true);
 	});
 
 	it('only takes a party that is all knocked out, and a real one', () => {
 		const pos = spawnPoint(PROTOTYPE);
-		expect(() => takeToDoctor(PROTOTYPE, pos, partyOf(['squirrel', 0], ['fox', 1]))).toThrow(
+		expect(() => knockOut(PROTOTYPE, pos, partyOf(['squirrel', 0], ['fox', 1]))).toThrow(
 			/knocked out/
 		);
-		expect(() => takeToDoctor(PROTOTYPE, pos, [])).toThrow(/empty/);
-		expect(() => takeToDoctor(PROTOTYPE, pos, partyOf(['squirrel', -1]))).toThrow(/hp/);
+		expect(() => knockOut(PROTOTYPE, pos, [])).toThrow(/empty/);
+		expect(() => knockOut(PROTOTYPE, pos, partyOf(['squirrel', -1]))).toThrow(/hp/);
 		expect(() =>
-			takeToDoctor(PROTOTYPE, pos, [
+			knockOut(PROTOTYPE, pos, [
 				{ id: 'twin', speciesId: 'fox', hp: 0 },
 				{ id: 'twin', speciesId: 'fox', hp: 0 }
 			])
 		).toThrow(/share/);
-		expect(() => takeToDoctor(PROTOTYPE, { x: NaN, y: 0 }, partyOf(['fox', 0]))).toThrow(
+		expect(() => knockOut(PROTOTYPE, { x: NaN, y: 0 }, partyOf(['fox', 0]))).toThrow(
 			/whole-number/
 		);
+	});
+});
+
+describe('needsDoctor and doctorComes', () => {
+	it('a team needs the doctor exactly when nobody standing can fight where the player is, nor on land', () => {
+		const rng = new Rng(hashString('needs a doctor'));
+		const walled = walledIn();
+		const bad: string[] = [];
+		for (let n = 0; n < 3000; n++) {
+			const party = Array.from({ length: rng.int(0, 6) }, (_, i) => {
+				const spec = rng.pick(ANIMALS);
+				return { id: `m${i}`, speciesId: spec.id, hp: rng.chance(0.5) ? 0 : spec.maxHp };
+			});
+			for (const realm of REALMS) {
+				const fights = (r: Realm) => party.some((a) => a.hp > 0 && canFightIn(a.speciesId, r));
+				const want = !fights(realm) && !fights('land');
+				if (needsDoctor(party, realm) !== want) bad.push(`${realm}: ${JSON.stringify(party)}`);
+				// Out on the water it is the same as nobody standing at all: every animal walks or swims.
+				if (realm === 'water' && want !== party.every((a) => a.hp === 0)) bad.push('water');
+				// A team that doesn't need the doctor, and one with a tent in reach, meets no doctor.
+				if (!want && doctorComes(PROTOTYPE, walled, party, WorldEdits.none, { realm })) {
+					bad.push(`came: ${realm}: ${JSON.stringify(party)}`);
+				}
+			}
+		}
+		expect(bad.slice(0, 5)).toEqual([]);
+	});
+
+	it('the cases that matter: tired, a walker in the boat, only a sea animal standing on land', () => {
+		expect(needsDoctor(partyOf(['squirrel', 0], ['rabbit', 0]))).toBe(true);
+		expect(needsDoctor(partyOf(['squirrel', 0], ['rabbit', 0]), 'water')).toBe(true);
+		// A squirrel in the boat can't fight out there, but it can on land: sailing in peace.
+		expect(needsDoctor(partyOf(['squirrel'], ['otter', 0]), 'water')).toBe(false);
+		// A crab can't fight on land: the grass is quiet until a doctor makes a walker fit...
+		expect(needsDoctor(partyOf(['squirrel', 0], ['crab']))).toBe(true);
+		// ...but out on the water it can fight, and needs nobody.
+		expect(needsDoctor(partyOf(['squirrel', 0], ['crab']), 'water')).toBe(false);
+		// Anyone standing who walks is enough, tired others or not.
+		expect(needsDoctor(partyOf(['squirrel', 0], ['bear', 1]))).toBe(false);
+	});
+
+	it('a doctor comes only to a team that needs one, and only where no tent is in reach', () => {
+		const tired = partyOf(['fox', 0]);
+		const walled = walledIn();
+		expect(doctorComes(PROTOTYPE, walled, tired)).toBe(true);
+		expect(doctorComes(PROTOTYPE, spawnPoint(PROTOTYPE), tired)).toBe(false);
+		expect(doctorComes(PROTOTYPE, walled, partyOf(['fox', 1]))).toBe(false);
 	});
 });

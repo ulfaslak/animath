@@ -158,13 +158,11 @@ function setup(from: { party?: string; game?: SavedGame } = {}) {
 		}
 		throw new Error('no battle yet');
 	};
-	/** The party as the authority last reported it (a lost battle's trip to the tent heals it). */
+	/** The party as the authority last reported it. */
 	const partyNow = (): AnimalInstance[] => {
 		for (let i = events.length - 1; i >= 0; i--) {
 			const e = events[i]!;
-			if (e.type === 'party-changed' || e.type === 'welcome' || e.type === 'taken-to-doctor') {
-				return e.party;
-			}
+			if (e.type === 'party-changed' || e.type === 'welcome') return e.party;
 		}
 		return [];
 	};
@@ -213,38 +211,35 @@ function setup(from: { party?: string; game?: SavedGame } = {}) {
 		press('Enter');
 		expect(battle.active).toBe(false);
 	};
-	/** Catch animals until the party has `size`, leaving each result card. */
+	/**
+	 * Every animal back to full HP, as the doctor leaves them: the game picked
+	 * up again where it stands with the team fit (a lost battle heals nobody,
+	 * and the doctor's own heal is the doctor's tests').
+	 */
+	const restAll = () => {
+		const now = authority.snapshot();
+		const party = now.party.map((a) => ({ ...a, hp: getAnimal(a.speciesId).maxHp }));
+		authority.start({ game: { ...now, party } });
+		for (const a of partyNow()) expect(a.hp).toBe(getAnimal(a.speciesId).maxHp);
+	};
+	/** Catch animals until the party has `size`, leaving each result card; a lost battle is rested from. */
 	const growParty = (size: number) => {
 		for (let battles = 0; partyNow().length < size; battles++) {
 			if (battles > 60) throw new Error('caught nothing');
-			playForCatch();
+			const outcome = playForCatch();
 			leaveResult();
+			if (outcome === 'lost') restAll();
 		}
 	};
 	/** Play battles until one ends in a catch, and stay on its result card. */
 	const catchOne = () => {
-		for (let battles = 0; playForCatch() !== 'caught'; battles++) {
+		for (let battles = 0; ; battles++) {
 			if (battles > 60) throw new Error('caught nothing');
+			const outcome = playForCatch();
+			if (outcome === 'caught') return;
 			leaveResult();
+			if (outcome === 'lost') restAll();
 		}
-	};
-	/** Lose a battle on purpose, every answer wrong: the trip to the tent heals everyone. */
-	const restAll = () => {
-		walkIntoBattle();
-		for (let i = 0; i < 400 && latest().phase.kind !== 'ended'; i++) {
-			const s = latest();
-			if (s.phase.kind === 'choose-animal') {
-				const partyIndex = s.party.findIndex((a) => a.hp > 0);
-				authority.dispatch({ type: 'battle', intent: { type: 'switch', partyIndex } });
-				continue;
-			}
-			authority.dispatch({ type: 'battle', intent: { type: 'attack', attackIndex: 1, level: 1 } });
-			authority.dispatch({ type: 'battle', intent: { type: 'answer', input: 'x' } });
-		}
-		runUntil(() => battle.screen === 'result', 300);
-		run(1);
-		press('Enter');
-		for (const a of partyNow()) expect(a.hp).toBe(getAnimal(a.speciesId).maxHp);
 	};
 	return {
 		authority,

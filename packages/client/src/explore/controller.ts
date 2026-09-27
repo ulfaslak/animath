@@ -146,15 +146,6 @@ export class ExploreController {
 				this.renderer.poofAt(event.pos);
 				this.follower?.place(this.seed, event.pos, this.facing, this.edits);
 				break;
-			case 'taken-to-doctor':
-				// After a lost battle: beside a tent that can be far away, so no
-				// tween; the figure turns to the tent (or down, if a doctor came).
-				if (event.playerId !== this.playerId) break;
-				this.pos = this.from = event.pos;
-				this.progress = 1;
-				this.facing = event.dir;
-				this.follower?.place(this.seed, event.pos, this.facing, this.edits);
-				break;
 			case 'game-left':
 				// Quit to the title, which gathers the team round the trainer itself.
 				this.follower?.hide();

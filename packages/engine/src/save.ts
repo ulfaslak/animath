@@ -2,6 +2,7 @@ import type { AnimalInstance, Realm } from './animals/types.js';
 import { ATTACK_LEVELS, REALMS } from './animals/types.js';
 import { ANIMALS, canFightIn, getAnimal } from './animals/catalog.js';
 import type { BattleState } from './battle/types.js';
+import { doctorComes } from './doctor/knockout.js';
 import { gearOf } from './items/catalog.js';
 import { checkName } from './names.js';
 import { bundled, joinParty } from './party/bundles.js';
@@ -671,8 +672,11 @@ function cleanAnimal(animal: AnimalInstance): AnimalInstance {
  * above the species' maximum is cut to it, an empty party gets the starter,
  * a party with no animal that can fight on land (only sea animals: no save a
  * kid's game writes holds one) gets it too, behind the others, so the grass
- * is never out of reach, and a party with nobody standing rests back to
- * full, the same rest a lost battle gives. The battle comes back only if
+ * is never out of reach, and a team that needs the doctor (`needsDoctor`)
+ * stays as tired as it was, to walk to one as after a lost battle, unless no
+ * tent is within reach of where the player stands: then a doctor comes and
+ * everyone is back to full, as after a battle lost there (`doctorComes`).
+ * The battle comes back only if
  * `readBattle` accepts it where the player stands, and never when the
  * position had to move, nor when the starter joined (it was not in the
  * battle). See [[INVARIANTS]] § "A loaded save never strands the player".
@@ -712,10 +716,14 @@ export function restoreGame(save: SaveV2): SavedGame {
 			hp: getAnimal(STARTER_SPECIES).maxHp
 		});
 	}
-	if (!party.some((a) => a.hp > 0)) {
+	const pos = standable ? { x: save.pos.x, y: save.pos.y } : spawnPoint(seed);
+	const realm = standable ? tileRealm(here) : 'land';
+	// A team that needs the doctor walks to one, as after a lost battle, so a reload
+	// is never a free heal; with no tent within reach, a doctor comes to it here.
+	if (doctorComes(seed, pos, party, edits, { gear: gearOf({ items }), realm })) {
 		party = party.map((a) => ({ ...a, hp: getAnimal(a.speciesId).maxHp }));
 	}
-	const battle = standable ? readBattle(save.battle, party, tileRealm(here)) : null;
+	const battle = standable ? readBattle(save.battle, party, realm) : null;
 	const named = save.name === undefined ? null : checkName(save.name);
 	const worlds = fitWorlds(
 		edits,
@@ -726,7 +734,7 @@ export function restoreGame(save: SaveV2): SavedGame {
 		name: named?.ok ? named.name : null,
 		home: save.home,
 		world: save.world,
-		pos: standable ? { x: save.pos.x, y: save.pos.y } : spawnPoint(seed),
+		pos,
 		facing: save.facing ?? 'down',
 		steps: save.steps ?? 0,
 		visits: save.visits ?? 0,

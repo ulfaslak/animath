@@ -456,7 +456,6 @@ export class Autosave {
 			case 'battle-ended':
 			case 'party-changed':
 			case 'belongings-changed':
-			case 'taken-to-doctor':
 			// A tree chopped down or a rock broken is something the kid did, as a catch is;
 			// so is going to another world, and choosing a name.
 			case 'tile-cleared':

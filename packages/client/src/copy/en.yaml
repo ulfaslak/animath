@@ -239,6 +239,13 @@ explore:
   turnSideways: Turn your screen sideways to play!
   # Enter with nothing in front to talk to, chop or break.
   notAtTent: Walk up to a tent to talk to the doctor.
+  # Under the latest message for as long as no animal can fight (after a lost
+  # battle), until a doctor has helped one: nothing jumps out of the grass meanwhile.
+  tired: Your animals are tired. Walk to a doctor's tent!
+  # The same, out on the water in the boat.
+  tiredSail: Your animals are tired. Sail to a doctor's tent!
+  # What a screen reader calls the arrow at the screen's edge that points to the nearest tent then.
+  doctorArrow: The way to a doctor's tent
 
 hud:
   # The tag on the card of the lead: the animal that steps into the next battle.
@@ -432,6 +439,10 @@ battle:
     wonSea: '{animal.theWild} swims home to rest.'
     fledSea: '{animal.theWild} stays in the water.'
     joined: '{animal.name} joins your team!'
+    # Under "Good try!": the team is tired where it stood, and walks to a doctor.
+    lost: Your animals need a rest. The doctor will make them feel all better!
+    # The same, with no tent near: a doctor came and helped everyone right there.
+    doctorCame: A doctor came by and looked after your animals. Everyone feels better!
 
 doctor:
   # The name tag in front of what the doctor says.
@@ -457,10 +468,6 @@ doctor:
   healedMoreAll: Well done! {animal.name} and {others} more feel all better! Everyone is fit and happy!
   # On the message line after leaving the card.
   goodbye: Bye! Come back any time.
-  # After a lost battle, woken beside a tent.
-  rescuedAtTent: The doctor looked after your animals. Everyone feels better!
-  # After a lost battle with no tent near: a doctor came to the player.
-  rescuedHere: A doctor came by and looked after your animals. Everyone feels better!
   # The last row of the list, and its key.
   bye: Bye
   byeKey: Esc

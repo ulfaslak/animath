@@ -164,7 +164,8 @@ export type GameEvent =
 	| { type: 'battle-ended'; state: BattleState }
 	/**
 	 * The party changed outside a battle turn: HP written back after a battle
-	 * that was not lost, a caught animal joining, animals healed at the
+	 * (a lost one too: tired where it was fought, or looked after by a doctor
+	 * who came, `knockOut`), a caught animal joining, animals healed at the
 	 * doctor or gone home from there (sent at once, mid-visit). Always the
 	 * whole party, in order.
 	 */
@@ -212,21 +213,6 @@ export type GameEvent =
 	  }
 	/** `state.party` is the party after the visit. */
 	| { type: 'doctor-visit-ended'; visit: number; state: DoctorState }
-	/**
-	 * After a lost battle: `takeToDoctor`'s result. Put the player on `pos`
-	 * without a tween (it can be a hundred tiles away), turn them to `dir`
-	 * (toward `tent`, or down when `tent` is null and a doctor came to them),
-	 * and replace the party. No `message` follows: the client words the
-	 * doctor's line itself, from whether `tent` is null.
-	 */
-	| {
-			type: 'taken-to-doctor';
-			playerId: string;
-			pos: GridPos;
-			dir: Direction;
-			tent: GridPos | null;
-			party: AnimalInstance[];
-	  }
 	/**
 	 * One party intent was applied. `events` says what happened (`reordered`,
 	 * `renamed`, or `rejected`, when the party is unchanged) and `party` is the

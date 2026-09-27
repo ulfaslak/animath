@@ -3,6 +3,7 @@ import { ANIMALS, canFightIn, getAnimal } from '../src/animals/catalog.js';
 import { REALMS, type AnimalInstance } from '../src/animals/types.js';
 import { applyBattleIntent, startBattle } from '../src/battle/reducer.js';
 import type { BattleState } from '../src/battle/types.js';
+import { needsDoctor } from '../src/doctor/party.js';
 import { MAX_NAME_LENGTH } from '../src/names.js';
 import { bundled, isBundled } from '../src/party/bundles.js';
 import { leadIndex } from '../src/party/reducer.js';
@@ -38,7 +39,8 @@ import { ALL_PUZZLE_KINDS } from '../src/puzzles/types.js';
 import { EDITS_BUDGET, WorldEdits } from '../src/world/edits.js';
 import { tileAtWorld } from '../src/world/generate.js';
 import { spawnPoint } from '../src/world/spawn.js';
-import { isPassable, isWalkable, isWater, type Direction } from '../src/world/types.js';
+import { TENT_SEARCH_STEPS, nearestTent } from '../src/world/tents.js';
+import { isPassable, isWalkable, isWater, tileRealm, type Direction } from '../src/world/types.js';
 import {
 	FIRST_WORLD,
 	MAX_WORLDS_KEPT,
@@ -810,7 +812,7 @@ describe('newGame and restoreGame', () => {
 		}
 	});
 
-	it('cuts an HP above the maximum, gives an empty party the starter, and rests an all-tired party', () => {
+	it('cuts an HP above the maximum, gives an empty party the starter, and keeps a tired party tired', () => {
 		const pos = findTile(SEED7, true);
 		const over = restoreGame({ ...v2, pos, party: [animal(1, { hp: 999 })] } as SaveV2);
 		expect(over.party[0]!.hp).toBe(getAnimal('squirrel').maxHp);
@@ -818,15 +820,55 @@ describe('newGame and restoreGame', () => {
 		const empty = restoreGame({ ...v2, pos, party: [] } as SaveV2);
 		expect(empty.party).toEqual(newGame(WORLD).party);
 
+		// A doctor's tent is a walk away from beside the spawn: a reload is no heal.
+		expect(nearestTent(SEED7, pos)).not.toBeNull();
 		const tired = restoreGame({
 			...v2,
 			pos,
 			party: [animal(1, { hp: 0 }), animal(2, { speciesId: 'bear', hp: 0 })]
 		} as SaveV2);
-		expect(tired.party.map((a) => a.hp)).toEqual([
-			getAnimal('squirrel').maxHp,
-			getAnimal('bear').maxHp
-		]);
+		expect(tired.party.map((a) => a.hp)).toEqual([0, 0]);
+		expect(tired.pos).toEqual(pos);
+	});
+
+	it('a team that needs the doctor stays tired where a tent is in reach, and a doctor comes where none is', () => {
+		const tired = [animal(1, { hp: 0 }), animal(2, { speciesId: 'bear', hp: 0 })];
+		const rested = tired.map((a) => getAnimal(a.speciesId).maxHp);
+		// Walled in: a walkable tile with nothing walkable and no tent beside it.
+		let walled: { x: number; y: number } | null = null;
+		const spawn = spawnPoint(SEED7);
+		for (let r = 1; r < 300 && !walled; r++)
+			for (let dx = -r; dx <= r && !walled; dx++)
+				for (const dy of [-r, r]) {
+					const at = { x: spawn.x + dx, y: spawn.y + dy };
+					if (!isWalkable(tileAtWorld(SEED7, at.x, at.y).kind)) continue;
+					const round = [
+						[1, 0],
+						[-1, 0],
+						[0, 1],
+						[0, -1]
+					].map(([x, y]) => tileAtWorld(SEED7, at.x + x!, at.y + y!).kind);
+					if (round.every((k) => !isWalkable(k) && k !== 'tent')) walled = at;
+				}
+		expect(walled).not.toBeNull();
+		const cameThere = restoreGame({ ...v2, pos: walled!, party: tired } as SaveV2);
+		expect(cameThere.party.map((a) => a.hp)).toEqual(rested);
+		expect(cameThere.pos).toEqual(walled);
+
+		// Out on the water in the boat, with nobody standing: a tent over the water is in reach.
+		const deep = findKind(SEED7, 'deepwater');
+		const swimmers = [animal(1, { speciesId: 'otter', hp: 0 })];
+		const atSea = restoreGame({ ...v2, pos: deep, items: ['boat'], party: swimmers } as SaveV2);
+		expect(atSea.pos).toEqual(deep);
+		expect(atSea.party.map((a) => a.hp)).toEqual([0]);
+		// A walker standing in the boat can battle on land: nobody needs the doctor, so nobody comes.
+		const walker = [...swimmers, animal(2, { speciesId: 'squirrel', hp: 3 })];
+		const inBoat = restoreGame({ ...v2, pos: deep, items: ['boat'], party: walker } as SaveV2);
+		expect(inBoat.party.map((a) => a.hp)).toEqual([0, 3]);
+		// On land with only a sea animal standing: the grass is quiet, the tent a walk away.
+		const crab = [animal(1, { hp: 0 }), animal(2, { speciesId: 'crab', hp: 5 })];
+		const ashore = restoreGame({ ...v2, pos: spawn, party: crab } as SaveV2);
+		expect(ashore.party.map((a) => a.hp)).toEqual([0, 5]);
 	});
 
 	it('gives a party of only sea animals the starter too, behind them: the grass is never out of reach', () => {
@@ -894,18 +936,29 @@ describe('newGame and restoreGame', () => {
 			if (!isPassable(tileAtWorld(seed, game.pos.x, game.pos.y).kind, gear))
 				note(`stands where it cannot, at ${JSON.stringify(game.pos)}`);
 			if (!(game.party.length > 0)) note('an empty party');
-			if (!game.party.some((a) => a.hp > 0)) note('nobody standing');
 			for (const a of game.party) {
 				const max = getAnimal(a.speciesId).maxHp;
 				if (!(typeof a.hp === 'number' && a.hp >= 0 && a.hp <= max)) note(`${a.id} at ${a.hp} HP`);
 			}
+			// A team that needs the doctor has one in reach, the way the kid gets about: never
+			// stranded with nobody to fight and nowhere to heal.
+			const here = tileRealm(tileAtWorld(seed, game.pos.x, game.pos.y).kind);
+			const edits = WorldEdits.decode(game.edits);
+			if (
+				needsDoctor(game.party, here) &&
+				nearestTent(seed, game.pos, TENT_SEARCH_STEPS, edits, gear) === null
+			) {
+				note('tired, with no doctor in reach');
+			}
 			// A battle can start with it where an animal standing can fight: the party is one
 			// `startBattle` accepts there (only sea animals standing, out on the water).
 			const realm = REALMS.find((r) => leadIndex(game.party, r) >= 0);
-			if (realm === undefined) note('no realm where anyone can fight');
+			if (realm === undefined && !needsDoctor(game.party, here)) {
+				note('nobody standing, and no doctor needed');
+			}
 			const wild = makeWild(realm === 'land' ? 'rabbit' : 'crab');
 			try {
-				startBattle(game.party, wild, { realm });
+				if (realm !== undefined) startBattle(game.party, wild, { realm });
 			} catch (error) {
 				note(`no battle: ${error}`);
 			}

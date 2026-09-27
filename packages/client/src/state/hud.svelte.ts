@@ -5,6 +5,7 @@ import {
 	clearableAhead,
 	itemsForSale,
 	leadIndex,
+	needsDoctor,
 	type AnimalInstance,
 	type ClearableKind,
 	type GameEvent,
@@ -26,13 +27,13 @@ import { game } from './game.svelte';
  * What the explore HUD's message line says (UI_SPEC § Explore mode): the
  * latest thing said, for a few seconds, and under it the prompt for what
  * Enter does in front of the player (talk to the doctor at a tent, chop a
- * tree or break a rock with the tool it takes), or the controls hint for the
+ * tree or break a rock with the tool it takes), else, while the team needs
+ * the doctor, that it is tired and where to go, or the controls hint for the
  * first few steps.
  *
  * Things said are the authority's `message` events, plus lines the client
  * words itself from events that carry no words: the doctor's goodbye
- * (`doctor-visit-ended`), the doctor's line after a lost battle
- * (`taken-to-doctor`), how to find a doctor (`nothing-to-interact`), that
+ * (`doctor-visit-ended`), how to find a doctor (`nothing-to-interact`), that
  * the doctor sells the tool a tree or a rock takes (`tool-needed`, and the
  * first bump into one without it, once a game), who
  * goes first after a party edit (`party-edited`, see `leadNotice`), and what
@@ -41,8 +42,8 @@ import { game } from './game.svelte';
  *
  * Their seconds count only while the explore HUD is on screen (`tick`, from
  * the frame loop), so a line said while the battle screen or the doctor's
- * card is up — the doctor's line after a lost battle — is still there to read
- * when the player is back in the world.
+ * card is up — a battle's closing line — is still there to read when the
+ * player is back in the world.
  */
 
 /** Seconds a message stays on the line while the explore HUD is on screen. */
@@ -257,9 +258,16 @@ class HudView {
 			: ''
 	);
 	/**
-	 * The line under it: what Enter does here (talk, chop, break), the controls
-	 * hint, or ''. With the touch controls on, each names the button on screen
-	 * instead of a key.
+	 * The team needs the doctor where the player stands (the engine's
+	 * `needsDoctor`): nothing challenges it, and the line under the message
+	 * says where to go, as the arrow at the screen's edge shows it.
+	 */
+	tired = $derived(needsDoctor(game.party, game.realm));
+	/**
+	 * The line under it: what Enter does here (talk, chop, break), else that
+	 * the team is tired and needs a doctor's tent (for as long as it does), or
+	 * the controls hint, or ''. With the touch controls on, each names the
+	 * button on screen instead of a key.
 	 */
 	hint = $derived(
 		this.action === 'talk'
@@ -274,11 +282,15 @@ class HudView {
 					? touch.on
 						? t('explore.breakPromptTouch')
 						: t('explore.breakPrompt')
-					: game.steps < HINT_STEPS
-						? touch.on
-							? t('explore.controlsTouch')
-							: t('explore.controls')
-						: ''
+					: this.tired
+						? game.realm === 'water'
+							? t('explore.tiredSail')
+							: t('explore.tired')
+						: game.steps < HINT_STEPS
+							? touch.on
+								? t('explore.controlsTouch')
+								: t('explore.controls')
+							: ''
 	);
 
 	/** Call after `game.apply(event)`, which knows who the player is and which way they face. */
@@ -312,11 +324,6 @@ class HudView {
 				break;
 			case 'message':
 				this.say({ line: event.line });
-				break;
-			case 'taken-to-doctor':
-				if (event.playerId === game.playerId) {
-					this.say({ doctor: { say: 'rescued', atTent: event.tent !== null } });
-				}
 				break;
 			case 'doctor-visit-ended':
 				this.say({ doctor: { say: 'goodbye' } });

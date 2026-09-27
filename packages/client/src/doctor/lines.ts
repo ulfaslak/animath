@@ -4,12 +4,11 @@ import { itemWords } from '../items';
 import { animalWords, nameOf } from '../names';
 
 /**
- * What the doctor says, as data: on the card, as the player leaves, and after
- * a lost battle. The client chooses a line from the doctor's events (the
- * engine says nothing), keeps it in state as one of these, and words it with
- * `doctorWords` when it is shown, in the language on screen (DECISIONS § Copy
- * and languages). An animal travels as itself, so its name is worded at
- * display time too.
+ * What the doctor says, as data: on the card, and as the player leaves. The
+ * client chooses a line from the doctor's events (the engine says nothing),
+ * keeps it in state as one of these, and words it with `doctorWords` when it
+ * is shown, in the language on screen (DECISIONS § Copy and languages). An
+ * animal travels as itself, so its name is worded at display time too.
  */
 export type DoctorLine =
 	| { say: 'hello' }
@@ -33,8 +32,7 @@ export type DoctorLine =
 	/** A purchase's token sum is up. */
 	| { say: 'shopCount' }
 	| { say: 'bought'; itemId: ItemId; tokens: number }
-	| { say: 'goodbye' }
-	| { say: 'rescued'; atTent: boolean };
+	| { say: 'goodbye' };
 
 export function doctorWords(line: DoctorLine): string {
 	switch (line.say) {
@@ -87,8 +85,6 @@ export function doctorWords(line: DoctorLine): string {
 			return t('doctor.shop.bought', { item: itemWords(line.itemId), count: line.tokens });
 		case 'goodbye':
 			return t('doctor.goodbye');
-		case 'rescued':
-			return line.atTent ? t('doctor.rescuedAtTent') : t('doctor.rescuedHere');
 	}
 }
 

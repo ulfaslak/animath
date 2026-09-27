@@ -209,6 +209,9 @@ explore:
   walkRight: Gå til højre
   turnSideways: Hold skærmen på tværs for at spille!
   notAtTent: Gå hen til et telt for at snakke med dyrlægen.
+  tired: Dine dyr er trætte. Gå hen til dyrlægens telt!
+  tiredSail: Dine dyr er trætte. Sejl hen til dyrlægens telt!
+  doctorArrow: Vejen til dyrlægens telt
 
 hud:
   goesFirst: først ud
@@ -337,6 +340,8 @@ battle:
     wonSea: '{animal.theWild} svømmer hjem og hviler sig.'
     fledSea: '{animal.theWild} bliver i vandet.'
     joined: '{animal.the} kommer med på dit hold!'
+    lost: Dine dyr skal hvile sig. Dyrlægen gør dem friske igen!
+    doctorCame: En dyrlæge kom forbi og passede godt på dine dyr. Nu har alle det godt igen!
 
 doctor:
   title: Dyrlæge
@@ -351,8 +356,6 @@ doctor:
   healedMoreNext: Godt klaret! {animal.the} og {others} til har det godt igen! Hvem skal jeg hjælpe nu?
   healedMoreAll: Godt klaret! {animal.the} og {others} til har det godt igen! Alle er friske og glade!
   goodbye: Hej hej! Kom bare igen, når du vil.
-  rescuedAtTent: Dyrlægen har passet godt på dine dyr. Nu har alle det godt igen!
-  rescuedHere: En dyrlæge kom forbi og passede godt på dine dyr. Nu har alle det godt igen!
   bye: Farvel
   byeKey: Esc
   back: Tilbage

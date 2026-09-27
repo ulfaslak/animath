@@ -17,23 +17,21 @@ import {
 	editedTileAt,
 	fitWorlds,
 	gearOf,
-	getAnimal,
 	hashInts,
 	hashString,
 	isEncounterTile,
 	isPassable,
 	isWireCoord,
 	joinParty,
-	leadIndex,
+	knockOut,
 	newGame,
 	normalizeNickname,
-	rollEncounter,
+	rollEncounterFor,
 	spawnPoint,
 	startBattle,
 	startDoctorVisit,
 	step,
 	surroundings,
-	takeToDoctor,
 	tileRealm,
 	travel,
 	worldSeed,
@@ -56,7 +54,6 @@ import {
 	type PartyIntent,
 	type PlayerActivity,
 	type Realm,
-	type Rescue,
 	type SavedGame,
 	type WorldStay
 } from '@mathgame/engine';
@@ -151,7 +148,7 @@ export class LocalAuthority implements Authority {
 	/**
 	 * The way the player faces, as the client shows it: `down` in a new game
 	 * (the saved facing in a restored one), then the direction of every
-	 * move, walked or blocked, and the direction of `taken-to-doctor`.
+	 * move, walked or blocked, and of every place the player is put.
 	 * `interact` talks to a doctor only when this faces a tent.
 	 */
 	private facing: Direction = 'down';
@@ -457,23 +454,18 @@ export class LocalAuthority implements Authority {
 		// Only an encounter tile can start a battle, and the engine draws nothing
 		// on any other: the ground around one is read only there.
 		if (!isEncounterTile(tile.kind)) return;
-		// The lead where the player now stands (the engine's `leadIndex`: the
-		// first animal that isn't tired and can fight there; out on the water, one
-		// that swims) is the one `startBattle` sends out first, and the one wild
-		// animals size up before they come out, so choosing a lead changes what
-		// the grass holds. With nobody standing who can fight here, nothing
-		// challenges the player: a team of only tired animals (a `?party=` of
-		// them, since losing takes everyone to the doctor) until the doctor has
-		// helped, and out on the water a team with no swimmer standing.
-		const realm = tileRealm(tile.kind);
-		const lead = this.party[leadIndex(this.party, realm)];
-		if (!lead) return;
-		// One roll per completed step, keyed by the step count so a replayed
-		// walk meets the same animals.
+		// One roll per completed step, keyed by the step count so a replayed walk
+		// meets the same animals. The engine sizes it to the lead where the player
+		// now stands (`leadIndex`: the first animal standing that can fight there,
+		// out on the water one that swims), the one `startBattle` sends out first,
+		// so choosing a lead changes what the grass holds; and with nobody standing
+		// who can fight here nothing challenges the player (`rollEncounterFor`): a
+		// team that needs the doctor walks to one in peace, and a boat with no
+		// swimmer standing sails in peace.
 		const rng = new Rng(hashInts(this.seed, ENCOUNTER_SALT, this.steps));
 		const site = { tile, pos: next, spawn: this.spawn, around: surroundings(this.seed, next) };
-		const wild = rollEncounter(rng, site, getAnimal(lead.speciesId).tier);
-		if (wild) this.beginBattle({ ...wild, id: mintId() }, realm);
+		const wild = rollEncounterFor(rng, site, this.party);
+		if (wild) this.beginBattle({ ...wild, id: mintId() }, tileRealm(tile.kind));
 	}
 
 	/**
@@ -576,18 +568,17 @@ export class LocalAuthority implements Authority {
 	/**
 	 * Write the battle's result back into the world: HP lost stays lost, a
 	 * caught animal joins the party (the engine's `joinParty`: at the end of
-	 * its species' bundle, and there is no cap), and a lost battle takes
-	 * the player to the nearest doctor's tent, where the whole party is healed
-	 * (the engine's knock-out rule, `takeToDoctor`). That one has no `message`:
-	 * the client words the doctor's line from `taken-to-doctor`. The closing
-	 * line is a copy key and the wild animal, never words.
+	 * its species' bundle, and there is no cap), and a lost battle leaves the
+	 * player where they stood with the team as tired as it is, to walk to a
+	 * doctor (the engine's knock-out rule, `knockOut`: only with no tent
+	 * within reach does a doctor come and look after everyone here). The
+	 * closing line is a copy key, with the wild animal, never words.
 	 */
 	private endBattle(state: BattleState, events: readonly BattleEvent[]): void {
 		if (state.phase.kind !== 'ended') return;
 		this.party = state.party.map((a) => ({ ...a }));
 		const animal: SpeciesRef = { speciesId: state.opponent.speciesId };
-		let rescue: Rescue | null = null;
-		let line: Line | null = null;
+		let line: Line;
 		// Out on the water the wild animal swims home, or stays in the water, not the grass.
 		const sea = state.realm === 'water';
 		switch (state.phase.outcome) {
@@ -605,33 +596,24 @@ export class LocalAuthority implements Authority {
 				line = { key: 'battle.closing.joined', params: { animal } };
 				break;
 			}
-			case 'lost':
-				// Every animal that could fight here is tired: off to the nearest tent,
-				// facing it, by the paths the player cleared, and over the water too with
-				// the boat.
-				rescue = takeToDoctor(this.seed, this.pos, this.party, this.edits, {
+			case 'lost': {
+				// Every animal that could fight here is tired, and stays so: the kid walks
+				// to a doctor, by the paths they cleared, and over the water too with the
+				// boat. With no tent within reach a doctor comes here instead.
+				const out = knockOut(this.seed, this.pos, this.party, this.edits, {
 					gear: gearOf({ items: this.items }),
 					realm: state.realm
 				});
-				this.party = rescue.party;
-				this.pos = rescue.pos;
-				this.facing = rescue.facing;
+				this.party = out.party;
+				line = out.doctorCame
+					? { key: 'battle.closing.doctorCame', params: {} }
+					: { key: 'battle.closing.lost', params: {} };
 				break;
+			}
 		}
 		this.emit({ type: 'battle-ended', state });
-		if (rescue) {
-			this.emit({
-				type: 'taken-to-doctor',
-				playerId: this.playerId,
-				pos: { ...rescue.pos },
-				dir: rescue.facing,
-				tent: rescue.tent && { ...rescue.tent },
-				party: this.partyCopy()
-			});
-		} else {
-			this.emit({ type: 'party-changed', party: this.partyCopy() });
-		}
-		if (line !== null) this.emit({ type: 'message', line });
+		this.emit({ type: 'party-changed', party: this.partyCopy() });
+		this.emit({ type: 'message', line });
 	}
 
 	// --- interact: a tent, a tree, a rock ---------------------------------

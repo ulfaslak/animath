@@ -2,43 +2,44 @@ import { canFightIn, getAnimal } from '../animals/catalog.js';
 import { REALMS, type AnimalInstance, type Realm } from '../animals/types.js';
 import { WorldEdits } from '../world/edits.js';
 import { TENT_SEARCH_STEPS, nearestTent } from '../world/tents.js';
-import { NO_GEAR, type Direction, type Gear, type GridPos } from '../world/types.js';
-import { validateParty } from './party.js';
+import { NO_GEAR, type Gear, type GridPos } from '../world/types.js';
+import { needsDoctor, validateParty } from './party.js';
 
 /**
- * The knock-out rule: what happens after a battle ends `lost`.
+ * The knock-out rule: what a battle that ends `lost` leaves.
  *
- * The player is taken to the nearest doctor's tent, on foot or, with the
- * boat, over the water too (see `nearestTent`), and stands beside it on the
- * ground, facing it, and the doctor heals the whole party to full for free.
- * There is no other penalty. A knock-out never leaves a kid with a party that
- * cannot battle, and never puts them somewhere they could not have got to.
+ * Nobody is healed and nobody is moved. The player is back exploring on the
+ * tile the battle was fought on, every animal with the HP the battle left it,
+ * and walks (or sails) to a doctor, who heals as always, one puzzle a kind.
+ * Until then the team needs the doctor (`needsDoctor`): nothing challenges it
+ * where nobody can fight (`rollEncounterFor`), and the way to the nearest
+ * tent is `nearestTent`'s.
  *
- * If no tent is within reach (`nearestTent` gives up), a doctor comes to the
- * player instead: they stay where they are, facing down, and the party is
- * healed all the same.
+ * One exception keeps a kid from being stranded with a team that can't
+ * battle: when no tent is within `TENT_SEARCH_STEPS` of the player, the way
+ * they get about (walled in, or simply no tent that close), a doctor comes to
+ * them and looks after the whole party where they stand (`doctorComes`). A
+ * loaded save asks the same (`restoreGame`).
  */
-export interface Rescue {
-	/** Where the player now stands. */
-	pos: GridPos;
-	/** The way the player now faces: toward the tent, or down when none was in reach. */
-	facing: Direction;
-	/** The tent the player was taken to, or null when the doctor came to them. */
-	tent: GridPos | null;
+export interface KnockOut {
 	/**
-	 * The whole party, every animal at full HP, in the same order. What the
-	 * doctor says about it is the client's to word, from whether `tent` is null.
+	 * The whole party, in the same order: as the battle left it, or every
+	 * animal at full HP when a doctor came. What is said about it is the
+	 * client's to word, from `doctorCame`.
 	 */
 	party: AnimalInstance[];
+	/** No tent was within reach, so a doctor came to the player and looked after everyone. */
+	doctorCame: boolean;
 }
 
-export interface RescueOptions {
-	/** What the player carries: with the boat the way to the tent may cross water. */
+export interface KnockOutOptions {
+	/** What the player carries: with the boat the way to a tent may cross water. */
 	gear?: Gear;
 	/**
 	 * Where the battle was fought, land by default. Out on the water a battle
 	 * is lost once every animal that swims is tired: animals that can't swim
-	 * may still be standing, in the boat.
+	 * may still be standing, in the boat, and then the team can still battle
+	 * on land and no doctor comes.
 	 */
 	realm?: Realm;
 }
@@ -49,27 +50,46 @@ export interface RescueOptions {
  * there knocked out; and the tiles the player has cleared, so a path they
  * chopped counts as a path.
  */
-export function takeToDoctor(
+export function knockOut(
 	seed: number,
 	pos: GridPos,
 	party: readonly AnimalInstance[],
 	edits: WorldEdits = WorldEdits.none,
-	options: RescueOptions = {}
-): Rescue {
+	options: KnockOutOptions = {}
+): KnockOut {
 	const realm = options.realm ?? 'land';
-	if (!REALMS.includes(realm)) throw new Error(`takeToDoctor: unknown realm ${String(realm)}`);
-	validateParty(party, 'takeToDoctor');
-	if (party.length === 0) throw new Error('takeToDoctor: the party is empty');
+	if (!REALMS.includes(realm)) throw new Error(`knockOut: unknown realm ${String(realm)}`);
+	validateParty(party, 'knockOut');
+	if (party.length === 0) throw new Error('knockOut: the party is empty');
 	if (party.some((a) => a.hp > 0 && canFightIn(a.speciesId, realm))) {
 		throw new Error(
-			`takeToDoctor: only a party with every animal that fights on ${realm} knocked out is taken to the doctor`
+			`knockOut: only a party with every animal that fights on ${realm} knocked out has lost`
 		);
 	}
+	const doctorCame = doctorComes(seed, pos, party, edits, options);
+	return {
+		party: party.map((a) => (doctorCame ? { ...a, hp: getAnimal(a.speciesId).maxHp } : { ...a })),
+		doctorCame
+	};
+}
 
-	const healed = party.map((a) => ({ ...a, hp: getAnimal(a.speciesId).maxHp }));
-	const spot = nearestTent(seed, pos, TENT_SEARCH_STEPS, edits, options.gear ?? NO_GEAR);
-	if (!spot) {
-		return { pos: { x: pos.x, y: pos.y }, facing: 'down', tent: null, party: healed };
-	}
-	return { pos: spot.stand, facing: spot.facing, tent: spot.tent, party: healed };
+/**
+ * Whether a doctor comes to the player standing on `pos` in `realm` (land by
+ * default): the team needs the doctor there (`needsDoctor`), and no tent is
+ * within `TENT_SEARCH_STEPS` of them, the way they get about (on foot, or
+ * with the boat over the water too, in the world as `edits` leave it). A
+ * team that can still battle here, or a tent a kid can walk to, and nobody
+ * comes: a lost battle heals nobody.
+ */
+export function doctorComes(
+	seed: number,
+	pos: GridPos,
+	party: readonly AnimalInstance[],
+	edits: WorldEdits = WorldEdits.none,
+	options: KnockOutOptions = {}
+): boolean {
+	const realm = options.realm ?? 'land';
+	if (!REALMS.includes(realm)) throw new Error(`doctorComes: unknown realm ${String(realm)}`);
+	if (!needsDoctor(party, realm)) return false;
+	return nearestTent(seed, pos, TENT_SEARCH_STEPS, edits, options.gear ?? NO_GEAR) === null;
 }

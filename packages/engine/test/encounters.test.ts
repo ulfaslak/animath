@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { ANIMALS, getAnimal } from '../src/animals/catalog.js';
-import type { Biome, Realm, Terrain, Tier } from '../src/animals/types.js';
+import type { AnimalInstance, Biome, Realm, Terrain, Tier } from '../src/animals/types.js';
 import { Rng, hashString } from '../src/rng.js';
 import {
 	ENCOUNTER_CHANCE,
@@ -11,6 +11,7 @@ import {
 	encounterTable,
 	encounterTableAt,
 	rollEncounter,
+	rollEncounterFor,
 	type EncounterEntry,
 	type EncounterSite
 } from '../src/world/encounters.js';
@@ -1022,6 +1023,70 @@ describe('rollEncounter', () => {
 		}
 		// Under 1 s alone (4,000 encounters per lead, biome and distance); over 5 s under a heavy load.
 	}, 30_000);
+});
+
+describe('rollEncounterFor: the lead where the step lands, or nobody', () => {
+	/** A random team: any species, each standing or tired. */
+	function team(rng: Rng): AnimalInstance[] {
+		return Array.from({ length: rng.int(0, 5) }, (_, i) => {
+			const spec = rng.pick(ANIMALS);
+			return { id: `m${i}`, speciesId: spec.id, hp: rng.chance(0.4) ? 0 : spec.maxHp };
+		});
+	}
+
+	it("rolls exactly the lead's roll, and with nobody standing who can fight there draws nothing at all", () => {
+		const pick = new Rng(hashString('rollEncounterFor'));
+		const bad: string[] = [];
+		let quiet = 0;
+		let met = 0;
+		for (let n = 0; n < 1500; n++) {
+			const party = team(pick);
+			const biome = pick.pick(BIOMES);
+			const site = siteAt(biome, pick.int(0, 200), pick.pick(GROUNDS));
+			const realm = realmOf(biome);
+			const seed = hashString(`step ${n}`);
+			const rng = new Rng(seed);
+			const wild = rollEncounterFor(rng, site, party);
+			const lead = party.find((a) => a.hp > 0 && getAnimal(a.speciesId).realms.includes(realm));
+			if (!lead) {
+				quiet++;
+				if (wild !== null) bad.push(`${n}: met ${wild.speciesId} with nobody to fight`);
+				// Nothing drawn: the next draw is the stream's first.
+				if (rng.next() !== new Rng(seed).next()) bad.push(`${n}: drew with nobody to fight`);
+				continue;
+			}
+			const same = new Rng(seed);
+			const want = rollEncounter(same, site, getAnimal(lead.speciesId).tier);
+			if (JSON.stringify(wild) !== JSON.stringify(want)) bad.push(`${n}: ${JSON.stringify(wild)}`);
+			if (rng.next() !== same.next()) bad.push(`${n}: drew differently`);
+			if (wild) met++;
+		}
+		expect(bad.slice(0, 5)).toEqual([]);
+		// Both halves happened, plenty.
+		expect(quiet).toBeGreaterThan(200);
+		expect(met).toBeGreaterThan(50);
+	});
+
+	it('a team that needs the doctor meets nothing, on any tile, however long it walks', () => {
+		const tired = [
+			{ id: 'a', speciesId: 'squirrel', hp: 0 },
+			{ id: 'b', speciesId: 'otter', hp: 0 },
+			{ id: 'c', speciesId: 'whale', hp: 0 }
+		];
+		const kinds: readonly TileKind[] = ['tallgrass', 'deepwater', 'grass', 'water', 'sand'];
+		for (const biome of BIOMES) {
+			for (const kind of kinds) {
+				const site = { ...siteAt(biome, 100), tile: { kind, biome, height: 0 } };
+				const rng = new EveryStepMeets(7);
+				for (let n = 0; n < 20; n++) expect(rollEncounterFor(rng, site, tired)).toBeNull();
+			}
+		}
+		// A crab standing is someone out at sea, and nobody in the grass.
+		const crab = [...tired, { id: 'd', speciesId: 'crab', hp: getAnimal('crab').maxHp }];
+		const every = new EveryStepMeets(3);
+		expect(rollEncounterFor(every, siteAt('meadow', 0), crab)).toBeNull();
+		expect(rollEncounterFor(every, siteAt('sea', 0), crab)).not.toBeNull();
+	});
 });
 
 describe('the generated world offers every habitat', () => {

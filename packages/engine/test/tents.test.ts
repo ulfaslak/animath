@@ -366,6 +366,36 @@ describe('nearestTent', () => {
 		// load average of 40.
 	}, 30_000);
 
+	it('reads each world as it is, whatever was searched before: three worlds in turn, near and far, agree with brute force', () => {
+		// The ground a search reads is kept a chunk at a time, one world's at a time, and the
+		// oldest goes: worlds taken in turn and places far apart make each search start on
+		// chunks another search left in another world, or on none, or on its own again.
+		const rng = new Rng(0xcac4e);
+		const starts: { seed: number; from: GridPos }[] = [];
+		for (const seed of SEEDS) {
+			const spawn = spawnPoint(seed);
+			starts.push({ seed, from: spawn });
+			for (let i = 0; i < 3; i++) {
+				starts.push({
+					seed,
+					from: { x: spawn.x + rng.int(-400, 400), y: spawn.y + rng.int(-400, 400) }
+				});
+			}
+		}
+		const bad: string[] = [];
+		for (const round of [0, 1, 2]) {
+			for (const { seed, from } of rng.shuffle(starts)) {
+				const spot = nearestTent(seed, from);
+				const expected = bruteForceNearest(seed, from, spot ? spot.steps : TENT_SEARCH_STEPS);
+				if (JSON.stringify(spot) !== JSON.stringify(expected)) {
+					bad.push(`round ${round}, seed ${seed}, from ${from.x},${from.y}`);
+				}
+			}
+		}
+		expect(bad).toEqual([]);
+		// Up to a few seconds alone (36 searches, each checked by a flood fill of its own).
+	}, 60_000);
+
 	it('gives up past maxSteps, and when walled in', () => {
 		const from = spawnPoint(PROTOTYPE);
 		const spot = nearestTent(PROTOTYPE, from)!;

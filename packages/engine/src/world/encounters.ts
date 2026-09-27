@@ -1,5 +1,6 @@
-import { ANIMALS } from '../animals/catalog.js';
+import { ANIMALS, getAnimal } from '../animals/catalog.js';
 import type { AnimalInstance, AnimalSpec, Biome, Realm, Tier } from '../animals/types.js';
+import { leadIndex } from '../party/reducer.js';
 import type { Rng } from '../rng.js';
 import { factorForShare, terrainShares, type Surroundings } from './habitat.js';
 import { encounterRealm, isEncounterTile, type GridPos, type Tile } from './types.js';
@@ -247,6 +248,28 @@ export function rollEncounter(rng: Rng, site: EncounterSite, leadTier: Tier): Wi
 	if (!rng.chance(ENCOUNTER_CHANCE)) return null;
 	const species = pickWeighted(rng, table);
 	return { speciesId: species.id, hp: species.maxHp };
+}
+
+/**
+ * Roll for a wild encounter after a step, for `party`: the roll for the lead
+ * where the step landed, the first animal standing that can fight in the
+ * realm of the tile (`leadIndex`: on the tall grass one that walks, out on
+ * the deep water one that swims), which is the one the battle sends out
+ * first. With nobody standing who can fight there, nothing challenges the
+ * player and nothing is drawn, as on a tile that starts no battle: a team
+ * that needs the doctor walks to one in peace, and a kid in the boat with
+ * no swimmer standing sails in peace. The one rule behind every step.
+ */
+export function rollEncounterFor(
+	rng: Rng,
+	site: EncounterSite,
+	party: readonly AnimalInstance[]
+): WildAnimal | null {
+	const realm = encounterRealm(site.tile.kind);
+	if (realm === null) return null;
+	const lead = party[leadIndex(party, realm)];
+	if (!lead) return null;
+	return rollEncounter(rng, site, getAnimal(lead.speciesId).tier);
 }
 
 function pickWeighted(rng: Rng, table: readonly EncounterEntry[]): AnimalSpec {

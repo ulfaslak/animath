@@ -69,10 +69,17 @@ export type {
 
 export { applyDoctorIntent, startDoctorVisit } from './doctor/reducer.js';
 export type { DoctorVisitOptions } from './doctor/reducer.js';
-export { canGoHome, keepsATeam, kindGoingHome, mustStay, needsHealing } from './doctor/party.js';
+export {
+	canGoHome,
+	keepsATeam,
+	kindGoingHome,
+	mustStay,
+	needsDoctor,
+	needsHealing
+} from './doctor/party.js';
 export { homeTokens, tokenPuzzle, tokensForTier } from './doctor/tokens.js';
-export { takeToDoctor } from './doctor/knockout.js';
-export type { Rescue, RescueOptions } from './doctor/knockout.js';
+export { doctorComes, knockOut } from './doctor/knockout.js';
+export type { KnockOut, KnockOutOptions } from './doctor/knockout.js';
 export {
 	ITEMS,
 	ITEM_IDS,
@@ -176,7 +183,8 @@ export {
 	distanceFromSpawn,
 	encounterTable,
 	encounterTableAt,
-	rollEncounter
+	rollEncounter,
+	rollEncounterFor
 } from './world/encounters.js';
 export type { Surroundings } from './world/habitat.js';
 export {

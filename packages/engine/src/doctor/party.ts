@@ -1,5 +1,5 @@
 import { getAnimal } from '../animals/catalog.js';
-import type { AnimalInstance } from '../animals/types.js';
+import type { AnimalInstance, Realm } from '../animals/types.js';
 import { leadIndex } from '../party/reducer.js';
 
 /** An animal the doctor can help: anything below full HP, knocked out or only hurt. */
@@ -12,21 +12,36 @@ export function needsHealing(animal: AnimalInstance): boolean {
  * to walk on with: one of them isn't tired and can fight on land, where every
  * tent stands (a sea animal alone could battle nothing in the grass). The
  * rule behind `keep-one`, for a screen to show before it is asked. It keeps
- * a hand-over from leaving the kid without one; a battle at sea that a sea
- * animal ends standing (won, run from or caught), the land's animals tired,
- * can, and then the grass is quiet until a doctor heals one.
+ * a hand-over from leaving the kid without one; a lost battle can, and so can
+ * a battle at sea that a sea animal ends standing (won, run from or caught),
+ * the land's animals tired: then the grass is quiet until a doctor heals one.
  */
 export function keepsATeam(staying: readonly AnimalInstance[]): boolean {
 	return leadIndex(staying, 'land') >= 0;
 }
 
 /**
+ * Whether the team must see a doctor before it can battle again where the
+ * player stands in `realm` (land by default): nobody standing can fight
+ * there, and nobody who can fight on land, where the tall grass and every
+ * tent are (`keepsATeam`). So on land it is a team with nobody standing but
+ * sea animals, or nobody standing at all; out on the water, only a team with
+ * nobody standing at all, since a swimmer can fight there and anyone else on
+ * land: a kid sailing with only walkers standing sails in peace, and needs
+ * no doctor for it. Nothing challenges such a team (`rollEncounterFor`), and
+ * the screen shows the way to the nearest tent. The one rule behind both.
+ */
+export function needsDoctor(party: readonly AnimalInstance[], realm: Realm = 'land'): boolean {
+	return leadIndex(party, realm) < 0 && !keepsATeam(party);
+}
+
+/**
  * Whether the animals `ids` may go home together: the ones who stay keep a
  * team (`keepsATeam`). A team of only tired animals, or of only sea animals
- * standing, meets nothing in the grass, and a reload rests a team with nobody
- * standing, which would make it a free heal. The one rule behind the
- * reducer's `keep-one`, and the one the card's picks ask, so a pick the card
- * allows is a hand-over the reducer takes.
+ * standing, meets nothing in the grass and would have to walk to a doctor
+ * from the doctor's own tent. The one rule behind the reducer's `keep-one`,
+ * and the one the card's picks ask, so a pick the card allows is a hand-over
+ * the reducer takes.
  */
 export function canGoHome(party: readonly AnimalInstance[], ids: Iterable<string>): boolean {
 	const going = new Set(ids);
