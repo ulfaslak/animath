@@ -58,15 +58,18 @@ export type MenuItem = (typeof MENU_ITEMS)[number];
  * The rows the menu shows now. The account rows ([[UI_SPEC]] § Accounts)
  * follow who is playing: a guest has "Make an account" and "Log in"; a
  * player logged in has "Log out", and "Log in" again once the server has
- * said the session is over. A throwaway game (`?new` and the like) has
- * none: it saves nothing, so it has no game to keep safe.
+ * said the session is over. "Make an account" and "Log in" show only while
+ * the server says it can keep an account (`account.ready`); "Log out" works
+ * without it. A throwaway game (`?new` and the like) has none: it saves
+ * nothing, so it has no game to keep safe.
  */
 export function menuItems(): MenuItem[] {
 	return MENU_ITEMS.filter((item) => {
 		if (item !== 'makeAccount' && item !== 'logIn' && item !== 'logOut') return true;
 		if (flags.throwaway) return false;
-		if (account.name === null) return item !== 'logOut';
-		return item === 'logOut' || (item === 'logIn' && account.session === 'ended');
+		if (item === 'logOut') return account.name !== null;
+		if (!account.ready) return false;
+		return account.name === null || (item === 'logIn' && account.session === 'ended');
 	});
 }
 
