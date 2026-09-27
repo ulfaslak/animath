@@ -71,7 +71,8 @@
 		left: 50%;
 		transform: translateX(-50%);
 		width: max-content;
-		max-width: min(460px, calc(100vw - 32px));
+		/* Clear of the team's column at the left (and the tokens at the right) at 1024 px. */
+		max-width: clamp(260px, calc(100vw - 2 * 344px), 460px);
 		box-sizing: border-box;
 		background: var(--panel-bg);
 		border-radius: var(--radius);
