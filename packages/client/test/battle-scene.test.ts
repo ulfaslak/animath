@@ -6,6 +6,7 @@ import { touch } from '../src/input/touch.svelte';
 import { motion } from '../src/motion';
 import {
 	BattleScene,
+	battlePanelHeight,
 	LEASH_FLIGHT_SECONDS,
 	SEA_WATERLINE,
 	SHORT_SCREEN,
@@ -393,6 +394,56 @@ describe('the leash', () => {
 		// the seven tablet and laptop sizes, whole throws then; 6.6 s at a load average of 54.
 		// With 32 animals and the phone sizes, whole throws took 77 s at a load average of 165.
 	}, 120_000);
+});
+
+/**
+ * A phone held sideways is one line for the whole battle screen: the scene
+ * frames itself and throws the leash by `SHORT_SCREEN` and
+ * `battlePanelHeight`, the overlay lays itself out by its `max-height`
+ * queries and `--battle-panel`, and a piece on the other side of a
+ * different line would sit where the scene does not expect it.
+ */
+describe('a short screen', () => {
+	const styles = Object.values(
+		import.meta.glob('../src/styles.css', { query: '?raw', import: 'default', eager: true })
+	)[0] as string;
+	const PIECES = [
+		'src/ui/BattlePanel.svelte',
+		'src/ui/StatusBox.svelte',
+		'src/ui/AttackTile.svelte',
+		'src/ui/MoveButton.svelte',
+		'src/ui/ActionPreview.svelte',
+		'src/ui/HitBurst.svelte',
+		'src/ui/MatchNotes.svelte'
+	];
+
+	it('is SHORT_SCREEN in every short-screen query of the battle’s pieces and styles', () => {
+		const lines = [
+			...PIECES.map((file) => [file, svelteSources.get(file) ?? ''] as const),
+			['src/styles.css', styles] as const
+		].map(([file, text]) => ({
+			file,
+			heights: [...text.matchAll(/@media \(max-height: (\d+)px\)/g)].map((m) => Number(m[1]))
+		}));
+		const bad = lines.filter(
+			({ heights }) => heights.length === 0 || heights.some((h) => h !== SHORT_SCREEN)
+		);
+		expect(bad).toEqual([]);
+	});
+
+	it('gives the panel the height the scene frames itself round, touch or not', () => {
+		const found =
+			/@media \(max-height: \d+px\)\s*\{[^}]*--battle-panel: calc\((\d+)px \+ var\(--safe-bottom\)\)/.exec(
+				styles
+			);
+		const short = Number(found?.[1]);
+		expect(short).toBeGreaterThan(0);
+		for (const touchControls of [true, false]) {
+			expect(battlePanelHeight(SHORT_SCREEN, touchControls, 0)).toBe(short);
+			expect(battlePanelHeight(SHORT_SCREEN, touchControls, 21)).toBe(short + 21);
+			expect(battlePanelHeight(SHORT_SCREEN + 1, touchControls, 0)).toBe(touchControls ? 364 : 260);
+		}
+	});
 });
 
 describe('out at sea', () => {

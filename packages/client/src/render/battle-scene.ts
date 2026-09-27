@@ -60,8 +60,8 @@ const SHORT_DROP = 0.08;
  * The tallest screen that is a short one, in CSS pixels: a phone held
  * sideways, where the battle's panel and status boxes take their compact
  * sizes. Mirrors the `(max-height: 560px)` media queries of the battle's
- * styles (`styles.css`, `BattlePanel.svelte`, `StatusBox.svelte`); change
- * them together.
+ * styles (`styles.css`, `BattlePanel.svelte` and the pieces it composes);
+ * change them together (`battle-scene.test.ts` holds them to it).
  */
 export const SHORT_SCREEN = 560;
 
