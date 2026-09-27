@@ -31,6 +31,7 @@ import {
 	type CookieOptions,
 	type SessionUser
 } from '../sessions.js';
+import { acceptWelcome, welcomeState } from '../welcome.js';
 
 /**
  * Optional accounts: a name (the character's) and a password, a session
@@ -43,6 +44,8 @@ import {
  *   GET  /api/account/me                                  → 200 { user: { name } | null }
  *   GET  /api/account/save                                → 200 SaveV2 | 404 no save yet
  *   PUT  /api/account/save      SaveV2                    → 200 { ok: true } | 409 { error, save }
+ *   GET  /api/account/welcome   (x-animath-welcome: token) → 200 { name } | 410 used or expired | 404
+ *   POST /api/account/welcome   { token, password }       → 200 { user: { name }, save } + cookie
  *
  * Every POST and PUT must be JSON from a page of this site (`sameOriginJson`).
  * The save routes answer only for the account the request names
@@ -53,7 +56,15 @@ import {
  * rate limited per address and per name (429 with `Retry-After`). A save a
  * newer build wrote is never replaced (409 with it, whatever the `seq`), and
  * one sent that a newer build wrote is 503: this server is the older one.
+ * A welcome link (`welcome.ts`) is looked up and used under the login's
+ * limit per address; its GET says only the name of a live link's account,
+ * and nothing about a spent one but that it is spent. Its token travels in a
+ * header or a body, never in a path: a request line is what nginx's error
+ * log keeps whenever the app does not answer.
  */
+
+/** The header a welcome link's lookup carries its token in. */
+export const WELCOME_HEADER = 'x-animath-welcome';
 
 type Env = { Variables: { user: SessionUser } };
 
@@ -70,6 +81,12 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 function tooMany(c: Context, verdict: Extract<Verdict, { ok: false }>) {
 	c.header('Retry-After', String(verdict.retryAfterSeconds));
 	return c.json({ error: 'too many tries', retryAfter: verdict.retryAfterSeconds }, 429);
+}
+
+/** A welcome link that does not log anyone in: used up, too old, or no link at all. */
+function welcomeGone(c: Context, kind: 'used' | 'expired' | 'unknown') {
+	if (kind === 'unknown') return c.json({ error: 'no such link' }, 404);
+	return c.json({ error: kind === 'used' ? 'link used' : 'link expired' }, 410);
 }
 
 function tooBig(maxSize: number) {
@@ -139,7 +156,8 @@ export function accountRoute({ cookie, limits, ready }: AccountRouteOptions) {
 		loginFailuresPerName: new RateLimiter(limits.loginFailuresPerName),
 		registerPerIp: new RateLimiter(limits.registerPerIp),
 		registerPerName: new RateLimiter(limits.registerPerName),
-		savesPerAccount: new RateLimiter(limits.savesPerAccount)
+		savesPerAccount: new RateLimiter(limits.savesPerAccount),
+		welcomePerIp: new RateLimiter(limits.welcomePerIp)
 	};
 
 	/** Starts a session for this browser, ending the one it had (whoever's it was). */
@@ -310,5 +328,36 @@ export function accountRoute({ cookie, limits, ready }: AccountRouteOptions) {
 				return c.json({ error: STORED_FROM_NEWER_BUILD, save: written.stored }, 409);
 			}
 			return c.json({ ok: true });
+		})
+		.get('/welcome', async (c) => {
+			// The answer names an account for a secret: no cache keeps it.
+			c.header('Cache-Control', 'no-store');
+			const byIp = limit.welcomePerIp.hit(rateKey(clientIp(c)));
+			if (!byIp.ok) return tooMany(c, byIp);
+			const token = c.req.header(WELCOME_HEADER);
+			if (token === undefined) return c.json({ error: `send the link in ${WELCOME_HEADER}` }, 400);
+			const state = await welcomeState(token);
+			if (state.kind !== 'live') return welcomeGone(c, state.kind);
+			return c.json({ name: state.name });
+		})
+		.post('/welcome', tooBig(LOGIN_MAX_BYTES), async (c) => {
+			c.header('Cache-Control', 'no-store');
+			const byIp = limit.welcomePerIp.hit(rateKey(clientIp(c)));
+			if (!byIp.ok) return tooMany(c, byIp);
+			const body = await readJson(c);
+			if (body === undefined) return c.json({ error: 'body is not valid JSON' }, 400);
+			if (!isRecord(body) || typeof body.token !== 'string' || typeof body.password !== 'string') {
+				return c.json({ error: 'send the link and a password' }, 400);
+			}
+			// A password the rules refuse leaves the link as it was.
+			const password = checkPassword(body.password);
+			if (!password.ok) return c.json({ error: 'bad password', reason: password.reason }, 400);
+			// Only a live link costs a slow hash.
+			const state = await welcomeState(body.token);
+			if (state.kind !== 'live') return welcomeGone(c, state.kind);
+			const result = await acceptWelcome(body.token, await hashPassword(password.password));
+			if (result.kind !== 'welcomed') return welcomeGone(c, result.kind);
+			await logIn(c, result.sessionToken);
+			return c.json({ user: { name: result.name }, save: result.save });
 		});
 }

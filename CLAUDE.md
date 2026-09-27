@@ -2,13 +2,13 @@
 
 **Animath** is a browser math game for kids: a cheerful low-poly world you explore, wild animals you catch with a leash, and Game Boy Pokémon-style battles where every attack is a math puzzle. Single player today, multiplayer later. Everything about what the game *is* lives in [[PRODUCT]].
 
-It is a pnpm workspace with three packages: `packages/engine` (pure TypeScript game rules, no dependencies), `packages/client` (Vite + Three.js + a Svelte HUD) and `packages/server` (Hono + Postgres via Drizzle). There is no deploy yet; the game runs locally and is shared through a tunnel. No React, anywhere, ever.
+It is a pnpm workspace with three packages: `packages/engine` (pure TypeScript game rules, no dependencies), `packages/client` (Vite + Three.js + a Svelte HUD) and `packages/server` (Hono + Postgres via Drizzle). The game is live at https://animath.xyz, and every push to main that touches what is deployed deploys it there ([[DEVELOPMENT]] § Deployment). No React, anywhere, ever.
 
 # DNA: architectural guardrails
 
 `AGENTS/DNA/` contains the project's guardrails — what the project _is_, its decisions, structure, and interface contracts. The DNA grows as the project does, but must never drift from the code. It evolves but doesn't change. Contributions that violate DNA cause cancer and must be avoided.
 
-1. Don't violate DNA.
+1. Don't violate DNA. A task brief never overrides it: build the DNA and raise the conflict.
 2. Grow DNA — when your work adds new structure, record it.
 3. Don't let it drift — if something in DNA/ no longer matches the code, fix it. If it's unclear whether DNA or code should change, think deeply and resolve it only if you are certain, otherwise ask the human.
 4. Do not take DNA changes lightly. If you make changes, you must have applied deep reasoning before doing so. Err on the side of asking the human before changing an existing DNA item.
@@ -75,7 +75,7 @@ Use skills for specialized repeatable workflows, not for baseline behaviour that
   1. **Before creating:** Run `git gtr list` to see all existing worktrees. Never touch or remove a worktree you didn't create.
   2. **Create:** From the primary clone, run `git gtr new <branch-name>` (example: `git gtr new feat/battle-reducer`). This creates a worktree in a sibling directory (`../mathgame-worktrees/<branch>/`), copies `.env`, and runs `pnpm install` via `.gtrconfig`.
   3. **Work:** `cd` into the worktree path shown by gtr. All edits, commits, and pushes happen there.
-  4. **After merge:** From the primary clone, run `git gtr rm <branch-name>`, then `git checkout main && git pull`. Periodically run `git gtr clean --merged` to sweep stale worktrees.
+  4. **After merge:** From the primary clone, run `git gtr rm <branch-name>`, then `git checkout main && git pull`, then `pnpm db:prune-tests`: each checkout's server tests keep a database of their own, and only the prune drops it once its worktree is gone ([[DEVELOPMENT]] § Database). Periodically run `git gtr clean --merged` to sweep stale worktrees, then prune again.
 
 - **Never remove another agent's worktree.** If `git gtr list` shows worktrees you didn't create, leave them alone.
 - **Commit early in worktrees.** Always commit working changes before any worktree management operation. Force-removing a worktree destroys uncommitted work with no recovery. If the worktree directory is deleted while it's your cwd, the session becomes permanently stuck.
@@ -142,8 +142,10 @@ Within a single contained issue's scope, prefer deciding. Round trips are expens
 Several worktrees may be live at once and the human has uncommitted work of their own. Everything below is about staying **recoverable** — the category where a wrong call costs something you cannot get back.
 
 - **Never run a destructive git command to inspect state.** `git checkout <ref> -- .`, `git reset --hard`, `git stash`, and `git clean` are not diagnostics — they silently delete the human's uncommitted and untracked files. To see what a ref contains, use `git show <ref>:<path>`, `git diff <ref> -- <path>`, or `git worktree add` a throwaway checkout.
+- **Commit before every negative control,** so that putting the code back cannot take the fix with it. Put it back with `git show HEAD:<path> > <path>`, never `git checkout -- <file>` (three incidents in [[AGENT_MISTAKES]]).
 - **Never amend, rebase, force-push, or rewrite a commit unless explicitly asked.**
 - **Resolve the exact target before any destructive action,** and prefer the recoverable form. Before `git gtr rm`, `rm -rf`, `DROP`, `docker compose down -v`, or killing a process, print what you are about to destroy and confirm it's yours. Never kill a dev server or remove a container you did not start — see [[ENVIRONMENT_NOTES]] for what is shared on this machine.
+- **Sibling agents started by one orchestrator share one scratchpad folder.** Every scratch file goes in a subfolder named after your branch ([[ENVIRONMENT_NOTES]]).
 - **When corrected or told to stop, stop mutating immediately.** Inspect the current state, report exactly what it is, then wait.
 
 ### Reading files efficiently
@@ -177,7 +179,7 @@ Hand-write the SQL; never run `drizzle-kit generate` in a worktree (it produces 
 
 ### Phase 1: First pass PR
 
-- Run `pnpm check` and `pnpm test` from the repo root. Both must be green.
+- Run `pnpm check` and `pnpm test` from the repo root, after your last edit and right before you commit: a gate run before an edit says nothing about the tree after it (PR #97, where a test helper went up with `svelte-check` red). Both must be green.
   - Engine changes: add or extend property tests following `packages/engine/test/*.test.ts`. A new puzzle kind extends the independent solver in `puzzles.test.ts`. A new species is covered by the catalog tests automatically — run them.
   - **When writing or modifying tests**, read **Testing ideology** in [[DEVELOPMENT]] first.
 - **Format only your own files** (`pnpm exec prettier --write <files>`), not the whole repo.
@@ -194,19 +196,22 @@ Not every change benefits from the same verification. Pick the approach that act
 
 **If the change is visible or interactive (rendering, input, HUD, battle panel, any mode):**
 
-1. **Run the game** with `/play` (both dev servers, screenshot script). Confirm the health endpoint answers first.
+1. **Run the game** with `/play` (your own client dev server and the screenshot script; an API of your own only when the change reaches the server: the backup, accounts or presence). Confirm the client answers first.
 2. **Play the flow you changed**, end to end, with the screenshot script driving keys — and **read every screenshot**. A rendering change is unverified until an agent has looked at a frame of it. `svelte-check` and `vite build` say nothing about what's on screen: the first frame this repo ever rendered was solid black under a green build.
 3. **Test non-obvious edge cases.** Enumerate them before testing; walk this taxonomy deliberately:
    - **Mode edges** — explore ↔ battle ↔ doctor ↔ pause. Input held across a switch. An event for a mode you're no longer in. Reload mid-battle.
    - **Grid edges** — chunk borders, negative coordinates, water/rock/tree on every side, the spawn tile, walking far enough that chunks unload and reload.
    - **Numeric edges** — 0 HP, exactly-full HP, difficulty 1 and 10, a species with one attack, a party of one, an empty answer, a huge answer, leading zeros.
-   - **Input edges** — key mashing, two keys held, a tap shorter than a frame, tab blur with a key down, window resize mid-step, a `dt` spike after backgrounding.
+   - **Input edges** — key mashing, two keys held, a tap shorter than a frame, tab blur with a key down, window resize mid-step, a `dt` spike after backgrounding; a drag to the very first and last place, and held still at an edge; a double click on something that moves when clicked; a slow tap held still.
+   - **Input modes** — a layout change is checked with the keyboard and with `--touch` at 1024×768; the touch rules restyle the same elements.
    - **Rendered layout, not just the DOM** — text that overflows its card at real lengths (long species names), the panel at 1024×768, an HP bar at 1/100. Check the pixel, not the class name.
-   - **Adjacent features** — anything else that reads the same state: does the HUD agree with the battle panel after a hit? Does the save round-trip the new field?
+   - **Shared selectors** — a rule added for one row, card or button to a class its siblings share is a change to every sibling; measure them all.
+   - **A new figure** is looked at where a kid meets it: in a battle from behind, close up, as the kid's own animal (`?party=<id>` and any encounter), not only in `?zoo`.
+   - **Adjacent features** — anything else that reads the same state: does the HUD agree with the battle panel after a hit? Does the save round-trip the new field? And after `git merge origin/main`, every overlay the merge brought in (`git diff --stat <merge-base> origin/main -- packages/client/src/ui`): a layout checked against the tree you branched from says nothing about a note or a card a sibling just put in the same band of the screen (PR #99, where the count beside the tokens reached presence's note on a tablet).
    - **The gate you ran vs. the gate that ships** — dev server vs `pnpm build` output, mocked DB vs real, SwiftShader vs a GPU.
    - **Prose is a claim** — every comment, DNA line and copy string describing behaviour your diff changes is a claim to re-verify. Grep for prose describing the old behaviour.
-   - **Duplicated rosters** — if you add a puzzle kind, tile kind, biome, phase or intent, grep for a _sibling_ member to find every list that must also know about it (the union type, the registry, the palette, the test solver, the UI switch).
-4. **Fix everything you find.** Each bug gets a fix commit on the same branch. For each fix, run the **negative control** once: revert the fix, watch the check actually fail, re-apply. A green check you never saw red is a claim about the harness, not the bug.
+   - **Duplicated rosters** — if you add a puzzle kind, tile kind, biome, phase, intent or species, grep for a _sibling_ member, in the code and in the DNA's prose, to find every list that must also know about it (the union type, the registry, the palette, the test solver, the UI switch).
+4. **Fix everything you find.** Each bug gets a fix commit on the same branch. For each fix, run the **negative control** once: revert the fix, watch the check actually fail, re-apply (§ Protecting existing work says how). A green check you never saw red is a claim about the harness, not the bug.
 5. **Tick off the test plan** in the PR description as you verify each item.
 6. **Stop when confident.** You're done when you can't think of another way to break it.
 
@@ -223,8 +228,8 @@ A screenshot produces little signal; the behaviour lives below the screen. Inste
 
 **If the change is server-only (routes, schema, migrations):**
 
-1. Tests green. Apply the migration to the local DB and verify the schema with a direct query (`pnpm db:psql -c "\d <table>"`); the migrator silently skips an un-journaled file.
-2. Exercise the route with `curl` against the dev server, including a malformed body and a missing player.
+1. Tests green. Apply the migration to a database of your own, never `mathgame`, which holds the kids' games ([[DEVELOPMENT]] § Running has the commands), and verify the schema there with a direct query (`docker compose -p mathgame exec -T postgres psql -U postgres -d mathgame_<yours> -c "\d <table>"`); the migrator silently skips an un-journaled file. Production gets the migration from the deploy, after the merge.
+2. Exercise the route with `curl` against your own API on that database, including a malformed body and a missing player.
 3. Hand it to Phase 2.5.
 
 **If you're genuinely unsure which category the change falls into**, do both a play-through and the simulation. Erring toward more verification is cheap.
@@ -252,7 +257,7 @@ Before asking the human to merge:
 
 ### Phase 5: Post-merge verification
 
-There is no deploy yet, so there is nothing to verify after a merge beyond `main` being green. When deployment lands, this phase gains the staging-then-promote checks and a `POST_MERGE_VERIFICATION` ledger.
+A merge that touches what is deployed starts the deploy workflow. Watch it to the end (`gh run watch <id>`, the id from `gh run list --limit 3`), then confirm prod's `/api/health` reports the merge commit's SHA (`curl -fsS https://animath.xyz/api/health`) and load the game there. Once it reports the SHA, the ship announcement's label is `Deployed · HH:MM:SS`. A red run: read its log, then fix forward in a new PR, or `pnpm rollback <sha>` of the last good build if kids are stuck. A merge with `[skip deploy]`, or one touching nothing deployed, deploys nothing: say so instead.
 
 ## Deferred work
 
@@ -336,4 +341,4 @@ Post a brief update at each **meaningful state change** — a phase boundary, a 
 
   Max 3 flags. Keep ALL CAPS out of the rest of the message.
 
-- **Timestamp ship announcements.** When reporting that a PR merged, end the message with a final line pairing a **status label** with the local time: `Not merged · 14:23:01` while it's an open PR awaiting review, `Merged · 14:23:01` once it's on `main`.
+- **Timestamp ship announcements.** When reporting that a PR merged, end the message with a final line pairing a **status label** with the local time: `Not merged · 14:23:01` while it's an open PR awaiting review, `Merged · 14:23:01` once it's on `main`, `Deployed · 14:23:01` once prod's `/api/health` reports its SHA (Phase 5).
