@@ -78,6 +78,15 @@ class MatchStateView {
 	/** On the update card: the friend asked already, so Play again says yes. */
 	friendAsked = $state(false);
 
+	/**
+	 * A note is up over the match's screen (`MatchNotes`): the connection is
+	 * being found again, the other dropped out, or "Still there?".
+	 */
+	get noted(): boolean {
+		if (this.stage === 'over') return this.offline;
+		return this.stage === 'playing' && (this.offline || this.away !== null || this.nudged);
+	}
+
 	/** Everything back to nothing going on. */
 	reset(): void {
 		this.stage = 'none';

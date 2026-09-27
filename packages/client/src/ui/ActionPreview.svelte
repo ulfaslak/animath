@@ -72,7 +72,8 @@
 				<div class="tires">{preview.tires}</div>
 			{/key}
 		{/if}
-		<div class="detail">{preview.line}</div>
+		<!-- What the pictures above say, again in words: a short screen has no room for it. -->
+		<div class="detail retold">{preview.line}</div>
 	</div>
 {:else}
 	<div class="preview">
@@ -192,6 +193,31 @@
 	@media (prefers-reduced-motion: reduce) {
 		.tires {
 			animation-name: tires-fade;
+		}
+	}
+	/*
+	 * A short screen (a phone held sideways): the card is 220 px tall. An
+	 * attack keeps its name, chips, badge, level picker and "That would tire
+	 * it out!" over Go!, and leaves out the sentence that says them again in
+	 * words; another move keeps its sentence, which is most of what it says.
+	 */
+	@media (max-height: 560px) {
+		.preview,
+		:global(.touch) .preview {
+			gap: 4px;
+		}
+		.title {
+			font-size: 22px;
+		}
+		.retold {
+			display: none;
+		}
+		.disc {
+			width: 48px;
+			height: 48px;
+		}
+		.detail {
+			font-size: 16px;
 		}
 	}
 </style>
