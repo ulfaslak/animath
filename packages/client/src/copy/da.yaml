@@ -209,6 +209,10 @@ explore:
   walkRight: Gå til højre
   turnSideways: Hold skærmen på tværs for at spille!
   notAtTent: Gå hen til et telt for at snakke med dyrlægen.
+  holdToFly: Hold mellemrum nede for at flyve!
+  holdToFlyTouch: Hold Flyv nede for at flyve!
+  tooFar: For langt! Der er intet sted at lande den vej.
+  fly: Flyv
 
 hud:
   goesFirst: først ud
@@ -448,6 +452,11 @@ items:
     the: båden
     your: din båd
     use: Sejler på vandet.
+  glider:
+    name: Paraglider
+    the: paraglideren
+    your: din paraglider
+    use: Svæver over træer, sten og vand.
 
 pause:
   title: Pause
@@ -600,6 +609,7 @@ presence:
     doctor: hos dyrlægen
     menu: holder pause
     match: kæmper mod en ven
+    flight: flyver
 worlds:
   world: 'Verden {world}'
   title: Verdener

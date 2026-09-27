@@ -382,9 +382,9 @@ export class PresenceController {
 		return game.mode === 'explore' && !battle.active && !doctor.active && !pause.open;
 	}
 
-	/** A calm moment to reload: exploring, nothing open. */
+	/** A calm moment to reload: exploring, nothing open, feet on the ground. */
 	private calm(): boolean {
-		return this.exploreOnScreen();
+		return this.exploreOnScreen() && !game.flying;
 	}
 
 	/** Reload for the newer version, once per version: a page that comes back still old stays as it is. */
@@ -401,11 +401,16 @@ export class PresenceController {
 	}
 }
 
-/** What the player is busy with, as the others see it. */
+/**
+ * What the player is busy with, as the others see it. Up in the air it is
+ * the glider (`flight`): the tiles sent meanwhile are flown over, so the
+ * others draw them gliding rather than walking on the water or through trees.
+ */
 function busyNow(): Busy {
 	if (battle.active) return 'battle';
 	if (doctor.active) return 'doctor';
 	if (pause.open) return 'menu';
+	if (game.flying) return 'flight';
 	return 'explore';
 }
 

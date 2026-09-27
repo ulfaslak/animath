@@ -15,11 +15,32 @@ import { animateIdle, animateWalk, buildPlayerMesh } from './animals';
 import { BOAT_STAND, buildBoatMesh, poseBoat, standAstern } from './boat';
 import { ChunkRing } from './chunks';
 import { ClearingEffects, SWING_SECONDS, animateSwing, buildTool } from './clearing';
-import { appearScale } from './ease';
+import { appearScale, smoothstep } from './ease';
+import { buildGliderMesh, poseGlider } from './glider';
 import { OtherPlayers } from './others';
-import { COLORS } from './palette';
+import { COLORS, GLIDER_COLORS } from './palette';
 import { Poofs } from './poof';
-import { FACING_ANGLE, strideOnto, trainerStep } from './trainer';
+import { groundTop } from './tiles';
+import { FACING_ANGLE, strideOnto, trainerPose, trainerStep } from './trainer';
+
+/**
+ * The trainer with the glider, as explore poses them this frame: how far up
+ * into the air (`lift`, 0 on the ground to 1 cruising), how open the canopy
+ * is (`open`, 0 folded on the back to 1 overhead), how deep the wind-up's
+ * crouch is before a take-off (`crouch`, 0 to 1), and a hop in place when a
+ * take-off was refused (`hop`, 0 to 1 through it).
+ */
+export interface AirPose {
+	lift: number;
+	open: number;
+	crouch: number;
+	hop: number;
+}
+
+const GROUNDED: AirPose = { lift: 0, open: 0, crouch: 0, hop: 0 };
+
+/** Seconds the glider takes to grow onto the trainer's back when it is bought. */
+const GLIDER_ARRIVES_SECONDS = 0.45;
 
 /**
  * A scene drawn instead of the world, with its own camera: the battle scene,
@@ -121,6 +142,24 @@ export class GameRenderer {
 	private boatArriving: number | null = null;
 	/** Where `setPlayer` last put the trainer, before the water rocks them. */
 	private playerAt = new THREE.Vector3();
+	/** The glider on the trainer, built the first time the player owns one. */
+	private glider: THREE.Group | null = null;
+	private gliderOwned = false;
+	/** Seconds since the glider was bought, while it grows onto the trainer's back. */
+	private gliderArriving: number | null = null;
+	/** The trainer's pose with the glider, as `setPlayer` last had it. */
+	private air: AirPose = GROUNDED;
+	/** The dark disc on the ground under a trainer in the air: where they are over. */
+	private shadow: THREE.Mesh;
+	/**
+	 * The landing ring: a soft cream ring on the tile the glider would come
+	 * down on if the kid let go now, and over a tree or a rock, the tool that
+	 * will clear it. Hidden on the ground.
+	 */
+	private ring: THREE.Mesh;
+	private ringTools: Partial<Record<ItemId, THREE.Group>> = {};
+	private ringAt: GridPos | null = null;
+	private ringTool: ItemId | null = null;
 	/** Little clouds of dust where a trainer turns up out of nowhere. */
 	private poofs = new Poofs(this.scene);
 	/** The other players in view, each with their lead (`others.ts`). */
@@ -157,6 +196,37 @@ export class GameRenderer {
 
 		this.player = buildPlayerMesh();
 		this.scene.add(this.player);
+
+		// Built once, for as long as the page lives, and shown only while the trainer flies.
+		const shadow = new THREE.CircleGeometry(0.3, 16);
+		shadow.rotateX(-Math.PI / 2);
+		this.shadow = new THREE.Mesh(
+			shadow,
+			new THREE.MeshBasicMaterial({
+				color: GLIDER_COLORS.shadow,
+				transparent: true,
+				opacity: 0,
+				depthWrite: false
+			})
+		);
+		this.shadow.visible = false;
+		this.scene.add(this.shadow);
+		const ring = new THREE.RingGeometry(0.3, 0.42, 28);
+		ring.rotateX(-Math.PI / 2);
+		// Drawn over everything, a tree's crown included: it marks a tile, it is no thing on it.
+		this.ring = new THREE.Mesh(
+			ring,
+			new THREE.MeshBasicMaterial({
+				color: GLIDER_COLORS.ring,
+				transparent: true,
+				opacity: 0.9,
+				depthTest: false,
+				depthWrite: false
+			})
+		);
+		this.ring.renderOrder = 10;
+		this.ring.visible = false;
+		this.scene.add(this.ring);
 
 		window.addEventListener('resize', () => this.resize());
 		this.resize();
@@ -271,26 +341,77 @@ export class GameRenderer {
 		if (this.boat) this.boat.visible = owned;
 	}
 
-	/** Position the player between two tiles (progress 0..1) and face `dir`. */
-	setPlayer(from: GridPos, to: GridPos, progress: number, dir: Direction): void {
-		const { x, y, z, afloat } = trainerStep(
+	/**
+	 * The player owns the glider or not: folded on their back, it opens over
+	 * them in the air. Bought while the game is on (`arriving`), it grows
+	 * onto their back with a little bounce.
+	 */
+	setGlider(owned: boolean, arriving = false): void {
+		if (owned && !this.glider) {
+			this.glider = buildGliderMesh();
+			this.player.add(this.glider);
+		}
+		if (owned && !this.gliderOwned && arriving) this.gliderArriving = 0;
+		this.gliderOwned = owned;
+		if (this.glider) this.glider.visible = owned;
+	}
+
+	/**
+	 * Position the player between two tiles (progress 0..1) and face `dir`;
+	 * with the glider, `air` says how far up they are and how open it is.
+	 */
+	setPlayer(
+		from: GridPos,
+		to: GridPos,
+		progress: number,
+		dir: Direction,
+		air: AirPose = GROUNDED
+	): void {
+		this.air = air;
+		const lift = smoothstep(air.lift);
+		const { x, y, z, afloat } = trainerPose(
 			this.seed,
 			from,
 			to,
 			progress,
 			this.boatOwned,
-			motion.reduced
+			motion.reduced,
+			lift
 		);
 		this.afloat = afloat;
-		this.playerAt.set(x, y, z);
+		// A take-off refused: a little hop in place.
+		const hop = air.hop > 0 ? Math.sin(Math.min(1, air.hop) * Math.PI) * (motion.reduced ? 0.04 : 0.14) : 0;
+		this.playerAt.set(x, y + hop, z);
 		this.player.position.copy(this.playerAt);
 		// Figures face +z at rest, which is grid "down" (toward the camera).
 		this.player.rotation.y = FACING_ANGLE[dir];
 		this.cameraTarget.set(x, 0, z);
-		// Every step lands on the other foot: x + y changes by one each step.
-		const moving = from.x !== to.x || from.y !== to.y;
+		// Every step lands on the other foot: x + y changes by one each step. Up in the air
+		// nobody walks.
+		const moving = (from.x !== to.x || from.y !== to.y) && lift === 0;
 		this.step.progress = moving ? progress : 1;
 		this.step.stride = strideOnto(to);
+		this.placeShadow(x, z, lift);
+	}
+
+	/**
+	 * Where the glider would come down if the kid let go now: the landing
+	 * ring on that tile, with the tool that will clear it over a tree or a
+	 * rock; null takes it away.
+	 */
+	setLandingSpot(at: GridPos | null, tool: ItemId | null = null): void {
+		this.ringAt = at && { ...at };
+		this.ringTool = at ? tool : null;
+	}
+
+	/** The disc on the ground under the trainer, darker the higher they are; none on the ground. */
+	private placeShadow(x: number, z: number, lift: number): void {
+		this.shadow.visible = lift > 0.02;
+		if (!this.shadow.visible) return;
+		const under = tileAtWorld(this.seed, Math.round(x), Math.round(z));
+		this.shadow.position.set(x, groundTop(under) + 0.02, z);
+		this.shadow.scale.setScalar(0.8 + 0.4 * lift);
+		(this.shadow.material as THREE.MeshBasicMaterial).opacity = 0.28 * lift;
 	}
 
 	/**
@@ -353,6 +474,7 @@ export class GameRenderer {
 		// Standing in the boat, the trainer's legs don't walk.
 		animateWalk(this.player, this.step.progress, this.step.stride, this.afloat === 1 ? 0 : 1);
 		this.poseBoat(t);
+		this.poseFlight(t);
 		if (this.swing) {
 			const progress = (t - this.swing.start) / SWING_SECONDS;
 			animateSwing(this.player, progress, motion.reduced);
@@ -409,6 +531,81 @@ export class GameRenderer {
 			boat.scale.multiplyScalar(appearScale(p, calm));
 			if (p >= 1) this.boatArriving = null;
 		}
+	}
+
+	/**
+	 * The trainer with the glider this frame: the canopy folded on the back or
+	 * open overhead (above the boat's shell when the boat rides on their back),
+	 * a crouch as Space winds up a take-off, and up in the air a gentle bob
+	 * and sway, the arms out a little to the lines (still with reduced
+	 * motion). A glider just bought grows onto the back. Then the landing ring.
+	 */
+	private poseFlight(t: number): void {
+		const rig = this.player.children[0];
+		const calm = motion.reduced;
+		const air = this.air;
+		const lift = smoothstep(air.lift);
+		if (rig && air.crouch > 0) {
+			// Knees bent for the jump: shorter, and a little lower, about the feet.
+			rig.scale.y *= 1 - 0.12 * air.crouch;
+		}
+		const flying = lift > 0 && !calm;
+		this.player.rotation.z = flying ? Math.sin(t * 1.3) * 0.05 * lift : 0;
+		// Up in the air the boat rides on the back, so nothing else moves the trainer up or down.
+		if (flying) this.player.position.y = this.playerAt.y + Math.sin(t * 2.2) * 0.03 * lift;
+		for (const [name, side] of [
+			['armL', -1],
+			['armR', 1]
+		] as const) {
+			const arm = rig?.getObjectByName(name);
+			if (arm) arm.rotation.z = side * 0.35 * lift;
+		}
+		const glider = this.glider;
+		if (glider && this.gliderOwned) {
+			poseGlider(glider, air.open, calm, this.boatOwned && this.afloat < 0.5);
+			if (this.gliderArriving !== null) {
+				const dt = this.lastT < 0 ? 0 : Math.min(0.1, Math.max(0, t - this.lastT));
+				this.gliderArriving += dt;
+				const p = this.gliderArriving / GLIDER_ARRIVES_SECONDS;
+				glider.scale.setScalar(appearScale(p, calm));
+				if (p >= 1) {
+					this.gliderArriving = null;
+					glider.scale.setScalar(1);
+				}
+			}
+		}
+		this.poseRing(t, calm);
+	}
+
+	/** The landing ring where `setLandingSpot` put it, breathing gently; the tool over it slowly turning. */
+	private poseRing(t: number, calm: boolean): void {
+		const at = this.ringAt;
+		this.ring.visible = at !== null;
+		for (const [id, tool] of Object.entries(this.ringTools)) {
+			if (tool) tool.visible = at !== null && id === this.ringTool;
+		}
+		if (!at) return;
+		const top = groundTop(tileAtWorld(this.seed, at.x, at.y));
+		this.ring.position.set(at.x, top + 0.03, at.y);
+		this.ring.scale.setScalar(calm ? 1 : 1 + Math.sin(t * 4) * 0.06);
+		const id = this.ringTool;
+		if (!id) return;
+		let marker = this.ringTools[id];
+		if (!marker) {
+			// The tool of the trainer's swing, head up, its middle on the marker's origin.
+			const tool = buildTool(id);
+			tool.rotation.z = Math.PI;
+			tool.position.y = -0.34;
+			marker = new THREE.Group();
+			marker.add(tool);
+			marker.scale.setScalar(1.8);
+			this.ringTools[id] = marker;
+			this.scene.add(marker);
+		}
+		marker.visible = true;
+		// Over the crown of a tree, or the top of a snowy rock.
+		marker.position.set(at.x, top + 1.9 + (calm ? 0 : Math.sin(t * 2.5) * 0.06), at.y);
+		marker.rotation.set(0, calm ? 0.6 : t * 1.5, 0);
 	}
 
 	/** The canvas's width over its height: how many tiles wide the world view is, per tile tall. */

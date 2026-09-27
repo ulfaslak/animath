@@ -15,6 +15,7 @@ import {
 import { sfx } from '../audio/sfx.svelte';
 import { t } from '../copy';
 import { doctorWords, type DoctorLine } from '../doctor/lines';
+import type { TalkKey } from '../input/keyboard';
 import { touch } from '../input/touch.svelte';
 import { messageWords } from '../lines';
 import { animalWords } from '../names';
@@ -66,8 +67,13 @@ export type Said =
 	/** The authority's `message`: a copy key and its values, as it sent them. */
 	| { line: MessageLine }
 	| { doctor: DoctorLine }
-	/** `interact` found no tent in front of the player. */
-	| { explore: 'notAtTent' }
+	/**
+	 * `interact` found no tent in front of the player (`notAtTent`); with the
+	 * glider, a tap of Space there says how to fly instead, and so does the
+	 * doctor's goodbye when it was just bought (`holdToFly`); a take-off with
+	 * nowhere to land that way (`tooFar`).
+	 */
+	| { explore: 'notAtTent' | 'holdToFly' | 'tooFar' }
 	/** A tree or a rock is in the way without the tool it takes: the doctor sells one. */
 	| { needs: ClearableKind }
 	| { party: PartyNotice }
@@ -91,6 +97,10 @@ export function saidWords(said: Said): string {
 	if ('save' in said) return t(said.save);
 	if ('needs' in said)
 		return said.needs === 'tree' ? t('explore.needAxe') : t('explore.needPickaxe');
+	if (said.explore === 'holdToFly') {
+		return touch.on ? t('explore.holdToFlyTouch') : t('explore.holdToFly');
+	}
+	if (said.explore === 'tooFar') return t('explore.tooFar');
 	return t('explore.notAtTent');
 }
 
@@ -207,6 +217,10 @@ class HudView {
 	 * screen started (`welcome`): a bump says it once, not every time.
 	 */
 	private toolHints = new Set<ClearableKind>();
+	/** The key of the talk on its way to the authority (`talked`): a tap of Space, or Enter. */
+	private talkKey: TalkKey = 'enter';
+	/** Whether the player owned the glider when the doctor's card opened: bought there, the card's goodbye says how to fly. */
+	private gliderBefore = false;
 
 	/** The player faces a doctor's tent: interacting now talks to the doctor. */
 	facingTent = $derived(canTalkToDoctor(game.seed, game.pos, game.facing));
@@ -215,24 +229,29 @@ class HudView {
 	/**
 	 * What Enter does now: talk to the doctor at a tent, chop the tree or break
 	 * the rock in front with the tool it takes, when the player owns it; else
-	 * null (Enter only says how to find a doctor). The prompt below says it,
-	 * and the touch controls' Talk button is named and lit by it.
+	 * null (Enter only says how to find a doctor, and does nothing at all up in
+	 * the air). The prompt below says it, and the touch controls' Talk button
+	 * is named and lit by it.
 	 */
 	action = $derived<ExploreAction>(
-		this.facingTent
-			? 'talk'
-			: this.ahead && game.items.includes(this.ahead.tool)
-				? this.ahead.kind === 'tree'
-					? 'chop'
-					: 'break'
-				: null
+		game.flying
+			? null
+			: this.facingTent
+				? 'talk'
+				: this.ahead && game.items.includes(this.ahead.tool)
+					? this.ahead.kind === 'tree'
+						? 'chop'
+						: 'break'
+					: null
 	);
 	/**
 	 * The latest thing said while it is fresh, worded now, else ''. "Walk up to
 	 * a tent" is over once the player faces one: the prompt below says what next.
 	 */
 	message = $derived(
-		this.#fresh && this.#said && !('explore' in this.#said && this.facingTent)
+		this.#fresh &&
+			this.#said &&
+			!('explore' in this.#said && this.#said.explore === 'notAtTent' && this.facingTent)
 			? saidWords(this.#said)
 			: ''
 	);
@@ -242,7 +261,9 @@ class HudView {
 	 * instead of a key.
 	 */
 	hint = $derived(
-		this.action === 'talk'
+		game.flying
+			? ''
+			: this.action === 'talk'
 			? touch.on
 				? t('explore.talkPromptTouch')
 				: t('explore.talkPrompt')
@@ -298,11 +319,30 @@ class HudView {
 					this.say({ doctor: { say: 'rescued', atTent: event.tent !== null } });
 				}
 				break;
+			case 'doctor-visit-started':
+				this.gliderBefore = event.state.items.includes('glider');
+				break;
 			case 'doctor-visit-ended':
-				this.say({ doctor: { say: 'goodbye' } });
+				// Just bought the glider: the goodbye gives way to how to fly it.
+				this.say(
+					event.state.items.includes('glider') && !this.gliderBefore
+						? { explore: 'holdToFly' }
+						: { doctor: { say: 'goodbye' } }
+				);
 				break;
 			case 'nothing-to-interact':
-				if (event.playerId === game.playerId) this.say({ explore: 'notAtTent' });
+				// A tap of Space with nothing in front, the glider owned: that is how to fly.
+				if (event.playerId !== game.playerId) break;
+				this.say(
+					this.talkKey === 'space' && game.items.includes('glider')
+						? { explore: 'holdToFly' }
+						: { explore: 'notAtTent' }
+				);
+				break;
+			case 'take-off-refused':
+				if (event.playerId === game.playerId && event.reason === 'nowhere-to-land') {
+					this.say({ explore: 'tooFar' });
+				}
 				break;
 			case 'party-edited': {
 				const notice = leadNotice(event.party, event.events, game.realm);
@@ -328,6 +368,15 @@ class HudView {
 	/** Say how going to another player went. */
 	presence(line: PresenceLine, name: string): void {
 		this.say({ presence: line, name });
+	}
+
+	/**
+	 * Which key the talk explore is about to send came from (`input/keyboard.ts`):
+	 * the authority's answer carries no key, and a tap of Space with nothing in
+	 * front says how to fly where Enter says how to find a doctor.
+	 */
+	talked(key: TalkKey): void {
+		this.talkKey = key;
 	}
 
 	/** Put a line on the message line; it stays for `MESSAGE_SECONDS` of the HUD on screen. */

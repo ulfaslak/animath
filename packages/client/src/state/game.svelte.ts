@@ -64,6 +64,11 @@ class GameView {
 	 * `tile-cleared`. Immutable, so it is replaced, never changed in place.
 	 */
 	edits = $state.raw<WorldEdits>(WorldEdits.none);
+	/**
+	 * Up in the air with the glider, as the authority has it: from `took-off`
+	 * until `landed`. Meanwhile `pos` is the tile the glider is over.
+	 */
+	flying = $state(false);
 
 	apply(event: GameEvent): void {
 		switch (event.type) {
@@ -80,7 +85,20 @@ class GameView {
 				this.tokens = event.tokens;
 				this.items = event.items;
 				this.edits = WorldEdits.decode(event.edits);
+				this.flying = false;
 				this.mode = 'explore';
+				break;
+			case 'took-off':
+				if (event.playerId === this.playerId) this.flying = true;
+				break;
+			case 'glided':
+				if (event.playerId === this.playerId) this.pos = event.pos;
+				break;
+			case 'landed':
+				if (event.playerId !== this.playerId) break;
+				this.pos = event.pos;
+				this.facing = event.dir;
+				this.flying = false;
 				break;
 			case 'name-chosen':
 				if (event.playerId === this.playerId) this.name = event.name;

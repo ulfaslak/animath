@@ -102,6 +102,21 @@ export const BOAT_COLORS = {
 	pennant: COLORS.playerShirt
 } as const;
 
+/**
+ * The paraglider, in the shop picture's colours (`ItemIcon`): cells of the
+ * trainer's coral and the figures' cream, never the trainer's blue nor a
+ * grass green, so the wing reads against the sky and the meadow alike; the
+ * lines near-black. Another player's canopy is their shirt's colour and cream.
+ */
+export const GLIDER_COLORS = {
+	canopy: COLORS.playerShirt,
+	cream: COLORS.white,
+	line: COLORS.dark,
+	/** The shadow under a trainer in the air, and the landing ring's cream. */
+	shadow: COLORS.dark,
+	ring: COLORS.white
+} as const;
+
 /** Trees grow only in the forest: three dark greens, mixed at random, so it reads as deep woods. */
 export const CANOPY: readonly number[] = [0x2c7a43, 0x3a8f4c, 0x2f8a55];
 

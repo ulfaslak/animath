@@ -31,7 +31,9 @@ export type CueName =
 	| 'won'
 	| 'chop'
 	| 'crack'
-	| 'travel';
+	| 'travel'
+	| 'whoosh'
+	| 'land';
 
 export type Wave = 'sine' | 'triangle' | 'noise';
 
@@ -348,6 +350,40 @@ export const CUES: Record<CueName, Cue> = {
 			pluck(0.62, E6, 0.4, 0.16, 'sine'),
 			pluck(0.69, G6, 0.45, 0.16, 'sine'),
 			pluck(0.76, C7, 0.35, 0.08)
+		]
+	},
+	/**
+	 * Up and away with the glider: a rush of air rising as the canopy fills,
+	 * and a soft rising tone with it.
+	 */
+	whoosh: {
+		voices: [
+			{
+				at: 0,
+				dur: 0.6,
+				wave: 'noise',
+				freq: 0,
+				gain: 0.22,
+				attack: 0.15,
+				filter: { type: 'bandpass', freq: 350, to: 1800, q: 0.9 }
+			},
+			{ at: 0.02, dur: 0.45, wave: 'sine', freq: 330, to: 660, gain: 0.07, attack: 0.1 }
+		]
+	},
+	/** Down on the ground: a soft thud of feet on grass, and a small happy two-note settle. */
+	land: {
+		voices: [
+			{
+				at: 0,
+				dur: 0.16,
+				wave: 'noise',
+				freq: 0,
+				gain: 0.2,
+				attack: 0.01,
+				filter: { type: 'lowpass', freq: 500, to: 220 }
+			},
+			pluck(0.06, G5, 0.14, 0.12, 'sine'),
+			pluck(0.13, C6, 0.2, 0.12, 'sine')
 		]
 	}
 };

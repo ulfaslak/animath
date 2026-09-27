@@ -51,6 +51,43 @@ export function trainerStep(
 	return { x, y: y + lift, z, afloat };
 }
 
+/** Seconds the glider takes to fly one tile (walking is `STEP_SECONDS`): 20 tiles in 3 s. */
+export const GLIDE_SECONDS = 0.15;
+/** How high over the ground under them a trainer flies with the glider: over the trees and the snowy peaks. */
+export const CRUISE_HEIGHT = 2.1;
+
+/**
+ * Where a trainer is with the glider: `lift` of the way (0 on the ground, 1
+ * at `CRUISE_HEIGHT`) from where `trainerStep` puts them up into the air.
+ * Up there they glide from tile to tile without a hop, over the ground as it
+ * rises and falls (the water's top out on a lake), and their boat, if they
+ * own one, rides on their back: taking off from the boat swings it onto
+ * their back as they rise, and coming down onto the water swings it under
+ * them again. `lift` is eased by the caller.
+ */
+export function trainerPose(
+	seed: number,
+	from: GridPos,
+	to: GridPos,
+	progress: number,
+	boatOwned: boolean,
+	calm: boolean,
+	lift: number
+): { x: number; y: number; z: number; afloat: number } {
+	const ground = trainerStep(seed, from, to, progress, boatOwned, calm);
+	const up = Math.min(1, Math.max(0, lift));
+	if (up === 0) return ground;
+	const t = progress * progress * (3 - 2 * progress);
+	const topAt = (p: GridPos) => groundTop(tileAtWorld(seed, p.x, p.y));
+	const air = topAt(from) + (topAt(to) - topAt(from)) * t + CRUISE_HEIGHT;
+	return {
+		x: ground.x,
+		y: ground.y + (air - ground.y) * up,
+		z: ground.z,
+		afloat: ground.afloat * (1 - up)
+	};
+}
+
 /** A figure's turn about y for each way it faces: figures face +z (grid "down") at rest. */
 export const FACING_ANGLE: Record<Direction, number> = {
 	up: Math.PI,

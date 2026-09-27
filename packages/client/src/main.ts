@@ -268,7 +268,8 @@ window.addEventListener('keydown', (e) => {
 	else if (screen === 'pause') pauseController.onKey(e);
 	else if (screen === 'explore') {
 		keyboard.keydown(e);
-		pauseController.onKey(e);
+		// Up in the air Escape does nothing: a flight is over in three seconds.
+		if (!explore.flying) pauseController.onKey(e);
 	}
 	keyboard.setEnabled(exploreInput());
 	noteScreen();
