@@ -8,6 +8,7 @@ import {
 	listKey,
 	menuKey,
 	rowOf,
+	WILD_MOVES,
 	type Menu
 } from '../src/battle/menu';
 import { levelKey, rowKey } from '../src/input/press';
@@ -20,8 +21,9 @@ import { levelKey, rowKey } from '../src/input/press';
  * the top row's level relabelled the bottom row, and a squirrel's levels
  * read "easy, easy, medium".
  */
+const MOVES = WILD_MOVES;
 const press = (menu: Menu, spec: AnimalSpec, ...keys: string[]): Menu =>
-	keys.reduce((m, key) => menuKey(m, key, spec).menu, menu);
+	keys.reduce((m, key) => menuKey(m, key, spec, MOVES).menu, menu);
 
 const words = (spec: AnimalSpec, menu: Menu) => attackRows(spec, menu.levels).map((r) => r.word);
 
@@ -64,16 +66,16 @@ describe('menu keys', () => {
 	for (const spec of ANIMALS) {
 		it(`${spec.id}: the cursor wraps, and each row does its own thing`, () => {
 			const n = spec.attacks.length;
-			const rows = actionCount(n);
+			const rows = actionCount(n, MOVES);
 			expect(rows).toBe(n + 3);
 			expect(press({ cursor: 0, levels: {} }, spec, 'ArrowUp').cursor).toBe(rows - 1);
 			expect(press({ cursor: rows - 1, levels: {} }, spec, 's').cursor).toBe(0);
 
 			for (let cursor = 0; cursor < rows; cursor++) {
 				const menu: Menu = { cursor, levels: {} };
-				const action = actionAt(cursor, n);
-				const enter = menuKey(menu, 'Enter', spec).choice;
-				const three = menuKey(menu, '3', spec);
+				const action = actionAt(cursor, n, MOVES);
+				const enter = menuKey(menu, 'Enter', spec, MOVES).choice;
+				const three = menuKey(menu, '3', spec, MOVES);
 				if (action.kind === 'attack') {
 					expect(enter).toEqual({ kind: 'attack', attackIndex: cursor + 1, level: 1 });
 					// A level key sets that row's level and attacks with it.
@@ -82,16 +84,54 @@ describe('menu keys', () => {
 				} else {
 					expect(enter).toEqual({ kind: action.kind });
 					expect(three.choice).toBeUndefined();
-					// Left and right do nothing off an attack row.
-					expect(press(menu, spec, 'ArrowLeft', 'ArrowRight')).toEqual(menu);
+					// Left and right go along the row of moves and back, and set no level.
+					expect(press(menu, spec, 'ArrowRight', 'ArrowLeft')).toEqual(menu);
+					expect(press(menu, spec, 'd', 'a')).toEqual(menu);
 				}
 			}
-			expect(actionAt(rowOf('leash', n), n)).toEqual({ kind: 'leash' });
-			expect(actionAt(rowOf('switch', n), n)).toEqual({ kind: 'switch' });
-			expect(actionAt(rowOf('run', n), n)).toEqual({ kind: 'run' });
-			expect(menuKey({ cursor: 0, levels: {} }, 'x', spec).handled).toBe(false);
+			expect(actionAt(rowOf('leash', n, MOVES), n, MOVES)).toEqual({ kind: 'leash' });
+			expect(actionAt(rowOf('switch', n, MOVES), n, MOVES)).toEqual({ kind: 'switch' });
+			expect(actionAt(rowOf('run', n, MOVES), n, MOVES)).toEqual({ kind: 'run' });
+			expect(menuKey({ cursor: 0, levels: {} }, 'x', spec, MOVES).handled).toBe(false);
+		});
+
+		it(`${spec.id}: left and right go along Leash, Switch and Run, round and round, never onto an attack`, () => {
+			const n = spec.attacks.length;
+			const along = (from: string, ...keys: string[]) => {
+				const start = rowOf(from as (typeof MOVES)[number], n, MOVES);
+				const menu = press({ cursor: start, levels: {} }, spec, ...keys);
+				// No attack's level moved on the way.
+				expect(attackRows(spec, menu.levels).map((r) => r.level)).toEqual(Array(n).fill(1));
+				return actionAt(menu.cursor, n, MOVES).kind;
+			};
+			expect(along('leash', 'ArrowRight')).toBe('switch');
+			expect(along('switch', 'd')).toBe('run');
+			expect(along('run', 'ArrowRight')).toBe('leash');
+			expect(along('leash', 'ArrowLeft')).toBe('run');
+			expect(along('run', 'a', 'a')).toBe('leash');
+			expect(along('switch', 'ArrowRight', 'ArrowRight', 'ArrowRight')).toBe('switch');
 		});
 	}
+
+	it('works the same on any row of moves: a match has Switch and Leave', () => {
+		const bear = ANIMALS.find((a) => a.id === 'bear')!;
+		const moves = ['switch', 'leave'] as const;
+		const n = bear.attacks.length;
+		expect(actionCount(n, moves)).toBe(n + 2);
+		expect(actionAt(n + 1, n, moves)).toEqual({ kind: 'leave' });
+		const keys = (cursor: number, ...list: string[]) =>
+			list.reduce(
+				(c, key) => menuKey({ cursor: c, levels: {} }, key, bear, moves).menu.cursor,
+				cursor
+			);
+		expect(keys(n, 'ArrowRight')).toBe(n + 1);
+		expect(keys(n + 1, 'ArrowRight')).toBe(n);
+		expect(keys(n + 1, 'ArrowDown')).toBe(0);
+		expect(keys(0, 'ArrowUp')).toBe(n + 1);
+		expect(menuKey({ cursor: n + 1, levels: {} }, 'Enter', bear, moves).choice).toEqual({
+			kind: 'leave'
+		});
+	});
 
 	it('uses each level word once, in order', () => {
 		const squirrel = ANIMALS[0]!;
@@ -108,24 +148,26 @@ describe('taps on the menu', () => {
 	for (const spec of ANIMALS) {
 		it(`${spec.id}: a tap on a row only highlights it, a level button only sets its level; neither picks`, () => {
 			const n = spec.attacks.length;
-			const rows = actionCount(n);
+			const rows = actionCount(n, MOVES);
 			for (let from = 0; from < rows; from++) {
 				for (let row = 0; row < rows; row++) {
 					// A tap on any row, the highlighted one too, moves the cursor there and picks nothing.
-					const tapped = menuKey({ cursor: from, levels: {} }, rowKey(row), spec);
+					const tapped = menuKey({ cursor: from, levels: {} }, rowKey(row), spec, MOVES);
 					expect(tapped).toEqual({ menu: { cursor: row, levels: {} }, handled: true });
 				}
 				// A row past the last is nothing to tap.
-				expect(menuKey({ cursor: from, levels: {} }, rowKey(rows), spec).menu.cursor).toBe(from);
+				expect(menuKey({ cursor: from, levels: {} }, rowKey(rows), spec, MOVES).menu.cursor).toBe(
+					from
+				);
 				for (const level of ATTACK_LEVELS) {
-					const set = menuKey({ cursor: from, levels: {} }, levelKey(level), spec);
+					const set = menuKey({ cursor: from, levels: {} }, levelKey(level), spec, MOVES);
 					expect(set.choice).toBeUndefined();
 					expect(set.menu.cursor).toBe(from);
 					const words = attackRows(spec, set.menu.levels).map((r) => r.level);
 					// Only the highlighted attack takes the level; off an attack, nothing changes.
 					expect(words).toEqual(
 						spec.attacks.map((_, i) =>
-							i === from && actionAt(from, n).kind === 'attack' ? level : 1
+							i === from && actionAt(from, n, MOVES).kind === 'attack' ? level : 1
 						)
 					);
 				}
@@ -136,7 +178,7 @@ describe('taps on the menu', () => {
 	it('a tap, a level, then Enter: the tapped attack goes, at the level tapped', () => {
 		const squirrel = ANIMALS[0]!;
 		const menu = press({ cursor: 0, levels: {} }, squirrel, rowKey(1), levelKey(3));
-		expect(menuKey(menu, 'Enter', squirrel).choice).toEqual({
+		expect(menuKey(menu, 'Enter', squirrel, MOVES).choice).toEqual({
 			kind: 'attack',
 			attackIndex: 2,
 			level: 3

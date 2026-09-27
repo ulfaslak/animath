@@ -12,28 +12,38 @@ import { attackName } from '../names';
  * sees without a screen.
  */
 
-/** What a row of the action menu does: every attack in order, then Leash, Switch and Run. */
-export type BattleAction =
-	{ kind: 'attack'; index: number } | { kind: 'leash' } | { kind: 'switch' } | { kind: 'run' };
+/**
+ * The moves in the row under the attacks, in order: a wild battle's Leash,
+ * Switch and Run. The menu takes the row as a list, so a screen with other
+ * moves (a friendly match's Switch and Leave) passes its own and every
+ * function here works the same on it.
+ */
+export const WILD_MOVES = ['leash', 'switch', 'run'] as const;
+export type WildMove = (typeof WILD_MOVES)[number];
 
-const AFTER_ATTACKS = ['leash', 'switch', 'run'] as const;
-type OtherAction = (typeof AFTER_ATTACKS)[number];
+/** What a row of the action menu does: every attack in order, then the moves. */
+export type BattleAction<M extends string = WildMove> =
+	{ kind: 'attack'; index: number } | { kind: M };
 
-/** What the menu row at `cursor` does, given how many attacks the animal has. */
-export function actionAt(cursor: number, attackCount: number): BattleAction {
+/** What the menu row at `cursor` does, given how many attacks the animal has and the moves after them. */
+export function actionAt<M extends string>(
+	cursor: number,
+	attackCount: number,
+	moves: readonly M[]
+): BattleAction<M> {
 	if (cursor < attackCount) return { kind: 'attack', index: cursor + 1 };
-	const i = Math.min(cursor - attackCount, AFTER_ATTACKS.length - 1);
-	return { kind: AFTER_ATTACKS[i]! };
+	const i = Math.min(cursor - attackCount, moves.length - 1);
+	return { kind: moves[i]! };
 }
 
-/** Rows in the action menu: every attack, then Leash, Switch and Run. */
-export function actionCount(attackCount: number): number {
-	return attackCount + AFTER_ATTACKS.length;
+/** Rows in the action menu: every attack, then the moves. */
+export function actionCount(attackCount: number, moves: readonly string[]): number {
+	return attackCount + moves.length;
 }
 
-/** The row Leash, Switch or Run sits on. */
-export function rowOf(kind: OtherAction, attackCount: number): number {
-	return attackCount + AFTER_ATTACKS.indexOf(kind);
+/** The row a move (Leash, Switch, Run) sits on. */
+export function rowOf<M extends string>(kind: M, attackCount: number, moves: readonly M[]): number {
+	return attackCount + moves.indexOf(kind);
 }
 
 /**
@@ -92,24 +102,23 @@ export interface Menu {
 	levels: Levels;
 }
 
-/** What a key on the action menu picked. `switch` opens the party list. */
-export type MenuChoice =
-	| { kind: 'attack'; attackIndex: number; level: AttackLevel }
-	| { kind: 'leash' }
-	| { kind: 'switch' }
-	| { kind: 'run' };
+/** What a key on the action menu picked: an attack at its level, or a move (`switch` opens the party list). */
+export type MenuChoice<M extends string = WildMove> =
+	{ kind: 'attack'; attackIndex: number; level: AttackLevel } | { kind: M };
 
-export interface MenuKey {
+export interface MenuKey<M extends string = WildMove> {
 	menu: Menu;
 	/** False for a key the menu has no use for, so the browser keeps it. */
 	handled: boolean;
-	choice?: MenuChoice;
+	choice?: MenuChoice<M>;
 }
 
 /**
- * One key on the action menu of the animal `spec`. Up/down (W/S) move the
- * cursor, wrapping round; left/right (A/D) change the highlighted attack's
- * own level and nothing else; 1/2/3 set that level and attack at once;
+ * One key on the action menu of the animal `spec`, whose attacks are
+ * followed by `moves`. Up/down (W/S) move the cursor through every row,
+ * wrapping round; on an attack, left/right (A/D) change its own level and
+ * nothing else, and 1/2/3 set that level and attack at once; on the moves,
+ * which have no level, left/right go along their row, wrapping round;
  * Enter or Space pick the highlighted row. `key` is the key's `keyName`, so
  * a W typed with Caps Lock on is a `w` here.
  *
@@ -118,15 +127,21 @@ export interface MenuKey {
  * do; neither ever picks. A pick spends the turn, so it is Go's (Enter's)
  * alone: the kid sees what the row does, and at what level, before it goes.
  */
-export function menuKey(menu: Menu, key: string, spec: AnimalSpec): MenuKey {
-	const rows = actionCount(spec.attacks.length);
+export function menuKey<M extends string>(
+	menu: Menu,
+	key: string,
+	spec: AnimalSpec,
+	moves: readonly M[]
+): MenuKey<M> {
+	const attacks = spec.attacks.length;
+	const rows = actionCount(attacks, moves);
 	const cursor = Math.min(Math.max(0, menu.cursor), rows - 1);
 	const row = tappedRow(key);
 	if (row !== undefined) {
 		return { menu: row < rows ? { ...menu, cursor: row } : menu, handled: true };
 	}
-	const action = actionAt(cursor, spec.attacks.length);
-	const attack = action.kind === 'attack' ? action.index : 0;
+	const action = actionAt(cursor, attacks, moves);
+	const attack = 'index' in action ? action.index : 0;
 	const level = attack ? levelOf(menu.levels, spec.id, spec.attacks[attack - 1]!.id) : 1;
 	const setLevel = (to: AttackLevel): Menu => ({
 		cursor,
@@ -147,9 +162,11 @@ export function menuKey(menu: Menu, key: string, spec: AnimalSpec): MenuKey {
 		case 'a':
 		case 'ArrowRight':
 		case 'd': {
-			if (!attack) return { menu, handled: true };
 			const step = key === 'ArrowLeft' || key === 'a' ? -1 : 1;
-			return { menu: setLevel(clampLevel(level + step)), handled: true };
+			if (attack) return { menu: setLevel(clampLevel(level + step)), handled: true };
+			// A move has no level: along the row of moves instead, round and round.
+			const along = (cursor - attacks + step + moves.length) % moves.length;
+			return { menu: { ...menu, cursor: attacks + along }, handled: true };
 		}
 		case '1':
 		case '2':
@@ -167,7 +184,7 @@ export function menuKey(menu: Menu, key: string, spec: AnimalSpec): MenuKey {
 			if (attack) {
 				return { menu, handled: true, choice: { kind: 'attack', attackIndex: attack, level } };
 			}
-			return { menu, handled: true, choice: { kind: action.kind as OtherAction } };
+			return { menu, handled: true, choice: { kind: action.kind as M } };
 	}
 	return { menu, handled: false };
 }
