@@ -571,10 +571,10 @@ battle:
     fledSea: '{animal.theWild} bliver i vandet.'
     joined: '{animal.the} kommer med på dit hold!'
     lost: Dine dyr skal hvile sig. Heksedoktoren gør dem friske igen!
-    doctorCame: En heksedoktor kom forbi og passede godt på dine dyr. Nu har alle det godt igen!
 
 doctor:
   title: Dyrlæge
+  came: En heksedoktor kom forbi og passede godt på dine dyr. Nu har alle det godt igen!
   hello: Hej! Hvem skal jeg hjælpe i dag?
   helloAllFit: Hej! Alle dine dyr er friske og glade.
   letsHelp: Lad os hjælpe {animal.the}! Kan du løse den her?

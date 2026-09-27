@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { ANIMALS, canFightIn, getAnimal } from '../src/animals/catalog.js';
 import { REALMS, type AnimalInstance, type Realm } from '../src/animals/types.js';
-import { doctorComes, knockOut } from '../src/doctor/knockout.js';
+import { careFor, doctorComes, knockOut } from '../src/doctor/knockout.js';
 import {
 	canGoHome,
 	keepsATeam,
@@ -1230,5 +1230,28 @@ describe('needsDoctor and doctorComes', () => {
 		expect(doctorComes(PROTOTYPE, walled, tired)).toBe(true);
 		expect(doctorComes(PROTOTYPE, spawnPoint(PROTOTYPE), tired)).toBe(false);
 		expect(doctorComes(PROTOTYPE, walled, partyOf(['fox', 1]))).toBe(false);
+	});
+
+	it('careFor, the rule where a go-to or a trip puts the player: the doctor where one is needed and none is near, else the team as it is', () => {
+		const walled = walledIn();
+		const spawn = spawnPoint(PROTOTYPE);
+		const tired = deepFreeze(partyOf(['fox', 0], ['crab', 3]));
+		expect(careFor(PROTOTYPE, walled, tired)).toEqual({
+			party: partyOf(['fox'], ['crab']),
+			doctorCame: true
+		});
+		// A tent a walk away, or a team that can battle here: copies of the team as it is.
+		for (const [pos, team] of [
+			[spawn, tired],
+			[walled, deepFreeze(partyOf(['fox', 1]))]
+		] as const) {
+			const care = careFor(PROTOTYPE, pos, team);
+			expect(care).toEqual({ party: team, doctorCame: false });
+			expect(care.party[0]).not.toBe(team[0]);
+		}
+		// And it is the knock-out rule's own: a lost battle there gets exactly the same.
+		expect(knockOut(PROTOTYPE, walled, partyOf(['fox', 0]))).toEqual(
+			careFor(PROTOTYPE, walled, partyOf(['fox', 0]))
+		);
 	});
 });

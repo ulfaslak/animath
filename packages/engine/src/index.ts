@@ -80,7 +80,7 @@ export {
 	needsHealing
 } from './doctor/party.js';
 export { homeTokens, tokenPuzzle, tokensForTier } from './doctor/tokens.js';
-export { doctorComes, knockOut } from './doctor/knockout.js';
+export { careFor, doctorComes, knockOut } from './doctor/knockout.js';
 export type { KnockOut, KnockOutOptions } from './doctor/knockout.js';
 export {
 	ITEMS,

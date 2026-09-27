@@ -33,8 +33,11 @@ export const LINES = {
 	'battle.closing.joined': { animal: 'species' },
 	/** A battle lost: the team is tired where it stood, and walks to a doctor. */
 	'battle.closing.lost': {},
-	/** A battle lost with no tent within reach: a doctor came and looked after everyone. */
-	'battle.closing.doctorCame': {}
+	/**
+	 * A team that needs the doctor with no tent within reach, after a lost
+	 * battle, a go-to or a trip: a doctor came and looked after everyone.
+	 */
+	'doctor.came': {}
 } as const satisfies Record<string, Record<string, LineParamKind>>;
 
 export type LineKey = keyof typeof LINES;

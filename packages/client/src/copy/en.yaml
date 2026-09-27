@@ -677,12 +677,13 @@ battle:
     joined: '{animal.name} joins your team!'
     # Under "Good try!": the team is tired where it stood, and walks to a doctor.
     lost: Your animals need a rest. The witch doctor will make them feel all better!
-    # The same, with no tent near: a doctor came and helped everyone right there.
-    doctorCame: A witch doctor came by and looked after your animals. Everyone feels better!
 
 doctor:
   # The name tag in front of what the doctor says.
   title: Doctor
+  # The team needs the doctor and no tent is near (after a lost battle, a go-to or a trip):
+  # a doctor came and helped everyone right there. Under "Good try!" and on the message line.
+  came: A witch doctor came by and looked after your animals. Everyone feels better!
   # Opening the card with someone to help.
   hello: Hello! Who needs help today?
   # Opening the card with nobody to help.

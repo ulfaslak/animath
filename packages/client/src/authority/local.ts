@@ -10,6 +10,7 @@ import {
 	arrivalSpot,
 	bundled,
 	canTalkToDoctor,
+	careFor,
 	checkName,
 	chooseStarter,
 	clearTile,
@@ -529,6 +530,27 @@ export class LocalAuthority implements Authority {
 			pos: { ...arrival.pos },
 			dir: arrival.facing
 		});
+		this.careForTeam();
+	}
+
+	/**
+	 * The player was put somewhere without walking or flying there (beside a
+	 * friend, in another world): a team that needs the doctor with no tent
+	 * within reach of it gets one, as after a battle lost there (the engine's
+	 * `careFor`), and the client says so from `doctor.came`. Every other team
+	 * stays as it is. A walk never leaves the ground a tent is reached over,
+	 * and a glide can always be flown back, so only these ask; a loaded save
+	 * never does (`restoreGame`), so a reload is never a heal.
+	 */
+	private careForTeam(): void {
+		const care = careFor(this.seed, this.pos, this.party, this.edits, {
+			gear: gearOf({ items: this.items }),
+			realm: this.realm()
+		});
+		if (!care.doctorCame) return;
+		this.party = care.party;
+		this.emit({ type: 'party-changed', party: this.partyCopy() });
+		this.emit({ type: 'message', line: { key: 'doctor.came', params: {} } });
 	}
 
 	/**
@@ -571,6 +593,7 @@ export class LocalAuthority implements Authority {
 			edits: [...this.edits.encode()],
 			firstVisit: trip.firstVisit
 		});
+		this.careForTeam();
 	}
 
 	/** Where the player stands: out on the water in the boat, or on land. */
@@ -718,7 +741,7 @@ export class LocalAuthority implements Authority {
 				});
 				this.party = out.party;
 				line = out.doctorCame
-					? { key: 'battle.closing.doctorCame', params: {} }
+					? { key: 'doctor.came', params: {} }
 					: { key: 'battle.closing.lost', params: {} };
 				break;
 			}

@@ -172,9 +172,9 @@ describe('the explore message line', () => {
 		hud.apply({ type: 'message', line: { key: 'battle.closing.lost', params: {} } });
 		hud.tick(0);
 		expect(hud.message).toBe(t('battle.closing.lost'));
-		hud.apply({ type: 'message', line: { key: 'battle.closing.doctorCame', params: {} } });
+		hud.apply({ type: 'message', line: { key: 'doctor.came', params: {} } });
 		hud.tick(0);
-		expect(hud.message).toBe(t('battle.closing.doctorCame'));
+		expect(hud.message).toBe(t('doctor.came'));
 	});
 
 	it('while the team is tired, the line under it says to walk to a tent, until a doctor has helped', () => {

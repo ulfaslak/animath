@@ -18,14 +18,19 @@ import { needsDoctor, validateParty } from './party.js';
  * One exception keeps a kid from being stranded with a team that can't
  * battle: when no tent is within `TENT_SEARCH_STEPS` of the player, the way
  * they get about (walled in, or simply no tent that close), a doctor comes to
- * them and looks after the whole party where they stand (`doctorComes`). A
- * loaded save asks the same (`restoreGame`).
+ * them and looks after the whole party where they stand (`careFor`). The live
+ * game asks it wherever a player is put without walking or flying there: a
+ * lost battle, a go-to, a trip to another world. A walk never leaves the
+ * ground a tent is reached over, and a glide can always be flown back, so
+ * nothing else asks; a loaded save never does, since it holds what the live
+ * game left, and asking again there would heal a team the live game kept
+ * tired.
  */
 export interface KnockOut {
 	/**
-	 * The whole party, in the same order: as the battle left it, or every
-	 * animal at full HP when a doctor came. What is said about it is the
-	 * client's to word, from `doctorCame`.
+	 * The whole party, in the same order: as it was (after a battle, as the
+	 * battle left it), or every animal at full HP when a doctor came. What is
+	 * said about it is the client's to word, from `doctorCame`.
 	 */
 	party: AnimalInstance[];
 	/** No tent was within reach, so a doctor came to the player and looked after everyone. */
@@ -36,10 +41,10 @@ export interface KnockOutOptions {
 	/** What the player carries: with the boat the way to a tent may cross water. */
 	gear?: Gear;
 	/**
-	 * Where the battle was fought, land by default. Out on the water a battle
-	 * is lost once every animal that swims is tired: animals that can't swim
-	 * may still be standing, in the boat, and then the team can still battle
-	 * on land and no doctor comes.
+	 * Where the player stands (where the battle was fought), land by default.
+	 * Out on the water a battle is lost once every animal that swims is tired:
+	 * animals that can't swim may still be standing, in the boat, and then the
+	 * team can still battle on land and no doctor comes.
 	 */
 	realm?: Realm;
 }
@@ -66,6 +71,22 @@ export function knockOut(
 			`knockOut: only a party with every animal that fights on ${realm} knocked out has lost`
 		);
 	}
+	return careFor(seed, pos, party, edits, options);
+}
+
+/**
+ * What a team gets where the player now stands, put there without walking or
+ * flying (after a lost battle, a go-to, a trip to another world): every
+ * animal at full HP when a doctor comes (`doctorComes`), else the party as it
+ * is. Copies either way; the party given is never changed.
+ */
+export function careFor(
+	seed: number,
+	pos: GridPos,
+	party: readonly AnimalInstance[],
+	edits: WorldEdits = WorldEdits.none,
+	options: KnockOutOptions = {}
+): KnockOut {
 	const doctorCame = doctorComes(seed, pos, party, edits, options);
 	return {
 		party: party.map((a) => (doctorCame ? { ...a, hp: getAnimal(a.speciesId).maxHp } : { ...a })),

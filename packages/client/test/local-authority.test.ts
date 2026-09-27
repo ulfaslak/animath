@@ -656,7 +656,7 @@ describe('LocalAuthority: a tired team walks to the doctor', () => {
 			'message'
 		]);
 		expect(s.authority.snapshot().pos).toEqual(POCKET);
-		expect(party(s)).toEqual([animal('squirrel')]);
+		expect(party(s)).toEqual([{ ...team[0]!, hp: getAnimal('squirrel').maxHp }]);
 		expect(lastMessage(s)).toBe('doctor.came');
 		// And back to World 42's spawn, a tent a walk away: nobody comes to a fit team, nor would
 		// to a tired one there.
@@ -1897,7 +1897,7 @@ describe('LocalAuthority: trees and rocks', () => {
 			'party-changed',
 			'message'
 		]);
-		expect(lastMessage(walled)).toBe('battle.closing.doctorCame');
+		expect(lastMessage(walled)).toBe('doctor.came');
 		expect(party(walled)).toEqual([{ ...team[0]!, hp: getAnimal('squirrel').maxHp }]);
 		expect(walled.authority.snapshot().pos).toEqual(pos);
 	});
