@@ -511,18 +511,18 @@ battle:
   tired: '{animal.name} is tired.'
   wildTired: '{animal.wild} is tired!'
   gotAway: You got away!
-  # The puzzle area while the action menu is up, before anything is picked: a
-  # title for what the highlighted row does, and the key reminder for that row.
-  # Only an attack row has a level for left and right to change.
+  # The preview card while the action menu is up, before anything is picked:
+  # the title of the highlighted move (an attack's title is its name), and the
+  # key reminder for it. On an attack left and right change its level; on the
+  # row of moves they go along the row.
   menu:
-    attack: Pick an attack
     leash: Throw the leash
     switch: Switch animals
     run: Run away
-    keys: ↑ ↓ choose · Enter go
+    keys: ↑ ↓ ← → choose · Enter go
     keysAttack: ↑ ↓ choose · ← → how hard · Enter go
-    # A greyed row (Switch with nobody to send in), where Enter does nothing.
-    keysGreyed: ↑ ↓ choose
+    # A greyed move (Switch with nobody to send in), where Enter does nothing.
+    keysGreyed: ↑ ↓ ← → choose
     # The same, with the touch controls on. "Go!" is battle.goButton.
     touch: Tap Go!
     touchAttack: Tap an attack, then Go!
@@ -534,6 +534,9 @@ battle:
   # {kinds}: what its sums are about (the words below, in an "or" list);
   # {animal}: the wild animal it would hit; {damage}: the HP it would lose.
   attackDetail: '{attack} on {level}: {kinds}. It hits {animal.theWild} for {damage}.'
+  # On the preview card, when the highlighted attack at its level would bring
+  # the wild animal to 0 HP.
+  tiresOut: That would tire it out!
   # What a puzzle looks like to the kid, as {kinds} lists the ones an attack's
   # puzzles can be at its level (the engine's puzzleTopics). `missing` is a
   # number missing from a sum ("7 + ? = 12"); one missing from a times table
@@ -546,7 +549,7 @@ battle:
     missing: missing numbers
     sequence: number patterns
     sqrt: square roots
-  # An attack's three levels: the highlighted row's buttons, and every other row's word.
+  # An attack's three levels: the level picker's buttons, and the word on each attack's tile.
   level:
     easy: easy
     medium: medium

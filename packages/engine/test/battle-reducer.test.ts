@@ -16,6 +16,7 @@ import {
 	startBattle
 } from '../src/battle/reducer.js';
 import type { BattleEvent, BattleIntent, BattleState, BattleStep } from '../src/battle/types.js';
+import { landHit } from '../src/index.js';
 import { puzzleDifficulty } from '../src/puzzles/difficulty.js';
 import { checkAnswer, getGenerator } from '../src/puzzles/registry.js';
 import { Rng, hashInts } from '../src/rng.js';
@@ -183,7 +184,8 @@ describe('replay', () => {
 				expect(b.state).toEqual(a.state);
 			}
 		}
-	});
+		// About 0.55 s alone (620 battles, each played twice); 2 s at a load average of 40.
+	}, 30_000);
 
 	it('a different seed changes the battle', () => {
 		const model: PlayerModel = { accuracy: 1, policy: 'max' };
@@ -342,8 +344,9 @@ describe('every battle in the catalog', () => {
 				}
 			}
 			// 0.3 to 1.5 s per species at a load average of 28 (about 80 battles each, every
-			// step checked); a minute leaves room for a machine twice as loaded and more.
-		}, 60_000);
+			// step checked). At 25 seeds a pair, before #89, one took 1.2 to 3.4 s alone and the
+			// frog's 40 s at a load average of 54: two minutes leaves that room.
+		}, 120_000);
 	}
 
 	it('reached every outcome, and switched both ways', () => {
@@ -589,7 +592,8 @@ describe('answers', () => {
 				}
 			}
 		}
-	});
+		// About 0.5 s alone (3,720 wrong answers); 1.4 s at a load average of 40.
+	}, 30_000);
 
 	it('a correct answer always deals exactly the formula damage, for every attack and level', () => {
 		for (const p of ids) {
@@ -630,6 +634,41 @@ describe('answers', () => {
 				}
 			}
 		}
+	});
+
+	it('landHit, as a screen previews a hit, is exactly the hit a right answer lands, a knock-out included', () => {
+		// The battle panel shows the damage, the HP bar's lighter segment and "That
+		// would tire it out!" from the public `landHit` on the state on screen,
+		// before a pick; the reducer must land exactly that, for every attack at
+		// every level, against a wild animal at full HP and at every HP round the hit.
+		const bad: string[] = [];
+		for (const p of ids) {
+			const spec = getAnimal(p);
+			const big = arena(p, 'bear') ? 'bear' : 'whale';
+			for (let n = 1; n <= spec.attacks.length; n++) {
+				for (const level of ATTACK_LEVELS) {
+					const damage = attackDamage(spec, n, level, true);
+					const hps = [100, damage + 1, damage, damage - 1, 1].filter((hp) => hp > 0 && hp <= 100);
+					for (const hp of hps) {
+						const start = startBattle(makeParty([p]), makeWild(big, hp), { realm: arena(p, big)! });
+						const preview = landHit(spec, n, level, start.opponent);
+						const { state, events } = attackAndAnswer(start, 7, n, level);
+						const hit = events.find((e) => e.type === 'hit' && e.attacker === 'player');
+						const tired = events.some((e) => e.type === 'fainted' && e.side === 'opponent');
+						const got = hit?.type === 'hit' ? `${hit.damage} to ${hit.targetHp}` : 'no hit';
+						const want = `${preview.damage} to ${preview.target.hp}`;
+						if (got !== want)
+							bad.push(`${p} ${n}/${level} at ${hp}: landed ${got}, previewed ${want}`);
+						if (tired !== (preview.target.hp === 0) || (outcome(state) === 'won') !== tired) {
+							bad.push(
+								`${p} ${n}/${level} at ${hp}: tired ${tired}, previewed ${preview.target.hp}`
+							);
+						}
+					}
+				}
+			}
+		}
+		expect(bad).toEqual([]);
 	});
 });
 
@@ -748,7 +787,8 @@ describe('the leash', () => {
 				}
 			}
 		}
-	});
+		// About 0.25 s alone (1,400 throws); 0.35 s at a load average of 40.
+	}, 30_000);
 
 	it('a better leash raises the chance', () => {
 		const start = startBattle(makeParty(['fox']), makeWild('bear', 10), { leashQuality: 2 });

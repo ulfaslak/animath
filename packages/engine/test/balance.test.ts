@@ -303,7 +303,8 @@ describe('balance simulation', () => {
 			expect(win, `${p} vs ${w}`).toBeLessThan(0.35);
 		for (const { p, w, win } of winRates(2, easiest(1)))
 			expect(win, `${p} vs ${w}`).toBeLessThan(0.1);
-	});
+		// About 0.4 s alone (31,000 battles); 3.6 s at a load average of 40.
+	}, 30_000);
 
 	it('walks every species on both sides in the sampled pairs', () => {
 		expect(new Set(SAMPLED_PAIRS.map(([p]) => p))).toEqual(new Set(ids));

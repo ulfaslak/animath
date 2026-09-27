@@ -455,18 +455,18 @@ battle:
   wildTired: '{animal.theWild} er træt!'
   gotAway: Du slap væk!
   menu:
-    attack: Vælg et angreb
     leash: Kast snoren
     switch: Skift dyr
     run: Løb væk
-    keys: ↑ ↓ flyt · Enter kør
+    keys: ↑ ↓ ← → flyt · Enter kør
     keysAttack: ↑ ↓ flyt · ← → lettere eller sværere · Enter kør
-    keysGreyed: ↑ ↓ flyt
+    keysGreyed: ↑ ↓ ← → flyt
     touch: Tryk på Kør!
     touchAttack: Tryk på et angreb og så på Kør!
   goButton: Kør!
   backButton: Tilbage
   attackDetail: '{attack} på {level}: {kinds}. {animal.theWild} mister {damage} point.'
+  tiresOut: Så bliver det vilde dyr træt!
   kinds:
     add: plus
     sub: minus

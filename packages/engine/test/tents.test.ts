@@ -248,10 +248,9 @@ describe('nearestTent', () => {
 		// Not vacuous: the cleared paths make some tents nearer, or reachable at all.
 		expect(shorter).toBeGreaterThan(3);
 		expect(searched).toBe(48);
-		// About 1.5 s alone (48 searches with their flood fills, each over a world with its
-		// trees cleared one by one); over vitest's 5 s default when other agents' browsers
-		// load the machine.
-	}, 30_000);
+		// About 1.6 s alone (48 searches with their flood fills, each over a world with its
+		// trees cleared one by one); 14 s at a load average of 60.
+	}, 60_000);
 
 	it('stands the player on walkable ground next to the tent, facing it', () => {
 		for (const seed of SEEDS) {
@@ -267,8 +266,8 @@ describe('nearestTent', () => {
 				expect(spot.steps).toBeGreaterThanOrEqual(manhattan);
 			}
 		}
-		// Over 1 s alone (180 searches); over 3 s with two browsers drawing beside it.
-	}, 30_000);
+		// About 1.4 s alone (180 searches); 14 s at a load average of 54.
+	}, 60_000);
 
 	it('beside a tent, that tent is nearest: zero steps, facing it — at any sign and across chunk edges', () => {
 		let onChunkEdge = 0;
@@ -306,7 +305,9 @@ describe('nearestTent', () => {
 			}
 		}
 		expect(blocked).toBeGreaterThan(0);
-	});
+		// About 0.3 s alone (a search from every blocked side of every tent within 300 tiles, in
+		// three worlds); 2.4 s at a load average of 40.
+	}, 30_000);
 
 	it('never picks a tent that is boxed in, and prefers the door side when two sides tie', () => {
 		let boxed = 0;
@@ -348,8 +349,9 @@ describe('nearestTent', () => {
 			}
 		}
 		expect(tied).toBeGreaterThan(0);
-		// Up to 2 s alone (every tent in a 1600-tile box, searched around); over 3 s under load.
-	}, 30_000);
+		// About 1.5 s alone (every tent in a 1600-tile box, searched around); 21 s at a load
+		// average of 54.
+	}, 60_000);
 
 	it('is deterministic and does not depend on what was asked before', () => {
 		const positions = samplePositions(PROTOTYPE, 25);
@@ -360,7 +362,9 @@ describe('nearestTent', () => {
 			.map((p) => nearestTent(PROTOTYPE, p))
 			.reverse();
 		expect(backward).toEqual(forward);
-	});
+		// About 0.35 s alone (50 searches, most far from any tent searched before); 2.3 s at a
+		// load average of 40.
+	}, 30_000);
 
 	it('gives up past maxSteps, and when walled in', () => {
 		const from = spawnPoint(PROTOTYPE);
