@@ -122,15 +122,15 @@ async function joined(url: string, name: string, guest: string, options: ClientO
 }
 
 /**
- * A ping of the client's own, answered. A socket's frames keep their order both ways, so by
- * then the server has read all `c` sent before it, and all the server sent `c` before has
- * arrived: a barrier, where a wait on the clock would only guess.
+ * A ping of the client's own, answered, or its socket closed. A socket's frames keep their
+ * order both ways, so by then all the server sent `c` before has arrived, and, when the pong
+ * came, the server has read all `c` sent before the ping: a barrier, where a wait on the
+ * clock would only guess.
  */
 function roundTrip(c: Client): Promise<void> {
-	return new Promise((resolve) => {
-		c.ws.once('pong', () => resolve());
-		c.ws.ping();
-	});
+	const answered = new Promise<void>((resolve) => c.ws.once('pong', () => resolve()));
+	c.ws.ping();
+	return Promise.race([answered, c.closed.then(() => {})]);
 }
 
 describe('presence socket', () => {
@@ -309,7 +309,8 @@ describe('presence socket', () => {
 		await roundTrip(silent);
 		expect(silent.got).toEqual([]);
 		vi.advanceTimersByTime(1);
-		expect(await silent.next('bye')).toEqual({ t: 'bye', reason: 'invalid' });
+		await roundTrip(silent);
+		expect(silent.got).toEqual([{ t: 'bye', reason: 'invalid' }]);
 		// A second hello counts too.
 		const { c: twice } = await joined(url, 'Ada', 'a'.repeat(20));
 		for (let i = 0; i < 3; i++) twice.hello();
