@@ -25,6 +25,11 @@ COPY packages/ packages/
 # carries it in index.html (<meta name="animath-build">).
 ARG GIT_SHA=dev
 ENV VITE_BUILD_SHA=$GIT_SHA
+# The game's domain (deploy.env, which the workflow passes in): the link
+# preview in index.html names its image and page by it (vite.config.ts). Empty,
+# as in a build on a Mac, the preview's image stays a relative URL.
+ARG MATHGAME_DOMAIN=
+ENV MATHGAME_DOMAIN=$MATHGAME_DOMAIN
 # The client's source maps stay out of the image: served, they would hand
 # anyone the whole source of a private repo, comments and all. (The server's
 # stay: they make its stack traces readable, and nothing serves them.)

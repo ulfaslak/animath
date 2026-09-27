@@ -88,6 +88,8 @@ Twice on 2026-09-26 a worktree's Vite kept showing its red error overlay on ever
 
 Docker here runs in colima's Linux VM (context `colima`, x86_64 like the Hetzner server, so an image built here runs there). The VM mounts `/Users/cookie` and nothing else: a bind mount from outside it (`/tmp`, `/private/tmp`, the Claude scratchpad) mounts an empty folder, and nothing says so. On 2026-09-27 a throwaway nginx given its config from the scratchpad found none, served the image's default site, and its 404s passed for a negative control until its `/api/health` came back as an HTML page. Put what a container must read under the home folder: a worktree's gitignored `screenshots/` works. `docker build` is unaffected, since the CLI sends the context to the VM. The Docker CLI here has no buildx, so builds use the classic builder; CI's use BuildKit.
 
+**Testing nginx's config: `nginx` must be the container's command.** The nginx image renders `nginx/nginx.conf.template` only when the command it runs is `nginx`. `docker run … nginx:1.29.8 sh -c 'nginx -t'` tests the image's own default config, and passes whatever the template says (2026-09-27). Run `docker run … nginx:1.29.8 nginx -T`, with the environment and the mount the deploy workflow's nginx check passes, and read the rendered config in its output.
+
 ## The production stack on this Mac
 
 `docker-compose.local.yml` runs it as the project `mathgame-local` on `127.0.0.1:8480` ([[DEVELOPMENT]] § Deployment), with volumes and a network of its own. Never run `docker-compose.prod.yml` without that override here: its `.env.production` does not exist on this Mac (compose refuses even `config` without it, which is why the deploy workflow's nginx check uses plain `docker run`). Port 8480 was free on 2026-09-27; check with `lsof` before starting it.
@@ -97,6 +99,14 @@ Docker here runs in colima's Linux VM (context `colima`, x86_64 like the Hetzner
 `~/.ssh/mathgame_deploy` (made 2026-09-27) is the prod server's `deploy` key: Terraform puts its public half on the server, and the offsite backup sync logs in with it. `terraform` is installed from `hashicorp/tap` (1.16.4 on 2026-09-27), and the primary clone's `terraform/` is initialised; there is no `hcloud` CLI. Terraform's state stays in the primary clone's `terraform/`: a worktree is removed after its merge, state and all.
 
 gh's token has the `workflow` scope since 2026-09-27, which a push that adds or changes `.github/workflows/*` needs, and lives in the macOS keychain, no longer in `~/.config/gh/hosts.yml`.
+
+`~/.ssh/known_hosts` knows the server as `animath.xyz` and as `91.98.203.234`. A first `ssh` to a new name for it fails under `-o BatchMode=yes` with "Host key verification failed"; `-o StrictHostKeyChecking=accept-new` adds it. A replaced server has a new host key: `ssh-keygen -R animath.xyz` and `ssh-keygen -R <old ip>` first.
+
+**The deploy workflow's logs print `***` for "deploy".** GitHub hides every secret's value in a run's log, and `VPS_USER` is `deploy`: the word reads `***` wherever it appears ("scripts/***.sh", "No *** — The *** secrets…"). Nothing is wrong; read around it.
+
+## Steps in the human's own browser are the human's
+
+On 2026-09-27 the Claude-in-Chrome extension was not connected to the session. The permission classifier also refused a browser step an orchestrator had delegated, the one granting gh the `workflow` scope through GitHub's device flow: the orchestrator's word is not the human's. So a grant of access, a new credential or a change in an account (an OAuth scope, the Hetzner API token, a DNS record at Porkbun) is the human's to do. Asked plainly, with the exact values, the human did all three that day in minutes: the scope, the token into `terraform/terraform.tfvars`, and the records. Plan them as the human's.
 
 ## pnpm 12 build-script approval
 
