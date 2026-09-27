@@ -2,14 +2,17 @@ import { newGame, saveDocument, type SavedGame } from '@mathgame/engine';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { PlayClock, PLAYTIME_KEY } from '../src/account/playtime';
 import {
+	LOGOUT_HOLD_MS,
 	currentAccount,
 	forgetLogout,
 	gameKeys,
 	guestGameFor,
+	holdLogout,
 	logInHere,
 	logOutHere,
 	logoutPending,
 	moveGuestGameIn,
+	releaseLogout,
 	rememberLogout,
 	takeAccountGame
 } from '../src/account/session';
@@ -59,7 +62,7 @@ describe('which game the browser plays', () => {
 		expect(keys).toEqual(accountKeys('åse marie'));
 		for (const key of Object.values(keys)) expect(Object.values(KEYS)).not.toContain(key);
 		expect(gameKeys({ name: 'Bo' }).save).not.toBe(keys.save);
-		logOutHere(store);
+		logOutHere(store, 'åse marie');
 		expect(currentAccount(store)).toBeNull();
 	});
 
@@ -69,6 +72,42 @@ describe('which game the browser plays', () => {
 			expect(currentAccount(store), bad).toBeNull();
 		}
 		expect(currentAccount(null)).toBeNull();
+	});
+
+	it('a logout held by a login or a registration is not sent meanwhile, and is again once released or stale', () => {
+		rememberLogout(store, 'Ida');
+		expect(holdLogout(store, 1_000)).toBe('Ida');
+		expect(logoutPending(store, 1_000)).toBeNull();
+		expect(logoutPending(store, 1_000 + LOGOUT_HOLD_MS - 1)).toBeNull();
+		// The page that held it went away mid-request: sent again after all.
+		expect(logoutPending(store, 1_000 + LOGOUT_HOLD_MS)).toBe('Ida');
+		// A login that failed releases it at once.
+		holdLogout(store, 5_000);
+		releaseLogout(store, 'Ida');
+		expect(logoutPending(store, 5_000)).toBe('Ida');
+		// Nothing held: nothing to hold or release.
+		forgetLogout(store);
+		expect(holdLogout(store)).toBeNull();
+		releaseLogout(store, 'Ida');
+		expect(logoutPending(store)).toBeNull();
+	});
+
+	it('a note this build cannot read is no note', () => {
+		for (const text of ['1', 'null', '{"name":""}', '{"name":7}', 'not json']) {
+			store.set('animath.logout.pending', text);
+			expect(logoutPending(store), text).toBeNull();
+			expect(holdLogout(store), text).toBeNull();
+		}
+	});
+
+	it('logging out leaves a pointer another tab set to another account meanwhile', () => {
+		logInHere(store, 'Bo');
+		logOutHere(store, 'Ida');
+		expect(currentAccount(store)).toEqual({ name: 'Bo' });
+		logOutHere(store, 'BO');
+		expect(currentAccount(store)).toBeNull();
+		logOutHere(store, 'Ida');
+		expect(currentAccount(store)).toBeNull();
 	});
 
 	it('remembers a logout the server did not hear, until it has', () => {

@@ -97,14 +97,16 @@ function post(
 }
 
 /**
- * The header naming the account a request is for (its `nameKey`,
- * URI-encoded), on the save routes and on logout. The cookie names whichever
- * account this browser logged in to last, in any tab; the server answers
- * only for the account named, so a save sent just as another tab logs in to
- * another account never lands there, and a logout never ends that one.
+ * The header naming the account a request is for (its name, URI-encoded;
+ * the server finds its `nameKey` itself, by the same Unicode tables it made
+ * the account with), on the save routes and on logout. The cookie names
+ * whichever account this browser logged in to last, in any tab; the server
+ * answers only for the account named, so a save sent just as another tab
+ * logs in to another account never lands there, and a logout never ends
+ * that one.
  */
 function naming(name: string): Record<string, string> {
-	return { 'x-animath-account': encodeURIComponent(nameKey(name)) };
+	return { 'x-animath-account': encodeURIComponent(name) };
 }
 
 /**
@@ -213,10 +215,11 @@ export type SessionAnswer = 'live' | 'ended' | 'offline';
 /**
  * The server's word on whether the session cookie is this page's account's,
  * asked once, as the page starts, and asked again only after no answer. The
- * account's save goes to the server only on a `live` answer: the cookie names
- * the account every save request reaches, and a cookie that is not this
- * account's (a logout the server never heard, a login in another tab) must
- * never take this game.
+ * account's save goes to the server only on a `live` answer, so a page whose
+ * cookie is not its account's (a logout the server never heard, a login in
+ * another tab) says so and saves in the browser; each save request also
+ * names its account, which the server checks as it answers, since the cookie
+ * can change hands after the check.
  */
 export class SessionCheck {
 	private answer: Promise<SessionAnswer> | null = null;

@@ -249,7 +249,7 @@ describe("the account's save, as the autosave's server", () => {
 		expect(await accountSaveServer(new SessionCheck('Ida')).getSave(who)).toEqual({ kind: 'none' });
 	});
 
-	it('names its account in each request to the save routes, however its name is typed', async () => {
+	it('names its account in each request to the save routes and in the logout', async () => {
 		const heard: [string, string | null][] = [];
 		vi.stubGlobal('fetch', async (url: string, init?: RequestInit) => {
 			heard.push([url, new Headers(init?.headers).get('x-animath-account')]);
@@ -261,12 +261,13 @@ describe("the account's save, as the autosave's server", () => {
 		expect(await server.putSave(who, doc)).toEqual({ kind: 'saved' });
 		expect(await getAccountSave('søren ')).toEqual({ kind: 'found', doc });
 		expect(await logout('Søren')).toBe('done');
+		// The name as the page has it: the server keys it by its own Unicode tables.
 		expect(heard).toEqual([
 			[me, null],
-			[save, 's%C3%B8ren'],
-			[save, 's%C3%B8ren'],
-			[save, 's%C3%B8ren'],
-			['/api/account/logout', 's%C3%B8ren']
+			[save, 'S%C3%98REN'],
+			[save, 'S%C3%98REN'],
+			[save, 's%C3%B8ren%20'],
+			['/api/account/logout', 'S%C3%B8ren']
 		]);
 	});
 

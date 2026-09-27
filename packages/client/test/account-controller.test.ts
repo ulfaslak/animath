@@ -289,7 +289,7 @@ describe('logging in', () => {
 			expect(logoutPending(store), card).toBeNull();
 		}
 		// The login's own save request names the account it logged in to.
-		expect(requests.find((r) => r.url === '/api/account/save')?.account).toBe('ida');
+		expect(requests.find((r) => r.url === '/api/account/save')?.account).toBe('Ida');
 	});
 
 	it('a login or a registration that fails leaves the waiting logout to be sent', async () => {
@@ -358,7 +358,7 @@ describe('logging out', () => {
 		expect(events).toEqual(['flush', 'pushNow']);
 		// The logout names its account: a session another tab made for another one stays.
 		expect(requests.map((r) => [r.url, r.account])).toEqual([
-			['/api/account/logout', 's%C3%B8ren']
+			['/api/account/logout', 'S%C3%B8ren']
 		]);
 		expect(currentAccount(store)).toBeNull();
 		expect(logoutPending(store)).toBeNull();

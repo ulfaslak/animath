@@ -47,9 +47,14 @@ export function logInHere(store: KeyValueStore, name: string): boolean {
 	return store.set(ACCOUNT_KEYS.current, JSON.stringify({ name }));
 }
 
-/** Log this browser out: its game is the guest game again from the next start. */
-export function logOutHere(store: KeyValueStore): void {
-	store.remove(ACCOUNT_KEYS.current);
+/**
+ * Log this browser out of `name`: its game is the guest game again from the
+ * next start. A pointer that names another account now (another tab logged
+ * in to it meanwhile) is that account's, and stays.
+ */
+export function logOutHere(store: KeyValueStore, name: string): void {
+	const now = currentAccount(store);
+	if (now === null || nameKey(now.name) === nameKey(name)) store.remove(ACCOUNT_KEYS.current);
 }
 
 /**
@@ -134,20 +139,63 @@ export function takeAccountGame(store: KeyValueStore, name: string, theirs: unkn
 }
 
 /**
- * A logout from `name`'s account the server did not hear (it was out of
- * reach), to send again at the next start. Logging in and registering take
- * the note while they wait (either ends the session the browser had), and
- * put it back when they fail: a page starting meanwhile must not send it and
- * end the session they are making.
+ * How long a logout note a login or a registration holds keeps a starting
+ * page from sending it: longer than either can take. A held note older than
+ * that belongs to a page that went away mid-request, and is sent again.
  */
-export function rememberLogout(store: KeyValueStore, name: string): void {
-	store.set(ACCOUNT_KEYS.logoutPending, name);
+export const LOGOUT_HOLD_MS = 2 * 60_000;
+
+interface LogoutNote {
+	name: string;
+	/** When a login or a registration took it (ms), while it waits for the server. */
+	held?: number;
 }
 
-/** The account whose logout waits to be sent, if one does; the note stays until `forgetLogout`. */
-export function logoutPending(store: KeyValueStore | null): string | null {
-	const name = store?.get(ACCOUNT_KEYS.logoutPending) ?? null;
-	return name === '' ? null : name;
+function logoutNote(store: KeyValueStore): LogoutNote | null {
+	const text = store.get(ACCOUNT_KEYS.logoutPending);
+	const note = text === null ? undefined : parseJson(text);
+	if (typeof note !== 'object' || note === null) return null;
+	const { name, held } = note as Record<string, unknown>;
+	if (typeof name !== 'string' || name === '') return null;
+	return typeof held === 'number' ? { name, held } : { name };
+}
+
+/**
+ * A logout from `name`'s account the server did not hear (it was out of
+ * reach), to send again at the next start. A note this build cannot read is
+ * no note.
+ */
+export function rememberLogout(store: KeyValueStore, name: string): void {
+	store.set(ACCOUNT_KEYS.logoutPending, JSON.stringify({ name }));
+}
+
+/**
+ * The account whose logout waits to be sent, if one does, and no login or
+ * registration holds it; the note stays until `forgetLogout`.
+ */
+export function logoutPending(store: KeyValueStore | null, now = Date.now()): string | null {
+	const note = store ? logoutNote(store) : null;
+	if (note === null) return null;
+	const held = note.held !== undefined && note.held <= now && now - note.held < LOGOUT_HOLD_MS;
+	return held ? null : note.name;
+}
+
+/**
+ * A login or a registration is on its way, and either ends the session this
+ * browser had: the logout waiting is held, so a page starting meanwhile does
+ * not send it and end the session being made. Its name, or null for none.
+ */
+export function holdLogout(store: KeyValueStore, now = Date.now()): string | null {
+	const note = logoutNote(store);
+	if (note === null) return null;
+	store.set(ACCOUNT_KEYS.logoutPending, JSON.stringify({ name: note.name, held: now }));
+	return note.name;
+}
+
+/** The login or the registration failed: the held logout waits to be sent again. */
+export function releaseLogout(store: KeyValueStore, name: string | null): void {
+	const note = logoutNote(store);
+	if (name !== null && note?.name === name && note.held !== undefined) rememberLogout(store, name);
 }
 
 export function forgetLogout(store: KeyValueStore): void {

@@ -91,7 +91,7 @@ class Browser {
 	/** The header naming the account the page plays, when it plays one. */
 	named(extra: Record<string, string> = {}): Record<string, string> {
 		if (this.account === null) return extra;
-		return { 'x-animath-account': encodeURIComponent(nameKey(this.account)), ...extra };
+		return { 'x-animath-account': encodeURIComponent(this.account), ...extra };
 	}
 
 	async register(name: string, password = 'secret', save?: unknown) {
@@ -372,8 +372,11 @@ describe('login and logout', () => {
 		const res = await browser.logout();
 		expect(res.status).toBe(200);
 		expect(await res.json()).toEqual({ ok: true });
-		expect(browser.cookie).toBeNull();
+		// The game's logout names its account and sends no cookie: one sent could land after a
+		// login another tab makes at the same moment, and clear that login's cookie.
+		expect(res.headers.get('set-cookie')).toBeNull();
 		expect(await sessionRows(name)).toHaveLength(0);
+		expect(await browser.me()).toEqual({ user: null });
 		const replay = new Browser();
 		replay.cookie = token;
 		expect(await replay.me()).toEqual({ user: null });
@@ -518,7 +521,10 @@ describe('the account a request names', () => {
 			await bare.getSave(),
 			await bare.putSave(doc(6)),
 			await bare.request('GET', '/save', undefined, { 'x-animath-account': '%E0%A4%A' }),
-			await bare.request('PUT', '/save', doc(6), { 'x-animath-account': '' })
+			await bare.request('PUT', '/save', doc(6), { 'x-animath-account': '' }),
+			await bare.request('GET', '/save', undefined, {
+				'x-animath-account': encodeURIComponent('y'.repeat(101))
+			})
 		]) {
 			expect(res.status).toBe(400);
 			expect(await res.json()).toEqual({ error: 'name the account in x-animath-account' });
@@ -526,7 +532,7 @@ describe('the account a request names', () => {
 		expect(await (await mine.getSave()).json()).toEqual(doc(5));
 	});
 
-	it('names the account by its name key, however the name is written', async () => {
+	it('names the account by its name, which the server keys itself, however it is written', async () => {
 		const browser = new Browser();
 		const name = `Øre ${freshName()}`;
 		expect((await browser.register(name, 'secret', doc(3))).status).toBe(201);
@@ -548,11 +554,14 @@ describe('the account a request names', () => {
 		expect(res.headers.get('set-cookie')).toBeNull();
 		expect(await other.browser.me()).toEqual({ user: { name: other.name } });
 		expect(await sessionRows(other.name)).toHaveLength(1);
-		// Its own account's logout ends it.
-		expect((await other.browser.logout()).headers.get('set-cookie')).toMatch(/Max-Age=0/);
+		// Its own account's logout ends it, and sends no cookie either.
+		const own = await other.browser.logout();
+		expect(own.headers.get('set-cookie')).toBeNull();
 		expect(await sessionRows(other.name)).toHaveLength(0);
-		const odd = await new Browser().request('POST', '/logout', {}, { 'x-animath-account': '%' });
-		expect(odd.status).toBe(400);
+		for (const odd of ['%', '', encodeURIComponent('x'.repeat(101))]) {
+			const res = await new Browser().request('POST', '/logout', {}, { 'x-animath-account': odd });
+			expect(res.status, odd).toBe(400);
+		}
 	});
 });
 
