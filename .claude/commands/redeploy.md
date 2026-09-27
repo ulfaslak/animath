@@ -28,7 +28,7 @@ terraform state rm hcloud_server.mathgame   # only when replacing a dead server
 terraform apply
 ```
 
-No `terraform` on this Mac: `brew tap hashicorp/tap && brew install hashicorp/tap/terraform`. Note `server_ip` and `server_ipv6`, then wait for the first boot (up to 5 minutes):
+No `terraform` on this Mac: `brew tap hashicorp/tap && brew install hashicorp/tap/terraform`. Note `server_ip`, then wait for the first boot (up to 5 minutes):
 
 ```bash
 ssh -i ~/.ssh/mathgame_deploy -o StrictHostKeyChecking=accept-new deploy@<server_ip> cloud-init status --wait
@@ -36,7 +36,7 @@ ssh -i ~/.ssh/mathgame_deploy -o StrictHostKeyChecking=accept-new deploy@<server
 
 ### 2. DNS (the human, meanwhile)
 
-Point the domain at the server: an **A** record to `server_ip` and an **AAAA** record to `server_ipv6`. A new domain also goes in `deploy.env` (`MATHGAME_DOMAIN=…`, one line, merged like any change). nginx asks Let's Encrypt for the certificate over port 80 once the name resolves; nothing else is needed.
+Point the domain at the server: an **A** record to `server_ip`, and **no AAAA record**. Behind Docker's port proxy every IPv6 visitor would reach nginx from one address, so the per-address limits (nginx's on POSTs, the accounts' own) would count them all as one; over IPv4 each keeps their own. A new domain also goes in `deploy.env` (`MATHGAME_DOMAIN=…`, one line, merged like any change). nginx asks Let's Encrypt for the certificate over port 80 once the name resolves; nothing else is needed.
 
 ### 3. Set up the server (you)
 

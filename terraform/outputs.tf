@@ -4,7 +4,7 @@ output "server_ip" {
 }
 
 output "server_ipv6" {
-  description = "Public IPv6 address of the server: the domain's AAAA record"
+  description = "Public IPv6 address of the server. Not for DNS: the domain has an A record only (.claude/commands/redeploy.md)"
   value       = hcloud_server.mathgame.ipv6_address
 }
 

@@ -52,7 +52,7 @@ Technical items we've intentionally postponed: tech debt, hardening shortcuts, k
 
 **Why deferred**: there is nothing to steal until multiplayer, tokens and a shop exist, and the players are a handful of kids on a tunnel URL. Moving a game between browsers is a feature (a recovery code, or accounts), not a hardening.
 
-**Trigger**: multiplayer with any persistent economy (tokens, purchasable leashes/potions), the prod server going live (sweeping players with no save; the rate limit is in place), or the first report of a kid losing their save. On the server, check first that nginx sees each IPv6 visitor's own address: Docker's port proxy may hand it every IPv6 connection from one address, which one rate-limit bucket would then serve for all.
+**Trigger**: multiplayer with any persistent economy (tokens, purchasable leashes/potions), the prod server going live (sweeping players with no save; the rate limit is in place), or the first report of a kid losing their save. A limit per address holds because the game is served over IPv4 only: behind Docker's port proxy every IPv6 visitor would reach nginx from one address (`/redeploy` § DNS).
 
 ### Cleared tiles are each player's own, so a friend can walk through a tree you still see
 
