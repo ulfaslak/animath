@@ -405,7 +405,8 @@ describe('encounterTable', () => {
 				bear: nearUp(2)
 			})
 		);
-	});
+		// 9,650 tables, each written out again here: 0.8 to 1.8 s at a load average of 100.
+	}, 30_000);
 
 	it('the frog lives in the river reeds: every lead meets it there, near and far, and it hops up the hills only for a small lead near home', () => {
 		const frog = getAnimal('frog');
@@ -492,7 +493,9 @@ describe('encounterTable', () => {
 		}
 		expect(bad).toEqual([]);
 		expect(compared).toBeGreaterThan(10000);
-	});
+		// 9,650 tables: 0.3 to 0.7 s at a load average of 100; 5.4 s at 125 when each tier's share
+		// was a table of its own.
+	}, 30_000);
 
 	it("the lead's own tier is the likeliest wherever it lives, at every distance; from the wild radius the bell is symmetric", () => {
 		const bad: string[] = [];
@@ -525,7 +528,8 @@ describe('encounterTable', () => {
 		expect(forest[3]).toBeCloseTo(Math.exp(-0.5) / whole, 12);
 		expect(forest[0]).toBeCloseTo(Math.exp(-2) / whole, 12);
 		expect(forest[4]).toBeCloseTo(Math.exp(-2) / whole, 12);
-	});
+		// 9,650 tables: 0.2 to 0.9 s at a load average of 100.
+	}, 30_000);
 
 	it("lists every animal living there, whoever leads, plus, at the river and in the mountains, visitors of the lead's tier where bigger animals live", () => {
 		const visited: string[] = [];
@@ -574,7 +578,8 @@ describe('encounterTable', () => {
 			'2:mountain:fox+otter+roe-deer+badger+pine-marten+grey-heron+tawny-owl+raccoon+beaver',
 			'3:mountain:deer'
 		]);
-	});
+		// 150 tables, each with its own expects: 0.2 to 0.6 s at a load average of 100.
+	}, 30_000);
 
 	it('is never empty where anything of its realm lives, and empty where nothing does', () => {
 		const bad: string[] = [];
@@ -635,9 +640,11 @@ describe('encounterTable', () => {
 				let prevFierce = -1;
 				let prevOwn = 2;
 				for (let d = 0; d <= WILD_RADIUS + 64; d += 0.5) {
-					const bigger = share(biome, d, lead, (t) => t > lead);
-					const fierce = share(biome, d, lead, (t) => t >= lead + 2);
-					const own = share(biome, d, lead, (t) => t === lead);
+					const shares = tierShares(biome, d, lead);
+					const sum = (from: number) => shares.slice(from - 1).reduce((s, x) => s + x, 0);
+					const bigger = sum(lead + 1);
+					const fierce = sum(lead + 2);
+					const own = shares[lead - 1]!;
 					const where = `tier-${lead} lead in ${biome} @ ${d}`;
 					if (!(bigger >= prevBigger - 1e-12)) bad.push(`${where}: bigger fell to ${bigger}`);
 					if (!(fierce >= prevFierce - 1e-12)) bad.push(`${where}: two up fell to ${fierce}`);
@@ -652,7 +659,8 @@ describe('encounterTable', () => {
 			}
 		}
 		expect(bad).toEqual([]);
-	});
+		// 9,625 tables: 0.7 to 1.6 s at a load average of 100 when each share was a table of its own.
+	}, 30_000);
 
 	it('pulls the side above the lead in near home by enough that no ground can make bigger animals rarer on the way out', () => {
 		// On a fixed ground a tier's weight on the tile is its bell times its animals' mean
