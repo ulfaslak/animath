@@ -192,6 +192,22 @@ describe('the witch doctor', () => {
 			expect(Math.abs(settle(behind) - REST_YAW)).toBeLessThan(0.3);
 		}
 	});
+
+	it('built again while the trainer is near (a tree chopped beside his tent), faces them from his first frame', () => {
+		// The chunk is built again from scratch, the doctor with it: nothing of him may jump.
+		const trainer = { x: AT.x + 1, z: AT.z + 1 };
+		const { doctor: before } = camp();
+		for (const t of seconds(500, 40)) before.animate(t, t - 499, trainer, false);
+		const { doctor: after } = camp();
+		after.animate(502, 3, trainer, false);
+		expect(Math.abs(after.figure.rotation.y - before.figure.rotation.y)).toBeLessThan(0.02);
+		// And one built far from the trainer stands as the idle has him, looking about.
+		const { doctor: alone } = camp();
+		alone.animate(600, null, null, false);
+		const { doctor: settled } = camp();
+		for (const t of seconds(599, 21)) settled.animate(t, null, null, false);
+		expect(Math.abs(alone.figure.rotation.y - settled.figure.rotation.y)).toBeLessThan(0.02);
+	});
 });
 
 describe('greetings', () => {
