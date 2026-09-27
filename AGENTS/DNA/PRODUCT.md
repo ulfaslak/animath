@@ -12,7 +12,7 @@ The game is called **Animath**. The repo and package names (`mathgame`, `@mathga
 
 - **Kids aged roughly 6–12**. Reading level: short words, big text. The puzzle ladder spans from single-digit addition to three-digit multiplication and square roots.
 - **Devices**: a laptop or desktop browser with a keyboard, or a tablet held sideways, played with fingers alone (touch controls, [[UI_SPEC]] § Pointer and touch). A mouse works every menu too. Phones are not a target.
-- **No login.** Open the link and you are in. The game is saved in the browser as you play, so a reload, or coming back another day, picks up where you left off; the server keeps a backup under an anonymous id the browser remembers.
+- **No login needed.** Open the link and you are in. The game is saved in the browser as you play, so a reload, or coming back another day, picks up where you left off; today the server also keeps a backup under an anonymous id the browser remembers. An account is optional, never required (§6).
 
 ## 3. Core loop
 
@@ -171,13 +171,6 @@ Two modes only, borrowed from the Game Boy games: **Explore** and **Battle**. Fi
 - **Quit to title** (the pause menu's Start screen row) saves the game as it stands and goes back to the title, where Continue picks it up exactly there.
 - **Out on the water**: a game saved in the boat picks up in the boat, where it was. A save whose player stands on water without the boat (one edited by hand: nothing in the game takes a boat away) never leaves them stuck out there: it starts again from the spawn tile.
 
-### Multiplayer (future, shapes today's architecture)
-
-- One shared world per server. Kids see each other walking around.
-- Kids can battle each other; winning earns tokens too (§4 "Tokens and the doctor's shop").
-- The doctor's shop sells more: better leashes, potions and the like.
-- Still login-free: an anonymous identity is enough.
-
 ## 5. Feature inventory
 
 What is built and observable today. Keep current: add a bullet when a feature ships, remove it when one is deleted, move items up from §6 as they land.
@@ -268,10 +261,15 @@ What is built and observable today. Keep current: add a bullet when a feature sh
 
 ## 6. Not yet built
 
-In rough priority order. Each becomes a GitHub issue when picked up.
+In rough priority order. Each becomes a GitHub issue when picked up. The choices behind the first six are [[DECISIONS]] § Multiplayer, § Accounts and § Deployment.
 
-1. Real low-poly animal models (glTF, CC0 sources, see [[DECISIONS]]) with attack animations, replacing the primitive figures.
-2. Procedural world v2: rivers that flow, paths, biome shaping, landmarks.
-3. Puzzle catalog v2: fractions, decimals, negatives, percentages, word problems, per-child adaptive difficulty.
-4. Multiplayer: shared world, other players visible, PvP battles, tokens for winning, more in the shop.
-5. Deployment to the Hetzner VPS.
+1. **Numbered worlds.** Every world has a number from 1 to 9999, and friends who pick the same number play in the same world. A new game starts in a world of its own, your home. The pause menu's Worlds screen says which world you are in, takes you to any number while you are exploring, and brings you home. The world played so far is World 1, home to every game saved before. Where you stand and the trees and rocks you cleared are kept world by world, and a tree you chop is gone for you alone; your animals, tokens, tools and name go with you.
+2. **Names.** Every player has a name, asked for before the first animal (and once, for a game saved without one). Other players see it above your character, and it is your username if you make an account. Rude names are not allowed.
+3. **Optional accounts.** Play for as long as you like without one. After every hour of play a friendly card offers to keep your animals safe with a secret password ("Save my game" / "Not now"), and the pause menu and the title always offer to log in or make an account. No email: your name is your username. Log in on another device and your game is there.
+4. **Seeing friends.** Other players in your world walk about with their name above them and their lead animal following. The pause menu lists who is here and takes you next to any of them, and an arrow at the edge of the screen points to players out of sight. There is no chat.
+5. **Friendly matches.** Stand near another player and challenge them to a friendly match; they say yes or no. Each brings three animals at full health, and you take turns: pick an attack and its level and solve its puzzle, or switch animals. It is just for fun: afterwards nothing has changed, no tokens won or lost and no animal hurt, and both go back to exploring where they stood.
+6. **The public website.** The game at its own address on the internet, always on, instead of shared from the human's machine through a tunnel; a game played so far moves there with its player, without losing anything.
+7. Real low-poly animal models (glTF, CC0 sources, see [[DECISIONS]]) with attack animations, replacing the primitive figures.
+8. Procedural world v2: rivers that flow, paths, biome shaping, landmarks.
+9. Puzzle catalog v2: fractions, decimals, negatives, percentages, word problems, per-child adaptive difficulty.
+10. The doctor's shop sells more: better leashes, potions and the like.
