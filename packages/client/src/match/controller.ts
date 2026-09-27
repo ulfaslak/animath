@@ -188,6 +188,11 @@ export class MatchController implements MatchHooks {
 				return this.matchMessage(m);
 			case 'rejected':
 				if (m.id !== match.id) return;
+				if (match.stage === 'over') {
+					// A Rematch? the server can no longer take: the match is gone there.
+					match.rematch = { mine: false, theirs: false };
+					return;
+				}
 				// Something changed under the choice (or it came too fast): show the view there is.
 				console.warn(`match intent rejected: ${m.reason}`);
 				this.sentAt = null;
@@ -929,8 +934,13 @@ export class MatchController implements MatchHooks {
 		}
 	}
 
-	/** Back to exploring: the screen goes, and nothing of the match stays. */
+	/**
+	 * Back to exploring: the screen goes, and nothing of the match stays. From
+	 * a result the server hears so (`done`): a rematch this page asked for is
+	 * taken back, and the other page's Rematch? greys.
+	 */
 	private finish(): void {
+		if (match.stage === 'over' && match.id) this.deps.send({ t: 'done', id: match.id });
 		this.deps.renderer.setBattle(null);
 		this.scene?.end();
 		this.latest = null;
