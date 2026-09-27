@@ -267,7 +267,7 @@ function newerSaves(
 	const saves = [
 		{ ...doc, version: 3 },
 		{ ...doc, party: [...doc.party, later] },
-		{ ...doc, items: [...doc.items, 'later-item'] },
+		{ ...doc, items: [...(doc.items ?? []), 'later-item'] },
 		{ ...doc, battle }
 	] as unknown as SaveWrite[];
 	for (const save of saves) expect(readSave(save)).toMatchObject({ ok: false, reason: 'newer' });
