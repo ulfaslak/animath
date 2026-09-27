@@ -31,6 +31,8 @@ import {
 } from './battle-sim.js';
 
 const SEEDS = 25;
+/** About how many battles the catalog sweep plays for each species, over every animal it meets. */
+const BATTLES_PER_SPECIES = 60;
 const ids = ANIMALS.map((a) => a.id);
 const PRINT = Boolean(process.env.SIM);
 /** Every (player, wild) pair of the catalog that can meet, and where: a sea animal only out on the water. */
@@ -306,11 +308,18 @@ describe('every battle in the catalog', () => {
 
 	for (const p of ids) {
 		it(`${p} vs everything it meets: terminates, keeps HP in bounds, never mutates its input, explains every change`, () => {
-			for (const { w, realm } of MEETINGS.filter((m) => m.p === p)) {
+			const meetings = MEETINGS.filter((m) => m.p === p);
+			// About `BATTLES_PER_SPECIES` battles for each species, spread over every animal it
+			// meets (a few seeds each, never fewer than 3): the sweep grows with the catalog
+			// instead of with its square. With the 14 animals before #89 this was 25 seeds a pair.
+			const seeds = Math.max(3, Math.ceil(BATTLES_PER_SPECIES / meetings.length));
+			for (const { w, realm } of meetings) {
 				// On land two to step in; out on the water one that swims and one that can't.
 				const team = realm === 'land' ? [p, 'rabbit', 'fox'] : [p, 'otter', 'squirrel'];
-				for (let seed = 0; seed < SEEDS; seed++) {
-					const rng = new Rng(hashInts(seed, 0x9e3779b9));
+				for (let seed = 0; seed < seeds; seed++) {
+					// The player's choices drawn afresh for every pair, not only every seed: with a
+					// few seeds a pair, shared streams would walk the same few choices everywhere.
+					const rng = new Rng(hashInts(seed, 0x9e3779b9, ids.indexOf(p), ids.indexOf(w)));
 					const said: BattleEvent[] = [];
 					const { state } = drive(
 						seed,
@@ -332,8 +341,8 @@ describe('every battle in the catalog', () => {
 					expect(wordedStrings({ state, said }), `${p} vs ${w} seed ${seed}`).toEqual([]);
 				}
 			}
-			// A few seconds per species on a quiet machine; well over vitest's 5 s default
-			// when other agents' browsers load it.
+			// 0.3 to 1.5 s per species at a load average of 28 (about 80 battles each, every
+			// step checked); a minute leaves room for a machine twice as loaded and more.
 		}, 60_000);
 	}
 
@@ -1022,12 +1031,19 @@ describe('rejected intents', () => {
 
 describe('switching', () => {
 	it('takes the turn: the wild animal replies against the newcomer, and only its hit costs HP', () => {
-		for (const a of ids) {
-			for (const b of ids) {
-				for (const w of ids) {
+		let checked = 0;
+		const wilds = new Set<string>();
+		for (const [i, a] of ids.entries()) {
+			for (const [j, b] of ids.entries()) {
+				// Every pair that switches, against wild animals taken in turn round the catalog
+				// (two each), so every species is the wild one many times over: every trio would
+				// be the catalog's cube, 32,000 of them since #89.
+				for (const w of [ids[(i + 3 * j) % ids.length]!, ids[(7 * i + j + 1) % ids.length]!]) {
 					// All three where they can all fight: a sea animal's trio only out on the water.
 					const realm = arena(a, b, w);
 					if (realm === null) continue;
+					checked++;
+					wilds.add(w);
 					for (let seed = 0; seed < 5; seed++) {
 						const party = makeParty([a, b]);
 						const start = deepFreeze(startBattle(party, makeWild(w), { realm }));
@@ -1062,7 +1078,11 @@ describe('switching', () => {
 				}
 			}
 		}
-		// Under 0.5 s alone (every species trio, five seeds); over 1.3 s on a loaded machine.
+		// Every species was the wild one, the sea's among them, and most pairs met two.
+		expect([...wilds].sort()).toEqual([...ids].sort());
+		expect(checked).toBeGreaterThan(ids.length ** 2);
+		// Under 0.5 s alone (every switching pair against two wild animals, five seeds each);
+		// over 1.3 s on a loaded machine.
 	}, 30_000);
 
 	it('never stalls: a player who switches whenever they can loses every battle, the wild animal untouched', () => {
