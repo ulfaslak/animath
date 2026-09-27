@@ -16,12 +16,15 @@
 # What this does:
 #
 #   1. Render and test the checkout's config in a throwaway container of the
-#      nginx service (same image, env and mounts): `nginx -T` prints the whole
-#      config as nginx would load it. A config that fails leaves the running
-#      one alone, and returns 1.
-#   2. Compare that with `nginx -T` in the running container, which reads the
-#      included files fresh and its own rendered nginx.conf.
-#   3. The same -> reload (picks up the included files; costs nothing).
+#      nginx service as the checkout defines it (image, env, mounts): `nginx -T`
+#      prints the whole config as nginx would load it. A config that fails
+#      leaves the running nginx alone, and returns 1.
+#   2. `up -d` the service: compose recreates it only when its definition
+#      changed (a new image tag, ports, the domain), and it then renders the
+#      config step 1 passed.
+#   3. Compare step 1's config with `nginx -T` in the running container, which
+#      reads the included files fresh and its own rendered nginx.conf.
+#   4. The same -> reload (picks up the included files; costs nothing).
 #      Different -> recreate, so the template renders again.
 
 # apply_nginx_config <compose-cmd>
@@ -52,6 +55,14 @@ apply_nginx_config() {
 			nginx nginx -t 2>&1 </dev/null | sed 's/^/       /' >&2 || true
 		return 1
 	fi
+
+	# The service's definition itself (its image tag, ports, mounts, env: the
+	# domain) is compose's to apply: it recreates nginx only when that changed,
+	# and the new container renders the config just validated.
+	# shellcheck disable=SC2086
+	${compose_cmd} up -d --no-deps nginx
+	# shellcheck disable=SC2086
+	cid=$(${compose_cmd} ps -q nginx 2>/dev/null | head -1)
 
 	running=$(docker exec "$cid" nginx -T 2>/dev/null </dev/null || true)
 	if [ "$candidate" = "$running" ]; then

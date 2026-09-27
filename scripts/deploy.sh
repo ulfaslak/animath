@@ -112,6 +112,22 @@ if docker container inspect "$CANARY_NAME" >/dev/null 2>&1; then
 	exit 1
 fi
 
+# A deploy never recreates Postgres: a new image tag (a new major version needs
+# its data upgraded first), a changed volume or healthcheck is done by hand,
+# on purpose. So when the checkout's postgres service no longer matches the
+# one running, the deploy stops here, before it changes anything.
+PG_CID=$($COMPOSE ps -q postgres 2>/dev/null || true)
+if [ -n "$PG_CID" ]; then
+	PG_WANTED=$($COMPOSE config --hash postgres | awk '{print $2}')
+	PG_RUNNING=$(docker inspect --format '{{index .Config.Labels "com.docker.compose.config-hash"}}' "$PG_CID")
+	if [ "$PG_WANTED" != "$PG_RUNNING" ]; then
+		echo "ERROR: docker-compose.prod.yml changed the postgres service, and the running one is"
+		echo "       the old definition. Apply it by hand first (.claude/commands/redeploy.md"
+		echo "       § Changing Postgres), then deploy again."
+		exit 1
+	fi
+fi
+
 APP_CID=$($COMPOSE ps -q app 2>/dev/null || true)
 CURRENT_IMAGE=""
 if [ -n "$APP_CID" ]; then

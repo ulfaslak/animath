@@ -128,6 +128,19 @@ docker compose -f docker-compose.prod.yml exec -T postgres psql -U mathgame -d m
 
 A kid's browser keeps its own save and sends a backup with a higher `seq` than an older copy the server holds, so the server catches up by itself as they play ([[DECISIONS]] § Saves). To give one kid a game back instead, see [[DEVELOPMENT]] § Database.
 
+## Changing Postgres
+
+A deploy never recreates the `postgres` service: when a merge changes its definition in `docker-compose.prod.yml` (the image tag, the volume, the healthcheck, the log cap), `scripts/deploy.sh` stops before touching anything and says so. Apply it by hand, on the server, then deploy again (`gh workflow run deploy.yml`):
+
+```bash
+cd ~/mathgame
+docker compose -f docker-compose.prod.yml exec -T postgres pg_dump -U mathgame -d mathgame -Fc > backups/before-postgres-change_$(date -u +%Y%m%d_%H%M%S).dump
+docker compose -f docker-compose.prod.yml up -d --no-deps --wait postgres
+docker compose -f docker-compose.prod.yml ps
+```
+
+The app loses its database for the seconds Postgres restarts; the game plays on in the browser. A new **major** version (18 to 19) cannot start on the old one's data: restore that dump into the new version instead (§ Restore from a backup, into a fresh volume).
+
 ## Logs and a look inside
 
 On the server, in `~/mathgame`:
