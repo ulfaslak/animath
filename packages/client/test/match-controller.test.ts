@@ -505,8 +505,11 @@ describe('a match', () => {
 		t.runUntil(() => battle.screen === 'result');
 		// The other left: Rematch? is out, and the server said nothing yet.
 		match.rematch = { mine: false, theirs: null };
+		match.option = 0;
 		t.controller.receive({ t: 'rejected', id: ref.id, reason: 'match-over' });
 		expect(match.rematch.theirs).toBe(false);
+		// The highlight moves to the one button that still does something.
+		expect(match.option).toBe(1);
 		t.pick('Enter');
 		expect(t.sentOf('done')).toEqual([{ t: 'done', id: ref.id }]);
 		expect(match.stage).toBe('none');

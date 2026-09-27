@@ -191,6 +191,7 @@ export class MatchController implements MatchHooks {
 				if (match.stage === 'over') {
 					// A Rematch? the server can no longer take: the match is gone there.
 					match.rematch = { mine: false, theirs: false };
+					match.option = 1;
 					return;
 				}
 				// Something changed under the choice (or it came too fast): show the view there is.
@@ -208,6 +209,8 @@ export class MatchController implements MatchHooks {
 					? { ...match.rematch, mine: m.yes }
 					: { ...match.rematch, theirs: m.yes };
 				if (!mine && m.yes) sfx.play('lead');
+				// The rematch is off: the highlight goes to the one button that still does something.
+				if (!mine && !m.yes) match.option = 1;
 				return;
 			}
 		}
