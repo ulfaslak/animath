@@ -169,6 +169,9 @@ describe('validateSave', () => {
 		for (const tokens of [-1, 2.5, '8', null, Infinity]) {
 			expect(error({ ...written, tokens }), String(tokens)).toMatch(/tokens/);
 		}
+		for (const solved of [-1, 2.5, '312', null, Infinity, Number.MAX_SAFE_INTEGER + 1]) {
+			expect(error({ ...written, solved }), String(solved)).toMatch(/solved/);
+		}
 		for (const items of ['axe', [7], [''], ['x'.repeat(65)], [null], { axe: true }]) {
 			expect(error({ ...written, items }), JSON.stringify(items)).toMatch(/items/);
 		}
@@ -195,9 +198,10 @@ describe('validateSave', () => {
 		}
 	});
 
-	it('takes tokens and items, an item it does not know included, and needs neither', () => {
-		expect(error({ ...written, tokens: 0, items: [] })).toBe('');
-		expect(error({ ...written, tokens: 40, items: ['axe', 'boat'] })).toBe('');
+	it('takes tokens, items and the puzzles solved, an item it does not know included, and needs none of them', () => {
+		expect(error({ ...written, tokens: 0, items: [], solved: 0 })).toBe('');
+		expect(error({ ...written, tokens: 40, items: ['axe', 'boat'], solved: 312 })).toBe('');
+		expect(error({ ...written, solved: Number.MAX_SAFE_INTEGER })).toBe('');
 		// An item a later build sells: kept as it is, never a reason to set the save aside.
 		expect(error({ ...written, items: ['lantern'] })).toBe('');
 		expect(validateSaveWrite(written).ok).toBe(true);
@@ -520,6 +524,7 @@ describe('newGame and restoreGame', () => {
 			party: [{ id: 'starter', speciesId: STARTER_SPECIES, hp: getAnimal(STARTER_SPECIES).maxHp }],
 			tokens: 0,
 			items: [],
+			solved: 0,
 			battle: null,
 			edits: [],
 			worlds: []
@@ -528,7 +533,7 @@ describe('newGame and restoreGame', () => {
 		expect(newGame(1).pos).toEqual({ x: -2, y: 6 });
 	});
 
-	it('a save with only the fields it needs gets facing down, no steps, tokens, items, name, nothing cleared, no world left', () => {
+	it('a save with only the fields it needs gets facing down, no steps, tokens, items, puzzles solved, name, nothing cleared, no world left', () => {
 		const pos = findTile(SEED7, true);
 		const game = restoreGame({ ...v2, pos } as SaveV2);
 		expect(game).toMatchObject({
@@ -541,6 +546,7 @@ describe('newGame and restoreGame', () => {
 			visits: 0,
 			tokens: 0,
 			items: [],
+			solved: 0,
 			battle: null,
 			edits: [],
 			worlds: []
@@ -548,7 +554,7 @@ describe('newGame and restoreGame', () => {
 		expect(game.party).toEqual(v2.party);
 	});
 
-	it('a save of a game restores exactly that game, its name, tokens, items and worlds included', () => {
+	it('a save of a game restores exactly that game, its name, tokens, items, puzzles solved and worlds included', () => {
 		const game: SavedGame = {
 			name: 'Nini',
 			home: 4321,
@@ -564,6 +570,7 @@ describe('newGame and restoreGame', () => {
 			tokens: 17,
 			// 'lantern' is an item this build doesn't know: kept, doing nothing.
 			items: ['boat', 'axe', 'lantern'],
+			solved: 312,
 			battle: null,
 			edits: [],
 			worlds: [
@@ -1210,6 +1217,10 @@ describe('which save wins', () => {
 		expect(sameProgress(written as SaveV2, { ...moved, tokens: 0, items: [] } as SaveV2)).toBe(
 			true
 		);
+		// One from before the count of puzzles has solved none: the same as 0 written out,
+		// both ways, so a tab that loaded it can carry on from a tab that walked and wrote 0.
+		expect(sameProgress(written as SaveV2, { ...moved, solved: 0 } as SaveV2)).toBe(true);
+		expect(sameProgress({ ...moved, solved: 0 } as SaveV2, written as SaveV2)).toBe(true);
 		// One from before the tools has cleared nothing: the same as an empty overlay; and one
 		// that never travelled has left no world behind.
 		expect(sameProgress(written as SaveV2, { ...moved, edits: [], worlds: [] } as SaveV2)).toBe(
@@ -1230,6 +1241,8 @@ describe('which save wins', () => {
 			// Tokens and items are what a kid has, not where they are.
 			{ ...written, tokens: 8 },
 			{ ...written, items: ['axe'] },
+			// A puzzle solved is something done.
+			{ ...written, solved: 1 },
 			// A tree chopped down is something done, too.
 			{ ...written, edits: ['0,0:11'] }
 		]) {
@@ -1242,6 +1255,7 @@ describe('which save wins', () => {
 			...written,
 			name: 'Nini',
 			worlds: [],
+			solved: 312,
 			inventory: { leashes: 2 },
 			battle: { step: 1 }
 		} as SaveV2;

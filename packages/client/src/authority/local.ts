@@ -12,6 +12,7 @@ import {
 	checkName,
 	chooseStarter,
 	clearTile,
+	countSolved,
 	editedTileAt,
 	fitWorlds,
 	gearOf,
@@ -48,6 +49,8 @@ import {
 	type Intent,
 	type ItemId,
 	type Line,
+	type MatchEvent,
+	type MatchSide,
 	type PartyIntent,
 	type PlayerActivity,
 	type Realm,
@@ -156,6 +159,12 @@ export class LocalAuthority implements Authority {
 	/** The ids of the items the player owns (`hasItem`). Saved with the game. */
 	private items: string[] = [];
 	/**
+	 * Puzzles the player has solved: one more for every right answer, in a
+	 * battle, at the doctor or in a friendly match (`countSolved`). Saved with
+	 * the game, and it goes along to every world.
+	 */
+	private solved = 0;
+	/**
 	 * The tiles the player has cleared with a tool in this world: the world is
 	 * the seed's, as they left it (`editedTileAt`). Saved with the game.
 	 */
@@ -214,6 +223,7 @@ export class LocalAuthority implements Authority {
 		this.party = game.party.map(withCleanNickname);
 		this.tokens = game.tokens;
 		this.items = [...game.items];
+		this.solved = game.solved;
 		this.edits = WorldEdits.decode(game.edits);
 		this.worlds = game.worlds.map(copyStay);
 		this.battle = null;
@@ -231,6 +241,7 @@ export class LocalAuthority implements Authority {
 			party: this.partyCopy(),
 			tokens: this.tokens,
 			items: [...this.items],
+			solved: this.solved,
 			newGame: isNew,
 			edits: [...this.edits.encode()]
 		});
@@ -260,6 +271,7 @@ export class LocalAuthority implements Authority {
 			party: party.map((a) => ({ ...a })),
 			tokens: this.tokens,
 			items: [...this.items],
+			solved: this.solved,
 			battle: this.battle ? this.battle.state : null,
 			edits: [...this.edits.encode()],
 			worlds: this.worlds.map(copyStay)
@@ -283,6 +295,21 @@ export class LocalAuthority implements Authority {
 		if (counts.steps <= this.steps) return;
 		this.steps = counts.steps;
 		if (this.battle) this.battle.seed = this.battleSeed();
+	}
+
+	/**
+	 * A friendly match's events, as the match's own authority (the server)
+	 * sent them, for the player playing `side`: each of this player's right
+	 * answers adds one to the puzzles solved, as a right answer here does
+	 * (`countSolved`), and the other player's count for them, not here.
+	 * Nothing else changes: a match changes nothing in the game ([[DECISIONS]]
+	 * § Multiplayer). The hook the match screen calls with every batch of
+	 * events it is sent, each batch once: a batch passed twice counts twice.
+	 * Only while a game is under way.
+	 */
+	countMatchAnswers(events: readonly MatchEvent[], side: MatchSide): void {
+		if (!this.started) return;
+		this.count(countSolved(this.solved, events, side));
 	}
 
 	/**
@@ -509,6 +536,7 @@ export class LocalAuthority implements Authority {
 		const { state, events } = applyBattleIntent(battle.state, intent, battle.seed);
 		battle.state = state;
 		this.emit({ type: 'battle-updated', state, events });
+		this.count(countSolved(this.solved, events));
 		if (state.phase.kind !== 'ended') return;
 		this.battle = null;
 		this.endBattle(state, events);
@@ -628,9 +656,9 @@ export class LocalAuthority implements Authority {
 
 	/**
 	 * Apply one doctor intent. What it did is written back at once — a heal,
-	 * animals gone home, tokens given, an item bought: the kid earned it,
-	 * whatever happens to the visit after. Leaving ends the visit, and the
-	 * client says the doctor's goodbye.
+	 * animals gone home, tokens given, an item bought, a puzzle solved: the
+	 * kid earned it, whatever happens to the visit after. Leaving ends the
+	 * visit, and the client says the doctor's goodbye.
 	 */
 	private applyDoctor(intent: DoctorIntent): void {
 		const doctor = this.doctor!;
@@ -638,6 +666,7 @@ export class LocalAuthority implements Authority {
 		const { state, events } = applyDoctorIntent(doctor.state, intent, doctor.seed);
 		doctor.state = state;
 		this.emit({ type: 'doctor-visit-updated', visit, state, events });
+		this.count(countSolved(this.solved, events));
 		if (events.some((e) => e.type === 'healed' || e.type === 'went-home')) {
 			this.party = state.party.map((a) => ({ ...a }));
 			this.emit({ type: 'party-changed', party: this.partyCopy() });
@@ -671,6 +700,13 @@ export class LocalAuthority implements Authority {
 	}
 
 	// --- helpers -----------------------------------------------------------
+
+	/** The puzzles solved are `solved` now (`countSolved`'s): say so, when that is more than before. */
+	private count(solved: number): void {
+		if (solved === this.solved) return;
+		this.solved = solved;
+		this.emit({ type: 'solved-changed', solved });
+	}
 
 	private partyCopy(): AnimalInstance[] {
 		return this.party.map((a) => ({ ...a }));

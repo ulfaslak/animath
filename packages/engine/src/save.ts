@@ -85,6 +85,11 @@ export interface SavedGame {
 	/** The ids of the items the player owns, each once, in the order bought (`hasItem`). */
 	items: string[];
 	/**
+	 * Puzzles the player has solved, in every world together: every right
+	 * answer adds one (`countSolved`), and nothing takes one away. A whole number.
+	 */
+	solved: number;
+	/**
 	 * The battle in progress, or null: always in `world`, since nobody leaves
 	 * a world mid-battle. Its seed is not saved: the authority derives it from `steps`.
 	 */
@@ -175,6 +180,11 @@ export interface SaveV2 {
 	 * an item.
 	 */
 	items?: string[];
+	/**
+	 * The puzzles the player has solved. Optional in a write too: a save
+	 * without it, from before the count, has solved none yet.
+	 */
+	solved?: number;
 	/** The battle in progress when it was saved. Checked on load (`readBattle`), dropped if unusable. */
 	battle?: unknown;
 	/**
@@ -206,6 +216,7 @@ const SAVE_KEYS: ReadonlySet<string> = new Set([
 	'seq',
 	'tokens',
 	'items',
+	'solved',
 	'battle',
 	'edits',
 	'worlds'
@@ -404,7 +415,7 @@ function findSaveError(input: Doc): string | null {
 	if (input.facing !== undefined && !DIRECTIONS.has(input.facing as string)) {
 		return 'facing must be up, down, left or right';
 	}
-	for (const key of ['steps', 'visits', 'seq', 'tokens'] as const) {
+	for (const key of ['steps', 'visits', 'seq', 'tokens', 'solved'] as const) {
 		if (input[key] !== undefined && !isWhole(input[key])) {
 			return `${key} must be a whole number of 0 or more`;
 		}
@@ -501,8 +512,8 @@ function defaultStarter(): AnimalInstance {
 
 /**
  * A new game in world `world`, which is its home: that world's spawn tile,
- * facing down, nothing walked, no tokens, no items, nothing cleared and no
- * other world visited, the player called `name` (checked by the caller with
+ * facing down, nothing walked, no tokens, no items, no puzzle solved, nothing
+ * cleared and no other world visited, the player called `name` (checked by the caller with
  * `checkName`; null for none yet), and one animal, `starter` (the chosen one,
  * `chooseStarter`'s with an id from the authority), or else the default
  * starter at full HP.
@@ -523,6 +534,7 @@ export function newGame(
 		party: [starter ? { ...starter } : defaultStarter()],
 		tokens: 0,
 		items: [],
+		solved: 0,
 		battle: null,
 		edits: [],
 		worlds: []
@@ -542,8 +554,8 @@ function cleanAnimal(animal: AnimalInstance): AnimalInstance {
  * saved battle's party alike, and the player's name through `checkName`: a
  * name it refuses (a rule that has grown since, a hand-edited save) is no
  * name, and the player is asked for one again. Fields a document lacks get
- * their defaults (facing down, no steps or visits, no tokens or items,
- * nothing cleared, no other world visited; an item listed twice is owned
+ * their defaults (facing down, no steps or visits, no tokens or items, no
+ * puzzle solved, nothing cleared, no other world visited; an item listed twice is owned
  * once; the edits in their canonical text, within `EDITS_BUDGET`, trimmed
  * round the player as a clear trims them when a save holds more), and
  * nothing in it can leave the player stuck: a position the player can't be
@@ -614,6 +626,7 @@ export function restoreGame(save: SaveV2): SavedGame {
 		party: bundled(party),
 		tokens: save.tokens ?? 0,
 		items,
+		solved: save.solved ?? 0,
 		battle: battle && bundledBattle(battle),
 		edits: [...edits.encode()],
 		worlds: [...worlds]
@@ -741,6 +754,7 @@ export function saveDocument(
 		party: game.party.map((a) => ({ ...a })),
 		tokens: game.tokens,
 		items: [...game.items],
+		solved: game.solved,
 		lineage: stamp.lineage,
 		seq: stamp.seq
 	};
@@ -813,8 +827,8 @@ export function replacesAnotherGame(
  * Whether two saves hold the same progress: they may differ in where the
  * player is in the world they are in (position, facing, steps, doctor
  * visits) and in which write they are, and in nothing else — not the party,
- * not a battle, not the world they are in or the worlds they left, not the
- * name, not any extra field. A page whose save was replaced by another page
+ * not a battle, not the puzzles solved, not the world they are in or the
+ * worlds they left, not the name, not any extra field. A page whose save was replaced by another page
  * that only walked around can take the save back without losing anything a
  * kid would miss.
  */
@@ -831,14 +845,15 @@ export function sameProgress(a: SaveV2, b: SaveV2): boolean {
 
 /**
  * A document with what an older save leaves unsaid said: no tokens, no
- * items, nothing cleared, no other world visited. A save from before the
- * shop, the tools or travel holds the same progress as one that writes none
- * out.
+ * items, no puzzle solved, nothing cleared, no other world visited. A save
+ * from before the shop, the count of puzzles, the tools or travel holds the
+ * same progress as one that writes none out.
  */
 function withProgressDefaults(doc: SaveV2): Doc {
 	const out: Doc = { ...(doc as unknown as Doc) };
 	if (out.tokens === undefined) out.tokens = 0;
 	if (out.items === undefined) out.items = [];
+	if (out.solved === undefined) out.solved = 0;
 	if (out.edits === undefined) out.edits = [];
 	if (out.worlds === undefined) out.worlds = [];
 	return out;

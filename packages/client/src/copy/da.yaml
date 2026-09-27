@@ -221,6 +221,9 @@ hud:
   tokens:
     one: '{count} mønt'
     other: '{count} mønter'
+  solved:
+    one: '{count} opgave'
+    other: '{count} opgaver'
 
 team:
   count: '×{count}'

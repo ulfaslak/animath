@@ -77,7 +77,7 @@ export type GameEvent =
 	/**
 	 * The game starts, or starts over: a new game, or one picked up from a
 	 * save. Carries the facing too, so a restored player looks the way they
-	 * did, and the tokens and items. A `battle-started` follows when the save
+	 * did, the tokens and items, and the puzzles solved (`solved`). A `battle-started` follows when the save
 	 * was taken mid-battle. `newGame` tells the two apart: true for a game
 	 * that begins here (a starter just picked, or a throwaway game), false for
 	 * one picked up. `world` is the world number the player is in and `seed`
@@ -98,6 +98,7 @@ export type GameEvent =
 			party: AnimalInstance[];
 			tokens: number;
 			items: string[];
+			solved: number;
 			newGame: boolean;
 			edits: string[];
 	  }
@@ -158,6 +159,12 @@ export type GameEvent =
 	 * both, whole.
 	 */
 	| { type: 'belongings-changed'; tokens: number; items: string[] }
+	/**
+	 * The player solved a puzzle: an answer was judged right (`countSolved`),
+	 * in a battle, at the doctor or in a friendly match. `solved` is the whole
+	 * count now. Sent right after the event that judged it; never for a wrong answer.
+	 */
+	| { type: 'solved-changed'; solved: number }
 	/**
 	 * Something to say on the message line, as a copy key and its values; the
 	 * client words it in the language on screen. Never a finished sentence.

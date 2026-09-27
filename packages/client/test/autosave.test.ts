@@ -329,6 +329,38 @@ describe('Autosave: the save in this browser', () => {
 		await settle();
 		expect(store.writes).toBe(before + 3);
 		expect(store.save()).toMatchObject({ tokens: 12, items: ['axe'] });
+		// A puzzle solved in a friendly match, where nothing else changes: the count alone is saved.
+		tab.game.solved = 1;
+		tab.autosave.handle({ type: 'solved-changed', solved: 1 });
+		await settle();
+		expect(store.writes).toBe(before + 4);
+		expect(store.save()).toMatchObject({ solved: 1 });
+	});
+
+	it('a field a later build added comes back in every save as it was: this build is some later one’s older build', async () => {
+		// What lets a later build add to the save without a version bump ([[DECISIONS]] § Saves).
+		const extra = { stars: [3, 1], note: 'from a later build' };
+		const store = new MemoryStore();
+		const server = new FakeServer();
+		const doc = { ...saveDocument(newGame(WORLD), { lineage: 'L', seq: 4 }), extra };
+		const who = server.seed(doc);
+		store.set(KEYS.save, JSON.stringify(doc));
+		store.set(KEYS.player, JSON.stringify(who));
+		const tab = new Tab(store, server);
+		await tab.open();
+		await tab.walk();
+		await tab.catchOne();
+		tab.game.solved = 5;
+		await tab.play(() => {}, { type: 'solved-changed', solved: 5 });
+		expect(store.save()).toMatchObject({ extra, solved: 5 });
+		expect(store.save()!.seq).toBeGreaterThan(4);
+		await later();
+		expect(server.saveOf(who)).toMatchObject({ extra, solved: 5 });
+		// A reload reads it back and keeps it on.
+		const again = new Tab(store, server);
+		await again.open();
+		await again.walk();
+		expect(store.save()).toMatchObject({ extra, solved: 5 });
 	});
 
 	it('a party edit is playing, a refused one or a doctor visit alone is not', async () => {

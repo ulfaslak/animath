@@ -4,7 +4,9 @@ import {
 	ITEM_IDS,
 	Rng,
 	WorldEdits,
+	applyMatchIntent,
 	attackDamage,
+	canSendIn,
 	canTalkToDoctor,
 	getAnimal,
 	TENT_SEARCH_STEPS,
@@ -24,6 +26,7 @@ import {
 	saveDocument,
 	spawnPoint,
 	startBattle,
+	startMatch,
 	takeToDoctor,
 	tileAtWorld,
 	type AnimalInstance,
@@ -34,6 +37,8 @@ import {
 	type GameEvent,
 	type GridPos,
 	type Intent,
+	type MatchEvent,
+	type MatchIntent,
 	type SavedGame,
 	worldSeed
 } from '@mathgame/engine';
@@ -432,8 +437,10 @@ describe('LocalAuthority: outcomes', () => {
 		if (!final) throw new Error('twenty wins without losing any HP');
 		expect(final.phase).toEqual({ kind: 'ended', outcome: 'won' });
 		expect(party(s)).toEqual(final.party);
+		// The winning answer was a right one: the count goes up before the battle ends.
 		expect(closingEvents(s).map((e) => e.type)).toEqual([
 			'battle-updated',
+			'solved-changed',
 			'battle-ended',
 			'party-changed',
 			'message'
@@ -1011,6 +1018,7 @@ describe('LocalAuthority: the doctor', () => {
 		answerDoctor(s, true);
 		expect(s.events.slice(from)).toMatchObject([
 			{ type: 'doctor-visit-updated' },
+			{ type: 'solved-changed', solved: 1 },
 			{ type: 'party-changed', party: [hurtParty()[1], hurtParty()[2]] },
 			{ type: 'belongings-changed', tokens: 22, items: [] }
 		]);
@@ -1023,13 +1031,14 @@ describe('LocalAuthority: the doctor', () => {
 		answerDoctor(s, true);
 		expect(s.events.slice(from)).toMatchObject([
 			{ type: 'doctor-visit-updated' },
+			{ type: 'solved-changed', solved: 2 },
 			{ type: 'belongings-changed', tokens: 14, items: ['axe'] }
 		]);
 		doctorIntent(s, { type: 'leave' });
 
 		// The game holds it all, through a save and a reload; the next visit starts from it.
 		const game = s.authority.snapshot();
-		expect(game).toMatchObject({ tokens: 14, items: ['axe'] });
+		expect(game).toMatchObject({ tokens: 14, items: ['axe'], solved: 2 });
 		expect(game.party.map((a) => a.id)).toEqual(['b', 'c']);
 		const t: Session = { authority: new LocalAuthority({ shop: ITEM_IDS }), events: [] };
 		t.authority.subscribe((e) => t.events.push(e));
@@ -1037,7 +1046,7 @@ describe('LocalAuthority: the doctor', () => {
 		const read = readSave(JSON.parse(JSON.stringify(doc)));
 		if (!read.ok) throw new Error(read.error);
 		t.authority.start({ game: restoreGame(read.save) });
-		expect(t.events[0]).toMatchObject({ type: 'welcome', tokens: 14, items: ['axe'] });
+		expect(t.events[0]).toMatchObject({ type: 'welcome', tokens: 14, items: ['axe'], solved: 2 });
 		t.authority.dispatch({ type: 'interact' });
 		expect(visit(t)).toMatchObject({ tokens: 14, items: ['axe'] });
 		doctorIntent(t, { type: 'buy', itemId: 'axe' });
@@ -1774,8 +1783,8 @@ describe('LocalAuthority: names and worlds', () => {
 		expect(title.events).toEqual([]);
 	});
 
-	it('travel goes to another world while exploring: its spawn on a first visit; party, tokens, items, name and counts go along', () => {
-		const s = from({ ...newGame(1, undefined, 'Nini'), tokens: 7, items: ['axe'] });
+	it('travel goes to another world while exploring: its spawn on a first visit; party, tokens, items, puzzles solved, name and counts go along', () => {
+		const s = from({ ...newGame(1, undefined, 'Nini'), tokens: 7, items: ['axe'], solved: 312 });
 		move(s, 'right', 'right', 'down');
 		const left = { pos: position(s), facing: facing(s) };
 		const before = s.authority.snapshot();
@@ -1920,5 +1929,201 @@ describe('LocalAuthority: names and worlds', () => {
 		expect(length(after.edits) + length(after.worlds[0]!.edits)).toBeLessThanOrEqual(EDITS_BUDGET);
 		expect(after.edits).toEqual(WorldEdits.none.with(tree.target).encode());
 		expect(after.worlds[0]!.edits.length).toBeLessThan(far.encode().length);
+	});
+});
+
+describe('LocalAuthority: puzzles solved', () => {
+	/** The right answers the engine judged in these events, as the battle and the doctor report them. */
+	function judgedRight(events: readonly GameEvent[]): number {
+		let n = 0;
+		for (const e of events) {
+			if (e.type !== 'battle-updated' && e.type !== 'doctor-visit-updated') continue;
+			for (const j of e.events) if (j.type === 'answer-judged' && j.correct) n++;
+		}
+		return n;
+	}
+
+	/** Every count the authority said, in order. */
+	function counts(s: Session): number[] {
+		return s.events.flatMap((e) => (e.type === 'solved-changed' ? [e.solved] : []));
+	}
+
+	it('a right answer in a battle adds one, said right after the turn that judged it; a wrong one adds none', () => {
+		const s = session(withParty('fox'));
+		expect(welcome(s).solved).toBe(0);
+		walkIntoBattle(s);
+		let from = s.events.length;
+		attack(s, 1, 1, false);
+		expect(s.events.slice(from).map((e) => e.type)).not.toContain('solved-changed');
+		expect(s.authority.snapshot().solved).toBe(0);
+		from = s.events.length;
+		attack(s, 1, 1, true);
+		const fresh = s.events.slice(from);
+		const at = fresh.findIndex((e) => e.type === 'solved-changed');
+		expect(fresh[at]).toEqual({ type: 'solved-changed', solved: 1 });
+		expect(judgedRight([fresh[at - 1]!])).toBe(1);
+		expect(fresh.filter((e) => e.type === 'solved-changed')).toHaveLength(1);
+		expect(s.authority.snapshot().solved).toBe(1);
+	});
+
+	it('over many battles and a long doctor visit, the count is exactly the right answers, one at a time, and the screen agrees', () => {
+		const rng = new Rng(2026);
+		const s = session({ ...withParty('fox,fox'), tokens: 30, shop: ITEM_IDS });
+		for (let n = 0; n < 12; n++) {
+			walkIntoBattle(s);
+			while (latestBattle(s).phase.kind !== 'ended') {
+				stepIn(s);
+				if (latestBattle(s).phase.kind === 'ended') break;
+				if (rng.chance(0.1)) s.authority.dispatch({ type: 'battle', intent: { type: 'flee' } });
+				else attack(s, 1, rng.pick([1, 2] as const), rng.chance(0.6));
+			}
+			// A lost battle ends at a tent, far from the reed: enough battles.
+			if (s.events.some((e) => e.type === 'taken-to-doctor')) break;
+		}
+		const inBattles = judgedRight(s.events);
+		expect(inBattles).toBeGreaterThan(10);
+
+		// A long visit: heals, hand-overs and purchases, right and wrong, backing out now and then.
+		const t = session({
+			party: [...hurtParty(), ...parseParty('rabbit:1*4,frog:0*3,deer:9')!],
+			tokens: 30,
+			shop: ITEM_IDS
+		});
+		walkToTent(t);
+		t.authority.dispatch({ type: 'interact' });
+		for (let i = 0; i < 300; i++) {
+			const state = visit(t);
+			const phase = state.phase;
+			if (phase.kind === 'solving' || phase.kind === 'handing-over' || phase.kind === 'buying') {
+				if (rng.chance(0.1)) doctorIntent(t, { type: 'back' });
+				else answerDoctor(t, rng.chance(0.5));
+			} else {
+				const roll = rng.next();
+				const hurt = state.party.flatMap((a, j) =>
+					a.hp < getAnimal(a.speciesId).maxHp ? [j] : []
+				);
+				if (roll < 0.3 && hurt.length > 0) {
+					doctorIntent(t, { type: 'pick-patient', partyIndex: rng.pick(hurt) });
+				} else if (roll < 0.55) {
+					doctorIntent(t, { type: 'hand-over', ids: [rng.pick(state.party).id] });
+				} else if (roll < 0.8) {
+					doctorIntent(t, { type: 'buy', itemId: rng.pick(ITEM_IDS) });
+				} else {
+					// An answer with no sum open: refused, and nothing counts.
+					doctorIntent(t, { type: 'answer', input: '1' });
+				}
+			}
+		}
+		doctorIntent(t, { type: 'leave' });
+		expect(visit(t).phase.kind).toBe('ended');
+		const atTheDoctor = judgedRight(t.events);
+		expect(atTheDoctor).toBeGreaterThan(8);
+
+		for (const [who, right] of [
+			[s, inBattles],
+			[t, atTheDoctor]
+		] as const) {
+			expect(who.authority.snapshot().solved).toBe(right);
+			// One at a time, never down, never twice for one answer.
+			expect(counts(who)).toEqual(Array.from({ length: right }, (_, i) => i + 1));
+			// What the HUD reads follows the events.
+			for (const e of who.events) game.apply(e);
+			expect(game.solved).toBe(right);
+		}
+	});
+
+	it('is saved with the game, mid-battle too, and a reload carries on counting; a new game starts at 0', () => {
+		const s = session(withParty('fox'));
+		walkIntoBattle(s);
+		attack(s, 1, 1, true);
+		expect(s.authority.snapshot().solved).toBe(1);
+		const doc = saveDocument(s.authority.snapshot(), { lineage: 'test', seq: 1 });
+		expect(doc.solved).toBe(1);
+		const read = readSave(JSON.parse(JSON.stringify(doc)));
+		if (!read.ok) throw new Error(read.error);
+		const t: Session = { authority: new LocalAuthority(), events: [] };
+		t.authority.subscribe((e) => t.events.push(e));
+		t.authority.start({ game: restoreGame(read.save) });
+		expect(welcome(t).solved).toBe(1);
+		// The battle picked up goes on counting from there.
+		if (latestBattle(t).phase.kind === 'ended') throw new Error('the battle ended at once');
+		stepIn(t);
+		attack(t, 1, 1, true);
+		expect(t.authority.snapshot().solved).toBe(2);
+		t.authority.dispatch({ type: 'battle', intent: { type: 'flee' } });
+		while (latestBattle(t).phase.kind !== 'ended') {
+			stepIn(t);
+			t.authority.dispatch({ type: 'battle', intent: { type: 'flee' } });
+		}
+
+		// Back on the title and a new game: a count of its own, from 0.
+		t.authority.dispatch({ type: 'leave-game' });
+		expect(t.events.at(-1)).toEqual({ type: 'game-left' });
+		const from = t.events.length;
+		t.authority.dispatch({ type: 'new-game', speciesId: STARTERS[0]! });
+		expect(t.events[from]).toMatchObject({ type: 'welcome', newGame: true, solved: 0 });
+		expect(t.authority.snapshot().solved).toBe(0);
+	});
+
+	it("a friendly match's right answers count for this player's own side only, and nothing else changes", () => {
+		const s = session(withParty('fox,rabbit'));
+		// A game already under way, some puzzles solved.
+		walkIntoBattle(s);
+		attack(s, 1, 1, true);
+		while (latestBattle(s).phase.kind !== 'ended') {
+			stepIn(s);
+			s.authority.dispatch({ type: 'battle', intent: { type: 'flee' } });
+		}
+		const before = s.authority.snapshot();
+		expect(before.solved).toBe(1);
+
+		// A real match's events, as its authority sends them to both players.
+		const seed = 99;
+		let state = startMatch({ a: before.party, b: parseParty('wolf,deer')! }, seed);
+		const events: MatchEvent[] = [];
+		const right = { a: 0, b: 0 };
+		for (let i = 0; i < 600; i++) {
+			const phase = state.phase;
+			if (phase.kind === 'ended') break;
+			const side = phase.side;
+			let intent: MatchIntent;
+			if (phase.kind === 'solving') {
+				const correct = i % 3 !== 0;
+				const answer = phase.puzzle.answer;
+				intent = { type: 'answer', input: String(correct ? answer : answer + 1) };
+				if (correct) right[side]++;
+			} else if (phase.kind === 'choose-animal') {
+				const next = state.teams[side].findIndex((_, j) => canSendIn(state, side, j));
+				intent = { type: 'pick-next', teamIndex: next };
+			} else {
+				intent = { type: 'attack', attackIndex: 1, level: 1 };
+			}
+			const step = applyMatchIntent(state, side, intent, seed);
+			events.push(...step.events);
+			state = step.state;
+		}
+		expect(state.phase.kind).toBe('ended');
+		expect(right.a).toBeGreaterThan(0);
+		expect(right.b).toBeGreaterThan(0);
+
+		const from = s.events.length;
+		s.authority.countMatchAnswers(events, 'a');
+		expect(s.events.slice(from)).toEqual([{ type: 'solved-changed', solved: 1 + right.a }]);
+		// Nothing else about the game changed: a match changes nothing but the count.
+		expect(s.authority.snapshot()).toEqual({ ...before, solved: 1 + right.a });
+		// The other player's right answers, and the wrong ones, are nobody's here.
+		const theirs = events.filter((e) => e.type !== 'answer-judged' || e.side === 'b' || !e.correct);
+		s.authority.countMatchAnswers(theirs, 'a');
+		expect(s.events.length).toBe(from + 1);
+		// Played from the other side, the same events count the other side's answers.
+		const other = session();
+		other.authority.countMatchAnswers(events, 'b');
+		expect(other.authority.snapshot().solved).toBe(right.b);
+		// Before a game is under way there is nothing to count into.
+		const title = new LocalAuthority();
+		const said: GameEvent[] = [];
+		title.subscribe((e) => said.push(e));
+		title.countMatchAnswers(events, 'a');
+		expect(said).toEqual([]);
 	});
 });

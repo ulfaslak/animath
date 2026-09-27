@@ -27,6 +27,7 @@
 	import BundleCard from './BundleCard.svelte';
 	import Coin from './Coin.svelte';
 	import ItemIcon from './ItemIcon.svelte';
+	import Tick from './Tick.svelte';
 
 	/**
 	 * The explore HUD. The party column: one card per species, in battle
@@ -56,8 +57,9 @@
 	 * stay where the drop left them. Every action is a key press, so a pointer
 	 * goes through the same screen and guards a key does.
 	 *
-	 * At the top right, the player's tokens, and under them the tools they
-	 * own, each with its name.
+	 * At the top right, the puzzles the player has solved beside their
+	 * tokens, under them the tools they own, each with its name, and the
+	 * world they are in.
 	 */
 	const list = $derived(bundles(game.party));
 	const leadId = $derived(game.party[leadIndex(game.party, game.realm)]?.id ?? null);
@@ -414,10 +416,14 @@
 	{/if}
 </div>
 
-<!-- The player's tokens, the tools they own, and the world they are in. -->
+<!-- The puzzles the player has solved and their tokens, the tools they own, and the world they are in. -->
 <!-- With `?debug` the position and the cues have the corner; these go under them. -->
 <div class="belongings" class:below-debug={flags.debug}>
-	<div class="purse"><Coin />{t('hud.tokens', { count: game.tokens })}</div>
+	<!-- The two numbers a kid collects, side by side; with no room beside the tokens, the count goes under them. -->
+	<div class="counts">
+		<div class="solved"><Tick />{t('hud.solved', { count: game.solved })}</div>
+		<div class="purse"><Coin />{t('hud.tokens', { count: game.tokens })}</div>
+	</div>
 	{#each tools as id (id)}
 		<div class="tool"><ItemIcon {id} size={24} />{itemName(id)}</div>
 	{/each}
@@ -606,7 +612,7 @@
 	.message + .prompt {
 		margin-top: 2px;
 	}
-	/* The top right: the tokens, and the tools under them. */
+	/* The top right: the puzzles solved and the tokens, and the tools and the world under them. */
 	.belongings {
 		position: absolute;
 		top: calc(16px + var(--safe-top));
@@ -620,6 +626,19 @@
 	.belongings.below-debug {
 		top: calc(100px + var(--safe-top));
 	}
+	/*
+	 * The count and the tokens in one row, the tokens at the right edge. The
+	 * row stays clear of the party column (at most 320 px wide, from 16 px
+	 * in): on a screen too narrow for both, the count wraps under the tokens.
+	 */
+	.counts {
+		display: flex;
+		flex-wrap: wrap-reverse;
+		justify-content: flex-end;
+		gap: 6px;
+		max-width: calc(100vw - 32px - 340px - var(--safe-left) - var(--safe-right));
+	}
+	.solved,
 	.purse,
 	.tool {
 		display: flex;
@@ -631,6 +650,7 @@
 		font-weight: 800;
 		white-space: nowrap;
 	}
+	.solved,
 	.purse {
 		padding: 6px 14px 6px 8px;
 		font-size: 18px;

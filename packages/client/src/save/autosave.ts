@@ -378,6 +378,9 @@ export class Autosave {
 			case 'battle-updated':
 			case 'doctor-visit-started':
 			case 'doctor-visit-updated':
+			// A puzzle solved. In a battle or at the doctor the event that judged it saves too;
+			// in a friendly match, where nothing else changes, this is what saves the count.
+			case 'solved-changed':
 				this.changed(false);
 				break;
 		}
