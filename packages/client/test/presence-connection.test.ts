@@ -1,4 +1,8 @@
 import {
+	BEARINGS,
+	MAX_MESSAGE_BYTES,
+	MAX_ROSTER,
+	MAX_WIRE_NAME,
 	PROTOCOL_VERSION,
 	byeCloseCode,
 	type ServerMessage,
@@ -264,6 +268,27 @@ describe('the presence connection', () => {
 		older.last().say({ t: 'refresh', v: PROTOCOL_VERSION - 1 });
 		older.last().drop();
 		expect(older.connection.status).toBe('waiting');
+	});
+
+	it('reads a whole roster of fifty of the longest names, longer than any message it sends', () => {
+		const { connection, last, got } = setup();
+		connection.start('g'.repeat(22), 'Ada');
+		last().open();
+		last().say(hi);
+		const roster: ServerMessage = {
+			t: 'roster',
+			world: 1,
+			players: Array.from({ length: MAX_ROSTER }, (_, i) => ({
+				pid: `pid${String(i).padStart(9, '0')}`,
+				name: '𝐀'.repeat(MAX_WIRE_NAME / 2),
+				bearing: i % BEARINGS,
+				steps: 400_000,
+				busy: 'explore' as const
+			}))
+		};
+		expect(JSON.stringify(roster).length).toBeGreaterThan(MAX_MESSAGE_BYTES);
+		last().say(roster);
+		expect(got.at(-1)).toEqual(roster);
 	});
 
 	it('never throws: no WebSocket at all, junk from the server, a send on a closed socket', () => {

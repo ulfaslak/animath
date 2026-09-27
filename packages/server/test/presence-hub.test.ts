@@ -1,10 +1,14 @@
 import {
 	BUSY_STATES,
 	MAX_ROSTER,
+	MAX_SERVER_MESSAGE_BYTES,
+	MAX_WIRE_COORD,
+	MAX_WIRE_NAME,
 	Rng,
 	VIEW_KEEP,
 	VIEW_RADIUS,
 	parseServerMessage,
+	readWire,
 	tilesApart,
 	type ByeReason,
 	type ServerMessage,
@@ -24,8 +28,11 @@ class FakePeer implements Peer {
 	pid = '';
 	private readonly drawing = new Map<string, ServerMessage & { t: 'peer' }>();
 	send(message: ServerMessage): void {
-		// Everything sent must be a message a browser reads as one.
-		expect(parseServerMessage(JSON.parse(JSON.stringify(message)))).toEqual(message);
+		// Everything sent must be a message a browser reads as one, off the wire.
+		const text = JSON.stringify(message);
+		expect(parseServerMessage(readWire(text, MAX_SERVER_MESSAGE_BYTES)), text.slice(0, 80)).toEqual(
+			message
+		);
 		this.got.push(message);
 		if (message.t === 'peer') this.drawing.set(message.pid, message);
 		if (message.t === 'gone') this.drawing.delete(message.pid);
@@ -234,6 +241,46 @@ describe('presence hub', () => {
 		const players = me.of('roster').at(-1)!.players;
 		expect(players).toHaveLength(MAX_ROSTER);
 		expect(players.at(-1)!.name).toBe(`P${MAX_ROSTER - 1}`);
+	});
+
+	it('sends a roster every browser reads whole: fifty of the longest names, furthest apart', () => {
+		const hub = newHub();
+		const me = new FakePeer();
+		hub.join(me, 'guest:me', 'Me');
+		hub.where(me, where(1, -MAX_WIRE_COORD, -MAX_WIRE_COORD));
+		// As long as the wire takes, in letters outside the basic plane: two UTF-16 units each.
+		const name = (i: number) =>
+			(String.fromCodePoint(0x1d400 + (i % 26)) + '𝐀').repeat(MAX_WIRE_NAME / 4);
+		for (let i = 0; i < MAX_ROSTER; i++) {
+			const p = new FakePeer();
+			hub.join(p, `guest:long${i}`, name(i));
+			hub.where(p, where(1, MAX_WIRE_COORD - i, MAX_WIRE_COORD));
+		}
+		hub.sendRosters();
+		const roster = me.of('roster').at(-1)!;
+		expect(JSON.stringify(roster).length).toBeGreaterThan(4096);
+		expect(roster.players).toHaveLength(MAX_ROSTER);
+	});
+
+	it('leaves the furthest off a roster that would be too long for the wire, never the nearest', () => {
+		const hub = newHub();
+		const me = new FakePeer();
+		hub.join(me, 'guest:me', 'Me');
+		hub.where(me, where(1, 0, 0));
+		// Names no name rule would pass, but the wire does: each character six once in JSON.
+		for (let i = 0; i < MAX_ROSTER; i++) {
+			const p = new FakePeer();
+			hub.join(p, `guest:odd${i}`, String.fromCharCode(1 + (i % 20)).repeat(MAX_WIRE_NAME));
+			hub.where(p, where(1, 10 + i, 0));
+		}
+		hub.sendRosters();
+		const roster = me.of('roster').at(-1)!;
+		expect(JSON.stringify(roster).length).toBeLessThanOrEqual(MAX_SERVER_MESSAGE_BYTES);
+		expect(roster.players.length).toBeGreaterThan(20);
+		expect(roster.players.length).toBeLessThan(MAX_ROSTER);
+		expect(roster.players.map((p) => p.steps)).toEqual(
+			roster.players.map((_, i) => 10 + i).map((s) => (s <= 20 ? s : Math.round(s / 5) * 5))
+		);
 	});
 
 	it('turns a player away from a full world', () => {
