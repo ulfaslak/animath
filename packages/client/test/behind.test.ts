@@ -99,6 +99,16 @@ describe('behindKey', () => {
 		}
 	});
 
+	it('Escape logs out, but only where the page may leave (a newer build’s save of an account’s game)', () => {
+		expect(behindKey('Escape', false, true)).toBe('logOut');
+		expect(behindKey('Escape', true, true)).toBe('logOut');
+		expect(behindKey('Escape', false, false)).toBe('ignore');
+		expect(behindKey('Enter', false, true)).toBe('reload');
+		for (const key of ['ArrowLeft', 'a', '1', 'Backspace']) {
+			expect(behindKey(key, false, true)).toBe('ignore');
+		}
+	});
+
 	it('in a text box, Space is a letter, and only Enter catches up', () => {
 		expect(behindKey(' ', true)).toBe('ignore');
 		expect(behindKey('Enter', true)).toBe('reload');

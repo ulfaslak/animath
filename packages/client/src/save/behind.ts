@@ -65,10 +65,18 @@ export function behindAction(page: PageState): BehindAction {
 /**
  * A key pressed while the page is behind: Enter catches up, and so does
  * Space, unless a text box has the focus (a Space there is a letter being
- * typed). Any other key does nothing, and never reaches the game.
+ * typed). Escape logs out when `canLeave` (behind a newer build's save of an
+ * account's game, which a reload into the same old version cannot load:
+ * logging out plays the guest game meanwhile). Any other key does nothing,
+ * and never reaches the game.
  */
-export function behindKey(key: string, typing: boolean): 'reload' | 'ignore' {
+export function behindKey(
+	key: string,
+	typing: boolean,
+	canLeave = false
+): 'reload' | 'logOut' | 'ignore' {
 	if (key === 'Enter') return 'reload';
+	if (key === 'Escape' && canLeave) return 'logOut';
 	return key === ' ' && !typing ? 'reload' : 'ignore';
 }
 

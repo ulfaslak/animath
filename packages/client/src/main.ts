@@ -339,7 +339,12 @@ window.addEventListener('keydown', (e) => {
 		keyboard.setEnabled(false);
 		if (e.ctrlKey || e.metaKey || e.altKey || /^F\d+$/.test(e.key)) return;
 		e.preventDefault();
-		if (behindKey(e.key, typingNow(e.target)) === 'reload') catchUp(false);
+		// Behind a newer build's save of an account's game, Escape (the card's Log out) plays
+		// the guest game meanwhile: a reload into the same old version cannot load it.
+		const canLeave = autosave.behind === 'newer' && account.name !== null && !account.leaving;
+		const act = behindKey(e.key, typingNow(e.target), canLeave);
+		if (act === 'reload') catchUp(false);
+		else if (act === 'logOut') void accountController.logOut();
 		return;
 	}
 	const screen = keyScreen();
