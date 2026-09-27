@@ -21,6 +21,10 @@ app:
     title: Denne browser kan ikke tegne Animaths verden.
     ask: Bed en voksen om hjælp!
     grownUps: 'Til voksne: Animath skal bruge WebGL 2. Tjek at hardwareacceleration er slået til i browserens indstillinger eller prøv en anden browser. På en iPad eller iPhone slår Låsetilstand det fra.'
+  moved:
+    title: Animath er flyttet!
+    go: Spil på {domain}
+    stay: Spil videre her
 
 keys:
   esc: Esc
@@ -759,8 +763,8 @@ save:
   sessionEnded: Du er logget ud, så dit spil gemmes kun på denne enhed. Log ind for at passe på det.
   # On a window that another window of the game has played past, until it catches up.
   behind: Du spillede videre i et andet vindue.
-  # The same card when the newest game came from somewhere else (the server backup),
-  # shown only when the page has already reloaded by itself three times in a minute.
+  # The same card when the newest game came from somewhere else (an account's copy on
+  # the server, or a new game started in another window), shown only when the page has already reloaded by itself three times in a minute.
   behindReady: Dit nyeste spil er klart.
   # The same card when the saved game was cleared (a new game comes next), shown only
   # when the page has already reloaded by itself three times in a minute.
@@ -914,6 +918,8 @@ presence:
     menu: holder pause
     match: kæmper mod en ven
     flight: flyver
+  thinking: '{name} regner på {sum}'
+  choosing: '{name} tænker…'
 match:
   whose: '{name}s'
   whoseAfterS: "{name}'"

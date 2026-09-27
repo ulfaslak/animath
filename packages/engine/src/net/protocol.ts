@@ -15,6 +15,7 @@ import {
 import { ALL_PUZZLE_KINDS, MAX_DIFFICULTY, MIN_DIFFICULTY } from '../puzzles/types.js';
 import { MAX_SAVE_ID_LENGTH } from '../save.js';
 import type { Direction } from '../world/types.js';
+import { readFightEvents, readFightView, type FightEvent, type FightView } from './fight.js';
 
 /**
  * The multiplayer wire: what a browser and the server say to each other over
@@ -45,9 +46,11 @@ import type { Direction } from '../world/types.js';
  * Version 2: friendly matches. Version 3: the glider's `flight` joined
  * `BUSY_STATES`. A version 2 server refuses a `where` that says it (junk, and
  * a whole glide of them closes the socket as `invalid`), and a version 2 page
- * drops a `peer` that says it, so the two could not speak.
+ * drops a `peer` that says it, so the two could not speak. Version 4: battles
+ * seen from outside (`battle` from a page, `fight` from the server:
+ * `fight.ts`), which a version 3 server would count as junk.
  */
-export const PROTOCOL_VERSION = 3;
+export const PROTOCOL_VERSION = 4;
 
 /**
  * The most a message may take on the wire, in bytes (the server closes a
@@ -249,6 +252,19 @@ export interface DoneMessage {
 	id: string;
 }
 
+/**
+ * The page's own battle with a wild animal, as the players near it may see
+ * it (`fight.ts`): how it stands after the step (`view`) and what happened
+ * in it (`events`; none when the battle just started, or the socket came
+ * back). Sent while the page says it is busy in a battle, and read by the
+ * server only then; the server passes it on to the players who see this one.
+ */
+export interface BattleMessage {
+	t: 'battle';
+	view: FightView;
+	events: FightEvent[];
+}
+
 export type ClientMessage =
 	| HelloMessage
 	| WhereMessage
@@ -260,7 +276,8 @@ export type ClientMessage =
 	| PlayMessage
 	| HereMessage
 	| RematchMessage
-	| DoneMessage;
+	| DoneMessage
+	| BattleMessage;
 
 // --- from the server ---------------------------------------------------------
 
@@ -453,6 +470,21 @@ export interface RematchWishMessage {
 	yes: boolean;
 }
 
+/**
+ * A battle near you, seen from outside (`fight.ts`): player `pid`'s battle
+ * with a wild animal, or, with `vs`, the friendly match between `pid` (side
+ * `a`) and `vs` (side `b`). `view` is how it stands after `events`, which the
+ * page plays first; none when you just came into view of it, or it just
+ * began. Sent to the players who see either of its players, never to them.
+ */
+export interface FightMessage {
+	t: 'fight';
+	pid: string;
+	vs: string | null;
+	view: FightView;
+	events: FightEvent[];
+}
+
 export type ServerMessage =
 	| HiMessage
 	| RefreshMessage
@@ -468,7 +500,8 @@ export type ServerMessage =
 	| MatchMessage
 	| RejectedMessage
 	| NudgeMessage
-	| RematchWishMessage;
+	| RematchWishMessage
+	| FightMessage;
 
 // --- reading -----------------------------------------------------------------
 
@@ -662,7 +695,12 @@ const CLIENT_PARSERS: { [K in ClientMessage['t']]: Parser<Extract<ClientMessage,
 		const team = readWireTeam(o.team);
 		return team && isMatchId(o.id) ? { t: 'rematch', id: o.id, team } : null;
 	},
-	done: (o) => (isMatchId(o.id) ? { t: 'done', id: o.id } : null)
+	done: (o) => (isMatchId(o.id) ? { t: 'done', id: o.id } : null),
+	battle: (o) => {
+		const view = readFightView(o.view);
+		const events = readFightEvents(o.events);
+		return view && events ? { t: 'battle', view, events } : null;
+	}
 };
 
 function readRosterEntry(value: unknown): RosterEntry | null {
@@ -928,7 +966,15 @@ const SERVER_PARSERS: { [K in ServerMessage['t']]: Parser<Extract<ServerMessage,
 	'rematch-wish': (o) =>
 		isMatchId(o.id) && isSide(o.side) && typeof o.yes === 'boolean'
 			? { t: 'rematch-wish', id: o.id, side: o.side, yes: o.yes }
-			: null
+			: null,
+	fight: (o) => {
+		const view = readFightView(o.view);
+		const events = readFightEvents(o.events);
+		const vs = o.vs === null ? null : isPid(o.vs) ? o.vs : undefined;
+		return view && events && isPid(o.pid) && vs !== undefined && vs !== o.pid
+			? { t: 'fight', pid: o.pid, vs, view, events }
+			: null;
+	}
 };
 
 function parseWith<M extends { t: string }>(

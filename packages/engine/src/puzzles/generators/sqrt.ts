@@ -1,4 +1,5 @@
 import type { Rng } from '../../rng.js';
+import { facePrompt } from '../face.js';
 import type { Puzzle, PuzzleGenerator } from '../types.js';
 import { band, type Band } from './arithmetic.js';
 
@@ -30,6 +31,11 @@ export const sqrt: PuzzleGenerator = {
 	generate(rng: Rng, difficulty: number): Puzzle {
 		const [lo, hi] = band(ROOT_BAND, difficulty);
 		const root = rng.int(lo, hi);
-		return { kind: 'sqrt', difficulty, prompt: `√${root * root} = ?`, answer: root };
+		return {
+			kind: 'sqrt',
+			difficulty,
+			prompt: facePrompt({ kind: 'sqrt', numbers: [root * root] }),
+			answer: root
+		};
 	}
 };
