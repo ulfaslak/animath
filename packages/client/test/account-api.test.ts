@@ -2,11 +2,13 @@ import type { SaveWrite } from '@mathgame/engine';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
 	SessionCheck,
+	acceptWelcome,
 	accountSaveServer,
 	accountsReady,
 	getAccountSave,
 	login,
 	logout,
+	lookAtWelcome,
 	register,
 	whoAmI,
 	type SessionAnswer
@@ -155,6 +157,94 @@ describe('login and logout', () => {
 		expect(await logout('Ida')).toBe('offline');
 		answer('network error');
 		expect(await logout('Ida')).toBe('offline');
+	});
+});
+
+describe('a welcome link', () => {
+	it('is looked at with its token in a header, never in the path, and names its account only on the API’s own answer', async () => {
+		const seen = answer({ status: 200, json: { name: 'Aslak' } });
+		expect(await lookAtWelcome('ab_c-d')).toEqual({ kind: 'live', name: 'Aslak' });
+		expect(seen[0]?.url).toBe('/api/account/welcome');
+		expect(new Headers(seen[0]?.init?.headers).get('x-animath-welcome')).toBe('ab_c-d');
+		// Too many looks from here: said so, with the wait, never as a server out of reach.
+		answer({ status: 429, json: { error: 'too many tries', retryAfter: 300 } });
+		expect(await lookAtWelcome('token')).toEqual({ kind: 'too-many', retryAfter: 300 });
+		const cases: [Answer, unknown][] = [
+			[
+				{ status: 410, json: { error: 'link used' } },
+				{ kind: 'gone', why: 'used' }
+			],
+			[
+				{ status: 410, json: { error: 'link expired' } },
+				{ kind: 'gone', why: 'expired' }
+			],
+			[
+				{ status: 404, json: { error: 'no such link' } },
+				{ kind: 'gone', why: 'unknown' }
+			],
+			// The API's own 404 for a path it has not got (an older server) is no answer.
+			[{ status: 404, json: { error: 'not found' } }, { kind: 'offline' }],
+			[{ status: 410, html: page }, { kind: 'offline' }],
+			[{ status: 200, json: { name: '' } }, { kind: 'offline' }],
+			[{ status: 429, html: page }, { kind: 'offline' }],
+			['network error', { kind: 'offline' }]
+		];
+		for (const [a, outcome] of cases) {
+			answer(a);
+			expect(await lookAtWelcome('token'), JSON.stringify(a)).toEqual(outcome);
+		}
+	});
+
+	it('is used with the password picked, and brings the account’s save back', async () => {
+		const save = { version: 2, seq: 24614 };
+		const seen = answer({ status: 200, json: { user: { name: 'Aslak' }, save } });
+		expect(await acceptWelcome('token', 'blåbær')).toEqual({
+			kind: 'welcomed',
+			name: 'Aslak',
+			save
+		});
+		expect(seen[0]?.url).toBe('/api/account/welcome');
+		expect(seen[0]?.init?.method).toBe('POST');
+		expect(JSON.parse(String(seen[0]?.init?.body))).toEqual({
+			token: 'token',
+			password: 'blåbær'
+		});
+		const cases: [Answer, unknown][] = [
+			[
+				{ status: 200, json: { user: { name: 'Aslak' }, save: null } },
+				{ kind: 'welcomed', name: 'Aslak', save: null }
+			],
+			[{ status: 200, json: { user: { name: 'Aslak' } } }, { kind: 'offline' }],
+			[
+				{ status: 410, json: { error: 'link used' } },
+				{ kind: 'gone', why: 'used' }
+			],
+			[
+				{ status: 410, json: { error: 'link expired' } },
+				{ kind: 'gone', why: 'expired' }
+			],
+			[
+				{ status: 404, json: { error: 'no such link' } },
+				{ kind: 'gone', why: 'unknown' }
+			],
+			[
+				{ status: 400, json: { error: 'bad password', reason: 'short' } },
+				{ kind: 'bad-password', reason: 'short' }
+			],
+			[
+				{ status: 429, json: { error: 'too many tries', retryAfter: 90 } },
+				{ kind: 'too-many', retryAfter: 90 }
+			],
+			[{ status: 200, html: page }, { kind: 'offline' }],
+			['network error', { kind: 'offline' }]
+		];
+		for (const [a, outcome] of cases) {
+			answer(a);
+			expect(await acceptWelcome('token', 'blåbær'), JSON.stringify(a)).toEqual(outcome);
+		}
+		vi.spyOn(console, 'error').mockImplementation(() => {});
+		answer({ status: 403, json: { error: 'wrong origin' } });
+		expect(await acceptWelcome('token', 'blåbær')).toEqual({ kind: 'refused' });
 	});
 });
 
