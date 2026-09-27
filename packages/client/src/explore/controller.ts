@@ -19,11 +19,10 @@ import { BOAT_SWING_SECONDS } from '../render/boat';
 import { SWING_STRIKE } from '../render/clearing';
 import type { Follower } from '../render/follower';
 import type { GameRenderer } from '../render/renderer';
+import { STEP_SECONDS } from '../render/trainer';
 import { doctor } from '../state/doctor.svelte';
 import { game } from '../state/game.svelte';
 import { team } from '../state/team.svelte';
-
-const STEP_SECONDS = 0.18; // one tile per step; Game Boy pace is ~0.25
 
 /**
  * Explore mode: turns held keys into `move` intents, one per tile, and
@@ -122,10 +121,15 @@ export class ExploreController {
 				this.follower?.face(event.dir);
 				break;
 			case 'player-placed':
-				// Put down, not walked: no tween, and the figure keeps its facing.
+				// Gone to another player: put down beside them, not walked (it can be hundreds
+				// of tiles), facing them, with a poof; the lead turns up beside the trainer.
 				if (event.playerId !== this.playerId) break;
+				team.close();
 				this.pos = this.from = event.pos;
 				this.progress = 1;
+				this.facing = event.dir;
+				this.renderer.setPlayer(event.pos, event.pos, 1, this.facing);
+				this.renderer.poofAt(event.pos);
 				this.follower?.place(this.seed, event.pos, this.facing, this.edits);
 				break;
 			case 'taken-to-doctor':

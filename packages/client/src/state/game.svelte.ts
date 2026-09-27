@@ -80,7 +80,9 @@ class GameView {
 				if (event.playerId === this.playerId) this.facing = event.dir;
 				break;
 			case 'player-placed':
-				if (event.playerId === this.playerId) this.pos = event.pos;
+				if (event.playerId !== this.playerId) break;
+				this.pos = event.pos;
+				this.facing = event.dir;
 				break;
 			case 'taken-to-doctor':
 				if (event.playerId !== this.playerId) break;

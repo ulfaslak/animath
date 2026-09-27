@@ -4,6 +4,7 @@ import { isLanguage, language, nextLanguage } from '../copy';
 import { isShortcut, keyName } from '../input/keyboard';
 import { tappedLanguage, tappedOption, tappedRow } from '../input/press';
 import { game } from '../state/game.svelte';
+import { presence } from '../state/presence.svelte';
 import {
 	MENU_ITEMS,
 	cardRows,
@@ -29,9 +30,17 @@ import {
  * nothing. `main.ts` sends keys here only in explore and switches explore
  * input off while the menu is open, so walking waits and W A S D typed into
  * the name box are letters, not steps.
+ *
+ * "Who's here" lists the other players in this world on the right
+ * (`presence.roster`); picking one closes the menu and goes to them
+ * (`goTo`, the presence controller's: it asks the server where they are,
+ * then the authority to put the player there).
  */
 export class PauseController {
-	constructor(private authority: Authority) {}
+	constructor(
+		private authority: Authority,
+		private readonly options: { goTo?: (pid: string) => void } = {}
+	) {}
 
 	handle(event: GameEvent): void {
 		switch (event.type) {
@@ -89,7 +98,9 @@ export class PauseController {
 				? this.listKey(key)
 				: pause.screen === 'bundle'
 					? this.cardKey(key)
-					: this.optionsKey(key);
+					: pause.screen === 'players'
+						? this.playersKey(key)
+						: this.optionsKey(key);
 		if (handled) e.preventDefault();
 	}
 
@@ -164,6 +175,11 @@ export class PauseController {
 
 	private chooseItem(item: MenuItem): void {
 		switch (item) {
+			case 'players':
+				sfx.play('confirm');
+				pause.screen = 'players';
+				pause.option = 0;
+				break;
 			case 'language':
 				sfx.play('confirm');
 				nextLanguage(1);
@@ -197,10 +213,63 @@ export class PauseController {
 			case 'sound':
 				if (sfx.on !== right) this.setSound(right);
 				return true;
+			case 'players':
 			case 'resume':
 			case 'quit':
 				return false;
 		}
+	}
+
+	/**
+	 * Who's here, on the right: one row per other player in this world, the
+	 * nearest first. Enter (or a tap on a row) goes to them: the menu closes
+	 * and the presence controller takes it from there. The list changes as
+	 * players come and go; the cursor stays on the list.
+	 */
+	private playersKey(key: string): boolean {
+		// The team and the settings stay on screen beside the list, and a tap on one of
+		// them does that row, as on the list.
+		if (tappedRow(key) !== undefined || tappedLanguage(key) !== undefined) {
+			this.backToList();
+			return this.listKey(key);
+		}
+		const rows = presence.roster;
+		const tapped = tappedOption(key);
+		if (tapped !== undefined) {
+			if (tapped >= rows.length) return true;
+			pause.option = tapped;
+			return this.playersKey('Enter');
+		}
+		switch (key) {
+			case 'ArrowUp':
+			case 'w':
+				if (rows.length > 1) {
+					pause.option = (pause.option + rows.length - 1) % rows.length;
+					sfx.play('move');
+				}
+				return true;
+			case 'ArrowDown':
+			case 's':
+				if (rows.length > 1) {
+					pause.option = (pause.option + 1) % rows.length;
+					sfx.play('move');
+				}
+				return true;
+			case 'Enter':
+			case ' ': {
+				const player = rows[Math.min(pause.option, rows.length - 1)];
+				if (!player) return true;
+				sfx.play('confirm');
+				this.close();
+				this.options.goTo?.(player.pid);
+				return true;
+			}
+			case 'Escape':
+				this.backToList();
+				pause.cursor = bundles(game.party).length + MENU_ITEMS.indexOf('players');
+				return true;
+		}
+		return false;
 	}
 
 	/** Turned on, the sound says so itself; turned off, only the switch does. */

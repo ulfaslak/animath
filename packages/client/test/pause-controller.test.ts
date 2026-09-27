@@ -493,7 +493,7 @@ describe('pause menu with cards of several animals', () => {
 						const closes = item === 'resume' || item === 'quit';
 						const target = list[row];
 						const opened = !target
-							? ['list', null, null, row]
+							? [item === 'players' ? 'players' : 'list', null, null, row]
 							: target.animals.length > 1
 								? ['bundle', target.speciesId, null, row]
 								: ['options', null, target.animals[0]!.id, row];
@@ -606,8 +606,13 @@ describe('pause menu under a pointer', () => {
 						sent
 					};
 					const want = {
-						// An animal opens its own options; a setting is done on the list, the cursor on it.
-						at: closes ? 'closed' : row < size ? ['options', ids[row], row] : ['list', null, row],
+						// An animal opens its own options; Who's here opens the list of players on the
+						// right; a setting is done on the list, the cursor on it.
+						at: closes
+							? 'closed'
+							: row < size
+								? ['options', ids[row], row]
+								: [item === 'players' ? 'players' : 'list', null, row],
 						language: item === 'language' ? 'da' : 'en',
 						sound: item !== 'sound',
 						sent: item === 'quit' ? [{ type: 'leave-game' }] : []

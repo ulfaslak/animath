@@ -14,7 +14,9 @@
 	import DoctorCard from './DoctorCard.svelte';
 	import Hud from './Hud.svelte';
 	import Iris from './Iris.svelte';
+	import Others from './Others.svelte';
 	import PauseMenu from './PauseMenu.svelte';
+	import PresenceNote from './PresenceNote.svelte';
 	import SoundChip from './SoundChip.svelte';
 	import TitleScreen from './TitleScreen.svelte';
 	import TouchControls from './TouchControls.svelte';
@@ -22,6 +24,11 @@
 	/** A game is under way: not loading, not at the title. */
 	const playing = $derived(!title.open && game.mode !== 'loading' && game.mode !== 'title');
 </script>
+
+{#if playing && !battle.active}
+	<!-- The other players' names and the arrows to them: over the world, under every card. -->
+	<Others />
+{/if}
 
 {#if title.open}
 	<TitleScreen />
@@ -36,6 +43,7 @@
 {:else}
 	<Hud />
 	{#if touch.on}<TouchControls />{/if}
+	<PresenceNote />
 {/if}
 
 <SoundChip low={title.open} />

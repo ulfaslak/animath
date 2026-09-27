@@ -62,8 +62,13 @@ interface Member {
 }
 
 export interface HubOptions {
-	/** A fresh public id for a socket. */
-	mintPid: () => string;
+	/**
+	 * The public id for an identity, `attempt` 0 first: the same identity
+	 * gets the same one again while the server runs, so a player whose socket
+	 * came back is the same player to everyone (another attempt when the
+	 * first is somebody else's, which a good hash makes all but never).
+	 */
+	pidFor: (key: string, attempt: number) => string;
 	/** The most players one world holds; one more is turned away (`full`). */
 	maxPerWorld?: number;
 }
@@ -101,8 +106,8 @@ export class PresenceHub {
 			this.leave(earlier.peer);
 			earlier.peer.close('replaced');
 		}
-		let pid = this.options.mintPid();
-		while (this.byPid.has(pid)) pid = this.options.mintPid();
+		let pid = this.options.pidFor(key, 0);
+		for (let attempt = 1; this.byPid.has(pid); attempt++) pid = this.options.pidFor(key, attempt);
 		const member: Member = {
 			peer,
 			pid,

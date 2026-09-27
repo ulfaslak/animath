@@ -8,22 +8,24 @@ import { bundles, canFightIn, leadIndex, type AnimalInstance, type Realm } from 
  * `screen`: `list` walks the team's cards (one per species, in battle order)
  * and then the menu items; `bundle` is what can be done with a card of
  * several animals, and its animals; `options` is what can be done with the
- * picked animal; `naming` is the name box.
+ * picked animal; `naming` is the name box; `players` is who else is in this
+ * world, each one a "Go to" (`presence.roster`).
  */
-export type PauseScreen = 'list' | 'bundle' | 'options' | 'naming';
+export type PauseScreen = 'list' | 'bundle' | 'options' | 'naming' | 'players';
 
 /**
- * The rows under the team, in order: the settings, then "Keep playing" and
- * Quit to title. A new one is a new id here, its label in
+ * The rows under the team, in order: who else is here, the settings, then
+ * "Keep playing" and Quit to title. A new one is a new id here, its label in
  * `PauseMenu.svelte`, and its case in `PauseController.chooseItem` — the
  * cursor, keys and layout already count every row listed. A setting's row
- * also takes left and right (`PauseController.settingKey`). `language`
- * switches every word on screen to the next language at once and remembers
- * it on this device; `sound` turns the sound off and on (`sfx`); `quit`
- * (Start screen) saves the game as it stands and goes back to the title,
- * where Continue picks it up.
+ * also takes left and right (`PauseController.settingKey`). `players` opens
+ * the list of the other players in this world on the right, where picking
+ * one goes to them; `language` switches every word on screen to the next
+ * language at once and remembers it on this device; `sound` turns the sound
+ * off and on (`sfx`); `quit` (Start screen) saves the game as it stands and
+ * goes back to the title, where Continue picks it up.
  */
-export const MENU_ITEMS = ['language', 'sound', 'resume', 'quit'] as const;
+export const MENU_ITEMS = ['players', 'language', 'sound', 'resume', 'quit'] as const;
 export type MenuItem = (typeof MENU_ITEMS)[number];
 
 class PauseView {

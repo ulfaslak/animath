@@ -4,6 +4,7 @@ import {
 	applyBattleIntent,
 	applyDoctorIntent,
 	applyPartyIntent,
+	arrivalSpot,
 	bundled,
 	canTalkToDoctor,
 	chooseStarter,
@@ -15,6 +16,7 @@ import {
 	hashString,
 	isEncounterTile,
 	isPassable,
+	isWireCoord,
 	joinParty,
 	leadIndex,
 	newGame,
@@ -287,6 +289,9 @@ export class LocalAuthority implements Authority {
 			case 'interact':
 				this.interact();
 				break;
+			case 'go-to':
+				this.goTo(intent.near);
+				break;
 			case 'battle':
 			case 'doctor':
 				// Nothing to act in; the client is showing a result card or is stale.
@@ -367,6 +372,32 @@ export class LocalAuthority implements Authority {
 		const site = { tile, pos: next, spawn: this.spawn, around: surroundings(this.seed, next) };
 		const wild = rollEncounter(rng, site, getAnimal(lead.speciesId).tier);
 		if (wild) this.beginBattle({ ...wild, id: mintId() }, realm);
+	}
+
+	/**
+	 * `go-to`, while exploring: beside another player, who the presence server
+	 * says stands at `near`, on the engine's `arrivalSpot` in this world as the
+	 * player left it, facing them. Not a step: the step count stays, so no
+	 * encounter is rolled and the walk after it meets what it would have met.
+	 * A spot that is no whole tile on the wire is no spot.
+	 */
+	private goTo(near: GridPos): void {
+		const arrival =
+			near && isWireCoord(near.x) && isWireCoord(near.y)
+				? arrivalSpot(this.seed, near, this.edits, gearOf({ items: this.items }))
+				: null;
+		if (!arrival) {
+			this.emit({ type: 'go-to-refused', reason: 'no-room' });
+			return;
+		}
+		this.pos = { ...arrival.pos };
+		this.facing = arrival.facing;
+		this.emit({
+			type: 'player-placed',
+			playerId: this.playerId,
+			pos: { ...arrival.pos },
+			dir: arrival.facing
+		});
 	}
 
 	/** Where the player stands: out on the water in the boat, or on land. */

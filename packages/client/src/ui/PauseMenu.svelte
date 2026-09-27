@@ -15,6 +15,7 @@
 	import { motion } from '../motion';
 	import { animalWords, nameOf, speciesName } from '../names';
 	import { game } from '../state/game.svelte';
+	import { presence } from '../state/presence.svelte';
 	import {
 		MENU_ITEMS,
 		cardRows,
@@ -134,6 +135,8 @@
 
 	function itemLabel(item: MenuItem): string {
 		switch (item) {
+			case 'players':
+				return t('pause.players');
 			case 'language':
 				return t('pause.language');
 			case 'resume':
@@ -180,6 +183,34 @@
 	function showRow(row: HTMLElement) {
 		row.scrollIntoView({ block: 'nearest' });
 	}
+
+	/** The player lit in Who's here: the cursor, kept on the list as it shrinks. */
+	const litPlayer = $derived(Math.min(pause.option, presence.roster.length - 1));
+
+	/** How far away a player is, in words: exactly for a few steps, roughly further. */
+	function away(steps: number): string {
+		if (steps === 0) return t('pause.rightHere');
+		return steps <= 20
+			? t('pause.stepsAway', { count: steps })
+			: t('pause.aboutStepsAway', { count: steps });
+	}
+
+	/** Instead of the list, when the others can't be listed: why. */
+	const unlisted = $derived.by(() => {
+		switch (presence.status) {
+			case 'on':
+				return presence.roster.length === 0 ? t('pause.nobody') : null;
+			case 'connecting':
+			case 'waiting':
+				return t('pause.looking');
+			case 'elsewhere':
+				return t('pause.elsewhere');
+			case 'outdated':
+				return t('pause.newVersion');
+			default:
+				return t('pause.unseen');
+		}
+	});
 </script>
 
 <div class="backdrop" class:typing={touch.on && pause.screen === 'naming'}>
@@ -237,7 +268,8 @@
 					<button
 						type="button"
 						class="row item"
-						class:lit={pause.screen === 'list' && lit === row}
+						class:lit={(pause.screen === 'list' && lit === row) ||
+							(pause.screen === 'players' && item === 'players')}
 						data-press={rowKey(row)}
 						{@attach unfocusable}
 					>
@@ -262,6 +294,12 @@
 							<span class="setting">{itemLabel(item)}</span>
 							<Switch on={sfx.on} />
 							<span class="setting-state">{sfx.on ? t('pause.soundOn') : t('pause.soundOff')}</span>
+						{:else if item === 'players'}
+							<!-- Who else is in this world: how many, when anyone is. -->
+							<span class="setting">{itemLabel(item)}</span>
+							{#if presence.status === 'on' && presence.roster.length > 0}
+								<span class="count-badge">{presence.roster.length}</span>
+							{/if}
 						{:else}
 							<span class="button" class:secondary={item !== 'resume'}>{itemLabel(item)}</span>
 						{/if}
@@ -363,6 +401,45 @@
 							{t('pause.save')}
 						</button>
 					</div>
+				{:else if pause.screen === 'players'}
+					<div class="side-title">{t('pause.players')}</div>
+					{#if unlisted !== null}
+						<div class="note">{unlisted}</div>
+					{:else}
+						<div class="players">
+							{#each presence.roster as player, i (player.pid)}
+								<button
+									type="button"
+									class="row option player"
+									class:lit={litPlayer === i}
+									data-press={optionKey(i)}
+									{@attach unfocusable}
+									{@attach (row) => {
+										if (litPlayer === i) showRow(row);
+									}}
+								>
+									<span class="caret">▸</span>
+									<span class="who">
+										<span class="name">{t('pause.goTo', { name: player.name })}</span>
+										<span class="where">
+											{#if player.steps > 0 && presence.compass.length > 0}
+												<span
+													class="compass"
+													aria-hidden="true"
+													style:transform="rotate({presence.compass[player.bearing] ?? 0}rad)"
+													>↑</span
+												>
+											{/if}
+											{away(player.steps)}{#if player.busy !== 'explore'}{' · '}{t(
+													`presence.busy.${player.busy}`
+												)}{/if}
+										</span>
+									</span>
+								</button>
+							{/each}
+						</div>
+						<div class="note">{t('pause.playersHelp')}</div>
+					{/if}
 				{:else if pause.screen === 'list' && soundLit}
 					<div class="side-title">{t('pause.sound')}</div>
 					<!-- With the touch controls on, what a tap does; the keys only with a keyboard (#53). -->
@@ -386,6 +463,8 @@
 					{t('pause.keysList')}
 				{:else if pause.screen === 'options' || pause.screen === 'bundle'}
 					{t('pause.keysOptions')}
+				{:else if pause.screen === 'players'}
+					{t('pause.keysPlayers')}
 				{:else}
 					{t('pause.keysNaming')}
 				{/if}
@@ -700,6 +779,42 @@
 	.side :global(.members) {
 		margin-top: 8px;
 		max-height: max(120px, calc(100vh - 500px));
+	}
+	/* Who's here: everyone in the world, in a box that scrolls when there are many. */
+	.players {
+		max-height: max(150px, calc(100vh - 420px));
+		overflow-y: auto;
+		touch-action: pan-y;
+	}
+	.player {
+		min-height: max(var(--tap), 54px);
+	}
+	.player .who {
+		display: flex;
+		flex-direction: column;
+		min-width: 0;
+	}
+	.player .where {
+		font-weight: 600;
+		font-size: 16px;
+		opacity: 0.75;
+	}
+	.compass {
+		display: inline-block;
+		margin-right: 4px;
+		font-weight: 800;
+		color: var(--accent);
+	}
+	/* How many others are in the world, beside Who's here. */
+	.count-badge {
+		min-width: 28px;
+		padding: 2px 8px;
+		box-sizing: border-box;
+		border-radius: 999px;
+		background: var(--accent);
+		color: var(--panel-ink);
+		font-size: 16px;
+		text-align: center;
 	}
 	.keys {
 		margin-top: 10px;

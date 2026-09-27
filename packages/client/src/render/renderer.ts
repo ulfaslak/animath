@@ -16,8 +16,10 @@ import { BOAT_STAND, buildBoatMesh, poseBoat, standAstern } from './boat';
 import { ChunkRing } from './chunks';
 import { ClearingEffects, SWING_SECONDS, animateSwing, buildTool } from './clearing';
 import { appearScale } from './ease';
+import { OtherPlayers } from './others';
 import { COLORS } from './palette';
-import { groundTop } from './tiles';
+import { Poofs } from './poof';
+import { FACING_ANGLE, strideOnto, trainerStep } from './trainer';
 
 /**
  * A scene drawn instead of the world, with its own camera: the battle scene,
@@ -60,11 +62,6 @@ const CAMERA_OFFSET = new THREE.Vector3(
 	Math.cos(CAMERA_YAW) * Math.cos(CAMERA_PITCH)
 ).multiplyScalar(40);
 
-/** How high the trainer hops on an ordinary step, and into the boat or out of it. */
-const HOP = 0.15;
-const BOARD_HOP = 0.24;
-/** With reduced motion, a step's hop. */
-const CALM_HOP = 0.05;
 /** Seconds the boat takes to grow onto the trainer's back when it is bought. */
 const BOAT_ARRIVES_SECONDS = 0.45;
 
@@ -124,6 +121,10 @@ export class GameRenderer {
 	private boatArriving: number | null = null;
 	/** Where `setPlayer` last put the trainer, before the water rocks them. */
 	private playerAt = new THREE.Vector3();
+	/** Little clouds of dust where a trainer turns up out of nowhere. */
+	private poofs = new Poofs(this.scene);
+	/** The other players in view, each with their lead (`others.ts`). */
+	readonly others: OtherPlayers = new OtherPlayers(this.scene, this, this.poofs);
 
 	constructor(private canvas: HTMLCanvasElement) {
 		this.renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
@@ -178,7 +179,42 @@ export class GameRenderer {
 		this.edits = edits;
 		this.chunks.reset(seed, edits);
 		this.clearings.clear();
+		this.poofs.clear();
+		this.others.setWorld(seed);
 		this.butterflies.setWorld(seed);
+	}
+
+	/** A poof round the player's feet, on `pos`: they just turned up there (Go to). */
+	poofAt(pos: GridPos): void {
+		const { y } = trainerStep(this.seed, pos, pos, 1, this.boatOwned, motion.reduced);
+		this.poofs.play(new THREE.Vector3(pos.x, y, pos.y), performance.now() / 1000, motion.reduced);
+	}
+
+	/**
+	 * Where a point in the world is on the canvas, in CSS pixels from the top
+	 * left, as this frame's camera sees it (`visible`: inside the canvas).
+	 */
+	toScreen(p: THREE.Vector3): { x: number; y: number; visible: boolean } {
+		const v = p.clone().project(this.camera);
+		const { w, h } = this.size();
+		const x = ((v.x + 1) / 2) * w;
+		const y = ((1 - v.y) / 2) * h;
+		return { x, y, visible: x >= 0 && x <= w && y >= 0 && y <= h };
+	}
+
+	/** Where the ground at grid `(x, y)` is on the canvas: for pointing at something off screen. */
+	groundToScreen(x: number, y: number): { x: number; y: number } {
+		return this.toScreen(new THREE.Vector3(x, 0, y));
+	}
+
+	/** The canvas size in CSS pixels, for what is drawn over it. */
+	screenSize(): { w: number; h: number } {
+		return this.size();
+	}
+
+	/** Whether the world is on screen: no battle or starter stage drawn instead. */
+	get showingWorld(): boolean {
+		return this.stage === null;
 	}
 
 	/**
@@ -237,28 +273,24 @@ export class GameRenderer {
 
 	/** Position the player between two tiles (progress 0..1) and face `dir`. */
 	setPlayer(from: GridPos, to: GridPos, progress: number, dir: Direction): void {
-		const t = progress * progress * (3 - 2 * progress); // smoothstep
-		const x = from.x + (to.x - from.x) * t;
-		const z = from.y + (to.y - from.y) * t;
-		const yFrom = this.groundAt(from);
-		const y = yFrom + (this.groundAt(to) - yFrom) * t;
-		// With the boat, a step onto the water swings it under the trainer and one
-		// back onto land swings it onto their back, in step with them; out on the
-		// water they glide, standing in it.
-		const fromWater = this.boatOwned && this.waterAt(from);
-		const toWater = this.boatOwned && this.waterAt(to);
-		this.afloat = fromWater === toWater ? (toWater ? 1 : 0) : toWater ? progress : 1 - progress;
-		const hop = fromWater && toWater ? 0 : fromWater !== toWater ? BOARD_HOP : HOP;
-		const lift = Math.sin(progress * Math.PI) * (motion.reduced ? CALM_HOP : hop);
-		this.playerAt.set(x, y + lift, z);
+		const { x, y, z, afloat } = trainerStep(
+			this.seed,
+			from,
+			to,
+			progress,
+			this.boatOwned,
+			motion.reduced
+		);
+		this.afloat = afloat;
+		this.playerAt.set(x, y, z);
 		this.player.position.copy(this.playerAt);
 		// Figures face +z at rest, which is grid "down" (toward the camera).
-		this.player.rotation.y = { up: Math.PI, down: 0, left: -Math.PI / 2, right: Math.PI / 2 }[dir];
+		this.player.rotation.y = FACING_ANGLE[dir];
 		this.cameraTarget.set(x, 0, z);
 		// Every step lands on the other foot: x + y changes by one each step.
 		const moving = from.x !== to.x || from.y !== to.y;
 		this.step.progress = moving ? progress : 1;
-		this.step.stride = (((to.x + to.y) % 2) + 2) % 2 === 0 ? 1 : -1;
+		this.step.stride = strideOnto(to);
 	}
 
 	/**
@@ -327,8 +359,15 @@ export class GameRenderer {
 			if (progress >= 1) this.endSwing();
 		}
 		this.clearings.update(t, motion.reduced);
-		for (const f of this.figures) animateIdle(f, t, this.camera);
 		const dt = this.lastT < 0 ? 0 : Math.min(0.1, Math.max(0, t - this.lastT));
+		// The others walk and fade (their followers are figures too, idled below).
+		this.others.setCentre({
+			x: Math.round(this.cameraTarget.x),
+			y: Math.round(this.cameraTarget.z)
+		});
+		this.others.update(t, dt);
+		this.poofs.update(t);
+		for (const f of this.figures) animateIdle(f, t, this.camera);
 		this.lastT = t;
 		// Aimed first: the butterflies keep out of this frame's view, not the last one's.
 		this.placeCamera();
@@ -370,17 +409,6 @@ export class GameRenderer {
 			boat.scale.multiplyScalar(appearScale(p, calm));
 			if (p >= 1) this.boatArriving = null;
 		}
-	}
-
-	/** Water, shallow or deep, at a tile. */
-	private waterAt(pos: GridPos): boolean {
-		return isWater(tileAtWorld(this.seed, pos.x, pos.y).kind);
-	}
-
-	/** Where the trainer's feet are on a tile: its top, or out on the water, the boat's floor. */
-	private groundAt(pos: GridPos): number {
-		const tile = tileAtWorld(this.seed, pos.x, pos.y);
-		return groundTop(tile) + (this.boatOwned && isWater(tile.kind) ? BOAT_STAND : 0);
 	}
 
 	/** The canvas's width over its height: how many tiles wide the world view is, per tile tall. */

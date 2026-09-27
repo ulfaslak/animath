@@ -1,4 +1,4 @@
-import { randomBytes } from 'node:crypto';
+import { createHash, randomBytes } from 'node:crypto';
 import type { IncomingMessage, Server } from 'node:http';
 import type { Duplex } from 'node:stream';
 import {
@@ -103,8 +103,16 @@ export function attachPresence(server: Server, options: PresenceOptions = {}): P
 	const maxBuffered = options.maxBuffered ?? 256 * 1024;
 	const log = options.log ?? (() => {});
 
+	// Public ids: a hash of who it is, salted afresh each time the server starts, so the
+	// same player keeps one while it runs and nobody can work back to their guest id.
+	const salt = randomBytes(16);
 	const hub = new PresenceHub({
-		mintPid: () => randomBytes(9).toString('base64url'),
+		pidFor: (key, attempt) =>
+			createHash('sha256')
+				.update(salt)
+				.update(`${attempt}:${key}`)
+				.digest('base64url')
+				.slice(0, 12),
 		maxPerWorld: options.maxPerWorld
 	});
 	const wss = new WebSocketServer({

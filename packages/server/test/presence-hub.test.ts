@@ -42,9 +42,12 @@ class FakePeer implements Peer {
 	}
 }
 
-let pids = 0;
+/** Public ids as the server makes them, without the salt: the same identity, the same id. */
 function newHub(maxPerWorld?: number): PresenceHub {
-	return new PresenceHub({ mintPid: () => `pid${String(++pids).padStart(4, '0')}`, maxPerWorld });
+	return new PresenceHub({
+		pidFor: (key, attempt) => `pid-${attempt}-${key.replace(/[^A-Za-z0-9]/g, '')}`.slice(0, 32),
+		maxPerWorld
+	});
 }
 
 function where(
@@ -151,8 +154,9 @@ describe('presence hub', () => {
 		hub.where(friend, where(1, 2, 0));
 		const now = hub.join(second, 'guest:same', 'Ada');
 		expect(first.closed).toBe('replaced');
-		expect(now).not.toBe(old);
-		// The friend never draws two of her.
+		// The same player, the same public id: to everyone else it is her, back.
+		expect(now).toBe(old);
+		// The friend never draws two of her: the old one went first.
 		expect(friend.drawn().size).toBe(0);
 		hub.where(second, where(1, 1, 0));
 		expect([...friend.drawn().keys()]).toEqual([now]);
