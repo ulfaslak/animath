@@ -470,7 +470,8 @@ function frame(now: number) {
 		behind: cause,
 		visible: document.visibilityState === 'visible',
 		focused: document.hasFocus(),
-		mayReload: cause !== null && mayReloadNow()
+		mayReload: cause !== null && mayReloadNow(),
+		holding: account.busy || account.leaving
 	});
 	if (action === 'reload') catchUp(true);
 	const card = action === 'card' && !reloading;

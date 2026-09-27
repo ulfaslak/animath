@@ -36,6 +36,16 @@ const everyPage = function* (behind: BehindCause | null) {
 };
 
 describe('behindAction', () => {
+	it('while a login, a registration or a logout is on its way, it waits for the answer, behind or not', () => {
+		for (const cause of CAUSES) {
+			for (const state of everyPage(cause)) {
+				expect(behindAction({ ...state, holding: true }), cause).toBe('wait');
+			}
+		}
+		for (const state of everyPage(null))
+			expect(behindAction({ ...state, holding: true })).toBe('play');
+	});
+
 	it('a page that is not behind plays, whatever else is true', () => {
 		for (const state of everyPage(null)) expect(behindAction(state)).toBe('play');
 	});

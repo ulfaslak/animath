@@ -40,6 +40,12 @@ export interface PageState {
 	focused: boolean;
 	/** Whether a reload now stays within `RELOADS_PER_MINUTE` (`mayReloadNow`). */
 	mayReload: boolean;
+	/**
+	 * A login, a registration or a logout is on its way: a reload now would cut
+	 * it off (a logout the server never hears, a login half done), and its own
+	 * restart catches the page up once it is answered.
+	 */
+	holding?: boolean;
 }
 
 /**
@@ -51,7 +57,7 @@ export interface PageState {
  */
 export function behindAction(page: PageState): BehindAction {
 	if (page.behind === null) return 'play';
-	if (!page.visible) return 'wait';
+	if (!page.visible || page.holding) return 'wait';
 	const inUse = page.behind === 'window' ? page.focused : true;
 	return inUse && page.mayReload ? 'reload' : 'card';
 }
