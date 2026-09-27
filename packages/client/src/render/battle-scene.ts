@@ -214,11 +214,11 @@ const LEASH_HEADROOM_MIN = 12;
 export const WILD_STATUS_BOX = { right: 16 + 280, bottom: 16 + 75 };
 /**
  * The same box on a short screen (`SHORT_SCREEN`): 8 px down from the top,
- * 200 px wide and 60 px tall (61 here, rounded up), a size smaller. Change it
+ * 210 px wide and 60 px tall (61 here, rounded up), a size smaller. Change it
  * with the short screen's `.status` rules in `BattlePanel.svelte` and
  * `StatusBox.svelte`.
  */
-export const WILD_STATUS_BOX_SHORT = { right: 16 + 200, bottom: 8 + 61 };
+export const WILD_STATUS_BOX_SHORT = { right: 16 + 210, bottom: 8 + 61 };
 
 /** Where the wild animal's status box is on a canvas `height` pixels tall. */
 export function wildStatusBox(height: number): { right: number; bottom: number } {

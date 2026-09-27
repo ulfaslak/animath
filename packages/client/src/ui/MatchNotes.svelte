@@ -100,7 +100,8 @@
 			left: auto;
 			transform: none;
 			align-items: flex-end;
-			max-width: calc(100vw - 240px - var(--safe-left) - var(--safe-right));
+			/* As the narration line: clear of the wild animal's box by 14 px. */
+			max-width: calc(100vw - 256px - var(--safe-left) - var(--safe-right));
 		}
 		.note {
 			padding: 6px 14px;

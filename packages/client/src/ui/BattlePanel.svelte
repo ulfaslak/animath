@@ -1013,8 +1013,12 @@
 	 * panel, so the scene over the panel keeps room for both animals.
 	 */
 	@media (max-height: 560px) {
+		/*
+		 * Wide enough for the longest name of an animal the game has, at 16 px,
+		 * beside the paw: "Wild Common lizard" is 156 px (162 px of room).
+		 */
 		.status {
-			width: 200px;
+			width: 210px;
 		}
 		.status.opponent {
 			top: calc(8px + var(--safe-top));
@@ -1026,7 +1030,8 @@
 		 * The line stands at the top right, over the player's box: under it,
 		 * down by the panel, is the player's animal, which a line there hid.
 		 * Short, it keeps to the corner; a long one reaches left as far as the
-		 * wild animal's box, so no line takes more than two.
+		 * wild animal's box and 14 px more (16 + 210 + 14 + 16 px), so no line
+		 * takes more than two.
 		 */
 		.battle-line {
 			top: calc(8px + var(--safe-top));
@@ -1034,7 +1039,7 @@
 			bottom: auto;
 			left: auto;
 			transform: none;
-			max-width: calc(100vw - 240px - var(--safe-left) - var(--safe-right));
+			max-width: calc(100vw - 256px - var(--safe-left) - var(--safe-right));
 			padding: 6px 14px;
 			font-size: 16px;
 		}
