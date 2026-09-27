@@ -178,7 +178,8 @@ export function attachPresence(server: Server, options: PresenceOptions = {}): P
 			clientAddress(req.socket.remoteAddress, headerOf(req, 'x-forwarded-for'))
 		);
 		if ((byAddress.get(address) ?? 0) >= maxPerAddress) {
-			log(`presence: refused a socket from ${address} (it holds ${maxPerAddress})`);
+			// Not which address: no log keeps a player's (DECISIONS § Deployment).
+			log(`presence: refused a socket from an address holding ${maxPerAddress} already`);
 			return refuse(socket, '429 Too Many Requests');
 		}
 		byAddress.set(address, (byAddress.get(address) ?? 0) + 1);

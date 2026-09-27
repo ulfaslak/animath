@@ -148,13 +148,13 @@ On the server, in `~/mathgame`:
 ```bash
 docker compose -f docker-compose.prod.yml ps
 docker compose -f docker-compose.prod.yml logs --tail 200 -f app     # the server: one line per request
-docker compose -f docker-compose.prod.yml logs --tail 100 nginx      # requests (no client addresses), certificates
+docker compose -f docker-compose.prod.yml logs --tail 100 nginx      # requests, each with the app addresses nginx tried
 docker compose -f docker-compose.prod.yml logs --tail 20 backup      # "backup ok: …" every 6 hours
 docker compose -f docker-compose.prod.yml exec -T postgres psql -U mathgame -d mathgame
 df -h / && docker system df                                          # the disk
 ```
 
-Each service keeps a capped log (docker-compose.prod.yml); nothing older survives. Hetzner's own nightly image of the machine is in the Cloud Console, under the server's Backups.
+Each service keeps a capped log (docker-compose.prod.yml), and drops its oldest lines at the cap: nginx's 3 × 10 MB held about two days on 2026-09-27, the app's 5 × 20 MB about three. Nothing older survives on the server; Hetzner's own nightly image of the machine keeps the logs of its night for 7 days, in the Cloud Console under the server's Backups. No log names a player's IP address ([[DECISIONS]] § Deployment): nginx's access log has none, and its error log writes a line about a request only when nginx itself fails. What went wrong with a request is in its access-log line: its status, and the app addresses nginx tried with what each answered ([[DEVELOPMENT]] § What a request meets during a swap).
 
 **Accounts** (once the accounts server is in; its admin command is bundled into the image as `dist/admin.mjs`): with no email, a forgotten password or a deleted account is the human's job, done on the server:
 
