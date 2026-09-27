@@ -236,8 +236,10 @@ else
 
 	echo "Removing the canary..."
 	# Looked up first: compose takes a second to answer, and the reload below
-	# must follow the stop at once.
-	NGINX_CID=$($COMPOSE ps -q nginx)
+	# must follow the stop at once. Never fatal: a lookup that failed here would
+	# end the script with the canary still serving, and every later deploy
+	# would refuse to start until someone removed it by hand.
+	NGINX_CID=$($COMPOSE ps -q nginx 2>/dev/null </dev/null | head -1 || true)
 	docker stop "$CANARY_NAME" >/dev/null
 	# Its address left with it, but each nginx worker keeps its last answer for
 	# `app` up to 5 s (nginx/http.conf), the canary's address in it: a request
