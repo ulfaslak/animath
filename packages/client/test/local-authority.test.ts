@@ -195,10 +195,13 @@ function position(s: Session): GridPos {
 			e.type === 'player-placed' ||
 			e.type === 'taken-to-doctor' ||
 			e.type === 'travelled' ||
-			e.type === 'welcome'
+			e.type === 'welcome' ||
+			e.type === 'glided' ||
+			e.type === 'landed'
 		) {
 			return e.pos;
 		}
+		if (e.type === 'took-off') return e.from;
 	}
 	throw new Error('no position');
 }
@@ -209,6 +212,7 @@ function facing(s: Session): Direction {
 		const e = s.events[i]!;
 		if (e.type === 'player-moved' || e.type === 'player-blocked') return e.dir;
 		if (e.type === 'taken-to-doctor' || e.type === 'player-placed') return e.dir;
+		if (e.type === 'took-off' || e.type === 'landed') return e.dir;
 		if (e.type === 'welcome' || e.type === 'travelled') return e.facing;
 	}
 	throw new Error('no facing');
@@ -1017,7 +1021,11 @@ describe('LocalAuthority: the doctor', () => {
 		expect(s.events[0]).toMatchObject({ type: 'welcome', tokens: 20, items: [] });
 		walkToTent(s);
 		s.authority.dispatch({ type: 'interact' });
-		expect(visit(s)).toMatchObject({ tokens: 20, items: [], shop: ['axe', 'pickaxe', 'boat'] });
+		expect(visit(s)).toMatchObject({
+			tokens: 20,
+			items: [],
+			shop: ['axe', 'pickaxe', 'boat', 'glider']
+		});
 
 		doctorIntent(s, { type: 'hand-over', ids: ['a'] });
 		expect(visit(s).phase).toMatchObject({ kind: 'handing-over', reward: 2 });
@@ -1071,9 +1079,9 @@ describe('LocalAuthority: the doctor', () => {
 		walkToTent(s);
 		s.authority.dispatch({ type: 'interact' });
 		expect(visit(s).shop).toEqual(itemsForSale());
-		// Every tool does its job now (the axe and the pickaxe clear, the boat sails);
-		// anything not on sale can't be bought.
-		expect(visit(s).shop).toEqual(['axe', 'pickaxe', 'boat']);
+		// Every tool does its job now (the axe and the pickaxe clear, the boat sails, the
+		// glider flies); anything not on sale can't be bought.
+		expect(visit(s).shop).toEqual(['axe', 'pickaxe', 'boat', 'glider']);
 		for (const itemId of ITEM_IDS.filter((id) => !itemsForSale().includes(id))) {
 			doctorIntent(s, { type: 'buy', itemId });
 			expect(s.events.at(-1)).toMatchObject({
@@ -2238,3 +2246,342 @@ function reedWalkEvents(s: Session): string[] {
 	}
 	return out;
 }
+
+describe('LocalAuthority: the glider', () => {
+	const SPAWN = { x: -2, y: 6 };
+
+	/** A game in World 1 at `pos`, facing `facing`, owning the glider and `items`. */
+	function flyer(
+		pos: GridPos,
+		facing: Direction,
+		items: string[] = [],
+		team?: AnimalInstance[]
+	): Session {
+		const authority = new LocalAuthority();
+		const events: GameEvent[] = [];
+		authority.subscribe((e) => events.push(e));
+		const game = newGame(1);
+		authority.start({
+			game: { ...game, pos, facing, items: ['glider', ...items], party: team ?? game.party }
+		});
+		return { authority, events };
+	}
+
+	function dispatchAll(s: Session, intents: readonly Intent[]): void {
+		for (const intent of intents) s.authority.dispatch(intent);
+	}
+
+	const glides = (n: number): Intent[] => Array<Intent>(n).fill({ type: 'glide' });
+
+	/** The last `landed` event, or null. */
+	function landedAt(s: Session): Extract<GameEvent, { type: 'landed' }> | null {
+		const i = lastIndexOf(s, 'landed');
+		const e = i < 0 ? null : s.events[i]!;
+		return e?.type === 'landed' ? e : null;
+	}
+
+	/** A save round trip, as the autosave and a reload do it. */
+	function throughSave(saved: SavedGame): SavedGame {
+		const read = readSave(
+			JSON.parse(JSON.stringify(saveDocument(saved, { lineage: 'L', seq: 1 })))
+		);
+		if (!read.ok) throw new Error(read.error);
+		return restoreGame(read.save);
+	}
+
+	it('takes off the way the player faces, and crosses the lake north of the start a tile at a time, each a step', () => {
+		const s = flyer(SPAWN, 'up');
+		const steps = s.authority.snapshot().steps;
+		let from = s.events.length;
+		s.authority.dispatch({ type: 'take-off' });
+		const [up] = s.events.slice(from);
+		expect(up).toMatchObject({ type: 'took-off', playerId: 'local', from: SPAWN, dir: 'up' });
+		expect(up?.type === 'took-off' && up.reach).toBeGreaterThanOrEqual(14);
+		// Saved now, the game is the one letting go would leave: on the far shore, 14 steps on.
+		expect(s.authority.snapshot()).toMatchObject({ pos: { x: -2, y: -8 }, steps: steps + 14 });
+		from = s.events.length;
+		dispatchAll(s, glides(3));
+		expect(s.events.slice(from)).toEqual([
+			{ type: 'glided', playerId: 'local', pos: { x: -2, y: 5 }, flown: 1 },
+			{ type: 'glided', playerId: 'local', pos: { x: -2, y: 4 }, flown: 2 },
+			{ type: 'glided', playerId: 'local', pos: { x: -2, y: 3 }, flown: 3 }
+		]);
+		// Let go over the water: on to the sand of the far shore, every tile a step.
+		from = s.events.length;
+		s.authority.dispatch({ type: 'land' });
+		expect(s.events.slice(from)).toEqual([
+			{ type: 'landed', playerId: 'local', pos: { x: -2, y: -8 }, dir: 'up', flown: 14 }
+		]);
+		expect(s.authority.snapshot()).toMatchObject({
+			pos: { x: -2, y: -8 },
+			facing: 'up',
+			steps: steps + 14
+		});
+		// Down again, it walks as ever: a glide or a landing now does nothing.
+		from = s.events.length;
+		dispatchAll(s, [{ type: 'glide' }, { type: 'land' }]);
+		expect(s.events.slice(from)).toEqual([]);
+		move(s, 'up');
+		expect(position(s)).toEqual({ x: -2, y: -9 });
+	});
+
+	it('holding on comes down at the reach by itself, and a glide past it is no further', () => {
+		// Three tiles of ground, then water, trees and rocks past the 20th: the reach is 3.
+		const s = flyer({ x: 110, y: -154 }, 'right');
+		s.authority.dispatch({ type: 'take-off' });
+		expect(s.events.at(-1)).toMatchObject({ type: 'took-off', reach: 3 });
+		const from = s.events.length;
+		dispatchAll(s, glides(5));
+		expect(s.events.slice(from).map((e) => e.type)).toEqual([
+			'glided',
+			'glided',
+			'glided',
+			'landed'
+		]);
+		expect(landedAt(s)).toMatchObject({ pos: { x: 113, y: -154 }, flown: 3 });
+		expect(s.authority.snapshot().pos).toEqual({ x: 113, y: -154 });
+	});
+
+	it('with nowhere to land, or without the glider, never takes off, and nothing changes', () => {
+		// Twenty tiles of water, then ground on the 21st: nowhere to land without the boat.
+		const s = flyer({ x: 144, y: -152 }, 'down');
+		const before = s.authority.snapshot();
+		const from = s.events.length;
+		s.authority.dispatch({ type: 'take-off' });
+		expect(s.events.slice(from)).toEqual([
+			{ type: 'take-off-refused', playerId: 'local', reason: 'nowhere-to-land' }
+		]);
+		expect(s.authority.snapshot()).toEqual(before);
+		// And it walks on as ever.
+		move(s, 'left');
+		expect(s.events.at(-1)?.type).toMatch(/player-(moved|blocked)/);
+
+		const plain = session();
+		plain.authority.dispatch({ type: 'take-off' });
+		expect(plain.events.at(-1)).toEqual({
+			type: 'take-off-refused',
+			playerId: 'local',
+			reason: 'no-glider'
+		});
+	});
+
+	it('in the air nothing else is taken: a step, Enter, a trip, going to someone, leaving, another take-off; a party edit is refused', () => {
+		const s = flyer(SPAWN, 'up', [], [animal('squirrel'), animal('frog')]);
+		dispatchAll(s, [{ type: 'take-off' }, ...glides(2)]);
+		const before = s.authority.snapshot();
+		const from = s.events.length;
+		dispatchAll(s, [
+			{ type: 'move', dir: 'left' },
+			{ type: 'interact' },
+			{ type: 'travel', world: 2 },
+			{ type: 'go-to', near: { x: -5, y: 6 } },
+			{ type: 'leave-game' },
+			{ type: 'take-off' },
+			{ type: 'battle', intent: { type: 'flee' } },
+			{ type: 'doctor', intent: { type: 'leave' } }
+		]);
+		expect(s.events.slice(from)).toEqual([]);
+		s.authority.dispatch({ type: 'party', intent: { type: 'select-lead', animalId: 'frog-19' } });
+		expect(s.events.at(-1)).toMatchObject({
+			type: 'party-edited',
+			events: [{ type: 'rejected', reason: 'not-exploring' }]
+		});
+		expect(s.authority.snapshot()).toEqual(before);
+		// Letting go still lands, where it would have.
+		s.authority.dispatch({ type: 'land' });
+		expect(landedAt(s)?.pos).toEqual({ x: -2, y: -8 });
+		// Down on the ground, the trip is taken again.
+		s.authority.dispatch({ type: 'travel', world: 2 });
+		expect(s.events.at(-1)?.type).toBe('travelled');
+	});
+
+	it('no flight starts a battle: not over the deep water with a swimmer in front, nor down on the reed', () => {
+		// Across the lake and back, twenty times, in the boat's reach, an otter in front: 160
+		// deep-water tiles that a sail would roll 1 in 10 on.
+		const sea = flyer(SPAWN, 'up', ['boat'], [animal('otter')]);
+		for (let i = 0; i < 20; i++) {
+			const dir: Direction = i % 2 === 0 ? 'up' : 'down';
+			sea.authority.dispatch({ type: 'move', dir });
+			// The bump turned the trainer (or a step onto the water sailed): take off from there,
+			// and hold on: twenty tiles, and a glide past the reach comes down on it.
+			dispatchAll(sea, [{ type: 'take-off' }, ...glides(21)]);
+			expect(landedAt(sea)?.flown).toBe(20);
+		}
+		expect(sea.events.some((e) => e.type === 'battle-started')).toBe(false);
+		// Down onto the reed beside the start, at every step count from 0 to 80: a step onto it
+		// from the start meets an animal on some of them, a landing on none.
+		let walkedIn = 0;
+		for (let steps = 0; steps <= 80; steps++) {
+			const fly = flyer(SPAWN, 'left');
+			const walk = flyer(SPAWN, 'left');
+			for (const s of [fly, walk]) {
+				(s.authority as unknown as { steps: number }).steps = steps;
+			}
+			dispatchAll(fly, [{ type: 'take-off' }, { type: 'land' }]);
+			expect(landedAt(fly)).toMatchObject({ pos: { x: -3, y: 6 }, flown: 1 });
+			expect(fly.events.some((e) => e.type === 'battle-started')).toBe(false);
+			move(walk, 'left');
+			if (walk.events.some((e) => e.type === 'battle-started')) walkedIn++;
+		}
+		expect(isEncounterTile(tileAtWorld(WORLD_SEED, -3, 6).kind)).toBe(true);
+		expect(walkedIn).toBeGreaterThan(3);
+	});
+
+	it('every tile flown is a step: the walk after a flight meets what the walk after as many steps would', () => {
+		// Onto the reed by glider and back to the start on foot, then the reed walk; against
+		// the same two steps walked.
+		const flown = flyer(SPAWN, 'left');
+		dispatchAll(flown, [{ type: 'take-off' }, { type: 'land' }]);
+		move(flown, 'right');
+		expect(flown.authority.snapshot()).toMatchObject({ pos: SPAWN, steps: 2 });
+		const walked = flyer(SPAWN, 'left');
+		move(walked, 'left', 'right');
+		expect(walked.authority.snapshot()).toMatchObject({ pos: SPAWN, steps: 2 });
+		const met = reedWalk(flown, 60);
+		expect(met).toEqual(reedWalk(walked, 60));
+		expect(met.length).toBeGreaterThan(0);
+	});
+
+	it('comes down in the boat on the water, and takes off from the boat', () => {
+		const s = flyer(SPAWN, 'up', ['boat']);
+		dispatchAll(s, [{ type: 'take-off' }, ...glides(7), { type: 'land' }]);
+		expect(landedAt(s)).toMatchObject({ pos: { x: -2, y: -1 }, flown: 7 });
+		expect(isWater(tileAtWorld(WORLD_SEED, -2, -1).kind)).toBe(true);
+		// Sailing on from there, and up again out of the boat, to the far shore's sand and on.
+		move(s, 'up');
+		expect(position(s)).toEqual({ x: -2, y: -2 });
+		dispatchAll(s, [{ type: 'take-off' }, ...glides(6), { type: 'land' }]);
+		expect(landedAt(s)?.pos).toEqual({ x: -2, y: -8 });
+		// A game saved out on the water, in the boat, picks up there.
+		const out = flyer(SPAWN, 'up', ['boat']);
+		dispatchAll(out, [{ type: 'take-off' }, ...glides(4)]);
+		expect(throughSave(out.authority.snapshot()).pos).toEqual({ x: -2, y: 2 });
+		// Without the boat, a lake wider than the reach is not flown at all.
+		const wide = flyer({ x: 112, y: -151 }, 'right', ['axe', 'pickaxe']);
+		wide.authority.dispatch({ type: 'take-off' });
+		expect(wide.events.at(-1)).toMatchObject({
+			type: 'take-off-refused',
+			reason: 'nowhere-to-land'
+		});
+	});
+
+	it('coming down on a tree with the axe chops it as they land: ground from then on, in the save too; without it, on to the ground after the trees', () => {
+		const from = { x: 96, y: -102 };
+		const s = flyer(from, 'down', ['axe']);
+		dispatchAll(s, [{ type: 'take-off' }, ...glides(3)]);
+		const at = s.events.length;
+		s.authority.dispatch({ type: 'land' });
+		expect(s.events.slice(at).map((e) => e.type)).toEqual(['landed', 'tile-cleared']);
+		expect(s.events.at(-1)).toMatchObject({
+			type: 'tile-cleared',
+			pos: { x: 96, y: -99 },
+			was: 'tree',
+			tool: 'axe',
+			regrown: []
+		});
+		const saved = throughSave(s.authority.snapshot());
+		expect(saved.pos).toEqual({ x: 96, y: -99 });
+		expect(WorldEdits.decode(saved.edits).has(96, -99)).toBe(true);
+		// Without the axe the trees are only flown over: down on the ground after them.
+		const bare = flyer(from, 'down');
+		dispatchAll(bare, [{ type: 'take-off' }, ...glides(3), { type: 'land' }]);
+		expect(landedAt(bare)).toMatchObject({ pos: { x: 96, y: -91 }, flown: 11 });
+		expect(bare.events.some((e) => e.type === 'tile-cleared')).toBe(false);
+	});
+
+	it('a game saved in the air is on the ground where letting go would land it, never on the water or in the trees, never at the spawn', () => {
+		// Over the trees without the axe, and over the lake without the boat: each tile of each flight.
+		for (const [from, dir, items] of [
+			[{ x: 96, y: -102 }, 'down', []],
+			[SPAWN, 'up', []],
+			[{ x: 96, y: -102 }, 'down', ['axe']]
+		] as const) {
+			const s = flyer(from, dir, [...items]);
+			s.authority.dispatch({ type: 'take-off' });
+			for (let flown = 0; landedAt(s) === null; flown++) {
+				const saved = throughSave(s.authority.snapshot());
+				const copy = flyer(from, dir, [...items]);
+				dispatchAll(copy, [{ type: 'take-off' }, ...glides(flown), { type: 'land' }]);
+				const landing = copy.authority.snapshot();
+				expect(saved.pos, `${dir} at ${flown}`).toEqual(landing.pos);
+				expect(saved.steps).toBe(landing.steps);
+				expect(saved.edits).toEqual(landing.edits);
+				expect(saved.pos).not.toEqual(spawnPoint(WORLD_SEED));
+				const under = WorldEdits.decode(saved.edits).has(saved.pos.x, saved.pos.y)
+					? 'grass'
+					: tileAtWorld(WORLD_SEED, saved.pos.x, saved.pos.y).kind;
+				expect(isWalkable(under)).toBe(true);
+				s.authority.dispatch({ type: 'glide' });
+			}
+		}
+	});
+
+	it('a game picked up from a save made in the air plays on exactly as the original does after letting go there', () => {
+		const flights: Intent[] = [
+			// Bump the lake to face it, cross it, bump back, and fly home over it.
+			{ type: 'move', dir: 'up' },
+			{ type: 'take-off' },
+			...glides(6),
+			{ type: 'land' },
+			{ type: 'move', dir: 'down' },
+			{ type: 'take-off' },
+			...glides(2),
+			{ type: 'land' }
+		];
+		/** After the flights: walk the reed and fight, as `nextIntent` does. */
+		function next(s: Session, i: number): Intent {
+			const battling = lastIndexOf(s, 'battle-started') > lastIndexOf(s, 'battle-ended');
+			if (!battling) return { type: 'move', dir: i % 2 === 0 ? 'left' : 'right' };
+			const state = latestBattle(s);
+			if (state.phase.kind === 'choose-animal') {
+				return {
+					type: 'battle',
+					intent: { type: 'switch', partyIndex: state.party.findIndex((a) => a.hp > 0) }
+				};
+			}
+			if (state.phase.kind === 'solving') {
+				const { answer } = state.phase.puzzle;
+				return {
+					type: 'battle',
+					intent: { type: 'answer', input: String(i % 3 === 0 ? answer + 1 : answer) }
+				};
+			}
+			return { type: 'battle', intent: { type: 'attack', attackIndex: 1, level: 1 } };
+		}
+		const strip = (e: GameEvent) =>
+			e.type === 'battle-started' || e.type === 'battle-updated' || e.type === 'battle-ended'
+				? [e.type, e.state.opponent.speciesId, e.state.opponent.hp, e.state.phase]
+				: e.type === 'party-changed'
+					? [e.type, e.party.map((a) => a.hp)]
+					: e;
+		let cuts = 0;
+		for (let cut = 2; cut < flights.length; cut++) {
+			const a = flyer(SPAWN, 'down');
+			dispatchAll(a, flights.slice(0, cut));
+			const up = lastIndexOf(a, 'took-off') > lastIndexOf(a, 'landed');
+			if (!up) continue;
+			cuts++;
+			const saved = throughSave(a.authority.snapshot());
+			// The reload lets go: the original lets go too, and the two are the same game.
+			a.authority.dispatch({ type: 'land' });
+			const b: Session = { authority: new LocalAuthority(), events: [] };
+			b.authority.subscribe((e) => b.events.push(e));
+			b.authority.start({ game: saved });
+			expect(b.authority.snapshot()).toEqual(a.authority.snapshot());
+			// Both go on from the intent after that flight's own landing.
+			let i = cut;
+			while (flights[i - 1]?.type !== 'land') i++;
+			const fromA = a.events.length;
+			const fromB = b.events.length;
+			for (const s of [a, b]) dispatchAll(s, flights.slice(i));
+			for (let j = 0; j < 80; j++) {
+				a.authority.dispatch(next(a, j));
+				b.authority.dispatch(next(b, j));
+			}
+			expect(b.events.slice(fromB).map(strip)).toEqual(a.events.slice(fromA).map(strip));
+			expect(a.events.slice(fromA).some((e) => e.type === 'battle-started')).toBe(true);
+		}
+		// Cuts over the take-off tile and every tile of both flights.
+		expect(cuts).toBe(10);
+	});
+});
