@@ -18,10 +18,21 @@ export interface AttackRef {
 }
 
 /**
- * A value in a line: a number, an animal or an attack. Never text: a string
- * would be words fixed in the language they were made in.
+ * A player, as a line names them: their name, the same in every language,
+ * shown as they typed it; with `whose`, as the owner of what follows ("Bo's",
+ * "Bos", "Jonas'"), for the other player's animals in a friendly match.
  */
-export type LineValue = number | AnimalRef | AttackRef;
+export interface PlayerRef {
+	player: string;
+	whose?: true;
+}
+
+/**
+ * A value in a line: a number, an animal, an attack or a player. Never other
+ * text: a string would be words fixed in the language they were made in (a
+ * player's name is in every language the same).
+ */
+export type LineValue = number | AnimalRef | AttackRef | PlayerRef;
 
 export interface Line {
 	key: string;
@@ -63,6 +74,9 @@ export function messageWords(said: MessageLine): string {
 /** A value's words, or undefined for one of no known shape (a gap on screen, not a crash). */
 function wordsFor(value: unknown): ParamValue | undefined {
 	if (typeof value === 'number') return value;
+	if (isRecord(value) && typeof value.player === 'string') {
+		return value.whose === true ? whose(value.player) : value.player;
+	}
 	if (!isRecord(value) || typeof value.speciesId !== 'string') return undefined;
 	if (typeof value.attackIndex === 'number') return attackName(value.speciesId, value.attackIndex);
 	const nickname = typeof value.nickname === 'string' ? value.nickname : undefined;
@@ -71,6 +85,14 @@ function wordsFor(value: unknown): ParamValue | undefined {
 			? { speciesId: value.speciesId }
 			: { speciesId: value.speciesId, nickname }
 	);
+}
+
+/**
+ * A player's name as the owner of what follows, the language's way: in
+ * English "Bo's"; in Danish "Bos", or "Jonas'" after an s, x or z.
+ */
+export function whose(name: string): string {
+	return t(/[sxz]$/i.test(name) ? 'match.whoseAfterS' : 'match.whose', { name });
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

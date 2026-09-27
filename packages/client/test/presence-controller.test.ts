@@ -24,6 +24,7 @@ import {
 	REFRESHED_KEY,
 	edgeSpot,
 	following,
+	type MatchHooks,
 	type PresenceRenderer
 } from '../src/presence/controller';
 import { GUEST_KEY } from '../src/presence/identity';
@@ -78,7 +79,9 @@ afterEach(() => {
 	presence.reset();
 });
 
-function setup(options: { name?: string | null; throwaway?: boolean; session?: null } = {}) {
+function setup(
+	options: { name?: string | null; throwaway?: boolean; session?: null; match?: MatchHooks } = {}
+) {
 	let now = 100;
 	const sockets: FakeSocket[] = [];
 	const timers: { at: number; run: () => void }[] = [];
@@ -124,7 +127,8 @@ function setup(options: { name?: string | null; throwaway?: boolean; session?: n
 		flush: () => flushes++,
 		reload: () => reloads++,
 		clock: () => now,
-		connection: (onMessage, onStatus) => new PresenceConnection(onMessage, onStatus, deps)
+		connection: (onMessage, onStatus) => new PresenceConnection(onMessage, onStatus, deps),
+		match: options.match
 	});
 	const events: GameEvent[] = [];
 	authority.subscribe((e) => {
@@ -138,7 +142,7 @@ function setup(options: { name?: string | null; throwaway?: boolean; session?: n
 	const connect = () => {
 		socket().readyState = 1;
 		socket().onopen?.({});
-		socket().say({ t: 'hi', v: PROTOCOL_VERSION, pid: 'mine000001', name: 'Ada' });
+		socket().say({ t: 'hi', v: PROTOCOL_VERSION, pid: 'mine000001', name: 'Ada', match: null });
 	};
 	/** A frame, as main.ts runs one: timers due, the others drawn, then presence. */
 	const frame = (seconds = 0.1) => {
@@ -281,6 +285,35 @@ describe('presence on the page', () => {
 			.map((m) => m as unknown as WhereMessage)
 			.filter((m) => m.x === 113);
 		expect(sent.map((m) => m.busy)).toEqual(['flight', 'explore']);
+	});
+
+	it("says a friendly match's screen as a match, and its asking and update cards as exploring", () => {
+		// The match draws on the battle's screen, but it is no wild battle: the others see a
+		// match, and while its cards are up (asking, the update card) the player can still be
+		// asked and asked back, which the server allows only to a player exploring.
+		const hooks = {
+			busy: false,
+			onScreen: false,
+			receive() {},
+			status() {},
+			peer() {},
+			gone() {}
+		};
+		const s = setup({ match: hooks });
+		s.start();
+		s.connect();
+		battle.active = true;
+		hooks.busy = true;
+		hooks.onScreen = true;
+		s.frame();
+		s.frame();
+		expect(s.sentOf('where').at(-1)).toMatchObject({ busy: 'match' });
+		// The server stopped mid-match: the update card is over the battle's screen.
+		hooks.busy = false;
+		s.frame();
+		s.frame();
+		expect(s.sentOf('where').at(-1)).toMatchObject({ busy: 'explore' });
+		battle.active = false;
 	});
 
 	it('never draws or lists the player themselves, whatever the server says', () => {

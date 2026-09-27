@@ -32,9 +32,9 @@ Use `pnpm db:psql -c "<sql>"` (wraps `docker compose exec postgres psql`), or `d
 
 Agents started by one orchestrator run under the same session id (`$CLAUDE_CODE_SESSION_ID`), so their "session-specific" scratchpad is one folder with dozens of files from several branches in it. On 2026-09-25 another branch's `pr-body.md` replaced `feat/encounters-by-lead`'s between two edits, luckily after the PR had been opened from it. Put every scratch file in a subfolder named after your branch (`$SCRATCHPAD/<branch>/pr-body.md`), and never restore a negative control from a generic name like `local.ts.bak` that a sibling may also write.
 
-## Server test runs in two worktrees share one test database
+## `mathgame_test` outlives #100
 
-Every worktree's server tests use the same `mathgame_test`, and each run's global setup truncates its tables first, so a run starting in another worktree empties them under yours (#100). On 2026-09-27 that made `account.test.ts` see two accounts made for one name (`[201, 201, 409, …]`), which the unique `name_key` forbids unless the first row was gone. A lone server failure where a test's own rows went missing is this, not your change: rerun it. Delete this entry in the PR that fixes #100.
+`mathgame_test` is the database every worktree's server tests shared until #100. A branch that has not merged main since still runs on it, and a run there can still empty the tables under another such branch's run: a lone server failure there, where a test's own rows went missing or a name it registered was already taken, is that, not the branch's change. `pnpm db:prune-tests` lists it as left alone, as it does a test database a sibling named by hand through `TEST_DATABASE_URL` (`mathgame_<branch>_test`, which that sibling drops when it finishes). Drop `mathgame_test` by hand (`docker compose -p mathgame exec -T postgres dropdb -U postgres mathgame_test`) once every worktree has merged main past #100, and delete this entry then.
 
 ## The Postgres container's clock runs ~120 ms ahead of the host
 
@@ -94,11 +94,9 @@ Docker here runs in colima's Linux VM (context `colima`, x86_64 like the Hetzner
 
 ## Production access from this Mac
 
-`~/.ssh/mathgame_deploy` (made 2026-09-27) is the prod server's `deploy` key: Terraform puts its public half on the server, and the offsite backup sync logs in with it. There is no `terraform` or `hcloud` here: `brew tap hashicorp/tap && brew install hashicorp/tap/terraform`, or the `hashicorp/terraform` image. Terraform's state stays in the primary clone's `terraform/`: a worktree is removed after its merge, state and all.
+`~/.ssh/mathgame_deploy` (made 2026-09-27) is the prod server's `deploy` key: Terraform puts its public half on the server, and the offsite backup sync logs in with it. `terraform` is installed from `hashicorp/tap` (1.16.4 on 2026-09-27), and the primary clone's `terraform/` is initialised; there is no `hcloud` CLI. Terraform's state stays in the primary clone's `terraform/`: a worktree is removed after its merge, state and all.
 
-## The deploy workflow is not on main yet
-
-gh's token here lacks the `workflow` scope, and GitHub refuses a push that adds or changes `.github/workflows/*` without it. The workflow ([[DEVELOPMENT]] § Deployment) lands in a follow-up PR once the human runs `gh auth refresh -h github.com -s workflow`; until then nothing deploys and `pnpm rollback` has no workflow to dispatch. Delete this entry in that PR.
+gh's token has the `workflow` scope since 2026-09-27, which a push that adds or changes `.github/workflows/*` needs, and lives in the macOS keychain, no longer in `~/.config/gh/hosts.yml`.
 
 ## pnpm 12 build-script approval
 

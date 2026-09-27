@@ -8,6 +8,7 @@ import {
 	type AnimalInstance,
 	type ClearableKind,
 	type GameEvent,
+	type InviteEnd,
 	type Line as MessageLine,
 	type PartyEvent,
 	type Realm
@@ -87,7 +88,8 @@ export type Said =
 	 */
 	| { account: 'saved' | 'welcome' | 'movedAhead' }
 	/** How going to another player went, and whom to (`presence/controller.ts`). */
-	| { presence: PresenceLine; name: string };
+	| { presence: PresenceLine; name: string }
+	| { match: MatchLine; name: string };
 
 /**
  * After "Go to <name>": next to them now, they left the world, the server
@@ -96,8 +98,17 @@ export type Said =
  */
 export type PresenceLine = 'nextTo' | 'lost' | 'cantFind' | 'noRoom';
 
+/**
+ * After a friendly match's invite ended with no match (`InviteEnd`, said
+ * about the other player, `name`), or the match itself: the server could not
+ * be reached (`lost`), it is updating (`updating`), or the player left the
+ * match (`youLeft`).
+ */
+export type MatchLine = Exclude<InviteEnd, 'off'> | 'lost' | 'updating' | 'youLeft';
+
 export function saidWords(said: Said): string {
 	if ('presence' in said) return t(`presence.${said.presence}`, { name: said.name });
+	if ('match' in said) return t(`match.said.${said.match}`, { name: said.name });
 	if ('line' in said) return messageWords(said.line);
 	if ('doctor' in said) return doctorWords(said.doctor);
 	if ('party' in said) return partyWords(said.party);
@@ -393,6 +404,11 @@ class HudView {
 	/** Say how going to another player went. */
 	presence(line: PresenceLine, name: string): void {
 		this.say({ presence: line, name });
+	}
+
+	/** Say how an invite to a friendly match ended, or why the match did. */
+	match(line: MatchLine, name: string): void {
+		this.say({ match: line, name });
 	}
 
 	/**

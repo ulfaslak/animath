@@ -6,14 +6,13 @@ Technical items we've intentionally postponed: tech debt, hardening shortcuts, k
 
 ---
 
-### A deploy runs two app containers side by side for a few seconds
+### A friendly match under way ends on every deploy
 
-**What**: `scripts/deploy.sh` swaps the app without a gap the way lawcel's does: a canary of the new image joins the network under the alias `app` beside the old app, nginx spreads requests over both, then the old one is replaced and the canary removed ([[ARCHITECTURE]] § Production). Presence fits it: on SIGTERM every socket is told to come straight back, the pages put back all the server kept, and a player's public id is the same on every copy ([[ARCHITECTURE]] § Presence › Deploys), so the hop (twice a deploy: the old app replaced, then the canary removed) draws nobody twice. A friendly match's state, kept in one server's memory, would not survive a hop: a match under way when its server stops would be lost.
+**What**: a match lives in the memory of the app that holds both players' sockets (`presence/matches.ts`). When a deploy stops that app (twice a deploy: the old app replaced, then the canary removed), every match under way there ends with no winner, and the pages say the game is updating and offer to play again ([[DECISIONS]] § Multiplayer). The alternatives were to keep matches running while the old app drains (it has 8 s before it exits and Docker's 10 s before the kill, a match takes minutes, two hops a deploy, and any hiccup of a kid's connection meanwhile lands them on the new app, which knows no match) or to hand the state on (the reducer replays from its seed and its log, which Postgres could hold, and the next app would resume it when both come back).
 
-**Why deferred**: there is no match server yet, and what a match does when its server stops (finish first, hand its state on, or end kindly for both kids) is that PR's call.
+**Why deferred**: a handoff costs a table, a migration and a resume path on the next app, against a match that starts again with one tap each; the game is played by a few kids, and a deploy lands during a match rarely.
 
-**Trigger**: the friendly-match server code ([[DECISIONS]] § Multiplayer). In that PR, decide what a match under way does on SIGTERM, and whether `deploy.sh`'s swap must wait for matches to end.
-
+**Trigger**: kids report matches cut short by updates, or deploys land in playing hours often enough to matter. Then persist `(seed, parties, log)` per match on each step, and let the next app pick it up when both players say hello, within `awayMs`.
 ### A file under `/assets/` is downloaded whole on every visit
 
 **What**: the server marks every client file outside `/immutable/` `no-cache` ([[INVARIANTS]] § Serving), and `serveStatic` sends no `ETag` or `Last-Modified`, so a browser cannot ask "has it changed?" and get a 304: it downloads `index.html` and each file `public/` copied over in full, every visit. `index.html` is 1 kB. Today `public/assets/` holds only `CREDITS.md`, but [[ARCHITECTURE]] plans the models and textures there.
@@ -126,14 +125,6 @@ Technical items we've intentionally postponed: tech debt, hardening shortcuts, k
 
 **Trigger**: a player whose name needs one of these, or the server-side authority PR. At that PR, check that nothing but the server cleans a name that is stored, and decide whether the preview needs the server's answer.
 
-### A match shows each player the other's nicknames, cleaned but not checked for rude words
-
-**What**: `matchTeam` keeps each animal's nickname, cleaned by `normalizeNickname`, and `matchView` sends both teams to both players, so a kid sees the other kid's nicknames. The cleaner keeps letters, not manners: a rude word typed as a nickname reaches the other kid, which is the one piece of free text that crosses between players ("There is no chat").
-
-**Why deferred**: the rude-word list comes with the engine's `checkName` (`names.ts`, being built in `feat/worlds-names`), and no screen shows a match yet.
-
-**Trigger**: the `feat/matches` PR that puts a match on screen. With `names.ts` landed by then, drop, in `matchTeam`, a nickname its rules call rude (the animal goes by its species' name), so the server never sends one; without it, show the other side's animals by their species' names only.
-
 ### A browser keeps at most 200 games left for a new one
 
 **What**: New game on the title moves the saved game to the first free slot of `animath.save.previous` (`.2` … `.200`) and never writes over one. With all of them taken, the saved game stays in `animath.save` and the new game is not saved in the browser: it plays, is backed up to the server when that is reachable, and after a reload the title offers the old game again (or, once the backup has landed, the page settles with the server and takes the new one). Nothing is lost, but the new game doesn't stick without a server, and nothing tells the kid.
@@ -191,9 +182,9 @@ Technical items we've intentionally postponed: tech debt, hardening shortcuts, k
 
 **Trigger**: the production domain is chosen (`MATHGAME_DOMAIN` in `deploy.env`, the one place it is set). Then write it into `og:image` (and add `og:url`), in `index.html` or from the build's environment. The image's build does not read `deploy.env` today (the `.dockerignore` allowlist leaves it out): pass it in as a build argument, as `GIT_SHA` is.
 
-### Presence lives in one server process's memory
+### Presence and friendly matches live in one server process's memory
 
-**What**: who is in which world, where, and who sees whom (`PresenceHub`) is kept in the memory of the Node process that holds each socket. A restart forgets it (every page says where it is again as its socket comes back, within a second on a deploy), and two processes split every world in two, each half blind to the other: a deploy's swap does that for its few seconds, to a page that opens its socket while two copies run.
+**What**: who is in which world, where, and who sees whom (`PresenceHub`), and the invites and matches (`Matches`), are kept in the memory of the Node process that holds each socket. A restart forgets it (every page says where it is again as its socket comes back, within a second on a deploy), and two processes split every world in two, each half blind to the other (and two players on different processes can't challenge each other: the one asked is not there, 'gone'): a deploy's swap does that for its few seconds, to a page that opens its socket while two copies run.
 
 **Why deferred**: one process serves the game between deploys; forgetting on a restart costs nothing a page doesn't put back by itself, and a friend missing for the seconds of a swap is back at its next hop.
 
@@ -206,3 +197,11 @@ Technical items we've intentionally postponed: tech debt, hardening shortcuts, k
 **Why deferred**: no planned change is one (#89 adds species; #91's birds in the air fight in a new realm, `air`, whose id is seen), and classifying these battles as `newer` is not safe: content has shrunk as well as grown (the turtle lost its third attack, `shell-spin`, in the PR that made the sea animals twins), so an older save can hold the same shapes, and calling it newer would lock that kid out of their game for good.
 
 **Trigger**: the first PR that adds an attack to a species that has shipped, a realm to one, a battle phase, or raises a species' `maxHp` or the difficulty range. That PR bumps `SAVE_VERSION` with an upgrade that changes nothing but the number (every older document stays readable, and an older build calls every newer one `newer`), or keeps the save's text aside wherever a load drops a battle.
+
+### Two server test runs in one checkout at once share its test database
+
+**What**: each checkout's server tests have a database of their own ([[DEVELOPMENT]] § Database), so runs in two worktrees never meet. Two runs started in the same checkout at once (a `pnpm test` in the background and a `pnpm -F @mathgame/server test` beside it) still share it, and meet what runs in two worktrees met before #100: the second's global setup empties the tables under the first, both register the same account names (one gets a `409`), and the second's truncate can deadlock with the first's queries and fail its setup. The first run ever in a checkout can also race itself to create the database.
+
+**Why deferred**: an agent runs one suite at a time in its own worktree. A database per run costs a create and a migration on every run, and a cleanup for every run that dies; a lock held for a whole run keeps a second run waiting as long as a `vitest` in watch mode stays open.
+
+**Trigger**: a server test failure traced to two runs in one checkout.

@@ -118,7 +118,7 @@ function where(x: number, patch: Partial<WhereMessage> = {}): WhereMessage {
 	};
 }
 
-const hi = { t: 'hi', v: PROTOCOL_VERSION, pid: 'abcdef123', name: 'Ada' } as const;
+const hi = { t: 'hi', v: PROTOCOL_VERSION, pid: 'abcdef123', name: 'Ada', match: null } as const;
 
 describe('the presence connection', () => {
 	it('says hello on opening, is on after hi, and then says where it is', () => {
@@ -203,14 +203,17 @@ describe('the presence connection', () => {
 	});
 
 	it('comes straight back from a server stopping for a deploy, however it says so, and not as a failure', () => {
-		const { connection, sockets, last, pass } = setup();
+		const { connection, sockets, last, pass, got } = setup();
 		connection.start('g'.repeat(22), 'Ada');
 		last().open();
 		last().say(hi);
 		// Said with a bye, then with the close code alone (a bye lost on the way).
 		for (const withBye of [true, false]) {
+			const heard = got.length;
 			if (withBye) last().say({ t: 'bye', reason: 'restart' });
 			last().drop(withBye ? undefined : byeCloseCode('restart'));
+			// Either way the page hears one bye: a match on it must know the server stopped.
+			expect(got.slice(heard)).toEqual([{ t: 'bye', reason: 'restart' }]);
 			expect(connection.status).toBe('waiting');
 			const before = sockets.length;
 			pass(RESTART_RETRY_MS * 0.75 - 1);

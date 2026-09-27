@@ -196,6 +196,11 @@ The words the game uses for its things, the same on every screen:
 | steps away | skridt væk | "7 skridt væk", "cirka 120 skridt væk" |
 | is here / went home | er her / gik hjem | the notes: "Ada er her!", "Bo gik hjem" |
 | taking a break (in the menu) | holder pause | what another player is busy with: also "kæmper mod et vildt dyr", "hos dyrlægen", "kæmper mod en ven" |
+| friendly match | venskabskamp (en kamp) | the invite ("Ada vil have en venskabskamp!"), "En venskabskamp med Bo!"; what a player is busy with: "kæmper mod en ven" |
+| challenge (a player) | udfordre | the button ("Udfordr Bo") |
+| rematch | omkamp | the result's button ("Omkamp?"), "Bo vil have omkamp!" |
+| leave (the match) | forlade | the move ("Forlad"), its card ("Forlad kampen"), "Du forlod kampen." |
+| Bo's (animal) | Bos (Jonas', after s, x, z) | the other player's animal: "Bos kanin" (the species' `bare` form after the owner) |
 
 Attack names are short, concrete Danish words or playful compounds a kid can say: Nøddekast, Lynspark, Hop, Stamp, Hulebid, Kvæk, Tungesnert, Stort plask, Nap, Spring, Rævestreg, Plask, Halesmæk, Spark, Hornstød, Bid, Hyl, Ulvespring, Labeslag, Brøl, Bjørnekram, Kæmpetramp.
 

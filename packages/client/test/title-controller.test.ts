@@ -153,6 +153,8 @@ let startLanguage = language.current;
 beforeEach(() => {
 	startLanguage = language.current;
 	title.open = false;
+	// A server that can keep an account, unless a test says otherwise.
+	account.ready = true;
 });
 afterEach(() => {
 	language.set(startLanguage);
@@ -738,6 +740,17 @@ describe('title: accounts', () => {
 			flags.throwaway = was;
 		}
 		expect(title.rows).toContain('login');
+	});
+
+	it('"I have an account" shows only while the server can keep an account', () => {
+		setup(savedGame());
+		account.ready = false;
+		expect(title.rows).toEqual(['continue', 'new', 'language', 'sound']);
+		account.name = 'Ida';
+		account.session = 'ended';
+		expect(title.rows).not.toContain('login');
+		account.ready = true;
+		expect(title.rows).toEqual(['continue', 'new', 'login', 'language', 'sound']);
 	});
 
 	it('a logged-in player has no login row, until the server says the session is over', () => {

@@ -16,6 +16,7 @@ import {
 	type BattleState,
 	type GameEvent,
 	type Intent,
+	type Puzzle,
 	type SavedGame
 } from '@mathgame/engine';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -329,7 +330,7 @@ describe('battle screen', () => {
 
 		t.press('ArrowUp', 'Enter'); // Nut Toss, level 1
 		expect(battle.screen).toBe('puzzle');
-		const puzzle = battle.puzzle!;
+		const puzzle = battle.puzzle as Puzzle;
 		t.press(...String(puzzle.answer), 'Enter');
 		const before = t.sent.length;
 		t.press('Enter', '1', 'Enter', 'ArrowDown', ' ');
@@ -369,7 +370,7 @@ describe('battle screen', () => {
 		t.toMenu();
 		const hp = battle.opponent!.hp;
 		t.press('1');
-		const answer = battle.puzzle!.answer;
+		const answer = (battle.puzzle as Puzzle).answer;
 		t.press(...String(answer + 1), 'Enter');
 		t.run(0.1);
 		expect(battle.judged).toEqual({ correct: false });
@@ -491,7 +492,7 @@ describe('attack levels', () => {
 			type: 'battle',
 			intent: { type: 'attack', attackIndex: 2, level: 2 }
 		});
-		t.press(...String(battle.puzzle!.answer + 1), 'Enter');
+		t.press(...String((battle.puzzle as Puzzle).answer + 1), 'Enter');
 		t.toMenu();
 		t.press('ArrowUp', 'ArrowUp', 'Enter'); // Scurry Kick → Nut Toss → Run
 		t.runUntil(() => battle.screen === 'result');
@@ -594,7 +595,7 @@ describe('switching animals', () => {
 		for (let i = 0; battle.screen !== 'party'; i++) {
 			if (i > 40) throw new Error('never knocked out');
 			t.press('1');
-			t.press(...String(battle.puzzle!.answer + 1), 'Enter');
+			t.press(...String((battle.puzzle as Puzzle).answer + 1), 'Enter');
 			for (let j = 0; j < 300 && !['actions', 'party'].includes(battle.screen); j++) {
 				if (mash) t.pressEvery(0.15, 'Enter');
 				else t.run(1 / 60);
@@ -774,7 +775,7 @@ describe('mashing through the narration', () => {
 		t.walkIntoBattle();
 		t.toMenu();
 		t.press('1');
-		t.press(...String(battle.puzzle!.answer), 'Enter');
+		t.press(...String((battle.puzzle as Puzzle).answer), 'Enter');
 		const answered = t.sent.length;
 		const levels = { ...battle.levels };
 		// Every key that picks on the menu, about six a second (the issue's own
@@ -812,7 +813,7 @@ describe('mashing through the narration', () => {
 			t.walkIntoBattle();
 			t.toMenu();
 			t.press('1');
-			t.press(...String(battle.puzzle!.answer));
+			t.press(...String((battle.puzzle as Puzzle).answer));
 			const before = t.sent.length;
 			const hit = (gap: number) => {
 				t.controller.onKey(key('Enter'));
@@ -856,7 +857,7 @@ describe('mashing through the narration', () => {
 			for (let turn = 0; battle.screen !== 'result'; turn++) {
 				if (turn > 10) throw new Error(`${mash}: the wild animal never went down`);
 				t.press('3');
-				t.press(...String(battle.puzzle!.answer));
+				t.press(...String((battle.puzzle as Puzzle).answer));
 				hit();
 				while (!['actions', 'result'].includes(battle.screen)) hit();
 				if (battle.screen === 'actions') t.run(PICK_QUIET_SECONDS);
@@ -875,7 +876,7 @@ describe('mashing through the narration', () => {
 		t.walkIntoBattle();
 		t.toMenu();
 		t.press('1');
-		t.press(...String(battle.puzzle!.answer), 'Enter');
+		t.press(...String((battle.puzzle as Puzzle).answer), 'Enter');
 		const answered = t.sent.length;
 		t.runUntil(() => battle.screen === 'actions');
 		// One press, a long while after the answer, but before the kid has seen the menu.
@@ -970,7 +971,7 @@ describe('a big team', () => {
 describe('sounds', () => {
 	/** Answer the puzzle on screen, right or wrong. */
 	const answer = (t: ReturnType<typeof setup>, right: boolean) => {
-		const correct = battle.puzzle!.answer;
+		const correct = (battle.puzzle as Puzzle).answer;
 		t.press(...String(right ? correct : correct + 1), 'Enter');
 	};
 
@@ -990,7 +991,7 @@ describe('sounds', () => {
 		expect(t.cues).toEqual(['confirm']);
 
 		// Typing is quiet; "Correct!" chimes, and the hit thumps with its damage.
-		t.press(...String(battle.puzzle!.answer));
+		t.press(...String((battle.puzzle as Puzzle).answer));
 		expect(t.cues).toEqual(['confirm']);
 		t.press('Enter');
 		expect(battle.judged).toEqual({ correct: true });

@@ -16,6 +16,7 @@ import {
 import { WebSocket, WebSocketServer, type RawData } from 'ws';
 import { clientAddress, rateKey } from '../request.js';
 import { PresenceHub, type Peer } from './hub.js';
+import { Matches, type MatchOptions } from './matches.js';
 
 /**
  * The presence socket: a WebSocket at `/api/ws` on the API's own HTTP
@@ -48,6 +49,11 @@ import { PresenceHub, type Peer } from './hub.js';
  *   which reaches the copy taking over, and takes no new one. Public ids are
  *   made from `idSecret`, which every copy shares, so a player keeps theirs
  *   from one copy to the next, and the pages that see them draw them on.
+ *   Friendly matches (`matches.ts`) end first: a match lives in this
+ *   process, and the pages offer to play again once they are back.
+ * - **Matches.** The same socket carries friendly matches: the invites and
+ *   the matches themselves are `matches.ts`'s, which hears every socket that
+ *   says hello, says where it is or closes, whatever closed it.
  */
 export const PRESENCE_PATH = '/api/ws';
 
@@ -85,10 +91,13 @@ export interface PresenceOptions {
 	idSecret?: string;
 	/** A line for the server's log: a socket closed for cause. */
 	log?: (line: string) => void;
+	/** The friendly matches' times and limits (`matches.ts`). */
+	matches?: MatchOptions;
 }
 
 export interface Presence {
 	readonly hub: PresenceHub;
+	readonly matches: Matches;
 	/**
 	 * This server is about to stop: every socket is told to come straight back
 	 * (`bye: restart`, closed with its code) and closed, and no new socket is
@@ -131,6 +140,7 @@ export function attachPresence(server: Server, options: PresenceOptions = {}): P
 			createHmac('sha256', secret).update(`${attempt}:${key}`).digest('base64url').slice(0, 12),
 		maxPerWorld: options.maxPerWorld
 	});
+	const matches = new Matches(hub, { log, ...options.matches });
 	const wss = new WebSocketServer({
 		noServer: true,
 		maxPayload: MAX_MESSAGE_BYTES,
@@ -258,6 +268,7 @@ export function attachPresence(server: Server, options: PresenceOptions = {}): P
 			clearTimeout(helloTimer);
 			peers.delete(ws);
 			hub.leave(peer);
+			matches.left(peer);
 		});
 		ws.on('message', (data: RawData, isBinary: boolean) => {
 			if (closing) return;
@@ -290,16 +301,31 @@ export function attachPresence(server: Server, options: PresenceOptions = {}): P
 				}
 				clearTimeout(helloTimer);
 				const pid = hub.join(peer, key, name);
-				peer.send({ t: 'hi', v: PROTOCOL_VERSION, pid, name });
+				// A player back in a match hears so in the hi, and is sent the match straight after.
+				const present = hub.present(peer);
+				const match = present ? matches.joined(peer, present) : null;
+				peer.send({ t: 'hi', v: PROTOCOL_VERSION, pid, name, match });
+				matches.resume(peer);
 				return;
 			}
 			const message = parseClientMessage(value);
 			switch (message?.t) {
 				case 'where':
 					hub.where(peer, message);
+					matches.moved(peer);
 					return;
 				case 'find':
 					hub.find(peer, message.pid);
+					return;
+				case 'challenge':
+				case 'withdraw':
+				case 'accept':
+				case 'decline':
+				case 'play':
+				case 'here':
+				case 'rematch':
+				case 'done':
+					matches.handle(peer, message);
 					return;
 				default:
 					// A second hello, or nothing we know.
@@ -326,10 +352,13 @@ export function attachPresence(server: Server, options: PresenceOptions = {}): P
 
 	return {
 		hub,
+		matches,
 		restart() {
 			if (stopping) return;
 			stopping = true;
 			clearInterval(rosters);
+			// A match lives in this process: it ends here, before its pages are sent on.
+			matches.stop();
 			// Every socket is told before any closes: a page hears `bye` before anyone's `gone`.
 			for (const peer of peers.values()) peer.close('restart');
 			log(`presence: stopping, ${peers.size} sockets told to come back`);
@@ -337,6 +366,7 @@ export function attachPresence(server: Server, options: PresenceOptions = {}): P
 		close() {
 			clearInterval(heartbeat);
 			clearInterval(rosters);
+			matches.stop();
 			server.off('upgrade', onUpgrade);
 			for (const ws of wss.clients) ws.terminate();
 			return new Promise((resolve) => wss.close(() => resolve()));

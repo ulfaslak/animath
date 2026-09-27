@@ -14,6 +14,9 @@
 	 * shown on the bar (`HpBar`). `hit` pops the damage in a burst beside
 	 * the box, on the `burst` side, the side away from the screen's edge,
 	 * where it covers no word and no animal; each new `n` pops it again.
+	 * `keepEnd`: a name too long for the box gives up its start, not its end
+	 * (a friendly match's "Bo's Rabbit" keeps the animal when a long owner's
+	 * name would push it out).
 	 */
 	let {
 		name,
@@ -24,7 +27,8 @@
 		acting = false,
 		preview = null,
 		hit = null,
-		burst = 'right'
+		burst = 'right',
+		keepEnd = false
 	}: {
 		name: string;
 		/** The animal's id: another animal in the box gets a fresh bar, never one sliding from the last one's HP. */
@@ -36,6 +40,7 @@
 		preview?: number | null;
 		hit?: { damage: number; level: AttackLevel; n: number } | null;
 		burst?: 'left' | 'right';
+		keepEnd?: boolean;
 	} = $props();
 </script>
 
@@ -50,7 +55,9 @@
 				<circle cx="19" cy="10.3" r="2.4" />
 			</svg>
 		{/if}
-		<span class="text">{name}</span>
+		<span class="text" class:end={keepEnd}
+			>{#if keepEnd}<bdi>{name}</bdi>{:else}{name}{/if}</span
+		>
 	</div>
 	{#key id}
 		<HpBar {hp} {max} thick {preview} />
@@ -90,6 +97,13 @@
 		overflow: hidden;
 		text-overflow: ellipsis;
 		white-space: nowrap;
+	}
+	/*
+	 * The end kept instead: the "…" at the start. The name inside stays in its
+	 * own direction (`bdi`), so its letters and marks read as written.
+	 */
+	.text.end {
+		direction: rtl;
 	}
 	.paw {
 		width: 20px;
