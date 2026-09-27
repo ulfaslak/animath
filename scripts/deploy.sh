@@ -43,6 +43,19 @@ CANARY_NAME="mathgame-app-canary"
 DEPLOY_SHA="${1:-}"
 
 cd "${MATHGAME_DIR:-$HOME/mathgame}"
+
+# One deploy at a time: the workflow's runs queue, but a deploy by hand could
+# start beside one, and the two would take each other's check container. The
+# lock goes when the script ends, however it ends. (A Mac has no flock; the
+# local stack runs one deploy at a time anyway.)
+if command -v flock >/dev/null 2>&1; then
+	exec 9>"/tmp/mathgame-deploy.lock"
+	flock -n 9 || {
+		echo "ERROR: another deploy is running here (it holds /tmp/mathgame-deploy.lock)"
+		exit 1
+	}
+fi
+
 COMPOSE="docker compose -f docker-compose.prod.yml"
 if [ -n "${MATHGAME_COMPOSE_OVERRIDE:-}" ]; then
 	COMPOSE="$COMPOSE -f $MATHGAME_COMPOSE_OVERRIDE"
