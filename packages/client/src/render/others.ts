@@ -61,7 +61,7 @@ const HEAD_HEIGHT = 0.95;
 /** Seconds after the player turns up somewhere during which the others there come without a poof. */
 export const HUSH_SECONDS = 2;
 /** How far from the middle of a shared tile each of a crowd stands (tiles), and how quickly they step there. */
-export const CROWD_RADIUS = 0.3;
+export const CROWD_RADIUS = 0.4;
 const NUDGE_RATE = 8;
 
 /** The shirt and cap a player's name gives them: the same on every screen, and never the player's own. */
