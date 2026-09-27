@@ -41,7 +41,7 @@
  * the screen says — on the title its menu, the confirm, the player's name
  * box, the starters and the starter's name box; the message line in explore (and the grid position and
  * facing with `?debug` in the URL), the party cards (and an open card's
- * animals) and the tokens and tools in the corner; in the pause menu its
+ * animals) and the puzzles solved, tokens, tools and world in the corner; in the pause menu its
  * rows, the picked animal's options and the name box (with whether it has
  * the focus); at the doctor the doctor's line, the tokens, the tabs, the
  * tab's list and what its right-hand side says; and in a battle
@@ -355,8 +355,10 @@ async function describe() {
 		lines.push(`confirm: ${await textOf('.doctor .question')} ${choices.join(' | ')}`);
 	const story = await textOf('.story');
 	if (story !== null) lines.push(`story: ${story}`);
-	// The tokens and tools in explore's top right corner.
-	const belongings = await page.locator('.belongings > *').allTextContents();
+	// The puzzles solved, the tokens, the tools and the world in explore's top right corner.
+	const belongings = await page
+		.locator('.belongings :is(.solved, .purse, .tool, .world)')
+		.allTextContents();
 	if (belongings.length) lines.push(`belongings: ${belongings.map((b) => b.trim()).join(' · ')}`);
 	// Party cards in explore, one per species, the lead's in brackets and an open one in braces:
 	// "[1 Pip 20/20 goes first] | {2 Rabbit ×4 3 ready · 1 tired}"; then the open card's animals.
