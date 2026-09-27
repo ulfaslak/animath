@@ -109,7 +109,7 @@ export function accountRoute({ cookie, limits }: AccountRouteOptions) {
 	 * neither to slide it nor to clear it. An autosave still on its way with
 	 * the old cookie when the browser logs in to another account would
 	 * otherwise answer after the login, and its cookie would replace the new
-	 * one. `/me`, which the page asks once as it starts, slides and clears.
+	 * one. Only `/me` slides a session, and only once a month (`currentUser`).
 	 */
 	const requireSession: MiddlewareHandler<Env> = async (c, next) => {
 		const user = await sessionUser(c);

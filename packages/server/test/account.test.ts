@@ -342,27 +342,34 @@ describe('login and logout', () => {
 });
 
 describe('sessions', () => {
-	it('me says nobody without a cookie, and clears a cookie that names no session', async () => {
+	it('me says nobody without a cookie, or with one that names no session, and sends no cookie back', async () => {
 		expect(await new Browser().me()).toEqual({ user: null });
 		const forged = new Browser();
 		forged.cookie = 'A'.repeat(43);
 		const res = await forged.request('GET', '/me');
 		expect(await res.json()).toEqual({ user: null });
-		expect(res.headers.get('set-cookie')).toMatch(/Max-Age=0/);
-		expect(forged.cookie).toBeNull();
+		expect(res.headers.get('set-cookie')).toBeNull();
 	});
 
-	it('an expired session logs nobody in; /me clears its cookie', async () => {
+	it('an expired session logs nobody in, and nothing clears its cookie but logout', async () => {
+		// A cookie cleared in an answer that lands after another tab's login would
+		// clear the new cookie; a dead one costs nothing where it is.
 		const { browser, name } = await account(doc(1));
 		const user = await userRow(name);
 		await db
 			.update(sessions)
 			.set({ expiresAt: sql`now() - interval '1 second'` })
 			.where(eq(sessions.userId, user!.id));
-		expect((await browser.getSave()).status).toBe(401);
-		expect((await browser.putSave(doc(2))).status).toBe(401);
-		expect(browser.cookie).not.toBeNull();
+		for (const res of [
+			await browser.getSave(),
+			await browser.putSave(doc(2)),
+			await browser.request('GET', '/me')
+		]) {
+			expect(res.headers.get('set-cookie')).toBeNull();
+		}
 		expect(await browser.me()).toEqual({ user: null });
+		expect((await browser.getSave()).status).toBe(401);
+		expect((await browser.logout()).headers.get('set-cookie')).toMatch(/Max-Age=0/);
 		expect(browser.cookie).toBeNull();
 	});
 
@@ -392,12 +399,19 @@ describe('sessions', () => {
 		}
 	});
 
-	it('a session in use slides a year out, in the database and in the cookie', async () => {
+	it('a session in use slides a year out, in the database and in the cookie, once a month', async () => {
 		const { browser, name } = await account();
 		const user = await userRow(name);
-		// Fresh: nothing to move, no cookie sent again.
+		// Fresh, and 25 days in: nothing to move, no cookie sent again.
 		const fresh = await browser.request('GET', '/me');
 		expect(fresh.headers.get('set-cookie')).toBeNull();
+		await db
+			.update(sessions)
+			.set({ expiresAt: sql`now() + interval '340 days'` })
+			.where(eq(sessions.userId, user!.id));
+		const early = await browser.request('GET', '/me');
+		expect(early.headers.get('set-cookie')).toBeNull();
+		expect(await early.json()).toEqual({ user: { name } });
 		await db
 			.update(sessions)
 			.set({ expiresAt: sql`now() + interval '300 days'` })

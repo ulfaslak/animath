@@ -12,14 +12,22 @@ import { hashSecret, newSecret } from './secrets.js';
  * The browser holds a random token (256 bits) in an HttpOnly, SameSite=Lax
  * cookie, Secure in production. The server stores only the token's SHA-256
  * hash: the token is random, so there is nothing to salt, and a database dump
- * logs nobody in. A session lasts a year from when it was last used: each use
- * that finds it more than a day into its year moves its end a year out again,
- * in the database and in the cookie. Logging out deletes it.
+ * logs nobody in. A session lasts about a year from when it was last used:
+ * `/me` (which a page asks as it starts) moves its end a year out again, in
+ * the database and in the cookie, once it is `SLIDE_AFTER_DAYS` into its
+ * year. Logging out deletes it.
  */
 
 export const SESSION_COOKIE = 'animath_session';
 /** How long a session lasts after its last use. */
 export const SESSION_DAYS = 365;
+/**
+ * How far into its year a session is before `/me` moves its end out again.
+ * Each move sends the cookie, and an answer that sends it can land after a
+ * login in another tab and put the old cookie back (§ `currentUser`), so it
+ * happens once a month, not at every start.
+ */
+export const SLIDE_AFTER_DAYS = 30;
 /** A browser logged in to one account on more devices than this loses the least used session. */
 export const MAX_SESSIONS_PER_USER = 20;
 
@@ -73,7 +81,7 @@ export async function deleteSession(token: string): Promise<void> {
 
 interface Found {
 	user: SessionUser;
-	/** More than a day into its year: time to move its end out again. */
+	/** More than `SLIDE_AFTER_DAYS` into its year: time to move its end out again. */
 	stale: boolean;
 }
 
@@ -83,7 +91,7 @@ async function findSession(token: string | undefined): Promise<Found | null> {
 		.select({
 			id: users.id,
 			name: users.name,
-			stale: sql<boolean>`${sessions.expiresAt} < now() + make_interval(days => ${SESSION_DAYS - 1})`
+			stale: sql<boolean>`${sessions.expiresAt} < now() + make_interval(days => ${SESSION_DAYS - SLIDE_AFTER_DAYS})`
 		})
 		.from(sessions)
 		.innerJoin(users, eq(users.id, sessions.userId))
@@ -129,21 +137,19 @@ export function clearSessionCookie(c: Context, options: CookieOptions): void {
 }
 
 /**
- * `/me`'s lookup: the account a request is logged in to, sliding the
- * session's end a year out when it is more than a day into its year, and
- * sending the cookie again with it. A cookie that names no live session is
- * cleared, so the browser stops sending it. Only `/me` may send the cookie
- * this way (besides login, register and logout): a page asks it once as it
- * starts, before it saves anything, so no answer of its can arrive after a
- * login and put the old cookie back.
+ * `/me`'s lookup: the account a request is logged in to, moving the
+ * session's end a year out once it is `SLIDE_AFTER_DAYS` into its year, and
+ * sending the cookie again with it. Only login, register, logout and this
+ * send the cookie, and this as rarely as it can: an answer that sends it
+ * may land after a login in another tab of the same browser (whose
+ * `Set-Cookie` then loses to the old token), so a cookie that names no live
+ * session is left alone rather than cleared, and a live one is sent again
+ * only once a month.
  */
 export async function currentUser(c: Context, options: CookieOptions): Promise<SessionUser | null> {
 	const token = getCookie(c, SESSION_COOKIE);
 	const found = await findSession(token);
-	if (!found) {
-		if (token !== undefined) clearSessionCookie(c, options);
-		return null;
-	}
+	if (!found) return null;
 	if (found.stale && token) {
 		await db
 			.update(sessions)
