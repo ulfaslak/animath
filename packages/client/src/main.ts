@@ -12,6 +12,7 @@ import { PLAY_HOUR_MS, PlayClock } from './account/playtime';
 import { ReadyWatch, keepingCursors } from './account/ready';
 import { noteNextStart, restartWith, takeAccountNote } from './account/restart';
 import { currentAccount, forgetLogout, gameKeys, logoutPending } from './account/session';
+import { forgetWelcome, takeWelcomeToken, welcomeFrom } from './account/welcome';
 import { sfx } from './audio/sfx.svelte';
 import { LocalAuthority, mintId } from './authority/local';
 import { BattleController } from './battle/controller';
@@ -55,6 +56,12 @@ import { travel } from './state/travel.svelte';
 import { TitleController } from './title/controller';
 import { TravelController } from './travel/controller';
 import App from './ui/App.svelte';
+
+// A welcome link's token leaves the address before anything else runs (`account/welcome.ts`):
+// it logs in to an account once. The tab keeps it for its own next starts until it is settled;
+// a throwaway page drops it.
+const tabStore = browserStore('session');
+const welcomeToken = takeWelcomeToken({ session: tabStore, throwaway: flags.throwaway });
 
 const canvas = document.getElementById('game') as HTMLCanvasElement;
 const uiRoot = document.getElementById('ui') as HTMLElement;
@@ -185,7 +192,8 @@ const accountController = new AccountController({
 		playClock.flush();
 		reloading = true;
 		restartWith(note);
-	}
+	},
+	forgetWelcome: () => forgetWelcome(tabStore)
 });
 
 const pauseController = new PauseController(authority, {
@@ -322,7 +330,7 @@ function noteScreen(): void {
 			: touch.on && touch.portrait
 				? 'portrait'
 				: account.card !== null
-					? `account:${account.card}`
+					? `account:${account.card}:${account.card === 'welcome' ? account.welcome.phase : ''}`
 					: account.prompt
 						? 'prompt'
 						: title.open
@@ -434,6 +442,16 @@ function checkAccount(): void {
 window.addEventListener('storage', (e) => {
 	autosave.onStorage(e.key, e.newValue);
 	if (e.key === null || e.key === ACCOUNT_KEYS.current) checkAccount();
+});
+// A welcome link opened in a tab already on the game changes only what is after `#`, which starts
+// no page: the tab keeps the token (out of the address) and starts again, which opens its card.
+// The game is saved as the page goes, as at any reload.
+window.addEventListener('hashchange', () => {
+	if (flags.throwaway || !welcomeFrom(location.href)?.token) return;
+	takeWelcomeToken({ session: tabStore });
+	playClock.flush();
+	reloading = true;
+	location.reload();
 });
 // A page back from the back/forward cache, or resumed after the browser froze it, gets
 // no `storage` events for the time it was away: it checks the save again, and so does
@@ -591,6 +609,13 @@ void autosave.boot().then((plan) => {
 	// not even the title. The page reloads for the new version, or its card says so.
 	if (autosave.behind !== null) return;
 	startNotice = plan.notice;
+	// A welcome link: the title, with the game this browser plays behind the welcome card, which
+	// asks whose account the link opens and takes the password the kid picks for it.
+	if (welcomeToken !== null) {
+		titleController.open(plan.game ?? null, autosave.titleNotice, autosave.keeps);
+		accountController.openWelcome(welcomeToken);
+		return;
+	}
 	// Just logged out: the title, saying so, with the guest game if there is one.
 	if (accountNote === 'loggedOut') {
 		titleController.open(plan.game ?? null, 'save.loggedOut', autosave.keeps);

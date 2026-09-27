@@ -8,9 +8,10 @@ import {
 	PROMPT_CHOICES,
 	account,
 	type AccountFrom,
-	type AccountProblem
+	type AccountProblem,
+	type WelcomeView
 } from '../state/account.svelte';
-import { getAccountSave, login, logout, register } from './api';
+import { acceptWelcome, getAccountSave, login, logout, lookAtWelcome, register } from './api';
 import type { AccountNote } from './restart';
 import {
 	forgetLogout,
@@ -39,6 +40,11 @@ import {
  * so the page starts again in it (`hooks.restart`), after moving what must
  * move in the browser's storage (`session.ts`): nothing is written over, and
  * the game the kid was playing is saved first.
+ *
+ * A welcome link (`welcome.ts`) opens the welcome card over the title: the
+ * account the admin made for a game that came from another server, whose
+ * password the kid picks. Picking it logs in as a login does; a spent link
+ * says so kindly and offers a login, or the game this browser plays.
  */
 
 export interface AccountHooks {
@@ -58,6 +64,11 @@ export interface AccountHooks {
 	answered(): void;
 	/** Start the page again, in the game the browser now plays, saying `note`. */
 	restart(note: AccountNote): void;
+	/**
+	 * The welcome link is settled (used, spent, or put away): the tab, which
+	 * keeps its token for its own next starts (`welcome.ts`), forgets it.
+	 */
+	forgetWelcome?(): void;
 }
 
 /** Keys that change what a box holds without typing a letter. */
@@ -71,6 +82,9 @@ function minutes(seconds: number): number {
 export class AccountController {
 	/** The quiet moment the cards wait for before Enter or a tap picks (`input/pick-guard.ts`). */
 	private guard = new PickGuard();
+
+	/** The welcome link's token while its card is up: the controller's alone, never the view's. */
+	private welcomeToken: string | null = null;
 
 	constructor(private hooks: AccountHooks) {}
 
@@ -105,7 +119,43 @@ export class AccountController {
 		this.open('login', from, this.hooks.playerName() ?? '');
 	}
 
-	private open(card: 'register' | 'login', from: AccountFrom, name: string): void {
+	/**
+	 * A welcome link opened the page: its card, over the title, asks the
+	 * server whose account the link opens, then takes the password the kid
+	 * picks for it.
+	 */
+	openWelcome(token: string): void {
+		this.open('welcome', 'title', '');
+		this.welcomeToken = token;
+		this.showWelcome({ phase: 'checking' });
+		void this.lookAtWelcome(token);
+	}
+
+	/** What the welcome card shows now: a new choice, so a key mashed as it came picks nothing. */
+	private showWelcome(view: WelcomeView): void {
+		account.welcome = view;
+		this.guard.show();
+	}
+
+	private async lookAtWelcome(token: string): Promise<void> {
+		const look = await lookAtWelcome(token);
+		// The card went, or another card took its place, while the server was asked.
+		if (account.card !== 'welcome' || this.welcomeToken !== token) return;
+		if (look.kind === 'live') {
+			account.nameDraft = look.name;
+			this.showWelcome({ phase: 'ready', name: look.name });
+		} else if (look.kind === 'gone') {
+			this.hooks.forgetWelcome?.();
+			this.showWelcome({ phase: 'gone', why: look.why });
+		} else if (look.kind === 'too-many') {
+			this.showWelcome({ phase: 'unreachable', minutes: minutes(look.retryAfter) });
+		} else {
+			this.showWelcome({ phase: 'unreachable' });
+		}
+	}
+
+	private open(card: 'register' | 'login' | 'welcome', from: AccountFrom, name: string): void {
+		this.welcomeToken = null;
 		account.card = card;
 		account.from = from;
 		account.nameDraft = name;
@@ -113,14 +163,17 @@ export class AccountController {
 		account.reveal = false;
 		account.problem = null;
 		account.busy = false;
-		// Straight to the password when the name is there already.
-		account.field = name === '' ? 'name' : 'password';
+		// Straight to the password when the name is there already, or is the account's own.
+		account.field = name === '' && card !== 'welcome' ? 'name' : 'password';
 		this.guard.show();
 		sfx.play('confirm');
 	}
 
 	/** The card goes, and whatever it was opened over has the keys again. */
 	close(): void {
+		// Not now: the kid put the link away, and the tab's next start leaves it be.
+		if (account.card === 'welcome') this.hooks.forgetWelcome?.();
+		this.welcomeToken = null;
 		account.card = null;
 		account.busy = false;
 		account.problem = null;
@@ -168,6 +221,10 @@ export class AccountController {
 			e.preventDefault();
 			return;
 		}
+		if (account.card === 'welcome' && account.welcome.phase !== 'ready') {
+			this.welcomeChoiceKey(e);
+			return;
+		}
 		if (e.key === REVEAL_KEY) {
 			e.preventDefault();
 			account.reveal = !account.reveal;
@@ -180,9 +237,11 @@ export class AccountController {
 				if (!e.repeat) this.close();
 				return;
 			case 'Tab':
-				// The other box; the focus never leaves the card.
+				// The other box; the focus never leaves the card. The welcome card's name is the
+				// account's, not typed: the password keeps the typing.
 				e.preventDefault();
-				account.field = account.field === 'name' ? 'password' : 'name';
+				if (account.card !== 'welcome')
+					account.field = account.field === 'name' ? 'password' : 'name';
 				return;
 			case 'Enter':
 				e.preventDefault();
@@ -209,9 +268,88 @@ export class AccountController {
 		else if (problem.kind === 'password' || problem.kind === 'wrong') account.field = 'password';
 	}
 
+	/**
+	 * The welcome card without its boxes: the server being asked about the
+	 * link (Escape only), a spent link (Enter logs in, only while the server
+	 * can keep an account, as every offer of one waits; Escape plays the game
+	 * this browser plays), or no answer (Enter asks again). Enter or Space,
+	 * after the quiet moment.
+	 */
+	private welcomeChoiceKey(e: KeyboardEvent): void {
+		switch (e.key) {
+			case 'Escape':
+				e.preventDefault();
+				if (!e.repeat) this.close();
+				return;
+			case 'Enter':
+			case ' ': {
+				e.preventDefault();
+				if (e.repeat || !this.guard.press()) return;
+				const token = this.welcomeToken;
+				if (account.welcome.phase === 'gone') {
+					if (account.ready) this.openLogin('title');
+				} else if (account.welcome.phase === 'unreachable' && token !== null) {
+					sfx.play('move');
+					this.showWelcome({ phase: 'checking' });
+					void this.lookAtWelcome(token);
+				}
+				return;
+			}
+		}
+	}
+
 	private async submit(): Promise<void> {
 		if (account.card === 'register') await this.register();
 		else if (account.card === 'login') await this.logIn();
+		else if (account.card === 'welcome') await this.welcome();
+	}
+
+	/**
+	 * The password picked on the welcome card: the server sets it, uses the
+	 * link up and logs this browser in, as a login does, and the account's
+	 * save becomes this browser's copy of the account's game (the guest game
+	 * stays where it is). Then the page starts again, into it.
+	 */
+	private async welcome(): Promise<void> {
+		const store = this.hooks.store;
+		const token = this.welcomeToken;
+		if (account.welcome.phase !== 'ready' || token === null) return;
+		const password = checkPassword(account.passwordDraft);
+		if (!password.ok) return this.refuse({ kind: 'password', reason: password.reason });
+		// A browser that keeps nothing could not play the account here: the link waits for one that can.
+		if (!store) return this.refuse({ kind: 'storage' });
+		account.busy = true;
+		account.problem = null;
+		const waiting = holdLogout(store);
+		const result = await acceptWelcome(token, account.passwordDraft);
+		if (result.kind !== 'welcomed') releaseLogout(store, waiting);
+		switch (result.kind) {
+			case 'welcomed':
+				sfx.play('confirm');
+				// This browser's new session replaced the old one: the logout held is moot.
+				forgetLogout(store);
+				this.hooks.flush();
+				takeAccountGame(store, result.name, result.save);
+				logInHere(store, result.name);
+				// Before the page starts again, which would otherwise open the card for a used link.
+				this.hooks.forgetWelcome?.();
+				this.hooks.restart('welcome');
+				return;
+			case 'gone':
+				// Used meanwhile (in another tab, say), or too old by now.
+				account.busy = false;
+				sfx.play('wrong');
+				this.hooks.forgetWelcome?.();
+				this.showWelcome({ phase: 'gone', why: result.why });
+				return;
+			case 'bad-password':
+				return this.refuse({ kind: 'password', reason: result.reason });
+			case 'too-many':
+				return this.refuse({ kind: 'too-many', minutes: minutes(result.retryAfter) });
+			case 'refused':
+			case 'offline':
+				return this.refuse({ kind: 'offline' });
+		}
 	}
 
 	private async register(): Promise<void> {
