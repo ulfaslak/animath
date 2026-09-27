@@ -199,12 +199,14 @@ All code is written by agents; the human reviews PRs and plays the game but does
 
 **The engine is the backbone.** It is pure and seeded, so every rule can be tested exhaustively and deterministically. Prefer:
 
-- **Property tests over the whole space** rather than examples: every species in the catalog, every kind at every difficulty, 25 seeds. `battle.test.ts` and `puzzles.test.ts` are the pattern. A balance change that breaks monotonicity anywhere in the catalog must fail a test.
+- **Property tests over the whole space** rather than examples: every species in the catalog, every kind at every difficulty, 25 seeds. `battle.test.ts` and `puzzles.test.ts` are the pattern. A balance change that breaks monotonicity anywhere in the catalog must fail a test. A sweep over pairs or trios of species grows with the square or the cube of the catalog (32 species since #89, 49 to come), so it says how many it takes and why, and a cut never drops what a rule depends on; a check that a cut kept its coverage counts that (each species against others), never what every sample holds anyway (a species against itself). The catalog sweep in `battle-reducer.test.ts` plays every pair that can meet, with fewer seeds a pair as the catalog grows (about 60 battles per species, at least 3 a pair) and its own player's draws for each pair; § switching there switches every newcomer in against every wild animal it can meet, since who leaves never changes the reply; the leash's reduced-motion throws in the client's `battle-scene.test.ts` take a third of the species at each screen size, in turn, so that each is thrown at two or three sizes. The balance bands and the two "never hurts" checks keep every pair and the seeds they were set on.
 - **Independent re-derivation** for generators: the puzzle test re-solves each prompt with its own tiny solver instead of trusting `answer`. When you add a puzzle kind, extend the solver.
 - **Replay tests** for state machines: apply a fixed intent log to a fixed seed and assert the final state, as § replay does in `battle-reducer.test.ts` and `doctor.test.ts`.
 - **Boundary tests** that pin the architecture: `purity.test.ts` fails if the engine grows an import. Keep it.
 
 **Keep every test well under vitest's 5 s default timeout**, including when other worktrees load the machine. A sweep costs the product of its dimensions, so when a new dimension joins an existing one (every lead, every species), time the file again. In a hot loop, collect failures into an array and assert once (`expect(bad).toEqual([])`): an `expect` per item costs more than the rule it checks (seven tenths of a save sweep's time, #86). Cap that array in a sweep of thousands of cells (the first 20 and a count of the rest, `findings()` in `encounters.test.ts`): a broken rule fails every cell, and printing all of them can outlast the timeout, so the run reports a timeout instead of the rule. A sampling test can skip the draws it does not measure; `encounters.test.ts` samples species picks with an `Rng` whose every chance comes up. Build what a test only stands on the cheap way when it gives the same thing: an overlay of thousands of chunks read from its text, not grown one `with` at a time (each copies the overlay), and a search helper's answer kept, not worked out again for every question (`tilesOfKind` in `edits.test.ts`). Other agents' builds and browsers beside a run (load averages of 40 to 65 on this Mac's 12 threads) made tests 6 to 13 times slower than alone (#86). So a test that still takes a quarter of a second or more alone, after those savings, gets an explicit timeout of at least twice its slowest run under load: 30 s for most, 60 s for sweeps of one to two seconds alone, 120 s for the catalog's battle sweep (the frog's took 40 s at a load of 54). A comment above the timeout gives the reason: its measured cost alone and under load, and what it does that many times. Measure alone with `pnpm -F @mathgame/engine exec vitest run --no-file-parallelism --reporter=json --outputFile=<file>` (the client likewise), which runs one file at a time, and read each test's `duration`; `uptime` says how loaded the machine was. Never cut a sweep's count to fit the default without saying so. A test that bounds a duration (`match.test.ts`, `edits.test.ts`) keeps the fastest of up to three tries: at a load of 40 one try in a few lost a few hundred milliseconds to the machine.
+
+**The code's own waits run on the fake clock.** The fastest of three tries is for work the CPU does. A rule about how long the code waits (a timeout, a deadline, a heartbeat) is tested on vitest's fake timers, stepped to either side of the edge: still waiting at 119 ms, given up at 120 (`account-api.test.ts`). Against a real server or database, fake only the timers the rule is about (`toFake: ['setInterval', 'clearInterval']` for the presence heartbeat, `['setTimeout', 'clearTimeout']` for the hello's wait and pg's read timeout) and let the sockets run. A bound on the real clock measures the machine as well: at a load of 60 a 120 ms wait took 197 ms, and the run failed with no bug behind it (#108). In the same way, a test that waits for a message, or for proof that none is coming, waits on a barrier and never on a stretch of the real clock: a ping of its own answered on the same socket, whose frames keep their order both ways (`roundTrip` in `presence-socket.test.ts`), or the end of a closing handshake.
 
 **A test worker reads vitest's replies between tests.** vitest runs a file's synchronous tests back to back in one turn of its worker's event loop. The worker gives the reply to each progress report it sends 60 s, counted from the send, and reads a reply only when its loop turns. So a file of sweeps adding up to a minute (`battle-reducer.test.ts` held its worker for 59.6 s at a load of 28) failed the run with `Timeout calling "onTaskUpdate"`, every test passed (#86). No vitest option sets that limit, and the `forks` pool, vitest's default, has it as threads do. `test/setup.ts` in the engine and the client turns the loop twice before each test, so no file holds its worker longer than its slowest test; `setup.test.ts` pins it. The server's tests wait on the database, so its workers turn anyway.
 
@@ -297,11 +299,16 @@ Never run `drizzle-kit generate` in a worktree (it emits a full `0000` dump that
 An account is a row in `users` with its `sessions`, its `account_saves` row and its `account_save_backups` ([[ARCHITECTURE]] § Data model). There is no email, so a forgotten password is reset, and an account deleted, by the human with the admin CLI:
 
 ```bash
-pnpm admin list                                    # every account: its save's seq and when, how many browsers are logged in
-pnpm admin reset-password <name> [<new password>]  # a made-up six-character password when none is given; logs every browser out
+pnpm admin list                                    # every account: its save's seq and when, how many browsers are logged in, and "no password yet" while its welcome link waits
+pnpm admin reset-password <name> [<new password>]  # a made-up six-character password when none is given; logs every browser out (and uses a waiting welcome link up)
+printf '%s' "$PW" | pnpm admin reset-password <name> --stdin  # the password from stdin, never in a command line (the process list, `docker events`) nor said back
 pnpm admin delete-account <name>                   # only says what it would delete
-pnpm admin delete-account <name> --yes             # deletes the account, its sessions, its save and its set-aside saves
+pnpm admin delete-account <name> --yes             # deletes the account, its sessions, its save, its set-aside saves and its welcome link
+pnpm admin export-local-save <player id> [--from anonymous|account|account:<name>] [--out <folder>]  # a kid's newest save, read-only, into ~/animath-exports/
+pnpm admin import-save [--name <name>] [--origin <address>] < save.json             # an account for it, with no password, and a welcome link
 ```
+
+The last two move a kid's game from one server to another (below).
 
 A name is matched the way the game matches it, whatever its case or however its letters were typed; quote one with a space (`"Anna Sofie"`). Locally the CLI uses `.env`'s `DATABASE_URL`, the `mathgame` database; from a worktree, give it your own database's. In production it runs in the app container, against production's database, from the directory that holds `docker-compose.prod.yml`:
 
@@ -335,9 +342,43 @@ update account_saves
   from account_save_backups b where b.id = <backup id> and account_saves.user_id = b.user_id;
 ```
 
+### Moving a kid's game to production
+
+A game played through the tunnel lives in this Mac's `mathgame` database and in the kid's browser under the tunnel's address, which the public site cannot read. It moves as an account ([[DECISIONS]] § Accounts): export the save here, import it on production, and give the kid the welcome link the import prints. Only the admin does this, and the kid's local game is never written to.
+
+1. **Export**, on this Mac, from the primary clone, whose `.env` is the local `mathgame` database. The player id is the kid's (`localStorage['animath.player']` in his browser; the human's kid is `5c6f3bd4-fd8d-415a-8c88-65b087943c4b`):
+
+   ```bash
+   cd ~/git/mathgame
+   pnpm admin export-local-save 5c6f3bd4-fd8d-415a-8c88-65b087943c4b
+   ```
+
+   It reads in a read-only session and writes nothing to the database ([[INVARIANTS]] § Server), so it is safe while he plays. It lists every copy of the game it finds with its `seq` and when it was saved: the anonymous backup, and the account he made locally, if he did (found by his name or by the game's lineage). When they are copies of one game it takes the one saved last. When they are different games (a new game he started in the account, or another kid's account that took the name he had as a guest) it writes nothing and says so: look at the list, and run it again with `--from anonymous`, `--from account` or `--from "account:<name>"`. It writes `~/animath-exports/<name>-<time>.json` (0600; a folder inside a repository is refused) and prints one line: his name, how many animals and which, tokens, tools, world and place, `seq`, when saved. Check that it is his game.
+
+2. **Import**, into production over SSH, the file on stdin. The link's address is `deploy.env`'s domain, handed to the container (`-T`: no terminal, so the file pipes through):
+
+   ```bash
+   . ./deploy.env
+   ssh -i ~/.ssh/mathgame_deploy deploy@$MATHGAME_DOMAIN \
+     "cd ~/mathgame && docker compose -f docker-compose.prod.yml exec -T -e MATHGAME_DOMAIN=$MATHGAME_DOMAIN app node dist/admin.mjs import-save" \
+     < ~/animath-exports/<name>-<time>.json
+   ```
+
+   It checks and upgrades the save with the engine, makes the account under the save's name (or `--name <name>`, inside the quotes; the character takes it too) with the save and no password, and prints `https://<domain>/#welcome=<token>`, which works once, for 14 days. The token is after `#`, which a browser never sends, so it lands in no server's log; the page looks it up with a header. A taken name is refused, and nothing is made. The link logs in to his account until he uses it: it goes to the human, never into a PR, an issue or a note.
+
+3. **The kid opens the link** on his tablet, picks a password, and plays on where he was ([[UI_SPEC]] § Accounts). `node dist/admin.mjs list` in the container shows "no password yet" until he has. From then on it is an ordinary account: a forgotten password is `reset-password`.
+
+4. **Afterwards.** Delete the export once he has played on production (`rm ~/animath-exports/<file>`). A link lost or too old before he used it: `delete-account <name> --yes` (the account holds only the import), then import again. `reset-password` on an account whose link waits uses the link up.
+
+To try it without production, import into your own database with your own client's address, then open the link printed there:
+
+```bash
+DATABASE_URL=postgres://postgres:postgres@localhost:5433/mathgame_<yours> pnpm admin import-save --origin http://localhost:5191 < save.json
+```
+
 ## Sharing the game through a tunnel
 
-Until the prod server is up (§ Deployment), the game is shared from this machine:
+Before the prod server was up (§ Deployment), the game was shared from this machine, and the kids who played it then still play here until their games move over:
 
 ```bash
 TUNNEL=1 pnpm dev              # both dev servers; TUNNEL lets Vite accept the tunnel hostname
@@ -350,7 +391,7 @@ Each kid's game is saved in their own browser, under the link they opened, and b
 
 ## Deployment
 
-The game's own Hetzner VPS runs the production stack ([[ARCHITECTURE]] § Production). The runbook for everything done by hand on it (provisioning, DNS, the secrets, a restore, a rollback without GitHub Actions, the logs) is `/redeploy` (`.claude/commands/redeploy.md`). Until the server and the deploy secrets exist, nothing deploys: every push to main ends green at the workflow's first job, with a notice saying so.
+Production is **https://animath.xyz**: the game's own Hetzner VPS, `mathgame-prod` at **91.98.203.234**, runs the production stack ([[ARCHITECTURE]] § Production), live since 2026-09-27. The runbook for everything done by hand on it (provisioning, DNS, the secrets, a restore, a rollback without GitHub Actions, the logs) is `/redeploy` (`.claude/commands/redeploy.md`). The deploy secrets (`VPS_HOST`, the IP; `VPS_USER`; `VPS_SSH_KEY`) are set; without them every push to main would end green at the workflow's first job, with a notice saying so, and nothing would deploy.
 
 ### How a merge reaches prod
 
@@ -386,18 +427,24 @@ It dispatches the deploy workflow with that SHA: no build and no tests; `:prod` 
 
 ### Backups
 
-Three layers ([[ARCHITECTURE]] § Production): the `backup` service's dumps in `~/mathgame/backups/` on the server, every 6 hours, 30 days kept; their copy in `~/mathgame-backups/` on this Mac, pulled every 6 hours by the launchd agent once it is installed (`./scripts/install-backup-sync.sh`, after the server exists); and Hetzner's nightly image of the machine. Restoring one: `/redeploy` § Restore from a backup. Alerts go to Slack when `MONITORING_SLACK_WEBHOOK_URL` is set, in `~/mathgame/.env.monitoring` on the server and `~/.config/mathgame/monitoring.env` here; without it an alert is a log line.
+Three layers ([[ARCHITECTURE]] § Production): the `backup` service's dumps in `~/mathgame/backups/` on the server, every 6 hours, 30 days kept; their copy in `~/mathgame-backups/` on this Mac, pulled every 6 hours by the launchd agent `com.mathgame.backup-sync` (installed by `./scripts/install-backup-sync.sh`; its log is `~/Library/Logs/mathgame-backup-sync.log`); and Hetzner's nightly image of the machine, taken between 06:00 and 10:00 UTC. Restoring one: `/redeploy` § Restore from a backup. Alerts go to Slack when `MONITORING_SLACK_WEBHOOK_URL` is set, in `~/mathgame/.env.monitoring` on the server and `~/.config/mathgame/monitoring.env` here; without it an alert is a log line.
 
 ### Prod access
 
+An agent on this Mac reaches every part of prod by itself; none of it needs the human.
+
 ```bash
-. ./deploy.env
-curl -fsS https://$MATHGAME_DOMAIN/api/health     # {"ok":true,"db":true,"sha":"<the build>"}
-ssh -i ~/.ssh/mathgame_deploy deploy@$MATHGAME_DOMAIN
+curl -fsS https://animath.xyz/api/health     # {"ok":true,"db":true,"sha":"<the build>"}
+ssh -i ~/.ssh/mathgame_deploy deploy@animath.xyz
 cd ~/mathgame && docker compose -f docker-compose.prod.yml logs --tail 200 -f app
 ```
 
-More in `/redeploy` § Logs and a look inside. Never change a file on the server: the next deploy resets the checkout, and a change that belongs there belongs in a PR.
+- **The server.** `deploy` on `animath.xyz` (or `91.98.203.234`), with `~/.ssh/mathgame_deploy`, a key only this Mac holds; Terraform put its public half on the server. `deploy` runs Docker, and `sudo` without a password. Everything is under `~/mathgame` (`/redeploy` § Logs and a look inside), and the admin CLI runs there in the app container (§ Accounts).
+- **The Hetzner project.** Terraform, from the primary clone's `terraform/`, where its state is, with the API token in `terraform.tfvars` beside it (gitignored, mode 600, never printed). `terraform output` gives the addresses. The Cloud Console, the human's login, shows the server's nightly images.
+- **The keys the deploy uses.** The workflow logs in with a key of its own, whose private half is only in the `VPS_SSH_KEY` secret. The server fetches the repo with a read-only deploy key, `mathgame-prod` in the repo's settings, whose copy is in `~/mathgame-backups/.ssh/`.
+- **The domain.** At Porkbun, the human's account: an A record for `animath.xyz` to the IP and a CNAME `www` to `animath.xyz`, no AAAA (`/redeploy` § DNS). A new IP means changing that A record, and `VPS_HOST`.
+
+Never change a file on the server: the next deploy resets the checkout, and a change that belongs there belongs in a PR.
 
 ### Trying it on a Mac
 

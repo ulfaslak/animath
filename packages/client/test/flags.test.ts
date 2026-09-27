@@ -22,7 +22,7 @@ describe('URL switches', () => {
 			party: [{ id: 'party-1', speciesId: 'fox', hp: getAnimal('fox').maxHp }],
 			fresh: true,
 			tokens: 40,
-			shop: ['axe', 'pickaxe', 'boat'],
+			shop: ['axe', 'pickaxe', 'boat', 'glider'],
 			throwaway: true
 		});
 	});

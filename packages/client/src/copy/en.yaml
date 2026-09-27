@@ -97,13 +97,13 @@ species:
       splash: Splash
       tail-whip: Tail Whip
   deer:
-    name: Deer
-    a: a Deer
-    the: the Deer
-    wild: wild Deer
-    aWild: a wild Deer
-    theWild: the wild Deer
-    bare: Deer
+    name: Red deer
+    a: a Red deer
+    the: the Red deer
+    wild: wild Red deer
+    aWild: a wild Red deer
+    theWild: the wild Red deer
+    bare: Red deer
     attacks:
       kick: Kick
       antler-charge: Antler Charge
@@ -132,6 +132,217 @@ species:
       roar: Roar
       maul: Maul
       crush: Crush
+  # The small animals of the Nordic countryside (#89 wave 1).
+  shrew:
+    name: Shrew
+    a: a Shrew
+    the: the Shrew
+    wild: wild Shrew
+    aWild: a wild Shrew
+    theWild: the wild Shrew
+    bare: Shrew
+    attacks:
+      squeak: Squeak
+      hungry-bite: Hungry Bite
+  wood-mouse:
+    name: Wood mouse
+    a: a Wood mouse
+    the: the Wood mouse
+    wild: wild Wood mouse
+    aWild: a wild Wood mouse
+    theWild: the wild Wood mouse
+    bare: Wood mouse
+    attacks:
+      scamper: Scamper
+      seed-stash: Seed Stash
+      long-jump: Long Jump
+  brown-rat:
+    name: Brown rat
+    a: a Brown rat
+    the: the Brown rat
+    wild: wild Brown rat
+    aWild: a wild Brown rat
+    theWild: the wild Brown rat
+    bare: Brown rat
+    attacks:
+      gnaw: Gnaw
+      rat-race: Rat Race
+      tail-swish: Tail Swish
+  hedgehog:
+    name: Hedgehog
+    a: a Hedgehog
+    the: the Hedgehog
+    wild: wild Hedgehog
+    aWild: a wild Hedgehog
+    theWild: the wild Hedgehog
+    bare: Hedgehog
+    attacks:
+      sniff: Sniff
+      curl-up: Curl Up
+      spike-roll: Spike Roll
+  mole:
+    name: Mole
+    a: a Mole
+    the: the Mole
+    wild: wild Mole
+    aWild: a wild Mole
+    theWild: the wild Mole
+    bare: Mole
+    attacks:
+      dig: Dig
+      molehill: Molehill
+  common-lizard:
+    name: Common lizard
+    a: a Common lizard
+    the: the Common lizard
+    wild: wild Common lizard
+    aWild: a wild Common lizard
+    theWild: the wild Common lizard
+    bare: Common lizard
+    attacks:
+      sun-dash: Sun Dash
+      tail-trick: Tail Trick
+      quick-snap: Quick Snap
+  common-toad:
+    name: Common toad
+    a: a Common toad
+    the: the Common toad
+    wild: wild Common toad
+    aWild: a wild Common toad
+    theWild: the wild Common toad
+    bare: Common toad
+    attacks:
+      puff-up: Puff Up
+      sticky-tongue: Sticky Tongue
+      big-hop: Big Hop
+  robin:
+    name: Robin
+    a: a Robin
+    the: the Robin
+    wild: wild Robin
+    aWild: a wild Robin
+    theWild: the wild Robin
+    bare: Robin
+    attacks:
+      song: Song
+      peck: Peck
+      red-chest: Red Chest
+  stag-beetle:
+    name: Stag beetle
+    a: a Stag beetle
+    the: the Stag beetle
+    wild: wild Stag beetle
+    aWild: a wild Stag beetle
+    theWild: the wild Stag beetle
+    bare: Stag beetle
+    attacks:
+      jaw-snap: Jaw Snap
+      wrestle: Wrestle
+  roe-deer:
+    name: Roe deer
+    a: a Roe deer
+    the: the Roe deer
+    wild: wild Roe deer
+    aWild: a wild Roe deer
+    theWild: the wild Roe deer
+    bare: Roe deer
+    attacks:
+      bark: Bark
+      spring: Spring
+      white-flash: White Flash
+  badger:
+    name: Badger
+    a: a Badger
+    the: the Badger
+    wild: wild Badger
+    aWild: a wild Badger
+    theWild: the wild Badger
+    bare: Badger
+    attacks:
+      snuffle: Snuffle
+      dig-in: Dig In
+      badger-charge: Stripe Charge
+  pine-marten:
+    name: Pine marten
+    a: a Pine marten
+    the: the Pine marten
+    wild: wild Pine marten
+    aWild: a wild Pine marten
+    theWild: the wild Pine marten
+    bare: Pine marten
+    attacks:
+      tree-leap: Tree Leap
+      quick-paws: Quick Paws
+      marten-bite: Marten Bite
+  stoat:
+    name: Stoat
+    a: a Stoat
+    the: the Stoat
+    wild: wild Stoat
+    aWild: a wild Stoat
+    theWild: the wild Stoat
+    bare: Stoat
+    attacks:
+      stoat-dance: Stoat Dance
+      quick-bite: Quick Bite
+  adder:
+    name: Adder
+    a: an Adder
+    the: the Adder
+    wild: wild Adder
+    aWild: a wild Adder
+    theWild: the wild Adder
+    bare: Adder
+    attacks:
+      hiss: Hiss
+      zigzag: Zigzag
+      strike: Strike
+  grey-heron:
+    name: Grey heron
+    a: a Grey heron
+    the: the Grey heron
+    wild: wild Grey heron
+    aWild: a wild Grey heron
+    theWild: the wild Grey heron
+    bare: Grey heron
+    attacks:
+      wade: Wade
+      spear-beak: Spear Beak
+  tawny-owl:
+    name: Tawny owl
+    a: a Tawny owl
+    the: the Tawny owl
+    wild: wild Tawny owl
+    aWild: a wild Tawny owl
+    theWild: the wild Tawny owl
+    bare: Tawny owl
+    attacks:
+      hoot: Hoot
+      silent-swoop: Silent Swoop
+      talon-grab: Talon Grab
+  raccoon:
+    name: Raccoon
+    a: a Raccoon
+    the: the Raccoon
+    wild: wild Raccoon
+    aWild: a wild Raccoon
+    theWild: the wild Raccoon
+    bare: Raccoon
+    attacks:
+      wash-up: Wash Up
+      clever-paws: Clever Paws
+      bandit-mask: Bandit Mask
+  beaver:
+    name: Beaver
+    a: a Beaver
+    the: the Beaver
+    wild: wild Beaver
+    aWild: a wild Beaver
+    theWild: the wild Beaver
+    bare: Beaver
+    attacks:
+      tail-slap: Tail Slap
+      tree-gnaw: Tree Gnaw
   # The sea animals, met out on the deep water from the boat.
   crab:
     name: Crab
@@ -255,6 +466,15 @@ explore:
   turnSideways: Turn your screen sideways to play!
   # Enter with nothing in front to talk to, chop or break.
   notAtTent: Walk up to a tent to talk to the doctor.
+  # With the glider: a tap of Space with nothing in front, and the doctor's goodbye
+  # just after buying it. "Space" is the space bar.
+  holdToFly: Hold Space to fly!
+  # The same, with the touch controls on; "Fly" is explore.fly.
+  holdToFlyTouch: Hold Fly to fly!
+  # A take-off with no ground to land on in the 20 tiles ahead (a lake too wide, a forest too deep).
+  tooFar: Too far! There's nowhere to land that way.
+  # The touch controls' round button that flies with the glider, held down.
+  fly: Fly
 
 hud:
   # The tag on the card of the lead: the animal that steps into the next battle.
@@ -606,6 +826,11 @@ items:
     the: the boat
     your: your boat
     use: Sails on water.
+  glider:
+    name: Paraglider
+    the: the paraglider
+    your: your paraglider
+    use: Glides over trees, rocks and water.
 
 pause:
   # The pause menu's title.
@@ -774,6 +999,37 @@ account:
     saved: 'Your game is saved! Log in as {name} on any tablet or computer.'
     welcome: 'Welcome back, {name}!'
     movedAhead: You played on somewhere else. Here's your newest game!
+  # The card a welcome link opens over the title: a grown-up brought the kid's game over from
+  # another computer into an account, and the kid picks its password here.
+  welcome:
+    # While the page asks the server about the link, and when the server can't be reached.
+    checking: Welcome back!
+    # The account the link opens. {name}: its name.
+    title: 'Welcome back, {name}!'
+    text: Your animals are waiting. Pick a secret password.
+    go: "Let's play!"
+    later: Not now
+    keys: Enter play · Esc not now
+    # A link that works no more: its heading, then what to do instead.
+    used: This link has been used already
+    usedText: Log in with your name and your secret password.
+    expired: This link is too old now
+    expiredText: Ask a grown-up for a new one.
+    unknown: This link doesn't work
+    unknownText: Ask a grown-up for a new one.
+    # The ways on from such a link: log in, or play the game this browser has.
+    logIn: Log in
+    guest: Play as a guest
+    # For a browser logged in to an account already. {name}: that account's name.
+    playAs: 'Play as {name}'
+    goneKeys: Enter log in · Esc play
+    # The same while the server can't keep an account, so the card offers no login.
+    playKeys: Esc play
+    # The server can't be reached: ask it again.
+    retry: Try again
+    retryKeys: Enter try again · Esc not now
+    # This browser can't store anything, so the account couldn't be played here.
+    storage: "This browser can't remember you. Open the link on another tablet or computer."
 
 sound:
   # The chip at the top of the screen after M turned the sound on or off.
@@ -880,6 +1136,8 @@ presence:
     doctor: at the doctor
     menu: taking a break
     match: in a friendly match
+    # Up in the air with the paraglider (no bubble: the glider shows it; only the list says it).
+    flight: flying
 match:
   # A friendly match between two players. {name} is the other player, as they
   # typed it; {whose} is their name as the owner of what follows ("Bo's"),

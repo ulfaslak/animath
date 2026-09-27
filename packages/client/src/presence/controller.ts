@@ -366,8 +366,8 @@ export class PresenceController {
 				const name = this.finding.name;
 				this.finding = null;
 				// Only while exploring, as the menu that asked was: a battle that started
-				// meanwhile keeps the player where they are.
-				if (!this.exploreOnScreen()) break;
+				// meanwhile keeps the player where they are, and so does a take-off.
+				if (!this.exploreOnScreen() || game.flying) break;
 				// The authority answers at once (`player-placed` or `go-to-refused`, in `handle`).
 				this.placing = name;
 				this.options.authority.dispatch({ type: 'go-to', near: { x: m.x, y: m.y } });
@@ -446,9 +446,9 @@ export class PresenceController {
 		);
 	}
 
-	/** A calm moment to reload: exploring, nothing open. */
+	/** A calm moment to reload: exploring, nothing open, feet on the ground. */
 	private calm(): boolean {
-		return this.exploreOnScreen();
+		return this.exploreOnScreen() && !game.flying;
 	}
 
 	/** Reload for the newer version, once per version: a page that comes back still old stays as it is. */
@@ -465,12 +465,17 @@ export class PresenceController {
 	}
 }
 
-/** What the player is busy with, as the others see it. */
+/**
+ * What the player is busy with, as the others see it. Up in the air it is
+ * the glider (`flight`): the tiles sent meanwhile are flown over, so the
+ * others draw them gliding rather than walking on the water or through trees.
+ */
 function busyNow(): Busy {
 	if (battle.active) return 'battle';
 	if (doctor.active) return 'doctor';
 	// An account card (logging in, the hourly card) is a break too: nobody asks for a match meanwhile.
 	if (pause.open || account.card !== null || account.prompt) return 'menu';
+	if (game.flying) return 'flight';
 	return 'explore';
 }
 

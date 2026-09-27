@@ -1,7 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import { hashString, Rng } from '../src/rng.js';
 import { readSave, restoreGame, saveDocument, newGame } from '../src/save.js';
-import { CLEARING_TOOL, clearTile, clearableAhead, type Clearer } from '../src/world/clearing.js';
+import {
+	CLEARING_TOOL,
+	clearLanding,
+	clearTile,
+	clearableAhead,
+	type Clearer
+} from '../src/world/clearing.js';
 import {
 	EDITS_BUDGET,
 	MAX_ENTRY_LENGTH,
@@ -488,6 +494,53 @@ describe('clearing a tile', () => {
 		// About 0.3 s alone (every way from every walkable tile within 30 of the spawn, in three
 		// worlds: up to 44,652 tries); 2.1 s at a load average of 40.
 	}, 30_000);
+
+	it('coming down from the glider on any tile near spawn clears it only when it is a tree or a rock and the kid owns its tool', () => {
+		const bad: string[] = [];
+		let cleared = 0;
+		for (const seed of SEEDS) {
+			const rng = new Rng(seed ^ 0x61de);
+			const centre = spawnPoint(seed);
+			// Some trees and rocks already stumps and gravel: those are ground, and clear no more.
+			const edits = overlayOf(
+				tilesOfKind(seed, 'tree', centre, 30)
+					.filter(() => rng.chance(0.3))
+					.concat(tilesOfKind(seed, 'rock', centre, 30).filter(() => rng.chance(0.3)))
+			);
+			const before = edits.encode().join(' ');
+			for (let y = centre.y - 30; y <= centre.y + 30; y++) {
+				for (let x = centre.x - 30; x <= centre.x + 30; x++) {
+					const pos = { x, y };
+					const items = rng.pick([[], ['axe'], ['pickaxe'], ['axe', 'pickaxe', 'boat']]);
+					const { kind } = editedTileAt(seed, edits, x, y);
+					const result = clearLanding(seed, edits, { pos, items });
+					if (kind === 'tree' || kind === 'rock') {
+						const tool = CLEARING_TOOL[kind];
+						if (!items.includes(tool)) {
+							const want = { ok: false, reason: 'needs-tool', kind, tool };
+							if (JSON.stringify(result) !== JSON.stringify(want)) bad.push(`${x},${y} ${kind}`);
+							continue;
+						}
+						cleared++;
+						if (
+							!result.ok ||
+							result.cleared.was !== kind ||
+							result.edits.size !== edits.size + 1 ||
+							!result.edits.has(x, y)
+						) {
+							bad.push(`${x},${y} ${kind} was not cleared`);
+						}
+					} else if (JSON.stringify(result) !== '{"ok":false,"reason":"nothing-to-clear"}') {
+						bad.push(`${x},${y} ${kind} cleared`);
+					}
+				}
+			}
+			if (edits.encode().join(' ') !== before)
+				bad.push(`${seed}: the overlay it was given changed`);
+		}
+		expect(bad.slice(0, 20)).toEqual([]);
+		expect(cleared).toBeGreaterThan(100);
+	});
 
 	it('replays: the same clears from the same world always leave the same overlay', () => {
 		const run = () => {

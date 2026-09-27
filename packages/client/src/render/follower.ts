@@ -94,7 +94,12 @@ const HOP: Record<string, number> = {
 	otter: 0.05,
 	deer: 0.09,
 	wolf: 0.07,
-	bear: 0.04
+	bear: 0.04,
+	// The wood mouse jumps like a tiny kangaroo and the toad hops like the frog; the robin
+	// hops a little less. Every other animal keeps the 0.08 default.
+	'wood-mouse': 0.16,
+	'common-toad': 0.14,
+	robin: 0.1
 };
 /** How far it steps aside, in tiles, to pass the trainer when the two swap tiles. */
 const DODGE = 0.38;

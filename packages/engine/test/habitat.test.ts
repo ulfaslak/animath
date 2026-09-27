@@ -199,7 +199,7 @@ describe('terrainShares and habitatFactor', () => {
 });
 
 describe('where each species lives', () => {
-	it('every species favours one terrain; the amphibious ones are the frog and the otter, and only the sea animals live only in the water', () => {
+	it('every species favours one terrain; the amphibious ones are the frog, the otter, the toad and the beaver, and only the sea animals live only in the water', () => {
 		for (const species of ANIMALS) {
 			expect(TERRAINS, species.id).toContain(species.favours);
 			expect(species.realms.length, species.id).toBeGreaterThan(0);
@@ -214,7 +214,7 @@ describe('where each species lives', () => {
 		const amphibious = ANIMALS.filter(
 			(a) => a.realms.includes('land') && a.realms.includes('water')
 		);
-		expect(amphibious.map((a) => a.id)).toEqual(['frog', 'otter']);
+		expect(amphibious.map((a) => a.id)).toEqual(['frog', 'otter', 'common-toad', 'beaver']);
 		const aquatic = ANIMALS.filter((a) => !a.realms.includes('land'));
 		expect(aquatic.map((a) => a.id)).toEqual([
 			'crab',
@@ -226,11 +226,16 @@ describe('where each species lives', () => {
 		]);
 	});
 
-	it('the prototype catalog: the frog, the otter and the sea animals by the water, the squirrel, fox and deer by trees, the wolf and bear by rocks, the rabbit in the open', () => {
+	it('the ground each animal favours, as [[PRODUCT]] §4 lists it with a reason for each', () => {
 		const by = (t: Terrain) => ANIMALS.filter((a) => a.favours === t).map((a) => a.id);
 		expect(by('water')).toEqual([
 			'frog',
 			'otter',
+			'brown-rat',
+			'common-toad',
+			'grey-heron',
+			'raccoon',
+			'beaver',
 			'crab',
 			'starfish',
 			'turtle',
@@ -238,9 +243,20 @@ describe('where each species lives', () => {
 			'octopus',
 			'whale'
 		]);
-		expect(by('trees')).toEqual(['squirrel', 'fox', 'deer']);
-		expect(by('rocks')).toEqual(['wolf', 'bear']);
-		expect(by('open')).toEqual(['rabbit']);
+		expect(by('trees')).toEqual([
+			'squirrel',
+			'fox',
+			'deer',
+			'wood-mouse',
+			'robin',
+			'stag-beetle',
+			'roe-deer',
+			'badger',
+			'pine-marten',
+			'tawny-owl'
+		]);
+		expect(by('rocks')).toEqual(['wolf', 'bear', 'common-lizard', 'stoat', 'adder']);
+		expect(by('open')).toEqual(['rabbit', 'shrew', 'hedgehog', 'mole']);
 	});
 
 	it('only tall grass starts an encounter, and it is on land', () => {

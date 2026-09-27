@@ -14,17 +14,24 @@ import { worldSeed } from '../src/world/worlds.js';
  */
 
 describe('starters', () => {
-	it('every tier-1 species that can fight on land is a starter, in catalog order, and nothing else is', () => {
-		for (const spec of ANIMALS) {
-			const starts = spec.tier === 1 && spec.realms.includes('land');
-			expect(isStarter(spec.id), spec.id).toBe(starts);
-		}
-		expect(STARTER_TIER).toBe(1);
-		expect(STARTERS).toEqual(ANIMALS.map((a) => a.id).filter((id) => isStarter(id)));
-		// The prototype's small animals, named, so a catalog change that drops one is seen; the
-		// sea's small ones live only out on the deep water, and a new game starts on land.
+	it('the starters are the squirrel, the rabbit and the frog, each a tier-1 animal that can fight on land, in catalog order', () => {
+		// Named by id, not every tier-1 animal (#89): the other small animals are caught.
 		expect(STARTERS).toEqual(['squirrel', 'rabbit', 'frog']);
-		expect(STARTERS).not.toContain('crab');
+		expect(STARTER_TIER).toBe(1);
+		for (const id of STARTERS) {
+			const spec = getAnimal(id);
+			expect(spec.tier, id).toBe(STARTER_TIER);
+			expect(spec.realms, id).toContain('land');
+		}
+		expect(STARTERS).toEqual(ANIMALS.map((a) => a.id).filter((id) => STARTERS.includes(id)));
+		for (const spec of ANIMALS)
+			expect(isStarter(spec.id), spec.id).toBe(STARTERS.includes(spec.id));
+		// Tier-1 animals that are caught, never chosen: the new small ones on land, and the sea's
+		// small ones, which live only out on the deep water where a new game never starts.
+		for (const id of ['shrew', 'hedgehog', 'common-toad', 'robin', 'crab', 'starfish']) {
+			expect(getAnimal(id).tier, id).toBe(1);
+			expect(isStarter(id), id).toBe(false);
+		}
 	});
 
 	it('the starter of a game nobody chose one for is a starter too', () => {
@@ -32,7 +39,18 @@ describe('starters', () => {
 	});
 
 	it('refuses anything that is not a starter id', () => {
-		for (const speciesId of ['fox', 'otter', 'deer', 'wolf', 'bear', 'dragon', '', 'Squirrel']) {
+		for (const speciesId of [
+			'fox',
+			'otter',
+			'deer',
+			'wolf',
+			'bear',
+			'shrew',
+			'wood-mouse',
+			'dragon',
+			'',
+			'Squirrel'
+		]) {
 			expect(chooseStarter({ speciesId }), speciesId).toEqual({
 				ok: false,
 				reason: 'not-a-starter'

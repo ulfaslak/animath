@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
+import { ANIMALS } from '../src/animals/catalog.js';
 import type { MatchSide } from '../src/match/types.js';
+import { Rng, hashInts } from '../src/rng.js';
 import { party, playMatch, type MatchPlayer } from './match-sim.js';
 
 /**
@@ -44,12 +46,31 @@ function simulate(
 	players: Readonly<Record<MatchSide, MatchPlayer>>,
 	matches: number
 ): Outcome {
+	return simulateDrawn(
+		() => a,
+		() => b,
+		players,
+		matches
+	);
+}
+
+/** `simulate` with each side's team drawn for each match (by its seed). */
+function simulateDrawn(
+	a: (seed: number) => readonly string[],
+	b: (seed: number) => readonly string[],
+	players: Readonly<Record<MatchSide, MatchPlayer>>,
+	matches: number
+): Outcome {
 	let aWins = 0;
 	let starterWins = 0;
 	let turns = 0;
 	const puzzles: number[] = [];
 	for (let seed = 0; seed < matches; seed++) {
-		const { state, events, log } = playMatch(seed, { a: party(a), b: party(b) }, players);
+		const { state, events, log } = playMatch(
+			seed,
+			{ a: party(a(seed)), b: party(b(seed)) },
+			players
+		);
 		if (state.phase.kind !== 'ended') throw new Error(`seed ${seed} never ended`);
 		if (state.phase.winner === 'a') aWins++;
 		if (state.phase.winner === log[0]!.side) starterWins++;
@@ -85,6 +106,28 @@ describe('friendly-match balance', () => {
 		expect(size.aWins).toBeLessThan(0.05);
 		// 3,000 whole matches: 0.14 s on a quiet machine, 0.8 s alone at a load
 		// of 31 (2026-09-27), several times that inside the whole suite.
+	}, 30_000);
+
+	it('pins §4 for teams drawn from each tier: an even tier-1 match takes about 20 puzzles, and one tier up decides', () => {
+		// Three animals drawn for each match from a tier's land animals (repeats allowed, as a
+		// kid's party may hold them), with a seed of their own: the small animals of #89 play
+		// as the prototype's three did.
+		const land = (tier: number) =>
+			ANIMALS.filter((a) => a.tier === tier && a.realms.includes('land')).map((a) => a.id);
+		const drawn = (tier: number, salt: number) => (seed: number) => {
+			const rng = new Rng(hashInts(seed, salt));
+			const pool = land(tier);
+			return [0, 1, 2].map(() => pool[rng.int(0, pool.length - 1)]!);
+		};
+		expect(land(1).length).toBeGreaterThan(3);
+		const even = simulateDrawn(drawn(1, 1), drawn(1, 2), { a: kid(0.7), b: kid(0.7) }, 1000);
+		expect(even.puzzles).toBeGreaterThan(18);
+		expect(even.puzzles).toBeLessThan(23);
+		expect(even.starterWins).toBeGreaterThan(0.5);
+		expect(even.starterWins).toBeLessThan(0.64);
+		const size = simulateDrawn(drawn(1, 1), drawn(2, 2), { a: kid(0.7), b: kid(0.7) }, 1000);
+		expect(size.aWins).toBeLessThan(1 / 12);
+		// 2,000 whole matches: about 0.2 s alone, a few times that under load.
 	}, 30_000);
 
 	// The printed tables run only with SIM=1: 45,000 and 24,000 whole matches,

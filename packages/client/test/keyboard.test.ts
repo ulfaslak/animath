@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { Keyboard, keyName } from '../src/input/keyboard';
+import { HOLD_TO_FLY, Keyboard, keyName } from '../src/input/keyboard';
 import { PICK_QUIET_SECONDS } from '../src/input/pick-guard';
 import { animalKey, bundleKey, moveKey, openKey } from '../src/input/press';
 import { everyMash } from './mash';
@@ -294,5 +294,140 @@ describe('explore keyboard between screens', () => {
 		t.keyboard.setEnabled(true); // Bye
 		t.down(enter);
 		expect(t.take().interact).toBe(false);
+	});
+});
+
+/**
+ * The glider ([[UI_SPEC]] § Explore mode): Space held takes off, a tap of it
+ * talks, and letting go of it however it happens lands.
+ */
+describe('Space with the glider', () => {
+	const space = { key: ' ', code: 'Space' };
+	const enter = { key: 'Enter', code: 'Enter' };
+	function glider(options?: { on?: boolean; settled?: boolean }) {
+		const t = setup(options);
+		t.keyboard.setGlider(true);
+		return t;
+	}
+
+	it('without it, Space talks as it goes down, as Enter does, and never flies', () => {
+		const t = setup();
+		t.down(space);
+		expect(t.take().interact).toBe(true);
+		t.keyboard.tick(1);
+		expect(t.keyboard.takeTakeOff()).toBe(false);
+		expect(t.keyboard.flyHeld()).toBe(false);
+	});
+
+	it('a tap talks as it is let go, with Space as the key that asked', () => {
+		const t = glider();
+		t.down(space);
+		expect(t.take().interact).toBe(false);
+		t.keyboard.tick(HOLD_TO_FLY * 0.8);
+		expect(t.keyboard.windUp()).toBeCloseTo(0.8);
+		t.up(space);
+		expect(t.take().interact).toBe(true);
+		expect(t.keyboard.talkKey).toBe('space');
+		expect(t.keyboard.takeTakeOff()).toBe(false);
+		expect(t.keyboard.windUp()).toBe(0);
+	});
+
+	it('a hold takes off once, stays up while held, lands when let go, and talks to nobody', () => {
+		const t = glider();
+		t.down(space);
+		t.keyboard.tick(HOLD_TO_FLY / 2);
+		expect(t.keyboard.takeTakeOff()).toBe(false);
+		t.keyboard.tick(HOLD_TO_FLY / 2);
+		expect(t.keyboard.takeTakeOff()).toBe(true);
+		expect(t.keyboard.takeTakeOff()).toBe(false);
+		expect(t.keyboard.flyHeld()).toBe(true);
+		t.keyboard.tick(3);
+		expect(t.keyboard.flyHeld()).toBe(true);
+		expect(t.keyboard.takeTakeOff()).toBe(false);
+		t.up(space);
+		expect(t.keyboard.flyHeld()).toBe(false);
+		expect(t.take().interact).toBe(false);
+	});
+
+	it('Enter never flies: it talks as it goes down, however long it is held', () => {
+		const t = glider();
+		t.down(enter);
+		expect(t.take().interact).toBe(true);
+		expect(t.keyboard.talkKey).toBe('enter');
+		t.keyboard.tick(2);
+		expect(t.keyboard.takeTakeOff()).toBe(false);
+		expect(t.keyboard.flyHeld()).toBe(false);
+	});
+
+	it('letting go always lands: Space up, a shortcut, the window losing the focus, the page hidden', () => {
+		const letGo: ((t: ReturnType<typeof glider>) => void)[] = [
+			(t) => t.up(space),
+			(t) => t.down({ key: 'Control', code: 'ControlLeft', ctrlKey: true }),
+			(t) => t.down({ key: 'Meta', code: 'MetaLeft', metaKey: true }),
+			(t) => t.down({ key: 'Alt', code: 'AltLeft', altKey: true }),
+			(t) => t.fire('blur'),
+			(t) => t.fire('visibilitychange'),
+			(t) => t.keyboard.setEnabled(false)
+		];
+		for (const [i, go] of letGo.entries()) {
+			const t = glider();
+			t.down(space);
+			t.keyboard.tick(HOLD_TO_FLY);
+			expect(t.keyboard.takeTakeOff(), `${i}`).toBe(true);
+			go(t);
+			expect(t.keyboard.flyHeld(), `${i}`).toBe(false);
+			// Space coming up afterwards is no tap: nothing is said.
+			t.up(space);
+			expect(t.take().interact, `${i}`).toBe(false);
+		}
+	});
+
+	it('a hold let go before its take-off was taken takes nobody up', () => {
+		const t = glider();
+		t.down(space);
+		t.keyboard.tick(HOLD_TO_FLY);
+		// The step under way ends only after Space is up: too late.
+		t.up(space);
+		expect(t.keyboard.takeTakeOff()).toBe(false);
+		expect(t.take().interact).toBe(false);
+	});
+
+	it('a mash of Space at any pace never flies nor talks: only a press after a quiet moment does', () => {
+		for (const { name, gaps } of everyMash(3)) {
+			// Explore has just taken the screen back, and Space goes on, mashed, each press held
+			// for half its gap: at two a second, longer than a hold needs.
+			const t = glider({ settled: false });
+			let flew = 0;
+			let talked = 0;
+			for (const gap of gaps) {
+				t.down(space);
+				t.keyboard.tick(gap / 2);
+				if (t.keyboard.takeTakeOff()) flew++;
+				t.up(space);
+				if (t.take().interact) talked++;
+				t.keyboard.tick(gap / 2);
+			}
+			expect([flew, talked], name).toEqual([0, 0]);
+			// A quiet moment, then a hold flies.
+			t.keyboard.tick(PICK_QUIET_SECONDS);
+			t.down(space);
+			t.keyboard.tick(HOLD_TO_FLY);
+			expect(t.keyboard.takeTakeOff(), name).toBe(true);
+		}
+	});
+
+	it('a Space still held when explore takes the screen back does nothing until it is pressed again', () => {
+		const t = glider();
+		t.keyboard.setEnabled(false); // a battle: its result card closed with Space, still down
+		t.keyboard.setEnabled(true);
+		t.down({ ...space, repeat: true }); // the held key's auto-repeat
+		t.keyboard.tick(2);
+		expect(t.keyboard.takeTakeOff()).toBe(false);
+		t.up(space);
+		expect(t.take().interact).toBe(false);
+		// Pressed again after a quiet moment: it flies.
+		t.down(space);
+		t.keyboard.tick(HOLD_TO_FLY);
+		expect(t.keyboard.takeTakeOff()).toBe(true);
 	});
 });
