@@ -23,12 +23,12 @@
 		aria-label={t('explore.doctorArrow')}
 	>
 		<div class="turn" style:transform="translate(-50%, -50%) rotate({arrow.angle}rad)">
-			<svg class="tip" viewBox="0 0 64 64" width="64" height="64" aria-hidden="true">
-				<path d="M32 1.5l10 14H22z" />
+			<svg class="tip" viewBox="0 0 76 76" width="76" height="76" aria-hidden="true">
+				<path d="M38 1.5l12 16H26z" />
 			</svg>
 		</div>
 		<div class="disc">
-			<svg viewBox="0 0 32 32" width="28" height="28" aria-hidden="true">
+			<svg viewBox="0 0 32 32" width="32" height="32" aria-hidden="true">
 				<path class="cloth" d="M16 3.5 29.5 27.5H2.5Z" />
 				<path class="door" d="M16 12.5 21 27.5H11Z" />
 				<rect class="ground" x="1.5" y="27" width="29" height="2.5" rx="1.25" />
@@ -50,8 +50,8 @@
 		position: absolute;
 		left: 0;
 		top: 0;
-		width: 64px;
-		height: 64px;
+		width: 76px;
+		height: 76px;
 	}
 	.tip {
 		display: block;
@@ -69,8 +69,8 @@
 		transform: translate(-50%, -50%);
 		display: grid;
 		place-items: center;
-		width: 40px;
-		height: 40px;
+		width: 46px;
+		height: 46px;
 		border-radius: 50%;
 		background: var(--panel-cream);
 		border: 3px solid var(--coral);
