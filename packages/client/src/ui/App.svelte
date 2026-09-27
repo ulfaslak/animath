@@ -18,6 +18,7 @@
 	import SoundChip from './SoundChip.svelte';
 	import TitleScreen from './TitleScreen.svelte';
 	import TouchControls from './TouchControls.svelte';
+	import Travel from './Travel.svelte';
 
 	/** A game is under way: not loading, not at the title. */
 	const playing = $derived(!title.open && game.mode !== 'loading' && game.mode !== 'title');
@@ -41,6 +42,8 @@
 <SoundChip low={title.open} />
 <!-- Over everything, the battle panel included: the encounter transition. -->
 <Iris />
+<!-- Over the world: a trip to another world, and its number on arrival. -->
+<Travel />
 {#if behind.shown}
 	<!-- Over everything: this page is behind the save, and takes no play. -->
 	<BehindCard />
@@ -79,6 +82,8 @@
 	.turn {
 		position: absolute;
 		inset: 0;
+		/* Over everything: the HUD's open card (3) and a trip to another world (4) included. */
+		z-index: 5;
 		display: grid;
 		place-items: center;
 		padding: 16px;

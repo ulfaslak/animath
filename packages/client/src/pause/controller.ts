@@ -1,4 +1,10 @@
-import { bundles, type Authority, type GameEvent, type PartyIntent } from '@mathgame/engine';
+import {
+	bundles,
+	parseWorldNumber,
+	type Authority,
+	type GameEvent,
+	type PartyIntent
+} from '@mathgame/engine';
 import { sfx } from '../audio/sfx.svelte';
 import { isLanguage, language, nextLanguage } from '../copy';
 import { isShortcut, keyName } from '../input/keyboard';
@@ -6,12 +12,15 @@ import { tappedLanguage, tappedOption, tappedRow } from '../input/press';
 import { game } from '../state/game.svelte';
 import {
 	MENU_ITEMS,
+	WORLD_DIGITS,
 	cardRows,
 	partyOptions,
 	pause,
+	worldRows,
 	type BundleOption,
 	type MenuItem,
-	type PartyOption
+	type PartyOption,
+	type WorldOption
 } from '../state/pause.svelte';
 
 /**
@@ -29,9 +38,19 @@ import {
  * nothing. `main.ts` sends keys here only in explore and switches explore
  * input off while the menu is open, so walking waits and W A S D typed into
  * the name box are letters, not steps.
+ *
+ * The Worlds row opens the Worlds screen in the menu's place: digits (the
+ * number pad's too) type a world's number, Backspace takes one back, and Go,
+ * Go home or Back. Going closes the menu and hands the trip to `travel`
+ * (`main.ts`: the travel transition, which sends the `travel` intent under
+ * its cover); without it, the intent goes at once.
  */
 export class PauseController {
-	constructor(private authority: Authority) {}
+	constructor(
+		private authority: Authority,
+		private travel: (world: number) => void = (world) =>
+			authority.dispatch({ type: 'travel', world })
+	) {}
 
 	handle(event: GameEvent): void {
 		switch (event.type) {
@@ -91,7 +110,9 @@ export class PauseController {
 				? this.listKey(key)
 				: pause.screen === 'bundle'
 					? this.cardKey(key)
-					: this.optionsKey(key);
+					: pause.screen === 'worlds'
+						? this.worldsKey(key)
+						: this.optionsKey(key);
 		if (handled) e.preventDefault();
 	}
 
@@ -166,6 +187,10 @@ export class PauseController {
 
 	private chooseItem(item: MenuItem): void {
 		switch (item) {
+			case 'worlds':
+				sfx.play('confirm');
+				this.openWorlds();
+				break;
 			case 'language':
 				sfx.play('confirm');
 				nextLanguage(1);
@@ -199,6 +224,7 @@ export class PauseController {
 			case 'sound':
 				if (sfx.on !== right) this.setSound(right);
 				return true;
+			case 'worlds':
 			case 'resume':
 			case 'quit':
 				return false;
@@ -317,6 +343,96 @@ export class PauseController {
 		return false;
 	}
 
+	/**
+	 * The Worlds screen, in the menu's place: the number typed, then Go, Go
+	 * home and Back, one cursor over them. The pad's Go taps the Go row.
+	 */
+	private worldsKey(key: string): boolean {
+		const rows = worldRows(pause.worldDraft, game.world, game.home);
+		// A tap on a row does it, as the arrows and Enter would; a greyed one does nothing.
+		const tapped = tappedOption(key);
+		if (tapped !== undefined) {
+			if (!rows[tapped]?.enabled) return true;
+			pause.option = tapped;
+			return this.worldsKey('Enter');
+		}
+		if (/^[0-9]$/.test(key)) {
+			// A digit, from the keyboard or the pad: the number grows, to four digits. Typing
+			// is silent, as an answer's is.
+			if (pause.worldDraft.length < WORLD_DIGITS) pause.worldDraft += key;
+			this.onGo();
+			return true;
+		}
+		switch (key) {
+			case 'Backspace':
+				pause.worldDraft = pause.worldDraft.slice(0, -1);
+				this.onGo();
+				return true;
+			case 'ArrowUp':
+			case 'w':
+				pause.option = nextEnabled(rows, pause.option, -1);
+				sfx.play('move');
+				return true;
+			case 'ArrowDown':
+			case 's':
+				pause.option = nextEnabled(rows, pause.option, 1);
+				sfx.play('move');
+				return true;
+			case 'Enter':
+			case ' ': {
+				// Go with nothing to go to keeps the cursor and does nothing: mashing Enter
+				// before the number is typed goes nowhere.
+				const row = rows[pause.option];
+				if (row?.enabled) this.chooseWorld(row.id);
+				return true;
+			}
+			case 'Escape':
+				this.backToList();
+				return true;
+		}
+		return false;
+	}
+
+	/** The Worlds screen, nothing typed, the cursor on the first row that can be done. */
+	private openWorlds(): void {
+		pause.screen = 'worlds';
+		pause.worldDraft = '';
+		const rows = worldRows('', game.world, game.home);
+		pause.option = Math.max(
+			0,
+			rows.findIndex((r) => r.enabled)
+		);
+	}
+
+	/**
+	 * After a digit or a Backspace: the cursor on Go, greyed until the number
+	 * is a world to go to, so the Enter after a number goes there or does
+	 * nothing, never Go home or Back.
+	 */
+	private onGo(): void {
+		pause.option = 0;
+	}
+
+	private chooseWorld(option: WorldOption): void {
+		switch (option) {
+			case 'go': {
+				const to = parseWorldNumber(pause.worldDraft);
+				if (to === null) return;
+				this.close();
+				this.travel(to);
+				break;
+			}
+			case 'home':
+				this.close();
+				this.travel(game.home);
+				break;
+			case 'back':
+				sfx.play('confirm');
+				this.backToList();
+				break;
+		}
+	}
+
 	private namingKey(e: KeyboardEvent): void {
 		// Paste, select all, Alt+Enter: the name box's and the browser's own.
 		if (isShortcut(e)) return;
@@ -428,14 +544,20 @@ export class PauseController {
 		} else this.backToList();
 	}
 
-	/** Back to the team, with the cursor on the card that was open, wherever it is now. */
+	/**
+	 * Back to the team, with the cursor on the card that was open, wherever it
+	 * is now; from the Worlds screen, on the Worlds row.
+	 */
 	private backToList(): void {
+		const worlds = pause.screen === 'worlds';
 		const species = pause.species ?? game.party[this.pickedIndex()]?.speciesId;
 		pause.screen = 'list';
 		pause.picked = null;
 		pause.species = null;
+		pause.worldDraft = '';
 		const place = bundles(game.party).findIndex((b) => b.speciesId === species);
-		if (place >= 0) pause.cursor = place;
+		if (worlds) pause.cursor = bundles(game.party).length + MENU_ITEMS.indexOf('worlds');
+		else if (place >= 0) pause.cursor = place;
 		this.settle();
 	}
 

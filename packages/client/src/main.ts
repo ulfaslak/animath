@@ -35,7 +35,9 @@ import { game } from './state/game.svelte';
 import { hud } from './state/hud.svelte';
 import { pause } from './state/pause.svelte';
 import { title } from './state/title.svelte';
+import { travel } from './state/travel.svelte';
 import { TitleController } from './title/controller';
+import { TravelController } from './travel/controller';
 import App from './ui/App.svelte';
 
 const canvas = document.getElementById('game') as HTMLCanvasElement;
@@ -64,7 +66,9 @@ const keyboard = new Keyboard(window);
 const explore = new ExploreController(authority, renderer, keyboard, new Follower(renderer));
 const battleController = new BattleController(authority, renderer);
 const doctorController = new DoctorController(authority);
-const pauseController = new PauseController(authority);
+// A trip to another world plays its transition, and sends `travel` under its cover.
+const travelController = new TravelController(authority, renderer);
+const pauseController = new PauseController(authority, (world) => travelController.go(world));
 // `?zoo` lines up one of every species by the spawn tile (a check for the meshes),
 // once for the page; `?zoo=tired` lays them down to rest.
 const zoo = flags.zoo ? new Zoo(renderer, flags.zoo === 'tired') : null;
@@ -120,6 +124,7 @@ authority.subscribe((event) => {
 	battleController.handle(event);
 	doctorController.handle(event);
 	pauseController.handle(event);
+	travelController.handle(event);
 	titleController.handle(event);
 	autosave.handle(event);
 	// A new game from the title: after `welcome`, which clears the message line.
@@ -142,12 +147,14 @@ authority.subscribe((event) => {
  * The screen that takes keys now, one at a time: the title while it is up,
  * else the battle while it is up, else the doctor's card while it is open,
  * else the pause menu while it is open, else explore (Escape there opens the
- * pause menu). None while the page loads.
+ * pause menu). None while the page loads, nor while a trip to another world
+ * covers the screen.
  */
 type KeyScreen = 'title' | 'battle' | 'doctor' | 'pause' | 'explore';
 function keyScreen(): KeyScreen | null {
 	if (title.open) return 'title';
 	if (game.mode === 'loading' || game.mode === 'title') return null;
+	if (travel.active) return null;
 	if (battle.active) return 'battle';
 	if (doctor.active) return 'doctor';
 	if (pause.open) return 'pause';
@@ -180,13 +187,15 @@ function noteScreen(): void {
 				? 'portrait'
 				: title.open
 					? `title:${title.screen}`
-					: battle.active
-						? `battle:${battle.screen}`
-						: doctor.active
-							? `doctor:${doctor.screen}:${doctor.tab}`
-							: pause.open
-								? `pause:${pause.screen}:${pause.species ?? ''}:${pause.picked ?? ''}`
-								: game.mode;
+					: travel.active
+						? 'travel'
+						: battle.active
+							? `battle:${battle.screen}`
+							: doctor.active
+								? `doctor:${doctor.screen}:${doctor.tab}`
+								: pause.open
+									? `pause:${pause.screen}:${pause.species ?? ''}:${pause.picked ?? ''}`
+									: game.mode;
 	if (now !== screenSeen) {
 		screenSeen = now;
 		screenCount++;
@@ -319,6 +328,8 @@ function frame(now: number) {
 			if (!battle.active || battle.entering) explore.update(dt);
 			if (battle.active) battleController.update(dt);
 			if (doctor.active) doctorController.update(dt);
+			// A trip to another world: the cover closes, the world changes under it, and it opens.
+			travelController.update(dt);
 			// The message line's clock runs only while the explore HUD is on screen.
 			if (!battle.active && !doctor.active && !pause.open) hud.tick(dt);
 		}

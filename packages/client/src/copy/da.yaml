@@ -559,3 +559,24 @@ playerName:
     long: Det er et langt navn! Højst {max} bogstaver.
     chars: Kun bogstaver og tal.
     rude: Vælg et andet navn.
+
+worlds:
+  world: 'Verden {world}'
+  title: Verdener
+  here: 'Du er i verden {world}.'
+  home: 'Dit hjem er verden {home}.'
+  atHome: Det her er din hjemverden.
+  typed: En verdens nummer
+  go: 'Rejs til verden {world}!'
+  goNowhere: Rejs
+  goHome: Tag hjem
+  typeOne: Skriv en verdens nummer.
+  notAWorld: Verdenerne går fra 1 til 9999.
+  alreadyHere: 'Du er allerede i verden {world}!'
+  tip: Hvert nummer er sin egen verden.
+  ok: Afsted
+  keys: 0–9 skriv · ↑ ↓ flyt · Enter vælg · Esc tilbage
+  arrive: 'Verden {world}!'
+  arriveNew: En ny verden at udforske!
+  arriveBack: Du er tilbage, hvor du slap.
+  arriveHome: Hjemme igen!
