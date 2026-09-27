@@ -150,3 +150,11 @@ Technical items we've intentionally postponed: tech debt, hardening shortcuts, k
 
 **Trigger**: before rolling the game back past #66, or serving two builds behind one address. Then bump `SAVE_VERSION` with an upgrade that only renumbers, so an older build calls a big save `newer` and leaves it alone.
 
+
+### The link preview's image is a relative URL
+
+**What**: `index.html` gives `og:image` as `/social-preview.jpg`. The Open Graph protocol asks for an absolute URL, and some messengers show no picture for a relative one, though iMessage, Slack and most others resolve it against the page's address.
+
+**Why deferred**: the game has no address of its own yet: the human has not chosen a domain, and until the production server is up the game is shared through a tunnel whose address changes. A hard-coded address would be wrong everywhere it is shared today.
+
+**Trigger**: the production domain is chosen (the single config value `feat/deploy` keeps). Then write it into `og:image` (and add `og:url`), in `index.html` or from the build's environment.

@@ -143,8 +143,8 @@
 <style>
 	.dpad {
 		position: absolute;
-		left: 20px;
-		bottom: 20px;
+		left: calc(20px + var(--safe-left));
+		bottom: calc(20px + var(--safe-bottom));
 		width: calc(var(--tap) * 4);
 		height: calc(var(--tap) * 4);
 		display: grid;
@@ -204,8 +204,8 @@
 		transform: scale(0.95);
 	}
 	.talk-button {
-		right: 24px;
-		bottom: 56px;
+		right: calc(24px + var(--safe-right));
+		bottom: calc(56px + var(--safe-bottom));
 		width: calc(var(--tap) * 2);
 		height: calc(var(--tap) * 2);
 		font-size: 20px;
@@ -218,8 +218,8 @@
 		animation: glow 1.6s ease-in-out infinite;
 	}
 	.menu-button {
-		right: calc(24px + var(--tap) * 2 + 12px);
-		bottom: 20px;
+		right: calc(24px + var(--tap) * 2 + 12px + var(--safe-right));
+		bottom: calc(20px + var(--safe-bottom));
 		width: calc(var(--tap) * 1.5);
 		height: calc(var(--tap) * 1.5);
 		gap: 3px;

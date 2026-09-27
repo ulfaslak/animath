@@ -19,6 +19,7 @@
 	import { itemName } from '../items';
 	import { touch } from '../input/touch.svelte';
 	import { motion } from '../motion';
+	import { safeArea } from '../safe-area';
 	import { game } from '../state/game.svelte';
 	import { hud } from '../state/hud.svelte';
 	import { team } from '../state/team.svelte';
@@ -119,8 +120,8 @@
 		}
 		const base = root.getBoundingClientRect();
 		const box = card.getBoundingClientRect();
-		// Clear of the message line at the bottom of the screen.
-		const bottom = window.innerHeight - 84;
+		// Clear of the message line at the bottom of the screen, above the safe area.
+		const bottom = window.innerHeight - safeArea().bottom - 84;
 		// Beside the card when there is room for a few rows below it, else as low as fits.
 		const want = Math.min(bottom - 16, 280);
 		const top = bottom - box.top >= want ? box.top : bottom - want;
@@ -440,17 +441,19 @@
 <style>
 	.party {
 		position: absolute;
-		top: 16px;
-		left: 16px;
+		top: calc(16px + var(--safe-top));
+		left: calc(16px + var(--safe-left));
 		display: flex;
 		flex-direction: column;
 		align-items: flex-start;
 		gap: 8px;
-		max-height: calc(100vh - 32px);
+		max-height: calc(100vh - 32px - var(--safe-top) - var(--safe-bottom));
 	}
 	/* With the touch controls on, the column stops above the D-pad in the bottom-left corner. */
 	:global(.touch) .party {
-		max-height: calc(100vh - 16px - 20px - var(--tap) * 4 - 16px);
+		max-height: calc(
+			100vh - 16px - 20px - var(--tap) * 4 - 16px - var(--safe-top) - var(--safe-bottom)
+		);
 	}
 	/*
 	 * The cards, as wide as the widest of them needs, all the same; the column
@@ -563,7 +566,7 @@
 		width: max-content;
 		min-width: 300px;
 		/* As wide as a name of twelve of the widest letters needs beside its bar and tag, when there is room. */
-		max-width: calc(100vw - 340px);
+		max-width: calc(100vw - 340px - var(--safe-left) - var(--safe-right));
 		box-sizing: border-box;
 		background: var(--panel-bg);
 		border-radius: var(--radius);
@@ -576,11 +579,11 @@
 	}
 	.hint {
 		position: absolute;
-		bottom: 16px;
+		bottom: calc(16px + var(--safe-bottom));
 		left: 50%;
 		transform: translateX(-50%);
 		width: max-content;
-		max-width: calc(100vw - 32px);
+		max-width: calc(100vw - 32px - 2 * max(var(--safe-left), var(--safe-right)));
 		box-sizing: border-box;
 		background: var(--panel-bg);
 		border-radius: var(--radius);
@@ -594,7 +597,9 @@
 	}
 	/* With the touch controls on, the line stays between the D-pad and the buttons. */
 	:global(.touch) .hint {
-		max-width: calc(100vw - 2 * (20px + var(--tap) * 4 + 20px));
+		max-width: calc(
+			100vw - 2 * (20px + var(--tap) * 4 + 20px + max(var(--safe-left), var(--safe-right)))
+		);
 	}
 	.message + .prompt {
 		margin-top: 2px;
@@ -602,8 +607,8 @@
 	/* The top right: the tokens, and the tools under them. */
 	.belongings {
 		position: absolute;
-		top: 16px;
-		right: 16px;
+		top: calc(16px + var(--safe-top));
+		right: calc(16px + var(--safe-right));
 		display: flex;
 		flex-direction: column;
 		align-items: flex-end;
@@ -611,7 +616,7 @@
 		pointer-events: none;
 	}
 	.belongings.below-debug {
-		top: 100px;
+		top: calc(100px + var(--safe-top));
 	}
 	.purse,
 	.tool {

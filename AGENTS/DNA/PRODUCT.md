@@ -186,7 +186,7 @@ What is built and observable today. Keep current: add a bullet when a feature sh
 
 - Pointer everywhere ([[UI_SPEC]] § Pointer and touch): every row, button and card a key reaches also takes a click or a tap, as the same key press, behind the same guards. In a battle a tap only highlights a row (an attack, Leash, Switch, Run, an animal on the switch list) or sets an attack's level, and Go! does it, since a pick spends the turn; on the starters a tap only lights an animal; everywhere else a tap does the row at once. The result card goes on from a tap anywhere. A tap counts only on what the finger went down on, on the screen it went down on, so a thumb lifted as a battle starts presses nothing. A slow tap counts however long the finger rests, and a double click counts once when its first click sent what it pressed elsewhere.
 - Touch controls on a tablet, or after any touch: a D-pad that walks as the arrow keys do (hold to keep walking), Talk and Menu buttons that work with the other thumb still on the D-pad, and a number pad beside every puzzle, so the tablet's own keyboard never covers a sum. Rows and buttons a finger tall; hints that say "tap"; the name boxes use the tablet's keyboard, with the box moved clear of it. A key pressed on a real keyboard switches back to the keys.
-- The page behaves as a game on a tablet: no zooming, scrolling, pull-to-refresh or text selection under a finger, and a tablet held upright is asked to turn sideways.
+- The page behaves as a game on a tablet: no zooming, scrolling, pull-to-refresh or text selection under a finger, and a tablet (or a phone) held upright is asked to turn sideways. On a screen with a notch or a home indicator the world fills the screen and nothing to read or tap sits under them.
 
 ### Explore
 
@@ -235,6 +235,11 @@ What is built and observable today. Keep current: add a bullet when a feature sh
 ### Language
 
 - The whole game in Danish and English, the animals' and attacks' names included. It starts in the language the browser prefers (Danish or English, else English); Language in the pause menu and on the title switches every word on screen at once and is remembered on this device (`?lang=da` / `?lang=en` in the address picks one for a visit).
+
+### The page
+
+- A name, and a fox for an icon in the browser's tab and on a Home Screen. A shared link shows a preview: the starters under "Animath", and a line in English and Danish. Search engines are kept away: a shared link is how the game is found.
+- A browser that cannot draw the world, or runs no JavaScript, gets a kind card saying so instead of an empty page ("This browser can't draw Animath's world. Ask a grown-up for help!").
 
 ### Engine
 

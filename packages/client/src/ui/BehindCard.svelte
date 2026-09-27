@@ -35,7 +35,8 @@
 		inset: 0;
 		display: grid;
 		place-items: center;
-		padding: 16px;
+		padding: calc(16px + var(--safe-top)) calc(16px + var(--safe-right))
+			calc(16px + var(--safe-bottom)) calc(16px + var(--safe-left));
 		background: rgba(45, 42, 50, 0.45);
 	}
 	.card {

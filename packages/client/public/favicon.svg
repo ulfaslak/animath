@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+	<!-- Animath's icon: the fox, faceted like the game's low-poly figures, on the sky. -->
+	<rect width="64" height="64" rx="14" fill="#8fd3f4" />
+	<!-- Ears, their insides dark. -->
+	<path d="M10 6 L25 19 L8 30 Z" fill="#f08c43" />
+	<path d="M54 6 L39 19 L56 30 Z" fill="#c95f1f" />
+	<path d="M12.5 11.5 L20.5 19.5 L11.5 25 Z" fill="#2f2a28" />
+	<path d="M51.5 11.5 L43.5 19.5 L52.5 25 Z" fill="#2f2a28" />
+	<!-- The head: lit from the upper left. -->
+	<path d="M25 19 L32 21 L22 35 Z" fill="#f39a55" />
+	<path d="M39 19 L32 21 L42 35 Z" fill="#d86a25" />
+	<path d="M32 21 L22 35 L42 35 Z" fill="#e8762b" />
+	<path d="M8 30 L25 19 L22 35 Z" fill="#e8762b" />
+	<path d="M56 30 L39 19 L42 35 Z" fill="#c95f1f" />
+	<!-- White cheeks, and the muzzle down to the nose. -->
+	<path d="M8 30 L22 35 L32 52 L32 57 L7 38 Z" fill="#fff4e6" />
+	<path d="M56 30 L42 35 L32 52 L32 57 L57 38 Z" fill="#eadcc8" />
+	<path d="M22 35 L42 35 L32 52 Z" fill="#f08c43" />
+	<path d="M42 35 L32 52 L32 35 Z" fill="#dc6a24" />
+	<path d="M27.5 50 L36.5 50 L32 57 Z" fill="#2f2a28" />
+	<!-- Eyes. -->
+	<circle cx="24" cy="31.5" r="2.8" fill="#2f2a28" />
+	<circle cx="40" cy="31.5" r="2.8" fill="#2f2a28" />
+	<circle cx="25" cy="30.5" r="0.9" fill="#fff4e6" />
+	<circle cx="41" cy="30.5" r="0.9" fill="#fff4e6" />
+</svg>
