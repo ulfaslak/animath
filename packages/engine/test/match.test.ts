@@ -159,6 +159,24 @@ describe('matchTeam', () => {
 		expect(pick.ok && pick.team.map((a) => a.speciesId)).toEqual(['squirrel', 'rabbit', 'frog']);
 	});
 
+	it('cleans only its own team’s nicknames, so the text in entries it passes over costs nothing', () => {
+		// The server calls it on whatever a client sent. With every entry's
+		// nickname cleaned, these 5,000 sea animals with 1,000-letter accented
+		// nicknames took about 2 s; checked for shape only, a few milliseconds.
+		const nickname = 'é'.repeat(500);
+		const sent = Array.from({ length: 5000 }, (_, i) => ({
+			id: `c${i}`,
+			speciesId: 'crab',
+			hp: 1,
+			nickname
+		}));
+		const start = performance.now();
+		const pick = matchTeam([...sent, { id: 'f', speciesId: 'fox', hp: 1, nickname }]);
+		const ms = performance.now() - start;
+		expect(pick.ok && pick.team[0]!.nickname).toBe(normalizeNickname(nickname));
+		expect(ms).toBeLessThan(250);
+	});
+
 	it('over random parties: exactly the rule, idempotent, and the party untouched', () => {
 		const bad: string[] = [];
 		for (let seed = 0; seed < 400; seed++) {
