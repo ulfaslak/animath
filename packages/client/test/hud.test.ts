@@ -117,6 +117,7 @@ describe('the explore message line', () => {
 			party: [],
 			tokens: 0,
 			items: [],
+			solved: 0,
 			newGame: true,
 			edits: []
 		});
@@ -203,6 +204,7 @@ describe('the explore message line', () => {
 			party: [],
 			tokens: 0,
 			items: [],
+			solved: 0,
 			newGame: false,
 			edits: []
 		});
@@ -226,6 +228,7 @@ describe('the explore message line', () => {
 			party: [],
 			tokens: 0,
 			items: [],
+			solved: 0,
 			newGame: false,
 			edits: []
 		});

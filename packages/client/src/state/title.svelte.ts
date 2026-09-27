@@ -7,7 +7,9 @@ import {
 	type NameRejection,
 	type SavedGame
 } from '@mathgame/engine';
+import { flags } from '../flags';
 import type { SaveNotice } from '../save/notices';
+import { account } from './account.svelte';
 
 /**
  * What the title shows and which screen the keys drive ([[UI_SPEC]] §
@@ -28,11 +30,15 @@ export type NameFor = 'new' | 'continue';
 
 /**
  * The menu's rows, in order. `continue` shows only when there is a game to
- * pick up. `language` and `sound` are the settings the pause menu has too,
- * on the same stores. A new row is a new id here, its label in
- * `TitleScreen.svelte` and its cases in `TitleController`.
+ * pick up. `login` ("I have an account → Log in") shows to a guest, and to a
+ * player whose session has ended, but never on a throwaway page (`?new` and
+ * the like), which keeps nothing: a login there would switch every other tab
+ * to the account and reload this one into a throwaway game again. `language`
+ * and `sound` are the settings
+ * the pause menu has too, on the same stores. A new row is a new id here, its
+ * label in `TitleScreen.svelte` and its cases in `TitleController`.
  */
-export const TITLE_ROWS = ['continue', 'new', 'language', 'sound'] as const;
+export const TITLE_ROWS = ['continue', 'new', 'login', 'language', 'sound'] as const;
 export type TitleRow = (typeof TITLE_ROWS)[number];
 
 /** The confirm's choices, in order: the safe one first, where the cursor starts. */
@@ -82,7 +88,13 @@ class TitleView {
 
 	/** The rows the menu shows now. */
 	get rows(): TitleRow[] {
-		return TITLE_ROWS.filter((row) => row !== 'continue' || this.saved !== null);
+		return TITLE_ROWS.filter((row) => {
+			if (row === 'continue') return this.saved !== null;
+			if (row === 'login') {
+				return !flags.throwaway && (account.name === null || account.session === 'ended');
+			}
+			return true;
+		});
 	}
 
 	/**

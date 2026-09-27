@@ -14,6 +14,13 @@ export interface Flags {
 	/** `?debug`: the player's grid position and facing in the top-right corner. */
 	debug: boolean;
 	/**
+	 * `?hour=30`: an hour of play lasts this many seconds (5 to 3600), so the
+	 * hourly "keep your animals safe" card can be tried without waiting an
+	 * hour. Not a throwaway switch: the card is only ever for a saved game.
+	 * `null` without the switch, or with any other value.
+	 */
+	hourSeconds: number | null;
+	/**
 	 * `?party=bear:10,fox:0,rabbit*30`: start with this party instead of the
 	 * one squirrel, in a throwaway game, like `?new`.
 	 */
@@ -50,6 +57,7 @@ export function readFlags(search: string): Flags {
 	return {
 		zoo,
 		debug: params.has('debug'),
+		hourSeconds: parseHour(params.get('hour')),
 		party,
 		fresh,
 		tokens,
@@ -63,6 +71,13 @@ export const MAX_SEEDED_PARTY = 1000;
 
 /** One `?party=` entry: a species id, an optional HP after `:`, an optional count after `*`. */
 const PARTY_ENTRY = /^([^:*]+)(?::(-?\d+))?(?:\*(\d+))?$/;
+
+/** `?hour=`: whole seconds from 5 to 3600, or null for anything else. */
+export function parseHour(text: string | null): number | null {
+	if (text === null || !/^\d{1,4}$/.test(text)) return null;
+	const seconds = Number(text);
+	return seconds >= 5 && seconds <= 3600 ? seconds : null;
+}
 
 /** `?tokens=`: a whole number of tokens from 0 to 9999, or null for anything else. */
 export function parseTokens(text: string | null): number | null {

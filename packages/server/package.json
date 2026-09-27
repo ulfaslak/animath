@@ -10,7 +10,8 @@
 		"check": "tsc -p tsconfig.json",
 		"test": "vitest run",
 		"migrate": "tsx scripts/migrate.ts",
-		"admin": "tsx scripts/admin.ts"
+		"admin": "tsx scripts/admin.ts",
+		"prune-test-databases": "tsx scripts/prune-test-databases.ts"
 	},
 	"dependencies": {
 		"@hono/node-server": "^1.19.0",

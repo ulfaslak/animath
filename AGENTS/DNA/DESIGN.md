@@ -49,6 +49,7 @@ Hex values are the ones in `packages/client/src/render/palette.ts` and `styles.c
 | Confetti             | accent, good, warn, water, trainer shirt, off-white, rabbit pink | `CONFETTI_COLORS`: only colours already in the game. |
 | Sparkles             | warn `#f5b83d` and good `#56c271`, with off-white in the battle scene, coral and blue on the result card, white at the doctor | The doctor's chunky four-pointed stars: along a healed animal's HP bar, in the battle scene (unlit, so they shine) and round the result card's headline. |
 | Token                | warn `#f5b83d`, rim `#c98a12`, inner ring `#fbd67a`, heart `--panel-cream` | A gold coin with a cream heart, the doctor's thank-you: on the doctor's card, in the HUD, beside each price; a "+N" in good, a "−N" in amber `#d99a1e`. |
+| Puzzle solved        | good `#56c271`, rim `#3f9d57`, tick `--panel-cream` | A green badge with a cream tick, the green of a right answer (`Tick`): beside the count of puzzles solved in the HUD, as the coin is beside the tokens. |
 | Tools                | trunk `#8b5a3c` (mast `#6e4630`), rock `#a8a39e` with a pale edge `#e9e6e2`, water `#5ec8f2`, trainer coral | The shop's pictures (`ItemIcon`): an axe, a pickaxe, a boat with a coral sail, flat and chunky in the world's own colours. The axe and the pickaxe in the trainer's fist while it swings are the same colours, as boxes. |
 | Cleared ground       | gravel `#c9c0ad`, on the peaks `#d8d3ca`; fresh wood `#e8c48f` | Where a rock was broken: gravel, warmer and lighter than the rock round it, so it reads as a path, with the mountain's pebbles on it. Where a tree was chopped: the forest floor with a trunk-brown stump, its cut face and a few chips in fresh wood, which the axe also sends flying. |
 | The boat             | hull trunk `#8b5a3c`, inside mast `#6e4630`, rim and pennant trainer coral `#ff7e6b` | `BOAT_COLORS`: the shop picture's boat in the world, a rowboat on the trainer's back and under them on the water. |
@@ -195,7 +196,7 @@ The words the game uses for its things, the same on every screen:
 | goes first | først ud | the lead's tag, "Ræven er først ud!", "Sæt forrest" in the menu |
 | attack | angreb | "Vælg et angreb" |
 | easy / medium / hard | let / mellem / svær | an attack's three levels |
-| puzzle | opgave | "Løs en opgave" (the sum itself needs no words) |
+| puzzle | opgave (opgaver) | "Løs en opgave" (the sum itself needs no words); the HUD's count ("312 opgaver") |
 | switch | skifte | the battle row ("Skift"), its card ("Skift dyr") |
 | run away | løbe væk | the battle row ("Løb væk"), "Du slap væk!" |
 | in battle | på banen | the switch list's tag |

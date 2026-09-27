@@ -15,11 +15,12 @@
 	import { touch } from '../input/touch.svelte';
 	import { motion } from '../motion';
 	import { animalWords, nameOf, speciesName } from '../names';
+	import { account } from '../state/account.svelte';
 	import { game } from '../state/game.svelte';
 	import { presence } from '../state/presence.svelte';
 	import {
-		MENU_ITEMS,
-		MENU_PAIRS,
+		menuItems,
+		lineOf,
 		cardRows,
 		partyOptions,
 		pause,
@@ -93,6 +94,8 @@
 		const row = rows[pause.option];
 		return row?.kind === 'animal' ? row.animal.id : null;
 	});
+	/** The menu's rows under the team, as they are now (the account's follow who is playing). */
+	const items = $derived(menuItems());
 	/** The card that is lit on the left: the cursor, or the card whose options or animals are open. */
 	const lit = $derived.by(() => {
 		if (pause.screen === 'list') return pause.cursor;
@@ -100,7 +103,7 @@
 		return cards.findIndex((c) => c.speciesId === species);
 	});
 	/** The cursor is on the Sound row: the right side says what it does (and with a keyboard, that M does it too). */
-	const soundLit = $derived(MENU_ITEMS[pause.cursor - cards.length] === 'sound');
+	const soundLit = $derived(items[pause.cursor - cards.length] === 'sound');
 
 	/**
 	 * The cards' order before its latest change and after it, noted before the
@@ -145,14 +148,16 @@
 
 	/**
 	 * The menu's rows as they are drawn: one to a line, or two side by side
-	 * (`MENU_PAIRS`; `PauseController`: left and right step between them).
+	 * (`MENU_LINES`, of the rows shown: `PauseController` steps between them).
 	 */
-	type MenuLine = MenuItem | readonly [MenuItem, MenuItem];
-	const MENU_LINES: readonly MenuLine[] = MENU_ITEMS.flatMap((item): MenuLine[] => {
-		const pair = MENU_PAIRS.find((p) => p.includes(item));
-		if (!pair) return [item];
-		return pair[0] === item ? [pair] : [];
-	});
+	type MenuLine = MenuItem | readonly MenuItem[];
+	const menuLines = $derived(
+		items.flatMap((item): MenuLine[] => {
+			const line = lineOf(item, items);
+			if (line.length < 2) return [item];
+			return line[0] === item ? [line] : [];
+		})
+	);
 
 	/** The Worlds screen's rows, and why Go is greyed when it is. */
 	const worldOptions = $derived(worldRows(pause.worldDraft, game.world, game.home));
@@ -184,6 +189,12 @@
 				return t('pause.quit');
 			case 'sound':
 				return t('pause.sound');
+			case 'makeAccount':
+				return t('pause.makeAccount');
+			case 'logIn':
+				return t('pause.logIn');
+			case 'logOut':
+				return account.leaving ? t('account.busy') : t('pause.logOut');
 		}
 	}
 
@@ -255,7 +266,7 @@
 
 <!-- A row of the menu under the team: a setting, Worlds, Who's here, or a button. -->
 {#snippet menuRow(item: MenuItem)}
-	{@const row = cards.length + MENU_ITEMS.indexOf(item)}
+	{@const row = cards.length + items.indexOf(item)}
 	<button
 		type="button"
 		class="row item"
@@ -400,12 +411,12 @@
 							</span>
 						</button>
 					{/each}
-					{#each MENU_LINES as line (typeof line === 'string' ? line : line.join('+'))}
+					{#each menuLines as line (typeof line === 'string' ? line : line.join('+'))}
 						{#if typeof line === 'string'}
 							{@render menuRow(line)}
 						{:else}
-							<!-- Two rows side by side, one line of the menu's height. -->
-							<div class="pair" class:halves={line[0] === 'worlds'}>
+							<!-- Rows side by side, one line of the menu's height. -->
+							<div class="pair" class:halves={line[0] === 'worlds' || line[0] === 'language'}>
 								{#each line as item (item)}
 									{@render menuRow(item)}
 								{/each}
@@ -563,7 +574,7 @@
 		<!-- The keys; with the touch controls on, every row is its own button and needs no reminder. -->
 		{#if !touch.on}
 			<div class="keys">
-				{#if pause.screen === 'list' && MENU_ITEMS[pause.cursor - cards.length] === 'language'}
+				{#if pause.screen === 'list' && items[pause.cursor - cards.length] === 'language'}
 					{t('pause.keysLanguage')}
 				{:else if pause.screen === 'list' && soundLit}
 					{t('pause.keysSound')}
@@ -615,10 +626,11 @@
 		padding: 18px 22px 16px;
 	}
 	/*
-	 * The spacing is trimmed, and Worlds and Who's here share a row, as Keep
-	 * playing and Start screen do (`MENU_PAIRS`), so a team of all eight kinds,
-	 * with those and the settings under it, fits 1024×768 without the menu
-	 * scrolling. A new row goes beside another, or the budget is measured again.
+	 * The spacing is trimmed, and rows share lines (`MENU_LINES`: Worlds and
+	 * Who's here, Language and Sound, the account's rows, Keep playing and Start
+	 * screen), so a team of all eight kinds, with those under it, fits 1024×768
+	 * without the menu scrolling. A new row goes beside another, or the budget is
+	 * measured again.
 	 */
 	.title {
 		font-weight: 800;
@@ -761,7 +773,7 @@
 	.pair .row {
 		width: auto;
 	}
-	/* Worlds and Who's here share their line half and half. */
+	/* Worlds and Who's here, and Language and Sound, share their line half and half. */
 	.pair.halves .row {
 		flex: 1;
 		min-width: 0;
