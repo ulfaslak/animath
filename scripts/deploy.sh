@@ -12,14 +12,16 @@
 # left alone; `pnpm rollback` moves both). Pulling needs a `docker login
 # ghcr.io`: the workflow logs in for each deploy with its own token.
 #
-# Lawcel's scripts/deploy.sh, a canary swap behind nginx, with four
+# Lawcel's scripts/deploy.sh, a canary swap behind nginx, with five
 # differences:
 #   1. Migrations run from the new image before it takes any traffic (lawcel
 #      migrates after the swap, which its DEFERRED tracks).
-#   2. With no app running yet (the first deploy) it starts the whole stack.
-#   3. If the recreated app never turns healthy, the canary keeps serving and
+#   2. The new image is checked (healthy, and serving the game's page) in a
+#      container nginx cannot reach, before a canary of it takes a request.
+#   3. With no app running yet (the first deploy) it starts the whole stack.
+#   4. If the recreated app never turns healthy, the canary keeps serving and
 #      the deploy fails, rather than removing the only healthy app.
-#   4. An image that did not change still gets nginx and the backup service
+#   5. An image that did not change still gets nginx and the backup service
 #      reconciled.
 #
 # nginx looks `app` up in Docker's DNS as it serves (nginx/http.conf), so a
@@ -36,6 +38,7 @@ set -euo pipefail
 source "$(dirname "${BASH_SOURCE[0]}")/lib/nginx-apply.sh"
 
 REGISTRY_IMAGE="ghcr.io/ulfaslak/mathgame"
+CHECK_NAME="mathgame-app-check"
 CANARY_NAME="mathgame-app-canary"
 DEPLOY_SHA="${1:-}"
 
@@ -131,33 +134,46 @@ elif [ "$CURRENT_IMAGE" = "$NEW_IMAGE" ]; then
 else
 	migrate
 
-	echo "Starting the canary..."
-	# The app service's own container config (image, env, network, init,
-	# healthcheck, log cap), plus its network alias, so nginx sends it traffic.
-	$COMPOSE run -d --no-deps --use-aliases --name "$CANARY_NAME" app >/dev/null </dev/null
-	echo "Waiting for the canary to be healthy..."
-	if ! wait_healthy "$CANARY_NAME" 12; then
-		echo "ERROR: the canary never turned healthy; the old app keeps serving. Its log:"
-		docker logs --tail 50 "$CANARY_NAME" 2>&1 | sed 's/^/    /'
-		docker rm -f "$CANARY_NAME" >/dev/null
+	# First the new image on its own: the app service's container config (env,
+	# network, init, healthcheck, log cap) without its network alias, so nothing
+	# sends it a request. Docker lists a container under an alias from the moment
+	# it starts, healthy or not, so the canary below takes kids' requests at once:
+	# only an image that passed here becomes one.
+	echo "Checking the new image, with no traffic..."
+	docker rm -f "$CHECK_NAME" >/dev/null 2>&1 || true # a deploy that died half way; it never served
+	$COMPOSE run -d --no-deps --name "$CHECK_NAME" app >/dev/null </dev/null
+	if ! wait_healthy "$CHECK_NAME" 12; then
+		echo "ERROR: the new image never turned healthy; the old app keeps serving. Its log:"
+		docker logs --tail 50 "$CHECK_NAME" 2>&1 | sed 's/^/    /'
+		docker rm -f "$CHECK_NAME" >/dev/null
 		exit 1
 	fi
-
-	# /api/health says the server is up. Before handing it the kids, also ask
-	# for the game's page: it must be there, and from the same build.
-	CANARY_PAGE=$(docker exec "$CANARY_NAME" node -e "
+	# /api/health says the server is up. Ask for the game's page too: it must be
+	# there, and from the same build.
+	PAGE_CHECK=$(docker exec "$CHECK_NAME" node -e "
 		Promise.all([
 			fetch('http://localhost:3000/').then((r) => (r.ok ? r.text() : '')),
 			fetch('http://localhost:3000/api/health').then((r) => r.json())
 		]).then(([page, health]) => console.log(
 			page.includes('<canvas id=\"game\"') && page.includes('content=\"' + health.sha + '\"') ? 'ok' : 'wrong page'
 		)).catch(() => console.log('fetch failed'))" </dev/null || echo "exec failed")
-	if [ "$CANARY_PAGE" != "ok" ]; then
-		echo "ERROR: the canary's page check says '$CANARY_PAGE'; the old app keeps serving"
+	docker rm -f "$CHECK_NAME" >/dev/null
+	if [ "$PAGE_CHECK" != "ok" ]; then
+		echo "ERROR: the new image's page check says '$PAGE_CHECK'; the old app keeps serving"
+		exit 1
+	fi
+	echo "The new image is healthy and serves the game's page"
+
+	echo "Starting the canary..."
+	# The same config, now with the network alias, so nginx sends it requests.
+	$COMPOSE run -d --no-deps --use-aliases --name "$CANARY_NAME" app >/dev/null </dev/null
+	if ! wait_healthy "$CANARY_NAME" 12; then
+		echo "ERROR: the canary never turned healthy; the old app keeps serving. Its log:"
+		docker logs --tail 50 "$CANARY_NAME" 2>&1 | sed 's/^/    /'
 		docker rm -f "$CANARY_NAME" >/dev/null
 		exit 1
 	fi
-	echo "Canary is healthy and serves the game's page"
+	echo "The canary is healthy"
 
 	echo "Recreating the app with the new image (the canary serves meanwhile)..."
 	$COMPOSE up -d --no-deps --force-recreate app
