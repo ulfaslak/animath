@@ -7,7 +7,7 @@ import {
 } from '@mathgame/engine';
 import { randomUUID } from 'node:crypto';
 import { createServer, type Server } from 'node:http';
-import type { AddressInfo } from 'node:net';
+import { connect, type AddressInfo } from 'node:net';
 import { afterAll, afterEach, describe, expect, it } from 'vitest';
 import { WebSocket, type ClientOptions } from 'ws';
 import {
@@ -319,5 +319,38 @@ describe('presence socket', () => {
 		await joined(url, 'Ada', 'a'.repeat(20));
 		await joined(url, 'Bo', 'b'.repeat(20));
 		await expect(new Client(url).opened).rejects.toThrow('HTTP 503');
+	});
+});
+
+describe('presence socket under attack', () => {
+	it('survives upgrades that reset as they are refused: a wrong path, another site, a full server', async () => {
+		const { url, port } = await start({ maxSockets: 1 });
+		const { c: ada } = await joined(url, 'Ada', 'a'.repeat(20));
+		const raw = (path: string, origin: string) =>
+			new Promise<void>((resolve) => {
+				const s = connect(port, '127.0.0.1');
+				s.on('error', () => resolve());
+				s.on('close', () => resolve());
+				s.on('connect', () => {
+					s.write(
+						`GET ${path} HTTP/1.1\r\nHost: 127.0.0.1:${port}\r\n${origin}Upgrade: websocket\r\n` +
+							'Connection: Upgrade\r\nSec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==\r\n' +
+							'Sec-WebSocket-Version: 13\r\n\r\n'
+					);
+					s.resetAndDestroy();
+				});
+			});
+		for (let i = 0; i < 60; i++) {
+			await Promise.all([
+				raw('/nope', ''),
+				raw(PRESENCE_PATH, 'Origin: https://evil.example\r\n'),
+				raw(PRESENCE_PATH, '')
+			]);
+		}
+		await new Promise((r) => setTimeout(r, 200));
+		// Still up (a write to a socket the other end reset must never take the process down):
+		// it still answers, and Ada is still there.
+		expect(await fetch(`http://127.0.0.1:${port}/`).then((r) => r.status)).toBe(404);
+		expect(ada.ws.readyState).toBe(WebSocket.OPEN);
 	});
 });
