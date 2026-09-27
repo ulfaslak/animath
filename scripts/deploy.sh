@@ -98,6 +98,17 @@ migrate() {
 	$COMPOSE run --rm --no-deps -T app node dist/migrate.mjs </dev/null
 }
 
+# A canary still here means an earlier deploy stopped half way, and one that
+# stopped at the recreate left it serving on purpose. It answers as `app`
+# whatever this deploy does, so nothing goes on until someone has looked:
+# otherwise a first deploy's `up`, or an image that did not change, would
+# leave two builds answering for good.
+if docker container inspect "$CANARY_NAME" >/dev/null 2>&1; then
+	echo "ERROR: a canary from an earlier deploy is still there ($CANARY_NAME), answering as"
+	echo "       the app. Check the app ($COMPOSE ps; $COMPOSE logs app), then: docker rm -f $CANARY_NAME"
+	exit 1
+fi
+
 APP_CID=$($COMPOSE ps -q app 2>/dev/null || true)
 CURRENT_IMAGE=""
 if [ -n "$APP_CID" ]; then
@@ -118,13 +129,6 @@ if [ -z "$APP_CID" ]; then
 elif [ "$CURRENT_IMAGE" = "$NEW_IMAGE" ]; then
 	echo "Image unchanged: no swap."
 else
-	if docker container inspect "$CANARY_NAME" >/dev/null 2>&1; then
-		echo "ERROR: a canary from an earlier deploy is still there ($CANARY_NAME): that deploy"
-		echo "       left it serving because the recreated app never turned healthy."
-		echo "       Check the app ($COMPOSE ps; $COMPOSE logs app), then: docker rm -f $CANARY_NAME"
-		exit 1
-	fi
-
 	migrate
 
 	echo "Starting the canary..."
