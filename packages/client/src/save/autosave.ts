@@ -490,6 +490,23 @@ export class Autosave {
 			case 'solved-changed':
 				this.changed(false);
 				break;
+			// Nothing changed: a game picked up (its start writes nothing), a refusal, a line to say.
+			case 'welcome':
+			case 'new-game-refused':
+			case 'name-refused':
+			case 'travel-refused':
+			case 'go-to-refused':
+			case 'take-off-refused':
+			case 'message':
+			case 'nothing-to-interact':
+			case 'tool-needed':
+				break;
+			default: {
+				// Every event is sorted above, so a new one must say whether it saves: the glider's
+				// took-off, glided and landed first went unsaved, a landing lost to a reload.
+				const unsorted: never = event;
+				void unsorted;
+			}
 		}
 	}
 
