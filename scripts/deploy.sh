@@ -222,7 +222,7 @@ fi
 
 echo "Applying the nginx config..."
 apply_nginx_config "$COMPOSE" || {
-	echo "ERROR: nginx kept its running config; the checkout's does not pass nginx -t"
+	echo "ERROR: nginx was not applied (why, above)"
 	exit 1
 }
 

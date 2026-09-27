@@ -33,15 +33,15 @@
 # the nginx service (word-split intentionally).
 apply_nginx_config() {
 	local compose_cmd="$1"
-	local cid candidate running
+	local before after candidate running
 
 	# shellcheck disable=SC2086
-	cid=$(${compose_cmd} ps -q nginx 2>/dev/null | head -1)
-	if [ -z "$cid" ]; then
+	before=$(${compose_cmd} ps -q nginx 2>/dev/null | head -1)
+	if [ -z "$before" ]; then
 		echo "    nginx not running — starting it"
 		# shellcheck disable=SC2086
-		${compose_cmd} up -d --no-deps nginx
-		return 0
+		${compose_cmd} up -d --no-deps nginx && nginx_is_up "$compose_cmd"
+		return
 	fi
 
 	# stdin closed on every docker call: a script fed on stdin (`bash -s`)
@@ -49,7 +49,7 @@ apply_nginx_config() {
 	# shellcheck disable=SC2086
 	if ! candidate=$(${compose_cmd} run --rm --no-deps -T -e NGINX_ENTRYPOINT_QUIET_LOGS=1 \
 		nginx nginx -T 2>/dev/null </dev/null); then
-		echo "    !! the checkout's nginx config FAILED validation — keeping the running config" >&2
+		echo "    !! the checkout's nginx config FAILED validation — the running nginx keeps its own" >&2
 		# shellcheck disable=SC2086
 		${compose_cmd} run --rm --no-deps -T -e NGINX_ENTRYPOINT_QUIET_LOGS=1 \
 			nginx nginx -t 2>&1 </dev/null | sed 's/^/       /' >&2 || true
@@ -58,20 +58,42 @@ apply_nginx_config() {
 
 	# The service's definition itself (its image tag, ports, mounts, env: the
 	# domain) is compose's to apply: it recreates nginx only when that changed,
-	# and the new container renders the config just validated.
+	# and a new container renders the config just validated, so nothing is
+	# left to reload.
 	# shellcheck disable=SC2086
-	${compose_cmd} up -d --no-deps nginx
+	${compose_cmd} up -d --no-deps nginx || true
 	# shellcheck disable=SC2086
-	cid=$(${compose_cmd} ps -q nginx 2>/dev/null | head -1)
-
-	running=$(docker exec "$cid" nginx -T 2>/dev/null </dev/null || true)
-	if [ "$candidate" = "$running" ]; then
-		echo "    nginx config: rendered template unchanged — reload only"
-		docker exec "$cid" nginx -s reload </dev/null
+	after=$(${compose_cmd} ps -q nginx 2>/dev/null | head -1)
+	if [ "$after" != "$before" ]; then
+		echo "    nginx recreated with the checkout's definition"
+		nginx_is_up "$compose_cmd"
 		return
 	fi
 
-	echo "    nginx config: the template or the domain changed — recreating nginx to render it (~2 s blip)"
+	running=$(docker exec "$after" nginx -T 2>/dev/null </dev/null || true)
+	if [ "$candidate" = "$running" ]; then
+		echo "    nginx config: rendered template unchanged — reload only"
+		docker exec "$after" nginx -s reload </dev/null
+		return
+	fi
+
+	echo "    nginx config: the template changed — recreating nginx to render it (~2 s blip)"
 	# shellcheck disable=SC2086
-	${compose_cmd} up -d --no-deps --force-recreate nginx
+	${compose_cmd} up -d --no-deps --force-recreate nginx || true
+	nginx_is_up "$compose_cmd"
+}
+
+# nginx_is_up <compose-cmd>: 0 when nginx is running a few seconds after a
+# start; otherwise says so, with where to look. A config nginx -t passed can
+# still fail to start (a port already taken).
+nginx_is_up() {
+	local compose_cmd="$1" cid
+	sleep 3
+	# shellcheck disable=SC2086
+	cid=$(${compose_cmd} ps -q nginx 2>/dev/null | head -1)
+	if [ -n "$cid" ] && [ "$(docker inspect --format '{{.State.Running}}' "$cid" 2>/dev/null)" = "true" ]; then
+		return 0
+	fi
+	echo "    !! nginx is NOT running after its start: the site is down. Look at: $compose_cmd logs nginx" >&2
+	return 1
 }
