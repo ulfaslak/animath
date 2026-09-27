@@ -269,13 +269,17 @@ type Doc = Record<string, unknown>;
 /**
  * Where the v1 → v2 upgrade keeps what a v2 document has no place for, as it
  * was: a v1 extra under a key v2 has taken (`name`, `home`, `world`,
- * `worlds`, or this key itself), and a seed other than World 1's (no game
+ * `worlds`, `solved`, or this key itself), and a seed other than World 1's (no game
  * this client wrote had one). An extra from then on, kept as sent.
  */
 export const V1_KEPT = 'v1';
 
-/** The keys a v1 document could hold only as extras and a v2 document names. */
-const NAMED_SINCE_V2 = ['name', 'home', 'world', 'worlds'] as const;
+/**
+ * The keys a v1 document could hold only as extras and a v2 document names:
+ * every key `SaveV2` has that `SaveV1` has not, the ones v2 grew later too
+ * (`solved`), so a v1 extra never becomes one of them.
+ */
+const NAMED_SINCE_V2 = ['name', 'home', 'world', 'worlds', 'solved'] as const;
 
 /**
  * Upgrades, indexed by the version they read: `SAVE_UPGRADES[1]` turns a v1

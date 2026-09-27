@@ -501,7 +501,7 @@ function randomV1(rng: Rng, seed: unknown): Record<string, unknown> {
 		doc.edits = [...edits.encode()];
 	}
 	// Extras a newer build could have left, some under the names v2 took.
-	for (const key of ['inventory', 'name', 'home', 'world', 'worlds', V1_KEPT]) {
+	for (const key of ['inventory', 'name', 'home', 'world', 'worlds', 'solved', V1_KEPT]) {
 		if (rng.chance(0.15)) doc[key] = rng.pick([7, 'Nini', { deep: [1, 2] }, [3], null]);
 	}
 	return doc;
@@ -540,16 +540,26 @@ describe('the v1 → v2 upgrade', () => {
 	});
 
 	it('keeps what v2 has no place for under `v1`, as it was: a seed not World 1, extras under the names v2 took', () => {
-		const doc = { ...writtenV1, seed: 12345, name: 7, world: 'there', [V1_KEPT]: { a: 1 } };
+		const doc = {
+			...writtenV1,
+			seed: 12345,
+			name: 7,
+			world: 'there',
+			// A name v2 took later: a v1 extra never becomes the kid's count of puzzles solved.
+			solved: 'lots',
+			[V1_KEPT]: { a: 1 }
+		};
 		const read = readSave(doc);
 		expect(read.ok).toBe(true);
 		if (!read.ok) return;
 		expect(read.save).toMatchObject({ world: 1, home: 1 });
 		expect('name' in read.save).toBe(false);
+		expect('solved' in read.save).toBe(false);
 		expect((read.save as unknown as Record<string, unknown>)[V1_KEPT]).toEqual({
 			seed: 12345,
 			name: 7,
 			world: 'there',
+			solved: 'lots',
 			[V1_KEPT]: { a: 1 }
 		});
 		expect(downgrade(read.save as unknown as Record<string, unknown>)).toEqual(doc);
