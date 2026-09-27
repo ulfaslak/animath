@@ -199,6 +199,10 @@ const MUST_FAIL = [
 	'fuckface',
 	'Fu Ck',
 	'fu-ck',
+	// A rude word of its own spelt out over whole words, too.
+	'Co-ck',
+	'As-s',
+	'Pi-k',
 	'FUUUCK',
 	'B1tch',
 	'Sh1tty',

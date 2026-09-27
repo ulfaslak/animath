@@ -137,7 +137,13 @@ describe('matchTeam', () => {
 			"Pik'hoved",
 			'Lort',
 			'Mr. Dick',
-			'Fück'
+			'Fück',
+			// A whole-word rude word spelt out over pieces a nickname's marks split.
+			'Co.ck',
+			"T'it",
+			'A.s.s',
+			'Boo.bs',
+			'Pi.k'
 		];
 		const kept = ['Nini', 'Scunthorpe', 'Pikachu', 'Hassan', 'Mr. Whiskers', "O'Hara", 'Bjørn'];
 		for (const nickname of rude) {
