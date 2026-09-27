@@ -390,7 +390,10 @@ export class Autosave {
 			case 'doctor-visit-started':
 			case 'doctor-visit-updated':
 			// A puzzle solved. In a battle or at the doctor the event that judged it saves too;
-			// in a friendly match, where nothing else changes, this is what saves the count.
+			// in a friendly match, where nothing else changes, this is what writes the count to
+			// this browser, and the backup follows as it does a battle turn's. Not playing by
+			// itself: every game under way beside an unreadable save has been played already
+			// (a starter picked, or the server's game taken).
 			case 'solved-changed':
 				this.changed(false);
 				break;
