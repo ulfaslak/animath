@@ -518,13 +518,15 @@ function countPlay(dt: number): void {
  * The animal book's pictures (`render/portraits.ts`): while the book is open,
  * one a frame, for the first species seen that has none yet, so the book
  * fills in as it opens and no frame stops to draw them all at once. A figure
- * that cannot be drawn keeps its card's plain disc, and is not tried again.
+ * that cannot be drawn keeps its card's plain disc, and is not tried again;
+ * while the WebGL context is lost nothing is drawn, and it is tried again.
  */
 function drawPortrait(): void {
 	for (const speciesId of game.seen) {
 		if (book.portraits[speciesId] !== undefined) continue;
 		try {
-			book.portraits[speciesId] = renderer.portrait(speciesId);
+			const picture = renderer.portrait(speciesId);
+			if (picture !== null) book.portraits[speciesId] = picture;
 		} catch (error) {
 			console.error(error);
 			book.portraits[speciesId] = '';

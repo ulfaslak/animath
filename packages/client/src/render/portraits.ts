@@ -28,6 +28,7 @@ const MARGIN = 1.1;
 /** What drawing a picture needs of a `THREE.WebGLRenderer`. */
 export type PortraitRenderer = Pick<
 	THREE.WebGLRenderer,
+	| 'getContext'
 	| 'getRenderTarget'
 	| 'setRenderTarget'
 	| 'getClearColor'
@@ -59,9 +60,14 @@ export class PortraitStudio {
 	/**
 	 * A picture of `speciesId`'s figure, transparent round it: a PNG data URL
 	 * of `PORTRAIT_SIZE` pixels a side. The renderer is left as it was found:
-	 * drawing to the screen, clearing to the colour it cleared to.
+	 * drawing to the screen, clearing to the colour it cleared to. Null while
+	 * the renderer's WebGL context is lost (a GPU reset, a tablet taking the
+	 * memory back), when nothing can be drawn: ask again once it is back.
 	 */
-	draw(speciesId: string): string {
+	draw(speciesId: string): string | null {
+		if (this.renderer.getContext().isContextLost()) return null;
+		// Read into a cleared buffer, so a read that draws nothing can never pass off the last picture.
+		this.pixels.fill(0);
 		const figure = buildAnimalMesh(speciesId);
 		this.scene.add(figure);
 		try {

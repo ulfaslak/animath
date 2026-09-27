@@ -462,10 +462,11 @@ export class GameRenderer {
 
 	/**
 	 * A picture of `speciesId`'s figure for the animal book, drawn offscreen
-	 * with this renderer (`portraits.ts`): a PNG data URL. The screen is not
-	 * touched; the next frame draws as ever.
+	 * with this renderer (`portraits.ts`): a PNG data URL, or null while the
+	 * WebGL context is lost. The screen is not touched; the next frame draws
+	 * as ever.
 	 */
-	portrait(speciesId: string): string {
+	portrait(speciesId: string): string | null {
 		this.studio ??= new PortraitStudio(this.renderer);
 		return this.studio.draw(speciesId);
 	}
