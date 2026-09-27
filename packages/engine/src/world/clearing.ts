@@ -6,9 +6,10 @@ import { step, type ClearableKind, type Direction, type GridPos, type TileKind }
  * Clearing a tile with a tool ([[PRODUCT]] §4 "World"): the axe chops down a
  * tree, the pickaxe breaks a rock, and the tile is plain ground from then on
  * (`world/edits.ts`). The player stands next to the tile and faces it, as
- * they face a tent to talk to the doctor; `interact` does it. Nothing else can
- * be cleared: not tall grass, sand, water or a tent, and not a tile already
- * cleared.
+ * they face a tent to talk to the doctor; `interact` does it. Or they come
+ * down on it from the glider (`clearLanding`, `world/flight.ts`). Nothing else
+ * can be cleared: not tall grass, sand, water or a tent, and not a tile
+ * already cleared.
  */
 
 /** The tool each kind of tile takes. */
@@ -95,15 +96,44 @@ export function clearTile(
 	}
 	const front = step(pos, facing);
 	if (front.x !== target.x || front.y !== target.y) return { ok: false, reason: 'not-facing' };
-	const ahead = clearableAhead(seed, edits, pos, facing);
-	if (!ahead) return { ok: false, reason: 'nothing-to-clear' };
-	if (!hasItem(player, ahead.tool)) {
-		return { ok: false, reason: 'needs-tool', kind: ahead.kind, tool: ahead.tool };
+	return clearAt(seed, edits, player, front, pos);
+}
+
+/**
+ * Clear the tile a glide comes down on (`world/flight.ts`), for `player`
+ * standing on it: the one other way a tile is cleared. The same rule as
+ * `clearTile` but for where the player is: a tree or a rock not yet cleared,
+ * and its tool owned; the save is trimmed round the landing tile. Anything
+ * else is a refusal that changes nothing.
+ */
+export function clearLanding(
+	seed: number,
+	edits: WorldEdits,
+	player: Pick<Clearer, 'pos' | 'items'>
+): ClearStep {
+	const { pos } = player;
+	if (!Number.isSafeInteger(pos?.x) || !Number.isSafeInteger(pos?.y)) {
+		return { ok: false, reason: 'nothing-to-clear' };
 	}
-	const { edits: kept, regrown } = edits.with(ahead.pos).trimmedAround(pos);
-	return {
-		ok: true,
-		edits: kept,
-		cleared: { pos: { ...ahead.pos }, was: ahead.kind, tool: ahead.tool, regrown }
-	};
+	return clearAt(seed, edits, player, pos, pos);
+}
+
+/**
+ * The tile at `at` cleared with its tool, the save trimmed round `around`
+ * (where the player stands): a tree or a rock, in the world as `edits` leave
+ * it, whose tool the player owns; else why not.
+ */
+function clearAt(
+	seed: number,
+	edits: WorldEdits,
+	player: { readonly items: readonly string[] },
+	at: GridPos,
+	around: GridPos
+): ClearStep {
+	const { kind } = editedTileAt(seed, edits, at.x, at.y);
+	if (!isClearable(kind)) return { ok: false, reason: 'nothing-to-clear' };
+	const tool = CLEARING_TOOL[kind];
+	if (!hasItem(player, tool)) return { ok: false, reason: 'needs-tool', kind, tool };
+	const { edits: kept, regrown } = edits.with(at).trimmedAround(around);
+	return { ok: true, edits: kept, cleared: { pos: { x: at.x, y: at.y }, was: kind, tool, regrown } };
 }
