@@ -171,12 +171,20 @@ describe('matchTeam', () => {
 			hp: 1,
 			nickname
 		}));
-		const start = performance.now();
-		const pick = matchTeam([...sent, { id: 'f', speciesId: 'fox', hp: 1, nickname }]);
-		const ms = performance.now() - start;
-		expect(pick.ok && pick.team[0]!.nickname).toBe(normalizeNickname(nickname));
+		const party = [...sent, { id: 'f', speciesId: 'fox', hp: 1, nickname }];
+		// The fastest of up to three tries: at a load average of 40 one try in a few took over
+		// 250 ms while the machine was busy elsewhere (#86), and the first is also the coldest.
+		let ms = Infinity;
+		for (let i = 0; i < 3 && ms >= 250; i++) {
+			const start = performance.now();
+			const pick = matchTeam(party);
+			ms = Math.min(ms, performance.now() - start);
+			expect(pick.ok && pick.team[0]!.nickname).toBe(normalizeNickname(nickname));
+		}
 		expect(ms).toBeLessThan(250);
-	});
+		// Milliseconds when the rule holds. When it breaks, each try cleans every nickname:
+		// about 2 s alone, 5 s at a load average of 25.
+	}, 30_000);
 
 	it('over random parties: exactly the rule, idempotent, and the party untouched', () => {
 		const bad: string[] = [];

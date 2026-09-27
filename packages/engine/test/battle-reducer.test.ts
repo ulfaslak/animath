@@ -181,7 +181,8 @@ describe('replay', () => {
 				expect(b.state).toEqual(a.state);
 			}
 		}
-	});
+		// About 0.55 s alone (620 battles, each played twice); 2 s at a load average of 40.
+	}, 30_000);
 
 	it('a different seed changes the battle', () => {
 		const model: PlayerModel = { accuracy: 1, policy: 'max' };
@@ -580,7 +581,8 @@ describe('answers', () => {
 				}
 			}
 		}
-	});
+		// About 0.5 s alone (3,720 wrong answers); 1.4 s at a load average of 40.
+	}, 30_000);
 
 	it('a correct answer always deals exactly the formula damage, for every attack and level', () => {
 		for (const p of ids) {
@@ -739,7 +741,8 @@ describe('the leash', () => {
 				}
 			}
 		}
-	});
+		// About 0.25 s alone (1,400 throws); 0.35 s at a load average of 40.
+	}, 30_000);
 
 	it('a better leash raises the chance', () => {
 		const start = startBattle(makeParty(['fox']), makeWild('bear', 10), { leashQuality: 2 });

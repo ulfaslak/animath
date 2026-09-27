@@ -96,10 +96,6 @@ gh's token here lacks the `workflow` scope, and GitHub refuses a push that adds 
 
 pnpm 12 refuses to run dependency postinstall scripts unless approved in `pnpm-workspace.yaml` under `allowBuilds` (the older `onlyBuiltDependencies` key is read but not honoured). `esbuild` is approved there. If `pnpm install` ever ends with `ERR_PNPM_IGNORED_BUILDS`, run `pnpm approve-builds <pkg> --yes` — it edits the file for you.
 
-## `pnpm test` can fail with every test passing when the machine is busy
-
-At a load average above about 30 (several agents' test runs and browsers at once), the engine's vitest can end with `Tests N passed`, then `Errors 1 error` and `Unhandled Error: [vitest-worker]: Timeout calling "onTaskUpdate"`, and exit 1. That is vitest's own worker messaging timing out, not a test. `pnpm test` then stops at the engine (`ERR_PNPM_RECURSIVE_RUN_FIRST_FAIL`), so the client and server tests never run. On 2026-09-27, at a load of 33, the engine suite took 98 s instead of about 28 s. On that load, tests without an explicit timeout also fail with `Test timed out in 5000ms` (`save.test.ts`, `encounters.test.ts`). Read the summary before blaming the change. Check `uptime`, rerun when the load drops, or run each package on its own (`pnpm -F @mathgame/<pkg> test`).
-
 ## A negative control on a fix whose commit holds its own test
 
 `git revert --no-commit <fix>` takes the test out along with the fix, so the check still passes and proves nothing. Putting the test back by hand (`git show <fix>:<test> > <test>`) then makes `git revert --abort` refuse ("Entry … not uptodate. Cannot merge."), with the revert half done in the index. On 2026-09-27 (PR #92) the way back that lost nothing: `git show HEAD:<path> > <path>` for each file, `git revert --quit`, `git restore --staged <paths>`. Simpler, with no revert state at all: write the fix's parent source over the file, `git show <fix>^:<src> > <src>`, run the check and watch it fail, then `git show HEAD:<src> > <src>`.

@@ -306,7 +306,9 @@ describe('nearestTent', () => {
 			}
 		}
 		expect(blocked).toBeGreaterThan(0);
-	});
+		// About 0.3 s alone (a search from every blocked side of every tent within 300 tiles, in
+		// three worlds); 2.4 s at a load average of 40.
+	}, 30_000);
 
 	it('never picks a tent that is boxed in, and prefers the door side when two sides tie', () => {
 		let boxed = 0;
@@ -360,7 +362,9 @@ describe('nearestTent', () => {
 			.map((p) => nearestTent(PROTOTYPE, p))
 			.reverse();
 		expect(backward).toEqual(forward);
-	});
+		// About 0.35 s alone (50 searches, most far from any tent searched before); 2.3 s at a
+		// load average of 40.
+	}, 30_000);
 
 	it('gives up past maxSteps, and when walled in', () => {
 		const from = spawnPoint(PROTOTYPE);
