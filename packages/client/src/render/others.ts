@@ -108,8 +108,7 @@ export class OtherPlayers {
 	constructor(
 		private readonly scene: THREE.Scene,
 		private readonly host: FigureHost,
-		private readonly poofs: Poofs,
-		private readonly clock: () => number = () => performance.now() / 1000
+		private readonly poofs: Poofs
 	) {}
 
 	/** How many are on screen, fading ones included: for tests. */
@@ -354,7 +353,7 @@ export class OtherPlayers {
 	/** A poof round a trainer's feet on tile `at` (in the boat's floor, out on the water). */
 	private poof(at: GridPos, boat: boolean): void {
 		const { y } = trainerStep(this.seed, at, at, 1, boat, motion.reduced);
-		this.poofs.play(new THREE.Vector3(at.x, y, at.y), this.clock(), motion.reduced);
+		this.poofs.play(new THREE.Vector3(at.x, y, at.y), motion.reduced);
 	}
 
 	/** The tile a player is nearest to right now, mid-step or standing. */

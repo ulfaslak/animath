@@ -187,7 +187,7 @@ export class GameRenderer {
 	/** A poof round the player's feet, on `pos`: they just turned up there (Go to). */
 	poofAt(pos: GridPos): void {
 		const { y } = trainerStep(this.seed, pos, pos, 1, this.boatOwned, motion.reduced);
-		this.poofs.play(new THREE.Vector3(pos.x, y, pos.y), performance.now() / 1000, motion.reduced);
+		this.poofs.play(new THREE.Vector3(pos.x, y, pos.y), motion.reduced);
 	}
 
 	/**

@@ -102,8 +102,7 @@ function setup(options: { name?: string | null; throwaway?: boolean } = {}) {
 	const others = new OtherPlayers(
 		scene,
 		{ addFigure: (f) => scene.add(f), removeFigure: (f) => scene.remove(f) },
-		new Poofs(scene),
-		() => now
+		new Poofs(scene)
 	);
 	const renderer: PresenceRenderer = {
 		others,

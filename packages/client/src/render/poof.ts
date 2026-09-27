@@ -29,7 +29,12 @@ export const PUFF_GEOMETRY = new THREE.IcosahedronGeometry(0.15, 0);
 interface Poof {
 	group: THREE.Group;
 	material: THREE.MeshLambertMaterial;
-	start: number;
+	/**
+	 * When it started: its first frame drawn, not when it was asked for. A go
+	 * to a friend far away builds the world round them before the next frame
+	 * (a moment, on a slow machine), and the poof plays whole after it.
+	 */
+	start: number | null;
 	calm: boolean;
 }
 
@@ -43,8 +48,8 @@ export class Poofs {
 		return this.active.length;
 	}
 
-	/** A poof at `at` (the ground under a trainer's feet), starting at `now` seconds. */
-	play(at: THREE.Vector3, now: number, calm: boolean): void {
+	/** A poof at `at` (the ground under a trainer's feet), from the next frame on. */
+	play(at: THREE.Vector3, calm: boolean): void {
 		const material = new THREE.MeshLambertMaterial({
 			color: COLORS.dust,
 			flatShading: true,
@@ -62,7 +67,7 @@ export class Poofs {
 			group.add(puff);
 		}
 		this.parent.add(group);
-		const poof = { group, material, start: now, calm };
+		const poof: Poof = { group, material, start: null, calm };
 		this.active.push(poof);
 		this.pose(poof, 0);
 	}
@@ -70,6 +75,7 @@ export class Poofs {
 	/** Move every poof on to `now` (seconds); the ones that are over go, and free their material. */
 	update(now: number): void {
 		this.active = this.active.filter((poof) => {
+			poof.start ??= now;
 			const p = (now - poof.start) / POOF_SECONDS;
 			if (p >= 1) {
 				this.drop(poof);

@@ -30,7 +30,7 @@ function setup(centre: GridPos = spawnPoint(WORLD_SEED)) {
 	};
 	const poofs = new Poofs(scene);
 	let now = 0;
-	const others = new OtherPlayers(scene, host, poofs, () => now);
+	const others = new OtherPlayers(scene, host, poofs);
 	others.setWorld(WORLD_SEED);
 	others.setCentre(centre);
 	const frame = (dt = 1 / 30) => {
@@ -154,6 +154,20 @@ describe('other players on screen', () => {
 		expect(t).toBeLessThan(5 * STEP_SECONDS);
 		const last = path.at(-1)!;
 		expect(figureOf('walker')!.position.x).toBeCloseTo(last.x);
+	});
+
+	it('play a poof whole from its first frame, however long the world round a far friend took to build', () => {
+		const scene = new THREE.Scene();
+		const poofs = new Poofs(scene);
+		poofs.update(10);
+		poofs.play(new THREE.Vector3(0, 0.5, 0), false);
+		// The next frame comes two seconds late: 25 chunks round the friend were built first.
+		poofs.update(12);
+		expect(poofs.playing).toBe(1);
+		poofs.update(12 + POOF_SECONDS / 2);
+		expect(poofs.playing).toBe(1);
+		poofs.update(12 + POOF_SECONDS + 0.01);
+		expect(poofs.playing).toBe(0);
 	});
 
 	it('jump further than a step in a poof, gone from one tile and at the other at once', () => {

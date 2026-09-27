@@ -33,14 +33,19 @@ export interface WhoAndWhere {
 	world: number | null;
 }
 
-/** STAND-IN until `feat/worlds-names`: the save's `name`, and World 1 for the one world there is. */
+/**
+ * STAND-IN until `feat/worlds-names`: the save's `name`, and the world
+ * number whose seed this is, as that branch numbers them (World 1 is the
+ * prototype's seed, and each number after it the next seed).
+ */
 export function whoAndWhere(store: KeyValueStore | null, seed: number): WhoAndWhere {
 	const doc = parseJson(store?.get(KEYS.save) ?? '');
 	const name =
 		typeof doc === 'object' && doc !== null && typeof (doc as { name?: unknown }).name === 'string'
 			? (doc as { name: string }).name
 			: null;
-	return { name, world: seed === WORLD_SEED ? 1 : null };
+	const world = ((seed - WORLD_SEED) >>> 0) + 1;
+	return { name, world: world <= 9999 ? world : null };
 }
 
 /** 16 random bytes in base64url: 22 characters. */
