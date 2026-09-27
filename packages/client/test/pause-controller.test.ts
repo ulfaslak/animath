@@ -787,10 +787,20 @@ describe('the Worlds screen', () => {
 		expect([pause.screen, pause.worldDraft]).toEqual(['worlds', '']);
 	});
 
-	it('a trip closes the menu, whoever asked for it', () => {
-		const { authority, press } = setup();
-		press('Escape');
-		expect(pause.open).toBe(true);
+	it("the kid's trip closes the menu, whoever asked for it; another player's leaves it open", () => {
+		const { authority, controller, press, downTo } = setup();
+		press('Escape', ...downTo('worlds'), 'Enter', '4');
+		controller.handle({
+			type: 'travelled',
+			playerId: 'someone-else',
+			world: 9,
+			seed: 1,
+			pos: { x: 0, y: 0 },
+			facing: 'down',
+			edits: [],
+			firstVisit: true
+		});
+		expect([pause.open, pause.screen, pause.worldDraft]).toEqual([true, 'worlds', '4']);
 		authority.dispatch({ type: 'travel', world: 12 });
 		expect([pause.open, game.world]).toEqual([false, 12]);
 	});

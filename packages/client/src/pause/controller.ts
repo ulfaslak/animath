@@ -58,10 +58,13 @@ export class PauseController {
 			case 'game-left':
 			case 'battle-started':
 			case 'doctor-visit-started':
-			// Another world: the kid should see where they are.
-			case 'travelled':
 				// Something else has the screen now; the menu never stays open under it.
 				this.close();
+				break;
+			case 'travelled':
+				// This player went to another world: the kid should see where they are. Another
+				// player's trip is none of this menu's business.
+				if (event.playerId === game.playerId) this.close();
 				break;
 			case 'party-edited':
 				// The menu greys what the engine would refuse, so a refusal while it is open
