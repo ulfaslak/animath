@@ -570,8 +570,8 @@ worlds:
   home: 'Dit hjem er verden {home}.'
   atHome: Det her er din hjemverden.
   typed: En verdens nummer
-  go: 'Rejs til verden {world}!'
-  goNowhere: Rejs
+  go: 'Afsted til verden {world}!'
+  goNowhere: Afsted
   goHome: Tag hjem
   typeOne: Skriv en verdens nummer.
   notAWorld: Verdenerne går fra 1 til 9999.
@@ -581,5 +581,5 @@ worlds:
   keys: 0–9 skriv · ↑ ↓ flyt · Enter vælg · Esc tilbage
   arrive: 'Verden {world}!'
   arriveNew: En ny verden at udforske!
-  arriveBack: Du er tilbage, hvor du slap.
+  arriveBack: Du er tilbage, hvor du var.
   arriveHome: Hjemme igen!
