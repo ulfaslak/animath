@@ -15,6 +15,7 @@ export {
 	puzzleTopics
 } from './puzzles/registry.js';
 export { healingDifficulty, puzzleDifficulty } from './puzzles/difficulty.js';
+export { countSolved } from './puzzles/solved.js';
 
 export type {
 	AnimalInstance,

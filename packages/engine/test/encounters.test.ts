@@ -587,7 +587,8 @@ describe('encounterTableAt: the ground around the tall grass', () => {
 		}
 		expect(bad.list).toEqual([]);
 		expect(compared).toBeGreaterThan(100_000);
-	});
+		// About 0.75 s alone (109,350 tables); 7.6 s at a load average of 40.
+	}, 30_000);
 
 	it('for a tier-1 lead is the table [[PRODUCT]] §4 writes out, on every ground', () => {
 		const bad = findings();
@@ -606,7 +607,8 @@ describe('encounterTableAt: the ground around the tall grass', () => {
 			}
 		}
 		expect(bad.list).toEqual([]);
-	});
+		// About 0.45 s alone (29,160 tables, each written out again here); 4.8 s at a load average of 40.
+	}, 30_000);
 
 	it('from its own tier up, a tier-T lead meets what a tier-1 lead met in a world T − 1 tiers smaller, on every ground', () => {
 		const bad = findings();
@@ -644,7 +646,8 @@ describe('encounterTableAt: the ground around the tall grass', () => {
 		}
 		expect(bad.list).toEqual([]);
 		expect(compared).toBeGreaterThan(20_000);
-	});
+		// About 0.3 s alone (25,000 tables, each written out again here); 2.5 s at a load average of 40.
+	}, 30_000);
 
 	it('more of a terrain nearby never lowers the share of an animal that favours it', () => {
 		// One tile around turns into terrain `to`, from open ground or from
@@ -696,7 +699,9 @@ describe('encounterTableAt: the ground around the tall grass', () => {
 		// Not a sweep of ties: the ground moved these shares tens of thousands of times.
 		expect(checked).toBeGreaterThan(50_000);
 		expect(rose).toBeGreaterThan(20_000);
-	});
+		// About 0.45 s alone (48,114 tables, and every one-tile change between them); 4.7 s at a
+		// load average of 40.
+	}, 30_000);
 
 	it('on any ground, the share two tiers above the lead never falls and its own never rises with distance', () => {
 		const bad = findings();
@@ -774,7 +779,8 @@ describe('the start: the ground near spawn', () => {
 		}
 		expect(bad.list).toEqual([]);
 		expect(compared).toBeGreaterThan(300_000);
-	});
+		// About 0.5 s alone (91,125 tables); 3.9 s at a load average of 40.
+	}, 30_000);
 
 	it("at the reed beside the prototype world's spawn, with the lake all round it, most battles are frogs and the otter stays 1 in 16", () => {
 		const seed = hashString('prototype');
@@ -845,7 +851,9 @@ describe('rollEncounter', () => {
 		}
 		expect(bad).toEqual([]);
 		expect(met).toBeGreaterThan(8000);
-	});
+		// About 0.65 s alone (112,000 rolls, each rolled again by the rule here); 5.4 s at a load
+		// average of 40.
+	}, 30_000);
 
 	it('neither the lead nor the ground changes whether a step starts a battle, only which animal comes out', () => {
 		const bad: string[] = [];
@@ -871,7 +879,8 @@ describe('rollEncounter', () => {
 		}
 		expect(bad).toEqual([]);
 		expect(battles).toBeGreaterThan(5000);
-	});
+		// About 0.45 s alone (108,600 rolls); 3.4 s at a load average of 40.
+	}, 30_000);
 
 	it('starts one encounter per 8–12 grass steps wherever anything could challenge the lead', () => {
 		const steps = 8000;
@@ -979,7 +988,8 @@ describe('rollEncounter', () => {
 		}
 		expect(bad).toEqual([]);
 		expect(met).toBeGreaterThan(2000);
-	});
+		// About 0.3 s alone (60,000 rolls); 2.1 s at a load average of 40.
+	}, 30_000);
 
 	it("samples the lead's table: species shares match the weights, and far out every species shows up", () => {
 		for (const lead of LEADS) {
