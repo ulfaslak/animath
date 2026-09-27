@@ -46,7 +46,10 @@ const creamMaterial = new THREE.MeshLambertMaterial({
 	flatShading: true,
 	side: THREE.DoubleSide
 });
-const lineMaterial = new THREE.MeshLambertMaterial({ color: GLIDER_COLORS.line, flatShading: true });
+const lineMaterial = new THREE.MeshLambertMaterial({
+	color: GLIDER_COLORS.line,
+	flatShading: true
+});
 
 /** The canopy's colour, per trainer (their shirt), shared like the rest. */
 const cells = new Map<number, THREE.Material>();
@@ -93,10 +96,7 @@ function line(a: THREE.Vector3, b: THREE.Vector3): THREE.Mesh {
 	const stick = mesh(new THREE.BoxGeometry(0.012, length, 0.012), lineMaterial);
 	stick.castShadow = false;
 	stick.position.copy(a).add(b).multiplyScalar(0.5);
-	stick.quaternion.setFromUnitVectors(
-		new THREE.Vector3(0, 1, 0),
-		b.clone().sub(a).normalize()
-	);
+	stick.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), b.clone().sub(a).normalize());
 	return stick;
 }
 

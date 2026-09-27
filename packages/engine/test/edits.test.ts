@@ -535,7 +535,8 @@ describe('clearing a tile', () => {
 					}
 				}
 			}
-			if (edits.encode().join(' ') !== before) bad.push(`${seed}: the overlay it was given changed`);
+			if (edits.encode().join(' ') !== before)
+				bad.push(`${seed}: the overlay it was given changed`);
 		}
 		expect(bad.slice(0, 20)).toEqual([]);
 		expect(cleared).toBeGreaterThan(100);

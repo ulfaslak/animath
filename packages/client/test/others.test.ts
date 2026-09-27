@@ -260,7 +260,9 @@ describe('other players on screen', () => {
 		const spawn = spawnPoint(WORLD_SEED);
 		const { others, frame, frames, figureOf, figures } = setup(spawn);
 		const lake = Array.from({ length: 14 }, (_, i) => ({ x: spawn.x, y: spawn.y - 1 - i }));
-		expect(lake.slice(0, 13).every((p) => isWater(tileAtWorld(WORLD_SEED, p.x, p.y).kind))).toBe(true);
+		expect(lake.slice(0, 13).every((p) => isWater(tileAtWorld(WORLD_SEED, p.x, p.y).kind))).toBe(
+			true
+		);
 		others.seen(peer('ada', spawn, { lead: 'rabbit' }));
 		frames(FADE_SECONDS + SWAP_IN_SECONDS + 0.2);
 		const ada = figureOf('ada')!;

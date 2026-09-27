@@ -2273,7 +2273,9 @@ describe('LocalAuthority: the glider', () => {
 
 	/** A save round trip, as the autosave and a reload do it. */
 	function throughSave(saved: SavedGame): SavedGame {
-		const read = readSave(JSON.parse(JSON.stringify(saveDocument(saved, { lineage: 'L', seq: 1 }))));
+		const read = readSave(
+			JSON.parse(JSON.stringify(saveDocument(saved, { lineage: 'L', seq: 1 })))
+		);
 		if (!read.ok) throw new Error(read.error);
 		return restoreGame(read.save);
 	}
@@ -2301,7 +2303,11 @@ describe('LocalAuthority: the glider', () => {
 		expect(s.events.slice(from)).toEqual([
 			{ type: 'landed', playerId: 'local', pos: { x: -2, y: -8 }, dir: 'up', flown: 14 }
 		]);
-		expect(s.authority.snapshot()).toMatchObject({ pos: { x: -2, y: -8 }, facing: 'up', steps: steps + 14 });
+		expect(s.authority.snapshot()).toMatchObject({
+			pos: { x: -2, y: -8 },
+			facing: 'up',
+			steps: steps + 14
+		});
 		// Down again, it walks as ever: a glide or a landing now does nothing.
 		from = s.events.length;
 		dispatchAll(s, [{ type: 'glide' }, { type: 'land' }]);
@@ -2317,7 +2323,12 @@ describe('LocalAuthority: the glider', () => {
 		expect(s.events.at(-1)).toMatchObject({ type: 'took-off', reach: 3 });
 		const from = s.events.length;
 		dispatchAll(s, glides(5));
-		expect(s.events.slice(from).map((e) => e.type)).toEqual(['glided', 'glided', 'glided', 'landed']);
+		expect(s.events.slice(from).map((e) => e.type)).toEqual([
+			'glided',
+			'glided',
+			'glided',
+			'landed'
+		]);
 		expect(landedAt(s)).toMatchObject({ pos: { x: 113, y: -154 }, flown: 3 });
 		expect(s.authority.snapshot().pos).toEqual({ x: 113, y: -154 });
 	});
@@ -2338,7 +2349,11 @@ describe('LocalAuthority: the glider', () => {
 
 		const plain = session();
 		plain.authority.dispatch({ type: 'take-off' });
-		expect(plain.events.at(-1)).toEqual({ type: 'take-off-refused', playerId: 'local', reason: 'no-glider' });
+		expect(plain.events.at(-1)).toEqual({
+			type: 'take-off-refused',
+			playerId: 'local',
+			reason: 'no-glider'
+		});
 	});
 
 	it('in the air nothing else is taken: a step, Enter, a trip, going to someone, leaving, another take-off; a party edit is refused', () => {
@@ -2434,7 +2449,10 @@ describe('LocalAuthority: the glider', () => {
 		// Without the boat, a lake wider than the reach is not flown at all.
 		const wide = flyer({ x: 112, y: -151 }, 'right', ['axe', 'pickaxe']);
 		wide.authority.dispatch({ type: 'take-off' });
-		expect(wide.events.at(-1)).toMatchObject({ type: 'take-off-refused', reason: 'nowhere-to-land' });
+		expect(wide.events.at(-1)).toMatchObject({
+			type: 'take-off-refused',
+			reason: 'nowhere-to-land'
+		});
 	});
 
 	it('coming down on a tree with the axe chops it as they land: ground from then on, in the save too; without it, on to the ground after the trees', () => {
@@ -2506,11 +2524,17 @@ describe('LocalAuthority: the glider', () => {
 			if (!battling) return { type: 'move', dir: i % 2 === 0 ? 'left' : 'right' };
 			const state = latestBattle(s);
 			if (state.phase.kind === 'choose-animal') {
-				return { type: 'battle', intent: { type: 'switch', partyIndex: state.party.findIndex((a) => a.hp > 0) } };
+				return {
+					type: 'battle',
+					intent: { type: 'switch', partyIndex: state.party.findIndex((a) => a.hp > 0) }
+				};
 			}
 			if (state.phase.kind === 'solving') {
 				const { answer } = state.phase.puzzle;
-				return { type: 'battle', intent: { type: 'answer', input: String(i % 3 === 0 ? answer + 1 : answer) } };
+				return {
+					type: 'battle',
+					intent: { type: 'answer', input: String(i % 3 === 0 ? answer + 1 : answer) }
+				};
 			}
 			return { type: 'battle', intent: { type: 'attack', attackIndex: 1, level: 1 } };
 		}

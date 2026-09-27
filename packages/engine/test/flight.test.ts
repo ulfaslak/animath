@@ -183,8 +183,14 @@ describe('a flight', () => {
 				continue;
 			}
 			const { flight } = result;
-			if (flight.reach !== brute.reach) bad.push(`${at}: reach ${flight.reach}, not ${brute.reach}`);
-			if (flight.flown !== 0 || flight.dir !== dir || flight.from.x !== from.x || flight.from.y !== from.y) {
+			if (flight.reach !== brute.reach)
+				bad.push(`${at}: reach ${flight.reach}, not ${brute.reach}`);
+			if (
+				flight.flown !== 0 ||
+				flight.dir !== dir ||
+				flight.from.x !== from.x ||
+				flight.from.y !== from.y
+			) {
 				bad.push(`${at}: ${JSON.stringify(flight)}`);
 			}
 			// Without the glider, never.
@@ -226,7 +232,8 @@ describe('a flight', () => {
 				if (distance < flight.flown) bad.push(`${where}: put back to ${distance}`);
 				if (distance > Math.max(1, flight.flown)) carried++;
 				const pos = ahead(from, dir, distance);
-				if (landing.pos.x !== pos.x || landing.pos.y !== pos.y) bad.push(`${where}: at ${JSON.stringify(landing.pos)}`);
+				if (landing.pos.x !== pos.x || landing.pos.y !== pos.y)
+					bad.push(`${where}: at ${JSON.stringify(landing.pos)}`);
 				// Standing there, in the world as the landing left it, with what they own.
 				const under = editedTileAt(seed, landing.edits, pos.x, pos.y).kind;
 				if (!isPassable(under, gearOf({ items }))) bad.push(`${where}: stands on ${under}`);
@@ -234,24 +241,28 @@ describe('a flight', () => {
 				const was = brute.kinds[distance - 1]!;
 				if (was === 'tree' || was === 'rock') {
 					cleared++;
-					if (!items.includes(CLEARING_TOOL[was])) bad.push(`${where}: on a ${was} without its tool`);
+					if (!items.includes(CLEARING_TOOL[was]))
+						bad.push(`${where}: on a ${was} without its tool`);
 					if (landing.cleared?.was !== was || !landing.edits.has(pos.x, pos.y)) {
 						bad.push(`${where}: the ${was} is not cleared`);
 					}
-					if (landing.cleared && landing.cleared.tool !== CLEARING_TOOL[was]) bad.push(`${where}: wrong tool`);
+					if (landing.cleared && landing.cleared.tool !== CLEARING_TOOL[was])
+						bad.push(`${where}: wrong tool`);
 				} else if (landing.cleared !== null || landing.edits !== edits) {
 					bad.push(`${where}: cleared ${was}`);
 				}
 				const flightAt = flightPos(flight);
 				const want2 = ahead(from, dir, flight.flown);
-				if (flightAt.x !== want2.x || flightAt.y !== want2.y) bad.push(`${where}: over the wrong tile`);
+				if (flightAt.x !== want2.x || flightAt.y !== want2.y)
+					bad.push(`${where}: over the wrong tile`);
 				const next = glideOn(flight);
 				if (flight.flown === flight.reach) {
 					// At the reach it goes no further.
 					if (next !== flight) bad.push(`${where}: glided past the reach`);
 					break;
 				}
-				if (next.flown !== flight.flown + 1 || next.reach !== flight.reach) bad.push(`${where}: glided oddly`);
+				if (next.flown !== flight.flown + 1 || next.reach !== flight.reach)
+					bad.push(`${where}: glided oddly`);
 				flight = next;
 			}
 		}
@@ -265,7 +276,12 @@ describe('a flight', () => {
 		const from = { x: 143, y: -152 };
 		const edits = WorldEdits.none.with({ x: 150, y: -150 });
 		const before = edits.encode();
-		const flight = Object.freeze({ from: Object.freeze(from), dir: 'down' as const, reach: 20, flown: 3 });
+		const flight = Object.freeze({
+			from: Object.freeze(from),
+			dir: 'down' as const,
+			reach: 20,
+			flown: 3
+		});
 		const items = Object.freeze(['glider', 'axe']);
 		const a = landFlight(WORLD_ONE_SEED, edits, flight, { items });
 		const b = landFlight(WORLD_ONE_SEED, edits, flight, { items });
@@ -324,7 +340,13 @@ describe('in World 1', () => {
 		});
 	const isWaterKind = (k: TileKind) => k === 'water' || k === 'deepwater';
 	const ground = (k: TileKind) => k === 'grass' || k === 'tallgrass' || k === 'sand';
-	const lands = (from: GridPos, dir: Direction, items: string[], letGo: number, edits = WorldEdits.none) => {
+	const lands = (
+		from: GridPos,
+		dir: Direction,
+		items: string[],
+		letGo: number,
+		edits = WorldEdits.none
+	) => {
 		const up = takeOff(seed, edits, { pos: from, facing: dir, items });
 		if (!up.ok) return up.reason;
 		const flight = { ...up.flight, flown: letGo };
@@ -361,7 +383,9 @@ describe('in World 1', () => {
 		const twentyOne = { x: 144, y: -152 };
 		const line21 = kindsOf(twentyOne, 'down', 21);
 		expect(line21.slice(0, 20).every(isWaterKind) && ground(line21[20]!)).toBe(true);
-		expect(takeOff(seed, WorldEdits.none, { pos: twentyOne, facing: 'down', items: ['glider'] })).toEqual({
+		expect(
+			takeOff(seed, WorldEdits.none, { pos: twentyOne, facing: 'down', items: ['glider'] })
+		).toEqual({
 			ok: false,
 			reason: 'nowhere-to-land'
 		});
@@ -374,7 +398,11 @@ describe('in World 1', () => {
 		expect(kindsOf(shore, 'right', 30).every(isWaterKind)).toBe(true);
 		expect(lands(shore, 'right', ['glider', 'axe', 'pickaxe'], 7)).toBe('nowhere-to-land');
 		const landing = lands(shore, 'right', ['glider', 'boat'], 7);
-		expect(typeof landing === 'object' && landing).toMatchObject({ pos: { x: 119, y: -151 }, flown: 7, cleared: null });
+		expect(typeof landing === 'object' && landing).toMatchObject({
+			pos: { x: 119, y: -151 },
+			flown: 7,
+			cleared: null
+		});
 		// Held on, it stops at the reach: the 20th tile, in the boat.
 		const held = lands(shore, 'right', ['glider', 'boat'], 20);
 		expect(typeof held === 'object' && held.flown).toBe(20);
@@ -396,7 +424,10 @@ describe('in World 1', () => {
 		});
 		if (typeof chopped !== 'object') throw new Error('no landing');
 		// A stump, saved in the cleared tiles like any chop, which a later flight reads as ground.
-		expect(editedTileAt(seed, chopped.edits, 96, -99)).toMatchObject({ kind: 'grass', cleared: 'tree' });
+		expect(editedTileAt(seed, chopped.edits, 96, -99)).toMatchObject({
+			kind: 'grass',
+			cleared: 'tree'
+		});
 		const again = lands(from, 'down', ['glider'], 3, chopped.edits);
 		expect(typeof again === 'object' && again.flown).toBe(3);
 	});

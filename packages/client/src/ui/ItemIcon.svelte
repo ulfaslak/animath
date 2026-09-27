@@ -62,7 +62,10 @@
 		<path class="sail" d="M17.5 5 26 17h-8.5Z" />
 	{:else}
 		<!-- The lines from the wing down to the harness, then the wing's cells over them. -->
-		<path class="lines" d="M5.6 16 14.5 26.5M13.5 10.3 15 26.5M18.5 10.3 17 26.5M26.4 16 17.5 26.5" />
+		<path
+			class="lines"
+			d="M5.6 16 14.5 26.5M13.5 10.3 15 26.5M18.5 10.3 17 26.5M26.4 16 17.5 26.5"
+		/>
 		{#each cells as cell, i (i)}
 			<polygon class={i % 2 === 0 ? 'sail' : 'cream'} points={cell} />
 		{/each}

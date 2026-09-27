@@ -214,7 +214,8 @@ export class OtherPlayers {
 		const last = lastReached?.pos ?? other.to;
 		if (last.x === target.x && last.y === target.y) {
 			// Up into the air, or down, where they stand: that is the next thing to draw.
-			if (flying !== (lastReached?.flying ?? other.flying)) other.queue.push({ pos: target, flying });
+			if (flying !== (lastReached?.flying ?? other.flying))
+				other.queue.push({ pos: target, flying });
 			return;
 		}
 		if (adjacent(last, target) && other.queue.length < MAX_BEHIND) {

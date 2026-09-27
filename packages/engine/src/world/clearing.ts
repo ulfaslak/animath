@@ -135,5 +135,9 @@ function clearAt(
 	const tool = CLEARING_TOOL[kind];
 	if (!hasItem(player, tool)) return { ok: false, reason: 'needs-tool', kind, tool };
 	const { edits: kept, regrown } = edits.with(at).trimmedAround(around);
-	return { ok: true, edits: kept, cleared: { pos: { x: at.x, y: at.y }, was: kind, tool, regrown } };
+	return {
+		ok: true,
+		edits: kept,
+		cleared: { pos: { x: at.x, y: at.y }, was: kind, tool, regrown }
+	};
 }

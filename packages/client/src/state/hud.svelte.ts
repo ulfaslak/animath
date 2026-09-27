@@ -284,22 +284,22 @@ class HudView {
 		game.flying
 			? ''
 			: this.action === 'talk'
-			? touch.on
-				? t('explore.talkPromptTouch')
-				: t('explore.talkPrompt')
-			: this.action === 'chop'
 				? touch.on
-					? t('explore.chopPromptTouch')
-					: t('explore.chopPrompt')
-				: this.action === 'break'
+					? t('explore.talkPromptTouch')
+					: t('explore.talkPrompt')
+				: this.action === 'chop'
 					? touch.on
-						? t('explore.breakPromptTouch')
-						: t('explore.breakPrompt')
-					: game.steps < HINT_STEPS
+						? t('explore.chopPromptTouch')
+						: t('explore.chopPrompt')
+					: this.action === 'break'
 						? touch.on
-							? t('explore.controlsTouch')
-							: t('explore.controls')
-						: ''
+							? t('explore.breakPromptTouch')
+							: t('explore.breakPrompt')
+						: game.steps < HINT_STEPS
+							? touch.on
+								? t('explore.controlsTouch')
+								: t('explore.controls')
+							: ''
 	);
 
 	/** Call after `game.apply(event)`, which knows who the player is and which way they face. */

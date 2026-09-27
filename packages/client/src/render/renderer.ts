@@ -380,7 +380,8 @@ export class GameRenderer {
 		);
 		this.afloat = afloat;
 		// A take-off refused: a little hop in place.
-		const hop = air.hop > 0 ? Math.sin(Math.min(1, air.hop) * Math.PI) * (motion.reduced ? 0.04 : 0.14) : 0;
+		const hop =
+			air.hop > 0 ? Math.sin(Math.min(1, air.hop) * Math.PI) * (motion.reduced ? 0.04 : 0.14) : 0;
 		this.playerAt.set(x, y + hop, z);
 		this.player.position.copy(this.playerAt);
 		// Figures face +z at rest, which is grid "down" (toward the camera).
