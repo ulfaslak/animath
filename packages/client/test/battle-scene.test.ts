@@ -219,9 +219,14 @@ interface Throw {
 /**
  * Throw the leash at `species` a frame at a time, as the battle does: the
  * flight, then (as `ending` says) the loop holding while the animal cheers,
- * or popping off.
+ * or popping off; or, `ending` null, the flight alone, which is all the arc
+ * is measured on.
  */
-function throwAt(size: (typeof SIZES)[number], species: string, ending: 'caught' | 'broke'): Throw {
+function throwAt(
+	size: (typeof SIZES)[number],
+	species: string,
+	ending: 'caught' | 'broke' | null
+): Throw {
 	touch.on = size.touch;
 	Object.assign(inset, size.inset);
 	scene.resize(size.width, size.height);
@@ -270,11 +275,13 @@ function throwAt(size: (typeof SIZES)[number], species: string, ending: 'caught'
 		scene.update((t += FRAME));
 		look('flying');
 	}
-	scene.leashResult(ending === 'caught');
-	// A second: the pop is over in 0.3 s, the cheer's two hops in 0.9 s.
-	for (let i = 0; i < 60; i++) {
-		scene.update((t += FRAME));
-		look(ending === 'caught' ? 'riding the cheer' : 'popping off');
+	if (ending) {
+		scene.leashResult(ending === 'caught');
+		// A second: the pop is over in 0.3 s, the cheer's two hops in 0.9 s.
+		for (let i = 0; i < 60; i++) {
+			scene.update((t += FRAME));
+			look(ending === 'caught' ? 'riding the cheer' : 'popping off');
+		}
 	}
 	// The straight throw runs from where the loop left the hand to where it landed; x moves along it evenly.
 	const landed = flight[flight.length - 1]!;
@@ -338,8 +345,9 @@ describe('the leash', () => {
 		// seven tablet and laptop sizes (every point of the loop projected on each of their
 		// frames, against the top edge and the status box; the tests after it reuse them), 17 s
 		// at a load average of 54; about 600 throws with the 32 animals of #89 (`everyThrow`),
-		// and about 940 with the four phone sizes too.
-	}, 120_000);
+		// and about 940 with the four phone sizes too: 67 s in the whole suite at a load
+		// average of 165.
+	}, 180_000);
 
 	it('knows where the wild animal’s status box is: its copy of the box covers the CSS’s', () => {
 		expect(WILD_STATUS_BOX.right).toBe(STATUS_BOX!.right);
@@ -365,9 +373,9 @@ describe('the leash', () => {
 		for (const size of SIZES) {
 			for (const { id } of ANIMALS) {
 				motion.reduced = false;
-				const full = throwAt(size, id, 'broke').arc;
+				const full = throwAt(size, id, null).arc;
 				motion.reduced = true;
-				const calm = throwAt(size, id, 'broke').arc;
+				const calm = throwAt(size, id, null).arc;
 				const { top, right, bottom, left } = size.inset;
 				const insets = size.inset === NO_INSET ? '' : `, insets ${top} ${right} ${bottom} ${left}`;
 				const where = `${id} at ${size.width}×${size.height}${size.touch ? ' (touch)' : ''}${insets}`;
@@ -381,9 +389,10 @@ describe('the leash', () => {
 			}
 		}
 		expect(bad).toEqual([]);
-		// About 1.4 s alone; 6.6 s at a load average of 54; with the phone sizes, 3 to 25 s at
-		// a load average of 135.
-	}, 60_000);
+		// The flights alone (the arc is measured on them): about 1.4 s alone with 14 animals at
+		// the seven tablet and laptop sizes, whole throws then; 6.6 s at a load average of 54.
+		// With 32 animals and the phone sizes, whole throws took 77 s at a load average of 165.
+	}, 120_000);
 });
 
 describe('out at sea', () => {

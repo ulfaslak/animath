@@ -197,9 +197,11 @@ const LEASH_ARC = 1;
 /**
  * The sky a throw keeps clear over its loop, as a share of the scene's
  * height on screen (the canvas above the panel): the loop comes no nearer
- * than this to the top of the picture.
+ * than this to the top of the picture. Never less than `LEASH_HEADROOM_MIN`
+ * CSS pixels: a phone's band is so thin that a share of it is a sliver.
  */
 const LEASH_HEADROOM = 0.05;
+const LEASH_HEADROOM_MIN = 12;
 /**
  * The wild animal's status box over the picture's top-left corner, in CSS
  * pixels from the safe area's top left (the canvas's, on a screen with no
@@ -826,7 +828,7 @@ export class BattleScene {
 		const across = (y: number) => seen(-1, 1 - (2 * y) / height, 1, 1 - (2 * y) / height);
 		const free = Math.max(1, height - battlePanelHeight(height));
 		// The loop keeps under the first line…
-		const ceiling = across(free * LEASH_HEADROOM);
+		const ceiling = across(Math.max(free * LEASH_HEADROOM, LEASH_HEADROOM_MIN));
 		// …and out of the corner above the second and left of the third: the box and its margin.
 		const inset = safeArea();
 		const box = wildStatusBox(height);
