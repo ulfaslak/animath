@@ -68,6 +68,15 @@ describe('reset-password', () => {
 		expect((await post('/login', { name, password: 'new one' })).status).toBe(200);
 	});
 
+	it('keeps a password it was handed in secret (the CLI’s --stdin) out of what it says', async () => {
+		const name = freshName();
+		await register(name, 'forgotten');
+		const lines = await resetPassword(name, 'hemmelig kode', { secret: true });
+		expect(lines.join('\n')).not.toContain('hemmelig');
+		expect(lines[0]).toBe(`A new password for ${name} is set.`);
+		expect((await post('/login', { name, password: 'hemmelig kode' })).status).toBe(200);
+	});
+
 	it('makes up an easy password when none is given', async () => {
 		const name = freshName();
 		await register(name);

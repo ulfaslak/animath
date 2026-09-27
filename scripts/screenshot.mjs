@@ -41,7 +41,8 @@
  * the screen says — on the title its menu, the confirm, the player's name
  * box, the starters and the starter's name box; the message line in explore (and the grid position and
  * facing with `?debug` in the URL), the party cards (and an open card's
- * animals) and the puzzles solved, tokens, tools and world in the corner; in the pause menu its
+ * animals), the puzzles solved, tokens, tools and world in the corner, and
+ * the coordinates in the other; in the pause menu its
  * rows, the animal book's row, the picked animal's options and the name box (with whether it has
  * the focus); in the animal book its count, what the lit card says, and every card (`Fox✓`
  * caught, `Fox` seen, `?` never seen, the lit one in brackets); at the doctor the doctor's line, the tokens, the tabs, the
@@ -361,6 +362,10 @@ async function describe() {
 		.locator('.belongings :is(.solved, .purse, .tool, .world)')
 		.allTextContents();
 	if (belongings.length) lines.push(`belongings: ${belongings.map((b) => b.trim()).join(' · ')}`);
+	// The coordinates in explore's bottom right corner, from the world's spawn, y up the screen
+	// ("x 7 · y −1"); the `?debug` badge's `at:` is the engine's grid, y down it.
+	const coords = await textOf('.coords');
+	if (coords !== null) lines.push(`coords: ${coords}`);
 	// Party cards in explore, one per species, the lead's in brackets and an open one in braces:
 	// "[1 Pip 20/20 goes first] | {2 Rabbit ×4 3 ready · 1 tired}"; then the open card's animals.
 	const cards = await page.locator('.party .cards .bundle').evaluateAll((els) =>

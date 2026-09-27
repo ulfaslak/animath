@@ -1068,21 +1068,27 @@ describe('newGame and restoreGame', () => {
 });
 
 describe('the animal book in a save', () => {
-	/** A kid's game from before the book: World 1, eight animals of six kinds, tokens, the axe and the boat. */
+	/**
+	 * A kid's account save from before the book, as production holds one: v2,
+	 * World 1, eleven animals of eight kinds (the starter named, a tired one, a
+	 * sea animal, two of wave 1's small animals), tokens, the axe and the boat,
+	 * a name, a world left behind, and no `seen` or `caught` at all.
+	 */
 	const kidsSave = {
 		version: 2,
 		home: FIRST_WORLD,
 		world: FIRST_WORLD,
-		name: 'Nini',
+		name: 'Aslak',
 		pos: spawnPoint(SEED),
 		facing: 'left',
-		steps: 7400,
-		visits: 31,
+		steps: 9120,
+		visits: 44,
 		lineage: 'kid-game',
-		seq: 5120,
+		seq: 6310,
 		tokens: 23,
 		items: ['axe', 'boat'],
-		solved: 312,
+		solved: 412,
+		worlds: [{ world: 7, pos: { x: 3, y: -2 }, facing: 'down' }],
 		party: [
 			{ id: 'starter', speciesId: 'squirrel', hp: 20, nickname: 'nini' },
 			{ id: 'f1', speciesId: 'fox', hp: 35 },
@@ -1091,28 +1097,54 @@ describe('the animal book in a save', () => {
 			{ id: 'o1', speciesId: 'otter', hp: 30 },
 			{ id: 'o2', speciesId: 'otter', hp: 0 },
 			{ id: 'd1', speciesId: 'deer', hp: 50 },
-			{ id: 't1', speciesId: 'turtle', hp: 30 }
+			{ id: 't1', speciesId: 'turtle', hp: 30 },
+			{ id: 'h1', speciesId: 'hedgehog', hp: 26 },
+			{ id: 'h2', speciesId: 'hedgehog', hp: 9 },
+			{ id: 'm1', speciesId: 'wood-mouse', hp: 19 }
 		]
 	};
+	const KINDS = ['squirrel', 'fox', 'rabbit', 'otter', 'deer', 'turtle', 'hedgehog', 'wood-mouse'];
 
 	it('back-fills a save from before the book: every kind in the party caught, and seen', () => {
-		const read = readSave(JSON.parse(JSON.stringify(kidsSave)));
+		expect(kidsSave.party).toHaveLength(11);
+		const stored = JSON.parse(JSON.stringify(kidsSave));
+		// What the server and the page make of it: readable, and neither broken nor a newer build's.
+		expect(validateSaveWrite(stored).ok).toBe(true);
+		const read = readSave(stored);
 		expect(read.ok).toBe(true);
 		if (!read.ok) return;
 		const game = restoreGame(read.save);
-		const kinds = ['squirrel', 'fox', 'rabbit', 'otter', 'deer', 'turtle'];
-		expect(game.caught).toEqual(kinds);
-		expect(game.seen).toEqual(kinds);
-		// Nothing else changes: the game plays on exactly where it was.
-		expect(game).toMatchObject({ world: 1, pos: kidsSave.pos, tokens: 23, solved: 312 });
-		expect(game.party).toHaveLength(8);
-		// Its next save writes the book out, and reads back the same.
-		const doc = saveDocument(game, { lineage: 'kid-game', seq: 5121 });
-		expect(doc).toMatchObject({ seen: kinds, caught: kinds });
+		expect(game.caught).toEqual(KINDS);
+		expect(game.seen).toEqual(KINDS);
+		// Nothing else changes: the game plays on exactly where it was, with all eleven.
+		expect(game).toMatchObject({
+			world: 1,
+			pos: kidsSave.pos,
+			tokens: 23,
+			solved: 412,
+			name: 'Aslak'
+		});
+		expect(game.party.map((a) => a.id).sort()).toEqual(kidsSave.party.map((a) => a.id).sort());
+		expect(game.worlds).toHaveLength(1);
+		// Its next save writes the book out, and the server takes it over the stored one, as the
+		// same game's next save, kept aside nowhere because nothing is lost: every field is as it was.
+		const doc = saveDocument(game, { lineage: 'kid-game', seq: 6311 }, saveExtras(read.save));
+		expect(doc).toMatchObject({ seen: KINDS, caught: KINDS });
+		expect(validateSaveWrite(JSON.parse(JSON.stringify(doc))).ok).toBe(true);
+		expect(canReplace(stored, doc)).toBe(true);
+		expect(replacesAnotherGame(stored, doc)).toBe(false);
+		// Field for field the stored save, `seq` one on, and the book's two lists added.
+		const wrote = doc as unknown as Record<string, unknown>;
+		for (const key of Object.keys(stored).filter((k) => k !== 'seq')) {
+			expect(wrote[key], key).toEqual(stored[key]);
+		}
+		expect(Object.keys(wrote).filter((k) => !(k in stored))).toEqual(['seen', 'caught']);
 		const again = readSave(JSON.parse(JSON.stringify(doc)));
 		expect(again.ok && restoreGame(again.save)).toEqual(game);
-		// And it holds the same progress as the save it came from: only the book was written out.
+		// And it holds the same progress as the save it came from, both ways: only the book was
+		// written out, so another tab still on the old save carries on from it, and it from them.
 		expect(sameProgress(read.save, doc)).toBe(true);
+		expect(sameProgress(doc, read.save)).toBe(true);
 	});
 
 	it('a saved battle proves its wild animal was met, even one that cannot be picked up again', () => {

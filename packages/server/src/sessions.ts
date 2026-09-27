@@ -144,8 +144,9 @@ export function clearSessionCookie(c: Context, options: CookieOptions): void {
 /**
  * `/me`'s lookup: the account a request is logged in to, moving the
  * session's end a year out once it is `SLIDE_AFTER_DAYS` into its year, and
- * sending the cookie again with it. Only login, register, logout and this
- * send the cookie, and this as rarely as it can: an answer that sends it
+ * sending the cookie again with it. Only login, register, a welcome link's
+ * POST, logout and this send the cookie, and this as rarely as it can: an
+ * answer that sends it
  * may land after a login in another tab of the same browser (whose
  * `Set-Cookie` then loses to the old token), so a cookie that names no live
  * session is left alone rather than cleared, and a live one is sent again

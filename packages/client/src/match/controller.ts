@@ -13,7 +13,6 @@ import {
 	type InviteEnd,
 	type MatchMessage,
 	type MatchSide,
-	type MatchView,
 	type PeerMessage,
 	type PlayIntent,
 	type ServerMessage,
@@ -117,12 +116,6 @@ export interface MatchDeps {
 	 * (`LocalAuthority.countMatchAnswers`). Each batch once.
 	 */
 	count?(events: readonly WireMatchEvent[], side: MatchSide): void;
-	/**
-	 * The match as this page shows it, each view it is sent: the other
-	 * player's animal in front goes in the animal book as met
-	 * (`LocalAuthority.meetInMatch`). Only a match the page plays.
-	 */
-	meet?(view: MatchView): void;
 	/** Seconds, for the invite's clock and the waits (real time, not frame time). */
 	clock?: () => number;
 	/** The battle's scene, or a stand-in in a test. */
@@ -675,10 +668,8 @@ export class MatchController implements MatchHooks {
 			this.begin(m);
 			return;
 		}
-		// The kid's own right answers are theirs to keep, whatever else the match does, and so is
-		// every animal they faced: the other's that stepped in front goes in the book.
+		// The kid's own right answers are theirs to keep, whatever else the match does.
 		if (m.events.length > 0) this.deps.count?.(m.events, m.view.you);
-		this.deps.meet?.(m.view);
 		const was = this.latest;
 		this.latest = m;
 		this.awayUntil = m.away ? this.clock() + m.away.ms / 1000 : null;
@@ -699,8 +690,6 @@ export class MatchController implements MatchHooks {
 			return;
 		}
 		if (pause.open || account.prompt) this.deps.stepAside?.();
-		// Face to face with the other's animal in front: it goes in the book, as a wild one does.
-		this.deps.meet?.(m.view);
 		const you = m.view.you;
 		const them = otherSide(you);
 		match.clearMatch();

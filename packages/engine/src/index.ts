@@ -37,7 +37,6 @@ export {
 	hasCaught,
 	hasSeen,
 	recordBattle,
-	recordMatch,
 	recordParty,
 	seeSpecies
 } from './animals/book.js';

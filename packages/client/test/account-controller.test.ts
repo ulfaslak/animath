@@ -61,16 +61,26 @@ function saveText(seq: number, name: string | null = 'Ida', lineage = 'game-a'):
 }
 
 type Answer = { status: number; json?: unknown } | 'network error';
-/** Answer each path; keep every request made. */
+/** Answer each path (or `METHOD path`, where one path takes two methods); keep every request made. */
 function server(answers: Record<string, Answer | (() => Answer)>) {
-	const requests: { url: string; body: unknown; account: string | null }[] = [];
+	const requests: {
+		url: string;
+		method: string;
+		body: unknown;
+		account: string | null;
+		welcome: string | null;
+	}[] = [];
 	vi.stubGlobal('fetch', async (url: string, init?: RequestInit) => {
+		const method = init?.method ?? 'GET';
+		const headers = new Headers(init?.headers);
 		requests.push({
 			url,
+			method,
 			body: init?.body ? JSON.parse(String(init.body)) : undefined,
-			account: new Headers(init?.headers).get('x-animath-account')
+			account: headers.get('x-animath-account'),
+			welcome: headers.get('x-animath-welcome')
 		});
-		const a = answers[url];
+		const a = answers[`${method} ${url}`] ?? answers[url];
 		const got = typeof a === 'function' ? a() : a;
 		if (!got) throw new Error(`unexpected request to ${url}`);
 		if (got === 'network error') throw new TypeError('Failed to fetch');
@@ -86,6 +96,8 @@ function setup(playerName: string | null = 'Ida', currentSave?: () => SaveWrite 
 	const store = new MemoryStore();
 	const restarts: AccountNote[] = [];
 	const events: string[] = [];
+	/** The welcome link forgotten by the tab, and the restarts, in the order they came. */
+	const welcomeSteps: string[] = [];
 	const controller = new AccountController({
 		store,
 		flush: () => events.push('flush'),
@@ -96,7 +108,11 @@ function setup(playerName: string | null = 'Ida', currentSave?: () => SaveWrite 
 		},
 		playerName: () => playerName,
 		answered: () => events.push('answered'),
-		restart: (note) => restarts.push(note)
+		restart: (note) => {
+			welcomeSteps.push(`restart:${note}`);
+			restarts.push(note);
+		},
+		forgetWelcome: () => welcomeSteps.push('forgetWelcome')
 	});
 	const press = (...names: string[]) => {
 		let last = key('');
@@ -107,7 +123,7 @@ function setup(playerName: string | null = 'Ida', currentSave?: () => SaveWrite 
 	const quiet = () => {
 		for (let t = 0; t < PICK_QUIET_SECONDS + 0.05; t += 0.1) controller.update(0.1);
 	};
-	return { store, controller, restarts, events, press, quiet };
+	return { store, controller, restarts, events, welcomeSteps, press, quiet };
 }
 
 /** Let the requests a submit started run to their end. */
@@ -387,6 +403,247 @@ describe('logging in', () => {
 		expect(account.field).toBe('password');
 		expect(currentAccount(store)).toBeNull();
 		expect(restarts).toEqual([]);
+	});
+});
+
+describe('the welcome link', () => {
+	const TOKEN = 'T0k3n_for-the-kid';
+	const look = 'GET /api/account/welcome';
+	const use = 'POST /api/account/welcome';
+	const live: Answer = { status: 200, json: { name: 'Aslak' } };
+	/** The requests made, as `METHOD path`. */
+	const said = (requests: { method: string; url: string }[]) =>
+		requests.map((r) => `${r.method} ${r.url}`);
+
+	/** Open the card, and let the server say whose account the link opens. */
+	async function opened(controller: AccountController): Promise<void> {
+		controller.openWelcome(TOKEN);
+		expect(account.card).toBe('welcome');
+		expect(account.welcome).toEqual({ phase: 'checking' });
+		await answered();
+	}
+
+	it('asks whose account the link opens, then takes the password for it; the view never holds the token', async () => {
+		server({ [look]: live });
+		const { controller, press } = setup(null);
+		await opened(controller);
+		expect(account.welcome).toEqual({ phase: 'ready', name: 'Aslak' });
+		expect(account.field).toBe('password');
+		// The name is the account's: Tab leaves the typing in the password.
+		press('Tab');
+		expect(account.field).toBe('password');
+		const view = [account.welcome, account.nameDraft, account.passwordDraft, account.problem];
+		expect(JSON.stringify(view)).not.toContain(TOKEN);
+	});
+
+	it('logs in with the password picked: the account’s save in its own keys, the guest game untouched, the page started again', async () => {
+		const theirs = JSON.parse(saveText(24614, 'Aslak', 'kid'));
+		const requests = server({
+			[look]: live,
+			[use]: { status: 200, json: { user: { name: 'Aslak' }, save: theirs } }
+		});
+		const { store, controller, restarts, events, welcomeSteps, press, quiet } = setup(null);
+		const guest = saveText(4, 'Guest', 'guest');
+		store.set(KEYS.save, guest);
+		rememberLogout(store, 'Old');
+		await opened(controller);
+		account.passwordDraft = 'blåbær';
+		quiet();
+		press('Enter');
+		await answered();
+		// The token in a header, then in the body: never in a path.
+		expect(requests).toEqual([
+			{
+				url: '/api/account/welcome',
+				method: 'GET',
+				body: undefined,
+				account: null,
+				welcome: TOKEN
+			},
+			{
+				url: '/api/account/welcome',
+				method: 'POST',
+				body: { token: TOKEN, password: 'blåbær' },
+				account: null,
+				welcome: null
+			}
+		]);
+		// The tab forgets the link before the page starts again, or the next start would reopen it.
+		expect(welcomeSteps).toEqual(['forgetWelcome', 'restart:welcome']);
+		expect(JSON.parse(store.get(gameKeys({ name: 'Aslak' }).save)!)).toEqual(theirs);
+		expect(store.get(KEYS.save)).toBe(guest);
+		expect(currentAccount(store)).toEqual({ name: 'Aslak' });
+		// The new session ended the old one: the logout waiting is moot.
+		expect(logoutPending(store)).toBeNull();
+		expect(events).toContain('flush');
+		expect(restarts).toEqual(['welcome']);
+	});
+
+	it('a password the rules refuse is said at once, with nothing sent, and the link waits', async () => {
+		const requests = server({ [look]: live });
+		const { controller, press, quiet, restarts } = setup(null);
+		await opened(controller);
+		account.passwordDraft = 'ab';
+		quiet();
+		press('Enter');
+		await answered();
+		expect(account.problem).toEqual({ kind: 'password', reason: 'short' });
+		expect(said(requests)).toEqual([look]);
+		expect(restarts).toEqual([]);
+	});
+
+	it('a spent link says so kindly: Enter opens the login card, Escape leaves the card for the title', async () => {
+		const spent: [Answer, string][] = [
+			[{ status: 410, json: { error: 'link used' } }, 'used'],
+			[{ status: 410, json: { error: 'link expired' } }, 'expired'],
+			[{ status: 404, json: { error: 'no such link' } }, 'unknown']
+		];
+		for (const [answer, why] of spent) {
+			server({ [look]: answer });
+			const { controller, welcomeSteps, press, quiet } = setup(null);
+			await opened(controller);
+			expect(account.welcome, why).toEqual({ phase: 'gone', why });
+			// A spent link is no use to the tab's next start.
+			expect(welcomeSteps).toEqual(['forgetWelcome']);
+			// Enter mashed as the card turned picks nothing.
+			press('Enter');
+			expect(account.card).toBe('welcome');
+			quiet();
+			press('Enter');
+			expect(account.card).toBe('login');
+			expect(account.from).toBe('title');
+			await opened(controller);
+			press('Escape');
+			expect(account.card).toBeNull();
+		}
+	});
+
+	it('a spent link offers no login while the server cannot keep an account, and offers it once it can', async () => {
+		server({ [look]: { status: 410, json: { error: 'link used' } } });
+		const { controller, press, quiet } = setup(null);
+		account.ready = false;
+		await opened(controller);
+		expect(account.welcome).toEqual({ phase: 'gone', why: 'used' });
+		quiet();
+		press('Enter');
+		expect(account.card).toBe('welcome');
+		controller.heardReady(true);
+		quiet();
+		press('Enter');
+		expect(account.card).toBe('login');
+	});
+
+	it('a link used meanwhile, between the look and the password, turns the card to the spent one', async () => {
+		const requests = server({
+			[look]: live,
+			[use]: { status: 410, json: { error: 'link used' } }
+		});
+		const { store, controller, restarts, press, quiet } = setup(null);
+		rememberLogout(store, 'Old');
+		await opened(controller);
+		account.passwordDraft = 'blåbær';
+		quiet();
+		press('Enter');
+		await answered();
+		expect(account.welcome).toEqual({ phase: 'gone', why: 'used' });
+		expect(account.busy).toBe(false);
+		expect(currentAccount(store)).toBeNull();
+		expect(logoutPending(store)).toBe('Old');
+		expect(restarts).toEqual([]);
+		expect(said(requests).filter((r) => r === use)).toHaveLength(1);
+	});
+
+	it('with no answer, the password is kept to try again, and the look asks again on Enter', async () => {
+		let up = false;
+		const requests = server({
+			[look]: () => (up ? live : 'network error'),
+			[use]: () =>
+				up ? { status: 200, json: { user: { name: 'Aslak' }, save: null } } : 'network error'
+		});
+		const { controller, welcomeSteps, press, quiet, restarts } = setup(null);
+		await opened(controller);
+		expect(account.welcome).toEqual({ phase: 'unreachable' });
+		// No answer is no reason to drop the link: the tab keeps it for a reload.
+		expect(welcomeSteps).toEqual([]);
+		up = true;
+		quiet();
+		press('Enter');
+		expect(account.welcome).toEqual({ phase: 'checking' });
+		await answered();
+		expect(account.welcome).toEqual({ phase: 'ready', name: 'Aslak' });
+		up = false;
+		account.passwordDraft = 'blåbær';
+		quiet();
+		press('Enter');
+		await answered();
+		expect(account.problem).toEqual({ kind: 'offline' });
+		expect(account.passwordDraft).toBe('blåbær');
+		up = true;
+		quiet();
+		press('Enter');
+		await answered();
+		expect(restarts).toEqual(['welcome']);
+		expect(said(requests).filter((r) => r === look)).toHaveLength(2);
+		expect(said(requests).filter((r) => r === use)).toHaveLength(2);
+	});
+
+	it('too many looks from here says so, with the wait, and Try again stays', async () => {
+		let limited = true;
+		server({
+			[look]: () =>
+				limited ? { status: 429, json: { error: 'too many tries', retryAfter: 290 } } : live
+		});
+		const { controller, welcomeSteps, press, quiet } = setup(null);
+		await opened(controller);
+		expect(account.welcome).toEqual({ phase: 'unreachable', minutes: 5 });
+		expect(welcomeSteps).toEqual([]);
+		limited = false;
+		quiet();
+		press('Enter');
+		await answered();
+		expect(account.welcome).toEqual({ phase: 'ready', name: 'Aslak' });
+	});
+
+	it('Escape puts the card away and the link with it; an answer that comes after changes nothing', async () => {
+		const requests = server({ [look]: live });
+		const { controller, welcomeSteps, press, quiet } = setup(null);
+		controller.openWelcome(TOKEN);
+		press('Escape');
+		expect(welcomeSteps).toEqual(['forgetWelcome']);
+		await answered();
+		expect(account.card).toBeNull();
+		account.passwordDraft = 'blåbær';
+		quiet();
+		press('Enter');
+		await answered();
+		expect(said(requests)).toEqual([look]);
+		// A card that took its place while the server was asked is left as it is.
+		controller.openWelcome(TOKEN);
+		controller.openLogin('title');
+		await answered();
+		expect(account.card).toBe('login');
+	});
+
+	it('a browser that keeps nothing sends nothing: the link waits for one that can', async () => {
+		const requests = server({ [look]: live });
+		const controller = new AccountController({
+			store: null,
+			flush: () => {},
+			pushNow: async () => true,
+			playerName: () => null,
+			answered: () => {},
+			restart: () => {
+				throw new Error('no restart expected');
+			}
+		});
+		controller.openWelcome(TOKEN);
+		await answered();
+		account.passwordDraft = 'blåbær';
+		for (let t = 0; t < PICK_QUIET_SECONDS + 0.05; t += 0.1) controller.update(0.1);
+		controller.onKey(key('Enter'));
+		await answered();
+		expect(account.problem).toEqual({ kind: 'storage' });
+		expect(said(requests)).toEqual([look]);
 	});
 });
 

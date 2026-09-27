@@ -73,8 +73,10 @@
  */
 import {
 	ANIMALS,
+	EMPTY_BOOK,
 	getAnimal,
 	newGame,
+	recordParty,
 	saveDocument,
 	type AnimalInstance,
 	type Direction
@@ -233,13 +235,18 @@ function parsePlayer(spec: string): Player {
 /** The save the player's browser starts with, as the game writes one: in their world, their home. */
 function saveOf(p: Player): string {
 	const game = newGame(p.world, undefined, p.name);
+	const party = p.party ?? game.party;
+	// The animal book of a game that begins with this party: its kinds, caught.
+	const book = recordParty(EMPTY_BOOK, party);
 	const doc = saveDocument(
 		{
 			...game,
 			pos: p.at ?? game.pos,
 			steps: p.steps,
 			facing: p.facing,
-			party: p.party ?? game.party,
+			party,
+			seen: [...book.seen],
+			caught: [...book.caught],
 			items: p.boat ? ['boat'] : []
 		},
 		{ lineage: `players-${p.label}`, seq: 1 }

@@ -33,7 +33,6 @@ import {
 	newGame,
 	normalizeNickname,
 	recordBattle,
-	recordMatch,
 	recordParty,
 	rollEncounter,
 	spawnPoint,
@@ -65,7 +64,6 @@ import {
 	type Line,
 	type MatchEvent,
 	type MatchSide,
-	type MatchView,
 	type PartyIntent,
 	type PlayerActivity,
 	type Realm,
@@ -351,28 +349,14 @@ export class LocalAuthority implements Authority {
 	 * sent them, for the player playing `side`: each of this player's right
 	 * answers adds one to the puzzles solved, as a right answer here does
 	 * (`countSolved`), and the other player's count for them, not here.
-	 * Nothing else changes here: a match changes nothing in the game but this
-	 * count and the animals met (`meetInMatch`) ([[DECISIONS]] § Multiplayer).
-	 * The hook the match screen calls with every batch of
+	 * Nothing else changes: a match changes nothing in the game ([[DECISIONS]]
+	 * § Multiplayer), the animal book included. The hook the match screen calls with every batch of
 	 * events it is sent, each batch once: a batch passed twice counts twice.
 	 * Only while a game is under way.
 	 */
 	countMatchAnswers(events: readonly MatchEvent[], side: MatchSide): void {
 		if (!this.started) return;
 		this.count(countSolved(this.solved, events, side));
-	}
-
-	/**
-	 * A friendly match's view, as the match's own authority (the server)
-	 * sent it to this player: the other player's animal in front goes in the
-	 * animal book as seen, as a wild one does when a battle starts
-	 * (`recordMatch`). The hook the match screen calls with every view it
-	 * shows, so every animal that steps in front is met. Nothing else changes.
-	 * Only while a game is under way.
-	 */
-	meetInMatch(view: MatchView): void {
-		if (!this.started) return;
-		this.note(recordMatch(this.book, view));
 	}
 
 	/**

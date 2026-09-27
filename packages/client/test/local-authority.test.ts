@@ -19,7 +19,6 @@ import {
 	itemsForSale,
 	joinParty,
 	leadIndex,
-	matchView,
 	nearestTent,
 	newGame,
 	step as stepFrom,
@@ -2269,42 +2268,6 @@ describe('LocalAuthority: the animal book', () => {
 		expect(s.authority.snapshot()).toMatchObject({ world: 42, caught: game.caught });
 		const again = resumed(throughSave(s.authority.snapshot()));
 		expect(welcome(again)).toMatchObject({ seen: game.seen, caught: game.caught });
-	});
-
-	it("a friendly match's animal in front is met, every one that steps in, and nothing else changes", () => {
-		const s = session();
-		const before = s.authority.snapshot();
-		let state = startMatch({ a: before.party, b: parseParty('wolf,deer,wolf')! }, 5);
-		const from = s.events.length;
-		s.authority.meetInMatch(matchView(state, 'a'));
-		expect(s.events.slice(from)).toEqual([
-			{ type: 'book-changed', seen: ['squirrel', 'wolf'], caught: ['squirrel'] }
-		]);
-		// The same animal in front again says nothing; the kid's own is theirs already.
-		s.authority.meetInMatch(matchView(state, 'a'));
-		expect(s.events.length).toBe(from + 1);
-		// The deer steps in on the other side: met too.
-		if (state.phase.kind !== 'choose-action' || state.phase.side !== 'b') {
-			state = applyMatchIntent(state, 'a', { type: 'attack', attackIndex: 1, level: 1 }, 5).state;
-			const phase = state.phase;
-			if (phase.kind === 'solving') {
-				const wrong = String(phase.puzzle.answer + 1);
-				state = applyMatchIntent(state, 'a', { type: 'answer', input: wrong }, 5).state;
-			}
-		}
-		state = applyMatchIntent(state, 'b', { type: 'switch', teamIndex: 1 }, 5).state;
-		s.authority.meetInMatch(matchView(state, 'a'));
-		expect(books(s).at(-1)).toEqual({ seen: ['squirrel', 'wolf', 'deer'], caught: ['squirrel'] });
-		expect(s.authority.snapshot()).toEqual({
-			...before,
-			seen: ['squirrel', 'wolf', 'deer']
-		});
-		// Before a game is under way there is no book to write in.
-		const title = new LocalAuthority();
-		const said: GameEvent[] = [];
-		title.subscribe((e) => said.push(e));
-		title.meetInMatch(matchView(state, 'a'));
-		expect(said).toEqual([]);
 	});
 });
 

@@ -7,23 +7,19 @@ import {
 	hasCaught,
 	hasSeen,
 	recordBattle,
-	recordMatch,
 	recordParty,
 	seeSpecies,
 	type AnimalBook
 } from '../src/animals/book.js';
 import { ANIMALS, canFightIn } from '../src/animals/catalog.js';
 import type { BattleOutcome, BattleState, BattleStep } from '../src/battle/types.js';
-import { MATCH_SIDES, type MatchSide } from '../src/match/types.js';
-import { matchView } from '../src/match/view.js';
 import { Rng, hashInts } from '../src/rng.js';
 import { makeParty, makeWild, playBattle } from './battle-sim.js';
-import { party as matchParty, playMatch } from './match-sim.js';
 
 /**
  * The animal book ([[PRODUCT]] §4 "The animal book"): its order, and the
  * rules that fill it at the events that show an animal — a wild battle's
- * start and its leash throws, a friendly match's animal in front, the party.
+ * start and its leash throws, and the party.
  */
 
 const IDS = ANIMALS.map((a) => a.id);
@@ -199,47 +195,5 @@ describe('recordBattle', () => {
 		expect(bad.slice(0, 20)).toEqual([]);
 		// Every way out of a battle was played: a battle run from, won or lost leaves it seen only.
 		expect([...outcomes.keys()].sort()).toEqual(['caught', 'fled', 'lost', 'won']);
-	}, 30_000);
-});
-
-describe('recordMatch', () => {
-	it('sees the other player’s animal in front in each view, every one that steps in, never one of the kid’s own', () => {
-		const LAND = ANIMALS.filter((a) => canFightIn(a.id, 'land')).map((a) => a.id);
-		const bad: string[] = [];
-		let viewsSeen = 0;
-		for (let s = 0; s < 40; s++) {
-			const rng = new Rng(hashInts(83, s));
-			const pick = () => Array.from({ length: 3 }, () => rng.pick(LAND));
-			const parties = { a: matchParty(pick()), b: matchParty(pick()) };
-			const books: Record<MatchSide, AnimalBook> = { a: EMPTY_BOOK, b: EMPTY_BOOK };
-			const inFront: Record<MatchSide, Set<string>> = { a: new Set(), b: new Set() };
-			const look = (state: Parameters<typeof matchView>[0]) => {
-				for (const side of MATCH_SIDES) {
-					const them: MatchSide = side === 'a' ? 'b' : 'a';
-					inFront[them].add(state.teams[them][state.active[them]]!.speciesId);
-					books[side] = recordMatch(books[side], matchView(state, side));
-					viewsSeen++;
-				}
-			};
-			const player = { accuracy: 0.7, policy: 'random' as const, switch: 0.3 };
-			let first = true;
-			const { state } = playMatch(s, parties, { a: player, b: player }, (before, _, __, step) => {
-				if (first) look(before);
-				first = false;
-				look(step.state);
-			});
-			for (const side of MATCH_SIDES) {
-				const them: MatchSide = side === 'a' ? 'b' : 'a';
-				// Exactly the other side's animals that came out in front, and none of the kid's own
-				// that the other side's did not bring too.
-				if ([...books[side].seen].sort().join() !== [...inFront[them]].sort().join()) {
-					bad.push(`${s}/${side}: saw ${books[side].seen}, faced ${[...inFront[them]]}`);
-				}
-				if (books[side].caught.length > 0) bad.push(`${s}/${side}: a match caught something`);
-			}
-			if (state.phase.kind !== 'ended') bad.push(`${s}: the match did not end`);
-		}
-		expect(bad.slice(0, 20)).toEqual([]);
-		expect(viewsSeen).toBeGreaterThan(1000);
 	}, 30_000);
 });

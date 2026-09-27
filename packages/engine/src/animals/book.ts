@@ -1,5 +1,4 @@
 import type { BattleEvent, BattleState } from '../battle/types.js';
-import type { MatchView } from '../match/types.js';
 import { ANIMALS } from './catalog.js';
 import type { AnimalInstance, AnimalSpec } from './types.js';
 
@@ -13,11 +12,11 @@ import type { AnimalInstance, AnimalSpec } from './types.js';
  * Each species is recorded at the point of the event that shows it, by the
  * rules here, which the authority calls: a wild battle's animal is seen the
  * moment the battle starts (`recordBattle`), and caught when a leash throw
- * lands (the same call, with the step's events); the animal in front on the
- * other side of a friendly match is seen (`recordMatch`); every animal in the
- * party is caught, the starter first (`recordParty`). Watching another
- * player's battle from outside records nothing: the book is what the kid met
- * face to face.
+ * lands (the same call, with the step's events); every animal in the party is
+ * caught, the starter first (`recordParty`). Nothing else records: a friendly
+ * match changes nothing in a game but the puzzles solved ([[DECISIONS]]
+ * § Multiplayer), and watching another player's battle from outside is not
+ * the kid's own battle.
  *
  * Only species of the catalog go in: an id it does not have is never
  * written, so a kid's own save can never name a species this build lacks,
@@ -94,19 +93,6 @@ export function recordBattle(
 		if (e.type === 'leash-thrown' && e.success) next = catchSpecies(next, wild);
 	}
 	return next;
-}
-
-/**
- * `book` after a friendly match's view, as the server sent it to this
- * player: the other player's animal in front is seen, the one the kid faces.
- * The rest of the other team is seen once it steps in front, in a later
- * view. The kid's own team is theirs already. The very same book when
- * nothing is new.
- */
-export function recordMatch(book: AnimalBook, view: MatchView): AnimalBook {
-	const them = view.you === 'a' ? 'b' : 'a';
-	const facing = view.teams[them][view.active[them]];
-	return facing ? seeSpecies(book, facing.speciesId) : book;
 }
 
 /**

@@ -159,9 +159,7 @@ function setup(party: AnimalInstance[] = PARTY) {
 				(e) => e.type === 'answer-judged' && e.correct && e.side === side
 			).length;
 			authority.countMatchAnswers(events, side);
-		},
-		// As main.ts wires it: the other's animals in front go in the book.
-		meet: (view) => authority.meetInMatch(view)
+		}
 	});
 	authority.subscribe((e) => {
 		game.apply(e);
@@ -425,14 +423,12 @@ describe('a match', () => {
 		expect(t.controller.busy).toBe(false);
 	});
 
-	it("meets the other's animals as they come out in front, in the book, and changes nothing else but that", () => {
-		// A kid with only a rabbit, against Bo's squirrel and frog.
+	it("leaves the animal book alone: the other's animals out in front are not the kid's to keep", () => {
+		// A kid with only a rabbit, against Bo's squirrel and frog: kinds their book has never had.
 		const t = setup([{ id: 'r1', speciesId: 'rabbit', hp: 22 }]);
 		const before = t.authority.snapshot();
 		expect([before.seen, before.caught]).toEqual([['rabbit'], ['rabbit']]);
 		const ref = started(t);
-		// Bo's squirrel is out in front from the first view: met.
-		expect(t.authority.snapshot().seen).toEqual(['rabbit', 'squirrel']);
 		// This page's turn first, if the coin says so: a wrong answer passes the turn.
 		if (ref.state.phase.kind === 'choose-action' && ref.state.phase.side === 'a') {
 			t.controller.receive(
@@ -442,12 +438,11 @@ describe('a match', () => {
 				ref.message('a', ref.apply('a', { type: 'answer', input: `${ref.answer()}1` }))
 			);
 		}
-		// Bo sends the frog in: met too. Bo's frog was never in front before.
+		// Bo sends the frog in: out in front of the kid's rabbit too.
 		t.controller.receive(ref.message('a', ref.apply('b', { type: 'switch', teamIndex: 1 })));
-		const after = t.authority.snapshot();
-		expect(after.seen).toEqual(['rabbit', 'squirrel', 'frog']);
-		expect(after.caught).toEqual(['rabbit']);
-		expect({ ...after, seen: before.seen }).toStrictEqual(before);
+		t.runUntil(() => battle.screen !== 'busy');
+		// A match changes nothing but the puzzles solved ([[DECISIONS]] § Multiplayer).
+		expect(t.authority.snapshot()).toStrictEqual(before);
 	});
 
 	it('says who starts, from the coin both see', () => {
