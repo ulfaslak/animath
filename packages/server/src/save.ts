@@ -7,22 +7,15 @@ import {
 } from '@mathgame/engine';
 import { eq, sql } from 'drizzle-orm';
 import { db } from './db/index.js';
-import {
-	accountSaveBackups,
-	accountSaves,
-	players,
-	saveBackups,
-	saves,
-	users
-} from './db/schema.js';
+import { accountSaveBackups, accountSaves, users } from './db/schema.js';
 
 /**
- * Storing a player's save backup. The document's shape is the engine's
+ * Storing an account's save. The document's shape is the engine's
  * (`SaveV2`, `validateSaveWrite`); this module decides whether a write lands.
  */
 
 /**
- * Hard cap on a PUT body, and so on a backup. A party has no cap, so this is
+ * Hard cap on a PUT body, and so on a save. A party has no cap, so this is
  * what bounds a save. An animal takes about 80 bytes of one (a uuid, a
  * species, its HP), up to 140 with a twelve-letter name of 4-byte letters,
  * and twice that mid-battle, when the battle holds a second copy of the
@@ -45,44 +38,6 @@ export const SAVE_FROM_NEWER_BUILD =
 export const STORED_FROM_NEWER_BUILD = 'the stored save is from a newer version of the game';
 
 /**
- * `stale`: the stored save has the same or a higher `seq`. `newer`: a newer
- * build wrote the stored save, which this build never replaces. Both 409.
- */
-export type WriteResult = 'saved' | 'stale' | 'newer';
-
-/**
- * Stores `doc` as the player's save unless the stored one has the same or a
- * higher `seq`, or was written by a newer build (`canReplace`). Before
- * replacing a document from a different game, or one this build cannot read,
- * copies it to `save_backups`. The player's row is locked for the
- * read-decide-write, so two concurrent writes are decided one after the
- * other, never both against the same old document.
- */
-export async function writeSave(playerId: string, doc: SaveWrite): Promise<WriteResult> {
-	return db.transaction(async (tx) => {
-		await tx.select({ id: players.id }).from(players).where(eq(players.id, playerId)).for('update');
-		const [row] = await tx
-			.select({ data: saves.data })
-			.from(saves)
-			.where(eq(saves.playerId, playerId));
-		const stored: unknown = row ? row.data : null;
-		if (!canReplace(stored, doc)) return isNewerSave(stored) ? 'newer' : 'stale';
-		if (replacesAnotherGame(stored, doc)) {
-			await tx.insert(saveBackups).values({
-				playerId,
-				data: stored,
-				reason: readSave(stored).ok ? 'replaced' : 'unreadable'
-			});
-		}
-		await tx
-			.insert(saves)
-			.values({ playerId, data: doc })
-			.onConflictDoUpdate({ target: saves.playerId, set: { data: doc, updatedAt: sql`now()` } });
-		return 'saved';
-	});
-}
-
-/**
  * How much of an account's set-aside saves the server keeps, as Postgres
  * stores them: the newest first, as many as fit, and always the newest one.
  * A kid's save is a few kilobytes, so this keeps hundreds of New games; a
@@ -101,11 +56,13 @@ export type AccountWriteResult =
 	| { kind: 'gone' };
 
 /**
- * `writeSave` for an account's save: the same guard (`canReplace`), the same
- * copy aside before another game or an unreadable document is replaced (to
- * `account_save_backups`, within `ACCOUNT_BACKUP_BYTES`), with the account's
- * row locked for the read-decide-write. A write that does not land returns
- * the stored save.
+ * Stores `doc` as the account's save unless the stored one has the same or a
+ * higher `seq`, or was written by a newer build (`canReplace`). Before
+ * replacing a document from a different game, or one this build cannot read,
+ * copies it to `account_save_backups`, within `ACCOUNT_BACKUP_BYTES`. The
+ * account's row is locked for the read-decide-write, so two concurrent writes
+ * are decided one after the other, never both against the same old document.
+ * A write that does not land returns the stored save.
  */
 export async function writeAccountSave(
 	userId: string,

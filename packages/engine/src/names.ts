@@ -5,7 +5,7 @@ import { MAX_MARKS_PER_LETTER, belongsOn } from './party/names.js';
  * the player's character, and their username once they make an account. The
  * one rule for it: the title asks it before it sends a name, the authority
  * asks it again, and a save's name is asked again when the game is loaded.
- * The server's save backup stores a name as sent, like the rest of the save;
+ * An account's save on the server stores a name as sent, like the rest of the save;
  * whatever shows a name to other players, or takes it as a username, asks it
  * there.
  *

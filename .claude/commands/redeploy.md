@@ -126,7 +126,7 @@ docker compose -f docker-compose.prod.yml exec -T postgres pg_restore -U mathgam
 docker compose -f docker-compose.prod.yml exec -T postgres psql -U mathgame -d mathgame -c "select count(*) from players; select count(*) from saves;"
 ```
 
-A kid's browser keeps its own save and sends a backup with a higher `seq` than an older copy the server holds, so the server catches up by itself as they play ([[DECISIONS]] § Saves). To give one kid a game back instead, see [[DEVELOPMENT]] § Database.
+A logged-in kid's browser keeps its own save and sends it with a higher `seq` than an older copy the server holds, so the account catches up by itself as they play ([[DECISIONS]] § Saves). To give one kid a game back instead, see [[DEVELOPMENT]] § Accounts.
 
 ## Changing Postgres
 

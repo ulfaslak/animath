@@ -35,30 +35,24 @@ class MemoryStore implements KeyValueStore {
 
 /** The account's save on the server, behind a session cookie, with the real write guard. */
 class FakeAccountServer implements SaveServer {
-	readonly session = true;
 	save: unknown = null;
 	online = true;
 	loggedIn = true;
 	calls: string[] = [];
 
-	async createPlayer() {
-		this.calls.push('create');
-		return { kind: 'offline' as const };
-	}
-
 	async getSave(): Promise<ServerRead> {
 		this.calls.push('get');
 		if (!this.online) return { kind: 'offline' };
-		if (!this.loggedIn) return { kind: 'unknown-player' };
+		if (!this.loggedIn) return { kind: 'logged-out' };
 		return this.save === null
 			? { kind: 'none' }
 			: { kind: 'found', doc: JSON.parse(JSON.stringify(this.save)) };
 	}
 
-	async putSave(_who: unknown, doc: SaveWrite): Promise<ServerWrite> {
+	async putSave(doc: SaveWrite): Promise<ServerWrite> {
 		this.calls.push('put');
 		if (!this.online) return { kind: 'offline' };
-		if (!this.loggedIn) return { kind: 'unknown-player' };
+		if (!this.loggedIn) return { kind: 'logged-out' };
 		if (!canReplace(this.save, doc)) return { kind: 'conflict' };
 		this.save = JSON.parse(JSON.stringify(doc));
 		return { kind: 'saved' };
@@ -129,7 +123,7 @@ beforeEach(() => vi.useFakeTimers());
 afterEach(() => vi.useRealTimers());
 
 describe("an account's game in the browser", () => {
-	it('saves under the account’s keys, never the guest’s, and keeps no identity', async () => {
+	it('saves under the account’s keys, never the guest’s, and writes nothing else', async () => {
 		const store = new MemoryStore();
 		const guest = JSON.stringify(saveDocument(gameOf('Guest'), { lineage: 'guest', seq: 4 }));
 		store.set(KEYS.save, guest);
@@ -140,9 +134,7 @@ describe("an account's game in the browser", () => {
 		await later();
 		expect(page.saved()?.party).toHaveLength(2);
 		expect(store.get(KEYS.save)).toBe(guest);
-		expect(store.get(KEYS.player)).toBeNull();
-		expect(store.get(KEYS_IDA.player)).toBeNull();
-		expect(server.calls).not.toContain('create');
+		expect([...store.data.keys()].sort()).toEqual([KEYS.save, KEYS_IDA.save].sort());
 		expect((server.save as SaveWrite).party).toHaveLength(2);
 	});
 
@@ -431,12 +423,12 @@ describe("an account's game in the browser", () => {
 		server.save = JSON.parse(JSON.stringify(mine));
 		const put = server.putSave.bind(server);
 		let once = true;
-		server.putSave = async (who, doc) => {
+		server.putSave = async (doc) => {
 			if (once) {
 				once = false;
 				return { kind: 'conflict' };
 			}
-			return put(who, doc);
+			return put(doc);
 		};
 		await page.walk();
 		await later(20_000);

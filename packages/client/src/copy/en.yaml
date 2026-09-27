@@ -28,6 +28,13 @@ app:
     title: This browser can't draw Animath's world.
     ask: Ask a grown-up for help!
     grownUps: "For grown-ups: Animath needs WebGL 2. Check that hardware acceleration is on in the browser's settings, or try another browser. On an iPad or iPhone, Lockdown Mode turns it off."
+  # Instead of the game, on an old address of it (the one it was shared from before it
+  # had its own): the game lives at {domain} now (animath.xyz). The big button goes
+  # there; the small link under it, for a grown-up, plays on at the old address.
+  moved:
+    title: Animath has moved!
+    go: Play at {domain}
+    stay: Keep playing here
 
 keys:
   # Key caps, as printed on the keyboard.
@@ -939,8 +946,8 @@ save:
   sessionEnded: You're logged out, so your game only saves on this device. Log in to keep it safe.
   # On a window that another window of the game has played past, until it catches up.
   behind: You kept playing in another window.
-  # The same card when the newest game came from somewhere else (the server backup),
-  # shown only when the page has already reloaded by itself three times in a minute.
+  # The same card when the newest game came from somewhere else (an account's copy on
+  # the server, or a new game started in another window), shown only when the page has already reloaded by itself three times in a minute.
   behindReady: Your newest game is ready.
   # The same card when the saved game was cleared (a new game comes next), shown only
   # when the page has already reloaded by itself three times in a minute.
