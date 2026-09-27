@@ -272,6 +272,7 @@ export function accountSaveServer(session: SessionCheck, base = '/api'): SaveSer
 		},
 		async getSave(_who, timeoutMs) {
 			// Start-up waits for the account's save only so long, the session check included.
+			const deadline = timeoutMs === undefined ? undefined : Date.now() + timeoutMs;
 			const answer =
 				timeoutMs === undefined
 					? await session.check()
@@ -283,7 +284,9 @@ export function accountSaveServer(session: SessionCheck, base = '/api'): SaveSer
 						]);
 			if (answer === 'ended') return { kind: 'unknown-player' };
 			if (answer === 'offline') return { kind: 'offline' };
-			return getAccountSave(session.name, base, timeoutMs);
+			const left = deadline === undefined ? undefined : deadline - Date.now();
+			if (left !== undefined && left <= 0) return { kind: 'offline' };
+			return getAccountSave(session.name, base, left);
 		},
 		async putSave(_who, doc, keepalive = false): Promise<ServerWrite> {
 			const answer = await session.check();

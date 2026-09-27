@@ -271,6 +271,24 @@ describe("the account's save, as the autosave's server", () => {
 		]);
 	});
 
+	it('start-up waits no longer than it asked, for the check and the save together', async () => {
+		vi.stubGlobal('fetch', async (url: string, init?: RequestInit) => {
+			if (url === me) {
+				await new Promise((resolve) => setTimeout(resolve, 100));
+				return reply({ status: 200, json: { user: { name: 'Ida' } } });
+			}
+			// The save never answers: only the abort ends the wait, as with a real fetch.
+			return new Promise<Response>((_, reject) =>
+				init?.signal?.addEventListener('abort', () => reject(new DOMException('', 'AbortError')))
+			);
+		});
+		const server = accountSaveServer(new SessionCheck('Ida'));
+		const started = Date.now();
+		// 120 ms in all: not 100 for the check and then 120 more for the save.
+		expect(await server.getSave(who, 120)).toEqual({ kind: 'offline' });
+		expect(Date.now() - started).toBeLessThan(180);
+	});
+
 	it('start-up waits no longer than it asked, the session check included', async () => {
 		vi.stubGlobal('fetch', () => new Promise<Response>(() => {}));
 		const server = accountSaveServer(new SessionCheck('Ida'));

@@ -241,6 +241,45 @@ describe("an account's game in the browser", () => {
 		expect(store.get(KEYS_IDA.save)).toBeNull();
 	});
 
+	it('the account’s game in this browser and a newer build’s on the server: at load, nothing starts', async () => {
+		const server = new FakeAccountServer();
+		const future = { version: 99, seq: 12, lineage: 'shared' };
+		server.save = future;
+		const store = new MemoryStore();
+		const here = JSON.stringify(saveDocument(gameOf(), { lineage: 'shared', seq: 10 }));
+		store.set(KEYS_IDA.save, here);
+		const page = new Page(store, server);
+		// Before any play: an old tab never plays on in a fork of the newer game.
+		expect(await page.autosave.boot()).toEqual({});
+		expect(page.autosave.behind).toBe('newer');
+		page.autosave.begin();
+		await page.catchOne();
+		await later(120_000);
+		expect(store.get(KEYS_IDA.save)).toBe(here);
+		expect(server.save).toEqual(future);
+		expect(server.calls).not.toContain('put');
+	});
+
+	it('the account’s game in this browser, and the server out of reach or holding a readable save: it starts at once', async () => {
+		for (const [online, theirs] of [
+			[false, null],
+			[true, saveDocument(gameOf(), { lineage: 'shared', seq: 8 })]
+		] as const) {
+			const server = new FakeAccountServer();
+			server.online = online;
+			server.save = theirs;
+			const store = new MemoryStore();
+			store.set(
+				KEYS_IDA.save,
+				JSON.stringify(saveDocument(gameOf(), { lineage: 'shared', seq: 10 }))
+			);
+			const page = new Page(store, server);
+			const plan = await page.autosave.boot();
+			expect(plan.game?.party, String(online)).toHaveLength(1);
+			expect(page.autosave.behind).toBeNull();
+		}
+	});
+
 	it('a server save no build could read is saved past, as the backup does, once the kid has played', async () => {
 		const broken = { version: 2, seq: 5, lineage: 'odd', party: 'not a party' };
 		const server = new FakeAccountServer();

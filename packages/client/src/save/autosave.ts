@@ -335,8 +335,10 @@ export class Autosave {
 	/**
 	 * Work out how the game starts. Instant when this browser holds a save;
 	 * waits up to `bootWaitMs` for the server only when it holds an identity
-	 * and no readable save. A newer build's save, here or there, starts
-	 * nothing: the page is behind it (`newer`) and the plan is empty.
+	 * and no readable save, or when the save is an account's (its game is
+	 * played on other devices too, where a newer version may have saved it). A
+	 * newer build's save, here or there, starts nothing: the page is behind it
+	 * (`newer`) and the plan is empty.
 	 */
 	async boot(): Promise<StartPlan> {
 		if (this.throwaway) return {};
@@ -353,6 +355,10 @@ export class Autosave {
 			if (read.ok) {
 				this.carryOn(read.save);
 				this.serverState = this.identity ? 'unknown' : 'ready';
+				// An account's game: the server is asked first, so this page never plays on in a
+				// fork of a game a newer version has saved on another device. Anything else it
+				// holds is settled as usual once the game begins.
+				if (this.server?.session && (await this.newerOnServer())) return {};
 				return { game: restoreGame(read.save), notice: 'save.welcomeBack' };
 			}
 			if (read.reason === 'newer') {
@@ -400,6 +406,22 @@ export class Autosave {
 			}
 		}
 		return plan;
+	}
+
+	/**
+	 * Start-up with an account's game in this browser: whether the server
+	 * holds one a newer version saved (then the page is behind it, `newer`),
+	 * asked for no longer than start-up waits. A session that has ended ends
+	 * the pushes, as it would later.
+	 */
+	private async newerOnServer(): Promise<boolean> {
+		if (!this.server || !this.identity) return false;
+		const got = await this.server.getSave(this.identity, this.bootWaitMs);
+		if (got.kind === 'unknown-player') this.retireIdentity();
+		if (got.kind !== 'found' || !isNewerSave(got.doc)) return false;
+		this.serverState = 'stopped';
+		this.staleCause = 'newer';
+		return true;
 	}
 
 	/**
