@@ -9,6 +9,7 @@
 	import { game } from '../state/game.svelte';
 	import { pause } from '../state/pause.svelte';
 	import { title } from '../state/title.svelte';
+	import { travel } from '../state/travel.svelte';
 	import BattlePanel from './BattlePanel.svelte';
 	import BehindCard from './BehindCard.svelte';
 	import DoctorCard from './DoctorCard.svelte';
@@ -36,7 +37,8 @@
 	<PauseMenu />
 {:else}
 	<Hud />
-	{#if touch.on}<TouchControls />{/if}
+	<!-- Not under a trip's cover, which takes no key: a thumb that lands there presses nothing. -->
+	{#if touch.on && !travel.active}<TouchControls />{/if}
 {/if}
 
 <SoundChip low={title.open} />
