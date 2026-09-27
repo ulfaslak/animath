@@ -27,7 +27,9 @@ const TRAINER = { x: 400, y: 300 };
 
 function setup() {
 	const authority = new LocalAuthority({ party: parseParty('squirrel')! });
-	const controller = new TravelController(authority, { playerScreenPoint: () => TRAINER });
+	/** Where the renderer draws the trainer now; a test moves it to where they land. */
+	const at = { ...TRAINER };
+	const controller = new TravelController(authority, { playerScreenPoint: () => ({ ...at }) });
 	const sent: Intent[] = [];
 	const events: GameEvent[] = [];
 	const dispatch = authority.dispatch.bind(authority);
@@ -53,7 +55,7 @@ function setup() {
 		run(Math.max(OPEN_SECONDS, BANNER_SECONDS) + 0.01);
 		return arrival;
 	};
-	return { controller, sent, events, run, trip };
+	return { controller, sent, events, run, trip, at };
 }
 
 beforeEach(() => {
@@ -85,6 +87,17 @@ describe('a trip to another world', () => {
 		run(BANNER_SECONDS);
 		expect(travel.banner).toBeNull();
 		expect(sent).toHaveLength(1);
+	});
+
+	it('opens round the trainer where they land, not where they left', () => {
+		const { controller, run, at } = setup();
+		controller.go(42);
+		expect([travel.cover?.x, travel.cover?.y]).toEqual([TRAINER.x, TRAINER.y]);
+		// In the new world the trainer stands higher, or back in the boat.
+		at.x = 412;
+		at.y = 281;
+		run(CLOSE_SECONDS + 0.01);
+		expect(travel.cover).toMatchObject({ closing: false, x: 412, y: 281 });
 	});
 
 	it('takes no second trip while one is under way', () => {

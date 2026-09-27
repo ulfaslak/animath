@@ -58,7 +58,12 @@ export class TravelController {
 				const arrival: Arrival =
 					event.world === game.home ? 'home' : event.firstVisit ? 'new' : 'back';
 				travel.banner = { world: event.world, arrival, age: 0, calm: motion.reduced };
-				if (travel.cover) travel.cover = { ...travel.cover, closing: false, p: 0 };
+				if (travel.cover) {
+					// Round the trainer where they stand now (explore has put them down): the point
+					// moves with the ground's height, and out on the water with the boat.
+					const at = this.renderer.playerScreenPoint();
+					travel.cover = { ...travel.cover, closing: false, p: 0, x: at.x, y: at.y };
+				}
 				break;
 			}
 			case 'travel-refused':
