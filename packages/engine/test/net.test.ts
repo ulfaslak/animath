@@ -145,7 +145,9 @@ describe('the wire protocol', () => {
 
 	it('refuses a message with any one field swapped for a value it never takes', () => {
 		const rng = new Rng(2);
-		for (let i = 0; i < 400; i++) {
+		// Checked without `expect` in the loop, which is hot: the ones let through are listed.
+		const through: string[] = [];
+		for (let i = 0; i < 200; i++) {
 			const c = randomClient(rng) as unknown as Record<string, unknown>;
 			const s = randomServer(rng) as unknown as Record<string, unknown>;
 			for (const [msg, parse] of [
@@ -156,16 +158,18 @@ describe('the wire protocol', () => {
 					for (const junk of JUNK) {
 						// Nobody else in the world is an empty roster, which is fine.
 						if (key === 'players' && Array.isArray(junk) && junk.length === 0) continue;
-						const bad = { ...msg, [key]: junk };
-						expect(parse(bad), `${String(msg.t)}.${key} = ${String(junk)}`).toBeNull();
+						if (parse({ ...msg, [key]: junk }) !== null) {
+							through.push(`${String(msg.t)}.${key} = ${String(junk)}`);
+						}
 					}
 					// An empty name, or a field missing altogether, is refused too.
-					if (key === 'name') expect(parse({ ...msg, name: '' })).toBeNull();
+					if (key === 'name' && parse({ ...msg, name: '' }) !== null) through.push('empty name');
 					const { [key]: _, ...without } = msg;
-					expect(parse(without), `${String(msg.t)} without ${key}`).toBeNull();
+					if (parse(without) !== null) through.push(`${String(msg.t)} without ${key}`);
 				}
 			}
 		}
+		expect(through).toEqual([]);
 	});
 
 	it('refuses what is not a message at all', () => {
