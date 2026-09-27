@@ -19,18 +19,21 @@ import { encounterRealm, isEncounterTile, type GridPos, type Tile } from './type
  * The biome's table (`encounterTable`) is the catalog filtered by biome and
  * realm, its tiers weighed on a bell around the lead's (`tierWeight`), as the
  * human asked: the lead's own tier is the likeliest, the tiers beside it next,
- * and every tier living there can come out. A tier's share goes by its
+ * and every tier living there is on the table (though near home four tiers
+ * above the lead weigh less than the rng's smallest step, so a starter never
+ * meets a bear or a whale there). A tier's share goes by its
  * distance from the lead's, never by how many kinds of animal it has; its
  * animals split it. The bell is symmetric from the wild radius out; nearer
  * home its side above the lead is pulled in, so that bigger animals are rare
  * near the spawn tile and the first minutes are kind. Near spawn, animals of
  * the lead's size also come down to the water and up the hills: the river and
  * the mountains, wherever something bigger than the lead lives there, get
- * every species of the lead's tier that doesn't live there as a visitor, on
- * top of the bell. As they thin out, the lead's tier loses weight; were they
- * only to share it out, the ground round a reed or a rock, favouring the
- * residents they leave behind, would make the lead's tier commoner on the way
- * out and the bigger animals rarer ([[INVARIANTS]] § Encounters).
+ * every species of the lead's tier that doesn't live there as a visitor: all
+ * of them together as much again as the lead's tier, on top of the bell. As
+ * they thin out, the lead's tier loses weight; were they only to share out its
+ * bell, the ground round a reed or a rock, favouring the residents they leave
+ * behind, would make the lead's tier commoner on the way out and the bigger
+ * animals rarer ([[INVARIANTS]] § Encounters).
  *
  * The table where the player stands (`encounterTableAt`) is the biome's,
  * weighed again by how much of the ground each species favours lies around
@@ -136,8 +139,8 @@ function tierWeight(above: number, distance: number): number {
 const VISITED_BIOMES: readonly Biome[] = ['river', 'mountain'];
 
 /**
- * What a visitor of the lead's tier weighs, next to a resident of that tier:
- * 1 inside the safe radius, thinning out linearly to 0 at the wild radius.
+ * What the visitors of the lead's tier weigh together, next to its bell: 1
+ * inside the safe radius, thinning out linearly to 0 at the wild radius.
  * Beyond it the river and the mountains are their own residents only.
  */
 function visitorWeight(distance: number): number {
@@ -163,12 +166,12 @@ function assertTier(tier: unknown, where: string): asserts tier is Tier {
  * animals of its tier live there: a tier's residents together weigh its bell,
  * however many kinds they are. In a visited biome (the river, the mountains)
  * where a resident is bigger than the lead, every species of the lead's tier
- * that doesn't live there is listed too, as a visitor weighing as much as a
- * resident of that tier times `visitorWeight` (as much as one resident where
- * none lives): the visitors come on top of the lead's tier, which near home
- * makes the lead's size commoner there. The weights are then normalised, so a
- * tier the biome doesn't hold never comes out there and the others share its
- * place. Empty only where nothing of the realm lives in the biome.
+ * that doesn't live there is listed too, as a visitor; the visitors together
+ * weigh the lead's tier's bell times `visitorWeight`, however many kinds they
+ * are, on top of its residents: near home the lead's size is twice as common
+ * there as the bell alone would make it. The weights are then normalised, so
+ * a tier the biome doesn't hold never comes out there and the others share
+ * its place. Empty only where nothing of the realm lives in the biome.
  */
 export function encounterTable(
 	biome: Biome,
@@ -184,16 +187,18 @@ export function encounterTable(
 		VISITED_BIOMES.includes(biome) && residents.some((a) => a.tier > leadTier)
 			? visitorWeight(distance)
 			: 0;
-	// How many animals of each tier live here: they split their tier's bell evenly.
+	// The animals of a tier living here split its bell evenly; the visitors split theirs.
 	const living = new Map<Tier, number>();
 	for (const a of residents) living.set(a.tier, (living.get(a.tier) ?? 0) + 1);
+	const isGuest = (a: AnimalSpec) =>
+		visitors > 0 && lives(a) && a.tier === leadTier && !a.habitats.includes(biome);
+	const guests = ANIMALS.filter(isGuest).length;
 	const raw = ANIMALS.flatMap((species) => {
-		if (!lives(species)) return [];
-		const home = species.habitats.includes(biome);
-		if (!home && !(species.tier === leadTier && visitors > 0)) return [];
 		const bell = tierWeight(species.tier - leadTier, distance);
-		const weight = (bell * (home ? 1 : visitors)) / Math.max(living.get(species.tier) ?? 0, 1);
-		return [{ species, weight }];
+		if (lives(species) && species.habitats.includes(biome))
+			return [{ species, weight: bell / living.get(species.tier)! }];
+		if (isGuest(species)) return [{ species, weight: (bell * visitors) / guests }];
+		return [];
 	});
 	const total = raw.reduce((sum, e) => sum + e.weight, 0);
 	return raw.map((e) => ({ species: e.species, weight: e.weight / total }));
