@@ -8,9 +8,9 @@
 	 * the edge of the screen, and a coral tip on its rim pointing where the
 	 * tent is. Placed like a friend's arrow (`doctorWay.arrow`, from
 	 * `DoctorWay`), and drawn so it never reads as one: a friend is an orange
-	 * arrow with a name, the doctor a tent in a disc. It shows while the tent
-	 * is off the screen; once the tent is on it, the tent says where to go.
-	 * Only over the explore screen, under its HUD. Nothing here takes a tap.
+	 * arrow with a name, the doctor a tent in a disc. It shows until the tent
+	 * is in plain sight; then the tent says where to go. Only over the explore
+	 * screen, under its HUD. Nothing here takes a tap.
 	 */
 </script>
 

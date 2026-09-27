@@ -49,9 +49,10 @@ interface Search {
 /**
  * The way to a doctor while the team needs one ([[UI_SPEC]] § Explore mode):
  * the nearest tent the player could walk to, or sail to with the boat, from
- * the engine's `nearestTent` in the world as they left it, and, while that
- * tent is off the screen, an arrow at the screen's edge pointing to it
- * (`edgeSpot`, as a friend's arrow is placed). Only over the explore screen.
+ * the engine's `nearestTent` in the world as they left it, and, until that
+ * tent is in plain sight, an arrow at the screen's edge pointing to it
+ * (`edgeSpot`, as a friend's arrow is placed; `arrowTo`). Only over the
+ * explore screen.
  *
  * It reads where the player is from `game`, however they got there (a step,
  * a go-to, another world, a reload), and looks again whenever that, the
