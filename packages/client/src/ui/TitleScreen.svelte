@@ -51,9 +51,12 @@
 	/**
 	 * Opened from the Home Screen with nothing saved here: the game played in
 	 * the browser is in the browser's storage, which a web app does not share.
-	 * Its hint says how to bring it over (#90).
+	 * Its hint says how to bring it over (#90), by an account: only while the
+	 * server can keep one.
 	 */
-	const standaloneHint = $derived(runsAsWebApp() && saved === null && account.name === null);
+	const standaloneHint = $derived(
+		runsAsWebApp() && saved === null && account.name === null && account.ready
+	);
 	const species = $derived(STARTERS[title.starter] ?? STARTERS[0]!);
 	/**
 	 * How much the player's name box takes: well past the longest name, so a
