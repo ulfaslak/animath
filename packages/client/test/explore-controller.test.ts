@@ -242,6 +242,25 @@ describe('the glider', () => {
 		expect(s.cards()).toEqual(cards);
 	});
 
+	it('who goes first stays who went first up in the air: over the water it is not the swimmer', () => {
+		const s = setup('squirrel', {
+			...flyer(SPAWN, 'up'),
+			party: [
+				{ id: 'nut', speciesId: 'squirrel', hp: 20 },
+				{ id: 'fin', speciesId: 'otter', hp: 25 }
+			]
+		});
+		expect(game.realm).toBe('land');
+		s.press(' ');
+		s.run(HOLD_TO_FLY + RISE_SECONDS + GLIDE_SECONDS * 3 + 0.05);
+		expect(game.flying).toBe(true);
+		expect(game.pos.y).toBeLessThanOrEqual(3);
+		expect(game.realm).toBe('land');
+		s.release(' ');
+		s.run(3);
+		expect(game.realm).toBe('land');
+	});
+
 	it('holding on comes down at the reach by itself, and Space still held takes nobody up again', () => {
 		// Three tiles of ground, then water, trees and rocks past the 20th.
 		const s = setup('squirrel', flyer({ x: 110, y: -154 }, 'right'));
