@@ -1,5 +1,5 @@
 import './styles.css';
-import type { SavedGame } from '@mathgame/engine';
+import { bundles, type SavedGame } from '@mathgame/engine';
 import { flushSync, mount } from 'svelte';
 import {
 	SessionCheck,
@@ -9,6 +9,7 @@ import {
 } from './account/api';
 import { AccountController } from './account/controller';
 import { PLAY_HOUR_MS, PlayClock } from './account/playtime';
+import { ReadyWatch, relit } from './account/ready';
 import { noteNextStart, restartWith, takeAccountNote } from './account/restart';
 import { currentAccount, forgetLogout, gameKeys, logoutPending } from './account/session';
 import { sfx } from './audio/sfx.svelte';
@@ -45,7 +46,7 @@ import { behind } from './state/behind.svelte';
 import { doctor } from './state/doctor.svelte';
 import { game } from './state/game.svelte';
 import { hud } from './state/hud.svelte';
-import { pause } from './state/pause.svelte';
+import { menuItems, pause } from './state/pause.svelte';
 import { title } from './state/title.svelte';
 import { travel } from './state/travel.svelte';
 import { TitleController } from './title/controller';
@@ -174,6 +175,24 @@ const pauseController = new PauseController(authority, {
 	logIn: () => accountController.openLogin('pause'),
 	logOut: () => void accountController.logOut()
 });
+
+/**
+ * The server said whether it can keep an account now (`account/ready.ts`):
+ * the rows that offer one come or go, each menu's cursor staying on the row
+ * it lit, and an hourly card that is up goes, unanswered, until it can.
+ */
+function heardReady(ready: boolean): void {
+	if (account.ready === ready) return;
+	const cards = bundles(game.party).length;
+	const items = menuItems();
+	const rows = title.rows;
+	accountController.heardReady(ready);
+	if (pause.cursor >= cards) pause.cursor = cards + relit(items, menuItems(), pause.cursor - cards);
+	title.cursor = relit(rows, title.rows, title.cursor);
+}
+// A throwaway game offers no account, so it never asks.
+const readyWatch = flags.throwaway ? null : new ReadyWatch(heardReady);
+readyWatch?.start();
 
 /**
  * What start-up found about the save, said on the message line once the
@@ -410,7 +429,10 @@ for (const type of ['focus', 'online', 'pageshow']) {
 	window.addEventListener(type, () => presenceController.wake());
 }
 document.addEventListener('visibilitychange', () => {
-	if (document.visibilityState === 'visible') presenceController.wake();
+	if (document.visibilityState !== 'visible') return;
+	presenceController.wake();
+	// Whether the server can keep an account may have changed while the page was away.
+	readyWatch?.shown();
 });
 // Behind: nothing typed (AltGr and Option letters too), pasted or dropped reaches a text
 // box either. Only an input method's composition cannot be cancelled.
@@ -446,8 +468,9 @@ function catchUp(onItsOwn: boolean): void {
  * A guest's game, played with the page on screen: its hour of play is
  * counted, and once another hour has passed, the card offers to keep the
  * game safe, while exploring (never in a battle, at the doctor, in the menu
- * or on a trip to another world). Not for an account's game, a throwaway one, or a page that keeps
- * nothing.
+ * or on a trip to another world), and only while the server can keep an
+ * account (`openPrompt`): until then the hour stays due. Not for an account's
+ * game, a throwaway one, or a page that keeps nothing.
  */
 function countPlay(dt: number): void {
 	const lineage = autosave.playing;

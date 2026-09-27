@@ -39,6 +39,7 @@ import {
  *   POST /api/account/register  { name, password, save? } → 201 { user: { name } } + cookie
  *   POST /api/account/login     { name, password }        → 200 { user: { name } } + cookie
  *   POST /api/account/logout                              → 200 { ok: true }: the session ended
+ *   GET  /api/account/ready                               → 200 { ready: boolean }
  *   GET  /api/account/me                                  → 200 { user: { name } | null }
  *   GET  /api/account/save                                → 200 SaveV2 | 404 no save yet
  *   PUT  /api/account/save      SaveV2                    → 200 { ok: true } | 409 { error, save }
@@ -127,9 +128,11 @@ function loginKey(typed: string): string | null {
 export interface AccountRouteOptions {
 	cookie: CookieOptions;
 	limits: AccountLimits;
+	/** Whether accounts work now (`AccountsReady`): the game offers them only then. */
+	ready: () => Promise<boolean>;
 }
 
-export function accountRoute({ cookie, limits }: AccountRouteOptions) {
+export function accountRoute({ cookie, limits, ready }: AccountRouteOptions) {
 	const limit = {
 		loginPerIp: new RateLimiter(limits.loginPerIp),
 		loginFailuresPerNameFromIp: new RateLimiter(limits.loginFailuresPerNameFromIp),
@@ -172,134 +175,146 @@ export function accountRoute({ cookie, limits }: AccountRouteOptions) {
 		await next();
 	};
 
-	return new Hono<Env>()
-		.use('*', sameOriginJson)
-		.post('/register', tooBig(REGISTER_MAX_BYTES), async (c) => {
-			const byIp = limit.registerPerIp.hit(rateKey(clientIp(c)));
-			if (!byIp.ok) return tooMany(c, byIp);
-			const body = await readJson(c);
-			if (body === undefined) return c.json({ error: 'body is not valid JSON' }, 400);
-			const given = credentials(body);
-			if (!given) return c.json({ error: 'send a name and a password' }, 400);
-			// The body may be a megabyte; a name that long is never worked through.
-			const named =
-				given.name.length > MAX_TYPED_NAME
-					? ({ ok: false, reason: 'long' } as const)
-					: checkName(given.name);
-			if (!named.ok) return c.json({ error: 'bad name', reason: named.reason }, 400);
-			const key = nameKey(named.name);
-			const byName = limit.registerPerName.hit(key);
-			if (!byName.ok) return tooMany(c, byName);
-			const password = checkPassword(given.password);
-			if (!password.ok) return c.json({ error: 'bad password', reason: password.reason }, 400);
-			let save: SaveWrite | null = null;
-			const guestSave = (body as Record<string, unknown>).save;
-			if (guestSave !== undefined && guestSave !== null) {
-				// The body limit leaves room for the name and password; the save
-				// itself gets the same cap as a PUT.
-				if (Buffer.byteLength(JSON.stringify(guestSave), 'utf8') > SAVE_MAX_BYTES) {
-					return c.json({ error: `save is bigger than ${SAVE_MAX_BYTES} bytes` }, 413);
+	return (
+		new Hono<Env>()
+			.use('*', sameOriginJson)
+			.post('/register', tooBig(REGISTER_MAX_BYTES), async (c) => {
+				const byIp = limit.registerPerIp.hit(rateKey(clientIp(c)));
+				if (!byIp.ok) return tooMany(c, byIp);
+				const body = await readJson(c);
+				if (body === undefined) return c.json({ error: 'body is not valid JSON' }, 400);
+				const given = credentials(body);
+				if (!given) return c.json({ error: 'send a name and a password' }, 400);
+				// The body may be a megabyte; a name that long is never worked through.
+				const named =
+					given.name.length > MAX_TYPED_NAME
+						? ({ ok: false, reason: 'long' } as const)
+						: checkName(given.name);
+				if (!named.ok) return c.json({ error: 'bad name', reason: named.reason }, 400);
+				const key = nameKey(named.name);
+				const byName = limit.registerPerName.hit(key);
+				if (!byName.ok) return tooMany(c, byName);
+				const password = checkPassword(given.password);
+				if (!password.ok) return c.json({ error: 'bad password', reason: password.reason }, 400);
+				let save: SaveWrite | null = null;
+				const guestSave = (body as Record<string, unknown>).save;
+				if (guestSave !== undefined && guestSave !== null) {
+					// The body limit leaves room for the name and password; the save
+					// itself gets the same cap as a PUT.
+					if (Buffer.byteLength(JSON.stringify(guestSave), 'utf8') > SAVE_MAX_BYTES) {
+						return c.json({ error: `save is bigger than ${SAVE_MAX_BYTES} bytes` }, 413);
+					}
+					const checked = validateSaveWrite(guestSave);
+					if (!checked.ok) {
+						if (checked.reason === 'newer') return c.json({ error: SAVE_FROM_NEWER_BUILD }, 503);
+						return c.json({ error: 'bad save', detail: checked.error }, 400);
+					}
+					save = checked.value;
 				}
-				const checked = validateSaveWrite(guestSave);
+				// Spare the slow hash for a name that is plainly taken; the unique
+				// key still decides a race between two registrations.
+				if (await findUser(key)) return c.json({ error: 'name taken' }, 409);
+				const created = await createAccount({
+					name: named.name,
+					nameKey: key,
+					passwordHash: await hashPassword(password.password),
+					save
+				});
+				if (!created) return c.json({ error: 'name taken' }, 409);
+				await logIn(c, created.token);
+				return c.json({ user: { name: named.name } }, 201);
+			})
+			.post('/login', tooBig(LOGIN_MAX_BYTES), async (c) => {
+				const address = rateKey(clientIp(c));
+				const byIp = limit.loginPerIp.hit(address);
+				if (!byIp.ok) return tooMany(c, byIp);
+				const body = await readJson(c);
+				if (body === undefined) return c.json({ error: 'body is not valid JSON' }, 400);
+				const given = credentials(body);
+				if (!given) return c.json({ error: 'send a name and a password' }, 400);
+				const key = loginKey(given.name);
+				if (key === null) return c.json({ error: 'wrong name or password' }, 401);
+				// Counted as a failure until the password proves right, so tries
+				// racing each other cannot all slip under the limits.
+				const pair = `${key}\u0000${address}`;
+				const fromHere = limit.loginFailuresPerNameFromIp.hit(pair);
+				if (!fromHere.ok) return tooMany(c, fromHere);
+				const fromAnywhere = limit.loginFailuresPerName.hit(key);
+				if (!fromAnywhere.ok) {
+					limit.loginFailuresPerNameFromIp.refund(pair);
+					return tooMany(c, fromAnywhere);
+				}
+				const password = checkPassword(given.password);
+				const user = await findUser(key);
+				const right =
+					user && password.ok
+						? await verifyPassword(password.password, user.passwordHash)
+						: await verifyDecoy(password.ok ? password.password : 'wrong length');
+				if (!user || !right) return c.json({ error: 'wrong name or password' }, 401);
+				limit.loginFailuresPerNameFromIp.refund(pair);
+				limit.loginFailuresPerName.refund(key);
+				await logIn(c, await createSession(db, user.id));
+				return c.json({ user: { name: user.name } });
+			})
+			.post('/logout', tooBig(LOGIN_MAX_BYTES), async (c) => {
+				const claimed = claimedAccount(c);
+				if (claimed === null)
+					return c.json({ error: `name the account in ${ACCOUNT_HEADER}` }, 400);
+				const token = sessionToken(c);
+				if (claimed !== undefined) {
+					// A page logging its own account out: that account's session ends, and no cookie
+					// is sent, so this answer can never undo a login another tab makes at the same
+					// moment (a cookie whose session is gone opens nothing). A session that is another
+					// account's now is left as it is.
+					const user = await sessionUser(c);
+					if (token !== undefined && user?.nameKey === claimed) await deleteSession(token);
+					return c.json({ ok: true });
+				}
+				if (token !== undefined) await deleteSession(token);
+				clearSessionCookie(c, cookie);
+				return c.json({ ok: true });
+			})
+			// Every page asks this every half minute, and offers accounts only on a yes: a server
+			// whose database is down, or lacks the accounts' tables, would break the promise.
+			.get('/ready', async (c) => {
+				c.header('Cache-Control', 'no-store');
+				return c.json({ ready: await ready() });
+			})
+			.get('/me', async (c) => {
+				const user = await currentUser(c, cookie);
+				return c.json({ user: user ? { name: user.name } : null });
+			})
+			.get('/save', requireSession, async (c) => {
+				const [row] = await db
+					.select({ data: accountSaves.data })
+					.from(accountSaves)
+					.where(eq(accountSaves.userId, c.get('user').id));
+				if (!row) return c.json({ error: 'no save yet' }, 404);
+				return c.json(row.data);
+			})
+			.put('/save', requireSession, savesLimited, tooBig(SAVE_MAX_BYTES), async (c) => {
+				const body = await readJson(c);
+				if (body === undefined) return c.json({ error: 'body is not valid JSON' }, 400);
+				const checked = validateSaveWrite(body);
 				if (!checked.ok) {
 					if (checked.reason === 'newer') return c.json({ error: SAVE_FROM_NEWER_BUILD }, 503);
 					return c.json({ error: 'bad save', detail: checked.error }, 400);
 				}
-				save = checked.value;
-			}
-			// Spare the slow hash for a name that is plainly taken; the unique
-			// key still decides a race between two registrations.
-			if (await findUser(key)) return c.json({ error: 'name taken' }, 409);
-			const created = await createAccount({
-				name: named.name,
-				nameKey: key,
-				passwordHash: await hashPassword(password.password),
-				save
-			});
-			if (!created) return c.json({ error: 'name taken' }, 409);
-			await logIn(c, created.token);
-			return c.json({ user: { name: named.name } }, 201);
-		})
-		.post('/login', tooBig(LOGIN_MAX_BYTES), async (c) => {
-			const address = rateKey(clientIp(c));
-			const byIp = limit.loginPerIp.hit(address);
-			if (!byIp.ok) return tooMany(c, byIp);
-			const body = await readJson(c);
-			if (body === undefined) return c.json({ error: 'body is not valid JSON' }, 400);
-			const given = credentials(body);
-			if (!given) return c.json({ error: 'send a name and a password' }, 400);
-			const key = loginKey(given.name);
-			if (key === null) return c.json({ error: 'wrong name or password' }, 401);
-			// Counted as a failure until the password proves right, so tries
-			// racing each other cannot all slip under the limits.
-			const pair = `${key}\u0000${address}`;
-			const fromHere = limit.loginFailuresPerNameFromIp.hit(pair);
-			if (!fromHere.ok) return tooMany(c, fromHere);
-			const fromAnywhere = limit.loginFailuresPerName.hit(key);
-			if (!fromAnywhere.ok) {
-				limit.loginFailuresPerNameFromIp.refund(pair);
-				return tooMany(c, fromAnywhere);
-			}
-			const password = checkPassword(given.password);
-			const user = await findUser(key);
-			const right =
-				user && password.ok
-					? await verifyPassword(password.password, user.passwordHash)
-					: await verifyDecoy(password.ok ? password.password : 'wrong length');
-			if (!user || !right) return c.json({ error: 'wrong name or password' }, 401);
-			limit.loginFailuresPerNameFromIp.refund(pair);
-			limit.loginFailuresPerName.refund(key);
-			await logIn(c, await createSession(db, user.id));
-			return c.json({ user: { name: user.name } });
-		})
-		.post('/logout', tooBig(LOGIN_MAX_BYTES), async (c) => {
-			const claimed = claimedAccount(c);
-			if (claimed === null) return c.json({ error: `name the account in ${ACCOUNT_HEADER}` }, 400);
-			const token = sessionToken(c);
-			if (claimed !== undefined) {
-				// A page logging its own account out: that account's session ends, and no cookie
-				// is sent, so this answer can never undo a login another tab makes at the same
-				// moment (a cookie whose session is gone opens nothing). A session that is another
-				// account's now is left as it is.
-				const user = await sessionUser(c);
-				if (token !== undefined && user?.nameKey === claimed) await deleteSession(token);
+				const written = await writeAccountSave(c.get('user').id, checked.value);
+				if (written.kind === 'gone') return c.json({ error: 'not logged in' }, 401);
+				if (written.kind === 'stale') {
+					return c.json(
+						{
+							error: 'a save with the same or a higher seq is already stored',
+							save: written.stored
+						},
+						409
+					);
+				}
+				if (written.kind === 'newer') {
+					return c.json({ error: STORED_FROM_NEWER_BUILD, save: written.stored }, 409);
+				}
 				return c.json({ ok: true });
-			}
-			if (token !== undefined) await deleteSession(token);
-			clearSessionCookie(c, cookie);
-			return c.json({ ok: true });
-		})
-		.get('/me', async (c) => {
-			const user = await currentUser(c, cookie);
-			return c.json({ user: user ? { name: user.name } : null });
-		})
-		.get('/save', requireSession, async (c) => {
-			const [row] = await db
-				.select({ data: accountSaves.data })
-				.from(accountSaves)
-				.where(eq(accountSaves.userId, c.get('user').id));
-			if (!row) return c.json({ error: 'no save yet' }, 404);
-			return c.json(row.data);
-		})
-		.put('/save', requireSession, savesLimited, tooBig(SAVE_MAX_BYTES), async (c) => {
-			const body = await readJson(c);
-			if (body === undefined) return c.json({ error: 'body is not valid JSON' }, 400);
-			const checked = validateSaveWrite(body);
-			if (!checked.ok) {
-				if (checked.reason === 'newer') return c.json({ error: SAVE_FROM_NEWER_BUILD }, 503);
-				return c.json({ error: 'bad save', detail: checked.error }, 400);
-			}
-			const written = await writeAccountSave(c.get('user').id, checked.value);
-			if (written.kind === 'gone') return c.json({ error: 'not logged in' }, 401);
-			if (written.kind === 'stale') {
-				return c.json(
-					{ error: 'a save with the same or a higher seq is already stored', save: written.stored },
-					409
-				);
-			}
-			if (written.kind === 'newer') {
-				return c.json({ error: STORED_FROM_NEWER_BUILD, save: written.stored }, 409);
-			}
-			return c.json({ ok: true });
-		});
+			})
+	);
 }

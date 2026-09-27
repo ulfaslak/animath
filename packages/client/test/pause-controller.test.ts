@@ -15,6 +15,7 @@ import { language } from '../src/copy';
 import { parseParty } from '../src/flags';
 import { languageKey, optionKey, rowKey } from '../src/input/press';
 import { PauseController } from '../src/pause/controller';
+import { account } from '../src/state/account.svelte';
 import { game } from '../src/state/game.svelte';
 import {
 	menuItems,
@@ -100,6 +101,8 @@ function setup(startingParty = 'squirrel,rabbit,fox', travel?: (world: number) =
 
 beforeEach(() => {
 	pause.reset();
+	// A server that can keep an account, unless a test says otherwise.
+	account.ready = true;
 });
 
 afterEach(() => {
@@ -232,6 +235,25 @@ describe('pause menu', () => {
 		expect(pause.cursor).toBe(at('language'));
 		press('ArrowRight');
 		expect([language.current, pause.cursor]).toEqual(['da', at('language')]);
+	});
+
+	it('offers an account only while the server can keep one; Log out stays either way', () => {
+		const accountRows = () =>
+			menuItems().filter((i) => i === 'makeAccount' || i === 'logIn' || i === 'logOut');
+		try {
+			expect(accountRows()).toEqual(['makeAccount', 'logIn']);
+			account.ready = false;
+			expect(accountRows()).toEqual([]);
+			expect(menuItems()).toEqual(['worlds', 'players', 'language', 'sound', 'resume', 'quit']);
+			account.name = 'Ida';
+			account.session = 'ended';
+			expect(accountRows()).toEqual(['logOut']);
+			account.ready = true;
+			expect(accountRows()).toEqual(['logIn', 'logOut']);
+		} finally {
+			account.name = null;
+			account.session = 'unknown';
+		}
 	});
 
 	it("rows side by side (Worlds and Who's here, the account's, Keep playing and Start screen): left and right step between them", () => {
