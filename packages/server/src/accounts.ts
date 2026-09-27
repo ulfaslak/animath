@@ -1,5 +1,6 @@
 import type { SaveWrite } from '@mathgame/engine';
 import { eq, getTableName, sql } from 'drizzle-orm';
+import type { QueryConfig } from 'pg';
 import { db, pool } from './db/index.js';
 import { accountSaveBackups, accountSaves, sessions, users } from './db/schema.js';
 import { createSession } from './sessions.js';
@@ -39,7 +40,15 @@ export const READY_QUERY_TIMEOUT_MS = 5_000;
  * for either, and for any error.
  */
 export async function accountTablesReady(
-	ask: Ask = (text, values) => pool.query(text, values)
+	ask: Ask = (text, values) => {
+		// pg reads `query_timeout` from a query's own config too; its types list it for a client only.
+		const query: QueryConfig & { query_timeout: number } = {
+			text,
+			values,
+			query_timeout: READY_QUERY_TIMEOUT_MS
+		};
+		return pool.query(query);
+	}
 ): Promise<boolean> {
 	try {
 		const { rows } = await ask(
