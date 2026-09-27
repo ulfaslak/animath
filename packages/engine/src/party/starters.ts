@@ -32,7 +32,7 @@ export function isStarter(speciesId: unknown): boolean {
  * holds no player-facing text).
  */
 export type NewGameRejection =
-	/** Not a starter: not in the catalog, not a tier-1 species, or not an id at all. */
+	/** Not a starter: not one of `STARTERS` (another species, or not an id at all). */
 	| 'not-a-starter'
 	/** A nickname came that is not text. */
 	| 'not-text'

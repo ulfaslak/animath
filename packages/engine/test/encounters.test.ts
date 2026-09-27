@@ -774,10 +774,10 @@ describe('encounterTableAt: the ground around the tall grass', () => {
 	}, 30_000);
 
 	it('on any ground, the share of animals bigger than the lead, and of those two tiers up, never falls with distance', () => {
-		// Its own tier's share may rise by a hair: where animals of one tier favour different
-		// ground, the ground's pull as danger rises can take a little from the animals one tier
-		// below before distance brings the bigger ones on (#89). The world never gets gentler
-		// as a kid walks out, which is what the promise is for.
+		// Its own tier's share may rise: where animals of one tier favour different ground, the
+		// ground's pull as danger rises takes share from the animals one tier below (#89), up to
+		// 7.4 points for a red deer on meadow grass among trees, where nothing bigger lives. The
+		// world never gets gentler as a kid walks out, which is what the promise is for.
 		const bad = findings();
 		for (const lead of LEADS) {
 			for (const biome of BIOMES) {

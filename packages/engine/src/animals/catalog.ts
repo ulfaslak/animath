@@ -37,8 +37,9 @@ export const ANIMALS: readonly AnimalSpec[] = [
 		]
 	},
 	{
-		// The river's own tier-1 animal. It counts in hops: sequences and times
-		// tables, where the squirrel and the rabbit ask sums.
+		// A tier-1 animal of the river (with the brown rat and the toad since #89).
+		// It counts in hops: sequences and times tables, where the squirrel and the
+		// rabbit ask sums.
 		id: 'frog',
 		tier: 1,
 		maxHp: 21,
@@ -122,13 +123,13 @@ export const ANIMALS: readonly AnimalSpec[] = [
 		]
 	},
 	// The small animals of the Nordic countryside (#89 wave 1), by tier and then
-	// as the issue lists them. Their numbers sit inside the bands the prototype
-	// animals set (tier 1: 18–26 HP, catch 0.8–0.9, powers 3–8; tier 2: 30–36,
-	// 0.6–0.7, 5–12), and their shape gives each its character: the hedgehog a
-	// tank with a weak first attack, the shrew a glass cannon. A tier-1 animal
-	// asks times tables only on a later attack, and nothing below tier 3 asks
-	// division or square roots. Only the squirrel, the rabbit and the frog are
-	// starters (`party/starters.ts`): the rest are caught.
+	// as the issue lists them. Their numbers sit inside the bands #89 sets for
+	// each tier round the prototype animals' (tier 1: 18–26 HP, catch 0.8–0.9,
+	// powers 3–8; tier 2: 30–36, 0.6–0.7, 5–12), and their shape gives each its
+	// character: the hedgehog a tank with a weak first attack, the shrew a glass
+	// cannon. A tier-1 animal asks times tables only on a later attack, and
+	// nothing below tier 3 asks division or square roots. Only the squirrel, the
+	// rabbit and the frog are starters (`party/starters.ts`): the rest are caught.
 	{
 		id: 'shrew',
 		tier: 1,

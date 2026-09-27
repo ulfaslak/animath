@@ -1072,57 +1072,54 @@ describe('rejected intents', () => {
 describe('switching', () => {
 	it('takes the turn: the wild animal replies against the newcomer, and only its hit costs HP', () => {
 		let checked = 0;
-		const wilds = new Set<string>();
-		for (const [i, a] of ids.entries()) {
-			for (const [j, b] of ids.entries()) {
-				// Every pair that switches, against wild animals taken in turn round the catalog
-				// (two each), so every species is the wild one many times over: every trio would
-				// be the catalog's cube, 32,000 of them since #89.
-				for (const w of [ids[(i + 3 * j) % ids.length]!, ids[(7 * i + j + 1) % ids.length]!]) {
-					// All three where they can all fight: a sea animal's trio only out on the water.
-					const realm = arena(a, b, w);
-					if (realm === null) continue;
-					checked++;
-					wilds.add(w);
-					for (let seed = 0; seed < 5; seed++) {
-						const party = makeParty([a, b]);
-						const start = deepFreeze(startBattle(party, makeWild(w), { realm }));
-						const { state, events } = applyBattleIntent(
-							start,
-							{ type: 'switch', partyIndex: 1 },
-							seed
-						);
-						const where = `${a} → ${b} vs ${w}, seed ${seed}`;
-						expect(events[0], where).toEqual({ type: 'switched', animal: party[1], partyIndex: 1 });
-						expect(state.active).toBe(1);
+		for (const b of ids) {
+			for (const w of ids) {
+				// Every newcomer against every wild animal it can meet. Who leaves never changes
+				// the reply, so each pair has one animal leaving, taken in turn from those that
+				// can fight there too (a sea animal's trio only out on the water): every trio
+				// would be the catalog's cube, 32,000 since #89, a minute on a busy machine.
+				const leavers = ids.filter((x) => arena(x, b, w) !== null);
+				if (leavers.length === 0) continue;
+				const a = leavers[checked % leavers.length]!;
+				const realm = arena(a, b, w)!;
+				checked++;
+				for (let seed = 0; seed < 5; seed++) {
+					const party = makeParty([a, b]);
+					const start = deepFreeze(startBattle(party, makeWild(w), { realm }));
+					const { state, events } = applyBattleIntent(
+						start,
+						{ type: 'switch', partyIndex: 1 },
+						seed
+					);
+					const where = `${a} → ${b} vs ${w}, seed ${seed}`;
+					expect(events[0], where).toEqual({ type: 'switched', animal: party[1], partyIndex: 1 });
+					expect(state.active).toBe(1);
 
-						// The wild turn's two draws, recomputed: against the newcomer, not the one who left.
-						const spec = getAnimal(w);
-						const rng = new Rng(hashInts(seed, 0));
-						const attackIndex = rng.int(1, spec.attacks.length);
-						const miss = spec.tier <= getAnimal(b).tier && rng.next() < WILD_MISS_CHANCE;
-						const power = spec.attacks[attackIndex - 1]!.power;
-						const hp = miss ? maxHp(party[1]!) : Math.max(0, maxHp(party[1]!) - power);
-						expect(events[1], where).toMatchObject({
-							type: miss ? 'missed' : 'hit',
-							attacker: 'opponent',
-							attackIndex
-						});
-						expect(state.party[1]!.hp, where).toBe(hp);
-						expect(state.party[0]).toEqual(start.party[0]);
-						expect(state.opponent).toEqual(start.opponent);
-						expect(state.turn).toBe(2);
-						// A newcomer knocked out at once hands the choice back: the first one still stands.
-						expect(state.phase).toEqual({ kind: hp === 0 ? 'choose-animal' : 'choose-action' });
-					}
+					// The wild turn's two draws, recomputed: against the newcomer, not the one who left.
+					const spec = getAnimal(w);
+					const rng = new Rng(hashInts(seed, 0));
+					const attackIndex = rng.int(1, spec.attacks.length);
+					const miss = spec.tier <= getAnimal(b).tier && rng.next() < WILD_MISS_CHANCE;
+					const power = spec.attacks[attackIndex - 1]!.power;
+					const hp = miss ? maxHp(party[1]!) : Math.max(0, maxHp(party[1]!) - power);
+					expect(events[1], where).toMatchObject({
+						type: miss ? 'missed' : 'hit',
+						attacker: 'opponent',
+						attackIndex
+					});
+					expect(state.party[1]!.hp, where).toBe(hp);
+					expect(state.party[0]).toEqual(start.party[0]);
+					expect(state.opponent).toEqual(start.opponent);
+					expect(state.turn).toBe(2);
+					// A newcomer knocked out at once hands the choice back: the first one still stands.
+					expect(state.phase).toEqual({ kind: hp === 0 ? 'choose-animal' : 'choose-action' });
 				}
 			}
 		}
-		// Every species was the wild one, the sea's among them, and most pairs met two.
-		expect([...wilds].sort()).toEqual([...ids].sort());
-		expect(checked).toBeGreaterThan(ids.length ** 2);
-		// Under 0.5 s alone (every switching pair against two wild animals, five seeds each);
-		// over 1.3 s on a loaded machine.
+		// Every pair that can meet was a newcomer against a wild animal.
+		expect(checked).toBe(MEETINGS.length);
+		// Five seeds a pair: 1.4 s at a load average of about 100, where every trio took 67 s
+		// with the 32 animals of #89.
 	}, 30_000);
 
 	it('never stalls: a player who switches whenever they can loses every battle, the wild animal untouched', () => {
