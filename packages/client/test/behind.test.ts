@@ -36,6 +36,16 @@ const everyPage = function* (behind: BehindCause | null) {
 };
 
 describe('behindAction', () => {
+	it('while a login, a registration or a logout is on its way, it waits for the answer, behind or not', () => {
+		for (const cause of CAUSES) {
+			for (const state of everyPage(cause)) {
+				expect(behindAction({ ...state, holding: true }), cause).toBe('wait');
+			}
+		}
+		for (const state of everyPage(null))
+			expect(behindAction({ ...state, holding: true })).toBe('play');
+	});
+
 	it('a page that is not behind plays, whatever else is true', () => {
 		for (const state of everyPage(null)) expect(behindAction(state)).toBe('play');
 	});
@@ -86,6 +96,16 @@ describe('behindKey', () => {
 		expect(behindKey(' ', false)).toBe('reload');
 		for (const key of ['ArrowLeft', 'a', 'w', 'Escape', '1', 'Backspace', 'Tab', 'Shift']) {
 			expect(behindKey(key, false)).toBe('ignore');
+		}
+	});
+
+	it('Escape logs out, but only where the page may leave (a newer build’s save of an account’s game)', () => {
+		expect(behindKey('Escape', false, true)).toBe('logOut');
+		expect(behindKey('Escape', true, true)).toBe('logOut');
+		expect(behindKey('Escape', false, false)).toBe('ignore');
+		expect(behindKey('Enter', false, true)).toBe('reload');
+		for (const key of ['ArrowLeft', 'a', '1', 'Backspace']) {
+			expect(behindKey(key, false, true)).toBe('ignore');
 		}
 	});
 

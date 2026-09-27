@@ -38,6 +38,8 @@ const TOKEN = /^[A-Za-z0-9_-]{43}$/;
 export interface SessionUser {
 	id: string;
 	name: string;
+	/** The engine's `nameKey(name)`, as stored: what a request names its account by. */
+	nameKey: string;
 }
 
 /** Cookie attributes that depend on where the server runs. */
@@ -91,12 +93,15 @@ async function findSession(token: string | undefined): Promise<Found | null> {
 		.select({
 			id: users.id,
 			name: users.name,
+			nameKey: users.nameKey,
 			stale: sql<boolean>`${sessions.expiresAt} < now() + make_interval(days => ${SESSION_DAYS - SLIDE_AFTER_DAYS})`
 		})
 		.from(sessions)
 		.innerJoin(users, eq(users.id, sessions.userId))
 		.where(and(eq(sessions.tokenHash, hashSecret(token)), sql`${sessions.expiresAt} > now()`));
-	return row ? { user: { id: row.id, name: row.name }, stale: row.stale } : null;
+	return row
+		? { user: { id: row.id, name: row.name, nameKey: row.nameKey }, stale: row.stale }
+		: null;
 }
 
 /**

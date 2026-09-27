@@ -472,6 +472,10 @@ pause:
   team: Dit hold
   resume: Spil videre
   quit: Startskærm
+  # The account's rows: a guest's two, and a logged-in player's one.
+  makeAccount: Lav en konto
+  logIn: Log ind
+  logOut: Log ud
   language: Sprog
   sound: Lyd
   soundOn: Til
@@ -528,6 +532,10 @@ save:
   storageFull: Denne browser har ikke mere plads til at gemme dit spil.
   # After a window that another window of the game had played past loads the newest game.
   caughtUp: Du spillede i et andet vindue. Her er dit nyeste spil!
+  # On the title after logging out.
+  loggedOut: Du er logget ud. Dit spil venter trygt på din konto.
+  # The server says the account is logged out: on the title, or on the message line mid-game.
+  sessionEnded: Du er logget ud, så dit spil gemmes kun på denne enhed. Log ind for at passe på det.
   # On a window that another window of the game has played past, until it catches up.
   behind: Du spillede videre i et andet vindue.
   # The same card when the newest game came from somewhere else (the server backup),
@@ -547,6 +555,47 @@ save:
   # The same button on a touch screen.
   behindUpdateTouch: Tryk for at opdatere!
 
+account:
+  name: Dit navn
+  password: Hemmelig kode
+  show: Vis
+  hide: Skjul
+  back: Tilbage
+  busy: Et øjeblik…
+  passwordRule: 'Mindst {min} bogstaver eller tal.'
+  playingAs: 'Du spiller som {name}'
+  register:
+    title: Pas godt på dit spil
+    text: Dit navn er det, du logger ind med. Vælg en hemmelig kode, som kun du kender.
+    go: Gem mit spil
+    keys: Tab næste felt · Enter gem · Esc tilbage
+  login:
+    title: Log ind
+    text: Skriv dit navn og din hemmelige kode.
+    go: Log ind
+    forgot: Har du glemt din kode? Spørg en voksen om hjælp.
+    keys: Tab næste felt · Enter log ind · Esc tilbage
+  problem:
+    taken: Det navn er taget. Vælg et andet!
+    passwordShort: 'Din kode skal have mindst {min} bogstaver eller tal.'
+    passwordLong: 'Sikke en lang kode! Højst {max} tegn.'
+    wrong: Navnet og koden passer ikke sammen. Prøv igen!
+    tooMany:
+      one: Mange forsøg! Hold en lille pause og prøv igen om et minut.
+      other: 'Mange forsøg! Hold en lille pause og prøv igen om {count} minutter.'
+    offline: Vi kan ikke nå spillets hjem lige nu. Prøv igen om lidt!
+    storage: 'Denne browser kan ikke huske dig. Dit spil er gemt på din konto: log ind på en anden tablet eller computer.'
+  prompt:
+    title: Pas godt på dine dyr!
+    text: Vælg en hemmelig kode, så er dit spil gemt for altid. Så kan du også spille det på en anden tablet eller computer!
+    save: Gem mit spil
+    later: Ikke nu
+    keys: ← → flyt · Enter vælg · Esc ikke nu
+  notice:
+    saved: 'Dit spil er gemt! Log ind som {name} på en hvilken som helst tablet eller computer.'
+    welcome: 'Velkommen tilbage, {name}!'
+    movedAhead: Du har spillet videre et andet sted. Her er dit nyeste spil!
+
 sound:
   # The chip at the top of the screen after M turned the sound on or off.
   chipOn: Lyden er tændt
@@ -558,6 +607,10 @@ title:
   name: Animath
   continue: Fortsæt
   newGame: Nyt spil
+  # The title's row for a player with an account made before: opens the login card.
+  haveAccount: Jeg har en konto → Log ind
+  # On the title of the game opened from the Home Screen with nothing saved there (#90).
+  standaloneHint: Har du spillet i Safari før? Lav en konto der (Menu → Lav en konto) og log så ind her.
   language: Sprog
   sound: Lyd
   animals:

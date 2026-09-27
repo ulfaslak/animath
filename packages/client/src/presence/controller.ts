@@ -14,6 +14,7 @@ import {
 } from '@mathgame/engine';
 import type { GameRenderer } from '../render/renderer';
 import type { KeyValueStore } from '../save/storage';
+import { account } from '../state/account.svelte';
 import { battle } from '../state/battle.svelte';
 import { doctor } from '../state/doctor.svelte';
 import { game } from '../state/game.svelte';
@@ -455,7 +456,8 @@ export class PresenceController {
 function busyNow(): Busy {
 	if (battle.active) return 'battle';
 	if (doctor.active) return 'doctor';
-	if (pause.open) return 'menu';
+	// An account card (logging in, the hourly card) is a break too: nobody asks for a match meanwhile.
+	if (pause.open || account.card !== null || account.prompt) return 'menu';
 	return 'explore';
 }
 

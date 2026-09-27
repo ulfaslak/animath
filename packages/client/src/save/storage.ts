@@ -4,7 +4,25 @@
  * storage must never stop the game, only the saving.
  */
 
-/** Every key the game keeps. Other per-device settings get keys of their own, never the save's. */
+/**
+ * The keys one game's saves live under in this browser: the guest game's
+ * (`KEYS`), or an account's (`accountKeys`), so the two never share a key.
+ */
+export interface SaveKeys {
+	save: string;
+	upgraded: string;
+	player: string;
+	unreadable: string;
+	replaced: string;
+	previous: string;
+	previousPlayer: string;
+}
+
+/**
+ * Every key the guest game keeps: a player with no account, the game every
+ * browser starts with. Other per-device settings get keys of their own,
+ * never the save's.
+ */
 export const KEYS = {
 	/** The save document (`SaveV2`). */
 	save: 'animath.save',
@@ -27,7 +45,65 @@ export const KEYS = {
 	previous: 'animath.save.previous',
 	/** An identity the server stopped recognising, kept in case it was the server that was wrong. */
 	previousPlayer: 'animath.player.previous'
+} as const satisfies SaveKeys;
+
+/** The account this browser is logged in to (`account/session.ts`). */
+export const ACCOUNT_KEYS = {
+	/** `{ name }`: the account this browser is logged in to, whose game it plays; none for a guest. */
+	current: 'animath.account',
+	/** A logout the server has not heard yet (it was out of reach): sent again at the next start. */
+	logoutPending: 'animath.logout.pending'
 } as const;
+
+/**
+ * Where an account's game lives in this browser, apart from the guest game:
+ * its own save and set-asides, under the account's name key (the engine's
+ * `nameKey`, which every way of typing the name shares). `player` is never
+ * written: an account's save is the account's, known to the server by the
+ * session cookie, with no identity of its own.
+ */
+export function accountKeys(key: string): SaveKeys {
+	const base = `animath.account.${encodeURIComponent(key)}`;
+	return {
+		save: `${base}.save`,
+		upgraded: `${base}.save.upgraded`,
+		player: `${base}.player`,
+		unreadable: `${base}.save.unreadable`,
+		replaced: `${base}.save.replaced`,
+		previous: `${base}.save.previous`,
+		previousPlayer: `${base}.player.previous`
+	};
+}
+
+/** How many saves each set-aside key can keep (`animath.save.unreadable`, `.2`, … `.20`). */
+export const MAX_SET_ASIDE = 20;
+/**
+ * How many games `animath.save.previous` can keep. Those are put away on
+ * purpose, and a kid trying the starters one after another puts one away
+ * per try, so the key has room for far more than the accidents above.
+ */
+export const MAX_PUT_AWAY = 200;
+
+/**
+ * Keep `text` in the first free slot of `prefix` (`prefix`, then
+ * `prefix.2`, … up to `slots`), never over one kept before. True when it is
+ * kept there, or was already; false when every slot is taken or the write
+ * failed, and then nothing was written over.
+ */
+export function setAside(
+	store: KeyValueStore,
+	prefix: string,
+	text: string,
+	slots = MAX_SET_ASIDE
+): boolean {
+	for (let n = 1; n <= slots; n++) {
+		const key = n === 1 ? prefix : `${prefix}.${n}`;
+		const there = store.get(key);
+		if (there === text) return true;
+		if (there === null) return store.set(key, text);
+	}
+	return false;
+}
 
 /** A string key-value store: localStorage in the browser, a map in tests. */
 export interface KeyValueStore {
@@ -84,4 +160,25 @@ export function parseJson(text: string): unknown {
 	} catch {
 		return undefined;
 	}
+}
+
+/**
+ * Whether two JSON values are the same document, whatever the order of their
+ * keys (the server's `jsonb` keeps its own).
+ */
+export function sameJson(a: unknown, b: unknown): boolean {
+	if (a === b) return true;
+	if (typeof a !== 'object' || typeof b !== 'object' || a === null || b === null) return false;
+	if (Array.isArray(a) !== Array.isArray(b)) return false;
+	if (Array.isArray(a)) {
+		const other = b as unknown[];
+		return a.length === other.length && a.every((v, i) => sameJson(v, other[i]));
+	}
+	const left = a as Record<string, unknown>;
+	const right = b as Record<string, unknown>;
+	const keys = Object.keys(left).filter((k) => left[k] !== undefined);
+	const others = Object.keys(right).filter((k) => right[k] !== undefined);
+	return (
+		keys.length === others.length && keys.every((k) => k in right && sameJson(left[k], right[k]))
+	);
 }

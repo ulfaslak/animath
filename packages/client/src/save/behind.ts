@@ -40,6 +40,12 @@ export interface PageState {
 	focused: boolean;
 	/** Whether a reload now stays within `RELOADS_PER_MINUTE` (`mayReloadNow`). */
 	mayReload: boolean;
+	/**
+	 * A login, a registration or a logout is on its way: a reload now would cut
+	 * it off (a logout the server never hears, a login half done), and its own
+	 * restart catches the page up once it is answered.
+	 */
+	holding?: boolean;
 }
 
 /**
@@ -51,7 +57,7 @@ export interface PageState {
  */
 export function behindAction(page: PageState): BehindAction {
 	if (page.behind === null) return 'play';
-	if (!page.visible) return 'wait';
+	if (!page.visible || page.holding) return 'wait';
 	const inUse = page.behind === 'window' ? page.focused : true;
 	return inUse && page.mayReload ? 'reload' : 'card';
 }
@@ -59,10 +65,18 @@ export function behindAction(page: PageState): BehindAction {
 /**
  * A key pressed while the page is behind: Enter catches up, and so does
  * Space, unless a text box has the focus (a Space there is a letter being
- * typed). Any other key does nothing, and never reaches the game.
+ * typed). Escape logs out when `canLeave` (behind a newer build's save of an
+ * account's game, which a reload into the same old version cannot load:
+ * logging out plays the guest game meanwhile). Any other key does nothing,
+ * and never reaches the game.
  */
-export function behindKey(key: string, typing: boolean): 'reload' | 'ignore' {
+export function behindKey(
+	key: string,
+	typing: boolean,
+	canLeave = false
+): 'reload' | 'logOut' | 'ignore' {
 	if (key === 'Enter') return 'reload';
+	if (key === 'Escape' && canLeave) return 'logOut';
 	return key === ' ' && !typing ? 'reload' : 'ignore';
 }
 

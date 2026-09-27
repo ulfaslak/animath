@@ -40,6 +40,7 @@ import type { PresenceStatus } from '../presence/connection';
 import type { MatchHooks } from '../presence/controller';
 import { BattleScene, type BattleSide } from '../render/battle-scene';
 import type { GameRenderer } from '../render/renderer';
+import { account } from '../state/account.svelte';
 import { battle } from '../state/battle.svelte';
 import { doctor } from '../state/doctor.svelte';
 import { game } from '../state/game.svelte';
@@ -104,8 +105,11 @@ export interface MatchDeps {
 	/** Send a message about matches on the presence socket (where the page is goes first). */
 	send(message: ClientMessage): boolean;
 	renderer: Pick<GameRenderer, 'setBattle' | 'playerScreenPoint'>;
-	/** Close the pause menu: a match picked up after a reload takes the screen from it. */
-	closeMenu?(): void;
+	/**
+	 * Close the pause menu and put the hourly account card aside: a match
+	 * picked up after a reload takes the screen from them.
+	 */
+	stepAside?(): void;
 	/**
 	 * Count this player's right answers in a batch of match events: the one
 	 * thing a match changes in the game, the puzzles solved
@@ -326,15 +330,7 @@ export class MatchController implements MatchHooks {
 
 	/** Who the button asks, and whether it can: the nearest player within reach. */
 	private updateButton(now: number): void {
-		const exploring =
-			match.stage === 'none' &&
-			game.mode === 'explore' &&
-			!battle.active &&
-			!doctor.active &&
-			!pause.open &&
-			!travel.active &&
-			!title.open &&
-			this.socket === 'on';
+		const exploring = match.stage === 'none' && this.exploring() && this.socket === 'on';
 		let near: PeerMessage | null = null;
 		if (exploring) {
 			// The nearest; between two as near, by name, then by id, so it never flickers.
@@ -685,7 +681,7 @@ export class MatchController implements MatchHooks {
 			this.deps.send({ t: 'play', id: m.id, intent: { type: 'leave' } });
 			return;
 		}
-		if (pause.open) this.deps.closeMenu?.();
+		if (pause.open || account.prompt) this.deps.stepAside?.();
 		const you = m.view.you;
 		const them = otherSide(you);
 		match.clearMatch();
@@ -1152,7 +1148,7 @@ export class MatchController implements MatchHooks {
 		);
 	}
 
-	/** Exploring with nothing over it. */
+	/** Exploring with nothing over it: no battle, card, menu, trip or account card. */
 	private exploring(): boolean {
 		return (
 			game.mode === 'explore' &&
@@ -1160,7 +1156,9 @@ export class MatchController implements MatchHooks {
 			!doctor.active &&
 			!pause.open &&
 			!travel.active &&
-			!title.open
+			!title.open &&
+			account.card === null &&
+			!account.prompt
 		);
 	}
 
