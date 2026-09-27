@@ -414,13 +414,15 @@
 	{/if}
 </div>
 
-<!-- The player's tokens, and the tools they own. -->
+<!-- The player's tokens, the tools they own, and the world they are in. -->
 <!-- With `?debug` the position and the cues have the corner; these go under them. -->
 <div class="belongings" class:below-debug={flags.debug}>
 	<div class="purse"><Coin />{t('hud.tokens', { count: game.tokens })}</div>
 	{#each tools as id (id)}
 		<div class="tool"><ItemIcon {id} size={24} />{itemName(id)}</div>
 	{/each}
+	<!-- The number a kid reads out to a friend, a glance away. -->
+	<div class="world">{t('worlds.world', { world: game.world })}</div>
 </div>
 
 <!-- The message line: the latest message while it is fresh, then the doctor
@@ -636,5 +638,15 @@
 	.tool {
 		padding: 3px 12px 3px 6px;
 		font-size: 16px;
+	}
+	.world {
+		padding: 3px 12px;
+		border-radius: var(--radius);
+		background: var(--panel-bg);
+		box-shadow: var(--hud-shadow);
+		font-weight: 800;
+		font-size: 16px;
+		white-space: nowrap;
+		font-variant-numeric: tabular-nums;
 	}
 </style>

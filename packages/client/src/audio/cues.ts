@@ -30,7 +30,8 @@ export type CueName =
 	| 'lead'
 	| 'won'
 	| 'chop'
-	| 'crack';
+	| 'crack'
+	| 'travel';
 
 export type Wave = 'sine' | 'triangle' | 'noise';
 
@@ -325,6 +326,28 @@ export const CUES: Record<CueName, Cue> = {
 			pluck(0.2, 1800, 0.04, 0.12),
 			pluck(0.27, 2300, 0.04, 0.1),
 			pluck(0.34, 2000, 0.04, 0.09)
+		]
+	},
+	/**
+	 * Off to another world: a soft whoosh rising into the sky while the world
+	 * closes round the trainer, then a bright chord as the new one opens.
+	 */
+	travel: {
+		voices: [
+			{
+				at: 0,
+				dur: 0.5,
+				wave: 'noise',
+				freq: 0,
+				gain: 0.2,
+				attack: 0.2,
+				filter: { type: 'bandpass', freq: 400, to: 3000, q: 1 }
+			},
+			{ at: 0, dur: 0.5, wave: 'sine', freq: 220, to: 880, gain: 0.08, attack: 0.15 },
+			pluck(0.55, C6, 0.4, 0.18, 'sine'),
+			pluck(0.62, E6, 0.4, 0.16, 'sine'),
+			pluck(0.69, G6, 0.45, 0.16, 'sine'),
+			pluck(0.76, C7, 0.35, 0.08)
 		]
 	}
 };

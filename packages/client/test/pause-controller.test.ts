@@ -22,6 +22,7 @@ import {
 	partyOptions,
 	pause,
 	whyCardNotFirst,
+	whyNoGo,
 	whyNotFirst,
 	type NotFirst
 } from '../src/state/pause.svelte';
@@ -58,9 +59,14 @@ function key(
 	return event as unknown as Key;
 }
 
-function setup(startingParty = 'squirrel,rabbit,fox') {
+/**
+ * The real authority and the menu on it. `travel`, when given, is handed the
+ * trips the Worlds screen asks for (as the travel transition is); without it,
+ * the menu sends `travel` itself.
+ */
+function setup(startingParty = 'squirrel,rabbit,fox', travel?: (world: number) => void) {
 	const authority = new LocalAuthority({ party: parseParty(startingParty)! });
-	const controller = new PauseController(authority);
+	const controller = new PauseController(authority, travel);
 	const events: GameEvent[] = [];
 	const sent: Intent[] = [];
 	const dispatch = authority.dispatch.bind(authority);
@@ -207,6 +213,21 @@ describe('pause menu', () => {
 		press('w');
 		expect(press('ArrowRight').prevented).toBe(false);
 		expect(language.current).toBe('en');
+	});
+
+	it('Keep playing and Start screen stand side by side: left and right step between them', () => {
+		const { press, downTo, sent } = setup();
+		const at = (item: (typeof MENU_ITEMS)[number]) =>
+			bundles(game.party).length + MENU_ITEMS.indexOf(item);
+		press('Escape', ...downTo('resume'));
+		expect(press('ArrowRight').prevented).toBe(true);
+		expect(pause.cursor).toBe(at('quit'));
+		press('d');
+		expect(pause.cursor).toBe(at('quit'));
+		press('ArrowLeft');
+		expect(pause.cursor).toBe(at('resume'));
+		press('a');
+		expect([pause.open, pause.cursor, sent]).toEqual([true, at('resume'), []]);
 	});
 
 	it('"Go first" sends select-lead and comes back to the list on the animal, now first', () => {
@@ -493,7 +514,7 @@ describe('pause menu with cards of several animals', () => {
 						const closes = item === 'resume' || item === 'quit';
 						const target = list[row];
 						const opened = !target
-							? ['list', null, null, row]
+							? [item === 'worlds' ? 'worlds' : 'list', null, null, row]
 							: target.animals.length > 1
 								? ['bundle', target.speciesId, null, row]
 								: ['options', null, target.animals[0]!.id, row];
@@ -606,8 +627,13 @@ describe('pause menu under a pointer', () => {
 						sent
 					};
 					const want = {
-						// An animal opens its own options; a setting is done on the list, the cursor on it.
-						at: closes ? 'closed' : row < size ? ['options', ids[row], row] : ['list', null, row],
+						// An animal opens its own options; a setting is done on the list, the cursor on it;
+						// Worlds opens its screen.
+						at: closes
+							? 'closed'
+							: row < size
+								? ['options', ids[row], row]
+								: [item === 'worlds' ? 'worlds' : 'list', null, row],
 						language: item === 'language' ? 'da' : 'en',
 						sound: item !== 'sound',
 						sent: item === 'quit' ? [{ type: 'leave-game' }] : []
@@ -645,5 +671,137 @@ describe('pause menu under a pointer', () => {
 			true
 		]);
 		expect(sent).toEqual([]);
+	});
+});
+
+describe('the Worlds screen', () => {
+	it('opens from its row with nothing typed; digits type a number of up to four, Backspace takes one back', () => {
+		const { press, downTo } = setup();
+		press('Escape', ...downTo('worlds'), 'Enter');
+		expect([pause.screen, pause.worldDraft]).toEqual(['worlds', '']);
+		// At home with nothing typed, Go and Go home are greyed: the cursor starts on Back.
+		expect(pause.option).toBe(2);
+		press('4', '2');
+		expect([pause.worldDraft, pause.option]).toEqual(['42', 0]);
+		press('1', '2', '3');
+		expect(pause.worldDraft).toBe('4212');
+		press('Backspace');
+		expect(pause.worldDraft).toBe('421');
+		press('Backspace', 'Backspace', 'Backspace', 'Backspace');
+		expect([pause.screen, pause.worldDraft]).toEqual(['worlds', '']);
+	});
+
+	it('Go hands the world typed to the trip and closes the menu; the pad’s Go is the Go row', () => {
+		const trips: number[] = [];
+		const { press, downTo, sent } = setup(undefined, (world) => trips.push(world));
+		press('Escape', ...downTo('worlds'), 'Enter', '4', '2', 'Enter');
+		expect([trips, pause.open, sent]).toEqual([[42], false, []]);
+		press('Escape', ...downTo('worlds'), 'Enter', '9', '9', '9', '9', optionKey(0));
+		expect([trips, pause.open]).toEqual([[42, 9999], false]);
+	});
+
+	it('without a trip to hand it to, the menu sends travel itself, and the kid is there', () => {
+		const { press, downTo, sent } = setup();
+		press('Escape', ...downTo('worlds'), 'Enter', '7', 'Enter');
+		expect(sent).toEqual([{ type: 'travel', world: 7 }]);
+		expect([game.world, pause.open]).toEqual([7, false]);
+	});
+
+	it('Go waits, greyed, for a world to go to: nothing typed, 0, or the world the kid is in', () => {
+		const trips: number[] = [];
+		const { press, downTo } = setup(undefined, (world) => trips.push(world));
+		press('Escape', ...downTo('worlds'), 'Enter', optionKey(0));
+		expect(whyNoGo(pause.worldDraft, game.world)).toBe('type');
+		press('0', 'Enter', optionKey(0), ' ');
+		expect(whyNoGo(pause.worldDraft, game.world)).toBe('notAWorld');
+		press('Backspace', '1', 'Enter', optionKey(0));
+		expect(whyNoGo(pause.worldDraft, game.world)).toBe('here');
+		// The cursor stays on the greyed Go: an Enter after a number never does another row.
+		expect([trips, pause.open, pause.screen, pause.option]).toEqual([[], true, 'worlds', 0]);
+		// A leading 0 is no harm: 07 is World 7.
+		press('Backspace', '0', '7');
+		expect(whyNoGo(pause.worldDraft, game.world)).toBeNull();
+		press('Enter');
+		expect(trips).toEqual([7]);
+	});
+
+	it('Go home takes the kid home from another world, and is greyed at home', () => {
+		const { press, downTo } = setup();
+		press('Escape', ...downTo('worlds'), 'Enter', optionKey(1));
+		expect([pause.screen, game.world]).toEqual(['worlds', 1]);
+		press('3', '0', 'Enter');
+		expect(game.world).toBe(30);
+		// Away from home with nothing typed, the cursor starts on Go home.
+		press('Escape', ...downTo('worlds'), 'Enter');
+		expect(pause.option).toBe(1);
+		press('Enter');
+		expect([game.world, pause.open]).toEqual([1, false]);
+	});
+
+	it('a fifth digit, or Backspace with nothing typed, does nothing: not even to the cursor', () => {
+		const { press, downTo } = setup();
+		press('Escape', ...downTo('worlds'), 'Enter', '1', '2', '3', '4', 'ArrowDown');
+		expect([pause.worldDraft, pause.option]).toEqual(['1234', 2]);
+		press('5');
+		expect([pause.worldDraft, pause.option]).toEqual(['1234', 2]);
+		// The Enter after it does the row the cursor is on: Back, not a trip to World 1234.
+		press('Enter');
+		expect([pause.screen, game.world]).toEqual(['list', 1]);
+		// Away from home, the cursor starts on Go home, and a Backspace leaves it there.
+		press('Enter', '3', '0', 'Enter');
+		expect(game.world).toBe(30);
+		press('Escape', ...downTo('worlds'), 'Enter', 'Backspace');
+		expect([pause.worldDraft, pause.option]).toEqual(['', 1]);
+		press('Enter');
+		expect(game.world).toBe(1);
+	});
+
+	it('arrows walk the rows that can be done, wrapping', () => {
+		const { press, downTo } = setup();
+		press('Escape', ...downTo('worlds'), 'Enter', '5');
+		expect(pause.option).toBe(0);
+		// At home: Go home is greyed and skipped.
+		press('ArrowDown');
+		expect(pause.option).toBe(2);
+		press('s');
+		expect(pause.option).toBe(0);
+		press('ArrowUp');
+		expect(pause.option).toBe(2);
+		press('w');
+		expect(pause.option).toBe(0);
+	});
+
+	it('Escape and Back go back to the list, on the Worlds row, and the number is forgotten', () => {
+		const { press, downTo } = setup();
+		const row = bundles(game.party).length + MENU_ITEMS.indexOf('worlds');
+		press('Escape', ...downTo('worlds'), 'Enter', '4', 'Escape');
+		expect([pause.open, pause.screen, pause.cursor, pause.worldDraft]).toEqual([
+			true,
+			'list',
+			row,
+			''
+		]);
+		press('Enter', '8', optionKey(2));
+		expect([pause.screen, pause.cursor, pause.worldDraft]).toEqual(['list', row, '']);
+		press('Enter');
+		expect([pause.screen, pause.worldDraft]).toEqual(['worlds', '']);
+	});
+
+	it("the kid's trip closes the menu, whoever asked for it; another player's leaves it open", () => {
+		const { authority, controller, press, downTo } = setup();
+		press('Escape', ...downTo('worlds'), 'Enter', '4');
+		controller.handle({
+			type: 'travelled',
+			playerId: 'someone-else',
+			world: 9,
+			seed: 1,
+			pos: { x: 0, y: 0 },
+			facing: 'down',
+			edits: [],
+			firstVisit: true
+		});
+		expect([pause.open, pause.screen, pause.worldDraft]).toEqual([true, 'worlds', '4']);
+		authority.dispatch({ type: 'travel', world: 12 });
+		expect([pause.open, game.world]).toEqual([false, 12]);
 	});
 });
