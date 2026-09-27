@@ -351,8 +351,9 @@ export class LocalAuthority implements Authority {
 	 * sent them, for the player playing `side`: each of this player's right
 	 * answers adds one to the puzzles solved, as a right answer here does
 	 * (`countSolved`), and the other player's count for them, not here.
-	 * Nothing else changes: a match changes nothing in the game ([[DECISIONS]]
-	 * § Multiplayer). The hook the match screen calls with every batch of
+	 * Nothing else changes here: a match changes nothing in the game but this
+	 * count and the animals met (`meetInMatch`) ([[DECISIONS]] § Multiplayer).
+	 * The hook the match screen calls with every batch of
 	 * events it is sent, each batch once: a batch passed twice counts twice.
 	 * Only while a game is under way.
 	 */

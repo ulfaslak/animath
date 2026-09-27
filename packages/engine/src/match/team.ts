@@ -24,8 +24,9 @@ const SPECIES_IDS: ReadonlySet<string> = new Set(ANIMALS.map((a) => a.id));
  * (an object with an id of 1–64 characters and a known species, no id
  * repeated), or the whole party is refused (`not-a-party`). It checks shape,
  * not history: the server trusts the party a client sends, as it trusts where
- * the player stands, because a match changes nothing and a forged team wins
- * nothing that lasts. HP is not read: everyone comes at full HP. A party with
+ * the player stands, because a match changes nothing that is won and a forged
+ * team wins nothing that lasts (the other kid has seen its kinds in their
+ * animal book, never caught them). HP is not read: everyone comes at full HP. A party with
  * no animal that can fight on land brings no team (`no-team`). Only the team's
  * own nicknames are cleaned, so what it costs grows with the number of entries
  * and not with the text in the ones it passes over.

@@ -38,8 +38,9 @@ import type { Peer, PresenceHub, Present } from './hub.js';
  *   same thing: the second ask is a Yes.
  * - **The match.** Teams are what each page sends, through `matchTeam`, so
  *   the shape is the engine's to check; the server trusts a page's party, as
- *   it trusts where the page says it stands: a match changes nothing, so a
- *   forged team wins nothing that lasts. Sides are fixed: the challenger is
+ *   it trusts where the page says it stands: a match changes nothing that is
+ *   won, so a forged team wins nothing that lasts (the other kid has seen its
+ *   kinds in their animal book, never caught them). Sides are fixed: the challenger is
  *   `a`, and the engine's coin says who starts. Only the side whose turn it
  *   is acts; a refused intent is told to its sender alone.
  * - **The turn clock.** A kid who has not touched the keys on their turn for

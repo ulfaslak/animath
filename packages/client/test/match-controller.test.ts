@@ -159,13 +159,21 @@ function setup(party: AnimalInstance[] = PARTY) {
 				(e) => e.type === 'answer-judged' && e.correct && e.side === side
 			).length;
 			authority.countMatchAnswers(events, side);
-		}
+		},
+		// As main.ts wires it: the other's animals in front go in the book.
+		meet: (view) => authority.meetInMatch(view)
 	});
 	authority.subscribe((e) => {
 		game.apply(e);
 		controller.handle(e);
 	});
-	const saved: SavedGame = { ...newGame(1, undefined, 'Ada'), party: party.map((a) => ({ ...a })) };
+	// The book this party makes: its kinds caught (the authority records them as it starts).
+	const saved: SavedGame = {
+		...newGame(1, undefined, 'Ada'),
+		party: party.map((a) => ({ ...a })),
+		seen: [],
+		caught: []
+	};
 	authority.start({ game: saved });
 	stop = () => authority.dispatch({ type: 'leave-game' });
 	controller.status('on');
@@ -415,6 +423,31 @@ describe('a match', () => {
 		expect(match.stage).toBe('none');
 		expect(battle.active).toBe(false);
 		expect(t.controller.busy).toBe(false);
+	});
+
+	it("meets the other's animals as they come out in front, in the book, and changes nothing else but that", () => {
+		// A kid with only a rabbit, against Bo's squirrel and frog.
+		const t = setup([{ id: 'r1', speciesId: 'rabbit', hp: 22 }]);
+		const before = t.authority.snapshot();
+		expect([before.seen, before.caught]).toEqual([['rabbit'], ['rabbit']]);
+		const ref = started(t);
+		// Bo's squirrel is out in front from the first view: met.
+		expect(t.authority.snapshot().seen).toEqual(['rabbit', 'squirrel']);
+		// This page's turn first, if the coin says so: a wrong answer passes the turn.
+		if (ref.state.phase.kind === 'choose-action' && ref.state.phase.side === 'a') {
+			t.controller.receive(
+				ref.message('a', ref.apply('a', { type: 'attack', attackIndex: 1, level: 1 }))
+			);
+			t.controller.receive(
+				ref.message('a', ref.apply('a', { type: 'answer', input: `${ref.answer()}1` }))
+			);
+		}
+		// Bo sends the frog in: met too. Bo's frog was never in front before.
+		t.controller.receive(ref.message('a', ref.apply('b', { type: 'switch', teamIndex: 1 })));
+		const after = t.authority.snapshot();
+		expect(after.seen).toEqual(['rabbit', 'squirrel', 'frog']);
+		expect(after.caught).toEqual(['rabbit']);
+		expect({ ...after, seen: before.seen }).toStrictEqual(before);
 	});
 
 	it('says who starts, from the coin both see', () => {
