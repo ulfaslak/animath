@@ -3,8 +3,10 @@ import {
 	TENT_SEARCH_STEPS,
 	gearOf,
 	getAnimal,
+	isWalkable,
 	nearestTent,
 	newGame,
+	tileAtWorld,
 	type AnimalInstance,
 	type GameEvent,
 	type GridPos,
@@ -128,13 +130,15 @@ describe('the way to the doctor', () => {
 	}, 30_000);
 
 	it('an arrow while the tent is off the screen, at the edge, pointing at it; none once it is on the screen', () => {
-		// Far from any tent on the screen: a spot of World 1 whose nearest tent is off it.
+		// Far from any tent on the screen: a spot of World 1 whose nearest tent is off it, as the
+		// stand-in camera draws it (13 tiles or more across, 10 or more up or down).
 		const rng = new Rng(99);
 		let start: SavedGame | null = null;
-		for (let i = 0; i < 2000 && !start; i++) {
+		for (let i = 0; i < 4000 && !start; i++) {
 			const pos = { x: rng.int(-150, 150), y: rng.int(-150, 150) };
 			const spot = nearestTent(WORLD_SEED, pos);
 			if (!spot || spot.steps < 30) continue;
+			if (Math.abs(spot.tent.x - pos.x) < 13 && Math.abs(spot.tent.y - pos.y) < 10) continue;
 			start = { ...newGame(1), pos, party: [squirrel(0)] };
 		}
 		expect(start).not.toBeNull();
@@ -164,5 +168,27 @@ describe('the way to the doctor', () => {
 		s.way.overlay();
 		expect(doctorWay.arrow).toBeNull();
 		expect(doctorWay.tent).toBeNull();
+	});
+
+	it('no arrow over a tent at the very edge of the screen: it is there to see, and the arrow would sit on it', () => {
+		// A tent 12 tiles across: 480 px from the middle, so on the screen but past where an
+		// arrow for it would sit (44 px in from the edge).
+		// The tents' lattice runs every 23 columns and 19 rows through (5, 7).
+		let start: SavedGame | null = null;
+		for (let tx = 5 - 23 * 4; tx <= 5 + 23 * 4 && !start; tx += 23)
+			for (let ty = 7 - 19 * 4; ty <= 7 + 19 * 4 && !start; ty += 19) {
+				if (tileAtWorld(WORLD_SEED, tx, ty).kind !== 'tent') continue;
+				for (let dy = -2; dy <= 2 && !start; dy++) {
+					const pos = { x: tx - 12, y: ty + dy };
+					if (!isWalkable(tileAtWorld(WORLD_SEED, pos.x, pos.y).kind)) continue;
+					const spot = nearestTent(WORLD_SEED, pos);
+					if (spot?.tent.x !== tx || spot.tent.y !== ty) continue;
+					start = { ...newGame(1), pos, party: [squirrel(0)] };
+				}
+			}
+		expect(start).not.toBeNull();
+		setup(start!);
+		expect(doctorWay.tent).not.toBeNull();
+		expect(doctorWay.arrow).toBeNull();
 	});
 });
