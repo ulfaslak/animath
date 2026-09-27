@@ -12,25 +12,20 @@
 		type AttackLevel,
 		type PuzzleTopic
 	} from '@mathgame/engine';
-	import {
-		actionAt,
-		attackRows,
-		levelWord,
-		rowOf,
-		WILD_MOVES,
-		type WildMove
-	} from '../battle/menu';
+	import { actionAt, attackRows, levelWord, rowOf, type FightMove } from '../battle/menu';
 	import { t } from '../copy';
 	import { rowKey, unfocusable } from '../input/press';
 	import { touch } from '../input/touch.svelte';
 	import { kindList } from '../kinds';
-	import { messageWords, words } from '../lines';
+	import { messageWords, whose, words } from '../lines';
 	import { animalWords, nameOf, speciesName } from '../names';
 	import { battle } from '../state/battle.svelte';
 	import ActionPreview, { type Preview } from './ActionPreview.svelte';
 	import AttackTile from './AttackTile.svelte';
 	import Celebration from './Celebration.svelte';
 	import HpBar from './HpBar.svelte';
+	import MatchNotes from './MatchNotes.svelte';
+	import MatchResult from './MatchResult.svelte';
 	import MoveButton from './MoveButton.svelte';
 	import PuzzlePanel from './PuzzlePanel.svelte';
 	import StatusBox from './StatusBox.svelte';
@@ -51,7 +46,16 @@
 	 * row; Back is Escape; and the result card, all of it, is Enter. Go and
 	 * the result card's button stay dimmed until a pick would count
 	 * (`battle.ready`).
+	 *
+	 * A friendly match is drawn here too (`battle.vs`, filled by
+	 * `MatchController`): the other player's animal goes by its owner's name
+	 * ("Bo's Rabbit"), the row of moves is Switch and Leave, the other's turn
+	 * shows their puzzle without its answer and that they are thinking
+	 * (`waiting`), and the result is the match's own (`MatchResult`), with the
+	 * match's notes over the screen (`MatchNotes`).
 	 */
+	/** The other player, in a friendly match. */
+	const vs = $derived(battle.vs);
 	const front = $derived(battle.party[battle.front] ?? null);
 	const spec = $derived(front ? getAnimal(front.speciesId) : null);
 	const opponent = $derived(battle.opponent);
@@ -78,7 +82,7 @@
 	const goIdle = $derived(
 		battle.screen === 'party'
 			? !battle.pickable[battle.partyCursor]
-			: !!spec && battle.cursor === rowOf('switch', spec.attacks.length, WILD_MOVES) && !canSwitch
+			: !!spec && battle.cursor === rowOf('switch', spec.attacks.length, battle.moves) && !canSwitch
 	);
 
 	/** "adding, taking away, or missing numbers": the language's own "or" list. */
@@ -87,7 +91,7 @@
 	}
 
 	/** What the highlighted row of the action menu does: an attack, the leash, a switch or running. */
-	const action = $derived(spec ? actionAt(battle.cursor, spec.attacks.length, WILD_MOVES) : null);
+	const action = $derived(spec ? actionAt(battle.cursor, spec.attacks.length, battle.moves) : null);
 	/** The attack tile the cursor is on, if it is on one. */
 	const tile = $derived(action?.kind === 'attack' ? (tiles[action.index - 1] ?? null) : null);
 	/** The highlighted row can't be done (a greyed Switch): Enter and Go do nothing there. */
@@ -123,18 +127,20 @@
 		if (!spec || !action || !opponent) return '';
 		if (action.kind === 'attack') {
 			if (!tile) return '';
-			return t('battle.attackDetail', {
+			return t(vs ? 'match.attackDetail' : 'battle.attackDetail', {
 				attack: tile.name,
 				level: tile.word,
 				kinds: kindWords(topicsOf(tile.index, tile.level)),
 				damage: tile.damage,
+				...(vs ? { whose: whose(vs.name) } : {}),
 				animal: animalWords(opponent)
 			});
 		}
 		if (action.kind === 'leash') return t('battle.leash.detail', { animal: animalWords(opponent) });
+		if (action.kind === 'leave') return t('match.leave.detail', { name: vs?.name ?? '' });
 		if (action.kind === 'switch') {
 			if (canSwitch) return t('battle.switch.detail');
-			if (battle.party.length < 2) return t('battle.switch.alone');
+			if (battle.party.length < 2) return t(vs ? 'match.switch.alone' : 'battle.switch.alone');
 			// The others may be standing, only not able to fight here: out on the water
 			// they can't swim, and on land they live in the sea.
 			const others = battle.party.filter((_, i) => i !== battle.front);
@@ -160,7 +166,7 @@
 	}
 
 	/** A move's word on its button. */
-	function moveLabel(move: WildMove): string {
+	function moveLabel(move: FightMove): string {
 		switch (move) {
 			case 'leash':
 				return t('battle.leash.row');
@@ -168,11 +174,13 @@
 				return t('battle.switch.row');
 			case 'run':
 				return t('battle.run.row');
+			case 'leave':
+				return t('match.leave.row');
 		}
 	}
 
 	/** A move's title on the preview card: what picking it does. */
-	function moveTitle(move: WildMove): string {
+	function moveTitle(move: FightMove): string {
 		switch (move) {
 			case 'leash':
 				return t('battle.menu.leash');
@@ -180,6 +188,8 @@
 				return t('battle.menu.switch');
 			case 'run':
 				return t('battle.menu.run');
+			case 'leave':
+				return t('match.leave.title');
 		}
 	}
 
@@ -209,7 +219,7 @@
 			})),
 			topics: topicsOf(tile.index, tile.level),
 			line: detail,
-			tires: previewHp === 0 ? t('battle.tiresOut') : null
+			tires: previewHp === 0 ? t(vs ? 'match.tiresOut' : 'battle.tiresOut') : null
 		};
 	});
 
@@ -239,8 +249,9 @@
 		if (!animal || !opponent) return '';
 		const params = { animal: animalWords(animal) };
 		if (battle.pickable[battle.partyCursor]) {
-			return battle.mustPick
-				? t('battle.switch.sendInFree', params)
+			if (battle.mustPick) return t('battle.switch.sendInFree', params);
+			return vs
+				? t('match.switch.sendIn', { ...params, whose: whose(vs.name) })
 				: t('battle.switch.sendIn', params);
 		}
 		if (!canFightIn(animal.speciesId, battle.realm)) {
@@ -301,11 +312,14 @@
 	<!-- The leash flies under this box: `WILD_STATUS_BOX` in `render/battle-scene.ts` knows where it is. -->
 	<div class="status opponent">
 		<StatusBox
-			name={t('battle.wildName', { animal: animalWords(opponent) })}
+			name={vs
+				? t('match.animalOf', { whose: whose(vs.name), animal: animalWords(opponent) })
+				: t('battle.wildName', { animal: animalWords(opponent) })}
 			id={opponent.id}
 			hp={opponent.hp}
 			max={opponentSpec.maxHp}
 			opponent
+			keepEnd={!!vs}
 			acting={battle.turn === 'opponent'}
 			preview={previewHp}
 			hit={battle.hit?.side === 'opponent' ? battle.hit : null}
@@ -317,7 +331,10 @@
 {#if front && spec}
 	<div class="status player">
 		<StatusBox
-			name={nameOf(front)}
+			name={vs
+				? t('match.animalOf', { whose: whose(vs.me), animal: animalWords(front) })
+				: nameOf(front)}
+			keepEnd={!!vs}
 			id={front.id}
 			hp={front.hp}
 			max={spec.maxHp}
@@ -402,8 +419,8 @@
 				</div>
 				<!-- The other moves: a row of smaller round buttons under them. -->
 				<div class="moves">
-					{#each WILD_MOVES as move (move)}
-						{@const row = rowOf(move, spec.attacks.length, WILD_MOVES)}
+					{#each battle.moves as move (move)}
+						{@const row = rowOf(move, spec.attacks.length, battle.moves)}
 						<MoveButton
 							icon={move}
 							label={moveLabel(move)}
@@ -419,7 +436,17 @@
 	{/if}
 
 	<div class="card puzzle" class:correct={battle.judged?.correct === true}>
-		{#if battle.puzzle}
+		{#if battle.puzzle && vs && battle.turn === 'opponent'}
+			<!-- The other player's puzzle, watched while they think: never its answer, nor what they type. -->
+			<PuzzlePanel
+				puzzle={battle.puzzle}
+				input=""
+				judged={battle.judged}
+				typing={false}
+				watch={t('match.thinking', { name: vs.name })}
+				back={battle.screen === 'waiting' ? t('match.leave.title') : undefined}
+			/>
+		{:else if battle.puzzle}
 			<PuzzlePanel
 				puzzle={battle.puzzle}
 				input={battle.input}
@@ -427,6 +454,19 @@
 				typing={battle.screen === 'puzzle'}
 				{reward}
 			/>
+		{:else if vs && battle.screen === 'waiting'}
+			<div class="soft">{t('match.theirTurn', { whose: whose(vs.name) })}</div>
+			<div class="detail">{t('match.thinking', { name: vs.name })}</div>
+			<!-- Leaving is always the kid's to do, their turn or not. -->
+			<div class="footer">
+				<div class="keys"></div>
+				<div class="buttons">
+					<button type="button" class="pill-button" data-press="Escape" {@attach unfocusable}>
+						{t('match.leave.title')}
+						{#if !touch.on}<kbd>{t('keys.esc')}</kbd>{/if}
+					</button>
+				</div>
+			</div>
 		{:else if battle.screen === 'party'}
 			<div class="soft">{t('battle.switch.title')}</div>
 			<div class="detail">{partyDetail}</div>
@@ -480,7 +520,13 @@
 	</div>
 </div>
 
-{#if battle.screen === 'result'}
+{#if vs}
+	<MatchNotes />
+{/if}
+
+{#if battle.screen === 'result' && vs}
+	<MatchResult />
+{:else if battle.screen === 'result'}
 	<!-- All of it is the button: a tap anywhere goes on, as Enter does (and waits as Enter waits). -->
 	<button type="button" class="result" data-press="Enter" {@attach unfocusable}>
 		<span class="card result-card">

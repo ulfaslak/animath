@@ -46,7 +46,21 @@ interface Room {
 }
 
 /** Where a member stands and what the others see of them: `where` without its kind and world. */
-type Spot = Omit<WhereMessage, 't' | 'world'>;
+export type Spot = Omit<WhereMessage, 't' | 'world'>;
+
+/**
+ * A player who said hello, as the friendly matches read them (`matches.ts`):
+ * their socket, public id, who they are (never sent), name, and the world and
+ * spot their last `where` named (null before the first).
+ */
+export interface Present {
+	readonly peer: Peer;
+	readonly pid: string;
+	readonly key: string;
+	readonly name: string;
+	readonly world: number | null;
+	readonly spot: Spot | null;
+}
 
 interface Member {
 	readonly peer: Peer;
@@ -128,6 +142,18 @@ export class PresenceHub {
 	/** Whether the socket has said hello (and not left). */
 	has(peer: Peer): boolean {
 		return this.byPeer.has(peer);
+	}
+
+	/** The player on this socket, if it said hello and has not left. */
+	present(peer: Peer): Present | null {
+		const member = this.byPeer.get(peer);
+		return member ? presentOf(member) : null;
+	}
+
+	/** The player with this public id, if one is here. */
+	presentByPid(pid: string): Present | null {
+		const member = this.byPid.get(pid);
+		return member ? presentOf(member) : null;
 	}
 
 	/**
@@ -301,6 +327,17 @@ function fitRoster(world: number, players: RosterEntry[]): RosterEntry[] {
 		fits++;
 	}
 	return fits === players.length ? players : players.slice(0, fits);
+}
+
+function presentOf(member: Member): Present {
+	return {
+		peer: member.peer,
+		pid: member.pid,
+		key: member.key,
+		name: member.name,
+		world: member.room?.world ?? null,
+		spot: member.spot
+	};
 }
 
 function peerMessage(member: Member, spot: Spot): PeerMessage {

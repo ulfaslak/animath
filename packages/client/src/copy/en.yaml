@@ -33,6 +33,8 @@ keys:
   # Key caps, as printed on the keyboard.
   esc: Esc
   enter: Enter
+  # The key that challenges the player beside you (match.button).
+  challenge: C
 
 # Every species by its engine id: its forms, and its attacks by id.
 species:
@@ -43,6 +45,7 @@ species:
     wild: wild Squirrel
     aWild: a wild Squirrel
     theWild: the wild Squirrel
+    bare: Squirrel
     attacks:
       nut-toss: Nut Toss
       scurry-kick: Scurry Kick
@@ -53,6 +56,7 @@ species:
     wild: wild Rabbit
     aWild: a wild Rabbit
     theWild: the wild Rabbit
+    bare: Rabbit
     attacks:
       hop: Hop
       thump: Thump
@@ -64,6 +68,7 @@ species:
     wild: wild Frog
     aWild: a wild Frog
     theWild: the wild Frog
+    bare: Frog
     attacks:
       croak: Croak
       tongue-flick: Tongue Flick
@@ -75,6 +80,7 @@ species:
     wild: wild Fox
     aWild: a wild Fox
     theWild: the wild Fox
+    bare: Fox
     attacks:
       nip: Nip
       pounce: Pounce
@@ -86,6 +92,7 @@ species:
     wild: wild Otter
     aWild: a wild Otter
     theWild: the wild Otter
+    bare: Otter
     attacks:
       splash: Splash
       tail-whip: Tail Whip
@@ -96,6 +103,7 @@ species:
     wild: wild Red deer
     aWild: a wild Red deer
     theWild: the wild Red deer
+    bare: Red deer
     attacks:
       kick: Kick
       antler-charge: Antler Charge
@@ -106,6 +114,7 @@ species:
     wild: wild Wolf
     aWild: a wild Wolf
     theWild: the wild Wolf
+    bare: Wolf
     attacks:
       bite: Bite
       howl: Howl
@@ -117,6 +126,7 @@ species:
     wild: wild Bear
     aWild: a wild Bear
     theWild: the wild Bear
+    bare: Bear
     attacks:
       swipe: Swipe
       roar: Roar
@@ -130,6 +140,7 @@ species:
     wild: wild Shrew
     aWild: a wild Shrew
     theWild: the wild Shrew
+    bare: Shrew
     attacks:
       squeak: Squeak
       hungry-bite: Hungry Bite
@@ -140,6 +151,7 @@ species:
     wild: wild Wood mouse
     aWild: a wild Wood mouse
     theWild: the wild Wood mouse
+    bare: Wood mouse
     attacks:
       scamper: Scamper
       seed-stash: Seed Stash
@@ -151,6 +163,7 @@ species:
     wild: wild Brown rat
     aWild: a wild Brown rat
     theWild: the wild Brown rat
+    bare: Brown rat
     attacks:
       gnaw: Gnaw
       rat-race: Rat Race
@@ -162,6 +175,7 @@ species:
     wild: wild Hedgehog
     aWild: a wild Hedgehog
     theWild: the wild Hedgehog
+    bare: Hedgehog
     attacks:
       sniff: Sniff
       curl-up: Curl Up
@@ -173,6 +187,7 @@ species:
     wild: wild Mole
     aWild: a wild Mole
     theWild: the wild Mole
+    bare: Mole
     attacks:
       dig: Dig
       molehill: Molehill
@@ -183,6 +198,7 @@ species:
     wild: wild Common lizard
     aWild: a wild Common lizard
     theWild: the wild Common lizard
+    bare: Common lizard
     attacks:
       sun-dash: Sun Dash
       tail-trick: Tail Trick
@@ -194,6 +210,7 @@ species:
     wild: wild Common toad
     aWild: a wild Common toad
     theWild: the wild Common toad
+    bare: Common toad
     attacks:
       puff-up: Puff Up
       sticky-tongue: Sticky Tongue
@@ -205,6 +222,7 @@ species:
     wild: wild Robin
     aWild: a wild Robin
     theWild: the wild Robin
+    bare: Robin
     attacks:
       song: Song
       peck: Peck
@@ -216,6 +234,7 @@ species:
     wild: wild Stag beetle
     aWild: a wild Stag beetle
     theWild: the wild Stag beetle
+    bare: Stag beetle
     attacks:
       jaw-snap: Jaw Snap
       wrestle: Wrestle
@@ -226,6 +245,7 @@ species:
     wild: wild Roe deer
     aWild: a wild Roe deer
     theWild: the wild Roe deer
+    bare: Roe deer
     attacks:
       bark: Bark
       spring: Spring
@@ -237,6 +257,7 @@ species:
     wild: wild Badger
     aWild: a wild Badger
     theWild: the wild Badger
+    bare: Badger
     attacks:
       snuffle: Snuffle
       dig-in: Dig In
@@ -248,6 +269,7 @@ species:
     wild: wild Pine marten
     aWild: a wild Pine marten
     theWild: the wild Pine marten
+    bare: Pine marten
     attacks:
       tree-leap: Tree Leap
       quick-paws: Quick Paws
@@ -259,6 +281,7 @@ species:
     wild: wild Stoat
     aWild: a wild Stoat
     theWild: the wild Stoat
+    bare: Stoat
     attacks:
       stoat-dance: Stoat Dance
       quick-bite: Quick Bite
@@ -269,6 +292,7 @@ species:
     wild: wild Adder
     aWild: a wild Adder
     theWild: the wild Adder
+    bare: Adder
     attacks:
       hiss: Hiss
       zigzag: Zigzag
@@ -280,6 +304,7 @@ species:
     wild: wild Grey heron
     aWild: a wild Grey heron
     theWild: the wild Grey heron
+    bare: Grey heron
     attacks:
       wade: Wade
       spear-beak: Spear Beak
@@ -290,6 +315,7 @@ species:
     wild: wild Tawny owl
     aWild: a wild Tawny owl
     theWild: the wild Tawny owl
+    bare: Tawny owl
     attacks:
       hoot: Hoot
       silent-swoop: Silent Swoop
@@ -301,6 +327,7 @@ species:
     wild: wild Raccoon
     aWild: a wild Raccoon
     theWild: the wild Raccoon
+    bare: Raccoon
     attacks:
       wash-up: Wash Up
       clever-paws: Clever Paws
@@ -312,6 +339,7 @@ species:
     wild: wild Beaver
     aWild: a wild Beaver
     theWild: the wild Beaver
+    bare: Beaver
     attacks:
       tail-slap: Tail Slap
       tree-gnaw: Tree Gnaw
@@ -323,6 +351,7 @@ species:
     wild: wild Crab
     aWild: a wild Crab
     theWild: the wild Crab
+    bare: Crab
     attacks:
       pinch: Pinch
       claw-clap: Claw Clap
@@ -334,6 +363,7 @@ species:
     wild: wild Starfish
     aWild: a wild Starfish
     theWild: the wild Starfish
+    bare: Starfish
     attacks:
       spin: Spin
       arm-slap: Arm Slap
@@ -345,6 +375,7 @@ species:
     wild: wild Turtle
     aWild: a wild Turtle
     theWild: the wild Turtle
+    bare: Turtle
     attacks:
       flipper-flap: Flipper Flap
       shell-bump: Shell Bump
@@ -355,6 +386,7 @@ species:
     wild: wild Dolphin
     aWild: a wild Dolphin
     theWild: the wild Dolphin
+    bare: Dolphin
     attacks:
       click: Click
       leap: Leap
@@ -365,6 +397,7 @@ species:
     wild: wild Octopus
     aWild: a wild Octopus
     theWild: the wild Octopus
+    bare: Octopus
     attacks:
       wiggle: Wiggle
       ink-puff: Ink Puff
@@ -376,6 +409,7 @@ species:
     wild: wild Whale
     aWild: a wild Whale
     theWild: the wild Whale
+    bare: Whale
     attacks:
       bubbles: Bubbles
       whale-song: Whale Song
@@ -1057,6 +1091,116 @@ presence:
     doctor: at the doctor
     menu: taking a break
     match: in a friendly match
+match:
+  # A friendly match between two players. {name} is the other player, as they
+  # typed it; {whose} is their name as the owner of what follows ("Bo's"),
+  # made from match.whose (or match.whoseAfterS, for a name ending in s, x or
+  # z: Danish writes "Jonas'").
+  whose: "{name}'s"
+  whoseAfterS: "{name}'s"
+  # Over the world, when someone stands within two steps: the button, and under
+  # it, greyed, why it can't be pressed now.
+  button:
+    challenge: 'Challenge {name}'
+    busy: '{name} is busy right now.'
+    theyWater: '{name} is out on the water.'
+    water: "You're out on the water. Matches are on land."
+    noTeam: You need an animal that can fight on land.
+    wait: 'Ask {name} again in a moment.'
+  # The card over the world: someone asks you, you ask someone, and the match coming.
+  invite:
+    title: '{name} wants a friendly match!'
+    'yes': Yes!
+    'no': No, thanks
+    asking: 'Asking {name}…'
+    neverMind: Never mind
+    starting: Here we go!
+  # On the message line, when an invite ends without a match (about the other
+  # player), or a match does.
+  said:
+    'no': '{name} said no this time.'
+    expired: "{name} didn't answer."
+    withdrawn: '{name} changed their mind.'
+    gone: '{name} had to go.'
+    moved: '{name} walked away.'
+    busy: '{name} is busy right now.'
+    taken: '{name} is busy with someone else. Try again soon!'
+    wait: 'Ask {name} again in a moment.'
+    no-team: You need an animal that can fight on land.
+    their-team: '{name} has no animal that can fight on land.'
+    lost: "Can't reach {name} right now. Try again soon!"
+    updating: The game is updating. Try again in a moment!
+    youLeft: You left the match.
+  # Narration. Your own animal is {animal}; the other player's is "{whose}
+  # {animal.bare}".
+  vs: 'A friendly match with {name}!'
+  youStart: You start!
+  theyStart: '{name} starts!'
+  backIn: 'Back in the match with {name}!'
+  thinking: '{name} is thinking…'
+  picking: '{name} is picking who goes next…'
+  theyTry: '{whose} {animal.bare} tries {attack}!'
+  theyRight: '{name} got it!'
+  theyWrong: '{name} missed that one.'
+  theirUsed: '{whose} {animal.bare} used {attack}!'
+  usedDamage: '{animal.name} used {attack}! It hits {whose} {target.bare} for {damage}.'
+  theirUsedDamage: '{whose} {animal.bare} used {attack}! It hits {target.name} for {damage}.'
+  youMissed: 'Missed! {whose} {animal.bare} shrugs it off.'
+  theirMissed: '{whose} {animal.bare} used {attack}! It missed.'
+  theirTired: '{whose} {animal.bare} is tired!'
+  theirGo: '{name} sends in {animal.name}!'
+  theirComeBack: '{name} calls {animal.name} back.'
+  # A status box in a match: each player's animal with its owner's name, the
+  # other's and your own, so both names are on the screen.
+  animalOf: '{whose} {animal.bare}'
+  # The card while the other player takes their turn: their turn, and that they think.
+  theirTurn: '{whose} turn'
+  # The highlighted attack, as battle.attackDetail, hitting the other player's animal.
+  attackDetail: '{attack} on {level}: {kinds}. It hits {whose} {animal.bare} for {damage}.'
+  tiresOut: That would tire it out!
+  switch:
+    alone: You brought one animal to this match.
+    sendIn: "Send in {animal.name}. Then it's {whose} turn."
+  # The Leave move: its button, its card's title, and what it does.
+  leave:
+    row: Leave
+    title: Leave the match
+    detail: '{name} wins, and you go back to exploring.'
+  # The end of a match: warm for both.
+  result:
+    won: You won!
+    wonText: 'Great match, {name}!'
+    lost: '{name} won this time!'
+    lostText: Good match! Want to play again?
+    theyLeft: '{name} left the match.'
+    hadToGo: '{name} had to go.'
+    wanderedOff: '{name} wandered off.'
+    # You sat on your turn too long.
+    idle: '{name} wins this one.'
+    idleText: You were away from the match for a while.
+    # This page came back to a match that was over.
+    missed: The match is over.
+    missedText: It ended while you were away.
+  rematch:
+    button: Rematch?
+    waiting: 'Waiting for {name}…'
+    theyWant: '{name} wants a rematch!'
+    went: '{name} went back to exploring.'
+  back: Back to exploring
+  resultKeys: ← → choose · Enter go
+  # The server stopped for a new version in the middle of a match.
+  updating:
+    title: The game is updating.
+    text: "Let's play again in a moment!"
+    waiting: 'Waiting for {name} to come back…'
+    asked: '{name} wants to play again!'
+    again: Play again
+  # Notes at the top of the match.
+  notes:
+    offline: Getting the match back…
+    away: '{name} dropped out. Waiting for them… {seconds}'
+    stillThere: Still there?
+    here: "I'm here!"
 # Numbered worlds: the pause menu's Worlds screen, the HUD's corner, and the trip.
 worlds:
   # A world by its number, as a label: the HUD's corner, the Worlds row. {world}: 1 to 9999.
