@@ -33,6 +33,8 @@ export interface Thought {
 	sum: string | null;
 	mood: 'right' | 'wrong' | null;
 	beat: number;
+	/** Which way the bubble leans over the name: away from the battle (1 right, -1 left). */
+	lean: 1 | -1;
 }
 
 /** A small HP bar over an animal in someone's battle: whose it is, its HP, and where it goes. */

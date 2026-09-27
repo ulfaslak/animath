@@ -284,12 +284,14 @@ export class PresenceController {
 				x: Math.round(p.x),
 				y: Math.round(p.y),
 				opacity: Math.round(head.opacity * 20) / 20,
-				// The puzzle they are thinking about, written out here by the engine's own formatter.
+				// The puzzle they are thinking about, written out here by the engine's own formatter; the
+				// bubble leans away from their battle, off its animals' names.
 				thought: thought
 					? {
 							sum: thought.puzzle ? facePrompt(thought.puzzle) : null,
 							mood: thought.mood,
-							beat: thought.beat
+							beat: thought.beat,
+							lean: p.x >= renderer.toScreen(thought.scene).x ? 1 : -1
 						}
 					: null
 			});

@@ -324,11 +324,12 @@ describe('presence on the page', () => {
 		expect(s.fights.count).toBe(1);
 		s.frame();
 		s.frame();
-		// Bo's thought bubble, written out by the engine's own formatter.
+		// Bo's thought bubble, written out by the engine's own formatter, leaning away from his battle.
 		expect(presence.labels.find((l) => l.pid === 'friend0001')?.thought).toEqual({
 			sum: '3 + 4 = ?',
 			mood: null,
-			beat: 0
+			beat: 0,
+			lean: 1
 		});
 		expect(presence.bars.map((b) => [b.species, b.hp])).toEqual([
 			['rabbit', 22],

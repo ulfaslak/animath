@@ -156,8 +156,8 @@ interface Other {
 /** Seconds a double jump for joy takes: the battle's cheer. */
 export const CHEER_SECONDS = 0.9;
 /** How high a trainer's first hop for joy goes, in tiles: a hit that lands, and a win. */
-const CHEER_HOP = 0.3;
-const WIN_HOP = 0.42;
+const CHEER_HOP = 0.38;
+const WIN_HOP = 0.5;
 
 export class OtherPlayers {
 	private readonly others = new Map<string, Other>();

@@ -116,6 +116,7 @@
 				<!-- What they are working out: the sum as the engine writes it, or dots while they choose. -->
 				<div
 					class="thought"
+					style:--lean={label.thought.lean}
 					role="img"
 					aria-label={label.thought.sum === null
 						? t('presence.choosing', { name: label.name })
@@ -277,12 +278,18 @@
 	 * it, big enough to read from across the screen on a tablet, and two little
 	 * puffs trailing down to the name, as a comic draws a thought.
 	 */
+	/*
+	 * It leans off the name, away from their battle (`--lean`: 1 to the right,
+	 * -1 to the left), so it never covers the names over the two animals; the
+	 * puffs trail back down to the name.
+	 */
 	.thought {
 		position: relative;
 		display: flex;
 		flex-direction: column;
 		align-items: center;
 		padding-bottom: 12px;
+		translate: calc(var(--lean, 0) * 32%) 0;
 	}
 	.cloud {
 		position: relative;
@@ -324,13 +331,13 @@
 		width: 9px;
 		height: 9px;
 		bottom: 3px;
-		left: calc(50% - 8px);
+		left: calc(50% - 4.5px - var(--lean, 0) * 22%);
 	}
 	.trail.small {
 		width: 5px;
 		height: 5px;
 		bottom: -3px;
-		left: calc(50% - 2px);
+		left: calc(50% - 2.5px - var(--lean, 0) * 30%);
 	}
 	/* Choosing what to do: three dots, one after the other. */
 	.dots {
@@ -462,10 +469,11 @@
 		width: 0;
 		height: 0;
 	}
+	/* It starts over the animal's name tag, never on it. */
 	.pop {
 		position: absolute;
 		left: calc(var(--size) / -2);
-		top: calc(var(--size) * -1);
+		top: calc(var(--size) * -1 - 34px);
 		display: grid;
 		place-items: center;
 		width: var(--size);

@@ -134,7 +134,7 @@ describe('a wild battle seen from outside', () => {
 		// She turned to face it.
 		expect(s.trainer('ada').rotation.y).toBeCloseTo(FACING_ANGLE.left);
 		const marks = s.fights.marks();
-		expect(marks.thoughts.get('ada')).toEqual({ puzzle: null, mood: null, beat: 0 });
+		expect(marks.thoughts.get('ada')).toMatchObject({ puzzle: null, mood: null, beat: 0 });
 		expect(
 			marks.bars.map((b) => [b.animal.nickname ?? b.animal.species, b.animal.hp, b.maxHp])
 		).toEqual([
@@ -190,7 +190,7 @@ describe('a wild battle seen from outside', () => {
 		// She jumped for joy when her squirrel's hit landed (only then: the rat's hit is no joy of hers).
 		expect(highest - feet).toBeGreaterThan(0.15);
 		const marks = s.fights.marks();
-		expect(marks.thoughts.get('ada')).toEqual({ puzzle: null, mood: null, beat: 0 });
+		expect(marks.thoughts.get('ada')).toMatchObject({ puzzle: null, mood: null, beat: 0 });
 		expect(marks.bars.map((b) => b.animal.hp)).toEqual([18, 15]);
 		// The numbers float up and are gone.
 		s.frames(POP_SECONDS);
@@ -311,10 +311,29 @@ describe('a wild battle seen from outside', () => {
 			expect(s.fights.count, busy).toBe(0);
 		}
 		const moved = adaInABattle();
-		// Taken to the doctor's tent after a lost battle: she is not where her battle was.
+		// Somewhere else, her battle not over (a page that jumped): it is not where her battle was.
 		moved.peer('ada', { x: 4, y: 7 }, 'battle');
 		moved.frames(0.5);
 		expect(moved.fights.count).toBe(0);
+		// A lost battle takes her to the doctor's tent the moment it ends: its end still plays where it
+		// was fought (her squirrel lying down, the rat hopping), without her, and then it clears.
+		const lost = adaInABattle();
+		lost.fights.show(
+			fight({ a: { species: 'squirrel', nickname: 'Pip', hp: 0 }, turn: null }, [
+				{ type: 'hit', attacker: 'b', level: 1, damage: 20, hp: 0 },
+				{ type: 'fainted', side: 'a' },
+				{ type: 'ended', winner: 'b', how: 'tired' }
+			])
+		);
+		lost.frame();
+		lost.peer('ada', { x: 4, y: 7 }, 'battle', 'up');
+		lost.frames(2.5);
+		expect(lost.fights.count).toBe(1);
+		expect(lost.figure('squirrel').userData.rest).toBeCloseTo(1);
+		// She stands as she likes at the tent: nothing of the battle holds her.
+		expect(lost.trainer('ada').rotation.y).toBeCloseTo(FACING_ANGLE.up);
+		lost.frames(END_SECONDS + 1);
+		expect(lost.fights.count).toBe(0);
 		const back = adaInABattle();
 		back.peer('ada', REED, 'explore');
 		back.frames(GRACE_SECONDS * 0.8);
@@ -404,9 +423,8 @@ describe('a friendly match seen from outside', () => {
 			)
 		);
 		s.frames(3);
-		expect([...s.fights.marks().thoughts.entries()]).toEqual([
-			['bo', { puzzle: SUM, mood: null, beat: 0 }]
-		]);
+		expect([...s.fights.marks().thoughts.keys()]).toEqual(['bo']);
+		expect(s.fights.marks().thoughts.get('bo')).toMatchObject({ puzzle: SUM, mood: null, beat: 0 });
 		// Bo's rabbit lands a hit: Bo jumps for joy.
 		const feet = s.trainer('bo').position.y;
 		let highest = feet;

@@ -141,9 +141,10 @@ const AHEAD: Record<Direction, { x: number; z: number }> = {
 };
 
 // Shared shapes and materials, built once and never freed: every scene draws them.
-const LOOP_GEOMETRY = new THREE.TorusGeometry(0.16, 0.035, 6, 14);
+/** The leash's loop and rope: chunky enough to see from across the screen. */
+const LOOP_GEOMETRY = new THREE.TorusGeometry(0.2, 0.05, 6, 16);
 /** A unit-length rope along +y from the origin; stretched and turned per frame. */
-const ROPE_GEOMETRY = new THREE.CylinderGeometry(0.018, 0.018, 1, 5).translate(0, 0.5, 0);
+const ROPE_GEOMETRY = new THREE.CylinderGeometry(0.032, 0.032, 1, 5).translate(0, 0.5, 0);
 const leashMaterial = new THREE.MeshLambertMaterial({ color: COLORS.fire, flatShading: true });
 /** A four-pointed star one unit across, point to point, facing +z. */
 const STAR_GEOMETRY = (() => {
@@ -182,6 +183,8 @@ export interface ThoughtMark {
 	/** Right or wrong, while its little pop or wobble plays; `beat` counts them, so each one plays anew. */
 	mood: 'right' | 'wrong' | null;
 	beat: number;
+	/** The middle of the two animals: the bubble leans away from it, off their names. */
+	scene: THREE.Vector3;
 }
 
 /** A small HP bar over an animal in a battle: where its head is, who it is, how much HP it has left. */
@@ -406,7 +409,8 @@ export class WatchedFights {
 				thoughts.set(thinker, {
 					puzzle: fight.puzzle,
 					mood: fight.mood?.kind ?? null,
-					beat: fight.mood?.beat ?? 0
+					beat: fight.mood?.beat ?? 0,
+					scene: fight.slots.a.spot.clone().lerp(fight.slots.b.spot, 0.5)
 				});
 			}
 			for (const side of SIDES) {
@@ -418,7 +422,8 @@ export class WatchedFights {
 					at: slot.figure.position.clone().setY(slot.figure.position.y + height + 0.18),
 					animal: { ...slot.animal },
 					maxHp: getAnimal(slot.animal.species).maxHp,
-					opacity: Math.max(0, Math.min(1, slot.figure.scale.x / slot.size))
+					// A tired one's tag fades as it lies down: its z's say it, and the tag would hide them.
+					opacity: Math.max(0, Math.min(1, slot.figure.scale.x / slot.size)) * (1 - slot.rest)
 				});
 			}
 		}
@@ -471,7 +476,14 @@ export class WatchedFights {
 				const owner = layout.owners[side];
 				const spot = spots[side];
 				if (owner && (!spot || spot.tile.x !== owner.tile.x || spot.tile.y !== owner.tile.y)) {
-					// Gone, or put somewhere else (the doctor's tent): the scene is not where they are.
+					// Put somewhere else before its end was shown (a lost battle takes its player to
+					// the doctor at once): the end plays out where it was fought, without them.
+					if (spot && fight.over) {
+						this.others.stand(owner.pid, null);
+						layout.owners[side] = null;
+						continue;
+					}
+					// Gone, or put somewhere else: the scene is not where they are.
 					return false;
 				}
 			}
