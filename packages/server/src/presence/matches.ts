@@ -688,8 +688,13 @@ export class Matches {
 	private show(match: Match, events: WireMatchEvent[]): void {
 		const seen = matchFightEvents(events);
 		const over = match.state.phase.kind === 'ended' && !seen.some((e) => e.type === 'ended');
+		// Only the players still in this match: one who went back to exploring has moved on.
+		const peerOf = (side: MatchSide) => {
+			const player = match.players[side];
+			return player.match === match ? player.peer : null;
+		};
 		this.hub.match(
-			{ a: match.players.a.peer, b: match.players.b.peer },
+			{ a: peerOf('a'), b: peerOf('b') },
 			{ a: match.pids.a, b: match.pids.b },
 			over ? null : matchFight(match.state),
 			seen

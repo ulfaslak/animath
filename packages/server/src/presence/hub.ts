@@ -224,6 +224,8 @@ export class PresenceHub {
 	battle(peer: Peer, view: FightView, events: FightEvent[]): void {
 		const member = this.byPeer.get(peer);
 		if (!member?.room || member.spot?.busy !== 'battle') return;
+		// A player in a friendly match is seen in it as the server says, never as their page says.
+		if (member.showing && member.showing.vs !== null) return;
 		const ended = events.some((e) => e.type === 'ended');
 		member.showing = ended ? null : { pid: member.pid, vs: null, view };
 		const message: FightMessage = { t: 'fight', pid: member.pid, vs: null, view, events };
@@ -252,7 +254,11 @@ export class PresenceHub {
 		}
 		const over = view === null || events.some((e) => e.type === 'ended');
 		const showing = over ? null : { pid: pids.a, vs: pids.b, view };
-		for (const member of members) member.showing = showing;
+		for (const member of members) {
+			// Over, only this match's view goes: a battle its player went on to stays theirs.
+			const mine = member.showing?.pid === pids.a && member.showing.vs === pids.b;
+			if (showing || mine) member.showing = showing;
+		}
 		if (view === null) return;
 		const message: FightMessage = { t: 'fight', pid: pids.a, vs: pids.b, view, events };
 		const told = new Set<Member>(members);
@@ -350,10 +356,12 @@ export class PresenceHub {
 			if (tellItself) member.peer.send({ t: 'gone', pid: other.pid });
 		}
 		member.sees.clear();
-		// A battle is fought where it started: out of the world, there is none to see.
-		member.showing = null;
 		const room = member.room;
+		// A page back in its match is shown it before it says where it is (in no room yet):
+		// that is its first room, and the match is where it will be.
 		if (!room) return;
+		// A battle is fought where it started: out of that world, there is none to see.
+		member.showing = null;
 		room.members.delete(member);
 		if (room.members.size === 0) this.rooms.delete(room.world);
 		member.room = null;
