@@ -125,6 +125,43 @@ describe('matchTeam', () => {
 		}
 	});
 
+	it('drops a nickname holding a rude word, so the other kid never reads it: the animal goes by its kind', () => {
+		// The other player sees these; a rude one is the only rude text that could cross
+		// between two kids, since there is no chat. The rules are the names' (`isRude`),
+		// with a nickname's full stops and apostrophes between words too.
+		const rude = [
+			'Fuckface',
+			'F.u.c.k',
+			'Big Shit',
+			'B1tch',
+			"Pik'hoved",
+			'Lort',
+			'Mr. Dick',
+			'Fück',
+			// A whole-word rude word spelt out over pieces a nickname's marks split.
+			'Co.ck',
+			"T'it",
+			'A.s.s',
+			'Boo.bs',
+			'Pi.k'
+		];
+		const kept = ['Nini', 'Scunthorpe', 'Pikachu', 'Hassan', 'Mr. Whiskers', "O'Hara", 'Bjørn'];
+		for (const nickname of rude) {
+			const pick = matchTeam([{ id: 'x', speciesId: 'fox', hp: 1, nickname }]);
+			expect(pick, nickname).toStrictEqual({
+				ok: true,
+				team: [{ id: 'x', speciesId: 'fox', hp: maxHp('fox') }]
+			});
+		}
+		for (const nickname of kept) {
+			const pick = matchTeam([{ id: 'x', speciesId: 'fox', hp: 1, nickname }]);
+			expect(pick.ok && pick.team[0]!.nickname, nickname).toBe(normalizeNickname(nickname));
+		}
+		// Still idempotent: a team with its rude nickname dropped comes back the same.
+		const once = matchTeam([{ id: 'x', speciesId: 'fox', hp: 1, nickname: 'Fuckface' }]);
+		expect(once.ok && matchTeam(once.team)).toStrictEqual(once);
+	});
+
 	it('refuses anything that is not a party', () => {
 		const rabbit = { id: 'r', speciesId: 'rabbit', hp: 3 };
 		const notParties: unknown[] = [

@@ -25,6 +25,7 @@ app:
 keys:
   esc: Esc
   enter: Enter
+  challenge: C
 
 species:
   squirrel:
@@ -34,6 +35,7 @@ species:
     wild: vildt egern
     aWild: et vildt egern
     theWild: det vilde egern
+    bare: egern
     attacks:
       nut-toss: Nøddekast
       scurry-kick: Lynspark
@@ -44,6 +46,7 @@ species:
     wild: vild kanin
     aWild: en vild kanin
     theWild: den vilde kanin
+    bare: kanin
     attacks:
       hop: Hop
       thump: Stamp
@@ -55,6 +58,7 @@ species:
     wild: vild frø
     aWild: en vild frø
     theWild: den vilde frø
+    bare: frø
     attacks:
       croak: Kvæk
       tongue-flick: Tungesnert
@@ -66,6 +70,7 @@ species:
     wild: vild ræv
     aWild: en vild ræv
     theWild: den vilde ræv
+    bare: ræv
     attacks:
       nip: Nap
       pounce: Spring
@@ -77,16 +82,18 @@ species:
     wild: vild odder
     aWild: en vild odder
     theWild: den vilde odder
+    bare: odder
     attacks:
       splash: Plask
       tail-whip: Halesmæk
   deer:
-    name: Hjort
-    a: en hjort
-    the: hjorten
-    wild: vild hjort
-    aWild: en vild hjort
-    theWild: den vilde hjort
+    name: Kronhjort
+    a: en kronhjort
+    the: kronhjorten
+    wild: vild kronhjort
+    aWild: en vild kronhjort
+    theWild: den vilde kronhjort
+    bare: kronhjort
     attacks:
       kick: Spark
       antler-charge: Hornstød
@@ -97,6 +104,7 @@ species:
     wild: vild ulv
     aWild: en vild ulv
     theWild: den vilde ulv
+    bare: ulv
     attacks:
       bite: Bid
       howl: Hyl
@@ -108,11 +116,223 @@ species:
     wild: vild bjørn
     aWild: en vild bjørn
     theWild: den vilde bjørn
+    bare: bjørn
     attacks:
       swipe: Labeslag
       roar: Brøl
       maul: Bjørnekram
       crush: Kæmpetramp
+  # De små dyr fra det nordiske landskab (#89, bølge 1).
+  shrew:
+    name: Spidsmus
+    a: en spidsmus
+    the: spidsmusen
+    wild: vild spidsmus
+    aWild: en vild spidsmus
+    theWild: den vilde spidsmus
+    bare: spidsmus
+    attacks:
+      squeak: Pip
+      hungry-bite: Sultent bid
+  wood-mouse:
+    name: Skovmus
+    a: en skovmus
+    the: skovmusen
+    wild: vild skovmus
+    aWild: en vild skovmus
+    theWild: den vilde skovmus
+    bare: skovmus
+    attacks:
+      scamper: Smut
+      seed-stash: Frøgemme
+      long-jump: Langt spring
+  brown-rat:
+    name: Brun rotte
+    a: en brun rotte
+    the: den brune rotte
+    wild: vild brun rotte
+    aWild: en vild brun rotte
+    theWild: den vilde brune rotte
+    bare: brune rotte
+    attacks:
+      gnaw: Gnav
+      rat-race: Rotteræs
+      tail-swish: Halesvirp
+  hedgehog:
+    name: Pindsvin
+    a: et pindsvin
+    the: pindsvinet
+    wild: vildt pindsvin
+    aWild: et vildt pindsvin
+    theWild: det vilde pindsvin
+    bare: pindsvin
+    attacks:
+      sniff: Snus
+      curl-up: Rul sammen
+      spike-roll: Pigrulle
+  mole:
+    name: Muldvarp
+    a: en muldvarp
+    the: muldvarpen
+    wild: vild muldvarp
+    aWild: en vild muldvarp
+    theWild: den vilde muldvarp
+    bare: muldvarp
+    attacks:
+      dig: Grav
+      molehill: Muldvarpeskud
+  common-lizard:
+    name: Skovfirben
+    a: et skovfirben
+    the: skovfirbenet
+    wild: vildt skovfirben
+    aWild: et vildt skovfirben
+    theWild: det vilde skovfirben
+    bare: skovfirben
+    attacks:
+      sun-dash: Solspurt
+      tail-trick: Halefinte
+      quick-snap: Lynbid
+  common-toad:
+    name: Skrubtudse
+    a: en skrubtudse
+    the: skrubtudsen
+    wild: vild skrubtudse
+    aWild: en vild skrubtudse
+    theWild: den vilde skrubtudse
+    bare: skrubtudse
+    attacks:
+      puff-up: Pust op
+      sticky-tongue: Klistertunge
+      big-hop: Tudsehop
+  robin:
+    name: Rødhals
+    a: en rødhals
+    the: rødhalsen
+    wild: vild rødhals
+    aWild: en vild rødhals
+    theWild: den vilde rødhals
+    bare: rødhals
+    attacks:
+      song: Sang
+      peck: Hak
+      red-chest: Rødt bryst
+  stag-beetle:
+    name: Eghjort
+    a: en eghjort
+    the: eghjorten
+    wild: vild eghjort
+    aWild: en vild eghjort
+    theWild: den vilde eghjort
+    bare: eghjort
+    attacks:
+      jaw-snap: Kæbeknib
+      wrestle: Brydekamp
+  roe-deer:
+    name: Rådyr
+    a: et rådyr
+    the: rådyret
+    wild: vildt rådyr
+    aWild: et vildt rådyr
+    theWild: det vilde rådyr
+    bare: rådyr
+    attacks:
+      bark: Gø
+      spring: Spring
+      white-flash: Hvidt spejl
+  badger:
+    name: Grævling
+    a: en grævling
+    the: grævlingen
+    wild: vild grævling
+    aWild: en vild grævling
+    theWild: den vilde grævling
+    bare: grævling
+    attacks:
+      snuffle: Snøft
+      dig-in: Grav ned
+      badger-charge: Stribestorm
+  pine-marten:
+    name: Skovmår
+    a: en skovmår
+    the: skovmåren
+    wild: vild skovmår
+    aWild: en vild skovmår
+    theWild: den vilde skovmår
+    bare: skovmår
+    attacks:
+      tree-leap: Træspring
+      quick-paws: Kvikke poter
+      marten-bite: Mårbid
+  stoat:
+    name: Lækat
+    a: en lækat
+    the: lækatten
+    wild: vild lækat
+    aWild: en vild lækat
+    theWild: den vilde lækat
+    bare: lækat
+    attacks:
+      stoat-dance: Lækatdans
+      quick-bite: Kvikt bid
+  adder:
+    name: Hugorm
+    a: en hugorm
+    the: hugormen
+    wild: vild hugorm
+    aWild: en vild hugorm
+    theWild: den vilde hugorm
+    bare: hugorm
+    attacks:
+      hiss: Hvæs
+      zigzag: Zigzag
+      strike: Hug
+  grey-heron:
+    name: Fiskehejre
+    a: en fiskehejre
+    the: fiskehejren
+    wild: vild fiskehejre
+    aWild: en vild fiskehejre
+    theWild: den vilde fiskehejre
+    bare: fiskehejre
+    attacks:
+      wade: Vade
+      spear-beak: Spydnæb
+  tawny-owl:
+    name: Natugle
+    a: en natugle
+    the: natuglen
+    wild: vild natugle
+    aWild: en vild natugle
+    theWild: den vilde natugle
+    bare: natugle
+    attacks:
+      hoot: Tuhu
+      silent-swoop: Lydløst dyk
+      talon-grab: Klogreb
+  raccoon:
+    name: Vaskebjørn
+    a: en vaskebjørn
+    the: vaskebjørnen
+    wild: vild vaskebjørn
+    aWild: en vild vaskebjørn
+    theWild: den vilde vaskebjørn
+    bare: vaskebjørn
+    attacks:
+      wash-up: Vask op
+      clever-paws: Snilde poter
+      bandit-mask: Røvermaske
+  beaver:
+    name: Bæver
+    a: en bæver
+    the: bæveren
+    wild: vild bæver
+    aWild: en vild bæver
+    theWild: den vilde bæver
+    bare: bæver
+    attacks:
+      tail-slap: Halesmæk
+      tree-gnaw: Træfæld
   # Havdyrene, som man møder ude på det dybe vand fra båden.
   crab:
     name: Krabbe
@@ -121,6 +341,7 @@ species:
     wild: vild krabbe
     aWild: en vild krabbe
     theWild: den vilde krabbe
+    bare: krabbe
     attacks:
       pinch: Knib
       claw-clap: Kloklap
@@ -132,6 +353,7 @@ species:
     wild: vild søstjerne
     aWild: en vild søstjerne
     theWild: den vilde søstjerne
+    bare: søstjerne
     attacks:
       spin: Snurretur
       arm-slap: Armklask
@@ -143,6 +365,7 @@ species:
     wild: vild skildpadde
     aWild: en vild skildpadde
     theWild: den vilde skildpadde
+    bare: skildpadde
     attacks:
       flipper-flap: Luffeplask
       shell-bump: Skjoldstød
@@ -153,6 +376,7 @@ species:
     wild: vild delfin
     aWild: en vild delfin
     theWild: den vilde delfin
+    bare: delfin
     attacks:
       click: Klik
       leap: Delfinspring
@@ -163,6 +387,7 @@ species:
     wild: vild blæksprutte
     aWild: en vild blæksprutte
     theWild: den vilde blæksprutte
+    bare: blæksprutte
     attacks:
       wiggle: Vrik
       ink-puff: Blæksky
@@ -174,6 +399,7 @@ species:
     wild: vild hval
     aWild: en vild hval
     theWild: den vilde hval
+    bare: hval
     attacks:
       bubbles: Bobler
       whale-song: Hvalsang
@@ -209,6 +435,10 @@ explore:
   walkRight: Gå til højre
   turnSideways: Hold skærmen på tværs for at spille!
   notAtTent: Gå hen til et telt for at snakke med dyrlægen.
+  holdToFly: Hold mellemrum nede for at flyve!
+  holdToFlyTouch: Hold Flyv nede for at flyve!
+  tooFar: For langt! Der er intet sted at lande den vej.
+  fly: Flyv
 
 hud:
   goesFirst: først ud
@@ -451,6 +681,11 @@ items:
     the: båden
     your: din båd
     use: Sejler på vandet.
+  glider:
+    name: Paraglider
+    the: paraglideren
+    your: din paraglider
+    use: Svæver over træer, sten og vand.
 
 pause:
   title: Pause
@@ -656,6 +891,96 @@ presence:
     doctor: hos dyrlægen
     menu: holder pause
     match: kæmper mod en ven
+    flight: flyver
+match:
+  whose: '{name}s'
+  whoseAfterS: "{name}'"
+  button:
+    challenge: 'Udfordr {name}'
+    busy: '{name} har travlt lige nu.'
+    theyWater: '{name} er ude på vandet.'
+    water: Du er ude på vandet. Kampe er på land.
+    noTeam: Du skal have et dyr, der kan kæmpe på land.
+    wait: 'Spørg {name} igen om lidt.'
+  invite:
+    title: '{name} vil have en venskabskamp!'
+    'yes': Ja!
+    'no': Nej tak
+    asking: 'Spørger {name}…'
+    neverMind: Glem det
+    starting: Så kører vi!
+  said:
+    'no': '{name} sagde nej denne gang.'
+    expired: '{name} svarede ikke.'
+    withdrawn: '{name} ombestemte sig.'
+    gone: '{name} måtte gå.'
+    moved: '{name} gik væk.'
+    busy: '{name} har travlt lige nu.'
+    taken: '{name} er i gang med en anden. Prøv igen om lidt!'
+    wait: 'Spørg {name} igen om lidt.'
+    no-team: Du skal have et dyr, der kan kæmpe på land.
+    their-team: '{name} har intet dyr, der kan kæmpe på land.'
+    lost: 'Kan ikke nå {name} lige nu. Prøv igen om lidt!'
+    updating: Spillet bliver opdateret. Prøv igen om lidt!
+    youLeft: Du forlod kampen.
+  vs: 'En venskabskamp med {name}!'
+  youStart: Du starter!
+  theyStart: '{name} starter!'
+  backIn: 'Tilbage i kampen med {name}!'
+  thinking: '{name} tænker…'
+  picking: '{name} vælger, hvem der skal ind…'
+  theyTry: '{whose} {animal.bare} prøver {attack}!'
+  theyRight: '{name} fik den!'
+  theyWrong: '{name} fik den ikke.'
+  theirUsed: '{whose} {animal.bare} bruger {attack}!'
+  usedDamage: '{animal.the} bruger {attack}! {whose} {target.bare} mister {damage} point.'
+  theirUsedDamage: '{whose} {animal.bare} bruger {attack}! {target.the} mister {damage} point.'
+  youMissed: 'Forbi! {whose} {animal.bare} ryster det af sig.'
+  theirMissed: '{whose} {animal.bare} bruger {attack}! Forbi!'
+  theirTired: '{whose} {animal.bare} er træt!'
+  theirGo: '{name} sender {animal.the} ind!'
+  theirComeBack: '{name} kalder {animal.the} tilbage.'
+  animalOf: '{whose} {animal.bare}'
+  theirTurn: '{whose} tur'
+  attackDetail: '{attack} på {level}: {kinds}. {whose} {animal.bare} mister {damage} point.'
+  tiresOut: Så bliver dyret træt!
+  switch:
+    alone: Du har kun ét dyr med i den her kamp.
+    sendIn: 'Send {animal.the} ind. Så er det {whose} tur.'
+  leave:
+    row: Forlad
+    title: Forlad kampen
+    detail: '{name} vinder, og du går på opdagelse igen.'
+  result:
+    won: Du vandt!
+    wonText: 'Sikke en kamp, {name}!'
+    lost: '{name} vandt denne gang!'
+    lostText: Godt kæmpet! Skal I spille igen?
+    theyLeft: '{name} forlod kampen.'
+    hadToGo: '{name} måtte gå.'
+    wanderedOff: '{name} gik fra spillet.'
+    idle: '{name} vinder den her.'
+    idleText: Du var væk fra kampen et stykke tid.
+    missed: Kampen er slut.
+    missedText: Den sluttede, mens du var væk.
+  rematch:
+    button: Omkamp?
+    waiting: 'Venter på {name}…'
+    theyWant: '{name} vil have omkamp!'
+    went: '{name} gik på opdagelse igen.'
+  back: Gå på opdagelse
+  resultKeys: ← → flyt · Enter vælg
+  updating:
+    title: Spillet bliver opdateret.
+    text: Lad os spille igen om lidt!
+    waiting: 'Venter på, at {name} kommer tilbage…'
+    asked: '{name} vil spille igen!'
+    again: Spil igen
+  notes:
+    offline: Finder kampen igen…
+    away: '{name} røg ud. Vi venter… {seconds}'
+    stillThere: Er du der stadig?
+    here: Jeg er her!
 worlds:
   world: 'Verden {world}'
   title: Verdener

@@ -1093,6 +1093,27 @@ describe('Autosave: two tabs, each with the real authority', () => {
 		return { type: 'battle', intent: { type: 'attack', attackIndex: 1, level: 1 } };
 	}
 
+	it('a flight is saved as a walk is: in the air as the landing it would make, and down where it came down', async () => {
+		const store = new MemoryStore();
+		// At the start, facing the lake north of it, with the glider.
+		savedAt(store, { pos: { x: -2, y: 6 }, facing: 'up', items: ['glider'] });
+		const page = new Page(store);
+		await page.continue();
+		const writes = store.writes;
+		// Up in the air: saved at once, as letting go would leave the game, on the far shore.
+		await page.act({ type: 'take-off' });
+		expect(store.writes).toBeGreaterThan(writes);
+		expect(store.save()).toMatchObject({ pos: { x: -2, y: -8 }, steps: 14 });
+		await page.act({ type: 'glide' });
+		expect(store.save()).toMatchObject({ pos: { x: -2, y: -8 }, steps: 14 });
+		// Down, with no step after it: the landing is saved, and a reload finds the kid there.
+		await page.act({ type: 'land' });
+		expect(store.save()).toMatchObject({ pos: { x: -2, y: -8 }, facing: 'up', steps: 14 });
+		const reload = new Page(store);
+		await reload.continue();
+		expect(reload.authority.snapshot()).toMatchObject({ pos: { x: -2, y: -8 }, steps: 14 });
+	});
+
 	it('a tab at the doctor carries the other tab’s walk on: the counts never go back (#58)', async () => {
 		const store = new MemoryStore();
 		// One step above the tent at (5, 7), facing it.

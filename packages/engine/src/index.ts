@@ -51,6 +51,8 @@ export { MATCH_SIDES } from './match/types.js';
 export { MATCH_TEAM_SIZE, matchTeam } from './match/team.js';
 export { applyMatchIntent, canSendIn, otherSide, startMatch } from './match/reducer.js';
 export { matchView, shownPuzzle } from './match/view.js';
+export { CHALLENGE_REACH, challengeRefusal } from './match/challenge.js';
+export type { ChallengeRefusal, ChallengeSpot } from './match/challenge.js';
 export type {
 	MatchEndReason,
 	MatchEvent,
@@ -160,8 +162,33 @@ export {
 	isEditsText
 } from './world/edits.js';
 export type { ChunkRef } from './world/edits.js';
-export { CLEARING_TOOL, clearTile, clearableAhead, isClearable } from './world/clearing.js';
+export {
+	CLEARING_TOOL,
+	clearLanding,
+	clearTile,
+	clearableAhead,
+	isClearable
+} from './world/clearing.js';
 export type { ClearRejection, ClearStep, Clearable, Cleared, Clearer } from './world/clearing.js';
+export {
+	GLIDE_TILES,
+	flightPos,
+	flightReach,
+	flightTile,
+	glideOn,
+	isLandable,
+	landFlight,
+	landingDistance,
+	takeOff
+} from './world/flight.js';
+export type {
+	Flight,
+	FlightGear,
+	Flyer,
+	Landing,
+	TakeOff,
+	TakeOffRejection
+} from './world/flight.js';
 export { TENT_SEARCH_STEPS, canTalkToDoctor, nearestTent } from './world/tents.js';
 export type { TentSpot } from './world/tents.js';
 export { ARRIVAL_RADIUS, ESCAPE_REACH, arrivalRings, arrivalSpot } from './world/arrival.js';
@@ -194,7 +221,7 @@ export type { Line, LineKey, LineParam, LineParamKind, SpeciesRef } from './line
 
 export type { Authority, GameEvent, Intent } from './protocol.js';
 
-export { MAX_NAME_LENGTH, MIN_NAME_LENGTH, checkName, nameKey } from './names.js';
+export { MAX_NAME_LENGTH, MIN_NAME_LENGTH, checkName, isRude, nameKey } from './names.js';
 export type { NameCheck, NameRejection } from './names.js';
 
 export {
@@ -202,6 +229,8 @@ export {
 	BUSY_STATES,
 	BYE_CLOSE_CODE,
 	BYE_REASONS,
+	INVITE_ENDS,
+	MATCH_TIMEOUTS,
 	MAX_MESSAGE_BYTES,
 	MAX_ROSTER,
 	MAX_SERVER_MESSAGE_BYTES,
@@ -213,6 +242,7 @@ export {
 	byeReasonOf,
 	helloVersion,
 	isGuestId,
+	isMatchId,
 	isPid,
 	isWireCoord,
 	isWireWorld,
@@ -221,22 +251,42 @@ export {
 	readWire
 } from './net/protocol.js';
 export type {
+	AcceptMessage,
+	AskingMessage,
 	Busy,
 	ByeMessage,
 	ByeReason,
+	ChallengeMessage,
 	ClientMessage,
+	DeclineMessage,
+	DoneMessage,
 	FindMessage,
 	FoundMessage,
 	GoneMessage,
 	HelloMessage,
+	HereMessage,
 	HiMessage,
+	InviteEnd,
+	InviteMessage,
 	LostMessage,
+	MatchMessage,
+	MatchTimeout,
+	NudgeMessage,
 	PeerMessage,
+	PlayIntent,
+	PlayMessage,
 	RefreshMessage,
+	RejectedMessage,
+	RematchMessage,
+	RematchWishMessage,
 	RosterEntry,
 	RosterMessage,
 	ServerMessage,
-	WhereMessage
+	UninviteMessage,
+	WhereMessage,
+	WireAnimal,
+	WireMatchEvent,
+	WithdrawMessage
 } from './net/protocol.js';
 export {
 	VIEW_KEEP,
