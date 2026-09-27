@@ -50,6 +50,7 @@ Hex values are the ones in `packages/client/src/render/palette.ts` and `styles.c
 | Sparkles             | warn `#f5b83d` and good `#56c271`, with off-white in the battle scene, coral and blue on the result card, white at the doctor | The doctor's chunky four-pointed stars: along a healed animal's HP bar, in the battle scene (unlit, so they shine), round a wild animal a friend caught, and round the result card's headline. |
 | Token                | warn `#f5b83d`, rim `#c98a12`, inner ring `#fbd67a`, heart `--panel-cream` | A gold coin with a cream heart, the doctor's thank-you: on the doctor's card, in the HUD, beside each price; a "+N" in good, a "−N" in amber `#d99a1e`. |
 | Puzzle solved        | good `#56c271`, rim `#3f9d57`, tick `--panel-cream` | A green badge with a cream tick, the green of a right answer (`Tick`): beside the count of puzzles solved in the HUD, as the coin is beside the tokens. |
+| Animal book          | a kind caught: a disc of the meadow's grass `#8bd66b` (the shallows' `#5ec8f2` for a sea animal) under a soft white light, on a white card, with the `Tick`; a kind seen: a plain disc, its figure at 45% saturation; never seen: a dashed empty place and a "?" in ink at 30%; the book's picture: bound in the trainer's blue `#3d7be8`, its spine the shorts' `#2f4fa8`, cream `#fff4e6` pages and paw | The figures are the game's own, lit as the world is, each filling its disc. |
 | Tools                | trunk `#8b5a3c` (mast `#6e4630`), rock `#a8a39e` with a pale edge `#e9e6e2`, water `#5ec8f2`, trainer coral | The shop's pictures (`ItemIcon`): an axe, a pickaxe, a boat with a coral sail, a paraglider's arched wing of coral and cream cells over its lines, flat and chunky in the world's own colours. The axe and the pickaxe in the trainer's fist while it swings are the same colours, as boxes. |
 | Cleared ground       | gravel `#c9c0ad`, on the peaks `#d8d3ca`; fresh wood `#e8c48f` | Where a rock was broken: gravel, warmer and lighter than the rock round it, so it reads as a path, with the mountain's pebbles on it. Where a tree was chopped: the forest floor with a trunk-brown stump, its cut face and a few chips in fresh wood, which the axe also sends flying. |
 | The boat             | hull trunk `#8b5a3c`, inside mast `#6e4630`, rim and pennant trainer coral `#ff7e6b` | `BOAT_COLORS`: the shop picture's boat in the world, a rowboat on the trainer's back and under them on the water. |
@@ -195,6 +196,8 @@ The words the game uses for its things, the same on every screen:
 | bye bye (an animal going home) | farvel | "Sig farvel til ræven?", "Farvel, Ræv!" — never "slip", "smid ud" or anything that sounds like getting rid of it |
 | leash | snor | the battle row ("Snor"), its card ("Kast snoren"), "Du kaster snoren…" |
 | catch | fange | "Du fangede en ræv!", "Svært at fange" |
+| animal book | dyrebog | the pause menu's row and the book's title ("Dyrebog"), "Alle dyr, du møder, kommer i din dyrebog." |
+| seen, met (in the book) | set, mødt | the book's count ("9 fanget · 14 set · 32 i alt"), a kind met and not caught ("Du har mødt en ræv.") |
 | team | hold | "Dit hold", "kommer med på dit hold" |
 | goes first | først ud | the lead's tag, "Ræven er først ud!", "Sæt forrest" in the menu |
 | attack | angreb | "Vælg et angreb" |

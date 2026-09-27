@@ -1285,3 +1285,23 @@ worlds:
   arriveNew: A new world to explore!
   arriveBack: Back where you left off.
   arriveHome: Home again!
+book:
+  # The animal book: a card for every kind of animal there is, a "?" for the ones not met yet.
+  # The pause menu's row that opens it (on the menu's title line), and the book's own title.
+  title: Animal book
+  # Beside the row: how many kinds the kid has caught, of every kind there is.
+  row: '{caught}/{all}'
+  # Beside the book's title, and beside the row while it is lit: kinds caught, kinds seen
+  # (met in a battle or a friendly match, caught or not), and every kind there is.
+  count: '{caught} caught · {seen} seen · {all} in all'
+  # The panel beside the row while it is lit.
+  help: Every animal you meet goes in your book. Can you catch them all?
+  # Under the book, about the lit card: one not met yet (it gives nothing away), one met but
+  # not caught, one caught and on the team, and one caught and helped home since (it stays
+  # caught for good).
+  unseen: Who could this be? Go exploring and find out!
+  seen: You met {animal.a}. Catch one with your leash!
+  caughtTeam: '{animal.name} is on your team!'
+  caughtHome: You caught {animal.a} and helped it home. It stays in your book!
+  # The key reminder under the book.
+  keys: ↑ ↓ ← → choose · Esc back
