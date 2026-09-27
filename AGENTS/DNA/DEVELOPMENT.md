@@ -254,7 +254,7 @@ A key missing from any file fails `copy-files.test.ts`; what a gap does on scree
 
 Local Postgres runs in Docker (`docker-compose.yml`, host port 5433, database `mathgame`, user/password `postgres`). `pnpm db:psql -c "<sql>"` runs a query from the primary clone; from a worktree it looks for the wrong container, so use `docker compose -p mathgame exec -T postgres psql -U postgres -d mathgame -c "<sql>"` ([[ENVIRONMENT_NOTES]] § No `psql` on the PATH). `/reset` recreates the database from scratch with `docker compose down -v`, which deletes every save the server holds, the kids' backups included: only the human runs it.
 
-Each checkout's server tests use a database of their own on the same instance, created and migrated by the tests themselves (see § Testing ideology): `mathgame_<folder>_<hash>_test`, from the checkout's folder name and 8 hex digits of the SHA-256 of its full path (`test/database.ts`). When every worktree shared one, a run starting in one emptied the tables under a run in another, and two runs at once registered the same account names, so one of them got a `409` (#100); now no two checkouts share one. Two runs in one checkout at the same moment still do ([[DEFERRED]]), so run one at a time there. `TEST_DATABASE_URL` overrides the URL, for CI or a database named by hand; the name must end in `_test`. Without it, CI makes one for the runner's checkout the same way, on the Postgres its `DATABASE_URL` names.
+Each checkout's server tests use a database of their own on the same instance, created and migrated by the tests themselves (see § Testing ideology): `mathgame_<folder>_<hash>_test`, from the checkout's folder name and 8 hex digits of the SHA-256 of its full path (`test/database.ts`). When every worktree shared one, a run starting in one emptied the tables under a run in another, and two runs at once registered the same account names, so one of them got a `409` (#100); now no two checkouts share one. Two runs in one checkout at the same moment still do ([[DEFERRED]]), so run one at a time there. `TEST_DATABASE_URL` overrides the URL, for CI or a database named by hand; the name must end in `_test`. The deploy workflow's `test` job sets it to `mathgame_ci_test` on the Postgres beside the job.
 
 Nothing drops a checkout's test database when the worktree goes. The setup writes the checkout's folder into the database's comment, and `pnpm db:prune-tests` reads it: it lists every checkout's test database with its folder and drops each one whose folder no longer exists, printing it first; `--dry-run` only lists. It works through the server's `postgres` database and matches only the names `test/database.ts` makes: never `mathgame`, and never a test database named by hand, which it lists as left alone. Run it from any checkout after removing worktrees (`git gtr rm`, `git gtr clean --merged`).
 
@@ -363,6 +363,8 @@ gh pr merge <N> --merge --subject "Merge pull request #<N> from ulfaslak/<branch
 ```
 
 Main then runs ahead of prod until the next deploy. Never `[skip ci]` or its kin: GitHub's own markers skip every workflow.
+
+A deploy costs GitHub Actions minutes: about 5 for the checks and 2 to 4 for the image, out of the 2,000 a month the free plan gives private repos, shared with lawcel. A skipped run costs a few seconds, and a merge touching nothing deployed costs nothing.
 
 ### Rolling back
 

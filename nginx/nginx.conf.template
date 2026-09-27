@@ -31,14 +31,15 @@ http {
 
     acme_shared_zone zone=ngx_acme_shared:1M;
 
-    # HTTP -> HTTPS. The ACME module answers Let's Encrypt's HTTP-01 challenge
-    # here too, before `location /` sees the request.
+    # HTTP -> HTTPS, always to the game's own name. The ACME module answers
+    # Let's Encrypt's HTTP-01 challenges here too, for both names, before
+    # `location /` sees the request.
     server {
         listen 80;
-        server_name ${MATHGAME_DOMAIN};
+        server_name ${MATHGAME_DOMAIN} www.${MATHGAME_DOMAIN};
 
         location / {
-            return 301 https://$host$request_uri;
+            return 301 https://${MATHGAME_DOMAIN}$request_uri;
         }
     }
 
@@ -62,5 +63,26 @@ http {
         add_header Strict-Transport-Security "max-age=300" always;
 
         include /etc/nginx/mathgame/app.conf;
+    }
+
+    # www: a certificate of its own, and every request sent on to the game's
+    # own name. Only redirected, never served: a kid's game is saved under the
+    # address the page came from, so a game at www would be a second, empty one.
+    # Its own certificate, so a missing www record costs only www. The record is
+    # a CNAME to the domain (.claude/commands/redeploy.md).
+    server {
+        listen 443 ssl;
+        server_name www.${MATHGAME_DOMAIN};
+
+        acme_certificate letsencrypt;
+        ssl_certificate       $acme_certificate;
+        ssl_certificate_key   $acme_certificate_key;
+        ssl_certificate_cache max=2;
+
+        ssl_protocols TLSv1.2 TLSv1.3;
+        ssl_ciphers HIGH:!aNULL:!MD5;
+        ssl_prefer_server_ciphers on;
+
+        return 301 https://${MATHGAME_DOMAIN}$request_uri;
     }
 }
