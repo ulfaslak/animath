@@ -3,8 +3,11 @@ import { MAX_MARKS_PER_LETTER, belongsOn } from './party/names.js';
 /**
  * A player's name ([[PRODUCT]] §4 "Starting out"): what other kids see above
  * the player's character, and their username once they make an account. The
- * one rule for it, which the client asks before it sends a name and every
- * authority and the server ask again.
+ * one rule for it: the title asks it before it sends a name, the authority
+ * asks it again, and a save's name is asked again when the game is loaded.
+ * The server's save backup stores a name as sent, like the rest of the save;
+ * whatever shows a name to other players, or takes it as a username, asks it
+ * there.
  *
  * A name is the text typed with white space trimmed from both ends, any run
  * of white space inside it made one space, and NFC applied (an accent typed
@@ -107,11 +110,13 @@ function wordsOnly(name: string): boolean {
 }
 
 /**
- * Rude wherever they stand: inside a longer word, and across the spaces and
- * hyphens of a name ("Fu Ck"). Only words no real name holds: "cunt" is in
- * Scunthorpe, "penis" in Penistone, "shit" in Yoshito, "anus" in Janus, "ass"
- * in Hassan, "pik" in Pikachu, so those count only as a word of their own
- * (`RUDE_WORDS`).
+ * Rude wherever they stand inside a word ("Fuckface"), and spelt out over
+ * whole words ("Fu Ck", "F-u-c-k"), accents off ("Fück"). Only words no real
+ * name holds: "cunt" is in Scunthorpe, "penis" in Penistone, "shit" in
+ * Yoshito, "anus" in Janus, "ass" in Hassan, "pik" in Pikachu, so those count
+ * only as a word of their own (`RUDE_WORDS`). One that runs from inside one
+ * word into the next is no match: "Adil Doğan" holds "dildo", "Daniel Ortega"
+ * "lorte" and "Per Kersten" "perker".
  */
 const RUDE_ANYWHERE = [
 	'arsehole',
@@ -145,7 +150,10 @@ const RUDE_ANYWHERE = [
 	'tissemand'
 ];
 
-/** Rude as a word of their own: a whole word of the name, never a part of one. */
+/**
+ * Rude as a word of their own: a whole word of the name, never a part of one,
+ * with its accents as typed ("Tít" is a name).
+ */
 const RUDE_WORDS = [
 	'anal',
 	'anus',
@@ -207,53 +215,42 @@ const RUDE_WORDS = [
 /** Digits read as the letters they stand in for ("sh1t", "5ex"). */
 const LEET: Readonly<Record<string, string>> = { 0: 'o', 1: 'i', 3: 'e', 4: 'a', 5: 's', 7: 't' };
 
-/** A name as the rude words are looked for in it: accents off, lower case, digits read as letters. */
-function fold(text: string): string {
-	return text
-		.normalize('NFKD')
-		.replace(/\p{M}/gu, '')
-		.toLowerCase()
-		.replace(/[013457]/g, (d) => LEET[d]!);
+/** A word as a rude word of its own is looked for in it: lower case, digits read as letters. */
+function lower(text: string): string {
+	return text.toLowerCase().replace(/[013457]/g, (d) => LEET[d]!);
 }
 
-/** Each run of one letter made one ("fuuuck" → "fuck"). */
-function squeeze(text: string): string {
-	return text.replace(/(.)\1+/gu, '$1');
+/** A word as the rude words that stand anywhere are looked for in it: accents off, too. */
+function plain(text: string): string {
+	return lower(text.normalize('NFKD').replace(/\p{M}/gu, ''));
 }
 
 /**
- * A rude word as it is looked for. A word with no letter twice in a row is
- * also found drawn out ("shiiit"); one with a double letter is found only as
- * it is spelt, since squeezing it would find it in innocent names ("ass" in
- * "As").
+ * A letter three times or more in a row made one: a word drawn out ("shiiit",
+ * "fuuuck"). A double letter stays, so "Tiit" and "Pikk" are never "tit" and "pik".
  */
-interface Rude {
-	text: string;
-	drawnOut: boolean;
+function squeeze(text: string): string {
+	return text.replace(/(.)\1{2,}/gu, '$1');
 }
 
-function rude(words: readonly string[]): Rude[] {
-	return words.map((word) => {
-		const text = fold(word);
-		return { text, drawnOut: squeeze(text) === text };
-	});
-}
-
-const ANYWHERE = rude(RUDE_ANYWHERE);
-const WHOLE = rude(RUDE_WORDS);
+const ANYWHERE = RUDE_ANYWHERE.map(plain);
+const WHOLE = RUDE_WORDS.map(lower);
 
 function isRude(name: string): boolean {
-	const words = fold(name).split(/[ -]/);
-	const joined = words.join('');
-	const squeezedJoined = squeeze(joined);
-	for (const { text, drawnOut } of ANYWHERE) {
-		if (joined.includes(text) || (drawnOut && squeezedJoined.includes(text))) return true;
-	}
-	for (const word of words) {
-		const squeezed = squeeze(word);
-		if (WHOLE.some(({ text, drawnOut }) => word === text || (drawnOut && squeezed === text))) {
-			return true;
+	const words = name.split(/[ -]/);
+	// Inside a word, or spelt out over whole words: a run of words that is the rude word.
+	const plainWords = words.map(plain);
+	for (let first = 0; first < plainWords.length; first++) {
+		let run = '';
+		for (let last = first; last < plainWords.length; last++) {
+			run += plainWords[last];
+			for (const form of [run, squeeze(run)]) {
+				const found =
+					last === first ? ANYWHERE.some((root) => form.includes(root)) : ANYWHERE.includes(form);
+				if (found) return true;
+			}
 		}
 	}
-	return false;
+	// As a word of its own.
+	return words.map(lower).some((word) => WHOLE.includes(word) || WHOLE.includes(squeeze(word)));
 }

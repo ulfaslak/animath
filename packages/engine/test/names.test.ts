@@ -173,6 +173,20 @@ const MUST_PASS = [
 	'Pissarro',
 	'Cumberbatch',
 	'Horeb',
+	// A rude word running from one word into the next is no match
+	'Adil Doğan',
+	'Adil Dogan',
+	'Daniel Ortega',
+	'Isabel Ortega',
+	'Manuel Ortega',
+	'Emil Orten',
+	'Per Kersten',
+	'Jesper Kerr',
+	'Ana L',
+	// A double letter, or an accent, keeps a name its own
+	'Tiit',
+	'Pikk',
+	'Tít',
 	// Digits are fine
 	'Emil 2',
 	'Ida2019',
