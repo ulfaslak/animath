@@ -44,6 +44,7 @@ import { ACCOUNT_KEYS, browserStore } from './save/storage';
 import { account } from './state/account.svelte';
 import { battle } from './state/battle.svelte';
 import { behind } from './state/behind.svelte';
+import { book } from './state/book.svelte';
 import { doctor } from './state/doctor.svelte';
 import { game } from './state/game.svelte';
 import { hud } from './state/hud.svelte';
@@ -149,7 +150,8 @@ const matchController: MatchController = new MatchController({
 		pauseController.close();
 		account.prompt = false;
 	},
-	count: (events, side) => authority.countMatchAnswers(events, side)
+	count: (events, side) => authority.countMatchAnswers(events, side),
+	meet: (view) => authority.meetInMatch(view)
 });
 // The other players in this world (`presence/`): never behind the title, never in a
 // throwaway game, never on a page behind the save; nothing waits on it.
@@ -512,6 +514,25 @@ function countPlay(dt: number): void {
 	if (playClock.due(lineage)) accountController.openPrompt();
 }
 
+/**
+ * The animal book's pictures (`render/portraits.ts`): while the book is open,
+ * one a frame, for the first species seen that has none yet, so the book
+ * fills in as it opens and no frame stops to draw them all at once. A figure
+ * that cannot be drawn keeps its card's plain disc, and is not tried again.
+ */
+function drawPortrait(): void {
+	for (const speciesId of game.seen) {
+		if (book.portraits[speciesId] !== undefined) continue;
+		try {
+			book.portraits[speciesId] = renderer.portrait(speciesId);
+		} catch (error) {
+			console.error(error);
+			book.portraits[speciesId] = '';
+		}
+		return;
+	}
+}
+
 let last = performance.now();
 function frame(now: number) {
 	const dt = Math.min(0.1, (now - last) / 1000);
@@ -552,6 +573,7 @@ function frame(now: number) {
 			if (!battle.active && !doctor.active && !pause.open) hud.tick(dt);
 			countPlay(dt);
 		}
+		if (pause.open && pause.screen === 'book') drawPortrait();
 		renderer.render();
 	}
 	// Where the player is goes to the others; theirs comes back as names over their heads.

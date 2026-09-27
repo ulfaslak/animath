@@ -19,6 +19,7 @@ import {
 	itemsForSale,
 	joinParty,
 	leadIndex,
+	matchView,
 	nearestTent,
 	newGame,
 	step as stepFrom,
@@ -2146,6 +2147,163 @@ describe('LocalAuthority: puzzles solved', () => {
 		const said: GameEvent[] = [];
 		title.subscribe((e) => said.push(e));
 		title.countMatchAnswers(events, 'a');
+		expect(said).toEqual([]);
+	});
+});
+
+describe('LocalAuthority: the animal book', () => {
+	/** Every book the authority said, in order. */
+	function books(s: Session): { seen: string[]; caught: string[] }[] {
+		return s.events.flatMap((e) =>
+			e.type === 'book-changed' ? [{ seen: e.seen, caught: e.caught }] : []
+		);
+	}
+
+	function resumed(game: SavedGame): Session {
+		const s: Session = { authority: new LocalAuthority(), events: [] };
+		s.authority.subscribe((e) => s.events.push(e));
+		s.authority.start({ game });
+		return s;
+	}
+
+	function throughSave(game: SavedGame): SavedGame {
+		const read = readSave(JSON.parse(JSON.stringify(saveDocument(game, { lineage: 'b', seq: 1 }))));
+		if (!read.ok) throw new Error(read.error);
+		return restoreGame(read.save);
+	}
+
+	it("a new game's book holds its starter alone, caught; a ?party= game's, its party's kinds", () => {
+		expect(welcome(session())).toMatchObject({ seen: ['squirrel'], caught: ['squirrel'] });
+		const s = session(withParty('fox,bear*2,fox,crab'));
+		expect(welcome(s)).toMatchObject({
+			seen: ['fox', 'bear', 'crab'],
+			caught: ['fox', 'bear', 'crab']
+		});
+		expect(s.authority.snapshot()).toMatchObject({
+			seen: ['fox', 'bear', 'crab'],
+			caught: ['fox', 'bear', 'crab']
+		});
+		// A starter picked on the title, too: a starter counts as caught.
+		const title = new LocalAuthority({ homeWorld: () => 7 });
+		const said: GameEvent[] = [];
+		title.subscribe((e) => said.push(e));
+		title.dispatch({ type: 'new-game', speciesId: 'frog' });
+		expect(said[0]).toMatchObject({ type: 'welcome', seen: ['frog'], caught: ['frog'] });
+	});
+
+	it('a wild animal is met the moment its battle starts, said once for each new kind, and stays met after running away', () => {
+		const s = session();
+		const met = reedWalk(s, 80);
+		const kinds: string[] = ['squirrel'];
+		for (const { wild } of met) if (!kinds.includes(wild)) kinds.push(wild);
+		expect(kinds.length).toBeGreaterThan(2);
+		// Every battle was run from: every kind met, none caught but the starter.
+		expect(s.authority.snapshot()).toMatchObject({ seen: kinds, caught: ['squirrel'] });
+		// Said once for each new kind, right after its battle started, and never for one met before.
+		const said = s.events.flatMap((e, i) => (e.type === 'book-changed' ? [i] : []));
+		expect(said).toHaveLength(kinds.length - 1);
+		for (const i of said) expect(s.events[i - 1]!.type).toBe('battle-started');
+		expect(books(s).map((b) => b.seen.at(-1))).toEqual(kinds.slice(1));
+		expect(books(s).at(-1)).toEqual({ seen: kinds, caught: ['squirrel'] });
+	});
+
+	it('a leash throw that lands catches it, said right after the throw, before the battle ends', () => {
+		// A saved battle against a shrew with 1 HP left, a bear in front: the save proves the shrew met.
+		const bear = animal('bear');
+		const s = resumed({
+			...newGame(1, bear),
+			battle: startBattle([bear], { id: 'w', speciesId: 'shrew', hp: 1 })
+		});
+		expect(welcome(s)).toMatchObject({ seen: ['bear', 'shrew'], caught: ['bear'] });
+		let throws = 0;
+		while (latestBattle(s).phase.kind !== 'ended' && throws < 20) {
+			const from = s.events.length;
+			s.authority.dispatch({ type: 'battle', intent: { type: 'throw-leash' } });
+			throws++;
+			const fresh = s.events.slice(from);
+			const update = fresh[0]!;
+			if (update.type !== 'battle-updated') throw new Error(`a throw said ${update.type}`);
+			const landed = update.events.some((e) => e.type === 'leash-thrown' && e.success);
+			const book = fresh.findIndex((e) => e.type === 'book-changed');
+			if (!landed) {
+				expect(book).toBe(-1);
+				continue;
+			}
+			// Right after the throw, before the battle ends and the shrew joins the team.
+			expect(fresh.map((e) => e.type).slice(0, 3)).toEqual([
+				'battle-updated',
+				'book-changed',
+				'battle-ended'
+			]);
+			expect(fresh[book]).toEqual({
+				type: 'book-changed',
+				seen: ['bear', 'shrew'],
+				caught: ['bear', 'shrew']
+			});
+		}
+		expect(latestBattle(s).phase).toEqual({ kind: 'ended', outcome: 'caught' });
+		expect(s.authority.snapshot()).toMatchObject({
+			seen: ['bear', 'shrew'],
+			caught: ['bear', 'shrew']
+		});
+	});
+
+	it('an animal set free at the doctor stays caught, in every world and through a save', () => {
+		const s = session({ party: hurtParty(), tokens: 20 });
+		expect(welcome(s).caught).toEqual(['squirrel', 'rabbit', 'fox']);
+		walkToTent(s);
+		s.authority.dispatch({ type: 'interact' });
+		// The squirrel goes home, the last of its kind.
+		doctorIntent(s, { type: 'hand-over', ids: ['a'] });
+		answerDoctor(s, true);
+		doctorIntent(s, { type: 'leave' });
+		expect(party(s).map((a) => a.speciesId)).toEqual(['rabbit', 'fox']);
+		expect(books(s)).toEqual([]);
+		const game = s.authority.snapshot();
+		expect(game).toMatchObject({
+			seen: ['squirrel', 'rabbit', 'fox'],
+			caught: ['squirrel', 'rabbit', 'fox']
+		});
+		// Another world, and a reload: the book goes along, as it was.
+		s.authority.dispatch({ type: 'travel', world: 42 });
+		expect(s.authority.snapshot()).toMatchObject({ world: 42, caught: game.caught });
+		const again = resumed(throughSave(s.authority.snapshot()));
+		expect(welcome(again)).toMatchObject({ seen: game.seen, caught: game.caught });
+	});
+
+	it("a friendly match's animal in front is met, every one that steps in, and nothing else changes", () => {
+		const s = session();
+		const before = s.authority.snapshot();
+		let state = startMatch({ a: before.party, b: parseParty('wolf,deer,wolf')! }, 5);
+		const from = s.events.length;
+		s.authority.meetInMatch(matchView(state, 'a'));
+		expect(s.events.slice(from)).toEqual([
+			{ type: 'book-changed', seen: ['squirrel', 'wolf'], caught: ['squirrel'] }
+		]);
+		// The same animal in front again says nothing; the kid's own is theirs already.
+		s.authority.meetInMatch(matchView(state, 'a'));
+		expect(s.events.length).toBe(from + 1);
+		// The deer steps in on the other side: met too.
+		if (state.phase.kind !== 'choose-action' || state.phase.side !== 'b') {
+			state = applyMatchIntent(state, 'a', { type: 'attack', attackIndex: 1, level: 1 }, 5).state;
+			const phase = state.phase;
+			if (phase.kind === 'solving') {
+				const wrong = String(phase.puzzle.answer + 1);
+				state = applyMatchIntent(state, 'a', { type: 'answer', input: wrong }, 5).state;
+			}
+		}
+		state = applyMatchIntent(state, 'b', { type: 'switch', teamIndex: 1 }, 5).state;
+		s.authority.meetInMatch(matchView(state, 'a'));
+		expect(books(s).at(-1)).toEqual({ seen: ['squirrel', 'wolf', 'deer'], caught: ['squirrel'] });
+		expect(s.authority.snapshot()).toEqual({
+			...before,
+			seen: ['squirrel', 'wolf', 'deer']
+		});
+		// Before a game is under way there is no book to write in.
+		const title = new LocalAuthority();
+		const said: GameEvent[] = [];
+		title.subscribe((e) => said.push(e));
+		title.meetInMatch(matchView(state, 'a'));
 		expect(said).toEqual([]);
 	});
 });

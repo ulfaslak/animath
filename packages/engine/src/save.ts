@@ -1,5 +1,6 @@
 import type { AnimalInstance, Realm } from './animals/types.js';
 import { ATTACK_LEVELS, REALMS } from './animals/types.js';
+import { bookOf, recordParty, seeSpecies, type AnimalBook } from './animals/book.js';
 import { ANIMALS, canFightIn, getAnimal } from './animals/catalog.js';
 import type { BattleState } from './battle/types.js';
 import { gearOf } from './items/catalog.js';
@@ -89,6 +90,17 @@ export interface SavedGame {
 	 * answer adds one (`countSolved`), and nothing takes one away. A whole number.
 	 */
 	solved: number;
+	/**
+	 * The animal book's species seen (`animals/book.ts`), each once, in the
+	 * order first seen, every caught one among them. The player's, in every
+	 * world: it only grows.
+	 */
+	seen: string[];
+	/**
+	 * The animal book's species caught, each once, in the order first caught:
+	 * every species in the party, and every one caught and set free since.
+	 */
+	caught: string[];
 	/**
 	 * The battle in progress, or null: always in `world`, since nobody leaves
 	 * a world mid-battle. Its seed is not saved: the authority derives it from `steps`.
@@ -185,6 +197,16 @@ export interface SaveV2 {
 	 * without it, from before the count, has solved none yet.
 	 */
 	solved?: number;
+	/**
+	 * The animal book: the species seen and caught, by id, each list in the
+	 * order first met. Optional in a write too: a save without them, from
+	 * before the book (or played on by a build from then, which keeps them as
+	 * they were), gets them back from what it proves itself (`restoreGame`).
+	 * A species this build does not have in either makes the save a newer
+	 * build's, as one in the party does.
+	 */
+	seen?: string[];
+	caught?: string[];
 	/** The battle in progress when it was saved. Checked on load (`readBattle`), dropped if unusable. */
 	battle?: unknown;
 	/**
@@ -217,6 +239,8 @@ const SAVE_KEYS: ReadonlySet<string> = new Set([
 	'tokens',
 	'items',
 	'solved',
+	'seen',
+	'caught',
 	'battle',
 	'edits',
 	'worlds'
@@ -235,6 +259,9 @@ const WHEREABOUTS: ReadonlySet<string> = new Set([
 	'lineage',
 	'seq'
 ]);
+
+/** The animal book's two lists of species ids. */
+const BOOK_KEYS = ['seen', 'caught'] as const;
 
 const DIRECTIONS: ReadonlySet<string> = new Set(['up', 'down', 'left', 'right']);
 const SPECIES_IDS: ReadonlySet<string> = new Set(ANIMALS.map((a) => a.id));
@@ -269,17 +296,19 @@ type Doc = Record<string, unknown>;
 /**
  * Where the v1 → v2 upgrade keeps what a v2 document has no place for, as it
  * was: a v1 extra under a key v2 has taken (`name`, `home`, `world`,
- * `worlds`, `solved`, or this key itself), and a seed other than World 1's (no game
- * this client wrote had one). An extra from then on, kept as sent.
+ * `worlds`, `solved`, `seen`, `caught`, or this key itself), and a seed other
+ * than World 1's (no game this client wrote had one). An extra from then on,
+ * kept as sent.
  */
 export const V1_KEPT = 'v1';
 
 /**
  * The keys a v1 document could hold only as extras and a v2 document names:
  * every key `SaveV2` has that `SaveV1` has not, the ones v2 grew later too
- * (`solved`), so a v1 extra never becomes one of them.
+ * (`solved`, the book's `seen` and `caught`), so a v1 extra never becomes one
+ * of them.
  */
-const NAMED_SINCE_V2 = ['name', 'home', 'world', 'worlds', 'solved'] as const;
+const NAMED_SINCE_V2 = ['name', 'home', 'world', 'worlds', 'solved', 'seen', 'caught'] as const;
 
 /**
  * Upgrades, indexed by the version they read: `SAVE_UPGRADES[1]` turns a v1
@@ -425,11 +454,13 @@ function checkSave(input: unknown): SaveRead {
  * The first id in a well-formed document that this build cannot carry on
  * with, as an error, or null: one none of its catalogs has, which only a
  * later build writes (a species that has shipped never leaves the catalog:
- * [[INVARIANTS]] § Saves). That is a species in the party, or in a saved
- * battle its realm, an animal's species or the puzzle's kind: a game with
- * such an animal cannot be played here, and such a battle could only be
- * dropped. An item this build does not have is not one of them: it is kept
- * as it is and does nothing, so the save plays on and loses nothing.
+ * [[INVARIANTS]] § Saves). That is a species in the party or in the animal
+ * book (`seen`, `caught`), or in a saved battle its realm, an animal's
+ * species or the puzzle's kind: a game with such an animal cannot be played
+ * here, a book with it would lose it at this build's next write, and such a
+ * battle could only be dropped. An item this build does not have is not one
+ * of them: it is kept as it is and does nothing, so the save plays on and
+ * loses nothing.
  *
  * Only ids are seen. A battle that a later build's other growth made (a new
  * attack for an existing species, a realm it newly goes to, a new phase) is
@@ -440,6 +471,14 @@ function findUnknownContent(doc: Doc): string | null {
 	for (let i = 0; i < party.length; i++) {
 		const unknown = unknownId(party[i]!.speciesId, SPECIES_IDS, `party[${i}].speciesId`);
 		if (unknown) return unknown;
+	}
+	for (const key of BOOK_KEYS) {
+		const list = doc[key];
+		if (!Array.isArray(list)) continue;
+		for (let i = 0; i < list.length; i++) {
+			const unknown = unknownId(list[i], SPECIES_IDS, `${key}[${i}]`);
+			if (unknown) return unknown;
+		}
 	}
 	const battle = doc.battle;
 	if (!isRecord(battle)) return null;
@@ -522,6 +561,14 @@ function findSaveError(input: Doc): string | null {
 	const items = input.items;
 	if (items !== undefined && (!Array.isArray(items) || !items.every(isId))) {
 		return `items must be a list of ids of 1–${MAX_SAVE_ID_LENGTH} characters`;
+	}
+	// The animal book: species ids, whether this build has them or not (one it lacks makes the
+	// save a newer build's: `findUnknownContent`). A species listed twice is listed once.
+	for (const key of BOOK_KEYS) {
+		const list = input[key];
+		if (list !== undefined && (!Array.isArray(list) || !list.every(isContentId))) {
+			return `${key} must be a list of species ids`;
+		}
 	}
 	if (input.lineage !== undefined && !isId(input.lineage)) {
 		return `lineage must be a string of 1–${MAX_SAVE_ID_LENGTH} characters`;
@@ -623,13 +670,16 @@ function defaultStarter(): AnimalInstance {
  * cleared and no other world visited, the player called `name` (checked by the caller with
  * `checkName`; null for none yet), and one animal, `starter` (the chosen one,
  * `chooseStarter`'s with an id from the authority), or else the default
- * starter at full HP.
+ * starter at full HP. The animal book holds the starter alone, caught: a
+ * starter counts as caught.
  */
 export function newGame(
 	world: number,
 	starter?: AnimalInstance,
 	name: string | null = null
 ): SavedGame {
+	const party = [starter ? { ...starter } : defaultStarter()];
+	const book = recordParty(bookOf([], []), party);
 	return {
 		name,
 		home: world,
@@ -638,10 +688,12 @@ export function newGame(
 		facing: 'down',
 		steps: 0,
 		visits: 0,
-		party: [starter ? { ...starter } : defaultStarter()],
+		party,
 		tokens: 0,
 		items: [],
 		solved: 0,
+		seen: [...book.seen],
+		caught: [...book.caught],
 		battle: null,
 		edits: [],
 		worlds: []
@@ -686,6 +738,9 @@ function cleanAnimal(animal: AnimalInstance): AnimalInstance {
  * party in the same order with the same animal in front. A save this build
  * wrote is in bundles already and comes back as it was; one from before
  * bundles is put in them, each species behind its first animal.
+ *
+ * The animal book comes back as saved, made whole with what the save proves
+ * itself (`savedBook`): a save from before the book gets one back.
  */
 export function restoreGame(save: SaveV2): SavedGame {
 	const seed = worldSeed(save.world);
@@ -722,6 +777,7 @@ export function restoreGame(save: SaveV2): SavedGame {
 		keepWorlds(staysOf(save.worlds, save.world), save.home),
 		save.home
 	);
+	const book = savedBook(save, party);
 	return {
 		name: named?.ok ? named.name : null,
 		home: save.home,
@@ -734,10 +790,34 @@ export function restoreGame(save: SaveV2): SavedGame {
 		tokens: save.tokens ?? 0,
 		items,
 		solved: save.solved ?? 0,
+		seen: [...book.seen],
+		caught: [...book.caught],
 		battle: battle && bundledBattle(battle),
 		edits: [...edits.encode()],
 		worlds: [...worlds]
 	};
+}
+
+/**
+ * The animal book a save holds, made whole ([[PRODUCT]] §4 "The animal
+ * book"): its lists as saved, each species once and every caught one seen
+ * too, and then what the save proves by itself, for a save from before the
+ * book, or one a build from then played on (keeping the lists as they were,
+ * never adding to them): every species in `party` was caught (the starter
+ * counts as caught), and a saved battle's wild animal was seen, whether or
+ * not the battle can be picked up. Nothing else in a save names a species:
+ * `lineage` is a random id, the tokens and items say animals went home but
+ * not which. `party` is the party the game goes on with (`restoreGame`'s,
+ * which a starter may have joined); by default the save's own.
+ */
+function savedBook(save: SaveV2, party: readonly AnimalInstance[] = save.party): AnimalBook {
+	let book = recordParty(bookOf(save.seen ?? [], save.caught ?? []), party);
+	const battle = save.battle;
+	if (isRecord(battle) && isRecord(battle.opponent)) {
+		const wild = battle.opponent.speciesId;
+		if (typeof wild === 'string') book = seeSpecies(book, wild);
+	}
+	return book;
 }
 
 /** The worlds left behind in a save, but `current`, their cleared tiles in canonical text. */
@@ -863,6 +943,8 @@ export function saveDocument(
 		tokens: game.tokens,
 		items: [...game.items],
 		solved: game.solved,
+		seen: [...game.seen],
+		caught: [...game.caught],
 		lineage: stamp.lineage,
 		seq: stamp.seq
 	};
@@ -938,8 +1020,9 @@ export function replacesAnotherGame(
  * Whether two saves hold the same progress: they may differ in where the
  * player is in the world they are in (position, facing, steps, doctor
  * visits) and in which write they are, and in nothing else — not the party,
- * not a battle, not the puzzles solved, not the world they are in or the
- * worlds they left, not the name, not any extra field. A page whose save was replaced by another page
+ * not a battle, not the puzzles solved, not the animal book, not the world
+ * they are in or the worlds they left, not the name, not any extra field. A
+ * page whose save was replaced by another page
  * that only walked around can take the save back without losing anything a
  * kid would miss.
  */
@@ -956,9 +1039,11 @@ export function sameProgress(a: SaveV2, b: SaveV2): boolean {
 
 /**
  * A document with what an older save leaves unsaid said: no tokens, no
- * items, no puzzle solved, nothing cleared, no other world visited. A save
- * from before the shop, the count of puzzles, the tools or travel holds the
- * same progress as one that writes none out.
+ * items, no puzzle solved, nothing cleared, no other world visited, and the
+ * animal book it proves (`savedBook`). A save from before the shop, the count
+ * of puzzles, the tools, travel or the book holds the same progress as one
+ * that writes it out. The book's lists compare as sets: the order a species
+ * was first met in is no progress.
  */
 function withProgressDefaults(doc: SaveV2): Doc {
 	const out: Doc = { ...(doc as unknown as Doc) };
@@ -967,6 +1052,9 @@ function withProgressDefaults(doc: SaveV2): Doc {
 	if (out.solved === undefined) out.solved = 0;
 	if (out.edits === undefined) out.edits = [];
 	if (out.worlds === undefined) out.worlds = [];
+	const book = savedBook(doc);
+	out.seen = [...book.seen].sort();
+	out.caught = [...book.caught].sort();
 	return out;
 }
 

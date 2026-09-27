@@ -1,4 +1,5 @@
 import {
+	EMPTY_BOOK,
 	FIRST_WORLD,
 	LAST_WORLD,
 	Rng,
@@ -8,6 +9,7 @@ import {
 	applyDoctorIntent,
 	applyPartyIntent,
 	arrivalSpot,
+	bookOf,
 	bundled,
 	canTalkToDoctor,
 	checkName,
@@ -30,6 +32,9 @@ import {
 	leadIndex,
 	newGame,
 	normalizeNickname,
+	recordBattle,
+	recordMatch,
+	recordParty,
 	rollEncounter,
 	spawnPoint,
 	startBattle,
@@ -41,6 +46,7 @@ import {
 	tileRealm,
 	travel,
 	worldSeed,
+	type AnimalBook,
 	type AnimalInstance,
 	type Authority,
 	type BattleEvent,
@@ -59,6 +65,7 @@ import {
 	type Line,
 	type MatchEvent,
 	type MatchSide,
+	type MatchView,
 	type PartyIntent,
 	type PlayerActivity,
 	type Realm,
@@ -173,6 +180,13 @@ export class LocalAuthority implements Authority {
 	 */
 	private solved = 0;
 	/**
+	 * The animal book: every species seen and caught in this game, in every
+	 * world (`animals/book.ts`). Grows at the event that shows an animal: a
+	 * wild battle's start and a leash throw that lands, a friendly match's
+	 * animal in front. Saved with the game.
+	 */
+	private book: AnimalBook = EMPTY_BOOK;
+	/**
 	 * The tiles the player has cleared with a tool in this world: the world is
 	 * the seed's, as they left it (`editedTileAt`). Saved with the game.
 	 */
@@ -239,6 +253,10 @@ export class LocalAuthority implements Authority {
 		this.tokens = game.tokens;
 		this.items = [...game.items];
 		this.solved = game.solved;
+		// Every animal the kid has was caught (a starter counts), and a battle in progress was
+		// met: whatever the game handed in says (a `restoreGame`'s says so already).
+		this.book = recordParty(bookOf(game.seen, game.caught), this.party);
+		if (game.battle) this.book = recordBattle(this.book, game.battle);
 		this.edits = WorldEdits.decode(game.edits);
 		this.worlds = game.worlds.map(copyStay);
 		this.battle = null;
@@ -258,6 +276,8 @@ export class LocalAuthority implements Authority {
 			tokens: this.tokens,
 			items: [...this.items],
 			solved: this.solved,
+			seen: [...this.book.seen],
+			caught: [...this.book.caught],
 			newGame: isNew,
 			edits: [...this.edits.encode()]
 		});
@@ -299,6 +319,8 @@ export class LocalAuthority implements Authority {
 			tokens: this.tokens,
 			items: [...this.items],
 			solved: this.solved,
+			seen: [...this.book.seen],
+			caught: [...this.book.caught],
 			battle: this.battle ? this.battle.state : null,
 			edits: [...edits.encode()],
 			worlds: worlds.map(copyStay)
@@ -340,15 +362,29 @@ export class LocalAuthority implements Authority {
 	}
 
 	/**
+	 * A friendly match's view, as the match's own authority (the server)
+	 * sent it to this player: the other player's animal in front goes in the
+	 * animal book as seen, as a wild one does when a battle starts
+	 * (`recordMatch`). The hook the match screen calls with every view it
+	 * shows, so every animal that steps in front is met. Nothing else changes.
+	 * Only while a game is under way.
+	 */
+	meetInMatch(view: MatchView): void {
+		if (!this.started) return;
+		this.note(recordMatch(this.book, view));
+	}
+
+	/**
 	 * A throwaway game in World 1, with the `?party=` party, in bundles, when
-	 * there is one, and the `?tokens=` tokens.
+	 * there is one, and the `?tokens=` tokens. Its animal book holds its party.
 	 */
 	private newGame(): SavedGame {
 		const game = { ...newGame(FIRST_WORLD), tokens: this.options.tokens ?? 0 };
 		// An empty `?party=` is no party: the starter, as without one.
-		return this.options.party?.length
-			? { ...game, party: bundled(this.options.party).map((a) => ({ ...a })) }
-			: game;
+		if (!this.options.party?.length) return game;
+		const party = bundled(this.options.party).map((a) => ({ ...a }));
+		const book = recordParty(EMPTY_BOOK, party);
+		return { ...game, party, seen: [...book.seen], caught: [...book.caught] };
 	}
 
 	dispatch(intent: Intent): void {
@@ -667,6 +703,8 @@ export class LocalAuthority implements Authority {
 		const state = startBattle(this.party, wild, { realm });
 		this.battle = { state, seed: this.battleSeed() };
 		this.emit({ type: 'battle-started', state });
+		// Met, from the moment the battle starts, however it ends.
+		this.note(recordBattle(this.book, state));
 	}
 
 	/** The seed of a battle that starts on the current step. */
@@ -680,6 +718,8 @@ export class LocalAuthority implements Authority {
 		battle.state = state;
 		this.emit({ type: 'battle-updated', state, events });
 		this.count(countSolved(this.solved, events));
+		// Caught, at the leash throw that lands.
+		this.note(recordBattle(this.book, state, events));
 		if (state.phase.kind !== 'ended') return;
 		this.battle = null;
 		this.endBattle(state, events);
@@ -851,6 +891,16 @@ export class LocalAuthority implements Authority {
 		if (solved === this.solved) return;
 		this.solved = solved;
 		this.emit({ type: 'solved-changed', solved });
+	}
+
+	/**
+	 * The animal book is `book` now (`animals/book.ts`, whose rules hand back
+	 * the very same book when nothing is new): say so, when it grew.
+	 */
+	private note(book: AnimalBook): void {
+		if (book === this.book) return;
+		this.book = book;
+		this.emit({ type: 'book-changed', seen: [...book.seen], caught: [...book.caught] });
 	}
 
 	private partyCopy(): AnimalInstance[] {

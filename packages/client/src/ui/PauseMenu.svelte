@@ -1,7 +1,9 @@
 <script lang="ts">
 	import {
+		BOOK_ORDER,
 		MAX_NICKNAME_LENGTH,
 		bundles,
+		canFightIn,
 		getAnimal,
 		leadIndex,
 		normalizeNickname,
@@ -16,6 +18,7 @@
 	import { motion } from '../motion';
 	import { animalWords, nameOf, speciesName } from '../names';
 	import { account } from '../state/account.svelte';
+	import { book } from '../state/book.svelte';
 	import { game } from '../state/game.svelte';
 	import { presence } from '../state/presence.svelte';
 	import {
@@ -33,10 +36,12 @@
 		type PartyOption,
 		type WorldOption
 	} from '../state/pause.svelte';
+	import BookIcon from './BookIcon.svelte';
 	import BundleAnimals from './BundleAnimals.svelte';
 	import HpBar from './HpBar.svelte';
 	import NumberPad from './NumberPad.svelte';
 	import Switch from './Switch.svelte';
+	import Tick from './Tick.svelte';
 
 	/**
 	 * The pause menu: the team's cards in battle order on the left (one per
@@ -64,6 +69,16 @@
 	 * and Escape. With the touch controls on, the key reminder goes, and while
 	 * naming the menu moves to the top of the screen, clear of the tablet's
 	 * own keyboard.
+	 *
+	 * The animal book's row stands on the menu's title line, beside "Paused",
+	 * so the menu keeps its height; it opens the book in the menu's place: a
+	 * card for every species in the book's order (`BOOK_ORDER`), in a grid
+	 * that scrolls — a "?" for one never seen, the figure's picture and name
+	 * for one seen, and a leash stamp on a meadow disc for one caught — the
+	 * count beside the title, and under the grid what the lit card says. A
+	 * card is its `option:<i>` key. The grid says how many cards it lays to a
+	 * row (`book.columns`), which the keys walk by; the pictures are
+	 * `book.portraits`, drawn as the book asks (`main.ts`).
 	 */
 	const cards = $derived(bundles(game.party));
 	const leadId = $derived(game.party[leadIndex(game.party, game.realm)]?.id ?? null);
@@ -104,6 +119,44 @@
 	});
 	/** The cursor is on the Sound row: the right side says what it does (and with a keyboard, that M does it too). */
 	const soundLit = $derived(items[pause.cursor - cards.length] === 'sound');
+	/** The cursor is on the animal book's row: the right side says what the book is. */
+	const bookLit = $derived(items[pause.cursor - cards.length] === 'book');
+
+	/** The animal book: what the kid has seen and caught, and the kinds on their team now. */
+	const seen = $derived(new Set(game.seen));
+	const caught = $derived(new Set(game.caught));
+	const onTeam = $derived(new Set(game.party.map((a) => a.speciesId)));
+	/** The book's count: kinds caught, kinds seen, every kind there is. */
+	const bookCount = $derived(
+		t('book.count', { caught: caught.size, seen: seen.size, all: BOOK_ORDER.length })
+	);
+	/** What the lit card says, under the book. */
+	const bookCaption = $derived.by(() => {
+		const spec = BOOK_ORDER[Math.min(pause.option, BOOK_ORDER.length - 1)];
+		if (pause.screen !== 'book' || !spec) return '';
+		const animal = animalWords({ speciesId: spec.id });
+		if (caught.has(spec.id)) {
+			return onTeam.has(spec.id)
+				? t('book.caughtTeam', { animal })
+				: t('book.caughtFree', { animal });
+		}
+		return seen.has(spec.id) ? t('book.seen', { animal }) : t('book.unseen');
+	});
+
+	/**
+	 * The book's grid: how many cards it lays to a row, told to `book.columns`
+	 * as the screen's width changes it, so up and down go a row.
+	 */
+	function bookGrid(grid: HTMLElement) {
+		const measure = () => {
+			const columns = getComputedStyle(grid).gridTemplateColumns.split(' ').filter(Boolean).length;
+			if (columns > 0 && columns !== book.columns) book.columns = columns;
+		};
+		const watch = new ResizeObserver(measure);
+		watch.observe(grid);
+		measure();
+		return () => watch.disconnect();
+	}
 
 	/**
 	 * The cards' order before its latest change and after it, noted before the
@@ -152,7 +205,9 @@
 	 */
 	type MenuLine = MenuItem | readonly MenuItem[];
 	const menuLines = $derived(
+		// The animal book's row stands on the title line, not under the team.
 		items.flatMap((item): MenuLine[] => {
+			if (item === 'book') return [];
 			const line = lineOf(item, items);
 			if (line.length < 2) return [item];
 			return line[0] === item ? [line] : [];
@@ -195,6 +250,8 @@
 				return t('pause.logIn');
 			case 'logOut':
 				return account.leaving ? t('account.busy') : t('pause.logOut');
+			case 'book':
+				return t('book.title');
 		}
 	}
 
@@ -306,6 +363,13 @@
 			<span class="setting">{itemLabel(item)}</span>
 			<Switch on={sfx.on} />
 			<span class="setting-state">{sfx.on ? t('pause.soundOn') : t('pause.soundOff')}</span>
+		{:else if item === 'book'}
+			<!-- The animal book: its picture, its name, and how many kinds are caught of all there are. -->
+			<BookIcon />
+			<span class="setting">{itemLabel(item)}</span>
+			<span class="setting-value"
+				>{t('book.row', { caught: caught.size, all: BOOK_ORDER.length })}</span
+			>
 		{:else}
 			<span class="button" class:secondary={item !== 'resume'}>{itemLabel(item)}</span>
 		{/if}
@@ -313,8 +377,25 @@
 {/snippet}
 
 <div class="backdrop" class:typing={touch.on && pause.screen === 'naming'}>
-	<div class="menu">
-		<div class="title">{pause.screen === 'worlds' ? t('worlds.title') : t('pause.title')}</div>
+	<div class="menu" class:book-open={pause.screen === 'book'}>
+		<div class="title-line">
+			<div class="title">
+				{pause.screen === 'worlds'
+					? t('worlds.title')
+					: pause.screen === 'book'
+						? t('book.title')
+						: t('pause.title')}
+			</div>
+			{#if pause.screen === 'book'}
+				<!-- The count, and Back (Escape), for a finger or a mouse. -->
+				<span class="book-count">{bookCount}</span>
+				<button type="button" class="pill back" data-press="Escape" {@attach unfocusable}>
+					{t('pause.back')}
+				</button>
+			{:else if pause.screen !== 'worlds' && items.includes('book')}
+				{@render menuRow('book')}
+			{/if}
+		</div>
 		{#if pause.screen === 'worlds'}
 			<!-- The Worlds screen, in the menu's place: where the kid is, the number, the rows; the pad. -->
 			<div class="worlds">
@@ -362,6 +443,49 @@
 					big
 				/>
 			</div>
+		{:else if pause.screen === 'book'}
+			<!-- The animal book, in the menu's place: every kind there is, in a grid that scrolls. -->
+			<div class="book-grid" {@attach bookGrid}>
+				{#each BOOK_ORDER as spec, i (spec.id)}
+					{@const kind = caught.has(spec.id) ? 'caught' : seen.has(spec.id) ? 'seen' : 'unseen'}
+					{@const picture = book.portraits[spec.id]}
+					<button
+						type="button"
+						class="card {kind}"
+						class:lit={pause.option === i}
+						class:sea={!canFightIn(spec.id, 'land')}
+						data-press={optionKey(i)}
+						{@attach unfocusable}
+						{@attach (card) => {
+							if (pause.option === i) card.scrollIntoView({ block: 'nearest' });
+						}}
+					>
+						{#if kind === 'unseen'}
+							<!-- Never met: a question mark, and nothing else that could give it away. -->
+							<span class="portrait mystery" aria-hidden="true">?</span>
+						{:else}
+							<span class="portrait">
+								{#key book.hopping === spec.id ? book.hops : 0}
+									{#if picture}
+										<img
+											src={picture}
+											alt=""
+											draggable="false"
+											class:hop={book.hopping === spec.id && book.hops > 0}
+										/>
+									{/if}
+								{/key}
+							</span>
+							<span class="card-name">{speciesName(spec.id)}</span>
+							{#if kind === 'caught'}
+								<!-- Caught, for good: a green tick on the card's corner. -->
+								<span class="stamp"><Tick size={30} /></span>
+							{/if}
+						{/if}
+					</button>
+				{/each}
+			</div>
+			<div class="book-caption">{bookCaption}</div>
 		{:else}
 			<div class="columns">
 				<div class="team">
@@ -564,6 +688,10 @@
 						<div class="note">
 							{touch.on ? t('pause.soundHelpTouch') : t('pause.soundHelp')}
 						</div>
+					{:else if pause.screen === 'list' && bookLit}
+						<div class="side-title">{t('book.title')}</div>
+						<div class="note">{t('book.help')}</div>
+						<div class="note">{bookCount}</div>
 					{:else}
 						<div class="soft">{t('pause.pick')}</div>
 						<div class="note">{t('pause.pickHelp')}</div>
@@ -584,6 +712,8 @@
 					{t('pause.keysOptions')}
 				{:else if pause.screen === 'worlds'}
 					{t('worlds.keys')}
+				{:else if pause.screen === 'book'}
+					{t('book.keys')}
 				{:else if pause.screen === 'players'}
 					{t('pause.keysPlayers')}
 				{:else}
@@ -632,11 +762,33 @@
 	 * without the menu scrolling. A new row goes beside another, or the budget is
 	 * measured again.
 	 */
+	/* The title, and beside it the animal book's row; in the book, its count and Back. */
+	.title-line {
+		display: flex;
+		align-items: center;
+		gap: 12px;
+		margin-bottom: 8px;
+	}
 	.title {
+		flex: 1;
+		min-width: 0;
 		font-weight: 800;
 		font-size: 32px;
 		line-height: 1.1;
-		margin-bottom: 8px;
+	}
+	/*
+	 * The book's row keeps the title's line as tall as the title: a finger tall itself,
+	 * it reaches up into the menu's padding and down into the line's margin, so the
+	 * menu keeps its height budget.
+	 */
+	.title-line .row.item {
+		flex: none;
+		width: auto;
+		margin: -6px 0 -7px;
+	}
+	/* A soft blue, the book's own, until the cursor or a mouse lights it (the rules below). */
+	.title-line .item {
+		background: rgba(61, 123, 232, 0.12);
 	}
 	/*
 	 * The team takes what its longest name needs; the side panel has the rest
@@ -1021,5 +1173,200 @@
 		font-size: 16px;
 		opacity: 0.7;
 		text-align: center;
+	}
+
+	/*
+	 * The animal book takes the menu's whole height, so its grid scrolls inside it and
+	 * the count, Back and the lit card's line stay in view, at any size.
+	 */
+	.menu.book-open {
+		height: calc(100vh - 32px - var(--safe-top) - var(--safe-bottom));
+		display: flex;
+		flex-direction: column;
+		overflow: hidden;
+	}
+	.book-count {
+		font-weight: 800;
+		font-size: 18px;
+		opacity: 0.75;
+		white-space: nowrap;
+		font-variant-numeric: tabular-nums;
+	}
+	.book-grid {
+		flex: 1;
+		min-height: 0;
+		overflow-y: auto;
+		/* A finger scrolls it; nothing else on the page moves. */
+		touch-action: pan-y;
+		display: grid;
+		grid-template-columns: repeat(auto-fill, minmax(112px, 1fr));
+		/* Every row as tall as its cards: the grid scrolls, it never squeezes them. */
+		grid-auto-rows: max-content;
+		align-content: start;
+		gap: 10px;
+		padding: 8px;
+		border-radius: 12px;
+		background: rgba(0, 0, 0, 0.04);
+	}
+	.card {
+		position: relative;
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		gap: 6px;
+		min-height: 148px;
+		padding: 10px 6px;
+		box-sizing: border-box;
+		border-radius: 14px;
+		background: rgba(255, 255, 255, 0.55);
+		font-weight: 800;
+		font-size: 16px;
+		line-height: 1.2;
+		text-align: center;
+	}
+	/* Caught: a card of its own, lifted on the toy button's edge. */
+	.card.caught {
+		background: white;
+		box-shadow: 0 3px 0 var(--edge);
+	}
+	/* Never met: an empty place, waiting for its animal. */
+	.card.unseen {
+		background: transparent;
+		border: 2px dashed rgba(45, 42, 50, 0.2);
+	}
+	.card.lit {
+		box-shadow: 0 0 0 3px var(--accent);
+	}
+	.card.caught.lit {
+		box-shadow:
+			0 0 0 3px var(--accent),
+			0 3px 0 var(--edge);
+	}
+	@media (hover: hover) and (pointer: fine) {
+		.card:not(.lit):hover {
+			background: rgba(255, 159, 67, 0.12);
+		}
+	}
+	/* The figure on a disc: plain for one met, the meadow's grass (the water, at sea) for one caught. */
+	.portrait {
+		width: min(100%, 92px);
+		aspect-ratio: 1;
+		border-radius: 50%;
+		display: grid;
+		place-items: center;
+		background: rgba(45, 42, 50, 0.07);
+	}
+	.card.caught .portrait {
+		background:
+			radial-gradient(circle at 50% 30%, rgba(255, 255, 255, 0.45), transparent 70%), #8bd66b;
+	}
+	.card.caught.sea .portrait {
+		background:
+			radial-gradient(circle at 50% 30%, rgba(255, 255, 255, 0.45), transparent 70%), #5ec8f2;
+	}
+	.portrait img {
+		display: block;
+		width: 100%;
+		height: 100%;
+		object-fit: contain;
+		animation: appear 0.25s ease-out;
+	}
+	/* Met but not caught: the figure a little faded, as if seen from afar. */
+	.card.seen .portrait img {
+		filter: saturate(0.45);
+		opacity: 0.8;
+	}
+	.mystery {
+		font-size: 52px;
+		font-weight: 800;
+		color: rgba(45, 42, 50, 0.3);
+	}
+	.card-name {
+		max-width: 100%;
+		overflow-wrap: break-word;
+	}
+	/* Caught, for good: the right answer's green tick, ringed in cream over the disc's corner. */
+	.stamp {
+		position: absolute;
+		top: 6px;
+		right: 8px;
+		border-radius: 50%;
+		box-shadow: 0 0 0 3px white;
+	}
+	.book-caption {
+		flex: none;
+		min-height: 48px;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		padding: 8px 8px 0;
+		font-weight: 800;
+		font-size: 18px;
+		text-align: center;
+	}
+	.portrait img.hop {
+		animation: hop 0.5s ease-out;
+	}
+	@keyframes appear {
+		from {
+			opacity: 0;
+			transform: scale(0.6);
+		}
+	}
+	@keyframes hop {
+		30% {
+			transform: translateY(-16%) scale(1.04);
+		}
+		55% {
+			transform: translateY(0) scale(1.06, 0.94);
+		}
+		75% {
+			transform: translateY(-4%);
+		}
+	}
+	@keyframes nod {
+		40% {
+			transform: scale(1.06);
+		}
+	}
+	@media (prefers-reduced-motion: reduce) {
+		.portrait img {
+			animation: none;
+		}
+		.portrait img.hop {
+			animation: nod 0.3s ease-out;
+		}
+	}
+	/* A phone held sideways: less round the book, and smaller cards, so two rows show. */
+	@media (max-height: 500px) {
+		.menu.book-open {
+			height: calc(100vh - 16px - var(--safe-top) - var(--safe-bottom));
+			padding: 10px 14px;
+		}
+		.book-open .title {
+			font-size: 26px;
+		}
+		.book-grid {
+			grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
+			gap: 8px;
+			padding: 6px;
+		}
+		.card {
+			min-height: 108px;
+			padding: 6px 4px 8px;
+			gap: 4px;
+		}
+		.portrait {
+			width: min(100%, 64px);
+		}
+		.stamp {
+			top: 4px;
+			right: 4px;
+		}
+		.book-caption {
+			min-height: 40px;
+			padding-top: 4px;
+			font-size: 16px;
+		}
 	}
 </style>
