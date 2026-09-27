@@ -22,6 +22,7 @@ import {
 afterEach(() => {
 	vi.unstubAllGlobals();
 	vi.restoreAllMocks();
+	vi.useRealTimers();
 });
 
 type Answer = { status: number; json?: unknown; html?: string } | 'network error';
@@ -58,6 +59,13 @@ function route(answers: Record<string, Answer>): string[] {
 		return reply(a);
 	});
 	return seen;
+}
+
+/** What `promise` has come to so far: `undefined` while it still waits. */
+function sofar<T>(promise: Promise<T>): () => T | undefined {
+	let value: T | undefined;
+	void promise.then((v) => (value = v));
+	return () => value;
 }
 
 const doc = { version: 2, home: 7, world: 7, lineage: 'l', seq: 2 } as unknown as SaveWrite;
@@ -292,8 +300,14 @@ describe("the account's save, as the autosave's server", () => {
 		]);
 	});
 
+	// The start-up waits run on vitest's fake clock, stepped to a millisecond either side of
+	// the deadline. A bound on the real clock measured the machine too: at a load of 60 a
+	// 120 ms wait took 197 ms against a bound of 180 (#108).
 	it('start-up waits no longer than it asked, for the check and the save together', async () => {
+		vi.useFakeTimers();
+		const seen: string[] = [];
 		vi.stubGlobal('fetch', async (url: string, init?: RequestInit) => {
+			seen.push(url);
 			if (url === me) {
 				await new Promise((resolve) => setTimeout(resolve, 100));
 				return reply({ status: 200, json: { user: { name: 'Ida' } } });
@@ -304,17 +318,32 @@ describe("the account's save, as the autosave's server", () => {
 			);
 		});
 		const server = accountSaveServer(new SessionCheck('Ida'));
-		const started = Date.now();
+		const got = sofar(server.getSave(who, 120));
+		// The check answers at 100 ms, and the save is asked straight after.
+		await vi.advanceTimersByTimeAsync(100);
+		expect(seen).toEqual([me, save]);
 		// 120 ms in all: not 100 for the check and then 120 more for the save.
-		expect(await server.getSave(who, 120)).toEqual({ kind: 'offline' });
-		expect(Date.now() - started).toBeLessThan(180);
+		await vi.advanceTimersByTimeAsync(19);
+		expect(got()).toBeUndefined();
+		await vi.advanceTimersByTimeAsync(1);
+		expect(got()).toEqual({ kind: 'offline' });
 	});
 
 	it('start-up waits no longer than it asked, the session check included', async () => {
-		vi.stubGlobal('fetch', () => new Promise<Response>(() => {}));
+		vi.useFakeTimers();
+		const seen: string[] = [];
+		// Nothing answers, and no request hears its abort: only start-up's own wait ends.
+		vi.stubGlobal('fetch', (url: string) => {
+			seen.push(url);
+			return new Promise<Response>(() => {});
+		});
 		const server = accountSaveServer(new SessionCheck('Ida'));
-		const started = Date.now();
-		expect(await server.getSave(who, 50)).toEqual({ kind: 'offline' });
-		expect(Date.now() - started).toBeLessThan(2000);
+		const got = sofar(server.getSave(who, 50));
+		await vi.advanceTimersByTimeAsync(49);
+		expect(got()).toBeUndefined();
+		await vi.advanceTimersByTimeAsync(1);
+		expect(got()).toEqual({ kind: 'offline' });
+		// With no word on the session, the save is never asked.
+		expect(seen).toEqual([me]);
 	});
 });
