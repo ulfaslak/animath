@@ -9,8 +9,8 @@ import { Zoo } from '../src/render/zoo';
 /**
  * The figures' contract (see animals.ts): every catalog species has one,
  * feet on y = 0, centred on x, flat-shaded and shadow-casting, and bigger
- * with its tier: on land the bear is the biggest while the squirrel is the
- * smallest, at sea the whale the biggest. Whether they *look*
+ * with its tier: on land the smallest is a tier-1 animal and the biggest a
+ * tier-5 one, at sea the whale the biggest. Whether they *look*
  * like the animal is checked by eye with `?zoo`; this pins what a screenshot
  * cannot.
  */
@@ -64,18 +64,20 @@ describe('figures', () => {
 		});
 	}
 
-	it('sizes by tier: on land the bear biggest and the squirrel smallest, at sea the whale biggest, and two tiers up always bigger', () => {
+	it('sizes by tier: on land the smallest a tier-1 animal and the biggest a tier-5 one, at sea the whale biggest, and two tiers up always bigger', () => {
 		const volumes = new Map(ANIMALS.map((s) => [s.id, volume(bounds(buildAnimalMesh(s.id)))]));
 		const onLand = ANIMALS.filter((s) => s.realms.includes('land'));
 		const atSea = ANIMALS.filter((s) => !s.realms.includes('land'));
-		const bear = volumes.get('bear')!;
+		const bySize = [...onLand].sort((a, b) => volumes.get(a.id)! - volumes.get(b.id)!);
+		expect(bySize[0]!.tier, `${bySize[0]!.id} is the smallest on land`).toBe(1);
+		expect(bySize.at(-1)!.tier, `${bySize.at(-1)!.id} is the biggest on land`).toBe(5);
+		// Inside a tier, size follows nature: the shrew, the stag beetle and the robin are
+		// smaller than the squirrel.
 		const squirrel = volumes.get('squirrel')!;
-		for (const { id } of onLand) {
-			const v = volumes.get(id)!;
-			if (id !== 'bear') expect(v, `${id} vs bear`).toBeLessThan(bear);
-			if (id !== 'squirrel') expect(v, `${id} vs squirrel`).toBeGreaterThan(squirrel);
+		for (const id of ['shrew', 'stag-beetle', 'robin']) {
+			expect(volumes.get(id)!, `${id} vs squirrel`).toBeLessThan(squirrel);
 		}
-		expect(bear / squirrel).toBeGreaterThan(5);
+		expect(volumes.get('bear')! / squirrel).toBeGreaterThan(5);
 		const whale = volumes.get('whale')!;
 		for (const { id } of atSea)
 			if (id !== 'whale') expect(volumes.get(id)!, id).toBeLessThan(whale);

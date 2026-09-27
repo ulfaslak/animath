@@ -37,8 +37,9 @@ export const ANIMALS: readonly AnimalSpec[] = [
 		]
 	},
 	{
-		// The river's own tier-1 animal. It counts in hops: sequences and times
-		// tables, where the squirrel and the rabbit ask sums.
+		// A tier-1 animal of the river (with the brown rat and the toad since #89).
+		// It counts in hops: sequences and times tables, where the squirrel and the
+		// rabbit ask sums.
 		id: 'frog',
 		tier: 1,
 		maxHp: 21,
@@ -119,6 +120,262 @@ export const ANIMALS: readonly AnimalSpec[] = [
 			{ id: 'roar', kinds: ['sequence'], power: 16 },
 			{ id: 'maul', kinds: ['div', 'sqrt'], power: 22 },
 			{ id: 'crush', kinds: ['sqrt', 'sequence'], power: 28 }
+		]
+	},
+	// The small animals of the Nordic countryside (#89 wave 1), by tier and then
+	// as the issue lists them. Their numbers sit inside the bands #89 sets for
+	// each tier round the prototype animals' (tier 1: 18–26 HP, catch 0.8–0.9,
+	// powers 3–8; tier 2: 30–36, 0.6–0.7, 5–12), and their shape gives each its
+	// character: the hedgehog a tank with a weak first attack, the shrew a glass
+	// cannon. A tier-1 animal asks times tables only on a later attack, and
+	// nothing below tier 3 asks division or square roots. Only the squirrel, the
+	// rabbit and the frog are starters (`party/starters.ts`): the rest are caught.
+	{
+		id: 'shrew',
+		tier: 1,
+		maxHp: 18,
+		catchRate: 0.9,
+		habitats: ['meadow', 'forest'],
+		realms: ['land'],
+		favours: 'open',
+		attacks: [
+			{ id: 'squeak', kinds: ['sequence'], power: 5 },
+			{ id: 'hungry-bite', kinds: ['add', 'sub'], power: 8 }
+		]
+	},
+	{
+		id: 'wood-mouse',
+		tier: 1,
+		maxHp: 19,
+		catchRate: 0.9,
+		habitats: ['forest', 'meadow'],
+		realms: ['land'],
+		favours: 'trees',
+		attacks: [
+			{ id: 'scamper', kinds: ['add'], power: 4 },
+			{ id: 'seed-stash', kinds: ['add', 'missing'], power: 6 },
+			{ id: 'long-jump', kinds: ['sequence'], power: 8 }
+		]
+	},
+	{
+		id: 'brown-rat',
+		tier: 1,
+		maxHp: 22,
+		catchRate: 0.85,
+		habitats: ['river', 'meadow'],
+		realms: ['land'],
+		favours: 'water',
+		attacks: [
+			{ id: 'gnaw', kinds: ['sub'], power: 4 },
+			{ id: 'rat-race', kinds: ['add', 'sub'], power: 6 },
+			{ id: 'tail-swish', kinds: ['sequence', 'missing'], power: 8 }
+		]
+	},
+	{
+		id: 'hedgehog',
+		tier: 1,
+		maxHp: 26,
+		catchRate: 0.85,
+		habitats: ['meadow', 'forest'],
+		realms: ['land'],
+		favours: 'open',
+		attacks: [
+			{ id: 'sniff', kinds: ['add'], power: 3 },
+			{ id: 'curl-up', kinds: ['sequence'], power: 5 },
+			{ id: 'spike-roll', kinds: ['add', 'sub'], power: 7 }
+		]
+	},
+	{
+		id: 'mole',
+		tier: 1,
+		maxHp: 22,
+		catchRate: 0.85,
+		habitats: ['meadow'],
+		realms: ['land'],
+		favours: 'open',
+		attacks: [
+			{ id: 'dig', kinds: ['add', 'sub'], power: 4 },
+			{ id: 'molehill', kinds: ['missing', 'mul'], power: 8 }
+		]
+	},
+	{
+		id: 'common-lizard',
+		tier: 1,
+		maxHp: 19,
+		catchRate: 0.9,
+		habitats: ['meadow', 'mountain'],
+		realms: ['land'],
+		favours: 'rocks',
+		attacks: [
+			{ id: 'sun-dash', kinds: ['add'], power: 4 },
+			{ id: 'tail-trick', kinds: ['sequence'], power: 6 },
+			{ id: 'quick-snap', kinds: ['add', 'sub'], power: 8 }
+		]
+	},
+	{
+		id: 'common-toad',
+		tier: 1,
+		maxHp: 23,
+		catchRate: 0.8,
+		habitats: ['river', 'forest'],
+		realms: ['land', 'water'],
+		favours: 'water',
+		attacks: [
+			{ id: 'puff-up', kinds: ['sequence'], power: 4 },
+			{ id: 'sticky-tongue', kinds: ['add', 'mul'], power: 5 },
+			{ id: 'big-hop', kinds: ['mul', 'sequence'], power: 7 }
+		]
+	},
+	{
+		id: 'robin',
+		tier: 1,
+		maxHp: 19,
+		catchRate: 0.9,
+		habitats: ['forest', 'meadow'],
+		realms: ['land'],
+		favours: 'trees',
+		attacks: [
+			{ id: 'song', kinds: ['sequence'], power: 5 },
+			{ id: 'peck', kinds: ['add', 'sub'], power: 6 },
+			{ id: 'red-chest', kinds: ['add', 'missing'], power: 8 }
+		]
+	},
+	{
+		id: 'stag-beetle',
+		tier: 1,
+		maxHp: 24,
+		catchRate: 0.8,
+		habitats: ['forest'],
+		realms: ['land'],
+		favours: 'trees',
+		attacks: [
+			{ id: 'jaw-snap', kinds: ['add', 'sub'], power: 4 },
+			{ id: 'wrestle', kinds: ['missing', 'sequence'], power: 7 }
+		]
+	},
+	{
+		id: 'roe-deer',
+		tier: 2,
+		maxHp: 31,
+		catchRate: 0.65,
+		habitats: ['meadow', 'forest'],
+		realms: ['land'],
+		favours: 'trees',
+		attacks: [
+			{ id: 'bark', kinds: ['add', 'sub'], power: 6 },
+			{ id: 'spring', kinds: ['mul'], power: 9 },
+			{ id: 'white-flash', kinds: ['sequence', 'missing'], power: 11 }
+		]
+	},
+	{
+		id: 'badger',
+		tier: 2,
+		maxHp: 35,
+		catchRate: 0.6,
+		habitats: ['forest', 'meadow'],
+		realms: ['land'],
+		favours: 'trees',
+		attacks: [
+			{ id: 'snuffle', kinds: ['add', 'sub'], power: 6 },
+			{ id: 'dig-in', kinds: ['mul'], power: 9 },
+			{ id: 'badger-charge', kinds: ['missing', 'sequence'], power: 11 }
+		]
+	},
+	{
+		id: 'pine-marten',
+		tier: 2,
+		maxHp: 32,
+		catchRate: 0.65,
+		habitats: ['forest'],
+		realms: ['land'],
+		favours: 'trees',
+		attacks: [
+			{ id: 'tree-leap', kinds: ['add', 'sub'], power: 6 },
+			{ id: 'quick-paws', kinds: ['mul'], power: 9 },
+			{ id: 'marten-bite', kinds: ['sequence'], power: 12 }
+		]
+	},
+	{
+		id: 'stoat',
+		tier: 2,
+		maxHp: 30,
+		catchRate: 0.7,
+		habitats: ['meadow', 'mountain'],
+		realms: ['land'],
+		favours: 'rocks',
+		attacks: [
+			{ id: 'stoat-dance', kinds: ['sequence'], power: 7 },
+			{ id: 'quick-bite', kinds: ['mul', 'missing'], power: 10 }
+		]
+	},
+	{
+		id: 'adder',
+		tier: 2,
+		maxHp: 30,
+		catchRate: 0.65,
+		habitats: ['meadow', 'mountain'],
+		realms: ['land'],
+		favours: 'rocks',
+		attacks: [
+			{ id: 'hiss', kinds: ['sub', 'missing'], power: 6 },
+			{ id: 'zigzag', kinds: ['sequence'], power: 8 },
+			{ id: 'strike', kinds: ['mul'], power: 11 }
+		]
+	},
+	{
+		id: 'grey-heron',
+		tier: 2,
+		maxHp: 33,
+		catchRate: 0.65,
+		habitats: ['river'],
+		realms: ['land'],
+		favours: 'water',
+		attacks: [
+			{ id: 'wade', kinds: ['add', 'sub'], power: 6 },
+			{ id: 'spear-beak', kinds: ['mul', 'missing'], power: 10 }
+		]
+	},
+	{
+		// Talon Grab asks times tables and missing numbers, not the division #89
+		// wrote for it: nothing below tier 3 asks division ([[DECISIONS]] § Gameplay).
+		id: 'tawny-owl',
+		tier: 2,
+		maxHp: 32,
+		catchRate: 0.65,
+		habitats: ['forest'],
+		realms: ['land'],
+		favours: 'trees',
+		attacks: [
+			{ id: 'hoot', kinds: ['sequence'], power: 5 },
+			{ id: 'silent-swoop', kinds: ['mul'], power: 8 },
+			{ id: 'talon-grab', kinds: ['mul', 'missing'], power: 11 }
+		]
+	},
+	{
+		id: 'raccoon',
+		tier: 2,
+		maxHp: 34,
+		catchRate: 0.65,
+		habitats: ['forest', 'river'],
+		realms: ['land'],
+		favours: 'water',
+		attacks: [
+			{ id: 'wash-up', kinds: ['add', 'sub'], power: 5 },
+			{ id: 'clever-paws', kinds: ['missing', 'mul'], power: 8 },
+			{ id: 'bandit-mask', kinds: ['sequence'], power: 11 }
+		]
+	},
+	{
+		id: 'beaver',
+		tier: 2,
+		maxHp: 36,
+		catchRate: 0.6,
+		habitats: ['river'],
+		realms: ['land', 'water'],
+		favours: 'water',
+		attacks: [
+			{ id: 'tail-slap', kinds: ['add', 'sub'], power: 5 },
+			{ id: 'tree-gnaw', kinds: ['mul', 'missing'], power: 9 }
 		]
 	},
 	// The sea animals: they live out on the deep water, in the sea biome, and

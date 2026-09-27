@@ -1161,10 +1161,15 @@ export class MatchController implements MatchHooks {
 		);
 	}
 
-	/** Exploring with nothing over it: no battle, card, menu, trip or account card. */
+	/**
+	 * Exploring with nothing over it: no battle, card, menu, trip or account
+	 * card, and feet on the ground (up in the air with the glider, the others see
+	 * a `flight`, which the server's rule turns away too).
+	 */
 	private exploring(): boolean {
 		return (
 			game.mode === 'explore' &&
+			!game.flying &&
 			!battle.active &&
 			!doctor.active &&
 			!pause.open &&

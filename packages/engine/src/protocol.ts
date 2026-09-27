@@ -7,6 +7,7 @@ import type { NewGameRejection } from './party/starters.js';
 import type { ItemId } from './items/catalog.js';
 import type { PartyEvent, PartyIntent } from './party/types.js';
 import type { ChunkRef } from './world/edits.js';
+import type { TakeOffRejection } from './world/flight.js';
 import type { ClearableKind, Direction, GridPos } from './world/types.js';
 import type { TravelRejection } from './world/worlds.js';
 
@@ -43,8 +44,8 @@ export type Intent =
 	/**
 	 * Start a new game with the starter the player picked, the name they gave
 	 * it, and the player's own name, as typed (the title's name box and
-	 * starter screen). The engine's `chooseStarter` checks the starter: a
-	 * tier-1 species, a nickname that is text, cleaned like a rename; and
+	 * starter screen). The engine's `chooseStarter` checks the starter: one
+	 * of `STARTERS`, a nickname that is text, cleaned like a rename; and
 	 * `checkName` the player's name (without one, the game asks for it later).
 	 * Only while no game is under way, which is at the title. The game starts
 	 * in a world the authority picks, its home. Answered with `welcome`
@@ -59,7 +60,7 @@ export type Intent =
 	| { type: 'choose-name'; name: string }
 	/**
 	 * Go to world `world`, a world number as the player chose it. Only while
-	 * exploring: in a battle or at the doctor it does nothing. The engine's
+	 * exploring: in a battle, at the doctor or in the air it does nothing. The engine's
 	 * `travel` checks it and remembers the world left. Answered with
 	 * `travelled`, or `travel-refused`.
 	 */
@@ -74,11 +75,34 @@ export type Intent =
 	 */
 	| { type: 'go-to'; near: GridPos }
 	/**
+	 * Space held (the touch controls' Fly): take off with the glider, the way
+	 * the player faces (the engine's `takeOff`). Only while exploring.
+	 * Answered with `took-off`, or `take-off-refused` when there is no glider
+	 * or nowhere to land in the `GLIDE_TILES` ahead.
+	 */
+	| { type: 'take-off' }
+	/**
+	 * In the air: one tile on (the screen sends one each time the last tile is
+	 * flown, at the glide's pace, for as long as Space is held and after it,
+	 * on to the landing tile). Answered with `glided`. At the reach it goes no
+	 * further: a glide past it lands there (`landed`), so the reach is always
+	 * flown over before it is landed on.
+	 */
+	| { type: 'glide' }
+	/**
+	 * In the air: come down, on the first tile at or after the one the glider
+	 * is over that the player can stand on (`landFlight`). Answered with
+	 * `landed`, and `tile-cleared` when the landing chops a tree or breaks a
+	 * rock.
+	 */
+	| { type: 'land' }
+	/**
 	 * Leave the game for the title (the pause menu's Quit to title). Only
-	 * while exploring: in a battle or at the doctor it does nothing, so no
-	 * way out of either opens through the title. The game stops where it
-	 * stands, and a later start picks it up there. Answered with
-	 * `game-left`; after it nothing walks, rolls or saves until a game starts.
+	 * while exploring: in a battle, at the doctor or in the air it does
+	 * nothing, so no way out of any of them opens through the title. The game
+	 * stops where it stands, and a later start picks it up there. Answered
+	 * with `game-left`; after it nothing walks, rolls or saves until a game
+	 * starts.
 	 */
 	| { type: 'leave-game' };
 
@@ -252,7 +276,28 @@ export type GameEvent =
 	 * `interact` while facing a tree or a rock without the tool it takes.
 	 * Nothing changed; the client may say that the doctor sells one.
 	 */
-	| { type: 'tool-needed'; playerId: string; kind: ClearableKind; tool: ItemId };
+	| { type: 'tool-needed'; playerId: string; kind: ClearableKind; tool: ItemId }
+	/**
+	 * `take-off`: the player is up in the air over `from`, gliding `dir` (the
+	 * way they face), and will come down at most `reach` tiles out. Nothing
+	 * but `glide` and `land` is taken until `landed`.
+	 */
+	| { type: 'took-off'; playerId: string; from: GridPos; dir: Direction; reach: number }
+	/** `take-off` was refused, and nothing changed: why, as a code the client words kindly. */
+	| { type: 'take-off-refused'; playerId: string; reason: TakeOffRejection }
+	/**
+	 * `glide`: the player is over `pos` now, `flown` tiles out, one tile on.
+	 * Each tile flown is a step, and none starts a battle.
+	 */
+	| { type: 'glided'; playerId: string; pos: GridPos; flown: number }
+	/**
+	 * The flight came down on `pos`, `flown` tiles from where it took off (the
+	 * kid let go, or it reached its reach): a tile they can stand on, the
+	 * ground, or the water in the boat. A `tile-cleared` follows when they came
+	 * down on a tree or a rock their tool clears. The player walks on from
+	 * here, facing the way they flew.
+	 */
+	| { type: 'landed'; playerId: string; pos: GridPos; dir: Direction; flown: number };
 
 export interface Authority {
 	dispatch(intent: Intent): void;

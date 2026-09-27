@@ -41,10 +41,16 @@ import { readFightEvents, readFightView, type FightEvent, type FightView } from 
  * table, and bumps `PROTOCOL_VERSION` when an old page could no longer
  * understand the server. A page whose version the server no longer speaks is
  * told to `refresh` (it reloads at a calm moment: its game is saved in the
- * browser). Version 2 added friendly matches, and 3 battles seen from
- * outside (`battle` from a page, `fight` from the server: `fight.ts`).
+ * browser).
+ *
+ * Version 2: friendly matches. Version 3: the glider's `flight` joined
+ * `BUSY_STATES`. A version 2 server refuses a `where` that says it (junk, and
+ * a whole glide of them closes the socket as `invalid`), and a version 2 page
+ * drops a `peer` that says it, so the two could not speak. Version 4: battles
+ * seen from outside (`battle` from a page, `fight` from the server:
+ * `fight.ts`), which a version 3 server would count as junk.
  */
-export const PROTOCOL_VERSION = 3;
+export const PROTOCOL_VERSION = 4;
 
 /**
  * The most a message may take on the wire, in bytes (the server closes a
@@ -93,9 +99,12 @@ export const MAX_ROSTER = 50;
 /**
  * What a player is doing, which others see as a little bubble over them:
  * walking about (no bubble), in a battle with a wild animal, with the
- * doctor (the card, the shop), in the pause menu, or in a friendly match.
+ * doctor (the card, the shop), in the pause menu, or in a friendly match. Or
+ * up in the air with the glider (`flight`: no bubble, since the glider shows
+ * it): from take-off to touch-down, the tiles in a `where` are flown over,
+ * not walked, so the others draw them gliding.
  */
-export const BUSY_STATES = ['explore', 'battle', 'doctor', 'menu', 'match'] as const;
+export const BUSY_STATES = ['explore', 'battle', 'doctor', 'menu', 'match', 'flight'] as const;
 export type Busy = (typeof BUSY_STATES)[number];
 
 const DIRECTIONS: readonly Direction[] = ['up', 'down', 'left', 'right'];

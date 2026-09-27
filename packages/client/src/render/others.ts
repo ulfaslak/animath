@@ -13,10 +13,21 @@ import * as THREE from 'three';
 import { motion } from '../motion';
 import { animateIdle, animateWalk, buildPlayerMesh, disposeFigure } from './animals';
 import { BOAT_SWING_SECONDS, buildBoatMesh, disposeBoat, poseBoat, standAstern } from './boat';
+import { smoothstep } from './ease';
 import { Follower, type FigureHost } from './follower';
+import { WING_TOP, buildGliderMesh, disposeGlider, poseGlider } from './glider';
 import { TRAINER_LOOKS, type TrainerLook } from './palette';
 import type { Poofs } from './poof';
-import { FACING_ANGLE, STEP_SECONDS, strideOnto, trainerStep } from './trainer';
+import {
+	DESCEND_SECONDS,
+	FACING_ANGLE,
+	GLIDE_SECONDS,
+	RISE_SECONDS,
+	STEP_SECONDS,
+	strideOnto,
+	trainerPose,
+	trainerStep
+} from './trainer';
 
 /**
  * The other players in view ([[UI_SPEC]] § Explore mode, "Playing
@@ -40,8 +51,16 @@ import { FACING_ANGLE, STEP_SECONDS, strideOnto, trainerStep } from './trainer';
  * shrinks away, as the player's own does. With reduced motion the fades are
  * the same, and the poof is the calm one.
  *
+ * A player up in the air with the glider (`busy: 'flight'`) is drawn as the
+ * player's own is: they rise where they stand as their canopy opens, the
+ * tiles they send meanwhile are glided, high and without a hop, at the
+ * glider's pace, and when they say they are down they come down where they
+ * are. Each tile in the queue remembers whether it was flown, so a friend
+ * who glided over a lake is never seen walking on it. Nobody follows them in
+ * the air; their lead is back beside them once they are down.
+ *
  * What goes is freed: a trainer's geometries, its own materials (each
- * trainer has its own, to fade), its boat, its follower
+ * trainer has its own, to fade), its boat and its glider, its follower
  * ([[INVARIANTS]] § Rendering).
  *
  * The names over their heads and the bubbles that say what they are busy
@@ -79,6 +98,12 @@ export interface Head {
 	opacity: number;
 }
 
+/** A tile a player said they reached, and whether they flew there (or, on their own tile, took off or came down). */
+interface Reached {
+	pos: GridPos;
+	flying: boolean;
+}
+
 interface Other {
 	readonly pid: string;
 	readonly name: string;
@@ -88,13 +113,20 @@ interface Other {
 	readonly materials: THREE.Material[];
 	boat: THREE.Group | null;
 	boatMaterials: THREE.Material[];
+	/** Their glider, built the first time they fly in view, with its own materials to fade. */
+	glider: THREE.Group | null;
+	gliderMaterials: THREE.Material[];
 	readonly follower: Follower;
 	from: GridPos;
 	to: GridPos;
 	progress: number;
 	stepSeconds: number;
-	/** Tiles they reached that are still to walk, in order. */
-	queue: GridPos[];
+	/** Tiles they reached that are still to walk (or glide), in order. */
+	queue: Reached[];
+	/** Up in the air as drawn: the tiles now being walked were flown. */
+	flying: boolean;
+	/** How far up they are, 0 on the ground to 1 cruising: it follows `flying` at the rise's and the descent's pace. */
+	lift: number;
 	/** The way they face, standing: as they last said. Walking, the way they walk. */
 	facing: Direction;
 	ownsBoat: boolean;
@@ -177,10 +209,21 @@ export class OtherPlayers {
 		other.lead = peer.lead;
 		other.facing = peer.facing;
 		if (peer.boat !== other.ownsBoat) this.setBoat(other, peer.boat);
-		const last = other.queue.at(-1) ?? other.to;
-		if (last.x === target.x && last.y === target.y) return;
+		const flying = peer.busy === 'flight';
+		const lastReached = other.queue.at(-1);
+		const last = lastReached?.pos ?? other.to;
+		if (last.x === target.x && last.y === target.y) {
+			// Up into the air, or down, where they stand: that is the next thing to draw.
+			if (flying !== (lastReached?.flying ?? other.flying))
+				other.queue.push({ pos: target, flying });
+			return;
+		}
 		if (adjacent(last, target) && other.queue.length < MAX_BEHIND) {
-			other.queue.push(target);
+			// A tile walked right after tiles flown is where they came down (its flight was
+			// never said, two messages in one): they glide onto it, then come down there.
+			const wasFlying = lastReached?.flying ?? other.flying;
+			if (wasFlying && !flying) other.queue.push({ pos: target, flying: true });
+			other.queue.push({ pos: target, flying });
 			return;
 		}
 		// Further than a step: gone from there in a poof, and here in another.
@@ -190,6 +233,8 @@ export class OtherPlayers {
 		other.to = target;
 		other.progress = 1;
 		other.queue = [];
+		other.flying = flying;
+		other.lift = flying ? 1 : 0;
 		other.follower.place(this.seed, target, other.facing);
 		if (tilesApart(target, this.centre) <= POOF_NEAR) this.poof(target, other.ownsBoat);
 	}
@@ -225,15 +270,19 @@ export class OtherPlayers {
 				other.opacity = Math.min(1, other.opacity + dt / FADE_SECONDS);
 			}
 			this.walk(other, dt);
-			const { x, y, z, afloat } = trainerStep(
+			this.rise(other, dt);
+			const lift = smoothstep(other.lift);
+			const { x, y, z, afloat } = trainerPose(
 				this.seed,
 				other.from,
 				other.to,
 				other.progress,
 				other.ownsBoat,
-				calm
+				calm,
+				lift
 			);
-			const walking = other.from.x !== other.to.x || other.from.y !== other.to.y;
+			const walking =
+				(other.from.x !== other.to.x || other.from.y !== other.to.y) && other.lift === 0;
 			const way = walking ? (direction(other.from, other.to) ?? other.facing) : other.facing;
 			const rocking = afloat === 1 && !calm;
 			// Standing where someone else stands, they stand a little aside, easing there.
@@ -257,6 +306,11 @@ export class OtherPlayers {
 				);
 				if (rig) rig.position.z = -standAstern(afloat, calm);
 			} else if (rig) rig.position.z = 0;
+			// Up in the air: the canopy open over them, as wide as they are high.
+			if (other.lift > 0 && !other.glider) this.buildGlider(other);
+			if (other.glider) {
+				poseGlider(other.glider, lift, calm, other.ownsBoat && afloat < 0.5, false);
+			}
 			animateIdle(other.figure, t);
 			animateWalk(
 				other.figure,
@@ -266,14 +320,37 @@ export class OtherPlayers {
 			);
 			this.fade(other);
 			// Their lead: on land who they say; out on the water one that swims swims, and one
-			// that can't rides in the boat once they have stepped into it.
+			// that can't rides in the boat once they have stepped into it. Nobody follows a
+			// friend up into the air.
 			const onWater = this.waterAt(other.to);
 			const boarding = walking && other.progress < 1 && !this.waterAt(other.from);
 			const riding =
 				onWater && other.lead !== null && !canFightIn(other.lead, 'water') && !boarding;
-			if (!other.leaving) other.follower.lead(other.lead, riding);
+			const up = other.flying || other.lift > 0;
+			if (!other.leaving) other.follower.lead(up ? null : other.lead, riding);
 			other.follower.update(other.progress, dt);
 		}
+	}
+
+	/**
+	 * Up or down towards where they are: `flying`'s lift, at the rise's pace
+	 * going up and the descent's coming down. Down, their lead comes back
+	 * beside them, wherever they came down.
+	 */
+	private rise(other: Other, dt: number): void {
+		const want = other.flying ? 1 : 0;
+		if (other.lift === want) return;
+		other.lift = other.flying
+			? Math.min(1, other.lift + dt / RISE_SECONDS)
+			: Math.max(0, other.lift - dt / DESCEND_SECONDS);
+		if (other.lift === 0) other.follower.place(this.seed, other.to, other.facing);
+	}
+
+	private buildGlider(other: Other): void {
+		other.glider = buildGliderMesh(other.look.shirt);
+		other.gliderMaterials = ownMaterials(other.glider);
+		other.figure.add(other.glider);
+		this.fade(other, true);
 	}
 
 	/**
@@ -309,15 +386,22 @@ export class OtherPlayers {
 		return aside;
 	}
 
-	/** Everyone's head, where their name goes, as drawn this frame. */
+	/**
+	 * Everyone's head, where their name goes, as drawn this frame: over the
+	 * cap, and up in the air over the top of their glider, so the name never
+	 * hides the wing.
+	 */
 	heads(): Head[] {
-		return [...this.others.values()].map((other) => ({
-			pid: other.pid,
-			name: other.name,
-			busy: other.busy,
-			at: other.figure.position.clone().setY(other.figure.position.y + HEAD_HEIGHT),
-			opacity: Math.max(0, Math.min(1, other.opacity))
-		}));
+		return [...this.others.values()].map((other) => {
+			const over = HEAD_HEIGHT + (WING_TOP + 0.12 - HEAD_HEIGHT) * smoothstep(other.lift);
+			return {
+				pid: other.pid,
+				name: other.name,
+				busy: other.busy,
+				at: other.figure.position.clone().setY(other.figure.position.y + over),
+				opacity: Math.max(0, Math.min(1, other.opacity))
+			};
+		});
 	}
 
 	/** Where a player's figure is drawn to be, on the grid: the tile they are walking to. */
@@ -336,6 +420,8 @@ export class OtherPlayers {
 		const materials = ownMaterials(figure);
 		this.scene.add(figure);
 		const at = { x: peer.x, y: peer.y };
+		// One who comes into view in the air is up there already.
+		const flying = peer.busy === 'flight';
 		const other: Other = {
 			pid: peer.pid,
 			name: peer.name,
@@ -344,12 +430,16 @@ export class OtherPlayers {
 			materials,
 			boat: null,
 			boatMaterials: [],
+			glider: null,
+			gliderMaterials: [],
 			follower: new Follower(this.host),
 			from: at,
 			to: at,
 			progress: 1,
 			stepSeconds: STEP_SECONDS,
 			queue: [],
+			flying,
+			lift: flying ? 1 : 0,
 			facing: peer.facing,
 			ownsBoat: false,
 			lead: peer.lead,
@@ -364,17 +454,31 @@ export class OtherPlayers {
 		return other;
 	}
 
-	/** Start the next tile of their walk once the last one is walked. */
+	/**
+	 * Start the next tile of their walk, or glide, once the last one is done.
+	 * Between walking and flying they first rise, or come down, where they
+	 * are: a tile flown is glided only up in the air, and a tile walked only on
+	 * the ground.
+	 */
 	private walk(other: Other, dt: number): void {
 		if (other.progress < 1) other.progress = Math.min(1, other.progress + dt / other.stepSeconds);
-		if (other.progress < 1 || other.queue.length === 0) return;
-		const next = other.queue.shift()!;
+		const next = other.queue[0];
+		if (other.progress < 1 || !next) return;
+		if (next.flying !== other.flying) other.flying = next.flying;
+		if (other.lift !== (other.flying ? 1 : 0)) return;
+		other.queue.shift();
+		// A take-off or a landing where they stand: the rise or the descent was all of it.
+		if (next.pos.x === other.to.x && next.pos.y === other.to.y) return;
 		other.from = other.to;
-		other.to = next;
+		other.to = next.pos;
 		other.progress = 0;
+		if (next.flying) {
+			other.stepSeconds = other.queue.length >= CATCH_UP ? GLIDE_SECONDS / 2 : GLIDE_SECONDS;
+			return;
+		}
 		// Into the boat or out of it takes the boat's swing, as the player's own step does.
 		const swing =
-			other.ownsBoat && this.waterAt(other.from) !== this.waterAt(next) && !motion.reduced;
+			other.ownsBoat && this.waterAt(other.from) !== this.waterAt(next.pos) && !motion.reduced;
 		const base = swing ? BOAT_SWING_SECONDS : STEP_SECONDS;
 		other.stepSeconds = other.queue.length >= CATCH_UP ? base / 2 : base;
 		other.follower.follow(other.from, other.to);
@@ -390,10 +494,14 @@ export class OtherPlayers {
 		if (other.boat) other.boat.visible = owns;
 	}
 
-	/** Fade the trainer (and their boat) to their opacity; a trainer nearly gone casts no shadow. */
-	private fade(other: Other): void {
+	/**
+	 * Fade the trainer (and their boat and glider) to their opacity; a trainer
+	 * nearly gone casts no shadow. `fresh`: something was just added to them,
+	 * whose shadows are set again.
+	 */
+	private fade(other: Other, fresh = false): void {
 		const opacity = Math.max(0, Math.min(1, other.opacity));
-		for (const material of [...other.materials, ...other.boatMaterials]) {
+		for (const material of [...other.materials, ...other.boatMaterials, ...other.gliderMaterials]) {
 			material.opacity = opacity;
 			// Fully there, a figure draws as a solid one does, with the rest of the world.
 			const see = opacity < 1;
@@ -403,6 +511,7 @@ export class OtherPlayers {
 			}
 		}
 		const cast = opacity > 0.5;
+		if (fresh) other.figure.userData.casting = undefined;
 		if (other.figure.userData.casting !== cast) {
 			other.figure.userData.casting = cast;
 			other.figure.traverse((o) => {
@@ -428,8 +537,14 @@ export class OtherPlayers {
 			other.boat.removeFromParent();
 			disposeBoat(other.boat);
 		}
+		if (other.glider) {
+			other.glider.removeFromParent();
+			disposeGlider(other.glider);
+		}
 		disposeFigure(other.figure);
-		for (const material of [...other.materials, ...other.boatMaterials]) material.dispose();
+		for (const material of [...other.materials, ...other.boatMaterials, ...other.gliderMaterials]) {
+			material.dispose();
+		}
 		other.follower.hide();
 	}
 

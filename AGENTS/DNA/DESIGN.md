@@ -42,16 +42,18 @@ Hex values are the ones in `packages/client/src/render/palette.ts` and `styles.c
 | Fire / warm accent   | `#ffb347` | Also the UI accent (`--accent: #ff9f43`).    |
 | Trainer (player)     | `#ff7e6b` shirt, `#ffcfb0` skin, `#2f4fa8` shorts, `#3d7be8` cap | The trainers are the only figures in blue shorts, so none reads as an animal. |
 | Other trainers       | shirts `#f5c84a`, `#56c271`, `#9b6bd6`, `#f07fb0`, `#3cb8b0`, `#e0553f`, `#6cc3f0`, `#a8d84e`; caps `#2fa39a`, `#ff9f43`, `#f5c84a`, `#7a4fc0`, `#ff7e6b`, `#e0553f` | `TRAINER_LOOKS`: other players wear a shirt and a cap picked by their name, so a friend looks the same on every screen; the trainer's skin and blue shorts stay. No pair is the player's coral and blue, so nobody looks like you. Their boat's rim and pennant are their shirt's colour. |
-| Animal fur           | Squirrel `#c9733a`, rabbit `#d9cbb8`, frog `#3aa66a`, fox `#e8762b`, otter `#8a5a3a`, deer `#c48a52`, wolf `#7f858f`, bear `#5a3a28`; at sea crab `#e0553f`, starfish `#f2894e`, turtle `#8cc47e` (shell `#3f7f4c`), dolphin `#6f9fc4`, octopus `#b4589e`, whale `#3d6b9a` | `ANIMAL_COLORS`: one fur (or skin) per species plus an accent for its tell (white tail tip, pink ear, tan muzzle, the frog's pale throat `#e3eea4`). The frog's green is bluer and darker than grass and tall grass, so it never melts into them. The whale's spout is water: the shallows' `#5ec8f2`, with off-white drops. |
+| Animal fur           | Squirrel `#c9733a`, rabbit `#d9cbb8`, frog `#3aa66a`, fox `#e8762b`, otter `#8a5a3a`, red deer `#c48a52`, wolf `#7f858f`, bear `#5a3a28`; at sea crab `#e0553f`, starfish `#f2894e`, turtle `#8cc47e` (shell `#3f7f4c`), dolphin `#6f9fc4`, octopus `#b4589e`, whale `#3d6b9a` | `ANIMAL_COLORS`: one fur (or skin) per species plus an accent for its tell (white tail tip, pink ear, tan muzzle, the frog's pale throat `#e3eea4`). The frog's green is bluer and darker than grass and tall grass, so it never melts into them. The whale's spout is water: the shallows' `#5ec8f2`, with off-white drops. The small animals of the countryside below: none the trainer's blue, none a grass green, sand or snow. |
+| Small animals (#89)  | fur / accent: shrew `#6b4f3f` / `#d9c3a5` belly · wood mouse `#a8743f` / `#f3ece0` belly and ears · brown rat `#7a6a5a` / `#e9a6a6` bare pink tail, ears and feet · hedgehog `#8a6d4e` spines / `#d8b98f` face and feet · mole `#2f2b33` velvet / `#f0a5a0` hands and nose · common lizard `#7d6b3a` / `#e8b33c` belly · common toad `#9a7445` / `#d9632b` copper eyes · robin `#8a6a4a` / `#e8622c` breast · stag beetle `#3b2418` / `#8e3b1f` jaws · roe deer `#b5703d` / `#f3ece0` rump · badger `#8c8c8c` / `#f4f1ea` face · pine marten `#6b3f22` / `#f2c14e` bib · stoat `#a86a3a` / `#fff4e6` belly · adder `#8a8579` / `#2f2a28` zigzag · grey heron `#a7adb3` / `#e3b341` beak and legs · tawny owl `#9b6a3f` / `#d9b98a` face disc · raccoon `#8f8a85` / `#2f2a28` mask · beaver `#6e4a2e` / `#e0762e` teeth | One tell each ([[PRODUCT]] §5 Explore): the toad is browner and bumpier than the frog, never green; the tawny owl has no ear tufts. The stoat's tail tip, the badger's stripes, the roe deer's antlers, the raccoon's legs and the beaver's paddle tail are the shared near-black. |
 | Figure details       | `#fff4e6` / `#2f2a28` | Off-white and near-black for tail tips, chests, noses, eyes. |
 | Dust                 | `#f6efe2` | The ring a tired animal lies down in, and the poof where a trainer turns up out of nowhere; fades as it spreads. Never grey smoke. |
 | Confetti             | accent, good, warn, water, trainer shirt, off-white, rabbit pink | `CONFETTI_COLORS`: only colours already in the game. |
 | Sparkles             | warn `#f5b83d` and good `#56c271`, with off-white in the battle scene, coral and blue on the result card, white at the doctor | The doctor's chunky four-pointed stars: along a healed animal's HP bar, in the battle scene (unlit, so they shine) and round the result card's headline. |
 | Token                | warn `#f5b83d`, rim `#c98a12`, inner ring `#fbd67a`, heart `--panel-cream` | A gold coin with a cream heart, the doctor's thank-you: on the doctor's card, in the HUD, beside each price; a "+N" in good, a "−N" in amber `#d99a1e`. |
 | Puzzle solved        | good `#56c271`, rim `#3f9d57`, tick `--panel-cream` | A green badge with a cream tick, the green of a right answer (`Tick`): beside the count of puzzles solved in the HUD, as the coin is beside the tokens. |
-| Tools                | trunk `#8b5a3c` (mast `#6e4630`), rock `#a8a39e` with a pale edge `#e9e6e2`, water `#5ec8f2`, trainer coral | The shop's pictures (`ItemIcon`): an axe, a pickaxe, a boat with a coral sail, flat and chunky in the world's own colours. The axe and the pickaxe in the trainer's fist while it swings are the same colours, as boxes. |
+| Tools                | trunk `#8b5a3c` (mast `#6e4630`), rock `#a8a39e` with a pale edge `#e9e6e2`, water `#5ec8f2`, trainer coral | The shop's pictures (`ItemIcon`): an axe, a pickaxe, a boat with a coral sail, a paraglider's arched wing of coral and cream cells over its lines, flat and chunky in the world's own colours. The axe and the pickaxe in the trainer's fist while it swings are the same colours, as boxes. |
 | Cleared ground       | gravel `#c9c0ad`, on the peaks `#d8d3ca`; fresh wood `#e8c48f` | Where a rock was broken: gravel, warmer and lighter than the rock round it, so it reads as a path, with the mountain's pebbles on it. Where a tree was chopped: the forest floor with a trunk-brown stump, its cut face and a few chips in fresh wood, which the axe also sends flying. |
 | The boat             | hull trunk `#8b5a3c`, inside mast `#6e4630`, rim and pennant trainer coral `#ff7e6b` | `BOAT_COLORS`: the shop picture's boat in the world, a rowboat on the trainer's back and under them on the water. |
+| The paraglider       | cells trainer coral `#ff7e6b` and off-white `#fff4e6` by turns, lines near-black `#2f2a28`; the landing ring off-white, the shadow under a flier near-black at 28% | `GLIDER_COLORS`: never the trainer's blue nor a grass green, so the wing reads against the sky and the meadow alike; the shop picture outlines the whole wing in coral, so its cream cells read on the cream card. Another player's canopy is their shirt's colour and off-white. |
 | Result card's rays   | warn at half strength | A burst behind a new friend's name, fading out at its rim. |
 | Butterflies          | rabbit pink `#f5b8c4`, amber `#f5b83d`, off-white, trainer coral, sky `#8fd3f4` | `BUTTERFLY_COLORS`: two five-sided wings on a dark body, a little under half a tile across. |
 | UI panel             | `rgba(255,252,245,.92)` | Cream, slightly translucent. Opaque (`--panel-cream`, `#fffcf5`) as the rim round big lettering. |
@@ -142,7 +144,7 @@ The same voice for a Danish seven-year-old reading alone: short, warm, one idea 
 | Frog     | frø    | en      | frøen   | en vild frø     | den vilde frø   |
 | Fox      | ræv    | en      | ræven   | en vild ræv     | den vilde ræv   |
 | Otter    | odder  | en      | odderen | en vild odder   | den vilde odder |
-| Deer     | hjort  | en      | hjorten | en vild hjort   | den vilde hjort |
+| Red deer | kronhjort | en   | kronhjorten | en vild kronhjort | den vilde kronhjort |
 | Wolf     | ulv    | en      | ulven   | en vild ulv     | den vilde ulv   |
 | Bear     | bjørn  | en      | bjørnen | en vild bjørn   | den vilde bjørn |
 | Crab     | krabbe | en      | krabben | en vild krabbe  | den vilde krabbe |
@@ -151,6 +153,26 @@ The same voice for a Danish seven-year-old reading alone: short, warm, one idea 
 | Dolphin  | delfin | en      | delfinen | en vild delfin | den vilde delfin |
 | Octopus  | blæksprutte | en | blæksprutten | en vild blæksprutte | den vilde blæksprutte |
 | Whale    | hval   | en      | hvalen  | en vild hval    | den vilde hval  |
+| Shrew    | spidsmus | en    | spidsmusen | en vild spidsmus | den vilde spidsmus |
+| Wood mouse | skovmus | en   | skovmusen | en vild skovmus | den vilde skovmus |
+| Brown rat | brun rotte | en  | den brune rotte | en vild brun rotte | den vilde brune rotte |
+| Hedgehog | pindsvin | et    | pindsvinet | et vildt pindsvin | det vilde pindsvin |
+| Mole     | muldvarp | en    | muldvarpen | en vild muldvarp | den vilde muldvarp |
+| Common lizard | skovfirben | et | skovfirbenet | et vildt skovfirben | det vilde skovfirben |
+| Common toad | skrubtudse | en | skrubtudsen | en vild skrubtudse | den vilde skrubtudse |
+| Robin    | rødhals | en     | rødhalsen | en vild rødhals | den vilde rødhals |
+| Stag beetle | eghjort | en  | eghjorten | en vild eghjort | den vilde eghjort |
+| Roe deer | rådyr  | et      | rådyret | et vildt rådyr  | det vilde rådyr |
+| Badger   | grævling | en    | grævlingen | en vild grævling | den vilde grævling |
+| Pine marten | skovmår | en  | skovmåren | en vild skovmår | den vilde skovmår |
+| Stoat    | lækat  | en      | lækatten | en vild lækat  | den vilde lækat |
+| Adder    | hugorm | en      | hugormen | en vild hugorm | den vilde hugorm |
+| Grey heron | fiskehejre | en | fiskehejren | en vild fiskehejre | den vilde fiskehejre |
+| Tawny owl | natugle | en     | natuglen | en vild natugle | den vilde natugle |
+| Raccoon  | vaskebjørn | en  | vaskebjørnen | en vild vaskebjørn | den vilde vaskebjørn |
+| Beaver   | bæver  | en      | bæveren | en vild bæver   | den vilde bæver |
+
+A species is called by its everyday name, the species a kid can learn (*spidsmus*, never *mus*, since a shrew is not a mouse; *hugorm*, not *slange*), and a name of two words keeps both: *brun rotte*, whose adjective takes the definite form (*den brune rotte*), after an owner too (*Bos brune rotte*, its `bare` form). English names are British and capitalised mid-sentence as the others are ("a wild Grey heron", "an Adder"). Every name is 15 characters or fewer, so it fits the cards.
 
 The words the game uses for its things, the same on every screen:
 
@@ -164,6 +186,7 @@ The words the game uses for its things, the same on every screen:
 | help home | hjælpe hjem | the tab ("Hjælp hjem"), its button ("Hjælp dem hjem"), "Hjælp dyr hjem" |
 | shop | butik | the tab ("Butik"), "Min butik åbner snart" |
 | axe / pickaxe / boat | økse / hakke / båd (en) | the tools: "Øksen koster 8", "Her er din økse!"; each form written out in `da.yaml` (`items.*`) |
+| paraglider / fly | paraglider (en) / flyve | the tool ("Paraglider", "din paraglider", "Svæver over træer, sten og vand."), the touch button ("Flyv"), "Hold mellemrum nede for at flyve!", "flyver" in Who's here; a rock is "sten" there too, never "klipper" |
 | chop (a tree) / break (a rock) | fælde / knuse | the prompts ("Tryk på Enter for at fælde træet", "… for at knuse stenen"), the touch button ("Fæld", "Knus"), "Du skal bruge en økse for at fælde træer." |
 | can't swim | kan ikke svømme | out on the water: the switch list's tag, "Ræven kan ikke svømme og bliver i båden.", "Dine andre dyr kan ikke svømme." |
 | lives in the sea | bor i havet | on land, a sea animal: the switch list's tag, "Krabben bor i havet!", "Dine andre dyr bor i havet." — never "kan ikke gå", which a crab on a beach can |
