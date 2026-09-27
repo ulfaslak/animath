@@ -8,11 +8,11 @@ Technical items we've intentionally postponed: tech debt, hardening shortcuts, k
 
 ### A deploy runs two app containers side by side for a few seconds
 
-**What**: `scripts/deploy.sh` swaps the app without a gap the way lawcel's does: a canary of the new image joins the network under the alias `app` beside the old app, nginx spreads requests over both, then the old one is replaced and the canary removed ([[ARCHITECTURE]] § Production). That works because the app keeps nothing between requests but what is in Postgres. A server that holds shared state in memory (who is in which world for presence, a friendly match's state, over `/api/ws`) would, for those seconds, be two servers with half the players each, and every socket would drop twice (the old app replaced, then the canary removed). On SIGTERM the server stops taking connections and finishes the HTTP requests in flight, but a socket is never done: it waits the full 8 s and is then cut, not closed.
+**What**: `scripts/deploy.sh` swaps the app without a gap the way lawcel's does: a canary of the new image joins the network under the alias `app` beside the old app, nginx spreads requests over both, then the old one is replaced and the canary removed ([[ARCHITECTURE]] § Production). Presence fits it: on SIGTERM every socket is told to come straight back, the pages put back all the server kept, and a player's public id is the same on every copy ([[ARCHITECTURE]] § Presence › Deploys), so the hop (twice a deploy: the old app replaced, then the canary removed) draws nobody twice. A friendly match's state, kept in one server's memory, would not survive a hop: a match under way when its server stops would be lost.
 
-**Why deferred**: the server is stateless today, and the right swap depends on what the presence and match server keeps: a plain stop-then-start with clients reconnecting (seconds of outage), state kept where two servers can share it, or a SIGTERM that closes each socket with 1001 so clients reconnect to the new app at once.
+**Why deferred**: there is no match server yet, and what a match does when its server stops (finish first, hand its state on, or end kindly for both kids) is that PR's call.
 
-**Trigger**: the first server code that keeps state in memory across requests or sockets, which [[DECISIONS]] § Multiplayer's presence and friendly matches do. In that PR, change `deploy.sh`'s swap to fit what it keeps, and close its sockets in `index.ts`'s SIGTERM handler.
+**Trigger**: the friendly-match server code ([[DECISIONS]] § Multiplayer). In that PR, decide what a match under way does on SIGTERM, and whether `deploy.sh`'s swap must wait for matches to end.
 
 ### A file under `/assets/` is downloaded whole on every visit
 
@@ -142,14 +142,6 @@ Technical items we've intentionally postponed: tech debt, hardening shortcuts, k
 
 **Trigger**: a report of a new game that did not stick, or `animath.save.previous.100` showing up in a kid's browser.
 
-### The screenshot script blocks the API's HTTP requests, not a WebSocket
-
-**What**: `scripts/screenshot.mjs` keeps runs off every real server by aborting requests to `/api/` (`context.route`), and a route never sees a WebSocket. Vite also proxies WebSocket upgrades on `/api` to the API, so once the client talks to the server over `/api/ws`, every screenshot run reaches the human's server again. The script then needs to refuse that socket too, as a server that is down would, unless `--api`.
-
-**Why deferred**: the client opens no WebSocket and the server serves none. Playwright's WebSocket routing (`routeWebSocket`) swaps the page's `WebSocket` class for its own, which Vite's hot-reload socket would then go through as well: a risk to every run, for a path nothing uses yet.
-
-**Trigger**: the first client code that opens a WebSocket (the presence PR, [[DECISIONS]] § Multiplayer).
-
 ### The doctor's Heal tab lists every animal of a kind, where the HUD shows one card
 
 **What**: the doctor's lists read the party's bundles (`bundles`), and Help home gives each kind of several a row of its own ("Rabbit ×12") that picks the whole kind (#75). Heal still lists each animal, grouped by kind with a line between kinds, and has no row for a kind. So a kid meets twelve rabbits as one card in the HUD and as twelve rows at the doctor's Heal tab.
@@ -198,6 +190,14 @@ Technical items we've intentionally postponed: tech debt, hardening shortcuts, k
 **Why deferred**: the game has no address of its own yet: the human has not chosen a domain, and until the production server is up the game is shared through a tunnel whose address changes. A hard-coded address would be wrong everywhere it is shared today.
 
 **Trigger**: the production domain is chosen (`MATHGAME_DOMAIN` in `deploy.env`, the one place it is set). Then write it into `og:image` (and add `og:url`), in `index.html` or from the build's environment. The image's build does not read `deploy.env` today (the `.dockerignore` allowlist leaves it out): pass it in as a build argument, as `GIT_SHA` is.
+
+### Presence lives in one server process's memory
+
+**What**: who is in which world, where, and who sees whom (`PresenceHub`) is kept in the memory of the Node process that holds each socket. A restart forgets it (every page says where it is again as its socket comes back, within a second on a deploy), and two processes split every world in two, each half blind to the other: a deploy's swap does that for its few seconds, to a page that opens its socket while two copies run.
+
+**Why deferred**: one process serves the game between deploys; forgetting on a restart costs nothing a page doesn't put back by itself, and a friend missing for the seconds of a swap is back at its next hop.
+
+**Trigger**: a second server process serving at the same time for longer than a deploy's swap (a cluster, a second container kept for load): then presence moves to one place both reach, or each world to one process.
 
 ### An older build drops a saved battle that a newer build's content, other than a new id, made
 

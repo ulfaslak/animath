@@ -1,4 +1,11 @@
-import { bundles, canFightIn, leadIndex, type AnimalInstance, type Realm } from '@mathgame/engine';
+import {
+	bundles,
+	canFightIn,
+	leadIndex,
+	parseWorldNumber,
+	type AnimalInstance,
+	type Realm
+} from '@mathgame/engine';
 
 /**
  * What the pause menu shows and which screen the keys drive. Written only by
@@ -8,23 +15,41 @@ import { bundles, canFightIn, leadIndex, type AnimalInstance, type Realm } from 
  * `screen`: `list` walks the team's cards (one per species, in battle order)
  * and then the menu items; `bundle` is what can be done with a card of
  * several animals, and its animals; `options` is what can be done with the
- * picked animal; `naming` is the name box.
+ * picked animal; `naming` is the name box; `worlds` is the Worlds screen:
+ * the world the player is in and their home, a number pad for a world's
+ * number, Go, Go home and Back; `players` is who else is in this world,
+ * each one a "Go to" (`presence.roster`).
  */
-export type PauseScreen = 'list' | 'bundle' | 'options' | 'naming';
+export type PauseScreen = 'list' | 'bundle' | 'options' | 'naming' | 'worlds' | 'players';
 
 /**
- * The rows under the team, in order: the settings, then "Keep playing" and
- * Quit to title. A new one is a new id here, its label in
- * `PauseMenu.svelte`, and its case in `PauseController.chooseItem` — the
- * cursor, keys and layout already count every row listed. A setting's row
- * also takes left and right (`PauseController.settingKey`). `language`
- * switches every word on screen to the next language at once and remembers
- * it on this device; `sound` turns the sound off and on (`sfx`); `quit`
- * (Start screen) saves the game as it stands and goes back to the title,
- * where Continue picks it up.
+ * The rows under the team, in order: Worlds, Who's here, the settings, then
+ * "Keep playing" and Quit to title, which are drawn side by side. A new one
+ * is a new id here, before those two, its label in `PauseMenu.svelte`, and
+ * its case in `PauseController.chooseItem` — the cursor, keys and layout
+ * already count every row listed. A setting's row also takes left and right
+ * (`PauseController.settingKey`); the last two take them to step between
+ * each other. `worlds` opens the Worlds screen, with the world the player is
+ * in beside it; `players` opens the list of the other players in this world
+ * on the right, where picking one goes to them; `language` switches every
+ * word on screen to the next language at once and remembers it on this
+ * device; `sound` turns the sound off and on (`sfx`); `quit` (Start screen)
+ * saves the game as it stands and goes back to the title, where Continue
+ * picks it up.
  */
-export const MENU_ITEMS = ['language', 'sound', 'resume', 'quit'] as const;
+export const MENU_ITEMS = ['worlds', 'players', 'language', 'sound', 'resume', 'quit'] as const;
 export type MenuItem = (typeof MENU_ITEMS)[number];
+
+/**
+ * Rows drawn two to a line, so the menu keeps its height (a team of all eight
+ * kinds fits 1024×768): Worlds beside Who's here, Keep playing beside Start
+ * screen. Each pair is two neighbours in `MENU_ITEMS`; left and right step
+ * between the two, and up and down walk them in order as any rows.
+ */
+export const MENU_PAIRS: readonly (readonly [MenuItem, MenuItem])[] = [
+	['worlds', 'players'],
+	['resume', 'quit']
+];
 
 class PauseView {
 	/** True from Escape in explore until the menu is closed. Walking waits meanwhile. */
@@ -43,6 +68,8 @@ class PauseView {
 	option = $state(0);
 	/** The name typed so far. */
 	draft = $state('');
+	/** The world's number typed on the Worlds screen so far: up to `WORLD_DIGITS` digits. */
+	worldDraft = $state('');
 
 	reset(): void {
 		this.open = false;
@@ -52,6 +79,7 @@ class PauseView {
 		this.picked = null;
 		this.option = 0;
 		this.draft = '';
+		this.worldDraft = '';
 	}
 }
 
@@ -180,6 +208,40 @@ export function bundleOptions(
 		{ id: 'first', enabled: !!bundle && whyCardNotFirst(party, speciesId, realm) === null },
 		{ id: 'up', enabled: place > 0 },
 		{ id: 'down', enabled: place >= 0 && place < list.length - 1 },
+		{ id: 'back', enabled: true }
+	];
+}
+
+/** The most digits a world's number has (9999). */
+export const WORLD_DIGITS = 4;
+
+export type WorldOption = 'go' | 'home' | 'back';
+
+/**
+ * Why Go is greyed on the Worlds screen, said under it: nothing typed yet
+ * (`type`), a number that is no world (`notAWorld`: 0), or the world the
+ * player is in (`here`).
+ */
+export type NoGo = 'type' | 'notAWorld' | 'here';
+
+/** Why the Worlds screen's Go can't go to what is typed; null when it can. */
+export function whyNoGo(draft: string, world: number): NoGo | null {
+	if (draft === '') return 'type';
+	const to = parseWorldNumber(draft);
+	if (to === null) return 'notAWorld';
+	return to === world ? 'here' : null;
+}
+
+/**
+ * The Worlds screen's rows, in order: Go (to the world typed, while it is
+ * one and not the world the player is in: `whyNoGo`), Go home (while the
+ * player is away from home), Back. The number pad is not a row: its keys are
+ * keys, a digit, Backspace and Enter.
+ */
+export function worldRows(draft: string, world: number, home: number): OptionRow<WorldOption>[] {
+	return [
+		{ id: 'go', enabled: whyNoGo(draft, world) === null },
+		{ id: 'home', enabled: world !== home },
 		{ id: 'back', enabled: true }
 	];
 }

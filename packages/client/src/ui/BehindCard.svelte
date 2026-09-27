@@ -41,6 +41,8 @@
 	.behind {
 		position: absolute;
 		inset: 0;
+		/* Over everything: the HUD's open card (3) and a trip to another world (4) included. */
+		z-index: 5;
 		display: grid;
 		place-items: center;
 		padding: calc(16px + var(--safe-top)) calc(16px + var(--safe-right))

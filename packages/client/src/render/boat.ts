@@ -88,14 +88,26 @@ const materials = {
 		flatShading: true,
 		side: THREE.BackSide
 	}),
-	deck: new THREE.MeshLambertMaterial({ color: BOAT_COLORS.inside, flatShading: true }),
-	trim: new THREE.MeshLambertMaterial({ color: BOAT_COLORS.trim, flatShading: true }),
-	pennant: new THREE.MeshLambertMaterial({
-		color: BOAT_COLORS.pennant,
-		flatShading: true,
-		side: THREE.DoubleSide
-	})
+	deck: new THREE.MeshLambertMaterial({ color: BOAT_COLORS.inside, flatShading: true })
 };
+
+/**
+ * The rim and the pennant, in the trainer's shirt colour: coral for the
+ * player's own boat, another player's shirt for theirs. Kept per colour, and
+ * shared like the rest.
+ */
+const trims = new Map<number, { trim: THREE.Material; pennant: THREE.Material }>();
+function trimOf(color: number): { trim: THREE.Material; pennant: THREE.Material } {
+	let t = trims.get(color);
+	if (!t) {
+		t = {
+			trim: new THREE.MeshLambertMaterial({ color, flatShading: true }),
+			pennant: new THREE.MeshLambertMaterial({ color, flatShading: true, side: THREE.DoubleSide })
+		};
+		trims.set(color, t);
+	}
+	return t;
+}
 
 /** The hull: the lower half of a cone lying along z, wide at the stern, open at the top. */
 function hullGeometry(): THREE.BufferGeometry {
@@ -155,11 +167,13 @@ function mesh(geometry: THREE.BufferGeometry, material: THREE.Material): THREE.M
 }
 
 /**
- * A new boat, on the back (`poseBoat` it). Its geometries are its own:
- * `disposeBoat` frees them. The trainer keeps one for as long as the page
- * lives.
+ * A new boat, on the back (`poseBoat` it), its rim and pennant in `trim`
+ * (the trainer's shirt). Its geometries are its own: `disposeBoat` frees
+ * them. The trainer keeps one for as long as the page lives; another
+ * player's goes when they do.
  */
-export function buildBoatMesh(): THREE.Group {
+export function buildBoatMesh(trim: number = BOAT_COLORS.trim): THREE.Group {
+	const { trim: trimMaterial, pennant: pennantMaterial } = trimOf(trim);
 	const boat = new THREE.Group();
 	boat.name = 'boat';
 	const hull = hullGeometry();
@@ -183,14 +197,14 @@ export function buildBoatMesh(): THREE.Group {
 	const slant = Math.atan2(STERN_R - BOW_R, LENGTH);
 	const side = Math.hypot(LENGTH, STERN_R - BOW_R);
 	for (const s of [-1, 1] as const) {
-		const rim = mesh(new THREE.BoxGeometry(0.035, 0.035, side), materials.trim);
+		const rim = mesh(new THREE.BoxGeometry(0.035, 0.035, side), trimMaterial);
 		rim.position.set((s * (STERN_R + BOW_R)) / 2, DEPTH / 2, 0);
 		// From the wide stern to the narrow bow: each side slants in towards the middle.
 		rim.rotation.y = -s * slant;
 		rim.name = 'rim';
 		boat.add(rim);
 	}
-	const transom = mesh(new THREE.BoxGeometry(STERN_R * 2, 0.035, 0.035), materials.trim);
+	const transom = mesh(new THREE.BoxGeometry(STERN_R * 2, 0.035, 0.035), trimMaterial);
 	transom.position.set(0, DEPTH / 2, -LENGTH / 2);
 	boat.add(transom);
 	// A pennant at the stern, which stands up once the boat is afloat.
@@ -198,7 +212,7 @@ export function buildBoatMesh(): THREE.Group {
 	pennant.name = 'pennant';
 	const pole = mesh(new THREE.CylinderGeometry(0.012, 0.012, 0.36, 5), materials.inside);
 	pole.position.y = 0.18;
-	const flag = mesh(new THREE.ConeGeometry(0.06, 0.16, 3), materials.pennant);
+	const flag = mesh(new THREE.ConeGeometry(0.06, 0.16, 3), pennantMaterial);
 	flag.rotation.z = -Math.PI / 2;
 	flag.scale.set(1, 1, 0.25);
 	flag.position.set(0.08, 0.3, 0);
