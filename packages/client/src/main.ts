@@ -12,7 +12,7 @@ import { PLAY_HOUR_MS, PlayClock } from './account/playtime';
 import { ReadyWatch, keepingCursors } from './account/ready';
 import { noteNextStart, restartWith, takeAccountNote } from './account/restart';
 import { currentAccount, forgetLogout, gameKeys, logoutPending } from './account/session';
-import { forgetWelcome, takeWelcomeToken } from './account/welcome';
+import { forgetWelcome, takeWelcomeToken, welcomeFrom } from './account/welcome';
 import { sfx } from './audio/sfx.svelte';
 import { LocalAuthority, mintId } from './authority/local';
 import { BattleController } from './battle/controller';
@@ -415,6 +415,16 @@ function checkAccount(): void {
 window.addEventListener('storage', (e) => {
 	autosave.onStorage(e.key, e.newValue);
 	if (e.key === null || e.key === ACCOUNT_KEYS.current) checkAccount();
+});
+// A welcome link opened in a tab already on the game changes only what is after `#`, which starts
+// no page: the tab keeps the token (out of the address) and starts again, which opens its card.
+// The game is saved as the page goes, as at any reload.
+window.addEventListener('hashchange', () => {
+	if (flags.throwaway || !welcomeFrom(location.href)?.token) return;
+	takeWelcomeToken({ session: tabStore });
+	playClock.flush();
+	reloading = true;
+	location.reload();
 });
 // A page back from the back/forward cache, or resumed after the browser froze it, gets
 // no `storage` events for the time it was away: it checks the save again, and so does
