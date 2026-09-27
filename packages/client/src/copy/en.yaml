@@ -1107,6 +1107,11 @@ presence:
     match: in a friendly match
     # Up in the air with the paraglider (no bubble: the glider shows it; only the list says it).
     flight: flying
+  # The thought bubble over a player in a battle, said for screen readers: the
+  # sum they are working out ({sum}, as the bubble shows it: "7 × 8 = ?"), or,
+  # while they choose what to do, that they are thinking.
+  thinking: '{name} is working out {sum}'
+  choosing: '{name} is thinking…'
 match:
   # A friendly match between two players. {name} is the other player, as they
   # typed it; {whose} is their name as the owner of what follows ("Bo's"),

@@ -1,6 +1,7 @@
 import {
 	BEARINGS,
 	bearingVector,
+	facePrompt,
 	isWireCoord,
 	leadIndex,
 	type AnimalInstance,
@@ -20,10 +21,11 @@ import { doctor } from '../state/doctor.svelte';
 import { game } from '../state/game.svelte';
 import { hud } from '../state/hud.svelte';
 import { pause } from '../state/pause.svelte';
-import { presence, type Arrow, type Label } from '../state/presence.svelte';
+import { presence, type Arrow, type Bar, type Label, type Pop } from '../state/presence.svelte';
 import { PresenceConnection, type PresenceStatus } from './connection';
 import { guestId } from './identity';
 import { ArrivalNotes } from './notes';
+import { BattleReport } from './report';
 
 /**
  * Playing together, on the page ([[UI_SPEC]] § Explore mode, "Playing
@@ -102,10 +104,10 @@ const MATCH_KINDS: ReadonlySet<ServerMessage['t']> = new Set([
 	'rematch-wish'
 ]);
 
-/** What the controller needs of the renderer: the others, and where things are on the canvas. */
+/** What the controller needs of the renderer: the others and their battles, and where things are on the canvas. */
 export type PresenceRenderer = Pick<
 	GameRenderer,
-	'others' | 'toScreen' | 'groundToScreen' | 'showingWorld' | 'screenSize'
+	'others' | 'fights' | 'toScreen' | 'groundToScreen' | 'showingWorld' | 'screenSize'
 >;
 
 export interface PresenceOptions {
@@ -136,6 +138,8 @@ export interface PresenceOptions {
 export class PresenceController {
 	private readonly connection: PresenceConnection;
 	private readonly notes = new ArrivalNotes();
+	/** The player's own battle with a wild animal, as the others near them see it (`report.ts`). */
+	private readonly report = new BattleReport();
 	private readonly clock: () => number;
 	private underWay = false;
 	/** The player's name and world, as the game says them: `welcome`, then `name-chosen` and `travelled`. */
@@ -163,6 +167,7 @@ export class PresenceController {
 	}
 
 	handle(event: GameEvent): void {
+		this.report.handle(event);
 		switch (event.type) {
 			case 'welcome':
 				// A game under way: nobody from before is on screen.
@@ -188,6 +193,7 @@ export class PresenceController {
 				this.finding = null;
 				this.connection.stop();
 				this.options.renderer.others.clear();
+				this.options.renderer.fights.clear();
 				presence.reset();
 				break;
 			case 'player-placed':
@@ -214,6 +220,7 @@ export class PresenceController {
 		this.finding = null;
 		presence.roster = [];
 		this.options.renderer.others.clear();
+		this.options.renderer.fights.clear();
 		this.options.renderer.others.hush();
 	}
 
@@ -228,6 +235,9 @@ export class PresenceController {
 		}
 		const where = this.whereNow();
 		if (where) this.connection.where(where);
+		// The player's own battle, to the others near them: after where they are, which says they are in it.
+		const report = this.report.take(where?.busy ?? null, this.connection.status === 'on');
+		if (report) this.connection.send(report);
 		if (this.connection.status === 'outdated' && this.calm()) this.reloadOnce();
 		if (this.finding && now - this.finding.since > FIND_SECONDS) {
 			hud.presence('cantFind', this.finding.name);
@@ -256,22 +266,63 @@ export class PresenceController {
 		if (!this.underWay || !renderer.showingWorld) {
 			if (presence.labels.length) presence.labels = [];
 			if (presence.arrows.length) presence.arrows = [];
+			if (presence.bars.length) presence.bars = [];
+			if (presence.pops.length) presence.pops = [];
 			return;
 		}
 		if (presence.compass.length === 0) presence.compass = compassOf(renderer);
+		const marks = renderer.fights.marks();
 		const labels: Label[] = [];
 		for (const head of renderer.others.heads()) {
 			const p = renderer.toScreen(head.at);
 			if (!p.visible || head.opacity <= 0) continue;
+			const thought = marks.thoughts.get(head.pid);
 			labels.push({
 				pid: head.pid,
 				name: head.name,
 				busy: head.busy,
 				x: Math.round(p.x),
 				y: Math.round(p.y),
-				opacity: Math.round(head.opacity * 20) / 20
+				opacity: Math.round(head.opacity * 20) / 20,
+				// The puzzle they are thinking about, written out here by the engine's own formatter.
+				thought: thought
+					? {
+							sum: thought.puzzle ? facePrompt(thought.puzzle) : null,
+							mood: thought.mood,
+							beat: thought.beat
+						}
+					: null
 			});
 		}
+		const bars: Bar[] = [];
+		for (const bar of marks.bars) {
+			const p = renderer.toScreen(bar.at);
+			if (!p.visible) continue;
+			bars.push({
+				key: bar.key,
+				species: bar.animal.species,
+				nickname: bar.animal.nickname ?? null,
+				hp: bar.animal.hp,
+				maxHp: bar.maxHp,
+				x: Math.round(p.x),
+				y: Math.round(p.y),
+				opacity: Math.round(bar.opacity * 20) / 20
+			});
+		}
+		const pops: Pop[] = [];
+		for (const pop of marks.pops) {
+			const p = renderer.toScreen(pop.at);
+			if (!p.visible) continue;
+			pops.push({
+				id: pop.id,
+				damage: pop.damage,
+				level: pop.level,
+				x: Math.round(p.x),
+				y: Math.round(p.y)
+			});
+		}
+		if (!sameList(bars, presence.bars)) presence.bars = bars;
+		if (!sameList(pops, presence.pops)) presence.pops = pops;
 		const onScreen = new Set(labels.map((l) => l.pid));
 		const arrows: Arrow[] = [];
 		const { w, h } = renderer.screenSize();
@@ -339,6 +390,13 @@ export class PresenceController {
 				others.hush();
 				this.unconfirmed = new Set(others.pids());
 				this.confirmBy = this.unconfirmed.size > 0 ? now + CONFIRM_SECONDS : null;
+				// A battle going on is told to this server anew: it knows nothing of it.
+				this.report.again();
+				break;
+			case 'fight':
+				// Someone near is in a battle: it is drawn beside them. Never the player's own.
+				if (m.pid === this.connection.pid || m.vs === this.connection.pid) break;
+				this.options.renderer.fights.show(m);
 				break;
 			case 'peer':
 				// Never the player themselves: nobody is drawn twice, whatever a server says.

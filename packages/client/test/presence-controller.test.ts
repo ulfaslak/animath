@@ -3,6 +3,7 @@ import {
 	arrivalSpot,
 	byeCloseCode,
 	newGame,
+	wildFight,
 	type GameEvent,
 	type ServerMessage,
 	type WhereMessage
@@ -28,6 +29,7 @@ import {
 	type PresenceRenderer
 } from '../src/presence/controller';
 import { GUEST_KEY } from '../src/presence/identity';
+import { WatchedFights } from '../src/render/fights';
 import { OtherPlayers } from '../src/render/others';
 import { Poofs } from '../src/render/poof';
 import type { KeyValueStore } from '../src/save/storage';
@@ -99,13 +101,15 @@ function setup(
 	};
 	const scene = new THREE.Scene();
 	const poofs = new Poofs(scene);
-	const others = new OtherPlayers(
-		scene,
-		{ addFigure: (f) => scene.add(f), removeFigure: (f) => scene.remove(f) },
-		poofs
-	);
+	const host = {
+		addFigure: (f: THREE.Group) => scene.add(f),
+		removeFigure: (f: THREE.Group) => scene.remove(f)
+	};
+	const others = new OtherPlayers(scene, host, poofs);
+	const fights = new WatchedFights(scene, host, poofs, others);
 	const renderer: PresenceRenderer = {
 		others,
+		fights,
 		showingWorld: true,
 		toScreen: (p) => ({ x: p.x * 10, y: p.z * 10, visible: true }),
 		groundToScreen: (x, y) => ({ x: x * 10, y: y * 10 }),
@@ -152,6 +156,8 @@ function setup(
 			else timers.push(timer);
 		}
 		others.update(now, seconds);
+		fights.update(now, seconds);
+		poofs.update(now);
 		controller.update();
 		controller.overlay();
 	};
@@ -175,6 +181,7 @@ function setup(
 		store,
 		session,
 		others,
+		fights,
 		poofs,
 		setBehind: (b: boolean) => (behind = b),
 		reloads: () => reloads,
@@ -227,6 +234,109 @@ describe('presence on the page', () => {
 		s.frame();
 		s.frame();
 		expect(s.sentOf('where').at(-1)).toMatchObject({ busy: 'battle' });
+	});
+
+	it('tells the server about its own battle while it is in one: as it stands, each step, again on a new socket, never after its end', () => {
+		const s = setup();
+		// The eleventh step from the start, onto the reed, meets a wild animal.
+		s.authority.start({ game: { ...newGame(1, undefined, 'Ada'), steps: 10 } });
+		s.connect();
+		s.frame();
+		s.authority.dispatch({ type: 'move', dir: 'left' });
+		const started = s.events.find((e) => e.type === 'battle-started');
+		expect(started).toBeDefined();
+		// Not a word before the page says it is in the battle.
+		s.frame();
+		expect(s.sentOf('battle')).toEqual([]);
+		battle.active = true;
+		s.frame();
+		const sent = s.socket().sent;
+		const first = sent.findIndex((m) => m.t === 'battle');
+		expect(first).toBeGreaterThan(-1);
+		// Where it is (in a battle) goes first: the server takes a battle only from a page in one.
+		const whereBefore = sent
+			.slice(0, first)
+			.filter((m) => m.t === 'where')
+			.at(-1);
+		expect(whereBefore).toMatchObject({ busy: 'battle' });
+		const state = started?.type === 'battle-started' ? started.state : null;
+		expect(sent[first]).toEqual({ t: 'battle', view: wildFight(state!), events: [] });
+		// A step: its events, as the others see them, and never an answer or a prompt.
+		s.authority.dispatch({ type: 'battle', intent: { type: 'attack', attackIndex: 1, level: 1 } });
+		s.frame();
+		const step = s.sentOf('battle').at(-1)!;
+		expect(step.events).toEqual([expect.objectContaining({ type: 'puzzle', side: 'a' })]);
+		const text = JSON.stringify(s.sentOf('battle'));
+		expect(text).not.toMatch(/answer|prompt|input/);
+		// A socket that comes back hears the battle again, as it stands, with nothing to play back.
+		s.socket().onclose?.({ code: 1006 });
+		s.frame(1);
+		s.connect();
+		s.frame();
+		expect(s.sentOf('battle').at(-1)).toEqual({ t: 'battle', view: step.view, events: [] });
+		// Its end goes out, and then nothing more, however the socket comes and goes.
+		s.authority.dispatch({ type: 'battle', intent: { type: 'answer', input: 'no' } });
+		s.authority.dispatch({ type: 'battle', intent: { type: 'flee' } });
+		s.frame();
+		expect(s.sentOf('battle').at(-1)?.events).toContainEqual({
+			type: 'ended',
+			winner: null,
+			how: 'fled'
+		});
+		s.socket().onclose?.({ code: 1006 });
+		s.frame(1);
+		s.connect();
+		s.frame();
+		battle.active = false;
+		s.frame();
+		// The new socket hears nothing of a battle that is over.
+		expect(s.sentOf('battle')).toEqual([]);
+	});
+
+	it("draws a battle the server shows beside the player it is, never the player's own", () => {
+		const s = setup();
+		s.start();
+		s.connect();
+		s.frame();
+		const friend = {
+			t: 'peer',
+			pid: 'friend0001',
+			name: 'Bo',
+			x: -1,
+			y: 7,
+			facing: 'left',
+			lead: 'rabbit',
+			boat: false,
+			busy: 'battle'
+		} as const;
+		s.socket().say(friend);
+		const view = {
+			realm: 'land',
+			a: { species: 'rabbit', hp: 22 },
+			b: { species: 'fox', hp: 35 },
+			turn: 'a',
+			puzzle: { kind: 'add', numbers: [3, 4] }
+		} as const;
+		s.socket().say({ t: 'fight', pid: 'mine000001', vs: null, view, events: [] });
+		s.socket().say({ t: 'fight', pid: 'friend0001', vs: 'mine000001', view, events: [] });
+		expect(s.fights.count).toBe(0);
+		s.socket().say({ t: 'fight', pid: 'friend0001', vs: null, view, events: [] });
+		expect(s.fights.count).toBe(1);
+		s.frame();
+		s.frame();
+		// Bo's thought bubble, written out by the engine's own formatter.
+		expect(presence.labels.find((l) => l.pid === 'friend0001')?.thought).toEqual({
+			sum: '3 + 4 = ?',
+			mood: null,
+			beat: 0
+		});
+		expect(presence.bars.map((b) => [b.species, b.hp])).toEqual([
+			['rabbit', 22],
+			['fox', 35]
+		]);
+		// Quit to the title: gone with everyone.
+		s.authority.dispatch({ type: 'leave-game' });
+		expect(s.fights.count).toBe(0);
 	});
 
 	it('up in the air says so: each tile flown goes as a flight, and the landing tile as walking again', () => {

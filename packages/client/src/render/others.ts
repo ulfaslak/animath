@@ -13,7 +13,7 @@ import * as THREE from 'three';
 import { motion } from '../motion';
 import { animateIdle, animateWalk, buildPlayerMesh, disposeFigure } from './animals';
 import { BOAT_SWING_SECONDS, buildBoatMesh, disposeBoat, poseBoat, standAstern } from './boat';
-import { smoothstep } from './ease';
+import { doubleHop, smoothstep } from './ease';
 import { Follower, type FigureHost } from './follower';
 import { WING_TOP, buildGliderMesh, disposeGlider, poseGlider } from './glider';
 import { TRAINER_LOOKS, type TrainerLook } from './palette';
@@ -98,6 +98,14 @@ export interface Head {
 	opacity: number;
 }
 
+/** Where a player on screen stands, as `spotOf` tells it. */
+export interface OtherSpot {
+	tile: GridPos;
+	facing: Direction;
+	busy: Busy;
+	feet: THREE.Vector3;
+}
+
 /** A tile a player said they reached, and whether they flew there (or, on their own tile, took off or came down). */
 interface Reached {
 	pos: GridPos;
@@ -136,7 +144,20 @@ interface Other {
 	leaving: boolean;
 	/** How far aside they stand from the middle of their tile (world x and z), easing to where a crowd puts them. */
 	nudge: { x: number; z: number };
+	/**
+	 * Their battle is drawn beside them (`fights.ts`): standing, they face it,
+	 * and their lead is out in it rather than following them. Null otherwise.
+	 */
+	stage: Direction | null;
+	/** A double jump for joy under way: seconds into it, and whether it is the big one (a win) with a spin. */
+	cheer: { t: number; big: boolean } | null;
 }
+
+/** Seconds a double jump for joy takes: the battle's cheer. */
+export const CHEER_SECONDS = 0.9;
+/** How high a trainer's first hop for joy goes, in tiles: a hit that lands, and a win. */
+const CHEER_HOP = 0.3;
+const WIN_HOP = 0.42;
 
 export class OtherPlayers {
 	private readonly others = new Map<string, Other>();
@@ -283,19 +304,21 @@ export class OtherPlayers {
 			);
 			const walking =
 				(other.from.x !== other.to.x || other.from.y !== other.to.y) && other.lift === 0;
-			const way = walking ? (direction(other.from, other.to) ?? other.facing) : other.facing;
+			const standing = other.stage ?? other.facing;
+			const way = walking ? (direction(other.from, other.to) ?? other.facing) : standing;
 			const rocking = afloat === 1 && !calm;
 			// Standing where someone else stands, they stand a little aside, easing there.
 			const want = aside.get(other) ?? { x: 0, z: 0 };
 			const ease = Math.min(1, dt * NUDGE_RATE);
 			other.nudge.x += (want.x - other.nudge.x) * ease;
 			other.nudge.z += (want.z - other.nudge.z) * ease;
+			const joy = this.jump(other, dt, calm);
 			other.figure.position.set(
 				x + other.nudge.x,
-				y + (rocking ? Math.sin(t * 2.1 + phaseOf(other)) * 0.012 : 0),
+				y + joy.lift + (rocking ? Math.sin(t * 2.1 + phaseOf(other)) * 0.012 : 0),
 				z + other.nudge.z
 			);
-			other.figure.rotation.y = FACING_ANGLE[way];
+			other.figure.rotation.y = FACING_ANGLE[way] + joy.turn;
 			const rig = other.figure.children[0];
 			if (other.boat) {
 				poseBoat(
@@ -326,10 +349,63 @@ export class OtherPlayers {
 			const boarding = walking && other.progress < 1 && !this.waterAt(other.from);
 			const riding =
 				onWater && other.lead !== null && !canFightIn(other.lead, 'water') && !boarding;
-			const up = other.flying || other.lift > 0;
-			if (!other.leaving) other.follower.lead(up ? null : other.lead, riding);
+			// Nobody follows them in the air, nor while their lead is out in a battle beside them.
+			const away = other.flying || other.lift > 0 || other.stage !== null;
+			if (!other.leaving) other.follower.lead(away ? null : other.lead, riding);
 			other.follower.update(other.progress, dt);
 		}
+	}
+
+	/**
+	 * A player's battle is drawn beside them (`fights.ts`): while it is, they
+	 * stand facing `facing`, towards it, and their lead is out in it, so it
+	 * shrinks away from behind them; `null` when it is over, and it comes back.
+	 */
+	stand(pid: string, facing: Direction | null): void {
+		const other = this.others.get(pid);
+		if (other) other.stage = facing;
+	}
+
+	/** A little double jump for joy: their animal landed a hit, or (`big`, with a spin) they won. */
+	cheer(pid: string, big = false): void {
+		const other = this.others.get(pid);
+		if (!other || other.leaving) return;
+		// A win's jump is never cut short by a hit's.
+		if (other.cheer?.big && !big) return;
+		other.cheer = { t: 0, big };
+	}
+
+	/**
+	 * A player on screen, for laying their battle out beside them: the tile
+	 * they stand on (or walk to), the way they last said they face, what they
+	 * are busy with, and where their feet are drawn this frame. Null when they
+	 * are not drawn, or on their way out.
+	 */
+	spotOf(pid: string): OtherSpot | null {
+		const other = this.others.get(pid);
+		if (!other || other.leaving) return null;
+		return {
+			tile: { ...other.to },
+			facing: other.facing,
+			busy: other.busy,
+			feet: other.figure.position.clone()
+		};
+	}
+
+	/** How far through a double jump a trainer is: how high this frame, and how far round. */
+	private jump(other: Other, dt: number, calm: boolean): { lift: number; turn: number } {
+		const cheer = other.cheer;
+		if (!cheer) return { lift: 0, turn: 0 };
+		cheer.t += dt;
+		if (cheer.t >= CHEER_SECONDS) {
+			other.cheer = null;
+			return { lift: 0, turn: 0 };
+		}
+		return doubleHop(cheer.t / CHEER_SECONDS, {
+			high: cheer.big ? WIN_HOP : CHEER_HOP,
+			spin: cheer.big,
+			calm
+		});
 	}
 
 	/**
@@ -446,7 +522,9 @@ export class OtherPlayers {
 			busy: peer.busy,
 			opacity: 0,
 			leaving: false,
-			nudge: { x: 0, z: 0 }
+			nudge: { x: 0, z: 0 },
+			stage: null,
+			cheer: null
 		};
 		if (peer.boat) this.setBoat(other, true);
 		other.follower.place(this.seed, at, peer.facing);

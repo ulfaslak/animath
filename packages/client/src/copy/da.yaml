@@ -892,6 +892,8 @@ presence:
     menu: holder pause
     match: kæmper mod en ven
     flight: flyver
+  thinking: '{name} regner på {sum}'
+  choosing: '{name} tænker…'
 match:
   whose: '{name}s'
   whoseAfterS: "{name}'"

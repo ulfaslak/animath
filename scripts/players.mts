@@ -385,6 +385,20 @@ const DESCRIBE = `(() => {
 		return text(el.querySelector('.name')) + (busy ? ' (' + busy + ')' : '');
 	});
 	if (labels.length) lines.push('others: ' + labels.join(' | '));
+	// Battles seen from outside: the thought bubbles, the animals' HP bars, the damage floating up.
+	const thoughts = [...document.querySelectorAll('.others .label')].flatMap((el) => {
+		const cloud = el.querySelector('.thought .cloud');
+		if (!cloud) return [];
+		const mood = cloud.classList.contains('right') ? ' ✓' : cloud.classList.contains('wrong') ? ' ✗' : '';
+		return [text(el.querySelector('.name')) + ': ' + (text(cloud.querySelector('.sum')) ?? '…') + mood];
+	});
+	if (thoughts.length) lines.push('thoughts: ' + thoughts.join(' | '));
+	const bars = [...document.querySelectorAll('.others .hp')].map(
+		(el) => text(el.querySelector('.hp-name')) + ' ' + (el.querySelector('.fill')?.style.width ?? '?')
+	);
+	if (bars.length) lines.push('bars: ' + bars.join(' | '));
+	const pops = [...document.querySelectorAll('.others .pop .n')].map(text);
+	if (pops.length) lines.push('pops: ' + pops.join(' | '));
 	const arrows = [...document.querySelectorAll('.others .arrow-name')].map(text);
 	if (arrows.length) lines.push('arrows: ' + arrows.join(' | '));
 	const note = text(document.querySelector('.note[role=status]'));
