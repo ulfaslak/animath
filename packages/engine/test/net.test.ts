@@ -83,7 +83,7 @@ function randomPlay(rng: Rng): PlayIntent {
 }
 
 function randomClient(rng: Rng): ClientMessage {
-	switch (rng.int(0, 9)) {
+	switch (rng.int(0, 10)) {
 		case 0:
 			return { t: 'hello', v: PROTOCOL_VERSION, guest: token(rng, 16, 64), name: pick(rng, names) };
 		case 1:
@@ -111,8 +111,10 @@ function randomClient(rng: Rng): ClientMessage {
 			return { t: 'play', id: token(rng, 6, 32), intent: randomPlay(rng) };
 		case 8:
 			return { t: 'here', id: token(rng, 6, 32) };
-		default:
+		case 9:
 			return { t: 'rematch', id: token(rng, 6, 32), team: randomTeam(rng) };
+		default:
+			return { t: 'done', id: token(rng, 6, 32) };
 	}
 }
 

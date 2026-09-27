@@ -354,6 +354,28 @@ describe('the invite', () => {
 		expect(matches.size).toBe(1);
 	});
 
+	it('makes a challenger who walks off, reloads or opens another window wait as after taking it back', () => {
+		for (const how of ['walks off', 'reloads', 'another window'] as const) {
+			setup();
+			let ada = kid('Ada');
+			const bo = kid('Bo', beside(1));
+			ada.send({ t: 'challenge', pid: bo.pid, team: TEAM });
+			if (how === 'walks off') ada.at(beside(-3));
+			else if (how === 'reloads') {
+				ada.leave();
+				ada = kid('Ada');
+			} else ada = kid('Ada');
+			expect(bo.peer.last('uninvite')?.pid, how).toBe(ada.pid);
+			ada.at(SPAWN);
+			vi.advanceTimersByTime(1_000);
+			ada.send({ t: 'challenge', pid: bo.pid, team: TEAM });
+			expect(ada.peer.last('uninvite')?.reason, how).toBe('wait');
+			vi.advanceTimersByTime(10_000);
+			ada.send({ t: 'challenge', pid: bo.pid, team: TEAM });
+			expect(bo.peer.last('invite')?.pid, how).toBe(ada.pid);
+		}
+	});
+
 	it('lets one player be asked by one challenger at a time; a second is told they are taken', () => {
 		const bo = kid('Bo');
 		const ada = kid('Ada', beside(1));
@@ -540,6 +562,47 @@ describe('dropping out', () => {
 		expect(ada.peer.last('match')?.view.phase.kind).toBe('solving');
 	});
 
+	it('shows a page back in time how its match ended while it was away, won or lost', () => {
+		for (const how of ['bo leaves', 'ada tired'] as const) {
+			setup();
+			const ada = kid('Ada');
+			const bo = kid('Bo', beside(1));
+			const start = startedMatch(ada, bo);
+			ada.leave();
+			if (how === 'bo leaves') {
+				bo.send({ t: 'play', id: start.id, intent: { type: 'leave' } });
+			} else {
+				// The stand-in for a long match: Ada's animals on 1 HP, Bo right every time.
+				const state = matches.stateOf(start.id)!;
+				(state as { teams: unknown }).teams = {
+					a: state.teams.a.map((a) => ({ ...a, hp: 1 })),
+					b: state.teams.b
+				};
+				for (let i = 0; i < 40; i++) {
+					const phase = matches.stateOf(start.id)!.phase;
+					if (phase.kind === 'ended') break;
+					if (phase.side === 'a') {
+						// Ada is away on her own turn: only her pick after a knock-out can't wait.
+						// Bo can't play her turn; the test plays it as the page would have.
+						matches.handle(ada.peer, { t: 'play', id: start.id, intent: { type: 'leave' } });
+						break;
+					}
+					const intent =
+						phase.kind === 'solving'
+							? { type: 'answer' as const, input: answerOf(start.id) }
+							: { type: 'attack' as const, attackIndex: 1, level: 3 as const };
+					bo.send({ t: 'play', id: start.id, intent });
+				}
+			}
+			vi.advanceTimersByTime(20_000);
+			const back = kid('Ada');
+			const phase = matches.stateOf(start.id)?.phase;
+			expect(back.hiMatch, how).toBe(start.id);
+			const seen = back.peer.last('match')!.view.phase;
+			expect(seen, how).toEqual(phase);
+		}
+	});
+
 	it('plays on in a second window of the same player, and the first one closing changes nothing', () => {
 		const ada = kid('Ada');
 		const bo = kid('Bo', beside(1));
@@ -630,7 +693,7 @@ describe('after a match', () => {
 		const ada = kid('Ada');
 		const bo = kid('Bo', beside(1));
 		const end = ended(ada, bo);
-		ada.at(SPAWN, { busy: 'explore' });
+		ada.send({ t: 'done', id: end.id });
 		expect(bo.peer.last('rematch-wish')).toEqual({
 			t: 'rematch-wish',
 			id: end.id,
@@ -639,7 +702,7 @@ describe('after a match', () => {
 		});
 		bo.send({ t: 'rematch', id: end.id, team: TEAM });
 		expect(bo.peer.last('rematch-wish')?.yes).toBe(false);
-		bo.at(beside(1), { busy: 'explore' });
+		bo.send({ t: 'done', id: end.id });
 		expect(matches.size).toBe(0);
 
 		setup();
@@ -653,6 +716,49 @@ describe('after a match', () => {
 		expect(cy.peer.last('rematch-wish')).toMatchObject({ side: 'b', yes: false });
 		expect(matches.size).toBe(0);
 		expect(matches.known).toBe(2);
+	});
+});
+
+describe('after a match, in any order', () => {
+	/** Ada and Bo, both on the result of a match Ada ended by leaving. */
+	function onResult() {
+		const ada = kid('Ada');
+		const bo = kid('Bo', beside(1));
+		const start = startedMatch(ada, bo);
+		ada.send({ t: 'play', id: start.id, intent: { type: 'leave' } });
+		ada.at(SPAWN, { busy: 'match' });
+		bo.at(beside(1), { busy: 'match' });
+		return { ada, bo, id: start.id };
+	}
+
+	it('takes back a rematch wish with Back to exploring, even when the other says yes after', () => {
+		const { ada, bo, id } = onResult();
+		ada.send({ t: 'rematch', id, team: TEAM });
+		ada.send({ t: 'done', id });
+		bo.send({ t: 'rematch', id, team: TEAM });
+		expect(bo.peer.last('rematch-wish')).toMatchObject({ side: 'a', yes: false });
+		expect(matches.size).toBe(0);
+		expect(ada.peer.of('match').filter((m) => m.id !== id)).toEqual([]);
+	});
+
+	it('keeps a finished match for a second window whose page says where it is before it shows it', () => {
+		const { ada, id } = onResult();
+		// Bo's second window: its first `where` says exploring, as a page's does before the match arrives.
+		const again = kid('Bo', beside(1));
+		expect(again.hiMatch).toBe(id);
+		expect(ada.peer.of('rematch-wish')).toEqual([]);
+		again.send({ t: 'rematch', id, team: TEAM });
+		expect(ada.peer.last('rematch-wish')).toMatchObject({ side: 'b', yes: true });
+	});
+
+	it('answers a Rematch? it can no longer take, so no page waits for ever', () => {
+		const { ada, bo, id } = onResult();
+		bo.send({ t: 'done', id });
+		ada.send({ t: 'rematch', id, team: TEAM });
+		expect(ada.peer.last('rematch-wish')).toMatchObject({ side: 'b', yes: false });
+		ada.send({ t: 'done', id });
+		ada.send({ t: 'rematch', id, team: TEAM });
+		expect(ada.peer.last('rejected')).toEqual({ t: 'rejected', id, reason: 'match-over' });
 	});
 });
 
