@@ -30,7 +30,8 @@ import {
 	listKey,
 	menuKey,
 	pickedMenu,
-	rowOf
+	rowOf,
+	WILD_MOVES
 } from './menu';
 
 /**
@@ -269,10 +270,12 @@ export class BattleController {
 		battle.opponent = { ...state.opponent };
 		battle.pickable = state.party.map((_, i) => canSwitchTo(state, i));
 		battle.hit = null;
+		// A choice or a puzzle is up: the player's turn, until the battle is over.
+		battle.turn = state.phase.kind === 'ended' ? null : 'player';
 		const front = this.front();
 		switch (state.phase.kind) {
 			case 'choose-action': {
-				const rows = actionCount(getAnimal(front.speciesId).attacks.length);
+				const rows = actionCount(getAnimal(front.speciesId).attacks.length, WILD_MOVES);
 				battle.cursor = Math.min(battle.cursor, rows - 1);
 				battle.puzzle = null;
 				battle.judged = null;
@@ -345,7 +348,8 @@ export class BattleController {
 		const { menu, handled, choice } = menuKey(
 			{ cursor: battle.cursor, levels: battle.levels },
 			key,
-			spec
+			spec,
+			WILD_MOVES
 		);
 		// The menu takes a pick only after a quiet moment, so never from a mash;
 		// a pick it ignores changes nothing, not even a level, and makes no sound.
@@ -423,7 +427,7 @@ export class BattleController {
 			} else battle.refused += 1;
 		} else if (choice === 'back' && !battle.mustPick) {
 			sfx.play('move');
-			battle.cursor = rowOf('switch', getAnimal(this.front().speciesId).attacks.length);
+			battle.cursor = rowOf('switch', getAnimal(this.front().speciesId).attacks.length, WILD_MOVES);
 			battle.screen = 'actions';
 		}
 		return handled;
@@ -469,6 +473,8 @@ export class BattleController {
 				return [
 					{
 						run: () => {
+							// The wild animal's reply is its turn: the cue moves to its status box.
+							battle.turn = e.attacker;
 							scene.lunge(e.attacker);
 							who = this.animalOn(e.attacker);
 							const attack = { speciesId: who.speciesId, attackIndex: e.attackIndex };
@@ -487,7 +493,7 @@ export class BattleController {
 									i === battle.front ? { ...a, hp: e.targetHp } : a
 								);
 							}
-							battle.hit = { side: target, damage: e.damage, n: ++this.hits };
+							battle.hit = { side: target, damage: e.damage, level: e.level, n: ++this.hits };
 							const attack = { speciesId: who.speciesId, attackIndex: e.attackIndex };
 							return line(wild ? 'battle.wildUsedDamage' : 'battle.usedDamage', {
 								animal: who,
@@ -520,6 +526,7 @@ export class BattleController {
 					return [
 						{
 							run: () => {
+								battle.turn = 'opponent';
 								scene.lunge('opponent');
 								return line('battle.wildUsed', { animal: wild, attack });
 							},

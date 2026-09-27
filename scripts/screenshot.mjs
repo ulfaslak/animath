@@ -34,7 +34,7 @@
  *                 (`--touch` only), e.g. `tap:.talk`, `tap:.pad .ok`
  *   touch:<css>:<ms>  keep a finger on that element for <ms>, e.g. an arrow
  *                 of the D-pad held down: `touch:.dpad .up:1200`
- *   click:<css>   click it with the mouse, e.g. `click:.actions .row.selected`
+ *   click:<css>   click it with the mouse, e.g. `click:.actions .tile.selected`
  * A selector never holds a comma (the script's separator); `:nth-child(2)`
  * and friends are fine.
  * The final frame goes to `--out`. After every frame the script prints what
@@ -45,8 +45,9 @@
  * rows, the picked animal's options and the name box (with whether it has
  * the focus); at the doctor the doctor's line, the tokens, the tabs, the
  * tab's list and what its right-hand side says; and in a battle
- * the narration line, the puzzle, the typed answer, the judgement, the status
- * boxes and the result card — so a flow can be asserted from the console
+ * the narration line, the menu's attack tiles and moves (or the switch list),
+ * the preview card, the puzzle, the typed answer, the judgement, the status
+ * boxes, a hit's burst and the result card — so a flow can be asserted from the console
  * output, not only the images. With `?debug`, it also prints the last sound
  * cues the game asked for (`cue:`), which headless Chrome plays to no one.
  *
@@ -419,22 +420,73 @@ async function describe() {
 	if (statuses.length) {
 		lines.push(`status: ${statuses.map((s) => s.replace(/\s+/g, ' ').trim()).join(' | ')}`);
 	}
-	// The action menu, or the party list in its place: the highlighted row in
-	// brackets, each attack with its own level word, greyed rows marked.
-	const rows = await page.locator('.actions .row').evaluateAll((els) =>
+	// The action menu: each attack's tile with its level word and hit badge,
+	// then the moves under them with the leash's hint, the highlighted one in
+	// brackets, a greyed one marked.
+	const menu = await page.locator('.actions .tile, .actions .move').evaluateAll((els) =>
+		els.map((el) => {
+			const tile = el.classList.contains('tile');
+			const label = el.querySelector(tile ? '.name' : '.word')?.textContent.trim() ?? '';
+			const notes = tile
+				? [
+						el.querySelector('.level')?.textContent.trim(),
+						`✸${el.querySelector('.n')?.textContent}`
+					]
+				: [el.querySelector('.hint')?.textContent.trim(), el.classList.contains('off') && 'greyed'];
+			const said = notes.filter(Boolean);
+			const text = [label, said.length && `(${said.join(', ')})`].filter(Boolean).join(' ');
+			return el.classList.contains('selected') ? `[${text}]` : text;
+		})
+	);
+	if (menu.length) lines.push(`menu: ${menu.join(' | ')}`);
+	// The battle's switch list stands where the menu was (`party:` is the explore
+	// HUD's cards): the highlighted row in brackets, greyed rows marked.
+	const rows = await page.locator('.actions.party .row').evaluateAll((els) =>
 		els.map((el) => {
 			const label = el.querySelector('.label')?.textContent ?? '';
 			const hp = el.querySelector('.hp .text')?.textContent.trim();
 			const how = el.querySelector('.how')?.textContent.trim();
-			const level = el.querySelector('.pill.on')?.textContent.trim();
-			const notes = [how, level, el.classList.contains('off') && 'greyed'].filter(Boolean);
+			const notes = [how, el.classList.contains('off') && 'greyed'].filter(Boolean);
 			const text = [label, hp, notes.length && `(${notes.join(', ')})`].filter(Boolean).join(' ');
 			return el.classList.contains('selected') ? `[${text}]` : text;
 		})
 	);
-	// The battle's switch list stands where the menu was; `party:` is the explore HUD's cards.
-	const list = (await page.locator('.actions.party').count()) ? 'switch' : 'menu';
-	if (rows.length) lines.push(`${list}: ${rows.join(' | ')}`);
+	if (rows.length) lines.push(`switch: ${rows.join(' | ')}`);
+	// The preview card before a pick: the move's title, its badge, its operator
+	// chips, each level with its damage (the one set in brackets), the leash's
+	// hint and "That would tire it out!" in « ».
+	const previews = await page.locator('.preview').evaluateAll((els) =>
+		els.map((el) => {
+			const levels = [...el.querySelectorAll('.levels .level')].map((l) => {
+				const text = `${l.querySelector('.word')?.textContent.trim()} ✸${l.querySelector('.n')?.textContent}`;
+				return l.classList.contains('on') ? `[${text}]` : text;
+			});
+			const chips = [...el.querySelectorAll('.chip')].map((c) => c.textContent.trim());
+			const badge = el.querySelector('.head .badge .n')?.textContent;
+			const hint = el.querySelector('.hint')?.textContent.trim();
+			const tires = el.querySelector('.tires')?.textContent.trim();
+			return [
+				el.querySelector('.title')?.textContent.trim(),
+				badge && `✸${badge}`,
+				chips.length && `[${chips.join(' ')}]`,
+				levels.join(' · '),
+				hint && `(${hint})`,
+				tires && `«${tires}»`
+			]
+				.filter(Boolean)
+				.join('  ');
+		})
+	);
+	if (previews.length) lines.push(`preview: ${previews.join(' | ')}`);
+	// A hit landing: the burst beside a status box, and its level.
+	const bursts = await page
+		.locator('.burst')
+		.evaluateAll((els) =>
+			els.map(
+				(el) => `${el.textContent.trim()} (${[...el.classList].find((c) => /^l\d$/.test(c))})`
+			)
+		);
+	if (bursts.length) lines.push(`burst: ${bursts.join(' | ')}`);
 	for (const [label, selector] of [
 		['line', '.battle-line'],
 		['detail', '.detail'],
