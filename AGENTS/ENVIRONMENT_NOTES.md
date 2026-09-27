@@ -32,9 +32,9 @@ Use `pnpm db:psql -c "<sql>"` (wraps `docker compose exec postgres psql`), or `d
 
 Agents started by one orchestrator run under the same session id (`$CLAUDE_CODE_SESSION_ID`), so their "session-specific" scratchpad is one folder with dozens of files from several branches in it. On 2026-09-25 another branch's `pr-body.md` replaced `feat/encounters-by-lead`'s between two edits, luckily after the PR had been opened from it. Put every scratch file in a subfolder named after your branch (`$SCRATCHPAD/<branch>/pr-body.md`), and never restore a negative control from a generic name like `local.ts.bak` that a sibling may also write.
 
-## Test databases from before each checkout had its own
+## `mathgame_test` outlives #100
 
-`mathgame_test` is the database every worktree's server tests shared until #100; a branch that has not merged main since still runs on it, and a run there can still empty the tables under another such branch's run. `mathgame_feat_matches_test` and `mathgame_accounts_client_test` were named by hand through `TEST_DATABASE_URL` (2026-09-27). `pnpm db:prune-tests` lists all three as left alone, since no checkout is written on them. Drop each by hand (`docker compose -p mathgame exec -T postgres dropdb -U postgres <name>`) once no worktree runs on it, and delete this entry when all three are gone.
+`mathgame_test` is the database every worktree's server tests shared until #100. A branch that has not merged main since still runs on it, and a run there can still empty the tables under another such branch's run: a lone server failure there, where a test's own rows went missing or a name it registered was already taken, is that, not the branch's change. `pnpm db:prune-tests` lists it as left alone, as it does a test database a sibling named by hand through `TEST_DATABASE_URL` (`mathgame_<branch>_test`, which that sibling drops when it finishes). Drop `mathgame_test` by hand (`docker compose -p mathgame exec -T postgres dropdb -U postgres mathgame_test`) once every worktree has merged main past #100, and delete this entry then.
 
 ## The Postgres container's clock runs ~120 ms ahead of the host
 

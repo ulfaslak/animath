@@ -6,8 +6,12 @@ import { fileURLToPath } from 'node:url';
 /**
  * This checkout's folder: the primary clone or a worktree, found from this
  * file's own place, so the working directory a run starts from never matters.
+ * The system's own realpath spells it one way, however it was reached: through
+ * a symlink, or typed in another case on the Mac's case-blind disk.
  */
-export const CHECKOUT_ROOT = realpathSync(fileURLToPath(new URL('../../..', import.meta.url)));
+export const CHECKOUT_ROOT = realpathSync.native(
+	fileURLToPath(new URL('../../..', import.meta.url))
+);
 
 /**
  * The server tests' database for the checkout at `root`:
@@ -30,9 +34,10 @@ export function checkoutDatabaseName(root: string = CHECKOUT_ROOT): string {
 export const TEST_DATABASE = /^[a-z_][a-z0-9_]*_test$/;
 
 /**
- * A name `checkoutDatabaseName` makes, and nothing else on the server:
- * `mathgame`, `mathgame_test` and a test database named by hand do not match.
- * `scripts/prune-test-databases.ts` drops only databases of this shape.
+ * The shape of every name `checkoutDatabaseName` makes. `mathgame`,
+ * `mathgame_test` and a sibling's `mathgame_<branch>_test` do not have it.
+ * `scripts/prune-test-databases.ts` drops only a database of this shape, and
+ * only when the checkout written in its comment is gone.
  */
 export const CHECKOUT_DATABASE = /^mathgame_(?:[a-z0-9_]+_)?[0-9a-f]{8}_test$/;
 

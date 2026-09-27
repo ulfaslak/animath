@@ -209,7 +209,7 @@ Technical items we've intentionally postponed: tech debt, hardening shortcuts, k
 
 ### Two server test runs in one checkout at once share its test database
 
-**What**: each checkout's server tests have a database of their own ([[DEVELOPMENT]] § Database), so runs in two worktrees never meet. Two runs started in the same checkout at once (a `pnpm test` in the background and a `pnpm -F @mathgame/server test` beside it) still share it: the second's global setup empties the tables under the first, as runs in two worktrees did before #100, and the first run ever in a checkout can race itself to create the database.
+**What**: each checkout's server tests have a database of their own ([[DEVELOPMENT]] § Database), so runs in two worktrees never meet. Two runs started in the same checkout at once (a `pnpm test` in the background and a `pnpm -F @mathgame/server test` beside it) still share it, and meet what runs in two worktrees met before #100: the second's global setup empties the tables under the first, both register the same account names (one gets a `409`), and the second's truncate can deadlock with the first's queries and fail its setup. The first run ever in a checkout can also race itself to create the database.
 
 **Why deferred**: an agent runs one suite at a time in its own worktree. A database per run costs a create and a migration on every run, and a cleanup for every run that dies; a lock held for a whole run keeps a second run waiting as long as a `vitest` in watch mode stays open.
 

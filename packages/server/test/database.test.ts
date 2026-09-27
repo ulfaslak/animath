@@ -10,7 +10,8 @@ import {
 
 // Every checkout's server tests have a database of their own. When all
 // worktrees shared one, a run starting in one emptied the tables under a run
-// in progress in another, and a test saw two accounts made for one name (#100).
+// in progress in another (a test saw two accounts made for one name), and two
+// runs at once registered the same names, so one of them got a 409 (#100).
 
 afterAll(() => pool.end());
 afterEach(() => vi.unstubAllEnvs());
