@@ -32,9 +32,17 @@ export function clientIp(c: Context): string {
 	} catch {
 		peer = undefined;
 	}
+	return clientAddress(peer, c.req.header('x-forwarded-for'));
+}
+
+/**
+ * `clientIp`'s rule, from the socket's peer address and the request's
+ * `X-Forwarded-For`: for a request that has no Hono context, such as a
+ * WebSocket upgrade.
+ */
+export function clientAddress(peer: string | undefined, forwardedFor: string | undefined): string {
 	if (peer && !isProxyAddress(peer)) return peer;
-	const forwarded = c.req.header('x-forwarded-for');
-	const last = forwarded?.split(',').at(-1)?.trim();
+	const last = forwardedFor?.split(',').at(-1)?.trim();
 	return last || peer || 'unknown';
 }
 

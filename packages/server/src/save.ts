@@ -1,4 +1,10 @@
-import { canReplace, readSave, replacesAnotherGame, type SaveWrite } from '@mathgame/engine';
+import {
+	canReplace,
+	isNewerSave,
+	readSave,
+	replacesAnotherGame,
+	type SaveWrite
+} from '@mathgame/engine';
 import { eq, sql } from 'drizzle-orm';
 import { db } from './db/index.js';
 import {
@@ -27,15 +33,30 @@ import {
  */
 export const SAVE_MAX_BYTES = 1024 * 1024;
 
-export type WriteResult = 'saved' | 'stale';
+/**
+ * The 503 for a save this server cannot read because a newer build wrote it:
+ * the server is the older one (a deploy half done, or a rollback). The client
+ * keeps its save and tries again later, as when the server is out of reach.
+ */
+export const SAVE_FROM_NEWER_BUILD =
+	'this save is from a newer version of the game than this server';
+
+/** The 409 for a write over a save a newer build wrote: never replaced, whatever the `seq`. */
+export const STORED_FROM_NEWER_BUILD = 'the stored save is from a newer version of the game';
+
+/**
+ * `stale`: the stored save has the same or a higher `seq`. `newer`: a newer
+ * build wrote the stored save, which this build never replaces. Both 409.
+ */
+export type WriteResult = 'saved' | 'stale' | 'newer';
 
 /**
  * Stores `doc` as the player's save unless the stored one has the same or a
- * higher `seq` (`canReplace`), which is `stale` (409). Before replacing a
- * document from a different game, or one this build cannot read, copies it to
- * `save_backups`. The player's row is locked for the read-decide-write, so
- * two concurrent writes are decided one after the other, never both against
- * the same old document.
+ * higher `seq`, or was written by a newer build (`canReplace`). Before
+ * replacing a document from a different game, or one this build cannot read,
+ * copies it to `save_backups`. The player's row is locked for the
+ * read-decide-write, so two concurrent writes are decided one after the
+ * other, never both against the same old document.
  */
 export async function writeSave(playerId: string, doc: SaveWrite): Promise<WriteResult> {
 	return db.transaction(async (tx) => {
@@ -45,7 +66,7 @@ export async function writeSave(playerId: string, doc: SaveWrite): Promise<Write
 			.from(saves)
 			.where(eq(saves.playerId, playerId));
 		const stored: unknown = row ? row.data : null;
-		if (!canReplace(stored, doc)) return 'stale';
+		if (!canReplace(stored, doc)) return isNewerSave(stored) ? 'newer' : 'stale';
 		if (replacesAnotherGame(stored, doc)) {
 			await tx.insert(saveBackups).values({
 				playerId,
@@ -74,6 +95,8 @@ export type AccountWriteResult =
 	| { kind: 'saved' }
 	/** The stored save has the same or a higher `seq`; it comes back so the client can load it. */
 	| { kind: 'stale'; stored: unknown }
+	/** A newer build wrote the stored save, which this build never replaces; it comes back too. */
+	| { kind: 'newer'; stored: unknown }
 	/** The account is gone (deleted while this request was on its way). */
 	| { kind: 'gone' };
 
@@ -81,7 +104,8 @@ export type AccountWriteResult =
  * `writeSave` for an account's save: the same guard (`canReplace`), the same
  * copy aside before another game or an unreadable document is replaced (to
  * `account_save_backups`, within `ACCOUNT_BACKUP_BYTES`), with the account's
- * row locked for the read-decide-write. A stale write returns the stored save.
+ * row locked for the read-decide-write. A write that does not land returns
+ * the stored save.
  */
 export async function writeAccountSave(
 	userId: string,
@@ -101,7 +125,9 @@ export async function writeAccountSave(
 			.from(accountSaves)
 			.where(eq(accountSaves.userId, userId));
 		const stored: unknown = row ? row.data : null;
-		if (!canReplace(stored, doc)) return { kind: 'stale', stored };
+		if (!canReplace(stored, doc)) {
+			return { kind: isNewerSave(stored) ? 'newer' : 'stale', stored };
+		}
 		if (replacesAnotherGame(stored, doc)) {
 			await tx.insert(accountSaveBackups).values({
 				userId,

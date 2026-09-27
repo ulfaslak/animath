@@ -18,12 +18,20 @@
 				{t('save.behind')}
 			{:else if behind.cause === 'replaced'}
 				{t('save.behindReady')}
+			{:else if behind.cause === 'newer'}
+				{t('save.behindNewer')}
 			{:else}
 				{t('save.behindGone')}
 			{/if}
 		</div>
 		<button type="button" class="button" data-press="Enter" {@attach unfocusable}>
-			{t('save.behindGo')}
+			{#if behind.cause !== 'newer'}
+				{t('save.behindGo')}
+			{:else if touch.on}
+				{t('save.behindUpdateTouch')}
+			{:else}
+				{t('save.behindUpdate')}
+			{/if}
 			{#if !touch.on}<kbd>{t('keys.enter')}</kbd>{/if}
 		</button>
 	</div>
@@ -33,6 +41,8 @@
 	.behind {
 		position: absolute;
 		inset: 0;
+		/* Over everything: the HUD's open card (3) and a trip to another world (4) included. */
+		z-index: 5;
 		display: grid;
 		place-items: center;
 		padding: calc(16px + var(--safe-top)) calc(16px + var(--safe-right))
@@ -52,6 +62,8 @@
 		font-weight: 800;
 		font-size: 28px;
 		line-height: 1.2;
+		/* Two even lines rather than a word left alone on the second. */
+		text-wrap: balance;
 	}
 	.button {
 		display: inline-flex;

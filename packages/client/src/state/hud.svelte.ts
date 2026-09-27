@@ -72,9 +72,19 @@ export type Said =
 	| { needs: ClearableKind }
 	| { party: PartyNotice }
 	/** What start-up found about the save: a copy key from `SAVE_NOTICES`. */
-	| { save: SaveNotice };
+	| { save: SaveNotice }
+	/** How going to another player went, and whom to (`presence/controller.ts`). */
+	| { presence: PresenceLine; name: string };
+
+/**
+ * After "Go to <name>": next to them now, they left the world, the server
+ * could not be reached or did not answer, or there was nowhere near them to
+ * stand.
+ */
+export type PresenceLine = 'nextTo' | 'lost' | 'cantFind' | 'noRoom';
 
 export function saidWords(said: Said): string {
+	if ('presence' in said) return t(`presence.${said.presence}`, { name: said.name });
 	if ('line' in said) return messageWords(said.line);
 	if ('doctor' in said) return doctorWords(said.doctor);
 	if ('party' in said) return partyWords(said.party);
@@ -313,6 +323,11 @@ class HudView {
 	/** Say what start-up found about the save. Call after `welcome`, which clears the line. */
 	notice(key: SaveNotice): void {
 		this.say({ save: key });
+	}
+
+	/** Say how going to another player went. */
+	presence(line: PresenceLine, name: string): void {
+		this.say({ presence: line, name });
 	}
 
 	/** Put a line on the message line; it stays for `MESSAGE_SECONDS` of the HUD on screen. */

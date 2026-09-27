@@ -163,6 +163,8 @@ export { CLEARING_TOOL, clearTile, clearableAhead, isClearable } from './world/c
 export type { ClearRejection, ClearStep, Clearable, Cleared, Clearer } from './world/clearing.js';
 export { TENT_SEARCH_STEPS, canTalkToDoctor, nearestTent } from './world/tents.js';
 export type { TentSpot } from './world/tents.js';
+export { ARRIVAL_RADIUS, ESCAPE_REACH, arrivalRings, arrivalSpot } from './world/arrival.js';
+export type { Arrival } from './world/arrival.js';
 export type { EncounterEntry, EncounterSite, WildAnimal } from './world/encounters.js';
 export {
 	ENCOUNTER_CHANCE,
@@ -195,6 +197,57 @@ export { MAX_NAME_LENGTH, MIN_NAME_LENGTH, checkName, nameKey } from './names.js
 export type { NameCheck, NameRejection } from './names.js';
 
 export {
+	BEARINGS,
+	BUSY_STATES,
+	BYE_CLOSE_CODE,
+	BYE_REASONS,
+	MAX_MESSAGE_BYTES,
+	MAX_ROSTER,
+	MAX_SERVER_MESSAGE_BYTES,
+	MAX_WIRE_COORD,
+	MAX_WIRE_NAME,
+	PROTOCOL_VERSION,
+	REFRESH_CLOSE_CODE,
+	byeCloseCode,
+	byeReasonOf,
+	helloVersion,
+	isGuestId,
+	isPid,
+	isWireCoord,
+	isWireWorld,
+	parseClientMessage,
+	parseServerMessage,
+	readWire
+} from './net/protocol.js';
+export type {
+	Busy,
+	ByeMessage,
+	ByeReason,
+	ClientMessage,
+	FindMessage,
+	FoundMessage,
+	GoneMessage,
+	HelloMessage,
+	HiMessage,
+	LostMessage,
+	PeerMessage,
+	RefreshMessage,
+	RosterEntry,
+	RosterMessage,
+	ServerMessage,
+	WhereMessage
+} from './net/protocol.js';
+export {
+	VIEW_KEEP,
+	VIEW_RADIUS,
+	bearingTo,
+	bearingVector,
+	inView,
+	roughSteps,
+	tilesApart
+} from './net/nearby.js';
+
+export {
 	MAX_SAVED_NAME_LENGTH,
 	MAX_SAVED_NICKNAME_LENGTH,
 	MAX_SAVE_ID_LENGTH,
@@ -203,6 +256,7 @@ export {
 	STARTER_SPECIES,
 	V1_KEPT,
 	canReplace,
+	isNewerSave,
 	newGame,
 	readBattle,
 	readSave,
@@ -219,10 +273,12 @@ export {
 } from './save.js';
 export type {
 	SaveCheck,
+	SaveProblem,
 	SaveRead,
 	SaveV1,
 	SaveV2,
 	SaveWrite,
+	SaveWriteCheck,
 	SavedGame,
 	SavedWorldStay
 } from './save.js';
