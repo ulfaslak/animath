@@ -16,6 +16,7 @@ import {
 	BYE_REASONS,
 	MAX_MESSAGE_BYTES,
 	MAX_ROSTER,
+	MAX_SERVER_MESSAGE_BYTES,
 	MAX_WIRE_COORD,
 	MAX_WIRE_NAME,
 	PROTOCOL_VERSION,
@@ -312,6 +313,11 @@ describe('the wire protocol', () => {
 		expect(
 			readWire(JSON.stringify({ t: 'x', pad: 'y'.repeat(MAX_MESSAGE_BYTES) }))
 		).toBeUndefined();
+		// A browser reads more from the server than it may send, and no more than that.
+		const long = { t: 'x', pad: 'y'.repeat(MAX_MESSAGE_BYTES) };
+		expect(readWire(JSON.stringify(long), MAX_SERVER_MESSAGE_BYTES)).toEqual(long);
+		const tooLong = { t: 'x', pad: 'y'.repeat(MAX_SERVER_MESSAGE_BYTES) };
+		expect(readWire(JSON.stringify(tooLong), MAX_SERVER_MESSAGE_BYTES)).toBeUndefined();
 	});
 });
 

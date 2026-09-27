@@ -1,5 +1,6 @@
 import {
 	MAX_ROSTER,
+	MAX_SERVER_MESSAGE_BYTES,
 	bearingTo,
 	inView,
 	roughSteps,
@@ -277,12 +278,29 @@ export class PresenceHub {
 
 	private sendRoster(member: Member): void {
 		if (!member.room || !member.spot) return;
-		const players = this.rosterFor(member);
+		const players = fitRoster(member.room.world, this.rosterFor(member));
 		const text = JSON.stringify(players);
 		if (text === member.lastRoster) return;
 		member.lastRoster = text;
 		member.peer.send({ t: 'roster', world: member.room.world, players });
 	}
+}
+
+/**
+ * The roster as far as it fits in `MAX_SERVER_MESSAGE_BYTES`, nearest first:
+ * names the wire takes can be long in JSON, and a browser drops a message
+ * longer than it reads.
+ */
+function fitRoster(world: number, players: RosterEntry[]): RosterEntry[] {
+	// The message is its frame round '[]' plus each entry, a comma between.
+	let length = JSON.stringify({ t: 'roster', world, players: [] }).length;
+	let fits = 0;
+	for (const entry of players) {
+		length += JSON.stringify(entry).length + (fits > 0 ? 1 : 0);
+		if (length > MAX_SERVER_MESSAGE_BYTES) break;
+		fits++;
+	}
+	return fits === players.length ? players : players.slice(0, fits);
 }
 
 function peerMessage(member: Member, spot: Spot): PeerMessage {

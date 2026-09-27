@@ -1,4 +1,5 @@
 import {
+	MAX_SERVER_MESSAGE_BYTES,
 	PROTOCOL_VERSION,
 	byeReasonOf,
 	parseServerMessage,
@@ -184,7 +185,7 @@ export class PresenceConnection {
 		};
 		socket.onmessage = (event) => {
 			if (this.socket !== socket || typeof event.data !== 'string') return;
-			const message = parseServerMessage(readWire(event.data));
+			const message = parseServerMessage(readWire(event.data, MAX_SERVER_MESSAGE_BYTES));
 			if (message) this.receive(message);
 		};
 		socket.onerror = () => {

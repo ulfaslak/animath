@@ -34,6 +34,14 @@ export const PROTOCOL_VERSION = 1;
 export const MAX_MESSAGE_BYTES = 4096;
 
 /**
+ * The most a browser reads in one message from the server: a roster of
+ * `MAX_ROSTER` players with names as long as the wire takes is about twice
+ * `MAX_MESSAGE_BYTES`, and the server leaves the furthest off a roster that
+ * would be longer.
+ */
+export const MAX_SERVER_MESSAGE_BYTES = 16_384;
+
+/**
  * How far from 0 a coordinate on the wire may be: far past anywhere a kid
  * walks to (hours of walking one way), and near enough that the game still
  * draws every tile in its place, since a tile's place is a 32-bit float in
@@ -389,12 +397,13 @@ export function helloVersion(value: unknown): number | null {
 }
 
 /**
- * Text off the socket as JSON, or undefined when it is too long or no JSON
- * at all. (A JSON `null` is `null`, which no parser takes.)
+ * Text off the socket as JSON, or undefined when it is longer than `max`
+ * (what a browser may send, unless said otherwise) or no JSON at all. (A JSON
+ * `null` is `null`, which no parser takes.)
  */
-export function readWire(text: string): unknown {
+export function readWire(text: string, max: number = MAX_MESSAGE_BYTES): unknown {
 	// A UTF-16 unit is at least one byte in UTF-8: longer text is surely too many bytes.
-	if (text.length > MAX_MESSAGE_BYTES) return undefined;
+	if (text.length > max) return undefined;
 	try {
 		return JSON.parse(text) as unknown;
 	} catch {
