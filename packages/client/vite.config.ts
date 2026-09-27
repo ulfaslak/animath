@@ -32,9 +32,9 @@ export default defineConfig({
 		port: 5180,
 		strictPort: true,
 		allowedHosts: tunnel ? true : undefined,
+		// The API, and its WebSocket at /api/ws (presence), which `ws` lets through.
 		proxy: {
-			'/api': `http://localhost:${apiPort}`,
-			'/ws': { target: `ws://localhost:${apiPort}`, ws: true }
+			'/api': { target: `http://localhost:${apiPort}`, ws: true }
 		}
 	},
 	build: {
