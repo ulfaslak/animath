@@ -72,12 +72,19 @@ describe('figures', () => {
 		expect(bySize[0]!.tier, `${bySize[0]!.id} is the smallest on land`).toBe(1);
 		expect(bySize.at(-1)!.tier, `${bySize.at(-1)!.id} is the biggest on land`).toBe(5);
 		// Inside a tier, size follows nature: the shrew, the stag beetle and the robin are
-		// smaller than the squirrel.
+		// smaller than the squirrel; the sea eagle is bigger than the golden eagle, and the
+		// eagle-owl than the tawny owl, a tier below it (#89).
 		const squirrel = volumes.get('squirrel')!;
 		for (const id of ['shrew', 'stag-beetle', 'robin']) {
 			expect(volumes.get(id)!, `${id} vs squirrel`).toBeLessThan(squirrel);
 		}
+		expect(volumes.get('white-tailed-eagle')!).toBeGreaterThan(volumes.get('golden-eagle')!);
+		expect(volumes.get('eagle-owl')!).toBeGreaterThan(volumes.get('tawny-owl')!);
 		expect(volumes.get('bear')! / squirrel).toBeGreaterThan(5);
+		// The moose stands tallest on land, over the bear and the red deer's antlers.
+		const height = (id: string) => bounds(buildAnimalMesh(id)).getSize(new THREE.Vector3()).y;
+		for (const { id } of onLand)
+			if (id !== 'moose') expect(height(id), `${id} vs moose`).toBeLessThan(height('moose'));
 		const whale = volumes.get('whale')!;
 		for (const { id } of atSea)
 			if (id !== 'whale') expect(volumes.get(id)!, id).toBeLessThan(whale);

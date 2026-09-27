@@ -60,12 +60,12 @@ export const NEAR_TIER_RATIO = 5;
  * lead's own tier (which weighs 1 at any distance); two or more tiers below
  * weighs nothing. A weight, not a share: where the lead's tier or bigger lives
  * too, smaller challengers are uncommon, one kind at a time (1–33% of a
- * biome's table all together since #89's small animals, and so of every
- * tile's near spawn: the most where many smaller kinds live beside few of the
- * lead's, as five tier-2 kinds beside the one deer of the meadow; 1–52% on a
+ * biome's table all together since #89's animals, and so of every tile's
+ * near spawn: the most where many smaller kinds live beside few of the
+ * lead's, as five tier-2 kinds beside the one deer of the meadow; 1–53% on a
  * tile far out, where the ground moves the tiers), but where nothing else
- * lives — a deer at the river, a wolf in the meadow — every encounter is one
- * of them, at the usual `ENCOUNTER_CHANCE`.
+ * lives — a wolf in the meadow — every encounter is one of them, at the
+ * usual `ENCOUNTER_CHANCE`.
  */
 export const ONE_TIER_BELOW_WEIGHT = 0.1;
 
