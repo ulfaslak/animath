@@ -49,8 +49,11 @@ export class Poofs {
 		return this.active.length;
 	}
 
-	/** A poof at `at` (the ground under a trainer's feet), from the next frame on. */
-	play(at: THREE.Vector3, calm: boolean): void {
+	/**
+	 * A poof at `at` (the ground under a trainer's feet), from the next frame
+	 * on; `size` scales it (a miss's puff by an animal is smaller).
+	 */
+	play(at: THREE.Vector3, calm: boolean, size = 1): void {
 		const material = new THREE.MeshLambertMaterial({
 			color: COLORS.dust,
 			flatShading: true,
@@ -60,6 +63,7 @@ export class Poofs {
 		});
 		const group = new THREE.Group();
 		group.position.copy(at);
+		group.scale.setScalar(size);
 		const count = calm ? CALM_PUFFS : PUFFS;
 		for (let i = 0; i < count; i++) {
 			const puff = new THREE.Mesh(PUFF_GEOMETRY, material);
