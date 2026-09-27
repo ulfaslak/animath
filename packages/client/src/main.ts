@@ -93,9 +93,10 @@ account.name = current?.name ?? null;
 
 /**
  * The server's word on the account, asked once as the page starts, before
- * anything else goes to the account routes ([[INVARIANTS]] § Server): the
- * account's save goes to the server only while it says the session is this
- * account's.
+ * anything else that reads the session goes to the account routes (only
+ * `/ready`, which reads no cookie and sends none, may go first;
+ * [[INVARIANTS]] § Server): the account's save goes to the server only
+ * while it says the session is this account's.
  */
 const sessionCheck = current ? new SessionCheck(current.name, heardSession) : null;
 
@@ -544,7 +545,7 @@ if (store && waitingLogout !== null) {
 		if (heard === 'done' && logoutPending(store) === waitingLogout) forgetLogout(store);
 	});
 }
-// The first request to the account routes this page makes.
+// The first request about the session this page makes (only `/ready`, which reads none, goes before it).
 void sessionCheck?.check();
 void autosave.boot().then((plan) => {
 	if (flags.throwaway) {

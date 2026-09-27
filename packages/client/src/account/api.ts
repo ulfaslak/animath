@@ -191,7 +191,8 @@ export async function accountsReady(base = '/api', timeoutMs?: number): Promise<
 
 /**
  * Who this browser's session cookie belongs to. Asked once as the page
- * starts, before anything else goes to the account routes: its answer may
+ * starts, before anything else that reads the session goes to the account
+ * routes (`accountsReady` reads no cookie and sends none): its answer may
  * send the cookie again ([[INVARIANTS]] § Server).
  */
 export async function whoAmI(base = '/api', timeoutMs?: number): Promise<WhoResult> {
