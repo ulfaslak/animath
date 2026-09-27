@@ -43,8 +43,9 @@
  * facing with `?debug` in the URL), the party cards (and an open card's
  * animals), the puzzles solved, tokens, tools and world in the corner, and
  * the coordinates in the other; in the pause menu its
- * rows, the picked animal's options and the name box (with whether it has
- * the focus); at the doctor the doctor's line, the tokens, the tabs, the
+ * rows, the animal book's row, the picked animal's options and the name box (with whether it has
+ * the focus); in the animal book its count, what the lit card says, and every card (`Fox✓`
+ * caught, `Fox` seen, `?` never seen, the lit one in brackets); at the doctor the doctor's line, the tokens, the tabs, the
  * tab's list and what its right-hand side says; and in a battle
  * the narration line, the menu's attack tiles and moves (or the switch list),
  * the preview card, the puzzle, the typed answer, the judgement, the status
@@ -394,6 +395,29 @@ async function describe() {
 		})
 	);
 	if (pauseRows.length) lines.push(`pause: ${pauseRows.join(' | ')}`);
+	// The animal book's row on the menu's title line, lit in brackets.
+	const bookRow = await page.locator('.menu .title-line .row').evaluateAll((els) =>
+		els.map((el) => {
+			const text = el.textContent.replace(/\s+/g, ' ').trim();
+			return el.classList.contains('lit') ? `[${text}]` : text;
+		})
+	);
+	if (bookRow.length) lines.push(`book row: ${bookRow.join(' | ')}`);
+	// The animal book: its count, every card (a kind caught with a tick, one seen by its
+	// name, one never seen as "?", the lit one in brackets), and what the lit card says.
+	const bookCards = await page.locator('.menu .book-grid .card').evaluateAll((els) =>
+		els.map((el) => {
+			const name = el.querySelector('.card-name')?.textContent.trim() ?? '?';
+			const text = el.classList.contains('caught') ? `${name}✓` : name;
+			return el.classList.contains('lit') ? `[${text}]` : text;
+		})
+	);
+	if (bookCards.length) {
+		const count = await page.locator('.book-count').textContent();
+		const caption = await page.locator('.book-caption').textContent();
+		lines.push(`book: ${count?.trim()} — ${caption?.trim()}`);
+		lines.push(`book cards: ${bookCards.join(' ')}`);
+	}
 	// A card's animals on the right of the pause menu, the lit one in brackets.
 	const members = await page.locator('.menu .side .animal').evaluateAll((els) =>
 		els.map((el) => {

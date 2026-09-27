@@ -470,6 +470,75 @@ async function rawSocket(port: number) {
 	return { s, heard, closed };
 }
 
+describe('battles seen from outside, over the socket', () => {
+	const view = (hp: number, nickname?: unknown) => ({
+		realm: 'land',
+		a: nickname === undefined ? { species: 'rabbit', hp } : { species: 'rabbit', nickname, hp },
+		b: { species: 'fox', hp: 1 },
+		turn: 'a',
+		puzzle: { kind: 'mul', numbers: [7, 8] }
+	});
+
+	it("passes a page's battle to a player near it, as numbers and kinds and nothing else: no nickname, no words", async () => {
+		const { url } = await start();
+		const { c: ada, pid } = await joined(url, 'Ada', 'a'.repeat(20));
+		const { c: bo } = await joined(url, 'Bo', 'b'.repeat(20));
+		bo.where(1, 2, 0);
+		ada.where(1, 0, 0, 'battle');
+		await bo.until((m): m is ServerMessage => m.t === 'peer' && m.busy === 'battle');
+		ada.send({
+			t: 'battle',
+			view: {
+				...view(3, 'Pip'),
+				words: 'hello',
+				puzzle: { kind: 'mul', numbers: [7, 8], prompt: 'hi' }
+			},
+			events: [{ type: 'judged', side: 'a', correct: true, said: 'nice' }]
+		});
+		expect(await bo.next('fight')).toEqual({
+			t: 'fight',
+			pid,
+			vs: null,
+			view: view(3),
+			events: [{ type: 'judged', side: 'a', correct: true }]
+		});
+		// A nickname reaches nobody, however the page words it: the rabbit goes by its kind.
+		const after = bo.got.length;
+		ada.send({
+			t: 'battle',
+			view: view(2, 'come alone'),
+			events: [
+				{ type: 'switched', side: 'a', animal: { species: 'fox', nickname: 'hi im Sam', hp: 3 } }
+			]
+		});
+		const next = await bo.next('fight', 2000, after);
+		expect(next.view).toEqual(view(2));
+		expect(next.events).toEqual([
+			{ type: 'switched', side: 'a', animal: { species: 'fox', hp: 3 } }
+		]);
+		// A battle is never shown to its own page.
+		expect(ada.got.filter((m) => m.t === 'fight')).toEqual([]);
+	});
+
+	it('passes on a few reports a second, drops the rest quietly, and counts a report that is not one as junk', async () => {
+		const { url } = await start({ battleRatePerSecond: 1, battleBurst: 3, maxInvalid: 3 });
+		const { c: ada } = await joined(url, 'Ada', 'a'.repeat(20));
+		const { c: bo } = await joined(url, 'Bo', 'b'.repeat(20));
+		bo.where(1, 2, 0);
+		ada.where(1, 0, 0, 'battle');
+		await bo.until((m): m is ServerMessage => m.t === 'peer' && m.busy === 'battle');
+		for (let hp = 0; hp < 8; hp++) ada.send({ t: 'battle', view: view(hp), events: [] });
+		await new Promise((r) => setTimeout(r, 300));
+		expect(bo.got.filter((m) => m.t === 'fight').length).toBe(3);
+		// Words where a puzzle goes, a species nobody knows: not a report, and a few of them close the socket.
+		ada.send({ t: 'battle', view: { ...view(1), puzzle: '7 × 8 = ? hi' }, events: [] });
+		ada.send({ t: 'battle', view: { ...view(1), a: { species: 'dragon', hp: 1 } }, events: [] });
+		ada.send({ t: 'battle', view: view(1), events: [{ type: 'said', text: 'hello' }] });
+		expect(await ada.next('bye')).toEqual({ t: 'bye', reason: 'invalid' });
+		expect(bo.got.filter((m) => m.t === 'fight').length).toBe(3);
+	});
+});
+
 describe('presence socket under attack', () => {
 	it('never lets a socket closed for cause back in, however it goes on sending', async () => {
 		// The server's timeouts wait on the fake clock: the socket it closes is not cut off (a

@@ -17,9 +17,11 @@ import { ChunkRing } from './chunks';
 import { ClearingEffects, SWING_SECONDS, animateSwing, buildTool } from './clearing';
 import { appearScale, smoothstep } from './ease';
 import { buildGliderMesh, poseGlider } from './glider';
+import { WatchedFights } from './fights';
 import { OtherPlayers } from './others';
 import { COLORS, GLIDER_COLORS } from './palette';
 import { Poofs } from './poof';
+import { PortraitStudio } from './portraits';
 import { groundTop } from './tiles';
 import { FACING_ANGLE, strideOnto, trainerPose, trainerStep } from './trainer';
 
@@ -162,8 +164,12 @@ export class GameRenderer {
 	private ringTool: ItemId | null = null;
 	/** Little clouds of dust where a trainer turns up out of nowhere. */
 	private poofs = new Poofs(this.scene);
+	/** Draws the animal book's pictures, made the first time the book asks for one. */
+	private studio: PortraitStudio | null = null;
 	/** The other players in view, each with their lead (`others.ts`). */
 	readonly others: OtherPlayers = new OtherPlayers(this.scene, this, this.poofs);
+	/** Their battles, drawn beside them (`fights.ts`). */
+	readonly fights: WatchedFights = new WatchedFights(this.scene, this, this.poofs, this.others);
 
 	constructor(private canvas: HTMLCanvasElement) {
 		this.renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
@@ -251,6 +257,7 @@ export class GameRenderer {
 		this.clearings.clear();
 		this.poofs.clear();
 		this.others.setWorld(seed);
+		this.fights.setWorld(seed);
 		this.butterflies.setWorld(seed);
 	}
 
@@ -457,6 +464,17 @@ export class GameRenderer {
 		this.setStage(scene);
 	}
 
+	/**
+	 * A picture of `speciesId`'s figure for the animal book, drawn offscreen
+	 * with this renderer (`portraits.ts`): a PNG data URL, or null while the
+	 * WebGL context is lost. The screen is not touched; the next frame draws
+	 * as ever.
+	 */
+	portrait(speciesId: string): string | null {
+		this.studio ??= new PortraitStudio(this.renderer);
+		return this.studio.draw(speciesId);
+	}
+
 	/** Draw `stage` instead of the world (a battle, the starter stage), or `null` for the world. */
 	setStage(stage: Stage | null): void {
 		this.stage = stage;
@@ -483,12 +501,13 @@ export class GameRenderer {
 		}
 		this.clearings.update(t, motion.reduced);
 		const dt = this.lastT < 0 ? 0 : Math.min(0.1, Math.max(0, t - this.lastT));
-		// The others walk and fade (their followers are figures too, idled below).
-		this.others.setCentre({
-			x: Math.round(this.cameraTarget.x),
-			y: Math.round(this.cameraTarget.z)
-		});
+		// The others walk and fade (their followers are figures too, idled below), and their
+		// battles play beside them.
+		const centre = { x: Math.round(this.cameraTarget.x), y: Math.round(this.cameraTarget.z) };
+		this.others.setCentre(centre);
 		this.others.update(t, dt);
+		this.fights.setCentre(centre);
+		this.fights.update(t, dt);
 		this.poofs.update(t);
 		for (const f of this.figures) animateIdle(f, t, this.camera);
 		this.lastT = t;
