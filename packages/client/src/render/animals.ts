@@ -261,6 +261,82 @@ function spout(x: number, y: number, z: number): THREE.Mesh[] {
 		];
 	}).flat();
 }
+/**
+ * A hedgehog's spines: small cones standing out of a dome of radius `r`
+ * centred at (0, `y`, `z`), each along the dome's surface, over its top and
+ * sides and never across its face (+z), in rows staggered so they bristle.
+ */
+function spines(hex: number, r: number, y: number, z: number): THREE.Mesh[] {
+	const up = new THREE.Vector3(0, 1, 0);
+	const out: THREE.Mesh[] = [];
+	// Rows down from the top (`phi` from straight up), each spread over one side and
+	// mirrored onto the other, so the dome is the same on both sides.
+	for (const [phi, count, shift] of [
+		[0.35, 2, 0.5],
+		[0.8, 4, 0],
+		[1.2, 5, 0.5],
+		[1.5, 5, 0]
+	] as const) {
+		for (let i = 0; i < count; i++) {
+			const theta = (Math.PI * (i + 0.25 + shift * 0.5)) / count;
+			const n = new THREE.Vector3(
+				Math.sin(phi) * Math.sin(theta),
+				Math.cos(phi),
+				Math.sin(phi) * Math.cos(theta)
+			);
+			if (n.z > 0.7) continue; // the face
+			for (const side of [-1, 1]) {
+				const dir = new THREE.Vector3(side * n.x, n.y, n.z);
+				const at = r + 0.01;
+				const spine = cone(0.022, 0.08, hex, dir.x * at, y + dir.y * at, z + dir.z * at);
+				spine.quaternion.setFromUnitVectors(up, dir);
+				out.push(spine);
+			}
+		}
+	}
+	return out;
+}
+
+/**
+ * A bird's wings, hanging from shoulder joints at (±`x`, `y`, 0), named
+ * `wingL` and `wingR` (`limb`), each holding what `parts` builds for its side
+ * (-1 is left), placed as if the joint were not there. Turning a joint about
+ * z lifts its wing out from the body; about x, it sweeps forward or back.
+ */
+function wings(x: number, y: number, parts: (side: -1 | 1) => THREE.Mesh[]): THREE.Group[] {
+	return ([-1, 1] as const).map((side) =>
+		limb(side < 0 ? 'wingL' : 'wingR', side * x, y, parts(side))
+	);
+}
+
+/**
+ * A stag beetle's two jaws: the deer's antlers (`antler`), in `hex`, laid
+ * forward from the front of its head and shrunk to a beetle's size.
+ */
+function jaws(hex: number): THREE.Group {
+	const pair = limb('jaws', 0, 1.28, [...antler(hex, -1), ...antler(hex, 1)], 0.44);
+	pair.position.set(0, 0.1, 0.17);
+	pair.rotation.x = 1.2;
+	pair.scale.setScalar(0.6);
+	return pair;
+}
+
+/**
+ * An adder's zigzag: `count` short dark bars along the top of a coil of
+ * radius `r` round (0, `z`), at the height `y` of its back, each turned a
+ * little off the coil's line, the other way from the one before, so together
+ * they zigzag round it.
+ */
+function zigzag(hex: number, r: number, y: number, z: number, count: number): THREE.Mesh[] {
+	const length = ((2 * Math.PI * r) / count) * 1.25;
+	return Array.from({ length: count }, (_, i) => {
+		const a = (i / count) * Math.PI * 2;
+		const bar = box(0.014, 0.012, length, hex, Math.sin(a) * r, y, z + Math.cos(a) * r);
+		bar.rotation.y = a + Math.PI / 2 + (i % 2 ? 0.55 : -0.55);
+		return bar;
+	});
+}
+
 /** A starfish's arms, and where its middle is: an arm's length up, on the arm it stands on. */
 const STAR_ARM = 0.3;
 const STAR_MIDDLE = STAR_ARM;
@@ -382,6 +458,394 @@ const BUILDERS: Record<string, Builder> = {
 		ball(0.07, fur, -0.17, 0.98, 0.4),
 		ball(0.07, fur, 0.17, 0.98, 0.4)
 	],
+	// The small animals of the Nordic countryside (#89 wave 1), each sized as in
+	// nature within its tier: the shrew, the beetle and the robin are smaller than
+	// the squirrel. The birds' wings hang from joints (`wingL`, `wingR`, at the
+	// shoulder), so a bird can beat them in the air.
+	//
+	// Tiny, low and long, with a long pointed snout that twitches ahead of it.
+	shrew: ({ fur, accent }) => [
+		ball(0.1, fur, 0, 0.115, -0.02, 1, 0.85, 1.7),
+		ball(0.072, accent, 0, 0.09, 0, 1, 0.55, 1.45),
+		ball(0.07, fur, 0, 0.135, 0.14),
+		rot(cone(0.034, 0.19, fur, 0, 0.125, 0.28), Math.PI / 2 - 0.1, 0, 0),
+		ball(0.017, COLORS.dark, 0, 0.135, 0.375),
+		...([-1, 1] as const).flatMap((side) => [
+			ball(0.011, COLORS.dark, side * 0.042, 0.165, 0.18),
+			ball(0.024, fur, side * 0.05, 0.19, 0.09, 1, 1, 0.5),
+			box(0.04, 0.03, 0.05, accent, side * 0.055, 0.015, 0.09),
+			box(0.04, 0.03, 0.05, accent, side * 0.055, 0.015, -0.1)
+		]),
+		rot(tube(0.012, 0.17, fur, 0, 0.08, -0.25), Math.PI / 2 + 0.2, 0, 0)
+	],
+	// Sitting up, a tail as long as its body behind it: huge round ears and big black eyes.
+	'wood-mouse': ({ fur, accent }) => [
+		ball(0.095, fur, 0, 0.13, -0.02, 1, 1.25, 1.1),
+		ball(0.07, accent, 0, 0.12, 0.05, 0.9, 1.1, 0.7),
+		ball(0.075, fur, 0, 0.28, 0.06),
+		ball(0.035, fur, 0, 0.26, 0.13, 1, 0.8, 1.3),
+		ball(0.012, COLORS.dark, 0, 0.26, 0.175),
+		...([-1, 1] as const).flatMap((side) => [
+			ball(0.06, fur, side * 0.075, 0.38, 0.02, 1, 1, 0.35),
+			ball(0.045, accent, side * 0.075, 0.38, 0.035, 1, 1, 0.3),
+			ball(0.027, COLORS.dark, side * 0.048, 0.3, 0.115),
+			box(0.05, 0.03, 0.08, fur, side * 0.06, 0.015, 0.05)
+		]),
+		part(
+			curvedTube(
+				[
+					[0, 0.05],
+					[0.12, 0.025],
+					[0.26, 0.03],
+					[0.36, 0.07]
+				],
+				0.018,
+				Math.PI
+			),
+			fur,
+			0,
+			0,
+			-0.1
+		)
+	],
+	// Chunkier than the mouse, on pink feet, with pink ears and a long bare pink tail.
+	'brown-rat': ({ fur, accent }) => [
+		ball(0.12, fur, 0, 0.13, -0.02, 1, 0.85, 1.6),
+		ball(0.08, fur, 0, 0.15, 0.2, 1, 0.9, 1.2),
+		rot(cone(0.045, 0.1, fur, 0, 0.14, 0.3), Math.PI / 2, 0, 0),
+		ball(0.016, accent, 0, 0.14, 0.355),
+		...([-1, 1] as const).flatMap((side) => [
+			ball(0.015, COLORS.dark, side * 0.045, 0.18, 0.26),
+			ball(0.038, accent, side * 0.06, 0.23, 0.16, 1, 1, 0.4),
+			box(0.05, 0.03, 0.07, accent, side * 0.08, 0.015, 0.11),
+			box(0.05, 0.03, 0.07, accent, side * 0.08, 0.015, -0.14)
+		]),
+		part(
+			curvedTube(
+				[
+					[0, 0.1],
+					[0.15, 0.05],
+					[0.32, 0.035],
+					[0.46, 0.07]
+				],
+				0.024,
+				Math.PI
+			),
+			accent,
+			0,
+			0,
+			-0.18
+		)
+	],
+	// A dome of spines bristling over a pointed pale face with a black nose.
+	hedgehog: ({ fur, accent }) => [
+		part(new THREE.SphereGeometry(0.17, 8, 4, 0, Math.PI * 2, 0, Math.PI / 2), fur, 0, 0.04, -0.02),
+		...spines(fur, 0.17, 0.04, -0.02),
+		rot(cone(0.07, 0.16, accent, 0, 0.1, 0.18), Math.PI / 2, 0, 0),
+		ball(0.022, COLORS.dark, 0, 0.1, 0.265),
+		...([-1, 1] as const).flatMap((side) => [
+			ball(0.014, COLORS.dark, side * 0.04, 0.13, 0.17),
+			box(0.04, 0.04, 0.05, accent, side * 0.08, 0.02, 0.08),
+			box(0.04, 0.04, 0.05, accent, side * 0.08, 0.02, -0.1)
+		])
+	],
+	// A dark velvet barrel with no eyes to see: two huge pink digging hands turned
+	// outward, and a pink nose.
+	mole: ({ fur, accent }) => [
+		ball(0.13, fur, 0, 0.16, -0.02, 1, 0.9, 1.35),
+		ball(0.085, fur, 0, 0.16, 0.15),
+		rot(cone(0.035, 0.08, fur, 0, 0.15, 0.24), Math.PI / 2, 0, 0),
+		ball(0.026, accent, 0, 0.15, 0.285),
+		...([-1, 1] as const).flatMap((side) => [
+			rot(ball(0.075, accent, side * 0.16, 0.075, 0.12, 0.45, 1, 1.1), 0, side * 0.5, 0),
+			...[-0.04, 0, 0.04].map((dz) =>
+				rot(cone(0.012, 0.05, COLORS.white, side * 0.2, 0.05, 0.16 + dz), Math.PI / 2, 0, 0)
+			),
+			box(0.05, 0.05, 0.06, accent, side * 0.08, 0.025, -0.14)
+		]),
+		rot(cone(0.02, 0.06, accent, 0, 0.14, -0.2), -Math.PI / 2, 0, 0)
+	],
+	// Low and sprawled, basking with its head up on straight front legs, and a
+	// long tail tapering to a point along the ground.
+	'common-lizard': ({ fur, accent }) => {
+		const tail = tentacle(
+			[
+				[0, 0.06],
+				[0.2, 0.04],
+				[0.4, 0.035],
+				[0.58, 0.05]
+			],
+			0.045,
+			fur,
+			Math.PI
+		);
+		tail.position.z = -0.1;
+		return [
+			rot(ball(0.075, fur, 0, 0.105, 0.02, 1, 0.7, 2.1), -0.2, 0, 0),
+			rot(ball(0.06, accent, 0, 0.09, 0.03, 1, 0.5, 1.9), -0.2, 0, 0),
+			ball(0.06, fur, 0, 0.155, 0.2, 1, 0.8, 1.3),
+			...([-1, 1] as const).flatMap((side) => [
+				ball(0.012, COLORS.dark, side * 0.038, 0.175, 0.23),
+				box(0.03, 0.1, 0.03, fur, side * 0.07, 0.05, 0.12),
+				box(0.05, 0.02, 0.05, fur, side * 0.09, 0.01, 0.14),
+				rot(box(0.12, 0.025, 0.035, fur, side * 0.09, 0.03, -0.07), 0, -side * 0.35, 0),
+				box(0.04, 0.03, 0.05, fur, side * 0.14, 0.015, -0.09)
+			]),
+			tail
+		];
+	},
+	// Squat and wide like the frog, but browner and bumpier: warts all over its
+	// back, and copper-orange eyes.
+	'common-toad': ({ fur, accent }) => [
+		ball(0.19, fur, 0, 0.14, -0.04, 1.3, 0.7, 1.15),
+		ball(0.14, fur, 0, 0.19, 0.11, 1.3, 0.72, 1),
+		box(0.25, 0.016, 0.02, COLORS.dark, 0, 0.17, 0.24),
+		...[
+			[0, 0.25, -0.02],
+			[0.11, 0.23, -0.08],
+			[-0.11, 0.23, -0.08],
+			[0.06, 0.22, -0.16],
+			[-0.06, 0.22, -0.16],
+			[0.17, 0.18, 0.02],
+			[-0.17, 0.18, 0.02],
+			[0, 0.2, -0.2],
+			[0.07, 0.25, 0.06],
+			[-0.07, 0.25, 0.06]
+		].map(([x, y, z]) => ball(0.032, fur, x!, y!, z!)),
+		...([-1, 1] as const).flatMap((side) => [
+			ball(0.07, fur, side * 0.1, 0.27, 0.11),
+			ball(0.052, accent, side * 0.1, 0.285, 0.14),
+			ball(0.024, COLORS.dark, side * 0.1, 0.29, 0.185),
+			ball(0.09, fur, side * 0.2, 0.095, -0.1, 0.75, 0.95, 1.5),
+			box(0.1, 0.026, 0.17, fur, side * 0.235, 0.013, 0.04),
+			box(0.05, 0.095, 0.05, fur, side * 0.105, 0.048, 0.19),
+			box(0.075, 0.022, 0.065, fur, side * 0.115, 0.011, 0.21)
+		])
+	],
+	// A round little bird on thin legs, with a big round orange-red breast.
+	robin: ({ fur, accent }) => [
+		ball(0.1, fur, 0, 0.19, -0.02, 1, 1, 1.15),
+		ball(0.085, accent, 0, 0.19, 0.05, 1, 1, 0.8),
+		ball(0.07, fur, 0, 0.3, 0.04),
+		ball(0.052, accent, 0, 0.29, 0.08, 1, 1, 0.6),
+		rot(cone(0.018, 0.05, COLORS.dark, 0, 0.3, 0.13), Math.PI / 2, 0, 0),
+		rot(box(0.08, 0.02, 0.13, fur, 0, 0.2, -0.16), -0.45, 0, 0),
+		...([-1, 1] as const).flatMap((side) => [
+			ball(0.013, COLORS.dark, side * 0.04, 0.32, 0.09),
+			tube(0.008, 0.1, COLORS.dark, side * 0.035, 0.05, 0),
+			box(0.03, 0.01, 0.05, COLORS.dark, side * 0.035, 0.005, 0.02)
+		]),
+		...wings(0.09, 0.23, (side) => [
+			ball(0.06, fur, side * 0.1, 0.19, -0.03, 0.35, 0.9, 1.4)
+		])
+	],
+	// A shiny dark oval on six short legs, and two giant antler jaws.
+	'stag-beetle': ({ fur, accent }) => [
+		ball(0.1, fur, 0, 0.08, -0.04, 1, 0.55, 1.5),
+		ball(0.065, fur, 0, 0.085, 0.12, 1.2, 0.6, 0.9),
+		ball(0.03, COLORS.white, 0.03, 0.12, -0.08, 1, 0.4, 1.4),
+		...([-1, 1] as const).flatMap((side) =>
+			[0.09, -0.02, -0.12].flatMap((z) => [
+				box(0.1, 0.02, 0.02, fur, side * 0.12, 0.035, z),
+				box(0.02, 0.035, 0.02, fur, side * 0.17, 0.0175, z)
+			])
+		),
+		...([-1, 1] as const).map((side) => ball(0.012, COLORS.dark, side * 0.05, 0.11, 0.18)),
+		jaws(accent)
+	],
+	// Slim, on long legs, smaller than the red deer, with short three-point
+	// antlers and a white heart-shaped patch on its rump.
+	'roe-deer': ({ fur, accent }) => [
+		box(0.2, 0.2, 0.44, fur, 0, 0.45, 0),
+		...legs(0.05, 0.36, fur, 0.065, 0.15),
+		rot(box(0.1, 0.1, 0.26, fur, 0, 0.62, 0.24), -0.9, 0, 0),
+		box(0.1, 0.1, 0.19, fur, 0, 0.76, 0.36),
+		ball(0.022, COLORS.dark, 0, 0.75, 0.46),
+		...([-1, 1] as const).flatMap((side) => [
+			ball(0.013, COLORS.dark, side * 0.05, 0.79, 0.4),
+			ball(0.025, fur, side * 0.075, 0.84, 0.31, 1, 1.6, 0.6),
+			rot(tube(0.013, 0.14, COLORS.dark, side * 0.035, 0.89, 0.33), 0, 0, -side * 0.2),
+			rot(tube(0.01, 0.07, COLORS.dark, side * 0.045, 0.9, 0.37), 0.8, 0, 0),
+			rot(tube(0.01, 0.06, COLORS.dark, side * 0.05, 0.93, 0.3), -0.8, 0, 0),
+			ball(0.05, accent, side * 0.035, 0.5, -0.215, 1, 1, 0.35)
+		]),
+		ball(0.042, accent, 0, 0.455, -0.215, 1, 1, 0.35)
+	],
+	// Low, wide and stocky on short dark legs: a white face with two black stripes
+	// running back over the eyes.
+	badger: ({ fur, accent }) => [
+		ball(0.2, fur, 0, 0.21, -0.03, 1.1, 0.75, 1.5),
+		...legs(0.07, 0.11, COLORS.dark, 0.13, 0.17),
+		ball(0.11, accent, 0, 0.2, 0.3, 1, 0.9, 1.3),
+		ball(0.028, COLORS.dark, 0, 0.19, 0.44),
+		...([-1, 1] as const).flatMap((side) => [
+			rot(box(0.035, 0.02, 0.22, COLORS.dark, side * 0.045, 0.285, 0.29), -0.2, 0, 0),
+			ball(0.013, COLORS.white, side * 0.045, 0.27, 0.38),
+			ball(0.032, accent, side * 0.1, 0.29, 0.21)
+		]),
+		rot(cone(0.05, 0.12, fur, 0, 0.2, -0.36), -Math.PI / 2, 0, 0)
+	],
+	// Long and slim with a bushy tail, and a creamy-yellow bib on its throat.
+	'pine-marten': ({ fur, accent }) => [
+		ball(0.1, fur, 0, 0.21, -0.02, 1, 0.85, 2.3),
+		...legs(0.05, 0.17, fur, 0.06, 0.15),
+		ball(0.08, fur, 0, 0.31, 0.25),
+		rot(cone(0.04, 0.09, fur, 0, 0.3, 0.34), Math.PI / 2, 0, 0),
+		ball(0.015, COLORS.dark, 0, 0.3, 0.39),
+		ball(0.07, accent, 0, 0.24, 0.26, 1, 1.1, 0.6),
+		...([-1, 1] as const).flatMap((side) => [
+			ball(0.013, COLORS.dark, side * 0.035, 0.33, 0.31),
+			ball(0.032, fur, side * 0.06, 0.39, 0.22),
+			ball(0.02, accent, side * 0.06, 0.39, 0.235, 1, 1, 0.5)
+		]),
+		rot(ball(0.07, fur, 0, 0.21, -0.42, 1, 1, 2.6), 0.3, 0, 0)
+	],
+	// Long and slinky, sitting up on short legs, a white belly, and a black tip
+	// on the end of its tail.
+	stoat: ({ fur, accent }) => [
+		rot(ball(0.075, fur, 0, 0.2, -0.02, 1, 2.3, 1), -0.25, 0, 0),
+		rot(ball(0.055, accent, 0, 0.19, 0.03, 0.9, 2, 0.7), -0.25, 0, 0),
+		ball(0.065, fur, 0, 0.39, 0.03),
+		ball(0.036, fur, 0, 0.375, 0.09, 1, 0.8, 1.2),
+		ball(0.034, accent, 0, 0.35, 0.07),
+		ball(0.013, COLORS.dark, 0, 0.375, 0.13),
+		...([-1, 1] as const).flatMap((side) => [
+			ball(0.013, COLORS.dark, side * 0.03, 0.4, 0.08),
+			ball(0.024, fur, side * 0.045, 0.445, 0.01),
+			ball(0.02, accent, side * 0.035, 0.25, 0.08),
+			box(0.045, 0.03, 0.08, fur, side * 0.05, 0.015, 0.02)
+		]),
+		part(
+			curvedTube(
+				[
+					[0, 0.06],
+					[0.12, 0.06],
+					[0.2, 0.1],
+					[0.24, 0.16]
+				],
+				0.028,
+				Math.PI
+			),
+			fur,
+			0,
+			0,
+			-0.08
+		),
+		ball(0.032, COLORS.dark, 0, 0.16, -0.32)
+	],
+	// No legs: a coil of body on the ground, its head raised, and a dark zigzag
+	// along its back.
+	adder: ({ fur, accent }) => [
+		part(new THREE.TorusGeometry(0.13, 0.042, 8, 14).rotateX(Math.PI / 2), fur, 0, 0.042, 0),
+		part(new THREE.TorusGeometry(0.085, 0.038, 8, 12).rotateX(Math.PI / 2), fur, 0, 0.115, -0.01),
+		...zigzag(accent, 0.13, 0.084, 0, 14),
+		...zigzag(accent, 0.085, 0.153, -0.01, 10),
+		part(
+			curvedTube(
+				[
+					[0, 0.07],
+					[0.08, 0.14],
+					[0.12, 0.22],
+					[0.17, 0.27]
+				],
+				0.04,
+				0
+			),
+			fur,
+			0,
+			0,
+			0.08
+		),
+		ball(0.052, fur, 0, 0.275, 0.27, 1, 0.7, 1.35),
+		rot(box(0.02, 0.012, 0.09, accent, 0, 0.312, 0.255), 0, 0.3, 0),
+		...([-1, 1] as const).map((side) => ball(0.012, COLORS.dark, side * 0.035, 0.29, 0.31))
+	],
+	// Grey on very long legs, an S-shaped neck, a dagger beak and a black crest stripe.
+	'grey-heron': ({ fur, accent }) => [
+		...([-1, 1] as const).flatMap((side) => [
+			tube(0.012, 0.36, accent, side * 0.04, 0.18, 0),
+			box(0.025, 0.01, 0.09, accent, side * 0.04, 0.005, 0.03)
+		]),
+		ball(0.11, fur, 0, 0.44, -0.03, 1, 0.85, 1.6),
+		box(0.08, 0.02, 0.07, fur, 0, 0.42, -0.2),
+		part(
+			curvedTube(
+				[
+					[0, 0.47],
+					[0.08, 0.58],
+					[0.02, 0.69],
+					[0.07, 0.8]
+				],
+				0.042,
+				0
+			),
+			fur,
+			0,
+			0,
+			0.1
+		),
+		ball(0.045, fur, 0, 0.81, 0.17),
+		rot(cone(0.018, 0.17, accent, 0, 0.8, 0.29), Math.PI / 2, 0, 0),
+		box(0.022, 0.016, 0.1, COLORS.dark, 0, 0.845, 0.15),
+		rot(box(0.012, 0.012, 0.1, COLORS.dark, 0, 0.835, 0.08), 0.35, 0, 0),
+		...([-1, 1] as const).map((side) => ball(0.01, COLORS.dark, side * 0.032, 0.82, 0.19)),
+		...wings(0.08, 0.49, (side) => [
+			ball(0.08, fur, side * 0.09, 0.44, -0.06, 0.4, 0.8, 1.7),
+			ball(0.04, COLORS.dark, side * 0.095, 0.42, -0.19, 0.35, 0.6, 1.2)
+		])
+	],
+	// Round and upright, with no ear tufts: a round pale face disc and big black eyes.
+	'tawny-owl': ({ fur, accent }) => [
+		ball(0.16, fur, 0, 0.24, 0, 1, 1.25, 1),
+		ball(0.14, fur, 0, 0.5, 0.01),
+		ball(0.115, accent, 0, 0.5, 0.1, 1, 1, 0.35),
+		rot(cone(0.016, 0.045, COLORS.dark, 0, 0.47, 0.145), Math.PI * 0.6, 0, 0),
+		rot(box(0.1, 0.02, 0.1, fur, 0, 0.1, -0.15), -0.3, 0, 0),
+		...([-1, 1] as const).flatMap((side) => [
+			ball(0.04, COLORS.dark, side * 0.05, 0.52, 0.13),
+			box(0.06, 0.04, 0.06, accent, side * 0.06, 0.02, 0.06)
+		]),
+		...wings(0.14, 0.34, (side) => [
+			ball(0.1, fur, side * 0.15, 0.25, -0.01, 0.35, 1.1, 0.9)
+		])
+	],
+	// A black bandit mask under white brows, and a ringed tail.
+	raccoon: ({ fur, accent }) => [
+		ball(0.16, fur, 0, 0.28, -0.02, 1, 0.9, 1.35),
+		...legs(0.06, 0.17, COLORS.dark, 0.09, 0.14),
+		ball(0.11, fur, 0, 0.37, 0.25),
+		ball(0.05, COLORS.white, 0, 0.33, 0.35, 1, 0.8, 1.1),
+		ball(0.018, COLORS.dark, 0, 0.34, 0.405),
+		box(0.2, 0.055, 0.03, accent, 0, 0.385, 0.34),
+		box(0.18, 0.025, 0.02, COLORS.white, 0, 0.42, 0.33),
+		...([-1, 1] as const).map((side) =>
+			rot(cone(0.035, 0.07, fur, side * 0.07, 0.47, 0.22), 0, 0, -side * 0.2)
+		),
+		...[0, 1, 2, 3, 4].map((i) =>
+			ball(0.06, i % 2 ? accent : fur, 0, 0.26 + i * 0.025, -0.25 - i * 0.075, 1, 1, 0.75)
+		)
+	],
+	// Round and heavy, a flat paddle of a tail, and orange front teeth.
+	beaver: ({ fur, accent }) => {
+		// Flat on the ground behind it (its five-sided edge's lowest corner on y = 0).
+		const tail = paddleTail(COLORS.dark, 0, 0.039, -0.38);
+		tail.scale.x = 1.6;
+		return [
+			ball(0.2, fur, 0, 0.26, -0.03, 1, 0.9, 1.3),
+			ball(0.12, fur, 0, 0.32, 0.23),
+			ball(0.06, fur, 0, 0.28, 0.32, 1, 0.8, 1),
+			ball(0.02, COLORS.dark, 0, 0.31, 0.375),
+			...([-1, 1] as const).flatMap((side) => [
+				box(0.022, 0.05, 0.015, accent, side * 0.013, 0.235, 0.365),
+				ball(0.014, COLORS.dark, side * 0.06, 0.36, 0.31),
+				ball(0.026, fur, side * 0.08, 0.42, 0.2),
+				box(0.08, 0.09, 0.1, fur, side * 0.12, 0.045, 0.12),
+				box(0.1, 0.03, 0.14, COLORS.dark, side * 0.13, 0.015, -0.12),
+				box(0.07, 0.08, 0.08, fur, side * 0.12, 0.04, -0.1)
+			]),
+			tail
+		];
+	},
 	// The sea animals: in the world they swim low in the water, so each one's
 	// tell is in its top half. Wide and flat on six thin legs, two big claws
 	// held up in front, and eyes on stalks.

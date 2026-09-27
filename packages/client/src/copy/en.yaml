@@ -90,12 +90,12 @@ species:
       splash: Splash
       tail-whip: Tail Whip
   deer:
-    name: Deer
-    a: a Deer
-    the: the Deer
-    wild: wild Deer
-    aWild: a wild Deer
-    theWild: the wild Deer
+    name: Red deer
+    a: a Red deer
+    the: the Red deer
+    wild: wild Red deer
+    aWild: a wild Red deer
+    theWild: the wild Red deer
     attacks:
       kick: Kick
       antler-charge: Antler Charge
@@ -122,6 +122,199 @@ species:
       roar: Roar
       maul: Maul
       crush: Crush
+  # The small animals of the Nordic countryside (#89 wave 1).
+  shrew:
+    name: Shrew
+    a: a Shrew
+    the: the Shrew
+    wild: wild Shrew
+    aWild: a wild Shrew
+    theWild: the wild Shrew
+    attacks:
+      squeak: Squeak
+      hungry-bite: Hungry Bite
+  wood-mouse:
+    name: Wood mouse
+    a: a Wood mouse
+    the: the Wood mouse
+    wild: wild Wood mouse
+    aWild: a wild Wood mouse
+    theWild: the wild Wood mouse
+    attacks:
+      scamper: Scamper
+      seed-stash: Seed Stash
+      long-jump: Long Jump
+  brown-rat:
+    name: Brown rat
+    a: a Brown rat
+    the: the Brown rat
+    wild: wild Brown rat
+    aWild: a wild Brown rat
+    theWild: the wild Brown rat
+    attacks:
+      gnaw: Gnaw
+      rat-race: Rat Race
+      tail-swish: Tail Swish
+  hedgehog:
+    name: Hedgehog
+    a: a Hedgehog
+    the: the Hedgehog
+    wild: wild Hedgehog
+    aWild: a wild Hedgehog
+    theWild: the wild Hedgehog
+    attacks:
+      sniff: Sniff
+      curl-up: Curl Up
+      spike-roll: Spike Roll
+  mole:
+    name: Mole
+    a: a Mole
+    the: the Mole
+    wild: wild Mole
+    aWild: a wild Mole
+    theWild: the wild Mole
+    attacks:
+      dig: Dig
+      molehill: Molehill
+  common-lizard:
+    name: Common lizard
+    a: a Common lizard
+    the: the Common lizard
+    wild: wild Common lizard
+    aWild: a wild Common lizard
+    theWild: the wild Common lizard
+    attacks:
+      sun-dash: Sun Dash
+      tail-trick: Tail Trick
+      quick-snap: Quick Snap
+  common-toad:
+    name: Common toad
+    a: a Common toad
+    the: the Common toad
+    wild: wild Common toad
+    aWild: a wild Common toad
+    theWild: the wild Common toad
+    attacks:
+      puff-up: Puff Up
+      sticky-tongue: Sticky Tongue
+      big-hop: Big Hop
+  robin:
+    name: Robin
+    a: a Robin
+    the: the Robin
+    wild: wild Robin
+    aWild: a wild Robin
+    theWild: the wild Robin
+    attacks:
+      song: Song
+      peck: Peck
+      red-chest: Red Chest
+  stag-beetle:
+    name: Stag beetle
+    a: a Stag beetle
+    the: the Stag beetle
+    wild: wild Stag beetle
+    aWild: a wild Stag beetle
+    theWild: the wild Stag beetle
+    attacks:
+      jaw-snap: Jaw Snap
+      wrestle: Wrestle
+  roe-deer:
+    name: Roe deer
+    a: a Roe deer
+    the: the Roe deer
+    wild: wild Roe deer
+    aWild: a wild Roe deer
+    theWild: the wild Roe deer
+    attacks:
+      bark: Bark
+      spring: Spring
+      white-flash: White Flash
+  badger:
+    name: Badger
+    a: a Badger
+    the: the Badger
+    wild: wild Badger
+    aWild: a wild Badger
+    theWild: the wild Badger
+    attacks:
+      snuffle: Snuffle
+      dig-in: Dig In
+      badger-charge: Stripe Charge
+  pine-marten:
+    name: Pine marten
+    a: a Pine marten
+    the: the Pine marten
+    wild: wild Pine marten
+    aWild: a wild Pine marten
+    theWild: the wild Pine marten
+    attacks:
+      tree-leap: Tree Leap
+      quick-paws: Quick Paws
+      marten-bite: Marten Bite
+  stoat:
+    name: Stoat
+    a: a Stoat
+    the: the Stoat
+    wild: wild Stoat
+    aWild: a wild Stoat
+    theWild: the wild Stoat
+    attacks:
+      stoat-dance: Stoat Dance
+      quick-bite: Quick Bite
+  adder:
+    name: Adder
+    a: an Adder
+    the: the Adder
+    wild: wild Adder
+    aWild: a wild Adder
+    theWild: the wild Adder
+    attacks:
+      hiss: Hiss
+      zigzag: Zigzag
+      strike: Strike
+  grey-heron:
+    name: Grey heron
+    a: a Grey heron
+    the: the Grey heron
+    wild: wild Grey heron
+    aWild: a wild Grey heron
+    theWild: the wild Grey heron
+    attacks:
+      wade: Wade
+      spear-beak: Spear Beak
+  tawny-owl:
+    name: Tawny owl
+    a: a Tawny owl
+    the: the Tawny owl
+    wild: wild Tawny owl
+    aWild: a wild Tawny owl
+    theWild: the wild Tawny owl
+    attacks:
+      hoot: Hoot
+      silent-swoop: Silent Swoop
+      talon-grab: Talon Grab
+  raccoon:
+    name: Raccoon
+    a: a Raccoon
+    the: the Raccoon
+    wild: wild Raccoon
+    aWild: a wild Raccoon
+    theWild: the wild Raccoon
+    attacks:
+      wash-up: Wash Up
+      clever-paws: Clever Paws
+      bandit-mask: Bandit Mask
+  beaver:
+    name: Beaver
+    a: a Beaver
+    the: the Beaver
+    wild: wild Beaver
+    aWild: a wild Beaver
+    theWild: the wild Beaver
+    attacks:
+      tail-slap: Tail Slap
+      tree-gnaw: Tree Gnaw
   # The sea animals, met out on the deep water from the boat.
   crab:
     name: Crab
