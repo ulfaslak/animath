@@ -50,8 +50,9 @@ describe('migrations', () => {
 	});
 
 	it('no migration after the anonymous backup shipped drops, alters or empties its tables', () => {
-		// players, saves and save_backups hold the backups of the kids' games,
-		// the one a real kid is playing among them, until it moves to production.
+		// players, saves and save_backups hold the retired anonymous backup's games:
+		// in the human's local database, the tunnel's, which the export still reads.
+		// They go only with the migration DEFERRED's trigger allows, and this with them.
 		const later = files.filter((f) => !BACKUP_ERA.includes(f.replace(/\.sql$/, '')));
 		expect(later.length).toBeGreaterThan(0);
 		for (const file of later) expect(statements(file), file).not.toMatch(TOUCHES);

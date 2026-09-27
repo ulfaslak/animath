@@ -16,7 +16,7 @@ import {
 
 /**
  * The account routes ([[ARCHITECTURE]] § HTTP API), reduced to what the game
- * does next. Like the backup's API (`save/api.ts`), every outcome needs the
+ * does next. As `save/api.ts` says, every outcome needs the
  * API's own JSON answer; anything else (no answer, a proxy's page, a 5xx) is
  * `offline`, and nothing is decided from it. The session is the browser's
  * `HttpOnly` cookie: this page never sees it, and sends it with every request
@@ -205,7 +205,7 @@ export async function login(name: string, password: string, base = '/api'): Prom
  * Whose account the welcome link with `token` opens, or why it opens none
  * (the server names the account of a live link only). The token goes in a
  * header, never in the path: a request line is what nginx's logs keep, the
- * access log every one and the error log when nginx itself fails.
+ * access log every one and the error log when nginx runs out of memory.
  */
 export async function lookAtWelcome(token: string, base = '/api'): Promise<WelcomeLook> {
 	const res = await send(`${base}/account/welcome`, {
@@ -299,7 +299,7 @@ export async function whoAmI(base = '/api', timeoutMs?: number): Promise<WhoResu
 	return name === null ? { kind: 'offline' } : { kind: 'user', name };
 }
 
-/** `name`'s account's save, for `Autosave` (`session`) and for logging in. */
+/** `name`'s account's save, for `Autosave` (`accountSaveServer`) and for logging in. */
 export async function getAccountSave(
 	name: string,
 	base = '/api',
@@ -310,7 +310,7 @@ export async function getAccountSave(
 	const error = errorOf(res.body);
 	if (res.status === 200 && isStoredSave(res.body)) return { kind: 'found', doc: res.body };
 	if (res.status === 404 && error === ERRORS.noSave) return { kind: 'none' };
-	if (res.status === 401 && error === ERRORS.notLoggedIn) return { kind: 'unknown-player' };
+	if (res.status === 401 && error === ERRORS.notLoggedIn) return { kind: 'logged-out' };
 	return { kind: 'offline' };
 }
 
@@ -360,22 +360,16 @@ export class SessionCheck {
 
 /**
  * The account's save as the autosave's server: `getSave` and `putSave` ask
- * about `session`'s account (the identity they are handed is a stand-in),
- * once `session` has said the cookie is that account's, and name it in each
- * request, which the server checks against the cookie as it answers.
- * `unknown-player` is a session that has ended (or a cookie that is not this
- * account's), a `409` another device that got ahead (the autosave then asks
- * for the save and settles), and a `429` (too many saves a minute) is waited
- * out like an unreachable server.
+ * about `session`'s account, once `session` has said the cookie is that
+ * account's, and name it in each request, which the server checks against
+ * the cookie as it answers. `logged-out` is a session that has ended (or a
+ * cookie that is not this account's), a `409` another device that got ahead
+ * (the autosave then asks for the save and settles), and a `429` (too many
+ * saves a minute) is waited out like an unreachable server.
  */
 export function accountSaveServer(session: SessionCheck, base = '/api'): SaveServer {
 	return {
-		session: true,
-		async createPlayer() {
-			// Never asked: an account has no identity to make.
-			return { kind: 'offline' };
-		},
-		async getSave(_who, timeoutMs) {
+		async getSave(timeoutMs) {
 			// Start-up waits for the account's save only so long, the session check included.
 			const deadline = timeoutMs === undefined ? undefined : Date.now() + timeoutMs;
 			const answer =
@@ -387,15 +381,15 @@ export function accountSaveServer(session: SessionCheck, base = '/api'): SaveSer
 								setTimeout(() => resolve('offline'), timeoutMs)
 							)
 						]);
-			if (answer === 'ended') return { kind: 'unknown-player' };
+			if (answer === 'ended') return { kind: 'logged-out' };
 			if (answer === 'offline') return { kind: 'offline' };
 			const left = deadline === undefined ? undefined : deadline - Date.now();
 			if (left !== undefined && left <= 0) return { kind: 'offline' };
 			return getAccountSave(session.name, base, left);
 		},
-		async putSave(_who, doc, keepalive = false): Promise<ServerWrite> {
+		async putSave(doc, keepalive = false): Promise<ServerWrite> {
 			const answer = await session.check();
-			if (answer === 'ended') return { kind: 'unknown-player' };
+			if (answer === 'ended') return { kind: 'logged-out' };
 			if (answer === 'offline') return { kind: 'offline' };
 			const res = await send(`${base}/account/save`, {
 				method: 'PUT',
@@ -407,7 +401,7 @@ export function accountSaveServer(session: SessionCheck, base = '/api'): SaveSer
 			const error = errorOf(res.body);
 			if (res.status === 200 && isStored(res.body)) return { kind: 'saved' };
 			if (res.status === 409 && error !== undefined) return { kind: 'conflict' };
-			if (res.status === 401 && error === ERRORS.notLoggedIn) return { kind: 'unknown-player' };
+			if (res.status === 401 && error === ERRORS.notLoggedIn) return { kind: 'logged-out' };
 			if ((res.status === 400 || res.status === 413) && error !== undefined) {
 				return { kind: 'refused', error };
 			}

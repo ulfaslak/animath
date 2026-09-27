@@ -32,6 +32,26 @@ describe('a path nothing answers', () => {
 			}
 		}
 	);
+
+	it('the retired anonymous backup is gone in development and in production alike', async () => {
+		const production = createApp({ production: true, clientDist: 'test/fixtures/client-dist' });
+		const id = '00000000-0000-4000-8000-000000000001';
+		for (const target of [app, production]) {
+			for (const [method, path] of [
+				['POST', '/api/players'],
+				['GET', `/api/players/${id}/save`],
+				['PUT', `/api/players/${id}/save`]
+			] as const) {
+				const res = await target.request(path, {
+					method,
+					headers: { authorization: 'Bearer secret', 'content-type': 'application/json' },
+					body: method === 'PUT' ? '{}' : undefined
+				});
+				expect(res.status, `${method} ${path}`).toBe(404);
+				expect(await res.json(), `${method} ${path}`).toEqual({ error: 'not found' });
+			}
+		}
+	});
 });
 
 describe('the built client', () => {

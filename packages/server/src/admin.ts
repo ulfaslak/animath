@@ -140,8 +140,9 @@ export interface ExportOptions {
  * private file for `importSave` on the server the game moves to. The
  * database is only read, in a session that can do nothing else
  * (`openReadOnly`): the kid may be playing on it meanwhile. The player's
- * game can be in two places, the anonymous backup and, once the kid has
- * made an account here, the account's save; each one found is listed, and
+ * game can be in two places, the retired anonymous backup (so an old local
+ * database: `save-export.ts`) and, once the kid has made an account here,
+ * the account's save; each one found is listed, and
  * the one saved last is taken, or the one `from` names. Copies of two
  * different games (another lineage: a new game in the kid's account, or a
  * friend's account that took the name the kid had as a guest) are never
