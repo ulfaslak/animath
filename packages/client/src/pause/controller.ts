@@ -12,7 +12,7 @@ import { tappedLanguage, tappedOption, tappedRow } from '../input/press';
 import { game } from '../state/game.svelte';
 import { presence } from '../state/presence.svelte';
 import {
-	MENU_PAIRS,
+	lineOf,
 	WORLD_DIGITS,
 	cardRows,
 	menuItems,
@@ -209,19 +209,20 @@ export class PauseController {
 			case 'ArrowRight':
 			case 'd': {
 				const right = key === 'ArrowRight' || key === 'd';
-				// Rows side by side (Worlds and Who's here, Keep playing and Start screen): left
-				// and right step between the two.
-				const pair = item === undefined ? undefined : MENU_PAIRS.find((p) => p.includes(item));
-				if (pair) {
-					const to = right ? pair[1] : pair[0];
-					if (item !== to) {
-						pause.cursor = cards.length + items.indexOf(to);
-						sfx.play('move');
-					}
-					return true;
+				if (item === undefined) return false;
+				// Left and right set the setting on its row, even where it shares its line.
+				if (this.settingKey(item, right)) return true;
+				// Rows side by side (Worlds and Who's here, the account's, Keep playing and Start
+				// screen): left and right step between them. Elsewhere they do nothing.
+				const line = lineOf(item, items);
+				if (line.length < 2) return false;
+				const at = line.indexOf(item);
+				const to = line[Math.min(line.length - 1, Math.max(0, at + (right ? 1 : -1)))]!;
+				if (to !== item) {
+					pause.cursor = cards.length + items.indexOf(to);
+					sfx.play('move');
 				}
-				// Left and right set the setting on its row, and do nothing elsewhere.
-				return item !== undefined && this.settingKey(item, right);
+				return true;
 			}
 			case 'Escape':
 				this.close();

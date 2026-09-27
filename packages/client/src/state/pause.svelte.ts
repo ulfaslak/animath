@@ -71,16 +71,25 @@ export function menuItems(): MenuItem[] {
 }
 
 /**
- * Rows drawn two to a line, so the menu keeps its height (a team of all eight
- * kinds fits 1024×768): Worlds beside Who's here, Keep playing beside Start
- * screen. Each pair is two neighbours in `MENU_ITEMS`, both always shown;
- * left and right step between the two, and up and down walk them in order as
- * any rows.
+ * Rows drawn side by side on one line, so the menu keeps its height (eight
+ * cards fit 1024×768): Worlds beside Who's here, Language beside Sound, the
+ * account's rows beside each other (those `menuItems` shows), Keep playing
+ * beside Start screen. Each line is neighbours in `MENU_ITEMS`. Up and down
+ * walk them in order as any rows; left and right step between them, except
+ * on a setting, where they change it.
  */
-export const MENU_PAIRS: readonly (readonly [MenuItem, MenuItem])[] = [
+export const MENU_LINES: readonly (readonly MenuItem[])[] = [
 	['worlds', 'players'],
+	['language', 'sound'],
+	['makeAccount', 'logIn', 'logOut'],
 	['resume', 'quit']
 ];
+
+/** The rows drawn on the line `item` is on, of those the menu shows (`items`). */
+export function lineOf(item: MenuItem, items: readonly MenuItem[] = menuItems()): MenuItem[] {
+	const line = MENU_LINES.find((l) => l.includes(item));
+	return line ? line.filter((i) => items.includes(i)) : [item];
+}
 
 class PauseView {
 	/** True from Escape in explore until the menu is closed. Walking waits meanwhile. */

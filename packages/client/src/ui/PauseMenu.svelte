@@ -20,7 +20,7 @@
 	import { presence } from '../state/presence.svelte';
 	import {
 		menuItems,
-		MENU_PAIRS,
+		lineOf,
 		cardRows,
 		partyOptions,
 		pause,
@@ -148,14 +148,14 @@
 
 	/**
 	 * The menu's rows as they are drawn: one to a line, or two side by side
-	 * (`MENU_PAIRS`; `PauseController`: left and right step between them).
+	 * (`MENU_LINES`, of the rows shown: `PauseController` steps between them).
 	 */
-	type MenuLine = MenuItem | readonly [MenuItem, MenuItem];
+	type MenuLine = MenuItem | readonly MenuItem[];
 	const menuLines = $derived(
 		items.flatMap((item): MenuLine[] => {
-			const pair = MENU_PAIRS.find((p) => p.includes(item));
-			if (!pair) return [item];
-			return pair[0] === item ? [pair] : [];
+			const line = lineOf(item, items);
+			if (line.length < 2) return [item];
+			return line[0] === item ? [line] : [];
 		})
 	);
 
@@ -415,8 +415,8 @@
 						{#if typeof line === 'string'}
 							{@render menuRow(line)}
 						{:else}
-							<!-- Two rows side by side, one line of the menu's height. -->
-							<div class="pair" class:halves={line[0] === 'worlds'}>
+							<!-- Rows side by side, one line of the menu's height. -->
+							<div class="pair" class:halves={line[0] === 'worlds' || line[0] === 'language'}>
 								{#each line as item (item)}
 									{@render menuRow(item)}
 								{/each}
@@ -626,10 +626,11 @@
 		padding: 18px 22px 16px;
 	}
 	/*
-	 * The spacing is trimmed, and Worlds and Who's here share a row, as Keep
-	 * playing and Start screen do (`MENU_PAIRS`), so a team of all eight kinds,
-	 * with those and the settings under it, fits 1024×768 without the menu
-	 * scrolling. A new row goes beside another, or the budget is measured again.
+	 * The spacing is trimmed, and rows share lines (`MENU_LINES`: Worlds and
+	 * Who's here, Language and Sound, the account's rows, Keep playing and Start
+	 * screen), so a team of all eight kinds, with those under it, fits 1024×768
+	 * without the menu scrolling. A new row goes beside another, or the budget is
+	 * measured again.
 	 */
 	.title {
 		font-weight: 800;
@@ -772,7 +773,7 @@
 	.pair .row {
 		width: auto;
 	}
-	/* Worlds and Who's here share their line half and half. */
+	/* Worlds and Who's here, and Language and Sound, share their line half and half. */
 	.pair.halves .row {
 		flex: 1;
 		min-width: 0;

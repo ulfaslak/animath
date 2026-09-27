@@ -19,7 +19,8 @@ import { game } from '../src/state/game.svelte';
 import {
 	menuItems,
 	type MenuItem,
-	MENU_PAIRS,
+	MENU_LINES,
+	lineOf,
 	bundleOptions,
 	partyOptions,
 	pause,
@@ -218,9 +219,32 @@ describe('pause menu', () => {
 		expect(language.current).toBe('en');
 	});
 
-	it("rows side by side (Worlds and Who's here, Keep playing and Start screen): left and right step between them", () => {
+	it('Language and Sound share a line, and left and right still change them there', () => {
 		const at = (item: MenuItem) => bundles(game.party).length + menuItems().indexOf(item);
-		for (const [left, right] of MENU_PAIRS) {
+		expect(lineOf('sound')).toEqual(['language', 'sound']);
+		const { press, downTo } = setup();
+		press('Escape', ...downTo('sound'));
+		press('ArrowLeft');
+		expect([sfx.on, pause.cursor]).toEqual([false, at('sound')]);
+		press('ArrowRight');
+		expect([sfx.on, pause.cursor]).toEqual([true, at('sound')]);
+		press('w');
+		expect(pause.cursor).toBe(at('language'));
+		press('ArrowRight');
+		expect([language.current, pause.cursor]).toEqual(['da', at('language')]);
+	});
+
+	it("rows side by side (Worlds and Who's here, the account's, Keep playing and Start screen): left and right step between them", () => {
+		const at = (item: MenuItem) => bundles(game.party).length + menuItems().indexOf(item);
+		const lines = MENU_LINES.map((line) => lineOf(line[0]!)).filter(
+			(line) => line.length > 1 && line[0] !== 'language'
+		);
+		expect(lines).toEqual([
+			['worlds', 'players'],
+			['makeAccount', 'logIn'],
+			['resume', 'quit']
+		]);
+		for (const [left, right] of lines as [MenuItem, MenuItem][]) {
 			pause.reset();
 			const { press, downTo, sent } = setup();
 			// Each pair is two neighbours: down walks from one to the other as any rows.
