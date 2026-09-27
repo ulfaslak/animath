@@ -387,8 +387,10 @@ export class PresenceController {
 	private reloadOnce(): void {
 		const version = String(this.newerVersion ?? 'newer');
 		const session = this.options.session;
-		if (session?.get(REFRESHED_KEY) === version) return;
-		if (session && !session.set(REFRESHED_KEY, version)) return;
+		// Without a place to remember it, a reload could come back to reload again, and again:
+		// such a page stays as it is, alone, until the kid opens it anew.
+		if (!session || session.get(REFRESHED_KEY) === version) return;
+		if (!session.set(REFRESHED_KEY, version)) return;
 		this.options.flush();
 		this.underWay = false;
 		this.options.reload();

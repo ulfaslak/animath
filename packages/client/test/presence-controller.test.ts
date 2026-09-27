@@ -75,7 +75,7 @@ afterEach(() => {
 	presence.reset();
 });
 
-function setup(options: { name?: string | null; throwaway?: boolean } = {}) {
+function setup(options: { name?: string | null; throwaway?: boolean; session?: null } = {}) {
 	let now = 100;
 	const sockets: FakeSocket[] = [];
 	const timers: { at: number; run: () => void }[] = [];
@@ -105,7 +105,7 @@ function setup(options: { name?: string | null; throwaway?: boolean } = {}) {
 		screenSize: () => ({ w: 1024, h: 768 })
 	} as PresenceRenderer;
 	const store = memoryStore();
-	const session = memoryStore();
+	const session = options.session === null ? null : memoryStore();
 	const authority = new LocalAuthority();
 	let behind = false;
 	let reloads = 0;
@@ -369,10 +369,10 @@ describe('presence on the page', () => {
 		pause.open = false;
 		s.frame();
 		expect([s.flushes(), s.reloads()]).toEqual([1, 1]);
-		expect(s.session.get(REFRESHED_KEY)).toBe(String(PROTOCOL_VERSION + 1));
+		expect(s.session!.get(REFRESHED_KEY)).toBe(String(PROTOCOL_VERSION + 1));
 		// The page came back still out of date (a cached build): it does not reload again.
 		const again = setup();
-		again.session.set(REFRESHED_KEY, String(PROTOCOL_VERSION + 1));
+		again.session!.set(REFRESHED_KEY, String(PROTOCOL_VERSION + 1));
 		again.start();
 		again.connect();
 		again.socket().say({ t: 'refresh', v: PROTOCOL_VERSION + 1 });
@@ -380,6 +380,15 @@ describe('presence on the page', () => {
 		again.socket().onclose?.({});
 		again.frame();
 		expect(again.reloads()).toBe(0);
+		// A page that can't remember it reloaded never reloads on its own: it could loop.
+		const forgetful = setup({ session: null });
+		forgetful.start();
+		forgetful.connect();
+		forgetful.socket().say({ t: 'refresh', v: PROTOCOL_VERSION + 1 });
+		forgetful.socket().readyState = 3;
+		forgetful.socket().onclose?.({});
+		forgetful.frame();
+		expect(forgetful.reloads()).toBe(0);
 	});
 
 	it('leaves when the page falls behind the save, and when the game goes back to the title', () => {
