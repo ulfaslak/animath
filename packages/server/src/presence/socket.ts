@@ -125,6 +125,11 @@ export function attachPresence(server: Server, options: PresenceOptions = {}): P
 	let opening = 0;
 
 	const onUpgrade = (req: IncomingMessage, socket: Duplex, head: Buffer): void => {
+		// Node takes its own error listener off a socket it hands to `upgrade`: until `ws`
+		// adds one, a write to a socket the other end reset would be an unhandled error,
+		// which takes the whole process down (every save with it). This one keeps it up.
+		const quiet = () => {};
+		socket.on('error', quiet);
 		if (pathOf(req) !== PRESENCE_PATH) return refuse(socket, '404 Not Found');
 		if (!sameOrigin(req)) {
 			log(`presence: refused a socket from ${String(req.headers.origin)}`);
@@ -132,12 +137,17 @@ export function attachPresence(server: Server, options: PresenceOptions = {}): P
 		}
 		if (wss.clients.size + opening >= maxSockets) return refuse(socket, '503 Service Unavailable');
 		opening++;
-		accountOf(headersOf(req))
+		// A database that does not answer makes a guest of an account holder, not a socket
+		// that waits for ever holding a place.
+		withTimeout(accountOf(headersOf(req)), ACCOUNT_LOOKUP_MS)
 			.catch(() => null)
 			.then((account) => {
 				opening--;
 				if (socket.destroyed) return;
-				wss.handleUpgrade(req, socket, head, (ws) => open(ws, account));
+				wss.handleUpgrade(req, socket, head, (ws) => {
+					socket.off('error', quiet);
+					open(ws, account);
+				});
 			});
 	};
 	server.on('upgrade', onUpgrade);
@@ -288,6 +298,27 @@ function takeToken(state: SocketState, ratePerSecond: number, burst: number): bo
 	}
 	state.tokens -= 1;
 	return true;
+}
+
+/** How long the account lookup may take before the socket goes on as a guest's. */
+const ACCOUNT_LOOKUP_MS = 3_000;
+
+/** `promise`, or a rejection once `ms` have passed without it settling. */
+function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
+	return new Promise<T>((resolve, reject) => {
+		const timer = setTimeout(() => reject(new Error('timed out')), ms);
+		timer.unref();
+		promise.then(
+			(value) => {
+				clearTimeout(timer);
+				resolve(value);
+			},
+			(error: unknown) => {
+				clearTimeout(timer);
+				reject(error instanceof Error ? error : new Error(String(error)));
+			}
+		);
+	});
 }
 
 function pathOf(req: IncomingMessage): string {
