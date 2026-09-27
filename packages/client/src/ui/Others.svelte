@@ -8,7 +8,8 @@
 	 * together"): each one on screen has their name over their head, and a
 	 * little bubble over it while they are busy — an amber "!" in a battle
 	 * with a wild animal, a heart at the doctor, a pause sign in the menu, a
-	 * star in a friendly match — worded for anyone who can't see it. At the
+	 * star in a friendly match; none up in the air, where their glider says
+	 * it — worded for anyone who can't see it. At the
 	 * edge of the screen an arrow with a name points to each of the nearest
 	 * players off it. Only over the explore screen, under its HUD: never under
 	 * the doctor's card or the menu, whose panels they would show through, and
@@ -78,7 +79,8 @@
 			style:transform="translate({label.x}px, {label.y}px) translate(-50%, -100%)"
 			style:opacity={label.opacity}
 		>
-			{#if label.busy !== 'explore'}
+			<!-- Up in the air the glider says it: no bubble over a friend who flies. -->
+			{#if label.busy !== 'explore' && label.busy !== 'flight'}
 				<div class="bubble" role="img" aria-label={t(`presence.busy.${label.busy}`)}>
 					{@render icon(label.busy)}
 				</div>
