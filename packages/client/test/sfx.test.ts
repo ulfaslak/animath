@@ -196,6 +196,7 @@ describe('cues', () => {
 				'lead',
 				'move',
 				'throw',
+				'travel',
 				'wobble',
 				'won',
 				'wrong'

@@ -4,7 +4,8 @@
 		bundles,
 		getAnimal,
 		leadIndex,
-		normalizeNickname
+		normalizeNickname,
+		parseWorldNumber
 	} from '@mathgame/engine';
 	import { flip } from 'svelte/animate';
 	import { sfx } from '../audio/sfx.svelte';
@@ -21,24 +22,32 @@
 		partyOptions,
 		pause,
 		whyCardNotFirst,
+		whyNoGo,
 		whyNotFirst,
+		worldRows,
 		type BundleOption,
 		type MenuItem,
-		type PartyOption
+		type PartyOption,
+		type WorldOption
 	} from '../state/pause.svelte';
 	import BundleAnimals from './BundleAnimals.svelte';
 	import HpBar from './HpBar.svelte';
+	import NumberPad from './NumberPad.svelte';
 	import Switch from './Switch.svelte';
 
 	/**
 	 * The pause menu: the team's cards in battle order on the left (one per
 	 * species; a card of several animals shows how many, and how many can
-	 * play), then the menu items (the settings — Language with every language
-	 * in its own words, Sound with its switch — then "Keep playing"); on the
+	 * play), then the menu items (Worlds, the settings — Language with every
+	 * language in its own words, Sound with its switch — then "Keep playing"
+	 * and "Start screen" side by side); on the
 	 * right, what can be done with the picked card or animal — a card's
-	 * options and its animals, an animal's options, or the name box. It reads
-	 * `game.party`, `pause`, `language` and `sfx.on`; keys are
-	 * `PauseController`'s, so nothing here dispatches. The name box binds
+	 * options and its animals, an animal's options, or the name box. The
+	 * Worlds row (the world the kid is in beside it) opens the Worlds screen in
+	 * the menu's place: where the kid is and their home, the number being
+	 * typed, Go, Go home and Back, and a big number pad. It reads
+	 * `game.party`, `game.world`, `game.home`, `pause`, `language` and
+	 * `sfx.on`; keys are `PauseController`'s, so nothing here dispatches. The name box binds
 	 * `pause.draft` and keeps the focus while it is open, so typing lands in it.
 	 * Every word comes from the copy files (`pause.*`, `hud.*`, `team.*`).
 	 *
@@ -132,8 +141,29 @@
 		return clean === pause.draft.trim().replace(/\s+/g, ' ') ? '' : clean;
 	});
 
+	/** The menu's last two rows, drawn side by side (`PauseController`: left and right step between them). */
+	const PAIR: readonly MenuItem[] = ['resume', 'quit'];
+
+	/** The Worlds screen's rows, and why Go is greyed when it is. */
+	const worldOptions = $derived(worldRows(pause.worldDraft, game.world, game.home));
+	const noGo = $derived(whyNoGo(pause.worldDraft, game.world));
+	const typedWorld = $derived(parseWorldNumber(pause.worldDraft));
+
+	function worldLabel(option: WorldOption): string {
+		switch (option) {
+			case 'go':
+				return typedWorld === null ? t('worlds.goNowhere') : t('worlds.go', { world: typedWorld });
+			case 'home':
+				return t('worlds.goHome');
+			case 'back':
+				return t('pause.back');
+		}
+	}
+
 	function itemLabel(item: MenuItem): string {
 		switch (item) {
+			case 'worlds':
+				return t('worlds.title');
 			case 'language':
 				return t('pause.language');
 			case 'resume':
@@ -184,95 +214,22 @@
 
 <div class="backdrop" class:typing={touch.on && pause.screen === 'naming'}>
 	<div class="menu">
-		<div class="title">{t('pause.title')}</div>
-		<div class="columns">
-			<div class="team">
-				<div class="heading">{t('pause.team')}</div>
-				{#each cards as bundle, i (bundle.speciesId)}
-					{@const first = bundle.animals[0]!}
-					{@const single = bundle.animals.length === 1}
-					{@const name = single ? nameOf(first) : speciesName(first.speciesId)}
-					{@const allTired = bundle.animals.every((a) => a.hp === 0)}
-					{@const leads = cards.length > 1 && bundle.animals.some((a) => a.id === leadId)}
-					<button
-						type="button"
-						class="row animal"
-						class:stack={!single}
-						class:lit={lit === i}
-						class:picked={pause.screen !== 'list' && lit === i}
-						class:tired={allTired}
-						animate:slide={bundle.speciesId}
-						data-press={rowKey(i)}
-						{@attach unfocusable}
-					>
-						<span class="slot">{i + 1}</span>
-						<span class="who">
-							<span class="name">{name}</span>
-							{#if single && name !== speciesName(first.speciesId)}
-								<span class="species">{speciesName(first.speciesId)}</span>
-							{:else if !single}
-								<span class="count">{t('team.count', { count: bundle.animals.length })}</span>
-								<span class="summary">
-									{#each stackSummary(bundle.animals) as part, j (j)}
-										{#if j > 0}{' · '}{/if}<span class="part">{part}</span>
-									{/each}
-								</span>
-							{/if}
-						</span>
-						{#if single}
-							<span class="bar"><HpBar hp={first.hp} max={getAnimal(first.speciesId).maxHp} /></span
-							>
-						{/if}
-						<span class="tags">
-							{#if allTired}
-								<span class="tag">{t('party.tired')}</span>
-							{:else if leads}
-								<span class="tag lead">{t('hud.goesFirst')}</span>
-							{/if}
-						</span>
-					</button>
-				{/each}
-				{#each MENU_ITEMS as item, j (item)}
-					{@const row = cards.length + j}
-					<button
-						type="button"
-						class="row item"
-						class:lit={pause.screen === 'list' && lit === row}
-						data-press={rowKey(row)}
-						{@attach unfocusable}
-					>
-						{#if item === 'language'}
-							<!-- Each language in its own words, so a kid finds theirs in any language;
-							     a tap on one is that language, anywhere else on the row the row. -->
-							<span class="setting">{itemLabel(item)}</span>
-							<span class="choices">
-								{#each LANGUAGES as code (code)}
-									<span
-										class="choice"
-										class:on={language.current === code}
-										lang={code}
-										data-press={languageKey(code)}
-									>
-										{languageName(code)}
-									</span>
-								{/each}
-							</span>
-						{:else if item === 'sound'}
-							<!-- A setting: its name, a switch, and the switch's state in words. -->
-							<span class="setting">{itemLabel(item)}</span>
-							<Switch on={sfx.on} />
-							<span class="setting-state">{sfx.on ? t('pause.soundOn') : t('pause.soundOff')}</span>
-						{:else}
-							<span class="button" class:secondary={item !== 'resume'}>{itemLabel(item)}</span>
-						{/if}
-					</button>
-				{/each}
-			</div>
-
-			<div class="side">
-				{#if pause.screen === 'options' && picked}
-					<div class="side-title">{nameOf(picked)}</div>
-					{#each options as option, i (option.id)}
+		<div class="title">{pause.screen === 'worlds' ? t('worlds.title') : t('pause.title')}</div>
+		{#if pause.screen === 'worlds'}
+			<!-- The Worlds screen, in the menu's place: where the kid is, the number, the rows; the pad. -->
+			<div class="worlds">
+				<div class="world-side">
+					<div class="here">{t('worlds.here', { world: game.world })}</div>
+					<div class="note home-line">
+						{game.world === game.home ? t('worlds.atHome') : t('worlds.home', { home: game.home })}
+					</div>
+					<div class="dial">
+						<span class="dial-label">{t('worlds.typed')}</span>
+						<span class="dial-number" class:empty={pause.worldDraft === ''}
+							>{pause.worldDraft === '' ? '····' : pause.worldDraft}</span
+						>
+					</div>
+					{#each worldOptions as option, i (option.id)}
 						<button
 							type="button"
 							class="row option"
@@ -281,100 +238,244 @@
 							data-press={optionKey(i)}
 							{@attach unfocusable}
 						>
-							<span class="caret">▸</span>{optionLabel(option.id)}
+							<span class="caret">▸</span>{worldLabel(option.id)}
 						</button>
 					{/each}
-					<!-- Why "Go first" is greyed, when it is: a kid can't tell from the grey alone. -->
-					{#if pickedNotFirst === 'cantSwim'}
-						<div class="note">{t('pause.cantSwimHelp', { animal: animalWords(picked) })}</div>
-					{:else if pickedNotFirst === 'inTheSea'}
-						<div class="note">{t('pause.inTheSeaHelp', { animal: animalWords(picked) })}</div>
-					{:else if pickedNotFirst === 'tired'}
-						<div class="note">{t('pause.tiredHelp', { animal: animalWords(picked) })}</div>
-					{:else if pickedNotFirst === 'already'}
-						<div class="note">{t('pause.leadHelp', { animal: animalWords(picked) })}</div>
-					{/if}
-				{:else if pause.screen === 'bundle' && card}
-					<div class="side-title">
-						{speciesName(card.speciesId)}
-						<span class="count">{t('team.count', { count: card.animals.length })}</span>
+					<!-- Why Go is greyed, when it is; else what a number is. -->
+					<div class="note">
+						{noGo === 'notAWorld'
+							? t('worlds.notAWorld')
+							: noGo === 'here'
+								? t('worlds.alreadyHere', { world: game.world })
+								: noGo === 'type'
+									? t('worlds.typeOne')
+									: t('worlds.tip')}
 					</div>
-					{#each rows as row, i (row.kind === 'option' ? row.id : row.animal.id)}
-						{#if row.kind === 'option'}
+				</div>
+				<!-- The pad's Go is the Go row: it goes to the world typed, or waits, greyed. -->
+				<NumberPad
+					active
+					minus={false}
+					ok={t('worlds.ok')}
+					okKey={optionKey(0)}
+					ready={worldOptions[0]!.enabled}
+					big
+				/>
+			</div>
+		{:else}
+			<div class="columns">
+				<div class="team">
+					<div class="heading">{t('pause.team')}</div>
+					{#each cards as bundle, i (bundle.speciesId)}
+						{@const first = bundle.animals[0]!}
+						{@const single = bundle.animals.length === 1}
+						{@const name = single ? nameOf(first) : speciesName(first.speciesId)}
+						{@const allTired = bundle.animals.every((a) => a.hp === 0)}
+						{@const leads = cards.length > 1 && bundle.animals.some((a) => a.id === leadId)}
+						<button
+							type="button"
+							class="row animal"
+							class:stack={!single}
+							class:lit={lit === i}
+							class:picked={pause.screen !== 'list' && lit === i}
+							class:tired={allTired}
+							animate:slide={bundle.speciesId}
+							data-press={rowKey(i)}
+							{@attach unfocusable}
+						>
+							<span class="slot">{i + 1}</span>
+							<span class="who">
+								<span class="name">{name}</span>
+								{#if single && name !== speciesName(first.speciesId)}
+									<span class="species">{speciesName(first.speciesId)}</span>
+								{:else if !single}
+									<span class="count">{t('team.count', { count: bundle.animals.length })}</span>
+									<span class="summary">
+										{#each stackSummary(bundle.animals) as part, j (j)}
+											{#if j > 0}{' · '}{/if}<span class="part">{part}</span>
+										{/each}
+									</span>
+								{/if}
+							</span>
+							{#if single}
+								<span class="bar"
+									><HpBar hp={first.hp} max={getAnimal(first.speciesId).maxHp} /></span
+								>
+							{/if}
+							<span class="tags">
+								{#if allTired}
+									<span class="tag">{t('party.tired')}</span>
+								{:else if leads}
+									<span class="tag lead">{t('hud.goesFirst')}</span>
+								{/if}
+							</span>
+						</button>
+					{/each}
+					{#each MENU_ITEMS as item, j (item)}
+						{@const row = cards.length + j}
+						{#if !PAIR.includes(item)}
+							<button
+								type="button"
+								class="row item"
+								class:lit={pause.screen === 'list' && lit === row}
+								data-press={rowKey(row)}
+								{@attach unfocusable}
+							>
+								{#if item === 'language'}
+									<!-- Each language in its own words, so a kid finds theirs in any language;
+							     a tap on one is that language, anywhere else on the row the row. -->
+									<span class="setting">{itemLabel(item)}</span>
+									<span class="choices">
+										{#each LANGUAGES as code (code)}
+											<span
+												class="choice"
+												class:on={language.current === code}
+												lang={code}
+												data-press={languageKey(code)}
+											>
+												{languageName(code)}
+											</span>
+										{/each}
+									</span>
+								{:else if item === 'worlds'}
+									<!-- The world the kid is in, beside the row: the number to tell a friend. -->
+									<span class="setting">{itemLabel(item)}</span>
+									<span class="setting-value">{t('worlds.world', { world: game.world })}</span>
+								{:else if item === 'sound'}
+									<!-- A setting: its name, a switch, and the switch's state in words. -->
+									<span class="setting">{itemLabel(item)}</span>
+									<Switch on={sfx.on} />
+									<span class="setting-state"
+										>{sfx.on ? t('pause.soundOn') : t('pause.soundOff')}</span
+									>
+								{/if}
+							</button>
+						{/if}
+					{/each}
+					<!-- Keep playing and Start screen, side by side: two buttons, one row of the menu's height. -->
+					<div class="pair">
+						{#each PAIR as item (item)}
+							{@const row = cards.length + MENU_ITEMS.indexOf(item)}
+							<button
+								type="button"
+								class="row item"
+								class:lit={pause.screen === 'list' && lit === row}
+								data-press={rowKey(row)}
+								{@attach unfocusable}
+							>
+								<span class="button" class:secondary={item !== 'resume'}>{itemLabel(item)}</span>
+							</button>
+						{/each}
+					</div>
+				</div>
+
+				<div class="side">
+					{#if pause.screen === 'options' && picked}
+						<div class="side-title">{nameOf(picked)}</div>
+						{#each options as option, i (option.id)}
 							<button
 								type="button"
 								class="row option"
 								class:lit={pause.option === i}
-								class:off={!row.enabled}
+								class:off={!option.enabled}
 								data-press={optionKey(i)}
 								{@attach unfocusable}
 							>
-								<span class="caret">▸</span>{optionLabel(row.id)}
+								<span class="caret">▸</span>{optionLabel(option.id)}
 							</button>
+						{/each}
+						<!-- Why "Go first" is greyed, when it is: a kid can't tell from the grey alone. -->
+						{#if pickedNotFirst === 'cantSwim'}
+							<div class="note">{t('pause.cantSwimHelp', { animal: animalWords(picked) })}</div>
+						{:else if pickedNotFirst === 'inTheSea'}
+							<div class="note">{t('pause.inTheSeaHelp', { animal: animalWords(picked) })}</div>
+						{:else if pickedNotFirst === 'tired'}
+							<div class="note">{t('pause.tiredHelp', { animal: animalWords(picked) })}</div>
+						{:else if pickedNotFirst === 'already'}
+							<div class="note">{t('pause.leadHelp', { animal: animalWords(picked) })}</div>
 						{/if}
-					{/each}
-					<!-- Why "Go first" is greyed, when they can't go first here or are all tired; else what the list below is for. -->
-					<div class="note">
-						{cardNotFirst === 'cantSwim'
-							? t('pause.allCantSwimHelp')
-							: cardNotFirst === 'inTheSea'
-								? t('pause.allInTheSeaHelp')
-								: cardNotFirst === 'tired'
-									? t('pause.allTiredHelp')
-									: t('pause.pickOne')}
-					</div>
-					<BundleAnimals
-						animals={card.animals}
-						leadId={game.party.length > 1 ? leadId : null}
-						press={(_, i) => optionKey(cardOptions + i)}
-						lit={litAnimal}
-						stacked
-						class="members"
-						onlit={showRow}
-					/>
-				{:else if pause.screen === 'naming' && picked}
-					<div class="side-title wraps">
-						{t('pause.nameTitle', { animal: animalWords(picked) })}
-					</div>
-					<input
-						class="name-box"
-						type="text"
-						bind:value={pause.draft}
-						maxlength={MAX_NICKNAME_LENGTH}
-						placeholder={speciesName(picked.speciesId)}
-						autocomplete="off"
-						autocapitalize="words"
-						autocorrect="off"
-						spellcheck="false"
-						enterkeyhint="done"
-						aria-label={t('pause.newName')}
-						{@attach nameBox}
-					/>
-					<div class="note">{t('pause.nameRule', { max: MAX_NICKNAME_LENGTH })}</div>
-					{#if preview}
-						<div class="note preview">{t('pause.willBe', { name: preview })}</div>
+					{:else if pause.screen === 'bundle' && card}
+						<div class="side-title">
+							{speciesName(card.speciesId)}
+							<span class="count">{t('team.count', { count: card.animals.length })}</span>
+						</div>
+						{#each rows as row, i (row.kind === 'option' ? row.id : row.animal.id)}
+							{#if row.kind === 'option'}
+								<button
+									type="button"
+									class="row option"
+									class:lit={pause.option === i}
+									class:off={!row.enabled}
+									data-press={optionKey(i)}
+									{@attach unfocusable}
+								>
+									<span class="caret">▸</span>{optionLabel(row.id)}
+								</button>
+							{/if}
+						{/each}
+						<!-- Why "Go first" is greyed, when they can't go first here or are all tired; else what the list below is for. -->
+						<div class="note">
+							{cardNotFirst === 'cantSwim'
+								? t('pause.allCantSwimHelp')
+								: cardNotFirst === 'inTheSea'
+									? t('pause.allInTheSeaHelp')
+									: cardNotFirst === 'tired'
+										? t('pause.allTiredHelp')
+										: t('pause.pickOne')}
+						</div>
+						<BundleAnimals
+							animals={card.animals}
+							leadId={game.party.length > 1 ? leadId : null}
+							press={(_, i) => optionKey(cardOptions + i)}
+							lit={litAnimal}
+							stacked
+							class="members"
+							onlit={showRow}
+						/>
+					{:else if pause.screen === 'naming' && picked}
+						<div class="side-title wraps">
+							{t('pause.nameTitle', { animal: animalWords(picked) })}
+						</div>
+						<input
+							class="name-box"
+							type="text"
+							bind:value={pause.draft}
+							maxlength={MAX_NICKNAME_LENGTH}
+							placeholder={speciesName(picked.speciesId)}
+							autocomplete="off"
+							autocapitalize="words"
+							autocorrect="off"
+							spellcheck="false"
+							enterkeyhint="done"
+							aria-label={t('pause.newName')}
+							{@attach nameBox}
+						/>
+						<div class="note">{t('pause.nameRule', { max: MAX_NICKNAME_LENGTH })}</div>
+						{#if preview}
+							<div class="note preview">{t('pause.willBe', { name: preview })}</div>
+						{/if}
+						<!-- Enter and Escape, for a finger or a mouse. -->
+						<div class="name-buttons">
+							<button type="button" class="pill back" data-press="Escape" {@attach unfocusable}>
+								{t('pause.back')}
+							</button>
+							<button type="button" class="pill save" data-press="Enter" {@attach unfocusable}>
+								{t('pause.save')}
+							</button>
+						</div>
+					{:else if pause.screen === 'list' && soundLit}
+						<div class="side-title">{t('pause.sound')}</div>
+						<!-- With the touch controls on, what a tap does; the keys only with a keyboard (#53). -->
+						<div class="note">
+							{touch.on ? t('pause.soundHelpTouch') : t('pause.soundHelp')}
+						</div>
+					{:else}
+						<div class="soft">{t('pause.pick')}</div>
+						<div class="note">{t('pause.pickHelp')}</div>
 					{/if}
-					<!-- Enter and Escape, for a finger or a mouse. -->
-					<div class="name-buttons">
-						<button type="button" class="pill back" data-press="Escape" {@attach unfocusable}>
-							{t('pause.back')}
-						</button>
-						<button type="button" class="pill save" data-press="Enter" {@attach unfocusable}>
-							{t('pause.save')}
-						</button>
-					</div>
-				{:else if pause.screen === 'list' && soundLit}
-					<div class="side-title">{t('pause.sound')}</div>
-					<!-- With the touch controls on, what a tap does; the keys only with a keyboard (#53). -->
-					<div class="note">
-						{touch.on ? t('pause.soundHelpTouch') : t('pause.soundHelp')}
-					</div>
-				{:else}
-					<div class="soft">{t('pause.pick')}</div>
-					<div class="note">{t('pause.pickHelp')}</div>
-				{/if}
+				</div>
 			</div>
-		</div>
+		{/if}
 		<!-- The keys; with the touch controls on, every row is its own button and needs no reminder. -->
 		{#if !touch.on}
 			<div class="keys">
@@ -386,6 +487,8 @@
 					{t('pause.keysList')}
 				{:else if pause.screen === 'options' || pause.screen === 'bundle'}
 					{t('pause.keysOptions')}
+				{:else if pause.screen === 'worlds'}
+					{t('worlds.keys')}
 				{:else}
 					{t('pause.keysNaming')}
 				{/if}
@@ -426,8 +529,9 @@
 		padding: 18px 22px 16px;
 	}
 	/*
-	 * The spacing is trimmed so a team of all eight kinds, with the settings
-	 * under it, fits 1024×768 without the menu scrolling.
+	 * The spacing is trimmed, and Keep playing and Start screen share a row, so
+	 * a team of all eight kinds, with Worlds and the settings under it, fits
+	 * 1024×768 without the menu scrolling.
 	 */
 	.title {
 		font-weight: 800;
@@ -563,6 +667,13 @@
 	.item {
 		margin-top: 4px;
 	}
+	.pair {
+		display: flex;
+		gap: 8px;
+	}
+	.pair .row {
+		width: auto;
+	}
 	.setting {
 		flex: 1;
 	}
@@ -629,6 +740,61 @@
 	.setting-state {
 		min-width: 3em;
 		text-align: left;
+	}
+	/* The Worlds row's value: the world the kid is in. */
+	.setting-value {
+		font-size: 16px;
+		padding: 2px 10px;
+		border-radius: 12px;
+		background: rgba(0, 0, 0, 0.08);
+		font-variant-numeric: tabular-nums;
+		white-space: nowrap;
+	}
+	/* The Worlds screen: where the kid is, the number and the rows on the left, the pad on the right. */
+	.worlds {
+		display: flex;
+		gap: 24px;
+		align-items: flex-start;
+		justify-content: center;
+	}
+	.world-side {
+		flex: 1;
+		max-width: 520px;
+		min-width: 0;
+	}
+	.here {
+		font-weight: 800;
+		font-size: 26px;
+		margin: 2px 2px 0;
+	}
+	.home-line {
+		margin-top: 2px;
+	}
+	/* The number being typed: big, in a box like an answer's. */
+	.dial {
+		display: flex;
+		align-items: baseline;
+		justify-content: space-between;
+		gap: 12px;
+		margin: 14px 0 10px;
+		padding: 8px 16px;
+		border: 3px solid var(--accent);
+		border-radius: 12px;
+		background: white;
+	}
+	.dial-label {
+		font-weight: 800;
+		font-size: 18px;
+		opacity: 0.7;
+	}
+	.dial-number {
+		font-weight: 800;
+		font-size: 36px;
+		letter-spacing: 0.08em;
+		font-variant-numeric: tabular-nums;
+	}
+	.dial-number.empty {
+		opacity: 0.25;
 	}
 	.side {
 		background: rgba(0, 0, 0, 0.04);
