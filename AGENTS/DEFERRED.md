@@ -173,15 +173,6 @@ Technical items we've intentionally postponed: tech debt, hardening shortcuts, k
 
 **Trigger**: before rolling the game back past #66, or serving two builds behind one address. Then bump `SAVE_VERSION` with an upgrade that only renumbers, so an older build calls a big save `newer` and leaves it alone.
 
-
-### The link preview's image is a relative URL
-
-**What**: `index.html` gives `og:image` as `/social-preview.jpg`. The Open Graph protocol asks for an absolute URL, and some messengers show no picture for a relative one, though iMessage, Slack and most others resolve it against the page's address.
-
-**Why deferred**: the game has no address of its own yet: the human has not chosen a domain, and until the production server is up the game is shared through a tunnel whose address changes. A hard-coded address would be wrong everywhere it is shared today.
-
-**Trigger**: the production domain is chosen (`MATHGAME_DOMAIN` in `deploy.env`, the one place it is set). Then write it into `og:image` (and add `og:url`), in `index.html` or from the build's environment. The image's build does not read `deploy.env` today (the `.dockerignore` allowlist leaves it out): pass it in as a build argument, as `GIT_SHA` is.
-
 ### Presence and friendly matches live in one server process's memory
 
 **What**: who is in which world, where, and who sees whom (`PresenceHub`), and the invites and matches (`Matches`), are kept in the memory of the Node process that holds each socket. A restart forgets it (every page says where it is again as its socket comes back, within a second on a deploy), and two processes split every world in two, each half blind to the other (and two players on different processes can't challenge each other: the one asked is not there, 'gone'): a deploy's swap does that for its few seconds, to a page that opens its socket while two copies run.

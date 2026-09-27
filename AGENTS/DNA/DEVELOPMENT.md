@@ -337,7 +337,7 @@ update account_saves
 
 ## Sharing the game through a tunnel
 
-Until the prod server is up (§ Deployment), the game is shared from this machine:
+Before the prod server was up (§ Deployment), the game was shared from this machine, and the kids who played it then still play here until their games move over:
 
 ```bash
 TUNNEL=1 pnpm dev              # both dev servers; TUNNEL lets Vite accept the tunnel hostname
@@ -350,7 +350,7 @@ Each kid's game is saved in their own browser, under the link they opened, and b
 
 ## Deployment
 
-The game's own Hetzner VPS runs the production stack ([[ARCHITECTURE]] § Production). The runbook for everything done by hand on it (provisioning, DNS, the secrets, a restore, a rollback without GitHub Actions, the logs) is `/redeploy` (`.claude/commands/redeploy.md`). Until the server and the deploy secrets exist, nothing deploys: every push to main ends green at the workflow's first job, with a notice saying so.
+Production is **https://animath.xyz**: the game's own Hetzner VPS, `mathgame-prod` at **91.98.203.234**, runs the production stack ([[ARCHITECTURE]] § Production), live since 2026-09-27. The runbook for everything done by hand on it (provisioning, DNS, the secrets, a restore, a rollback without GitHub Actions, the logs) is `/redeploy` (`.claude/commands/redeploy.md`). The deploy secrets (`VPS_HOST`, the IP; `VPS_USER`; `VPS_SSH_KEY`) are set; without them every push to main would end green at the workflow's first job, with a notice saying so, and nothing would deploy.
 
 ### How a merge reaches prod
 
@@ -386,18 +386,24 @@ It dispatches the deploy workflow with that SHA: no build and no tests; `:prod` 
 
 ### Backups
 
-Three layers ([[ARCHITECTURE]] § Production): the `backup` service's dumps in `~/mathgame/backups/` on the server, every 6 hours, 30 days kept; their copy in `~/mathgame-backups/` on this Mac, pulled every 6 hours by the launchd agent once it is installed (`./scripts/install-backup-sync.sh`, after the server exists); and Hetzner's nightly image of the machine. Restoring one: `/redeploy` § Restore from a backup. Alerts go to Slack when `MONITORING_SLACK_WEBHOOK_URL` is set, in `~/mathgame/.env.monitoring` on the server and `~/.config/mathgame/monitoring.env` here; without it an alert is a log line.
+Three layers ([[ARCHITECTURE]] § Production): the `backup` service's dumps in `~/mathgame/backups/` on the server, every 6 hours, 30 days kept; their copy in `~/mathgame-backups/` on this Mac, pulled every 6 hours by the launchd agent `com.mathgame.backup-sync` (installed by `./scripts/install-backup-sync.sh`; its log is `~/Library/Logs/mathgame-backup-sync.log`); and Hetzner's nightly image of the machine, taken between 06:00 and 10:00 UTC. Restoring one: `/redeploy` § Restore from a backup. Alerts go to Slack when `MONITORING_SLACK_WEBHOOK_URL` is set, in `~/mathgame/.env.monitoring` on the server and `~/.config/mathgame/monitoring.env` here; without it an alert is a log line.
 
 ### Prod access
 
+An agent on this Mac reaches every part of prod by itself; none of it needs the human.
+
 ```bash
-. ./deploy.env
-curl -fsS https://$MATHGAME_DOMAIN/api/health     # {"ok":true,"db":true,"sha":"<the build>"}
-ssh -i ~/.ssh/mathgame_deploy deploy@$MATHGAME_DOMAIN
+curl -fsS https://animath.xyz/api/health     # {"ok":true,"db":true,"sha":"<the build>"}
+ssh -i ~/.ssh/mathgame_deploy deploy@animath.xyz
 cd ~/mathgame && docker compose -f docker-compose.prod.yml logs --tail 200 -f app
 ```
 
-More in `/redeploy` § Logs and a look inside. Never change a file on the server: the next deploy resets the checkout, and a change that belongs there belongs in a PR.
+- **The server.** `deploy` on `animath.xyz` (or `91.98.203.234`), with `~/.ssh/mathgame_deploy`, a key only this Mac holds; Terraform put its public half on the server. `deploy` runs Docker, and `sudo` without a password. Everything is under `~/mathgame` (`/redeploy` § Logs and a look inside), and the admin CLI runs there in the app container (§ Accounts).
+- **The Hetzner project.** Terraform, from the primary clone's `terraform/`, where its state is, with the API token in `terraform.tfvars` beside it (gitignored, mode 600, never printed). `terraform output` gives the addresses. The Cloud Console, the human's login, shows the server's nightly images.
+- **The keys the deploy uses.** The workflow logs in with a key of its own, whose private half is only in the `VPS_SSH_KEY` secret. The server fetches the repo with a read-only deploy key, `mathgame-prod` in the repo's settings, whose copy is in `~/mathgame-backups/.ssh/`.
+- **The domain.** At Porkbun, the human's account: an A record for `animath.xyz` to the IP and a CNAME `www` to `animath.xyz`, no AAAA (`/redeploy` § DNS). A new IP means changing that A record, and `VPS_HOST`.
+
+Never change a file on the server: the next deploy resets the checkout, and a change that belongs there belongs in a PR.
 
 ### Trying it on a Mac
 
