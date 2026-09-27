@@ -365,5 +365,7 @@ describe('presence hub', () => {
 				expect(broken).toEqual([]);
 			}
 		}
-	});
+		// About 0.45 s alone (20 hubs of 400 joins, moves and leaves, every pair of browsers
+		// checked after each); 2 s at a load average of 35.
+	}, 30_000);
 });

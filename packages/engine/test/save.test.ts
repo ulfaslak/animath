@@ -569,7 +569,9 @@ describe('the v1 → v2 upgrade', () => {
 			const stamp = { facing: 'down', steps: 0, visits: 0, lineage: 'L', seq: 1 };
 			expect(validateSaveWrite({ ...stamp, ...up }).ok).toBe(true);
 		}
-	});
+		// About 0.25 s alone (500 random v1 saves, each read, rebuilt and checked as a write);
+		// 3.4 s at a load average of 40.
+	}, 30_000);
 
 	it('keeps party, tokens, items, position and cleared tiles: a v1 game plays on in World 1 as it was', () => {
 		const pos = findTile(SEED, true);
@@ -793,8 +795,14 @@ describe('newGame and restoreGame', () => {
 	});
 
 	it('over random saves of every shape, the restored game is always playable', () => {
-		// A handful of worlds, so the spawns are worked out once each.
+		// A handful of worlds, so the spawns are worked out once each. What each save must
+		// keep is collected and compared once, and every rule it breaks noted: an `expect` per
+		// animal made seven tenths of the test's time.
 		const worlds = [1, 2, 7, 42, 999, 5000, 9999];
+		const bad: string[] = [];
+		let more = 0;
+		const got: unknown[] = [];
+		const want: unknown[] = [];
 		for (let s = 0; s < 400; s++) {
 			const rng = new Rng(hashInts(7, s));
 			const world = rng.pick(worlds);
@@ -816,35 +824,58 @@ describe('newGame and restoreGame', () => {
 			} as SaveV2;
 			const game = restoreGame(save);
 			const gear = gearOf(game);
-			expect(isPassable(tileAtWorld(seed, game.pos.x, game.pos.y).kind, gear)).toBe(true);
-			expect(game.party.length).toBeGreaterThan(0);
-			expect(game.party.some((a) => a.hp > 0)).toBe(true);
+			const note = (broken: string) => {
+				if (bad.length < 20) bad.push(`save ${s}: ${broken}`);
+				else bad[19] = `…and ${++more} more`;
+			};
+			if (!isPassable(tileAtWorld(seed, game.pos.x, game.pos.y).kind, gear))
+				note(`stands where it cannot, at ${JSON.stringify(game.pos)}`);
+			if (!(game.party.length > 0)) note('an empty party');
+			if (!game.party.some((a) => a.hp > 0)) note('nobody standing');
 			for (const a of game.party) {
-				expect(a.hp).toBeGreaterThanOrEqual(0);
-				expect(a.hp).toBeLessThanOrEqual(getAnimal(a.speciesId).maxHp);
+				const max = getAnimal(a.speciesId).maxHp;
+				if (!(typeof a.hp === 'number' && a.hp >= 0 && a.hp <= max)) note(`${a.id} at ${a.hp} HP`);
 			}
 			// A battle can start with it where an animal standing can fight: the party is one
 			// `startBattle` accepts there (only sea animals standing, out on the water).
 			const realm = REALMS.find((r) => leadIndex(game.party, r) >= 0);
-			expect(realm).toBeDefined();
+			if (realm === undefined) note('no realm where anyone can fight');
 			const wild = makeWild(realm === 'land' ? 'rabbit' : 'crab');
-			expect(() => startBattle(game.party, wild, { realm })).not.toThrow();
-			// What was fine to begin with comes back unchanged, out on the water with a boat too.
-			if (isPassable(tileAtWorld(seed, save.pos.x, save.pos.y).kind, gear))
-				expect(game.pos).toEqual(save.pos);
-			expect(game.facing).toBe(save.facing);
-			expect(game.steps).toBe(save.steps);
-			expect(game.world).toBe(save.world);
-			expect(game.home).toBe(save.home);
+			try {
+				startBattle(game.party, wild, { realm });
+			} catch (error) {
+				note(`no battle: ${error}`);
+			}
 			// In bundles: every animal once, each species behind its first, in its own order.
-			expect(isBundled(game.party)).toBe(true);
+			if (!isBundled(game.party)) note('not in bundles');
 			// Always an animal that can fight on land: a party of only sea animals gets the starter.
-			expect(game.party.some((a) => canFightIn(a.speciesId, 'land'))).toBe(true);
+			if (!game.party.some((a) => canFightIn(a.speciesId, 'land'))) note('nobody for the land');
+			// What was fine to begin with comes back unchanged, out on the water with a boat too.
+			const stood = isPassable(tileAtWorld(seed, save.pos.x, save.pos.y).kind, gear);
 			const walks = party.some((a) => canFightIn(a.speciesId, 'land'));
 			const kept = bundled(party).map((a) => a.id);
-			if (size > 0)
-				expect(game.party.map((a) => a.id)).toEqual(walks ? kept : [...kept, 'starter']);
+			const { facing, steps, world: inWorld, home } = game;
+			got.push({
+				s,
+				pos: game.pos,
+				facing,
+				steps,
+				inWorld,
+				home,
+				ids: game.party.map((a) => a.id)
+			});
+			want.push({
+				s,
+				pos: stood ? save.pos : game.pos,
+				facing: save.facing,
+				steps: save.steps,
+				inWorld: save.world,
+				home: save.home,
+				ids: size === 0 ? game.party.map((a) => a.id) : walks ? kept : [...kept, 'starter']
+			});
 		}
+		expect(bad).toEqual([]);
+		expect(got).toEqual(want);
 	});
 
 	it('keeps who leads when it puts a party from before bundles in them', () => {
@@ -1085,9 +1116,13 @@ describe('the tiles a kid cleared', () => {
 	});
 
 	it('come back within the budget from a save that holds more (a hand-edited one), trimmed far from the player', () => {
-		// One tile in each of 3,000 far-flung chunks: half again over the budget.
-		let over = edits;
-		for (let i = 0; i < 3000; i++) over = over.with({ x: 70_000 + i * 16, y: -70_000 - i * 16 });
+		// One tile in each of 3,000 far-flung chunks: half again over the budget. Read from text,
+		// as a hand-edited save holds it: built with `with`, the overlay was copied 3,000 times.
+		const far = Array.from({ length: 3000 }, (_, i) =>
+			WorldEdits.none.with({ x: 70_000 + i * 16, y: -70_000 - i * 16 }).encode()
+		);
+		const over = WorldEdits.decode([...edits.encode(), ...far.flat()]);
+		expect(over.size).toBe(edits.size + 3000);
 		expect(over.textLength).toBeGreaterThan(EDITS_BUDGET * 1.4);
 		const on = cleared[0]!;
 		const doc = { ...written, world: 1, pos: on, edits: [...over.encode()] };

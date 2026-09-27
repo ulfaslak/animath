@@ -32,6 +32,10 @@ Use `pnpm db:psql -c "<sql>"` (wraps `docker compose exec postgres psql`), or `d
 
 Agents started by one orchestrator run under the same session id (`$CLAUDE_CODE_SESSION_ID`), so their "session-specific" scratchpad is one folder with dozens of files from several branches in it. On 2026-09-25 another branch's `pr-body.md` replaced `feat/encounters-by-lead`'s between two edits, luckily after the PR had been opened from it. Put every scratch file in a subfolder named after your branch (`$SCRATCHPAD/<branch>/pr-body.md`), and never restore a negative control from a generic name like `local.ts.bak` that a sibling may also write.
 
+## Server test runs in two worktrees share one test database
+
+Every worktree's server tests use the same `mathgame_test`, and each run's global setup truncates its tables first, so a run starting in another worktree empties them under yours (#100). On 2026-09-27 that made `account.test.ts` see two accounts made for one name (`[201, 201, 409, …]`), which the unique `name_key` forbids unless the first row was gone. A lone server failure where a test's own rows went missing is this, not your change: rerun it. Delete this entry in the PR that fixes #100.
+
 ## The Postgres container's clock runs ~120 ms ahead of the host
 
 Measured with `clock_timestamp()` against `Date.now()`: 116–134 ms, stable across calls. A row whose default is `now()` therefore carries a later timestamp than a `new Date()` computed in Node afterwards, and a test asserting "updated after created" fails. Write timestamps with one clock — the server uses `sql\`now()\`` for `last_seen_at` and `updated_at` — and never compare a Postgres timestamp to a Node one across a gap under a second.
@@ -99,10 +103,6 @@ gh's token here lacks the `workflow` scope, and GitHub refuses a push that adds 
 ## pnpm 12 build-script approval
 
 pnpm 12 refuses to run dependency postinstall scripts unless approved in `pnpm-workspace.yaml` under `allowBuilds` (the older `onlyBuiltDependencies` key is read but not honoured). `esbuild` is approved there. If `pnpm install` ever ends with `ERR_PNPM_IGNORED_BUILDS`, run `pnpm approve-builds <pkg> --yes` — it edits the file for you.
-
-## `pnpm test` can fail with every test passing when the machine is busy
-
-At a load average above about 30 (several agents' test runs and browsers at once), the engine's vitest can end with `Tests N passed`, then `Errors 1 error` and `Unhandled Error: [vitest-worker]: Timeout calling "onTaskUpdate"`, and exit 1. That is vitest's own worker messaging timing out, not a test. `pnpm test` then stops at the engine (`ERR_PNPM_RECURSIVE_RUN_FIRST_FAIL`), so the client and server tests never run. On 2026-09-27, at a load of 33, the engine suite took 98 s instead of about 28 s. On that load, tests without an explicit timeout also fail with `Test timed out in 5000ms` (`save.test.ts`, `encounters.test.ts`). Read the summary before blaming the change. Check `uptime`, rerun when the load drops, or run each package on its own (`pnpm -F @mathgame/<pkg> test`).
 
 ## A negative control on a fix whose commit holds its own test
 

@@ -182,7 +182,8 @@ describe('replay', () => {
 				expect(b.state).toEqual(a.state);
 			}
 		}
-	});
+		// About 0.55 s alone (620 battles, each played twice); 2 s at a load average of 40.
+	}, 30_000);
 
 	it('a different seed changes the battle', () => {
 		const model: PlayerModel = { accuracy: 1, policy: 'max' };
@@ -333,9 +334,9 @@ describe('every battle in the catalog', () => {
 					expect(wordedStrings({ state, said }), `${p} vs ${w} seed ${seed}`).toEqual([]);
 				}
 			}
-			// A few seconds per species on a quiet machine; well over vitest's 5 s default
-			// when other agents' browsers load it.
-		}, 60_000);
+			// 1.2 to 3.4 s per species alone; the frog's took 40 s at a load average of 54, so
+			// a minute is too close.
+		}, 120_000);
 	}
 
 	it('reached every outcome, and switched both ways', () => {
@@ -581,7 +582,8 @@ describe('answers', () => {
 				}
 			}
 		}
-	});
+		// About 0.5 s alone (3,720 wrong answers); 1.4 s at a load average of 40.
+	}, 30_000);
 
 	it('a correct answer always deals exactly the formula damage, for every attack and level', () => {
 		for (const p of ids) {
@@ -775,7 +777,8 @@ describe('the leash', () => {
 				}
 			}
 		}
-	});
+		// About 0.25 s alone (1,400 throws); 0.35 s at a load average of 40.
+	}, 30_000);
 
 	it('a better leash raises the chance', () => {
 		const start = startBattle(makeParty(['fox']), makeWild('bear', 10), { leashQuality: 2 });
