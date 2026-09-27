@@ -5,7 +5,8 @@
 	import { match, type ButtonRefusal } from '../state/match.svelte';
 
 	/**
-	 * "Challenge <name>" over the world, above the message line, when another
+	 * "Challenge <name>" over the world, above the message line (the HUD
+	 * stacks them: `Hud.svelte`'s bottom column), when another
 	 * player stands within reach ([[UI_SPEC]] § Friendly matches): C, or a tap,
 	 * asks them. Greyed, it says why in the kid's words: they are busy or out on
 	 * the water, the player is on the water or has no animal that can fight on
@@ -47,16 +48,12 @@
 
 <style>
 	.challenge {
-		position: absolute;
-		bottom: calc(76px + var(--safe-bottom));
-		left: 50%;
-		transform: translateX(-50%);
 		display: flex;
 		flex-direction: column;
 		align-items: center;
 		gap: 2px;
 		min-height: 52px;
-		max-width: min(420px, calc(100vw - 32px));
+		max-width: min(420px, 100%);
 		padding: 8px 22px;
 		border: none;
 		border-radius: 26px;
@@ -69,7 +66,7 @@
 		cursor: pointer;
 	}
 	.challenge:active {
-		transform: translateX(-50%) translateY(var(--press));
+		transform: translateY(var(--press));
 		box-shadow: var(--hud-shadow);
 	}
 	.challenge.off {
@@ -100,9 +97,5 @@
 		padding: 1px 8px;
 		border-radius: 8px;
 		background: rgba(255, 255, 255, 0.3);
-	}
-	/* With the touch controls on, it stands between the D-pad and the buttons. */
-	:global(.touch) .challenge {
-		bottom: calc(84px + var(--safe-bottom));
 	}
 </style>

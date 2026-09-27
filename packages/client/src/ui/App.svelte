@@ -14,7 +14,6 @@
 	import AccountCard from './AccountCard.svelte';
 	import BattlePanel from './BattlePanel.svelte';
 	import BehindCard from './BehindCard.svelte';
-	import ChallengeButton from './ChallengeButton.svelte';
 	import DoctorCard from './DoctorCard.svelte';
 	import Hud from './Hud.svelte';
 	import Iris from './Iris.svelte';
@@ -51,8 +50,7 @@
 	<!-- Not under a trip's cover, which takes no key: a thumb that lands there presses nothing. -->
 	{#if touch.on && !travel.active}<TouchControls />{/if}
 	<PresenceNote />
-	<!-- Friendly matches over the world: the Challenge button, and the invite. -->
-	<ChallengeButton />
+	<!-- A friendly match's invite over the world (its Challenge button is the HUD's). -->
 	<MatchCard />
 {/if}
 
