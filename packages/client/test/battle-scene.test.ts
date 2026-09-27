@@ -1,7 +1,7 @@
 import { ANIMALS, getAnimal } from '@mathgame/engine';
 import { parse, type AST } from 'svelte/compiler';
 import * as THREE from 'three';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { touch } from '../src/input/touch.svelte';
 import { motion } from '../src/motion';
 import {
@@ -24,14 +24,27 @@ import { svelteSources } from './source';
  * projection of every point of the loop, not the code's own geometry.
  */
 
+/** The safe area's insets, as the scene reads them (`safe-area.ts`): each size sets its own. */
+const inset = vi.hoisted(() => ({ top: 0, right: 0, bottom: 0, left: 0 }));
+vi.mock('../src/safe-area', () => ({ safeArea: () => ({ ...inset }) }));
+
 const FRAME = 1 / 60;
-/** The supported sizes (a laptop, a tablet with a keyboard and without), and a wide monitor. */
+const NO_INSET = { top: 0, right: 0, bottom: 0, left: 0 };
+/**
+ * The supported sizes (a laptop, a tablet with a keyboard and without), and a
+ * wide monitor; and tablets whose screen takes a safe area's insets: the home
+ * indicator under the page (an iPad in Safari), and a notch at each side as
+ * well (an iPhone's, sideways). Nothing draws over the page's top edge in
+ * landscape, so no size has a top inset.
+ */
 const SIZES = [
-	{ width: 1024, height: 768, touch: false },
-	{ width: 1280, height: 720, touch: false },
-	{ width: 1180, height: 820, touch: true },
-	{ width: 1024, height: 768, touch: true },
-	{ width: 2560, height: 1080, touch: false }
+	{ width: 1024, height: 768, touch: false, inset: NO_INSET },
+	{ width: 1280, height: 720, touch: false, inset: NO_INSET },
+	{ width: 1180, height: 820, touch: true, inset: NO_INSET },
+	{ width: 1024, height: 768, touch: true, inset: NO_INSET },
+	{ width: 2560, height: 1080, touch: false, inset: NO_INSET },
+	{ width: 1024, height: 768, touch: true, inset: { top: 0, right: 0, bottom: 20, left: 0 } },
+	{ width: 1180, height: 820, touch: true, inset: { top: 0, right: 59, bottom: 21, left: 59 } }
 ] as const;
 /** The loop never comes nearer the top edge or the status box than this, in CSS pixels: it never touches them. */
 const CLEAR = 8;
@@ -46,23 +59,26 @@ interface Box {
 }
 
 /**
- * The wild animal's status box, in CSS pixels from the canvas's top left:
- * where `BattlePanel.svelte`'s CSS puts it and how wide, read from the
- * component, and 74 px tall, as Chrome draws its name and HP bar at every
- * supported size, in both languages (no rule sets its height).
+ * The wild animal's status box, in CSS pixels from the canvas's top left on
+ * a screen with no safe-area insets (`inside` moves it in by them): where
+ * `BattlePanel.svelte`'s CSS puts it and how wide, read from the component,
+ * and 74 px tall, as Chrome draws its name and HP bar at every supported
+ * size, in both languages (no rule sets its height).
  */
 const STATUS_BOX: Box = (() => {
 	const source = svelteSources.get('src/ui/BattlePanel.svelte');
 	const rules = (parse(source ?? '', { modern: true }).css?.children ?? []).filter(
 		(node): node is AST.CSS.Rule => node.type === 'Rule'
 	);
+	// `280px`, or `calc(16px + var(--safe-left))`: 16 px in from the safe area's edge.
 	const px = (selector: string, property: string) => {
 		const rule = rules.find((r) => source!.slice(r.prelude.start, r.prelude.end) === selector);
 		const value = rule?.block.children.find(
 			(d): d is AST.CSS.Declaration => d.type === 'Declaration' && d.property === property
 		)?.value;
-		if (!value?.endsWith('px')) throw new Error(`${selector} has no ${property} in px`);
-		return Number.parseFloat(value);
+		const found = value?.match(/^(?:calc\()?([\d.]+)px(?: \+ var\(--safe-[a-z]+\)\))?$/);
+		if (!found) throw new Error(`${selector} has no ${property} in px`);
+		return Number.parseFloat(found[1]!);
 	};
 	const left = px('.status.opponent', 'left');
 	const top = px('.status.opponent', 'top');
@@ -72,6 +88,7 @@ const STATUS_BOX: Box = (() => {
 afterEach(() => {
 	motion.reduced = false;
 	touch.on = false;
+	Object.assign(inset, NO_INSET);
 });
 
 /** The leash on screen: its loop, and the rope, which starts at the trainer's hand. */
@@ -108,6 +125,16 @@ function loopOnCanvas(loop: THREE.Mesh, size: (typeof SIZES)[number]): Point[] {
 			size
 		)
 	);
+}
+
+/** The box as laid out from the safe area's top left: moved in by the insets. */
+function inside(box: Box, by: { top: number; left: number }): Box {
+	return {
+		left: box.left + by.left,
+		top: box.top + by.top,
+		right: box.right + by.left,
+		bottom: box.bottom + by.top
+	};
 }
 
 /** How far a point is from the box, in CSS pixels: 0 on it or in it. */
@@ -170,7 +197,9 @@ interface Throw {
  */
 function throwAt(size: (typeof SIZES)[number], species: string, ending: 'caught' | 'broke'): Throw {
 	touch.on = size.touch;
+	Object.assign(inset, size.inset);
 	scene.resize(size.width, size.height);
+	const statusBox = inside(STATUS_BOX, size.inset);
 	// Where it is met: a sea animal out at sea, sunk in the water, facing one that swims.
 	const atSea = !getAnimal(species).realms.includes('land');
 	scene.begin(atSea ? 'sea' : 'meadow', atSea ? 'otter' : 'squirrel', species);
@@ -197,13 +226,13 @@ function throwAt(size: (typeof SIZES)[number], species: string, ending: 'caught'
 		const loop = loopOnCanvas(leash.loop, size);
 		const top = Math.min(...loop.map((p) => p.y));
 		if (top < seen.top) [seen.top, seen.topWhen] = [top, when];
-		const box = Math.min(...loop.map((p) => gap(p, STATUS_BOX)));
+		const box = Math.min(...loop.map((p) => gap(p, statusBox)));
 		if (box < seen.box) [seen.box, seen.boxWhen] = [box, when];
 		// The rope runs straight from the hand to the loop's middle.
 		const rope = lineGap(
 			onCanvas(leash.rope.position, size),
 			onCanvas(leash.loop.position, size),
-			STATUS_BOX
+			statusBox
 		);
 		if (rope < seen.rope) [seen.rope, seen.ropeWhen] = [rope, when];
 		if (moment === 'flying') flight.push(leash.loop.position.clone());
@@ -243,7 +272,10 @@ function everyThrow(check: (seen: Throw) => string | null): string[] {
 			for (const size of SIZES) {
 				for (const { id } of ANIMALS) {
 					for (const ending of ['caught', 'broke'] as const) {
-						const where = `${id} at ${size.width}×${size.height}${size.touch ? ' (touch)' : ''}${reduced ? ', reduced motion' : ''}`;
+						const { top, right, bottom, left } = size.inset;
+						const insets =
+							size.inset === NO_INSET ? '' : `, insets ${top} ${right} ${bottom} ${left}`;
+						const where = `${id} at ${size.width}×${size.height}${size.touch ? ' (touch)' : ''}${insets}${reduced ? ', reduced motion' : ''}`;
 						thrown.push({ where, seen: throwAt(size, id, ending) });
 					}
 				}
@@ -251,6 +283,7 @@ function everyThrow(check: (seen: Throw) => string | null): string[] {
 		}
 		motion.reduced = false;
 		touch.on = false;
+		Object.assign(inset, NO_INSET);
 	}
 	const bad = thrown.flatMap(({ where, seen }) => {
 		const wrong = check(seen);
@@ -296,7 +329,9 @@ describe('the leash', () => {
 				const full = throwAt(size, id, 'broke').arc;
 				motion.reduced = true;
 				const calm = throwAt(size, id, 'broke').arc;
-				const where = `${id} at ${size.width}×${size.height}${size.touch ? ' (touch)' : ''}`;
+				const { top, right, bottom, left } = size.inset;
+				const insets = size.inset === NO_INSET ? '' : `, insets ${top} ${right} ${bottom} ${left}`;
+				const where = `${id} at ${size.width}×${size.height}${size.touch ? ' (touch)' : ''}${insets}`;
 				// A fifth of a tile at least: the loop visibly lobs, however little sky there is.
 				if (full < 0.2) bad.push(`${where}: arcs ${full.toFixed(2)} tiles`);
 				if (!(calm > 0 && calm < full * 0.5)) {
@@ -307,7 +342,8 @@ describe('the leash', () => {
 			}
 		}
 		expect(bad).toEqual([]);
-	});
+		// 3–4 s alone; over vitest's default 5 s under a heavy load.
+	}, 30_000);
 });
 
 describe('out at sea', () => {

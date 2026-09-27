@@ -533,7 +533,8 @@
 			minmax(var(--puzzle-least), 1fr);
 		grid-template-rows: auto minmax(0, 1fr);
 		gap: 12px;
-		padding: 0 16px 16px;
+		padding: 0 calc(16px + var(--safe-right)) calc(16px + var(--safe-bottom))
+			calc(16px + var(--safe-left));
 		box-sizing: border-box;
 	}
 	/* Below the supported sizes, give the names the room before the puzzle. */

@@ -13,10 +13,23 @@
 	--bad: #f25f5c;
 	--hud-shadow: 0 6px 18px rgba(0, 0, 0, 0.18);
 	--radius: 16px;
-	/* Height of the battle screen's bottom panel (actions | puzzle). */
-	--battle-panel: clamp(260px, 40vh, 360px);
+	/*
+	 * The screen's safe area: how far a notch, rounded corners or the home
+	 * indicator reach in from each edge. `viewport-fit=cover` (`index.html`)
+	 * lets the world draw under them; what a kid reads or taps keeps inside
+	 * (UI_SPEC § Frame). `safe-area.ts` reads them for layout done in code.
+	 */
+	--safe-top: env(safe-area-inset-top, 0px);
+	--safe-right: env(safe-area-inset-right, 0px);
+	--safe-bottom: env(safe-area-inset-bottom, 0px);
+	--safe-left: env(safe-area-inset-left, 0px);
+	/*
+	 * Height of the battle screen's bottom panel (actions | puzzle), from the
+	 * screen's bottom edge: its cards, and the safe area under them.
+	 */
+	--battle-panel: calc(clamp(260px, 40vh, 360px) + var(--safe-bottom));
 	/* Height of the doctor's card: its line, then party | puzzle (six animals and Bye; a longer team scrolls). */
-	--doctor-panel: clamp(300px, 44vh, 400px);
+	--doctor-panel: calc(clamp(300px, 44vh, 400px) + var(--safe-bottom));
 	/* The least a row or a button is tall with the touch controls on: a finger's width. */
 	--tap: 48px;
 }
@@ -27,8 +40,8 @@
  * `battlePanelHeight` in `render/battle-scene.ts` mirrors the battle's.
  */
 :root.touch {
-	--battle-panel: clamp(364px, 48vh, 400px);
-	--doctor-panel: clamp(364px, 48vh, 400px);
+	--battle-panel: calc(clamp(364px, 48vh, 400px) + var(--safe-bottom));
+	--doctor-panel: calc(clamp(364px, 48vh, 400px) + var(--safe-bottom));
 }
 
 html,
