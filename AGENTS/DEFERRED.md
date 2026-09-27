@@ -197,3 +197,11 @@ Technical items we've intentionally postponed: tech debt, hardening shortcuts, k
 **Why deferred**: no planned change is one (#89 adds species; #91's birds in the air fight in a new realm, `air`, whose id is seen), and classifying these battles as `newer` is not safe: content has shrunk as well as grown (the turtle lost its third attack, `shell-spin`, in the PR that made the sea animals twins), so an older save can hold the same shapes, and calling it newer would lock that kid out of their game for good.
 
 **Trigger**: the first PR that adds an attack to a species that has shipped, a realm to one, a battle phase, or raises a species' `maxHp` or the difficulty range. That PR bumps `SAVE_VERSION` with an upgrade that changes nothing but the number (every older document stays readable, and an older build calls every newer one `newer`), or keeps the save's text aside wherever a load drops a battle.
+
+### Two server test runs in one checkout at once share its test database
+
+**What**: each checkout's server tests have a database of their own ([[DEVELOPMENT]] § Database), so runs in two worktrees never meet. Two runs started in the same checkout at once (a `pnpm test` in the background and a `pnpm -F @mathgame/server test` beside it) still share it, and meet what runs in two worktrees met before #100: the second's global setup empties the tables under the first, both register the same account names (one gets a `409`), and the second's truncate can deadlock with the first's queries and fail its setup. The first run ever in a checkout can also race itself to create the database.
+
+**Why deferred**: an agent runs one suite at a time in its own worktree. A database per run costs a create and a migration on every run, and a cleanup for every run that dies; a lock held for a whole run keeps a second run waiting as long as a `vitest` in watch mode stays open.
+
+**Trigger**: a server test failure traced to two runs in one checkout.
