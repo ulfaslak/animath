@@ -4,13 +4,22 @@
 	import { REVEAL_KEY, unfocusable } from '../input/press';
 	import { touch } from '../input/touch.svelte';
 	import { nameRefusal } from '../names';
-	import { account, type AccountField, type AccountProblem } from '../state/account.svelte';
+	import {
+		account,
+		type AccountField,
+		type AccountProblem,
+		type WelcomeGone
+	} from '../state/account.svelte';
 
 	/**
 	 * The account card ([[UI_SPEC]] § Accounts): make an account with the
-	 * game on screen (`register`), or log in to one (`login`). Two boxes, the
+	 * game on screen (`register`), log in to one (`login`), or pick the
+	 * password of the account a welcome link opens (`welcome`). Two boxes, the
 	 * name and a secret password, a button that shows the password as typed,
 	 * and under them the password rule, or kindly why the card did not go on.
+	 * The welcome card's name is the account's, shown and never typed; while
+	 * the server is asked about the link, or when the link is spent or the
+	 * server does not answer, the card has no boxes, only what to do instead.
 	 * It reads `account`; keys are `AccountController`'s, so nothing here
 	 * dispatches. The boxes bind the drafts; the one that takes the typing
 	 * (`account.field`) keeps the focus while the card is up, and a finger or
@@ -24,6 +33,84 @@
 	const MAX_TYPED_PASSWORD = 2 * PASSWORD_MAX_LENGTH;
 
 	const registering = $derived(account.card === 'register');
+	/** The welcome card's content, or null on another card. */
+	const welcome = $derived(account.card === 'welcome' ? account.welcome : null);
+	/** The boxes are up: every card but a welcome card with no account to open. */
+	const boxes = $derived(welcome === null || welcome.phase === 'ready');
+	/** A new password is picked (a new account, or a welcome), not an old one typed. */
+	const choosing = $derived(registering || welcome !== null);
+
+	interface Words {
+		heading: string;
+		text?: string;
+		back: string;
+		go?: string;
+		keys?: string;
+	}
+
+	/** A spent welcome link's heading and line. */
+	function goneWords(why: WelcomeGone): Pick<Words, 'heading' | 'text'> {
+		switch (why) {
+			case 'used':
+				return { heading: t('account.welcome.used'), text: t('account.welcome.usedText') };
+			case 'expired':
+				return { heading: t('account.welcome.expired'), text: t('account.welcome.expiredText') };
+			case 'unknown':
+				return { heading: t('account.welcome.unknown'), text: t('account.welcome.unknownText') };
+		}
+	}
+
+	/** The card's heading, its line, its two buttons and its key reminder. */
+	const words = $derived.by((): Words => {
+		if (welcome === null) {
+			return registering
+				? {
+						heading: t('account.register.title'),
+						text: t('account.register.text'),
+						back: t('account.back'),
+						go: t('account.register.go'),
+						keys: t('account.register.keys')
+					}
+				: {
+						heading: t('account.login.title'),
+						text: t('account.login.text'),
+						back: t('account.back'),
+						go: t('account.login.go'),
+						keys: t('account.login.keys')
+					};
+		}
+		switch (welcome.phase) {
+			case 'checking':
+				return { heading: t('account.welcome.checking'), back: t('account.welcome.later') };
+			case 'ready':
+				return {
+					heading: t('account.welcome.title', { name: welcome.name }),
+					text: t('account.welcome.text'),
+					back: t('account.welcome.later'),
+					go: t('account.welcome.go'),
+					keys: t('account.welcome.keys')
+				};
+			case 'gone':
+				return {
+					...goneWords(welcome.why),
+					// The way on without logging in: the game this browser plays, a guest's or an account's.
+					back:
+						account.name === null
+							? t('account.welcome.guest')
+							: t('account.welcome.playAs', { name: account.name }),
+					go: t('account.welcome.logIn'),
+					keys: t('account.welcome.goneKeys')
+				};
+			case 'unreachable':
+				return {
+					heading: t('account.welcome.checking'),
+					text: t('account.problem.offline'),
+					back: t('account.welcome.later'),
+					go: t('account.welcome.retry'),
+					keys: t('account.welcome.retryKeys')
+				};
+		}
+	});
 
 	function problemWords(problem: AccountProblem): string {
 		switch (problem.kind) {
@@ -42,7 +129,7 @@
 			case 'offline':
 				return t('account.problem.offline');
 			case 'storage':
-				return t('account.problem.storage');
+				return welcome ? t('account.welcome.storage') : t('account.problem.storage');
 		}
 	}
 
@@ -74,80 +161,98 @@
 
 <div class="shade" class:typing={touch.on}>
 	<div class="card account-card" role="dialog" aria-labelledby="account-heading" {@attach card}>
-		<div class="heading" id="account-heading">
-			{registering ? t('account.register.title') : t('account.login.title')}
-		</div>
-		<p>{registering ? t('account.register.text') : t('account.login.text')}</p>
-		<label class="field">
-			<span class="label">{t('account.name')}</span>
-			<input
-				class="box"
-				class:active={account.field === 'name'}
-				type="text"
-				bind:value={account.nameDraft}
-				maxlength={MAX_TYPED_NAME}
-				autocomplete="username"
-				autocapitalize="words"
-				autocorrect="off"
-				spellcheck="false"
-				enterkeyhint="next"
-				readonly={account.busy}
-				{@attach box('name')}
-			/>
-		</label>
-		<label class="field">
-			<span class="label">{t('account.password')}</span>
-			<span class="secret">
-				<input
-					class="box"
-					class:active={account.field === 'password'}
-					type={account.reveal ? 'text' : 'password'}
-					bind:value={account.passwordDraft}
-					maxlength={MAX_TYPED_PASSWORD}
-					autocomplete={registering ? 'new-password' : 'current-password'}
-					autocapitalize="off"
-					autocorrect="off"
-					spellcheck="false"
-					enterkeyhint={registering ? 'done' : 'go'}
-					readonly={account.busy}
-					{@attach box('password')}
-				/>
-				<button
-					type="button"
-					class="reveal"
-					aria-pressed={account.reveal}
-					data-press={REVEAL_KEY}
-					{@attach unfocusable}
-				>
-					{account.reveal ? t('account.hide') : t('account.show')}
-				</button>
-			</span>
-		</label>
-		{#if account.problem}
-			<div class="note refused" role="alert">{problemWords(account.problem)}</div>
-		{:else if account.busy}
+		<div class="heading" id="account-heading">{words.heading}</div>
+		{#if words.text}
+			<p>{words.text}</p>
+		{/if}
+		{#if boxes}
+			<label class="field">
+				<span class="label">{t('account.name')}</span>
+				{#if welcome?.phase === 'ready'}
+					<!-- The account's own name: shown, never typed, and there for a password manager. -->
+					<input
+						class="box fixed"
+						type="text"
+						value={welcome.name}
+						autocomplete="username"
+						readonly
+						tabindex="-1"
+					/>
+				{:else}
+					<input
+						class="box"
+						class:active={account.field === 'name'}
+						type="text"
+						bind:value={account.nameDraft}
+						maxlength={MAX_TYPED_NAME}
+						autocomplete="username"
+						autocapitalize="words"
+						autocorrect="off"
+						spellcheck="false"
+						enterkeyhint="next"
+						readonly={account.busy}
+						{@attach box('name')}
+					/>
+				{/if}
+			</label>
+			<label class="field">
+				<span class="label">{t('account.password')}</span>
+				<span class="secret">
+					<input
+						class="box"
+						class:active={account.field === 'password'}
+						type={account.reveal ? 'text' : 'password'}
+						bind:value={account.passwordDraft}
+						maxlength={MAX_TYPED_PASSWORD}
+						autocomplete={choosing ? 'new-password' : 'current-password'}
+						autocapitalize="off"
+						autocorrect="off"
+						spellcheck="false"
+						enterkeyhint={choosing ? 'done' : 'go'}
+						readonly={account.busy}
+						{@attach box('password')}
+					/>
+					<button
+						type="button"
+						class="reveal"
+						aria-pressed={account.reveal}
+						data-press={REVEAL_KEY}
+						{@attach unfocusable}
+					>
+						{account.reveal ? t('account.hide') : t('account.show')}
+					</button>
+				</span>
+			</label>
+			{#if account.problem}
+				<div class="note refused" role="alert">{problemWords(account.problem)}</div>
+			{:else if account.busy}
+				<div class="note">{t('account.busy')}</div>
+			{:else if choosing}
+				<div class="note">{t('account.passwordRule', { min: PASSWORD_MIN_LENGTH })}</div>
+			{:else}
+				<div class="note">{t('account.login.forgot')}</div>
+			{/if}
+		{:else if welcome?.phase === 'checking'}
 			<div class="note">{t('account.busy')}</div>
-		{:else if registering}
-			<div class="note">{t('account.passwordRule', { min: PASSWORD_MIN_LENGTH })}</div>
-		{:else}
-			<div class="note">{t('account.login.forgot')}</div>
 		{/if}
 		<div class="card-buttons">
 			<button type="button" class="pill" data-press="Escape" {@attach unfocusable}>
-				{t('account.back')}
+				{words.back}
 			</button>
-			<button
-				type="button"
-				class="pill go"
-				class:waiting={account.busy}
-				data-press="Enter"
-				{@attach unfocusable}
-			>
-				{registering ? t('account.register.go') : t('account.login.go')}
-			</button>
+			{#if words.go}
+				<button
+					type="button"
+					class="pill go"
+					class:waiting={account.busy}
+					data-press="Enter"
+					{@attach unfocusable}
+				>
+					{words.go}
+				</button>
+			{/if}
 		</div>
-		{#if !touch.on}
-			<div class="keys">{registering ? t('account.register.keys') : t('account.login.keys')}</div>
+		{#if !touch.on && words.keys}
+			<div class="keys">{words.keys}</div>
 		{/if}
 	</div>
 </div>
@@ -228,6 +333,11 @@
 	   disabled box drops it, and the kid's next try would type into nothing). */
 	.box:read-only {
 		opacity: 0.6;
+	}
+	/* The welcome card's name: the account's own, shown clearly, never typed in. */
+	.box.fixed:read-only {
+		opacity: 1;
+		background: rgba(0, 0, 0, 0.05);
 	}
 	.reveal {
 		flex: none;

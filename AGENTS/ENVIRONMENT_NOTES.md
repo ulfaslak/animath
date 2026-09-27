@@ -34,7 +34,7 @@ Agents started by one orchestrator run under the same session id (`$CLAUDE_CODE_
 
 ## Server test runs in two worktrees share one test database
 
-Every worktree's server tests use the same `mathgame_test`, and each run's global setup truncates its tables first, so a run starting in another worktree empties them under yours (#100). On 2026-09-27 that made `account.test.ts` see two accounts made for one name (`[201, 201, 409, …]`), which the unique `name_key` forbids unless the first row was gone. A lone server failure where a test's own rows went missing is this, not your change: rerun it. Delete this entry in the PR that fixes #100.
+Every worktree's server tests use the same `mathgame_test`, and each run's global setup truncates its tables first, so a run starting in another worktree empties them under yours (#100). On 2026-09-27 that made `account.test.ts` see two accounts made for one name (`[201, 201, 409, …]`), which the unique `name_key` forbids unless the first row was gone. A lone server failure where a test's own rows went missing is this, not your change: rerun it. The shared database also holds every table any branch's migrations made: since `feat/welcome-link` added `welcome_tokens` (migration `0004`), a branch from before it whose global setup truncates a fixed list of tables fails there with "cannot truncate a table referenced in a foreign key constraint". Merge `origin/main` (whose setup truncates every table the database has), or run with `TEST_DATABASE_URL` naming a `…_test` database of your own. Delete this entry in the PR that fixes #100.
 
 ## The Postgres container's clock runs ~120 ms ahead of the host
 

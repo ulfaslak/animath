@@ -44,6 +44,22 @@ export type LoginResult =
 /** Who the session cookie belongs to: an account's name, or `null` for nobody. */
 export type WhoResult = { kind: 'user'; name: string | null } | { kind: 'offline' };
 
+/** A welcome link that logs nobody in: used up, too old, or no link at all. */
+export type WelcomeGone = 'used' | 'expired' | 'unknown';
+
+/** What a welcome link is, as the server says: whose (and only that), or why it won't do. */
+export type WelcomeLook =
+	{ kind: 'live'; name: string } | { kind: 'gone'; why: WelcomeGone } | { kind: 'offline' };
+
+export type WelcomeResult =
+	/** Logged in; `save` is the account's, for the browser to take (null with none). */
+	| { kind: 'welcomed'; name: string; save: unknown }
+	| { kind: 'gone'; why: WelcomeGone }
+	| { kind: 'bad-password'; reason: PasswordRefusal }
+	| { kind: 'too-many'; retryAfter: number }
+	| { kind: 'refused' }
+	| { kind: 'offline' };
+
 /** The server's error texts the game tells apart. */
 const ERRORS = {
 	badName: 'bad name',
@@ -52,8 +68,20 @@ const ERRORS = {
 	wrong: 'wrong name or password',
 	tooMany: 'too many tries',
 	notLoggedIn: 'not logged in',
-	noSave: 'no save yet'
+	noSave: 'no save yet',
+	linkUsed: 'link used',
+	linkExpired: 'link expired',
+	noLink: 'no such link'
 } as const;
+
+/** A spent welcome link, from the server's own answer: 410 used or expired, 404 no link. */
+function welcomeGone(res: { status: number; body: unknown }): WelcomeGone | null {
+	const error = errorOf(res.body);
+	if (res.status === 410 && error === ERRORS.linkUsed) return 'used';
+	if (res.status === 410 && error === ERRORS.linkExpired) return 'expired';
+	if (res.status === 404 && error === ERRORS.noLink) return 'unknown';
+	return null;
+}
 
 const NAME_REJECTIONS: readonly string[] = ['empty', 'short', 'long', 'chars', 'rude'];
 const PASSWORD_REFUSALS: readonly string[] = ['short', 'long'];
@@ -166,6 +194,58 @@ export async function login(name: string, password: string, base = '/api'): Prom
 		return { kind: 'too-many', retryAfter: retryAfter(res.body) };
 	}
 	if (res.status >= 400 && res.status < 500 && error !== undefined) return refused('a login', res);
+	return { kind: 'offline' };
+}
+
+/**
+ * Whose account the welcome link with `token` opens, or why it opens none
+ * (the server names the account of a live link only).
+ */
+export async function lookAtWelcome(token: string, base = '/api'): Promise<WelcomeLook> {
+	const res = await send(`${base}/account/welcome/${encodeURIComponent(token)}`, {});
+	if (!res) return { kind: 'offline' };
+	const name = field(res.body, 'name');
+	if (res.status === 200 && typeof name === 'string' && name !== '') return { kind: 'live', name };
+	const gone = welcomeGone(res);
+	return gone ? { kind: 'gone', why: gone } : { kind: 'offline' };
+}
+
+/**
+ * Pick `password` for the account the welcome link with `token` opens, which
+ * uses the link up and logs this browser in to it; the account's save comes
+ * back for the browser to take.
+ */
+export async function acceptWelcome(
+	token: string,
+	password: string,
+	base = '/api'
+): Promise<WelcomeResult> {
+	const res = await post(`${base}/account/welcome`, { token, password });
+	if (!res) return { kind: 'offline' };
+	const error = errorOf(res.body);
+	const reason = field(res.body, 'reason');
+	if (res.status === 200) {
+		const kept = userName(res.body);
+		const save = field(res.body, 'save');
+		return kept === null || save === undefined
+			? { kind: 'offline' }
+			: { kind: 'welcomed', name: kept, save };
+	}
+	const gone = welcomeGone(res);
+	if (gone) return { kind: 'gone', why: gone };
+	if (
+		res.status === 400 &&
+		error === ERRORS.badPassword &&
+		PASSWORD_REFUSALS.includes(reason as string)
+	) {
+		return { kind: 'bad-password', reason: reason as PasswordRefusal };
+	}
+	if (res.status === 429 && error === ERRORS.tooMany) {
+		return { kind: 'too-many', retryAfter: retryAfter(res.body) };
+	}
+	if (res.status >= 400 && res.status < 500 && error !== undefined) {
+		return refused('a welcome link', res);
+	}
 	return { kind: 'offline' };
 }
 

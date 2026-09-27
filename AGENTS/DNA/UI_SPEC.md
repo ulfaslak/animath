@@ -237,7 +237,7 @@ Escape in explore opens it; never in a battle (Escape there does nothing) or at 
 
 ## Accounts
 
-An account is optional ([[DECISIONS]] § Accounts): a guest plays on, and three ways lead to one.
+An account is optional ([[DECISIONS]] § Accounts): a guest plays on, and three ways lead to one. A fourth, the welcome link, opens one a grown-up made for a game brought over from another computer.
 
 ```
 ┌──────────────────────────────────────────┐
@@ -258,6 +258,24 @@ An account is optional ([[DECISIONS]] § Accounts): a guest plays on, and three 
 - **Another device got further** in the account's game: the page takes the newer game (its own is kept aside), starts again in it, and says "You played on somewhere else. Here's your newest game!".
 - **A save a newer version wrote**, on the server: as any page that meets one, the page takes no play and reloads, which fetches the new version, at most 3 times a minute; then the behind card, "A new version of the game is ready." with "Update!" ("Tap to update!" on a touch screen), and, for a player logged in, "Log out" (Escape) beside it, a quieter pill: the way on while the new version is not there yet (a deploy half done, or rolled back), into the guest game. Nothing is written over, in the browser or on the server. A save no version could read is saved past once the kid has played, and kept aside on the server.
 - **The server out of reach**: nothing is said; the game saves in the browser and sends it on when it can. The server saying the session is over (a new password, a year away) is said once, on the title or the message line: "You're logged out, so your game only saves on this device. Log in to keep it safe."
+- **The welcome card**, for a game a grown-up brought over from another computer ([[DECISIONS]] § Accounts). A page opened by a welcome link (`/?welcome=<token>`; the token leaves the address at once, so a reload or Not now drops it from that page, and opening the link again brings the card back) starts on the title, the game this browser plays behind it, with the account card over it:
+
+  ```
+  ┌──────────────────────────────────────────┐
+  │           Welcome back, Aslak!           │
+  │ Your animals are waiting. Pick a secret  │
+  │                password.                 │
+  │  Your name                               │
+  │  [ Aslak                               ] │
+  │  Secret password                         │
+  │  [ ••••••••                  ] ( Show )  │
+  │  At least 4 letters or numbers.          │
+  │       ( Not now )   ( Let's play! )      │
+  │        Enter play · Esc not now          │
+  └──────────────────────────────────────────┘
+  ```
+
+  While the server is asked about the link: "Welcome back!" and "Just a moment…", with Not now. A live link: the account's name in its box, shown and never typed (Tab stays in the password), the password with **Show**, the rule, **Not now** (Escape: the title) and **Let's play!** (Enter, after the quiet moment). The password is checked by the engine's rule first; then the page starts again, straight into the account's game where it was, "Welcome back, Aslak!", and a guest's game in this browser stays where it is. A link that works no more says so, with no boxes: "This link has been used already" (then "Log in with your name and your secret password."), "This link is too old now" or "This link doesn't work" (then "Ask a grown-up for a new one."), with **Play as a guest** (Escape; "Play as Nini" in a browser logged in already) and **Log in** (Enter or Space, after the quiet moment: the login card). No answer from the server: "We can't reach the game's home right now. Try again soon!" with Not now and **Try again**. A link used meanwhile (in another tab) turns the card to "used" when the password is sent.
 - It holds at 1280×720, 1024×768, and 1180×820 with the touch controls on, in both languages.
 
 ## Sound and juice

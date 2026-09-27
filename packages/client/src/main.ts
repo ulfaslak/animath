@@ -11,6 +11,7 @@ import { AccountController } from './account/controller';
 import { PLAY_HOUR_MS, PlayClock } from './account/playtime';
 import { noteNextStart, restartWith, takeAccountNote } from './account/restart';
 import { currentAccount, forgetLogout, gameKeys, logoutPending } from './account/session';
+import { takeWelcomeToken } from './account/welcome';
 import { sfx } from './audio/sfx.svelte';
 import { LocalAuthority, mintId } from './authority/local';
 import { BattleController } from './battle/controller';
@@ -51,6 +52,10 @@ import { travel } from './state/travel.svelte';
 import { TitleController } from './title/controller';
 import { TravelController } from './travel/controller';
 import App from './ui/App.svelte';
+
+// A welcome link's token leaves the address before anything else runs (`account/welcome.ts`):
+// it logs in to an account once, and is kept in memory only.
+const welcomeToken = takeWelcomeToken();
 
 const canvas = document.getElementById('game') as HTMLCanvasElement;
 const uiRoot = document.getElementById('ui') as HTMLElement;
@@ -284,7 +289,7 @@ function noteScreen(): void {
 			: touch.on && touch.portrait
 				? 'portrait'
 				: account.card !== null
-					? `account:${account.card}`
+					? `account:${account.card}:${account.card === 'welcome' ? account.welcome.phase : ''}`
 					: account.prompt
 						? 'prompt'
 						: title.open
@@ -538,6 +543,13 @@ void autosave.boot().then((plan) => {
 	// not even the title. The page reloads for the new version, or its card says so.
 	if (autosave.behind !== null) return;
 	startNotice = plan.notice;
+	// A welcome link: the title, with the game this browser plays behind the welcome card, which
+	// asks whose account the link opens and takes the password the kid picks for it.
+	if (welcomeToken !== null) {
+		titleController.open(plan.game ?? null, autosave.titleNotice, autosave.keeps);
+		accountController.openWelcome(welcomeToken);
+		return;
+	}
 	// Just logged out: the title, saying so, with the guest game if there is one.
 	if (accountNote === 'loggedOut') {
 		titleController.open(plan.game ?? null, 'save.loggedOut', autosave.keeps);

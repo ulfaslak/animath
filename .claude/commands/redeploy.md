@@ -163,3 +163,5 @@ docker compose -f docker-compose.prod.yml exec app node dist/admin.mjs list
 docker compose -f docker-compose.prod.yml exec app node dist/admin.mjs reset-password <name> [password]
 docker compose -f docker-compose.prod.yml exec app node dist/admin.mjs delete-account <name> [--yes]
 ```
+
+**Moving a kid's game here** from the server it was played on before (the tunnel's, on the Mac): export it there and pipe it into `import-save` here, which makes his account with no password and prints a one-time welcome link for him. The exact commands, from the Mac over SSH, are [[DEVELOPMENT]] § Moving a kid's game to production. The link is his key until he uses it: hand it to the human, and never print it into a PR, an issue or a log.
