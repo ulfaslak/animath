@@ -110,6 +110,27 @@ export const accountSaves = pgTable('account_saves', {
 });
 
 /**
+ * One-time welcome links (`welcome.ts`): an account the admin made for a kid
+ * whose game moved here (`admin import-save`) has no password until the kid
+ * picks one through its link. The link's token is random; only its SHA-256
+ * hash is stored, as a session's is. A link works once (`used_at`), until
+ * `expires_at`, and only while its account has no password.
+ */
+export const welcomeTokens = pgTable(
+	'welcome_tokens',
+	{
+		tokenHash: text('token_hash').primaryKey(),
+		userId: uuid('user_id')
+			.notNull()
+			.references(() => users.id, { onDelete: 'cascade' }),
+		createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+		expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+		usedAt: timestamp('used_at', { withTimezone: true })
+	},
+	(t) => [index('welcome_tokens_user_id_idx').on(t.userId)]
+);
+
+/**
  * An account's saves the server was about to lose, as `save_backups` keeps the
  * anonymous backup's: one replaced by a different game (a New game on the
  * title), or one this build could not read. Nothing reads it; it is there to

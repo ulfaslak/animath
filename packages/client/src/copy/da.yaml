@@ -816,6 +816,27 @@ account:
     saved: 'Dit spil er gemt! Log ind som {name} på en hvilken som helst tablet eller computer.'
     welcome: 'Velkommen tilbage, {name}!'
     movedAhead: Du har spillet videre et andet sted. Her er dit nyeste spil!
+  welcome:
+    checking: Velkommen tilbage!
+    title: 'Velkommen tilbage, {name}!'
+    text: Dine dyr venter på dig. Vælg en hemmelig kode.
+    go: Lad os spille!
+    later: Ikke nu
+    keys: Enter spil · Esc ikke nu
+    used: Linket er allerede brugt
+    usedText: Log ind med dit navn og din hemmelige kode.
+    expired: Linket er for gammelt nu
+    expiredText: Spørg en voksen om et nyt.
+    unknown: Linket virker ikke
+    unknownText: Spørg en voksen om et nyt.
+    logIn: Log ind
+    guest: Spil som gæst
+    playAs: 'Spil som {name}'
+    goneKeys: Enter log ind · Esc spil
+    playKeys: Esc spil
+    retry: Prøv igen
+    retryKeys: Enter prøv igen · Esc ikke nu
+    storage: 'Denne browser kan ikke huske dig. Åbn linket på en anden tablet eller computer.'
 
 sound:
   # The chip at the top of the screen after M turned the sound on or off.

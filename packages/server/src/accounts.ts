@@ -3,6 +3,7 @@ import { eq, getTableName, sql } from 'drizzle-orm';
 import type { QueryConfig } from 'pg';
 import { db, pool } from './db/index.js';
 import { accountSaveBackups, accountSaves, sessions, users } from './db/schema.js';
+import { NO_PASSWORD } from './passwords.js';
 import { createSession } from './sessions.js';
 
 /**
@@ -151,7 +152,7 @@ export async function findUser(key: string): Promise<UserRow | null> {
 }
 
 /** Postgres' unique-violation code, however the driver wraps the error. */
-function isUniqueViolation(error: unknown): boolean {
+export function isUniqueViolation(error: unknown): boolean {
 	for (let e: unknown = error; e && typeof e === 'object'; e = (e as { cause?: unknown }).cause) {
 		if ((e as { code?: unknown }).code === '23505') return true;
 	}
@@ -214,6 +215,8 @@ export async function deleteUser(userId: string): Promise<boolean> {
 export interface AccountSummary {
 	name: string;
 	createdAt: Date;
+	/** False for an account waiting for its welcome link (`welcome.ts`). */
+	hasPassword: boolean;
 	sessions: number;
 	/** The save's `seq`, or null with no save. */
 	seq: number | null;
@@ -226,6 +229,7 @@ export async function listAccounts(): Promise<AccountSummary[]> {
 		.select({
 			name: users.name,
 			createdAt: users.createdAt,
+			hasPassword: sql<boolean>`${users.passwordHash} <> ${NO_PASSWORD}`,
 			sessions: sql<number>`(select count(*)::int from ${sessions} where ${sessions.userId} = ${users.id} and ${sessions.expiresAt} > now())`,
 			seq: accountSaves.seq,
 			savedAt: accountSaves.updatedAt

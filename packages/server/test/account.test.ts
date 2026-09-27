@@ -44,7 +44,8 @@ const NO_LIMITS: AccountLimits = {
 	loginFailuresPerName: ROOMY,
 	registerPerIp: ROOMY,
 	registerPerName: ROOMY,
-	savesPerAccount: ROOMY
+	savesPerAccount: ROOMY,
+	welcomePerIp: ROOMY
 };
 
 const app = createApp({ limits: NO_LIMITS });
@@ -885,7 +886,8 @@ describe('rate limits', () => {
 		loginFailuresPerName: { limit: 5, windowMs: 60_000, maxKeys: 100 },
 		registerPerIp: { limit: 4, windowMs: 60_000, maxKeys: 100 },
 		registerPerName: { limit: 2, windowMs: 60_000, maxKeys: 100 },
-		savesPerAccount: { limit: 3, windowMs: 60_000, maxKeys: 100 }
+		savesPerAccount: { limit: 3, windowMs: 60_000, maxKeys: 100 },
+		welcomePerIp: { limit: 3, windowMs: 60_000, maxKeys: 100 }
 	};
 	let address = 0;
 	/** A browser at an address no other browser in these tests has, or at `ip`. */
