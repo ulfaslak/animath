@@ -92,7 +92,7 @@
 		display: flex;
 		flex-direction: column;
 		align-items: center;
-		gap: 6px;
+		gap: 4px;
 		align-self: stretch;
 		min-width: 0;
 	}
@@ -107,10 +107,10 @@
 		gap: 6px 12px;
 		max-width: 100%;
 	}
+	/* A name in a box that ends it with "…" keeps the font's own line height: a tighter one cuts the ring off an Å (DESIGN § Typography). */
 	.title {
 		font-weight: 800;
-		font-size: 28px;
-		line-height: 1.15;
+		font-size: 26px;
 		min-width: 0;
 		overflow: hidden;
 		text-overflow: ellipsis;
