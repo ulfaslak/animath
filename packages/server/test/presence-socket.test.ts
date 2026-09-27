@@ -546,5 +546,7 @@ describe('presence socket under attack', () => {
 		expect(await fetch(`http://127.0.0.1:${port}/`).then((r) => r.status)).toBe(404);
 		await roundTrip(ada);
 		expect(ada.ws.readyState).toBe(WebSocket.OPEN);
-	});
+		// About 0.3 s alone (180 upgrades, each reset as it is refused); 2.6 s beside the rest of
+		// the server's tests at a load average of 50 to 72.
+	}, 30_000);
 });
