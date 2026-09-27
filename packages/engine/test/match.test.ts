@@ -161,10 +161,11 @@ describe('matchTeam', () => {
 
 	it('cleans only its own team’s nicknames, so the text in entries it passes over costs nothing', () => {
 		// The server calls it on whatever a client sent. With every entry's
-		// nickname cleaned, these 5,000 sea animals with 1,000-letter accented
-		// nicknames took about 2 s; checked for shape only, a few milliseconds.
-		const nickname = 'é'.repeat(500);
-		const sent = Array.from({ length: 5000 }, (_, i) => ({
+		// nickname cleaned, 5,000 sea animals with 1,000-character accented
+		// nicknames took 0.6 s; these 15,000 take a few milliseconds, checked for
+		// shape only.
+		const nickname = 'e\u0301'.repeat(500);
+		const sent = Array.from({ length: 15_000 }, (_, i) => ({
 			id: `c${i}`,
 			speciesId: 'crab',
 			hp: 1,
