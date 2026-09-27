@@ -667,8 +667,6 @@ save:
   welcomeBack: Welcome back!
   # The saved game could not be read. It is kept aside; this is a new game.
   couldNotLoad: Your saved game didn't load, so here is a new one.
-  # The saved game was written by a newer version of the game than this page.
-  newerGame: Your game was saved by a newer Animath. Reload the page to play it!
   # The browser will not let the page store anything, so nothing is saved.
   cannotSave: This browser can't keep your game, so it starts new every time.
   # On the title, after writing the save failed (the browser's storage is full).
@@ -685,6 +683,14 @@ save:
   behindGone: A new game is ready.
   # The button on that card.
   behindGo: Get your newest game
+  # The same card when a newer version of the game saved the game (in another tab, or
+  # on the server) and this page is still the old version: it takes no play, and a
+  # reload fetches the new one. Shown when the page may not reload by itself.
+  behindNewer: A new version of the game is ready.
+  # The button on that card, with the Enter key beside it.
+  behindUpdate: Update!
+  # The same button on a touch screen.
+  behindUpdateTouch: Tap to update!
 
 sound:
   # The chip at the top of the screen after M turned the sound on or off.
@@ -712,7 +718,7 @@ title:
   confirm:
     title: Start a new game?
     away: Your game with {animal.the} is put away safely.
-    # Instead of `away`, on a page that keeps nothing (no storage, or a newer build's save waiting).
+    # Instead of `away`, on a page that keeps nothing (no storage, or a write that failed).
     notKept: Your game with {animal.the} can't be kept on this page.
     fresh: You start again with a new animal.
     back: No, go back

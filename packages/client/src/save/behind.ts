@@ -13,7 +13,13 @@ export type BehindCause =
 	/** The save holds another game now: this page, or another, took a bigger one from the server. */
 	| 'replaced'
 	/** The save was removed from under the page (site data cleared). */
-	| 'gone';
+	| 'gone'
+	/**
+	 * A newer version of the game saved the game (in this browser or on the
+	 * server), and this page's build cannot read it: a reload fetches the new
+	 * version. Nothing here ever writes over that save.
+	 */
+	| 'newer';
 
 /** What a page does this frame. */
 export type BehindAction =
@@ -39,8 +45,9 @@ export interface PageState {
 /**
  * Behind another window, a page reloads only when it is the window in use:
  * one on screen while the kid plays in the other waits for them, with the
- * card. Another game in its place, or none, is not the kid playing
- * elsewhere, and happens once: the page catches up as soon as it is on screen.
+ * card. Another game in its place, or none, or a newer version's save, is not
+ * the kid playing elsewhere, and happens once: the page catches up as soon as
+ * it is on screen.
  */
 export function behindAction(page: PageState): BehindAction {
 	if (page.behind === null) return 'play';
