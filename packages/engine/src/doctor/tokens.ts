@@ -1,5 +1,6 @@
 import { getAnimal } from '../animals/catalog.js';
 import type { AnimalInstance } from '../animals/types.js';
+import { facePrompt } from '../puzzles/face.js';
 import { ADD_BAND } from '../puzzles/generators/arithmetic.js';
 import type { Puzzle } from '../puzzles/types.js';
 
@@ -50,6 +51,11 @@ export function tokenPuzzle(balance: number, change: number): Puzzle {
 	const band = ADD_BAND.findIndex(([, hi]) => biggest <= hi);
 	const difficulty = band === -1 ? ADD_BAND.length : band + 1;
 	return change > 0
-		? { kind: 'add', difficulty, prompt: `${balance} + ${change} = ?`, answer }
-		: { kind: 'sub', difficulty, prompt: `${balance} − ${-change} = ?`, answer };
+		? { kind: 'add', difficulty, prompt: facePrompt({ kind: 'add', numbers: [balance, change] }), answer }
+		: {
+				kind: 'sub',
+				difficulty,
+				prompt: facePrompt({ kind: 'sub', numbers: [balance, -change] }),
+				answer
+			};
 }

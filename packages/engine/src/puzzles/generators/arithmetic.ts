@@ -1,4 +1,5 @@
 import type { Rng } from '../../rng.js';
+import { facePrompt } from '../face.js';
 import type { Puzzle, PuzzleGenerator } from '../types.js';
 
 /**
@@ -77,7 +78,7 @@ export const add: PuzzleGenerator = {
 		const b = band(ADD_BAND, difficulty);
 		const x = draw(rng, b);
 		const y = draw(rng, b);
-		return { kind: 'add', difficulty, prompt: `${x} + ${y} = ?`, answer: x + y };
+		return { kind: 'add', difficulty, prompt: facePrompt({ kind: 'add', numbers: [x, y] }), answer: x + y };
 	}
 };
 
@@ -91,7 +92,7 @@ export const sub: PuzzleGenerator = {
 		const b = band(ADD_BAND, difficulty);
 		const x = draw(rng, b);
 		const y = draw(rng, b);
-		return { kind: 'sub', difficulty, prompt: `${x + y} − ${x} = ?`, answer: y };
+		return { kind: 'sub', difficulty, prompt: facePrompt({ kind: 'sub', numbers: [x + y, x] }), answer: y };
 	}
 };
 
@@ -103,7 +104,12 @@ export const mul: PuzzleGenerator = {
 	generate(rng: Rng, difficulty: number): Puzzle {
 		const big = draw(rng, band(MUL_BIG_BAND, difficulty));
 		const small = draw(rng, band(MUL_SMALL_BAND, difficulty));
-		return { kind: 'mul', difficulty, prompt: `${big} × ${small} = ?`, answer: big * small };
+		return {
+			kind: 'mul',
+			difficulty,
+			prompt: facePrompt({ kind: 'mul', numbers: [big, small] }),
+			answer: big * small
+		};
 	}
 };
 
@@ -119,7 +125,7 @@ export const div: PuzzleGenerator = {
 		return {
 			kind: 'div',
 			difficulty,
-			prompt: `${big * small} ÷ ${small} = ?`,
+			prompt: facePrompt({ kind: 'div', numbers: [big * small, small] }),
 			answer: big
 		};
 	}
@@ -145,7 +151,7 @@ export const missing: PuzzleGenerator = {
 			return {
 				kind: 'missing',
 				difficulty,
-				prompt: `${x} + ? = ${x + answer}`,
+				prompt: facePrompt({ kind: 'missing', numbers: [x, x + answer] }),
 				answer
 			};
 		}
@@ -154,7 +160,7 @@ export const missing: PuzzleGenerator = {
 		return {
 			kind: 'missing',
 			difficulty,
-			prompt: `${small} × ? = ${small * answer}`,
+			prompt: facePrompt({ kind: 'missing', numbers: [small, small * answer], times: true }),
 			answer
 		};
 	}
