@@ -100,7 +100,7 @@ From the primary clone: `./scripts/install-backup-sync.sh`. It installs the laun
 
 ## Deploy
 
-Every push to main deploys itself ([[DEVELOPMENT]] § Deployment). Watch a run with `gh run watch`. When main is ahead of prod (a merge with `[skip deploy]`, or a failed run), `gh workflow run deploy.yml` builds and deploys main's tip.
+Every push to main deploys itself ([[DEVELOPMENT]] § Deployment). Watch a run with `gh run watch`. A run that stops at `!! nginx refused the new config` left nginx serving with the config it had: `logs nginx` says why, in an `[emerg]` line. When main is ahead of prod (a merge with `[skip deploy]`, or a failed run), `gh workflow run deploy.yml` builds and deploys main's tip.
 
 ## Roll back
 
