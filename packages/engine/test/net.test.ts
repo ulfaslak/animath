@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { ANIMALS } from '../src/animals/catalog.js';
+import { ANIMALS, canFightIn, getAnimal } from '../src/animals/catalog.js';
+import { applyMatchIntent, startMatch } from '../src/match/reducer.js';
+import { MATCH_TEAM_SIZE, matchTeam } from '../src/match/team.js';
+import type { MatchIntent, MatchSide } from '../src/match/types.js';
+import { matchView } from '../src/match/view.js';
 import {
 	VIEW_KEEP,
 	VIEW_RADIUS,
@@ -21,6 +25,8 @@ import {
 	MAX_WIRE_NAME,
 	PROTOCOL_VERSION,
 	REFRESH_CLOSE_CODE,
+	INVITE_ENDS,
+	MATCH_TIMEOUTS,
 	byeCloseCode,
 	byeReasonOf,
 	helloVersion,
@@ -28,8 +34,12 @@ import {
 	parseServerMessage,
 	readWire,
 	type ClientMessage,
+	type MatchMessage,
+	type PlayIntent,
 	type RosterEntry,
-	type ServerMessage
+	type ServerMessage,
+	type WireAnimal,
+	type WireMatchEvent
 } from '../src/net/protocol.js';
 import { Rng } from '../src/rng.js';
 
@@ -44,9 +54,36 @@ const pick = <T>(rng: Rng, list: readonly T[]): T => list[rng.int(0, list.length
 const coord = (rng: Rng) =>
 	pick(rng, [0, -1, 5, -MAX_WIRE_COORD, MAX_WIRE_COORD, rng.int(-9999, 9999)]);
 const names = ['Ada', 'Bo', 'Åse Ørum', 'Zoë-Li', 'x'.repeat(MAX_WIRE_NAME), '李小龙', '🦊fox'];
+const LAND = ANIMALS.filter((a) => canFightIn(a.id, 'land')).map((a) => a.id);
+const NICKNAMES = [undefined, 'Nini', 'Pip', 'Mr. Wu', "O'Hara", 'Bjørn-Åge', 'WWWWWWWWWWWW'];
+
+/** A team a page may send: one to three animals, ids as long as a save keeps, maybe nicknamed. */
+function randomTeam(rng: Rng): WireAnimal[] {
+	return Array.from({ length: rng.int(1, MATCH_TEAM_SIZE) }, (_, i) => {
+		const nickname = pick(rng, NICKNAMES);
+		const id = `${pick(rng, ['starter', 'id', 'x'.repeat(62)])}-${i}`;
+		const speciesId = pick(rng, LAND);
+		return nickname === undefined ? { id, speciesId } : { id, speciesId, nickname };
+	});
+}
+
+function randomPlay(rng: Rng): PlayIntent {
+	switch (rng.int(0, 4)) {
+		case 0:
+			return { type: 'attack', attackIndex: rng.int(1, 4), level: pick(rng, [1, 2, 3] as const) };
+		case 1:
+			return { type: 'answer', input: pick(rng, ['', '7', '-12', '0042', 'abc', '1234567']) };
+		case 2:
+			return { type: 'switch', teamIndex: rng.int(0, 2) };
+		case 3:
+			return { type: 'pick-next', teamIndex: rng.int(0, 2) };
+		default:
+			return { type: 'leave' };
+	}
+}
 
 function randomClient(rng: Rng): ClientMessage {
-	switch (rng.int(0, 2)) {
+	switch (rng.int(0, 9)) {
 		case 0:
 			return { t: 'hello', v: PROTOCOL_VERSION, guest: token(rng, 16, 64), name: pick(rng, names) };
 		case 1:
@@ -60,9 +97,80 @@ function randomClient(rng: Rng): ClientMessage {
 				boat: rng.chance(0.5),
 				busy: pick(rng, BUSY_STATES)
 			};
-		default:
+		case 2:
 			return { t: 'find', pid: token(rng, 6, 32) };
+		case 3:
+			return { t: 'challenge', pid: token(rng, 6, 32), team: randomTeam(rng) };
+		case 4:
+			return { t: 'withdraw' };
+		case 5:
+			return { t: 'accept', pid: token(rng, 6, 32), team: randomTeam(rng) };
+		case 6:
+			return { t: 'decline', pid: token(rng, 6, 32) };
+		case 7:
+			return { t: 'play', id: token(rng, 6, 32), intent: randomPlay(rng) };
+		case 8:
+			return { t: 'here', id: token(rng, 6, 32) };
+		default:
+			return { t: 'rematch', id: token(rng, 6, 32), team: randomTeam(rng) };
 	}
+}
+
+/**
+ * A match message as the server sends one: a real match between two random
+ * teams, played for a few random intents (right and wrong answers, switches,
+ * picks, leaving), seen from one side, with the events of its last step.
+ */
+function randomMatchMessage(rng: Rng): MatchMessage {
+	const party = () =>
+		Array.from({ length: rng.int(1, 4) }, (_, i) => {
+			const speciesId = pick(rng, LAND);
+			const nickname = pick(rng, NICKNAMES);
+			// Unique within the party: a save never repeats an id.
+			const id = `${pick(rng, ['starter', 'id', 'x'.repeat(62)])}-${i}`;
+			return nickname === undefined ? { id, speciesId, hp: 1 } : { id, speciesId, nickname, hp: 1 };
+		});
+	const seed = rng.int(0, 2 ** 31);
+	let state = startMatch({ a: party(), b: party() }, seed);
+	let events: WireMatchEvent[] = [];
+	const steps = rng.int(0, 12);
+	for (let i = 0; i < steps && state.phase.kind !== 'ended'; i++) {
+		const phase = state.phase;
+		const side: MatchSide = phase.side;
+		let intent: MatchIntent;
+		if (phase.kind === 'solving') {
+			const right = String(phase.puzzle.answer);
+			intent = { type: 'answer', input: rng.chance(0.7) ? right : right + '1' };
+		} else if (phase.kind === 'choose-animal' || rng.chance(0.2)) {
+			intent = {
+				type: phase.kind === 'choose-animal' ? 'pick-next' : 'switch',
+				teamIndex: rng.int(0, 2)
+			};
+		} else if (rng.chance(0.03)) {
+			intent = { type: pick(rng, ['leave', 'timeout'] as const) };
+		} else {
+			const attacks = getAnimal(state.teams[side][state.active[side]]!.speciesId).attacks.length;
+			intent = {
+				type: 'attack',
+				attackIndex: rng.int(1, attacks),
+				level: pick(rng, [1, 2, 3] as const)
+			};
+		}
+		const step = applyMatchIntent(state, side, intent, seed);
+		state = step.state;
+		events = step.events.filter((e): e is WireMatchEvent => e.type !== 'rejected');
+	}
+	const side = pick(rng, ['a', 'b'] as const);
+	return {
+		t: 'match',
+		id: token(rng, 6, 32),
+		pids: { a: token(rng, 6, 32), b: token(rng, 6, 32) },
+		names: { a: pick(rng, names), b: pick(rng, names) },
+		view: matchView(state, side),
+		events,
+		away: rng.chance(0.3) ? { side: pick(rng, ['a', 'b'] as const), ms: rng.int(0, 30_000) } : null,
+		timeout: rng.chance(0.3) ? pick(rng, MATCH_TIMEOUTS) : null
+	};
 }
 
 function randomEntry(rng: Rng): RosterEntry {
@@ -77,9 +185,15 @@ function randomEntry(rng: Rng): RosterEntry {
 
 function randomServer(rng: Rng): ServerMessage {
 	const pid = token(rng, 6, 32);
-	switch (rng.int(0, 7)) {
+	switch (rng.int(0, 14)) {
 		case 0:
-			return { t: 'hi', v: PROTOCOL_VERSION, pid, name: pick(rng, names) };
+			return {
+				t: 'hi',
+				v: PROTOCOL_VERSION,
+				pid,
+				name: pick(rng, names),
+				match: rng.chance(0.5) ? token(rng, 6, 32) : null
+			};
 		case 1:
 			return { t: 'refresh', v: rng.int(0, 99) };
 		case 2:
@@ -106,8 +220,27 @@ function randomServer(rng: Rng): ServerMessage {
 			return { t: 'found', pid, x: coord(rng), y: coord(rng) };
 		case 6:
 			return { t: 'lost', pid };
-		default:
+		case 7:
 			return { t: 'bye', reason: pick(rng, BYE_REASONS) };
+		case 8:
+			return { t: 'invite', pid, name: pick(rng, names), ms: rng.int(0, 20_000) };
+		case 9:
+			return { t: 'asking', pid, ms: rng.int(0, 20_000) };
+		case 10:
+			return { t: 'uninvite', pid, reason: pick(rng, INVITE_ENDS) };
+		case 11:
+			return randomMatchMessage(rng);
+		case 12:
+			return { t: 'rejected', id: token(rng, 6, 32), reason: 'not-your-turn' };
+		case 13:
+			return { t: 'nudge', id: token(rng, 6, 32) };
+		default:
+			return {
+				t: 'rematch-wish',
+				id: token(rng, 6, 32),
+				side: pick(rng, ['a', 'b'] as const),
+				yes: rng.chance(0.5)
+			};
 	}
 }
 
@@ -161,8 +294,10 @@ describe('the wire protocol', () => {
 			] as const) {
 				for (const key of Object.keys(msg)) {
 					for (const junk of JUNK) {
-						// Nobody else in the world is an empty roster, which is fine.
-						if (key === 'players' && Array.isArray(junk) && junk.length === 0) continue;
+						// Nobody else in the world is an empty roster, and a match message
+						// with no events (a start, a resume) is one too, which is fine.
+						const empty = Array.isArray(junk) && junk.length === 0;
+						if ((key === 'players' || key === 'events') && empty) continue;
 						if (parse({ ...msg, [key]: junk }) !== null) {
 							through.push(`${String(msg.t)}.${key} = ${String(junk)}`);
 						}
@@ -318,6 +453,143 @@ describe('the wire protocol', () => {
 		expect(readWire(JSON.stringify(long), MAX_SERVER_MESSAGE_BYTES)).toEqual(long);
 		const tooLong = { t: 'x', pad: 'y'.repeat(MAX_SERVER_MESSAGE_BYTES) };
 		expect(readWire(JSON.stringify(tooLong), MAX_SERVER_MESSAGE_BYTES)).toBeUndefined();
+	});
+});
+
+/** Every path to a value in `value`, objects and arrays walked into. */
+function leafPaths(value: unknown, path: (string | number)[] = []): (string | number)[][] {
+	if (Array.isArray(value)) return value.flatMap((v, i) => leafPaths(v, [...path, i]));
+	if (value !== null && typeof value === 'object') {
+		return Object.entries(value).flatMap(([k, v]) => [
+			...(v !== null && typeof v === 'object' ? [[...path, k]] : []),
+			...leafPaths(v, [...path, k])
+		]);
+	}
+	return [path];
+}
+
+function withAt(value: unknown, path: (string | number)[], replacement: unknown): unknown {
+	const copy = structuredClone(value) as Record<string | number, unknown>;
+	let at = copy;
+	for (const step of path.slice(0, -1)) at = at[step] as Record<string | number, unknown>;
+	const last = path[path.length - 1]!;
+	if (replacement === DELETE) delete at[last];
+	else at[last] = replacement;
+	return copy;
+}
+const DELETE = Symbol('delete');
+
+describe('friendly matches on the wire', () => {
+	it('reads back every match message a real match makes, and each fits what a page reads', () => {
+		const rng = new Rng(11);
+		let biggest = 0;
+		for (let i = 0; i < 400; i++) {
+			const message = randomMatchMessage(rng);
+			const text = JSON.stringify(message);
+			expect(parseServerMessage(readWire(text, MAX_SERVER_MESSAGE_BYTES))).toEqual(message);
+			biggest = Math.max(biggest, new TextEncoder().encode(text).length);
+		}
+		// Names and nicknames as long as the wire takes, four bytes a character:
+		// still far inside what a page reads.
+		const long = randomMatchMessage(new Rng(12));
+		long.names = { a: '𝓐'.repeat(MAX_WIRE_NAME / 2), b: '𝓑'.repeat(MAX_WIRE_NAME / 2) };
+		for (const side of ['a', 'b'] as const) {
+			long.view.teams[side].forEach((animal, i) => {
+				(animal as { nickname?: string }).nickname = '𝓦'.repeat(32);
+				(animal as { id: string }).id = `${side}:${'x'.repeat(63)}${i}`;
+			});
+		}
+		const bytes = new TextEncoder().encode(JSON.stringify(long)).length;
+		expect(parseServerMessage(long)).toEqual(long);
+		expect(Math.max(biggest, bytes)).toBeLessThan(MAX_SERVER_MESSAGE_BYTES / 2);
+	});
+
+	it('refuses a match message with anything inside it swapped for junk, or missing', () => {
+		const rng = new Rng(13);
+		const through: string[] = [];
+		for (let i = 0; i < 20; i++) {
+			// One copy, changed in place and put back after each try: no copy per try.
+			const message = JSON.parse(JSON.stringify(randomMatchMessage(rng))) as Record<
+				string,
+				unknown
+			>;
+			for (const path of leafPaths(message)) {
+				const where = path.join('.');
+				let parent = message as Record<string | number, unknown>;
+				for (const step of path.slice(0, -1))
+					parent = parent[step] as Record<string | number, unknown>;
+				const key = path[path.length - 1]!;
+				const original = parent[key];
+				// A nickname is the one field that may be missing; an empty list of events
+				// is a whole message too (a start, a resume).
+				const optional = key === 'nickname';
+				for (const junk of [...JUNK, DELETE]) {
+					if ((junk === undefined || junk === DELETE) && optional) continue;
+					if (where === 'events' && Array.isArray(junk) && junk.length === 0) continue;
+					if (junk === DELETE) delete parent[key];
+					else parent[key] = junk;
+					if (parseServerMessage(message) !== null) through.push(`${where} = ${String(junk)}`);
+				}
+				parent[key] = original;
+			}
+		}
+		expect(through.slice(0, 20)).toEqual([]);
+	});
+
+	it('refuses a view whose animal in front is not on its team, HP past its most, or a puzzle kind it does not know', () => {
+		const message = randomMatchMessage(new Rng(14));
+		const team = message.view.teams.a;
+		const species = team[0]!.speciesId;
+		const bad = [
+			withAt(message, ['view', 'active', 'a'], team.length),
+			withAt(message, ['view', 'teams', 'a', 0, 'hp'], getAnimal(species).maxHp + 1),
+			withAt(message, ['view', 'teams', 'a', 0, 'speciesId'], 'dragon'),
+			withAt(message, ['view', 'teams', 'b'], []),
+			withAt(message, ['view', 'phase'], {
+				kind: 'solving',
+				side: 'a',
+				attackIndex: 1,
+				level: 1,
+				puzzle: { kind: 'calculus', difficulty: 1, prompt: '1 + 1 = ?' }
+			}),
+			withAt(message, ['view', 'phase'], { kind: 'ended', winner: 'a', reason: 'draw' }),
+			withAt(
+				message,
+				['events'],
+				Array.from({ length: 17 }, () => ({ type: 'ended', winner: 'a', reason: 'left' }))
+			)
+		];
+		for (const value of bad) expect(parseServerMessage(value)).toBeNull();
+		// An event of a kind the match never sends on (a refusal goes on its own) is refused.
+		expect(
+			parseServerMessage(withAt(message, ['events'], [{ type: 'rejected', reason: 'tired' }]))
+		).toBeNull();
+	});
+
+	it('takes a team through the wire and back as the same team, and never a timeout from a page', () => {
+		const rng = new Rng(15);
+		for (let i = 0; i < 200; i++) {
+			const party = Array.from({ length: rng.int(1, 6) }, (_, n) => ({
+				id: `id-${n}`,
+				speciesId: pick(rng, ANIMALS).id,
+				hp: 0,
+				...(rng.chance(0.5) ? { nickname: pick(rng, ['Nini', ' Pip ', 'Bjørn']) } : {})
+			}));
+			const pick1 = matchTeam(party);
+			if (!pick1.ok) continue;
+			const team: WireAnimal[] = pick1.team.map(({ id, speciesId, nickname }) =>
+				nickname === undefined ? { id, speciesId } : { id, speciesId, nickname }
+			);
+			const sent = parseClientMessage(
+				readWire(JSON.stringify({ t: 'challenge', pid: 'abcdef', team }))
+			);
+			expect(sent?.t === 'challenge' && matchTeam(sent.team)).toEqual(pick1);
+		}
+		expect(parseClientMessage({ t: 'play', id: 'abcdef', intent: { type: 'timeout' } })).toBeNull();
+		// A team of more than three, or none, is no team a page sends.
+		const four = Array.from({ length: 4 }, (_, n) => ({ id: `id-${n}`, speciesId: 'fox' }));
+		expect(parseClientMessage({ t: 'challenge', pid: 'abcdef', team: four })).toBeNull();
+		expect(parseClientMessage({ t: 'accept', pid: 'abcdef', team: [] })).toBeNull();
 	});
 });
 
