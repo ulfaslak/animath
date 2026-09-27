@@ -27,36 +27,37 @@ function canStand(seed: number, edits: WorldEdits, p: GridPos, boat: boolean): b
 }
 
 /**
- * How far a player can get from a spot, as the rule reads it: a flood over
- * the tiles they can stand on that stops once it is `ESCAPE_REACH` tiles
- * away across or down (it opens onto the world), or has no tile left (a
- * pocket: an island without a boat, a nook in the trees), or has covered
- * `MAX_FLOOD` tiles (a pocket that big is a land of its own).
+ * Whether a spot opens onto the world, as the rule reads it: the tiles a
+ * player can get to from it, the way they get about, lead `ESCAPE_REACH` or
+ * more tiles away from the friend at `target`, across or down. A pocket that
+ * stays nearer than that (an island without a boat, a nook in the trees) does
+ * not. Searched depth first, so open country is left in a straight run.
  */
 const ESCAPE_REACH = arrival.ESCAPE_REACH ?? 64;
-const MAX_FLOOD = arrival.MAX_FLOOD ?? 20_000;
-function opensOut(seed: number, edits: WorldEdits, from: GridPos, boat: boolean): boolean {
+function opensOut(
+	seed: number,
+	edits: WorldEdits,
+	from: GridPos,
+	boat: boolean,
+	target: GridPos
+): boolean {
 	const seen = new Set<string>([`${from.x},${from.y}`]);
-	let frontier = [from];
-	while (frontier.length > 0) {
-		const next: GridPos[] = [];
-		for (const p of frontier) {
-			if (Math.max(Math.abs(p.x - from.x), Math.abs(p.y - from.y)) >= ESCAPE_REACH) return true;
-			for (const [dx, dy] of [
-				[1, 0],
-				[-1, 0],
-				[0, 1],
-				[0, -1]
-			] as const) {
-				const n = { x: p.x + dx, y: p.y + dy };
-				const key = `${n.x},${n.y}`;
-				if (seen.has(key) || !canStand(seed, edits, n, boat)) continue;
-				seen.add(key);
-				next.push(n);
-			}
+	const stack = [from];
+	while (stack.length > 0) {
+		const p = stack.pop()!;
+		if (Math.max(Math.abs(p.x - target.x), Math.abs(p.y - target.y)) >= ESCAPE_REACH) return true;
+		for (const [dx, dy] of [
+			[0, 1],
+			[0, -1],
+			[-1, 0],
+			[1, 0]
+		] as const) {
+			const n = { x: p.x + dx, y: p.y + dy };
+			const key = `${n.x},${n.y}`;
+			if (seen.has(key) || !canStand(seed, edits, n, boat)) continue;
+			seen.add(key);
+			stack.push(n);
 		}
-		if (seen.size >= MAX_FLOOD) return true;
-		frontier = next;
 	}
 	return false;
 }
@@ -78,7 +79,7 @@ function expected(seed: number, target: GridPos, edits: WorldEdits, boat: boolea
 		}
 	}
 	standing.sort((a, b) => compare(a.key, b.key));
-	return standing.find(({ p }) => opensOut(seed, edits, p, boat))?.p ?? null;
+	return standing.find(({ p }) => opensOut(seed, edits, p, boat, target))?.p ?? null;
 }
 
 /** Compares two keys number by number, in order. */
@@ -99,7 +100,7 @@ describe('arrivalSpot', () => {
 		let afloat = 0;
 		let nowhere = 0;
 		for (const seed of SEEDS) {
-			for (let i = 0; i < 30; i++) {
+			for (let i = 0; i < 70; i++) {
 				const target = randomTarget(rng);
 				for (const gear of [ON_FOOT, WITH_BOAT]) {
 					const got = arrivalSpot(seed, target, WorldEdits.none, gear);
@@ -144,7 +145,8 @@ describe('arrivalSpot', () => {
 		for (let i = 0; i < 400 && checked < 60; i++) {
 			const target = randomTarget(rng);
 			const kind = tileAtWorld(PROTOTYPE, target.x, target.y).kind;
-			if (!isWalkable(kind) || !opensOut(PROTOTYPE, WorldEdits.none, target, false)) continue;
+			if (!isWalkable(kind) || !opensOut(PROTOTYPE, WorldEdits.none, target, false, target))
+				continue;
 			const got = arrivalSpot(PROTOTYPE, target);
 			// A walkable friend in open country always has an open ground tile beside them, unless
 			// every tile touching theirs is blocked; then the next ring out.
@@ -172,7 +174,7 @@ describe('arrivalSpot', () => {
 			const want = expected(PROTOTYPE, target, edits, false);
 			expect(got?.pos ?? null).toEqual(want);
 			// The chopped tree is the tile below: the first one tried, if it opens out.
-			if (want && opensOut(PROTOTYPE, edits, below, false)) {
+			if (want && opensOut(PROTOTYPE, edits, below, false, target)) {
 				expect(got!.pos).toEqual(below);
 			}
 			return;
@@ -193,13 +195,13 @@ describe('arrivalSpot', () => {
 		];
 		for (const [seed, friend] of pockets) {
 			// The friend really is in a pocket a walker can't leave.
-			expect(opensOut(seed, WorldEdits.none, friend, false)).toBe(false);
+			expect(opensOut(seed, WorldEdits.none, friend, false, friend)).toBe(false);
 			const onFoot = arrivalSpot(seed, friend);
-			if (onFoot) expect(opensOut(seed, WorldEdits.none, onFoot.pos, false)).toBe(true);
+			if (onFoot) expect(opensOut(seed, WorldEdits.none, onFoot.pos, false, friend)).toBe(true);
 			// With the boat the water is a way out: they can land by the friend.
 			const sailing = arrivalSpot(seed, friend, WorldEdits.none, { boat: true });
 			expect(sailing).not.toBeNull();
-			expect(opensOut(seed, WorldEdits.none, sailing!.pos, true)).toBe(true);
+			expect(opensOut(seed, WorldEdits.none, sailing!.pos, true, friend)).toBe(true);
 		}
 	});
 
