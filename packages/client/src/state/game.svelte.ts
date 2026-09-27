@@ -59,8 +59,13 @@ class GameView {
 	/**
 	 * Where the player stands: out on the water, in the boat, or on land (the
 	 * engine's `tileRealm` of their tile). Who goes first is the lead there.
+	 * Up in the air it is where they took off: the tiles flown over change
+	 * nobody's place.
 	 */
-	realm = $derived<Realm>(tileRealm(tileAtWorld(this.seed, this.pos.x, this.pos.y).kind));
+	realm = $derived.by<Realm>(() => {
+		const at = this.flightFrom ?? this.pos;
+		return tileRealm(tileAtWorld(this.seed, at.x, at.y).kind);
+	});
 	/**
 	 * The tiles the player has cleared with a tool: `welcome`'s, then every
 	 * `tile-cleared`. Immutable, so it is replaced, never changed in place.
@@ -71,6 +76,8 @@ class GameView {
 	 * until `landed`. Meanwhile `pos` is the tile the glider is over.
 	 */
 	flying = $state(false);
+	/** Where the flight in the air took off (`took-off`'s `from`); null on the ground. */
+	flightFrom = $state<GridPos | null>(null);
 
 	apply(event: GameEvent): void {
 		switch (event.type) {
@@ -89,10 +96,13 @@ class GameView {
 				this.solved = event.solved;
 				this.edits = WorldEdits.decode(event.edits);
 				this.flying = false;
+				this.flightFrom = null;
 				this.mode = 'explore';
 				break;
 			case 'took-off':
-				if (event.playerId === this.playerId) this.flying = true;
+				if (event.playerId !== this.playerId) break;
+				this.flying = true;
+				this.flightFrom = event.from;
 				break;
 			case 'glided':
 				if (event.playerId === this.playerId) this.pos = event.pos;
@@ -102,6 +112,7 @@ class GameView {
 				this.pos = event.pos;
 				this.facing = event.dir;
 				this.flying = false;
+				this.flightFrom = null;
 				break;
 			case 'name-chosen':
 				if (event.playerId === this.playerId) this.name = event.name;
