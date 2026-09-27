@@ -1,3 +1,7 @@
+import { bundles } from '@mathgame/engine';
+import { game } from '../state/game.svelte';
+import { menuItems, pause } from '../state/pause.svelte';
+import { title } from '../state/title.svelte';
 import { accountsReady } from './api';
 
 /**
@@ -67,17 +71,40 @@ export class ReadyWatch {
 }
 
 /**
- * Where a cursor goes when the rows it lights change under it (the account's
- * rows come or go): to the row it lit, where that row is now; when that row
- * went, to the next one still shown after it, else the last. `cursor` is an
- * index into `before`; the answer is one into `after`. A cursor past the rows
- * (nothing lit) stays where it is.
+ * Runs `change`, which may add or take away the account's rows, and keeps
+ * the pause menu's cursor and the title's on the rows they lit (`relit`).
  */
-export function relit<T>(before: readonly T[], after: readonly T[], cursor: number): number {
+export function keepingCursors(change: () => void): void {
+	const cards = bundles(game.party).length;
+	const items = menuItems();
+	const rows = title.rows;
+	change();
+	if (pause.cursor >= cards) {
+		pause.cursor = cards + relit(items, menuItems(), pause.cursor - cards);
+	}
+	title.cursor = relit(rows, title.rows, title.cursor);
+}
+
+/**
+ * Where a cursor goes when the rows it lights change under it (the account's
+ * rows come or go): to the row it lit, where that row is now. When that row
+ * went, to `safe` when it is shown (a row whose Enter changes nothing that
+ * matters, such as Keep playing: a kid mid-press on "Log in" must never land
+ * on "Log out"), else to the next one still shown after it, else the last.
+ * `cursor` is an index into `before`; the answer is one into `after`. A
+ * cursor past the rows (nothing lit) stays where it is.
+ */
+export function relit<T>(
+	before: readonly T[],
+	after: readonly T[],
+	cursor: number,
+	safe?: T
+): number {
 	const lit = before[cursor];
 	if (lit === undefined || after.length === 0) return cursor;
 	const at = after.indexOf(lit);
 	if (at >= 0) return at;
+	if (safe !== undefined && after.includes(safe)) return after.indexOf(safe);
 	const next = before.slice(cursor + 1).find((row) => after.includes(row));
 	return next === undefined ? after.length - 1 : after.indexOf(next);
 }

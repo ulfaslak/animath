@@ -1,7 +1,10 @@
+import { bundles } from '@mathgame/engine';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { READY_EVERY_MS, ReadyWatch, relit } from '../src/account/ready';
+import { READY_EVERY_MS, ReadyWatch, keepingCursors, relit } from '../src/account/ready';
 import { account } from '../src/state/account.svelte';
-import { menuItems, type MenuItem } from '../src/state/pause.svelte';
+import { game } from '../src/state/game.svelte';
+import { menuItems, pause, type MenuItem } from '../src/state/pause.svelte';
+import { title } from '../src/state/title.svelte';
 
 /**
  * The game asks the server whether it can keep an account as the page starts
@@ -73,6 +76,44 @@ describe('ReadyWatch', () => {
 		await vi.advanceTimersByTimeAsync(0);
 		expect(server.asked).toBe(2);
 		w.stop();
+	});
+});
+
+describe('keepingCursors', () => {
+	afterEach(() => {
+		Object.assign(account, { ready: false, name: null, session: 'unknown' });
+		pause.reset();
+		title.cursor = 0;
+	});
+
+	it('never moves a cursor from "Log in" onto "Log out" as the account rows go: a kid mid-press would log out', () => {
+		Object.assign(account, { ready: true, name: 'Ida', session: 'ended' });
+		const cards = bundles(game.party).length;
+		pause.open = true;
+		pause.cursor = cards + menuItems().indexOf('logIn');
+		keepingCursors(() => {
+			account.ready = false;
+		});
+		expect(menuItems()[pause.cursor - cards]).toBe('resume');
+		// And back: the lit row stays where it is.
+		keepingCursors(() => {
+			account.ready = true;
+		});
+		expect(menuItems()[pause.cursor - cards]).toBe('resume');
+	});
+
+	it('keeps the title\'s cursor on its row as "I have an account" comes and goes', () => {
+		account.ready = true;
+		title.saved = null;
+		title.cursor = title.rows.indexOf('language');
+		keepingCursors(() => {
+			account.ready = false;
+		});
+		expect(title.rows[title.cursor]).toBe('language');
+		keepingCursors(() => {
+			account.ready = true;
+		});
+		expect(title.rows[title.cursor]).toBe('language');
 	});
 });
 

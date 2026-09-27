@@ -1,5 +1,5 @@
 import './styles.css';
-import { bundles, type SavedGame } from '@mathgame/engine';
+import type { SavedGame } from '@mathgame/engine';
 import { flushSync, mount } from 'svelte';
 import {
 	SessionCheck,
@@ -9,7 +9,7 @@ import {
 } from './account/api';
 import { AccountController } from './account/controller';
 import { PLAY_HOUR_MS, PlayClock } from './account/playtime';
-import { ReadyWatch, relit } from './account/ready';
+import { ReadyWatch, keepingCursors } from './account/ready';
 import { noteNextStart, restartWith, takeAccountNote } from './account/restart';
 import { currentAccount, forgetLogout, gameKeys, logoutPending } from './account/session';
 import { sfx } from './audio/sfx.svelte';
@@ -46,7 +46,7 @@ import { behind } from './state/behind.svelte';
 import { doctor } from './state/doctor.svelte';
 import { game } from './state/game.svelte';
 import { hud } from './state/hud.svelte';
-import { menuItems, pause } from './state/pause.svelte';
+import { pause } from './state/pause.svelte';
 import { title } from './state/title.svelte';
 import { travel } from './state/travel.svelte';
 import { TitleController } from './title/controller';
@@ -183,12 +183,7 @@ const pauseController = new PauseController(authority, {
  */
 function heardReady(ready: boolean): void {
 	if (account.ready === ready) return;
-	const cards = bundles(game.party).length;
-	const items = menuItems();
-	const rows = title.rows;
-	accountController.heardReady(ready);
-	if (pause.cursor >= cards) pause.cursor = cards + relit(items, menuItems(), pause.cursor - cards);
-	title.cursor = relit(rows, title.rows, title.cursor);
+	keepingCursors(() => accountController.heardReady(ready));
 }
 // A throwaway game offers no account, so it never asks.
 const readyWatch = flags.throwaway ? null : new ReadyWatch(heardReady);
