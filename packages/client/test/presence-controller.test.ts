@@ -429,6 +429,29 @@ describe('presence on the page', () => {
 		expect(game.pos).toEqual(at);
 	});
 
+	it('does not go when the player took off while the server answered, and sends no go-to into the flight', () => {
+		const s = setup();
+		s.authority.start({
+			game: { ...newGame(1, undefined, 'Ada'), items: ['glider'], facing: 'up' }
+		});
+		s.connect();
+		s.controller.goTo('friend0001');
+		s.authority.dispatch({ type: 'take-off' });
+		const asked: string[] = [];
+		const dispatch = s.authority.dispatch.bind(s.authority);
+		s.authority.dispatch = (intent) => {
+			asked.push(intent.type);
+			dispatch(intent);
+		};
+		const sentBefore = s.events.length;
+		s.socket().say({ t: 'found', pid: 'friend0001', x: 140, y: -40 });
+		expect(asked).toEqual([]);
+		expect(s.events.slice(sentBefore)).toEqual([]);
+		// Down again, the flight lands where it would have, not beside the friend.
+		s.authority.dispatch({ type: 'land' });
+		expect(game.pos).toEqual({ x: -2, y: -8 });
+	});
+
 	it('draws who the server says is near, and fades them all when the socket is gone a while', () => {
 		const s = setup();
 		s.start();
