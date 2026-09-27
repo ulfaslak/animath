@@ -786,3 +786,31 @@ presence:
     doctor: at the doctor
     menu: taking a break
     match: in a friendly match
+# Numbered worlds: the pause menu's Worlds screen, the HUD's corner, and the trip.
+worlds:
+  # A world by its number, as a label: the HUD's corner, the Worlds row. {world}: 1 to 9999.
+  world: 'World {world}'
+  # The pause menu's row that opens the Worlds screen, and the screen's title.
+  title: Worlds
+  here: 'You are in World {world}.'
+  home: 'Your home is World {home}.'
+  atHome: This is your home world.
+  # Over the number being typed.
+  typed: "A world's number"
+  # The rows: go to the world typed, go home.
+  go: 'Go to World {world}!'
+  goNowhere: Go
+  goHome: Go home
+  # Why Go is greyed, under the rows.
+  typeOne: "Type a world's number."
+  notAWorld: Worlds go from 1 to 9999.
+  alreadyHere: "You're in World {world} already!"
+  tip: Every number is a world of its own.
+  # The number pad's big key, as Enter.
+  ok: Go
+  keys: 0–9 type · ↑ ↓ choose · Enter pick · Esc back
+  # On arrival, big: the world's number; under it, how the kid arrived.
+  arrive: 'World {world}!'
+  arriveNew: A new world to explore!
+  arriveBack: Back where you left off.
+  arriveHome: Home again!

@@ -140,7 +140,7 @@ The running page's modules can be read from the script (`await page.evaluate(() 
 ```bash
 pnpm players --url http://localhost:<port>/ \
   --player "ada:name=Ada" --player "bo:name=Bo,at=150:-40" \
-  --steps "all:wait:3500,ada:shot:arrow,bo:Escape,bo:ArrowDown,bo:Enter,bo:shot:list,bo:Enter,all:wait:1500,all:shot:together" \
+  --steps "all:wait:3500,ada:shot:arrow,bo:Escape,bo:ArrowDown*2,bo:Enter,bo:shot:list,bo:Enter,all:wait:1500,all:shot:together" \
   --out screenshots/two/goto.png     # Bo, far away, goes to Ada from Who's here
 ```
 

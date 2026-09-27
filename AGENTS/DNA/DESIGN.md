@@ -172,6 +172,10 @@ The words the game uses for its things, the same on every screen:
 | Go! | Kør! | the battle's button and its keys ("Enter kør"); "Så kører vi!" starts a new game |
 | choose (↑ ↓) | flyt | every list's key reminder: "↑ ↓ flyt" |
 | Keep playing | Spil videre | the pause menu |
+| world | verden (verdener) | the Worlds row and screen ("Verdener", "Verden 42", "Du er i verden 42."), the HUD, the arrival ("Verden 42!") |
+| home (the kid's own world) | hjem | "Dit hjem er verden 7.", "Det her er din hjemverden.", "Tag hjem", "Hjemme igen!" |
+| go (to a world) | afsted | the Worlds screen's Go row ("Afsted til verden 42!") and its pad's big key ("Afsted") |
+| type (digits) | skriv | the Worlds screen's key reminder ("0–9 skriv") |
 | Language | Sprog | the title and the pause menu, listing "English" and "Dansk" |
 | Who's here | Hvem er her | the pause menu's row and its list of the other players |
 | Go to (a player) | gå hen til | "Gå hen til Ada", "Du er ved siden af Ada!" |

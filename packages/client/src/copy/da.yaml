@@ -594,3 +594,23 @@ presence:
     doctor: hos dyrlægen
     menu: holder pause
     match: kæmper mod en ven
+worlds:
+  world: 'Verden {world}'
+  title: Verdener
+  here: 'Du er i verden {world}.'
+  home: 'Dit hjem er verden {home}.'
+  atHome: Det her er din hjemverden.
+  typed: En verdens nummer
+  go: 'Afsted til verden {world}!'
+  goNowhere: Afsted
+  goHome: Tag hjem
+  typeOne: Skriv en verdens nummer.
+  notAWorld: Verdenerne går fra 1 til 9999.
+  alreadyHere: 'Du er allerede i verden {world}!'
+  tip: Hvert nummer er sin egen verden.
+  ok: Afsted
+  keys: 0–9 skriv · ↑ ↓ flyt · Enter vælg · Esc tilbage
+  arrive: 'Verden {world}!'
+  arriveNew: En ny verden at udforske!
+  arriveBack: Du er tilbage, hvor du var.
+  arriveHome: Hjemme igen!
