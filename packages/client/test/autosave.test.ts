@@ -214,12 +214,14 @@ class Tab {
 		});
 	}
 
-	/** Something a kid would miss: a new animal in the party. */
+	/** Something a kid would miss: a new animal in the party, and in the animal book. */
 	catchOne(): Promise<void> {
-		return this.play(
-			(g) => g.party.push({ id: `caught-${g.party.length}`, speciesId: 'rabbit', hp: 7 }),
-			'party-changed'
-		);
+		return this.play((g) => {
+			g.party.push({ id: `caught-${g.party.length}`, speciesId: 'rabbit', hp: 7 });
+			// As the authority keeps the book: a kind caught is caught and seen, once each.
+			if (!g.seen.includes('rabbit')) g.seen.push('rabbit');
+			if (!g.caught.includes('rabbit')) g.caught.push('rabbit');
+		}, 'party-changed');
 	}
 }
 

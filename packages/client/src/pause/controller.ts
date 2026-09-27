@@ -1,4 +1,5 @@
 import {
+	BOOK_ORDER,
 	bundles,
 	parseWorldNumber,
 	type Authority,
@@ -9,6 +10,7 @@ import { sfx } from '../audio/sfx.svelte';
 import { isLanguage, language, nextLanguage } from '../copy';
 import { isShortcut, keyName } from '../input/keyboard';
 import { tappedLanguage, tappedOption, tappedRow } from '../input/press';
+import { book } from '../state/book.svelte';
 import { game } from '../state/game.svelte';
 import { presence } from '../state/presence.svelte';
 import {
@@ -65,6 +67,13 @@ export interface PauseHooks {
  * (`presence.roster`); picking one closes the menu and goes to them
  * (`goTo`, the presence controller's: it asks the server where they are,
  * then the authority to put the player there).
+ *
+ * The animal book, the row on the menu's title line, opens in the menu's
+ * place: a card for every species, lit one at a time. The arrows walk the
+ * cards as they are laid out (`book.columns` to a row), a tap lights one,
+ * Enter or a tap on the lit one makes its animal hop, and Escape or Back
+ * goes back to the list, on the book's row. It changes nothing in the game:
+ * what it shows is the authority's, from `welcome` and `book-changed`.
  */
 export class PauseController {
 	constructor(
@@ -143,7 +152,9 @@ export class PauseController {
 						? this.worldsKey(key)
 						: pause.screen === 'players'
 							? this.playersKey(key)
-							: this.optionsKey(key);
+							: pause.screen === 'book'
+								? this.bookKey(key)
+								: this.optionsKey(key);
 		if (handled) e.preventDefault();
 	}
 
@@ -270,6 +281,11 @@ export class PauseController {
 				sfx.play('confirm');
 				this.options.logOut?.();
 				break;
+			case 'book':
+				sfx.play('confirm');
+				pause.screen = 'book';
+				pause.option = 0;
+				break;
 		}
 	}
 
@@ -293,8 +309,68 @@ export class PauseController {
 			case 'players':
 			case 'resume':
 			case 'quit':
+			case 'book':
 				return false;
 		}
+	}
+
+	/**
+	 * The animal book, in the menu's place: one card lit, walked by the
+	 * arrows as the cards are laid out, `book.columns` to a row. Left and
+	 * right go card by card, on into the next row and back; up and down a
+	 * row, and down onto the last card from above a short last row. At an
+	 * edge they stay put, silently. A tap on a card lights it; on the lit
+	 * one, and Enter or Space, its animal hops (a card never met has no
+	 * animal to hop). Nothing here changes the game.
+	 */
+	private bookKey(key: string): boolean {
+		const count = BOOK_ORDER.length;
+		const at = Math.min(pause.option, count - 1);
+		const light = (to: number): boolean => {
+			if (to !== at) {
+				pause.option = to;
+				sfx.play('move');
+			}
+			return true;
+		};
+		const tapped = tappedOption(key);
+		if (tapped !== undefined) {
+			if (tapped >= count) return true;
+			return tapped === at ? this.bookKey('Enter') : light(tapped);
+		}
+		const columns = Math.max(1, book.columns);
+		switch (key) {
+			case 'ArrowLeft':
+			case 'a':
+				return light(Math.max(0, at - 1));
+			case 'ArrowRight':
+			case 'd':
+				return light(Math.min(count - 1, at + 1));
+			case 'ArrowUp':
+			case 'w':
+				return light(at - columns >= 0 ? at - columns : at);
+			case 'ArrowDown':
+			case 's': {
+				if (at + columns < count) return light(at + columns);
+				// Above a short last row, down still goes down: to its last card.
+				const lastRow = Math.floor((count - 1) / columns);
+				return light(Math.floor(at / columns) < lastRow ? count - 1 : at);
+			}
+			case 'Enter':
+			case ' ': {
+				const speciesId = BOOK_ORDER[at]!.id;
+				if (game.seen.includes(speciesId)) {
+					book.hopping = speciesId;
+					book.hops += 1;
+					sfx.play('confirm');
+				}
+				return true;
+			}
+			case 'Escape':
+				this.backToList();
+				return true;
+		}
+		return false;
 	}
 
 	/**
@@ -669,17 +745,20 @@ export class PauseController {
 
 	/**
 	 * Back to the team, with the cursor on the card that was open, wherever it
-	 * is now; from the Worlds screen, on the Worlds row.
+	 * is now; from the Worlds screen, on the Worlds row; from the animal book,
+	 * on its row.
 	 */
 	private backToList(): void {
-		const worlds = pause.screen === 'worlds';
+		const from = pause.screen;
 		const species = pause.species ?? game.party[this.pickedIndex()]?.speciesId;
 		pause.screen = 'list';
 		pause.picked = null;
 		pause.species = null;
 		pause.worldDraft = '';
+		const cards = bundles(game.party).length;
 		const place = bundles(game.party).findIndex((b) => b.speciesId === species);
-		if (worlds) pause.cursor = bundles(game.party).length + menuItems().indexOf('worlds');
+		if (from === 'worlds') pause.cursor = cards + menuItems().indexOf('worlds');
+		else if (from === 'book') pause.cursor = cards + menuItems().indexOf('book');
 		else if (place >= 0) pause.cursor = place;
 		this.settle();
 	}

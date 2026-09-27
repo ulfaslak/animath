@@ -29,6 +29,18 @@ export type {
 } from './animals/types.js';
 export { ATTACK_LEVELS, REALMS, TERRAINS } from './animals/types.js';
 export { ANIMALS, canFightIn, getAnimal } from './animals/catalog.js';
+export {
+	BOOK_ORDER,
+	EMPTY_BOOK,
+	bookOf,
+	catchSpecies,
+	hasCaught,
+	hasSeen,
+	recordBattle,
+	recordParty,
+	seeSpecies
+} from './animals/book.js';
+export type { AnimalBook } from './animals/book.js';
 
 export { attackDamage } from './battle/damage.js';
 // Only `landHit` of `attack.ts`: a screen previews a hit with the very function a reducer lands it with.

@@ -479,6 +479,8 @@ export class Autosave {
 			// itself: every game under way beside an unreadable save has been played already
 			// (a starter picked, or the server's game taken).
 			case 'solved-changed':
+			// The animal book grew, at a battle's start or a catch: the battle's own events save too.
+			case 'book-changed':
 				this.changed(false);
 				break;
 			// Nothing changed: a game picked up (its start writes nothing), a refusal, a line to say.
