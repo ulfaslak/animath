@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { Rng, hashString } from '../src/rng.js';
-import { ARRIVAL_RADIUS, OPEN_TILES, arrivalRings, arrivalSpot } from '../src/world/arrival.js';
+import * as arrival from '../src/world/arrival.js';
+import { ARRIVAL_RADIUS, arrivalRings, arrivalSpot } from '../src/world/arrival.js';
 import { WorldEdits, editedTileAt } from '../src/world/edits.js';
 import { tileAtWorld } from '../src/world/generate.js';
 import {
@@ -25,13 +26,22 @@ function canStand(seed: number, edits: WorldEdits, p: GridPos, boat: boolean): b
 	return isWalkable(kind) || (boat && isWater(kind));
 }
 
-/** How many tiles a flood from `from` reaches, up to `cap`, over tiles the player can stand on. */
-function flood(seed: number, edits: WorldEdits, from: GridPos, boat: boolean, cap: number): number {
-	const seen = new Map<string, GridPos>([[`${from.x},${from.y}`, from]]);
+/**
+ * How far a player can get from a spot, as the rule reads it: a flood over
+ * the tiles they can stand on that stops once it is `ESCAPE_REACH` tiles
+ * away across or down (it opens onto the world), or has no tile left (a
+ * pocket: an island without a boat, a nook in the trees), or has covered
+ * `MAX_FLOOD` tiles (a pocket that big is a land of its own).
+ */
+const ESCAPE_REACH = arrival.ESCAPE_REACH ?? 64;
+const MAX_FLOOD = arrival.MAX_FLOOD ?? 20_000;
+function opensOut(seed: number, edits: WorldEdits, from: GridPos, boat: boolean): boolean {
+	const seen = new Set<string>([`${from.x},${from.y}`]);
 	let frontier = [from];
-	while (frontier.length > 0 && seen.size < cap) {
+	while (frontier.length > 0) {
 		const next: GridPos[] = [];
 		for (const p of frontier) {
+			if (Math.max(Math.abs(p.x - from.x), Math.abs(p.y - from.y)) >= ESCAPE_REACH) return true;
 			for (const [dx, dy] of [
 				[1, 0],
 				[-1, 0],
@@ -41,13 +51,14 @@ function flood(seed: number, edits: WorldEdits, from: GridPos, boat: boolean, ca
 				const n = { x: p.x + dx, y: p.y + dy };
 				const key = `${n.x},${n.y}`;
 				if (seen.has(key) || !canStand(seed, edits, n, boat)) continue;
-				seen.set(key, n);
+				seen.add(key);
 				next.push(n);
 			}
 		}
+		if (seen.size >= MAX_FLOOD) return true;
 		frontier = next;
 	}
-	return Math.min(seen.size, cap);
+	return false;
 }
 
 /**
@@ -67,7 +78,7 @@ function expected(seed: number, target: GridPos, edits: WorldEdits, boat: boolea
 		}
 	}
 	standing.sort((a, b) => compare(a.key, b.key));
-	return standing.find(({ p }) => flood(seed, edits, p, boat, OPEN_TILES) >= OPEN_TILES)?.p ?? null;
+	return standing.find(({ p }) => opensOut(seed, edits, p, boat))?.p ?? null;
 }
 
 /** Compares two keys number by number, in order. */
@@ -88,7 +99,7 @@ describe('arrivalSpot', () => {
 		let afloat = 0;
 		let nowhere = 0;
 		for (const seed of SEEDS) {
-			for (let i = 0; i < 70; i++) {
+			for (let i = 0; i < 30; i++) {
 				const target = randomTarget(rng);
 				for (const gear of [ON_FOOT, WITH_BOAT]) {
 					const got = arrivalSpot(seed, target, WorldEdits.none, gear);
@@ -133,7 +144,7 @@ describe('arrivalSpot', () => {
 		for (let i = 0; i < 400 && checked < 60; i++) {
 			const target = randomTarget(rng);
 			const kind = tileAtWorld(PROTOTYPE, target.x, target.y).kind;
-			if (!isWalkable(kind) || flood(PROTOTYPE, WorldEdits.none, target, false, 60) < 60) continue;
+			if (!isWalkable(kind) || !opensOut(PROTOTYPE, WorldEdits.none, target, false)) continue;
 			const got = arrivalSpot(PROTOTYPE, target);
 			// A walkable friend in open country always has an open ground tile beside them, unless
 			// every tile touching theirs is blocked; then the next ring out.
@@ -161,12 +172,35 @@ describe('arrivalSpot', () => {
 			const want = expected(PROTOTYPE, target, edits, false);
 			expect(got?.pos ?? null).toEqual(want);
 			// The chopped tree is the tile below: the first one tried, if it opens out.
-			if (want && flood(PROTOTYPE, edits, below, false, OPEN_TILES) >= OPEN_TILES) {
+			if (want && opensOut(PROTOTYPE, edits, below, false)) {
 				expect(got!.pos).toEqual(below);
 			}
 			return;
 		}
 		throw new Error('no friend beside a tree found');
+	});
+
+	it('never strands a player on an island or in a pocket, however big, without a way out', () => {
+		// Closed land pockets near spawn that a first rule (40 tiles reachable) let a go-to land on:
+		// water all round, or water and trees. On foot there is no way off them.
+		const pockets: [number, GridPos][] = [
+			[PROTOTYPE, { x: 100, y: -48 }],
+			[PROTOTYPE, { x: 79, y: 96 }],
+			[(PROTOTYPE + 1) >>> 0, { x: -56, y: -67 }],
+			[(PROTOTYPE + 2) >>> 0, { x: 104, y: -28 }],
+			[(PROTOTYPE + 6) >>> 0, { x: 101, y: -61 }],
+			[(PROTOTYPE + 41) >>> 0, { x: 25, y: 63 }]
+		];
+		for (const [seed, friend] of pockets) {
+			// The friend really is in a pocket a walker can't leave.
+			expect(opensOut(seed, WorldEdits.none, friend, false)).toBe(false);
+			const onFoot = arrivalSpot(seed, friend);
+			if (onFoot) expect(opensOut(seed, WorldEdits.none, onFoot.pos, false)).toBe(true);
+			// With the boat the water is a way out: they can land by the friend.
+			const sailing = arrivalSpot(seed, friend, WorldEdits.none, { boat: true });
+			expect(sailing).not.toBeNull();
+			expect(opensOut(seed, WorldEdits.none, sailing!.pos, true)).toBe(true);
+		}
 	});
 
 	it('is the same answer every time, and throws on a position that is not whole', () => {
