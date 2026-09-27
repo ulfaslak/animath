@@ -57,9 +57,9 @@
 	 * stay where the drop left them. Every action is a key press, so a pointer
 	 * goes through the same screen and guards a key does.
 	 *
-	 * At the top right, the puzzles the player has solved beside their
-	 * tokens, under them the tools they own, each with its name, and the
-	 * world they are in.
+	 * At the top right, the player's tokens and right under them the
+	 * puzzles they have solved, then the tools they own, each with its name,
+	 * and the world they are in.
 	 */
 	const list = $derived(bundles(game.party));
 	const leadId = $derived(game.party[leadIndex(game.party, game.realm)]?.id ?? null);
@@ -416,14 +416,13 @@
 	{/if}
 </div>
 
-<!-- The puzzles the player has solved and their tokens, the tools they own, and the world they are in. -->
+<!-- The player's tokens and the puzzles they have solved, the tools they own, and the world they are in. -->
 <!-- With `?debug` the position and the cues have the corner; these go under them. -->
 <div class="belongings" class:below-debug={flags.debug}>
-	<!-- The two numbers a kid collects, side by side; with no room beside the tokens, the count goes under them. -->
-	<div class="counts">
-		<div class="solved"><Tick />{t('hud.solved', { count: game.solved })}</div>
-		<div class="purse"><Coin />{t('hud.tokens', { count: game.tokens })}</div>
-	</div>
+	<div class="purse"><Coin />{t('hud.tokens', { count: game.tokens })}</div>
+	<!-- Right under the tokens, one above the other: side by side, the corner would reach
+	     the note at the top of the screen on a tablet (`PresenceNote`). -->
+	<div class="solved"><Tick />{t('hud.solved', { count: game.solved })}</div>
 	{#each tools as id (id)}
 		<div class="tool"><ItemIcon {id} size={24} />{itemName(id)}</div>
 	{/each}
@@ -612,7 +611,7 @@
 	.message + .prompt {
 		margin-top: 2px;
 	}
-	/* The top right: the puzzles solved and the tokens, and the tools and the world under them. */
+	/* The top right: the tokens, the puzzles solved, and the tools and the world under them. */
 	.belongings {
 		position: absolute;
 		top: calc(16px + var(--safe-top));
@@ -625,18 +624,6 @@
 	}
 	.belongings.below-debug {
 		top: calc(100px + var(--safe-top));
-	}
-	/*
-	 * The count and the tokens in one row, the tokens at the right edge. The
-	 * row stays clear of the party column (at most 320 px wide, from 16 px
-	 * in): on a screen too narrow for both, the count wraps under the tokens.
-	 */
-	.counts {
-		display: flex;
-		flex-wrap: wrap-reverse;
-		justify-content: flex-end;
-		gap: 6px;
-		max-width: calc(100vw - 32px - 340px - var(--safe-left) - var(--safe-right));
 	}
 	.solved,
 	.purse,

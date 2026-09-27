@@ -258,7 +258,7 @@ hud:
   tokens:
     one: '{count} token'
     other: '{count} tokens'
-  # The puzzles the player has solved, beside the tokens: every right answer adds one.
+  # The puzzles the player has solved, under the tokens: every right answer adds one.
   solved:
     one: '{count} puzzle'
     other: '{count} puzzles'
