@@ -316,7 +316,7 @@ What is built and observable today. Keep current: add a bullet when a feature sh
 In rough priority order. Each becomes a GitHub issue when picked up. The choices behind the first two are [[DECISIONS]] § Multiplayer and § Deployment.
 
 1. **Friendly matches.** Stand near another player and challenge them to a friendly match; they say yes or no. Each brings three animals at full health, and you take turns: pick an attack and its level and solve its puzzle, or switch animals. It is just for fun: afterwards nothing has changed but the puzzles you solved, which count as they do anywhere: no tokens won or lost and no animal hurt, and both go back to exploring where they stood.
-2. **The public website.** The game at its own address on the internet, always on, instead of shared from the human's machine through a tunnel; a game played so far moves there with its player, without losing anything. The deploy is built (§5 Server); the server and the domain wait for the human ([[HUMAN_TODO]]), and moving a game there is not built yet.
+2. **The public website.** The game at its own address on the internet, always on, instead of shared from the human's machine through a tunnel; a game played so far moves there with its player, without losing anything. The deploy is built (§5 Server); agents are putting it on its own server at animath.xyz ([[HUMAN_TODO]]), and moving a game there is not built yet.
 3. Real low-poly animal models (glTF, CC0 sources, see [[DECISIONS]]) with attack animations, replacing the primitive figures.
 4. Procedural world v2: rivers that flow, paths, biome shaping, landmarks.
 5. Puzzle catalog v2: fractions, decimals, negatives, percentages, word problems, per-child adaptive difficulty.
