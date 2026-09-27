@@ -24,6 +24,13 @@ import { title } from '../state/title.svelte';
  */
 export const DOCTOR_WAY_STEPS = 2 * TENT_SEARCH_STEPS;
 
+/**
+ * How far, in CSS pixels, the arrow keeps from a tent it points to: its disc
+ * and the tip on its rim (36 px from the middle) never cover the tent's
+ * ground, however near the edge of the screen the tent is.
+ */
+export const TENT_CLEARANCE = 64;
+
 /** What the way needs of the renderer: where things are on the canvas, and whether the world is. */
 export type DoctorWayRenderer = Pick<
 	GameRenderer,
@@ -114,14 +121,30 @@ export class DoctorWay {
 		return spot;
 	}
 
-	/** The arrow at the screen's edge for the tent at `tent`, or null while the tent is on the screen. */
+	/**
+	 * The arrow for the tent at `tent`: where a friend's arrow would sit for it
+	 * (`edgeSpot`, inside the screen's edges and clear of the message line),
+	 * or null once the tent is inside that frame, in plain sight. A tent in the
+	 * strip between that frame and the screen's edge (half off the screen, or
+	 * behind the message line) still has its arrow, a little way before it
+	 * (`TENT_CLEARANCE`), so the arrow never covers the tent it points to.
+	 */
 	private arrowTo(tent: GridPos): { x: number; y: number; angle: number } | null {
 		const { w, h } = this.renderer.screenSize();
+		const me = this.renderer.groundToScreen(game.pos.x, game.pos.y);
 		const there = this.renderer.groundToScreen(tent.x, tent.y);
-		// Anywhere on the screen, as a friend on it: the tent is there to see, and at the
-		// very edge an arrow, which sits a little way in, would cover the tent it points to.
-		if (there.x >= 0 && there.x <= w && there.y >= 0 && there.y <= h) return null;
-		return edgeSpot(this.renderer.groundToScreen(game.pos.x, game.pos.y), there, w, h);
+		const spot = edgeSpot(me, there, w, h);
+		if (!spot) return null;
+		const toTent = Math.hypot(there.x - me.x, there.y - me.y);
+		const toEdge = Math.hypot(spot.x - me.x, spot.y - me.y);
+		if (toTent <= toEdge) return null;
+		const k = Math.max(0, Math.min(toEdge, toTent - TENT_CLEARANCE)) / toEdge;
+		if (k === 1) return spot;
+		return {
+			x: Math.round(me.x + (spot.x - me.x) * k),
+			y: Math.round(me.y + (spot.y - me.y) * k),
+			angle: spot.angle
+		};
 	}
 }
 
