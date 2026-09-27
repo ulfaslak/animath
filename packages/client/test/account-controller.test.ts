@@ -119,6 +119,8 @@ beforeEach(() => {
 	Object.assign(account, {
 		name: null,
 		session: 'unknown',
+		// A server that can keep an account, unless a test says otherwise.
+		ready: true,
 		card: null,
 		prompt: false,
 		busy: false,
@@ -655,5 +657,33 @@ describe('the hourly card', () => {
 		press(rowKey(1));
 		expect(account.prompt).toBe(false);
 		expect(account.card).toBeNull();
+	});
+
+	it('never comes while the server cannot keep an account: "Save my game" would be a broken promise', () => {
+		const { controller, events } = setup();
+		controller.heardReady(false);
+		controller.openPrompt();
+		expect(account.prompt).toBe(false);
+		// Once the server can, the hour that was due brings it.
+		controller.heardReady(true);
+		controller.openPrompt();
+		expect(account.prompt).toBe(true);
+		expect(events).toEqual([]);
+	});
+
+	it('goes, unanswered, when the server stops keeping accounts; an account card up stays, with its typing', () => {
+		const { controller, events, press, quiet } = setup('Ida');
+		controller.openPrompt();
+		controller.heardReady(false);
+		expect(account.prompt).toBe(false);
+		expect(events).toEqual([]);
+		controller.heardReady(true);
+		controller.openPrompt();
+		quiet();
+		press('Enter');
+		expect(account.card).toBe('register');
+		account.passwordDraft = 'pip';
+		controller.heardReady(false);
+		expect([account.card, account.passwordDraft]).toEqual(['register', 'pip']);
 	});
 });

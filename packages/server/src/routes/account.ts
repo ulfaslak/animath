@@ -40,6 +40,7 @@ import { acceptWelcome, welcomeState } from '../welcome.js';
  *   POST /api/account/register  { name, password, save? } → 201 { user: { name } } + cookie
  *   POST /api/account/login     { name, password }        → 200 { user: { name } } + cookie
  *   POST /api/account/logout                              → 200 { ok: true }: the session ended
+ *   GET  /api/account/ready                               → 200 { ready: boolean }
  *   GET  /api/account/me                                  → 200 { user: { name } | null }
  *   GET  /api/account/save                                → 200 SaveV2 | 404 no save yet
  *   PUT  /api/account/save      SaveV2                    → 200 { ok: true } | 409 { error, save }
@@ -139,9 +140,11 @@ function loginKey(typed: string): string | null {
 export interface AccountRouteOptions {
 	cookie: CookieOptions;
 	limits: AccountLimits;
+	/** Whether accounts work now (`AccountsReady`): the game offers them only then. */
+	ready: () => Promise<boolean>;
 }
 
-export function accountRoute({ cookie, limits }: AccountRouteOptions) {
+export function accountRoute({ cookie, limits, ready }: AccountRouteOptions) {
 	const limit = {
 		loginPerIp: new RateLimiter(limits.loginPerIp),
 		loginFailuresPerNameFromIp: new RateLimiter(limits.loginFailuresPerNameFromIp),
@@ -281,6 +284,12 @@ export function accountRoute({ cookie, limits }: AccountRouteOptions) {
 			if (token !== undefined) await deleteSession(token);
 			clearSessionCookie(c, cookie);
 			return c.json({ ok: true });
+		})
+		.get('/ready', async (c) => {
+			// Every page asks this every half minute, and offers accounts only on a yes: a
+			// server whose database is down, or lacks the accounts' tables, would break the promise.
+			c.header('Cache-Control', 'no-store');
+			return c.json({ ready: await ready() });
 		})
 		.get('/me', async (c) => {
 			const user = await currentUser(c, cookie);

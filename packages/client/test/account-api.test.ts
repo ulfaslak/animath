@@ -4,6 +4,7 @@ import {
 	SessionCheck,
 	acceptWelcome,
 	accountSaveServer,
+	accountsReady,
 	getAccountSave,
 	login,
 	logout,
@@ -245,6 +246,26 @@ describe('whoAmI', () => {
 		expect(await whoAmI()).toEqual({ kind: 'offline' });
 		answer({ status: 500, json: { error: 'x' } });
 		expect(await whoAmI()).toEqual({ kind: 'offline' });
+	});
+});
+
+describe('accountsReady', () => {
+	it("is yes only on the API's own { ready: true }: no answer is a no", async () => {
+		const seen = answer({ status: 200, json: { ready: true } });
+		expect(await accountsReady()).toBe(true);
+		expect(seen.map((r) => r.url)).toEqual(['/api/account/ready']);
+		for (const a of [
+			{ status: 200, json: { ready: false } },
+			{ status: 200, json: { ready: 'true' } },
+			{ status: 200, json: null },
+			{ status: 200, html: page },
+			{ status: 502, html: page },
+			{ status: 503, json: { ready: true } },
+			'network error'
+		] as const) {
+			answer(a);
+			expect(await accountsReady(), JSON.stringify(a)).toBe(false);
+		}
 	});
 });
 

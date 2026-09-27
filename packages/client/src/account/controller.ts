@@ -170,8 +170,24 @@ export class AccountController {
 		account.passwordDraft = '';
 	}
 
-	/** The hourly card, while exploring a guest's game. */
+	/**
+	 * The server said whether it can keep an account now (`ready.ts`). When it
+	 * cannot, an hourly card that is up goes, unanswered: it offers what the
+	 * server cannot do, and comes back once it can. An account card that is
+	 * up stays, with the kid's typing: its answer says kindly if the server
+	 * is out of reach.
+	 */
+	heardReady(ready: boolean): void {
+		account.ready = ready;
+		if (!ready) account.prompt = false;
+	}
+
+	/**
+	 * The hourly card, while exploring a guest's game, and only while the
+	 * server can keep an account: "Save my game" must be a promise it keeps.
+	 */
 	openPrompt(): void {
+		if (!account.ready) return;
 		account.prompt = true;
 		account.promptChoice = 0;
 		this.guard.show();

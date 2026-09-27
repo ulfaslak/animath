@@ -67,6 +67,13 @@ class AccountView {
 	/** The account this page plays, by its name; null for a guest. Set once, as the page starts. */
 	name = $state<string | null>(null);
 	session = $state<SessionState>('unknown');
+	/**
+	 * The server said, lately, that it can make and keep an account
+	 * (`account/ready.ts`). Only then does the game offer one: the hourly
+	 * card, "Make an account" and "Log in" in the menu, "I have an account"
+	 * on the title.
+	 */
+	ready = $state(false);
 	/** The card that is up, or null. It takes every key while it is up. */
 	card = $state<AccountCard | null>(null);
 	from = $state<AccountFrom>('title');
