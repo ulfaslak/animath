@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { Rng, hashString } from '../src/rng.js';
-import * as arrival from '../src/world/arrival.js';
-import { ARRIVAL_RADIUS, arrivalRings, arrivalSpot } from '../src/world/arrival.js';
+import { ARRIVAL_RADIUS, ESCAPE_REACH, arrivalRings, arrivalSpot } from '../src/world/arrival.js';
 import { WorldEdits, editedTileAt } from '../src/world/edits.js';
 import { tileAtWorld } from '../src/world/generate.js';
 import {
@@ -33,7 +32,6 @@ function canStand(seed: number, edits: WorldEdits, p: GridPos, boat: boolean): b
  * stays nearer than that (an island without a boat, a nook in the trees) does
  * not. Searched depth first, so open country is left in a straight run.
  */
-const ESCAPE_REACH = arrival.ESCAPE_REACH ?? 64;
 function opensOut(
 	seed: number,
 	edits: WorldEdits,

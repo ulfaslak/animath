@@ -161,7 +161,7 @@ export { CLEARING_TOOL, clearTile, clearableAhead, isClearable } from './world/c
 export type { ClearRejection, ClearStep, Clearable, Cleared, Clearer } from './world/clearing.js';
 export { TENT_SEARCH_STEPS, canTalkToDoctor, nearestTent } from './world/tents.js';
 export type { TentSpot } from './world/tents.js';
-export { ARRIVAL_RADIUS, OPEN_TILES, arrivalRings, arrivalSpot } from './world/arrival.js';
+export { ARRIVAL_RADIUS, ESCAPE_REACH, arrivalRings, arrivalSpot } from './world/arrival.js';
 export type { Arrival } from './world/arrival.js';
 export type { EncounterEntry, EncounterSite, WildAnimal } from './world/encounters.js';
 export {

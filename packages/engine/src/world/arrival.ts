@@ -25,18 +25,21 @@ import {
  * own boat beside her. Among tiles still tied, the one lower on the screen
  * (bigger `y`) wins, then the one further left.
  *
- * A spot must open onto the world: at least `OPEN_TILES` tiles reachable
- * from it the way the player gets about. A kid put in a nook between trees
- * and rocks, or on a sandbar without a boat, could never walk out of it, and
- * a go-to is no way to get stuck. With no such tile near her (she is out at
- * sea and you have no boat, say) there is no spot, and you stay where you are.
+ * A spot must open onto the world: the tiles you can get to from it, the way
+ * you get about, must lead at least `ESCAPE_REACH` tiles away from her,
+ * across or down. A kid put on an island without a boat, or in a nook between
+ * trees and rocks, could never walk out of it, however roomy it is inside,
+ * and a go-to is no way to get stuck. So a pocket that fits inside the square
+ * `ESCAPE_REACH` tiles round her is closed, and every spot in it is too. With
+ * no open tile near her (she is out at sea, or on an island, and you have no
+ * boat) there is no spot, and you stay where you are.
  *
  * You arrive facing her.
  */
 export const ARRIVAL_RADIUS = 6;
 
-/** How many tiles an arrival spot must reach, walking (or sailing, with the boat), to count as open. */
-export const OPEN_TILES = 40;
+/** How far from the friend, across or down, the tiles you can get to from a spot must lead for it to be open. */
+export const ESCAPE_REACH = 64;
 
 export interface Arrival {
 	pos: GridPos;
@@ -61,12 +64,15 @@ export function arrivalSpot(
 	}
 	const kindAt = (p: GridPos) => editedTileAt(seed, edits, p.x, p.y).kind;
 	const canGo = (p: GridPos) => isPassable(kindAt(p), gear);
+	// Open or closed, by tile: tiles joined up share the answer, so one search settles a whole pocket.
+	const known = new Map<string, boolean>();
 	for (const ring of arrivalRings(target)) {
 		// Ground first, then water, at the same number of steps.
 		for (const wet of [false, true]) {
 			for (const pos of ring) {
 				const kind = kindAt(pos);
-				if (isWater(kind) !== wet || !isPassable(kind, gear) || !opensOut(pos, canGo)) continue;
+				if (isWater(kind) !== wet || !isPassable(kind, gear)) continue;
+				if (!opensOut(pos, target, canGo, known)) continue;
 				return { pos, facing: facingToward(pos, target) };
 			}
 		}
@@ -92,20 +98,64 @@ export function arrivalRings(target: GridPos): GridPos[][] {
 	return rings;
 }
 
-/** Whether `from` reaches `OPEN_TILES` tiles over tiles `canGo` takes, itself counted. */
-function opensOut(from: GridPos, canGo: (p: GridPos) => boolean): boolean {
-	const seen = new Set<string>([`${from.x},${from.y}`]);
-	const queue: GridPos[] = [from];
-	for (let i = 0; i < queue.length && seen.size < OPEN_TILES; i++) {
+/**
+ * Whether the tiles `from` joins up with, over tiles `canGo` takes, lead
+ * `ESCAPE_REACH` tiles from `target`. The answer is the same for every tile
+ * joined up with `from`, so each tile searched is written into `known`, and a
+ * search that runs into a known tile takes its answer. The search always goes
+ * on from the tile furthest from `target`, so it leaves open country in a
+ * straight run; only a closed pocket is searched through, and a closed pocket
+ * fits inside the square round `target`.
+ */
+function opensOut(
+	from: GridPos,
+	target: GridPos,
+	canGo: (p: GridPos) => boolean,
+	known: Map<string, boolean>
+): boolean {
+	const start = keyOf(from);
+	const already = known.get(start);
+	if (already !== undefined) return already;
+	const reach = (p: GridPos) => Math.max(Math.abs(p.x - target.x), Math.abs(p.y - target.y));
+	// Tiles still to go on from, by how far they are from `target`.
+	const waiting: GridPos[][] = Array.from({ length: ESCAPE_REACH }, () => []);
+	const seen = new Set<string>([start]);
+	let furthest = reach(from);
+	waiting[furthest]!.push(from);
+	let open = false;
+	search: while (furthest >= 0) {
+		const here = waiting[furthest]!.pop();
+		if (!here) {
+			furthest--;
+			continue;
+		}
 		for (const way of WAYS) {
-			const next = step(queue[i]!, way);
-			const key = `${next.x},${next.y}`;
-			if (seen.has(key) || !canGo(next)) continue;
+			const next = step(here, way);
+			const key = keyOf(next);
+			if (seen.has(key)) continue;
+			const answer = known.get(key);
+			if (answer !== undefined) {
+				// Only tiles `canGo` takes are ever known, so this one is joined up with `from`.
+				open = answer;
+				break search;
+			}
+			if (!canGo(next)) continue;
+			const far = reach(next);
+			if (far >= ESCAPE_REACH) {
+				open = true;
+				break search;
+			}
 			seen.add(key);
-			queue.push(next);
+			waiting[far]!.push(next);
+			furthest = Math.max(furthest, far);
 		}
 	}
-	return seen.size >= OPEN_TILES;
+	for (const key of seen) known.set(key, open);
+	return open;
+}
+
+function keyOf(p: GridPos): string {
+	return `${p.x},${p.y}`;
 }
 
 /** The way from `pos` that looks most straight at `target`: across when it is further across, else up or down. */
