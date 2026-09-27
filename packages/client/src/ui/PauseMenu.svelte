@@ -19,6 +19,7 @@
 	import { presence } from '../state/presence.svelte';
 	import {
 		MENU_ITEMS,
+		MENU_PAIRS,
 		cardRows,
 		partyOptions,
 		pause,
@@ -142,8 +143,16 @@
 		return clean === pause.draft.trim().replace(/\s+/g, ' ') ? '' : clean;
 	});
 
-	/** The menu's last two rows, drawn side by side (`PauseController`: left and right step between them). */
-	const PAIR: readonly MenuItem[] = ['resume', 'quit'];
+	/**
+	 * The menu's rows as they are drawn: one to a line, or two side by side
+	 * (`MENU_PAIRS`; `PauseController`: left and right step between them).
+	 */
+	type MenuLine = MenuItem | readonly [MenuItem, MenuItem];
+	const MENU_LINES: readonly MenuLine[] = MENU_ITEMS.flatMap((item): MenuLine[] => {
+		const pair = MENU_PAIRS.find((p) => p.includes(item));
+		if (!pair) return [item];
+		return pair[0] === item ? [pair] : [];
+	});
 
 	/** The Worlds screen's rows, and why Go is greyed when it is. */
 	const worldOptions = $derived(worldRows(pause.worldDraft, game.world, game.home));
@@ -244,6 +253,54 @@
 	});
 </script>
 
+<!-- A row of the menu under the team: a setting, Worlds, Who's here, or a button. -->
+{#snippet menuRow(item: MenuItem)}
+	{@const row = cards.length + MENU_ITEMS.indexOf(item)}
+	<button
+		type="button"
+		class="row item"
+		class:lit={(pause.screen === 'list' && lit === row) ||
+			(pause.screen === 'players' && item === 'players')}
+		data-press={rowKey(row)}
+		{@attach unfocusable}
+	>
+		{#if item === 'language'}
+			<!-- Each language in its own words, so a kid finds theirs in any language;
+			     a tap on one is that language, anywhere else on the row the row. -->
+			<span class="setting">{itemLabel(item)}</span>
+			<span class="choices">
+				{#each LANGUAGES as code (code)}
+					<span
+						class="choice"
+						class:on={language.current === code}
+						lang={code}
+						data-press={languageKey(code)}
+					>
+						{languageName(code)}
+					</span>
+				{/each}
+			</span>
+		{:else if item === 'players'}
+			<!-- Who else is in this world: how many, when anyone is. -->
+			<span class="setting">{itemLabel(item)}</span>
+			{#if unlisted === null}
+				<span class="count-badge">{presence.roster.length}</span>
+			{/if}
+		{:else if item === 'worlds'}
+			<!-- The world the kid is in, beside the row: the number to tell a friend. -->
+			<span class="setting">{itemLabel(item)}</span>
+			<span class="setting-value">{t('worlds.world', { world: game.world })}</span>
+		{:else if item === 'sound'}
+			<!-- A setting: its name, a switch, and the switch's state in words. -->
+			<span class="setting">{itemLabel(item)}</span>
+			<Switch on={sfx.on} />
+			<span class="setting-state">{sfx.on ? t('pause.soundOn') : t('pause.soundOff')}</span>
+		{:else}
+			<span class="button" class:secondary={item !== 'resume'}>{itemLabel(item)}</span>
+		{/if}
+	</button>
+{/snippet}
+
 <div class="backdrop" class:typing={touch.on && pause.screen === 'naming'}>
 	<div class="menu">
 		<div class="title">{pause.screen === 'worlds' ? t('worlds.title') : t('pause.title')}</div>
@@ -343,69 +400,18 @@
 							</span>
 						</button>
 					{/each}
-					{#each MENU_ITEMS as item, j (item)}
-						{@const row = cards.length + j}
-						{#if !PAIR.includes(item)}
-							<button
-								type="button"
-								class="row item"
-								class:lit={(pause.screen === 'list' && lit === row) ||
-									(pause.screen === 'players' && item === 'players')}
-								data-press={rowKey(row)}
-								{@attach unfocusable}
-							>
-								{#if item === 'language'}
-									<!-- Each language in its own words, so a kid finds theirs in any language;
-							     a tap on one is that language, anywhere else on the row the row. -->
-									<span class="setting">{itemLabel(item)}</span>
-									<span class="choices">
-										{#each LANGUAGES as code (code)}
-											<span
-												class="choice"
-												class:on={language.current === code}
-												lang={code}
-												data-press={languageKey(code)}
-											>
-												{languageName(code)}
-											</span>
-										{/each}
-									</span>
-								{:else if item === 'players'}
-									<!-- Who else is in this world: how many, when anyone is. -->
-									<span class="setting">{itemLabel(item)}</span>
-									{#if unlisted === null}
-										<span class="count-badge">{presence.roster.length}</span>
-									{/if}
-								{:else if item === 'worlds'}
-									<!-- The world the kid is in, beside the row: the number to tell a friend. -->
-									<span class="setting">{itemLabel(item)}</span>
-									<span class="setting-value">{t('worlds.world', { world: game.world })}</span>
-								{:else if item === 'sound'}
-									<!-- A setting: its name, a switch, and the switch's state in words. -->
-									<span class="setting">{itemLabel(item)}</span>
-									<Switch on={sfx.on} />
-									<span class="setting-state"
-										>{sfx.on ? t('pause.soundOn') : t('pause.soundOff')}</span
-									>
-								{/if}
-							</button>
+					{#each MENU_LINES as line (typeof line === 'string' ? line : line.join('+'))}
+						{#if typeof line === 'string'}
+							{@render menuRow(line)}
+						{:else}
+							<!-- Two rows side by side, one line of the menu's height. -->
+							<div class="pair" class:halves={line[0] === 'worlds'}>
+								{#each line as item (item)}
+									{@render menuRow(item)}
+								{/each}
+							</div>
 						{/if}
 					{/each}
-					<!-- Keep playing and Start screen, side by side: two buttons, one row of the menu's height. -->
-					<div class="pair">
-						{#each PAIR as item (item)}
-							{@const row = cards.length + MENU_ITEMS.indexOf(item)}
-							<button
-								type="button"
-								class="row item"
-								class:lit={pause.screen === 'list' && lit === row}
-								data-press={rowKey(row)}
-								{@attach unfocusable}
-							>
-								<span class="button" class:secondary={item !== 'resume'}>{itemLabel(item)}</span>
-							</button>
-						{/each}
-					</div>
 				</div>
 
 				<div class="side">
@@ -609,9 +615,10 @@
 		padding: 18px 22px 16px;
 	}
 	/*
-	 * The spacing is trimmed, and Keep playing and Start screen share a row, so
-	 * a team of all eight kinds, with Worlds and the settings under it, fits
-	 * 1024×768 without the menu scrolling.
+	 * The spacing is trimmed, and Worlds and Who's here share a row, as Keep
+	 * playing and Start screen do (`MENU_PAIRS`), so a team of all eight kinds,
+	 * with those and the settings under it, fits 1024×768 without the menu
+	 * scrolling. A new row goes beside another, or the budget is measured again.
 	 */
 	.title {
 		font-weight: 800;
@@ -753,6 +760,11 @@
 	}
 	.pair .row {
 		width: auto;
+	}
+	/* Worlds and Who's here share their line half and half. */
+	.pair.halves .row {
+		flex: 1;
+		min-width: 0;
 	}
 	.setting {
 		flex: 1;

@@ -40,6 +40,17 @@ export type PauseScreen = 'list' | 'bundle' | 'options' | 'naming' | 'worlds' | 
 export const MENU_ITEMS = ['worlds', 'players', 'language', 'sound', 'resume', 'quit'] as const;
 export type MenuItem = (typeof MENU_ITEMS)[number];
 
+/**
+ * Rows drawn two to a line, so the menu keeps its height (a team of all eight
+ * kinds fits 1024×768): Worlds beside Who's here, Keep playing beside Start
+ * screen. Each pair is two neighbours in `MENU_ITEMS`; left and right step
+ * between the two, and up and down walk them in order as any rows.
+ */
+export const MENU_PAIRS: readonly (readonly [MenuItem, MenuItem])[] = [
+	['worlds', 'players'],
+	['resume', 'quit']
+];
+
 class PauseView {
 	/** True from Escape in explore until the menu is closed. Walking waits meanwhile. */
 	open = $state(false);

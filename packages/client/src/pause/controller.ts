@@ -13,6 +13,7 @@ import { game } from '../state/game.svelte';
 import { presence } from '../state/presence.svelte';
 import {
 	MENU_ITEMS,
+	MENU_PAIRS,
 	WORLD_DIGITS,
 	cardRows,
 	partyOptions,
@@ -198,9 +199,11 @@ export class PauseController {
 			case 'ArrowRight':
 			case 'd': {
 				const right = key === 'ArrowRight' || key === 'd';
-				// Keep playing and Start screen stand side by side: left and right step between them.
-				if (item === 'resume' || item === 'quit') {
-					const to = right ? 'quit' : 'resume';
+				// Rows side by side (Worlds and Who's here, Keep playing and Start screen): left
+				// and right step between the two.
+				const pair = item === undefined ? undefined : MENU_PAIRS.find((p) => p.includes(item));
+				if (pair) {
+					const to = right ? pair[1] : pair[0];
 					if (item !== to) {
 						pause.cursor = cards.length + MENU_ITEMS.indexOf(to);
 						sfx.play('move');
