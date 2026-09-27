@@ -528,8 +528,10 @@ describe("the animal book's pictures", () => {
 		const shown = new Set<THREE.BufferGeometry>();
 		const calls: string[] = [];
 		const clear = new THREE.Color(0x8fd3f4);
+		let lost = false;
 		// A renderer that draws nothing: what each picture puts before it, and how it leaves it.
 		const renderer = {
+			getContext: () => ({ isContextLost: () => lost }),
 			getRenderTarget: () => null,
 			setRenderTarget: (target: THREE.WebGLRenderTarget | null) =>
 				calls.push(target ? 'to the picture' : 'to the screen'),
@@ -561,6 +563,12 @@ describe("the animal book's pictures", () => {
 		}
 		expect(shown.size).toBeGreaterThan(ANIMALS.length);
 		expect(kinds([...shown].filter((g) => !ledger.isDisposed(g)))).toEqual([]);
+		// With the context lost, nothing is drawn or built, and no picture comes back to keep.
+		lost = true;
+		calls.length = 0;
+		const before = shown.size;
+		expect(studio.draw('fox')).toBeNull();
+		expect([calls, shown.size]).toEqual([[], before]);
 		studio.dispose();
 	});
 });
