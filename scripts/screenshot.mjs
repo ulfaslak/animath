@@ -34,7 +34,7 @@
  *                 (`--touch` only), e.g. `tap:.talk`, `tap:.pad .ok`
  *   touch:<css>:<ms>  keep a finger on that element for <ms>, e.g. an arrow
  *                 of the D-pad held down: `touch:.dpad .up:1200`
- *   click:<css>   click it with the mouse, e.g. `click:.actions .row.selected`
+ *   click:<css>   click it with the mouse, e.g. `click:.actions .tile.selected`
  * A selector never holds a comma (the script's separator); `:nth-child(2)`
  * and friends are fine.
  * The final frame goes to `--out`. After every frame the script prints what

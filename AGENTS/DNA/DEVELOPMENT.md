@@ -76,7 +76,7 @@ Every run is a fresh browser: a new player with no game, so the page opens on th
 | `shot:<name>`      | saves an extra frame to `<out>-<name>.png` there and then                               |
 | `size:<w>x<h>`     | resizes the window mid-run                                                              |
 | `reload:`          | reloads the page                                                                        |
-| `tap:<css>`        | taps the first element a CSS selector finds with a finger (`--touch` only): `tap:.pad .ok`, `tap:.actions .row:nth-child(2)` |
+| `tap:<css>`        | taps the first element a CSS selector finds with a finger (`--touch` only): `tap:.pad .ok`, `tap:[data-press="row:1"]` (the battle menu's second attack) |
 | `touch:<css>:<ms>` | keeps a finger on that element for `<ms>`, then lifts it: `touch:.dpad .left:2000` walks left for two seconds |
 | `click:<css>`      | clicks it with the mouse: `click:.pill-button.go`                                        |
 

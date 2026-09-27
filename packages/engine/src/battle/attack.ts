@@ -47,10 +47,10 @@ export function attackPuzzle(
 /**
  * A hit that lands: the damage `spec`'s attack `attackIndex` deals at `level`
  * (`attackDamage`, solved), and the target with its HP after it, never below 0.
- * The one function exported from `index.ts`: a screen that shows what a hit
- * would do before it is picked (the battle panel's damage preview, and a
- * target left at 0 HP as "That would tire it out!") calls it on the state it
- * shows, so the preview can never disagree with the hit.
+ * The one function of this file that `index.ts` re-exports: a screen that
+ * shows what a hit would do before it is picked (the battle panel's damage
+ * preview, and a target left at 0 HP as "That would tire it out!") calls it
+ * on the state it shows, so the preview can never disagree with the hit.
  */
 export function landHit(
 	spec: AnimalSpec,
