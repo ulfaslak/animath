@@ -7,6 +7,7 @@ import {
 	type NameRejection,
 	type SavedGame
 } from '@mathgame/engine';
+import { flags } from '../flags';
 import type { SaveNotice } from '../save/notices';
 import { account } from './account.svelte';
 
@@ -30,7 +31,10 @@ export type NameFor = 'new' | 'continue';
 /**
  * The menu's rows, in order. `continue` shows only when there is a game to
  * pick up. `login` ("I have an account → Log in") shows to a guest, and to a
- * player whose session has ended. `language` and `sound` are the settings
+ * player whose session has ended, but never on a throwaway page (`?new` and
+ * the like), which keeps nothing: a login there would switch every other tab
+ * to the account and reload this one into a throwaway game again. `language`
+ * and `sound` are the settings
  * the pause menu has too, on the same stores. A new row is a new id here, its
  * label in `TitleScreen.svelte` and its cases in `TitleController`.
  */
@@ -86,7 +90,9 @@ class TitleView {
 	get rows(): TitleRow[] {
 		return TITLE_ROWS.filter((row) => {
 			if (row === 'continue') return this.saved !== null;
-			if (row === 'login') return account.name === null || account.session === 'ended';
+			if (row === 'login') {
+				return !flags.throwaway && (account.name === null || account.session === 'ended');
+			}
 			return true;
 		});
 	}

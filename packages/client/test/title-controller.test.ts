@@ -10,7 +10,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { sfx } from '../src/audio/sfx.svelte';
 import { LocalAuthority } from '../src/authority/local';
 import { language } from '../src/copy';
-import { parseParty } from '../src/flags';
+import { flags, parseParty } from '../src/flags';
 import { PICK_QUIET_SECONDS } from '../src/input/pick-guard';
 import { languageKey, rowKey } from '../src/input/press';
 import type { TitleView3D } from '../src/render/title-scenery';
@@ -723,6 +723,21 @@ describe('title: accounts', () => {
 		// A tap on the row does the same.
 		press(rowKey(title.rows.indexOf('login')));
 		expect(logIns).toHaveLength(2);
+	});
+
+	it('a throwaway page (?new and the like) has no login row: it keeps nothing', () => {
+		setup(savedGame());
+		const was = flags.throwaway;
+		flags.throwaway = true;
+		try {
+			expect(title.rows).not.toContain('login');
+			account.name = 'Ida';
+			account.session = 'ended';
+			expect(title.rows).not.toContain('login');
+		} finally {
+			flags.throwaway = was;
+		}
+		expect(title.rows).toContain('login');
 	});
 
 	it('a logged-in player has no login row, until the server says the session is over', () => {
