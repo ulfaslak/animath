@@ -25,7 +25,10 @@ COPY packages/ packages/
 # carries it in index.html (<meta name="animath-build">).
 ARG GIT_SHA=dev
 ENV VITE_BUILD_SHA=$GIT_SHA
-RUN pnpm build
+# The client's source maps stay out of the image: served, they would hand
+# anyone the whole source of a private repo, comments and all. (The server's
+# stay: they make its stack traces readable, and nothing serves them.)
+RUN pnpm build && find packages/client/dist -name '*.map' -delete
 
 FROM node:26-slim AS production
 LABEL org.opencontainers.image.source=https://github.com/ulfaslak/mathgame
