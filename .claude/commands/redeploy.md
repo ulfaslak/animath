@@ -130,7 +130,7 @@ A kid's browser keeps its own save and sends a backup with a higher `seq` than a
 
 ## Changing Postgres
 
-A deploy never recreates the `postgres` service: when a merge changes its definition in `docker-compose.prod.yml` (the image tag, the volume, the healthcheck, the log cap), `scripts/deploy.sh` stops before touching anything and says so. Apply it by hand, on the server, then deploy again (`gh workflow run deploy.yml`):
+A deploy never recreates the `postgres` service, so a merge that changes it in `docker-compose.prod.yml` (the image tag, the volume, the healthcheck, the log cap) changes nothing on the server until it is applied by hand. When the image differs, every deploy says so in a warning on its run. On the server:
 
 ```bash
 cd ~/mathgame
