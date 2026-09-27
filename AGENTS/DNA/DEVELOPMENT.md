@@ -148,6 +148,21 @@ Each player's game is a save put in their browser before the page opens (kept af
 
 `--steps` is a comma-separated script of `who:token`, `who` a player's label or `all`. The tokens are the screenshot script's keys (`ArrowRight*3`, `Enter`) and `wait:`, `shot:`, `type:`, `hold:`, `click:`, `tap:`, `reload:`, `size:`, plus: `burst:<name>:<n>` (n frames as fast as they come, for a poof), `press:<key>` (no pause after it), `close:` and `open:` (the player leaves, or comes back), `twin:<label>` (a second window of this player, same browser, which later steps call by its label: one player, two windows), `hide:` and `show:` (the tab hidden and shown, as the page sees it), `until:<css>` (wait for an element) and `run:<command>` (a shell command: `all:run:touch packages/server/src/index.ts` restarts a `tsx watch` server mid-play). After every shot it prints what that player's screen says: `at:` (with `?debug`, which it adds), `others:` (the names over the players on screen and what they are busy with), `arrows:`, `note:`, `message:`, `pause:` and `side:` (the pause menu and its list), `battle:`. Each player's console errors fail the run; a socket the server did not take (it was restarting) is counted, not failed.
 
+**A deploy's hop, without Docker.** Production swaps the app behind nginx: the new copy takes new connections, then the old gets SIGTERM and sends its presence sockets on ([[ARCHITECTURE]] § Presence › Deploys). To watch it, stand a TCP switch in for nginx on your `API_PORT`, sending each new connection to the port a file names, and run the API twice behind it (`PORT=<a>` and `PORT=<b>`, `tsx src/index.ts` without `watch`, your own `DATABASE_URL`):
+
+```js
+// switch.mjs: node switch.mjs; `target` holds the port new connections go to
+import net from 'node:net';
+import { readFileSync } from 'node:fs';
+net.createServer((c) => {
+	const up = net.connect(Number(readFileSync(new URL('./target', import.meta.url), 'utf8')), '127.0.0.1');
+	c.pipe(up).pipe(c);
+	for (const s of [c, up]) s.on('error', () => (c.destroy(), up.destroy()));
+}).listen(Number(process.env.API_PORT));
+```
+
+A `run:` step does the swap: start the new copy and wait for its `/api/health`, write its port to `target`, `kill -TERM` the old one's listening process. The old copy logs `presence: stopping, N sockets told to come back`; the players' `others:` and `note:` lines should not change.
+
 ### Hearing the game
 
 Headless Chrome plays sound to no one, and an agent can't listen. Three checks instead:
