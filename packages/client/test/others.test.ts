@@ -296,6 +296,33 @@ describe('other players on screen', () => {
 		expect(figures.children.length).toBe(1);
 	});
 
+	it('come down on the tile they say they are down on, even when it was never said to be flown', () => {
+		// Up over the lake, and then the landing tile, beyond the last tile flown, only as walked.
+		const spawn = spawnPoint(WORLD_SEED);
+		const { others, frame, frames, figureOf } = setup(spawn);
+		others.seen(peer('bo', spawn));
+		frames(FADE_SECONDS + 0.2);
+		const bo = figureOf('bo')!;
+		const ground = bo.position.y;
+		others.seen(peer('bo', spawn, { busy: 'flight' }));
+		frames(RISE_SECONDS + 0.1);
+		const over = { x: spawn.x, y: spawn.y - 1 };
+		others.seen(peer('bo', over, { busy: 'flight' }));
+		frames(GLIDE_SECONDS + 0.05);
+		// Down one tile further on, in one message: glided onto it high, never hopped from the water.
+		const down = { x: spawn.x, y: spawn.y - 2 };
+		others.seen(peer('bo', down, { busy: 'explore' }));
+		let lowestOnTheWay = Infinity;
+		for (let t = 0; t < GLIDE_SECONDS + 0.05; t += 1 / 60) {
+			frame(1 / 60);
+			lowestOnTheWay = Math.min(lowestOnTheWay, bo.position.y);
+		}
+		expect(lowestOnTheWay).toBeGreaterThan(ground + CRUISE_HEIGHT / 2);
+		expect(others.tileOf('bo')).toEqual(down);
+		frames(DESCEND_SECONDS + 0.2);
+		expect(bo.getObjectByName('wing')?.visible).toBe(false);
+	});
+
 	it('fade away when gone, and a new world clears them all at once', () => {
 		const { others, frames, figureOf, centre } = setup();
 		others.seen(peer('a1', centre));

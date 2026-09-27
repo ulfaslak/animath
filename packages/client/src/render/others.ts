@@ -219,6 +219,10 @@ export class OtherPlayers {
 			return;
 		}
 		if (adjacent(last, target) && other.queue.length < MAX_BEHIND) {
+			// A tile walked right after tiles flown is where they came down (its flight was
+			// never said, two messages in one): they glide onto it, then come down there.
+			const wasFlying = lastReached?.flying ?? other.flying;
+			if (wasFlying && !flying) other.queue.push({ pos: target, flying: true });
 			other.queue.push({ pos: target, flying });
 			return;
 		}
