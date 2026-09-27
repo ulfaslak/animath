@@ -32,9 +32,9 @@ Use `pnpm db:psql -c "<sql>"` (wraps `docker compose exec postgres psql`), or `d
 
 Agents started by one orchestrator run under the same session id (`$CLAUDE_CODE_SESSION_ID`), so their "session-specific" scratchpad is one folder with dozens of files from several branches in it. On 2026-09-25 another branch's `pr-body.md` replaced `feat/encounters-by-lead`'s between two edits, luckily after the PR had been opened from it. Put every scratch file in a subfolder named after your branch (`$SCRATCHPAD/<branch>/pr-body.md`), and never restore a negative control from a generic name like `local.ts.bak` that a sibling may also write.
 
-## Server test runs in two worktrees share one test database
+## Test databases from before each checkout had its own
 
-Every worktree's server tests use the same `mathgame_test`, and each run's global setup truncates its tables first, so a run starting in another worktree empties them under yours (#100). On 2026-09-27 that made `account.test.ts` see two accounts made for one name (`[201, 201, 409, …]`), which the unique `name_key` forbids unless the first row was gone. A lone server failure where a test's own rows went missing is this, not your change: rerun it. Delete this entry in the PR that fixes #100.
+`mathgame_test` is the database every worktree's server tests shared until #100; a branch that has not merged main since still runs on it, and a run there can still empty the tables under another such branch's run. `mathgame_feat_matches_test` and `mathgame_accounts_client_test` were named by hand through `TEST_DATABASE_URL` (2026-09-27). `pnpm db:prune-tests` lists all three as left alone, since no checkout is written on them. Drop each by hand (`docker compose -p mathgame exec -T postgres dropdb -U postgres <name>`) once no worktree runs on it, and delete this entry when all three are gone.
 
 ## The Postgres container's clock runs ~120 ms ahead of the host
 
