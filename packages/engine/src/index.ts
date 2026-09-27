@@ -204,9 +204,10 @@ export type { Arrival } from './world/arrival.js';
 export type { EncounterEntry, EncounterSite, WildAnimal } from './world/encounters.js';
 export {
 	ENCOUNTER_CHANCE,
-	NEAR_TIER_RATIO,
-	ONE_TIER_BELOW_WEIGHT,
+	NEAR_ONE_UP,
 	SAFE_RADIUS,
+	TIER_SIGMA,
+	VISITORS_WEIGHT,
 	WILD_RADIUS,
 	distanceFromSpawn,
 	encounterTable,

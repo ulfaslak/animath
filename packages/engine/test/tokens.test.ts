@@ -125,24 +125,34 @@ describe('tokens against the battles that earn them', () => {
 		const reed = [{ pos: { x: -3, y: 6 }, tile: tileAtWorld(SEED, -3, 6) }];
 		expect(reed[0]!.tile.kind).toBe('tallgrass');
 		const starter = ['squirrel', 'rabbit', 'frog'];
+		const fox = ['fox', 'otter', 'rabbit'];
 		const farm = tokensPerBattle(starter, reed, FARMER);
 		const ordinary = tokensPerBattle(starter, near, ORDINARY);
-		const foxOrdinary = tokensPerBattle(['fox', 'otter', 'rabbit'], near, ORDINARY);
+		const foxOrdinary = tokensPerBattle(fox, near, ORDINARY);
+		const foxFarm = tokensPerBattle(fox, near, FARMER);
 		if (process.env.SIM) {
 			console.log(
 				[
 					'tokens per battle, every catch going home:',
 					`  starter farming the reed by the start:   ${farm.toFixed(2)}`,
 					`  starter, ordinary play near home:        ${ordinary.toFixed(2)}`,
-					`  fox in front, ordinary play near home:   ${foxOrdinary.toFixed(2)}`
+					`  fox in front, ordinary play near home:   ${foxOrdinary.toFixed(2)}`,
+					`  fox in front, farming near home:         ${foxFarm.toFixed(2)}`
 				].join('\n')
 			);
 		}
-		// A bigger animal in front, played the ordinary way, earns more than any tier-1 farm.
-		expect(farm).toBeLessThan(foxOrdinary);
+		// The same farming with a bigger animal in front earns more: the smallest animals are
+		// never the fastest way to tokens.
+		expect(farm).toBeLessThan(foxFarm);
+		// A bigger animal in front, played the ordinary way, earns more than the starter does,
+		// and about what the tier-1 farm does. Since the bell, a fox meets a small animal about
+		// 1 battle in 3 near home, so its ordinary play is no longer ahead of the farm by the
+		// battle (1.98 tokens to 2.04 over 30,000 battles each; by the minute, 1.42 to 1.40).
+		expect(foxOrdinary).toBeGreaterThan(1.5 * ordinary);
+		expect(foxOrdinary).toBeGreaterThan(0.9 * farm);
 		// And the farm is a few times ordinary play with the starter at most, never ten.
 		expect(farm).toBeLessThan(3 * ordinary);
 		expect(ordinary).toBeGreaterThan(0);
-		// About 0.3 s alone (4,500 whole battles); twice that with browsers drawing beside it.
+		// About 0.4 s alone (6,000 whole battles); twice that with browsers drawing beside it.
 	}, 30_000);
 });
