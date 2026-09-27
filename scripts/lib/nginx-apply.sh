@@ -10,8 +10,10 @@
 #     container's disk as soon as `git reset --hard` writes it: a reload reads
 #     it. (Lawcel mounts nginx.conf as a single file, which keeps showing the
 #     old file after a reset; that is what its version works around.)
-#   - A change to the template, or to the domain, reaches /etc/nginx/nginx.conf
-#     only when the container starts again: it needs a recreate (~2 s blip).
+#   - A change to the template reaches /etc/nginx/nginx.conf only when it is
+#     rendered again: the image renders it at every start, and step 5 below
+#     has the running container render it. A change to the domain changes the
+#     service's environment, which needs a new container.
 #
 # What this does:
 #
@@ -24,8 +26,18 @@
 #      config step 1 passed.
 #   3. Compare step 1's config with `nginx -T` in the running container, which
 #      reads the included files fresh and its own rendered nginx.conf.
-#   4. The same -> reload (picks up the included files; costs nothing).
-#      Different -> recreate, so the template renders again.
+#   4. The same -> reload (picks up the included files).
+#   5. Different (the template changed) -> the running container renders the
+#      template again with the image's own script and its own environment, as
+#      at a start, and when its config is now step 1's, a reload. Otherwise a
+#      recreate, which renders it at the start.
+#
+# A reload refuses no connection: nginx's new workers take the new ones at
+# once, and the old workers finish what they hold (a WebSocket stays with its
+# old worker until it closes). A recreate refuses every connection until nginx
+# is back, and nginx's graceful stop waits for its WebSockets until Docker
+# kills it 10 s on: 12 s of refused connections with four presence sockets
+# open on the local stack (2026-09-28). So only a new definition recreates.
 
 # apply_nginx_config <compose-cmd>
 #
@@ -77,7 +89,19 @@ apply_nginx_config() {
 		return
 	fi
 
-	echo "    nginx config: the template changed — recreating nginx to render it (~2 s blip)"
+	# The template changed: the running container renders it again, as its
+	# entrypoint does at a start. That script exits 0 even when it could not
+	# write, so what counts is its result: the running config must now be the
+	# one step 1 passed.
+	docker exec "$after" /docker-entrypoint.d/20-envsubst-on-templates.sh </dev/null >/dev/null 2>&1 || true
+	running=$(docker exec "$after" nginx -T 2>/dev/null </dev/null || true)
+	if [ "$candidate" = "$running" ]; then
+		echo "    nginx config: the template changed — rendered again in the running nginx, reload"
+		docker exec "$after" nginx -s reload </dev/null
+		return
+	fi
+
+	echo "    nginx config: the template did not render in place — recreating nginx (no connections until it is back, up to ~12 s)"
 	# shellcheck disable=SC2086
 	${compose_cmd} up -d --no-deps --force-recreate nginx || true
 	nginx_is_up "$compose_cmd"

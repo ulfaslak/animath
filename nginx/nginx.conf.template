@@ -12,6 +12,15 @@ load_module modules/ngx_http_acme_module.so;
 
 worker_processes auto;
 
+# nginx's own log: starting and reloading, its workers, and the certificate
+# module, which says why a certificate is missing or did not renew. None of
+# these lines is about a request, so none names a client: the lines about
+# requests and connections are http.conf's, and only at `alert`. `notice`,
+# not `warn`: the certificate module writes only what is more severe than the
+# level named here, so at `warn` a renewal Let's Encrypt refused would leave
+# no line (nginx 1.29.8, 2026-09-28).
+error_log stderr notice;
+
 events {
     worker_connections 1024;
 }
