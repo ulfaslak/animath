@@ -262,7 +262,8 @@ What is built and observable today. Keep current: add a bullet when a feature sh
 
 ### Server
 
-- Health endpoint reporting database reachability.
+- Health endpoint reporting database reachability and the build that is running.
+- Ready to go online at its own address: every change deploys itself, with no gap while it does, and the page carries the build it came from. While the game does not answer (a first start, or the server down) the address shows "Back in a moment! The game is getting ready." in the kid's language, and reloads itself into the game. It goes live once the server and the domain exist ([[HUMAN_TODO]]); until then kids play over the tunnel.
 - Anonymous identity: a player is created with one request and gets an id plus a secret; no account, no login.
 - One backup save per player, stored and returned as a versioned document (world seed, position, facing, the step and doctor-visit counts, the game's id and the save's number, a party of any size, a battle in progress). A backup lands only with a higher save number than the one stored; a different game or an unreadable save it replaces is kept aside.
 
@@ -274,4 +275,4 @@ In rough priority order. Each becomes a GitHub issue when picked up.
 2. Procedural world v2: rivers that flow, paths, biome shaping, landmarks.
 3. Puzzle catalog v2: fractions, decimals, negatives, percentages, word problems, per-child adaptive difficulty.
 4. Multiplayer: shared world, other players visible, PvP battles, tokens for winning, more in the shop.
-5. Deployment to the Hetzner VPS.
+5. The game online at its own address: the server and the domain ([[HUMAN_TODO]]). The deploy is built (§5 Server).

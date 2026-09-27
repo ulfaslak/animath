@@ -1,0 +1,129 @@
+# The production stack, on the game's own Hetzner VPS (terraform/) at
+# ~/mathgame: the app, Postgres, nginx in front with Let's Encrypt, and a
+# backup sidecar. The same shape as lawcel's docker-compose.prod.yml.
+# scripts/deploy.sh drives it; the by-hand commands are in
+# AGENTS/DNA/DEVELOPMENT.md § Deployment, and docker-compose.local.yml runs it
+# on a Mac.
+#
+# The project name is fixed, so no compose command, on the server or on a Mac,
+# takes the dev database's project (`mathgame`, from docker-compose.yml) for
+# this one. Its volumes are mathgame-prod_pgdata and mathgame-prod_acme_data.
+#
+# Every service caps its own log. With no `logging:` key, and no
+# /etc/docker/daemon.json on the server, Docker keeps container logs without
+# bound.
+name: mathgame-prod
+
+services:
+  app:
+    image: ghcr.io/ulfaslak/mathgame:prod
+    env_file: .env.production
+    # tini as PID 1 hands `docker stop`'s SIGTERM on to node. As PID 1 node
+    # would ignore it, and every stop would wait 10 s to kill it.
+    init: true
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: always
+    healthcheck:
+      test:
+        [
+          'CMD',
+          'node',
+          '-e',
+          "fetch('http://localhost:3000/api/health').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"
+        ]
+      interval: 5s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+    logging:
+      driver: json-file
+      options:
+        max-size: '20m'
+        max-file: '5'
+
+  postgres:
+    image: postgres:18-alpine
+    env_file: .env.production
+    volumes:
+      # The parent directory, not .../data: postgres:18 keeps its cluster
+      # under /var/lib/postgresql/18/docker and declares VOLUME
+      # /var/lib/postgresql. A named volume at the old .../data path leaves the
+      # real cluster in an anonymous volume, which `docker compose down` and
+      # `up` replace with an empty one.
+      - pgdata:/var/lib/postgresql
+    restart: always
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U $${POSTGRES_USER:-mathgame}']
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    logging:
+      driver: json-file
+      options:
+        max-size: '5m'
+        max-file: '2'
+
+  nginx:
+    image: nginx:1.29.8
+    ports:
+      - '80:80'
+      - '443:443'
+    # MATHGAME_DOMAIN, from the tracked deploy.env. At every start the image
+    # renders nginx/nginx.conf.template with it into /etc/nginx/nginx.conf.
+    env_file: deploy.env
+    environment:
+      NGINX_ENVSUBST_TEMPLATE_DIR: /etc/nginx/mathgame
+      NGINX_ENVSUBST_OUTPUT_DIR: /etc/nginx
+      NGINX_ENVSUBST_FILTER: ^MATHGAME_
+    volumes:
+      # The folder, not single files: `git reset --hard` replaces a changed
+      # file with a new one, and a single-file bind mount keeps showing the
+      # old one (the trap lawcel's scripts/lib/nginx-apply.sh works around).
+      - ./nginx:/etc/nginx/mathgame:ro
+      # Let's Encrypt's account key and certificates. Not backed up: a new
+      # server gets new ones.
+      - acme_data:/etc/nginx/acme
+    depends_on:
+      - app
+    restart: always
+    logging:
+      driver: json-file
+      options:
+        max-size: '10m'
+        max-file: '3'
+
+  # Dumps the database every 6 hours (00, 06, 12 and 18 UTC), checks each dump
+  # can be read back whole, and keeps 30 days in ~/mathgame/backups. The loop is
+  # scripts/backup.sh, mounted read-only from the checkout.
+  backup:
+    image: postgres:18-alpine
+    env_file:
+      - .env.production
+      # MONITORING_SLACK_WEBHOOK_URL, for alerts when a backup fails. Optional:
+      # without it an alert is only a log line.
+      - path: .env.monitoring
+        required: false
+    environment:
+      PGHOST: postgres
+      BACKUP_INTERVAL_HOURS: '6'
+      BACKUP_RETENTION_DAYS: '30'
+    volumes:
+      - ./backups:/backups
+      - ./scripts:/opt/scripts:ro
+    entrypoint: ['/bin/sh', '/opt/scripts/backup.sh']
+    init: true
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: always
+    logging:
+      driver: json-file
+      options:
+        max-size: '5m'
+        max-file: '2'
+
+volumes:
+  pgdata:
+  acme_data:

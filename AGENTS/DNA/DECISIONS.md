@@ -82,6 +82,7 @@ No generated-by-AI art claims without checking the generator's license terms.
 ## Server
 
 Node with Hono (`@hono/node-server`). Serves the built client in production; Vite proxies `/api` and `/ws` to it in development.
+In production the server is one esbuild bundle, the engine inside, run with plain `node`; `tsx` runs it in development only.
 WebSockets via `ws` when multiplayer arrives. The server will run the same engine and be authoritative for anything persisted or shared.
 Postgres via Drizzle ORM (`node-postgres` driver). Local Postgres in Docker on host port **5433**.
 Migrations are hand-written SQL in `packages/server/drizzle/`, idempotent (`IF NOT EXISTS`), with a matching `_journal.json` entry. `drizzle-kit generate` is not used.
@@ -109,5 +110,8 @@ Rendering changes are verified by reading a screenshot from `scripts/screenshot.
 
 ## Deployment
 
-Not yet. When it comes: Docker Compose on the existing Hetzner VPS behind nginx, Postgres in the same compose, same shape as lawcel. Until then the game is shared from this machine through a tunnel (ngrok or cloudflared; how: [[DEVELOPMENT]] § Sharing the game through a tunnel).
+The game runs on its own Hetzner VPS, a copy of lawcel's setup: Docker Compose with the app, Postgres in the same compose, nginx in front and a backup sidecar, the server made by Terraform. Its own server, not lawcel's, for isolation from the business product, and to copy exactly a setup that works (lawcel's nginx owns that server's ports 80 and 443 and is reset from lawcel's repo on every lawcel deploy).
+Certificates come from Let's Encrypt through nginx's own ACME module over HTTP-01, as on lawcel: no certbot, no DNS API.
+Every push to main goes straight to prod, unless its head commit says `[skip deploy]`: no staging and no promote, because the human asked for it ("it's just a fun game, so nevermind a staging environment, push to main (unless skip tags) builds and goes on prod immediately"). The checks (`pnpm check`, `pnpm lint`, `pnpm test`) gate the deploy inside the deploy workflow, since branch protection is not on this plan.
+Until the server is up, the game is shared from this machine through a tunnel (ngrok or cloudflared; how: [[DEVELOPMENT]] § Sharing the game through a tunnel).
 No third-party backend services (no Convex, Supabase, Firebase). Postgres and a Node process are the whole stack.

@@ -14,6 +14,9 @@ language:
 
 app:
   loading: Vent lidt…
+  updating:
+    title: Tilbage om lidt!
+    body: Spillet gør sig klar.
 
 keys:
   esc: Esc

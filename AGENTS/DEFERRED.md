@@ -6,13 +6,21 @@ Technical items we've intentionally postponed: tech debt, hardening shortcuts, k
 
 ---
 
-### Server runs TypeScript through `tsx` in every environment
+### A deploy runs two app containers side by side for a few seconds
 
-**What**: `packages/server` has no bundling step; `pnpm start` is `tsx src/index.ts`. Fine locally. For a VPS deploy the image should ship compiled JS (or a single esbuild bundle) so startup doesn't depend on a dev-time transpiler.
+**What**: `scripts/deploy.sh` swaps the app without a gap the way lawcel's does: a canary of the new image joins the network under the alias `app` beside the old app, nginx spreads requests over both, then the old one is replaced and the canary removed ([[ARCHITECTURE]] § Production). That works because the app keeps nothing between requests but what is in Postgres. A server that holds shared state in memory (a room of players, a world, a battle between two kids over `/api/ws`) would, for those seconds, be two authorities with half the players each, and every socket would drop twice (the old app replaced, then the canary removed). And nothing sends the old app's sockets away gracefully: `init: true` makes a stop quick, not orderly.
 
-**Why deferred**: there is no deploy yet, and the server is a health check, the player and save routes, and a migration script. Bundling now is config with nothing to protect.
+**Why deferred**: the server is stateless today, and the right swap depends on what the multiplayer server keeps: a plain stop-then-start with clients reconnecting (seconds of outage), state persisted so two can overlap, or a drain on SIGTERM that closes sockets with 1001 and lets clients reconnect to the new app.
 
-**Trigger**: the first deploy to the Hetzner VPS (the Dockerfile PR).
+**Trigger**: the first server code that keeps state in memory across requests or sockets (the `RemoteAuthority` / shared-world PR). Change `deploy.sh`'s swap and the server's SIGTERM handling in that PR.
+
+### Nothing alarms when prod is down
+
+**What**: prod has no uptime monitor. The backup service and the Mac's backup sync alert on failure (to Slack once `MONITORING_SLACK_WEBHOOK_URL` is set; there is no webhook yet, so today to a log line), and Hetzner mails when its nightly image fails; nothing tells anyone when the game stops answering, a certificate fails to renew, or the disk fills. Lawcel runs the same way.
+
+**Why deferred**: the players are one household's kids, who say so when the game is down, and there is no alert channel to send to yet.
+
+**Trigger**: the first players outside the household, the first outage found late, or the Slack webhook arriving. Then an external check of `/api/health` (and the certificate's expiry) that alerts where the backups do.
 
 ### The puzzle's answer travels to the client inside `BattleState` and `DoctorState`
 
@@ -32,11 +40,11 @@ Technical items we've intentionally postponed: tech debt, hardening shortcuts, k
 
 ### Anonymous player identity is unauthenticated
 
-**What**: the player secret is a random token the client holds in `localStorage` (`animath.player`) and sends as a bearer header. Only its hash is stored, so a database dump is useless, but anyone who copies the token from the browser owns the player and its backup. No rate limiting on `POST /api/players`: anyone can mint rows, and the game itself leaves unused ones behind (every fresh browser that starts a game is a new player; a page reloaded before its first `POST` answered makes another). No rotation, and no way to recover a lost secret: a kid whose browser forgets the site (cleared data, another browser or device, Safari deleting a site's storage after seven days without a visit) starts a new game, and their backup waits on the server under an identity nothing holds any more. Moving it to their new player takes a query written by hand; [[DEVELOPMENT]] § Database only restores a player's own backups.
+**What**: the player secret is a random token the client holds in `localStorage` (`animath.player`) and sends as a bearer header. Only its hash is stored, so a database dump is useless, but anyone who copies the token from the browser owns the player and its backup. `POST /api/players` has only a rate limit per address in the prod nginx (20 at once, then one every 6 s; `nginx/http.conf`), which still lets anyone mint rows slowly, and the game itself leaves unused ones behind (every fresh browser that starts a game is a new player; a page reloaded before its first `POST` answered makes another). No rotation, and no way to recover a lost secret: a kid whose browser forgets the site (cleared data, another browser or device, Safari deleting a site's storage after seven days without a visit) starts a new game, and their backup waits on the server under an identity nothing holds any more. Moving it to their new player takes a query written by hand; [[DEVELOPMENT]] § Database only restores a player's own backups.
 
 **Why deferred**: there is nothing to steal until multiplayer, tokens and a shop exist, and the players are a handful of kids on a tunnel URL. Moving a game between browsers is a feature (a recovery code, or accounts), not a hardening.
 
-**Trigger**: multiplayer with any persistent economy (tokens, purchasable leashes/potions), the first public deploy (rate limiting, and sweeping players with no save), or the first report of a kid losing their save.
+**Trigger**: multiplayer with any persistent economy (tokens, purchasable leashes/potions), the prod server going live (sweeping players with no save; the rate limit is in place), or the first report of a kid losing their save. On the server, check first that nginx sees each IPv6 visitor's own address: Docker's port proxy may hand it every IPv6 connection from one address, which one rate-limit bucket would then serve for all.
 
 ### World edits are each player's own; a shared world has to decide whose they are
 

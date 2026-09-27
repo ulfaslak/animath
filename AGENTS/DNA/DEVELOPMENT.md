@@ -28,7 +28,7 @@ pnpm dev:server       # Hono on http://localhost:3000 (tsx watch)
 
 Health check: `curl localhost:3000/api/health` → `{"ok":true,"db":true}`.
 
-Production shape: `pnpm build` then `pnpm -F @mathgame/server start` serves the built client from `packages/client/dist` and the API from one process.
+Production shape: `pnpm build` then `pnpm -F @mathgame/server start` serves the built client from `packages/client/dist` and the API from one process, the server bundle under plain `node` as in the image (set `PORT` and `DATABASE_URL` to your own, below). The whole production stack, nginx included, runs on a Mac too (§ Deployment).
 
 The game saves in the browser without the API; the API only holds the backup ([[ARCHITECTURE]] § Saving). From a worktree, run your own API on a free port against a database of your own on the same Postgres, never `mathgame` (the kids' games) or `mathgame_test` (the server tests empty it), and point your Vite at it. The shell's `DATABASE_URL` and `PORT` win over `.env`'s:
 
@@ -240,9 +240,11 @@ Hand-written SQL, applied by `pnpm db:migrate` (`drizzle-orm`'s migrator, journa
 
 Never run `drizzle-kit generate` in a worktree (it emits a full `0000` dump that collides with the real one).
 
+**A migration keeps the build before it working.** A deploy runs the new migrations while the old build still serves, the two builds then answer side by side for a few seconds, and a rollback runs an older build on the newer schema: migrations never go back. So add (a table, a nullable column, a column with a default); rename or drop only in a later PR, once no deployed build reads the old name.
+
 ## Sharing the game through a tunnel
 
-Until there is a deploy, the game is shared from this machine:
+Until the prod server is up (§ Deployment), the game is shared from this machine:
 
 ```bash
 TUNNEL=1 pnpm dev              # both dev servers; TUNNEL lets Vite accept the tunnel hostname
@@ -255,4 +257,63 @@ Each kid's game is saved in their own browser, under the link they opened, and b
 
 ## Deployment
 
-None yet. The plan ([[DECISIONS]] § Deployment): Docker image with the built client + server, Docker Compose with Postgres behind nginx on the existing Hetzner VPS, GitHub Actions build on merge. When that lands, this section grows the operational recipes and CLAUDE.md's Phase 5 gains its post-deploy checks.
+The game's own Hetzner VPS runs the production stack ([[ARCHITECTURE]] § Production). The runbook for everything done by hand on it (provisioning, DNS, the secrets, a restore, a rollback without GitHub Actions, the logs) is `/redeploy` (`.claude/commands/redeploy.md`). Until the server and the deploy secrets exist, nothing deploys: every push to main ends green at the workflow's first job, with a notice saying so.
+
+### How a merge reaches prod
+
+Every push to main that touches what is deployed (`packages/`, the manifests, `Dockerfile`, `docker-compose.prod.yml`, `deploy.env`, `nginx/`, `scripts/`, the workflow) runs `.github/workflows/deploy.yml`:
+
+1. `check` stops the run, green with a notice, when the deploy secrets are missing or the head commit says `[skip deploy]`.
+2. `test` is the gate: `pnpm check`, `pnpm lint`, `pnpm test` (with Postgres beside it) and `nginx -t` on the server's config. A red check stops the deploy, and prod keeps the build it has.
+3. `build` pushes the image to GHCR as `:<sha>` and `:prod`.
+4. `deploy` runs, over SSH, `git reset --hard <sha>` in `~/mathgame` and `scripts/deploy.sh`: migrations, the canary swap, the backup service, nginx. Then, from GitHub, `https://<domain>/api/health` must report `<sha>` within 2 minutes.
+
+A push during a run waits for it; of several waiting, only the newest runs. `gh workflow run deploy.yml` builds and deploys main's tip whatever its commit says: the way to catch prod up after a `[skip deploy]` or a failed run. A merge that touches nothing deployed (docs, `AGENTS/`) starts no run, and prod keeps its build.
+
+### Skipping a deploy
+
+`[skip deploy]` anywhere in the head commit's message, in any case. For a PR, that is the merge commit's subject:
+
+```bash
+gh pr merge <N> --merge --subject "Merge pull request #<N> from ulfaslak/<branch> [skip deploy]"
+```
+
+Main then runs ahead of prod until the next deploy. Never `[skip ci]` or its kin: GitHub's own markers skip every workflow.
+
+### Rolling back
+
+```bash
+pnpm rollback          # the recent deploys, newest first: the commit each one put on prod
+pnpm rollback <sha>    # the image built from <sha> back on prod
+```
+
+It dispatches the deploy workflow with that SHA: no build and no tests; `:prod` points at that commit's image, the server checks out that commit, and the same swap and health check run. It holds until the next push to main; to stay back, merge a revert. The database stays as it is, so the older build runs on the newer schema (§ Migrations). Without GitHub Actions: `/redeploy` § Roll back.
+
+### Backups
+
+Three layers ([[ARCHITECTURE]] § Production): the `backup` service's dumps in `~/mathgame/backups/` on the server, every 6 hours, 30 days kept; their copy in `~/mathgame-backups/` on this Mac, pulled every 6 hours by the launchd agent once it is installed (`./scripts/install-backup-sync.sh`, after the server exists); and Hetzner's nightly image of the machine. Restoring one: `/redeploy` § Restore from a backup. Alerts go to Slack when `MONITORING_SLACK_WEBHOOK_URL` is set, in `~/mathgame/.env.monitoring` on the server and `~/.config/mathgame/monitoring.env` here; without it an alert is a log line.
+
+### Prod access
+
+```bash
+. ./deploy.env
+curl -fsS https://$MATHGAME_DOMAIN/api/health     # {"ok":true,"db":true,"sha":"<the build>"}
+ssh -i ~/.ssh/mathgame_deploy deploy@$MATHGAME_DOMAIN
+cd ~/mathgame && docker compose -f docker-compose.prod.yml logs --tail 200 -f app
+```
+
+More in `/redeploy` § Logs and a look inside. Never change a file on the server: the next deploy resets the checkout, and a change that belongs there belongs in a PR.
+
+### Trying it on a Mac
+
+The production stack runs locally with `docker-compose.local.yml` (Docker is colima here: [[ENVIRONMENT_NOTES]]), as the project `mathgame-local` on `localhost:8480`, with plain HTTP and nothing of the dev database's:
+
+```bash
+docker build --build-arg GIT_SHA=$(git rev-parse HEAD) -t mathgame:local .
+MATHGAME_DIR=$PWD MATHGAME_COMPOSE_OVERRIDE=docker-compose.local.yml bash scripts/deploy.sh
+curl -s localhost:8480/api/health
+node scripts/screenshot.mjs --url http://localhost:8480/ --api --out screenshots/prod-local.png
+docker compose -f docker-compose.prod.yml -f docker-compose.local.yml down -v
+```
+
+The deploy script's first run starts the stack; run again after tagging a new build `mathgame:local`, it does the canary swap. `--api` lets the page back up to the stack's own database. To see the page shown while the game does not answer, stop the app (`… stop app`) and load `localhost:8480` (with `?lang=da` for Danish). The last line removes the stack's containers, network and volumes.

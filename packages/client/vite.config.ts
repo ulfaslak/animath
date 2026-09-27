@@ -7,6 +7,10 @@ import { parse } from 'yaml';
 const tunnel = process.env.TUNNEL === '1';
 // API_PORT points the proxy at another API server, e.g. a worktree's own.
 const apiPort = process.env.API_PORT ?? '3000';
+// The commit being built, which the image's build sets (Dockerfile) and
+// index.html carries as `<meta name="animath-build">`, beside the server's
+// /api/health: the two builds are one. `dev` everywhere else.
+process.env.VITE_BUILD_SHA ||= 'dev';
 
 /**
  * `import en from './en.yaml'` gives the file's data. The YAML is parsed here,
@@ -40,6 +44,11 @@ export default defineConfig({
 	build: {
 		target: 'es2022',
 		sourcemap: true,
+		// Every file Vite builds is named after its content hash; they all go in
+		// one folder, which the server tells browsers to keep for good. What
+		// `public/` copies over keeps its own name and folder (`assets/`), and is
+		// asked for again on every visit (`cacheControl` in the server's app.ts).
+		assetsDir: 'immutable',
 		rollupOptions: {
 			// Three.js is ~500 kB on its own; keep it in a separate, long-cached chunk.
 			output: { manualChunks: { three: ['three'] } }
