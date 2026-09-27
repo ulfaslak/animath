@@ -368,7 +368,13 @@ export class Autosave {
 					return { game: restoreGame(read.save), notice: 'save.welcomeBack' };
 				}
 				// The kid's game is on the server, but this page cannot read it: a new game, said so.
-				if (read.reason === 'newer') {
+				// An account's is never saved past (`settleWith`): the page waits for a newer build.
+				if (this.server.session) {
+					this.serverState = 'stopped';
+					this.newerOnServer = true;
+					this.goStale('newer');
+					plan = { notice: 'save.newerGame' };
+				} else if (read.reason === 'newer') {
 					this.serverState = 'stopped';
 					this.newerOnServer = true;
 					plan = { notice: 'save.newerGame' };
@@ -829,6 +835,14 @@ export class Autosave {
 		const read = readSave(doc);
 		const theirs = saveSeq(doc);
 		if (!read.ok) {
+			if (this.server?.session) {
+				// An account's save this build cannot read: a newer build's, most likely, while
+				// a deploy has two builds alive. Neither copy is written over, here or on the
+				// server, and the page waits for the kid to load the newer build.
+				this.serverState = 'stopped';
+				this.goStale('newer');
+				return;
+			}
 			if (read.reason === 'newer') {
 				this.serverState = 'stopped';
 				return;

@@ -18,12 +18,18 @@
 				{t('save.behind')}
 			{:else if behind.cause === 'replaced'}
 				{t('save.behindReady')}
+			{:else if behind.cause === 'newer'}
+				{t('save.newerReady')}
 			{:else}
 				{t('save.behindGone')}
 			{/if}
 		</div>
 		<button type="button" class="button" data-press="Enter" {@attach unfocusable}>
-			{t('save.behindGo')}
+			{#if behind.cause === 'newer'}
+				{touch.on ? t('save.newerTap') : t('save.newerGo')}
+			{:else}
+				{t('save.behindGo')}
+			{/if}
 			{#if !touch.on}<kbd>{t('keys.enter')}</kbd>{/if}
 		</button>
 	</div>

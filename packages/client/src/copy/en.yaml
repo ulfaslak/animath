@@ -667,6 +667,12 @@ save:
   behindGone: A new game is ready.
   # The button on that card.
   behindGo: Get your newest game
+  # The same card when the account's save on the server is one this build cannot read:
+  # a newer version of the game wrote it. The page waits until the kid updates.
+  newerReady: A new version of the game is ready.
+  # Its button with the touch controls on, and with a keyboard or a mouse.
+  newerTap: Tap to update!
+  newerGo: Update the game
 
 account:
   # The account card's two boxes, and the button beside the password that shows it as typed.

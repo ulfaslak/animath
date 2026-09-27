@@ -19,7 +19,7 @@ import {
  * the reload limit, it shows the card.
  */
 
-const CAUSES: BehindCause[] = ['window', 'replaced', 'gone'];
+const CAUSES: BehindCause[] = ['window', 'replaced', 'gone', 'newer'];
 const page = (over: Partial<PageState>): PageState => ({
 	behind: 'window',
 	visible: true,
@@ -69,6 +69,12 @@ describe('behindAction', () => {
 		for (const cause of ['replaced', 'gone'] as const) {
 			expect(behindAction(page({ behind: cause }))).toBe('reload');
 			expect(behindAction(page({ behind: cause, focused: false }))).toBe('reload');
+		}
+	});
+
+	it("an account's save only a newer build can read: the card, never a reload by itself", () => {
+		for (const state of everyPage('newer')) {
+			expect(behindAction(state)).toBe(state.visible ? 'card' : 'wait');
 		}
 	});
 

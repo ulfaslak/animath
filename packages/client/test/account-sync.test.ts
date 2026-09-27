@@ -226,6 +226,54 @@ describe("an account's game in the browser", () => {
 		expect(store.get(KEYS_IDA.save)).toBe(before);
 	});
 
+	it('a server save this build cannot read is never written over: at load, the page waits for a newer build', async () => {
+		for (const unreadable of [
+			{ version: 99, seq: 5, lineage: 'future' },
+			{ version: 2, seq: 5, lineage: 'odd', party: 'not a party' }
+		]) {
+			const server = new FakeAccountServer();
+			server.save = unreadable;
+			const store = new MemoryStore();
+			const page = new Page(store, server);
+			await page.open();
+			await page.catchOne();
+			await later(120_000);
+			expect(page.autosave.behind, JSON.stringify(unreadable)).toBe('newer');
+			expect(server.save).toEqual(unreadable);
+			expect(server.calls).not.toContain('put');
+			expect(store.get(KEYS_IDA.save)).toBeNull();
+		}
+	});
+
+	it('a server save this build cannot read, found while playing: both copies stay as they are, and nothing more is pushed', async () => {
+		const server = new FakeAccountServer();
+		const store = new MemoryStore();
+		const page = new Page(store, server);
+		await page.open();
+		await page.catchOne();
+		await later();
+		const mine = store.get(KEYS_IDA.save);
+		// A newer build, on another device, saves the account's game past this one.
+		const future = { version: 99, seq: 999, lineage: page.saved()!.lineage };
+		server.save = future;
+		const puts = server.calls.filter((c) => c === 'put').length;
+		await page.catchOne();
+		await later(120_000);
+		expect(page.autosave.behind).toBe('newer');
+		expect(server.save).toEqual(future);
+		expect(server.calls.filter((c) => c === 'put').length).toBe(puts + 1);
+		expect(store.get(KEYS_IDA.save)).not.toBeNull();
+		expect(JSON.parse(store.get(KEYS_IDA.save)!).party).toHaveLength(
+			JSON.parse(mine!).party.length + 1
+		);
+		// Behind: the page writes nothing more, here or there.
+		const now = store.get(KEYS_IDA.save);
+		await page.catchOne();
+		await later(120_000);
+		expect(store.get(KEYS_IDA.save)).toBe(now);
+		expect(server.calls.filter((c) => c === 'put').length).toBe(puts + 1);
+	});
+
 	it('names the game it plays while one is under way', async () => {
 		const page = new Page(new MemoryStore(), new FakeAccountServer());
 		expect(page.autosave.playing).toBeNull();

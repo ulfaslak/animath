@@ -513,6 +513,10 @@ save:
   behindGone: Et nyt spil er klart.
   # The button on that card.
   behindGo: Hent dit nyeste spil
+  # The same card when the account's save on the server is one this build cannot read.
+  newerReady: En ny udgave af spillet er klar.
+  newerTap: Tryk for at opdatere!
+  newerGo: Opdater spillet
 
 account:
   name: Dit navn
