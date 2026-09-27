@@ -1,17 +1,10 @@
 import { canFightIn, getAnimal } from '../animals/catalog.js';
-import {
-	ATTACK_LEVELS,
-	REALMS,
-	type AnimalInstance,
-	type AttackLevel,
-	type Realm
-} from '../animals/types.js';
+import { REALMS, type AnimalInstance, type AttackLevel, type Realm } from '../animals/types.js';
 import { leadIndex } from '../party/reducer.js';
-import { puzzleDifficulty } from '../puzzles/difficulty.js';
-import { checkAnswer, generatePuzzle } from '../puzzles/registry.js';
+import { checkAnswer } from '../puzzles/registry.js';
 import { Rng, hashInts } from '../rng.js';
+import { attackPuzzle, attackRefusal, landHit } from './attack.js';
 import { catchProbability } from './catch.js';
-import { attackDamage } from './damage.js';
 import type {
 	BattleEvent,
 	BattleIntent,
@@ -195,16 +188,11 @@ function chooseAttack(
 ): BattleStep {
 	if (state.phase.kind !== 'choose-action') return reject(state, 'not-choosing-an-action');
 	const spec = getAnimal(activeAnimal(state).speciesId);
-	const attack = spec.attacks[attackIndex - 1];
-	if (!Number.isInteger(attackIndex) || !attack) return reject(state, 'no-such-attack');
-	if (!ATTACK_LEVELS.includes(level)) return reject(state, 'no-such-level');
+	const refusal = attackRefusal(spec, attackIndex, level);
+	if (refusal !== null) return reject(state, refusal);
 
 	const draft = Draft.from(state, seed);
-	const puzzle = generatePuzzle(
-		draft.rng,
-		puzzleDifficulty(spec.tier, attackIndex, level),
-		attack.kinds
-	);
+	const puzzle = attackPuzzle(draft.rng, spec, attackIndex, level);
 	draft.phase = { kind: 'solving', attackIndex, level, puzzle };
 	draft.events.push({ type: 'puzzle-shown', attackIndex, level, puzzle });
 	return draft.finish();
@@ -220,14 +208,14 @@ function answer(state: BattleState, seed: number, input: string): BattleStep {
 	draft.events.push({ type: 'answer-judged', input, correct, answer: puzzle.answer });
 
 	if (correct) {
-		const damage = attackDamage(spec, attackIndex, level, true);
-		draft.opponent = { ...draft.opponent, hp: Math.max(0, draft.opponent.hp - damage) };
+		const hit = landHit(spec, attackIndex, level, draft.opponent);
+		draft.opponent = hit.target;
 		draft.events.push({
 			type: 'hit',
 			attacker: 'player',
 			attackIndex,
 			level,
-			damage,
+			damage: hit.damage,
 			targetHp: draft.opponent.hp
 		});
 		if (draft.opponent.hp === 0) {
@@ -325,15 +313,15 @@ function opponentTurn(draft: Draft): void {
 		return;
 	}
 
-	const damage = attackDamage(spec, attackIndex, level, true);
-	const hp = Math.max(0, target.hp - damage);
-	draft.party[draft.activeIndex] = { ...target, hp };
+	const hit = landHit(spec, attackIndex, level, target);
+	const hp = hit.target.hp;
+	draft.party[draft.activeIndex] = hit.target;
 	draft.events.push({
 		type: 'hit',
 		attacker: 'opponent',
 		attackIndex,
 		level,
-		damage,
+		damage: hit.damage,
 		targetHp: hp
 	});
 
