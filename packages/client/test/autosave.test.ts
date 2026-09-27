@@ -510,7 +510,7 @@ describe('Autosave: the save in this browser', () => {
 		expect(server.saveOf(identityIn(store)!)).toMatchObject({ version: 2, seq: 19552 });
 	});
 
-	it("an older build's save is kept beside one kept before, and with nowhere left to keep it, never written over", async () => {
+	it("an older build's save is kept beside one kept before, and with nowhere left to keep it, the game saves all the same", async () => {
 		const old = JSON.stringify({
 			version: 1,
 			seed: WORLD_ONE_SEED,
@@ -533,9 +533,31 @@ describe('Autosave: the save in this browser', () => {
 		const stuck = new Tab(full, null);
 		await stuck.open();
 		await stuck.catchOne();
-		await stuck.walk();
-		expect(full.get(KEYS.save)).toBe(old);
-		expect(stuck.autosave.titleNotice).toBe('save.storageFull');
+		expect(full.save()).toMatchObject({ version: 2, world: 1 });
+		// The starter the empty v1 party was given, and the one caught.
+		expect(full.save()!.party).toHaveLength(2);
+		expect(full.get(KEYS.upgraded)).toBe('kept 1');
+		expect(full.get(`${KEYS.upgraded}.20`)).toBe('kept 20');
+		expect(stuck.autosave.titleNotice).toBeNull();
+
+		// Storage too full for a second copy, room for the save itself: the save goes on.
+		class NoRoomAside extends MemoryStore {
+			override set(key: string, value: string): boolean {
+				return key.startsWith(KEYS.upgraded) ? false : super.set(key, value);
+			}
+		}
+		const tight = new NoRoomAside();
+		tight.set(KEYS.save, old);
+		const cramped = new Tab(tight, null);
+		await cramped.open();
+		await cramped.catchOne();
+		await cramped.walk();
+		expect(tight.save()).toMatchObject({ version: 2, world: 1, seq: 2, steps: 1 });
+		expect(tight.get(KEYS.upgraded)).toBeNull();
+		expect(cramped.autosave.titleNotice).toBeNull();
+		// And a reload carries on from it, not from the older save.
+		const again = new Tab(tight, null);
+		expect((await again.open()).game).toMatchObject({ steps: 1 });
 	});
 
 	it('going to another world and choosing a name are playing: saved at once', async () => {

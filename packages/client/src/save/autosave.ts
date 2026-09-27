@@ -497,9 +497,12 @@ export class Autosave {
 				this.local = current === null || this.setAside(KEYS.unreadable, current) ? 'ok' : 'broken';
 			} else if (!this.replacing && current !== null && isOlderVersion(current)) {
 				// An older build's save, which this page read through the upgrade: its text is
-				// kept as it was before this version's first write takes the key. With nowhere
-				// to keep it, it stays where it is and this game is not saved here.
-				if (!this.setAside(KEYS.upgraded, current)) this.local = 'broken';
+				// kept as it was before this version's first write takes the key. With nowhere to
+				// keep it (storage full, or every slot taken) the game is saved over it all the
+				// same: the upgrade loses nothing, so this version's save holds everything the
+				// older one did, and the server keeps its own copy of the older one. Holding back
+				// would leave the game unsaved here, reload after reload.
+				this.setAside(KEYS.upgraded, current);
 			}
 		}
 		const writesLocal = store !== null && this.local === 'ok';
