@@ -25,6 +25,7 @@
 	import { team } from '../state/team.svelte';
 	import BundleAnimals from './BundleAnimals.svelte';
 	import BundleCard from './BundleCard.svelte';
+	import ChallengeButton from './ChallengeButton.svelte';
 	import Coin from './Coin.svelte';
 	import ItemIcon from './ItemIcon.svelte';
 	import Tick from './Tick.svelte';
@@ -434,18 +435,23 @@
 	<div class="world">{t('worlds.world', { world: game.world })}</div>
 </div>
 
-<!-- The message line: the latest message while it is fresh, then the doctor
-     prompt or the controls hint (see `state/hud.svelte.ts`). -->
-{#if hud.message || hud.hint}
-	<div class="hint" transition:fade={{ duration: 400 }}>
-		{#if hud.message}
-			<div class="message" transition:fade={{ duration: 400 }}>{hud.message}</div>
-		{/if}
-		{#if hud.hint}
-			<div class="prompt">{hud.hint}</div>
-		{/if}
-	</div>
-{/if}
+<!-- The bottom of the screen: the Challenge button, when another player stands within
+     reach, over the message line: the latest message while it is fresh, then the doctor
+     prompt or the controls hint (see `state/hud.svelte.ts`). One column, so however many
+     lines the message line takes, the button stands clear of it. -->
+<div class="bottom">
+	<ChallengeButton />
+	{#if hud.message || hud.hint}
+		<div class="hint" transition:fade={{ duration: 400 }}>
+			{#if hud.message}
+				<div class="message" transition:fade={{ duration: 400 }}>{hud.message}</div>
+			{/if}
+			{#if hud.hint}
+				<div class="prompt">{hud.hint}</div>
+			{/if}
+		</div>
+	{/if}
+</div>
 
 <svelte:window onresize={placeAnimals} />
 
@@ -588,13 +594,25 @@
 	.fan :global(.fan-list) {
 		min-height: 0;
 	}
-	.hint {
+	.bottom {
 		position: absolute;
 		bottom: calc(16px + var(--safe-bottom));
 		left: 50%;
 		transform: translateX(-50%);
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		gap: 10px;
 		width: max-content;
 		max-width: calc(100vw - 32px - 2 * max(var(--safe-left), var(--safe-right)));
+		/* Only what is in it takes a tap: the space between is the world's. */
+		pointer-events: none;
+	}
+	.bottom > :global(*) {
+		pointer-events: auto;
+	}
+	.hint {
+		max-width: 100%;
 		box-sizing: border-box;
 		background: var(--panel-bg);
 		border-radius: var(--radius);
@@ -607,7 +625,7 @@
 		font-weight: 800;
 	}
 	/* With the touch controls on, the line stays between the D-pad and the buttons. */
-	:global(.touch) .hint {
+	:global(.touch) .bottom {
 		max-width: calc(
 			100vw - 2 * (20px + var(--tap) * 4 + 20px + max(var(--safe-left), var(--safe-right)))
 		);

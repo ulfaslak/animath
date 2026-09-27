@@ -236,8 +236,16 @@ function squeeze(text: string): string {
 const ANYWHERE = RUDE_ANYWHERE.map(plain);
 const WHOLE = RUDE_WORDS.map(lower);
 
-function isRude(name: string): boolean {
-	const words = name.split(/[ -]/);
+/**
+ * Whether `text` holds one of the rude words a name may not hold, by the
+ * rules `checkName` uses: a name, or any other text one player shows another,
+ * such as an animal's nickname in a friendly match (`matchTeam`). Words are
+ * split at spaces and hyphens. The apostrophes and full stops a nickname may
+ * hold besides (a name holds none) join what they stand between, so a rude
+ * word spelt out over them ("Co.ck", "T'it", "F.u.c.k") is still the word.
+ */
+export function isRude(text: string): boolean {
+	const words = text.replace(/['.]/g, '').split(/[ -]/);
 	// Inside a word, or spelt out over whole words: a run of words that is the rude word.
 	const plainWords = words.map(plain);
 	for (let first = 0; first < plainWords.length; first++) {

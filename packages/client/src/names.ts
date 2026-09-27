@@ -19,9 +19,11 @@ export interface AnimalRef {
  * The forms every species has in the copy files, for sentences to pick from
  * with `{animal.form}`: its name as a name or a label, and with "a", "the",
  * "wild", "a wild" and "the wild" — Danish articles and "vild" follow the
- * noun's gender (en ræv, et egern), so each form is written out, never built.
+ * noun's gender (en ræv, et egern), so each form is written out, never built
+ * — and `bare`, the noun as it follows a player's name in a friendly match
+ * ("Bo's Rabbit", "Bos kanin").
  */
-export const ANIMAL_FORMS = ['name', 'a', 'the', 'wild', 'aWild', 'theWild'] as const;
+export const ANIMAL_FORMS = ['name', 'a', 'the', 'wild', 'aWild', 'theWild', 'bare'] as const;
 export type AnimalForm = (typeof ANIMAL_FORMS)[number];
 
 /** A species' name, as a name or a label: "Fox", "Ræv". */

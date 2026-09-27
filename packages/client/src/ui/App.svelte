@@ -17,6 +17,7 @@
 	import DoctorCard from './DoctorCard.svelte';
 	import Hud from './Hud.svelte';
 	import Iris from './Iris.svelte';
+	import MatchCard from './MatchCard.svelte';
 	import Others from './Others.svelte';
 	import PauseMenu from './PauseMenu.svelte';
 	import PresenceNote from './PresenceNote.svelte';
@@ -49,6 +50,8 @@
 	<!-- Not under a trip's cover, which takes no key: a thumb that lands there presses nothing. -->
 	{#if touch.on && !travel.active}<TouchControls />{/if}
 	<PresenceNote />
+	<!-- A friendly match's invite over the world (its Challenge button is the HUD's). -->
+	<MatchCard />
 {/if}
 
 <!-- Over the explore HUD: after an hour of a guest's play, the offer to keep the game safe. -->

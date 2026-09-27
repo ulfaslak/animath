@@ -1,5 +1,5 @@
 <script lang="ts">
-	import type { AttackLevel, Puzzle } from '@mathgame/engine';
+	import type { AttackLevel, ShownPuzzle } from '@mathgame/engine';
 	import { t } from '../copy';
 	import { unfocusable } from '../input/press';
 	import { touch } from '../input/touch.svelte';
@@ -22,7 +22,10 @@
 	 * label of a button that puts the puzzle away (Escape), for a screen that
 	 * has a way back; a battle has none. `reward` is what a right answer
 	 * wins, a battle's hit: "Correct!" shows its hit badge, so the sum and
-	 * the reward connect ("Correct! ✸24").
+	 * the reward connect ("Correct! ✸24"). `watch` is a friendly match's
+	 * other player's puzzle, watched while they think: its line ("Bo is
+	 * thinking…") where the key reminder would be, and no number pad, since
+	 * nothing here is typed (what they type stays on their screen).
 	 */
 	let {
 		puzzle,
@@ -32,9 +35,10 @@
 		note,
 		story,
 		back,
-		reward
+		reward,
+		watch
 	}: {
-		puzzle: Puzzle;
+		puzzle: ShownPuzzle;
 		input: string;
 		judged: { correct: boolean } | null;
 		/** True while keys type into the answer (shows a blinking cursor). */
@@ -47,10 +51,12 @@
 		back?: string;
 		/** The hit a right answer lands, from the engine: the battle's. */
 		reward?: { damage: number; level: AttackLevel };
+		/** Someone else's puzzle, watched: the line in place of the key reminder. */
+		watch?: string;
 	} = $props();
 </script>
 
-<div class="puzzle-panel" class:with-pad={touch.on}>
+<div class="puzzle-panel" class:with-pad={touch.on && !watch}>
 	<div class="question">
 		{#if story}<div class="story">{story}</div>{/if}
 		<div class="puzzle-prompt" class:long={puzzle.prompt.length > 11}>{puzzle.prompt}</div>
@@ -76,6 +82,8 @@
 							level={reward.level}
 						/>{/if}
 				</div>
+			{:else if watch}
+				<div class="keys">{watch}</div>
 			{:else}
 				<div class="keys">{touch.on ? t('puzzle.keysTouch') : t('puzzle.keys')}</div>
 			{/if}
@@ -84,7 +92,7 @@
 			<div class="keys">{note}</div>
 		{/if}
 	</div>
-	{#if touch.on}
+	{#if touch.on && !watch}
 		<NumberPad active={typing} />
 	{/if}
 </div>
