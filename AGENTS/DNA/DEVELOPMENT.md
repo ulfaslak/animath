@@ -292,7 +292,7 @@ pnpm admin list                                    # every account: its save's s
 pnpm admin reset-password <name> [<new password>]  # a made-up six-character password when none is given; logs every browser out (and uses a waiting welcome link up)
 pnpm admin delete-account <name>                   # only says what it would delete
 pnpm admin delete-account <name> --yes             # deletes the account, its sessions, its save, its set-aside saves and its welcome link
-pnpm admin export-local-save <player id> [--from anonymous|account] [--out <folder>]  # a kid's newest save, read-only, into ~/animath-exports/
+pnpm admin export-local-save <player id> [--from anonymous|account|account:<name>] [--out <folder>]  # a kid's newest save, read-only, into ~/animath-exports/
 pnpm admin import-save [--name <name>] [--origin <address>] < save.json             # an account for it, with no password, and a welcome link
 ```
 
@@ -341,7 +341,7 @@ A game played through the tunnel lives in this Mac's `mathgame` database and in 
    pnpm admin export-local-save 5c6f3bd4-fd8d-415a-8c88-65b087943c4b
    ```
 
-   It reads in a read-only session and writes nothing to the database ([[INVARIANTS]] § Server), so it is safe while he plays. It lists every copy of the game it finds with its `seq` and when it was saved: the anonymous backup, and the account he made locally, if he did (found by his name or by the game's lineage). It takes the one saved last, or the one `--from anonymous` or `--from account` names; two different games are said to be. It writes `~/animath-exports/<name>-<time>.json` (0600; a folder inside a repository is refused) and prints one line: his name, how many animals and which, tokens, tools, world and place, `seq`, when saved. Check that it is his game.
+   It reads in a read-only session and writes nothing to the database ([[INVARIANTS]] § Server), so it is safe while he plays. It lists every copy of the game it finds with its `seq` and when it was saved: the anonymous backup, and the account he made locally, if he did (found by his name or by the game's lineage). When they are copies of one game it takes the one saved last. When they are different games (a new game he started in the account, or another kid's account that took the name he had as a guest) it writes nothing and says so: look at the list, and run it again with `--from anonymous`, `--from account` or `--from "account:<name>"`. It writes `~/animath-exports/<name>-<time>.json` (0600; a folder inside a repository is refused) and prints one line: his name, how many animals and which, tokens, tools, world and place, `seq`, when saved. Check that it is his game.
 
 2. **Import**, into production over SSH, the file on stdin. The link's address is `deploy.env`'s domain, handed to the container (`-T`: no terminal, so the file pipes through):
 
@@ -352,7 +352,7 @@ A game played through the tunnel lives in this Mac's `mathgame` database and in 
      < ~/animath-exports/<name>-<time>.json
    ```
 
-   It checks and upgrades the save with the engine, makes the account under the save's name (or `--name <name>`, inside the quotes; the character takes it too) with the save and no password, and prints `https://<domain>/?welcome=<token>`, which works once, for 14 days. A taken name is refused, and nothing is made. The link logs in to his account until he uses it: it goes to the human, never into a PR, an issue or a note.
+   It checks and upgrades the save with the engine, makes the account under the save's name (or `--name <name>`, inside the quotes; the character takes it too) with the save and no password, and prints `https://<domain>/#welcome=<token>`, which works once, for 14 days. The token is after `#`, which a browser never sends, so it lands in no server's log; the page looks it up with a header. A taken name is refused, and nothing is made. The link logs in to his account until he uses it: it goes to the human, never into a PR, an issue or a note.
 
 3. **The kid opens the link** on his tablet, picks a password, and plays on where he was ([[UI_SPEC]] § Accounts). `node dist/admin.mjs list` in the container shows "no password yet" until he has. From then on it is an ordinary account: a forgotten password is `reset-password`.
 

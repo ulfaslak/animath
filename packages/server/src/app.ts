@@ -89,10 +89,12 @@ export function createApp(options: AppOptions = {}) {
 }
 
 /**
- * A request line as the log may keep it: a welcome link's token, in the
- * page's address (`?welcome=`) or the API's path (`/welcome/<token>`), is
- * `[hidden]`. The link logs a kid in to their account once, and a log is read
- * by whoever looks into a problem, into a transcript as often as not.
+ * A request line as the log may keep it: a welcome link's token is
+ * `[hidden]`. The printed link carries it after `#`, which no request does,
+ * and the page sends it in a header or a body; only a link typed with
+ * `?welcome=` (or a path someone made up) brings one here. The link logs a
+ * kid in to their account once, and a log is read by whoever looks into a
+ * problem, into a transcript as often as not.
  */
 export function hideWelcomeTokens(line: string): string {
 	return line.replace(/(welcome[=/])[^\s&#/?]+/gi, '$1[hidden]');
