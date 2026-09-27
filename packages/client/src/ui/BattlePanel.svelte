@@ -459,7 +459,7 @@
 			</div>
 		{:else}
 			{#if preview}
-				<ActionPreview {preview} />
+				<ActionPreview {preview} waiting={battle.screen !== 'actions'} />
 			{/if}
 			<div class="footer choosing">
 				<div class="keys">{rowKeys}</div>

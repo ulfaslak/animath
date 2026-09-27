@@ -51,9 +51,10 @@
 	 * The pictures carry the meaning; the sentence says it again in words. It
 	 * shows and decides nothing: Go! and the key reminder are the screen's,
 	 * under it, and a level button is a key like every button
-	 * (`LevelPicker`).
+	 * (`LevelPicker`). `waiting`: the screen takes no pick now (a turn
+	 * playing), so the level picker dims with the menu.
 	 */
-	let { preview }: { preview: Preview } = $props();
+	let { preview, waiting = false }: { preview: Preview; waiting?: boolean } = $props();
 </script>
 
 {#if preview.kind === 'attack'}
@@ -63,7 +64,9 @@
 			<TopicChips topics={preview.topics} />
 			<span class="badge"><HitBadge damage={preview.damage} level={preview.level} big /></span>
 		</div>
-		<LevelPicker options={preview.levels} current={preview.level} />
+		<div class="picker" class:waiting>
+			<LevelPicker options={preview.levels} current={preview.level} />
+		</div>
 		{#if preview.tires}
 			{#key preview.level}
 				<div class="tires">{preview.tires}</div>
@@ -98,6 +101,10 @@
 	}
 	:global(.touch) .preview {
 		gap: 10px;
+	}
+	/* A turn playing: the level picker waits, dimmed, as the menu does. */
+	.picker.waiting {
+		opacity: 0.55;
 	}
 	.head {
 		display: flex;
