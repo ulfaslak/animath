@@ -1,7 +1,7 @@
 import { nameKey } from '@mathgame/engine';
 import { eq, sql } from 'drizzle-orm';
 import { createHash } from 'node:crypto';
-import { mkdtempSync, readFileSync, rmSync, statSync } from 'node:fs';
+import { mkdtempSync, readdirSync, readFileSync, rmSync, statSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -477,13 +477,32 @@ describe('export-local-save', () => {
 		const lines = await exportLocalSave(id, { folder: folder() });
 		expect(lines).toContain(`Taking the account "${renamed}", the one saved last.`);
 		expect(lines.join('\n')).not.toContain('different games');
-		// The account under the kid's name holds a new game: both are listed, and the admin told.
+		// An account under the kid's name holds another game (a friend's, who took the name a
+		// guest had; guests' names are not kept for them): nothing is taken without --from.
 		const other = freshName();
 		const id2 = await player(doc(other), new Date(Date.now() - 120_000));
 		await accountWith(other, doc(other, { lineage: 'a new game', seq: 3 }), new Date());
-		const two = await exportLocalSave(id2, { folder: folder() });
-		expect(two.filter((l) => l.startsWith('Found'))).toHaveLength(2);
-		expect(two.join('\n')).toContain('These are different games');
+		const into = folder();
+		const refused = exportLocalSave(id2, { folder: into });
+		await expect(refused).rejects.toThrow(AdminError);
+		await expect(refused).rejects.toThrow(/Found the anonymous backup.*\n.*Found the account/);
+		await expect(refused).rejects.toThrow(/different games.*nothing was written.*--from/s);
+		expect(readdirSync(into)).toEqual([]);
+		const backup = await exportLocalSave(id2, { folder: into, from: 'anonymous' });
+		expect(backup.at(-1)).toContain('seq 24614');
+		const theirs = await exportLocalSave(id2, { folder: folder(), from: `account:${other}` });
+		expect(theirs.at(-1)).toContain('seq 3');
+		// Two accounts hold games of this player's name or lineage: `account` alone is not enough.
+		const twice = freshName();
+		const id4 = await player(doc(twice), new Date(Date.now() - 120_000));
+		await accountWith(twice, doc(twice, { lineage: 'a newer game' }), new Date());
+		const moved = freshName();
+		await accountWith(moved, doc(moved, { lineage: `lineage-${twice}` }), new Date());
+		await expect(exportLocalSave(id4, { folder: folder(), from: 'account' })).rejects.toThrow(
+			/Several accounts.*account:<name>/s
+		);
+		const chosen = await exportLocalSave(id4, { folder: folder(), from: `account:${moved}` });
+		expect(chosen).toContain(`Taking the account "${moved}", as --from says.`);
 		// A game of someone else's, under another name, is not this player's.
 		const third = freshName();
 		const id3 = await player(doc(third), new Date(Date.now() - 120_000));
