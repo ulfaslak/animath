@@ -2,7 +2,6 @@ import {
 	PROTOCOL_VERSION,
 	arrivalSpot,
 	newGame,
-	saveDocument,
 	type GameEvent,
 	type ServerMessage
 } from '@mathgame/engine';
@@ -27,7 +26,7 @@ import {
 import { GUEST_KEY } from '../src/presence/identity';
 import { OtherPlayers } from '../src/render/others';
 import { Poofs } from '../src/render/poof';
-import { KEYS, type KeyValueStore } from '../src/save/storage';
+import type { KeyValueStore } from '../src/save/storage';
 import { battle } from '../src/state/battle.svelte';
 import { game } from '../src/state/game.svelte';
 import { hud } from '../src/state/hud.svelte';
@@ -68,12 +67,6 @@ function memoryStore(
 	};
 }
 
-/** A save with a name in it, as `feat/worlds-names` will write one. */
-function namedSave(name: string | null): string {
-	const doc = saveDocument(newGame(WORLD_SEED), { lineage: 'game-1', seq: 1 });
-	return JSON.stringify(name === null ? doc : { ...doc, name });
-}
-
 let cleanups: (() => void)[] = [];
 afterEach(() => {
 	for (const c of cleanups.splice(0)) c();
@@ -111,9 +104,7 @@ function setup(options: { name?: string | null; throwaway?: boolean } = {}) {
 		groundToScreen: (x, y) => ({ x: x * 10, y: y * 10 }),
 		screenSize: () => ({ w: 1024, h: 768 })
 	} as PresenceRenderer;
-	const store = memoryStore({
-		[KEYS.save]: namedSave(options.name === undefined ? 'Ada' : options.name)
-	});
+	const store = memoryStore();
 	const session = memoryStore();
 	const authority = new LocalAuthority();
 	let behind = false;
@@ -157,8 +148,14 @@ function setup(options: { name?: string | null; throwaway?: boolean } = {}) {
 		controller.overlay();
 	};
 	const sentOf = (t: string) => socket().sent.filter((m) => m.t === t);
+	/** A game under way in World 1, as Continue picks one up, named as `options` says (Ada). */
+	const start = () =>
+		authority.start({
+			game: newGame(1, undefined, options.name === undefined ? 'Ada' : options.name)
+		});
 	cleanups.push(() => authority.dispatch({ type: 'leave-game' }));
 	return {
+		start,
 		authority,
 		controller,
 		events,
@@ -183,19 +180,22 @@ describe('presence on the page', () => {
 		title.frame();
 		expect(title.sockets).toHaveLength(0);
 		const throwaway = setup({ throwaway: true });
-		throwaway.authority.start();
+		throwaway.start();
 		throwaway.frame();
 		expect(throwaway.sockets).toHaveLength(0);
 		const nameless = setup({ name: null });
-		nameless.authority.start();
+		nameless.start();
 		nameless.frame();
 		expect(nameless.sockets).toHaveLength(0);
 		expect(presence.status).toBe('off');
+		// A game saved before names: once the player has one, the others can see them.
+		nameless.authority.dispatch({ type: 'choose-name', name: 'Ada' });
+		expect(nameless.sockets).toHaveLength(1);
 	});
 
 	it('says hello with its guest id and name once a game is under way, then where it is and what it does', () => {
 		const s = setup();
-		s.authority.start();
+		s.start();
 		expect(s.sockets).toHaveLength(1);
 		s.connect();
 		const hello = s.sentOf('hello')[0]!;
@@ -222,7 +222,7 @@ describe('presence on the page', () => {
 
 	it('goes to a player: asks the server, then the authority, and says so', () => {
 		const s = setup();
-		s.authority.start();
+		s.start();
 		s.connect();
 		s.frame();
 		s.socket().say({
@@ -250,7 +250,7 @@ describe('presence on the page', () => {
 
 	it('says so kindly when the player left, or no answer came', () => {
 		const s = setup();
-		s.authority.start();
+		s.start();
 		s.connect();
 		s.socket().say({
 			t: 'roster',
@@ -273,7 +273,7 @@ describe('presence on the page', () => {
 
 	it('does not go when a battle started while the server answered', () => {
 		const s = setup();
-		s.authority.start();
+		s.start();
 		s.connect();
 		s.controller.goTo('friend0001');
 		battle.active = true;
@@ -284,7 +284,7 @@ describe('presence on the page', () => {
 
 	it('draws who the server says is near, and fades them all when the socket is gone a while', () => {
 		const s = setup();
-		s.authority.start();
+		s.start();
 		s.connect();
 		s.socket().say({
 			t: 'peer',
@@ -320,7 +320,7 @@ describe('presence on the page', () => {
 
 	it('reloads for a newer version once, at a calm moment, after saving', () => {
 		const s = setup();
-		s.authority.start();
+		s.start();
 		s.connect();
 		pause.open = true;
 		s.socket().say({ t: 'refresh', v: PROTOCOL_VERSION + 1 });
@@ -335,7 +335,7 @@ describe('presence on the page', () => {
 		// The page came back still out of date (a cached build): it does not reload again.
 		const again = setup();
 		again.session.set(REFRESHED_KEY, String(PROTOCOL_VERSION + 1));
-		again.authority.start();
+		again.start();
 		again.connect();
 		again.socket().say({ t: 'refresh', v: PROTOCOL_VERSION + 1 });
 		again.socket().readyState = 3;
@@ -346,13 +346,13 @@ describe('presence on the page', () => {
 
 	it('leaves when the page falls behind the save, and when the game goes back to the title', () => {
 		const s = setup();
-		s.authority.start();
+		s.start();
 		s.connect();
 		s.setBehind(true);
 		s.frame();
 		expect(presence.status).toBe('off');
 		const t2 = setup();
-		t2.authority.start();
+		t2.start();
 		t2.connect();
 		t2.authority.dispatch({ type: 'leave-game' });
 		expect(presence.status).toBe('off');

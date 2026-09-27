@@ -35,7 +35,8 @@ import {
 	type GameEvent,
 	type GridPos,
 	type Intent,
-	type SavedGame
+	type SavedGame,
+	worldSeed
 } from '@mathgame/engine';
 import { describe, expect, it } from 'vitest';
 import { LocalAuthority, WORLD_SEED, type LocalAuthorityOptions } from '../src/authority/local';
@@ -187,6 +188,7 @@ function position(s: Session): GridPos {
 			e.type === 'player-moved' ||
 			e.type === 'player-placed' ||
 			e.type === 'taken-to-doctor' ||
+			e.type === 'travelled' ||
 			e.type === 'welcome'
 		) {
 			return e.pos;
@@ -201,7 +203,7 @@ function facing(s: Session): Direction {
 		const e = s.events[i]!;
 		if (e.type === 'player-moved' || e.type === 'player-blocked') return e.dir;
 		if (e.type === 'taken-to-doctor' || e.type === 'player-placed') return e.dir;
-		if (e.type === 'welcome') return e.facing;
+		if (e.type === 'welcome' || e.type === 'travelled') return e.facing;
 	}
 	throw new Error('no facing');
 }
@@ -1140,7 +1142,7 @@ describe('LocalAuthority: the boat', () => {
 		const authority = new LocalAuthority();
 		const events: GameEvent[] = [];
 		authority.subscribe((e) => events.push(e));
-		authority.start({ game: { ...newGame(WORLD_SEED), party: team, items } });
+		authority.start({ game: { ...newGame(1), party: team, items } });
 		return { authority, events };
 	}
 
@@ -1219,7 +1221,7 @@ describe('LocalAuthority: the boat', () => {
 		authority.subscribe((e) => events.push(e));
 		authority.start({
 			game: {
-				...newGame(WORLD_SEED),
+				...newGame(1),
 				pos: { x: -2, y: 2 },
 				party: [animal('otter'), animal('squirrel')],
 				items: ['boat']
@@ -1274,7 +1276,7 @@ describe('LocalAuthority: the boat', () => {
 		const events: GameEvent[] = [];
 		authority.subscribe((e) => events.push(e));
 		authority.start({
-			game: { ...newGame(WORLD_SEED), pos: at, party: team, items: ['boat'], battle }
+			game: { ...newGame(1), pos: at, party: team, items: ['boat'], battle }
 		});
 		const s = { authority, events };
 		expect(latestBattle(s).realm).toBe('water');
@@ -1301,8 +1303,8 @@ describe('LocalAuthority: the boat', () => {
 
 describe('LocalAuthority: the title', () => {
 	/** An authority at the title: nothing started yet. */
-	function atTitle(): Session {
-		const authority = new LocalAuthority();
+	function atTitle(options?: LocalAuthorityOptions): Session {
+		const authority = new LocalAuthority(options);
 		const events: GameEvent[] = [];
 		authority.subscribe((e) => events.push(e));
 		return { authority, events };
@@ -1338,7 +1340,8 @@ describe('LocalAuthority: the title', () => {
 
 	it('every starter meets the same animals on the same steps: all starters are one size', () => {
 		const walks = STARTERS.map((speciesId) => {
-			const s = atTitle();
+			// In World 1, whose spawn has the reed beside it.
+			const s = atTitle({ homeWorld: () => 1 });
 			s.authority.dispatch({ type: 'new-game', speciesId });
 			return reedWalk(s, 40).map(({ step, wild }) => [step, wild]);
 		});
@@ -1470,7 +1473,7 @@ describe('LocalAuthority: the title', () => {
 		const w = s.events.at(-1);
 		expect(w).toMatchObject({ type: 'welcome', newGame: true, facing: 'down' });
 		expect(s.authority.snapshot()).toMatchObject({
-			pos: spawnPoint(s.authority.snapshot().seed),
+			pos: spawnPoint(worldSeed(s.authority.snapshot().world)),
 			steps: 0,
 			visits: 0,
 			battle: null,
@@ -1682,6 +1685,242 @@ describe('LocalAuthority: trees and rocks', () => {
 		});
 		// The seeded world alone has the spot walled in: a doctor would have come to the player.
 		expect(nearestTent(WORLD_SEED, pos)).toBeNull();
+	});
+});
+
+describe('LocalAuthority: names and worlds', () => {
+	function atTitle(options?: LocalAuthorityOptions): Session {
+		const authority = new LocalAuthority(options);
+		const events: GameEvent[] = [];
+		authority.subscribe((e) => events.push(e));
+		return { authority, events };
+	}
+
+	function from(game: SavedGame): Session {
+		const authority = new LocalAuthority();
+		const events: GameEvent[] = [];
+		authority.subscribe((e) => events.push(e));
+		authority.start({ game });
+		return { authority, events };
+	}
+
+	/** A save round trip, as the autosave and a reload do it: JSON through storage, then restore. */
+	function throughSave(game: SavedGame): SavedGame {
+		const read = readSave(JSON.parse(JSON.stringify(saveDocument(game, { lineage: 't', seq: 1 }))));
+		if (!read.ok) throw new Error(read.error);
+		return restoreGame(read.save);
+	}
+
+	function travelTo(s: Session, world: number): GameEvent[] {
+		const from = s.events.length;
+		s.authority.dispatch({ type: 'travel', world });
+		return s.events.slice(from);
+	}
+
+	it('a new game starts in its home: a world picked at random from 2 to 9999, at its spawn', () => {
+		const homes = new Set<number>();
+		for (let i = 0; i < 12; i++) {
+			const s = atTitle();
+			s.authority.dispatch({ type: 'new-game', speciesId: 'rabbit' });
+			const w = welcome(s);
+			expect(w.home).toBe(w.world);
+			expect(w.world).toBeGreaterThanOrEqual(2);
+			expect(w.world).toBeLessThanOrEqual(9999);
+			expect(w.seed).toBe(worldSeed(w.world));
+			expect(w.pos).toEqual(spawnPoint(w.seed));
+			homes.add(w.world);
+		}
+		expect(homes.size).toBeGreaterThan(1);
+		// A throwaway game (`?new`, `?party=`, …) is in World 1, its home.
+		expect(welcome(session())).toMatchObject({ world: 1, home: 1, seed: WORLD_SEED, name: null });
+	});
+
+	it("takes the player's name with a new game, tidied, or refuses the game and nothing starts", () => {
+		const named = atTitle({ homeWorld: () => 5 });
+		named.authority.dispatch({ type: 'new-game', speciesId: 'frog', name: '  Ida   Marie ' });
+		expect(welcome(named)).toMatchObject({ name: 'Ida Marie', world: 5, home: 5 });
+		expect(named.authority.snapshot()).toMatchObject({ name: 'Ida Marie', world: 5, home: 5 });
+
+		for (const name of ['', 'A', 'Fuck', 'Pip!', 7]) {
+			const s = atTitle();
+			s.authority.dispatch({ type: 'new-game', speciesId: 'frog', name } as Intent);
+			expect(s.events, String(name)).toEqual([{ type: 'new-game-refused', reason: 'not-a-name' }]);
+			move(s, 'left');
+			expect(s.events).toHaveLength(1);
+		}
+		// Without one, the game starts with no name, and asks for it later.
+		const nameless = atTitle();
+		nameless.authority.dispatch({ type: 'new-game', speciesId: 'frog' });
+		expect(welcome(nameless).name).toBeNull();
+	});
+
+	it('choose-name names the player whatever they are doing; a name it refuses changes nothing', () => {
+		const s = session();
+		s.authority.dispatch({ type: 'choose-name', name: 'Fuck' });
+		expect(s.events.at(-1)).toEqual({ type: 'name-refused', reason: 'rude' });
+		s.authority.dispatch({ type: 'choose-name', name: 'x' });
+		expect(s.events.at(-1)).toEqual({ type: 'name-refused', reason: 'short' });
+		expect(s.authority.snapshot().name).toBeNull();
+		s.authority.dispatch({ type: 'choose-name', name: ' Nini ' });
+		expect(s.events.at(-1)).toEqual({ type: 'name-chosen', playerId: 'local', name: 'Nini' });
+		expect(s.authority.snapshot().name).toBe('Nini');
+		// Mid-battle too (a game saved mid-battle asks before it goes on), and the battle goes on.
+		const battle = walkIntoBattle(s);
+		s.authority.dispatch({ type: 'choose-name', name: 'Bo' });
+		expect(s.events.at(-1)).toEqual({ type: 'name-chosen', playerId: 'local', name: 'Bo' });
+		expect(s.authority.snapshot().battle).toEqual(battle);
+		// Before any game, nothing.
+		const title = atTitle();
+		title.authority.dispatch({ type: 'choose-name', name: 'Nini' });
+		expect(title.events).toEqual([]);
+	});
+
+	it('travel goes to another world while exploring: its spawn on a first visit; party, tokens, items, name and counts go along', () => {
+		const s = from({ ...newGame(1, undefined, 'Nini'), tokens: 7, items: ['axe'] });
+		move(s, 'right', 'right', 'down');
+		const left = { pos: position(s), facing: facing(s) };
+		const before = s.authority.snapshot();
+		const events = travelTo(s, 42);
+		expect(events).toEqual([
+			{
+				type: 'travelled',
+				playerId: 'local',
+				world: 42,
+				seed: worldSeed(42),
+				pos: spawnPoint(worldSeed(42)),
+				facing: 'down',
+				edits: [],
+				firstVisit: true
+			}
+		]);
+		const after = s.authority.snapshot();
+		expect(after).toEqual({
+			...before,
+			world: 42,
+			pos: spawnPoint(worldSeed(42)),
+			facing: 'down',
+			edits: [],
+			worlds: [{ world: 1, ...left, edits: [] }]
+		});
+		// Walking goes on in the new world, the step count going on from where it was.
+		move(s, 'up');
+		expect(s.authority.snapshot().steps).toBeGreaterThanOrEqual(before.steps);
+	});
+
+	it('refuses a world that is not one, and the world the player is in, and nothing changes', () => {
+		const s = session();
+		const before = s.authority.snapshot();
+		expect(travelTo(s, 0)).toEqual([{ type: 'travel-refused', reason: 'not-a-world' }]);
+		expect(travelTo(s, 10_000)).toEqual([{ type: 'travel-refused', reason: 'not-a-world' }]);
+		expect(travelTo(s, 1.5)).toEqual([{ type: 'travel-refused', reason: 'not-a-world' }]);
+		expect(travelTo(s, 1)).toEqual([{ type: 'travel-refused', reason: 'already-there' }]);
+		expect(s.authority.snapshot()).toEqual(before);
+	});
+
+	it('in a battle or at the doctor, travel does nothing', () => {
+		const s = session();
+		walkIntoBattle(s);
+		const before = s.authority.snapshot();
+		expect(travelTo(s, 42)).toEqual([]);
+		expect(s.authority.snapshot()).toEqual(before);
+
+		// Seven steps right, and down to the tent at (5, 7).
+		const d = session();
+		move(d, 'right', 'right', 'right', 'right', 'right', 'right', 'right', 'down');
+		d.authority.dispatch({ type: 'interact' });
+		expect(d.events.at(-1)?.type).toBe('doctor-visit-started');
+		expect(travelTo(d, 42)).toEqual([]);
+		expect(d.authority.snapshot().world).toBe(1);
+	});
+
+	it('going back picks a world up exactly as it was left: where, which way, and the trees chopped there', () => {
+		const tree = besideA('tree');
+		const s = from(gameBeside(tree, ['axe']));
+		s.authority.dispatch({ type: 'interact' });
+		const cleared = s.authority.snapshot().edits;
+		expect(cleared).toEqual(WorldEdits.none.with(tree.target).encode());
+		travelTo(s, 7);
+		move(s, 'up', 'left');
+		const inSeven = { pos: position(s), facing: facing(s) };
+		const back = travelTo(s, 1);
+		expect(back).toEqual([
+			{
+				type: 'travelled',
+				playerId: 'local',
+				world: 1,
+				seed: WORLD_SEED,
+				pos: tree.stand,
+				facing: tree.facing,
+				edits: cleared,
+				firstVisit: false
+			}
+		]);
+		// Where the tree stood is ground in World 1 again, and World 7 is remembered.
+		move(s, tree.facing);
+		expect(position(s)).toEqual(tree.target);
+		expect(s.authority.snapshot().worlds).toEqual([{ world: 7, ...inSeven, edits: [] }]);
+		const again = travelTo(s, 7);
+		expect(again[0]).toMatchObject({ world: 7, ...inSeven, firstVisit: false });
+	});
+
+	it('a game saved in another world picks up there, and plays on exactly as the original does', () => {
+		const a = session();
+		move(a, 'right', 'left');
+		travelTo(a, 42);
+		move(a, 'up', 'down');
+		const saved = throughSave(a.authority.snapshot());
+		expect(saved).toMatchObject({ world: 42, home: 1 });
+		expect(saved.worlds.map((w) => w.world)).toEqual([1]);
+		const b = from(saved);
+		expect(welcome(b)).toMatchObject({ world: 42, seed: worldSeed(42), pos: position(a) });
+		// The same steps in World 42 meet the same animals: its seed and the step count key them.
+		const script: Direction[] = [];
+		for (let i = 0; i < 80; i++) script.push((['up', 'left', 'down', 'right'] as const)[i % 4]!);
+		const fromA = a.events.length;
+		const fromB = b.events.length;
+		for (const dir of script) {
+			for (const s of [a, b]) {
+				s.authority.dispatch({ type: 'move', dir });
+				if (lastIndexOf(s, 'battle-started') > lastIndexOf(s, 'battle-ended')) {
+					s.authority.dispatch({ type: 'battle', intent: { type: 'flee' } });
+				}
+			}
+		}
+		const kinds = (s: Session, from: number) =>
+			s.events
+				.slice(from)
+				.map((e) =>
+					e.type === 'battle-started' ? `${e.type}:${e.state.opponent.speciesId}` : e.type
+				);
+		expect(kinds(b, fromB)).toEqual(kinds(a, fromA));
+		// And the game state agrees with the events, world and all.
+		for (const e of b.events) game.apply(e);
+		expect([game.world, game.home, game.seed]).toEqual([42, 1, worldSeed(42)]);
+	});
+
+	it("a clear in this world keeps every world's cleared tiles within the one budget, the worlds left behind trimmed first", () => {
+		const tree = besideA('tree');
+		// A world left behind holding the whole budget of clearings but a few characters:
+		// whole chunks cleared bare, then one tile at a time.
+		let far = WorldEdits.none;
+		let c = 0;
+		for (; far.textLength + 600 < EDITS_BUDGET; c++) {
+			for (let i = 0; i < 256; i++) far = far.with({ x: c * 16 + (i % 16), y: 640 + (i >> 4) });
+		}
+		for (let i = 0; far.textLength < EDITS_BUDGET - 4; i++) {
+			far = far.with({ x: c * 16 + (i % 16), y: 640 + (i >> 4) });
+		}
+		expect(far.textLength).toBeLessThanOrEqual(EDITS_BUDGET);
+		const s = from({
+			...gameBeside(tree, ['axe']),
+			worlds: [{ world: 9, pos: { x: 0, y: 640 }, facing: 'up', edits: [...far.encode()] }]
+		});
+		s.authority.dispatch({ type: 'interact' });
+		const after = s.authority.snapshot();
+		const length = (e: readonly string[]) => (e.length ? JSON.stringify(e).length : 0);
+		expect(length(after.edits) + length(after.worlds[0]!.edits)).toBeLessThanOrEqual(EDITS_BUDGET);
+		expect(after.edits).toEqual(WorldEdits.none.with(tree.target).encode());
+		expect(after.worlds[0]!.edits.length).toBeLessThan(far.encode().length);
 	});
 });
 

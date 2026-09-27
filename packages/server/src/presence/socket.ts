@@ -5,6 +5,7 @@ import {
 	BYE_REASONS,
 	MAX_MESSAGE_BYTES,
 	PROTOCOL_VERSION,
+	checkName,
 	helloVersion,
 	parseClientMessage,
 	readWire,
@@ -13,7 +14,6 @@ import {
 } from '@mathgame/engine';
 import { WebSocket, WebSocketServer, type RawData } from 'ws';
 import { PresenceHub, type Peer } from './hub.js';
-import { checkName } from './names.js';
 
 /**
  * The presence socket: a WebSocket at `/api/ws` on the API's own HTTP

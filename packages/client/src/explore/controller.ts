@@ -87,6 +87,20 @@ export class ExploreController {
 				this.renderer.setPlayer(event.pos, event.pos, 1, this.facing);
 				this.follower?.place(this.seed, event.pos, this.facing, this.edits);
 				break;
+			case 'travelled':
+				// Another world: drawn from its seed as the player left it, the player put
+				// down where they stand there, without a tween, and the lead beside them.
+				if (event.playerId !== this.playerId) break;
+				team.close();
+				this.seed = event.seed;
+				this.edits = WorldEdits.decode(event.edits);
+				this.pos = this.from = event.pos;
+				this.progress = 1;
+				this.facing = event.facing;
+				this.renderer.setWorld(this.seed, this.edits);
+				this.renderer.setPlayer(event.pos, event.pos, 1, this.facing);
+				this.follower?.place(this.seed, event.pos, this.facing, this.edits);
+				break;
 			case 'tile-cleared':
 				if (event.playerId !== this.playerId) break;
 				this.edits = this.edits.with(event.pos).without(event.regrown);

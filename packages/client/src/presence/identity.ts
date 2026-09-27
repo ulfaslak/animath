@@ -1,20 +1,13 @@
 import { isGuestId } from '@mathgame/engine';
-import { WORLD_SEED } from '../authority/local';
-import { KEYS, parseJson, type KeyValueStore } from '../save/storage';
+import type { KeyValueStore } from '../save/storage';
 
 /**
- * Who this browser is to the other players, and which world it is in: the
- * one small adapter between presence and the game's own state.
- *
- * - **The guest id**: a random id this browser keeps (`animath.guest`),
- *   made the first time. The server knows a guest by it and never tells
- *   anyone else (they see a public id of the socket's own), so it is one
- *   presence per browser, whatever tab it plays in.
- * - **The name and the world** come with `feat/worlds-names`, which puts
- *   the character's name and world number into the game. Until it lands,
- *   the name is read from the save's own `name` field when it has one (a
- *   game without a name stays out of sight: every player the others see has
- *   one), and every game is in World 1, the only world there is.
+ * Who this browser is to the other players: its guest id, a random id it
+ * keeps (`animath.guest`), made the first time. The server knows a guest by
+ * it and never tells anyone else (they see a public id of the socket's own),
+ * so it is one presence per browser, whatever tab it plays in. The name the
+ * others see and the world they see it in are the game's own (`welcome`,
+ * `name-chosen`, `travelled`), which the presence controller follows.
  */
 export const GUEST_KEY = 'animath.guest';
 
@@ -25,27 +18,6 @@ export function guestId(store: KeyValueStore | null): string {
 	const fresh = randomId();
 	store?.set(GUEST_KEY, fresh);
 	return fresh;
-}
-
-/** The character's name and the world number, as far as this build knows them. */
-export interface WhoAndWhere {
-	name: string | null;
-	world: number | null;
-}
-
-/**
- * STAND-IN until `feat/worlds-names`: the save's `name`, and the world
- * number whose seed this is, as that branch numbers them (World 1 is the
- * prototype's seed, and each number after it the next seed).
- */
-export function whoAndWhere(store: KeyValueStore | null, seed: number): WhoAndWhere {
-	const doc = parseJson(store?.get(KEYS.save) ?? '');
-	const name =
-		typeof doc === 'object' && doc !== null && typeof (doc as { name?: unknown }).name === 'string'
-			? (doc as { name: string }).name
-			: null;
-	const world = ((seed - WORLD_SEED) >>> 0) + 1;
-	return { name, world: world <= 9999 ? world : null };
 }
 
 /** 16 random bytes in base64url: 22 characters. */

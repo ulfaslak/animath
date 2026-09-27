@@ -19,7 +19,7 @@ import { hud } from '../state/hud.svelte';
 import { pause } from '../state/pause.svelte';
 import { presence, type Arrow, type Label } from '../state/presence.svelte';
 import { PresenceConnection, type PresenceStatus } from './connection';
-import { guestId, whoAndWhere, type WhoAndWhere } from './identity';
+import { guestId } from './identity';
 import { ArrivalNotes } from './notes';
 
 /**
@@ -77,7 +77,7 @@ export type PresenceRenderer = Pick<
 export interface PresenceOptions {
 	authority: Authority;
 	renderer: PresenceRenderer;
-	/** localStorage: the guest id, and (until names land) the name. */
+	/** localStorage: where the guest id is kept. */
 	store: KeyValueStore | null;
 	/** sessionStorage: which version this page last reloaded for. */
 	session: KeyValueStore | null;
@@ -102,7 +102,8 @@ export class PresenceController {
 	private readonly notes = new ArrivalNotes();
 	private readonly clock: () => number;
 	private underWay = false;
-	private who: WhoAndWhere = { name: null, world: null };
+	/** The player's name and world, as the game says them: `welcome`, then `name-chosen` and `travelled`. */
+	private who: { name: string | null; world: number | null } = { name: null, world: null };
 	/** A go-to waiting for the server to say where they are. */
 	private finding: { pid: string; name: string; since: number } | null = null;
 	/** A go-to the authority is placing: whom it is to, for the line after it. */
@@ -128,16 +129,23 @@ export class PresenceController {
 	handle(event: GameEvent): void {
 		switch (event.type) {
 			case 'welcome':
-				// A game under way, or a new world: nobody from before is on screen.
+				// A game under way: nobody from before is on screen.
 				this.underWay = true;
-				this.who = whoAndWhere(this.options.store, event.seed);
-				this.notes.newWorld();
-				this.finding = null;
-				presence.roster = [];
-				this.options.renderer.others.clear();
-				// Whoever is there was there first: they fade in, without a poof.
-				this.options.renderer.others.hush();
+				this.who = { name: event.name, world: event.world };
+				this.arrive();
 				this.connect();
+				break;
+			case 'name-chosen':
+				// A game saved before names has one now: the others can see the player.
+				if (event.playerId !== game.playerId) break;
+				this.who = { ...this.who, name: event.name };
+				this.connect();
+				break;
+			case 'travelled':
+				// Another world: the next `where` names it, and the server moves the socket there.
+				if (event.playerId !== game.playerId) break;
+				this.who = { ...this.who, world: event.world };
+				this.arrive();
 				break;
 			case 'game-left':
 				this.underWay = false;
@@ -158,6 +166,19 @@ export class PresenceController {
 				this.placing = null;
 				break;
 		}
+	}
+
+	/**
+	 * The player is somewhere new (a game begun, another world): nobody from
+	 * the last place is on screen or on the list, and whoever is here was here
+	 * first, so they fade in without a poof.
+	 */
+	private arrive(): void {
+		this.notes.newWorld();
+		this.finding = null;
+		presence.roster = [];
+		this.options.renderer.others.clear();
+		this.options.renderer.others.hush();
 	}
 
 	/** Once a frame while the page runs. */

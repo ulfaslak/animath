@@ -48,6 +48,8 @@ export class PauseController {
 			case 'game-left':
 			case 'battle-started':
 			case 'doctor-visit-started':
+			// Another world: the kid should see where they are.
+			case 'travelled':
 				// Something else has the screen now; the menu never stays open under it.
 				this.close();
 				break;

@@ -9,9 +9,9 @@ export const MAX_NICKNAME_LENGTH = 12;
 /**
  * How many accent marks one letter may carry. Real names need up to four
  * (Burmese "ကျော်", Hebrew "שָּׂ" with its vowel, dagesh and sin dot); more is
- * a tower of marks, not a name.
+ * a tower of marks, not a name. A player's name (`names.ts`) follows the same rule.
  */
-const MAX_MARKS_PER_LETTER = 4;
+export const MAX_MARKS_PER_LETTER = 4;
 /** Raw input past this many UTF-16 units is never looked at: the name is cut far shorter anyway. */
 const MAX_RAW_LENGTH = 1000;
 /** Cleaning settles after a pass or two and is confirmed by the next; this only bounds a surprise. */
@@ -92,9 +92,10 @@ const SCRIPTS_WITH_MARKS = [
  * than spells — underlines, strike-throughs, arrows and boxes under or over
  * a letter, a script's mark stuck on another script's letter, the marks text
  * generators stack — and goes, like any other symbol. A script not listed
- * keeps its letters and loses its marks.
+ * keeps its letters and loses its marks. A player's name (`names.ts`) takes
+ * the marks this allows, and no others.
  */
-function belongsOn(mark: string, letter: string): boolean {
+export function belongsOn(mark: string, letter: string): boolean {
 	if (LATIN_GREEK_CYRILLIC.test(letter)) return LATIN_ACCENT.test(mark);
 	if (GENERIC_MARK.test(mark)) {
 		// Unicode ties some decorations to scripts too (the overline to kana, an

@@ -112,12 +112,16 @@ function sayStartNotice(newGame: boolean): void {
 /**
  * Pick the saved game up: as it is now, not as the title found it, because
  * another tab may have walked on meanwhile, and its step count must not go back.
+ * `name`: the player's name, just given on the title for a game saved without
+ * one; it goes to the authority once the game is under way and saving has
+ * begun, so it is saved at once.
  */
-function continueGame(saved: SavedGame): void {
+function continueGame(saved: SavedGame, name?: string): void {
 	authority.start({ game: autosave.resumable() ?? saved });
 	// After `welcome`, which clears the message line.
 	sayStartNotice(false);
 	autosave.begin();
+	if (name !== undefined) authority.dispatch({ type: 'choose-name', name });
 }
 
 const titleController = new TitleController(authority, new TitleScenery(renderer), {
@@ -363,7 +367,8 @@ void autosave.boot().then((plan) => {
 		return;
 	}
 	startNotice = plan.notice;
-	if (caughtUp && plan.game && plan.notice === 'save.welcomeBack') {
+	// A game with no name yet goes through the title, which asks for it first.
+	if (caughtUp && plan.game && plan.game.name !== null && plan.notice === 'save.welcomeBack') {
 		startNotice = 'save.caughtUp';
 		continueGame(plan.game);
 		return;

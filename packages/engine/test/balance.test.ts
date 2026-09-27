@@ -3,7 +3,8 @@ import { ANIMALS, getAnimal } from '../src/animals/catalog.js';
 import type { AttackLevel, Biome } from '../src/animals/types.js';
 import { hashString } from '../src/rng.js';
 import { SAFE_RADIUS, distanceFromSpawn, encounterTableAt } from '../src/world/encounters.js';
-import { spawnPoint, tileAtWorld } from '../src/world/generate.js';
+import { tileAtWorld } from '../src/world/generate.js';
+import { spawnPoint } from '../src/world/spawn.js';
 import { surroundings } from '../src/world/habitat.js';
 import {
 	arena,

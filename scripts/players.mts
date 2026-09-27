@@ -15,7 +15,8 @@
  * `--player label:options` (once per player, in order) makes a player whose
  * game is a save put in its browser before the page opens, then picked up
  * with Continue on the title. Options, comma-separated:
- *   name=Ada      the character's name (a player without one is seen by nobody)
+ *   name=Ada      the character's name (without one the game asks for it first, and
+ *                 until then nobody sees the player)
  *   world=7       the world number (1 by default)
  *   at=x:y        where they stand (the world's spawn by default)
  *   facing=left   the way they face (down by default)
@@ -63,10 +64,8 @@
 import {
 	ANIMALS,
 	getAnimal,
-	hashString,
 	newGame,
 	saveDocument,
-	spawnPoint,
 	type AnimalInstance,
 	type Direction
 } from '../packages/engine/src/index.ts';
@@ -101,11 +100,6 @@ mkdirSync(dirname(out), { recursive: true });
 function fail(message: string): never {
 	console.error(message);
 	process.exit(2);
-}
-
-/** World `n`'s seed, as `feat/worlds-names` numbers them: World 1 is the prototype's. */
-function worldSeedOf(n: number): number {
-	return (hashString('prototype') + n - 1) >>> 0;
 }
 
 interface Player {
@@ -226,23 +220,21 @@ function parsePlayer(spec: string): Player {
 	return p;
 }
 
-/** The save the player's browser starts with: as the game writes one, with the name beside it. */
+/** The save the player's browser starts with, as the game writes one: in their world, their home. */
 function saveOf(p: Player): string {
-	const seed = worldSeedOf(p.world);
-	const game = newGame(seed);
-	const party = p.party ?? game.party;
+	const game = newGame(p.world, undefined, p.name);
 	const doc = saveDocument(
 		{
 			...game,
-			pos: p.at ?? spawnPoint(seed),
+			pos: p.at ?? game.pos,
 			steps: p.steps,
 			facing: p.facing,
-			party,
+			party: p.party ?? game.party,
 			items: p.boat ? ['boat'] : []
 		},
 		{ lineage: `players-${p.label}`, seq: 1 }
 	);
-	return JSON.stringify(p.name === null ? doc : { ...doc, name: p.name });
+	return JSON.stringify(doc);
 }
 
 const roster = players.map(parsePlayer);

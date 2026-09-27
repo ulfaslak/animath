@@ -2,21 +2,24 @@ import type { AnimalInstance } from './animals/types.js';
 import type { BattleEvent, BattleIntent, BattleState } from './battle/types.js';
 import type { DoctorEvent, DoctorIntent, DoctorState } from './doctor/types.js';
 import type { Line } from './lines.js';
+import type { NameRejection } from './names.js';
 import type { NewGameRejection } from './party/starters.js';
 import type { ItemId } from './items/catalog.js';
 import type { PartyEvent, PartyIntent } from './party/types.js';
 import type { ChunkRef } from './world/edits.js';
 import type { ClearableKind, Direction, GridPos } from './world/types.js';
+import type { TravelRejection } from './world/worlds.js';
 
 /**
  * The client ↔ authority protocol.
  *
  * The client never mutates game state. It sends *intents* ("I want to walk
  * left", "I answer 42") to an `Authority`, which validates them against the
- * rules and emits *events* describing what actually happened. In single player
- * the authority is `LocalAuthority` in the client process; in multiplayer it is
- * the server, and these same types travel over a WebSocket. Nothing about the
- * UI or renderer changes between the two — that is the whole point.
+ * rules and emits *events* describing what actually happened. Every
+ * single-player rule runs in `LocalAuthority`, in the client process, for
+ * every player; what two players share (who is where, a friendly match) is
+ * the server's to decide ([[DECISIONS]] § Multiplayer). Either way the UI and
+ * renderer only send intents and read events.
  */
 
 export type Intent =
@@ -38,13 +41,29 @@ export type Intent =
 	 */
 	| { type: 'party'; intent: PartyIntent }
 	/**
-	 * Start a new game with the starter the player picked, and the name they
-	 * gave it, as typed (the title's starter screen). The engine's
-	 * `chooseStarter` checks it: a tier-1 species, a nickname that is text,
-	 * cleaned like a rename. Only while no game is under way, which is at the
-	 * title. Answered with `welcome` (`newGame: true`), or `new-game-refused`.
+	 * Start a new game with the starter the player picked, the name they gave
+	 * it, and the player's own name, as typed (the title's name box and
+	 * starter screen). The engine's `chooseStarter` checks the starter: a
+	 * tier-1 species, a nickname that is text, cleaned like a rename; and
+	 * `checkName` the player's name (without one, the game asks for it later).
+	 * Only while no game is under way, which is at the title. The game starts
+	 * in a world the authority picks, its home. Answered with `welcome`
+	 * (`newGame: true`), or `new-game-refused`.
 	 */
-	| { type: 'new-game'; speciesId: string; nickname?: string }
+	| { type: 'new-game'; speciesId: string; nickname?: string; name?: string }
+	/**
+	 * The player's name, as typed (a game saved before names asks for one on
+	 * load). `checkName` checks it. While a game is under way, whatever the
+	 * player is doing. Answered with `name-chosen`, or `name-refused`.
+	 */
+	| { type: 'choose-name'; name: string }
+	/**
+	 * Go to world `world`, a world number as the player chose it. Only while
+	 * exploring: in a battle or at the doctor it does nothing. The engine's
+	 * `travel` checks it and remembers the world left. Answered with
+	 * `travelled`, or `travel-refused`.
+	 */
+	| { type: 'travel'; world: number }
 	/**
 	 * Go to another player in this world, who stands at `near` (the presence
 	 * server's word for where: [[DECISIONS]], the server is the authority for
@@ -70,12 +89,18 @@ export type GameEvent =
 	 * did, and the tokens and items. A `battle-started` follows when the save
 	 * was taken mid-battle. `newGame` tells the two apart: true for a game
 	 * that begins here (a starter just picked, or a throwaway game), false for
-	 * one picked up. `edits` are the tiles the player has cleared, in
-	 * `WorldEdits`' text form: the world is the seed's, as they left it.
+	 * one picked up. `world` is the world number the player is in and `seed`
+	 * its generator seed (`worldSeed(world)`), `home` the world the game began
+	 * in, `name` the player's name (null until chosen). `edits` are the tiles
+	 * the player has cleared in `world`, in `WorldEdits`' text form: the world
+	 * is the seed's, as they left it.
 	 */
 	| {
 			type: 'welcome';
 			playerId: string;
+			name: string | null;
+			world: number;
+			home: number;
 			seed: number;
 			pos: GridPos;
 			facing: Direction;
@@ -87,6 +112,30 @@ export type GameEvent =
 	  }
 	/** `new-game` was refused, and nothing started: why, as a code. */
 	| { type: 'new-game-refused'; reason: NewGameRejection }
+	/** The player has a name now (`choose-name`): the name as `checkName` keeps it. */
+	| { type: 'name-chosen'; playerId: string; name: string }
+	/** `choose-name` was refused, and the name is as it was: why, as a code the client words kindly. */
+	| { type: 'name-refused'; reason: NameRejection }
+	/**
+	 * The player went to another world (`travel`): the world left is
+	 * remembered, and this is the world reached, in `welcome`'s terms: its
+	 * number and seed, where they stand and face, and the tiles they cleared
+	 * there. Put the player on `pos` without a tween and draw the new world.
+	 * `firstVisit`: they had not been there (or it was forgotten), and stand at
+	 * its spawn. Party, tokens and items travel unchanged.
+	 */
+	| {
+			type: 'travelled';
+			playerId: string;
+			world: number;
+			seed: number;
+			pos: GridPos;
+			facing: Direction;
+			edits: string[];
+			firstVisit: boolean;
+	  }
+	/** `travel` went nowhere: why, as a code. */
+	| { type: 'travel-refused'; reason: TravelRejection }
 	/** The player left the game for the title (`leave-game`). No game is under way now. */
 	| { type: 'game-left' }
 	| { type: 'player-moved'; playerId: string; pos: GridPos; dir: Direction }

@@ -1,5 +1,8 @@
 import {
+	FIRST_WORLD,
+	LAST_WORLD,
 	Rng,
+	WORLD_ONE_SEED,
 	WorldEdits,
 	applyBattleIntent,
 	applyDoctorIntent,
@@ -7,9 +10,11 @@ import {
 	arrivalSpot,
 	bundled,
 	canTalkToDoctor,
+	checkName,
 	chooseStarter,
 	clearTile,
 	editedTileAt,
+	fitWorlds,
 	gearOf,
 	getAnimal,
 	hashInts,
@@ -29,6 +34,8 @@ import {
 	surroundings,
 	takeToDoctor,
 	tileRealm,
+	travel,
+	worldSeed,
 	type AnimalInstance,
 	type Authority,
 	type BattleEvent,
@@ -47,11 +54,16 @@ import {
 	type PlayerActivity,
 	type Realm,
 	type Rescue,
-	type SavedGame
+	type SavedGame,
+	type WorldStay
 } from '@mathgame/engine';
 
-/** The prototype world. Every new game is played in it; a save carries its own seed. */
-export const WORLD_SEED = hashString('prototype');
+/**
+ * World 1's seed: the world every game was played in before worlds had
+ * numbers, where a throwaway game (`?new`, `?party=`, …) is played, and the
+ * title's backdrop with no saved game.
+ */
+export const WORLD_SEED = WORLD_ONE_SEED;
 
 /**
  * Salts keep the per-step encounter roll, the battle seed and the doctor's
@@ -82,6 +94,12 @@ export interface LocalAuthorityOptions {
 	 * item is on sale. Only in a game that is saved nowhere.
 	 */
 	shop?: readonly ItemId[];
+	/**
+	 * The world a new game from the title starts in, its home: by default one
+	 * picked at random from 2 to 9999, so strangers don't all start in one
+	 * world ([[PRODUCT]] §4 "Starting out"). Tests pin it.
+	 */
+	homeWorld?: () => number;
 }
 
 /** How a session begins: a saved game to pick up, or a new game when absent. */
@@ -90,19 +108,21 @@ export interface StartOptions {
 }
 
 /**
- * Single-player authority: applies the rules in-process and emits events.
+ * The single-player authority: applies the rules in-process and emits events.
  *
- * This is the seam multiplayer will replace. A `RemoteAuthority` with the same
- * interface will forward intents over a WebSocket and relay the server's
- * events; nothing above this class needs to know which one it is talking to.
- * So: keep game rules in the engine, keep this class thin, and never let the
- * renderer or UI reach past it.
+ * Every single-player rule runs here, in the browser, for every player,
+ * guests and account holders alike: walking, encounters, wild battles,
+ * catching, the doctor, the shop, tools, the boat, travelling between worlds
+ * ([[DECISIONS]] § Multiplayer). The server decides only what two players
+ * share (who is where, friendly matches), never through this class. So: keep
+ * game rules in the engine, keep this class thin, and never let the renderer
+ * or UI reach past it.
  *
  * Everything random here is seeded from the world seed and the number of
- * completed steps, so a session replays from `(seed, intents)` and a server
- * running the same code would agree with it. The one exception is the id an
- * animal gets when it is caught, which must be unique across sessions and is
- * therefore minted, not derived.
+ * completed steps, so a session replays from `(seed, intents)`. The
+ * exceptions are the id an animal gets when it is caught, which must be
+ * unique across sessions and is therefore minted, not derived, and the home
+ * world a new game is given, picked at random so strangers spread out.
  *
  * The whole game fits in a `SavedGame`: `snapshot()` takes one at any moment,
  * a battle included, and `start({ game })` picks it up again, so a save
@@ -116,6 +136,12 @@ export interface StartOptions {
 export class LocalAuthority implements Authority {
 	private listeners = new Set<(e: GameEvent) => void>();
 	private readonly playerId = 'local';
+	/** The player's name (`checkName`'s), or null until they have chosen one. Saved with the game. */
+	private name: string | null = null;
+	/** The world the game began in. Saved with the game. */
+	private home = FIRST_WORLD;
+	/** The world the player is in; `seed` is its generator seed, and `pos`, `facing` and `edits` are its. */
+	private world = FIRST_WORLD;
 	private seed = WORLD_SEED;
 	private spawn: GridPos = { x: 0, y: 0 };
 	private pos: GridPos = { x: 0, y: 0 };
@@ -132,11 +158,20 @@ export class LocalAuthority implements Authority {
 	/** The ids of the items the player owns (`hasItem`). Saved with the game. */
 	private items: string[] = [];
 	/**
-	 * The tiles the player has cleared with a tool: the world is the seed's,
-	 * as they left it (`editedTileAt`). Saved with the game.
+	 * The tiles the player has cleared with a tool in this world: the world is
+	 * the seed's, as they left it (`editedTileAt`). Saved with the game.
 	 */
 	private edits = WorldEdits.none;
-	/** Completed steps in this game, saved with it. Keys the encounter roll and the battle and doctor seeds. */
+	/**
+	 * The worlds the player has been to and left, the one left most recently
+	 * first: where they stood and what they cleared in each (`travel`). Saved
+	 * with the game.
+	 */
+	private worlds: readonly WorldStay[] = [];
+	/**
+	 * Completed steps in this game, in every world, saved with it. Keys the
+	 * encounter roll and the battle and doctor seeds, with the world's seed.
+	 */
 	private steps = 0;
 	/** Doctor visits opened in this game, saved with it, so a later visit at the same step asks new puzzles. */
 	private visits = 0;
@@ -166,7 +201,10 @@ export class LocalAuthority implements Authority {
 
 	/** Run `game` from where it stands; `isNew` when it begins here rather than from a save. */
 	private run(game: SavedGame, isNew: boolean): void {
-		this.seed = game.seed;
+		this.name = game.name;
+		this.home = game.home;
+		this.world = game.world;
+		this.seed = worldSeed(game.world);
 		this.spawn = spawnPoint(this.seed);
 		this.pos = { x: game.pos.x, y: game.pos.y };
 		this.facing = game.facing;
@@ -179,12 +217,16 @@ export class LocalAuthority implements Authority {
 		this.tokens = game.tokens;
 		this.items = [...game.items];
 		this.edits = WorldEdits.decode(game.edits);
+		this.worlds = game.worlds.map(copyStay);
 		this.battle = null;
 		this.doctor = null;
 		this.started = true;
 		this.emit({
 			type: 'welcome',
 			playerId: this.playerId,
+			name: this.name,
+			world: this.world,
+			home: this.home,
 			seed: this.seed,
 			pos: { ...this.pos },
 			facing: this.facing,
@@ -210,7 +252,9 @@ export class LocalAuthority implements Authority {
 	snapshot(): SavedGame {
 		const party = this.battle ? this.battle.state.party : this.party;
 		return {
-			seed: this.seed,
+			name: this.name,
+			home: this.home,
+			world: this.world,
 			pos: { ...this.pos },
 			facing: this.facing,
 			steps: this.steps,
@@ -219,7 +263,8 @@ export class LocalAuthority implements Authority {
 			tokens: this.tokens,
 			items: [...this.items],
 			battle: this.battle ? this.battle.state : null,
-			edits: [...this.edits.encode()]
+			edits: [...this.edits.encode()],
+			worlds: this.worlds.map(copyStay)
 		};
 	}
 
@@ -243,11 +288,11 @@ export class LocalAuthority implements Authority {
 	}
 
 	/**
-	 * A new game in the prototype world, with the `?party=` party, in bundles,
-	 * when there is one, and the `?tokens=` tokens.
+	 * A throwaway game in World 1, with the `?party=` party, in bundles, when
+	 * there is one, and the `?tokens=` tokens.
 	 */
 	private newGame(): SavedGame {
-		const game = { ...newGame(WORLD_SEED), tokens: this.options.tokens ?? 0 };
+		const game = { ...newGame(FIRST_WORLD), tokens: this.options.tokens ?? 0 };
 		// An empty `?party=` is no party: the starter, as without one.
 		return this.options.party?.length
 			? { ...game, party: bundled(this.options.party).map((a) => ({ ...a })) }
@@ -272,6 +317,11 @@ export class LocalAuthority implements Authority {
 			this.editParty(intent.intent);
 			return;
 		}
+		if (intent.type === 'choose-name') {
+			// In any mode: a game saved mid-battle asks for the name before it goes on.
+			this.chooseName(intent.name);
+			return;
+		}
 		if (this.battle) {
 			// Mid-battle there is no walking and no talking; only battle intents count.
 			if (intent.type === 'battle') this.applyBattle(intent.intent);
@@ -292,6 +342,9 @@ export class LocalAuthority implements Authority {
 			case 'go-to':
 				this.goTo(intent.near);
 				break;
+			case 'travel':
+				this.travel(intent.world);
+				break;
 			case 'battle':
 			case 'doctor':
 				// Nothing to act in; the client is showing a result card or is stale.
@@ -307,12 +360,13 @@ export class LocalAuthority implements Authority {
 	// --- the title -----------------------------------------------------------
 
 	/**
-	 * `new-game`: the starter screen's choice. Only from the title, and only
-	 * a starter (the engine's `chooseStarter`, which also cleans the name);
-	 * the new game is played in the prototype world, and its starter gets a
+	 * `new-game`: the title's choice. Only from the title, only a starter (the
+	 * engine's `chooseStarter`, which also cleans its name), and a player's
+	 * name that `checkName` takes, when there is one. The new game starts in
+	 * its home world, picked for it (`homeWorld`), and its starter gets a
 	 * fresh id like a caught animal.
 	 */
-	private startNewGame(choice: unknown): void {
+	private startNewGame(choice: Intent & { type: 'new-game' }): void {
 		if (this.started) {
 			this.emit({ type: 'new-game-refused', reason: 'game-in-progress' });
 			return;
@@ -322,7 +376,28 @@ export class LocalAuthority implements Authority {
 			this.emit({ type: 'new-game-refused', reason: pick.reason });
 			return;
 		}
-		this.run(newGame(WORLD_SEED, { ...pick.starter, id: mintId() }), true);
+		const named = choice.name === undefined ? null : checkName(choice.name);
+		if (named && !named.ok) {
+			this.emit({ type: 'new-game-refused', reason: 'not-a-name' });
+			return;
+		}
+		const home = this.options.homeWorld?.() ?? randomHome();
+		const starter = { ...pick.starter, id: mintId() };
+		this.run(newGame(home, starter, named ? named.name : null), true);
+	}
+
+	/**
+	 * `choose-name`: the player's name, as typed, for a game that asks for one
+	 * (a save from before names). `checkName` keeps it tidy or says why not.
+	 */
+	private chooseName(raw: unknown): void {
+		const named = checkName(raw);
+		if (!named.ok) {
+			this.emit({ type: 'name-refused', reason: named.reason });
+			return;
+		}
+		this.name = named.name;
+		this.emit({ type: 'name-chosen', playerId: this.playerId, name: named.name });
 	}
 
 	/**
@@ -397,6 +472,48 @@ export class LocalAuthority implements Authority {
 			playerId: this.playerId,
 			pos: { ...arrival.pos },
 			dir: arrival.facing
+		});
+	}
+
+	/**
+	 * `travel`, while exploring: to world `to` (the engine's `travel`). The
+	 * world left is remembered as the player leaves it; the world reached is
+	 * picked up where they left it, or at its spawn on a first visit. The
+	 * party, tokens, items, name and counts go along unchanged.
+	 */
+	private travel(to: unknown): void {
+		const trip = travel(
+			{
+				world: this.world,
+				pos: this.pos,
+				facing: this.facing,
+				edits: this.edits,
+				worlds: this.worlds
+			},
+			to,
+			{ home: this.home, items: this.items }
+		);
+		if (!trip.ok) {
+			this.emit({ type: 'travel-refused', reason: trip.reason });
+			return;
+		}
+		const here = trip.whereabouts;
+		this.world = here.world;
+		this.seed = worldSeed(here.world);
+		this.spawn = spawnPoint(this.seed);
+		this.pos = { x: here.pos.x, y: here.pos.y };
+		this.facing = here.facing;
+		this.edits = here.edits;
+		this.worlds = here.worlds.map(copyStay);
+		this.emit({
+			type: 'travelled',
+			playerId: this.playerId,
+			world: this.world,
+			seed: this.seed,
+			pos: { ...this.pos },
+			facing: this.facing,
+			edits: [...this.edits.encode()],
+			firstVisit: trip.firstVisit
 		});
 	}
 
@@ -507,6 +624,8 @@ export class LocalAuthority implements Authority {
 		const result = clearTile(this.seed, this.edits, player, step(this.pos, this.facing));
 		if (result.ok) {
 			this.edits = result.edits;
+			// Every world's cleared tiles share one budget: this world's come first.
+			this.worlds = fitWorlds(this.edits, this.worlds, this.home);
 			const { pos, was, tool, regrown } = result.cleared;
 			this.emit({ type: 'tile-cleared', playerId: this.playerId, pos, was, tool, regrown });
 		} else if (result.reason === 'needs-tool' && result.kind && result.tool) {
@@ -591,6 +710,26 @@ export class LocalAuthority implements Authority {
 	private emit(event: GameEvent): void {
 		for (const l of this.listeners) l(event);
 	}
+}
+
+/** A copy of a world left behind, so the authority's own never leaves it. */
+function copyStay(stay: WorldStay): WorldStay {
+	return {
+		world: stay.world,
+		pos: { x: stay.pos.x, y: stay.pos.y },
+		facing: stay.facing,
+		edits: [...stay.edits]
+	};
+}
+
+/**
+ * A new game's home world: a random one from 2 to `LAST_WORLD`, so strangers
+ * don't all start in one world (World 1 is where the games from before
+ * numbered worlds are).
+ */
+export function randomHome(): number {
+	const [n] = globalThis.crypto.getRandomValues(new Uint32Array(1));
+	return FIRST_WORLD + 1 + (n! % (LAST_WORLD - FIRST_WORLD));
 }
 
 /** A copy of the animal with its nickname cleaned, and no `nickname` key when none is left. */

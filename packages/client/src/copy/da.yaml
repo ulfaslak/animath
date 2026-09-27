@@ -547,6 +547,12 @@ title:
     back: Nej, tilbage
     yes: Ja, nyt spil
     keys: ↑ ↓ flyt · Enter vælg · Esc tilbage
+  player:
+    title: Hvad hedder du?
+    waiting: Dine dyr venter på dig!
+    keys: Enter færdig · Esc tilbage
+    next: Videre
+    go: Så kører vi!
   starter:
     title: Vælg dit første dyr!
     loves: '{animal.the} er mester i {kinds}!'
@@ -558,6 +564,15 @@ title:
     keys: Enter færdig · Esc tilbage
     start: Så kører vi!
   back: Tilbage
+
+playerName:
+  rule: '{min} til {max} bogstaver eller tal.'
+  refused:
+    empty: Skriv dit navn først.
+    short: Et navn skal have mindst {min} bogstaver.
+    long: Det er et langt navn! Højst {max} bogstaver.
+    chars: Kun bogstaver og tal.
+    rude: Vælg et andet navn.
 
 presence:
   nextTo: Du er ved siden af {name}!
