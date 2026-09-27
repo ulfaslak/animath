@@ -1,13 +1,19 @@
 import './styles.css';
-import { mount } from 'svelte';
+import { mount, unmount } from 'svelte';
+import { pointsHome } from './moved';
+import MovedCard from './ui/MovedCard.svelte';
 import NoWebGL from './ui/NoWebGL.svelte';
 
 /**
- * The page's entry (`index.html`). The game draws its world with WebGL 2,
- * which three.js needs: a browser without it gets a kind card in the
- * language on screen instead of a blank page, and the game never starts.
- * Every other browser loads the game (`main.ts`).
+ * The page's entry (`index.html`). On an old address of the game (the
+ * tunnel's, `moved.ts`), the moved card comes first, and the game only if a
+ * grown-up stays. The game draws its world with WebGL 2, which three.js
+ * needs: a browser without it gets a kind card in the language on screen
+ * instead of a blank page, and the game never starts. Every other browser
+ * loads the game (`main.ts`).
  */
+
+const ui = document.getElementById('ui') as HTMLElement;
 
 /** Whether this browser gives a page a WebGL 2 context. The test context is let go at once. */
 function hasWebGL2(): boolean {
@@ -21,15 +27,35 @@ function hasWebGL2(): boolean {
 }
 
 function cannotDraw(): void {
-	mount(NoWebGL, { target: document.getElementById('ui') as HTMLElement });
+	mount(NoWebGL, { target: ui });
 }
 
-if (hasWebGL2()) {
-	import('./main').catch((error: unknown) => {
-		// A context can still be refused for the renderer's own settings; three.js says WebGL.
-		if (String(error).includes('WebGL')) cannotDraw();
-		throw error;
+function startGame(): void {
+	if (hasWebGL2()) {
+		import('./main').catch((error: unknown) => {
+			// A context can still be refused for the renderer's own settings; three.js says WebGL.
+			if (String(error).includes('WebGL')) cannotDraw();
+			throw error;
+		});
+	} else {
+		cannotDraw();
+	}
+}
+
+/** The game's domain, deploy.env's (`vite.config.ts`); empty when the build was given none. */
+const domain: string = import.meta.env.VITE_GAME_DOMAIN ?? '';
+
+if (pointsHome(location.hostname, domain)) {
+	const card = mount(MovedCard, {
+		target: ui,
+		props: {
+			domain,
+			stay: () => {
+				void unmount(card);
+				startGame();
+			}
+		}
 	});
 } else {
-	cannotDraw();
+	startGame();
 }

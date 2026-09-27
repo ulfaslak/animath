@@ -24,7 +24,7 @@ import {
 
 /**
  * The save: one document per game. The client writes it to the browser's
- * storage (the primary copy) and to the server (a backup), and both sides
+ * storage (the primary copy) and, for an account, to the server, and both sides
  * check it with this module, so there is one definition of what a save is.
  * Error strings here are for developers and API clients, never for players.
  */
@@ -548,7 +548,7 @@ function findSaveError(input: Doc): string | null {
  * Checks a document someone wants to write: one this build can read (an
  * older version is upgraded first, as `readSave` reads it) that also carries
  * `facing`, `steps`, `visits`, `lineage` and a `seq` of at least 1. The value
- * is the document as this build reads it: an older build's backup (a page
+ * is the document as this build reads it: a save an older build sends (a page
  * still open from before an update) is kept upgraded, so the server holds
  * this version's document from then on. A refusal says why, as `readSave`
  * does: a newer build's document (`newer`) is not a broken one.
@@ -919,7 +919,7 @@ export function canReplace(stored: unknown, incoming: Pick<SaveWrite, 'seq'>): b
  * Whether writing `incoming` over `stored` would lose a different game, a
  * document this build cannot read (an invalid one: a newer build's is never
  * replaced at all, `canReplace`), or a document an older build wrote (the
- * first backup after an update, which is this version's) — the cases where
+ * first save after an update, which is this version's) — the cases where
  * the server copies `stored` aside, as it was, before replacing it.
  */
 export function replacesAnotherGame(
