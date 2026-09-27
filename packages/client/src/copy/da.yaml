@@ -719,7 +719,7 @@ match:
   theirTired: '{whose} {animal.bare} er træt!'
   theirGo: '{name} sender {animal.the} ind!'
   theirComeBack: '{name} kalder {animal.the} tilbage.'
-  theirName: '{whose} {animal.bare}'
+  animalOf: '{whose} {animal.bare}'
   theirTurn: '{whose} tur'
   attackDetail: '{attack} på {level}: {kinds}. {whose} {animal.bare} mister {damage} point.'
   tiresOut: Så bliver dyret træt!

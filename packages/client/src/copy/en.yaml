@@ -939,8 +939,9 @@ match:
   theirTired: '{whose} {animal.bare} is tired!'
   theirGo: '{name} sends in {animal.name}!'
   theirComeBack: '{name} calls {animal.name} back.'
-  # The other player's animal's status box.
-  theirName: '{whose} {animal.bare}'
+  # A status box in a match: each player's animal with its owner's name, the
+  # other's and your own, so both names are on the screen.
+  animalOf: '{whose} {animal.bare}'
   # The card while the other player takes their turn: their turn, and that they think.
   theirTurn: '{whose} turn'
   # The highlighted attack, as battle.attackDetail, hitting the other player's animal.

@@ -719,7 +719,7 @@ export class MatchController implements MatchHooks {
 			};
 			sfx.play('encounter');
 		}
-		battle.vs = { name: match.other.name };
+		battle.vs = { name: match.other.name, me: m.names[you] };
 		battle.moves = MATCH_MOVES;
 		battle.realm = 'land';
 		battle.outcome = null;

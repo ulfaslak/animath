@@ -338,7 +338,7 @@ describe('a match', () => {
 		const before = t.authority.snapshot();
 		const ref = started(t);
 		expect(t.controller.busy).toBe(true);
-		expect(battle.vs).toEqual({ name: 'Bo' });
+		expect(battle.vs).toEqual({ name: 'Bo', me: 'Ada' });
 		const said: string[] = [];
 		let mine = 0;
 		for (let turns = 0; ref.state.phase.kind !== 'ended'; turns++) {

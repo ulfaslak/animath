@@ -313,7 +313,7 @@
 	<div class="status opponent">
 		<StatusBox
 			name={vs
-				? t('match.theirName', { whose: whose(vs.name), animal: animalWords(opponent) })
+				? t('match.animalOf', { whose: whose(vs.name), animal: animalWords(opponent) })
 				: t('battle.wildName', { animal: animalWords(opponent) })}
 			id={opponent.id}
 			hp={opponent.hp}
@@ -331,7 +331,10 @@
 {#if front && spec}
 	<div class="status player">
 		<StatusBox
-			name={nameOf(front)}
+			name={vs
+				? t('match.animalOf', { whose: whose(vs.me), animal: animalWords(front) })
+				: nameOf(front)}
+			keepEnd={!!vs}
 			id={front.id}
 			hp={front.hp}
 			max={spec.maxHp}

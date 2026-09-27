@@ -27,9 +27,10 @@ import type { Line } from '../lines';
  */
 export type BattleScreen = 'actions' | 'party' | 'puzzle' | 'waiting' | 'busy' | 'result';
 
-/** The other player of a friendly match on the battle's screen. */
+/** The two players of a friendly match on the battle's screen: the other (`name`) and this one (`me`). */
 export interface Versus {
 	name: string;
+	me: string;
 }
 
 /**
