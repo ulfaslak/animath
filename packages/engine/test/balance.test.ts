@@ -113,8 +113,9 @@ function grid(model: PlayerModel): string {
  * The tier-1 animals a starter meets near home, and how often: over every
  * tall-grass tile of the prototype world within the safe radius of spawn (of
  * one biome, or all), the tier-1 part of the table the ground there makes,
- * normalised. Mostly rabbits in the open meadow, frogs by the water and
- * squirrels by the trees.
+ * normalised. Mostly rabbits, shrews, hedgehogs and moles in the open meadow,
+ * frogs, brown rats and toads by the water, and squirrels, wood mice and robins
+ * by the trees.
  */
 function nearHomeMix(biome?: Biome): Map<string, number> {
 	const seed = hashString('prototype');
@@ -287,10 +288,11 @@ describe('balance simulation', () => {
 			expectInBand(starterWin(easiest(1), mix), 0.65, 0.8, `starter vs ${name}, always right`);
 			expectInBand(starterWin(easiest(0.7), mix), 0.4, 0.55, `starter vs ${name}, right 70%`);
 		}
-		// The open meadow is the rabbits' ground (3 in 4 of its tier-1 animals
-		// near home), and the rabbit is the strongest tier-1 animal: there a
-		// squirrel starter right 7 times in 10 wins about 37%, below the band,
-		// and at least one fight in three (all rabbits would be 28%).
+		// The open meadow is the ground of the rabbits, shrews, hedgehogs and moles
+		// (18% each of its tier-1 animals near home), and the rabbit and the mole are
+		// the hardest small animals for a squirrel: there a squirrel starter right 7
+		// times in 10 wins about 36%, below the band, and at least one fight in three
+		// (all rabbits would be 28%, all moles 27%).
 		const meadow = STARTER_MIXES['the meadow near home']!;
 		expectInBand(starterWin(easiest(1), meadow), 0.65, 0.8, 'starter vs the meadow, always right');
 		const shaky = starterWin(easiest(0.7), meadow);
