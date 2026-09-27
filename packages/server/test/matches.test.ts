@@ -9,6 +9,7 @@ import {
 	worldSeed,
 	type Busy,
 	type ByeReason,
+	type FightView,
 	type GridPos,
 	type MatchMessage,
 	type ServerMessage,
@@ -879,5 +880,66 @@ describe('a match seen from outside', () => {
 		const again = cy.peer.of('fight');
 		expect(again.length).toBeGreaterThanOrEqual(1);
 		expect(again.at(-1)).toMatchObject({ pid: ada.pid, events: [] });
+	});
+});
+
+describe('a match seen from outside, as pages come and go (review findings)', () => {
+	/** A wild battle as a page reports it. */
+	const wild: FightView = {
+		realm: 'land',
+		a: { species: 'rabbit', hp: 5 },
+		b: { species: 'fox', hp: 3 },
+		turn: 'a',
+		puzzle: { kind: 'add', numbers: [3, 4] }
+	};
+
+	it('shows the match to one who comes near only the player whose page came back into it', () => {
+		const ada = kid('Ada');
+		const bo = kid('Bo', beside(1));
+		startedMatch(ada, bo);
+		// Bo's page reloads: a new socket, back in the match before it has said where it is.
+		bo.leave();
+		kid('Bo', beside(1));
+		// Eve comes within sight of Bo alone (24 tiles from him, 25 from Ada).
+		const eve = kid('Eve', beside(100));
+		eve.at(beside(1 + 24));
+		expect(eve.peer.of('fight')).toEqual([
+			expect.objectContaining({ pid: ada.pid, vs: bo.pid, events: [] })
+		]);
+	});
+
+	it("never wipes the battle a player went on to when the other comes back to their old match's end", () => {
+		const ada = kid('Ada');
+		const bo = kid('Bo', beside(1));
+		const start = startedMatch(ada, bo);
+		ada.send({ t: 'play', id: start.id, intent: { type: 'leave' } });
+		// Ada's page drops: the match that ended keeps her for the time to come back.
+		ada.leave();
+		// Bo goes back to exploring, and into a wild battle.
+		bo.send({ t: 'done', id: start.id });
+		bo.at(beside(1), { busy: 'battle' });
+		hub.battle(bo.peer, wild, []);
+		// Ada comes back in time, to her match's end.
+		kid('Ada');
+		const eve = kid('Eve', beside(100));
+		eve.at(beside(1, 5));
+		expect(eve.peer.of('fight')).toContainEqual(
+			expect.objectContaining({ pid: bo.pid, vs: null, view: wild })
+		);
+	});
+
+	it("takes no wild battle from a page in a match: the match's view is the server's", () => {
+		const ada = kid('Ada');
+		const bo = kid('Bo', beside(1));
+		startedMatch(ada, bo);
+		const cy = kid('Cy', beside(3, 2));
+		cy.peer.clear();
+		bo.at(beside(1), { busy: 'battle' });
+		hub.battle(bo.peer, wild, []);
+		expect(cy.peer.of('fight')).toEqual([]);
+		// One who comes near is shown the match, not a made-up battle.
+		const eve = kid('Eve', beside(100));
+		eve.at(beside(2, 3));
+		expect(eve.peer.of('fight')).toEqual([expect.objectContaining({ pid: ada.pid, vs: bo.pid })]);
 	});
 });
