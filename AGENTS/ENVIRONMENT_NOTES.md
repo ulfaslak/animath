@@ -83,3 +83,11 @@ pnpm 12 refuses to run dependency postinstall scripts unless approved in `pnpm-w
 ## `pnpm test` can fail with every test passing when the machine is busy
 
 At a load average above about 30 (several agents' test runs and browsers at once), the engine's vitest can end with `Tests N passed`, then `Errors 1 error` and `Unhandled Error: [vitest-worker]: Timeout calling "onTaskUpdate"`, and exit 1. That is vitest's own worker messaging timing out, not a test. `pnpm test` then stops at the engine (`ERR_PNPM_RECURSIVE_RUN_FIRST_FAIL`), so the client and server tests never run. On 2026-09-27, at a load of 33, the engine suite took 98 s instead of about 28 s. On that load, tests without an explicit timeout also fail with `Test timed out in 5000ms` (`save.test.ts`, `encounters.test.ts`). Read the summary before blaming the change. Check `uptime`, rerun when the load drops, or run each package on its own (`pnpm -F @mathgame/<pkg> test`).
+
+## A negative control on a fix whose commit holds its own test
+
+`git revert --no-commit <fix>` takes the test out along with the fix, so the check still passes and proves nothing. Putting the test back by hand (`git show <fix>:<test> > <test>`) then makes `git revert --abort` refuse ("Entry … not uptodate. Cannot merge."), with the revert half done in the index. On 2026-09-27 (PR #92) the way back that lost nothing: `git show HEAD:<path> > <path>` for each file, `git revert --quit`, `git restore --staged <paths>`. Simpler, with no revert state at all: write the fix's parent source over the file, `git show <fix>^:<src> > <src>`, run the check and watch it fail, then `git show HEAD:<src> > <src>`.
+
+## `scripts/screenshot.mjs` has no `--help`, and without `--url` it opens 5180
+
+The script reads `--url` and defaults it to `http://localhost:5180/`, the primary clone's dev server, and treats any flag it does not know as a value it ignores. On 2026-09-27 (PR #92) `node scripts/screenshot.mjs --help` opened the human's server in a fresh headless browser: the API was blocked, so nothing reached the kids' database, but it is the one port never to point a browser at. Read its header (`sed -n 1,60p scripts/screenshot.mjs`) for the usage, and pass `--url` every time.

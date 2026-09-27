@@ -123,7 +123,28 @@ export {
 	step,
 	tileRealm
 } from './world/types.js';
-export { DEEP_WATER_MARGIN, generateChunk, spawnPoint, tileAtWorld } from './world/generate.js';
+export {
+	DEEP_WATER_MARGIN,
+	TENT_LATTICE,
+	generateChunk,
+	onTentLattice,
+	tileAtWorld
+} from './world/generate.js';
+export { SPAWN_DOCTOR_STEPS, SPAWN_ROOM, spawnPoint } from './world/spawn.js';
+export {
+	FIRST_WORLD,
+	LAST_WORLD,
+	MAX_WORLDS_KEPT,
+	WORLD_ONE_SEED,
+	fitWorlds,
+	isWorldNumber,
+	keepWorlds,
+	parseWorldNumber,
+	remember,
+	travel,
+	worldSeed
+} from './world/worlds.js';
+export type { TravelRejection, TravelStep, Whereabouts, WorldStay } from './world/worlds.js';
 export {
 	EDITS_BUDGET,
 	MAX_ENTRY_LENGTH,
@@ -166,11 +187,17 @@ export type { Line, LineKey, LineParam, LineParamKind, SpeciesRef } from './line
 
 export type { Authority, GameEvent, Intent } from './protocol.js';
 
+export { MAX_NAME_LENGTH, MIN_NAME_LENGTH, checkName, nameKey } from './names.js';
+export type { NameCheck, NameRejection } from './names.js';
+
 export {
+	MAX_SAVED_NAME_LENGTH,
 	MAX_SAVED_NICKNAME_LENGTH,
 	MAX_SAVE_ID_LENGTH,
+	SAVE_UPGRADES,
 	SAVE_VERSION,
 	STARTER_SPECIES,
+	V1_KEPT,
 	canReplace,
 	newGame,
 	readBattle,
@@ -182,7 +209,16 @@ export {
 	saveExtras,
 	saveLineage,
 	saveSeq,
+	saveVersion,
 	validateSave,
 	validateSaveWrite
 } from './save.js';
-export type { SaveCheck, SaveRead, SaveV1, SaveWrite, SavedGame } from './save.js';
+export type {
+	SaveCheck,
+	SaveRead,
+	SaveV1,
+	SaveV2,
+	SaveWrite,
+	SavedGame,
+	SavedWorldStay
+} from './save.js';

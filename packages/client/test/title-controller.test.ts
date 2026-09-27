@@ -21,12 +21,13 @@ import { everyMash } from './mash';
 
 /**
  * The title's keys against the real authority: the menu, the confirm before
- * a new game puts a saved one away, the starters and the name box — what
- * each key does, what a mashed or held key must never do (skip the confirm,
- * pick a starter or a name unseen), and that the title closes only on the
- * authority's `welcome`. The 3D scenery is a stand-in that records what it
- * was asked to show; the name box is DOM, so the typed text is set on
- * `title.draft` as the bound input would.
+ * a new game puts a saved one away, the player's name box, the starters and
+ * the starter's name box — what each key does, what a mashed or held key
+ * must never do (skip the confirm, pick a starter or a name unseen), and that
+ * the title closes only on the authority's `welcome`. The 3D scenery is a
+ * stand-in that records what it was asked to show; the name boxes are DOM, so
+ * the typed text is set on `title.nameDraft` and `title.draft` as the bound
+ * inputs would.
  */
 interface Key extends KeyboardEvent {
 	prevented: boolean;
@@ -82,23 +83,30 @@ class FakeScenery implements TitleView3D {
 	}
 }
 
-/** A saved game with a team of two, the first called Pip. */
+/** A saved game in World 1 with a team of two, the first called Pip, played by Ida. */
 function savedGame(): SavedGame {
-	const helper = new LocalAuthority();
-	helper.dispatch({ type: 'new-game', speciesId: 'squirrel', nickname: 'Pip' });
+	const helper = new LocalAuthority({ homeWorld: () => 1 });
+	helper.dispatch({ type: 'new-game', speciesId: 'squirrel', nickname: 'Pip', name: 'Ida' });
 	const saved = helper.snapshot();
 	saved.party.push({ id: 'fox-1', speciesId: 'fox', hp: getAnimal('fox').maxHp });
 	return saved;
 }
 
+/** A game saved before players had names: the same, with no name. */
+function namelessGame(): SavedGame {
+	return { ...savedGame(), name: null };
+}
+
 function setup(saved: SavedGame | null = null) {
-	const authority = new LocalAuthority();
+	const authority = new LocalAuthority({ homeWorld: () => 1 });
 	const scenery = new FakeScenery();
 	const continued: SavedGame[] = [];
 	const controller = new TitleController(authority, scenery, {
-		continueGame(game) {
+		// As main.ts does: the game is picked up, then the name given for it goes on.
+		continueGame(game, name) {
 			continued.push(game);
 			authority.start({ game });
+			if (name !== undefined) authority.dispatch({ type: 'choose-name', name });
 		}
 	});
 	const events: GameEvent[] = [];
@@ -124,7 +132,14 @@ function setup(saved: SavedGame | null = null) {
 	const wait = (seconds: number) => {
 		for (let t = 0; t < seconds - 1e-9; t += 0.1) controller.update(Math.min(0.1, seconds - t));
 	};
-	return { authority, controller, scenery, continued, events, sent, press, wait };
+	/** Type `name` in the player's name box, wait out its quiet moment, and press Enter. */
+	const giveName = (name = 'Ida') => {
+		expect(title.screen).toBe('player');
+		title.nameDraft = name;
+		wait(PICK_QUIET_SECONDS + 0.05);
+		return press('Enter');
+	};
+	return { authority, controller, scenery, continued, events, sent, press, wait, giveName };
 }
 
 const newGames = (sent: readonly Intent[]) => sent.filter((i) => i.type === 'new-game');
@@ -306,8 +321,8 @@ describe('title: a new game over a saved one', () => {
 		expect(title.screen === 'menu' || title.screen === 'confirm').toBe(true);
 	});
 
-	it('Yes needs an arrow and then Enter, after the confirm has been up a moment', () => {
-		const { press, wait, scenery } = setup(savedGame());
+	it('Yes needs an arrow and then Enter, after the confirm has been up a moment; then the name, then the starters', () => {
+		const { press, wait, scenery, giveName } = setup(savedGame());
 		press('s', 'Enter', 'ArrowDown');
 		expect(title.confirm).toBe(1);
 		press('Enter');
@@ -315,6 +330,10 @@ describe('title: a new game over a saved one', () => {
 		wait(PICK_QUIET_SECONDS + 0.05);
 		press('ArrowDown'); // no wrap: still Yes
 		press('Enter');
+		expect(title.screen).toBe('player');
+		// The name box holds the saved game's name, to keep or change.
+		expect(title.nameDraft).toBe('Ida');
+		giveName('Bo');
 		expect(title.screen).toBe('starter');
 		expect(scenery.shown).toContain(`starters ${STARTERS.join(',')}`);
 	});
@@ -340,7 +359,7 @@ describe('title: a mash at any pace', () => {
 		}
 	});
 
-	it('an Enter mashed on a new player’s title picks no starter and names none', () => {
+	it('an Enter mashed on a new player’s title takes no name, picks no starter and names none', () => {
 		for (const { name, gaps } of everyMash(3)) {
 			const { press, wait, sent } = setup();
 			const mash = () =>
@@ -348,6 +367,15 @@ describe('title: a mash at any pace', () => {
 					press('Enter');
 					wait(gap);
 				});
+			// The name box comes up and takes none of the mash, even with a name typed.
+			press('Enter');
+			expect(title.screen, name).toBe('player');
+			title.nameDraft = 'Ida';
+			mash();
+			expect(title.screen, name).toBe('player');
+			wait(PICK_QUIET_SECONDS);
+			press('Enter');
+			expect(title.screen, name).toBe('starter');
 			mash();
 			expect(title.screen, name).toBe('starter');
 			wait(PICK_QUIET_SECONDS);
@@ -368,21 +396,25 @@ describe('title: the starters', () => {
 	function atStarters() {
 		const s = setup();
 		s.press('Enter');
+		s.giveName();
 		expect(title.screen).toBe('starter');
 		s.wait(PICK_QUIET_SECONDS + 0.05);
 		return s;
 	}
 
-	it('a new player goes straight from New game to the starters, the first one lit', () => {
-		const { press, scenery } = setup();
+	it('a new player goes from New game to their name, then to the starters, the first one lit', () => {
+		const { press, scenery, giveName } = setup();
 		press('Enter');
+		expect(title.screen).toBe('player');
+		expect(title.nameDraft).toBe('');
+		giveName();
 		expect(title.screen).toBe('starter');
 		expect(title.starter).toBe(0);
 		expect(scenery.shown.slice(-2)).toEqual([`starters ${STARTERS.join(',')}`, 'select 0']);
 		expect(title.spots).toHaveLength(STARTERS.length);
 	});
 
-	it('arrows light every starter in turn, wrapping; Escape goes back to New game', () => {
+	it('arrows light every starter in turn, wrapping; Escape goes back to the name, as typed', () => {
 		const { press } = atStarters();
 		const seen: number[] = [];
 		for (let i = 0; i < STARTERS.length; i++) {
@@ -396,12 +428,18 @@ describe('title: the starters', () => {
 		press('d');
 		expect(title.starter).toBe(0);
 		press('Escape');
+		expect(title.screen).toBe('player');
+		expect(title.nameDraft).toBe('Ida');
+		// And from there back to the menu, on New game.
+		press('Escape');
 		expect(title.screen).toBe('menu');
 		expect(title.rows[title.cursor]).toBe('new');
 	});
 
-	it('an Enter mashed on New game does not pick a starter unseen', () => {
-		const { press, wait } = setup();
+	it('an Enter mashed on the name does not pick a starter unseen', () => {
+		const { press, wait, giveName } = setup();
+		press('Enter');
+		giveName();
 		press('Enter', 'Enter', 'Enter');
 		wait(PICK_QUIET_SECONDS / 2);
 		press('Enter');
@@ -418,24 +456,32 @@ describe('title: the starters', () => {
 });
 
 describe('title: the name box', () => {
-	/** Pick the starter at `index` and wait out the name box's guard. */
+	/** Give the player's name, pick the starter at `index`, and wait out the name box's guard. */
 	function naming(index: number) {
 		const s = setup();
 		s.press('Enter');
+		s.giveName();
 		s.wait(PICK_QUIET_SECONDS + 0.05);
 		s.press(...Array<string>(index).fill('ArrowRight'), 'Enter');
 		s.wait(PICK_QUIET_SECONDS + 0.05);
 		return s;
 	}
 
-	it('Enter starts the game with the starter and the name as typed; the engine cleans it', () => {
+	it("Enter starts the game with the starter, its name as typed and the player's name; the engine cleans it", () => {
 		for (const [index, speciesId] of STARTERS.entries()) {
 			const { press, sent, events, scenery } = naming(index);
 			title.draft = '  Pip 🐿 ';
 			press('Enter');
-			expect(newGames(sent)).toEqual([{ type: 'new-game', speciesId, nickname: '  Pip 🐿 ' }]);
+			expect(newGames(sent)).toEqual([
+				{ type: 'new-game', speciesId, nickname: '  Pip 🐿 ', name: 'Ida' }
+			]);
 			const welcome = events.find((e) => e.type === 'welcome');
-			expect(welcome).toMatchObject({ newGame: true, party: [{ speciesId, nickname: 'Pip' }] });
+			expect(welcome).toMatchObject({
+				newGame: true,
+				name: 'Ida',
+				party: [{ speciesId, nickname: 'Pip' }]
+			});
+			expect(game.name).toBe('Ida');
 			expect(title.open).toBe(false);
 			expect(scenery.shown.at(-1)).toBe('hide');
 		}
@@ -449,8 +495,9 @@ describe('title: the name box', () => {
 	});
 
 	it('an Enter mashed through the pick, or held, does not name the animal unseen', () => {
-		const { press, wait, controller, sent } = setup();
+		const { press, wait, controller, sent, giveName } = setup();
 		press('Enter');
+		giveName();
 		wait(PICK_QUIET_SECONDS + 0.05);
 		press('Enter', 'Enter', 'Enter');
 		expect(title.screen).toBe('naming');
@@ -497,6 +544,93 @@ describe('title: the name box', () => {
 	});
 });
 
+describe("title: the player's name", () => {
+	it('goes on only with a name the engine takes, and says kindly why not, until the kid types again', () => {
+		const { press, wait, sent } = setup();
+		press('Enter');
+		expect(title.screen).toBe('player');
+		expect(title.nameFor).toBe('new');
+		wait(PICK_QUIET_SECONDS + 0.05);
+		for (const [typed, reason] of [
+			['', 'empty'],
+			['   ', 'empty'],
+			['A', 'short'],
+			['Pip!', 'chars'],
+			['Fuck', 'rude'],
+			['a'.repeat(17), 'long']
+		] as const) {
+			title.nameDraft = typed;
+			wait(PICK_QUIET_SECONDS + 0.05);
+			press('Enter');
+			expect(title.screen, typed).toBe('player');
+			expect(title.nameRefused, typed).toBe(reason);
+			// The box keeps what was typed, to fix.
+			expect(title.nameDraft).toBe(typed);
+		}
+		press('x');
+		expect(title.nameRefused).toBeNull();
+		// Rubbing out clears it too.
+		wait(PICK_QUIET_SECONDS + 0.05);
+		press('Enter');
+		expect(title.nameRefused).toBe('long');
+		press('Backspace');
+		expect(title.nameRefused).toBeNull();
+		// A name that only needs tidying goes, tidied.
+		title.nameDraft = '  Ida   Marie ';
+		wait(PICK_QUIET_SECONDS + 0.05);
+		press('Enter');
+		expect(title.screen).toBe('starter');
+		expect(title.playerName).toBe('Ida Marie');
+		expect(newGames(sent)).toEqual([]);
+	});
+
+	it('letters, W A S D, Space and digits are typing; a held Enter or an input method’s is not a pick', () => {
+		const { press, wait, controller } = setup();
+		press('Enter');
+		for (const letter of ['w', 'a', 's', 'd', ' ', '7', 'P', 'ArrowLeft']) {
+			expect(press(letter).prevented, letter).toBe(false);
+		}
+		expect(press('Tab').prevented).toBe(true);
+		title.nameDraft = 'Ida';
+		wait(PICK_QUIET_SECONDS + 0.05);
+		controller.onKey(key('Enter', { repeat: true }));
+		controller.onKey(key('Enter', { isComposing: true }));
+		expect(title.screen).toBe('player');
+		press('Enter');
+		expect(title.screen).toBe('starter');
+	});
+
+	it('a game saved before names asks once on Continue, then picks the game up with the name', () => {
+		const saved = namelessGame();
+		const { press, continued, sent, events, giveName } = setup(saved);
+		expect(title.rows[title.cursor]).toBe('continue');
+		press('Enter');
+		expect(title.screen).toBe('player');
+		expect(title.nameFor).toBe('continue');
+		expect(continued).toEqual([]);
+		// Escape goes back to the menu, on Continue, and nothing started.
+		press('Escape');
+		expect(title.screen).toBe('menu');
+		expect(title.rows[title.cursor]).toBe('continue');
+		press('Enter');
+		giveName('Nini');
+		expect(continued).toEqual([saved]);
+		expect(sent.filter((i) => i.type === 'choose-name')).toEqual([
+			{ type: 'choose-name', name: 'Nini' }
+		]);
+		expect(events.map((e) => e.type)).toEqual(['welcome', 'name-chosen']);
+		expect(game.name).toBe('Nini');
+		expect(title.open).toBe(false);
+	});
+
+	it('a game with a name goes on at once, and a new game over it offers that name', () => {
+		const { press, continued, sent } = setup(savedGame());
+		press('Enter');
+		expect(continued).toHaveLength(1);
+		expect(sent.filter((i) => i.type === 'choose-name')).toEqual([]);
+	});
+});
+
 /**
  * A click or a tap reaches the title as a key press (`input/press.ts`): a
  * menu or confirm row does its thing at once, behind the same guards; a
@@ -536,12 +670,14 @@ describe('title: a pointer', () => {
 		press(rowKey(title.rows.indexOf('new')));
 		wait(PICK_QUIET_SECONDS + 0.05);
 		press(rowKey(1));
-		expect(title.screen).toBe('starter');
+		expect(title.screen).toBe('player');
 	});
 
 	it('a tap on a starter only lights it; the button (Enter) picks it, after the screen’s quiet moment', () => {
-		const { press, wait, scenery, sent } = setup();
+		const { press, wait, scenery, sent, giveName } = setup();
 		press(rowKey(title.rows.indexOf('new')));
+		// The name box's Next is its Enter.
+		giveName();
 		expect(title.screen).toBe('starter');
 		press(rowKey(2), rowKey(2));
 		expect(title.starter).toBe(2);
@@ -557,6 +693,8 @@ describe('title: a pointer', () => {
 		expect(title.starter).toBe(2);
 		wait(PICK_QUIET_SECONDS + 0.05);
 		press('Enter');
-		expect(newGames(sent)).toEqual([{ type: 'new-game', speciesId: STARTERS[2], nickname: '' }]);
+		expect(newGames(sent)).toEqual([
+			{ type: 'new-game', speciesId: STARTERS[2], nickname: '', name: 'Ida' }
+		]);
 	});
 });

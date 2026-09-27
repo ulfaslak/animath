@@ -2,7 +2,8 @@ import { describe, expect, it } from 'vitest';
 import { ANIMALS, getAnimal } from '../src/animals/catalog.js';
 import { REALMS, TERRAINS, type Terrain } from '../src/animals/types.js';
 import { hashString } from '../src/rng.js';
-import { generateChunk, spawnPoint, tileAtWorld } from '../src/world/generate.js';
+import { generateChunk, tileAtWorld } from '../src/world/generate.js';
+import { spawnPoint } from '../src/world/spawn.js';
 import {
 	HABITAT_BOOST,
 	HABITAT_FULL,

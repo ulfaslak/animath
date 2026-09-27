@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { Rng, hashString } from '../src/rng.js';
 import { WorldEdits } from '../src/world/edits.js';
-import { spawnPoint, tileAtWorld, travelKindAt } from '../src/world/generate.js';
+import { tileAtWorld, travelKindAt } from '../src/world/generate.js';
+import { spawnPoint } from '../src/world/spawn.js';
 import {
 	TENT_SEARCH_STEPS,
 	canTalkToDoctor,

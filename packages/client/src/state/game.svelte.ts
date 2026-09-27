@@ -26,6 +26,20 @@ import {
 class GameView {
 	mode = $state<'loading' | 'title' | 'explore' | 'battle'>('loading');
 	playerId = $state<string>('');
+	/**
+	 * The player's name: `welcome`'s, then `name-chosen`'s. Null until they
+	 * have chosen one (a game saved before names asks for it on load). What
+	 * other players see above this player's character.
+	 */
+	name = $state<string | null>(null);
+	/**
+	 * The world number the player is in (1 to 9999): `welcome`'s, then every
+	 * `travelled`'s. Two players with the same number are in the same world.
+	 */
+	world = $state<number>(0);
+	/** The world the game began in: `welcome`'s. */
+	home = $state<number>(0);
+	/** The generator seed of `world` (`worldSeed(world)`). */
 	seed = $state<number>(0);
 	pos = $state<GridPos>({ x: 0, y: 0 });
 	/** The way the player faces: `welcome`'s facing, then every move's direction, walked or blocked. */
@@ -55,6 +69,9 @@ class GameView {
 		switch (event.type) {
 			case 'welcome':
 				this.playerId = event.playerId;
+				this.name = event.name;
+				this.world = event.world;
+				this.home = event.home;
 				this.seed = event.seed;
 				this.pos = event.pos;
 				this.facing = event.facing;
@@ -64,6 +81,18 @@ class GameView {
 				this.items = event.items;
 				this.edits = WorldEdits.decode(event.edits);
 				this.mode = 'explore';
+				break;
+			case 'name-chosen':
+				if (event.playerId === this.playerId) this.name = event.name;
+				break;
+			case 'travelled':
+				// Another world: where the player stands there, and what they cleared there.
+				if (event.playerId !== this.playerId) break;
+				this.world = event.world;
+				this.seed = event.seed;
+				this.pos = event.pos;
+				this.facing = event.facing;
+				this.edits = WorldEdits.decode(event.edits);
 				break;
 			case 'tile-cleared':
 				if (event.playerId === this.playerId) {
