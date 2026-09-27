@@ -9,7 +9,7 @@ import {
 import { randomBytes, randomUUID } from 'node:crypto';
 import { createServer, type Server } from 'node:http';
 import { connect, type AddressInfo } from 'node:net';
-import { afterAll, afterEach, describe, expect, it } from 'vitest';
+import { afterAll, afterEach, describe, expect, it, vi } from 'vitest';
 import { WebSocket, type ClientOptions } from 'ws';
 import { PRESENCE_PATH, attachPresence, type PresenceOptions } from '../src/presence/socket.js';
 import { createAccount } from '../src/accounts.js';
@@ -25,6 +25,8 @@ afterAll(() => pool.end());
 const running: (() => Promise<void>)[] = [];
 afterEach(async () => {
 	while (running.length) await running.pop()!();
+	// After the servers stop: a test that fakes a timer stops its server on the same clock.
+	vi.useRealTimers();
 });
 
 async function start(options: PresenceOptions = {}) {
@@ -119,13 +121,24 @@ async function joined(url: string, name: string, guest: string, options: ClientO
 	return { c, pid: hi.pid };
 }
 
+/**
+ * Once this resolves, all the server sent `c` before has arrived: the server answers a
+ * socket's messages in order, and a player who asks where they are themselves hears `lost`.
+ * A barrier, where a wait on the clock would only guess.
+ */
+async function caughtUp(c: Client, pid: string): Promise<void> {
+	const seen = c.got.length;
+	c.send({ t: 'find', pid });
+	await c.next('lost', 2000, seen);
+}
+
 describe('presence socket', () => {
 	it('says hi with the name as the rules clean it, and shows two players in one world to each other', async () => {
 		const { url } = await start();
 		const { c: ada, pid: adaPid } = await joined(url, '  Ada  ', 'a'.repeat(20));
 		expect(ada.got[0]).toMatchObject({ t: 'hi', v: PROTOCOL_VERSION, name: 'Ada' });
 		const { c: bo, pid: boPid } = await joined(url, 'Bo', 'b'.repeat(20));
-		const { c: far } = await joined(url, 'Cy', 'c'.repeat(20));
+		const { c: far, pid: farPid } = await joined(url, 'Cy', 'c'.repeat(20));
 		ada.where(1, 0, 0);
 		bo.where(1, 2, 1);
 		far.where(2, 0, 0);
@@ -142,7 +155,8 @@ describe('presence socket', () => {
 			(m): m is ServerMessage & { t: 'roster' } => m.t === 'roster' && m.players.length > 0
 		);
 		expect(roster).toMatchObject({ world: 1, players: [{ pid: boPid, name: 'Bo', steps: 3 }] });
-		await new Promise((r) => setTimeout(r, 150));
+		// Cy, in another world, hears nothing of them.
+		await caughtUp(far, farPid);
 		expect(far.got.filter((m) => m.t === 'peer')).toEqual([]);
 		// Bo goes home: Ada is told.
 		bo.ws.close();
@@ -295,12 +309,27 @@ describe('presence socket', () => {
 	});
 
 	it('drops a socket that stops answering pings', async () => {
+		// The beats come from the fake clock, one at a time. On the real one, a beat that fell
+		// while the machine was busy elsewhere could find the answering socket's pong still
+		// unread, and drop that socket too.
+		vi.useFakeTimers({ toFake: ['setInterval', 'clearInterval'] });
 		const { url, presence } = await start({ heartbeatMs: 100 });
 		const { c: quiet } = await joined(url, 'Ada', 'a'.repeat(20), { autoPong: false });
 		const { c: lively } = await joined(url, 'Bo', 'b'.repeat(20));
 		quiet.where(1, 0, 0);
 		lively.where(1, 1, 0);
 		await lively.next('peer');
+		// The first beat pings both, and Bo's socket answers at once. A ping of his own,
+		// answered in its turn, says the server has read that answer.
+		const pinged = new Promise((resolve) => lively.ws.once('ping', resolve));
+		vi.advanceTimersByTime(100);
+		await pinged;
+		await new Promise((resolve) => {
+			lively.ws.once('pong', resolve);
+			lively.ws.ping();
+		});
+		// The next beat finds Ada's ping unanswered: she is dropped, and Bo stays.
+		vi.advanceTimersByTime(100);
 		expect((await quiet.closed).code).toBe(1006);
 		expect(await lively.next('gone')).toMatchObject({ t: 'gone' });
 		expect(presence.hub.size).toBe(1);
@@ -380,52 +409,71 @@ describe('presence socket', () => {
 	});
 });
 
-/** A WebSocket frame of text from a client, masked as a client's must be: for a raw socket that ignores the rules. */
-function frame(text: string): Buffer {
-	const payload = Buffer.from(text);
+/**
+ * A WebSocket frame from a client (text, unless `opcode` says otherwise), masked as a
+ * client's must be: for a raw socket that ignores the rules.
+ */
+function frame(data: string | Buffer, opcode = 0x1): Buffer {
+	const payload = typeof data === 'string' ? Buffer.from(data) : data;
 	const mask = randomBytes(4);
 	const head =
 		payload.length < 126
-			? Buffer.from([0x81, 0x80 | payload.length])
-			: Buffer.from([0x81, 0x80 | 126, payload.length >> 8, payload.length & 255]);
+			? Buffer.from([0x80 | opcode, 0x80 | payload.length])
+			: Buffer.from([0x80 | opcode, 0x80 | 126, payload.length >> 8, payload.length & 255]);
 	const masked = Buffer.alloc(payload.length);
 	for (let i = 0; i < payload.length; i++) masked[i] = payload[i]! ^ mask[i % 4]!;
 	return Buffer.concat([head, mask, masked]);
 }
 
-/** A socket that shakes hands and then never answers a close: it goes on sending. */
+/** A socket that shakes hands and then does what the test writes to it, rules or none. */
 async function rawSocket(port: number) {
 	const s = connect(port, '127.0.0.1');
 	const got: Buffer[] = [];
+	const text = () => Buffer.concat(got).toString('latin1');
 	s.on('data', (d: Buffer) => got.push(d));
 	s.on('error', () => {});
+	/** Once the server has sent `what`. */
+	const heard = (what: string) =>
+		new Promise<void>((resolve) => {
+			const check = () => {
+				if (!text().includes(what)) return;
+				s.off('data', check);
+				resolve();
+			};
+			s.on('data', check);
+			check();
+		});
+	const closed = new Promise<void>((resolve) => s.once('close', () => resolve()));
 	await new Promise((r) => s.once('connect', r));
 	s.write(
 		`GET ${PRESENCE_PATH} HTTP/1.1\r\nHost: 127.0.0.1:${port}\r\nUpgrade: websocket\r\n` +
 			`Connection: Upgrade\r\nSec-WebSocket-Key: ${randomBytes(16).toString('base64')}\r\n` +
 			'Sec-WebSocket-Version: 13\r\n\r\n'
 	);
-	await new Promise((r) => setTimeout(r, 100));
-	return { s, text: () => Buffer.concat(got).toString('latin1') };
+	await heard('\r\n\r\n');
+	expect(text()).toMatch(/^HTTP\/1\.1 101 /);
+	return { s, heard, closed };
 }
 
 describe('presence socket under attack', () => {
 	it('never lets a socket closed for cause back in, however it goes on sending', async () => {
+		// The server's timeouts wait on the fake clock: the socket it closes is not cut off (a
+		// second after its bye, on the real clock) before the server has read all it sends.
+		vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
 		const logs: string[] = [];
 		const { url, port, presence } = await start({ maxInvalid: 3, log: (l) => logs.push(l) });
-		const { c: kid } = await joined(url, 'Kid', 'k'.repeat(20));
+		const { c: kid, pid } = await joined(url, 'Kid', 'k'.repeat(20));
 		kid.where(1, 0, 0);
+		const joins = vi.spyOn(presence.hub, 'join');
 		const raw = await rawSocket(port);
 		for (let i = 0; i < 3; i++) raw.s.write(frame('junk'));
-		await new Promise((r) => setTimeout(r, 100));
-		expect(raw.text()).toContain('"bye"');
+		await raw.heard('"bye"');
 		// It ignores the close, says hello and stands next to the kid.
 		raw.s.write(
 			frame(
 				JSON.stringify({ t: 'hello', v: PROTOCOL_VERSION, guest: 'z'.repeat(20), name: 'Ghost' })
 			)
 		);
-		await new Promise((r) => setTimeout(r, 50));
 		raw.s.write(
 			frame(
 				JSON.stringify({
@@ -442,11 +490,14 @@ describe('presence socket under attack', () => {
 		);
 		// Then floods: nothing more is logged of a socket already on its way out.
 		for (let i = 0; i < 2000; i++) raw.s.write(frame('x'));
-		await new Promise((r) => setTimeout(r, 300));
+		// At last it answers the close (code 1000). The server reads a socket's frames in order,
+		// so once it has ended the connection it has read all the rest.
+		raw.s.write(frame(Buffer.from([0x03, 0xe8]), 0x8));
+		await raw.closed;
+		await caughtUp(kid, pid);
+		expect(joins).not.toHaveBeenCalled();
 		expect(kid.got.filter((m) => m.t === 'peer')).toEqual([]);
-		expect(presence.hub.size).toBe(1);
 		expect(logs.length).toBeLessThanOrEqual(1);
-		raw.s.destroy();
 	});
 
 	it('survives upgrades that reset as they are refused: a wrong path, another site, a full server', async () => {

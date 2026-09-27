@@ -74,11 +74,30 @@ describe('accountTablesReady', () => {
 			spy.mockRestore();
 		}
 		expect(asked).toEqual([expect.objectContaining({ query_timeout: READY_QUERY_TIMEOUT_MS })]);
-		// The timeout holds through the pool with this pg: a question that outlasts it fails at once.
-		const slow = { text: 'select pg_sleep(5)', query_timeout: 200 };
-		const started = Date.now();
-		await expect(pool.query(slow)).rejects.toThrow(/timeout/i);
-		expect(Date.now() - started).toBeLessThan(3000);
+		// The timeout holds through the pool with this pg: a question that outlasts it fails when
+		// its 200 ms are up, with pg's own error. The question waits on a lock the test holds, so
+		// it outlasts any wait, and pg's timer runs on the fake clock, stepped to either side of
+		// the 200 ms (a bound on the real clock measured the machine too, #108).
+		const holder = new pg.Client({ connectionString: process.env.DATABASE_URL });
+		await holder.connect();
+		const key = Math.floor(Math.random() * 2 ** 31);
+		await holder.query('select pg_advisory_lock($1)', [key]);
+		// A connection the pool already holds: the question goes out before the clock moves.
+		await pool.query('select 1');
+		vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+		let failed: unknown;
+		try {
+			void pool
+				.query({ text: 'select pg_advisory_lock($1)', values: [key], query_timeout: 200 })
+				.catch((e: unknown) => (failed = e));
+			await vi.advanceTimersByTimeAsync(199);
+			expect(failed).toBeUndefined();
+			await vi.advanceTimersByTimeAsync(1);
+			expect((failed as Error | undefined)?.message).toBe('Query read timeout');
+		} finally {
+			vi.useRealTimers();
+			await holder.end();
+		}
 	});
 });
 
