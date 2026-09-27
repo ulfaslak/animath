@@ -117,7 +117,11 @@ export function accountRoute({ cookie, limits }: AccountRouteOptions) {
 			if (body === undefined) return c.json({ error: 'body is not valid JSON' }, 400);
 			const given = credentials(body);
 			if (!given) return c.json({ error: 'send a name and a password' }, 400);
-			const named = checkName(given.name);
+			// The body may be a megabyte; a name that long is never worked through.
+			const named =
+				given.name.length > MAX_TYPED_NAME
+					? ({ ok: false, reason: 'long' } as const)
+					: checkName(given.name);
 			if (!named.ok) return c.json({ error: 'bad name', reason: named.reason }, 400);
 			const key = nameKey(named.name);
 			const byName = limit.registerPerName.hit(key);

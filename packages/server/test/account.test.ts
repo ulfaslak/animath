@@ -234,7 +234,9 @@ describe('register', () => {
 			['   ', 'empty'],
 			['A', 'short'],
 			['Abcdefghijklmnopq', 'long'],
-			['Pip!', 'chars']
+			['Pip!', 'chars'],
+			// A name as long as a register body allows: refused without being read.
+			['Ab'.repeat(400_000), 'long']
 		];
 		for (const [name, reason] of cases) {
 			const res = await new Browser().register(name);
