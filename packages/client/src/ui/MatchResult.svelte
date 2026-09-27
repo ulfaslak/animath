@@ -52,7 +52,8 @@
 	const rematchLine = $derived.by(() => {
 		if (updating || !result || result.missed) return '';
 		const { mine, theirs } = match.rematch;
-		if (theirs === false) return result.reason === 'all-tired' ? t('match.rematch.went', { name }) : '';
+		if (theirs === false)
+			return result.reason === 'all-tired' ? t('match.rematch.went', { name }) : '';
 		if (theirs && !mine) return t('match.rematch.theyWant', { name });
 		if (mine) return t('match.rematch.waiting', { name });
 		return '';

@@ -877,7 +877,7 @@ match:
   # The other player's animal's status box.
   theirName: '{whose} {animal.bare}'
   # The card while the other player takes their turn: their turn, and that they think.
-  theirTurn: "{whose} turn"
+  theirTurn: '{whose} turn'
   # The highlighted attack, as battle.attackDetail, hitting the other player's animal.
   attackDetail: '{attack} on {level}: {kinds}. It hits {whose} {animal.bare} for {damage}.'
   tiresOut: That would tire it out!

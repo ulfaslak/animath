@@ -22,7 +22,14 @@ import {
 import { levelPitch } from '../audio/cues';
 import { sfx } from '../audio/sfx.svelte';
 import { ENTER_SECONDS, IRIS_CLOSE_SECONDS, IRIS_OPEN_SECONDS } from '../battle/controller';
-import { MATCH_MOVES, actionCount, firstPickable, listKey, menuKey, pickedMenu } from '../battle/menu';
+import {
+	MATCH_MOVES,
+	actionCount,
+	firstPickable,
+	listKey,
+	menuKey,
+	pickedMenu
+} from '../battle/menu';
 import { answerKey } from '../input/answer';
 import { isShortcut, keyName } from '../input/keyboard';
 import { isMashKey, PickGuard } from '../input/pick-guard';
@@ -65,8 +72,10 @@ import { travel } from '../state/travel.svelte';
  *   and only what comes back changes the screen. While the other player
  *   thinks, their puzzle shows without its answer. The result, the rematch
  *   and the match's notes (dropped out, "Still there?", the connection) are
- *   `match`'s. The player's own game is never touched: no intent reaches the
- *   authority, so the save is exactly as it was.
+ *   `match`'s. The player's own game is never touched, but for the puzzles
+ *   they solved: each batch of events goes once to `count`, which adds this
+ *   player's right answers (`countSolved`); no intent reaches the authority,
+ *   so the save is otherwise exactly as it was.
  * - **Dropped and updated.** A drop keeps the match on screen while the
  *   socket comes back; the server says in its `hi` whether the match is
  *   still on. A server that stops for a new version ends it (`bye:
@@ -97,6 +106,12 @@ export interface MatchDeps {
 	renderer: Pick<GameRenderer, 'setBattle' | 'playerScreenPoint'>;
 	/** Close the pause menu: a match picked up after a reload takes the screen from it. */
 	closeMenu?(): void;
+	/**
+	 * Count this player's right answers in a batch of match events: the one
+	 * thing a match changes in the game, the puzzles solved
+	 * (`LocalAuthority.countMatchAnswers`). Each batch once.
+	 */
+	count?(events: readonly WireMatchEvent[], side: MatchSide): void;
 	/** Seconds, for the invite's clock and the waits (real time, not frame time). */
 	clock?: () => number;
 	/** The battle's scene, or a stand-in in a test. */
@@ -197,7 +212,12 @@ export class MatchController implements MatchHooks {
 		}
 		// Nobody near is known any more; the socket's next hi brings them back.
 		this.peers.clear();
-		if (status === 'elsewhere' || status === 'off' || status === 'refused' || status === 'outdated') {
+		if (
+			status === 'elsewhere' ||
+			status === 'off' ||
+			status === 'refused' ||
+			status === 'outdated'
+		) {
 			// Another window plays on, or the game is gone: nothing of a match stays here.
 			if (match.stage === 'playing' || match.stage === 'over') this.finish();
 			else if (match.stage !== 'none') this.letGo(null);
@@ -437,7 +457,12 @@ export class MatchController implements MatchHooks {
 		const front = battle.party[battle.front];
 		if (!front) return true;
 		const spec = getAnimal(front.speciesId);
-		const result = menuKey({ cursor: battle.cursor, levels: battle.levels }, key, spec, MATCH_MOVES);
+		const result = menuKey(
+			{ cursor: battle.cursor, levels: battle.levels },
+			key,
+			spec,
+			MATCH_MOVES
+		);
 		// A pick waits the quiet moment, so never from a mash; a pick it ignores changes nothing.
 		if (result.choice && !fresh) return result.handled;
 		const moved = result.menu.cursor !== battle.cursor;
@@ -632,6 +657,8 @@ export class MatchController implements MatchHooks {
 			this.begin(m);
 			return;
 		}
+		// The kid's own right answers are theirs to keep, whatever else the match does.
+		if (m.events.length > 0) this.deps.count?.(m.events, m.view.you);
 		const was = this.latest;
 		this.latest = m;
 		this.awayUntil = m.away ? this.clock() + m.away.ms / 1000 : null;
@@ -712,7 +739,9 @@ export class MatchController implements MatchHooks {
 			this.beats.push({
 				run: () => {
 					sfx.play('lead');
-					return starts ? line('match.youStart') : line('match.theyStart', { name: { player: name } });
+					return starts
+						? line('match.youStart')
+						: line('match.theyStart', { name: { player: name } });
 				},
 				hold: 1.4
 			});

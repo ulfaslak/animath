@@ -17,7 +17,8 @@ import type { ChallengeRefusal, MatchEndReason, MatchSide, MatchTimeout } from '
  * - `updating`: the server stopped for a new version mid-match; the card
  *   says so, and Play again asks the same friend once both are back.
  */
-export type MatchStage = 'none' | 'asking' | 'invited' | 'starting' | 'playing' | 'over' | 'updating';
+export type MatchStage =
+	'none' | 'asking' | 'invited' | 'starting' | 'playing' | 'over' | 'updating';
 
 /**
  * Why the Challenge button can't be pressed: the engine's rule

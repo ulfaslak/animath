@@ -89,7 +89,8 @@ const autosave = new Autosave({
 const matchController: MatchController = new MatchController({
 	send: (message): boolean => presenceController.send(message),
 	renderer,
-	closeMenu: () => pauseController.close()
+	closeMenu: () => pauseController.close(),
+	count: (events, side) => authority.countMatchAnswers(events, side)
 });
 // The other players in this world (`presence/`): never behind the title, never in a
 // throwaway game, never on a page behind the save; nothing waits on it.
@@ -223,12 +224,12 @@ function noteScreen(): void {
 						: matchController.onScreen
 							? `match:${match.stage}:${battle.screen}`
 							: battle.active
-							? `battle:${battle.screen}`
-							: doctor.active
-								? `doctor:${doctor.screen}:${doctor.tab}`
-								: pause.open
-									? `pause:${pause.screen}:${pause.species ?? ''}:${pause.picked ?? ''}`
-									: game.mode;
+								? `battle:${battle.screen}`
+								: doctor.active
+									? `doctor:${doctor.screen}:${doctor.tab}`
+									: pause.open
+										? `pause:${pause.screen}:${pause.species ?? ''}:${pause.picked ?? ''}`
+										: game.mode;
 	if (now !== screenSeen) {
 		screenSeen = now;
 		screenCount++;

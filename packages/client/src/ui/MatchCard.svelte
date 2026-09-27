@@ -32,7 +32,9 @@
 			<div class="title">{t('match.invite.starting')}</div>
 		{/if}
 		{#if match.stage !== 'starting'}
-			<div class="time" aria-hidden="true"><div class="left" style:width="{share * 100}%"></div></div>
+			<div class="time" aria-hidden="true">
+				<div class="left" style:width="{share * 100}%"></div>
+			</div>
 			<div class="buttons">
 				{#if match.stage === 'invited'}
 					{#if ownTeam}
