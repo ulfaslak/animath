@@ -254,6 +254,35 @@ describe('presence on the page', () => {
 		expect(overWater).toEqual([]);
 	});
 
+	it('held to its reach, the flight sends the landing tile as flown before it sends it as walked', () => {
+		const s = setup();
+		// Three tiles of ground, then water past the 20th: the reach is the third tile.
+		s.authority.start({
+			game: {
+				...newGame(1, undefined, 'Ada'),
+				items: ['glider'],
+				pos: { x: 110, y: -154 },
+				facing: 'right'
+			}
+		});
+		s.connect();
+		s.frame();
+		s.authority.dispatch({ type: 'take-off' });
+		s.frame();
+		s.frame();
+		// Held on: a glide a tile, as the screen sends them, until it comes down by itself.
+		for (let i = 0; i < 4 && !s.events.some((e) => e.type === 'landed'); i++) {
+			s.authority.dispatch({ type: 'glide' });
+			s.frame();
+			s.frame();
+		}
+		const sent = s
+			.sentOf('where')
+			.map((m) => m as unknown as WhereMessage)
+			.filter((m) => m.x === 113);
+		expect(sent.map((m) => m.busy)).toEqual(['flight', 'explore']);
+	});
+
 	it('never draws or lists the player themselves, whatever the server says', () => {
 		const s = setup();
 		s.start();
