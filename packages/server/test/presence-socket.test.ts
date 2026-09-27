@@ -306,6 +306,33 @@ describe('presence socket', () => {
 		expect(presence.hub.size).toBe(1);
 	});
 
+	it('holds at most maxPerAddress sockets from one address, the one the proxy saw', async () => {
+		const { url } = await start({ maxPerAddress: 2 });
+		const from = (address: string) => ({ headers: { 'X-Forwarded-For': address } });
+		const first = await joined(url, 'Ada', 'a'.repeat(20), from('203.0.113.7'));
+		// What the client said before the proxy's own entry counts for nothing.
+		await joined(url, 'Bo', 'b'.repeat(20), from('198.51.100.1, 203.0.113.7'));
+		await expect(new Client(url, from('203.0.113.7')).opened).rejects.toThrow('HTTP 429');
+		// An IPv6 household is its /64: another address in it is the same one.
+		await joined(url, 'Cy', 'c'.repeat(20), from('2001:db8:1:2::10'));
+		await joined(url, 'Dee', 'd'.repeat(20), from('2001:db8:1:2:aaaa::1'));
+		await expect(new Client(url, from('2001:db8:1:2::99')).opened).rejects.toThrow('HTTP 429');
+		// Another address is let in; and one that closes a socket may open another.
+		await joined(url, 'Eve', 'e'.repeat(20), from('203.0.113.8'));
+		first.c.ws.close();
+		await first.c.closed;
+		for (let i = 0; i < 100; i++) {
+			const again = new Client(url, from('203.0.113.7'));
+			const ok = await again.opened.then(
+				() => true,
+				() => false
+			);
+			if (ok) return;
+			await new Promise((r) => setTimeout(r, 10));
+		}
+		throw new Error('the address never got its place back');
+	});
+
 	it('tells every socket to come straight back when the server stops, before anyone hears who left', async () => {
 		const { url, presence } = await start();
 		const { c: ada } = await joined(url, 'Ada', 'a'.repeat(20));
