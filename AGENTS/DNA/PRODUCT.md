@@ -12,7 +12,7 @@ The game is called **Animath**. The repo and package names (`mathgame`, `@mathga
 
 - **Kids aged roughly 6–12**. Reading level: short words, big text. The puzzle ladder spans from single-digit addition to three-digit multiplication and square roots.
 - **Devices**: a laptop or desktop browser with a keyboard, or a tablet held sideways, played with fingers alone (touch controls, [[UI_SPEC]] § Pointer and touch). A mouse works every menu too. Phones are not a target.
-- **No login.** Open the link and you are in. The game is saved in the browser as you play, so a reload, or coming back another day, picks up where you left off; the server keeps a backup under an anonymous id the browser remembers.
+- **No login needed.** Open the link and you are in. The game is saved in the browser as you play, so a reload, or coming back another day, picks up where you left off; today the server also keeps a backup under an anonymous id the browser remembers. An account is optional, never required (§6).
 
 ## 3. Core loop
 
@@ -102,6 +102,17 @@ Two modes only, borrowed from the Game Boy games: **Explore** and **Battle**. Fi
 - A battle ends **won** when the wild animal reaches 0 HP, **lost** when every animal in the party that can fight there is knocked out, **caught** on a successful leash throw, or **fled**.
 - **On the water**, from the boat, only the animals that swim fight (§4 "Animals"): the first one standing steps in, only another one standing can be switched in (the others "can't swim" and sit it out in the boat), and the battle is **lost** once every one that swims is tired, whoever still stands in the boat. On land the sea animals sit a battle out the same way ("lives in the sea"). The sea animals are met out on the deep water (§4 "Wild encounters", "At sea"), and a battle there is drawn on the water, both animals low in it, the wild one swimming home or staying in the water at the end.
 
+### Friendly matches
+
+Two players can battle each other, just for fun. The rules below are the engine's; the challenge, and the screen a match is played on, are still to come. A match changes nothing: every animal's HP, the knock-outs, the party and the tokens are exactly as they were before it, whoever wins.
+
+- **Teams.** Each player brings the first three animals in their party order that can fight on land, tired ones too, all at full HP for the match; a party with fewer brings what it has. A match is fought on land, so the sea animals sit it out.
+- **Turns.** A coin flip decides who goes first, and then the players take turns. On your turn you pick an attack and its level (easy, medium or hard) and solve its puzzle, or you switch to another animal that is standing, which uses the turn. The other player sees your puzzle while you think, but never its answer.
+- **Attacks** are asked and land exactly as in a wild battle (§4 "Animals", "Battle"): the puzzle's difficulty comes from your own animal's tier, the attack and the level, so a kid with bigger animals solves harder sums, and a right answer hits for the attack's damage at that level. A wrong answer misses. Nobody misses on their own: the careful miss belongs to wild animals. There is no leash and no running away.
+- **Knock-outs.** When an animal is knocked out, its player picks which one steps in, for free, and then takes their turn. A player with no animal left standing loses.
+- **Leaving.** Either player can leave the match at any time, and the other one wins. A player who drops out and doesn't come back in time loses the same way. There is no draw and no turn limit: two players who never answer right, or only ever switch, play on until one of them leaves.
+- **How it plays out**, over 1,000 simulated 3-against-3 matches per line, each kid picking a random attack at a random level: two teams of tier-1 animals whose kids are both right 7 times in 10 play about 20 puzzles, 10 each (16 when both are right 9 times in 10, 28 at 5 in 10; one match in ten takes more than 26), and two teams of bears about 27. Always picking the easiest attack about doubles that (44 puzzles for tier 1, 72 for bears); always the hardest, 14. The kid who goes first wins about 55% of even matches, 57–60% when both are right 9 times in 10. Skill counts: right 9 times in 10 against 7 in 10, with the same animals, wins about 4 matches in 5. Size counts more: at the same accuracy a team one tier smaller wins at most 1 match in 12, and a tier-1 team against a tier-2 one almost never (1%); only much better sums close a one-tier gap (right 9 times in 10 against 5 in 10: tier 1 against tier 2 wins 32%, tier 2 against tier 3 60%).
+
 ### Catching
 
 - Throw a leash when the wild animal is weak. `P(success) = catchRate × leashQuality × 2^(−hp/0.2)` where `hp` is the fraction of HP remaining, capped at 95%.
@@ -170,13 +181,6 @@ Two modes only, borrowed from the Game Boy games: **Explore** and **Battle**. Fi
 - **Starting fresh** is New game on the title (§4 "Starting out"): the saved game is put away, not deleted. Nothing in the game deletes a save; clearing the site's data in the browser does. `?new` in the address (like `?party=`, `?zoo`, `?tokens=` and `?shop`) plays a throwaway game that is saved nowhere, leaving the saved one alone.
 - **Quit to title** (the pause menu's Start screen row) saves the game as it stands and goes back to the title, where Continue picks it up exactly there.
 - **Out on the water**: a game saved in the boat picks up in the boat, where it was. A save whose player stands on water without the boat (one edited by hand: nothing in the game takes a boat away) never leaves them stuck out there: it starts again from the spawn tile.
-
-### Multiplayer (future, shapes today's architecture)
-
-- One shared world per server. Kids see each other walking around.
-- Kids can battle each other; winning earns tokens too (§4 "Tokens and the doctor's shop").
-- The doctor's shop sells more: better leashes, potions and the like.
-- Still login-free: an anonymous identity is enough.
 
 ## 5. Feature inventory
 
@@ -251,6 +255,7 @@ What is built and observable today. Keep current: add a bullet when a feature sh
 - Species catalog: 14 placeholder species, tiers 1–5: 8 on land (three of them tier 1: squirrel, rabbit, frog; the frog and the otter swim too) and 6 in the sea (crab and starfish at tier 1, then turtle, dolphin, octopus, whale).
 - Wild encounter tables and the per-step roll, indexed on the lead's tier, with visitors of the lead's tier near home at the river and in the mountains where bigger animals live, weighed by the ground within 3 tiles of the tall grass (`surroundings`, `encounterTableAt`): each species favours water, trees, rocks or open grass, and near spawn the ground only chooses within each tier (§4 "Wild encounters"). Species list the realms they live in (land, water; the frog and the otter both; the sea animals water only), and deep water is the water realm's encounter tile, where only the sea animals come out.
 - Battle reducer: `startBattle` and `applyBattleIntent` play a whole wild battle by the rules in §4 — attacks, puzzles, answers, the wild animal's reply (which can miss an animal its own size or bigger), leash, flee, switching, knock-outs and the player's pick of who steps in — as intents in, events out.
+- Friendly-match reducer (§4 "Friendly matches"), not yet played anywhere: `matchTeam` picks the team a party brings, `startMatch` flips the coin, `applyMatchIntent` plays one side's attack, answer, switch, pick after a knock-out, leaving or timing out, and `matchView` is what each player is sent, with no answer in it. Attacks go through the same code as a wild battle's.
 - Party rules (§4 "Party"): the party in species bundles (`bundles`, `bundled`); `applyPartyIntent` chooses the lead (an animal, or a kind's first animal standing), moves an animal within its kind or a whole kind, or names an animal, only while exploring, and keeps the bundles; `joinParty` puts a caught animal behind its kind, with no limit; `normalizeNickname` cleans a typed name; `leadIndex` is the lead that battles and encounters use.
 - The starter rule (§4 "Starting out"): `STARTERS` (every tier-1 species that can fight on land) and `chooseStarter`, which refuses anything else and cleans the starter's name; the authority's `new-game` intent asks it.
 - World generation (§4 "World"): `generateChunk` builds any 16×16 chunk from the seed (biomes, tall grass and reeds, trees, rocks, water shallow and deep, tents on a sparse lattice), `spawnPoint` finds the start, and `nearestTent` the nearest tent on foot, by the paths the kid cleared too, or with the boat over the water too.
@@ -269,10 +274,15 @@ What is built and observable today. Keep current: add a bullet when a feature sh
 
 ## 6. Not yet built
 
-In rough priority order. Each becomes a GitHub issue when picked up.
+In rough priority order. Each becomes a GitHub issue when picked up. The choices behind the first six are [[DECISIONS]] § Multiplayer, § Accounts and § Deployment.
 
-1. Real low-poly animal models (glTF, CC0 sources, see [[DECISIONS]]) with attack animations, replacing the primitive figures.
-2. Procedural world v2: rivers that flow, paths, biome shaping, landmarks.
-3. Puzzle catalog v2: fractions, decimals, negatives, percentages, word problems, per-child adaptive difficulty.
-4. Multiplayer: shared world, other players visible, PvP battles, tokens for winning, more in the shop.
-5. The game online at its own address: the server and the domain ([[HUMAN_TODO]]). The deploy is built (§5 Server).
+1. **Numbered worlds.** Every world has a number from 1 to 9999, and friends who pick the same number play in the same world. A new game starts in a world of its own, your home. The pause menu's Worlds screen says which world you are in, takes you to any number while you are exploring, and brings you home. The world played so far is World 1, home to every game saved before. Where you stand and the trees and rocks you cleared are kept world by world, and a tree you chop is gone for you alone; your animals, tokens, tools and name go with you.
+2. **Names.** Every player has a name, asked for before the first animal (and once, for a game saved without one). Other players see it above your character, and it is your username if you make an account. Rude names are not allowed.
+3. **Optional accounts.** Play for as long as you like without one. After every hour of play a friendly card offers to keep your animals safe with a secret password ("Save my game" / "Not now"), and the pause menu and the title always offer to log in or make an account. No email: your name is your username. Log in on another device and your game is there.
+4. **Seeing friends.** Other players in your world walk about with their name above them and their lead animal following. The pause menu lists who is here and takes you next to any of them, and an arrow at the edge of the screen points to players out of sight. There is no chat.
+5. **Friendly matches.** Stand near another player and challenge them to a friendly match; they say yes or no. Each brings three animals at full health, and you take turns: pick an attack and its level and solve its puzzle, or switch animals. It is just for fun: afterwards nothing has changed, no tokens won or lost and no animal hurt, and both go back to exploring where they stood.
+6. **The public website.** The game at its own address on the internet, always on, instead of shared from the human's machine through a tunnel; a game played so far moves there with its player, without losing anything. The deploy is built (§5 Server); the server and the domain wait for the human ([[HUMAN_TODO]]), and moving a game there is not built yet.
+7. Real low-poly animal models (glTF, CC0 sources, see [[DECISIONS]]) with attack animations, replacing the primitive figures.
+8. Procedural world v2: rivers that flow, paths, biome shaping, landmarks.
+9. Puzzle catalog v2: fractions, decimals, negatives, percentages, word problems, per-child adaptive difficulty.
+10. The doctor's shop sells more: better leashes, potions and the like.
