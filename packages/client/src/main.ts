@@ -31,7 +31,6 @@ import { Follower } from './render/follower';
 import { GameRenderer } from './render/renderer';
 import { TitleScenery } from './render/title-scenery';
 import { Zoo } from './render/zoo';
-import { httpSaveServer } from './save/api';
 import { Autosave } from './save/autosave';
 import {
 	behindAction,
@@ -130,16 +129,11 @@ function heardSession(answer: SessionAnswer): void {
 
 // `?new`, `?party=` (a party to look at), `?zoo`, `?tokens=` and `?shop` play a
 // throwaway game: nothing is loaded or saved, and the saved game is left alone.
-// A guest's game is backed up anonymously in development only; an account's goes to
-// the account.
+// A guest's game lives in this browser alone; an account's goes to the account too.
 const autosave = new Autosave({
 	store,
 	keys: gameKeys(current),
-	server: sessionCheck
-		? accountSaveServer(sessionCheck)
-		: import.meta.env.PROD
-			? null
-			: httpSaveServer(),
+	server: sessionCheck ? accountSaveServer(sessionCheck) : null,
 	loggedOut: () => heardSession('ended'),
 	snapshot: () => authority.snapshot(),
 	catchUp: (counts) => authority.catchUp(counts),
@@ -413,7 +407,7 @@ window.addEventListener('keydown', (e) => {
 	noteScreen();
 });
 
-// Leaving or hiding the page saves at once and sends the backup with `keepalive`.
+// Leaving or hiding the page saves at once and sends an account's save with `keepalive`.
 window.addEventListener('pagehide', () => {
 	autosave.flush();
 	playClock.flush();

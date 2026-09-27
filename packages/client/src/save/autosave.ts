@@ -15,7 +15,7 @@ import {
 	type SaveWrite,
 	type SavedGame
 } from '@mathgame/engine';
-import { isIdentity, type Identity, type SaveServer } from './api';
+import type { SaveServer } from './api';
 import type { BehindCause } from './behind';
 import type { SaveNotice } from './notices';
 import {
@@ -33,17 +33,18 @@ import {
  * Saving, local first ([[DECISIONS]] § Saves). The save lives in this
  * browser's localStorage and is rewritten after every change: a step, a
  * battle turn, a catch. A reload therefore never loses anything, and the game
- * needs no server to be persistent. The server holds a backup copy, sent in
- * the background, never waited for except once at start when this browser
- * has an identity but no save of its own.
+ * needs no server to be persistent. An account's game has a copy on the
+ * server too (`server`), sent in the background and waited for only at
+ * start, briefly: the account's game is played on other devices as well. A
+ * guest's game has no copy anywhere else.
  *
  * Several tabs share one localStorage. Before every write a page checks that
  * the stored save is still the one it last read or wrote; if another page
  * saved in between, it carries on from that save only when the other page
  * merely walked around (`sameProgress`), and otherwise stops saving and
  * reloads into the newer game ([[INVARIANTS]] § Saves). The server takes a
- * backup only with a higher `seq` than it holds, and keeps any game a
- * backup replaces (`replacesAnotherGame`).
+ * save only with a higher `seq` than it holds, and keeps any game a save
+ * replaces (`replacesAnotherGame`).
  *
  * A save a newer version of the game wrote (`readSave`'s `newer`: a later
  * version, or a species, or a battle's realm or puzzle kind, this build does not have)
@@ -73,15 +74,15 @@ export interface AutosaveOptions {
 	 */
 	keys?: SaveKeys;
 	/**
-	 * The server's copy, or null for none: the anonymous backup (development
-	 * only), or an account's save (`session`), which the browser's session
-	 * cookie names, with no identity of its own to make or keep.
+	 * The server's copy: the account's save (`accountSaveServer`), which the
+	 * browser's session cookie names. Null for a guest's game, which only this
+	 * browser keeps.
 	 */
 	server: SaveServer | null;
 	/**
 	 * The account's session has ended (the server answered "not logged in"):
 	 * nothing more goes to the server this page load; the game plays and
-	 * saves in the browser as before. Session servers only.
+	 * saves in the browser as before.
 	 */
 	loggedOut?: () => void;
 	/** The game as it stands: the authority's snapshot. */
@@ -97,7 +98,7 @@ export interface AutosaveOptions {
 	/** `?new`: a throwaway game that reads and writes nothing, and says nothing about it. */
 	throwaway?: boolean;
 	timers?: Timers;
-	/** How long start-up waits for the server when this browser has an identity but no save. */
+	/** How long start-up waits for the server. */
 	bootWaitMs?: number;
 }
 
@@ -124,26 +125,19 @@ type Local = 'ok' | 'held' | 'frozen' | 'broken' | 'none';
 
 /**
  * - `unknown`: not yet compared with what the server holds; nothing is sent.
- * - `ready`: backups are sent.
- * - `stopped`: no more backups this page load (no identity can be kept, the
- *   server holds a newer build's save, or it refused one of ours, or it has
- *   been out of reach too long).
+ * - `ready`: saves are sent.
+ * - `stopped`: nothing more is sent this page load (the session ended, the
+ *   server holds a newer build's save or refused one of ours, or its game
+ *   could not be kept in this browser).
  */
 type Server = 'unknown' | 'ready' | 'stopped';
 
-/** Backups wait this long after a change that matters, or after walking. */
+/** A save goes to the server this long after a change that matters, or after walking. */
 const SOON_MS = 1000;
 const WALK_MS = 15_000;
 /** Retries back off from 2 s to a minute, and give up after this many in a row. */
 const MAX_FAILURES = 6;
 const BOOT_WAIT_MS = 2500;
-
-/**
- * What stands for the identity when the server's copy is an account's: the
- * session cookie names the account, so there is nothing to make, keep or
- * send, and the server never sees this.
- */
-const SESSION: Identity = { id: '00000000-0000-4000-8000-000000000000', secret: 'session' };
 
 const browserTimers: Timers = {
 	setTimeout: (fn, ms) => setTimeout(fn, ms),
@@ -170,7 +164,6 @@ export class Autosave {
 
 	private local: Local = 'none';
 	private serverState: Server = 'stopped';
-	private identity: Identity | null = null;
 
 	/** The game this page saves, and the number of its last save. */
 	private lineage = '';
@@ -196,7 +189,7 @@ export class Autosave {
 	private commitQueued = false;
 	/** A battle ended or the party changed this page load. */
 	private played = false;
-	/** The server holds a save this build cannot read: no backup replaces it until the kid has played. */
+	/** The server holds a save this build cannot read: nothing sent replaces it until the kid has played. */
 	private serverHeld = false;
 	/** Why this page is behind, once it is (`behind`). It never stops being behind. */
 	private staleCause: BehindCause | null = null;
@@ -214,7 +207,7 @@ export class Autosave {
 	 * The games the kid left for a new one on this page, by lineage. The
 	 * server's copy of one of those never comes back in place of the new
 	 * game: it gives way, and the server keeps it aside, as it keeps every
-	 * game a backup replaces. Any other game the server holds is settled as
+	 * game a save replaces. Any other game the server holds is settled as
 	 * usual, so a game the kid never saw on the title is never put away
 	 * without their knowing.
 	 */
@@ -228,7 +221,6 @@ export class Autosave {
 	private refused: SaveWrite | null = null;
 	/** The newest `seq` already sent with `keepalive`, so hiding and then leaving send it once. */
 	private flushed = 0;
-	private creating = false;
 	private failures = 0;
 	/** What to try again once the server answers, while retries rest. */
 	private resting: (() => void) | null = null;
@@ -333,18 +325,17 @@ export class Autosave {
 	}
 
 	/**
-	 * Work out how the game starts. Instant when this browser holds a save;
-	 * waits up to `bootWaitMs` for the server only when it holds an identity
-	 * and no readable save, or when the save is an account's (its game is
-	 * played on other devices too, where a newer version may have saved it). A
-	 * newer build's save, here or there, starts nothing: the page is behind it
-	 * (`newer`) and the plan is empty.
+	 * Work out how the game starts. A guest's game: instant, from this
+	 * browser's save. An account's game: the server is asked too, waiting up
+	 * to `bootWaitMs`, for the game when this browser holds no readable save
+	 * of it, and otherwise for whether a newer version saved it on another
+	 * device. A newer build's save, here or there, starts nothing: the page is
+	 * behind it (`newer`) and the plan is empty.
 	 */
 	async boot(): Promise<StartPlan> {
 		if (this.throwaway) return {};
 		const store = this.store;
 		if (!store) return { notice: 'save.cannotSave' };
-		this.readIdentity(store);
 
 		const text = store.get(this.keys.save);
 		this.seenText = text;
@@ -354,11 +345,11 @@ export class Autosave {
 			const read = readSave(parseJson(text));
 			if (read.ok) {
 				this.carryOn(read.save);
-				this.serverState = this.identity ? 'unknown' : 'ready';
+				this.serverState = 'unknown';
 				// An account's game: the server is asked first, so this page never plays on in a
 				// fork of a game a newer version has saved on another device. Anything else it
 				// holds is settled as usual once the game begins.
-				if (this.server?.session && (await this.newerOnServer())) return {};
+				if (await this.newerOnServer()) return {};
 				return { game: restoreGame(read.save), notice: 'save.welcomeBack' };
 			}
 			if (read.reason === 'newer') {
@@ -371,12 +362,12 @@ export class Autosave {
 			plan = { notice: 'save.couldNotLoad' };
 		}
 
-		// No save this build can read here. The server may have this player's game.
+		// No save this build can read here. The server may have the account's game.
 		this.lineage = this.mintId();
 		this.firstWrite = true;
 		this.serverState = 'ready';
-		if (this.identity && this.server) {
-			const got = await this.server.getSave(this.identity, this.bootWaitMs);
+		if (this.server) {
+			const got = await this.server.getSave(this.bootWaitMs);
 			if (got.kind === 'found') {
 				const read = readSave(got.doc);
 				if (read.ok) {
@@ -395,12 +386,12 @@ export class Autosave {
 				}
 				// The kid's game is on the server, but this page cannot read it: a new game, said so.
 				// Saves are numbered past it, and it waits until the kid has played the new game;
-				// then the server sets it aside when the first backup replaces it.
+				// then the server sets it aside when the first save sent replaces it.
 				this.seq = Math.max(this.seq, saveSeq(got.doc));
 				this.serverHeld = true;
 				plan = { notice: 'save.couldNotLoad' };
-			} else if (got.kind === 'unknown-player') {
-				this.retireIdentity();
+			} else if (got.kind === 'logged-out') {
+				this.endSession();
 			} else if (got.kind === 'offline') {
 				this.serverState = 'unknown';
 			}
@@ -415,9 +406,9 @@ export class Autosave {
 	 * the pushes, as it would later.
 	 */
 	private async newerOnServer(): Promise<boolean> {
-		if (!this.server || !this.identity) return false;
-		const got = await this.server.getSave(this.identity, this.bootWaitMs);
-		if (got.kind === 'unknown-player') this.retireIdentity();
+		if (!this.server) return false;
+		const got = await this.server.getSave(this.bootWaitMs);
+		if (got.kind === 'logged-out') this.endSession();
 		if (got.kind !== 'found' || !isNewerSave(got.doc)) return false;
 		this.serverState = 'stopped';
 		this.staleCause = 'newer';
@@ -449,7 +440,7 @@ export class Autosave {
 		if (!this.begun) return;
 		switch (event.type) {
 			case 'game-left':
-				// Back to the title: save what there is, send the backup, and write nothing more.
+				// Back to the title: save what there is, send it to the server, and write nothing more.
 				this.flush();
 				this.begun = false;
 				break;
@@ -484,7 +475,7 @@ export class Autosave {
 			case 'doctor-visit-updated':
 			// A puzzle solved. In a battle or at the doctor the event that judged it saves too;
 			// in a friendly match, where nothing else changes, this is what writes the count to
-			// this browser, and the backup follows as it does a battle turn's. Not playing by
+			// this browser, and the server's copy follows as it does a battle turn's. Not playing by
 			// itself: every game under way beside an unreadable save has been played already
 			// (a starter picked, or the server's game taken).
 			case 'solved-changed':
@@ -512,7 +503,7 @@ export class Autosave {
 		}
 	}
 
-	/** The page is being hidden or left: save now, and send the backup with `keepalive`. */
+	/** The page is being hidden or left: save now, and send it to the server with `keepalive`. */
 	flush(): void {
 		this.commit();
 		const latest = this.latest;
@@ -780,32 +771,11 @@ export class Autosave {
 		return false;
 	}
 
-	private readIdentity(store: KeyValueStore): void {
-		// An account's save is the account's: the session cookie names it to the server.
-		if (this.server?.session) {
-			this.identity = SESSION;
-			return;
-		}
-		const text = store.get(this.keys.player);
-		if (text === null) return;
-		const parsed = parseJson(text);
-		if (isIdentity(parsed)) {
-			this.identity = { id: parsed.id, secret: parsed.secret };
-			return;
-		}
-		this.setAside(this.keys.previousPlayer, text);
-		store.remove(this.keys.player);
-	}
-
 	// --- server ---------------------------------------------------------------
 
 	private startServer(): void {
 		if (!this.server || !this.store || this.stale) return;
 		if (this.local === 'frozen' || this.serverState === 'stopped') return;
-		if (!this.identity) {
-			void this.createIdentity();
-			return;
-		}
 		if (this.serverState === 'unknown') {
 			void this.checkServer();
 			return;
@@ -816,7 +786,6 @@ export class Autosave {
 	private canPush(): boolean {
 		return (
 			this.server !== null &&
-			this.identity !== null &&
 			this.serverState === 'ready' &&
 			!this.stale &&
 			this.local !== 'frozen' &&
@@ -846,7 +815,7 @@ export class Autosave {
 		if (!this.canPush() || !doc || doc.seq <= this.pushed) return;
 		if (this.pushing && !keepalive) return; // the running push sends the newest when it is done
 		if (!keepalive) this.pushing = true;
-		const result = await this.server!.putSave(this.identity!, doc, keepalive);
+		const result = await this.server!.putSave(doc, keepalive);
 		if (!keepalive) this.pushing = false;
 		if (this.stale || this.serverState !== 'ready') return;
 		switch (result.kind) {
@@ -856,18 +825,17 @@ export class Autosave {
 				if (this.latest && this.latest.seq > this.pushed) this.schedulePush(true);
 				return;
 			case 'conflict':
-				// An account's save, refused: another device's save got there first, or a newer
-				// version's is there.
-				if (this.server?.session) this.refused = doc;
+				// Refused: another device's save got there first, or a newer version's is there.
+				this.refused = doc;
 				await this.checkServer(doc.seq);
 				return;
 			case 'refused':
 				// The server and this build disagree about what a save is: stop, and say so to developers.
-				console.error(`Animath: the server refused a save backup: ${result.error}`);
+				console.error(`Animath: the server refused a save: ${result.error}`);
 				this.serverState = 'stopped';
 				return;
-			case 'unknown-player':
-				this.retireIdentity();
+			case 'logged-out':
+				this.endSession();
 				return;
 			case 'offline':
 				if (!keepalive) this.retry(() => void this.push(false));
@@ -877,20 +845,20 @@ export class Autosave {
 
 	/**
 	 * Compare with what the server holds, and settle who carries on.
-	 * `refused`: the `seq` of a backup the server just turned away as a
+	 * `refused`: the `seq` of a save the server just turned away as a
 	 * conflict (409).
 	 */
 	private async checkServer(refused?: number): Promise<void> {
-		if (!this.server || !this.identity) return;
-		const got = await this.server.getSave(this.identity);
+		if (!this.server) return;
+		const got = await this.server.getSave();
 		if (this.stale) return;
 		switch (got.kind) {
 			case 'offline':
 				this.serverState = this.serverState === 'ready' ? 'ready' : 'unknown';
 				this.retry(() => void this.checkServer(refused));
 				return;
-			case 'unknown-player':
-				this.retireIdentity();
+			case 'logged-out':
+				this.endSession();
 				return;
 			case 'none':
 				this.succeeded();
@@ -916,7 +884,7 @@ export class Autosave {
 
 	/**
 	 * The server holds `doc`. The save with the higher `seq` is the game that
-	 * carries on: this page's, sent as the next backup, or the server's,
+	 * carries on: this page's, sent as the next save, or the server's,
 	 * which this page adopts and reloads into. A newer version's save there
 	 * puts this page behind (`newer`), and is never sent over.
 	 */
@@ -933,7 +901,7 @@ export class Autosave {
 		}
 		if (!read.ok) {
 			// Unreadable: once the kid has played, save past it; the server sets it aside when
-			// the backup replaces it.
+			// the save sent replaces it.
 			this.serverState = 'ready';
 			this.serverHeld = true;
 			if (theirs >= this.seq) {
@@ -945,7 +913,7 @@ export class Autosave {
 		const sameGame = saveLineage(doc) === this.lineage;
 		if (!sameGame && this.putAway.has(saveLineage(doc))) {
 			// The server's copy of a game the kid left for this one on the title gives way:
-			// saves are numbered past it, and the server keeps it aside when the backup lands.
+			// saves are numbered past it, and the server keeps it aside when the next save lands.
 			this.pushed = 0;
 			this.serverState = 'ready';
 			if (theirs >= this.seq) {
@@ -954,7 +922,7 @@ export class Autosave {
 			} else this.schedulePush(true);
 			return;
 		}
-		// An account's save refused (`409`) because another device's got there first: the
+		// A save refused (`409`) because another device's got there first: the
 		// server's copy is the game now, even when this page has saved on since, unless it is
 		// this page's own save, sent before and not heard back. The refusal is kept until the
 		// adoption is done: carrying on from another tab's walk settles again, and must not
@@ -970,7 +938,7 @@ export class Autosave {
 		// An account's game is played on several devices, so a tie within the game goes to the
 		// server's too when the two saves differ.
 		const tie = theirs === this.seq && theirs > 0;
-		const fork = this.server?.session === true && sameGame && tie && !sameJson(this.ours(), doc);
+		const fork = sameGame && tie && !sameJson(this.ours(), doc);
 		if (theirs > this.seq || (tie && !sameGame) || fork) {
 			this.adopt(read.save, doc);
 			return;
@@ -1025,57 +993,15 @@ export class Autosave {
 		this.goStale('replaced');
 	}
 
-	private async createIdentity(): Promise<void> {
-		if (this.creating || !this.server || !this.store) return;
-		this.creating = true;
-		const result = await this.server.createPlayer();
-		this.creating = false;
-		if (this.stale) return;
-		if (result.kind === 'offline') {
-			this.retry(() => void this.createIdentity());
-			return;
-		}
-		this.succeeded();
-		// Another page of this browser may have made one first: use it, so both back up to one player.
-		const theirs = parseJson(this.store.get(this.keys.player) ?? '');
-		if (isIdentity(theirs)) {
-			this.identity = { id: theirs.id, secret: theirs.secret };
-			this.serverState = 'unknown';
-			void this.checkServer();
-			return;
-		}
-		if (!this.store.set(this.keys.player, JSON.stringify(result.identity))) {
-			this.serverState = 'stopped';
-			return;
-		}
-		this.identity = result.identity;
-		this.pushed = 0;
-		this.serverState = 'ready';
-		this.schedulePush(true);
-	}
-
 	/**
-	 * The server does not know this identity: keep it aside, beside any kept
-	 * before (the server may have been the one that was wrong), and start a
-	 * new one.
+	 * The account's session ended (a logout elsewhere, a new password, a year
+	 * unused): the game goes on in the browser, and the server hears nothing
+	 * more this visit.
 	 */
-	private retireIdentity(): void {
-		if (this.server?.session) {
-			// The account's session ended (a logout elsewhere, a new password, a year unused):
-			// the game goes on in the browser, and the server hears nothing more this visit.
-			this.serverState = 'stopped';
-			this.clearTimers();
-			this.loggedOut?.();
-			return;
-		}
-		if (this.identity && this.store) {
-			this.setAside(this.keys.previousPlayer, JSON.stringify(this.identity));
-			this.store.remove(this.keys.player);
-		}
-		this.identity = null;
-		this.pushed = 0;
-		this.serverState = 'ready';
-		void this.createIdentity();
+	private endSession(): void {
+		this.serverState = 'stopped';
+		this.clearTimers();
+		this.loggedOut?.();
 	}
 
 	/**
@@ -1104,7 +1030,7 @@ export class Autosave {
 		this.resting = null;
 	}
 
-	/** A battle ended or the party changed: a resting backup tries once more. */
+	/** A battle ended or the party changed: a resting send to the server tries once more. */
 	private wake(): void {
 		const action = this.resting;
 		if (!action || this.retryTimer !== null || this.stale) return;

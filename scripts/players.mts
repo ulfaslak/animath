@@ -65,9 +65,10 @@
  * the names over the others and what they are busy with, the arrows, the
  * note at the top, the message line, the pause menu's rows and its list.
  *
- * The game's HTTP API is blocked in every browser unless `--api` (the
- * backup would reach whatever the page's Vite proxies `/api` to); the
- * presence socket is never blocked, since seeing the others is the point.
+ * The game's HTTP API is blocked in every browser unless `--api` (an
+ * account made in a page would land in whatever database the page's Vite
+ * proxies `/api` to); the presence socket is never blocked, since seeing the
+ * others is the point.
  * So point `--url` at a Vite of your own whose `API_PORT` is your own
  * server ([[DEVELOPMENT]] § Running): the script refuses 5180, the kids'.
  * It exits non-zero when any page logs an error or a warning.
