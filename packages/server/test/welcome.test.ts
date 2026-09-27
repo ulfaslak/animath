@@ -94,8 +94,9 @@ class Browser {
 		}
 		return res;
 	}
+	/** The page's lookup: the token in a header, never in the path. */
 	look(token: string) {
-		return this.request('GET', `/welcome/${encodeURIComponent(token)}`);
+		return this.request('GET', '/welcome', undefined, { 'x-animath-welcome': token });
 	}
 	welcome(token: string, password = 'blåbær') {
 		return this.request('POST', '/welcome', { token, password });
@@ -108,9 +109,12 @@ async function imported(
 	save: unknown = doc(name)
 ): Promise<{ name: string; token: string; lines: string[] }> {
 	const lines = await importSave(JSON.stringify(save), { origin: 'http://localhost:5199' });
-	const link = lines.at(-1)!;
-	const token = new URL(link).searchParams.get('welcome')!;
-	return { name, token, lines };
+	// The token rides after `#`, which a browser never sends: no request line holds it.
+	const link = new URL(lines.at(-1)!);
+	expect(link.search).toBe('');
+	const token = /^#welcome=([A-Za-z0-9_-]{43})$/.exec(link.hash)?.[1];
+	expect(token).toBeDefined();
+	return { name, token: token!, lines };
 }
 
 async function userOf(name: string) {
@@ -129,7 +133,7 @@ describe('import-save', () => {
 		expect(lines[0]).toContain(
 			'4 animals (whale, frog ×2, rabbit "nini"), 6 tokens, axe, boat, pickaxe'
 		);
-		expect(lines.at(-1)).toBe(`http://localhost:5199/?welcome=${token}`);
+		expect(lines.at(-1)).toBe(`http://localhost:5199/#welcome=${token}`);
 		expect(token).toMatch(/^[A-Za-z0-9_-]{43}$/);
 		const user = await userOf(name);
 		expect(user?.passwordHash).toBe(NO_PASSWORD);
@@ -164,7 +168,7 @@ describe('import-save', () => {
 	it('links to https://<MATHGAME_DOMAIN>, and refuses before anything is made when it has no address', async () => {
 		const name = freshName();
 		const lines = await importSave(JSON.stringify(doc(name)), { domain: 'animath.test' });
-		expect(lines.at(-1)).toMatch(/^https:\/\/animath\.test\/\?welcome=[A-Za-z0-9_-]{43}$/);
+		expect(lines.at(-1)).toMatch(/^https:\/\/animath\.test\/#welcome=[A-Za-z0-9_-]{43}$/);
 		for (const options of [{}, { domain: 'animath.test/x' }, { origin: 'ftp://x.test' }]) {
 			const other = freshName();
 			await expect(importSave(JSON.stringify(doc(other)), options)).rejects.toThrow(AdminError);
@@ -209,6 +213,18 @@ describe('the welcome link', () => {
 		expect(await res.json()).toStrictEqual({ name });
 		expect(res.headers.get('cache-control')).toBe('no-store');
 		expect(res.headers.get('set-cookie')).toBeNull();
+	});
+
+	it('is asked with its token in a header, so no request line, and no log of one, holds it', async () => {
+		const { token } = await imported();
+		// The token in the path is no route: a request line with it would land in nginx's error log
+		// whenever the app does not answer.
+		const inPath = await new Browser().request('GET', `/welcome/${token}`);
+		expect(inPath.status).toBe(404);
+		expect(await inPath.json()).toEqual({ error: 'not found' });
+		const bare = await new Browser().request('GET', '/welcome');
+		expect(bare.status).toBe(400);
+		expect((await new Browser().look(token)).status).toBe(200);
 	});
 
 	it('sets the password, logs in with the session cookie, returns the save, and works only once', async () => {
@@ -346,9 +362,9 @@ describe('the welcome link', () => {
 		const { token } = await imported();
 		const ask = (ip: string, method: string) =>
 			limited.request(
-				method === 'GET' ? `/api/account/welcome/${token}` : '/api/account/welcome',
+				'/api/account/welcome',
 				method === 'GET'
-					? { headers: { 'x-forwarded-for': ip } }
+					? { headers: { 'x-forwarded-for': ip, 'x-animath-welcome': token } }
 					: {
 							method: 'POST',
 							headers: { 'x-forwarded-for': ip, 'content-type': 'application/json' },
