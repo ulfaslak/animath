@@ -9,6 +9,7 @@ import {
 } from './account/api';
 import { AccountController } from './account/controller';
 import { PLAY_HOUR_MS, PlayClock } from './account/playtime';
+import { ReadyWatch, keepingCursors } from './account/ready';
 import { noteNextStart, restartWith, takeAccountNote } from './account/restart';
 import { currentAccount, forgetLogout, gameKeys, logoutPending } from './account/session';
 import { sfx } from './audio/sfx.svelte';
@@ -95,9 +96,10 @@ account.name = current?.name ?? null;
 
 /**
  * The server's word on the account, asked once as the page starts, before
- * anything else goes to the account routes ([[INVARIANTS]] § Server): the
- * account's save goes to the server only while it says the session is this
- * account's.
+ * anything else that reads the session goes to the account routes (only
+ * `/ready`, which reads no cookie and sends none, may go first;
+ * [[INVARIANTS]] § Server): the account's save goes to the server only
+ * while it says the session is this account's.
  */
 const sessionCheck = current ? new SessionCheck(current.name, heardSession) : null;
 
@@ -177,6 +179,19 @@ const pauseController = new PauseController(authority, {
 	logIn: () => accountController.openLogin('pause'),
 	logOut: () => void accountController.logOut()
 });
+
+/**
+ * The server said whether it can keep an account now (`account/ready.ts`):
+ * the rows that offer one come or go, each menu's cursor staying on the row
+ * it lit, and an hourly card that is up goes, unanswered, until it can.
+ */
+function heardReady(ready: boolean): void {
+	if (account.ready === ready) return;
+	keepingCursors(() => accountController.heardReady(ready));
+}
+// A throwaway game offers no account, so it never asks.
+const readyWatch = flags.throwaway ? null : new ReadyWatch(heardReady);
+readyWatch?.start();
 
 /**
  * What start-up found about the save, said on the message line once the
@@ -413,7 +428,10 @@ for (const type of ['focus', 'online', 'pageshow']) {
 	window.addEventListener(type, () => presenceController.wake());
 }
 document.addEventListener('visibilitychange', () => {
-	if (document.visibilityState === 'visible') presenceController.wake();
+	if (document.visibilityState !== 'visible') return;
+	presenceController.wake();
+	// Whether the server can keep an account may have changed while the page was away.
+	readyWatch?.shown();
 });
 // Behind: nothing typed (AltGr and Option letters too), pasted or dropped reaches a text
 // box either. Only an input method's composition cannot be cancelled.
@@ -449,8 +467,9 @@ function catchUp(onItsOwn: boolean): void {
  * A guest's game, played with the page on screen: its hour of play is
  * counted, and once another hour has passed, the card offers to keep the
  * game safe, while exploring (never in a battle, at the doctor, in the menu
- * or on a trip to another world). Not for an account's game, a throwaway one, or a page that keeps
- * nothing.
+ * or on a trip to another world), and only while the server can keep an
+ * account (`openPrompt`): until then the hour stays due. Not for an account's
+ * game, a throwaway one, or a page that keeps nothing.
  */
 function countPlay(dt: number): void {
 	const lineage = autosave.playing;
@@ -530,7 +549,7 @@ if (store && waitingLogout !== null) {
 		if (heard === 'done' && logoutPending(store) === waitingLogout) forgetLogout(store);
 	});
 }
-// The first request to the account routes this page makes.
+// The first request about the session this page makes (only `/ready`, which reads none, goes before it).
 void sessionCheck?.check();
 void autosave.boot().then((plan) => {
 	if (flags.throwaway) {
