@@ -14,7 +14,7 @@ import { groundTop } from './tiles';
  *
  * None appears or vanishes in view, whatever the window's shape: they start
  * round the middle as the world appears (its first frame, or a jump of the
- * view: Continue, the trip to the tent), and one left behind off screen by a
+ * view: Continue, a go-to), and one left behind off screen by a
  * walking trainer comes back from just off screen, ahead of the trainer.
  * With reduced motion there are fewer, slower, and their wings beat slower
  * and shallower; one no longer wanted flies off screen before it goes.
