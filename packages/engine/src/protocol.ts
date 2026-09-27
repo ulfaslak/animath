@@ -44,8 +44,8 @@ export type Intent =
 	/**
 	 * Start a new game with the starter the player picked, the name they gave
 	 * it, and the player's own name, as typed (the title's name box and
-	 * starter screen). The engine's `chooseStarter` checks the starter: a
-	 * tier-1 species, a nickname that is text, cleaned like a rename; and
+	 * starter screen). The engine's `chooseStarter` checks the starter: one
+	 * of `STARTERS`, a nickname that is text, cleaned like a rename; and
 	 * `checkName` the player's name (without one, the game asks for it later).
 	 * Only while no game is under way, which is at the title. The game starts
 	 * in a world the authority picks, its home. Answered with `welcome`

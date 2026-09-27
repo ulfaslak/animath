@@ -87,13 +87,13 @@ species:
       splash: Plask
       tail-whip: Halesmæk
   deer:
-    name: Hjort
-    a: en hjort
-    the: hjorten
-    wild: vild hjort
-    aWild: en vild hjort
-    theWild: den vilde hjort
-    bare: hjort
+    name: Kronhjort
+    a: en kronhjort
+    the: kronhjorten
+    wild: vild kronhjort
+    aWild: en vild kronhjort
+    theWild: den vilde kronhjort
+    bare: kronhjort
     attacks:
       kick: Spark
       antler-charge: Hornstød
@@ -122,6 +122,217 @@ species:
       roar: Brøl
       maul: Bjørnekram
       crush: Kæmpetramp
+  # De små dyr fra det nordiske landskab (#89, bølge 1).
+  shrew:
+    name: Spidsmus
+    a: en spidsmus
+    the: spidsmusen
+    wild: vild spidsmus
+    aWild: en vild spidsmus
+    theWild: den vilde spidsmus
+    bare: spidsmus
+    attacks:
+      squeak: Pip
+      hungry-bite: Sultent bid
+  wood-mouse:
+    name: Skovmus
+    a: en skovmus
+    the: skovmusen
+    wild: vild skovmus
+    aWild: en vild skovmus
+    theWild: den vilde skovmus
+    bare: skovmus
+    attacks:
+      scamper: Smut
+      seed-stash: Frøgemme
+      long-jump: Langt spring
+  brown-rat:
+    name: Brun rotte
+    a: en brun rotte
+    the: den brune rotte
+    wild: vild brun rotte
+    aWild: en vild brun rotte
+    theWild: den vilde brune rotte
+    bare: brune rotte
+    attacks:
+      gnaw: Gnav
+      rat-race: Rotteræs
+      tail-swish: Halesvirp
+  hedgehog:
+    name: Pindsvin
+    a: et pindsvin
+    the: pindsvinet
+    wild: vildt pindsvin
+    aWild: et vildt pindsvin
+    theWild: det vilde pindsvin
+    bare: pindsvin
+    attacks:
+      sniff: Snus
+      curl-up: Rul sammen
+      spike-roll: Pigrulle
+  mole:
+    name: Muldvarp
+    a: en muldvarp
+    the: muldvarpen
+    wild: vild muldvarp
+    aWild: en vild muldvarp
+    theWild: den vilde muldvarp
+    bare: muldvarp
+    attacks:
+      dig: Grav
+      molehill: Muldvarpeskud
+  common-lizard:
+    name: Skovfirben
+    a: et skovfirben
+    the: skovfirbenet
+    wild: vildt skovfirben
+    aWild: et vildt skovfirben
+    theWild: det vilde skovfirben
+    bare: skovfirben
+    attacks:
+      sun-dash: Solspurt
+      tail-trick: Halefinte
+      quick-snap: Lynbid
+  common-toad:
+    name: Skrubtudse
+    a: en skrubtudse
+    the: skrubtudsen
+    wild: vild skrubtudse
+    aWild: en vild skrubtudse
+    theWild: den vilde skrubtudse
+    bare: skrubtudse
+    attacks:
+      puff-up: Pust op
+      sticky-tongue: Klistertunge
+      big-hop: Tudsehop
+  robin:
+    name: Rødhals
+    a: en rødhals
+    the: rødhalsen
+    wild: vild rødhals
+    aWild: en vild rødhals
+    theWild: den vilde rødhals
+    bare: rødhals
+    attacks:
+      song: Sang
+      peck: Hak
+      red-chest: Rødt bryst
+  stag-beetle:
+    name: Eghjort
+    a: en eghjort
+    the: eghjorten
+    wild: vild eghjort
+    aWild: en vild eghjort
+    theWild: den vilde eghjort
+    bare: eghjort
+    attacks:
+      jaw-snap: Kæbeknib
+      wrestle: Brydekamp
+  roe-deer:
+    name: Rådyr
+    a: et rådyr
+    the: rådyret
+    wild: vildt rådyr
+    aWild: et vildt rådyr
+    theWild: det vilde rådyr
+    bare: rådyr
+    attacks:
+      bark: Gø
+      spring: Spring
+      white-flash: Hvidt spejl
+  badger:
+    name: Grævling
+    a: en grævling
+    the: grævlingen
+    wild: vild grævling
+    aWild: en vild grævling
+    theWild: den vilde grævling
+    bare: grævling
+    attacks:
+      snuffle: Snøft
+      dig-in: Grav ned
+      badger-charge: Stribestorm
+  pine-marten:
+    name: Skovmår
+    a: en skovmår
+    the: skovmåren
+    wild: vild skovmår
+    aWild: en vild skovmår
+    theWild: den vilde skovmår
+    bare: skovmår
+    attacks:
+      tree-leap: Træspring
+      quick-paws: Kvikke poter
+      marten-bite: Mårbid
+  stoat:
+    name: Lækat
+    a: en lækat
+    the: lækatten
+    wild: vild lækat
+    aWild: en vild lækat
+    theWild: den vilde lækat
+    bare: lækat
+    attacks:
+      stoat-dance: Lækatdans
+      quick-bite: Kvikt bid
+  adder:
+    name: Hugorm
+    a: en hugorm
+    the: hugormen
+    wild: vild hugorm
+    aWild: en vild hugorm
+    theWild: den vilde hugorm
+    bare: hugorm
+    attacks:
+      hiss: Hvæs
+      zigzag: Zigzag
+      strike: Hug
+  grey-heron:
+    name: Fiskehejre
+    a: en fiskehejre
+    the: fiskehejren
+    wild: vild fiskehejre
+    aWild: en vild fiskehejre
+    theWild: den vilde fiskehejre
+    bare: fiskehejre
+    attacks:
+      wade: Vade
+      spear-beak: Spydnæb
+  tawny-owl:
+    name: Natugle
+    a: en natugle
+    the: natuglen
+    wild: vild natugle
+    aWild: en vild natugle
+    theWild: den vilde natugle
+    bare: natugle
+    attacks:
+      hoot: Tuhu
+      silent-swoop: Lydløst dyk
+      talon-grab: Klogreb
+  raccoon:
+    name: Vaskebjørn
+    a: en vaskebjørn
+    the: vaskebjørnen
+    wild: vild vaskebjørn
+    aWild: en vild vaskebjørn
+    theWild: den vilde vaskebjørn
+    bare: vaskebjørn
+    attacks:
+      wash-up: Vask op
+      clever-paws: Snilde poter
+      bandit-mask: Røvermaske
+  beaver:
+    name: Bæver
+    a: en bæver
+    the: bæveren
+    wild: vild bæver
+    aWild: en vild bæver
+    theWild: den vilde bæver
+    bare: bæver
+    attacks:
+      tail-slap: Halesmæk
+      tree-gnaw: Træfæld
   # Havdyrene, som man møder ude på det dybe vand fra båden.
   crab:
     name: Krabbe
