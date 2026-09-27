@@ -23,7 +23,7 @@ import type { CueName } from '../src/audio/cues';
 import { sfx } from '../src/audio/sfx.svelte';
 import { LocalAuthority } from '../src/authority/local';
 import { BattleController, ENTER_SECONDS, IRIS_OPEN_SECONDS } from '../src/battle/controller';
-import { actionAt, attackRows, rowOf } from '../src/battle/menu';
+import { actionAt, attackRows, rowOf, WILD_MOVES } from '../src/battle/menu';
 import { parseParty } from '../src/flags';
 import { PICK_QUIET_SECONDS } from '../src/input/pick-guard';
 import { levelKey, rowKey } from '../src/input/press';
@@ -515,7 +515,7 @@ describe('switching animals', () => {
 	/** Move the menu cursor down to the Switch row. */
 	function toSwitchRow(t: ReturnType<typeof setup>): void {
 		const attacks = () => getAnimal(battle.party[battle.front]!.speciesId).attacks.length;
-		for (let i = 0; actionAt(battle.cursor, attacks()).kind !== 'switch'; i++) {
+		for (let i = 0; actionAt(battle.cursor, attacks(), WILD_MOVES).kind !== 'switch'; i++) {
 			if (i > 8) throw new Error('no Switch row');
 			t.press('ArrowDown');
 		}
@@ -742,7 +742,7 @@ describe('a pointer', () => {
 		const t = setup({ party: 'squirrel,rabbit' });
 		t.walkIntoBattle();
 		t.toMenu();
-		const switchRow = rowOf('switch', getAnimal('squirrel').attacks.length);
+		const switchRow = rowOf('switch', getAnimal('squirrel').attacks.length, WILD_MOVES);
 		t.press(rowKey(switchRow));
 		expect(battle.screen).toBe('actions');
 		t.press('Enter');
@@ -919,7 +919,7 @@ describe('W A S D', () => {
 		expect(battle.cursor).toBe(0);
 		// Down past Leash to Switch, into the list, and up the list.
 		t.press('S', 'S', 'S');
-		expect(actionAt(battle.cursor, squirrel.attacks.length).kind).toBe('switch');
+		expect(actionAt(battle.cursor, squirrel.attacks.length, WILD_MOVES).kind).toBe('switch');
 		t.press('Enter');
 		expect(battle.screen).toBe('party');
 		expect(battle.partyCursor).toBe(1);

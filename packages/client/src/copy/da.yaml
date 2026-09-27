@@ -262,18 +262,18 @@ battle:
   wildTired: '{animal.theWild} er træt!'
   gotAway: Du slap væk!
   menu:
-    attack: Vælg et angreb
     leash: Kast snoren
     switch: Skift dyr
     run: Løb væk
-    keys: ↑ ↓ flyt · Enter kør
+    keys: ↑ ↓ ← → flyt · Enter kør
     keysAttack: ↑ ↓ flyt · ← → lettere eller sværere · Enter kør
-    keysGreyed: ↑ ↓ flyt
+    keysGreyed: ↑ ↓ ← → flyt
     touch: Tryk på Kør!
     touchAttack: Tryk på et angreb og så på Kør!
   goButton: Kør!
   backButton: Tilbage
   attackDetail: '{attack} på {level}: {kinds}. {animal.theWild} mister {damage} point.'
+  tiresOut: Så bliver det vilde dyr træt!
   kinds:
     add: plus
     sub: minus
@@ -504,8 +504,6 @@ save:
   welcomeBack: Velkommen tilbage!
   # The saved game could not be read. It is kept aside; this is a new game.
   couldNotLoad: Dit gemte spil virkede ikke, så her er et nyt.
-  # The saved game was written by a newer version of the game than this page.
-  newerGame: Dit spil er gemt i en nyere udgave af Animath. Genindlæs siden for at spille videre!
   # The browser will not let the page store anything, so nothing is saved.
   cannotSave: Denne browser kan ikke gemme dit spil, så det starter forfra hver gang.
   # On the title, after writing the save failed (the browser's storage is full).
@@ -522,6 +520,14 @@ save:
   behindGone: Et nyt spil er klart.
   # The button on that card.
   behindGo: Hent dit nyeste spil
+  # The same card when a newer version of the game saved the game (in another tab, or
+  # on the server) and this page is still the old version: it takes no play, and a
+  # reload fetches the new one. Shown when the page may not reload by itself.
+  behindNewer: En ny udgave af spillet er klar.
+  # The button on that card, with the Enter key beside it.
+  behindUpdate: Opdater!
+  # The same button on a touch screen.
+  behindUpdateTouch: Tryk for at opdatere!
 
 sound:
   # The chip at the top of the screen after M turned the sound on or off.
@@ -544,7 +550,7 @@ title:
   confirm:
     title: Vil du starte et nyt spil?
     away: Dit spil med {animal.the} bliver gemt godt væk.
-    # Instead of `away`, on a page that keeps nothing (no storage, or a newer build's save waiting).
+    # Instead of `away`, on a page that keeps nothing (no storage, or a write that failed).
     notKept: Dit spil med {animal.the} kan ikke gemmes på denne side.
     fresh: Du starter forfra med et nyt dyr.
     back: Nej, tilbage

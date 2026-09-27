@@ -378,6 +378,9 @@ void autosave.boot().then((plan) => {
 		autosave.begin();
 		return;
 	}
+	// A newer version of the game saved the game (`autosave.behind` is `newer`): nothing starts,
+	// not even the title. The page reloads for the new version, or its card says so.
+	if (autosave.behind !== null) return;
 	startNotice = plan.notice;
 	// A game with no name yet goes through the title, which asks for it first.
 	if (caughtUp && plan.game && plan.game.name !== null && plan.notice === 'save.welcomeBack') {

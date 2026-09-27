@@ -198,3 +198,11 @@ Technical items we've intentionally postponed: tech debt, hardening shortcuts, k
 **Why deferred**: one process serves the game between deploys; forgetting on a restart costs nothing a page doesn't put back by itself, and a friend missing for the seconds of a swap is back at its next hop.
 
 **Trigger**: a second server process serving at the same time for longer than a deploy's swap (a cluster, a second container kept for load): then presence moves to one place both reach, or each world to one process.
+
+### An older build drops a saved battle that a newer build's content, other than a new id, made
+
+**What**: an older build calls a save a newer build's (`readSave`'s `newer`) only by the ids in it ([[INVARIANTS]] § "A save a newer build wrote…"): a later `version`, a species, or a battle's realm or puzzle kind it does not have. A newer build that grows existing content without a new id makes battles an older one cannot pick up: an attack added to a species (the saved puzzle's `attackIndex` is past the older list), a realm a species newly goes to (an animal that may not fight there), a new battle phase, a raised `maxHp` or difficulty. `readBattle` drops such a battle as if the kid had run away, and the older build's next write, a same-game save with a higher `seq`, replaces it in the browser and on the server with no copy kept: the wild animal and the puzzle are gone, and nothing else is (the party's HP is the save's own).
+
+**Why deferred**: no planned change is one (#89 adds species; #91's birds in the air fight in a new realm, `air`, whose id is seen), and classifying these battles as `newer` is not safe: content has shrunk as well as grown (the turtle lost its third attack, `shell-spin`, in the PR that made the sea animals twins), so an older save can hold the same shapes, and calling it newer would lock that kid out of their game for good.
+
+**Trigger**: the first PR that adds an attack to a species that has shipped, a realm to one, a battle phase, or raises a species' `maxHp` or the difficulty range. That PR bumps `SAVE_VERSION` with an upgrade that changes nothing but the number (every older document stays readable, and an older build calls every newer one `newer`), or keeps the save's text aside wherever a load drops a battle.

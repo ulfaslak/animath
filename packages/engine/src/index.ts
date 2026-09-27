@@ -30,6 +30,8 @@ export { ATTACK_LEVELS, REALMS, TERRAINS } from './animals/types.js';
 export { ANIMALS, canFightIn, getAnimal } from './animals/catalog.js';
 
 export { attackDamage } from './battle/damage.js';
+// Only `landHit` of `attack.ts`: a screen previews a hit with the very function a reducer lands it with.
+export { landHit } from './battle/attack.js';
 export { catchProbability } from './battle/catch.js';
 export { activeAnimal, applyBattleIntent, canSwitchTo, startBattle } from './battle/reducer.js';
 export type { StartBattleOptions } from './battle/reducer.js';
@@ -278,6 +280,7 @@ export {
 	STARTER_SPECIES,
 	V1_KEPT,
 	canReplace,
+	isNewerSave,
 	newGame,
 	readBattle,
 	readSave,
@@ -294,10 +297,12 @@ export {
 } from './save.js';
 export type {
 	SaveCheck,
+	SaveProblem,
 	SaveRead,
 	SaveV1,
 	SaveV2,
 	SaveWrite,
+	SaveWriteCheck,
 	SavedGame,
 	SavedWorldStay
 } from './save.js';

@@ -179,8 +179,10 @@ const LEASH_HEADROOM = 0.05;
  * The wild animal's status box over the picture's top-left corner, in CSS
  * pixels from the safe area's top left (the canvas's, on a screen with no
  * insets; the leash adds them): `.status.opponent` in `BattlePanel.svelte`
- * sits 16 px in from the corner and is 280 px wide, and its name and HP bar
- * make it 74 px tall (75 here, rounded up). Change both together.
+ * sits 16 px in from the corner and is 280 px wide, and its name and chunky
+ * HP bar (`StatusBox`) make it 74 px tall (75 here, rounded up). Change
+ * them together. The glow round the box on the wild animal's turn is only
+ * light, within the loop's clearance.
  */
 export const WILD_STATUS_BOX = { right: 16 + 280, bottom: 16 + 75 };
 /** How far the leash's loop keeps from the wild animal's status box, in CSS pixels. */
