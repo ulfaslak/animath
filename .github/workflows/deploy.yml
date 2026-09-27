@@ -1,0 +1,255 @@
+name: Deploy
+
+# Every push to main is tested, built and deployed straight to prod, unless its
+# head commit says [skip deploy] (any case). There is no staging and no
+# promote: the gate job below is all that stands between a merge and the kids'
+# game. Lawcel's deploy.yml, less its staging; AGENTS/DNA/DEVELOPMENT.md
+# § Deployment.
+#
+# Until the deploy secrets exist (VPS_HOST, VPS_USER, VPS_SSH_KEY) every run
+# stops at `check` with a notice, green: there is no server to deploy to.
+#
+# `pnpm rollback <sha>` dispatches this workflow with `rollback_sha`: no build
+# and no tests, :prod pointed back at that commit's image, and the same deploy.
+
+on:
+  push:
+    branches: [main]
+    # What the image, the server's checkout or this file are made of. A push
+    # that touches none of it (docs, AGENTS/) starts no run.
+    paths:
+      - 'packages/**'
+      - 'package.json'
+      - 'pnpm-lock.yaml'
+      - 'pnpm-workspace.yaml'
+      - 'tsconfig.base.json'
+      - 'Dockerfile'
+      - '.dockerignore'
+      - 'docker-compose.prod.yml'
+      - 'deploy.env'
+      - 'nginx/**'
+      - 'scripts/**'
+      - '.github/workflows/deploy.yml'
+  # Recovery: builds and deploys main's tip, [skip deploy] or not. With
+  # rollback_sha: puts that commit's image back (pnpm rollback).
+  workflow_dispatch:
+    inputs:
+      rollback_sha:
+        description: 'Roll back to the image built from this commit (the full SHA). Empty: build and deploy main.'
+        required: false
+        default: ''
+
+run-name: ${{ inputs.rollback_sha && format('Roll back to {0}', inputs.rollback_sha) || '' }}
+
+# One run at a time, and a running deploy is never cut short. GitHub keeps one
+# run waiting behind it and cancels an older waiting one, so of several pushes
+# during a deploy only the newest runs: its build holds the others' code. If
+# that newest says [skip deploy] (or is a rollback), the code it skipped stays
+# off prod until the next deploy: `gh workflow run deploy.yml`.
+concurrency:
+  group: deploy
+  cancel-in-progress: false
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    outputs:
+      deploy: ${{ steps.decide.outputs.deploy }}
+      rollback_sha: ${{ steps.decide.outputs.rollback_sha }}
+    steps:
+      - name: Decide whether this run deploys
+        id: decide
+        # Through env, never ${{ }} inside the script: a commit message is text
+        # anyone with a merge can write.
+        env:
+          COMMIT_MSG: ${{ github.event.head_commit.message }}
+          ROLLBACK_SHA: ${{ inputs.rollback_sha }}
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_USER: ${{ secrets.VPS_USER }}
+          VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
+        run: |
+          if [ -z "$VPS_HOST" ] || [ -z "$VPS_USER" ] || [ -z "$VPS_SSH_KEY" ]; then
+            echo "::notice title=No deploy::The deploy secrets (VPS_HOST, VPS_USER, VPS_SSH_KEY) are not set: there is no server to deploy to yet (AGENTS/HUMAN_TODO.md)."
+            echo "deploy=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          if printf '%s' "$COMMIT_MSG" | grep -qi '\[skip deploy\]'; then
+            echo "::notice title=No deploy::The head commit says [skip deploy]."
+            echo "deploy=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          if [ -n "$ROLLBACK_SHA" ] && ! printf '%s' "$ROLLBACK_SHA" | grep -Eq '^[0-9a-f]{40}$'; then
+            echo "::error::rollback_sha must be a full 40-character commit SHA, in lower case."
+            exit 1
+          fi
+          echo "deploy=true" >> "$GITHUB_OUTPUT"
+          echo "rollback_sha=$ROLLBACK_SHA" >> "$GITHUB_OUTPUT"
+
+  # The gate. Branch protection is not on this plan, so the checks that guard
+  # prod run here, before anything is built.
+  test:
+    needs: check
+    if: needs.check.outputs.deploy == 'true' && needs.check.outputs.rollback_sha == ''
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:18-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: mathgame
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      # The server tests create, migrate and empty the database
+      # TEST_DATABASE_URL names, on the Postgres beside the job. Without it
+      # each checkout derives its own from DATABASE_URL, as on a Mac
+      # (packages/server/test/database.ts); the name must end in _test.
+      DATABASE_URL: postgres://postgres:postgres@localhost:5432/mathgame
+      TEST_DATABASE_URL: postgres://postgres:postgres@localhost:5432/mathgame_ci_test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 26
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm check
+      - run: pnpm lint
+      - run: pnpm test
+      - name: nginx config
+        # The server's nginx, as the image renders it, with a stand-in domain
+        # when none is set yet.
+        run: |
+          . ./deploy.env
+          image=$(sed -n 's/^ *image: \(nginx:.*\)$/\1/p' docker-compose.prod.yml)
+          docker run --rm \
+            -e MATHGAME_DOMAIN="${MATHGAME_DOMAIN:-game.example.com}" \
+            -e NGINX_ENVSUBST_TEMPLATE_DIR=/etc/nginx/mathgame \
+            -e NGINX_ENVSUBST_OUTPUT_DIR=/etc/nginx \
+            -e NGINX_ENVSUBST_FILTER='^MATHGAME_' \
+            -e NGINX_ENTRYPOINT_QUIET_LOGS=1 \
+            -v "$PWD/nginx:/etc/nginx/mathgame:ro" \
+            "$image" nginx -t
+
+  build:
+    needs: [check, test]
+    if: needs.check.outputs.deploy == 'true' && needs.check.outputs.rollback_sha == ''
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      # Buildx, for the layer cache: a build whose lockfile did not change
+      # reuses the install layer, which saves most of the job's minutes.
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          build-args: GIT_SHA=${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          tags: |
+            ghcr.io/${{ github.repository }}:prod
+            ghcr.io/${{ github.repository }}:${{ github.sha }}
+
+  # pnpm rollback: point :prod at an image built before, without a rebuild.
+  retag:
+    needs: check
+    if: needs.check.outputs.deploy == 'true' && needs.check.outputs.rollback_sha != ''
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: docker/setup-buildx-action@v3
+      - name: Point :prod at the image built from ${{ needs.check.outputs.rollback_sha }}
+        env:
+          IMAGE: ghcr.io/${{ github.repository }}
+          SHA: ${{ needs.check.outputs.rollback_sha }}
+        run: |
+          if ! docker buildx imagetools inspect "$IMAGE:$SHA" >/dev/null; then
+            echo "::error::No image was built from $SHA: its merge said [skip deploy], or it is older than this workflow."
+            exit 1
+          fi
+          docker buildx imagetools create --tag "$IMAGE:prod" "$IMAGE:$SHA"
+          echo "Rolled :prod back to $SHA" >> "$GITHUB_STEP_SUMMARY"
+
+  deploy:
+    needs: [check, build, retag]
+    if: ${{ !cancelled() && needs.check.outputs.deploy == 'true' && (needs.build.result == 'success' || needs.retag.result == 'success') }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: read
+    steps:
+      - name: Deploy on the server
+        uses: appleboy/ssh-action@v1
+        env:
+          DEPLOY_SHA: ${{ needs.check.outputs.rollback_sha || github.sha }}
+          GHCR_USER: ${{ github.actor }}
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          envs: DEPLOY_SHA,GHCR_USER,GHCR_TOKEN
+          script: |
+            set -euo pipefail
+            cd ~/mathgame
+            # The checkout is the commit being deployed, so nginx, compose and
+            # the scripts always match the image. No local edits survive this:
+            # never fix anything by hand on the server.
+            git fetch origin main
+            git reset --hard "$DEPLOY_SHA"
+            if [ "$(git rev-parse HEAD)" != "$DEPLOY_SHA" ]; then
+              echo "ERROR: HEAD ($(git rev-parse HEAD)) is not $DEPLOY_SHA"
+              exit 1
+            fi
+            # This run's own token pulls the image; no registry credential is
+            # kept on the server.
+            echo "$GHCR_TOKEN" | docker login ghcr.io -u "$GHCR_USER" --password-stdin
+            trap 'docker logout ghcr.io >/dev/null 2>&1 || true' EXIT
+            bash scripts/deploy.sh
+
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: deploy.env
+          sparse-checkout-cone-mode: false
+
+      - name: Prod answers with the deployed commit
+        env:
+          DEPLOY_SHA: ${{ needs.check.outputs.rollback_sha || github.sha }}
+        run: |
+          . ./deploy.env
+          url="https://$MATHGAME_DOMAIN/api/health"
+          # A first deploy waits for its certificate: up to 2 minutes.
+          for _ in $(seq 1 24); do
+            sha=$(curl -fsS --max-time 10 "$url" | jq -r .sha || true)
+            if [ "$sha" = "$DEPLOY_SHA" ]; then
+              echo "$url reports $sha"
+              echo "Prod runs $sha: $url" >> "$GITHUB_STEP_SUMMARY"
+              exit 0
+            fi
+            sleep 5
+          done
+          echo "::error::$url did not report $DEPLOY_SHA (last answer: ${sha:-none})"
+          exit 1

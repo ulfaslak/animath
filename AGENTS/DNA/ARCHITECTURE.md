@@ -518,6 +518,6 @@ browser ──443──▶ nginx ──▶ app:3000 ──▶ postgres:5432
 - `nginx/` — nginx's config and the page shown while the game does not answer (§ Production).
 - `scripts/deploy.sh` (with `scripts/lib/nginx-apply.sh`), `scripts/rollback.sh` (`pnpm rollback`), `scripts/backup.sh`, `scripts/sync-backups.sh`, `scripts/install-backup-sync.sh` — the deploy, its rollback and the backups ([[DEVELOPMENT]] § Deployment).
 - `terraform/` — the server: the VPS, its firewall (22, 80, 443), Hetzner's backups on, and `cloud-init.yml` (the `deploy` user with `~/.ssh/mathgame_deploy.pub`, Docker, daily security updates). Its state stays in the primary clone, gitignored.
-- `.github/workflows/deploy.yml` — the deploy on every push to main ([[DEVELOPMENT]] § Deployment). Not on `main` yet ([[ENVIRONMENT_NOTES]]).
+- `.github/workflows/deploy.yml` — the deploy on every push to main ([[DEVELOPMENT]] § Deployment).
 - `.claude/` — the slash commands (`/play`, `/review`, `/reset`, `/cleanse`, `/redeploy`: the prod server's runbook), the `adversarial-reviewer` agent, and a hook that runs `prettier --check` on every edited source file.
 - `AGENTS/` — persistent context (this file's siblings). `AGENTS/DNA/` is the guardrail set; the rest is record-keeping.
