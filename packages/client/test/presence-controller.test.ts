@@ -297,16 +297,25 @@ describe('presence on the page', () => {
 			boat: false,
 			busy: 'doctor'
 		});
+		s.socket().say({
+			t: 'roster',
+			world: 1,
+			players: [{ pid: 'friend0001', name: 'Bo', bearing: 4, steps: 1, busy: 'doctor' }]
+		});
 		s.frame();
 		expect(s.others.pids()).toEqual(['friend0001']);
 		expect(presence.labels).toMatchObject([{ pid: 'friend0001', name: 'Bo', busy: 'doctor' }]);
 		s.socket().readyState = 3;
 		s.socket().onclose?.({});
 		expect(presence.status).toBe('waiting');
+		// A restart: everyone stays a moment, in case the socket is back at once.
 		s.frame(HOLD_SECONDS / 2);
 		expect(s.others.pids()).toEqual(['friend0001']);
+		expect(presence.roster).toHaveLength(1);
+		// Gone a while: nobody is known where they were, on screen, in the list or by an arrow.
 		s.frame(HOLD_SECONDS);
 		expect(s.others.pids()).toEqual([]);
+		expect(presence.roster).toEqual([]);
 	});
 
 	it('reloads for a newer version once, at a calm moment, after saving', () => {

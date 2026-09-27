@@ -25,6 +25,8 @@
  *   touch         a touch tablet (the touch controls on)
  *   lang=da       the game in this language
  *   size=1024x768 the window (1280x800 by default)
+ *   steps=10      steps walked so far, which key the encounters: from the start tile,
+ *                 steps=10 and one step Left meets a wild animal on the reed
  *   title         stay on the title (no Continue)
  * A save that is already in the page's storage (after `reload:`) is kept.
  *
@@ -115,9 +117,12 @@ interface Player {
 	lang: string | null;
 	size: { width: number; height: number };
 	title: boolean;
+	steps: number;
 	context?: BrowserContext;
 	page?: Page;
 	errors: string[];
+	/** Sockets the server did not take: listed, not errors. */
+	socketFailures: number;
 }
 
 function parseParty(text: string, label: string): AnimalInstance[] {
@@ -151,7 +156,9 @@ function parsePlayer(spec: string): Player {
 		lang: null,
 		size: { width: 1280, height: 800 },
 		title: false,
-		errors: []
+		steps: 0,
+		errors: [],
+		socketFailures: 0
 	};
 	const options =
 		cut < 0
@@ -197,6 +204,10 @@ function parsePlayer(spec: string): Player {
 				p.size = { width: width!, height: height! };
 				break;
 			}
+			case 'steps':
+				p.steps = Number(value);
+				if (!Number.isInteger(p.steps) || p.steps < 0) fail(`${label}: steps is a whole number`);
+				break;
 			case 'title':
 				p.title = true;
 				break;
@@ -216,6 +227,7 @@ function saveOf(p: Player): string {
 		{
 			...game,
 			pos: p.at ?? spawnPoint(seed),
+			steps: p.steps,
 			facing: p.facing,
 			party,
 			items: p.boat ? ['boat'] : []
@@ -309,18 +321,28 @@ async function openPage(p: Player): Promise<void> {
 	page.on('console', (m) => {
 		if (/GPU stall/.test(m.text())) return;
 		if (/^Failed to load resource/.test(m.text()) && isApi(m.location().url)) return;
+		// A socket the server did not take (it is restarting, say): the game tries again on its own.
+		if (/^WebSocket connection to '[^']*\/api\/ws' failed/.test(m.text())) {
+			p.socketFailures++;
+			return;
+		}
 		if (m.type() === 'error' || m.type() === 'warning') p.errors.push(`[${m.type()}] ${m.text()}`);
 	});
 	page.on('pageerror', (e) => p.errors.push(`[pageerror] ${e.message}`));
 	await page.goto(urlOf(p), { waitUntil: 'networkidle' });
-	if (!p.title) await continueGame(page);
+	if (!p.title) await continueGame(p, page);
 }
 
-/** Past the title: Continue, once its row is there and takes keys. */
-async function continueGame(page: Page): Promise<void> {
+/**
+ * Past the title: Continue, once its row is there and takes keys; a tap on it
+ * for a touch player (a key from a real keyboard would switch their touch
+ * controls off).
+ */
+async function continueGame(p: Player, page: Page): Promise<void> {
 	await page.waitForSelector('.menu-card .row', { timeout: 30_000 });
 	await page.waitForTimeout(1200);
-	await page.keyboard.press('Enter');
+	if (p.touch) await page.locator('.menu-card .row').first().tap();
+	else await page.keyboard.press('Enter');
 	await page.waitForSelector('.menu-card', { state: 'detached', timeout: 30_000 });
 	await page.waitForTimeout(800);
 }
@@ -421,7 +443,7 @@ async function run(step: Step): Promise<void> {
 				break;
 			case 'reload':
 				await page!.reload({ waitUntil: 'networkidle' });
-				if (!p.title) await continueGame(page!);
+				if (!p.title) await continueGame(p, page!);
 				break;
 			case 'close':
 				await page?.close();
@@ -458,6 +480,8 @@ await browser.close();
 
 let failed = false;
 for (const p of roster) {
+	if (p.socketFailures)
+		console.log(`${p.label}: ${p.socketFailures} socket(s) the server did not take`);
 	if (p.errors.length === 0) continue;
 	failed = true;
 	console.log(`${p.label}: console errors/warnings:`);

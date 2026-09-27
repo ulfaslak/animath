@@ -144,24 +144,26 @@ describe('the presence connection', () => {
 		expect(last().sent.at(-1)).toEqual(where(9));
 	});
 
-	it('tries again after 1, 2, 4, 8, 16, then 30 seconds, and from the first after a hi', () => {
+	it('tries again after half a second, then longer each time up to 30 seconds, and from the first after a hi', () => {
 		const { connection, sockets, last, pass } = setup();
 		connection.start('g'.repeat(22), 'Ada');
 		const tries: number[] = [];
 		let t = 0;
-		for (let i = 0; i < 8; i++) {
+		for (let i = 0; i < BACKOFF_MS.length + 2; i++) {
 			last().drop();
 			expect(connection.status).toBe('waiting');
 			const before = sockets.length;
 			let waited = 0;
 			while (sockets.length === before) {
-				pass(250);
-				waited += 250;
+				pass(100);
+				waited += 100;
 			}
 			tries.push(waited);
 			t += waited;
 		}
-		expect(tries).toEqual([...BACKOFF_MS, 30_000, 30_000].map((ms) => Math.ceil(ms / 250) * 250));
+		expect(tries).toEqual([...BACKOFF_MS, 30_000, 30_000].map((ms) => Math.ceil(ms / 100) * 100));
+		// A server that restarts in five seconds finds everyone back within a few seconds of it.
+		expect(BACKOFF_MS.slice(0, 4).reduce((a, b) => a + b, 0)).toBeLessThanOrEqual(7_000);
 		// A hi resets it.
 		last().open();
 		last().say(hi);

@@ -25,11 +25,6 @@
 	const playing = $derived(!title.open && game.mode !== 'loading' && game.mode !== 'title');
 </script>
 
-{#if playing && !battle.active}
-	<!-- The other players' names and the arrows to them: over the world, under every card. -->
-	<Others />
-{/if}
-
 {#if title.open}
 	<TitleScreen />
 {:else if !playing}
@@ -41,6 +36,9 @@
 {:else if pause.open}
 	<PauseMenu />
 {:else}
+	<!-- The other players' names and the arrows to them: over the world, under the HUD, and
+	     never under a card or the menu, whose panels they would show through. -->
+	<Others />
 	<Hud />
 	{#if touch.on}<TouchControls />{/if}
 	<PresenceNote />

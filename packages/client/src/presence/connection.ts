@@ -21,8 +21,10 @@ import {
  *   walk is one message a step and a burst of changes one message. After a
  *   `hi` the latest goes again at once: a new socket starts knowing nothing.
  * - **Again.** A socket that closes, or never opens, is tried again after
- *   1, 2, 4, 8, 16, then every 30 seconds (each give or take a quarter, so
- *   a server that restarts is not met by every browser at once), from the
+ *   half a second, then 1, 2, 3, 5, 8, 13, 20 and every 30 seconds (each
+ *   give or take a quarter, so a server that restarts is not met by every
+ *   browser at once): a server that restarts in a few seconds, as one does
+ *   on every deploy, has everyone back within a few seconds of it. From the
  *   first again once one says `hi`. `wake` (the window is looked at again,
  *   the network is back) tries at once.
  * - **Ends.** A socket the server closes for good says why (`bye`): another
@@ -56,8 +58,8 @@ export interface ConnectionDeps {
 	random(): number;
 }
 
-/** Seconds between tries, in order, the last one again and again. */
-export const BACKOFF_MS = [1_000, 2_000, 4_000, 8_000, 16_000, 30_000] as const;
+/** Milliseconds between tries, in order, the last one again and again. */
+export const BACKOFF_MS = [500, 1_000, 2_000, 3_000, 5_000, 8_000, 13_000, 20_000, 30_000] as const;
 /** A full world is tried again after this long. */
 export const FULL_RETRY_MS = 60_000;
 /** The least time between two messages about where the page is. */

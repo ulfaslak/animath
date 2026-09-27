@@ -10,8 +10,9 @@
 	 * with a wild animal, a heart at the doctor, a pause sign in the menu, a
 	 * star in a friendly match — worded for anyone who can't see it. At the
 	 * edge of the screen an arrow with a name points to each of the nearest
-	 * players off it. Drawn under every card and menu, and never in a
-	 * battle. Where each goes is `presence.labels` and `presence.arrows`,
+	 * players off it. Only over the explore screen, under its HUD: never under
+	 * the doctor's card or the menu, whose panels they would show through, and
+	 * never in a battle. Where each goes is `presence.labels` and `presence.arrows`,
 	 * placed every frame by `PresenceController.overlay`. Nothing here takes
 	 * a tap.
 	 */

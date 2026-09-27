@@ -52,9 +52,9 @@ import { ArrivalNotes } from './notes';
 /** Seconds to wait for the server's answer about where a player is. */
 export const FIND_SECONDS = 4;
 /**
- * Seconds the players on screen stay after the socket drops, in case it is
- * back at once (a restart); then they fade out, since where they are is no
- * longer known.
+ * Seconds the players on screen, and the list and arrows, stay after the
+ * socket drops, in case it is back at once (a restart); then they go, since
+ * where they are is no longer known.
  */
 export const HOLD_SECONDS = 5;
 /** Seconds after a socket comes back for the server to say again who is near; the rest fade out. */
@@ -182,7 +182,9 @@ export class PresenceController {
 			this.confirmBy = null;
 		}
 		if (this.offSince !== null && now - this.offSince > HOLD_SECONDS) {
+			// Gone a while: where the others are is no longer known, on screen or off it.
 			for (const pid of this.options.renderer.others.pids()) this.options.renderer.others.gone(pid);
+			if (presence.roster.length) presence.roster = [];
 		}
 		const note = this.notes.tick(now, this.exploreOnScreen());
 		if (note !== presence.note) presence.note = note;
