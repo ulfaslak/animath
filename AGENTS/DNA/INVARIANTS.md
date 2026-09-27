@@ -134,7 +134,7 @@ A page that is behind the save (another window played on in its game, another ga
 
 ### The server keeps the save with the higher `seq`, and never loses a game
 
-A backup lands only with a higher `seq` than the stored save (`canReplace`); a save it replaces from another lineage, or one it cannot read, is copied to `save_backups` first (`replacesAnotherGame`). The decision runs in one transaction with the player's row locked, so of racing writes exactly one lands. An account's save is written by the same rule (`writeAccountSave`), with the account's row locked and `account_save_backups` for what it replaces; its `409` carries the stored save. Enforced by `players.test.ts` § the stale-write guard (409s, backups, eight racing writes of one `seq`, six racing games; removing the row lock fails the second), `account.test.ts` § the account save (the same cases for an account, a New game's replacement kept aside among them) and `save.test.ts` § which save wins. Design-time.
+A backup lands only with a higher `seq` than the stored save (`canReplace`); a save it replaces from another lineage, or one it cannot read, is copied to `save_backups` first (`replacesAnotherGame`). The decision runs in one transaction with the player's row locked, so of racing writes exactly one lands. An account's save is written by the same rule (`writeAccountSave`), with the account's row locked and `account_save_backups` for what it replaces, kept newest first within `ACCOUNT_BACKUP_BYTES` per account (always the newest, and at a kid's few kilobytes a game, hundreds of them); its `409` carries the stored save. Enforced by `players.test.ts` § the stale-write guard (409s, backups, eight racing writes of one `seq`, six racing games; removing the row lock fails the second), `account.test.ts` § the account save (the same cases for an account, a New game's replacement kept aside among them, and the budget: thirty small games all kept, megabyte games only the newest two) and `save.test.ts` § which save wins. Design-time.
 
 ## Server
 
@@ -145,6 +145,10 @@ A backup lands only with a higher `seq` than the stored save (`canReplace`); a s
 ### Every migration file is in the journal, in order
 
 The migrator applies a `.sql` file only when `drizzle/meta/_journal.json` lists it, and only when its `when` is later than the last one applied; anything else is skipped in silence, and the run still says it applied the migrations. So every file has an entry, the entries are in file order with `idx` counting up, and each `when` is later than the one before. Enforced by `migrations.test.ts`. Incident: lawcel, whose setup this project copies, has five early migrations missing from its journal, so a database migrated from scratch there gets a broken schema; [[DEVELOPMENT]] § Migrations has the recipe.
+
+### Only login, register, logout and `/me` send the session cookie
+
+The save routes and the WebSocket upgrade read the session (`sessionUser`) and never answer with a `Set-Cookie`, neither to slide a session nor to clear a dead one. A request still on its way with the old cookie when the browser logs in to another account answers after the login; had it sent a cookie, clearing the ended session or sliding the old token, the browser would have dropped the new one and the kid would be logged out mid-game. `/me` slides and clears, because the page asks it once as it starts, before anything else. Enforced by `account.test.ts` ("a save route never sends the cookie, to slide a session or to clear one"). Incident: the adversarial review of this feature (#85), before it shipped.
 
 ### The server stores no password and no session token, only their hashes
 

@@ -40,11 +40,19 @@ Technical items we've intentionally postponed: tech debt, hardening shortcuts, k
 
 ### The login and register rate limits live in one process's memory
 
-**What**: `RateLimiter` (`packages/server/src/rate-limit.ts`) counts tries per address and per name in the API process's memory. A restart or a deploy forgets every count, and two processes serving the API at once would each allow the full limit. Anyone who can make a kid's account fail ten logins in a row locks its name out for a quarter of an hour at a time; the limit that stops guessing is the one that allows that.
+**What**: `RateLimiter` (`packages/server/src/rate-limit.ts`) counts tries per address, per name and per account in the API process's memory. A restart or a deploy forgets every count, and two processes serving the API at once would each allow the full limit. Wrong passwords from one address shut out only that address, but wrong passwords from five or more addresses together still shut a name out for everyone for a quarter of an hour at a time, the kid on their own device included, and the admin CLI (another process) cannot lift it; only a restart does.
 
 **Why deferred**: there is one API process, and the stakes are a kid's animals, not personal data ([[DECISIONS]] § Accounts). A shared store (a Postgres table, or Redis) is a moving part for a threat nobody has made yet.
 
 **Trigger**: a second process or container serving the API for longer than a deploy's hand-over, or a report of a kid locked out of their name, or of guessing (many `429`s for one name in the logs).
+
+### Many accounts can still fill the disk
+
+**What**: each account stores at most a 1 MiB save and 2 MiB of set-aside saves (`ACCOUNT_BACKUP_BYTES`), and registrations are limited to 30 an hour per address (an IPv4 address or an IPv6 /64). Someone with many addresses can still make many accounts and send each a megabyte of save, about 90 MiB an hour per address at most. Nothing counts the database's size or stops at a quota, so a determined attacker could fill the server's disk, and then every save would fail, the kids' included.
+
+**Why deferred**: there is no public address yet, the game is for a handful of kids, and a quota or a disk alarm is a moving part for an attack nobody has made. A kid's real save is a few kilobytes, so a quota low enough to matter would never touch them.
+
+**Trigger**: the production server's disk passing half full, a registration flood in the logs, or the first deploy with a public domain (then add at least a disk-usage alert to the backup sidecar's checks).
 
 ### Cleared tiles are each player's own, so a friend can walk through a tree you still see
 
