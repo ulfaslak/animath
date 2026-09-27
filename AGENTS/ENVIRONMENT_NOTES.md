@@ -80,6 +80,22 @@ Twice on 2026-09-26 a worktree's Vite kept showing its red error overlay on ever
 
 `git revert --no-commit <fix>` then `git revert --abort` is the negative control's recipe, and `--abort` refuses (`Entry '<file>' not uptodate. Cannot merge.`) once any file the revert touched was written in between, even if it was written back exactly as the index has it (2026-09-27: a test file put back from the fix commit to run it against the reverted source). Write it back as the index holds it (`git show :<path> > <path>`), then `git update-index --refresh`, and `--abort` goes through. Better: commit a new test before its fix, so reverting the fix leaves the test in place.
 
+## Docker is colima, and colima sees only the home folder
+
+Docker here runs in colima's Linux VM (context `colima`, x86_64 like the Hetzner server, so an image built here runs there). The VM mounts `/Users/cookie` and nothing else: a bind mount from outside it (`/tmp`, `/private/tmp`, the Claude scratchpad) mounts an empty folder, and nothing says so. On 2026-09-27 a throwaway nginx given its config from the scratchpad found none, served the image's default site, and its 404s passed for a negative control until its `/api/health` came back as an HTML page. Put what a container must read under the home folder: a worktree's gitignored `screenshots/` works. `docker build` is unaffected, since the CLI sends the context to the VM. The Docker CLI here has no buildx, so builds use the classic builder; CI's use BuildKit.
+
+## The production stack on this Mac
+
+`docker-compose.local.yml` runs it as the project `mathgame-local` on `127.0.0.1:8480` ([[DEVELOPMENT]] § Deployment), with volumes and a network of its own. Never run `docker-compose.prod.yml` without that override here: its `.env.production` does not exist on this Mac (compose refuses even `config` without it, which is why the deploy workflow's nginx check uses plain `docker run`). Port 8480 was free on 2026-09-27; check with `lsof` before starting it.
+
+## Production access from this Mac
+
+`~/.ssh/mathgame_deploy` (made 2026-09-27) is the prod server's `deploy` key: Terraform puts its public half on the server, and the offsite backup sync logs in with it. There is no `terraform` or `hcloud` here: `brew tap hashicorp/tap && brew install hashicorp/tap/terraform`, or the `hashicorp/terraform` image. Terraform's state stays in the primary clone's `terraform/`: a worktree is removed after its merge, state and all.
+
+## The deploy workflow is not on main yet
+
+gh's token here lacks the `workflow` scope, and GitHub refuses a push that adds or changes `.github/workflows/*` without it. The workflow ([[DEVELOPMENT]] § Deployment) lands in a follow-up PR once the human runs `gh auth refresh -h github.com -s workflow`; until then nothing deploys and `pnpm rollback` has no workflow to dispatch. Delete this entry in that PR.
+
 ## pnpm 12 build-script approval
 
 pnpm 12 refuses to run dependency postinstall scripts unless approved in `pnpm-workspace.yaml` under `allowBuilds` (the older `onlyBuiltDependencies` key is read but not honoured). `esbuild` is approved there. If `pnpm install` ever ends with `ERR_PNPM_IGNORED_BUILDS`, run `pnpm approve-builds <pkg> --yes` — it edits the file for you.

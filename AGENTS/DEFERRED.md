@@ -6,13 +6,29 @@ Technical items we've intentionally postponed: tech debt, hardening shortcuts, k
 
 ---
 
-### Server runs TypeScript through `tsx` in every environment
+### A deploy runs two app containers side by side for a few seconds
 
-**What**: `packages/server` has no bundling step; `pnpm start` is `tsx src/index.ts`. Fine locally. For a VPS deploy the image should ship compiled JS (or a single esbuild bundle) so startup doesn't depend on a dev-time transpiler.
+**What**: `scripts/deploy.sh` swaps the app without a gap the way lawcel's does: a canary of the new image joins the network under the alias `app` beside the old app, nginx spreads requests over both, then the old one is replaced and the canary removed ([[ARCHITECTURE]] § Production). That works because the app keeps nothing between requests but what is in Postgres. A server that holds shared state in memory (who is in which world for presence, a friendly match's state, over `/api/ws`) would, for those seconds, be two servers with half the players each, and every socket would drop twice (the old app replaced, then the canary removed). On SIGTERM the server stops taking connections and finishes the HTTP requests in flight, but a socket is never done: it waits the full 8 s and is then cut, not closed.
 
-**Why deferred**: there is no deploy yet, and the server is a health check, the player and save routes, and a migration script. Bundling now is config with nothing to protect.
+**Why deferred**: the server is stateless today, and the right swap depends on what the presence and match server keeps: a plain stop-then-start with clients reconnecting (seconds of outage), state kept where two servers can share it, or a SIGTERM that closes each socket with 1001 so clients reconnect to the new app at once.
 
-**Trigger**: the first deploy to the Hetzner VPS (the Dockerfile PR).
+**Trigger**: the first server code that keeps state in memory across requests or sockets, which [[DECISIONS]] § Multiplayer's presence and friendly matches do. In that PR, change `deploy.sh`'s swap to fit what it keeps, and close its sockets in `index.ts`'s SIGTERM handler.
+
+### A file under `/assets/` is downloaded whole on every visit
+
+**What**: the server marks every client file outside `/immutable/` `no-cache` ([[INVARIANTS]] § Serving), and `serveStatic` sends no `ETag` or `Last-Modified`, so a browser cannot ask "has it changed?" and get a 304: it downloads `index.html` and each file `public/` copied over in full, every visit. `index.html` is 1 kB. Today `public/assets/` holds only `CREDITS.md`, but [[ARCHITECTURE]] plans the models and textures there.
+
+**Why deferred**: nothing under `/assets/` is loaded by the game yet, and the better fix is to keep models out of it altogether.
+
+**Trigger**: the first model or texture the game loads. Import it through Vite (`import url from './fox.glb?url'`), which names it after its content and puts it in `/immutable/`, kept for good; or, for a file that must keep its name, give the server's static files validators (an `ETag` answered with 304).
+
+### Nothing alarms when prod is down
+
+**What**: prod has no uptime monitor. The backup service and the Mac's backup sync alert on failure (to Slack once `MONITORING_SLACK_WEBHOOK_URL` is set; there is no webhook yet, so today to a log line), and Hetzner mails when its nightly image fails; nothing tells anyone when the game stops answering, a certificate fails to renew, or the disk fills. Lawcel runs the same way.
+
+**Why deferred**: the players are one household's kids, who say so when the game is down, and there is no alert channel to send to yet.
+
+**Trigger**: the first players outside the household, the first outage found late, or the Slack webhook arriving. Then an external check of `/api/health` (and the certificate's expiry) that alerts where the backups do.
 
 ### The puzzle's answer travels to the client inside `BattleState` and `DoctorState`
 
@@ -32,7 +48,7 @@ Technical items we've intentionally postponed: tech debt, hardening shortcuts, k
 
 ### Anonymous player identity is unauthenticated
 
-**What**: the player secret is a random token the client holds in `localStorage` (`animath.player`) and sends as a bearer header. Only its hash is stored, so a database dump is useless, but anyone who copies the token from the browser owns the player and its backup. No rate limiting on `POST /api/players`: anyone can mint rows, and the game itself leaves unused ones behind (every fresh browser that starts a game is a new player; a page reloaded before its first `POST` answered makes another). No rotation, and no way to recover a lost secret: a kid whose browser forgets the site (cleared data, another browser or device, Safari deleting a site's storage after seven days without a visit) starts a new game, and their backup waits on the server under an identity nothing holds any more. Moving it to their new player takes a query written by hand; [[DEVELOPMENT]] § Database only restores a player's own backups.
+**What**: the player secret is a random token the client holds in `localStorage` (`animath.player`) and sends as a bearer header. Only its hash is stored, so a database dump is useless, but anyone who copies the token from the browser owns the player and its backup. No rate limiting on `POST /api/players` where it runs (development, over the tunnel, with no nginx in front): anyone can mint rows, and the game itself leaves unused ones behind (every fresh browser that starts a game is a new player; a page reloaded before its first `POST` answered makes another). No rotation, and no way to recover a lost secret: a kid whose browser forgets the site (cleared data, another browser or device, Safari deleting a site's storage after seven days without a visit) starts a new game, and their backup waits on the server under an identity nothing holds any more. Moving it to their new player takes a query written by hand; [[DEVELOPMENT]] § Database only restores a player's own backups.
 
 **Why deferred**: the anonymous backup runs only in development now, for a handful of kids on this machine's tunnel: in production every `/api/players` route answers `410` ([[ARCHITECTURE]] § HTTP API), and the backup goes once the human's kid's save has moved to production ([[DECISIONS]] § Saves). A game moves between browsers with an account, which has a password, rate limits and an admin reset.
 
@@ -173,7 +189,7 @@ Technical items we've intentionally postponed: tech debt, hardening shortcuts, k
 
 **Why deferred**: the game has no address of its own yet: the human has not chosen a domain, and until the production server is up the game is shared through a tunnel whose address changes. A hard-coded address would be wrong everywhere it is shared today.
 
-**Trigger**: the production domain is chosen (the single config value `feat/deploy` keeps). Then write it into `og:image` (and add `og:url`), in `index.html` or from the build's environment.
+**Trigger**: the production domain is chosen (`MATHGAME_DOMAIN` in `deploy.env`, the one place it is set). Then write it into `og:image` (and add `og:url`), in `index.html` or from the build's environment. The image's build does not read `deploy.env` today (the `.dockerignore` allowlist leaves it out): pass it in as a build argument, as `GIT_SHA` is.
 
 ### The presence socket caps sockets in all, not per address
 

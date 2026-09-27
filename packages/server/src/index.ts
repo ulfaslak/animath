@@ -18,3 +18,12 @@ attachPresence(server as Server, {
 	accountOf: (headers) => sessionUserFromCookieHeader(headers.get('cookie') ?? undefined),
 	log: (line) => console.log(line)
 });
+
+// `docker stop` sends SIGTERM when a deploy replaces this container: take no
+// new connections, let the requests in flight finish (a script half sent, a
+// save half written), then exit. Whatever still runs after 8 s is cut short,
+// before Docker's kill at 10.
+process.once('SIGTERM', () => {
+	server.close(() => process.exit(0));
+	setTimeout(() => process.exit(0), 8_000).unref();
+});
