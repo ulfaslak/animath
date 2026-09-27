@@ -2,11 +2,13 @@ import type { SaveWrite } from '@mathgame/engine';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
 	SessionCheck,
+	acceptWelcome,
 	accountSaveServer,
 	accountsReady,
 	getAccountSave,
 	login,
 	logout,
+	lookAtWelcome,
 	register,
 	whoAmI,
 	type SessionAnswer
@@ -22,6 +24,7 @@ import {
 afterEach(() => {
 	vi.unstubAllGlobals();
 	vi.restoreAllMocks();
+	vi.useRealTimers();
 });
 
 type Answer = { status: number; json?: unknown; html?: string } | 'network error';
@@ -58,6 +61,13 @@ function route(answers: Record<string, Answer>): string[] {
 		return reply(a);
 	});
 	return seen;
+}
+
+/** What `promise` has come to so far: `undefined` while it still waits. */
+function sofar<T>(promise: Promise<T>): () => T | undefined {
+	let value: T | undefined;
+	void promise.then((v) => (value = v));
+	return () => value;
 }
 
 const doc = { version: 2, home: 7, world: 7, lineage: 'l', seq: 2 } as unknown as SaveWrite;
@@ -147,6 +157,94 @@ describe('login and logout', () => {
 		expect(await logout('Ida')).toBe('offline');
 		answer('network error');
 		expect(await logout('Ida')).toBe('offline');
+	});
+});
+
+describe('a welcome link', () => {
+	it('is looked at with its token in a header, never in the path, and names its account only on the API’s own answer', async () => {
+		const seen = answer({ status: 200, json: { name: 'Aslak' } });
+		expect(await lookAtWelcome('ab_c-d')).toEqual({ kind: 'live', name: 'Aslak' });
+		expect(seen[0]?.url).toBe('/api/account/welcome');
+		expect(new Headers(seen[0]?.init?.headers).get('x-animath-welcome')).toBe('ab_c-d');
+		// Too many looks from here: said so, with the wait, never as a server out of reach.
+		answer({ status: 429, json: { error: 'too many tries', retryAfter: 300 } });
+		expect(await lookAtWelcome('token')).toEqual({ kind: 'too-many', retryAfter: 300 });
+		const cases: [Answer, unknown][] = [
+			[
+				{ status: 410, json: { error: 'link used' } },
+				{ kind: 'gone', why: 'used' }
+			],
+			[
+				{ status: 410, json: { error: 'link expired' } },
+				{ kind: 'gone', why: 'expired' }
+			],
+			[
+				{ status: 404, json: { error: 'no such link' } },
+				{ kind: 'gone', why: 'unknown' }
+			],
+			// The API's own 404 for a path it has not got (an older server) is no answer.
+			[{ status: 404, json: { error: 'not found' } }, { kind: 'offline' }],
+			[{ status: 410, html: page }, { kind: 'offline' }],
+			[{ status: 200, json: { name: '' } }, { kind: 'offline' }],
+			[{ status: 429, html: page }, { kind: 'offline' }],
+			['network error', { kind: 'offline' }]
+		];
+		for (const [a, outcome] of cases) {
+			answer(a);
+			expect(await lookAtWelcome('token'), JSON.stringify(a)).toEqual(outcome);
+		}
+	});
+
+	it('is used with the password picked, and brings the account’s save back', async () => {
+		const save = { version: 2, seq: 24614 };
+		const seen = answer({ status: 200, json: { user: { name: 'Aslak' }, save } });
+		expect(await acceptWelcome('token', 'blåbær')).toEqual({
+			kind: 'welcomed',
+			name: 'Aslak',
+			save
+		});
+		expect(seen[0]?.url).toBe('/api/account/welcome');
+		expect(seen[0]?.init?.method).toBe('POST');
+		expect(JSON.parse(String(seen[0]?.init?.body))).toEqual({
+			token: 'token',
+			password: 'blåbær'
+		});
+		const cases: [Answer, unknown][] = [
+			[
+				{ status: 200, json: { user: { name: 'Aslak' }, save: null } },
+				{ kind: 'welcomed', name: 'Aslak', save: null }
+			],
+			[{ status: 200, json: { user: { name: 'Aslak' } } }, { kind: 'offline' }],
+			[
+				{ status: 410, json: { error: 'link used' } },
+				{ kind: 'gone', why: 'used' }
+			],
+			[
+				{ status: 410, json: { error: 'link expired' } },
+				{ kind: 'gone', why: 'expired' }
+			],
+			[
+				{ status: 404, json: { error: 'no such link' } },
+				{ kind: 'gone', why: 'unknown' }
+			],
+			[
+				{ status: 400, json: { error: 'bad password', reason: 'short' } },
+				{ kind: 'bad-password', reason: 'short' }
+			],
+			[
+				{ status: 429, json: { error: 'too many tries', retryAfter: 90 } },
+				{ kind: 'too-many', retryAfter: 90 }
+			],
+			[{ status: 200, html: page }, { kind: 'offline' }],
+			['network error', { kind: 'offline' }]
+		];
+		for (const [a, outcome] of cases) {
+			answer(a);
+			expect(await acceptWelcome('token', 'blåbær'), JSON.stringify(a)).toEqual(outcome);
+		}
+		vi.spyOn(console, 'error').mockImplementation(() => {});
+		answer({ status: 403, json: { error: 'wrong origin' } });
+		expect(await acceptWelcome('token', 'blåbær')).toEqual({ kind: 'refused' });
 	});
 });
 
@@ -292,8 +390,14 @@ describe("the account's save, as the autosave's server", () => {
 		]);
 	});
 
+	// The start-up waits run on vitest's fake clock, stepped to a millisecond either side of
+	// the deadline. A bound on the real clock measured the machine too: at a load of 60 a
+	// 120 ms wait took 197 ms against a bound of 180 (#108).
 	it('start-up waits no longer than it asked, for the check and the save together', async () => {
+		vi.useFakeTimers();
+		const seen: string[] = [];
 		vi.stubGlobal('fetch', async (url: string, init?: RequestInit) => {
+			seen.push(url);
 			if (url === me) {
 				await new Promise((resolve) => setTimeout(resolve, 100));
 				return reply({ status: 200, json: { user: { name: 'Ida' } } });
@@ -304,17 +408,32 @@ describe("the account's save, as the autosave's server", () => {
 			);
 		});
 		const server = accountSaveServer(new SessionCheck('Ida'));
-		const started = Date.now();
+		const got = sofar(server.getSave(who, 120));
+		// The check answers at 100 ms, and the save is asked straight after.
+		await vi.advanceTimersByTimeAsync(100);
+		expect(seen).toEqual([me, save]);
 		// 120 ms in all: not 100 for the check and then 120 more for the save.
-		expect(await server.getSave(who, 120)).toEqual({ kind: 'offline' });
-		expect(Date.now() - started).toBeLessThan(180);
+		await vi.advanceTimersByTimeAsync(19);
+		expect(got()).toBeUndefined();
+		await vi.advanceTimersByTimeAsync(1);
+		expect(got()).toEqual({ kind: 'offline' });
 	});
 
 	it('start-up waits no longer than it asked, the session check included', async () => {
-		vi.stubGlobal('fetch', () => new Promise<Response>(() => {}));
+		vi.useFakeTimers();
+		const seen: string[] = [];
+		// Nothing answers, and no request hears its abort: only start-up's own wait ends.
+		vi.stubGlobal('fetch', (url: string) => {
+			seen.push(url);
+			return new Promise<Response>(() => {});
+		});
 		const server = accountSaveServer(new SessionCheck('Ida'));
-		const started = Date.now();
-		expect(await server.getSave(who, 50)).toEqual({ kind: 'offline' });
-		expect(Date.now() - started).toBeLessThan(2000);
+		const got = sofar(server.getSave(who, 50));
+		await vi.advanceTimersByTimeAsync(49);
+		expect(got()).toBeUndefined();
+		await vi.advanceTimersByTimeAsync(1);
+		expect(got()).toEqual({ kind: 'offline' });
+		// With no word on the session, the save is never asked.
+		expect(seen).toEqual([me]);
 	});
 });
