@@ -168,7 +168,25 @@ A page that is behind the save (another window played on in its game, another ga
 
 ### The server keeps the save with the higher `seq`, and never loses a game
 
-A backup lands only with a higher `seq` than the stored save (`canReplace`); a save it replaces from another lineage, or one it cannot read, is copied to `save_backups` first (`replacesAnotherGame`). The decision runs in one transaction with the player's row locked, so of racing writes exactly one lands. Enforced by `players.test.ts` § the stale-write guard (409s, backups, eight racing writes of one `seq`, six racing games; removing the row lock fails the second) and `save.test.ts` § which save wins. Design-time.
+A backup lands only with a higher `seq` than the stored save (`canReplace`); a save it replaces from another lineage, or one it cannot read, is copied to `save_backups` first (`replacesAnotherGame`). The decision runs in one transaction with the player's row locked, so of racing writes exactly one lands. An account's save is written by the same rule (`writeAccountSave`), with the account's row locked and `account_save_backups` for what it replaces, kept newest first within `ACCOUNT_BACKUP_BYTES` per account (always the newest, and at a kid's few kilobytes a game, hundreds of them); its `409` carries the stored save. Enforced by `players.test.ts` § the stale-write guard (409s, backups, eight racing writes of one `seq`, six racing games; removing the row lock fails the second), `account.test.ts` § the account save (the same cases for an account, a New game's replacement kept aside among them, and the budget: thirty small games all kept, megabyte games only the newest two) and `save.test.ts` § which save wins. Design-time.
+
+## Server
+
+### No migration after the anonymous backup shipped drops, alters or empties its tables
+
+`players`, `saves` and `save_backups` hold the anonymous backups, a real kid's game among them, until it moves to production ([[DECISIONS]] § Saves). Every migration after `0002` only adds: no `ALTER`, `DROP`, `TRUNCATE`, `DELETE`, `UPDATE` or `INSERT` on those tables, and no dropping their index. Enforced by `migrations.test.ts`, which reads every later `.sql` file (with a check that the pattern catches each of those statements). Design-time: the accounts brief, written while the kid was playing.
+
+### Every migration file is in the journal, in order
+
+The migrator applies a `.sql` file only when `drizzle/meta/_journal.json` lists it, and only when its `when` is later than the last one applied; anything else is skipped in silence, and the run still says it applied the migrations. So every file has an entry, the entries are in file order with `idx` counting up, and each `when` is later than the one before. Enforced by `migrations.test.ts`. Incident: lawcel, whose setup this project copies, has five early migrations missing from its journal, so a database migrated from scratch there gets a broken schema; [[DEVELOPMENT]] § Migrations has the recipe.
+
+### Only login, register, logout and `/me` send the session cookie, and `/me` once a month
+
+The save routes and the WebSocket upgrade read the session (`sessionUser`) and never answer with a `Set-Cookie`, neither to slide a session nor to clear a dead one. A request still on its way with the old cookie when the browser logs in to another account answers after the login; had it sent a cookie, clearing the ended session or sliding the old token, the browser would have dropped the new one and the kid would be logged out mid-game. `/me` clears nothing either, and slides a session (sending its cookie again) only once it is `SLIDE_AFTER_DAYS` (30) into its year, because another tab of the same browser can log in while a page is starting. Only logout clears the cookie. Enforced by `account.test.ts` ("a save route never sends the cookie…", "an expired session logs nobody in, and nothing clears its cookie but logout", and the once-a-month slide). Incident: the adversarial review of this feature (#85), before it shipped; the `/me` half was found re-reading its fix.
+
+### The server stores no password and no session token, only their hashes
+
+A password is stored as a salted scrypt hash with its parameters (`passwords.ts`), never as sent, and two accounts with one password have different hashes. A session's token lives in the browser's cookie; the server keeps its SHA-256 (`sessions.token_hash`), so a copy of the database logs nobody in. Passwords are compared by hash in constant time, and a name with no account costs a login the same hash (`verifyDecoy`), so the answer's timing does not tell a free name from a taken one. Enforced by `account.test.ts` ("stores a salted scrypt hash, never the password, and only a hash of the session token") and `passwords.test.ts`. Design-time ([[DECISIONS]] § Accounts).
 
 ## World
 

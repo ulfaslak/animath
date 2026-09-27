@@ -86,7 +86,10 @@ export default defineConfig({
 		strictPort: true,
 		allowedHosts: tunnel ? true : undefined,
 		proxy: {
-			'/api': `http://localhost:${apiPort}`,
+			// The API sees the Host the browser used (the string shorthand would
+			// rewrite it to localhost:<apiPort>): the account routes check that a
+			// POST's Origin is this site.
+			'/api': { target: `http://localhost:${apiPort}`, changeOrigin: false },
 			'/ws': { target: `ws://localhost:${apiPort}`, ws: true }
 		}
 	},
