@@ -22,13 +22,14 @@ export type WelcomeGone = 'used' | 'expired' | 'unknown';
 /**
  * What the welcome card shows: the server being asked about the link, the
  * account it opens (whose password the kid picks), a spent link, or no
- * answer from the server.
+ * answer from the server (or, with `minutes`, too many tries from here
+ * lately, and the wait the server asked for).
  */
 export type WelcomeView =
 	| { phase: 'checking' }
 	| { phase: 'ready'; name: string }
 	| { phase: 'gone'; why: WelcomeGone }
-	| { phase: 'unreachable' };
+	| { phase: 'unreachable'; minutes?: number };
 
 /** The card's two boxes. */
 export type AccountField = 'name' | 'password';

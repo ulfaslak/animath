@@ -12,7 +12,7 @@ import { PLAY_HOUR_MS, PlayClock } from './account/playtime';
 import { ReadyWatch, keepingCursors } from './account/ready';
 import { noteNextStart, restartWith, takeAccountNote } from './account/restart';
 import { currentAccount, forgetLogout, gameKeys, logoutPending } from './account/session';
-import { takeWelcomeToken } from './account/welcome';
+import { forgetWelcome, takeWelcomeToken } from './account/welcome';
 import { sfx } from './audio/sfx.svelte';
 import { LocalAuthority, mintId } from './authority/local';
 import { BattleController } from './battle/controller';
@@ -55,8 +55,10 @@ import { TravelController } from './travel/controller';
 import App from './ui/App.svelte';
 
 // A welcome link's token leaves the address before anything else runs (`account/welcome.ts`):
-// it logs in to an account once, and is kept in memory only.
-const welcomeToken = takeWelcomeToken();
+// it logs in to an account once. The tab keeps it for its own next starts until it is settled;
+// a throwaway page drops it.
+const tabStore = browserStore('session');
+const welcomeToken = takeWelcomeToken({ session: tabStore, throwaway: flags.throwaway });
 
 const canvas = document.getElementById('game') as HTMLCanvasElement;
 const uiRoot = document.getElementById('ui') as HTMLElement;
@@ -171,7 +173,8 @@ const accountController = new AccountController({
 		playClock.flush();
 		reloading = true;
 		restartWith(note);
-	}
+	},
+	forgetWelcome: () => forgetWelcome(tabStore)
 });
 
 const pauseController = new PauseController(authority, {

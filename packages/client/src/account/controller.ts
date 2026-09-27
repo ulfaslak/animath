@@ -64,6 +64,11 @@ export interface AccountHooks {
 	answered(): void;
 	/** Start the page again, in the game the browser now plays, saying `note`. */
 	restart(note: AccountNote): void;
+	/**
+	 * The welcome link is settled (used, spent, or put away): the tab, which
+	 * keeps its token for its own next starts (`welcome.ts`), forgets it.
+	 */
+	forgetWelcome?(): void;
 }
 
 /** Keys that change what a box holds without typing a letter. */
@@ -140,7 +145,10 @@ export class AccountController {
 			account.nameDraft = look.name;
 			this.showWelcome({ phase: 'ready', name: look.name });
 		} else if (look.kind === 'gone') {
+			this.hooks.forgetWelcome?.();
 			this.showWelcome({ phase: 'gone', why: look.why });
+		} else if (look.kind === 'too-many') {
+			this.showWelcome({ phase: 'unreachable', minutes: minutes(look.retryAfter) });
 		} else {
 			this.showWelcome({ phase: 'unreachable' });
 		}
@@ -163,6 +171,8 @@ export class AccountController {
 
 	/** The card goes, and whatever it was opened over has the keys again. */
 	close(): void {
+		// Not now: the kid put the link away, and the tab's next start leaves it be.
+		if (account.card === 'welcome') this.hooks.forgetWelcome?.();
 		this.welcomeToken = null;
 		account.card = null;
 		account.busy = false;
@@ -321,12 +331,15 @@ export class AccountController {
 				this.hooks.flush();
 				takeAccountGame(store, result.name, result.save);
 				logInHere(store, result.name);
+				// Before the page starts again, which would otherwise open the card for a used link.
+				this.hooks.forgetWelcome?.();
 				this.hooks.restart('welcome');
 				return;
 			case 'gone':
 				// Used meanwhile (in another tab, say), or too old by now.
 				account.busy = false;
 				sfx.play('wrong');
+				this.hooks.forgetWelcome?.();
 				this.showWelcome({ phase: 'gone', why: result.why });
 				return;
 			case 'bad-password':

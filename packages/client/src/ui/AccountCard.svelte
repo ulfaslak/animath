@@ -105,7 +105,11 @@
 			case 'unreachable':
 				return {
 					heading: t('account.welcome.checking'),
-					text: t('account.problem.offline'),
+					// No answer, or too many tries from here lately: the wait the server asked for.
+					text:
+						welcome.minutes === undefined
+							? t('account.problem.offline')
+							: t('account.problem.tooMany', { count: welcome.minutes }),
 					back: t('account.welcome.later'),
 					go: t('account.welcome.retry'),
 					keys: t('account.welcome.retryKeys')

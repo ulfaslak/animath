@@ -49,7 +49,11 @@ export type WelcomeGone = 'used' | 'expired' | 'unknown';
 
 /** What a welcome link is, as the server says: whose (and only that), or why it won't do. */
 export type WelcomeLook =
-	{ kind: 'live'; name: string } | { kind: 'gone'; why: WelcomeGone } | { kind: 'offline' };
+	| { kind: 'live'; name: string }
+	| { kind: 'gone'; why: WelcomeGone }
+	/** Too many looks and uses from here lately: the server says how long to wait. */
+	| { kind: 'too-many'; retryAfter: number }
+	| { kind: 'offline' };
 
 export type WelcomeResult =
 	/** Logged in; `save` is the account's, for the browser to take (null with none). */
@@ -199,15 +203,24 @@ export async function login(name: string, password: string, base = '/api'): Prom
 
 /**
  * Whose account the welcome link with `token` opens, or why it opens none
- * (the server names the account of a live link only).
+ * (the server names the account of a live link only). The token goes in a
+ * header, never in the path: a request line is what nginx's error log keeps
+ * whenever the app does not answer.
  */
 export async function lookAtWelcome(token: string, base = '/api'): Promise<WelcomeLook> {
-	const res = await send(`${base}/account/welcome/${encodeURIComponent(token)}`, {});
+	const res = await send(`${base}/account/welcome`, {
+		headers: { 'x-animath-welcome': token },
+		cache: 'no-store'
+	});
 	if (!res) return { kind: 'offline' };
 	const name = field(res.body, 'name');
 	if (res.status === 200 && typeof name === 'string' && name !== '') return { kind: 'live', name };
 	const gone = welcomeGone(res);
-	return gone ? { kind: 'gone', why: gone } : { kind: 'offline' };
+	if (gone) return { kind: 'gone', why: gone };
+	if (res.status === 429 && errorOf(res.body) === ERRORS.tooMany) {
+		return { kind: 'too-many', retryAfter: retryAfter(res.body) };
+	}
+	return { kind: 'offline' };
 }
 
 /**
