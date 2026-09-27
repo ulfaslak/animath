@@ -404,6 +404,7 @@ The flex and scroll bugs were found by reading the touch and doctor frames with 
 
 - **PR #75 (Help home): a column added to rows sized for the widest name, first seen with short ones.** Help home's rows gained the HP bar beside their check box. Every frame with species' names looked right. At 1024 px, twelve W's beside a tired animal's bar left 98 px for "tired" and "0/35", which need 118: the numbers were cut to "0/3" and the list scrolled sideways by 10 px. Found by the long-names DOM probe of [[DEVELOPMENT]] § Looking at the game, run on every tab at 1024×768, 1280×720 and touch, in both languages. Fix: the caret moved into the row's padding on every tab, and Help home's columns sit 6 px apart. Same category: the widest name and the widest cell (a tired animal's tag and numbers), together, at the narrowest size, before the first frame counts.
 - **PR #76: a card's words that grew, fitted to the widest home first.** A stack's new three-part summary ("2 klar · 3 snart trætte · 1 træt") fit the HUD card, but the pause menu's row cut it at 150 px ("2 klar · 3 snart træ…"). Moved under the kind's name with a slim bar beside it, it fit at eight kinds, but at 300 animals in Danish ("25 klar · 10 snart trætte · 5 trætte") three rows wrapped to 68 px and the menu no longer fit 1024×768. Found by the frames, then by a probe of every row's height. Fix: the pause menu shows the words only, running on under the bar's column; every row stays 48 px. The same category: the widest words, three counts of two and three figures in Danish, in the narrowest home that shows them.
+- **PR #93 (presence): names of sixteen W's, now a player's.** A player's name is 16 characters, not 12, and it went in three new homes checked first with "Ada" and "Bo": the pill over a head was capped at 12em and ended "WWWWWWWWWWW…"; the pause menu's "Gå hen til WWWW…" was clipped at 1024 px in Danish; and an arrow's name at a side edge sat centred on the arrow, covering it and running off the screen. Found by a run with a 16-W name and a 16-letter Danish one at 1024×768. Fix: room for 16 of the widest letters, "Go to" breaking before a name rather than through it, the arrow's name beside it, towards the middle.
 
 ### 2026-09-26 — feat/axe-pickaxe — a test that did the copying itself could not see the copy drift `[learned]`
 
@@ -511,3 +512,27 @@ Every set-aside in the browser follows one rule: with no room to keep the old sa
 ### 2026-09-27 — PR #92 (worlds and names), found by self-testing — a name box checked with the names typed while building it `[learned]`
 
 The player's name box was sized like the starter's, whose names stop at 12 letters: sixteen of the widest letters (a name the rule allows) scrolled inside it, 530 px of text in a 470 px box. The reason under a refused name sat in a padded tint where the rule was a plain line, so the card grew and jumped on every refused Enter. And the reason cleared on a typed letter but not on Backspace, so a kid rubbing out a name too long still read "That's a long one!". Found by measuring the card in a real page at 1280×720 and 1024×768 (`name-layout`), the widest name and each reason in both languages. The card is 600 px wide with 26 px letters, both lines sit in the same box, and `title-controller.test.ts` checks Backspace clears the reason. Same family as "an effect sized by its numbers, not in a frame" above.
+
+### 2026-09-27 — PR #93 (presence) — a short effect timed from when it was asked for, across a frame that can take longer than the effect `[learned]`
+
+A go-to to a friend 200 tiles away asked for a 0.7 s poof, then the chunk ring built the 25 chunks round the friend before the next frame was drawn: under load that frame took longer than the poof, which was over before it was ever drawn. The arriving player never saw their own poof, while the friend who faded in a moment later had one. Found by a burst of frames right after Go to. Fix: a poof's clock starts at its first frame drawn (`Poofs.update`), and `others.test.ts` pins it with a late frame. Category: **a flourish that follows a heavy synchronous step must clock from its first frame, not from its request**.
+
+### 2026-09-27 — PR #93 (presence) — a change seen from the viewer shown as the other player's doing `[learned]`
+
+When the player went to a friend, every player near the arrival spot "turned up out of nowhere" on the player's screen, so each got a poof, as if they had jumped, while only the player had moved. Found in the same burst of frames. Fix: `OtherPlayers.hush()` for two seconds after the player turns up (a go-to, a world entered, the socket back); `others.test.ts` pins it. Category: **an effect that marks who moved must know whose move it was**: a relative change is the viewer's.
+
+### 2026-09-27 — PR #93 (presence) — an overlay under a translucent panel shows through it `[not codified]`
+
+The names over other players and the edge arrows were drawn under every card and menu, and the pause menu's and the doctor's panels are 92% opaque: the pills' dark text ghosted through the menu ("Ada" behind "Dit hold"). Found reading the Danish Who's here frame. Fix: names and arrows only over the explore screen, under its HUD. Would become `[learned]` with a line in [[DESIGN]] § UI shapes: nothing high-contrast is drawn under a panel, since panels are translucent.
+
+### 2026-09-27 — PR #93 (presence) — two things on one tile, drawn inside each other `[learned]`
+
+Two friends who go to the same world land on its spawn tile, on top of each other and of the player: three trainers drawn as one, with two names over one head. Found by a run with three players at one spawn. Fix: a crowd on one tile stands round it 0.4 tiles apart, the player's own trainer in the middle (`CROWD_RADIUS`, tested). Category: **where positions come from other players, two can be the same**.
+
+### 2026-09-27 — PR #93 (presence) — a retry schedule chosen without measuring what it waits for `[learned]`
+
+The socket first retried after 1, 2, 4 and 8 s; the server restart it waits for (a `tsx watch` restart, as on every merge the kids' server takes) took 3.5 s under load, so the third try failed and the fourth came 15 s after the restart, while the pause menu showed arrows to where players had been. Found by the server-restart run (`run:touch …`). Fix: tries after 0.5, 1, 2, 3, 5, … s (a restart of up to about 6 s is met by the fourth), and the list and arrows go with the figures after a 5 s drop; `presence-connection.test.ts` pins the sum.
+
+### 2026-09-27 — PR #93 (presence) — the reduced-motion version never looked at `[not codified]`
+
+The calm poof kept its four puffs where the full one starts, 0.18 tiles out, under a trainer who is 0.28 wide: with reduced motion the poof was hidden behind its own trainer, and nothing showed that anything happened. Found by a calm run with the poof slowed to 4 s (a temporary edit, reverted). Fix: calm puffs stand where the full ones end, and only swell and fade. Would become `[learned]` with a Phase 2 checklist line: every flourish is looked at once with `calm`/`--reduced-motion`.
