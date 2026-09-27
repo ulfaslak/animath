@@ -155,3 +155,11 @@ df -h / && docker system df                                          # the disk
 ```
 
 Each service keeps a capped log (docker-compose.prod.yml); nothing older survives. Hetzner's own nightly image of the machine is in the Cloud Console, under the server's Backups.
+
+**Accounts** (once the accounts server is in; its admin command is bundled into the image as `dist/admin.mjs`): with no email, a forgotten password or a deleted account is the human's job, done on the server:
+
+```bash
+docker compose -f docker-compose.prod.yml exec app node dist/admin.mjs list
+docker compose -f docker-compose.prod.yml exec app node dist/admin.mjs reset-password <name> [password]
+docker compose -f docker-compose.prod.yml exec app node dist/admin.mjs delete-account <name> [--yes]
+```
