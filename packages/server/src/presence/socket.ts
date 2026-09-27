@@ -163,6 +163,19 @@ export function attachPresence(server: Server, options: PresenceOptions = {}): P
 			invalid: 0
 		};
 		states.set(ws, state);
+		/**
+		 * The socket is on its way out: told to go (`bye`, or `refresh`) and closing.
+		 * A client may ignore the close and go on sending for as long as `ws` waits for
+		 * its answer; nothing it sends from here on is read, so it can never say hello
+		 * again, and it is cut off a moment later whatever it does.
+		 */
+		let closing = false;
+		const goodbye = (code: number, reason: string) => {
+			if (closing) return;
+			closing = true;
+			ws.close(code, reason);
+			setTimeout(() => ws.terminate(), CLOSE_GRACE_MS).unref();
+		};
 		const peer: Peer = {
 			send(message: ServerMessage) {
 				if (ws.readyState !== WebSocket.OPEN) return;
@@ -174,12 +187,14 @@ export function attachPresence(server: Server, options: PresenceOptions = {}): P
 				ws.send(JSON.stringify(message));
 			},
 			close(reason: ByeReason) {
+				if (closing) return;
 				peer.send({ t: 'bye', reason });
-				ws.close(BYE_CLOSE_CODE + BYE_REASONS.indexOf(reason), reason);
+				goodbye(BYE_CLOSE_CODE + BYE_REASONS.indexOf(reason), reason);
 			}
 		};
-		/** Closed for cause: out of the hub first, so nobody sees it again. */
+		/** Closed for cause: out of the hub first, so nobody sees it again; said once in the log. */
 		const dismiss = (reason: ByeReason) => {
+			if (closing) return;
 			hub.leave(peer);
 			peer.close(reason);
 			log(`presence: closed a socket (${reason})`);
@@ -204,6 +219,7 @@ export function attachPresence(server: Server, options: PresenceOptions = {}): P
 			hub.leave(peer);
 		});
 		ws.on('message', (data: RawData, isBinary: boolean) => {
+			if (closing) return;
 			state.alive = true;
 			if (!takeToken(state, ratePerSecond, burst)) {
 				if (state.dropped > maxDropped) dismiss('flood');
@@ -215,7 +231,7 @@ export function attachPresence(server: Server, options: PresenceOptions = {}): P
 				const version = helloVersion(value);
 				if (version !== null && version !== PROTOCOL_VERSION) {
 					peer.send({ t: 'refresh', v: PROTOCOL_VERSION });
-					ws.close(REFRESH_CLOSE_CODE, 'refresh');
+					goodbye(REFRESH_CLOSE_CODE, 'refresh');
 					return;
 				}
 				const hello = parseClientMessage(value);
@@ -299,6 +315,9 @@ function takeToken(state: SocketState, ratePerSecond: number, burst: number): bo
 	state.tokens -= 1;
 	return true;
 }
+
+/** How long a socket told to go has to answer the close before it is cut off. */
+const CLOSE_GRACE_MS = 1_000;
 
 /** How long the account lookup may take before the socket goes on as a guest's. */
 const ACCOUNT_LOOKUP_MS = 3_000;
