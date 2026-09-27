@@ -299,6 +299,7 @@ An account is a row in `users` with its `sessions`, its `account_saves` row and 
 ```bash
 pnpm admin list                                    # every account: its save's seq and when, how many browsers are logged in, and "no password yet" while its welcome link waits
 pnpm admin reset-password <name> [<new password>]  # a made-up six-character password when none is given; logs every browser out (and uses a waiting welcome link up)
+printf '%s' "$PW" | pnpm admin reset-password <name> --stdin  # the password from stdin, never in a command line (the process list, `docker events`) nor said back
 pnpm admin delete-account <name>                   # only says what it would delete
 pnpm admin delete-account <name> --yes             # deletes the account, its sessions, its save, its set-aside saves and its welcome link
 pnpm admin export-local-save <player id> [--from anonymous|account|account:<name>] [--out <folder>]  # a kid's newest save, read-only, into ~/animath-exports/

@@ -160,7 +160,8 @@ Each service keeps a capped log (docker-compose.prod.yml); nothing older survive
 
 ```bash
 docker compose -f docker-compose.prod.yml exec app node dist/admin.mjs list
-docker compose -f docker-compose.prod.yml exec app node dist/admin.mjs reset-password <name> [password]
+docker compose -f docker-compose.prod.yml exec app node dist/admin.mjs reset-password <name>   # a made-up password
+printf '%s' "$PW" | docker compose -f docker-compose.prod.yml exec -T app node dist/admin.mjs reset-password <name> --stdin
 docker compose -f docker-compose.prod.yml exec app node dist/admin.mjs delete-account <name> [--yes]
 ```
 

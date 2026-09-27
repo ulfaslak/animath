@@ -51,8 +51,17 @@ export function easyPassword(): string {
 
 export class AdminError extends Error {}
 
-/** Gives the account a new password (a made-up one when none is given) and logs it out everywhere. */
-export async function resetPassword(typedName: string, newPassword?: string): Promise<string[]> {
+/**
+ * Gives the account a new password (a made-up one when none is given) and
+ * logs it out everywhere. With `secret` (the CLI's `--stdin`, which keeps a
+ * password out of the process list and the host's `docker events`) the
+ * password is not said back: whoever handed it in knows it.
+ */
+export async function resetPassword(
+	typedName: string,
+	newPassword?: string,
+	options: { secret?: boolean } = {}
+): Promise<string[]> {
 	const user = await findUser(keyOf(typedName));
 	if (!user) throw new AdminError(`No account is called "${typedName}".`);
 	const password = newPassword ?? easyPassword();
@@ -62,7 +71,9 @@ export async function resetPassword(typedName: string, newPassword?: string): Pr
 	}
 	await setPasswordHash(user.id, await hashPassword(checked.password));
 	return [
-		`New password for ${user.name}: ${password}`,
+		options.secret && newPassword !== undefined
+			? `A new password for ${user.name} is set.`
+			: `New password for ${user.name}: ${password}`,
 		'Every browser that was logged in to it is logged out.',
 		...(user.passwordHash === NO_PASSWORD ? ['Its welcome link no longer works.'] : [])
 	];

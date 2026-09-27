@@ -13,7 +13,8 @@ import { SAVE_MAX_BYTES } from '../src/save.js';
 // The accounts admin, against DATABASE_URL (see AGENTS/DNA/DEVELOPMENT.md § Accounts):
 //
 //   admin list
-//   admin reset-password <name> [<new password>]   (a made-up one when none is given)
+//   admin reset-password <name> [<new password> | --stdin]   (a made-up one when none is given;
+//                                                    --stdin reads it, and never says it back)
 //   admin delete-account <name> [--yes]            (says what it would delete without --yes)
 //   admin export-local-save <player id> [--from anonymous|account|account:<name>] [--out <folder>]
 //   admin import-save [--name <name>] [--origin <address>] < save.json
@@ -25,7 +26,7 @@ import { SAVE_MAX_BYTES } from '../src/save.js';
 const USAGE = [
 	'usage:',
 	'  admin list',
-	'  admin reset-password <name> [<new password>]',
+	'  admin reset-password <name> [<new password> | --stdin]',
 	'  admin delete-account <name> [--yes]',
 	'  admin export-local-save <player id> [--from anonymous|account|account:<name>] [--out <folder>]',
 	'  admin import-save [--name <name>] [--origin <address>] < save.json'
@@ -34,7 +35,7 @@ const USAGE = [
 /** The flags each command takes: `true` for a switch, `false` for one followed by its value. */
 const FLAGS: Record<string, Record<string, boolean>> = {
 	list: {},
-	'reset-password': {},
+	'reset-password': { '--stdin': true },
 	'delete-account': { '--yes': true },
 	'export-local-save': { '--from': false, '--out': false },
 	'import-save': { '--name': false, '--origin': false }
@@ -71,15 +72,19 @@ function parse(args: string[]): Parsed {
 	return { command, words, flags };
 }
 
-/** The save piped in: `import-save < save.json`, or over ssh into the app's container. */
-async function readStdin(): Promise<string> {
-	if (process.stdin.isTTY) throw new AdminError('Pipe the save in: admin import-save < save.json');
+/**
+ * What is piped in: a save (`import-save < save.json`, or over ssh into the
+ * app's container), or a password (`reset-password <name> --stdin`), which
+ * then never stands in a command line (the process list, the host's
+ * `docker events`). At most `maxBytes`.
+ */
+async function readStdin(hint: string, maxBytes: number): Promise<string> {
+	if (process.stdin.isTTY) throw new AdminError(hint);
 	const chunks: Buffer[] = [];
 	let size = 0;
 	for await (const chunk of process.stdin as AsyncIterable<Buffer>) {
 		size += chunk.length;
-		// Room for the tabs and line breaks the export writes around the largest save.
-		if (size > 4 * SAVE_MAX_BYTES) throw new AdminError('That is far bigger than any save.');
+		if (size > maxBytes) throw new AdminError('That is far bigger than it can be.');
 		chunks.push(chunk);
 	}
 	return Buffer.concat(chunks).toString('utf8');
@@ -95,9 +100,18 @@ async function run(args: string[]): Promise<string[]> {
 		case 'list':
 			if (words.length !== 0) break;
 			return listAll();
-		case 'reset-password':
-			if (words.length < 1 || words.length > 2) break;
-			return resetPassword(words[0]!, words[1]);
+		case 'reset-password': {
+			if (!flags.has('--stdin')) {
+				if (words.length < 1 || words.length > 2) break;
+				return resetPassword(words[0]!, words[1]);
+			}
+			if (words.length !== 1) break;
+			// One line, as `printf '%s'` or `echo` gives it: its line break is not part of it.
+			const piped = await readStdin('Pipe the password in: … reset-password <name> --stdin', 4096);
+			const password = piped.replace(/\r?\n$/, '');
+			if (password === '') throw new AdminError('No password came in on stdin.');
+			return resetPassword(words[0]!, password, { secret: true });
+		}
 		case 'delete-account':
 			if (words.length !== 1) break;
 			return deleteAccount(words[0]!, flags.has('--yes'));
@@ -108,11 +122,15 @@ async function run(args: string[]): Promise<string[]> {
 		}
 		case 'import-save':
 			if (words.length !== 0) break;
-			return importSave(await readStdin(), {
-				name: value('--name'),
-				origin: value('--origin'),
-				domain: process.env.MATHGAME_DOMAIN
-			});
+			// Room for the tabs and line breaks the export writes around the largest save.
+			return importSave(
+				await readStdin('Pipe the save in: admin import-save < save.json', 4 * SAVE_MAX_BYTES),
+				{
+					name: value('--name'),
+					origin: value('--origin'),
+					domain: process.env.MATHGAME_DOMAIN
+				}
+			);
 	}
 	throw new AdminError(USAGE);
 }
