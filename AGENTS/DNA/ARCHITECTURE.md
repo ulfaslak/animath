@@ -367,16 +367,17 @@ Local first ([[DECISIONS]] § Saves). The pieces:
 | `src/admin.ts`               | The admin's commands as functions: `resetPassword`, `deleteAccount`, `listAll`. |
 | `scripts/migrate.ts`         | Applies journaled migrations from `drizzle/`.                                                             |
 | `scripts/admin.ts`           | The admin CLI over `src/admin.ts` ([[DEVELOPMENT]] § Accounts).                                            |
+| `scripts/prune-test-databases.ts` | `pnpm db:prune-tests`: drops each checkout's test database whose checkout folder, read from the database's comment, is gone, printing it first; `--dry-run` only lists ([[DEVELOPMENT]] § Database). |
 | `scripts/build.ts`           | `pnpm build`: esbuild bundles `src/index.ts`, `scripts/migrate.ts` and `scripts/admin.ts` into `dist/index.mjs`, `dist/migrate.mjs` and `dist/admin.mjs`, every dependency inside and the engine's TypeScript too, so production runs them with plain `node` and no `node_modules`. `pnpm start` runs the bundle; `tsx` is for development only. |
 | `drizzle/NNNN_*.sql`         | Hand-written migrations; `drizzle/meta/_journal.json` lists them.                                         |
 | `drizzle.config.ts`          | drizzle-kit's config. `drizzle-kit generate` is never run: migrations are hand-written ([[DEVELOPMENT]] § Migrations). |
 | `test/*.test.ts`             | Integration tests against the test database (see [[DEVELOPMENT]] § Testing ideology).                     |
 | `src/app.test.ts`            | The one test beside the source, and the one with a mock: `pingDb` mocked to see `/api/health`'s `503` and the build it reports; also the API's 404s and the client's serving, against `test/fixtures/client-dist/` (a built client in miniature): the Cache-Control of a built file, of the page and of a public file, and a missing file's 404. |
-| `test/database.ts`           | `testDatabaseUrl()`: `TEST_DATABASE_URL`, else `DATABASE_URL` with its database renamed `mathgame_test`; a name not ending in `_test` is refused. |
+| `test/database.ts`           | The checkout's test database: `testDatabaseUrl()` is `TEST_DATABASE_URL`, else `DATABASE_URL` with its database renamed `checkoutDatabaseName()`, `mathgame_<folder>_<hash>_test` from the checkout's folder (`CHECKOUT_ROOT`, found from the file's own place); `TEST_DATABASE`, the only names the setup will empty (`…_test`); `CHECKOUT_DATABASE`, the only names the prune will drop. `database.test.ts` pins them. |
 | `test/accounts-ready.test.ts` | Whether accounts work: yes on the migrated test database, no where its tables are not on the `search_path` (as before `0003_accounts`) and on a database that does not answer; `AccountsReady`'s one question per 10 s for every asker, its timeout, and no second question beside one still out; the route's `200 { ready }`. |
 | `test/presence-hub.test.ts`   | The hub's rules with fake peers: near and far, worlds apart, the keep distance, leaving, one presence per identity, `find`, the roster, a full world, and a property test that sight is both ways within one world and every browser draws exactly who the hub says it sees. |
 | `test/presence-socket.test.ts` | The socket over a real HTTP server and real WebSockets: hi and the name as the rules clean it, find, a refused name, another version, replacement by guest and by account, another site's `Origin`, a message too big, a flood, junk, silence, a socket that stops answering pings, `maxSockets`. |
-| `test/global-setup.ts`       | Creates, migrates and truncates that database once per `vitest` run; `vitest.config.ts` injects its URL.   |
+| `test/global-setup.ts`       | Creates, migrates and truncates that database once per `vitest` run, and writes the checkout's folder into its comment; `vitest.config.ts` injects its URL. |
 
 ### Data model
 
