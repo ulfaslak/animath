@@ -368,16 +368,21 @@ export class PauseController {
 			return this.worldsKey('Enter');
 		}
 		if (/^[0-9]$/.test(key)) {
-			// A digit, from the keyboard or the pad: the number grows, to four digits. Typing
-			// is silent, as an answer's is.
-			if (pause.worldDraft.length < WORLD_DIGITS) pause.worldDraft += key;
-			this.onGo();
+			// A digit, from the keyboard or the pad: the number grows, to four digits; a fifth
+			// does nothing, and leaves the cursor where it is. Typing is silent, as an answer's is.
+			if (pause.worldDraft.length < WORLD_DIGITS) {
+				pause.worldDraft += key;
+				this.onGo();
+			}
 			return true;
 		}
 		switch (key) {
 			case 'Backspace':
-				pause.worldDraft = pause.worldDraft.slice(0, -1);
-				this.onGo();
+				// With nothing typed there is nothing to take back, and the cursor stays.
+				if (pause.worldDraft !== '') {
+					pause.worldDraft = pause.worldDraft.slice(0, -1);
+					this.onGo();
+				}
 				return true;
 			case 'ArrowUp':
 			case 'w':

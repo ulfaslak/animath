@@ -738,6 +738,24 @@ describe('the Worlds screen', () => {
 		expect([game.world, pause.open]).toEqual([1, false]);
 	});
 
+	it('a fifth digit, or Backspace with nothing typed, does nothing: not even to the cursor', () => {
+		const { press, downTo } = setup();
+		press('Escape', ...downTo('worlds'), 'Enter', '1', '2', '3', '4', 'ArrowDown');
+		expect([pause.worldDraft, pause.option]).toEqual(['1234', 2]);
+		press('5');
+		expect([pause.worldDraft, pause.option]).toEqual(['1234', 2]);
+		// The Enter after it does the row the cursor is on: Back, not a trip to World 1234.
+		press('Enter');
+		expect([pause.screen, game.world]).toEqual(['list', 1]);
+		// Away from home, the cursor starts on Go home, and a Backspace leaves it there.
+		press('Enter', '3', '0', 'Enter');
+		expect(game.world).toBe(30);
+		press('Escape', ...downTo('worlds'), 'Enter', 'Backspace');
+		expect([pause.worldDraft, pause.option]).toEqual(['', 1]);
+		press('Enter');
+		expect(game.world).toBe(1);
+	});
+
 	it('arrows walk the rows that can be done, wrapping', () => {
 		const { press, downTo } = setup();
 		press('Escape', ...downTo('worlds'), 'Enter', '5');
