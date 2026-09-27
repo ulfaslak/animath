@@ -35,8 +35,8 @@ import {
  *   POST /api/account/login     { name, password }        → 200 { user: { name } } + cookie
  *   POST /api/account/logout                              → 200 { ok: true }, cookie cleared
  *   GET  /api/account/me                                  → 200 { user: { name } | null }
- *   GET  /api/account/save                                → 200 SaveV1 | 404 no save yet
- *   PUT  /api/account/save      SaveV1                    → 200 { ok: true } | 409 { error, save }
+ *   GET  /api/account/save                                → 200 SaveV2 | 404 no save yet
+ *   PUT  /api/account/save      SaveV2                    → 200 { ok: true } | 409 { error, save }
  *
  * Every POST and PUT must be JSON from a page of this site (`sameOriginJson`).
  * The save routes answer 401 without a live session. Login and register are

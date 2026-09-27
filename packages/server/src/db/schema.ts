@@ -96,7 +96,7 @@ export const sessions = pgTable(
 );
 
 /**
- * The one save an account keeps: the same document as the browser's (`SaveV1`,
+ * The one save an account keeps: the same document as the browser's (`SaveV2`,
  * the engine's), written with the same guard as the anonymous backup. `seq` is
  * the document's own `seq`, kept beside it.
  */

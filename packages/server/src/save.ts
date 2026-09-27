@@ -12,7 +12,7 @@ import {
 
 /**
  * Storing a player's save backup. The document's shape is the engine's
- * (`SaveV1`, `validateSaveWrite`); this module decides whether a write lands.
+ * (`SaveV2`, `validateSaveWrite`); this module decides whether a write lands.
  */
 
 /**

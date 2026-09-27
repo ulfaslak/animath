@@ -326,11 +326,11 @@ Local first ([[DECISIONS]] § Saves). The pieces:
 ### Data model
 
 - `players` — `id uuid pk`, `secret_hash text` (SHA-256 of the client-held secret; the secret itself is never stored), `display_name text?`, `created_at`, `last_seen_at` (bumped on every authenticated request). One row per anonymous player.
-- `saves` — `player_id uuid pk → players (cascade)`, `data jsonb` (the `SaveV1` envelope below), `updated_at`. One save per player: the backup of the save that lives in the player's browser.
+- `saves` — `player_id uuid pk → players (cascade)`, `data jsonb` (the `SaveV2` envelope below), `updated_at`. One save per player: the backup of the save that lives in the player's browser.
 - `save_backups` — `id bigserial pk`, `player_id uuid → players (cascade)`, `data jsonb`, `reason text` (`replaced`: a different game took its place; `unreadable`: this build could not read it), `created_at`. A save the server would otherwise lose, copied here before a write replaces it. Nothing reads it; it is for recovering a kid's game by hand ([[DEVELOPMENT]] § Database).
 - `users` — `id uuid pk`, `name text` (as the engine's `checkName` gives it: trimmed, NFC; also the character's name), `name_key text unique` (the engine's `nameKey(name)`, computed at registration: a change to `nameKey`'s rules needs a migration that recomputes every row), `password_hash text` (`passwords.ts`), `created_at`. One row per account. The three tables above are the anonymous backup's; nothing here refers to them.
 - `sessions` — `token_hash text pk` (SHA-256 of the cookie's token), `user_id uuid → users (cascade)`, `created_at`, `expires_at` (a year after the last use; a use more than a day into that year moves it). At most 20 per account: a new session clears that account's expired ones and its least recently used past 20.
-- `account_saves` — `user_id uuid pk → users (cascade)`, `data jsonb` (the `SaveV1` envelope below), `seq bigint` (the document's own `seq`), `updated_at`. One save per account, written with the same guard as `saves`.
+- `account_saves` — `user_id uuid pk → users (cascade)`, `data jsonb` (the `SaveV2` envelope below), `seq bigint` (the document's own `seq`), `updated_at`. One save per account, written with the same guard as `saves`.
 - `account_save_backups` — `save_backups` for accounts: `id bigserial pk`, `user_id uuid → users (cascade)`, `data jsonb`, `reason text`, `created_at`; newest first within a budget per account (§ HTTP API, the write guard).
 
 Hot fields get promoted from `data` to columns when a query needs them (nearby players, leaderboards).
@@ -350,7 +350,7 @@ Errors are JSON `{ error: string }`, except the health check's. All routes are u
 | `POST /api/account/login`     | none  | `200 { user: { name } }` and the session cookie; `401 { error: 'wrong name or password' }` for a wrong password and for a name with no account alike, in the same time. |
 | `POST /api/account/logout`    | none  | `200 { ok: true }`: the session is deleted and the cookie cleared, with or without one. |
 | `GET /api/account/me`         | none  | `200 { user: { name } }`, or `200 { user: null }` when not logged in. |
-| `GET /api/account/save`       | session | `200 SaveV1` as stored, or `404 { error: 'no save yet' }`. |
+| `GET /api/account/save`       | session | `200 SaveV2` as stored, or `404 { error: 'no save yet' }`. |
 | `PUT /api/account/save`       | session | `200 { ok: true }`; `409 { error, save }` with the stored save when its `seq` is the same or higher (another device got ahead); `400 { error: 'bad save', detail }`; `413`. |
 
 **Owner auth** is `Authorization: Bearer <secret>`. Missing or malformed header → `401`; `:id` unknown (or not a uuid) → `404 { error: 'no such player' }`; secret does not match the stored hash → `401`. The client tells the two `404`s apart by their `error` text, which `players.test.ts` pins.
