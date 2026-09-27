@@ -60,6 +60,8 @@
 		font-weight: 800;
 		font-size: 28px;
 		line-height: 1.2;
+		/* Two even lines rather than a word left alone on the second. */
+		text-wrap: balance;
 	}
 	.button {
 		display: inline-flex;

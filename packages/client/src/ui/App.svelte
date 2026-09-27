@@ -26,7 +26,8 @@
 {#if title.open}
 	<TitleScreen />
 {:else if !playing}
-	<div class="loading">{t('app.loading')}</div>
+	<!-- Not under the behind card (a newer build's save found at start): the card says it all. -->
+	{#if !behind.shown}<div class="loading">{t('app.loading')}</div>{/if}
 {:else if battle.active}
 	{#if !battle.entering}<BattlePanel />{/if}
 {:else if doctor.active}
