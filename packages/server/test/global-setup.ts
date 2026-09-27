@@ -32,9 +32,15 @@ export default async function setup(): Promise<void> {
 		await migrate(drizzle(pool), {
 			migrationsFolder: fileURLToPath(new URL('../drizzle', import.meta.url))
 		});
-		await pool.query(
-			'truncate table save_backups, saves, players, account_save_backups, account_saves, sessions, users'
+		// Every table the migrations made, whatever its name: a list here would have to
+		// learn each new table, and one it missed stops the truncate of any table it
+		// refers to. The migrator's own bookkeeping lives in the `drizzle` schema.
+		const { rows } = await pool.query<{ name: string }>(
+			"select format('%I', tablename) as name from pg_tables where schemaname = 'public'"
 		);
+		if (rows.length > 0) {
+			await pool.query(`truncate table ${rows.map((r) => r.name).join(', ')}`);
+		}
 	} finally {
 		await pool.end();
 	}

@@ -55,7 +55,7 @@ export function createApp(options: AppOptions = {}) {
 	const production = options.production ?? env.NODE_ENV === 'production';
 	const clientDist = options.clientDist ?? CLIENT_DIST;
 	const app = new Hono();
-	app.use(logger());
+	app.use(logger((line) => console.log(hideWelcomeTokens(line))));
 	app.route('/api/health', health);
 	if (production) app.route('/api/players', backupOff);
 	else app.route('/api/players', playersRoute);
@@ -78,6 +78,16 @@ export function createApp(options: AppOptions = {}) {
 	app.all('/assets/*', (c) => c.notFound());
 	app.get('/*', serveClient({ path: `${clientDist}/index.html` }));
 	return app;
+}
+
+/**
+ * A request line as the log may keep it: a welcome link's token, in the
+ * page's address (`?welcome=`) or the API's path (`/welcome/<token>`), is
+ * `[hidden]`. The link logs a kid in to their account once, and a log is read
+ * by whoever looks into a problem, into a transcript as often as not.
+ */
+export function hideWelcomeTokens(line: string): string {
+	return line.replace(/(welcome[=/])[^\s&#/?]+/gi, '$1[hidden]');
 }
 
 function notFound(c: Context) {

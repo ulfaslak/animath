@@ -90,10 +90,22 @@ function parse(stored: string): { params: Params; salt: Buffer; key: Buffer } | 
 }
 
 /**
+ * The stored hash of an account that has no password yet: one the admin made
+ * for a game moved here (`admin import-save`), waiting for the kid to pick a
+ * password through its welcome link (`welcome.ts`). Not in the scrypt format,
+ * so no password matches it.
+ */
+export const NO_PASSWORD = '!';
+
+/**
  * Whether `password` is the one `stored` was made from. The keys are compared
- * in constant time. A stored value this module cannot read never matches.
+ * in constant time. A stored value this module cannot read never matches, and
+ * an account with no password yet (`NO_PASSWORD`) takes a real check's time
+ * to say so, as a name with no account does: the answer's timing does not
+ * tell a login which it met.
  */
 export async function verifyPassword(password: string, stored: string): Promise<boolean> {
+	if (stored === NO_PASSWORD) return verifyDecoy(password);
 	const parsed = parse(stored);
 	if (!parsed) {
 		console.error('a stored password hash is not in the scrypt format; nobody can log in with it');
