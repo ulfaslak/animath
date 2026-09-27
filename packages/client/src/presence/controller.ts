@@ -135,6 +135,8 @@ export class PresenceController {
 				this.finding = null;
 				presence.roster = [];
 				this.options.renderer.others.clear();
+				// Whoever is there was there first: they fade in, without a poof.
+				this.options.renderer.others.hush();
 				this.connect();
 				break;
 			case 'game-left':
@@ -145,9 +147,10 @@ export class PresenceController {
 				presence.reset();
 				break;
 			case 'player-placed':
-				if (event.playerId === game.playerId && this.placing !== null) {
-					hud.presence('nextTo', this.placing);
-				}
+				if (event.playerId !== game.playerId) break;
+				// The player is the one who went in a poof; the friend they came to was there already.
+				this.options.renderer.others.hush();
+				if (this.placing !== null) hud.presence('nextTo', this.placing);
 				this.placing = null;
 				break;
 			case 'go-to-refused':
@@ -268,6 +271,7 @@ export class PresenceController {
 				// Back after a drop, or here for the first time: whoever is still on screen
 				// must be said again, and the next roster is who is here, not who came.
 				this.notes.reconnected(now);
+				others.hush();
 				this.unconfirmed = new Set(others.pids());
 				this.confirmBy = this.unconfirmed.size > 0 ? now + CONFIRM_SECONDS : null;
 				break;

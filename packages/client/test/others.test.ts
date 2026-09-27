@@ -11,7 +11,7 @@ import {
 import * as THREE from 'three';
 import { describe, expect, it } from 'vitest';
 import { WORLD_SEED } from '../src/authority/local';
-import { FADE_SECONDS, OtherPlayers, trainerLook } from '../src/render/others';
+import { FADE_SECONDS, HUSH_SECONDS, OtherPlayers, trainerLook } from '../src/render/others';
 import { PLAYER_LOOK, TRAINER_LOOKS } from '../src/render/palette';
 import { POOF_SECONDS, PUFF_GEOMETRY, Poofs } from '../src/render/poof';
 import { STEP_SECONDS } from '../src/render/trainer';
@@ -154,6 +154,17 @@ describe('other players on screen', () => {
 		expect(t).toBeLessThan(5 * STEP_SECONDS);
 		const last = path.at(-1)!;
 		expect(figureOf('walker')!.position.x).toBeCloseTo(last.x);
+	});
+
+	it('come without a poof when it is the player who just turned up, and with one again after', () => {
+		const { others, poofs, frame, frames, centre } = setup();
+		frame();
+		others.hush();
+		others.seen(peer('there1', { x: centre.x + 1, y: centre.y }));
+		expect(poofs.playing).toBe(0);
+		frames(HUSH_SECONDS + 0.1);
+		others.seen(peer('new1', { x: centre.x - 1, y: centre.y }, { name: 'Bo' }));
+		expect(poofs.playing).toBe(1);
 	});
 
 	it('play a poof whole from its first frame, however long the world round a far friend took to build', () => {

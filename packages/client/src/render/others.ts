@@ -58,6 +58,8 @@ const MAX_BEHIND = 8;
 const POOF_NEAR = 12;
 /** How high over a trainer's feet their name sits: just over the cap. */
 const HEAD_HEIGHT = 0.95;
+/** Seconds after the player turns up somewhere during which the others there come without a poof. */
+export const HUSH_SECONDS = 2;
 
 /** The shirt and cap a player's name gives them: the same on every screen, and never the player's own. */
 export function trainerLook(name: string): TrainerLook {
@@ -104,6 +106,9 @@ export class OtherPlayers {
 	private seed = 0;
 	/** Where the middle of the screen is: the player's tile, as the renderer last put it. */
 	private centre: GridPos = { x: 0, y: 0 };
+	/** The clock of the last frame drawn (seconds), and until when newcomers come without a poof. */
+	private now = 0;
+	private hushedUntil = Number.NEGATIVE_INFINITY;
 
 	constructor(
 		private readonly scene: THREE.Scene,
@@ -138,6 +143,15 @@ export class OtherPlayers {
 		this.centre = { x: pos.x, y: pos.y };
 	}
 
+	/**
+	 * It is the player who just turned up (they went to someone, came into
+	 * this world, or their socket came back): for `HUSH_SECONDS` everyone
+	 * already there fades in without a poof, since none of them moved.
+	 */
+	hush(): void {
+		this.hushedUntil = this.now + HUSH_SECONDS;
+	}
+
 	/** A player as they are now (`peer`): drawn if new, walked on to their tile, or put there with a poof. */
 	seen(peer: PeerMessage): void {
 		const target = { x: peer.x, y: peer.y };
@@ -150,7 +164,8 @@ export class OtherPlayers {
 		if (!other) {
 			other = this.create(peer);
 			this.others.set(peer.pid, other);
-			if (tilesApart(target, this.centre) <= POOF_NEAR) this.poof(target, peer.boat);
+			const hushed = this.now < this.hushedUntil;
+			if (!hushed && tilesApart(target, this.centre) <= POOF_NEAR) this.poof(target, peer.boat);
 			return;
 		}
 		other.busy = peer.busy;
@@ -190,6 +205,7 @@ export class OtherPlayers {
 
 	/** Walk, fade and pose everyone for this frame: `t` is the renderer's clock, `dt` the frame's seconds. */
 	update(t: number, dt: number): void {
+		this.now = t;
 		const calm = motion.reduced;
 		for (const other of [...this.others.values()]) {
 			if (other.leaving) {
