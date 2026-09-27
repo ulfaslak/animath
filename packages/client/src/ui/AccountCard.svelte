@@ -89,7 +89,7 @@
 				autocorrect="off"
 				spellcheck="false"
 				enterkeyhint="next"
-				disabled={account.busy}
+				readonly={account.busy}
 				{@attach box('name')}
 			/>
 		</label>
@@ -107,7 +107,7 @@
 					autocorrect="off"
 					spellcheck="false"
 					enterkeyhint={registering ? 'done' : 'go'}
-					disabled={account.busy}
+					readonly={account.busy}
 					{@attach box('password')}
 				/>
 				<button
@@ -222,7 +222,9 @@
 	.box.active {
 		border-color: var(--accent);
 	}
-	.box:disabled {
+	/* While the server is asked: read-only, not disabled, so the box keeps the focus (a
+	   disabled box drops it, and the kid's next try would type into nothing). */
+	.box:read-only {
 		opacity: 0.6;
 	}
 	.reveal {
