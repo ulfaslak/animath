@@ -635,9 +635,7 @@ const BUILDERS: Record<string, Builder> = {
 			tube(0.008, 0.1, COLORS.dark, side * 0.035, 0.05, 0),
 			box(0.03, 0.01, 0.05, COLORS.dark, side * 0.035, 0.005, 0.02)
 		]),
-		...wings(0.09, 0.23, (side) => [
-			ball(0.06, fur, side * 0.1, 0.19, -0.03, 0.35, 0.9, 1.4)
-		])
+		...wings(0.09, 0.23, (side) => [ball(0.06, fur, side * 0.1, 0.19, -0.03, 0.35, 0.9, 1.4)])
 	],
 	// A shiny dark oval on six short legs, and two giant antler jaws.
 	'stag-beetle': ({ fur, accent }) => [
@@ -805,9 +803,7 @@ const BUILDERS: Record<string, Builder> = {
 			ball(0.04, COLORS.dark, side * 0.05, 0.52, 0.13),
 			box(0.06, 0.04, 0.06, accent, side * 0.06, 0.02, 0.06)
 		]),
-		...wings(0.14, 0.34, (side) => [
-			ball(0.1, fur, side * 0.15, 0.25, -0.01, 0.35, 1.1, 0.9)
-		])
+		...wings(0.14, 0.34, (side) => [ball(0.1, fur, side * 0.15, 0.25, -0.01, 0.35, 1.1, 0.9)])
 	],
 	// A black bandit mask under white brows, and a ringed tail.
 	raccoon: ({ fur, accent }) => [

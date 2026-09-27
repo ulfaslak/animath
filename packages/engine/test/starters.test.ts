@@ -24,7 +24,8 @@ describe('starters', () => {
 			expect(spec.realms, id).toContain('land');
 		}
 		expect(STARTERS).toEqual(ANIMALS.map((a) => a.id).filter((id) => STARTERS.includes(id)));
-		for (const spec of ANIMALS) expect(isStarter(spec.id), spec.id).toBe(STARTERS.includes(spec.id));
+		for (const spec of ANIMALS)
+			expect(isStarter(spec.id), spec.id).toBe(STARTERS.includes(spec.id));
 		// Tier-1 animals that are caught, never chosen: the new small ones on land, and the sea's
 		// small ones, which live only out on the deep water where a new game never starts.
 		for (const id of ['shrew', 'hedgehog', 'common-toad', 'robin', 'crab', 'starfish']) {
