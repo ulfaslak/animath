@@ -81,9 +81,12 @@ export type MatchIntent =
 	/** The side leaves the match, at any time; the other side wins. */
 	| { type: 'leave' }
 	/**
-	 * The authority reports the side gone (it dropped out and did not come
-	 * back in time): the other side wins. The engine never reads the clock,
-	 * so the authority's timer enters as this intent.
+	 * The authority reports the side gone: it dropped out and did not come
+	 * back in time, or, if the authority keeps a turn clock, sat on its turn
+	 * past it. The other side wins. Taken in every phase, whoever is acting.
+	 * The engine never reads the clock, so the authority's timer enters as
+	 * this intent: without one, a side that stops sending holds the match
+	 * until the other leaves.
 	 */
 	| { type: 'timeout' };
 
