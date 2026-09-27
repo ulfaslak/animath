@@ -114,7 +114,7 @@ describe('arrivalSpot', () => {
 		expect(landed).toBeGreaterThan(100);
 		expect(afloat).toBeGreaterThan(0);
 		expect(nowhere).toBeGreaterThan(0);
-	});
+	}, 30_000);
 
 	it('never lands on the friend, never on foot on the water, and faces the friend', () => {
 		const rng = new Rng(7);
@@ -135,7 +135,7 @@ describe('arrivalSpot', () => {
 				}
 			}
 		}
-	});
+	}, 30_000);
 
 	it('beside a friend on open ground, lands on a tile touching theirs', () => {
 		const rng = new Rng(99);

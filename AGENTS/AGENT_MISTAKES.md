@@ -553,6 +553,22 @@ The socket first retried after 1, 2, 4 and 8 s; the server restart it waits for 
 
 The calm poof kept its four puffs where the full one starts, 0.18 tiles out, under a trainer who is 0.28 wide: with reduced motion the poof was hidden behind its own trainer, and nothing showed that anything happened. Found by a calm run with the poof slowed to 4 s (a temporary edit, reverted). Fix: calm puffs stand where the full ones end, and only swell and fade. Would become `[learned]` with a Phase 2 checklist line: every flourish is looked at once with `calm`/`--reduced-motion`.
 
+### 2026-09-27 — PR #93 (presence), found by its adversarial review — a count standing in for the property it was meant to guarantee `[learned]`
+
+A go-to had to "never strand anyone", and the rule asked that the arrival spot reach 40 tiles. A 51-tile island near World 1's spawn reaches 40 tiles, so a boatless kid who went to a friend on it was stuck there for good, with the position saved; the brute-force test agreed with the code because it modelled the same count. Fix: the property itself, bounded: the tiles reachable must lead 64 tiles from the friend, one search per pocket (`arrival.ts`), and six real closed pockets in `arrival.test.ts`; [[INVARIANTS]] § go-to names the island.
+
+### 2026-09-27 — PR #93 (presence), found by its adversarial review — one size bound for both directions of a protocol `[learned]`
+
+`readWire` capped text at `MAX_MESSAGE_BYTES`, the 4 KiB a browser may send, and the browser read the server with it too; a roster of 50 players is up to about 8 KiB, so a world of about 40 players with long names had every roster dropped, silently. The hub's fake peers checked messages through `JSON.parse`, not through the bound the browser reads with. Fix: `MAX_SERVER_MESSAGE_BYTES` for the server's messages, `fitRoster` on the server, and fake peers that read through the wire's bound (`presence-hub.test.ts`).
+
+### 2026-09-27 — PR #93 (presence), found by its adversarial review — a socket's edges: before the library owns it, and after it was told to go `[learned]`
+
+Node takes its own error listener off a socket it hands to `upgrade`, so a refusal written to a client that had already reset raised an unhandled `EPIPE` and took the server down; and a socket told `bye` went on being read until its close handshake ended, so it could say hello again and rejoin as a ghost, logging a line per message. Fix: an error listener from the first line of the upgrade handler, and nothing read once a socket is closing, cut off a second later (`presence-socket.test.ts` § under attack).
+
+### 2026-09-27 — PR #93 (presence), found by its adversarial review — a limit set without asking who pushes against it `[learned]`
+
+The server capped sockets in all and per world, and messages per socket, but not sockets per address: one machine could take all 1,000 places or fill a world with 200 idle guests. And the wire's coordinate bound (2^30) was "far past anywhere a kid walks" without asking what reads a coordinate: a float32 instance matrix, 128 tiles a step out there, where a lying page could send a kid. Fix: 40 sockets per address (`maxPerAddress`) and coordinates within 100,000 (`MAX_WIRE_COORD`), each with its test.
+
 ### 2026-09-27 — PR #87 (deploy), found by its adversarial review — a gate that runs after the traffic it was meant to hold back `[learned]`
 
 `scripts/deploy.sh` started the canary with the network alias `app`, then waited for its health check and asked it for the game's page "before handing it the kids". But Docker lists a container under its alias from the moment it starts, healthy or not, and nginx looks `app` up every 5 s: the canary took kids' requests through the whole wait. On the local stack an image with a broken page served it to 10 of 75 page loads before its check failed. Fix: the new image is checked first in a container without the alias, which nginx cannot reach; only one that passed becomes the canary (0 broken loads of 392). ARCHITECTURE § Production states the order. Category: **a check placed after the moment it was meant to guard**. For every gate, find the instant the gated thing becomes live (here: joining the network under the alias, not turning healthy), and put the gate before it.
