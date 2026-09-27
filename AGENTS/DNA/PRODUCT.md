@@ -327,7 +327,7 @@ What is built and observable today. Keep current: add a bullet when a feature sh
 
 In rough priority order. Each becomes a GitHub issue when picked up. The choices behind the first are [[DECISIONS]] § Deployment.
 
-1. **The public website.** The game at its own address on the internet, always on, instead of shared from the human's machine through a tunnel; a game played so far moves there with its player, without losing anything. The deploy is built (§5 Server); the server and the domain wait for the human ([[HUMAN_TODO]]), and moving a game there is not built yet.
+1. **The public website.** The game at its own address on the internet, always on, instead of shared from the human's machine through a tunnel; a game played so far moves there with its player, without losing anything. The deploy is built (§5 Server); agents are putting it on its own server at animath.xyz ([[HUMAN_TODO]]), and moving a game there is not built yet.
 2. Real low-poly animal models (glTF, CC0 sources, see [[DECISIONS]]) with attack animations, replacing the primitive figures.
 3. Procedural world v2: rivers that flow, paths, biome shaping, landmarks.
 4. Puzzle catalog v2: fractions, decimals, negatives, percentages, word problems, per-child adaptive difficulty.
