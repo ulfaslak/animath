@@ -42,7 +42,14 @@ async function start(options: PresenceOptions = {}) {
 		await new Promise<void>((resolve) => server.close(() => resolve()));
 	};
 	running.push(stop);
-	return { presence, port, url: `ws://127.0.0.1:${port}${PRESENCE_PATH}` };
+	return { presence, port, server, url: `ws://127.0.0.1:${port}${PRESENCE_PATH}` };
+}
+
+/** How many connections `server` holds open, upgraded ones and refused ones not yet let go included. */
+function connections(server: Server): Promise<number> {
+	return new Promise((resolve, reject) =>
+		server.getConnections((error, count) => (error ? reject(error) : resolve(count)))
+	);
 }
 
 class Client {
@@ -509,7 +516,7 @@ describe('presence socket under attack', () => {
 	});
 
 	it('survives upgrades that reset as they are refused: a wrong path, another site, a full server', async () => {
-		const { url, port } = await start({ maxSockets: 1 });
+		const { url, port, server } = await start({ maxSockets: 1 });
 		const { c: ada } = await joined(url, 'Ada', 'a'.repeat(20));
 		const raw = (path: string, origin: string) =>
 			new Promise<void>((resolve) => {
@@ -532,10 +539,12 @@ describe('presence socket under attack', () => {
 				raw(PRESENCE_PATH, '')
 			]);
 		}
-		await new Promise((r) => setTimeout(r, 200));
+		// The server has let every one of them go, whatever it wrote to it: only Ada's is left.
+		while ((await connections(server)) > 1) await new Promise((r) => setImmediate(r));
 		// Still up (a write to a socket the other end reset must never take the process down):
 		// it still answers, and Ada is still there.
 		expect(await fetch(`http://127.0.0.1:${port}/`).then((r) => r.status)).toBe(404);
+		await roundTrip(ada);
 		expect(ada.ws.readyState).toBe(WebSocket.OPEN);
 	});
 });
