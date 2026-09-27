@@ -1,4 +1,4 @@
-import pg from 'pg';
+import pg, { type QueryConfig } from 'pg';
 import { afterAll, describe, expect, it, vi } from 'vitest';
 import {
 	ACCOUNT_TABLES,
@@ -82,14 +82,17 @@ describe('accountTablesReady', () => {
 		await holder.connect();
 		const key = Math.floor(Math.random() * 2 ** 31);
 		await holder.query('select pg_advisory_lock($1)', [key]);
+		const stuck: QueryConfig & { query_timeout: number } = {
+			text: 'select pg_advisory_lock($1)',
+			values: [key],
+			query_timeout: 200
+		};
 		// A connection the pool already holds: the question goes out before the clock moves.
 		await pool.query('select 1');
 		vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
 		let failed: unknown;
 		try {
-			void pool
-				.query({ text: 'select pg_advisory_lock($1)', values: [key], query_timeout: 200 })
-				.catch((e: unknown) => (failed = e));
+			void pool.query(stuck).catch((e: unknown) => (failed = e));
 			await vi.advanceTimersByTimeAsync(199);
 			expect(failed).toBeUndefined();
 			await vi.advanceTimersByTimeAsync(1);

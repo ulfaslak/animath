@@ -122,14 +122,15 @@ async function joined(url: string, name: string, guest: string, options: ClientO
 }
 
 /**
- * Once this resolves, all the server sent `c` before has arrived: the server answers a
- * socket's messages in order, and a player who asks where they are themselves hears `lost`.
- * A barrier, where a wait on the clock would only guess.
+ * A ping of the client's own, answered. A socket's frames keep their order both ways, so by
+ * then the server has read all `c` sent before it, and all the server sent `c` before has
+ * arrived: a barrier, where a wait on the clock would only guess.
  */
-async function caughtUp(c: Client, pid: string): Promise<void> {
-	const seen = c.got.length;
-	c.send({ t: 'find', pid });
-	await c.next('lost', 2000, seen);
+function roundTrip(c: Client): Promise<void> {
+	return new Promise((resolve) => {
+		c.ws.once('pong', () => resolve());
+		c.ws.ping();
+	});
 }
 
 describe('presence socket', () => {
@@ -138,7 +139,7 @@ describe('presence socket', () => {
 		const { c: ada, pid: adaPid } = await joined(url, '  Ada  ', 'a'.repeat(20));
 		expect(ada.got[0]).toMatchObject({ t: 'hi', v: PROTOCOL_VERSION, name: 'Ada' });
 		const { c: bo, pid: boPid } = await joined(url, 'Bo', 'b'.repeat(20));
-		const { c: far, pid: farPid } = await joined(url, 'Cy', 'c'.repeat(20));
+		const { c: far } = await joined(url, 'Cy', 'c'.repeat(20));
 		ada.where(1, 0, 0);
 		bo.where(1, 2, 1);
 		far.where(2, 0, 0);
@@ -156,7 +157,7 @@ describe('presence socket', () => {
 		);
 		expect(roster).toMatchObject({ world: 1, players: [{ pid: boPid, name: 'Bo', steps: 3 }] });
 		// Cy, in another world, hears nothing of them.
-		await caughtUp(far, farPid);
+		await roundTrip(far);
 		expect(far.got.filter((m) => m.t === 'peer')).toEqual([]);
 		// Bo goes home: Ada is told.
 		bo.ws.close();
@@ -292,6 +293,8 @@ describe('presence socket', () => {
 	});
 
 	it('closes a socket that keeps sending what is no message, or says nothing', async () => {
+		// The wait for a hello runs on the fake clock.
+		vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
 		const { url } = await start({ maxInvalid: 3, helloTimeoutMs: 300 });
 		const junk = new Client(url);
 		await junk.opened;
@@ -299,9 +302,14 @@ describe('presence socket', () => {
 		junk.ws.send(Buffer.from([1, 2, 3]));
 		junk.send({ t: 'where', world: 1, x: 0, y: 0 }); // before hello, and half a message
 		expect(await junk.next('bye')).toEqual({ t: 'bye', reason: 'invalid' });
+		// A socket that says nothing has 300 ms to say hello, and not one more.
 		const silent = new Client(url);
 		await silent.opened;
-		expect(await silent.next('bye', 2000)).toEqual({ t: 'bye', reason: 'invalid' });
+		vi.advanceTimersByTime(299);
+		await roundTrip(silent);
+		expect(silent.got).toEqual([]);
+		vi.advanceTimersByTime(1);
+		expect(await silent.next('bye')).toEqual({ t: 'bye', reason: 'invalid' });
 		// A second hello counts too.
 		const { c: twice } = await joined(url, 'Ada', 'a'.repeat(20));
 		for (let i = 0; i < 3; i++) twice.hello();
@@ -319,15 +327,12 @@ describe('presence socket', () => {
 		quiet.where(1, 0, 0);
 		lively.where(1, 1, 0);
 		await lively.next('peer');
-		// The first beat pings both, and Bo's socket answers at once. A ping of his own,
-		// answered in its turn, says the server has read that answer.
+		// The first beat pings both, and Bo's socket answers as the ping arrives; his own
+		// round trip after that says the server has read the answer.
 		const pinged = new Promise((resolve) => lively.ws.once('ping', resolve));
 		vi.advanceTimersByTime(100);
 		await pinged;
-		await new Promise((resolve) => {
-			lively.ws.once('pong', resolve);
-			lively.ws.ping();
-		});
+		await roundTrip(lively);
 		// The next beat finds Ada's ping unanswered: she is dropped, and Bo stays.
 		vi.advanceTimersByTime(100);
 		expect((await quiet.closed).code).toBe(1006);
@@ -462,7 +467,7 @@ describe('presence socket under attack', () => {
 		vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
 		const logs: string[] = [];
 		const { url, port, presence } = await start({ maxInvalid: 3, log: (l) => logs.push(l) });
-		const { c: kid, pid } = await joined(url, 'Kid', 'k'.repeat(20));
+		const { c: kid } = await joined(url, 'Kid', 'k'.repeat(20));
 		kid.where(1, 0, 0);
 		const joins = vi.spyOn(presence.hub, 'join');
 		const raw = await rawSocket(port);
@@ -494,7 +499,7 @@ describe('presence socket under attack', () => {
 		// so once it has ended the connection it has read all the rest.
 		raw.s.write(frame(Buffer.from([0x03, 0xe8]), 0x8));
 		await raw.closed;
-		await caughtUp(kid, pid);
+		await roundTrip(kid);
 		expect(joins).not.toHaveBeenCalled();
 		expect(kid.got.filter((m) => m.t === 'peer')).toEqual([]);
 		expect(logs.length).toBeLessThanOrEqual(1);
