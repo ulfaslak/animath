@@ -54,6 +54,12 @@ import { Matches, type MatchOptions } from './matches.js';
  * - **Matches.** The same socket carries friendly matches: the invites and
  *   the matches themselves are `matches.ts`'s, which hears every socket that
  *   says hello, says where it is or closes, whatever closed it.
+ * - **Battles seen from outside.** A page reports its own battle with a
+ *   wild animal (`battle`), read like everything else through the engine's
+ *   parser (numbers and species, never a nickname or any other words), and
+ *   the hub passes it on to the players near it: at most `battleRatePerSecond`
+ *   a second (a kid plays a step every second or two), so what one page can
+ *   make the server send each player near it stays small.
  */
 export const PRESENCE_PATH = '/api/ws';
 
@@ -82,6 +88,12 @@ export interface PresenceOptions {
 	maxDropped?: number;
 	maxInvalid?: number;
 	maxBuffered?: number;
+	/**
+	 * Reports of a page's own battle (`battle`) passed on each second, on
+	 * average (`battleBurst` at once): the rest are dropped, quietly.
+	 */
+	battleRatePerSecond?: number;
+	battleBurst?: number;
 	/**
 	 * What public ids are made from, with who each player is: a secret every
 	 * copy of the server shares, so a player keeps their id across a restart and
@@ -116,6 +128,9 @@ interface SocketState {
 	windowStart: number;
 	dropped: number;
 	invalid: number;
+	/** The page's own battle's reports have a bucket of their own (`battleRatePerSecond`). */
+	battleTokens: number;
+	battleRefill: number;
 }
 
 export function attachPresence(server: Server, options: PresenceOptions = {}): Presence {
@@ -130,6 +145,8 @@ export function attachPresence(server: Server, options: PresenceOptions = {}): P
 	const maxDropped = options.maxDropped ?? 40;
 	const maxInvalid = options.maxInvalid ?? 10;
 	const maxBuffered = options.maxBuffered ?? 256 * 1024;
+	const battleRatePerSecond = options.battleRatePerSecond ?? 2;
+	const battleBurst = options.battleBurst ?? 4;
 	const log = options.log ?? (() => {});
 
 	// Public ids: a keyed hash of who it is, so the same player keeps one (on every copy
@@ -209,7 +226,9 @@ export function attachPresence(server: Server, options: PresenceOptions = {}): P
 			lastRefill: now,
 			windowStart: now,
 			dropped: 0,
-			invalid: 0
+			invalid: 0,
+			battleTokens: battleBurst,
+			battleRefill: now
 		};
 		states.set(ws, state);
 		/**
@@ -327,6 +346,13 @@ export function attachPresence(server: Server, options: PresenceOptions = {}): P
 				case 'done':
 					matches.handle(peer, message);
 					return;
+				case 'battle':
+					// A kid plays a step every second or two; a page that reports faster is not
+					// shown faster, and the next report says how the battle stands anyway.
+					if (takeBattleToken(state, battleRatePerSecond, battleBurst)) {
+						hub.battle(peer, message.view, message.events);
+					}
+					return;
 				default:
 					// A second hello, or nothing we know.
 					return bad();
@@ -392,6 +418,23 @@ function takeToken(state: SocketState, ratePerSecond: number, burst: number): bo
 		return false;
 	}
 	state.tokens -= 1;
+	return true;
+}
+
+/**
+ * Take a battle report's token from its own bucket: `ratePerSecond` come
+ * back each second, up to `burst`. Without one the report is dropped: it is
+ * already counted against the socket's own rate, so a flood still closes it.
+ */
+function takeBattleToken(state: SocketState, ratePerSecond: number, burst: number): boolean {
+	const now = Date.now();
+	state.battleTokens = Math.min(
+		burst,
+		state.battleTokens + ((now - state.battleRefill) / 1000) * ratePerSecond
+	);
+	state.battleRefill = now;
+	if (state.battleTokens < 1) return false;
+	state.battleTokens -= 1;
 	return true;
 }
 
