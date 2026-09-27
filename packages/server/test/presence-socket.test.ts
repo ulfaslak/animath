@@ -336,6 +336,8 @@ describe('presence socket', () => {
 		await roundTrip(lively);
 		// The next beat finds Ada's ping unanswered: she is dropped, and Bo stays.
 		vi.advanceTimersByTime(100);
+		await roundTrip(quiet);
+		expect(quiet.ws.readyState).toBe(WebSocket.CLOSED);
 		expect((await quiet.closed).code).toBe(1006);
 		expect(await lively.next('gone')).toMatchObject({ t: 'gone' });
 		expect(presence.hub.size).toBe(1);
