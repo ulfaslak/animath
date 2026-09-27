@@ -12,6 +12,8 @@
 	import { touch } from '../input/touch.svelte';
 	import { kindList, speciesTopics } from '../kinds';
 	import { animalWords, nameOf, nameRefusal, nameRule, speciesName } from '../names';
+	import { runsAsWebApp } from '../account/web-app';
+	import { account } from '../state/account.svelte';
 	import { CONFIRM_CHOICES, title, type ConfirmChoice } from '../state/title.svelte';
 	import Switch from './Switch.svelte';
 
@@ -46,6 +48,12 @@
 	const lead = $derived(title.lead);
 	const rows = $derived(title.rows);
 	const litRow = $derived(title.screen === 'menu' ? rows[title.cursor] : undefined);
+	/**
+	 * Opened from the Home Screen with nothing saved here: the game played in
+	 * the browser is in the browser's storage, which a web app does not share.
+	 * Its hint says how to bring it over (#90).
+	 */
+	const standaloneHint = $derived(runsAsWebApp() && saved === null && account.name === null);
 	const species = $derived(STARTERS[title.starter] ?? STARTERS[0]!);
 	/**
 	 * How much the player's name box takes: well past the longest name, so a
@@ -162,6 +170,8 @@
 						{/if}
 					{:else if row === 'new'}
 						<span class="label">{t('title.newGame')}</span>
+					{:else if row === 'login'}
+						<span class="label">{t('title.haveAccount')}</span>
 					{:else if row === 'sound'}
 						<span class="label">{t('title.sound')}</span>
 						<span class="setting">
@@ -187,6 +197,13 @@
 					{/if}
 				</button>
 			{/each}
+			{#if account.name !== null && account.session !== 'ended'}
+				<div class="note playing-as">{t('account.playingAs', { name: account.name })}</div>
+			{/if}
+			{#if standaloneHint}
+				<!-- A web app on the Home Screen keeps its own storage, apart from Safari's (#90). -->
+				<div class="note hint">{t('title.standaloneHint')}</div>
+			{/if}
 			{#if title.notice}
 				<div class="note">{t(title.notice)}</div>
 			{/if}
@@ -545,6 +562,15 @@
 		font-weight: 600;
 		font-size: 16px;
 		margin: 10px 8px 0;
+	}
+	.playing-as {
+		font-weight: 800;
+	}
+	/* The web app's hint (#90): a soft blue box, so it reads as help, not a warning. */
+	.hint {
+		padding: 6px 10px;
+		border-radius: 10px;
+		background: rgba(61, 123, 232, 0.12);
 	}
 	.preview {
 		font-weight: 800;

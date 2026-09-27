@@ -134,7 +134,9 @@ describe('hardcoded text in Svelte templates', () => {
  */
 const FOR_DEVELOPERS: Readonly<Record<string, string>> = {
 	'src/save/api.ts':
-		"HTTP: the server's error bodies it compares ('no save yet'), the Authorization header, status notes for the console"
+		"HTTP: the server's error bodies it compares ('no save yet'), the Authorization header, status notes for the console",
+	'src/account/api.ts':
+		"HTTP: the account routes' error bodies it compares ('name taken', 'wrong name or password'), status notes for the console"
 };
 
 describe('worded literals in TypeScript', () => {

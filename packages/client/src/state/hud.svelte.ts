@@ -19,6 +19,7 @@ import { touch } from '../input/touch.svelte';
 import { messageWords } from '../lines';
 import { animalWords } from '../names';
 import type { SaveNotice } from '../save/notices';
+import { account } from './account.svelte';
 import { game } from './game.svelte';
 
 /**
@@ -72,16 +73,35 @@ export type Said =
 	| { needs: ClearableKind }
 	| { party: PartyNotice }
 	/** What start-up found about the save: a copy key from `SAVE_NOTICES`. */
-	| { save: SaveNotice };
+	| { save: SaveNotice }
+	/**
+	 * The page started again for the account (`account/restart.ts`): the game
+	 * is saved in the new account, the player logged in, or another device's
+	 * newer save came in. Worded with the account's name when the line shows.
+	 */
+	| { account: 'saved' | 'welcome' | 'movedAhead' };
 
 export function saidWords(said: Said): string {
 	if ('line' in said) return messageWords(said.line);
 	if ('doctor' in said) return doctorWords(said.doctor);
 	if ('party' in said) return partyWords(said.party);
 	if ('save' in said) return t(said.save);
+	if ('account' in said) return accountWords(said.account);
 	if ('needs' in said)
 		return said.needs === 'tree' ? t('explore.needAxe') : t('explore.needPickaxe');
 	return t('explore.notAtTent');
+}
+
+function accountWords(note: 'saved' | 'welcome' | 'movedAhead'): string {
+	const name = account.name ?? '';
+	switch (note) {
+		case 'saved':
+			return t('account.notice.saved', { name });
+		case 'welcome':
+			return t('account.notice.welcome', { name });
+		case 'movedAhead':
+			return t('account.notice.movedAhead');
+	}
 }
 
 /** What Enter (the touch controls' Talk) does in front of the player: talk, chop, break, or nothing. */
@@ -313,6 +333,11 @@ class HudView {
 	/** Say what start-up found about the save. Call after `welcome`, which clears the line. */
 	notice(key: SaveNotice): void {
 		this.say({ save: key });
+	}
+
+	/** What the page says after starting again for the account (`account/restart.ts`). */
+	accountNotice(note: 'saved' | 'welcome' | 'movedAhead'): void {
+		this.say({ account: note });
 	}
 
 	/** Put a line on the message line; it stays for `MESSAGE_SECONDS` of the HUD on screen. */

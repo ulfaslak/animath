@@ -14,6 +14,7 @@ import { parseParty } from '../src/flags';
 import { PICK_QUIET_SECONDS } from '../src/input/pick-guard';
 import { languageKey, rowKey } from '../src/input/press';
 import type { TitleView3D } from '../src/render/title-scenery';
+import { account } from '../src/state/account.svelte';
 import { game } from '../src/state/game.svelte';
 import { title } from '../src/state/title.svelte';
 import { TitleController } from '../src/title/controller';
@@ -101,12 +102,16 @@ function setup(saved: SavedGame | null = null) {
 	const authority = new LocalAuthority({ homeWorld: () => 1 });
 	const scenery = new FakeScenery();
 	const continued: SavedGame[] = [];
+	const logIns: number[] = [];
 	const controller = new TitleController(authority, scenery, {
 		// As main.ts does: the game is picked up, then the name given for it goes on.
 		continueGame(game, name) {
 			continued.push(game);
 			authority.start({ game });
 			if (name !== undefined) authority.dispatch({ type: 'choose-name', name });
+		},
+		logIn() {
+			logIns.push(logIns.length);
 		}
 	});
 	const events: GameEvent[] = [];
@@ -139,7 +144,7 @@ function setup(saved: SavedGame | null = null) {
 		wait(PICK_QUIET_SECONDS + 0.05);
 		return press('Enter');
 	};
-	return { authority, controller, scenery, continued, events, sent, press, wait, giveName };
+	return { authority, controller, scenery, continued, events, sent, press, wait, giveName, logIns };
 }
 
 const newGames = (sent: readonly Intent[]) => sent.filter((i) => i.type === 'new-game');
@@ -158,7 +163,7 @@ describe('title: the menu', () => {
 	it('with no saved game: New game and the settings, the cursor on New game, the starters behind', () => {
 		const { scenery } = setup();
 		expect(title.open).toBe(true);
-		expect(title.rows).toEqual(['new', 'language', 'sound']);
+		expect(title.rows).toEqual(['new', 'login', 'language', 'sound']);
 		expect(title.cursor).toBe(0);
 		expect(scenery.shown).toEqual([`world ${STARTERS.join(',')}`]);
 	});
@@ -167,7 +172,7 @@ describe('title: the menu', () => {
 		// The game chopped two trees: the world behind the title shows it as the kid left it.
 		const saved = { ...savedGame(), edits: ['-1,0:9091'] };
 		const { scenery, continued, events, press } = setup(saved);
-		expect(title.rows).toEqual(['continue', 'new', 'language', 'sound']);
+		expect(title.rows).toEqual(['continue', 'new', 'login', 'language', 'sound']);
 		expect(title.rows[title.cursor]).toBe('continue');
 		expect(scenery.shown).toEqual(['world squirrel,fox']);
 		expect(scenery.cleared).toEqual(['-1,0:9091']);
@@ -202,7 +207,7 @@ describe('title: the menu', () => {
 
 	it('walks the rows with arrows and W / S, wrapping, and never on auto-repeat', () => {
 		const { controller, press } = setup(savedGame());
-		press('s', 'ArrowDown', 'ArrowDown');
+		press('s', 'ArrowDown', 'ArrowDown', 'ArrowDown');
 		expect(title.rows[title.cursor]).toBe('sound');
 		press('ArrowDown');
 		expect(title.cursor).toBe(0);
@@ -213,19 +218,19 @@ describe('title: the menu', () => {
 		expect(title.rows[title.cursor]).toBe('sound');
 		expect(held.prevented).toBe(true);
 		// A held Enter never picks anything either.
-		press('w', 'w', 'w');
+		press('w', 'w', 'w', 'w');
 		controller.onKey(key('Enter', { repeat: true }));
 		expect(title.open).toBe(true);
 	});
 
 	it('W A S D steer the same in capitals, and a shortcut is the browser’s', () => {
 		const { press, controller } = setup(savedGame());
-		press('S', 'S');
+		press('S', 'S', 'S');
 		expect(title.rows[title.cursor]).toBe('language');
 		const first = language.current;
 		press('D');
 		expect(language.current).not.toBe(first);
-		press('A', 'W');
+		press('A', 'W', 'W');
 		expect(language.current).toBe(first);
 		expect(title.rows[title.cursor]).toBe('new');
 		// Ctrl+Enter, Cmd+W: never the title's.
@@ -239,6 +244,7 @@ describe('title: the menu', () => {
 		const first = language.current;
 		expect(press('ArrowRight').prevented).toBe(false); // on New game
 		expect(language.current).toBe(first);
+		expect(press('ArrowDown', 'ArrowRight').prevented).toBe(false); // on "I have an account"
 		press('ArrowDown', 'ArrowRight');
 		const second = language.current;
 		expect(second).not.toBe(first);
@@ -252,7 +258,7 @@ describe('title: the menu', () => {
 	it('the Sound row: Enter switches the sound, left turns it off and right on', () => {
 		const { press } = setup();
 		const was = sfx.on;
-		press('ArrowDown', 'ArrowDown');
+		press('ArrowDown', 'ArrowDown', 'ArrowDown');
 		expect(title.rows[title.cursor]).toBe('sound');
 		press('Enter');
 		expect(sfx.on).toBe(!was);
@@ -696,5 +702,36 @@ describe('title: a pointer', () => {
 		expect(newGames(sent)).toEqual([
 			{ type: 'new-game', speciesId: STARTERS[2], nickname: '', name: 'Ida' }
 		]);
+	});
+});
+
+describe('title: accounts', () => {
+	afterEach(() => {
+		account.name = null;
+		account.session = 'unknown';
+	});
+
+	it('"I have an account → Log in" is a row for a guest, and opens the login card', () => {
+		const { press, logIns } = setup(savedGame());
+		expect(title.rows).toContain('login');
+		press('ArrowDown', 'ArrowDown');
+		expect(title.rows[title.cursor]).toBe('login');
+		press('Enter');
+		expect(logIns).toHaveLength(1);
+		expect(title.open).toBe(true);
+		expect(title.screen).toBe('menu');
+		// A tap on the row does the same.
+		press(rowKey(title.rows.indexOf('login')));
+		expect(logIns).toHaveLength(2);
+	});
+
+	it('a logged-in player has no login row, until the server says the session is over', () => {
+		account.name = 'Ida';
+		setup(savedGame());
+		expect(title.rows).toEqual(['continue', 'new', 'language', 'sound']);
+		account.session = 'live';
+		expect(title.rows).not.toContain('login');
+		account.session = 'ended';
+		expect(title.rows).toEqual(['continue', 'new', 'login', 'language', 'sound']);
 	});
 });

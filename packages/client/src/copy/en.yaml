@@ -585,6 +585,10 @@ pause:
   resume: Keep playing
   # The row that leaves the game for the title screen (the game is saved; Continue picks it up).
   quit: Start screen
+  # The account's rows: a guest's two, and a logged-in player's one.
+  makeAccount: Make an account
+  logIn: Log in
+  logOut: Log out
   # The row that switches every word to another language; each language is
   # listed by its own name (language.name above).
   language: Language
@@ -648,6 +652,11 @@ save:
   storageFull: This browser has no room left to keep your game.
   # After a window that another window of the game had played past loads the newest game.
   caughtUp: You were playing in another window. Here's your newest game!
+  # On the title after logging out.
+  loggedOut: You're logged out. Your game waits safely in your account.
+  # The server says the account is logged out (a new password, a year away): on the title,
+  # or on the message line mid-game.
+  sessionEnded: You're logged out, so your game only saves on this device. Log in to keep it safe.
   # On a window that another window of the game has played past, until it catches up.
   behind: You kept playing in another window.
   # The same card when the newest game came from somewhere else (the server backup),
@@ -658,6 +667,55 @@ save:
   behindGone: A new game is ready.
   # The button on that card.
   behindGo: Get your newest game
+
+account:
+  # The account card's two boxes, and the button beside the password that shows it as typed.
+  name: Your name
+  password: Secret password
+  show: Show
+  hide: Hide
+  back: Back
+  # While the card asks the server.
+  busy: Just a moment…
+  # Under the boxes when making an account. {min}: the fewest characters a password has.
+  passwordRule: 'At least {min} letters or numbers.'
+  # On the title of a logged-in player. {name}: the account's name.
+  playingAs: 'Playing as {name}'
+  register:
+    title: Keep your game safe
+    text: Your name is what you log in with. Pick a secret password that only you know.
+    go: Save my game
+    keys: Tab other box · Enter save · Esc back
+  login:
+    title: Log in
+    text: Type your name and your secret password.
+    go: Log in
+    # Under the boxes when logging in: a grown-up can set a new password.
+    forgot: Forgot your password? Ask a grown-up to help.
+    keys: Tab other box · Enter log in · Esc back
+  # Why the card did not go on, in place of the line under the boxes.
+  problem:
+    taken: That name is taken. Pick another one!
+    passwordShort: 'Your password needs at least {min} letters or numbers.'
+    passwordLong: "That's a long password! {max} letters at most."
+    wrong: That name and password don't go together. Try again!
+    # Too many tries: the server asks to wait. {count}: minutes.
+    tooMany:
+      one: Lots of tries! Take a little break and try again in a minute.
+      other: 'Lots of tries! Take a little break and try again in {count} minutes.'
+    offline: We can't reach the game's home right now. Try again soon!
+  # The card after every hour of a guest's play.
+  prompt:
+    title: Keep your animals safe!
+    text: Pick a secret password, and your game is saved for good. You can play it on another tablet or computer too!
+    save: Save my game
+    later: Not now
+    keys: ← → choose · Enter pick · Esc not now
+  # On the message line after the page starts again for the account. {name}: the account's name.
+  notice:
+    saved: 'Your game is saved! Log in as {name} on any tablet or computer.'
+    welcome: 'Welcome back, {name}!'
+    movedAhead: You played on somewhere else. Here's your newest game!
 
 sound:
   # The chip at the top of the screen after M turned the sound on or off.
@@ -672,6 +730,11 @@ title:
   # The menu's rows.
   continue: Continue
   newGame: New game
+  # The title's row for a player with an account made before: opens the login card.
+  haveAccount: I have an account → Log in
+  # On the title of the game opened from the Home Screen with nothing saved there: a web app
+  # keeps its own storage, apart from the browser's (#90).
+  standaloneHint: Played in Safari before? Make an account there (Menu → Make an account), then log in here.
   language: Language
   sound: Sound
   # Beside Continue, after the name of the saved team's first animal: how big the team is.

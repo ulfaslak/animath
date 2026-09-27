@@ -14,9 +14,10 @@
 	import { touch } from '../input/touch.svelte';
 	import { motion } from '../motion';
 	import { animalWords, nameOf, speciesName } from '../names';
+	import { account } from '../state/account.svelte';
 	import { game } from '../state/game.svelte';
 	import {
-		MENU_ITEMS,
+		menuItems,
 		cardRows,
 		partyOptions,
 		pause,
@@ -82,6 +83,8 @@
 		const row = rows[pause.option];
 		return row?.kind === 'animal' ? row.animal.id : null;
 	});
+	/** The menu's rows under the team, as they are now (the account's follow who is playing). */
+	const items = $derived(menuItems());
 	/** The card that is lit on the left: the cursor, or the card whose options or animals are open. */
 	const lit = $derived.by(() => {
 		if (pause.screen === 'list') return pause.cursor;
@@ -89,7 +92,7 @@
 		return cards.findIndex((c) => c.speciesId === species);
 	});
 	/** The cursor is on the Sound row: the right side says what it does (and with a keyboard, that M does it too). */
-	const soundLit = $derived(MENU_ITEMS[pause.cursor - cards.length] === 'sound');
+	const soundLit = $derived(items[pause.cursor - cards.length] === 'sound');
 
 	/**
 	 * The cards' order before its latest change and after it, noted before the
@@ -142,6 +145,12 @@
 				return t('pause.quit');
 			case 'sound':
 				return t('pause.sound');
+			case 'makeAccount':
+				return t('pause.makeAccount');
+			case 'logIn':
+				return t('pause.logIn');
+			case 'logOut':
+				return account.leaving ? t('account.busy') : t('pause.logOut');
 		}
 	}
 
@@ -232,7 +241,7 @@
 						</span>
 					</button>
 				{/each}
-				{#each MENU_ITEMS as item, j (item)}
+				{#each items as item, j (item)}
 					{@const row = cards.length + j}
 					<button
 						type="button"
@@ -378,7 +387,7 @@
 		<!-- The keys; with the touch controls on, every row is its own button and needs no reminder. -->
 		{#if !touch.on}
 			<div class="keys">
-				{#if pause.screen === 'list' && MENU_ITEMS[pause.cursor - cards.length] === 'language'}
+				{#if pause.screen === 'list' && items[pause.cursor - cards.length] === 'language'}
 					{t('pause.keysLanguage')}
 				{:else if pause.screen === 'list' && soundLit}
 					{t('pause.keysSound')}

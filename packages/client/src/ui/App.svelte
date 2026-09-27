@@ -3,18 +3,21 @@
 	import { t } from '../copy';
 	import { flags } from '../flags';
 	import { touch } from '../input/touch.svelte';
+	import { account } from '../state/account.svelte';
 	import { battle } from '../state/battle.svelte';
 	import { behind } from '../state/behind.svelte';
 	import { doctor } from '../state/doctor.svelte';
 	import { game } from '../state/game.svelte';
 	import { pause } from '../state/pause.svelte';
 	import { title } from '../state/title.svelte';
+	import AccountCard from './AccountCard.svelte';
 	import BattlePanel from './BattlePanel.svelte';
 	import BehindCard from './BehindCard.svelte';
 	import DoctorCard from './DoctorCard.svelte';
 	import Hud from './Hud.svelte';
 	import Iris from './Iris.svelte';
 	import PauseMenu from './PauseMenu.svelte';
+	import SavePrompt from './SavePrompt.svelte';
 	import SoundChip from './SoundChip.svelte';
 	import TitleScreen from './TitleScreen.svelte';
 	import TouchControls from './TouchControls.svelte';
@@ -36,6 +39,15 @@
 {:else}
 	<Hud />
 	{#if touch.on}<TouchControls />{/if}
+{/if}
+
+<!-- Over the explore HUD: after an hour of a guest's play, the offer to keep the game safe. -->
+{#if account.prompt && playing}
+	<SavePrompt />
+{/if}
+<!-- Over the title, the pause menu or the game: make an account, or log in. -->
+{#if account.card}
+	<AccountCard />
 {/if}
 
 <SoundChip low={title.open} />

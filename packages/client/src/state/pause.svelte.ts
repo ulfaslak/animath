@@ -1,4 +1,6 @@
 import { bundles, canFightIn, leadIndex, type AnimalInstance, type Realm } from '@mathgame/engine';
+import { flags } from '../flags';
+import { account } from './account.svelte';
 
 /**
  * What the pause menu shows and which screen the keys drive. Written only by
@@ -13,8 +15,8 @@ import { bundles, canFightIn, leadIndex, type AnimalInstance, type Realm } from 
 export type PauseScreen = 'list' | 'bundle' | 'options' | 'naming';
 
 /**
- * The rows under the team, in order: the settings, then "Keep playing" and
- * Quit to title. A new one is a new id here, its label in
+ * The rows under the team, in order: the settings, the account's rows (as
+ * `menuItems` shows them), then "Keep playing" and Quit to title. A new one is a new id here, its label in
  * `PauseMenu.svelte`, and its case in `PauseController.chooseItem` — the
  * cursor, keys and layout already count every row listed. A setting's row
  * also takes left and right (`PauseController.settingKey`). `language`
@@ -23,14 +25,38 @@ export type PauseScreen = 'list' | 'bundle' | 'options' | 'naming';
  * (Start screen) saves the game as it stands and goes back to the title,
  * where Continue picks it up.
  */
-export const MENU_ITEMS = ['language', 'sound', 'resume', 'quit'] as const;
+export const MENU_ITEMS = [
+	'language',
+	'sound',
+	'makeAccount',
+	'logIn',
+	'logOut',
+	'resume',
+	'quit'
+] as const;
 export type MenuItem = (typeof MENU_ITEMS)[number];
+
+/**
+ * The rows the menu shows now. The account rows ([[UI_SPEC]] § Accounts)
+ * follow who is playing: a guest has "Make an account" and "Log in"; a
+ * player logged in has "Log out", and "Log in" again once the server has
+ * said the session is over. A throwaway game (`?new` and the like) has
+ * none: it saves nothing, so it has no game to keep safe.
+ */
+export function menuItems(): MenuItem[] {
+	return MENU_ITEMS.filter((item) => {
+		if (item !== 'makeAccount' && item !== 'logIn' && item !== 'logOut') return true;
+		if (flags.throwaway) return false;
+		if (account.name === null) return item !== 'logOut';
+		return item === 'logOut' || (item === 'logIn' && account.session === 'ended');
+	});
+}
 
 class PauseView {
 	/** True from Escape in explore until the menu is closed. Walking waits meanwhile. */
 	open = $state(false);
 	screen = $state<PauseScreen>('list');
-	/** Highlighted row of the list: the team's cards in order, then `MENU_ITEMS`. */
+	/** Highlighted row of the list: the team's cards in order, then `menuItems()`. */
 	cursor = $state(0);
 	/**
 	 * The card of several animals open on the right (`bundle`), by species;

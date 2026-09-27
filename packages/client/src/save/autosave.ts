@@ -17,7 +17,15 @@ import {
 import { isIdentity, type Identity, type SaveServer } from './api';
 import type { BehindCause } from './behind';
 import type { SaveNotice } from './notices';
-import { KEYS, parseJson, type KeyValueStore } from './storage';
+import {
+	KEYS,
+	MAX_PUT_AWAY,
+	MAX_SET_ASIDE,
+	parseJson,
+	setAside,
+	type KeyValueStore,
+	type SaveKeys
+} from './storage';
 
 /**
  * Saving, local first ([[DECISIONS]] § Saves). The save lives in this
@@ -39,7 +47,7 @@ import { KEYS, parseJson, type KeyValueStore } from './storage';
  * after the authority picked up the plan's game (Continue), or a `welcome`
  * that says the game is new (a starter picked on the title), which is a game
  * of its own, a new lineage that takes the save key's place, the save there
- * kept aside first (`KEYS.previous`). `game-left` (Quit to title) saves what
+ * kept aside first (its `previous` key). `game-left` (Quit to title) saves what
  * is there and stops until the next start.
  */
 
@@ -51,8 +59,23 @@ export interface Timers {
 export interface AutosaveOptions {
 	/** Where the save lives: localStorage, or null when the browser refuses it. */
 	store: KeyValueStore | null;
-	/** The server backup, or null for none. */
+	/**
+	 * Which keys this game's saves live under: the guest game's (`KEYS`, the
+	 * default) or the account's this browser is logged in to (`accountKeys`).
+	 */
+	keys?: SaveKeys;
+	/**
+	 * The server's copy, or null for none: the anonymous backup (development
+	 * only), or an account's save (`session`), which the browser's session
+	 * cookie names, with no identity of its own to make or keep.
+	 */
 	server: SaveServer | null;
+	/**
+	 * The account's session has ended (the server answered "not logged in"):
+	 * nothing more goes to the server this page load; the game plays and
+	 * saves in the browser as before. Session servers only.
+	 */
+	loggedOut?: () => void;
 	/** The game as it stands: the authority's snapshot. */
 	snapshot: () => SavedGame;
 	/** A fresh random id, for a new game's lineage. */
@@ -83,7 +106,7 @@ export interface StartPlan {
  * - `ok`: reads and writes the save key.
  * - `held`: the save key holds a document this build cannot read. It stays
  *   untouched until the kid has played (a battle ended, the party changed),
- *   then moves to `KEYS.unreadable` and the new game takes its place.
+ *   then moves to its `unreadable` key and the new game takes its place.
  * - `frozen`: the save key holds a newer build's save. Never touched.
  * - `broken`: writing failed (storage full). The server copy is the only one.
  * - `none`: no storage at all, or a throwaway game.
@@ -105,14 +128,13 @@ const WALK_MS = 15_000;
 /** Retries back off from 2 s to a minute, and give up after this many in a row. */
 const MAX_FAILURES = 6;
 const BOOT_WAIT_MS = 2500;
-/** How many saves each set-aside key can keep (`animath.save.unreadable`, `.2`, … `.20`). */
-const MAX_SET_ASIDE = 20;
+
 /**
- * How many games `animath.save.previous` can keep. Those are put away on
- * purpose, and a kid trying the starters one after another puts one away
- * per try, so the key has room for far more than the accidents above.
+ * What stands for the identity when the server's copy is an account's: the
+ * session cookie names the account, so there is nothing to make, keep or
+ * send, and the server never sees this.
  */
-const MAX_PUT_AWAY = 200;
+const SESSION: Identity = { id: '00000000-0000-4000-8000-000000000000', secret: 'session' };
 
 const browserTimers: Timers = {
 	setTimeout: (fn, ms) => setTimeout(fn, ms),
@@ -127,7 +149,9 @@ function isOlderVersion(text: string): boolean {
 
 export class Autosave {
 	private readonly store: KeyValueStore | null;
+	private readonly keys: SaveKeys;
 	private readonly server: SaveServer | null;
+	private readonly loggedOut: (() => void) | null;
 	private readonly snapshot: () => SavedGame;
 	private readonly mintId: () => string;
 	private readonly catchUp: ((counts: { steps: number; visits: number }) => void) | null;
@@ -176,7 +200,7 @@ export class Autosave {
 	private begun = false;
 	/**
 	 * The kid started a new game here: the next write takes the save key
-	 * whatever it holds, which is kept aside first (`KEYS.previous`).
+	 * whatever it holds, which is kept aside first (its `previous` key).
 	 */
 	private replacing = false;
 	/**
@@ -203,7 +227,9 @@ export class Autosave {
 	constructor(options: AutosaveOptions) {
 		this.throwaway = options.throwaway ?? false;
 		this.store = this.throwaway ? null : options.store;
+		this.keys = options.keys ?? KEYS;
 		this.server = this.throwaway ? null : options.server;
+		this.loggedOut = options.loggedOut ?? null;
 		this.snapshot = options.snapshot;
 		this.mintId = options.mintId;
 		this.catchUp = options.catchUp ?? null;
@@ -238,6 +264,11 @@ export class Autosave {
 		return null;
 	}
 
+	/** The game this page saves, by its lineage, while one is under way; null before and after. */
+	get playing(): string | null {
+		return this.begun && this.lineage !== '' ? this.lineage : null;
+	}
+
 	/**
 	 * Whether this page keeps the game it plays: then a game left for a new
 	 * one is put away. False with no storage, a newer build's save waiting in
@@ -253,7 +284,38 @@ export class Autosave {
 	 * browser froze it, or just focused.
 	 */
 	recheck(): void {
-		this.onStorage(KEYS.save);
+		this.onStorage(this.keys.save);
+	}
+
+	/**
+	 * This page's game is no longer the one the browser plays: another tab
+	 * logged in or out, so the browser's game is now another account's or
+	 * the guest's. The page saves nothing more and reloads into the newest
+	 * game, as it does when another game takes its save's place.
+	 */
+	fallBehind(): void {
+		this.goStale('replaced');
+	}
+
+	/**
+	 * Send the newest save to the server now and wait for the answer, at most
+	 * `timeoutMs`: before a logout, so the account's copy is the newest. True
+	 * when the server holds this page's newest save (or there was nothing to
+	 * send); false when it could not be sent.
+	 */
+	async pushNow(timeoutMs: number): Promise<boolean> {
+		const deadline = Date.now() + timeoutMs;
+		const pause = (ms: number) =>
+			new Promise<void>((resolve) => this.timers.setTimeout(resolve, Math.max(0, ms)));
+		for (;;) {
+			const doc = this.latest;
+			if (!doc || doc.seq <= this.pushed) return true;
+			const left = deadline - Date.now();
+			// Out of reach and waiting to try again: no use asking now.
+			if (!this.canPush() || left <= 0 || this.retryTimer !== null || this.resting) return false;
+			// A push already on its way sends the newest when it is done; wait for it.
+			await Promise.race([this.pushing ? pause(50) : this.push(false), pause(left)]);
+		}
 	}
 
 	private get stale(): boolean {
@@ -271,7 +333,7 @@ export class Autosave {
 		if (!store) return { notice: 'save.cannotSave' };
 		this.readIdentity(store);
 
-		const text = store.get(KEYS.save);
+		const text = store.get(this.keys.save);
 		this.seenText = text;
 		this.local = 'ok';
 		let plan: StartPlan = {};
@@ -397,14 +459,14 @@ export class Autosave {
 	 * storage was cleared), to `written` when the event says.
 	 */
 	onStorage(key: string | null, written: string | null = null): void {
-		if (key !== null && key !== KEYS.save) return;
+		if (key !== null && key !== this.keys.save) return;
 		// A save of this game numbered no higher than this page's last one, and not it, was
 		// written over it without seeing it: keep this page's aside, whatever comes after.
 		if (written !== null && this.overwrittenUnseen(written)) this.keepOwnSave(true);
 		if (this.stale || (this.local !== 'ok' && this.local !== 'held')) return;
 		// Judge the save as it is now, not the value the event carried: events arrive late,
 		// and that value may already be replaced, by this page's own next save among others.
-		const now = this.store?.get(KEYS.save) ?? null;
+		const now = this.store?.get(this.keys.save) ?? null;
 		if (now === this.seenText) return;
 		// The other page only walked: carry on from its save now, counters and all.
 		if (!this.carryOnFrom(now)) this.goStale(this.causeOf(now));
@@ -473,7 +535,7 @@ export class Autosave {
 
 		const store = this.store;
 		if (store !== null && (this.local === 'ok' || this.local === 'held')) {
-			const current = store.get(KEYS.save);
+			const current = store.get(this.keys.save);
 			if (this.replacing) {
 				// A new game the kid chose takes the key, whatever it holds now: the game they
 				// left, or another tab's later save of it. That is kept aside first, never
@@ -483,7 +545,7 @@ export class Autosave {
 				if (
 					this.local === 'ok' &&
 					current !== null &&
-					!this.setAside(KEYS.previous, current, MAX_PUT_AWAY)
+					!this.setAside(this.keys.previous, current, MAX_PUT_AWAY)
 				) {
 					this.local = 'broken';
 				}
@@ -494,7 +556,8 @@ export class Autosave {
 			if (this.local === 'held') {
 				// The unreadable save is kept aside before the new game takes its place; with
 				// nowhere to keep it, it stays where it is and this game is not saved here.
-				this.local = current === null || this.setAside(KEYS.unreadable, current) ? 'ok' : 'broken';
+				this.local =
+					current === null || this.setAside(this.keys.unreadable, current) ? 'ok' : 'broken';
 			} else if (!this.replacing && current !== null && isOlderVersion(current)) {
 				// An older build's save, which this page read through the upgrade: its text is
 				// kept as it was before this version's first write takes the key. With nowhere to
@@ -502,7 +565,7 @@ export class Autosave {
 				// same: the upgrade loses nothing, so this version's save holds everything the
 				// older one did, and the server keeps its own copy of the older one. Holding back
 				// would leave the game unsaved here, reload after reload.
-				this.setAside(KEYS.upgraded, current);
+				this.setAside(this.keys.upgraded, current);
 			}
 		}
 		const writesLocal = store !== null && this.local === 'ok';
@@ -519,7 +582,7 @@ export class Autosave {
 		}
 		if (writesLocal) {
 			const text = JSON.stringify(doc);
-			if (store.set(KEYS.save, text)) {
+			if (store.set(this.keys.save, text)) {
 				this.seenText = text;
 				this.writtenText = text;
 				this.writtenSeq = doc.seq;
@@ -572,15 +635,7 @@ export class Autosave {
 	 * nowhere is left.
 	 */
 	private setAside(prefix: string, text: string, slots = MAX_SET_ASIDE): boolean {
-		const store = this.store;
-		if (!store) return false;
-		for (let n = 1; n <= slots; n++) {
-			const key = n === 1 ? prefix : `${prefix}.${n}`;
-			const there = store.get(key);
-			if (there === text) return true;
-			if (there === null) return store.set(key, text);
-		}
-		return false;
+		return this.store !== null && setAside(this.store, prefix, text, slots);
 	}
 
 	/**
@@ -612,16 +667,16 @@ export class Autosave {
 		const text = this.writtenText;
 		// Nothing of this page's that no other page has seen.
 		if (!store || text === null || text !== this.seenText) return;
-		const current = store.get(KEYS.save);
+		const current = store.get(this.keys.save);
 		if (current === null || current === text) return;
 		// A later save of this game played on from this page's, unless a storage event showed
 		// this page's written over first (`overwrittenUnseen`): the seq alone cannot tell.
 		const doc = parseJson(current);
 		const later = saveLineage(doc) === this.lineage && saveSeq(doc) > this.writtenSeq;
 		if (later && !knownLost) return;
-		const prefixes = [KEYS.replaced, KEYS.previous, KEYS.unreadable];
+		const prefixes = [this.keys.replaced, this.keys.previous, this.keys.unreadable];
 		if (prefixes.some((prefix) => this.keptUnder(prefix, text))) return;
-		this.setAside(KEYS.replaced, text);
+		this.setAside(this.keys.replaced, text);
 	}
 
 	/**
@@ -648,15 +703,20 @@ export class Autosave {
 	}
 
 	private readIdentity(store: KeyValueStore): void {
-		const text = store.get(KEYS.player);
+		// An account's save is the account's: the session cookie names it to the server.
+		if (this.server?.session) {
+			this.identity = SESSION;
+			return;
+		}
+		const text = store.get(this.keys.player);
 		if (text === null) return;
 		const parsed = parseJson(text);
 		if (isIdentity(parsed)) {
 			this.identity = { id: parsed.id, secret: parsed.secret };
 			return;
 		}
-		this.setAside(KEYS.previousPlayer, text);
-		store.remove(KEYS.player);
+		this.setAside(this.keys.previousPlayer, text);
+		store.remove(this.keys.player);
 	}
 
 	// --- server ---------------------------------------------------------------
@@ -807,13 +867,13 @@ export class Autosave {
 
 	/**
 	 * The server's game is ahead of this browser's: keep this browser's in
-	 * `KEYS.replaced` (or `KEYS.unreadable`), make the server's the saved
+	 * its `replaced` key (or `unreadable`), make the server's the saved
 	 * game, and reload into it.
 	 */
 	private adopt(save: SaveV2, doc: unknown): void {
 		const store = this.store;
 		if (!store || this.local === 'frozen' || this.local === 'none') return;
-		const current = store.get(KEYS.save);
+		const current = store.get(this.keys.save);
 		if (current !== this.seenText && current !== null) {
 			// Another page wrote meanwhile, and its storage event has not come yet. If it only
 			// walked, carry on from it, as the event would have, and settle again: the server
@@ -822,13 +882,13 @@ export class Autosave {
 			else this.goStale(this.causeOf(current));
 			return;
 		}
-		const aside = this.local === 'held' ? KEYS.unreadable : KEYS.replaced;
+		const aside = this.local === 'held' ? this.keys.unreadable : this.keys.replaced;
 		if (current !== null && !this.setAside(aside, current)) {
 			// Nowhere to keep this browser's game: it is not replaced.
 			this.serverState = 'stopped';
 			return;
 		}
-		if (!store.set(KEYS.save, JSON.stringify(save))) {
+		if (!store.set(this.keys.save, JSON.stringify(save))) {
 			// Cannot keep the server's game here, so reloading would not reach it. Carry on as we are.
 			this.serverState = 'stopped';
 			return;
@@ -848,14 +908,14 @@ export class Autosave {
 		}
 		this.succeeded();
 		// Another page of this browser may have made one first: use it, so both back up to one player.
-		const theirs = parseJson(this.store.get(KEYS.player) ?? '');
+		const theirs = parseJson(this.store.get(this.keys.player) ?? '');
 		if (isIdentity(theirs)) {
 			this.identity = { id: theirs.id, secret: theirs.secret };
 			this.serverState = 'unknown';
 			void this.checkServer();
 			return;
 		}
-		if (!this.store.set(KEYS.player, JSON.stringify(result.identity))) {
+		if (!this.store.set(this.keys.player, JSON.stringify(result.identity))) {
 			this.serverState = 'stopped';
 			return;
 		}
@@ -871,9 +931,17 @@ export class Autosave {
 	 * new one.
 	 */
 	private retireIdentity(): void {
+		if (this.server?.session) {
+			// The account's session ended (a logout elsewhere, a new password, a year unused):
+			// the game goes on in the browser, and the server hears nothing more this visit.
+			this.serverState = 'stopped';
+			this.clearTimers();
+			this.loggedOut?.();
+			return;
+		}
 		if (this.identity && this.store) {
-			this.setAside(KEYS.previousPlayer, JSON.stringify(this.identity));
-			this.store.remove(KEYS.player);
+			this.setAside(this.keys.previousPlayer, JSON.stringify(this.identity));
+			this.store.remove(this.keys.player);
 		}
 		this.identity = null;
 		this.pushed = 0;

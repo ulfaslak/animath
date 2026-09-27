@@ -5,8 +5,8 @@ import { isShortcut, keyName } from '../input/keyboard';
 import { tappedLanguage, tappedOption, tappedRow } from '../input/press';
 import { game } from '../state/game.svelte';
 import {
-	MENU_ITEMS,
 	cardRows,
+	menuItems,
 	partyOptions,
 	pause,
 	type BundleOption,
@@ -30,8 +30,21 @@ import {
  * input off while the menu is open, so walking waits and W A S D typed into
  * the name box are letters, not steps.
  */
+/** What the account rows do: the account screens are `AccountController`'s. */
+export interface PauseHooks {
+	/** "Make an account": the account card, with the game on screen. */
+	makeAccount?(): void;
+	/** "Log in": the account card, to log in. */
+	logIn?(): void;
+	/** "Log out": saved, and the page starts again as a guest. */
+	logOut?(): void;
+}
+
 export class PauseController {
-	constructor(private authority: Authority) {}
+	constructor(
+		private authority: Authority,
+		private hooks: PauseHooks = {}
+	) {}
 
 	handle(event: GameEvent): void {
 		switch (event.type) {
@@ -109,7 +122,8 @@ export class PauseController {
 
 	private listKey(key: string): boolean {
 		const cards = bundles(game.party);
-		const rows = cards.length + MENU_ITEMS.length;
+		const items = menuItems();
+		const rows = cards.length + items.length;
 		// A tap on a row does it at once, as the arrows and Enter would: nothing
 		// here spends anything, and every move can be moved back.
 		const row = tappedRow(key);
@@ -121,14 +135,14 @@ export class PauseController {
 		// A tap on a language on the Language row: that language, whichever is on now.
 		const code = tappedLanguage(key);
 		if (code !== undefined) {
-			pause.cursor = cards.length + MENU_ITEMS.indexOf('language');
+			pause.cursor = cards.length + items.indexOf('language');
 			if (isLanguage(code) && code !== language.current) {
 				sfx.play('confirm');
 				language.set(code);
 			}
 			return true;
 		}
-		const item = MENU_ITEMS[pause.cursor - cards.length];
+		const item = items[pause.cursor - cards.length];
 		switch (key) {
 			case 'ArrowUp':
 			case 'w':
@@ -183,6 +197,17 @@ export class PauseController {
 			case 'sound':
 				this.setSound(!sfx.on);
 				break;
+			case 'makeAccount':
+				// The menu stays open under the card, and has the keys again when it goes.
+				this.hooks.makeAccount?.();
+				break;
+			case 'logIn':
+				this.hooks.logIn?.();
+				break;
+			case 'logOut':
+				sfx.play('confirm');
+				this.hooks.logOut?.();
+				break;
 		}
 	}
 
@@ -199,6 +224,9 @@ export class PauseController {
 			case 'sound':
 				if (sfx.on !== right) this.setSound(right);
 				return true;
+			case 'makeAccount':
+			case 'logIn':
+			case 'logOut':
 			case 'resume':
 			case 'quit':
 				return false;
@@ -454,7 +482,7 @@ export class PauseController {
 				pause.screen = 'list';
 			} else pause.option = Math.min(pause.option, rows.length - 1);
 		}
-		pause.cursor = Math.min(pause.cursor, bundles(game.party).length + MENU_ITEMS.length - 1);
+		pause.cursor = Math.min(pause.cursor, bundles(game.party).length + menuItems().length - 1);
 	}
 
 	private pickedIndex(): number {
