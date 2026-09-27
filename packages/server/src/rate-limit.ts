@@ -114,6 +114,12 @@ export interface AccountLimits {
 	registerPerName: LimitSpec;
 	/** Save PUTs per account. A page sends one a second at most, and fewer as it walks. */
 	savesPerAccount: LimitSpec;
+	/**
+	 * Every welcome link looked up or used from one address (`welcome.ts`): the
+	 * login's limit per address. A link's token cannot be guessed; this bounds
+	 * the asking.
+	 */
+	welcomePerIp: LimitSpec;
 }
 
 const MINUTE = 60_000;
@@ -128,5 +134,6 @@ export const ACCOUNT_LIMITS: AccountLimits = {
 	loginFailuresPerName: { limit: 50, windowMs: 15 * MINUTE, maxKeys: 10_000 },
 	registerPerIp: { limit: 30, windowMs: 60 * MINUTE, maxKeys: 10_000 },
 	registerPerName: { limit: 10, windowMs: 15 * MINUTE, maxKeys: 10_000 },
-	savesPerAccount: { limit: 120, windowMs: MINUTE, maxKeys: 10_000 }
+	savesPerAccount: { limit: 120, windowMs: MINUTE, maxKeys: 10_000 },
+	welcomePerIp: { limit: 60, windowMs: 15 * MINUTE, maxKeys: 10_000 }
 };
