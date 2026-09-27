@@ -61,16 +61,26 @@ function saveText(seq: number, name: string | null = 'Ida', lineage = 'game-a'):
 }
 
 type Answer = { status: number; json?: unknown } | 'network error';
-/** Answer each path; keep every request made. */
+/** Answer each path (or `METHOD path`, where one path takes two methods); keep every request made. */
 function server(answers: Record<string, Answer | (() => Answer)>) {
-	const requests: { url: string; body: unknown; account: string | null }[] = [];
+	const requests: {
+		url: string;
+		method: string;
+		body: unknown;
+		account: string | null;
+		welcome: string | null;
+	}[] = [];
 	vi.stubGlobal('fetch', async (url: string, init?: RequestInit) => {
+		const method = init?.method ?? 'GET';
+		const headers = new Headers(init?.headers);
 		requests.push({
 			url,
+			method,
 			body: init?.body ? JSON.parse(String(init.body)) : undefined,
-			account: new Headers(init?.headers).get('x-animath-account')
+			account: headers.get('x-animath-account'),
+			welcome: headers.get('x-animath-welcome')
 		});
-		const a = answers[url];
+		const a = answers[`${method} ${url}`] ?? answers[url];
 		const got = typeof a === 'function' ? a() : a;
 		if (!got) throw new Error(`unexpected request to ${url}`);
 		if (got === 'network error') throw new TypeError('Failed to fetch');
@@ -86,6 +96,8 @@ function setup(playerName: string | null = 'Ida', currentSave?: () => SaveWrite 
 	const store = new MemoryStore();
 	const restarts: AccountNote[] = [];
 	const events: string[] = [];
+	/** The welcome link forgotten by the tab, and the restarts, in the order they came. */
+	const welcomeSteps: string[] = [];
 	const controller = new AccountController({
 		store,
 		flush: () => events.push('flush'),
@@ -96,7 +108,11 @@ function setup(playerName: string | null = 'Ida', currentSave?: () => SaveWrite 
 		},
 		playerName: () => playerName,
 		answered: () => events.push('answered'),
-		restart: (note) => restarts.push(note)
+		restart: (note) => {
+			welcomeSteps.push(`restart:${note}`);
+			restarts.push(note);
+		},
+		forgetWelcome: () => welcomeSteps.push('forgetWelcome')
 	});
 	const press = (...names: string[]) => {
 		let last = key('');
@@ -107,7 +123,7 @@ function setup(playerName: string | null = 'Ida', currentSave?: () => SaveWrite 
 	const quiet = () => {
 		for (let t = 0; t < PICK_QUIET_SECONDS + 0.05; t += 0.1) controller.update(0.1);
 	};
-	return { store, controller, restarts, events, press, quiet };
+	return { store, controller, restarts, events, welcomeSteps, press, quiet };
 }
 
 /** Let the requests a submit started run to their end. */
@@ -392,9 +408,12 @@ describe('logging in', () => {
 
 describe('the welcome link', () => {
 	const TOKEN = 'T0k3n_for-the-kid';
-	const look = `/api/account/welcome/${TOKEN}`;
-	const use = '/api/account/welcome';
+	const look = 'GET /api/account/welcome';
+	const use = 'POST /api/account/welcome';
 	const live: Answer = { status: 200, json: { name: 'Aslak' } };
+	/** The requests made, as `METHOD path`. */
+	const said = (requests: { method: string; url: string }[]) =>
+		requests.map((r) => `${r.method} ${r.url}`);
 
 	/** Open the card, and let the server say whose account the link opens. */
 	async function opened(controller: AccountController): Promise<void> {
@@ -423,7 +442,7 @@ describe('the welcome link', () => {
 			[look]: live,
 			[use]: { status: 200, json: { user: { name: 'Aslak' }, save: theirs } }
 		});
-		const { store, controller, restarts, events, press, quiet } = setup(null);
+		const { store, controller, restarts, events, welcomeSteps, press, quiet } = setup(null);
 		const guest = saveText(4, 'Guest', 'guest');
 		store.set(KEYS.save, guest);
 		rememberLogout(store, 'Old');
@@ -432,11 +451,25 @@ describe('the welcome link', () => {
 		quiet();
 		press('Enter');
 		await answered();
-		expect(requests.at(-1)).toEqual({
-			url: use,
-			body: { token: TOKEN, password: 'blåbær' },
-			account: null
-		});
+		// The token in a header, then in the body: never in a path.
+		expect(requests).toEqual([
+			{
+				url: '/api/account/welcome',
+				method: 'GET',
+				body: undefined,
+				account: null,
+				welcome: TOKEN
+			},
+			{
+				url: '/api/account/welcome',
+				method: 'POST',
+				body: { token: TOKEN, password: 'blåbær' },
+				account: null,
+				welcome: null
+			}
+		]);
+		// The tab forgets the link before the page starts again, or the next start would reopen it.
+		expect(welcomeSteps).toEqual(['forgetWelcome', 'restart:welcome']);
 		expect(JSON.parse(store.get(gameKeys({ name: 'Aslak' }).save)!)).toEqual(theirs);
 		expect(store.get(KEYS.save)).toBe(guest);
 		expect(currentAccount(store)).toEqual({ name: 'Aslak' });
@@ -455,7 +488,7 @@ describe('the welcome link', () => {
 		press('Enter');
 		await answered();
 		expect(account.problem).toEqual({ kind: 'password', reason: 'short' });
-		expect(requests.map((r) => r.url)).toEqual([look]);
+		expect(said(requests)).toEqual([look]);
 		expect(restarts).toEqual([]);
 	});
 
@@ -467,9 +500,11 @@ describe('the welcome link', () => {
 		];
 		for (const [answer, why] of spent) {
 			server({ [look]: answer });
-			const { controller, press, quiet } = setup(null);
+			const { controller, welcomeSteps, press, quiet } = setup(null);
 			await opened(controller);
 			expect(account.welcome, why).toEqual({ phase: 'gone', why });
+			// A spent link is no use to the tab's next start.
+			expect(welcomeSteps).toEqual(['forgetWelcome']);
 			// Enter mashed as the card turned picks nothing.
 			press('Enter');
 			expect(account.card).toBe('welcome');
@@ -515,7 +550,7 @@ describe('the welcome link', () => {
 		expect(currentAccount(store)).toBeNull();
 		expect(logoutPending(store)).toBe('Old');
 		expect(restarts).toEqual([]);
-		expect(requests.filter((r) => r.url === use)).toHaveLength(1);
+		expect(said(requests).filter((r) => r === use)).toHaveLength(1);
 	});
 
 	it('with no answer, the password is kept to try again, and the look asks again on Enter', async () => {
@@ -525,9 +560,11 @@ describe('the welcome link', () => {
 			[use]: () =>
 				up ? { status: 200, json: { user: { name: 'Aslak' }, save: null } } : 'network error'
 		});
-		const { controller, press, quiet, restarts } = setup(null);
+		const { controller, welcomeSteps, press, quiet, restarts } = setup(null);
 		await opened(controller);
 		expect(account.welcome).toEqual({ phase: 'unreachable' });
+		// No answer is no reason to drop the link: the tab keeps it for a reload.
+		expect(welcomeSteps).toEqual([]);
 		up = true;
 		quiet();
 		press('Enter');
@@ -546,22 +583,40 @@ describe('the welcome link', () => {
 		press('Enter');
 		await answered();
 		expect(restarts).toEqual(['welcome']);
-		expect(requests.filter((r) => r.url === look)).toHaveLength(2);
-		expect(requests.filter((r) => r.url === use)).toHaveLength(2);
+		expect(said(requests).filter((r) => r === look)).toHaveLength(2);
+		expect(said(requests).filter((r) => r === use)).toHaveLength(2);
+	});
+
+	it('too many looks from here says so, with the wait, and Try again stays', async () => {
+		let limited = true;
+		server({
+			[look]: () =>
+				limited ? { status: 429, json: { error: 'too many tries', retryAfter: 290 } } : live
+		});
+		const { controller, welcomeSteps, press, quiet } = setup(null);
+		await opened(controller);
+		expect(account.welcome).toEqual({ phase: 'unreachable', minutes: 5 });
+		expect(welcomeSteps).toEqual([]);
+		limited = false;
+		quiet();
+		press('Enter');
+		await answered();
+		expect(account.welcome).toEqual({ phase: 'ready', name: 'Aslak' });
 	});
 
 	it('Escape puts the card away and the link with it; an answer that comes after changes nothing', async () => {
 		const requests = server({ [look]: live });
-		const { controller, press, quiet } = setup(null);
+		const { controller, welcomeSteps, press, quiet } = setup(null);
 		controller.openWelcome(TOKEN);
 		press('Escape');
+		expect(welcomeSteps).toEqual(['forgetWelcome']);
 		await answered();
 		expect(account.card).toBeNull();
 		account.passwordDraft = 'blåbær';
 		quiet();
 		press('Enter');
 		await answered();
-		expect(requests.map((r) => r.url)).toEqual([look]);
+		expect(said(requests)).toEqual([look]);
 		// A card that took its place while the server was asked is left as it is.
 		controller.openWelcome(TOKEN);
 		controller.openLogin('title');
@@ -588,7 +643,7 @@ describe('the welcome link', () => {
 		controller.onKey(key('Enter'));
 		await answered();
 		expect(account.problem).toEqual({ kind: 'storage' });
-		expect(requests.map((r) => r.url)).toEqual([look]);
+		expect(said(requests)).toEqual([look]);
 	});
 });
 

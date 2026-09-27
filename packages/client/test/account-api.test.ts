@@ -153,10 +153,14 @@ describe('login and logout', () => {
 });
 
 describe('a welcome link', () => {
-	it('is looked at by its token, in the path, and names its account only on the API’s own answer', async () => {
+	it('is looked at with its token in a header, never in the path, and names its account only on the API’s own answer', async () => {
 		const seen = answer({ status: 200, json: { name: 'Aslak' } });
-		expect(await lookAtWelcome('ab/c+d')).toEqual({ kind: 'live', name: 'Aslak' });
-		expect(seen[0]?.url).toBe('/api/account/welcome/ab%2Fc%2Bd');
+		expect(await lookAtWelcome('ab_c-d')).toEqual({ kind: 'live', name: 'Aslak' });
+		expect(seen[0]?.url).toBe('/api/account/welcome');
+		expect(new Headers(seen[0]?.init?.headers).get('x-animath-welcome')).toBe('ab_c-d');
+		// Too many looks from here: said so, with the wait, never as a server out of reach.
+		answer({ status: 429, json: { error: 'too many tries', retryAfter: 300 } });
+		expect(await lookAtWelcome('token')).toEqual({ kind: 'too-many', retryAfter: 300 });
 		const cases: [Answer, unknown][] = [
 			[
 				{ status: 410, json: { error: 'link used' } },
@@ -174,7 +178,7 @@ describe('a welcome link', () => {
 			[{ status: 404, json: { error: 'not found' } }, { kind: 'offline' }],
 			[{ status: 410, html: page }, { kind: 'offline' }],
 			[{ status: 200, json: { name: '' } }, { kind: 'offline' }],
-			[{ status: 429, json: { error: 'too many tries' } }, { kind: 'offline' }],
+			[{ status: 429, html: page }, { kind: 'offline' }],
 			['network error', { kind: 'offline' }]
 		];
 		for (const [a, outcome] of cases) {
