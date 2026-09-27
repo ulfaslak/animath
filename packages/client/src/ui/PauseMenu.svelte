@@ -16,8 +16,10 @@
 	import { motion } from '../motion';
 	import { animalWords, nameOf, speciesName } from '../names';
 	import { game } from '../state/game.svelte';
+	import { presence } from '../state/presence.svelte';
 	import {
 		MENU_ITEMS,
+		MENU_PAIRS,
 		cardRows,
 		partyOptions,
 		pause,
@@ -141,8 +143,16 @@
 		return clean === pause.draft.trim().replace(/\s+/g, ' ') ? '' : clean;
 	});
 
-	/** The menu's last two rows, drawn side by side (`PauseController`: left and right step between them). */
-	const PAIR: readonly MenuItem[] = ['resume', 'quit'];
+	/**
+	 * The menu's rows as they are drawn: one to a line, or two side by side
+	 * (`MENU_PAIRS`; `PauseController`: left and right step between them).
+	 */
+	type MenuLine = MenuItem | readonly [MenuItem, MenuItem];
+	const MENU_LINES: readonly MenuLine[] = MENU_ITEMS.flatMap((item): MenuLine[] => {
+		const pair = MENU_PAIRS.find((p) => p.includes(item));
+		if (!pair) return [item];
+		return pair[0] === item ? [pair] : [];
+	});
 
 	/** The Worlds screen's rows, and why Go is greyed when it is. */
 	const worldOptions = $derived(worldRows(pause.worldDraft, game.world, game.home));
@@ -162,6 +172,8 @@
 
 	function itemLabel(item: MenuItem): string {
 		switch (item) {
+			case 'players':
+				return t('pause.players');
 			case 'worlds':
 				return t('worlds.title');
 			case 'language':
@@ -210,7 +222,84 @@
 	function showRow(row: HTMLElement) {
 		row.scrollIntoView({ block: 'nearest' });
 	}
+
+	/** The player lit in Who's here: the cursor, kept on the list as it shrinks. */
+	const litPlayer = $derived(Math.min(pause.option, presence.roster.length - 1));
+
+	/** How far away a player is, in words: exactly for a few steps, roughly further. */
+	function away(steps: number): string {
+		if (steps === 0) return t('pause.rightHere');
+		return steps <= 20
+			? t('pause.stepsAway', { count: steps })
+			: t('pause.aboutStepsAway', { count: steps });
+	}
+
+	/** Instead of the list, when the others can't be listed: why. */
+	const unlisted = $derived.by(() => {
+		switch (presence.status) {
+			case 'on':
+				return presence.roster.length === 0 ? t('pause.nobody') : null;
+			case 'connecting':
+			case 'waiting':
+				// Back in a moment (a deploy, a hiccup): the list stays while the others are held.
+				return presence.roster.length === 0 ? t('pause.looking') : null;
+			case 'elsewhere':
+				return t('pause.elsewhere');
+			case 'outdated':
+				return t('pause.newVersion');
+			default:
+				return t('pause.unseen');
+		}
+	});
 </script>
+
+<!-- A row of the menu under the team: a setting, Worlds, Who's here, or a button. -->
+{#snippet menuRow(item: MenuItem)}
+	{@const row = cards.length + MENU_ITEMS.indexOf(item)}
+	<button
+		type="button"
+		class="row item"
+		class:lit={(pause.screen === 'list' && lit === row) ||
+			(pause.screen === 'players' && item === 'players')}
+		data-press={rowKey(row)}
+		{@attach unfocusable}
+	>
+		{#if item === 'language'}
+			<!-- Each language in its own words, so a kid finds theirs in any language;
+			     a tap on one is that language, anywhere else on the row the row. -->
+			<span class="setting">{itemLabel(item)}</span>
+			<span class="choices">
+				{#each LANGUAGES as code (code)}
+					<span
+						class="choice"
+						class:on={language.current === code}
+						lang={code}
+						data-press={languageKey(code)}
+					>
+						{languageName(code)}
+					</span>
+				{/each}
+			</span>
+		{:else if item === 'players'}
+			<!-- Who else is in this world: how many, when anyone is. -->
+			<span class="setting">{itemLabel(item)}</span>
+			{#if unlisted === null}
+				<span class="count-badge">{presence.roster.length}</span>
+			{/if}
+		{:else if item === 'worlds'}
+			<!-- The world the kid is in, beside the row: the number to tell a friend. -->
+			<span class="setting">{itemLabel(item)}</span>
+			<span class="setting-value">{t('worlds.world', { world: game.world })}</span>
+		{:else if item === 'sound'}
+			<!-- A setting: its name, a switch, and the switch's state in words. -->
+			<span class="setting">{itemLabel(item)}</span>
+			<Switch on={sfx.on} />
+			<span class="setting-state">{sfx.on ? t('pause.soundOn') : t('pause.soundOff')}</span>
+		{:else}
+			<span class="button" class:secondary={item !== 'resume'}>{itemLabel(item)}</span>
+		{/if}
+	</button>
+{/snippet}
 
 <div class="backdrop" class:typing={touch.on && pause.screen === 'naming'}>
 	<div class="menu">
@@ -311,62 +400,18 @@
 							</span>
 						</button>
 					{/each}
-					{#each MENU_ITEMS as item, j (item)}
-						{@const row = cards.length + j}
-						{#if !PAIR.includes(item)}
-							<button
-								type="button"
-								class="row item"
-								class:lit={pause.screen === 'list' && lit === row}
-								data-press={rowKey(row)}
-								{@attach unfocusable}
-							>
-								{#if item === 'language'}
-									<!-- Each language in its own words, so a kid finds theirs in any language;
-							     a tap on one is that language, anywhere else on the row the row. -->
-									<span class="setting">{itemLabel(item)}</span>
-									<span class="choices">
-										{#each LANGUAGES as code (code)}
-											<span
-												class="choice"
-												class:on={language.current === code}
-												lang={code}
-												data-press={languageKey(code)}
-											>
-												{languageName(code)}
-											</span>
-										{/each}
-									</span>
-								{:else if item === 'worlds'}
-									<!-- The world the kid is in, beside the row: the number to tell a friend. -->
-									<span class="setting">{itemLabel(item)}</span>
-									<span class="setting-value">{t('worlds.world', { world: game.world })}</span>
-								{:else if item === 'sound'}
-									<!-- A setting: its name, a switch, and the switch's state in words. -->
-									<span class="setting">{itemLabel(item)}</span>
-									<Switch on={sfx.on} />
-									<span class="setting-state"
-										>{sfx.on ? t('pause.soundOn') : t('pause.soundOff')}</span
-									>
-								{/if}
-							</button>
+					{#each MENU_LINES as line (typeof line === 'string' ? line : line.join('+'))}
+						{#if typeof line === 'string'}
+							{@render menuRow(line)}
+						{:else}
+							<!-- Two rows side by side, one line of the menu's height. -->
+							<div class="pair" class:halves={line[0] === 'worlds'}>
+								{#each line as item (item)}
+									{@render menuRow(item)}
+								{/each}
+							</div>
 						{/if}
 					{/each}
-					<!-- Keep playing and Start screen, side by side: two buttons, one row of the menu's height. -->
-					<div class="pair">
-						{#each PAIR as item (item)}
-							{@const row = cards.length + MENU_ITEMS.indexOf(item)}
-							<button
-								type="button"
-								class="row item"
-								class:lit={pause.screen === 'list' && lit === row}
-								data-press={rowKey(row)}
-								{@attach unfocusable}
-							>
-								<span class="button" class:secondary={item !== 'resume'}>{itemLabel(item)}</span>
-							</button>
-						{/each}
-					</div>
 				</div>
 
 				<div class="side">
@@ -463,6 +508,45 @@
 								{t('pause.save')}
 							</button>
 						</div>
+					{:else if pause.screen === 'players'}
+						<div class="side-title">{t('pause.players')}</div>
+						{#if unlisted !== null}
+							<div class="note">{unlisted}</div>
+						{:else}
+							<div class="players">
+								{#each presence.roster as player, i (player.pid)}
+									<button
+										type="button"
+										class="row option player"
+										class:lit={litPlayer === i}
+										data-press={optionKey(i)}
+										{@attach unfocusable}
+										{@attach (row) => {
+											if (litPlayer === i) showRow(row);
+										}}
+									>
+										<span class="caret">▸</span>
+										<span class="who">
+											<span class="name">{t('pause.goTo', { name: player.name })}</span>
+											<span class="where">
+												{#if player.steps > 0 && presence.compass.length > 0}
+													<span
+														class="compass"
+														aria-hidden="true"
+														style:transform="rotate({presence.compass[player.bearing] ?? 0}rad)"
+														>↑</span
+													>
+												{/if}
+												{away(player.steps)}{#if player.busy !== 'explore'}{' · '}{t(
+														`presence.busy.${player.busy}`
+													)}{/if}
+											</span>
+										</span>
+									</button>
+								{/each}
+							</div>
+							<div class="note">{t('pause.playersHelp')}</div>
+						{/if}
 					{:else if pause.screen === 'list' && soundLit}
 						<div class="side-title">{t('pause.sound')}</div>
 						<!-- With the touch controls on, what a tap does; the keys only with a keyboard (#53). -->
@@ -489,6 +573,8 @@
 					{t('pause.keysOptions')}
 				{:else if pause.screen === 'worlds'}
 					{t('worlds.keys')}
+				{:else if pause.screen === 'players'}
+					{t('pause.keysPlayers')}
 				{:else}
 					{t('pause.keysNaming')}
 				{/if}
@@ -529,9 +615,10 @@
 		padding: 18px 22px 16px;
 	}
 	/*
-	 * The spacing is trimmed, and Keep playing and Start screen share a row, so
-	 * a team of all eight kinds, with Worlds and the settings under it, fits
-	 * 1024×768 without the menu scrolling.
+	 * The spacing is trimmed, and Worlds and Who's here share a row, as Keep
+	 * playing and Start screen do (`MENU_PAIRS`), so a team of all eight kinds,
+	 * with those and the settings under it, fits 1024×768 without the menu
+	 * scrolling. A new row goes beside another, or the budget is measured again.
 	 */
 	.title {
 		font-weight: 800;
@@ -673,6 +760,11 @@
 	}
 	.pair .row {
 		width: auto;
+	}
+	/* Worlds and Who's here share their line half and half. */
+	.pair.halves .row {
+		flex: 1;
+		min-width: 0;
 	}
 	.setting {
 		flex: 1;
@@ -868,6 +960,48 @@
 	.side :global(.members) {
 		margin-top: 8px;
 		max-height: max(120px, calc(100vh - 500px));
+	}
+	/* Who's here: everyone in the world, in a box that scrolls when there are many. */
+	.players {
+		max-height: max(150px, calc(100vh - 420px));
+		overflow-y: auto;
+		touch-action: pan-y;
+	}
+	.player {
+		min-height: max(var(--tap), 54px);
+	}
+	.player .who {
+		display: flex;
+		flex-direction: column;
+		min-width: 0;
+	}
+	/* "Go to <name>" breaks before a name too long for the line, never through it. */
+	.player .name {
+		white-space: normal;
+		overflow: visible;
+		overflow-wrap: anywhere;
+	}
+	.player .where {
+		font-weight: 600;
+		font-size: 16px;
+		opacity: 0.75;
+	}
+	.compass {
+		display: inline-block;
+		margin-right: 4px;
+		font-weight: 800;
+		color: var(--accent);
+	}
+	/* How many others are in the world, beside Who's here. */
+	.count-badge {
+		min-width: 28px;
+		padding: 2px 8px;
+		box-sizing: border-box;
+		border-radius: 999px;
+		background: var(--accent);
+		color: var(--panel-ink);
+		font-size: 16px;
+		text-align: center;
 	}
 	.keys {
 		margin-top: 10px;

@@ -15,7 +15,9 @@
 	import DoctorCard from './DoctorCard.svelte';
 	import Hud from './Hud.svelte';
 	import Iris from './Iris.svelte';
+	import Others from './Others.svelte';
 	import PauseMenu from './PauseMenu.svelte';
+	import PresenceNote from './PresenceNote.svelte';
 	import SoundChip from './SoundChip.svelte';
 	import TitleScreen from './TitleScreen.svelte';
 	import TouchControls from './TouchControls.svelte';
@@ -36,9 +38,13 @@
 {:else if pause.open}
 	<PauseMenu />
 {:else}
+	<!-- The other players' names and the arrows to them: over the world, under the HUD, and
+	     never under a card or the menu, whose panels they would show through. -->
+	<Others />
 	<Hud />
 	<!-- Not under a trip's cover, which takes no key: a thumb that lands there presses nothing. -->
 	{#if touch.on && !travel.active}<TouchControls />{/if}
+	<PresenceNote />
 {/if}
 
 <SoundChip low={title.open} />

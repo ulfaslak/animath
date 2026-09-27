@@ -88,7 +88,7 @@ No generated-by-AI art claims without checking the generator's license terms.
 
 ## Server
 
-Node with Hono (`@hono/node-server`). Serves the built client in production; Vite proxies `/api` to it in development, WebSocket upgrades included.
+Node with Hono (`@hono/node-server`). Serves the built client in production; Vite proxies `/api` to it in development, WebSocket upgrades included (the presence socket at `/api/ws`).
 In production the server is one esbuild bundle, the engine inside, run with plain `node`; `tsx` runs it in development only.
 WebSockets via `ws`, for presence and friendly matches. The server runs the same engine as the browser; which rules it decides, and which stay in the browser, is § Multiplayer.
 Postgres via Drizzle ORM (`node-postgres` driver). Local Postgres in Docker on host port **5433**.

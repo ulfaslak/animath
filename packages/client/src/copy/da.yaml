@@ -478,6 +478,20 @@ pause:
   nameTitle: Nyt navn til {animal.the}
   nameRule: Bogstaver og tal, op til {max}.
   willBe: Navnet bliver {name}.
+  players: Hvem er her
+  goTo: Gå hen til {name}
+  stepsAway:
+    one: '{count} skridt væk'
+    other: '{count} skridt væk'
+  aboutStepsAway: 'cirka {count} skridt væk'
+  rightHere: lige her
+  playersHelp: Vælg hvem du vil gå hen til.
+  nobody: Der er ingen andre i denne verden lige nu.
+  looking: Leder efter andre spillere…
+  elsewhere: Du spiller i et andet vindue.
+  unseen: Andre spillere kan ikke se dette spil.
+  newVersion: Der er en ny udgave af spillet. Den kommer om lidt!
+  keysPlayers: ↑ ↓ flyt · Enter gå · Esc tilbage
   keysList: ↑ ↓ flyt · Enter vælg · Esc luk
   keysLanguage: ↑ ↓ flyt · ← → eller Enter skift sprog · Esc luk
   keysSound: ↑ ↓ flyt · ← → eller Enter slå lyden fra eller til · Esc luk
@@ -563,6 +577,23 @@ playerName:
     chars: Kun bogstaver og tal.
     rude: Vælg et andet navn.
 
+presence:
+  nextTo: Du er ved siden af {name}!
+  lost: '{name} er her ikke mere.'
+  cantFind: Kan ikke finde {name} lige nu. Prøv igen om lidt!
+  noRoom: Der er ikke plads ved siden af {name} lige nu.
+  arrived: '{name} er her!'
+  arrivedTwo: '{name} og {other} er her!'
+  arrivedMany: '{name} og {count} andre er her!'
+  left: '{name} gik hjem'
+  leftTwo: '{name} og {other} gik hjem'
+  leftMany: '{name} og {count} andre gik hjem'
+  elsewhere: Du spiller i et andet vindue.
+  busy:
+    battle: kæmper mod et vildt dyr
+    doctor: hos dyrlægen
+    menu: holder pause
+    match: kæmper mod en ven
 worlds:
   world: 'Verden {world}'
   title: Verdener

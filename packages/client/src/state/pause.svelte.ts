@@ -17,26 +17,39 @@ import {
  * several animals, and its animals; `options` is what can be done with the
  * picked animal; `naming` is the name box; `worlds` is the Worlds screen:
  * the world the player is in and their home, a number pad for a world's
- * number, Go, Go home and Back.
+ * number, Go, Go home and Back; `players` is who else is in this world,
+ * each one a "Go to" (`presence.roster`).
  */
-export type PauseScreen = 'list' | 'bundle' | 'options' | 'naming' | 'worlds';
+export type PauseScreen = 'list' | 'bundle' | 'options' | 'naming' | 'worlds' | 'players';
 
 /**
- * The rows under the team, in order: Worlds, the settings, then "Keep
- * playing" and Quit to title, which are drawn side by side. A new one is a
- * new id here, before those two, its label in `PauseMenu.svelte`, and its
- * case in `PauseController.chooseItem` — the cursor, keys and layout
+ * The rows under the team, in order: Worlds, Who's here, the settings, then
+ * "Keep playing" and Quit to title, which are drawn side by side. A new one
+ * is a new id here, before those two, its label in `PauseMenu.svelte`, and
+ * its case in `PauseController.chooseItem` — the cursor, keys and layout
  * already count every row listed. A setting's row also takes left and right
  * (`PauseController.settingKey`); the last two take them to step between
- * each other. `worlds` opens
- * the Worlds screen, with the world the player is in beside it; `language`
- * switches every word on screen to the next language at once and remembers
- * it on this device; `sound` turns the sound off and on (`sfx`); `quit`
- * (Start screen) saves the game as it stands and goes back to the title,
- * where Continue picks it up.
+ * each other. `worlds` opens the Worlds screen, with the world the player is
+ * in beside it; `players` opens the list of the other players in this world
+ * on the right, where picking one goes to them; `language` switches every
+ * word on screen to the next language at once and remembers it on this
+ * device; `sound` turns the sound off and on (`sfx`); `quit` (Start screen)
+ * saves the game as it stands and goes back to the title, where Continue
+ * picks it up.
  */
-export const MENU_ITEMS = ['worlds', 'language', 'sound', 'resume', 'quit'] as const;
+export const MENU_ITEMS = ['worlds', 'players', 'language', 'sound', 'resume', 'quit'] as const;
 export type MenuItem = (typeof MENU_ITEMS)[number];
+
+/**
+ * Rows drawn two to a line, so the menu keeps its height (a team of all eight
+ * kinds fits 1024×768): Worlds beside Who's here, Keep playing beside Start
+ * screen. Each pair is two neighbours in `MENU_ITEMS`; left and right step
+ * between the two, and up and down walk them in order as any rows.
+ */
+export const MENU_PAIRS: readonly (readonly [MenuItem, MenuItem])[] = [
+	['worlds', 'players'],
+	['resume', 'quit']
+];
 
 class PauseView {
 	/** True from Escape in explore until the menu is closed. Walking waits meanwhile. */
