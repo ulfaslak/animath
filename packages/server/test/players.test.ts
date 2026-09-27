@@ -14,11 +14,11 @@ import { players, saveBackups, saves } from '../src/db/schema.js';
 import { SAVE_FROM_NEWER_BUILD, SAVE_MAX_BYTES, STORED_FROM_NEWER_BUILD } from '../src/save.js';
 import { hashSecret } from '../src/secrets.js';
 
-// Integration tests: the real app against the real driver and `mathgame_test`
-// (see test/global-setup.ts). Each test creates its own player, so tests are
-// independent and the table is never shared state. What a save document may
-// hold is the engine's rule and is tested there (`save.test.ts`); these tests
-// cover the HTTP wiring, the write guard and the backups.
+// Integration tests: the real app against the real driver and this checkout's
+// test database (see test/global-setup.ts). Each test creates its own player,
+// so tests are independent and the table is never shared state. What a save
+// document may hold is the engine's rule and is tested there (`save.test.ts`);
+// these tests cover the HTTP wiring, the write guard and the backups.
 
 const app = createApp();
 
