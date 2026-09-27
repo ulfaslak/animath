@@ -1,7 +1,6 @@
-import { checkPassword } from '@mathgame/engine';
+import { checkPassword, nameKey } from '@mathgame/engine';
 import { randomInt } from 'node:crypto';
 import { deleteUser, findUser, listAccounts, setPasswordHash } from './accounts.js';
-import { checkName, nameKey } from './names-stub.js';
 import { hashPassword } from './passwords.js';
 
 /**
@@ -10,10 +9,9 @@ import { hashPassword } from './passwords.js';
  * account is deleted here. Each returns the lines to print.
  */
 
-/** The `nameKey` of a name as the admin typed it, rules or not. */
+/** The `nameKey` of a name as the admin typed it, rules or not (`nameKey` tidies it). */
 function keyOf(typed: string): string {
-	const checked = checkName(typed);
-	return nameKey(checked.ok ? checked.name : typed.trim().normalize('NFC'));
+	return nameKey(typed);
 }
 
 /** Letters and digits that read the same to a kid: no 0/o, 1/l/i. */

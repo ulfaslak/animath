@@ -1,3 +1,4 @@
+import { nameKey } from '@mathgame/engine';
 import { eq, sql } from 'drizzle-orm';
 import { Hono } from 'hono';
 import { createHash, randomBytes } from 'node:crypto';
@@ -112,8 +113,9 @@ async function account(save?: unknown): Promise<{ browser: Browser; name: string
 
 function doc(seq: number, lineage = 'game-a', overrides: Record<string, unknown> = {}) {
 	return {
-		version: 1,
-		seed: 12345,
+		version: 2,
+		home: 7,
+		world: 7,
 		pos: { x: -7, y: 3 },
 		facing: 'left',
 		steps: 40 + seq,
@@ -214,6 +216,33 @@ describe('register', () => {
 		const other = new Browser();
 		expect((await other.register('  Bjørn Ole  ')).status).toBe(201);
 		expect(await other.me()).toEqual({ user: { name: 'Bjørn Ole' } });
+	});
+
+	it("refuses a name the engine's nameKey folds onto a taken one: ß and ss, full-width letters", async () => {
+		expect((await new Browser().register('Straße')).status).toBe(201);
+		for (const taken of ['STRASSE', 'strasse', 'Strasse']) {
+			expect((await new Browser().register(taken)).status, taken).toBe(409);
+		}
+		expect((await new Browser().register('Ｖｉｇｇｏ')).status).toBe(201);
+		expect((await new Browser().register('viggo')).status).toBe(409);
+		expect((await new Browser().login('VIGGO')).status).toBe(200);
+	});
+
+	it('keys every account by what nameKey gives today, so a change to it needs a migration', () => {
+		// users.name_key holds nameKey(name) as it was when each account was made.
+		// If this fails, nameKey has changed: the stored keys no longer find their
+		// accounts, and two names that now share a key can both exist. Write a
+		// migration that recomputes name_key (and settles any collision) first.
+		const today: [string, string][] = [
+			['Nini', 'nini'],
+			['ÅSE MARIE', 'åse marie'],
+			['A\u030Ase', 'åse'],
+			['  Anna   Sofie ', 'anna sofie'],
+			['Straße', 'strasse'],
+			['Ｎｉｎｉ', 'nini'],
+			['Mohammad-Ali', 'mohammad-ali']
+		];
+		for (const [name, key] of today) expect(nameKey(name), name).toBe(key);
 	});
 
 	it('of registrations racing for one name, exactly one gets it', async () => {

@@ -1,11 +1,16 @@
-import { checkPassword, validateSaveWrite, type SaveWrite } from '@mathgame/engine';
+import {
+	checkName,
+	checkPassword,
+	nameKey,
+	validateSaveWrite,
+	type SaveWrite
+} from '@mathgame/engine';
 import { eq } from 'drizzle-orm';
 import { Hono, type Context, type MiddlewareHandler } from 'hono';
 import { bodyLimit } from 'hono/body-limit';
 import { createAccount, findUser } from '../accounts.js';
 import { db } from '../db/index.js';
 import { accountSaves } from '../db/schema.js';
-import { checkName, nameKey } from '../names-stub.js';
 import { hashPassword, verifyDecoy, verifyPassword } from '../passwords.js';
 import { RateLimiter, type AccountLimits, type Verdict } from '../rate-limit.js';
 import { clientIp, rateKey, readJson, sameOriginJson } from '../request.js';
@@ -71,15 +76,13 @@ function credentials(body: unknown): { name: string; password: string } | null {
 }
 
 /**
- * The `nameKey` a typed login name looks up: the engine's own name when the
- * rules take it, otherwise the trimmed text as typed (so an account whose
- * name a later rule refuses can still log in). Null for a name too long to be
+ * The `nameKey` a typed login name looks up. `nameKey` tidies the text itself
+ * (spaces, NFC, case), and the name rules are not asked, so an account whose
+ * name a later rule refuses can still log in. Null for a name too long to be
  * anyone's.
  */
 function loginKey(typed: string): string | null {
-	if (typed.length > MAX_TYPED_NAME) return null;
-	const checked = checkName(typed);
-	return nameKey(checked.ok ? checked.name : typed.trim().normalize('NFC'));
+	return typed.length > MAX_TYPED_NAME ? null : nameKey(typed);
 }
 
 export interface AccountRouteOptions {
