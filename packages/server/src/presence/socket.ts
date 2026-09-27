@@ -324,6 +324,7 @@ export function attachPresence(server: Server, options: PresenceOptions = {}): P
 				case 'play':
 				case 'here':
 				case 'rematch':
+				case 'done':
 					matches.handle(peer, message);
 					return;
 				default:

@@ -92,7 +92,7 @@ export interface MatchOptions {
 /** The kinds of message a page sends about matches, which `handle` takes. */
 export type MatchClientMessage = Extract<
 	ClientMessage,
-	{ t: 'challenge' | 'withdraw' | 'accept' | 'decline' | 'play' | 'here' | 'rematch' }
+	{ t: 'challenge' | 'withdraw' | 'accept' | 'decline' | 'play' | 'here' | 'rematch' | 'done' }
 >;
 
 type Timer = ReturnType<typeof setTimeout>;
@@ -218,7 +218,7 @@ export class Matches {
 		player.pid = present.pid;
 		player.name = present.name;
 		// An invite from another socket: this page knows nothing of it.
-		if (player.invite) this.endInvite(player.invite, saidTo(player.invite, player, 'off', 'gone'));
+		if (player.invite) this.dropInvite(player.invite, player);
 		const match = player.match;
 		if (!match) return null;
 		const side = sideOf(match, player);
@@ -239,17 +239,14 @@ export class Matches {
 		for (const side of MATCH_SIDES) this.send(match, side, []);
 	}
 
-	/** The socket said where it is: an invite may no longer be possible, a finished match left behind. */
+	/**
+	 * The socket said where it is: an invite may no longer be possible. (A
+	 * finished match is left only when the page says so, `done`: a page's
+	 * first `where` can come before it has even been sent the match.)
+	 */
 	moved(peer: Peer): void {
 		const player = this.playerOn(peer);
-		if (!player) return;
-		if (player.invite) this.recheck(player.invite, player);
-		const match = player.match;
-		const busy = this.hub.present(peer)?.spot?.busy;
-		// Back to exploring from the result: the rematch is off, for this player at least.
-		if (match && match.state.phase.kind === 'ended' && busy !== undefined && busy !== 'match') {
-			this.detach(match, sideOf(match, player));
-		}
+		if (player?.invite) this.recheck(player.invite, player);
 	}
 
 	/** The socket closed, whatever closed it. */
@@ -260,7 +257,7 @@ export class Matches {
 		// A socket another took the place of: the player plays on there.
 		if (!player || player.peer !== peer) return;
 		player.peer = null;
-		if (player.invite) this.endInvite(player.invite, saidTo(player.invite, player, 'off', 'gone'));
+		if (player.invite) this.dropInvite(player.invite, player);
 		const match = player.match;
 		if (match) this.goAway(match, sideOf(match, player));
 		this.forgetIfDone(player);
@@ -303,6 +300,14 @@ export class Matches {
 			}
 			case 'rematch':
 				return this.rematch(player, message.id, message.team);
+			case 'done': {
+				// Back to exploring from the result: the rematch is off, for this player at least.
+				const match = player.match;
+				if (match?.id === message.id && match.state.phase.kind === 'ended') {
+					this.detach(match, sideOf(match, player));
+				}
+				return;
+			}
 		}
 	}
 
@@ -400,7 +405,9 @@ export class Matches {
 		if (refusal === null) return true;
 		// Out of reach: whoever walked off is told nothing, the other that they walked off.
 		const walker = refusal === 'far' && mover === invite.from ? 'from' : null;
-		this.endInvite(invite, walker ? { from: 'off', to: 'moved' } : refusalFor(refusal));
+		const said = walker ? { from: 'off' as const, to: 'moved' as const } : refusalFor(refusal);
+		// A challenger who ended it (walked off, sailed off, got busy) waits as after taking it back.
+		this.endInvite(invite, said, said.from === 'off' ? this.withdrawnMs : undefined);
 		return false;
 	}
 
@@ -422,6 +429,20 @@ export class Matches {
 		}
 		this.forgetIfDone(from);
 		this.forgetIfDone(to);
+	}
+
+	/**
+	 * `player`'s socket went (or another took its place) with an invite open:
+	 * the other side hears they went; a challenger waits as after taking it
+	 * back, so leaving and coming back is no way round the wait.
+	 */
+	private dropInvite(invite: Invite, player: Player): void {
+		const challenger = invite.from === player;
+		this.endInvite(
+			invite,
+			saidTo(invite, player, 'off', 'gone'),
+			challenger ? this.withdrawnMs : undefined
+		);
 	}
 
 	private tell(player: Player, pid: string, reason: InviteEnd): void {
@@ -498,8 +519,7 @@ export class Matches {
 		this.stopClock(match);
 		const phase = match.state.phase;
 		if (phase.kind === 'ended') this.log(`matches: ${match.id} ended (${phase.reason})`);
-		// A side that is away can play no rematch.
-		for (const side of MATCH_SIDES) if (match.away[side]) this.detach(match, side, false);
+		// A side that is away keeps its time to come back: back in time, it is shown how it ended.
 		match.linger = setTimeout(() => {
 			// The rematch lapsed: each page still on the result hears the other can't now.
 			for (const side of MATCH_SIDES) {
@@ -516,7 +536,11 @@ export class Matches {
 
 	private rematch(player: Player, id: string, sent: WireAnimal[]): void {
 		const match = player.match;
-		if (!match || match.id !== id || match.state.phase.kind !== 'ended') return;
+		if (!match || match.id !== id || match.state.phase.kind !== 'ended') {
+			// Gone (both went back, or it lapsed): say so, so the page's Rematch? is not left waiting.
+			player.peer?.send({ t: 'rejected', id, reason: 'match-over' });
+			return;
+		}
 		const side = sideOf(match, player);
 		const other = otherSide(side);
 		const them = match.players[other];
@@ -572,14 +596,18 @@ export class Matches {
 		}
 	}
 
-	/** `side`'s page dropped out: the other page hears it, and the match waits `awayMs`. */
+	/**
+	 * `side`'s page dropped out: the other page hears it, and the match waits
+	 * `awayMs` for it. Not back in time, a match going on ends (`dropped`), and
+	 * one that had ended lets it go (the rematch is off).
+	 */
 	private goAway(match: Match, side: MatchSide): void {
-		if (match.state.phase.kind === 'ended') {
-			this.detach(match, side);
-			return;
-		}
 		const timer = setTimeout(() => {
 			match.away[side] = null;
+			if (match.state.phase.kind === 'ended') {
+				this.detach(match, side);
+				return;
+			}
 			this.timeOut(match, side, 'dropped');
 			this.detach(match, side, false);
 		}, this.awayMs);

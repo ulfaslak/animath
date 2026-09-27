@@ -234,6 +234,7 @@ export type {
 	ChallengeMessage,
 	ClientMessage,
 	DeclineMessage,
+	DoneMessage,
 	FindMessage,
 	FoundMessage,
 	GoneMessage,

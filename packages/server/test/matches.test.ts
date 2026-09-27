@@ -737,8 +737,9 @@ describe('after a match, in any order', () => {
 		ada.send({ t: 'done', id });
 		bo.send({ t: 'rematch', id, team: TEAM });
 		expect(bo.peer.last('rematch-wish')).toMatchObject({ side: 'a', yes: false });
-		expect(matches.size).toBe(0);
-		expect(ada.peer.of('match').filter((m) => m.id !== id)).toEqual([]);
+		// No new match: Bo is still on the one that ended, Ada on none.
+		for (const k of [ada, bo]) expect(k.peer.of('match').filter((m) => m.id !== id)).toEqual([]);
+		expect(matches.stateOf(id)?.phase.kind).toBe('ended');
 	});
 
 	it('keeps a finished match for a second window whose page says where it is before it shows it', () => {

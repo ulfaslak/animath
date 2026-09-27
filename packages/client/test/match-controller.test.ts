@@ -498,6 +498,20 @@ describe('a match', () => {
 		expect(battle.opponent?.speciesId).toBe('fox');
 	});
 
+	it('says out loud that it went back to exploring, and greys Rematch? when the server can no longer take it', () => {
+		const t = setup();
+		const ref = started(t);
+		t.controller.receive(ref.message('a', ref.apply('b', { type: 'leave' })));
+		t.runUntil(() => battle.screen === 'result');
+		// The other left: Rematch? is out, and the server said nothing yet.
+		match.rematch = { mine: false, theirs: null };
+		t.controller.receive({ t: 'rejected', id: ref.id, reason: 'match-over' });
+		expect(match.rematch.theirs).toBe(false);
+		t.pick('Enter');
+		expect(t.sentOf('done')).toEqual([{ t: 'done', id: ref.id }]);
+		expect(match.stage).toBe('none');
+	});
+
 	it('says the match is over to a page that came back to find it gone', () => {
 		const t = setup();
 		started(t);

@@ -232,6 +232,15 @@ export interface RematchMessage {
 	team: WireAnimal[];
 }
 
+/**
+ * After match `id` ended: this page is done with it (Back to exploring). A
+ * rematch it asked for is taken back, and the other page hears it is off.
+ */
+export interface DoneMessage {
+	t: 'done';
+	id: string;
+}
+
 export type ClientMessage =
 	| HelloMessage
 	| WhereMessage
@@ -242,7 +251,8 @@ export type ClientMessage =
 	| DeclineMessage
 	| PlayMessage
 	| HereMessage
-	| RematchMessage;
+	| RematchMessage
+	| DoneMessage;
 
 // --- from the server ---------------------------------------------------------
 
@@ -643,7 +653,8 @@ const CLIENT_PARSERS: { [K in ClientMessage['t']]: Parser<Extract<ClientMessage,
 	rematch: (o) => {
 		const team = readWireTeam(o.team);
 		return team && isMatchId(o.id) ? { t: 'rematch', id: o.id, team } : null;
-	}
+	},
+	done: (o) => (isMatchId(o.id) ? { t: 'done', id: o.id } : null)
 };
 
 function readRosterEntry(value: unknown): RosterEntry | null {
