@@ -60,6 +60,9 @@ const POOF_NEAR = 12;
 const HEAD_HEIGHT = 0.95;
 /** Seconds after the player turns up somewhere during which the others there come without a poof. */
 export const HUSH_SECONDS = 2;
+/** How far from the middle of a shared tile each of a crowd stands (tiles), and how quickly they step there. */
+export const CROWD_RADIUS = 0.3;
+const NUDGE_RATE = 8;
 
 /** The shirt and cap a player's name gives them: the same on every screen, and never the player's own. */
 export function trainerLook(name: string): TrainerLook {
@@ -99,6 +102,8 @@ interface Other {
 	busy: Busy;
 	opacity: number;
 	leaving: boolean;
+	/** How far aside they stand from the middle of their tile (world x and z), easing to where a crowd puts them. */
+	nudge: { x: number; z: number };
 }
 
 export class OtherPlayers {
@@ -207,6 +212,7 @@ export class OtherPlayers {
 	update(t: number, dt: number): void {
 		this.now = t;
 		const calm = motion.reduced;
+		const aside = this.standingAside();
 		for (const other of [...this.others.values()]) {
 			if (other.leaving) {
 				other.opacity -= dt / FADE_SECONDS;
@@ -230,10 +236,15 @@ export class OtherPlayers {
 			const walking = other.from.x !== other.to.x || other.from.y !== other.to.y;
 			const way = walking ? (direction(other.from, other.to) ?? other.facing) : other.facing;
 			const rocking = afloat === 1 && !calm;
+			// Standing where someone else stands, they stand a little aside, easing there.
+			const want = aside.get(other) ?? { x: 0, z: 0 };
+			const ease = Math.min(1, dt * NUDGE_RATE);
+			other.nudge.x += (want.x - other.nudge.x) * ease;
+			other.nudge.z += (want.z - other.nudge.z) * ease;
 			other.figure.position.set(
-				x,
+				x + other.nudge.x,
 				y + (rocking ? Math.sin(t * 2.1 + phaseOf(other)) * 0.012 : 0),
-				z
+				z + other.nudge.z
 			);
 			other.figure.rotation.y = FACING_ANGLE[way];
 			const rig = other.figure.children[0];
@@ -263,6 +274,39 @@ export class OtherPlayers {
 			if (!other.leaving) other.follower.lead(other.lead, riding);
 			other.follower.update(other.progress, dt);
 		}
+	}
+
+	/**
+	 * Players standing on one tile (two friends who came to a world's spawn,
+	 * say) stand round it, a little apart, so nobody hides inside another and
+	 * each name sits over its own head; the player's own trainer keeps the
+	 * middle of their tile, so the others step aside from it. Everyone else
+	 * stands in the middle of their tile, as a walker does.
+	 */
+	private standingAside(): Map<Other, { x: number; z: number }> {
+		const crowds = new Map<string, Other[]>();
+		for (const other of this.others.values()) {
+			const walking = other.from.x !== other.to.x || other.from.y !== other.to.y;
+			if (other.leaving || (walking && other.progress < 1)) continue;
+			const key = `${other.to.x},${other.to.y}`;
+			const crowd = crowds.get(key);
+			if (crowd) crowd.push(other);
+			else crowds.set(key, [other]);
+		}
+		const aside = new Map<Other, { x: number; z: number }>();
+		for (const [key, crowd] of crowds) {
+			const mine = key === `${this.centre.x},${this.centre.y}`;
+			const n = crowd.length + (mine ? 1 : 0);
+			if (n < 2) continue;
+			// In a steady order, so nobody swaps places as the crowd changes.
+			crowd.sort((a, b) => (a.pid < b.pid ? -1 : 1));
+			crowd.forEach((other, i) => {
+				const slot = i + (mine ? 1 : 0);
+				const turn = (slot / n) * Math.PI * 2 + Math.PI / 4;
+				aside.set(other, { x: Math.cos(turn) * CROWD_RADIUS, z: Math.sin(turn) * CROWD_RADIUS });
+			});
+		}
+		return aside;
 	}
 
 	/** Everyone's head, where their name goes, as drawn this frame. */
@@ -311,7 +355,8 @@ export class OtherPlayers {
 			lead: peer.lead,
 			busy: peer.busy,
 			opacity: 0,
-			leaving: false
+			leaving: false,
+			nudge: { x: 0, z: 0 }
 		};
 		if (peer.boat) this.setBoat(other, true);
 		other.follower.place(this.seed, at, peer.facing);

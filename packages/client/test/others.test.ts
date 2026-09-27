@@ -11,7 +11,13 @@ import {
 import * as THREE from 'three';
 import { describe, expect, it } from 'vitest';
 import { WORLD_SEED } from '../src/authority/local';
-import { FADE_SECONDS, HUSH_SECONDS, OtherPlayers, trainerLook } from '../src/render/others';
+import {
+	CROWD_RADIUS,
+	FADE_SECONDS,
+	HUSH_SECONDS,
+	OtherPlayers,
+	trainerLook
+} from '../src/render/others';
 import { PLAYER_LOOK, TRAINER_LOOKS } from '../src/render/palette';
 import { POOF_SECONDS, PUFF_GEOMETRY, Poofs } from '../src/render/poof';
 import { STEP_SECONDS } from '../src/render/trainer';
@@ -125,10 +131,12 @@ describe('other players on screen', () => {
 	});
 
 	it('walk the tiles they reach one step at a time, in order, and catch up when behind', () => {
-		const { others, frames, figureOf, centre } = setup();
-		const path = walkFrom(centre, 6);
+		// The player stands off their path, so nobody shares a tile and steps aside.
+		const start = spawnPoint(WORLD_SEED);
+		const { others, frames, figureOf } = setup({ x: start.x - 10, y: start.y });
+		const path = walkFrom(start, 6);
 		expect(path).toHaveLength(6);
-		others.seen(peer('walker', centre));
+		others.seen(peer('walker', start));
 		frames(FADE_SECONDS);
 		// One step: there after a step's time, not before.
 		others.seen(peer('walker', path[0]!));
@@ -165,6 +173,27 @@ describe('other players on screen', () => {
 		frames(HUSH_SECONDS + 0.1);
 		others.seen(peer('new1', { x: centre.x - 1, y: centre.y }, { name: 'Bo' }));
 		expect(poofs.playing).toBe(1);
+	});
+
+	it('stand a little apart on a tile they share, with the player or each other, and alone in its middle', () => {
+		const { others, frames, figureOf, centre } = setup();
+		// Two friends who came to the world's spawn, where the player stands too.
+		others.seen(peer('same1', centre));
+		others.seen(peer('same2', centre, { name: 'Bo' }));
+		const lone = { x: centre.x + 3, y: centre.y };
+		others.seen(peer('lone', lone, { name: 'Cy' }));
+		frames(1);
+		const [a, b] = [figureOf('same1')!.position, figureOf('same2')!.position];
+		const apart = (p: THREE.Vector3, x: number, z: number) => Math.hypot(p.x - x, p.z - z);
+		expect(apart(a, centre.x, centre.y)).toBeCloseTo(CROWD_RADIUS, 2);
+		expect(apart(b, centre.x, centre.y)).toBeCloseTo(CROWD_RADIUS, 2);
+		expect(apart(a, b.x, b.z)).toBeGreaterThan(CROWD_RADIUS);
+		expect(apart(figureOf('lone')!.position, lone.x, lone.y)).toBeCloseTo(0, 5);
+		// One walks off: the other one is alone with the player, and still steps aside.
+		others.seen(peer('same2', { x: centre.x, y: centre.y + 1 }, { name: 'Bo' }));
+		frames(1);
+		expect(apart(figureOf('same1')!.position, centre.x, centre.y)).toBeCloseTo(CROWD_RADIUS, 2);
+		expect(apart(figureOf('same2')!.position, centre.x, centre.y + 1)).toBeCloseTo(0, 3);
 	});
 
 	it('play a poof whole from its first frame, however long the world round a far friend took to build', () => {

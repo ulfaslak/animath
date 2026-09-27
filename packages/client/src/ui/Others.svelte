@@ -17,8 +17,28 @@
 	 * a tap.
 	 */
 
-	/** How far in from an arrow, towards the middle of the screen, its name sits (CSS pixels). */
-	const NAME_INSET = 38;
+	/** The gap between an arrow's middle and the near edge of its name (CSS pixels). */
+	const NAME_GAP = 20;
+
+	/**
+	 * Where an arrow's name sits: on the side of it towards the middle of the
+	 * screen, its near edge a little way from the arrow, so a long name never
+	 * covers the arrow or runs off the screen's edge the arrow is on.
+	 */
+	function namePlace(angle: number): string {
+		const across = Math.sin(angle);
+		const down = -Math.cos(angle);
+		if (Math.abs(across) >= Math.abs(down)) {
+			// On a side edge: beside it, towards the middle.
+			return across < 0
+				? `translate(${NAME_GAP}px, -50%)`
+				: `translate(calc(-100% - ${NAME_GAP}px), -50%)`;
+		}
+		// On the top or bottom edge: under it or over it.
+		return down < 0
+			? `translate(-50%, ${NAME_GAP}px)`
+			: `translate(-50%, calc(-100% - ${NAME_GAP}px))`;
+	}
 </script>
 
 {#snippet icon(busy: Busy)}
@@ -78,11 +98,7 @@
 					/>
 				</svg>
 			</div>
-			<div
-				class="arrow-name"
-				style:transform="translate({-Math.sin(arrow.angle) * NAME_INSET}px, {Math.cos(arrow.angle) *
-					NAME_INSET}px) translate(-50%, -50%)"
-			>
+			<div class="arrow-name" style:transform={namePlace(arrow.angle)}>
 				{arrow.name}
 			</div>
 		</div>
@@ -110,10 +126,14 @@
 		gap: 3px;
 		padding-bottom: 2px;
 	}
-	/* A name over a head: readable over any ground, at a tablet's size and a laptop's. */
+	/*
+	 * A name over a head: readable over any ground, at a tablet's size and a
+	 * laptop's, and whole: sixteen of the widest letters fit (a name has 16 at
+	 * most; the room is a guard, not a limit anyone meets).
+	 */
 	.name,
 	.arrow-name {
-		max-width: 12em;
+		max-width: 18em;
 		overflow: hidden;
 		text-overflow: ellipsis;
 		white-space: nowrap;

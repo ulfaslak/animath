@@ -42,6 +42,8 @@
  *   click:<css> / tap:<css>   a click, or a finger (touch players), on an element
  *   reload:            reload the page, as F5 would
  *   close: / open:     close the page (the player leaves), or open it again
+ *   twin:<label>       open a second window of this player (same browser, same game),
+ *                      which later steps call `<label>`: one player, two windows
  *   hide: / show:      the tab hidden and shown again (the page thinks so)
  *   size:<w>x<h>       resize the window
  *   until:<css>        wait (up to 20 s) for an element to be on the page
@@ -247,6 +249,8 @@ interface Step {
 	op: string;
 	arg: string;
 }
+/** Second windows (`twin:`), each sharing its player's browser, so its storage and its game. */
+const twins = new Map<Player, Player>();
 const steps: Step[] = (args.steps ?? '')
 	.split(',')
 	.filter(Boolean)
@@ -257,9 +261,18 @@ const steps: Step[] = (args.steps ?? '')
 		const who =
 			whoName === 'all' ? roster : [byLabel.get(whoName) ?? fail(`no player "${whoName}"`)];
 		const m =
-			/^(wait|shot|burst|press|type|hold|click|tap|reload|close|open|hide|show|size|until|run):(.*)$/s.exec(
+			/^(wait|shot|burst|press|type|hold|click|tap|reload|close|open|twin|hide|show|size|until|run):(.*)$/s.exec(
 				rest
 			);
+		if (m?.[1] === 'twin') {
+			// Another window of the same player, which later steps call by its own label.
+			const of = who[0]!;
+			const twin: Player = { ...of, label: m[2]!, page: undefined, errors: [], socketFailures: 0 };
+			if (byLabel.has(twin.label)) fail(`twin: "${twin.label}" is taken`);
+			byLabel.set(twin.label, twin);
+			twins.set(twin, of);
+			return [{ who: [twin], op: 'twin', arg: m[2]! }];
+		}
 		if (m) return [{ who, op: m[1]!, arg: m[2]! }];
 		const [key, n] = rest.split('*');
 		return Array.from({ length: Number(n ?? 1) }, () => ({ who, op: 'key', arg: key! }));
@@ -452,6 +465,10 @@ async function run(step: Step): Promise<void> {
 			case 'open':
 				await openPage(p);
 				break;
+			case 'twin':
+				p.context = twins.get(p)!.context;
+				await openPage(p);
+				break;
 			case 'hide':
 			case 'show':
 				await page!.evaluate(
@@ -479,7 +496,7 @@ for (const step of steps) await run(step);
 await browser.close();
 
 let failed = false;
-for (const p of roster) {
+for (const p of [...roster, ...twins.keys()]) {
 	if (p.socketFailures)
 		console.log(`${p.label}: ${p.socketFailures} socket(s) the server did not take`);
 	if (p.errors.length === 0) continue;

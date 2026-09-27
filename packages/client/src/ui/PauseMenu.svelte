@@ -794,6 +794,12 @@
 		flex-direction: column;
 		min-width: 0;
 	}
+	/* "Go to <name>" breaks before a name too long for the line, never through it. */
+	.player .name {
+		white-space: normal;
+		overflow: visible;
+		overflow-wrap: anywhere;
+	}
 	.player .where {
 		font-weight: 600;
 		font-size: 16px;
