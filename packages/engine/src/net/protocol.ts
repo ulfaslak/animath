@@ -33,8 +33,14 @@ export const PROTOCOL_VERSION = 1;
  */
 export const MAX_MESSAGE_BYTES = 4096;
 
-/** How far from 0 a coordinate on the wire may be: far past anywhere a kid walks to. */
-export const MAX_WIRE_COORD = 2 ** 30;
+/**
+ * How far from 0 a coordinate on the wire may be: far past anywhere a kid
+ * walks to (hours of walking one way), and near enough that the game still
+ * draws every tile in its place, since a tile's place is a 32-bit float in
+ * its matrix. A page further out is simply not seen, and a page that lies
+ * about where it stands can send a friend who goes to it no further.
+ */
+export const MAX_WIRE_COORD = 100_000;
 
 /** World numbers on the wire ([[DECISIONS]]: a world is a number from 1 to 9999). */
 const MIN_WIRE_WORLD = 1;
