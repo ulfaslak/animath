@@ -262,15 +262,21 @@ let thrown: { where: string; seen: Throw }[] | null = null;
 
 /**
  * What `check` finds wrong with every throw: at every size, for every
- * species, with and without reduced motion, ending both ways.
+ * species, ending both ways, and with reduced motion for a third of the
+ * species at each size, taken in turn so each is thrown so at two or three
+ * sizes. The lower throw of reduced motion is never the tight one: with the
+ * 32 animals of #89 its loop kept 66 px or more from the top edge, 53 from
+ * the status box and 40 from the rope's crossing, where the full throw came
+ * within 10, 13 and 1; throwing it for every species too doubled the sweep.
  */
 function everyThrow(check: (seen: Throw) => string | null): string[] {
 	if (!thrown) {
 		thrown = [];
 		for (const reduced of [false, true]) {
 			motion.reduced = reduced;
-			for (const size of SIZES) {
-				for (const { id } of ANIMALS) {
+			for (const [s, size] of SIZES.entries()) {
+				for (const [i, { id }] of ANIMALS.entries()) {
+					if (reduced && (i + s) % 3 !== 0) continue;
 					for (const ending of ['caught', 'broke'] as const) {
 						const { top, right, bottom, left } = size.inset;
 						const insets =
@@ -299,9 +305,10 @@ describe('the leash', () => {
 			top < CLEAR ? `${top.toFixed(1)} px from the top edge, ${topWhen}` : null
 		);
 		expect(bad).toEqual([]);
-		// About 6.6 s alone at a load average of 20 (392 throws, every point of the loop
-		// projected on each of their frames, against the top edge and the status box; the
-		// tests after it reuse them); 17 s at a load average of 54.
+		// About 6.6 s alone at a load average of 20 with the 392 throws of 14 animals (every
+		// point of the loop projected on each of their frames, against the top edge and the
+		// status box; the tests after it reuse them), 17 s at a load average of 54; about 600
+		// throws with the 32 animals of #89 (`everyThrow`).
 	}, 60_000);
 
 	it('knows where the wild animal’s status box is: its copy of the box covers the CSS’s', () => {
