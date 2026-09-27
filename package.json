@@ -16,7 +16,8 @@
 		"db:up": "docker compose up -d",
 		"db:down": "docker compose down",
 		"db:migrate": "pnpm -F @mathgame/server migrate",
-		"db:psql": "docker compose exec postgres psql -U postgres -d mathgame"
+		"db:psql": "docker compose exec postgres psql -U postgres -d mathgame",
+		"admin": "pnpm -F @mathgame/server admin"
 	},
 	"devDependencies": {
 		"playwright-core": "^1.63.0",

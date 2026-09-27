@@ -87,7 +87,11 @@ export default defineConfig({
 		allowedHosts: tunnel ? true : undefined,
 		// The API, and its WebSocket at /api/ws (presence), which `ws` lets through.
 		proxy: {
-			'/api': { target: `http://localhost:${apiPort}`, ws: true }
+			// The API sees the Host the browser used (the string shorthand would
+			// rewrite it to localhost:<apiPort>): the account routes check that a
+			// POST's Origin is this site, and the presence socket at /api/ws (which
+			// `ws` lets through) that its Origin is.
+			'/api': { target: `http://localhost:${apiPort}`, changeOrigin: false, ws: true }
 		}
 	},
 	build: {

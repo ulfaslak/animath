@@ -1,12 +1,14 @@
 import {
 	BYE_REASONS,
 	PROTOCOL_VERSION,
+	nameKey,
 	parseServerMessage,
 	type ServerMessage
 } from '@mathgame/engine';
+import { randomUUID } from 'node:crypto';
 import { createServer, type Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterAll, afterEach, describe, expect, it } from 'vitest';
 import { WebSocket, type ClientOptions } from 'ws';
 import {
 	BYE_CLOSE_CODE,
@@ -15,6 +17,11 @@ import {
 	attachPresence,
 	type PresenceOptions
 } from '../src/presence/socket.js';
+import { createAccount } from '../src/accounts.js';
+import { pool } from '../src/db/index.js';
+import { sessionUserFromCookieHeader } from '../src/sessions.js';
+
+afterAll(() => pool.end());
 
 // The presence socket over a real HTTP server and real WebSockets, on a port
 // of its own: what a browser (or anyone else) can do to it. The rules behind
@@ -222,6 +229,29 @@ describe('presence socket', () => {
 		});
 		const { c: guest } = await joined(broken.url, 'Bo', 'b'.repeat(20));
 		expect(guest.got[0]).toMatchObject({ name: 'Bo' });
+	});
+
+	it('knows an account holder by their real session cookie, as the server wires it', async () => {
+		const name = `Presence${randomUUID().slice(0, 6)}`;
+		const created = await createAccount({
+			name,
+			nameKey: nameKey(name),
+			passwordHash: 'x',
+			save: null
+		});
+		expect(created).not.toBeNull();
+		const { url } = await start({
+			accountOf: (headers) => sessionUserFromCookieHeader(headers.get('cookie') ?? undefined)
+		});
+		const { c: holder } = await joined(url, 'Whatever', 'a'.repeat(20), {
+			headers: { cookie: `animath_session=${created!.token}` }
+		});
+		expect(holder.got[0]).toMatchObject({ t: 'hi', name });
+		// A cookie that is no session is a guest, by the hello's name.
+		const { c: guest } = await joined(url, 'Bo', 'b'.repeat(20), {
+			headers: { cookie: 'animath_session=not-a-session' }
+		});
+		expect(guest.got[0]).toMatchObject({ t: 'hi', name: 'Bo' });
 	});
 
 	it("refuses a socket opened from another site, and takes its own and a proxy's", async () => {
