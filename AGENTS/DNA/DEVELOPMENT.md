@@ -275,6 +275,8 @@ curl -s -c jar -b jar -X PUT -H 'content-type: application/json' --data @save.js
 
 The login and register limits are counted in the API process's memory, so restarting your API clears them. The admin CLI is another process and cannot: a kid who guessed wrong ten times before the reset waits out the rest of that quarter-hour with the new password too.
 
+**Accounts in the browser.** A guest's game is under `animath.save` as always. The account a browser is logged in to is `animath.account` (`{ name }`), and its game lives under `animath.account.<nameKey, URI-encoded>.save`, with its own set-aside keys (`.replaced`, `.unreadable`, `.previous`, `.upgraded`); logging out removes only the pointer, so the account's copy waits for the next login. `animath.playtime` counts a guest game's play for the hourly card: open a saved game with `?hour=10` and an hour is ten seconds (a throwaway game, `?new`, has no card and no account rows). To try two devices, drive two browser contexts against your own API: the screenshot script is one context, so a throwaway Playwright script opens both (each with its own storage and cookie), and `docker compose -p mathgame exec -T postgres psql …` on your own database shows what the server holds. A page whose account's save on the server only a newer build can read shows the behind card ("A new version of the game is ready."): try it by setting that save's `version` to 99 in your own database.
+
 **Getting a kid's account game back.** As with the anonymous backup (§ Database), what an account's save replaced (another game, from New game on the title, or one the server could not read) is in `account_save_backups`. Put one back with a `seq` far above the current save's, in the document and in its column:
 
 ```sql
