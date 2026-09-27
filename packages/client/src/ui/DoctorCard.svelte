@@ -594,6 +594,27 @@
 		font-weight: 800;
 		font-size: 20px;
 	}
+	/*
+	 * On a narrow touch screen (a phone held sideways) the doctor's line has
+	 * a row of its own under the name and the tokens, across the right-hand
+	 * side: squeezed between them it came a word or two to a line, and grew
+	 * so tall that it hid what the side under it says.
+	 */
+	@media (max-width: 900px) {
+		:global(.touch) .talk {
+			flex-wrap: wrap;
+			row-gap: 2px;
+			padding-top: 8px;
+			padding-bottom: 8px;
+		}
+		:global(.touch) .doctor-line {
+			order: 1;
+			flex-basis: 100%;
+		}
+		:global(.touch) .purse {
+			margin-left: auto;
+		}
+	}
 	/* The player's tokens, at the right of the doctor's line. */
 	.purse {
 		position: relative;
