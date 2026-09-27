@@ -266,9 +266,9 @@ Every push to main that touches what is deployed (`packages/`, the manifests, `D
 1. `check` stops the run, green with a notice, when the deploy secrets are missing or the head commit says `[skip deploy]`.
 2. `test` is the gate: `pnpm check`, `pnpm lint`, `pnpm test` (with Postgres beside it) and `nginx -t` on the server's config. A red check stops the deploy, and prod keeps the build it has.
 3. `build` pushes the image to GHCR as `:<sha>` and `:prod`.
-4. `deploy` runs, over SSH, `git reset --hard <sha>` in `~/mathgame` and `scripts/deploy.sh`: migrations, the canary swap, the backup service, nginx. Then, from GitHub, `https://<domain>/api/health` must report `<sha>` within 2 minutes.
+4. `deploy` runs, over SSH, `git reset --hard <sha>` in `~/mathgame` and `scripts/deploy.sh`. The script stops before changing anything when a canary of an earlier deploy is still there, or when the checkout changed the `postgres` service (applied by hand: `/redeploy` § Changing Postgres). Otherwise it migrates the database from the new image and checks that image where nothing can reach it (healthy, and serving the game's page). Only then does a canary of it take requests beside the old app, while compose recreates the app. After that it restarts the backup service if its definition or `scripts/backup.sh` changed, and applies nginx's definition and config. Then, from GitHub, `https://<domain>/api/health` must report `<sha>` within 2 minutes.
 
-A push during a run waits for it; of several waiting, only the newest runs. `gh workflow run deploy.yml` builds and deploys main's tip whatever its commit says: the way to catch prod up after a `[skip deploy]` or a failed run. A merge that touches nothing deployed (docs, `AGENTS/`) starts no run, and prod keeps its build.
+A push during a run waits for it. GitHub keeps one run waiting and cancels an older one, so of several pushes during a deploy only the newest runs; its build holds the others' code. If that newest says `[skip deploy]`, what it skipped stays off prod until the next deploy. `gh workflow run deploy.yml` builds and deploys main's tip whatever its commit says: the way to catch prod up after a `[skip deploy]`, a cancelled run or a failed one. A merge that touches nothing deployed (docs, `AGENTS/`) starts no run, and prod keeps its build.
 
 ### Skipping a deploy
 

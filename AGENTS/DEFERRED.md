@@ -8,11 +8,19 @@ Technical items we've intentionally postponed: tech debt, hardening shortcuts, k
 
 ### A deploy runs two app containers side by side for a few seconds
 
-**What**: `scripts/deploy.sh` swaps the app without a gap the way lawcel's does: a canary of the new image joins the network under the alias `app` beside the old app, nginx spreads requests over both, then the old one is replaced and the canary removed ([[ARCHITECTURE]] § Production). That works because the app keeps nothing between requests but what is in Postgres. A server that holds shared state in memory (a room of players, a world, a battle between two kids over `/api/ws`) would, for those seconds, be two authorities with half the players each, and every socket would drop twice (the old app replaced, then the canary removed). And nothing sends the old app's sockets away gracefully: `init: true` makes a stop quick, not orderly. Separately, Docker's DNS lists the canary under `app` from the moment it starts, not once its health check passes, so nginx sends it requests throughout the minute `deploy.sh` waits for it: a canary that refuses connections costs nothing (nginx asks the old app; a deploy whose canary never listened kept all 632 requests of a 66 s poll answered), but one that answers with errors or hangs reaches kids until it is removed.
+**What**: `scripts/deploy.sh` swaps the app without a gap the way lawcel's does: a canary of the new image joins the network under the alias `app` beside the old app, nginx spreads requests over both, then the old one is replaced and the canary removed ([[ARCHITECTURE]] § Production). That works because the app keeps nothing between requests but what is in Postgres. A server that holds shared state in memory (who is in which world for presence, a friendly match's state, over `/api/ws`) would, for those seconds, be two servers with half the players each, and every socket would drop twice (the old app replaced, then the canary removed). On SIGTERM the server stops taking connections and finishes the HTTP requests in flight, but a socket is never done: it waits the full 8 s and is then cut, not closed.
 
-**Why deferred**: the server is stateless today, and the right swap depends on what the multiplayer server keeps: a plain stop-then-start with clients reconnecting (seconds of outage), state persisted so two can overlap, or a drain on SIGTERM that closes sockets with 1001 and lets clients reconnect to the new app.
+**Why deferred**: the server is stateless today, and the right swap depends on what the presence and match server keeps: a plain stop-then-start with clients reconnecting (seconds of outage), state kept where two servers can share it, or a SIGTERM that closes each socket with 1001 so clients reconnect to the new app at once.
 
-**Trigger**: the first server code that keeps state in memory across requests or sockets (the `RemoteAuthority` / shared-world PR): change `deploy.sh`'s swap and the server's SIGTERM handling in that PR. Or the first failed deploy whose canary answered with errors: then put the canary on the network under `app` only once it is healthy.
+**Trigger**: the first server code that keeps state in memory across requests or sockets, which [[DECISIONS]] § Multiplayer's presence and friendly matches do. In that PR, change `deploy.sh`'s swap to fit what it keeps, and close its sockets in `index.ts`'s SIGTERM handler.
+
+### A file under `/assets/` is downloaded whole on every visit
+
+**What**: the server marks every client file outside `/immutable/` `no-cache` ([[INVARIANTS]] § Serving), and `serveStatic` sends no `ETag` or `Last-Modified`, so a browser cannot ask "has it changed?" and get a 304: it downloads `index.html` and each file `public/` copied over in full, every visit. `index.html` is 1 kB. Today `public/assets/` holds only `CREDITS.md`, but [[ARCHITECTURE]] plans the models and textures there.
+
+**Why deferred**: nothing under `/assets/` is loaded by the game yet, and the better fix is to keep models out of it altogether.
+
+**Trigger**: the first model or texture the game loads. Import it through Vite (`import url from './fox.glb?url'`), which names it after its content and puts it in `/immutable/`, kept for good; or, for a file that must keep its name, give the server's static files validators (an `ETag` answered with 304).
 
 ### Nothing alarms when prod is down
 
