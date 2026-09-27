@@ -90,6 +90,7 @@ export interface AccountRouteOptions {
 export function accountRoute({ cookie, limits }: AccountRouteOptions) {
 	const limit = {
 		loginPerIp: new RateLimiter(limits.loginPerIp),
+		loginFailuresPerNameFromIp: new RateLimiter(limits.loginFailuresPerNameFromIp),
 		loginFailuresPerName: new RateLimiter(limits.loginFailuresPerName),
 		registerPerIp: new RateLimiter(limits.registerPerIp),
 		registerPerName: new RateLimiter(limits.registerPerName)
@@ -162,7 +163,8 @@ export function accountRoute({ cookie, limits }: AccountRouteOptions) {
 			return c.json({ user: { name: named.name } }, 201);
 		})
 		.post('/login', tooBig(LOGIN_MAX_BYTES), async (c) => {
-			const byIp = limit.loginPerIp.hit(rateKey(clientIp(c)));
+			const address = rateKey(clientIp(c));
+			const byIp = limit.loginPerIp.hit(address);
 			if (!byIp.ok) return tooMany(c, byIp);
 			const body = await readJson(c);
 			if (body === undefined) return c.json({ error: 'body is not valid JSON' }, 400);
@@ -171,9 +173,15 @@ export function accountRoute({ cookie, limits }: AccountRouteOptions) {
 			const key = loginKey(given.name);
 			if (key === null) return c.json({ error: 'wrong name or password' }, 401);
 			// Counted as a failure until the password proves right, so tries
-			// racing each other cannot all slip under the limit.
-			const byName = limit.loginFailuresPerName.hit(key);
-			if (!byName.ok) return tooMany(c, byName);
+			// racing each other cannot all slip under the limits.
+			const pair = `${key}\u0000${address}`;
+			const fromHere = limit.loginFailuresPerNameFromIp.hit(pair);
+			if (!fromHere.ok) return tooMany(c, fromHere);
+			const fromAnywhere = limit.loginFailuresPerName.hit(key);
+			if (!fromAnywhere.ok) {
+				limit.loginFailuresPerNameFromIp.refund(pair);
+				return tooMany(c, fromAnywhere);
+			}
 			const password = checkPassword(given.password);
 			const user = await findUser(key);
 			const right =
@@ -181,6 +189,7 @@ export function accountRoute({ cookie, limits }: AccountRouteOptions) {
 					? await verifyPassword(password.password, user.passwordHash)
 					: await verifyDecoy(password.ok ? password.password : 'wrong length');
 			if (!user || !right) return c.json({ error: 'wrong name or password' }, 401);
+			limit.loginFailuresPerNameFromIp.refund(pair);
 			limit.loginFailuresPerName.refund(key);
 			await logIn(c, await createSession(db, user.id));
 			return c.json({ user: { name: user.name } });

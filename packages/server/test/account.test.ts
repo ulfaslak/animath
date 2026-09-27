@@ -34,6 +34,7 @@ vi.setConfig({ testTimeout: 30_000 });
 const ROOMY = { limit: 100_000, windowMs: 60_000, maxKeys: 100_000 };
 const NO_LIMITS: AccountLimits = {
 	loginPerIp: ROOMY,
+	loginFailuresPerNameFromIp: ROOMY,
 	loginFailuresPerName: ROOMY,
 	registerPerIp: ROOMY,
 	registerPerName: ROOMY
@@ -645,12 +646,13 @@ describe('sessionUser, for code outside these routes (the WebSocket upgrade)', (
 describe('rate limits', () => {
 	const TIGHT: AccountLimits = {
 		loginPerIp: { limit: 6, windowMs: 60_000, maxKeys: 100 },
-		loginFailuresPerName: { limit: 3, windowMs: 60_000, maxKeys: 100 },
+		loginFailuresPerNameFromIp: { limit: 3, windowMs: 60_000, maxKeys: 100 },
+		loginFailuresPerName: { limit: 5, windowMs: 60_000, maxKeys: 100 },
 		registerPerIp: { limit: 4, windowMs: 60_000, maxKeys: 100 },
 		registerPerName: { limit: 2, windowMs: 60_000, maxKeys: 100 }
 	};
 	let address = 0;
-	/** A browser at an address no other browser in these tests has. */
+	/** A browser at an address no other browser in these tests has, or at `ip`. */
 	function from(
 		target: ReturnType<typeof createApp>,
 		ip = `10.9.${address >> 8}.${address++ & 255}`
@@ -658,18 +660,34 @@ describe('rate limits', () => {
 		return new Browser(target, { 'x-forwarded-for': ip });
 	}
 
-	it('blocks a name after three wrong passwords, from any address, even with the right one', async () => {
+	async function expectTooMany(res: Response): Promise<void> {
+		expect(res.status).toBe(429);
+		const retryAfter = Number(res.headers.get('retry-after'));
+		expect(retryAfter).toBeGreaterThanOrEqual(1);
+		expect(retryAfter).toBeLessThanOrEqual(60);
+		expect(await res.json()).toEqual({ error: 'too many tries', retryAfter });
+	}
+
+	it('stops a name after three wrong passwords from one address, even with the right one; the kid elsewhere still logs in', async () => {
 		const limited = createApp({ limits: TIGHT });
 		const { name } = await account();
-		for (let i = 0; i < 3; i++) expect((await from(limited).login(name, 'wrong')).status).toBe(401);
-		for (const typed of [name, name.toUpperCase()]) {
-			const blocked = await from(limited).login(typed, 'secret');
-			expect(blocked.status).toBe(429);
-			const retryAfter = Number(blocked.headers.get('retry-after'));
-			expect(retryAfter).toBeGreaterThanOrEqual(1);
-			expect(retryAfter).toBeLessThanOrEqual(60);
-			expect(await blocked.json()).toEqual({ error: 'too many tries', retryAfter });
+		const guesser = '10.8.1.1';
+		for (let i = 0; i < 3; i++) {
+			expect((await from(limited, guesser).login(name, 'wrong')).status).toBe(401);
 		}
+		await expectTooMany(await from(limited, guesser).login(name, 'secret'));
+		await expectTooMany(await from(limited, guesser).login(name.toUpperCase(), 'secret'));
+		expect((await from(limited, '10.8.1.2').login(name, 'secret')).status).toBe(200);
+		const other = await account();
+		expect((await from(limited, guesser).login(other.name)).status).toBe(200);
+	});
+
+	it('stops a name for everyone after five wrong passwords from all addresses together', async () => {
+		const limited = createApp({ limits: TIGHT });
+		const { name } = await account();
+		for (let i = 0; i < 5; i++) expect((await from(limited).login(name, 'wrong')).status).toBe(401);
+		await expectTooMany(await from(limited).login(name, 'secret'));
+		await expectTooMany(await from(limited).login(name.toLowerCase(), 'secret'));
 		const other = await account();
 		expect((await from(limited).login(other.name)).status).toBe(200);
 	});
@@ -677,18 +695,23 @@ describe('rate limits', () => {
 	it('counts no right password against its name', async () => {
 		const limited = createApp({ limits: TIGHT });
 		const { name } = await account();
-		for (let i = 0; i < 5; i++) expect((await from(limited).login(name)).status).toBe(200);
-		expect((await from(limited).login(name, 'wrong')).status).toBe(401);
+		const home = '10.8.1.3';
+		for (let i = 0; i < 5; i++) expect((await from(limited, home).login(name)).status).toBe(200);
+		expect((await from(limited, home).login(name, 'wrong')).status).toBe(401);
 	});
 
-	it('of wrong passwords racing each other, no more than the limit are tried', async () => {
+	it('of wrong passwords racing each other, from one address or from many, no more than the limit are tried', async () => {
 		const limited = createApp({ limits: TIGHT });
-		const { name } = await account();
-		const results = await Promise.all(
-			Array.from({ length: 8 }, () => from(limited).login(name, 'wrong'))
+		const one = await account();
+		const fromOne = await Promise.all(
+			Array.from({ length: 8 }, () => from(limited, '10.8.1.4').login(one.name, 'wrong'))
 		);
-		const statuses = results.map((r) => r.status).sort();
-		expect(statuses).toEqual([401, 401, 401, 429, 429, 429, 429, 429]);
+		expect(fromOne.map((r) => r.status).sort()).toEqual([401, 401, 401, 429, 429, 429, 429, 429]);
+		const many = await account();
+		const fromMany = await Promise.all(
+			Array.from({ length: 8 }, () => from(limited).login(many.name, 'wrong'))
+		);
+		expect(fromMany.map((r) => r.status).sort()).toEqual([401, 401, 401, 401, 401, 429, 429, 429]);
 	});
 
 	it('blocks an address after six login tries, whatever the names; other addresses go on', async () => {

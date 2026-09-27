@@ -91,11 +91,22 @@ export class RateLimiter {
 	}
 }
 
-/** The limits on the account routes. Tests build an app with their own. */
+/**
+ * The limits on the account routes. Tests build an app with their own. An
+ * "address" is `rateKey`'s: an IPv4 address, or an IPv6 /64.
+ *
+ * Wrong passwords are limited twice. From one address, a name gets a few
+ * guesses; that is the limit a guesser meets, and a classmate who types
+ * wrong on purpose shuts out only themselves, never the kid on their own
+ * device. From everywhere together, a name gets several times more, which
+ * bounds guessing from many addresses at once.
+ */
 export interface AccountLimits {
-	/** Every login try from one address. */
+	/** Every login try from one address, right or wrong: the slow hashes one address can ask for. */
 	loginPerIp: LimitSpec;
-	/** Failed logins to one name, from anywhere. A successful login does not count. */
+	/** Failed logins to one name from one address. A successful login does not count. */
+	loginFailuresPerNameFromIp: LimitSpec;
+	/** Failed logins to one name from every address together. A successful login does not count. */
 	loginFailuresPerName: LimitSpec;
 	/** Every register try from one address. */
 	registerPerIp: LimitSpec;
@@ -105,9 +116,14 @@ export interface AccountLimits {
 
 const MINUTE = 60_000;
 
+/**
+ * Sized for a class of kids behind one school address: 25 logging in, typos
+ * and all, fit inside one quarter-hour, and 25 accounts inside one hour.
+ */
 export const ACCOUNT_LIMITS: AccountLimits = {
-	loginPerIp: { limit: 30, windowMs: 15 * MINUTE, maxKeys: 10_000 },
-	loginFailuresPerName: { limit: 10, windowMs: 15 * MINUTE, maxKeys: 10_000 },
-	registerPerIp: { limit: 20, windowMs: 60 * MINUTE, maxKeys: 10_000 },
+	loginPerIp: { limit: 60, windowMs: 15 * MINUTE, maxKeys: 10_000 },
+	loginFailuresPerNameFromIp: { limit: 10, windowMs: 15 * MINUTE, maxKeys: 10_000 },
+	loginFailuresPerName: { limit: 50, windowMs: 15 * MINUTE, maxKeys: 10_000 },
+	registerPerIp: { limit: 30, windowMs: 60 * MINUTE, maxKeys: 10_000 },
 	registerPerName: { limit: 10, windowMs: 15 * MINUTE, maxKeys: 10_000 }
 };
