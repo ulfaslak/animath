@@ -70,7 +70,8 @@ export function guestGameFor(store: KeyValueStore, name: string): Record<string,
  * moves to the account's keys with the account's name, and the guest's key
  * is emptied, its text kept among the games put away (`KEYS.previous`), so
  * logging out later leads to the title rather than to an old copy of this
- * game. Anything the account's keys held here before is kept aside first.
+ * game; the guest game's anonymous backup identity is kept aside with it.
+ * Anything the account's keys held here before is kept aside first.
  *
  * False when this browser could not even be logged in (its storage refuses
  * writes): nothing moved, and the guest game plays on. When only the move
@@ -88,6 +89,12 @@ export function moveGuestGameIn(store: KeyValueStore, name: string): boolean {
 	if (!store.set(keys.save, JSON.stringify(game))) return true;
 	setAside(store, KEYS.previous, guest, MAX_PUT_AWAY);
 	store.remove(KEYS.save);
+	// The guest game's anonymous backup (development only) is this game's too: its
+	// identity is kept aside, so a guest start after logging out does not bring an
+	// old copy of the account's game back from it.
+	const identity = store.get(KEYS.player);
+	if (identity !== null && setAside(store, KEYS.previousPlayer, identity))
+		store.remove(KEYS.player);
 	return true;
 }
 

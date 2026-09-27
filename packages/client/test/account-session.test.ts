@@ -102,6 +102,15 @@ describe('making an account with the guest game', () => {
 		expect(currentAccount(store)).toEqual({ name: 'Ida B' });
 	});
 
+	it("puts the guest game's anonymous backup identity aside with it, so a guest start later does not fetch the game back", () => {
+		const identity = JSON.stringify({ id: '00000000-0000-4000-8000-000000000009', secret: 's' });
+		store.set(KEYS.player, identity);
+		store.set(KEYS.save, saveText(8));
+		moveGuestGameIn(store, 'Ida');
+		expect(store.get(KEYS.player)).toBeNull();
+		expect(store.get(KEYS.previousPlayer)).toBe(identity);
+	});
+
 	it('keeps aside what the account keys held here before, and a put-away game already there', () => {
 		const keys = gameKeys({ name: 'Ida' });
 		store.set(keys.save, saveText(3, 'old-account-game'));
