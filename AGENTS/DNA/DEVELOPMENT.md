@@ -410,6 +410,8 @@ Every request is answered, and the slowest waits about a quarter of a second. ng
 
 Before #114 a request sent to the canary's address in the 5 s after it left waited until the address answered again or the kernel gave up (4 to 23 s on the local stack; 60 s at most), and so did a socket coming back from the canary.
 
+Applying nginx's config refuses nothing either: a changed template is rendered again in the running nginx, which then reloads (`scripts/lib/nginx-apply.sh`). What recreates nginx is a change to its service in `docker-compose.prod.yml` (the image, the ports, the domain in `deploy.env`), and a recreate refuses every connection until nginx is back: nginx's graceful stop waits for its WebSockets until Docker kills it 10 s on, so the site is gone for about 12 s while kids play (10.4 s of failed requests with four presence sockets open on the local stack). Merge such a change when few kids are playing.
+
 nginx's access log shows a swap request by request: each line ends with the app addresses nginx tried, what each answered and how long each took. `172.18.0.6:3000, 172.18.0.3:3000 504, 200 0.251, 0.002` is a request that met an address that had gone, gave up on it after 250 ms, and was answered by the other; `502, 200` with no wait is one that met an app that had stopped listening. To watch a swap from the kids' side, see § Trying it on a Mac.
 
 ### Skipping a deploy
