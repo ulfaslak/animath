@@ -440,6 +440,7 @@
 				judged={battle.judged}
 				typing={false}
 				watch={t('match.thinking', { name: vs.name })}
+				back={battle.screen === 'waiting' ? t('match.leave.title') : undefined}
 			/>
 		{:else if battle.puzzle}
 			<PuzzlePanel
@@ -452,6 +453,16 @@
 		{:else if vs && battle.screen === 'waiting'}
 			<div class="soft">{t('match.theirTurn', { whose: whose(vs.name) })}</div>
 			<div class="detail">{t('match.thinking', { name: vs.name })}</div>
+			<!-- Leaving is always the kid's to do, their turn or not. -->
+			<div class="footer">
+				<div class="keys"></div>
+				<div class="buttons">
+					<button type="button" class="pill-button" data-press="Escape" {@attach unfocusable}>
+						{t('match.leave.title')}
+						{#if !touch.on}<kbd>{t('keys.esc')}</kbd>{/if}
+					</button>
+				</div>
+			</div>
 		{:else if battle.screen === 'party'}
 			<div class="soft">{t('battle.switch.title')}</div>
 			<div class="detail">{partyDetail}</div>

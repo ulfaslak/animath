@@ -213,8 +213,12 @@ export class PresenceConnection {
 		socket.onclose = (event) => {
 			if (this.socket !== socket) return;
 			this.socket = null;
-			// A `bye` that never arrived (or never parsed) is still in the close code.
-			this.ending ??= byeReasonOf((event as { code?: unknown } | null)?.code);
+			// A `bye` that never arrived (or never parsed) is still in the close code, and
+			// is said as if it had: a match on the page must hear the server stopped.
+			if (this.ending === null) {
+				const reason = byeReasonOf((event as { code?: unknown } | null)?.code);
+				if (reason !== null) this.receive({ t: 'bye', reason });
+			}
 			this.closed();
 		};
 	}

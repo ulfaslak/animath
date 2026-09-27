@@ -447,8 +447,15 @@ export class MatchController implements MatchHooks {
 				if (typed.submit) this.sendPlay({ type: 'answer', input: typed.input });
 				return typed.handled;
 			}
+			case 'waiting':
+				// The other thinks: keys wait, but the kid can always leave (Escape, or the card's button).
+				if (key === 'Escape' && fresh) {
+					sfx.play('confirm');
+					this.sendPlay({ type: 'leave' });
+				}
+				return true;
 			default:
-				// While a turn plays or the other thinks, keys wait.
+				// While a turn plays, keys wait.
 				return true;
 		}
 	}

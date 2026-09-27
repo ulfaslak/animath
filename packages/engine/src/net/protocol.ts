@@ -855,13 +855,12 @@ function readMatchMessage(o: Fields): MatchMessage | null {
 }
 
 const SERVER_PARSERS: { [K in ServerMessage['t']]: Parser<Extract<ServerMessage, { t: K }>> } = {
-	hi: (o) =>
-		isWhole(o.v, 0, 2 ** 31) &&
-		isPid(o.pid) &&
-		isWireName(o.name) &&
-		(o.match === null || isMatchId(o.match))
-			? { t: 'hi', v: o.v, pid: o.pid, name: o.name, match: o.match }
-			: null,
+	hi: (o) => {
+		const match = o.match === null ? null : isMatchId(o.match) ? o.match : undefined;
+		return isWhole(o.v, 0, 2 ** 31) && isPid(o.pid) && isWireName(o.name) && match !== undefined
+			? { t: 'hi', v: o.v, pid: o.pid, name: o.name, match }
+			: null;
+	},
 	refresh: (o) => (isWhole(o.v, 0, 2 ** 31) ? { t: 'refresh', v: o.v } : null),
 	peer: (o) => {
 		const spot = readSpot(o);
