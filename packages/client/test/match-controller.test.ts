@@ -165,7 +165,13 @@ function setup(party: AnimalInstance[] = PARTY) {
 		game.apply(e);
 		controller.handle(e);
 	});
-	const saved: SavedGame = { ...newGame(1, undefined, 'Ada'), party: party.map((a) => ({ ...a })) };
+	// The book this party makes: its kinds caught (the authority records them as it starts).
+	const saved: SavedGame = {
+		...newGame(1, undefined, 'Ada'),
+		party: party.map((a) => ({ ...a })),
+		seen: [],
+		caught: []
+	};
 	authority.start({ game: saved });
 	stop = () => authority.dispatch({ type: 'leave-game' });
 	controller.status('on');
@@ -415,6 +421,28 @@ describe('a match', () => {
 		expect(match.stage).toBe('none');
 		expect(battle.active).toBe(false);
 		expect(t.controller.busy).toBe(false);
+	});
+
+	it("leaves the animal book alone: the other's animals out in front are not the kid's to keep", () => {
+		// A kid with only a rabbit, against Bo's squirrel and frog: kinds their book has never had.
+		const t = setup([{ id: 'r1', speciesId: 'rabbit', hp: 22 }]);
+		const before = t.authority.snapshot();
+		expect([before.seen, before.caught]).toEqual([['rabbit'], ['rabbit']]);
+		const ref = started(t);
+		// This page's turn first, if the coin says so: a wrong answer passes the turn.
+		if (ref.state.phase.kind === 'choose-action' && ref.state.phase.side === 'a') {
+			t.controller.receive(
+				ref.message('a', ref.apply('a', { type: 'attack', attackIndex: 1, level: 1 }))
+			);
+			t.controller.receive(
+				ref.message('a', ref.apply('a', { type: 'answer', input: `${ref.answer()}1` }))
+			);
+		}
+		// Bo sends the frog in: out in front of the kid's rabbit too.
+		t.controller.receive(ref.message('a', ref.apply('b', { type: 'switch', teamIndex: 1 })));
+		t.runUntil(() => battle.screen !== 'busy');
+		// A match changes nothing but the puzzles solved ([[DECISIONS]] § Multiplayer).
+		expect(t.authority.snapshot()).toStrictEqual(before);
 	});
 
 	it('says who starts, from the coin both see', () => {
