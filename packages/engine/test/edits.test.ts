@@ -427,8 +427,8 @@ describe('clearing a tile', () => {
 		// random sweeps.
 		expect([...seen].sort()).toEqual(['grass', 'sand', 'tallgrass', 'tent', 'water']);
 		// About 0.3 s alone (up to eight stands beside every kind on every seed, all found from
-		// one scan per seed and kind: 1.4 s when each stand scanned again); a few seconds at a
-		// load average of 40.
+		// one scan per seed and kind: 1.4 s when each stand scanned again); 2.4 s at a load
+		// average of 60.
 	}, 30_000);
 
 	it('from every tile near spawn, facing every way, clears exactly what the prompt offers, and changes nothing it was given', () => {
@@ -564,7 +564,7 @@ describe('keeping the save small', () => {
 		// Well inside the 64 KiB of the backup sent as the page closes, with room for a team mid-battle.
 		expect(text.length).toBeLessThan(EDITS_BUDGET + 2000);
 		// Measured at about 5 ms; generous for a machine under load. The fastest of up to three
-		// tries, so a moment the machine spent elsewhere is not taken for the load's cost (#86).
+		// tries, so a moment the machine spent elsewhere is not taken for the read's cost (#86).
 		let took = Infinity;
 		for (let i = 0; i < 3 && took >= 250; i++) {
 			const started = performance.now();

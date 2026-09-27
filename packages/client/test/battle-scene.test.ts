@@ -299,10 +299,10 @@ describe('the leash', () => {
 			top < CLEAR ? `${top.toFixed(1)} px from the top edge, ${topWhen}` : null
 		);
 		expect(bad).toEqual([]);
-		// About 1.6–2 s at a load average of 8–10 (160 throws, every point of the
-		// loop projected on each of their 16,000 frames, against the top edge and
-		// the status box); up to four times that under a heavy load.
-	}, 30_000);
+		// About 6.6 s alone at a load average of 20 (392 throws, every point of the loop
+		// projected on each of their frames, against the top edge and the status box; the
+		// tests after it reuse them); 17 s at a load average of 54.
+	}, 60_000);
 
 	it('knows where the wild animal’s status box is: its copy of the box covers the CSS’s', () => {
 		expect(WILD_STATUS_BOX.right).toBe(STATUS_BOX.right);
@@ -342,7 +342,7 @@ describe('the leash', () => {
 			}
 		}
 		expect(bad).toEqual([]);
-		// 3–4 s alone; over vitest's default 5 s under a heavy load.
+		// About 1.4 s alone; 6.6 s at a load average of 54.
 	}, 30_000);
 });
 

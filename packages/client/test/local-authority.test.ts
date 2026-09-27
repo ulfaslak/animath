@@ -1650,7 +1650,9 @@ describe('LocalAuthority: trees and rocks', () => {
 		}
 		expect(regrown).toBeGreaterThan(0);
 		expect(JSON.stringify(s.authority.snapshot().edits).length).toBeLessThanOrEqual(EDITS_BUDGET);
-	});
+		// About 0.35 s alone (a save of 1,800 far chunks built a tile at a time, then 300 random
+		// steps and clears, each checked against the screen's copy); 2.6 s at a load average of 40.
+	}, 30_000);
 
 	it('a battle lost in a spot walled in by trees the kid chopped open: off to the tent along the path they cut', () => {
 		// A walkable tile with a tree or a rock on every side and a tent in reach once they are
@@ -1920,5 +1922,7 @@ describe('LocalAuthority: names and worlds', () => {
 		expect(length(after.edits) + length(after.worlds[0]!.edits)).toBeLessThanOrEqual(EDITS_BUDGET);
 		expect(after.edits).toEqual(WorldEdits.none.with(tree.target).encode());
 		expect(after.worlds[0]!.edits.length).toBeLessThan(far.encode().length);
-	});
+		// About 0.45 s alone (a world's overlay grown a tile at a time to the budget, measured
+		// after every chunk); 2.7 s at a load average of 54.
+	}, 30_000);
 });

@@ -43,11 +43,14 @@ describe('RateLimiter', () => {
 
 	it('never holds more than maxKeys keys, however many it is shown', () => {
 		const { l, advance } = limiter(5, 60_000, 100);
+		// The most it ever held, asserted once: an `expect` per key made the test 0.35 s alone.
+		let most = 0;
 		for (let i = 0; i < 10_000; i++) {
 			l.hit(`key-${i}`);
 			if (i % 997 === 0) advance(1_000);
-			expect(l.size).toBeLessThanOrEqual(100);
+			most = Math.max(most, l.size);
 		}
+		expect(most).toBeLessThanOrEqual(100);
 		expect(l.size).toBe(100);
 	});
 
