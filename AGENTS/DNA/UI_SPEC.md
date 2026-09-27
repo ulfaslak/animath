@@ -251,7 +251,7 @@ Escape in explore opens it; never in a battle (Escape there does nothing) or at 
 
 ## Accounts
 
-An account is optional ([[DECISIONS]] § Accounts): a guest plays on, and three ways lead to one.
+An account is optional ([[DECISIONS]] § Accounts): a guest plays on, and three ways lead to one. A fourth, the welcome link, opens one a grown-up made for a game brought over from another computer.
 
 ```
 ┌──────────────────────────────────────────┐
@@ -273,6 +273,24 @@ An account is optional ([[DECISIONS]] § Accounts): a guest plays on, and three 
 - **A save a newer version wrote**, on the server: as any page that meets one, the page takes no play and reloads, which fetches the new version, at most 3 times a minute; then the behind card, "A new version of the game is ready." with "Update!" ("Tap to update!" on a touch screen), and, for a player logged in, "Log out" (Escape) beside it, a quieter pill: the way on while the new version is not there yet (a deploy half done, or rolled back), into the guest game. Nothing is written over, in the browser or on the server. A save no version could read is saved past once the kid has played, and kept aside on the server.
 - **Only while the server can keep one**: the hourly card, "Make an account" and "Log in" in the pause menu, "I have an account → Log in" on the title and the Home Screen hint show only while the server says it can make and keep an account (the page asks as it starts and every half minute on screen; no answer is a no). Until then the menus simply have no such rows, and the hour stays due: the card comes at the next moment exploring once the server says yes. When it stops saying yes, the rows go with the page's next answer, each menu's highlight staying on its row (when the lit row itself goes: Keep playing in the pause menu, never "Log out", which acts at once; the next row on the title), and an hourly card that is up goes without an answer; an account card already open stays, with what the kid typed, and says "We can't reach the game's home right now. Try again soon!" if the server does not answer. "Log out" stays.
 - **The server out of reach**: nothing is said; the game saves in the browser and sends it on when it can. The server saying the session is over (a new password, a year away) is said once, on the title or the message line: "You're logged out, so your game only saves on this device. Log in to keep it safe."
+- **The welcome card**, for a game a grown-up brought over from another computer ([[DECISIONS]] § Accounts). A page opened by a welcome link (`/#welcome=<token>`, or `?welcome=`; the token leaves the address at once, and the tab keeps it until the link is used, spent or put away, so a reload brings the card back and Not now does not) starts on the title, the game this browser plays behind it, with the account card over it:
+
+  ```
+  ┌──────────────────────────────────────────┐
+  │           Welcome back, Aslak!           │
+  │ Your animals are waiting. Pick a secret  │
+  │                password.                 │
+  │  Your name                               │
+  │  [ Aslak                               ] │
+  │  Secret password                         │
+  │  [ ••••••••                  ] ( Show )  │
+  │  At least 4 letters or numbers.          │
+  │       ( Not now )   ( Let's play! )      │
+  │        Enter play · Esc not now          │
+  └──────────────────────────────────────────┘
+  ```
+
+  While the server is asked about the link: "Welcome back!" and "Just a moment…", with Not now. A live link: the account's name in its box, shown and never typed (Tab stays in the password), the password with **Show**, the rule, **Not now** (Escape: the title) and **Let's play!** (Enter, after the quiet moment). The password is checked by the engine's rule first; then the page starts again, straight into the account's game where it was, "Welcome back, Aslak!", and a guest's game in this browser stays where it is. A link that works no more says so, with no boxes: "This link has been used already" (then "Log in with your name and your secret password."), "This link is too old now" or "This link doesn't work" (then "Ask a grown-up for a new one."), with **Play as a guest** (Escape; "Play as Nini" in a browser logged in already) and **Log in** (Enter or Space, after the quiet moment: the login card; only while the server can keep an account, as every offer of one). No answer from the server: "We can't reach the game's home right now. Try again soon!" with Not now and **Try again**; too many tries from here lately, "Lots of tries! Take a little break and try again in 5 minutes." with the same two. A link used meanwhile (in another tab) turns the card to "used" when the password is sent.
 - It holds at 1280×720, 1024×768, and 1180×820 with the touch controls on, in both languages.
 
 ## Sound and juice
