@@ -1,6 +1,7 @@
 import {
 	MAX_SERVER_MESSAGE_BYTES,
 	getAnimal,
+	matchFight,
 	parseServerMessage,
 	readWire,
 	spawnPoint,
@@ -8,6 +9,7 @@ import {
 	worldSeed,
 	type Busy,
 	type ByeReason,
+	type FightView,
 	type GridPos,
 	type MatchMessage,
 	type ServerMessage,
@@ -793,5 +795,151 @@ describe('every way out', () => {
 		expect(matches.size).toBe(0);
 		expect(matches.known).toBe(0);
 		expect(vi.getTimerCount()).toBe(0);
+	});
+});
+
+describe('a match seen from outside', () => {
+	/** Play the match to its end from whoever's turn it is: attack 1 on hard, answered right. */
+	function playOut(id: string, ada: Kid, bo: Kid, after?: () => void): void {
+		for (let turns = 0; ; turns++) {
+			const latest = ada.peer.last('match')!;
+			const phase = latest.view.phase;
+			if (phase.kind === 'ended') return;
+			if (turns > 400) throw new Error('never ended');
+			const me = phase.side === 'a' ? ada : bo;
+			if (phase.kind === 'choose-animal') {
+				const team = latest.view.teams[phase.side];
+				const next = team.findIndex((a, i) => a.hp > 0 && i !== latest.view.active[phase.side]);
+				me.send({ t: 'play', id, intent: { type: 'pick-next', teamIndex: next } });
+			} else if (phase.kind === 'choose-action') {
+				me.send({ t: 'play', id, intent: { type: 'attack', attackIndex: 1, level: 3 } });
+			} else {
+				me.send({ t: 'play', id, intent: { type: 'answer', input: answerOf(id) } });
+			}
+			after?.();
+		}
+	}
+
+	it("shows the match to a player near, step by step from the server's own state, and never to its two players", () => {
+		const ada = kid('Ada');
+		const bo = kid('Bo', beside(1));
+		const cy = kid('Cy', beside(3, 2));
+		const start = startedMatch(ada, bo);
+		const first = cy.peer.of('fight');
+		expect(first).toHaveLength(1);
+		expect(first[0]).toMatchObject({ pid: ada.pid, vs: bo.pid, events: [] });
+		const bad: string[] = [];
+		playOut(start.id, ada, bo, () => {
+			// Each step: what Cy sees is the server's own state, as the engine shows it from outside.
+			const seen = cy.peer.last('fight')!;
+			const state = matches.stateOf(start.id)!;
+			const shown = matchFight(state);
+			if (state.phase.kind !== 'ended' && JSON.stringify(seen.view) !== JSON.stringify(shown)) {
+				bad.push(`${JSON.stringify(seen.view)} is not ${JSON.stringify(shown)}`);
+			}
+			if (JSON.stringify(seen).includes('prompt')) bad.push('a prompt on the wire');
+		});
+		expect(bad.slice(0, 5)).toEqual([]);
+		const fights = cy.peer.of('fight');
+		// One a step, the puzzles among them as numbers, and the end last.
+		expect(fights.length).toBe(ada.peer.of('match').length);
+		expect(fights.some((f) => f.events.some((e) => e.type === 'puzzle'))).toBe(true);
+		expect(fights.at(-1)!.events.at(-1)).toMatchObject({ type: 'ended', how: 'tired' });
+		for (const k of [ada, bo]) expect(k.peer.of('fight')).toEqual([]);
+	});
+
+	it('shows a match as it stands to a player who comes near it, and nothing of it once it is over', () => {
+		const ada = kid('Ada');
+		const bo = kid('Bo', beside(1));
+		const di = kid('Di', beside(100));
+		const start = startedMatch(ada, bo);
+		const [me] = turnOf(start, ada, bo);
+		me.send({ t: 'play', id: start.id, intent: { type: 'attack', attackIndex: 1, level: 2 } });
+		expect(di.peer.of('fight')).toEqual([]);
+		// Di walks up mid-match: the puzzle being solved is in what she sees, at once.
+		di.at(beside(2, 2));
+		const seen = di.peer.of('fight');
+		expect(seen).toHaveLength(1);
+		expect(seen[0]!.events).toEqual([]);
+		expect(seen[0]!.view.puzzle).not.toBeNull();
+		expect(seen[0]!.view.turn).toBe(me === ada ? 'a' : 'b');
+		playOut(start.id, ada, bo);
+		const ev = kid('Ev', beside(100, 5));
+		ev.at(beside(2, -2));
+		expect(ev.peer.of('fight')).toEqual([]);
+	});
+
+	it('shows the match again round a page that came back into it', () => {
+		const ada = kid('Ada');
+		const bo = kid('Bo', beside(1));
+		const cy = kid('Cy', beside(3, 2));
+		startedMatch(ada, bo);
+		bo.leave();
+		cy.peer.clear();
+		kid('Bo', beside(1));
+		const again = cy.peer.of('fight');
+		expect(again.length).toBeGreaterThanOrEqual(1);
+		expect(again.at(-1)).toMatchObject({ pid: ada.pid, events: [] });
+	});
+});
+
+describe('a match seen from outside, as pages come and go (review findings)', () => {
+	/** A wild battle as a page reports it. */
+	const wild: FightView = {
+		realm: 'land',
+		a: { species: 'rabbit', hp: 5 },
+		b: { species: 'fox', hp: 3 },
+		turn: 'a',
+		puzzle: { kind: 'add', numbers: [3, 4] }
+	};
+
+	it('shows the match to one who comes near only the player whose page came back into it', () => {
+		const ada = kid('Ada');
+		const bo = kid('Bo', beside(1));
+		startedMatch(ada, bo);
+		// Bo's page reloads: a new socket, back in the match before it has said where it is.
+		bo.leave();
+		kid('Bo', beside(1));
+		// Eve comes within sight of Bo alone (24 tiles from him, 25 from Ada).
+		const eve = kid('Eve', beside(100));
+		eve.at(beside(1 + 24));
+		expect(eve.peer.of('fight')).toEqual([
+			expect.objectContaining({ pid: ada.pid, vs: bo.pid, events: [] })
+		]);
+	});
+
+	it("never wipes the battle a player went on to when the other comes back to their old match's end", () => {
+		const ada = kid('Ada');
+		const bo = kid('Bo', beside(1));
+		const start = startedMatch(ada, bo);
+		ada.send({ t: 'play', id: start.id, intent: { type: 'leave' } });
+		// Ada's page drops: the match that ended keeps her for the time to come back.
+		ada.leave();
+		// Bo goes back to exploring, and into a wild battle.
+		bo.send({ t: 'done', id: start.id });
+		bo.at(beside(1), { busy: 'battle' });
+		hub.battle(bo.peer, wild, []);
+		// Ada comes back in time, to her match's end.
+		kid('Ada');
+		const eve = kid('Eve', beside(100));
+		eve.at(beside(1, 5));
+		expect(eve.peer.of('fight')).toContainEqual(
+			expect.objectContaining({ pid: bo.pid, vs: null, view: wild })
+		);
+	});
+
+	it("takes no wild battle from a page in a match: the match's view is the server's", () => {
+		const ada = kid('Ada');
+		const bo = kid('Bo', beside(1));
+		startedMatch(ada, bo);
+		const cy = kid('Cy', beside(3, 2));
+		cy.peer.clear();
+		bo.at(beside(1), { busy: 'battle' });
+		hub.battle(bo.peer, wild, []);
+		expect(cy.peer.of('fight')).toEqual([]);
+		// One who comes near is shown the match, not a made-up battle.
+		const eve = kid('Eve', beside(100));
+		eve.at(beside(2, 3));
+		expect(eve.peer.of('fight')).toEqual([expect.objectContaining({ pid: ada.pid, vs: bo.pid })]);
 	});
 });

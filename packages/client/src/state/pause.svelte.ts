@@ -20,17 +20,21 @@ import { account } from './account.svelte';
  * picked animal; `naming` is the name box; `worlds` is the Worlds screen:
  * the world the player is in and their home, a number pad for a world's
  * number, Go, Go home and Back; `players` is who else is in this world,
- * each one a "Go to" (`presence.roster`).
+ * each one a "Go to" (`presence.roster`); `book` is the animal book, a card
+ * for every species of the catalog in the book's order (`BOOK_ORDER`), the
+ * lit one `option`.
  */
-export type PauseScreen = 'list' | 'bundle' | 'options' | 'naming' | 'worlds' | 'players';
+export type PauseScreen = 'list' | 'bundle' | 'options' | 'naming' | 'worlds' | 'players' | 'book';
 
 /**
  * The rows under the team, in order: Worlds, Who's here, the settings, the
  * account's rows (as `menuItems` shows them), then "Keep playing" and Quit
- * to title, which are drawn side by side. A new one is a new id here, before
- * those two, its label in `PauseMenu.svelte`, and its case in
- * `PauseController.chooseItem` — the cursor, keys and layout already count
- * every row shown. A setting's row also takes left and right
+ * to title, which are drawn side by side; and last the animal book, which is
+ * drawn at the top, on the menu's title line, so up from the first card
+ * reaches it and down from the last row comes round to it. A new row is a
+ * new id here, before Keep playing, its label in `PauseMenu.svelte`, and its
+ * case in `PauseController.chooseItem` — the cursor, keys and layout already
+ * count every row shown. A setting's row also takes left and right
  * (`PauseController.settingKey`); the paired rows take them to step between
  * each other. `worlds` opens the Worlds screen, with the world the player is
  * in beside it; `players` opens the list of the other players in this world
@@ -39,7 +43,7 @@ export type PauseScreen = 'list' | 'bundle' | 'options' | 'naming' | 'worlds' | 
  * device; `sound` turns the sound off and on (`sfx`); the account's rows
  * open the account card or log out (`PauseHooks`); `quit` (Start screen)
  * saves the game as it stands and goes back to the title, where Continue
- * picks it up.
+ * picks it up; `book` opens the animal book in the menu's place.
  */
 export const MENU_ITEMS = [
 	'worlds',
@@ -50,7 +54,8 @@ export const MENU_ITEMS = [
 	'logIn',
 	'logOut',
 	'resume',
-	'quit'
+	'quit',
+	'book'
 ] as const;
 export type MenuItem = (typeof MENU_ITEMS)[number];
 
@@ -107,7 +112,11 @@ class PauseView {
 	species = $state<string | null>(null);
 	/** The animal the options and the name box are for, by id, so it stays picked as it moves. */
 	picked = $state<string | null>(null);
-	/** Highlighted row on the right: an option, or on a card's screen an option or an animal. */
+	/**
+	 * Highlighted row on the right: an option, or on a card's screen an option
+	 * or an animal; on the Worlds screen a row; in the animal book the lit
+	 * card, by its place in `BOOK_ORDER`.
+	 */
 	option = $state(0);
 	/** The name typed so far. */
 	draft = $state('');

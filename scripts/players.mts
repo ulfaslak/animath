@@ -37,7 +37,8 @@
  * key (`ArrowRight`, `Enter`, `*n` to press it n times), or one of:
  *   wait:<ms>          everyone waits
  *   shot:<name>        a frame of that player, to `<out>-<label>-<name>.png`
- *   burst:<name>:<n>   n frames as fast as they come (`-1`, `-2`…): a flourish that is soon over
+ *   burst:<name>:<n>   n frames as fast as they come (`-1`, `-2`…): a flourish that is soon over;
+ *                      `burst:<name>:<n>:<x>:<y>:<w>:<h>` frames only that part of the page, quicker
  *   press:<key>        a key, going straight on to the next step (no pause after it)
  *   type:<text>        type into what has the focus
  *   hold:<key>:<ms>    hold a key down, auto-repeating
@@ -73,8 +74,10 @@
  */
 import {
 	ANIMALS,
+	EMPTY_BOOK,
 	getAnimal,
 	newGame,
+	recordParty,
 	saveDocument,
 	type AnimalInstance,
 	type Direction
@@ -233,13 +236,18 @@ function parsePlayer(spec: string): Player {
 /** The save the player's browser starts with, as the game writes one: in their world, their home. */
 function saveOf(p: Player): string {
 	const game = newGame(p.world, undefined, p.name);
+	const party = p.party ?? game.party;
+	// The animal book of a game that begins with this party: its kinds, caught.
+	const book = recordParty(EMPTY_BOOK, party);
 	const doc = saveDocument(
 		{
 			...game,
 			pos: p.at ?? game.pos,
 			steps: p.steps,
 			facing: p.facing,
-			party: p.party ?? game.party,
+			party,
+			seen: [...book.seen],
+			caught: [...book.caught],
 			items: p.boat ? ['boat'] : []
 		},
 		{ lineage: `players-${p.label}`, seq: 1 }
@@ -385,6 +393,20 @@ const DESCRIBE = `(() => {
 		return text(el.querySelector('.name')) + (busy ? ' (' + busy + ')' : '');
 	});
 	if (labels.length) lines.push('others: ' + labels.join(' | '));
+	// Battles seen from outside: the thought bubbles, the animals' HP bars, the damage floating up.
+	const thoughts = [...document.querySelectorAll('.others .label')].flatMap((el) => {
+		const cloud = el.querySelector('.thought .cloud');
+		if (!cloud) return [];
+		const mood = cloud.classList.contains('right') ? ' ✓' : cloud.classList.contains('wrong') ? ' ✗' : '';
+		return [text(el.querySelector('.name')) + ': ' + (text(cloud.querySelector('.sum')) ?? '…') + mood];
+	});
+	if (thoughts.length) lines.push('thoughts: ' + thoughts.join(' | '));
+	const bars = [...document.querySelectorAll('.others .hp')].map(
+		(el) => text(el.querySelector('.hp-name')) + ' ' + (el.querySelector('.fill')?.style.width ?? '?')
+	);
+	if (bars.length) lines.push('bars: ' + bars.join(' | '));
+	const pops = [...document.querySelectorAll('.others .pop .n')].map(text);
+	if (pops.length) lines.push('pops: ' + pops.join(' | '));
 	const arrows = [...document.querySelectorAll('.others .arrow-name')].map(text);
 	if (arrows.length) lines.push('arrows: ' + arrows.join(' | '));
 	const note = text(document.querySelector('.note[role=status]'));
@@ -499,9 +521,14 @@ async function run(step: Step): Promise<void> {
 				break;
 			}
 			case 'burst': {
-				const [name, n] = step.arg.split(':');
+				// `burst:name:n`, or `burst:name:n:x:y:w:h` for only that part of the page: a
+				// smaller frame is quicker to take, so more of them land inside a flourish.
+				const [name, n, ...box] = step.arg.split(':');
+				const [x, y, width, height] = box.map(Number);
+				const clip =
+					box.length === 4 ? { x: x!, y: y!, width: width!, height: height! } : undefined;
 				for (let i = 1; i <= Number(n ?? 4); i++) {
-					await page!.screenshot({ path: `${stem}-${p.label}-${name}-${i}.png` });
+					await page!.screenshot({ path: `${stem}-${p.label}-${name}-${i}.png`, clip });
 				}
 				console.log(`${stem}-${p.label}-${name}-1..${n ?? 4}.png`);
 				break;
