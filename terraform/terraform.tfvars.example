@@ -1,0 +1,4 @@
+hcloud_token        = ""
+ssh_public_key_path = "~/.ssh/mathgame_deploy.pub"
+server_type         = "cx23"
+location            = "nbg1"

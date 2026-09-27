@@ -88,7 +88,8 @@ No generated-by-AI art claims without checking the generator's license terms.
 
 ## Server
 
-Node with Hono (`@hono/node-server`). Serves the built client in production; Vite proxies `/api` and `/ws` to it in development.
+Node with Hono (`@hono/node-server`). Serves the built client in production; Vite proxies `/api` to it in development, WebSocket upgrades included.
+In production the server is one esbuild bundle, the engine inside, run with plain `node`; `tsx` runs it in development only.
 WebSockets via `ws`, for presence and friendly matches. The server runs the same engine as the browser; which rules it decides, and which stay in the browser, is § Multiplayer.
 Postgres via Drizzle ORM (`node-postgres` driver). Local Postgres in Docker on host port **5433**.
 Migrations are hand-written SQL in `packages/server/drizzle/`, idempotent (`IF NOT EXISTS`), with a matching `_journal.json` entry. `drizzle-kit generate` is not used.
@@ -131,4 +132,6 @@ Rendering changes are verified by reading a screenshot from `scripts/screenshot.
 ## Deployment
 
 The game runs on a dedicated Hetzner VPS that mirrors lawcel's setup (Docker Compose behind nginx, Postgres in the same compose), except that there is no staging: a push to main without `[skip deploy]` gates on check, test and lint and goes straight to production. The human asked for it ("i'd prefer it if you copied my setup on ../lawcel exactly [...] well it's just a fun game, so nevermind a staging environment, push to main (unless skip tags) builds and goes on prod immediately"). The server is the game's own, to keep it apart from the business product on lawcel's, and the setup is lawcel's because it works. Until it is up, the game is shared from this machine through a tunnel (ngrok or cloudflared; how: [[DEVELOPMENT]] § Sharing the game through a tunnel).
+Certificates come from Let's Encrypt through nginx's own ACME module over HTTP-01, as on lawcel, because the human asked for it ("look at how we've done certs on lawcel, that's how it should be done here too!"): no certbot, no DNS API.
+The checks gate the deploy inside the deploy workflow, since branch protection is not on this plan.
 No third-party backend services (no Convex, Supabase, Firebase). Postgres and a Node process are the whole stack.

@@ -1,0 +1,10 @@
+# Only what the image build reads goes into the build context. Everything else
+# stays out, secrets included (.env, .env.production, terraform.tfvars).
+*
+!package.json
+!pnpm-lock.yaml
+!pnpm-workspace.yaml
+!tsconfig.base.json
+!packages/
+**/node_modules
+**/dist
