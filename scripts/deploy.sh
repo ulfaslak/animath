@@ -88,15 +88,23 @@ IMAGE=$($COMPOSE config --format json | jq -r '.services.app.image')
 # A missing bind-mount source is created by Docker as root. Make it as us.
 mkdir -p backups
 
-# A canary still here means an earlier deploy stopped half way, and one that
-# stopped at the recreate left it serving on purpose. It answers as `app`
+# A canary still running means an earlier deploy stopped half way, and one
+# that stopped at the recreate left it serving on purpose. It answers as `app`
 # whatever this deploy does, so nothing goes on until someone has looked:
 # otherwise a first deploy's `up`, or an image that did not change, would
-# leave two builds answering for good.
+# leave two builds answering for good. A stopped one (a deploy that ended
+# between the canary's stop and its removal) answers nothing: Docker's DNS
+# names only the containers on the network, and a stopped one has left it.
+# `compose run` gives it no restart policy, so it stays stopped: it goes.
 if docker container inspect "$CANARY_NAME" >/dev/null 2>&1; then
-	echo "ERROR: a canary from an earlier deploy is still there ($CANARY_NAME), answering as"
-	echo "       the app. Check the app ($COMPOSE ps; $COMPOSE logs app), then: docker rm -f $CANARY_NAME"
-	exit 1
+	if [ "$(docker container inspect --format '{{.State.Running}}' "$CANARY_NAME" 2>/dev/null)" != "true" ]; then
+		echo "Removing a stopped canary an earlier deploy left..."
+		docker rm -f "$CANARY_NAME" >/dev/null
+	else
+		echo "ERROR: a canary from an earlier deploy is still there ($CANARY_NAME), answering as"
+		echo "       the app. Check the app ($COMPOSE ps; $COMPOSE logs app), then: docker rm -f $CANARY_NAME"
+		exit 1
+	fi
 fi
 
 # A deploy never recreates Postgres: a new image (a new major version needs its
@@ -147,7 +155,8 @@ migrate() {
 }
 
 # nginx's definition and config, as the checkout has them (lib/nginx-apply.sh):
-# checked first, then a reload, or a recreate when the template changed.
+# checked first, then a reload (a changed template rendered in the running
+# nginx first), or a recreate when nginx's service definition changed.
 apply_nginx() {
 	echo "Applying the nginx config..."
 	apply_nginx_config "$COMPOSE" || {
