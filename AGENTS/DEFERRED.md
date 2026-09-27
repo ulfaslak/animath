@@ -34,9 +34,17 @@ Technical items we've intentionally postponed: tech debt, hardening shortcuts, k
 
 **What**: the player secret is a random token the client holds in `localStorage` (`animath.player`) and sends as a bearer header. Only its hash is stored, so a database dump is useless, but anyone who copies the token from the browser owns the player and its backup. No rate limiting on `POST /api/players`: anyone can mint rows, and the game itself leaves unused ones behind (every fresh browser that starts a game is a new player; a page reloaded before its first `POST` answered makes another). No rotation, and no way to recover a lost secret: a kid whose browser forgets the site (cleared data, another browser or device, Safari deleting a site's storage after seven days without a visit) starts a new game, and their backup waits on the server under an identity nothing holds any more. Moving it to their new player takes a query written by hand; [[DEVELOPMENT]] § Database only restores a player's own backups.
 
-**Why deferred**: there is nothing to steal until multiplayer, tokens and a shop exist, and the players are a handful of kids on a tunnel URL. Moving a game between browsers is a feature (a recovery code, or accounts), not a hardening.
+**Why deferred**: the anonymous backup runs only in development now, for a handful of kids on this machine's tunnel: in production every `/api/players` route answers `410` ([[ARCHITECTURE]] § HTTP API), and the backup goes once the human's kid's save has moved to production ([[DECISIONS]] § Saves). A game moves between browsers with an account, which has a password, rate limits and an admin reset.
 
-**Trigger**: multiplayer with any persistent economy (tokens, purchasable leashes/potions), the first public deploy (rate limiting, and sweeping players with no save), or the first report of a kid losing their save.
+**Trigger**: the cleanup PR that removes the anonymous backup after the kid's save has moved: delete this item with it. Before then, the first report of a kid losing their save.
+
+### The login and register rate limits live in one process's memory
+
+**What**: `RateLimiter` (`packages/server/src/rate-limit.ts`) counts tries per address and per name in the API process's memory. A restart or a deploy forgets every count, and two processes serving the API at once would each allow the full limit. Anyone who can make a kid's account fail ten logins in a row locks its name out for a quarter of an hour at a time; the limit that stops guessing is the one that allows that.
+
+**Why deferred**: there is one API process, and the stakes are a kid's animals, not personal data ([[DECISIONS]] § Accounts). A shared store (a Postgres table, or Redis) is a moving part for a threat nobody has made yet.
+
+**Trigger**: a second process or container serving the API for longer than a deploy's hand-over, or a report of a kid locked out of their name, or of guessing (many `429`s for one name in the logs).
 
 ### Cleared tiles are each player's own, so a friend can walk through a tree you still see
 

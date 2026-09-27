@@ -45,30 +45,37 @@ function requestHosts(c: Context): string[] {
 }
 
 /**
+ * Whether a request's `Origin` is this site: its host is the one the browser
+ * addressed. A browser names the page behind every POST, PUT and WebSocket
+ * upgrade in `Origin`; a request with none is not from a browser's page (curl,
+ * the admin's tools) and counts as this site. The WebSocket upgrade, a GET
+ * that `sameOriginJson` lets through, must ask this itself: a page on another
+ * site can open a socket here, and on a same-site subdomain the session
+ * cookie goes along.
+ */
+export function fromThisSite(c: Context): boolean {
+	const origin = c.req.header('origin');
+	if (origin === undefined) return true;
+	let host: string;
+	try {
+		host = new URL(origin).host.toLowerCase();
+	} catch {
+		return false;
+	}
+	return host !== '' && requestHosts(c).includes(host);
+}
+
+/**
  * Guards every request that changes state (anything but GET and HEAD):
  *
- * - **Same origin.** A browser names the page that sent a request in `Origin`;
- *   it must be this site (its host is the request's own). A request with no
- *   `Origin` at all is not from a browser's page (curl, the admin's tools),
- *   and passes.
+ * - **Same origin** (`fromThisSite`).
  * - **JSON.** The body must be declared `application/json`. A form on another
  *   site cannot send that, and a script on another site cannot send it
  *   without asking first (a CORS preflight, which this server never answers).
  */
 export const sameOriginJson: MiddlewareHandler = async (c, next) => {
 	if (c.req.method === 'GET' || c.req.method === 'HEAD') return next();
-	const origin = c.req.header('origin');
-	if (origin !== undefined) {
-		let host: string | null = null;
-		try {
-			host = new URL(origin).host.toLowerCase();
-		} catch {
-			host = null;
-		}
-		if (!host || !requestHosts(c).includes(host)) {
-			return c.json({ error: 'wrong origin' }, 403);
-		}
-	}
+	if (!fromThisSite(c)) return c.json({ error: 'wrong origin' }, 403);
 	const type = c.req.header('content-type') ?? '';
 	if (!/^application\/json\s*(;|$)/i.test(type)) {
 		return c.json({ error: 'send JSON' }, 415);

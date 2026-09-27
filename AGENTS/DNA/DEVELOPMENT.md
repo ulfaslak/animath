@@ -240,6 +240,47 @@ Hand-written SQL, applied by `pnpm db:migrate` (`drizzle-orm`'s migrator, journa
 
 Never run `drizzle-kit generate` in a worktree (it emits a full `0000` dump that collides with the real one).
 
+`migrations.test.ts` fails when a `.sql` file has no journal entry or is out of order, and when a migration after `0002` changes the anonymous backup's tables ([[INVARIANTS]] § Server).
+
+## Accounts
+
+An account is a row in `users` with its `sessions`, its `account_saves` row and its `account_save_backups` ([[ARCHITECTURE]] § Data model). There is no email, so a forgotten password is reset, and an account deleted, by the human with the admin CLI:
+
+```bash
+pnpm admin list                                    # every account: its save's seq and when, how many browsers are logged in
+pnpm admin reset-password <name> [<new password>]  # a made-up six-character password when none is given; logs every browser out
+pnpm admin delete-account <name>                   # only says what it would delete
+pnpm admin delete-account <name> --yes             # deletes the account, its sessions, its save and its set-aside saves
+```
+
+A name is matched the way the game matches it, whatever its case or however its letters were typed; quote one with a space (`"Anna Sofie"`). Locally the CLI uses `.env`'s `DATABASE_URL`, the `mathgame` database; from a worktree, give it your own database's. In production it runs in the app container, against production's database, from the directory that holds `docker-compose.prod.yml`:
+
+```bash
+docker compose -f docker-compose.prod.yml exec app node dist/admin.mjs reset-password <name>
+```
+
+**Trying the routes.** A POST or PUT under `/api/account` must declare JSON, and when it carries an `Origin` (a browser's always does) its host must be the request's `Host`; curl sends none. The session is the `animath_session` cookie, which a cookie jar keeps:
+
+```bash
+API=http://localhost:3021   # your own API
+curl -s -c jar -b jar -H 'content-type: application/json' -d '{"name":"Pip","password":"1234"}' $API/api/account/register
+curl -s -c jar -b jar $API/api/account/me
+curl -s -c jar -b jar -X PUT -H 'content-type: application/json' --data @save.json $API/api/account/save
+```
+
+The login and register limits are counted in the API process's memory, so restarting your API clears them.
+
+**Getting a kid's account game back.** As with the anonymous backup (§ Database), what an account's save replaced (another game, from New game on the title, or one the server could not read) is in `account_save_backups`. Put one back with a `seq` far above the current save's, in the document and in its column:
+
+```sql
+select b.id, b.reason, b.created_at, b.data->>'seq' as seq, b.data->'party' as party
+  from account_save_backups b join users u on u.id = b.user_id where u.name = '<name>' order by b.id;
+update account_saves
+   set data = jsonb_set(b.data, '{seq}', to_jsonb(account_saves.seq + 1000000)),
+       seq = account_saves.seq + 1000000, updated_at = now()
+  from account_save_backups b where b.id = <backup id> and account_saves.user_id = b.user_id;
+```
+
 ## Sharing the game through a tunnel
 
 Until there is a deploy, the game is shared from this machine:
