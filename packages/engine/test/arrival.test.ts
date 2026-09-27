@@ -114,7 +114,9 @@ describe('arrivalSpot', () => {
 		expect(landed).toBeGreaterThan(100);
 		expect(afloat).toBeGreaterThan(0);
 		expect(nowhere).toBeGreaterThan(0);
-	}, 30_000);
+		// About 1.6 s alone (420 arrivals, each against its own brute force); 8.6 s at a load
+		// average of 33.
+	}, 60_000);
 
 	it('never lands on the friend, never on foot on the water, and faces the friend', () => {
 		const rng = new Rng(7);

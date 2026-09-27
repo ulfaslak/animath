@@ -336,7 +336,9 @@ describe('checkName', () => {
 			expect(name).toMatch(/^[\p{L}\p{Nd}]+(?:[ -][\p{L}\p{Nd}]+)*$/u);
 		}
 		expect(kept).toBeGreaterThan(300);
-	});
+		// About 0.3 s alone (3,000 names, each one kept checked again); 2.3 s at a load average
+		// of 40.
+	}, 30_000);
 });
 
 describe('nameKey', () => {

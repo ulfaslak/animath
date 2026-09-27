@@ -66,16 +66,27 @@ function scanned(seed: number): { x: number; y: number; kind: TileKind }[] {
 	return tiles;
 }
 
-/** Every tile of a kind within `radius` of `centre` (and `SCAN` of the spawn), nearest first. */
+const kindScans = new Map<string, readonly GridPos[]>();
+
+/**
+ * Every tile of a kind within `radius` of `centre` (and `SCAN` of the spawn), nearest
+ * first. Worked out once per question: `standBeside` asks the same one again and again.
+ */
 function tilesOfKind(seed: number, kind: TileKind, centre: GridPos, radius: number): GridPos[] {
-	const d = (p: GridPos) => (p.x - centre.x) ** 2 + (p.y - centre.y) ** 2;
-	return scanned(seed)
-		.filter(
-			(t) =>
-				t.kind === kind && Math.max(Math.abs(t.x - centre.x), Math.abs(t.y - centre.y)) <= radius
-		)
-		.map((t) => ({ x: t.x, y: t.y }))
-		.sort((a, b) => d(a) - d(b) || a.y - b.y || a.x - b.x);
+	const key = `${seed} ${kind} ${centre.x},${centre.y} ${radius}`;
+	let tiles = kindScans.get(key);
+	if (!tiles) {
+		const d = (p: GridPos) => (p.x - centre.x) ** 2 + (p.y - centre.y) ** 2;
+		tiles = scanned(seed)
+			.filter(
+				(t) =>
+					t.kind === kind && Math.max(Math.abs(t.x - centre.x), Math.abs(t.y - centre.y)) <= radius
+			)
+			.map((t) => ({ x: t.x, y: t.y }))
+			.sort((a, b) => d(a) - d(b) || a.y - b.y || a.x - b.x);
+		kindScans.set(key, tiles);
+	}
+	return tiles.map((p) => ({ ...p }));
 }
 
 /** A tile of `kind` with a walkable tile beside it, and the way to face it from there. */
@@ -140,7 +151,9 @@ describe('the overlay', () => {
 			}
 			expect(back.textLength).toBe(JSON.stringify(text).length);
 		}
-	});
+		// About 0.35 s alone (40 overlays of up to 300 tiles, each built in two orders and read
+		// back); 4.2 s at a load average of 40.
+	}, 30_000);
 
 	it('reads text in any order, with repeats, and a "-0" or leading zeros, as the tiles it names', () => {
 		const edits = WorldEdits.decode(['0,-1:ff00', '-0,-1:00', '2,003:10', '0,-1:01']);
@@ -288,7 +301,8 @@ describe('the world as a player left it', () => {
 			}
 		}
 		expect(bad.slice(0, 20)).toEqual([]);
-	});
+		// About 0.35 s alone (27,648 tiles, each read three ways); 3.8 s at a load average of 40.
+	}, 30_000);
 
 	it('is the same world every time for the same seed and edits', () => {
 		const edits = overlayOf(randomTiles(new Rng(5), { x: 0, y: 0 }, 400, 30));
@@ -412,8 +426,9 @@ describe('clearing a tile', () => {
 		// between), so no stand faces it; `clearTile` refuses it with the other kinds in the
 		// random sweeps.
 		expect([...seen].sort()).toEqual(['grass', 'sand', 'tallgrass', 'tent', 'water']);
-		// About 2.5 s alone (3.1 s before the elevation cache), up to eight stands beside every
-		// kind on every seed, each found by a scan round spawn; over 5 s under load.
+		// About 0.3 s alone (up to eight stands beside every kind on every seed, all found from
+		// one scan per seed and kind: 1.4 s when each stand scanned again); 2.4 s at a load
+		// average of 60.
 	}, 30_000);
 
 	it('from every tile near spawn, facing every way, clears exactly what the prompt offers, and changes nothing it was given', () => {
@@ -470,7 +485,9 @@ describe('clearing a tile', () => {
 		}
 		expect(bad.slice(0, 20)).toEqual([]);
 		expect(cleared).toBeGreaterThan(200);
-	});
+		// About 0.3 s alone (every way from every walkable tile within 30 of the spawn, in three
+		// worlds: up to 44,652 tries); 2.1 s at a load average of 40.
+	}, 30_000);
 
 	it('replays: the same clears from the same world always leave the same overlay', () => {
 		const run = () => {
@@ -546,12 +563,16 @@ describe('keeping the save small', () => {
 		const text = JSON.stringify(saveDocument(game, { lineage: 'L', seq: 1 }));
 		// Well inside the 64 KiB of the backup sent as the page closes, with room for a team mid-battle.
 		expect(text.length).toBeLessThan(EDITS_BUDGET + 2000);
-		const started = performance.now();
-		const read = readSave(JSON.parse(text));
-		const restored = read.ok ? restoreGame(read.save) : null;
-		const took = performance.now() - started;
-		expect(restored?.edits).toEqual(game.edits);
-		// Measured at about 5 ms; generous for a machine under load.
+		// Measured at about 5 ms; generous for a machine under load. The fastest of up to three
+		// tries, so a moment the machine spent elsewhere is not taken for the read's cost (#86).
+		let took = Infinity;
+		for (let i = 0; i < 3 && took >= 250; i++) {
+			const started = performance.now();
+			const read = readSave(JSON.parse(text));
+			const restored = read.ok ? restoreGame(read.save) : null;
+			took = Math.min(took, performance.now() - started);
+			expect(restored?.edits).toEqual(game.edits);
+		}
 		expect(took).toBeLessThan(250);
 	});
 
@@ -560,20 +581,22 @@ describe('keeping the save small', () => {
 		// One tile in each of 1,600 chunks spread far and wide: the worst case for the text,
 		// past the budget (a save someone wrote by hand could be; play never gets here).
 		const rng = new Rng(3);
-		let edits = overlayOf(
-			Array.from({ length: 1600 }, () => ({
-				x: rng.int(-40_000, 40_000),
-				y: rng.int(-40_000, 40_000)
-			}))
-		);
+		const far = Array.from({ length: 1600 }, () => ({
+			x: rng.int(-40_000, 40_000),
+			y: rng.int(-40_000, 40_000)
+		}));
 		// And every tree and rock round the player cleared, in the chunks on screen.
 		const { stand, facing, target } = standBeside(seed, 'tree');
-		for (const p of [
+		const near = [
 			...tilesOfKind(seed, 'tree', stand, 40),
 			...tilesOfKind(seed, 'rock', stand, 40)
-		]) {
-			if (p.x !== target.x || p.y !== target.y) edits = edits.with(p);
-		}
+		].filter((p) => p.x !== target.x || p.y !== target.y);
+		// Read from text, as such a save holds it: built with `with`, the overlay of 1,600
+		// chunks was copied once for every tile.
+		const edits = WorldEdits.decode(
+			[...far, ...near].flatMap((p) => WorldEdits.none.with(p).encode())
+		);
+		expect(edits.size).toBe(new Set([...far, ...near].map((p) => `${p.x},${p.y}`)).size);
 		const before = edits;
 		expect(before.textLength).toBeGreaterThan(EDITS_BUDGET);
 		const done = clearTile(seed, edits, player(stand, facing, ['axe']), target);
