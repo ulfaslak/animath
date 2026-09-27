@@ -51,6 +51,37 @@ describe('password hashes', () => {
 		}
 	});
 
+	it('refuse a stored cost that would take more than 64 MiB or four times the work, without trying it', async () => {
+		const error = vi.spyOn(console, 'error').mockImplementation(() => {});
+		try {
+			const salt = randomBytes(16).toString('base64url');
+			const key = randomBytes(32).toString('base64url');
+			const refused = [
+				'ln=20,r=32,p=1', // 4 GiB
+				'ln=17,r=8,p=1', // 128 MiB
+				'ln=16,r=16,p=1', // 128 MiB
+				'ln=15,r=8,p=5', // five times the work
+				'ln=15,r=8,p=16'
+			];
+			for (const cost of refused) {
+				expect(await verifyPassword('nini2026', `$scrypt$${cost}$${salt}$${key}`), cost).toBe(
+					false
+				);
+			}
+			// Each was turned away as unreadable: none was worked through.
+			expect(error).toHaveBeenCalledTimes(refused.length);
+		} finally {
+			error.mockRestore();
+		}
+	});
+
+	it('still verify a hash at the largest cost they take: 64 MiB', async () => {
+		const salt = randomBytes(16);
+		const key = scryptSync('nini2026', salt, 32, { N: 2 ** 16, r: 8, p: 1, maxmem: 2 ** 28 });
+		const stored = `$scrypt$ln=16,r=8,p=1$${salt.toString('base64url')}$${key.toString('base64url')}`;
+		expect(await verifyPassword('nini2026', stored)).toBe(true);
+	});
+
 	it('the decoy for a name with no account takes a real check and never matches', async () => {
 		expect(await verifyDecoy('not a password anyone has')).toBe(false);
 		expect(await verifyDecoy('nini2026')).toBe(false);

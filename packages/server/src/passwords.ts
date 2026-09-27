@@ -29,10 +29,13 @@ const KEY_BYTES = 32;
 
 /**
  * Bounds on what `verifyPassword` accepts from a stored hash: every hash this
- * module writes is inside them, and a corrupted row cannot make a login
- * allocate gigabytes or spin for minutes.
+ * module writes is well inside them, and a corrupted row cannot make a login
+ * allocate more than `MAX_MEMORY` (scrypt takes 128·N·r bytes) or work more
+ * than `MAX_WORK` times as long as a hash of today's cost (N·r·p).
  */
 const LIMITS = { ln: [10, 20], r: [1, 32], p: [1, 16], salt: [8, 64], key: [16, 64] } as const;
+const MAX_MEMORY = 64 * 1024 * 1024;
+const MAX_WORK = 4 * 2 ** CURRENT.ln * CURRENT.r * CURRENT.p;
 
 const FORMAT =
 	/^\$scrypt\$ln=(\d{1,2}),r=(\d{1,2}),p=(\d{1,2})\$([A-Za-z0-9_-]+)\$([A-Za-z0-9_-]+)$/;
@@ -80,7 +83,9 @@ function parse(stored: string): { params: Params; salt: Buffer; key: Buffer } | 
 		within(params.r, LIMITS.r) &&
 		within(params.p, LIMITS.p) &&
 		within(salt.length, LIMITS.salt) &&
-		within(key.length, LIMITS.key);
+		within(key.length, LIMITS.key) &&
+		128 * 2 ** params.ln * params.r <= MAX_MEMORY &&
+		2 ** params.ln * params.r * params.p <= MAX_WORK;
 	return sane ? { params, salt, key } : null;
 }
 
