@@ -322,8 +322,8 @@ export class PresenceController {
 				const name = this.finding.name;
 				this.finding = null;
 				// Only while exploring, as the menu that asked was: a battle that started
-				// meanwhile keeps the player where they are.
-				if (!this.exploreOnScreen()) break;
+				// meanwhile keeps the player where they are, and so does a take-off.
+				if (!this.exploreOnScreen() || game.flying) break;
 				// The authority answers at once (`player-placed` or `go-to-refused`, in `handle`).
 				this.placing = name;
 				this.options.authority.dispatch({ type: 'go-to', near: { x: m.x, y: m.y } });
