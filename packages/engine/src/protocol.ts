@@ -65,6 +65,15 @@ export type Intent =
 	 */
 	| { type: 'travel'; world: number }
 	/**
+	 * Go to another player in this world, who stands at `near` (the presence
+	 * server's word for where: [[DECISIONS]], the server is the authority for
+	 * where players are). Only while exploring. The authority puts the player
+	 * on `arrivalSpot` beside that tile, in its own world as the player left
+	 * it: `player-placed`, or `go-to-refused` when there is nowhere to stand.
+	 * No step is taken, so no encounter is rolled.
+	 */
+	| { type: 'go-to'; near: GridPos }
+	/**
 	 * Leave the game for the title (the pause menu's Quit to title). Only
 	 * while exploring: in a battle or at the doctor it does nothing, so no
 	 * way out of either opens through the title. The game stops where it
@@ -133,11 +142,18 @@ export type GameEvent =
 	| { type: 'player-moved'; playerId: string; pos: GridPos; dir: Direction }
 	| { type: 'player-blocked'; playerId: string; dir: Direction }
 	/**
-	 * The player was put on a tile without walking there. No direction: the
-	 * figure keeps facing the way it did, and there is nothing to tween.
-	 * `LocalAuthority` sends none today (a lost battle sends `taken-to-doctor`).
+	 * The player was put on a tile without walking there: `go-to` put them
+	 * beside another player (`arrivalSpot`), facing `dir`, towards them. It can
+	 * be hundreds of tiles away, so there is nothing to tween: the client shows
+	 * them there at once, with a poof. No step was taken, so nothing was rolled.
 	 */
-	| { type: 'player-placed'; playerId: string; pos: GridPos }
+	| { type: 'player-placed'; playerId: string; pos: GridPos; dir: Direction }
+	/**
+	 * `go-to` found nowhere near that spot the player could stand and walk on
+	 * from (`arrivalSpot` is null): out at sea without a boat, say. Nothing
+	 * changed; the client says so in its own words.
+	 */
+	| { type: 'go-to-refused'; reason: 'no-room' }
 	| { type: 'battle-started'; state: BattleState }
 	/**
 	 * One battle intent was applied. `events` is what happened, in order, and

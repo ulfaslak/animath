@@ -13,6 +13,7 @@ import { isSoundKey, typingNow } from './input/sound-key';
 import { watchTaps } from './input/taps';
 import { touch, watchInput } from './input/touch.svelte';
 import { PauseController } from './pause/controller';
+import { PresenceController } from './presence/controller';
 import { Follower } from './render/follower';
 import { GameRenderer } from './render/renderer';
 import { TitleScenery } from './render/title-scenery';
@@ -68,7 +69,6 @@ const battleController = new BattleController(authority, renderer);
 const doctorController = new DoctorController(authority);
 // A trip to another world plays its transition, and sends `travel` under its cover.
 const travelController = new TravelController(authority, renderer);
-const pauseController = new PauseController(authority, (world) => travelController.go(world));
 // `?zoo` lines up one of every species by the spawn tile (a check for the meshes),
 // once for the page; `?zoo=tired` lays them down to rest.
 const zoo = flags.zoo ? new Zoo(renderer, flags.zoo === 'tired') : null;
@@ -81,6 +81,22 @@ const autosave = new Autosave({
 	catchUp: (counts) => authority.catchUp(counts),
 	mintId,
 	throwaway: flags.throwaway
+});
+// The other players in this world (`presence/`): never behind the title, never in a
+// throwaway game, never on a page behind the save; nothing waits on it.
+const presenceController = new PresenceController({
+	authority,
+	renderer,
+	store: browserStore(),
+	session: browserStore('session'),
+	throwaway: flags.throwaway,
+	behind: () => autosave.behind !== null,
+	flush: () => autosave.flush(),
+	reload: () => location.reload()
+});
+const pauseController = new PauseController(authority, {
+	travel: (world) => travelController.go(world),
+	goTo: (pid) => presenceController.goTo(pid)
 });
 
 /**
@@ -127,6 +143,7 @@ authority.subscribe((event) => {
 	travelController.handle(event);
 	titleController.handle(event);
 	autosave.handle(event);
+	presenceController.handle(event);
 	// A new game from the title: after `welcome`, which clears the message line.
 	if (event.type === 'welcome' && event.newGame) sayStartNotice(true);
 	// Quit to title: the game just left is the one Continue picks up. A page that cannot
@@ -272,6 +289,13 @@ window.addEventListener('pageshow', (e) => {
 });
 document.addEventListener('resume', () => autosave.recheck());
 window.addEventListener('focus', () => autosave.recheck());
+// The kid is back at this window, or the network is: presence tries again at once.
+for (const type of ['focus', 'online', 'pageshow']) {
+	window.addEventListener(type, () => presenceController.wake());
+}
+document.addEventListener('visibilitychange', () => {
+	if (document.visibilityState === 'visible') presenceController.wake();
+});
 // Behind: nothing typed (AltGr and Option letters too), pasted or dropped reaches a text
 // box either. Only an input method's composition cannot be cancelled.
 window.addEventListener(
@@ -335,6 +359,9 @@ function frame(now: number) {
 		}
 		renderer.render();
 	}
+	// Where the player is goes to the others; theirs comes back as names over their heads.
+	presenceController.update();
+	presenceController.overlay();
 	noteScreen();
 	requestAnimationFrame(frame);
 }
@@ -351,6 +378,9 @@ void autosave.boot().then((plan) => {
 		autosave.begin();
 		return;
 	}
+	// A newer version of the game saved the game (`autosave.behind` is `newer`): nothing starts,
+	// not even the title. The page reloads for the new version, or its card says so.
+	if (autosave.behind !== null) return;
 	startNotice = plan.notice;
 	// A game with no name yet goes through the title, which asks for it first.
 	if (caughtUp && plan.game && plan.game.name !== null && plan.notice === 'save.welcomeBack') {

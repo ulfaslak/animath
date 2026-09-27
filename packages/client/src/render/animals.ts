@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { motion } from '../motion';
-import { ANIMAL_COLORS, COLORS, TILE_COLORS } from './palette';
+import { ANIMAL_COLORS, COLORS, PLAYER_LOOK, TILE_COLORS, type TrainerLook } from './palette';
 
 /**
  * Crude but recognisable figures built from primitives: one per species in
@@ -555,12 +555,14 @@ function limb(name: string, x: number, y: number, parts: THREE.Mesh[], z = 0): T
 }
 
 /**
- * The trainer: a kid in a coral shirt and a blue cap, eyes on the +z face.
+ * The trainer: a kid in a coral shirt and a blue cap, eyes on the +z face;
+ * another player's trainer wears their own `look` (`TRAINER_LOOKS`).
  * Its legs and arms hang from joints (`legL`, `legR`, `armL`, `armR`) that
  * `animateWalk` swings.
  */
-export function buildPlayerMesh(): THREE.Group {
-	const { playerShirt: shirt, playerSkin: skin, playerShorts: shorts, playerCap: cap } = COLORS;
+export function buildPlayerMesh(look: TrainerLook = PLAYER_LOOK): THREE.Group {
+	const { playerSkin: skin, playerShorts: shorts } = COLORS;
+	const { shirt, cap } = look;
 	const dome = new THREE.SphereGeometry(0.15, 8, 4, 0, Math.PI * 2, 0, Math.PI / 2);
 	const group = wrap([
 		limb('legL', -0.065, HIP_Y, [box(0.1, 0.2, 0.11, shorts, -0.065, 0.1, 0)]),

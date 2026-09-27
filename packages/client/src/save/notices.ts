@@ -9,8 +9,6 @@ export const SAVE_NOTICES = [
 	'save.welcomeBack',
 	/** The saved game could not be read; it is kept aside, and this is a new game. */
 	'save.couldNotLoad',
-	/** The saved game was written by a newer build than this page. */
-	'save.newerGame',
 	/** This browser will not let the page store anything. */
 	'save.cannotSave',
 	/** Writing the save failed (storage full): the title says so. */

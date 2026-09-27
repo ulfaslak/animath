@@ -1,5 +1,5 @@
 import type { AnimalInstance, Realm } from './animals/types.js';
-import { ATTACK_LEVELS } from './animals/types.js';
+import { ATTACK_LEVELS, REALMS } from './animals/types.js';
 import { ANIMALS, canFightIn, getAnimal } from './animals/catalog.js';
 import type { BattleState } from './battle/types.js';
 import { gearOf } from './items/catalog.js';
@@ -176,8 +176,8 @@ export interface SaveV2 {
 	tokens?: number;
 	/**
 	 * The ids of the items the player owns. An id this build doesn't know is
-	 * kept as it is and does nothing, so a save never becomes unreadable over
-	 * an item.
+	 * kept as it is and does nothing, so a save never becomes unreadable, or
+	 * a newer build's, over an item.
 	 */
 	items?: string[];
 	/**
@@ -238,17 +238,31 @@ const WHEREABOUTS: ReadonlySet<string> = new Set([
 
 const DIRECTIONS: ReadonlySet<string> = new Set(['up', 'down', 'left', 'right']);
 const SPECIES_IDS: ReadonlySet<string> = new Set(ANIMALS.map((a) => a.id));
+const REALMS_KNOWN: ReadonlySet<string> = new Set(REALMS);
 const PUZZLE_KINDS: ReadonlySet<string> = new Set(ALL_PUZZLE_KINDS);
 
 export type SaveCheck<T> = { ok: true; value: T } | { ok: false; error: string };
 
 /**
+ * Why a document is not one this build can use: `newer` when a later build
+ * wrote it (a later `version`, or content this build cannot carry on with:
+ * a species, or a battle's realm or puzzle kind), `invalid` when it makes no
+ * sense to any build.
+ */
+export type SaveProblem = 'newer' | 'invalid';
+
+/**
  * A stored document, read: `newer` when a later build wrote it, `invalid`
  * when this build cannot make sense of it. Either way the caller leaves the
- * document alone — see [[INVARIANTS]] § Saves.
+ * document alone, and a newer one is never written over or set aside — see
+ * [[INVARIANTS]] § Saves.
  */
 export type SaveRead =
-	{ ok: true; save: SaveV2 } | { ok: false; reason: 'newer' | 'invalid'; error: string };
+	{ ok: true; save: SaveV2 } | { ok: false; reason: SaveProblem; error: string };
+
+/** A document someone wants to write, checked (`validateSaveWrite`). */
+export type SaveWriteCheck =
+	{ ok: true; value: SaveWrite } | { ok: false; reason: SaveProblem; error: string };
 
 type Doc = Record<string, unknown>;
 
@@ -343,12 +357,15 @@ function findUnstorable(v: unknown, path: string): string | null {
 	return null;
 }
 
+/**
+ * An animal's shape. Whether this build knows its species is a separate
+ * question (`findUnknownContent`): a species it does not know makes the save
+ * a newer build's, not a broken one.
+ */
 function validateAnimal(v: unknown, label: string): string | null {
 	if (!isRecord(v)) return `${label} must be an object`;
 	if (!isId(v.id)) return `${label}.id must be a string of 1–${MAX_SAVE_ID_LENGTH} characters`;
-	if (typeof v.speciesId !== 'string' || !SPECIES_IDS.has(v.speciesId)) {
-		return `${label}.speciesId must name a known species`;
-	}
+	if (!isContentId(v.speciesId)) return `${label}.speciesId must be a species id`;
 	if (
 		v.nickname !== undefined &&
 		(typeof v.nickname !== 'string' ||
@@ -376,12 +393,90 @@ function validateStay(v: unknown, label: string): string | null {
  * Checks an untrusted value against the v2 document. `version`, `home`,
  * `world`, `pos` and `party` are required; the other fields are checked when
  * present, except `battle`, which only has to be storable (a load checks it
- * with `readBattle`). On success the value is the input object itself.
+ * with `readBattle`). A document of the right shape that names something
+ * this build does not have (`findUnknownContent`) is refused too. On success
+ * the value is the input object itself.
  */
 export function validateSave(input: unknown): SaveCheck<SaveV2> {
-	if (!isRecord(input)) return { ok: false, error: 'save must be a JSON object' };
+	const checked = checkSave(input);
+	return checked.ok ? { ok: true, value: checked.save } : { ok: false, error: checked.error };
+}
+
+/**
+ * The v2 check, saying why a document fails: its shape makes it `invalid`;
+ * a document of the right shape that names content this build does not have
+ * was written by a newer build, and is `newer`.
+ */
+function checkSave(input: unknown): SaveRead {
+	if (!isRecord(input))
+		return { ok: false, reason: 'invalid', error: 'save must be a JSON object' };
 	const error = findSaveError(input);
-	return error ? { ok: false, error } : { ok: true, value: input as unknown as SaveV2 };
+	if (error) return { ok: false, reason: 'invalid', error };
+	const unknown = findUnknownContent(input);
+	if (unknown) return { ok: false, reason: 'newer', error: unknown };
+	return { ok: true, save: input as unknown as SaveV2 };
+}
+
+/**
+ * The first id in a well-formed document that this build cannot carry on
+ * with, as an error, or null: one none of its catalogs has, which only a
+ * later build writes (a species that has shipped never leaves the catalog:
+ * [[INVARIANTS]] § Saves). That is a species in the party, or in a saved
+ * battle its realm, an animal's species or the puzzle's kind: a game with
+ * such an animal cannot be played here, and such a battle could only be
+ * dropped. An item this build does not have is not one of them: it is kept
+ * as it is and does nothing, so the save plays on and loses nothing.
+ *
+ * Only ids are seen. A battle that a later build's other growth made (a new
+ * attack for an existing species, a realm it newly goes to, a new phase) is
+ * still dropped on load here as if the kid had run away ([[DEFERRED]]).
+ */
+function findUnknownContent(doc: Doc): string | null {
+	const party = doc.party as { speciesId: string }[];
+	for (let i = 0; i < party.length; i++) {
+		const unknown = unknownId(party[i]!.speciesId, SPECIES_IDS, `party[${i}].speciesId`);
+		if (unknown) return unknown;
+	}
+	const battle = doc.battle;
+	if (!isRecord(battle)) return null;
+	const realm = unknownId(battle.realm, REALMS_KNOWN, 'battle.realm');
+	if (realm) return realm;
+	const fighters: [unknown, string][] = [[battle.opponent, 'battle.opponent']];
+	if (Array.isArray(battle.party)) {
+		battle.party.forEach((a, i) => fighters.push([a, `battle.party[${i}]`]));
+	}
+	for (const [animal, label] of fighters) {
+		if (!isRecord(animal)) continue;
+		const unknown = unknownId(animal.speciesId, SPECIES_IDS, `${label}.speciesId`);
+		if (unknown) return unknown;
+	}
+	const phase = battle.phase;
+	if (isRecord(phase) && isRecord(phase.puzzle)) {
+		return unknownId(phase.puzzle.kind, PUZZLE_KINDS, 'battle.phase.puzzle.kind');
+	}
+	return null;
+}
+
+/**
+ * An error when `value` is shaped as a catalog id (`isContentId`) and
+ * `known` lacks it; null for anything else, a known id or something no
+ * catalog would name.
+ */
+function unknownId(value: unknown, known: ReadonlySet<string>, label: string): string | null {
+	if (!isContentId(value) || known.has(value)) return null;
+	return `${label} is ${JSON.stringify(value)}, which a newer build has and this one does not`;
+}
+
+/**
+ * The shape of every id in the engine's catalogs (species, attacks, items,
+ * realms, puzzle kinds): lower-case letters and digits in words joined by
+ * single hyphens, as `save.test.ts` checks. An id of another shape was never
+ * written by any build, so it is broken, not newer.
+ */
+const CONTENT_ID = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
+
+export function isContentId(v: unknown): v is string {
+	return isId(v) && CONTENT_ID.test(v);
 }
 
 function findSaveError(input: Doc): string | null {
@@ -451,16 +546,19 @@ function findSaveError(input: Doc): string | null {
  * `facing`, `steps`, `visits`, `lineage` and a `seq` of at least 1. The value
  * is the document as this build reads it: an older build's backup (a page
  * still open from before an update) is kept upgraded, so the server holds
- * this version's document from then on.
+ * this version's document from then on. A refusal says why, as `readSave`
+ * does: a newer build's document (`newer`) is not a broken one.
  */
-export function validateSaveWrite(input: unknown): SaveCheck<SaveWrite> {
+export function validateSaveWrite(input: unknown): SaveWriteCheck {
 	const read = readSave(input);
-	if (!read.ok) return { ok: false, error: read.error };
+	if (!read.ok) return read;
 	const doc = read.save;
 	for (const key of ['facing', 'steps', 'visits', 'lineage', 'seq'] as const) {
-		if (doc[key] === undefined) return { ok: false, error: `a save being written needs ${key}` };
+		if (doc[key] === undefined) {
+			return { ok: false, reason: 'invalid', error: `a save being written needs ${key}` };
+		}
 	}
-	if (doc.seq! < 1) return { ok: false, error: 'seq must be 1 or more' };
+	if (doc.seq! < 1) return { ok: false, reason: 'invalid', error: 'seq must be 1 or more' };
 	return { ok: true, value: doc as SaveWrite };
 }
 
@@ -472,7 +570,7 @@ export function upgradeSave(
 	input: unknown,
 	upgrades: Readonly<Record<number, (doc: Doc) => Doc>>,
 	target: number
-): { ok: true; doc: Doc } | { ok: false; reason: 'newer' | 'invalid'; error: string } {
+): { ok: true; doc: Doc } | { ok: false; reason: SaveProblem; error: string } {
 	if (!isRecord(input))
 		return { ok: false, reason: 'invalid', error: 'save must be a JSON object' };
 	const version = input.version;
@@ -494,15 +592,20 @@ export function upgradeSave(
 /**
  * Reads a stored document: upgrades it from an older version, then checks
  * it. A document this build cannot read comes back `ok: false`; the caller
- * must leave it where it is or set it aside, never throw it away.
+ * must leave it where it is or set it aside, never throw it away. One a
+ * newer build wrote (`newer`: a later version, or content this build does
+ * not have) is never set aside or written over either: it waits, untouched,
+ * for a build that can read it.
  */
 export function readSave(input: unknown): SaveRead {
 	const upgraded = upgradeSave(input, SAVE_UPGRADES, SAVE_VERSION);
-	if (!upgraded.ok) return upgraded;
-	const checked = validateSave(upgraded.doc);
-	return checked.ok
-		? { ok: true, save: checked.value }
-		: { ok: false, reason: 'invalid', error: checked.error };
+	return upgraded.ok ? checkSave(upgraded.doc) : upgraded;
+}
+
+/** Whether a stored document, whatever shape it is in, was written by a newer build (`readSave`'s `newer`). */
+export function isNewerSave(doc: unknown): boolean {
+	const read = readSave(doc);
+	return !read.ok && read.reason === 'newer';
 }
 
 /** The default starter at full HP: a throwaway game's, and a saved party's that came back empty. */
@@ -692,6 +795,7 @@ export function readBattle(
 	}
 	if (validateAnimal(opponent, 'opponent') !== null) return null;
 	const wild = opponent as unknown as AnimalInstance;
+	if (!SPECIES_IDS.has(wild.speciesId)) return null;
 	if (wild.hp === 0 || wild.hp > getAnimal(wild.speciesId).maxHp) return null;
 	if (!canFightIn(wild.speciesId, realm)) return null;
 	if (party.some((a) => a.id === wild.id)) return null;
@@ -799,15 +903,18 @@ export function saveLineage(doc: unknown): string {
  * storage already keeps a game's saves in one line (see the client's
  * autosave). Between two different games — a lineage started while an older
  * one was out of reach — the one saved more often wins, and the server keeps
- * the loser (`replacesAnotherGame`).
+ * the loser (`replacesAnotherGame`). A save a newer build wrote is never
+ * replaced, whatever the `seq`: this build cannot read it, and it waits for
+ * one that can.
  */
 export function canReplace(stored: unknown, incoming: Pick<SaveWrite, 'seq'>): boolean {
-	return stored === null || incoming.seq > saveSeq(stored);
+	return stored === null || (incoming.seq > saveSeq(stored) && !isNewerSave(stored));
 }
 
 /**
  * Whether writing `incoming` over `stored` would lose a different game, a
- * document this build cannot read, or a document an older build wrote (the
+ * document this build cannot read (an invalid one: a newer build's is never
+ * replaced at all, `canReplace`), or a document an older build wrote (the
  * first backup after an update, which is this version's) — the cases where
  * the server copies `stored` aside, as it was, before replacing it.
  */
