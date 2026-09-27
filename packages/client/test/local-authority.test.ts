@@ -605,6 +605,65 @@ describe('LocalAuthority: a tired team walks to the doctor', () => {
 		expect(s.authority.snapshot().party).toEqual(team);
 	});
 
+	/** A game of World 1 (or `world`) under way at `pos`, facing `facing`, with this team and these items. */
+	function startedAt(
+		pos: GridPos,
+		facing: Direction,
+		team: AnimalInstance[],
+		extra: Partial<SavedGame> = {}
+	): Session {
+		const authority = new LocalAuthority();
+		const events: GameEvent[] = [];
+		authority.subscribe((e) => events.push(e));
+		authority.start({ game: { ...newGame(1), pos, facing, party: team, ...extra } });
+		return { authority, events };
+	}
+
+	/** (-2, 32) in World 1: a grass tile walled in, no tent a walk away; a glide down from (-2, 12) lands there. */
+	const POCKET = { x: -2, y: 32 };
+
+	it('a tired team that glides somewhere no tent can be walked to from stays tired there, and so does its save', () => {
+		// The adversarial review of #116: a restore that asked for a doctor again healed this
+		// team, while the live game, which asks only after a lost battle, a go-to or a trip,
+		// left it tired: a reload, or Quit to title and Continue, was a free heal.
+		const team = [animal('squirrel', 0)];
+		const s = startedAt({ x: -2, y: 12 }, 'down', team, { items: ['glider'] });
+		expect(nearestTent(WORLD_SEED, { x: -2, y: 12 })).not.toBeNull();
+		s.authority.dispatch({ type: 'take-off' });
+		for (let i = 0; i < 40 && !s.events.some((e) => e.type === 'landed'); i++) {
+			s.authority.dispatch({ type: 'glide' });
+		}
+		expect(s.authority.snapshot().pos).toEqual(POCKET);
+		expect(nearestTent(WORLD_SEED, POCKET)).toBeNull();
+		expect(s.events.some((e) => e.type === 'party-changed')).toBe(false);
+		expect(s.authority.snapshot().party).toEqual(team);
+		// Picked up from its save, as a reload or Continue does: as tired, where it was.
+		expect(welcome(reloaded(s))).toMatchObject({ pos: POCKET, party: team });
+	});
+
+	it('a trip back to a spot no tent can be walked to from, the team tired: a doctor comes there', () => {
+		const team = [animal('squirrel', 0)];
+		const s = startedAt(spawnPoint(worldSeed(42)), 'down', team, {
+			home: 42,
+			world: 42,
+			worlds: [{ world: 1, pos: POCKET, facing: 'down', edits: [] }]
+		});
+		const from = s.events.length;
+		s.authority.dispatch({ type: 'travel', world: 1 });
+		expect(s.events.slice(from).map((e) => e.type)).toEqual([
+			'travelled',
+			'party-changed',
+			'message'
+		]);
+		expect(s.authority.snapshot().pos).toEqual(POCKET);
+		expect(party(s)).toEqual([animal('squirrel')]);
+		expect(lastMessage(s)).toBe('doctor.came');
+		// And back to World 42's spawn, a tent a walk away: nobody comes to a fit team, nor would
+		// to a tired one there.
+		s.authority.dispatch({ type: 'travel', world: 42 });
+		expect(s.events.at(-1)?.type).toBe('travelled');
+	});
+
 	it('a game an older build saved at the tent, after its free heal, carries on there, fit', () => {
 		// The old rule put the kid beside the tent at (5, 7), from its left, every animal at full HP.
 		const old = { ...newGame(1), pos: { x: 4, y: 7 }, facing: 'right' as const, steps: 11 };

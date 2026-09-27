@@ -39,7 +39,7 @@ import { ALL_PUZZLE_KINDS } from '../src/puzzles/types.js';
 import { EDITS_BUDGET, WorldEdits } from '../src/world/edits.js';
 import { tileAtWorld } from '../src/world/generate.js';
 import { spawnPoint } from '../src/world/spawn.js';
-import { TENT_SEARCH_STEPS, nearestTent } from '../src/world/tents.js';
+import { nearestTent } from '../src/world/tents.js';
 import { isPassable, isWalkable, isWater, tileRealm, type Direction } from '../src/world/types.js';
 import {
 	FIRST_WORLD,
@@ -850,10 +850,12 @@ describe('newGame and restoreGame', () => {
 		expect(tired.pos).toEqual(pos);
 	});
 
-	it('a team that needs the doctor stays tired where a tent is in reach, and a doctor comes where none is', () => {
+	it('a team that needs the doctor comes back exactly as tired as it was, a tent in reach or none: a reload is no heal', () => {
 		const tired = [animal(1, { hp: 0 }), animal(2, { speciesId: 'bear', hp: 0 })];
-		const rested = tired.map((a) => getAnimal(a.speciesId).maxHp);
-		// Walled in: a walkable tile with nothing walkable and no tent beside it.
+		// Walled in: a walkable tile with nothing walkable and no tent beside it. The game that
+		// saved it is the one to have sent a doctor (a lost battle, a go-to, a trip there, each
+		// asks); a restore that asked again would heal a team a glide took somewhere the live
+		// game left it tired (the adversarial review of #116).
 		let walled: { x: number; y: number } | null = null;
 		const spawn = spawnPoint(SEED7);
 		for (let r = 1; r < 300 && !walled; r++)
@@ -870,9 +872,9 @@ describe('newGame and restoreGame', () => {
 					if (round.every((k) => !isWalkable(k) && k !== 'tent')) walled = at;
 				}
 		expect(walled).not.toBeNull();
-		const cameThere = restoreGame({ ...v2, pos: walled!, party: tired } as SaveV2);
-		expect(cameThere.party.map((a) => a.hp)).toEqual(rested);
-		expect(cameThere.pos).toEqual(walled);
+		const walledIn = restoreGame({ ...v2, pos: walled!, party: tired } as SaveV2);
+		expect(walledIn.party.map((a) => a.hp)).toEqual([0, 0]);
+		expect(walledIn.pos).toEqual(walled);
 
 		// Out on the water in the boat, with nobody standing: a tent over the water is in reach.
 		const deep = findKind(SEED7, 'deepwater');
@@ -959,18 +961,19 @@ describe('newGame and restoreGame', () => {
 				const max = getAnimal(a.speciesId).maxHp;
 				if (!(typeof a.hp === 'number' && a.hp >= 0 && a.hp <= max)) note(`${a.id} at ${a.hp} HP`);
 			}
-			// A team that needs the doctor has one in reach, the way the kid gets about: never
-			// stranded with nobody to fight and nowhere to heal.
-			const here = tileRealm(tileAtWorld(seed, game.pos.x, game.pos.y).kind);
-			const edits = WorldEdits.decode(game.edits);
-			if (
-				needsDoctor(game.party, here) &&
-				nearestTent(seed, game.pos, TENT_SEARCH_STEPS, edits, gear) === null
-			) {
-				note('tired, with no doctor in reach');
+			// Every animal comes back with the HP it was saved with (cut to its maximum), tired
+			// ones too, wherever it stands: a reload is no heal.
+			const saved = new Map(party.map((a) => [a.id, a]));
+			for (const a of game.party) {
+				const was = saved.get(a.id);
+				if (was && a.hp !== Math.min(was.hp, getAnimal(was.speciesId).maxHp)) {
+					note(`${a.id} came back at ${a.hp} HP, saved at ${was.hp}`);
+				}
 			}
 			// A battle can start with it where an animal standing can fight: the party is one
-			// `startBattle` accepts there (only sea animals standing, out on the water).
+			// `startBattle` accepts there (only sea animals standing, out on the water); with
+			// nobody standing, the team needs the doctor.
+			const here = tileRealm(tileAtWorld(seed, game.pos.x, game.pos.y).kind);
 			const realm = REALMS.find((r) => leadIndex(game.party, r) >= 0);
 			if (realm === undefined && !needsDoctor(game.party, here)) {
 				note('nobody standing, and no doctor needed');
