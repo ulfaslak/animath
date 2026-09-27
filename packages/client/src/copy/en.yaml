@@ -634,7 +634,26 @@ pause:
   nameRule: Letters and numbers, up to {max}.
   # Under the name box, when the typed name will be stored differently.
   willBe: It will be called {name}.
+  # The row that lists the other players in this world, and the panel it opens.
+  players: Who's here
+  # A player in that list: going to them puts you next to them.
+  goTo: Go to {name}
+  # How far away they are, under their name: exactly, for a few steps; roughly, further.
+  stepsAway:
+    one: '{count} step away'
+    other: '{count} steps away'
+  aboutStepsAway: 'about {count} steps away'
+  rightHere: right here
+  # Under the list.
+  playersHelp: Pick someone to go to them.
+  # Instead of the list: nobody else here, or the others can't be seen right now, and why.
+  nobody: Nobody else is in this world right now.
+  looking: Looking for other players…
+  elsewhere: "You're playing in another window."
+  unseen: Other players can't see this game.
+  newVersion: A new version of the game is ready. It comes in a moment!
   # The key reminder at the bottom, one per screen of the menu.
+  keysPlayers: ↑ ↓ choose · Enter go · Esc back
   keysList: ↑ ↓ choose · Enter pick · Esc close
   keysLanguage: ↑ ↓ choose · ← → or Enter change the language · Esc close
   keysSound: ↑ ↓ choose · ← → or Enter sound off or on · Esc close
@@ -648,8 +667,6 @@ save:
   welcomeBack: Welcome back!
   # The saved game could not be read. It is kept aside; this is a new game.
   couldNotLoad: Your saved game didn't load, so here is a new one.
-  # The saved game was written by a newer version of the game than this page.
-  newerGame: Your game was saved by a newer Animath. Reload the page to play it!
   # The browser will not let the page store anything, so nothing is saved.
   cannotSave: This browser can't keep your game, so it starts new every time.
   # On the title, after writing the save failed (the browser's storage is full).
@@ -666,6 +683,14 @@ save:
   behindGone: A new game is ready.
   # The button on that card.
   behindGo: Get your newest game
+  # The same card when a newer version of the game saved the game (in another tab, or
+  # on the server) and this page is still the old version: it takes no play, and a
+  # reload fetches the new one. Shown when the page may not reload by itself.
+  behindNewer: A new version of the game is ready.
+  # The button on that card, with the Enter key beside it.
+  behindUpdate: Update!
+  # The same button on a touch screen.
+  behindUpdateTouch: Tap to update!
 
 sound:
   # The chip at the top of the screen after M turned the sound on or off.
@@ -693,7 +718,7 @@ title:
   confirm:
     title: Start a new game?
     away: Your game with {animal.the} is put away safely.
-    # Instead of `away`, on a page that keeps nothing (no storage, or a newer build's save waiting).
+    # Instead of `away`, on a page that keeps nothing (no storage, or a write that failed).
     notKept: Your game with {animal.the} can't be kept on this page.
     fresh: You start again with a new animal.
     back: No, go back
@@ -740,6 +765,33 @@ playerName:
     chars: Only letters and numbers, please.
     rude: "Let's pick another name."
 
+# Other players in your world. {name} is a player's own name, shown as they wrote it.
+presence:
+  # On the message line after "Go to {name}": you are next to them now,
+  nextTo: "You're next to {name}!"
+  # they left this world before you got there,
+  lost: "{name} isn't here any more."
+  # the game can't reach the other players just now,
+  cantFind: "Can't find {name} right now. Try again soon!"
+  # or there is nowhere to stand near them (out at sea, and you have no boat).
+  noRoom: "There's no room next to {name} right now."
+  # The little note at the top of the screen when someone comes into your world:
+  # one name, two, or one and how many more.
+  arrived: '{name} is here!'
+  arrivedTwo: '{name} and {other} are here!'
+  arrivedMany: '{name} and {count} more are here!'
+  # The same when someone leaves it.
+  left: '{name} went home'
+  leftTwo: '{name} and {other} went home'
+  leftMany: '{name} and {count} more went home'
+  # This window stopped showing you to the others: you went on in another window.
+  elsewhere: "You're playing in another window."
+  # What a player is busy with: the bubble over them, and beside their name in the list.
+  busy:
+    battle: battling a wild animal
+    doctor: at the doctor
+    menu: taking a break
+    match: in a friendly match
 # Numbered worlds: the pause menu's Worlds screen, the HUD's corner, and the trip.
 worlds:
   # A world by its number, as a label: the HUD's corner, the Worlds row. {world}: 1 to 9999.

@@ -73,7 +73,10 @@
  * otherwise, so unblocked runs filled that database with throwaway players.
  * The game saves in the page and plays the same. `--api` lets the calls
  * through, for a run that tests the backup: against your own API and a
- * throwaway database.
+ * throwaway database. The presence socket (`/api/ws`) is held the same way:
+ * it opens onto nothing, the page looks for other players and plays alone,
+ * and `--api` lets it through too. To see other players, drive several
+ * pages against your own server with `scripts/players.mjs`.
  *
  * WebGL draws on the GPU by default on a Mac (`--gpu metal`: ANGLE over Metal,
  * as Chrome itself draws there), at 15–20 frames a second headless.
@@ -169,6 +172,11 @@ if (!allowApi) {
 		blocked.set(call, (blocked.get(call) ?? 0) + 1);
 		return route.abort('blockedbyclient');
 	});
+	// The presence socket (/api/ws) too: it opens onto nothing here and hears nothing back,
+	// so the page looks for other players and plays on alone, as with the server down.
+	await context.routeWebSocket(isApi, () => {
+		blocked.set('WebSocket /api/ws', (blocked.get('WebSocket /api/ws') ?? 0) + 1);
+	});
 }
 const page = await context.newPage();
 if (args['safe-area']) {
@@ -196,6 +204,12 @@ page.on('console', (m) => {
 	if (/GPU stall/.test(m.text())) return;
 	// Chrome logs every failed request; the API ones are listed below instead.
 	if (/^Failed to load resource/.test(m.text()) && isApi(m.location().url)) return;
+	// A presence socket the server did not take (it is down, or restarting): the game plays on.
+	const socket = /^WebSocket connection to '([^']+)' failed/.exec(m.text());
+	if (socket && isApi(socket[1].replace(/^ws/, 'http'))) {
+		api.push(`WebSocket ${new URL(socket[1]).pathname} failed`);
+		return;
+	}
 	if (m.type() === 'error' || m.type() === 'warning') errors.push(`[${m.type()}] ${m.text()}`);
 });
 page.on('pageerror', (e) => errors.push(`[pageerror] ${e.message}`));

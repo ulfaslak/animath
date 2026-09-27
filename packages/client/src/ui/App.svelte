@@ -15,7 +15,9 @@
 	import DoctorCard from './DoctorCard.svelte';
 	import Hud from './Hud.svelte';
 	import Iris from './Iris.svelte';
+	import Others from './Others.svelte';
 	import PauseMenu from './PauseMenu.svelte';
+	import PresenceNote from './PresenceNote.svelte';
 	import SoundChip from './SoundChip.svelte';
 	import TitleScreen from './TitleScreen.svelte';
 	import TouchControls from './TouchControls.svelte';
@@ -28,7 +30,8 @@
 {#if title.open}
 	<TitleScreen />
 {:else if !playing}
-	<div class="loading">{t('app.loading')}</div>
+	<!-- Not under the behind card (a newer build's save found at start): the card says it all. -->
+	{#if !behind.shown}<div class="loading">{t('app.loading')}</div>{/if}
 {:else if battle.active}
 	{#if !battle.entering}<BattlePanel />{/if}
 {:else if doctor.active}
@@ -36,9 +39,13 @@
 {:else if pause.open}
 	<PauseMenu />
 {:else}
+	<!-- The other players' names and the arrows to them: over the world, under the HUD, and
+	     never under a card or the menu, whose panels they would show through. -->
+	<Others />
 	<Hud />
 	<!-- Not under a trip's cover, which takes no key: a thumb that lands there presses nothing. -->
 	{#if touch.on && !travel.active}<TouchControls />{/if}
+	<PresenceNote />
 {/if}
 
 <SoundChip low={title.open} />

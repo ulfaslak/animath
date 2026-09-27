@@ -18,6 +18,7 @@ import { PauseController } from '../src/pause/controller';
 import { game } from '../src/state/game.svelte';
 import {
 	MENU_ITEMS,
+	MENU_PAIRS,
 	bundleOptions,
 	partyOptions,
 	pause,
@@ -66,7 +67,7 @@ function key(
  */
 function setup(startingParty = 'squirrel,rabbit,fox', travel?: (world: number) => void) {
 	const authority = new LocalAuthority({ party: parseParty(startingParty)! });
-	const controller = new PauseController(authority, travel);
+	const controller = new PauseController(authority, { travel });
 	const events: GameEvent[] = [];
 	const sent: Intent[] = [];
 	const dispatch = authority.dispatch.bind(authority);
@@ -210,24 +211,30 @@ describe('pause menu', () => {
 		press('a');
 		expect(language.current).toBe('en');
 		// Left and right mean nothing on a team row: they are not the menu's.
-		press('w');
+		press(...Array<string>(MENU_ITEMS.indexOf('language') + 1).fill('w'));
+		expect(pause.cursor).toBe(game.party.length - 1);
 		expect(press('ArrowRight').prevented).toBe(false);
 		expect(language.current).toBe('en');
 	});
 
-	it('Keep playing and Start screen stand side by side: left and right step between them', () => {
-		const { press, downTo, sent } = setup();
+	it("rows side by side (Worlds and Who's here, Keep playing and Start screen): left and right step between them", () => {
 		const at = (item: (typeof MENU_ITEMS)[number]) =>
 			bundles(game.party).length + MENU_ITEMS.indexOf(item);
-		press('Escape', ...downTo('resume'));
-		expect(press('ArrowRight').prevented).toBe(true);
-		expect(pause.cursor).toBe(at('quit'));
-		press('d');
-		expect(pause.cursor).toBe(at('quit'));
-		press('ArrowLeft');
-		expect(pause.cursor).toBe(at('resume'));
-		press('a');
-		expect([pause.open, pause.cursor, sent]).toEqual([true, at('resume'), []]);
+		for (const [left, right] of MENU_PAIRS) {
+			pause.reset();
+			const { press, downTo, sent } = setup();
+			// Each pair is two neighbours: down walks from one to the other as any rows.
+			expect(MENU_ITEMS.indexOf(right)).toBe(MENU_ITEMS.indexOf(left) + 1);
+			press('Escape', ...downTo(left));
+			expect(press('ArrowRight').prevented).toBe(true);
+			expect(pause.cursor).toBe(at(right));
+			press('d');
+			expect(pause.cursor).toBe(at(right));
+			press('ArrowLeft');
+			expect(pause.cursor).toBe(at(left));
+			press('a');
+			expect([pause.open, pause.screen, pause.cursor, sent]).toEqual([true, 'list', at(left), []]);
+		}
 	});
 
 	it('"Go first" sends select-lead and comes back to the list on the animal, now first', () => {
@@ -514,7 +521,7 @@ describe('pause menu with cards of several animals', () => {
 						const closes = item === 'resume' || item === 'quit';
 						const target = list[row];
 						const opened = !target
-							? [item === 'worlds' ? 'worlds' : 'list', null, null, row]
+							? [item === 'worlds' || item === 'players' ? item : 'list', null, null, row]
 							: target.animals.length > 1
 								? ['bundle', target.speciesId, null, row]
 								: ['options', null, target.animals[0]!.id, row];
@@ -628,12 +635,12 @@ describe('pause menu under a pointer', () => {
 					};
 					const want = {
 						// An animal opens its own options; a setting is done on the list, the cursor on it;
-						// Worlds opens its screen.
+						// Worlds opens its screen, and Who's here the list of players on the right.
 						at: closes
 							? 'closed'
 							: row < size
 								? ['options', ids[row], row]
-								: [item === 'worlds' ? 'worlds' : 'list', null, row],
+								: [item === 'worlds' || item === 'players' ? item : 'list', null, row],
 						language: item === 'language' ? 'da' : 'en',
 						sound: item !== 'sound',
 						sent: item === 'quit' ? [{ type: 'leave-game' }] : []

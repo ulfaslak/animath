@@ -35,6 +35,33 @@ export const COLORS = {
 	dust: 0xf6efe2
 } as const;
 
+/** What a trainer wears that tells one from another: the shirt, and the cap. */
+export interface TrainerLook {
+	shirt: number;
+	cap: number;
+}
+
+/** The player's own trainer: the coral shirt and the blue cap. */
+export const PLAYER_LOOK: TrainerLook = { shirt: COLORS.playerShirt, cap: COLORS.playerCap };
+
+/**
+ * Other players' trainers ([[DESIGN]] § Palette): a shirt and a cap each,
+ * picked by their name (`trainerLook`), so a friend looks the same on every
+ * screen. Every one keeps the trainers' blue shorts, so a kid in any shirt
+ * still reads as a trainer and never as an animal, and none is the player's
+ * own coral and blue, so nobody looks like you.
+ */
+export const TRAINER_LOOKS: readonly TrainerLook[] = [
+	{ shirt: 0xf5c84a, cap: 0x2fa39a }, // sunny yellow, teal cap
+	{ shirt: 0x56c271, cap: 0xff9f43 }, // green, orange cap
+	{ shirt: 0x9b6bd6, cap: 0xf5c84a }, // purple, yellow cap
+	{ shirt: 0xf07fb0, cap: 0x7a4fc0 }, // pink, purple cap
+	{ shirt: 0x3cb8b0, cap: 0xff7e6b }, // teal, coral cap
+	{ shirt: 0xe0553f, cap: 0x2fa39a }, // red, teal cap
+	{ shirt: 0x6cc3f0, cap: 0xe0553f }, // sky blue, red cap
+	{ shirt: 0xa8d84e, cap: 0x7a4fc0 } // lime, purple cap
+];
+
 /**
  * How each biome looks, so a kid can tell where they are at a glance: its
  * ground, and its encounter tiles. Tall grass is always a patch darker and

@@ -90,10 +90,11 @@ export default defineConfig({
 		strictPort: true,
 		allowedHosts: tunnel ? true : undefined,
 		proxy: {
-			// The API, WebSocket upgrades included (`/api/ws`), as nginx passes them
-			// on in production. It sees the Host the browser used (the string
-			// shorthand would rewrite it to localhost:<apiPort>): the account routes
-			// check that a POST's Origin is this site.
+			// The API, WebSocket upgrades included (the presence socket at `/api/ws`),
+			// as nginx passes them on in production. It sees the Host the browser
+			// used (the string shorthand would rewrite it to localhost:<apiPort>): the
+			// account routes check that a POST's Origin is this site, and the presence
+			// socket that its Origin is.
 			'/api': { target: `http://localhost:${apiPort}`, changeOrigin: false, ws: true }
 		}
 	},

@@ -4,6 +4,7 @@ import {
 	ITEM_IDS,
 	Rng,
 	WorldEdits,
+	arrivalSpot,
 	attackDamage,
 	canTalkToDoctor,
 	getAnimal,
@@ -201,7 +202,7 @@ function facing(s: Session): Direction {
 	for (let i = s.events.length - 1; i >= 0; i--) {
 		const e = s.events[i]!;
 		if (e.type === 'player-moved' || e.type === 'player-blocked') return e.dir;
-		if (e.type === 'taken-to-doctor') return e.dir;
+		if (e.type === 'taken-to-doctor' || e.type === 'player-placed') return e.dir;
 		if (e.type === 'welcome' || e.type === 'travelled') return e.facing;
 	}
 	throw new Error('no facing');
@@ -1926,3 +1927,100 @@ describe('LocalAuthority: names and worlds', () => {
 		// after every chunk); 2.7 s at a load average of 54.
 	}, 30_000);
 });
+
+describe('LocalAuthority: going to another player', () => {
+	/** A friend far off, standing on ground with room round them. */
+	const FRIEND = { x: 150, y: -40 };
+
+	it('puts the player on the arrival spot beside them, facing them, without taking a step', () => {
+		const s = session();
+		const want = arrivalSpot(WORLD_SEED, FRIEND)!;
+		expect(want).not.toBeNull();
+		const steps = s.authority.snapshot().steps;
+		const from = s.events.length;
+		s.authority.dispatch({ type: 'go-to', near: FRIEND });
+		expect(s.events.slice(from)).toEqual([
+			{ type: 'player-placed', playerId: 'local', pos: want.pos, dir: want.facing }
+		]);
+		expect(s.authority.snapshot()).toMatchObject({ pos: want.pos, facing: want.facing, steps });
+		// The next step goes on from there.
+		move(s, want.facing === 'up' ? 'down' : 'up');
+		const moved = s.events.at(-1)!;
+		if (moved.type === 'player-moved') {
+			expect(Math.abs(moved.pos.x - want.pos.x) + Math.abs(moved.pos.y - want.pos.y)).toBe(1);
+		} else expect(moved.type === 'player-blocked' || moved.type === 'battle-started').toBe(true);
+	});
+
+	it('rolls no encounter: the walk after it meets what it would have met without it', () => {
+		// The same steps from the same tile, with and without a go-to that came back to it.
+		const plain = session();
+		const round = session();
+		const home = position(round);
+		round.authority.dispatch({ type: 'go-to', near: FRIEND });
+		round.authority.dispatch({ type: 'go-to', near: { x: home.x + 1, y: home.y } });
+		// Wherever it landed, put both at the same start and walk them the same way.
+		const back = round.authority.snapshot();
+		const fresh = { ...plain.authority.snapshot(), pos: back.pos, facing: back.facing };
+		plain.authority.start({ game: fresh });
+		const a = reedWalkEvents(plain);
+		const b = reedWalkEvents(round);
+		expect(b).toEqual(a);
+	});
+
+	it('refuses where there is nowhere to stand, and anything that is no whole tile, leaving the player be', () => {
+		const s = session();
+		const here = position(s);
+		// Far out at sea, without a boat.
+		let sea: GridPos | null = null;
+		const rng = new Rng(11);
+		for (let i = 0; i < 20000 && !sea; i++) {
+			const p = { x: rng.int(-3000, 3000), y: rng.int(-3000, 3000) };
+			if (arrivalSpot(WORLD_SEED, p) === null) sea = p;
+		}
+		expect(sea).not.toBeNull();
+		for (const near of [sea!, { x: 1.5, y: 0 }, { x: 2 ** 40, y: 0 }, { x: Number.NaN, y: 3 }]) {
+			const from = s.events.length;
+			s.authority.dispatch({ type: 'go-to', near });
+			expect(s.events.slice(from)).toEqual([{ type: 'go-to-refused', reason: 'no-room' }]);
+		}
+		expect(s.authority.snapshot().pos).toEqual(here);
+	});
+
+	it('does nothing in a battle or at the doctor', () => {
+		const s = session();
+		walkIntoBattle(s);
+		const at = s.authority.snapshot().pos;
+		const from = s.events.length;
+		s.authority.dispatch({ type: 'go-to', near: FRIEND });
+		expect(s.events.slice(from)).toEqual([]);
+		expect(s.authority.snapshot().pos).toEqual(at);
+	});
+
+	it('is where a game saved after it picks up', () => {
+		const s = session();
+		s.authority.dispatch({ type: 'go-to', near: FRIEND });
+		const placed = position(s);
+		const again = new LocalAuthority();
+		const events: GameEvent[] = [];
+		again.subscribe((e) => events.push(e));
+		again.start({ game: s.authority.snapshot() });
+		expect(events[0]).toMatchObject({ type: 'welcome', pos: placed, facing: facing(s) });
+	});
+});
+
+/** The next few steps back and forth from where the player stands, as events: what they meet. */
+function reedWalkEvents(s: Session): string[] {
+	const out: string[] = [];
+	for (let i = 0; i < 40; i++) {
+		const from = s.events.length;
+		s.authority.dispatch({ type: 'move', dir: i % 2 === 0 ? 'left' : 'right' });
+		for (const e of s.events.slice(from)) {
+			if (e.type === 'battle-started') {
+				out.push(`battle:${e.state.opponent.speciesId}`);
+				return out;
+			}
+			if (e.type === 'player-moved') out.push(`${e.pos.x},${e.pos.y}`);
+		}
+	}
+	return out;
+}

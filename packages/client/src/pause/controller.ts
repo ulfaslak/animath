@@ -10,8 +10,10 @@ import { isLanguage, language, nextLanguage } from '../copy';
 import { isShortcut, keyName } from '../input/keyboard';
 import { tappedLanguage, tappedOption, tappedRow } from '../input/press';
 import { game } from '../state/game.svelte';
+import { presence } from '../state/presence.svelte';
 import {
 	MENU_ITEMS,
+	MENU_PAIRS,
 	WORLD_DIGITS,
 	cardRows,
 	partyOptions,
@@ -44,13 +46,28 @@ import {
  * Go home or Back. Going closes the menu and hands the trip to `travel`
  * (`main.ts`: the travel transition, which sends the `travel` intent under
  * its cover); without it, the intent goes at once.
+ *
+ * "Who's here" lists the other players in this world on the right
+ * (`presence.roster`); picking one closes the menu and goes to them
+ * (`goTo`, the presence controller's: it asks the server where they are,
+ * then the authority to put the player there).
  */
 export class PauseController {
 	constructor(
 		private authority: Authority,
-		private travel: (world: number) => void = (world) =>
-			authority.dispatch({ type: 'travel', world })
+		private readonly options: {
+			/** Takes a trip to another world; without it, the `travel` intent goes at once. */
+			travel?: (world: number) => void;
+			/** Goes to another player, by public id (the presence controller's). */
+			goTo?: (pid: string) => void;
+		} = {}
 	) {}
+
+	/** A trip to another world: the transition's, which sends `travel` under its cover, or at once. */
+	private travel(world: number): void {
+		if (this.options.travel) this.options.travel(world);
+		else this.authority.dispatch({ type: 'travel', world });
+	}
 
 	handle(event: GameEvent): void {
 		switch (event.type) {
@@ -115,7 +132,9 @@ export class PauseController {
 					? this.cardKey(key)
 					: pause.screen === 'worlds'
 						? this.worldsKey(key)
-						: this.optionsKey(key);
+						: pause.screen === 'players'
+							? this.playersKey(key)
+							: this.optionsKey(key);
 		if (handled) e.preventDefault();
 	}
 
@@ -180,9 +199,11 @@ export class PauseController {
 			case 'ArrowRight':
 			case 'd': {
 				const right = key === 'ArrowRight' || key === 'd';
-				// Keep playing and Start screen stand side by side: left and right step between them.
-				if (item === 'resume' || item === 'quit') {
-					const to = right ? 'quit' : 'resume';
+				// Rows side by side (Worlds and Who's here, Keep playing and Start screen): left
+				// and right step between the two.
+				const pair = item === undefined ? undefined : MENU_PAIRS.find((p) => p.includes(item));
+				if (pair) {
+					const to = right ? pair[1] : pair[0];
 					if (item !== to) {
 						pause.cursor = cards.length + MENU_ITEMS.indexOf(to);
 						sfx.play('move');
@@ -204,6 +225,11 @@ export class PauseController {
 			case 'worlds':
 				sfx.play('confirm');
 				this.openWorlds();
+				break;
+			case 'players':
+				sfx.play('confirm');
+				pause.screen = 'players';
+				pause.option = 0;
 				break;
 			case 'language':
 				sfx.play('confirm');
@@ -239,10 +265,63 @@ export class PauseController {
 				if (sfx.on !== right) this.setSound(right);
 				return true;
 			case 'worlds':
+			case 'players':
 			case 'resume':
 			case 'quit':
 				return false;
 		}
+	}
+
+	/**
+	 * Who's here, on the right: one row per other player in this world, the
+	 * nearest first. Enter (or a tap on a row) goes to them: the menu closes
+	 * and the presence controller takes it from there. The list changes as
+	 * players come and go; the cursor stays on the list.
+	 */
+	private playersKey(key: string): boolean {
+		// The team and the settings stay on screen beside the list, and a tap on one of
+		// them does that row, as on the list.
+		if (tappedRow(key) !== undefined || tappedLanguage(key) !== undefined) {
+			this.backToList();
+			return this.listKey(key);
+		}
+		const rows = presence.roster;
+		const tapped = tappedOption(key);
+		if (tapped !== undefined) {
+			if (tapped >= rows.length) return true;
+			pause.option = tapped;
+			return this.playersKey('Enter');
+		}
+		switch (key) {
+			case 'ArrowUp':
+			case 'w':
+				if (rows.length > 1) {
+					pause.option = (pause.option + rows.length - 1) % rows.length;
+					sfx.play('move');
+				}
+				return true;
+			case 'ArrowDown':
+			case 's':
+				if (rows.length > 1) {
+					pause.option = (pause.option + 1) % rows.length;
+					sfx.play('move');
+				}
+				return true;
+			case 'Enter':
+			case ' ': {
+				const player = rows[Math.min(pause.option, rows.length - 1)];
+				if (!player) return true;
+				sfx.play('confirm');
+				this.close();
+				this.options.goTo?.(player.pid);
+				return true;
+			}
+			case 'Escape':
+				this.backToList();
+				pause.cursor = bundles(game.party).length + MENU_ITEMS.indexOf('players');
+				return true;
+		}
+		return false;
 	}
 
 	/** Turned on, the sound says so itself; turned off, only the switch does. */
