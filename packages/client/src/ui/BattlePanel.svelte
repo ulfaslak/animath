@@ -319,6 +319,7 @@
 			hp={opponent.hp}
 			max={opponentSpec.maxHp}
 			opponent
+			keepEnd={!!vs}
 			acting={battle.turn === 'opponent'}
 			preview={previewHp}
 			hit={battle.hit?.side === 'opponent' ? battle.hit : null}
