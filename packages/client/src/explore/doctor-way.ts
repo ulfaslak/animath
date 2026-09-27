@@ -25,11 +25,13 @@ import { title } from '../state/title.svelte';
 export const DOCTOR_WAY_STEPS = 2 * TENT_SEARCH_STEPS;
 
 /**
- * How far, in CSS pixels, the arrow keeps from a tent it points to: its disc
- * and the tip on its rim (36 px from the middle) never cover the tent's
- * ground, however near the edge of the screen the tent is.
+ * How far, in CSS pixels, the arrow keeps from the ground a tent it points to
+ * stands on: the tip on its rim reaches 36 px from its middle, towards the
+ * tent, and the tent rises about 35 px above its ground, so the arrow never
+ * covers the tent, from above or from the side, however near the edge of the
+ * screen the tent is.
  */
-export const TENT_CLEARANCE = 64;
+export const TENT_CLEARANCE = 84;
 
 /** What the way needs of the renderer: where things are on the canvas, and whether the world is. */
 export type DoctorWayRenderer = Pick<

@@ -241,11 +241,11 @@ explore:
   notAtTent: Walk up to a tent to talk to the doctor.
   # Under the latest message for as long as no animal can fight (after a lost
   # battle), until a doctor has helped one: nothing jumps out of the grass meanwhile.
-  tired: Your animals are tired. Walk to a doctor's tent!
+  tired: Your animals are tired. Walk to the witch doctor's tent!
   # The same, out on the water in the boat.
-  tiredSail: Your animals are tired. Sail to a doctor's tent!
+  tiredSail: Your animals are tired. Sail to the witch doctor's tent!
   # What a screen reader calls the arrow at the screen's edge that points to the nearest tent then.
-  doctorArrow: The way to a doctor's tent
+  doctorArrow: The way to the witch doctor's tent
 
 hud:
   # The tag on the card of the lead: the animal that steps into the next battle.
@@ -440,9 +440,9 @@ battle:
     fledSea: '{animal.theWild} stays in the water.'
     joined: '{animal.name} joins your team!'
     # Under "Good try!": the team is tired where it stood, and walks to a doctor.
-    lost: Your animals need a rest. The doctor will make them feel all better!
+    lost: Your animals need a rest. The witch doctor will make them feel all better!
     # The same, with no tent near: a doctor came and helped everyone right there.
-    doctorCame: A doctor came by and looked after your animals. Everyone feels better!
+    doctorCame: A witch doctor came by and looked after your animals. Everyone feels better!
 
 doctor:
   # The name tag in front of what the doctor says.
