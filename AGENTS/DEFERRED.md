@@ -139,7 +139,7 @@ Technical items we've intentionally postponed: tech debt, hardening shortcuts, k
 
 **Why deferred**: Heal is where each animal's HP shows, and one puzzle already heals the whole kind whichever of its hurt animals is picked. A kind's row there would be a second way to the same puzzle, not a shortcut.
 
-**Trigger**: a save with more than 20 hurt animals of one kind, so the heal list outgrows the card, or a report that Heal and the HUD read as different teams. Then give Heal a row per kind of several that opens its puzzle, as Help home's row picks its animals.
+**Trigger**: a save with more than 20 hurt animals of one kind, so the heal list outgrows the card, or a report that Heal and the HUD read as different teams. Then give Heal a row per kind of several that opens its puzzle, as Set free's row picks its animals.
 
 ### Two tabs writing the save in the same instant: the one written over is kept aside, not merged
 

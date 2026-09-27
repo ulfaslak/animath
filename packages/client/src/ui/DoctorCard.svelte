@@ -34,8 +34,8 @@
 	/**
 	 * The doctor's card, over the world at the bottom of the screen (UI_SPEC §
 	 * Doctor): the doctor's line and the player's tokens across the top; on the
-	 * left the tabs (heal, help home, shop) over the tab's list, which scrolls,
-	 * with Help home's button and Bye under it; on the right what the
+	 * left the tabs (heal, set free, shop) over the tab's list, which scrolls,
+	 * with Set free's button and Bye under it; on the right what the
 	 * highlighted row does, the confirm before a hand-over, or the puzzle in
 	 * the same `PuzzlePanel` as battle. Everything comes from `doctor` (the
 	 * presentation view) and every word from the copy files (`doctor.*`,
@@ -48,8 +48,8 @@
 	 */
 	const rows = $derived(tabRows(doctor.tab, doctor.party, doctor.shop));
 	/**
-	 * The rows that scroll: the animals (and on help home each bundle's row)
-	 * or the items. Help home's button and Bye stay put under them.
+	 * The rows that scroll: the animals (and on set free each bundle's row)
+	 * or the items. Set free's button and Bye stay put under them.
 	 */
 	const listed = $derived(
 		rows.flatMap((row, k) =>
@@ -648,7 +648,7 @@
 	}
 
 	/*
-	 * The tabs over the list; the list, which scrolls; Help home's button and
+	 * The tabs over the list; the list, which scrolls; Set free's button and
 	 * Bye under it, always in view.
 	 */
 	.patients {
@@ -698,7 +698,7 @@
 	/*
 	 * The rows line up in shared columns sized by the longest name there, so
 	 * every name shows whole and the bars start together. On heal: name, HP
-	 * bar (a tired animal's "tired" written in its empty bar). On help home:
+	 * bar (a tired animal's "tired" written in its empty bar). On set free:
 	 * check, name, HP bar, a little closer together, so that "tired" and its
 	 * numbers fit beside twelve of the widest letters at 1024 px (a bundle's
 	 * row: its kind and how many, and what they all bring, in the bar's
