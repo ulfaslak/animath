@@ -92,6 +92,28 @@ A battle carries its realm (`BattleState.realm`: land, or the water from the boa
 
 `catchProbability(hp, rate, leash)` is monotonically non-increasing in `hp`, halves every 0.2 of HP, and is capped at 0.95 regardless of leash quality. Enforced by `battle.test.ts` § catchProbability. Design-time.
 
+## Match
+
+### A match ends when a side has no animal standing, or a player leaves or times out
+
+The sibling of § "A battle ends with probability 1": a match has no wild animal whose attacks always come, so its end rests on the players. A right answer hits an animal that is standing for at least 1 (every power is ≥ 1), nothing in a match raises HP, and a knock-out that leaves its side someone standing asks only for a free pick, so a match lasts at most as many right answers as both teams have HP, and ends with probability 1 as long as either kid is right some of the time. `leave` and `timeout` end it at once, from either side, in every phase. There is no draw and no turn limit: two kids who never answer right, or only switch, play on until one of them leaves, which the Leave button and the authority's timeout always allow. Enforced by `match.test.ts`: random matches between kids right 20–100% of the time, who switch, leave and time out, all end, with no more hits than HP; a kid who switches whenever they can never stalls one; leaving and timing out work in every phase; two kids who only switch still play after 500 turns and stop the moment one leaves. Design-time.
+
+### Only the side whose turn it is acts, and turns alternate
+
+Every phase but the end names the side that acts, and an attack, an answer, a switch or a pick from the other side is refused (`not-your-turn`); only `leave` and `timeout` are taken from either side. An answer, right or wrong, and a switch pass the turn and add one to `turn`; an attack, a pick after a knock-out and the end do not, so the side that started plays exactly the odd turns. Enforced by `match.test.ts` § turns, and by the random matches, which check the side that acts against the turn's parity after every step. Design-time.
+
+### No match view or event ever holds a puzzle's answer
+
+The state keeps the open puzzle, answer and all, and never leaves the authority. A player is sent `matchView(state, side)`, built field by field (never by spreading the state) with the puzzle as a `ShownPuzzle`, and the events, in which `puzzle-shown` carries a `ShownPuzzle` and `answer-judged` only whether the answer was right; so both players get the same events. A client that could read the answer would never miss. Enforced by `match.test.ts`: the random matches scan every view of both sides and every event for a key named `answer`, and check that every view of a puzzle in progress stays the same when its answer is swapped for another, so no field can carry it under another name. Design-time: the human's rule, the waiting player sees the puzzle without its answer.
+
+### A match is a pure function of `(seed, parties, (side, intent) log)`, never touches the parties, and keeps its seed out of its state
+
+`applyMatchIntent(state, side, intent, seed)` returns a new state and leaves the one it was given untouched. The coin is `new Rng(hashInts(seed, hashString('coin')))` and the n-th accepted intent draws from `new Rng(hashInts(seed, n))`, so the same log replays to the same states and events, which lets a server log a match and replay it. A refused intent returns the same state reference with a single `rejected` event. `matchTeam` and `startMatch` copy what they take, so nothing a match does can reach a player's party. The seed is the authority's and never in `MatchState`. Enforced by `match.test.ts`: the random matches deep-freeze every party and state and try a wrong intent at every step; the replay and golden tests; and the start, which holds no seed. Design-time.
+
+### A match asks and hits exactly as a wild battle does
+
+Both reducers play an attack through `battle/attack.ts`: the puzzle at `puzzleDifficulty` of the attacker's own tier, attack and level, of a kind the attack can ask; the answer judged only by `checkAnswer`; a hit of `attackDamage`. So a right answer in a match deals exactly the formula's damage and a wrong one nothing, for any input, and a change to how an attack asks or hits changes both. Enforced by `match.test.ts` § an attack, over every land species × attack × level against the formulas with twelve inputs, right and wrong, and by the battle reducer's tests, which pass unchanged through the same code (the seed-2024 golden battle included). Design-time.
+
 ## Authority
 
 ### The authority's randomness is keyed by the world seed and its step count, and its seeds never leave it

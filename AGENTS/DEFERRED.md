@@ -16,9 +16,9 @@ Technical items we've intentionally postponed: tech debt, hardening shortcuts, k
 
 ### The puzzle's answer travels to the client inside `BattleState` and `DoctorState`
 
-**What**: `BattlePhase` (`solving`) and the `puzzle-shown` event carry the whole `Puzzle`, `answer` included, and `answer-judged` repeats it. The doctor reducer copies the shape: `DoctorPhase` (`solving`, `handing-over`, `buying`) and its `puzzle-shown`, `hand-over-shown` and `purchase-shown` carry the answer too (a token sum's answer is the balance after it, which a client can work out anyway). With `LocalAuthority` that is harmless — the client already runs the engine. With a server authority, a modified client could read the answer and never miss (or heal for free).
+**What**: `BattlePhase` (`solving`) and the `puzzle-shown` event carry the whole `Puzzle`, `answer` included, and `answer-judged` repeats it. The doctor reducer copies the shape: `DoctorPhase` (`solving`, `handing-over`, `buying`) and its `puzzle-shown`, `hand-over-shown` and `purchase-shown` carry the answer too (a token sum's answer is the balance after it, which a client can work out anyway). With `LocalAuthority` that is harmless — the client already runs the engine. With a server authority, a modified client could read the answer and never miss (or heal for free). Friendly matches, which a server runs, never carry it: their views and events hold a `ShownPuzzle` (`match/types.ts`, built by `shownPuzzle`), the answerless shape a redaction here can reuse.
 
-**Why deferred**: there is no server authority yet, and stripping the answer means a second `Puzzle` shape (or a redacting step in the protocol) for a cheat nobody can attempt today.
+**Why deferred**: there is no server authority for wild battles or the doctor, and stripping the answer there is a cheat fix nobody can attempt today.
 
 **Trigger**: the `RemoteAuthority` / server-side battle PR. Redact `answer` from what goes over the wire there, and decide whether `answer-judged` keeps reporting it after the fact (harmless: the puzzle is spent; the battle screen never shows it).
 
@@ -93,6 +93,14 @@ Technical items we've intentionally postponed: tech debt, hardening shortcuts, k
 **Why deferred**: the players are Danish and English-speaking kids, and there is one authority, in the browser. The fixes cost more than they are worth today. Every script's marks would need the full, generated list of Unicode scripts, guarded against engines that don't know the newest names. Joiners would need to be kept only between two letters of one script. With a server authority, the server's result is the truth and the client only displays it.
 
 **Trigger**: a player whose name needs one of these, or the server-side authority PR. At that PR, check that nothing but the server cleans a name that is stored, and decide whether the preview needs the server's answer.
+
+### A match shows each player the other's nicknames, cleaned but not checked for rude words
+
+**What**: `matchTeam` keeps each animal's nickname, cleaned by `normalizeNickname`, and `matchView` sends both teams to both players, so a kid sees the other kid's nicknames. The cleaner keeps letters, not manners: a rude word typed as a nickname reaches the other kid, which is the one piece of free text that crosses between players ("There is no chat").
+
+**Why deferred**: the rude-word list comes with the engine's `checkName` (`names.ts`, being built in `feat/worlds-names`), and no screen shows a match yet.
+
+**Trigger**: the `feat/matches` PR that puts a match on screen. With `names.ts` landed by then, drop, in `matchTeam`, a nickname its rules call rude (the animal goes by its species' name), so the server never sends one; without it, show the other side's animals by their species' names only.
 
 ### A browser keeps at most 200 games left for a new one
 

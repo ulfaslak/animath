@@ -1,0 +1,51 @@
+import { ANIMALS, canFightIn, getAnimal } from '../animals/catalog.js';
+import type { AnimalInstance } from '../animals/types.js';
+import { normalizeNickname } from '../party/names.js';
+import { MAX_SAVE_ID_LENGTH } from '../save.js';
+import type { TeamPick } from './types.js';
+
+/** How many animals a side brings to a match, at most. */
+export const MATCH_TEAM_SIZE = 3;
+
+const SPECIES_IDS: ReadonlySet<string> = new Set(ANIMALS.map((a) => a.id));
+
+/**
+ * The team a party brings to a friendly match ([[PRODUCT]] §4 "Friendly
+ * matches"): its first `MATCH_TEAM_SIZE` animals in party order that can
+ * fight on land, tired ones too, each a fresh copy at full HP with its
+ * nickname cleaned (`normalizeNickname`). Fewer when the party has fewer.
+ *
+ * Takes anything, because the authority calls it on the party a client sent:
+ * each entry it looks at, in order until the team is full, must be an animal
+ * (an object with an id of 1–64 characters and a known species, no id
+ * repeated), or the whole party is refused (`not-a-party`). HP is not read:
+ * everyone comes at full HP. A party with no animal that can fight on land
+ * brings no team (`no-team`).
+ *
+ * Pure and idempotent: the input is never changed, and a team given back to
+ * it comes back the same, so an authority can take either a party or a team.
+ */
+export function matchTeam(party: unknown): TeamPick {
+	if (!Array.isArray(party)) return { ok: false, reason: 'not-a-party' };
+	const team: AnimalInstance[] = [];
+	const ids = new Set<string>();
+	for (const entry of party as readonly unknown[]) {
+		if (team.length === MATCH_TEAM_SIZE) break;
+		const animal = readAnimal(entry);
+		if (animal === null || ids.has(animal.id)) return { ok: false, reason: 'not-a-party' };
+		ids.add(animal.id);
+		if (canFightIn(animal.speciesId, 'land')) team.push(animal);
+	}
+	return team.length > 0 ? { ok: true, team } : { ok: false, reason: 'no-team' };
+}
+
+/** A fresh team member from one entry of a party: full HP, the nickname cleaned; null if it is not an animal. */
+function readAnimal(entry: unknown): AnimalInstance | null {
+	if (typeof entry !== 'object' || entry === null || Array.isArray(entry)) return null;
+	const { id, speciesId, nickname } = entry as Record<string, unknown>;
+	if (typeof id !== 'string' || id.length === 0 || id.length > MAX_SAVE_ID_LENGTH) return null;
+	if (typeof speciesId !== 'string' || !SPECIES_IDS.has(speciesId)) return null;
+	const hp = getAnimal(speciesId).maxHp;
+	const clean = normalizeNickname(nickname);
+	return clean === undefined ? { id, speciesId, hp } : { id, speciesId, nickname: clean, hp };
+}
