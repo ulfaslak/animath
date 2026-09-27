@@ -141,11 +141,24 @@ const TEAM = [
 	{ id: 'r2', speciesId: 'rabbit' }
 ];
 
+/**
+ * A ping of the page's own, answered: a socket's frames keep their order, so the server has
+ * read all the page sent before it. A barrier, where a wait on the clock would only guess.
+ */
+function roundTrip(page: Page): Promise<void> {
+	return new Promise((resolve) => {
+		page.ws.once('pong', () => resolve());
+		page.ws.ping();
+	});
+}
+
+/** Ada and Bo side by side, and the server has read where each stands: a challenge can follow. */
 async function twoPages(url: string) {
 	const ada = new Page(url);
 	const bo = new Page(url);
 	const adaPid = await ada.open('Ada', 'a'.repeat(20), SPAWN);
 	const boPid = await bo.open('Bo', 'b'.repeat(20), { x: SPAWN.x + 1, y: SPAWN.y });
+	await Promise.all([roundTrip(ada), roundTrip(bo)]);
 	return { ada, bo, adaPid, boPid };
 }
 
@@ -159,8 +172,6 @@ describe('a friendly match on the wire', () => {
 			matches: { ratePerSecond: 1000, burst: 1000 }
 		});
 		const { ada, bo, adaPid, boPid } = await twoPages(url);
-		// Where each page stands reaches the server before the challenge (one socket each, in order).
-		await new Promise((resolve) => setTimeout(resolve, 50));
 		ada.send({ t: 'challenge', pid: boPid, team: TEAM });
 		const invite = await bo.next('invite');
 		expect(invite).toMatchObject({ pid: adaPid, name: 'Ada', ms: 20_000 });
@@ -214,7 +225,6 @@ describe('a friendly match on the wire', () => {
 	it('ends every match with no winner when the server stops for a deploy, and each page is told to come back', async () => {
 		const { presence, url } = await start();
 		const { ada, bo, adaPid, boPid } = await twoPages(url);
-		await new Promise((resolve) => setTimeout(resolve, 50));
 		ada.send({ t: 'challenge', pid: boPid, team: TEAM });
 		await bo.next('invite');
 		bo.send({ t: 'accept', pid: adaPid, team: TEAM });
@@ -230,7 +240,6 @@ describe('a friendly match on the wire', () => {
 	it('picks a match up for a page whose socket came back in time, and says in its hi which one', async () => {
 		const { url } = await start();
 		const { ada, bo, adaPid, boPid } = await twoPages(url);
-		await new Promise((resolve) => setTimeout(resolve, 50));
 		ada.send({ t: 'challenge', pid: boPid, team: TEAM });
 		await bo.next('invite');
 		bo.send({ t: 'accept', pid: adaPid, team: TEAM });

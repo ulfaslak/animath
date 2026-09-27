@@ -5,8 +5,10 @@ import type { AnimalInstance } from '../animals/types.js';
  * changed only while exploring: a battle and a doctor visit each work on their
  * own copy of the party and write it back when they end, which would undo an
  * edit made in the meantime (or, mid-battle, put a different animal in front).
+ * Up in the air (`flight`, the glider) nothing is picked either: a flight is
+ * over in three seconds, and the lead is who comes down with the kid.
  */
-export type PlayerActivity = 'explore' | 'battle' | 'doctor';
+export type PlayerActivity = 'explore' | 'battle' | 'doctor' | 'flight';
 
 /**
  * What the player can do to their party while exploring. Never an outcome:

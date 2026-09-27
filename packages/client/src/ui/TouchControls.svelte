@@ -4,18 +4,21 @@
 	import { t } from '../copy';
 	import { ARROW_KEYS, padDirection } from '../input/dpad';
 	import { hold, press, release, unfocusable } from '../input/press';
+	import { game } from '../state/game.svelte';
 	import { hud } from '../state/hud.svelte';
 
 	/**
 	 * The touch controls in explore (UI_SPEC § Touch): the D-pad in the bottom
 	 * left corner and the Talk and Menu buttons in the bottom right, where the
-	 * thumbs of a kid holding a tablet rest. Each is a key (`input/press.ts`):
-	 * an arrow held down while the finger stays, Enter, Escape. So walking
-	 * holds, taps and stops exactly as the arrow keys do, and a finger still
-	 * down when a battle, the doctor or the menu takes the screen lets go
-	 * there: this component goes, and explore drops held keys meanwhile; lifted
-	 * over the new screen, the finger presses nothing there (`input/taps.ts`).
-	 * Each finger is its own: the D-pad follows the one that steers by its
+	 * thumbs of a kid holding a tablet rest, and once the glider is owned, Fly
+	 * over Talk. Each is a key (`input/press.ts`): an arrow held down while the
+	 * finger stays, Enter, Escape, and Space held down while a finger stays on
+	 * Fly. So walking holds, taps and stops exactly as the arrow keys do, Fly
+	 * holds and taps as Space does, and a finger still down when a battle, the
+	 * doctor or the menu takes the screen lets go there: this component goes,
+	 * and explore drops held keys meanwhile; lifted over the new screen, the
+	 * finger presses nothing there (`input/taps.ts`). Each finger is its own:
+	 * the D-pad and Fly each follow the one that holds them by its
 	 * `pointerId`, and Talk and Menu take a tap (`data-press`) from any other,
 	 * so a thumb walking on the D-pad never stops the other thumb's tap.
 	 */
@@ -85,12 +88,51 @@
 		};
 	}
 
-	// The screen is changing (a battle, the doctor, the menu): let go of the arrow.
-	onDestroy(letGo);
+	/** Space is held down by a finger on Fly. */
+	let flyHeld = $state(false);
+	/** The finger on Fly; others are ignored until it lifts. */
+	let flyFinger: number | null = null;
+
+	function flyDown(e: PointerEvent): void {
+		if (flyFinger !== null || e.button !== 0) return;
+		flyFinger = e.pointerId;
+		(e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+		flyHeld = true;
+		hold(' ');
+	}
+
+	function flyUp(e: PointerEvent): void {
+		if (e.pointerId === flyFinger) letGoFly();
+	}
+
+	/**
+	 * Lift Space and forget the finger: it lifted, or it was lost to the page
+	 * as the D-pad's is (a blur, a hidden page, the screen changing). A glider
+	 * in the air comes down: letting go always lands.
+	 */
+	function letGoFly(): void {
+		flyFinger = null;
+		if (!flyHeld) return;
+		flyHeld = false;
+		release(' ');
+	}
+
+	/** Fly pressed without a pointer (a screen reader's click): a tap of Space. */
+	function flyClick(e: MouseEvent): void {
+		if (e.detail === 0) press(' ');
+	}
+
+	function letGoAll(): void {
+		letGo();
+		letGoFly();
+	}
+
+	// The screen is changing (a battle, the doctor, the menu): let go of the arrow and of Fly.
+	onDestroy(letGoAll);
 </script>
 
-<svelte:window onblur={letGo} />
-<svelte:document onvisibilitychange={letGo} />
+<svelte:window onblur={letGoAll} />
+<svelte:document onvisibilitychange={letGoAll} />
 
 <div
 	class="dpad"
@@ -139,6 +181,23 @@
 			? t('explore.break')
 			: t('explore.talk')}
 </button>
+
+<!-- Space, held while the finger stays: the glider takes off after a moment and flies until it lifts. -->
+{#if game.items.includes('glider')}
+	<button
+		type="button"
+		class="round fly-button"
+		class:on={flyHeld}
+		onpointerdown={flyDown}
+		onpointerup={flyUp}
+		onpointercancel={flyUp}
+		onlostpointercapture={flyUp}
+		onclick={flyClick}
+		{@attach unfocusable}
+	>
+		{t('explore.fly')}
+	</button>
+{/if}
 
 <style>
 	.dpad {
@@ -224,6 +283,19 @@
 		height: calc(var(--tap) * 1.5);
 		gap: 3px;
 		font-size: 16px;
+	}
+	/* Over Talk, under the same thumb: held down, it flies. */
+	.fly-button {
+		right: calc(24px + var(--tap) * 0.2 + var(--safe-right));
+		bottom: calc(56px + var(--tap) * 2 + 14px + var(--safe-bottom));
+		width: calc(var(--tap) * 1.6);
+		height: calc(var(--tap) * 1.6);
+		font-size: 18px;
+		touch-action: none;
+	}
+	.fly-button.on {
+		background: var(--accent);
+		color: white;
 	}
 	.bars {
 		display: grid;

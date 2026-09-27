@@ -466,6 +466,15 @@ explore:
   turnSideways: Turn your screen sideways to play!
   # Enter with nothing in front to talk to, chop or break.
   notAtTent: Walk up to a tent to talk to the doctor.
+  # With the glider: a tap of Space with nothing in front, and the doctor's goodbye
+  # just after buying it. "Space" is the space bar.
+  holdToFly: Hold Space to fly!
+  # The same, with the touch controls on; "Fly" is explore.fly.
+  holdToFlyTouch: Hold Fly to fly!
+  # A take-off with no ground to land on in the 20 tiles ahead (a lake too wide, a forest too deep).
+  tooFar: Too far! There's nowhere to land that way.
+  # The touch controls' round button that flies with the glider, held down.
+  fly: Fly
 
 hud:
   # The tag on the card of the lead: the animal that steps into the next battle.
@@ -817,6 +826,11 @@ items:
     the: the boat
     your: your boat
     use: Sails on water.
+  glider:
+    name: Paraglider
+    the: the paraglider
+    your: your paraglider
+    use: Glides over trees, rocks and water.
 
 pause:
   # The pause menu's title.
@@ -985,6 +999,37 @@ account:
     saved: 'Your game is saved! Log in as {name} on any tablet or computer.'
     welcome: 'Welcome back, {name}!'
     movedAhead: You played on somewhere else. Here's your newest game!
+  # The card a welcome link opens over the title: a grown-up brought the kid's game over from
+  # another computer into an account, and the kid picks its password here.
+  welcome:
+    # While the page asks the server about the link, and when the server can't be reached.
+    checking: Welcome back!
+    # The account the link opens. {name}: its name.
+    title: 'Welcome back, {name}!'
+    text: Your animals are waiting. Pick a secret password.
+    go: "Let's play!"
+    later: Not now
+    keys: Enter play · Esc not now
+    # A link that works no more: its heading, then what to do instead.
+    used: This link has been used already
+    usedText: Log in with your name and your secret password.
+    expired: This link is too old now
+    expiredText: Ask a grown-up for a new one.
+    unknown: This link doesn't work
+    unknownText: Ask a grown-up for a new one.
+    # The ways on from such a link: log in, or play the game this browser has.
+    logIn: Log in
+    guest: Play as a guest
+    # For a browser logged in to an account already. {name}: that account's name.
+    playAs: 'Play as {name}'
+    goneKeys: Enter log in · Esc play
+    # The same while the server can't keep an account, so the card offers no login.
+    playKeys: Esc play
+    # The server can't be reached: ask it again.
+    retry: Try again
+    retryKeys: Enter try again · Esc not now
+    # This browser can't store anything, so the account couldn't be played here.
+    storage: "This browser can't remember you. Open the link on another tablet or computer."
 
 sound:
   # The chip at the top of the screen after M turned the sound on or off.
@@ -1091,6 +1136,8 @@ presence:
     doctor: at the doctor
     menu: taking a break
     match: in a friendly match
+    # Up in the air with the paraglider (no bubble: the glider shows it; only the list says it).
+    flight: flying
 match:
   # A friendly match between two players. {name} is the other player, as they
   # typed it; {whose} is their name as the owner of what follows ("Bo's"),

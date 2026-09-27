@@ -1066,9 +1066,20 @@ describe('the shop', () => {
 		t.run(PICK_QUIET_SECONDS);
 		t.press('ArrowLeft');
 		expect(doctor.tab).toBe('shop');
-		expect(doctor.shop).toEqual(['axe', 'pickaxe', 'boat']);
+		expect(doctor.shop).toEqual(['axe', 'pickaxe', 'boat', 'glider']);
 		return t;
 	};
+
+	it('sells the paraglider, the dearest tool, for 34: the sum of the tokens left buys it', () => {
+		const t = shop(40);
+		t.press('ArrowDown', 'ArrowDown', 'ArrowDown', 'Enter'); // the paraglider, 34
+		expect(doctor.trade).toEqual({ kind: 'buy', itemId: 'glider', price: 34 });
+		expect(doctor.puzzle?.prompt).toBe('40 − 34 = ?');
+		t.press('6', 'Enter');
+		t.run(0.85);
+		expect(doctor.items).toEqual(['glider']);
+		expect(t.saved()).toMatchObject({ tokens: 6, items: ['glider'] });
+	});
 
 	it('an item a kid cannot pay for gives a little shake, and nothing is bought', () => {
 		const t = shop(10);

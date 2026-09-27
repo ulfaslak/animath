@@ -11,6 +11,15 @@ const apiPort = process.env.API_PORT ?? '3000';
 // index.html carries as `<meta name="animath-build">`, beside the server's
 // /api/health: the two builds are one. `dev` everywhere else.
 process.env.VITE_BUILD_SHA ||= 'dev';
+// The game's address: `https://` and the domain the image's build is given
+// (MATHGAME_DOMAIN, deploy.env's, through the Dockerfile). The link preview
+// names its image by it (`%VITE_SITE_ORIGIN%` in index.html) and its page
+// (`pageAddress`), as a messenger wants absolute URLs. Empty everywhere else,
+// the dev server behind the tunnel included: the image's URL stays relative,
+// and the page names no address that is not its own.
+process.env.VITE_SITE_ORIGIN ||= process.env.MATHGAME_DOMAIN
+	? `https://${process.env.MATHGAME_DOMAIN}`
+	: '';
 
 /**
  * `import en from './en.yaml'` gives the file's data. The YAML is parsed here,
@@ -83,8 +92,22 @@ function robots(): Plugin {
 	};
 }
 
+/** The link preview's `og:url`, the game's own address, in a build that knows it (above). */
+function pageAddress(): Plugin {
+	return {
+		name: 'animath:page-address',
+		transformIndexHtml() {
+			const origin = process.env.VITE_SITE_ORIGIN;
+			if (!origin) return [];
+			return [
+				{ tag: 'meta', attrs: { property: 'og:url', content: `${origin}/` }, injectTo: 'head' }
+			];
+		}
+	};
+}
+
 export default defineConfig({
-	plugins: [svelte(), yaml(), robots()],
+	plugins: [svelte(), yaml(), robots(), pageAddress()],
 	server: {
 		port: 5180,
 		strictPort: true,
