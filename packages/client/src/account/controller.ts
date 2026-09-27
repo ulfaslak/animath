@@ -1,4 +1,4 @@
-import { checkName, checkPassword, type SaveWrite } from '@mathgame/engine';
+import { checkName, checkPassword, type GameEvent, type SaveWrite } from '@mathgame/engine';
 import { sfx } from '../audio/sfx.svelte';
 import { isShortcut, keyName } from '../input/keyboard';
 import { isMashKey, PickGuard } from '../input/pick-guard';
@@ -13,6 +13,7 @@ import {
 import { getAccountSave, login, logout, register } from './api';
 import type { AccountNote } from './restart';
 import {
+	forgetLogout,
 	guestGameFor,
 	logInHere,
 	logOutHere,
@@ -65,6 +66,22 @@ export class AccountController {
 	private guard = new PickGuard();
 
 	constructor(private hooks: AccountHooks) {}
+
+	/**
+	 * Something else takes the screen (a step already under way met a wild
+	 * animal, the doctor's card opened, the game left for the title): the
+	 * hourly card goes unanswered, and comes back the next time the player is
+	 * exploring.
+	 */
+	handle(event: GameEvent): void {
+		switch (event.type) {
+			case 'battle-started':
+			case 'doctor-visit-started':
+			case 'game-left':
+				account.prompt = false;
+				break;
+		}
+	}
 
 	/** Frame time, for the quiet moment. */
 	update(dt: number): void {
@@ -191,6 +208,8 @@ export class AccountController {
 		switch (result.kind) {
 			case 'registered':
 				sfx.play('confirm');
+				// This browser's new session replaced any old one: a logout still waiting is moot.
+				forgetLogout(store);
 				moveGuestGameIn(store, result.name);
 				this.hooks.restart('saved');
 				return;
@@ -224,6 +243,7 @@ export class AccountController {
 				this.hooks.flush();
 				const theirs = await getAccountSave();
 				if (theirs.kind === 'found') takeAccountGame(store, result.name, theirs.doc);
+				forgetLogout(store);
 				logInHere(store, result.name);
 				this.hooks.restart('welcome');
 				return;

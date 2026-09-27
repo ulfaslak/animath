@@ -198,6 +198,7 @@ authority.subscribe((event) => {
 	doctorController.handle(event);
 	pauseController.handle(event);
 	titleController.handle(event);
+	accountController.handle(event);
 	autosave.handle(event);
 	// A new game from the title: after `welcome`, which clears the message line.
 	if (event.type === 'welcome' && event.newGame) sayStartNotice(true);

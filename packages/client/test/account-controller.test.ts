@@ -1,4 +1,4 @@
-import { newGame, saveDocument, type SavedGame } from '@mathgame/engine';
+import { newGame, saveDocument, type GameEvent, type SavedGame } from '@mathgame/engine';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { AccountController } from '../src/account/controller';
 import type { AccountNote } from '../src/account/restart';
@@ -256,6 +256,26 @@ describe('logging in', () => {
 		expect(requests).toEqual([]);
 	});
 
+	it('a logout the server never heard is moot once this browser logs in or registers again', async () => {
+		server({
+			'/api/account/login': { status: 200, json: { user: { name: 'Ida' } } },
+			'/api/account/save': { status: 404, json: { error: 'no save yet' } },
+			'/api/account/register': { status: 201, json: { user: { name: 'Bo' } } }
+		});
+		for (const card of ['login', 'register'] as const) {
+			const { store, controller, press, quiet } = setup(card === 'login' ? null : 'Bo');
+			store.set('animath.logout.pending', '1');
+			if (card === 'login') controller.openLogin('title');
+			else controller.openRegister('pause');
+			account.nameDraft = card === 'login' ? 'Ida' : 'Bo';
+			account.passwordDraft = 'secret';
+			quiet();
+			press('Enter');
+			await answered();
+			expect(logoutPending(store), card).toBe(false);
+		}
+	});
+
 	it("takes the account's save when it is further along, leaves the guest game alone, and starts again in the account", async () => {
 		server({
 			'/api/account/login': { status: 200, json: { user: { name: 'Ida' } } },
@@ -346,6 +366,17 @@ describe('the hourly card', () => {
 		expect(account.prompt).toBe(false);
 		expect(account.card).toBeNull();
 		expect(events).toEqual(['answered', 'answered']);
+	});
+
+	it('goes away unanswered when a battle, the doctor or the title takes the screen, and comes back later', () => {
+		const { controller, events } = setup();
+		for (const type of ['battle-started', 'doctor-visit-started', 'game-left'] as const) {
+			controller.openPrompt();
+			controller.handle({ type } as GameEvent);
+			expect(account.prompt, type).toBe(false);
+		}
+		controller.handle({ type: 'player-moved' } as GameEvent);
+		expect(events).toEqual([]);
 	});
 
 	it('a tap on a choice picks it, after the quiet moment too', () => {
