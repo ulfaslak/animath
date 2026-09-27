@@ -63,12 +63,19 @@ Mouse and touch are key presses: a click or a tap on the overlay sends the key i
 Touch controls (D-pad, Talk, Menu, number pad, finger-sized rows) show where the main pointer is coarse, then follow the latest input: a touch shows them, a real keyboard's key hides them. The same build serves laptops and tablets.
 Dev server on port **5180** (5173 belongs to another project on this machine).
 
+## The page
+
+The game is a web page, not a standalone web app: no `apple-mobile-web-app-capable`, no manifest with `display: standalone`, because iOS gives a web app on the Home Screen storage of its own, apart from Safari's, so a guest's animals, kept in Safari's `localStorage`, would seem to vanish when the kid opened the game from its icon. An icon on the Home Screen is welcome (`apple-touch-icon.png`). iOS and iPadOS 26 open every page added to the Home Screen as a web app unless "Open as Web App" is switched off as it is added, and no page can change that; only an account carries a game across (§ Accounts).
+Search engines are kept out, because it is a kids' game that shows players' names, with no moderation, shared by link: `robots.txt` turns every crawler away except the ones messengers send to draw a shared link's preview, and the page says `noindex`. One switch lets them in: `SEARCH_ENGINES_WELCOME` in `packages/client/vite.config.ts`, which writes both.
+The world draws to the screen's edges, under a notch or a home indicator (`viewport-fit=cover`), and the overlay keeps inside the safe area ([[UI_SPEC]] § Frame), rather than the page being boxed in away from them.
+
 ## Copy and languages
 
 All player-facing copy lives in per-language YAML files, `packages/client/src/copy/<code>.yaml`, because the human asked for it ("all copy lives in yaml files (not in code)"). Code refers to copy by key (`t('puzzle.keys')`) and holds no player-facing words, in TypeScript or in a Svelte template.
 The game speaks English (`en`) and Danish (`da`), because the human asked for it ("my kid speaks danish. supported languages for now should be danish and english"). English is the fallback, so every key exists in English. The player switches language on the title or in the pause menu; the choice is remembered on the device.
 Adding a language is adding a file and one registry line.
 YAML is parsed at build time. The browser gets plain objects and ships no YAML parser.
+The one exception is what the page says before any script runs: the description and link preview a messenger reads, and the card a browser without JavaScript shows. They are in `index.html`, English then Danish, since no copy file can be read there.
 The engine is language-free: species and attacks have ids, not names; events and refusals are codes; a line an authority sends is a copy key with numbers and species by id, never a string. The client picks the words.
 Words are picked when they are shown, from the language on screen. State and events carry keys and params, never finished sentences, so changing the language re-words everything at once, without a reload.
 A species' names, articles included, are written out per language as forms (`name`, `a`, `the`, `wild`, `aWild`, `theWild`), never built from rules: Danish articles and adjectives follow the noun's gender.
