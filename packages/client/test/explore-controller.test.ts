@@ -28,6 +28,8 @@ function setup(startingParty: string) {
 	const renderer = {
 		setWorld() {},
 		setBoat() {},
+		setGlider() {},
+		setLandingSpot() {},
 		setPlayer() {},
 		ensureChunksAround() {}
 	} as unknown as GameRenderer;

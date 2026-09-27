@@ -32,6 +32,8 @@ function setup(start?: SavedGame) {
 	const renderer = {
 		setWorld() {},
 		setBoat() {},
+		setGlider() {},
+		setLandingSpot() {},
 		setPlayer() {},
 		ensureChunksAround() {},
 		cleared() {}
@@ -46,7 +48,13 @@ function setup(start?: SavedGame) {
 			const pressed = enter;
 			enter = false;
 			return pressed;
-		}
+		},
+		talkKey: 'enter',
+		setGlider: () => {},
+		takeTakeOff: () => false,
+		flyHeld: () => false,
+		windUp: () => 0,
+		dropTaps: () => {}
 	} as unknown as Keyboard;
 	const explore = new ExploreController(authority, renderer, keyboard);
 	const events: string[] = [];

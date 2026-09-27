@@ -44,6 +44,8 @@ function setup(party: string, game0?: SavedGame) {
 	const renderer = {
 		setWorld() {},
 		setBoat() {},
+		setGlider() {},
+		setLandingSpot() {},
 		setPlayer() {},
 		ensureChunksAround() {},
 		cleared() {}
