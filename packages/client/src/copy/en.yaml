@@ -782,6 +782,8 @@ account:
     # For a browser logged in to an account already. {name}: that account's name.
     playAs: 'Play as {name}'
     goneKeys: Enter log in · Esc play
+    # The same while the server can't keep an account, so the card offers no login.
+    playKeys: Esc play
     # The server can't be reached: ask it again.
     retry: Try again
     retryKeys: Enter try again · Esc not now

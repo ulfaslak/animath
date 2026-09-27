@@ -260,7 +260,8 @@ export class AccountController {
 
 	/**
 	 * The welcome card without its boxes: the server being asked about the
-	 * link (Escape only), a spent link (Enter logs in, Escape plays the game
+	 * link (Escape only), a spent link (Enter logs in, only while the server
+	 * can keep an account, as every offer of one waits; Escape plays the game
 	 * this browser plays), or no answer (Enter asks again). Enter or Space,
 	 * after the quiet moment.
 	 */
@@ -276,7 +277,7 @@ export class AccountController {
 				if (e.repeat || !this.guard.press()) return;
 				const token = this.welcomeToken;
 				if (account.welcome.phase === 'gone') {
-					this.openLogin('title');
+					if (account.ready) this.openLogin('title');
 				} else if (account.welcome.phase === 'unreachable' && token !== null) {
 					sfx.play('move');
 					this.showWelcome({ phase: 'checking' });

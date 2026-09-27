@@ -597,6 +597,7 @@ account:
     guest: Spil som gæst
     playAs: 'Spil som {name}'
     goneKeys: Enter log ind · Esc spil
+    playKeys: Esc spil
     retry: Prøv igen
     retryKeys: Enter prøv igen · Esc ikke nu
     storage: 'Denne browser kan ikke huske dig. Åbn linket på en anden tablet eller computer.'

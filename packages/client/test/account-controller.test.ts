@@ -483,6 +483,21 @@ describe('the welcome link', () => {
 		}
 	});
 
+	it('a spent link offers no login while the server cannot keep an account, and offers it once it can', async () => {
+		server({ [look]: { status: 410, json: { error: 'link used' } } });
+		const { controller, press, quiet } = setup(null);
+		account.ready = false;
+		await opened(controller);
+		expect(account.welcome).toEqual({ phase: 'gone', why: 'used' });
+		quiet();
+		press('Enter');
+		expect(account.card).toBe('welcome');
+		controller.heardReady(true);
+		quiet();
+		press('Enter');
+		expect(account.card).toBe('login');
+	});
+
 	it('a link used meanwhile, between the look and the password, turns the card to the spent one', async () => {
 		const requests = server({
 			[look]: live,

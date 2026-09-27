@@ -98,8 +98,9 @@
 						account.name === null
 							? t('account.welcome.guest')
 							: t('account.welcome.playAs', { name: account.name }),
-					go: t('account.welcome.logIn'),
-					keys: t('account.welcome.goneKeys')
+					// Logging in is offered only while the server can keep an account, as every offer is.
+					go: account.ready ? t('account.welcome.logIn') : undefined,
+					keys: account.ready ? t('account.welcome.goneKeys') : t('account.welcome.playKeys')
 				};
 			case 'unreachable':
 				return {
