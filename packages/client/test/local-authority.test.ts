@@ -2247,7 +2247,7 @@ describe('LocalAuthority: the animal book', () => {
 		});
 	});
 
-	it('an animal set free at the doctor stays caught, in every world and through a save', () => {
+	it('an animal helped home by the doctor stays caught, in every world and through a save', () => {
 		const s = session({ party: hurtParty(), tokens: 20 });
 		expect(welcome(s).caught).toEqual(['squirrel', 'rabbit', 'fox']);
 		walkToTent(s);

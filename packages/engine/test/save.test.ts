@@ -337,7 +337,7 @@ describe('readSave and the upgrade seam', () => {
 		for (const later of [
 			{ ...written, party: [animal(1), animal(2, { speciesId: LATER.species })] },
 			{ ...writtenV1, party: [animal(1, { speciesId: LATER.species })] },
-			// The animal book: a species a later build met or caught, set free since or not.
+			// The animal book: a species a later build met or caught, helped home since or not.
 			{ ...written, seen: ['squirrel', 'fox', LATER.species], caught: ['squirrel', 'fox'] },
 			{ ...written, seen: ['squirrel', 'fox'], caught: ['squirrel', LATER.species] },
 			inBattle({ realm: LATER.realm }),
@@ -818,7 +818,7 @@ describe('newGame and restoreGame', () => {
 			// 'lantern' is an item this build doesn't know: kept, doing nothing.
 			items: ['boat', 'axe', 'lantern'],
 			solved: 312,
-			// A wolf met and run from, a rabbit caught and set free: both stay in the book.
+			// A wolf met and run from, a rabbit caught and helped home: both stay in the book.
 			seen: ['rabbit', 'fox', 'wolf', 'bear'],
 			caught: ['rabbit', 'fox', 'bear'],
 			battle: null,
@@ -1162,7 +1162,7 @@ describe('the animal book in a save', () => {
 		expect(moved.caught).not.toContain('rabbit');
 	});
 
-	it('keeps what the book says: a kind set free stays caught, one met and run from stays seen', () => {
+	it('keeps what the book says: a kind helped home stays caught, one met and run from stays seen', () => {
 		const pos = findTile(SEED7, true);
 		const game = restoreGame({
 			...written,

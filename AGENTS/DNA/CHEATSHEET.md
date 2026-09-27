@@ -262,8 +262,8 @@ To meet smaller animals again, put a smaller animal in front: press its card's n
 ## The animal book
 
 - **Opening it**: Escape (or Menu), then Up once, or a tap on "Animal book" at the top right of the menu ("9/32": the kinds caught, of all there are). Every kind in the game has a card, small animals first.
-- **What goes in**: a kind is seen the moment a battle with it starts: run away at once and it is in the book with its name and figure, faded. It is caught when your leash catches one, and stays caught for good: set free at the doctor, in another world, after a reload. Your starter and every animal in your team count as caught. A friendly match adds nothing to it, and nor does watching a friend's battle from nearby.
-- **A game from before the book** gets back every kind in its team as caught, and the animal of a battle it was saved in as seen. Kinds set free or run from before then are a "?" until you meet one again.
+- **What goes in**: a kind is seen the moment a battle with it starts: run away at once and it is in the book with its name and figure, faded. It is caught when your leash catches one, and stays caught for good: helped home at the doctor, in another world, after a reload. Your starter and every animal in your team count as caught. A friendly match adds nothing to it, and nor does watching a friend's battle from nearby.
+- **A game from before the book** gets back every kind in its team as caught, and the animal of a battle it was saved in as seen. Kinds helped home or run from before then are a "?" until you meet one again.
 - **Filling it fast, to look at it**: `?party=` with many kinds (`?party=squirrel,rabbit,frog,fox,otter,deer,wolf,bear,crab,whale`, a throwaway game saved nowhere) starts with every one of them caught. For a kind seen and not caught, walk the reed (§ Finding a battle fast) and run from what comes out.
 - **Hidden**: Enter, Space or a tap on the lit card makes its animal hop. The figures are drawn the first time the book opens in a page, one a frame, so they pop in.
 

@@ -5,7 +5,7 @@ import type { AnimalInstance, AnimalSpec } from './types.js';
 /**
  * The animal book ([[PRODUCT]] §4 "The animal book"): every species a player
  * has seen, and every one they have caught, for as long as the game lasts.
- * It only grows. An animal set free at the doctor stays caught, a battle run
+ * It only grows. An animal helped home by the doctor stays caught, a battle run
  * from leaves its animal seen, and travelling takes the book along: it is the
  * player's, like the party.
  *

@@ -98,7 +98,7 @@ export interface SavedGame {
 	seen: string[];
 	/**
 	 * The animal book's species caught, each once, in the order first caught:
-	 * every species in the party, and every one caught and set free since.
+	 * every species in the party, and every one caught and helped home since.
 	 */
 	caught: string[];
 	/**

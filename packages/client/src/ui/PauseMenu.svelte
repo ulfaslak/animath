@@ -138,7 +138,7 @@
 		if (caught.has(spec.id)) {
 			return onTeam.has(spec.id)
 				? t('book.caughtTeam', { animal })
-				: t('book.caughtFree', { animal });
+				: t('book.caughtHome', { animal });
 		}
 		return seen.has(spec.id) ? t('book.seen', { animal }) : t('book.unseen');
 	});

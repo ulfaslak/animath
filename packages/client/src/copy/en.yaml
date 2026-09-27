@@ -1292,11 +1292,11 @@ book:
   # The panel beside the row while it is lit.
   help: Every animal you meet goes in your book. Can you catch them all?
   # Under the book, about the lit card: one not met yet (it gives nothing away), one met but
-  # not caught, one caught and on the team, and one caught and set free since (it stays
+  # not caught, one caught and on the team, and one caught and helped home since (it stays
   # caught for good).
   unseen: Who could this be? Go exploring and find out!
   seen: You met {animal.a}. Catch one with your leash!
   caughtTeam: '{animal.name} is on your team!'
-  caughtFree: You caught {animal.a} and set it free. It stays in your book!
+  caughtHome: You caught {animal.a} and helped it home. It stays in your book!
   # The key reminder under the book.
   keys: ↑ ↓ ← → choose · Esc back
