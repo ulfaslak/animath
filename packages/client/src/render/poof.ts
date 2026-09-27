@@ -7,7 +7,8 @@ import { COLORS } from './palette';
  * with Go to or a friend arriving the same way. A ring of soft puffs in the
  * dust's warm off-white (never grey smoke) bursts out round the tile at knee
  * height, swells, rises a little and fades, in `POOF_SECONDS`. With reduced
- * motion, half as many puffs swell and fade where they are.
+ * motion, half as many puffs stand round the trainer, clear of them, and
+ * only swell and fade where they are.
  *
  * The puffs share one shape, built once and never freed; each poof has its
  * own material, for its fade, and frees it when it is over, so a poof leaves
@@ -99,7 +100,8 @@ export class Poofs {
 			: 0.5 + 0.9 * Math.sin(Math.min(1, p * 1.4) * Math.PI * 0.6);
 		for (const puff of poof.group.children) {
 			const dir = puff.userData.dir as THREE.Vector2;
-			const r = START_RADIUS + TRAVEL * out;
+			// Calm, the puffs stand round the trainer, out where they can be seen, and only swell and fade.
+			const r = poof.calm ? START_RADIUS + TRAVEL * 0.6 : START_RADIUS + TRAVEL * out;
 			puff.position.set(dir.x * r, START_HEIGHT + RISE * (poof.calm ? 0 : p), dir.y * r);
 			puff.scale.setScalar(Math.max(0.001, swell));
 		}

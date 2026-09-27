@@ -23,6 +23,7 @@
  *                 (a comma ends the option): `party=rabbit+fox:3*2`
  *   boat          they own the boat
  *   touch         a touch tablet (the touch controls on)
+ *   calm          a system that asks for less motion (`prefers-reduced-motion`)
  *   lang=da       the game in this language
  *   size=1024x768 the window (1280x800 by default)
  *   steps=10      steps walked so far, which key the encounters: from the start tile,
@@ -116,6 +117,7 @@ interface Player {
 	party: AnimalInstance[] | null;
 	boat: boolean;
 	touch: boolean;
+	calm: boolean;
 	lang: string | null;
 	size: { width: number; height: number };
 	title: boolean;
@@ -155,6 +157,7 @@ function parsePlayer(spec: string): Player {
 		party: null,
 		boat: false,
 		touch: false,
+		calm: false,
 		lang: null,
 		size: { width: 1280, height: 800 },
 		title: false,
@@ -197,6 +200,9 @@ function parsePlayer(spec: string): Player {
 				break;
 			case 'touch':
 				p.touch = true;
+				break;
+			case 'calm':
+				p.calm = true;
 				break;
 			case 'lang':
 				p.lang = value;
@@ -308,7 +314,8 @@ async function openPage(p: Player): Promise<void> {
 		p.context = await browser.newContext({
 			viewport: p.size,
 			hasTouch: p.touch,
-			isMobile: p.touch
+			isMobile: p.touch,
+			reducedMotion: p.calm ? 'reduce' : 'no-preference'
 		});
 		if (!allowApi)
 			await p.context.route(
