@@ -125,7 +125,8 @@ describe('hardcoded text in Svelte templates', () => {
 			'Words written straight into a template. Put them in src/copy/en.yaml and da.yaml and show ' +
 				"them with t('group.key') (DEVELOPMENT § Copy and languages)."
 		).toEqual([]);
-	});
+		// About 0.3 s alone (every component parsed by Svelte); 2 s at a load average of 50.
+	}, 30_000);
 });
 
 /**
@@ -134,7 +135,9 @@ describe('hardcoded text in Svelte templates', () => {
  */
 const FOR_DEVELOPERS: Readonly<Record<string, string>> = {
 	'src/save/api.ts':
-		"HTTP: the server's error bodies it compares ('no save yet'), the Authorization header, status notes for the console"
+		"HTTP: the server's error bodies it compares ('no save yet'), the Authorization header, status notes for the console",
+	'src/account/api.ts':
+		"HTTP: the account routes' error bodies it compares ('name taken', 'wrong name or password'), status notes for the console"
 };
 
 describe('worded literals in TypeScript', () => {
@@ -180,5 +183,7 @@ describe('worded literals in TypeScript', () => {
 				'a Line or a copy key (DEVELOPMENT § Copy and languages).'
 		).toEqual([]);
 		for (const file of Object.keys(FOR_DEVELOPERS)) expect([...tsSources.keys()]).toContain(file);
-	});
+		// About 0.45 s alone (every module and script block parsed by TypeScript); 3.5 s at a
+		// load average of 40.
+	}, 30_000);
 });

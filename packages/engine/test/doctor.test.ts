@@ -916,7 +916,8 @@ describe('replay', () => {
 			'no-such-animal'
 		])
 			expect(seen, what).toContain(what);
-	});
+		// About 0.6 s alone (70 visits, each played twice); 3.9 s at a load average of 40.
+	}, 30_000);
 
 	it('a different seed asks different puzzles', () => {
 		const prompts = new Set<string>();

@@ -2,11 +2,14 @@
 	import { t } from '../copy';
 	import { unfocusable } from '../input/press';
 	import { touch } from '../input/touch.svelte';
+	import { account } from '../state/account.svelte';
 	import { behind } from '../state/behind.svelte';
 
 	// The button is Enter (`input/taps.ts`), which catches up while the page is
 	// behind (`main.ts`): the kid may well click or tap a window that is not in use.
-	// Asked for, the reload does not count against the limit.
+	// Asked for, the reload does not count against the limit. Behind a newer
+	// build's save of an account's game, Log out (Escape) is the way on while the
+	// new version is not there yet: the guest game, until it is.
 </script>
 
 <!-- This page is behind the save and takes no play until it has the newest game
@@ -34,6 +37,12 @@
 			{/if}
 			{#if !touch.on}<kbd>{t('keys.enter')}</kbd>{/if}
 		</button>
+		{#if behind.cause === 'newer' && account.name !== null}
+			<button type="button" class="button secondary" data-press="Escape" {@attach unfocusable}>
+				{t('pause.logOut')}
+				{#if !touch.on}<kbd>{t('keys.esc')}</kbd>{/if}
+			</button>
+		{/if}
 	</div>
 </div>
 
@@ -80,6 +89,15 @@
 		font-weight: 800;
 		font-size: 18px;
 		cursor: pointer;
+	}
+	/* Log out, beside Update: the quieter pill. */
+	.button.secondary {
+		margin-left: 12px;
+		background: rgba(0, 0, 0, 0.08);
+		color: var(--panel-ink);
+	}
+	.button.secondary kbd {
+		background: rgba(0, 0, 0, 0.08);
 	}
 	kbd {
 		font-family: inherit;

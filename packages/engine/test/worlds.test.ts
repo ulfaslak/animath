@@ -47,11 +47,14 @@ describe('world numbers', () => {
 
 	it('give every world a seed of its own', () => {
 		const seeds = new Set<number>();
+		const bad: string[] = [];
 		for (let n = FIRST_WORLD; n <= LAST_WORLD; n++) {
 			const seed = worldSeed(n);
-			expect(Number.isInteger(seed) && seed >= 0 && seed < 2 ** 32).toBe(true);
+			if (!(Number.isInteger(seed) && seed >= 0 && seed < 2 ** 32)) bad.push(`World ${n}: ${seed}`);
 			seeds.add(seed);
 		}
+		expect(bad.slice(0, 20)).toEqual([]);
+		expect(bad).toHaveLength(0);
 		expect(seeds.size).toBe(LAST_WORLD);
 	});
 

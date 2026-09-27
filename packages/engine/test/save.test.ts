@@ -181,6 +181,9 @@ describe('validateSave', () => {
 		for (const tokens of [-1, 2.5, '8', null, Infinity]) {
 			expect(error({ ...written, tokens }), String(tokens)).toMatch(/tokens/);
 		}
+		for (const solved of [-1, 2.5, '312', null, Infinity, Number.MAX_SAFE_INTEGER + 1]) {
+			expect(error({ ...written, solved }), String(solved)).toMatch(/solved/);
+		}
 		for (const items of ['axe', [7], [''], ['x'.repeat(65)], [null], { axe: true }]) {
 			expect(error({ ...written, items }), JSON.stringify(items)).toMatch(/items/);
 		}
@@ -207,9 +210,10 @@ describe('validateSave', () => {
 		}
 	});
 
-	it('takes tokens and items, an item it does not know included, and needs neither', () => {
-		expect(error({ ...written, tokens: 0, items: [] })).toBe('');
-		expect(error({ ...written, tokens: 40, items: ['axe', 'boat'] })).toBe('');
+	it('takes tokens, items and the puzzles solved, an item it does not know included, and needs none of them', () => {
+		expect(error({ ...written, tokens: 0, items: [], solved: 0 })).toBe('');
+		expect(error({ ...written, tokens: 40, items: ['axe', 'boat'], solved: 312 })).toBe('');
+		expect(error({ ...written, solved: Number.MAX_SAFE_INTEGER })).toBe('');
 		// An item a later build sells: kept as it is, never a reason to set the save aside,
 		// nor to call it a newer build's.
 		expect(error({ ...written, items: ['lantern'] })).toBe('');
@@ -497,7 +501,7 @@ function randomV1(rng: Rng, seed: unknown): Record<string, unknown> {
 		doc.edits = [...edits.encode()];
 	}
 	// Extras a newer build could have left, some under the names v2 took.
-	for (const key of ['inventory', 'name', 'home', 'world', 'worlds', V1_KEPT]) {
+	for (const key of ['inventory', 'name', 'home', 'world', 'worlds', 'solved', V1_KEPT]) {
 		if (rng.chance(0.15)) doc[key] = rng.pick([7, 'Nini', { deep: [1, 2] }, [3], null]);
 	}
 	return doc;
@@ -536,19 +540,75 @@ describe('the v1 → v2 upgrade', () => {
 	});
 
 	it('keeps what v2 has no place for under `v1`, as it was: a seed not World 1, extras under the names v2 took', () => {
-		const doc = { ...writtenV1, seed: 12345, name: 7, world: 'there', [V1_KEPT]: { a: 1 } };
+		const doc = {
+			...writtenV1,
+			seed: 12345,
+			name: 7,
+			world: 'there',
+			// A name v2 took later: a v1 extra never becomes the kid's count of puzzles solved.
+			solved: 'lots',
+			[V1_KEPT]: { a: 1 }
+		};
 		const read = readSave(doc);
 		expect(read.ok).toBe(true);
 		if (!read.ok) return;
 		expect(read.save).toMatchObject({ world: 1, home: 1 });
 		expect('name' in read.save).toBe(false);
+		expect('solved' in read.save).toBe(false);
 		expect((read.save as unknown as Record<string, unknown>)[V1_KEPT]).toEqual({
 			seed: 12345,
 			name: 7,
 			world: 'there',
+			solved: 'lots',
 			[V1_KEPT]: { a: 1 }
 		});
 		expect(downgrade(read.save as unknown as Record<string, unknown>)).toEqual(doc);
+	});
+
+	it('keeps a v1 extra under `v1` for every name a save is written with that v1 did not have, later ones too', () => {
+		// The fields of `SaveV1`: frozen with it.
+		const v1Fields = new Set([
+			'version',
+			'seed',
+			'pos',
+			'party',
+			'facing',
+			'steps',
+			'visits',
+			'lineage',
+			'seq',
+			'tokens',
+			'items',
+			'battle',
+			'edits'
+		]);
+		// Every field this build writes, the optional ones included: a name, a battle, cleared
+		// tiles, a world left. A field a later change adds is in it without touching this test.
+		const game: SavedGame = {
+			...newGame(WORLD, undefined, 'Nini'),
+			battle: { step: 0 } as unknown as BattleState,
+			edits: ['0,0:11'],
+			worlds: [{ world: 3, pos: { x: 0, y: 0 }, facing: 'up', edits: [] }]
+		};
+		const taken = Object.keys(saveDocument(game, { lineage: 'L', seq: 1 })).filter(
+			(key) => !v1Fields.has(key)
+		);
+		expect(taken).toEqual(expect.arrayContaining(['name', 'home', 'world', 'worlds', 'solved']));
+		const bad: string[] = [];
+		for (const key of taken) {
+			for (const junk of ['x', -1, 1.5, 12, { a: 1 }, [2], null]) {
+				const read = readSave({ ...writtenV1, [key]: junk });
+				const kept = read.ok
+					? (read.save as unknown as Record<string, Record<string, unknown>>)[V1_KEPT]
+					: undefined;
+				if (!read.ok || !kept || JSON.stringify(kept[key]) !== JSON.stringify(junk)) {
+					bad.push(
+						`${key}: ${JSON.stringify(junk)} → ${read.ok ? JSON.stringify(kept) : read.error}`
+					);
+				}
+			}
+		}
+		expect(bad).toEqual([]);
 	});
 
 	it('is total and loses nothing: every valid v1 save upgrades to a valid v2 one it can be rebuilt from', () => {
@@ -569,7 +629,9 @@ describe('the v1 → v2 upgrade', () => {
 			const stamp = { facing: 'down', steps: 0, visits: 0, lineage: 'L', seq: 1 };
 			expect(validateSaveWrite({ ...stamp, ...up }).ok).toBe(true);
 		}
-	});
+		// About 0.25 s alone (500 random v1 saves, each read, rebuilt and checked as a write);
+		// 3.4 s at a load average of 40.
+	}, 30_000);
 
 	it('keeps party, tokens, items, position and cleared tiles: a v1 game plays on in World 1 as it was', () => {
 		const pos = findTile(SEED, true);
@@ -649,6 +711,7 @@ describe('newGame and restoreGame', () => {
 			party: [{ id: 'starter', speciesId: STARTER_SPECIES, hp: getAnimal(STARTER_SPECIES).maxHp }],
 			tokens: 0,
 			items: [],
+			solved: 0,
 			battle: null,
 			edits: [],
 			worlds: []
@@ -657,7 +720,7 @@ describe('newGame and restoreGame', () => {
 		expect(newGame(1).pos).toEqual({ x: -2, y: 6 });
 	});
 
-	it('a save with only the fields it needs gets facing down, no steps, tokens, items, name, nothing cleared, no world left', () => {
+	it('a save with only the fields it needs gets facing down, no steps, tokens, items, puzzles solved, name, nothing cleared, no world left', () => {
 		const pos = findTile(SEED7, true);
 		const game = restoreGame({ ...v2, pos } as SaveV2);
 		expect(game).toMatchObject({
@@ -670,6 +733,7 @@ describe('newGame and restoreGame', () => {
 			visits: 0,
 			tokens: 0,
 			items: [],
+			solved: 0,
 			battle: null,
 			edits: [],
 			worlds: []
@@ -677,7 +741,7 @@ describe('newGame and restoreGame', () => {
 		expect(game.party).toEqual(v2.party);
 	});
 
-	it('a save of a game restores exactly that game, its name, tokens, items and worlds included', () => {
+	it('a save of a game restores exactly that game, its name, tokens, items, puzzles solved and worlds included', () => {
 		const game: SavedGame = {
 			name: 'Nini',
 			home: 4321,
@@ -693,6 +757,7 @@ describe('newGame and restoreGame', () => {
 			tokens: 17,
 			// 'lantern' is an item this build doesn't know: kept, doing nothing.
 			items: ['boat', 'axe', 'lantern'],
+			solved: 312,
 			battle: null,
 			edits: [],
 			worlds: [
@@ -793,8 +858,14 @@ describe('newGame and restoreGame', () => {
 	});
 
 	it('over random saves of every shape, the restored game is always playable', () => {
-		// A handful of worlds, so the spawns are worked out once each.
+		// A handful of worlds, so the spawns are worked out once each. What each save must
+		// keep is collected and compared once, and every rule it breaks noted: an `expect` per
+		// animal made seven tenths of the test's time.
 		const worlds = [1, 2, 7, 42, 999, 5000, 9999];
+		const bad: string[] = [];
+		let more = 0;
+		const got: unknown[] = [];
+		const want: unknown[] = [];
 		for (let s = 0; s < 400; s++) {
 			const rng = new Rng(hashInts(7, s));
 			const world = rng.pick(worlds);
@@ -816,35 +887,58 @@ describe('newGame and restoreGame', () => {
 			} as SaveV2;
 			const game = restoreGame(save);
 			const gear = gearOf(game);
-			expect(isPassable(tileAtWorld(seed, game.pos.x, game.pos.y).kind, gear)).toBe(true);
-			expect(game.party.length).toBeGreaterThan(0);
-			expect(game.party.some((a) => a.hp > 0)).toBe(true);
+			const note = (broken: string) => {
+				if (bad.length < 20) bad.push(`save ${s}: ${broken}`);
+				else bad[19] = `…and ${++more} more`;
+			};
+			if (!isPassable(tileAtWorld(seed, game.pos.x, game.pos.y).kind, gear))
+				note(`stands where it cannot, at ${JSON.stringify(game.pos)}`);
+			if (!(game.party.length > 0)) note('an empty party');
+			if (!game.party.some((a) => a.hp > 0)) note('nobody standing');
 			for (const a of game.party) {
-				expect(a.hp).toBeGreaterThanOrEqual(0);
-				expect(a.hp).toBeLessThanOrEqual(getAnimal(a.speciesId).maxHp);
+				const max = getAnimal(a.speciesId).maxHp;
+				if (!(typeof a.hp === 'number' && a.hp >= 0 && a.hp <= max)) note(`${a.id} at ${a.hp} HP`);
 			}
 			// A battle can start with it where an animal standing can fight: the party is one
 			// `startBattle` accepts there (only sea animals standing, out on the water).
 			const realm = REALMS.find((r) => leadIndex(game.party, r) >= 0);
-			expect(realm).toBeDefined();
+			if (realm === undefined) note('no realm where anyone can fight');
 			const wild = makeWild(realm === 'land' ? 'rabbit' : 'crab');
-			expect(() => startBattle(game.party, wild, { realm })).not.toThrow();
-			// What was fine to begin with comes back unchanged, out on the water with a boat too.
-			if (isPassable(tileAtWorld(seed, save.pos.x, save.pos.y).kind, gear))
-				expect(game.pos).toEqual(save.pos);
-			expect(game.facing).toBe(save.facing);
-			expect(game.steps).toBe(save.steps);
-			expect(game.world).toBe(save.world);
-			expect(game.home).toBe(save.home);
+			try {
+				startBattle(game.party, wild, { realm });
+			} catch (error) {
+				note(`no battle: ${error}`);
+			}
 			// In bundles: every animal once, each species behind its first, in its own order.
-			expect(isBundled(game.party)).toBe(true);
+			if (!isBundled(game.party)) note('not in bundles');
 			// Always an animal that can fight on land: a party of only sea animals gets the starter.
-			expect(game.party.some((a) => canFightIn(a.speciesId, 'land'))).toBe(true);
+			if (!game.party.some((a) => canFightIn(a.speciesId, 'land'))) note('nobody for the land');
+			// What was fine to begin with comes back unchanged, out on the water with a boat too.
+			const stood = isPassable(tileAtWorld(seed, save.pos.x, save.pos.y).kind, gear);
 			const walks = party.some((a) => canFightIn(a.speciesId, 'land'));
 			const kept = bundled(party).map((a) => a.id);
-			if (size > 0)
-				expect(game.party.map((a) => a.id)).toEqual(walks ? kept : [...kept, 'starter']);
+			const { facing, steps, world: inWorld, home } = game;
+			got.push({
+				s,
+				pos: game.pos,
+				facing,
+				steps,
+				inWorld,
+				home,
+				ids: game.party.map((a) => a.id)
+			});
+			want.push({
+				s,
+				pos: stood ? save.pos : game.pos,
+				facing: save.facing,
+				steps: save.steps,
+				inWorld: save.world,
+				home: save.home,
+				ids: size === 0 ? game.party.map((a) => a.id) : walks ? kept : [...kept, 'starter']
+			});
 		}
+		expect(bad).toEqual([]);
+		expect(got).toEqual(want);
 	});
 
 	it('keeps who leads when it puts a party from before bundles in them', () => {
@@ -1085,9 +1179,13 @@ describe('the tiles a kid cleared', () => {
 	});
 
 	it('come back within the budget from a save that holds more (a hand-edited one), trimmed far from the player', () => {
-		// One tile in each of 3,000 far-flung chunks: half again over the budget.
-		let over = edits;
-		for (let i = 0; i < 3000; i++) over = over.with({ x: 70_000 + i * 16, y: -70_000 - i * 16 });
+		// One tile in each of 3,000 far-flung chunks: half again over the budget. Read from text,
+		// as a hand-edited save holds it: built with `with`, the overlay was copied 3,000 times.
+		const far = Array.from({ length: 3000 }, (_, i) =>
+			WorldEdits.none.with({ x: 70_000 + i * 16, y: -70_000 - i * 16 }).encode()
+		);
+		const over = WorldEdits.decode([...edits.encode(), ...far.flat()]);
+		expect(over.size).toBe(edits.size + 3000);
 		expect(over.textLength).toBeGreaterThan(EDITS_BUDGET * 1.4);
 		const on = cleared[0]!;
 		const doc = { ...written, world: 1, pos: on, edits: [...over.encode()] };
@@ -1355,6 +1453,10 @@ describe('which save wins', () => {
 		expect(sameProgress(written as SaveV2, { ...moved, tokens: 0, items: [] } as SaveV2)).toBe(
 			true
 		);
+		// One from before the count of puzzles has solved none: the same as 0 written out,
+		// both ways, so a tab that loaded it can carry on from a tab that walked and wrote 0.
+		expect(sameProgress(written as SaveV2, { ...moved, solved: 0 } as SaveV2)).toBe(true);
+		expect(sameProgress({ ...moved, solved: 0 } as SaveV2, written as SaveV2)).toBe(true);
 		// One from before the tools has cleared nothing: the same as an empty overlay; and one
 		// that never travelled has left no world behind.
 		expect(sameProgress(written as SaveV2, { ...moved, edits: [], worlds: [] } as SaveV2)).toBe(
@@ -1375,6 +1477,8 @@ describe('which save wins', () => {
 			// Tokens and items are what a kid has, not where they are.
 			{ ...written, tokens: 8 },
 			{ ...written, items: ['axe'] },
+			// A puzzle solved is something done.
+			{ ...written, solved: 1 },
 			// A tree chopped down is something done, too.
 			{ ...written, edits: ['0,0:11'] }
 		]) {
@@ -1387,6 +1491,7 @@ describe('which save wins', () => {
 			...written,
 			name: 'Nini',
 			worlds: [],
+			solved: 312,
 			inventory: { leashes: 2 },
 			battle: { step: 1 }
 		} as SaveV2;

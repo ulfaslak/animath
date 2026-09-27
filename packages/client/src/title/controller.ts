@@ -59,6 +59,8 @@ export interface TitleHooks {
 	 * sends it on (`choose-name`) as soon as the game is under way.
 	 */
 	continueGame(game: SavedGame, name?: string): void;
+	/** "I have an account → Log in": the account card, over the title. */
+	logIn?(): void;
 }
 
 export class TitleController {
@@ -232,6 +234,9 @@ export class TitleController {
 					title.confirm = 0;
 					this.guard.show();
 				} else this.toPlayerName('new');
+				break;
+			case 'login':
+				this.hooks.logIn?.();
 				break;
 			case 'language':
 				sfx.play('confirm');

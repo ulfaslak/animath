@@ -6,6 +6,8 @@ import {
 	type AnimalInstance,
 	type Realm
 } from '@mathgame/engine';
+import { flags } from '../flags';
+import { account } from './account.svelte';
 
 /**
  * What the pause menu shows and which screen the keys drive. Written only by
@@ -23,39 +25,77 @@ import {
 export type PauseScreen = 'list' | 'bundle' | 'options' | 'naming' | 'worlds' | 'players';
 
 /**
- * The rows under the team, in order: Worlds, Who's here, the settings, then
- * "Keep playing" and Quit to title, which are drawn side by side. A new one
- * is a new id here, before those two, its label in `PauseMenu.svelte`, and
- * its case in `PauseController.chooseItem` — the cursor, keys and layout
- * already count every row listed. A setting's row also takes left and right
- * (`PauseController.settingKey`); the last two take them to step between
+ * The rows under the team, in order: Worlds, Who's here, the settings, the
+ * account's rows (as `menuItems` shows them), then "Keep playing" and Quit
+ * to title, which are drawn side by side. A new one is a new id here, before
+ * those two, its label in `PauseMenu.svelte`, and its case in
+ * `PauseController.chooseItem` — the cursor, keys and layout already count
+ * every row shown. A setting's row also takes left and right
+ * (`PauseController.settingKey`); the paired rows take them to step between
  * each other. `worlds` opens the Worlds screen, with the world the player is
  * in beside it; `players` opens the list of the other players in this world
  * on the right, where picking one goes to them; `language` switches every
  * word on screen to the next language at once and remembers it on this
- * device; `sound` turns the sound off and on (`sfx`); `quit` (Start screen)
+ * device; `sound` turns the sound off and on (`sfx`); the account's rows
+ * open the account card or log out (`PauseHooks`); `quit` (Start screen)
  * saves the game as it stands and goes back to the title, where Continue
  * picks it up.
  */
-export const MENU_ITEMS = ['worlds', 'players', 'language', 'sound', 'resume', 'quit'] as const;
+export const MENU_ITEMS = [
+	'worlds',
+	'players',
+	'language',
+	'sound',
+	'makeAccount',
+	'logIn',
+	'logOut',
+	'resume',
+	'quit'
+] as const;
 export type MenuItem = (typeof MENU_ITEMS)[number];
 
 /**
- * Rows drawn two to a line, so the menu keeps its height (a team of all eight
- * kinds fits 1024×768): Worlds beside Who's here, Keep playing beside Start
- * screen. Each pair is two neighbours in `MENU_ITEMS`; left and right step
- * between the two, and up and down walk them in order as any rows.
+ * The rows the menu shows now. The account rows ([[UI_SPEC]] § Accounts)
+ * follow who is playing: a guest has "Make an account" and "Log in"; a
+ * player logged in has "Log out", and "Log in" again once the server has
+ * said the session is over. A throwaway game (`?new` and the like) has
+ * none: it saves nothing, so it has no game to keep safe.
  */
-export const MENU_PAIRS: readonly (readonly [MenuItem, MenuItem])[] = [
+export function menuItems(): MenuItem[] {
+	return MENU_ITEMS.filter((item) => {
+		if (item !== 'makeAccount' && item !== 'logIn' && item !== 'logOut') return true;
+		if (flags.throwaway) return false;
+		if (account.name === null) return item !== 'logOut';
+		return item === 'logOut' || (item === 'logIn' && account.session === 'ended');
+	});
+}
+
+/**
+ * Rows drawn side by side on one line, so the menu keeps its height (eight
+ * cards fit 1024×768): Worlds beside Who's here, Language beside Sound, the
+ * account's rows beside each other (those `menuItems` shows), Keep playing
+ * beside Start screen. Each line is neighbours in `MENU_ITEMS`. Up and down
+ * walk them in order as any rows; left and right step between them, except
+ * on a setting, where they change it.
+ */
+export const MENU_LINES: readonly (readonly MenuItem[])[] = [
 	['worlds', 'players'],
+	['language', 'sound'],
+	['makeAccount', 'logIn', 'logOut'],
 	['resume', 'quit']
 ];
+
+/** The rows drawn on the line `item` is on, of those the menu shows (`items`). */
+export function lineOf(item: MenuItem, items: readonly MenuItem[] = menuItems()): MenuItem[] {
+	const line = MENU_LINES.find((l) => l.includes(item));
+	return line ? line.filter((i) => items.includes(i)) : [item];
+}
 
 class PauseView {
 	/** True from Escape in explore until the menu is closed. Walking waits meanwhile. */
 	open = $state(false);
 	screen = $state<PauseScreen>('list');
-	/** Highlighted row of the list: the team's cards in order, then `MENU_ITEMS`. */
+	/** Highlighted row of the list: the team's cards in order, then `menuItems()`. */
 	cursor = $state(0);
 	/**
 	 * The card of several animals open on the right (`bundle`), by species;

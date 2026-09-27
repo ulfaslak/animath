@@ -1,6 +1,16 @@
 import './styles.css';
 import type { SavedGame } from '@mathgame/engine';
 import { flushSync, mount } from 'svelte';
+import {
+	SessionCheck,
+	accountSaveServer,
+	logout as sendLogout,
+	type SessionAnswer
+} from './account/api';
+import { AccountController } from './account/controller';
+import { PLAY_HOUR_MS, PlayClock } from './account/playtime';
+import { noteNextStart, restartWith, takeAccountNote } from './account/restart';
+import { currentAccount, forgetLogout, gameKeys, logoutPending } from './account/session';
 import { sfx } from './audio/sfx.svelte';
 import { LocalAuthority, mintId } from './authority/local';
 import { BattleController } from './battle/controller';
@@ -28,7 +38,8 @@ import {
 	takeCaughtUp
 } from './save/behind';
 import type { SaveNotice } from './save/notices';
-import { browserStore } from './save/storage';
+import { ACCOUNT_KEYS, browserStore } from './save/storage';
+import { account } from './state/account.svelte';
 import { battle } from './state/battle.svelte';
 import { behind } from './state/behind.svelte';
 import { doctor } from './state/doctor.svelte';
@@ -72,11 +83,52 @@ const travelController = new TravelController(authority, renderer);
 // `?zoo` lines up one of every species by the spawn tile (a check for the meshes),
 // once for the page; `?zoo=tired` lays them down to rest.
 const zoo = flags.zoo ? new Zoo(renderer, flags.zoo === 'tired') : null;
+
+const store = browserStore();
+// The account this page plays: the one this browser is logged in to, else none (a guest).
+// A throwaway game is nobody's.
+const current = flags.throwaway ? null : currentAccount(store);
+account.name = current?.name ?? null;
+
+/**
+ * The server's word on the account, asked once as the page starts, before
+ * anything else goes to the account routes ([[INVARIANTS]] § Server): the
+ * account's save goes to the server only while it says the session is this
+ * account's.
+ */
+const sessionCheck = current ? new SessionCheck(current.name, heardSession) : null;
+
+/** The session ended before there was anywhere to say so: the title says it when it opens. */
+let sessionEndedUnsaid = false;
+
+/**
+ * The server said whether this page's account is logged in. When it is not
+ * (a new password, a year unused), the game saves only in this browser until
+ * the player logs in again, and the page says so once: on the title, or on the
+ * message line mid-game.
+ */
+function heardSession(answer: SessionAnswer): void {
+	if (answer === 'offline' || account.session === answer) return;
+	account.session = answer;
+	if (answer !== 'ended') return;
+	if (title.open) title.notice = 'save.sessionEnded';
+	else if (game.mode === 'explore') hud.notice('save.sessionEnded');
+	else sessionEndedUnsaid = true;
+}
+
 // `?new`, `?party=` (a party to look at), `?zoo`, `?tokens=` and `?shop` play a
 // throwaway game: nothing is loaded or saved, and the saved game is left alone.
+// A guest's game is backed up anonymously in development only; an account's goes to
+// the account.
 const autosave = new Autosave({
-	store: browserStore(),
-	server: httpSaveServer(),
+	store,
+	keys: gameKeys(current),
+	server: sessionCheck
+		? accountSaveServer(sessionCheck)
+		: import.meta.env.PROD
+			? null
+			: httpSaveServer(),
+	loggedOut: () => heardSession('ended'),
 	snapshot: () => authority.snapshot(),
 	catchUp: (counts) => authority.catchUp(counts),
 	mintId,
@@ -94,9 +146,33 @@ const presenceController = new PresenceController({
 	flush: () => autosave.flush(),
 	reload: () => location.reload()
 });
+
+/** A guest's play, counted while the page is on screen: every hour the card offers an account. */
+const playClock = new PlayClock(store, flags.hourSeconds ? flags.hourSeconds * 1000 : PLAY_HOUR_MS);
+
+const accountController = new AccountController({
+	store,
+	flush: () => autosave.flush(),
+	currentSave: () => autosave.newest,
+	pushNow: () => autosave.pushNow(3000),
+	playerName: () => (title.open ? (title.saved?.name ?? null) : game.name),
+	answered: () => {
+		const lineage = autosave.playing;
+		if (lineage) playClock.answered(lineage);
+	},
+	restart: (note) => {
+		playClock.flush();
+		reloading = true;
+		restartWith(note);
+	}
+});
+
 const pauseController = new PauseController(authority, {
 	travel: (world) => travelController.go(world),
-	goTo: (pid) => presenceController.goTo(pid)
+	goTo: (pid) => presenceController.goTo(pid),
+	makeAccount: () => accountController.openRegister('pause'),
+	logIn: () => accountController.openLogin('pause'),
+	logOut: () => void accountController.logOut()
 });
 
 /**
@@ -130,7 +206,8 @@ function continueGame(saved: SavedGame, name?: string): void {
 }
 
 const titleController = new TitleController(authority, new TitleScenery(renderer), {
-	continueGame
+	continueGame,
+	logIn: () => accountController.openLogin('title')
 });
 
 authority.subscribe((event) => {
@@ -142,6 +219,7 @@ authority.subscribe((event) => {
 	pauseController.handle(event);
 	travelController.handle(event);
 	titleController.handle(event);
+	accountController.handle(event);
 	autosave.handle(event);
 	presenceController.handle(event);
 	// A new game from the title: after `welcome`, which clears the message line.
@@ -161,14 +239,17 @@ authority.subscribe((event) => {
 });
 
 /**
- * The screen that takes keys now, one at a time: the title while it is up,
+ * The screen that takes keys now, one at a time: an account card while one
+ * is up, else the title while it is up,
  * else the battle while it is up, else the doctor's card while it is open,
  * else the pause menu while it is open, else explore (Escape there opens the
  * pause menu). None while the page loads, nor while a trip to another world
  * covers the screen.
  */
-type KeyScreen = 'title' | 'battle' | 'doctor' | 'pause' | 'explore';
+type KeyScreen = 'account' | 'title' | 'battle' | 'doctor' | 'pause' | 'explore';
 function keyScreen(): KeyScreen | null {
+	// The account card, over the title, the pause menu or the game, and the hourly card.
+	if (account.card !== null || account.prompt) return 'account';
 	if (title.open) return 'title';
 	if (game.mode === 'loading' || game.mode === 'title') return null;
 	if (travel.active) return null;
@@ -202,17 +283,21 @@ function noteScreen(): void {
 			? 'behind'
 			: touch.on && touch.portrait
 				? 'portrait'
-				: title.open
-					? `title:${title.screen}`
-					: travel.active
-						? 'travel'
-						: battle.active
-							? `battle:${battle.screen}`
-							: doctor.active
-								? `doctor:${doctor.screen}:${doctor.tab}`
-								: pause.open
-									? `pause:${pause.screen}:${pause.species ?? ''}:${pause.picked ?? ''}`
-									: game.mode;
+				: account.card !== null
+					? `account:${account.card}`
+					: account.prompt
+						? 'prompt'
+						: title.open
+							? `title:${title.screen}`
+							: travel.active
+								? 'travel'
+								: battle.active
+									? `battle:${battle.screen}`
+									: doctor.active
+										? `doctor:${doctor.screen}:${doctor.tab}`
+										: pause.open
+											? `pause:${pause.screen}:${pause.species ?? ''}:${pause.picked ?? ''}`
+											: game.mode;
 	if (now !== screenSeen) {
 		screenSeen = now;
 		screenCount++;
@@ -254,7 +339,12 @@ window.addEventListener('keydown', (e) => {
 		keyboard.setEnabled(false);
 		if (e.ctrlKey || e.metaKey || e.altKey || /^F\d+$/.test(e.key)) return;
 		e.preventDefault();
-		if (behindKey(e.key, typingNow(e.target)) === 'reload') catchUp(false);
+		// Behind a newer build's save of an account's game, Escape (the card's Log out) plays
+		// the guest game meanwhile: a reload into the same old version cannot load it.
+		const canLeave = autosave.behind === 'newer' && account.name !== null && !account.leaving;
+		const act = behindKey(e.key, typingNow(e.target), canLeave);
+		if (act === 'reload') catchUp(false);
+		else if (act === 'logOut') void accountController.logOut();
 		return;
 	}
 	const screen = keyScreen();
@@ -262,7 +352,8 @@ window.addEventListener('keydown', (e) => {
 	if (isSoundKey(e) && (title.open || game.mode !== 'loading') && !typingNow(e.target)) {
 		e.preventDefault();
 		if (!e.repeat) sfx.flip();
-	} else if (screen === 'title') titleController.onKey(e);
+	} else if (screen === 'account') accountController.onKey(e);
+	else if (screen === 'title') titleController.onKey(e);
 	else if (screen === 'battle') battleController.onKey(e);
 	else if (screen === 'doctor') doctorController.onKey(e);
 	else if (screen === 'pause') pauseController.onKey(e);
@@ -276,20 +367,45 @@ window.addEventListener('keydown', (e) => {
 });
 
 // Leaving or hiding the page saves at once and sends the backup with `keepalive`.
-window.addEventListener('pagehide', () => autosave.flush());
-document.addEventListener('visibilitychange', () => {
-	if (document.visibilityState === 'hidden') autosave.flush();
+window.addEventListener('pagehide', () => {
+	autosave.flush();
+	playClock.flush();
 });
-// Another tab of the game saved: this one may be behind now.
-window.addEventListener('storage', (e) => autosave.onStorage(e.key, e.newValue));
+document.addEventListener('visibilitychange', () => {
+	if (document.visibilityState === 'hidden') {
+		autosave.flush();
+		playClock.flush();
+	}
+});
+/**
+ * Another tab logged in or out (or the site's data was cleared): the game
+ * this browser plays is another one now, so this page is behind and starts
+ * again in it.
+ */
+let accountSwitched = false;
+function checkAccount(): void {
+	if (flags.throwaway || accountSwitched) return;
+	if ((currentAccount(store)?.name ?? null) === account.name) return;
+	accountSwitched = true;
+	autosave.fallBehind();
+}
+// Another tab of the game saved, logged in or out: this one may be behind now.
+window.addEventListener('storage', (e) => {
+	autosave.onStorage(e.key, e.newValue);
+	if (e.key === null || e.key === ACCOUNT_KEYS.current) checkAccount();
+});
 // A page back from the back/forward cache, or resumed after the browser froze it, gets
 // no `storage` events for the time it was away: it checks the save again, and so does
 // a window the kid comes to.
+function recheck(): void {
+	autosave.recheck();
+	checkAccount();
+}
 window.addEventListener('pageshow', (e) => {
-	if (e.persisted) autosave.recheck();
+	if (e.persisted) recheck();
 });
-document.addEventListener('resume', () => autosave.recheck());
-window.addEventListener('focus', () => autosave.recheck());
+document.addEventListener('resume', recheck);
+window.addEventListener('focus', recheck);
 // The kid is back at this window, or the network is: presence tries again at once.
 for (const type of ['focus', 'online', 'pageshow']) {
 	window.addEventListener(type, () => presenceController.wake());
@@ -320,7 +436,34 @@ function catchUp(onItsOwn: boolean): void {
 	if (reloading) return;
 	reloading = true;
 	const midGame = !title.open && game.mode !== 'title' && game.mode !== 'loading';
+	// An account's game that another device got further in: the newer one, and a kind word.
+	if (account.name !== null && autosave.behind === 'replaced' && midGame && !accountSwitched) {
+		noteNextStart('movedAhead');
+	}
 	reloadIntoNewestGame({ onItsOwn, caughtUp: autosave.behind === 'window' && midGame });
+}
+
+/**
+ * A guest's game, played with the page on screen: its hour of play is
+ * counted, and once another hour has passed, the card offers to keep the
+ * game safe, while exploring (never in a battle, at the doctor, in the menu
+ * or on a trip to another world). Not for an account's game, a throwaway one, or a page that keeps
+ * nothing.
+ */
+function countPlay(dt: number): void {
+	const lineage = autosave.playing;
+	if (account.name !== null || flags.throwaway || !autosave.keeps || lineage === null) return;
+	if (document.visibilityState !== 'visible') return;
+	playClock.tick(lineage, dt);
+	const exploring =
+		game.mode === 'explore' &&
+		!battle.active &&
+		!doctor.active &&
+		!pause.open &&
+		!title.open &&
+		!travel.active;
+	if (!exploring || account.prompt || account.card !== null || autosave.behind !== null) return;
+	if (playClock.due(lineage)) accountController.openPrompt();
 }
 
 let last = performance.now();
@@ -334,13 +477,15 @@ function frame(now: number) {
 		behind: cause,
 		visible: document.visibilityState === 'visible',
 		focused: document.hasFocus(),
-		mayReload: cause !== null && mayReloadNow()
+		mayReload: cause !== null && mayReloadNow(),
+		holding: account.busy || account.leaving
 	});
 	if (action === 'reload') catchUp(true);
 	const card = action === 'card' && !reloading;
 	if (cause !== null && behind.cause !== cause) behind.cause = cause;
 	if (behind.shown !== card) behind.shown = card;
 	keyboard.setEnabled(exploreInput());
+	if (action === 'play') accountController.update(dt);
 	if (title.open) {
 		// The title's world drifts, or its starter stage is drawn instead.
 		if (action === 'play') titleController.update(dt);
@@ -357,6 +502,7 @@ function frame(now: number) {
 			travelController.update(dt);
 			// The message line's clock runs only while the explore HUD is on screen.
 			if (!battle.active && !doctor.active && !pause.open) hud.tick(dt);
+			countPlay(dt);
 		}
 		renderer.render();
 	}
@@ -373,6 +519,16 @@ requestAnimationFrame(frame);
 // does a page that reloaded itself mid-game to catch up with another window: it
 // picks the newest game up at once and says so, instead of "Welcome back!".
 const caughtUp = takeCaughtUp();
+const accountNote = takeAccountNote();
+// A logout the server could not hear before: it hears it now.
+const waitingLogout = store && !current ? logoutPending(store) : null;
+if (store && waitingLogout !== null) {
+	void sendLogout(waitingLogout).then((heard) => {
+		if (heard === 'done' && logoutPending(store) === waitingLogout) forgetLogout(store);
+	});
+}
+// The first request to the account routes this page makes.
+void sessionCheck?.check();
 void autosave.boot().then((plan) => {
 	if (flags.throwaway) {
 		authority.start();
@@ -383,12 +539,31 @@ void autosave.boot().then((plan) => {
 	// not even the title. The page reloads for the new version, or its card says so.
 	if (autosave.behind !== null) return;
 	startNotice = plan.notice;
+	// Just logged out: the title, saying so, with the guest game if there is one.
+	if (accountNote === 'loggedOut') {
+		titleController.open(plan.game ?? null, 'save.loggedOut', autosave.keeps);
+		return;
+	}
+	// Just logged in, or an account just made, or another device's newer save taken: straight
+	// back into the game, with the account's own words instead of "Welcome back!".
+	if (accountNote !== null && plan.game && plan.game.name !== null) {
+		startNotice = undefined;
+		continueGame(plan.game);
+		hud.accountNotice(accountNote);
+		return;
+	}
 	// A game with no name yet goes through the title, which asks for it first.
 	if (caughtUp && plan.game && plan.game.name !== null && plan.notice === 'save.welcomeBack') {
 		startNotice = 'save.caughtUp';
 		continueGame(plan.game);
 		return;
 	}
-	// A page that cannot keep the game says so before a starter is chosen.
-	titleController.open(plan.game ?? null, autosave.titleNotice, autosave.keeps);
+	// A page that cannot keep the game says so before a starter is chosen; a page whose
+	// account was logged out elsewhere says that.
+	titleController.open(
+		plan.game ?? null,
+		sessionEndedUnsaid ? 'save.sessionEnded' : autosave.titleNotice,
+		autosave.keeps
+	);
+	sessionEndedUnsaid = false;
 });

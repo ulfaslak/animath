@@ -86,7 +86,7 @@ describe('starters', () => {
 describe('newGame with a starter', () => {
 	const WORLD = 1234;
 
-	it('puts the chosen starter alone in the party, at the spawn tile of its home world, facing down, nothing walked, owned or cleared', () => {
+	it('puts the chosen starter alone in the party, at the spawn tile of its home world, facing down, nothing walked, owned, solved or cleared', () => {
 		const game = newGame(WORLD, { id: 'a1', speciesId: 'rabbit', nickname: 'Hop', hp: 22 }, 'Ida');
 		expect(game).toStrictEqual({
 			name: 'Ida',
@@ -99,6 +99,7 @@ describe('newGame with a starter', () => {
 			party: [{ id: 'a1', speciesId: 'rabbit', nickname: 'Hop', hp: 22 }],
 			tokens: 0,
 			items: [],
+			solved: 0,
 			battle: null,
 			edits: [],
 			worlds: []

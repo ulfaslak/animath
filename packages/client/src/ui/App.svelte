@@ -3,6 +3,7 @@
 	import { t } from '../copy';
 	import { flags } from '../flags';
 	import { touch } from '../input/touch.svelte';
+	import { account } from '../state/account.svelte';
 	import { battle } from '../state/battle.svelte';
 	import { behind } from '../state/behind.svelte';
 	import { doctor } from '../state/doctor.svelte';
@@ -10,6 +11,7 @@
 	import { pause } from '../state/pause.svelte';
 	import { title } from '../state/title.svelte';
 	import { travel } from '../state/travel.svelte';
+	import AccountCard from './AccountCard.svelte';
 	import BattlePanel from './BattlePanel.svelte';
 	import BehindCard from './BehindCard.svelte';
 	import DoctorCard from './DoctorCard.svelte';
@@ -18,6 +20,7 @@
 	import Others from './Others.svelte';
 	import PauseMenu from './PauseMenu.svelte';
 	import PresenceNote from './PresenceNote.svelte';
+	import SavePrompt from './SavePrompt.svelte';
 	import SoundChip from './SoundChip.svelte';
 	import TitleScreen from './TitleScreen.svelte';
 	import TouchControls from './TouchControls.svelte';
@@ -46,6 +49,15 @@
 	<!-- Not under a trip's cover, which takes no key: a thumb that lands there presses nothing. -->
 	{#if touch.on && !travel.active}<TouchControls />{/if}
 	<PresenceNote />
+{/if}
+
+<!-- Over the explore HUD: after an hour of a guest's play, the offer to keep the game safe. -->
+{#if account.prompt && playing}
+	<SavePrompt />
+{/if}
+<!-- Over the title, the pause menu or the game: make an account, or log in. -->
+{#if account.card}
+	<AccountCard />
 {/if}
 
 <SoundChip low={title.open} />

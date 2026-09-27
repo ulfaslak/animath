@@ -938,9 +938,9 @@ describe('applyPartyIntent: when', () => {
 				}
 			}
 		}
-		// About 1 s alone (3,000 edits, a fifth of them cleaning a hostile name); over 1.5 s
-		// with two browsers drawing beside it.
-	}, 30_000);
+		// About 1.7 s alone (3,000 edits, a fifth of them cleaning a hostile name); 16 s at a
+		// load average of 60.
+	}, 60_000);
 
 	it('puts a party that is not in bundles into them before it moves anyone, keeping who leads', () => {
 		// Rabbit (tired), squirrel, rabbit, fox: the squirrel leads. Gathered, the second rabbit

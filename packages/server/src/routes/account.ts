@@ -38,13 +38,17 @@ import {
  *
  *   POST /api/account/register  { name, password, save? } → 201 { user: { name } } + cookie
  *   POST /api/account/login     { name, password }        → 200 { user: { name } } + cookie
- *   POST /api/account/logout                              → 200 { ok: true }, cookie cleared
+ *   POST /api/account/logout                              → 200 { ok: true }: the session ended
  *   GET  /api/account/me                                  → 200 { user: { name } | null }
  *   GET  /api/account/save                                → 200 SaveV2 | 404 no save yet
  *   PUT  /api/account/save      SaveV2                    → 200 { ok: true } | 409 { error, save }
  *
  * Every POST and PUT must be JSON from a page of this site (`sameOriginJson`).
- * The save routes answer 401 without a live session. Login and register are
+ * The save routes answer only for the account the request names
+ * (`ACCOUNT_HEADER`, 400 without it): 401 without a live session, or with
+ * another account's. Logout with the header ends only that account's session
+ * and sends no cookie; without it, it ends whatever session there is and
+ * clears the cookie. Login and register are
  * rate limited per address and per name (429 with `Retry-After`). A save a
  * newer build wrote is never replaced (409 with it, whatever the `seq`), and
  * one sent that a newer build wrote is 503: this server is the older one.
@@ -80,6 +84,34 @@ function credentials(body: unknown): { name: string; password: string } | null {
 		return null;
 	}
 	return { name: body.name, password: body.password };
+}
+
+/**
+ * The header a page names its account in, on the save routes and on logout:
+ * the account's name, URI-encoded, whose `nameKey` the server finds itself
+ * (a browser's Unicode tables may not be the server's). The cookie names
+ * whichever account the browser logged in to last, in any tab; the header
+ * names the account the page plays, so a save sent as another tab logs in to
+ * another account never lands in that account, and a logout never ends its
+ * session.
+ */
+export const ACCOUNT_HEADER = 'x-animath-account';
+
+/**
+ * The `nameKey` of the account a request names: undefined when it names
+ * none, null when the header is not a name.
+ */
+function claimedAccount(c: Context): string | null | undefined {
+	const raw = c.req.header(ACCOUNT_HEADER);
+	if (raw === undefined) return undefined;
+	let name: string;
+	try {
+		name = decodeURIComponent(raw);
+	} catch {
+		return null;
+	}
+	const key = loginKey(name);
+	return key === null || key === '' ? null : key;
 }
 
 /**
@@ -120,10 +152,15 @@ export function accountRoute({ cookie, limits }: AccountRouteOptions) {
 	 * the old cookie when the browser logs in to another account would
 	 * otherwise answer after the login, and its cookie would replace the new
 	 * one. Only `/me` slides a session, and only once a month (`currentUser`).
+	 * The session must be the account the request names (`ACCOUNT_HEADER`):
+	 * a cookie that is another account's now is, for this one, not logged in.
 	 */
 	const requireSession: MiddlewareHandler<Env> = async (c, next) => {
 		const user = await sessionUser(c);
 		if (!user) return c.json({ error: 'not logged in' }, 401);
+		const claimed = claimedAccount(c);
+		if (!claimed) return c.json({ error: `name the account in ${ACCOUNT_HEADER}` }, 400);
+		if (claimed !== user.nameKey) return c.json({ error: 'not logged in' }, 401);
 		c.set('user', user);
 		await next();
 	};
@@ -216,7 +253,18 @@ export function accountRoute({ cookie, limits }: AccountRouteOptions) {
 			return c.json({ user: { name: user.name } });
 		})
 		.post('/logout', tooBig(LOGIN_MAX_BYTES), async (c) => {
+			const claimed = claimedAccount(c);
+			if (claimed === null) return c.json({ error: `name the account in ${ACCOUNT_HEADER}` }, 400);
 			const token = sessionToken(c);
+			if (claimed !== undefined) {
+				// A page logging its own account out: that account's session ends, and no cookie
+				// is sent, so this answer can never undo a login another tab makes at the same
+				// moment (a cookie whose session is gone opens nothing). A session that is another
+				// account's now is left as it is.
+				const user = await sessionUser(c);
+				if (token !== undefined && user?.nameKey === claimed) await deleteSession(token);
+				return c.json({ ok: true });
+			}
 			if (token !== undefined) await deleteSession(token);
 			clearSessionCookie(c, cookie);
 			return c.json({ ok: true });

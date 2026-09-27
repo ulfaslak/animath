@@ -12,10 +12,10 @@ import { tappedLanguage, tappedOption, tappedRow } from '../input/press';
 import { game } from '../state/game.svelte';
 import { presence } from '../state/presence.svelte';
 import {
-	MENU_ITEMS,
-	MENU_PAIRS,
+	lineOf,
 	WORLD_DIGITS,
 	cardRows,
+	menuItems,
 	partyOptions,
 	pause,
 	worldRows,
@@ -24,6 +24,20 @@ import {
 	type PartyOption,
 	type WorldOption
 } from '../state/pause.svelte';
+
+/** What the menu's rows hand to the rest of the page (`main.ts`). */
+export interface PauseHooks {
+	/** Takes a trip to another world; without it, the `travel` intent goes at once. */
+	travel?: (world: number) => void;
+	/** Goes to another player, by public id (the presence controller's). */
+	goTo?: (pid: string) => void;
+	/** "Make an account": the account card, with the game on screen (`AccountController`'s). */
+	makeAccount?: () => void;
+	/** "Log in": the account card, to log in. */
+	logIn?: () => void;
+	/** "Log out": saved, and the page starts again as a guest. */
+	logOut?: () => void;
+}
 
 /**
  * The pause menu, opened with Escape in explore: the team's cards in battle
@@ -55,12 +69,7 @@ import {
 export class PauseController {
 	constructor(
 		private authority: Authority,
-		private readonly options: {
-			/** Takes a trip to another world; without it, the `travel` intent goes at once. */
-			travel?: (world: number) => void;
-			/** Goes to another player, by public id (the presence controller's). */
-			goTo?: (pid: string) => void;
-		} = {}
+		private readonly options: PauseHooks = {}
 	) {}
 
 	/** A trip to another world: the transition's, which sends `travel` under its cover, or at once. */
@@ -152,7 +161,8 @@ export class PauseController {
 
 	private listKey(key: string): boolean {
 		const cards = bundles(game.party);
-		const rows = cards.length + MENU_ITEMS.length;
+		const items = menuItems();
+		const rows = cards.length + items.length;
 		// A tap on a row does it at once, as the arrows and Enter would: nothing
 		// here spends anything, and every move can be moved back.
 		const row = tappedRow(key);
@@ -164,14 +174,14 @@ export class PauseController {
 		// A tap on a language on the Language row: that language, whichever is on now.
 		const code = tappedLanguage(key);
 		if (code !== undefined) {
-			pause.cursor = cards.length + MENU_ITEMS.indexOf('language');
+			pause.cursor = cards.length + items.indexOf('language');
 			if (isLanguage(code) && code !== language.current) {
 				sfx.play('confirm');
 				language.set(code);
 			}
 			return true;
 		}
-		const item = MENU_ITEMS[pause.cursor - cards.length];
+		const item = items[pause.cursor - cards.length];
 		switch (key) {
 			case 'ArrowUp':
 			case 'w':
@@ -199,19 +209,20 @@ export class PauseController {
 			case 'ArrowRight':
 			case 'd': {
 				const right = key === 'ArrowRight' || key === 'd';
-				// Rows side by side (Worlds and Who's here, Keep playing and Start screen): left
-				// and right step between the two.
-				const pair = item === undefined ? undefined : MENU_PAIRS.find((p) => p.includes(item));
-				if (pair) {
-					const to = right ? pair[1] : pair[0];
-					if (item !== to) {
-						pause.cursor = cards.length + MENU_ITEMS.indexOf(to);
-						sfx.play('move');
-					}
-					return true;
+				if (item === undefined) return false;
+				// Left and right set the setting on its row, even where it shares its line.
+				if (this.settingKey(item, right)) return true;
+				// Rows side by side (Worlds and Who's here, the account's, Keep playing and Start
+				// screen): left and right step between them. Elsewhere they do nothing.
+				const line = lineOf(item, items);
+				if (line.length < 2) return false;
+				const at = line.indexOf(item);
+				const to = line[Math.min(line.length - 1, Math.max(0, at + (right ? 1 : -1)))]!;
+				if (to !== item) {
+					pause.cursor = cards.length + items.indexOf(to);
+					sfx.play('move');
 				}
-				// Left and right set the setting on its row, and do nothing elsewhere.
-				return item !== undefined && this.settingKey(item, right);
+				return true;
 			}
 			case 'Escape':
 				this.close();
@@ -248,6 +259,17 @@ export class PauseController {
 			case 'sound':
 				this.setSound(!sfx.on);
 				break;
+			case 'makeAccount':
+				// The menu stays open under the card, and has the keys again when it goes.
+				this.options.makeAccount?.();
+				break;
+			case 'logIn':
+				this.options.logIn?.();
+				break;
+			case 'logOut':
+				sfx.play('confirm');
+				this.options.logOut?.();
+				break;
 		}
 	}
 
@@ -264,6 +286,9 @@ export class PauseController {
 			case 'sound':
 				if (sfx.on !== right) this.setSound(right);
 				return true;
+			case 'makeAccount':
+			case 'logIn':
+			case 'logOut':
 			case 'worlds':
 			case 'players':
 			case 'resume':
@@ -318,7 +343,7 @@ export class PauseController {
 			}
 			case 'Escape':
 				this.backToList();
-				pause.cursor = bundles(game.party).length + MENU_ITEMS.indexOf('players');
+				pause.cursor = bundles(game.party).length + menuItems().indexOf('players');
 				return true;
 		}
 		return false;
@@ -654,7 +679,7 @@ export class PauseController {
 		pause.species = null;
 		pause.worldDraft = '';
 		const place = bundles(game.party).findIndex((b) => b.speciesId === species);
-		if (worlds) pause.cursor = bundles(game.party).length + MENU_ITEMS.indexOf('worlds');
+		if (worlds) pause.cursor = bundles(game.party).length + menuItems().indexOf('worlds');
 		else if (place >= 0) pause.cursor = place;
 		this.settle();
 	}
@@ -674,7 +699,7 @@ export class PauseController {
 				pause.screen = 'list';
 			} else pause.option = Math.min(pause.option, rows.length - 1);
 		}
-		pause.cursor = Math.min(pause.cursor, bundles(game.party).length + MENU_ITEMS.length - 1);
+		pause.cursor = Math.min(pause.cursor, bundles(game.party).length + menuItems().length - 1);
 	}
 
 	private pickedIndex(): number {

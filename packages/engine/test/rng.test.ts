@@ -17,11 +17,13 @@ describe('Rng', () => {
 
 	it('int() stays within inclusive bounds', () => {
 		const rng = new Rng(7);
+		const outside: unknown[] = [];
 		for (let i = 0; i < 5000; i++) {
 			const v = rng.int(3, 5);
-			expect(v).toBeGreaterThanOrEqual(3);
-			expect(v).toBeLessThanOrEqual(5);
+			if (!(typeof v === 'number' && v >= 3 && v <= 5)) outside.push(v);
 		}
+		expect(outside.slice(0, 20)).toEqual([]);
+		expect(outside).toHaveLength(0);
 	});
 
 	it('int() reaches both endpoints', () => {

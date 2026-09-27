@@ -282,7 +282,9 @@ describe('difficulty ladder', () => {
 					);
 			}
 		}
-	});
+		// About 0.3 s alone (9,000 sequences, each read every way it fits); 3.5 s at a load
+		// average of 40.
+	}, 30_000);
 
 	it('sequence: no prompt fits two patterns with different answers', () => {
 		// "2, 3, 5, 8, ?" is 13 by adding the last two and 12 by "the gaps grow
@@ -301,7 +303,9 @@ describe('difficulty ladder', () => {
 				expect([...answers], `d=${d}: ${p.prompt}`).toEqual([p.answer]);
 			}
 		}
-	});
+		// About 0.35 s alone (9,000 sequences, each read every way a kid might); 4.7 s at a
+		// load average of 40.
+	}, 30_000);
 });
 
 /** What a kid who only looks at the last three terms predicts, if they count. */

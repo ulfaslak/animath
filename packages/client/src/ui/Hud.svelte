@@ -27,6 +27,7 @@
 	import BundleCard from './BundleCard.svelte';
 	import Coin from './Coin.svelte';
 	import ItemIcon from './ItemIcon.svelte';
+	import Tick from './Tick.svelte';
 
 	/**
 	 * The explore HUD. The party column: one card per species, in battle
@@ -56,8 +57,9 @@
 	 * stay where the drop left them. Every action is a key press, so a pointer
 	 * goes through the same screen and guards a key does.
 	 *
-	 * At the top right, the player's tokens, and under them the tools they
-	 * own, each with its name.
+	 * At the top right, the player's tokens and right under them the
+	 * puzzles they have solved, then the tools they own, each with its name,
+	 * and the world they are in.
 	 */
 	const list = $derived(bundles(game.party));
 	const leadId = $derived(game.party[leadIndex(game.party, game.realm)]?.id ?? null);
@@ -414,13 +416,20 @@
 	{/if}
 </div>
 
-<!-- The player's tokens, the tools they own, and the world they are in. -->
+<!-- The player's tokens and the puzzles they have solved, the tools they own, and the world they are in. -->
 <!-- With `?debug` the position and the cues have the corner; these go under them. -->
 <div class="belongings" class:below-debug={flags.debug}>
 	<div class="purse"><Coin />{t('hud.tokens', { count: game.tokens })}</div>
-	{#each tools as id (id)}
-		<div class="tool"><ItemIcon {id} size={24} />{itemName(id)}</div>
-	{/each}
+	<!-- Right under the tokens, one above the other: side by side, the corner would reach
+	     the note at the top of the screen on a tablet (`PresenceNote`). -->
+	<div class="solved"><Tick />{t('hud.solved', { count: game.solved })}</div>
+	{#if tools.length > 0}
+		<div class="tools">
+			{#each tools as id (id)}
+				<div class="tool"><ItemIcon {id} size={24} />{itemName(id)}</div>
+			{/each}
+		</div>
+	{/if}
 	<!-- The number a kid reads out to a friend, a glance away. -->
 	<div class="world">{t('worlds.world', { world: game.world })}</div>
 </div>
@@ -606,7 +615,7 @@
 	.message + .prompt {
 		margin-top: 2px;
 	}
-	/* The top right: the tokens, and the tools under them. */
+	/* The top right: the tokens, the puzzles solved, and the tools and the world under them. */
 	.belongings {
 		position: absolute;
 		top: calc(16px + var(--safe-top));
@@ -620,6 +629,22 @@
 	.belongings.below-debug {
 		top: calc(100px + var(--safe-top));
 	}
+	.tools {
+		display: flex;
+		flex-direction: column;
+		align-items: flex-end;
+		gap: 6px;
+	}
+	/*
+	 * A phone held sideways: a column of all three tools would reach down to
+	 * the touch controls' Talk button, so the tools go side by side.
+	 */
+	@media (max-height: 500px) {
+		.tools {
+			flex-direction: row;
+		}
+	}
+	.solved,
 	.purse,
 	.tool {
 		display: flex;
@@ -631,6 +656,7 @@
 		font-weight: 800;
 		white-space: nowrap;
 	}
+	.solved,
 	.purse {
 		padding: 6px 14px 6px 8px;
 		font-size: 18px;

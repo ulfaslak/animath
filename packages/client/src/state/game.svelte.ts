@@ -54,6 +54,8 @@ class GameView {
 	tokens = $state(0);
 	/** The ids of the items the player owns (`hasItem`), in the order bought. */
 	items = $state<string[]>([]);
+	/** The puzzles the player has solved: `welcome`'s, then every `solved-changed`. */
+	solved = $state(0);
 	/**
 	 * Where the player stands: out on the water, in the boat, or on land (the
 	 * engine's `tileRealm` of their tile). Who goes first is the lead there.
@@ -84,6 +86,7 @@ class GameView {
 				this.party = event.party;
 				this.tokens = event.tokens;
 				this.items = event.items;
+				this.solved = event.solved;
 				this.edits = WorldEdits.decode(event.edits);
 				this.flying = false;
 				this.mode = 'explore';
@@ -153,6 +156,9 @@ class GameView {
 			case 'belongings-changed':
 				this.tokens = event.tokens;
 				this.items = event.items;
+				break;
+			case 'solved-changed':
+				this.solved = event.solved;
 				break;
 			case 'doctor-visit-ended':
 				this.party = event.state.party.map((a) => ({ ...a }));
