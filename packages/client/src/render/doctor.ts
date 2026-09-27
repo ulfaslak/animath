@@ -318,6 +318,7 @@ export class WitchDoctor {
 	private staff: THREE.Group;
 	private bubbles: THREE.Mesh[];
 	private yaw = REST_YAW;
+	/** When he was last posed, in seconds; null until the first frame, which sets his facing outright. */
 	private lastT: number | null = null;
 
 	/**
@@ -357,6 +358,9 @@ export class WitchDoctor {
 		this.flames = new THREE.Mesh(FLAMES, FLAME_MATERIAL);
 		this.pot.add(mesh(POT, false), this.flames, potion, ...this.bubbles);
 		this.animate(0, null, null, false);
+		// The first frame drawn turns him straight to where he looks: a doctor built
+		// again (a tree chopped beside his tent) must not jump from his rest.
+		this.lastT = null;
 	}
 
 	/**
@@ -370,6 +374,7 @@ export class WitchDoctor {
 		trainer: { x: number; z: number } | null,
 		calm: boolean
 	): void {
+		const first = this.lastT === null;
 		const dt = this.lastT === null ? 0 : Math.min(0.1, Math.max(0, t - this.lastT));
 		this.lastT = t;
 		const k = calm ? CALM : 1;
@@ -410,7 +415,8 @@ export class WitchDoctor {
 			const off = wrap(Math.atan2(trainer.x - this.x, trainer.z - this.z) - REST_YAW);
 			if (Math.abs(off) < BEHIND) want = REST_YAW + Math.max(-MOST_RIGHT, Math.min(MOST_LEFT, off));
 		}
-		this.yaw += (want - this.yaw) * (1 - Math.exp(-dt * TURN_RATE));
+		if (first) this.yaw = want;
+		else this.yaw += (want - this.yaw) * (1 - Math.exp(-dt * TURN_RATE));
 		this.figure.rotation.y = this.yaw;
 
 		// The fire flickers under the pot.
