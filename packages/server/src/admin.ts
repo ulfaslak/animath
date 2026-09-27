@@ -103,9 +103,20 @@ export async function listAll(): Promise<string[]> {
 	);
 }
 
+/**
+ * Which copy of a kid's game to export: the anonymous backup, the one
+ * account found, or the account of that name (`account:<name>`).
+ */
+export type ExportFrom = 'anonymous' | 'account' | `account:${string}`;
+
+/** Whether `text` is an `ExportFrom`, as the CLI's `--from` takes it. */
+export function isExportFrom(text: string): text is ExportFrom {
+	return text === 'anonymous' || text === 'account' || /^account:.+/s.test(text);
+}
+
 export interface ExportOptions {
-	/** Which copy to take, in place of the newer one. */
-	from?: 'anonymous' | 'account';
+	/** Which copy to take, in place of the one saved last. Needed when they are different games. */
+	from?: ExportFrom;
 	/** The folder the file goes in; `~/animath-exports` by default. */
 	folder?: string;
 	/** The database to read; the server's own (`DATABASE_URL`) by default. */
@@ -120,7 +131,10 @@ export interface ExportOptions {
  * (`openReadOnly`): the kid may be playing on it meanwhile. The player's
  * game can be in two places, the anonymous backup and, once the kid has
  * made an account here, the account's save; each one found is listed, and
- * the one saved last is taken, or the one `from` names.
+ * the one saved last is taken, or the one `from` names. Copies of two
+ * different games (another lineage: a new game in the kid's account, or a
+ * friend's account that took the name the kid had as a guest) are never
+ * chosen between by time: nothing is written without `from`.
  */
 export async function exportLocalSave(
 	playerId: string,
@@ -151,12 +165,17 @@ export async function exportLocalSave(
 	const lines = found.map(
 		(c) => `Found ${placeOf(c)}: seq ${saveSeq(c.doc)}, saved ${stamp(c.savedAt)}.`
 	);
-	const chosen = chooseSave(found, options.from);
-	if (new Set(found.map((c) => saveLineage(c.doc))).size > 1) {
-		lines.push(
-			'These are different games, not copies of one: check which one the kid plays now, and pick it with --from.'
+	if (options.from === undefined && new Set(found.map((c) => saveLineage(c.doc))).size > 1) {
+		throw new AdminError(
+			[
+				...lines,
+				'These are different games, not copies of one, so nothing was written: an account may be',
+				"another kid's who took this name. Check which one this kid plays now, and pick it with",
+				'--from anonymous, --from account, or --from "account:<name>".'
+			].join('\n')
 		);
 	}
+	const chosen = chooseSave(found, options.from);
 	lines.push(
 		options.from
 			? `Taking ${placeOf(chosen)}, as --from says.`
@@ -175,19 +194,26 @@ export async function exportLocalSave(
 }
 
 /** The candidate `from` names, else the one saved last. */
-function chooseSave(found: SaveCandidate[], from?: 'anonymous' | 'account'): SaveCandidate {
+function chooseSave(found: SaveCandidate[], from?: ExportFrom): SaveCandidate {
 	if (from === undefined) return found.at(-1)!;
-	const matching = found.filter((c) => c.place === from);
+	const named = from.startsWith('account:') ? nameKey(from.slice('account:'.length)) : null;
+	const matching = found.filter((c) =>
+		named === null
+			? c.place === from
+			: c.place === 'account' && c.account !== undefined && nameKey(c.account) === named
+	);
 	if (matching.length === 0) {
 		throw new AdminError(
-			from === 'account'
-				? 'No account here holds this game: take the anonymous backup (leave out --from).'
-				: 'The anonymous backup has no save for this player.'
+			from === 'anonymous'
+				? 'The anonymous backup has no save for this player.'
+				: named === null
+					? 'No account here holds this game: take the anonymous backup (--from anonymous).'
+					: `No account found for this game is called "${from.slice('account:'.length)}".`
 		);
 	}
 	if (matching.length > 1) {
 		throw new AdminError(
-			`Several accounts hold this game (${matching.map((c) => c.account).join(', ')}): export the one wanted by hand.`
+			`Several accounts hold games of this player (${matching.map((c) => c.account).join(', ')}): pick one with --from "account:<name>".`
 		);
 	}
 	return matching[0]!;

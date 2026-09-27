@@ -3,6 +3,7 @@ import {
 	deleteAccount,
 	exportLocalSave,
 	importSave,
+	isExportFrom,
 	listAll,
 	resetPassword
 } from '../src/admin.js';
@@ -14,7 +15,7 @@ import { SAVE_MAX_BYTES } from '../src/save.js';
 //   admin list
 //   admin reset-password <name> [<new password>]   (a made-up one when none is given)
 //   admin delete-account <name> [--yes]            (says what it would delete without --yes)
-//   admin export-local-save <player id> [--from anonymous|account] [--out <folder>]
+//   admin export-local-save <player id> [--from anonymous|account|account:<name>] [--out <folder>]
 //   admin import-save [--name <name>] [--origin <address>] < save.json
 //
 // A name is matched as the game matches it: case and how a letter is typed do not matter.
@@ -26,7 +27,7 @@ const USAGE = [
 	'  admin list',
 	'  admin reset-password <name> [<new password>]',
 	'  admin delete-account <name> [--yes]',
-	'  admin export-local-save <player id> [--from anonymous|account] [--out <folder>]',
+	'  admin export-local-save <player id> [--from anonymous|account|account:<name>] [--out <folder>]',
 	'  admin import-save [--name <name>] [--origin <address>] < save.json'
 ].join('\n');
 
@@ -102,8 +103,7 @@ async function run(args: string[]): Promise<string[]> {
 			return deleteAccount(words[0]!, flags.has('--yes'));
 		case 'export-local-save': {
 			const from = value('--from');
-			if (words.length !== 1 || (from !== undefined && from !== 'anonymous' && from !== 'account'))
-				break;
+			if (words.length !== 1 || (from !== undefined && !isExportFrom(from))) break;
 			return exportLocalSave(words[0]!, { from, folder: value('--out') });
 		}
 		case 'import-save':
