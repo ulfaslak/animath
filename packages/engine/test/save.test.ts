@@ -565,6 +565,52 @@ describe('the v1 → v2 upgrade', () => {
 		expect(downgrade(read.save as unknown as Record<string, unknown>)).toEqual(doc);
 	});
 
+	it('keeps a v1 extra under `v1` for every name a save is written with that v1 did not have, later ones too', () => {
+		// The fields of `SaveV1`: frozen with it.
+		const v1Fields = new Set([
+			'version',
+			'seed',
+			'pos',
+			'party',
+			'facing',
+			'steps',
+			'visits',
+			'lineage',
+			'seq',
+			'tokens',
+			'items',
+			'battle',
+			'edits'
+		]);
+		// Every field this build writes, the optional ones included: a name, a battle, cleared
+		// tiles, a world left. A field a later change adds is in it without touching this test.
+		const game: SavedGame = {
+			...newGame(WORLD, undefined, 'Nini'),
+			battle: { step: 0 } as unknown as BattleState,
+			edits: ['0,0:11'],
+			worlds: [{ world: 3, pos: { x: 0, y: 0 }, facing: 'up', edits: [] }]
+		};
+		const taken = Object.keys(saveDocument(game, { lineage: 'L', seq: 1 })).filter(
+			(key) => !v1Fields.has(key)
+		);
+		expect(taken).toEqual(expect.arrayContaining(['name', 'home', 'world', 'worlds', 'solved']));
+		const bad: string[] = [];
+		for (const key of taken) {
+			for (const junk of ['x', -1, 1.5, 12, { a: 1 }, [2], null]) {
+				const read = readSave({ ...writtenV1, [key]: junk });
+				const kept = read.ok
+					? (read.save as unknown as Record<string, Record<string, unknown>>)[V1_KEPT]
+					: undefined;
+				if (!read.ok || !kept || JSON.stringify(kept[key]) !== JSON.stringify(junk)) {
+					bad.push(
+						`${key}: ${JSON.stringify(junk)} → ${read.ok ? JSON.stringify(kept) : read.error}`
+					);
+				}
+			}
+		}
+		expect(bad).toEqual([]);
+	});
+
 	it('is total and loses nothing: every valid v1 save upgrades to a valid v2 one it can be rebuilt from', () => {
 		for (let s = 0; s < 500; s++) {
 			const rng = new Rng(hashInts(21, s));
