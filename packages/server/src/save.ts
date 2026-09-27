@@ -1,7 +1,14 @@
 import { canReplace, readSave, replacesAnotherGame, type SaveWrite } from '@mathgame/engine';
 import { eq, sql } from 'drizzle-orm';
 import { db } from './db/index.js';
-import { players, saveBackups, saves } from './db/schema.js';
+import {
+	accountSaveBackups,
+	accountSaves,
+	players,
+	saveBackups,
+	saves,
+	users
+} from './db/schema.js';
 
 /**
  * Storing a player's save backup. The document's shape is the engine's
@@ -51,5 +58,55 @@ export async function writeSave(playerId: string, doc: SaveWrite): Promise<Write
 			.values({ playerId, data: doc })
 			.onConflictDoUpdate({ target: saves.playerId, set: { data: doc, updatedAt: sql`now()` } });
 		return 'saved';
+	});
+}
+
+export type AccountWriteResult =
+	| { kind: 'saved' }
+	/** The stored save has the same or a higher `seq`; it comes back so the client can load it. */
+	| { kind: 'stale'; stored: unknown }
+	/** The account is gone (deleted while this request was on its way). */
+	| { kind: 'gone' };
+
+/**
+ * `writeSave` for an account's save: the same guard (`canReplace`), the same
+ * copy aside before another game or an unreadable document is replaced (to
+ * `account_save_backups`), with the account's row locked for the
+ * read-decide-write. A stale write returns the stored save.
+ */
+export async function writeAccountSave(
+	userId: string,
+	doc: SaveWrite
+): Promise<AccountWriteResult> {
+	return db.transaction(async (tx) => {
+		const [user] = await tx
+			.select({ id: users.id })
+			.from(users)
+			.where(eq(users.id, userId))
+			// Serializes this account's save writes without holding up a login,
+			// whose new session only needs the row to stay (a key-share lock).
+			.for('no key update');
+		if (!user) return { kind: 'gone' };
+		const [row] = await tx
+			.select({ data: accountSaves.data })
+			.from(accountSaves)
+			.where(eq(accountSaves.userId, userId));
+		const stored: unknown = row ? row.data : null;
+		if (!canReplace(stored, doc)) return { kind: 'stale', stored };
+		if (replacesAnotherGame(stored, doc)) {
+			await tx.insert(accountSaveBackups).values({
+				userId,
+				data: stored,
+				reason: readSave(stored).ok ? 'replaced' : 'unreadable'
+			});
+		}
+		await tx
+			.insert(accountSaves)
+			.values({ userId, data: doc, seq: doc.seq })
+			.onConflictDoUpdate({
+				target: accountSaves.userId,
+				set: { data: doc, seq: doc.seq, updatedAt: sql`now()` }
+			});
+		return { kind: 'saved' };
 	});
 }

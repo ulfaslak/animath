@@ -1,9 +1,19 @@
-import { bigserial, index, jsonb, pgTable, text, timestamp, uuid } from 'drizzle-orm/pg-core';
+import {
+	bigint,
+	bigserial,
+	index,
+	jsonb,
+	pgTable,
+	text,
+	timestamp,
+	uuid
+} from 'drizzle-orm/pg-core';
 
 /**
- * Players are anonymous: the client receives an id + secret on first visit and
- * presents them on every connection. No login. When accounts arrive, they
- * attach to a player row rather than replacing it.
+ * The anonymous backup's players: the client receives an id + secret on first
+ * visit and presents them on every backup. No login. Accounts (`users`, below)
+ * are separate and never touch these tables; the backup runs only in
+ * development (see `app.ts`).
  */
 export const players = pgTable('players', {
 	id: uuid('id').primaryKey().defaultRandom(),
@@ -50,4 +60,72 @@ export const saveBackups = pgTable(
 		createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow()
 	},
 	(t) => [index('save_backups_player_id_idx').on(t.playerId)]
+);
+
+/**
+ * Accounts. `name` is the account's name as the player chose it (the engine's
+ * `checkName`: trimmed, NFC), which is also their character's name; `name_key`
+ * is the engine's `nameKey(name)`, unique, so two names that differ only in
+ * case or in how a letter is written cannot both exist. `password_hash` is a
+ * salted scrypt hash with its parameters (`passwords.ts`).
+ */
+export const users = pgTable('users', {
+	id: uuid('id').primaryKey().defaultRandom(),
+	name: text('name').notNull(),
+	nameKey: text('name_key').notNull().unique('users_name_key_unique'),
+	passwordHash: text('password_hash').notNull(),
+	createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow()
+});
+
+/**
+ * A logged-in browser. The cookie holds a random token; only its SHA-256 hash
+ * is stored, so a database dump logs nobody in. `expires_at` slides forward a
+ * year as the session is used (`sessions.ts`).
+ */
+export const sessions = pgTable(
+	'sessions',
+	{
+		tokenHash: text('token_hash').primaryKey(),
+		userId: uuid('user_id')
+			.notNull()
+			.references(() => users.id, { onDelete: 'cascade' }),
+		createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+		expiresAt: timestamp('expires_at', { withTimezone: true }).notNull()
+	},
+	(t) => [index('sessions_user_id_idx').on(t.userId)]
+);
+
+/**
+ * The one save an account keeps: the same document as the browser's (`SaveV1`,
+ * the engine's), written with the same guard as the anonymous backup. `seq` is
+ * the document's own `seq`, kept beside it.
+ */
+export const accountSaves = pgTable('account_saves', {
+	userId: uuid('user_id')
+		.primaryKey()
+		.references(() => users.id, { onDelete: 'cascade' }),
+	data: jsonb('data').notNull(),
+	seq: bigint('seq', { mode: 'number' }).notNull(),
+	updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow()
+});
+
+/**
+ * An account's saves the server was about to lose, as `save_backups` keeps the
+ * anonymous backup's: one replaced by a different game (a New game on the
+ * title), or one this build could not read. Nothing reads it; it is there to
+ * recover a kid's game by hand.
+ */
+export const accountSaveBackups = pgTable(
+	'account_save_backups',
+	{
+		id: bigserial('id', { mode: 'number' }).primaryKey(),
+		userId: uuid('user_id')
+			.notNull()
+			.references(() => users.id, { onDelete: 'cascade' }),
+		data: jsonb('data').notNull(),
+		/** `replaced` (another game took its place) or `unreadable` (this build could not read it). */
+		reason: text('reason').notNull(),
+		createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow()
+	},
+	(t) => [index('account_save_backups_user_id_idx').on(t.userId)]
 );
