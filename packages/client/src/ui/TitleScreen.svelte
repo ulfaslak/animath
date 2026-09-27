@@ -589,18 +589,26 @@
 	.shade.typing {
 		place-items: start center;
 	}
+	/* Wide enough for sixteen of the widest letters in the box ("WWWWWWWWWWWWWWWW"). */
 	.player-card {
+		width: min(600px, 100%);
 		text-align: center;
+	}
+	.player-card .name-box {
+		font-size: 26px;
 	}
 	.player-card .heading {
 		margin: 0 0 6px;
 	}
-	/* Why a name did not go: in ink, on a soft tint of the game's "not quite" red. */
+	/* The rule under the player's name box, and in its place why a name did not go: the same
+	   box, so the card keeps its height; the reason in ink on a soft tint of the "not quite" red. */
+	.player-card .note {
+		padding: 6px 10px;
+		border-radius: 10px;
+	}
 	.refused {
 		font-weight: 800;
 		background: rgba(242, 95, 92, 0.16);
-		border-radius: 10px;
-		padding: 6px 10px;
 	}
 
 	.pick-title {
