@@ -61,6 +61,15 @@ export async function writeSave(playerId: string, doc: SaveWrite): Promise<Write
 	});
 }
 
+/**
+ * How much of an account's set-aside saves the server keeps, as Postgres
+ * stores them: the newest first, as many as fit, and always the newest one.
+ * A kid's save is a few kilobytes, so this keeps hundreds of New games; a
+ * client that sends a megabyte of another game with every write keeps two,
+ * and cannot fill the disk.
+ */
+export const ACCOUNT_BACKUP_BYTES = 2 * 1024 * 1024;
+
 export type AccountWriteResult =
 	| { kind: 'saved' }
 	/** The stored save has the same or a higher `seq`; it comes back so the client can load it. */
@@ -71,8 +80,8 @@ export type AccountWriteResult =
 /**
  * `writeSave` for an account's save: the same guard (`canReplace`), the same
  * copy aside before another game or an unreadable document is replaced (to
- * `account_save_backups`), with the account's row locked for the
- * read-decide-write. A stale write returns the stored save.
+ * `account_save_backups`, within `ACCOUNT_BACKUP_BYTES`), with the account's
+ * row locked for the read-decide-write. A stale write returns the stored save.
  */
 export async function writeAccountSave(
 	userId: string,
@@ -99,6 +108,17 @@ export async function writeAccountSave(
 				data: stored,
 				reason: readSave(stored).ok ? 'replaced' : 'unreadable'
 			});
+			await tx.execute(sql`
+				delete from account_save_backups
+				where user_id = ${userId}
+				  and id in (
+					select id from (
+						select id, sum(pg_column_size(data)) over (order by id desc) as kept
+						from account_save_backups where user_id = ${userId}
+					) newest_first
+					where kept > ${ACCOUNT_BACKUP_BYTES}
+					  and id <> (select max(id) from account_save_backups where user_id = ${userId})
+				  )`);
 		}
 		await tx
 			.insert(accountSaves)

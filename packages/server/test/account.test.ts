@@ -1,12 +1,12 @@
 import { eq, sql } from 'drizzle-orm';
 import { Hono } from 'hono';
-import { createHash } from 'node:crypto';
+import { createHash, randomBytes } from 'node:crypto';
 import { afterAll, describe, expect, it, vi } from 'vitest';
 import { createApp } from '../src/app.js';
 import { db, pool } from '../src/db/index.js';
 import { accountSaveBackups, accountSaves, sessions, users } from '../src/db/schema.js';
 import type { AccountLimits } from '../src/rate-limit.js';
-import { SAVE_MAX_BYTES } from '../src/save.js';
+import { ACCOUNT_BACKUP_BYTES, SAVE_MAX_BYTES } from '../src/save.js';
 import {
 	MAX_SESSIONS_PER_USER,
 	SESSION_COOKIE,
@@ -37,7 +37,8 @@ const NO_LIMITS: AccountLimits = {
 	loginFailuresPerNameFromIp: ROOMY,
 	loginFailuresPerName: ROOMY,
 	registerPerIp: ROOMY,
-	registerPerName: ROOMY
+	registerPerName: ROOMY,
+	savesPerAccount: ROOMY
 };
 
 const app = createApp({ limits: NO_LIMITS });
@@ -481,6 +482,46 @@ describe('the account save', () => {
 		expect(kept).toEqual([{ data: unreadable, reason: 'unreadable' }]);
 	});
 
+	it("keeps an account's set-aside games within their budget, newest first, however big they are", async () => {
+		const { browser, name } = await account();
+		const user = await userRow(name);
+		// About 800 kB each that Postgres cannot compress: two fit the budget, three do not.
+		const big = (seq: number, lineage: string) =>
+			doc(seq, lineage, { notes: randomBytes(600_000).toString('base64') });
+		for (const [seq, lineage] of [
+			[1, 'A'],
+			[2, 'B'],
+			[3, 'C'],
+			[4, 'D'],
+			[5, 'E']
+		] as const) {
+			expect((await browser.putSave(big(seq, lineage))).status).toBe(200);
+		}
+		const kept = await db
+			.select({
+				lineage: sql<string>`${accountSaveBackups.data}->>'lineage'`,
+				bytes: sql<number>`pg_column_size(${accountSaveBackups.data})`
+			})
+			.from(accountSaveBackups)
+			.where(eq(accountSaveBackups.userId, user!.id))
+			.orderBy(accountSaveBackups.id);
+		expect(kept.map((k) => k.lineage)).toEqual(['C', 'D']);
+		expect(kept.reduce((n, k) => n + Number(k.bytes), 0)).toBeLessThanOrEqual(ACCOUNT_BACKUP_BYTES);
+	});
+
+	it("keeps every one of a kid's small set-aside games", async () => {
+		const { browser, name } = await account();
+		for (let i = 1; i <= 30; i++) {
+			expect((await browser.putSave(doc(i, `game-${i}`))).status).toBe(200);
+		}
+		const user = await userRow(name);
+		const kept = await db
+			.select()
+			.from(accountSaveBackups)
+			.where(eq(accountSaveBackups.userId, user!.id));
+		expect(kept).toHaveLength(29);
+	});
+
 	it('of many writes racing with the same seq, exactly one lands', async () => {
 		const { browser } = await account();
 		const results = await Promise.all(
@@ -649,7 +690,8 @@ describe('rate limits', () => {
 		loginFailuresPerNameFromIp: { limit: 3, windowMs: 60_000, maxKeys: 100 },
 		loginFailuresPerName: { limit: 5, windowMs: 60_000, maxKeys: 100 },
 		registerPerIp: { limit: 4, windowMs: 60_000, maxKeys: 100 },
-		registerPerName: { limit: 2, windowMs: 60_000, maxKeys: 100 }
+		registerPerName: { limit: 2, windowMs: 60_000, maxKeys: 100 },
+		savesPerAccount: { limit: 3, windowMs: 60_000, maxKeys: 100 }
 	};
 	let address = 0;
 	/** A browser at an address no other browser in these tests has, or at `ip`. */
@@ -742,6 +784,23 @@ describe('rate limits', () => {
 		}
 		expect((await from(limited, '2001:db8:9:9:ffff::77').login(freshName())).status).toBe(429);
 		expect((await from(limited, '2001:db8:9:a::1').login(freshName())).status).toBe(401);
+	});
+
+	it("limits an account's save PUTs, before reading them; other accounts go on", async () => {
+		const limited = createApp({ limits: TIGHT });
+		const mine = await account();
+		const theirs = await account();
+		const as = (browser: Browser) => {
+			const b = new Browser(limited);
+			b.cookie = browser.cookie;
+			return b;
+		};
+		for (let seq = 1; seq <= 3; seq++)
+			expect((await as(mine.browser).putSave(doc(seq))).status).toBe(200);
+		await expectTooMany(await as(mine.browser).putSave(doc(4)));
+		await expectTooMany(await as(mine.browser).putSave('not even JSON'));
+		expect((await as(theirs.browser).putSave(doc(1))).status).toBe(200);
+		expect((await as(mine.browser).getSave()).status).toBe(200);
 	});
 
 	it('blocks an address after four registrations, and a name after two tries', async () => {

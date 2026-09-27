@@ -93,7 +93,8 @@ export function accountRoute({ cookie, limits }: AccountRouteOptions) {
 		loginFailuresPerNameFromIp: new RateLimiter(limits.loginFailuresPerNameFromIp),
 		loginFailuresPerName: new RateLimiter(limits.loginFailuresPerName),
 		registerPerIp: new RateLimiter(limits.registerPerIp),
-		registerPerName: new RateLimiter(limits.registerPerName)
+		registerPerName: new RateLimiter(limits.registerPerName),
+		savesPerAccount: new RateLimiter(limits.savesPerAccount)
 	};
 
 	/** Starts a session for this browser, ending the one it had (whoever's it was). */
@@ -114,6 +115,13 @@ export function accountRoute({ cookie, limits }: AccountRouteOptions) {
 		const user = await sessionUser(c);
 		if (!user) return c.json({ error: 'not logged in' }, 401);
 		c.set('user', user);
+		await next();
+	};
+
+	/** At most `savesPerAccount` save PUTs an account, before any body is read. */
+	const savesLimited: MiddlewareHandler<Env> = async (c, next) => {
+		const verdict = limit.savesPerAccount.hit(c.get('user').id);
+		if (!verdict.ok) return tooMany(c, verdict);
 		await next();
 	};
 
@@ -212,7 +220,7 @@ export function accountRoute({ cookie, limits }: AccountRouteOptions) {
 			if (!row) return c.json({ error: 'no save yet' }, 404);
 			return c.json(row.data);
 		})
-		.put('/save', requireSession, tooBig(SAVE_MAX_BYTES), async (c) => {
+		.put('/save', requireSession, savesLimited, tooBig(SAVE_MAX_BYTES), async (c) => {
 			const body = await readJson(c);
 			if (body === undefined) return c.json({ error: 'body is not valid JSON' }, 400);
 			const checked = validateSaveWrite(body);

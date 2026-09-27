@@ -112,6 +112,8 @@ export interface AccountLimits {
 	registerPerIp: LimitSpec;
 	/** Every register try for one name, from anywhere. */
 	registerPerName: LimitSpec;
+	/** Save PUTs per account. A page sends one a second at most, and fewer as it walks. */
+	savesPerAccount: LimitSpec;
 }
 
 const MINUTE = 60_000;
@@ -125,5 +127,6 @@ export const ACCOUNT_LIMITS: AccountLimits = {
 	loginFailuresPerNameFromIp: { limit: 10, windowMs: 15 * MINUTE, maxKeys: 10_000 },
 	loginFailuresPerName: { limit: 50, windowMs: 15 * MINUTE, maxKeys: 10_000 },
 	registerPerIp: { limit: 30, windowMs: 60 * MINUTE, maxKeys: 10_000 },
-	registerPerName: { limit: 10, windowMs: 15 * MINUTE, maxKeys: 10_000 }
+	registerPerName: { limit: 10, windowMs: 15 * MINUTE, maxKeys: 10_000 },
+	savesPerAccount: { limit: 120, windowMs: MINUTE, maxKeys: 10_000 }
 };
