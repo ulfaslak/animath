@@ -10,6 +10,12 @@ Format: `### YYYY-MM-DD — <issue/PR ref> — <one-line category>` followed by 
 
 ## Patterns
 
+### 2026-09-28 — #169, fix/older-safari — a fallback that names one cause for a symptom several causes share `[not codified]`
+
+The too-old card showed on every page whose game script never ran. A browser too old to read the script is one cause of that; a script whose download failed is another. A kid on a dropped connection was told their iPad was too old, and a grown-up would have gone looking for an update. Found in WebKit by aborting the download of `index-*.js` instead of serving a script it cannot read. Fixed by telling the two apart where the browser does: a download that fails fires `error` on its `<script>` element, and a script that cannot be read reports on the window. The card now shows only for the second.
+
+Before choosing what a fallback says, list every way to reach the state it keys on (a script that never ran: unreadable, not downloaded, thrown while loading) and check that its words hold for each. Codifying it would take a line in [[DEVELOPMENT]] § Testing ideology or a CLAUDE.md edge-case bullet ("a fallback's message: every cause of its trigger").
+
 The categories that keep coming back. Each names where its guard lives, or the proposal that would make one; proposed CLAUDE.md lines wait for the human in [[HUMAN_TODO]].
 
 - **A negative control put back on uncommitted work**, by `git checkout -- <file>` or by rewriting the lines back, which reverts to the last commit and takes the fix with it: three times (PR #6, PR #8, PR #30). CLAUDE.md § Protecting existing work now says to commit before every negative control.
