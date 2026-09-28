@@ -10,7 +10,10 @@
 	 * `DoctorWay`), and drawn so it never reads as one: a friend is an orange
 	 * arrow with a name, the doctor a tent in a disc. It shows until the tent
 	 * is in plain sight; then the tent says where to go. Only over the explore
-	 * screen, under its HUD. Nothing here takes a tap.
+	 * screen, under its HUD. Its disc is marked `data-keep-clear`: a friend's
+	 * arrow and its names keep clear of it, as of a piece of the HUD, so the
+	 * way to the doctor never covers a name (it keeps clear of every piece
+	 * but itself: `DoctorWay`). Nothing here takes a tap.
 	 */
 </script>
 
@@ -27,7 +30,7 @@
 				<path d="M38 1.5l12 16H26z" />
 			</svg>
 		</div>
-		<div class="disc">
+		<div class="disc" data-keep-clear>
 			<svg viewBox="0 0 32 32" width="32" height="32" aria-hidden="true">
 				<path class="cloth" d="M16 3.5 29.5 27.5H2.5Z" />
 				<path class="door" d="M16 12.5 21 27.5H11Z" />

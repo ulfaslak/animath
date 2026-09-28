@@ -23,7 +23,6 @@ import {
 	HOLD_SECONDS,
 	PresenceController,
 	REFRESHED_KEY,
-	edgeSpot,
 	following,
 	type MatchHooks,
 	type PresenceRenderer
@@ -719,6 +718,27 @@ describe('presence on the page', () => {
 		expect(forgetful.reloads()).toBe(0);
 	});
 
+	it('gives friends far off the same way one arrow with every name, nearest first (#140)', () => {
+		const s = setup();
+		s.start();
+		s.connect();
+		// Bo and Cy stand two tiles apart, 190 steps off: one bearing, so one rough spot. Di is off another way.
+		s.socket().say({
+			t: 'roster',
+			world: 1,
+			players: [
+				{ pid: 'friend0001', name: 'Bo', bearing: 12, steps: 190, busy: 'explore' },
+				{ pid: 'friend0002', name: 'Cy', bearing: 12, steps: 190, busy: 'explore' },
+				{ pid: 'friend0003', name: 'Di', bearing: 4, steps: 300, busy: 'explore' }
+			]
+		});
+		s.frame();
+		expect(presence.arrows.map((a) => [a.key, a.names, a.more])).toEqual([
+			['friend0001', ['Bo', 'Cy'], 0],
+			['friend0003', ['Di'], 0]
+		]);
+	});
+
 	it('leaves when the page falls behind the save, and when the game goes back to the title', () => {
 		const s = setup();
 		s.start();
@@ -746,25 +766,5 @@ describe('what presence works out', () => {
 		expect(following(party, true)).toBe('frog');
 		expect(following(party.slice(0, 2), true)).toBe('squirrel');
 		expect(following([], false)).toBeNull();
-	});
-
-	it('puts an arrow on the edge of the screen, on the line to the player it points at', () => {
-		const me = { x: 512, y: 384 };
-		for (const there of [
-			{ x: 5000, y: 384 },
-			{ x: -300, y: 100 },
-			{ x: 512, y: -9000 },
-			{ x: 900, y: 2000 }
-		]) {
-			const spot = edgeSpot(me, there, 1024, 768)!;
-			const onEdge = spot.x <= 44 || spot.x >= 1024 - 44 || spot.y <= 44 || spot.y >= 768 - 96;
-			expect(onEdge).toBe(true);
-			// On the line from me to them, pointing their way.
-			const cross = (spot.x - me.x) * (there.y - me.y) - (spot.y - me.y) * (there.x - me.x);
-			expect(Math.abs(cross) / Math.hypot(there.x - me.x, there.y - me.y)).toBeLessThan(1);
-			const dir = { x: Math.sin(spot.angle), y: -Math.cos(spot.angle) };
-			expect(dir.x * (there.x - me.x) + dir.y * (there.y - me.y)).toBeGreaterThan(0);
-		}
-		expect(edgeSpot(me, me, 1024, 768)).toBeNull();
 	});
 });

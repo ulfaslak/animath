@@ -9,8 +9,8 @@ import type { GridPos } from '@mathgame/engine';
 
 /**
  * The arrow at the edge of the screen: where it sits (CSS pixels) and which
- * way it points (radians, clockwise from up on the screen), as a friend's
- * arrow does (`edgeSpot`).
+ * way it points (radians, clockwise from up on the screen), on the track
+ * a friend's arrow rides (`presence/edges.ts`).
  */
 export interface DoctorArrow {
 	x: number;
