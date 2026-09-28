@@ -455,8 +455,11 @@ export type MatchTimeout = (typeof MATCH_TIMEOUTS)[number];
  * gone back to exploring from that result, their Back crossing the other's
  * Rematch? on the way (#147); a page that has it up puts that result back.
  * Both may be left out, as a `hi`'s `boot` may: a server from before them
- * sends neither, and a page from before them drops them and reads a
- * called-off rematch as the other leaving it, so they needed no new version.
+ * sends neither, and a page from before them drops them, so they needed no
+ * new version. Such a page reads a called-off rematch as the kid who went
+ * back leaving it: the other kid's "Ada left the match.", and on the page of
+ * the kid who went back, which put the rematch up as pages did before,
+ * "You left the match.".
  */
 export interface MatchMessage {
 	t: 'match';

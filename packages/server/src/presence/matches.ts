@@ -159,6 +159,8 @@ interface Match {
 	readonly seed: number;
 	/** A rematch: the match on whose result both said Rematch?. Null for a match from an invite. */
 	readonly rematchOf: string | null;
+	/** Called off before anyone played it (`wentBack`): kept only for a page away, to be told. */
+	calledOff: boolean;
 	state: MatchState;
 	readonly players: Record<MatchSide, Player>;
 	readonly pids: Record<MatchSide, string>;
@@ -278,6 +280,8 @@ export class Matches {
 		for (const side of MATCH_SIDES) this.send(match, side, []);
 		// The players near the page that came back see the match again, if it goes on.
 		this.show(match, []);
+		// A rematch called off while this page was away: now it knows, and nothing is left to wait for.
+		if (match.calledOff) this.detach(match, sideOf(match, player), false);
 	}
 
 	/**
@@ -533,6 +537,7 @@ export class Matches {
 			id: this.newId(),
 			seed,
 			rematchOf,
+			calledOff: false,
 			state: startMatch({ a: teamA, b: teamB }, seed),
 			players: { a, b },
 			pids: { a: a.pid, b: b.pid },
@@ -675,10 +680,12 @@ export class Matches {
 	 * their page never had this match up. The kid's Back wins (#147). A
 	 * rematch nobody has played yet is called off, as if it never started:
 	 * both pages hear so (`calledOff`: the other puts the result back, its
-	 * Rematch? off, and a page from before it reads the other leaving), the
-	 * players near see it end with nobody winning, and both players are free.
-	 * One played already (the Back came again after the page lost it on the
-	 * way) the kid leaves, as the Leave move would; one over, they are done with.
+	 * Rematch? off, and a page from before it reads the kid who went back
+	 * leaving), the players near see it end with nobody winning, and both
+	 * players are free at once; a page that is away is told as it comes back
+	 * (`resume`), within its time to. One played already (the Back came again
+	 * after the page lost it on the way) the kid leaves, as the Leave move
+	 * would; one over, they are done with.
 	 */
 	private wentBack(match: Match, side: MatchSide): void {
 		if (match.state.phase.kind === 'ended') return this.detach(match, side);
@@ -690,11 +697,12 @@ export class Matches {
 			return;
 		}
 		match.state = step.state;
+		match.calledOff = true;
 		this.stopClock(match);
 		this.log(`matches: ${match.id} called off`);
-		for (const s of MATCH_SIDES) this.send(match, s, events, true);
+		for (const s of MATCH_SIDES) this.send(match, s, events);
 		this.show(match, [], CALLED_OFF);
-		this.drop(match);
+		for (const s of MATCH_SIDES) if (!match.away[s]) this.detach(match, s, false);
 	}
 
 	/**
@@ -803,11 +811,8 @@ export class Matches {
 
 	// --- sending ----------------------------------------------------------------------
 
-	/**
-	 * `side`'s view of the match and what just happened, if its page is here;
-	 * `calledOff`: it ends here, called off before anyone played it (`wentBack`).
-	 */
-	private send(match: Match, side: MatchSide, events: WireMatchEvent[], calledOff = false): void {
+	/** `side`'s view of the match and what just happened, if its page is here. */
+	private send(match: Match, side: MatchSide, events: WireMatchEvent[]): void {
 		const player = match.players[side];
 		if (!player.peer || player.match !== match) return;
 		const other = otherSide(side);
@@ -822,7 +827,7 @@ export class Matches {
 			away: away ? { side: other, ms: Math.max(0, away.until - Date.now()) } : null,
 			timeout: match.timeout,
 			...(match.rematchOf === null ? {} : { rematchOf: match.rematchOf }),
-			...(calledOff ? { calledOff: true as const } : {})
+			...(match.calledOff ? { calledOff: true as const } : {})
 		});
 	}
 

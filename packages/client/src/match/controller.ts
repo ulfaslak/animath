@@ -818,10 +818,10 @@ export class MatchController implements MatchHooks {
 		// its way as they pressed Back).
 		if (m.id === this.wentBack?.id) return;
 		// Nor does a rematch of it: the friend's Rematch? got to the server just before the kid's Back
-		// (#147). The server calls it off once it hears the Back, which goes again in case it went
-		// with a socket that died; one over already needs nothing more.
+		// (#147). The Back goes again, in case it went with a socket that died: the server calls the
+		// rematch off, or lets the kid go of one that ended meanwhile. Its call-off needs no answer.
 		if (m.rematchOf !== undefined && this.wentBackFrom(m.rematchOf)) {
-			if (m.view.phase.kind !== 'ended') this.deps.send({ t: 'done', id: m.rematchOf });
+			if (!m.calledOff) this.deps.send({ t: 'done', id: m.rematchOf });
 			return;
 		}
 		this.sentAt = null;
@@ -847,7 +847,11 @@ export class MatchController implements MatchHooks {
 
 	/** A new match (or one picked up after a drop or a reload): the screen, and who starts. */
 	private begin(m: MatchMessage): void {
-		const rematch = match.stage === 'over' && battle.active && !!battle.vs;
+		// A rematch of the match on screen: on its result, or with the result still to come up (a
+		// page back after a reload plays "Back in the match" first, and the rematch both asked for can
+		// start meanwhile).
+		const next = match.stage === 'over' || (m.rematchOf !== undefined && m.rematchOf === match.id);
+		const rematch = next && battle.active && !!battle.vs;
 		if (!rematch && !this.canShow()) {
 			// This page can't play it now (a wild battle picked up from the save): leave at once.
 			this.deps.send({ t: 'play', id: m.id, intent: { type: 'leave' } });
@@ -908,7 +912,8 @@ export class MatchController implements MatchHooks {
 		const biome = tileAtWorld(game.seed, game.pos.x, game.pos.y).biome;
 		this.scene ??= this.deps.scene?.() ?? new BattleScene();
 		this.scene.begin(biome, mine.speciesId, theirs.speciesId);
-		if (rematch) this.deps.renderer.setBattle(this.scene);
+		// (Still behind the iris of the match it follows, the scene goes up as the iris ends: `play`.)
+		if (rematch && !battle.entering) this.deps.renderer.setBattle(this.scene);
 
 		const name = match.other.name;
 		const phase = m.view.phase;
