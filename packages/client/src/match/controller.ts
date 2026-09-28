@@ -40,6 +40,7 @@ import type { PresenceStatus } from '../presence/connection';
 import type { MatchHooks } from '../presence/controller';
 import { BattleScene, type BattleSide } from '../render/battle-scene';
 import type { GameRenderer } from '../render/renderer';
+import type { KeyValueStore } from '../save/storage';
 import { account } from '../state/account.svelte';
 import { battle } from '../state/battle.svelte';
 import { doctor } from '../state/doctor.svelte';
@@ -92,11 +93,12 @@ import { travel } from '../state/travel.svelte';
  * - **Back to exploring is final** (#146). The kid's Back on a result
  *   (`goBack`) goes with a `done`, which a socket that is away never
  *   carries, and one that dies as it is sent can lose. So the page keeps
- *   the match it went back from (`wentBack`): it never puts that match up
- *   again, whatever the server still sends of it, and it says `done` again
- *   when a `hi` says the server still has the kid in it. Only the kid's own
- *   Back counts: a result this page let go of because another window took
- *   over follows the kid back to it.
+ *   the match it went back from (`wentBack`, and in this tab's session, so
+ *   a reload keeps it too): it never puts that match up again, whatever the
+ *   server still sends of it, and it says `done` again when a `hi` says the
+ *   server still has the kid in it. Only the kid's own Back counts: a
+ *   result this page let go of because another window took over follows
+ *   the kid back to it.
  */
 
 /** Seconds past an invite's time the page waits for the server to say it ended, before letting go. */
@@ -109,6 +111,8 @@ const ANSWER_SECONDS = 8;
 const HERE_SECONDS = 10;
 /** Seconds the button waits after a No or no answer: the server's own wait. */
 const ASK_AGAIN_SECONDS = 30;
+/** The session key that keeps the match the kid went back from, through a reload of the tab. */
+export const WENT_BACK_KEY = 'animath.wentBack';
 
 /** One beat: change something and maybe say a line, then hold for `hold` seconds. */
 interface Beat {
@@ -135,6 +139,12 @@ export interface MatchDeps {
 	clock?: () => number;
 	/** The battle's scene, or a stand-in in a test. */
 	scene?: () => BattleScene;
+	/**
+	 * This tab's sessionStorage, which keeps the match the kid went back from
+	 * (`WENT_BACK_KEY`), so their Back holds through a reload too. Without
+	 * one, only this page keeps it.
+	 */
+	session?: KeyValueStore | null;
 }
 
 export class MatchController implements MatchHooks {
@@ -173,10 +183,12 @@ export class MatchController implements MatchHooks {
 	 * server may still have them in it: its `done` may not have got there.
 	 * Never put up again; forgotten once a `hi` names another match, or none.
 	 */
-	private wentBack: string | null = null;
+	private wentBack: string | null;
 
 	constructor(private readonly deps: MatchDeps) {
 		this.clock = deps.clock ?? (() => performance.now() / 1000);
+		// A page reloaded after the kid went back from a result keeps their choice.
+		this.wentBack = deps.session?.get(WENT_BACK_KEY) ?? null;
 	}
 
 	// --- what presence asks ---------------------------------------------------------
@@ -740,7 +752,7 @@ export class MatchController implements MatchHooks {
 			// with it never got there (the socket was away). It goes now, and the match the server
 			// sends next is not put up again (`matchMessage`). Otherwise the server let go of it.
 			if (going === this.wentBack) this.deps.send({ t: 'done', id: going });
-			else this.wentBack = null;
+			else this.keepWentBack(null);
 		}
 		if ((match.stage === 'playing' || match.stage === 'over') && going !== match.id) {
 			// Another run of the server than the match's: it restarted without a word (a crash),
@@ -1055,8 +1067,15 @@ export class MatchController implements MatchHooks {
 	 * and says `done` once more when the next `hi` names it (`hello`).
 	 */
 	private goBack(): void {
-		this.wentBack = match.id;
+		this.keepWentBack(match.id);
 		this.finish();
+	}
+
+	/** The match the kid went back from (or none), kept by this page and this tab's session. */
+	private keepWentBack(id: string | null): void {
+		this.wentBack = id;
+		if (id === null) this.deps.session?.remove(WENT_BACK_KEY);
+		else this.deps.session?.set(WENT_BACK_KEY, id);
 	}
 
 	/**
