@@ -226,7 +226,84 @@ describe('errorReporter', () => {
 		]);
 	});
 
-	it('sends each error once a page, and at most ten', () => {
+	/** An error thrown at one place: the same message from the same place is one error. */
+	function thrownAt(message: string): Error {
+		const error = new Error(message);
+		error.stack = 'at f (/immutable/main.js:1:1)';
+		return error;
+	}
+
+	it('sends three an hour from a tab, each error once, and a reload remembers them', () => {
+		let now = Date.parse('2026-09-28T12:00:00Z');
+		let kept: string | null = null;
+		const memory = {
+			read: () => kept,
+			write: (text: string) => {
+				kept = text;
+			}
+		};
+		const load = () => {
+			const sent: ErrorReport[] = [];
+			const reports = errorReporter({
+				send: (report) => sent.push(report),
+				build: 'dev',
+				browser: 'Other (other)',
+				screen: () => '1x1',
+				memory,
+				now: () => now
+			});
+			return { reports, sent };
+		};
+		const first = load();
+		first.reports.report(thrownAt('one'));
+		first.reports.report(thrownAt('two'));
+		const reloaded = load();
+		reloaded.reports.report(thrownAt('one'));
+		reloaded.reports.report(thrownAt('three'));
+		reloaded.reports.report(thrownAt('four'));
+		expect([...first.sent, ...reloaded.sent].map((r) => r.message)).toEqual([
+			'Error: one',
+			'Error: two',
+			'Error: three'
+		]);
+		// The tab keeps a mark of each report, never its words.
+		expect(kept).not.toMatch(/one|two|three/);
+		now += 60 * 60_000;
+		const later = load();
+		later.reports.report(thrownAt('four'));
+		later.reports.report(thrownAt('one'));
+		expect(later.sent.map((r) => r.message)).toEqual(['Error: four', 'Error: one']);
+	});
+
+	it('still reports, once an error, when the tab keeps nothing or what it kept is not a list', () => {
+		for (const memory of [
+			{
+				read: (): string | null => {
+					throw new Error('storage denied');
+				},
+				write: () => {
+					throw new Error('storage denied');
+				}
+			},
+			{ read: () => '{"not":"a list"}', write: () => undefined },
+			{ read: () => '[{"k":1},"x",null]', write: () => undefined }
+		]) {
+			const sent: ErrorReport[] = [];
+			const reports = errorReporter({
+				send: (report) => sent.push(report),
+				build: 'dev',
+				browser: 'Other (other)',
+				screen: () => '1x1',
+				memory
+			});
+			reports.report(thrownAt('a'));
+			reports.report(thrownAt('a'));
+			reports.report(thrownAt('b'));
+			expect(sent.map((r) => r.message)).toEqual(['Error: a', 'Error: b']);
+		}
+	});
+
+	it('sends each error once a page, and at most three', () => {
 		const { reports, sent } = reporter();
 		const again = () => {
 			const error = new Error('again');
@@ -244,26 +321,27 @@ describe('errorReporter', () => {
 	});
 
 	it('reports anything thrown or rejected, and a place for one without a stack', () => {
-		const { reports, sent } = reporter();
-		reports.report('plain text', true);
-		reports.report(42);
-		reports.report(
-			{ message: 'SyntaxError: Unexpected token' },
-			false,
-			'https://animath.xyz/immutable/boot.js:1:99'
-		);
 		const hostile = {
 			toString() {
 				throw new Error('no');
 			}
 		};
-		reports.report(hostile);
-		expect(sent.map((r) => [r.message, r.stack])).toEqual([
-			['rejected with: plain text', ''],
-			['thrown: 42', ''],
-			['SyntaxError: Unexpected token', '/immutable/boot.js:1:99'],
-			['thrown: object', '']
-		]);
+		const cases: [unknown, boolean, string, [string, string]][] = [
+			['plain text', true, '', ['rejected with: plain text', '']],
+			[42, false, '', ['thrown: 42', '']],
+			[
+				{ message: 'SyntaxError: Unexpected token' },
+				false,
+				'https://animath.xyz/immutable/boot.js:1:99',
+				['SyntaxError: Unexpected token', '/immutable/boot.js:1:99']
+			],
+			[hostile, false, '', ['thrown: object', '']]
+		];
+		for (const [thrown, rejected, where, told] of cases) {
+			const { reports, sent } = reporter();
+			reports.report(thrown, rejected, where);
+			expect(sent.map((r) => [r.message, r.stack])).toEqual([told]);
+		}
 	});
 
 	it('cuts a long message to 300 characters, one line', () => {
