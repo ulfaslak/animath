@@ -147,8 +147,8 @@ describe('friendly-match balance', () => {
 			await turn();
 		}
 		// 9,000 whole matches, the big tiers' longer ones among them: 2.1 s alone at a load average
-		// of 10, 6.8 s in the whole suite at 35, and up to ten times its run alone at 150; its loop turns after
-		// each thousand.
+		// of 10, 6.8 s in the whole suite at 35, and up to ten times its run alone at 150; its loop
+		// turns after each thousand.
 	}, 90_000);
 
 	// The printed tables run only with SIM=1: 45,000 and 24,000 whole matches,

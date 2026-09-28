@@ -957,7 +957,8 @@ describe('encounterTableAt: the ground around the tall grass', () => {
 		expect(checked).toBeGreaterThan(50_000);
 		expect(rose).toBeGreaterThan(20_000);
 		// 54,675 tables, and every one-tile change between them: 2.2 s alone at a load average of
-		// 10, 5.1 s in the whole suite at 37, and up to ten times its run alone at 150; its loop turns after each biome.
+		// 10, 5.1 s in the whole suite at 37, and up to ten times its run alone at 150; its loop
+		// turns after each biome.
 	}, 90_000);
 
 	it('on any ground, the share of animals bigger than the lead, and of those two tiers up, never falls with distance', () => {
@@ -1171,8 +1172,8 @@ describe('rollEncounter', () => {
 		expect(met).toBeGreaterThan(12_000);
 		// 168,000 rolls, each rolled again by the rule here (the starter's in full, a bigger lead's
 		// an eighth as many, as its table is checked on every ground above): 4.1 s alone at a load
-		// average of 10, 6.5 s in the whole suite at 37, and up to ten times its run alone at 150; its loop turns
-		// after each biome.
+		// average of 10, 6.5 s in the whole suite at 37, and up to ten times its run alone at 150;
+		// its loop turns after each biome.
 	}, 180_000);
 
 	it('neither the lead nor the ground changes whether a step starts a battle, only which animal comes out', async () => {
@@ -1348,7 +1349,8 @@ describe('rollEncounter', () => {
 			}
 		}
 		// 4,000 encounters for each lead, biome and distance: 4.0 s alone at a load average of 10,
-		// 8.6 s in the whole suite at 36, and up to ten times its run alone at 150; its loop turns after each biome.
+		// 8.6 s in the whole suite at 36, and up to ten times its run alone at 150; its loop turns
+		// after each biome.
 	}, 120_000);
 });
 

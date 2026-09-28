@@ -400,9 +400,9 @@ describe('the leash', () => {
 				expect(bad).toEqual([]);
 				// Every species ending both ways, and with reduced motion looked at for a third of
 				// them and flown for the rest, a frame at a time (about 135 throws with #89's 41
-				// animals, 27 of them flights alone): 1.4 to 2.0 s alone at a load average of 12 to 23, 1.7 to 7.8 s in the
-				// whole suite at 43 to 58, which scales to 20 s at 150. The whole sweep in one test
-				// took 67 s in the whole suite at 165 with 32 animals.
+				// animals, 27 of them flights alone): 1.4 to 2.0 s alone at a load average of 12 to
+				// 23, 1.7 to 7.8 s in the whole suite at 43 to 58, which scales to 20 s at 150. The
+				// whole sweep in one test took 67 s in the whole suite at 165 with 32 animals.
 			}, 90_000);
 
 			it('never goes behind the wild animal’s status box: its loop keeps clear, and its rope never crosses it', async () => {

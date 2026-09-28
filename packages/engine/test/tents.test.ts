@@ -211,8 +211,8 @@ describe('nearestTent', () => {
 		// From the land, across a lake is sometimes the shorter way.
 		expect(shorter).toBeGreaterThan(0);
 		// 30 searches, each checked by a flood fill over land and water, most of them out on a
-		// lake: 2.2 s alone at a load average of 10, 6.6 s in the whole suite at 34, and up to ten times its run alone at 150;
-		// its loop turns after each search.
+		// lake: 2.2 s alone at a load average of 10, 6.6 s in the whole suite at 34, and up to ten
+		// times its run alone at 150; its loop turns after each search.
 	}, 90_000);
 
 	it('without the boat, searches exactly as on foot', () => {
@@ -274,8 +274,8 @@ describe('nearestTent', () => {
 				await turn();
 			}
 		}
-		// 180 searches: 2.1 s alone at a load average of 10, 4.1 s in the whole suite at 37, and up to ten times its run alone at 150;
-		// its loop turns after each search.
+		// 180 searches: 2.1 s alone at a load average of 10, 4.1 s in the whole suite at 37, and up
+		// to ten times its run alone at 150; its loop turns after each search.
 	}, 90_000);
 
 	it('beside a tent, that tent is nearest: zero steps, facing it — at any sign and across chunk edges', () => {
@@ -361,7 +361,8 @@ describe('nearestTent', () => {
 		}
 		expect(tied).toBeGreaterThan(0);
 		// Every tent in a 1,600-tile box, searched around: 3.1 s alone at a load average of 10,
-		// 5.6 s in the whole suite at 38, and up to ten times its run alone at 150; its loop turns after each world.
+		// 5.6 s in the whole suite at 38, and up to ten times its run alone at 150; its loop turns
+		// after each world.
 	}, 120_000);
 
 	it('is deterministic and does not depend on what was asked before', () => {
