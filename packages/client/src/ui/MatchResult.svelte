@@ -9,18 +9,19 @@
 	/**
 	 * A friendly match's end, over the battle's screen ([[UI_SPEC]] § Friendly
 	 * matches): who won, warm for both, with "Rematch?" (a new match once both
-	 * have said so) and "Back to exploring"; or, when the server stopped for a
-	 * new version mid-match, that the game is updating, with "Play again"
-	 * (lit once the friend is back) and "Back to exploring". Left and right
-	 * choose, Enter picks after the quiet moment, and a tap is its option's
-	 * key (`option:<i>`). Written by `MatchController`; nothing here acts.
+	 * have said so) and "Back to exploring"; or, when the server stopped
+	 * mid-match, that the game is updating (it said so) or restarted (it
+	 * stopped without a word), with "Play again" (lit once the friend is back)
+	 * and "Back to exploring". Left and right choose, Enter picks after the
+	 * quiet moment, and a tap is its option's key (`option:<i>`). Written by
+	 * `MatchController`; nothing here acts.
 	 */
 	const name = $derived(match.other?.name ?? '');
 	const result = $derived(match.result);
 	const updating = $derived(match.stage === 'updating');
 
 	const title = $derived.by(() => {
-		if (updating) return t('match.updating.title');
+		if (updating) return t(match.restarted ? 'match.updating.restarted' : 'match.updating.title');
 		if (!result) return '';
 		if (result.missed) return t('match.result.missed');
 		if (result.won) return t('match.result.won');
@@ -31,7 +32,8 @@
 	const text = $derived.by(() => {
 		if (updating) {
 			if (match.friendAsked) return t('match.updating.asked', { name });
-			return match.friendBack ? t('match.updating.text') : t('match.updating.waiting', { name });
+			if (!match.friendBack) return t('match.updating.waiting', { name });
+			return t(match.restarted ? 'match.updating.restartedText' : 'match.updating.text');
 		}
 		if (!result) return '';
 		if (result.missed) return t('match.result.missedText');

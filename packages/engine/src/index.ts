@@ -265,6 +265,7 @@ export {
 	byeCloseCode,
 	byeReasonOf,
 	helloVersion,
+	isBootId,
 	isGuestId,
 	isMatchId,
 	isPid,

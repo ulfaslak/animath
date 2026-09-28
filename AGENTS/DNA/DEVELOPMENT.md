@@ -162,6 +162,8 @@ pnpm players --url http://localhost:<port>/ --player "ada:name=Ada,at=-2:6" \
   --player "bo:name=Bo,at=-1:6,facing=left,party=frog" --steps "$STEPS,all:shot:end" --out screenshots/m/end
 ``` Each player's console errors fail the run; a socket the server did not take (it was restarting) is counted, not failed.
 
+A touch player driven by keys too (`turn:` presses keys) puts the touch controls away, and the next `tap:` turns them on again: the panel reflows under Playwright's check, the tap lands, and Playwright retries it into whatever it opened until it times out. Tap something that presses nothing first (a status box's name, `tap:.box .name`), wait a moment, then tap the button. A crash without a goodbye is a `run:` of a script that `kill -9`s your own API's listener (check its `lsof -a -p <pid> -d cwd` is your worktree) and starts it again, waiting for `/api/health`.
+
 **A deploy's hop, without Docker.** Production swaps the app behind nginx: the new copy takes new connections, then the old gets SIGTERM and sends its presence sockets on ([[ARCHITECTURE]] § Presence › Deploys). To watch it, stand a TCP switch in for nginx on your `API_PORT`, sending each new connection to the port a file names, and run the API twice behind it (`PORT=<a>` and `PORT=<b>`, `tsx src/index.ts` without `watch`, your own `DATABASE_URL`):
 
 ```js

@@ -1217,6 +1217,10 @@ match:
     row: Forlad
     title: Forlad kampen
     detail: '{name} vinder, og du går på opdagelse igen.'
+    ask: Vil du forlade kampen?
+    stay: Bliv
+    go: Forlad
+    keys: ← → flyt · Enter vælg · Esc bliv
   result:
     won: Du vandt!
     wonText: 'Sikke en kamp, {name}!'
@@ -1242,6 +1246,8 @@ match:
     waiting: 'Venter på, at {name} kommer tilbage…'
     asked: '{name} vil spille igen!'
     again: Spil igen
+    restarted: Spillet genstartede.
+    restartedText: Skal I spille igen?
   notes:
     offline: Finder kampen igen…
     away: '{name} røg ud. Vi venter… {seconds}'

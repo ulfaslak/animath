@@ -67,6 +67,11 @@ function pidOf(name: string): string {
 	return `pid${name}`.padEnd(12, '0');
 }
 
+/** The server's hi to this page (Ada), with the match it knows her in. */
+function hi(match: string | null) {
+	return { t: 'hi', v: PROTOCOL_VERSION, pid: pidOf('Ada'), name: 'Ada', match } as const;
+}
+
 /** What the message line says now, as the HUD shows it. */
 function said(): string {
 	hud.tick(0);
@@ -491,6 +496,75 @@ describe('a match', () => {
 		expect(said()).toBe('You left the match.');
 	});
 
+	it('asks before leaving on Escape while the other thinks: Stay is lit, and only Leave leaves', () => {
+		const t = setup();
+		const ref = started(t);
+		if (ref.state.phase.kind !== 'ended' && ref.state.phase.side === 'a') {
+			// Ada's turn first: it passes to Bo (a wrong answer), as her page would have played it.
+			t.controller.receive(
+				ref.message('a', ref.apply('a', { type: 'attack', attackIndex: 1, level: 1 }))
+			);
+			t.controller.receive(ref.message('a', ref.apply('a', { type: 'answer', input: '-1' })));
+		}
+		t.runUntil(() => battle.screen === 'waiting');
+		t.press('Escape');
+		expect(match.leaving).toBe(true);
+		expect(match.option).toBe(0);
+		// A second Escape stays; so does Enter on Stay, and a mash of it never picks anything.
+		t.press('Escape');
+		expect(match.leaving).toBe(false);
+		t.press('Escape', ...Array.from({ length: 12 }, () => 'Enter'));
+		expect(match.leaving).toBe(true);
+		t.pick('Enter');
+		expect(match.leaving).toBe(false);
+		// Right to Leave: a mashed Enter never leaves; one after the quiet moment does.
+		t.press('Escape', 'ArrowRight', ...Array.from({ length: 12 }, () => 'Enter'));
+		expect(match.option).toBe(1);
+		expect(t.sentOf('play')).toEqual([]);
+		t.pick('Enter');
+		expect(t.sentOf('play')).toEqual([{ t: 'play', id: ref.id, intent: { type: 'leave' } }]);
+		expect(match.leaving).toBe(false);
+		t.controller.receive(ref.message('a', ref.apply('a', { type: 'leave' })));
+		t.runUntil(() => match.stage === 'none');
+		expect(said()).toBe('You left the match.');
+	});
+
+	it("asks on the kid's own turn too, where Escape was nothing, and a tap on Leave leaves", () => {
+		const t = setup();
+		const ref = started(t);
+		if (ref.state.phase.kind !== 'ended' && ref.state.phase.side !== 'a') {
+			t.controller.receive(
+				ref.message('a', ref.apply('b', { type: 'attack', attackIndex: 1, level: 1 }))
+			);
+			t.controller.receive(ref.message('a', ref.apply('b', { type: 'answer', input: '-1' })));
+		}
+		t.runUntil(() => battle.screen === 'actions');
+		t.press('Escape');
+		expect(match.leaving).toBe(true);
+		// A tap on Stay: the menu, as it was.
+		t.pick(optionKey(0));
+		expect(match.leaving).toBe(false);
+		expect(battle.screen).toBe('actions');
+		// A tap on Leave too soon picks nothing; after the quiet moment it leaves.
+		t.press('Escape', optionKey(1));
+		expect(match.option).toBe(1);
+		expect(t.sentOf('play')).toEqual([]);
+		t.pick(optionKey(1));
+		expect(t.sentOf('play')).toEqual([{ t: 'play', id: ref.id, intent: { type: 'leave' } }]);
+	});
+
+	it('lets the question go when the match ends under it', () => {
+		const t = setup();
+		const ref = started(t);
+		t.runUntil(() => battle.screen === 'waiting' || battle.screen === 'actions');
+		t.press('Escape');
+		expect(match.leaving).toBe(true);
+		t.controller.receive(ref.message('a', ref.apply('b', { type: 'leave' })));
+		t.runUntil(() => battle.screen === 'result');
+		expect(match.leaving).toBe(false);
+		expect(match.result).toMatchObject({ won: true, reason: 'left' });
+	});
+
 	it('shows the other leaving as a win, with no rematch to ask for', () => {
 		const t = setup();
 		const ref = started(t);
@@ -561,20 +635,92 @@ describe('a match', () => {
 	});
 
 	it('says the match is over to a page that came back to find it gone', () => {
+		// From a server that says which run it is, and from one before `boot`, which does not.
+		for (const [i, boot] of ['run0001', undefined].entries()) {
+			if (i > 0) {
+				stop?.();
+				battle.reset();
+				match.reset();
+			}
+			const t = setup();
+			t.controller.receive({ ...hi(null), ...(boot ? { boot } : {}) });
+			started(t);
+			t.controller.status('waiting');
+			expect(match.offline).toBe(true);
+			t.controller.status('on');
+			t.controller.receive({ ...hi(null), ...(boot ? { boot } : {}) });
+			expect(match.stage).toBe('over');
+			expect(match.result?.missed).toBe(true);
+		}
+	});
+
+	it('says the game restarted to a page back to a new run of the server, and Play again asks the same friend', () => {
 		const t = setup();
+		t.controller.receive({ ...hi(null), boot: 'run0001' });
 		started(t);
+		// The server stopped without a word (a crash): no bye, the socket just went.
 		t.controller.status('waiting');
-		expect(match.offline).toBe(true);
 		t.controller.status('on');
-		t.controller.receive({
-			t: 'hi',
-			v: PROTOCOL_VERSION,
-			pid: pidOf('Ada'),
-			name: 'Ada',
-			match: null
-		});
+		t.controller.receive({ ...hi(null), boot: 'run0002' });
+		expect(match.stage).toBe('updating');
+		expect(match.restarted).toBe(true);
+		expect(match.result).toBeNull();
+		expect(t.controller.busy).toBe(false);
+		expect(match.friendBack).toBe(false);
+		t.controller.peer(peer('Bo', 1));
+		expect(match.friendBack).toBe(true);
+		t.pick('Enter');
+		expect(t.sentOf('challenge')).toHaveLength(2);
+		expect(t.sentOf('challenge')[1]!.pid).toBe(pidOf('Bo'));
+		expect(match.stage).toBe('asking');
+		expect(match.restarted).toBe(false);
+	});
+
+	it('says the game restarted on a result whose rematch could still be had, and leaves one that could not', () => {
+		// A match played to its end: Ada on the result, Rematch? still to be had.
+		const t = setup();
+		t.controller.receive({ ...hi(null), boot: 'run0001' });
+		const ref = started(t);
+		ref.state = {
+			...ref.state,
+			teams: { a: ref.state.teams.a, b: ref.state.teams.b.map((a) => ({ ...a, hp: 1 })) }
+		};
+		for (let turns = 0; ref.state.phase.kind !== 'ended'; turns++) {
+			if (turns > 40) throw new Error('never ended');
+			const phase = ref.state.phase;
+			const intent: MatchIntent =
+				phase.kind === 'choose-animal'
+					? { type: 'pick-next', teamIndex: 1 }
+					: phase.kind === 'choose-action'
+						? { type: 'attack', attackIndex: 1, level: 1 }
+						: { type: 'answer', input: phase.side === 'a' ? ref.answer() : '-1' };
+			t.controller.receive(ref.message('a', ref.apply(phase.side, intent)));
+		}
+		t.runUntil(() => battle.screen === 'result');
+		t.controller.status('waiting');
+		t.controller.status('on');
+		t.controller.receive({ ...hi(null), boot: 'run0002' });
+		expect(match.stage).toBe('updating');
+		expect(match.restarted).toBe(true);
+
+		// Bo left: the result says so, and a restart asks nobody back who chose to go.
+		stop?.();
+		battle.reset();
+		match.reset();
+		const u = setup();
+		u.controller.receive({ ...hi(null), boot: 'run0001' });
+		const left = started(u);
+		u.controller.receive(left.message('a', left.apply('b', { type: 'leave' })));
+		u.runUntil(() => battle.screen === 'result');
+		u.controller.status('waiting');
+		u.controller.status('on');
+		u.controller.receive({ ...hi(null), boot: 'run0002' });
 		expect(match.stage).toBe('over');
-		expect(match.result?.missed).toBe(true);
+		expect(match.result).toMatchObject({ won: true, reason: 'left' });
+		u.controller.peer(peer('Bo', 1));
+		u.pick('Enter');
+		expect(u.sentOf('challenge')).toHaveLength(1);
+		expect(match.stage).toBe('none');
 	});
 
 	it('ends kindly when the server updates, and Play again asks the same friend once both are back', () => {

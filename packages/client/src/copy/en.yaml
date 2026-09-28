@@ -1474,6 +1474,12 @@ match:
     row: Leave
     title: Leave the match
     detail: '{name} wins, and you go back to exploring.'
+    # Escape in a match asks first: the question, its two buttons (Stay is lit
+    # first), and its keys. Its line is match.leave.detail.
+    ask: Leave the match?
+    stay: Stay
+    go: Leave
+    keys: ← → choose · Enter go · Esc stay
   # The end of a match: warm for both.
   result:
     won: You won!
@@ -1503,6 +1509,10 @@ match:
     waiting: 'Waiting for {name} to come back…'
     asked: '{name} wants to play again!'
     again: Play again
+    # It stopped without a word (the page found a new run of it on coming
+    # back): nobody left the match. The rest of the card is as above.
+    restarted: The game restarted.
+    restartedText: Want to play again?
   # Notes at the top of the match.
   notes:
     offline: Getting the match back…

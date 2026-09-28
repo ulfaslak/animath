@@ -293,6 +293,15 @@ export type ClientMessage =
  * friendly match this player is in (its id), if one is going on: a page that
  * dropped out and came back is sent it again (`match`) at once. A page that
  * was in another match knows from this that it is over.
+ *
+ * `boot` is this run of the server's own id, new every time it starts: a
+ * page back to no match can tell the server that forgot it (it restarted,
+ * and no `bye` said so: it stopped without one) from the one it played on
+ * (the match ended while the page was away). It is the one field a message
+ * may leave out: a server from before it sends none (a rollback, or the
+ * old copy during a deploy), and a page reads its `hi` all the same. An
+ * old page drops it, as every parser drops a field it does not know, so it
+ * needed no new version.
  */
 export interface HiMessage {
 	t: 'hi';
@@ -300,6 +309,7 @@ export interface HiMessage {
 	pid: string;
 	name: string;
 	match: string | null;
+	boot?: string;
 }
 
 /** The page speaks another version of this protocol (`v` is the server's): reload for the new game. */
@@ -595,6 +605,11 @@ function readSpot(o: Fields): Omit<WhereMessage, 't' | 'world'> | null {
 
 /** A match's id: the server's, 6 to 32 characters of base64url. */
 export function isMatchId(value: unknown): value is string {
+	return isToken(value, 6, 32);
+}
+
+/** A run of the server's id (`HiMessage.boot`): 6 to 32 characters of base64url. */
+export function isBootId(value: unknown): value is string {
 	return isToken(value, 6, 32);
 }
 
@@ -921,8 +936,18 @@ function readMatchMessage(o: Fields): MatchMessage | null {
 const SERVER_PARSERS: { [K in ServerMessage['t']]: Parser<Extract<ServerMessage, { t: K }>> } = {
 	hi: (o) => {
 		const match = o.match === null ? null : isMatchId(o.match) ? o.match : undefined;
+		// Left out by a server from before it; anything else that is no run's id is junk.
+		const boot = !('boot' in o) ? undefined : isBootId(o.boot) ? o.boot : null;
+		if (boot === null) return null;
 		return isWhole(o.v, 0, 2 ** 31) && isPid(o.pid) && isWireName(o.name) && match !== undefined
-			? { t: 'hi', v: o.v, pid: o.pid, name: o.name, match }
+			? {
+					t: 'hi',
+					v: o.v,
+					pid: o.pid,
+					name: o.name,
+					match,
+					...(boot === undefined ? {} : { boot })
+				}
 			: null;
 	},
 	refresh: (o) => (isWhole(o.v, 0, 2 ** 31) ? { t: 'refresh', v: o.v } : null),
