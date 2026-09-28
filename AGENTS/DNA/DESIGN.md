@@ -18,9 +18,9 @@ Rules that follow from that:
 
 - **Fixed camera.** In explore, orthographic, pitched about 50°, yawed about 35°. No zoom, no rotation, ever. The world reads as a diorama because the angle never changes. The battle and the title's starter stage have fixed cameras of their own.
 - **Facets, not textures.** Colour comes from materials and lighting, not image textures. `flatShading: true` everywhere.
-- **Chunky silhouettes.** Trees are a cone on a cylinder, rocks are a dodecahedron, tents are a pyramid, reeds a thin stalk with a brown head, flowers and bushes a twenty-sided ball, the boat half a cone laid on its side, wide at the stern, with a coral rim and a little deck across its front half. Animals are boxes, spheres and cones with one exaggerated tell each — the squirrel's curled tail, the rabbit's ears, the frog's eyes on top of its head, the deer's antlers — because at the game's camera a bear is 40 px tall and a squirrel 15. A curve is a torus arc (the squirrel's tail) or a five-sided tube tapering to a point (the octopus's arms, the whale's spout). A sea animal is only ever seen swimming, its lower 40% under the water, so its tell stands in its top 60% and reads from the camera above whichever way it swims: the octopus's arms curl up round its head, the starfish stands upright on one arm. Real models keep that vocabulary: few polygons, readable at 40 px tall.
+- **Chunky silhouettes.** Trees are a cone on a cylinder, rocks are a dodecahedron, tents are a pyramid with the witch doctor standing in front (a robe that is a six-sided cone, a round head with a white beard and a big round nose, a staff with a green gem, and his tell, a tall floppy hat: a crown whose tip bends over, a gold band, a feather; a brim narrow enough that the camera, looking down, still sees his face) and his iron pot on a campfire of two crossed logs beside him, reeds a thin stalk with a brown head, flowers and bushes a twenty-sided ball, the boat half a cone laid on its side, wide at the stern, with a coral rim and a little deck across its front half. Animals are boxes, spheres and cones with one exaggerated tell each — the squirrel's curled tail, the rabbit's ears, the frog's eyes on top of its head, the deer's antlers — because at the game's camera a bear is 40 px tall and a squirrel 15. A curve is a torus arc (the squirrel's tail) or a five-sided tube tapering to a point (the octopus's arms, the whale's spout). A sea animal is only ever seen swimming, its lower 40% under the water, so its tell stands in its top 60% and reads from the camera above whichever way it swims: the octopus's arms curl up round its head, the starfish stands upright on one arm. Real models keep that vocabulary: few polygons, readable at 40 px tall.
 - **Warm light.** One sun (slightly warm white) casting soft shadows, plus a hemisphere fill so shadows stay coloured, never black, and a small warm light at each campfire.
-- **Gentle motion.** Steps hop and swing the trainer's arms; grass could sway and fire could flicker. Nothing snaps.
+- **Gentle motion.** Steps hop and swing the trainer's arms; the witch doctor breathes, sways, looks about and now and then taps his staff down, the flames under his pot flicker and the potion bubbles; grass could sway. Nothing snaps.
 - **A little juice, no new assets.** Moments get a small flourish made from what is already in the game — a lunge, a shake, a ring of dust, a burst of confetti in the palette's colours, sparkles along an HP bar, an iris into battle. A flourish marks a moment the screen already shows; it never hides text or the animal it is about, never leaves the scene, never delays a key and never fills the screen with a flash ([[UI_SPEC]] § Sound and juice). Size one against the thing it frames, in a frame, not by its numbers.
 
 ## Palette
@@ -39,11 +39,14 @@ Hex values are the ones in `packages/client/src/render/palette.ts` and `styles.c
 | Tree trunk           | `#8b5a3c` |                                              |
 | Tree canopy          | `#2c7a43` / `#3a8f4c` / `#2f8a55` | Three dark greens, mixed randomly: trees grow only in the forest. The starter stage's bushes keep `#3e9e4f` / `#62bf5f`. |
 | Tent cloth           | `#f2a65a` | Door `#d47c2a`.                              |
+| The witch doctor     | robe `#8a5fd0`, hat `#4a2f96`, belt, hat band and the bobble on its tip warn `#f5b83d`, feather trainer coral `#ff7e6b`, skin `#ffcfb0`, nose `#f5a48a`, beard off-white, eyes near-black, staff trunk `#8b5a3c`, gem good `#56c271` | `DOCTOR_COLORS`: purple and gold, a storybook witch's colours, the robe paler than the hat so the hat's shape reads against it; the gem is the doctor's green. |
+| His campfire         | pot `#3e3947`, rim `#5c5566`; potion good `#56c271`, bubbles `#c6f2b4`; flames fire `#ffb347`, accent `#ff9f43` and warn `#f5b83d`; logs trunk | The potion, its bubbles and the flames are unlit, so they glow. The potion is the green of a full HP bar and of the doctor's sparkles. |
 | Fire / warm accent   | `#ffb347` | Also the UI accent (`--accent: #ff9f43`).    |
 | Trainer (player)     | `#ff7e6b` shirt, `#ffcfb0` skin, `#2f4fa8` shorts, `#3d7be8` cap | The trainers are the only figures in blue shorts, so none reads as an animal. |
 | Other trainers       | shirts `#f5c84a`, `#56c271`, `#9b6bd6`, `#f07fb0`, `#3cb8b0`, `#e0553f`, `#6cc3f0`, `#a8d84e`; caps `#2fa39a`, `#ff9f43`, `#f5c84a`, `#7a4fc0`, `#ff7e6b`, `#e0553f` | `TRAINER_LOOKS`: other players wear a shirt and a cap picked by their name, so a friend looks the same on every screen; the trainer's skin and blue shorts stay. No pair is the player's coral and blue, so nobody looks like you. Their boat's rim and pennant are their shirt's colour. |
 | Animal fur           | Squirrel `#c9733a`, rabbit `#d9cbb8`, frog `#3aa66a`, fox `#e8762b`, otter `#8a5a3a`, red deer `#c48a52`, wolf `#7f858f`, bear `#5a3a28`; at sea crab `#e0553f`, starfish `#f2894e`, turtle `#8cc47e` (shell `#3f7f4c`), dolphin `#6f9fc4`, octopus `#b4589e`, whale `#3d6b9a` | `ANIMAL_COLORS`: one fur (or skin) per species plus an accent for its tell (white tail tip, pink ear, tan muzzle, the frog's pale throat `#e3eea4`). The frog's green is bluer and darker than grass and tall grass, so it never melts into them. The whale's spout is water: the shallows' `#5ec8f2`, with off-white drops. The small animals of the countryside below: none the trainer's blue, none a grass green, sand or snow. |
 | Small animals (#89)  | fur / accent: shrew `#6b4f3f` / `#d9c3a5` belly · wood mouse `#a8743f` / `#f3ece0` belly and ears · brown rat `#7a6a5a` / `#e9a6a6` bare pink tail, ears and feet · hedgehog `#8a6d4e` spines / `#d8b98f` face and feet · mole `#2f2b33` velvet / `#f0a5a0` hands and nose · common lizard `#7d6b3a` / `#e8b33c` belly · common toad `#9a7445` / `#d9632b` copper eyes · robin `#8a6a4a` / `#e8622c` breast · stag beetle `#3b2418` / `#8e3b1f` jaws · roe deer `#b5703d` / `#f3ece0` rump · badger `#8c8c8c` / `#f4f1ea` face · pine marten `#6b3f22` / `#f2c14e` bib · stoat `#a86a3a` / `#fff4e6` belly · adder `#8a8579` / `#2f2a28` zigzag · grey heron `#a7adb3` / `#e3b341` beak and legs · tawny owl `#9b6a3f` / `#d9b98a` face disc · raccoon `#8f8a85` / `#2f2a28` mask · beaver `#6e4a2e` / `#e0762e` teeth | One tell each ([[PRODUCT]] §5 Explore): the toad is browner and bumpier than the frog, never green; the tawny owl has no ear tufts. The stoat's tail tip, the badger's stripes, the roe deer's antlers, the raccoon's legs and the beaver's paddle tail are the shared near-black. |
+| Big animals (#89)    | fur / accent: wild boar `#4a3a30` / `#efe6d4` tusks · mute swan `#f7f5ef` / `#e8762b` beak · eagle-owl `#b07a3e` / `#f28c1c` eyes · lynx `#c49a6c` / `#2f2a28` ear tufts and tail tip · wolverine `#4a3325` / `#d9a55b` side bands · golden eagle `#5a3e26` / `#d9a441` head, neck and feet · sea eagle `#6e5b47` / `#e8b83a` beak and feet · moose `#4b3a2e` / `#c9b08a` antlers · European bison `#5e4330` / `#2f2a28` horns, beard and tail tuft | One tell each, as above. The eagle-owl has ear tufts and orange eyes, so it never looks like the tawny owl. The boar's bristly ridge and snout disc, the swan's legs and the knob on its beak, and the eagles' wing tips are the shared near-black; the sea eagle's head and wedge tail are the shared off-white, and so is the lynx's muzzle. |
 | Figure details       | `#fff4e6` / `#2f2a28` | Off-white and near-black for tail tips, chests, noses, eyes. |
 | Dust                 | `#f6efe2` | The ring a tired animal lies down in, and the poof where a trainer turns up out of nowhere (smaller, a miss's puff and a switch's in a friend's battle); fades as it spreads. Never grey smoke. |
 | Confetti             | accent, good, warn, water, trainer shirt, off-white, rabbit pink | `CONFETTI_COLORS`: only colours already in the game. |
@@ -100,7 +103,7 @@ Shapes the battle made, for any screen to reuse ([[UI_SPEC]] § Component reuse)
 
 - **The chunky toy button**: a darker edge under the button's face, 4 px deep (`--press`), that squashes flat when it is pressed, as a toy's button does: under the accent `--accent-edge` (`#d9771f`), under anything paler `--edge` (ink at a fifth). The battle's Go!, its attack tiles, its moves and level buttons wear it; a highlighted one is lifted and ringed in the accent.
 - **The hit badge**: a little ten-pointed starburst and a number, what a hit is worth. A harder level's is bigger (16, 19, 22 px) and hotter: amber (warn), then the accent, then coral, with a thin ink rim. The number is always printed, in ink.
-- **The hit's burst**: the same colours as a comic starburst of twelve points with a cream rim, the damage in it in ink ("−14"), 60, 72 or 84 px across by the hit's level. It pops in and fades within its beat, beside the box it is about, never over a word or an animal.
+- **The hit's burst**: the same colours as a comic starburst of twelve points with a cream rim, the damage in it in ink ("−14"), 60, 72 or 84 px across by the hit's level (48, 56 or 64 on a phone held sideways, beside its smaller status boxes). It pops in and fades within its beat, beside the box it is about, never over a word or an animal.
 - **The icon button**: a round disc in a calm, pale blue with a flat picture on it in the world's colours (the leash's fire orange, the trainer's blue, the good green, a door in trunk brown) and its word under it; a hint rides as a coloured ring inside the rim and a word in a pill of the same colour under the button's word. The attack tiles beside them are warm (the accent over the cream), so attacks and other moves never look alike.
 - **Operator chips**: a sum's sign on a small tile of pale sky, in the trainer's blue, the prompts' own glyphs: a picture, never a button.
 - **A paw** before a name marks the other side (the wild animal's status box).
@@ -119,7 +122,8 @@ Short, warm, second person. One idea per line. Words a seven-year-old reads with
 - "Not quite! The bear shrugs it off." not "Incorrect answer."
 - "You caught a Fox!" with an exclamation mark. Big moments get big copy.
 - "Good try!" when the whole party is tired, never "You lost".
-- An animal the doctor takes goes **home**, made better: "Bye bye, Fox! It feels much better now." Never "released", "given away", "traded" or "sold"; the tokens are the doctor's thank-you, not a price. Wild animals are grumpy because they are "a little bit sick", never ill, hurt or mean.
+- He is **the witch doctor**, in every line: never "the doctor" alone (the docs and the code call him the doctor for short). The human named him ("i feel like the witch doctor needs to look like a witch doctor").
+- An animal the witch doctor takes is **set free**, the human's words for it: made better, it goes home to the wild ("Bye bye, Fox! It feels much better now."). Never "released", "given away", "traded" or "sold"; the tokens are the witch doctor's thank-you, not a price. Wild animals are grumpy because they are "a little bit sick", never ill, hurt or mean.
 - No sarcasm, no "oops", no "error". No text the game can't stand behind if a kid reads it aloud.
 
 Every line exists in each language the game speaks ([[DECISIONS]] § Copy and languages). Each language is written, not translated word for word: say what a kid who speaks it would say.
@@ -173,8 +177,17 @@ The same voice for a Danish seven-year-old reading alone: short, warm, one idea 
 | Tawny owl | natugle | en     | natuglen | en vild natugle | den vilde natugle |
 | Raccoon  | vaskebjørn | en  | vaskebjørnen | en vild vaskebjørn | den vilde vaskebjørn |
 | Beaver   | bæver  | en      | bæveren | en vild bæver   | den vilde bæver |
+| Wild boar | vildsvin | et    | vildsvinet | et vildsvin  | vildsvinet      |
+| Mute swan | knopsvane | en   | knopsvanen | en vild knopsvane | den vilde knopsvane |
+| Eagle-owl | stor hornugle | en | den store hornugle | en vild stor hornugle | den vilde store hornugle |
+| Lynx     | los    | en      | lossen  | en vild los     | den vilde los   |
+| Wolverine | jærv  | en      | jærven  | en vild jærv    | den vilde jærv  |
+| Golden eagle | kongeørn | en | kongeørnen | en vild kongeørn | den vilde kongeørn |
+| Sea eagle | havørn | en     | havørnen | en vild havørn | den vilde havørn |
+| Moose    | elg    | en      | elgen   | en vild elg     | den vilde elg   |
+| European bison | europæisk bison | en | den europæiske bison | en vild europæisk bison | den vilde europæiske bison |
 
-A species is called by its everyday name, the species a kid can learn (*spidsmus*, never *mus*, since a shrew is not a mouse; *hugorm*, not *slange*), and a name of two words keeps both: *brun rotte*, whose adjective takes the definite form (*den brune rotte*), after an owner too (*Bos brune rotte*, its `bare` form). English names are British and capitalised mid-sentence as the others are ("a wild Grey heron", "an Adder"). Every name is 15 characters or fewer, so it fits the cards.
+A species is called by its everyday name, the species a kid can learn (*spidsmus*, never *mus*, since a shrew is not a mouse; *hugorm*, not *slange*; *kongeørn*, not *ørn*), and a name of two words keeps both: *brun rotte*, whose adjective takes the definite form (*den brune rotte*), after an owner too (*Bos brune rotte*, its `bare` form), and so do *stor hornugle* (*hornugle* alone is another owl, the long-eared owl) and *europæisk bison* (*Bos store hornugle*, *Bos europæiske bison*). "Wild" is never said twice: the wild boar's `wild` forms are its name ("a Wild boar", *et vildsvin*, *vildsvinet*). The white-tailed eagle is the sea eagle (*havørn*) to a kid. English names are British and capitalised mid-sentence as the others are ("a wild Grey heron", "an Adder", "an Eagle-owl", "a European bison"). Every name is 15 characters or fewer, so it fits the cards; the longest wild form, "Vild europæisk bison", fits the wild animal's status box.
 
 The words the game uses for its things, the same on every screen:
 
@@ -182,10 +195,10 @@ The words the game uses for its things, the same on every screen:
 | --- | --- | --- |
 | tired | træt (trætte) | an animal at 0 HP: the tag, every line about it |
 | wild | vild / vildt / vilde | a wild animal, following its gender |
-| doctor | dyrlæge | the tents, the card ("Dyrlæge"), every line; also when the human says "witch doctor" |
+| witch doctor | heksedoktor (en: heksedoktoren, heksedoktorens) | the tents, the card ("Heksedoktor"), every line: "Gå til heksedoktoren!", "Heksedoktoren sælger en!", "hos heksedoktoren"; never "dyrlæge", and never "doktor" alone |
 | token | mønt (mønter) | what the doctor gives and the shop takes: "Du har 23 mønter", "2 mønter" on a row |
 | heal (the tab) | gør rask | the doctor's first tab ("Gør rask") |
-| help home | hjælpe hjem | the tab ("Hjælp hjem"), its button ("Hjælp dem hjem"), "Hjælp dyr hjem" |
+| set free | slippe fri | the tab ("Slip fri"), its button ("Slip dem fri"), "Slip dyr fri", "Vælg de dyr, du vil slippe fri." |
 | shop | butik | the tab ("Butik"), "Min butik åbner snart" |
 | axe / pickaxe / boat | økse / hakke / båd (en) | the tools: "Øksen koster 8", "Her er din økse!"; each form written out in `da.yaml` (`items.*`) |
 | paraglider / fly | paraglider (en) / flyve | the tool ("Paraglider", "din paraglider", "Svæver over træer, sten og vand."), the touch button ("Flyv"), "Hold mellemrum nede for at flyve!", "flyver" in Who's here; a rock is "sten" there too, never "klipper" |
@@ -193,7 +206,7 @@ The words the game uses for its things, the same on every screen:
 | can't swim | kan ikke svømme | out on the water: the switch list's tag, "Ræven kan ikke svømme og bliver i båden.", "Dine andre dyr kan ikke svømme." |
 | lives in the sea | bor i havet | on land, a sea animal: the switch list's tag, "Krabben bor i havet!", "Dine andre dyr bor i havet." — never "kan ikke gå", which a crab on a beach can |
 | stays in the water / swims home | bliver i vandet / svømmer hjem | the end of a battle at sea, and its Run row: never "græsset" out there |
-| bye bye (an animal going home) | farvel | "Sig farvel til ræven?", "Farvel, Ræv!" — never "slip", "smid ud" or anything that sounds like getting rid of it |
+| bye bye (an animal set free) | farvel | "Sig farvel til ræven?", "Farvel, Ræv!" — "slip" only in "slip fri", and never "smid ud" or anything that sounds like getting rid of it |
 | leash | snor | the battle row ("Snor"), its card ("Kast snoren"), "Du kaster snoren…" |
 | catch | fange | "Du fangede en ræv!", "Svært at fange" |
 | animal book | dyrebog | the pause menu's row and the book's title ("Dyrebog"), "Alle dyr, du møder, kommer i din dyrebog." |
@@ -220,7 +233,7 @@ The words the game uses for its things, the same on every screen:
 | Go to (a player) | gå hen til | "Gå hen til Ada", "Du er ved siden af Ada!" |
 | steps away | skridt væk | "7 skridt væk", "cirka 120 skridt væk" |
 | is here / went home | er her / gik hjem | the notes: "Ada er her!", "Bo gik hjem" |
-| taking a break (in the menu) | holder pause | what another player is busy with: also "kæmper mod et vildt dyr", "hos dyrlægen", "kæmper mod en ven" |
+| taking a break (in the menu) | holder pause | what another player is busy with: also "kæmper mod et vildt dyr", "hos heksedoktoren", "kæmper mod en ven" |
 | friendly match | venskabskamp (en kamp) | the invite ("Ada vil have en venskabskamp!"), "En venskabskamp med Bo!"; what a player is busy with: "kæmper mod en ven" |
 | challenge (a player) | udfordre | the button ("Udfordr Bo") |
 | rematch | omkamp | the result's button ("Omkamp?"), "Bo vil have omkamp!" |

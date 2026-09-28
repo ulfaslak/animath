@@ -117,6 +117,35 @@ export const GLIDER_COLORS = {
 	ring: COLORS.white
 } as const;
 
+/**
+ * The witch doctor at every tent (`doctor.ts`): a purple robe and a taller,
+ * floppy purple hat with the doctor's gold band, a coral feather and a gold
+ * bobble on its tip, a white beard and a rosy nose, and a staff of trunk
+ * brown with the doctor's green gem. His pot on the campfire is iron with
+ * green potion bubbling in it: the green of an HP bar that is full, and of
+ * the doctor's sparkles.
+ */
+export const DOCTOR_COLORS = {
+	robe: 0x8a5fd0,
+	hat: 0x4a2f96,
+	band: 0xf5b83d,
+	feather: COLORS.playerShirt,
+	skin: COLORS.playerSkin,
+	nose: 0xf5a48a,
+	beard: COLORS.white,
+	eyes: COLORS.dark,
+	staff: COLORS.trunk,
+	gem: 0x56c271,
+	pot: 0x3e3947,
+	potRim: 0x5c5566,
+	potion: 0x56c271,
+	bubble: 0xc6f2b4,
+	// The campfire under the pot: the fire's amber, the UI accent and warn gold, all in the game.
+	flame: COLORS.fire,
+	flameHot: 0xff9f43,
+	flameGold: 0xf5b83d
+} as const;
+
 /** Trees grow only in the forest: three dark greens, mixed at random, so it reads as deep woods. */
 export const CANOPY: readonly number[] = [0x2c7a43, 0x3a8f4c, 0x2f8a55];
 
@@ -193,6 +222,16 @@ export const ANIMAL_COLORS: Record<string, { fur: number; accent: number }> = {
 	'tawny-owl': { fur: 0x9b6a3f, accent: 0xd9b98a },
 	raccoon: { fur: 0x8f8a85, accent: 0x2f2a28 },
 	beaver: { fur: 0x6e4a2e, accent: 0xe0762e },
+	// The big animals of #89 wave 2, the same way.
+	'wild-boar': { fur: 0x4a3a30, accent: 0xefe6d4 },
+	'mute-swan': { fur: 0xf7f5ef, accent: 0xe8762b },
+	'eagle-owl': { fur: 0xb07a3e, accent: 0xf28c1c },
+	lynx: { fur: 0xc49a6c, accent: 0x2f2a28 },
+	wolverine: { fur: 0x4a3325, accent: 0xd9a55b },
+	'golden-eagle': { fur: 0x5a3e26, accent: 0xd9a441 },
+	'white-tailed-eagle': { fur: 0x6e5b47, accent: 0xe8b83a },
+	moose: { fur: 0x4b3a2e, accent: 0xc9b08a },
+	'european-bison': { fur: 0x5e4330, accent: 0x2f2a28 },
 	crab: { fur: 0xe0553f, accent: 0xf7b89a },
 	starfish: { fur: 0xf2894e, accent: 0xffd08a },
 	turtle: { fur: 0x8cc47e, accent: 0x3f7f4c },

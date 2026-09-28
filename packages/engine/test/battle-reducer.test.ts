@@ -563,8 +563,11 @@ describe('every battle in the catalog', () => {
 
 describe('answers', () => {
 	it('a wrong answer never damages the opponent, whatever the input', () => {
-		const bad: string[] = [];
+		// Every pair that can meet, 5 seeds, 6 wrong answers each, checked once a pair: an
+		// `expect` per answer costs more than the answer (43,500 answers with #89's 41 animals).
 		for (const { p, w, realm } of MEETINGS) {
+			const got: unknown[] = [];
+			const want: unknown[] = [];
 			for (let seed = 0; seed < 5; seed++) {
 				const rng = new Rng(seed);
 				const n = rng.int(1, getAnimal(p).attacks.length);
@@ -577,7 +580,6 @@ describe('answers', () => {
 				).state;
 				if (solving.phase.kind !== 'solving') throw new Error('not solving');
 				const answer = solving.phase.puzzle.answer;
-				deepFreeze(solving);
 				for (const input of [
 					'',
 					'nope',
@@ -586,45 +588,50 @@ describe('answers', () => {
 					'1.5',
 					`${answer} ${answer}`
 				]) {
-					const { state, events } = applyBattleIntent(solving, { type: 'answer', input }, seed);
-					const reply = events[2];
-					if (
-						state.opponent.hp !== solving.opponent.hp ||
-						!isDeepStrictEqual(events[0], {
-							type: 'answer-judged',
-							input,
-							correct: false,
-							answer
-						}) ||
-						!isDeepStrictEqual(events[1], {
-							type: 'missed',
-							attacker: 'player',
-							attackIndex: n,
-							level
-						}) ||
-						events.some((e) => e.type === 'hit' && e.attacker === 'player') ||
+					const { state, events } = applyBattleIntent(
+						deepFreeze(solving),
+						{ type: 'answer', input },
+						seed
+					);
+					got.push({
+						seed,
+						input,
+						hp: state.opponent.hp,
+						judged: events[0],
+						missed: events[1],
+						hit: events.some((e) => e.type === 'hit' && e.attacker === 'player'),
 						// The wild animal still takes its turn: it hits, or misses a wary match.
-						!(reply && 'attacker' in reply && reply.attacker === 'opponent')
-					)
-						bad.push(
-							`${p} vs ${w}, seed ${seed}, ${JSON.stringify(input)}: the opponent at ${state.opponent.hp}, ${JSON.stringify(events)}`
-						);
+						wild: (events[2] as { attacker?: string } | undefined)?.attacker
+					});
+					want.push({
+						seed,
+						input,
+						hp: solving.opponent.hp,
+						judged: { type: 'answer-judged', input, correct: false, answer },
+						missed: { type: 'missed', attacker: 'player', attackIndex: n, level },
+						hit: false,
+						wild: 'opponent'
+					});
 				}
 			}
+			expect(got, `${p} vs ${w}`).toEqual(want);
 		}
-		expect(findings(bad)).toEqual([]);
+		// 1.4 s alone at a load average of 32; with an `expect` per answer, 12 s alone at 46 and
+		// over 30 s in the whole suite.
 	}, 30_000);
 
 	it('a correct answer always deals exactly the formula damage, for every attack and level', () => {
-		const bad: string[] = [];
+		// Checked once a species: an `expect` per answer took 4.3 s of its 5 in the whole suite
+		// with #89's 41 animals.
 		for (const p of ids) {
 			const spec = getAnimal(p);
-			// A 100-HP opponent it can meet: the bear, or out on the water the whale.
-			const big = arena(p, 'bear') ? 'bear' : 'whale';
+			const got: unknown[] = [];
+			const want: unknown[] = [];
 			for (let n = 1; n <= spec.attacks.length; n++) {
 				for (const level of ATTACK_LEVELS) {
-					const damage = attackDamage(spec, n, level, true);
 					for (let seed = 0; seed < 5; seed++) {
+						// A 100-HP opponent it can meet: the bear, or out on the water the whale.
+						const big = arena(p, 'bear') ? 'bear' : 'whale';
 						const start = startBattle(makeParty([p]), makeWild(big), { realm: arena(p, big)! });
 						const solving = applyBattleIntent(
 							start,
@@ -633,37 +640,48 @@ describe('answers', () => {
 						).state;
 						if (solving.phase.kind !== 'solving') throw new Error('not solving');
 						const answer = solving.phase.puzzle.answer;
-						deepFreeze(solving);
+						const damage = attackDamage(spec, n, level, true);
 						for (const input of [String(answer), ` ${answer} `, `+${answer}`]) {
-							const { state, events } = applyBattleIntent(solving, { type: 'answer', input }, seed);
-							if (
-								!isDeepStrictEqual(events[0], {
-									type: 'answer-judged',
-									input,
-									correct: true,
-									answer
-								}) ||
-								!isDeepStrictEqual(events[1], {
+							const { state, events } = applyBattleIntent(
+								deepFreeze(solving),
+								{ type: 'answer', input },
+								seed
+							);
+							got.push({
+								n,
+								level,
+								seed,
+								input,
+								judged: events[0],
+								hit: events[1],
+								hp: state.opponent.hp,
+								lower: state.opponent.hp < solving.opponent.hp
+							});
+							want.push({
+								n,
+								level,
+								seed,
+								input,
+								judged: { type: 'answer-judged', input, correct: true, answer },
+								hit: {
 									type: 'hit',
 									attacker: 'player',
 									attackIndex: n,
 									level,
 									damage,
 									targetHp: 100 - damage
-								}) ||
-								state.opponent.hp !== 100 - damage ||
-								!(state.opponent.hp < solving.opponent.hp)
-							)
-								bad.push(
-									`${p} ${n}/${level}, seed ${seed}, ${JSON.stringify(input)}: the opponent at ${state.opponent.hp}, ${JSON.stringify(events.slice(0, 2))}`
-								);
+								},
+								hp: 100 - damage,
+								lower: true
+							});
 						}
 					}
 				}
 			}
+			expect(got, p).toEqual(want);
 		}
-		expect(findings(bad)).toEqual([]);
-	});
+		// 0.3 s alone at a load average of 20 (5,040 right answers, #89's 41 animals).
+	}, 30_000);
 
 	it('landHit, as a screen previews a hit, is exactly the hit a right answer lands, a knock-out included', () => {
 		// The battle panel shows the damage, the HP bar's lighter segment and "That
@@ -706,12 +724,12 @@ describe('the wild animal', () => {
 	function wildTurn(p: string, w: string, seed: number) {
 		const start = startBattle(makeParty([p]), makeWild(w), { realm: arena(p, w)! });
 		const { state, events } = attackAndAnswer(start, seed, 1, 1, false);
-		const turn = events.filter(
+		const turns = events.filter(
 			(e) => (e.type === 'hit' || e.type === 'missed') && e.attacker === 'opponent'
 		);
-		const e = turn[0];
-		if (turn.length !== 1 || (e?.type !== 'hit' && e?.type !== 'missed'))
-			throw new Error(`${p} vs ${w}, seed ${seed}: the wild animal took ${turn.length} turns`);
+		const e = turns[0];
+		if (turns.length !== 1 || (e?.type !== 'hit' && e?.type !== 'missed'))
+			throw new Error(`${p} vs ${w}, seed ${seed}: the wild animal took ${turns.length} turns`);
 		return { e, start, state };
 	}
 
@@ -735,13 +753,15 @@ describe('the wild animal', () => {
 
 	it('misses an animal of its own tier or fiercer exactly when its roll says so, never a smaller one', () => {
 		// Recomputed from the seed: the attack pick, then the miss roll, are the
-		// wild turn's two draws from the answer intent's Rng (step 1). The rule reads
-		// the two tiers and which side of WILD_MISS_CHANCE the roll falls, so every pair
-		// that can meet plays the first three seeds whose roll is under it and the first
-		// three over it: each pair meets both rolls, where 40 seeds a pair met them only
-		// by chance, at a sixth of the turns.
+		// wild turn's two draws from the answer intent's Rng (step 1). The rule reads the two
+		// tiers and which side of WILD_MISS_CHANCE the roll falls, so every pair that can meet
+		// plays the first three seeds whose roll is under it and the first three over it: each
+		// pair meets both rolls, where 40 seeds a pair met them only by chance, at a sixth of
+		// the turns. The findings are collected and checked once, since an `expect` per turn
+		// costs more than the turn.
 		const bad: string[] = [];
-		for (const { p, w } of MEETINGS) {
+		let misses = 0;
+		for (const { p, w, realm } of MEETINGS) {
 			const wary = getAnimal(w).tier <= getAnimal(p).tier;
 			const attacks = getAnimal(w).attacks.length;
 			const taken = { under: 0, over: 0 };
@@ -751,19 +771,29 @@ describe('the wild animal', () => {
 				const side = rng.next() < WILD_MISS_CHANCE ? 'under' : 'over';
 				if (taken[side] === 3) continue;
 				taken[side]++;
-				const { e, start, state } = wildTurn(p, w, seed);
+				const start = startBattle(makeParty([p]), makeWild(w), { realm });
+				const { state, events } = attackAndAnswer(start, seed, 1, 1, false);
+				const turns = events.filter(
+					(e) => (e.type === 'hit' || e.type === 'missed') && e.attacker === 'opponent'
+				);
+				const where = `${p} vs ${w}, seed ${seed}`;
+				const e = turns[0];
+				if (turns.length !== 1 || !e || (e.type !== 'hit' && e.type !== 'missed')) {
+					bad.push(`${where}: ${turns.length} wild turns`);
+					continue;
+				}
+				if (e.attackIndex !== attackIndex) bad.push(`${where}: attack ${e.attackIndex}`);
 				const miss = wary && side === 'under';
-				if (
-					e.attackIndex !== attackIndex ||
-					e.type !== (miss ? 'missed' : 'hit') ||
-					(miss && state.party[0]!.hp !== start.party[0]!.hp)
-				)
-					bad.push(
-						`${p} vs ${w}, seed ${seed}: ${e.type} with attack ${e.attackIndex}, the roll ${side} the chance`
-					);
+				if (e.type !== (miss ? 'missed' : 'hit'))
+					bad.push(`${where}: ${e.type}, the roll ${side} the chance`);
+				if (miss && state.party[0]!.hp !== start.party[0]!.hp) bad.push(`${where}: HP moved`);
+				if (e.type === 'missed') misses++;
 			}
 		}
 		expect(findings(bad)).toEqual([]);
+		// The misses the rolls call for do happen, so the checks above saw both kinds of turn.
+		expect(misses).toBeGreaterThan(0);
+		// MISS_COST
 	}, 30_000);
 
 	it('misses a wary match about as often as WILD_MISS_CHANCE says', () => {

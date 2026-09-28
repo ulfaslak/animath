@@ -50,6 +50,22 @@ export const MAX_SAVED_NICKNAME_LENGTH = 40;
 export const MAX_SAVED_NAME_LENGTH = 40;
 
 /**
+ * How deep a save may nest: the document is 1 deep, an object or a list in
+ * it 2, and so on, counted as this build reads it (a v1 document after its
+ * upgrade, which moves some fields a level down, under `V1_KEPT`). A game's
+ * save is 4 deep at most (a saved battle's party or puzzle, a world left
+ * behind's position: `save.test.ts` pins it). A document nested deeper is
+ * invalid: a body within the server's limit can nest hundreds of thousands
+ * deep, and the walks that go down one level at a time (the check here, V8's
+ * `JSON.stringify` for some shapes, Postgres' jsonb) run out of stack
+ * thousands deep, and would throw where the document is to be refused. The
+ * limit is part of the format: a build reads a document deeper than its own
+ * limit as broken, never as a newer build's, so a build that saves deeper,
+ * or raises the limit, bumps `SAVE_VERSION` too.
+ */
+export const MAX_SAVE_DEPTH = 64;
+
+/**
  * The starter of a game nobody chose one for: a throwaway game (`?new`), and
  * a saved party that came back empty. A player picks theirs from `STARTERS`
  * ([[PRODUCT]] §4 "Starting out").
@@ -364,28 +380,31 @@ const UNSTORABLE_TEXT = /\0|\p{Surrogate}/u;
 
 /**
  * Walks the whole document — extras included — for values that would either
- * make the server's insert throw (NUL, lone surrogate) or come back changed
- * (a number `JSON.parse` turned into ±Infinity is written as `null`). Returns
- * the first offending path, or null.
+ * make the server's insert throw (NUL, lone surrogate, nesting deeper than
+ * `MAX_SAVE_DEPTH`) or come back changed (a number `JSON.parse` turned into
+ * ±Infinity is written as `null`). Returns the first offending path, or null.
+ * `depth` is how many objects and lists hold `v`: the walk never goes past
+ * `MAX_SAVE_DEPTH`, so however deep a document nests, it answers and never
+ * runs out of stack.
  */
-function findUnstorable(v: unknown, path: string): string | null {
+function findUnstorable(v: unknown, path: string, depth = 0): string | null {
 	if (typeof v === 'string') {
 		return UNSTORABLE_TEXT.test(v) ? `${path} contains characters that cannot be saved` : null;
 	}
 	if (typeof v === 'number') return Number.isFinite(v) ? null : `${path} must be a finite number`;
+	if (typeof v !== 'object' || v === null) return null;
+	if (depth >= MAX_SAVE_DEPTH) return `${path} is nested more than ${MAX_SAVE_DEPTH} levels deep`;
 	if (Array.isArray(v)) {
 		for (let i = 0; i < v.length; i++) {
-			const error = findUnstorable(v[i], `${path}[${i}]`);
+			const error = findUnstorable(v[i], `${path}[${i}]`, depth + 1);
 			if (error) return error;
 		}
 		return null;
 	}
-	if (isRecord(v)) {
-		for (const [key, value] of Object.entries(v)) {
-			if (UNSTORABLE_TEXT.test(key)) return `${path} has a key that cannot be saved`;
-			const error = findUnstorable(value, path ? `${path}.${key}` : key);
-			if (error) return error;
-		}
+	for (const [key, value] of Object.entries(v)) {
+		if (UNSTORABLE_TEXT.test(key)) return `${path} has a key that cannot be saved`;
+		const error = findUnstorable(value, path ? `${path}.${key}` : key, depth + 1);
+		if (error) return error;
 	}
 	return null;
 }
@@ -856,7 +875,9 @@ export function readBattle(
 	party: readonly AnimalInstance[],
 	realm: Realm = 'land'
 ): BattleState | null {
-	if (!isRecord(value)) return null;
+	// Only what a save's battle can be (`findUnstorable`, a level into the document): the
+	// comparison and the copy below go down one level at a time.
+	if (!isRecord(value) || findUnstorable(value, 'battle', 1) !== null) return null;
 	const { step, turn, active, opponent, leashQuality, phase } = value;
 	if ((value.realm ?? 'land') !== realm) return null;
 	const fights = (a: AnimalInstance) => a.hp > 0 && canFightIn(a.speciesId, realm);
@@ -1058,7 +1079,11 @@ function withProgressDefaults(doc: SaveV2): Doc {
 	return out;
 }
 
-/** JSON text with object keys sorted and `undefined` fields dropped, for comparing values. */
+/**
+ * JSON text with object keys sorted and `undefined` fields dropped, for
+ * comparing values. It recurses once a level, so it is only given what a
+ * save's check has walked: at most `MAX_SAVE_DEPTH` deep.
+ */
 function canonical(v: unknown): string {
 	if (v === undefined) return 'undefined';
 	if (Array.isArray(v)) {

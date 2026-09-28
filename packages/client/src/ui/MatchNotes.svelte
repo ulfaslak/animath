@@ -14,7 +14,7 @@
 </script>
 
 {#if match.stage === 'playing' || match.stage === 'over'}
-	<div class="notes">
+	<div class="notes" class:nudging={match.nudged && match.stage === 'playing'}>
 		{#if match.offline}
 			<div class="note" role="status">{t('match.notes.offline')}</div>
 		{:else if match.away !== null && match.stage === 'playing'}
@@ -84,6 +84,34 @@
 		.notes {
 			max-width: calc(100vw - 32px);
 			top: calc(96px + var(--safe-top));
+		}
+	}
+	/*
+	 * A short screen (a phone held sideways): the band over the panel has no
+	 * room between the status boxes, so a note takes the narration line's
+	 * place at the top right, over the player's box (`BattlePanel` hides the
+	 * line meanwhile), as wide as it may be. "Still there?" asks the kid
+	 * something now: while it is up, it is the one note there.
+	 */
+	@media (max-height: 560px) {
+		.notes {
+			top: calc(8px + var(--safe-top));
+			right: calc(16px + var(--safe-right));
+			left: auto;
+			transform: none;
+			align-items: flex-end;
+			/* As the narration line: clear of the wild animal's box by 14 px. */
+			max-width: calc(100vw - 256px - var(--safe-left) - var(--safe-right));
+		}
+		.note {
+			padding: 6px 14px;
+		}
+		.nudge {
+			padding: 4px 4px 4px 14px;
+			font-size: 16px;
+		}
+		.nudging .note:not(.nudge) {
+			display: none;
 		}
 	}
 </style>

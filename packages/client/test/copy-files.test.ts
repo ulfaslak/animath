@@ -219,6 +219,29 @@ describe('copy files', () => {
 		expect(problems).toEqual([]);
 	});
 
+	it('the witch doctor goes by his name, and the animals he takes are set free, in every line', () => {
+		// The human renamed him and the tab: "in danish it's "heksedoktor" ... rename from
+		// "dyrlæge". and "help home" should be "set free" i think. "slip fri" in danish."
+		// So no line says "dyrlæge", "doktor" alone, or a doctor who isn't a witch doctor,
+		// and none helps animals home (DESIGN § Voice and copy).
+		const problems: string[] = [];
+		const forbid = (lang: string, pattern: RegExp, why: string) => {
+			for (const [key, message] of messages.get(lang) ?? []) {
+				for (const text of textsOf(message)) {
+					if (pattern.test(text)) problems.push(`${lang}.yaml ${key}: "${text}" ${why}`);
+				}
+			}
+		};
+		forbid('da', /dyrlæge/i, 'says dyrlæge, not heksedoktor');
+		forbid('da', /(?<!hekse)doktor/i, 'says doktor, not heksedoktor');
+		// "hjælpe", "hjælp" and the past, "hjalp": "hjalp ræven hjem".
+		forbid('da', /\bhj[æa]lp\w*\s+(?:\S+\s+)?hjem\b/i, 'helps animals home, not slip fri');
+		forbid('en', /(?<!witch )doctor/i, 'says doctor, not witch doctor');
+		forbid('en', /\bhelp\w*\s+(?:\S+\s+)?home\b/i, 'helps animals home, not set free');
+		expect(messages.has('da')).toBe(true);
+		expect(problems).toEqual([]);
+	});
+
 	it('Danish has no comma before "og" or "eller" unless a sentence with its own subject follows (#73)', () => {
 		// DESIGN § Voice and copy, Danish: "Skriv svaret og tryk på Enter", never with a
 		// comma between two commands or before a list's last item; but "Jeg gør dem helt

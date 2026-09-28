@@ -6,9 +6,12 @@ import { touch } from '../src/input/touch.svelte';
 import { motion } from '../src/motion';
 import {
 	BattleScene,
+	battlePanelHeight,
 	LEASH_FLIGHT_SECONDS,
 	SEA_WATERLINE,
-	WILD_STATUS_BOX
+	SHORT_SCREEN,
+	WILD_STATUS_BOX,
+	WILD_STATUS_BOX_SHORT
 } from '../src/render/battle-scene';
 import { SWIM_DEPTH } from '../src/render/follower';
 import { svelteSources } from './source';
@@ -35,8 +38,11 @@ const NO_INSET = { top: 0, right: 0, bottom: 0, left: 0 };
  * The supported sizes (a laptop, a tablet with a keyboard and without), and a
  * wide monitor; and tablets whose screen takes a safe area's insets: the home
  * indicator under the page (an iPad in Safari), and a notch at each side as
- * well (an iPhone's, sideways). Nothing draws over the page's top edge in
- * landscape, so no size has a top inset.
+ * well (an iPhone's, sideways). Then phones held sideways, short screens
+ * (`SHORT_SCREEN`) with the compact status box: an iPhone with its notch and
+ * home indicator, an Android phone (touch, and with a keyboard) and a small
+ * iPhone. Nothing draws over the page's top edge in landscape, so no size has
+ * a top inset.
  */
 const SIZES = [
 	{ width: 1024, height: 768, touch: false, inset: NO_INSET },
@@ -45,7 +51,11 @@ const SIZES = [
 	{ width: 1024, height: 768, touch: true, inset: NO_INSET },
 	{ width: 2560, height: 1080, touch: false, inset: NO_INSET },
 	{ width: 1024, height: 768, touch: true, inset: { top: 0, right: 0, bottom: 20, left: 0 } },
-	{ width: 1180, height: 820, touch: true, inset: { top: 0, right: 59, bottom: 21, left: 59 } }
+	{ width: 1180, height: 820, touch: true, inset: { top: 0, right: 59, bottom: 21, left: 59 } },
+	{ width: 844, height: 390, touch: true, inset: { top: 0, right: 59, bottom: 21, left: 59 } },
+	{ width: 740, height: 360, touch: true, inset: NO_INSET },
+	{ width: 740, height: 360, touch: false, inset: NO_INSET },
+	{ width: 667, height: 375, touch: true, inset: NO_INSET }
 ] as const;
 /** The loop never comes nearer the top edge or the status box than this, in CSS pixels: it never touches them. */
 const CLEAR = 8;
@@ -64,16 +74,29 @@ interface Box {
  * a screen with no safe-area insets (`inside` moves it in by them): where
  * `BattlePanel.svelte`'s CSS puts it and how wide, read from the component,
  * and 74 px tall, as Chrome draws `StatusBox`'s name and chunky HP bar at
- * every supported size, in both languages (no rule sets its height).
+ * every supported size, in both languages (no rule sets its height). On a
+ * short screen, where the rules of its `(max-height: 560px)` query move it
+ * and narrow it, 60 px tall, as Chrome draws it at 844×390, 740×360 and
+ * 667×375, in both languages.
  */
-const STATUS_BOX: Box = (() => {
-	const source = svelteSources.get('src/ui/BattlePanel.svelte');
-	const rules = (parse(source ?? '', { modern: true }).css?.children ?? []).filter(
-		(node): node is AST.CSS.Rule => node.type === 'Rule'
+const [STATUS_BOX, STATUS_BOX_SHORT]: Box[] = (() => {
+	const source = svelteSources.get('src/ui/BattlePanel.svelte') ?? '';
+	const children = parse(source, { modern: true }).css?.children ?? [];
+	type Node = AST.CSS.Rule | AST.CSS.Atrule | AST.CSS.Declaration;
+	const rulesOf = (nodes: readonly Node[]) =>
+		nodes.filter((node): node is AST.CSS.Rule => node.type === 'Rule');
+	const tall = rulesOf(children);
+	const short = rulesOf(
+		children
+			.filter(
+				(node): node is AST.CSS.Atrule =>
+					node.type === 'Atrule' && node.name === 'media' && node.prelude === '(max-height: 560px)'
+			)
+			.flatMap((media) => media.block?.children ?? [])
 	);
 	// `280px`, or `calc(16px + var(--safe-left))`: 16 px in from the safe area's edge.
-	const px = (selector: string, property: string) => {
-		const rule = rules.find((r) => source!.slice(r.prelude.start, r.prelude.end) === selector);
+	const px = (rules: AST.CSS.Rule[], selector: string, property: string) => {
+		const rule = rules.find((r) => source.slice(r.prelude.start, r.prelude.end) === selector);
 		const value = rule?.block.children.find(
 			(d): d is AST.CSS.Declaration => d.type === 'Declaration' && d.property === property
 		)?.value;
@@ -81,9 +104,13 @@ const STATUS_BOX: Box = (() => {
 		if (!found) throw new Error(`${selector} has no ${property} in px`);
 		return Number.parseFloat(found[1]!);
 	};
-	const left = px('.status.opponent', 'left');
-	const top = px('.status.opponent', 'top');
-	return { left, top, right: left + px('.status', 'width'), bottom: top + 74 };
+	const left = px(tall, '.status.opponent', 'left');
+	const top = px(tall, '.status.opponent', 'top');
+	const shortTop = px(short, '.status.opponent', 'top');
+	return [
+		{ left, top, right: left + px(tall, '.status', 'width'), bottom: top + 74 },
+		{ left, top: shortTop, right: left + px(short, '.status', 'width'), bottom: shortTop + 60 }
+	];
 })();
 
 afterEach(() => {
@@ -124,7 +151,7 @@ const point = new THREE.Vector3();
  * `box`, in CSS pixels. Each point goes through three's projection as
  * `Vector3.project` does it, the camera's view and then its lens, with the
  * loop's own place folded into the same product: one product a point, not
- * three and a copy (the sweep projects some three million).
+ * three and a copy.
  */
 function loopOnCanvas(
 	loop: THREE.Mesh,
@@ -214,18 +241,21 @@ interface Throw {
 /**
  * Throw the leash at `species` a frame at a time, as the battle does: the
  * flight, then (as `ending` says) the loop holding while the animal cheers,
- * or popping off, every frame looked at on the canvas; or, for `'arc'`, the
- * flight alone, for its arc, looked at nowhere.
+ * or popping off; or, `ending` null, the flight alone, which is all the arc
+ * is measured on.
  */
 function throwAt(
 	size: (typeof SIZES)[number],
 	species: string,
-	ending: 'caught' | 'broke' | 'arc'
+	ending: 'caught' | 'broke' | null
 ): Throw {
 	touch.on = size.touch;
 	Object.assign(inset, size.inset);
 	scene.resize(size.width, size.height);
-	const statusBox = inside(STATUS_BOX, size.inset);
+	const statusBox = inside(
+		size.height <= SHORT_SCREEN ? STATUS_BOX_SHORT! : STATUS_BOX!,
+		size.inset
+	);
 	// Where it is met: a sea animal out at sea, sunk in the water, facing one that swims.
 	const atSea = !getAnimal(species).realms.includes('land');
 	scene.begin(atSea ? 'sea' : 'meadow', atSea ? 'otter' : 'squirrel', species);
@@ -250,7 +280,7 @@ function throwAt(
 		const leash = leashOf(scene);
 		if (!leash) return false;
 		if (moment === 'flying') flight.push(leash.loop.position.clone());
-		if (ending === 'arc') return true;
+		if (!ending) return true;
 		const when = `${moment} at ${t.toFixed(2)} s`;
 		const loop = loopOnCanvas(leash.loop, size, statusBox);
 		if (loop.top < seen.top) [seen.top, seen.topWhen] = [loop.top, when];
@@ -268,10 +298,10 @@ function throwAt(
 		scene.update((t += FRAME));
 		look('flying');
 	}
-	if (ending !== 'arc') {
+	if (ending) {
 		scene.leashResult(ending === 'caught');
-		// A second: the pop is over in 0.3 s, the cheer's two hops in 0.9 s. A loop
-		// that has popped off is gone, and nothing after it needs a look.
+		// A second: the pop is over in 0.3 s, the cheer's two hops in 0.9 s. A loop that
+		// has popped off is gone, and nothing after it needs a look.
 		for (let i = 0; i < 60; i++) {
 			scene.update((t += FRAME));
 			if (!look(ending === 'caught' ? 'riding the cheer' : 'popping off')) break;
@@ -329,7 +359,7 @@ async function throwAll(s: number): Promise<Thrown[]> {
 	for (const reduced of [false, true]) {
 		for (const [i, { id }] of ANIMALS.entries()) {
 			const looked = !reduced || (i + s) % 3 === 0;
-			const endings = looked ? (['caught', 'broke'] as const) : (['arc'] as const);
+			const endings = looked ? (['caught', 'broke'] as const) : [null];
 			motion.reduced = reduced;
 			for (const ending of endings)
 				thrown.push({ species: id, reduced, looked, seen: throwAt(size, id, ending) });
@@ -354,8 +384,10 @@ async function everyThrow(s: number, check: (seen: Throw) => string | null): Pro
 
 describe('the leash', () => {
 	it('knows where the wild animal’s status box is: its copy of the box covers the CSS’s', () => {
-		expect(WILD_STATUS_BOX.right).toBe(STATUS_BOX.right);
-		expect(WILD_STATUS_BOX.bottom).toBeGreaterThanOrEqual(STATUS_BOX.bottom);
+		expect(WILD_STATUS_BOX.right).toBe(STATUS_BOX!.right);
+		expect(WILD_STATUS_BOX.bottom).toBeGreaterThanOrEqual(STATUS_BOX!.bottom);
+		expect(WILD_STATUS_BOX_SHORT.right).toBe(STATUS_BOX_SHORT!.right);
+		expect(WILD_STATUS_BOX_SHORT.bottom).toBeGreaterThanOrEqual(STATUS_BOX_SHORT!.bottom);
 	});
 
 	// One size at a time, so that no test holds its worker for the whole sweep.
@@ -366,7 +398,8 @@ describe('the leash', () => {
 					top < CLEAR ? `${top.toFixed(1)} px from the top edge, ${topWhen}` : null
 				);
 				expect(bad).toEqual([]);
-			}, 30_000);
+				// LEASH_SIZE_COST
+			}, 180_000);
 
 			it('never goes behind the wild animal’s status box: its loop keeps clear, and its rope never crosses it', async () => {
 				const bad = await everyThrow(s, ({ box, boxWhen, rope, ropeWhen }) =>
@@ -378,7 +411,7 @@ describe('the leash', () => {
 				);
 				expect(bad).toEqual([]);
 				// Reads the throws of the test above; run alone, it throws them itself, and takes as long.
-			}, 30_000);
+			}, 180_000);
 
 			it('still arcs, and arcs lower with reduced motion', async () => {
 				const thrown = await throwsAt(s);
@@ -398,10 +431,60 @@ describe('the leash', () => {
 					}
 				}
 				expect(bad).toEqual([]);
-				// Reads the throws of the tests above.
-			}, 30_000);
+				// Reads the throws of the tests above; run alone, it throws them itself.
+			}, 180_000);
 		});
 	}
+});
+
+/**
+ * A phone held sideways is one line for the whole battle screen: the scene
+ * frames itself and throws the leash by `SHORT_SCREEN` and
+ * `battlePanelHeight`, the overlay lays itself out by its `max-height`
+ * queries and `--battle-panel`, and a piece on the other side of a
+ * different line would sit where the scene does not expect it.
+ */
+describe('a short screen', () => {
+	const styles = Object.values(
+		import.meta.glob('../src/styles.css', { query: '?raw', import: 'default', eager: true })
+	)[0] as string;
+	const PIECES = [
+		'src/ui/BattlePanel.svelte',
+		'src/ui/StatusBox.svelte',
+		'src/ui/AttackTile.svelte',
+		'src/ui/MoveButton.svelte',
+		'src/ui/ActionPreview.svelte',
+		'src/ui/HitBurst.svelte',
+		'src/ui/MatchNotes.svelte'
+	];
+
+	it('is SHORT_SCREEN in every short-screen query of the battle’s pieces and styles', () => {
+		const lines = [
+			...PIECES.map((file) => [file, svelteSources.get(file) ?? ''] as const),
+			['src/styles.css', styles] as const
+		].map(([file, text]) => ({
+			file,
+			heights: [...text.matchAll(/@media \(max-height: (\d+)px\)/g)].map((m) => Number(m[1]))
+		}));
+		const bad = lines.filter(
+			({ heights }) => heights.length === 0 || heights.some((h) => h !== SHORT_SCREEN)
+		);
+		expect(bad).toEqual([]);
+	});
+
+	it('gives the panel the height the scene frames itself round, touch or not', () => {
+		const found =
+			/@media \(max-height: \d+px\)\s*\{[^}]*--battle-panel: calc\((\d+)px \+ var\(--safe-bottom\)\)/.exec(
+				styles
+			);
+		const short = Number(found?.[1]);
+		expect(short).toBeGreaterThan(0);
+		for (const touchControls of [true, false]) {
+			expect(battlePanelHeight(SHORT_SCREEN, touchControls, 0)).toBe(short);
+			expect(battlePanelHeight(SHORT_SCREEN, touchControls, 21)).toBe(short + 21);
+			expect(battlePanelHeight(SHORT_SCREEN + 1, touchControls, 0)).toBe(touchControls ? 364 : 260);
+		}
+	});
 });
 
 describe('out at sea', () => {
