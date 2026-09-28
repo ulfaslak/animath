@@ -941,6 +941,23 @@ describe('free again once a match is over (#139)', () => {
 		expect(bo.peer.last('rematch-wish')).toMatchObject({ side: 'a', yes: false });
 	});
 
+	it('frees a kid after a rematch too, whose page said match all along and sent no new where', () => {
+		const { ada, bo, cy } = three();
+		const end = playedOut(ada, bo, { ada: SPAWN, bo: beside(1) });
+		ada.send({ t: 'rematch', id: end.id, team: TEAM });
+		bo.send({ t: 'rematch', id: end.id, team: TEAM });
+		const again = bo.peer.last('match')!;
+		expect(again.id).not.toBe(end.id);
+		// The rematch runs out on the turn clock; both pages were on its screen all along.
+		vi.advanceTimersByTime(180_000);
+		expect(matches.stateOf(again.id)?.phase.kind).toBe('ended');
+		// Bo goes back to exploring, his `done` lost: free, as after any match.
+		bo.at(beside(1));
+		vi.advanceTimersByTime(1_000);
+		cy.send({ t: 'challenge', pid: bo.pid, team: TEAM });
+		expect(bo.peer.last('invite')).toMatchObject({ pid: cy.pid });
+	});
+
 	it('still keeps a player in a match going on busy', () => {
 		const { ada, bo, cy } = three();
 		startedMatch(ada, bo);

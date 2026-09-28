@@ -126,12 +126,13 @@ interface Player {
 	 */
 	match: Match | null;
 	/**
-	 * Their match, from when their page is sent it (`start`, `resume`) until
-	 * its `where` first says `match`: the page has not put it up yet, and its
-	 * last `where` still says exploring (one sent before the match came, or
-	 * none since: a hidden tab draws no frame, and sends no `where`). Until
-	 * then they are busy with it even once it has ended, since the page puts
-	 * its result up when it can.
+	 * Their match, from when their page is sent it (`start`, unless the page
+	 * is on a match's screen already, as for a rematch; `resume`) until its
+	 * `where` first says `match`: the page has not put it up yet, and its last
+	 * `where` still says exploring (one sent before the match came, or none
+	 * since: a hidden tab draws no frame, and sends no `where`). Until then
+	 * they are busy with it even once it has ended, since the page puts its
+	 * result up when it can.
 	 */
 	unshown: Match | null;
 	tokens: number;
@@ -514,9 +515,12 @@ export class Matches {
 		this.matches.set(match.id, match);
 		a.match = match;
 		b.match = match;
-		// Neither page has put it up yet: each says so with its next `where`.
-		a.unshown = match;
-		b.unshown = match;
+		// A page puts it up with its next `where`. One already on a match's screen (a rematch,
+		// from the result) puts it up there, and says `match` already: it sends no new `where`.
+		for (const player of [a, b]) {
+			const onMatch = player.peer && this.hub.present(player.peer)?.spot?.busy === 'match';
+			player.unshown = onMatch ? null : match;
+		}
 		this.startClock(match);
 		this.log(`matches: ${match.id} started`);
 		for (const side of MATCH_SIDES) this.send(match, side, []);
