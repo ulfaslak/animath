@@ -21,9 +21,10 @@ Technical items we've intentionally postponed: tech debt, hardening shortcuts, k
 **Why deferred**: a handoff costs a table, a migration and a resume path on the next app, against a match that starts again with one tap each; the game is played by a few kids, and a deploy lands during a match rarely.
 
 **Trigger**: kids report matches cut short by updates, or deploys land in playing hours often enough to matter. Then persist `(seed, parties, log)` per match on each step, and let the next app pick it up when both players say hello, within `awayMs`.
+
 ### A file under `/assets/` is downloaded whole on every visit
 
-**What**: the server marks every client file outside `/immutable/` `no-cache` ([[INVARIANTS]] § Serving), and `serveStatic` sends no `ETag` or `Last-Modified`, so a browser cannot ask "has it changed?" and get a 304: it downloads `index.html` and each file `public/` copied over in full, every visit. `index.html` is 1 kB. Today `public/assets/` holds only `CREDITS.md`, but [[ARCHITECTURE]] plans the models and textures there.
+**What**: the server marks every client file outside `/immutable/` `no-cache` ([[INVARIANTS]] § Serving), and `serveStatic` sends no `ETag` or `Last-Modified`, so a browser cannot ask "has it changed?" and get a 304: it downloads `index.html` and each file `public/` copied over in full, every visit. `index.html` is 3 kB (1.3 kB gzipped). Today `public/assets/` holds only `CREDITS.md`, but [[ARCHITECTURE]] plans the models and textures there.
 
 **Why deferred**: nothing under `/assets/` is loaded by the game yet, and the better fix is to keep models out of it altogether.
 
@@ -31,7 +32,7 @@ Technical items we've intentionally postponed: tech debt, hardening shortcuts, k
 
 ### Nothing alarms when prod is down
 
-**What**: prod has no uptime monitor. The backup service and the Mac's backup sync alert on failure (to Slack once `MONITORING_SLACK_WEBHOOK_URL` is set; there is no webhook yet, so today to a log line), and Hetzner mails when its nightly image fails; nothing tells anyone when the game stops answering, a certificate fails to renew, or the disk fills. Lawcel runs the same way.
+**What**: prod has no uptime monitor. The backup service and the Mac's backup sync alert on failure (to Slack once `MONITORING_SLACK_WEBHOOK_URL` is set; there is no webhook yet, so today to a log line), and Hetzner mails when its nightly image fails; nothing tells anyone when the game stops answering, a certificate fails to renew, or the disk fills (the backup service logs a disk past 85% full, `check_disk` in `scripts/backup.sh`, which reaches Slack only with the webhook). Lawcel runs the same way.
 
 **Why deferred**: the players are one household's kids, who say so when the game is down, and there is no alert channel to send to yet.
 
@@ -47,9 +48,9 @@ Technical items we've intentionally postponed: tech debt, hardening shortcuts, k
 
 ### A battle's result is written back by the client's authority, not the engine
 
-**What**: when a battle ends, `LocalAuthority.endBattle` decides what it means for the world: the party takes the battle's HP, a caught animal joins (where it goes is the engine's `joinParty`, and with no cap nothing is let go, but the call is the authority's), and the closing line is chosen. Only a lost battle's party is the engine's (`knockOut`: tired, or looked after by a doctor who came). A server authority would have to repeat the rest, and the two copies could drift.
+**What**: when a battle ends, `LocalAuthority.endBattle` decides what it means for the world: the party takes the battle's HP, a caught animal joins (where it goes is the engine's `joinParty`, and with no cap nothing is let go, but the call is the authority's), and the closing line is chosen. Only a lost battle's party is the engine's (`knockOut`: tired, or looked after by a witch doctor who came). A server authority would have to repeat the rest, and the two copies could drift.
 
-**Why deferred**: there is one authority today, and the brief for the battle work put the outcomes there.
+**Why deferred**: one authority runs wild battles today (`LocalAuthority`), and the brief for the battle work put the outcomes there.
 
 **Trigger**: a wild battle run on the server ([[DECISIONS]] § Multiplayer: only once a gain can flow between players), or earlier if a second outcome rule lands. Move the write-back into an engine function (`concludeBattle(party, endedState) → { party, outcome }`, beside `knockOut`) and call it from both authorities; let the client word the closing line from the outcome.
 
@@ -71,11 +72,11 @@ Technical items we've intentionally postponed: tech debt, hardening shortcuts, k
 
 ### Many accounts can still fill the disk
 
-**What**: each account stores at most a 1 MiB save and 2 MiB of set-aside saves (`ACCOUNT_BACKUP_BYTES`), and registrations are limited to 30 an hour per address (an IPv4 address or an IPv6 /64). Someone with many addresses can still make many accounts and send each a megabyte of save, about 90 MiB an hour per address at most. Nothing counts the database's size or stops at a quota, so a determined attacker could fill the server's disk, and then every save would fail, the kids' included.
+**What**: each account stores at most a 1 MiB save and 2 MiB of set-aside saves (`ACCOUNT_BACKUP_BYTES`), and registrations are limited to 30 an hour per address (an IPv4 address or an IPv6 /64). Someone with many addresses can still make many accounts and send each a megabyte of save, about 90 MiB an hour per address at most. Nothing counts the database's size or stops at a quota, and the backup service's disk check (85% full) reaches only its log until the Slack webhook arrives ("Nothing alarms when prod is down"), so a determined attacker could fill the server's disk, and then every save would fail, the kids' included.
 
-**Why deferred**: there is no public address yet, the game is for a handful of kids, and a quota or a disk alarm is a moving part for an attack nobody has made. A kid's real save is a few kilobytes, so a quota low enough to matter would never touch them.
+**Why deferred**: the game is for a handful of kids, and a quota is a moving part for an attack nobody has made. A kid's real save is a few kilobytes, so a quota low enough to matter would never touch them.
 
-**Trigger**: the production server's disk passing half full, a registration flood in the logs, or the first deploy with a public domain (then add at least a disk-usage alert to the backup sidecar's checks).
+**Trigger**: the production server's disk passing half full, or a registration flood in the logs.
 
 ### Cleared tiles are each player's own, so a friend can walk through a tree you still see
 
@@ -87,7 +88,7 @@ Technical items we've intentionally postponed: tech debt, hardening shortcuts, k
 
 ### The server stores whatever save the client sends
 
-**What**: `PUT /api/account/save`, and the guest game a registration brings, are checked for the document's shape, not for whether the game in it could have happened: an HP above the species' maximum (`restoreGame` cuts it on load), a party of any animals, a position anywhere, any number of tokens and any tools, a `battle` the server never looks inside (the client checks it with `readBattle` on load). A modified client, or a hand-edited `localStorage` save, is stored in the account as sent. The saved battle also carries the puzzle's answer, as `BattleState` does ([[CHEATSHEET]] § Exploits).
+**What**: `PUT /api/account/save`, and the guest game a registration brings, are checked for the document's shape, not for whether the game in it could have happened: an HP above the species' maximum (`restoreGame` cuts it on load), a party of any animals, a position anywhere, any number of tokens and any tools, a `battle` the server never looks inside (the client checks it with `readBattle` on load). A modified client, or a hand-edited `localStorage` save, is stored in the account as sent. The saved battle also carries the puzzle's answer, as `BattleState` does ([[CHEATSHEET]] § Exploits and quirks).
 
 **Why deferred**: the save is the single-player authority's state, and that authority is the client, by choice ([[DECISIONS]] § Multiplayer): nothing a player gains can reach another player, and a friendly match changes nothing, so cheating gains nothing.
 
@@ -103,15 +104,15 @@ Technical items we've intentionally postponed: tech debt, hardening shortcuts, k
 
 ### `nearestTent` is a synchronous flood fill that costs up to a few hundred milliseconds the first time it reads a place
 
-**What**: `nearestTent` visits about 2·s² tiles for a tent s steps away. Since the way to the doctor (the arrow a tired team follows, `DoctorWay`) looks again at every step, it reads the ground from a cache of whole chunks (`tents.ts`, [[INVARIANTS]] § "A tent search answers the same whatever was searched before"), so a search where the last one looked is cheap: over 1,539 steps of random walks in six worlds, at a load average of 50, median 0.19 ms, p99 17 ms, max 22 ms (main before the cache, the same walks: median 0.89 ms, p99 34 ms, max 141 ms). The first search in a place still makes every chunk it touches: from 300 random walkable starts in 300 worlds, at the same load, median 57 ms, p90 217 ms, max 1 s (main: 43, 243 and 781 ms). It runs where a battle is lost, a go-to lands or a trip arrives (`knockOut`, `careFor`, `doctorComes`: only for a team that needs the doctor, and never for a kid with the glider), and for the arrow wherever a tired team is put without a step (`DoctorWay` after a reload, a go-to or a trip, reaching up to `DOCTOR_WAY_STEPS`), each once; in a server authority a cold one would block the event loop for every connection.
+**What**: `nearestTent` visits about 2·s² tiles for a tent s steps away. Since the way to the witch doctor (the arrow a tired team follows, `DoctorWay`) looks again at every step, it reads the ground from a cache of whole chunks (`tents.ts`, [[INVARIANTS]] § "A tent search answers the same whatever was searched before"), so a search where the last one looked is cheap: over 1,539 steps of random walks in six worlds, at a load average of 50, median 0.19 ms, p99 17 ms, max 22 ms (main before the cache, the same walks: median 0.89 ms, p99 34 ms, max 141 ms). The first search in a place still makes every chunk it touches: from 300 random walkable starts in 300 worlds, at the same load, median 57 ms, p90 217 ms, max 1 s (main: 43, 243 and 781 ms). It runs where a battle is lost, a go-to lands or a trip arrives (`knockOut`, `careFor`, `doctorComes`: only for a team that needs the doctor, and never for a kid with the glider), and for the arrow wherever a tired team is put without a step (`DoctorWay` after a reload, a go-to or a trip, reaching up to `DOCTOR_WAY_STEPS`), each once; in a server authority a cold one would block the event loop for every connection.
 
-**The game's own world**: the seed is fixed (`'prototype'`), so the numbers that matter are that world's. Over every tall-grass tile within 40 tiles of the start (where a battle can be lost), plus samples out to 400 tiles: median 5–11 ms, max 50 ms in node on an M-series Mac, and 20–40 ms at the slowest of those spots measured in Chrome, before the cache. Losing at the reed by the start (the usual place): the whole keydown, battle reducer and the tent search included, took 2 ms (Chrome's Event Timing, 2026-09-25). Not perceptible: the first beat after an answer holds for a second anyway.
+**World 1** (the seed `'prototype'`, where every game from before numbered worlds stands; a new game starts in a world from 2 to 9999, which the 300 worlds above sample): over every tall-grass tile within 40 tiles of the start (where a battle can be lost), plus samples out to 400 tiles: median 5–11 ms, max 50 ms in node on an M-series Mac, and 20–40 ms at the slowest of those spots measured in Chrome, before the cache. Losing at the reed by the start (the usual place): the whole keydown, battle reducer and the tent search included, took 2 ms (Chrome's Event Timing, 2026-09-25). Not perceptible: the first beat after an answer holds for a second anyway.
 
 **With the boat** the search crosses water too, and a battle can be lost out on a lake. It reads deep water as water, as `travelKindAt` does, sparing the deep-water check (24 more tiles of elevation per deep tile). In the prototype world, from 400 random water tiles within 600 of the start: median 7 ms, p99 44 ms, max 50 ms; every one found a tent, the furthest 91 steps away.
 
-**Why deferred**: in the game's world a cold search costs at most a few frames, once per lost battle or trip, and there is no server authority yet. Faster options change the algorithm (visit the tent lattice in order of distance and path-check each candidate, or cap by tiles visited).
+**Why deferred**: in World 1 a cold search costs at most a few frames, and in the other worlds a few at the median (the numbers above), once per lost battle or trip; and no server runs the rules that call it ([[DECISIONS]] § Multiplayer). Faster options change the algorithm (visit the tent lattice in order of distance and path-check each candidate, or cap by tiles visited).
 
-**Trigger**: the server-side authority PR, or a report of a pause after losing a battle or while walking to a doctor.
+**Trigger**: the first PR that handles a lost battle, a go-to or a trip on the server, or a report of a pause after losing a battle or while walking to the witch doctor.
 
 ### `reorder` names an absolute slot, which a remote authority's latency can turn stale
 
@@ -124,13 +125,13 @@ Technical items we've intentionally postponed: tech debt, hardening shortcuts, k
 ### `normalizeNickname` follows the host's Unicode tables, and keeps accents for listed scripts only
 
 **What**: two limits of the nickname cleaner.
-- **Host tables.** It uses `\p{L}`, `\p{M}`, `\p{Script=…}`, `\p{Script_Extensions=…}`, `\p{Default_Ignorable_Code_Point}` and `normalize('NFKC')`, whose answers come from the JavaScript engine's Unicode version. A letter added in a recent Unicode version is kept by a newer Node and dropped (as unassigned) by an older browser, and Script_Extensions data changes more often still. So two engines can clean the same typed name differently. That is harmless while the authority is the only one that cleans: it stores its result, and every screen shows that. The name boxes' "It will be called …" previews (the pause menu's and the title's) are the only places the client cleans for itself, and they could disagree in that rare case.
+- **Host tables.** It uses `\p{L}`, `\p{M}`, `\p{Script=…}`, `\p{Script_Extensions=…}`, `\p{Default_Ignorable_Code_Point}` and `normalize('NFKC')`, whose answers come from the JavaScript engine's Unicode version. A letter added in a recent Unicode version is kept by a newer Node and dropped (as unassigned) by an older browser, and Script_Extensions data changes more often still. So two engines can clean the same typed name differently. That is harmless where the stored name is what shows: the authority stores its result, and the kid's own screens show that. Two places clean again: the name boxes' "It will be called …" previews (the pause menu's and the title's), in the browser, and a friendly match, whose server cleans every nickname a page brings (`matchTeam`) with Node's tables and shows both players the result; either could differ from the stored name in that rare case.
 - **Listed scripts only.** Accent marks are kept for Latin, Greek and Cyrillic and for the scripts in `SCRIPTS_WITH_MARKS`. Rarer scripts (Meetei Mayek, N'Ko, Adlam, Tai Tham, Baybayin…) keep their letters and lose their vowel signs.
 - **Joining controls.** ZWJ and ZWNJ are dropped as default-ignorable, although they change how Sinhala ("ශ්‍රී") and Persian ("علی‌رضا") letters join.
 
-**Why deferred**: the players are Danish and English-speaking kids, and there is one authority, in the browser. The fixes cost more than they are worth today. Every script's marks would need the full, generated list of Unicode scripts, guarded against engines that don't know the newest names. Joiners would need to be kept only between two letters of one script. With a server authority, the server's result is the truth and the client only displays it.
+**Why deferred**: the players are Danish and English-speaking kids, and the only authority that stores a nickname is in the browser. The fixes cost more than they are worth today. Every script's marks would need the full, generated list of Unicode scripts, guarded against engines that don't know the newest names. Joiners would need to be kept only between two letters of one script. With a server authority, the server's result is the truth and the client only displays it.
 
-**Trigger**: a player whose name needs one of these, or the server-side authority PR. At that PR, check that nothing but the server cleans a name that is stored, and decide whether the preview needs the server's answer.
+**Trigger**: a player whose name needs one of these, or the first rename run on the server. At that PR, check that nothing but the server cleans a name that is stored, and decide whether the preview needs the server's answer.
 
 ### A browser keeps at most 200 games left for a new one
 
@@ -140,9 +141,9 @@ Technical items we've intentionally postponed: tech debt, hardening shortcuts, k
 
 **Trigger**: a report of a new game that did not stick, or `animath.save.previous.100` showing up in a kid's browser.
 
-### The doctor's Heal tab lists every animal of a kind, where the HUD shows one card
+### The witch doctor's Heal tab lists every animal of a kind, where the HUD shows one card
 
-**What**: the doctor's lists read the party's bundles (`bundles`), and Set free gives each kind of several a row of its own ("Rabbit ×12") that picks the whole kind (#75). Heal still lists each animal, grouped by kind with a line between kinds, and has no row for a kind. So a kid meets twelve rabbits as one card in the HUD and as twelve rows at the doctor's Heal tab.
+**What**: the witch doctor's lists read the party's bundles (`bundles`), and Set free gives each kind of several a row of its own ("Rabbit ×12") that picks the whole kind (#75). Heal still lists each animal, grouped by kind with a line between kinds, and has no row for a kind. So a kid meets twelve rabbits as one card in the HUD and as twelve rows at the witch doctor's Heal tab.
 
 **Why deferred**: Heal is where each animal's HP shows, and one puzzle already heals the whole kind whichever of its hurt animals is picked. A kind's row there would be a second way to the same puzzle, not a shortcut.
 
@@ -166,7 +167,7 @@ Technical items we've intentionally postponed: tech debt, hardening shortcuts, k
 
 ### A card's list is built whole, however many animals it holds
 
-**What**: opening a card in the HUD or the pause menu builds a row for every animal of that kind at once (the switch list and the doctor's list likewise list the whole team). A card of 120 rabbits took 60–100 ms of script and layout to come up at a load average of 40–77 (six took 4 ms): a hitch of a few frames when the card opens, none while it is open or while walking.
+**What**: opening a card in the HUD or the pause menu builds a row for every animal of that kind at once (the switch list and the witch doctor's list likewise list the whole team). A card of 120 rabbits took 60–100 ms of script and layout to come up at a load average of 40–77 (six took 4 ms): a hitch of a few frames when the card opens, none while it is open or while walking.
 
 **Why deferred**: a card of a hundred of one kind is far from any kid's team today, and drawing only the rows in view fights the lists' shared columns, which are sized by the longest name.
 
@@ -178,7 +179,7 @@ Technical items we've intentionally postponed: tech debt, hardening shortcuts, k
 
 **Why deferred**: only an older build meeting a newer save hits it, which today means rolling the tunnel's game back past #66; a `version` bump instead would make every save, small ones too, unreadable to such a build.
 
-**Trigger**: before rolling the game back past #66, or serving two builds behind one address. Then bump `SAVE_VERSION` with an upgrade that only renumbers, so an older build calls a big save `newer` and leaves it alone.
+**Trigger**: before rolling the game back past #66 (every build production has served is newer), or serving a build from before #66 beside a newer one behind one address. Then bump `SAVE_VERSION` with an upgrade that only renumbers, so an older build calls a big save `newer` and leaves it alone.
 
 ### Presence and friendly matches live in one server process's memory
 
@@ -192,9 +193,9 @@ Technical items we've intentionally postponed: tech debt, hardening shortcuts, k
 
 **What**: an older build calls a save a newer build's (`readSave`'s `newer`) only by the ids in it ([[INVARIANTS]] § "A save a newer build wrote…"): a later `version`, a species, or a battle's realm or puzzle kind it does not have. A newer build that grows existing content without a new id makes battles an older one cannot pick up: an attack added to a species (the saved puzzle's `attackIndex` is past the older list), a realm a species newly goes to (an animal that may not fight there), a new battle phase, a raised `maxHp` or difficulty. `readBattle` drops such a battle as if the kid had run away, and the older build's next write, a same-game save with a higher `seq`, replaces it in the browser and on the server with no copy kept: the wild animal and the puzzle are gone, and nothing else is (the party's HP is the save's own).
 
-**Why deferred**: no planned change is one (#89 adds species; #91's birds in the air fight in a new realm, `air`, whose id is seen), and classifying these battles as `newer` is not safe: content has shrunk as well as grown (the turtle lost its third attack, `shell-spin`, in the PR that made the sea animals twins), so an older save can hold the same shapes, and calling it newer would lock that kid out of their game for good.
+**Why deferred**: no change so far is one (#89's species came with new ids, and #91 gave seven birds that had shipped a new realm, `air`, whose id is seen), and classifying these battles as `newer` is not safe: content has shrunk as well as grown (the turtle lost its third attack, `shell-spin`, in the PR that made the sea animals twins), so an older save can hold the same shapes, and calling it newer would lock that kid out of their game for good.
 
-**Trigger**: the first PR that adds an attack to a species that has shipped, a realm to one, a battle phase, or raises a species' `maxHp` or the difficulty range. That PR bumps `SAVE_VERSION` with an upgrade that changes nothing but the number (every older document stays readable, and an older build calls every newer one `newer`), or keeps the save's text aside wherever a load drops a battle.
+**Trigger**: the first PR that adds an attack to a species that has shipped, a realm older builds know to one, a battle phase, or raises a species' `maxHp` or the difficulty range. That PR bumps `SAVE_VERSION` with an upgrade that changes nothing but the number (every older document stays readable, and an older build calls every newer one `newer`), or keeps the save's text aside wherever a load drops a battle.
 
 ### Two server test runs in one checkout at once share its test database
 
@@ -219,3 +220,11 @@ Technical items we've intentionally postponed: tech debt, hardening shortcuts, k
 **Why deferred**: it is off screen when it runs (the ring's edge), one tent at a time, and spreading it is what the ring's work already does. Painting it in a worker, or keeping the glow of the tents seen last, costs a worker's plumbing or memory for a hitch nobody has reported.
 
 **Trigger**: a frame over 50 ms traced to `paintGlows` on a real tablet, or a report of a stutter when a tent comes into the ring. Then paint in a Web Worker (the glow is pure arithmetic on tiles and shapes) and hand the arrays back.
+
+### An account's name is checked once, when the account is made
+
+**What**: presence shows an account holder by the account's name (`presence/socket.ts`), which `checkName` judged at registration (`routes/account.ts`) and nothing judges again, where a guest's name is checked at every `hello` and a saved name at every load (`restoreGame`). If the name rules grow (a word added to the rude list in `names.ts`), an account named before keeps its name and shows it to other players, and [[INVARIANTS]] § "A player's name is always one `checkName` keeps" stops holding for it.
+
+**Why deferred**: the rules have not changed since accounts shipped, and a name the rules come to refuse needs somewhere to go: an account has no way to change its name, and its kid logs in by it.
+
+**Trigger**: the first change to the name rules after accounts shipped. In the same PR, check every account's name against the new rules, and decide how an account whose name they refuse is shown to others and renamed.

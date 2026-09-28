@@ -4,7 +4,7 @@ Brand, look and voice. Screen layouts are in [[UI_SPEC]]; gameplay is in [[PRODU
 
 ## Users
 
-Kids aged roughly 6–12, playing alone or with friends in the same room, on a laptop with its keyboard or on a tablet held sideways, with their fingers only. Some are early readers. All of them will find every bug, so the game has to be forgiving of mashed keys, mashed taps and wrong answers.
+Kids aged roughly 6–12, playing alone or with friends, in the same room or in the same world, on a laptop with its keyboard or on a tablet held sideways, with their fingers only. Some are early readers. All of them will find every bug, so the game has to be forgiving of mashed keys, mashed taps and wrong answers.
 
 ## Personality
 
@@ -18,14 +18,14 @@ Rules that follow from that:
 
 - **Fixed camera.** In explore, orthographic, pitched about 50°, yawed about 35°. No zoom, no rotation, ever. The world reads as a diorama because the angle never changes. The battle and the title's starter stage have fixed cameras of their own.
 - **Facets, not textures.** Colour comes from materials and lighting, not image textures. `flatShading: true` everywhere.
-- **Chunky silhouettes.** Trees are a cone on a cylinder, rocks are a dodecahedron, tents are a pyramid with the witch doctor standing in front (a robe that is a six-sided cone, a round head with a white beard and a big round nose, a staff with a green gem, and his tell, a tall floppy hat: a crown whose tip bends over, a gold band, a feather; a brim narrow enough that the camera, looking down, still sees his face) and his iron pot on a campfire of two crossed logs beside him, reeds a thin stalk with a brown head, flowers and bushes a twenty-sided ball, the boat half a cone laid on its side, wide at the stern, with a coral rim and a little deck across its front half. Animals are boxes, spheres and cones with one exaggerated tell each — the squirrel's curled tail, the rabbit's ears, the frog's eyes on top of its head, the deer's antlers — because at the game's camera a bear is 40 px tall and a squirrel 15. A curve is a torus arc (the squirrel's tail) or a five-sided tube tapering to a point (the octopus's arms, the whale's spout). A sea animal is only ever seen swimming, its lower 40% under the water, so its tell stands in its top 60% and reads from the camera above whichever way it swims: the octopus's arms curl up round its head, the starfish stands upright on one arm. Real models keep that vocabulary: few polygons, readable at 40 px tall.
-- **Warm light.** One sun (slightly warm white) casting soft shadows, plus a hemisphere fill so shadows stay coloured, never black, and a small warm glow at each campfire: the ground round the fire turns golden, and the tent's side, the pot and the trees and grass nearest it catch the light, as a little lamp hanging over the fire would light them. It is painted, not a light ([[DECISIONS]] § Client), so the doctor and passers-by don't catch it.
+- **Chunky silhouettes.** Trees are a cone on a cylinder, rocks are a dodecahedron, tents are a pyramid with the witch doctor standing in front (a robe that is a six-sided cone, a round head with a white beard and a big round nose, a staff with a green gem, and his tell, a tall floppy hat: a crown whose tip bends over, a gold band, a feather; a brim narrow enough that the camera, looking down, still sees his face) and his iron pot on a campfire of two crossed logs beside him, reeds a thin stalk with a brown head, flowers and bushes a twenty-sided ball, the boat half a cone laid on its side, wide at the stern, with a coral rim and a little deck across its front half. Animals are boxes, spheres and cones with one exaggerated tell each — the squirrel's curled tail, the rabbit's ears, the frog's eyes on top of its head, the deer's antlers — because at the game's camera a bear is 40 px tall and a squirrel 15. A curve is a torus arc (the squirrel's tail) or a five-sided tube tapering to a point (the octopus's arms, the whale's spout). An animal swimming, in a battle at sea or behind the boat, has the lower 40% of its height under the water, and a sea animal is only ever seen swimming, so its tell stands in its top 60% and reads from the camera above whichever way it swims: the octopus's arms curl up round its head, the starfish stands upright on one arm. Real models keep that vocabulary: few polygons, readable at 40 px tall.
+- **Warm light.** One sun (slightly warm white) casting soft shadows, plus a hemisphere fill so shadows stay coloured, never black, and a small warm glow at each campfire: the ground round the fire turns golden, and the tent's side, the pot and the trees and grass nearest it catch the light, as a little lamp hanging over the fire would light them. It is painted, not a light ([[DECISIONS]] § Client), so the witch doctor and passers-by don't catch it.
 - **Gentle motion.** Steps hop and swing the trainer's arms; the witch doctor breathes, sways, looks about and now and then taps his staff down, the flames under his pot flicker and the potion bubbles; grass could sway. Nothing snaps.
 - **A little juice, no new assets.** Moments get a small flourish made from what is already in the game — a lunge, a shake, a ring of dust, a burst of confetti in the palette's colours, sparkles along an HP bar, an iris into battle. A flourish marks a moment the screen already shows; it never hides text or the animal it is about, never leaves the scene, never delays a key and never fills the screen with a flash ([[UI_SPEC]] § Sound and juice). Size one against the thing it frames, in a frame, not by its numbers.
 
 ## Palette
 
-Hex values are the ones in `packages/client/src/render/palette.ts` and `styles.css`; change both together.
+Hex values are the ones in `packages/client/src/render/palette.ts` and `styles.css`; change both together. A few belong to one picture and live in its component: the coin's rims (`Coin.svelte`), the puzzle badge's rim (`Tick.svelte`), the tools' pale edge (`ItemIcon.svelte`, and `clearing.ts` for the tool in the trainer's fist) and the amber of a "−N" (`DoctorCard.svelte`).
 
 | Role                 | Hex       | Notes                                        |
 | -------------------- | --------- | -------------------------------------------- |
@@ -39,8 +39,8 @@ Hex values are the ones in `packages/client/src/render/palette.ts` and `styles.c
 | Tree trunk           | `#8b5a3c` |                                              |
 | Tree canopy          | `#2c7a43` / `#3a8f4c` / `#2f8a55` | Three dark greens, mixed randomly: trees grow only in the forest. The starter stage's bushes keep `#3e9e4f` / `#62bf5f`. |
 | Tent cloth           | `#f2a65a` | Door `#d47c2a`.                              |
-| The witch doctor     | robe `#8a5fd0`, hat `#4a2f96`, belt, hat band and the bobble on its tip warn `#f5b83d`, feather trainer coral `#ff7e6b`, skin `#ffcfb0`, nose `#f5a48a`, beard off-white, eyes near-black, staff trunk `#8b5a3c`, gem good `#56c271` | `DOCTOR_COLORS`: purple and gold, a storybook witch's colours, the robe paler than the hat so the hat's shape reads against it; the gem is the doctor's green. |
-| His campfire         | pot `#3e3947`, rim `#5c5566`; potion good `#56c271`, bubbles `#c6f2b4`; flames fire `#ffb347`, accent `#ff9f43` and warn `#f5b83d`; logs trunk | The potion, its bubbles and the flames are unlit, so they glow. The potion is the green of a full HP bar and of the doctor's sparkles. |
+| The witch doctor     | robe `#8a5fd0`, hat `#4a2f96`, belt, hat band and the bobble on its tip warn `#f5b83d`, feather trainer coral `#ff7e6b`, skin `#ffcfb0`, nose `#f5a48a`, beard off-white, eyes near-black, staff trunk `#8b5a3c`, gem good `#56c271` | `DOCTOR_COLORS`: purple and gold, a storybook witch's colours, the robe paler than the hat so the hat's shape reads against it; the gem is the witch doctor's green. |
+| His campfire         | pot `#3e3947`, rim `#5c5566`; potion good `#56c271`, bubbles `#c6f2b4`; flames fire `#ffb347`, accent `#ff9f43` and warn `#f5b83d`; logs trunk | The potion, its bubbles and the flames are unlit, so they glow. The potion is the green of a full HP bar and of the witch doctor's sparkles. |
 | Fire / warm accent   | `#ffb347` | Also the UI accent (`--accent: #ff9f43`).    |
 | Trainer (player)     | `#ff7e6b` shirt, `#ffcfb0` skin, `#2f4fa8` shorts, `#3d7be8` cap | The trainers are the only figures in blue shorts, so none reads as an animal. |
 | Other trainers       | shirts `#f5c84a`, `#56c271`, `#9b6bd6`, `#f07fb0`, `#3cb8b0`, `#e0553f`, `#6cc3f0`, `#a8d84e`; caps `#2fa39a`, `#ff9f43`, `#f5c84a`, `#7a4fc0`, `#ff7e6b`, `#e0553f` | `TRAINER_LOOKS`: other players wear a shirt and a cap picked by their name, so a friend looks the same on every screen; the trainer's skin and blue shorts stay. No pair is the player's coral and blue, so nobody looks like you. Their boat's rim and pennant are their shirt's colour. |
@@ -51,8 +51,8 @@ Hex values are the ones in `packages/client/src/render/palette.ts` and `styles.c
 | Figure details       | `#fff4e6` / `#2f2a28` | Off-white and near-black for tail tips, chests, noses, eyes. |
 | Dust                 | `#f6efe2` | The ring a tired animal lies down in, and the poof where a trainer turns up out of nowhere (smaller, a miss's puff and a switch's in a friend's battle); fades as it spreads. Never grey smoke. |
 | Confetti             | accent, good, warn, water, trainer shirt, off-white, rabbit pink | `CONFETTI_COLORS`: only colours already in the game. |
-| Sparkles             | warn `#f5b83d` and good `#56c271`, with off-white in the battle scene, coral and blue on the result card, white at the doctor | The doctor's chunky four-pointed stars: along a healed animal's HP bar, in the battle scene (unlit, so they shine), round a wild animal a friend caught, and round the result card's headline. |
-| Token                | warn `#f5b83d`, rim `#c98a12`, inner ring `#fbd67a`, heart `--panel-cream` | A gold coin with a cream heart, the doctor's thank-you: on the doctor's card, in the HUD, beside each price; a "+N" in good, a "−N" in amber `#d99a1e`. |
+| Sparkles             | warn `#f5b83d` and good `#56c271`, with off-white in the battle scene, coral and blue on the result card, white at the witch doctor | The witch doctor's chunky four-pointed stars: along a healed animal's HP bar, in the battle scene (unlit, so they shine), round a wild animal a friend caught, and round the result card's headline. |
+| Token                | warn `#f5b83d`, rim `#c98a12`, inner ring `#fbd67a`, heart `--panel-cream` | A gold coin with a cream heart, the witch doctor's thank-you: on the witch doctor's card, in the HUD, beside each price; a "+N" in good, a "−N" in amber `#d99a1e`. |
 | Puzzle solved        | good `#56c271`, rim `#3f9d57`, tick `--panel-cream` | A green badge with a cream tick, the green of a right answer (`Tick`): beside the count of puzzles solved in the HUD, as the coin is beside the tokens. |
 | Animal book          | a kind caught: a disc of the meadow's grass `#8bd66b` (the shallows' `#5ec8f2` for a sea animal) under a soft white light, on a white card, with the `Tick`; a kind seen: a plain disc, its figure at 45% saturation; never seen: a dashed empty place and a "?" in ink at 30%; the book's picture: bound in the trainer's blue `#3d7be8`, its spine the shorts' `#2f4fa8`, cream `#fff4e6` pages and paw | The figures are the game's own, lit as the world is, each filling its disc. |
 | Tools                | trunk `#8b5a3c` (mast `#6e4630`), rock `#a8a39e` with a pale edge `#e9e6e2`, water `#5ec8f2`, trainer coral | The shop's pictures (`ItemIcon`): an axe, a pickaxe, a boat with a coral sail, a paraglider's arched wing of coral and cream cells over its lines, flat and chunky in the world's own colours. The axe and the pickaxe in the trainer's fist while it swings are the same colours, as boxes. |
@@ -69,8 +69,8 @@ Hex values are the ones in `packages/client/src/render/palette.ts` and `styles.c
 | Title letters        | `#ff7e6b`, `#ff9f43`, `#56c271`, `#3d7be8`, `#f5b83d` | "Animath" letter by letter: the trainer's coral and blue (`--coral`, `--blue`), the accent, good and warn. |
 | UI ink               | `#2d2a32` |                                              |
 | Good (HP, correct)   | `#56c271` |                                              |
-| Warn (HP under half) | `#f5b83d` | Amber: an HP bar between a half and a fifth, the leash's "maybe". |
-| Bad (damage, wrong)  | `#f25f5c` | Also an HP bar under a fifth. Text on Good, Warn and Bad is ink, never white. |
+| Warn (HP at half or under) | `#f5b83d` | Amber: an HP bar at a half or under and above a fifth, the leash's "maybe". |
+| Bad (damage, wrong)  | `#f25f5c` | Also an HP bar at a fifth or under. Text on Good, Warn and Bad is ink, never white. |
 
 Every ground tile's lightness is shifted by up to ±2.5 points (HSL), so a big field never reads as a grid.
 
@@ -110,7 +110,7 @@ Shapes the battle made, for any screen to reuse ([[UI_SPEC]] § Component reuse)
 - **Operator chips**: a sum's sign on a small tile of pale sky, in the trainer's blue, the prompts' own glyphs: a picture, never a button.
 - **A paw** before a name marks the other side (the wild animal's status box).
 
-Touch-sized targets: with the touch controls on, every row and button is at least 48 px tall (`--tap` in `styles.css`), the panels that hold lists grow to fit seven such rows, and the controls a hand uses most sit in the bottom corners, under the thumbs of a kid holding a tablet: the D-pad on the left; Talk, Menu, Go! and the number pad's OK on the right. With a keyboard the battle and doctor lists are tighter (rows from 32 px in battle, 30 px at the doctor), leaving the scene more room; everything else is 48 px on every screen. A pressed button or key gives way a little, so a tap is seen to land.
+Touch-sized targets: with the touch controls on, every row and button is a finger tall, and the controls a hand uses most sit in the bottom corners, under the thumbs of a kid holding a tablet (the sizes and places: [[UI_SPEC]] § Pointer and touch). A pressed button or key gives way a little, so a tap is seen to land.
 
 ## Icon
 
@@ -121,10 +121,10 @@ The fox's face, faceted like the figures, on the sky: its fur `#e8762b` in three
 Short, warm, second person. One idea per line. Words a seven-year-old reads without help.
 
 - "Squirrel is tired." not "Squirrel has fainted."
-- "Not quite! The bear shrugs it off." not "Incorrect answer."
+- "Not quite!", then "Missed! The wild Bear shrugs it off.", not "Incorrect answer."
 - "You caught a Fox!" with an exclamation mark. Big moments get big copy.
 - "Good try!" when the whole party is tired, never "You lost".
-- He is **the witch doctor**, in every line: never "the doctor" alone (the docs and the code call him the doctor for short). The human named him ("i feel like the witch doctor needs to look like a witch doctor").
+- He is **the witch doctor**, in every line: never "the doctor" alone (the code, and the docs where they name the code, call him the doctor for short). The human named him ("i feel like the witch doctor needs to look like a witch doctor").
 - An animal the witch doctor takes is **set free**, the human's words for it: made better, it goes home to the wild ("Bye bye, Fox! It feels much better now."). Never "released", "given away", "traded" or "sold"; the tokens are the witch doctor's thank-you, not a price. Wild animals are grumpy because they are "a little bit sick", never ill, hurt or mean.
 - No sarcasm, no "oops", no "error". No text the game can't stand behind if a kid reads it aloud.
 
@@ -136,13 +136,13 @@ The same voice for a Danish seven-year-old reading alone: short, warm, one idea 
 
 - Second person "du", never "De".
 - "træt" for tired, never "besvimet", "slået ud" or "død".
-- "Ikke helt! Bjørnen ryster det af sig." not "Forkert svar." Big moments get big copy and an exclamation mark: "Du fangede en ræv!", "Du vandt!". "Godt forsøgt!" when the whole party is tired, never "Du tabte".
+- "Ikke helt!", then "Forbi! Den vilde bjørn ryster det af sig.", not "Forkert svar." Big moments get big copy and an exclamation mark: "Du fangede en ræv!", "Du vandt!". "Godt forsøgt!" when the whole party is tired, never "Du tabte".
 - No anglicisms where Danish has a word a kid knows: "hold", not "team"; "snor", not "leash". Nothing scary: no "dø", "dræbe" or "blod"; the bear hugs ("Bjørnekram"), it doesn't maul.
 - Your own animal is called by its name in a label or a call ("Ræv", "Kom så, Ræv!") and with "the" in a sentence ("Ræven er træt.", "Lad os hjælpe ræven!"). A wild one is "en vild ræv" or "den vilde ræv". A nickname replaces all of them and is never translated.
 - Danish nouns are *en* or *et*, and the article and "vild" follow: en vild ræv / den vilde ræv, but et vildt egern / det vilde egern. Each species' forms are written out in `da.yaml`, so a sentence never guesses. Don't use a pronoun for an animal ("den", "det") where its gender could be either: "Forbi!" rather than "Den ramte ikke", "Snoren gled af!" rather than "Den slap fri".
 - Species names are lower case inside a sentence ("Du fangede et egern!") and capitalised alone, as a name or a label.
-- The adjective after "er" follows the noun too: "spillet er klart", "holdet er fuldt", "egernet er godt til…". A line that can hold any species uses words that don't change with it: "Egernet er mester i plus og minus!", never "er god til".
-- No comma before "og" or "eller" between two commands ("Skriv svaret og tryk på Enter", "Sig farvel og gå på opdagelse") or before the last item of a list ("sætte det forrest, flytte det eller give det et nyt navn"). Two sentences with a subject each keep theirs: "Dit hold er fuldt, så den vilde ræv hopper hjem."
+- The adjective after "er" follows the noun too: "et nyt spil er klart", "dyret er svagt", "egernet er godt til…". A line that can hold any species uses words that don't change with it: "Egernet er mester i plus og minus!", never "er god til".
+- No comma before "og" or "eller" between two commands ("Skriv svaret og tryk på Enter", "Sig farvel og gå på opdagelse") or before the last item of a list ("sætte det forrest, flytte det eller give det et nyt navn"). Two sentences with a subject each keep theirs: "Jeg gør dem helt raske, og de kommer hjem til naturen."
 - Say it the Danish way, not the English one: a hit takes points ("Den vilde ræv mister 4 point."), not "gør 4 i skade"; a switch costs a turn ("Det koster din tur."); a key reminder names what the key does in one word ("Enter vælg"), never "Enter gør det".
 
 | English  | Dansk  | en / et | the …   | a wild …        | the wild …      |
@@ -207,11 +207,11 @@ The words the game uses for its things, the same on every screen:
 | tired | træt (trætte) | an animal at 0 HP: the tag, every line about it |
 | wild | vild / vildt / vilde | a wild animal, following its gender |
 | witch doctor | heksedoktor (en: heksedoktoren, heksedoktorens) | the tents, the card ("Heksedoktor"), every line: "Gå til heksedoktoren!", "Heksedoktoren sælger en!", "hos heksedoktoren"; never "dyrlæge", and never "doktor" alone |
-| token | mønt (mønter) | what the doctor gives and the shop takes: "Du har 23 mønter", "2 mønter" on a row |
-| heal (the tab) | gør rask | the doctor's first tab ("Gør rask") |
+| token | mønt (mønter) | what the witch doctor gives and the shop takes: "Du har 23 mønter", "2 mønter" on a row |
+| heal (the tab) | gør rask | the witch doctor's first tab ("Gør rask") |
 | set free | slippe fri | the tab ("Slip fri"), its button ("Slip dem fri"), "Slip dyr fri", "Vælg de dyr, du vil slippe fri." |
 | shop | butik | the tab ("Butik"), "Min butik åbner snart" |
-| axe / pickaxe / boat | økse / hakke / båd (en) | the tools: "Øksen koster 8", "Her er din økse!"; each form written out in `da.yaml` (`items.*`) |
+| axe / pickaxe / boat | økse / hakke / båd (en) | the tools: "Øksen koster 8", "Værsgo, her er din økse!"; each form written out in `da.yaml` (`items.*`) |
 | paraglider / fly | paraglider (en) / flyve | the tool ("Paraglider", "din paraglider", "Svæver over træer, sten og vand."), the touch button ("Flyv"), "Hold mellemrum nede for at flyve!", "flyver" in Who's here; a rock is "sten" there too, never "klipper" |
 | a bird follows / grumpy / swoops down / up in the air | følger efter / gnaven / dykker ned / oppe i luften | a bird that noticed the glider ("En gnaven musvåge følger efter dig!", the grumpy form `aGrumpy` written out per bird, as every form is), the battle in the air ("En vild musvåge dykker ned!", "Den vilde musvåge bliver oppe i luften."), and "kan ikke flyve" on an animal that sits it out |
 | chop (a tree) / break (a rock) | fælde / knuse | the prompts ("Tryk på Enter for at fælde træet", "… for at knuse stenen"), the touch button ("Fæld", "Knus"), "Du skal bruge en økse for at fælde træer." |
@@ -222,10 +222,10 @@ The words the game uses for its things, the same on every screen:
 | leash | snor | the battle row ("Snor"), its card ("Kast snoren"), "Du kaster snoren…" |
 | catch | fange | "Du fangede en ræv!", "Svært at fange" |
 | animal book | dyrebog | the pause menu's row and the book's title ("Dyrebog"), "Alle dyr, du møder, kommer i din dyrebog." |
-| seen, met (in the book) | set, mødt | the book's count ("9 fanget · 14 set · 32 i alt"), a kind met and not caught ("Du har mødt en ræv.") |
+| seen, met (in the book) | set, mødt | the book's count ("9 fanget · 14 set · 50 i alt"), a kind met and not caught ("Du har mødt en ræv.") |
 | team | hold | "Dit hold", "kommer med på dit hold" |
 | goes first | først ud | the lead's tag, "Ræven er først ud!", "Sæt forrest" in the menu |
-| attack | angreb | "Vælg et angreb" |
+| attack | angreb | "Tryk på et angreb og så på Kør!" |
 | easy / medium / hard | let / mellem / svær | an attack's three levels |
 | puzzle | opgave (opgaver) | "Løs en opgave" (the sum itself needs no words); the HUD's count ("312 opgaver") |
 | switch | skifte | the battle row ("Skift"), its card ("Skift dyr") |
@@ -272,8 +272,8 @@ Gentle, synthesized, short. Every sound is made while the game runs, with WebAud
 - Every state is readable without colour (numbers on HP bars, icons plus text for hit/miss, "goes first" on the lead's card).
 - A word shown beside a colour says exactly what the colour encodes, and no more. If the word promises something the colour does not measure ("good chance" on a colour that only tracks HP), change what the colour measures or change the word.
 - Every state is readable without sound (§ Sound): no cue plays for something the screen does not show.
-- Keyboard-only play is complete: arrows/WASD, number keys, Enter, Escape, M.
-- Touch-only play is complete: the D-pad, Talk, Menu, the number pad, and a tap on every row, button and card ([[UI_SPEC]] § Pointer and touch). A mouse reaches everything a finger does but walking, which is the keyboard's on a laptop. Nothing is only on hover.
+- Keyboard-only play is complete: arrows/WASD, number keys and Backspace, Enter, Space, Escape, M.
+- Touch-only play is complete: the D-pad, Talk, Fly, Menu, the number pad, and a tap on every row, button and card ([[UI_SPEC]] § Pointer and touch). A mouse reaches everything a finger does but walking, which is the keyboard's on a laptop. Nothing is only on hover.
 - Motion is gentle; no full-screen flashes on a hit. The iris into a battle is a wipe, not a flash.
 - A system set to reduce motion (`prefers-reduced-motion: reduce`) gets less of it: smaller movements, a dim instead of the iris, sparkles that twinkle in place ([[UI_SPEC]] § Sound and juice). What happened still shows.
 - Text never below 16 px; puzzle prompt never below 32 px.

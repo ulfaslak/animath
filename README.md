@@ -2,7 +2,7 @@
 
 A cheerful low-poly adventure for kids where every attack is a math puzzle. Explore a procedurally generated world, catch animals, battle Game Boy Pokémon style — and hit harder by solving harder math.
 
-Single player prototype; multiplayer planned.
+Kids in the same world see each other, watch each other's battles and challenge each other to friendly matches. Play it at https://animath.xyz.
 
 ## Run it
 
