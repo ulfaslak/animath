@@ -679,7 +679,8 @@ describe('encounterTable', () => {
 			expect(hills.get(id)!, id).toBeCloseTo(hills.get('white-tailed-eagle')!, 14);
 		const reeds = sharesOf(encounterTable('river', 0, 1));
 		expect(reeds.get('squirrel')!).toBeCloseTo(reeds.get('frog')!, 14);
-		// 9,650 tables: well under a second alone.
+		// 9,650 tables: 0.09 s alone at a load average of 18, and up to ten times its run alone
+		// at 150.
 	}, 30_000);
 
 	it("the lead's own tier is the likeliest wherever it lives, at every distance; from the wild radius the bell is symmetric", () => {
