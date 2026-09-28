@@ -1151,6 +1151,51 @@ describe('knockOut', () => {
 		}
 	});
 
+	it('up in the air, the battle is lost with animals that cannot fly still standing, never a bird; the team is looked at where the glider came down, never in the air (#91)', () => {
+		const pos = spawnPoint(PROTOTYPE);
+		const air = { realm: 'air' as const };
+		// The robin is tired and the squirrel stands on the ground: nobody healed, nobody needed.
+		const squirrel = deepFreeze(partyOf(['squirrel'], ['robin', 0]));
+		expect(knockOut(PROTOTYPE, pos, squirrel, WorldEdits.none, air)).toEqual({
+			party: squirrel,
+			doctorCame: false
+		});
+		expect(() =>
+			knockOut(PROTOTYPE, pos, partyOf(['squirrel', 0], ['robin', 3]), WorldEdits.none, air)
+		).toThrow(/knocked out/);
+		// The swan flies too: tired in the air with only the squirrel standing, the battle is lost.
+		expect(() =>
+			knockOut(PROTOTYPE, pos, partyOf(['squirrel'], ['mute-swan', 0]), WorldEdits.none, air)
+		).not.toThrow();
+		// Birds alone, every one tired, come down where no tent can be walked to: a doctor comes, as
+		// after a battle lost on the ground there.
+		expect(knockOut(PROTOTYPE, walledIn(), partyOf(['robin', 0]), WorldEdits.none, air)).toEqual({
+			party: partyOf(['robin']),
+			doctorCame: true
+		});
+		// Down in the boat, out on the deep water, a crab standing: the crab can fight out there, so
+		// the team needs no doctor where it is, and none comes. Without the boat no tent is in reach
+		// from the middle of a lake, which leaves only where the team is looked at to decide: in the
+		// air, where no crab fights, a doctor would come.
+		const spawn = spawnPoint(PROTOTYPE);
+		let lake: GridPos | null = null;
+		for (let r = 1; r < 60 && !lake; r++)
+			for (let dx = -r; dx <= r && !lake; dx++)
+				for (const dy of [-r, r])
+					if (tileAtWorld(PROTOTYPE, spawn.x + dx, spawn.y + dy).kind === 'deepwater')
+						lake = { x: spawn.x + dx, y: spawn.y + dy };
+		expect(lake).not.toBeNull();
+		const crab = deepFreeze(partyOf(['crab'], ['robin', 0]));
+		for (const gear of [{ boat: true }, { boat: false }]) {
+			expect(knockOut(PROTOTYPE, lake!, crab, WorldEdits.none, { ...air, gear })).toEqual({
+				party: crab,
+				doctorCame: false
+			});
+		}
+		expect(nearestTent(PROTOTYPE, lake!)).toBeNull();
+		expect(doctorComes(PROTOTYPE, lake!, crab, WorldEdits.none, air)).toBe(true);
+	});
+
 	it('walks the paths the player cleared: out of a spot walled in by trees, once they are chopped', () => {
 		// A walkable tile walled in by trees and rocks, a tent within reach once they are cleared.
 		let found: { pos: GridPos; edits: WorldEdits } | null = null;

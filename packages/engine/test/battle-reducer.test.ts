@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { ANIMALS, canFightIn, getAnimal } from '../src/animals/catalog.js';
 import {
 	ATTACK_LEVELS,
+	REALMS,
 	type AnimalInstance,
 	type AttackLevel,
 	type Realm
@@ -1093,6 +1094,129 @@ describe('on the water', () => {
 				else outcomes.add(end);
 				if (end === 'lost' && state.party.some((a) => swims(a) && a.hp > 0))
 					bad.push(`${wild} ${seed}: lost with a swimmer standing`);
+			}
+		}
+		expect(bad).toEqual([]);
+		expect([...outcomes].sort()).toEqual(['caught', 'fled', 'lost', 'won']);
+	});
+});
+
+describe('up in the air (#91)', () => {
+	// After a bird followed the glider down, only the animals that fly fight: the birds. The
+	// others sit it out on the ground, as the animals that can't swim sit out a sea battle.
+	const flies = (a: AnimalInstance) => canFightIn(a.speciesId, 'air');
+
+	it('sends out the first standing bird, whoever is first in the party', () => {
+		const party = makeParty(['squirrel', 'bear', 'robin', 'buzzard']);
+		const state = startBattle(party, makeWild('buzzard'), { realm: 'air' });
+		expect(state.realm).toBe('air');
+		expect(state.active).toBe(2);
+		party[2]!.hp = 0;
+		expect(startBattle(party, makeWild('buzzard'), { realm: 'air' }).active).toBe(3);
+		expect(startBattle(party, makeWild('buzzard')).active).toBe(0);
+	});
+
+	it('is never started without a standing bird, or against an animal that cannot fly', () => {
+		expect(() =>
+			startBattle(makeParty(['squirrel', 'otter']), makeWild('robin'), { realm: 'air' })
+		).toThrow(/knocked out/);
+		const tiredRobin = makeParty(['squirrel', 'robin']);
+		tiredRobin[1]!.hp = 0;
+		expect(() => startBattle(tiredRobin, makeWild('robin'), { realm: 'air' })).toThrow(
+			/knocked out/
+		);
+		// Only birds fly: not the stag beetle, whatever it does in nature.
+		for (const wild of ['squirrel', 'stag-beetle', 'otter', 'crab'])
+			expect(() => startBattle(makeParty(['robin']), makeWild(wild), { realm: 'air' })).toThrow(
+				/can't fight on air/
+			);
+	});
+
+	it('lets only a standing bird step in, and refuses the others as unable to fight here', () => {
+		const party = makeParty(['robin', 'squirrel', 'tawny-owl', 'otter']);
+		const state = startBattle(party, makeWild('buzzard'), { realm: 'air' });
+		expect(party.map((_, i) => canSwitchTo(state, i))).toEqual([false, false, true, false]);
+		for (const partyIndex of [1, 3]) {
+			const step = applyBattleIntent(deepFreeze(state), { type: 'switch', partyIndex }, 3);
+			expect(step.state).toBe(state);
+			expect(step.events).toEqual([{ type: 'rejected', reason: 'cannot-fight-here' }]);
+		}
+	});
+
+	it('is lost when the last bird is tired, with a squirrel still standing on the ground', () => {
+		const party = makeParty(['squirrel', 'robin']);
+		party[1]!.hp = 1;
+		const start = startBattle(party, makeWild('buzzard'), { realm: 'air' });
+		expect(start.active).toBe(1);
+		// A wrong answer, and the buzzard's reply tires the robin (smaller, so never missed).
+		const { state, events } = attackAndAnswer(start, 1, 1, 1, false);
+		expect(events.map((e) => e.type)).toEqual([
+			'answer-judged',
+			'missed',
+			'hit',
+			'fainted',
+			'ended'
+		]);
+		expect(outcome(state)).toBe('lost');
+		expect(state.party.map((a) => a.hp)).toEqual([20, 0]);
+	});
+
+	it('the mute swan fights in the air, on land and from the boat', () => {
+		for (const realm of REALMS) {
+			const state = startBattle(makeParty(['squirrel', 'mute-swan']), makeWild('mute-swan'), {
+				realm
+			});
+			expect(state.party[state.active]!.speciesId, realm).toBe(
+				realm === 'land' ? 'squirrel' : 'mute-swan'
+			);
+		}
+	});
+
+	it('over random battles against every bird, only birds ever fight, and it always ends', () => {
+		const model: PlayerModel = {
+			accuracy: 0.6,
+			policy: 'random',
+			leash: 0.15,
+			flee: 0.02,
+			switch: 0.3
+		};
+		const wilds = ANIMALS.filter((a) => a.realms.includes('air')).map((a) => a.id);
+		const bad: string[] = [];
+		const outcomes = new Set<string>();
+		for (const wild of wilds) {
+			for (let seed = 0; seed < SEEDS; seed++) {
+				const rng = new Rng(hashInts(seed, 91));
+				// Two to five animals, at least one of them a bird, some already tired.
+				const species = Array.from({ length: rng.int(2, 5) }, () => rng.pick(ids));
+				species[rng.int(0, species.length - 1)] = rng.pick(wilds);
+				const party = makeParty(species).map((a) => ({
+					...a,
+					hp: rng.chance(0.2) && !flies(a) ? 0 : a.hp
+				}));
+				const { state } = playBattle(
+					seed,
+					party,
+					makeWild(wild),
+					model,
+					(before, _intent, step) => {
+						const front = step.state.party[step.state.active]!;
+						const waiting = step.state.phase.kind === 'choose-animal';
+						if (!flies(front)) bad.push(`${wild} ${seed}: ${front.speciesId} fights in the air`);
+						if (!waiting && step.state.phase.kind !== 'ended' && front.hp === 0)
+							bad.push(`${wild} ${seed}: a tired animal in front`);
+						if (step.state.realm !== 'air') bad.push(`${wild} ${seed}: the realm moved`);
+						for (const [i, a] of step.state.party.entries())
+							if (!flies(a) && a.hp !== before.party[i]!.hp)
+								bad.push(`${wild} ${seed}: ${a.speciesId} on the ground lost HP`);
+					},
+					2000,
+					'air'
+				);
+				const end = outcome(state);
+				if (end === null) bad.push(`${wild} ${seed}: never ended`);
+				else outcomes.add(end);
+				if (end === 'lost' && state.party.some((a) => flies(a) && a.hp > 0))
+					bad.push(`${wild} ${seed}: lost with a bird standing`);
 			}
 		}
 		expect(bad).toEqual([]);

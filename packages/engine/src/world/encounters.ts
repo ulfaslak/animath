@@ -1,4 +1,4 @@
-import { ANIMALS, getAnimal } from '../animals/catalog.js';
+import { ANIMALS, getAnimal, skiesOf } from '../animals/catalog.js';
 import type { AnimalInstance, AnimalSpec, Biome, Realm, Tier } from '../animals/types.js';
 import { leadIndex } from '../party/reducer.js';
 import type { Rng } from '../rng.js';
@@ -52,10 +52,28 @@ import { encounterRealm, isEncounterTile, type GridPos, type Tile } from './type
  * Every draw comes from the caller's `Rng`, so a walk replays exactly from
  * (seed, intents). The rng is only touched when the tile can hold an encounter
  * and something of its realm lives in the biome.
+ *
+ * Up in the air, on the glider, the sky is the birds' place: over every tile
+ * the glider enters, a bird may notice the kid (`rollSkyEncounter`, one in
+ * `SKY_CHANCE`), from the table of the sky over that tile (`skyTableAt`),
+ * built by the same rules as the grass's, in the air realm: the birds whose
+ * sky it is (`skiesOf`: where they live, and the sea eagle over the sea too),
+ * on the bell round the tier of the lead in the air, the first bird standing.
+ * Visitors come in every sky, not only over the river and the mountains, so
+ * near home a small bird in front mostly meets small birds wherever it flies.
+ * The authority rolls only while a bird stands in the team, and only until
+ * one bird has come out in a flight.
  */
 
 /** Chance that a step landing on tall grass starts a battle: one encounter per ten grass steps. */
 export const ENCOUNTER_CHANCE = 0.1;
+
+/**
+ * Chance that a bird notices the glider over a tile it enters: about one bird
+ * per twenty tiles flown, denser than the grass's one in ten grass steps
+ * since every tile of a flight rolls, because the sky is the birds' place.
+ */
+export const SKY_CHANCE = 1 / 20;
 
 /** Up to this many tiles from spawn the bigger animals are at their rarest. */
 export const SAFE_RADIUS = 32;
@@ -86,8 +104,10 @@ export interface EncounterEntry {
 }
 
 /**
- * Where the player just stepped. `spawn` is `spawnPoint(seed)` for the world,
- * and `around` is `surroundings(seed, pos)`: the ground near the tile.
+ * Where the player just stepped, or the tile the glider just entered: the
+ * tile as the world made it (its biome is the sky's). `spawn` is
+ * `spawnPoint(seed)` for the world, and `around` is `surroundings(seed, pos)`:
+ * the ground near the tile.
  */
 export interface EncounterSite {
 	tile: Tile;
@@ -138,8 +158,25 @@ function tierWeight(above: number, distance: number): number {
  * mountains have small animals of their own (the frogs, brown rats and toads,
  * the lizards); near home the visitors make the lead's size commoner there,
  * and give it a home where none of it lives (a red deer in the mountains).
+ * In the air every sky is visited: birds fly everywhere, and a sky with no
+ * bird of a small lead's size (the river's, the mountains', the sea's) would
+ * otherwise send it herons and eagles near home.
  */
 const VISITED_BIOMES: readonly Biome[] = ['river', 'mountain'];
+
+/** Whether visitors of the lead's tier come to `biome` in `realm`: every sky, and on the ground the river and the mountains. */
+function isVisited(biome: Biome, realm: Realm): boolean {
+	return realm === 'air' || VISITED_BIOMES.includes(biome);
+}
+
+/**
+ * Whether a species lives in `biome` in `realm`: on the ground where it lives
+ * (its habitats), in the air the skies it flies over (`skiesOf`).
+ */
+function livesIn(species: AnimalSpec, biome: Biome, realm: Realm): boolean {
+	if (!species.realms.includes(realm)) return false;
+	return (realm === 'air' ? skiesOf(species) : species.habitats).includes(biome);
+}
 
 /**
  * What the visitors of the lead's tier add to it inside the safe radius, in
@@ -187,21 +224,22 @@ function assertTier(tier: unknown, where: string): asserts tier is Tier {
  * catalog order, before the ground around a tile has a say.
  *
  * Only species living in `realm` are listed: on land every species but the
- * sea animals, and out at sea (the sea biome's deep water) only them, as no
- * other species lives in the sea. Every resident (a species whose habitats
- * include the biome) is listed, whatever its tier, and weighs its tier's bell
+ * sea animals, out at sea (the sea biome's deep water) only them, as no
+ * other species lives in the sea, and in the air only the birds. Every
+ * resident (a species whose habitats include the biome; in the air, one
+ * whose skies do) is listed, whatever its tier, and weighs its tier's bell
  * (`tierWeight` of its distance from the lead's tier) divided by how many
  * animals of its tier live there: a tier's residents together weigh its bell,
- * however many kinds they are. In a visited biome (the river, the mountains)
- * where a resident is bigger than the lead, every species of the lead's tier
- * that doesn't live there is listed too, as a visitor; together they add
- * `VISITORS_WEIGHT` bells to the lead's tier near home, however many kinds
- * they are, shared as `visitorShares` says, and that weight thins out by
- * `1 − danger` to none at the wild radius: near home the lead's size is four
- * times as common there as the bell alone would make it. The weights are then
- * normalised, so a tier the biome doesn't hold never comes out there and the
- * others share its place. Empty only where nothing of the realm lives in the
- * biome.
+ * however many kinds they are. In a visited biome (the river, the mountains,
+ * and in the air every sky) where a resident is bigger than the lead, every
+ * species of the realm and the lead's tier that doesn't live there is listed
+ * too, as a visitor; together they add `VISITORS_WEIGHT` bells to the lead's
+ * tier near home, however many kinds they are, shared as `visitorShares`
+ * says, and that weight thins out by `1 − danger` to none at the wild radius:
+ * near home the lead's size is four times as common there as the bell alone
+ * would make it. The weights are then normalised, so a tier the biome doesn't
+ * hold never comes out there and the others share its place. Empty only where
+ * nothing of the realm lives in the biome.
  */
 export function encounterTable(
 	biome: Biome,
@@ -212,22 +250,20 @@ export function encounterTable(
 	if (!Number.isFinite(distance)) throw new Error(`encounterTable: distance is ${distance}`);
 	assertTier(leadTier, 'encounterTable');
 	const lives = (a: AnimalSpec) => a.realms.includes(realm);
-	const residents = ANIMALS.filter((a) => lives(a) && a.habitats.includes(biome));
+	const residents = ANIMALS.filter((a) => livesIn(a, biome, realm));
 	// What is left of the visitors' weight here: all of it near home, none from the wild radius.
 	const near =
-		VISITED_BIOMES.includes(biome) && residents.some((a) => a.tier > leadTier)
-			? 1 - danger(distance)
-			: 0;
+		isVisited(biome, realm) && residents.some((a) => a.tier > leadTier) ? 1 - danger(distance) : 0;
 	// The animals of a tier living here split its bell evenly; the visitors, and the residents
 	// of the lead's size beside them, share what `visitorShares` gives them on top.
 	const living = new Map<Tier, number>();
 	for (const a of residents) living.set(a.tier, (living.get(a.tier) ?? 0) + 1);
 	const isGuest = (a: AnimalSpec) =>
-		near > 0 && lives(a) && a.tier === leadTier && !a.habitats.includes(biome);
+		near > 0 && lives(a) && a.tier === leadTier && !livesIn(a, biome, realm);
 	const { guest, spare } = visitorShares(living.get(leadTier) ?? 0, ANIMALS.filter(isGuest).length);
 	const raw = ANIMALS.flatMap((species) => {
 		const bell = tierWeight(species.tier - leadTier, distance);
-		if (lives(species) && species.habitats.includes(biome)) {
+		if (livesIn(species, biome, realm)) {
 			const extra = species.tier === leadTier ? spare * near : 0;
 			return [{ species, weight: (bell * (1 + extra)) / living.get(species.tier)! }];
 		}
@@ -260,8 +296,32 @@ export function encounterTableAt(site: EncounterSite, leadTier: Tier): Encounter
 	assertTier(leadTier, 'encounterTableAt');
 	const realm = encounterRealm(site.tile.kind);
 	if (realm === null) return [];
+	return tableOnGround(site, leadTier, realm, 'encounterTableAt');
+}
+
+/**
+ * The table of the sky over the tile the glider is over, for a lead in the
+ * air (the first bird standing) of tier `leadTier`: the biome's table in the
+ * air realm (`encounterTable`: the birds whose sky it is, visitors in every
+ * sky) for the tile's distance from spawn, weighed by the ground round the
+ * tile exactly as the tall grass's table is (`encounterTableAt`), the world
+ * as it was made. Every kind of tile has a sky, so it is never empty where a
+ * bird flies over its biome. Throws as `encounterTableAt` does.
+ */
+export function skyTableAt(site: EncounterSite, leadTier: Tier): EncounterEntry[] {
+	assertTier(leadTier, 'skyTableAt');
+	return tableOnGround(site, leadTier, 'air', 'skyTableAt');
+}
+
+/** The biome's table in `realm` at the site's distance from spawn, weighed by the ground round it. */
+function tableOnGround(
+	site: EncounterSite,
+	leadTier: Tier,
+	realm: Realm,
+	where: string
+): EncounterEntry[] {
 	const distance = distanceFromSpawn(site.pos, site.spawn);
-	if (!Number.isFinite(distance)) throw new Error(`encounterTableAt: distance is ${distance}`);
+	if (!Number.isFinite(distance)) throw new Error(`${where}: distance is ${distance}`);
 	const shares = terrainShares(site.around);
 	const inBiome = encounterTable(site.tile.biome, distance, leadTier, realm);
 	// Per tier: its share of the biome's table, and that share weighed by the ground.
@@ -328,6 +388,23 @@ export function rollEncounterFor(
 	const lead = party[leadIndex(party, realm)];
 	if (!lead) return null;
 	return rollEncounter(rng, site, getAnimal(lead.speciesId).tier);
+}
+
+/**
+ * Roll for a bird noticing the glider over the tile it just entered, for a
+ * lead in the air (the first bird standing) of tier `leadTier`, whatever kind
+ * of tile it is: the bird at full HP, or `null`. The chance is `SKY_CHANCE`,
+ * drawn first, whatever the lead and the ground; on a hit the bird is picked
+ * from `skyTableAt`. Where no bird flies over the biome the roll is `null`
+ * without a draw. Throws as `rollEncounter` does.
+ */
+export function rollSkyEncounter(rng: Rng, site: EncounterSite, leadTier: Tier): WildAnimal | null {
+	assertTier(leadTier, 'rollSkyEncounter');
+	const table = skyTableAt(site, leadTier);
+	if (table.length === 0) return null;
+	if (!rng.chance(SKY_CHANCE)) return null;
+	const species = pickWeighted(rng, table);
+	return { speciesId: species.id, hp: species.maxHp };
 }
 
 function pickWeighted(rng: Rng, table: readonly EncounterEntry[]): AnimalSpec {

@@ -1,4 +1,4 @@
-import { ANIMALS, getAnimal } from '../animals/catalog.js';
+import { ANIMALS, canFightIn, getAnimal } from '../animals/catalog.js';
 import {
 	ATTACK_LEVELS,
 	REALMS,
@@ -41,7 +41,10 @@ export interface FightAnimal {
 
 /** How a fight stands. */
 export interface FightView {
-	/** Where it is fought: on land, or out on the water from the boat. */
+	/**
+	 * Where it is fought: on land, out on the water from the boat, or up in the
+	 * air (two birds, after one followed the fighter's glider down).
+	 */
 	realm: Realm;
 	/** Each side's animal in front. */
 	a: FightAnimal;
@@ -252,16 +255,22 @@ function readFightAnimal(value: unknown): FightAnimal | null {
 	return { species, hp };
 }
 
-/** A fight's view off the wire, or null: a new object of its known fields. */
+/**
+ * A fight's view off the wire, or null: a new object of its known fields,
+ * with two animals that can both fight where it is fought (no otter up in
+ * the air, no squirrel out at sea), as every real battle's are.
+ */
 export function readFightView(value: unknown): FightView | null {
 	if (!isRecord(value)) return null;
 	const a = readFightAnimal(value.a);
 	const b = readFightAnimal(value.b);
 	if (!a || !b || !REALMS.includes(value.realm as Realm)) return null;
+	const realm = value.realm as Realm;
+	if (!canFightIn(a.species, realm) || !canFightIn(b.species, realm)) return null;
 	const turn = value.turn === null ? null : isSide(value.turn) ? value.turn : undefined;
 	const puzzle = value.puzzle === null ? null : readPuzzleFace(value.puzzle);
 	if (turn === undefined || (value.puzzle !== null && puzzle === null)) return null;
-	return { realm: value.realm as Realm, a, b, turn, puzzle };
+	return { realm, a, b, turn, puzzle };
 }
 
 function readFightEvent(value: unknown): FightEvent | null {

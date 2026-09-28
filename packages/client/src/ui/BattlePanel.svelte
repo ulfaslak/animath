@@ -25,6 +25,7 @@
 	import AttackTile from './AttackTile.svelte';
 	import Celebration from './Celebration.svelte';
 	import HpBar from './HpBar.svelte';
+	import MatchLeave from './MatchLeave.svelte';
 	import MatchNotes from './MatchNotes.svelte';
 	import MatchResult from './MatchResult.svelte';
 	import MoveButton from './MoveButton.svelte';
@@ -53,7 +54,8 @@
 	 * ("Bo's Rabbit"), the row of moves is Switch and Leave, the other's turn
 	 * shows their puzzle without its answer and that they are thinking
 	 * (`waiting`), and the result is the match's own (`MatchResult`), with the
-	 * match's notes over the screen (`MatchNotes`).
+	 * match's notes over the screen (`MatchNotes`) and, when Escape asks it,
+	 * "Leave the match?" (`MatchLeave`).
 	 */
 	/** The other player, in a friendly match. */
 	const vs = $derived(battle.vs);
@@ -143,16 +145,26 @@
 			if (canSwitch) return t('battle.switch.detail');
 			if (battle.party.length < 2) return t(vs ? 'match.switch.alone' : 'battle.switch.alone');
 			// The others may be standing, only not able to fight here: out on the water
-			// they can't swim, and on land they live in the sea.
+			// they can't swim, up in the air they can't fly, and on land they live in the sea.
 			const others = battle.party.filter((_, i) => i !== battle.front);
 			if (!others.some((a) => a.hp > 0 && !canFightIn(a.speciesId, battle.realm)))
 				return t('battle.switch.allTired');
-			return battle.realm === 'water'
-				? t('battle.switch.noSwimmers')
-				: t('battle.switch.noWalkers');
+			return t(
+				battle.realm === 'water'
+					? 'battle.switch.noSwimmers'
+					: battle.realm === 'air'
+						? 'battle.switch.noFlyers'
+						: 'battle.switch.noWalkers'
+			);
 		}
-		const run = battle.realm === 'water' ? 'battle.run.detailSea' : 'battle.run.detail';
-		return t(run, { animal: animalWords(opponent) });
+		return t(
+			battle.realm === 'water'
+				? 'battle.run.detailSea'
+				: battle.realm === 'air'
+					? 'battle.run.detailAir'
+					: 'battle.run.detail',
+			{ animal: animalWords(opponent) }
+		);
 	});
 
 	/**
@@ -256,9 +268,14 @@
 				: t('battle.switch.sendIn', params);
 		}
 		if (!canFightIn(animal.speciesId, battle.realm)) {
-			return battle.realm === 'water'
-				? t('battle.switch.cantSwim', params)
-				: t('battle.switch.inTheSea', params);
+			return t(
+				battle.realm === 'water'
+					? 'battle.switch.cantSwim'
+					: battle.realm === 'air'
+						? 'battle.switch.cantFly'
+						: 'battle.switch.inTheSea',
+				params
+			);
 		}
 		return animal.hp === 0 ? t('battle.switch.tired', params) : t('battle.switch.inBattle', params);
 	});
@@ -394,9 +411,13 @@
 							>
 							<span class="how">
 								{#if !canFightIn(animal.speciesId, battle.realm)}
-									{battle.realm === 'water'
-										? t('battle.switch.cantSwimTag')
-										: t('battle.switch.seaTag')}
+									{t(
+										battle.realm === 'water'
+											? 'battle.switch.cantSwimTag'
+											: battle.realm === 'air'
+												? 'battle.switch.cantFlyTag'
+												: 'battle.switch.seaTag'
+									)}
 								{:else if animal.hp === 0}
 									{t('battle.switch.tiredTag')}
 								{:else if i === battle.front}
@@ -526,6 +547,11 @@
 		{/if}
 	</div>
 </div>
+
+{#if vs && match.leaving && battle.screen !== 'result'}
+	<!-- Escape asked: Stay, or Leave. The match's notes stay over it. -->
+	<MatchLeave />
+{/if}
 
 {#if vs}
 	<MatchNotes />

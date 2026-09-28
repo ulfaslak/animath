@@ -6,6 +6,14 @@ Technical items we've intentionally postponed: tech debt, hardening shortcuts, k
 
 ---
 
+### A friend's birds are not seen in the air
+
+**What**: another player sees a friend glide (`flight`), but not the bird that flies behind them (their lead in the air) nor a wild bird chasing them (#91): nobody follows them in the other page until they are down, and the wire carries no chaser. Their battle in the air, once it starts, is seen as any battle is: the two birds flying beside them.
+
+**Why deferred**: #91 put flying in multiplayer out of scope. Drawing the lead in the air needs only the `lead` a page already reports (the lead in the air while flying) and `Follower.fly` on the other page; the chaser would need a field on `where` and a protocol bump.
+
+**Trigger**: the human asks for friends' flights to show their birds, or a kid watching a friend fly asks where the bird went.
+
 ### A friendly match under way ends on every deploy
 
 **What**: a match lives in the memory of the app that holds both players' sockets (`presence/matches.ts`). When a deploy stops that app (twice a deploy: the old app replaced, then the canary removed), every match under way there ends with no winner, and the pages say the game is updating and offer to play again ([[DECISIONS]] § Multiplayer). The alternatives were to keep matches running while the old app drains (it has 8 s before it exits and Docker's 10 s before the kill, a match takes minutes, two hops a deploy, and any hiccup of a kid's connection meanwhile lands them on the new app, which knows no match) or to hand the state on (the reducer replays from its seed and its log, which Postgres could hold, and the next app would resume it when both come back).

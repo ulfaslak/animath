@@ -300,6 +300,8 @@ export class PresenceController {
 		for (const bar of marks.bars) {
 			const p = renderer.toScreen(bar.at);
 			if (!p.visible) continue;
+			// Where it stands still: the labels are laid out from there (`Others.svelte`).
+			const rest = renderer.toScreen(bar.rest);
 			bars.push({
 				key: bar.key,
 				species: bar.animal.species,
@@ -307,6 +309,8 @@ export class PresenceController {
 				maxHp: bar.maxHp,
 				x: Math.round(p.x),
 				y: Math.round(p.y),
+				rx: Math.round(rest.x),
+				ry: Math.round(rest.y),
 				opacity: Math.round(bar.opacity * 20) / 20
 			});
 		}
@@ -316,6 +320,7 @@ export class PresenceController {
 			if (!p.visible) continue;
 			pops.push({
 				id: pop.id,
+				key: pop.key,
 				damage: pop.damage,
 				level: pop.level,
 				x: Math.round(p.x),

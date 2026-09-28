@@ -77,11 +77,18 @@ import { travel } from '../state/travel.svelte';
  *   they solved: each batch of events goes once to `count`, which adds this
  *   player's right answers (`countSolved`); no intent reaches the authority,
  *   so the save is otherwise exactly as it was.
+ * - **Leaving.** Always two deliberate presses, each with the line saying
+ *   what it does: the Leave move, then Go!; or Escape (the other's turn
+ *   card's button is Escape too), then Leave on the question it opens,
+ *   where Stay is lit. A kid who presses Escape for the menu is asked, and
+ *   stays with another Escape or an Enter.
  * - **Dropped and updated.** A drop keeps the match on screen while the
  *   socket comes back; the server says in its `hi` whether the match is
  *   still on. A server that stops for a new version ends it (`bye:
  *   restart`): the card says so, and Play again asks the same friend once
- *   both are back, one tap each.
+ *   both are back, one tap each. A server that stopped without a word (a
+ *   crash) is known by its `hi`'s `boot`, another than the one the match
+ *   began on: the same card, saying the game restarted, since nobody left.
  */
 
 /** Seconds past an invite's time the page waits for the server to say it ended, before letting go. */
@@ -150,6 +157,9 @@ export class MatchController implements MatchHooks {
 	private hereAt = Number.NEGATIVE_INFINITY;
 	/** When the other player's time to come back runs out, clock seconds. */
 	private awayUntil: number | null = null;
+	/** The run of the server this socket said hi to last (`hi.boot`), and the one the match on screen began on. */
+	private boot: string | null = null;
+	private matchBoot: string | null = null;
 
 	constructor(private readonly deps: MatchDeps) {
 		this.clock = deps.clock ?? (() => performance.now() / 1000);
@@ -170,9 +180,9 @@ export class MatchController implements MatchHooks {
 	receive(m: ServerMessage): void {
 		switch (m.t) {
 			case 'hi':
-				return this.hello(m.match);
+				return this.hello(m.match, m.boot ?? null);
 			case 'bye':
-				if (m.reason === 'restart') this.restarted();
+				if (m.reason === 'restart') this.restarted(false);
 				return;
 			case 'invite':
 				return this.invited(m.pid, m.name, m.ms);
@@ -423,7 +433,10 @@ export class MatchController implements MatchHooks {
 				if (key === 'Escape') this.withdraw();
 				break;
 			case 'playing':
-				handled = this.fightKey(key, fresh);
+				// Any key on their own turn says the kid is there: the clock starts again.
+				if (battle.turn === 'player' || match.nudged) this.here(match.nudged);
+				if (match.nudged) match.nudged = false;
+				else handled = match.leaving ? this.leaveKey(key, fresh) : this.fightKey(key, fresh);
 				break;
 			case 'over':
 			case 'updating':
@@ -434,14 +447,13 @@ export class MatchController implements MatchHooks {
 	}
 
 	private fightKey(key: string, fresh: boolean): boolean {
-		// Any key on their own turn says the kid is there: the clock starts again.
-		if (battle.turn === 'player' || match.nudged) this.here(match.nudged);
-		if (match.nudged) {
-			match.nudged = false;
-			return true;
-		}
 		switch (battle.screen) {
 			case 'actions':
+				// Escape, which a kid presses for the menu, asks before leaving.
+				if (key === 'Escape') {
+					this.askLeave();
+					return true;
+				}
 				return this.menuKey(key, fresh);
 			case 'party':
 				return this.partyKey(key, fresh);
@@ -452,16 +464,69 @@ export class MatchController implements MatchHooks {
 				return typed.handled;
 			}
 			case 'waiting':
-				// The other thinks: keys wait, but the kid can always leave (Escape, or the card's button).
-				if (key === 'Escape' && fresh) {
-					sfx.play('confirm');
-					this.sendPlay({ type: 'leave' });
-				}
+				// The other thinks: keys wait, but the kid can always leave, once asked
+				// (Escape, or the card's button, which is Escape).
+				if (key === 'Escape') this.askLeave();
 				return true;
 			default:
 				// While a turn plays, keys wait.
 				return true;
 		}
+	}
+
+	/** "Leave the match?" comes up, Stay lit: leaving takes a second, deliberate press. */
+	private askLeave(): void {
+		match.leaving = true;
+		match.option = 0;
+		this.guard.show();
+		sfx.play('move');
+	}
+
+	/**
+	 * The question's keys: left and right (or a tap on one) choose between
+	 * Stay and Leave, Enter picks after the quiet moment, Escape stays.
+	 */
+	private leaveKey(key: string, fresh: boolean): boolean {
+		const tapped = tappedOption(key);
+		if (tapped !== undefined) match.option = tapped === 0 ? 0 : 1;
+		switch (key) {
+			case 'ArrowLeft':
+			case 'a':
+			case 'ArrowUp':
+			case 'w':
+				match.option = 0;
+				sfx.play('move');
+				return true;
+			case 'ArrowRight':
+			case 'd':
+			case 'ArrowDown':
+			case 's':
+				match.option = 1;
+				sfx.play('move');
+				return true;
+			case 'Escape':
+				this.stay();
+				return true;
+		}
+		if (key !== 'Enter' && key !== ' ' && tapped === undefined) return false;
+		if (!fresh && tapped === undefined) return true;
+		if (tapped !== undefined && !this.guard.ready) return true;
+		if (match.option === 0) {
+			this.stay();
+			return true;
+		}
+		match.leaving = false;
+		sfx.play('confirm');
+		this.sendPlay({ type: 'leave' });
+		return true;
+	}
+
+	/** Stay: the question goes, and the match is as it was. */
+	private stay(): void {
+		match.leaving = false;
+		sfx.play('move');
+		// A choice back on screen waits its quiet moment again.
+		this.guard.show();
 	}
 
 	private menuKey(key: string, fresh: boolean): boolean {
@@ -652,12 +717,19 @@ export class MatchController implements MatchHooks {
 
 	// --- the match ------------------------------------------------------------------------
 
-	private hello(going: string | null): void {
+	private hello(going: string | null, boot: string | null): void {
 		// Everyone near is said again after a hi.
 		this.peers.clear();
+		this.boot = boot;
 		if ((match.stage === 'playing' || match.stage === 'over') && going !== match.id) {
-			// The match went on without this page, or the server forgot it: it is over.
-			if (match.stage === 'playing') this.missed();
+			// Another run of the server than the match's: it restarted without a word (a crash),
+			// and the match went with it. Nobody left it: the kids can play again, one tap each
+			// (a result whose rematch was off already stays as it is: `restarted`).
+			const restarted = boot !== null && this.matchBoot !== null && boot !== this.matchBoot;
+			if (restarted) this.restarted(true);
+			// The match went on without this page, and ended: it was away too long.
+			else if (match.stage === 'playing') this.missed();
+			// The result's match is gone here: its rematch with it.
 			else if (match.rematch.theirs !== false) match.rematch = { ...match.rematch, theirs: false };
 		}
 	}
@@ -695,6 +767,8 @@ export class MatchController implements MatchHooks {
 		match.clearMatch();
 		match.stage = 'playing';
 		match.id = m.id;
+		// The run of the server it is played on: coming back to another means it restarted.
+		this.matchBoot = this.boot;
 		match.you = you;
 		match.names = { a: m.names.a, b: m.names.b };
 		match.other = { pid: m.pids[them], name: m.names[them] };
@@ -847,6 +921,8 @@ export class MatchController implements MatchHooks {
 			case 'ended': {
 				battle.puzzle = null;
 				battle.turn = null;
+				// A question about leaving has nothing left to ask.
+				match.leaving = false;
 				const won = phase.winner === you;
 				// Leaving is the kid's own choice: straight back to exploring.
 				if (phase.reason === 'left' && !won) {
@@ -877,6 +953,7 @@ export class MatchController implements MatchHooks {
 		match.result = { won: false, reason: 'timed-out', timeout: 'dropped', missed: true };
 		match.rematch = { mine: false, theirs: false };
 		match.option = 1;
+		match.leaving = false;
 		match.stage = 'over';
 		this.beats = [];
 		battle.turn = null;
@@ -886,21 +963,30 @@ export class MatchController implements MatchHooks {
 		battle.screen = 'result';
 	}
 
-	/** The server stopped for a new version: the match is over, and both can play again in a moment. */
-	private restarted(): void {
+	/**
+	 * The server stopped: the match is over, and both can play again in a
+	 * moment. `found`: this page found out coming back to a new run of the
+	 * server, rather than being told it was updating (`bye: restart`).
+	 */
+	private restarted(found: boolean): void {
 		const stage = match.stage;
 		if (stage === 'asking' || stage === 'invited' || stage === 'starting') {
 			this.letGo('updating');
 			return;
 		}
 		if (stage !== 'playing' && stage !== 'over') return;
+		// A result whose rematch was off already (the other left, went back, or it lapsed)
+		// has nothing to play again: it stays, and nobody who left is asked back.
+		if (stage === 'over' && match.rematch.theirs === false) return;
 		this.beats = [];
 		this.sentAt = null;
 		this.awayUntil = null;
 		match.away = null;
 		match.nudged = false;
 		match.offline = false;
+		match.leaving = false;
 		match.stage = 'updating';
+		match.restarted = found;
 		match.friendBack = false;
 		match.friendAsked = false;
 		match.option = 0;

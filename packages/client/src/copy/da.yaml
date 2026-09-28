@@ -217,6 +217,9 @@ species:
     aWild: en vild rødhals
     theWild: den vilde rødhals
     bare: rødhals
+    # Kun fugle har denne form: en fugl, der har set svæveskærmen, følger efter den
+    # ned (explore.birdFollows). Vilde dyr er gnavne, fordi de er lidt syge.
+    aGrumpy: en gnaven rødhals
     attacks:
       song: Sang
       peck: Hak
@@ -299,6 +302,7 @@ species:
     aWild: en vild fiskehejre
     theWild: den vilde fiskehejre
     bare: fiskehejre
+    aGrumpy: en gnaven fiskehejre
     attacks:
       wade: Vade
       spear-beak: Spydnæb
@@ -310,6 +314,7 @@ species:
     aWild: en vild natugle
     theWild: den vilde natugle
     bare: natugle
+    aGrumpy: en gnaven natugle
     attacks:
       hoot: Tuhu
       silent-swoop: Lydløst dyk
@@ -358,6 +363,7 @@ species:
     aWild: en vild knopsvane
     theWild: den vilde knopsvane
     bare: knopsvane
+    aGrumpy: en gnaven knopsvane
     attacks:
       big-hiss: Stort hvæs
       wing-beat: Vingeslag
@@ -371,6 +377,7 @@ species:
     aWild: en vild stor hornugle
     theWild: den vilde store hornugle
     bare: store hornugle
+    aGrumpy: en gnaven stor hornugle
     attacks:
       orange-eyes: Orange øjne
       night-strike: Natangreb
@@ -406,6 +413,7 @@ species:
     aWild: en vild kongeørn
     theWild: den vilde kongeørn
     bare: kongeørn
+    aGrumpy: en gnaven kongeørn
     attacks:
       soar: Svæv
       sky-dive: Styrtdyk
@@ -418,10 +426,26 @@ species:
     aWild: en vild havørn
     theWild: den vilde havørn
     bare: havørn
+    aGrumpy: en gnaven havørn
     attacks:
       glide: Glid
       fish-grab: Fiskegreb
       huge-wings: Kæmpevinger
+  # Musvågen (#91): Danmarks almindeligste rovfugl. Den kredser højt over markerne og
+  # mjaver som en kat.
+  buzzard:
+    name: Musvåge
+    a: en musvåge
+    the: musvågen
+    wild: vild musvåge
+    aWild: en vild musvåge
+    theWild: den vilde musvåge
+    bare: musvåge
+    aGrumpy: en gnaven musvåge
+    attacks:
+      mew: Mjav
+      sky-circles: Kredse
+      talon-drop: Klodyk
   moose:
     name: Elg
     a: en elg
@@ -651,6 +675,7 @@ explore:
   holdToFly: Hold mellemrum nede for at flyve!
   holdToFlyTouch: Hold Flyv nede for at flyve!
   tooFar: For langt! Der er intet sted at lande den vej.
+  birdFollows: '{bird.aGrumpy} følger efter dig!'
   fly: Flyv
 
 hud:
@@ -696,6 +721,7 @@ party:
 battle:
   wildName: '{animal.wild}'
   appears: '{animal.aWild} dukker op!'
+  appearsAir: '{animal.aWild} dykker ned!'
   go: 'Kom så, {animal.name}!'
   whatNow: 'Hvad skal {animal.the} gøre?'
   tries: '{animal.the} prøver {attack}!'
@@ -746,6 +772,7 @@ battle:
     row: Løb væk
     detail: 'Du slipper altid væk. {animal.theWild} bliver i græsset.'
     detailSea: 'Du slipper altid væk. {animal.theWild} bliver i vandet.'
+    detailAir: 'Du slipper altid væk. {animal.theWild} bliver oppe i luften.'
   switch:
     row: Skift
     detail: Send et andet dyr ind. Det koster din tur.
@@ -753,6 +780,7 @@ battle:
     allTired: Dine andre dyr er trætte.
     noSwimmers: Dine andre dyr kan ikke svømme.
     noWalkers: Dine andre dyr bor i havet.
+    noFlyers: Dine andre dyr kan ikke flyve.
     title: Vælg et dyr
     keys: ↑ ↓ flyt · Enter kør · Esc tilbage
     mustPickKeys: ↑ ↓ flyt · Enter kør
@@ -761,12 +789,14 @@ battle:
     inBattleTag: på banen
     cantSwimTag: kan ikke svømme
     seaTag: bor i havet
+    cantFlyTag: kan ikke flyve
     sendIn: 'Send {animal.the} ind. Så får det vilde dyr en tur.'
     sendInFree: 'Send {animal.the} ind. Så er det din tur.'
     tired: '{animal.the} er træt og skal hvile sig.'
     inBattle: '{animal.the} er allerede på banen.'
     cantSwim: '{animal.the} kan ikke svømme og bliver i båden.'
     inTheSea: '{animal.the} bor i havet og kæmper kun ude på vandet.'
+    cantFly: '{animal.the} kan ikke flyve og kæmper kun på jorden.'
     whoIsNext: '{animal.the} er træt. Hvem skal ind nu?'
     comeBack: 'Kom tilbage, {animal.name}!'
   result:
@@ -780,6 +810,8 @@ battle:
     fled: '{animal.theWild} bliver i græsset.'
     wonSea: '{animal.theWild} svømmer hjem og hviler sig.'
     fledSea: '{animal.theWild} bliver i vandet.'
+    wonAir: '{animal.theWild} flyver hjem og hviler sig.'
+    fledAir: '{animal.theWild} bliver oppe i luften.'
     joined: '{animal.the} kommer med på dit hold!'
     lost: Dine dyr skal hvile sig. Heksedoktoren gør dem friske igen!
 
@@ -1188,6 +1220,10 @@ match:
     row: Forlad
     title: Forlad kampen
     detail: '{name} vinder, og du går på opdagelse igen.'
+    ask: Vil du forlade kampen?
+    stay: Bliv
+    go: Forlad
+    keys: ← → flyt · Enter vælg · Esc bliv
   result:
     won: Du vandt!
     wonText: 'Sikke en kamp, {name}!'
@@ -1213,6 +1249,8 @@ match:
     waiting: 'Venter på, at {name} kommer tilbage…'
     asked: '{name} vil spille igen!'
     again: Spil igen
+    restarted: Spillet genstartede.
+    restartedText: Skal I spille igen?
   notes:
     offline: Finder kampen igen…
     away: '{name} røg ud. Vi venter… {seconds}'

@@ -230,6 +230,9 @@ species:
     aWild: a wild Robin
     theWild: the wild Robin
     bare: Robin
+    # Only a bird has this form: one that noticed the glider follows it down
+    # (explore.birdFollows). Wild animals are grumpy because they are a little sick.
+    aGrumpy: a grumpy Robin
     attacks:
       song: Song
       peck: Peck
@@ -312,6 +315,7 @@ species:
     aWild: a wild Grey heron
     theWild: the wild Grey heron
     bare: Grey heron
+    aGrumpy: a grumpy Grey heron
     attacks:
       wade: Wade
       spear-beak: Spear Beak
@@ -323,6 +327,7 @@ species:
     aWild: a wild Tawny owl
     theWild: the wild Tawny owl
     bare: Tawny owl
+    aGrumpy: a grumpy Tawny owl
     attacks:
       hoot: Hoot
       silent-swoop: Silent Swoop
@@ -371,6 +376,7 @@ species:
     aWild: a wild Mute swan
     theWild: the wild Mute swan
     bare: Mute swan
+    aGrumpy: a grumpy Mute swan
     attacks:
       big-hiss: Big Hiss
       wing-beat: Wing Beat
@@ -382,6 +388,7 @@ species:
     aWild: a wild Eagle-owl
     theWild: the wild Eagle-owl
     bare: Eagle-owl
+    aGrumpy: a grumpy Eagle-owl
     attacks:
       orange-eyes: Orange Eyes
       night-strike: Night Strike
@@ -417,6 +424,7 @@ species:
     aWild: a wild Golden eagle
     theWild: the wild Golden eagle
     bare: Golden eagle
+    aGrumpy: a grumpy Golden eagle
     attacks:
       soar: Soar
       sky-dive: Sky Dive
@@ -429,10 +437,26 @@ species:
     aWild: a wild Sea eagle
     theWild: the wild Sea eagle
     bare: Sea eagle
+    aGrumpy: a grumpy Sea eagle
     attacks:
       glide: Glide
       fish-grab: Fish Grab
       huge-wings: Huge Wings
+  # The buzzard (#91): Denmark's most common bird of prey. It circles high over the
+  # fields and mews like a cat.
+  buzzard:
+    name: Buzzard
+    a: a Buzzard
+    the: the Buzzard
+    wild: wild Buzzard
+    aWild: a wild Buzzard
+    theWild: the wild Buzzard
+    bare: Buzzard
+    aGrumpy: a grumpy Buzzard
+    attacks:
+      mew: Mew
+      sky-circles: Sky Circles
+      talon-drop: Talon Drop
   moose:
     name: Moose
     a: a Moose
@@ -690,6 +714,9 @@ explore:
   holdToFlyTouch: Hold Fly to fly!
   # A take-off with no ground to land on in the 20 tiles ahead (a lake too wide, a forest too deep).
   tooFar: Too far! There's nowhere to land that way.
+  # Up in the air, a wild bird noticed the glider and follows it down; its battle
+  # starts on landing. {bird.aGrumpy}: the bird's own form, "a grumpy Buzzard".
+  birdFollows: '{bird.aGrumpy} is following you!'
   # The touch controls' round button that flies with the glider, held down.
   fly: Fly
 
@@ -764,6 +791,8 @@ battle:
   wildName: '{animal.wild}'
   # Narration, one line per beat. {animal} is yours, unless it says wild.
   appears: '{animal.aWild} appears!'
+  # The same, up in the air: the bird that followed the glider down.
+  appearsAir: '{animal.aWild} swoops down!'
   go: 'Go, {animal.name}!'
   whatNow: 'What will {animal.name} do?'
   tries: '{animal.name} tries {attack}!'
@@ -840,6 +869,8 @@ battle:
     detail: 'You always get away. {animal.theWild} stays in the grass.'
     # The same, out on the water.
     detailSea: 'You always get away. {animal.theWild} stays in the water.'
+    # The same, up in the air.
+    detailAir: 'You always get away. {animal.theWild} stays up in the sky.'
   switch:
     # The Switch row of the action menu, and what it says when highlighted.
     row: Switch
@@ -850,6 +881,8 @@ battle:
     noSwimmers: Your other animals can't swim.
     # On land, when every other animal standing is a sea animal.
     noWalkers: Your other animals live in the sea.
+    # Up in the air, when every other animal standing can't fly.
+    noFlyers: Your other animals can't fly.
     # The party list: its title, its keys (no way back after a knock-out), its tags.
     title: Pick an animal
     keys: ↑ ↓ choose · Enter go · Esc back
@@ -862,6 +895,8 @@ battle:
     cantSwimTag: can't swim
     # On land, on a sea animal: it only fights out on the water.
     seaTag: lives in the sea
+    # Up in the air, on an animal that can't fly: it sits the battle out on the ground.
+    cantFlyTag: can't fly
     # The highlighted animal of the list.
     sendIn: 'Send in {animal.name}. Then the wild animal gets a turn.'
     sendInFree: "Send in {animal.name}. Then it's your turn."
@@ -869,6 +904,7 @@ battle:
     inBattle: '{animal.name} is already in the battle.'
     cantSwim: "{animal.name} can't swim. It stays in the boat."
     inTheSea: '{animal.name} lives in the sea. It only fights out on the water.'
+    cantFly: "{animal.name} can't fly. It only fights on the ground."
     # Narration: the animal in front is tired and someone must go in.
     whoIsNext: '{animal.name} is tired. Who goes next?'
     # Narration: the animal in front goes back to make room.
@@ -888,6 +924,9 @@ battle:
     # The same, out on the water.
     wonSea: '{animal.theWild} swims home to rest.'
     fledSea: '{animal.theWild} stays in the water.'
+    # The same, up in the air.
+    wonAir: '{animal.theWild} flies home to rest.'
+    fledAir: '{animal.theWild} stays up in the sky.'
     joined: '{animal.name} joins your team!'
     # Under "Good try!": the team is tired where it stood, and walks to a doctor.
     lost: Your animals need a rest. The witch doctor will make them feel all better!
@@ -1443,6 +1482,12 @@ match:
     row: Leave
     title: Leave the match
     detail: '{name} wins, and you go back to exploring.'
+    # Escape in a match asks first: the question, its two buttons (Stay is lit
+    # first), and its keys. Its line is match.leave.detail.
+    ask: Leave the match?
+    stay: Stay
+    go: Leave
+    keys: ← → choose · Enter go · Esc stay
   # The end of a match: warm for both.
   result:
     won: You won!
@@ -1472,6 +1517,10 @@ match:
     waiting: 'Waiting for {name} to come back…'
     asked: '{name} wants to play again!'
     again: Play again
+    # It stopped without a word (the page found a new run of it on coming
+    # back): nobody left the match. The rest of the card is as above.
+    restarted: The game restarted.
+    restartedText: Want to play again?
   # Notes at the top of the match.
   notes:
     offline: Getting the match back…

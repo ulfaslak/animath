@@ -862,26 +862,30 @@ function bundledBattle(state: BattleState): BattleState {
 
 /**
  * A saved battle, if it can be picked up again with `party` (the party
- * restored beside it) where the player stands, in `realm`: fought there (a
- * battle saved before battles had a realm was fought on land), the same
- * animals with the same HP, a standing animal that can fight there in front
- * (or, waiting for a replacement after a knock-out, a tired one with someone
- * standing behind it who can), a wild animal that is still standing and can
- * fight there, and a phase the reducer can take the next intent in. Anything
- * else is null, and the player is back
- * in explore as if they had run away, with the HP they had. A `log` of English lines, from a
- * build before the engine held no words, is ignored.
+ * restored beside it) where the player stands, in `where`: fought there (a
+ * battle saved before battles had a realm was fought on land), or up in the
+ * air, which a bird that followed the glider down starts on whatever tile the
+ * player landed on, ground or water; the same animals with the same HP, a
+ * standing animal that can fight in the battle's realm in front (or, waiting
+ * for a replacement after a knock-out, a tired one with someone standing
+ * behind it who can), a wild animal that is still standing and can fight
+ * there, and a phase the reducer can take the next intent in. Anything else
+ * is null, and the player is back in explore as if they had run away, with
+ * the HP they had. A `log` of English lines, from a build before the engine
+ * held no words, is ignored.
  */
 export function readBattle(
 	value: unknown,
 	party: readonly AnimalInstance[],
-	realm: Realm = 'land'
+	where: Realm = 'land'
 ): BattleState | null {
 	// Only what a save's battle can be (`findUnstorable`, a level into the document): the
 	// comparison and the copy below go down one level at a time.
 	if (!isRecord(value) || findUnstorable(value, 'battle', 1) !== null) return null;
 	const { step, turn, active, opponent, leashQuality, phase } = value;
-	if ((value.realm ?? 'land') !== realm) return null;
+	const fought = value.realm ?? 'land';
+	if (fought !== where && fought !== 'air') return null;
+	const realm = fought as Realm;
 	const fights = (a: AnimalInstance) => a.hp > 0 && canFightIn(a.speciesId, realm);
 	if (!isWhole(step) || !Number.isSafeInteger(turn) || (turn as number) < 1) return null;
 	if (!Array.isArray(value.party)) return null;

@@ -63,14 +63,15 @@ class GameView {
 	seen = $state<string[]>([]);
 	caught = $state<string[]>([]);
 	/**
-	 * Where the player stands: out on the water, in the boat, or on land (the
-	 * engine's `tileRealm` of their tile). Who goes first is the lead there.
-	 * Up in the air it is where they took off: the tiles flown over change
-	 * nobody's place.
+	 * Where the player is: out on the water, in the boat, or on land (the
+	 * engine's `tileRealm` of their tile), or up in the air with the glider,
+	 * whatever the tiles flown over (#91). Who goes first is the lead there: in
+	 * the air, the first bird standing, the one a bird that notices the glider
+	 * sizes up and the one that fights it.
 	 */
 	realm = $derived.by<Realm>(() => {
-		const at = this.flightFrom ?? this.pos;
-		return tileRealm(tileAtWorld(this.seed, at.x, at.y).kind);
+		if (this.flying) return 'air';
+		return tileRealm(tileAtWorld(this.seed, this.pos.x, this.pos.y).kind);
 	});
 	/**
 	 * The tiles the player has cleared with a tool: `welcome`'s, then every
@@ -82,8 +83,6 @@ class GameView {
 	 * until `landed`. Meanwhile `pos` is the tile the glider is over.
 	 */
 	flying = $state(false);
-	/** Where the flight in the air took off (`took-off`'s `from`); null on the ground. */
-	flightFrom = $state<GridPos | null>(null);
 
 	apply(event: GameEvent): void {
 		switch (event.type) {
@@ -104,13 +103,11 @@ class GameView {
 				this.caught = event.caught;
 				this.edits = WorldEdits.decode(event.edits);
 				this.flying = false;
-				this.flightFrom = null;
 				this.mode = 'explore';
 				break;
 			case 'took-off':
 				if (event.playerId !== this.playerId) break;
 				this.flying = true;
-				this.flightFrom = event.from;
 				break;
 			case 'glided':
 				if (event.playerId === this.playerId) this.pos = event.pos;
@@ -120,7 +117,6 @@ class GameView {
 				this.pos = event.pos;
 				this.facing = event.dir;
 				this.flying = false;
-				this.flightFrom = null;
 				break;
 			case 'name-chosen':
 				if (event.playerId === this.playerId) this.name = event.name;

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { ANIMALS, canFightIn, getAnimal } from '../src/animals/catalog.js';
+import { REALMS, type Realm } from '../src/animals/types.js';
 import { applyMatchIntent, startMatch } from '../src/match/reducer.js';
 import { MATCH_TEAM_SIZE, matchTeam } from '../src/match/team.js';
 import type { MatchIntent, MatchSide } from '../src/match/types.js';
@@ -99,16 +100,21 @@ const FACES: readonly PuzzleFace[] = [
 ];
 
 /** Someone's animal in a fight: any species, HP within its own (never a nickname: no words cross). */
-function randomFighter(rng: Rng): FightAnimal {
-	const species = pick(rng, ANIMALS).id;
+/** An animal of any species, or of one that can fight in `realm`, as every real battle's view is. */
+function randomFighter(rng: Rng, realm?: Realm): FightAnimal {
+	const species = pick(
+		rng,
+		ANIMALS.filter((a) => realm === undefined || canFightIn(a.id, realm))
+	).id;
 	return { species, hp: rng.int(0, getAnimal(species).maxHp) };
 }
 
 function randomFightView(rng: Rng): FightView {
+	const realm = pick(rng, REALMS);
 	return {
-		realm: pick(rng, ['land', 'water'] as const),
-		a: randomFighter(rng),
-		b: randomFighter(rng),
+		realm,
+		a: randomFighter(rng, realm),
+		b: randomFighter(rng, realm),
 		turn: pick(rng, ['a', 'b', null] as const),
 		puzzle: rng.chance(0.3) ? null : pick(rng, FACES)
 	};
@@ -270,7 +276,9 @@ function randomServer(rng: Rng): ServerMessage {
 				v: PROTOCOL_VERSION,
 				pid,
 				name: pick(rng, names),
-				match: rng.chance(0.5) ? token(rng, 6, 32) : null
+				match: rng.chance(0.5) ? token(rng, 6, 32) : null,
+				// A server from before `boot` sends none: the one field a message may leave out.
+				...(rng.chance(0.8) ? { boot: token(rng, 6, 32) } : {})
 			};
 		case 1:
 			return { t: 'refresh', v: rng.int(0, 99) };
@@ -384,10 +392,15 @@ describe('the wire protocol', () => {
 							through.push(`${String(msg.t)}.${key} = ${String(junk)}`);
 						}
 					}
-					// An empty name, or a field missing altogether, is refused too.
+					// An empty name, or a field missing altogether, is refused too: all but a hi's
+					// `boot`, which a server from before it leaves out (and which is read as left out).
 					if (key === 'name' && parse({ ...msg, name: '' }) !== null) through.push('empty name');
 					const { [key]: _, ...without } = msg;
-					if (parse(without) !== null) through.push(`${String(msg.t)} without ${key}`);
+					const optional = msg.t === 'hi' && key === 'boot';
+					const read = parse(without);
+					if (optional ? !read || 'boot' in read : read !== null) {
+						through.push(`${String(msg.t)} without ${key}`);
+					}
 				}
 			}
 		}
@@ -438,6 +451,16 @@ describe('the wire protocol', () => {
 		expect(parsed.polluted).toBeUndefined();
 	});
 
+	it("reads a hi with or without the server's run, and nothing else in its place", () => {
+		const hi = { t: 'hi', v: PROTOCOL_VERSION, pid: 'abcdef123', name: 'Ada', match: null };
+		// A server from before `boot` (a rollback, the old copy during a deploy): read as it is.
+		expect(parseServerMessage(hi)).toEqual(hi);
+		expect(parseServerMessage({ ...hi, boot: 'run0001' })).toEqual({ ...hi, boot: 'run0001' });
+		for (const junk of [null, '', 'no run', 'x'.repeat(33), 7, undefined]) {
+			expect(parseServerMessage({ ...hi, boot: junk })).toBeNull();
+		}
+	});
+
 	it('reads a species it does not know as nobody following, and keeps the rest', () => {
 		const parsed = parseClientMessage({
 			t: 'where',
@@ -464,11 +487,11 @@ describe('the wire protocol', () => {
 	it('bumps the version with every new species: a page drops a match or a fight with one it does not know', () => {
 		// A page of the last version would never see a match with the new animal in it, nor
 		// a fight; told to refresh, it reloads with the new catalog (#89's second wave: 5,
-		// its third, the sea's: 6).
+		// its third, the sea's: 6; #91's buzzard, and fights in the air: 7).
 		expect(
 			{ version: PROTOCOL_VERSION, species: ANIMALS.length },
 			'a new species bumps PROTOCOL_VERSION'
-		).toEqual({ version: 6, species: 49 });
+		).toEqual({ version: 7, species: 50 });
 	});
 
 	it('bounds worlds, coordinates, names and rosters', () => {

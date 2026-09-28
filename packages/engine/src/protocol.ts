@@ -84,16 +84,19 @@ export type Intent =
 	/**
 	 * In the air: one tile on (the screen sends one each time the last tile is
 	 * flown, at the glide's pace, for as long as Space is held and after it,
-	 * on to the landing tile). Answered with `glided`. At the reach it goes no
+	 * on to the landing tile). Answered with `glided`, and `bird-follows` when
+	 * a bird notices the glider over the tile. At the reach it goes no
 	 * further: a glide past it lands there (`landed`), so the reach is always
 	 * flown over before it is landed on.
 	 */
 	| { type: 'glide' }
 	/**
 	 * In the air: come down, on the first tile at or after the one the glider
-	 * is over that the player can stand on (`landFlight`). Answered with
-	 * `landed`, and `tile-cleared` when the landing chops a tree or breaks a
-	 * rock.
+	 * is over that the player can stand on (`landFlight`), every tile on to it
+	 * entered as a glide enters one (a bird may notice the glider over it:
+	 * `bird-follows`). Answered with `landed`, `tile-cleared` when the landing
+	 * chops a tree or breaks a rock, and `battle-started` (a battle in the
+	 * air) when a bird followed the glider down.
 	 */
 	| { type: 'land' }
 	/**
@@ -284,15 +287,25 @@ export type GameEvent =
 	| { type: 'take-off-refused'; playerId: string; reason: TakeOffRejection }
 	/**
 	 * `glide`: the player is over `pos` now, `flown` tiles out, one tile on.
-	 * Each tile flown is a step, and none starts a battle.
+	 * Each tile flown is a step. Nothing on the ground notices a kid up in the
+	 * air; a bird may (`bird-follows`).
 	 */
 	| { type: 'glided'; playerId: string; pos: GridPos; flown: number }
+	/**
+	 * Up in the air, a wild bird of `speciesId` noticed the glider over `pos`,
+	 * `flown` tiles out, and follows it down: the battle in the air starts as
+	 * the player lands (`battle-started`, right after `landed`). At most one
+	 * bird follows a flight, and only a team with a bird standing is noticed.
+	 * When the tile is the one the flight lands on, the bird swoops in there.
+	 */
+	| { type: 'bird-follows'; playerId: string; speciesId: string; pos: GridPos; flown: number }
 	/**
 	 * The flight came down on `pos`, `flown` tiles from where it took off (the
 	 * kid let go, or it reached its reach): a tile they can stand on, the
 	 * ground, or the water in the boat. A `tile-cleared` follows when they came
-	 * down on a tree or a rock their tool clears. The player walks on from
-	 * here, facing the way they flew.
+	 * down on a tree or a rock their tool clears, and a `battle-started` when a
+	 * bird followed them down (`bird-follows`): the landing always comes
+	 * first. The player walks on from here, facing the way they flew.
 	 */
 	| { type: 'landed'; playerId: string; pos: GridPos; dir: Direction; flown: number };
 

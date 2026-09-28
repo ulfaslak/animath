@@ -19,6 +19,7 @@ import type { GameRenderer } from '../src/render/renderer';
 import { game } from '../src/state/game.svelte';
 import { HINT_STEPS, MESSAGE_SECONDS, hud } from '../src/state/hud.svelte';
 import { besideA, gameBeside } from './clearing';
+import { skyPieces } from './sky-pieces';
 
 /**
  * The explore message line (UI_SPEC § Explore mode): what was said last fades
@@ -30,6 +31,7 @@ import { besideA, gameBeside } from './clearing';
  */
 function setup(start?: SavedGame) {
 	const authority = new LocalAuthority();
+	const sky = skyPieces();
 	const renderer = {
 		setWorld() {},
 		setBoat() {},
@@ -37,7 +39,9 @@ function setup(start?: SavedGame) {
 		setLandingSpot() {},
 		setPlayer() {},
 		ensureChunksAround() {},
-		cleared() {}
+		cleared() {},
+		trainerPoint: sky.trainerPoint,
+		chaser: sky.chaser
 	} as unknown as GameRenderer;
 	let enter = false;
 	const keyboard = {
@@ -102,6 +106,26 @@ describe('the explore message line', () => {
 		hud.apply({ type: 'message', line: WON });
 		hud.tick(1 / 60);
 		expect(hud.message).toBe('The wild Rabbit runs home to rest.');
+	});
+
+	it('never brings a line the kid read back after a battle or a match; one said while it was up waits for the HUD', () => {
+		const s = setup();
+		hud.notice('save.welcomeBack');
+		s.tick(3);
+		expect(hud.message).toBe(t('save.welcomeBack'));
+		// A friendly match (or a battle) takes the screen for a while: the HUD is away.
+		for (let frame = 0; frame < 600; frame++) hud.covered();
+		expect(hud.message).toBe('');
+		s.tick(1 / 60);
+		expect(hud.message).toBe('');
+		// A line said while the battle's screen is up is there to read afterwards, all of it.
+		hud.apply({ type: 'message', line: WON });
+		for (let frame = 0; frame < 600; frame++) hud.covered();
+		s.tick(MESSAGE_SECONDS - 0.2);
+		expect(hud.message).toBe('The wild Rabbit runs home to rest.');
+		// Read, it goes with the next battle too.
+		for (let frame = 0; frame < 10; frame++) hud.covered();
+		expect(hud.message).toBe('');
 	});
 
 	it("says how to fly when the doctor's card closes on a glider just bought, and the goodbye otherwise", () => {

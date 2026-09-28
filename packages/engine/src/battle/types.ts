@@ -42,9 +42,11 @@ export interface BattleState {
 	/** Multiplier for leash throws; 1 is the starter leash. Set at `startBattle`. */
 	leashQuality: number;
 	/**
-	 * Where it is fought: on land, or out on the water from the boat. Only an
-	 * animal that can go there (`canFightIn`) steps in, so on the water only
-	 * the ones that swim; the battle is lost once every one of those is tired.
+	 * Where it is fought: on land, out on the water from the boat, or up in
+	 * the air, after a bird followed the glider down (whatever tile the
+	 * player landed on). Only an animal that can go there (`canFightIn`) steps
+	 * in, so on the water only the ones that swim and in the air only the
+	 * birds; the battle is lost once every one of those is tired.
 	 */
 	realm: Realm;
 	phase: BattlePhase;

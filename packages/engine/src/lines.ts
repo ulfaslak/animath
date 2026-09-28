@@ -29,6 +29,10 @@ export const LINES = {
 	'battle.closing.wonSea': { animal: 'species' },
 	/** The player ran out on the water: the wild animal stays in it. */
 	'battle.closing.fledSea': { animal: 'species' },
+	/** A battle won up in the air: the wild bird flies home. */
+	'battle.closing.wonAir': { animal: 'species' },
+	/** The player ran from a battle in the air: the wild bird stays up in the sky. */
+	'battle.closing.fledAir': { animal: 'species' },
 	/** A caught animal joined the party. */
 	'battle.closing.joined': { animal: 'species' },
 	/** A battle lost: the team is tired where it stood, and walks to a doctor. */

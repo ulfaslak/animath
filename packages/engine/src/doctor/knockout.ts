@@ -1,16 +1,17 @@
 import { canFightIn, getAnimal } from '../animals/catalog.js';
 import { REALMS, type AnimalInstance, type Realm } from '../animals/types.js';
-import { WorldEdits } from '../world/edits.js';
+import { WorldEdits, editedTileAt } from '../world/edits.js';
 import { TENT_SEARCH_STEPS, nearestTent } from '../world/tents.js';
-import { NO_GEAR, type Gear, type GridPos } from '../world/types.js';
+import { NO_GEAR, tileRealm, type Gear, type GridPos } from '../world/types.js';
 import { needsDoctor, validateParty } from './party.js';
 
 /**
  * The knock-out rule: what a battle that ends `lost` leaves.
  *
  * Nobody is healed and nobody is moved. The player is back exploring on the
- * tile the battle was fought on, every animal with the HP the battle left it,
- * and walks (or sails) to a doctor, who heals as always, one puzzle a kind.
+ * tile the battle was fought on (after a battle in the air, the one the
+ * glider came down on), every animal with the HP the battle left it, and
+ * walks (or sails) to a doctor, who heals as always, one puzzle a kind.
  * Until then the team needs the doctor (`needsDoctor`): nothing challenges it
  * where nobody can fight (`rollEncounterFor`), and the way to the nearest
  * tent is `nearestTent`'s.
@@ -41,19 +42,26 @@ export interface KnockOutOptions {
 	/** What the player carries: with the boat the way to a tent may cross water. */
 	gear?: Gear;
 	/**
-	 * Where the player stands (where the battle was fought), land by default.
-	 * Out on the water a battle is lost once every animal that swims is tired:
-	 * animals that can't swim may still be standing, in the boat, and then the
-	 * team can still battle on land and no doctor comes.
+	 * For `knockOut`, where the battle was fought, land by default. Out on the
+	 * water a battle is lost once every animal that swims is tired: animals
+	 * that can't swim may still be standing, in the boat, and then the team can
+	 * still battle on land and no doctor comes. Up in the air, once every
+	 * animal that flies is tired, whoever still stands on the ground: the
+	 * player is on the tile the glider came down on, and the team is looked at
+	 * there, on the ground (or on the water, in the boat), never in the air.
+	 * For `careFor` and `doctorComes`, where the player stands. The way to a
+	 * tent never flies: it goes from where the player is, on foot, or with the
+	 * boat over the water too.
 	 */
 	realm?: Realm;
 }
 
 /**
  * Call on `ended { outcome: 'lost' }` with the world seed, the tile the battle
- * was fought on and the battle's final party: every animal that could fight
- * there knocked out; and the tiles the player has cleared, so a path they
- * chopped counts as a path.
+ * was fought on (a battle in the air: the tile the glider came down on) and
+ * the battle's final party: every animal that could fight there knocked out;
+ * and the tiles the player has cleared, so a path they chopped counts as a
+ * path.
  */
 export function knockOut(
 	seed: number,
@@ -71,7 +79,11 @@ export function knockOut(
 			`knockOut: only a party with every animal that fights on ${realm} knocked out has lost`
 		);
 	}
-	return careFor(seed, pos, party, edits, options);
+	// Where the player stands now: where the battle was, but for one in the air, which ends
+	// with the kid on the tile the glider came down on, the ground or the water.
+	const standing =
+		realm === 'air' ? tileRealm(editedTileAt(seed, edits, pos.x, pos.y).kind) : realm;
+	return careFor(seed, pos, party, edits, { ...options, realm: standing });
 }
 
 /**

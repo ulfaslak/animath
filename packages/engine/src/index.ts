@@ -36,7 +36,7 @@ export type {
 	Tier
 } from './animals/types.js';
 export { ATTACK_LEVELS, REALMS, TERRAINS } from './animals/types.js';
-export { ANIMALS, canFightIn, getAnimal } from './animals/catalog.js';
+export { ANIMALS, canFightIn, getAnimal, skiesOf } from './animals/catalog.js';
 export {
 	BOOK_ORDER,
 	EMPTY_BOOK,
@@ -225,6 +225,7 @@ export {
 	ENCOUNTER_CHANCE,
 	NEAR_ONE_UP,
 	SAFE_RADIUS,
+	SKY_CHANCE,
 	TIER_SIGMA,
 	VISITORS_WEIGHT,
 	WILD_RADIUS,
@@ -232,7 +233,9 @@ export {
 	encounterTable,
 	encounterTableAt,
 	rollEncounter,
-	rollEncounterFor
+	rollEncounterFor,
+	rollSkyEncounter,
+	skyTableAt
 } from './world/encounters.js';
 export type { Surroundings } from './world/habitat.js';
 export {
@@ -270,6 +273,7 @@ export {
 	byeCloseCode,
 	byeReasonOf,
 	helloVersion,
+	isBootId,
 	isGuestId,
 	isMatchId,
 	isPid,

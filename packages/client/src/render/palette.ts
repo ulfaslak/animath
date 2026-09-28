@@ -91,6 +91,20 @@ export const BIOME_LOOK: Record<Biome, BiomeLook> = {
 };
 
 /**
+ * A battle up in the air (#91): the sky over the birds, the world's `sky`
+ * blue overhead paling to a haze at the horizon and under the clouds, and
+ * clouds of a cool white with a paler blue-grey on their undersides, never
+ * the figures' warm off-white nor a tired animal's warm dust.
+ */
+export const SKY_COLORS = {
+	zenith: 0x6cc2ec,
+	horizon: COLORS.sky,
+	haze: 0xdcf1fa,
+	cloud: 0xfbfdff,
+	shade: 0xdbe8f1
+} as const;
+
+/**
  * The boat, in the shop picture's colours (`ItemIcon`): a hull of the trees'
  * trunk brown, the mast's darker brown inside it, a rim and a pennant in the
  * trainer's coral.
@@ -230,6 +244,8 @@ export const ANIMAL_COLORS: Record<string, { fur: number; accent: number }> = {
 	wolverine: { fur: 0x4a3325, accent: 0xd9a55b },
 	'golden-eagle': { fur: 0x5a3e26, accent: 0xd9a441 },
 	'white-tailed-eagle': { fur: 0x6e5b47, accent: 0xe8b83a },
+	// The buzzard of #91: brown, with a pale band across its chest.
+	buzzard: { fur: 0x7a5634, accent: 0xe9dcc0 },
 	moose: { fur: 0x4b3a2e, accent: 0xc9b08a },
 	'european-bison': { fur: 0x5e4330, accent: 0x2f2a28 },
 	crab: { fur: 0xe0553f, accent: 0xf7b89a },

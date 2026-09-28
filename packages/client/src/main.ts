@@ -87,7 +87,8 @@ const renderer = new GameRenderer(canvas);
 const keyboard = new Keyboard(window);
 // The lead walks behind the trainer: a view of the party and of the trainer's steps.
 const explore = new ExploreController(authority, renderer, keyboard, new Follower(renderer));
-const battleController = new BattleController(authority, renderer);
+// A battle in the air waits for the landing on screen (and the bird's swoop) before its circle closes.
+const battleController = new BattleController(authority, renderer, () => explore.landing);
 const doctorController = new DoctorController(authority);
 // While the team is tired, the way to the nearest doctor's tent: an arrow at the screen's edge.
 const doctorWay = new DoctorWay(renderer);
@@ -585,8 +586,10 @@ function frame(now: number) {
 			if (doctor.active) doctorController.update(dt);
 			// A trip to another world: the cover closes, the world changes under it, and it opens.
 			travelController.update(dt);
-			// The message line's clock runs only while the explore HUD is on screen.
+			// The message line's clock runs only while the explore HUD is on screen; a line
+			// already read there goes when a battle or a match takes the screen.
 			if (!battle.active && !doctor.active && !pause.open) hud.tick(dt);
+			else if (battle.active) hud.covered();
 			countPlay(dt);
 		}
 		if (pause.open && pause.screen === 'book') drawPortrait();

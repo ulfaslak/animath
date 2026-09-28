@@ -308,7 +308,18 @@ describe('a fight off the wire', () => {
 		expect(bad({ a: { species: 'otter', hp: getAnimal('otter').maxHp + 1 } })).toBeNull();
 		expect(bad({ a: { species: 'otter', hp: -1 } })).toBeNull();
 		expect(bad({ a: { species: 'otter', hp: 1.5 } })).toBeNull();
+		expect(bad({ realm: 'lava' })).toBeNull();
+		// Two animals that could not both fight there: an otter and a crab never fly, and a
+		// robin never swims. Up in the air, two birds.
 		expect(bad({ realm: 'air' })).toBeNull();
+		expect(bad({ a: { species: 'robin', hp: 3 } })).toBeNull();
+		const air = {
+			...view,
+			realm: 'air',
+			a: { species: 'robin', hp: 3 },
+			b: { species: 'buzzard', hp: 2 }
+		};
+		expect(readFightView(read(air))).toStrictEqual(air);
 		expect(bad({ turn: 'c' })).toBeNull();
 		expect(bad({ puzzle: '3 + 4 = ?' })).toBeNull();
 		expect(bad({ puzzle: { kind: 'add', numbers: [3] } })).toBeNull();
