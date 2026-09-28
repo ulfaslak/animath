@@ -60,7 +60,9 @@
 		box-shadow: var(--hud-shadow);
 		box-sizing: border-box;
 	}
+	/* Solid, where the other cards let the world through: the narration line runs under it. */
 	.leave-card {
+		background: var(--panel-cream);
 		padding: 24px 28px 20px;
 		max-width: min(calc(100vw - 32px), 480px);
 		text-align: center;
