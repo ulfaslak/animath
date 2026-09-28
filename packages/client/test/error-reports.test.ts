@@ -100,6 +100,12 @@ describe('browserOf', () => {
 			0,
 			'Chrome 140.0 (ChromeOS)'
 		],
+		// An automated browser (an agent's check, scripts/screenshot.mjs) says so.
+		[
+			'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/140.0.0.0 Safari/537.36',
+			0,
+			'HeadlessChrome 140.0 (Mac)'
+		],
 		['curl/8.7.1', 0, 'Other (other)'],
 		['', 0, 'Other (other)']
 	])('%s with %i touch points is %s, as the server takes it', (userAgent, touchPoints, browser) => {
