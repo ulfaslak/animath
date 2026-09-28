@@ -4,6 +4,9 @@
 
 worker_processes auto;
 
+# nginx's own log, at the server's level (../nginx.conf.template).
+error_log stderr notice;
+
 events {
     worker_connections 1024;
 }
