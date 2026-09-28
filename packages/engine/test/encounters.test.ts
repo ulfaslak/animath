@@ -471,9 +471,10 @@ describe('encounterTable', () => {
 				bear: nearUp(1)
 			})
 		);
-		expect(
-			sharesOf(encounterTable('mountain', 0, 4)).get('white-tailed-eagle')!
-		).toBeCloseTo(0.8 / (4 + down(1) + down(2) + down(3) + nearUp(1)), 12);
+		expect(sharesOf(encounterTable('mountain', 0, 4)).get('white-tailed-eagle')!).toBeCloseTo(
+			0.8 / (4 + down(1) + down(2) + down(3) + nearUp(1)),
+			12
+		);
 		// A tier-2 animal at the river near home: its seven visitors would weigh 3/7 of a bell
 		// each against the four residents' 1/4; so all eleven share the four bells. The small
 		// animals and the bigger ones keep their shares: only the tier's own split moves.
@@ -656,7 +657,9 @@ describe('encounterTable', () => {
 					const least = Math.min(...hosts.map((e) => e.weight));
 					for (const g of guests)
 						if (!(g.weight <= least * (1 + 1e-12)))
-							bad.push(`${g.species.id}, tier-${lead} lead in ${biome} @ ${d}: ${g.weight} > ${least}`);
+							bad.push(
+								`${g.species.id}, tier-${lead} lead in ${biome} @ ${d}: ${g.weight} > ${least}`
+							);
 				}
 			}
 		}

@@ -223,10 +223,7 @@ export function encounterTable(
 	for (const a of residents) living.set(a.tier, (living.get(a.tier) ?? 0) + 1);
 	const isGuest = (a: AnimalSpec) =>
 		near > 0 && lives(a) && a.tier === leadTier && !a.habitats.includes(biome);
-	const { guest, spare } = visitorShares(
-		living.get(leadTier) ?? 0,
-		ANIMALS.filter(isGuest).length
-	);
+	const { guest, spare } = visitorShares(living.get(leadTier) ?? 0, ANIMALS.filter(isGuest).length);
 	const raw = ANIMALS.flatMap((species) => {
 		const bell = tierWeight(species.tier - leadTier, distance);
 		if (lives(species) && species.habitats.includes(biome)) {
