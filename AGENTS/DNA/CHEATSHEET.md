@@ -102,15 +102,15 @@ Everything below is a click with a mouse or a tap with a finger, and each is the
 | "I'm here!"                | A friendly match, "Still there?" | Enter: you are at the keys.                                                                 |
 | Stay / Leave               | "Leave the match?"           | Does it, after the question's quiet moment.                                                      |
 | Rematch? (or Play again) / Back to exploring | Match result, the update card | Does it, after the card's quiet moment.                                           |
-| Heal / Set free / Shop     | Witch doctor                 | That tab; from a puzzle, the puzzle is put away first.                                           |
-| An animal who needs the witch doctor | Witch doctor, Heal | Picks it at once, once the list's quiet moment has passed; in a puzzle, swaps to it if it is another kind (what was typed is dropped). A fit one, or one of the kind being healed, does nothing. |
+| Heal / Set free / Shop     | Witch doctor                 | That tab; from a puzzle, the puzzle is put away first (on a phone held sideways a puzzle has the whole card: Back first). |
+| An animal who needs the witch doctor | Witch doctor, Heal | Picks it at once, once the list's quiet moment has passed; in a puzzle, swaps to it if it is another kind (what was typed is dropped; not on a phone held sideways, where the list steps aside for the puzzle). A fit one, or one of the kind being healed, does nothing. |
 | An animal                  | Witch doctor, Set free       | Picks or unpicks it to set free, at once. The last one that can walk with you gives a little shake. |
 | A kind's row ("Fox ×40")   | Witch doctor, Set free       | Once the list's quiet moment has passed, picks every one of that kind together (all but its first walker when no other walker would stay); a second tap puts them all back. |
 | Set them free              | Witch doctor, Set free       | "Say bye bye to …?", once the list's quiet moment has passed.                                    |
 | No, not now / Yes, bye bye! | Witch doctor, "Say bye bye to …?" | Does it, after the question's quiet moment. The list under it takes no tap.                      |
 | A tool                     | Witch doctor, Shop           | Its sum, once the list's quiet moment has passed; a little shake if you own it or can't pay.     |
 | Back                       | Witch doctor's puzzle        | Escape: back to the list, nothing happens.                                                       |
-| Bye                        | Witch doctor                 | Leave, at any time, from a puzzle too.                                                           |
+| Bye                        | Witch doctor                 | Leave, at any time, from a puzzle too (on a phone held sideways, Back first).                    |
 | A row                      | Pause menu                   | Does it at once: an animal opens its options, Worlds its screen, Who's here the list of the other players, the Animal book (top right) the book, Language switches, Sound flips, Make an account and Log in open their card, Log out logs out, Keep playing closes, Start screen goes to the title. The same with an animal's options open beside it (they go away first); with the name box open, nothing. |
 | English / Dansk            | Pause menu, title            | That language. The one already on does nothing.                                                  |
 | An option                  | Pause menu, an animal's options | Does it at once; a greyed one does nothing.                                                   |
@@ -257,6 +257,8 @@ Who comes out depends on who leads your party (§ Your party). With a frog or a 
 - **The shop**: the tools on sale, with their pictures, prices and what they do: the axe (8 tokens) chops trees, the pickaxe (13) breaks rocks, the boat (21) sails on water, the paraglider (34) glides over trees, rocks and water. **Today all four are on sale**: the axe and the pickaxe (see § Trees and rocks), the boat (see § The boat) and the paraglider (see § The paraglider). A boat or a paraglider bought grows onto your back as you leave. Buying asks "You have 23 tokens. The axe costs 8. How many will you have left?"; the right answer hands it over ("Here is your axe! You have 15 tokens left."), a wrong one asks the same sum again. A tool you own, or can't pay for yet, gives a little shake, and the card says why. One of each is all you can have.
 - **Your tokens** show beside the witch doctor's line, and in the world's top right corner, with the puzzles you have solved, the tools you own and the world you are in under them. They are saved with the game.
 - **Leaving**: Bye (Enter on it, or a tap on it, even from a puzzle) or Escape from the list, at any time. The witch doctor says "Bye! Come back any time." on the bottom line.
+- **On a phone held sideways** the card takes nearly all of the screen, and a puzzle and its number pad take the whole card: the sum, the answer, Back and every key in view, the list, the tabs and Bye out of the way until you tap Back. Answer right and the list comes back for the heal's stars (or the goodbye, or the tool's tick), with the sum, your answer and "Correct!" beside it.
+- **A long nickname** (twelve W's) in the witch doctor's line goes on under the badge and the tokens when it doesn't fit between them, never under the tokens.
 
 ## Puzzles solved
 

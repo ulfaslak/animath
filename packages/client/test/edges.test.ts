@@ -1,4 +1,5 @@
 import { Rng } from '@mathgame/engine';
+import { parse, type AST } from 'svelte/compiler';
 import { describe, expect, it } from 'vitest';
 import {
 	ARROW_CLEARANCE,
@@ -468,5 +469,22 @@ describe('a short screen', () => {
 		);
 		expect(heights.length).toBeGreaterThanOrEqual(files.length);
 		expect(heights.filter(({ height }) => height !== SHORT_SCREEN)).toEqual([]);
+	});
+
+	it('is SHORT_SCREEN where the witch doctor’s puzzle takes the whole card, over the explore screen', () => {
+		const source = svelteSources.get('src/ui/DoctorCard.svelte') ?? '';
+		// Its other height query is the laptop's 720 px screen (760), where only the lines close up.
+		const phone = (parse(source, { modern: true }).css?.children ?? []).filter(
+			(node): node is AST.CSS.Atrule =>
+				node.type === 'Atrule' &&
+				node.name === 'media' &&
+				node.prelude.startsWith('(max-height') &&
+				(node.block?.children ?? []).some(
+					(rule) =>
+						rule.type === 'Rule' &&
+						source.slice(rule.prelude.start, rule.prelude.end).includes('.solo')
+				)
+		);
+		expect(phone.map((media) => media.prelude)).toEqual([`(max-height: ${SHORT_SCREEN}px)`]);
 	});
 });
