@@ -374,6 +374,20 @@ describe('errorGroups', () => {
 		expect((await errorGroups(second.until)).reports).toBe(0);
 	});
 
+	it('with onlyNew, ends its window 10 s behind the clock, so a report still on its way in is in the next', async () => {
+		// A report whose insert began before a window's end but lands after the window was read
+		// would fall between two windows, and its kind would never be new again.
+		await db.insert(clientErrors).values({
+			...(report() as unknown as ClientErrorReport),
+			createdAt: sql`now() - interval '5 seconds'`
+		});
+		const fresh = await errorGroups(hourAgo(), true);
+		const { rows } = await pool.query<{ now: Date }>('select now() as now');
+		expect(rows[0]!.now.getTime() - fresh.until.getTime()).toBeGreaterThanOrEqual(9_000);
+		expect(fresh.reports).toBe(0);
+		expect((await errorGroups(hourAgo())).reports).toBe(1);
+	});
+
 	it('with onlyNew, keeps only the groups heard from for the first time since then', async () => {
 		await keptAgo(120, { message: 'Error: known' });
 		await keptAgo(10, { message: 'Error: known' });
