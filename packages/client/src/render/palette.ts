@@ -237,5 +237,14 @@ export const ANIMAL_COLORS: Record<string, { fur: number; accent: number }> = {
 	turtle: { fur: 0x8cc47e, accent: 0x3f7f4c },
 	dolphin: { fur: 0x6f9fc4, accent: 0xe6eef4 },
 	octopus: { fur: 0xb4589e, accent: 0xf0a8d8 },
-	whale: { fur: 0x3d6b9a, accent: 0xdfe8ee }
+	whale: { fur: 0x3d6b9a, accent: 0xdfe8ee },
+	// The sea of #89 wave 3: the lobster blue-black, as it is alive (red only once cooked).
+	'moon-jellyfish': { fur: 0xcfe3f0, accent: 0xb58ad6 },
+	plaice: { fur: 0x9a7b55, accent: 0xe8622c },
+	'lions-mane-jellyfish': { fur: 0xd9572b, accent: 0xf2b04a },
+	lobster: { fur: 0x2b3a55, accent: 0xe8c75a },
+	'harbour-seal': { fur: 0x8f8a7e, accent: 0x3a3632 },
+	'harbour-porpoise': { fur: 0x4a5560, accent: 0xd9dde0 },
+	'grey-seal': { fur: 0x6f7378, accent: 0xc9c4b8 },
+	orca: { fur: 0x1e1e22, accent: 0xf7f5ef }
 };

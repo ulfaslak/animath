@@ -518,18 +518,113 @@ species:
       ink-puff: Ink Puff
       octo-hug: Octo Hug
   whale:
-    name: Whale
-    a: a Whale
-    the: the Whale
-    wild: wild Whale
-    aWild: a wild Whale
-    theWild: the wild Whale
-    bare: Whale
+    # The humpback, the whale famous for its song (#89): the orca and the porpoise are whales too.
+    name: Humpback whale
+    a: a Humpback whale
+    the: the Humpback whale
+    wild: wild Humpback whale
+    aWild: a wild Humpback whale
+    theWild: the wild Humpback whale
+    bare: Humpback whale
     attacks:
       bubbles: Bubbles
       whale-song: Whale Song
       spout: Spout
       big-wave: Big Wave
+  moon-jellyfish:
+    name: Moon jellyfish
+    a: a Moon jellyfish
+    the: the Moon jellyfish
+    wild: wild Moon jellyfish
+    aWild: a wild Moon jellyfish
+    theWild: the wild Moon jellyfish
+    bare: Moon jellyfish
+    attacks:
+      drift: Drift
+      pulse: Pulse
+      wobble: Wobble
+  plaice:
+    name: Plaice
+    a: a Plaice
+    the: the Plaice
+    wild: wild Plaice
+    aWild: a wild Plaice
+    theWild: the wild Plaice
+    bare: Plaice
+    attacks:
+      sand-hide: Sand Hide
+      flat-flip: Flat Flip
+  lions-mane-jellyfish:
+    name: Lion's mane
+    a: a Lion's mane
+    the: the Lion's mane
+    wild: wild Lion's mane
+    aWild: a wild Lion's mane
+    theWild: the wild Lion's mane
+    bare: Lion's mane
+    attacks:
+      long-strands: Long Strands
+      sting: Sting
+      fire-mane: Fire Mane
+  lobster:
+    name: Lobster
+    a: a Lobster
+    the: the Lobster
+    wild: wild Lobster
+    aWild: a wild Lobster
+    theWild: the wild Lobster
+    bare: Lobster
+    attacks:
+      feeler-tap: Feeler Tap
+      crusher-claw: Crusher Claw
+      tail-flip: Tail Flip
+  harbour-seal:
+    name: Harbour seal
+    a: a Harbour seal
+    the: the Harbour seal
+    wild: wild Harbour seal
+    aWild: a wild Harbour seal
+    theWild: the wild Harbour seal
+    bare: Harbour seal
+    attacks:
+      whiskers: Whiskers
+      belly-flop: Belly Flop
+  harbour-porpoise:
+    name: Porpoise
+    a: a Porpoise
+    the: the Porpoise
+    wild: wild Porpoise
+    aWild: a wild Porpoise
+    theWild: the wild Porpoise
+    bare: Porpoise
+    attacks:
+      echo: Echo
+      puff-and-dive: Puff and Dive
+  grey-seal:
+    name: Grey seal
+    a: a Grey seal
+    the: the Grey seal
+    wild: wild Grey seal
+    aWild: a wild Grey seal
+    theWild: the wild Grey seal
+    bare: Grey seal
+    attacks:
+      seal-song: Seal Song
+      rock-flop: Rock Flop
+      big-bite: Big Bite
+  orca:
+    name: Orca
+    a: an Orca
+    the: the Orca
+    wild: wild Orca
+    aWild: a wild Orca
+    theWild: the wild Orca
+    bare: Orca
+    attacks:
+      whistle: Whistle
+      pod-hunt: Pod Hunt
+      tail-slap: Tail Slap
+      wave-wash: Wave Wash
 
 puzzle:
   # Under a puzzle until it is answered.

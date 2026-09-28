@@ -507,18 +507,114 @@ species:
       ink-puff: Blæksky
       octo-hug: Armekram
   whale:
-    name: Hval
-    a: en hval
-    the: hvalen
-    wild: vild hval
-    aWild: en vild hval
-    theWild: den vilde hval
-    bare: hval
+    # Pukkelhvalen, hvalen der synger (#89): spækhuggeren og marsvinet er også hvaler.
+    name: Pukkelhval
+    a: en pukkelhval
+    the: pukkelhvalen
+    wild: vild pukkelhval
+    aWild: en vild pukkelhval
+    theWild: den vilde pukkelhval
+    bare: pukkelhval
     attacks:
       bubbles: Bobler
       whale-song: Hvalsang
       spout: Sprøjt
       big-wave: Kæmpebølge
+  moon-jellyfish:
+    name: Vandmand
+    a: en vandmand
+    the: vandmanden
+    wild: vild vandmand
+    aWild: en vild vandmand
+    theWild: den vilde vandmand
+    bare: vandmand
+    attacks:
+      drift: Driv
+      pulse: Pulsslag
+      wobble: Gelévrik
+  plaice:
+    name: Rødspætte
+    a: en rødspætte
+    the: rødspætten
+    wild: vild rødspætte
+    aWild: en vild rødspætte
+    theWild: den vilde rødspætte
+    bare: rødspætte
+    attacks:
+      sand-hide: Sandskjul
+      flat-flip: Fladt flip
+  lions-mane-jellyfish:
+    name: Brandmand
+    a: en brandmand
+    the: brandmanden
+    wild: vild brandmand
+    aWild: en vild brandmand
+    theWild: den vilde brandmand
+    bare: brandmand
+    attacks:
+      long-strands: Lange tråde
+      sting: Brænd
+      fire-mane: Ildmanke
+  lobster:
+    name: Hummer
+    a: en hummer
+    the: hummeren
+    wild: vild hummer
+    aWild: en vild hummer
+    theWild: den vilde hummer
+    bare: hummer
+    attacks:
+      feeler-tap: Følerslag
+      crusher-claw: Knuseklo
+      tail-flip: Halevip
+  harbour-seal:
+    # Et navn med et tillægsord: "den spættede sæl", som "den brune rotte".
+    name: Spættet sæl
+    a: en spættet sæl
+    the: den spættede sæl
+    wild: vild spættet sæl
+    aWild: en vild spættet sæl
+    theWild: den vilde spættede sæl
+    bare: spættede sæl
+    attacks:
+      whiskers: Knurhår
+      belly-flop: Maveplask
+  harbour-porpoise:
+    name: Marsvin
+    a: et marsvin
+    the: marsvinet
+    wild: vildt marsvin
+    aWild: et vildt marsvin
+    theWild: det vilde marsvin
+    bare: marsvin
+    attacks:
+      echo: Ekko
+      puff-and-dive: Pust og dyk
+  grey-seal:
+    name: Gråsæl
+    a: en gråsæl
+    the: gråsælen
+    wild: vild gråsæl
+    aWild: en vild gråsæl
+    theWild: den vilde gråsæl
+    bare: gråsæl
+    attacks:
+      seal-song: Sælsang
+      rock-flop: Klippeplask
+      big-bite: Stort bid
+  orca:
+    name: Spækhugger
+    a: en spækhugger
+    the: spækhuggeren
+    wild: vild spækhugger
+    aWild: en vild spækhugger
+    theWild: den vilde spækhugger
+    bare: spækhugger
+    attacks:
+      whistle: Fløjt
+      pod-hunt: Flokjagt
+      tail-slap: Halesmæk
+      wave-wash: Bølgeskyl
 
 puzzle:
   keys: Skriv svaret og tryk på Enter
