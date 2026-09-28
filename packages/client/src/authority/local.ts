@@ -238,7 +238,9 @@ export class LocalAuthority implements Authority {
 	/**
 	 * The id minted for a bird noticing the glider on a step: a save made in
 	 * the air, which lands the flight ahead of time, and the landing itself
-	 * meet the same bird on the same step, and give it the same id.
+	 * meet the same bird on the same step, and give it the same id. Kept for
+	 * one game only: a game started again counts its steps again, and a bird
+	 * it meets is another animal.
 	 */
 	private minted: { steps: number; id: string } | null = null;
 	/**
@@ -291,6 +293,7 @@ export class LocalAuthority implements Authority {
 		this.doctor = null;
 		this.flight = null;
 		this.chaser = null;
+		this.minted = null;
 		this.started = true;
 		this.emit({
 			type: 'welcome',
@@ -328,9 +331,10 @@ export class LocalAuthority implements Authority {
 	 * a tree or a rock there cleared), exactly what `land` would leave: with a
 	 * bird following, or one noticing the glider on the way down, its battle
 	 * in the air under way. So a save never holds a flight: a reload lands the
-	 * kid by the landing rule (and a reload is no escape from a bird), and a
-	 * page on an older build, which knows no flying, finds them on ground they
-	 * can stand on.
+	 * kid by the landing rule (and a reload is no escape from a bird). A page
+	 * on an older build, which knows no flying, finds them on ground they can
+	 * stand on; with a bird's battle in the save it knows no battle in the air
+	 * either, so it reads the save as a newer build's and leaves it be.
 	 */
 	snapshot(): SavedGame {
 		const flight = this.flight;

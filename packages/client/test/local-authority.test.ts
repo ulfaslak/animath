@@ -2872,6 +2872,43 @@ describe('LocalAuthority: birds in the air (#91)', () => {
 		}
 	});
 
+	it('a bird met again in a game started again on the same page is another animal: its id is new', () => {
+		// A flight a bird follows, then the same game picked up again by the same authority
+		// (Continue after leaving, as the title does it) and flown the same way.
+		let steps = 0;
+		while (follows(flyerFlown(steps)).length === 0) steps++;
+		const game = {
+			...newGame(1),
+			pos: SPAWN,
+			facing: 'up' as const,
+			steps,
+			items: ['glider'],
+			party: team()
+		};
+		const s: Session = { authority: new LocalAuthority(), events: [] };
+		s.authority.subscribe((e) => s.events.push(e));
+		const ids: string[] = [];
+		for (let run = 0; run < 2; run++) {
+			s.authority.start({ game });
+			dispatchAll(s, [{ type: 'take-off' }, ...glides(REACH + 1)]);
+			const state = latestBattle(s);
+			expect(state.realm).toBe('air');
+			ids.push(state.opponent.id);
+		}
+		expect(follows(s).map((e) => e.speciesId)).toEqual([
+			follows(s)[0]!.speciesId,
+			follows(s)[0]!.speciesId
+		]);
+		expect(ids[1]).not.toBe(ids[0]);
+	});
+
+	/** A flyer at `steps` with the robin in the air, held to the reach. */
+	function flyerFlown(steps: number): Session {
+		const s = flyer(team(), steps);
+		dispatchAll(s, [{ type: 'take-off' }, ...glides(REACH + 1)]);
+		return s;
+	}
+
 	it('a game saved in the air with a bird following is down where letting go would land it, the same bird’s battle under way: a reload is no escape', () => {
 		let cuts = 0;
 		let birds = 0;
