@@ -46,7 +46,7 @@ import { battle } from '../state/battle.svelte';
 import { doctor } from '../state/doctor.svelte';
 import { game } from '../state/game.svelte';
 import { hud, type MatchLine } from '../state/hud.svelte';
-import { match, type ButtonRefusal } from '../state/match.svelte';
+import { match, type ButtonRefusal, type MatchResult } from '../state/match.svelte';
 import { pause } from '../state/pause.svelte';
 import { title } from '../state/title.svelte';
 import { travel } from '../state/travel.svelte';
@@ -99,6 +99,13 @@ import { travel } from '../state/travel.svelte';
  *   of it, and it says `done` again when a `hi` says the server still has
  *   them in it. Only the kid's own Back counts: a result this page let go of
  *   because another window took over follows the kid back to it.
+ * - **Back to exploring beats a Rematch? it crosses** (#147). The friend's
+ *   Rematch? can reach the server just before the kid's Back does, and the
+ *   rematch starts. This page never puts up a rematch of the match its kid
+ *   went back from (`rematchOf`), and says `done` for that match again; the
+ *   server calls the rematch off once it hears it. The friend's page, which
+ *   may have begun it, puts its result back up (`calledOff`), Rematch? greyed:
+ *   "Ada went back to exploring.".
  */
 
 /** Seconds past an invite's time the page waits for the server to say it ended, before letting go. */
@@ -127,6 +134,12 @@ export function wentBackKey(pid: string): string {
 interface WentBack {
 	pid: string;
 	id: string;
+}
+
+/** A result a rematch began from: the match's last message, and how it ended for this page. */
+interface Before {
+	message: MatchMessage;
+	result: MatchResult;
 }
 
 /** One beat: change something and maybe say a line, then hold for `hold` seconds. */
@@ -198,10 +211,15 @@ export class MatchController implements MatchHooks {
 	/**
 	 * The match whose result this player went back to exploring from, while
 	 * the server may still have them in it: its `done` may not have got there.
-	 * Never put up again; forgotten once a `hi` of theirs names another match,
-	 * or none.
+	 * Never put up again, nor a rematch of it; forgotten once a `hi` of theirs
+	 * names no match.
 	 */
 	private wentBack: WentBack | null = null;
+	/**
+	 * The result the rematch on screen began from, put back up should the
+	 * server call the rematch off (the other kid had gone back: #147).
+	 */
+	private before: Before | null = null;
 
 	constructor(private readonly deps: MatchDeps) {
 		this.clock = deps.clock ?? (() => performance.now() / 1000);
@@ -774,11 +792,13 @@ export class MatchController implements MatchHooks {
 			// and the match the server sends next is not put up again (`matchMessage`).
 			this.keepWentBack({ pid, id: going });
 			this.deps.send({ t: 'done', id: going });
-		} else {
+		} else if (going === null) {
 			// The server let go of it: nothing to keep.
 			if (kept !== null) this.deps.store?.remove(wentBackKey(pid));
 			this.wentBack = null;
 		}
+		// Another match: one the kid said yes to since, or the rematch that crossed their Back on the
+		// way (#147), for which the Back still holds. `matchMessage` tells them apart by `rematchOf`.
 		if ((match.stage === 'playing' || match.stage === 'over') && going !== match.id) {
 			// Another run of the server than the match's: it restarted without a word (a crash),
 			// and the match went with it. Nobody left it: the kids can play again, one tap each
@@ -797,11 +817,21 @@ export class MatchController implements MatchHooks {
 		// the server still sends it (a page back after its `done` could not go, or a message on
 		// its way as they pressed Back).
 		if (m.id === this.wentBack?.id) return;
-		this.sentAt = null;
-		if (m.id !== match.id) {
-			this.begin(m);
+		// Nor does a rematch of it: the friend's Rematch? got to the server just before the kid's Back
+		// (#147). The server calls it off once it hears the Back, which goes again in case it went
+		// with a socket that died; one over already needs nothing more.
+		if (m.rematchOf !== undefined && this.wentBackFrom(m.rematchOf)) {
+			if (m.view.phase.kind !== 'ended') this.deps.send({ t: 'done', id: m.rematchOf });
 			return;
 		}
+		this.sentAt = null;
+		if (m.id !== match.id) {
+			// A rematch called off before this page had it up has nothing to show.
+			if (!m.calledOff) this.begin(m);
+			return;
+		}
+		// The rematch on screen was called off: the friend had gone back to exploring (#147).
+		if (m.calledOff && this.callOff(m)) return;
 		// The kid's own right answers are theirs to keep, whatever else the match does.
 		if (m.events.length > 0) this.deps.count?.(m.events, m.view.you);
 		const was = this.latest;
@@ -824,6 +854,9 @@ export class MatchController implements MatchHooks {
 			return;
 		}
 		if (pause.open || account.prompt) this.deps.stepAside?.();
+		// The result a rematch begins from, put back should the server call the rematch off (#147).
+		const result = match.result;
+		this.before = rematch && this.latest && result ? { message: this.latest, result } : null;
 		const you = m.view.you;
 		const them = otherSide(you);
 		match.clearMatch();
@@ -1010,6 +1043,62 @@ export class MatchController implements MatchHooks {
 		}
 	}
 
+	/**
+	 * The rematch on screen was called off before anyone played it: the friend
+	 * had gone back to exploring from the result it began from, their Back
+	 * crossing this page's Rematch? on the way (#147). That result comes back
+	 * as it was, its Rematch? greyed ("Bo went back to exploring."), as after
+	 * any Back of theirs, and the match's scene with it. False when this page
+	 * has no such result (it picked the rematch up after a reload): then it
+	 * shows the rematch's end, the friend leaving it.
+	 */
+	private callOff(m: MatchMessage): boolean {
+		const before = this.before;
+		this.before = null;
+		if (!before || before.message.id !== m.rematchOf) return false;
+		const last = before.message;
+		const view = last.view;
+		const you = view.you;
+		const them = otherSide(you);
+		match.clearMatch();
+		match.stage = 'over';
+		match.id = last.id;
+		match.you = you;
+		match.names = { a: last.names.a, b: last.names.b };
+		match.other = { pid: last.pids[them], name: last.names[them] };
+		match.result = before.result;
+		// The rematch is off: the highlight goes to the one button that still does something.
+		match.rematch = { mine: false, theirs: false };
+		match.option = 1;
+		this.latest = last;
+		this.shownPhase = view.phase.kind;
+		this.beats = [];
+		this.wait = 0;
+		this.awayUntil = null;
+		const mine = view.teams[you][view.active[you]]!;
+		const theirs = view.teams[them][view.active[them]]!;
+		battle.vs = { name: match.other.name, me: last.names[you] };
+		battle.party = view.teams[you].map((a) => ({ ...a }));
+		battle.front = view.active[you];
+		battle.opponent = { ...theirs };
+		battle.pickable = view.teams[you].map((_, i) => canSendIn(view, you, i));
+		battle.mustPick = false;
+		battle.turn = null;
+		battle.puzzle = null;
+		battle.judged = null;
+		battle.input = '';
+		battle.hit = null;
+		battle.line = null;
+		// The two animals as the match left them: a tired one lies down again.
+		const biome = tileAtWorld(game.seed, game.pos.x, game.pos.y).biome;
+		this.scene?.begin(biome, mine.speciesId, theirs.speciesId);
+		if (mine.hp === 0) this.scene?.faint('player');
+		if (theirs.hp === 0) this.scene?.faint('opponent');
+		this.guard.show();
+		battle.screen = 'result';
+		return true;
+	}
+
 	/** This page came back to find its match over: it says so, kindly. */
 	private missed(): void {
 		match.result = { won: false, reason: 'timed-out', timeout: 'dropped', missed: true };
@@ -1105,6 +1194,14 @@ export class MatchController implements MatchHooks {
 		this.deps.store?.set(wentBackKey(back.pid), back.id);
 	}
 
+	/** Whether this player went back to exploring from match `id`: by this page's word, or the browser's. */
+	private wentBackFrom(id: string): boolean {
+		const pid = this.pid;
+		if (pid === null) return false;
+		if (this.wentBack?.pid === pid && this.wentBack.id === id) return true;
+		return this.deps.store?.get(wentBackKey(pid)) === id;
+	}
+
 	/**
 	 * The screen goes, and nothing of the match stays. From a result the
 	 * server hears so (`done`), if the socket is on: a rematch this page asked
@@ -1115,6 +1212,7 @@ export class MatchController implements MatchHooks {
 		this.deps.renderer.setBattle(null);
 		this.scene?.end();
 		this.latest = null;
+		this.before = null;
 		this.shownPhase = null;
 		this.beats = [];
 		this.wait = 0;
