@@ -267,15 +267,17 @@ describe('POST /api/client-errors', () => {
 		expect(await stored()).toHaveLength(3);
 	});
 
-	it('takes so many reports from every address together, and counts only reports there', async () => {
-		const target = createApp({
-			reportLimits: { perAddress: ROOMY, everyone: { limit: 2, windowMs: 60_000, maxKeys: 1 } }
-		});
-		for (let i = 0; i < 3; i++) expect((await send('junk', { target })).status).toBe(400);
-		expect((await send(report(), { target })).status).toBe(204);
-		expect((await send(report(), { target })).status).toBe(204);
-		expect((await send(report(), { target })).status).toBe(429);
-		expect(await stored()).toHaveLength(2);
+	it('lets no flood from many addresses silence the next one: a stranger fills the table, never shuts the door', async () => {
+		// The limits a real server has (REPORT_LIMITS), and 250 addresses sending one report each.
+		const target = createApp();
+		for (let i = 0; i < 250; i++) {
+			const res = await send(report({ message: `Error: flood ${i}` }), {
+				target,
+				headers: { 'x-forwarded-for': `10.6.${i >> 8}.${i & 255}` }
+			});
+			expect(res.status).toBe(204);
+		}
+		expect((await send(report({ message: 'Error: a kid' }), { target })).status).toBe(204);
 	});
 
 	it(`lets go of reports older than ${KEEP_DAYS} days as it keeps one`, async () => {
