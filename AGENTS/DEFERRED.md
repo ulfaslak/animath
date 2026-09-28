@@ -214,7 +214,7 @@ Technical items we've intentionally postponed: tech debt, hardening shortcuts, k
 
 ### A campfire's glow is painted on the main thread
 
-**What**: a tent's glow (`campfire.ts`) is worked out in JavaScript when its chunk comes into the ring, some two thousand triangles of the ground, the tent and every prop within 3.5 tiles: about 3 ms on this Mac, and on a CPU four times slower about 25 ms a tent (three tents, 76 ms, on 2026-09-28), each its own piece of the ring's work (`ChunkRing.work`), one a frame, so such a frame took 36 ms of main thread in all. The glow is painted again whenever its chunk is built.
+**What**: a tent's glow (`campfire.ts`) is worked out in JavaScript when its chunk comes into the ring, some two thousand triangles of the ground, the tent and every prop within 3.5 tiles: about 3 ms on this Mac, and on a CPU four times slower about 25 ms a tent (three tents, 76 ms, on 2026-09-28), spread over the ring's work (`ChunkRing.work`) in steps of a few milliseconds (`glowSteps`); walking back and forth across chunk borders there, the worst frame took 28 to 42 ms of main thread. The glow is painted again whenever its chunk is built.
 
 **Why deferred**: it is off screen when it runs (the ring's edge), one tent at a time, and spreading it is what the ring's work already does. Painting it in a worker, or keeping the glow of the tents seen last, costs a worker's plumbing or memory for a hitch nobody has reported.
 

@@ -14,7 +14,7 @@ import {
 	campfiresReaching,
 	disposeChunkGroup,
 	doctorsIn,
-	paintGlows,
+	glowSteps,
 	type WorldTiles
 } from './tiles';
 
@@ -32,11 +32,16 @@ export const SHOWN_RADIUS = 1;
 /** How long the ring's work may go on in one frame, in ms, once it has done one piece. */
 const FRAME_BUDGET_MS = 4;
 
-/** A piece of the ring's work for a later frame: build a chunk at its edge, or paint its tent's glow. */
+/**
+ * A piece of the ring's work for a later frame: build a chunk at its edge,
+ * or paint its tent's glow, a step a frame (`steps`, for the chunk `group`).
+ */
 interface Job {
 	cx: number;
 	cy: number;
 	glow: boolean;
+	group?: THREE.Group;
+	steps?: Generator<void>;
 }
 
 /**
@@ -116,7 +121,9 @@ export class ChunkRing {
 	/**
 	 * A frame's share of the work left (the renderer calls it once a frame):
 	 * one piece, then more while `budgetMs` lasts. A piece builds one chunk of
-	 * the ring's edge, or paints the glow of the tent in one.
+	 * the ring's edge, or paints a step of the glow of the tent in one
+	 * (`glowSteps`: the ground round the fire, then its props a handful at a
+	 * time).
 	 */
 	work(): void {
 		const start = performance.now();
@@ -124,10 +131,15 @@ export class ChunkRing {
 			const key = `${job.cx},${job.cy}`;
 			if (job.glow) {
 				const group = this.chunks.get(key);
-				if (group) paintGlows(group, this.world());
+				// A chunk built again meanwhile (a tree chopped) was painted whole then.
+				if (group && (!job.group || job.group === group)) {
+					job.group = group;
+					job.steps ??= glowSteps(group, this.world());
+					if (!job.steps.next().done) this.jobs.unshift(job);
+				}
 			} else if (!this.chunks.has(key)) {
 				const group = this.build(job.cx, job.cy, false);
-				if (awaitsGlow(group)) this.jobs.unshift({ ...job, glow: true });
+				if (awaitsGlow(group)) this.jobs.unshift({ cx: job.cx, cy: job.cy, glow: true });
 			}
 			if (performance.now() - start >= this.budgetMs) return;
 		}

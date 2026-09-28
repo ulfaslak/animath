@@ -14,7 +14,7 @@ import {
 	CAMPFIRE_LIGHT,
 	GLOW_REACH,
 	litShapes,
-	paintCampfire,
+	paintCampfireSteps,
 	paintShapes,
 	type GlowShape,
 	type GlowTriangles
@@ -202,10 +202,21 @@ export function buildTileProps(tile: Tile, x: number, z: number): THREE.Group {
  * left them.
  */
 export function paintGlows(group: THREE.Group, world: WorldTiles): void {
+	const steps = glowSteps(group, world);
+	while (!steps.next().done);
+}
+
+/**
+ * `paintGlows` a step at a time, for the ring to spread over frames: each
+ * step is a few milliseconds' work on a slow tablet (the ground round a
+ * fire, then its props a handful at a time), and the glow goes on its tent
+ * once whole.
+ */
+export function* glowSteps(group: THREE.Group, world: WorldTiles): Generator<void> {
 	for (const camp of group.children) {
 		if (!(camp instanceof THREE.Group) || !camp.userData.doctor || camp.userData.painted) continue;
 		camp.userData.painted = true;
-		paintGlow(camp, world);
+		yield* paintGlow(camp, world);
 	}
 }
 
@@ -221,11 +232,12 @@ export function awaitsGlow(group: THREE.Group): boolean {
 let tentGlow: GlowTriangles | null = null;
 
 /**
- * Paint the glow of the campfire at `camp` (`campfire.ts`): on the ground
- * round it, the tent, its door and the pot, and every prop within its reach,
- * placed as their chunks place them, `world` giving the tiles.
+ * Paint the glow of the campfire at `camp` (`campfire.ts`) a step at a time:
+ * on the ground round it, the tent, its door and the pot, and every prop
+ * within its reach, placed as their chunks place them, `world` giving the
+ * tiles. The glow goes on the tent once whole.
  */
-function paintGlow(camp: THREE.Group, world: WorldTiles): void {
+function* paintGlow(camp: THREE.Group, world: WorldTiles): Generator<void> {
 	const { x, y: top, z } = camp.position;
 	const reach = Math.ceil(GLOW_REACH);
 	// The tiles round the fire, one further out for the sides of steps: each asked for once.
@@ -256,7 +268,7 @@ function paintGlow(camp: THREE.Group, world: WorldTiles): void {
 		shapes.push({ geometry: PROP_GEOMETRY[kind], matrix: toCamp.clone().multiply(matrix) });
 	});
 	tentGlow ??= paintShapes(fire, litShapes(camp.userData.glowing as THREE.Object3D[], camp));
-	const glow = paintCampfire(
+	const glow = yield* paintCampfireSteps(
 		fire,
 		(dx, dz) => {
 			const tile = around(dx, dz);

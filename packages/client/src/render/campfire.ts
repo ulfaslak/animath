@@ -387,6 +387,27 @@ export function paintCampfire(
 	shapes: readonly GlowShape[],
 	extra?: GlowTriangles
 ): THREE.Mesh | null {
+	const steps = paintCampfireSteps(fire, ground, shapes, extra);
+	for (;;) {
+		const step = steps.next();
+		if (step.done) return step.value;
+	}
+}
+
+/** How many shapes one step of `paintCampfireSteps` paints: a few milliseconds' work on a slow tablet. */
+const SHAPES_A_STEP = 24;
+
+/**
+ * `paintCampfire` a step at a time, for a caller that spreads the work over
+ * frames: it pauses after the ground and after every `SHAPES_A_STEP` shapes,
+ * and returns the mesh.
+ */
+export function* paintCampfireSteps(
+	fire: THREE.Vector3,
+	ground: GroundAround,
+	shapes: readonly GlowShape[],
+	extra?: GlowTriangles
+): Generator<void, THREE.Mesh | null> {
 	const painter = new GlowPainter(lightOver(fire));
 	const reach = Math.ceil(GLOW_REACH);
 	const up = new THREE.Vector3(0, 1, 0);
@@ -423,7 +444,10 @@ export function paintCampfire(
 			}
 		}
 	}
-	for (const { geometry, matrix } of shapes) painter.shape(geometry, matrix);
+	for (let i = 0; i < shapes.length; i++) {
+		if (i % SHAPES_A_STEP === 0) yield;
+		painter.shape(shapes[i]!.geometry, shapes[i]!.matrix);
+	}
 	const { positions, glows } = painter.triangles(extra);
 	if (positions.length === 0) return null;
 	const geometry = new THREE.BufferGeometry();
