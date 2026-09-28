@@ -53,6 +53,21 @@
 	--doctor-panel: calc(clamp(364px, 48vh, 400px) + var(--safe-bottom));
 }
 
+/*
+ * A short screen: a phone held sideways, 360 to 430 px tall (the supported
+ * tablets start at 768 and a laptop at 720). The battle's cards are 220 px
+ * tall, touch or not, over an 8 px margin, and lay their rows out sideways
+ * to fit (UI_SPEC § Frame, "A phone held sideways"), so the scene keeps a band
+ * above them. `SHORT_SCREEN` in `render/battle-scene.ts` mirrors the
+ * breakpoint and `battlePanelHeight` the height.
+ */
+@media (max-height: 560px) {
+	:root,
+	:root.touch {
+		--battle-panel: calc(228px + var(--safe-bottom));
+	}
+}
+
 html,
 body {
 	margin: 0;
