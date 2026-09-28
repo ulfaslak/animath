@@ -84,10 +84,11 @@
 		<!--
 			For a browser too old to read the game's scripts (Safari before 15, say),
 			which never runs boot.ts: once the page's scripts have run, a page that
-			boot.ts has not marked as started shows this card, and so does one whose
-			game boot.ts could not read (`animath:too-old`). No copy file can be read
-			there, so the card says it in both languages. Its script is ES5, so every
-			browser reads it (browsers.ts checks that it stays so).
+			boot.ts has not marked as started shows this card, unless a script of the
+			page could not be downloaded (then the browser is not what is wrong), and
+			so does one whose game boot.ts could not read (`animath:too-old`). No copy
+			file can be read there, so the card says it in both languages. Its script
+			is ES5, so every browser reads it (browsers.ts checks that it stays so).
 		-->
 		<div
 			id="too-old"
@@ -152,9 +153,17 @@
 					}
 					card.style.display = 'flex';
 				}
+				var missing = false;
+				document.addEventListener(
+					'error',
+					function (event) {
+						if (event.target && event.target.tagName === 'SCRIPT') missing = true;
+					},
+					true
+				);
 				document.addEventListener('animath:too-old', tooOld);
 				document.addEventListener('DOMContentLoaded', function () {
-					if (!document.documentElement.hasAttribute('data-started')) tooOld();
+					if (!missing && !document.documentElement.hasAttribute('data-started')) tooOld();
 				});
 			})();
 		</script>
