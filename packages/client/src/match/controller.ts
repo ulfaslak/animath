@@ -843,7 +843,10 @@ export class MatchController implements MatchHooks {
 			return;
 		}
 		// The rematch on screen was called off: the friend had gone back to exploring (#147).
-		if (m.calledOff && this.callOff(m)) return;
+		if (m.calledOff) {
+			this.callOff(m);
+			return;
+		}
 		// The kid's own right answers are theirs to keep, whatever else the match does.
 		if (m.events.length > 0) this.deps.count?.(m.events, m.view.you);
 		const was = this.latest;
@@ -1067,14 +1070,22 @@ export class MatchController implements MatchHooks {
 	 * had gone back to exploring from the result it began from, their Back
 	 * crossing this page's Rematch? on the way (#147). That result comes back
 	 * as it was, its Rematch? greyed ("Bo went back to exploring."), as after
-	 * any Back of theirs, and the match's scene with it. False when this page
-	 * has no such result (it picked the rematch up after a reload): then it
-	 * shows the rematch's end, the friend leaving it.
+	 * any Back of theirs, and the match's scene with it. A page with no such
+	 * result (it picked the rematch up after a reload) goes back to exploring,
+	 * the message line saying the friend went back: nobody played the rematch,
+	 * so it has no end to show. Either way the server hears the page let the
+	 * rematch go: it keeps it until then.
 	 */
-	private callOff(m: MatchMessage): boolean {
+	private callOff(m: MatchMessage): void {
 		const before = this.before;
 		this.before = null;
-		if (!before || before.message.id !== m.rematchOf) return false;
+		this.deps.send({ t: 'done', id: m.id });
+		if (!before || before.message.id !== m.rematchOf) {
+			const name = match.other?.name ?? '';
+			this.finish();
+			hud.match('went', name);
+			return;
+		}
 		const last = before.message;
 		const view = last.view;
 		const you = view.you;
@@ -1115,9 +1126,6 @@ export class MatchController implements MatchHooks {
 		if (theirs.hp === 0) this.scene?.faint('opponent');
 		this.guard.show();
 		battle.screen = 'result';
-		// The server keeps the rematch for this page until the page says it let it go.
-		this.deps.send({ t: 'done', id: m.id });
-		return true;
 	}
 
 	/** This page came back to find its match over: it says so, kindly. */

@@ -1450,6 +1450,8 @@ match:
     lost: "Can't reach {name} right now. Try again soon!"
     updating: The game is updating. Try again in a moment!
     youLeft: You left the match.
+    # A rematch the other player had gone back to exploring before, on a page with no result to go back to.
+    went: '{name} went back to exploring.'
   # Narration. Your own animal is {animal}; the other player's is "{whose}
   # {animal.bare}".
   vs: 'A friendly match with {name}!'
