@@ -270,10 +270,12 @@ export class GameRenderer {
 
 	/**
 	 * Compile what a tent draws with (its cloth, the doctor, his fire, the
-	 * glow) as the page starts, in the background where the browser can,
-	 * rather than on the frame the first tent comes into view, which the
-	 * compile would stall (#151). The world's lights never change, so these
-	 * programs serve every tent after.
+	 * glow), and what the scene holds hidden till it is needed (the flier's
+	 * shadow and the landing ring), as the page starts, in the background
+	 * where the browser can, rather than on the frame the first tent comes
+	 * into view or the first glide takes off, which the compile would stall
+	 * (#151). The world's lights never change, so these programs serve for
+	 * good.
 	 */
 	private warmUp(): void {
 		const camp = buildTileProps({ kind: 'tent', biome: 'meadow', height: 0 }, 0, 0);
@@ -281,6 +283,7 @@ export class GameRenderer {
 			.compileAsync(camp, this.camera, this.scene)
 			.catch(() => undefined)
 			.finally(() => disposeChunkGroup(camp));
+		this.renderer.compileAsync(this.scene, this.camera).catch(() => undefined);
 	}
 
 	/**
