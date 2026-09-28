@@ -743,7 +743,13 @@
 		min-width: 0;
 		transition: opacity 0.2s;
 	}
-	/* Under the confirm: shown, but waiting. */
+	/*
+	 * Under the confirm: shown, but waiting. Out of reach, as `inert` makes it,
+	 * where the browser has no inert (Safari before 15.5).
+	 */
+	.patients.asking {
+		pointer-events: none;
+	}
 	.patients.asking > * {
 		opacity: 0.55;
 	}
@@ -840,13 +846,21 @@
 	.list.tab-shop {
 		grid-template-columns: auto minmax(0, max-content) minmax(max-content, 1fr);
 	}
+	/* Each row first in its list's columns on its own, for a browser without subgrid (Safari before 16). */
 	.list .row {
 		grid-column: 1 / -1;
 		display: grid;
+		grid-template-columns: minmax(0, max-content) minmax(130px, 1fr);
 		grid-template-columns: subgrid;
 	}
 	.list.tab-home .row {
 		column-gap: 6px;
+		grid-template-columns: auto minmax(0, max-content) minmax(100px, 1fr);
+		grid-template-columns: subgrid;
+	}
+	.list.tab-shop .row {
+		grid-template-columns: auto minmax(0, max-content) minmax(max-content, 1fr);
+		grid-template-columns: subgrid;
 	}
 	.footer {
 		flex: none;

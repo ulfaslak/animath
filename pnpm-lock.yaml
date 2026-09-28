@@ -194,6 +194,12 @@ importers:
       '@types/three':
         specifier: ^0.186.0
         version: 0.186.0
+      acorn:
+        specifier: ^8.18.0
+        version: 8.18.0
+      postcss:
+        specifier: ^8.5.28
+        version: 8.5.28
       svelte:
         specifier: ^5.38.0
         version: 5.57.1

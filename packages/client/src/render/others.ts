@@ -231,7 +231,7 @@ export class OtherPlayers {
 		other.facing = peer.facing;
 		if (peer.boat !== other.ownsBoat) this.setBoat(other, peer.boat);
 		const flying = peer.busy === 'flight';
-		const lastReached = other.queue.at(-1);
+		const lastReached = other.queue[other.queue.length - 1];
 		const last = lastReached?.pos ?? other.to;
 		if (last.x === target.x && last.y === target.y) {
 			// Up into the air, or down, where they stand: that is the next thing to draw.

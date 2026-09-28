@@ -81,6 +81,83 @@
 		</noscript>
 		<canvas id="game"></canvas>
 		<div id="ui"></div>
+		<!--
+			For a browser too old to read the game's scripts (Safari before 15, say),
+			which never runs boot.ts: once the page's scripts have run, a page that
+			boot.ts has not marked as started shows this card, and so does one whose
+			game boot.ts could not read (`animath:too-old`). No copy file can be read
+			there, so the card says it in both languages. Its script is ES5, so every
+			browser reads it (browsers.ts checks that it stays so).
+		-->
+		<div
+			id="too-old"
+			style="
+				display: none;
+				position: fixed;
+				top: 0;
+				right: 0;
+				bottom: 0;
+				left: 0;
+				align-items: center;
+				justify-content: center;
+				padding: 16px;
+				background: #8fd3f4;
+				color: #2d2a32;
+				font:
+					600 20px/1.4 Nunito,
+					system-ui,
+					sans-serif;
+				text-align: center;
+			"
+		>
+			<div
+				style="
+					max-width: 520px;
+					padding: 28px 32px;
+					border-radius: 16px;
+					background: #fffcf5;
+					box-shadow: 0 6px 18px rgba(0, 0, 0, 0.18);
+				"
+			>
+				<img src="/favicon.svg" alt="" width="88" height="88" />
+				<p lang="en">
+					<span data-device="ipad">This iPad</span><span data-device="iphone">This iPhone</span
+					><span data-device="other">This browser</span> is a bit too old for Animath. Ask a
+					grown-up to update it, or try another device.
+				</p>
+				<p lang="da">
+					<span data-device="ipad">Denne iPad</span><span data-device="iphone">Denne iPhone</span
+					><span data-device="other">Denne browser</span> er lidt for gammel til Animath. Bed en
+					voksen om at opdatere den eller prøv en anden enhed.
+				</p>
+			</div>
+		</div>
+		<script>
+			(function () {
+				var shown = false;
+				function tooOld() {
+					var card = document.getElementById('too-old');
+					if (shown || !card) return;
+					shown = true;
+					var ua = navigator.userAgent;
+					var device =
+						/iPad/.test(ua) || (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1)
+							? 'ipad'
+							: /iPhone|iPod/.test(ua)
+								? 'iphone'
+								: 'other';
+					var names = card.querySelectorAll('[data-device]');
+					for (var i = 0; i < names.length; i++) {
+						if (names[i].getAttribute('data-device') !== device) names[i].style.display = 'none';
+					}
+					card.style.display = 'flex';
+				}
+				document.addEventListener('animath:too-old', tooOld);
+				document.addEventListener('DOMContentLoaded', function () {
+					if (!document.documentElement.hasAttribute('data-started')) tooOld();
+				});
+			})();
+		</script>
 		<script type="module" src="/src/boot.ts"></script>
 	</body>
 </html>
