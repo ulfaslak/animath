@@ -45,6 +45,12 @@
  *   click:<css> / tap:<css>   a click, or a finger (touch players), on an element
  *   reload:            reload the page, as F5 would
  *   close: / open:     close the page (the player leaves), or open it again
+ *   offline: / online: the player's network goes, or comes back. Their presence sockets
+ *                      close at both ends (the server hears them go, as its heartbeat
+ *                      would find them gone), and no new one gets through until
+ *                      `online:`, which also tells the page the network is back (its
+ *                      `online` event), so it tries again at once. Chrome's own offline
+ *                      switch leaves an open socket open, so it is not used.
  *   twin:<label>       open a second window of this player (same browser, same game),
  *                      which later steps call `<label>`: one player, two windows
  *   hide: / show:      the tab hidden and shown again (the page thinks so)
@@ -86,7 +92,7 @@ import {
 import { execSync } from 'node:child_process';
 import { mkdirSync } from 'node:fs';
 import { basename, dirname, extname, join, resolve } from 'node:path';
-import { chromium, type BrowserContext, type Page } from 'playwright-core';
+import { chromium, type BrowserContext, type Page, type WebSocketRoute } from 'playwright-core';
 
 // --- arguments ---------------------------------------------------------------------
 
@@ -135,6 +141,15 @@ interface Player {
 	errors: string[];
 	/** Sockets the server did not take: listed, not errors. */
 	socketFailures: number;
+	/** The player's network, which their second windows share: `offline:` and `online:`. */
+	net: Net;
+}
+
+/** A browser's network, as its presence sockets meet it. */
+interface Net {
+	offline: boolean;
+	/** The presence sockets it let through: the page's end of each, and the server's. */
+	sockets: { page: WebSocketRoute; server: WebSocketRoute }[];
 }
 
 function parseParty(text: string, label: string): AnimalInstance[] {
@@ -171,7 +186,8 @@ function parsePlayer(spec: string): Player {
 		title: false,
 		steps: 0,
 		errors: [],
-		socketFailures: 0
+		socketFailures: 0,
+		net: { offline: false, sockets: [] }
 	};
 	const options =
 		cut < 0
@@ -278,7 +294,7 @@ const steps: Step[] = (args.steps ?? '')
 		const who =
 			whoName === 'all' ? roster : [byLabel.get(whoName) ?? fail(`no player "${whoName}"`)];
 		const m =
-			/^(wait|shot|burst|press|type|hold|click|tap|reload|close|open|twin|hide|show|size|until|run|solve|turn):(.*)$/s.exec(
+			/^(wait|shot|burst|press|type|hold|click|tap|reload|close|open|offline|online|twin|hide|show|size|until|run|solve|turn):(.*)$/s.exec(
 				rest
 			);
 		if (m?.[1] === 'twin') {
@@ -296,6 +312,9 @@ const steps: Step[] = (args.steps ?? '')
 	});
 
 // --- the browser -------------------------------------------------------------------
+
+/** Whether a player goes offline in this script: then every presence socket is routed (`openPage`). */
+const cutsSockets = steps.some((s) => s.op === 'offline');
 
 const GPU =
 	process.platform === 'darwin'
@@ -333,6 +352,19 @@ async function openPage(p: Player): Promise<void> {
 				(u) => isApi(u),
 				(route) => route.abort('blockedbyclient')
 			);
+		// A script that takes a player offline passes every presence socket through here, so
+		// `offline:` can cut them. Any other script leaves the socket as the browser opens it.
+		if (cutsSockets) {
+			const net = p.net;
+			await p.context.routeWebSocket(
+				(u) => u.pathname === '/api/ws',
+				(ws) => {
+					// No network: the socket reaches nothing, and the page tries again later.
+					if (net.offline) return void ws.close().catch(() => {});
+					net.sockets.push({ page: ws, server: ws.connectToServer() });
+				}
+			);
+		}
 		// The save goes in before the page's own scripts run, once: a reload keeps the game played since.
 		await p.context.addInitScript(
 			`(() => {
@@ -555,6 +587,20 @@ async function run(step: Step): Promise<void> {
 				break;
 			case 'open':
 				await openPage(p);
+				break;
+			case 'offline': {
+				// The network goes: each socket closes at both ends, the server's first, so the
+				// server hears the player go as its heartbeat would, and the page sees its socket drop.
+				p.net.offline = true;
+				const cut = p.net.sockets.splice(0);
+				for (const s of cut) await s.server.close().catch(() => {});
+				for (const s of cut) await s.page.close().catch(() => {});
+				break;
+			}
+			case 'online':
+				p.net.offline = false;
+				// The browser says the network is back: the page tries its socket again at once.
+				await page!.evaluate(`window.dispatchEvent(new Event('online'))`);
 				break;
 			case 'twin':
 				p.context = twins.get(p)!.context;

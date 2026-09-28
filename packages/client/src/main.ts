@@ -152,7 +152,9 @@ const matchController: MatchController = new MatchController({
 		pauseController.close();
 		account.prompt = false;
 	},
-	count: (events, side) => authority.countMatchAnswers(events, side)
+	count: (events, side) => authority.countMatchAnswers(events, side),
+	// A Back to exploring from a result holds in every tab of the player's, and through a reload.
+	store
 });
 // The other players in this world (`presence/`): never behind the title, never in a
 // throwaway game, never on a page behind the save; nothing waits on it.
