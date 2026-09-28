@@ -8,7 +8,8 @@
  *
  * A tap is a press that begins and ends on one button, on one screen: the
  * pointer goes down on the button and comes up again while the same screen
- * takes keys, still on the button or hardly moved (the button holds the
+ * takes keys, still on the button (any part of it, its picture as much as
+ * its words) or hardly moved (the button holds the
  * pointer, so a finger whose button changes shape under it — the first touch
  * after the keyboard brings the touch controls and their bigger panels —
  * still presses it), and the button still stands for the key it had when
@@ -114,15 +115,15 @@ export class Taps<B extends Pressable = Pressable> {
 	/**
 	 * Pointer `id` came up at `at`, on `target`, while screen `screen` takes
 	 * keys: the key its tap presses, if it went down on a button that
-	 * `target` is part of (the button keeps a pointer it holds, and loses it
-	 * when it leaves the page), on this screen, it is still on that button
-	 * (`onButton`) or hardly moved, and the button still presses the key it
-	 * did when the pointer landed. However long it rested there. `time` is
-	 * when it lifted (ms).
+	 * `target` is part of (the button itself, or anything in it: the button
+	 * keeps a pointer it holds, and loses it when it leaves the page), on
+	 * this screen, it is still on that button (`onButton`) or hardly moved,
+	 * and the button still presses the key it did when the pointer landed.
+	 * However long it rested there. `time` is when it lifted (ms).
 	 */
 	up(
 		id: number,
-		target: B | null,
+		target: Pressable | null,
 		screen: number,
 		at: Point,
 		onButton: (button: B) => boolean,
@@ -148,7 +149,8 @@ export class Taps<B extends Pressable = Pressable> {
 
 /**
  * The button an event happened on (the innermost with a key), found along
- * the path the event took when it began. A listener before this one may
+ * the path the event took when it began: a picture in the button (SVG) is
+ * passed on the way, since the key is the button's. A listener before this one may
  * already have redrawn the page: the first touch after keys brings the touch
  * controls, which takes Go!'s key cap, the very element the finger landed
  * on, off the page before this listener runs.
@@ -198,7 +200,10 @@ export function watchTaps(target: Window, screen: () => number, press: (key: str
 			const at = { x: e.clientX, y: e.clientY };
 			const key = taps.up(
 				e.pointerId,
-				e.target instanceof HTMLElement ? e.target : null,
+				// Whatever it lifted over, a picture in the button (an SVG element, no `HTMLElement`)
+				// as much as its words: WebKit gives a finger's lift to the part it landed on, not to
+				// the button that holds it (#175). Only a node can be asked about (`contains`).
+				e.target instanceof Node ? e.target : null,
 				screen(),
 				at,
 				(button) => inside(button.getBoundingClientRect(), at),
