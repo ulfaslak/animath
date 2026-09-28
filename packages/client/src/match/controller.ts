@@ -130,6 +130,18 @@ export function wentBackKey(pid: string): string {
 	return `${WENT_BACK_KEY}.${pid}`;
 }
 
+/** How a match that ended ended for this page, as its result says it; null while it goes on. */
+function resultOf(m: MatchMessage): MatchResult | null {
+	const phase = m.view.phase;
+	if (phase.kind !== 'ended') return null;
+	return {
+		won: phase.winner === m.view.you,
+		reason: phase.reason,
+		timeout: m.timeout,
+		missed: false
+	};
+}
+
 /** A match a player went back to exploring from: whose Back (their `pid`), and which match. */
 interface WentBack {
 	pid: string;
@@ -858,9 +870,11 @@ export class MatchController implements MatchHooks {
 			return;
 		}
 		if (pause.open || account.prompt) this.deps.stepAside?.();
-		// The result a rematch begins from, put back should the server call the rematch off (#147).
-		const result = match.result;
-		this.before = rematch && this.latest && result ? { message: this.latest, result } : null;
+		// The result a rematch begins from, put back should the server call the rematch off (#147):
+		// the one on screen, or the one still coming up after a reload, as `settle` would put it.
+		const last = this.latest;
+		const result = match.result ?? (last ? resultOf(last) : null);
+		this.before = rematch && last && result ? { message: last, result } : null;
 		const you = m.view.you;
 		const them = otherSide(you);
 		match.clearMatch();
@@ -1034,7 +1048,7 @@ export class MatchController implements MatchHooks {
 					this.scene?.winCheer('player');
 					sfx.play('won');
 				}
-				match.result = { won, reason: phase.reason, timeout: m.timeout, missed: false };
+				match.result = resultOf(m);
 				// They left or dropped out: no rematch with them from here.
 				const theyWent = won && phase.reason !== 'all-tired';
 				match.rematch = { mine: false, theirs: theyWent ? false : null };
@@ -1101,6 +1115,8 @@ export class MatchController implements MatchHooks {
 		if (theirs.hp === 0) this.scene?.faint('opponent');
 		this.guard.show();
 		battle.screen = 'result';
+		// The server keeps the rematch for this page until the page says it let it go.
+		this.deps.send({ t: 'done', id: m.id });
 		return true;
 	}
 

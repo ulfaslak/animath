@@ -159,7 +159,7 @@ interface Match {
 	readonly seed: number;
 	/** A rematch: the match on whose result both said Rematch?. Null for a match from an invite. */
 	readonly rematchOf: string | null;
-	/** Called off before anyone played it (`wentBack`): kept only for a page away, to be told. */
+	/** Called off before anyone played it (`wentBack`): kept only till the other page has been told. */
 	calledOff: boolean;
 	state: MatchState;
 	readonly players: Record<MatchSide, Player>;
@@ -280,7 +280,8 @@ export class Matches {
 		for (const side of MATCH_SIDES) this.send(match, side, []);
 		// The players near the page that came back see the match again, if it goes on.
 		this.show(match, []);
-		// A rematch called off while this page was away: now it knows, and nothing is left to wait for.
+		// A rematch called off before this page heard (it was away, or its socket had died without a
+		// word): now it knows, and nothing is left to wait for.
 		if (match.calledOff) this.detach(match, sideOf(match, player), false);
 	}
 
@@ -681,11 +682,13 @@ export class Matches {
 	 * rematch nobody has played yet is called off, as if it never started:
 	 * both pages hear so (`calledOff`: the other puts the result back, its
 	 * Rematch? off, and a page from before it reads the kid who went back
-	 * leaving), the players near see it end with nobody winning, and both
-	 * players are free at once; a page that is away is told as it comes back
-	 * (`resume`), within its time to. One played already (the Back came again
-	 * after the page lost it on the way) the kid leaves, as the Leave move
-	 * would; one over, they are done with.
+	 * leaving), and the players near see it end with nobody winning. The kid
+	 * who went back is free at once. The other page may not have heard (it is
+	 * away, or on a socket that died without a word yet): the match waits for
+	 * it to say it let go (`done`), or to come back and be told (`resume`),
+	 * or for its time to run out, `lingerMs` at most. One played already (the
+	 * Back came again after the page lost it on the way) the kid leaves, as
+	 * the Leave move would; one over, they are done with.
 	 */
 	private wentBack(match: Match, side: MatchSide): void {
 		if (match.state.phase.kind === 'ended') return this.detach(match, side);
@@ -702,7 +705,11 @@ export class Matches {
 		this.log(`matches: ${match.id} called off`);
 		for (const s of MATCH_SIDES) this.send(match, s, events);
 		this.show(match, [], CALLED_OFF);
-		for (const s of MATCH_SIDES) if (!match.away[s]) this.detach(match, s, false);
+		this.detach(match, side, false);
+		match.linger = setTimeout(() => {
+			for (const s of MATCH_SIDES) this.detach(match, s, false);
+		}, this.lingerMs);
+		match.linger.unref?.();
 	}
 
 	/**
