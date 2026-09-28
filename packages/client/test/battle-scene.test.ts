@@ -7,6 +7,7 @@ import { motion } from '../src/motion';
 import {
 	BattleScene,
 	battlePanelHeight,
+	CLOUD_TOP,
 	LEASH_FLIGHT_SECONDS,
 	SEA_WATERLINE,
 	SHORT_SCREEN,
@@ -551,5 +552,71 @@ describe('the dust of a knock-out', () => {
 		expect(freed).toBe(0);
 		// The hidden ones and those two dusts at once ever needed: none made per knock-out.
 		expect(seeThrough.size).toBeLessThanOrEqual(unseen + 2);
+	});
+});
+
+describe('the confetti of a catch', () => {
+	it('lands on what is under it, the ground or up in the air a cloud, and falls on where no cloud is', () => {
+		// Up in the air every piece used to stop at one height, the top of the clouds under the
+		// birds, wherever it was: in mid-air, over the lower clouds or over nothing (#165).
+		// Measured against the meshes as drawn, with a ray straight down, not the code's own sums.
+		const battle = new BattleScene();
+		battle.resize(1024, 768);
+		const inside = battle as unknown as {
+			confetti: { mesh: THREE.Mesh }[];
+			backdrops: Map<string, THREE.Group>;
+			ground: THREE.Mesh;
+		};
+		const ray = new THREE.Raycaster();
+		const down = new THREE.Vector3(0, -1, 0);
+		const bad: string[] = [];
+		const landed = { sky: 0, meadow: 0 };
+		let lowest = Infinity;
+		let t = 0;
+		for (const biome of ['sky', 'meadow'] as const) {
+			for (const reduced of [false, true]) {
+				motion.reduced = reduced;
+				battle.begin(biome, 'robin', 'buzzard');
+				// What a piece can land on: up in the air the clouds (and the dome of sky, far
+				// below them, which is nothing to land on), on land the ground.
+				const solid = biome === 'sky' ? inside.backdrops.get('sky')!.children : [inside.ground];
+				// Where each mesh is in the world, as a frame drawn would put it.
+				battle.scene.updateMatrixWorld(true);
+				battle.update(t);
+				battle.throwLeash();
+				for (let s = 0; s < 1.4; s += FRAME) battle.update((t += FRAME));
+				battle.leashResult(true);
+				const last = new Map<THREE.Mesh, { y: number; dy: number }>();
+				while (inside.confetti.length > 0) {
+					battle.update((t += FRAME));
+					for (const { mesh } of inside.confetti) {
+						const y = mesh.position.y;
+						const before = last.get(mesh);
+						const dy = before ? y - before.y : 0;
+						last.set(mesh, { y, dy });
+						if (biome === 'sky') lowest = Math.min(lowest, y);
+						// Only where a piece that was coming down stops: something must be under it.
+						if (!before || before.dy >= 0 || dy < -1e-9) continue;
+						ray.set(mesh.position.clone().setY(y + 0.5), down);
+						const hit = ray.intersectObjects(solid, false)[0];
+						const gap = hit ? hit.distance - 0.5 : Infinity;
+						if (Math.abs(gap) <= 0.06) landed[biome]++;
+						else {
+							const where = mesh.position.toArray().map((n) => n.toFixed(2));
+							bad.push(
+								`${biome}${reduced ? ' (reduced motion)' : ''}: stopped at (${where.join(', ')}), ` +
+									(hit ? `${gap.toFixed(2)} over what is under it` : 'over nothing')
+							);
+						}
+					}
+				}
+			}
+		}
+		battle.end();
+		expect(bad.slice(0, 5)).toEqual([]);
+		expect(landed.sky).toBeGreaterThan(0);
+		expect(landed.meadow).toBeGreaterThan(0);
+		// And the pieces no cloud is under fall on, well below the clouds' tops.
+		expect(lowest).toBeLessThan(CLOUD_TOP - 0.5);
 	});
 });
