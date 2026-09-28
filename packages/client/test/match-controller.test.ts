@@ -925,12 +925,17 @@ describe('a match', () => {
 		expect(battle.opponent?.hp).toBe(0);
 		expect(battle.transition).toBeNull();
 		expect(t.shown).toHaveLength(scenes);
+		// The server hears the page let the rematch go.
+		expect(t.sentOf('done')).toEqual([{ t: 'done', id: next.id }]);
 		t.run(3);
 		expect(match.stage).toBe('over');
 		expect(t.counted()).toBe(solved);
 		// Back to exploring says so about the match whose result it is.
 		t.pick('Enter');
-		expect(t.sentOf('done')).toEqual([{ t: 'done', id: ref.id }]);
+		expect(t.sentOf('done')).toEqual([
+			{ t: 'done', id: next.id },
+			{ t: 'done', id: ref.id }
+		]);
 		expect(match.stage).toBe('none');
 	});
 
@@ -981,6 +986,14 @@ describe('a match', () => {
 		u.runUntil(() => battle.screen !== 'busy');
 		expect(battle.opponent?.speciesId).toBe('fox');
 		expect(u.sentOf('play')).toEqual([]);
+		// Bo's Back had crossed it: called off, and the result it followed comes up as it ended.
+		u.controller.receive(message(next.apply('b', { type: 'leave' }), true));
+		u.frame();
+		expect(match.stage).toBe('over');
+		expect(match.id).toBe(ref.id);
+		expect(match.result).toMatchObject({ won: true, reason: 'all-tired' });
+		expect(match.rematch).toEqual({ mine: false, theirs: false });
+		expect(battle.opponent?.hp).toBe(0);
 	});
 
 	it('shows a called-off rematch it picked up after a reload as the friend leaving, and one it never had not at all', () => {

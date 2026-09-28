@@ -1037,7 +1037,7 @@ describe('Back to exploring beats a Rematch? it crosses (#147)', () => {
 			back.send({ t: 'done', id: end });
 			back.at(at(back));
 			// Called off: both pages hear so, and a page from before `calledOff` reads the kid who went
-			// back leaving it. Nothing of it is left, and Cy, beside them, sees it end with no winner.
+			// back leaving it. Cy, beside them, sees it end with no winner.
 			const gone = back === ada ? 'a' : 'b';
 			for (const k of [ada, bo]) {
 				expect(k.peer.last('match'), `${who}: ${k.name}'s page`).toMatchObject({
@@ -1047,11 +1047,13 @@ describe('Back to exploring beats a Rematch? it crosses (#147)', () => {
 					view: { phase: { kind: 'ended', reason: 'left', winner: otherSide(gone) } }
 				});
 			}
-			expect(matches.size, who).toBe(0);
-			expect(vi.getTimerCount(), who).toBe(0);
 			expect(cy.peer.last('fight')?.events, who).toEqual([
 				{ type: 'ended', winner: null, how: 'left' }
 			]);
+			// The other page says it let the rematch go as it puts its result back: nothing is left.
+			other.send({ t: 'done', id: again.id });
+			expect(matches.size, who).toBe(0);
+			expect(vi.getTimerCount(), who).toBe(0);
 			// Both are free: Cy asks the one who went back, and it goes through; the other, back to
 			// exploring from their result as after any Back of their friend's, asks Cy.
 			vi.advanceTimersByTime(1_000);
@@ -1125,6 +1127,7 @@ describe('Back to exploring beats a Rematch? it crosses (#147)', () => {
 			const last = bo.peer.last('match')!;
 			if (then === 'nobody played it') {
 				expect(last, then).toMatchObject({ id: again.id, calledOff: true });
+				bo.send({ t: 'done', id: again.id });
 				expect(matches.size, then).toBe(0);
 			} else if (then === 'Bo played in it') {
 				// Played already: she leaves it, and Bo wins it, on its own result.
@@ -1144,21 +1147,35 @@ describe('Back to exploring beats a Rematch? it crosses (#147)', () => {
 		}
 	});
 
-	it("tells the other kid's page, away as the rematch was called off, once it is back in time", () => {
-		for (const then of ['back in time', 'not back in time'] as const) {
+	it("keeps a called-off rematch for the other kid's page until it has heard, however long it was gone", () => {
+		const cases = [
+			'away, back in time',
+			'away, not back in time',
+			'on a socket that died without a word',
+			'there, but never a word'
+		] as const;
+		for (const then of cases) {
 			vi.clearAllTimers();
 			setup();
 			const { ada, bo, end } = onResult();
 			ada.send({ t: 'rematch', id: end, team: TEAM });
 			bo.send({ t: 'rematch', id: end, team: TEAM });
 			const again = ada.peer.last('match')!;
-			// Bo's connection drops as the rematch starts, and Ada's Back gets there meanwhile.
-			bo.leave();
+			// Bo's connection drops as the rematch starts (the server hears it, or not yet), and Ada's
+			// Back gets there meanwhile.
+			if (then.startsWith('away')) bo.leave();
 			ada.send({ t: 'done', id: end });
 			ada.at(SPAWN);
 			expect(ada.peer.last('match'), then).toMatchObject({ id: again.id, calledOff: true });
-			if (then === 'back in time') {
-				// His page is told as it comes back, and nothing of the rematch is left.
+			expect(matches.size, then).toBe(1);
+			if (then === 'away, not back in time') {
+				vi.advanceTimersByTime(31_000);
+				expect(kid('Bo', beside(1), 'explore', 1, false).hiMatch, then).toBeNull();
+			} else if (then === 'there, but never a word') {
+				vi.advanceTimersByTime(120_000);
+			} else {
+				// His page is told as it comes back (a new socket takes the dead one's place), and then
+				// nothing of the rematch is left.
 				const back = kid('Bo', beside(1), 'match', 1, false);
 				expect(back.hiMatch, then).toBe(again.id);
 				expect(back.peer.last('match'), then).toMatchObject({
@@ -1166,9 +1183,6 @@ describe('Back to exploring beats a Rematch? it crosses (#147)', () => {
 					rematchOf: end,
 					calledOff: true
 				});
-			} else {
-				vi.advanceTimersByTime(31_000);
-				expect(kid('Bo', beside(1), 'explore', 1, false).hiMatch, then).toBeNull();
 			}
 			expect(matches.size, then).toBe(0);
 			expect(vi.getTimerCount(), then).toBe(0);
