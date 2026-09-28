@@ -1161,6 +1161,10 @@
 	.puzzle :global(.puzzle-panel:not(.with-pad) .puzzle-prompt) {
 		font-size: clamp(40px, min(7vh, 12cqi), 64px);
 	}
+	/* A sum of five-digit numbers that breaks does so evenly, never leaving "?" alone on its line. */
+	.puzzle :global(.puzzle-prompt) {
+		text-wrap: balance;
+	}
 	.puzzle.correct {
 		background: color-mix(in srgb, var(--good) 22%, var(--panel-bg));
 	}
