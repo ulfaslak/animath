@@ -21,10 +21,11 @@
  * as the controller would, one state after another on the open card, as a
  * visit changes it, and measures each once the page has laid it out.
  * `--only` keeps the cases whose name matches (`"1024x768 touch da shop-sum$"`:
- * size, input, language, state), `--shots` saves a frame of each (read them),
- * and `--verbose` prints every case with its heights, the steps the
- * right-hand side took to fit (`fit`) and how the doctor's line is laid out
- * (`flow`).
+ * size, input, language, state), `--shots` saves a frame of each, the card
+ * and a strip of the world over it, with the strips outside the safe area
+ * tinted red (read them), and `--verbose` prints every case with its
+ * heights, the steps the right-hand side took to fit (`fit`) and how the
+ * doctor's line is laid out (`flow`).
  *
  * The worst cases: three bears named with twelve W's (the widest name), a
  * tired one among them, beside a hurt rabbit; the longest heal prompt (a
@@ -401,8 +402,21 @@ function measure(safe) {
 		if (!inside(box, area)) out.push(`${which} card off the safe area (${past(box, area)})`);
 		if (which !== 'patients' && part.scrollHeight > part.clientHeight + 1)
 			out.push(`${which}: holds ${part.scrollHeight} px in ${part.clientHeight}`);
-		// Every piece inside its card; the list scrolls, so its rows are its own.
+		// Every piece inside its card; the list scrolls up and down, so its rows are its own,
+		// but never across: what a row shows stays between the list's sides (but a row going
+		// home, which slides off, and a shaking one).
 		const list = part.querySelector('.list');
+		if (list) {
+			const edge = rect(list);
+			for (const el of list.querySelectorAll('.row:not(.leaving, .shake-a, .shake-b) *')) {
+				if (el.closest('.heal, .sparkles') || !shown(el)) continue;
+				const r = rect(el);
+				if (r.width >= 0.5 && (r.left < edge.left - tol || r.right > edge.right + tol)) {
+					const across = { left: r.left, right: r.right, top: edge.top, bottom: edge.bottom };
+					out.push(`${which}: ${name(el)} runs past the list's side (${past(across, edge)})`);
+				}
+			}
+		}
 		for (const el of part.querySelectorAll('*')) {
 			if (list && list !== el && list.contains(el)) continue;
 			if (el.closest('.token-pop, .heal, .sparkles')) continue; // pops that rise over their place
@@ -532,6 +546,18 @@ try {
 					insets: { top: safe[0], right: safe[1], bottom: safe[2], left: safe[3] }
 				});
 				await page.setViewportSize({ width: size.w, height: size.h });
+				// Red where the notch and the home indicator would be, taking no taps (as screenshot.mjs).
+				await page.evaluate((s) => {
+					let strips = document.getElementById('safe-strips');
+					if (!strips) {
+						strips = document.createElement('div');
+						strips.id = 'safe-strips';
+						strips.style.cssText =
+							'position:fixed;inset:0;z-index:2147483647;pointer-events:none;border:solid rgba(242,95,92,0.45)';
+						document.documentElement.append(strips);
+					}
+					strips.style.borderWidth = `${s[0]}px ${s[1]}px ${s[2]}px ${s[3]}px`;
+				}, safe);
 				for (const [state, fill] of Object.entries(STATES)) {
 					const key = `${size.name} ${input} ${lang} ${state}`;
 					if (only && !only.test(key)) continue;
@@ -545,8 +571,16 @@ try {
 						console.log(`${flags.length ? '✗' : '✓'} ${key} ${JSON.stringify(info)}`);
 						for (const f of flags) console.log(`    ${f}`);
 					}
-					if (shots)
-						await page.screenshot({ path: `${shots}/${size.name}-${input}-${lang}-${state}.png` });
+					if (shots) {
+						// The card, and 32 px of the world over it: a "+N" rises over the tokens.
+						const top = await page.evaluate(() =>
+							Math.max(0, document.querySelector('.doctor').getBoundingClientRect().top - 32)
+						);
+						await page.screenshot({
+							path: `${shots}/${size.name}-${input}-${lang}-${state}.png`,
+							clip: { x: 0, y: top, width: size.w, height: size.h - top }
+						});
+					}
 				}
 			}
 		}
