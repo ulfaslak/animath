@@ -4,6 +4,7 @@ import {
 	getAnimal,
 	tileAtWorld,
 	type AnimalInstance,
+	type AttackLevel,
 	type Authority,
 	type BattleEvent,
 	type BattleIntent,
@@ -276,6 +277,9 @@ export class BattleController {
 		battle.realm = state.realm;
 		// Known from the start, so the Switch row doesn't show greyed through the opening lines.
 		battle.pickable = state.party.map((_, i) => canSwitchTo(state, i));
+		// A battle picked up from a save mid-puzzle: the menu lights the attack and the level
+		// of the puzzle coming back from the first frame, not the first attack on easy (#155).
+		if (state.phase.kind === 'solving') this.lightPicked(state.phase);
 		this.latest = state;
 		this.closing = null;
 		this.beats = [];
@@ -336,11 +340,8 @@ export class BattleController {
 			case 'solving': {
 				// The menu beside the puzzle shows the attack it belongs to, at its
 				// level, also when the puzzle came back with a saved battle.
-				const { attackIndex, level } = state.phase;
-				const menu = { cursor: battle.cursor, levels: battle.levels };
-				const picked = pickedMenu(menu, getAnimal(front.speciesId), attackIndex, level);
-				battle.cursor = picked.cursor;
-				if (picked.levels !== battle.levels) battle.levels = picked.levels;
+				const { attackIndex } = state.phase;
+				this.lightPicked(state.phase);
 				battle.puzzle = state.phase.puzzle;
 				battle.input = '';
 				battle.judged = null;
@@ -364,6 +365,17 @@ export class BattleController {
 				battle.screen = 'result';
 				break;
 		}
+	}
+
+	/**
+	 * The menu as it stands while the puzzle of `phase` is up: its attack
+	 * highlighted, at its level. A page that reloaded mid-puzzle forgot both.
+	 */
+	private lightPicked(phase: { attackIndex: number; level: AttackLevel }): void {
+		const menu = { cursor: battle.cursor, levels: battle.levels };
+		const picked = pickedMenu(menu, getAnimal(this.front().speciesId), phase.attackIndex, phase.level);
+		battle.cursor = picked.cursor;
+		if (picked.levels !== battle.levels) battle.levels = picked.levels;
 	}
 
 	private leave(): void {
