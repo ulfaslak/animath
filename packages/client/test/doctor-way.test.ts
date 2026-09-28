@@ -19,10 +19,10 @@ import {
 	DOCTOR_WAY_STEPS,
 	DoctorWay,
 	TENT_CLEARANCE,
-	type DoctorWayRenderer,
-	type ScreenRect
+	type DoctorWayRenderer
 } from '../src/explore/doctor-way';
 import { edgeSpot } from '../src/presence/controller';
+import type { Rect } from '../src/presence/labels';
 import { battle } from '../src/state/battle.svelte';
 import { doctor } from '../src/state/doctor.svelte';
 import { doctorWay } from '../src/state/doctor-way.svelte';
@@ -52,7 +52,7 @@ function camera(showingWorld = true): DoctorWayRenderer {
 
 const squirrel = (hp: number): AnimalInstance => ({ id: 'sq', speciesId: 'squirrel', hp });
 
-function setup(start: SavedGame, renderer = camera(), hud: readonly ScreenRect[] = []) {
+function setup(start: SavedGame, renderer = camera(), hud: readonly Rect[] = []) {
 	const authority = new LocalAuthority();
 	const events: GameEvent[] = [];
 	authority.subscribe((e) => {
@@ -294,21 +294,18 @@ describe('the way to the doctor', () => {
 	});
 
 	/** How far `p` is from the box `r`, in CSS pixels: 0 inside it. */
-	function distance(p: { x: number; y: number }, r: ScreenRect): number {
-		return Math.hypot(
-			Math.max(r.left - p.x, 0, p.x - r.right),
-			Math.max(r.top - p.y, 0, p.y - r.bottom)
-		);
+	function distance(p: { x: number; y: number }, r: Rect): number {
+		return Math.hypot(Math.max(r.x0 - p.x, 0, p.x - r.x1), Math.max(r.y0 - p.y, 0, p.y - r.y1));
 	}
 
 	it('never goes under the HUD: back along its line until nothing there covers it, pointing the same way; a tent under the HUD keeps its arrow', () => {
 		const me = { x: SCREEN.w / 2, y: SCREEN.h / 2 };
 		// As a tablet held sideways lays them out at 1024 × 768: the message line of two lines
 		// (the closing line over "Your animals are tired…"), the D-pad and the team's cards.
-		const hud: ScreenRect[] = [
-			{ left: 288, top: 690, right: 736, bottom: 752 },
-			{ left: 20, top: 556, right: 212, bottom: 748 },
-			{ left: 16, top: 16, right: 276, bottom: 180 }
+		const hud: Rect[] = [
+			{ x0: 288, y0: 690, x1: 736, y1: 752 },
+			{ x0: 20, y0: 556, x1: 212, y1: 748 },
+			{ x0: 16, y0: 16, x1: 276, y1: 180 }
 		];
 		let moved = 0;
 		// Tents below the screen (11 down), past its bottom-left corner, and past its bottom-right.
@@ -345,7 +342,7 @@ describe('the way to the doctor', () => {
 		expect(moved).toBe(6);
 		// 11 across on the left is in plain sight but for the team's cards over it: it keeps its
 		// arrow, clear of the cards, pointing at it.
-		const column: ScreenRect = { left: 16, top: 16, right: 276, bottom: 500 };
+		const column: Rect = { x0: 16, y0: 16, x1: 276, y1: 500 };
 		setup(besideTent(-11, 0), camera(), [column]);
 		expect(doctorWay.arrow).not.toBeNull();
 		expect(distance(doctorWay.arrow!, column)).toBeGreaterThanOrEqual(ARROW_REACH);

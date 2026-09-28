@@ -7,8 +7,10 @@ import {
 	type TentSpot,
 	type WorldEdits
 } from '@mathgame/engine';
-import { edgeSpot } from '../presence/controller';
+import { edgeTrack, spotOnTrack } from '../presence/edges';
+import type { Rect } from '../presence/labels';
 import type { GameRenderer } from '../render/renderer';
+import { safeArea } from '../safe-area';
 import { battle } from '../state/battle.svelte';
 import { doctor } from '../state/doctor.svelte';
 import { doctorWay } from '../state/doctor-way.svelte';
@@ -38,7 +40,9 @@ export const TENT_CLEARANCE = 84;
 /**
  * How far, in CSS pixels, the arrow reaches from its middle: the tip on the
  * disc's rim (36 px), its shadow, and a little air. The arrow's middle keeps
- * this far from every piece of the HUD it would go under.
+ * this far from every piece of the HUD it would go under, on the track the
+ * friends' arrows ride (`presence/edges.ts`), a pixel more so the whole
+ * pixels it is drawn on never bring it nearer.
  */
 export const ARROW_REACH = 44;
 
@@ -49,32 +53,6 @@ export const ARROW_REACH = 44;
  * arrow only this near.
  */
 const NEAREST_TO_PLAYER = 48;
-
-/** How far, in CSS pixels, the arrow moves back towards the player at a time while it is under the HUD. */
-const BACK_STEP = 4;
-
-/** A box on the screen in CSS pixels: a piece of the HUD the arrow keeps clear of. */
-export interface ScreenRect {
-	left: number;
-	top: number;
-	right: number;
-	bottom: number;
-}
-
-/**
- * The pieces of the HUD at the screen's edges that the way to the doctor
- * keeps clear of, as laid out now: every element marked `data-keep-clear`
- * (the team's cards, the belongings, the coordinates, the message line and
- * what stands over it, the touch controls) that takes up any room.
- */
-export function hudRects(root: ParentNode = document): ScreenRect[] {
-	const rects: ScreenRect[] = [];
-	for (const el of root.querySelectorAll('[data-keep-clear]')) {
-		const { left, top, right, bottom } = el.getBoundingClientRect();
-		if (right > left && bottom > top) rects.push({ left, top, right, bottom });
-	}
-	return rects;
-}
 
 /** What the way needs of the renderer: where things are on the canvas, and whether the world is. */
 export type DoctorWayRenderer = Pick<
@@ -95,9 +73,9 @@ interface Search {
  * The way to a doctor while the team needs one ([[UI_SPEC]] § Explore mode):
  * the nearest tent the player could walk to, or sail to with the boat, from
  * the engine's `nearestTent` in the world as they left it, and, until that
- * tent is in plain sight, an arrow at the screen's edge pointing to it
- * (`edgeSpot`, as a friend's arrow is placed; `arrowTo`). Only over the
- * explore screen.
+ * tent is in plain sight, an arrow at the screen's edge pointing to it, on
+ * the track a friend's arrow rides (`spotOnTrack`, `presence/edges.ts`;
+ * `arrowTo`). Only over the explore screen.
  *
  * It reads where the player is from `game`, however they got there (a step,
  * a go-to, another world, a reload), and looks again whenever that, the
@@ -112,11 +90,12 @@ export class DoctorWay {
 
 	/**
 	 * `keepClear`: the pieces of the HUD the arrow must never go under, as laid
-	 * out now (`hudRects` in the page), asked each frame the arrow is placed.
+	 * out now (`clearBoxes` in the page, `keep-clear.ts`), asked each frame the
+	 * arrow is placed.
 	 */
 	constructor(
 		private readonly renderer: DoctorWayRenderer,
-		private readonly keepClear: () => readonly ScreenRect[] = () => []
+		private readonly keepClear: () => readonly Rect[] = () => []
 	) {}
 
 	/** Every frame, after the world is drawn: the tent the way leads to, and the arrow to it. */
@@ -175,47 +154,45 @@ export class DoctorWay {
 	}
 
 	/**
-	 * The arrow for the tent at `tent`: where a friend's arrow would sit for it
-	 * (`edgeSpot`, inside the screen's edges), or null once the tent is inside
+	 * The arrow for the tent at `tent`, on the track a friend's arrow rides
+	 * (`presence/edges.ts`): inside the screen's edges and round every piece
+	 * of the HUD (`keepClear`: the team's cards, the message line however many
+	 * lines it has, the touch controls), by `ARROW_REACH`, so it always points
+	 * the same way and is always seen whole; or null once the tent is inside
 	 * that frame and under no piece of the HUD, in plain sight. A tent in the
 	 * strip between that frame and the screen's edge (half off the screen, or
-	 * behind the message line), or under the HUD, still has its arrow, a little
-	 * way before it (`TENT_CLEARANCE`), so the arrow never covers the tent it
-	 * points to. And the arrow keeps clear of the HUD (`keepClear`: the team's
-	 * cards, the message line however many lines it has, the touch controls),
-	 * back along its line towards the player until none of it would cover the
-	 * arrow, so it always points the same way and is always seen whole.
+	 * behind the message line), or under the HUD, still has its arrow, a
+	 * little way before it (`TENT_CLEARANCE`), so the arrow never covers the
+	 * tent it points to.
 	 */
 	private arrowTo(tent: GridPos): { x: number; y: number; angle: number } | null {
 		const { w, h } = this.renderer.screenSize();
 		const me = this.renderer.groundToScreen(game.pos.x, game.pos.y);
 		const there = this.renderer.groundToScreen(tent.x, tent.y);
-		const spot = edgeSpot(me, there, w, h);
-		if (!spot) return null;
+		const insets = safeArea();
+		const frame = spotOnTrack(me, there, edgeTrack(w, h, insets, [], ARROW_REACH));
+		if (!frame) return null;
 		const hud = this.keepClear();
 		const toTent = Math.hypot(there.x - me.x, there.y - me.y);
-		const toEdge = Math.hypot(spot.x - me.x, spot.y - me.y);
-		if (toTent <= toEdge && !hud.some((r) => within(r, there, 0))) return null;
-		// From the player out: the edge, or a little way before the tent, and back from any
-		// piece of the HUD the arrow would go under.
-		const at = (reach: number) => ({
-			x: Math.round(me.x + ((spot.x - me.x) * reach) / toEdge),
-			y: Math.round(me.y + ((spot.y - me.y) * reach) / toEdge)
-		});
-		let reach = Math.min(toEdge, Math.max(NEAREST_TO_PLAYER, toTent - TENT_CLEARANCE));
-		while (reach > NEAREST_TO_PLAYER && hud.some((r) => within(r, at(reach), ARROW_REACH))) {
-			reach = Math.max(NEAREST_TO_PLAYER, reach - BACK_STEP);
-		}
-		if (reach === toEdge) return spot;
-		return { ...at(reach), angle: spot.angle };
+		const toFrame = Math.hypot(frame.x - me.x, frame.y - me.y);
+		if (toTent <= toFrame && !hud.some((r) => inside(r, there))) return null;
+		const track = edgeTrack(w, h, insets, hud, ARROW_REACH + 1);
+		const spot = spotOnTrack(me, there, track, NEAREST_TO_PLAYER)!;
+		// From the player out: where the track stops it, or a little way before the tent.
+		const toSpot = Math.hypot(spot.x - me.x, spot.y - me.y);
+		const reach = Math.min(toSpot, Math.max(NEAREST_TO_PLAYER, toTent - TENT_CLEARANCE));
+		if (reach >= toSpot) return spot;
+		return {
+			x: Math.round(me.x + ((spot.x - me.x) * reach) / toSpot),
+			y: Math.round(me.y + ((spot.y - me.y) * reach) / toSpot),
+			angle: spot.angle
+		};
 	}
 }
 
-/** Whether `p` is within `margin` CSS pixels of the box `r` (inside it, or that close to it). */
-function within(r: ScreenRect, p: { x: number; y: number }, margin: number): boolean {
-	const dx = Math.max(r.left - p.x, 0, p.x - r.right);
-	const dy = Math.max(r.top - p.y, 0, p.y - r.bottom);
-	return dx * dx + dy * dy < margin * margin || (dx === 0 && dy === 0);
+/** Whether `p` is inside the box `r`, or on its edge. */
+function inside(r: Rect, p: { x: number; y: number }): boolean {
+	return p.x >= r.x0 && p.x <= r.x1 && p.y >= r.y0 && p.y <= r.y1;
 }
 
 function samePos(a: GridPos | null, b: GridPos | null): boolean {

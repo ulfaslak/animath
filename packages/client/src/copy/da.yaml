@@ -1153,6 +1153,7 @@ presence:
   left: '{name} gik hjem'
   leftTwo: '{name} og {other} gik hjem'
   leftMany: '{name} og {count} andre gik hjem'
+  arrowMore: '+{count} andre'
   elsewhere: Du spiller i et andet vindue.
   busy:
     battle: kæmper mod et vildt dyr

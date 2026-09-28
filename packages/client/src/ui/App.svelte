@@ -52,7 +52,7 @@
 	<Hud />
 	<!-- Not under a trip's cover, which takes no key: a thumb that lands there presses nothing. -->
 	{#if touch.on && !travel.active}<TouchControls />{/if}
-	<PresenceNote />
+	<PresenceNote where="top" />
 	<!-- A friendly match's invite over the world (its Challenge button is the HUD's). -->
 	<MatchCard />
 {/if}
