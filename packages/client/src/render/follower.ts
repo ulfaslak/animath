@@ -33,7 +33,7 @@ import { WATER_TOP, groundTop } from './tiles';
  * made smaller to fit (`lead(…, riding)`), turning with the boat when the
  * trainer bumps into something (`face`), and whoever comes out on a tile comes out beside
  * the trainer. When the trainer is put somewhere without walking (a new game,
- * a game picked up, the trip to the tent after a lost battle), it is put
+ * a game picked up, a go-to, another world), it is put
  * beside them at once — behind, else to a side, else in front, on the first
  * of those it could stand on, in the trainer's realm first (the water behind
  * the boat, the ground beside a trainer on land) — and never walks across the

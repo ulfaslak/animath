@@ -199,12 +199,13 @@ describe('the lead walks behind the trainer', () => {
 		expect(s.figures).toHaveLength(1);
 	});
 
-	it('is put beside the trainer, never walked there: a new game, a game picked up, the trip to the tent', () => {
+	it('is put beside the trainer, never walked there: a new game, a game picked up; after a lost battle the team rests', () => {
 		const s = setup('squirrel:1,fox');
 		expect(s.follower.tile).toEqual(placement(s.trainer(), game.facing));
 
-		// A lost battle: the whole party tired, then beside the nearest tent, healed.
+		// A lost battle: the whole party tired, where the battle was. Nobody follows: the team rests.
 		walkIntoBattle(s);
+		const lostOn = { ...s.trainer() };
 		while (latestBattle(s.events).phase.kind !== 'ended') {
 			const state = latestBattle(s.events);
 			if (state.phase.kind === 'choose-animal') {
@@ -218,8 +219,20 @@ describe('the lead walks behind the trainer', () => {
 			});
 			answer(s, false);
 		}
-		const taken = s.events.find((e) => e.type === 'taken-to-doctor');
-		expect(taken?.type).toBe('taken-to-doctor');
+		expect(latestBattle(s.events).phase).toEqual({ kind: 'ended', outcome: 'lost' });
+		s.settle(1.5);
+		expect(s.trainer()).toEqual(lostOn);
+		expect(s.follower.species).toBeNull();
+		expect(s.figures).toEqual([]);
+
+		// Quit to the title: gone. Continue, the team fit again: put beside the trainer at once.
+		s.authority.dispatch({ type: 'leave-game' });
+		expect(s.figures).toEqual([]);
+		expect(s.follower.tile).toBeNull();
+		const fit = s.authority
+			.snapshot()
+			.party.map((a) => ({ ...a, hp: getAnimal(a.speciesId).maxHp }));
+		s.authority.start({ game: { ...s.authority.snapshot(), party: fit } });
 		s.settle();
 		expect(s.follower.tile).toEqual(placement(s.trainer(), game.facing));
 		expect(s.follower.tile).not.toBeNull();
@@ -229,14 +242,6 @@ describe('the lead walks behind the trainer', () => {
 			s.follower.tile!.x,
 			s.follower.tile!.y
 		]);
-
-		// Quit to the title: gone. Continue: back beside the trainer.
-		s.authority.dispatch({ type: 'leave-game' });
-		expect(s.figures).toEqual([]);
-		expect(s.follower.tile).toBeNull();
-		s.authority.start({ game: s.authority.snapshot() });
-		s.settle();
-		expect(s.follower.tile).toEqual(placement(s.trainer(), game.facing));
 		expect(s.figures.map((f) => f.name)).toEqual(['squirrel']);
 	});
 

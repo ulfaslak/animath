@@ -2,6 +2,7 @@ import {
 	ANIMALS,
 	getAnimal,
 	hashString,
+	newGame,
 	type AnimalInstance,
 	type Direction,
 	type SavedGame
@@ -193,21 +194,56 @@ describe('the explore message line', () => {
 		hud.tick(0);
 		expect(hud.message).toBe(doctorWords({ say: 'goodbye' }));
 		expect(hud.message).toBe(t('doctor.goodbye'));
-		const taken = (tent: { x: number; y: number } | null) =>
-			hud.apply({
-				type: 'taken-to-doctor',
-				playerId: 'p',
-				pos: { x: 3, y: 3 },
-				dir: 'up',
-				tent,
-				party: []
-			});
-		taken({ x: 3, y: 2 });
+		// A lost battle's closing line is the authority's, with no animal in it.
+		hud.apply({ type: 'message', line: { key: 'battle.closing.lost', params: {} } });
 		hud.tick(0);
-		expect(hud.message).toBe(t('doctor.rescuedAtTent'));
-		taken(null);
+		expect(hud.message).toBe(t('battle.closing.lost'));
+		hud.apply({ type: 'message', line: { key: 'doctor.came', params: {} } });
 		hud.tick(0);
-		expect(hud.message).toBe(t('doctor.rescuedHere'));
+		expect(hud.message).toBe(t('doctor.came'));
+	});
+
+	it('while the team is tired, the line under it says to walk to a tent, until a doctor has helped', () => {
+		const squirrel = { id: 'sq', speciesId: 'squirrel', hp: 0 };
+		const s = setup({ ...newGame(1), party: [squirrel] });
+		expect(hud.tired).toBe(true);
+		// Before the controls hint, from the first step: this is what to do now.
+		expect(hud.hint).toBe(t('explore.tired'));
+		s.move(...Array<Direction>(7).fill('right'));
+		expect(hud.hint).toBe(t('explore.tired'));
+		// Facing the tent, the prompt says what Enter does there.
+		s.move('down');
+		expect(hud.hint).toBe(t('explore.talkPrompt'));
+		// Healed at the doctor: the line is gone, and the prompt stays while the tent is faced.
+		const healed = [{ ...squirrel, hp: getAnimal('squirrel').maxHp }];
+		game.apply({ type: 'party-changed', party: healed });
+		hud.apply({ type: 'party-changed', party: healed });
+		expect(hud.tired).toBe(false);
+		expect(hud.hint).toBe(t('explore.talkPrompt'));
+		s.move('left');
+		expect(hud.hint).toBe('');
+	});
+
+	it('out on the water only a team with nobody standing at all is tired: a walker in the boat can still battle on land', () => {
+		const otter = { id: 'ot', speciesId: 'otter', hp: 0 };
+		const squirrel = { id: 'sq', speciesId: 'squirrel', hp: 20 };
+		const atSea = { ...newGame(1), pos: { x: -2, y: 2 }, items: ['boat'] };
+		setup({ ...atSea, party: [otter] });
+		expect(game.realm).toBe('water');
+		expect(hud.hint).toBe(t('explore.tiredSail'));
+		// A squirrel in the boat can fight on land: sailing with it is sailing in peace.
+		setup({ ...atSea, party: [otter, squirrel] });
+		expect(hud.tired).toBe(false);
+		expect(hud.hint).toBe(t('explore.controls'));
+		// On land, a crab standing is nobody who can fight there.
+		setup({
+			...newGame(1),
+			party: [
+				{ ...squirrel, hp: 0 },
+				{ id: 'cr', speciesId: 'crab', hp: 20 }
+			]
+		});
+		expect(hud.hint).toBe(t('explore.tired'));
 	});
 
 	it('Enter with no tent in front says how to find a doctor; facing one, the doctor answers', () => {
@@ -255,7 +291,7 @@ describe('the explore message line', () => {
 	});
 
 	it('the prompt comes before the controls hint', () => {
-		// A player put beside the tent (a knock-out, or a save) before walking much.
+		// A player put beside the tent (a save) before walking much.
 		game.apply({
 			type: 'welcome',
 			playerId: 'p',
@@ -265,7 +301,7 @@ describe('the explore message line', () => {
 			seed: hashString('prototype'),
 			pos: { x: 5, y: 6 },
 			facing: 'left',
-			party: [],
+			party: [{ id: 'sq', speciesId: 'squirrel', hp: 20 }],
 			tokens: 0,
 			items: [],
 			solved: 0,

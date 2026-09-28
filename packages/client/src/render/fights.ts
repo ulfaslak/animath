@@ -488,8 +488,8 @@ export class WatchedFights {
 				const owner = layout.owners[side];
 				const spot = spots[side];
 				if (owner && (!spot || spot.tile.x !== owner.tile.x || spot.tile.y !== owner.tile.y)) {
-					// Put somewhere else before its end was shown (a lost battle takes its player to
-					// the doctor at once): the end plays out where it was fought, without them.
+					// Somewhere else before its end was shown (they walked on from the result card
+					// while it still plays here): the end plays out where it was fought, without them.
 					if (spot && fight.over) {
 						this.others.stand(owner.pid, null);
 						layout.owners[side] = null;

@@ -364,7 +364,8 @@
 	}
 </script>
 
-<div class="party" bind:this={root}>
+<!-- `data-keep-clear`: the way to the doctor's arrow never goes under it (`hudRects`). -->
+<div class="party" bind:this={root} data-keep-clear>
 	<div class="cards" bind:this={column} onscroll={scrolled} {@attach holdStill}>
 		{#each list as bundle, i (bundle.speciesId)}
 			{@const mine = drag?.speciesId === bundle.speciesId ? drag : null}
@@ -430,7 +431,7 @@
 
 <!-- The player's tokens and the puzzles they have solved, the tools they own, and the world they are in. -->
 <!-- With `?debug` the position and the cues have the corner; these go under them. -->
-<div class="belongings" class:below-debug={flags.debug}>
+<div class="belongings" class:below-debug={flags.debug} data-keep-clear>
 	<div class="purse"><Coin />{t('hud.tokens', { count: game.tokens })}</div>
 	<!-- Right under the tokens, one above the other: side by side, the corner would reach
 	     the note at the top of the screen on a tablet (`PresenceNote`). -->
@@ -448,7 +449,7 @@
 
 <!-- Where the player stands, x to the right and y up the screen, counted from the world's
      spawn: in the bottom-right corner, or over the touch controls' buttons there. -->
-<div class="coords" class:over-fly={flies}>
+<div class="coords" class:over-fly={flies} data-keep-clear>
 	{t('hud.coordinates', { x: mathNumber(here.x), y: mathNumber(here.y) })}
 </div>
 
@@ -456,7 +457,7 @@
      reach, over the message line: the latest message while it is fresh, then the doctor
      prompt or the controls hint (see `state/hud.svelte.ts`). One column, so however many
      lines the message line takes, the button stands clear of it. -->
-<div class="bottom">
+<div class="bottom" data-keep-clear>
 	<ChallengeButton />
 	{#if hud.message || hud.hint}
 		<div class="hint" transition:fade={{ duration: 400 }}>

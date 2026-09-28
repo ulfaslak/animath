@@ -149,12 +149,6 @@ class GameView {
 				this.pos = event.pos;
 				this.facing = event.dir;
 				break;
-			case 'taken-to-doctor':
-				if (event.playerId !== this.playerId) break;
-				this.pos = event.pos;
-				this.facing = event.dir;
-				this.party = event.party;
-				break;
 			case 'battle-started':
 				this.mode = 'battle';
 				break;

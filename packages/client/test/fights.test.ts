@@ -313,8 +313,9 @@ describe('a wild battle seen from outside', () => {
 		moved.peer('ada', { x: 4, y: 7 }, 'battle');
 		moved.frames(0.5);
 		expect(moved.fights.count).toBe(0);
-		// A lost battle takes her to the doctor's tent the moment it ends: its end still plays where it
-		// was fought (her squirrel lying down, the rat hopping), without her, and then it clears.
+		// Somewhere else once her battle has ended (a page far behind hears the end after she walked
+		// on): its end still plays where it was fought (her squirrel lying down, the rat hopping),
+		// without her, and then it clears.
 		const lost = adaInABattle();
 		lost.fights.show(
 			fight({ a: { species: 'squirrel', hp: 0 }, turn: null }, [
