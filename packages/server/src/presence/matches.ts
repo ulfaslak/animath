@@ -116,7 +116,10 @@ interface Player {
 	name: string;
 	/** The invite they are asking or being asked, if any. */
 	invite: Invite | null;
-	/** Their match, going on or ended (until they go back to exploring). */
+	/**
+	 * Their match, going on or ended: ended, until they go back to exploring,
+	 * leave it, or ask or are asked for another. Only one going on makes them busy.
+	 */
 	match: Match | null;
 	tokens: number;
 	lastRefill: number;
@@ -586,9 +589,10 @@ export class Matches {
 	}
 
 	/**
-	 * `side` is done with a match that ended (went back to exploring, left, or
-	 * the rematch lapsed): the other page hears the rematch is off, and the
-	 * match goes once nobody is left in it.
+	 * `side` is done with a match that ended (went back to exploring, left it,
+	 * asked or was asked for another, dropped out, or the rematch lapsed): the
+	 * other page hears the rematch is off (unless `tell` is false: it knows),
+	 * and the match goes once nobody is left in it.
 	 */
 	private detach(match: Match, side: MatchSide, tell = true): void {
 		const player = match.players[side];
