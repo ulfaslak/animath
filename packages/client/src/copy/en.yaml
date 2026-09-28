@@ -705,6 +705,9 @@ explore:
   tired: Your animals are tired. Walk to the witch doctor's tent!
   # The same, out on the water in the boat.
   tiredSail: Your animals are tired. Sail to the witch doctor's tent!
+  # The same, walled in where no tent is a walk away, with the paraglider (no witch doctor
+  # comes to a kid who can fly): glide out, and walk from there.
+  tiredFly: Your animals are tired. Fly out to find the witch doctor's tent!
   # What a screen reader calls the arrow at the screen's edge that points to the nearest tent then.
   doctorArrow: The way to the witch doctor's tent
   # With the glider: a tap of Space with nothing in front, and the witch doctor's goodbye

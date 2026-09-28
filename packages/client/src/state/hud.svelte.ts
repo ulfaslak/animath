@@ -23,6 +23,7 @@ import { messageWords } from '../lines';
 import { animalWords } from '../names';
 import type { SaveNotice } from '../save/notices';
 import { account } from './account.svelte';
+import { doctorWay } from './doctor-way.svelte';
 import { game } from './game.svelte';
 
 /**
@@ -317,9 +318,10 @@ class HudView {
 	tired = $derived(needsDoctor(game.party, game.realm));
 	/**
 	 * The line under it: what Enter does here (talk, chop, break), else that
-	 * the team is tired and needs a doctor's tent (for as long as it does), or
-	 * the controls hint, or ''. With the touch controls on, each names the
-	 * button on screen instead of a key.
+	 * the team is tired and needs a doctor's tent (for as long as it does: walk,
+	 * sail, or where no tent is a walk away and the kid has the paraglider, fly
+	 * out; `doctorWay.noWay`), or the controls hint, or ''. With the touch
+	 * controls on, each names the button on screen instead of a key.
 	 */
 	hint = $derived(
 		game.flying
@@ -339,7 +341,9 @@ class HudView {
 						: this.tired
 							? game.realm === 'water'
 								? t('explore.tiredSail')
-								: t('explore.tired')
+								: doctorWay.noWay && game.items.includes('glider')
+									? t('explore.tiredFly')
+									: t('explore.tired')
 							: game.steps < HINT_STEPS
 								? touch.on
 									? t('explore.controlsTouch')

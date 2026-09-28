@@ -121,7 +121,9 @@ export class DoctorWay {
 
 	/** Every frame, after the world is drawn: the tent the way leads to, and the arrow to it. */
 	overlay(): void {
-		if (!this.showing() || !needsDoctor(game.party, game.realm)) {
+		const tired = needsDoctor(game.party, game.realm);
+		if (!tired && doctorWay.noWay) doctorWay.noWay = false;
+		if (!this.showing() || !tired) {
 			// The search is kept, so coming back from a menu, a battle or the doctor's
 			// card is no search at all, unless the player moved meanwhile.
 			if (doctorWay.tent) doctorWay.tent = null;
@@ -130,6 +132,7 @@ export class DoctorWay {
 		}
 		const tent = this.find()?.tent ?? null;
 		if (!samePos(tent, doctorWay.tent)) doctorWay.tent = tent && { x: tent.x, y: tent.y };
+		if (doctorWay.noWay !== (tent === null)) doctorWay.noWay = tent === null;
 		const arrow = tent ? this.arrowTo(tent) : null;
 		const shown = doctorWay.arrow;
 		if (

@@ -13,6 +13,7 @@ import {
 } from '@mathgame/engine';
 import { afterEach, describe, expect, it } from 'vitest';
 import { LocalAuthority, WORLD_SEED } from '../src/authority/local';
+import { t } from '../src/copy';
 import {
 	ARROW_REACH,
 	DOCTOR_WAY_STEPS,
@@ -26,6 +27,7 @@ import { battle } from '../src/state/battle.svelte';
 import { doctor } from '../src/state/doctor.svelte';
 import { doctorWay } from '../src/state/doctor-way.svelte';
 import { game } from '../src/state/game.svelte';
+import { hud } from '../src/state/hud.svelte';
 import { pause } from '../src/state/pause.svelte';
 
 /**
@@ -271,6 +273,24 @@ describe('the way to the doctor', () => {
 		setup(besideTent(11, 0));
 		expect(doctorWay.tent).not.toBeNull();
 		expect(doctorWay.arrow).toBeNull();
+	});
+
+	it('walled in where no tent is a walk away, with the paraglider: no way, and the line says to fly out', () => {
+		// No witch doctor comes to a kid who can fly, so the line must not send them walking.
+		setup({
+			...newGame(1),
+			party: [squirrel(0)],
+			items: ['glider'],
+			pos: { x: -2, y: 32 },
+			facing: 'up'
+		});
+		expect(doctorWay.tent).toBeNull();
+		expect(doctorWay.noWay).toBe(true);
+		expect(hud.hint).toBe(t('explore.tiredFly'));
+		// A walk from a tent, the glider or not: the walk's line.
+		setup({ ...newGame(1), party: [squirrel(0)], items: ['glider'] });
+		expect(doctorWay.noWay).toBe(false);
+		expect(hud.hint).toBe(t('explore.tired'));
 	});
 
 	/** How far `p` is from the box `r`, in CSS pixels: 0 inside it. */

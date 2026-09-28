@@ -27,10 +27,19 @@ class DoctorWayView {
 	tent = $state.raw<GridPos | null>(null);
 	/** The arrow to that tent until it is in plain sight, over the explore screen only; else null. */
 	arrow = $state.raw<DoctorArrow | null>(null);
+	/**
+	 * The team needs the doctor and no tent is a walk (or a sail) away from
+	 * where the player stood when the way last looked: walled in, where a kid
+	 * with the paraglider flies out (no doctor comes to them). Kept while the
+	 * explore screen is away, so the line under the message is right the
+	 * moment it is back.
+	 */
+	noWay = $state(false);
 
 	reset(): void {
 		this.tent = null;
 		this.arrow = null;
+		this.noWay = false;
 	}
 }
 
