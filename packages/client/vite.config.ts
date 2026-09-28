@@ -191,7 +191,7 @@ function errorReportsFirst(): Plugin {
 }
 
 /** The palette's colours, which the mixes a browser without `color-mix()` gets are worked out from. */
-const palette = paletteOf(readFileSync(new URL('src/styles.css', import.meta.url), 'utf8'));
+const palette = () => paletteOf(readFileSync(new URL('src/styles.css', import.meta.url), 'utf8'));
 
 export default defineConfig({
 	plugins: [

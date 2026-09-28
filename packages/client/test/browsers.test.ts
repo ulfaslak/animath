@@ -87,6 +87,43 @@ describe('the built-ins Safari 15.0 lacks', () => {
 		expect(said('"structuredClone" in globalThis ? structuredClone(a) : copy(a);')).toEqual([]);
 	});
 
+	it('lets a use be only where its test asked, never elsewhere in the script', () => {
+		expect(said('if (typeof x.at === "function") x.at(0); list.at(-1);')).toEqual([
+			'.at() (Safari 15.4)'
+		]);
+		expect(
+			said('if (typeof structuredClone != "function") copy(a); else structuredClone(a);')
+		).toEqual([]);
+		expect(
+			said('typeof c.randomUUID == "function" && c.randomUUID(); crypto.randomUUID();')
+		).toEqual(['.randomUUID() (Safari 15.4)']);
+	});
+
+	it("lets a use be where a variable set from a test says so, as three.js's OffscreenCanvas is", () => {
+		const three =
+			'let v = false; try { v = typeof OffscreenCanvas < "u" && new OffscreenCanvas(1, 1).getContext("2d") !== null; } catch {}\n' +
+			'function y(a, b) { return v ? new OffscreenCanvas(a, b) : make(a, b); }';
+		expect(said(three)).toEqual([]);
+		expect(said(`${three}\nfunction z() { return new OffscreenCanvas(1, 1); }`)).toEqual([
+			'OffscreenCanvas (Safari 16.4)'
+		]);
+	});
+
+	it('finds a global read through window, self or globalThis', () => {
+		expect(said('globalThis.structuredClone(a);')).toEqual([
+			'globalThis.structuredClone (Safari 15.4)'
+		]);
+		expect(said('window.requestIdleCallback(f);')).toEqual([
+			'window.requestIdleCallback (no Safari)'
+		]);
+		expect(said('new self.BroadcastChannel("a");')).toEqual([
+			'self.BroadcastChannel (Safari 15.4)'
+		]);
+		expect(
+			said('typeof window.structuredClone == "function" ? window.structuredClone(a) : copy(a);')
+		).toEqual([]);
+	});
+
 	it('never counts a property or a key of the same name', () => {
 		expect(
 			said('a.structuredClone = 1; const b = { structuredClone: 2, OffscreenCanvas: 3 };')
@@ -156,7 +193,9 @@ describe('color-mix() for a browser without it', () => {
 	}
 
 	function fallbacks(css: string, colours = palette): string {
-		return squeezed(postcss([colorMixFallbacks(colours)]).process(css, { from: undefined }).css);
+		return squeezed(
+			postcss([colorMixFallbacks(() => colours)]).process(css, { from: undefined }).css
+		);
 	}
 
 	it('mixes as CSS Color 5 does, alpha premultiplied', () => {

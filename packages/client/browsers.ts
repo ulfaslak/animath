@@ -186,9 +186,10 @@ function memberName(node: Node): string | null {
 	return null;
 }
 
-/** Whether an identifier is a name the code reads, not a property's or a key's. */
+/** Whether an identifier is a name the code reads: not a property's or a key's, nor what `typeof` asks about. */
 function isRead(node: Node, parent: Node | null): boolean {
 	if (!parent) return true;
+	if (parent.type === 'UnaryExpression' && parent.operator === 'typeof') return false;
 	if (parent.type === 'MemberExpression') return parent.object === node || parent.computed === true;
 	if (
 		parent.type === 'Property' ||
@@ -200,13 +201,74 @@ function isRead(node: Node, parent: Node | null): boolean {
 	return true;
 }
 
+/** What the page's globals are reached through, as well as by their names. */
+const GLOBAL_OBJECTS: ReadonlySet<string> = new Set(['window', 'self', 'globalThis']);
+
+const FUNCTIONS: ReadonlySet<string> = new Set([
+	'FunctionExpression',
+	'FunctionDeclaration',
+	'ArrowFunctionExpression',
+	'ClassExpression',
+	'ClassDeclaration'
+]);
+
+/**
+ * The names an expression asks for, short of the functions in it: `typeof x`,
+ * `typeof x.name`, `'name' in x`, and a variable set from such a test
+ * (`aliases`), as three.js keeps whether it has an `OffscreenCanvas`.
+ */
+function askedIn(test: Node, aliases: ReadonlyMap<string, ReadonlySet<string>>): Set<string> {
+	const names = new Set<string>();
+	const visit = (node: Node): void => {
+		if (FUNCTIONS.has(node.type)) return;
+		if (node.type === 'UnaryExpression' && node.operator === 'typeof') {
+			const argument = node.argument as Node;
+			if (argument.type === 'Identifier') names.add(argument.name as string);
+			if (argument.type === 'MemberExpression') names.add(memberName(argument) ?? '');
+		} else if (node.type === 'BinaryExpression' && node.operator === 'in') {
+			const left = node.left as Node;
+			if (left.type === 'Literal' && typeof left.value === 'string') names.add(left.value);
+		} else if (node.type === 'Identifier') {
+			for (const name of aliases.get(node.name as string) ?? []) names.add(name);
+		}
+		for (const key in node) {
+			const value = node[key];
+			if (Array.isArray(value)) {
+				for (const child of value) if (isNode(child)) visit(child);
+			} else if (isNode(value)) {
+				visit(value);
+			}
+		}
+	};
+	visit(test);
+	return names;
+}
+
+/** Each variable set from a test that asks for names (`v = typeof OffscreenCanvas < 'u' && …`), and those names. */
+function aliasesIn(program: Node): Map<string, Set<string>> {
+	const aliases = new Map<string, Set<string>>();
+	const note = (id: unknown, value: unknown) => {
+		if (!isNode(id) || id.type !== 'Identifier' || !isNode(value)) return;
+		const names = askedIn(value, new Map());
+		if (names.size === 0) return;
+		const name = id.name as string;
+		aliases.set(name, new Set([...(aliases.get(name) ?? []), ...names]));
+	};
+	walk(program, (node) => {
+		if (node.type === 'VariableDeclarator') note(node.id, node.init);
+		if (node.type === 'AssignmentExpression') note(node.left, node.right);
+	});
+	return aliases;
+}
+
 /**
  * What in a built script Safari 15.0 cannot read or run: syntax newer than
  * `ecmaVersion` (ES2022 for the game; ES2017 for the error reports' chunk,
  * ES5 for the page's inline script), a class's static block, a lookbehind in
  * a regular expression or in a string one may be built from, and the
- * built-ins it lacks, unless the script asks for that name first
- * (`typeof x.name`, `'name' in x`).
+ * built-ins it lacks. A built-in is let be only where the script has asked
+ * for it: inside an `if` or a `?:` whose test asks, or after a `&&` or `||`
+ * whose left side does (`askedIn`).
  */
 export function scanScript(
 	code: string,
@@ -226,63 +288,42 @@ export function scanScript(
 		];
 	}
 	const found: Finding[] = [];
-	const asked = new Set<string>();
-	const uses: { name: string; what: string; at: number }[] = [];
-	walk(program, (node, parent) => {
+	const aliases = aliasesIn(program);
+	const flag = (what: string, at: number) => found.push({ what, near: near(code, at) });
+	const use = (name: string, what: string, at: number, asked: ReadonlySet<string>) => {
+		if (!asked.has(name)) flag(what, at);
+	};
+
+	function check(node: Node, parent: Node | null, asked: ReadonlySet<string>): void {
 		switch (node.type) {
 			case 'StaticBlock':
-				found.push({ what: "a class's static block (Safari 16.4)", near: near(code, node.start) });
+				flag("a class's static block (Safari 16.4)", node.start);
 				break;
 			case 'Literal': {
 				const regex = node.regex as { pattern: string } | undefined;
 				if (regex && hasLookbehind(regex.pattern)) {
-					found.push({
-						what: 'a lookbehind in a regular expression (Safari 16.4)',
-						near: near(code, node.start)
-					});
+					flag('a lookbehind in a regular expression (Safari 16.4)', node.start);
 				} else if (typeof node.value === 'string' && hasLookbehind(node.value)) {
-					found.push({
-						what: 'a lookbehind in a string a RegExp can be built from (Safari 16.4)',
-						near: near(code, node.start)
-					});
+					flag('a lookbehind in a string a RegExp can be built from (Safari 16.4)', node.start);
 				}
 				break;
 			}
 			case 'TemplateElement':
 				if (hasLookbehind((node.value as { raw: string }).raw)) {
-					found.push({
-						what: 'a lookbehind in a string a RegExp can be built from (Safari 16.4)',
-						near: near(code, node.start)
-					});
+					flag('a lookbehind in a string a RegExp can be built from (Safari 16.4)', node.start);
 				}
 				break;
-			case 'UnaryExpression': {
-				const argument = node.argument as Node;
-				if (node.operator !== 'typeof') break;
-				if (argument.type === 'Identifier') asked.add(argument.name as string);
-				if (argument.type === 'MemberExpression') asked.add(memberName(argument) ?? '');
-				break;
-			}
-			case 'BinaryExpression': {
-				const left = node.left as Node;
-				if (node.operator === 'in' && left.type === 'Literal' && typeof left.value === 'string') {
-					asked.add(left.value);
-				}
-				break;
-			}
 			case 'MemberExpression': {
 				const object = node.object as Node;
 				const name = memberName(node);
-				const version =
-					object.type === 'Identifier' && name !== null
-						? STATICS.get(object.name as string)?.get(name)
-						: undefined;
-				if (name !== null && version !== undefined) {
-					uses.push({
-						name,
-						what: `${object.name as string}.${name} (${since(version)})`,
-						at: node.start
-					});
+				if (object.type !== 'Identifier' || name === null) break;
+				const owner = object.name as string;
+				const version = GLOBAL_OBJECTS.has(owner)
+					? GLOBALS.get(name)
+					: STATICS.get(owner)?.get(name);
+				const typeofArgument = parent?.type === 'UnaryExpression' && parent.operator === 'typeof';
+				if (version !== undefined && !typeofArgument) {
+					use(name, `${owner}.${name} (${since(version)})`, node.start, asked);
 				}
 				break;
 			}
@@ -300,7 +341,7 @@ export function scanScript(
 								? METHODS.get(name)
 								: undefined;
 				if (name !== null && version !== undefined) {
-					uses.push({ name, what: `.${name}() (${since(version)})`, at: callee.end });
+					use(name, `.${name}() (${since(version)})`, callee.end, asked);
 				}
 				break;
 			}
@@ -308,15 +349,38 @@ export function scanScript(
 				const name = node.name as string;
 				const version = GLOBALS.get(name);
 				if (version !== undefined && isRead(node, parent)) {
-					uses.push({ name, what: `${name} (${since(version)})`, at: node.start });
+					use(name, `${name} (${since(version)})`, node.start, asked);
 				}
 				break;
 			}
 		}
-	});
-	for (const use of uses) {
-		if (!asked.has(use.name)) found.push({ what: use.what, near: near(code, use.at) });
 	}
+
+	function visit(node: Node, parent: Node | null, asked: ReadonlySet<string>): void {
+		check(node, parent, asked);
+		const test =
+			node.type === 'IfStatement' || node.type === 'ConditionalExpression'
+				? node.test
+				: node.type === 'LogicalExpression'
+					? node.left
+					: null;
+		let within = asked;
+		if (isNode(test)) {
+			const names = askedIn(test, aliases);
+			if (names.size > 0) within = new Set([...asked, ...names]);
+		}
+		for (const key in node) {
+			const value = node[key];
+			const inner = value === test ? asked : within;
+			if (Array.isArray(value)) {
+				for (const child of value) if (isNode(child)) visit(child, node, inner);
+			} else if (isNode(value)) {
+				visit(value, node, inner);
+			}
+		}
+	}
+
+	visit(program, null, new Set());
 	return found;
 }
 
@@ -638,14 +702,15 @@ export function withColorMixFallbacks(root: Root, palette: ReadonlyMap<string, s
  * worked out as the game builds (`withoutColorMix`), and the declaration as
  * written moves to a copy of the rule right after it, inside `@supports`, so
  * a browser with `color-mix()` mixes as before; a `@keyframes` is copied
- * whole. The colours are the palette's (`paletteOf`: `styles.css`'s), less
- * any a stylesheet sets itself below the root.
+ * whole. The colours are the palette's (`paletteOf`: `styles.css`'s, read
+ * for every stylesheet, so a colour added while the dev server runs is
+ * known), less any a stylesheet sets itself below the root.
  */
-export function colorMixFallbacks(palette: ReadonlyMap<string, string>): StylePlugin {
+export function colorMixFallbacks(palette: () => ReadonlyMap<string, string>): StylePlugin {
 	return {
 		postcssPlugin: 'animath:color-mix-fallbacks',
 		Once(root) {
-			const known = new Map(palette);
+			const known = new Map(palette());
 			root.walkDecls(/^--/, (decl) => {
 				const rule = decl.parent as Container | undefined;
 				const atRoot =
