@@ -58,8 +58,8 @@
  * tablets start at 768 and a laptop at 720). The battle's cards are 220 px
  * tall, touch or not, over an 8 px margin, and lay their rows out sideways
  * to fit (UI_SPEC § Frame, "A phone held sideways"), so the scene keeps a band
- * above them. `SHORT_SCREEN` in `render/battle-scene.ts` mirrors the
- * breakpoint and `battlePanelHeight` the height.
+ * above them. `SHORT_SCREEN` (`short-screen.ts`) mirrors the
+ * breakpoint and `battlePanelHeight` (`render/battle-scene.ts`) the height.
  */
 @media (max-height: 560px) {
 	:root,
