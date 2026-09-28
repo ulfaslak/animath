@@ -143,16 +143,26 @@
 			if (canSwitch) return t('battle.switch.detail');
 			if (battle.party.length < 2) return t(vs ? 'match.switch.alone' : 'battle.switch.alone');
 			// The others may be standing, only not able to fight here: out on the water
-			// they can't swim, and on land they live in the sea.
+			// they can't swim, up in the air they can't fly, and on land they live in the sea.
 			const others = battle.party.filter((_, i) => i !== battle.front);
 			if (!others.some((a) => a.hp > 0 && !canFightIn(a.speciesId, battle.realm)))
 				return t('battle.switch.allTired');
-			return battle.realm === 'water'
-				? t('battle.switch.noSwimmers')
-				: t('battle.switch.noWalkers');
+			return t(
+				battle.realm === 'water'
+					? 'battle.switch.noSwimmers'
+					: battle.realm === 'air'
+						? 'battle.switch.noFlyers'
+						: 'battle.switch.noWalkers'
+			);
 		}
-		const run = battle.realm === 'water' ? 'battle.run.detailSea' : 'battle.run.detail';
-		return t(run, { animal: animalWords(opponent) });
+		return t(
+			battle.realm === 'water'
+				? 'battle.run.detailSea'
+				: battle.realm === 'air'
+					? 'battle.run.detailAir'
+					: 'battle.run.detail',
+			{ animal: animalWords(opponent) }
+		);
 	});
 
 	/**
@@ -256,9 +266,14 @@
 				: t('battle.switch.sendIn', params);
 		}
 		if (!canFightIn(animal.speciesId, battle.realm)) {
-			return battle.realm === 'water'
-				? t('battle.switch.cantSwim', params)
-				: t('battle.switch.inTheSea', params);
+			return t(
+				battle.realm === 'water'
+					? 'battle.switch.cantSwim'
+					: battle.realm === 'air'
+						? 'battle.switch.cantFly'
+						: 'battle.switch.inTheSea',
+				params
+			);
 		}
 		return animal.hp === 0 ? t('battle.switch.tired', params) : t('battle.switch.inBattle', params);
 	});
@@ -394,9 +409,13 @@
 							>
 							<span class="how">
 								{#if !canFightIn(animal.speciesId, battle.realm)}
-									{battle.realm === 'water'
-										? t('battle.switch.cantSwimTag')
-										: t('battle.switch.seaTag')}
+									{t(
+										battle.realm === 'water'
+											? 'battle.switch.cantSwimTag'
+											: battle.realm === 'air'
+												? 'battle.switch.cantFlyTag'
+												: 'battle.switch.seaTag'
+									)}
 								{:else if animal.hp === 0}
 									{t('battle.switch.tiredTag')}
 								{:else if i === battle.front}

@@ -1,5 +1,6 @@
 import {
 	bundles,
+	leadIndex,
 	newGame,
 	type BattleState,
 	type Direction,
@@ -19,6 +20,7 @@ import { DESCEND_SECONDS, GLIDE_SECONDS, RISE_SECONDS } from '../src/render/trai
 import { PauseController } from '../src/pause/controller';
 import type { GameRenderer } from '../src/render/renderer';
 import { game } from '../src/state/game.svelte';
+import { skyPieces } from './sky-pieces';
 import { hud } from '../src/state/hud.svelte';
 import { team } from '../src/state/team.svelte';
 
@@ -37,6 +39,7 @@ function setup(startingParty: string, saved?: SavedGame) {
 	keyboard.setEnabled(true); // explore has the screen, as main.ts says each frame
 	/** Where the landing ring was put, each time, and the tool over it. */
 	const rings: ({ x: number; y: number; tool: string | null } | null)[] = [];
+	const sky = skyPieces();
 	const renderer = {
 		setWorld() {},
 		setBoat() {},
@@ -46,7 +49,9 @@ function setup(startingParty: string, saved?: SavedGame) {
 		},
 		setPlayer() {},
 		ensureChunksAround() {},
-		cleared() {}
+		cleared() {},
+		trainerPoint: sky.trainerPoint,
+		chaser: sky.chaser
 	} as unknown as GameRenderer;
 	const authority = new LocalAuthority({ party: parseParty(startingParty)! });
 	const explore = new ExploreController(authority, renderer, keyboard);
@@ -242,23 +247,37 @@ describe('the glider', () => {
 		expect(s.cards()).toEqual(cards);
 	});
 
-	it('who goes first stays who went first up in the air: over the water it is not the swimmer', () => {
+	it('up in the air who goes first is the lead in the air, the first bird standing: over the water never the swimmer, and with no bird nobody (#91)', () => {
 		const s = setup('squirrel', {
+			...flyer(SPAWN, 'up'),
+			party: [
+				{ id: 'nut', speciesId: 'squirrel', hp: 20 },
+				{ id: 'fin', speciesId: 'otter', hp: 25 },
+				{ id: 'red', speciesId: 'robin', hp: 19 }
+			]
+		});
+		const lead = () => game.party[leadIndex(game.party, game.realm)]?.id ?? null;
+		expect([game.realm, lead()]).toEqual(['land', 'nut']);
+		s.press(' ');
+		s.run(HOLD_TO_FLY + RISE_SECONDS + GLIDE_SECONDS * 3 + 0.05);
+		expect(game.flying).toBe(true);
+		expect(game.pos.y).toBeLessThanOrEqual(3);
+		expect([game.realm, lead()]).toEqual(['air', 'red']);
+		s.release(' ');
+		s.run(3);
+		expect(game.flying).toBe(false);
+		expect(game.realm).toBe('land');
+		// A team with no bird: up in the air nobody goes first, and nobody follows.
+		const none = setup('squirrel', {
 			...flyer(SPAWN, 'up'),
 			party: [
 				{ id: 'nut', speciesId: 'squirrel', hp: 20 },
 				{ id: 'fin', speciesId: 'otter', hp: 25 }
 			]
 		});
-		expect(game.realm).toBe('land');
-		s.press(' ');
-		s.run(HOLD_TO_FLY + RISE_SECONDS + GLIDE_SECONDS * 3 + 0.05);
-		expect(game.flying).toBe(true);
-		expect(game.pos.y).toBeLessThanOrEqual(3);
-		expect(game.realm).toBe('land');
-		s.release(' ');
-		s.run(3);
-		expect(game.realm).toBe('land');
+		none.press(' ');
+		none.run(HOLD_TO_FLY + RISE_SECONDS + GLIDE_SECONDS * 3 + 0.05);
+		expect([game.realm, lead()]).toEqual(['air', null]);
 	});
 
 	it('holding on comes down at the reach by itself, and Space still held takes nobody up again', () => {

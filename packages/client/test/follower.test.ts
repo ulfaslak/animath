@@ -27,6 +27,7 @@ import type { GameRenderer } from '../src/render/renderer';
 import { doctor } from '../src/state/doctor.svelte';
 import { game } from '../src/state/game.svelte';
 import { besideA, gameBeside } from './clearing';
+import { skyPieces } from './sky-pieces';
 
 /**
  * The lead walking behind the trainer, driven as the game drives it: the real
@@ -41,6 +42,7 @@ function setup(party: string, game0?: SavedGame) {
 		addFigure: (f: THREE.Group) => void figures.push(f),
 		removeFigure: (f: THREE.Group) => void figures.splice(figures.indexOf(f), 1)
 	};
+	const sky = skyPieces(host);
 	const renderer = {
 		setWorld() {},
 		setBoat() {},
@@ -48,7 +50,9 @@ function setup(party: string, game0?: SavedGame) {
 		setLandingSpot() {},
 		setPlayer() {},
 		ensureChunksAround() {},
-		cleared() {}
+		cleared() {},
+		trainerPoint: sky.trainerPoint,
+		chaser: sky.chaser
 	} as unknown as GameRenderer;
 	const authority = new LocalAuthority({ party: parseParty(party)! });
 	const follower = new Follower(host);

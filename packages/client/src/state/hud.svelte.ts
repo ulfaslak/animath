@@ -76,6 +76,8 @@ export type Said =
 	 * nowhere to land that way (`tooFar`).
 	 */
 	| { explore: 'notAtTent' | 'holdToFly' | 'tooFar' }
+	/** Up in the air, a wild bird of this species noticed the glider and follows it down. */
+	| { follows: string }
 	/** A tree or a rock is in the way without the tool it takes: the doctor sells one. */
 	| { needs: ClearableKind }
 	| { party: PartyNotice }
@@ -116,6 +118,11 @@ export function saidWords(said: Said): string {
 	if ('account' in said) return accountWords(said.account);
 	if ('needs' in said)
 		return said.needs === 'tree' ? t('explore.needAxe') : t('explore.needPickaxe');
+	// Only a bird has the grumpy form: a species' forms are written out, never built.
+	if ('follows' in said)
+		return t('explore.birdFollows', {
+			bird: { aGrumpy: t(`species.${said.follows}.aGrumpy`) }
+		});
 	if (said.explore === 'holdToFly') {
 		return touch.on ? t('explore.holdToFlyTouch') : t('explore.holdToFly');
 	}
@@ -188,8 +195,8 @@ export function leadNotice(
 	for (const e of events) {
 		if (e.type === 'rejected') {
 			// Out on the water an animal that can't swim can't go first, and on land a sea animal.
-			if (e.reason === 'cannot-fight-here') {
-				const lead = realm === 'water' ? 'cantSwim' : 'inTheSea';
+			const lead = cannotLead(realm);
+			if (e.reason === 'cannot-fight-here' && lead) {
 				if (e.animalId !== undefined) return { lead, animalId: e.animalId };
 				if (e.speciesId !== undefined) return { lead, speciesId: e.speciesId };
 			}
@@ -205,8 +212,9 @@ export function leadNotice(
 		}
 		if (e.type === 'lead-selected') return { lead: 'chosen', animalId: e.animalId };
 		// On top, and still not first: its animals can't fight here, so the lead stays where it was.
-		if (e.type === 'species-moved' && e.to === 0 && !canFightIn(e.speciesId, realm)) {
-			return { lead: realm === 'water' ? 'cantSwim' : 'inTheSea', speciesId: e.speciesId };
+		const cannot = cannotLead(realm);
+		if (e.type === 'species-moved' && e.to === 0 && !canFightIn(e.speciesId, realm) && cannot) {
+			return { lead: cannot, speciesId: e.speciesId };
 		}
 		if (e.type === 'reordered' || e.type === 'species-moved') {
 			const before =
@@ -217,6 +225,16 @@ export function leadNotice(
 		}
 	}
 	return null;
+}
+
+/**
+ * Why an animal can't go first where the player is: out on the water it
+ * can't swim, on land it lives in the sea. Up in the air nothing is picked (a
+ * flight is three seconds, and the engine refuses it), so there is no line.
+ */
+function cannotLead(realm: Realm): 'cantSwim' | 'inTheSea' | null {
+	if (realm === 'water') return 'cantSwim';
+	return realm === 'land' ? 'inTheSea' : null;
 }
 
 /** The party as it was before the animal in slot `from` moved to slot `to`. */
@@ -374,6 +392,9 @@ class HudView {
 				if (event.playerId === game.playerId && event.reason === 'nowhere-to-land') {
 					this.say({ explore: 'tooFar' });
 				}
+				break;
+			case 'bird-follows':
+				if (event.playerId === game.playerId) this.say({ follows: event.speciesId });
 				break;
 			case 'party-edited': {
 				const notice = leadNotice(event.party, event.events, game.realm);

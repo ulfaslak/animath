@@ -1117,6 +1117,26 @@ const BUILDERS: Record<string, Builder> = {
 			tail: COLORS.white,
 			wedge: true
 		}),
+	// A bird of prey smaller than the eagles, leaning forward on short legs: brown,
+	// with a pale band across its chest and a small dark hooked beak, and broad
+	// rounded wings folded at its sides, dark at their fingered tips, that spread
+	// wide in the air (#91).
+	buzzard: ({ fur, accent }) => [
+		...([-1, 1] as const).flatMap((side) => [
+			tube(0.018, 0.12, COLORS.dark, side * 0.05, 0.06, 0.02),
+			box(0.05, 0.015, 0.07, COLORS.dark, side * 0.05, 0.0075, 0.05),
+			ball(0.016, COLORS.dark, side * 0.045, 0.55, 0.135)
+		]),
+		rot(ball(0.16, fur, 0, 0.3, 0, 1, 1.2, 1.05), 0.2, 0, 0),
+		rot(ball(0.13, accent, 0, 0.3, 0.1, 1.02, 0.42, 0.72), 0.2, 0, 0),
+		ball(0.1, fur, 0, 0.52, 0.05, 1, 1.05, 1),
+		rot(cone(0.026, 0.07, COLORS.dark, 0, 0.51, 0.17), Math.PI / 2 + 0.25, 0, 0),
+		rot(box(0.15, 0.025, 0.2, fur, 0, 0.17, -0.25), -0.55, 0, 0),
+		...wings(0.14, 0.43, (side) => [
+			rot(ball(0.15, fur, side * 0.16, 0.33, -0.04, 0.38, 1, 1.25), 0, 0, side * 0.12),
+			ball(0.07, COLORS.dark, side * 0.16, 0.2, -0.12, 0.3, 0.6, 0.9)
+		])
+	],
 	// The tallest on land: long legs, a hump at the shoulders, a long drooping
 	// nose with a "bell" of skin under its chin, and huge flat antlers held out
 	// like shovels.
@@ -1560,6 +1580,78 @@ export function animateWalk(
 	swing('legR', stride * LEG_SWING * s);
 	rig.rotation.z = calm ? 0 : stride * WADDLE * s;
 	rig.scale.y *= 1 + STRETCH * s;
+}
+
+/** Radians a spread wing stands up from level at the middle of its beat: a shallow V. */
+const WING_LIFT = 0.18;
+/** Radians a wing beats either way of that, and how fast: radians of the beat a second. */
+export const WING_BEAT = 0.6;
+const FLAP_RATE = 10;
+/** How much longer a wing that folds down a bird's side grows as it spreads: to a span. */
+export const WING_STRETCH = 1.8;
+
+/**
+ * How a bird's wing lies at rest, measured once from its parts in its
+ * joint's own frame: `angle`, the way its middle points from the shoulder,
+ * up from level and out (an eagle's half-open wing reaches out and a little
+ * up); and `folded`, a wing taller than it is wide, laid down the bird's side,
+ * whose angle is straight down (−π/2) and which grows to a span as it spreads.
+ */
+interface WingRest {
+	angle: number;
+	folded: boolean;
+}
+
+function wingRest(wing: THREE.Object3D): WingRest {
+	const box = new THREE.Box3();
+	const part = new THREE.Box3();
+	for (const child of wing.children) {
+		if (!(child instanceof THREE.Mesh)) continue;
+		child.geometry.computeBoundingBox();
+		child.updateMatrix();
+		box.union(part.copy(child.geometry.boundingBox!).applyMatrix4(child.matrix));
+	}
+	const size = box.getSize(new THREE.Vector3());
+	const middle = box.getCenter(new THREE.Vector3());
+	const folded = size.y > size.x;
+	return { angle: folded ? -Math.PI / 2 : Math.atan2(middle.y, Math.abs(middle.x)), folded };
+}
+
+/**
+ * A bird in the air ([[UI_SPEC]] § Explore mode, § Battle mode): its wings,
+ * hanging from `wingL` and `wingR`, spread out from its sides, `spread` of the
+ * way (0 as it stands, wings folded; 1 wide open), and beating at `t` seconds
+ * (`figure.userData.idlePhase` puts a pair out of step); with reduced motion
+ * (`calm`) held out still, gliding. A wing folded down the bird's side grows
+ * longer as it spreads, to a bird's span. A figure without wings is left as it
+ * is. Runs after `animateIdle`, which touches no wing.
+ */
+export function animateFlight(
+	figure: THREE.Object3D,
+	t: number,
+	spread = 1,
+	calm = motion.reduced
+): void {
+	const rig = figure.children[0];
+	if (!rig) return;
+	const open = Math.min(1, Math.max(0, spread));
+	const phase = (figure.userData.idlePhase as number | undefined) ?? 0;
+	const beat = calm ? 0 : Math.sin(t * FLAP_RATE + phase * 2.3) * WING_BEAT;
+	for (const [name, side] of [
+		['wingL', -1],
+		['wingR', 1]
+	] as const) {
+		const wing = rig.getObjectByName(name);
+		if (!wing) continue;
+		const rest = (wing.userData.rest ??= wingRest(wing)) as WingRest;
+		wing.rotation.z = side * open * (WING_LIFT + beat - rest.angle);
+		wing.scale.y = 1 + open * ((rest.folded ? WING_STRETCH : 1) - 1);
+	}
+}
+
+/** Whether a figure has wings to fly with: a bird's (`wingL`, `wingR`). */
+export function hasWings(figure: THREE.Object3D): boolean {
+	return figure.getObjectByName('wingL') !== undefined;
 }
 
 /**

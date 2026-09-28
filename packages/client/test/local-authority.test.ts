@@ -403,7 +403,8 @@ describe('LocalAuthority: the lead decides who comes out', () => {
 			expect(met.map((m) => m.step)).toEqual(starter.map((m) => m.step));
 			// The river's small animals are one tier below a fox: e^−1/2 of the four bells of its
 			// tier there, the river's own four animals and, since bigger animals live at the river
-			// (#89), the seven that come down to the water. 13% of the reed's battles.
+			// (#89), the eight that come down to the water (the buzzard, #91, the eighth). 13% of
+			// the reed's battles.
 			const small = ['frog', 'brown-rat', 'common-toad'];
 			expect(met.filter((m) => small.includes(m.wild)).map((m) => m.step)).toEqual([
 				15, 53, 107, 117
@@ -414,16 +415,7 @@ describe('LocalAuthority: the lead decides who comes out', () => {
 				{ step: 97, wild: 'mute-swan', lead: 'fox' }
 			]);
 			expect(new Set(others.map((m) => m.wild))).toEqual(
-				new Set([
-					'stoat',
-					'otter',
-					'raccoon',
-					'mute-swan',
-					'roe-deer',
-					'fox',
-					'adder',
-					'pine-marten'
-				])
+				new Set(['stoat', 'otter', 'raccoon', 'mute-swan', 'roe-deer', 'fox', 'grey-heron'])
 			);
 			expect(new Set(met.map((m) => m.lead))).toEqual(new Set(['fox']));
 		}
@@ -2731,5 +2723,269 @@ describe('LocalAuthority: the glider', () => {
 		}
 		// Cuts over the take-off tile and every tile of both flights.
 		expect(cuts).toBe(10);
+	});
+});
+
+describe('LocalAuthority: birds in the air (#91)', () => {
+	const SPAWN = { x: -2, y: 6 };
+	/** From the start of World 1, straight up over the lake: its far shore 14 tiles up, the reach 17. */
+	const REACH = 17;
+
+	/** A game in World 1 at the start, facing up over the lake, with the glider, `team` and `steps` taken. */
+	function flyer(team: AnimalInstance[], steps = 0, items: string[] = []): Session {
+		const authority = new LocalAuthority();
+		const events: GameEvent[] = [];
+		authority.subscribe((e) => events.push(e));
+		authority.start({
+			game: {
+				...newGame(1),
+				pos: SPAWN,
+				facing: 'up',
+				steps,
+				items: ['glider', ...items],
+				party: team
+			}
+		});
+		return { authority, events };
+	}
+
+	const glides = (n: number): Intent[] => Array<Intent>(n).fill({ type: 'glide' });
+	const dispatchAll = (s: Session, intents: readonly Intent[]) => {
+		for (const intent of intents) s.authority.dispatch(intent);
+	};
+	const typesOf = (events: readonly GameEvent[]) => events.map((e) => e.type);
+	const follows = (s: Session) =>
+		s.events.filter(
+			(e): e is Extract<GameEvent, { type: 'bird-follows' }> => e.type === 'bird-follows'
+		);
+
+	/** A save round trip, as the autosave and a reload do it. */
+	function throughSave(saved: SavedGame): SavedGame {
+		const read = readSave(
+			JSON.parse(JSON.stringify(saveDocument(saved, { lineage: 'L', seq: 1 })))
+		);
+		if (!read.ok) throw new Error(read.error);
+		return restoreGame(read.save);
+	}
+
+	/** The robin in front in the air, the squirrel on the ground. */
+	const team = () => [animal('squirrel'), animal('robin')];
+
+	it('a bird in the team: a bird notices the glider about once in twenty tiles, at most one a flight, and its battle in the air starts as the kid lands', () => {
+		let flights = 0;
+		let noticed = 0;
+		for (let steps = 0; steps < 240; steps++) {
+			const s = flyer(team(), steps);
+			// Held to the reach: seventeen tiles, and a glide past it comes down there.
+			dispatchAll(s, [{ type: 'take-off' }, ...glides(REACH + 1)]);
+			flights++;
+			const birds = follows(s);
+			expect(birds.length, `step ${steps}`).toBeLessThanOrEqual(1);
+			const bird = birds[0];
+			if (!bird) {
+				expect(s.events.some((e) => e.type === 'battle-started')).toBe(false);
+				continue;
+			}
+			noticed++;
+			// Over the tile just glided onto, then down at the reach, then the battle in the air.
+			const at = s.events.indexOf(bird);
+			expect(s.events[at - 1]).toMatchObject({ type: 'glided', pos: bird.pos, flown: bird.flown });
+			expect(getAnimal(bird.speciesId).realms).toContain('air');
+			const tail = s.events.slice(lastIndexOf(s, 'landed'));
+			expect(typesOf(tail).slice(0, 2)).toEqual(['landed', 'battle-started']);
+			const state = latestBattle(s);
+			expect(state.realm).toBe('air');
+			expect(state.opponent).toMatchObject({
+				speciesId: bird.speciesId,
+				hp: getAnimal(bird.speciesId).maxHp
+			});
+			expect(state.party[state.active]!.speciesId).toBe('robin');
+			// Where the flight came down: on the sand of the far shore, the reach.
+			expect(position(s)).toEqual({ x: -2, y: SPAWN.y - REACH });
+		}
+		// 1 − 0.95^17 = 58% of seventeen-tile flights meet a bird.
+		expect(noticed / flights).toBeGreaterThan(0.45);
+		expect(noticed / flights).toBeLessThan(0.7);
+	});
+
+	it('with no bird standing nothing in the air ever notices the kid, and flying is peaceful', () => {
+		const teams = [
+			[animal('squirrel')],
+			[animal('otter'), animal('frog')],
+			[animal('robin', 0), animal('squirrel')],
+			[animal('mute-swan', 0), animal('bear')]
+		];
+		for (const t of teams) {
+			for (let steps = 0; steps < 120; steps++) {
+				const s = flyer(t, steps);
+				dispatchAll(s, [{ type: 'take-off' }, ...glides(REACH + 1)]);
+				expect(follows(s), `${t.map((a) => a.speciesId)} at ${steps}`).toEqual([]);
+				expect(s.events.some((e) => e.type === 'battle-started')).toBe(false);
+			}
+		}
+	});
+
+	it('meets the same bird on the same tile however the flight is flown down: glide by glide, or a land sent early', () => {
+		let compared = 0;
+		for (let steps = 0; steps < 200 && compared < 12; steps++) {
+			// Let go over the fourth tile of the lake: the landing is the far shore, ten tiles on.
+			const paced = flyer(team(), steps);
+			dispatchAll(paced, [{ type: 'take-off' }, ...glides(4), ...glides(10), { type: 'land' }]);
+			const early = flyer(team(), steps);
+			dispatchAll(early, [{ type: 'take-off' }, ...glides(4), { type: 'land' }]);
+			const [a] = follows(paced);
+			const [b] = follows(early);
+			expect(b?.speciesId, `step ${steps}`).toBe(a?.speciesId);
+			expect(b?.pos).toEqual(a?.pos);
+			if (!a || a.flown <= 4) continue;
+			compared++;
+			// The early one heard of the bird on its way down, before it landed.
+			expect(typesOf(early.events.slice(early.events.indexOf(b!))).slice(0, 3)).toEqual([
+				'bird-follows',
+				'landed',
+				'battle-started'
+			]);
+			const [x, y] = [latestBattle(paced), latestBattle(early)];
+			expect({ ...y, opponent: { ...y.opponent, id: '' } }).toEqual({
+				...x,
+				opponent: { ...x.opponent, id: '' }
+			});
+			expect(early.authority.snapshot().steps).toBe(paced.authority.snapshot().steps);
+		}
+		expect(compared).toBe(12);
+	});
+
+	it('two games flown the same way meet the same birds on the same tiles', () => {
+		const flights: Intent[] = [
+			{ type: 'take-off' },
+			...glides(REACH + 1),
+			{ type: 'move', dir: 'down' },
+			{ type: 'take-off' },
+			...glides(REACH + 1)
+		];
+		for (const steps of [0, 7, 31, 90]) {
+			const [a, b] = [flyer(team(), steps), flyer(team(), steps)];
+			for (const s of [a, b]) dispatchAll(s, flights);
+			expect(follows(b)).toEqual(follows(a));
+		}
+	});
+
+	it('a game saved in the air with a bird following is down where letting go would land it, the same bird’s battle under way: a reload is no escape', () => {
+		let cuts = 0;
+		let birds = 0;
+		for (let steps = 0; steps < 80 && birds < 8; steps++) {
+			const probe = flyer(team(), steps);
+			dispatchAll(probe, [{ type: 'take-off' }, ...glides(REACH + 1)]);
+			const [bird] = follows(probe);
+			if (!bird) continue;
+			birds++;
+			// Saved over the take-off tile, just before the bird noticed, as it did, and after.
+			const at = [0, bird.flown - 1, bird.flown, bird.flown + 1, REACH - 1];
+			for (const flown of new Set(at.filter((n) => n >= 0 && n < REACH))) {
+				const a = flyer(team(), steps);
+				dispatchAll(a, [{ type: 'take-off' }, ...glides(flown)]);
+				const saved = throughSave(a.authority.snapshot());
+				// The reload lets go: the original lets go too, and the two are the same game.
+				a.authority.dispatch({ type: 'land' });
+				const landedWithBird = a.events.some((e) => e.type === 'battle-started');
+				expect(saved.battle !== null, `step ${steps}, cut at ${flown}`).toBe(landedWithBird);
+				const b: Session = { authority: new LocalAuthority(), events: [] };
+				b.authority.subscribe((e) => b.events.push(e));
+				b.authority.start({ game: saved });
+				expect(b.authority.snapshot()).toEqual(a.authority.snapshot());
+				if (landedWithBird) {
+					expect(saved.battle?.realm).toBe('air');
+					expect(b.events.map((e) => e.type)).toEqual(['welcome', 'battle-started']);
+					cuts++;
+					// Both fight on the same: the same puzzles, hits and throws.
+					for (let i = 0; i < 30; i++) {
+						for (const s of [a, b]) {
+							const state = latestBattle(s);
+							if (state.phase.kind === 'ended') continue;
+							const intent =
+								state.phase.kind === 'solving'
+									? { type: 'answer' as const, input: String(state.phase.puzzle.answer + (i % 2)) }
+									: state.phase.kind === 'choose-animal'
+										? {
+												type: 'switch' as const,
+												partyIndex: state.party.findIndex(
+													(x) => x.hp > 0 && getAnimal(x.speciesId).realms.includes('air')
+												)
+											}
+										: { type: 'attack' as const, attackIndex: 1, level: 1 as const };
+							s.authority.dispatch({ type: 'battle', intent });
+						}
+					}
+					expect(b.authority.snapshot()).toEqual(a.authority.snapshot());
+				}
+			}
+		}
+		expect(birds).toBe(8);
+		expect(cuts).toBeGreaterThan(16);
+		// Eight flights, cut at five tiles each, each cut through a save and a fight of 30 turns.
+	}, 30_000);
+
+	it('the lead in the air is the first bird standing, whoever leads on the ground; the squirrel sits it out', () => {
+		for (let steps = 0; steps < 200; steps++) {
+			const s = flyer([animal('squirrel'), animal('robin', 0), animal('tawny-owl')], steps);
+			dispatchAll(s, [{ type: 'take-off' }, ...glides(REACH + 1)]);
+			if (!follows(s).length) continue;
+			const state = latestBattle(s);
+			expect(state.party[state.active]!.speciesId).toBe('tawny-owl');
+			return;
+		}
+		throw new Error('no bird in 200 flights');
+	});
+
+	it('after the battle the kid is where they came down; a bird that wins takes them to the tent on foot, and the closing lines are the sky’s', () => {
+		const outcomes = new Set<string>();
+		for (let steps = 0; steps < 400 && outcomes.size < 3; steps++) {
+			const s = flyer([animal('squirrel'), animal('robin', 1)], steps);
+			dispatchAll(s, [{ type: 'take-off' }, ...glides(REACH + 1)]);
+			if (!follows(s).length) continue;
+			const down = position(s);
+			const plan = ['fled', 'won', 'lost'].find((o) => !outcomes.has(o))!;
+			for (let i = 0; i < 40 && latestBattle(s).phase.kind !== 'ended'; i++) {
+				const state = latestBattle(s);
+				const intent =
+					plan === 'fled'
+						? { type: 'flee' as const }
+						: state.phase.kind === 'solving'
+							? {
+									type: 'answer' as const,
+									input: String(state.phase.puzzle.answer + (plan === 'lost' ? 1 : 0))
+								}
+							: { type: 'attack' as const, attackIndex: 3, level: 3 as const };
+				s.authority.dispatch({ type: 'battle', intent });
+			}
+			const state = latestBattle(s);
+			if (state.phase.kind !== 'ended' || state.phase.outcome !== plan) continue;
+			outcomes.add(plan);
+			const message = s.events[lastIndexOf(s, 'message')];
+			if (plan === 'lost') {
+				// The robin is tired, the squirrel stands: to the nearest tent, walked, not flown.
+				const rescue = takeToDoctor(WORLD_SEED, down, state.party, WorldEdits.none, {
+					realm: 'air'
+				});
+				expect(position(s)).toEqual(rescue.pos);
+				expect(s.events.some((e) => e.type === 'taken-to-doctor')).toBe(true);
+			} else {
+				expect(position(s)).toEqual(down);
+				expect(message).toMatchObject({
+					line: { key: plan === 'won' ? 'battle.closing.wonAir' : 'battle.closing.fledAir' }
+				});
+			}
+		}
+		expect([...outcomes].sort()).toEqual(['fled', 'lost', 'won']);
+	});
+
+	it('in the air, the party is not the kid’s to change', () => {
+		const s = flyer(team());
+		dispatchAll(s, [{ type: 'take-off' }, ...glides(2)]);
+		s.authority.dispatch({ type: 'party', intent: { type: 'select-lead', animalId: 'robin-19' } });
+		expect(s.events.at(-1)).toMatchObject({
+			type: 'party-edited',
+			events: [{ type: 'rejected', reason: 'not-exploring' }]
+		});
 	});
 });

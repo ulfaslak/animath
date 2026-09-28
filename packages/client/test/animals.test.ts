@@ -3,7 +3,13 @@ import * as THREE from 'three';
 import { describe, expect, it } from 'vitest';
 import { WORLD_SEED } from '../src/authority/local';
 import { motion } from '../src/motion';
-import { animateIdle, animateWalk, buildAnimalMesh, buildPlayerMesh } from '../src/render/animals';
+import {
+	animateFlight,
+	animateIdle,
+	animateWalk,
+	buildAnimalMesh,
+	buildPlayerMesh
+} from '../src/render/animals';
 import { Zoo } from '../src/render/zoo';
 
 /**
@@ -101,11 +107,14 @@ describe('figures', () => {
 			'robin',
 			'grey-heron',
 			'tawny-owl',
+			'buzzard',
 			'mute-swan',
 			'eagle-owl',
 			'golden-eagle',
 			'white-tailed-eagle'
 		];
+		// Every bird flies, and only birds (the engine's realms).
+		expect(ANIMALS.filter((a) => a.realms.includes('air')).map((a) => a.id)).toEqual(birds);
 		for (const id of birds) {
 			const figure = buildAnimalMesh(id);
 			const left = figure.getObjectByName('wingL');
@@ -120,6 +129,50 @@ describe('figures', () => {
 		for (const { id } of ANIMALS)
 			if (!birds.includes(id))
 				expect(buildAnimalMesh(id).getObjectByName('wingL'), id).toBeUndefined();
+	});
+
+	it('in the air every bird spreads its wings out past its sides, the two a mirror pair, beating (held still with reduced motion), and folds them back as built (#91)', () => {
+		for (const { id } of ANIMALS.filter((a) => a.realms.includes('air'))) {
+			const figure = buildAnimalMesh(id);
+			const rig = figure.children[0]!;
+			const left = figure.getObjectByName('wingL')!;
+			const right = figure.getObjectByName('wingR')!;
+			// The body: every part but the wings.
+			const body = new THREE.Box3();
+			figure.updateMatrixWorld(true);
+			for (const part of rig.children)
+				if (part !== left && part !== right) body.expandByObject(part);
+			const half = Math.max(-body.min.x, body.max.x);
+			const folded = [bounds(left), bounds(right)];
+			const tips: number[] = [];
+			for (let i = 0; i < 16; i++) {
+				const t = i * 0.04;
+				animateFlight(figure, t, 1, false);
+				const [l, r] = [bounds(left), bounds(right)];
+				// Out past its sides by a fifth of its width at least, the one wing the other's mirror.
+				expect(r.max.x, `${id} at ${t}`).toBeGreaterThan(half * 1.2);
+				expect(l.min.x, `${id} at ${t}`).toBeCloseTo(-r.max.x, 6);
+				expect(l.max.y, `${id} at ${t}`).toBeCloseTo(r.max.y, 6);
+				tips.push(r.max.y);
+			}
+			// It beats: its wing's top rises and falls through the beat.
+			expect(Math.max(...tips) - Math.min(...tips), id).toBeGreaterThan(0.05);
+			// With reduced motion the wings are held out still, gliding.
+			const calm = [0, 0.3, 0.9].map((t) => {
+				animateFlight(figure, t, 1, true);
+				return bounds(right).max.y;
+			});
+			expect(new Set(calm.map((y) => y.toFixed(9))).size, id).toBe(1);
+			// Folded again, exactly as built.
+			animateFlight(figure, 0.5, 0);
+			expect(bounds(left).equals(folded[0]!), id).toBe(true);
+			expect(bounds(right).equals(folded[1]!), id).toBe(true);
+		}
+		// Any other animal is left as it is.
+		const squirrel = buildAnimalMesh('squirrel');
+		const before = bounds(squirrel);
+		animateFlight(squirrel, 0.3, 1, false);
+		expect(bounds(squirrel).equals(before)).toBe(true);
 	});
 
 	it('refuses a species that is not in the catalog', () => {
