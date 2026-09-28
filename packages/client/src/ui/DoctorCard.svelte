@@ -973,11 +973,18 @@
 		background: rgba(0, 0, 0, 0.08);
 	}
 
+	/*
+	 * Centred while what it holds fits; when it does not (a long line from the
+	 * witch doctor leaves less room), it starts at the top, so the sum and
+	 * its story never leave the card, only the last line under them. A
+	 * browser that does not know `safe` keeps the plain centring before it.
+	 */
 	.puzzle {
 		display: flex;
 		flex-direction: column;
 		align-items: center;
 		justify-content: center;
+		justify-content: safe center;
 		gap: 10px;
 		padding: 12px 20px;
 		text-align: center;

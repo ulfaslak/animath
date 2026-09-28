@@ -133,6 +133,21 @@
 		justify-content: center;
 		gap: 8px 14px;
 	}
+	/*
+	 * Beside the pad the column is narrow: the reminder takes the rest of
+	 * Back's row, wrapping beside the button, while that row leaves it 8em,
+	 * and goes under the button only in a narrower column. Danish's longer
+	 * reminder went under it on a tablet, and the card's sum and the line
+	 * under it spilled over its top and bottom edges.
+	 */
+	.with-pad .foot .keys {
+		flex: 1 1 8em;
+		min-width: 0;
+	}
+	/* A hint that wraps there wraps evenly, never one word alone on its last line. */
+	.with-pad .keys {
+		text-wrap: balance;
+	}
 	.back {
 		display: inline-flex;
 		align-items: center;
