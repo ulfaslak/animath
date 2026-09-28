@@ -28,6 +28,7 @@ import { presence, type Bar, type Label, type Pop } from '../state/presence.svel
 import { PresenceConnection, type PresenceStatus } from './connection';
 import {
 	ARROW_CLEARANCE,
+	ARROW_NEAREST,
 	MAX_NAMES,
 	SHORT_NAMES,
 	edgeTrack,
@@ -365,7 +366,7 @@ export class PresenceController {
 			const tile = renderer.others.tileOf(entry.pid);
 			const v = bearingVector(entry.bearing);
 			const aim = tile ?? { x: game.pos.x + v.x * ROUGH_AIM, y: game.pos.y + v.y * ROUGH_AIM };
-			const spot = spotOnTrack(me, renderer.groundToScreen(aim.x, aim.y), track);
+			const spot = spotOnTrack(me, renderer.groundToScreen(aim.x, aim.y), track, ARROW_NEAREST);
 			if (spot) headings.push({ pid: entry.pid, name: entry.name, spot });
 		}
 		// Two rows of names at most on a phone held sideways: four would take a third of its height.
@@ -586,17 +587,19 @@ export function following(party: readonly AnimalInstance[], onWater: boolean): s
  * leaves the track inside the safe area and round the explore HUD's pieces
  * on screen now (`presence/edges.ts`), and the way it points (radians
  * clockwise from up). `clearance` is how far the mark's middle keeps from a
- * piece: a friend's arrow's by default; a bigger mark passes its own. Null
- * when it is on the player's own spot.
+ * piece, and `nearest` the least it comes to the player: a friend's arrow's
+ * by default; a bigger mark passes its own. Null when it is on the player's
+ * own spot.
  */
 export function edgeSpot(
 	me: { x: number; y: number },
 	there: { x: number; y: number },
 	w: number,
 	h: number,
-	clearance: number = ARROW_CLEARANCE
+	clearance: number = ARROW_CLEARANCE,
+	nearest: number = ARROW_NEAREST
 ): Spot | null {
-	return spotOnTrack(me, there, edgeTrack(w, h, safeArea(), clearBoxes(), clearance));
+	return spotOnTrack(me, there, edgeTrack(w, h, safeArea(), clearBoxes(), clearance), nearest);
 }
 
 /**

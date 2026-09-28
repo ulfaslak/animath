@@ -34,7 +34,15 @@ export const LINES = {
 	/** The player ran from a battle in the air: the wild bird stays up in the sky. */
 	'battle.closing.fledAir': { animal: 'species' },
 	/** A caught animal joined the party. */
-	'battle.closing.joined': { animal: 'species' }
+	'battle.closing.joined': { animal: 'species' },
+	/** A battle lost: the team is tired where it stood, and walks to a doctor. */
+	'battle.closing.lost': {},
+	/**
+	 * A team that needs the doctor with no tent within reach, and no glider to
+	 * fly out on, after a lost battle, a go-to or a trip: a doctor came and
+	 * looked after everyone.
+	 */
+	'doctor.came': {}
 } as const satisfies Record<string, Record<string, LineParamKind>>;
 
 export type LineKey = keyof typeof LINES;

@@ -2,28 +2,21 @@ import type { Rect } from './presence/labels';
 
 /**
  * The pieces of the explore screen that the marks at the edge of the screen
- * keep clear of ([[UI_SPEC]] § Explore mode, "The corners"): the party
- * column and a stack's open card, the top right's pills, the coordinates,
- * the message line and the Challenge button, the note about who came or
- * went while it shows, and the touch controls. Each piece takes `keepClear`
- * as an attachment (`{@attach keepClear}`), so it counts while it is on
- * screen and no longer; `clearBoxes` measures them where they stand now,
- * for the track the marks ride (`presence/edges.ts`). A new piece of the
- * explore HUD takes it too, or a friend's arrow can hide under it.
+ * (a friend's arrow, the way to the doctor) keep clear of ([[UI_SPEC]] §
+ * Explore mode, "The corners"): every element marked `data-keep-clear`. That
+ * is the party column and a stack's open card, the top right corner, the
+ * coordinates, the message line's column (the Challenge button, and on a
+ * phone the note, over the message line), the note about who came or went
+ * while it shows, and the touch controls. A mark counts a piece only while
+ * it is on the page, and one with nothing in it not at all. A new piece of
+ * the explore HUD takes the attribute too, or a friend's arrow can hide
+ * under it.
  */
-const pieces = new Set<Element>();
-
-/** Keep the marks at the edge of the screen clear of this element while it is on screen. */
-export function keepClear(node: Element): () => void {
-	pieces.add(node);
-	return () => pieces.delete(node);
-}
-
-/** The boxes of the pieces on screen now, in CSS pixels: none outside a browser, and none for a piece with nothing in it. */
-export function clearBoxes(): Rect[] {
+export function clearBoxes(root: ParentNode | null = globalThis.document ?? null): Rect[] {
+	if (!root) return [];
 	const boxes: Rect[] = [];
-	for (const node of pieces) {
-		const r = node.getBoundingClientRect();
+	for (const el of root.querySelectorAll('[data-keep-clear]')) {
+		const r = el.getBoundingClientRect();
 		if (r.width < 1 || r.height < 1) continue;
 		boxes.push({
 			x0: Math.floor(r.left),

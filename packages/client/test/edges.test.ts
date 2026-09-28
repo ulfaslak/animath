@@ -8,6 +8,7 @@ import {
 	NAME_CLEAR,
 	NAME_GAP,
 	SHORT_NAMES,
+	aroundFrom,
 	edgeTrack,
 	gatherWays,
 	namesSide,
@@ -144,7 +145,7 @@ function checkSpot(
 	)
 		bad.push('off the track');
 	const shrunk = (b: Rect): Rect => ({ x0: b.x0 + 1, x1: b.x1 - 1, y0: b.y0 + 1, y1: b.y1 - 1 });
-	const inPlay = track.around.filter((b) => !strictlyInside({ x: cx, y: cy }, b));
+	const inPlay = aroundFrom(track, { x: cx, y: cy });
 	for (const box of inPlay) if (strictlyInside(spot, shrunk(box))) bad.push('in a piece');
 	// A little further along the line, it has left the track or met a piece: a line that only
 	// grazes a piece's corner is inside it for a pixel or two, so look at a few points on the
@@ -215,6 +216,41 @@ describe('a mark on the track', () => {
 			expect(checkSpot(me, there, track, spot)).toEqual([]);
 		}
 		expect(spotOnTrack(me, me, track)).toBeNull();
+	});
+
+	it('stops before a piece the player stands near, and goes past it the other way', () => {
+		// The message line reaching up to 16 px under the player, as many lines can on a phone:
+		// nearer than an arrow's clearance, so it keeps what room there is.
+		const line = { x0: 400, x1: 620, y0: 400, y1: 500 };
+		const track = edgeTrack(1024, 768, NONE, [line], ARROW_CLEARANCE);
+		const me = { x: 512, y: 384 };
+		const down = spotOnTrack(me, { x: 512, y: 9000 }, track)!;
+		expect(down.y).toBeGreaterThan(me.y);
+		expect(down.y).toBeLessThanOrEqual(line.y0);
+		expect(spotOnTrack(me, { x: 512, y: -9000 }, track)).toEqual({ x: 512, y: 44, angle: 0 });
+	});
+
+	it('never stands nearer the player than it is asked to, where the edge is further', () => {
+		const crowded = edgeTrack(
+			1024,
+			768,
+			NONE,
+			[{ x0: 400, x1: 620, y0: 400, y1: 500 }],
+			ARROW_CLEARANCE
+		);
+		const me = { x: 512, y: 384 };
+		expect(spotOnTrack(me, { x: 512, y: 9000 }, crowded, 40)).toEqual({
+			x: 512,
+			y: 424,
+			angle: Math.round(Math.PI * 100) / 100
+		});
+		// By the edge, the edge wins: the player 20 px from the track's top, and 40 asked.
+		const open = edgeTrack(1024, 768, NONE, [], ARROW_CLEARANCE);
+		expect(spotOnTrack({ x: 512, y: 64 }, { x: 512, y: -9000 }, open, 40)).toEqual({
+			x: 512,
+			y: 44,
+			angle: 0
+		});
 	});
 
 	it('goes past a piece the player stands in, as on a screen too small for it', () => {

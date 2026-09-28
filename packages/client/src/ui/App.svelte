@@ -14,6 +14,7 @@
 	import AccountCard from './AccountCard.svelte';
 	import BattlePanel from './BattlePanel.svelte';
 	import BehindCard from './BehindCard.svelte';
+	import DoctorArrow from './DoctorArrow.svelte';
 	import DoctorCard from './DoctorCard.svelte';
 	import Hud from './Hud.svelte';
 	import Iris from './Iris.svelte';
@@ -43,9 +44,11 @@
 {:else if pause.open}
 	<PauseMenu />
 {:else}
-	<!-- The other players' names and the arrows to them: over the world, under the HUD, and
-	     never under a card or the menu, whose panels they would show through. -->
+	<!-- The other players' names and the arrows to them, and the way to a doctor while the
+	     team is tired: over the world, under the HUD, and never under a card or the menu,
+	     whose panels they would show through. -->
 	<Others />
+	<DoctorArrow />
 	<Hud />
 	<!-- Not under a trip's cover, which takes no key: a thumb that lands there presses nothing. -->
 	{#if touch.on && !travel.active}<TouchControls />{/if}

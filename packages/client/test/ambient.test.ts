@@ -143,7 +143,7 @@ const ROUTE: Leg[] = [
 	{ stand: 1 },
 	{ walk: [0, 1], tiles: 25 },
 	{ stand: 12, then: SIX },
-	// A jump (Continue, the trip to the tent): all six round the new middle at once.
+	// A jump (Continue, a go-to): all six round the new middle at once.
 	{ jump: [40, -25], then: SIX },
 	{ stand: 3 },
 	// On and straight off again: the ones on their way out turn back.

@@ -1,7 +1,6 @@
 <script lang="ts">
 	import { fade } from 'svelte/transition';
 	import { t } from '../copy';
-	import { keepClear } from '../keep-clear';
 	import type { Note } from '../presence/notes';
 	import { presence } from '../state/presence.svelte';
 
@@ -18,7 +17,7 @@
 	 * tall), where the top corners leave no room between them, over the
 	 * message line instead, at the top of the HUD's bottom column. The page
 	 * has both, and shows the one its screen asks for. While it shows, the
-	 * arrows at the edge of the screen keep clear of it (`keepClear`).
+	 * marks at the edge of the screen keep clear of it (`data-keep-clear`).
 	 */
 	let { where }: { where: 'top' | 'bottom' } = $props();
 
@@ -34,7 +33,7 @@
 
 {#if presence.note}
 	{#key presence.note.id}
-		<div class="note {where}" role="status" transition:fade={{ duration: 300 }} {@attach keepClear}>
+		<div class="note {where}" role="status" transition:fade={{ duration: 300 }} data-keep-clear>
 			{words(presence.note)}
 		</div>
 	{/key}

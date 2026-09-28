@@ -700,6 +700,16 @@ explore:
   turnSideways: Turn your screen sideways to play!
   # Enter with nothing in front to talk to, chop or break.
   notAtTent: Walk up to a tent to talk to the witch doctor.
+  # Under the latest message for as long as no animal can fight (after a lost
+  # battle), until the witch doctor has helped one: nothing jumps out of the grass meanwhile.
+  tired: Your animals are tired. Walk to the witch doctor's tent!
+  # The same, out on the water in the boat.
+  tiredSail: Your animals are tired. Sail to the witch doctor's tent!
+  # The same, walled in where no tent is a walk away, with the paraglider (no witch doctor
+  # comes to a kid who can fly): glide out, and walk from there.
+  tiredFly: Your animals are tired. Fly out to find the witch doctor's tent!
+  # What a screen reader calls the arrow at the screen's edge that points to the nearest tent then.
+  doctorArrow: The way to the witch doctor's tent
   # With the glider: a tap of Space with nothing in front, and the witch doctor's goodbye
   # just after buying it. "Space" is the space bar.
   holdToFly: Hold Space to fly!
@@ -921,12 +931,17 @@ battle:
     wonAir: '{animal.theWild} flies home to rest.'
     fledAir: '{animal.theWild} stays up in the sky.'
     joined: '{animal.name} joins your team!'
+    # Under "Good try!": the team is tired where it stood, and walks to a doctor.
+    lost: Your animals need a rest. The witch doctor will make them feel all better!
 
 # The witch doctor at every tent: he heals, takes animals to set free, and
 # sells tools. "Witch doctor" everywhere, never "doctor" alone.
 doctor:
   # The name tag in front of what the witch doctor says.
   title: Witch doctor
+  # The team needs the witch doctor and no tent is near (after a lost battle, a go-to or a
+  # trip): one came and helped everyone right there. Under "Good try!" and on the message line.
+  came: A witch doctor came by and looked after your animals. Everyone feels better!
   # Opening the card with someone to help.
   hello: Hello! Who needs help today?
   # Opening the card with nobody to help.
@@ -948,10 +963,6 @@ doctor:
   healedMoreAll: Well done! {animal.name} and {others} more feel all better! Everyone is fit and happy!
   # On the message line after leaving the card.
   goodbye: Bye! Come back any time.
-  # After a lost battle, woken beside a tent.
-  rescuedAtTent: The witch doctor looked after your animals. Everyone feels better!
-  # After a lost battle with no tent near: a witch doctor came to the player.
-  rescuedHere: A witch doctor came by and looked after your animals. Everyone feels better!
   # The last row of the list, and its key.
   bye: Bye
   byeKey: Esc

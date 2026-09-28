@@ -4,7 +4,6 @@
 	import { t } from '../copy';
 	import { ARROW_KEYS, padDirection } from '../input/dpad';
 	import { hold, press, release, unfocusable } from '../input/press';
-	import { keepClear } from '../keep-clear';
 	import { game } from '../state/game.svelte';
 	import { hud } from '../state/hud.svelte';
 
@@ -22,7 +21,7 @@
 	 * the D-pad and Fly each follow the one that holds them by its
 	 * `pointerId`, and Talk and Menu take a tap (`data-press`) from any other,
 	 * so a thumb walking on the D-pad never stops the other thumb's tap. The
-	 * arrows at the edge of the screen keep clear of every one (`keepClear`).
+	 * marks at the edge of the screen keep clear of every one (`data-keep-clear`).
 	 */
 
 	/** How far from the D-pad's centre, as a share of its width, a finger starts to press an arrow. */
@@ -136,15 +135,16 @@
 <svelte:window onblur={letGoAll} />
 <svelte:document onvisibilitychange={letGoAll} />
 
+<!-- `data-keep-clear`: the marks at the edge of the screen never go under them (`keep-clear.ts`). -->
 <div
 	class="dpad"
+	data-keep-clear
 	role="group"
 	onpointerdown={down}
 	onpointermove={move}
 	onpointerup={up}
 	onpointercancel={up}
 	onlostpointercapture={up}
-	{@attach keepClear}
 >
 	{#each ARROWS as arrow (arrow.dir)}
 		<button
@@ -169,8 +169,8 @@
 	type="button"
 	class="round menu-button"
 	data-press="Escape"
+	data-keep-clear
 	{@attach unfocusable}
-	{@attach keepClear}
 >
 	<span class="bars" aria-hidden="true"><span></span><span></span><span></span></span>
 	{t('hud.menu')}
@@ -182,8 +182,8 @@
 	class="round talk-button"
 	class:ready={hud.action !== null}
 	data-press="Enter"
+	data-keep-clear
 	{@attach unfocusable}
-	{@attach keepClear}
 >
 	{hud.action === 'chop'
 		? t('explore.chop')
@@ -198,13 +198,13 @@
 		type="button"
 		class="round fly-button"
 		class:on={flyHeld}
+		data-keep-clear
 		onpointerdown={flyDown}
 		onpointerup={flyUp}
 		onpointercancel={flyUp}
 		onlostpointercapture={flyUp}
 		onclick={flyClick}
 		{@attach unfocusable}
-		{@attach keepClear}
 	>
 		{t('explore.fly')}
 	</button>

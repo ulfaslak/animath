@@ -19,7 +19,6 @@
 	import { animalKey, bundleKey, moveKey, openKey, press, unfocusable } from '../input/press';
 	import { itemName } from '../items';
 	import { touch } from '../input/touch.svelte';
-	import { keepClear } from '../keep-clear';
 	import { motion } from '../motion';
 	import { safeArea } from '../safe-area';
 	import { game } from '../state/game.svelte';
@@ -366,7 +365,9 @@
 	}
 </script>
 
-<div class="party" bind:this={root} {@attach keepClear}>
+<!-- `data-keep-clear`: the marks at the edge of the screen, a friend's arrow and the way to
+     the doctor, never go under it (`keep-clear.ts`); nor under anything else so marked. -->
+<div class="party" bind:this={root} data-keep-clear>
 	<div class="cards" bind:this={column} onscroll={scrolled} {@attach holdStill}>
 		{#each list as bundle, i (bundle.speciesId)}
 			{@const mine = drag?.speciesId === bundle.speciesId ? drag : null}
@@ -419,7 +420,7 @@
 			onpointerenter={pointAtAnimals}
 			onpointerleave={pointAway}
 			transition:fade={{ duration: motion.reduced ? 0 : 120 }}
-			{@attach keepClear}
+			data-keep-clear
 		>
 			<BundleAnimals
 				animals={shown.animals}
@@ -433,7 +434,7 @@
 
 <!-- The player's tokens and the puzzles they have solved, the tools they own, and the world they are in. -->
 <!-- With `?debug` the position and the cues have the corner; these go under them. -->
-<div class="belongings" class:below-debug={flags.debug} {@attach keepClear}>
+<div class="belongings" class:below-debug={flags.debug} data-keep-clear>
 	<!-- Two rows on a phone held sideways (`.counts`, `.kit`); on a taller screen one column. -->
 	<div class="counts">
 		<div class="purse"><Coin />{t('hud.tokens', { count: game.tokens })}</div>
@@ -459,7 +460,7 @@
 
 <!-- Where the player stands, x to the right and y up the screen, counted from the world's
      spawn: in the bottom-right corner, or over the touch controls' buttons there. -->
-<div class="coords" class:over-fly={flies} {@attach keepClear}>
+<div class="coords" class:over-fly={flies} data-keep-clear>
 	{t('hud.coordinates', { x: mathNumber(here.x), y: mathNumber(here.y) })}
 </div>
 
@@ -469,11 +470,11 @@
      lines the message line takes, the button stands clear of it. On a short screen the
      note about who came or went stands at its top, over the button (`PresenceNote`), so
      the button never moves under a finger as a note comes and goes. -->
-<div class="bottom">
+<div class="bottom" data-keep-clear>
 	<PresenceNote where="bottom" />
 	<ChallengeButton />
 	{#if hud.message || hud.hint}
-		<div class="hint" transition:fade={{ duration: 400 }} {@attach keepClear}>
+		<div class="hint" transition:fade={{ duration: 400 }}>
 			{#if hud.message}
 				<div class="message" transition:fade={{ duration: 400 }}>{hud.message}</div>
 			{/if}
@@ -788,7 +789,7 @@
 	}
 	/*
 	 * The bottom-right corner: where the player stands, a pill like the
-	 * world's. The arrows keep clear of it (`keepClear`), and so does the
+	 * world's. The arrows keep clear of it (`data-keep-clear`), and so does the
 	 * message line (`.bottom`).
 	 */
 	.coords {

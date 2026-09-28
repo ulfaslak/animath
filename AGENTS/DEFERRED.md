@@ -47,11 +47,11 @@ Technical items we've intentionally postponed: tech debt, hardening shortcuts, k
 
 ### A battle's result is written back by the client's authority, not the engine
 
-**What**: when a battle ends, `LocalAuthority.endBattle` decides what it means for the world: the party takes the battle's HP, a caught animal joins (where it goes is the engine's `joinParty`, and with no cap nothing is let go, but the call is the authority's), and the closing line is chosen. Only a lost battle is the engine's (`takeToDoctor`). A server authority would have to repeat the rest, and the two copies could drift.
+**What**: when a battle ends, `LocalAuthority.endBattle` decides what it means for the world: the party takes the battle's HP, a caught animal joins (where it goes is the engine's `joinParty`, and with no cap nothing is let go, but the call is the authority's), and the closing line is chosen. Only a lost battle's party is the engine's (`knockOut`: tired, or looked after by a doctor who came). A server authority would have to repeat the rest, and the two copies could drift.
 
 **Why deferred**: there is one authority today, and the brief for the battle work put the outcomes there.
 
-**Trigger**: a wild battle run on the server ([[DECISIONS]] § Multiplayer: only once a gain can flow between players), or earlier if a second outcome rule lands. Move the write-back into an engine function (`concludeBattle(party, endedState) → { party, outcome }`, beside `takeToDoctor`) and call it from both authorities; let the client word the closing line from the outcome, as it already does for a lost battle.
+**Trigger**: a wild battle run on the server ([[DECISIONS]] § Multiplayer: only once a gain can flow between players), or earlier if a second outcome rule lands. Move the write-back into an engine function (`concludeBattle(party, endedState) → { party, outcome }`, beside `knockOut`) and call it from both authorities; let the client word the closing line from the outcome.
 
 ### The retired anonymous backup's tables stay in every database
 
@@ -101,18 +101,17 @@ Technical items we've intentionally postponed: tech debt, hardening shortcuts, k
 
 **Trigger**: any PR that changes where a player can stand in an existing seed's world (the checksum in `world.test.ts` goes red first; procedural world v2 in [[PRODUCT]] §6 is one), or one that changes the water a saved player may now be sailing on.
 
-### `nearestTent` is a synchronous flood fill that costs up to a few hundred milliseconds
+### `nearestTent` is a synchronous flood fill that costs up to a few hundred milliseconds the first time it reads a place
 
-**What**: `nearestTent` (used by `takeToDoctor` after every lost battle) visits about 2·s² tiles for a tent s steps away and generates each one with `tileAtWorld`. Measured over 2,400 walkable starts on 6 seeds: median 10 ms, p99 72 ms, max 180 ms. An adversarial review found 275 ms over 400 seeds. A search that ran all the way to `TENT_SEARCH_STEPS` on open ground would cost several times that, though none has been found. In `LocalAuthority` it runs inside the keydown of the answer that loses the battle, before the first beat plays, and blocks the page that long; in a server authority it would block the event loop for every connection.
+**What**: `nearestTent` visits about 2·s² tiles for a tent s steps away. Since the way to the doctor (the arrow a tired team follows, `DoctorWay`) looks again at every step, it reads the ground from a cache of whole chunks (`tents.ts`, [[INVARIANTS]] § "A tent search answers the same whatever was searched before"), so a search where the last one looked is cheap: over 1,539 steps of random walks in six worlds, at a load average of 50, median 0.19 ms, p99 17 ms, max 22 ms (main before the cache, the same walks: median 0.89 ms, p99 34 ms, max 141 ms). The first search in a place still makes every chunk it touches: from 300 random walkable starts in 300 worlds, at the same load, median 57 ms, p90 217 ms, max 1 s (main: 43, 243 and 781 ms). It runs where a battle is lost, a go-to lands or a trip arrives (`knockOut`, `careFor`, `doctorComes`: only for a team that needs the doctor, and never for a kid with the glider), and for the arrow wherever a tired team is put without a step (`DoctorWay` after a reload, a go-to or a trip, reaching up to `DOCTOR_WAY_STEPS`), each once; in a server authority a cold one would block the event loop for every connection.
 
-**The game's own world**: the seed is fixed (`'prototype'`), so the numbers that matter are that world's. Over every tall-grass tile within 40 tiles of the start (where a battle can be lost), plus samples out to 400 tiles: median 5–11 ms, max 50 ms in node on an M-series Mac, and 20–40 ms at the slowest of those spots measured in Chrome. Losing at the reed by the start (the usual place): the whole keydown, battle reducer and `takeToDoctor` included, takes 2 ms (Chrome's Event Timing, 2026-09-25). Not perceptible: the first beat after an answer holds for a second anyway.
+**The game's own world**: the seed is fixed (`'prototype'`), so the numbers that matter are that world's. Over every tall-grass tile within 40 tiles of the start (where a battle can be lost), plus samples out to 400 tiles: median 5–11 ms, max 50 ms in node on an M-series Mac, and 20–40 ms at the slowest of those spots measured in Chrome, before the cache. Losing at the reed by the start (the usual place): the whole keydown, battle reducer and the tent search included, took 2 ms (Chrome's Event Timing, 2026-09-25). Not perceptible: the first beat after an answer holds for a second anyway.
 
-**With the boat** the search crosses water too, and a battle can be lost out on a lake. It reads the tiles' kinds with `travelKindAt`, which skips the deep-water check (24 more tiles of elevation per deep tile, which made the first cut up to 196 ms). In the prototype world, from 400 random water tiles within 600 of the start: median 7 ms, p99 44 ms, max 50 ms; every one found a tent, the furthest 91 steps away. From land, the boat adds a median 0.2 ms and at most 43 ms, where a lake opens the search out.
+**With the boat** the search crosses water too, and a battle can be lost out on a lake. It reads deep water as water, as `travelKindAt` does, sparing the deep-water check (24 more tiles of elevation per deep tile). In the prototype world, from 400 random water tiles within 600 of the start: median 7 ms, p99 44 ms, max 50 ms; every one found a tent, the furthest 91 steps away.
 
-**Why deferred**: in the game's world it costs at most a few frames, once per lost battle, and there is no server authority yet.
- Faster options change the algorithm (visit the tent lattice in order of distance and path-check each candidate, or cap by tiles visited), which is worth doing when there is a second caller or a real report.
+**Why deferred**: in the game's world a cold search costs at most a few frames, once per lost battle or trip, and there is no server authority yet. Faster options change the algorithm (visit the tent lattice in order of distance and path-check each candidate, or cap by tiles visited).
 
-**Trigger**: the server-side authority PR, a second caller of `nearestTent` on a per-step path (a "nearest doctor" hint), or a report of a pause after losing a battle.
+**Trigger**: the server-side authority PR, or a report of a pause after losing a battle or while walking to a doctor.
 
 ### `reorder` names an absolute slot, which a remote authority's latency can turn stale
 

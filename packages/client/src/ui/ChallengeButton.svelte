@@ -2,7 +2,6 @@
 	import { t } from '../copy';
 	import { unfocusable } from '../input/press';
 	import { touch } from '../input/touch.svelte';
-	import { keepClear } from '../keep-clear';
 	import { match, type ButtonRefusal } from '../state/match.svelte';
 
 	/**
@@ -38,7 +37,6 @@
 		class:off={button.refusal !== null}
 		data-press="c"
 		{@attach unfocusable}
-		{@attach keepClear}
 	>
 		<span class="label">
 			{t('match.button.challenge', { name: button.name })}

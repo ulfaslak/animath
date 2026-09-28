@@ -669,6 +669,10 @@ explore:
   walkRight: Gå til højre
   turnSideways: Hold skærmen på tværs for at spille!
   notAtTent: Gå hen til et telt for at snakke med heksedoktoren.
+  tired: Dine dyr er trætte. Gå hen til heksedoktorens telt!
+  tiredSail: Dine dyr er trætte. Sejl hen til heksedoktorens telt!
+  tiredFly: Dine dyr er trætte. Flyv ud og find heksedoktorens telt!
+  doctorArrow: Vejen til heksedoktorens telt
   holdToFly: Hold mellemrum nede for at flyve!
   holdToFlyTouch: Hold Flyv nede for at flyve!
   tooFar: For langt! Der er intet sted at lande den vej.
@@ -810,9 +814,11 @@ battle:
     wonAir: '{animal.theWild} flyver hjem og hviler sig.'
     fledAir: '{animal.theWild} bliver oppe i luften.'
     joined: '{animal.the} kommer med på dit hold!'
+    lost: Dine dyr skal hvile sig. Heksedoktoren gør dem friske igen!
 
 doctor:
   title: Heksedoktor
+  came: En heksedoktor kom forbi og passede godt på dine dyr. Nu har alle det godt igen!
   hello: Hej! Hvem skal jeg hjælpe i dag?
   helloAllFit: Hej! Alle dine dyr er friske og glade.
   letsHelp: Lad os hjælpe {animal.the}! Kan du løse den her?
@@ -824,8 +830,6 @@ doctor:
   healedMoreNext: Godt klaret! {animal.the} og {others} til har det godt igen! Hvem skal jeg hjælpe nu?
   healedMoreAll: Godt klaret! {animal.the} og {others} til har det godt igen! Alle er friske og glade!
   goodbye: Hej hej! Kom bare igen, når du vil.
-  rescuedAtTent: Heksedoktoren har passet godt på dine dyr. Nu har alle det godt igen!
-  rescuedHere: En heksedoktor kom forbi og passede godt på dine dyr. Nu har alle det godt igen!
   bye: Farvel
   byeKey: Esc
   back: Tilbage

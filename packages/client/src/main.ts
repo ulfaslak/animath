@@ -18,9 +18,11 @@ import { LocalAuthority, mintId } from './authority/local';
 import { BattleController } from './battle/controller';
 import { DoctorController } from './doctor/controller';
 import { ExploreController } from './explore/controller';
+import { DoctorWay } from './explore/doctor-way';
 import { flags } from './flags';
 import { Keyboard } from './input/keyboard';
 import { press } from './input/press';
+import { clearBoxes } from './keep-clear';
 import { isSoundKey, typingNow } from './input/sound-key';
 import { watchTaps } from './input/taps';
 import { touch, watchInput } from './input/touch.svelte';
@@ -89,6 +91,9 @@ const explore = new ExploreController(authority, renderer, keyboard, new Followe
 // A battle in the air waits for the landing on screen (and the bird's swoop) before its circle closes.
 const battleController = new BattleController(authority, renderer, () => explore.landing);
 const doctorController = new DoctorController(authority);
+// While the team is tired, the way to the nearest doctor's tent: an arrow at the screen's edge,
+// clear of the HUD there.
+const doctorWay = new DoctorWay(renderer, () => clearBoxes());
 // A trip to another world plays its transition, and sends `travel` under its cover.
 const travelController = new TravelController(authority, renderer);
 // `?zoo` lines up one of every species by the spawn tile (a check for the meshes),
@@ -597,6 +602,7 @@ function frame(now: number) {
 	// Where the player is goes to the others; theirs comes back as names over their heads.
 	presenceController.update();
 	presenceController.overlay();
+	doctorWay.overlay();
 	noteScreen();
 	requestAnimationFrame(frame);
 }

@@ -31,6 +31,8 @@ import type { Rect } from './labels';
 export const TRACK_INSET = { side: 44, top: 44, bottom: 96 } as const;
 /** How far a friend's arrow (30 px) keeps from a piece of the HUD, from its middle. */
 export const ARROW_CLEARANCE = 24;
+/** The nearest a friend's arrow comes to the player's spot, however crowded the screen: never on the trainer. */
+export const ARROW_NEAREST = 40;
 /** Half an arrow's size: the box another way's names keep clear of. */
 const ARROW_HALF = 15;
 /** Two friends whose arrows' middles are closer than this share one arrow. */
@@ -48,13 +50,17 @@ export const NAME_CLEAR = 4;
 /** The furthest a way's names move along the edge to keep clear; further, and they stay beside their arrow. */
 const MAX_NUDGE = 160;
 
-/** Where marks may stand: the track's rectangle, and the pieces it goes round, grown by the mark's clearance. */
+/**
+ * Where marks may stand: the track's rectangle, the HUD's pieces it goes
+ * round, and how far a mark's middle keeps from them (its clearance).
+ */
 export interface Track {
 	left: number;
 	right: number;
 	top: number;
 	bottom: number;
-	around: readonly Rect[];
+	pieces: readonly Rect[];
+	clearance: number;
 }
 
 /** A mark's place on the screen (CSS pixels) and the way it points (radians clockwise from up). */
@@ -80,25 +86,40 @@ export function edgeTrack(
 	const right = Math.max(left, w - insets.right - TRACK_INSET.side);
 	const top = insets.top + TRACK_INSET.top;
 	const bottom = Math.max(top, h - insets.bottom - TRACK_INSET.bottom);
-	const around = pieces.map((p) => ({
-		x0: p.x0 - clearance,
-		x1: p.x1 + clearance,
-		y0: p.y0 - clearance,
-		y1: p.y1 + clearance
-	}));
-	return { left, right, top, bottom, around };
+	return { left, right, top, bottom, pieces, clearance };
+}
+
+/**
+ * The boxes a mark from `from` must not enter: each piece grown by the
+ * track's clearance, or, for a piece nearer `from` than that (a message line
+ * of many lines reaching up to the player on a phone), grown only as far as
+ * leaves `from` outside it, so a mark heading for it still stops before it.
+ * A piece `from` is inside (a screen too small for it) is not in the way.
+ */
+export function aroundFrom(track: Track, from: { x: number; y: number }): Rect[] {
+	const boxes: Rect[] = [];
+	for (const p of track.pieces) {
+		const outside = Math.max(p.x0 - from.x, from.x - p.x1, p.y0 - from.y, from.y - p.y1);
+		if (outside <= 0) continue;
+		const grow = Math.min(track.clearance, outside - 0.5);
+		boxes.push({ x0: p.x0 - grow, x1: p.x1 + grow, y0: p.y0 - grow, y1: p.y1 + grow });
+	}
+	return boxes;
 }
 
 /**
  * Where a mark for something at `there` goes: on the line from the player
  * (`me`, brought inside the track's rectangle first), where it first leaves
- * the track, and the way it points. A piece the player stands in (a tiny
- * screen) is not in the way. Null when `there` is the player's own spot.
+ * the track (`aroundFrom`), and the way it points; never nearer the player
+ * than `nearest` px, where the track's edge allows (on a crowded phone a
+ * mark would otherwise stand on the trainer). Null when `there` is the
+ * player's own spot.
  */
 export function spotOnTrack(
 	me: { x: number; y: number },
 	there: { x: number; y: number },
-	track: Track
+	track: Track,
+	nearest = 0
 ): Spot | null {
 	const dx = there.x - me.x;
 	const dy = there.y - me.y;
@@ -112,11 +133,13 @@ export function spotOnTrack(
 		ux > 0 ? (track.right - cx) / ux : ux < 0 ? (track.left - cx) / ux : Number.POSITIVE_INFINITY;
 	const ty =
 		uy > 0 ? (track.bottom - cy) / uy : uy < 0 ? (track.top - cy) / uy : Number.POSITIVE_INFINITY;
-	let t = Math.min(tx, ty);
-	for (const box of track.around) {
+	const edge = Math.min(tx, ty);
+	let t = edge;
+	for (const box of aroundFrom(track, { x: cx, y: cy })) {
 		const hit = entry(cx, cy, ux, uy, box);
 		if (hit !== null && hit < t) t = hit;
 	}
+	t = Math.min(edge, Math.max(t, nearest));
 	return {
 		x: Math.round(cx + ux * t),
 		y: Math.round(cy + uy * t),

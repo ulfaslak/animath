@@ -1,6 +1,7 @@
 import { editedTileAt, WorldEdits } from './edits.js';
-import { tileAtWorld, travelKindAt } from './generate.js';
+import { generateChunk, tileAtWorld, travelKindAt } from './generate.js';
 import {
+	CHUNK_SIZE,
 	NO_GEAR,
 	isPassable,
 	isWalkable,
@@ -23,11 +24,10 @@ import {
  * walkable ground, never through water, rock, trees or another tent — or,
  * with the boat, over walkable ground and water. A tent nobody can get to
  * (boxed in by trees, or on an island without a boat) is never the nearest.
- * The tile to stand on beside it is always ground, never water. So when a
- * knock-out takes the player to a tent, they land on ground they could have
- * got to themselves, and they can always get back. The ground is the world
- * as the player has left it (`world/edits.ts`): a path they chopped through
- * the trees is a path.
+ * The tile to stand on beside it is always ground, never water, so the way it
+ * points a kid is one they can walk (or sail) to the end of. The ground is
+ * the world as the player has left it (`world/edits.ts`): a path they
+ * chopped through the trees is a path.
  */
 
 /** How far `nearestTent` looks by default, in steps, before it gives up. */
@@ -35,6 +35,79 @@ export const TENT_SEARCH_STEPS = 200;
 
 /** Keeps the packed search keys exact (well inside 2^53). */
 const MAX_SEARCH_STEPS = 1_000_000;
+
+/**
+ * The ground the searches read, a chunk at a time, in the world searched
+ * last: `travelKindAt`'s kinds (the seed's tile, deep water read as water),
+ * taken from the chunk `generateChunk` gives, which reads its elevations
+ * once for all 256 tiles. A search spreads over thousands of tiles, and the
+ * next one, a step further on (the way to the doctor, looked for again as a
+ * tired team walks), over nearly the same tiles again, so a chunk is made
+ * once and read many times. A cache, not state: it holds exactly what the
+ * seeded world gives, forgets everything when another seed is searched, and
+ * keeps the `CHUNKS_KEPT` chunks read latest and at most as many before them
+ * (a kilobyte for four chunks), which covers a search to `TENT_SEARCH_STEPS`
+ * with room to spare.
+ */
+const CHUNKS_KEPT = 512;
+/** Chunk coordinates within half of this of 0 pack into one exact key; further out is read uncached. */
+const CHUNK_SPAN = 2 ** 26;
+/**
+ * Each tile kind's code in the cache: every kind has one, which the `Record`
+ * makes the compiler hold to, so a kind added to `TileKind` can never be
+ * read back as another.
+ */
+const KIND_CODES: Readonly<Record<TileKind, number>> = {
+	grass: 0,
+	tallgrass: 1,
+	sand: 2,
+	water: 3,
+	deepwater: 4,
+	rock: 5,
+	tree: 6,
+	tent: 7
+};
+const KINDS: readonly TileKind[] = (Object.keys(KIND_CODES) as TileKind[]).sort(
+	(a, b) => KIND_CODES[a] - KIND_CODES[b]
+);
+let chunksSeed: number | null = null;
+let latest = new Map<number, Uint8Array>();
+let before = new Map<number, Uint8Array>();
+
+/** The tile's kind as `travelKindAt` gives it, read from the chunk cache. */
+function travelKind(seed: number, x: number, y: number): TileKind {
+	const cx = Math.floor(x / CHUNK_SIZE);
+	const cy = Math.floor(y / CHUNK_SIZE);
+	const half = CHUNK_SPAN / 2;
+	if (!(Math.abs(cx) < half && Math.abs(cy) < half)) return travelKindAt(seed, x, y);
+	if (chunksSeed !== seed) {
+		latest = new Map();
+		before = new Map();
+		chunksSeed = seed;
+	}
+	const key = (cx + half) * CHUNK_SPAN + (cy + half);
+	let kinds = latest.get(key);
+	if (kinds === undefined) {
+		kinds = before.get(key) ?? chunkKinds(seed, cx, cy);
+		if (latest.size >= CHUNKS_KEPT) {
+			before = latest;
+			latest = new Map();
+		}
+		latest.set(key, kinds);
+	}
+	return KINDS[kinds[(y - cy * CHUNK_SIZE) * CHUNK_SIZE + (x - cx * CHUNK_SIZE)]!]!;
+}
+
+/** Chunk (cx, cy)'s kinds as a player gets about in them, row-major, deep water read as water. */
+function chunkKinds(seed: number, cx: number, cy: number): Uint8Array {
+	const tiles = generateChunk(seed, cx, cy).tiles;
+	const kinds = new Uint8Array(tiles.length);
+	for (let i = 0; i < tiles.length; i++) {
+		const kind = tiles[i]!.kind;
+		kinds[i] = KIND_CODES[kind === 'deepwater' ? 'water' : kind];
+	}
+	return kinds;
+}
 
 export interface TentSpot {
 	/** The tent's tile. */
@@ -108,7 +181,7 @@ export function nearestTent(
 			// deep water read as water: a boat crosses both alike.
 			kind = edits.has(p.x, p.y)
 				? editedTileAt(seed, edits, p.x, p.y).kind
-				: travelKindAt(seed, p.x, p.y);
+				: travelKind(seed, p.x, p.y);
 			kinds.set(k, kind);
 		}
 		return kind;
