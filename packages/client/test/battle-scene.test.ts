@@ -567,7 +567,8 @@ describe('the confetti of a catch', () => {
 			backdrops: Map<string, THREE.Group>;
 			ground: THREE.Mesh;
 		};
-		const ray = new THREE.Raycaster();
+		// Two tiles down at most: the dome of sky, far below the clouds, is nothing to land on.
+		const ray = new THREE.Raycaster(undefined, undefined, 0, 2.5);
 		const down = new THREE.Vector3(0, -1, 0);
 		const bad: string[] = [];
 		const landed = { sky: 0, meadow: 0 };
@@ -577,8 +578,7 @@ describe('the confetti of a catch', () => {
 			for (const reduced of [false, true]) {
 				motion.reduced = reduced;
 				battle.begin(biome, 'robin', 'buzzard');
-				// What a piece can land on: up in the air the clouds (and the dome of sky, far
-				// below them, which is nothing to land on), on land the ground.
+				// What a piece can land on: up in the air the clouds, on land the ground.
 				const solid = biome === 'sky' ? inside.backdrops.get('sky')!.children : [inside.ground];
 				// Where each mesh is in the world, as a frame drawn would put it.
 				battle.scene.updateMatrixWorld(true);
