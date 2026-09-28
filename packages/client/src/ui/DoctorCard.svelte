@@ -743,13 +743,7 @@
 		min-width: 0;
 		transition: opacity 0.2s;
 	}
-	/*
-	 * Under the confirm: shown, but waiting. Out of reach, as `inert` makes it,
-	 * where the browser has no inert (Safari before 15.5).
-	 */
-	.patients.asking {
-		pointer-events: none;
-	}
+	/* Under the confirm: shown, but waiting. */
 	.patients.asking > * {
 		opacity: 0.55;
 	}

@@ -163,13 +163,8 @@
 		</h1>
 
 		<!-- Under the confirm the menu is out of reach, a screen reader's click too: its
-		     rows' keys are the confirm's (New game's `row:1` is Yes). `under` keeps a tap
-		     off it where there is no inert (Safari before 15.5). -->
-		<div
-			class="card menu-card"
-			class:under={title.screen !== 'menu'}
-			inert={title.screen !== 'menu'}
-		>
+		     rows' keys are the confirm's (New game's `row:1` is Yes). -->
+		<div class="card menu-card" inert={title.screen !== 'menu'}>
 			{#if title.loggedOut}
 				<!-- Just logged out: the account's game is safe, and logging in again is the row under it. -->
 				<div class="safe">
@@ -527,10 +522,6 @@
 		overscroll-behavior: contain;
 		touch-action: pan-y;
 		scrollbar-width: thin;
-	}
-	/* Out of reach under the confirm, as `inert` makes it, where the browser has no inert. */
-	.menu-card.under {
-		pointer-events: none;
 	}
 	/* A row's right side that doesn't fit beside its label goes under it (Continue's long name). */
 	.row {
