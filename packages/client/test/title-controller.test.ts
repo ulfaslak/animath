@@ -14,9 +14,10 @@ import { flags, parseParty } from '../src/flags';
 import { PICK_QUIET_SECONDS } from '../src/input/pick-guard';
 import { languageKey, rowKey } from '../src/input/press';
 import type { TitleView3D } from '../src/render/title-scenery';
+import { keepingCursors } from '../src/account/ready';
 import { account } from '../src/state/account.svelte';
 import { game } from '../src/state/game.svelte';
-import { title } from '../src/state/title.svelte';
+import { title, type LoggedOut } from '../src/state/title.svelte';
 import { TitleController } from '../src/title/controller';
 import { everyMash } from './mash';
 
@@ -98,7 +99,8 @@ function namelessGame(): SavedGame {
 	return { ...savedGame(), name: null };
 }
 
-function setup(saved: SavedGame | null = null) {
+/** A title with `saved` to Continue; `loggedOut`, as the title just after a logout opens. */
+function setup(saved: SavedGame | null = null, loggedOut: LoggedOut | null = null) {
 	const authority = new LocalAuthority({ homeWorld: () => 1 });
 	const scenery = new FakeScenery();
 	const continued: SavedGame[] = [];
@@ -126,7 +128,7 @@ function setup(saved: SavedGame | null = null) {
 		game.apply(e);
 		controller.handle(e);
 	});
-	controller.open(saved);
+	controller.open(saved, null, true, loggedOut);
 	/** Press keys in order; the last key event, to look at. */
 	const press = (...names: string[]) => {
 		let last = key('');
@@ -149,12 +151,20 @@ function setup(saved: SavedGame | null = null) {
 
 const newGames = (sent: readonly Intent[]) => sent.filter((i) => i.type === 'new-game');
 
+/** The server's word on accounts, as main.ts hears it: the rows change, the cursors keep theirs. */
+const hear = (ready: boolean) =>
+	keepingCursors(() => {
+		account.ready = ready;
+		account.readyHeard = true;
+	});
+
 let startLanguage = language.current;
 beforeEach(() => {
 	startLanguage = language.current;
 	title.open = false;
-	// A server that can keep an account, unless a test says otherwise.
+	// A server that can keep an account, and has said so, unless a test says otherwise.
 	account.ready = true;
+	account.readyHeard = true;
 });
 afterEach(() => {
 	language.set(startLanguage);
@@ -761,5 +771,109 @@ describe('title: accounts', () => {
 		expect(title.rows).not.toContain('login');
 		account.session = 'ended';
 		expect(title.rows).toEqual(['continue', 'new', 'login', 'language', 'sound']);
+	});
+
+	it('"I have an account" keeps its place until the server first answers, and comes into it on a yes', () => {
+		account.ready = false;
+		account.readyHeard = false;
+		const { press, logIns } = setup(savedGame());
+		// Not a row yet, so nothing presses it; its place is kept between New game and Language.
+		expect(title.rows).toEqual(['continue', 'new', 'language', 'sound']);
+		expect(title.slots).toEqual(['continue', 'new', 'login', 'language', 'sound']);
+		expect(title.loginPending).toBe(true);
+		press('ArrowDown', 'ArrowDown');
+		expect(title.rows[title.cursor]).toBe('language');
+		press(rowKey(2));
+		expect(logIns).toEqual([]);
+		// The yes: the row takes its place, and what stood round it stays, the cursor too.
+		hear(true);
+		expect(title.loginPending).toBe(false);
+		expect(title.slots).toEqual(['continue', 'new', 'login', 'language', 'sound']);
+		expect(title.rows).toEqual(title.slots);
+		expect(title.rows[title.cursor]).toBe('language');
+	});
+
+	it('a no gives the place up, and a later yes brings the row back', () => {
+		account.ready = false;
+		account.readyHeard = false;
+		setup(savedGame());
+		hear(false);
+		expect(title.loginPending).toBe(false);
+		expect(title.slots).toEqual(['continue', 'new', 'language', 'sound']);
+		expect(title.rows).toEqual(title.slots);
+		hear(true);
+		expect(title.slots).toEqual(['continue', 'new', 'login', 'language', 'sound']);
+	});
+
+	it('no place is kept where the row could never come: a logged-in player, a throwaway page', () => {
+		account.ready = false;
+		account.readyHeard = false;
+		account.name = 'Ida';
+		setup(savedGame());
+		expect(title.loginPending).toBe(false);
+		expect(title.slots).toEqual(['continue', 'new', 'language', 'sound']);
+		account.name = null;
+		const was = flags.throwaway;
+		flags.throwaway = true;
+		try {
+			expect(title.loginPending).toBe(false);
+			expect(title.slots).not.toContain('login');
+		} finally {
+			flags.throwaway = was;
+		}
+	});
+});
+
+describe('title: just after a logout', () => {
+	afterEach(() => {
+		account.name = null;
+		account.session = 'unknown';
+	});
+
+	it('logging in again is the first row, and takes the cursor as it comes, the guest game under it', () => {
+		account.ready = false;
+		account.readyHeard = false;
+		const { press, logIns } = setup(savedGame(), { name: 'Nini' });
+		expect(title.loggedOut).toEqual({ name: 'Nini' });
+		expect(title.slots).toEqual(['login', 'continue', 'new', 'language', 'sound']);
+		// Until the server's yes the cursor is on the first row there is.
+		expect(title.rows[title.cursor]).toBe('continue');
+		hear(true);
+		expect(title.rows).toEqual(['login', 'continue', 'new', 'language', 'sound']);
+		expect(title.rows[title.cursor]).toBe('login');
+		press('Enter');
+		expect(logIns).toHaveLength(1);
+	});
+
+	it('with no guest game: logging in again, then New game', () => {
+		const { logIns, press } = setup(null, { name: 'Nini' });
+		// The server said yes before the title opened: the row is there, lit, at once.
+		expect(title.rows).toEqual(['login', 'new', 'language', 'sound']);
+		expect(title.rows[title.cursor]).toBe('login');
+		press('Enter');
+		expect(logIns).toHaveLength(1);
+	});
+
+	it('a kid who moved the cursor before the yes keeps it where they put it', () => {
+		account.ready = false;
+		account.readyHeard = false;
+		const { press } = setup(savedGame(), { name: 'Nini' });
+		press('ArrowDown');
+		expect(title.rows[title.cursor]).toBe('new');
+		hear(true);
+		expect(title.rows[title.cursor]).toBe('new');
+		// And a no, then a yes, later, takes nothing from them either.
+		hear(false);
+		hear(true);
+		expect(title.rows[title.cursor]).toBe('new');
+	});
+
+	it('the next title, after a game, is the usual one', () => {
+		const { controller } = setup(savedGame(), { name: 'Nini' });
+		controller.open(savedGame());
+		expect(title.loggedOut).toBeNull();
+		expect(title.awaited).toBeNull();
+		expect(title.rows).toEqual(['continue', 'new', 'login', 'language', 'sound']);
+		expect(title.rows[title.cursor]).toBe('continue');
 	});
 });

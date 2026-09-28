@@ -1,6 +1,7 @@
 import { newGame, saveDocument, type SavedGame } from '@mathgame/engine';
-import { beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { PlayClock, PLAYTIME_KEY } from '../src/account/playtime';
+import { noteNextStart, takeAccountNote } from '../src/account/restart';
 import {
 	LOGOUT_HOLD_MS,
 	currentAccount,
@@ -281,11 +282,86 @@ describe('the play clock', () => {
 		}
 	});
 
+	it('a clock kept with a longer hour is due within the shorter one: ?hour= on a game played before (#156)', () => {
+		const long = new PlayClock(store, 60 * HOUR);
+		long.tick('game-a', 90);
+		long.flush();
+		// The next page opens with `?hour=`: the card comes an hour of it from now, not at the old hour.
+		const short = new PlayClock(store, HOUR);
+		short.tick('game-a', 59);
+		expect(short.due('game-a')).toBe(false);
+		short.tick('game-a', 1);
+		expect(short.due('game-a')).toBe(true);
+		// Answered at 2.5 of its hours: the next card at the next whole one, as ever.
+		short.answered('game-a');
+		short.tick('game-a', 29);
+		expect(short.due('game-a')).toBe(false);
+		short.tick('game-a', 1);
+		expect(short.due('game-a')).toBe(true);
+		// A card already due stays due, whatever the hour of the page that reads it.
+		short.flush();
+		expect(new PlayClock(store, 60 * HOUR).due('game-a')).toBe(true);
+		// A clock kept with this very hour is read as it was: its card neither sooner nor later.
+		const same = new PlayClock(store, HOUR);
+		same.answered('game-a');
+		same.tick('game-a', 30);
+		same.flush();
+		const again = new PlayClock(store, HOUR);
+		again.tick('game-a', 29);
+		expect(again.due('game-a')).toBe(false);
+		again.tick('game-a', 1);
+		expect(again.due('game-a')).toBe(true);
+	});
+
 	it('ignores a frame with no time in it, and works with no storage at all', () => {
 		const clock = new PlayClock(null, HOUR);
 		clock.tick('game-a', 0);
 		clock.tick('game-a', Number.NaN);
 		clock.tick('game-a', 60);
 		expect(clock.due('game-a')).toBe(true);
+	});
+});
+
+describe('the note for the next start (account/restart.ts)', () => {
+	let session: Map<string, string>;
+	beforeEach(() => {
+		session = new Map();
+		vi.stubGlobal('sessionStorage', {
+			getItem: (key: string) => session.get(key) ?? null,
+			setItem: (key: string, value: string) => void session.set(key, value),
+			removeItem: (key: string) => void session.delete(key)
+		});
+	});
+	afterEach(() => {
+		vi.unstubAllGlobals();
+	});
+
+	it('a logout names the account left, for the title after it; read once', () => {
+		noteNextStart('loggedOut', 'Nini');
+		expect(takeAccountNote()).toEqual({ note: 'loggedOut', name: 'Nini' });
+		expect(takeAccountNote()).toBeNull();
+		expect(session.size).toBe(0);
+	});
+
+	it('a note without a name leaves none behind from an earlier one', () => {
+		noteNextStart('loggedOut', 'Nini');
+		noteNextStart('movedAhead');
+		expect(takeAccountNote()).toEqual({ note: 'movedAhead', name: null });
+	});
+
+	it('a note this build does not know is none, and without sessionStorage nothing is said', () => {
+		session.set('animath.accountNote', 'somethingNew');
+		session.set('animath.accountNote.name', 'Nini');
+		expect(takeAccountNote()).toBeNull();
+		expect(session.size).toBe(0);
+		// An older build left the note alone, with no name beside it.
+		session.set('animath.accountNote', 'loggedOut');
+		expect(takeAccountNote()).toEqual({ note: 'loggedOut', name: null });
+		const broken = () => {
+			throw new Error('blocked');
+		};
+		vi.stubGlobal('sessionStorage', { getItem: broken, setItem: broken, removeItem: broken });
+		noteNextStart('loggedOut', 'Nini');
+		expect(takeAccountNote()).toBeNull();
 	});
 });

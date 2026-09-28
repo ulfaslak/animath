@@ -184,15 +184,16 @@ const accountController = new AccountController({
 	flush: () => autosave.flush(),
 	currentSave: () => autosave.newest,
 	pushNow: () => autosave.pushNow(3000),
-	playerName: () => (title.open ? (title.saved?.name ?? null) : game.name),
+	// On the title after a logout, the account just left: its row logs in to it again.
+	playerName: () => (title.open ? (title.loggedOut?.name ?? title.saved?.name ?? null) : game.name),
 	answered: () => {
 		const lineage = autosave.playing;
 		if (lineage) playClock.answered(lineage);
 	},
-	restart: (note) => {
+	restart: (note, name) => {
 		playClock.flush();
 		reloading = true;
-		restartWith(note);
+		restartWith(note, name);
 	},
 	forgetWelcome: () => forgetWelcome(tabStore)
 });
@@ -211,7 +212,8 @@ const pauseController = new PauseController(authority, {
  * it lit, and an hourly card that is up goes, unanswered, until it can.
  */
 function heardReady(ready: boolean): void {
-	if (account.ready === ready) return;
+	// The first answer counts even when it is a no: the title stops keeping the offers' places.
+	if (account.ready === ready && account.readyHeard) return;
 	keepingCursors(() => accountController.heardReady(ready));
 }
 // A throwaway game offers no account, so it never asks.
@@ -641,9 +643,12 @@ void autosave.boot().then((plan) => {
 		accountController.openWelcome(welcomeToken);
 		return;
 	}
-	// Just logged out: the title, saying so, with the guest game if there is one.
-	if (accountNote === 'loggedOut') {
-		titleController.open(plan.game ?? null, 'save.loggedOut', autosave.keeps);
+	// Just logged out: the title, saying the account's game is safe and offering to log in to it
+	// again first, with the guest game if there is one.
+	if (accountNote?.note === 'loggedOut') {
+		titleController.open(plan.game ?? null, autosave.titleNotice, autosave.keeps, {
+			name: accountNote.name
+		});
 		return;
 	}
 	// Just logged in, or an account just made, or another device's newer save taken: straight
@@ -651,7 +656,7 @@ void autosave.boot().then((plan) => {
 	if (accountNote !== null && plan.game && plan.game.name !== null) {
 		startNotice = undefined;
 		continueGame(plan.game);
-		hud.accountNotice(accountNote);
+		hud.accountNotice(accountNote.note);
 		return;
 	}
 	// A game with no name yet goes through the title, which asks for it first.

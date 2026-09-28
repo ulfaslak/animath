@@ -18,7 +18,13 @@ import { isMashKey, PickGuard } from '../input/pick-guard';
 import { tappedLanguage, tappedRow } from '../input/press';
 import type { TitleView3D } from '../render/title-scenery';
 import type { SaveNotice } from '../save/notices';
-import { CONFIRM_CHOICES, title, type NameFor, type TitleRow } from '../state/title.svelte';
+import {
+	CONFIRM_CHOICES,
+	title,
+	type LoggedOut,
+	type NameFor,
+	type TitleRow
+} from '../state/title.svelte';
 
 /**
  * The title ([[UI_SPEC]] § Title): the menu (Continue, New game, the
@@ -79,12 +85,20 @@ export class TitleController {
 	 * Show the title. `saved` is the game Continue picks up (null: there is
 	 * none, and New game is the only way on); `notice`, what the title says
 	 * about the save (this page cannot keep the game); `keeps`, whether this
-	 * page keeps its game, so New game puts `saved` away.
+	 * page keeps its game, so New game puts `saved` away; `loggedOut`, a
+	 * logout just now: the title says the account's game is safe, and lights
+	 * logging in to it again, the first row, as soon as the server lets it show.
 	 */
-	open(saved: SavedGame | null, notice: SaveNotice | null = null, keeps = true): void {
+	open(
+		saved: SavedGame | null,
+		notice: SaveNotice | null = null,
+		keeps = true,
+		loggedOut: LoggedOut | null = null
+	): void {
 		title.saved = saved;
 		title.notice = notice;
 		title.keeps = keeps;
+		title.loggedOut = loggedOut;
 		title.cursor = 0;
 		title.confirm = 0;
 		title.starter = 0;
@@ -95,7 +109,10 @@ export class TitleController {
 		title.playerName = null;
 		title.open = true;
 		this.sent = false;
-		this.toMenu('continue');
+		// After a logout the login row, when the server has let it show already; else the first
+		// row, and the login row takes the cursor as it comes, unless the kid has moved it by then.
+		this.toMenu(loggedOut ? 'login' : 'continue');
+		title.awaited = loggedOut && title.rows[title.cursor] !== 'login' ? 'login' : null;
 	}
 
 	handle(event: GameEvent): void {
@@ -163,6 +180,8 @@ export class TitleController {
 	// --- screens -------------------------------------------------------------
 
 	private menuKey(key: string): boolean {
+		// The kid has the menu in hand: no row takes the cursor from them as it comes.
+		title.awaited = null;
 		const rows = title.rows;
 		const tapped = tappedRow(key);
 		if (tapped !== undefined) {

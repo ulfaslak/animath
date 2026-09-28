@@ -39,11 +39,20 @@ export class PlayClock {
 		private readonly hourMs = PLAY_HOUR_MS
 	) {}
 
-	/** The clock of `lineage`: the one kept, when it is that game's, else a new one. */
+	/**
+	 * The clock of `lineage`: the one kept, when it is that game's, else a new
+	 * one. A kept clock is due at most an hour of this page's from now: one
+	 * written with a longer hour (before `?hour=` shortened it) would still
+	 * wait for its own (#156). One kept with this hour is read as it was, since
+	 * its next card is never further than that.
+	 */
 	private of(lineage: string): Clock {
 		if (this.clock?.lineage === lineage) return this.clock;
 		const kept = this.read();
-		this.clock = kept?.lineage === lineage ? kept : { lineage, ms: 0, next: this.hourMs };
+		this.clock =
+			kept?.lineage === lineage
+				? { ...kept, next: Math.min(kept.next, kept.ms + this.hourMs) }
+				: { lineage, ms: 0, next: this.hourMs };
 		return this.clock;
 	}
 

@@ -62,8 +62,12 @@ export interface AccountHooks {
 	playerName(): string | null;
 	/** The hourly card was answered: it comes back after another hour of play. */
 	answered(): void;
-	/** Start the page again, in the game the browser now plays, saying `note`. */
-	restart(note: AccountNote): void;
+	/**
+	 * Start the page again, in the game the browser now plays, saying `note`;
+	 * after a logout, `name` is the account just left, which the title offers
+	 * to log in to again.
+	 */
+	restart(note: AccountNote, name?: string): void;
 	/**
 	 * The welcome link is settled (used, spent, or put away): the tab, which
 	 * keeps its token for its own next starts (`welcome.ts`), forgets it.
@@ -189,6 +193,7 @@ export class AccountController {
 	 */
 	heardReady(ready: boolean): void {
 		account.ready = ready;
+		account.readyHeard = true;
 		if (!ready) account.prompt = false;
 	}
 
@@ -444,7 +449,7 @@ export class AccountController {
 		await this.hooks.pushNow();
 		if ((await logout(name)) === 'offline') rememberLogout(store, name);
 		logOutHere(store, name);
-		this.hooks.restart('loggedOut');
+		this.hooks.restart('loggedOut', name);
 	}
 
 	// --- the hourly card ------------------------------------------------------

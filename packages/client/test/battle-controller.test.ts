@@ -1001,6 +1001,35 @@ describe('a battle picked up from a save', () => {
 		expect(rows.map((r) => r.word)).toEqual(['easy', 'hard']);
 		expect(said()).toBe(`Squirrel tries ${rows[1]!.name}!`);
 	});
+
+	it('mid-puzzle, the opening lines already light that attack at that level, from the first frame (#155)', () => {
+		const t = setup();
+		t.walkIntoBattle();
+		t.toMenu();
+		t.press('ArrowDown', '3'); // Scurry Kick, on hard
+		t.runUntil(() => battle.screen === 'puzzle');
+		const saved = throughSave(t.authority.snapshot());
+
+		battle.reset();
+		battle.levels = {};
+		const u = setup({ game: saved });
+		// Every frame of the iris and the opening lines, and the puzzle once it is back.
+		const frames: string[] = [];
+		const look = () => {
+			const words = attackRows(getAnimal('squirrel'), battle.levels).map((r) => r.word);
+			frames.push(`${battle.screen} ${battle.cursor} ${words.join(',')}`);
+		};
+		look();
+		for (let s = 0; battle.screen !== 'puzzle'; s++) {
+			if (s > 20 * 60) throw new Error('the puzzle never came back');
+			u.run(1 / 60);
+			look();
+		}
+		expect(frames.length).toBeGreaterThan(60); // the opening played: over a second of frames
+		expect(new Set(frames.map((f) => f.split(' ').slice(1).join(' ')))).toEqual(
+			new Set(['1 easy,hard'])
+		);
+	});
 });
 
 describe('a big team', () => {
