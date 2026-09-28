@@ -143,15 +143,17 @@ afterEach(() => {
 	match.reset();
 });
 
-/** The browser's localStorage, in memory: every tab of it, and every load. */
-function memoryStore(): KeyValueStore & { map: Map<string, string> } {
+/** The browser's localStorage, in memory: every tab of it, and every load. Full, it writes nothing. */
+function memoryStore(): KeyValueStore & { map: Map<string, string>; full: boolean } {
 	const map = new Map<string, string>();
-	return {
+	const store = {
 		map,
-		get: (k) => map.get(k) ?? null,
-		set: (k, v) => (map.set(k, v), true),
-		remove: (k) => void map.delete(k)
+		full: false,
+		get: (k: string) => map.get(k) ?? null,
+		set: (k: string, v: string) => !store.full && (map.set(k, v), true),
+		remove: (k: string) => void map.delete(k)
 	};
+	return store;
 }
 
 /**
@@ -753,6 +755,29 @@ describe('a match', () => {
 		u.controller.status('on');
 		u.controller.receive(hi(null));
 		expect(store.map.size).toBe(0);
+	});
+
+	it("keeps this page's Back when the browser is full, over an older one it still holds", () => {
+		const store = memoryStore();
+		const t = setup(PARTY, { store });
+		// A Back from an earlier match got through, and no hi has come since to forget it; then the
+		// browser's storage fills up.
+		store.map.set(wentBackKey(pidOf('Ada')), 'match00009');
+		store.full = true;
+		const ref = started(t);
+		playedOut(t, ref);
+		t.setOnline(false);
+		t.controller.status('waiting');
+		t.pick('ArrowRight', 'Enter');
+		expect(store.map.get(wentBackKey(pidOf('Ada')))).toBe('match00009');
+		t.setOnline(true);
+		t.controller.status('on');
+		t.controller.receive(hi(ref.id));
+		expect(t.sentOf('done')).toEqual([{ t: 'done', id: ref.id }]);
+		t.controller.receive(ref.message('a'));
+		t.run(3);
+		expect(match.stage).toBe('none');
+		expect(battle.active).toBe(false);
 	});
 
 	it('brings the result back to a page that never chose to leave it: after a drop, or after another window took over', () => {
