@@ -3,7 +3,7 @@ import * as THREE from 'three';
 import { touch } from '../input/touch.svelte';
 import { motion } from '../motion';
 import { safeArea } from '../safe-area';
-import { animateIdle, buildAnimalMesh, disposeFigure } from './animals';
+import { animateFlight, animateIdle, buildAnimalMesh, disposeFigure } from './animals';
 import { appearScale, recallScale, smoothstep } from './ease';
 import { SWIM_DEPTH } from './follower';
 import {
@@ -12,6 +12,7 @@ import {
 	COLORS,
 	CONFETTI_COLORS,
 	PROP_COLORS,
+	SKY_COLORS,
 	SPARKLE_COLORS,
 	TILE_COLORS
 } from './palette';
@@ -87,6 +88,9 @@ export function battlePanelHeight(
 	return cards + bottomInset;
 }
 
+/** The light bounced up from the ground onto the animals' undersides: a grassy green. */
+const GROUND_BOUNCE = 0x88aa66;
+
 /** The ground a battle is fought on: the biome's own, as the world shows it round the grass. */
 const GROUND: Record<Biome, number> = {
 	meadow: BIOME_LOOK.meadow.ground,
@@ -103,6 +107,29 @@ const GROUND: Record<Biome, number> = {
  * whale does.
  */
 export const SEA_WATERLINE = 0.2;
+
+/**
+ * What a battle is fought in front of: the biome's ground, or up in the air
+ * (#91) the sky, whatever the tile the glider came down on.
+ */
+export type Backdrop = Biome | 'sky';
+
+/**
+ * Up in the air the birds fly where the animals stand on the ground, their
+ * feet this high, bobbing `SKY_BOB` up and down as their wings beat (not with
+ * reduced motion); the clouds lie below, their tops at `CLOUD_TOP`, and a
+ * tired bird sinks onto a cloud there and rests on it.
+ */
+export const SKY_HOVER = 0.08;
+const SKY_BOB = 0.05;
+export const CLOUD_TOP = -0.45;
+/** How fast the birds beat their wings in a battle, of the pace they fly with in the world: gently. */
+const SKY_BEAT = 0.75;
+
+/** How far down a tired animal has lain (`faint`), 0 standing to 1 resting. */
+function restOf(figure: THREE.Object3D): number {
+	return Math.min(1, Math.max(0, (figure.userData.rest as number | undefined) ?? 0));
+}
 
 const LUNGE_SECONDS = 0.35;
 const SHAKE_SECONDS = 0.45;
@@ -242,6 +269,8 @@ const sandMaterial = lambert(TILE_COLORS.sand);
 const shoreGrassMaterial = lambert(TILE_COLORS.grass);
 const puffMaterial = lambert(COLORS.white);
 const dustMaterial = lambert(COLORS.dust);
+const cloudMaterial = lambert(SKY_COLORS.cloud);
+const cloudShadeMaterial = lambert(SKY_COLORS.shade);
 const leashMaterial = lambert(COLORS.fire);
 const confettiMaterials = CONFETTI_COLORS.map((hex) => {
 	const material = lambert(hex);
@@ -295,14 +324,16 @@ export class BattleScene {
 	readonly camera = new THREE.PerspectiveCamera(SCENE_FOV, 1, 0.1, 80);
 	private ground: THREE.Mesh;
 	private groundMaterial = lambert(GROUND.meadow);
-	private backdrops = new Map<Biome, THREE.Group>();
+	/** The light's bounce from below: the ground's green, or the clouds' white up in the air. */
+	private fill: THREE.HemisphereLight;
+	private backdrops = new Map<Backdrop, THREE.Group>();
 	private figures: Record<BattleSide, THREE.Group | null> = { player: null, opponent: null };
 	/** Each figure's resting height above its feet (for effects aimed at its middle). */
 	private heights: Record<BattleSide, number> = { player: 0.5, opponent: 0.5 };
-	/** Where each figure's feet are: on the ground, or out at sea, sunk into the water. */
+	/** Where each figure's feet are: on the ground, out at sea sunk into the water, up in the air over the clouds. */
 	private feet: Record<BattleSide, number> = { player: 0, opponent: 0 };
-	/** The biome the battle is fought in: at sea the figures swim. */
-	private biome: Biome = 'meadow';
+	/** What the battle is fought in front of: at sea the figures swim, in the sky they fly. */
+	private biome: Backdrop = 'meadow';
 	private effects: Effect[] = [];
 	private puffs: Puff[] = [];
 	private dusts: Dust[] = [];
@@ -319,7 +350,8 @@ export class BattleScene {
 	constructor() {
 		this.scene.background = new THREE.Color(COLORS.sky);
 		this.scene.fog = new THREE.Fog(COLORS.sky, 12, 24);
-		this.scene.add(new THREE.HemisphereLight(0xffffff, 0x88aa66, 1.1));
+		this.fill = new THREE.HemisphereLight(0xffffff, GROUND_BOUNCE, 1.1);
+		this.scene.add(this.fill);
 		const sun = new THREE.DirectionalLight(0xfff2d6, 2.2);
 		sun.position.set(4, 8, 5);
 		sun.castShadow = true;
@@ -340,14 +372,27 @@ export class BattleScene {
 		this.camera.lookAt(CAMERA_TARGET);
 	}
 
-	/** Dress the scene for a new battle: backdrop, both figures, no leftover effects. */
-	begin(biome: Biome, playerSpecies: string, opponentSpecies: string): void {
+	/**
+	 * Dress the scene for a new battle: backdrop, both figures, no leftover
+	 * effects. Up in the air (`sky`) there is no ground: the sky all round, the
+	 * clouds below, and the birds flying.
+	 */
+	begin(biome: Backdrop, playerSpecies: string, opponentSpecies: string): void {
 		this.end();
 		this.biome = biome;
-		this.groundMaterial.color.setHex(GROUND[biome]);
+		const sky = biome === 'sky';
+		this.ground.visible = !sky;
+		if (!sky) this.groundMaterial.color.setHex(GROUND[biome]);
+		(this.scene.background as THREE.Color).setHex(sky ? SKY_COLORS.haze : COLORS.sky);
+		// Up in the air the view reaches further: the clouds fade into the haze far off.
+		const fog = this.scene.fog as THREE.Fog;
+		fog.color.setHex(sky ? SKY_COLORS.haze : COLORS.sky);
+		fog.near = sky ? 14 : 12;
+		fog.far = sky ? 34 : 24;
+		this.fill.groundColor.setHex(sky ? SKY_COLORS.cloud : GROUND_BOUNCE);
 		for (const [b, group] of this.backdrops) group.visible = b === biome;
 		if (!this.backdrops.has(biome)) {
-			const backdrop = buildBackdrop(biome);
+			const backdrop = sky ? buildSky() : buildBackdrop(biome);
 			this.backdrops.set(biome, backdrop);
 			this.scene.add(backdrop);
 		}
@@ -396,7 +441,12 @@ export class BattleScene {
 		figure.scale.setScalar(scale);
 		figure.userData.baseScale = scale;
 		this.heights[side] = height * scale;
-		this.feet[side] = this.biome === 'sea' ? SEA_WATERLINE - height * scale * SWIM_DEPTH : 0;
+		this.feet[side] =
+			this.biome === 'sea'
+				? SEA_WATERLINE - height * scale * SWIM_DEPTH
+				: this.biome === 'sky'
+					? SKY_HOVER
+					: 0;
 		const other = SPOT[side === 'player' ? 'opponent' : 'player'];
 		// Face the other animal: the player's from behind, the wild one three-quarters on.
 		figure.rotation.y = Math.atan2(other.x - SPOT[side].x, other.z - SPOT[side].z);
@@ -460,11 +510,14 @@ export class BattleScene {
 		this.scene.add(group);
 	}
 
-	/** A ring of dust at a figure's feet, rising as it lies down. */
+	/**
+	 * A ring of dust at a figure's feet, rising as it lies down: up in the air,
+	 * a puff of the cloud a tired bird sinks onto.
+	 */
 	private dust(side: BattleSide): void {
 		const group = new THREE.Group();
 		// Its own material, so the cloud can fade without fading another one.
-		const material = dustMaterial.clone();
+		const material = (this.biome === 'sky' ? cloudMaterial : dustMaterial).clone();
 		material.transparent = true;
 		const count = 10;
 		for (let i = 0; i < count; i++) {
@@ -477,8 +530,10 @@ export class BattleScene {
 		// Round the animal where it lies: it lies down on the spot it stood on.
 		const spot = SPOT[side];
 		const size = this.heights[side];
-		// At sea it rises off the water's surface, a splash more than dust.
-		group.position.set(spot.x, this.biome === 'sea' ? SEA_WATERLINE : 0, spot.z);
+		// At sea it rises off the water's surface, a splash more than dust; in the sky, off
+		// the cloud the bird comes to rest on.
+		const floor = this.biome === 'sea' ? SEA_WATERLINE : this.biome === 'sky' ? CLOUD_TOP : 0;
+		group.position.set(spot.x, floor, spot.z);
 		group.userData.size = size;
 		group.userData.material = material;
 		group.visible = false;
@@ -672,11 +727,12 @@ export class BattleScene {
 	update(t: number): void {
 		const dt = this.lastT < 0 ? 0 : Math.min(0.1, Math.max(0, t - this.lastT));
 		this.lastT = t;
+		const sky = this.biome === 'sky';
 		for (const side of ['player', 'opponent'] as const) {
 			const figure = this.figures[side];
 			if (!figure) continue;
 			figure.position.copy(SPOT[side]);
-			figure.position.y += this.feet[side];
+			figure.position.y += sky ? this.flightHeight(figure, side, t) : this.feet[side];
 			figure.rotation.z = 0;
 			figure.rotation.x = 0;
 			figure.rotation.y = (figure.userData.baseYaw as number | undefined) ?? figure.rotation.y;
@@ -690,10 +746,13 @@ export class BattleScene {
 		this.effects = this.effects.filter(
 			(e) => LASTING.includes(e.kind) || e.t < effectSeconds(e.kind)
 		);
-		// After the effects, so a tired animal is posed as far down as its faint has got.
+		// After the effects, so a tired animal is posed as far down as its faint has got. Up in
+		// the air the birds beat their wings, and a tired one folds them as it sinks to rest.
 		for (const side of ['player', 'opponent'] as const) {
 			const figure = this.figures[side];
-			if (figure) animateIdle(figure, t, this.camera);
+			if (!figure) continue;
+			animateIdle(figure, t, this.camera);
+			if (sky) animateFlight(figure, t * SKY_BEAT, 1 - restOf(figure));
 		}
 
 		// With reduced motion a miss's puff swells less and stays where it is.
@@ -741,7 +800,7 @@ export class BattleScene {
 			// Air slows it, so pieces flutter down instead of dropping like stones.
 			piece.velocity.multiplyScalar(Math.max(0, 1 - 1.6 * dt));
 			piece.mesh.position.addScaledVector(piece.velocity, dt);
-			piece.mesh.position.y = Math.max(0.02, piece.mesh.position.y);
+			piece.mesh.position.y = Math.max(sky ? CLOUD_TOP + 0.02 : 0.02, piece.mesh.position.y);
 			piece.mesh.rotation.x += piece.spin.x * dt;
 			piece.mesh.rotation.y += piece.spin.y * dt;
 			piece.mesh.rotation.z += piece.spin.z * dt;
@@ -776,6 +835,19 @@ export class BattleScene {
 		this.sparkles = this.sparkles.filter((s) => s.t < s.delay + SPARKLE_SECONDS);
 
 		this.updateLeash(dt, t);
+	}
+
+	/**
+	 * Up in the air, how high a bird's feet are this frame: over its spot,
+	 * bobbing a little with its wingbeats (not with reduced motion), and, as it
+	 * tires, sinking onto the cloud below (`CLOUD_TOP`) to rest there.
+	 */
+	private flightHeight(figure: THREE.Group, side: BattleSide, t: number): number {
+		const rest = restOf(figure);
+		const phase = (figure.userData.idlePhase as number | undefined) ?? 0;
+		const bob = motion.reduced ? 0 : Math.sin(t * 2.2 + phase) * SKY_BOB;
+		const flying = this.feet[side] + bob;
+		return flying + (CLOUD_TOP - flying) * smoothstep(rest);
 	}
 
 	/** Where the loop settles on the wild animal, a little above its middle. */
@@ -1177,4 +1249,124 @@ function buildSea(
 	const grass = new THREE.Mesh(new THREE.BoxGeometry(40, 0.6, 6), shoreGrassMaterial);
 	grass.position.set(0, 0.2, -15);
 	group.add(sand, grass);
+}
+
+/** One puff of a cloud: a round low-poly ball, faceted like the figures. */
+const CLOUD_PUFF = new THREE.IcosahedronGeometry(1, 1);
+
+/**
+ * The sky's scenery, up in the air (#91): no ground at all, a dome of sky
+ * from a clear blue overhead to the world's own sky blue at the horizon and a
+ * pale haze below it, a floor of clouds under the birds, lower and fainter
+ * the further off (a cloud under each bird, for a tired one to rest on), and
+ * a few big clouds far off standing up out of the haze. Kept off the line
+ * from the camera to either bird. A fixed scatter, so every battle in the air
+ * looks the same; the puffs are two instanced meshes, the clouds' white tops
+ * and their paler undersides, so the whole sky is a handful of draws.
+ */
+function buildSky(): THREE.Group {
+	const group = new THREE.Group();
+	const rng = new Rng(91);
+	group.add(skyDome());
+	const tops: THREE.Matrix4[] = [];
+	const undersides: THREE.Matrix4[] = [];
+	const cloud = (x: number, top: number, z: number, size: number) =>
+		addCloud(rng, x, top, z, size, tops, undersides);
+	// Under each bird, a cloud to rest on.
+	for (const spot of Object.values(SPOT)) cloud(spot.x, CLOUD_TOP, spot.z, 0.95);
+	// The floor of clouds, down below and far out into the haze.
+	for (let i = 0; i < 70 && tops.length < 260; i++) {
+		const x = rng.next() * 24 - 12;
+		const z = 2.4 - rng.next() * 24;
+		if (Object.values(SPOT).some((s) => Math.hypot(x - s.x, z - s.z) < 1.3)) continue;
+		if (Object.values(SPOT).some((s) => nearSightLine(x, z, s, 0.5)) && z > -3) continue;
+		const far = Math.max(0, -z - 4) / 18;
+		cloud(
+			x,
+			CLOUD_TOP - 0.15 - rng.next() * 0.5 - far * 1.4,
+			z,
+			0.6 + rng.next() * 0.9 + far * 1.2
+		);
+	}
+	// Big clouds far off, standing up out of the haze.
+	for (const [x, top, z, size] of [
+		[-8, 1.1, -15, 2.6],
+		[3.5, 1.5, -18, 3.2],
+		[10, 0.8, -13, 2.2],
+		[-14, 1.6, -19, 3]
+	] as const)
+		cloud(x, top, z, size);
+	for (const [matrices, material] of [
+		[tops, cloudMaterial],
+		[undersides, cloudShadeMaterial]
+	] as const) {
+		const mesh = new THREE.InstancedMesh(CLOUD_PUFF, material, matrices.length);
+		matrices.forEach((m, i) => mesh.setMatrixAt(i, m));
+		mesh.instanceMatrix.needsUpdate = true;
+		mesh.computeBoundingSphere();
+		mesh.receiveShadow = true;
+		group.add(mesh);
+	}
+	return group;
+}
+
+/**
+ * A cloud of `size` tiles across, its top at `top`, over (`x`, `z`): a few
+ * round puffs side by side, the biggest in the middle, flattened a little,
+ * and a flatter, paler base under them, each put in `tops` or `undersides`.
+ */
+function addCloud(
+	rng: Rng,
+	x: number,
+	top: number,
+	z: number,
+	size: number,
+	tops: THREE.Matrix4[],
+	undersides: THREE.Matrix4[]
+): void {
+	const puffs = 4 + Math.floor(rng.next() * 3);
+	const at = new THREE.Vector3();
+	const scale = new THREE.Vector3();
+	const turn = new THREE.Quaternion();
+	for (let i = 0; i < puffs; i++) {
+		const along = (i / (puffs - 1) - 0.5) * size * 0.9;
+		const middle = 1 - Math.abs(along) / (size * 0.6);
+		const r = size * (0.2 + 0.16 * middle + rng.next() * 0.06);
+		at.set(x + along, top - r * 0.85, z + (rng.next() - 0.5) * size * 0.35);
+		scale.set(r, r * 0.85, r);
+		turn.setFromEuler(new THREE.Euler(0, rng.next() * Math.PI, 0));
+		tops.push(new THREE.Matrix4().compose(at, turn, scale));
+	}
+	at.set(x, top - size * 0.42, z);
+	scale.set(size * 0.62, size * 0.14, size * 0.36);
+	undersides.push(new THREE.Matrix4().compose(at, new THREE.Quaternion(), scale));
+}
+
+/**
+ * The sky all round, up in the air: a big dome seen from inside, clear blue
+ * overhead, the world's sky blue at the horizon and a pale haze below it,
+ * where the clouds thin out. Unlit and not in the fog: it is the far away.
+ */
+function skyDome(): THREE.Mesh {
+	const geometry = new THREE.SphereGeometry(60, 24, 16);
+	const position = geometry.getAttribute('position');
+	const colors: number[] = [];
+	const zenith = new THREE.Color(SKY_COLORS.zenith);
+	const horizon = new THREE.Color(SKY_COLORS.horizon);
+	const haze = new THREE.Color(SKY_COLORS.haze);
+	const c = new THREE.Color();
+	for (let i = 0; i < position.count; i++) {
+		const up = position.getY(i) / 60;
+		if (up >= 0) c.copy(horizon).lerp(zenith, Math.min(1, up / 0.55));
+		else c.copy(horizon).lerp(haze, Math.min(1, -up / 0.12));
+		colors.push(c.r, c.g, c.b);
+	}
+	geometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
+	const material = new THREE.MeshBasicMaterial({
+		vertexColors: true,
+		side: THREE.BackSide,
+		fog: false,
+		depthWrite: false
+	});
+	return new THREE.Mesh(geometry, material);
 }

@@ -11,8 +11,9 @@ import {
 } from '@mathgame/engine';
 import * as THREE from 'three';
 import { motion } from '../motion';
-import { buildAnimalMesh, disposeFigure } from './animals';
+import { animateFlight, buildAnimalMesh, disposeFigure } from './animals';
 import { BOAT_DECK, BOAT_STAND } from './boat';
+import { flyingSize } from './chaser';
 import { appearScale, recallScale, smoothstep } from './ease';
 import { WATER_TOP, groundTop } from './tiles';
 
@@ -47,6 +48,14 @@ import { WATER_TOP, groundTop } from './tiles';
  * little bounce, the battle's own recall and appearance (with reduced motion,
  * as there: a lower rise and no bounce). When every animal is tired, nobody
  * follows: the team rests until the doctor has seen one.
+ *
+ * Up in the air with the glider (#91) the one following is the lead in the
+ * air, a bird (with none standing, nobody follows a kid into the air): told
+ * where the trainer is each frame (`fly`), it takes off from its tile and
+ * flies behind them and a little to their side and below, its wings beating
+ * (held out with reduced motion); once they are down (`place`, then `fly`
+ * with no trainer) it comes down onto the tile beside them, folding its
+ * wings.
  */
 
 /** What it asks of the renderer: a figure that stands in the world and idles there. */
@@ -119,6 +128,18 @@ export const SWIM_DEPTH = 0.4;
 export const RIDE_AHEAD = 0.22;
 export const RIDE_LENGTH = 0.5;
 export const RIDE_HEIGHT = 0.6;
+/**
+ * Flying behind the glider: how far behind the trainer, to their left, and
+ * below them the bird flies, in tiles; how fast it closes on that spot (most
+ * of the way in a tenth of a second at 10, a fifth at 5); how far its nose
+ * dips as it flies; and how long it takes to come down beside them.
+ */
+export const FLY_BEHIND = 1.15;
+export const FLY_ASIDE = 0.6;
+export const FLY_BELOW = 0.45;
+const FLY_CATCH_UP = 6;
+const FLY_PITCH = 0.3;
+export const COME_DOWN_SECONDS = 0.35;
 
 export class Follower {
 	/** The tile it stands on or walks to; null until it is placed beside the trainer. */
@@ -154,8 +175,52 @@ export class Follower {
 	 * had, `from`), then the new one growing in.
 	 */
 	private swap: { phase: 'out' | 'in'; t: number; from: number } | null = null;
+	/** Up in the air with the glider: the trainer's point in the air this frame, and the way they fly. */
+	private aloft: { at: THREE.Vector3; facing: Direction } | null = null;
+	/** Where the figure flies, up in the air and coming down. */
+	private airAt = new THREE.Vector3();
+	/**
+	 * Up in the air, where it is from the trainer: it moves with them, so it
+	 * never falls behind a glide, and only this closes on its spot behind them.
+	 */
+	private airFrom = new THREE.Vector3();
+	/** Seconds since it took off: its wings open as it rises. */
+	private airT = 0;
+	/** Coming down beside the trainer after a flight: from where in the air, and how far down (0 to 1). */
+	private landing: { from: THREE.Vector3; t: number } | null = null;
 
 	constructor(private host: FigureHost) {}
+
+	/** Whether the one following is up in the air, or coming down from it. */
+	get flying(): boolean {
+		return this.figure !== null && (this.aloft !== null || this.landing !== null);
+	}
+
+	/**
+	 * Up in the air with the glider: the trainer's point in the air this
+	 * frame and the way they fly, which a bird following flies behind; or,
+	 * back on the ground, null: it comes down onto the tile `place` gave it
+	 * (with none, it is gone until the trainer's next step).
+	 */
+	fly(trainer: THREE.Vector3 | null, facing: Direction = this.trainerFacing): void {
+		if (trainer) {
+			if (!this.aloft) {
+				// Taking off from where it stands, or from where it was coming down.
+				if (this.figure) this.airFrom.subVectors(this.figure.position, trainer);
+				this.airT = 0;
+				this.landing = null;
+				this.aloft = { at: new THREE.Vector3(), facing };
+			}
+			this.aloft.at.copy(trainer);
+			this.aloft.facing = facing;
+			return;
+		}
+		if (!this.aloft) return;
+		this.aloft = null;
+		if (!this.figure || !flies(this.shown)) return;
+		if (this.at && !this.riding) this.landing = { from: this.airAt.clone(), t: 0 };
+		else this.dropFigure();
+	}
 
 	/** Where it stands (or is walking to), for tests and anything that asks; null while riding. */
 	get tile(): GridPos | null {
@@ -263,6 +328,16 @@ export class Follower {
 		this.updateSwap(dt);
 		const figure = this.figure;
 		if (!figure) return;
+		// Up in the air a bird flies behind the trainer; one that can't fly stays on its tile,
+		// shrinking away (nobody else follows a kid into the air).
+		if (this.aloft && flies(this.shown)) {
+			this.flyBehind(figure, this.aloft, dt);
+			return;
+		}
+		if (this.landing) {
+			this.comeDown(figure, this.landing, dt);
+			return;
+		}
 		if (this.riding) {
 			this.ride(figure, progress);
 			return;
@@ -312,6 +387,88 @@ export class Follower {
 		this.at = null;
 		this.from = null;
 		this.aside = null;
+		this.aloft = null;
+		this.landing = null;
+	}
+
+	/** Where a bird flies behind the trainer up in the air: behind them, to their left and below. */
+	private flightSpot(aloft: { at: THREE.Vector3; facing: Direction }): THREE.Vector3 {
+		const ahead = AHEAD[aloft.facing];
+		// Left of the way they fly: a quarter turn from ahead.
+		const left = { x: ahead.z, z: -ahead.x };
+		return new THREE.Vector3(
+			aloft.at.x - ahead.x * FLY_BEHIND + left.x * FLY_ASIDE,
+			aloft.at.y - FLY_BELOW,
+			aloft.at.z - ahead.z * FLY_BEHIND + left.z * FLY_ASIDE
+		);
+	}
+
+	/**
+	 * Up in the air: it closes on its spot behind the trainer (so it rises
+	 * from its tile at take-off, and keeps up as they glide), turned the way
+	 * they fly, nose a little down, bobbing a little, its wings opening as it
+	 * rises and beating (held out with reduced motion).
+	 */
+	private flyBehind(
+		figure: THREE.Group,
+		aloft: { at: THREE.Vector3; facing: Direction },
+		dt: number
+	): void {
+		this.airT += dt;
+		const spot = this.flightSpot(aloft).sub(aloft.at);
+		this.airFrom.lerp(spot, 1 - Math.exp(-dt * FLY_CATCH_UP));
+		this.airAt.addVectors(aloft.at, this.airFrom);
+		this.facing = aloft.facing;
+		this.turn(dt);
+		const bob = motion.reduced ? 0 : Math.sin(this.t * 3.1) * 0.04;
+		const rising = Math.min(1, this.airT / 0.3);
+		figure.position.copy(this.airAt);
+		figure.position.y += bob + this.swapLift();
+		figure.rotation.set(FLY_PITCH, this.yaw, 0, 'YXZ');
+		figure.scale.setScalar(this.swapScale() * this.flyingScale(figure, rising));
+		animateFlight(figure, this.t, rising);
+	}
+
+	/** How big it is drawn `up` of the way into the air: a small bird bigger up there (`flyingSize`). */
+	private flyingScale(figure: THREE.Group, up: number): number {
+		const height = (figure.userData.restShape as { height: number } | undefined)?.height ?? 0.5;
+		return 1 + (flyingSize(height) - 1) * up;
+	}
+
+	/**
+	 * Down again: from where it flew, onto its tile beside the trainer (what
+	 * `place` gave it), its nose coming up and its wings folding as it lands.
+	 */
+	private comeDown(
+		figure: THREE.Group,
+		landing: { from: THREE.Vector3; t: number },
+		dt: number
+	): void {
+		landing.t = Math.min(1, landing.t + dt / COME_DOWN_SECONDS);
+		const at = this.at;
+		if (!at) {
+			this.landing = null;
+			return;
+		}
+		const p = smoothstep(landing.t);
+		const ground = new THREE.Vector3(at.x, this.groundAt(at), at.y);
+		figure.position.lerpVectors(landing.from, ground, p);
+		figure.position.y += this.swapLift();
+		this.turn(dt);
+		figure.rotation.set(FLY_PITCH * (1 - p), this.yaw, 0, 'YXZ');
+		figure.scale.setScalar(this.swapScale() * this.flyingScale(figure, 1 - p));
+		animateFlight(figure, this.t, 1 - p);
+		if (landing.t < 1) return;
+		this.landing = null;
+		this.from = { ...at };
+		this.aside = null;
+	}
+
+	/** Turn towards the way it faces, the short way round. */
+	private turn(dt: number): void {
+		let delta = ANGLE[this.facing] - this.yaw;
+		delta = Math.atan2(Math.sin(delta), Math.cos(delta));
+		this.yaw += delta * Math.min(1, dt * TURN_RATE);
 	}
 
 	/**
@@ -375,7 +532,12 @@ export class Follower {
 		const species = this.wanted;
 		if (species === null) return;
 		const stays = this.at && this.besideTrainer(this.at) && this.canStand(this.at, species);
-		if (!this.wantRide && !stays) {
+		if (this.aloft && flies(species)) {
+			// Up in the air: it comes out on its spot behind the glider, its wings open.
+			this.airFrom.copy(this.flightSpot(this.aloft).sub(this.aloft.at));
+			this.airAt.addVectors(this.aloft.at, this.airFrom);
+			this.airT = 1;
+		} else if (!this.wantRide && !stays) {
 			const spot = this.spotBeside(species);
 			if (!spot) return;
 			this.at = spot;
@@ -487,6 +649,11 @@ export class Follower {
 
 function adjacent(a: GridPos, b: GridPos): boolean {
 	return Math.abs(a.x - b.x) + Math.abs(a.y - b.y) === 1;
+}
+
+/** Whether an animal of `species` flies: a bird. */
+function flies(species: string | null): boolean {
+	return species !== null && getAnimal(species).realms.includes('air');
 }
 
 /** The way from one tile to the next, or null when they are not neighbours. */

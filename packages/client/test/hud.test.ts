@@ -18,6 +18,7 @@ import type { GameRenderer } from '../src/render/renderer';
 import { game } from '../src/state/game.svelte';
 import { HINT_STEPS, MESSAGE_SECONDS, hud } from '../src/state/hud.svelte';
 import { besideA, gameBeside } from './clearing';
+import { skyPieces } from './sky-pieces';
 
 /**
  * The explore message line (UI_SPEC § Explore mode): what was said last fades
@@ -29,6 +30,7 @@ import { besideA, gameBeside } from './clearing';
  */
 function setup(start?: SavedGame) {
 	const authority = new LocalAuthority();
+	const sky = skyPieces();
 	const renderer = {
 		setWorld() {},
 		setBoat() {},
@@ -36,7 +38,9 @@ function setup(start?: SavedGame) {
 		setLandingSpot() {},
 		setPlayer() {},
 		ensureChunksAround() {},
-		cleared() {}
+		cleared() {},
+		trainerPoint: sky.trainerPoint,
+		chaser: sky.chaser
 	} as unknown as GameRenderer;
 	let enter = false;
 	const keyboard = {

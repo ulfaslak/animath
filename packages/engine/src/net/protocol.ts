@@ -53,9 +53,11 @@ import { readFightEvents, readFightView, type FightEvent, type FightView } from 
  * with species its own catalog has, so a version 4 page would drop every one
  * with a moose in it and never see the match: every new species bumps the
  * version. Version 6: the sea animals of #89's third wave, which a version 5
- * page would drop from a `fight` out at sea.
+ * page would drop from a `fight` out at sea. Version 7: the birds in the air
+ * (#91): the buzzard, and a `fight` fought in the air, which a version 6 page
+ * drops for its realm.
  */
-export const PROTOCOL_VERSION = 6;
+export const PROTOCOL_VERSION = 7;
 
 /**
  * The most a message may take on the wire, in bytes (the server closes a

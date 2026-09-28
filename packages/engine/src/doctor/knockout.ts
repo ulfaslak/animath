@@ -38,7 +38,10 @@ export interface RescueOptions {
 	/**
 	 * Where the battle was fought, land by default. Out on the water a battle
 	 * is lost once every animal that swims is tired: animals that can't swim
-	 * may still be standing, in the boat.
+	 * may still be standing, in the boat. Up in the air, once every animal that
+	 * flies is tired, whoever still stands on the ground. The way to the tent
+	 * never flies: it goes from where the glider came down, on foot, or with
+	 * the boat over the water too.
 	 */
 	realm?: Realm;
 }

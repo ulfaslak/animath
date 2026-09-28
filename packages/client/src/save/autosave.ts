@@ -465,9 +465,11 @@ export class Autosave {
 			case 'player-placed':
 			// The glider: each tile flown is a step, and the game saved in the air is the one
 			// letting go would leave (`LocalAuthority.snapshot`), so a reload lands where a let-go
-			// would; the landing saves where it came down.
+			// would; the landing saves where it came down. A bird following the glider saves as
+			// its battle, under way where the flight comes down: a reload is no escape.
 			case 'took-off':
 			case 'glided':
+			case 'bird-follows':
 			case 'landed':
 			case 'battle-started':
 			case 'battle-updated':

@@ -180,6 +180,23 @@ describe('copy files', () => {
 		expect(problems).toEqual([]);
 	});
 
+	it('every bird has its grumpy form in every language, for the one that follows the glider down, and no other animal has one (#91)', () => {
+		const problems: string[] = [];
+		for (const spec of ANIMALS) {
+			const key = `species.${spec.id}.aGrumpy`;
+			for (const [lang, file] of messages) {
+				const flies = spec.realms.includes('air');
+				const text = file.get(key);
+				if (flies && typeof text !== 'string') problems.push(`${lang}.yaml lacks ${key}`);
+				if (!flies && text !== undefined)
+					problems.push(`${lang}.yaml has ${key}, but it can't fly`);
+				if (typeof text === 'string' && paramsOf(text).size > 0)
+					problems.push(`${key} reads params; a form is plain text`);
+			}
+		}
+		expect(problems).toEqual([]);
+	});
+
 	it('every item in the catalog has every form and what it does, on sale or not', () => {
 		const problems: string[] = [];
 		for (const item of ITEMS) {

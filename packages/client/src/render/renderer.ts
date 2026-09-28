@@ -13,6 +13,7 @@ import { motion } from '../motion';
 import { Butterflies } from './ambient';
 import { animateIdle, animateWalk, buildPlayerMesh } from './animals';
 import { BOAT_STAND, buildBoatMesh, poseBoat, standAstern } from './boat';
+import { Chaser } from './chaser';
 import { ChunkRing } from './chunks';
 import { ClearingEffects, SWING_SECONDS, animateSwing, buildTool } from './clearing';
 import { Greetings } from './doctor';
@@ -173,6 +174,8 @@ export class GameRenderer {
 	readonly others: OtherPlayers = new OtherPlayers(this.scene, this, this.poofs);
 	/** Their battles, drawn beside them (`fights.ts`). */
 	readonly fights: WatchedFights = new WatchedFights(this.scene, this, this.poofs, this.others);
+	/** A wild bird following the glider down (`chaser.ts`), which explore flies. */
+	readonly chaser: Chaser = new Chaser(this, this.scene, () => this.camera);
 
 	constructor(private canvas: HTMLCanvasElement) {
 		this.renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
@@ -424,6 +427,20 @@ export class GameRenderer {
 		this.shadow.position.set(x, groundTop(under) + 0.02, z);
 		this.shadow.scale.setScalar(0.8 + 0.4 * lift);
 		(this.shadow.material as THREE.MeshBasicMaterial).opacity = 0.28 * lift;
+	}
+
+	/**
+	 * Where the trainer is in the world, as `setPlayer` last put them (up in
+	 * the air with the glider, their point in the air): what the birds up
+	 * there fly by.
+	 */
+	trainerPoint(): THREE.Vector3 {
+		return this.playerAt.clone();
+	}
+
+	/** The world's fixed camera, for turning a mark over a figure to face it. */
+	get worldCamera(): THREE.Camera {
+		return this.camera;
 	}
 
 	/**

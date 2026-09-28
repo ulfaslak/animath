@@ -41,9 +41,10 @@ import type {
  * battle waits in `choose-animal` for the player to say who steps in. That
  * switch is free: the wild animal has just had its turn.
  *
- * A battle is fought on land or out on the water (`BattleState.realm`), and
- * only an animal that can go there fights in it (`canFightIn`): out on the
- * water, the ones that swim. The others sit it out in the boat, as if they
+ * A battle is fought on land, out on the water or up in the air
+ * (`BattleState.realm`), and only an animal that can go there fights in it
+ * (`canFightIn`): out on the water, the ones that swim; in the air, the ones
+ * that fly. The others sit it out (in the boat, or on the ground), as if they
  * were not in the party: none of them starts, steps in or keeps the battle
  * going once every one that can fight there is tired.
  *
@@ -64,7 +65,7 @@ export const WILD_MISS_CHANCE = 0.44;
 export interface StartBattleOptions {
 	/** Multiplier for leash throws; 1 is the starter leash. */
 	leashQuality?: number;
-	/** Where the battle is fought: land (the default), or the water, from the boat. */
+	/** Where the battle is fought: land (the default), the water, from the boat, or the air. */
 	realm?: Realm;
 }
 

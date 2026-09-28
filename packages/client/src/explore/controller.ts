@@ -23,9 +23,11 @@ import { sfx } from '../audio/sfx.svelte';
 import type { Keyboard, TeamPick } from '../input/keyboard';
 import { motion } from '../motion';
 import { BOAT_SWING_SECONDS } from '../render/boat';
+import { HOVER_AHEAD, HOVER_UP } from '../render/chaser';
 import { SWING_STRIKE } from '../render/clearing';
 import type { Follower } from '../render/follower';
 import type { AirPose, GameRenderer } from '../render/renderer';
+import { groundTop } from '../render/tiles';
 import { DESCEND_SECONDS, GLIDE_SECONDS, RISE_SECONDS, STEP_SECONDS } from '../render/trainer';
 import { doctor } from '../state/doctor.svelte';
 import { game } from '../state/game.svelte';
@@ -34,6 +36,13 @@ import { team } from '../state/team.svelte';
 
 /** Seconds of the little hop in place when a take-off is refused. */
 const HOP_SECONDS = 0.3;
+/** A unit step each way the trainer faces, in world x and z (grid y). */
+const DELTA: Record<Direction, readonly [number, number]> = {
+	up: [0, -1],
+	down: [0, 1],
+	left: [-1, 0],
+	right: [1, 0]
+};
 /** How far the canopy has come out of its roll by the end of the wind-up (0 folded, 1 open): a jump is coming. */
 const WIND_UP_OPEN = 0.45;
 
@@ -94,8 +103,15 @@ interface FlightOnScreen {
  * ring stands), sends `land` there, and comes down; the reach lands it by
  * itself. Nothing else is taken in the air: no step, no Talk, no pick, no
  * menu. A landing that clears a tree or a rock chops it as the trainer comes
- * down onto it. The lead shrinks away at take-off and grows back in beside
- * the trainer once they are down.
+ * down onto it. Up in the air the lead in the air, the first bird standing,
+ * flies behind the trainer (with none, the lead shrinks away), and once they
+ * are down the lead comes back beside them.
+ *
+ * A bird that notices the glider (`bird-follows`, #91) comes into view from
+ * behind, a "!" over it and a squawk, and chases the trainer
+ * (`render/chaser.ts`) until they are down; then it swoops in to hover in
+ * front of them. Its battle in the air started as they landed, and waits
+ * for that (`landing`) before its circle closes.
  */
 export class ExploreController {
 	private pos: GridPos = { x: 0, y: 0 };
@@ -114,6 +130,12 @@ export class ExploreController {
 	private hop: number | null = null;
 	/** The landing ring as last put up, so it is worked out again only when the flight moves on. */
 	private ringKey = '';
+	/**
+	 * A battle in the air has started (a bird followed the glider down) and not
+	 * ended: the one following stays the lead in the air, a bird, as its circle
+	 * closes.
+	 */
+	private airBattle = false;
 
 	constructor(
 		private authority: Authority,
@@ -185,11 +207,29 @@ export class ExploreController {
 				this.progress = 1;
 				this.facing = dir;
 				this.hop = null;
-				// The lead shrinks away: nobody follows a kid up into the air.
-				this.follower?.lead(null);
+				// Up into the air: a bird in the team flies behind the trainer (the lead in the
+				// air); with none, the lead shrinks away (`update`).
 				sfx.play('whoosh');
 				break;
 			}
+			case 'bird-follows':
+				// A bird noticed the glider: it comes from behind, a "!" over it, and squawks.
+				if (event.playerId !== this.playerId) break;
+				this.renderer.chaser.notice(
+					event.speciesId,
+					this.renderer.trainerPoint(),
+					this.flight?.flight.dir ?? this.facing
+				);
+				sfx.play('squawk');
+				break;
+			case 'battle-started':
+				if (event.state.realm === 'air') this.airBattle = true;
+				break;
+			case 'battle-ended':
+				// Its battle over, the bird that followed the glider down is gone.
+				this.airBattle = false;
+				this.renderer.chaser.hide();
+				break;
 			case 'take-off-refused':
 				// Nowhere to land that way: a little hop where they stand (the message line says why).
 				if (event.playerId === this.playerId) this.hop = 0;
@@ -269,6 +309,15 @@ export class ExploreController {
 		return this.flight !== null;
 	}
 
+	/**
+	 * Whether the world is still bringing the kid down from a flight: the
+	 * glider on its way down, or a bird that followed it swooping in. A battle
+	 * in the air waits for it before its circle closes.
+	 */
+	get landing(): boolean {
+		return this.flight !== null || this.renderer.chaser.arriving;
+	}
+
 	/** A tile cleared, on screen: the world takes the change, and the chop or the crack plays. */
 	private clearTile(event: TileCleared): void {
 		this.edits = this.edits.with(event.pos).without(event.regrown);
@@ -288,6 +337,7 @@ export class ExploreController {
 		this.hop = null;
 		this.ringKey = '';
 		this.renderer.setLandingSpot(null);
+		this.renderer.chaser.hide();
 	}
 
 	update(dt: number): void {
@@ -300,12 +350,19 @@ export class ExploreController {
 		else this.walk(dt);
 		this.renderer.setPlayer(this.from, this.pos, this.progress, this.facing, this.airPose());
 		this.renderer.ensureChunksAround(this.pos);
+		const trainer = this.renderer.trainerPoint();
+		// A bird that noticed the glider: after it, or swooping in once the kid is down.
+		this.renderer.chaser.update(dt, trainer, this.facing);
 		if (this.follower) {
 			// The party on screen: the doctor's card heals on its beat, after the authority has.
 			const party = doctor.active ? doctor.party : game.party;
-			// Up in the air nobody follows; the lead comes back once the trainer is down.
-			if (this.flight) this.follower.lead(null);
+			// Up in the air, and as a battle in the air opens, the lead in the air follows: the
+			// first bird standing, flying behind the trainer. With none, nobody follows a kid into
+			// the air; the lead comes back once the trainer is down.
+			if (this.flight || this.airBattle)
+				this.follower.lead(party[leadIndex(party, 'air')]?.speciesId ?? null);
 			else this.leadFollower(this.follower, party);
+			this.follower.fly(this.flight ? trainer : null, this.facing);
 			this.follower.update(this.progress, dt);
 		}
 	}
@@ -399,7 +456,11 @@ export class ExploreController {
 		if (cleared) this.clearTile(cleared);
 	}
 
-	/** Down on the ground: the glider folded, the lead back beside the trainer, taps pressed in the air dropped. */
+	/**
+	 * Down on the ground: the glider folded, the lead back beside the trainer,
+	 * taps pressed in the air dropped; a bird that followed them down swoops in
+	 * to hover in front of them.
+	 */
 	private touchDown(f: FlightOnScreen): void {
 		if (f.cleared) this.clearTile(f.cleared);
 		this.flight = null;
@@ -407,6 +468,24 @@ export class ExploreController {
 		this.keyboard.dropTaps();
 		sfx.play('land');
 		this.follower?.place(this.seed, this.pos, this.facing, this.edits);
+		if (this.renderer.chaser.species !== null)
+			this.renderer.chaser.comeDown(this.hoverSpot(), this.facing);
+	}
+
+	/**
+	 * Where a bird that followed the glider down hovers: in front of the
+	 * trainer, over the ground there, higher over a tree, a rock or a tent so
+	 * it is never inside one.
+	 */
+	private hoverSpot(): { x: number; y: number; z: number } {
+		const [dx, dz] = DELTA[this.facing];
+		const x = this.pos.x + dx * HOVER_AHEAD;
+		const z = this.pos.y + dz * HOVER_AHEAD;
+		const under = { x: Math.round(x), y: Math.round(z) };
+		const tile = tileAtWorld(this.seed, under.x, under.y);
+		const { kind } = editedTileAt(this.seed, this.edits, under.x, under.y);
+		const tall = isClearable(kind) || kind === 'tent' ? 0.9 : 0;
+		return { x, y: groundTop(tile) + HOVER_UP + tall, z };
 	}
 
 	/**

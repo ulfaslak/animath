@@ -1139,6 +1139,33 @@ describe('takeToDoctor', () => {
 		}
 	});
 
+	it('up in the air, the battle is lost with animals that cannot fly still standing, never a bird; the way to the tent is walked, not flown (#91)', () => {
+		const pos = spawnPoint(PROTOTYPE);
+		const air = { realm: 'air' as const };
+		const rescue = takeToDoctor(
+			PROTOTYPE,
+			pos,
+			partyOf(['squirrel'], ['robin', 0]),
+			WorldEdits.none,
+			air
+		);
+		// Walked: the same tent and stand a lost battle on land there finds on foot.
+		const spot = nearestTent(PROTOTYPE, pos, TENT_SEARCH_STEPS, WorldEdits.none, { boat: false })!;
+		expect(rescue).toEqual({
+			pos: spot.stand,
+			facing: spot.facing,
+			tent: spot.tent,
+			party: partyOf(['squirrel'], ['robin'])
+		});
+		expect(() =>
+			takeToDoctor(PROTOTYPE, pos, partyOf(['squirrel', 0], ['robin', 3]), WorldEdits.none, air)
+		).toThrow(/knocked out/);
+		// The swan flies too: tired in the air with only the squirrel standing, it is taken.
+		expect(() =>
+			takeToDoctor(PROTOTYPE, pos, partyOf(['squirrel'], ['mute-swan', 0]), WorldEdits.none, air)
+		).not.toThrow();
+	});
+
 	it('walks the paths the player cleared: out of a spot walled in by trees, once they are chopped', () => {
 		// A walkable tile walled in by trees and rocks, a tent within reach once they are cleared.
 		let found: { pos: GridPos; edits: WorldEdits } | null = null;

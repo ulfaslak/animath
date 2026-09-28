@@ -213,8 +213,10 @@ describe('balance simulation', () => {
 				for (const accuracy of [1, 0.85, 0.7])
 					for (const level of [1, 2, 3] as AttackLevel[]) models.push({ accuracy, policy, level });
 			console.log('\n' + [targets(), ...models.map(grid)].join('\n\n') + '\n');
-			// Every species pair under 27 models: 18 s with eight species on a loaded machine.
-		}, 120_000);
+			// Every species pair under 27 models: 18 s with eight species on a loaded machine, and
+			// 3.5 minutes alone with the 50 of #91's buzzard (at a load average of 4). SIM only: it
+			// prints at the end whatever its bound, so the bound only has to be past any wait.
+		}, 3_600_000);
 	}
 
 	it("a squirrel almost never beats a bear, even when it's always right, nor a crab a whale, nor any small animal a tier-5 one", () => {
