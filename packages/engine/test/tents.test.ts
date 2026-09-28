@@ -156,22 +156,24 @@ describe('tents', () => {
 
 describe('nearestTent', () => {
 	for (const seed of SEEDS) {
-		it(`is the nearest tent on foot, checked by brute force over the lattice (seed ${seed})`, () => {
+		it(`is the nearest tent on foot, checked by brute force over the lattice (seed ${seed})`, async () => {
 			let found = 0;
 			for (const from of samplePositions(seed, 40)) {
 				const spot = nearestTent(seed, from);
 				const expected = bruteForceNearest(seed, from, spot ? spot.steps : TENT_SEARCH_STEPS);
 				expect(spot, `from ${from.x},${from.y}`).toEqual(expected);
 				if (spot) found++;
+				await turn();
 			}
 			// Some random starts are in a lake or walled in by trees; most find a tent.
 			expect(found).toBeGreaterThan(20);
-			// Up to 2 s alone (40 searches, each checked by a flood fill of its own);
-			// over vitest's 5 s default when other agents' browsers load the machine.
-		}, 30_000);
+			// 40 searches, each checked by a flood fill of its own: up to 1.7 s alone at a load
+			// average of 10, up to 7.9 s in the whole suite at 31, which scales to 38 s at 150; its
+			// loop turns after each search.
+		}, 120_000);
 	}
 
-	it('with the boat, is the nearest tent over ground and water, stood beside on ground: checked by brute force', () => {
+	it('with the boat, is the nearest tent over ground and water, stood beside on ground: checked by brute force', async () => {
 		// Starts out on the water of the prototype world, and on land beside it.
 		const rng = new Rng(0xb0a7);
 		const spawn = spawnPoint(PROTOTYPE);
@@ -203,13 +205,15 @@ describe('nearestTent', () => {
 			const onFoot = nearestTent(PROTOTYPE, from);
 			if (onFoot && spot!.steps < onFoot.steps) shorter++;
 			if (onFoot) expect(spot!.steps).toBeLessThanOrEqual(onFoot.steps);
+			await turn();
 		}
 		expect(onWater).toBe(20);
 		// From the land, across a lake is sometimes the shorter way.
 		expect(shorter).toBeGreaterThan(0);
-		// About 1 s alone (30 searches, each checked by a flood fill over land and water,
-		// most of them out on a lake); several seconds under load.
-	}, 30_000);
+		// 30 searches, each checked by a flood fill over land and water, most of them out on a
+		// lake: 2.2 s alone at a load average of 10, 6.6 s in the whole suite at 34, and up to ten times its run alone at 150;
+		// its loop turns after each search.
+	}, 90_000);
 
 	it('without the boat, searches exactly as on foot', () => {
 		for (const from of samplePositions(PROTOTYPE, 15))
@@ -250,8 +254,10 @@ describe('nearestTent', () => {
 		// Not vacuous: the cleared paths make some tents nearer, or reachable at all.
 		expect(shorter).toBeGreaterThan(3);
 		expect(searched).toBe(48);
-		// TENTS_PATHS_COST
-	}, 60_000);
+		// 48 searches with their flood fills, each over a world with its trees cleared one by
+		// one: 2.6 s alone at a load average of 10, 9.1 s in the whole suite at 35, which scales
+		// to 39 s at 150; its loop turns after each search.
+	}, 120_000);
 
 	it('stands the player on walkable ground next to the tent, facing it', async () => {
 		for (const seed of SEEDS) {
@@ -268,8 +274,9 @@ describe('nearestTent', () => {
 				await turn();
 			}
 		}
-		// TENTS_STANDS_COST
-	}, 60_000);
+		// 180 searches: 2.1 s alone at a load average of 10, 4.1 s in the whole suite at 37, and up to ten times its run alone at 150;
+		// its loop turns after each search.
+	}, 90_000);
 
 	it('beside a tent, that tent is nearest: zero steps, facing it — at any sign and across chunk edges', () => {
 		let onChunkEdge = 0;
@@ -353,8 +360,9 @@ describe('nearestTent', () => {
 			}
 		}
 		expect(tied).toBeGreaterThan(0);
-		// TENTS_BOXED_COST
-	}, 60_000);
+		// Every tent in a 1,600-tile box, searched around: 3.1 s alone at a load average of 10,
+		// 5.6 s in the whole suite at 38, and up to ten times its run alone at 150; its loop turns after each world.
+	}, 120_000);
 
 	it('is deterministic and does not depend on what was asked before', () => {
 		const positions = samplePositions(PROTOTYPE, 25);

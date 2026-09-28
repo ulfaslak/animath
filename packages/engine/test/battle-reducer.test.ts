@@ -182,7 +182,7 @@ describe('applyBattleIntent', () => {
 });
 
 describe('replay', () => {
-	it('the same seed, party, wild and intents always yield the same states and events', () => {
+	it('the same seed, party, wild and intents always yield the same states and events', async () => {
 		const model: PlayerModel = { accuracy: 0.6, policy: 'random', leash: 0.1 };
 		const bad: string[] = [];
 		for (const { p, w, realm } of MEETINGS) {
@@ -195,9 +195,13 @@ describe('replay', () => {
 					if (!isDeepStrictEqual(b[part], a[part]))
 						bad.push(`${p} vs ${w}, seed ${seed}: the ${part} differ`);
 			}
+			await turn();
 		}
 		expect(findings(bad)).toEqual([]);
-	}, 30_000);
+		// Every pair that can meet, 5 seeds, each battle played twice and compared: 0.9 s alone at
+		// a load average of 10, 4.3 s in the whole suite at 30, which scales to 21 s at 150. Its
+		// loop turns after each pair.
+	}, 90_000);
 
 	it('a different seed changes the battle', () => {
 		const model: PlayerModel = { accuracy: 1, policy: 'max' };
@@ -356,8 +360,10 @@ describe('every battle in the catalog', () => {
 				}
 				await turn();
 			}
-			// CATALOG_COST
-		}, 120_000);
+			// About 60 battles a species, every step checked: 0.7 to 2.3 s alone at a load average
+			// of 10, up to 11 s in the whole suite at 33, which scales to 48 s at 150. Its loop
+			// turns after each animal it meets.
+		}, 180_000);
 	}
 
 	it('reached every outcome, and switched both ways', () => {
@@ -617,8 +623,9 @@ describe('answers', () => {
 			expect(got, `${p} vs ${w}`).toEqual(want);
 		}
 		// 1.4 s alone at a load average of 32; with an `expect` per answer, 12 s alone at 46 and
-		// over 30 s in the whole suite.
-	}, 30_000);
+		// over 30 s in the whole suite. 1.2 s alone at 10 and in the whole suite at 28; up to ten
+		// times its run alone at 150.
+	}, 60_000);
 
 	it('a correct answer always deals exactly the formula damage, for every attack and level', () => {
 		// Checked once a species: an `expect` per answer took 4.3 s of its 5 in the whole suite
@@ -753,24 +760,14 @@ describe('the wild animal', () => {
 
 	it('misses an animal of its own tier or fiercer exactly when its roll says so, never a smaller one', () => {
 		// Recomputed from the seed: the attack pick, then the miss roll, are the
-		// wild turn's two draws from the answer intent's Rng (step 1). The rule reads the two
-		// tiers and which side of WILD_MISS_CHANCE the roll falls, so every pair that can meet
-		// plays the first three seeds whose roll is under it and the first three over it: each
-		// pair meets both rolls, where 40 seeds a pair met them only by chance, at a sixth of
-		// the turns. The findings are collected and checked once, since an `expect` per turn
-		// costs more than the turn.
+		// wild turn's two draws from the answer intent's Rng (step 1). Every pair that can
+		// meet, 40 seeds each: the findings are collected and checked once, since an
+		// `expect` per turn costs more than the turn (58,000 turns with #89's 41 animals).
 		const bad: string[] = [];
 		let misses = 0;
 		for (const { p, w, realm } of MEETINGS) {
 			const wary = getAnimal(w).tier <= getAnimal(p).tier;
-			const attacks = getAnimal(w).attacks.length;
-			const taken = { under: 0, over: 0 };
-			for (let seed = 0; taken.under < 3 || taken.over < 3; seed++) {
-				const rng = new Rng(hashInts(seed, 1));
-				const attackIndex = rng.int(1, attacks);
-				const side = rng.next() < WILD_MISS_CHANCE ? 'under' : 'over';
-				if (taken[side] === 3) continue;
-				taken[side]++;
+			for (let seed = 0; seed < 40; seed++) {
 				const start = startBattle(makeParty([p]), makeWild(w), { realm });
 				const { state, events } = attackAndAnswer(start, seed, 1, 1, false);
 				const turns = events.filter(
@@ -782,10 +779,11 @@ describe('the wild animal', () => {
 					bad.push(`${where}: ${turns.length} wild turns`);
 					continue;
 				}
-				if (e.attackIndex !== attackIndex) bad.push(`${where}: attack ${e.attackIndex}`);
-				const miss = wary && side === 'under';
-				if (e.type !== (miss ? 'missed' : 'hit'))
-					bad.push(`${where}: ${e.type}, the roll ${side} the chance`);
+				const rng = new Rng(hashInts(seed, 1));
+				if (e.attackIndex !== rng.int(1, getAnimal(w).attacks.length))
+					bad.push(`${where}: attack ${e.attackIndex}`);
+				const miss = wary && rng.next() < WILD_MISS_CHANCE;
+				if (e.type !== (miss ? 'missed' : 'hit')) bad.push(`${where}: ${e.type}`);
 				if (miss && state.party[0]!.hp !== start.party[0]!.hp) bad.push(`${where}: HP moved`);
 				if (e.type === 'missed') misses++;
 			}
@@ -793,7 +791,8 @@ describe('the wild animal', () => {
 		expect(findings(bad)).toEqual([]);
 		// The misses the rolls call for do happen, so the checks above saw both kinds of turn.
 		expect(misses).toBeGreaterThan(0);
-		// MISS_COST
+		// 0.4 s alone at a load average of 24 (58,000 turns, #89's 41 animals); asserting every
+		// turn instead took over 30 s at a load average of 40.
 	}, 30_000);
 
 	it('misses a wary match about as often as WILD_MISS_CHANCE says', () => {

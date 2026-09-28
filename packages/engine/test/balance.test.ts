@@ -294,19 +294,22 @@ describe('balance simulation', () => {
 	});
 
 	// The two sweeps below play every same-tier pair that can meet (337 since #89's second
-	// wave), 1,000 battles each, with the seeds the bands were set on: 60 and 62 s beside the
-	// rest of the engine's suite at a load average of 120, so they turn the worker's loop as
-	// they go, and three minutes leaves room.
+	// wave), 1,000 battles each, with the seeds the bands were set on: 12 and 14 s alone at a
+	// load average of 10, 60 and 62 s beside the rest of the engine's suite at 120, so they
+	// turn the worker's loop as they go. At a load of 150 a test takes up to ten times its run
+	// alone, so the bounds are three times that.
 	it('the easiest puzzle, always right, usually beats an animal of your own tier (65–80%)', async () => {
 		const rates = await winRatesTurning(0, easiest(1));
 		for (const { p, w, win } of rates) expect(win, `${p} vs ${w}`).toBeGreaterThan(0.5);
 		expectInBand(mean(rates.map((r) => r.win)), 0.65, 0.8, 'same-tier mean');
-	}, 180_000);
+		// Played first, it paid for the start of the run as well: 38 s in the whole suite at a
+		// load average of 34 (2026-09-28), which scales to 170 s at 150.
+	}, 600_000);
 
 	it('the easiest puzzle at 70% right makes a same-tier fight close to a coin flip (40–55%)', async () => {
 		const rates = await winRatesTurning(0, easiest(0.7));
 		expectInBand(mean(rates.map((r) => r.win)), 0.4, 0.55, 'same-tier mean');
-	}, 180_000);
+	}, 480_000);
 
 	it('the starter squirrel meets the same targets against its own near-spawn tier', () => {
 		for (const name of ['the tier-1 animals near home', 'the river near home']) {
@@ -331,9 +334,9 @@ describe('balance simulation', () => {
 			expect(win, `${p} vs ${w}`).toBeLessThan(0.35);
 		for (const { p, w, win } of await winRatesTurning(2, easiest(1)))
 			expect(win, `${p} vs ${w}`).toBeLessThan(0.1);
-		// 352 pairs, 1,000 battles each since #89's second wave: 28 s beside the suite at a load
-		// average of 120.
-	}, 120_000);
+		// 352 pairs, 1,000 battles each since #89's second wave: 7.5 s alone at a load average of
+		// 10, 28 s beside the suite at 120, and up to ten times its run alone at 150.
+	}, 240_000);
 
 	it('being right more often never hurts', async () => {
 		const bad: string[] = [];
@@ -347,9 +350,11 @@ describe('balance simulation', () => {
 		}
 		expect(bad).toEqual([]);
 		// Every pair, four models, 200 battles each (about a million battles with the 41 animals
-		// of #89's second wave): 71 s beside the suite at a load average of 120, turning the
-		// worker's loop as it goes; three minutes leaves room.
-	}, 180_000);
+		// of #89's second wave, less the pairs the sweeps above played at 1,000 seeds, whose first
+		// 200 it reads): 15 s alone at a load average of 10, 71 s beside the suite at 120 before
+		// it read them, and up to ten times its run alone at 150. It turns the worker's loop as
+		// it goes.
+	}, 480_000);
 
 	it('a stronger attack at a higher level never hurts an always-right player', () => {
 		const bad: string[] = [];

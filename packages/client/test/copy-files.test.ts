@@ -150,8 +150,10 @@ describe('copy files', () => {
 			}
 		}
 		expect(problems).toEqual([]);
-		// COPY_KEYS_COST
-	}, 30_000);
+		// Every client source file parsed with TypeScript: 2.5 s alone at a load average of 12 to
+		// 23, 7.3 s in the whole suite at 62, which scales to 25 s at 150; its loop turns after
+		// each file.
+	}, 90_000);
 
 	it('every species in the catalog has every form, and a name for every attack', () => {
 		const problems: string[] = [];

@@ -1,3 +1,4 @@
+import { isDeepStrictEqual } from 'node:util';
 import { describe, expect, it } from 'vitest';
 import { ANIMALS, canFightIn } from '../src/animals/catalog.js';
 import type { AnimalInstance } from '../src/animals/types.js';
@@ -229,7 +230,9 @@ describe('normalizeNickname', () => {
 		expect(named).toBeLessThan(FUZZ);
 		// Up to 2 s alone (6,000 hostile strings, cleaned until a pass changes nothing);
 		// over vitest's 5 s default when other agents' browsers load the machine.
-	}, 30_000);
+		// 0.6 s alone at a load average of 10 and 3.0 s in the whole suite at 29 (2026-09-28), which
+		// scales to 16 s at 150.
+	}, 60_000);
 
 	it('is idempotent', () => {
 		const moved: { raw: string; once: string; twice: string | undefined }[] = [];
@@ -813,9 +816,11 @@ describe('applyPartyIntent: move-species', () => {
 		expect(findings(bad)).toEqual([]);
 		expect(moves).toBeGreaterThan(300);
 		// A big party holds up to one kind per species, and every kind moves to every place: the
-		// sweep grows with the catalog's square. 3.8 s at a load average of 100 with #89's 41
-		// animals, 7 s at 120, past vitest's 5 s default.
-	}, 30_000);
+		// sweep grows with the catalog's square. With #89's 41 animals it took 3.8 s at a load
+		// average of 100 and 7 s at 120, past vitest's 5 s default; reading each party once for
+		// all its moves (`sameAnimals`), 0.96 s alone at 10 and 3.3 s in the whole suite at 34;
+		// up to ten times its run alone at 150, and half as much again with #89's last eight.
+	}, 60_000);
 
 	it('refuses a place off the list, a place that is not a whole number, and a species not in the party', () => {
 		for (const party of PARTIES.slice(0, 40)) {
@@ -867,33 +872,41 @@ describe('applyPartyIntent: rename', () => {
 
 	it('stores the cleaned name, or no nickname at all when nothing usable is left', () => {
 		// Thirty parties of up to twelve: about the animals the sixty parties of up to six held.
+		const bad: string[] = [];
 		for (const party of PARTIES.slice(0, 30)) {
+			const was = byId(party);
 			for (const animal of party) {
 				for (const raw of typed) {
 					const intent: PartyIntent = { type: 'rename', animalId: animal.id, nickname: raw };
 					const step = applyPartyIntent(party, intent, 'explore');
 					const clean = normalizeNickname(raw);
-					expect(step.events).toEqual([
+					const where = `${animal.id} named ${JSON.stringify(raw)}`;
+					// Strict: no nickname is no key, as in a save; never `nickname: undefined`.
+					const event =
 						clean === undefined
 							? { type: 'renamed', animalId: animal.id }
-							: { type: 'renamed', animalId: animal.id, nickname: clean }
-					]);
-					const renamed = step.party.find((a) => a.id === animal.id)!;
+							: { type: 'renamed', animalId: animal.id, nickname: clean };
+					if (!isDeepStrictEqual(step.events, [event]))
+						bad.push(`${where}: ${JSON.stringify(step.events)}`);
+					const renamed = step.party.find((a) => a.id === animal.id);
 					const rest = { id: animal.id, speciesId: animal.speciesId, hp: animal.hp };
-					expect(renamed).toEqual(clean === undefined ? rest : { ...rest, nickname: clean });
-					// No nickname is no key, as in a save; never `nickname: undefined`.
-					expect(Object.keys(renamed).includes('nickname')).toBe(clean !== undefined);
-					expect(Object.keys(step.events[0]!).includes('nickname')).toBe(clean !== undefined);
+					if (
+						!isDeepStrictEqual(renamed, clean === undefined ? rest : { ...rest, nickname: clean })
+					)
+						bad.push(`${where}: ${JSON.stringify(renamed)}`);
 					// Everyone else, and the order, stay exactly as they were.
-					expect(ids(step.party)).toEqual(ids(party));
+					if (ids(step.party).join() !== ids(party).join()) bad.push(`${where}: the order moved`);
 					for (const other of step.party) {
-						if (other.id !== animal.id) expect(other).toEqual(byId(party).get(other.id));
+						if (other.id !== animal.id && !isDeepStrictEqual(other, was.get(other.id)))
+							bad.push(`${where}: ${other.id} changed`);
 					}
 				}
 			}
 		}
-		// About 0.8 s at a load average of 40 (some 200 animals, each renamed eight ways and
-		// checked in full), and past vitest's 5 s at 77, with other agents' browsers drawing.
+		expect(findings(bad)).toEqual([]);
+		// Some 200 animals, each renamed eight ways and checked in full, collected and asserted
+		// once: an `expect` for each check took 2.2 s alone at a load average of 10, and past
+		// vitest's 5 s in the whole suite at 77.
 	}, 30_000);
 
 	it('refuses a name that is not text, and an unknown animal', () => {
@@ -977,7 +990,9 @@ describe('applyPartyIntent: when', () => {
 			await turn();
 		}
 		expect(findings(bad)).toEqual([]);
-		// PARTY_ANYRUN_COST
+		// 3,000 edits, a fifth of them cleaning a hostile name, collected and asserted once: 1.4 s
+		// alone at a load average of 10, 2.4 s in the whole suite at 34, and up to ten times its
+		// run alone at 150; its loop turns after each party.
 	}, 60_000);
 
 	it('puts a party that is not in bundles into them before it moves anyone, keeping who leads', () => {

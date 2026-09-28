@@ -116,8 +116,10 @@ describe('arrivalSpot', () => {
 		expect(landed).toBeGreaterThan(100);
 		expect(afloat).toBeGreaterThan(0);
 		expect(nowhere).toBeGreaterThan(0);
-		// ARRIVAL_EXACT_COST
-	}, 60_000);
+		// 420 arrivals, each against its own brute force: 2.8 s alone at a load average of 10,
+		// 9.7 s in the whole suite at 30, which scales to 48 s at 150; its loop turns after each
+		// friend.
+	}, 180_000);
 
 	it('never lands on the friend, never on foot on the water, and faces the friend', async () => {
 		const rng = new Rng(7);
@@ -139,7 +141,9 @@ describe('arrivalSpot', () => {
 				}
 			}
 		}
-	}, 30_000);
+		// 900 arrivals: 4.4 s alone at a load average of 10, 6.4 s in the whole suite at 33, and
+		// up to ten times its run alone at 150; its loop turns before each friend.
+	}, 180_000);
 
 	it('beside a friend on open ground, lands on a tile touching theirs', () => {
 		const rng = new Rng(99);

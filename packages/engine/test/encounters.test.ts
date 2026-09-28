@@ -457,7 +457,9 @@ describe('encounterTable', () => {
 			})
 		);
 		// 9,650 tables, each written out again here: 0.8 to 1.8 s at a load average of 100.
-	}, 30_000);
+		// 0.5 s alone at a load average of 10 and 2.6 s in the whole suite at 29 since #89's second
+		// wave, which scales to 13 s at 150.
+	}, 60_000);
 
 	it('the frog lives in the river reeds: every lead meets it there, near and far, and it hops up the hills only for a small lead near home', () => {
 		const frog = getAnimal('frog');
@@ -865,8 +867,9 @@ describe('encounterTableAt: the ground around the tall grass', () => {
 		}
 		expect(bad.list).toEqual([]);
 		expect(compared).toBeGreaterThan(100_000);
-		// ENC_LISTS_COST
-	}, 30_000);
+		// 109,350 tables: 3.2 s alone at a load average of 10, 15 s in the whole suite at 33,
+		// which scales to 68 s at 150; its loop turns after each biome.
+	}, 240_000);
 
 	it('for every lead is the table [[PRODUCT]] §4 writes out, on every ground', async () => {
 		const bad = findings();
@@ -899,8 +902,9 @@ describe('encounterTableAt: the ground around the tall grass', () => {
 		}
 		expect(bad.list).toEqual([]);
 		expect(compared).toBeGreaterThan(500_000);
-		// ENC_WRITES_COST
-	}, 30_000);
+		// 49,160 tables, each written out again here: 3.4 s alone at a load average of 10, 10 s in
+		// the whole suite at 35, which scales to 44 s at 150; its loop turns after each biome.
+	}, 180_000);
 
 	it('more of a terrain nearby never lowers the share of an animal that favours it', async () => {
 		// One tile around turns into terrain `to`, from open ground or from
@@ -952,8 +956,9 @@ describe('encounterTableAt: the ground around the tall grass', () => {
 		// Not a sweep of ties: the ground moved these shares tens of thousands of times.
 		expect(checked).toBeGreaterThan(50_000);
 		expect(rose).toBeGreaterThan(20_000);
-		// ENC_TERRAIN_COST
-	}, 30_000);
+		// 54,675 tables, and every one-tile change between them: 2.2 s alone at a load average of
+		// 10, 5.1 s in the whole suite at 37, and up to ten times its run alone at 150; its loop turns after each biome.
+	}, 90_000);
 
 	it('on any ground, the share of animals bigger than the lead, and of those two tiers up, never falls with distance', () => {
 		// Its own tier's share may rise: where animals of different tiers favour different
@@ -1048,8 +1053,9 @@ describe('the start: the ground near spawn', () => {
 		}
 		expect(bad.list).toEqual([]);
 		expect(compared).toBeGreaterThan(300_000);
-		// ENC_SAFE_COST
-	}, 30_000);
+		// 91,125 tables: 2.8 s alone at a load average of 10, 4.6 s in the whole suite at 38,
+		// and up to ten times its run alone at 150; its loop turns after each biome.
+	}, 90_000);
 
 	it("at the reed beside the prototype world's spawn, with the lake all round it, most battles are the water's small animals and the bigger ones 1 in 37", () => {
 		const seed = hashString('prototype');
@@ -1163,8 +1169,11 @@ describe('rollEncounter', () => {
 		}
 		expect(bad.list).toEqual([]);
 		expect(met).toBeGreaterThan(12_000);
-		// ENC_DRAWS_COST
-	}, 60_000);
+		// 168,000 rolls, each rolled again by the rule here (the starter's in full, a bigger lead's
+		// an eighth as many, as its table is checked on every ground above): 4.1 s alone at a load
+		// average of 10, 6.5 s in the whole suite at 37, and up to ten times its run alone at 150; its loop turns
+		// after each biome.
+	}, 180_000);
 
 	it('neither the lead nor the ground changes whether a step starts a battle, only which animal comes out', async () => {
 		const bad: string[] = [];
@@ -1190,8 +1199,9 @@ describe('rollEncounter', () => {
 		}
 		expect(bad).toEqual([]);
 		expect(battles).toBeGreaterThan(5000);
-		// ENC_SAME_COST
-	}, 30_000);
+		// 123,000 rolls: 3.0 s alone at a load average of 10, 4.5 s in the whole suite at 36, and
+		// up to ten times its run alone at 150; its loop turns after each lead.
+	}, 120_000);
 
 	it('starts one encounter per 8–12 grass steps, whoever leads and wherever', async () => {
 		const steps = 8000;
@@ -1208,8 +1218,9 @@ describe('rollEncounter', () => {
 				await turn();
 			}
 		}
-		// ENC_RATE_COST
-	}, 30_000);
+		// 8,000 rolls for each lead and biome: 4.1 s alone at a load average of 10, 6.7 s in the
+		// whole suite at 35, and up to ten times its run alone at 150; its loop turns after each biome.
+	}, 180_000);
 
 	it('is deterministic: same seed, site and lead, same sequence', () => {
 		for (const lead of LEADS) {
@@ -1298,8 +1309,9 @@ describe('rollEncounter', () => {
 		}
 		expect(bad).toEqual([]);
 		expect(met).toBeGreaterThan(2000);
-		// About 0.3 s alone (60,000 rolls); 2.1 s at a load average of 40.
-	}, 30_000);
+		// 60,000 rolls: 1.4 s alone at a load average of 10, 2.4 s in the whole suite at 36, and
+		// up to ten times its run alone at 150.
+	}, 60_000);
 
 	it("samples the lead's table: species shares match the weights, and every species of 1 in 250 or more shows up", async () => {
 		for (const lead of LEADS) {
@@ -1335,8 +1347,9 @@ describe('rollEncounter', () => {
 				await turn();
 			}
 		}
-		// ENC_SAMPLE_COST
-	}, 30_000);
+		// 4,000 encounters for each lead, biome and distance: 4.0 s alone at a load average of 10,
+		// 8.6 s in the whole suite at 36, and up to ten times its run alone at 150; its loop turns after each biome.
+	}, 120_000);
 });
 
 describe('the generated world offers every habitat', () => {
@@ -1355,6 +1368,7 @@ describe('the generated world offers every habitat', () => {
 				expect(reachable, `${a.id} has nowhere to be met (seed ${seed})`).toBe(true);
 			}
 		}
-		// About 1.5 s alone (1,156 chunks generated); over 2 s with two browsers drawing beside it.
-	}, 30_000);
+		// 1,156 chunks generated: 1.3 s alone at a load average of 10, 2.7 s in the whole suite at
+		// 37, and up to ten times its run alone at 150.
+	}, 60_000);
 });

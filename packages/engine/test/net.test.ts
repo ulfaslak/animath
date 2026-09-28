@@ -359,7 +359,9 @@ describe('the wire protocol', () => {
 		}
 		// About 0.35 s alone (2,000 messages each way, through JSON and read back); 2.6 s at a
 		// load average of 33.
-	}, 30_000);
+		// 0.8 s alone at a load average of 10 and 2.5 s in the whole suite at 37 (2026-09-28); up to
+		// ten times its run alone at 150.
+	}, 60_000);
 
 	it('refuses a message with any one field swapped for a value it never takes', () => {
 		const rng = new Rng(2);
