@@ -15,6 +15,7 @@ import {
 } from '../src/render/battle-scene';
 import { SWIM_DEPTH } from '../src/render/follower';
 import { svelteSources } from './source';
+import { turn } from './turn';
 
 /**
  * The leash's loop stays in the picture and in plain view ([[DESIGN]] §
@@ -141,17 +142,37 @@ function onCanvas(v: THREE.Vector3, size: (typeof SIZES)[number]): Point {
 	return { x: ((p.x + 1) / 2) * size.width, y: ((1 - p.y) / 2) * size.height };
 }
 
-/** Every point of the loop on the canvas. */
-function loopOnCanvas(loop: THREE.Mesh, size: (typeof SIZES)[number]): Point[] {
+/** A point's way onto the canvas: see `loopOnCanvas`. */
+const toCanvas = new THREE.Matrix4();
+const point = new THREE.Vector3();
+
+/**
+ * How near every point of the loop comes to the canvas's top edge and to
+ * `box`, in CSS pixels. Each point goes through three's projection as
+ * `Vector3.project` does it, the camera's view and then its lens, with the
+ * loop's own place folded into the same product: one product a point, not
+ * three and a copy.
+ */
+function loopOnCanvas(
+	loop: THREE.Mesh,
+	size: (typeof SIZES)[number],
+	box: Box
+): { top: number; box: number } {
 	scene.camera.updateMatrixWorld();
 	loop.updateMatrixWorld(true);
+	toCanvas
+		.multiplyMatrices(scene.camera.projectionMatrix, scene.camera.matrixWorldInverse)
+		.multiply(loop.matrixWorld);
 	const points = loop.geometry.getAttribute('position');
-	return Array.from({ length: points.count }, (_, i) =>
-		onCanvas(
-			new THREE.Vector3().fromBufferAttribute(points, i).applyMatrix4(loop.matrixWorld),
-			size
-		)
-	);
+	let top = Infinity;
+	let near = Infinity;
+	for (let i = 0; i < points.count; i++) {
+		point.fromBufferAttribute(points, i).applyMatrix4(toCanvas);
+		const p = { x: ((point.x + 1) / 2) * size.width, y: ((1 - point.y) / 2) * size.height };
+		top = Math.min(top, p.y);
+		near = Math.min(near, gap(p, box));
+	}
+	return { top, box: near };
 }
 
 /** The box as laid out from the safe area's top left: moved in by the insets. */
@@ -254,15 +275,16 @@ function throwAt(
 		ropeWhen: '',
 		arc: 0
 	};
-	const look = (moment: string) => {
+	/** Looks at the leash as it is now: false once it has gone, which it never comes back from. */
+	const look = (moment: string): boolean => {
 		const leash = leashOf(scene);
-		if (!leash) return;
+		if (!leash) return false;
+		if (moment === 'flying') flight.push(leash.loop.position.clone());
+		if (!ending) return true;
 		const when = `${moment} at ${t.toFixed(2)} s`;
-		const loop = loopOnCanvas(leash.loop, size);
-		const top = Math.min(...loop.map((p) => p.y));
-		if (top < seen.top) [seen.top, seen.topWhen] = [top, when];
-		const box = Math.min(...loop.map((p) => gap(p, statusBox)));
-		if (box < seen.box) [seen.box, seen.boxWhen] = [box, when];
+		const loop = loopOnCanvas(leash.loop, size, statusBox);
+		if (loop.top < seen.top) [seen.top, seen.topWhen] = [loop.top, when];
+		if (loop.box < seen.box) [seen.box, seen.boxWhen] = [loop.box, when];
 		// The rope runs straight from the hand to the loop's middle.
 		const rope = lineGap(
 			onCanvas(leash.rope.position, size),
@@ -270,7 +292,7 @@ function throwAt(
 			statusBox
 		);
 		if (rope < seen.rope) [seen.rope, seen.ropeWhen] = [rope, when];
-		if (moment === 'flying') flight.push(leash.loop.position.clone());
+		return true;
 	};
 	for (; t < LEASH_FLIGHT_SECONDS + 0.1;) {
 		scene.update((t += FRAME));
@@ -278,10 +300,11 @@ function throwAt(
 	}
 	if (ending) {
 		scene.leashResult(ending === 'caught');
-		// A second: the pop is over in 0.3 s, the cheer's two hops in 0.9 s.
+		// A second: the pop is over in 0.3 s, the cheer's two hops in 0.9 s. A loop that
+		// has popped off is gone, and nothing after it needs a look.
 		for (let i = 0; i < 60; i++) {
 			scene.update((t += FRAME));
-			look(ending === 'caught' ? 'riding the cheer' : 'popping off');
+			if (!look(ending === 'caught' ? 'riding the cheer' : 'popping off')) break;
 		}
 	}
 	// The straight throw runs from where the loop left the hand to where it landed; x moves along it evenly.
@@ -294,36 +317,53 @@ function throwAt(
 	return seen;
 }
 
+/** A size as a failure names it. */
+function sizeName(size: (typeof SIZES)[number]): string {
+	const { top, right, bottom, left } = size.inset;
+	const insets = size.inset === NO_INSET ? '' : `, insets ${top} ${right} ${bottom} ${left}`;
+	return `${size.width}×${size.height}${size.touch ? ' (touch)' : ''}${insets}`;
+}
+
+interface Thrown {
+	species: string;
+	reduced: boolean;
+	/** Whether the throw was looked at on the canvas, or flown for its arc alone. */
+	looked: boolean;
+	seen: Throw;
+}
+
+/** Every throw at a size, thrown once for the three tests that read it. */
+const thrownAt = new Map<number, Promise<Thrown[]>>();
+
 /**
- * A turn of the worker's event loop in the middle of the sweep, taken before
- * any test could fake the timers: vitest reads its replies only when the loop
- * turns, and `setup.ts` turns it only between tests, so a sweep that holds the
- * worker for a minute ends the run with `Timeout calling "onTaskUpdate"`
- * ([[DEVELOPMENT]] § Testing ideology). The throws below took over a minute at
- * a load average of 150 with #89's 41 animals.
+ * Every throw at the `s`th size: at every species, ending both ways, looked
+ * at every frame; and with reduced motion, looked at ending both ways for a
+ * third of the species, taken in turn so each is so thrown at two or three
+ * sizes, and flown for its arc alone for the rest. The lower throw of reduced
+ * motion is never the tight one: with the 32 animals of #89 its loop kept
+ * 66 px or more from the top edge, 53 from the status box and 40 from the
+ * rope's crossing, where the full throw came within 10, 13 and 1; looking at
+ * it for every species too doubled the sweep. The worker's loop turns after
+ * each species, so it reads vitest's replies however long a loaded machine
+ * takes over a size (`turn`).
  */
-const nextTurn = globalThis.setImmediate;
-const turn = () => new Promise<void>((resolve) => nextTurn(() => resolve()));
+function throwsAt(s: number): Promise<Thrown[]> {
+	let thrown = thrownAt.get(s);
+	if (!thrown) thrownAt.set(s, (thrown = throwAll(s)));
+	return thrown;
+}
 
-/** Every throw, thrown once for all the tests that read it (the one sweep, awaited by each). */
-let throwing: Promise<{ where: string; seen: Throw }[]> | null = null;
-
-async function throwAll(): Promise<{ where: string; seen: Throw }[]> {
-	const thrown: { where: string; seen: Throw }[] = [];
+async function throwAll(s: number): Promise<Thrown[]> {
+	const thrown: Thrown[] = [];
+	const size = SIZES[s]!;
 	for (const reduced of [false, true]) {
-		for (const [s, size] of SIZES.entries()) {
-			for (const [i, { id }] of ANIMALS.entries()) {
-				if (reduced && (i + s) % 3 !== 0) continue;
-				await turn();
-				motion.reduced = reduced;
-				for (const ending of ['caught', 'broke'] as const) {
-					const { top, right, bottom, left } = size.inset;
-					const insets =
-						size.inset === NO_INSET ? '' : `, insets ${top} ${right} ${bottom} ${left}`;
-					const where = `${id} at ${size.width}×${size.height}${size.touch ? ' (touch)' : ''}${insets}${reduced ? ', reduced motion' : ''}`;
-					thrown.push({ where, seen: throwAt(size, id, ending) });
-				}
-			}
+		for (const [i, { id }] of ANIMALS.entries()) {
+			const looked = !reduced || (i + s) % 3 === 0;
+			const endings = looked ? (['caught', 'broke'] as const) : [null];
+			motion.reduced = reduced;
+			for (const ending of endings)
+				thrown.push({ species: id, reduced, looked, seen: throwAt(size, id, ending) });
+			await turn();
 		}
 	}
 	motion.reduced = false;
@@ -332,41 +372,17 @@ async function throwAll(): Promise<{ where: string; seen: Throw }[]> {
 	return thrown;
 }
 
-/**
- * What `check` finds wrong with every throw: at every size, for every
- * species, ending both ways, and with reduced motion for a third of the
- * species at each size, taken in turn so each is thrown so at two or three
- * sizes. The lower throw of reduced motion is never the tight one: with the
- * 32 animals of #89 its loop kept 66 px or more from the top edge, 53 from
- * the status box and 40 from the rope's crossing, where the full throw came
- * within 10, 13 and 1; throwing it for every species too doubled the sweep.
- */
-async function everyThrow(check: (seen: Throw) => string | null): Promise<string[]> {
-	throwing ??= throwAll();
-	const thrown = await throwing;
-	const bad = thrown.flatMap(({ where, seen }) => {
-		const wrong = check(seen);
-		return wrong ? [`${where}: ${wrong}`] : [];
+/** What `check` finds wrong with every throw looked at, at the `s`th size. */
+async function everyThrow(s: number, check: (seen: Throw) => string | null): Promise<string[]> {
+	const bad = (await throwsAt(s)).flatMap(({ species, reduced, looked, seen }) => {
+		const wrong = looked ? check(seen) : null;
+		return wrong ? [`${species}${reduced ? ', reduced motion' : ''}: ${wrong}`] : [];
 	});
 	// Both endings share the flight: one line for a flight that fails in both.
 	return [...new Set(bad)];
 }
 
 describe('the leash', () => {
-	it('keeps its loop in the picture at every size, for every species, with and without reduced motion', async () => {
-		const bad = await everyThrow(({ top, topWhen }) =>
-			top < CLEAR ? `${top.toFixed(1)} px from the top edge, ${topWhen}` : null
-		);
-		expect(bad).toEqual([]);
-		// About 6.6 s alone at a load average of 20 with the 392 throws of 14 animals at the
-		// seven tablet and laptop sizes (every point of the loop projected on each of their
-		// frames, against the top edge and the status box; the tests after it reuse them), 17 s
-		// at a load average of 54; about 600 throws with the 32 animals of #89 (`everyThrow`),
-		// and about 940 with the four phone sizes too: 67 s in the whole suite at a load
-		// average of 165. About 1,200 with the 41 animals of #89's second wave, so it turns the
-		// worker's loop as it goes.
-	}, 180_000);
-
 	it('knows where the wild animal’s status box is: its copy of the box covers the CSS’s', () => {
 		expect(WILD_STATUS_BOX.right).toBe(STATUS_BOX!.right);
 		expect(WILD_STATUS_BOX.bottom).toBeGreaterThanOrEqual(STATUS_BOX!.bottom);
@@ -374,46 +390,55 @@ describe('the leash', () => {
 		expect(WILD_STATUS_BOX_SHORT.bottom).toBeGreaterThanOrEqual(STATUS_BOX_SHORT!.bottom);
 	});
 
-	it('never goes behind the wild animal’s status box: its loop keeps clear, and its rope never crosses it', async () => {
-		const bad = await everyThrow(({ box, boxWhen, rope, ropeWhen }) =>
-			box < CLEAR
-				? `the loop ${box > 0 ? `${box.toFixed(1)} px from` : 'behind'} the status box, ${boxWhen}`
-				: rope <= 0
-					? `the rope crosses the status box, ${ropeWhen}`
-					: null
-		);
-		expect(bad).toEqual([]);
-		// Reads the throws of the test above; run alone, it throws them itself, and takes as long.
-	}, 180_000);
+	// One size at a time, so that no test holds its worker for the whole sweep.
+	for (const [s, size] of SIZES.entries()) {
+		describe(`at ${sizeName(size)}`, () => {
+			it('keeps its loop in the picture for every species, with and without reduced motion', async () => {
+				const bad = await everyThrow(s, ({ top, topWhen }) =>
+					top < CLEAR ? `${top.toFixed(1)} px from the top edge, ${topWhen}` : null
+				);
+				expect(bad).toEqual([]);
+				// Every species ending both ways, and with reduced motion looked at for a third of
+				// them and flown for the rest, a frame at a time (about 135 throws with #89's 41
+				// animals, 27 of them flights alone): 1.4 to 2.0 s alone at a load average of 12 to
+				// 23, 1.7 to 7.8 s in the whole suite at 43 to 58, which scales to 20 s at 150. The
+				// whole sweep in one test took 67 s in the whole suite at 165 with 32 animals.
+			}, 90_000);
 
-	it('still arcs, and arcs lower with reduced motion', async () => {
-		const bad: string[] = [];
-		for (const size of SIZES) {
-			for (const { id } of ANIMALS) {
-				await turn();
-				motion.reduced = false;
-				const full = throwAt(size, id, null).arc;
-				motion.reduced = true;
-				const calm = throwAt(size, id, null).arc;
-				const { top, right, bottom, left } = size.inset;
-				const insets = size.inset === NO_INSET ? '' : `, insets ${top} ${right} ${bottom} ${left}`;
-				const where = `${id} at ${size.width}×${size.height}${size.touch ? ' (touch)' : ''}${insets}`;
-				// A fifth of a tile at least: the loop visibly lobs, however little sky there is.
-				if (full < 0.2) bad.push(`${where}: arcs ${full.toFixed(2)} tiles`);
-				if (!(calm > 0 && calm < full * 0.5)) {
-					bad.push(
-						`${where}: arcs ${calm.toFixed(2)} tiles with reduced motion, ${full.toFixed(2)} without`
-					);
+			it('never goes behind the wild animal’s status box: its loop keeps clear, and its rope never crosses it', async () => {
+				const bad = await everyThrow(s, ({ box, boxWhen, rope, ropeWhen }) =>
+					box < CLEAR
+						? `the loop ${box > 0 ? `${box.toFixed(1)} px from` : 'behind'} the status box, ${boxWhen}`
+						: rope <= 0
+							? `the rope crosses the status box, ${ropeWhen}`
+							: null
+				);
+				expect(bad).toEqual([]);
+				// Reads the throws of the test above; run alone, it throws them itself, and takes as long.
+			}, 90_000);
+
+			it('still arcs, and arcs lower with reduced motion', async () => {
+				const thrown = await throwsAt(s);
+				const bad: string[] = [];
+				for (const { id } of ANIMALS) {
+					// Every throw's arc: both endings fly the same flight.
+					const arcs = (reduced: boolean) =>
+						thrown.filter((x) => x.species === id && x.reduced === reduced).map((x) => x.seen.arc);
+					const full = Math.min(...arcs(false));
+					const calm = Math.max(...arcs(true));
+					// A fifth of a tile at least: the loop visibly lobs, however little sky there is.
+					if (full < 0.2) bad.push(`${id}: arcs ${full.toFixed(2)} tiles`);
+					if (!(Math.min(...arcs(true)) > 0 && calm < full * 0.5)) {
+						bad.push(
+							`${id}: arcs ${calm.toFixed(2)} tiles with reduced motion, ${full.toFixed(2)} without`
+						);
+					}
 				}
-			}
-		}
-		motion.reduced = false;
-		expect(bad).toEqual([]);
-		// The flights alone (the arc is measured on them): about 1.4 s alone with 14 animals at
-		// the seven tablet and laptop sizes, whole throws then; 6.6 s at a load average of 54.
-		// With 32 animals and the phone sizes, whole throws took 77 s at a load average of 165.
-		// With #89's 41 it turns the worker's loop as it goes.
-	}, 120_000);
+				expect(bad).toEqual([]);
+				// Reads the throws of the tests above; run alone, it throws them itself.
+			}, 90_000);
+		});
+	}
 });
 
 /**

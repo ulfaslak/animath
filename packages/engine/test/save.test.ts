@@ -316,7 +316,9 @@ describe('how deep a save nests', () => {
 				expect(replacesAnotherGame(doc, { lineage: 'game-a' })).toBe(true);
 			}
 		}
-	});
+		// 0.8 s alone at a load average of 10 and 3.3 s in the whole suite at 30, which scales to 17 s
+		// at 150.
+	}, 60_000);
 
 	it('reads a later version as newer however deep it nests: a build that saves deeper bumps it', () => {
 		// The version is read before anything walks the document, so the way a later build
@@ -807,7 +809,9 @@ describe('the v1 → v2 upgrade', () => {
 		}
 		// About 0.25 s alone (500 random v1 saves, each read, rebuilt and checked as a write);
 		// 3.4 s at a load average of 40.
-	}, 30_000);
+		// 0.55 s alone at a load average of 10 and 2.5 s in the whole suite at 31 (2026-09-28), which
+		// scales to 12 s at 150.
+	}, 60_000);
 
 	it('keeps party, tokens, items, position and cleared tiles: a v1 game plays on in World 1 as it was', () => {
 		const pos = findTile(SEED, true);

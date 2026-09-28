@@ -14,6 +14,7 @@ import {
 	type PlayerModel,
 	type Policy
 } from './battle-sim.js';
+import { turn } from './turn.js';
 
 /**
  * Balance: species × species battles with a scripted player, party of one, who
@@ -35,18 +36,6 @@ const TARGET_SEEDS = 1000;
  */
 const SLACK = 0.02;
 const PRINT = Boolean(process.env.SIM);
-
-/**
- * A turn of the worker's event loop in the middle of a sweep. vitest reads its
- * replies to a worker only when the loop turns, and `setup.ts` turns it only
- * between tests: a sweep that holds the worker for a minute ends the run with
- * `Timeout calling "onTaskUpdate"` though every test passed ([[DEVELOPMENT]]
- * § Testing ideology). The sweeps below took 60 to 71 s each at a load average
- * of 120 with #89's 41 animals, so they turn it every few pairs. Taken before
- * any test could fake the timers.
- */
-const nextTurn = globalThis.setImmediate;
-const turn = () => new Promise<void>((resolve) => nextTurn(() => resolve()));
 
 interface Outcome {
 	win: number;
@@ -75,25 +64,27 @@ function pairs(gap: number): Array<[string, string]> {
 	);
 }
 
-const cache = new Map<string, Outcome>();
+/**
+ * The battles played so far, for each pair and player: how many of the first
+ * n seeds were won, and their rounds, at index n. Seeds count up from 0, so a
+ * run of 200 is the start of a run of 1,000, and a check at 200 seeds reads
+ * the first 200 of a pair already played at 1,000.
+ */
+const played = new Map<string, { wins: number[]; rounds: number[] }>();
 function simulate(playerId: string, wildId: string, model: PlayerModel, seeds = SEEDS): Outcome {
-	const key = `${playerId}>${wildId}|${model.policy}|${model.level}|${model.accuracy}|${seeds}`;
-	const hit = cache.get(key);
-	if (hit) return hit;
-	let wins = 0;
-	let rounds = 0;
+	const key = `${playerId}>${wildId}|${model.policy}|${model.level}|${model.accuracy}`;
+	let so = played.get(key);
+	if (!so) played.set(key, (so = { wins: [0], rounds: [0] }));
 	const realm = arena(playerId, wildId);
 	if (realm === null) throw new Error(`${playerId} and ${wildId} never meet`);
-	for (let seed = 0; seed < seeds; seed++) {
+	for (let seed = so.wins.length - 1; seed < seeds; seed++) {
 		const party = makeParty([playerId]);
 		const { state } = playBattle(seed, party, makeWild(wildId), model, undefined, 2000, realm);
 		if (state.phase.kind !== 'ended') throw new Error('battle did not end');
-		if (state.phase.outcome === 'won') wins++;
-		rounds += state.turn;
+		so.wins.push(so.wins[seed]! + (state.phase.outcome === 'won' ? 1 : 0));
+		so.rounds.push(so.rounds[seed]! + state.turn);
 	}
-	const out = { win: wins / seeds, rounds: rounds / seeds };
-	cache.set(key, out);
-	return out;
+	return { win: so.wins[seeds]! / seeds, rounds: so.rounds[seeds]! / seeds };
 }
 
 /** The kid the targets are about: the easiest puzzle, the weakest attack at level 1. */
@@ -316,19 +307,22 @@ describe('balance simulation', () => {
 	});
 
 	// The two sweeps below play every same-tier pair that can meet (391 since #89's third
-	// wave), 1,000 battles each, with the seeds the bands were set on: 60 and 62 s beside the
-	// rest of the engine's suite at a load average of 120, so they turn the worker's loop as
-	// they go, and three minutes leaves room.
+	// wave), 1,000 battles each, with the seeds the bands were set on. With its second wave's
+	// 337 they took 12 and 14 s alone at a load average of 10, 60 and 62 s beside the rest of
+	// the engine's suite at 120, so they turn the worker's loop as they go. At a load of 150 a
+	// test takes up to ten times its run alone, so the bounds are three times that.
 	it('the easiest puzzle, always right, usually beats an animal of your own tier (65–80%)', async () => {
 		const rates = await winRatesTurning(0, easiest(1));
 		for (const { p, w, win } of rates) expect(win, `${p} vs ${w}`).toBeGreaterThan(0.5);
 		expectInBand(mean(rates.map((r) => r.win)), 0.65, 0.8, 'same-tier mean');
-	}, 180_000);
+		// Played first, it paid for the start of the run as well: 38 s in the whole suite at a
+		// load average of 34 (2026-09-28), which scales to 170 s at 150.
+	}, 600_000);
 
 	it('the easiest puzzle at 70% right makes a same-tier fight close to a coin flip (40–55%)', async () => {
 		const rates = await winRatesTurning(0, easiest(0.7));
 		expectInBand(mean(rates.map((r) => r.win)), 0.4, 0.55, 'same-tier mean');
-	}, 180_000);
+	}, 480_000);
 
 	it('the starter squirrel meets the same targets against its own near-spawn tier', () => {
 		for (const name of ['the tier-1 animals near home', 'the river near home']) {
@@ -353,9 +347,10 @@ describe('balance simulation', () => {
 			expect(win, `${p} vs ${w}`).toBeLessThan(0.35);
 		for (const { p, w, win } of await winRatesTurning(2, easiest(1)))
 			expect(win, `${p} vs ${w}`).toBeLessThan(0.1);
-		// 422 pairs, 1,000 battles each since #89's third wave; its second wave's 352 took 28 s
-		// beside the suite at a load average of 120.
-	}, 120_000);
+		// 422 pairs, 1,000 battles each since #89's third wave; its second wave's 352 took 7.5 s
+		// alone at a load average of 10, 28 s beside the suite at 120, and up to ten times its
+		// run alone at 150.
+	}, 240_000);
 
 	it('being right more often never hurts', async () => {
 		const bad: string[] = [];
@@ -368,10 +363,12 @@ describe('balance simulation', () => {
 			}
 		}
 		expect(bad).toEqual([]);
-		// Every pair, four models, 200 battles each: 1.25 million battles with the 49 animals of
-		// #89's third wave (a million with its second wave's 41 took 71 s beside the suite at a
-		// load average of 120), turning the worker's loop as it goes; three minutes leaves room.
-	}, 180_000);
+		// Every pair, four models, 200 battles each (1.25 million battles with the 49 animals of
+		// #89's third wave, less the pairs the sweeps above played at 1,000 seeds, whose first
+		// 200 it reads). With its second wave's 41: 15 s alone at a load average of 10, 71 s
+		// beside the suite at 120 before it read them, and up to ten times its run alone at 150.
+		// It turns the worker's loop as it goes.
+	}, 480_000);
 
 	it('a stronger attack at a higher level never hurts an always-right player', () => {
 		const bad: string[] = [];

@@ -1,3 +1,4 @@
+import { isDeepStrictEqual } from 'node:util';
 import { describe, expect, it } from 'vitest';
 import { ANIMALS, canFightIn } from '../src/animals/catalog.js';
 import type { AnimalInstance } from '../src/animals/types.js';
@@ -7,6 +8,7 @@ import { MAX_NICKNAME_LENGTH, normalizeNickname } from '../src/party/names.js';
 import { applyPartyIntent, leadIndex } from '../src/party/reducer.js';
 import type { PartyIntent, PartyRejection, PartyStep, PlayerActivity } from '../src/party/types.js';
 import { Rng, hashInts } from '../src/rng.js';
+import { turn } from './turn.js';
 
 /**
  * Party management: the nickname cleaner, the bundles, and the party
@@ -26,6 +28,15 @@ function deepFreeze<T>(value: T): T {
 }
 
 const chars = (s: string) => Array.from(s).length;
+
+/**
+ * The first few failures of a sweep and how many there were: a broken rule
+ * fails every move of a party of 150, and printing them all can outlast the
+ * test's bound ([[DEVELOPMENT]] § Testing ideology).
+ */
+function findings(bad: unknown[]): unknown[] {
+	return bad.length > 20 ? [...bad.slice(0, 20), `…and ${bad.length - 20} more`] : bad;
+}
 
 // --- a fuzzer for typed names ------------------------------------------------
 
@@ -219,7 +230,9 @@ describe('normalizeNickname', () => {
 		expect(named).toBeLessThan(FUZZ);
 		// Up to 2 s alone (6,000 hostile strings, cleaned until a pass changes nothing);
 		// over vitest's 5 s default when other agents' browsers load the machine.
-	}, 30_000);
+		// 0.6 s alone at a load average of 10 and 3.0 s in the whole suite at 29 (2026-09-28), which
+		// scales to 16 s at 150.
+	}, 60_000);
 
 	it('is idempotent', () => {
 		const moved: { raw: string; once: string; twice: string | undefined }[] = [];
@@ -394,15 +407,28 @@ function expectSameAnimals(before: readonly AnimalInstance[], after: readonly An
 
 /** What `expectSameAnimals` checks, as a list of what went wrong, for a hot loop to collect. */
 function animalProblems(before: readonly AnimalInstance[], after: readonly AnimalInstance[]) {
-	if (after.length !== before.length) return [`${before.length} animals became ${after.length}`];
-	const was = byId(before);
-	const bad: string[] = [];
-	for (const animal of after) {
-		const old = was.get(animal.id);
-		if (old === animal) bad.push(`${animal.id} is shared`);
-		else if (JSON.stringify(old) !== JSON.stringify(animal)) bad.push(`${animal.id} changed`);
-	}
-	return bad;
+	return sameAnimals(before)(after);
+}
+
+/**
+ * `animalProblems` for many edits of one party: the party is read once, and
+ * each edit checked against that, so a sweep over every move of a party of
+ * 150 does not write every animal out twice a move.
+ */
+function sameAnimals(
+	before: readonly AnimalInstance[]
+): (after: readonly AnimalInstance[]) => string[] {
+	const was = new Map(before.map((a) => [a.id, { animal: a, text: JSON.stringify(a) }]));
+	return (after) => {
+		if (after.length !== before.length) return [`${before.length} animals became ${after.length}`];
+		const bad: string[] = [];
+		for (const animal of after) {
+			const old = was.get(animal.id);
+			if (old?.animal === animal) bad.push(`${animal.id} is shared`);
+			else if (old?.text !== JSON.stringify(animal)) bad.push(`${animal.id} changed`);
+		}
+		return bad;
+	};
 }
 
 /** Whether a step is exactly this one event, the party untouched when it is a refusal. */
@@ -688,6 +714,7 @@ describe('applyPartyIntent: reorder', () => {
 		let moves = 0;
 		for (const party of PARTIES) {
 			const bundleOf = new Map(bundles(party).map((b) => [b.speciesId, b]));
+			const problems = sameAnimals(party);
 			for (const [from, animal] of party.entries()) {
 				const slots = bundleOf.get(animal.speciesId)!.slots;
 				const animalId = animal.id;
@@ -713,11 +740,11 @@ describe('applyPartyIntent: reorder', () => {
 					) {
 						bad.push({ animalId, to, got: ids(step.party), events: step.events });
 					}
-					bad.push(...animalProblems(party, step.party));
+					bad.push(...problems(step.party));
 				}
 			}
 		}
-		expect(bad).toEqual([]);
+		expect(findings(bad)).toEqual([]);
 		expect(moves).toBeGreaterThan(500);
 	});
 
@@ -762,6 +789,7 @@ describe('applyPartyIntent: move-species', () => {
 		let moves = 0;
 		for (const party of [...PARTIES, ...BIG]) {
 			const list = bundles(party);
+			const problems = sameAnimals(party);
 			for (const [from, bundle] of list.entries()) {
 				const { speciesId } = bundle;
 				for (let to = 0; to < list.length; to++) {
@@ -781,16 +809,18 @@ describe('applyPartyIntent: move-species', () => {
 					) {
 						bad.push({ speciesId, to, got: ids(step.party), events: step.events });
 					}
-					bad.push(...animalProblems(party, step.party));
+					bad.push(...problems(step.party));
 				}
 			}
 		}
-		expect(bad).toEqual([]);
+		expect(findings(bad)).toEqual([]);
 		expect(moves).toBeGreaterThan(300);
 		// A big party holds up to one kind per species, and every kind moves to every place: the
-		// sweep grows with the catalog's square. 3.8 s at a load average of 100 with #89's 41
-		// animals, 7 s at 120, past vitest's 5 s default.
-	}, 30_000);
+		// sweep grows with the catalog's square. With #89's 41 animals it took 3.8 s at a load
+		// average of 100 and 7 s at 120, past vitest's 5 s default; reading each party once for
+		// all its moves (`sameAnimals`), 0.96 s alone at 10 and 3.3 s in the whole suite at 34;
+		// up to ten times its run alone at 150, and half as much again with #89's last eight.
+	}, 60_000);
 
 	it('refuses a place off the list, a place that is not a whole number, and a species not in the party', () => {
 		for (const party of PARTIES.slice(0, 40)) {
@@ -842,33 +872,41 @@ describe('applyPartyIntent: rename', () => {
 
 	it('stores the cleaned name, or no nickname at all when nothing usable is left', () => {
 		// Thirty parties of up to twelve: about the animals the sixty parties of up to six held.
+		const bad: string[] = [];
 		for (const party of PARTIES.slice(0, 30)) {
+			const was = byId(party);
 			for (const animal of party) {
 				for (const raw of typed) {
 					const intent: PartyIntent = { type: 'rename', animalId: animal.id, nickname: raw };
 					const step = applyPartyIntent(party, intent, 'explore');
 					const clean = normalizeNickname(raw);
-					expect(step.events).toEqual([
+					const where = `${animal.id} named ${JSON.stringify(raw)}`;
+					// Strict: no nickname is no key, as in a save; never `nickname: undefined`.
+					const event =
 						clean === undefined
 							? { type: 'renamed', animalId: animal.id }
-							: { type: 'renamed', animalId: animal.id, nickname: clean }
-					]);
-					const renamed = step.party.find((a) => a.id === animal.id)!;
+							: { type: 'renamed', animalId: animal.id, nickname: clean };
+					if (!isDeepStrictEqual(step.events, [event]))
+						bad.push(`${where}: ${JSON.stringify(step.events)}`);
+					const renamed = step.party.find((a) => a.id === animal.id);
 					const rest = { id: animal.id, speciesId: animal.speciesId, hp: animal.hp };
-					expect(renamed).toEqual(clean === undefined ? rest : { ...rest, nickname: clean });
-					// No nickname is no key, as in a save; never `nickname: undefined`.
-					expect(Object.keys(renamed).includes('nickname')).toBe(clean !== undefined);
-					expect(Object.keys(step.events[0]!).includes('nickname')).toBe(clean !== undefined);
+					if (
+						!isDeepStrictEqual(renamed, clean === undefined ? rest : { ...rest, nickname: clean })
+					)
+						bad.push(`${where}: ${JSON.stringify(renamed)}`);
 					// Everyone else, and the order, stay exactly as they were.
-					expect(ids(step.party)).toEqual(ids(party));
+					if (ids(step.party).join() !== ids(party).join()) bad.push(`${where}: the order moved`);
 					for (const other of step.party) {
-						if (other.id !== animal.id) expect(other).toEqual(byId(party).get(other.id));
+						if (other.id !== animal.id && !isDeepStrictEqual(other, was.get(other.id)))
+							bad.push(`${where}: ${other.id} changed`);
 					}
 				}
 			}
 		}
-		// About 0.8 s at a load average of 40 (some 200 animals, each renamed eight ways and
-		// checked in full), and past vitest's 5 s at 77, with other agents' browsers drawing.
+		expect(findings(bad)).toEqual([]);
+		// Some 200 animals, each renamed eight ways and checked in full, collected and asserted
+		// once: an `expect` for each check took 2.2 s alone at a load average of 10, and past
+		// vitest's 5 s in the whole suite at 77.
 	}, 30_000);
 
 	it('refuses a name that is not text, and an unknown animal', () => {
@@ -927,22 +965,34 @@ describe('applyPartyIntent: when', () => {
 		}
 	});
 
-	it('keeps every animal, its HP, a clean name and the bundles through any run of edits', () => {
+	it('keeps every animal, its HP, a clean name and the bundles through any run of edits', async () => {
+		const bad: string[] = [];
 		for (let seed = 1; seed <= 100; seed++) {
 			const rng = new Rng(hashInts(0xed17, seed));
 			let party: readonly AnimalInstance[] = deepFreeze(randomParty(rng, rng.int(1, 40)));
 			const hp = new Map(party.map((a) => [a.id, a.hp]));
 			for (let i = 0; i < 30; i++) {
 				party = deepFreeze(applyPartyIntent(party, randomIntent(rng, party), 'explore').party);
-				expect(new Map(party.map((a) => [a.id, a.hp]))).toEqual(hp);
-				expect(isBundled(party)).toBe(true);
+				const where = `seed ${seed}, edit ${i}`;
+				// The same animals, each once, each at its HP.
+				if (
+					party.length !== hp.size ||
+					new Set(ids(party)).size !== hp.size ||
+					party.some((a) => hp.get(a.id) !== a.hp)
+				)
+					bad.push(`${where}: ${JSON.stringify(party)}`);
+				if (!isBundled(party)) bad.push(`${where}: not in bundles, ${ids(party)}`);
 				for (const a of party) {
-					if (a.nickname !== undefined) expect(problems(a.nickname)).toEqual([]);
+					if (a.nickname !== undefined && problems(a.nickname).length > 0)
+						bad.push(`${where}: ${JSON.stringify(a.nickname)} ${problems(a.nickname)}`);
 				}
 			}
+			await turn();
 		}
-		// About 1.7 s alone (3,000 edits, a fifth of them cleaning a hostile name); 16 s at a
-		// load average of 60.
+		expect(findings(bad)).toEqual([]);
+		// 3,000 edits, a fifth of them cleaning a hostile name, collected and asserted once: 1.4 s
+		// alone at a load average of 10, 2.4 s in the whole suite at 34, and up to ten times its
+		// run alone at 150; its loop turns after each party.
 	}, 60_000);
 
 	it('puts a party that is not in bundles into them before it moves anyone, keeping who leads', () => {

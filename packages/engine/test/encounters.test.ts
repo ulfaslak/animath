@@ -20,6 +20,7 @@ import { generateChunk, tileAtWorld } from '../src/world/generate.js';
 import { spawnPoint } from '../src/world/spawn.js';
 import { HABITAT_BOOST, surroundings, type Surroundings } from '../src/world/habitat.js';
 import { isEncounterTile, type GridPos, type Tile, type TileKind } from '../src/world/types.js';
+import { turn } from './turn.js';
 
 /** Where encounters happen: the tall grass of the four biomes on land, and the sea's deep water. */
 const BIOMES: readonly Biome[] = ['meadow', 'forest', 'river', 'mountain', 'sea'];
@@ -530,7 +531,9 @@ describe('encounterTable', () => {
 			})
 		);
 		// 9,650 tables, each written out again here: 0.8 to 1.8 s at a load average of 100.
-	}, 30_000);
+		// 0.5 s alone at a load average of 10 and 2.6 s in the whole suite at 29 since #89's second
+		// wave, which scales to 13 s at 150.
+	}, 60_000);
 
 	it('the frog lives in the river reeds: every lead meets it there, near and far, and it hops up the hills only for a small lead near home', () => {
 		const frog = getAnimal('frog');
@@ -951,7 +954,7 @@ function findings() {
 }
 
 describe('encounterTableAt: the ground around the tall grass', () => {
-	it("lists exactly the biome's species, in its order, each at a quarter to four times its biome share", () => {
+	it("lists exactly the biome's species, in its order, each at a quarter to four times its biome share", async () => {
 		const bad = findings();
 		let compared = 0;
 		for (const lead of LEADS) {
@@ -973,14 +976,16 @@ describe('encounterTableAt: the ground around the tall grass', () => {
 						});
 					}
 				}
+				await turn();
 			}
 		}
 		expect(bad.list).toEqual([]);
 		expect(compared).toBeGreaterThan(100_000);
-		// About 0.75 s alone (109,350 tables); 7.6 s at a load average of 40.
-	}, 30_000);
+		// 109,350 tables: 3.2 s alone at a load average of 10, 15 s in the whole suite at 33,
+		// which scales to 68 s at 150; its loop turns after each biome.
+	}, 240_000);
 
-	it('for every lead is the table [[PRODUCT]] §4 writes out, on every ground', () => {
+	it('for every lead is the table [[PRODUCT]] §4 writes out, on every ground', async () => {
 		const bad = findings();
 		let compared = 0;
 		// The starter on every ground; the bigger leads on every ground whose counts are odd
@@ -1006,15 +1011,16 @@ describe('encounterTableAt: the ground around the tall grass', () => {
 						}
 					}
 				}
+				await turn();
 			}
 		}
 		expect(bad.list).toEqual([]);
 		expect(compared).toBeGreaterThan(500_000);
-		// 49,160 tables, each written out again here: the starter's 29,160 took 0.45 s alone and
-		// 4.8 s at a load average of 40; all of them 12 s at a load average of 100.
-	}, 30_000);
+		// 49,160 tables, each written out again here: 3.4 s alone at a load average of 10, 10 s in
+		// the whole suite at 35, which scales to 44 s at 150; its loop turns after each biome.
+	}, 180_000);
 
-	it('more of a terrain nearby never lowers the share of an animal that favours it', () => {
+	it('more of a terrain nearby never lowers the share of an animal that favours it', async () => {
 		// One tile around turns into terrain `to`, from open ground or from
 		// another terrain; `open` gains when a tile of water, trees or rocks
 		// turns into ground with none of them. Every animal favouring the
@@ -1057,15 +1063,17 @@ describe('encounterTableAt: the ground around the tall grass', () => {
 						}
 					});
 				}
+				await turn();
 			}
 		}
 		expect(bad.list).toEqual([]);
 		// Not a sweep of ties: the ground moved these shares tens of thousands of times.
 		expect(checked).toBeGreaterThan(50_000);
 		expect(rose).toBeGreaterThan(20_000);
-		// 54,675 tables, and every one-tile change between them: 48,114 took 0.45 s alone and
-		// 4.7 s at a load average of 40; all of them 11 s at a load average of 100.
-	}, 30_000);
+		// 54,675 tables, and every one-tile change between them: 2.2 s alone at a load average of
+		// 10, 5.1 s in the whole suite at 37, and up to ten times its run alone at 150; its loop
+		// turns after each biome.
+	}, 90_000);
 
 	it('on any ground, the share of animals bigger than the lead, and of those two tiers up, never falls with distance', () => {
 		// Its own tier's share may rise: where animals of different tiers favour different
@@ -1150,7 +1158,7 @@ describe('encounterTableAt: the ground around the tall grass', () => {
 });
 
 describe('the start: the ground near spawn', () => {
-	it("inside the safe radius the ground never moves a tier: on every ground, each tier's share is the biome table's, whoever leads", () => {
+	it("inside the safe radius the ground never moves a tier: on every ground, each tier's share is the biome table's, whoever leads", async () => {
 		const bad = findings();
 		let compared = 0;
 		for (const lead of LEADS) {
@@ -1170,12 +1178,14 @@ describe('the start: the ground near spawn', () => {
 						}
 					}
 				}
+				await turn();
 			}
 		}
 		expect(bad.list).toEqual([]);
 		expect(compared).toBeGreaterThan(300_000);
-		// About 0.5 s alone (91,125 tables); 3.9 s at a load average of 40.
-	}, 30_000);
+		// 91,125 tables: 2.8 s alone at a load average of 10, 4.6 s in the whole suite at 38,
+		// and up to ten times its run alone at 150; its loop turns after each biome.
+	}, 90_000);
 
 	it("at the reed beside the prototype world's spawn, with the lake all round it, most battles are the water's small animals and the bigger ones 1 in 37", () => {
 		const seed = hashString('prototype');
@@ -1261,8 +1271,8 @@ describe('rollEncounter', () => {
 		}
 	});
 
-	it('for every lead draws exactly as [[PRODUCT]] §4 says: the chance, then a pick down the table for the ground around', () => {
-		const bad: string[] = [];
+	it('for every lead draws exactly as [[PRODUCT]] §4 says: the chance, then a pick down the table for the ground around', async () => {
+		const bad = findings();
 		let met = 0;
 		for (const lead of LEADS) {
 			for (const biome of BIOMES) {
@@ -1278,23 +1288,25 @@ describe('rollEncounter', () => {
 							const a = rollEncounter(now, site, lead)?.speciesId ?? null;
 							const b = bellRoll(spec, site, lead);
 							if (a !== b)
-								bad.push(
+								bad.note(
 									`tier-${lead} lead in ${biome} @ ${d} on ${JSON.stringify(around)}: ${a} vs ${b}`
 								);
 							if (a !== null) met++;
 						}
 					}
 				}
+				await turn();
 			}
 		}
-		expect(bad).toEqual([]);
+		expect(bad.list).toEqual([]);
 		expect(met).toBeGreaterThan(12_000);
-		// 168,000 rolls, each rolled again by the rule here: the starter's 112,000 took 0.65 s
-		// alone and 5.4 s at a load average of 40; all five leads' 224,000 took 29 s at a load
-		// average of 100, so the others' were halved and the limit doubled.
-	}, 60_000);
+		// 168,000 rolls, each rolled again by the rule here (the starter's in full, a bigger lead's
+		// an eighth as many, as its table is checked on every ground above): 4.1 s alone at a load
+		// average of 10, 6.5 s in the whole suite at 37, and up to ten times its run alone at 150;
+		// its loop turns after each biome.
+	}, 180_000);
 
-	it('neither the lead nor the ground changes whether a step starts a battle, only which animal comes out', () => {
+	it('neither the lead nor the ground changes whether a step starts a battle, only which animal comes out', async () => {
 		const bad: string[] = [];
 		let battles = 0;
 		for (const biome of BIOMES) {
@@ -1313,15 +1325,16 @@ describe('rollEncounter', () => {
 						battles += met.filter(Boolean).length;
 					}
 				}
+				await turn();
 			}
 		}
 		expect(bad).toEqual([]);
 		expect(battles).toBeGreaterThan(5000);
-		// 123,000 rolls: 108,600 took 0.45 s alone and 3.4 s at a load average of 40; all of them
-		// 6 s at a load average of 100.
-	}, 30_000);
+		// 123,000 rolls: 3.0 s alone at a load average of 10, 4.5 s in the whole suite at 36, and
+		// up to ten times its run alone at 150; its loop turns after each lead.
+	}, 120_000);
 
-	it('starts one encounter per 8–12 grass steps, whoever leads and wherever', () => {
+	it('starts one encounter per 8–12 grass steps, whoever leads and wherever', async () => {
 		const steps = 8000;
 		for (const lead of LEADS) {
 			for (const biome of BIOMES) {
@@ -1333,10 +1346,12 @@ describe('rollEncounter', () => {
 				expect(hits / steps, where).toBeGreaterThan(1 / 12);
 				expect(hits / steps, where).toBeLessThan(1 / 8);
 				expect(hits / steps, where).toBeCloseTo(ENCOUNTER_CHANCE, 1);
+				await turn();
 			}
 		}
-		// Under 1 s alone (8,000 rolls per lead and biome); over 5 s under a heavy load.
-	}, 30_000);
+		// 8,000 rolls for each lead and biome: 4.1 s alone at a load average of 10, 6.7 s in the
+		// whole suite at 35, and up to ten times its run alone at 150; its loop turns after each biome.
+	}, 180_000);
 
 	it('is deterministic: same seed, site and lead, same sequence', () => {
 		for (const lead of LEADS) {
@@ -1425,10 +1440,11 @@ describe('rollEncounter', () => {
 		}
 		expect(bad).toEqual([]);
 		expect(met).toBeGreaterThan(2000);
-		// About 0.3 s alone (60,000 rolls); 2.1 s at a load average of 40.
-	}, 30_000);
+		// 60,000 rolls: 1.4 s alone at a load average of 10, 2.4 s in the whole suite at 36, and
+		// up to ten times its run alone at 150.
+	}, 60_000);
 
-	it("samples the lead's table: species shares match the weights, and every species of 1 in 250 or more shows up", () => {
+	it("samples the lead's table: species shares match the weights, and every species of 1 in 250 or more shows up", async () => {
 		for (const lead of LEADS) {
 			for (const biome of BIOMES) {
 				for (const d of [0, 400]) {
@@ -1459,10 +1475,13 @@ describe('rollEncounter', () => {
 							`${e.species.id}, tier-${lead} lead in ${biome} @ ${d}`
 						).toBeGreaterThan(0);
 				}
+				await turn();
 			}
 		}
-		// Under 1 s alone (4,000 encounters per lead, biome and distance); over 5 s under a heavy load.
-	}, 30_000);
+		// 4,000 encounters for each lead, biome and distance: 4.0 s alone at a load average of 10,
+		// 8.6 s in the whole suite at 36, and up to ten times its run alone at 150; its loop turns
+		// after each biome.
+	}, 120_000);
 });
 
 describe('the generated world offers every habitat', () => {
@@ -1481,6 +1500,7 @@ describe('the generated world offers every habitat', () => {
 				expect(reachable, `${a.id} has nowhere to be met (seed ${seed})`).toBe(true);
 			}
 		}
-		// About 1.5 s alone (1,156 chunks generated); over 2 s with two browsers drawing beside it.
-	}, 30_000);
+		// 1,156 chunks generated: 1.3 s alone at a load average of 10, 2.7 s in the whole suite at
+		// 37, and up to ten times its run alone at 150.
+	}, 60_000);
 });
