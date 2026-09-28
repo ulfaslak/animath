@@ -7,15 +7,22 @@ import type { Rect } from './presence/labels';
  * is the party column and a stack's open card, the top right corner, the
  * coordinates, the message line's column (the Challenge button, and on a
  * phone the note, over the message line), the note about who came or went
- * while it shows, and the touch controls. A mark counts a piece only while
+ * while it shows, the touch controls, and the way to the doctor's disc,
+ * which a friend's arrow and its names keep clear of (`except` leaves it
+ * out for the way itself). A mark counts a piece only while
  * it is on the page, and one with nothing in it not at all. A new piece of
  * the explore HUD takes the attribute too, or a friend's arrow can hide
  * under it.
  */
-export function clearBoxes(root: ParentNode | null = globalThis.document ?? null): Rect[] {
+export function clearBoxes(
+	root: ParentNode | null = globalThis.document ?? null,
+	except = ''
+): Rect[] {
 	if (!root) return [];
 	const boxes: Rect[] = [];
 	for (const el of root.querySelectorAll('[data-keep-clear]')) {
+		// A mark that is itself a piece (the way to the doctor) keeps clear of the others only.
+		if (except && el.closest(except)) continue;
 		const r = el.getBoundingClientRect();
 		if (r.width < 1 || r.height < 1) continue;
 		boxes.push({
