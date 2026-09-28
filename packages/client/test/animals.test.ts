@@ -8,17 +8,22 @@ import {
 	animateIdle,
 	animateWalk,
 	buildAnimalMesh,
-	buildPlayerMesh
+	buildAnimalParts,
+	buildPlayerMesh,
+	buildPlayerParts
 } from '../src/render/animals';
+import { FIGURE_MATERIAL, SKINNED_MATERIAL } from '../src/render/merge';
 import { Zoo } from '../src/render/zoo';
 
 /**
  * The figures' contract (see animals.ts): every catalog species has one,
- * feet on y = 0, centred on x, flat-shaded and shadow-casting, and bigger
- * with its tier: on land the smallest is a tier-1 animal and the biggest a
- * tier-5 one, at sea the whale the biggest. Whether they *look*
+ * feet on y = 0, centred on x, flat-shaded and shadow-casting, drawn as one
+ * mesh, and bigger with its tier: on land the smallest is a tier-1 animal and
+ * the biggest a tier-5 one, at sea the whale the biggest. Whether they *look*
  * like the animal is checked by eye with `?zoo`; this pins what a screenshot
- * cannot.
+ * cannot. What moves inside a figure (wings, lying down, limbs) is measured
+ * on it part by part (`buildAnimalParts`), which the figure drawn merges
+ * without moving a triangle (`merge.test.ts`).
  */
 function bounds(figure: THREE.Object3D): THREE.Box3 {
 	figure.updateMatrixWorld(true);
@@ -48,15 +53,25 @@ describe('figures', () => {
 				expect(Math.abs(b.min.x + b.max.x)).toBeLessThan(0.01);
 			});
 
-			it('is flat-shaded and casts shadows', () => {
-				let meshes = 0;
+			it('is one flat-shaded mesh that casts a shadow: a draw call, and one more in the shadow (#152)', () => {
+				const meshes: THREE.Mesh[] = [];
 				figure.traverse((o) => {
-					if (!(o instanceof THREE.Mesh)) return;
-					meshes++;
-					expect((o.material as THREE.MeshLambertMaterial).flatShading).toBe(true);
-					expect(o.castShadow).toBe(true);
+					if (o instanceof THREE.Mesh) meshes.push(o);
 				});
-				expect(meshes).toBeGreaterThan(2);
+				expect(meshes).toHaveLength(1);
+				const [mesh] = meshes;
+				// Its colours on its vertices; skinned when parts of it move on their own.
+				const joints = ['armL', 'wingL', 'tail', 'arms', 'jaws'].some((n) =>
+					figure.getObjectByName(n)
+				);
+				expect(mesh instanceof THREE.SkinnedMesh).toBe(joints);
+				expect(mesh!.material).toBe(joints ? SKINNED_MATERIAL : FIGURE_MATERIAL);
+				expect((mesh!.material as THREE.MeshLambertMaterial).flatShading).toBe(true);
+				expect(mesh!.castShadow).toBe(true);
+				// Every part of it as built casts one too, so its shadow is the whole figure's.
+				(id === 'player' ? buildPlayerParts() : buildAnimalParts(id)).traverse((o) => {
+					if (o instanceof THREE.Mesh) expect(o.castShadow).toBe(true);
+				});
 			});
 
 			it('keeps its feet on the ground while idling', () => {
@@ -125,7 +140,8 @@ describe('figures', () => {
 		// Every bird flies, and only birds (the engine's realms).
 		expect(ANIMALS.filter((a) => a.realms.includes('air')).map((a) => a.id)).toEqual(birds);
 		for (const id of birds) {
-			const figure = buildAnimalMesh(id);
+			// As built, the parts of each wing hang from its joint; drawn, the joints are bones.
+			const figure = buildAnimalParts(id);
 			const left = figure.getObjectByName('wingL');
 			const right = figure.getObjectByName('wingR');
 			expect(left && right, id).toBeTruthy();
@@ -134,6 +150,11 @@ describe('figures', () => {
 			expect(left!.position.y, id).toBeCloseTo(right!.position.y, 9);
 			expect(left!.children.length, id).toBeGreaterThan(0);
 			expect(right!.children.length, id).toBe(left!.children.length);
+			const drawn = buildAnimalMesh(id);
+			for (const name of ['wingL', 'wingR'])
+				expect(drawn.getObjectByName(name)?.position, `${id} ${name}`).toEqual(
+					figure.getObjectByName(name)!.position
+				);
 		}
 		for (const { id } of ANIMALS)
 			if (!birds.includes(id))
@@ -142,7 +163,7 @@ describe('figures', () => {
 
 	it('in the air every bird spreads its wings out past its sides, the two a mirror pair, beating (held still with reduced motion), and folds them back as built (#91)', () => {
 		for (const { id } of ANIMALS.filter((a) => a.realms.includes('air'))) {
-			const figure = buildAnimalMesh(id);
+			const figure = buildAnimalParts(id);
 			const rig = figure.children[0]!;
 			const left = figure.getObjectByName('wingL')!;
 			const right = figure.getObjectByName('wingR')!;
@@ -206,7 +227,7 @@ describe('a tired animal, resting', () => {
 	const camera = new THREE.PerspectiveCamera();
 	for (const spec of ANIMALS) {
 		it(`${spec.id} lies on its belly, upright and lower, with z's only once it is down`, () => {
-			const figure = buildAnimalMesh(spec.id);
+			const figure = buildAnimalParts(spec.id);
 			const rig = figure.children[0]!;
 			const standing = bounds(rig);
 			const width = standing.max.x - standing.min.x;
@@ -257,7 +278,8 @@ describe('the trainer walking', () => {
 	const JOINTS = ['armL', 'armR', 'legL', 'legR'];
 
 	it('swings arms and legs through a step, from rest to rest, leading with each foot in turn', () => {
-		const figure = buildPlayerMesh();
+		// Part by part, so its feet are measured where they swing to.
+		const figure = buildPlayerParts();
 		const rig = figure.children[0]!;
 		const angle = (joint: string) => rig.getObjectByName(joint)!.rotation.x;
 		for (const progress of [0, 1]) {

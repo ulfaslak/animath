@@ -9,7 +9,7 @@ import {
 	type PeerMessage
 } from '@mathgame/engine';
 import * as THREE from 'three';
-import { describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it } from 'vitest';
 import { WORLD_SEED } from '../src/authority/local';
 import {
 	CROWD_RADIUS,
@@ -21,6 +21,7 @@ import {
 import { PLAYER_LOOK, TRAINER_LOOKS } from '../src/render/palette';
 import { SWAP_IN_SECONDS } from '../src/render/follower';
 import { WING_TOP } from '../src/render/glider';
+import { forgetShapes } from '../src/render/merge';
 import { POOF_SECONDS, PUFF_GEOMETRY, Poofs } from '../src/render/poof';
 import {
 	CRUISE_HEIGHT,
@@ -32,7 +33,10 @@ import {
 
 // The other players on screen, drawn without WebGL: where each figure stands
 // frame by frame, what fades and poofs, and that everything a player who
-// leaves was drawn with is freed ([[INVARIANTS]] § Rendering).
+// leaves was drawn with is freed ([[INVARIANTS]] § Rendering). A figure's
+// shape is shared by its kind and freed with the last of them (merge.ts):
+// each test starts with none, as a page does.
+beforeEach(() => forgetShapes());
 
 function setup(centre: GridPos = spawnPoint(WORLD_SEED)) {
 	const scene = new THREE.Scene();

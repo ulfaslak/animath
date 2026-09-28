@@ -7,7 +7,7 @@ import type {
 	GridPos
 } from '@mathgame/engine';
 import * as THREE from 'three';
-import { describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it } from 'vitest';
 import { WORLD_SEED } from '../src/authority/local';
 import { CHEER_SECONDS, OtherPlayers } from '../src/render/others';
 import {
@@ -20,6 +20,7 @@ import {
 	POP_SECONDS,
 	WatchedFights
 } from '../src/render/fights';
+import { forgetShapes } from '../src/render/merge';
 import { Poofs } from '../src/render/poof';
 import { FACING_ANGLE } from '../src/render/trainer';
 
@@ -27,6 +28,9 @@ import { FACING_ANGLE } from '../src/render/trainer';
 // drawn without WebGL: where the animals stand, what each event does to them
 // and to the page's marks (thought bubbles, HP bars, damage numbers), when a
 // scene clears, and that it leaves nothing behind ([[INVARIANTS]] § Rendering).
+// A figure's shape is shared by its kind and freed with the last of them
+// (merge.ts): each test starts with none, as a page does.
+beforeEach(() => forgetShapes());
 
 /** In World 1 the reed left of the start, with sand two tiles further left: Ada meets a rat there, facing left. */
 const REED: GridPos = { x: -3, y: 6 };
