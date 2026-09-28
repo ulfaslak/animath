@@ -166,4 +166,20 @@
 			transition: none;
 		}
 	}
+	/*
+	 * A short screen (a phone held sideways): the moves stand in a column
+	 * beside the attack tiles, so each is a little shorter. The button is
+	 * still a finger tall and wide.
+	 */
+	@media (max-height: 560px) {
+		.disc,
+		:global(.touch) .disc {
+			width: 36px;
+			height: 36px;
+		}
+		.word,
+		.hint {
+			line-height: 1.15;
+		}
+	}
 </style>
