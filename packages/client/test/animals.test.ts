@@ -88,6 +88,15 @@ describe('figures', () => {
 		const whale = volumes.get('whale')!;
 		for (const { id } of atSea)
 			if (id !== 'whale') expect(volumes.get(id)!, id).toBeLessThan(whale);
+		// At sea too (#89's third wave): the orca is smaller than the humpback, the grey seal
+		// bigger than the harbour seal, the porpoise smaller than the dolphin, and the lion's
+		// mane's bell bigger than the moon jellyfish's.
+		for (const [big, small] of [
+			['grey-seal', 'harbour-seal'],
+			['dolphin', 'harbour-porpoise'],
+			['lions-mane-jellyfish', 'moon-jellyfish']
+		] as const)
+			expect(volumes.get(big)!, `${big} vs ${small}`).toBeGreaterThan(volumes.get(small)!);
 		for (const big of ANIMALS)
 			for (const small of ANIMALS)
 				if (big.tier >= small.tier + 2)

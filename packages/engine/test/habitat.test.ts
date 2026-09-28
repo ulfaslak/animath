@@ -228,7 +228,15 @@ describe('where each species lives', () => {
 			'turtle',
 			'dolphin',
 			'octopus',
-			'whale'
+			'whale',
+			'moon-jellyfish',
+			'plaice',
+			'lions-mane-jellyfish',
+			'lobster',
+			'harbour-seal',
+			'harbour-porpoise',
+			'grey-seal',
+			'orca'
 		]);
 	});
 
@@ -250,7 +258,15 @@ describe('where each species lives', () => {
 			'turtle',
 			'dolphin',
 			'octopus',
-			'whale'
+			'whale',
+			'moon-jellyfish',
+			'plaice',
+			'lions-mane-jellyfish',
+			'lobster',
+			'harbour-seal',
+			'harbour-porpoise',
+			'grey-seal',
+			'orca'
 		]);
 		expect(by('trees')).toEqual([
 			'squirrel',
