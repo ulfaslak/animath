@@ -223,6 +223,7 @@ const FAMILIES: readonly (readonly [string, RegExp])[] = [
 	['Opera', /\b(?:OPR|OPiOS)\/(\d+(?:\.\d+)?)/],
 	['Firefox', /\b(?:Firefox|FxiOS)\/(\d+(?:\.\d+)?)/],
 	['WebView', /; wv\).*?\bChrome\/(\d+(?:\.\d+)?)/],
+	['HeadlessChrome', /\bHeadlessChrome\/(\d+(?:\.\d+)?)/],
 	['Chrome', /\b(?:Chrome|CriOS)\/(\d+(?:\.\d+)?)/],
 	['Safari', /\bVersion\/(\d+(?:\.\d+)?)(?:\.\d+)*(?: Mobile\/\S+)? Safari\//],
 	['WebView', /\bOS (\d+_\d+)(?:_\d+)? like Mac OS X\b/]
