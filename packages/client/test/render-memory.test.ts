@@ -12,19 +12,24 @@ import {
 	type GridPos
 } from '@mathgame/engine';
 import * as THREE from 'three';
-import { describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it } from 'vitest';
 import { WORLD_SEED } from '../src/authority/local';
 import { BattleScene } from '../src/render/battle-scene';
 import { GLOW_MATERIAL } from '../src/render/campfire';
 import { ChunkRing, SHOWN_RADIUS } from '../src/render/chunks';
 import { ClearingEffects } from '../src/render/clearing';
 import { Follower, SWIM_DEPTH } from '../src/render/follower';
+import { forgetShapes } from '../src/render/merge';
 import { PortraitStudio, type PortraitRenderer } from '../src/render/portraits';
 import type { GameRenderer } from '../src/render/renderer';
 import { StarterScene } from '../src/render/starter-scene';
 import { TitleScenery } from '../src/render/title-scenery';
 import { SHARED_GEOMETRIES, WATER_TOP } from '../src/render/tiles';
 import { besideA } from './clearing';
+
+// A figure's shape is shared by every figure of its kind and freed with the last of them
+// (merge.ts): each test starts with none, as a page does, so what it counts is its own.
+beforeEach(() => forgetShapes());
 
 /**
  * What the renderer keeps alive on the GPU, counted without WebGL. three.js
@@ -715,7 +720,8 @@ describe("the animal book's pictures", () => {
 				'clear 8fd3f4 1'
 			]);
 		}
-		expect(shown.size).toBeGreaterThan(ANIMALS.length);
+		// A shape a species, each drawn once and freed.
+		expect(shown.size).toBe(ANIMALS.length);
 		expect(kinds([...shown].filter((g) => !ledger.isDisposed(g)))).toEqual([]);
 		// With the context lost, nothing is drawn or built, and no picture comes back to keep.
 		lost = true;

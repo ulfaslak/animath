@@ -1,26 +1,37 @@
 import * as THREE from 'three';
-import { describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it } from 'vitest';
 import { buildPlayerMesh } from '../src/render/animals';
 import {
 	BOAT_ASTERN,
 	BOAT_DECK,
 	BOAT_STAND,
 	buildBoatMesh,
+	buildBoatParts,
 	disposeBoat,
 	poseBoat,
 	standAstern
 } from '../src/render/boat';
+import { forgetShapes } from '../src/render/merge';
 
 /**
  * The boat on the trainer (`boat.ts`): upside down on their back, right side
  * up under their feet afloat, and every pose between on the way, which the
  * human asked to be smooth ("rotates, translates and scales"). What a frame
  * can't show for sure: where it sits in both poses, that no step of the way
- * jumps, and that reduced motion snaps it half way instead.
+ * jumps, and that reduced motion snaps it half way instead. Its parts (the
+ * hull, the floor, the deck, the rims) are measured on the boat as built,
+ * part by part (`buildBoatParts`); the boat drawn is those parts merged
+ * (`merge.test.ts` holds that it draws exactly them).
  */
-function inTrainer(afloat: number, calm = false): { boat: THREE.Group; box: THREE.Box3 } {
+beforeEach(() => forgetShapes());
+
+function inTrainer(
+	afloat: number,
+	calm = false,
+	build: () => THREE.Group = buildBoatMesh
+): { boat: THREE.Group; box: THREE.Box3 } {
 	const trainer = buildPlayerMesh();
-	const boat = buildBoatMesh();
+	const boat = build();
 	trainer.add(boat);
 	poseBoat(boat, afloat, calm);
 	trainer.updateMatrixWorld(true);
@@ -56,7 +67,7 @@ describe('the boat', () => {
 	});
 
 	it('afloat: right side up and full size under the trainer, the floor at their feet, the rim over them', () => {
-		const { boat, box } = inTrainer(1);
+		const { boat, box } = inTrainer(1, false, buildBoatParts);
 		expect(turned(boat)).toBeCloseTo(0, 5);
 		expect(boat.scale.x).toBe(1);
 		expect(pennantScale(boat)).toBe(1);
@@ -75,7 +86,7 @@ describe('the boat', () => {
 	});
 
 	it('afloat: over the middle of its tile, the trainer standing back towards the stern on its floor', () => {
-		const { boat, box } = inTrainer(1);
+		const { boat, box } = inTrainer(1, false, buildBoatParts);
 		// Nothing of it reaches over the next tile, a shore it may face.
 		for (const v of [box.min.x, box.max.x, box.min.z, box.max.z])
 			expect(Math.abs(v)).toBeLessThan(0.5);
@@ -132,7 +143,7 @@ describe('the boat', () => {
 	});
 
 	it('has a coral rim along both sides of the hull, from the wide stern to the narrow bow', () => {
-		const boat = buildBoatMesh();
+		const boat = buildBoatParts();
 		poseBoat(boat, 1, false);
 		boat.updateMatrixWorld(true);
 		const hull = new THREE.Box3().setFromObject(boat.children[0]!);
@@ -163,6 +174,7 @@ describe('the boat', () => {
 	});
 
 	it('frees its own geometries, and only those: the materials are shared', () => {
+		// The only boat of its trim: its shape goes with it.
 		const boat = buildBoatMesh();
 		const geometries = new Set<THREE.BufferGeometry>();
 		const materials = new Set<THREE.Material>();

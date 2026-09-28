@@ -70,6 +70,7 @@ Fixed orthographic camera: pitch 50°, yaw 35°, 14 tiles of viewport height. No
 Svelte 5 (runes) for the DOM overlay only — HUD, menus, the puzzle panel. Svelte reads game state from a `$state` view that is filled from authority events; components never dispatch to the engine directly, they go through the authority.
 Placeholder geometry (boxes, cones) is acceptable until real models arrive. Real models are glTF.
 Ground tiles render as one `InstancedMesh` per chunk.
+A figure (an animal, a trainer, the boat and the glider a trainer carries) draws as one mesh, not a mesh per part: its primitives merged, their colours on its vertices, one shape shared by every figure of its kind, and the parts its animations move are bones of that mesh (the boat's pennant and the glider's roll, wing and lines, which show and hide, are meshes of their own) (#152). Figures are not instanced across a crowd.
 Font: Nunito (Google Fonts). Rounded, friendly.
 Sound is synthesized while the game runs, with WebAudio, from cue data in `src/audio/`: no sound files, no audio library. Cues play from the screens (controllers, the HUD), where events become visuals; the authority and the engine know nothing of sound.
 Mouse and touch are key presses: a click or a tap on the overlay sends the key it stands for through the keyboard's own path (`input/press.ts`), plus the pointer's own keys for a row, a level, a language, and the party column's cards, animals and dropped cards. There is no second path from a pointer to an action.

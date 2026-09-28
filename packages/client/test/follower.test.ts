@@ -20,7 +20,8 @@ import { DoctorController } from '../src/doctor/controller';
 import { ExploreController } from '../src/explore/controller';
 import { parseParty } from '../src/flags';
 import { Keyboard } from '../src/input/keyboard';
-import { BOAT_ASTERN, BOAT_DECK, BOAT_STAND, buildBoatMesh } from '../src/render/boat';
+import { BOAT_ASTERN, BOAT_DECK, BOAT_STAND, buildBoatParts } from '../src/render/boat';
+import { buildAnimalParts } from '../src/render/animals';
 import {
 	FLY_ASIDE,
 	FLY_BEHIND,
@@ -522,10 +523,10 @@ describe('out on the water', () => {
 	 * The boat's deck, where a rider stands: how wide it is, either side of the
 	 * boat's middle line, `ahead` of the boat's middle (the tile's), with the
 	 * coral rim along its edges (a paw may rest on the gunwale), or -1 off its
-	 * ends. Read from the boat's own mesh.
+	 * ends. Read from the boat's own parts, as built (drawn, they are merged).
 	 */
 	const deckHalfWidth = (() => {
-		const boat = buildBoatMesh();
+		const boat = buildBoatParts();
 		const deck = boat.getObjectByName('deck') as THREE.Mesh;
 		const rim = boat.getObjectByName('rim') as THREE.Mesh;
 		const rimHalf = (rim.geometry as THREE.BoxGeometry).parameters.width / 2;
@@ -581,7 +582,19 @@ describe('out on the water', () => {
 		// hide a leg, so a foot below the deck would show through it. And every foot on it.
 		const deckY = WATER_TOP + BOAT_STAND + BOAT_DECK;
 		expect(box.min.y, at).toBeCloseTo(deckY, 6);
-		rider.traverse((part) => {
+		// Its feet, part by part: the figure drawn is its parts merged (`merge.test.ts`), so
+		// its parts, standing exactly as it stands, are where its feet are.
+		const parts = buildAnimalParts(rider.name);
+		for (const [drawn, twin] of [
+			[rider, parts],
+			[rider.children[0]!, parts.children[0]!]
+		] as const) {
+			twin.position.copy(drawn.position);
+			twin.quaternion.copy(drawn.quaternion);
+			twin.scale.copy(drawn.scale);
+		}
+		parts.updateMatrixWorld(true);
+		parts.traverse((part) => {
 			if (!(part instanceof THREE.Mesh)) return;
 			const foot = new THREE.Box3().setFromObject(part);
 			if (foot.min.y > deckY + 0.005) return;
