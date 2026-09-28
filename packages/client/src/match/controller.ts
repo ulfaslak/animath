@@ -723,11 +723,13 @@ export class MatchController implements MatchHooks {
 		this.boot = boot;
 		if ((match.stage === 'playing' || match.stage === 'over') && going !== match.id) {
 			// Another run of the server than the match's: it restarted without a word (a crash),
-			// and the match went with it. Nobody left: the kids can play again, one tap each.
+			// and the match went with it. Nobody left it: the kids can play again, one tap each
+			// (a result whose rematch was off already stays as it is: `restarted`).
 			const restarted = boot !== null && this.matchBoot !== null && boot !== this.matchBoot;
 			if (restarted) this.restarted(true);
 			// The match went on without this page, and ended: it was away too long.
 			else if (match.stage === 'playing') this.missed();
+			// The result's match is gone here: its rematch with it.
 			else if (match.rematch.theirs !== false) match.rematch = { ...match.rematch, theirs: false };
 		}
 	}
@@ -973,6 +975,9 @@ export class MatchController implements MatchHooks {
 			return;
 		}
 		if (stage !== 'playing' && stage !== 'over') return;
+		// A result whose rematch was off already (the other left, went back, or it lapsed)
+		// has nothing to play again: it stays, and nobody who left is asked back.
+		if (stage === 'over' && match.rematch.theirs === false) return;
 		this.beats = [];
 		this.sentAt = null;
 		this.awayUntil = null;

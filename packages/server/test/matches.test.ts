@@ -879,6 +879,45 @@ describe('free again once a match is over (#139)', () => {
 		expect(matches.size).toBe(0);
 	});
 
+	it('keeps a kid who came back to a finished match busy until their page has put it up', () => {
+		for (const then of ['shows it, then goes back', 'can not show it'] as const) {
+			setup();
+			const { ada, bo, cy } = three();
+			const end = playedOut(ada, bo, { ada: SPAWN, bo: beside(1) });
+			ada.send({ t: 'rematch', id: end.id, team: TEAM });
+			// Bo's page reloads: back in the finished match, its first `where` still says exploring.
+			bo.leave();
+			const back = kid('Bo', beside(1));
+			expect(back.hiMatch, then).toBe(end.id);
+			expect(back.peer.last('match')?.view.phase.kind, then).toBe('ended');
+			vi.advanceTimersByTime(1_000);
+			cy.send({ t: 'challenge', pid: back.pid, team: TEAM });
+			expect(cy.peer.last('uninvite'), then).toMatchObject({ pid: back.pid, reason: 'busy' });
+			expect(back.peer.of('invite'), then).toEqual([]);
+			// Ada's Rematch? still stands.
+			expect(
+				ada.peer.of('rematch-wish').filter((w) => !w.yes),
+				then
+			).toEqual([]);
+			if (then === 'shows it, then goes back') {
+				back.at(beside(1), { busy: 'match' });
+				// On the result, it is busy by what its page says; back to exploring without a
+				// `done` (lost on the way), it is free, and the rematch it walked away from is off.
+				back.at(beside(1));
+			} else {
+				// A battle of its own is on: the page leaves the match it can't put up.
+				back.send({ t: 'play', id: end.id, intent: { type: 'leave' } });
+				expect(back.peer.last('rejected'), then).toMatchObject({ reason: 'match-over' });
+			}
+			vi.advanceTimersByTime(31_000);
+			cy.peer.clear();
+			cy.send({ t: 'challenge', pid: back.pid, team: TEAM });
+			expect(cy.peer.of('uninvite'), then).toEqual([]);
+			expect(back.peer.last('invite'), then).toMatchObject({ pid: cy.pid });
+			expect(ada.peer.last('rematch-wish'), then).toMatchObject({ side: 'b', yes: false });
+		}
+	});
+
 	it('still keeps a player in a match going on busy', () => {
 		const { ada, bo, cy } = three();
 		startedMatch(ada, bo);

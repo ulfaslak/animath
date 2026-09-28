@@ -436,6 +436,10 @@ describe('presence socket', () => {
 		expect(b).toBe(a);
 		expect(d).toBe(c);
 		expect(c).not.toBe(a);
+		// A run no page could read is refused as the server starts, not sent in every hi.
+		for (const boot of ['', 'no run', 'x'.repeat(33)]) {
+			expect(() => attachPresence(createServer(), { boot })).toThrow(/boot/);
+		}
 	});
 
 	it('holds at most maxSockets sockets', async () => {

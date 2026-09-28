@@ -58,9 +58,10 @@ import type { Peer, PresenceHub, Present } from './hub.js';
  *   new match between the same two, with a new seed; one who goes back puts
  *   it off, and so does `lingerMs` passing. The one who left skips the
  *   result, so they are let go of at once. A match that ended keeps nobody
- *   busy: only a match going on does, so a kid back to exploring can ask
- *   and be asked straight away, and asking (or being asked) lets go of the
- *   match they had finished (#139).
+ *   busy: only a match going on does (or a finished one a page that came
+ *   back is about to put up), so a kid back to exploring can ask and be
+ *   asked straight away, and asking (or being asked) lets go of the match
+ *   they had finished (#139).
  * - **Seen from outside.** The players near either of the two see the match
  *   beside them in the world: the two animals, the puzzle of whoever's turn
  *   it is, every hit and the end (`show`, through the hub), built from this
@@ -121,6 +122,12 @@ interface Player {
 	 * leave it, or ask or are asked for another. Only one going on makes them busy.
 	 */
 	match: Match | null;
+	/**
+	 * The finished match their page was sent as it came back (`resume`) and
+	 * has not put up yet: its first `where` can still say exploring. Until it
+	 * says `match` (it shows the result), or lets the match go, they are busy.
+	 */
+	unshown: Match | null;
 	tokens: number;
 	lastRefill: number;
 }
@@ -222,6 +229,7 @@ export class Matches {
 				name: present.name,
 				invite: null,
 				match: null,
+				unshown: null,
 				tokens: this.burst,
 				lastRefill: Date.now()
 			};
@@ -248,7 +256,9 @@ export class Matches {
 	resume(peer: Peer): void {
 		const player = this.playerOn(peer);
 		const match = player?.match;
-		if (!match) return;
+		if (!player || !match) return;
+		// A finished one goes up on the page: the player is busy with it until it is.
+		if (!live(match)) player.unshown = match;
 		for (const side of MATCH_SIDES) this.send(match, side, []);
 		// The players near the page that came back see the match again, if it goes on.
 		this.show(match, []);
@@ -263,6 +273,7 @@ export class Matches {
 	 */
 	moved(peer: Peer): void {
 		const player = this.playerOn(peer);
+		if (player?.unshown && this.hub.present(peer)?.spot?.busy === 'match') player.unshown = null;
 		if (player?.invite) this.recheck(player.invite, player);
 	}
 
@@ -354,15 +365,16 @@ export class Matches {
 		if (player.invite?.to === player && player.invite.from === them) {
 			return this.accept(player, pid, sent);
 		}
-		// Only a match going on makes anyone busy: one that ended waits only for a rematch.
-		if (player.invite || live(player.match)) return this.tell(player, pid, 'off');
+		// Only a match going on (or one a page is about to show) makes anyone busy: one that
+		// ended waits only for a rematch.
+		if (player.invite || busy(player)) return this.tell(player, pid, 'off');
 		const team = matchTeam(sent);
 		if (!team.ok) return this.tell(player, pid, 'no-team');
 		if (me.world === null || !me.spot || !target.spot) return this.tell(player, pid, 'gone');
 		const refusal = challengeRefusal(worldSeed(me.world), me.spot, target.spot);
 		if (refusal) return this.tell(player, pid, refusalFor(refusal).from ?? 'off');
 		if (them.invite) return this.tell(player, pid, 'taken');
-		if (live(them.match)) return this.tell(player, pid, 'busy');
+		if (busy(them)) return this.tell(player, pid, 'busy');
 		const cooldown = `${player.key}>${them.key}`;
 		const until = this.cooldowns.get(cooldown);
 		if (until !== undefined && until > Date.now()) return this.tell(player, pid, 'wait');
@@ -495,6 +507,8 @@ export class Matches {
 		this.matches.set(match.id, match);
 		a.match = match;
 		b.match = match;
+		a.unshown = null;
+		b.unshown = null;
 		this.startClock(match);
 		this.log(`matches: ${match.id} started`);
 		for (const side of MATCH_SIDES) this.send(match, side, []);
@@ -508,6 +522,9 @@ export class Matches {
 	): void {
 		const match = player.match;
 		if (!match || match.id !== id || match.state.phase.kind === 'ended') {
+			// A page that came back to its finished match and can't put it up (a battle of its
+			// own is on) leaves it: the player is let go of it.
+			if (match?.id === id && intent.type === 'leave') this.detach(match, sideOf(match, player));
 			player.peer?.send({ t: 'rejected', id, reason: 'match-over' });
 			return;
 		}
@@ -600,6 +617,7 @@ export class Matches {
 		if (away) clearTimeout(away.timer);
 		match.away[side] = null;
 		match.wishes[side] = null;
+		if (player.unshown === match) player.unshown = null;
 		if (player.match === match) {
 			player.match = null;
 			const other = otherSide(side);
@@ -628,6 +646,7 @@ export class Matches {
 		for (const side of MATCH_SIDES) {
 			const player = match.players[side];
 			if (player.match === match) player.match = null;
+			if (player.unshown === match) player.unshown = null;
 			this.forgetIfDone(player);
 		}
 	}
@@ -774,9 +793,19 @@ function sideOf(match: Match, player: Player): MatchSide {
 	return match.players.a === player ? 'a' : 'b';
 }
 
-/** A match still going on: the only kind that keeps its players busy. */
+/** A match still going on. */
 function live(match: Match | null): match is Match {
 	return match !== null && match.state.phase.kind !== 'ended';
+}
+
+/**
+ * Whether a player is too busy for an invite as far as matches know: in a
+ * match going on, or about to put up the finished one they came back to
+ * (`unshown`). A match waiting for its rematch makes nobody busy: a page on
+ * its result says so itself (`match`), and one back to exploring is free.
+ */
+function busy(player: Player): boolean {
+	return live(player.match) || (player.unshown !== null && player.unshown === player.match);
 }
 
 /** The side whose turn it is, or null once the match is over. */

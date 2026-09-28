@@ -8,6 +8,7 @@ import {
 	byeCloseCode,
 	checkName,
 	helloVersion,
+	isBootId,
 	parseClientMessage,
 	readWire,
 	type ByeReason,
@@ -108,7 +109,8 @@ export interface PresenceOptions {
 	 * This run's own id, in every `hi`: a new random one each time the server
 	 * starts, unlike the public ids. A page whose match was going on and comes
 	 * back to a server with another one knows the server restarted, and forgot
-	 * the match, though no `bye` said so (it stopped without one).
+	 * the match, though no `bye` said so (it stopped without one). One that is
+	 * no run id (`isBootId`) is refused as the server starts.
 	 */
 	boot?: string;
 	/** A line for the server's log: a socket closed for cause. */
@@ -159,6 +161,8 @@ export function attachPresence(server: Server, options: PresenceOptions = {}): P
 	const battleBurst = options.battleBurst ?? 4;
 	const log = options.log ?? (() => {});
 	const boot = options.boot ?? randomBytes(9).toString('base64url');
+	// A page reads no hi with a run it can't read: every page would stay unseen.
+	if (!isBootId(boot)) throw new Error(`presence: boot is no run id: ${JSON.stringify(boot)}`);
 
 	// Public ids: a keyed hash of who it is, so the same player keeps one (on every copy
 	// of the server that shares the secret) and nobody can work back to their guest id.

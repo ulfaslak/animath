@@ -676,17 +676,51 @@ describe('a match', () => {
 		expect(match.restarted).toBe(false);
 	});
 
-	it('says the game restarted on the result card too: its Rematch? can never be taken now', () => {
+	it('says the game restarted on a result whose rematch could still be had, and leaves one that could not', () => {
+		// A match played to its end: Ada on the result, Rematch? still to be had.
 		const t = setup();
 		t.controller.receive({ ...hi(null), boot: 'run0001' });
 		const ref = started(t);
-		t.controller.receive(ref.message('a', ref.apply('b', { type: 'leave' })));
+		ref.state = {
+			...ref.state,
+			teams: { a: ref.state.teams.a, b: ref.state.teams.b.map((a) => ({ ...a, hp: 1 })) }
+		};
+		for (let turns = 0; ref.state.phase.kind !== 'ended'; turns++) {
+			if (turns > 40) throw new Error('never ended');
+			const phase = ref.state.phase;
+			const intent: MatchIntent =
+				phase.kind === 'choose-animal'
+					? { type: 'pick-next', teamIndex: 1 }
+					: phase.kind === 'choose-action'
+						? { type: 'attack', attackIndex: 1, level: 1 }
+						: { type: 'answer', input: phase.side === 'a' ? ref.answer() : '-1' };
+			t.controller.receive(ref.message('a', ref.apply(phase.side, intent)));
+		}
 		t.runUntil(() => battle.screen === 'result');
 		t.controller.status('waiting');
 		t.controller.status('on');
 		t.controller.receive({ ...hi(null), boot: 'run0002' });
 		expect(match.stage).toBe('updating');
 		expect(match.restarted).toBe(true);
+
+		// Bo left: the result says so, and a restart asks nobody back who chose to go.
+		stop?.();
+		battle.reset();
+		match.reset();
+		const u = setup();
+		u.controller.receive({ ...hi(null), boot: 'run0001' });
+		const left = started(u);
+		u.controller.receive(left.message('a', left.apply('b', { type: 'leave' })));
+		u.runUntil(() => battle.screen === 'result');
+		u.controller.status('waiting');
+		u.controller.status('on');
+		u.controller.receive({ ...hi(null), boot: 'run0002' });
+		expect(match.stage).toBe('over');
+		expect(match.result).toMatchObject({ won: true, reason: 'left' });
+		u.controller.peer(peer('Bo', 1));
+		u.pick('Enter');
+		expect(u.sentOf('challenge')).toHaveLength(1);
+		expect(match.stage).toBe('none');
 	});
 
 	it('ends kindly when the server updates, and Play again asks the same friend once both are back', () => {
