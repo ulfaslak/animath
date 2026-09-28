@@ -44,7 +44,9 @@ import { game } from './game.svelte';
  * Their seconds count only while the explore HUD is on screen (`tick`, from
  * the frame loop), so a line said while the battle screen or the doctor's
  * card is up — the doctor's line after a lost battle — is still there to read
- * when the player is back in the world.
+ * when the player is back in the world. A line already read there is over
+ * once a battle or a friendly match takes the screen (`covered`): it never
+ * comes back after it, as "Welcome back!" once did after a match.
  */
 
 /** Seconds a message stays on the line while the explore HUD is on screen. */
@@ -243,6 +245,8 @@ class HudView {
 	#said = $state<Said | null>(null);
 	#fresh = $state(false);
 	private age = MESSAGE_SECONDS;
+	/** The line said last has been on the explore HUD: read, or there to be read. */
+	private seen = false;
 	/**
 	 * The kinds whose "the doctor sells one" has been said since the game on
 	 * screen started (`welcome`): a bump says it once, not every time.
@@ -424,13 +428,26 @@ class HudView {
 	private say(said: Said): void {
 		this.#said = said;
 		this.age = 0;
+		this.seen = false;
 	}
 
 	/** Advance the message clock by `dt` seconds of the explore HUD being on screen. */
 	tick(dt: number): void {
 		const fresh = this.#said !== null && this.age < MESSAGE_SECONDS;
+		if (fresh) this.seen = true;
 		this.age += dt;
 		if (this.#fresh !== fresh) this.#fresh = fresh;
+	}
+
+	/**
+	 * A battle or a friendly match has the screen (each frame it does): the
+	 * line the HUD has already shown is over, and does not come back after it.
+	 * One said since, which the kid has not seen yet, waits for the HUD.
+	 */
+	covered(): void {
+		if (!this.seen || this.age >= MESSAGE_SECONDS) return;
+		this.age = MESSAGE_SECONDS;
+		this.#fresh = false;
 	}
 }
 
