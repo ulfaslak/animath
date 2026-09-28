@@ -806,6 +806,173 @@ describe('a match', () => {
 		expect(t.sentOf('done')).toEqual([]);
 	});
 
+	/** The rematch of `ref`, Bo bringing a fox: the server's messages about it name `ref`. */
+	function rematchOf(t: ReturnType<typeof setup>, ref: Referee) {
+		const team = t.sentOf('rematch')[0]?.team ?? t.sentOf('challenge')[0]!.team;
+		const next = new Referee(team, [{ id: 's', speciesId: 'fox', hp: 1 }], 9, 2);
+		return {
+			next,
+			message: (events: WireMatchEvent[] = [], calledOff = false): MatchMessage => ({
+				...next.message('a', events),
+				rematchOf: ref.id,
+				...(calledOff ? { calledOff: true as const } : {})
+			})
+		};
+	}
+
+	it('never puts up a rematch that crossed the Back to exploring, and says the Back again (#147)', () => {
+		const t = setup();
+		const ref = started(t);
+		playedOut(t, ref);
+		// Ada asks for a rematch, then goes back to exploring after all.
+		t.pick('ArrowLeft', 'Enter');
+		t.controller.receive({ t: 'rematch-wish', id: ref.id, side: 'a', yes: true });
+		t.pick('ArrowRight', 'Enter');
+		expect(t.sentOf('done')).toEqual([{ t: 'done', id: ref.id }]);
+		expect(match.stage).toBe('none');
+		// Bo's Rematch? got to the server just before her Back: the rematch reaches her exploring.
+		const { next, message } = rematchOf(t, ref);
+		const scenes = t.shown.length;
+		t.controller.receive(message());
+		t.run(3);
+		expect(match.stage).toBe('none');
+		expect(match.id).toBeNull();
+		expect(battle.active).toBe(false);
+		expect(battle.transition).toBeNull();
+		expect(battle.line).toBeNull();
+		expect(t.shown).toHaveLength(scenes);
+		// Her Back goes again, about the match she went back from: the server calls the rematch off.
+		expect(t.sentOf('done')).toEqual([
+			{ t: 'done', id: ref.id },
+			{ t: 'done', id: ref.id }
+		]);
+		t.controller.receive(message(next.apply('a', { type: 'leave' }), true));
+		t.run(3);
+		expect(match.stage).toBe('none');
+		expect(t.sentOf('done')).toHaveLength(2);
+		expect(t.sentOf('play')).toEqual([]);
+		// She is out exploring: Bo, beside her, can be asked.
+		t.controller.peer(peer('Bo', 1));
+		t.frame();
+		expect(match.button).toMatchObject({ name: 'Bo', refusal: null });
+	});
+
+	it('keeps the Back for a rematch a page of the kid comes back to, its first Back lost on the way (#147)', () => {
+		const store = memoryStore();
+		const t = setup(PARTY, { store });
+		const ref = started(t);
+		playedOut(t, ref);
+		t.pick('ArrowLeft', 'Enter');
+		t.pick('ArrowRight', 'Enter');
+		expect(t.sentOf('done')).toHaveLength(1);
+		// The socket died with the `done` on it, and the rematch Bo's Rematch? started went nowhere:
+		// back, the server has her in the rematch.
+		const { message } = rematchOf(t, ref);
+		t.controller.status('waiting');
+		t.controller.status('on');
+		t.controller.receive(hi(message().id));
+		t.controller.receive(message());
+		t.run(3);
+		expect(match.stage).toBe('none');
+		expect(battle.active).toBe(false);
+		expect(t.sentOf('done')).toEqual([
+			{ t: 'done', id: ref.id },
+			{ t: 'done', id: ref.id }
+		]);
+		// A new page of hers (a reload, before the server heard) knows it from the browser.
+		stop?.();
+		battle.reset();
+		match.reset();
+		const u = setup(PARTY, { store, first: hi(message().id) });
+		u.controller.receive(message());
+		u.run(3);
+		expect(match.stage).toBe('none');
+		expect(battle.active).toBe(false);
+		expect(u.sentOf('done')).toEqual([{ t: 'done', id: ref.id }]);
+		// Once a hi of hers names no match, the browser forgets it.
+		u.controller.status('waiting');
+		u.controller.status('on');
+		u.controller.receive(hi(null));
+		expect(store.map.size).toBe(0);
+	});
+
+	it('puts the result back when the rematch it began is called off: the friend went back to exploring (#147)', () => {
+		const t = setup();
+		const ref = started(t);
+		playedOut(t, ref);
+		const solved = t.counted();
+		// Bo asked for a rematch, and Ada says yes: the rematch starts, on the result's screen.
+		t.controller.receive({ t: 'rematch-wish', id: ref.id, side: 'b', yes: true });
+		t.pick('ArrowLeft', 'Enter');
+		const { next, message } = rematchOf(t, ref);
+		t.controller.receive(message());
+		expect(match.stage).toBe('playing');
+		expect(match.id).toBe(next.id);
+		const scenes = t.shown.length;
+		t.run(0.3);
+		// But Bo had pressed Back to exploring as her yes went: the server calls it off.
+		t.controller.receive(message(next.apply('b', { type: 'leave' }), true));
+		t.frame();
+		expect(match.stage).toBe('over');
+		expect(match.id).toBe(ref.id);
+		expect(match.result).toMatchObject({ won: true, reason: 'all-tired' });
+		// Rematch? greyed with "Bo went back to exploring.", and the highlight on Back to exploring.
+		expect(match.rematch).toEqual({ mine: false, theirs: false });
+		expect(match.option).toBe(1);
+		expect(battle.screen).toBe('result');
+		expect(battle.line).toBeNull();
+		// The match as it ended: Bo's animal tired, on the same screen, no iris.
+		expect(battle.opponent?.hp).toBe(0);
+		expect(battle.transition).toBeNull();
+		expect(t.shown).toHaveLength(scenes);
+		t.run(3);
+		expect(match.stage).toBe('over');
+		expect(t.counted()).toBe(solved);
+		// Back to exploring says so about the match whose result it is.
+		t.pick('Enter');
+		expect(t.sentOf('done')).toEqual([{ t: 'done', id: ref.id }]);
+		expect(match.stage).toBe('none');
+	});
+
+	it('shows a called-off rematch it picked up after a reload as the friend leaving, and one it never had not at all', () => {
+		// A reload as the rematch started: this page picks it up, with no result to go back to.
+		const first = new Referee(
+			[{ id: 'starter', speciesId: 'squirrel' }],
+			[{ id: 's', speciesId: 'fox', hp: 1 }],
+			9,
+			2
+		);
+		const message = (events: WireMatchEvent[] = [], calledOff = false): MatchMessage => ({
+			...first.message('a', events),
+			rematchOf: 'match00001',
+			...(calledOff ? { calledOff: true as const } : {})
+		});
+		const t = setup(PARTY, { first: hi(first.id) });
+		t.controller.receive(message());
+		t.runUntil(() => battle.screen !== 'busy');
+		t.controller.receive(message(first.apply('b', { type: 'leave' }), true));
+		t.runUntil(() => battle.screen === 'result');
+		expect(match.result).toMatchObject({ won: true, reason: 'left' });
+		expect(match.rematch.theirs).toBe(false);
+		// A call-off of a rematch this page never began brings nothing up.
+		t.pick('Enter');
+		expect(match.stage).toBe('none');
+		const other = new Referee(
+			[{ id: 'starter', speciesId: 'squirrel' }],
+			[{ id: 's', speciesId: 'fox', hp: 1 }],
+			9,
+			3
+		);
+		t.controller.receive({
+			...other.message('a', other.apply('b', { type: 'leave' })),
+			rematchOf: first.id,
+			calledOff: true
+		});
+		t.run(3);
+		expect(match.stage).toBe('none');
+		expect(battle.active).toBe(false);
+	});
+
 	it('says the match is over to a page that came back to find it gone', () => {
 		// From a server that says which run it is, and from one before `boot`, which does not.
 		for (const [i, boot] of ['run0001', undefined].entries()) {
