@@ -318,6 +318,16 @@ describe('how deep a save nests', () => {
 		}
 	});
 
+	it('reads a later version as newer however deep it nests: a build that saves deeper bumps it', () => {
+		// The version is read before anything walks the document, so the way a later build
+		// saves deeper than this one allows is never mistaken for a broken save.
+		const later = { ...written, version: SAVE_VERSION + 1, deep: lists(100_000) };
+		expect(readSave(later)).toMatchObject({ ok: false, reason: 'newer' });
+		expect(validateSaveWrite(later)).toMatchObject({ ok: false, reason: 'newer' });
+		expect(isNewerSave(later)).toBe(true);
+		expect(canReplace(later, { seq: 99 })).toBe(false);
+	});
+
 	it(`a game's save nests 4 deep at most, well inside ${MAX_SAVE_DEPTH}`, () => {
 		// The deepest things a game saves: a battle's party and its puzzle (mid-puzzle among the
 		// states below), and a world left behind, where the player stood and what they cleared.

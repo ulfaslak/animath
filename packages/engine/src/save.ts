@@ -51,13 +51,17 @@ export const MAX_SAVED_NAME_LENGTH = 40;
 
 /**
  * How deep a save may nest: the document is 1 deep, an object or a list in
- * it 2, and so on. A game's save is 4 deep at most (a saved battle's party
- * or puzzle, a world left behind's position: `save.test.ts` pins it), so
- * this leaves a later build's fields room to spare. A document nested
- * deeper is invalid. A body within the server's limit can nest hundreds of
- * thousands deep, and the walks that go down one level at a time (the check
- * here, V8's `JSON.stringify` for some shapes, Postgres' jsonb) run out of
- * stack thousands deep, and would throw where the document is to be refused.
+ * it 2, and so on, counted as this build reads it (a v1 document after its
+ * upgrade, which moves some fields a level down, under `V1_KEPT`). A game's
+ * save is 4 deep at most (a saved battle's party or puzzle, a world left
+ * behind's position: `save.test.ts` pins it). A document nested deeper is
+ * invalid: a body within the server's limit can nest hundreds of thousands
+ * deep, and the walks that go down one level at a time (the check here, V8's
+ * `JSON.stringify` for some shapes, Postgres' jsonb) run out of stack
+ * thousands deep, and would throw where the document is to be refused. The
+ * limit is part of the format: a build reads a document deeper than its own
+ * limit as broken, never as a newer build's, so a build that saves deeper,
+ * or raises the limit, bumps `SAVE_VERSION` too.
  */
 export const MAX_SAVE_DEPTH = 64;
 
