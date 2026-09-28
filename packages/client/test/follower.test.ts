@@ -648,6 +648,9 @@ describe('up in the air (#91)', () => {
 		return setup(party, game0);
 	}
 
+	/** How a wing's joint is turned as the figure is built: not at all. */
+	const AS_BUILT = new THREE.Quaternion();
+
 	it('the lead in the air, a bird, takes off and flies behind the trainer, then comes down beside them; on land the land lead follows again', () => {
 		const s = flyer('squirrel,robin');
 		expect(s.follower.species).toBe('squirrel');
@@ -663,7 +666,7 @@ describe('up in the air (#91)', () => {
 			const figure = s.figures.find((f) => f.name === 'robin')!;
 			// Up there, behind the trainer and to their left, a little below them, wings out.
 			expect(figure.position.y).toBeGreaterThan(0.5);
-			expect(figure.getObjectByName('wingR')!.rotation.z).toBeGreaterThan(0.5);
+			expect(figure.getObjectByName('wingR')!.quaternion.angleTo(AS_BUILT)).toBeGreaterThan(0.5);
 			biggest = Math.max(biggest, figure.scale.x);
 			// Once it has caught up, it keeps its spot as the trainer glides on: behind them (down
 			// the screen, as they fly up it), to their left and below, bobbing a little.
@@ -713,8 +716,11 @@ describe('up in the air (#91)', () => {
 		expect(s.figures).toEqual([robin]);
 		expect(beside(s.follower.tile, s.trainer())).toBe(true);
 		// Down, its wings are folded again, as built.
-		expect(robin.getObjectByName('wingL')!.rotation.z).toBe(-0);
-		expect(robin.getObjectByName('wingR')!.scale.y).toBe(1);
+		for (const name of ['wingL', 'wingR']) {
+			const wing = robin.getObjectByName(name)!;
+			expect(wing.quaternion.angleTo(AS_BUILT), name).toBe(0);
+			expect(wing.scale.toArray(), name).toEqual([1, 1, 1]);
+		}
 		expect(robin.rotation.x).toBe(0);
 	});
 });

@@ -172,6 +172,12 @@ describe('figures', () => {
 				return bounds(right).max.y;
 			});
 			expect(new Set(calm.map((y) => y.toFixed(9))).size, id).toBe(1);
+			// Held out, a wing reaches out from its shoulder further than it is deep from front to
+			// back: a wing spread, never one still lying along the body, as the heron's and the
+			// swan's, laid back along their sides, did when only turned out.
+			const spread = bounds(right);
+			const shoulder = right.getWorldPosition(new THREE.Vector3());
+			expect(spread.max.x - shoulder.x, id).toBeGreaterThan(spread.max.z - spread.min.z);
 			// Folded again, exactly as built.
 			animateFlight(figure, 0.5, 0);
 			expect(bounds(left).equals(folded[0]!), id).toBe(true);

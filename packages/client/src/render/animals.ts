@@ -1913,22 +1913,27 @@ const WING_LIFT = 0.18;
 /** Radians a wing beats either way of that, and how fast: radians of the beat a second. */
 export const WING_BEAT = 0.6;
 const FLAP_RATE = 10;
-/** How much longer a wing that folds down a bird's side grows as it spreads: to a span. */
+/** How much longer a folded wing grows as it spreads: to a span. */
 export const WING_STRETCH = 1.8;
 
 /**
  * How a bird's wing lies at rest, measured once from its parts in its
- * joint's own frame: `angle`, the way its middle points from the shoulder,
- * up from level and out (an eagle's half-open wing reaches out and a little
- * up); and `folded`, a wing taller than it is wide, laid down the bird's side,
- * whose angle is straight down (−π/2) and which grows to a span as it spreads.
+ * joint's own frame. `lie`: `out`, built spread (an eagle's half-open wing,
+ * wider than it is tall); `down`, folded down the bird's side, reaching
+ * further below the shoulder than behind it (an owl's, the buzzard's), which
+ * spreads by turning out; or `back`, laid back along the bird's side,
+ * reaching further behind the shoulder than below it (the robin's, the
+ * heron's, the swan's), which spreads by swinging out and lying flat, so the
+ * long way along the body becomes the span. `angle`: the way its middle
+ * points from the shoulder once spread, up from level and out (an eagle's
+ * reaches out and a little up).
  */
 interface WingRest {
+	lie: 'out' | 'down' | 'back';
 	angle: number;
-	folded: boolean;
 }
 
-function wingRest(wing: THREE.Object3D): WingRest {
+function wingRest(wing: THREE.Object3D, side: -1 | 1): WingRest {
 	const box = new THREE.Box3();
 	const part = new THREE.Box3();
 	for (const child of wing.children) {
@@ -1939,18 +1944,27 @@ function wingRest(wing: THREE.Object3D): WingRest {
 	}
 	const size = box.getSize(new THREE.Vector3());
 	const middle = box.getCenter(new THREE.Vector3());
-	const folded = size.y > size.x;
-	return { angle: folded ? -Math.PI / 2 : Math.atan2(middle.y, Math.abs(middle.x)), folded };
+	if (size.y <= size.x) return { lie: 'out', angle: Math.atan2(middle.y, Math.abs(middle.x)) };
+	if (-box.min.y >= -box.min.z) return { lie: 'down', angle: -Math.PI / 2 };
+	// Swung out and laid flat, the middle is as far out as it was behind the shoulder, and
+	// as high as it was out from the side (the side of the wing that faced out faces down).
+	return { lie: 'back', angle: Math.atan2(-side * middle.x, Math.abs(middle.z)) };
 }
+
+const Y_AXIS = new THREE.Vector3(0, 1, 0);
+const Z_AXIS = new THREE.Vector3(0, 0, 1);
+const swing = new THREE.Quaternion();
+const turn = new THREE.Quaternion();
 
 /**
  * A bird in the air ([[UI_SPEC]] § Explore mode, § Battle mode): its wings,
  * hanging from `wingL` and `wingR`, spread out from its sides, `spread` of the
  * way (0 as it stands, wings folded; 1 wide open), and beating at `t` seconds
  * (`figure.userData.idlePhase` puts a pair out of step); with reduced motion
- * (`calm`) held out still, gliding. A wing folded down the bird's side grows
- * longer as it spreads, to a bird's span. A figure without wings is left as it
- * is. Runs after `animateIdle`, which touches no wing.
+ * (`calm`) held out still, gliding. A folded wing grows longer as it spreads,
+ * to a bird's span (`WingRest`: turned out if it folds down the side, swung
+ * out and laid flat if it lies back along it). A figure without wings is left
+ * as it is. Runs after `animateIdle`, which touches no wing.
  */
 export function animateFlight(
 	figure: THREE.Object3D,
@@ -1969,9 +1983,21 @@ export function animateFlight(
 	] as const) {
 		const wing = rig.getObjectByName(name);
 		if (!wing) continue;
-		const rest = (wing.userData.rest ??= wingRest(wing)) as WingRest;
-		wing.rotation.z = side * open * (WING_LIFT + beat - rest.angle);
-		wing.scale.y = 1 + open * ((rest.folded ? WING_STRETCH : 1) - 1);
+		const rest = (wing.userData.rest ??= wingRest(wing, side)) as WingRest;
+		const lift = side * open * (WING_LIFT + beat - rest.angle);
+		const stretch = 1 + open * (rest.lie === 'out' ? 0 : WING_STRETCH - 1);
+		if (rest.lie === 'back') {
+			// Turned a quarter about the body's length, so it lies flat; swung a quarter about
+			// the upright, so what reached back reaches out; then lifted as any wing is.
+			wing.quaternion
+				.setFromAxisAngle(Z_AXIS, lift)
+				.multiply(swing.setFromAxisAngle(Y_AXIS, (-side * open * Math.PI) / 2))
+				.multiply(turn.setFromAxisAngle(Z_AXIS, (-side * open * Math.PI) / 2));
+			wing.scale.set(1, 1, stretch);
+		} else {
+			wing.rotation.set(0, 0, lift);
+			wing.scale.set(1, stretch, 1);
+		}
 	}
 }
 
