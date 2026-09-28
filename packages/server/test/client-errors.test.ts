@@ -27,7 +27,7 @@ beforeEach(async () => {
 });
 
 const ROOMY = { limit: 100_000, windowMs: 60_000, maxKeys: 100_000 };
-const NO_LIMITS: ReportLimits = { perAddress: ROOMY, everyone: ROOMY };
+const NO_LIMITS: ReportLimits = { perAddress: ROOMY };
 const app = createApp({ reportLimits: NO_LIMITS });
 
 const SHA = '0123456789abcdef0123456789abcdef01234567';
@@ -252,7 +252,7 @@ describe('POST /api/client-errors', () => {
 
 	it('takes so many reports from one address, counting junk too, and still takes the next address', async () => {
 		const target = createApp({
-			reportLimits: { perAddress: { limit: 3, windowMs: 60_000, maxKeys: 100 }, everyone: ROOMY }
+			reportLimits: { perAddress: { limit: 3, windowMs: 60_000, maxKeys: 100 } }
 		});
 		const from = { 'x-forwarded-for': '10.8.0.1' };
 		expect((await send('junk', { target, headers: from })).status).toBe(400);

@@ -11,33 +11,33 @@ import { clientIp, rateKey, readJson, sameOriginJson } from '../request.js';
  *
  * JSON from a page of this site (`sameOriginJson`: 415, 403), `REPORT_MAX_BYTES`
  * at most (413), a report `readReport` takes (400 with the field it did not),
- * and within the limits (429 with `Retry-After`): per address, counted before
- * the body is read, and for every address together, counted once a report is
- * read, so a flood from many addresses cannot fill the table faster than
- * `everyone` allows. 503 when the database does not take it. The route reads
- * no session and sends no cookie, and the address is only counted, in this
+ * and within the limit per address, counted before the body is read (429 with
+ * `Retry-After`). 503 when the database does not take it. The route reads no
+ * session and sends no cookie, and the address is only counted, in this
  * process's memory.
+ *
+ * There is no limit for every address together: a stranger with a few
+ * addresses could use it up, and every kid's report would be refused while the
+ * health watch said nothing new came in. A flood can only fill the table, which
+ * keeps the newest `KEEP_ROWS`, and it shows as errors of its own.
  */
 
 export interface ReportLimits {
 	/** Reports from one address (`rateKey`). */
 	perAddress: LimitSpec;
-	/** Reports from every address together. */
-	everyone: LimitSpec;
 }
 
 const MINUTE = 60_000;
 
 /**
- * A page sends 10 reports at most, each a different error: one kid's page
- * breaking badly is 10, and a class behind one school address whose pages
- * break the same way as they load, some 25. Every address together can send
- * 4,800 a day at most, under `KEEP_ROWS`: a flood pushes out no report less
- * than a day old.
+ * A page sends 3 reports an hour at most, each a different error, so a class
+ * behind one school address whose pages all break the same way sends some 75,
+ * of which the first 30 are kept. One address alone sends 4,320 a day at most,
+ * under `KEEP_ROWS`. The count is this process's: a restart or a deploy starts
+ * it again.
  */
 export const REPORT_LIMITS: ReportLimits = {
-	perAddress: { limit: 30, windowMs: 10 * MINUTE, maxKeys: 10_000 },
-	everyone: { limit: 200, windowMs: 60 * MINUTE, maxKeys: 1 }
+	perAddress: { limit: 30, windowMs: 10 * MINUTE, maxKeys: 10_000 }
 };
 
 function tooMany(c: Context, verdict: Extract<Verdict, { ok: false }>) {
@@ -60,7 +60,6 @@ function codeOf(error: unknown): string {
 
 export function clientErrorsRoute(limits: ReportLimits) {
 	const perAddress = new RateLimiter(limits.perAddress);
-	const everyone = new RateLimiter(limits.everyone);
 
 	const limited: MiddlewareHandler = async (c, next) => {
 		const verdict = perAddress.hit(rateKey(clientIp(c)));
@@ -81,8 +80,6 @@ export function clientErrorsRoute(limits: ReportLimits) {
 			if (body === undefined) return c.json({ error: 'body is not valid JSON' }, 400);
 			const read = readReport(body);
 			if (!read.ok) return c.json({ error: 'bad report', detail: read.detail }, 400);
-			const verdict = everyone.hit('everyone');
-			if (!verdict.ok) return tooMany(c, verdict);
 			try {
 				await keepReport(read.report);
 			} catch (error) {
