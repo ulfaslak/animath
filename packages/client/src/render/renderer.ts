@@ -13,6 +13,7 @@ import { motion } from '../motion';
 import { Butterflies } from './ambient';
 import { animateIdle, animateWalk, buildPlayerMesh } from './animals';
 import { BOAT_STAND, buildBoatMesh, poseBoat, standAstern } from './boat';
+import { SUN_FROM, WORLD_LIGHT } from './campfire';
 import { Chaser } from './chaser';
 import { ChunkRing } from './chunks';
 import { ClearingEffects, SWING_SECONDS, animateSwing, buildTool } from './clearing';
@@ -24,7 +25,7 @@ import { OtherPlayers } from './others';
 import { COLORS, GLIDER_COLORS } from './palette';
 import { Poofs } from './poof';
 import { PortraitStudio } from './portraits';
-import { groundTop } from './tiles';
+import { buildTileProps, disposeChunkGroup, groundTop } from './tiles';
 import { FACING_ANGLE, strideOnto, trainerPose, trainerStep } from './trainer';
 
 /**
@@ -90,12 +91,33 @@ const CAMERA_OFFSET = new THREE.Vector3(
 /** Seconds the boat takes to grow onto the trainer's back when it is bought. */
 const BOAT_ARRIVES_SECONDS = 0.45;
 
+/** Where the sun hangs from what the camera looks at: its light comes from the same way everywhere. */
+const SUN_OFFSET = new THREE.Vector3(...SUN_FROM);
+
 /** Whether two overlays clear the same tiles: their text forms are canonical. */
 function sameEdits(a: WorldEdits, b: WorldEdits): boolean {
 	if (a === b) return true;
 	const [x, y] = [a.encode(), b.encode()];
 	return x.length === y.length && x.every((entry, i) => entry === y[i]);
 }
+
+/**
+ * How many device pixels the game draws per CSS pixel on a canvas `width` ×
+ * `height` CSS pixels big, on a screen of `device` pixels per CSS pixel. The
+ * GPU's time goes with the pixels it fills, so the drawing holds at most
+ * `PIXEL_BUDGET` pixels (a big phone held sideways at 2×), except that a
+ * screen bigger than a phone keeps 1.5 per CSS pixel, where the figures'
+ * edges stay crisp; never more than 2, nor than the screen has. At an older
+ * iPad's 1080×810 that is 1.5: 56% of the pixels of 2×, the frame 40% quicker
+ * on a laptop GPU of its class (#150).
+ */
+export function pixelRatioFor(width: number, height: number, device: number): number {
+	const budget = Math.sqrt(PIXEL_BUDGET / Math.max(1, width * height));
+	return Math.min(device, MAX_PIXEL_RATIO, Math.max(BIG_SCREEN_PIXEL_RATIO, budget));
+}
+const PIXEL_BUDGET = 1_800_000;
+const MAX_PIXEL_RATIO = 2;
+const BIG_SCREEN_PIXEL_RATIO = 1.5;
 
 /** Fit the world's camera to a canvas `aspect` wide: always 14 tiles tall, as wide as the window. */
 export function frameWorldCamera(camera: THREE.OrthographicCamera, aspect: number): void {
@@ -179,7 +201,6 @@ export class GameRenderer {
 
 	constructor(private canvas: HTMLCanvasElement) {
 		this.renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
-		this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 		this.renderer.shadowMap.enabled = true;
 		this.renderer.shadowMap.type = THREE.PCFShadowMap;
 		this.renderer.outputColorSpace = THREE.SRGBColorSpace;
@@ -189,10 +210,11 @@ export class GameRenderer {
 
 		this.scene.add(this.camera);
 
-		const hemi = new THREE.HemisphereLight(0xffffff, 0x88aa66, 1.1);
+		// The world's only lights, always the same two: a campfire's glow is painted (`campfire.ts`).
+		const hemi = new THREE.HemisphereLight(WORLD_LIGHT.sky, WORLD_LIGHT.bounce, WORLD_LIGHT.fill);
 		this.scene.add(hemi);
-		const sun = new THREE.DirectionalLight(0xfff2d6, 2.2);
-		sun.position.set(12, 20, 8);
+		const sun = new THREE.DirectionalLight(WORLD_LIGHT.sun, WORLD_LIGHT.sunIntensity);
+		sun.position.set(...SUN_FROM);
 		sun.castShadow = true;
 		sun.shadow.mapSize.set(2048, 2048);
 		sun.shadow.camera.left = -24;
@@ -242,8 +264,27 @@ export class GameRenderer {
 
 		window.addEventListener('resize', () => this.resize());
 		this.resize();
+		this.warmUp();
 	}
 	private sun: THREE.DirectionalLight;
+
+	/**
+	 * Compile what a tent draws with (its cloth, the doctor, his fire, the
+	 * glow), and what the scene holds hidden till it is needed (the flier's
+	 * shadow and the landing ring), as the page starts, in the background
+	 * where the browser can, rather than on the frame the first tent comes
+	 * into view or the first glide takes off, which the compile would stall
+	 * (#151). The world's lights never change, so these programs serve for
+	 * good.
+	 */
+	private warmUp(): void {
+		const camp = buildTileProps({ kind: 'tent', biome: 'meadow', height: 0 }, 0, 0);
+		this.renderer
+			.compileAsync(camp, this.camera, this.scene)
+			.catch(() => undefined)
+			.finally(() => disposeChunkGroup(camp));
+		this.renderer.compileAsync(this.scene, this.camera).catch(() => undefined);
+	}
 
 	/**
 	 * Draw world `seed`, as `edits` leave it. The chunks already built stay
@@ -496,12 +537,23 @@ export class GameRenderer {
 		return this.studio.draw(speciesId);
 	}
 
-	/** Draw `stage` instead of the world (a battle, the starter stage), or `null` for the world. */
+	/**
+	 * Draw `stage` instead of the world (a battle, the starter stage), or
+	 * `null` for the world. The first time a stage is shown, everything in its
+	 * scene is compiled, what it keeps hidden until later too (the battle's
+	 * dust): a program compiled mid-battle stalls that frame (#159).
+	 */
 	setStage(stage: Stage | null): void {
 		this.stage = stage;
 		const { w, h } = this.size();
 		stage?.resize(w, h);
+		if (stage && !this.compiled.has(stage)) {
+			this.compiled.add(stage);
+			this.renderer.compileAsync(stage.scene, stage.camera).catch(() => undefined);
+		}
 	}
+	/** The stages whose scenes were compiled when first shown. */
+	private compiled = new WeakSet<Stage>();
 
 	render(): void {
 		const t = performance.now() / 1000;
@@ -510,6 +562,8 @@ export class GameRenderer {
 			this.renderer.render(this.stage.scene, this.stage.camera);
 			return;
 		}
+		// The ring's edge, off screen, a piece a frame: its chunks, and their campfires' glow.
+		this.chunks.work();
 		animateIdle(this.player, t);
 		// Standing in the boat, the trainer's legs don't walk.
 		animateWalk(this.player, this.step.progress, this.step.stride, this.afloat === 1 ? 0 : 1);
@@ -536,7 +590,7 @@ export class GameRenderer {
 		// Aimed first: the butterflies keep out of this frame's view, not the last one's.
 		this.placeCamera();
 		this.butterflies.update({ x: this.cameraTarget.x, z: this.cameraTarget.z }, dt, t);
-		this.sun.position.copy(this.cameraTarget).add(new THREE.Vector3(12, 20, 8));
+		this.sun.position.copy(this.cameraTarget).add(SUN_OFFSET);
 		this.sun.target.position.copy(this.cameraTarget);
 		this.renderer.render(this.scene, this.camera);
 	}
@@ -689,7 +743,7 @@ export class GameRenderer {
 
 	private resize(): void {
 		const { w, h } = this.size();
-		this.renderer.setSize(w, h, false);
+		this.renderer.setDrawingBufferSize(w, h, pixelRatioFor(w, h, window.devicePixelRatio));
 		frameWorldCamera(this.camera, w / h);
 		this.stage?.resize(w, h);
 	}

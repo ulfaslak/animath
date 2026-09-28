@@ -1912,6 +1912,16 @@ function zGeometry(): THREE.BufferGeometry {
 	return geometry;
 }
 
+/**
+ * A resting animal's z's on their own, never shown: the battle keeps a set
+ * hidden in its scene, since nothing else draws with their shader program
+ * (a Lambert on a shape without normals), so it is compiled with the
+ * battle's first frame and not as the first animal lies down (#159).
+ */
+export function restingZs(): THREE.Group {
+	return buildZs();
+}
+
 function buildZs(): THREE.Group {
 	const zs = new THREE.Group();
 	zs.name = 'zs';

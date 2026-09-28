@@ -10,6 +10,7 @@ import {
 	REST_YAW,
 	type WitchDoctor
 } from '../src/render/doctor';
+import { GLOW_MATERIAL } from '../src/render/campfire';
 import { buildTileProps, doctorsIn } from '../src/render/tiles';
 
 /**
@@ -77,7 +78,8 @@ describe('the witch doctor', () => {
 		const check = (what: string) => {
 			group.updateMatrixWorld(true);
 			group.traverse((o) => {
-				if (!(o instanceof THREE.Mesh)) return;
+				// The fire's glow on the ground round it is light, not a thing: a trainer stands in it.
+				if (!(o instanceof THREE.Mesh) || o.material === GLOW_MATERIAL) return;
 				box.setFromObject(o, true);
 				if (!tile.containsBox(box)) {
 					outside.push(

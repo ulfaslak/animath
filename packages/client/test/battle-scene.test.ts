@@ -515,3 +515,41 @@ describe('out at sea', () => {
 		expect(bad).toEqual([]);
 	});
 });
+
+describe('the dust of a knock-out', () => {
+	it('fades with a see-through material it hands on to the next dust, freeing none, and one of each kind stands hidden from the start', () => {
+		// three.js frees a shader program with the last material that drew with it: a dust
+		// that freed its own had the program compiled again at the next knock-out, a stall
+		// as the animal lay down (#159).
+		const battle = new BattleScene();
+		const seeThrough = new Set<THREE.Material>();
+		let freed = 0;
+		const look = () =>
+			battle.scene.traverse((o) => {
+				if (!(o instanceof THREE.Mesh)) return;
+				const material = o.material as THREE.Material;
+				if (!material.transparent || seeThrough.has(material)) return;
+				seeThrough.add(material);
+				material.addEventListener('dispose', () => freed++);
+			});
+		look();
+		// Before any battle, hidden: the renderer compiles them with the stage's first frame.
+		const unseen = seeThrough.size;
+		expect(unseen).toBeGreaterThanOrEqual(2);
+		let t = 0;
+		for (let i = 0; i < 12; i++) {
+			// On the ground and in the sky by turns, a knock-out each, and now and then both at once.
+			battle.begin(i % 2 === 0 ? 'meadow' : 'sky', i % 2 === 0 ? 'squirrel' : 'robin', 'rabbit');
+			battle.faint('opponent');
+			if (i % 3 === 0) battle.faint('player');
+			for (let s = 0; s < 3; s += FRAME) {
+				battle.update((t += FRAME));
+				look();
+			}
+		}
+		battle.end();
+		expect(freed).toBe(0);
+		// The hidden ones and those two dusts at once ever needed: none made per knock-out.
+		expect(seeThrough.size).toBeLessThanOrEqual(unseen + 2);
+	});
+});

@@ -218,12 +218,21 @@ function worded(text: string): boolean {
  * String literals in TypeScript that read as words, as `file:line text`. A
  * template literal's `${…}` counts as a one-letter word, so a sentence around
  * a name is caught and `${a} × ${b} = ?` is not. Messages for developers are
- * skipped: anything inside `new Error(…)` or `console.*(…)`.
+ * skipped: anything inside `new Error(…)` or `console.*(…)`; and so is a
+ * shader's source, a literal marked `/* glsl *\/`, which is code.
  */
 export function wordedLiterals(file: string, source: string): string[] {
 	const sf = ts.createSourceFile(file, source, ts.ScriptTarget.Latest, true);
 	const found: string[] = [];
 	const forDevelopers = (node: ts.Node): boolean => {
+		// A comment on the line before, or just before it on its own line (TypeScript counts that one
+		// as the last token's trailing comment).
+		const at = node.getFullStart();
+		const comments = [
+			...(ts.getLeadingCommentRanges(source, at) ?? []),
+			...(ts.getTrailingCommentRanges(source, at) ?? [])
+		];
+		if (comments.some((c) => source.slice(c.pos, c.end) === '/* glsl */')) return true;
 		for (let p = node.parent; p; p = p.parent) {
 			if (ts.isNewExpression(p) && p.expression.getText(sf) === 'Error') return true;
 			if (ts.isCallExpression(p) && /^console\./.test(p.expression.getText(sf))) return true;

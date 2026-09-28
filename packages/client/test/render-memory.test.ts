@@ -3,6 +3,7 @@ import {
 	CHUNK_SIZE,
 	STARTERS,
 	WorldEdits,
+	onTentLattice,
 	isWalkable,
 	isWater,
 	spawnPoint,
@@ -14,7 +15,8 @@ import * as THREE from 'three';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { WORLD_SEED } from '../src/authority/local';
 import { BattleScene } from '../src/render/battle-scene';
-import { ChunkRing } from '../src/render/chunks';
+import { GLOW_MATERIAL } from '../src/render/campfire';
+import { ChunkRing, SHOWN_RADIUS } from '../src/render/chunks';
 import { ClearingEffects } from '../src/render/clearing';
 import { Follower, SWIM_DEPTH } from '../src/render/follower';
 import { forgetShapes } from '../src/render/merge';
@@ -107,6 +109,7 @@ function* line(from: GridPos, to: GridPos): Generator<GridPos> {
 }
 
 const RING = 25; // 5 × 5 chunks around the player
+const SHOWN = (2 * SHOWN_RADIUS + 1) ** 2; // the 3 × 3 the screen shows
 const FAR = 5 * CHUNK_SIZE; // five chunk borders out: the ring there shares no chunk with the start's
 const chunkOf = (p: GridPos) => `${Math.floor(p.x / CHUNK_SIZE)},${Math.floor(p.y / CHUNK_SIZE)}`;
 
@@ -119,6 +122,7 @@ describe('the chunks around the player', () => {
 		const ledger = new Ledger();
 		ring.reset(WORLD_SEED);
 		ring.update(start);
+		ring.finish();
 		ledger.see(parent);
 		const atStart = ledger.owned().length;
 		expect(ring.size).toBe(RING);
@@ -139,17 +143,22 @@ describe('the chunks around the player', () => {
 		const leaks: string[] = [];
 		for (const [from, to] of legs) {
 			for (const p of line(from, to)) {
+				// A frame a step: the ring's edge is built a piece a frame.
 				ring.update(p);
-				// The scene only changes when the player crosses into another chunk.
+				ring.work();
+				ledger.see(parent);
+				// The ring only frees chunks when the player crosses into another chunk.
 				if (chunkOf(p) === chunk) continue;
 				chunk = chunkOf(p);
-				ledger.see(parent);
 				// At every crossing, what the chunks own is exactly what is on screen.
 				const leaked = ledger.ownedOutside(parent);
 				if (leaked.length) leaks.push(`${chunk}: ${kinds(leaked).length} left behind`);
-				if (ring.size !== RING) leaks.push(`${chunk}: ${ring.size} chunks built`);
+				if (ring.size < SHOWN || ring.size > RING)
+					leaks.push(`${chunk}: ${ring.size} chunks built`);
 			}
 		}
+		ring.finish();
+		ledger.see(parent);
 
 		expect(leaks.slice(0, 5)).toEqual([]);
 		expect(parent.children.length).toBe(RING);
@@ -171,6 +180,7 @@ describe('the chunks around the player', () => {
 		// A step, then a jump far off (a knock-out's trip to a tent is one).
 		for (const p of [start, { x: start.x + 1, y: start.y }, { x: -300, y: 200 }]) {
 			ring.update(p);
+			ring.finish();
 			ledger.see(parent);
 			expect(kinds(ledger.ownedOutside(parent))).toEqual([]);
 		}
@@ -179,27 +189,111 @@ describe('the chunks around the player', () => {
 		expect(parent.children.length).toBe(0);
 		expect(kinds(ledger.owned())).toEqual([]);
 		ring.update(start);
+		ring.finish();
 		expect(ring.size).toBe(RING);
 		// About 1 s alone (three whole rings of chunks built); over 5 s under a heavy load.
 	}, 30_000);
 
-	it('draw only shared shapes: a chunk owns no geometry of its own', () => {
+	it("draw only shared shapes, but for the glow of each tent's campfire, built for the ground round it", () => {
 		const parent = new THREE.Group();
 		const ring = new ChunkRing(parent);
 		ring.reset(WORLD_SEED);
 		// Meadow, river and tents by the start, forest and rocks further out.
 		const own = new Set<THREE.BufferGeometry>();
 		const shared = new Set<THREE.BufferGeometry>();
+		const glows = new Set<THREE.BufferGeometry>();
+		const tents = new Set<object>();
 		for (const p of [start, { x: -80, y: -2 }]) {
 			ring.update(p);
+			ring.finish();
+			ring.forEachDoctor((doctor) => tents.add(doctor));
 			parent.traverse((o) => {
 				if (!(o instanceof THREE.Mesh)) return;
-				(SHARED_GEOMETRIES.has(o.geometry) ? shared : own).add(o.geometry);
+				if (SHARED_GEOMETRIES.has(o.geometry)) shared.add(o.geometry);
+				else (o.material === GLOW_MATERIAL ? glows : own).add(o.geometry);
 			});
 		}
 		expect([...own].map((g) => g.type)).toEqual([]);
+		// One glow a tent, and never one without: `disposeChunkGroup` frees it with its chunk.
+		expect(tents.size).toBeGreaterThan(0);
+		expect(glows.size).toBe(tents.size);
 		// Every kind of prop was on the way, so none escaped the check.
 		expect(shared.size).toBe(SHARED_GEOMETRIES.size);
+	});
+
+	it('hold no light, so the lights never change in number as tents come and go', () => {
+		// three.js writes the number of point lights into every lit shader: each new number of
+		// campfire lights in the ring compiled every lit program again, and the frame froze
+		// for up to 0.75 s (#151). A campfire's glow is painted instead.
+		const parent = new THREE.Group();
+		const ring = new ChunkRing(parent);
+		ring.reset(WORLD_SEED);
+		const tents = new Set<object>();
+		const lights: string[] = [];
+		// East from the start through twenty columns of chunks, and the tents in them.
+		for (const p of line(start, { x: start.x + 4 * FAR, y: start.y })) {
+			ring.update(p);
+			ring.work();
+			ring.forEachDoctor((doctor) => tents.add(doctor));
+			parent.traverse((o) => {
+				if (o instanceof THREE.Light) lights.push(`${o.type} at ${chunkOf(p)}`);
+			});
+		}
+		expect(lights.slice(0, 5)).toEqual([]);
+		expect(tents.size).toBeGreaterThan(2);
+	}, 30_000);
+
+	it("build what the screen shows at once and the ring's edge a piece a frame, each chunk once, and none that left before its turn", () => {
+		const parent = new THREE.Group();
+		const built: THREE.Object3D[] = [];
+		const add = parent.add.bind(parent);
+		parent.add = (...objects: THREE.Object3D[]) => {
+			built.push(...objects);
+			return add(...objects);
+		};
+		// One piece of work a frame, however quick.
+		const ring = new ChunkRing(parent, 0);
+		ring.reset(WORLD_SEED);
+		ring.update(start);
+		// The 3×3 round the player at once; the sixteen round them wait.
+		expect(ring.size).toBe(SHOWN);
+		expect(ring.pending).toBe(RING - SHOWN);
+		ring.work();
+		expect(ring.size).toBe(SHOWN + 1);
+		ring.finish();
+		expect(ring.size).toBe(RING);
+		expect(built.length).toBe(RING);
+		// A step into the next column of chunks: its five at the ring's edge, one a frame.
+		const next = { x: (Math.floor(start.x / CHUNK_SIZE) + 1) * CHUNK_SIZE, y: start.y };
+		ring.update(next);
+		expect(ring.size).toBe(RING - 5);
+		const before = built.length;
+		for (let frame = 1; ring.pending > 0; frame++) {
+			ring.work();
+			// Building a chunk with a tent leaves its glow for the frame after.
+			expect(built.length - before).toBeLessThanOrEqual(frame);
+		}
+		expect(built.length - before).toBe(5);
+		expect(ring.size).toBe(RING);
+		// A jump before the ring's edge is built: its work goes with it, none of it built later.
+		ring.update({ x: next.x + CHUNK_SIZE, y: next.y });
+		const left = ring.pending;
+		expect(left).toBe(5);
+		const far = { x: next.x + 20 * CHUNK_SIZE, y: next.y };
+		ring.update(far);
+		expect(ring.pending).toBe(RING - SHOWN);
+		const beforeFar = built.length;
+		ring.finish();
+		expect(built.length - beforeFar).toBe(RING - SHOWN);
+		expect(parent.children.length).toBe(RING);
+		// Every tent in the finished ring has its glow, once.
+		let tents = 0;
+		let glows = 0;
+		parent.traverse((o) => {
+			if (o.userData.doctor) tents++;
+			if (o instanceof THREE.Mesh && o.material === GLOW_MATERIAL) glows++;
+		});
+		expect(glows).toBe(tents);
 	});
 });
 
@@ -214,12 +308,66 @@ describe('a tree chopped down, a rock broken', () => {
 		return n;
 	};
 
+	it("builds a tent's chunk next door again when a tree its campfire lights is chopped: no glow is left in the air", () => {
+		// The first tent from the spawn with a tree in the next chunk, three tiles from it at most.
+		const home = spawnPoint(WORLD_SEED);
+		let found: { tent: GridPos; tree: GridPos } | null = null;
+		for (let r = 0; r < 400 && !found; r++) {
+			for (let y = home.y - r; y <= home.y + r && !found; y++) {
+				for (let x = home.x - r; x <= home.x + r && !found; x++) {
+					if (Math.max(Math.abs(x - home.x), Math.abs(y - home.y)) !== r) continue;
+					if (!onTentLattice(x, y) || tileAtWorld(WORLD_SEED, x, y).kind !== 'tent') continue;
+					for (let dy = -3; dy <= 3 && !found; dy++) {
+						for (let dx = -3; dx <= 3 && !found; dx++) {
+							const tree = { x: x + dx, y: y + dy };
+							if (chunkOf(tree) === chunkOf({ x, y })) continue;
+							if (tileAtWorld(WORLD_SEED, tree.x, tree.y).kind === 'tree')
+								found = { tent: { x, y }, tree };
+						}
+					}
+				}
+			}
+		}
+		expect(found).not.toBeNull();
+		const { tent, tree } = found!;
+		const parent = new THREE.Group();
+		const ring = new ChunkRing(parent);
+		ring.reset(WORLD_SEED);
+		ring.update(tree);
+		ring.finish();
+		/** The glowing corners of the tent's glow standing over the tree's tile, above its trunk's foot. */
+		const overTheTree = () => {
+			let camp: THREE.Object3D | null = null;
+			parent.traverse((o) => {
+				if (o.userData.doctor && o.position.x === tent.x && o.position.z === tent.y) camp = o;
+			});
+			const glow = (camp as THREE.Object3D | null)?.getObjectByName('campfire-glow') as THREE.Mesh;
+			const at = glow.geometry.getAttribute('position');
+			const [dx, dz] = [tree.x - tent.x, tree.y - tent.y];
+			let n = 0;
+			for (let k = 0; k < at.count; k++) {
+				const near = Math.abs(at.getX(k) - dx) < 0.45 && Math.abs(at.getZ(k) - dz) < 0.45;
+				if (near && at.getY(k) > 0.45) n++;
+			}
+			return { glow, n };
+		};
+		const before = overTheTree();
+		expect(before.n).toBeGreaterThan(0);
+		ring.setEdits(WorldEdits.none.with(tree), [
+			{ cx: Math.floor(tree.x / CHUNK_SIZE), cy: Math.floor(tree.y / CHUNK_SIZE) }
+		]);
+		const after = overTheTree();
+		expect(after.glow).not.toBe(before.glow);
+		expect(after.n).toBe(0);
+	});
+
 	it('rebuilds only the chunk it is in, frees the old one, and the chunk comes back without it after a walk away', () => {
 		const parent = new THREE.Group();
 		const ring = new ChunkRing(parent);
 		const ledger = new Ledger();
 		ring.reset(WORLD_SEED);
 		ring.update(start);
+		ring.finish();
 		ledger.see(parent);
 		const tree = besideA('tree').target;
 		const canopies = instances(parent, 'canopy');
@@ -240,8 +388,12 @@ describe('a tree chopped down, a rock broken', () => {
 		expect(canopies - chopped).toBeLessThanOrEqual(2);
 		// Walk five chunks away and back: the chunk is built again as the player left it.
 		const away = { x: start.x - FAR, y: start.y };
-		for (const p of line(start, away)) ring.update(p);
-		for (const p of line(away, start)) ring.update(p);
+		for (const p of [...line(start, away), ...line(away, start)]) {
+			ring.update(p);
+			ring.work();
+			ledger.see(parent);
+		}
+		ring.finish();
 		ledger.see(parent);
 		expect(instances(parent, 'canopy')).toBe(chopped);
 		expect(kinds(ledger.ownedOutside(parent))).toEqual([]);

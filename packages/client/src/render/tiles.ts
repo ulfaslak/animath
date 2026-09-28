@@ -1,5 +1,24 @@
-import { CHUNK_SIZE, Rng, hashInts, isWater, type Chunk, type Tile } from '@mathgame/engine';
+import {
+	CHUNK_SIZE,
+	Rng,
+	hashInts,
+	isWater,
+	onTentLattice,
+	tileAtWorld,
+	type Chunk,
+	type ChunkRef,
+	type Tile
+} from '@mathgame/engine';
 import * as THREE from 'three';
+import {
+	CAMPFIRE_LIGHT,
+	GLOW_REACH,
+	litShapes,
+	paintCampfireSteps,
+	paintShapes,
+	type GlowShape,
+	type GlowTriangles
+} from './campfire';
 import { DOCTOR_GEOMETRIES, WitchDoctor } from './doctor';
 import { BIOME_LOOK, CANOPY, COLORS, PROP_COLORS, TILE_COLORS } from './palette';
 
@@ -9,13 +28,23 @@ import { BIOME_LOOK, CANOPY, COLORS, PROP_COLORS, TILE_COLORS } from './palette'
  * chunk's trunks are one instanced mesh, all its canopies another, its rocks,
  * blades, reeds, flowers and bushes one each. So a screen of 25 chunks is a
  * few hundred draw calls however much grows on it. Tents, a few per screen,
- * are small groups of their own with the campfire's light and the witch
- * doctor (`doctor.ts`), whose shapes are shared too.
+ * are small groups of their own with the witch doctor (`doctor.ts`), whose
+ * shapes are shared too, and the campfire's glow (`campfire.ts`).
+ *
+ * Every instanced mesh lists its boxes and props from the tile nearest the
+ * camera to the farthest (the camera looks from +x and +z), so the GPU draws
+ * what is in front first and skips the hidden sides of the boxes behind it
+ * instead of shading them and then drawing over them. The ground casts no
+ * shadow: with the sun behind the camera, a step's shadow falls behind the
+ * step, out of sight, and drawing 25 chunks of boxes into the sun's shadow
+ * map every frame cost more than the slivers it showed (#150).
  *
  * Every geometry and material here is built once and shared by every chunk:
  * a prop is a shape placed, turned, scaled and coloured, never a shape of its
- * own. So the only GPU state a chunk owns is its instanced meshes' buffers,
- * which `disposeChunkGroup` frees when the chunk is dropped.
+ * own. So the GPU state a chunk owns is its instanced meshes' buffers, and
+ * where it has a tent the glow its campfire paints on the ground round it,
+ * built for that ground; `disposeChunkGroup` frees them when the chunk is
+ * dropped.
  *
  * Each biome has its own look ([[DESIGN]] § Palette, `BIOME_LOOK`): the
  * meadow's bright grass and flowers, the forest's darker floor under
@@ -96,11 +125,24 @@ export function groundColor(tile: Tile): number {
 	}
 }
 
-export function buildChunkGroup(chunk: Chunk): THREE.Group {
+/**
+ * Tiles of the world as the player left them, by grid position: what a
+ * campfire's glow lies on and lights; `undefined` for a tile not known,
+ * taken to be as high as the fire's, with nothing on it.
+ */
+export type WorldTiles = (x: number, y: number) => Tile | undefined;
+
+/**
+ * The chunk's meshes. `world` gives the tiles round a tent that are in the
+ * chunks next door (the ring passes the world's own), for its campfire's
+ * glow; without it, the glow stops at the chunk's edge, on flat ground.
+ * Without `glow`, the tents' glow waits for `paintGlows`.
+ */
+export function buildChunkGroup(chunk: Chunk, world?: WorldTiles, glow = true): THREE.Group {
 	const group = new THREE.Group();
-	const ground = new THREE.InstancedMesh(TILE_GEO, MATERIAL, CHUNK_SIZE * CHUNK_SIZE);
+	const count = CHUNK_SIZE * CHUNK_SIZE;
+	const ground = new THREE.InstancedMesh(TILE_GEO, MATERIAL, count);
 	ground.receiveShadow = true;
-	ground.castShadow = true;
 	const m = new THREE.Matrix4();
 	const color = new THREE.Color();
 	const ox = chunk.cx * CHUNK_SIZE;
@@ -113,12 +155,14 @@ export function buildChunkGroup(chunk: Chunk): THREE.Group {
 		const h = groundTop(tile) + 0.5; // the box's base is at y = -0.5
 		m.makeScale(1, h, 1);
 		m.setPosition(x, h / 2 - 0.5, z);
-		ground.setMatrixAt(i, m);
+		// Nearest the camera first: the tiles run row by row, +x along a row, rows towards +z.
+		const at = count - 1 - i;
+		ground.setMatrixAt(at, m);
 		color.setHex(groundColor(tile));
 		// A little per-tile variation keeps large fields from looking like a grid.
 		const jitter = (hashInts(x, z, 99) % 1000) / 1000 - 0.5;
 		color.offsetHSL(0, 0, jitter * 0.05);
-		ground.setColorAt(i, color);
+		ground.setColorAt(at, color);
 
 		decorate(props, group, tile, x, z, h - 0.5);
 	});
@@ -126,36 +170,153 @@ export function buildChunkGroup(chunk: Chunk): THREE.Group {
 	if (ground.instanceColor) ground.instanceColor.needsUpdate = true;
 	group.add(ground);
 	for (const mesh of props.build()) group.add(mesh);
+	if (glow) {
+		paintGlows(group, (x, z) =>
+			x >= ox && x < ox + CHUNK_SIZE && z >= oy && z < oy + CHUNK_SIZE
+				? chunk.tiles[(z - oy) * CHUNK_SIZE + (x - ox)]
+				: world?.(x, z)
+		);
+	}
 	return group;
 }
 
 /**
- * What stands on one tile (a tree and its bushes, a rock and its snow), as a
- * group of instanced meshes of the shared shapes, placed in the world as a
- * chunk places them: the chop's flourish tips or breaks exactly what the
- * chunk drew. Free it with `disposeChunkGroup`.
+ * What stands on one tile (a tree and its bushes, a rock and its snow, a
+ * tent and its glow on flat ground), as a group of instanced meshes of the
+ * shared shapes, placed in the world as a chunk places them: the chop's
+ * flourish tips or breaks exactly what the chunk drew. Free it with
+ * `disposeChunkGroup`.
  */
 export function buildTileProps(tile: Tile, x: number, z: number): THREE.Group {
 	const group = new THREE.Group();
 	const props = new Props();
 	decorate(props, group, tile, x, z, groundTop(tile));
 	for (const mesh of props.build()) group.add(mesh);
+	paintGlows(group, (tx, tz) => (tx === x && tz === z ? tile : undefined));
 	return group;
 }
 
 /**
+ * Paint the glow of each campfire in a chunk built without it
+ * (`buildChunkGroup`), once, `world` giving the tiles round it as the player
+ * left them.
+ */
+export function paintGlows(group: THREE.Group, world: WorldTiles): void {
+	const steps = glowSteps(group, world);
+	while (!steps.next().done);
+}
+
+/**
+ * `paintGlows` a step at a time, for the ring to spread over frames: each
+ * step is a few milliseconds' work on a slow tablet (the ground round a
+ * fire, then its props a handful at a time), and the glow goes on its tent
+ * once whole.
+ */
+export function* glowSteps(group: THREE.Group, world: WorldTiles): Generator<void> {
+	for (const camp of group.children) {
+		if (!(camp instanceof THREE.Group) || !camp.userData.doctor || camp.userData.painted) continue;
+		camp.userData.painted = true;
+		yield* paintGlow(camp, world);
+	}
+}
+
+/** Whether a chunk holds a tent whose glow `paintGlows` has not painted yet. */
+export function awaitsGlow(group: THREE.Group): boolean {
+	return group.children.some((c) => c.userData.doctor && !c.userData.painted);
+}
+
+/**
+ * What the fire lights of a tent, the same by every fire (the tent, its door
+ * and the pot, which never move): painted with the first tent, kept for all.
+ */
+let tentGlow: GlowTriangles | null = null;
+
+/**
+ * Paint the glow of the campfire at `camp` (`campfire.ts`) a step at a time:
+ * on the ground round it, the tent, its door and the pot, and every prop
+ * within its reach, placed as their chunks place them, `world` giving the
+ * tiles. The glow goes on the tent once whole.
+ */
+function* paintGlow(camp: THREE.Group, world: WorldTiles): Generator<void> {
+	const { x, y: top, z } = camp.position;
+	const reach = Math.ceil(GLOW_REACH);
+	// The tiles round the fire, one further out for the sides of steps: each asked for once.
+	const span = reach + 1;
+	const near: (Tile | undefined)[] = [];
+	for (let dz = -span; dz <= span; dz++) {
+		for (let dx = -span; dx <= span; dx++) near.push(world(x + dx, z + dz));
+	}
+	const around = (dx: number, dz: number) => near[(dz + span) * (2 * span + 1) + (dx + span)];
+	// What stands round the fire (never another tent: they stand far apart), where it is in reach.
+	const props = new Props();
+	const unused = new THREE.Group();
+	for (let dz = -reach; dz <= reach; dz++) {
+		for (let dx = -reach; dx <= reach; dx++) {
+			const tile = around(dx, dz);
+			if (!tile || tile.kind === 'tent') continue;
+			decorate(props, unused, tile, x + dx, z + dz, groundTop(tile));
+		}
+	}
+	const fire = new THREE.Vector3(FIRE_AT[0], 0, FIRE_AT[1]);
+	const light = new THREE.Vector3(x + FIRE_AT[0], top + CAMPFIRE_LIGHT.height, z + FIRE_AT[1]);
+	const toCamp = new THREE.Matrix4().makeTranslation(-x, -top, -z);
+	const shapes: GlowShape[] = [];
+	const at = new THREE.Vector3();
+	props.forEach((kind, matrix) => {
+		// No prop is more than a tile across.
+		if (at.setFromMatrixPosition(matrix).distanceTo(light) > GLOW_REACH + 1) return;
+		shapes.push({ geometry: PROP_GEOMETRY[kind], matrix: toCamp.clone().multiply(matrix) });
+	});
+	tentGlow ??= paintShapes(fire, litShapes(camp.userData.glowing as THREE.Object3D[], camp));
+	const glow = yield* paintCampfireSteps(
+		fire,
+		(dx, dz) => {
+			const tile = around(dx, dz);
+			return tile ? groundTop(tile) - top : 0;
+		},
+		shapes,
+		tentGlow
+	);
+	if (glow) camp.add(glow);
+}
+
+/**
+ * The chunks holding a tent whose campfire's glow reaches a tile from
+ * `(x0, y0)` to `(x1, y1)`: what it lights there changes when those tiles
+ * do (a tree chopped, a chunk grown back), so they are built again with them.
+ */
+export function campfiresReaching(
+	seed: number,
+	x0: number,
+	y0: number,
+	x1: number,
+	y1: number
+): ChunkRef[] {
+	const out: ChunkRef[] = [];
+	// What `paintGlow` decorates, a tile further for good measure.
+	const reach = Math.ceil(GLOW_REACH) + 1;
+	for (let y = y0 - reach; y <= y1 + reach; y++) {
+		for (let x = x0 - reach; x <= x1 + reach; x++) {
+			if (onTentLattice(x, y) && tileAtWorld(seed, x, y).kind === 'tent') {
+				out.push({ cx: Math.floor(x / CHUNK_SIZE), cy: Math.floor(y / CHUNK_SIZE) });
+			}
+		}
+	}
+	return out;
+}
+
+/**
  * Free the GPU state of a chunk that is no longer drawn: its instanced
- * meshes' buffers and vertex arrays, any geometry of its own, and its lights.
- * Removing the group from the scene is not enough: three.js keeps a mesh's
- * buffers for as long as the renderer lives unless the mesh or geometry is
- * disposed. The shared geometries and materials stay, since other chunks
- * still draw them.
+ * meshes' buffers and vertex arrays, and any geometry of its own (a
+ * campfire's glow). Removing the group from the scene is not enough: three.js
+ * keeps a mesh's buffers for as long as the renderer lives unless the mesh or
+ * geometry is disposed. The shared geometries and materials stay, since other
+ * chunks still draw them.
  */
 export function disposeChunkGroup(group: THREE.Object3D): void {
 	group.traverse((o) => {
 		if (o instanceof THREE.InstancedMesh) o.dispose();
 		if (o instanceof THREE.Mesh && !SHARED_GEOMETRIES.has(o.geometry)) o.geometry.dispose();
-		if (o instanceof THREE.Light) o.dispose();
 	});
 }
 
@@ -203,14 +364,22 @@ class Props {
 		list.push({ matrix: d.matrix.clone(), color });
 	}
 
+	/** Each prop placed so far: its shape and where it stands. */
+	forEach(visit: (kind: PropKind, matrix: THREE.Matrix4) => void): void {
+		for (const [kind, list] of this.placed) for (const p of list) visit(kind, p.matrix);
+	}
+
+	/** One instanced mesh per shape, its props nearest the camera first, as the ground's boxes are. */
 	build(): THREE.InstancedMesh[] {
 		const out: THREE.InstancedMesh[] = [];
 		const color = new THREE.Color();
 		for (const [kind, list] of this.placed) {
 			const mesh = new THREE.InstancedMesh(PROP_GEOMETRY[kind], propMaterial, list.length);
+			// Placed tile by tile, row by row: the last placed is the nearest.
 			list.forEach((p, i) => {
-				mesh.setMatrixAt(i, p.matrix);
-				mesh.setColorAt(i, color.setHex(p.color));
+				const at = list.length - 1 - i;
+				mesh.setMatrixAt(at, p.matrix);
+				mesh.setColorAt(at, color.setHex(p.color));
 			});
 			mesh.instanceMatrix.needsUpdate = true;
 			if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
@@ -440,7 +609,10 @@ export const FIRE_AT = [0.34, -0.22] as const;
 
 /**
  * A doctor's tent with the witch doctor (`userData.doctor`, a `WitchDoctor`)
- * and his campfire, the pot on it, and the fire's warm light.
+ * and his campfire with the pot on it. What the fire lights of it, which
+ * never moves, is `userData.glowing` (the tent, its door and the pot); the
+ * chunk paints the glow once all round it is placed (`paintGlow`). The
+ * doctor, who moves, is not in it.
  */
 function tent(x: number, z: number, top: number): THREE.Group {
 	const g = new THREE.Group();
@@ -451,14 +623,13 @@ function tent(x: number, z: number, top: number): THREE.Group {
 	const door = new THREE.Mesh(PROP_GEOMETRY.door, tentDoorMat);
 	door.position.set(TENT_AT[0], 0.2, TENT_AT[1] + 0.42);
 	door.rotation.y = Math.PI / 4;
-	const light = new THREE.PointLight(COLORS.fire, 1.5, 4);
-	light.position.set(FIRE_AT[0], 0.6, FIRE_AT[1]);
 	const phase = (hashInts(x, z, 17) / 4294967296) * Math.PI * 2;
 	const doctor = new WitchDoctor(x + DOCTOR_AT[0], z + DOCTOR_AT[1], phase);
 	doctor.figure.position.set(DOCTOR_AT[0], 0, DOCTOR_AT[1]);
 	doctor.pot.position.set(FIRE_AT[0], 0, FIRE_AT[1]);
-	g.add(cloth, door, light, doctor.figure, doctor.pot);
+	g.add(cloth, door, doctor.figure, doctor.pot);
 	g.position.set(x, top, z);
 	g.userData.doctor = doctor;
+	g.userData.glowing = [cloth, door, doctor.pot];
 	return g;
 }

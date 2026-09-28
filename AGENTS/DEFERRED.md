@@ -203,3 +203,19 @@ Technical items we've intentionally postponed: tech debt, hardening shortcuts, k
 **Why deferred**: an agent runs one suite at a time in its own worktree. A database per run costs a create and a migration on every run, and a cleanup for every run that dies; a lock held for a whole run keeps a second run waiting as long as a `vitest` in watch mode stays open.
 
 **Trigger**: a server test failure traced to two runs in one checkout.
+
+### A big screen that could afford 2 pixels per CSS pixel draws 1.5
+
+**What**: `pixelRatioFor` ([[DECISIONS]] § Client) draws every screen bigger than a phone at 1.5 device pixels per CSS pixel, on an M-series Mac or a new iPad Pro as on an older iPad. Edges there are a little softer than at 2.
+
+**Why deferred**: stepping the ratio up on a device fast enough to keep 60 frames a second needs to know what bounds its frames, and neither Safari (no GPU timer query) nor the frame rate says: an iPad in Low Power Mode caps frames at 30 as a slow GPU would, and a busy main thread slows them too. A fixed ratio never guesses wrong.
+
+**Trigger**: the human or a kid finds the world soft on a big screen, or Safari ships `EXT_disjoint_timer_query_webgl2`. Then raise it towards 2 while measured GPU time leaves room, and never above what kept 60.
+
+### A campfire's glow is painted on the main thread
+
+**What**: a tent's glow (`campfire.ts`) is worked out in JavaScript when its chunk comes into the ring, some two thousand triangles of the ground, the tent and every prop within 3.5 tiles: about 3 ms on this Mac, and on a CPU four times slower about 25 ms a tent (three tents, 76 ms, on 2026-09-28), spread over the ring's work (`ChunkRing.work`) in steps of a few milliseconds (`glowSteps`); walking back and forth across chunk borders there, the worst frame took 28 to 42 ms of main thread. The glow is painted again whenever its chunk is built.
+
+**Why deferred**: it is off screen when it runs (the ring's edge), one tent at a time, and spreading it is what the ring's work already does. Painting it in a worker, or keeping the glow of the tents seen last, costs a worker's plumbing or memory for a hitch nobody has reported.
+
+**Trigger**: a frame over 50 ms traced to `paintGlows` on a real tablet, or a report of a stutter when a tent comes into the ring. Then paint in a Web Worker (the glow is pure arithmetic on tiles and shapes) and hand the arrays back.

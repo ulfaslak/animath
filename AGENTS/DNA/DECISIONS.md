@@ -64,7 +64,8 @@ Up in the air a kid with a bird in the team can annoy a wild bird, which follows
 
 ## Client
 
-Three.js (WebGL) for rendering. Flat-shaded low-poly meshes, one directional light with shadows, hemisphere fill, and a small warm light at each campfire.
+Three.js (WebGL) for rendering. Flat-shaded low-poly meshes, one directional light with shadows and a hemisphere fill, the world's only lights. A campfire's warm light is painted, never a light in the scene: a glow laid over the ground, the tent and what stands near, worked out from the small light over the fire it stands for (`campfire.ts`), because a light costs every lit pixel on screen, and a new number of lights compiles every lit shader again (#150, #151). The props and figures cast the sun's shadows; the ground's boxes don't (with the sun behind the camera, a step's shadow falls out of sight).
+The world is drawn at up to 2 device pixels per CSS pixel on a phone-sized screen and 1.5 on anything bigger, as a budget of 1.8 million pixels allows but never under 1.5, and never more than the screen has (`pixelRatioFor`): the GPU's time goes with the pixels, and at an older iPad's size and 2× a laptop GPU of its class took 40 ms a frame (#150).
 Fixed orthographic camera: pitch 50°, yaw 35°, 14 tiles of viewport height. No zoom, no rotation, no perspective changes in explore mode. Battle mode uses its own fixed camera, and so does the title's starter stage.
 Svelte 5 (runes) for the DOM overlay only — HUD, menus, the puzzle panel. Svelte reads game state from a `$state` view that is filled from authority events; components never dispatch to the engine directly, they go through the authority.
 Placeholder geometry (boxes, cones) is acceptable until real models arrive. Real models are glTF.
