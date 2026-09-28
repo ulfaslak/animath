@@ -14,7 +14,13 @@ import {
 } from '@mathgame/engine';
 import { afterEach, describe, expect, it } from 'vitest';
 import { LocalAuthority, WORLD_SEED } from '../src/authority/local';
-import { DoctorWay, TENT_CLEARANCE, type DoctorWayRenderer } from '../src/explore/doctor-way';
+import {
+	ARROW_REACH,
+	DoctorWay,
+	TENT_CLEARANCE,
+	type DoctorWayRenderer,
+	type ScreenRect
+} from '../src/explore/doctor-way';
 import { edgeSpot } from '../src/presence/controller';
 import { battle } from '../src/state/battle.svelte';
 import { doctor } from '../src/state/doctor.svelte';
@@ -44,7 +50,7 @@ function camera(showingWorld = true): DoctorWayRenderer {
 
 const squirrel = (hp: number): AnimalInstance => ({ id: 'sq', speciesId: 'squirrel', hp });
 
-function setup(start: SavedGame, renderer = camera()) {
+function setup(start: SavedGame, renderer = camera(), hud: readonly ScreenRect[] = []) {
 	const authority = new LocalAuthority();
 	const events: GameEvent[] = [];
 	authority.subscribe((e) => {
@@ -52,7 +58,7 @@ function setup(start: SavedGame, renderer = camera()) {
 		game.apply(e);
 	});
 	authority.start({ game: start });
-	const way = new DoctorWay(renderer);
+	const way = new DoctorWay(renderer, () => hud);
 	way.overlay();
 	return { authority, events, way };
 }
@@ -242,6 +248,68 @@ describe('the way to the doctor', () => {
 		// 11 across is inside the frame the arrows keep to: in plain sight, no arrow.
 		setup(besideTent(11, 0));
 		expect(doctorWay.tent).not.toBeNull();
+		expect(doctorWay.arrow).toBeNull();
+	});
+
+	/** How far `p` is from the box `r`, in CSS pixels: 0 inside it. */
+	function distance(p: { x: number; y: number }, r: ScreenRect): number {
+		return Math.hypot(
+			Math.max(r.left - p.x, 0, p.x - r.right),
+			Math.max(r.top - p.y, 0, p.y - r.bottom)
+		);
+	}
+
+	it('never goes under the HUD: back along its line until nothing there covers it, pointing the same way; a tent under the HUD keeps its arrow', () => {
+		const me = { x: SCREEN.w / 2, y: SCREEN.h / 2 };
+		// As a tablet held sideways lays them out at 1024 × 768: the message line of two lines
+		// (the closing line over "Your animals are tired…"), the D-pad and the team's cards.
+		const hud: ScreenRect[] = [
+			{ left: 288, top: 690, right: 736, bottom: 752 },
+			{ left: 20, top: 556, right: 212, bottom: 748 },
+			{ left: 16, top: 16, right: 276, bottom: 180 }
+		];
+		let moved = 0;
+		// Tents below the screen (11 down), past its bottom-left corner, and past its bottom-right.
+		for (const [dx, dy] of [
+			[0, 11],
+			[2, 11],
+			[-2, 11],
+			[-9, 8],
+			[-12, 8],
+			[-12, 6],
+			[12, 8]
+		] as const) {
+			const at = `${dx}, ${dy}`;
+			// Where it stands with nothing over the world...
+			setup(besideTent(dx, dy));
+			const bare = doctorWay.arrow;
+			expect(bare, at).not.toBeNull();
+			// ...and with the HUD: never within reach of any of it,
+			setup(besideTent(dx, dy), camera(), hud);
+			const arrow = doctorWay.arrow;
+			expect(arrow, at).not.toBeNull();
+			for (const r of hud) expect(distance(arrow!, r), at).toBeGreaterThanOrEqual(ARROW_REACH);
+			// on the same line from the player, no further out, pointing the same way.
+			expect(arrow!.angle, at).toBe(bare!.angle);
+			const out = Math.hypot(arrow!.x - me.x, arrow!.y - me.y);
+			const cos =
+				((arrow!.x - me.x) * (bare!.x - me.x) + (arrow!.y - me.y) * (bare!.y - me.y)) /
+				(out * Math.hypot(bare!.x - me.x, bare!.y - me.y));
+			expect(cos, at).toBeGreaterThan(0.999);
+			expect(out, at).toBeLessThanOrEqual(Math.hypot(bare!.x - me.x, bare!.y - me.y));
+			if (arrow!.x !== bare!.x || arrow!.y !== bare!.y) moved++;
+		}
+		// Up from the message line, and in from the D-pad; past the bottom-right, nothing there.
+		expect(moved).toBe(6);
+		// 11 across on the left is in plain sight but for the team's cards over it: it keeps its
+		// arrow, clear of the cards, pointing at it.
+		const column: ScreenRect = { left: 16, top: 16, right: 276, bottom: 500 };
+		setup(besideTent(-11, 0), camera(), [column]);
+		expect(doctorWay.arrow).not.toBeNull();
+		expect(distance(doctorWay.arrow!, column)).toBeGreaterThanOrEqual(ARROW_REACH);
+		expect(doctorWay.arrow!.x).toBeLessThan(me.x);
+		// With nothing over it, none.
+		setup(besideTent(-11, 0));
 		expect(doctorWay.arrow).toBeNull();
 	});
 });

@@ -33,6 +33,47 @@ export const DOCTOR_WAY_STEPS = 2 * TENT_SEARCH_STEPS;
  */
 export const TENT_CLEARANCE = 84;
 
+/**
+ * How far, in CSS pixels, the arrow reaches from its middle: the tip on the
+ * disc's rim (36 px), its shadow, and a little air. The arrow's middle keeps
+ * this far from every piece of the HUD it would go under.
+ */
+export const ARROW_REACH = 44;
+
+/**
+ * The nearest, in CSS pixels, the arrow comes to the player, however crowded
+ * the screen's edge: by the trainer's feet. On a phone held sideways, three
+ * lines of the message line leave about 95 px under the trainer, room for the
+ * arrow only this near.
+ */
+const NEAREST_TO_PLAYER = 48;
+
+/** How far, in CSS pixels, the arrow moves back towards the player at a time while it is under the HUD. */
+const BACK_STEP = 4;
+
+/** A box on the screen in CSS pixels: a piece of the HUD the arrow keeps clear of. */
+export interface ScreenRect {
+	left: number;
+	top: number;
+	right: number;
+	bottom: number;
+}
+
+/**
+ * The pieces of the HUD at the screen's edges that the way to the doctor
+ * keeps clear of, as laid out now: every element marked `data-keep-clear`
+ * (the team's cards, the belongings, the coordinates, the message line and
+ * what stands over it, the touch controls) that takes up any room.
+ */
+export function hudRects(root: ParentNode = document): ScreenRect[] {
+	const rects: ScreenRect[] = [];
+	for (const el of root.querySelectorAll('[data-keep-clear]')) {
+		const { left, top, right, bottom } = el.getBoundingClientRect();
+		if (right > left && bottom > top) rects.push({ left, top, right, bottom });
+	}
+	return rects;
+}
+
 /** What the way needs of the renderer: where things are on the canvas, and whether the world is. */
 export type DoctorWayRenderer = Pick<
 	GameRenderer,
@@ -69,7 +110,14 @@ interface Search {
 export class DoctorWay {
 	private last: Search | null = null;
 
-	constructor(private readonly renderer: DoctorWayRenderer) {}
+	/**
+	 * `keepClear`: the pieces of the HUD the arrow must never go under, as laid
+	 * out now (`hudRects` in the page), asked each frame the arrow is placed.
+	 */
+	constructor(
+		private readonly renderer: DoctorWayRenderer,
+		private readonly keepClear: () => readonly ScreenRect[] = () => []
+	) {}
 
 	/** Every frame, after the world is drawn: the tent the way leads to, and the arrow to it. */
 	overlay(): void {
@@ -131,11 +179,15 @@ export class DoctorWay {
 
 	/**
 	 * The arrow for the tent at `tent`: where a friend's arrow would sit for it
-	 * (`edgeSpot`, inside the screen's edges and clear of the message line),
-	 * or null once the tent is inside that frame, in plain sight. A tent in the
+	 * (`edgeSpot`, inside the screen's edges), or null once the tent is inside
+	 * that frame and under no piece of the HUD, in plain sight. A tent in the
 	 * strip between that frame and the screen's edge (half off the screen, or
-	 * behind the message line) still has its arrow, a little way before it
-	 * (`TENT_CLEARANCE`), so the arrow never covers the tent it points to.
+	 * behind the message line), or under the HUD, still has its arrow, a little
+	 * way before it (`TENT_CLEARANCE`), so the arrow never covers the tent it
+	 * points to. And the arrow keeps clear of the HUD (`keepClear`: the team's
+	 * cards, the message line however many lines it has, the touch controls),
+	 * back along its line towards the player until none of it would cover the
+	 * arrow, so it always points the same way and is always seen whole.
 	 */
 	private arrowTo(tent: GridPos): { x: number; y: number; angle: number } | null {
 		const { w, h } = this.renderer.screenSize();
@@ -143,17 +195,30 @@ export class DoctorWay {
 		const there = this.renderer.groundToScreen(tent.x, tent.y);
 		const spot = edgeSpot(me, there, w, h);
 		if (!spot) return null;
+		const hud = this.keepClear();
 		const toTent = Math.hypot(there.x - me.x, there.y - me.y);
 		const toEdge = Math.hypot(spot.x - me.x, spot.y - me.y);
-		if (toTent <= toEdge) return null;
-		const k = Math.max(0, Math.min(toEdge, toTent - TENT_CLEARANCE)) / toEdge;
-		if (k === 1) return spot;
-		return {
-			x: Math.round(me.x + (spot.x - me.x) * k),
-			y: Math.round(me.y + (spot.y - me.y) * k),
-			angle: spot.angle
-		};
+		if (toTent <= toEdge && !hud.some((r) => within(r, there, 0))) return null;
+		// From the player out: the edge, or a little way before the tent, and back from any
+		// piece of the HUD the arrow would go under.
+		const at = (reach: number) => ({
+			x: Math.round(me.x + ((spot.x - me.x) * reach) / toEdge),
+			y: Math.round(me.y + ((spot.y - me.y) * reach) / toEdge)
+		});
+		let reach = Math.min(toEdge, Math.max(NEAREST_TO_PLAYER, toTent - TENT_CLEARANCE));
+		while (reach > NEAREST_TO_PLAYER && hud.some((r) => within(r, at(reach), ARROW_REACH))) {
+			reach = Math.max(NEAREST_TO_PLAYER, reach - BACK_STEP);
+		}
+		if (reach === toEdge) return spot;
+		return { ...at(reach), angle: spot.angle };
 	}
+}
+
+/** Whether `p` is within `margin` CSS pixels of the box `r` (inside it, or that close to it). */
+function within(r: ScreenRect, p: { x: number; y: number }, margin: number): boolean {
+	const dx = Math.max(r.left - p.x, 0, p.x - r.right);
+	const dy = Math.max(r.top - p.y, 0, p.y - r.bottom);
+	return dx * dx + dy * dy < margin * margin || (dx === 0 && dy === 0);
 }
 
 function samePos(a: GridPos | null, b: GridPos | null): boolean {
