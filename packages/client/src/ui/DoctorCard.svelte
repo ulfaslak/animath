@@ -12,6 +12,7 @@
 	import { tick } from 'svelte';
 	import { t } from '../copy';
 	import { doctorWords, NAMES_LISTED, namesOf } from '../doctor/lines';
+	import { fit } from '../fit';
 	import { optionKey, rowKey, tabKey, unfocusable } from '../input/press';
 	import { touch } from '../input/touch.svelte';
 	import { itemName, itemUse, itemWords } from '../items';
@@ -97,7 +98,8 @@
 	 * whole panel: the list steps aside, since beside it the sum wrapped and the
 	 * pad ran off the screen (#160). It comes back when a right answer's reward
 	 * plays, which happens on its rows (the heal's "+N", the goodbye, the tool's
-	 * tick). The styles decide the screen; this only says when.
+	 * tick), and then the puzzle keeps only the sum, the answer and "Correct!"
+	 * (`done`), on every screen. The styles decide the screen; this only says when.
 	 */
 	const solo = $derived(
 		touch.on &&
@@ -110,15 +112,21 @@
 	 * The doctor's line stands in its column between the badge and the
 	 * tokens. A word too wide for the column (a nickname of twelve W's) ran
 	 * under the tokens (#161), and breaking it made the line so tall that the
-	 * puzzle under it lost its last line. Such a line is `crowded`: it flows
-	 * round the badge and the tokens, its first line between them and the rest
-	 * across the whole card. Laid out in the column first, then measured, each
-	 * time the words or the card's width change.
+	 * puzzle under it lost its last line; a long line made it three or four
+	 * lines tall on a tablet, and the sum under it ran off the card (#166).
+	 * Such a line is `crowded`: it flows round the badge and the tokens, its
+	 * first line between them and the rest across the whole card. One still
+	 * over three lines then (three names of twelve W's going home) is `small`,
+	 * a size smaller. Laid out in the column first, then measured, each time
+	 * the words or the card's width change, never its height, so the switch
+	 * can't feed itself.
 	 */
 	const words = $derived(doctor.line ? doctorWords(doctor.line) : '');
 	let talk: HTMLElement | undefined = $state();
 	let talkWidth = $state(0);
 	let crowded = $state(false);
+	let small = $state(false);
+	let measuring = 0;
 	$effect(() => {
 		const card = talk;
 		if (!card) return;
@@ -129,12 +137,41 @@
 	$effect(() => {
 		void words;
 		void talkWidth;
+		const run = ++measuring;
 		crowded = false;
-		void tick().then(() => {
-			const line = talk?.querySelector('.doctor-line');
-			crowded = !!line && line.scrollWidth > line.clientWidth + 1;
-		});
+		small = false;
+		const line = () => (run === measuring ? talk?.querySelector('.doctor-line') : null);
+		void tick()
+			.then(() => {
+				const laid = line();
+				if (!laid) return;
+				crowded = laid.scrollWidth > laid.clientWidth + 1 || linesOf(laid) > 2;
+				return tick();
+			})
+			.then(() => {
+				const laid = line();
+				if (laid && crowded) small = linesOf(laid) > 3;
+			});
 	});
+
+	/** How many lines an element's words take, as laid out now. */
+	function linesOf(el: Element): number {
+		const range = document.createRange();
+		range.selectNodeContents(el);
+		const tops = [...range.getClientRects()]
+			.filter((r) => r.width > 0)
+			.map((r) => Math.round(r.top));
+		return new Set(tops).size;
+	}
+
+	/**
+	 * What the right-hand side holds, fitted to its card (`fit.ts`), a step at
+	 * a time and only while it is still too tall: its lines closer, its words
+	 * a size smaller (as on a phone), the hints gone, and last the sum and the
+	 * question at their smallest. The doctor's line over it, the story over a
+	 * sum and three names of twelve W's all take its room.
+	 */
+	const SIDE_STEPS = ['close', 'small', 'bare', 'least'] as const;
 
 	function tabName(tab: DoctorTab): string {
 		switch (tab) {
@@ -253,7 +290,7 @@
 
 <div class="doctor" class:solo>
 	<!-- The tokens come before the line, so that a crowded line's first line has them beside it. -->
-	<div class="card talk" class:crowded bind:this={talk}>
+	<div class="card talk" class:crowded class:small bind:this={talk}>
 		<span class="who">{t('doctor.title')}</span>
 		<span class="purse">
 			<Coin />
@@ -417,7 +454,12 @@
 		</div>
 	</div>
 
-	<div class="card puzzle" class:correct={doctor.judged?.correct === true} class:done={rewarding}>
+	<div
+		class="card puzzle"
+		class:correct={doctor.judged?.correct === true}
+		class:done={rewarding}
+		{@attach fit(SIDE_STEPS)}
+	>
 		{#if doctor.puzzle && (doctor.screen === 'puzzle' || doctor.screen === 'busy')}
 			{#if doctor.trade?.kind === 'home'}
 				<PuzzlePanel
@@ -648,10 +690,10 @@
 		font-size: 20px;
 	}
 	/*
-	 * A line with a word too wide for its column (`crowded`) flows round the
-	 * badge and the tokens instead, which stand at either side of its first
-	 * line: the lines under it have the whole card. Only a word wider than
-	 * the whole card breaks.
+	 * A line with a word too wide for its column, or too long for two lines
+	 * there (`crowded`), flows round the badge and the tokens instead, which
+	 * stand at either side of its first line: the lines under it have the
+	 * whole card. Only a word wider than the whole card breaks.
 	 */
 	.talk.crowded {
 		display: flow-root;
@@ -672,25 +714,52 @@
 		overflow-wrap: break-word;
 	}
 	/*
+	 * A line still over three lines when it flows (`small`: three names of
+	 * twelve W's going home) has a row of its own under the badge and the
+	 * tokens, across the card, and is a size smaller. Beside them, a smaller
+	 * line's second line ran under the tokens.
+	 */
+	.talk.small {
+		display: flex;
+		flex-wrap: wrap;
+		row-gap: 2px;
+	}
+	.small .who {
+		margin: 0;
+	}
+	.small .purse {
+		margin: 0 0 0 auto;
+	}
+	.small .doctor-line {
+		order: 2;
+		flex-basis: 100%;
+		font-size: 17px;
+	}
+	/*
 	 * On a narrow touch screen (a phone held sideways) the doctor's line has
 	 * a row of its own under the name and the tokens, across the right-hand
-	 * side: squeezed between them it came a word or two to a line, and grew
-	 * so tall that it hid what the side under it says. A puzzle that has the
-	 * whole card has the whole width for it to stand between them.
+	 * side, crowded or not: squeezed between them it came a word or two to a
+	 * line, and grew so tall that it hid what the side under it says. A
+	 * puzzle that has the whole card has the whole width for it to stand
+	 * between them.
 	 */
 	@media (max-width: 900px) {
 		:global(.touch) .doctor:not(.solo) .talk {
+			display: flex;
 			flex-wrap: wrap;
 			row-gap: 2px;
 			padding-top: 8px;
 			padding-bottom: 8px;
+		}
+		:global(.touch) .doctor:not(.solo) .who {
+			margin: 0;
 		}
 		:global(.touch) .doctor:not(.solo) .doctor-line {
 			order: 2;
 			flex-basis: 100%;
 		}
 		:global(.touch) .doctor:not(.solo) .purse {
-			margin-left: auto;
+			margin: 0 0 0 auto;
 		}
 	}
 	/* The player's tokens, at the right of the doctor's line (first in the page, for `crowded`'s float). */
@@ -1053,10 +1122,11 @@
 	}
 
 	/*
-	 * Centred while what it holds fits; when it does not (a long line from the
-	 * witch doctor leaves less room), it starts at the top, so the sum and
-	 * its story never leave the card, only the last line under them. A
-	 * browser that does not know `safe` keeps the plain centring before it.
+	 * Centred, and fitted (`fit`, below) so that what it holds fits it. Were
+	 * something still too tall, it starts at the top, so the sum and its
+	 * story never leave the card. A browser that does not know `safe` keeps
+	 * the plain centring before it. Its width is its own (`inline-size`), for
+	 * the sum's size to follow.
 	 */
 	.puzzle {
 		display: flex;
@@ -1069,19 +1139,75 @@
 		text-align: center;
 		overflow: hidden;
 		transition: background-color 0.3s;
+		container-type: inline-size;
 	}
 	/*
-	 * On a laptop's short screen (1280×720) the card is 44vh: a token sum's story
-	 * of two lines over the sum, the answer and Back ran 8 px past it, in both
-	 * languages. There the lines sit closer.
+	 * Without the pad the sum is as big as the screen's height allows, and no
+	 * bigger than the card's width does: on a screen held upright with a
+	 * keyboard (768×1024) its 64 px broke a sum over three lines in half the
+	 * card.
 	 */
-	@media (max-height: 760px) {
-		.puzzle {
-			gap: 6px;
-		}
+	.puzzle :global(.puzzle-panel:not(.with-pad) .puzzle-prompt) {
+		font-size: clamp(40px, min(7vh, 12cqi), 64px);
 	}
 	.puzzle.correct {
 		background: color-mix(in srgb, var(--good) 22%, var(--panel-bg));
+	}
+	/*
+	 * While a right answer's reward plays (`done`), the puzzle keeps only the
+	 * sum, the answer and "Correct!": the pad, the story and Back are done
+	 * with (Back would say bye while a beat plays), and the witch doctor's
+	 * cheer over the card can take three lines.
+	 */
+	.puzzle.done :global(.pad),
+	.puzzle.done :global(.story),
+	.puzzle.done :global(.back),
+	.puzzle.done :global(.note) {
+		display: none;
+	}
+	/*
+	 * The steps `fit` takes, in order, while what the side holds is still
+	 * taller than its card (`SIDE_STEPS`). `close`: the lines closer.
+	 */
+	.puzzle:global([data-fit~='close']) {
+		gap: 4px;
+		padding-block: 8px;
+	}
+	.puzzle:global([data-fit~='close']) :global(.with-pad .question) {
+		gap: 4px;
+	}
+	/* `small`: the words a size smaller, as on a phone. */
+	.puzzle:global([data-fit~='small']) :global(.story),
+	.puzzle:global([data-fit~='small']) .detail {
+		font-size: 16px;
+	}
+	.puzzle:global([data-fit~='small']) .soft {
+		font-size: 26px;
+	}
+	.puzzle:global([data-fit~='small']) .tally {
+		font-size: 17px;
+	}
+	.puzzle:global([data-fit~='small']) .question {
+		font-size: 20px;
+	}
+	.puzzle:global([data-fit~='small']) .ware-name {
+		font-size: 22px;
+	}
+	/* `bare`: the hints go (the keys, the tap hints, the note), and what they hint at stays. */
+	.puzzle:global([data-fit~='bare']) .keys,
+	.puzzle:global([data-fit~='bare']) :global(.keys) {
+		display: none;
+	}
+	/* `least`: the sum, the answer and the confirm's question at their smallest. */
+	.puzzle:global([data-fit~='least']) :global(.puzzle-panel:not(.with-pad) .puzzle-prompt) {
+		font-size: 40px;
+	}
+	.puzzle:global([data-fit~='least']) :global(.with-pad .puzzle-prompt),
+	.puzzle:global([data-fit~='least']) :global(.answer) {
+		font-size: 32px;
+	}
+	.puzzle:global([data-fit~='least']) .question {
+		font-size: 17px;
 	}
 	.soft {
 		font-weight: 800;
@@ -1330,8 +1456,7 @@
 	 * the list steps aside, the doctor's line runs across the top, and the
 	 * hint to tap another animal goes, with no animal in view; Back leads to
 	 * them. While a right answer's reward plays on the list, the right-hand
-	 * side keeps only the sum, the answer and "Correct!": the pad, the story
-	 * and Back are done with, and beside the list there is no room for them.
+	 * side beside it keeps only the sum, the answer and "Correct!" (`done`).
 	 */
 	@media (max-height: 560px) {
 		.doctor {
@@ -1354,11 +1479,16 @@
 		.doctor.solo .puzzle :global(.note) {
 			display: none;
 		}
-		.puzzle.done :global(.pad),
-		.puzzle.done :global(.story),
-		.puzzle.done :global(.back),
-		.puzzle.done :global(.note) {
-			display: none;
+		/*
+		 * The badge and the tokens a size smaller too, so they share a row over
+		 * the doctor's line at 667 px with four-digit tokens: beside the list
+		 * the tokens went to a row of their own under the badge.
+		 */
+		.who {
+			font-size: 14px;
+		}
+		.purse {
+			font-size: 16px;
 		}
 		.soft {
 			font-size: 26px;

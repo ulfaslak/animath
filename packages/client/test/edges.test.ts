@@ -473,7 +473,7 @@ describe('a short screen', () => {
 
 	it('is SHORT_SCREEN where the witch doctor’s puzzle takes the whole card, over the explore screen', () => {
 		const source = svelteSources.get('src/ui/DoctorCard.svelte') ?? '';
-		// Its other height query is the laptop's 720 px screen (760), where only the lines close up.
+		// The query whose rules lay out `.solo`: the card's only height query, as it stands.
 		const phone = (parse(source, { modern: true }).css?.children ?? []).filter(
 			(node): node is AST.CSS.Atrule =>
 				node.type === 'Atrule' &&
