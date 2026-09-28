@@ -11,7 +11,27 @@
 	 * rays stand still, the letters fade in and the stars twinkle in place.
 	 */
 	let { kind, name = '' }: { kind: 'big' | 'small'; name?: string } = $props();
-	const letters = $derived(Array.from(name));
+	/**
+	 * The name's words, each its letters, numbered across the whole name so
+	 * they pop in one after another and take the title's colours in turn. A
+	 * space is never a letter of its own: a box holding only a space shrinks
+	 * to nothing, and "Brown rat" read "Brownrat" (#135). The words stand
+	 * apart as words in a line do, and a long name breaks between them.
+	 */
+	const words = $derived.by(() => {
+		let i = 0;
+		return name
+			.split(/\s+/)
+			.filter(Boolean)
+			.map((word) => Array.from(word).map((letter) => ({ letter, i: i++ })));
+	});
+	/**
+	 * How many letters the name and its longest word have (a space counting as
+	 * one), for the letters' size (`.name`): no word is wider than the card,
+	 * and on a phone held sideways the whole name stands on one line.
+	 */
+	const letters = $derived(words.reduce((n, word) => n + word.length, 0) + words.length - 1);
+	const longest = $derived(Math.max(1, ...words.map((word) => word.length)));
 
 	/** Where each star flies (px from the middle of the name), when it sets off (s), its colour. */
 	const BIG = [
@@ -48,9 +68,13 @@
 		{/each}
 	</span>
 	{#if kind === 'big'}
-		<span class="name">
-			{#each letters as letter, i (i)}
-				<span class="letter" style="--i: {i}">{letter}</span>
+		<span class="name" style="--letters: {letters}; --longest: {longest}">
+			{#each words as word, w (w)}
+				{#if w > 0}{' '}{/if}<span class="word"
+					>{#each word as { letter, i } (i)}<span class="letter c{i % 5}" style="--i: {i}"
+							>{letter}</span
+						>{/each}</span
+				>
 			{/each}
 		</span>
 	{/if}
@@ -88,14 +112,28 @@
 	}
 
 	/* The new friend's name: chunky letters in the title's colours, a cream rim, popping in. */
+	/*
+	 * The letters' size: big, and never so big that a word is wider than the
+	 * card's room (the result card's in `BattlePanel.svelte`, less its
+	 * padding), a letter taking at most 0.66 of it ("Wood mouse", the widest
+	 * name for its length, takes 0.64): so no word breaks, and a long name
+	 * breaks between its words. On a phone held sideways, where a second line
+	 * would push the card past the screen, the whole name fits on one line.
+	 */
 	.name {
+		--room: calc(min(100vw - 32px, 520px) - 80px);
 		position: relative;
 		display: block;
 		font-weight: 800;
-		font-size: clamp(52px, 10vh, 76px);
+		font-size: min(clamp(52px, 10vh, 76px), calc(var(--room) / (var(--longest) * 0.66)));
 		line-height: 1.15;
 		letter-spacing: 0.02em;
 		margin-bottom: 4px;
+	}
+	@media (max-height: 560px) {
+		.name {
+			font-size: min(52px, calc(var(--room) / (var(--letters) * 0.66)));
+		}
 	}
 	.letter {
 		display: inline-block;
@@ -108,19 +146,27 @@
 			bob 2.6s ease-in-out infinite;
 		animation-delay: calc(var(--i) * 0.07s + 0.15s), calc(var(--i) * -0.33s);
 	}
-	.letter:nth-child(5n + 1) {
+	/*
+	 * A word keeps its letters together: a long name breaks between its words,
+	 * and inside a word only when the word alone is wider than the card.
+	 */
+	.word {
+		display: inline-block;
+	}
+	/* The title's colours in turn, counted across the whole name. */
+	.letter.c0 {
 		--letter-color: var(--coral);
 	}
-	.letter:nth-child(5n + 2) {
+	.letter.c1 {
 		--letter-color: var(--accent);
 	}
-	.letter:nth-child(5n + 3) {
+	.letter.c2 {
 		--letter-color: var(--good);
 	}
-	.letter:nth-child(5n + 4) {
+	.letter.c3 {
 		--letter-color: var(--blue);
 	}
-	.letter:nth-child(5n) {
+	.letter.c4 {
 		--letter-color: var(--warn);
 	}
 

@@ -20,7 +20,8 @@
 	 * finger presses nothing there (`input/taps.ts`). Each finger is its own:
 	 * the D-pad and Fly each follow the one that holds them by its
 	 * `pointerId`, and Talk and Menu take a tap (`data-press`) from any other,
-	 * so a thumb walking on the D-pad never stops the other thumb's tap.
+	 * so a thumb walking on the D-pad never stops the other thumb's tap. The
+	 * marks at the edge of the screen keep clear of every one (`data-keep-clear`).
 	 */
 
 	/** How far from the D-pad's centre, as a share of its width, a finger starts to press an arrow. */
@@ -134,7 +135,7 @@
 <svelte:window onblur={letGoAll} />
 <svelte:document onvisibilitychange={letGoAll} />
 
-<!-- `data-keep-clear`: the way to the doctor's arrow never goes under them (`hudRects`). -->
+<!-- `data-keep-clear`: the marks at the edge of the screen never go under them (`keep-clear.ts`). -->
 <div
 	class="dpad"
 	data-keep-clear

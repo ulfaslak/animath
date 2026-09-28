@@ -245,7 +245,10 @@ function randomMatchMessage(rng: Rng): MatchMessage {
 		view: matchView(state, side),
 		events,
 		away: rng.chance(0.3) ? { side: pick(rng, ['a', 'b'] as const), ms: rng.int(0, 30_000) } : null,
-		timeout: rng.chance(0.3) ? pick(rng, MATCH_TIMEOUTS) : null
+		timeout: rng.chance(0.3) ? pick(rng, MATCH_TIMEOUTS) : null,
+		// A rematch names the match it follows, and one called off says so (#147).
+		...(rng.chance(0.3) ? { rematchOf: token(rng, 6, 32) } : {}),
+		...(rng.chance(0.2) ? { calledOff: true as const } : {})
 	};
 }
 
@@ -393,12 +396,15 @@ describe('the wire protocol', () => {
 						}
 					}
 					// An empty name, or a field missing altogether, is refused too: all but a hi's
-					// `boot`, which a server from before it leaves out (and which is read as left out).
+					// `boot` and a match's `rematchOf` and `calledOff`, which a server from before them
+					// leaves out (and which are read as left out).
 					if (key === 'name' && parse({ ...msg, name: '' }) !== null) through.push('empty name');
 					const { [key]: _, ...without } = msg;
-					const optional = msg.t === 'hi' && key === 'boot';
+					const optional =
+						(msg.t === 'hi' && key === 'boot') ||
+						(msg.t === 'match' && (key === 'rematchOf' || key === 'calledOff'));
 					const read = parse(without);
-					if (optional ? !read || 'boot' in read : read !== null) {
+					if (optional ? !read || key in read : read !== null) {
 						through.push(`${String(msg.t)} without ${key}`);
 					}
 				}
@@ -458,6 +464,21 @@ describe('the wire protocol', () => {
 		expect(parseServerMessage({ ...hi, boot: 'run0001' })).toEqual({ ...hi, boot: 'run0001' });
 		for (const junk of [null, '', 'no run', 'x'.repeat(33), 7, undefined]) {
 			expect(parseServerMessage({ ...hi, boot: junk })).toBeNull();
+		}
+	});
+
+	it('reads a match with or without the match it is a rematch of and its call-off, and nothing else in their place', () => {
+		const { rematchOf: _, calledOff: __, ...match } = randomMatchMessage(new Rng(15));
+		// A server from before them (a rollback, the old copy during a deploy): read as it is.
+		expect(parseServerMessage(match)).toEqual(match);
+		const rematch = { ...match, rematchOf: 'match0001', calledOff: true };
+		expect(parseServerMessage(rematch)).toEqual(rematch);
+		// A match is never its own rematch, and a call-off is only ever said.
+		for (const junk of [null, '', 'no id', 'x'.repeat(33), 7, undefined, match.id]) {
+			expect(parseServerMessage({ ...match, rematchOf: junk })).toBeNull();
+		}
+		for (const junk of [false, null, 'true', 1, undefined]) {
+			expect(parseServerMessage({ ...match, calledOff: junk })).toBeNull();
 		}
 	});
 
@@ -635,9 +656,10 @@ describe('friendly matches on the wire', () => {
 					parent = parent[step] as Record<string | number, unknown>;
 				const key = path[path.length - 1]!;
 				const original = parent[key];
-				// A nickname is the one field that may be missing; an empty list of events
-				// is a whole message too (a start, a resume).
-				const optional = key === 'nickname';
+				// A nickname may be missing, as may the match a rematch follows and its call-off
+				// (a server from before them); an empty list of events is a whole message too (a
+				// start, a resume).
+				const optional = key === 'nickname' || where === 'rematchOf' || where === 'calledOff';
 				for (const junk of [...JUNK, DELETE]) {
 					if ((junk === undefined || junk === DELETE) && optional) continue;
 					if (where === 'events' && Array.isArray(junk) && junk.length === 0) continue;

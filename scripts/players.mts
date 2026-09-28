@@ -23,13 +23,20 @@
  *   party=...     their animals, as `?party=` writes them but joined with `+`
  *                 (a comma ends the option): `party=rabbit+fox:3*2`
  *   boat          they own the boat
+ *   items=axe+glider  the tools they own, in the order bought (`boat` alone is `items=boat`)
+ *   tokens=23     their tokens (0 by default)
+ *   solved=312    the puzzles they have solved (0 by default)
  *   touch         a touch tablet (the touch controls on)
+ *   safe=0:59:21:59  a safe area, as `scripts/screenshot.mjs --safe-area` gives one (top,
+ *                 right, bottom, left: an iPhone held sideways here), tinted red in the frames
  *   calm          a system that asks for less motion (`prefers-reduced-motion`)
  *   lang=da       the game in this language
  *   size=1024x768 the window (1280x800 by default)
  *   steps=10      steps walked so far, which key the encounters: from the start tile,
  *                 steps=10 and one step Left meets a wild animal on the reed
  *   title         stay on the title (no Continue)
+ *   nodebug       no `?debug` (which moves the top-right corner's pills down under its
+ *                 badge): the corner as a kid sees it, and no `at:` line
  * A save that is already in the page's storage (after `reload:`) is kept.
  *
  * `--steps` is a comma-separated script; each step is `who:token`, `who` a
@@ -51,6 +58,10 @@
  *                      `online:`, which also tells the page the network is back (its
  *                      `online` event), so it tries again at once. Chrome's own offline
  *                      switch leaves an open socket open, so it is not used.
+ *   delay: / deliver:  what the player's page sends the server is held on the way (the
+ *                      socket stays open, and the page thinks it went), and `deliver:`
+ *                      sends all of it, in order: messages that cross. An `offline:`
+ *                      meanwhile loses it, as a socket that dies loses what was on it.
  *   twin:<label>       open a second window of this player (same browser, same game),
  *                      which later steps call `<label>`: one player, two windows
  *   hide: / show:      the tab hidden and shown again (the page thinks so)
@@ -68,8 +79,10 @@
  *                      the other's turn. `all:turn:1,all:wait:3000`, again and again,
  *                      plays a match to its end.
  * After every shot it prints what that player's screen says: where they are,
- * the names over the others and what they are busy with, the arrows, the
- * note at the top, the message line, the pause menu's rows and its list.
+ * the names over the others and what they are busy with, the arrows (their
+ * names and where each stands), the explore screen's pieces that cover one
+ * another (`overlaps:`), the note at the top, the message line, the pause
+ * menu's rows and its list.
  *
  * The game's HTTP API is blocked in every browser unless `--api` (an
  * account made in a page would land in whatever database the page's Vite
@@ -84,10 +97,12 @@ import {
 	EMPTY_BOOK,
 	getAnimal,
 	newGame,
+	isItemId,
 	recordParty,
 	saveDocument,
 	type AnimalInstance,
-	type Direction
+	type Direction,
+	type ItemId
 } from '../packages/engine/src/index.ts';
 import { execSync } from 'node:child_process';
 import { mkdirSync } from 'node:fs';
@@ -129,11 +144,15 @@ interface Player {
 	at: { x: number; y: number } | null;
 	facing: Direction;
 	party: AnimalInstance[] | null;
-	boat: boolean;
+	items: ItemId[];
+	tokens: number;
+	solved: number;
 	touch: boolean;
 	calm: boolean;
 	lang: string | null;
 	size: { width: number; height: number };
+	safe: { top: number; right: number; bottom: number; left: number } | null;
+	debug: boolean;
 	title: boolean;
 	steps: number;
 	context?: BrowserContext;
@@ -148,8 +167,10 @@ interface Player {
 /** A browser's network, as its presence sockets meet it. */
 interface Net {
 	offline: boolean;
-	/** The presence sockets it let through: the page's end of each, and the server's. */
-	sockets: { page: WebSocketRoute; server: WebSocketRoute }[];
+	/** What the page sends waits on the way (`delay:`) until `deliver:`. */
+	delayed: boolean;
+	/** The presence sockets it let through: the page's end of each, the server's, and what waits. */
+	sockets: { page: WebSocketRoute; server: WebSocketRoute; held: (string | Buffer)[] }[];
 }
 
 function parseParty(text: string, label: string): AnimalInstance[] {
@@ -178,16 +199,20 @@ function parsePlayer(spec: string): Player {
 		at: null,
 		facing: 'down',
 		party: null,
-		boat: false,
+		items: [],
+		tokens: 0,
+		solved: 0,
 		touch: false,
 		calm: false,
 		lang: null,
 		size: { width: 1280, height: 800 },
+		safe: null,
+		debug: true,
 		title: false,
 		steps: 0,
 		errors: [],
 		socketFailures: 0,
-		net: { offline: false, sockets: [] }
+		net: { offline: false, delayed: false, sockets: [] }
 	};
 	const options =
 		cut < 0
@@ -220,8 +245,28 @@ function parsePlayer(spec: string): Player {
 				p.party = parseParty(value, label);
 				break;
 			case 'boat':
-				p.boat = true;
+				if (!p.items.includes('boat')) p.items.push('boat');
 				break;
+			case 'items':
+				for (const id of value.split('+')) {
+					if (!isItemId(id)) fail(`${label}: no such tool "${id}"`);
+					if (!p.items.includes(id)) p.items.push(id);
+				}
+				break;
+			case 'tokens':
+			case 'solved': {
+				const n = Number(value);
+				if (!Number.isInteger(n) || n < 0) fail(`${label}: ${key} is a whole number`);
+				p[key] = n;
+				break;
+			}
+			case 'safe': {
+				const [top, right, bottom, left] = value.split(':').map(Number);
+				if (![top, right, bottom, left].every((n) => Number.isFinite(n) && n! >= 0))
+					fail(`${label}: safe=top:right:bottom:left`);
+				p.safe = { top: top!, right: right!, bottom: bottom!, left: left! };
+				break;
+			}
 			case 'touch':
 				p.touch = true;
 				break;
@@ -242,6 +287,9 @@ function parsePlayer(spec: string): Player {
 				break;
 			case 'title':
 				p.title = true;
+				break;
+			case 'nodebug':
+				p.debug = false;
 				break;
 			default:
 				fail(`${label}: unknown option "${option}"`);
@@ -265,7 +313,9 @@ function saveOf(p: Player): string {
 			party,
 			seen: [...book.seen],
 			caught: [...book.caught],
-			items: p.boat ? ['boat'] : []
+			items: [...p.items],
+			tokens: p.tokens,
+			solved: p.solved
 		},
 		{ lineage: `players-${p.label}`, seq: 1 }
 	);
@@ -294,7 +344,7 @@ const steps: Step[] = (args.steps ?? '')
 		const who =
 			whoName === 'all' ? roster : [byLabel.get(whoName) ?? fail(`no player "${whoName}"`)];
 		const m =
-			/^(wait|shot|burst|press|type|hold|click|tap|reload|close|open|offline|online|twin|hide|show|size|until|run|solve|turn):(.*)$/s.exec(
+			/^(wait|shot|burst|press|type|hold|click|tap|reload|close|open|offline|online|delay|deliver|twin|hide|show|size|until|run|solve|turn):(.*)$/s.exec(
 				rest
 			);
 		if (m?.[1] === 'twin') {
@@ -313,8 +363,11 @@ const steps: Step[] = (args.steps ?? '')
 
 // --- the browser -------------------------------------------------------------------
 
-/** Whether a player goes offline in this script: then every presence socket is routed (`openPage`). */
-const cutsSockets = steps.some((s) => s.op === 'offline');
+/**
+ * Whether a player goes offline in this script, or has what they send held on the way: then
+ * every presence socket is routed (`openPage`).
+ */
+const cutsSockets = steps.some((s) => s.op === 'offline' || s.op === 'delay');
 
 const GPU =
 	process.platform === 'darwin'
@@ -334,7 +387,7 @@ const isApi = (u: URL | string) => {
 
 function urlOf(p: Player): string {
 	const url = new URL(base);
-	url.searchParams.set('debug', '');
+	if (p.debug) url.searchParams.set('debug', '');
 	if (p.lang) url.searchParams.set('lang', p.lang);
 	return url.toString().replace('debug=', 'debug');
 }
@@ -352,8 +405,9 @@ async function openPage(p: Player): Promise<void> {
 				(u) => isApi(u),
 				(route) => route.abort('blockedbyclient')
 			);
-		// A script that takes a player offline passes every presence socket through here, so
-		// `offline:` can cut them. Any other script leaves the socket as the browser opens it.
+		// A script that takes a player offline, or holds what they send, passes every presence socket
+		// through here, so `offline:` can cut them and `delay:` hold them. Any other script leaves the
+		// socket as the browser opens it.
 		if (cutsSockets) {
 			const net = p.net;
 			await p.context.routeWebSocket(
@@ -361,7 +415,17 @@ async function openPage(p: Player): Promise<void> {
 				(ws) => {
 					// No network: the socket reaches nothing, and the page tries again later.
 					if (net.offline) return void ws.close().catch(() => {});
-					net.sockets.push({ page: ws, server: ws.connectToServer() });
+					const socket = {
+						page: ws,
+						server: ws.connectToServer(),
+						held: [] as (string | Buffer)[]
+					};
+					// What the page says goes on, in order, unless `delay:` holds it till `deliver:`.
+					ws.onMessage((message) => {
+						if (net.delayed) socket.held.push(message);
+						else socket.server.send(message);
+					});
+					net.sockets.push(socket);
 				}
 			);
 		}
@@ -381,6 +445,18 @@ async function openPage(p: Player): Promise<void> {
 	}
 	const page = await p.context.newPage();
 	p.page = page;
+	if (p.safe) {
+		const { top, right, bottom, left } = p.safe;
+		const cdp = await p.context.newCDPSession(page);
+		await cdp.send('Emulation.setSafeAreaInsetsOverride', { insets: p.safe });
+		// Red strips where the notch and the home indicator would be, over everything, taking no taps.
+		await page.addInitScript(`addEventListener('DOMContentLoaded', () => {
+			const strips = document.createElement('div');
+			strips.style.cssText = 'position:fixed;inset:0;z-index:2147483647;pointer-events:none;' +
+				'border:solid rgba(242,95,92,0.45);border-width:${top}px ${right}px ${bottom}px ${left}px';
+			document.documentElement.append(strips);
+		});`);
+	}
 	page.on('console', (m) => {
 		if (/GPU stall/.test(m.text())) return;
 		if (/^Failed to load resource/.test(m.text()) && isApi(m.location().url)) return;
@@ -440,10 +516,61 @@ const DESCRIBE = `(() => {
 	if (bars.length) lines.push('bars: ' + bars.join(' | '));
 	const pops = [...document.querySelectorAll('.others .pop .n')].map(text);
 	if (pops.length) lines.push('pops: ' + pops.join(' | '));
-	const arrows = [...document.querySelectorAll('.others .arrow-name')].map(text);
+	// Each arrow with the names beside it (and "+2 more"), and where it points.
+	const arrows = [...document.querySelectorAll('.others .arrow')].map(
+		(el) =>
+			[...el.querySelectorAll('.arrow-name, .arrow-more')].map(text).join(', ') +
+			' (' + el.style.transform.replace(/translate\\(|px|\\)/g, '').replace(', ', ',') + ')'
+	);
 	if (arrows.length) lines.push('arrows: ' + arrows.join(' | '));
 	const note = text(document.querySelector('.note[role=status]'));
 	if (note) lines.push('note: ' + note);
+	// The explore screen's pieces that cover one another, and by how much (width × height,
+	// their boxes): a card only where its column shows it, the round buttons as squares.
+	const column = document.querySelector('.party .cards')?.getBoundingClientRect();
+	const pieces = [
+		['.party .bundle', () => 'card'],
+		['.party .keys', () => 'party hint'],
+		['.belongings .purse', () => 'tokens'],
+		['.belongings .solved', () => 'puzzles'],
+		['.belongings .tool', (el) => text(el)],
+		['.belongings .world', () => 'world'],
+		['.coords', () => 'coordinates'],
+		['.dpad .arrow, .dpad .hub', () => 'D-pad'],
+		['.talk-button', () => 'Talk'],
+		['.menu-button', () => 'Menu'],
+		['.fly-button', () => 'Fly'],
+		['.bottom .hint', () => 'message line'],
+		['.bottom .challenge', () => 'Challenge'],
+		['.others .arrow', (el) => 'arrow ' + text(el)],
+		['.others .arrow-name', (el) => 'name ' + text(el)],
+		['.others .arrow-more', (el) => text(el)],
+		['.doctor-arrow .disc', () => 'tent marker'],
+		['.note[role=status]', () => 'note']
+	].flatMap(([selector, name]) =>
+		[...document.querySelectorAll(selector)].map((el) => {
+			let r = el.getBoundingClientRect();
+			if (column && el.matches('.party .bundle'))
+				r = { left: r.left, right: r.right, top: Math.max(r.top, column.top), bottom: Math.min(r.bottom, column.bottom) };
+			// An arrow is its 30 px picture round its middle, turned or not (a turned box's
+			// bounds would reach past its corners, which are empty).
+			if (el.matches('.others .arrow')) r = { left: r.left - 15, right: r.left + 15, top: r.top - 15, bottom: r.top + 15 };
+			return { name: name(el), el, r };
+		})
+	).filter((p) => p.r.right > p.r.left && p.r.bottom > p.r.top);
+	const overlaps = [];
+	for (let i = 0; i < pieces.length; i++) {
+		for (let j = i + 1; j < pieces.length; j++) {
+			const [a, b] = [pieces[i], pieces[j]];
+			if (a.name === b.name || a.el.contains(b.el) || b.el.contains(a.el)) continue;
+			// An arrow and its own name, or two arms of the D-pad: one piece.
+			if (a.el.closest('.arrow') && a.el.closest('.arrow') === b.el.closest('.arrow')) continue;
+			const w = Math.min(a.r.right, b.r.right) - Math.max(a.r.left, b.r.left);
+			const h = Math.min(a.r.bottom, b.r.bottom) - Math.max(a.r.top, b.r.top);
+			if (w >= 1 && h >= 1) overlaps.push(a.name + ' × ' + b.name + ' (' + Math.round(w) + ' × ' + Math.round(h) + ')');
+		}
+	}
+	lines.push('overlaps: ' + (overlaps.length ? overlaps.join(' | ') : 'none'));
 	const message = text(document.querySelector('.hint .message'));
 	if (message) lines.push('message: ' + message);
 	const pause = [...document.querySelectorAll('.menu .team .row')].map(lit);
@@ -601,6 +728,22 @@ async function run(step: Step): Promise<void> {
 				p.net.offline = false;
 				// The browser says the network is back: the page tries its socket again at once.
 				await page!.evaluate(`window.dispatchEvent(new Event('online'))`);
+				break;
+			case 'delay':
+				p.net.delayed = true;
+				break;
+			case 'deliver':
+				// Everything held goes on, in the order it was sent, before anything new.
+				p.net.delayed = false;
+				for (const s of p.net.sockets) {
+					for (const message of s.held.splice(0)) {
+						try {
+							s.server.send(message);
+						} catch {
+							// That socket has gone: what was on it goes with it.
+						}
+					}
+				}
 				break;
 			case 'twin':
 				p.context = twins.get(p)!.context;

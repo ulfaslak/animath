@@ -1395,6 +1395,9 @@ presence:
   left: '{name} went home'
   leftTwo: '{name} and {other} went home'
   leftMany: '{name} and {count} more went home'
+  # Under the names beside an arrow at the edge of the screen, when more than four
+  # players are out of sight that way: the first three are named, and this many more.
+  arrowMore: '+{count} more'
   # This window stopped showing you to the others: you went on in another window.
   elsewhere: "You're playing in another window."
   # What a player is busy with: the bubble over them, and beside their name in the list.
@@ -1450,6 +1453,8 @@ match:
     lost: "Can't reach {name} right now. Try again soon!"
     updating: The game is updating. Try again in a moment!
     youLeft: You left the match.
+    # A rematch the other player had gone back to exploring before, on a page with no result to go back to.
+    went: '{name} went back to exploring.'
   # Narration. Your own animal is {animal}; the other player's is "{whose}
   # {animal.bare}".
   vs: 'A friendly match with {name}!'
