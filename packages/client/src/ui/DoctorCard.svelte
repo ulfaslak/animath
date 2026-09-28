@@ -712,6 +712,14 @@
 	.list {
 		flex: 1;
 		min-height: 0;
+		/*
+		 * Room over the first row for a heal's "+N" and stars, which rise over
+		 * the row they heal: the list clips what leaves it, and its top edge
+		 * cut them in half over the first row (#154). The list reaches up to
+		 * the tabs' line for it (the column's gap), so the rows move down less.
+		 */
+		margin-top: -4px;
+		padding-top: 18px;
 		display: grid;
 		grid-template-columns: minmax(0, max-content) minmax(130px, 1fr);
 		grid-auto-rows: minmax(30px, 36px);
