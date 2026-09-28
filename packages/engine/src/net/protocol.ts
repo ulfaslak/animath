@@ -48,9 +48,13 @@ import { readFightEvents, readFightView, type FightEvent, type FightView } from 
  * a whole glide of them closes the socket as `invalid`), and a version 2 page
  * drops a `peer` that says it, so the two could not speak. Version 4: battles
  * seen from outside (`battle` from a page, `fight` from the server:
- * `fight.ts`), which a version 3 server would count as junk.
+ * `fight.ts`), which a version 3 server would count as junk. Version 5: the
+ * big animals of #89's second wave. A page reads a `match` or a `fight` only
+ * with species its own catalog has, so a version 4 page would drop every one
+ * with a moose in it and never see the match: every new species bumps the
+ * version.
  */
-export const PROTOCOL_VERSION = 4;
+export const PROTOCOL_VERSION = 5;
 
 /**
  * The most a message may take on the wire, in bytes (the server closes a

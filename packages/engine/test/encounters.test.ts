@@ -724,9 +724,11 @@ describe('encounterTable', () => {
 		// a bear, a moose or a bison, 1 time in 15,700 each (#89).
 		const tier5 =
 			Math.exp(-8) / (1 + Math.exp(-0.5) + Math.exp(-2) + Math.exp(-4.5) + Math.exp(-8));
-		for (const id of ['bear', 'moose', 'european-bison'])
+		const big = ['bear', 'moose', 'european-bison'] as const;
+		for (const id of big)
 			expect(weightOf('forest', WILD_RADIUS, id), id).toBeCloseTo(tier5 / 3, 12);
-		expect(Math.round(1 / tier5 / 100) * 100).toBe(5200);
+		const share = big.reduce((sum, id) => sum + weightOf('forest', WILD_RADIUS, id), 0);
+		expect(Math.round(1 / share / 100) * 100).toBe(5200);
 	});
 
 	it("inside the safe radius the lead's tier is the majority wherever anything its size or bigger lives, one tier up at most 1 in 10 and two or more up under 1 in 5,000", () => {

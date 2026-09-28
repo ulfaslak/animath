@@ -705,11 +705,10 @@ describe('the wild animal', () => {
 		// meet, 40 seeds each: the findings are collected and checked once, since an
 		// `expect` per turn costs more than the turn (58,000 turns with #89's 41 animals).
 		const bad: string[] = [];
-		let turns = 0;
+		let misses = 0;
 		for (const { p, w, realm } of MEETINGS) {
 			const wary = getAnimal(w).tier <= getAnimal(p).tier;
 			for (let seed = 0; seed < 40; seed++) {
-				turns++;
 				const start = startBattle(makeParty([p]), makeWild(w), { realm });
 				const { state, events } = attackAndAnswer(start, seed, 1, 1, false);
 				const turn = events.filter(
@@ -727,10 +726,12 @@ describe('the wild animal', () => {
 				const miss = wary && rng.next() < WILD_MISS_CHANCE;
 				if (e.type !== (miss ? 'missed' : 'hit')) bad.push(`${where}: ${e.type}`);
 				if (miss && state.party[0]!.hp !== start.party[0]!.hp) bad.push(`${where}: HP moved`);
+				if (e.type === 'missed') misses++;
 			}
 		}
 		expect(bad).toEqual([]);
-		expect(turns).toBe(MEETINGS.length * 40);
+		// The misses the rolls call for do happen, so the checks above saw both kinds of turn.
+		expect(misses).toBeGreaterThan(0);
 		// 0.4 s alone at a load average of 24 (58,000 turns, #89's 41 animals); asserting every
 		// turn instead took over 30 s at a load average of 40.
 	}, 30_000);
