@@ -12,7 +12,7 @@
 # left alone; `pnpm rollback` moves both). Pulling needs a `docker login
 # ghcr.io`: the workflow logs in for each deploy with its own token.
 #
-# Lawcel's scripts/deploy.sh, a canary swap behind nginx, with five
+# Lawcel's scripts/deploy.sh, a canary swap behind nginx, with six
 # differences:
 #   1. Migrations run from the new image before it takes any traffic (lawcel
 #      migrates after the swap, which its DEFERRED tracks).
@@ -23,10 +23,16 @@
 #      the deploy fails, rather than removing the only healthy app.
 #   5. An image that did not change still gets nginx and the backup service
 #      reconciled.
+#   6. nginx's config is applied before the swap, not after it, so the swap
+#      runs under the config this commit ships; and nginx is reloaded as soon
+#      as the canary is gone (below).
 #
 # nginx looks `app` up in Docker's DNS as it serves (nginx/http.conf), so a
 # canary carrying the network alias `app` takes traffic as soon as it listens,
-# and the compose app can be recreated behind it without a gap.
+# and the compose app can be recreated behind it without a gap. A container
+# that leaves takes its address with it, and an address no container holds
+# answers nothing, not even a refusal: nginx/app.conf's proxy_connect_timeout
+# is what a request sent there costs.
 #
 # For trying it on a Mac against the local stack (docker-compose.local.yml),
 # MATHGAME_DIR names the checkout and MATHGAME_COMPOSE_OVERRIDE the extra
@@ -82,15 +88,23 @@ IMAGE=$($COMPOSE config --format json | jq -r '.services.app.image')
 # A missing bind-mount source is created by Docker as root. Make it as us.
 mkdir -p backups
 
-# A canary still here means an earlier deploy stopped half way, and one that
-# stopped at the recreate left it serving on purpose. It answers as `app`
+# A canary still running means an earlier deploy stopped half way, and one
+# that stopped at the recreate left it serving on purpose. It answers as `app`
 # whatever this deploy does, so nothing goes on until someone has looked:
 # otherwise a first deploy's `up`, or an image that did not change, would
-# leave two builds answering for good.
+# leave two builds answering for good. A stopped one (a deploy that ended
+# between the canary's stop and its removal) answers nothing: Docker's DNS
+# names only the containers on the network, and a stopped one has left it.
+# `compose run` gives it no restart policy, so it stays stopped: it goes.
 if docker container inspect "$CANARY_NAME" >/dev/null 2>&1; then
-	echo "ERROR: a canary from an earlier deploy is still there ($CANARY_NAME), answering as"
-	echo "       the app. Check the app ($COMPOSE ps; $COMPOSE logs app), then: docker rm -f $CANARY_NAME"
-	exit 1
+	if [ "$(docker container inspect --format '{{.State.Running}}' "$CANARY_NAME" 2>/dev/null)" != "true" ]; then
+		echo "Removing a stopped canary an earlier deploy left..."
+		docker rm -f "$CANARY_NAME" >/dev/null
+	else
+		echo "ERROR: a canary from an earlier deploy is still there ($CANARY_NAME), answering as"
+		echo "       the app. Check the app ($COMPOSE ps; $COMPOSE logs app), then: docker rm -f $CANARY_NAME"
+		exit 1
+	fi
 fi
 
 # A deploy never recreates Postgres: a new image (a new major version needs its
@@ -140,6 +154,17 @@ migrate() {
 	$COMPOSE run --rm --no-deps -T app node dist/migrate.mjs </dev/null
 }
 
+# nginx's definition and config, as the checkout has them (lib/nginx-apply.sh):
+# checked first, then a reload (a changed template rendered in the running
+# nginx first), or a recreate when nginx's service definition changed.
+apply_nginx() {
+	echo "Applying the nginx config..."
+	apply_nginx_config "$COMPOSE" || {
+		echo "ERROR: nginx was not applied (why, above)"
+		exit 1
+	}
+}
+
 APP_CID=$($COMPOSE ps -q app 2>/dev/null || true)
 CURRENT_IMAGE=""
 if [ -n "$APP_CID" ]; then
@@ -157,8 +182,10 @@ if [ -z "$APP_CID" ]; then
 		echo "ERROR: the app did not turn healthy. Its log: $COMPOSE logs app"
 		exit 1
 	}
+	apply_nginx
 elif [ "$CURRENT_IMAGE" = "$NEW_IMAGE" ]; then
 	echo "Image unchanged: no swap."
+	apply_nginx
 else
 	migrate
 
@@ -192,6 +219,11 @@ else
 	fi
 	echo "The new image is healthy and serves the game's page"
 
+	# Before the canary, so the swap runs under the config this commit ships
+	# (how long nginx waits on an address that answers nothing, above all).
+	# A config that fails its check stops the deploy here, the old app serving.
+	apply_nginx
+
 	echo "Starting the canary..."
 	# The same config, now with the network alias, so nginx sends it requests.
 	$COMPOSE run -d --no-deps --use-aliases --name "$CANARY_NAME" app >/dev/null </dev/null
@@ -212,7 +244,20 @@ else
 	fi
 
 	echo "Removing the canary..."
+	# Looked up first: compose takes a second to answer, and the reload below
+	# must follow the stop at once. Never fatal: a lookup that failed here would
+	# end the script with the canary still serving, and every later deploy
+	# would refuse to start until someone removed it by hand.
+	NGINX_CID=$($COMPOSE ps -q nginx 2>/dev/null </dev/null | head -1 || true)
 	docker stop "$CANARY_NAME" >/dev/null
+	# Its address left with it, but each nginx worker keeps its last answer for
+	# `app` up to 5 s (nginx/http.conf), the canary's address in it: a request
+	# sent there would wait out proxy_connect_timeout, a presence socket coming
+	# back from the canary most of all. A reload (SIGHUP to nginx, its PID 1)
+	# starts fresh workers, which keep no answer and ask Docker's DNS, and it
+	# no longer names the canary. The config is the one applied above.
+	docker kill --signal HUP "$NGINX_CID" >/dev/null ||
+		echo "    (nginx did not take the reload: it lets go of the canary's address within 5 s)"
 	docker rm "$CANARY_NAME" >/dev/null
 fi
 
@@ -232,12 +277,6 @@ if [ -n "$BACKUP_CID" ] &&
 else
 	$COMPOSE up -d --no-deps backup
 fi
-
-echo "Applying the nginx config..."
-apply_nginx_config "$COMPOSE" || {
-	echo "ERROR: nginx was not applied (why, above)"
-	exit 1
-}
 
 # Image retention: the running image, :prod, and the 3 newest others (for a
 # quick rollback); everything else goes. Lawcel's disk filled twice with old

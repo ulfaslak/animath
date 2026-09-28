@@ -204,8 +204,8 @@ export async function login(name: string, password: string, base = '/api'): Prom
 /**
  * Whose account the welcome link with `token` opens, or why it opens none
  * (the server names the account of a live link only). The token goes in a
- * header, never in the path: a request line is what nginx's error log keeps
- * whenever the app does not answer.
+ * header, never in the path: a request line is what nginx's logs keep, the
+ * access log every one and the error log when nginx runs out of memory.
  */
 export async function lookAtWelcome(token: string, base = '/api'): Promise<WelcomeLook> {
 	const res = await send(`${base}/account/welcome`, {

@@ -442,11 +442,11 @@ explore:
   controls: Arrows / WASD to walk
   # The same, with the touch controls on: the arrow pad in the corner.
   controlsTouch: Hold an arrow to walk
-  # Under the latest message while the player faces a doctor's tent.
-  talkPrompt: Press Enter to talk to the doctor
+  # Under the latest message while the player faces the witch doctor's tent.
+  talkPrompt: Press Enter to talk to the witch doctor
   # The same, with the touch controls on; "Talk" is explore.talk.
-  talkPromptTouch: Tap Talk to talk to the doctor
-  # The touch controls' round button: talk to the doctor, as Enter does.
+  talkPromptTouch: Tap Talk to talk to the witch doctor
+  # The touch controls' round button: talk to the witch doctor, as Enter does.
   talk: Talk
   # Under the latest message while the player faces a tree and owns the axe.
   chopPrompt: Press Enter to chop the tree
@@ -461,9 +461,9 @@ explore:
   # The same button while it breaks a rock.
   break: Break
   # The first bump into a tree without the axe, and Enter facing one.
-  needAxe: You need an axe to chop trees. The doctor sells one!
+  needAxe: You need an axe to chop trees. The witch doctor sells one!
   # The first bump into a rock without the pickaxe, and Enter facing one.
-  needPickaxe: You need a pickaxe to break rocks. The doctor sells one!
+  needPickaxe: You need a pickaxe to break rocks. The witch doctor sells one!
   # What a screen reader calls the arrow pad's four arrows.
   walkUp: Walk up
   walkDown: Walk down
@@ -472,8 +472,8 @@ explore:
   # Over the whole screen when a touch screen is held upright.
   turnSideways: Turn your screen sideways to play!
   # Enter with nothing in front to talk to, chop or break.
-  notAtTent: Walk up to a tent to talk to the doctor.
-  # With the glider: a tap of Space with nothing in front, and the doctor's goodbye
+  notAtTent: Walk up to a tent to talk to the witch doctor.
+  # With the glider: a tap of Space with nothing in front, and the witch doctor's goodbye
   # just after buying it. "Space" is the space bar.
   holdToFly: Hold Space to fly!
   # The same, with the touch controls on; "Fly" is explore.fly.
@@ -543,11 +543,11 @@ party:
   # The message line, on land, when the number of a sea animal was pressed.
   leadInTheSea: '{animal.name} lives in the sea! On land, an animal that walks goes first.'
   # The message line, when the number of a tired animal was pressed.
-  leadTired: '{animal.name} is tired. Visit the doctor!'
+  leadTired: '{animal.name} is tired. Visit the witch doctor!'
   # The message line, when the lead's own number was pressed.
   leadAlready: '{animal.name} already goes first!'
   # The message line, when the number of a card whose animals are all tired was pressed.
-  leadAllTired: They are all tired. Visit the doctor!
+  leadAllTired: They are all tired. Visit the witch doctor!
 
 battle:
   # The status box over the wild animal.
@@ -680,9 +680,11 @@ battle:
     fledSea: '{animal.theWild} stays in the water.'
     joined: '{animal.name} joins your team!'
 
+# The witch doctor at every tent: he heals, takes animals to set free, and
+# sells tools. "Witch doctor" everywhere, never "doctor" alone.
 doctor:
-  # The name tag in front of what the doctor says.
-  title: Doctor
+  # The name tag in front of what the witch doctor says.
+  title: Witch doctor
   # Opening the card with someone to help.
   hello: Hello! Who needs help today?
   # Opening the card with nobody to help.
@@ -695,7 +697,7 @@ doctor:
   notQuite: Not quite! Let's try another one.
   # After a wrong answer to a token sum: the same sum stays.
   tryAgain: Not quite! Try again.
-  # After a right answer, while someone else still needs the doctor.
+  # After a right answer, while someone else still needs the witch doctor.
   healedNext: Well done! {animal.name} feels all better! Who is next?
   # After a right answer that leaves everyone at full HP.
   healedAll: Well done! {animal.name} feels all better! Everyone is fit and happy!
@@ -705,18 +707,18 @@ doctor:
   # On the message line after leaving the card.
   goodbye: Bye! Come back any time.
   # After a lost battle, woken beside a tent.
-  rescuedAtTent: The doctor looked after your animals. Everyone feels better!
-  # After a lost battle with no tent near: a doctor came to the player.
-  rescuedHere: A doctor came by and looked after your animals. Everyone feels better!
+  rescuedAtTent: The witch doctor looked after your animals. Everyone feels better!
+  # After a lost battle with no tent near: a witch doctor came to the player.
+  rescuedHere: A witch doctor came by and looked after your animals. Everyone feels better!
   # The last row of the list, and its key.
   bye: Bye
   byeKey: Esc
   # The button that puts a puzzle away, back to the list, and its key.
   back: Back
-  # The card's tabs: heal the hurt animals, help animals home to the wild, the shop.
+  # The card's tabs: heal the hurt animals, set animals free to go home to the wild, the shop.
   tabs:
     heal: Heal
-    home: Help home
+    home: Set free
     shop: Shop
   # The player's tokens, at the top right of the card.
   tokens:
@@ -731,20 +733,21 @@ doctor:
   listKeys: ↑ ↓ choose · ← → tabs · Enter pick · Esc bye
   # The same, with the touch controls on.
   listTouch: Tap an animal to help it
-  # Under a doctor's puzzle while another animal needs help too.
+  # Under a witch doctor's puzzle while another animal needs help too.
   puzzleKeys: ↑ ↓ help another animal
   puzzleTouch: Tap another animal to help it instead
-  # The heal tab when nobody needs the doctor.
+  # The heal tab when nobody needs the witch doctor.
   allFit: Time to explore!
   allFitKeys: ← → tabs · Enter or Esc to say bye
   allFitTouch: Tap Bye to go exploring
 
-  # The help-home tab: animals go home to the wild, all better, for tokens.
+  # The set-free tab: the animals picked are made all better and go home to the wild,
+  # and the witch doctor thanks the kid with tokens.
   home:
-    # The doctor's line on the tab: why wild animals attack.
+    # The witch doctor's line on the tab: why wild animals attack.
     intro: Wild animals are a little bit sick. That's why they are so grumpy!
-    title: Help animals home
-    how: Pick animals to go home. I make them all better, and you get tokens as a thank-you!
+    title: Set animals free
+    how: Pick animals to set free. I make them all better, and they go home to the wild. You get tokens as a thank-you!
     # The highlighted animal, and what it brings.
     worth:
       one: '{animal.name} brings {count} token.'
@@ -768,10 +771,10 @@ doctor:
     # nobody can go home until one is healed.
     noWalker: No animal can walk with you now. Heal one first!
     # The button under the animals.
-    send: Help them home
+    send: Set them free
     keys: ↑ ↓ choose · ← → tabs · Enter pick · Esc bye
-    touch: Tap the animals that go home
-    # The confirm before a hand-over: the doctor's line, the question, and the choices.
+    touch: Tap the animals to set free
+    # The confirm before a hand-over: the witch doctor's line, the question, and the choices.
     sure: Are you sure? They will be happy in the wild!
     sureTitle: Say bye bye to {names.name}?
     sureTitleMany: Say bye bye to {many} animals?
@@ -779,7 +782,7 @@ doctor:
     keep: No, not now
     yes: Yes, bye bye!
     sureKeys: ← → choose · Enter pick · Esc back
-    # The token sum for a hand-over: the doctor's line, then the story round the sum.
+    # The token sum for a hand-over: the witch doctor's line, then the story round the sum.
     count: Thank you! Can you count your tokens?
     story:
       one: You have {count} token. You get {amount} more. How many will you have?
@@ -795,7 +798,7 @@ doctor:
   # The shop tab: tools bought with tokens.
   shop:
     intro: Look what I have! You pay with tokens.
-    # The doctor's line while nothing is for sale.
+    # The witch doctor's line while nothing is for sale.
     introEmpty: My shop opens soon!
     emptyTitle: Nothing for sale yet
     emptyDetail: New things are coming soon. Keep your tokens!
@@ -810,7 +813,7 @@ doctor:
       other: You need {count} more tokens.
     keys: ↑ ↓ choose · ← → tabs · Enter buy · Esc bye
     touch: Tap a thing to buy it
-    # The token sum for a purchase: the doctor's line, then the story round the sum.
+    # The token sum for a purchase: the witch doctor's line, then the story round the sum.
     count: Good choice! Can you count your tokens?
     story:
       one: You have {count} token. {item.the} costs {price}. How many will you have left?
@@ -820,7 +823,7 @@ doctor:
       one: Here is {item.your}! You have {count} token left.
       other: Here is {item.your}! You have {count} tokens left.
 
-# What the doctor's shop sells: as a label, with "the" and "your", and what it does.
+# What the witch doctor's shop sells: as a label, with "the" and "your", and what it does.
 items:
   axe:
     name: Axe
@@ -1144,7 +1147,7 @@ presence:
   # What a player is busy with: the bubble over them, and beside their name in the list.
   busy:
     battle: battling a wild animal
-    doctor: at the doctor
+    doctor: at the witch doctor
     menu: taking a break
     match: in a friendly match
     # Up in the air with the paraglider (no bubble: the glider shows it; only the list says it).
@@ -1304,11 +1307,11 @@ book:
   # The panel beside the row while it is lit.
   help: Every animal you meet goes in your book. Can you catch them all?
   # Under the book, about the lit card: one not met yet (it gives nothing away), one met but
-  # not caught, one caught and on the team, and one caught and helped home since (it stays
+  # not caught, one caught and on the team, and one caught and set free since (it stays
   # caught for good).
   unseen: Who could this be? Go exploring and find out!
   seen: You met {animal.a}. Catch one with your leash!
   caughtTeam: '{animal.name} is on your team!'
-  caughtHome: You caught {animal.a} and helped it home. It stays in your book!
+  caughtHome: You caught {animal.a} and set it free. It stays in your book!
   # The key reminder under the book.
   keys: ↑ ↓ ← → choose · Esc back

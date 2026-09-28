@@ -100,7 +100,7 @@ From the primary clone: `./scripts/install-backup-sync.sh`. It installs the laun
 
 ## Deploy
 
-Every push to main deploys itself ([[DEVELOPMENT]] § Deployment). Watch a run with `gh run watch`. When main is ahead of prod (a merge with `[skip deploy]`, or a failed run), `gh workflow run deploy.yml` builds and deploys main's tip.
+Every push to main deploys itself ([[DEVELOPMENT]] § Deployment). Watch a run with `gh run watch`. A run that stops at `!! nginx refused the new config` left nginx serving with the config it had: `logs nginx` says why, in an `[emerg]` line. One that stops at `!! the template did not render in the running nginx as it was checked` touched nothing: recreating nginx puts the checkout's template in (the line it prints), and refuses every connection for up to ~12 s, so do it when few kids play. When main is ahead of prod (a merge with `[skip deploy]`, or a failed run), `gh workflow run deploy.yml` builds and deploys main's tip.
 
 ## Roll back
 
@@ -148,13 +148,13 @@ On the server, in `~/mathgame`:
 ```bash
 docker compose -f docker-compose.prod.yml ps
 docker compose -f docker-compose.prod.yml logs --tail 200 -f app     # the server: one line per request
-docker compose -f docker-compose.prod.yml logs --tail 100 nginx      # requests (no client addresses), certificates
+docker compose -f docker-compose.prod.yml logs --tail 100 nginx      # requests (with the app addresses nginx tried), certificates
 docker compose -f docker-compose.prod.yml logs --tail 20 backup      # "backup ok: …" every 6 hours
 docker compose -f docker-compose.prod.yml exec -T postgres psql -U mathgame -d mathgame
 df -h / && docker system df                                          # the disk
 ```
 
-Each service keeps a capped log (docker-compose.prod.yml); nothing older survives. Hetzner's own nightly image of the machine is in the Cloud Console, under the server's Backups.
+Each service keeps a capped log (docker-compose.prod.yml), and drops its oldest lines at the cap: nginx's 3 × 10 MB held about two days on 2026-09-27, the app's 5 × 20 MB about three. Nothing older survives on the server; Hetzner's own nightly image of the machine keeps the logs of its night for 7 days, in the Cloud Console under the server's Backups. No log names a player's IP address ([[DECISIONS]] § Deployment): nginx's access log has none, and its error log writes a line about a request only when nginx runs out of memory. (The lines nginx wrote before #115's change, 2026-09-27, name clients; they leave the server as Docker drops them at the cap, or at once when nginx is recreated.) What went wrong with a request is in its access-log line: its status, and the app addresses nginx tried with what each answered ([[DEVELOPMENT]] § What a request meets during a swap). A TLS handshake that fails, for a missing certificate too, leaves no line: it is no request. Why a certificate is missing is the certificate module's to say, in nginx's own lines (`[notice]` and worse, none about a request): a certificate Let's Encrypt would not issue or renew is a `[warn]` or `[error]` line naming the issuer, `letsencrypt` (`logs nginx | grep -i acme`). `curl -v https://$MATHGAME_DOMAIN/api/health` shows what a browser gets.
 
 **Accounts** (once the accounts server is in; its admin command is bundled into the image as `dist/admin.mjs`): with no email, a forgotten password or a deleted account is the human's job, done on the server:
 
