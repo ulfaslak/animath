@@ -70,7 +70,7 @@ export function unclutter(
 				const b = order[j]!;
 				const p = box(a);
 				const q = box(b);
-				if (!touching(p, q, gap)) continue;
+				if (!touching(p, q, gap, gap)) continue;
 				const pLeft = p.x0 + p.x1 < q.x0 + q.x1 || (p.x0 + p.x1 === q.x0 + q.x1 && a.key < b.key);
 				const across = pLeft ? p.x1 + gap - q.x0 : q.x1 + gap - p.x0;
 				const over = Math.min(p.y1 + gap - q.y0, q.y1 + gap - p.y0);
@@ -87,7 +87,10 @@ export function unclutter(
 	}
 
 	// Then everything, the lowest on the screen first, each rising over what it would cover:
-	// a tag still on another (one animal behind the other) over it, and every label.
+	// a tag still on another (one animal behind the other) over it, and every label. Only
+	// what shares columns with it counts, the gap kept above and below: a word that merely
+	// stands close beside another stays put, so a thought cloud growing from dots to a sum
+	// never throws its name up over a tag it only comes near.
 	const placed: Rect[] = [];
 	const rise = (mark: Mark, dx: number, dy: number): number => {
 		for (let step = 0; step < 256; step++) {
@@ -96,7 +99,7 @@ export function unclutter(
 				const mine = onScreen(part, mark, { dx, dy });
 				for (const other of placed) {
 					// Up until this part's bottom clears the other's top.
-					if (touching(mine, other, gap))
+					if (touching(mine, other, 0, gap))
 						need = Math.min(need, other.y0 - gap - (mark.y + part.y1));
 				}
 			}
@@ -138,9 +141,9 @@ function onScreen(part: Rect, mark: Mark, offset: Offset): Rect {
 	};
 }
 
-/** Whether two boxes come closer than `gap` to each other. */
-function touching(a: Rect, b: Rect, gap: number): boolean {
-	return a.x0 < b.x1 + gap && b.x0 < a.x1 + gap && a.y0 < b.y1 + gap && b.y0 < a.y1 + gap;
+/** Whether two boxes come closer than `gx` side to side and `gy` up and down. */
+function touching(a: Rect, b: Rect, gx: number, gy: number): boolean {
+	return a.x0 < b.x1 + gx && b.x0 < a.x1 + gx && a.y0 < b.y1 + gy && b.y0 < a.y1 + gy;
 }
 
 /** Left to right, then top to bottom, then by key. */

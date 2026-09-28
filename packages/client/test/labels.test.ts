@@ -41,13 +41,16 @@ function placed(marks: Mark[], offsets: Map<string, Offset>): { key: string; box
 	});
 }
 
-/** Pairs of different marks whose boxes come closer than the gap. */
+/**
+ * Pairs of different marks whose boxes cover each other, or stand one over
+ * the other in the same columns closer than the gap.
+ */
 function clashes(marks: Mark[], offsets: Map<string, Offset>): string[] {
 	const boxes = placed(marks, offsets);
 	const found: string[] = [];
 	const near = (a: Rect, b: Rect) =>
-		a.x0 < b.x1 + MARK_GAP - 1e-9 &&
-		b.x0 < a.x1 + MARK_GAP - 1e-9 &&
+		a.x0 < b.x1 - 1e-9 &&
+		b.x0 < a.x1 - 1e-9 &&
 		a.y0 < b.y1 + MARK_GAP - 1e-9 &&
 		b.y0 < a.y1 + MARK_GAP - 1e-9;
 	for (let i = 0; i < boxes.length; i++) {
@@ -96,6 +99,16 @@ describe('the labels over the world', () => {
 		expect(offsets.get('near')).toBeUndefined();
 		expect(offsets.get('far')!.dx).toBe(0);
 		expect(offsets.get('far')!.dy).toBe(420 - 30 - MARK_GAP - 400);
+	});
+
+	it('leaves a name that only stands close beside a tag where it is', () => {
+		// Dee's cloud grows from dots to a sum, leaning off the battle: its edge ends under 3 px
+		// from the moose's tag, which is up at its height. It covers nothing, so nothing moves.
+		const moose = tag('moose', 654, 60, 60);
+		const dee = label('dee', 710, 110, 48, 130, 1);
+		const cloudLeft = 710 - 65 + 0.32 * 130;
+		expect(cloudLeft - (654 + 30)).toBeCloseTo(2.6);
+		expect(unclutter([dee], [moose]).size).toBe(0);
 	});
 
 	it('moves nothing that covers nothing', () => {
