@@ -512,6 +512,15 @@
 		:global(.touch) .keys {
 			display: none;
 		}
+		/*
+		 * Without the touch controls the column would reach down beside the
+		 * message line, which on a screen this narrow is under its keys: it
+		 * stops above a message line of two lines instead, as it stops above
+		 * the D-pad with them, and scrolls.
+		 */
+		.party {
+			max-height: calc(100vh - 32px - 70px - var(--safe-top) - var(--safe-bottom));
+		}
 	}
 	/*
 	 * The cards, as wide as the widest of them needs, all the same; the column
