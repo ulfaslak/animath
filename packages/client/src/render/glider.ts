@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { smoothstep } from './ease';
+import { instantiate, markJoint, release, takeShape } from './merge';
 import { GLIDER_COLORS } from './palette';
 
 /**
@@ -103,17 +104,26 @@ function line(a: THREE.Vector3, b: THREE.Vector3): THREE.Mesh {
 
 /**
  * A new glider, folded on the back (`poseGlider` it), its canopy in `color`
- * (the trainer's shirt) and cream. Its geometries are its own:
- * `disposeGlider` frees them. The player's trainer keeps one for as long as
- * the page lives; another player's goes when they do.
+ * (the trainer's shirt) and cream: the roll, the wing and its lines each
+ * merged into one mesh (`merge.ts`), shared by every glider of its colour
+ * until `disposeGlider` lets the last one go. The player's trainer keeps one
+ * for as long as the page lives; another player's goes when they do.
  */
 export function buildGliderMesh(color: number = GLIDER_COLORS.canopy): THREE.Group {
+	const shape = takeShape(`glider:${color}`, 'grouped', () => ({ root: buildGliderParts(color) }));
+	const glider = instantiate(shape);
+	poseGlider(glider, 0, false, false);
+	return glider;
+}
+
+/** The glider part by part, as built: what `buildGliderMesh` merges, and what the tests measure. */
+export function buildGliderParts(color: number = GLIDER_COLORS.canopy): THREE.Group {
 	const glider = new THREE.Group();
 	glider.name = 'glider';
 
 	// Folded: a cream roll across the back with two bands of the canopy's colour, so it reads
 	// against a shirt of that colour.
-	const roll = new THREE.Group();
+	const roll = markJoint(new THREE.Group());
 	roll.name = 'roll';
 	const body = new THREE.CylinderGeometry(ROLL_RADIUS, ROLL_RADIUS, ROLL_LENGTH, 8);
 	body.rotateZ(Math.PI / 2);
@@ -127,14 +137,14 @@ export function buildGliderMesh(color: number = GLIDER_COLORS.canopy): THREE.Gro
 	glider.add(roll);
 
 	// Open: the wing's cells, alternating colours, and the lines to the shoulders.
-	const wing = new THREE.Group();
+	const wing = markJoint(new THREE.Group());
 	wing.name = 'wing';
 	const step = (2 * WING_HALF_ANGLE) / CELLS;
 	for (let i = 0; i < CELLS; i++) {
 		const a0 = -WING_HALF_ANGLE + i * step;
 		wing.add(mesh(cellGeometry(a0, a0 + step), i % 2 === 0 ? cellMaterial(color) : creamMaterial));
 	}
-	const lines = new THREE.Group();
+	const lines = markJoint(new THREE.Group());
 	lines.name = 'lines';
 	for (const side of [-1, 1] as const) {
 		for (const angle of [WING_HALF_ANGLE * 0.9, WING_HALF_ANGLE * 0.35]) {
@@ -190,11 +200,11 @@ export function poseGlider(
 	if (lines) lines.visible = e > 0.85;
 }
 
-/** Free the glider's geometries, each once (its materials are shared, and stay). */
+/**
+ * Let the glider go: its shape is freed with the last glider of its colour (a
+ * glider part by part frees its parts' geometries). The materials are
+ * shared, and stay.
+ */
 export function disposeGlider(glider: THREE.Object3D): void {
-	const geometries = new Set<THREE.BufferGeometry>();
-	glider.traverse((o) => {
-		if (o instanceof THREE.Mesh) geometries.add(o.geometry);
-	});
-	for (const geometry of geometries) geometry.dispose();
+	release(glider);
 }

@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { motion } from '../motion';
+import { markJoint, instantiate, release, takeShape } from './merge';
 import { ANIMAL_COLORS, COLORS, PLAYER_LOOK, TILE_COLORS, type TrainerLook } from './palette';
 
 /**
@@ -19,15 +20,25 @@ import { ANIMAL_COLORS, COLORS, PLAYER_LOOK, TILE_COLORS, type TrainerLook } fro
  * `animateIdle` scales the rig, so callers may scale or move the outer group
  * freely.
  *
+ * A figure is drawn as one mesh (#152): its parts, as the builders below make
+ * them (`buildAnimalParts`, `buildPlayerParts`), are merged into one shape
+ * with their colours on its vertices, shared by every figure of the kind
+ * (`merge.ts`), and the parts that move on their own hang from joints (`limb`:
+ * a trainer's arms and legs, a bird's wings, the wolf's tail) that are bones
+ * of that mesh, named as the joints were, so the animations below move them
+ * by name as they always did. One draw call, and one more in the sun's
+ * shadow, where a hedgehog took thirty-three.
+ *
  * Two measures read the parts, and both are rough on purpose. A figure's
  * bounds (its feet on y = 0, its size) are three.js's `Box3.setFromObject`,
  * which turns each part's own bounding box, not its vertices: a part that
  * touches the ground and is turned must be turned in its geometry (see
  * `starArm`, `tentacle`), or its box dips under the ground though no vertex
- * does. And resting reads which parts stand on the ground by their bottoms
- * being within 0.005 of it (`ON_GROUND`): a part meant to stand on it sits
- * exactly on 0, and one meant to be raised clears it well (the octopus's
- * suckers once sat on the edge).
+ * does. The merged figure keeps the box its parts made, as it was built. And
+ * resting reads which parts stand on the ground by their bottoms being within
+ * 0.005 of it (`ON_GROUND`): a part meant to stand on it sits exactly on 0,
+ * and one meant to be raised clears it well (the octopus's suckers once sat
+ * on the edge). Both are measured from the parts, before they are merged.
  *
  * The sea animals are met only at sea, where they swim with the lower 40% of
  * their height under the water (`SWIM_DEPTH`), so each one's tell stands in
@@ -1617,14 +1628,55 @@ function wrap(parts: THREE.Object3D[]): THREE.Group {
 	return group;
 }
 
-/** The figure for a species in the engine catalog. Throws for an unknown id. */
+/**
+ * The figure for a species in the engine catalog, drawn as one mesh, its
+ * shape shared with every other figure of the species until the last of them
+ * goes (`disposeFigure`). Throws for an unknown id.
+ */
 export function buildAnimalMesh(speciesId: string): THREE.Group {
+	return merged(`animal:${speciesId}`, () => buildAnimalParts(speciesId));
+}
+
+/**
+ * The same figure part by part, as its builder makes it: a mesh per part in
+ * the part's colour, the moving ones on joint groups. What `buildAnimalMesh`
+ * merges, and what the tests measure the builders by.
+ */
+export function buildAnimalParts(speciesId: string): THREE.Group {
 	const build = BUILDERS[speciesId];
 	const colors = ANIMAL_COLORS[speciesId];
 	if (!build || !colors) throw new Error(`No mesh for species: ${speciesId}`);
 	const group = wrap(build(colors));
 	group.name = speciesId;
 	group.userData.restShape = restShape(group.children[0]!);
+	// How its wings lie, measured from their parts while there are parts to measure.
+	for (const [name, side] of [
+		['wingL', -1],
+		['wingR', 1]
+	] as const) {
+		const wing = group.getObjectByName(name);
+		if (wing) wing.userData.rest = wingRest(wing, side);
+	}
+	return group;
+}
+
+/**
+ * A figure drawn as one mesh (`merge.ts`): the kind `key`'s shape, merged
+ * from `parts` the first time, with what was measured of the parts (how it
+ * lies down) on the figure, as the parts had it.
+ */
+function merged(key: string, parts: () => THREE.Group): THREE.Group {
+	const shape = takeShape(key, 'skinned', () => {
+		const figure = parts();
+		return {
+			root: figure.children[0]!,
+			measures: { name: figure.name, restShape: figure.userData.restShape }
+		};
+	});
+	const group = new THREE.Group();
+	group.name = shape.measures.name as string;
+	if (shape.measures.restShape) group.userData.restShape = shape.measures.restShape;
+	group.add(instantiate(shape));
 	return group;
 }
 
@@ -1666,10 +1718,11 @@ const SHOULDER_Y = 0.46;
 /**
  * A limb hung from a joint at `(x, y, z)`: a group named `name` at the joint,
  * holding `parts` placed as if the group were not there. Turning the group
- * about x swings the limb from the joint.
+ * about x swings the limb from the joint. Merged, the joint is a bone of the
+ * figure's mesh, named and placed as the group was (`merge.ts`).
  */
 function limb(name: string, x: number, y: number, parts: THREE.Mesh[], z = 0): THREE.Group {
-	const joint = new THREE.Group();
+	const joint = markJoint(new THREE.Group());
 	joint.name = name;
 	joint.position.set(x, y, z);
 	for (const p of parts) {
@@ -1685,9 +1738,15 @@ function limb(name: string, x: number, y: number, parts: THREE.Mesh[], z = 0): T
  * The trainer: a kid in a coral shirt and a blue cap, eyes on the +z face;
  * another player's trainer wears their own `look` (`TRAINER_LOOKS`).
  * Its legs and arms hang from joints (`legL`, `legR`, `armL`, `armR`) that
- * `animateWalk` swings.
+ * `animateWalk` swings. Drawn as one mesh, shared by every trainer in the
+ * same look, as an animal's is.
  */
 export function buildPlayerMesh(look: TrainerLook = PLAYER_LOOK): THREE.Group {
+	return merged(`trainer:${look.shirt}:${look.cap}`, () => buildPlayerParts(look));
+}
+
+/** The trainer part by part, as `buildAnimalParts` is an animal: what `buildPlayerMesh` merges. */
+export function buildPlayerParts(look: TrainerLook = PLAYER_LOOK): THREE.Group {
 	const { playerSkin: skin, playerShorts: shorts } = COLORS;
 	const { shirt, cap } = look;
 	const dome = new THREE.SphereGeometry(0.15, 8, 4, 0, Math.PI * 2, 0, Math.PI / 2);
@@ -2026,11 +2085,11 @@ export function hasWings(figure: THREE.Object3D): boolean {
 }
 
 /**
- * Free a figure that leaves the screen for good: its geometries. Its
- * materials are shared by every figure (cached above) and stay.
+ * Free a figure that leaves the screen for good: its shape once no other
+ * figure of its kind is drawn with it, its bones, and its z's. The materials
+ * are shared by every figure and stay. A figure part by part
+ * (`buildAnimalParts`) frees each part's geometry.
  */
 export function disposeFigure(figure: THREE.Object3D): void {
-	figure.traverse((o) => {
-		if (o instanceof THREE.Mesh) o.geometry.dispose();
-	});
+	release(figure);
 }
