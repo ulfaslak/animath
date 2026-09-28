@@ -129,6 +129,34 @@ describe('the way to the doctor', () => {
 		// search and the engine's to check it, and a new world's spawn worked out).
 	}, 30_000);
 
+	it('up on the glider it keeps the tent found where the kid took off, over the lake too, and looks again once they are down', () => {
+		// From the start of World 1, facing up over the lake: its far shore 14 tiles up.
+		const s = setup({
+			...newGame(1),
+			party: [squirrel(0)],
+			items: ['glider'],
+			pos: { x: -2, y: 6 },
+			facing: 'up'
+		});
+		expect(doctorWay.tent).toEqual({ x: 5, y: 7 });
+		s.authority.dispatch({ type: 'take-off' });
+		let overWater = 0;
+		for (let flown = 1; flown <= 12; flown++) {
+			s.authority.dispatch({ type: 'glide' });
+			s.way.overlay();
+			expect(game.flying).toBe(true);
+			if (tileAtWorld(WORLD_SEED, game.pos.x, game.pos.y).kind === 'deepwater') overWater++;
+			// No walk begins in the middle of the lake: the way holds the tent it had.
+			expect(doctorWay.tent, `flown ${flown}`).toEqual({ x: 5, y: 7 });
+		}
+		expect(overWater).toBeGreaterThan(3);
+		s.authority.dispatch({ type: 'land' });
+		s.way.overlay();
+		expect(game.flying).toBe(false);
+		expect(doctorWay.tent).toEqual(nearestFromHere());
+		expect(doctorWay.tent).not.toBeNull();
+	});
+
 	it('an arrow while the tent is off the screen, at the edge, pointing at it; none once it is on the screen', () => {
 		// Far from any tent on the screen: a spot of World 1 whose nearest tent is off it, as the
 		// stand-in camera draws it (13 tiles or more across, 10 or more up or down).

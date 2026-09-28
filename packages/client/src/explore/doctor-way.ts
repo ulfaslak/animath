@@ -58,7 +58,8 @@ interface Search {
  *
  * It reads where the player is from `game`, however they got there (a step,
  * a go-to, another world, a reload), and looks again whenever that, the
- * world, the ground or the boat changes, never while it doesn't: the tent is
+ * world, the ground or the boat changes, never while it doesn't, nor up on
+ * the glider, which keeps the tent found where the kid took off: the tent is
  * found by the pure function, from the seeded world and the overlay, so it
  * is the same however many chunks are on screen. After a step it looks no
  * further than one step past the tent it found before, so the search stays
@@ -112,6 +113,10 @@ export class DoctorWay {
 		const last = this.last;
 		const same = last !== null && last.seed === game.seed && last.edits === game.edits;
 		if (same && last.boat === boat && samePos(last.from, from)) return last.spot;
+		// Up on the glider the way holds the tent found where the kid took off: the tile under
+		// the glider can be the middle of a lake or a forest, where no walk begins. It looks
+		// again once they are down.
+		if (same && game.flying && last.spot !== null) return last.spot;
 		// A step from the last search (and nothing else changed) is never more than one
 		// step further from the tent it found: look that far, and no further.
 		const stepped =
