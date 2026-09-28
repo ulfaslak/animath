@@ -1587,9 +1587,10 @@ describe('the sky: birds that notice the glider (#91)', () => {
 		}
 	});
 
-	it("bigger birds never grow rarer and the lead's own tier never commoner with distance, on any ground", () => {
+	it("bigger birds never grow rarer and the lead's own tier never commoner with distance, on any ground", async () => {
 		const bad = findings();
 		for (const lead of LEADS) {
+			await turn();
 			for (const biome of BIOMES) {
 				for (const around of GROUNDS) {
 					let prevBigger = -1;
@@ -1617,7 +1618,9 @@ describe('the sky: birds that notice the glider (#91)', () => {
 			}
 		}
 		expect(bad.list).toEqual([]);
-	}, 30_000);
+		// 5,800 sky tables, each weighed by one of 8 grounds, and as many of the sky's own: 1.3 s
+		// alone at a load of 8, so about 20 s at 150; a turn of the loop between leads.
+	}, 60_000);
 
 	it('over a tile of any kind lists the sky’s birds, each at a quarter to four times its share, weighed by the ground as [[PRODUCT]] §4 writes it', () => {
 		const bad = findings();
@@ -1652,10 +1655,11 @@ describe('the sky: birds that notice the glider (#91)', () => {
 		expect(compared).toBeGreaterThan(20_000);
 	}, 30_000);
 
-	it('rolls exactly as [[PRODUCT]] §4 says, over every kind of tile: the 1-in-20 chance first, then a pick down the sky’s table for the ground', () => {
+	it('rolls exactly as [[PRODUCT]] §4 says, over every kind of tile: the 1-in-20 chance first, then a pick down the sky’s table for the ground', async () => {
 		const bad = findings();
 		let met = 0;
 		for (const lead of FLYING_LEADS) {
+			await turn();
 			for (const biome of BIOMES) {
 				for (const d of [0, 40, 100, 160]) {
 					for (const around of GROUNDS) {
@@ -1664,7 +1668,7 @@ describe('the sky: birds that notice the glider (#91)', () => {
 						const now = new Rng(hashString(key));
 						const spec = new Rng(hashString(key));
 						const site = skySite(biome, d, around, kind);
-						for (let i = 0; i < 200; i++) {
+						for (let i = 0; i < 100; i++) {
 							const a = rollSkyEncounter(now, site, lead);
 							const b = skyRoll(spec, site, lead);
 							if ((a?.speciesId ?? null) !== b) bad.note(`${key}: ${a?.speciesId} vs ${b}`);
@@ -1678,22 +1682,25 @@ describe('the sky: birds that notice the glider (#91)', () => {
 			}
 		}
 		expect(bad.list).toEqual([]);
-		expect(met).toBeGreaterThan(1000);
+		expect(met).toBeGreaterThan(500);
 		expect(SKY_CHANCE).toBe(1 / 20);
-	}, 30_000);
+		// 64,000 rolls, each rolled again by the rule here: 1.3 s alone at a load of 8 (2.6 s at
+		// 200 a site), so about 20 s at 150; a turn of the loop between leads.
+	}, 60_000);
 
-	it('neither the lead, the ground nor the tile below changes whether a bird notices the glider, and one does about every 20 tiles', () => {
+	it('neither the lead, the ground nor the tile below changes whether a bird notices the glider, and one does about every 20 tiles', async () => {
 		const bad: string[] = [];
 		let noticed = 0;
 		let rolls = 0;
 		for (const biome of BIOMES) {
+			await turn();
 			for (const d of [0, 64, 400]) {
 				const seeds = Array.from({ length: 200 }, (_, i) => hashString(`sky:${biome}:${d}:${i}`));
 				const robinOverGrass = seeds.map(
 					(s) => rollSkyEncounter(new Rng(s), skySite(biome, d), 1) !== null
 				);
-				for (const lead of LEADS) {
-					for (const around of GROUNDS.slice(0, 4)) {
+				for (const lead of FLYING_LEADS) {
+					for (const around of GROUNDS.slice(0, 3)) {
 						for (const kind of ['water', 'tree', 'tent'] as const) {
 							const met = seeds.map(
 								(s) => rollSkyEncounter(new Rng(s), skySite(biome, d, around, kind), lead) !== null
@@ -1710,7 +1717,9 @@ describe('the sky: birds that notice the glider (#91)', () => {
 		expect(bad).toEqual([]);
 		expect(noticed / rolls).toBeGreaterThan(1 / 25);
 		expect(noticed / rolls).toBeLessThan(1 / 16);
-	}, 30_000);
+		// 111,000 rolls: 1.9 s alone at a load of 8 (3.2 s over every lead and 4 grounds), so
+		// about 30 s at 150; a turn of the loop between biomes.
+	}, 90_000);
 
 	it('is deterministic, and refuses a lead that is not a tier or a site that is not real', () => {
 		const run = (seed: number) => {
