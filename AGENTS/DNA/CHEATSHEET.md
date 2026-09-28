@@ -258,7 +258,9 @@ Who comes out depends on who leads your party (§ Your party). With a frog or a 
 - **Your tokens** show beside the witch doctor's line, and in the world's top right corner, with the puzzles you have solved, the tools you own and the world you are in under them. They are saved with the game.
 - **Leaving**: Bye (Enter on it, or a tap on it, even from a puzzle) or Escape from the list, at any time. The witch doctor says "Bye! Come back any time." on the bottom line.
 - **On a phone held sideways** the card takes nearly all of the screen, and a puzzle and its number pad take the whole card: the sum, the answer, Back and every key in view, the list, the tabs and Bye out of the way until you tap Back. Answer right and the list comes back for the heal's stars (or the goodbye, or the tool's tick), with the sum, your answer and "Correct!" beside it.
-- **A long nickname** (twelve W's) in the witch doctor's line goes on under the badge and the tokens when it doesn't fit between them, never under the tokens.
+- **A long nickname** (twelve W's) in the witch doctor's line goes on under the badge and the tokens when it doesn't fit between them, never under the tokens, and so does any line that would take more than two lines between them. A very long one (three animals named with twelve W's going home) gets a row of its own under them, in smaller letters.
+- **Answer right** and, while the reward plays (the heal's stars, the goodbye, the tokens, the tool's tick), the puzzle shows only the sum, your answer and "Correct!": the number pad, the story and Back are gone until the list is back (Escape still says bye meanwhile).
+- **A crowded card packs itself**: when what the right-hand side says would not fit (a long line from the witch doctor over it, twelve-W names, a five-digit sum), its lines move closer, then its words get a size smaller, then its hints (the keys, "Tap the answer, then OK", "Tap another animal to help it instead") go, and last the sum gets a little smaller. Back, OK and the tabs are always whole, at every size, in both languages.
 
 ## Puzzles solved
 
