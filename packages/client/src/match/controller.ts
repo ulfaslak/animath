@@ -764,16 +764,20 @@ export class MatchController implements MatchHooks {
 		this.peers.clear();
 		this.boot = boot;
 		this.pid = pid;
-		// This player's Back from a result: this page's, or another tab's or load's of theirs.
+		// This player's Back from a result: this page's, or one the browser kept from another tab
+		// or load of theirs (or an older one of this page's, when the browser could not keep its
+		// newest). Whichever the server still has them on is the one that counts.
+		const mine = this.wentBack?.pid === pid ? this.wentBack.id : null;
 		const kept = this.deps.store?.get(wentBackKey(pid)) ?? null;
-		const back = kept ?? (this.wentBack?.pid === pid ? this.wentBack.id : null);
-		this.wentBack = back === null ? null : { pid, id: back };
-		if (back !== null) {
-			// The server still has them on that result: the `done` that went with the Back never got
-			// there (the socket was away). It goes now, and the match the server sends next is not
-			// put up again (`matchMessage`). Otherwise the server let go of it.
-			if (going === back) this.deps.send({ t: 'done', id: going });
-			else this.keepWentBack(null);
+		if (going !== null && (going === mine || going === kept)) {
+			// The `done` that went with the Back never got there (the socket was away). It goes now,
+			// and the match the server sends next is not put up again (`matchMessage`).
+			this.keepWentBack({ pid, id: going });
+			this.deps.send({ t: 'done', id: going });
+		} else {
+			// The server let go of it: nothing to keep.
+			if (kept !== null) this.deps.store?.remove(wentBackKey(pid));
+			this.wentBack = null;
 		}
 		if ((match.stage === 'playing' || match.stage === 'over') && going !== match.id) {
 			// Another run of the server than the match's: it restarted without a word (a crash),
@@ -1095,12 +1099,10 @@ export class MatchController implements MatchHooks {
 		this.finish();
 	}
 
-	/** The match this player went back from, or none: kept by this page and by the browser. */
-	private keepWentBack(back: WentBack | null): void {
-		const store = this.deps.store;
-		if (back) store?.set(wentBackKey(back.pid), back.id);
-		else if (this.wentBack) store?.remove(wentBackKey(this.wentBack.pid));
+	/** The match this player went back from: kept by this page, and by the browser when it can. */
+	private keepWentBack(back: WentBack): void {
 		this.wentBack = back;
+		this.deps.store?.set(wentBackKey(back.pid), back.id);
 	}
 
 	/**
