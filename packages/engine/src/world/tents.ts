@@ -52,17 +52,24 @@ const MAX_SEARCH_STEPS = 1_000_000;
 const CHUNKS_KEPT = 512;
 /** Chunk coordinates within half of this of 0 pack into one exact key; further out is read uncached. */
 const CHUNK_SPAN = 2 ** 26;
-const KINDS: readonly TileKind[] = [
-	'grass',
-	'tallgrass',
-	'sand',
-	'water',
-	'deepwater',
-	'rock',
-	'tree',
-	'tent'
-];
-const KIND_CODES = new Map(KINDS.map((kind, code) => [kind, code]));
+/**
+ * Each tile kind's code in the cache: every kind has one, which the `Record`
+ * makes the compiler hold to, so a kind added to `TileKind` can never be
+ * read back as another.
+ */
+const KIND_CODES: Readonly<Record<TileKind, number>> = {
+	grass: 0,
+	tallgrass: 1,
+	sand: 2,
+	water: 3,
+	deepwater: 4,
+	rock: 5,
+	tree: 6,
+	tent: 7
+};
+const KINDS: readonly TileKind[] = (Object.keys(KIND_CODES) as TileKind[]).sort(
+	(a, b) => KIND_CODES[a] - KIND_CODES[b]
+);
 let chunksSeed: number | null = null;
 let latest = new Map<number, Uint8Array>();
 let before = new Map<number, Uint8Array>();
@@ -97,7 +104,7 @@ function chunkKinds(seed: number, cx: number, cy: number): Uint8Array {
 	const kinds = new Uint8Array(tiles.length);
 	for (let i = 0; i < tiles.length; i++) {
 		const kind = tiles[i]!.kind;
-		kinds[i] = KIND_CODES.get(kind === 'deepwater' ? 'water' : kind)!;
+		kinds[i] = KIND_CODES[kind === 'deepwater' ? 'water' : kind];
 	}
 	return kinds;
 }

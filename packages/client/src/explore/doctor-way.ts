@@ -17,10 +17,12 @@ import { pause } from '../state/pause.svelte';
 import { title } from '../state/title.svelte';
 
 /**
- * The furthest a tired kid who walks away from the tent the way last found is
- * still pointed back to it, in steps: the search after a step never looks
- * further than one step past the tent it found before (a step away from it
- * is never more than one more), so it keeps finding a tent, up to this.
+ * How far the way looks for a tent, in steps: twice as far as a doctor comes
+ * from (`TENT_SEARCH_STEPS`), so a kid no doctor comes to (one with the
+ * paraglider) still has an arrow where one would have come. Every search
+ * looks this far, so what the way finds depends only on where the player is,
+ * never on how they got there. A search stops at the nearest tent, so it
+ * costs as much as the way is long, not this.
  */
 export const DOCTOR_WAY_STEPS = 2 * TENT_SEARCH_STEPS;
 
@@ -100,12 +102,10 @@ interface Search {
  * It reads where the player is from `game`, however they got there (a step,
  * a go-to, another world, a reload), and looks again whenever that, the
  * world, the ground or the boat changes, never while it doesn't, nor up on
- * the glider, which keeps the tent found where the kid took off: the tent is
+ * the glider, which keeps what it found where the kid took off: the tent is
  * found by the pure function, from the seeded world and the overlay, so it
- * is the same however many chunks are on screen. After a step it looks no
- * further than one step past the tent it found before, so the search stays
- * as small as the way is long, and a kid who walks the wrong way keeps an
- * arrow back, up to `DOCTOR_WAY_STEPS`.
+ * is the same however many chunks are on screen, and always as far
+ * (`DOCTOR_WAY_STEPS`), so it is the same however the kid got there.
  */
 export class DoctorWay {
 	private last: Search | null = null;
@@ -159,20 +159,14 @@ export class DoctorWay {
 		const boat = gearOf({ items: game.items }).boat;
 		const from = { x: game.pos.x, y: game.pos.y };
 		const last = this.last;
-		const same = last !== null && last.seed === game.seed && last.edits === game.edits;
-		if (same && last.boat === boat && samePos(last.from, from)) return last.spot;
-		// Up on the glider the way holds the tent found where the kid took off: the tile under
-		// the glider can be the middle of a lake or a forest, where no walk begins. It looks
-		// again once they are down.
-		if (same && game.flying && last.spot !== null) return last.spot;
-		// A step from the last search (and nothing else changed) is never more than one
-		// step further from the tent it found: look that far, and no further.
-		const stepped =
-			same && last.boat === boat && last.spot !== null && tilesApart(last.from, from) === 1;
-		const reach = stepped
-			? Math.min(DOCTOR_WAY_STEPS, Math.max(TENT_SEARCH_STEPS, last.spot!.steps + 1))
-			: TENT_SEARCH_STEPS;
-		const spot = nearestTent(game.seed, from, reach, game.edits, { boat });
+		const same =
+			last !== null && last.seed === game.seed && last.edits === game.edits && last.boat === boat;
+		if (same && samePos(last.from, from)) return last.spot;
+		// Up on the glider the way holds what it found where the kid took off, a tent or none:
+		// the tile under the glider can be the middle of a lake or a forest, where no walk
+		// begins. It looks again once they are down.
+		if (same && game.flying) return last.spot;
+		const spot = nearestTent(game.seed, from, DOCTOR_WAY_STEPS, game.edits, { boat });
 		this.last = { seed: game.seed, edits: game.edits, boat, from, spot };
 		return spot;
 	}
@@ -223,9 +217,4 @@ function within(r: ScreenRect, p: { x: number; y: number }, margin: number): boo
 
 function samePos(a: GridPos | null, b: GridPos | null): boolean {
 	return a === b || (a !== null && b !== null && a.x === b.x && a.y === b.y);
-}
-
-/** Steps between two tiles as the crow walks: across plus down. */
-function tilesApart(a: GridPos, b: GridPos): number {
-	return Math.abs(a.x - b.x) + Math.abs(a.y - b.y);
 }

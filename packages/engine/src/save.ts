@@ -744,7 +744,7 @@ function cleanAnimal(animal: AnimalInstance): AnimalInstance {
  * kid's game writes holds one) gets it too, behind the others, so the grass
  * is never out of reach. A team that needs the doctor (`needsDoctor`) comes
  * back exactly as tired as it was: a reload is never a heal. The live game
- * left it with a doctor to get to (`careFor`, asked after a lost battle, a
+ * left it with a way to a doctor (`careFor`, asked after a lost battle, a
  * go-to and a trip), and asking again here, where the player now stands,
  * would heal a team a glide took somewhere the live game kept it tired.
  * The battle comes back only if

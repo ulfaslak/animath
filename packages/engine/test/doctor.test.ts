@@ -1277,12 +1277,31 @@ describe('needsDoctor and doctorComes', () => {
 		expect(needsDoctor(partyOf(['squirrel', 0], ['bear', 1]))).toBe(false);
 	});
 
-	it('a doctor comes only to a team that needs one, and only where no tent is in reach', () => {
+	it('a doctor comes only to a team that needs one, only where no tent is in reach, and never to a kid with the glider', () => {
 		const tired = partyOf(['fox', 0]);
 		const walled = walledIn();
 		expect(doctorComes(PROTOTYPE, walled, tired)).toBe(true);
 		expect(doctorComes(PROTOTYPE, spawnPoint(PROTOTYPE), tired)).toBe(false);
 		expect(doctorComes(PROTOTYPE, walled, partyOf(['fox', 1]))).toBe(false);
+		// The paraglider flies a kid out of anywhere a walk can't leave: a pocket like this one is
+		// reached by gliding in, and a doctor there would be a free heal for a trip out and back,
+		// or a battle lost there on purpose. The kid flies out, and walks to a tent.
+		const alone = deepFreeze(partyOf(['robin', 0]));
+		for (const realm of ['land', 'air'] as const) {
+			expect(doctorComes(PROTOTYPE, walled, tired, WorldEdits.none, { glider: true })).toBe(false);
+			expect(knockOut(PROTOTYPE, walled, alone, WorldEdits.none, { realm, glider: true })).toEqual({
+				party: alone,
+				doctorCame: false
+			});
+			expect(knockOut(PROTOTYPE, walled, alone, WorldEdits.none, { realm })).toEqual({
+				party: partyOf(['robin']),
+				doctorCame: true
+			});
+		}
+		expect(careFor(PROTOTYPE, walled, tired, WorldEdits.none, { glider: true })).toEqual({
+			party: tired,
+			doctorCame: false
+		});
 	});
 
 	it('careFor, the rule where a go-to or a trip puts the player: the doctor where one is needed and none is near, else the team as it is', () => {

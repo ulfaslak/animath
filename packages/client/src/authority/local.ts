@@ -24,6 +24,7 @@ import {
 	gearOf,
 	getAnimal,
 	glideOn,
+	hasItem,
 	hashInts,
 	hashString,
 	isEncounterTile,
@@ -64,6 +65,7 @@ import {
 	type GridPos,
 	type Intent,
 	type ItemId,
+	type KnockOutOptions,
 	type Landing,
 	type Line,
 	type LineKey,
@@ -602,17 +604,17 @@ export class LocalAuthority implements Authority {
 	/**
 	 * The player was put somewhere without walking or flying there (beside a
 	 * friend, in another world): a team that needs the doctor with no tent
-	 * within reach of it gets one, as after a battle lost there (the engine's
-	 * `careFor`), and the client says so from `doctor.came`. Every other team
-	 * stays as it is. A walk never leaves the ground a tent is reached over,
-	 * and a glide can always be flown back, so only these ask; a loaded save
-	 * never does (`restoreGame`), so a reload is never a heal.
+	 * within reach of it, and no glider to fly out on, gets one, as after a
+	 * battle lost there (the engine's `careFor`), and the client says so from
+	 * `doctor.came`. Every other team stays as it is. A walk never leaves the
+	 * ground a tent is reached over, and a glide can always be flown back, so
+	 * only these ask, and never of a kid with the glider: a spot no tent is
+	 * walked to from is reached by gliding in, and a doctor there would make
+	 * a trip out and back a free heal (the adversarial review of #116). A
+	 * loaded save never asks (`restoreGame`), so a reload is never a heal.
 	 */
 	private careForTeam(): void {
-		const care = careFor(this.seed, this.pos, this.party, this.edits, {
-			gear: gearOf({ items: this.items }),
-			realm: this.realm()
-		});
+		const care = careFor(this.seed, this.pos, this.party, this.edits, this.rescue(this.realm()));
 		if (!care.doctorCame) return;
 		this.party = care.party;
 		this.emit({ type: 'party-changed', party: this.partyCopy() });
@@ -666,6 +668,16 @@ export class LocalAuthority implements Authority {
 	private realm(): Realm {
 		if (this.flight) return 'air';
 		return tileRealm(editedTileAt(this.seed, this.edits, this.pos.x, this.pos.y).kind);
+	}
+
+	/**
+	 * What the knock-out rule needs to know of the kid, `realm` where the battle
+	 * was or where they stand: the boat for the way to a tent, and the glider,
+	 * which flies them out of anywhere, so no doctor comes to them.
+	 */
+	private rescue(realm: Realm): KnockOutOptions {
+		const owner = { items: this.items };
+		return { gear: gearOf(owner), realm, glider: hasItem(owner, 'glider') };
 	}
 
 	// --- the glider ----------------------------------------------------------
@@ -871,12 +883,10 @@ export class LocalAuthority implements Authority {
 			case 'lost': {
 				// Every animal that could fight here is tired, and stays so: the kid walks
 				// to a doctor, by the paths they cleared, and over the water too with the
-				// boat. With no tent within reach a doctor comes here instead. A battle in
-				// the air is lost where the glider came down, and looked at from there.
-				const out = knockOut(this.seed, this.pos, this.party, this.edits, {
-					gear: gearOf({ items: this.items }),
-					realm: state.realm
-				});
+				// boat. With no tent within reach, and no glider to fly out on, a doctor comes
+				// here instead. A battle in the air is lost where the glider came down, and
+				// looked at from there.
+				const out = knockOut(this.seed, this.pos, this.party, this.edits, this.rescue(state.realm));
 				this.party = out.party;
 				line = out.doctorCame
 					? { key: 'doctor.came', params: {} }

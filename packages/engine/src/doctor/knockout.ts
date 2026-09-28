@@ -18,14 +18,18 @@ import { needsDoctor, validateParty } from './party.js';
  *
  * One exception keeps a kid from being stranded with a team that can't
  * battle: when no tent is within `TENT_SEARCH_STEPS` of the player, the way
- * they get about (walled in, or simply no tent that close), a doctor comes to
- * them and looks after the whole party where they stand (`careFor`). The live
- * game asks it wherever a player is put without walking or flying there: a
- * lost battle, a go-to, a trip to another world. A walk never leaves the
- * ground a tent is reached over, and a glide can always be flown back, so
- * nothing else asks; a loaded save never does, since it holds what the live
- * game left, and asking again there would heal a team the live game kept
- * tired.
+ * they walk or sail (walled in, or simply no tent that close), and they have
+ * no paraglider to fly out on, a doctor comes to them and looks after the
+ * whole party where they stand (`careFor`). The live game asks it wherever a
+ * player is put without walking or flying there: a lost battle, a go-to, a
+ * trip to another world. A walk never leaves the ground a tent is reached
+ * over, and a glide can always be flown back the way it came, so nothing
+ * else asks. It never comes to a kid with the glider (`glider`): a spot no
+ * tent is walked to from is reached by gliding in, so a doctor there would
+ * make a trip out and back, or a battle lost there on purpose, a full heal
+ * for free (the adversarial review of #116), and the glider flies them out.
+ * A loaded save never asks, since it holds what the live game left, and
+ * asking again there would heal a team the live game kept tired.
  */
 export interface KnockOut {
 	/**
@@ -54,6 +58,12 @@ export interface KnockOutOptions {
 	 * boat over the water too.
 	 */
 	realm?: Realm;
+	/**
+	 * The kid owns the paraglider: wherever they are, they can fly out (a
+	 * glide flown back the way it came lands where it took off), so no doctor
+	 * comes to them; the way to a tent is theirs to find.
+	 */
+	glider?: boolean;
 }
 
 /**
@@ -108,11 +118,12 @@ export function careFor(
 
 /**
  * Whether a doctor comes to the player standing on `pos` in `realm` (land by
- * default): the team needs the doctor there (`needsDoctor`), and no tent is
- * within `TENT_SEARCH_STEPS` of them, the way they get about (on foot, or
- * with the boat over the water too, in the world as `edits` leave it). A
- * team that can still battle here, or a tent a kid can walk to, and nobody
- * comes: a lost battle heals nobody.
+ * default): the team needs the doctor there (`needsDoctor`), the kid has no
+ * paraglider (`glider`), and no tent is within `TENT_SEARCH_STEPS` of them,
+ * the way they get about (on foot, or with the boat over the water too, in
+ * the world as `edits` leave it). A team that can still battle here, a kid
+ * who can fly out, or a tent a kid can walk to, and nobody comes: a lost
+ * battle heals nobody.
  */
 export function doctorComes(
 	seed: number,
@@ -123,6 +134,6 @@ export function doctorComes(
 ): boolean {
 	const realm = options.realm ?? 'land';
 	if (!REALMS.includes(realm)) throw new Error(`doctorComes: unknown realm ${String(realm)}`);
-	if (!needsDoctor(party, realm)) return false;
+	if (!needsDoctor(party, realm) || options.glider) return false;
 	return nearestTent(seed, pos, TENT_SEARCH_STEPS, edits, options.gear ?? NO_GEAR) === null;
 }

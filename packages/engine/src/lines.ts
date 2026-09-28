@@ -38,8 +38,9 @@ export const LINES = {
 	/** A battle lost: the team is tired where it stood, and walks to a doctor. */
 	'battle.closing.lost': {},
 	/**
-	 * A team that needs the doctor with no tent within reach, after a lost
-	 * battle, a go-to or a trip: a doctor came and looked after everyone.
+	 * A team that needs the doctor with no tent within reach, and no glider to
+	 * fly out on, after a lost battle, a go-to or a trip: a doctor came and
+	 * looked after everyone.
 	 */
 	'doctor.came': {}
 } as const satisfies Record<string, Record<string, LineParamKind>>;

@@ -1,6 +1,5 @@
 import {
 	Rng,
-	TENT_SEARCH_STEPS,
 	gearOf,
 	getAnimal,
 	isWalkable,
@@ -16,6 +15,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { LocalAuthority, WORLD_SEED } from '../src/authority/local';
 import {
 	ARROW_REACH,
+	DOCTOR_WAY_STEPS,
 	DoctorWay,
 	TENT_CLEARANCE,
 	type DoctorWayRenderer,
@@ -66,7 +66,7 @@ function setup(start: SavedGame, renderer = camera(), hud: readonly ScreenRect[]
 /** The engine's own answer: the nearest tent the player could get to from where they stand. */
 function nearestFromHere(): GridPos | null {
 	const gear = gearOf({ items: game.items });
-	return nearestTent(game.seed, game.pos, TENT_SEARCH_STEPS, game.edits, gear)?.tent ?? null;
+	return nearestTent(game.seed, game.pos, DOCTOR_WAY_STEPS, game.edits, gear)?.tent ?? null;
 }
 
 afterEach(() => {
@@ -159,6 +159,28 @@ describe('the way to the doctor', () => {
 		s.authority.dispatch({ type: 'land' });
 		s.way.overlay();
 		expect(game.flying).toBe(false);
+		expect(doctorWay.tent).toEqual(nearestFromHere());
+		expect(doctorWay.tent).not.toBeNull();
+
+		// Taken off where no tent is walked to from (a grass tile walled in by trees): nothing
+		// up in the air either, however near a tent the ground under the glider is, until down.
+		const pocket = { x: -2, y: 32 };
+		const out = setup({
+			...newGame(1),
+			party: [squirrel(0)],
+			items: ['glider'],
+			pos: pocket,
+			facing: 'up'
+		});
+		expect(doctorWay.tent).toBeNull();
+		out.authority.dispatch({ type: 'take-off' });
+		for (let flown = 1; flown <= 6; flown++) {
+			out.authority.dispatch({ type: 'glide' });
+			out.way.overlay();
+			expect(doctorWay.tent, `flown ${flown}`).toBeNull();
+		}
+		out.authority.dispatch({ type: 'land' });
+		out.way.overlay();
 		expect(doctorWay.tent).toEqual(nearestFromHere());
 		expect(doctorWay.tent).not.toBeNull();
 	});

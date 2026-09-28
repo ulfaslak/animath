@@ -676,7 +676,38 @@ describe('LocalAuthority: a tired team walks to the doctor', () => {
 		expect(welcome(reloaded(s))).toMatchObject({ pos: POCKET, party: team });
 	});
 
-	it('a trip back to a spot no tent can be walked to from, the team tired: a doctor comes there', () => {
+	it('a kid with the glider flies out: trips out of a pocket and back heal nobody', () => {
+		// The adversarial review of #116, a second time: glided tired into the pocket, a trip to
+		// World 42 and back put the kid there again, a doctor came, and it healed the team for
+		// free, as often as the kid liked.
+		const team = [animal('squirrel', 0)];
+		const s = startedAt({ x: -2, y: 12 }, 'down', team, { items: ['glider'] });
+		s.authority.dispatch({ type: 'take-off' });
+		for (let i = 0; i < 40 && !s.events.some((e) => e.type === 'landed'); i++) {
+			s.authority.dispatch({ type: 'glide' });
+		}
+		expect(s.authority.snapshot().pos).toEqual(POCKET);
+		for (let round = 0; round < 2; round++) {
+			s.authority.dispatch({ type: 'travel', world: 42 });
+			const from = s.events.length;
+			s.authority.dispatch({ type: 'travel', world: 1 });
+			expect(s.events.slice(from).map((e) => e.type)).toEqual(['travelled']);
+			expect(s.authority.snapshot().pos).toEqual(POCKET);
+			expect(party(s)).toEqual(team);
+		}
+		// Parked there fit, it is the same: tired from anywhere, a trip back heals nobody.
+		const fit = startedAt(spawnPoint(worldSeed(42)), 'down', team, {
+			home: 42,
+			world: 42,
+			items: ['glider'],
+			worlds: [{ world: 1, pos: POCKET, facing: 'down', edits: [] }]
+		});
+		fit.authority.dispatch({ type: 'travel', world: 1 });
+		expect(party(fit)).toEqual(team);
+		expect(fit.events.some((e) => e.type === 'message')).toBe(false);
+	});
+
+	it('a trip back to a spot no tent can be walked to from, the team tired and no glider: a doctor comes there', () => {
 		const team = [animal('squirrel', 0)];
 		const s = startedAt(spawnPoint(worldSeed(42)), 'down', team, {
 			home: 42,
