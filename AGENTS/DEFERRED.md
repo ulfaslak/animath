@@ -30,13 +30,21 @@ Technical items we've intentionally postponed: tech debt, hardening shortcuts, k
 
 **Trigger**: the first model or texture the game loads. Import it through Vite (`import url from './fox.glb?url'`), which names it after its content and puts it in `/immutable/`, kept for good; or, for a file that must keep its name, give the server's static files validators (an `ETag` answered with 304).
 
-### Nothing alarms when prod is down
+### Nothing watches prod while the Mac sleeps
 
-**What**: prod has no uptime monitor. The backup service and the Mac's backup sync alert on failure (to Slack once `MONITORING_SLACK_WEBHOOK_URL` is set; there is no webhook yet, so today to a log line), and Hetzner mails when its nightly image fails; nothing tells anyone when the game stops answering, a certificate fails to renew, or the disk fills (the backup service logs a disk past 85% full, `check_disk` in `scripts/backup.sh`, which reaches Slack only with the webhook). Lawcel runs the same way.
+**What**: the health watch (`scripts/health-watch.sh`, [[DEVELOPMENT]] § Errors and health) runs on the developer's Mac and tells, in a macOS notification, when the game stops answering, a certificate is under 14 days, or the game's pages report a new kind of error; it sees nothing while the Mac is asleep, off or offline, and a notification reaches only whoever sits at that Mac. The backup service and the Mac's backup sync alert on failure (to Slack once `MONITORING_SLACK_WEBHOOK_URL` is set; there is no webhook yet, so today to a log line), and Hetzner mails when its nightly image fails; nothing tells anyone when the disk fills (the backup service logs a disk past 85% full, `check_disk` in `scripts/backup.sh`, which reaches Slack only with the webhook). Lawcel runs the same way.
 
-**Why deferred**: the players are one household's kids, who say so when the game is down, and there is no alert channel to send to yet.
+**Why deferred**: the players are one household's kids, who say so when the game is down, and where alerts should go is the human's call ([[HUMAN_TODO]]).
 
-**Trigger**: the first players outside the household, the first outage found late, or the Slack webhook arriving. Then an external check of `/api/health` (and the certificate's expiry) that alerts where the backups do.
+**Trigger**: the first players outside the household, the first outage found late, or the human naming an alert channel (a Slack webhook, an email). Then a check from outside the Mac (an uptime service, or a job on another machine) of `/api/health` and the certificates' dates, alerting where the backups do, beside or instead of the Mac's watch.
+
+### A production error report's stack names places in minified code
+
+**What**: the image ships the client without its source maps (the `Dockerfile` deletes them), so a stack in `admin errors` names places in the minified build (`/immutable/main-BRRoerHC.js:1:23456`), and minified names. Reading one takes the client built at the report's commit, whose maps say where each place is ([[DEVELOPMENT]] § Errors and health).
+
+**Why deferred**: a report's message usually says enough (Safari's names the expression it could not evaluate), and serving maps, or keeping them for a lookup, is a moving part for a report nobody has yet failed to read.
+
+**Trigger**: the first production report whose message and stack do not lead to the bug. Then keep each build's maps off the public site (an artifact of the deploy workflow, say) and give `admin errors` a way to map a stack's places through them.
 
 ### The puzzle's answer travels to the client inside `BattleState` and `DoctorState`
 
@@ -64,7 +72,7 @@ Technical items we've intentionally postponed: tech debt, hardening shortcuts, k
 
 ### The login and register rate limits live in one process's memory
 
-**What**: `RateLimiter` (`packages/server/src/rate-limit.ts`) counts tries per address, per name and per account in the API process's memory. A restart or a deploy forgets every count, and two processes serving the API at once would each allow the full limit. Wrong passwords from one address shut out only that address, but wrong passwords from five or more addresses together still shut a name out for everyone for a quarter of an hour at a time, the kid on their own device included, and the admin CLI (another process) cannot lift it; only a restart does.
+**What**: `RateLimiter` (`packages/server/src/rate-limit.ts`) counts tries per address, per name and per account in the API process's memory. A restart or a deploy forgets every count, and two processes serving the API at once would each allow the full limit; so do the error reports' limits (`REPORT_LIMITS`, `routes/client-errors.ts`), per address and for every address together. Wrong passwords from one address shut out only that address, but wrong passwords from five or more addresses together still shut a name out for everyone for a quarter of an hour at a time, the kid on their own device included, and the admin CLI (another process) cannot lift it; only a restart does.
 
 **Why deferred**: there is one API process, and the stakes are a kid's animals, not personal data ([[DECISIONS]] § Accounts). A shared store (a Postgres table, or Redis) is a moving part for a threat nobody has made yet.
 
@@ -72,7 +80,7 @@ Technical items we've intentionally postponed: tech debt, hardening shortcuts, k
 
 ### Many accounts can still fill the disk
 
-**What**: each account stores at most a 1 MiB save and 2 MiB of set-aside saves (`ACCOUNT_BACKUP_BYTES`), and registrations are limited to 30 an hour per address (an IPv4 address or an IPv6 /64). Someone with many addresses can still make many accounts and send each a megabyte of save, about 90 MiB an hour per address at most. Nothing counts the database's size or stops at a quota, and the backup service's disk check (85% full) reaches only its log until the Slack webhook arrives ("Nothing alarms when prod is down"), so a determined attacker could fill the server's disk, and then every save would fail, the kids' included.
+**What**: each account stores at most a 1 MiB save and 2 MiB of set-aside saves (`ACCOUNT_BACKUP_BYTES`), and registrations are limited to 30 an hour per address (an IPv4 address or an IPv6 /64). Someone with many addresses can still make many accounts and send each a megabyte of save, about 90 MiB an hour per address at most. Nothing counts the database's size or stops at a quota, and the backup service's disk check (85% full) reaches only its log until the Slack webhook arrives ("Nothing watches prod while the Mac sleeps"), so a determined attacker could fill the server's disk, and then every save would fail, the kids' included.
 
 **Why deferred**: the game is for a handful of kids, and a quota is a moving part for an attack nobody has made. A kid's real save is a few kilobytes, so a quota low enough to matter would never touch them.
 
