@@ -1055,6 +1055,8 @@ doctor:
     introEmpty: My shop opens soon!
     emptyTitle: Nothing for sale yet
     emptyDetail: New things are coming soon. Keep your tokens!
+    # The tab's right-hand side while Bye is lit, over what Bye does (doctor.byeDetail).
+    pick: Pick something to buy
     # An item's price.
     price:
       one: '{count} token'

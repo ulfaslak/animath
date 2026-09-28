@@ -539,7 +539,7 @@
 				{#if why}<div class="detail strong">{why}</div>{/if}
 				<div class="keys">{touch.on ? t('doctor.shop.touch') : t('doctor.shop.keys')}</div>
 			{:else}
-				<div class="soft">{t('doctor.pick')}</div>
+				<div class="soft">{t('doctor.shop.pick')}</div>
 				<div class="detail">{t('doctor.byeDetail')}</div>
 				<div class="keys">{touch.on ? t('doctor.shop.touch') : t('doctor.shop.keys')}</div>
 			{/if}
