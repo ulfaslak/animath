@@ -1,5 +1,5 @@
 import { Rng } from '@mathgame/engine';
-import { describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { padDirection } from '../src/input/dpad';
 import {
 	EDGE_PX,
@@ -30,7 +30,14 @@ import {
 	tappedRow,
 	tappedTab
 } from '../src/input/press';
-import { DOUBLE_TAP_MS, TAP_SLOP_PX, Taps, type Point, type Pressable } from '../src/input/taps';
+import {
+	DOUBLE_TAP_MS,
+	TAP_SLOP_PX,
+	Taps,
+	watchTaps,
+	type Point,
+	type Pressable
+} from '../src/input/taps';
 import { touchAfter } from '../src/input/touch.svelte';
 
 /**
@@ -296,6 +303,115 @@ describe('taps', () => {
 			[pip.top, rusty.top] = [100, 140];
 			expect(click(far, rex, { x: 400, y: at.y + TAP_SLOP_PX + 21 }, 200)).toBe(animalKey('rex'));
 		});
+	});
+});
+
+describe('taps on the page', () => {
+	/**
+	 * The page, stood in for with the DOM's own family tree, since a test runs
+	 * without one: an SVG element (the star on a level button, Run's icon, a
+	 * tool's picture) is an `Element` and a `Node`, and no `HTMLElement`.
+	 */
+	class FakeNode {
+		parentNode: FakeNode | null = null;
+		readonly isConnected = true;
+		contains(other: FakeNode | null): boolean {
+			for (let node = other; node; node = node.parentNode) if (node === this) return true;
+			return false;
+		}
+		/** Puts `child` in this node, and gives it back. */
+		holds<T extends FakeNode>(child: T): T {
+			child.parentNode = this;
+			return child;
+		}
+	}
+	class FakeElement extends FakeNode {
+		getBoundingClientRect() {
+			return { left: 0, top: 0, right: 600, bottom: 400 };
+		}
+		setPointerCapture(): void {}
+	}
+	class FakeHTMLElement extends FakeElement {
+		readonly dataset: Record<string, string> = {};
+		constructor(press?: string) {
+			super();
+			if (press !== undefined) this.dataset.press = press;
+		}
+	}
+	class FakeSVGElement extends FakeElement {}
+
+	beforeEach(() => {
+		vi.stubGlobal('Node', FakeNode);
+		vi.stubGlobal('Element', FakeElement);
+		vi.stubGlobal('HTMLElement', FakeHTMLElement);
+		vi.stubGlobal('SVGElement', FakeSVGElement);
+	});
+	afterEach(() => vi.unstubAllGlobals());
+
+	/**
+	 * A window that `watchTaps` watches, the keys it pressed, and a finger:
+	 * `tap(on, liftOn)` puts a new finger down on `on` and lifts it with the
+	 * lift given to `liftOn`, each event's path running from its target out
+	 * to the window, as a browser sends them.
+	 */
+	function page() {
+		const heard = new Map<string, ((e: unknown) => void)[]>();
+		const win = {
+			addEventListener(type: string, listener: (e: unknown) => void) {
+				heard.set(type, [...(heard.get(type) ?? []), listener]);
+			}
+		};
+		const pressed: string[] = [];
+		watchTaps(
+			win as unknown as Window,
+			() => 1,
+			(key) => pressed.push(key)
+		);
+		const send = (type: string, pointerId: number, target: FakeNode) => {
+			const path: unknown[] = [];
+			for (let node: FakeNode | null = target; node; node = node.parentNode) path.push(node);
+			path.push(win);
+			const e = { pointerId, button: 0, clientX: 50, clientY: 50, timeStamp: 0, target };
+			for (const listener of heard.get(type) ?? []) listener({ ...e, composedPath: () => path });
+		};
+		let fingers = 0;
+		return {
+			pressed,
+			tap(on: FakeNode, liftOn: FakeNode = on) {
+				fingers += 1;
+				send('pointerdown', fingers, on);
+				send('pointerup', fingers, liftOn);
+			}
+		};
+	}
+
+	/** An attack's level buttons, each its word and its star: an `<svg>` with a `<polygon>` in it. */
+	function levels() {
+		const row = new FakeHTMLElement();
+		return ([1, 2, 3] as const).map((level) => {
+			const button = row.holds(new FakeHTMLElement(levelKey(level)));
+			const word = button.holds(new FakeHTMLElement());
+			const star = button.holds(new FakeSVGElement()).holds(new FakeSVGElement());
+			return { button, word, star };
+		});
+	}
+
+	it('a finger on the picture in a button presses it, as WebKit gives the lift to the picture (#175)', () => {
+		const hard = levels()[2]!;
+		const { pressed, tap } = page();
+		tap(hard.star); // WebKit: the lift goes to the polygon the finger landed on
+		expect(pressed).toEqual([levelKey(3)]);
+		tap(hard.star, hard.button); // Chrome: to the button, which holds the pointer
+		tap(hard.word);
+		expect(pressed).toEqual([levelKey(3), levelKey(3), levelKey(3)]);
+	});
+
+	it('a finger lifted over the picture in another button presses nothing', () => {
+		const [, medium, hard] = levels();
+		const { pressed, tap } = page();
+		tap(hard!.star, medium!.star);
+		tap(hard!.word, medium!.star);
+		expect(pressed).toEqual([]);
 	});
 });
 
