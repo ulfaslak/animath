@@ -320,7 +320,7 @@ function merge(
 	if (skinned && meshes.length !== 1) {
 		throw new Error(`${key}: a skinned figure's parts all cast a shadow, or none do`);
 	}
-	for (const p of pieces) p.geometry.dispose();
+	// The parts themselves were never drawn, so they hold nothing on the GPU: nothing to free.
 	// A bone's place as built, in the figure's frame: where its parts were merged, undone.
 	const boneInverses =
 		skinned && joints.length > 0
