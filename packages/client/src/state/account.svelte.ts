@@ -75,6 +75,12 @@ class AccountView {
 	 * on the title.
 	 */
 	ready = $state(false);
+	/**
+	 * The server has answered at least once, yes or no (no answer counts as a
+	 * no). Until then the title keeps the place of an offer it would show on a
+	 * yes, so the offer fades in there instead of pushing the rows about.
+	 */
+	readyHeard = $state(false);
 	/** The card that is up, or null. It takes every key while it is up. */
 	card = $state<AccountCard | null>(null);
 	from = $state<AccountFrom>('title');

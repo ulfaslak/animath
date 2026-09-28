@@ -1,6 +1,7 @@
 import { newGame, saveDocument, type SavedGame } from '@mathgame/engine';
-import { beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { PlayClock, PLAYTIME_KEY } from '../src/account/playtime';
+import { noteNextStart, takeAccountNote } from '../src/account/restart';
 import {
 	LOGOUT_HOLD_MS,
 	currentAccount,
@@ -318,5 +319,49 @@ describe('the play clock', () => {
 		clock.tick('game-a', Number.NaN);
 		clock.tick('game-a', 60);
 		expect(clock.due('game-a')).toBe(true);
+	});
+});
+
+describe('the note for the next start (account/restart.ts)', () => {
+	let session: Map<string, string>;
+	beforeEach(() => {
+		session = new Map();
+		vi.stubGlobal('sessionStorage', {
+			getItem: (key: string) => session.get(key) ?? null,
+			setItem: (key: string, value: string) => void session.set(key, value),
+			removeItem: (key: string) => void session.delete(key)
+		});
+	});
+	afterEach(() => {
+		vi.unstubAllGlobals();
+	});
+
+	it('a logout names the account left, for the title after it; read once', () => {
+		noteNextStart('loggedOut', 'Nini');
+		expect(takeAccountNote()).toEqual({ note: 'loggedOut', name: 'Nini' });
+		expect(takeAccountNote()).toBeNull();
+		expect(session.size).toBe(0);
+	});
+
+	it('a note without a name leaves none behind from an earlier one', () => {
+		noteNextStart('loggedOut', 'Nini');
+		noteNextStart('movedAhead');
+		expect(takeAccountNote()).toEqual({ note: 'movedAhead', name: null });
+	});
+
+	it('a note this build does not know is none, and without sessionStorage nothing is said', () => {
+		session.set('animath.accountNote', 'somethingNew');
+		session.set('animath.accountNote.name', 'Nini');
+		expect(takeAccountNote()).toBeNull();
+		expect(session.size).toBe(0);
+		// An older build left the note alone, with no name beside it.
+		session.set('animath.accountNote', 'loggedOut');
+		expect(takeAccountNote()).toEqual({ note: 'loggedOut', name: null });
+		const broken = () => {
+			throw new Error('blocked');
+		};
+		vi.stubGlobal('sessionStorage', { getItem: broken, setItem: broken, removeItem: broken });
+		noteNextStart('loggedOut', 'Nini');
+		expect(takeAccountNote()).toBeNull();
 	});
 });

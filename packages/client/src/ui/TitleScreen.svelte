@@ -6,6 +6,7 @@
 		normalizeNickname
 	} from '@mathgame/engine';
 	import { untrack } from 'svelte';
+	import { fade } from 'svelte/transition';
 	import { sfx } from '../audio/sfx.svelte';
 	import { LANGUAGES, language, languageName, t } from '../copy';
 	import { languageKey, rowKey, unfocusable } from '../input/press';
@@ -52,11 +53,20 @@
 	 * Opened from the Home Screen with nothing saved here: the game played in
 	 * the browser is in the browser's storage, which a web app does not share.
 	 * Its hint says how to bring it over (#90), by an account: only while the
-	 * server can keep one.
+	 * server can keep one. Until the server's first word its place is kept, as
+	 * the login row's is, and it fades in there.
 	 */
-	const standaloneHint = $derived(
-		runsAsWebApp() && saved === null && account.name === null && account.ready
-	);
+	const hintFor = $derived(runsAsWebApp() && saved === null && account.name === null);
+	const standaloneHint = $derived(hintFor && account.ready);
+	const hintPending = $derived(hintFor && !account.ready && !account.readyHeard);
+	/** The login row's words: after a logout, logging in again to the account just left. */
+	const loginLabel = $derived.by(() => {
+		const left = title.loggedOut;
+		if (!left) return t('title.haveAccount');
+		return left.name === null
+			? t('title.loggedOut.logInAgain')
+			: t('title.loggedOut.logIn', { name: left.name });
+	});
 	const species = $derived(STARTERS[title.starter] ?? STARTERS[0]!);
 	/**
 	 * How much the player's name box takes: well past the longest name, so a
@@ -153,59 +163,83 @@
 		<!-- Under the confirm the menu is out of reach, a screen reader's click too: its
 		     rows' keys are the confirm's (New game's `row:1` is Yes). -->
 		<div class="card menu-card" inert={title.screen !== 'menu'}>
-			{#each rows as row, i (row)}
-				<button
-					type="button"
-					class="row"
-					class:lit={title.screen === 'menu' && title.cursor === i}
-					class:continue={row === 'continue'}
-					data-press={rowKey(i)}
-					{@attach unfocusable}
-				>
-					<span class="caret">▸</span>
-					{#if row === 'continue'}
-						<span class="label">{t('title.continue')}</span>
-						{#if saved && lead}
-							<span class="team">
-								<span class="who">{nameOf(lead)}</span>
-								<span class="count">{t('title.animals', { count: saved.party.length })}</span>
+			{#if title.loggedOut}
+				<!-- Just logged out: the account's game is safe, and logging in again is the row under it. -->
+				<div class="safe">
+					<div class="safe-title">{t('title.loggedOut.title')}</div>
+					<div>{t('title.loggedOut.text')}</div>
+				</div>
+			{/if}
+			{#each title.slots as row (row)}
+				{#if row === 'login' && title.loginPending}
+					<!-- The login row's place, kept until the server says whether it can keep an
+					     account: the row itself, unseen, so that nothing moves when it comes. -->
+					<div class="row slot" aria-hidden="true">
+						<span class="caret">▸</span>
+						<span class="label">{loginLabel}</span>
+					</div>
+				{:else}
+					{@const i = rows.indexOf(row)}
+					<!-- The login row fades into its place when the server's yes comes after the title. -->
+					<button
+						type="button"
+						class="row"
+						class:lit={title.screen === 'menu' && title.cursor === i}
+						class:continue={row === 'continue'}
+						data-press={rowKey(i)}
+						in:fade={{ duration: row === 'login' ? 300 : 0 }}
+						{@attach unfocusable}
+					>
+						<span class="caret">▸</span>
+						{#if row === 'continue'}
+							<span class="label">{t('title.continue')}</span>
+							{#if saved && lead}
+								<span class="team">
+									<span class="who">{nameOf(lead)}</span>
+									<span class="count">{t('title.animals', { count: saved.party.length })}</span>
+								</span>
+							{/if}
+						{:else if row === 'new'}
+							<span class="label">{t('title.newGame')}</span>
+						{:else if row === 'login'}
+							<span class="label">{loginLabel}</span>
+						{:else if row === 'sound'}
+							<span class="label">{t('title.sound')}</span>
+							<span class="setting">
+								<Switch on={sfx.on} />
+								<span class="setting-state"
+									>{sfx.on ? t('pause.soundOn') : t('pause.soundOff')}</span
+								>
+							</span>
+						{:else}
+							<span class="label">{t('title.language')}</span>
+							<!-- Each language in its own words, so a kid finds theirs in any language;
+							     a tap on one is that language, anywhere else on the row the row. -->
+							<span class="choices">
+								{#each LANGUAGES as code (code)}
+									<span
+										class="choice"
+										class:on={language.current === code}
+										lang={code}
+										data-press={languageKey(code)}
+									>
+										{languageName(code)}
+									</span>
+								{/each}
 							</span>
 						{/if}
-					{:else if row === 'new'}
-						<span class="label">{t('title.newGame')}</span>
-					{:else if row === 'login'}
-						<span class="label">{t('title.haveAccount')}</span>
-					{:else if row === 'sound'}
-						<span class="label">{t('title.sound')}</span>
-						<span class="setting">
-							<Switch on={sfx.on} />
-							<span class="setting-state">{sfx.on ? t('pause.soundOn') : t('pause.soundOff')}</span>
-						</span>
-					{:else}
-						<span class="label">{t('title.language')}</span>
-						<!-- Each language in its own words, so a kid finds theirs in any language;
-						     a tap on one is that language, anywhere else on the row the row. -->
-						<span class="choices">
-							{#each LANGUAGES as code (code)}
-								<span
-									class="choice"
-									class:on={language.current === code}
-									lang={code}
-									data-press={languageKey(code)}
-								>
-									{languageName(code)}
-								</span>
-							{/each}
-						</span>
-					{/if}
-				</button>
+					</button>
+				{/if}
 			{/each}
 			{#if account.name !== null && account.session !== 'ended'}
 				<div class="note playing-as">{t('account.playingAs', { name: account.name })}</div>
 			{/if}
-			{#if standaloneHint}
+			{#if hintPending}
+				<!-- Its place, kept like the login row's until the server's first word. -->
+				<div class="note hint slot" aria-hidden="true">{t('title.standaloneHint')}</div>
+			{:else if standaloneHint}
 				<!-- A web app on the Home Screen keeps its own storage, apart from Safari's (#90). -->
-				<div class="note hint">{t('title.standaloneHint')}</div>
+				<div class="note hint" in:fade={{ duration: 300 }}>{t('title.standaloneHint')}</div>
 			{/if}
 			{#if title.notice}
 				<div class="note">{t(title.notice)}</div>
@@ -574,6 +608,24 @@
 		padding: 6px 10px;
 		border-radius: 10px;
 		background: rgba(61, 123, 232, 0.12);
+	}
+	/* An offer of an account whose place is kept until the server's first word: there, unseen. */
+	.slot {
+		visibility: hidden;
+	}
+	/* After a logout, over the rows: the account's game is safe. A soft green box, good news. */
+	.safe {
+		margin: 0 0 8px;
+		padding: 8px 12px;
+		border-radius: 12px;
+		background: color-mix(in srgb, var(--good) 18%, transparent);
+		font-weight: 600;
+		font-size: 16px;
+		line-height: 1.3;
+	}
+	.safe-title {
+		font-weight: 800;
+		font-size: 20px;
 	}
 	.preview {
 		font-weight: 800;

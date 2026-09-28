@@ -999,8 +999,6 @@ save:
   storageFull: Denne browser har ikke mere plads til at gemme dit spil.
   # After a window that another window of the game had played past loads the newest game.
   caughtUp: Du spillede i et andet vindue. Her er dit nyeste spil!
-  # On the title after logging out.
-  loggedOut: Du er logget ud. Dit spil venter trygt på din konto.
   # The server says the account is logged out: on the title, or on the message line mid-game.
   sessionEnded: Du er logget ud, så dit spil gemmes kun på denne enhed. Log ind for at passe på det.
   # On a window that another window of the game has played past, until it catches up.
@@ -1097,6 +1095,15 @@ title:
   newGame: Nyt spil
   # The title's row for a player with an account made before: opens the login card.
   haveAccount: Jeg har en konto → Log ind
+  # The title just after logging out: over the rows, the account's game is safe; the first row
+  # logs in to it again.
+  loggedOut:
+    title: Dine dyr er i sikkerhed!
+    text: Du er logget ud. Dit spil venter på din konto.
+    # The row, with the account's name in the login card. {name}: the account's name.
+    logIn: 'Log ind som {name}'
+    # The row when the page doesn't know the account's name.
+    logInAgain: Log ind igen
   # On the title of the game opened from the Home Screen with nothing saved there (#90).
   standaloneHint: Har du spillet i Safari før? Lav en konto der (Menu → Lav en konto) og log så ind her.
   language: Sprog

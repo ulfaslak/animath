@@ -1192,8 +1192,6 @@ save:
   storageFull: This browser has no room left to keep your game.
   # After a window that another window of the game had played past loads the newest game.
   caughtUp: You were playing in another window. Here's your newest game!
-  # On the title after logging out.
-  loggedOut: You're logged out. Your game waits safely in your account.
   # The server says the account is logged out (a new password, a year away): on the title,
   # or on the message line mid-game.
   sessionEnded: You're logged out, so your game only saves on this device. Log in to keep it safe.
@@ -1313,6 +1311,15 @@ title:
   newGame: New game
   # The title's row for a player with an account made before: opens the login card.
   haveAccount: I have an account → Log in
+  # The title just after logging out: over the rows, the account's game is safe; the first row
+  # logs in to it again.
+  loggedOut:
+    title: Your animals are safe!
+    text: You're logged out. Your game waits in your account.
+    # The row, with the account's name in the login card. {name}: the account's name.
+    logIn: 'Log in as {name}'
+    # The row when the page doesn't know the account's name.
+    logInAgain: Log in again
   # On the title of the game opened from the Home Screen with nothing saved there: a web app
   # keeps its own storage, apart from the browser's (#90).
   standaloneHint: Played in Safari before? Make an account there (Menu → Make an account), then log in here.

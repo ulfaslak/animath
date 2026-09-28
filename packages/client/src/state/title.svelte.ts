@@ -42,6 +42,17 @@ export type NameFor = 'new' | 'continue';
 export const TITLE_ROWS = ['continue', 'new', 'login', 'language', 'sound'] as const;
 export type TitleRow = (typeof TITLE_ROWS)[number];
 
+/**
+ * The rows just after a logout: logging in to the account again comes first,
+ * under the words that say its game is safe there.
+ */
+const LOGGED_OUT_ROWS: readonly TitleRow[] = ['login', 'continue', 'new', 'language', 'sound'];
+
+/** Just logged out: `name` is the account left, when the page knows it. */
+export interface LoggedOut {
+	name: string | null;
+}
+
 /** The confirm's choices, in order: the safe one first, where the cursor starts. */
 export const CONFIRM_CHOICES = ['back', 'yes'] as const;
 export type ConfirmChoice = (typeof CONFIRM_CHOICES)[number];
@@ -54,6 +65,16 @@ class TitleView {
 	cursor = $state(0);
 	/** The game Continue picks up: its lead and its size are shown on the row. Null: no Continue. */
 	saved = $state.raw<SavedGame | null>(null);
+	/**
+	 * The title just after a logout: it says the account's game is safe, and
+	 * its first row logs in to that account again. Null on every other title.
+	 */
+	loggedOut = $state.raw<LoggedOut | null>(null);
+	/**
+	 * The row the cursor goes to when it comes, until the kid moves the cursor:
+	 * after a logout, the login row, which waits for the server's word.
+	 */
+	awaited = $state<TitleRow | null>(null);
 	/** What the title says about the save: this page cannot keep the game (no storage, a write that failed). */
 	notice = $state<SaveNotice | null>(null);
 	/**
@@ -89,17 +110,37 @@ class TitleView {
 
 	/** The rows the menu shows now. */
 	get rows(): TitleRow[] {
-		return TITLE_ROWS.filter((row) => {
+		return this.order.filter((row) => {
 			if (row === 'continue') return this.saved !== null;
-			if (row === 'login') {
-				return (
-					!flags.throwaway &&
-					account.ready &&
-					(account.name === null || account.session === 'ended')
-				);
-			}
+			if (row === 'login') return this.offersLogin && account.ready;
 			return true;
 		});
+	}
+
+	/**
+	 * The rows as they stand once the server has said whether it can keep an
+	 * account: `rows`, and, until its first word, the login row it would add
+	 * on a yes, whose place the menu keeps (`loginPending`) so that nothing
+	 * moves when it comes.
+	 */
+	get slots(): TitleRow[] {
+		const rows = this.rows;
+		const pending = this.loginPending;
+		return this.order.filter((row) => rows.includes(row) || (row === 'login' && pending));
+	}
+
+	/** The login row would show but for the server's word, which has not come yet. */
+	get loginPending(): boolean {
+		return this.offersLogin && !account.ready && !account.readyHeard;
+	}
+
+	/** Who the login row is for: a guest, or a player whose session has ended, on a page that keeps its game. */
+	private get offersLogin(): boolean {
+		return !flags.throwaway && (account.name === null || account.session === 'ended');
+	}
+
+	private get order(): readonly TitleRow[] {
+		return this.loggedOut ? LOGGED_OUT_ROWS : TITLE_ROWS;
 	}
 
 	/**

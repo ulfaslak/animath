@@ -95,6 +95,8 @@ function server(answers: Record<string, Answer | (() => Answer)>) {
 function setup(playerName: string | null = 'Ida', currentSave?: () => SaveWrite | null) {
 	const store = new MemoryStore();
 	const restarts: AccountNote[] = [];
+	/** The account each restart names (after a logout, the one left), in the same order. */
+	const restartNames: (string | null)[] = [];
 	const events: string[] = [];
 	/** The welcome link forgotten by the tab, and the restarts, in the order they came. */
 	const welcomeSteps: string[] = [];
@@ -108,9 +110,10 @@ function setup(playerName: string | null = 'Ida', currentSave?: () => SaveWrite 
 		},
 		playerName: () => playerName,
 		answered: () => events.push('answered'),
-		restart: (note) => {
+		restart: (note, name) => {
 			welcomeSteps.push(`restart:${note}`);
 			restarts.push(note);
+			restartNames.push(name ?? null);
 		},
 		forgetWelcome: () => welcomeSteps.push('forgetWelcome')
 	});
@@ -123,7 +126,7 @@ function setup(playerName: string | null = 'Ida', currentSave?: () => SaveWrite 
 	const quiet = () => {
 		for (let t = 0; t < PICK_QUIET_SECONDS + 0.05; t += 0.1) controller.update(0.1);
 	};
-	return { store, controller, restarts, events, welcomeSteps, press, quiet };
+	return { store, controller, restarts, restartNames, events, welcomeSteps, press, quiet };
 }
 
 /** Let the requests a submit started run to their end. */
@@ -650,7 +653,7 @@ describe('the welcome link', () => {
 describe('logging out', () => {
 	it('saves, sends the newest save, ends the session, and starts again as a guest', async () => {
 		const requests = server({ '/api/account/logout': { status: 200, json: { ok: true } } });
-		const { store, controller, restarts, events } = setup();
+		const { store, controller, restarts, restartNames, events } = setup();
 		store.set('animath.account', JSON.stringify({ name: 'Søren' }));
 		account.name = 'Søren';
 		await controller.logOut();
@@ -662,6 +665,8 @@ describe('logging out', () => {
 		expect(currentAccount(store)).toBeNull();
 		expect(logoutPending(store)).toBeNull();
 		expect(restarts).toEqual(['loggedOut']);
+		// The title after it offers to log in to that account again, by its name.
+		expect(restartNames).toEqual(['Søren']);
 	});
 
 	it('with the server out of reach, logs out here and sends the logout at the next start', async () => {
