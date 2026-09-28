@@ -12,6 +12,7 @@ import {
 	worldSeed,
 	type AnimalInstance,
 	type ClientMessage,
+	type FightEvent,
 	type InviteEnd,
 	type MatchSide,
 	type MatchState,
@@ -57,7 +58,12 @@ import type { Peer, PresenceHub, Present } from './hub.js';
  * - **After the match.** Both pages stay on the result until the kid goes
  *   back to exploring (their `where` says so). "Rematch?" from both starts a
  *   new match between the same two, with a new seed; one who goes back puts
- *   it off, and so does `lingerMs` passing. The one who left skips the
+ *   it off, and so does `lingerMs` passing. The kid's Back wins over a
+ *   Rematch? it crosses on the way (#147): a Rematch? said before a page
+ *   dropped out counts once the page, back, has the result up again, and a
+ *   rematch that started as its kid went back (their `done` for the match
+ *   before comes after it, from a page that never had it up) is called off,
+ *   as if it never started. The one who left skips the
  *   result, so they are let go of at once. A match that ended keeps nobody
  *   busy: only a match going on does, or one a page has not put up yet
  *   (it has not said `match` since it was sent it: a hidden tab, a page
@@ -151,6 +157,10 @@ interface Invite {
 interface Match {
 	readonly id: string;
 	readonly seed: number;
+	/** A rematch: the match on whose result both said Rematch?. Null for a match from an invite. */
+	readonly rematchOf: string | null;
+	/** Called off before anyone played it (`wentBack`): kept only till the other page has been told. */
+	calledOff: boolean;
 	state: MatchState;
 	readonly players: Record<MatchSide, Player>;
 	readonly pids: Record<MatchSide, string>;
@@ -270,6 +280,9 @@ export class Matches {
 		for (const side of MATCH_SIDES) this.send(match, side, []);
 		// The players near the page that came back see the match again, if it goes on.
 		this.show(match, []);
+		// A rematch called off before this page heard (it was away, or its socket had died without a
+		// word): now it knows, and nothing is left to wait for.
+		if (match.calledOff) this.detach(match, sideOf(match, player), false);
 	}
 
 	/**
@@ -283,7 +296,10 @@ export class Matches {
 	moved(peer: Peer): void {
 		const player = this.playerOn(peer);
 		if (player?.unshown && this.hub.present(peer)?.spot?.busy === 'match') {
-			this.shown(player, player.unshown);
+			const match = player.unshown;
+			this.shown(player, match);
+			// A page back on the result both said Rematch? on: now it counts.
+			this.rematchIfBoth(match);
 		}
 		if (player?.invite) this.recheck(player.invite, player);
 	}
@@ -342,10 +358,18 @@ export class Matches {
 			case 'rematch':
 				return this.rematch(player, message.id, message.team);
 			case 'done': {
-				// Back to exploring from the result: the rematch is off, for this player at least.
 				const match = player.match;
-				if (match?.id === message.id && match.state.phase.kind === 'ended') {
-					this.detach(match, sideOf(match, player));
+				if (!match) return;
+				const side = sideOf(match, player);
+				// Back to exploring from the result: the rematch is off, for this player at least.
+				if (match.id === message.id) {
+					if (match.state.phase.kind === 'ended') this.detach(match, side);
+					return;
+				}
+				// Back to exploring from the result this match is the rematch of: the Back crossed the
+				// other's Rematch? on the way, and this page never had the rematch up (#147).
+				if (match.rematchOf === message.id && player.unshown === match) {
+					this.wentBack(match, side);
 				}
 				return;
 			}
@@ -502,11 +526,19 @@ export class Matches {
 
 	// --- matches --------------------------------------------------------------------
 
-	private start(a: Player, teamA: AnimalInstance[], b: Player, teamB: AnimalInstance[]): void {
+	private start(
+		a: Player,
+		teamA: AnimalInstance[],
+		b: Player,
+		teamB: AnimalInstance[],
+		rematchOf: string | null = null
+	): void {
 		const seed = this.newSeed();
 		const match: Match = {
 			id: this.newId(),
 			seed,
+			rematchOf,
+			calledOff: false,
 			state: startMatch({ a: teamA, b: teamB }, seed),
 			players: { a, b },
 			pids: { a: a.pid, b: b.pid },
@@ -616,16 +648,68 @@ export class Matches {
 			return;
 		}
 		match.wishes[side] = team.team;
-		const theirs = match.wishes[other];
-		if (!theirs) {
-			for (const s of MATCH_SIDES) {
-				match.players[s].peer?.send({ t: 'rematch-wish', id, side, yes: true });
-			}
+		if (this.rematchIfBoth(match)) return;
+		for (const s of MATCH_SIDES) {
+			match.players[s].peer?.send({ t: 'rematch-wish', id, side, yes: true });
+		}
+	}
+
+	/**
+	 * Both said Rematch? on `match`'s result, and both pages have it up: the
+	 * next match starts, a rematch of this one. A page back from a drop or a
+	 * reload has not put the result up again until it says so (`unshown`), and
+	 * until then its Rematch? from before waits: the kid may have gone back to
+	 * exploring while it was away, which the page is about to say (#147). True
+	 * when the rematch started.
+	 */
+	private rematchIfBoth(match: Match): boolean {
+		if (match.state.phase.kind !== 'ended') return false;
+		for (const side of MATCH_SIDES) {
+			const player = match.players[side];
+			const here = player.match === match && player.peer !== null && player.unshown !== match;
+			if (!here || !match.wishes[side]) return false;
+		}
+		const teams = { a: match.wishes.a!, b: match.wishes.b! };
+		this.drop(match);
+		this.start(match.players.a, teams.a, match.players.b, teams.b, match.id);
+		return true;
+	}
+
+	/**
+	 * `side`'s kid went back to exploring from the result `match` is the
+	 * rematch of: their `done` crossed the other's Rematch? on the way, and
+	 * their page never had this match up. The kid's Back wins (#147). A
+	 * rematch nobody has played yet is called off, as if it never started:
+	 * both pages hear so (`calledOff`: the other puts the result back, its
+	 * Rematch? off, and a page from before it reads the kid who went back
+	 * leaving), and the players near see it end with nobody winning. The kid
+	 * who went back is free at once. The other page may not have heard (it is
+	 * away, or on a socket that died without a word yet): the match waits for
+	 * it to say it let go (`done`), or to come back and be told (`resume`),
+	 * or for its time to run out, `lingerMs` at most. One played already (the
+	 * Back came again after the page lost it on the way) the kid leaves, as
+	 * the Leave move would; one over, they are done with.
+	 */
+	private wentBack(match: Match, side: MatchSide): void {
+		if (match.state.phase.kind === 'ended') return this.detach(match, side);
+		const step = applyMatchIntent(match.state, side, { type: 'leave' }, match.seed);
+		const events = step.events as WireMatchEvent[];
+		if (match.state.step > 0) {
+			this.advance(match, step.state, events);
+			this.detach(match, side, false);
 			return;
 		}
-		const teams = { [side]: team.team, [other]: theirs } as Record<MatchSide, AnimalInstance[]>;
-		this.drop(match);
-		this.start(match.players.a, teams.a, match.players.b, teams.b);
+		match.state = step.state;
+		match.calledOff = true;
+		this.stopClock(match);
+		this.log(`matches: ${match.id} called off`);
+		for (const s of MATCH_SIDES) this.send(match, s, events);
+		this.show(match, [], CALLED_OFF);
+		this.detach(match, side, false);
+		match.linger = setTimeout(() => {
+			for (const s of MATCH_SIDES) this.detach(match, s, false);
+		}, this.lingerMs);
+		match.linger.unref?.();
 	}
 
 	/**
@@ -748,7 +832,9 @@ export class Matches {
 			view: matchView(match.state, side),
 			events,
 			away: away ? { side: other, ms: Math.max(0, away.until - Date.now()) } : null,
-			timeout: match.timeout
+			timeout: match.timeout,
+			...(match.rematchOf === null ? {} : { rematchOf: match.rematchOf }),
+			...(match.calledOff ? { calledOff: true as const } : {})
 		});
 	}
 
@@ -756,10 +842,14 @@ export class Matches {
 	 * The match as the players near its two players see it (`hub.match`), from
 	 * this server's own state, never from what a page says: how it stands and
 	 * this step's events, with no answer and no word in them (`matchFight`).
-	 * A match that ended is shown ending once, and not again.
+	 * A match that ended is shown ending once, and not again. `seen`: what
+	 * they see happen, when it is not the step's events (a call-off).
 	 */
-	private show(match: Match, events: WireMatchEvent[]): void {
-		const seen = matchFightEvents(events);
+	private show(
+		match: Match,
+		events: WireMatchEvent[],
+		seen: FightEvent[] = matchFightEvents(events)
+	): void {
 		const over = match.state.phase.kind === 'ended' && !seen.some((e) => e.type === 'ended');
 		// Only the players still in this match: one who went back to exploring has moved on.
 		const peerOf = (side: MatchSide) => {
@@ -805,6 +895,9 @@ export class Matches {
 		return true;
 	}
 }
+
+/** A rematch called off, as the players near its two see it end: nobody won, and nobody stays. */
+const CALLED_OFF: FightEvent[] = [{ type: 'ended', winner: null, how: 'left' }];
 
 /** What each side of an invite is told as it ends: the challenger (`from`), the one asked (`to`). */
 interface Said {

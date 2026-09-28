@@ -1194,6 +1194,7 @@ match:
     lost: 'Kan ikke nå {name} lige nu. Prøv igen om lidt!'
     updating: Spillet bliver opdateret. Prøv igen om lidt!
     youLeft: Du forlod kampen.
+    went: '{name} gik på opdagelse igen.'
   vs: 'En venskabskamp med {name}!'
   youStart: Du starter!
   theyStart: '{name} starter!'

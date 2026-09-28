@@ -107,10 +107,11 @@ export type PresenceLine = 'nextTo' | 'lost' | 'cantFind' | 'noRoom';
 /**
  * After a friendly match's invite ended with no match (`InviteEnd`, said
  * about the other player, `name`), or the match itself: the server could not
- * be reached (`lost`), it is updating (`updating`), or the player left the
- * match (`youLeft`).
+ * be reached (`lost`), it is updating (`updating`), the player left the
+ * match (`youLeft`), or a rematch was called off because the other player
+ * had gone back to exploring (`went`).
  */
-export type MatchLine = Exclude<InviteEnd, 'off'> | 'lost' | 'updating' | 'youLeft';
+export type MatchLine = Exclude<InviteEnd, 'off'> | 'lost' | 'updating' | 'youLeft' | 'went';
 
 export function saidWords(said: Said): string {
 	if ('presence' in said) return t(`presence.${said.presence}`, { name: said.name });
