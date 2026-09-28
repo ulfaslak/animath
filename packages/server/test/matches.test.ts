@@ -941,14 +941,22 @@ describe('free again once a match is over (#139)', () => {
 		expect(bo.peer.last('rematch-wish')).toMatchObject({ side: 'a', yes: false });
 	});
 
-	it('frees a kid after a rematch too, whose page said match all along and sent no new where', () => {
+	it('frees a kid after a rematch they played, whose page said match all along and sent no new where', () => {
 		const { ada, bo, cy } = three();
 		const end = playedOut(ada, bo, { ada: SPAWN, bo: beside(1) });
 		ada.send({ t: 'rematch', id: end.id, team: TEAM });
 		bo.send({ t: 'rematch', id: end.id, team: TEAM });
 		const again = bo.peer.last('match')!;
 		expect(again.id).not.toBe(end.id);
-		// The rematch runs out on the turn clock; both pages were on its screen all along.
+		// Each plays a turn (a wrong answer passes it on); then the turn clock ends it.
+		let latest = again;
+		for (let i = 0; i < 2; i++) {
+			const [me] = turnOf(latest, ada, bo);
+			vi.advanceTimersByTime(1_000);
+			me.send({ t: 'play', id: again.id, intent: { type: 'attack', attackIndex: 1, level: 1 } });
+			me.send({ t: 'play', id: again.id, intent: { type: 'answer', input: '-1' } });
+			latest = me.peer.last('match')!;
+		}
 		vi.advanceTimersByTime(180_000);
 		expect(matches.stateOf(again.id)?.phase.kind).toBe('ended');
 		// Bo goes back to exploring, his `done` lost: free, as after any match.
@@ -956,6 +964,36 @@ describe('free again once a match is over (#139)', () => {
 		vi.advanceTimersByTime(1_000);
 		cy.send({ t: 'challenge', pid: bo.pid, team: TEAM });
 		expect(bo.peer.last('invite')).toMatchObject({ pid: cy.pid });
+	});
+
+	it('keeps a kid busy in a rematch that started as they went back, while their page never had it up', () => {
+		const { ada, bo, cy } = three();
+		const end = playedOut(ada, bo, { ada: SPAWN, bo: beside(1) });
+		ada.send({ t: 'rematch', id: end.id, team: TEAM });
+		// Ada presses Back to exploring: her page says so, but Bo's Rematch? gets there first.
+		bo.send({ t: 'rematch', id: end.id, team: TEAM });
+		const again = ada.peer.last('match')!;
+		expect(again.id).not.toBe(end.id);
+		ada.at(SPAWN);
+		ada.send({ t: 'done', id: end.id });
+		// Her page puts the new match up as it comes, and its tab is hidden before a frame says so.
+		vi.advanceTimersByTime(180_000);
+		expect(matches.stateOf(again.id)?.phase.kind).toBe('ended');
+		cy.send({ t: 'challenge', pid: ada.pid, team: TEAM });
+		expect(cy.peer.last('uninvite')).toMatchObject({ pid: ada.pid, reason: 'busy' });
+		expect(ada.peer.of('invite')).toEqual([]);
+	});
+
+	it('keeps a kid in the match whose leave came just too late, from a page that had it up', () => {
+		const { ada, bo } = three();
+		const end = playedOut(ada, bo, { ada: SPAWN, bo: beside(1) });
+		// Bo chose Leave as the last answer landed: his leave comes after the end.
+		bo.send({ t: 'play', id: end.id, intent: { type: 'leave' } });
+		expect(bo.peer.last('rejected')).toEqual({ t: 'rejected', id: end.id, reason: 'match-over' });
+		// His page shows the result, and its Rematch? still works.
+		ada.send({ t: 'rematch', id: end.id, team: TEAM });
+		expect(bo.peer.last('rematch-wish')).toMatchObject({ side: 'a', yes: true });
+		expect(ada.peer.of('rematch-wish').filter((w) => !w.yes)).toEqual([]);
 	});
 
 	it('still keeps a player in a match going on busy', () => {

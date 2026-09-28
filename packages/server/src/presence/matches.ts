@@ -126,13 +126,14 @@ interface Player {
 	 */
 	match: Match | null;
 	/**
-	 * Their match, from when their page is sent it (`start`, unless the page
-	 * is on a match's screen already, as for a rematch; `resume`) until its
-	 * `where` first says `match`: the page has not put it up yet, and its last
-	 * `where` still says exploring (one sent before the match came, or none
-	 * since: a hidden tab draws no frame, and sends no `where`). Until then
-	 * they are busy with it even once it has ended, since the page puts its
-	 * result up when it can.
+	 * Their match, from when their page is sent it (`start`, `resume`) until
+	 * the page shows it has it up (`shown`): its `where` says `match`, or it
+	 * acts in it (`play`, `here`, `rematch`). Until then its last `where` can
+	 * still say exploring (one sent before the match came, or none since: a
+	 * hidden tab draws no frame, and sends no `where`), or say `match` about
+	 * the match before (a rematch starting as its kid went back), and they are
+	 * busy with it even once it has ended, since the page puts its result up
+	 * when it can.
 	 */
 	unshown: Match | null;
 	tokens: number;
@@ -281,7 +282,9 @@ export class Matches {
 	 */
 	moved(peer: Peer): void {
 		const player = this.playerOn(peer);
-		if (player?.unshown && this.hub.present(peer)?.spot?.busy === 'match') player.unshown = null;
+		if (player?.unshown && this.hub.present(peer)?.spot?.busy === 'match') {
+			this.shown(player, player.unshown);
+		}
 		if (player?.invite) this.recheck(player.invite, player);
 	}
 
@@ -329,6 +332,8 @@ export class Matches {
 				return this.play(player, message.id, message.intent);
 			case 'here': {
 				const match = player.match;
+				// Keys on the match's screen: the page has it up.
+				if (match?.id === message.id) this.shown(player, match);
 				if (match?.id === message.id && actingSide(match) === sideOf(match, player)) {
 					this.startClock(match);
 				}
@@ -515,12 +520,11 @@ export class Matches {
 		this.matches.set(match.id, match);
 		a.match = match;
 		b.match = match;
-		// A page puts it up with its next `where`. One already on a match's screen (a rematch,
-		// from the result) puts it up there, and says `match` already: it sends no new `where`.
-		for (const player of [a, b]) {
-			const onMatch = player.peer && this.hub.present(player.peer)?.spot?.busy === 'match';
-			player.unshown = onMatch ? null : match;
-		}
+		// Neither page has it up yet: each says so with a `where` that says `match`, or by
+		// acting in it (a rematch's page, on a match's screen already, sends no new `where`, and a
+		// `where` that says `match` may be one sent before its kid went back, so it isn't trusted).
+		a.unshown = match;
+		b.unshown = match;
 		this.startClock(match);
 		this.log(`matches: ${match.id} started`);
 		for (const side of MATCH_SIDES) this.send(match, side, []);
@@ -535,11 +539,16 @@ export class Matches {
 		const match = player.match;
 		if (!match || match.id !== id || match.state.phase.kind === 'ended') {
 			// A page that came back to its finished match and can't put it up (a battle of its
-			// own is on) leaves it: the player is let go of it.
-			if (match?.id === id && intent.type === 'leave') this.detach(match, sideOf(match, player));
+			// own is on) leaves it: the player is let go of it. A leave that only came too late,
+			// from a page that had the match up, is refused: its page shows the result.
+			if (match?.id === id && intent.type === 'leave' && player.unshown === match) {
+				this.detach(match, sideOf(match, player));
+			}
 			player.peer?.send({ t: 'rejected', id, reason: 'match-over' });
 			return;
 		}
+		// A choice from the match's screen: the page has it up.
+		this.shown(player, match);
 		const side = sideOf(match, player);
 		const step = applyMatchIntent(match.state, side, intent, match.seed);
 		const refused = step.events.find((e) => e.type === 'rejected');
@@ -596,6 +605,8 @@ export class Matches {
 			player.peer?.send({ t: 'rejected', id, reason: 'match-over' });
 			return;
 		}
+		// Rematch? is on the result's card: the page has the match up.
+		this.shown(player, match);
 		const side = sideOf(match, player);
 		const other = otherSide(side);
 		const them = match.players[other];
@@ -649,6 +660,11 @@ export class Matches {
 	private letGoOfEnded(player: Player): void {
 		const match = player.match;
 		if (match && !live(match)) this.detach(match, sideOf(match, player));
+	}
+
+	/** `player`'s page has `match` up: it said so (`where`'s `match`) or acted in it. */
+	private shown(player: Player, match: Match): void {
+		if (player.unshown === match) player.unshown = null;
 	}
 
 	/** The match is gone: its timers cleared, nobody in it any more. */
