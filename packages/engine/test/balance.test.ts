@@ -28,8 +28,8 @@ const SEEDS = 200;
 /** More seeds where a test compares a win rate with a target band. */
 const TARGET_SEEDS = 1000;
 /**
- * Sampling slack on a target band. A mean over the same-tier pairs (337 since
- * #89's second wave) at 1000 seeds each has a standard error well under half a
+ * Sampling slack on a target band. A mean over the same-tier pairs (391 since
+ * #89's third wave) at 1000 seeds each has a standard error well under half a
  * point, so 2 points is over four standard errors: the band, not the dice,
  * decides the test.
  */
@@ -59,8 +59,8 @@ const tier = (id: string) => getAnimal(id).tier;
 /**
  * Every (player, wild) pair that can meet: the two "never hurts" checks walk
  * them all, so a balance change that breaks either anywhere in the catalog
- * fails ([[DEVELOPMENT]] § Testing ideology). Over 1,300 pairs since #89's
- * second wave.
+ * fails ([[DEVELOPMENT]] § Testing ideology). 1,561 pairs since #89's third
+ * wave.
  */
 const MEETING_PAIRS: readonly (readonly [string, string])[] = ids.flatMap((p) =>
 	ids.flatMap((w) => (arena(p, w) !== null ? [[p, w] as const] : []))
@@ -315,7 +315,7 @@ describe('balance simulation', () => {
 		}
 	});
 
-	// The two sweeps below play every same-tier pair that can meet (337 since #89's second
+	// The two sweeps below play every same-tier pair that can meet (391 since #89's third
 	// wave), 1,000 battles each, with the seeds the bands were set on: 60 and 62 s beside the
 	// rest of the engine's suite at a load average of 120, so they turn the worker's loop as
 	// they go, and three minutes leaves room.
@@ -353,8 +353,8 @@ describe('balance simulation', () => {
 			expect(win, `${p} vs ${w}`).toBeLessThan(0.35);
 		for (const { p, w, win } of await winRatesTurning(2, easiest(1)))
 			expect(win, `${p} vs ${w}`).toBeLessThan(0.1);
-		// 352 pairs, 1,000 battles each since #89's second wave: 28 s beside the suite at a load
-		// average of 120.
+		// 422 pairs, 1,000 battles each since #89's third wave; its second wave's 352 took 28 s
+		// beside the suite at a load average of 120.
 	}, 120_000);
 
 	it('being right more often never hurts', async () => {
@@ -368,9 +368,9 @@ describe('balance simulation', () => {
 			}
 		}
 		expect(bad).toEqual([]);
-		// Every pair, four models, 200 battles each (about a million battles with the 41 animals
-		// of #89's second wave): 71 s beside the suite at a load average of 120, turning the
-		// worker's loop as it goes; three minutes leaves room.
+		// Every pair, four models, 200 battles each: 1.25 million battles with the 49 animals of
+		// #89's third wave (a million with its second wave's 41 took 71 s beside the suite at a
+		// load average of 120), turning the worker's loop as it goes; three minutes leaves room.
 	}, 180_000);
 
 	it('a stronger attack at a higher level never hurts an always-right player', () => {
