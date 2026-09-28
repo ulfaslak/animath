@@ -766,8 +766,8 @@
 	}
 	/*
 	 * The bottom-right corner: where the player stands, a pill like the
-	 * world's. Below where a friend's arrow can reach (96 px from the bottom
-	 * edge); the message line keeps clear of it (`.bottom`).
+	 * world's. The arrows keep clear of it (`keepClear`), and so does the
+	 * message line (`.bottom`).
 	 */
 	.coords {
 		position: absolute;
