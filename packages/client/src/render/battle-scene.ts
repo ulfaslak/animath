@@ -150,6 +150,15 @@ const CONFETTI_SECONDS = 1.3;
 /** The poppers' pieces fly further and live longer: they rain over the whole scene. */
 const POPPER_SECONDS = 1.9;
 const GRAVITY = 6;
+/** How far over what it lands on a piece of confetti lies, so the ground or a cloud never cuts through it. */
+const CONFETTI_LIFT = 0.02;
+/**
+ * How far under a cloud's top a piece of confetti may have been a frame
+ * before and still land on it: a piece coming down onto a cloud lands on it,
+ * even where the cloud's top rises as it moves in over it, and one that
+ * meets a cloud's side, deeper down, goes on falling through it.
+ */
+const CONFETTI_LANDING = 0.08;
 /** A caught animal's cheer: two hops, the first with a spin. */
 const CHEER_SECONDS = 0.9;
 /** A sparkle's life, from popping up to twinkling out; each waits its turn first. */
@@ -179,6 +188,8 @@ interface ConfettiPiece {
 	spin: THREE.Vector3;
 	t: number;
 	life: number;
+	/** Lying on the ground or on a cloud, where it stays until it slides off a cloud's edge. */
+	landed: boolean;
 }
 /** A four-pointed star that pops up beside a figure, turns and twinkles out. */
 interface Sparkle {
@@ -388,6 +399,8 @@ export class BattleScene {
 	private puffs: Puff[] = [];
 	private dusts: Dust[] = [];
 	private confetti: ConfettiPiece[] = [];
+	/** The sky's cloud puffs, for confetti to land on: filled when the sky is first built. */
+	private cloudTops: CloudTop[] = [];
 	private sparkles: Sparkle[] = [];
 	/** Counts confetti bursts, to seed each one's scatter. */
 	private bursts = 0;
@@ -444,7 +457,7 @@ export class BattleScene {
 		this.fill.groundColor.setHex(sky ? SKY_COLORS.cloud : GROUND_BOUNCE);
 		for (const [b, group] of this.backdrops) group.visible = b === biome;
 		if (!this.backdrops.has(biome)) {
-			const backdrop = sky ? buildSky() : buildBackdrop(biome);
+			const backdrop = sky ? buildSky(this.cloudTops) : buildBackdrop(biome);
 			this.backdrops.set(biome, backdrop);
 			this.scene.add(backdrop);
 		}
@@ -623,7 +636,8 @@ export class BattleScene {
 					? new THREE.Vector3()
 					: new THREE.Vector3(rng.next() * 10 - 5, rng.next() * 10 - 5, rng.next() * 10 - 5),
 				t: 0,
-				life: CONFETTI_SECONDS * (0.8 + rng.next() * 0.4)
+				life: CONFETTI_SECONDS * (0.8 + rng.next() * 0.4),
+				landed: false
 			});
 			this.scene.add(mesh);
 		}
@@ -750,7 +764,8 @@ export class BattleScene {
 						? new THREE.Vector3()
 						: new THREE.Vector3(rng.next() * 10 - 5, rng.next() * 10 - 5, rng.next() * 10 - 5),
 					t: 0,
-					life: POPPER_SECONDS * (0.8 + rng.next() * 0.4)
+					life: POPPER_SECONDS * (0.8 + rng.next() * 0.4),
+					landed: false
 				});
 				this.scene.add(mesh);
 			}
@@ -851,8 +866,19 @@ export class BattleScene {
 			piece.velocity.y -= gravity * dt;
 			// Air slows it, so pieces flutter down instead of dropping like stones.
 			piece.velocity.multiplyScalar(Math.max(0, 1 - 1.6 * dt));
-			piece.mesh.position.addScaledVector(piece.velocity, dt);
-			piece.mesh.position.y = Math.max(sky ? CLOUD_TOP + 0.02 : 0.02, piece.mesh.position.y);
+			const at = piece.mesh.position;
+			const was = at.y;
+			at.addScaledVector(piece.velocity, dt);
+			// It lands on what it comes down onto and lies there: the ground, or up in the air a
+			// cloud's top, until it slides off the cloud. Where no cloud is under it, it falls on
+			// into the haze.
+			const floor = (sky ? cloudTopAt(this.cloudTops, at.x, at.z) : 0) + CONFETTI_LIFT;
+			piece.landed = at.y < floor && (piece.landed || was > floor - CONFETTI_LANDING);
+			if (piece.landed) {
+				at.y = floor;
+				// Lying still, so one that slides off a cloud's edge starts to fall from there.
+				piece.velocity.y = 0;
+			}
 			piece.mesh.rotation.x += piece.spin.x * dt;
 			piece.mesh.rotation.y += piece.spin.y * dt;
 			piece.mesh.rotation.z += piece.spin.z * dt;
@@ -1305,6 +1331,37 @@ function buildSea(
 
 /** One puff of a cloud: a round low-poly ball, faceted like the figures. */
 const CLOUD_PUFF = new THREE.IcosahedronGeometry(1, 1);
+/**
+ * The round ball a puff (`CLOUD_PUFF`) holds inside its facets, as a share of
+ * its size: its faces are 0.934 of it from its middle.
+ */
+const PUFF_INSIDE = 0.93;
+
+/** A cloud's puff, for confetti to land on: its middle, and how far it reaches round it and up. */
+interface CloudTop {
+	x: number;
+	y: number;
+	z: number;
+	/** Its reach round its middle, and above it (the puffs are flattened). */
+	r: number;
+	h: number;
+}
+
+/**
+ * How high the clouds are over (`x`, `z`): the top of the highest puff there,
+ * or -Infinity where no cloud is. It is the top of the round ball inside each
+ * puff's facets (`PUFF_INSIDE`), so confetti lies on the facets or a hair into
+ * them, and never on the air at a puff's edge.
+ */
+function cloudTopAt(tops: readonly CloudTop[], x: number, z: number): number {
+	let top = -Infinity;
+	for (const puff of tops) {
+		const r = puff.r * PUFF_INSIDE;
+		const d2 = ((x - puff.x) ** 2 + (z - puff.z) ** 2) / (r * r);
+		if (d2 < 1) top = Math.max(top, puff.y + puff.h * PUFF_INSIDE * Math.sqrt(1 - d2));
+	}
+	return top;
+}
 
 /**
  * The sky's scenery, up in the air (#91): no ground at all, a dome of sky
@@ -1314,9 +1371,10 @@ const CLOUD_PUFF = new THREE.IcosahedronGeometry(1, 1);
  * a few big clouds far off standing up out of the haze. Kept off the line
  * from the camera to either bird. A fixed scatter, so every battle in the air
  * looks the same; the puffs are two instanced meshes, the clouds' white tops
- * and their paler undersides, so the whole sky is a handful of draws.
+ * and their paler undersides, so the whole sky is a handful of draws. Every
+ * puff's top goes in `cloudTops` too, for the confetti to land on.
  */
-function buildSky(): THREE.Group {
+function buildSky(cloudTops: CloudTop[]): THREE.Group {
 	const group = new THREE.Group();
 	const rng = new Rng(91);
 	group.add(skyDome());
@@ -1358,6 +1416,13 @@ function buildSky(): THREE.Group {
 		mesh.computeBoundingSphere();
 		mesh.receiveShadow = true;
 		group.add(mesh);
+	}
+	// From the matrices the puffs are drawn with, so the confetti lands on what shows.
+	const at = new THREE.Vector3();
+	const scale = new THREE.Vector3();
+	for (const m of tops) {
+		m.decompose(at, new THREE.Quaternion(), scale);
+		cloudTops.push({ x: at.x, y: at.y, z: at.z, r: scale.x, h: scale.y });
 	}
 	return group;
 }

@@ -539,7 +539,12 @@
 				{#if why}<div class="detail strong">{why}</div>{/if}
 				<div class="keys">{touch.on ? t('doctor.shop.touch') : t('doctor.shop.keys')}</div>
 			{:else}
-				<div class="soft">{t('doctor.pick')}</div>
+				<!-- Bye is lit: what the tab is for, or that there is nothing left to buy. -->
+				<div class="soft">
+					{doctor.shop.every((id) => cannotBuy(id, doctor) === 'owned')
+						? t('doctor.shop.allOwned')
+						: t('doctor.shop.pick')}
+				</div>
 				<div class="detail">{t('doctor.byeDetail')}</div>
 				<div class="keys">{touch.on ? t('doctor.shop.touch') : t('doctor.shop.keys')}</div>
 			{/if}
