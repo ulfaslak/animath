@@ -10,12 +10,14 @@ import { Rng, hashInts } from '../src/rng.js';
 import {
 	MAX_SAVED_NAME_LENGTH,
 	MAX_SAVED_NICKNAME_LENGTH,
+	MAX_SAVE_DEPTH,
 	SAVE_UPGRADES,
 	SAVE_VERSION,
 	STARTER_SPECIES,
 	V1_KEPT,
 	canReplace,
 	isContentId,
+	isNewerSave,
 	newGame,
 	readBattle,
 	readSave,
@@ -102,6 +104,26 @@ const writtenV1 = { ...v1, facing: 'left', steps: 12, visits: 2, lineage: 'game-
 function error(input: unknown): string {
 	const checked = validateSave(input);
 	return checked.ok ? '' : checked.error;
+}
+
+/** `levels` lists, each the only thing in the one around it: `[[[]]]` is 3. */
+function lists(levels: number): unknown {
+	let v: unknown = [];
+	for (let i = 1; i < levels; i++) v = [v];
+	return v;
+}
+
+/** `levels` objects, each under the key "0" of the one around it, as JSON reads `{"0":{"0":{}}}`. */
+function objects(levels: number): unknown {
+	let v: unknown = {};
+	for (let i = 1; i < levels; i++) v = { 0: v };
+	return v;
+}
+
+/** How deep a value nests: a list or an object is 1 more than the deepest thing in it. */
+function depthOf(v: unknown): number {
+	if (typeof v !== 'object' || v === null) return 0;
+	return 1 + Math.max(0, ...Object.values(v).map(depthOf));
 }
 
 describe('validateSave', () => {
@@ -247,6 +269,77 @@ describe('validateSave', () => {
 		expect(error({ ...v2, name: 'Ni\u0000ni' })).toMatch(/name/);
 		// A surrogate pair (an emoji) is fine.
 		expect(error({ ...v2, party: [animal(1, { nickname: 'Nut 🐿️' })] })).toBe('');
+	});
+});
+
+describe('how deep a save nests', () => {
+	it(`takes a document ${MAX_SAVE_DEPTH} deep and refuses one deeper, wherever the nesting is`, () => {
+		// Each place holds what it is given `above` deep into the document: an extra field and a
+		// battle a level in, an extra field on an animal three (the document, the party, the animal).
+		const places: [number, string, (inner: unknown) => unknown][] = [
+			[1, 'deep', (inner) => ({ ...written, deep: inner })],
+			[3, 'party[0].deep', (inner) => ({ ...written, party: [animal(1, { deep: inner })] })],
+			[1, 'battle', (inner) => ({ ...written, battle: inner })]
+		];
+		for (const [above, path, place] of places) {
+			for (const nest of [lists, objects]) {
+				const levels = MAX_SAVE_DEPTH - above;
+				expect(depthOf(place(nest(levels)))).toBe(MAX_SAVE_DEPTH);
+				expect(error(place(nest(levels))), path).toBe('');
+				expect(depthOf(place(nest(levels + 1)))).toBe(MAX_SAVE_DEPTH + 1);
+				const refused = error(place(nest(levels + 1)));
+				expect(refused.startsWith(path), refused).toBe(true);
+				expect(refused).toMatch(/^\S+ is nested more than 64 levels deep$/);
+			}
+		}
+	});
+
+	it('reads a document nested hundreds of thousands deep as broken, and never throws', () => {
+		// What a body within the server's 1 MiB can hold: a list is 2 bytes a level, an object 6.
+		const levels = 400_000;
+		const texts = [
+			'['.repeat(levels) + ']'.repeat(levels),
+			'{"0":'.repeat(levels / 4) + '{}' + '}'.repeat(levels / 4)
+		];
+		for (const text of texts) {
+			// As the server gets it, and as the browser keeps it: JSON text, parsed.
+			for (const base of [written, writtenV1]) {
+				const doc: unknown = JSON.parse(`${JSON.stringify(base).slice(0, -1)},"deep":${text}}`);
+				const read = readSave(doc);
+				expect(read).toMatchObject({ ok: false, reason: 'invalid' });
+				expect(read.ok ? '' : read.error).toMatch(/^deep\S* is nested more than 64 levels deep$/);
+				expect(validateSaveWrite(doc)).toMatchObject({ ok: false, reason: 'invalid' });
+				expect(validateSave(doc).ok).toBe(false);
+				expect(isNewerSave(doc)).toBe(false);
+				// Stored on the server, it is a save no build can read: replaced, and kept aside.
+				expect(canReplace(doc, { seq: 4 })).toBe(true);
+				expect(replacesAnotherGame(doc, { lineage: 'game-a' })).toBe(true);
+			}
+		}
+	});
+
+	it(`a game's save nests 4 deep at most, well inside ${MAX_SAVE_DEPTH}`, () => {
+		// The deepest things a game saves: a battle's party and its puzzle (mid-puzzle among the
+		// states below), and a world left behind, where the player stood and what they cleared.
+		let deepest = 0;
+		let solving = 0;
+		for (let seed = 1; seed <= SEEDS; seed++) {
+			for (const { state } of battleStates(seed, ['squirrel', 'fox'], 'rabbit')) {
+				if (state.phase.kind === 'solving') solving++;
+				const game: SavedGame = {
+					...newGame(WORLD, undefined, 'Nini'),
+					party: state.party.map((a) => ({ ...a })),
+					battle: state,
+					edits: ['0,0:0a91'],
+					worlds: [{ world: 3, pos: { x: 1, y: -2 }, facing: 'up', edits: ['-1,0:0a91'] }]
+				};
+				const doc = saveDocument(game, { lineage: 'game-a', seq: 1 }, { later: { kept: [1] } });
+				expect(validateSaveWrite(doc).ok).toBe(true);
+				deepest = Math.max(deepest, depthOf(doc));
+			}
+		}
+		expect(solving).toBeGreaterThan(0);
+		expect(deepest).toBe(4);
 	});
 });
 
@@ -1430,6 +1523,19 @@ describe('readBattle', () => {
 		// Mid-puzzle, and waiting to replace a knocked-out animal, both come back.
 		expect(solving).toBeGreaterThan(0);
 		expect(replacing).toBeGreaterThan(0);
+	});
+
+	it('drops a battle nested deeper than a save can hold one, and never throws on one', () => {
+		const [{ state }] = battleStates(3, ['squirrel', 'fox'], 'rabbit');
+		// An extra field on the animal in front, with the party beside the battle holding it too.
+		// In a save the battle is a level in, its party two and the animal three.
+		const nested = (levels: number) => {
+			const party = state!.party.map((a, i) => (i === 0 ? { ...a, deep: lists(levels) } : a));
+			return [{ ...JSON.parse(JSON.stringify(state)), party }, party] as const;
+		};
+		expect(readBattle(...nested(MAX_SAVE_DEPTH - 4))).not.toBeNull();
+		expect(readBattle(...nested(MAX_SAVE_DEPTH - 3))).toBeNull();
+		expect(readBattle(...nested(200_000))).toBeNull();
 	});
 
 	it('drops a battle that does not fit the party or the rules', () => {

@@ -515,6 +515,21 @@ describe('Autosave: the save in this browser', () => {
 		expect(server.saveOf()!.party).toHaveLength(2);
 	});
 
+	it('a save nested deeper than a save can be is one that cannot be read, however deep, and no crash', async () => {
+		// A real save, edited by hand: a field nested far past what a walk one level at a time survives.
+		const real = JSON.stringify(saveDocument(newGame(WORLD), { lineage: 'L', seq: 4 }));
+		const deep = `${real.slice(0, -1)},"deep":${'['.repeat(100_000)}${']'.repeat(100_000)}}`;
+		const store = new MemoryStore();
+		store.set(KEYS.save, deep);
+		const tab = new Tab(store, null);
+		expect(await tab.open()).toEqual({ notice: 'save.couldNotLoad' });
+		await tab.walk();
+		expect(store.get(KEYS.save)).toBe(deep);
+		await tab.catchOne();
+		expect(store.get(KEYS.unreadable)).toBe(deep);
+		expect(store.save()!.party).toHaveLength(2);
+	});
+
 	it("a newer build's save starts nothing: the page is behind it, never touches it, and the server is left alone", async () => {
 		for (const [what, doc] of newerSaves(newGame(WORLD), { lineage: 'their-game', seq: 8 })) {
 			const store = new MemoryStore();

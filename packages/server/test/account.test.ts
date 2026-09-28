@@ -1,6 +1,7 @@
 import {
 	EDITS_BUDGET,
 	MAX_NICKNAME_LENGTH,
+	MAX_SAVE_DEPTH,
 	WORLD_ONE_SEED,
 	WorldEdits,
 	nameKey,
@@ -167,6 +168,31 @@ function docV1(seq: number, lineage = 'game-a', overrides: Record<string, unknow
 	return { ...rest, version: 1, seed: WORLD_ONE_SEED, ...overrides };
 }
 
+/** `levels` lists, each the only thing in the one around it: `[[[]]]` is 3. */
+function lists(levels: number): unknown {
+	let v: unknown = [];
+	for (let i = 1; i < levels; i++) v = [v];
+	return v;
+}
+
+/**
+ * JSON text nested `levels` deep, as any client can send it: lists, which the
+ * engine's check once went down one call a level until it threw, and objects
+ * under the key "0", which V8's `JSON.stringify` throws on from a few
+ * thousand deep (so the test sends text: it could not stringify one either).
+ */
+function nestedTexts(levels: number): string[] {
+	return [
+		'['.repeat(levels) + ']'.repeat(levels),
+		'{"0":'.repeat(levels - 1) + '{}' + '}'.repeat(levels - 1)
+	];
+}
+
+/** The text of `save` with a field `deep` whose value is the JSON text `deep`. */
+function withDeep(save: Record<string, unknown>, deep: string): string {
+	return `${JSON.stringify(save).slice(0, -1)},"deep":${deep}}`;
+}
+
 /** The account's save row, as stored, or null. */
 async function storedSave(name: string): Promise<unknown> {
 	const user = await userRow(name);
@@ -279,6 +305,31 @@ describe('register', () => {
 		expect(browser.cookie).toBeNull();
 		expect(await userRow(name)).toBeUndefined();
 		expect((await browser.register(name)).status).toBe(201);
+	});
+
+	it('refuses a guest game nested deeper than a save can be with a 400, never a 500, and makes nothing', async () => {
+		for (const deep of nestedTexts(100_000)) {
+			const browser = new Browser();
+			const name = freshName();
+			const save = withDeep(doc(1, 'guest-game'), deep);
+			const res = await browser.request(
+				'POST',
+				'/register',
+				`{"name":${JSON.stringify(name)},"password":"secret","save":${save}}`
+			);
+			expect(res.status).toBe(400);
+			const answer = (await res.json()) as { error: string; detail: string };
+			expect(answer.error).toBe('bad save');
+			expect(answer.detail).toMatch(/^deep\S* is nested more than 64 levels deep$/);
+			expect(browser.cookie).toBeNull();
+			expect(await userRow(name)).toBeUndefined();
+		}
+		// At the limit a guest game is a save like any other, kept as sent; a level more is not.
+		const atLimit = doc(1, 'guest-game', { deep: lists(MAX_SAVE_DEPTH - 1) });
+		const { browser } = await account(atLimit);
+		expect(await (await browser.getSave()).json()).toEqual(atLimit);
+		const past = doc(1, 'guest-game', { deep: lists(MAX_SAVE_DEPTH) });
+		expect((await new Browser().register(freshName(), 'secret', past)).status).toBe(400);
 	});
 
 	it('refuses a name that is taken, whatever its case, spacing or way of writing a letter', async () => {
@@ -775,6 +826,25 @@ describe('the account save', () => {
 		const noSeq = await browser.putSave({ ...doc(1), seq: undefined });
 		expect(noSeq.status).toBe(400);
 		expect((await browser.getSave()).status).toBe(404);
+	});
+
+	it('400 for a save nested deeper than a save can be, however deep, never a 500', async () => {
+		const { browser } = await account();
+		for (const deep of nestedTexts(100_000)) {
+			const res = await browser.putSave(withDeep(doc(1), deep));
+			expect(res.status).toBe(400);
+			const answer = (await res.json()) as { error: string; detail: string };
+			expect(answer.error).toBe('bad save');
+			expect(answer.detail).toMatch(/^deep\S* is nested more than 64 levels deep$/);
+		}
+		expect((await browser.getSave()).status).toBe(404);
+		// At the limit it is stored and given back as sent; a level more is refused.
+		const atLimit = doc(1, 'game-a', { deep: lists(MAX_SAVE_DEPTH - 1) });
+		expect((await browser.putSave(atLimit)).status).toBe(200);
+		expect(await (await browser.getSave()).json()).toEqual(atLimit);
+		const past = await browser.putSave(doc(2, 'game-a', { deep: lists(MAX_SAVE_DEPTH) }));
+		expect(past.status).toBe(400);
+		expect(await (await browser.getSave()).json()).toEqual(atLimit);
 	});
 
 	it('413 for a save over the size cap, with and without Content-Length, and at register', async () => {
