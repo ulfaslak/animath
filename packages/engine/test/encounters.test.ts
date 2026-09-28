@@ -373,15 +373,16 @@ describe('encounterTable', () => {
 				bear: nearUp(4)
 			})
 		);
-		// Out on the deep water: the sea animals only, the frog in the boat's lead or not.
+		// Out on the deep water: the sea animals only, the frog in the boat's lead or not, and
+		// since #89's third wave every tier of them two to four kinds.
 		expectShares(
 			encounterTable('sea', 0, 1, 'water'),
 			normalised({
-				...split(1, 'crab', 'starfish'),
-				turtle: nearUp(1),
-				dolphin: nearUp(2),
-				octopus: nearUp(3),
-				whale: nearUp(4)
+				...split(1, 'crab', 'starfish', 'moon-jellyfish', 'plaice'),
+				...split(nearUp(1), 'turtle', 'lions-mane-jellyfish', 'lobster'),
+				...split(nearUp(2), 'dolphin', 'harbour-seal', 'harbour-porpoise'),
+				...split(nearUp(3), 'octopus', 'grey-seal'),
+				...split(nearUp(4), 'whale', 'orca')
 			})
 		);
 		// Nine small kinds beside five tier-2 ones in the meadow, seven beside six in the
@@ -692,7 +693,8 @@ describe('encounterTable', () => {
 							.map((e) => e.weight)
 					)
 				);
-				// Ten thousand steps and more: the least is a crab with a whale in front, 2.4e−5.
+				// Ten thousand steps and more: the least is one of the four small sea animals with a
+				// whale or an orca in front, 1.2e−5.
 				expect(most / 4, `${a.id} for a tier-${lead} lead far out`).toBeGreaterThan(1e4 * step);
 			}
 		}
@@ -716,7 +718,8 @@ describe('encounterTable', () => {
 				['forest', 'european-bison'],
 				['river', 'moose'],
 				['mountain', 'bear'],
-				['sea', 'whale']
+				['sea', 'whale'],
+				['sea', 'orca']
 			] as const)
 				expect(weightOf(biome, d, id), `${id} in ${biome} @ ${d}`).toBeLessThan(step / 1000);
 		}
@@ -1008,7 +1011,22 @@ describe('encounterTableAt: the ground around the tall grass', () => {
 				expect(encounterTableAt(shallows as EncounterSite, lead)).toEqual([]);
 			}
 		}
-		expect(sea).toEqual(['crab', 'starfish', 'turtle', 'dolphin', 'octopus', 'whale']);
+		expect(sea).toEqual([
+			'crab',
+			'starfish',
+			'turtle',
+			'dolphin',
+			'octopus',
+			'whale',
+			'moon-jellyfish',
+			'plaice',
+			'lions-mane-jellyfish',
+			'lobster',
+			'harbour-seal',
+			'harbour-porpoise',
+			'grey-seal',
+			'orca'
+		]);
 		// A land biome grows no water to meet anything in; were its table built for the water,
 		// it would hold only the amphibious animals living there (the toad in the forest).
 		for (const biome of ['meadow', 'forest', 'mountain'] as const) {

@@ -52,9 +52,10 @@ import { readFightEvents, readFightView, type FightEvent, type FightView } from 
  * big animals of #89's second wave. A page reads a `match` or a `fight` only
  * with species its own catalog has, so a version 4 page would drop every one
  * with a moose in it and never see the match: every new species bumps the
- * version.
+ * version. Version 6: the sea animals of #89's third wave, which a version 5
+ * page would drop from a `fight` out at sea.
  */
-export const PROTOCOL_VERSION = 5;
+export const PROTOCOL_VERSION = 6;
 
 /**
  * The most a message may take on the wire, in bytes (the server closes a

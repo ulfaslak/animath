@@ -242,16 +242,19 @@ describe('balance simulation', () => {
 			'robin',
 			'stag-beetle',
 			'crab',
-			'starfish'
+			'starfish',
+			'moon-jellyfish',
+			'plaice'
 		]);
 		// Every small animal of the land meets the bear, the moose and the bison (#89); at sea,
-		// the whale meets the two small sea animals and the two small ones that swim, the frog
-		// and the toad.
+		// the whale and the orca meet the four small sea animals and the two small ones that
+		// swim, the frog and the toad.
 		for (const [big, meeting] of [
 			['bear', 12],
 			['moose', 12],
 			['european-bison', 12],
-			['whale', 4]
+			['whale', 6],
+			['orca', 6]
 		] as const) {
 			const meet = small.filter((id) => arena(id, big) !== null);
 			expect(meet.length, `tier-1 animals that meet the ${big}`).toBe(meeting);
@@ -262,9 +265,10 @@ describe('balance simulation', () => {
 			'bear',
 			'moose',
 			'european-bison',
-			'whale'
+			'whale',
+			'orca'
 		]);
-		// 40 pairs, 200 battles each: under a second alone, a few beside the suite under load.
+		// 48 pairs, 200 battles each: under a second alone, a few beside the suite under load.
 	}, 30_000);
 
 	it('each sea animal is its land twin in numbers, so the land balance holds at sea as it is', () => {
@@ -274,7 +278,16 @@ describe('balance simulation', () => {
 			turtle: 'otter',
 			dolphin: 'deer',
 			octopus: 'wolf',
-			whale: 'bear'
+			whale: 'bear',
+			// #89's third wave: each the twin of a named land animal of its tier.
+			'moon-jellyfish': 'wood-mouse',
+			plaice: 'mole',
+			'lions-mane-jellyfish': 'adder',
+			lobster: 'badger',
+			'harbour-seal': 'wild-boar',
+			'harbour-porpoise': 'mute-swan',
+			'grey-seal': 'wolverine',
+			orca: 'european-bison'
 		};
 		const sea = ANIMALS.filter((a) => !a.realms.includes('land')).map((a) => a.id);
 		expect(Object.keys(twins)).toEqual(sea);
