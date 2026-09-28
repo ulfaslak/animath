@@ -189,15 +189,26 @@ interface GroupRow extends Record<string, unknown> {
 const millis = (time: SQL) => sql`(extract(epoch from ${time}) * 1000)::float8`;
 
 /**
+ * How far behind the database's clock a window of new groups ends. A report's
+ * `created_at` is when its insert began, which can be before a window's end
+ * while the row lands after the window was read: it would fall between two
+ * windows, and the next of its kind would not be new, never to be told. An
+ * insert lands within milliseconds, so a window that ends this long ago has
+ * every row it will ever hold.
+ */
+export const NEW_WINDOW_LAG_MS = 10_000;
+
+/**
  * The reports that came in from `since` until now, grouped by message and
  * build. With `onlyNew`, only the groups heard from for the first time since
  * then: no report of theirs came in before `since` (the health watch's "new
- * errors"). Now is the database's clock to the millisecond, the end of the
- * window (`until`) and the start of the next.
+ * errors"), and the window ends `NEW_WINDOW_LAG_MS` ago. The end (`until`) is
+ * the database's clock to the millisecond, and the start of the next window.
  */
 export async function errorGroups(since: Date, onlyNew = false): Promise<ErrorGroups> {
+	const lag = onlyNew ? NEW_WINDOW_LAG_MS : 0;
 	const clock = await db.execute<{ now: Millis }>(
-		sql`select ${millis(sql`date_trunc('milliseconds', now())`)} as now`
+		sql`select ${millis(sql`date_trunc('milliseconds', now() - make_interval(secs => ${lag / 1000}))`)} as now`
 	);
 	const until = new Date(Number(clock.rows[0]!.now));
 	const fresh = onlyNew
