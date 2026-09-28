@@ -80,6 +80,10 @@ To try how two pages of one origin share `localStorage` (a race, a `storage` eve
 
 Twice on 2026-09-26 a worktree's Vite kept showing its red error overlay on every fresh page load for a Svelte file that was valid again. `svelte-check` passed, and so did the tests. The first time, the file had been written twice in quick succession: a scripted edit in two steps, the first leaving a tag unclosed. The second time, a `git merge` left conflict markers in it for a moment. The overlay also blocks every click and tap (Playwright reports `<vite-error-overlay> intercepts pointer events`). When a fresh load shows an overlay for code that type-checks, restart your Vite before debugging anything.
 
+## A script's `import('/src/…')` is a second copy once the dev server has hot-updated
+
+A Playwright script that reads the game's state by importing its modules in the page (`await import('/src/state/title.svelte.ts')`) gets the app's own copy only while Vite has hot-updated nothing under it. Once an edit or a `git merge` touches a file those modules import, however deep, Vite serves the app's imports with a `?t=` timestamp, and the bare path loads a second copy that never changes: a wait on `__title.open` times out with the title on screen (twice on 2026-09-28, feat/birds-in-the-air). Restart your Vite after editing, before driving a page that way.
+
 ## A negative control's `git revert --abort` refuses after a file was touched
 
 `git revert --no-commit <fix>` then `git revert --abort` is the negative control's recipe, and `--abort` refuses (`Entry '<file>' not uptodate. Cannot merge.`) once any file the revert touched was written in between, even if it was written back exactly as the index has it (2026-09-27: a test file put back from the fix commit to run it against the reverted source). Write it back as the index holds it (`git show :<path> > <path>`), then `git update-index --refresh`, and `--abort` goes through. Better: commit a new test before its fix, so reverting the fix leaves the test in place.
