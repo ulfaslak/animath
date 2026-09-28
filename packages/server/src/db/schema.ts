@@ -10,29 +10,25 @@ import {
 } from 'drizzle-orm/pg-core';
 
 /**
- * The anonymous backup's players: the client receives an id + secret on first
- * visit and presents them on every backup. No login. Accounts (`users`, below)
- * are separate and never touch these tables; the backup runs only in
- * development (see `app.ts`).
+ * The retired anonymous backup: `players`, `saves` and `save_backups`. Until
+ * the human's kid's game moved to production, a guest's browser got an id and
+ * a secret here and backed its save up under them (development only). Nothing
+ * in the game reads or writes these tables any more; they stay, rows and all,
+ * because the human's local database holds the kids' old games in them, which
+ * `admin export-local-save` reads (`save-export.ts`), and no migration may drop
+ * or alter them ([[INVARIANTS]] § Server; dropping them is a [[DEFERRED]] item).
+ * Accounts (`users`, below) never refer to them.
  */
 export const players = pgTable('players', {
 	id: uuid('id').primaryKey().defaultRandom(),
-	/**
-	 * SHA-256 hex of the random secret the client holds (see `secrets.ts`).
-	 * Presenting the secret proves ownership of the id; the secret itself is
-	 * never stored.
-	 */
+	/** SHA-256 hex of the random secret the browser held; the secret itself was never stored. */
 	secretHash: text('secret_hash').notNull(),
 	displayName: text('display_name'),
 	createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 	lastSeenAt: timestamp('last_seen_at', { withTimezone: true }).notNull().defaultNow()
 });
 
-/**
- * One save per player: position, party, inventory. Stored as a JSON blob while
- * the shape is still moving; promote hot fields to columns when a query needs
- * them (leaderboards, "who is near me").
- */
+/** The retired anonymous backup (above): one save per player, the `SaveV2` its browser last sent. */
 export const saves = pgTable('saves', {
 	playerId: uuid('player_id')
 		.primaryKey()
@@ -42,10 +38,10 @@ export const saves = pgTable('saves', {
 });
 
 /**
- * Saves the server was about to lose, kept instead: a document replaced by a
- * different game (another lineage), or one this build could not read. A
- * normal backup of the same game replaces its predecessor without a copy.
- * Nothing reads this table; it is there to recover a kid's game by hand.
+ * The retired anonymous backup (above): the saves it was about to lose, kept
+ * instead, a document replaced by a different game (another lineage) or one
+ * that build could not read. Nothing reads this table; a game in it comes
+ * back only by hand.
  */
 export const saveBackups = pgTable(
 	'save_backups',
@@ -97,8 +93,8 @@ export const sessions = pgTable(
 
 /**
  * The one save an account keeps: the same document as the browser's (`SaveV2`,
- * the engine's), written with the same guard as the anonymous backup. `seq` is
- * the document's own `seq`, kept beside it.
+ * the engine's), written only with a higher `seq` (`writeAccountSave`). `seq`
+ * is the document's own `seq`, kept beside it.
  */
 export const accountSaves = pgTable('account_saves', {
 	userId: uuid('user_id')
@@ -131,10 +127,9 @@ export const welcomeTokens = pgTable(
 );
 
 /**
- * An account's saves the server was about to lose, as `save_backups` keeps the
- * anonymous backup's: one replaced by a different game (a New game on the
- * title), or one this build could not read. Nothing reads it; it is there to
- * recover a kid's game by hand.
+ * An account's saves the server was about to lose, kept instead: one replaced
+ * by a different game (a New game on the title), or one this build could not
+ * read. Nothing reads it; it is there to recover a kid's game by hand.
  */
 export const accountSaveBackups = pgTable(
 	'account_save_backups',

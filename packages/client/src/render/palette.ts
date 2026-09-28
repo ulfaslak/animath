@@ -117,6 +117,35 @@ export const GLIDER_COLORS = {
 	ring: COLORS.white
 } as const;
 
+/**
+ * The witch doctor at every tent (`doctor.ts`): a purple robe and a taller,
+ * floppy purple hat with the doctor's gold band, a coral feather and a gold
+ * bobble on its tip, a white beard and a rosy nose, and a staff of trunk
+ * brown with the doctor's green gem. His pot on the campfire is iron with
+ * green potion bubbling in it: the green of an HP bar that is full, and of
+ * the doctor's sparkles.
+ */
+export const DOCTOR_COLORS = {
+	robe: 0x8a5fd0,
+	hat: 0x4a2f96,
+	band: 0xf5b83d,
+	feather: COLORS.playerShirt,
+	skin: COLORS.playerSkin,
+	nose: 0xf5a48a,
+	beard: COLORS.white,
+	eyes: COLORS.dark,
+	staff: COLORS.trunk,
+	gem: 0x56c271,
+	pot: 0x3e3947,
+	potRim: 0x5c5566,
+	potion: 0x56c271,
+	bubble: 0xc6f2b4,
+	// The campfire under the pot: the fire's amber, the UI accent and warn gold, all in the game.
+	flame: COLORS.fire,
+	flameHot: 0xff9f43,
+	flameGold: 0xf5b83d
+} as const;
+
 /** Trees grow only in the forest: three dark greens, mixed at random, so it reads as deep woods. */
 export const CANOPY: readonly number[] = [0x2c7a43, 0x3a8f4c, 0x2f8a55];
 

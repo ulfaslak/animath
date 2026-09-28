@@ -1,4 +1,6 @@
 import { svelte } from '@sveltejs/vite-plugin-svelte';
+import { readFileSync } from 'node:fs';
+import { parseEnv } from 'node:util';
 import { defineConfig, type Plugin } from 'vite';
 import { parse } from 'yaml';
 
@@ -20,6 +22,28 @@ process.env.VITE_BUILD_SHA ||= 'dev';
 process.env.VITE_SITE_ORIGIN ||= process.env.MATHGAME_DOMAIN
 	? `https://${process.env.MATHGAME_DOMAIN}`
 	: '';
+// The game's domain, for every build and the dev server alike: a page on any
+// address that is neither this domain nor a machine of the developer's (the old
+// tunnel's, which the dev server still serves) points the kid here first
+// (`moved.ts`, `boot.ts`). It is deploy.env's `MATHGAME_DOMAIN`, the one place
+// the domain is set: the image's build is given it (the build context leaves
+// deploy.env out), and everywhere else it is read from the file. Empty when
+// neither says one, and then no page is pointed anywhere.
+process.env.VITE_GAME_DOMAIN = gameDomain();
+
+function gameDomain(): string {
+	let domain = process.env.MATHGAME_DOMAIN ?? '';
+	if (domain === '') {
+		try {
+			const file = readFileSync(new URL('../../deploy.env', import.meta.url), 'utf8');
+			domain = parseEnv(file).MATHGAME_DOMAIN ?? '';
+		} catch {
+			// No deploy.env here: no domain.
+		}
+	}
+	domain = domain.trim().toLowerCase();
+	return /^[a-z0-9-]+(\.[a-z0-9-]+)+$/.test(domain) ? domain : '';
+}
 
 /**
  * `import en from './en.yaml'` gives the file's data. The YAML is parsed here,

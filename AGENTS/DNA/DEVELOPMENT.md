@@ -30,7 +30,7 @@ Health check: `curl localhost:3000/api/health` → `{"ok":true,"db":true}`.
 
 Production shape: `pnpm build` then `pnpm -F @mathgame/server start` serves the built client from `packages/client/dist` and the API from one process, the server bundle under plain `node` as in the image (set `PORT` and `DATABASE_URL` to your own, below). The whole production stack, nginx included, runs on a Mac too (§ Deployment).
 
-The game saves in the browser without the API; the API only holds the backup ([[ARCHITECTURE]] § Saving). From a worktree, run your own API on a free port against a database of your own on the same Postgres, never `mathgame` (the kids' games) or a database whose name ends in `_test` (the server tests empty theirs on every run, § Database), and point your Vite at it. The shell's `DATABASE_URL` and `PORT` win over `.env`'s:
+The game saves in the browser without the API; the API holds accounts and their saves, and runs presence and friendly matches ([[ARCHITECTURE]] § Saving, § Presence). From a worktree, run your own API on a free port against a database of your own on the same Postgres, never `mathgame` (the kids' games) or a database whose name ends in `_test` (the server tests empty theirs on every run, § Database), and point your Vite at it. The shell's `DATABASE_URL` and `PORT` win over `.env`'s:
 
 ```bash
 docker compose -p mathgame exec -T postgres createdb -U postgres mathgame_<yours>
@@ -56,13 +56,16 @@ node scripts/screenshot.mjs --url 'http://localhost:<port>/?zoo' --scale 3 --cli
 node scripts/screenshot.mjs --url 'http://localhost:<port>/?zoo=tired' --wait 4000 --scale 3 --clip 350,300,420,260   # every animal lying down to rest
 node scripts/screenshot.mjs --url 'http://localhost:<port>/' --reduced-motion   # as a system that asks for less motion
 node scripts/screenshot.mjs --touch --safe-area 0,0,20,0 --url 'http://localhost:<port>/?new' --width 1024 --height 768   # an iPad's home indicator
+node scripts/screenshot.mjs --host-rules "MAP old-tunnel.example localhost" --url 'http://old-tunnel.example:<port>/?lang=da'   # the moved card, as on an old address
 ```
+
+**An old address.** A page on an address that is neither the game's domain nor a developer's machine shows the moved card instead of the game ([[UI_SPEC]] § Frame). `localhost` never does, so to see it, open your own server under a made-up name: `--host-rules` hands Chrome its `--host-resolver-rules` (no hosts file needed), and the Vite serving it must accept a name it does not know, which only `TUNNEL=1` allows (`TUNNEL=1 API_PORT=3999 pnpm -F @mathgame/client exec vite preview --port <port> --strictPort` after `pnpm build`, or the dev server the same way). Vite binds `localhost` as IPv6 here; a rule that maps to `localhost` finds it. Make the name up outside Chrome's HSTS preload list (`.example`, `.test`, `.io`): Chrome asks a `.dev` or `.app` name for https only, so a copy of the tunnel's own `….ngrok-free.dev` name fails against a plain-HTTP server with `ERR_SSL_PROTOCOL_ERROR`. A throwaway Playwright script needs the same launch argument, and a `context.route` for `https://animath.xyz/**` that answers with a stand-in page, so the card's button is followed without a visit to production.
 
 Headless Chrome via `playwright-core`. On a Mac, WebGL draws on the GPU (`--gpu metal`, ANGLE over Metal, as Chrome itself draws there) at 15–20 frames a second; `--gpu swiftshader`, the default elsewhere, draws in software at under 3 (see [[ENVIRONMENT_NOTES]] § Looking at the game). The first line printed names the renderer that drew. The script exits non-zero and prints console errors (and warnings) if the page logged any. **Read the image** — a saved file you never looked at verifies nothing. The `/play` command wraps this.
 
 Every run is a fresh browser: a new player with no game, so the page opens on the title with no Continue. `?new` (like `?party=`, `?zoo`, `?tokens=` and `?shop`) skips the title into a throwaway game at the spawn tile with a squirrel, which touches neither storage nor the API, so walks from the start always behave the same. For a game that is saved, go through the title as a kid does: `Enter,type:Tester,wait:3000,Enter,wait:3000,Enter,wait:3000,Enter,wait:4000` is New game, the player's name, the first starter, no name for it (the name boxes and the starters take Enter only after a quiet moment of 0.8 s of game time, which a loaded machine stretches, and which every Enter starts again; see [[ENVIRONMENT_NOTES]]). `reload:` keeps the game (the save is in the page's `localStorage`) and comes back to the title, where `Enter` is Continue: that is how to check that something survives a reload. Such a game starts in a random home world, so its start differs from run to run: for the same walk every time, use `?new` (World 1) or a seeded save (§ Standing anywhere).
 
-**The API is blocked.** The script aborts every request to `/api/` in the browser, as if the server were down (and the presence socket at `/api/ws` opens onto nothing, so a run sees nobody and is seen by nobody), and counts the blocked calls in one line at the end; an API response that arrives anyway fails the run. A game started in a fresh browser makes a player on the server, and every Vite proxies `/api` to the primary clone's API, with the kids' games in its database, unless `API_PORT` says otherwise ([[ENVIRONMENT_NOTES]] § This machine is shared). The game plays and saves in the page all the same. `--api` lets the calls through, for a run that tests the backup, against your own API and database (§ Running); there, calls that fail (no API server behind the proxy, a `409`) are listed at the end and do not fail the run. A throwaway Playwright script (the recipes below) is a fresh browser too: block the API the same way before its first `goto`, with `await context.route((u) => /^\/api(\/|$)/.test(u.pathname), (r) => r.abort())`.
+**The API is blocked.** The script aborts every request to `/api/` in the browser, as if the server were down (and the presence socket at `/api/ws` opens onto nothing, so a run sees nobody and is seen by nobody), and counts the blocked calls in one line at the end; an API response that arrives anyway fails the run. Every Vite proxies `/api` to the primary clone's API, which serves the kids on the tunnel, unless `API_PORT` says otherwise ([[ENVIRONMENT_NOTES]] § This machine is shared): an unblocked page would walk into their worlds over presence, and an account made in it would land in their database. The game plays and saves in the page all the same. `--api` lets the calls through, for a run that tests accounts or presence, against your own API and database (§ Running); there, calls that fail (no API server behind the proxy, a `409`) are listed at the end and do not fail the run. A throwaway Playwright script (the recipes below) is a fresh browser too: block the API the same way before its first `goto`, with `await context.route((u) => /^\/api(\/|$)/.test(u.pathname), (r) => r.abort())`.
 
 `--keys` is a comma-separated script run in order. A plain token is a key name, optionally `*n` to repeat it (`ArrowRight*5`, `Enter`, `3`). The rest take an argument:
 
@@ -100,13 +103,15 @@ After every frame the script prints what the screen says: on the title its menu 
 node scripts/screenshot.mjs --url 'http://localhost:<port>/?debug&party=squirrel:5,rabbit:0,fox' --keys "ArrowRight*7,ArrowDown,shot:prompt,Enter,wait:700,shot:card,Enter,wait:500,shot:puzzle,Escape" --out screenshots/doctor.png
 ```
 
-**The doctor's tabs and the shop.** Left and Right go through Heal, Help home and Shop. A tool goes on sale only once its effect lands (the axe, the pickaxe and the boat all have), so to look at buying, start with tokens (`?tokens=`, a throwaway game), and add `?shop` for a tool not on sale yet ([[CHEATSHEET]] § Hidden behaviour). The script prints the tabs and the tokens (`tabs:`), the tab's list (`patients:`: picks ticked, a kind picked in part with "–", the one who has to stay marked "(stays)"), what the right-hand side says (`side:`, a hand-over's running total among it), the confirm (`confirm:`), a token sum's story (`story:`), and in explore the tokens, the puzzles solved, the tools and the world in the corner (`belongings:`):
+**The witch doctor moving.** He stands at (5.18, 7.28), in front of that tent, and greets a trainer who comes within 2.3 tiles: on that walk, the sixth step right, onto (4, 6). His wave lasts 2.2 s and his idle loops over a few seconds, so film either with the page's clock frozen (below): walk five steps right, pause the clock, press Right once and step 16 ms frames, a screenshot every 100–300 ms. At 1280×800 he is about 50 px tall, so clip round him and pass `--scale 4` (or `deviceScaleFactor: 4`) to see his face. A seeded save beside the tent (§ Standing anywhere: (6, 7) facing `left`, (5, 8) facing `up`) shows him turning to a trainer on another side; he greets as the world appears.
+
+**The doctor's tabs and the shop.** Left and Right go through Heal, Set free and Shop. A tool goes on sale only once its effect lands (the axe, the pickaxe and the boat all have), so to look at buying, start with tokens (`?tokens=`, a throwaway game), and add `?shop` for a tool not on sale yet ([[CHEATSHEET]] § Hidden behaviour). The script prints the tabs and the tokens (`tabs:`), the tab's list (`patients:`: picks ticked, a kind picked in part with "–", the one who has to stay marked "(stays)"), what the right-hand side says (`side:`, a hand-over's running total among it), the confirm (`confirm:`), a token sum's story (`story:`), and in explore the tokens, the puzzles solved, the tools and the world in the corner (`belongings:`):
 
 ```bash
 node scripts/screenshot.mjs --url 'http://localhost:<port>/?debug&party=squirrel:5,rabbit:0,fox&tokens=23&shop' --keys "ArrowRight*7,ArrowDown,wait:1200,Enter,wait:1500,ArrowRight,wait:600,shot:home,ArrowRight,wait:600,shot:shop,Enter,wait:600,shot:sum" --out screenshots/shop.png
 ```
 
-Help home's row for a whole kind is the first row of the tab when the team starts with a kind of several (`?party=fox*40,squirrel`: Right to the tab, then Enter picks all forty); with `?party=fox*40` alone it picks all but the first fox, who stays.
+Set free's row for a whole kind is the first row of the tab when the team starts with a kind of several (`?party=fox*40,squirrel`: Right to the tab, then Enter picks all forty); with `?party=fox*40` alone it picks all but the first fox, who stays.
 
 In a throwaway Playwright script, the number pad's keys have no `data-press` (they press as the finger lands): tap them by their text, `page.locator('.pad .key').getByText('7', { exact: true }).tap()`, and OK as `.pad .ok`. The open puzzle's answer, a token sum's too, is `doctor.puzzle.answer` in `/src/state/doctor.svelte.ts`.
 
@@ -269,16 +274,16 @@ Each checkout's server tests use a database of their own on the same instance, c
 
 Nothing drops a checkout's test database when the worktree goes. The setup writes the checkout's folder into the database's comment, and `pnpm db:prune-tests` reads it: it lists every checkout's test database with its folder and drops each one whose folder no longer exists, printing it first; `--dry-run` only lists. It works through the server's `postgres` database and matches only the names `test/database.ts` makes: never `mathgame`, and never a test database named by hand, which it lists as left alone. Run it from any checkout after removing worktrees (`git gtr rm`, `git gtr clean --merged`).
 
-**Getting a kid's game back.** Every save the server was about to lose is in `save_backups`: one a different game replaced (`reason = 'replaced'`) or one the server could not read (`'unreadable'`). Find the player (the kid's browser holds the id in `localStorage['animath.player']`), look at their rows, and put one back with a `seq` far above the current save's. The browser's own save can be ahead of the server's copy, and at its next start the browser takes the server's game only when its `seq` is higher:
+**A game in the retired anonymous backup.** This Mac's `mathgame` database still holds what the anonymous backup kept for each browser that played through the tunnel before it was retired ([[DECISIONS]] § Saves): the newest save in `saves`, by the player's id (the browser holds it in `localStorage['animath.player']`, and older ones in `animath.player.previous`, `.2`, …), and in `save_backups` every save it was about to lose, one a different game replaced (`reason = 'replaced'`) or one it could not read (`'unreadable'`). Nothing in the game reads these tables any more, and nothing is written to them: a game comes back from them only by moving it into an account (§ Moving a kid's game to production), the newest save with `export-local-save`, a set-aside one by writing its `data` to a file and importing that the same way:
 
-```sql
-select id, reason, created_at, data->>'seq' as seq, data->'party' as party
-  from save_backups where player_id = '<id>' order by id;
-update saves set data = jsonb_set(b.data, '{seq}', to_jsonb((saves.data->>'seq')::int + 1000000)), updated_at = now()
-  from save_backups b where b.id = <backup id> and saves.player_id = b.player_id;
+```bash
+docker compose -p mathgame exec -T postgres psql -U postgres -d mathgame -c \
+  "select id, reason, created_at, data->>'seq' as seq, data->'party' as party from save_backups where player_id = '<id>' order by id"
+docker compose -p mathgame exec -T postgres psql -U postgres -d mathgame -At -c \
+  "select data from save_backups where id = <backup id>" > ~/animath-exports/<name>-<backup id>.json
 ```
 
-The browser keeps its own set-aside copies too: `animath.save.unreadable` (a save it could not read), `animath.save.replaced` (its game, when a bigger one came from the server or another tab wrote over it in the same instant), `animath.save.previous` (a game the kid left for New game on the title) and `animath.save.upgraded` (an older version's save, as it was before this version first saved over it; the server keeps its copy in `save_backups`), each followed by `.2`, `.3`, … when the key was taken, oldest first. To give a kid back a game they left, in their browser's developer tools copy that text into `animath.save` with its `seq` raised above the current save's (and above the server's, or the server's newer game wins at the next start), then reload: the title offers it as Continue.
+An account's lost games are in `account_save_backups` instead (§ Accounts). The browser keeps its own set-aside copies too: `animath.save.unreadable` (a save it could not read), `animath.save.replaced` (its game, when another tab wrote over it in the same instant, or, for an account's game, a bigger one came from the server), `animath.save.previous` (a game the kid left for New game on the title) and `animath.save.upgraded` (an older version's save, as it was before this version first saved over it; an account's server keeps its copy in `account_save_backups`), each followed by `.2`, `.3`, … when the key was taken, oldest first, and an account's under its own keys (§ Accounts). To give a kid back a game they left, in their browser's developer tools copy that text into `animath.save` with its `seq` raised above the current save's (and, for an account, above the server's, or the server's newer game wins at the next start), then reload: the title offers it as Continue.
 ### Migrations
 
 Hand-written SQL, applied by `pnpm db:migrate` (`drizzle-orm`'s migrator, journal-driven).
@@ -292,7 +297,7 @@ Never run `drizzle-kit generate` in a worktree (it emits a full `0000` dump that
 
 **A migration keeps the build before it working.** A deploy runs the new migrations while the old build still serves, the two builds then answer side by side for a few seconds, and a rollback runs an older build on the newer schema: migrations never go back. So add (a table, a nullable column, a column with a default); rename or drop only in a later PR, once no deployed build reads the old name.
 
-`migrations.test.ts` fails when a `.sql` file has no journal entry or is out of order, and when a migration after `0002` changes the anonymous backup's tables ([[INVARIANTS]] § Server).
+`migrations.test.ts` fails when a `.sql` file has no journal entry or is out of order, and when a migration after `0002` changes the retired anonymous backup's tables ([[INVARIANTS]] § Server).
 
 ## Accounts
 
@@ -304,7 +309,7 @@ pnpm admin reset-password <name> [<new password>]  # a made-up six-character pas
 printf '%s' "$PW" | pnpm admin reset-password <name> --stdin  # the password from stdin, never in a command line (the process list, `docker events`) nor said back
 pnpm admin delete-account <name>                   # only says what it would delete
 pnpm admin delete-account <name> --yes             # deletes the account, its sessions, its save, its set-aside saves and its welcome link
-pnpm admin export-local-save <player id> [--from anonymous|account|account:<name>] [--out <folder>]  # a kid's newest save, read-only, into ~/animath-exports/
+pnpm admin export-local-save <player id> [--from anonymous|account|account:<name>] [--out <folder>]  # a kid's newest save, read-only, into ~/animath-exports/ (this Mac's old database only)
 pnpm admin import-save [--name <name>] [--origin <address>] < save.json             # an account for it, with no password, and a welcome link
 ```
 
@@ -331,7 +336,7 @@ The login and register limits are counted in the API process's memory, so restar
 
 **Accounts in the browser.** A guest's game is under `animath.save` as always. The account a browser is logged in to is `animath.account` (`{ name }`), and its game lives under `animath.account.<nameKey, URI-encoded>.save`, with its own set-aside keys (`.replaced`, `.unreadable`, `.previous`, `.upgraded`); logging out removes only the pointer, so the account's copy waits for the next login. `animath.playtime` counts a guest game's play for the hourly card: open a saved game with `?hour=10` and an hour is ten seconds (a throwaway game, `?new`, has no card and no account rows). To try two devices, drive two browser contexts against your own API: the screenshot script is one context, so a throwaway Playwright script opens both (each with its own storage and cookie), and `docker compose -p mathgame exec -T postgres psql …` on your own database shows what the server holds. A page whose account's save on the server a newer build wrote is behind it: it reloads up to 3 times a minute, then shows the behind card ("A new version of the game is ready."). Try it by setting that save's `version` to 99 in your own database.
 
-**Getting a kid's account game back.** As with the anonymous backup (§ Database), what an account's save replaced (another game, from New game on the title, or one the server could not read) is in `account_save_backups`. Put one back with a `seq` far above the current save's, in the document and in its column:
+**Getting a kid's account game back.** What an account's save replaced (another game, from New game on the title, or one the server could not read) is in `account_save_backups`. Put one back with a `seq` far above the current save's, in the document and in its column (the browser's own save can be ahead of the server's copy, and at its next start the browser takes the server's game only when its `seq` is higher):
 
 ```sql
 select b.id, b.reason, b.created_at, b.data->>'seq' as seq, b.data->'party' as party
@@ -344,16 +349,16 @@ update account_saves
 
 ### Moving a kid's game to production
 
-A game played through the tunnel lives in this Mac's `mathgame` database and in the kid's browser under the tunnel's address, which the public site cannot read. It moves as an account ([[DECISIONS]] § Accounts): export the save here, import it on production, and give the kid the welcome link the import prints. Only the admin does this, and the kid's local game is never written to.
+A game played through the tunnel lives in the kid's browser under the tunnel's address, which the public site cannot read, and, as the anonymous backup last took it before it was retired, in this Mac's `mathgame` database. It moves as an account ([[DECISIONS]] § Accounts): export the save here, import it on production, and give the kid the welcome link the import prints. Only the admin does this, and the kid's local game is never written to. The export reads the database, so it takes the game as the backup last saw it; a kid who played on through the tunnel after the backup was retired has that progress only in the browser. Then copy the browser's save instead (on the tunnel's address, in its developer tools: `copy(localStorage['animath.save'])`), paste it into a file in `~/animath-exports/` readable by you alone (`chmod 600`), and import that file (step 2).
 
-1. **Export**, on this Mac, from the primary clone, whose `.env` is the local `mathgame` database. The player id is the kid's (`localStorage['animath.player']` in his browser; the human's kid is `5c6f3bd4-fd8d-415a-8c88-65b087943c4b`):
+1. **Export**, on this Mac, from the primary clone, whose `.env` is the local `mathgame` database. The player id is the kid's (`localStorage['animath.player']` in his browser; the human's kid is `5c6f3bd4-fd8d-415a-8c88-65b087943c4b`). A kid who made an account on the tunnel, or whose id the server once stopped knowing, has older ids in `animath.player.previous` (`.2`, …), the game that moved into the account among them, and `animath.player` may then be a later guest game's: export with each id the browser holds, and keep the one whose line (below) is his game:
 
    ```bash
    cd ~/git/mathgame
    pnpm admin export-local-save 5c6f3bd4-fd8d-415a-8c88-65b087943c4b
    ```
 
-   It reads in a read-only session and writes nothing to the database ([[INVARIANTS]] § Server), so it is safe while he plays. It lists every copy of the game it finds with its `seq` and when it was saved: the anonymous backup, and the account he made locally, if he did (found by his name or by the game's lineage). When they are copies of one game it takes the one saved last. When they are different games (a new game he started in the account, or another kid's account that took the name he had as a guest) it writes nothing and says so: look at the list, and run it again with `--from anonymous`, `--from account` or `--from "account:<name>"`. It writes `~/animath-exports/<name>-<time>.json` (0600; a folder inside a repository is refused) and prints one line: his name, how many animals and which, tokens, tools, world and place, `seq`, when saved. Check that it is his game.
+   It reads in a read-only session and writes nothing to the database ([[INVARIANTS]] § Server), so it is safe while he plays. It lists every copy of the game it finds with its `seq` and when it was saved: the retired anonymous backup's, and the account he made locally, if he did (found by his name or by the game's lineage). When they are copies of one game it takes the one saved last. When they are different games (a new game he started in the account, or another kid's account that took the name he had as a guest) it writes nothing and says so: look at the list, and run it again with `--from anonymous`, `--from account` or `--from "account:<name>"`. It writes `~/animath-exports/<name>-<time>.json` (0600; a folder inside a repository is refused) and prints one line: his name, how many animals and which, tokens, tools, world and place, `seq`, when saved. Check that it is his game.
 
 2. **Import**, into production over SSH, the file on stdin. The link's address is `deploy.env`'s domain, handed to the container (`-T`: no terminal, so the file pipes through):
 
@@ -378,16 +383,16 @@ DATABASE_URL=postgres://postgres:postgres@localhost:5433/mathgame_<yours> pnpm a
 
 ## Sharing the game through a tunnel
 
-Before the prod server was up (§ Deployment), the game was shared from this machine, and the kids who played it then still play here until their games move over:
+Before the prod server was up (§ Deployment), the game was shared from this machine through a tunnel, and kids' browsers still open it at that address:
 
 ```bash
 TUNNEL=1 pnpm dev              # both dev servers; TUNNEL lets Vite accept the tunnel hostname
 ngrok http 5180                # or: cloudflared tunnel --url http://localhost:5180
 ```
 
-Send the printed URL. The API is reached through Vite's proxy, so one tunnel is enough. ngrok is installed and signed in on this machine.
+The API is reached through Vite's proxy, so one tunnel is enough. ngrok is installed and signed in on this machine.
 
-Each kid's game is saved in their own browser, under the link they opened, and backed up to this machine's database when the API is running (`pnpm dev` starts both; with only `pnpm dev:client` the games are still saved, just not backed up). So keep sending the same link. ngrok's free plan gives the account one fixed `….ngrok-free.dev` address, reused on every `ngrok http 5180`; a new address, `localhost`, or another tunnel is a different place, where the kid starts a new game and their old one waits under the old address.
+The game has its own address now, so a page opened through the tunnel shows the moved card before anything else ([[UI_SPEC]] § Frame): "Animath has moved!", a big button to https://animath.xyz, and a small "Keep playing here" under it, for a grown-up testing. A kid's game there is saved in their own browser, under the link they opened, and nowhere else since the anonymous backup was retired: this machine's database has it only as that backup last took it (§ Moving a kid's game to production). ngrok's free plan gives the account one fixed `….ngrok-free.dev` address, reused on every `ngrok http 5180`; a new address, `localhost`, or another tunnel is a different place, with a `localStorage` of its own.
 
 ## Deployment
 
@@ -400,9 +405,19 @@ Every push to main that touches what is deployed (`packages/`, the manifests, `D
 1. `check` stops the run, green with a notice, when the deploy secrets are missing or the head commit says `[skip deploy]`.
 2. `test` is the gate: `pnpm check`, `pnpm lint`, `pnpm test` (with Postgres beside it) and `nginx -t` on the server's config. A red check stops the deploy, and prod keeps the build it has.
 3. `build` pushes the image to GHCR as `:<sha>` and `:prod`.
-4. `deploy` runs, over SSH, `git reset --hard <sha>` in `~/mathgame` and `scripts/deploy.sh`. The script takes a lock (one deploy at a time), and stops before it touches a container when a canary of an earlier deploy is still there; the checkout has moved to the new commit by then. It warns when the checkout names another Postgres image than the one running, which a deploy never changes (`/redeploy` § Changing Postgres). Otherwise it migrates the database from the new image and checks that image where nothing can reach it (healthy, and serving the game's page). Only then does a canary of it take requests beside the old app, while compose recreates the app. After that it restarts the backup service if its definition or `scripts/backup.sh` changed, and applies nginx's definition and config. Then, from GitHub, `https://<domain>/api/health` must report `<sha>` within 2 minutes.
+4. `deploy` runs, over SSH, `git reset --hard <sha>` in `~/mathgame` and `scripts/deploy.sh`. The script takes a lock (one deploy at a time), and stops before it touches a container when a canary of an earlier deploy is still running (a stopped one serves nothing, and it removes it); the checkout has moved to the new commit by then. It warns when the checkout names another Postgres image than the one running, which a deploy never changes (`/redeploy` § Changing Postgres). Otherwise it migrates the database from the new image and checks that image where nothing can reach it (healthy, and serving the game's page). Then it applies nginx's definition and config, so the swap runs under the config the commit ships; a config that fails its check stops the deploy there, with the old app serving. Only then does a canary of the new image take requests beside the old app, while compose recreates the app, and once the canary has stopped, nginx is reloaded (§ What a request meets during a swap). After that it restarts the backup service if its definition or `scripts/backup.sh` changed. A deploy with no swap (the first, or an image that did not change) applies nginx too. Then, from GitHub, `https://<domain>/api/health` must report `<sha>` within 2 minutes.
 
 A push during a run waits for it. GitHub keeps one run waiting and cancels an older one, so of several pushes during a deploy only the newest runs; its build holds the others' code. If that newest says `[skip deploy]`, what it skipped stays off prod until the next deploy. `gh workflow run deploy.yml` builds and deploys main's tip whatever its commit says: the way to catch prod up after a `[skip deploy]`, a cancelled run or a failed one. A merge that touches nothing deployed (docs, `AGENTS/`) starts no run, and prod keeps its build.
+
+### What a request meets during a swap
+
+Every request is answered, and the slowest waits about a quarter of a second. nginx finds the app by asking Docker's DNS for `app`, and each worker keeps the answer for 5 s. A container that stops takes its address with it, and an address no container holds answers nothing, not even a refusal: nginx's default would wait 60 s on it. Two things keep that off a request. nginx waits at most 250 ms for the app to take a connection before it tries the app's other address (`proxy_connect_timeout`, `nginx/app.conf`), and once the canary has stopped, the deploy reloads nginx, whose new workers keep no answer and so never pick the canary's address again. A request still pays the 250 ms when it picks the app's address in the third of a second or so between the old app's container and the new one (compose gives the new one the same address), or the canary's in the fraction of a second before the reload. The same goes for a presence socket coming back after its server told it to (`bye: restart`).
+
+Before #114 a request sent to the canary's address in the 5 s after it left waited until the address answered again or the kernel gave up (4 to 23 s on the local stack; 60 s at most), and so did a socket coming back from the canary.
+
+Applying nginx's config refuses nothing either: a changed template is rendered again in the running nginx, which then reloads (`scripts/lib/nginx-apply.sh`). What recreates nginx is a change to its service in `docker-compose.prod.yml` (the image, the ports, the domain in `deploy.env`), and a recreate refuses every connection until nginx is back: nginx's graceful stop waits for its WebSockets until Docker kills it 10 s on, so the site is gone for about 12 s while kids play (10.4 s of failed requests with four presence sockets open on the local stack). Merge such a change when few kids are playing.
+
+nginx's access log shows a swap request by request: each line ends with the app addresses nginx tried, what each answered and how long each took. `172.18.0.6:3000, 172.18.0.3:3000 504, 200 0.251, 0.002` is a request that met an address that had gone, gave up on it after 250 ms, and was answered by the other; `502, 200` with no wait is one that met an app that had stopped listening. To watch a swap from the kids' side, see § Trying it on a Mac. On production, the access log is the server's side of a deploy; a `curl` loop from this Mac also times this Mac's own way to Hetzner ([[ENVIRONMENT_NOTES]]).
 
 ### Skipping a deploy
 
@@ -458,4 +473,11 @@ node scripts/screenshot.mjs --url http://localhost:8480/ --api --out screenshots
 docker compose -f docker-compose.prod.yml -f docker-compose.local.yml down -v
 ```
 
-The deploy script's first run starts the stack; run again after tagging a new build `mathgame:local`, it does the canary swap. `--api` lets the page back up to the stack's own database. To see the page shown while the game does not answer, stop the app (`… stop app`) and load `localhost:8480` (with `?lang=da` for Danish). The last line removes the stack's containers, network and volumes.
+The deploy script's first run starts the stack; run again after tagging a new build `mathgame:local`, it does the canary swap. `--api` lets the page reach the stack's own API (accounts, presence) and database. To see the page shown while the game does not answer, stop the app (`… stop app`) and load `localhost:8480` (with `?lang=da` for Danish). The last line removes the stack's containers, network and volumes.
+
+A swap needs only another image ID, not another build: `printf 'FROM mathgame:local\nLABEL swap=%s\n' $(date +%s) | docker build -q -t mathgame:local -` gives the same build a new one. To see what a swap does to the kids' requests, keep a loop asking for the health route from before the deploy script starts until a few seconds after it ends, and read the slowest; every answer should be a 200, none slower than about 0.3 s (§ What a request meets during a swap):
+
+```bash
+while :; do curl -s -o /dev/null -w "%{time_total} %{http_code}\n" localhost:8480/api/health; sleep 0.05; done | tee screenshots/swap.log
+sort -n screenshots/swap.log | tail -3
+```

@@ -6,13 +6,9 @@ import { env } from './env.js';
 import { ACCOUNT_LIMITS, type AccountLimits } from './rate-limit.js';
 import { accountRoute } from './routes/account.js';
 import { health } from './routes/health.js';
-import { playersRoute } from './routes/players.js';
 
 export interface AppOptions {
-	/**
-	 * Production: session cookies are Secure, and the anonymous backup
-	 * (`/api/players`) is off. Defaults to `NODE_ENV === 'production'`.
-	 */
+	/** Production: session cookies are Secure. Defaults to `NODE_ENV === 'production'`. */
 	production?: boolean;
 	/** The login and register rate limits; tests pass small ones. */
 	limits?: AccountLimits;
@@ -21,13 +17,6 @@ export interface AppOptions {
 	/** Whether accounts work now; by default the database's answer, kept 10 s (`AccountsReady`). */
 	accountsReady?: () => Promise<boolean>;
 }
-
-/**
- * The anonymous backup in production: gone. Accounts keep a game on the
- * server there; the backup stays in development until the kid's game has
- * moved to production. Its tables are left as they are.
- */
-const backupOff = new Hono().all('*', (c) => c.json({ error: 'the backup is off here' }, 410));
 
 /**
  * The built client, `packages/client/dist`, from the server package's own
@@ -60,8 +49,6 @@ export function createApp(options: AppOptions = {}) {
 	const app = new Hono();
 	app.use(logger((line) => console.log(hideWelcomeTokens(line))));
 	app.route('/api/health', health);
-	if (production) app.route('/api/players', backupOff);
-	else app.route('/api/players', playersRoute);
 	const accounts = new AccountsReady();
 	app.route(
 		'/api/account',

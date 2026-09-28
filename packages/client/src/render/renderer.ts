@@ -15,6 +15,7 @@ import { animateIdle, animateWalk, buildPlayerMesh } from './animals';
 import { BOAT_STAND, buildBoatMesh, poseBoat, standAstern } from './boat';
 import { ChunkRing } from './chunks';
 import { ClearingEffects, SWING_SECONDS, animateSwing, buildTool } from './clearing';
+import { Greetings } from './doctor';
 import { appearScale, smoothstep } from './ease';
 import { buildGliderMesh, poseGlider } from './glider';
 import { WatchedFights } from './fights';
@@ -164,6 +165,8 @@ export class GameRenderer {
 	private ringTool: ItemId | null = null;
 	/** Little clouds of dust where a trainer turns up out of nowhere. */
 	private poofs = new Poofs(this.scene);
+	/** Which witch doctors are greeting the trainer, who came near them. */
+	private greetings = new Greetings();
 	/** Draws the animal book's pictures, made the first time the book asks for one. */
 	private studio: PortraitStudio | null = null;
 	/** The other players in view, each with their lead (`others.ts`). */
@@ -256,6 +259,7 @@ export class GameRenderer {
 		this.chunks.reset(seed, edits);
 		this.clearings.clear();
 		this.poofs.clear();
+		this.greetings.clear();
 		this.others.setWorld(seed);
 		this.fights.setWorld(seed);
 		this.butterflies.setWorld(seed);
@@ -510,6 +514,7 @@ export class GameRenderer {
 		this.fights.update(t, dt);
 		this.poofs.update(t);
 		for (const f of this.figures) animateIdle(f, t, this.camera);
+		this.animateDoctors(t);
 		this.lastT = t;
 		// Aimed first: the butterflies keep out of this frame's view, not the last one's.
 		this.placeCamera();
@@ -517,6 +522,20 @@ export class GameRenderer {
 		this.sun.position.copy(this.cameraTarget).add(new THREE.Vector3(12, 20, 8));
 		this.sun.target.position.copy(this.cameraTarget);
 		this.renderer.render(this.scene, this.camera);
+	}
+
+	/**
+	 * The witch doctors at the tents in the chunks built (`doctor.ts`): each
+	 * breathes, sways and taps his staff, and one the trainer comes near hops
+	 * and waves, turned their way.
+	 */
+	private animateDoctors(t: number): void {
+		const trainer = this.playerAt;
+		this.chunks.forEachDoctor((doctor) => {
+			const greeting = this.greetings.check(doctor.x, doctor.z, trainer, t);
+			doctor.animate(t, greeting, greeting === null ? null : trainer, motion.reduced);
+		});
+		this.greetings.sweep(t);
 	}
 
 	/** The camera rides a fixed offset from the target: pitch and yaw never change. */

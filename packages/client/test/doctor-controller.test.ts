@@ -467,7 +467,7 @@ function bigParty(): AnimalInstance[] {
 }
 
 describe("the doctor's tabs", () => {
-	it('left and right go round heal, help home and shop, each with its own line and cursor', () => {
+	it('left and right go round heal, set free and shop, each with its own line and cursor', () => {
 		const t = setup(hurtParty());
 		t.talk();
 		expect(doctor.tab).toBe('heal');
@@ -595,7 +595,7 @@ describe('helping animals home', () => {
 		expect(doctor.marked).toEqual(['a']);
 		t.press('Enter');
 		expect(doctor.marked).toEqual(['a', 'b']);
-		// Help home comes after the animals, then Bye. It waits a quiet moment, as a pick does.
+		// Set them free comes after the animals, then Bye. It waits a quiet moment, as a pick does.
 		t.press('ArrowDown', 'ArrowDown');
 		expect(tabRowsOf()[doctor.cursor]).toEqual({ kind: 'send' });
 		t.press('Enter');
@@ -927,7 +927,7 @@ describe('helping a whole kind home', () => {
 			t.press('Enter');
 			expect(doctor.marked, name).toHaveLength(40);
 			expect(homeTokens(doctor.party.filter((a) => doctor.marked.includes(a.id)))).toBe(240);
-			// Up from the top: round to Bye, then Help them home.
+			// Up from the top: round to Bye, then Set them free.
 			t.press('ArrowUp', 'ArrowUp');
 			expect(tabRowsOf()[doctor.cursor], name).toEqual({ kind: 'send' });
 			t.run(PICK_QUIET_SECONDS);
@@ -1048,7 +1048,7 @@ describe('helping a whole kind home', () => {
 		).toEqual(kinds);
 		// Every kind's row is a line apart from the kind before it.
 		expect(rows.filter((r) => 'groupStart' in r && r.groupStart)).toHaveLength(7);
-		// The bears, all at once, from the bottom of the list (round to Bye, past Help them home
+		// The bears, all at once, from the bottom of the list (round to Bye, past Set them free
 		// while nothing is picked, then up the fifteen bears): 15 × 30 tokens.
 		for (let i = 0; i < 17; i++) t.press('ArrowUp');
 		expect(rows[doctor.cursor]).toEqual({ kind: 'bundle', speciesId: 'bear', groupStart: true });

@@ -20,7 +20,7 @@ export { DOCTOR_TABS, type DoctorTab } from '../doctor/tabs';
  * never write it.
  *
  * The card has three tabs ([[UI_SPEC]] § Doctor): **heal** (the hurt animals),
- * **home** (help animals home to the wild, for tokens) and **shop** (buy an
+ * **home** (set animals free, home to the wild, for tokens) and **shop** (buy an
  * item with tokens). `screen` says what the keyboard does: `list` moves the
  * cursor over the tab's rows (← → change the tab), `confirm` asks before a
  * hand-over, `puzzle` types an answer (a healing puzzle or a token sum),
@@ -39,7 +39,7 @@ export type DoctorTrade =
  * since one healing puzzle helps a whole species; `groupStart` marks the
  * first row of a bundle after the first. On **home** a bundle of several
  * animals has a row of its own over them, `bundle` ("Fox ×40"), which picks
- * or unpicks the whole kind at once. `send` is Help home's button, and `bye`
+ * or unpicks the whole kind at once. `send` is Set free's button, and `bye`
  * ends every list.
  */
 export type DoctorRow =
@@ -160,7 +160,7 @@ export function tabRows(
 /**
  * The rows the cursor stops on: on **heal** the animals who need the doctor
  * (fit ones are shown, greyed, and skipped); on **home** every animal and
- * every bundle's row, and Help home once one is picked; on **shop** every
+ * every bundle's row, and Set them free once one is picked; on **shop** every
  * item, the ones that can't be bought too (the card says why); and Bye on
  * every tab.
  */
