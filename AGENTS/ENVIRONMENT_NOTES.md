@@ -116,6 +116,16 @@ gh's token has the `workflow` scope since 2026-09-27, which a push that adds or 
 
 **A `curl` loop from here times this Mac's way to Hetzner as much as the server.** On 2026-09-28, with no deploy running, about one new connection to `animath.xyz` in eight took 1 to 3 s, all of it in the TCP connect (a SYN sent again after 1, 2 or 3 s). hetzner.com did the same, github.com did not. During #127's deploy such a loop's slowest answer was 4.2 s, two minutes before the deploy reached the server, while nginx answered every request in 37 ms at most. So the server's side of a deploy is nginx's access log: each line's request time, and the app addresses nginx tried with what each answered ([[DEVELOPMENT]] § What a request meets during a swap). Before blaming the server for a slow `curl`, split it: `-w '%{time_namelookup} %{time_connect} %{time_appconnect} %{time_starttransfer} %{time_total}'`.
 
+## The health watch's notifications are Script Editor's
+
+The watch shows its notifications with `osascript` ([[DEVELOPMENT]] § Errors and health), and macOS files them under Script Editor (`com.apple.ScriptEditor2`), in System Settings → Notifications as in Notification Center. On 2026-09-28 the first one, from the launchd agent at install, needed no permission and was delivered as a banner, on the lock screen and in Notification Center. If Script Editor's notifications are ever switched off there, `osascript` still exits 0 and the watch's log still says `notified:`, while nothing shows. Whether one reached the screen is in the unified log, without looking at the human's screen (a screenshot of it would take in whatever else is open):
+
+```bash
+log show --last 10m --style compact --predicate 'process == "usernoted" AND eventMessage CONTAINS "ScriptEditor2"' | grep Delivering
+```
+
+A delivered one reads `Delivering <NotificationRecord app:"com.apple.ScriptEditor2" …> to [ .alert .lockScreen .notificationCenter ]`.
+
 ## Steps in the human's own browser are the human's
 
 On 2026-09-27 the Claude-in-Chrome extension was not connected to the session. The permission classifier also refused a browser step an orchestrator had delegated, the one granting gh the `workflow` scope through GitHub's device flow: the orchestrator's word is not the human's. So a grant of access, a new credential or a change in an account (an OAuth scope, the Hetzner API token, a DNS record at Porkbun) is the human's to do. Asked plainly, with the exact values, the human did all three that day in minutes: the scope, the token into `terraform/terraform.tfvars`, and the records. Plan them as the human's.
