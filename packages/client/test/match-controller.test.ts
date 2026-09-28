@@ -9,6 +9,7 @@ import {
 	worldSeed,
 	type AnimalInstance,
 	type ClientMessage,
+	type HiMessage,
 	type MatchIntent,
 	type MatchMessage,
 	type MatchSide,
@@ -23,7 +24,7 @@ import { LocalAuthority } from '../src/authority/local';
 import { PICK_QUIET_SECONDS } from '../src/input/pick-guard';
 import { optionKey } from '../src/input/press';
 import { words } from '../src/lines';
-import { MatchController, WENT_BACK_KEY } from '../src/match/controller';
+import { MatchController, wentBackKey } from '../src/match/controller';
 import type { GameRenderer } from '../src/render/renderer';
 import type { KeyValueStore } from '../src/save/storage';
 import { battle } from '../src/state/battle.svelte';
@@ -142,7 +143,7 @@ afterEach(() => {
 	match.reset();
 });
 
-/** A tab's sessionStorage, in memory. */
+/** The browser's localStorage, in memory: every tab of it, and every load. */
 function memoryStore(): KeyValueStore & { map: Map<string, string> } {
 	const map = new Map<string, string>();
 	return {
@@ -154,12 +155,13 @@ function memoryStore(): KeyValueStore & { map: Map<string, string> } {
 }
 
 /**
- * This page (Ada's) with its game under way, the socket on. `session` is the
- * tab's session store, and `back` the match the server's first hi names.
+ * This page (Ada's) with its game under way, the socket on. `store` is the
+ * browser's localStorage, and the server's first hi is `hi`, naming no match
+ * unless it says otherwise.
  */
 function setup(
 	party: AnimalInstance[] = PARTY,
-	{ session = null, back = null }: { session?: KeyValueStore | null; back?: string | null } = {}
+	{ store = null, first = hi(null) }: { store?: KeyValueStore | null; first?: HiMessage } = {}
 ) {
 	const authority = new LocalAuthority();
 	const sent: ClientMessage[] = [];
@@ -184,7 +186,7 @@ function setup(
 			).length;
 			authority.countMatchAnswers(events, side);
 		},
-		session
+		store
 	});
 	authority.subscribe((e) => {
 		game.apply(e);
@@ -200,7 +202,7 @@ function setup(
 	authority.start({ game: saved });
 	stop = () => authority.dispatch({ type: 'leave-game' });
 	controller.status('on');
-	controller.receive(hi(back));
+	controller.receive(first);
 	const frame = (dt = 1 / 30) => {
 		now += dt;
 		controller.update(dt);
@@ -717,30 +719,40 @@ describe('a match', () => {
 		expect(t.sentOf('done')).toHaveLength(1);
 	});
 
-	it("keeps the kid's Back through a reload of the tab, until the server has let go of the match", () => {
-		const session = memoryStore();
-		const t = setup(PARTY, { session });
+	it("keeps the kid's Back for every page of theirs in the browser, a reload or another tab, and nobody else's", () => {
+		const store = memoryStore();
+		const t = setup(PARTY, { store });
 		const ref = started(t);
 		playedOut(t, ref);
 		t.setOnline(false);
 		t.controller.status('waiting');
 		t.pick('ArrowRight', 'Enter');
-		expect(session.map.get(WENT_BACK_KEY)).toBe(ref.id);
-		// The tab reloads before the connection is back: a new page, whose first hi names the match.
-		stop?.();
-		battle.reset();
-		match.reset();
-		const u = setup(PARTY, { session, back: ref.id });
+		expect(store.map.get(wentBackKey(pidOf('Ada')))).toBe(ref.id);
+		const newPage = (first: HiMessage) => {
+			stop?.();
+			battle.reset();
+			match.reset();
+			return setup(PARTY, { store, first });
+		};
+		// Bo plays on this browser too (another game of it): his page shows his result, and says nothing.
+		const bo = newPage({ ...hi(ref.id), pid: pidOf('Bo'), name: 'Bo' });
+		bo.controller.receive(ref.message('b'));
+		bo.runUntil(() => battle.screen === 'result');
+		expect(match.stage).toBe('over');
+		expect(bo.sentOf('done')).toEqual([]);
+		expect(store.map.get(wentBackKey(pidOf('Ada')))).toBe(ref.id);
+		// Ada's tab reloads (or she opens another) before her connection is back: a new page of hers.
+		const u = newPage(hi(ref.id));
 		expect(u.sentOf('done')).toEqual([{ t: 'done', id: ref.id }]);
 		u.controller.receive(ref.message('a'));
 		u.run(3);
 		expect(match.stage).toBe('none');
 		expect(battle.active).toBe(false);
-		// Once a hi no longer names it, the tab forgets it.
+		// Once a hi of hers no longer names it, the browser forgets it.
 		u.controller.status('waiting');
 		u.controller.status('on');
 		u.controller.receive(hi(null));
-		expect(session.map.has(WENT_BACK_KEY)).toBe(false);
+		expect(store.map.size).toBe(0);
 	});
 
 	it('brings the result back to a page that never chose to leave it: after a drop, or after another window took over', () => {
