@@ -29,8 +29,8 @@ const SEEDS = 200;
 /** More seeds where a test compares a win rate with a target band. */
 const TARGET_SEEDS = 1000;
 /**
- * Sampling slack on a target band. A mean over the same-tier pairs (337 since
- * #89's second wave) at 1000 seeds each has a standard error well under half a
+ * Sampling slack on a target band. A mean over the same-tier pairs (391 since
+ * #89's third wave) at 1000 seeds each has a standard error well under half a
  * point, so 2 points is over four standard errors: the band, not the dice,
  * decides the test.
  */
@@ -48,8 +48,8 @@ const tier = (id: string) => getAnimal(id).tier;
 /**
  * Every (player, wild) pair that can meet: the two "never hurts" checks walk
  * them all, so a balance change that breaks either anywhere in the catalog
- * fails ([[DEVELOPMENT]] § Testing ideology). Over 1,300 pairs since #89's
- * second wave.
+ * fails ([[DEVELOPMENT]] § Testing ideology). 1,561 pairs since #89's third
+ * wave.
  */
 const MEETING_PAIRS: readonly (readonly [string, string])[] = ids.flatMap((p) =>
 	ids.flatMap((w) => (arena(p, w) !== null ? [[p, w] as const] : []))
@@ -213,8 +213,10 @@ describe('balance simulation', () => {
 				for (const accuracy of [1, 0.85, 0.7])
 					for (const level of [1, 2, 3] as AttackLevel[]) models.push({ accuracy, policy, level });
 			console.log('\n' + [targets(), ...models.map(grid)].join('\n\n') + '\n');
-			// Every species pair under 27 models: 18 s with eight species on a loaded machine.
-		}, 120_000);
+			// Every species pair under 27 models: 18 s with eight species on a loaded machine, and
+			// 3.5 minutes alone with the 50 of #91's buzzard (at a load average of 4). SIM only: it
+			// prints at the end whatever its bound, so the bound only has to be past any wait.
+		}, 3_600_000);
 	}
 
 	it("a squirrel almost never beats a bear, even when it's always right, nor a crab a whale, nor any small animal a tier-5 one", () => {
@@ -233,16 +235,19 @@ describe('balance simulation', () => {
 			'robin',
 			'stag-beetle',
 			'crab',
-			'starfish'
+			'starfish',
+			'moon-jellyfish',
+			'plaice'
 		]);
 		// Every small animal of the land meets the bear, the moose and the bison (#89); at sea,
-		// the whale meets the two small sea animals and the two small ones that swim, the frog
-		// and the toad.
+		// the whale and the orca meet the four small sea animals and the two small ones that
+		// swim, the frog and the toad.
 		for (const [big, meeting] of [
 			['bear', 12],
 			['moose', 12],
 			['european-bison', 12],
-			['whale', 4]
+			['whale', 6],
+			['orca', 6]
 		] as const) {
 			const meet = small.filter((id) => arena(id, big) !== null);
 			expect(meet.length, `tier-1 animals that meet the ${big}`).toBe(meeting);
@@ -253,9 +258,10 @@ describe('balance simulation', () => {
 			'bear',
 			'moose',
 			'european-bison',
-			'whale'
+			'whale',
+			'orca'
 		]);
-		// 40 pairs, 200 battles each: under a second alone, a few beside the suite under load.
+		// 48 pairs, 200 battles each: under a second alone, a few beside the suite under load.
 	}, 30_000);
 
 	it('each sea animal is its land twin in numbers, so the land balance holds at sea as it is', () => {
@@ -265,7 +271,16 @@ describe('balance simulation', () => {
 			turtle: 'otter',
 			dolphin: 'deer',
 			octopus: 'wolf',
-			whale: 'bear'
+			whale: 'bear',
+			// #89's third wave: each the twin of a named land animal of its tier.
+			'moon-jellyfish': 'wood-mouse',
+			plaice: 'mole',
+			'lions-mane-jellyfish': 'adder',
+			lobster: 'badger',
+			'harbour-seal': 'wild-boar',
+			'harbour-porpoise': 'mute-swan',
+			'grey-seal': 'wolverine',
+			orca: 'european-bison'
 		};
 		const sea = ANIMALS.filter((a) => !a.realms.includes('land')).map((a) => a.id);
 		expect(Object.keys(twins)).toEqual(sea);
@@ -293,11 +308,11 @@ describe('balance simulation', () => {
 		}
 	});
 
-	// The two sweeps below play every same-tier pair that can meet (337 since #89's second
-	// wave), 1,000 battles each, with the seeds the bands were set on: 12 and 14 s alone at a
-	// load average of 10, 60 and 62 s beside the rest of the engine's suite at 120, so they
-	// turn the worker's loop as they go. At a load of 150 a test takes up to ten times its run
-	// alone, so the bounds are three times that.
+	// The two sweeps below play every same-tier pair that can meet (391 since #89's third
+	// wave), 1,000 battles each, with the seeds the bands were set on. With its second wave's
+	// 337 they took 12 and 14 s alone at a load average of 10, 60 and 62 s beside the rest of
+	// the engine's suite at 120, so they turn the worker's loop as they go. At a load of 150 a
+	// test takes up to ten times its run alone, so the bounds are three times that.
 	it('the easiest puzzle, always right, usually beats an animal of your own tier (65–80%)', async () => {
 		const rates = await winRatesTurning(0, easiest(1));
 		for (const { p, w, win } of rates) expect(win, `${p} vs ${w}`).toBeGreaterThan(0.5);
@@ -334,8 +349,9 @@ describe('balance simulation', () => {
 			expect(win, `${p} vs ${w}`).toBeLessThan(0.35);
 		for (const { p, w, win } of await winRatesTurning(2, easiest(1)))
 			expect(win, `${p} vs ${w}`).toBeLessThan(0.1);
-		// 352 pairs, 1,000 battles each since #89's second wave: 7.5 s alone at a load average of
-		// 10, 28 s beside the suite at 120, and up to ten times its run alone at 150.
+		// 422 pairs, 1,000 battles each since #89's third wave; its second wave's 352 took 7.5 s
+		// alone at a load average of 10, 28 s beside the suite at 120, and up to ten times its
+		// run alone at 150.
 	}, 240_000);
 
 	it('being right more often never hurts', async () => {
@@ -349,11 +365,11 @@ describe('balance simulation', () => {
 			}
 		}
 		expect(bad).toEqual([]);
-		// Every pair, four models, 200 battles each (about a million battles with the 41 animals
-		// of #89's second wave, less the pairs the sweeps above played at 1,000 seeds, whose first
-		// 200 it reads): 15 s alone at a load average of 10, 71 s beside the suite at 120 before
-		// it read them, and up to ten times its run alone at 150. It turns the worker's loop as
-		// it goes.
+		// Every pair, four models, 200 battles each (1.25 million battles with the 49 animals of
+		// #89's third wave, less the pairs the sweeps above played at 1,000 seeds, whose first
+		// 200 it reads). With its second wave's 41: 15 s alone at a load average of 10, 71 s
+		// beside the suite at 120 before it read them, and up to ten times its run alone at 150.
+		// It turns the worker's loop as it goes.
 	}, 480_000);
 
 	it('a stronger attack at a higher level never hurts an always-right player', () => {

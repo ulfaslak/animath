@@ -129,10 +129,14 @@ function bell(k: number, distance: number): number {
  * resident weighs its tier's `bell` over the number of its tier's residents;
  * at the river and in the mountains, where a resident is bigger than the lead,
  * every species of the realm and the lead's tier that doesn't live there
- * visits, the visitors together weighing three of the lead's tier's bells
- * times 1 − danger, evenly. Shares, in roster order. With the starter in front near
- * spawn before the bell it was PR #12's table: the river and the mountains
- * were exactly the biomes with residents but no tier-1 animal.
+ * visits, the visitors adding three of the lead's tier's bells to it times
+ * 1 − danger: near home each visitor weighs a third of the three, unless a
+ * visitor would then weigh more than a resident of its size (#136), and then
+ * the residents and the visitors weigh the tier's four bells evenly, the
+ * residents' part beyond their own bell thinning out with the visitors.
+ * Shares, in roster order. With the starter in front near spawn before the
+ * bell it was PR #12's table: the river and the mountains were exactly the
+ * biomes with residents but no tier-1 animal.
  */
 function bellTable(
 	roster: readonly Kind[],
@@ -149,10 +153,19 @@ function bellTable(
 	const guest = (a: Kind) =>
 		a.tier === lead && !a.habitats.includes(biome) && visited && danger < 1;
 	const guests = here.filter(guest).length;
+	const hosts = count(lead);
+	// Near home, in bells of the lead's tier (its bell is 1 at every distance).
+	const outweighs = hosts > 0 && 3 / guests > 1 / hosts;
+	const visitor = outweighs ? 4 / (hosts + guests) : 3 / guests;
+	const theirs = (1 + (3 - guests * visitor) * (1 - danger)) / hosts;
 	const raw = new Map<string, number>();
 	for (const a of here) {
-		if (a.habitats.includes(biome)) raw.set(a.id, bell(a.tier - lead, distance) / count(a.tier));
-		else if (guest(a)) raw.set(a.id, (3 * bell(0, distance) * (1 - danger)) / guests);
+		if (a.habitats.includes(biome))
+			raw.set(
+				a.id,
+				a.tier === lead && guests > 0 ? theirs : bell(a.tier - lead, distance) / count(a.tier)
+			);
+		else if (guest(a)) raw.set(a.id, visitor * (1 - danger));
 	}
 	let sum = 0;
 	for (const w of raw.values()) sum += w;
@@ -379,15 +392,16 @@ describe('encounterTable', () => {
 				bear: nearUp(4)
 			})
 		);
-		// Out on the deep water: the sea animals only, the frog in the boat's lead or not.
+		// Out on the deep water: the sea animals only, the frog in the boat's lead or not, and
+		// since #89's third wave every tier of them two to four kinds.
 		expectShares(
 			encounterTable('sea', 0, 1, 'water'),
 			normalised({
-				...split(1, 'crab', 'starfish'),
-				turtle: nearUp(1),
-				dolphin: nearUp(2),
-				octopus: nearUp(3),
-				whale: nearUp(4)
+				...split(1, 'crab', 'starfish', 'moon-jellyfish', 'plaice'),
+				...split(nearUp(1), 'turtle', 'lions-mane-jellyfish', 'lobster'),
+				...split(nearUp(2), 'dolphin', 'harbour-seal', 'harbour-porpoise'),
+				...split(nearUp(3), 'octopus', 'grey-seal'),
+				...split(nearUp(4), 'whale', 'orca')
 			})
 		);
 		// Nine small kinds beside five tier-2 ones in the meadow, seven beside six in the
@@ -447,6 +461,68 @@ describe('encounterTable', () => {
 				...split(3, 'deer', 'wild-boar', 'mute-swan'),
 				...split(nearUp(1), 'wolf', 'lynx', 'wolverine', 'golden-eagle'),
 				bear: nearUp(2)
+			})
+		);
+		// A wolf in the mountains near home: the sea eagle is the one tier-4 animal that comes up
+		// the hills, beside the four living there. Its three bells alone would make it twelve
+		// times as common as each of them, 62% of the battles (#136): no visitor weighs more
+		// than a resident, so the five share the tier's four bells, 16% each.
+		expectShares(
+			encounterTable('mountain', 0, 4),
+			normalised({
+				'common-lizard': down(3),
+				...split(down(2), 'stoat', 'adder'),
+				'eagle-owl': down(1),
+				...split(4, 'wolf', 'lynx', 'wolverine', 'golden-eagle', 'white-tailed-eagle'),
+				bear: nearUp(1)
+			})
+		);
+		expect(sharesOf(encounterTable('mountain', 0, 4)).get('white-tailed-eagle')!).toBeCloseTo(
+			0.8 / (4 + down(1) + down(2) + down(3) + nearUp(1)),
+			12
+		);
+		// A tier-2 animal at the river near home: its eight visitors (the buzzard, #91, the
+		// eighth) would weigh 3/8 of a bell each against the four residents' 1/4; so all twelve
+		// share the four bells. The small animals and the bigger ones keep their shares: only
+		// the tier's own split moves.
+		expectShares(
+			encounterTable('river', 0, 2),
+			normalised({
+				...split(down(1), 'frog', 'brown-rat', 'common-toad'),
+				...split(
+					4,
+					'fox',
+					'otter',
+					'roe-deer',
+					'badger',
+					'pine-marten',
+					'stoat',
+					'adder',
+					'grey-heron',
+					'tawny-owl',
+					'raccoon',
+					'beaver',
+					'buzzard'
+				),
+				'mute-swan': nearUp(1),
+				'white-tailed-eagle': nearUp(2),
+				moose: nearUp(3)
+			})
+		);
+		// Halfway out the visitor has thinned to half, and the residents' part beyond their own
+		// bell with it: near home each of them weighs 4/5 of a bell, 11/20 more than its quarter;
+		// here 11/40 more.
+		const half = SAFE_RADIUS + (WILD_RADIUS - SAFE_RADIUS) / 2;
+		const up = (k: number) => bell(k, half);
+		expectShares(
+			encounterTable('mountain', half, 4),
+			normalised({
+				'common-lizard': down(3),
+				...split(down(2), 'stoat', 'adder'),
+				'eagle-owl': down(1),
+				...split(1 + 11 / 10, 'wolf', 'lynx', 'wolverine', 'golden-eagle'),
+				'white-tailed-eagle': 0.8 / 2,
+				bear: up(1)
 			})
 		);
 		// A bear at the river, where the moose is its size (#89): the moose, and the sea eagle,
@@ -575,6 +651,45 @@ describe('encounterTable', () => {
 		// was a table of its own.
 	}, 30_000);
 
+	it('no visitor weighs more than an animal of its size living there, at any distance (#136)', () => {
+		// Near home a wolf's hills were 62% sea eagles, the one tier-4 animal that visits them,
+		// weighing the visitors' three bells alone beside the four tier-4 animals living there.
+		const bad: string[] = [];
+		const seen = new Set<string>();
+		for (const lead of LEADS) {
+			for (const biome of BIOMES) {
+				for (const d of SWEEP) {
+					const own = tableIn(biome, d, lead).filter((e) => e.species.tier === lead);
+					const hosts = own.filter((e) => e.species.habitats.includes(biome));
+					const guests = own.filter((e) => !e.species.habitats.includes(biome));
+					if (hosts.length === 0 || guests.length === 0) continue;
+					seen.add(`${lead}:${biome}`);
+					const least = Math.min(...hosts.map((e) => e.weight));
+					for (const g of guests)
+						if (!(g.weight <= least * (1 + 1e-12)))
+							bad.push(
+								`${g.species.id}, tier-${lead} lead in ${biome} @ ${d}: ${g.weight} > ${least}`
+							);
+				}
+			}
+		}
+		expect(bad).toEqual([]);
+		// Every lead up to tier 4 has visitors at the river and in the mountains.
+		expect([...seen].sort()).toEqual(
+			['1', '2', '3', '4'].flatMap((l) => [`${l}:mountain`, `${l}:river`])
+		);
+		// A lone visitor beside four residents weighs what each of them does near home; where
+		// visitors are many (the starter's reeds: nine of them beside three residents), each
+		// weighs its third of the three bells, as it did before.
+		const hills = sharesOf(encounterTable('mountain', 0, 4));
+		for (const id of ['wolf', 'lynx', 'wolverine', 'golden-eagle'])
+			expect(hills.get(id)!, id).toBeCloseTo(hills.get('white-tailed-eagle')!, 14);
+		const reeds = sharesOf(encounterTable('river', 0, 1));
+		expect(reeds.get('squirrel')!).toBeCloseTo(reeds.get('frog')!, 14);
+		// 9,650 tables: 0.09 s alone at a load average of 18, and up to ten times its run alone
+		// at 150.
+	}, 30_000);
+
 	it("the lead's own tier is the likeliest wherever it lives, at every distance; from the wild radius the bell is symmetric", () => {
 		const bad: string[] = [];
 		for (const lead of LEADS) {
@@ -700,7 +815,8 @@ describe('encounterTable', () => {
 							.map((e) => e.weight)
 					)
 				);
-				// Ten thousand steps and more: the least is a crab with a whale in front, 2.4e−5.
+				// Ten thousand steps and more: the least is one of the four small sea animals with a
+				// whale or an orca in front, 1.2e−5.
 				expect(most / 4, `${a.id} for a tier-${lead} lead far out`).toBeGreaterThan(1e4 * step);
 			}
 		}
@@ -724,7 +840,8 @@ describe('encounterTable', () => {
 				['forest', 'european-bison'],
 				['river', 'moose'],
 				['mountain', 'bear'],
-				['sea', 'whale']
+				['sea', 'whale'],
+				['sea', 'orca']
 			] as const)
 				expect(weightOf(biome, d, id), `${id} in ${biome} @ ${d}`).toBeLessThan(step / 1000);
 		}
@@ -1021,7 +1138,22 @@ describe('encounterTableAt: the ground around the tall grass', () => {
 				expect(encounterTableAt(shallows as EncounterSite, lead)).toEqual([]);
 			}
 		}
-		expect(sea).toEqual(['crab', 'starfish', 'turtle', 'dolphin', 'octopus', 'whale']);
+		expect(sea).toEqual([
+			'crab',
+			'starfish',
+			'turtle',
+			'dolphin',
+			'octopus',
+			'whale',
+			'moon-jellyfish',
+			'plaice',
+			'lions-mane-jellyfish',
+			'lobster',
+			'harbour-seal',
+			'harbour-porpoise',
+			'grey-seal',
+			'orca'
+		]);
 		// A land biome grows no water to meet anything in; were its table built for the water,
 		// it would hold only the amphibious animals living there (the toad in the forest).
 		for (const biome of ['meadow', 'forest', 'mountain'] as const) {
@@ -1090,18 +1222,18 @@ describe('the start: the ground near spawn', () => {
 			})
 		);
 		// A tier-2 animal in front: its tier weighs four bells there since bigger animals live
-		// at the river (#89), the river's own four and three for the eight tier-2 animals that
-		// come down to the water (the buzzard, #91, the eighth), which the ground re-divides:
-		// the river's own, at home by the water, four times as much each as a visitor of the
-		// trees or the rocks. The three small ones of the water, a tier below, weigh e^−1/2
-		// together (13% of the battles), the mute swan 1/9, the sea eagle 1/9^4 and the moose
-		// 1/9^9.
+		// at the river (#89). Its eight visitors (the buzzard, #91, the eighth) would weigh 3/8
+		// of a bell each against the river's own four at 1/4, so all twelve share the four
+		// evenly (#136), and the ground re-divides them: the river's own, at home by the water,
+		// four times as much each as a visitor of the trees or the rocks, 2/3 of a bell each
+		// against 1/6. The three small ones of the water, a tier below, weigh e^−1/2 together
+		// (13% of the battles), the mute swan 1/9, the sea eagle 1/9^4 and the moose 1/9^9.
 		expectShares(
 			encounterTableAt(site, 2),
 			normalised({
-				...each(4 / 7, 'otter', 'grey-heron', 'raccoon', 'beaver'),
+				...each(2 / 3, 'otter', 'grey-heron', 'raccoon', 'beaver'),
 				...each(
-					3 / 14,
+					1 / 6,
 					'fox',
 					'roe-deer',
 					'badger',
@@ -1401,8 +1533,10 @@ const skiesOfKind = (a: Kind): readonly Biome[] =>
  * `bell` over the number of its tier's birds flying over that sky (where they live, and the
  * sea eagle over the sea too); and in every sky, not only at the river and in the mountains,
  * wherever a bird bigger than the lead flies there, every bird of the lead's tier that does
- * not visits, the visitors together weighing three of the lead's tier's bells times
- * 1 − danger, evenly. Shares, in roster order.
+ * not visits, the visitors adding three of the lead's tier's bells to it times 1 − danger,
+ * as on the ground: a third of the three each near home, unless a visitor would then weigh
+ * more than a bird of its size flying there (#136), and then the birds of the tier flying
+ * there and the visitors weigh its four bells evenly. Shares, in roster order.
  */
 function skyBellTable(
 	roster: readonly Kind[],
@@ -1418,11 +1552,19 @@ function skyBellTable(
 	const guest = (a: Kind) =>
 		a.tier === lead && !skiesOfKind(a).includes(biome) && visited && danger < 1;
 	const guests = birds.filter(guest).length;
+	const hosts = count(lead);
+	// Near home, in bells of the lead's tier (its bell is 1 at every distance).
+	const outweighs = hosts > 0 && 3 / guests > 1 / hosts;
+	const visitor = outweighs ? 4 / (hosts + guests) : 3 / guests;
+	const theirs = (1 + (3 - guests * visitor) * (1 - danger)) / hosts;
 	const raw = new Map<string, number>();
 	for (const a of birds) {
 		if (skiesOfKind(a).includes(biome))
-			raw.set(a.id, bell(a.tier - lead, distance) / count(a.tier));
-		else if (guest(a)) raw.set(a.id, (3 * bell(0, distance) * (1 - danger)) / guests);
+			raw.set(
+				a.id,
+				a.tier === lead && guests > 0 ? theirs : bell(a.tier - lead, distance) / count(a.tier)
+			);
+		else if (guest(a)) raw.set(a.id, visitor * (1 - danger));
 	}
 	let sum = 0;
 	for (const w of raw.values()) sum += w;
@@ -1529,6 +1671,40 @@ describe('the sky: birds that notice the glider (#91)', () => {
 		expectShares(far('mountain'), normalised({ 'eagle-owl': down(2), 'golden-eagle': down(3) }));
 		expectShares(far('sea'), { 'white-tailed-eagle': 1 });
 		// 9,625 tables, each written out again here.
+	}, 30_000);
+
+	it('no visitor weighs more than a bird of its size flying there, over any biome, at any distance (#136)', () => {
+		const bad: string[] = [];
+		const seen = new Set<string>();
+		for (const lead of LEADS) {
+			for (const biome of BIOMES) {
+				for (const d of SWEEP) {
+					const own = skyIn(biome, d, lead).filter((e) => e.species.tier === lead);
+					const hosts = own.filter((e) => skiesOfKind(e.species).includes(biome));
+					const guests = own.filter((e) => !skiesOfKind(e.species).includes(biome));
+					if (hosts.length === 0 || guests.length === 0) continue;
+					seen.add(`${lead}:${biome}`);
+					const least = Math.min(...hosts.map((e) => e.weight));
+					for (const g of guests)
+						if (!(g.weight <= least * (1 + 1e-12)))
+							bad.push(
+								`${g.species.id}, tier-${lead} lead over ${biome} @ ${d}: ${g.weight} > ${least}`
+							);
+				}
+			}
+		}
+		expect(bad).toEqual([]);
+		// Where a bird of the lead's size lives under a bigger one, and others of its size come:
+		// the tawny owl over the forest (the eagle-owl's too) and the heron over the river, with a
+		// tier-2 bird in front; the swan over the river and the eagle-owl over the mountains,
+		// with a tier-3 one. Near home the heron and the buzzard over the forest weigh what the
+		// tawny owl does, where their three bells alone would make each half as common again.
+		expect([...seen].sort()).toEqual(['2:forest', '2:river', '3:mountain', '3:river']);
+		const forest = new Map(skyIn('forest', 0, 2).map((e) => [e.species.id, e.weight]));
+		for (const id of ['grey-heron', 'buzzard'])
+			expect(forest.get(id)!, id).toBeCloseTo(forest.get('tawny-owl')!, 14);
+		// 9,650 tables: 0.07 s alone at a load average of 2, and up to ten times its run alone
+		// at 150.
 	}, 30_000);
 
 	it('lists only birds, over every biome; every bird flies over a sky of every lead, near home and far out, and far out every one can come out', () => {

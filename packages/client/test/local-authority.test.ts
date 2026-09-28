@@ -410,13 +410,29 @@ describe('LocalAuthority: the lead decides who comes out', () => {
 				15, 53, 107, 117
 			]);
 			// The rest are its own size, but for one mute swan, a tier up (1/9 of a bell near home).
+			// Of its size, the river's own four come out four times as often each as one of the
+			// eight that come down to the water: no visitor weighs more than a resident (#136), so
+			// the twelve share the tier's four bells, and by the water the ground favours the river's.
 			const others = met.filter((m) => !small.includes(m.wild));
 			expect(others.filter((m) => getAnimal(m.wild).tier !== 2)).toEqual([
 				{ step: 97, wild: 'mute-swan', lead: 'fox' }
 			]);
 			expect(new Set(others.map((m) => m.wild))).toEqual(
-				new Set(['stoat', 'otter', 'raccoon', 'mute-swan', 'roe-deer', 'fox', 'grey-heron'])
+				new Set([
+					'adder',
+					'otter',
+					'raccoon',
+					'mute-swan',
+					'roe-deer',
+					'fox',
+					'grey-heron',
+					'stoat'
+				])
 			);
+			const residents = ['otter', 'grey-heron', 'raccoon', 'beaver'];
+			expect(others.filter((m) => residents.includes(m.wild)).map((m) => m.step)).toEqual([
+				69, 71, 131, 163
+			]);
 			expect(new Set(met.map((m) => m.lead))).toEqual(new Set(['fox']));
 		}
 		// Behind a standing squirrel, a fox changes nothing.
@@ -433,7 +449,7 @@ describe('LocalAuthority: the lead decides who comes out', () => {
 		const met = reedWalk(s, 60);
 		expect(met.length).toBeGreaterThan(0);
 		expect(met.map((m) => m.step)).toEqual(starter.map((m) => m.step));
-		expect(new Set(met.map((m) => m.wild))).toEqual(new Set(['stoat', 'brown-rat', 'common-toad']));
+		expect(new Set(met.map((m) => m.wild))).toEqual(new Set(['adder', 'brown-rat', 'common-toad']));
 		expect(new Set(met.map((m) => m.lead))).toEqual(new Set(['fox']));
 	});
 
@@ -1246,7 +1262,8 @@ describe('LocalAuthority: the boat', () => {
 			}
 			expect(tileAtWorld(WORLD_SEED, position(s).x, position(s).y).kind).toBe('deepwater');
 		}
-		// About one step in ten, and every one a sea animal (near home, turtles mostly).
+		// About one step in ten, and every one a sea animal (near home, mostly the otter's size:
+		// turtles, lion's manes and lobsters).
 		expect(met.length).toBeGreaterThan(15);
 		expect(met.length).toBeLessThan(50);
 		for (const id of met) expect(getAnimal(id).realms, id).toEqual(['water']);
@@ -1258,7 +1275,7 @@ describe('LocalAuthority: the boat', () => {
 		expect(dry.events.some((e) => e.type === 'battle-started')).toBe(false);
 	});
 
-	it('the sea recipe: a game at (-2, 2) with the otter in front meets a Turtle on step 11, Left and Right in turn', () => {
+	it('the sea recipe: a game at (-2, 2) with the otter in front meets a Moon jellyfish on step 11, Left and Right in turn', () => {
 		// [[CHEATSHEET]] § The sea animals and [[DEVELOPMENT]] § Looking at the game say so: change them
 		// with it. A game saved on the deep water with no steps walked yet: the steps are what the roll reads.
 		const authority = new LocalAuthority();
@@ -1281,7 +1298,8 @@ describe('LocalAuthority: the boat', () => {
 				if (e.type === 'battle-started') met.push({ step, wild: e.state.opponent.speciesId });
 			}
 		}
-		expect(met).toEqual([{ step: 11, wild: 'turtle' }]);
+		// A tier below the otter since #89's third wave, one of the four small sea animals.
+		expect(met).toEqual([{ step: 11, wild: 'moon-jellyfish' }]);
 	});
 
 	it('out on the water only an animal that swims goes first; the refusal names the one that can’t', () => {

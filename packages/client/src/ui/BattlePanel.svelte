@@ -1034,11 +1034,10 @@
 	@media (max-height: 560px) {
 		/*
 		 * Wide enough for the longest name of an animal the game has, at 16 px,
-		 * beside the paw: "Vild europæisk bison" and "Wild European bison" are
-		 * 160 px (162 px of room).
+		 * beside the paw: "Wild Humpback whale" is 174 px (176 px of room).
 		 */
 		.status {
-			width: 210px;
+			width: 224px;
 		}
 		.status.opponent {
 			top: calc(8px + var(--safe-top));
@@ -1050,7 +1049,7 @@
 		 * The line stands at the top right, over the player's box: under it,
 		 * down by the panel, is the player's animal, which a line there hid.
 		 * Short, it keeps to the corner; a long one reaches left as far as the
-		 * wild animal's box and 14 px more (16 + 210 + 14 + 16 px), so no line
+		 * wild animal's box and 14 px more (16 + 224 + 14 + 16 px), so no line
 		 * takes more than two.
 		 */
 		.battle-line {
@@ -1059,7 +1058,7 @@
 			bottom: auto;
 			left: auto;
 			transform: none;
-			max-width: calc(100vw - 256px - var(--safe-left) - var(--safe-right));
+			max-width: calc(100vw - 270px - var(--safe-left) - var(--safe-right));
 			padding: 6px 14px;
 			font-size: 16px;
 		}

@@ -597,7 +597,16 @@ describe('readSave and the upgrade seam', () => {
 			'octopus',
 			'whale',
 			// #91's birds in the air.
-			'buzzard'
+			'buzzard',
+			// #89 wave 3.
+			'moon-jellyfish',
+			'plaice',
+			'lions-mane-jellyfish',
+			'lobster',
+			'harbour-seal',
+			'harbour-porpoise',
+			'grey-seal',
+			'orca'
 		];
 		expect(ANIMALS.map((a) => a.id).filter((id) => !shipped.includes(id))).toEqual([]);
 		for (const speciesId of shipped) {

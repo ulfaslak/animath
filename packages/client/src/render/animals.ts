@@ -453,6 +453,105 @@ const BISON_HORN = [
 const STAR_ARM = 0.3;
 const STAR_MIDDLE = STAR_ARM;
 
+/**
+ * A jellyfish's bell: a dome `r` wide round and `r · squash` tall over a flat
+ * underside, its rim at height `y`.
+ */
+function jellyBell(r: number, squash: number, hex: number, y: number): THREE.Mesh[] {
+	const dome = part(
+		new THREE.SphereGeometry(r, 12, 5, 0, Math.PI * 2, 0, Math.PI / 2),
+		hex,
+		0,
+		y,
+		0
+	);
+	dome.scale.y = squash;
+	return [dome, part(new THREE.CylinderGeometry(r, r * 0.92, 0.03, 12), hex, 0, y - 0.015, 0)];
+}
+
+/**
+ * `count` threads hanging from a jellyfish's rim `r` round, down to the
+ * ground from `y`: thin cones, point down, a little inside the rim.
+ */
+function threads(count: number, r: number, y: number, width: number, hex: number): THREE.Mesh[] {
+	return Array.from({ length: count }, (_, i) => {
+		const a = ((i + 0.5) / count) * Math.PI * 2;
+		return rot(cone(width, y, hex, Math.sin(a) * r, y / 2, Math.cos(a) * r), Math.PI, 0, 0);
+	});
+}
+
+/**
+ * A fin standing up out of a back: a flat triangle `h` tall over a foot `w`
+ * long, its middle at (0, `y`, `z`) and its point leaning `lean` back.
+ */
+function backFin(
+	w: number,
+	h: number,
+	hex: number,
+	y: number,
+	z: number,
+	lean: number
+): THREE.Mesh {
+	const geo = new THREE.ConeGeometry(w / 1.5, h, 3);
+	geo.scale(0.22, 1, 1);
+	geo.rotateX(-lean);
+	return part(geo, hex, 0, y + (h / 2) * Math.cos(lean), z - (h / 2) * Math.sin(lean));
+}
+
+/**
+ * A seal's whiskers: three pale bristles fanning out on each side of a muzzle
+ * whose sides are `x` out at (`y`, `z`).
+ */
+function whiskers(x: number, y: number, z: number): THREE.Mesh[] {
+	return ([-1, 1] as const).flatMap((side) =>
+		[-0.25, 0, 0.25].map((tilt) =>
+			rot(box(0.13, 0.006, 0.006, COLORS.white, side * (x + 0.06), y, z), 0, -side * 0.35, tilt)
+		)
+	);
+}
+
+/**
+ * Spots on a round back: `count` flat dots in `hex` over the upper part of an
+ * egg of radii (rx, ry, rz) round (0, y, z), spread by the golden angle so
+ * they never line up, each `size` wide.
+ */
+function spots(
+	count: number,
+	size: number,
+	hex: number,
+	[rx, ry, rz]: readonly [number, number, number],
+	y: number,
+	z: number,
+	lowest = 0.15
+): THREE.Mesh[] {
+	const golden = Math.PI * (3 - Math.sqrt(5));
+	return Array.from({ length: count }, (_, i) => {
+		// From near the top of the egg down to `lowest` of its height above the middle.
+		const up = 1 - (i + 0.5) / count;
+		const h = lowest + (1 - lowest) * up;
+		const ring = Math.sqrt(1 - h * h);
+		const a = i * golden;
+		const dot = ball(
+			size,
+			hex,
+			Math.sin(a) * ring * rx,
+			y + h * ry,
+			z + Math.cos(a) * ring * rz,
+			1,
+			0.35,
+			1
+		);
+		// Lying on the surface: its flat side along the egg's normal there.
+		dot.lookAt(
+			new THREE.Vector3((Math.sin(a) * ring) / rx, h / ry, (Math.cos(a) * ring) / rz).add(
+				dot.position
+			)
+		);
+		dot.rotateX(Math.PI / 2);
+		return dot;
+	});
+}
+
 const BUILDERS: Record<string, Builder> = {
 	// Small and round, with a curled tail taller than the animal itself.
 	squirrel: ({ fur, accent }) => [
@@ -1278,6 +1377,233 @@ const BUILDERS: Record<string, Builder> = {
 			ball(0.035, COLORS.white, side * 0.265, 0.38, 0.38),
 			ball(0.018, COLORS.dark, side * 0.285, 0.38, 0.4),
 			rot(box(0.3, 0.035, 0.12, fur, side * 0.32, 0.0175, 0.2), 0, side * 0.4, 0)
+		])
+	],
+	// #89's third wave: the sea of the Nordic countryside. A pale dome of a
+	// bell on a short frill of threads, and on top of it four violet rings.
+	'moon-jellyfish': ({ fur, accent }) => [
+		...jellyBell(0.2, 0.85, fur, 0.1),
+		...threads(10, 0.16, 0.1, 0.022, fur),
+		...[0, 1, 2, 3].map((i) => {
+			const a = (i * Math.PI) / 2 + Math.PI / 4;
+			const ring = part(
+				new THREE.TorusGeometry(0.045, 0.013, 5, 12),
+				accent,
+				Math.sin(a) * 0.075,
+				0.26,
+				Math.cos(a) * 0.075
+			);
+			ring.rotation.set(-Math.PI / 2 + Math.cos(a) * 0.45, 0, -Math.sin(a) * 0.45);
+			return ring;
+		}),
+		...([-1, 1] as const).flatMap((side) => [
+			ball(0.026, COLORS.white, side * 0.06, 0.17, 0.17),
+			ball(0.013, COLORS.dark, side * 0.06, 0.17, 0.192)
+		])
+	],
+	// A flatfish leaping up out of the water on its tail, its flat side to
+	// the front: both eyes on that side, up by its head, and bright orange
+	// spots all over it.
+	plaice: ({ fur, accent }) => [
+		ball(0.19, fur, 0, 0.31, 0, 0.95, 1.25, 0.26),
+		ball(0.21, fur, 0, 0.3, -0.006, 1.02, 1.28, 0.1),
+		(() => {
+			const tail = cone(0.11, 0.12, fur, 0, 0.06, 0);
+			tail.scale.z = 0.25;
+			return tail;
+		})(),
+		...[
+			[-0.09, 0.4],
+			[0.07, 0.34],
+			[-0.03, 0.27],
+			[0.1, 0.23],
+			[-0.1, 0.2],
+			[0.02, 0.15]
+		].flatMap(([x, y]) => [
+			ball(0.028, accent, x!, y!, 0.045, 1, 1, 0.4),
+			ball(0.028, accent, x!, y!, -0.045, 1, 1, 0.4)
+		]),
+		ball(0.03, COLORS.white, 0.02, 0.51, 0.042),
+		ball(0.015, COLORS.dark, 0.02, 0.51, 0.068),
+		ball(0.03, COLORS.white, 0.085, 0.47, 0.042),
+		ball(0.015, COLORS.dark, 0.085, 0.47, 0.068),
+		rot(box(0.05, 0.012, 0.012, COLORS.dark, -0.05, 0.5, 0.045), 0, 0, 0.5)
+	],
+	// A bigger bell than the moon jellyfish's, and round its rim a shaggy
+	// golden mane of frills, some flaring out and some hanging, over short
+	// golden threads.
+	'lions-mane-jellyfish': ({ fur, accent }) => [
+		...jellyBell(0.25, 0.95, fur, 0.18),
+		...threads(12, 0.19, 0.18, 0.024, accent),
+		...Array.from({ length: 22 }, (_, i) => {
+			const a = ((i + 0.5) / 22) * Math.PI * 2;
+			// The same frill on both sides of the middle, so the mane is centred.
+			const k = Math.min(i, 21 - i);
+			const out = [1, 0.45, 0.75][k % 3]!;
+			const long = 0.13 + 0.05 * ((k * 7) % 3);
+			const r = 0.25 + 0.04 * out;
+			const frill = cone(
+				0.042,
+				long,
+				accent,
+				Math.sin(a) * r,
+				0.16 - 0.03 * (1 - out),
+				Math.cos(a) * r
+			);
+			// Point away from the rim, out and down: `out` 1 flares widest, less hangs lower.
+			frill.rotation.set(
+				Math.cos(a) * (Math.PI / 2 + 0.35 + 0.6 * (1 - out)),
+				0,
+				-Math.sin(a) * (Math.PI / 2 + 0.35 + 0.6 * (1 - out)),
+				'YXZ'
+			);
+			return frill;
+		}),
+		...([-1, 1] as const).flatMap((side) => [
+			ball(0.03, COLORS.white, side * 0.075, 0.29, 0.215),
+			ball(0.015, COLORS.dark, side * 0.075, 0.29, 0.242)
+		])
+	],
+	// Blue-black, as a live one is (red only once it is cooked), on four
+	// pairs of thin legs: two big claws held up in front, the crusher bigger
+	// than the other, and long feelers sweeping up and back.
+	lobster: ({ fur, accent }) => [
+		ball(0.11, fur, 0, 0.14, 0.04, 1, 0.8, 1.4),
+		ball(0.095, fur, 0, 0.12, -0.14, 1, 0.65, 0.7),
+		ball(0.08, fur, 0, 0.11, -0.23, 1, 0.6, 0.65),
+		ball(0.066, fur, 0, 0.095, -0.31, 1, 0.55, 0.65),
+		(() => {
+			// The tail fan, lying back on the ground: turned in its shape, so its bounds are its own.
+			const fan = new THREE.ConeGeometry(0.09, 0.09, 5);
+			fan.rotateX(-Math.PI / 2 - 0.25);
+			fan.computeBoundingBox();
+			fan.translate(0, -fan.boundingBox!.min.y, 0);
+			return part(fan, fur, 0, 0, -0.38);
+		})(),
+		...([-1, 1] as const).flatMap((side) => {
+			// The crusher, on the right, is the bigger claw: it stands a little further in, so
+			// the two reach out as far each side.
+			const size = side > 0 ? 1.3 : 1;
+			const x = side * (0.16 + 0.03 * size - 0.012 * side);
+			const [y, z] = [0.34 + 0.02 * size, 0.24];
+			return [
+				...[0.1, 0.02, -0.06, -0.14].flatMap((legZ) => [
+					box(0.1, 0.02, 0.02, fur, side * 0.11, 0.075, legZ),
+					box(0.02, 0.075, 0.02, fur, side * 0.16, 0.0375, legZ)
+				]),
+				tube(0.012, 0.08, fur, side * 0.045, 0.24, 0.17),
+				ball(0.028, COLORS.white, side * 0.045, 0.3, 0.17),
+				ball(0.014, COLORS.dark, side * 0.045, 0.305, 0.194),
+				rot(tube(0.026, 0.2, fur, side * 0.12, 0.23, 0.16), -0.3, 0, -side * 0.55),
+				// The hand held up, and its two fingers open in a V over it.
+				rot(ball(0.07 * size, fur, x, y, z, 1.05, 1.5, 0.85), 0.25, 0, 0),
+				rot(
+					cone(0.036 * size, 0.13 * size, fur, x - 0.035 * size, y + 0.14 * size, z + 0.03),
+					0.25,
+					0,
+					0.35
+				),
+				rot(
+					cone(0.03 * size, 0.11 * size, fur, x + 0.035 * size, y + 0.13 * size, z + 0.03),
+					0.25,
+					0,
+					-0.35
+				),
+				ball(0.022 * size, accent, x - 0.058 * size, y + 0.2 * size, z + 0.045),
+				ball(0.019 * size, accent, x + 0.055 * size, y + 0.18 * size, z + 0.045),
+				part(
+					curvedTube(
+						[
+							[0, 0],
+							[0.04, 0.1],
+							[0.01, 0.2],
+							[-0.08, 0.26],
+							[-0.18, 0.27]
+						],
+						0.012,
+						side * 0.3
+					),
+					fur,
+					side * 0.03,
+					0.19,
+					0.2
+				)
+			];
+		})
+	],
+	// A round head like a puppy's, with big dark eyes and whiskers, held up
+	// in front of a plump body; dark spots all over it (spættet, spotted).
+	'harbour-seal': ({ fur, accent }) => [
+		ball(0.2, fur, 0, 0.18, -0.14, 1, 0.85, 1.9),
+		ball(0.165, fur, 0, 0.25, 0.14, 1, 1, 1.05),
+		ball(0.145, fur, 0, 0.4, 0.3, 1, 0.95, 1.05),
+		ball(0.07, fur, 0, 0.36, 0.44, 1.15, 0.78, 0.8),
+		ball(0.026, COLORS.dark, 0, 0.38, 0.495),
+		...whiskers(0.05, 0.35, 0.47),
+		...([-1, 1] as const).flatMap((side) => [
+			ball(0.042, COLORS.dark, side * 0.068, 0.44, 0.41),
+			ball(0.013, COLORS.white, side * 0.058, 0.455, 0.447),
+			rot(ball(0.1, fur, side * 0.2, 0.03, 0.1, 0.35, 0.3, 1), 0, side * 0.5, 0),
+			rot(ball(0.09, fur, side * 0.06, 0.0225, -0.6, 0.45, 0.25, 1.1), 0, side * 0.35, 0)
+		]),
+		...spots(15, 0.03, accent, [0.2, 0.17, 0.38], 0.18, -0.14),
+		...spots(6, 0.026, accent, [0.165, 0.165, 0.17], 0.25, 0.14, 0.2),
+		...spots(4, 0.022, accent, [0.145, 0.14, 0.15], 0.4, 0.26, 0.55)
+	],
+	// Small and blunt, with no beak (the dolphin has one), a pale belly and a
+	// small triangle of a fin.
+	'harbour-porpoise': ({ fur, accent }) => [
+		ball(0.16, fur, 0, 0.24, 0, 1, 1, 2),
+		ball(0.13, accent, 0, 0.19, 0.06, 0.92, 0.75, 1.75),
+		ball(0.14, fur, 0, 0.27, 0.27, 1, 0.95, 1.05),
+		backFin(0.16, 0.13, fur, 0.37, -0.04, 0.35),
+		ball(0.07, fur, 0, 0.13, -0.42, 1, 1, 1.8),
+		box(0.3, 0.025, 0.12, fur, 0, 0.0125, -0.58),
+		box(0.06, 0.012, 0.012, COLORS.dark, 0, 0.23, 0.41),
+		...([-1, 1] as const).flatMap((side) => [
+			ball(0.028, COLORS.white, side * 0.098, 0.3, 0.345),
+			ball(0.018, COLORS.dark, side * 0.104, 0.3, 0.36),
+			rot(box(0.16, 0.025, 0.08, fur, side * 0.15, 0.0125, 0.14), 0, side * 0.5, 0)
+		])
+	],
+	// Bigger than the harbour seal, grey with pale blotches, and a long
+	// straight "Roman" nose.
+	'grey-seal': ({ fur, accent }) => [
+		ball(0.26, fur, 0, 0.24, -0.18, 1, 0.88, 1.9),
+		ball(0.21, fur, 0, 0.32, 0.18, 1, 1, 1.05),
+		ball(0.16, fur, 0, 0.54, 0.34, 0.95, 0.9, 1.05),
+		// The long straight nose, sloping down from the brow to the tip.
+		rot(
+			part(new THREE.CylinderGeometry(0.07, 0.1, 0.3, 7), fur, 0, 0.48, 0.52),
+			Math.PI / 2 + 0.45,
+			0,
+			0
+		),
+		ball(0.036, COLORS.dark, 0, 0.405, 0.655),
+		...whiskers(0.06, 0.41, 0.6),
+		...([-1, 1] as const).flatMap((side) => [
+			ball(0.035, COLORS.dark, side * 0.085, 0.6, 0.44),
+			ball(0.011, COLORS.white, side * 0.077, 0.612, 0.472),
+			rot(ball(0.13, fur, side * 0.25, 0.039, 0.14, 0.35, 0.3, 1), 0, side * 0.5, 0),
+			rot(ball(0.12, fur, side * 0.08, 0.03, -0.74, 0.45, 0.25, 1.1), 0, side * 0.35, 0)
+		]),
+		...spots(9, 0.05, accent, [0.26, 0.23, 0.49], 0.24, -0.18),
+		...spots(3, 0.042, accent, [0.21, 0.21, 0.22], 0.32, 0.18, 0.3)
+	],
+	// Black and sleek, a white belly and a white patch behind each eye, and a
+	// tall black fin standing straight up out of its back.
+	orca: ({ fur, accent }) => [
+		ball(0.25, fur, 0, 0.3, 0, 1, 1, 2.1),
+		ball(0.2, accent, 0, 0.22, 0.14, 0.95, 0.72, 1.65),
+		ball(0.19, fur, 0, 0.33, 0.38, 1, 0.95, 1.15),
+		backFin(0.26, 0.42, fur, 0.51, -0.06, 0.12),
+		ball(0.11, fur, 0, 0.17, -0.58, 1, 1, 1.6),
+		box(0.3, 0.035, 0.18, fur, -0.15, 0.0175, -0.8),
+		box(0.3, 0.035, 0.18, fur, 0.15, 0.0175, -0.8),
+		...([-1, 1] as const).flatMap((side) => [
+			rot(ball(0.095, accent, side * 0.15, 0.45, 0.25, 0.4, 0.55, 1.4), 0, side * 0.2, 0),
+			ball(0.025, COLORS.dark, side * 0.17, 0.35, 0.47),
+			rot(ball(0.1, fur, side * 0.26, 0.02, 0.22, 1.4, 0.2, 0.8), 0, side * 0.5, 0)
 		])
 	]
 };
