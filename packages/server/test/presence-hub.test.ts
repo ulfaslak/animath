@@ -388,7 +388,9 @@ describe('presence hub', () => {
 		}
 		// About 0.45 s alone (20 hubs of 400 joins, moves and leaves, every pair of browsers
 		// checked after each); 2 s at a load average of 35.
-	}, 30_000);
+		// 0.7 s alone at a load average of 12 to 30 and 2.4 s in the whole suite at 27 (2026-09-28),
+		// which scales to 13 s at 150.
+	}, 60_000);
 });
 
 /** A battle as a page reports it: a rabbit against a fox, `hp` left, with 7 × 8 to solve. */
