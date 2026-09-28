@@ -742,8 +742,12 @@ function cleanAnimal(animal: AnimalInstance): AnimalInstance {
  * above the species' maximum is cut to it, an empty party gets the starter,
  * a party with no animal that can fight on land (only sea animals: no save a
  * kid's game writes holds one) gets it too, behind the others, so the grass
- * is never out of reach, and a party with nobody standing rests back to
- * full, the same rest a lost battle gives. The battle comes back only if
+ * is never out of reach. A team that needs the doctor (`needsDoctor`) comes
+ * back exactly as tired as it was: a reload is never a heal. The live game
+ * left it with a way to a doctor (`careFor`, asked after a lost battle, a
+ * go-to and a trip), and asking again here, where the player now stands,
+ * would heal a team a glide took somewhere the live game kept it tired.
+ * The battle comes back only if
  * `readBattle` accepts it where the player stands, and never when the
  * position had to move, nor when the starter joined (it was not in the
  * battle). See [[INVARIANTS]] § "A loaded save never strands the player".
@@ -786,9 +790,7 @@ export function restoreGame(save: SaveV2): SavedGame {
 			hp: getAnimal(STARTER_SPECIES).maxHp
 		});
 	}
-	if (!party.some((a) => a.hp > 0)) {
-		party = party.map((a) => ({ ...a, hp: getAnimal(a.speciesId).maxHp }));
-	}
+	const pos = standable ? { x: save.pos.x, y: save.pos.y } : spawnPoint(seed);
 	const battle = standable ? readBattle(save.battle, party, tileRealm(here)) : null;
 	const named = save.name === undefined ? null : checkName(save.name);
 	const worlds = fitWorlds(
@@ -801,7 +803,7 @@ export function restoreGame(save: SaveV2): SavedGame {
 		name: named?.ok ? named.name : null,
 		home: save.home,
 		world: save.world,
-		pos: standable ? { x: save.pos.x, y: save.pos.y } : spawnPoint(seed),
+		pos,
 		facing: save.facing ?? 'down',
 		steps: save.steps ?? 0,
 		visits: save.visits ?? 0,

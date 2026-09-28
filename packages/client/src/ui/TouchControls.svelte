@@ -134,8 +134,10 @@
 <svelte:window onblur={letGoAll} />
 <svelte:document onvisibilitychange={letGoAll} />
 
+<!-- `data-keep-clear`: the way to the doctor's arrow never goes under them (`hudRects`). -->
 <div
 	class="dpad"
+	data-keep-clear
 	role="group"
 	onpointerdown={down}
 	onpointermove={move}
@@ -162,7 +164,13 @@
 	<span class="hub"></span>
 </div>
 
-<button type="button" class="round menu-button" data-press="Escape" {@attach unfocusable}>
+<button
+	type="button"
+	class="round menu-button"
+	data-press="Escape"
+	data-keep-clear
+	{@attach unfocusable}
+>
 	<span class="bars" aria-hidden="true"><span></span><span></span><span></span></span>
 	{t('hud.menu')}
 </button>
@@ -173,6 +181,7 @@
 	class="round talk-button"
 	class:ready={hud.action !== null}
 	data-press="Enter"
+	data-keep-clear
 	{@attach unfocusable}
 >
 	{hud.action === 'chop'
@@ -188,6 +197,7 @@
 		type="button"
 		class="round fly-button"
 		class:on={flyHeld}
+		data-keep-clear
 		onpointerdown={flyDown}
 		onpointerup={flyUp}
 		onpointercancel={flyUp}

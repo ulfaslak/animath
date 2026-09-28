@@ -19,7 +19,9 @@ import {
 	itemsForSale,
 	joinParty,
 	leadIndex,
+	knockOut,
 	nearestTent,
+	needsDoctor,
 	newGame,
 	step as stepFrom,
 	readSave,
@@ -29,7 +31,6 @@ import {
 	spawnPoint,
 	startBattle,
 	startMatch,
-	takeToDoctor,
 	tileAtWorld,
 	type AnimalInstance,
 	type BattleState,
@@ -54,11 +55,11 @@ import { besideA, gameBeside } from './clearing';
  * The single-player authority's own rules — the ones around the engine, not
  * in it: one encounter roll per completed step, keyed so a walk replays; the
  * battle's result written back into the world; the facing it keeps so that
- * Enter talks to a doctor only at a tent; the doctor visit and its seed; the
- * trip to the tent after a lost battle; what it tells the engine the player
- * is doing when the party is edited. The battle, the visit and the party
- * rules themselves are the engine's (its `battle-reducer.test.ts`,
- * `doctor.test.ts` and `party.test.ts`).
+ * Enter talks to a doctor only at a tent; the doctor visit and its seed; a
+ * lost battle leaving the team tired where it stood; what it tells the
+ * engine the player is doing when the party is edited. The battle, the
+ * visit and the party rules themselves are the engine's (its
+ * `battle-reducer.test.ts`, `doctor.test.ts` and `party.test.ts`).
  *
  * The prototype world's spawn tile, (-2, 6), has a river reed (tall grass)
  * straight to its left, with the lake all round it, so walking left and right
@@ -168,12 +169,7 @@ function attack(s: Session, attackIndex: number, level: 1 | 2 | 3, correct: bool
 function party(s: Session): AnimalInstance[] {
 	for (let i = s.events.length - 1; i >= 0; i--) {
 		const e = s.events[i]!;
-		if (
-			e.type === 'party-changed' ||
-			e.type === 'party-edited' ||
-			e.type === 'welcome' ||
-			e.type === 'taken-to-doctor'
-		) {
+		if (e.type === 'party-changed' || e.type === 'party-edited' || e.type === 'welcome') {
 			return e.party;
 		}
 	}
@@ -193,7 +189,6 @@ function position(s: Session): GridPos {
 		if (
 			e.type === 'player-moved' ||
 			e.type === 'player-placed' ||
-			e.type === 'taken-to-doctor' ||
 			e.type === 'travelled' ||
 			e.type === 'welcome' ||
 			e.type === 'glided' ||
@@ -211,7 +206,7 @@ function facing(s: Session): Direction {
 	for (let i = s.events.length - 1; i >= 0; i--) {
 		const e = s.events[i]!;
 		if (e.type === 'player-moved' || e.type === 'player-blocked') return e.dir;
-		if (e.type === 'taken-to-doctor' || e.type === 'player-placed') return e.dir;
+		if (e.type === 'player-placed') return e.dir;
 		if (e.type === 'took-off' || e.type === 'landed') return e.dir;
 		if (e.type === 'welcome' || e.type === 'travelled') return e.facing;
 	}
@@ -512,43 +507,53 @@ describe('LocalAuthority: outcomes', () => {
 		expect(lastMessage(s)).toBe('battle.closing.fled');
 	});
 
-	it('lost: taken to the nearest tent on foot, facing it, with everyone healed', () => {
+	it('lost: nobody is healed and nobody moves, and the grass stays quiet until a doctor has helped', () => {
 		const s = session();
 		const { seed } = welcome(s);
 		walkIntoBattle(s);
 		const lostOn = position(s);
+		const facingThen = facing(s);
 		lose(s);
 		const end = latestBattle(s);
 		expect(end.phase).toEqual({ kind: 'ended', outcome: 'lost' });
-		// No `message`: the client words the doctor's line from the event.
 		expect(closingEvents(s).map((e) => e.type)).toEqual([
 			'battle-updated',
 			'battle-ended',
-			'taken-to-doctor'
+			'party-changed',
+			'message'
 		]);
-		const rescue = takeToDoctor(seed, lostOn, end.party);
-		const taken = s.events.find((e) => e.type === 'taken-to-doctor');
-		expect(taken).toEqual({
-			type: 'taken-to-doctor',
-			playerId: welcome(s).playerId,
-			pos: rescue.pos,
-			dir: rescue.facing,
-			tent: rescue.tent,
-			party: rescue.party
+		expect(lastMessage(s)).toBe('battle.closing.lost');
+		// The engine's knock-out rule: the party as the battle left it, the tent near.
+		expect(knockOut(seed, lostOn, end.party)).toEqual({ party: end.party, doctorCame: false });
+		expect(party(s)).toEqual(end.party);
+		expect(party(s).every((a) => a.hp === 0)).toBe(true);
+		// Back where the battle was, facing the way the kid last stepped, and saved so.
+		expect(position(s)).toEqual(lostOn);
+		expect(facing(s)).toBe(facingThen);
+		expect(s.authority.snapshot()).toMatchObject({
+			pos: lostOn,
+			facing: facingThen,
+			party: end.party
 		});
-		// Near spawn that is the tent at (5, 7), from its left.
-		expect(rescue).toMatchObject({ tent: { x: 5, y: 7 }, pos: { x: 4, y: 7 }, facing: 'right' });
-		for (const a of party(s)) expect(a.hp).toBe(getAnimal(a.speciesId).maxHp);
 
-		// The authority faces the tent too: Enter talks to the doctor at once.
-		expect(canTalkToDoctor(seed, position(s), facing(s))).toBe(true);
+		// The reed meets nothing while nobody can fight: 400 steps on it, not one battle.
+		move(s, 'right');
+		expect(position(s)).toEqual(spawnPoint(seed));
+		expect(reedWalk(s, 400)).toEqual([]);
+
+		// Walked to the tent at (5, 7), the doctor heals the squirrel as ever: one puzzle.
+		walkToTent(s);
 		s.authority.dispatch({ type: 'interact' });
 		expect(s.events.at(-1)?.type).toBe('doctor-visit-started');
+		doctorIntent(s, { type: 'pick-patient', partyIndex: 0 });
+		answerDoctor(s, true);
 		doctorIntent(s, { type: 'leave' });
+		for (const a of party(s)) expect(a.hp).toBe(getAnimal(a.speciesId).maxHp);
 
-		// And it walks on from the tent, not from where the battle was.
-		move(s, 'left');
-		expect(position(s)).toEqual({ x: 3, y: 7 });
+		// And the grass is the grass again.
+		move(s, ...Array<Direction>(7).fill('left'));
+		expect(position(s)).toEqual(spawnPoint(seed));
+		expect(reedWalk(s, 60).length).toBeGreaterThan(0);
 	});
 
 	it('caught: joins the party with the HP it had, at the end of its bundle, the seventh and on too', () => {
@@ -572,6 +577,198 @@ describe('LocalAuthority: outcomes', () => {
 			expect(party(s)).toHaveLength(before.length + 1);
 		}
 		expect(party(s)).toHaveLength(9);
+	});
+});
+
+describe('LocalAuthority: a tired team walks to the doctor', () => {
+	/** A game that has just lost at the reed by the start: every animal tired, on the reed. */
+	function tired(): { s: Session; at: GridPos; team: AnimalInstance[] } {
+		const s = session();
+		walkIntoBattle(s);
+		lose(s);
+		expect(lastMessage(s)).toBe('battle.closing.lost');
+		const team = party(s);
+		expect(needsDoctor(team)).toBe(true);
+		return { s, at: position(s), team };
+	}
+
+	/** A save round trip, as a reload does it: JSON through storage, restored, started again. */
+	function reloaded(s: Session): Session {
+		const doc = saveDocument(s.authority.snapshot(), { lineage: 't', seq: 1 });
+		const read = readSave(JSON.parse(JSON.stringify(doc)));
+		if (!read.ok) throw new Error(read.error);
+		const authority = new LocalAuthority();
+		const events: GameEvent[] = [];
+		authority.subscribe((e) => events.push(e));
+		authority.start({ game: restoreGame(read.save) });
+		return { authority, events };
+	}
+
+	it('a reload is no heal: the team is as tired as it was, where it was, and the reed stays quiet', () => {
+		const { s, at, team } = tired();
+		const r = reloaded(s);
+		expect(welcome(r)).toMatchObject({ pos: at, party: team });
+		move(r, 'right');
+		expect(reedWalk(r, 200)).toEqual([]);
+	});
+
+	it('travels while tired, still tired: a first visit is at the spawn, a doctor at most 12 steps away', () => {
+		const { s, team } = tired();
+		const from = s.events.length;
+		s.authority.dispatch({ type: 'travel', world: 42 });
+		const trip = s.events.slice(from);
+		expect(trip.map((e) => e.type)).toEqual(['travelled']);
+		const arrived = trip[0]!;
+		if (arrived.type !== 'travelled') throw new Error('no trip');
+		expect(arrived.firstVisit).toBe(true);
+		expect(arrived.pos).toEqual(spawnPoint(worldSeed(42)));
+		expect(nearestTent(worldSeed(42), arrived.pos)!.steps).toBeLessThanOrEqual(12);
+		expect(s.authority.snapshot().party).toEqual(team);
+	});
+
+	it('goes to a friend while tired, still tired, and nothing jumps out on the way', () => {
+		const { s, team } = tired();
+		const near = { x: 150, y: -40 };
+		const want = arrivalSpot(WORLD_SEED, near)!;
+		s.authority.dispatch({ type: 'go-to', near });
+		expect(s.events.at(-1)).toEqual({
+			type: 'player-placed',
+			playerId: 'local',
+			pos: want.pos,
+			dir: want.facing
+		});
+		expect(s.authority.snapshot().party).toEqual(team);
+	});
+
+	/** A game of World 1 (or `world`) under way at `pos`, facing `facing`, with this team and these items. */
+	function startedAt(
+		pos: GridPos,
+		facing: Direction,
+		team: AnimalInstance[],
+		extra: Partial<SavedGame> = {}
+	): Session {
+		const authority = new LocalAuthority();
+		const events: GameEvent[] = [];
+		authority.subscribe((e) => events.push(e));
+		authority.start({ game: { ...newGame(1), pos, facing, party: team, ...extra } });
+		return { authority, events };
+	}
+
+	/** (-2, 32) in World 1: a grass tile walled in, no tent a walk away; a glide down from (-2, 12) lands there. */
+	const POCKET = { x: -2, y: 32 };
+
+	it('a tired team that glides somewhere no tent can be walked to from stays tired there, and so does its save', () => {
+		// The adversarial review of #116: a restore that asked for a doctor again healed this
+		// team, while the live game, which asks only after a lost battle, a go-to or a trip,
+		// left it tired: a reload, or Quit to title and Continue, was a free heal.
+		const team = [animal('squirrel', 0)];
+		const s = startedAt({ x: -2, y: 12 }, 'down', team, { items: ['glider'] });
+		expect(nearestTent(WORLD_SEED, { x: -2, y: 12 })).not.toBeNull();
+		s.authority.dispatch({ type: 'take-off' });
+		for (let i = 0; i < 40 && !s.events.some((e) => e.type === 'landed'); i++) {
+			s.authority.dispatch({ type: 'glide' });
+		}
+		expect(s.authority.snapshot().pos).toEqual(POCKET);
+		expect(nearestTent(WORLD_SEED, POCKET)).toBeNull();
+		expect(s.events.some((e) => e.type === 'party-changed')).toBe(false);
+		expect(s.authority.snapshot().party).toEqual(team);
+		// Picked up from its save, as a reload or Continue does: as tired, where it was.
+		expect(welcome(reloaded(s))).toMatchObject({ pos: POCKET, party: team });
+	});
+
+	it('a kid with the glider flies out: trips out of a pocket and back heal nobody', () => {
+		// The adversarial review of #116, a second time: glided tired into the pocket, a trip to
+		// World 42 and back put the kid there again, a doctor came, and it healed the team for
+		// free, as often as the kid liked.
+		const team = [animal('squirrel', 0)];
+		const s = startedAt({ x: -2, y: 12 }, 'down', team, { items: ['glider'] });
+		s.authority.dispatch({ type: 'take-off' });
+		for (let i = 0; i < 40 && !s.events.some((e) => e.type === 'landed'); i++) {
+			s.authority.dispatch({ type: 'glide' });
+		}
+		expect(s.authority.snapshot().pos).toEqual(POCKET);
+		for (let round = 0; round < 2; round++) {
+			s.authority.dispatch({ type: 'travel', world: 42 });
+			const from = s.events.length;
+			s.authority.dispatch({ type: 'travel', world: 1 });
+			expect(s.events.slice(from).map((e) => e.type)).toEqual(['travelled']);
+			expect(s.authority.snapshot().pos).toEqual(POCKET);
+			expect(party(s)).toEqual(team);
+		}
+		// Parked there fit, it is the same: tired from anywhere, a trip back heals nobody.
+		const fit = startedAt(spawnPoint(worldSeed(42)), 'down', team, {
+			home: 42,
+			world: 42,
+			items: ['glider'],
+			worlds: [{ world: 1, pos: POCKET, facing: 'down', edits: [] }]
+		});
+		fit.authority.dispatch({ type: 'travel', world: 1 });
+		expect(party(fit)).toEqual(team);
+		expect(fit.events.some((e) => e.type === 'message')).toBe(false);
+	});
+
+	it('a trip back to a spot no tent can be walked to from, the team tired and no glider: a doctor comes there', () => {
+		const team = [animal('squirrel', 0)];
+		const s = startedAt(spawnPoint(worldSeed(42)), 'down', team, {
+			home: 42,
+			world: 42,
+			worlds: [{ world: 1, pos: POCKET, facing: 'down', edits: [] }]
+		});
+		const from = s.events.length;
+		s.authority.dispatch({ type: 'travel', world: 1 });
+		expect(s.events.slice(from).map((e) => e.type)).toEqual([
+			'travelled',
+			'party-changed',
+			'message'
+		]);
+		expect(s.authority.snapshot().pos).toEqual(POCKET);
+		expect(party(s)).toEqual([{ ...team[0]!, hp: getAnimal('squirrel').maxHp }]);
+		expect(lastMessage(s)).toBe('doctor.came');
+		// And back to World 42's spawn, a tent a walk away: nobody comes to a fit team, nor would
+		// to a tired one there.
+		s.authority.dispatch({ type: 'travel', world: 42 });
+		expect(s.events.at(-1)?.type).toBe('travelled');
+	});
+
+	it('a game an older build saved at the tent, after its free heal, carries on there, fit', () => {
+		// The old rule put the kid beside the tent at (5, 7), from its left, every animal at full HP.
+		const old = { ...newGame(1), pos: { x: 4, y: 7 }, facing: 'right' as const, steps: 11 };
+		const doc = JSON.parse(JSON.stringify(saveDocument(old, { lineage: 'old', seq: 9 })));
+		const read = readSave(doc);
+		if (!read.ok) throw new Error(read.error);
+		const game = restoreGame(read.save);
+		expect(game).toMatchObject({ pos: { x: 4, y: 7 }, facing: 'right', party: old.party });
+		expect(needsDoctor(game.party)).toBe(false);
+	});
+
+	it('a battle an older build saved on its last turn is lost by the new rule: tired, where it was fought', () => {
+		// Saved at the battle menu, the squirrel at 1 HP against a bear, as a build before realms
+		// saved a battle: no `realm` (fought on land). The bear's reply to a wrong answer ends it.
+		const team = [animal('squirrel', 1)];
+		const battle = startBattle(team, {
+			id: 'wild-bear',
+			speciesId: 'bear',
+			hp: getAnimal('bear').maxHp
+		});
+		const pos = { x: -3, y: 6 };
+		const doc = JSON.parse(
+			JSON.stringify(
+				saveDocument({ ...newGame(1), pos, party: team, battle }, { lineage: 'old', seq: 3 })
+			)
+		);
+		delete doc.battle.realm;
+		const read = readSave(doc);
+		if (!read.ok) throw new Error(read.error);
+		const authority = new LocalAuthority();
+		const events: GameEvent[] = [];
+		authority.subscribe((e) => events.push(e));
+		authority.start({ game: restoreGame(read.save) });
+		const s = { authority, events };
+		expect(latestBattle(s).realm).toBe('land');
+		lose(s);
+		expect(lastMessage(s)).toBe('battle.closing.lost');
+		expect(party(s)).toEqual([{ ...team[0]!, hp: 0 }]);
+		expect(s.authority.snapshot().pos).toEqual(pos);
 	});
 });
 
@@ -625,8 +822,6 @@ describe('LocalAuthority: saved games', () => {
 				];
 			case 'party-changed':
 				return [e.type, party(e.party)];
-			case 'taken-to-doctor':
-				return [e.type, e.pos, e.dir, e.tent, party(e.party)];
 			case 'doctor-visit-started':
 			case 'doctor-visit-updated':
 			case 'doctor-visit-ended':
@@ -697,7 +892,8 @@ describe('LocalAuthority: saved games', () => {
 		const s = session();
 		expect(s.authority.snapshot().battle).toBeNull();
 		walkIntoBattle(s);
-		lose(s);
+		s.authority.dispatch({ type: 'battle', intent: { type: 'flee' } });
+		expect(s.authority.snapshot().battle).toBeNull();
 		walkIntoBattle(s);
 		attack(s, 1, 1, false);
 		const state = latestBattle(s);
@@ -1327,9 +1523,8 @@ describe('LocalAuthority: the boat', () => {
 		expect(party(s).map((a) => a.speciesId)).toEqual(['otter', 'squirrel']);
 	});
 
-	it('a battle lost on the water, the squirrel still in the boat: over the water to a tent, everyone healed', () => {
-		const team = [animal('squirrel'), animal('otter', 3)];
-		const at = { x: -2, y: 2 };
+	/** A game out on the deep water at (-2, 2), in the boat, mid-battle with a wild otter. */
+	function lostAtSea(team: AnimalInstance[]): Session {
 		const battle = startBattle(
 			team,
 			{ id: 'wild', speciesId: 'otter', hp: 32 },
@@ -1339,28 +1534,44 @@ describe('LocalAuthority: the boat', () => {
 		const events: GameEvent[] = [];
 		authority.subscribe((e) => events.push(e));
 		authority.start({
-			game: { ...newGame(1), pos: at, party: team, items: ['boat'], battle }
+			game: { ...newGame(1), pos: { x: -2, y: 2 }, party: team, items: ['boat'], battle }
 		});
 		const s = { authority, events };
 		expect(latestBattle(s).realm).toBe('water');
 		while (latestBattle(s).phase.kind !== 'ended') attack(s, 1, 1, false);
+		expect(latestBattle(s).phase).toEqual({ kind: 'ended', outcome: 'lost' });
+		return s;
+	}
+
+	it('a battle lost on the water, the squirrel still in the boat: still out there, nobody healed, and the land is the squirrel’s', () => {
+		const team = [animal('squirrel'), animal('otter', 3)];
+		const s = lostAtSea(team);
 		const end = latestBattle(s);
-		expect(end.phase).toEqual({ kind: 'ended', outcome: 'lost' });
 		expect(end.party.map((a) => a.hp)).toEqual([20, 0]);
-		const rescue = takeToDoctor(WORLD_SEED, at, end.party, WorldEdits.none, {
-			gear: { boat: true },
-			realm: 'water'
-		});
-		expect(rescue.pos).toEqual(
-			nearestTent(WORLD_SEED, at, TENT_SEARCH_STEPS, WorldEdits.none, { boat: true })!.stand
-		);
-		expect(events.find((e) => e.type === 'taken-to-doctor')).toMatchObject({
-			pos: rescue.pos,
-			dir: rescue.facing,
-			party: [animal('squirrel'), { ...team[1]!, hp: 32 }]
-		});
-		expect(isWalkable(tileAtWorld(WORLD_SEED, rescue.pos.x, rescue.pos.y).kind)).toBe(true);
-		expect(canTalkToDoctor(WORLD_SEED, position(s), facing(s))).toBe(true);
+		expect(party(s)).toEqual(end.party);
+		expect(lastMessage(s)).toBe('battle.closing.lost');
+		expect(s.authority.snapshot()).toMatchObject({ pos: { x: -2, y: 2 }, party: end.party });
+		// Nobody who swims is standing, so the deep water is quiet...
+		for (let i = 0; i < 300; i++) move(s, i % 2 === 0 ? 'left' : 'right');
+		expect(isWater(tileAtWorld(WORLD_SEED, position(s).x, position(s).y).kind)).toBe(true);
+		expect(s.events.filter((e) => e.type === 'battle-started')).toHaveLength(1);
+		// ...but the squirrel can fight on land: no doctor needed to battle there.
+		expect(needsDoctor(party(s), 'water')).toBe(false);
+	});
+
+	it('a battle lost on the water with nobody left standing: out there still, tired, a tent in reach over the water', () => {
+		const s = lostAtSea([animal('otter', 3)]);
+		const end = latestBattle(s);
+		expect(party(s)).toEqual([{ ...end.party[0]!, hp: 0 }]);
+		expect(lastMessage(s)).toBe('battle.closing.lost');
+		expect(needsDoctor(party(s), 'water')).toBe(true);
+		const at = { x: -2, y: 2 };
+		expect(s.authority.snapshot().pos).toEqual(at);
+		expect(
+			nearestTent(WORLD_SEED, at, TENT_SEARCH_STEPS, WorldEdits.none, { boat: true })
+		).not.toBeNull();
+		for (let i = 0; i < 300; i++) move(s, i % 2 === 0 ? 'left' : 'right');
+		expect(s.events.filter((e) => e.type === 'battle-started')).toHaveLength(1);
 	});
 });
 
@@ -1718,7 +1929,7 @@ describe('LocalAuthority: trees and rocks', () => {
 		// steps and clears, each checked against the screen's copy); 2.6 s at a load average of 40.
 	}, 30_000);
 
-	it('a battle lost in a spot walled in by trees the kid chopped open: off to the tent along the path they cut', () => {
+	it('a battle lost in a spot walled in by trees: the path the kid cut is the way out, and without it a doctor comes', () => {
 		// A walkable tile with a tree or a rock on every side and a tent in reach once they are
 		// cleared: the kid chopped their way in, and a wild animal was waiting.
 		let found: { pos: GridPos; edits: WorldEdits } | null = null;
@@ -1733,23 +1944,30 @@ describe('LocalAuthority: trees and rocks', () => {
 			}
 		expect(found).not.toBeNull();
 		const { pos, edits } = found!;
-		const party = [animal('squirrel', 1)];
-		const s = from({
-			...gameBeside(tree, ['axe']),
-			pos,
-			party,
-			edits: [...edits.encode()],
-			battle: startBattle(party, { id: 'wild-bear', speciesId: 'bear', hp: 50 })
-		});
-		lose(s);
-		const spot = nearestTent(WORLD_SEED, pos, undefined, edits)!;
-		expect(s.events.find((e) => e.type === 'taken-to-doctor')).toMatchObject({
-			pos: spot.stand,
-			dir: spot.facing,
-			tent: spot.tent
-		});
-		// The seeded world alone has the spot walled in: a doctor would have come to the player.
+		const team = [animal('squirrel', 1)];
+		const battle = startBattle(team, { id: 'wild-bear', speciesId: 'bear', hp: 50 });
+		const inBattle = { ...gameBeside(tree, ['axe']), pos, party: team, battle };
+
+		// The path they cut leads to a tent: they walk out along it, tired, from where they stood.
+		const cut = from({ ...inBattle, edits: [...edits.encode()] });
+		lose(cut);
+		expect(lastMessage(cut)).toBe('battle.closing.lost');
+		expect(party(cut)).toEqual([{ ...team[0]!, hp: 0 }]);
+		expect(cut.authority.snapshot().pos).toEqual(pos);
+
+		// The seeded world alone has the spot walled in: no tent in reach, so a doctor comes.
 		expect(nearestTent(WORLD_SEED, pos)).toBeNull();
+		const walled = from({ ...inBattle, edits: [] });
+		lose(walled);
+		expect(closingEvents(walled).map((e) => e.type)).toEqual([
+			'battle-updated',
+			'battle-ended',
+			'party-changed',
+			'message'
+		]);
+		expect(lastMessage(walled)).toBe('doctor.came');
+		expect(party(walled)).toEqual([{ ...team[0]!, hp: getAnimal('squirrel').maxHp }]);
+		expect(walled.authority.snapshot().pos).toEqual(pos);
 	});
 });
 
@@ -2036,8 +2254,8 @@ describe('LocalAuthority: puzzles solved', () => {
 				if (rng.chance(0.1)) s.authority.dispatch({ type: 'battle', intent: { type: 'flee' } });
 				else attack(s, 1, rng.pick([1, 2] as const), rng.chance(0.6));
 			}
-			// A lost battle ends at a tent, far from the reed: enough battles.
-			if (s.events.some((e) => e.type === 'taken-to-doctor')) break;
+			// A lost battle leaves the team tired, and the reed quiet: enough battles.
+			if (lastMessage(s) === 'battle.closing.lost') break;
 		}
 		const inBattles = judgedRight(s.events);
 		expect(inBattles).toBeGreaterThan(10);
@@ -2995,7 +3213,7 @@ describe('LocalAuthority: birds in the air (#91)', () => {
 		throw new Error('no bird in 200 flights');
 	});
 
-	it('after the battle the kid is where they came down; a bird that wins takes them to the tent on foot, and the closing lines are the sky’s', () => {
+	it('after the battle the kid is where they came down, whoever won; a loss heals nobody, and the closing lines are the sky’s', () => {
 		const outcomes = new Set<string>();
 		for (let steps = 0; steps < 400 && outcomes.size < 3; steps++) {
 			const s = flyer([animal('squirrel'), animal('robin', 1)], steps);
@@ -3020,21 +3238,66 @@ describe('LocalAuthority: birds in the air (#91)', () => {
 			if (state.phase.kind !== 'ended' || state.phase.outcome !== plan) continue;
 			outcomes.add(plan);
 			const message = s.events[lastIndexOf(s, 'message')];
+			expect(position(s)).toEqual(down);
 			if (plan === 'lost') {
-				// The robin is tired, the squirrel stands: to the nearest tent, walked, not flown.
-				const rescue = takeToDoctor(WORLD_SEED, down, state.party, WorldEdits.none, {
-					realm: 'air'
-				});
-				expect(position(s)).toEqual(rescue.pos);
-				expect(s.events.some((e) => e.type === 'taken-to-doctor')).toBe(true);
+				// The robin is tired, the squirrel stands: nobody healed, and on the ground the
+				// squirrel can fight, so the team needs no doctor there.
+				expect(message).toMatchObject({ line: { key: 'battle.closing.lost' } });
+				expect(party(s)).toEqual(state.party);
+				expect(party(s).map((a) => a.hp)).toEqual([getAnimal('squirrel').maxHp, 0]);
+				expect(needsDoctor(party(s), 'land')).toBe(false);
 			} else {
-				expect(position(s)).toEqual(down);
 				expect(message).toMatchObject({
 					line: { key: plan === 'won' ? 'battle.closing.wonAir' : 'battle.closing.fledAir' }
 				});
 			}
 		}
 		expect([...outcomes].sort()).toEqual(['fled', 'lost', 'won']);
+	});
+
+	it('birds alone, lost in the air: tired where they came down, nobody healed, the sky and the grass quiet until a doctor helps; a save made during that battle ends the same after a reload', () => {
+		for (let steps = 0; steps < 400; steps++) {
+			const a = flyer([animal('robin', 1)], steps);
+			dispatchAll(a, [{ type: 'take-off' }, ...glides(REACH + 1)]);
+			if (!follows(a).length) continue;
+			const down = position(a);
+			expect(latestBattle(a).realm).toBe('air');
+			// Saved during the battle in the air, and picked up again in another page.
+			const b: Session = { authority: new LocalAuthority(), events: [] };
+			b.authority.subscribe((e) => b.events.push(e));
+			b.authority.start({ game: throughSave(a.authority.snapshot()) });
+			expect(latestBattle(b).realm).toBe('air');
+			// Both answer wrong until the robin is tired: the same loss, the same end.
+			for (const s of [a, b]) {
+				for (let i = 0; i < 60 && latestBattle(s).phase.kind !== 'ended'; i++) {
+					const state = latestBattle(s);
+					const intent =
+						state.phase.kind === 'solving'
+							? { type: 'answer' as const, input: String(state.phase.puzzle.answer + 1) }
+							: { type: 'attack' as const, attackIndex: 1, level: 1 as const };
+					s.authority.dispatch({ type: 'battle', intent });
+				}
+				expect(latestBattle(s).phase).toEqual({ kind: 'ended', outcome: 'lost' });
+				expect(position(s)).toEqual(down);
+				expect(lastMessage(s)).toBe('battle.closing.lost');
+				expect(party(s).map((x) => x.hp)).toEqual([0]);
+				expect(needsDoctor(party(s), 'land')).toBe(true);
+			}
+			expect(b.authority.snapshot()).toEqual(a.authority.snapshot());
+			// Glided back over the lake with the robin tired: no bird notices, and the reed by the
+			// start meets nothing.
+			a.authority.dispatch({ type: 'move', dir: 'down' });
+			const from = a.events.length;
+			const back = SPAWN.y - position(a).y;
+			dispatchAll(a, [{ type: 'take-off' }, ...glides(back), { type: 'land' }]);
+			expect(a.events.slice(from).some((e) => e.type === 'bird-follows')).toBe(false);
+			expect(a.events.slice(from).some((e) => e.type === 'battle-started')).toBe(false);
+			expect(position(a)).toEqual(SPAWN);
+			expect(reedWalk(a, 200)).toEqual([]);
+			expect(party(a).map((x) => x.hp)).toEqual([0]);
+			return;
+		}
+		throw new Error('no bird in 400 flights');
 	});
 
 	it('in the air, the party is not the kid’s to change', () => {

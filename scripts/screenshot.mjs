@@ -13,6 +13,14 @@
  *                               [--reduced-motion] [--touch] [--api]
  *                               [--safe-area top,right,bottom,left]
  *                               [--host-rules "MAP old.example localhost"]
+ *                               [--storage file.json]
+ *
+ * `--storage` starts the page with a game of your own making: the file is a
+ * JSON object of localStorage keys and values (an object value is written as
+ * its JSON), each put in before the page's own scripts run, and only where the
+ * key is not there yet, so a `reload:` finds what the game saved since. A save
+ * placed where a flow needs it, say `{ "animath.save": { "version": 2, … } }`
+ * with a tired team out in the wild, or one shaped as an older build wrote it.
  *
  * `--host-rules` hands Chrome its `--host-resolver-rules`: the page can be
  * opened under a made-up name that leads to your own server, e.g. the old
@@ -101,7 +109,7 @@
  * detail without changing what the camera sees.
  */
 import { chromium } from 'playwright-core';
-import { mkdirSync } from 'node:fs';
+import { mkdirSync, readFileSync } from 'node:fs';
 import { basename, dirname, extname, join, resolve } from 'node:path';
 
 // `--name value`, or a lone `--name` (followed by another `--flag` or nothing) for true.
@@ -202,6 +210,22 @@ if (!allowApi) {
 	});
 }
 const page = await context.newPage();
+if (args.storage !== undefined) {
+	// A lone flag would seed nothing and start a new game, silently.
+	if (args.storage === 'true') {
+		console.error('--storage takes a JSON file of localStorage keys and values');
+		process.exit(2);
+	}
+	const entries = Object.entries(JSON.parse(readFileSync(args.storage, 'utf8'))).map(
+		([key, value]) => [key, typeof value === 'string' ? value : JSON.stringify(value)]
+	);
+	// Before the page's scripts, on every load, but only into keys still empty.
+	await page.addInitScript((seed) => {
+		for (const [key, value] of seed) {
+			if (localStorage.getItem(key) === null) localStorage.setItem(key, value);
+		}
+	}, entries);
+}
 if (args['safe-area']) {
 	const [top, right, bottom, left] = args['safe-area'].split(',').map(Number);
 	if (![top, right, bottom, left].every((n) => Number.isFinite(n) && n >= 0)) {
