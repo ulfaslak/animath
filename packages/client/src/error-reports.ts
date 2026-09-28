@@ -385,7 +385,26 @@ export function listenTo(page: Window, send: (report: ErrorReport) => void = pos
 		if (found) reports.report(found.thrown, false, found.where);
 	});
 	page.addEventListener('unhandledrejection', (event) => reports.report(event.reason, true));
+	// A script of the page that did not run: one that did not download, and, in
+	// a Safari before 15, one it could not read, which that Safari tells the
+	// script's element and not the page (#169). An element's `error` does not
+	// bubble, so it is heard on its way down.
+	page.addEventListener(
+		'error',
+		(event) => {
+			const script = scriptOf(event.target);
+			if (script !== null) reports.report({ message: 'a script did not run' }, false, script);
+		},
+		true
+	);
 	return reports;
+}
+
+/** The address of the `<script>` an event is on, or null for anything else (the page itself, an image). */
+export function scriptOf(target: unknown): string | null {
+	if (typeof target !== 'object' || target === null) return null;
+	const element = target as { tagName?: unknown; src?: unknown };
+	return element.tagName === 'SCRIPT' ? String(element.src || '') : null;
 }
 
 /** The page's reports, listening from the moment this module runs; null where there is no page (tests). */
