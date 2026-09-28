@@ -954,23 +954,26 @@ describe('a match', () => {
 		t.runUntil(() => battle.screen === 'result');
 		expect(match.result).toMatchObject({ won: true, reason: 'left' });
 		expect(match.rematch.theirs).toBe(false);
-		// A call-off of a rematch this page never began brings nothing up.
 		t.pick('Enter');
 		expect(match.stage).toBe('none');
+		// A call-off of a rematch this page never began (of a match it never went back from) brings
+		// nothing up.
 		const other = new Referee(
 			[{ id: 'starter', speciesId: 'squirrel' }],
 			[{ id: 's', speciesId: 'fox', hp: 1 }],
 			9,
 			3
 		);
+		const scenes = t.shown.length;
 		t.controller.receive({
 			...other.message('a', other.apply('b', { type: 'leave' })),
-			rematchOf: first.id,
+			rematchOf: 'match00008',
 			calledOff: true
 		});
 		t.run(3);
 		expect(match.stage).toBe('none');
 		expect(battle.active).toBe(false);
+		expect(t.shown).toHaveLength(scenes);
 	});
 
 	it('says the match is over to a page that came back to find it gone', () => {
