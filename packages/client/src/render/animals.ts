@@ -1581,7 +1581,7 @@ const BUILDERS: Record<string, Builder> = {
 		box(0.3, 0.035, 0.18, fur, -0.15, 0.0175, -0.8),
 		box(0.3, 0.035, 0.18, fur, 0.15, 0.0175, -0.8),
 		...([-1, 1] as const).flatMap((side) => [
-			rot(ball(0.075, accent, side * 0.16, 0.41, 0.28, 0.4, 0.55, 1.3), 0, side * 0.2, 0),
+			rot(ball(0.095, accent, side * 0.15, 0.45, 0.25, 0.4, 0.55, 1.4), 0, side * 0.2, 0),
 			ball(0.025, COLORS.dark, side * 0.17, 0.35, 0.47),
 			rot(ball(0.1, fur, side * 0.26, 0.02, 0.22, 1.4, 0.2, 0.8), 0, side * 0.5, 0)
 		])
