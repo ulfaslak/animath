@@ -1,8 +1,10 @@
 import { svelte } from '@sveltejs/vite-plugin-svelte';
 import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 import { parseEnv } from 'node:util';
-import { defineConfig, type Plugin } from 'vite';
+import { defineConfig, transformWithEsbuild, type Plugin } from 'vite';
 import { parse } from 'yaml';
+import { BUILD_TARGET, colorMixFallbacks, oldBrowsers, paletteOf } from './browsers';
 
 // TUNNEL=1 lets an ngrok / cloudflared hostname reach the dev server (Vite
 // blocks unknown hosts by default). Only set it while a tunnel is up.
@@ -130,8 +132,79 @@ function pageAddress(): Plugin {
 	};
 }
 
+/** The error reports' module, which the build makes a chunk of its own (`errorReportsFirst`). */
+const ERROR_REPORTS = 'src/error-reports.ts';
+/** The syntax of the error reports' chunk: what every browser that runs a module script reads. */
+const ERROR_REPORTS_TARGET = 'es2017';
+
+/**
+ * The error reports (`src/error-reports.ts`) in a script of their own, run
+ * before the game's first one, so that a browser that cannot even read the
+ * game's first script still runs them, and they report it. `boot.ts` imports
+ * them first, so the dev server runs them first too; the build makes them an
+ * entry of their own (`build.rollupOptions.input`), which `boot.ts`'s chunk
+ * imports, and puts its script at the top of the page.
+ *
+ * The build writes every chunk for `build.target` (`BUILD_TARGET`: ES2022,
+ * and Safari 15), and its minifier then uses syntax the module itself does
+ * not (a `catch` with no binding, which Safari before 11.1 cannot read), so
+ * the chunk is written again for `ERROR_REPORTS_TARGET`, whose syntax esbuild
+ * keeps to or fails the build (and `oldBrowsers` checks).
+ * Its name stays that of the chunk it was written from, one to one; its
+ * source map would not match it any more, and is left out.
+ */
+function errorReportsFirst(): Plugin {
+	return {
+		name: 'animath:error-reports-first',
+		apply: 'build',
+		async generateBundle(_options, bundle) {
+			for (const file of Object.values(bundle)) {
+				if (file.type !== 'chunk' || !file.facadeModuleId?.endsWith(ERROR_REPORTS)) continue;
+				const lowered = await transformWithEsbuild(file.code, file.fileName, {
+					target: ERROR_REPORTS_TARGET,
+					format: 'esm',
+					minify: true,
+					sourcemap: false
+				});
+				file.code = lowered.code;
+				file.map = null;
+				delete bundle[`${file.fileName}.map`];
+			}
+		},
+		transformIndexHtml: {
+			order: 'post',
+			handler(_html, { bundle }) {
+				const chunk = Object.values(bundle ?? {}).find(
+					(c) => c.type === 'chunk' && c.isEntry && c.facadeModuleId?.endsWith(ERROR_REPORTS)
+				);
+				if (!chunk) throw new Error(`the build made no chunk of its own for ${ERROR_REPORTS}`);
+				return [
+					{
+						tag: 'script',
+						attrs: { type: 'module', crossorigin: true, src: `/${chunk.fileName}` },
+						injectTo: 'head-prepend'
+					}
+				];
+			}
+		}
+	};
+}
+
+/** The palette's colours, which the mixes a browser without `color-mix()` gets are worked out from. */
+const palette = () => paletteOf(readFileSync(new URL('src/styles.css', import.meta.url), 'utf8'));
+
 export default defineConfig({
-	plugins: [svelte(), yaml(), robots(), pageAddress()],
+	plugins: [
+		svelte(),
+		yaml(),
+		robots(),
+		pageAddress(),
+		errorReportsFirst(),
+		// Last: the build fails over anything in it Safari 15 cannot run (browsers.ts).
+		oldBrowsers({ es2017: ERROR_REPORTS })
+	],
+	// Every stylesheet, each component's too: a colour for every `color-mix()` where there is none.
+	css: { postcss: { plugins: [colorMixFallbacks(palette)] } },
 	server: {
 		port: 5180,
 		strictPort: true,
@@ -146,7 +219,8 @@ export default defineConfig({
 		}
 	},
 	build: {
-		target: 'es2022',
+		// Safari 15 and up, iPadOS 15 on a family's iPad (DECISIONS § The page, browsers.ts).
+		target: BUILD_TARGET,
 		sourcemap: true,
 		// Every file Vite builds is named after its content hash; they all go in
 		// one folder, which the server tells browsers to keep for good. What
@@ -154,6 +228,11 @@ export default defineConfig({
 		// asked for again on every visit (`cacheControl` in the server's app.ts).
 		assetsDir: 'immutable',
 		rollupOptions: {
+			// The page, and the error reports as an entry of their own (`errorReportsFirst`).
+			input: {
+				index: fileURLToPath(new URL('index.html', import.meta.url)),
+				'error-reports': fileURLToPath(new URL(ERROR_REPORTS, import.meta.url))
+			},
 			// Three.js is ~500 kB on its own; keep it in a separate, long-cached chunk.
 			output: { manualChunks: { three: ['three'] } }
 		}

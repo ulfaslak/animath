@@ -10,6 +10,14 @@ Format: `### YYYY-MM-DD — <issue/PR ref> — <one-line category>` followed by 
 
 ## Patterns
 
+### 2026-09-28 — #169, fix/older-safari — a fallback that names one cause for a symptom several causes share, and an old engine's behaviour checked in a new one `[not codified]`
+
+Two mistakes, one after the other, in the too-old card.
+- **One cause for a shared symptom.** The card showed on every page whose game script never ran. A browser too old to read the script is one cause of that, and a script whose download failed is another: a kid on a dropped connection was told their iPad was too old. Found in WebKit by aborting the download of `index-*.js` instead of serving a script it cannot read.
+- **The fix trusted today's WebKit about an old one.** It told the two apart by where the browser reports them: a failed download on the `<script>` element, an unreadable script on the page. That holds in WebKit 26.6, the only WebKit here, but a Safari before 15 reports an unreadable module script on the element too. So the card kept away from the very Safaris it is for, and the error reports, which listened only on the page, heard nothing from them. Found by the adversarial review, from WebKit's own source at Safari 14's tag. The card now asks the browser whether it reads the game's newest syntax (`new Function` with a private method and `#name in`), and the reports hear a script element's error too.
+
+Before choosing what a fallback says, list every way to reach the state it keys on (a script that never ran: unreadable, not downloaded, thrown while loading), and check that its words hold for each. A behaviour of the old engine a fix is for cannot be checked in today's engine: read the old engine's source, or ask the browser for the capability itself. Codifying it would take a line in [[DEVELOPMENT]] § Testing ideology or a CLAUDE.md edge-case bullet ("a fallback's message: every cause of its trigger; an old browser's behaviour: its source, not today's browser").
+
 The categories that keep coming back. Each names where its guard lives, or the proposal that would make one; proposed CLAUDE.md lines wait for the human in [[HUMAN_TODO]].
 
 - **A negative control put back on uncommitted work**, by `git checkout -- <file>` or by rewriting the lines back, which reverts to the last commit and takes the fix with it: three times (PR #6, PR #8, PR #30). CLAUDE.md § Protecting existing work now says to commit before every negative control.
@@ -906,6 +914,31 @@ Drawing every figure with one vertex-coloured material (and the trainers with a 
 Three misses in painting the campfire's light instead of lighting it, each found by looking, not by a test. The first cut worked the glow out at each corner of the tent's faces, big triangles whose corners are all far from the fire: the hot spot a point light puts in the middle of the face nearest it was gone, and only a side-by-side at the same pixel ratio, zoomed six times, showed it. It then lit only the ground, and the forest tent's frame showed the tree behind it dark where the light had lit its canopy. And with every lit shader compiled up front, logging the shaders compiled while gliding still found one: the unlit material of the flier's shadow and the landing ring, hidden until the first take-off. Fixes: faces cut finer the nearer the light, every prop within reach painted, and the scene's hidden meshes compiled as the page starts. What would have caught them sooner: comparing the new look against the old at the same pixel ratio from the first frame, on the busiest spot (a forest tent), not the plainest; and logging compiles over every flow that shows something new (a take-off, a battle, a tent coming near), not only the one the issue named.
 
 Partly codified: [[INVARIANTS]] § Rendering ("The world's lights never change in number") names what is compiled as the page starts. To codify: a line in [[DEVELOPMENT]] § Looking at the game that a change to how something is lit is compared with the old look at the same pixel ratio, zoomed, on its busiest spot, and that shaders are logged across every flow that shows something new.
+
+### 2026-09-28 — #163 (fix/shop-socket-confetti), self-testing — a line over a list written for the list's usual state only `[not codified]`
+
+The Shop's new line while Bye is lit, "Pick something to buy", took the place of the Heal tab's "Pick an animal", which was itself a line borrowed from another state (#163). The new line still asked a kid who owns every tool on sale to buy something. Found in Phase 2 by walking the tab's end states: a save with all four tools, Bye lit. The Heal tab already had a line of its own for its end state ("Time to explore!" when nobody is hurt). Fix: "You have everything!" ("Du har det hele!") once every tool on sale is the kid's. The same frame with the parent's template shows "Pick something to buy". Category: before choosing the words shown over a list or tab, walk every state it can be in (empty, all done, none possible), not only the one the issue shows. To codify: a line in [[DESIGN]] § Voice and copy saying that a line shown over a list is read in each of the list's states.
+
+### 2026-09-28 — ops/know-when-it-breaks, self-testing and review — what the build ships is not what the source says `[learned]`
+
+The error reporter has to run even when the browser cannot read the game's first script, so it went in as a second `<script type="module">` in `index.html`, ahead of `boot.ts`. The dev server serves the two apart. `vite build` merges every module script of a page into one entry chunk, so the reporter sat in the very chunk whose parse errors it was there to report. Found by reading `dist/index.html` and the chunk list after the first build. Fixed with `errorReportsFirst` in `vite.config.ts`: an entry of its own, its tag first. Then checked with a copy of the build whose first game script cannot parse: the report arrived, and with the reporter's own tag removed it did not (the negative control).
+
+- The review found the same gap one level down. The module is written in old syntax on purpose (`catch (e)`, no `?.`). The build's es2022 minifier dropped every catch binding, and Safari before 11.1 cannot read a `catch` without one. The plugin now writes the chunk again for ES2017, and esbuild fails the build if it cannot. A build without the fix has 7 `catch{`; with it, 0.
+- The user-agent table missed the one browser the checks themselves run: `\bChrome` finds no word boundary inside `HeadlessChrome`, so every agent's report said `Other`. Found by reading the first report the dev server received.
+
+Codified: [[ARCHITECTURE]]'s `vite.config.ts` row says why a second tag would not do and why the chunk is rewritten; `error-reports.test.ts` holds the headless user agent. The general lesson (read the built output, not the source, for anything about how the page loads) is CLAUDE.md's "the gate you ran vs. the gate that ships".
+
+### 2026-09-28 — ops/know-when-it-breaks, review — abuse limits that silence, and automatic traffic in a budget people share `[learned]`
+
+Two mistakes of one kind in bounding a route anyone can call.
+- **A shared cap silenced.** A cap of 200 reports an hour shared by every address, meant to bound the table, let a stranger with two addresses use it up. Every kid's report was then refused, and the health watch said "none new". A limit shared by every sender turns a loud flood into silence. The fix is no shared cap: a flood can only fill the table, which keeps the newest 5,000, and it shows as errors of its own.
+- **Page traffic in the login bucket.** The reports are POSTs that pages send by themselves, and nginx's flood guard counts every POST per address in one bucket with logging in. Ten reports a page load, sent again on each reload, could let a class of breaking pages behind one school address use it up and turn the kids' logins away.
+
+Codified: [[INVARIANTS]] § Server ("An error report carries nothing that tells whose page it was…" names both, with `client-errors.test.ts`'s 250-address test and `error-reports.test.ts`'s three-a-tab-an-hour test). The leftover sharing is [[DEFERRED]] "Error reports share nginx's guard on POSTs with logging in".
+
+### 2026-09-28 — ops/know-when-it-breaks, review — a time window read while rows are still landing in it `[learned]`
+
+The health watch reads error groups new since the last window's end, `until`, taken from the database's clock. A row's `created_at` is when its insert *began*. A row whose insert began before `until` but committed after the window was read fell between two windows. Worse, every later report of its kind then had an earlier report on file, so it was never "new" again: that error would never be told. The fix: a window for new groups ends 10 s behind the clock, and a row lands in milliseconds. Codified: [[ARCHITECTURE]]'s `client-errors.ts` row (`NEW_WINDOW_LAG_MS`) and the test "with onlyNew, ends its window 10 s behind the clock…". The general shape is any "since last time" read over rows stamped when their write began.
 
 ### 2026-09-28 — #166 (fix/doctor-card-overflow), self-testing — a check that exempted what scrolls on both axes `[learned]`
 

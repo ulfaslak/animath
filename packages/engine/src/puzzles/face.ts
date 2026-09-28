@@ -74,7 +74,11 @@ export function facePrompt(face: PuzzleFace): string {
  */
 export function puzzleFace(puzzle: Pick<Puzzle, 'kind' | 'prompt'>): PuzzleFace | null {
 	const { kind, prompt } = puzzle;
-	if (!Object.hasOwn(FACE_NUMBERS, kind) || prompt.length > MAX_PROMPT_LENGTH) return null;
+	if (
+		!Object.prototype.hasOwnProperty.call(FACE_NUMBERS, kind) ||
+		prompt.length > MAX_PROMPT_LENGTH
+	)
+		return null;
 	const numbers = (prompt.match(/\d+/g) ?? []).map(Number);
 	if (numbers.length !== FACE_NUMBERS[kind]) return null;
 	if (numbers.some((n) => !Number.isSafeInteger(n) || n > MAX_FACE_NUMBER)) return null;
@@ -99,7 +103,9 @@ const MAX_PROMPT_LENGTH = 40;
 export function readPuzzleFace(value: unknown): PuzzleFace | null {
 	if (typeof value !== 'object' || value === null || Array.isArray(value)) return null;
 	const { kind, numbers, times } = value as Record<string, unknown>;
-	if (typeof kind !== 'string' || !Object.hasOwn(FACE_NUMBERS, kind)) return null;
+	if (typeof kind !== 'string' || !Object.prototype.hasOwnProperty.call(FACE_NUMBERS, kind)) {
+		return null;
+	}
 	const size = FACE_NUMBERS[kind as PuzzleKind];
 	if (!Array.isArray(numbers) || numbers.length !== size) return null;
 	const read: number[] = [];

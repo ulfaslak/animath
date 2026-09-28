@@ -283,6 +283,33 @@ describe('presence socket', () => {
 		);
 	});
 
+	it("takes the local stack's own page, whose Host nginx passes without its port, and holds any other name to its port", async () => {
+		// nginx's $host drops the port, so the local production stack's page at localhost:8480
+		// comes with Host localhost, and was refused (#164). Only this machine's own name goes
+		// by name alone: a browser sends it to no other machine.
+		const { url } = await start();
+		const from = (host: string, origin: string) =>
+			new Client(url, { origin, headers: { host } }).opened;
+		await from('localhost', 'http://localhost:8480');
+		await from('127.0.0.1', 'http://127.0.0.1:8480');
+		await from('[::1]', 'http://[::1]:8480');
+		await from('animath.example', 'https://animath.example');
+		for (const [host, origin] of [
+			// The game's domain behind nginx: a page on another port is refused, as it always was.
+			['animath.example', 'https://animath.example:8443'],
+			['evil.example', 'http://evil.example:8480'],
+			// A port the proxy passes must match.
+			['localhost:3000', 'http://localhost:5180'],
+			// This machine's name lets in no other name.
+			['localhost', 'http://127.0.0.1:8480'],
+			['localhost', 'http://localhost.evil.example:8480'],
+			['localhost', 'http://evil.example:8480'],
+			['127.0.0.1', 'http://localhost:8480']
+		]) {
+			await expect(from(host!, origin!), `${origin} to ${host}`).rejects.toThrow('HTTP 403');
+		}
+	});
+
 	it('closes a socket that sends too much at once', async () => {
 		const { url } = await start();
 		const c = new Client(url);

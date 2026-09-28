@@ -581,7 +581,12 @@
 				{#if why}<div class="detail strong">{why}</div>{/if}
 				<div class="keys">{touch.on ? t('doctor.shop.touch') : t('doctor.shop.keys')}</div>
 			{:else}
-				<div class="soft">{t('doctor.pick')}</div>
+				<!-- Bye is lit: what the tab is for, or that there is nothing left to buy. -->
+				<div class="soft">
+					{doctor.shop.every((id) => cannotBuy(id, doctor) === 'owned')
+						? t('doctor.shop.allOwned')
+						: t('doctor.shop.pick')}
+				</div>
 				<div class="detail">{t('doctor.byeDetail')}</div>
 				<div class="keys">{touch.on ? t('doctor.shop.touch') : t('doctor.shop.keys')}</div>
 			{/if}
@@ -915,13 +920,21 @@
 	.list.tab-shop {
 		grid-template-columns: auto minmax(0, max-content) minmax(max-content, 1fr);
 	}
+	/* Each row first in its list's columns on its own, for a browser without subgrid (Safari before 16). */
 	.list .row {
 		grid-column: 1 / -1;
 		display: grid;
+		grid-template-columns: minmax(0, max-content) minmax(130px, 1fr);
 		grid-template-columns: subgrid;
 	}
 	.list.tab-home .row {
 		column-gap: 6px;
+		grid-template-columns: auto minmax(0, max-content) minmax(100px, 1fr);
+		grid-template-columns: subgrid;
+	}
+	.list.tab-shop .row {
+		grid-template-columns: auto minmax(0, max-content) minmax(max-content, 1fr);
+		grid-template-columns: subgrid;
 	}
 	.footer {
 		flex: none;

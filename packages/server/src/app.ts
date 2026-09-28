@@ -5,6 +5,7 @@ import { AccountsReady } from './accounts.js';
 import { env } from './env.js';
 import { ACCOUNT_LIMITS, type AccountLimits } from './rate-limit.js';
 import { accountRoute } from './routes/account.js';
+import { clientErrorsRoute, REPORT_LIMITS, type ReportLimits } from './routes/client-errors.js';
 import { health } from './routes/health.js';
 
 export interface AppOptions {
@@ -12,6 +13,8 @@ export interface AppOptions {
 	production?: boolean;
 	/** The login and register rate limits; tests pass small ones. */
 	limits?: AccountLimits;
+	/** The error reports' rate limits (`REPORT_LIMITS`); tests pass their own. */
+	reportLimits?: ReportLimits;
 	/** Where the built client is, relative to the working directory. Tests point it at a fixture. */
 	clientDist?: string;
 	/** Whether accounts work now; by default the database's answer, kept 10 s (`AccountsReady`). */
@@ -58,6 +61,7 @@ export function createApp(options: AppOptions = {}) {
 			ready: options.accountsReady ?? (() => accounts.ready())
 		})
 	);
+	app.route('/api/client-errors', clientErrorsRoute(options.reportLimits ?? REPORT_LIMITS));
 	// No route answered. The API's own 404, never the game's page with a 200:
 	// a caller reading the status or the JSON must not be told an unknown path
 	// (or the WebSocket path asked without an upgrade) worked.
