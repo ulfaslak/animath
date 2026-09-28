@@ -96,6 +96,32 @@ describe('figures', () => {
 					);
 	});
 
+	it("hangs every bird's wings from a pair of shoulder joints, wingL and wingR, and no other animal's (#91)", () => {
+		const birds = [
+			'robin',
+			'grey-heron',
+			'tawny-owl',
+			'mute-swan',
+			'eagle-owl',
+			'golden-eagle',
+			'white-tailed-eagle'
+		];
+		for (const id of birds) {
+			const figure = buildAnimalMesh(id);
+			const left = figure.getObjectByName('wingL');
+			const right = figure.getObjectByName('wingR');
+			expect(left && right, id).toBeTruthy();
+			expect(left!.position.x, id).toBeLessThan(0);
+			expect(left!.position.x, id).toBeCloseTo(-right!.position.x, 9);
+			expect(left!.position.y, id).toBeCloseTo(right!.position.y, 9);
+			expect(left!.children.length, id).toBeGreaterThan(0);
+			expect(right!.children.length, id).toBe(left!.children.length);
+		}
+		for (const { id } of ANIMALS)
+			if (!birds.includes(id))
+				expect(buildAnimalMesh(id).getObjectByName('wingL'), id).toBeUndefined();
+	});
+
 	it('refuses a species that is not in the catalog', () => {
 		expect(() => buildAnimalMesh('dragon')).toThrow(/dragon/);
 	});
