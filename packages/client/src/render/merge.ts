@@ -15,8 +15,8 @@ import * as THREE from 'three';
  * material: the boat's inside) is turned over, and one seen from both sides
  * is there twice, once each way round, so the one material draws the front of
  * everything and the pixels are the same. The merged shape is shared by every
- * figure of its kind (its `key`: a species, a trainer's look, a boat's trim),
- * and freed with the last of them (`release`).
+ * figure of its kind (its `key`: a species, a trainer's look, a boat's trim, a
+ * glider's colour), and freed with the last of them (`release`).
  *
  * The parts that move on their own are joints (`markJoint`): a trainer's arms
  * and legs, a bird's wings, the wolf's tail, the boat's pennant. How they
