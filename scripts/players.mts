@@ -522,7 +522,7 @@ const DESCRIBE = `(() => {
 		['.fly-button', () => 'Fly'],
 		['.bottom .hint', () => 'message line'],
 		['.bottom .challenge', () => 'Challenge'],
-		['.others .arrow svg', (el) => 'arrow ' + text(el.closest('.arrow'))],
+		['.others .arrow', (el) => 'arrow ' + text(el)],
 		['.others .arrow-name', (el) => 'name ' + text(el)],
 		['.others .arrow-more', (el) => text(el)],
 		['.doctor-arrow .disc', () => 'tent marker'],
@@ -532,6 +532,9 @@ const DESCRIBE = `(() => {
 			let r = el.getBoundingClientRect();
 			if (column && el.matches('.party .bundle'))
 				r = { left: r.left, right: r.right, top: Math.max(r.top, column.top), bottom: Math.min(r.bottom, column.bottom) };
+			// An arrow is its 30 px picture round its middle, turned or not (a turned box's
+			// bounds would reach past its corners, which are empty).
+			if (el.matches('.others .arrow')) r = { left: r.left - 15, right: r.left + 15, top: r.top - 15, bottom: r.top + 15 };
 			return { name: name(el), el, r };
 		})
 	).filter((p) => p.r.right > p.r.left && p.r.bottom > p.r.top);

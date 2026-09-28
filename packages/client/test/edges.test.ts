@@ -59,7 +59,7 @@ const PHONE = {
 	insets: NONE,
 	pieces: [
 		{ x0: 16, x1: 276, y0: 16, y1: 132 }, // the party column (its hint gives way)
-		{ x0: 399, x1: 724, y0: 16, y1: 88 }, // two rows: the counts; the tools and the world
+		{ x0: 451, x1: 724, y0: 16, y1: 82 }, // two rows: the counts; the tools and the world
 		{ x0: 535, x1: 618, y0: 142, y1: 170 }, // the coordinates, beside Fly
 		{ x0: 266, x1: 474, y0: 300, y1: 344 }, // the message line
 		{ x0: 20, x1: 212, y0: 148, y1: 340 }, // the D-pad
@@ -76,7 +76,7 @@ const NOTCHED = {
 	insets: { top: 0, right: 59, bottom: 21, left: 59 },
 	pieces: [
 		{ x0: 75, x1: 335, y0: 16, y1: 132 },
-		{ x0: 444, x1: 769, y0: 16, y1: 88 },
+		{ x0: 496, x1: 769, y0: 16, y1: 82 },
 		{ x0: 580, x1: 663, y0: 151, y1: 179 },
 		{ x0: 318, x1: 526, y0: 309, y1: 353 },
 		{ x0: 79, x1: 271, y0: 157, y1: 349 },
