@@ -422,8 +422,8 @@ puzzle:
 explore:
   controls: Gå med piletasterne eller WASD
   controlsTouch: Hold på en pil for at gå
-  talkPrompt: Tryk på Enter for at snakke med dyrlægen
-  talkPromptTouch: Tryk på Snak for at snakke med dyrlægen
+  talkPrompt: Tryk på Enter for at snakke med heksedoktoren
+  talkPromptTouch: Tryk på Snak for at snakke med heksedoktoren
   talk: Snak
   chopPrompt: Tryk på Enter for at fælde træet
   chopPromptTouch: Tryk på Fæld for at fælde træet
@@ -431,14 +431,14 @@ explore:
   breakPromptTouch: Tryk på Knus for at knuse stenen
   chop: Fæld
   break: Knus
-  needAxe: Du skal bruge en økse for at fælde træer. Dyrlægen sælger en!
-  needPickaxe: Du skal bruge en hakke for at knuse sten. Dyrlægen sælger en!
+  needAxe: Du skal bruge en økse for at fælde træer. Heksedoktoren sælger en!
+  needPickaxe: Du skal bruge en hakke for at knuse sten. Heksedoktoren sælger en!
   walkUp: Gå op
   walkDown: Gå ned
   walkLeft: Gå til venstre
   walkRight: Gå til højre
   turnSideways: Hold skærmen på tværs for at spille!
-  notAtTent: Gå hen til et telt for at snakke med dyrlægen.
+  notAtTent: Gå hen til et telt for at snakke med heksedoktoren.
   holdToFly: Hold mellemrum nede for at flyve!
   holdToFlyTouch: Hold Flyv nede for at flyve!
   tooFar: For langt! Der er intet sted at lande den vej.
@@ -480,9 +480,9 @@ party:
   leadChosen: '{animal.the} er først ud!'
   leadCantSwim: '{animal.the} kan ikke svømme! På vandet er et dyr, der kan svømme, først ud.'
   leadInTheSea: '{animal.the} bor i havet! På land er et dyr, der kan gå, først ud.'
-  leadTired: '{animal.the} er træt. Gå til dyrlægen!'
+  leadTired: '{animal.the} er træt. Gå til heksedoktoren!'
   leadAlready: '{animal.the} er allerede først ud!'
-  leadAllTired: De er alle sammen trætte. Gå til dyrlægen!
+  leadAllTired: De er alle sammen trætte. Gå til heksedoktoren!
 
 battle:
   wildName: '{animal.wild}'
@@ -574,7 +574,7 @@ battle:
     joined: '{animal.the} kommer med på dit hold!'
 
 doctor:
-  title: Dyrlæge
+  title: Heksedoktor
   hello: Hej! Hvem skal jeg hjælpe i dag?
   helloAllFit: Hej! Alle dine dyr er friske og glade.
   letsHelp: Lad os hjælpe {animal.the}! Kan du løse den her?
@@ -586,14 +586,14 @@ doctor:
   healedMoreNext: Godt klaret! {animal.the} og {others} til har det godt igen! Hvem skal jeg hjælpe nu?
   healedMoreAll: Godt klaret! {animal.the} og {others} til har det godt igen! Alle er friske og glade!
   goodbye: Hej hej! Kom bare igen, når du vil.
-  rescuedAtTent: Dyrlægen har passet godt på dine dyr. Nu har alle det godt igen!
-  rescuedHere: En dyrlæge kom forbi og passede godt på dine dyr. Nu har alle det godt igen!
+  rescuedAtTent: Heksedoktoren har passet godt på dine dyr. Nu har alle det godt igen!
+  rescuedHere: En heksedoktor kom forbi og passede godt på dine dyr. Nu har alle det godt igen!
   bye: Farvel
   byeKey: Esc
   back: Tilbage
   tabs:
     heal: Gør rask
-    home: Hjælp hjem
+    home: Slip fri
     shop: Butik
   tokens:
     one: '{count} mønt'
@@ -612,8 +612,8 @@ doctor:
 
   home:
     intro: Vilde dyr er lidt syge. Derfor er de så gnavne!
-    title: Hjælp dyr hjem
-    how: Vælg de dyr, der skal hjem. Jeg gør dem helt raske, og du får mønter som tak!
+    title: Slip dyr fri
+    how: Vælg de dyr, du vil slippe fri. Jeg gør dem helt raske, og de kommer hjem til naturen. Du får mønter som tak!
     worth:
       one: '{animal.the} giver {count} mønt.'
       other: '{animal.the} giver {count} mønter.'
@@ -627,9 +627,9 @@ doctor:
       other: '{count} dyr valgt: {amount} mønter.'
     keepOne: Behold ét dyr, der kan gå med dig!
     noWalker: Intet dyr kan gå med dig lige nu. Gør et dyr rask først!
-    send: Hjælp dem hjem
+    send: Slip dem fri
     keys: ↑ ↓ flyt · ← → faner · Enter vælg · Esc farvel
-    touch: Tryk på de dyr, der skal hjem
+    touch: Tryk på de dyr, du vil slippe fri
     sure: Er du sikker? De bliver glade ude i naturen!
     sureTitle: Sig farvel til {names.the}?
     sureTitleMany: Sig farvel til {many} dyr?
@@ -914,7 +914,7 @@ presence:
   elsewhere: Du spiller i et andet vindue.
   busy:
     battle: kæmper mod et vildt dyr
-    doctor: hos dyrlægen
+    doctor: hos heksedoktoren
     menu: holder pause
     match: kæmper mod en ven
     flight: flyver
@@ -1037,5 +1037,5 @@ book:
   unseen: Hvem mon det er? Gå på opdagelse og find ud af det!
   seen: Du har mødt {animal.a}. Kast din snor næste gang!
   caughtTeam: '{animal.the} er på dit hold!'
-  caughtHome: Du fangede {animal.a} og hjalp {animal.the} hjem. Det står i din bog for altid!
+  caughtHome: Du fangede {animal.a} og slap {animal.the} fri. Det står i din bog for altid!
   keys: ↑ ↓ ← → flyt · Esc tilbage
