@@ -1,6 +1,7 @@
 import { CHUNK_SIZE, WorldEdits, editedChunk, type ChunkRef, type GridPos } from '@mathgame/engine';
 import type * as THREE from 'three';
-import { buildChunkGroup, disposeChunkGroup } from './tiles';
+import type { WitchDoctor } from './doctor';
+import { buildChunkGroup, disposeChunkGroup, doctorsIn } from './tiles';
 
 /** How many chunks the ring reaches out from the player's chunk: 5×5 chunks are drawn. */
 export const CHUNK_RADIUS = 2;
@@ -76,6 +77,11 @@ export class ChunkRing {
 	/** How many chunks are built right now. */
 	get size(): number {
 		return this.chunks.size;
+	}
+
+	/** Each witch doctor at a tent in the chunks built: the renderer animates them every frame. */
+	forEachDoctor(visit: (doctor: WitchDoctor) => void): void {
+		for (const group of this.chunks.values()) for (const d of doctorsIn(group)) visit(d);
 	}
 
 	private build(cx: number, cy: number): void {
