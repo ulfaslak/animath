@@ -27,6 +27,15 @@ function deepFreeze<T>(value: T): T {
 
 const chars = (s: string) => Array.from(s).length;
 
+/**
+ * The first few failures of a sweep and how many there were: a broken rule
+ * fails every move of a party of 150, and printing them all can outlast the
+ * test's bound ([[DEVELOPMENT]] § Testing ideology).
+ */
+function findings(bad: unknown[]): unknown[] {
+	return bad.length > 20 ? [...bad.slice(0, 20), `…and ${bad.length - 20} more`] : bad;
+}
+
 // --- a fuzzer for typed names ------------------------------------------------
 
 /** Code point ranges, each as likely as the next, so rare scripts get drawn. */
@@ -394,15 +403,28 @@ function expectSameAnimals(before: readonly AnimalInstance[], after: readonly An
 
 /** What `expectSameAnimals` checks, as a list of what went wrong, for a hot loop to collect. */
 function animalProblems(before: readonly AnimalInstance[], after: readonly AnimalInstance[]) {
-	if (after.length !== before.length) return [`${before.length} animals became ${after.length}`];
-	const was = byId(before);
-	const bad: string[] = [];
-	for (const animal of after) {
-		const old = was.get(animal.id);
-		if (old === animal) bad.push(`${animal.id} is shared`);
-		else if (JSON.stringify(old) !== JSON.stringify(animal)) bad.push(`${animal.id} changed`);
-	}
-	return bad;
+	return sameAnimals(before)(after);
+}
+
+/**
+ * `animalProblems` for many edits of one party: the party is read once, and
+ * each edit checked against that, so a sweep over every move of a party of
+ * 150 does not write every animal out twice a move.
+ */
+function sameAnimals(
+	before: readonly AnimalInstance[]
+): (after: readonly AnimalInstance[]) => string[] {
+	const was = new Map(before.map((a) => [a.id, { animal: a, text: JSON.stringify(a) }]));
+	return (after) => {
+		if (after.length !== before.length) return [`${before.length} animals became ${after.length}`];
+		const bad: string[] = [];
+		for (const animal of after) {
+			const old = was.get(animal.id);
+			if (old?.animal === animal) bad.push(`${animal.id} is shared`);
+			else if (old?.text !== JSON.stringify(animal)) bad.push(`${animal.id} changed`);
+		}
+		return bad;
+	};
 }
 
 /** Whether a step is exactly this one event, the party untouched when it is a refusal. */
@@ -688,6 +710,7 @@ describe('applyPartyIntent: reorder', () => {
 		let moves = 0;
 		for (const party of PARTIES) {
 			const bundleOf = new Map(bundles(party).map((b) => [b.speciesId, b]));
+			const problems = sameAnimals(party);
 			for (const [from, animal] of party.entries()) {
 				const slots = bundleOf.get(animal.speciesId)!.slots;
 				const animalId = animal.id;
@@ -713,11 +736,11 @@ describe('applyPartyIntent: reorder', () => {
 					) {
 						bad.push({ animalId, to, got: ids(step.party), events: step.events });
 					}
-					bad.push(...animalProblems(party, step.party));
+					bad.push(...problems(step.party));
 				}
 			}
 		}
-		expect(bad).toEqual([]);
+		expect(findings(bad)).toEqual([]);
 		expect(moves).toBeGreaterThan(500);
 	});
 
@@ -762,6 +785,7 @@ describe('applyPartyIntent: move-species', () => {
 		let moves = 0;
 		for (const party of [...PARTIES, ...BIG]) {
 			const list = bundles(party);
+			const problems = sameAnimals(party);
 			for (const [from, bundle] of list.entries()) {
 				const { speciesId } = bundle;
 				for (let to = 0; to < list.length; to++) {
@@ -781,13 +805,13 @@ describe('applyPartyIntent: move-species', () => {
 					) {
 						bad.push({ speciesId, to, got: ids(step.party), events: step.events });
 					}
-					bad.push(...animalProblems(party, step.party));
+					bad.push(...problems(step.party));
 				}
 			}
 		}
-		expect(bad).toEqual([]);
+		expect(findings(bad)).toEqual([]);
 		expect(moves).toBeGreaterThan(300);
-	});
+	}, 30_000);
 
 	it('refuses a place off the list, a place that is not a whole number, and a species not in the party', () => {
 		for (const party of PARTIES.slice(0, 40)) {
