@@ -1015,7 +1015,8 @@
 	@media (max-height: 560px) {
 		/*
 		 * Wide enough for the longest name of an animal the game has, at 16 px,
-		 * beside the paw: "Wild Common lizard" is 156 px (162 px of room).
+		 * beside the paw: "Vild europæisk bison" and "Wild European bison" are
+		 * 160 px (162 px of room).
 		 */
 		.status {
 			width: 210px;

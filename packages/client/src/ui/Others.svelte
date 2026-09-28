@@ -430,7 +430,7 @@
 		will-change: transform;
 	}
 	.hp-name {
-		/* Whole at any species' name ("Common lizard", "Blæksprutte"). */
+		/* Whole at any species' name ("Europæisk bison", "Blæksprutte"). */
 		max-width: 11em;
 		overflow: hidden;
 		text-overflow: ellipsis;
