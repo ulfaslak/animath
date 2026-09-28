@@ -300,9 +300,14 @@ async function describe() {
 		page.locator(selector).evaluateAll((els) =>
 			els.map((el) => {
 				const text = el.textContent.replace(/[▸\s]+/g, ' ').trim();
+				// A row whose place is kept, unseen, until the server says it can keep an account.
+				if (el.classList.contains('slot')) return `(kept: ${text})`;
 				return el.classList.contains('lit') ? `[${text}]` : text;
 			})
 		);
+	// Just after a logout: the box over the rows that says the account's game is safe.
+	const safe = await textOf('.menu-card .safe');
+	if (safe !== null) lines.push(`title safe: ${safe}`);
 	const titleRows = await lit('.menu-card .row');
 	if (titleRows.length) lines.push(`title: ${titleRows.join(' | ')}`);
 	const confirm = await textOf('.confirm .heading');
@@ -322,7 +327,9 @@ async function describe() {
 		const loves = await textOf('.starter-card .loves');
 		lines.push(`starter: ${[starterCard, loves].filter((t) => t !== null).join(' — ')}`);
 	}
-	const titleNotes = await page.locator('.menu-card .note, .starter-card .note').allTextContents();
+	const titleNotes = await page
+		.locator('.menu-card .note:not(.slot), .starter-card .note')
+		.allTextContents();
 	if (titleNotes.length) lines.push(`title notes: ${titleNotes.map((n) => n.trim()).join(' | ')}`);
 	const debug = await textOf('.debug:not(.debug-cue)');
 	if (debug !== null) lines.push(`at: ${debug}`);

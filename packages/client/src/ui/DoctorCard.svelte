@@ -712,6 +712,14 @@
 	.list {
 		flex: 1;
 		min-height: 0;
+		/*
+		 * Room over the first row for a heal's "+N" and stars, which rise over
+		 * the row they heal: the list clips what leaves it, and its top edge
+		 * cut them in half over the first row (#154). The list reaches up to
+		 * the tabs' line for it (the column's gap), so the rows move down less.
+		 */
+		margin-top: -4px;
+		padding-top: 18px;
 		display: grid;
 		grid-template-columns: minmax(0, max-content) minmax(130px, 1fr);
 		grid-auto-rows: minmax(30px, 36px);
@@ -965,16 +973,33 @@
 		background: rgba(0, 0, 0, 0.08);
 	}
 
+	/*
+	 * Centred while what it holds fits; when it does not (a long line from the
+	 * witch doctor leaves less room), it starts at the top, so the sum and
+	 * its story never leave the card, only the last line under them. A
+	 * browser that does not know `safe` keeps the plain centring before it.
+	 */
 	.puzzle {
 		display: flex;
 		flex-direction: column;
 		align-items: center;
 		justify-content: center;
+		justify-content: safe center;
 		gap: 10px;
 		padding: 12px 20px;
 		text-align: center;
 		overflow: hidden;
 		transition: background-color 0.3s;
+	}
+	/*
+	 * On a laptop's short screen (1280×720) the card is 44vh: a token sum's story
+	 * of two lines over the sum, the answer and Back ran 8 px past it, in both
+	 * languages. There the lines sit closer.
+	 */
+	@media (max-height: 760px) {
+		.puzzle {
+			gap: 6px;
+		}
 	}
 	.puzzle.correct {
 		background: color-mix(in srgb, var(--good) 22%, var(--panel-bg));

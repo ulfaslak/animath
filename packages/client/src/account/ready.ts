@@ -74,7 +74,9 @@ export class ReadyWatch {
  * Runs `change`, which may add or take away the account's rows, and keeps
  * the pause menu's cursor and the title's on the rows they lit (`relit`).
  * A pause menu row that went leaves the cursor on Keep playing, never on
- * the row after it: after "Log in" comes "Log out", which acts at once.
+ * the row after it: after "Log in" comes "Log out", which acts at once. A
+ * row the title waits for (`title.awaited`: after a logout, logging in
+ * again) takes the title's cursor as it comes.
  */
 export function keepingCursors(change: () => void): void {
 	const cards = bundles(game.party).length;
@@ -85,6 +87,13 @@ export function keepingCursors(change: () => void): void {
 		pause.cursor = cards + relit(items, menuItems(), pause.cursor - cards, 'resume');
 	}
 	title.cursor = relit(rows, title.rows, title.cursor);
+	// The row the title waits to light (after a logout, logging in again) takes the cursor as it
+	// comes, unless the kid has moved the cursor since the title opened.
+	const awaited = title.awaited;
+	if (awaited !== null && title.rows.includes(awaited)) {
+		title.cursor = title.rows.indexOf(awaited);
+		title.awaited = null;
+	}
 }
 
 /**

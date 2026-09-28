@@ -15,8 +15,6 @@ export const SAVE_NOTICES = [
 	'save.storageFull',
 	/** This page had fallen behind another window of the game, and reloaded into the newest game. */
 	'save.caughtUp',
-	/** The player logged out: the title, with the guest game if there is one; the account's game waits. */
-	'save.loggedOut',
 	/**
 	 * The server says this page's account is logged out (a new password, a
 	 * year unused): the game saves only in this browser until the player logs

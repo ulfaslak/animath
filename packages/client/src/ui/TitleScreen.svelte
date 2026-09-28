@@ -6,6 +6,7 @@
 		normalizeNickname
 	} from '@mathgame/engine';
 	import { untrack } from 'svelte';
+	import { fade } from 'svelte/transition';
 	import { sfx } from '../audio/sfx.svelte';
 	import { LANGUAGES, language, languageName, t } from '../copy';
 	import { languageKey, rowKey, unfocusable } from '../input/press';
@@ -52,11 +53,22 @@
 	 * Opened from the Home Screen with nothing saved here: the game played in
 	 * the browser is in the browser's storage, which a web app does not share.
 	 * Its hint says how to bring it over (#90), by an account: only while the
-	 * server can keep one.
+	 * server can keep one. Until the server's first word its place is kept, as
+	 * the login row's is, and it fades in there.
 	 */
-	const standaloneHint = $derived(
-		runsAsWebApp() && saved === null && account.name === null && account.ready
-	);
+	const hintFor = $derived(runsAsWebApp() && saved === null && account.name === null);
+	const standaloneHint = $derived(hintFor && account.ready);
+	const hintPending = $derived(hintFor && !account.ready && !account.readyHeard);
+	/** The lit row stays in view when the menu scrolls, on a screen too short for it. */
+	function showRow(row: HTMLElement) {
+		row.scrollIntoView({ block: 'nearest' });
+	}
+	/**
+	 * After a logout the login row logs in to the account just left: "Log in",
+	 * and its name where Continue shows its team's lead, beside the word or
+	 * under it when a long name leaves no room.
+	 */
+	const loginName = $derived(title.loggedOut?.name ?? null);
 	const species = $derived(STARTERS[title.starter] ?? STARTERS[0]!);
 	/**
 	 * How much the player's name box takes: well past the longest name, so a
@@ -153,59 +165,97 @@
 		<!-- Under the confirm the menu is out of reach, a screen reader's click too: its
 		     rows' keys are the confirm's (New game's `row:1` is Yes). -->
 		<div class="card menu-card" inert={title.screen !== 'menu'}>
-			{#each rows as row, i (row)}
-				<button
-					type="button"
-					class="row"
-					class:lit={title.screen === 'menu' && title.cursor === i}
-					class:continue={row === 'continue'}
-					data-press={rowKey(i)}
-					{@attach unfocusable}
-				>
-					<span class="caret">▸</span>
-					{#if row === 'continue'}
-						<span class="label">{t('title.continue')}</span>
-						{#if saved && lead}
-							<span class="team">
-								<span class="who">{nameOf(lead)}</span>
-								<span class="count">{t('title.animals', { count: saved.party.length })}</span>
+			{#if title.loggedOut}
+				<!-- Just logged out: the account's game is safe, and logging in again is the row under it. -->
+				<div class="safe">
+					<div class="safe-title">{t('title.loggedOut.title')}</div>
+					<div>{t('title.loggedOut.text')}</div>
+				</div>
+			{/if}
+			{#snippet login()}
+				<span class="caret">▸</span>
+				{#if title.loggedOut}
+					<span class="label">{t('title.loggedOut.logIn')}</span>
+					{#if loginName !== null}
+						<span class="team"><span class="who">{loginName}</span></span>
+					{/if}
+				{:else}
+					<span class="label">{t('title.haveAccount')}</span>
+				{/if}
+			{/snippet}
+			{#each title.slots as row (row)}
+				{#if row === 'login' && title.loginPending}
+					<!-- The login row's place, kept until the server says whether it can keep an
+					     account: the row itself, unseen, so that nothing moves when it comes. -->
+					<div class="row slot" class:named={loginName !== null} aria-hidden="true">
+						{@render login()}
+					</div>
+				{:else}
+					{@const i = rows.indexOf(row)}
+					<!-- The login row fades into its place when the server's yes comes after the title. -->
+					<button
+						type="button"
+						class="row"
+						class:lit={title.screen === 'menu' && title.cursor === i}
+						class:named={row === 'continue' || (row === 'login' && loginName !== null)}
+						data-press={rowKey(i)}
+						in:fade={{ duration: row === 'login' ? 300 : 0 }}
+						{@attach unfocusable}
+						{@attach title.screen === 'menu' && title.cursor === i ? showRow : undefined}
+					>
+						{#if row === 'login'}
+							{@render login()}
+						{:else if row === 'continue'}
+							<span class="caret">▸</span>
+							<span class="label">{t('title.continue')}</span>
+							{#if saved && lead}
+								<span class="team">
+									<span class="who">{nameOf(lead)}</span>
+									<span class="count">{t('title.animals', { count: saved.party.length })}</span>
+								</span>
+							{/if}
+						{:else if row === 'new'}
+							<span class="caret">▸</span>
+							<span class="label">{t('title.newGame')}</span>
+						{:else if row === 'sound'}
+							<span class="caret">▸</span>
+							<span class="label">{t('title.sound')}</span>
+							<span class="setting">
+								<Switch on={sfx.on} />
+								<span class="setting-state"
+									>{sfx.on ? t('pause.soundOn') : t('pause.soundOff')}</span
+								>
+							</span>
+						{:else}
+							<span class="caret">▸</span>
+							<span class="label">{t('title.language')}</span>
+							<!-- Each language in its own words, so a kid finds theirs in any language;
+							     a tap on one is that language, anywhere else on the row the row. -->
+							<span class="choices">
+								{#each LANGUAGES as code (code)}
+									<span
+										class="choice"
+										class:on={language.current === code}
+										lang={code}
+										data-press={languageKey(code)}
+									>
+										{languageName(code)}
+									</span>
+								{/each}
 							</span>
 						{/if}
-					{:else if row === 'new'}
-						<span class="label">{t('title.newGame')}</span>
-					{:else if row === 'login'}
-						<span class="label">{t('title.haveAccount')}</span>
-					{:else if row === 'sound'}
-						<span class="label">{t('title.sound')}</span>
-						<span class="setting">
-							<Switch on={sfx.on} />
-							<span class="setting-state">{sfx.on ? t('pause.soundOn') : t('pause.soundOff')}</span>
-						</span>
-					{:else}
-						<span class="label">{t('title.language')}</span>
-						<!-- Each language in its own words, so a kid finds theirs in any language;
-						     a tap on one is that language, anywhere else on the row the row. -->
-						<span class="choices">
-							{#each LANGUAGES as code (code)}
-								<span
-									class="choice"
-									class:on={language.current === code}
-									lang={code}
-									data-press={languageKey(code)}
-								>
-									{languageName(code)}
-								</span>
-							{/each}
-						</span>
-					{/if}
-				</button>
+					</button>
+				{/if}
 			{/each}
 			{#if account.name !== null && account.session !== 'ended'}
 				<div class="note playing-as">{t('account.playingAs', { name: account.name })}</div>
 			{/if}
-			{#if standaloneHint}
+			{#if hintPending}
+				<!-- Its place, kept like the login row's until the server's first word. -->
+				<div class="note hint slot" aria-hidden="true">{t('title.standaloneHint')}</div>
+			{:else if standaloneHint}
 				<!-- A web app on the Home Screen keeps its own storage, apart from Safari's (#90). -->
-				<div class="note hint">{t('title.standaloneHint')}</div>
+				<div class="note hint" in:fade={{ duration: 300 }}>{t('title.standaloneHint')}</div>
 			{/if}
 			{#if title.notice}
 				<div class="note">{t(title.notice)}</div>
@@ -397,7 +447,7 @@
 	}
 	.title-screen {
 		display: grid;
-		grid-template-rows: auto 1fr;
+		grid-template-rows: auto minmax(0, 1fr);
 		padding: 16px 32px 24px;
 		box-sizing: border-box;
 	}
@@ -457,11 +507,21 @@
 		box-shadow: var(--hud-shadow);
 		box-sizing: border-box;
 	}
+	/*
+	 * On a screen too short for it (a phone held sideways, just after a logout,
+	 * with a guest game) the menu scrolls, the lit row kept in view, rather
+	 * than running off the bottom of the screen.
+	 */
 	.menu-card {
 		align-self: center;
 		justify-self: start;
 		width: min(420px, 42vw);
+		max-height: 100%;
 		padding: 14px 14px 12px;
+		overflow-y: auto;
+		overscroll-behavior: contain;
+		touch-action: pan-y;
+		scrollbar-width: thin;
 	}
 	/* A row's right side that doesn't fit beside its label goes under it (Continue's long name). */
 	.row {
@@ -477,8 +537,11 @@
 		font-weight: 800;
 		font-size: 22px;
 	}
-	/* Room round Continue's two lines when the name goes under it; every other row keeps its height. */
-	.row.continue {
+	/*
+	 * Room round Continue's two lines when the name goes under it (and, after a
+	 * logout, Log in's); every other row keeps its height.
+	 */
+	.row.named {
 		padding-block: 4px;
 	}
 	/* A mouse over a row it can press. Never on touch, where hover sticks after a tap. */
@@ -574,6 +637,24 @@
 		padding: 6px 10px;
 		border-radius: 10px;
 		background: rgba(61, 123, 232, 0.12);
+	}
+	/* An offer of an account whose place is kept until the server's first word: there, unseen. */
+	.slot {
+		visibility: hidden;
+	}
+	/* After a logout, over the rows: the account's game is safe. A soft green box, good news. */
+	.safe {
+		margin: 0 0 8px;
+		padding: 8px 12px;
+		border-radius: 12px;
+		background: color-mix(in srgb, var(--good) 18%, transparent);
+		font-weight: 600;
+		font-size: 16px;
+		line-height: 1.3;
+	}
+	.safe-title {
+		font-weight: 800;
+		font-size: 20px;
 	}
 	.preview {
 		font-weight: 800;
