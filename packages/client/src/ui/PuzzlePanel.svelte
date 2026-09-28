@@ -2,7 +2,6 @@
 	import type { AttackLevel, ShownPuzzle } from '@mathgame/engine';
 	import { t } from '../copy';
 	import { unfocusable } from '../input/press';
-	import { sentences } from '../lines';
 	import { touch } from '../input/touch.svelte';
 	import HitBadge from './HitBadge.svelte';
 	import NumberPad from './NumberPad.svelte';
@@ -59,14 +58,7 @@
 
 <div class="puzzle-panel" class:with-pad={touch.on && !watch}>
 	<div class="question">
-		{#if story}
-			<!-- Each sentence holds together: a story too long for one line breaks between them. -->
-			<div class="story">
-				{#each sentences(story) as sentence, i (i)}{#if i > 0}{' '}{/if}<span class="sentence"
-						>{sentence}</span
-					>{/each}
-			</div>
-		{/if}
+		{#if story}<div class="story">{story}</div>{/if}
 		<div class="puzzle-prompt" class:long={puzzle.prompt.length > 11}>{puzzle.prompt}</div>
 		<div
 			class="answer"
@@ -97,7 +89,9 @@
 			{/if}
 		</div>
 		{#if note}
-			<div class="keys">{note}</div>
+			<!-- Answered right, the puzzle is done and the note (help another animal) is over:
+			     it goes, keeping its place, so nothing moves under "Correct!". -->
+			<div class="keys" class:spent={judged?.correct === true}>{note}</div>
 		{/if}
 	</div>
 	{#if touch.on && !watch}
@@ -125,20 +119,13 @@
 		align-items: center;
 		gap: 10px;
 	}
-	/*
-	 * The token sum's story: what the numbers are, over them. Its lines break
-	 * between sentences, evenly, never inside one that fits.
-	 */
+	/* The token sum's story: what the numbers are, over them. */
 	.story {
 		font-weight: 800;
 		font-size: 18px;
 		line-height: 1.3;
 		max-width: 26em;
 		text-align: center;
-		text-wrap: balance;
-	}
-	.sentence {
-		display: inline-block;
 	}
 	/* The judgement or the key reminder, with Back before it when there is a way back. */
 	.foot {
@@ -162,6 +149,14 @@
 	/* A hint that wraps there wraps evenly, never one word alone on its last line. */
 	.with-pad .keys {
 		text-wrap: balance;
+	}
+	/*
+	 * The note once the answer was right: unseen, in its place. The witch
+	 * doctor's cheer that comes with it can take three lines in Danish, and
+	 * the card under it has no room left for the note's last line.
+	 */
+	.keys.spent {
+		visibility: hidden;
 	}
 	.back {
 		display: inline-flex;

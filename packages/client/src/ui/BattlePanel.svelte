@@ -17,7 +17,7 @@
 	import { rowKey, unfocusable } from '../input/press';
 	import { touch } from '../input/touch.svelte';
 	import { kindList } from '../kinds';
-	import { messageWords, sentences, whose, words } from '../lines';
+	import { messageWords, whose, words } from '../lines';
 	import { animalWords, nameOf, speciesName } from '../names';
 	import { battle } from '../state/battle.svelte';
 	import { match } from '../state/match.svelte';
@@ -292,6 +292,11 @@
 		const chance = catchProbability(hp, opponentSpec.catchRate, battle.leashQuality);
 		return chance >= 0.5 ? 'good' : chance >= 0.2 ? 'warn' : 'bad';
 	});
+
+	/** A narration beat split after each ".", "!" or "?" that ends a sentence. */
+	function sentences(text: string): string[] {
+		return text.split(/(?<=[.!?])\s+/);
+	}
 
 	/**
 	 * How the result card celebrates: big for an animal that joined the team

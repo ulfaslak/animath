@@ -88,16 +88,6 @@ function wordsFor(value: unknown): ParamValue | undefined {
 }
 
 /**
- * Words split after each ".", "!" or "?" that ends a sentence: a screen shows
- * each as a whole (an inline block), so a line too long for one breaks between
- * sentences, never inside one where a sentence fits (the battle's narration,
- * a token sum's story).
- */
-export function sentences(text: string): string[] {
-	return text.split(/(?<=[.!?])\s+/);
-}
-
-/**
  * A player's name as the owner of what follows, the language's way: in
  * English "Bo's"; in Danish "Bos", or "Jonas'" after an s, x or z.
  */
