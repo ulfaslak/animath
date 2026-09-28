@@ -23,8 +23,9 @@ import { LocalAuthority } from '../src/authority/local';
 import { PICK_QUIET_SECONDS } from '../src/input/pick-guard';
 import { optionKey } from '../src/input/press';
 import { words } from '../src/lines';
-import { MatchController } from '../src/match/controller';
+import { MatchController, WENT_BACK_KEY } from '../src/match/controller';
 import type { GameRenderer } from '../src/render/renderer';
+import type { KeyValueStore } from '../src/save/storage';
 import { battle } from '../src/state/battle.svelte';
 import { game } from '../src/state/game.svelte';
 import { hud } from '../src/state/hud.svelte';
@@ -141,7 +142,25 @@ afterEach(() => {
 	match.reset();
 });
 
-function setup(party: AnimalInstance[] = PARTY) {
+/** A tab's sessionStorage, in memory. */
+function memoryStore(): KeyValueStore & { map: Map<string, string> } {
+	const map = new Map<string, string>();
+	return {
+		map,
+		get: (k) => map.get(k) ?? null,
+		set: (k, v) => (map.set(k, v), true),
+		remove: (k) => void map.delete(k)
+	};
+}
+
+/**
+ * This page (Ada's) with its game under way, the socket on. `session` is the
+ * tab's session store, and `back` the match the server's first hi names.
+ */
+function setup(
+	party: AnimalInstance[] = PARTY,
+	{ session = null, back = null }: { session?: KeyValueStore | null; back?: string | null } = {}
+) {
 	const authority = new LocalAuthority();
 	const sent: ClientMessage[] = [];
 	let online = true;
@@ -164,7 +183,8 @@ function setup(party: AnimalInstance[] = PARTY) {
 				(e) => e.type === 'answer-judged' && e.correct && e.side === side
 			).length;
 			authority.countMatchAnswers(events, side);
-		}
+		},
+		session
 	});
 	authority.subscribe((e) => {
 		game.apply(e);
@@ -180,7 +200,7 @@ function setup(party: AnimalInstance[] = PARTY) {
 	authority.start({ game: saved });
 	stop = () => authority.dispatch({ type: 'leave-game' });
 	controller.status('on');
-	controller.receive({ t: 'hi', v: PROTOCOL_VERSION, pid: pidOf('Ada'), name: 'Ada', match: null });
+	controller.receive(hi(back));
 	const frame = (dt = 1 / 30) => {
 		now += dt;
 		controller.update(dt);
@@ -695,6 +715,32 @@ describe('a match', () => {
 		expect(match.stage).toBe('none');
 		expect(battle.active).toBe(false);
 		expect(t.sentOf('done')).toHaveLength(1);
+	});
+
+	it("keeps the kid's Back through a reload of the tab, until the server has let go of the match", () => {
+		const session = memoryStore();
+		const t = setup(PARTY, { session });
+		const ref = started(t);
+		playedOut(t, ref);
+		t.setOnline(false);
+		t.controller.status('waiting');
+		t.pick('ArrowRight', 'Enter');
+		expect(session.map.get(WENT_BACK_KEY)).toBe(ref.id);
+		// The tab reloads before the connection is back: a new page, whose first hi names the match.
+		stop?.();
+		battle.reset();
+		match.reset();
+		const u = setup(PARTY, { session, back: ref.id });
+		expect(u.sentOf('done')).toEqual([{ t: 'done', id: ref.id }]);
+		u.controller.receive(ref.message('a'));
+		u.run(3);
+		expect(match.stage).toBe('none');
+		expect(battle.active).toBe(false);
+		// Once a hi no longer names it, the tab forgets it.
+		u.controller.status('waiting');
+		u.controller.status('on');
+		u.controller.receive(hi(null));
+		expect(session.map.has(WENT_BACK_KEY)).toBe(false);
 	});
 
 	it('brings the result back to a page that never chose to leave it: after a drop, or after another window took over', () => {
