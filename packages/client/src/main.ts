@@ -19,6 +19,7 @@ import { BattleController } from './battle/controller';
 import { DoctorController } from './doctor/controller';
 import { ExploreController } from './explore/controller';
 import { DoctorWay } from './explore/doctor-way';
+import { errorReports } from './error-reports';
 import { flags } from './flags';
 import { Keyboard } from './input/keyboard';
 import { press } from './input/press';
@@ -307,6 +308,22 @@ function keyScreen(): KeyScreen | null {
 	if (pause.open) return 'pause';
 	return game.mode === 'explore' ? 'explore' : null;
 }
+
+// What an error report says the page showed, and the kid's own words it hides
+// (`error-reports.ts`): every name and nickname, and whatever is typed in a box.
+errorReports?.setContext({
+	mode: () => keyScreen() ?? (travel.active ? 'travel' : game.mode),
+	words: () => [
+		game.name,
+		account.name,
+		account.nameDraft,
+		account.passwordDraft,
+		title.nameDraft,
+		title.draft,
+		pause.draft,
+		...game.party.map((animal) => animal.nickname)
+	]
+});
 
 /**
  * Walking reads the keyboard only in explore, while a game is under way, with

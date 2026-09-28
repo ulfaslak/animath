@@ -1,6 +1,7 @@
 import {
 	bigint,
 	bigserial,
+	boolean,
 	index,
 	jsonb,
 	pgTable,
@@ -144,4 +145,27 @@ export const accountSaveBackups = pgTable(
 		createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow()
 	},
 	(t) => [index('account_save_backups_user_id_idx').on(t.userId)]
+);
+
+/**
+ * Error reports from the game's pages (`client-errors.ts`): an error nothing
+ * on a page caught, what the page showed, the build, the browser and the
+ * window's size, and nothing about whose browser it was. `test` marks one sent
+ * by hand to check the route. Kept `KEEP_DAYS`, `KEEP_ROWS` at most; only the
+ * admin reads them (`admin errors`). Nothing refers to another table.
+ */
+export const clientErrors = pgTable(
+	'client_errors',
+	{
+		id: bigserial('id', { mode: 'number' }).primaryKey(),
+		createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+		message: text('message').notNull(),
+		stack: text('stack').notNull(),
+		build: text('build').notNull(),
+		mode: text('mode').notNull(),
+		browser: text('browser').notNull(),
+		screen: text('screen').notNull(),
+		test: boolean('test').notNull().default(false)
+	},
+	(t) => [index('client_errors_created_at_idx').on(t.createdAt)]
 );

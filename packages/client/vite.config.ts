@@ -1,5 +1,6 @@
 import { svelte } from '@sveltejs/vite-plugin-svelte';
 import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 import { parseEnv } from 'node:util';
 import { defineConfig, type Plugin } from 'vite';
 import { parse } from 'yaml';
@@ -130,8 +131,42 @@ function pageAddress(): Plugin {
 	};
 }
 
+/** The error reports' module, which the build makes a chunk of its own (`errorReportsFirst`). */
+const ERROR_REPORTS = 'src/error-reports.ts';
+
+/**
+ * The error reports (`src/error-reports.ts`) in a script of their own, run
+ * before the game's first one, so that a browser that cannot even read the
+ * game's first script still runs them, and they report it. `boot.ts` imports
+ * them first, so the dev server runs them first too; the build makes them an
+ * entry of their own (`build.rollupOptions.input`), which `boot.ts`'s chunk
+ * imports, and puts its script at the top of the page.
+ */
+function errorReportsFirst(): Plugin {
+	return {
+		name: 'animath:error-reports-first',
+		apply: 'build',
+		transformIndexHtml: {
+			order: 'post',
+			handler(_html, { bundle }) {
+				const chunk = Object.values(bundle ?? {}).find(
+					(c) => c.type === 'chunk' && c.isEntry && c.facadeModuleId?.endsWith(ERROR_REPORTS)
+				);
+				if (!chunk) throw new Error(`the build made no chunk of its own for ${ERROR_REPORTS}`);
+				return [
+					{
+						tag: 'script',
+						attrs: { type: 'module', crossorigin: true, src: `/${chunk.fileName}` },
+						injectTo: 'head-prepend'
+					}
+				];
+			}
+		}
+	};
+}
+
 export default defineConfig({
-	plugins: [svelte(), yaml(), robots(), pageAddress()],
+	plugins: [svelte(), yaml(), robots(), pageAddress(), errorReportsFirst()],
 	server: {
 		port: 5180,
 		strictPort: true,
@@ -154,6 +189,11 @@ export default defineConfig({
 		// asked for again on every visit (`cacheControl` in the server's app.ts).
 		assetsDir: 'immutable',
 		rollupOptions: {
+			// The page, and the error reports as an entry of their own (`errorReportsFirst`).
+			input: {
+				index: fileURLToPath(new URL('index.html', import.meta.url)),
+				'error-reports': fileURLToPath(new URL(ERROR_REPORTS, import.meta.url))
+			},
 			// Three.js is ~500 kB on its own; keep it in a separate, long-cached chunk.
 			output: { manualChunks: { three: ['three'] } }
 		}

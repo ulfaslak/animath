@@ -5,6 +5,7 @@ import {
 	importSave,
 	isExportFrom,
 	listAll,
+	listErrors,
 	resetPassword
 } from '../src/admin.js';
 import { pool } from '../src/db/index.js';
@@ -18,12 +19,15 @@ import { SAVE_MAX_BYTES } from '../src/save.js';
 //   admin delete-account <name> [--yes]            (says what it would delete without --yes)
 //   admin export-local-save <player id> [--from anonymous|account|account:<name>] [--out <folder>]
 //   admin import-save [--name <name>] [--origin <address>] < save.json
+//   admin errors [--since 7d|24h|90m|<date>|<time>] [--new] [--json]
 //
 // A name is matched as the game matches it: case and how a letter is typed do not matter.
-// Moving a kid's game to production, the last two: DEVELOPMENT.md § Moving a kid's game
-// to production. export-local-save starts from the retired anonymous backup, so it finds
-// a game only in a database the tunnel's development server backed up to before that
-// backup was retired: this Mac's `mathgame`.
+// Moving a kid's game to production, the two before last: DEVELOPMENT.md § Moving a kid's
+// game to production. export-local-save starts from the retired anonymous backup, so it
+// finds a game only in a database the tunnel's development server backed up to before that
+// backup was retired: this Mac's `mathgame`. errors: the reports the game's pages sent,
+// grouped by message and build (DEVELOPMENT.md § Errors and health); --new keeps only the
+// groups first heard from since --since, --json prints them as one line for the health watch.
 
 const USAGE = [
 	'usage:',
@@ -31,7 +35,8 @@ const USAGE = [
 	'  admin reset-password <name> [<new password> | --stdin]',
 	'  admin delete-account <name> [--yes]',
 	'  admin export-local-save <player id> [--from anonymous|account|account:<name>] [--out <folder>]',
-	'  admin import-save [--name <name>] [--origin <address>] < save.json'
+	'  admin import-save [--name <name>] [--origin <address>] < save.json',
+	'  admin errors [--since 7d|24h|90m|<date>|<time>] [--new] [--json]'
 ].join('\n');
 
 /** The flags each command takes: `true` for a switch, `false` for one followed by its value. */
@@ -40,7 +45,8 @@ const FLAGS: Record<string, Record<string, boolean>> = {
 	'reset-password': { '--stdin': true },
 	'delete-account': { '--yes': true },
 	'export-local-save': { '--from': false, '--out': false },
-	'import-save': { '--name': false, '--origin': false }
+	'import-save': { '--name': false, '--origin': false },
+	errors: { '--since': false, '--new': true, '--json': true }
 };
 
 interface Parsed {
@@ -133,6 +139,13 @@ async function run(args: string[]): Promise<string[]> {
 					domain: process.env.MATHGAME_DOMAIN
 				}
 			);
+		case 'errors':
+			if (words.length !== 0) break;
+			return listErrors({
+				since: value('--since'),
+				onlyNew: flags.has('--new'),
+				json: flags.has('--json')
+			});
 	}
 	throw new AdminError(USAGE);
 }
