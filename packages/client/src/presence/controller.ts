@@ -13,7 +13,10 @@ import {
 	type ServerMessage,
 	type WhereMessage
 } from '@mathgame/engine';
+import { clearBoxes } from '../keep-clear';
+import { SHORT_SCREEN } from '../short-screen';
 import type { GameRenderer } from '../render/renderer';
+import { safeArea } from '../safe-area';
 import type { KeyValueStore } from '../save/storage';
 import { account } from '../state/account.svelte';
 import { battle } from '../state/battle.svelte';
@@ -21,8 +24,18 @@ import { doctor } from '../state/doctor.svelte';
 import { game } from '../state/game.svelte';
 import { hud } from '../state/hud.svelte';
 import { pause } from '../state/pause.svelte';
-import { presence, type Arrow, type Bar, type Label, type Pop } from '../state/presence.svelte';
+import { presence, type Bar, type Label, type Pop } from '../state/presence.svelte';
 import { PresenceConnection, type PresenceStatus } from './connection';
+import {
+	ARROW_CLEARANCE,
+	MAX_NAMES,
+	SHORT_NAMES,
+	edgeTrack,
+	gatherWays,
+	spotOnTrack,
+	type Heading,
+	type Spot
+} from './edges';
 import { guestId } from './identity';
 import { ArrivalNotes } from './notes';
 import { BattleReport } from './report';
@@ -64,10 +77,6 @@ export const FIND_SECONDS = 4;
 export const HOLD_SECONDS = 5;
 /** Seconds after a socket comes back for the server to say again who is near; the rest fade out. */
 export const CONFIRM_SECONDS = 3;
-/** How many players off screen get an arrow: the nearest. */
-export const MAX_ARROWS = 4;
-/** How far in from the edges of the screen an arrow sits, in CSS pixels: clear of the corners' panels' edges. */
-const ARROW_INSET = { side: 44, top: 44, bottom: 96 };
 /** How far towards a player known only roughly to aim: well off screen, the way they are. */
 const ROUGH_AIM = 40;
 /** The session key that remembers which version a page reloaded for, so it never reloads in a loop. */
@@ -329,22 +338,39 @@ export class PresenceController {
 		}
 		if (!sameList(bars, presence.bars)) presence.bars = bars;
 		if (!sameList(pops, presence.pops)) presence.pops = pops;
-		const onScreen = new Set(labels.map((l) => l.pid));
-		const arrows: Arrow[] = [];
+		if (!sameList(labels, presence.labels)) presence.labels = labels;
+		this.arrows(new Set(labels.map((l) => l.pid)));
+	}
+
+	/**
+	 * The arrows at the edge of the screen for everyone in the world who is
+	 * not on it, nearest first, gathered into ways (`gatherWays`): each on the
+	 * track round the HUD's pieces (`edgeTrack`), so none is ever under one.
+	 * The pieces are measured only while someone is out of sight.
+	 */
+	private arrows(onScreen: ReadonlySet<string>): void {
+		const renderer = this.options.renderer;
+		const away = presence.roster.filter((entry) => !onScreen.has(entry.pid));
+		if (away.length === 0) {
+			if (presence.arrows.length) presence.arrows = [];
+			return;
+		}
+		const pieces = clearBoxes();
 		const { w, h } = renderer.screenSize();
+		const track = edgeTrack(w, h, safeArea(), pieces, ARROW_CLEARANCE);
 		const me = renderer.groundToScreen(game.pos.x, game.pos.y);
-		for (const entry of presence.roster) {
-			if (arrows.length >= MAX_ARROWS) break;
-			if (onScreen.has(entry.pid)) continue;
+		const headings: Heading[] = [];
+		for (const entry of away) {
 			// Where they are exactly, when they are drawn (near, but off this screen); else roughly.
 			const tile = renderer.others.tileOf(entry.pid);
 			const v = bearingVector(entry.bearing);
 			const aim = tile ?? { x: game.pos.x + v.x * ROUGH_AIM, y: game.pos.y + v.y * ROUGH_AIM };
-			const there = renderer.groundToScreen(aim.x, aim.y);
-			const spot = edgeSpot(me, there, w, h);
-			if (spot) arrows.push({ pid: entry.pid, name: entry.name, ...spot });
+			const spot = spotOnTrack(me, renderer.groundToScreen(aim.x, aim.y), track);
+			if (spot) headings.push({ pid: entry.pid, name: entry.name, spot });
 		}
-		if (!sameList(labels, presence.labels)) presence.labels = labels;
+		// Two rows of names at most on a phone held sideways: four would take a third of its height.
+		const arrows = gatherWays(headings, h <= SHORT_SCREEN ? SHORT_NAMES : MAX_NAMES);
+		if (!sameList(pieces, presence.pieces)) presence.pieces = pieces;
 		if (!sameList(arrows, presence.arrows)) presence.arrows = arrows;
 	}
 
@@ -555,36 +581,22 @@ export function following(party: readonly AnimalInstance[], onWater: boolean): s
 }
 
 /**
- * Where an arrow for something at `there` goes: on the rectangle a little
- * inside the screen's edges, on the line from the player (`me`) to it, and
- * the way it points (radians clockwise from up). Null when it is on the
- * player's own spot.
+ * Where a mark at the edge of a `w` × `h` screen for something at `there`
+ * goes: on the line from the player (`me`) to it, where that line first
+ * leaves the track inside the safe area and round the explore HUD's pieces
+ * on screen now (`presence/edges.ts`), and the way it points (radians
+ * clockwise from up). `clearance` is how far the mark's middle keeps from a
+ * piece: a friend's arrow's by default; a bigger mark passes its own. Null
+ * when it is on the player's own spot.
  */
 export function edgeSpot(
 	me: { x: number; y: number },
 	there: { x: number; y: number },
 	w: number,
-	h: number
-): { x: number; y: number; angle: number } | null {
-	const dx = there.x - me.x;
-	const dy = there.y - me.y;
-	const length = Math.hypot(dx, dy);
-	if (length < 1e-6) return null;
-	const [ux, uy] = [dx / length, dy / length];
-	const left = ARROW_INSET.side;
-	const right = Math.max(left, w - ARROW_INSET.side);
-	const top = ARROW_INSET.top;
-	const bottom = Math.max(top, h - ARROW_INSET.bottom);
-	const cx = Math.min(right, Math.max(left, me.x));
-	const cy = Math.min(bottom, Math.max(top, me.y));
-	const tx = ux > 0 ? (right - cx) / ux : ux < 0 ? (left - cx) / ux : Number.POSITIVE_INFINITY;
-	const ty = uy > 0 ? (bottom - cy) / uy : uy < 0 ? (top - cy) / uy : Number.POSITIVE_INFINITY;
-	const t = Math.min(tx, ty);
-	return {
-		x: Math.round(cx + ux * t),
-		y: Math.round(cy + uy * t),
-		angle: Math.round(Math.atan2(ux, -uy) * 100) / 100
-	};
+	h: number,
+	clearance: number = ARROW_CLEARANCE
+): Spot | null {
+	return spotOnTrack(me, there, edgeTrack(w, h, safeArea(), clearBoxes(), clearance));
 }
 
 /**

@@ -11,7 +11,20 @@
 	 * rays stand still, the letters fade in and the stars twinkle in place.
 	 */
 	let { kind, name = '' }: { kind: 'big' | 'small'; name?: string } = $props();
-	const letters = $derived(Array.from(name));
+	/**
+	 * The name's words, each its letters, numbered across the whole name so
+	 * they pop in one after another and take the title's colours in turn. A
+	 * space is never a letter of its own: a box holding only a space shrinks
+	 * to nothing, and "Brown rat" read "Brownrat" (#135). The words stand
+	 * apart as words in a line do, and a long name breaks between them.
+	 */
+	const words = $derived.by(() => {
+		let i = 0;
+		return name
+			.split(/\s+/)
+			.filter(Boolean)
+			.map((word) => Array.from(word).map((letter) => ({ letter, i: i++ })));
+	});
 
 	/** Where each star flies (px from the middle of the name), when it sets off (s), its colour. */
 	const BIG = [
@@ -49,8 +62,12 @@
 	</span>
 	{#if kind === 'big'}
 		<span class="name">
-			{#each letters as letter, i (i)}
-				<span class="letter" style="--i: {i}">{letter}</span>
+			{#each words as word, w (w)}
+				{#if w > 0}{' '}{/if}<span class="word"
+					>{#each word as { letter, i } (i)}<span class="letter c{i % 5}" style="--i: {i}"
+							>{letter}</span
+						>{/each}</span
+				>
 			{/each}
 		</span>
 	{/if}
@@ -108,19 +125,27 @@
 			bob 2.6s ease-in-out infinite;
 		animation-delay: calc(var(--i) * 0.07s + 0.15s), calc(var(--i) * -0.33s);
 	}
-	.letter:nth-child(5n + 1) {
+	/*
+	 * A word keeps its letters together: a long name breaks between its words,
+	 * and inside a word only when the word alone is wider than the card.
+	 */
+	.word {
+		display: inline-block;
+	}
+	/* The title's colours in turn, counted across the whole name. */
+	.letter.c0 {
 		--letter-color: var(--coral);
 	}
-	.letter:nth-child(5n + 2) {
+	.letter.c1 {
 		--letter-color: var(--accent);
 	}
-	.letter:nth-child(5n + 3) {
+	.letter.c2 {
 		--letter-color: var(--good);
 	}
-	.letter:nth-child(5n + 4) {
+	.letter.c3 {
 		--letter-color: var(--blue);
 	}
-	.letter:nth-child(5n) {
+	.letter.c4 {
 		--letter-color: var(--warn);
 	}
 

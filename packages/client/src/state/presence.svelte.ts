@@ -1,5 +1,7 @@
 import type { AttackLevel, Busy, RosterEntry } from '@mathgame/engine';
 import type { PresenceStatus } from '../presence/connection';
+import type { Way } from '../presence/edges';
+import type { Rect } from '../presence/labels';
 import type { Note } from '../presence/notes';
 
 /**
@@ -66,17 +68,13 @@ export interface Pop {
 }
 
 /**
- * An arrow at the edge of the screen for a player off it: where it sits
- * (CSS pixels), which way it points (radians, clockwise from up on the
- * screen), and whose it is.
+ * An arrow at the edge of the screen for the players off it one way
+ * (`presence/edges.ts`): where it sits (CSS pixels), which way it points
+ * (radians, clockwise from up on the screen), its key (its nearest
+ * player's id), the names beside it, nearest first, and how many more are
+ * that way than it names.
  */
-export interface Arrow {
-	pid: string;
-	name: string;
-	x: number;
-	y: number;
-	angle: number;
-}
+export type Arrow = Way;
 
 class PresenceView {
 	/** How the socket is doing ([[UI_SPEC]]: the list says so when it isn't on). */
@@ -85,8 +83,13 @@ class PresenceView {
 	roster = $state.raw<RosterEntry[]>([]);
 	/** The names over the players on screen. */
 	labels = $state.raw<Label[]>([]);
-	/** The arrows for the players off screen, the nearest few. */
+	/** The arrows for the players off screen, the nearest few ways. */
 	arrows = $state.raw<Arrow[]>([]);
+	/**
+	 * The explore HUD's pieces the arrows and their names keep clear of, where
+	 * they stand on the screen (`keep-clear.ts`), while there are arrows.
+	 */
+	pieces = $state.raw<Rect[]>([]);
 	/** The HP bars over the animals in the battles on screen. */
 	bars = $state.raw<Bar[]>([]);
 	/** The damage numbers floating up in the battles on screen. */
@@ -105,6 +108,7 @@ class PresenceView {
 		this.roster = [];
 		this.labels = [];
 		this.arrows = [];
+		this.pieces = [];
 		this.bars = [];
 		this.pops = [];
 		this.note = null;

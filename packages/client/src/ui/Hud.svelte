@@ -19,6 +19,7 @@
 	import { animalKey, bundleKey, moveKey, openKey, press, unfocusable } from '../input/press';
 	import { itemName } from '../items';
 	import { touch } from '../input/touch.svelte';
+	import { keepClear } from '../keep-clear';
 	import { motion } from '../motion';
 	import { safeArea } from '../safe-area';
 	import { game } from '../state/game.svelte';
@@ -29,6 +30,7 @@
 	import ChallengeButton from './ChallengeButton.svelte';
 	import Coin from './Coin.svelte';
 	import ItemIcon from './ItemIcon.svelte';
+	import PresenceNote from './PresenceNote.svelte';
 	import Tick from './Tick.svelte';
 
 	/**
@@ -364,7 +366,7 @@
 	}
 </script>
 
-<div class="party" bind:this={root}>
+<div class="party" bind:this={root} {@attach keepClear}>
 	<div class="cards" bind:this={column} onscroll={scrolled} {@attach holdStill}>
 		{#each list as bundle, i (bundle.speciesId)}
 			{@const mine = drag?.speciesId === bundle.speciesId ? drag : null}
@@ -417,6 +419,7 @@
 			onpointerenter={pointAtAnimals}
 			onpointerleave={pointAway}
 			transition:fade={{ duration: motion.reduced ? 0 : 120 }}
+			{@attach keepClear}
 		>
 			<BundleAnimals
 				animals={shown.animals}
@@ -430,7 +433,7 @@
 
 <!-- The player's tokens and the puzzles they have solved, the tools they own, and the world they are in. -->
 <!-- With `?debug` the position and the cues have the corner; these go under them. -->
-<div class="belongings" class:below-debug={flags.debug}>
+<div class="belongings" class:below-debug={flags.debug} {@attach keepClear}>
 	<div class="purse"><Coin />{t('hud.tokens', { count: game.tokens })}</div>
 	<!-- Right under the tokens, one above the other: side by side, the corner would reach
 	     the note at the top of the screen on a tablet (`PresenceNote`). -->
@@ -438,7 +441,10 @@
 	{#if tools.length > 0}
 		<div class="tools">
 			{#each tools as id (id)}
-				<div class="tool"><ItemIcon {id} size={24} />{itemName(id)}</div>
+				<!-- On a phone held sideways, the picture alone; the name stays for a screen reader. -->
+				<div class="tool">
+					<ItemIcon {id} size={24} /><span class="tool-name">{itemName(id)}</span>
+				</div>
 			{/each}
 		</div>
 	{/if}
@@ -448,18 +454,21 @@
 
 <!-- Where the player stands, x to the right and y up the screen, counted from the world's
      spawn: in the bottom-right corner, or over the touch controls' buttons there. -->
-<div class="coords" class:over-fly={flies}>
+<div class="coords" class:over-fly={flies} {@attach keepClear}>
 	{t('hud.coordinates', { x: mathNumber(here.x), y: mathNumber(here.y) })}
 </div>
 
 <!-- The bottom of the screen: the Challenge button, when another player stands within
      reach, over the message line: the latest message while it is fresh, then the doctor
      prompt or the controls hint (see `state/hud.svelte.ts`). One column, so however many
-     lines the message line takes, the button stands clear of it. -->
+     lines the message line takes, the button stands clear of it. On a short screen the
+     note about who came or went stands at its top, over the button (`PresenceNote`), so
+     the button never moves under a finger as a note comes and goes. -->
 <div class="bottom">
+	<PresenceNote where="bottom" />
 	<ChallengeButton />
 	{#if hud.message || hud.hint}
-		<div class="hint" transition:fade={{ duration: 400 }}>
+		<div class="hint" transition:fade={{ duration: 400 }} {@attach keepClear}>
 			{#if hud.message}
 				<div class="message" transition:fade={{ duration: 400 }}>{hud.message}</div>
 			{/if}
@@ -488,6 +497,16 @@
 		max-height: calc(
 			100vh - 16px - 20px - var(--tap) * 4 - 16px - var(--safe-top) - var(--safe-bottom)
 		);
+	}
+	/*
+	 * A short screen with the touch controls on (a phone held sideways): the
+	 * room over the D-pad is the cards' (116 px at 740×360), and the hint
+	 * under them gives way. A tap on a card does what it always does.
+	 */
+	@media (max-height: 560px) {
+		:global(.touch) .keys {
+			display: none;
+		}
 	}
 	/*
 	 * The cards, as wide as the widest of them needs, all the same; the column
@@ -566,6 +585,9 @@
 		display: flex;
 		flex: none;
 		flex-direction: column;
+		/* Past the cards' scroll box, which reaches 14 px under them for their shadows: a card
+		   the column cuts off at its bottom is never under the hint. */
+		margin-top: 6px;
 		gap: 4px;
 		max-width: 320px;
 		box-sizing: border-box;
@@ -674,15 +696,6 @@
 		align-items: flex-end;
 		gap: 6px;
 	}
-	/*
-	 * A phone held sideways: a column of all three tools would reach down to
-	 * the touch controls' Talk button, so the tools go side by side.
-	 */
-	@media (max-height: 500px) {
-		.tools {
-			flex-direction: row;
-		}
-	}
 	.solved,
 	.purse,
 	.tool {
@@ -713,6 +726,43 @@
 		font-size: 16px;
 		white-space: nowrap;
 		font-variant-numeric: tabular-nums;
+	}
+	/*
+	 * A short screen, a phone held sideways (under 560 px tall, the battle's
+	 * line, `SHORT_SCREEN`): the corner packs into two rows, 72 px tall, so
+	 * it ends above Fly, which stands over Talk under the right thumb (at
+	 * 740×360 Fly's top is 117 px down). The tokens and the puzzles side by
+	 * side; under them the tools as pictures, side by side, and the world at
+	 * the end of that row, under the puzzles. The note that would stand at
+	 * the top of the screen between the corners stands over the message line
+	 * instead (`PresenceNote`).
+	 */
+	@media (max-height: 560px) {
+		.belongings {
+			display: grid;
+			grid-template-columns: auto auto;
+			justify-items: end;
+			align-items: center;
+		}
+		.tools {
+			grid-column: 1;
+			flex-direction: row;
+		}
+		.world {
+			grid-column: 2;
+		}
+		.tool {
+			padding: 3px 6px;
+		}
+		/* The name is still there for a screen reader, only not drawn. */
+		.tool-name {
+			position: absolute;
+			width: 1px;
+			height: 1px;
+			overflow: hidden;
+			clip-path: inset(50%);
+			white-space: nowrap;
+		}
 	}
 	/*
 	 * The bottom-right corner: where the player stands, a pill like the
@@ -746,11 +796,12 @@
 		bottom: calc(56px + var(--tap) * 3.6 + 14px + 12px + var(--safe-bottom));
 	}
 	/*
-	 * A phone held sideways has no room over Fly, under the tools and the
-	 * world: there the coordinates stand beside Fly, on its left, level with
-	 * its middle (Fly is centred over Talk, its left edge 24 px + 1.8 taps in).
+	 * A short screen, a phone held sideways, has no room over Fly under the
+	 * top right corner: there the coordinates stand beside Fly, on its left,
+	 * level with its middle (Fly is centred over Talk, its left edge 24 px +
+	 * 1.8 taps in).
 	 */
-	@media (max-height: 500px) {
+	@media (max-height: 560px) {
 		:global(.touch) .coords.over-fly {
 			right: calc(24px + var(--tap) * 1.8 + 12px + var(--safe-right));
 			bottom: calc(56px + var(--tap) * 2.8 + 14px + var(--safe-bottom));

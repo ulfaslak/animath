@@ -3,7 +3,9 @@
 	import { onDestroy } from 'svelte';
 	import { t } from '../copy';
 	import { speciesName } from '../names';
+	import { namesSide, placeNames } from '../presence/edges';
 	import { THOUGHT_LEAN, unclutter, type Mark, type Rect } from '../presence/labels';
+	import { safeArea } from '../safe-area';
 	import { presence, type Label } from '../state/presence.svelte';
 
 	/**
@@ -13,12 +15,13 @@
 	 * with a wild animal, a heart at the doctor, a pause sign in the menu, a
 	 * star in a friendly match; none up in the air, where their glider says
 	 * it — worded for anyone who can't see it. At the
-	 * edge of the screen an arrow with a name points to each of the nearest
-	 * players off it. Only over the explore screen, under its HUD: never under
-	 * the doctor's card or the menu, whose panels they would show through, and
-	 * never in a battle. Where each goes is `presence.labels` and `presence.arrows`,
-	 * placed every frame by `PresenceController.overlay`. Nothing here takes
-	 * a tap.
+	 * edge of the screen an arrow points each way the nearest players off it
+	 * are, with their names beside it: never under a piece of the HUD, and no
+	 * name over another (`presence/edges.ts`; #121, #140). Only over the
+	 * explore screen, under its HUD: never under the doctor's card or the
+	 * menu, whose panels they would show through, and never in a battle.
+	 * Where each goes is `presence.labels` and `presence.arrows`, placed
+	 * every frame by `PresenceController.overlay`. Nothing here takes a tap.
 	 *
 	 * A player thinking in a battle has a thought bubble over their name in
 	 * place of the sign ([[UI_SPEC]] § Explore mode, "Playing together"): the
@@ -38,9 +41,6 @@
 	 * placing `transform` leaves alone), and a hit's damage floats up from its
 	 * tag wherever the tag went.
 	 */
-
-	/** The gap between an arrow's middle and the near edge of its name (CSS pixels). */
-	const NAME_GAP = 20;
 
 	/** A box as laid out in its element, before any transform: its place in it, its size. */
 	interface Box {
@@ -149,26 +149,43 @@
 		return [off.dx, off.dy].map((v) => `${v}px`).join(' ');
 	}
 
+	/** The window's size, for the bounds the arrows' names keep inside. */
+	let innerWidth = $state(0);
+	let innerHeight = $state(0);
+
 	/**
-	 * Where an arrow's name sits: on the side of it towards the middle of the
-	 * screen, its near edge a little way from the arrow, so a long name never
-	 * covers the arrow or runs off the screen's edge the arrow is on.
+	 * Where each arrow's names go (`placeNames`, `presence/edges.ts`): beside
+	 * it towards the middle of the screen, moved along the edge as little as
+	 * it takes to keep clear of the HUD's pieces, the other arrows and the
+	 * names already placed, inside the safe area. By the arrow's key: the top
+	 * left corner of its names, from the arrow's middle. Before a block is
+	 * measured, about a name's size.
 	 */
-	function namePlace(angle: number): string {
-		const across = Math.sin(angle);
-		const down = -Math.cos(angle);
-		if (Math.abs(across) >= Math.abs(down)) {
-			// On a side edge: beside it, towards the middle.
-			return across < 0
-				? `translate(${NAME_GAP}px, -50%)`
-				: `translate(calc(-100% - ${NAME_GAP}px), -50%)`;
-		}
-		// On the top or bottom edge: under it or over it.
-		return down < 0
-			? `translate(-50%, ${NAME_GAP}px)`
-			: `translate(-50%, calc(-100% - ${NAME_GAP}px))`;
+	const namesAt = $derived.by(() => {
+		const inset = safeArea();
+		const bounds = {
+			x0: inset.left + 8,
+			x1: innerWidth - inset.right - 8,
+			y0: inset.top + 8,
+			y1: innerHeight - inset.bottom - 8
+		};
+		const blocks = presence.arrows.map((arrow) => {
+			const m = measured[`names:${arrow.key}`];
+			const rows = arrow.names.length + (arrow.more > 0 ? 1 : 0);
+			return { ...arrow, w: m?.w ?? 80, h: m?.h ?? rows * 28 };
+		});
+		const spots = placeNames(blocks, presence.pieces, bounds);
+		return new Map(presence.arrows.map((arrow, i) => [arrow.key, spots[i]!]));
+	});
+
+	/** An arrow's names: where they stand from its middle, as a `transform`. */
+	function namesPlace(key: string): string {
+		const at = namesAt.get(key) ?? { dx: 0, dy: 0 };
+		return `translate(${at.dx}px, ${at.dy}px)`;
 	}
 </script>
+
+<svelte:window bind:innerWidth bind:innerHeight />
 
 {#snippet icon(busy: Busy)}
 	<svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true">
@@ -316,7 +333,9 @@
 			</div>
 		</div>
 	{/each}
-	{#each presence.arrows as arrow (arrow.pid)}
+	<!-- One arrow for each way players are out of sight, and every name that way beside it
+	     (three and "+2 more" past four), clear of the HUD's pieces and of each other. -->
+	{#each presence.arrows as arrow (arrow.key)}
 		<div class="arrow" style:transform="translate({arrow.x}px, {arrow.y}px)">
 			<div class="pointer" style:transform="translate(-50%, -50%) rotate({arrow.angle}rad)">
 				<svg viewBox="0 0 24 24" width="30" height="30" aria-hidden="true">
@@ -328,8 +347,18 @@
 					/>
 				</svg>
 			</div>
-			<div class="arrow-name" style:transform={namePlace(arrow.angle)}>
-				{arrow.name}
+			<div
+				class="arrow-names {namesSide(arrow.angle)}"
+				data-key="names:{arrow.key}"
+				style:transform={namesPlace(arrow.key)}
+				{@attach watch}
+			>
+				{#each arrow.names as name, i (i)}
+					<div class="arrow-name">{name}</div>
+				{/each}
+				{#if arrow.more > 0}
+					<div class="arrow-more">{t('presence.arrowMore', { count: arrow.more })}</div>
+				{/if}
 			</div>
 		</div>
 	{/each}
@@ -411,10 +440,39 @@
 		top: 0;
 		filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.25));
 	}
-	.arrow-name {
+	/*
+	 * An arrow's names, nearest first, as a block placed from the arrow's
+	 * middle (`placeNames`): each lined up on the arrow's side of the block,
+	 * or centred under or over it.
+	 */
+	.arrow-names {
 		position: absolute;
 		left: 0;
 		top: 0;
+		display: flex;
+		flex-direction: column;
+		align-items: flex-start;
+		gap: 3px;
+		width: max-content;
+	}
+	.arrow-names.left {
+		align-items: flex-end;
+	}
+	.arrow-names.under,
+	.arrow-names.over {
+		align-items: center;
+	}
+	/* "+2 more": how many more are that way, quieter than a name. */
+	.arrow-more {
+		padding: 1px 9px;
+		border-radius: 999px;
+		background: var(--panel-bg);
+		box-shadow: 0 2px 6px rgba(0, 0, 0, 0.18);
+		color: var(--panel-ink);
+		font-weight: 700;
+		font-size: 14px;
+		line-height: 1.35;
+		white-space: nowrap;
 	}
 
 	/*

@@ -3,6 +3,7 @@ import * as THREE from 'three';
 import { touch } from '../input/touch.svelte';
 import { motion } from '../motion';
 import { safeArea } from '../safe-area';
+import { SHORT_SCREEN } from '../short-screen';
 import { animateIdle, buildAnimalMesh, disposeFigure } from './animals';
 import { appearScale, recallScale, smoothstep } from './ease';
 import { SWIM_DEPTH } from './follower';
@@ -57,13 +58,13 @@ const SCENE_FOV = 25;
 const SHORT_DROP = 0.08;
 
 /**
- * The tallest screen that is a short one, in CSS pixels: a phone held
+ * The tallest screen that is a short one (`short-screen.ts`): a phone held
  * sideways, where the battle's panel and status boxes take their compact
  * sizes. Mirrors the `(max-height: 560px)` media queries of the battle's
  * styles (`styles.css`, `BattlePanel.svelte` and the pieces it composes);
  * change them together (`battle-scene.test.ts` holds them to it).
  */
-export const SHORT_SCREEN = 560;
+export { SHORT_SCREEN };
 
 /**
  * Height in CSS pixels of the battle screen's bottom panel for a canvas

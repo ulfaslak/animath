@@ -1345,6 +1345,9 @@ presence:
   left: '{name} went home'
   leftTwo: '{name} and {other} went home'
   leftMany: '{name} and {count} more went home'
+  # Under the names beside an arrow at the edge of the screen, when more than four
+  # players are out of sight that way: the first three are named, and this many more.
+  arrowMore: '+{count} more'
   # This window stopped showing you to the others: you went on in another window.
   elsewhere: "You're playing in another window."
   # What a player is busy with: the bubble over them, and beside their name in the list.
