@@ -108,10 +108,10 @@ describe('friendly-match balance', () => {
 		// of 31 (2026-09-27), several times that inside the whole suite.
 	}, 30_000);
 
-	it('pins §4 for teams drawn from each tier: an even tier-1 match takes about 20 puzzles, and one tier up decides', () => {
+	it('pins §4 for teams drawn from each tier: an even tier-1 match takes about 20 puzzles, an even match of any tier is close to a coin flip, and one tier up decides', () => {
 		// Three animals drawn for each match from a tier's land animals (repeats allowed, as a
 		// kid's party may hold them), with a seed of their own: the small animals of #89 play
-		// as the prototype's three did.
+		// as the prototype's three did, and so do its big ones.
 		const land = (tier: number) =>
 			ANIMALS.filter((a) => a.tier === tier && a.realms.includes('land')).map((a) => a.id);
 		const drawn = (tier: number, salt: number) => (seed: number) => {
@@ -119,16 +119,31 @@ describe('friendly-match balance', () => {
 			const pool = land(tier);
 			return [0, 1, 2].map(() => pool[rng.int(0, pool.length - 1)]!);
 		};
-		expect(land(1).length).toBeGreaterThan(3);
+		for (const tier of [1, 2, 3, 4, 5])
+			expect(land(tier).length, `tier ${tier}`).toBeGreaterThan(2);
 		const even = simulateDrawn(drawn(1, 1), drawn(1, 2), { a: kid(0.7), b: kid(0.7) }, 1000);
 		expect(even.puzzles).toBeGreaterThan(18);
 		expect(even.puzzles).toBeLessThan(23);
-		expect(even.starterWins).toBeGreaterThan(0.5);
-		expect(even.starterWins).toBeLessThan(0.64);
-		const size = simulateDrawn(drawn(1, 1), drawn(2, 2), { a: kid(0.7), b: kid(0.7) }, 1000);
-		expect(size.aWins).toBeLessThan(1 / 12);
-		// 2,000 whole matches: about 0.2 s alone, a few times that under load.
-	}, 30_000);
+		for (const tier of [1, 2, 3, 4, 5]) {
+			const match =
+				tier === 1
+					? even
+					: simulateDrawn(drawn(tier, 1), drawn(tier, 2), { a: kid(0.7), b: kid(0.7) }, 1000);
+			expect(match.starterWins, `tier ${tier}`).toBeGreaterThan(0.5);
+			expect(match.starterWins, `tier ${tier}`).toBeLessThan(0.64);
+		}
+		for (const tier of [1, 2, 3, 4]) {
+			const up = simulateDrawn(
+				drawn(tier, 1),
+				drawn(tier + 1, 2),
+				{ a: kid(0.7), b: kid(0.7) },
+				1000
+			);
+			expect(up.aWins, `tier ${tier} v tier ${tier + 1}`).toBeLessThan(1 / 12);
+		}
+		// 9,000 whole matches, the big tiers' longer ones among them: 6.3 s at a load average of
+		// 100 (2026-09-27), so a minute leaves room.
+	}, 60_000);
 
 	// The printed tables run only with SIM=1: 45,000 and 24,000 whole matches,
 	// about 2 s each alone and a minute under load.

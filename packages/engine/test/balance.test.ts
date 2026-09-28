@@ -28,12 +28,25 @@ const SEEDS = 200;
 /** More seeds where a test compares a win rate with a target band. */
 const TARGET_SEEDS = 1000;
 /**
- * Sampling slack on a target band. A mean over the same-tier pairs (288 since
- * #89) at 1000 seeds each has a standard error well under half a point, so 2
- * points is over four standard errors: the band, not the dice, decides the test.
+ * Sampling slack on a target band. A mean over the same-tier pairs (337 since
+ * #89's second wave) at 1000 seeds each has a standard error well under half a
+ * point, so 2 points is over four standard errors: the band, not the dice,
+ * decides the test.
  */
 const SLACK = 0.02;
 const PRINT = Boolean(process.env.SIM);
+
+/**
+ * A turn of the worker's event loop in the middle of a sweep. vitest reads its
+ * replies to a worker only when the loop turns, and `setup.ts` turns it only
+ * between tests: a sweep that holds the worker for a minute ends the run with
+ * `Timeout calling "onTaskUpdate"` though every test passed ([[DEVELOPMENT]]
+ * § Testing ideology). The sweeps below took 60 to 71 s each at a load average
+ * of 120 with #89's 41 animals, so they turn it every few pairs. Taken before
+ * any test could fake the timers.
+ */
+const nextTurn = globalThis.setImmediate;
+const turn = () => new Promise<void>((resolve) => nextTurn(() => resolve()));
 
 interface Outcome {
 	win: number;
@@ -46,7 +59,8 @@ const tier = (id: string) => getAnimal(id).tier;
 /**
  * Every (player, wild) pair that can meet: the two "never hurts" checks walk
  * them all, so a balance change that breaks either anywhere in the catalog
- * fails ([[DEVELOPMENT]] § Testing ideology). Over 700 pairs since #89.
+ * fails ([[DEVELOPMENT]] § Testing ideology). Over 1,300 pairs since #89's
+ * second wave.
  */
 const MEETING_PAIRS: readonly (readonly [string, string])[] = ids.flatMap((p) =>
 	ids.flatMap((w) => (arena(p, w) !== null ? [[p, w] as const] : []))
@@ -90,6 +104,16 @@ const hardest = (accuracy: number): PlayerModel => ({ accuracy, policy: 'max', l
 const mean = (xs: number[]) => xs.reduce((a, b) => a + b, 0) / xs.length;
 const winRates = (gap: number, model: PlayerModel, seeds = TARGET_SEEDS) =>
 	pairs(gap).map(([p, w]) => ({ p, w, win: simulate(p, w, model, seeds).win }));
+
+/** `winRates`, turning the worker's event loop every ten pairs, for the tests' long sweeps. */
+async function winRatesTurning(gap: number, model: PlayerModel, seeds = TARGET_SEEDS) {
+	const rates: { p: string; w: string; win: number }[] = [];
+	for (const [i, [p, w]] of pairs(gap).entries()) {
+		if (i % 10 === 0) await turn();
+		rates.push({ p, w, win: simulate(p, w, model, seeds).win });
+	}
+	return rates;
+}
 
 const pct = (x: number) => `${Math.round(x * 100)}%`;
 
@@ -202,7 +226,7 @@ describe('balance simulation', () => {
 		}, 120_000);
 	}
 
-	it("a squirrel almost never beats a bear, even when it's always right, nor a crab a whale", () => {
+	it("a squirrel almost never beats a bear, even when it's always right, nor a crab a whale, nor any small animal a tier-5 one", () => {
 		const small = ids.filter((id) => tier(id) === 1);
 		expect(small).toEqual([
 			'squirrel',
@@ -220,10 +244,13 @@ describe('balance simulation', () => {
 			'crab',
 			'starfish'
 		]);
-		// Every small animal of the land meets the bear; at sea, the whale meets the two small
-		// sea animals and the two small ones that swim, the frog and the toad.
+		// Every small animal of the land meets the bear, the moose and the bison (#89); at sea,
+		// the whale meets the two small sea animals and the two small ones that swim, the frog
+		// and the toad.
 		for (const [big, meeting] of [
 			['bear', 12],
+			['moose', 12],
+			['european-bison', 12],
 			['whale', 4]
 		] as const) {
 			const meet = small.filter((id) => arena(id, big) !== null);
@@ -231,7 +258,14 @@ describe('balance simulation', () => {
 			for (const id of meet)
 				expect(simulate(id, big, hardest(1)).win, `${id} vs ${big}`).toBeLessThan(0.05);
 		}
-	});
+		expect(ids.filter((id) => tier(id) === 5)).toEqual([
+			'bear',
+			'moose',
+			'european-bison',
+			'whale'
+		]);
+		// 40 pairs, 200 battles each: under a second alone, a few beside the suite under load.
+	}, 30_000);
 
 	it('each sea animal is its land twin in numbers, so the land balance holds at sea as it is', () => {
 		const twins: Record<string, string> = {
@@ -268,18 +302,20 @@ describe('balance simulation', () => {
 		}
 	});
 
-	// The two sweeps below play every same-tier pair that can meet (about 300 since #89), 1,000
-	// battles each, with the seeds the bands were set on: about 7 s each at a load average of
-	// 28 with nothing else running, and 15 to 22 s beside the rest of the engine's suite.
-	it('the easiest puzzle, always right, usually beats an animal of your own tier (65–80%)', () => {
-		const rates = winRates(0, easiest(1));
+	// The two sweeps below play every same-tier pair that can meet (337 since #89's second
+	// wave), 1,000 battles each, with the seeds the bands were set on: 60 and 62 s beside the
+	// rest of the engine's suite at a load average of 120, so they turn the worker's loop as
+	// they go, and three minutes leaves room.
+	it('the easiest puzzle, always right, usually beats an animal of your own tier (65–80%)', async () => {
+		const rates = await winRatesTurning(0, easiest(1));
 		for (const { p, w, win } of rates) expect(win, `${p} vs ${w}`).toBeGreaterThan(0.5);
 		expectInBand(mean(rates.map((r) => r.win)), 0.65, 0.8, 'same-tier mean');
-	}, 120_000);
+	}, 180_000);
 
-	it('the easiest puzzle at 70% right makes a same-tier fight close to a coin flip (40–55%)', () => {
-		expectInBand(mean(winRates(0, easiest(0.7)).map((r) => r.win)), 0.4, 0.55, 'same-tier mean');
-	}, 120_000);
+	it('the easiest puzzle at 70% right makes a same-tier fight close to a coin flip (40–55%)', async () => {
+		const rates = await winRatesTurning(0, easiest(0.7));
+		expectInBand(mean(rates.map((r) => r.win)), 0.4, 0.55, 'same-tier mean');
+	}, 180_000);
 
 	it('the starter squirrel meets the same targets against its own near-spawn tier', () => {
 		for (const name of ['the tier-1 animals near home', 'the river near home']) {
@@ -299,32 +335,39 @@ describe('balance simulation', () => {
 		expect(shaky, 'starter vs the meadow, right 70%').toBeLessThanOrEqual(0.55 + SLACK);
 	});
 
-	it('on the easiest puzzle, one tier up is hard and two tiers up is out of reach', () => {
-		for (const { p, w, win } of winRates(1, easiest(1)))
+	it('on the easiest puzzle, one tier up is hard and two tiers up is out of reach', async () => {
+		for (const { p, w, win } of await winRatesTurning(1, easiest(1)))
 			expect(win, `${p} vs ${w}`).toBeLessThan(0.35);
-		for (const { p, w, win } of winRates(2, easiest(1)))
+		for (const { p, w, win } of await winRatesTurning(2, easiest(1)))
 			expect(win, `${p} vs ${w}`).toBeLessThan(0.1);
-		// About 0.4 s alone (31,000 battles); 3.6 s at a load average of 40.
-	}, 30_000);
-
-	it('being right more often never hurts', () => {
-		for (const model of [hardest, easiest]) {
-			for (const [p, w] of MEETING_PAIRS) {
-				const sure = simulate(p, w, model(1)).win;
-				const shaky = simulate(p, w, model(0.7)).win;
-				expect(sure, `${p} vs ${w}, ${model.name}`).toBeGreaterThanOrEqual(shaky - 0.05);
-			}
-		}
-		// Every pair, four models, 200 battles each (about 600,000 battles with the 32
-		// animals of #89): 13 s at a load average of 53, so two minutes leaves room.
+		// 352 pairs, 1,000 battles each since #89's second wave: 28 s beside the suite at a load
+		// average of 120.
 	}, 120_000);
 
+	it('being right more often never hurts', async () => {
+		const bad: string[] = [];
+		for (const model of [hardest, easiest]) {
+			for (const [i, [p, w]] of MEETING_PAIRS.entries()) {
+				if (i % 25 === 0) await turn();
+				const sure = simulate(p, w, model(1)).win;
+				const shaky = simulate(p, w, model(0.7)).win;
+				if (!(sure >= shaky - 0.05)) bad.push(`${p} vs ${w}, ${model.name}: ${sure} < ${shaky}`);
+			}
+		}
+		expect(bad).toEqual([]);
+		// Every pair, four models, 200 battles each (about a million battles with the 41 animals
+		// of #89's second wave): 71 s beside the suite at a load average of 120, turning the
+		// worker's loop as it goes; three minutes leaves room.
+	}, 180_000);
+
 	it('a stronger attack at a higher level never hurts an always-right player', () => {
+		const bad: string[] = [];
 		for (const [p, w] of MEETING_PAIRS) {
 			const strong = simulate(p, w, hardest(1)).win;
 			const weak = simulate(p, w, easiest(1)).win;
-			expect(strong, `${p} vs ${w}`).toBeGreaterThanOrEqual(weak - 0.05);
+			if (!(strong >= weak - 0.05)) bad.push(`${p} vs ${w}: ${strong} < ${weak}`);
 		}
+		expect(bad).toEqual([]);
 		// The two models' battles are the test above's, kept: well under a second.
 	}, 30_000);
 });

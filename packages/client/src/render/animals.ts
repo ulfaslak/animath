@@ -119,12 +119,12 @@ function catmull(a: number, b: number, c: number, d: number, t: number): number 
 type Path = readonly (readonly [number, number])[];
 
 /**
- * A tube tapering from `root` thick to a point, along a smooth curve through
- * `path`, turned about y by `yaw` (0 is out along +z). Built by hand, as the
- * z's are: three.js's `TubeGeometry` would bring its curve classes into the
- * bundle.
+ * A tube tapering from `root` thick to a point (or to `tip` thick), along a
+ * smooth curve through `path`, turned about y by `yaw` (0 is out along +z).
+ * Built by hand, as the z's are: three.js's `TubeGeometry` would bring its
+ * curve classes into the bundle.
  */
-function curvedTube(path: Path, root: number, yaw: number): THREE.BufferGeometry {
+function curvedTube(path: Path, root: number, yaw: number, tip = 0): THREE.BufferGeometry {
 	const SIDES = 5;
 	const PER_SPAN = 3;
 	const at = (i: number) => path[Math.min(path.length - 1, Math.max(0, i))]!;
@@ -151,7 +151,7 @@ function curvedTube(path: Path, root: number, yaw: number): THREE.BufferGeometry
 		const [o0, u0] = curve[Math.max(0, i - 1)]!;
 		const [o1, u1] = curve[Math.min(curve.length - 1, i + 1)]!;
 		const d = Math.hypot(o1 - o0, u1 - u0) || 1;
-		const r = root * (1 - along[i]! / length) ** 0.75;
+		const r = tip + (root - tip) * (1 - along[i]! / length) ** 0.75;
 		for (let k = 0; k < SIDES; k++) {
 			const angle = (k / SIDES) * Math.PI * 2;
 			const across = Math.cos(angle) * r;
@@ -336,6 +336,118 @@ function zigzag(hex: number, r: number, y: number, z: number, count: number): TH
 		return bar;
 	});
 }
+
+/** What sets one eagle apart from the other (`eagle`). */
+interface EagleLook {
+	/** How much bigger than the golden eagle: every length times this. */
+	size: number;
+	body: number;
+	/** The head and the neck. */
+	head: number;
+	/** The hooked beak, and how much bigger than the golden eagle's it is. */
+	beak: number;
+	bill: number;
+	feet: number;
+	/** The tail, spread square behind it, or narrowing to a point: a wedge. */
+	tail: number;
+	wedge: boolean;
+}
+
+/**
+ * An eagle, standing with its wings half open: from shoulder joints (`wings`)
+ * they reach out from its sides and a little up, to dark tips. Its body leans
+ * forward over short legs, and a hooked beak juts from its head.
+ */
+function eagle(look: EagleLook): THREE.Object3D[] {
+	const { size: s, body, head, beak, bill, feet, tail } = look;
+	const tailPart = look.wedge
+		? rot(cone(0.11 * s, 0.3 * s, tail, 0, 0.2 * s, -0.3 * s), -2.2, 0, 0)
+		: rot(box(0.17 * s, 0.025 * s, 0.26 * s, tail, 0, 0.19 * s, -0.3 * s), -0.6, 0, 0);
+	// A wedge is a cone laid back and down, flattened into a fan.
+	if (look.wedge) tailPart.scale.z = 0.25;
+	return [
+		...([-1, 1] as const).flatMap((side) => [
+			tube(0.035 * s, 0.14 * s, body, side * 0.07 * s, 0.07 * s, 0.02 * s),
+			box(0.07 * s, 0.02 * s, 0.1 * s, feet, side * 0.07 * s, 0.01 * s, 0.06 * s),
+			ball(0.018 * s, COLORS.dark, side * 0.065 * s, 0.71 * s, 0.24 * s)
+		]),
+		rot(ball(0.19 * s, body, 0, 0.36 * s, -0.02 * s, 1, 1.2, 1.1), 0.35, 0, 0),
+		tailPart,
+		ball(0.12 * s, head, 0, 0.58 * s, 0.09 * s, 1, 1.1, 1),
+		ball(0.115 * s, head, 0, 0.68 * s, 0.15 * s),
+		rot(
+			cone(0.035 * s * bill, 0.1 * s * bill, beak, 0, 0.665 * s, (0.25 + 0.05 * bill) * s),
+			Math.PI / 2,
+			0,
+			0
+		),
+		rot(
+			cone(
+				0.02 * s * bill,
+				0.05 * s * bill,
+				beak,
+				0,
+				(0.665 - 0.025 * bill) * s,
+				(0.25 + 0.095 * bill) * s
+			),
+			Math.PI,
+			0,
+			0
+		),
+		...wings(0.15 * s, 0.52 * s, (side) => [
+			rot(
+				ball(0.18 * s, body, side * 0.24 * s, 0.54 * s, -0.05 * s, 1, 0.2, 0.8),
+				0,
+				0,
+				side * 0.25
+			),
+			rot(
+				ball(0.12 * s, body, side * 0.39 * s, 0.62 * s, -0.08 * s, 1, 0.2, 0.7),
+				0,
+				0,
+				side * 0.55
+			),
+			rot(
+				ball(0.065 * s, COLORS.dark, side * 0.47 * s, 0.7 * s, -0.1 * s, 1, 0.25, 0.8),
+				0,
+				0,
+				side * 0.7
+			)
+		])
+	];
+}
+
+/**
+ * A moose's antler, on `side`: a short beam out and up from the back of its
+ * head to a broad flat palm, a shovel tipped up at its outer edge and forward,
+ * with points all round its rim.
+ */
+function shovel(hex: number, side: -1 | 1): THREE.Object3D[] {
+	const up = new THREE.Vector3(0, 1, 0);
+	const plate = part(new THREE.CylinderGeometry(0.2, 0.2, 0.035, 7), hex, 0, 0, 0);
+	plate.scale.set(1.25, 1, 0.8);
+	const palm = new THREE.Group();
+	palm.add(
+		plate,
+		...[-1, -0.5, 0, 0.5, 1].map((a) => {
+			const out = new THREE.Vector3(side * Math.cos(a), 0, Math.sin(a));
+			const tine = cone(0.028, 0.12, hex, side * 0.31 * Math.cos(a), 0, 0.22 * Math.sin(a));
+			tine.quaternion.setFromUnitVectors(up, out);
+			return tine;
+		})
+	);
+	palm.position.set(side * 0.37, 1.34, 0.5);
+	palm.rotation.set(0.5, 0, side * 0.28);
+	return [rot(tube(0.03, 0.2, hex, side * 0.11, 1.23, 0.5), -0.5, 0, -side * 0.9), palm];
+}
+
+/** A bison's horn, `[out, up]` from the side of its head: out sideways, then curving up. */
+const BISON_HORN = [
+	[0, 0],
+	[0.07, 0.01],
+	[0.11, 0.06],
+	[0.115, 0.13]
+] as const;
 
 /** A starfish's arms, and where its middle is: an arm's length up, on the arm it stands on. */
 const STAR_ARM = 0.3;
@@ -842,6 +954,215 @@ const BUILDERS: Record<string, Builder> = {
 			tail
 		];
 	},
+	// The big animals of the Nordic countryside (#89 wave 2), each bigger than every
+	// animal two tiers below it, and sized as in nature within its tier: the moose
+	// is the tallest on land. The birds' wings hang from shoulder joints, as the
+	// small birds' do.
+	//
+	// A dark wedge of a head on short legs, a bristly ridge along its back, and
+	// curved white tusks either side of a flat snout disc.
+	'wild-boar': ({ fur, accent }) => {
+		// The head: a blunt cone from the shoulders down to the snout.
+		const head = part(new THREE.CylinderGeometry(0.07, 0.17, 0.36, 6), fur, 0, 0.4, 0.46);
+		const snout = part(
+			new THREE.CylinderGeometry(0.075, 0.075, 0.03, 8),
+			COLORS.dark,
+			0,
+			0.352,
+			0.648
+		);
+		return [
+			ball(0.25, fur, 0, 0.4, -0.08, 0.85, 0.85, 1.45),
+			ball(0.22, fur, 0, 0.44, 0.14, 0.95, 1, 1),
+			...legs(0.075, 0.24, fur, 0.1, 0.22),
+			rot(head, Math.PI / 2 + 0.25, 0, 0),
+			rot(snout, Math.PI / 2 + 0.25, 0, 0),
+			...[
+				[-0.3, 0.57],
+				[-0.2, 0.6],
+				[-0.1, 0.61],
+				[0, 0.61],
+				[0.1, 0.65],
+				[0.2, 0.65]
+			].map(([z, y]) => rot(cone(0.035, 0.1, COLORS.dark, 0, y! + 0.03, z!), -0.3, 0, 0)),
+			...([-1, 1] as const).flatMap((side) => [
+				part(
+					curvedTube(
+						[
+							[0, 0],
+							[0.045, 0.05],
+							[0.045, 0.11],
+							[0, 0.16]
+						],
+						0.03,
+						side * 0.5
+					),
+					accent,
+					side * 0.075,
+					0.3,
+					0.6
+				),
+				ball(0.018, COLORS.white, side * 0.1, 0.49, 0.4),
+				rot(cone(0.05, 0.12, fur, side * 0.1, 0.6, 0.3), 0.2, 0, -side * 0.4)
+			]),
+			rot(tube(0.014, 0.16, fur, 0, 0.44, -0.46), 0.25, 0, 0),
+			ball(0.03, COLORS.dark, 0, 0.37, -0.48)
+		];
+	},
+	// A big white body on short dark legs, a long neck curved like an S, and an
+	// orange beak with a black knob at its base.
+	'mute-swan': ({ fur, accent }) => [
+		...([-1, 1] as const).flatMap((side) => [
+			tube(0.02, 0.2, COLORS.dark, side * 0.07, 0.1, -0.02),
+			box(0.08, 0.016, 0.1, COLORS.dark, side * 0.07, 0.008, 0.03),
+			ball(0.014, COLORS.dark, side * 0.06, 0.925, 0.3)
+		]),
+		ball(0.22, fur, 0, 0.33, -0.04, 0.95, 0.68, 1.55),
+		rot(cone(0.07, 0.14, fur, 0, 0.4, -0.42), -1.0, 0, 0),
+		part(
+			curvedTube(
+				[
+					[0, 0],
+					[0.09, 0.14],
+					[0.03, 0.29],
+					[0, 0.42],
+					[0.06, 0.54]
+				],
+				0.08,
+				0,
+				0.055
+			),
+			fur,
+			0,
+			0.36,
+			0.2
+		),
+		ball(0.075, fur, 0, 0.91, 0.27, 0.9, 0.9, 1.3),
+		rot(cone(0.038, 0.14, accent, 0, 0.88, 0.41), Math.PI / 2 + 0.3, 0, 0),
+		ball(0.03, COLORS.dark, 0, 0.918, 0.355),
+		...wings(0.17, 0.4, (side) => [
+			rot(ball(0.19, fur, side * 0.17, 0.4, -0.08, 0.32, 0.62, 1.35), 0.12, 0, 0)
+		])
+	],
+	// Big, round and upright: two ear tufts standing up like horns, and huge
+	// orange eyes.
+	'eagle-owl': ({ fur, accent }) => [
+		ball(0.21, fur, 0, 0.31, 0, 1, 1.25, 0.95),
+		ball(0.18, fur, 0, 0.66, 0.01),
+		rot(cone(0.022, 0.07, COLORS.dark, 0, 0.62, 0.18), Math.PI * 0.6, 0, 0),
+		rot(box(0.14, 0.025, 0.14, fur, 0, 0.12, -0.2), -0.3, 0, 0),
+		...([-1, 1] as const).flatMap((side) => [
+			ball(0.062, accent, side * 0.078, 0.68, 0.14),
+			ball(0.026, COLORS.dark, side * 0.078, 0.68, 0.195),
+			rot(cone(0.05, 0.17, fur, side * 0.1, 0.86, 0.02), -0.15, 0, -side * 0.3),
+			box(0.08, 0.05, 0.08, fur, side * 0.08, 0.025, 0.07)
+		]),
+		...wings(0.19, 0.44, (side) => [ball(0.13, fur, side * 0.2, 0.31, -0.02, 0.35, 1.2, 0.95)])
+	],
+	// A big cat on long legs and big paws, a ruff on its cheeks, a short tail
+	// with a black tip, and black tufts standing up from the tips of its ears.
+	lynx: ({ fur, accent }) => [
+		ball(0.19, fur, 0, 0.52, -0.04, 0.85, 0.8, 1.7),
+		...legs(0.075, 0.42, fur, 0.09, 0.2),
+		ball(0.15, fur, 0, 0.74, 0.3),
+		ball(0.075, COLORS.white, 0, 0.69, 0.42, 1.1, 0.8, 0.8),
+		ball(0.022, COLORS.dark, 0, 0.72, 0.48),
+		...([-1, 1] as const).flatMap((side) => [
+			box(0.11, 0.05, 0.13, fur, side * 0.09, 0.025, 0.22),
+			box(0.11, 0.05, 0.13, fur, side * 0.09, 0.025, -0.18),
+			ball(0.022, COLORS.dark, side * 0.06, 0.78, 0.43),
+			rot(cone(0.075, 0.2, fur, side * 0.15, 0.64, 0.3), 0, 0, -side * 2.5),
+			rot(cone(0.055, 0.15, fur, side * 0.085, 0.93, 0.28), 0, 0, -side * 0.15),
+			rot(cone(0.018, 0.13, accent, side * 0.106, 1.068, 0.28), 0, 0, -side * 0.15)
+		]),
+		rot(ball(0.05, fur, 0, 0.6, -0.42, 1, 1, 1.8), 0.6, 0, 0),
+		ball(0.042, accent, 0, 0.65, -0.49)
+	],
+	// Low and bear-like on short dark legs, a bushy tail, and a pale golden band
+	// along each side from its shoulder to its tail.
+	wolverine: ({ fur, accent }) => [
+		ball(0.24, fur, 0, 0.36, -0.03, 1, 0.8, 1.45),
+		...legs(0.09, 0.2, COLORS.dark, 0.14, 0.22),
+		ball(0.14, fur, 0, 0.44, 0.34, 1, 0.9, 1.1),
+		ball(0.07, COLORS.dark, 0, 0.4, 0.46, 1, 0.85, 1),
+		...([-1, 1] as const).flatMap((side) => [
+			ball(0.016, COLORS.white, side * 0.06, 0.49, 0.45),
+			ball(0.045, fur, side * 0.1, 0.56, 0.3, 1, 0.8, 0.6),
+			rot(ball(0.15, accent, side * 0.21, 0.4, -0.06, 0.28, 0.35, 1.55), -0.12, 0, 0)
+		]),
+		rot(ball(0.09, fur, 0, 0.38, -0.46, 1, 1, 2), -0.35, 0, 0)
+	],
+	// Standing with its wings half open: a golden head and neck, and a hooked beak.
+	'golden-eagle': ({ fur, accent }) =>
+		eagle({
+			size: 1,
+			body: fur,
+			head: accent,
+			beak: COLORS.dark,
+			bill: 1,
+			feet: accent,
+			tail: fur,
+			wedge: false
+		}),
+	// Bigger than the golden eagle, with a pale head: a white wedge of a tail, and
+	// a big yellow beak.
+	'white-tailed-eagle': ({ fur, accent }) =>
+		eagle({
+			size: 1.12,
+			body: fur,
+			head: COLORS.white,
+			beak: accent,
+			bill: 1.45,
+			feet: accent,
+			tail: COLORS.white,
+			wedge: true
+		}),
+	// The tallest on land: long legs, a hump at the shoulders, a long drooping
+	// nose with a "bell" of skin under its chin, and huge flat antlers held out
+	// like shovels.
+	moose: ({ fur, accent }) => [
+		...legs(0.09, 0.68, fur, 0.12, 0.3),
+		ball(0.3, fur, 0, 0.88, -0.06, 0.95, 0.78, 1.5),
+		ball(0.24, fur, 0, 1.08, 0.24, 0.9, 1.05, 1),
+		rot(box(0.18, 0.22, 0.3, fur, 0, 1.02, 0.47), -0.45, 0, 0),
+		rot(box(0.2, 0.22, 0.4, fur, 0, 1.07, 0.68), 0.3, 0, 0),
+		ball(0.12, fur, 0, 0.95, 0.88, 1, 0.95, 1.2),
+		rot(cone(0.055, 0.2, fur, 0, 0.82, 0.66), Math.PI, 0, 0),
+		ball(0.06, fur, 0, 0.93, -0.5),
+		...([-1, 1] as const).flatMap((side) => [
+			ball(0.022, COLORS.dark, side * 0.055, 0.94, 1.0),
+			ball(0.022, COLORS.dark, side * 0.1, 1.16, 0.64),
+			ball(0.05, fur, side * 0.16, 1.2, 0.46, 1, 1.7, 0.6),
+			...shovel(accent, side)
+		])
+	],
+	// Massive, with a high shaggy hump over its shoulders, a head hung low with a
+	// dark beard under its chin, and short dark horns curving up.
+	'european-bison': ({ fur, accent }) => [
+		...legs(0.1, 0.44, fur, 0.14, 0.3),
+		ball(0.28, fur, 0, 0.64, -0.28, 0.95, 0.85, 1.1),
+		ball(0.4, fur, 0, 0.8, 0.1, 0.9, 1.05, 1),
+		...[
+			[0, 1.2, -0.02],
+			[0, 1.16, 0.14],
+			[0, 1.06, 0.28],
+			[0.14, 1.12, 0.05],
+			[-0.14, 1.12, 0.05],
+			[0.2, 1.02, 0.22],
+			[-0.2, 1.02, 0.22]
+		].map(([x, y, z]) => rot(cone(0.06, 0.13, fur, x!, y!, z!), -0.5, 0, -x! * 2)),
+		ball(0.17, fur, 0, 0.6, 0.52, 1, 1.05, 1.05),
+		ball(0.1, fur, 0, 0.53, 0.66),
+		ball(0.03, COLORS.dark, 0, 0.53, 0.76),
+		rot(cone(0.1, 0.24, accent, 0, 0.36, 0.55), Math.PI, 0, 0),
+		...([-1, 1] as const).flatMap((side) => [
+			ball(0.02, COLORS.white, side * 0.1, 0.66, 0.64),
+			part(curvedTube(BISON_HORN, 0.035, (side * Math.PI) / 2), accent, side * 0.12, 0.72, 0.5),
+			ball(0.05, fur, side * 0.17, 0.68, 0.46, 0.6, 1, 1)
+		]),
+		rot(tube(0.016, 0.3, fur, 0, 0.62, -0.6), 0.2, 0, 0),
+		ball(0.04, accent, 0, 0.47, -0.63)
+	],
 	// The sea animals: in the world they swim low in the water, so each one's
 	// tell is in its top half. Wide and flat on six thin legs, two big claws
 	// held up in front, and eyes on stalks.
