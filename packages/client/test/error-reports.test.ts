@@ -393,29 +393,55 @@ describe('thrownBy', () => {
 });
 
 describe('the page', () => {
-	it('reports what nothing caught on it, without a cookie, as it happens', () => {
-		const listeners = new Map<string, (event: unknown) => void>();
+	/** A page whose listeners the test calls: `fire` as an event on the page, `fireDown` as one on its way down to an element. */
+	function listening() {
+		const listeners: { type: string; listener: (event: unknown) => void; down: boolean }[] = [];
 		const page = {
 			navigator: { userAgent: SAFARI_MAC, maxTouchPoints: 5 },
 			innerWidth: 1180.4,
 			innerHeight: 819.6,
-			addEventListener: (type: string, listener: (event: unknown) => void) =>
-				listeners.set(type, listener)
+			addEventListener: (type: string, listener: (event: unknown) => void, down?: boolean) =>
+				listeners.push({ type, listener, down: down === true })
 		} as unknown as Window;
 		const sent: ErrorReport[] = [];
 		listenTo(page, (report) => sent.push(report));
-		listeners.get('error')!({
+		// On the page itself every listener hears it, whichever way it listens.
+		const fire = (type: string, event: Record<string, unknown>) => {
+			for (const l of listeners) if (l.type === type) l.listener({ target: page, ...event });
+		};
+		const fireDown = (type: string, target: unknown) => {
+			for (const l of listeners) if (l.type === type && l.down) l.listener({ target });
+		};
+		return { sent, fire, fireDown };
+	}
+
+	it('reports what nothing caught on it, without a cookie, as it happens', () => {
+		const { sent, fire } = listening();
+		fire('error', {
 			error: new TypeError('x is undefined'),
 			message: 'Uncaught TypeError: x is undefined',
 			filename: 'https://animath.xyz/immutable/main.js',
 			lineno: 1,
 			colno: 2
 		});
-		listeners.get('error')!({ error: null, message: 'ResizeObserver loop limit exceeded' });
-		listeners.get('unhandledrejection')!({ reason: new DOMException('denied', 'NotAllowedError') });
+		fire('error', { error: null, message: 'ResizeObserver loop limit exceeded' });
+		fire('unhandledrejection', { reason: new DOMException('denied', 'NotAllowedError') });
 		expect(sent.map((r) => [r.message, r.browser, r.screen, r.build])).toEqual([
 			['TypeError: x is undefined', 'Safari 26.0 (iPad)', '1180x820', 'dev'],
 			['NotAllowedError: denied', 'Safari 26.0 (iPad)', '1180x820', 'dev']
+		]);
+	});
+
+	it("reports a script that did not run, as a Safari before 15 tells its element, and nothing else's error", () => {
+		const { sent, fireDown } = listening();
+		fireDown('error', {
+			tagName: 'SCRIPT',
+			src: 'https://animath.xyz/immutable/index-abc.js?v=1#x'
+		});
+		fireDown('error', { tagName: 'IMG', src: 'https://animath.xyz/favicon.svg' });
+		fireDown('error', { tagName: 'LINK', href: 'https://fonts.googleapis.com/css2' });
+		expect(sent.map((r) => [r.message, r.stack])).toEqual([
+			['a script did not run', '/immutable/index-abc.js']
 		]);
 	});
 

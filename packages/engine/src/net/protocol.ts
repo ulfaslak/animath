@@ -1038,7 +1038,11 @@ function parseWith<M extends { t: string }>(
 	parsers: { readonly [K in M['t']]: Parser<M> },
 	value: unknown
 ): M | null {
-	if (!isRecord(value) || typeof value.t !== 'string' || !Object.hasOwn(parsers, value.t)) {
+	if (
+		!isRecord(value) ||
+		typeof value.t !== 'string' ||
+		!Object.prototype.hasOwnProperty.call(parsers, value.t)
+	) {
 		return null;
 	}
 	return parsers[value.t as M['t']](value);

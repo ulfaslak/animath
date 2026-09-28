@@ -4,5 +4,5 @@
 		"lib": ["ES2022", "DOM", "DOM.Iterable"],
 		"types": ["vite/client", "svelte"]
 	},
-	"include": ["src", "test", "vite.config.ts", "vitest.config.ts"]
+	"include": ["src", "test", "browsers.ts", "vite.config.ts", "vitest.config.ts"]
 }

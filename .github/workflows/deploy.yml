@@ -123,6 +123,10 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm check
       - run: pnpm lint
+      # The client as it ships: its build fails over anything in it that
+      # Safari 15, the oldest browser the game is for, cannot run
+      # (packages/client/browsers.ts). The image's build runs it again.
+      - run: pnpm -F @mathgame/client build
       - run: pnpm test
       - name: nginx config
         # The server's nginx, as the image renders it, with a stand-in domain

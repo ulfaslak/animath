@@ -345,7 +345,7 @@ export const SAVE_UPGRADES: Readonly<Record<number, (doc: Doc) => Doc>> = {
 		const out: Doc = { ...rest, version: 2 };
 		const kept: Doc = {};
 		for (const key of [...NAMED_SINCE_V2, V1_KEPT]) {
-			if (!Object.hasOwn(out, key)) continue;
+			if (!Object.prototype.hasOwnProperty.call(out, key)) continue;
 			kept[key] = out[key];
 			delete out[key];
 		}

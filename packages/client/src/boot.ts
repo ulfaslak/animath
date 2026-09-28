@@ -14,12 +14,25 @@ import NoWebGL from './ui/NoWebGL.svelte';
  * language on screen instead of a blank page, and the game never starts.
  * Every other browser loads the game (`main.ts`). An error report says which
  * of these the page showed (`showing`) until the game says what it shows.
+ *
+ * A browser too old to read the game's scripts (Safari before 15) never gets
+ * here: `index.html` shows its too-old card to a page this script has not
+ * marked as started. One that reads this script but not the game's gets the
+ * same card (`tooOld`).
  */
+
+document.documentElement.setAttribute('data-started', '');
 
 const ui = document.getElementById('ui') as HTMLElement;
 
-function showing(mode: 'boot' | 'moved' | 'no-webgl'): void {
+function showing(mode: 'boot' | 'moved' | 'no-webgl' | 'too-old'): void {
 	errorReports?.setContext({ mode: () => mode, words: () => [] });
+}
+
+/** `index.html`'s too-old card, in both languages: this browser cannot read the game's code. */
+function tooOld(): void {
+	showing('too-old');
+	document.dispatchEvent(new Event('animath:too-old'));
 }
 
 /** Whether this browser gives a page a WebGL 2 context. The test context is let go at once. */
@@ -43,6 +56,8 @@ function startGame(): void {
 		import('./main').catch((error: unknown) => {
 			// A context can still be refused for the renderer's own settings; three.js says WebGL.
 			if (String(error).includes('WebGL')) cannotDraw();
+			// The game's code is syntax this browser cannot read.
+			else if (error instanceof SyntaxError) tooOld();
 			throw error;
 		});
 	} else {

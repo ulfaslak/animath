@@ -293,9 +293,21 @@
 		return chance >= 0.5 ? 'good' : chance >= 0.2 ? 'warn' : 'bad';
 	});
 
-	/** A narration beat split after each ".", "!" or "?" that ends a sentence. */
+	/**
+	 * A narration beat split after each ".", "!" or "?" that ends a sentence:
+	 * the space after it goes, and the mark stays with its sentence. Without
+	 * a lookbehind, which a Safari before 16.4 cannot read (#169).
+	 */
 	function sentences(text: string): string[] {
-		return text.split(/(?<=[.!?])\s+/);
+		const out: string[] = [];
+		const end = /[.!?]\s+/g;
+		let from = 0;
+		for (let found = end.exec(text); found !== null; found = end.exec(text)) {
+			out.push(text.slice(from, found.index + 1));
+			from = end.lastIndex;
+		}
+		out.push(text.slice(from));
+		return out;
 	}
 
 	/**
