@@ -489,14 +489,15 @@ function pathOf(req: IncomingMessage): string {
 /**
  * Whether the page that opened the socket is this site: its `Origin` names
  * the host the request came to (or, behind a proxy, the host the proxy says
- * it came to). No `Origin` at all is no browser, and carries no kid's cookie.
+ * it came to), port and all (`pageOf`). No `Origin` at all is no browser, and
+ * carries no kid's cookie.
  */
 function sameOrigin(req: IncomingMessage): boolean {
 	const origin = req.headers.origin;
 	if (origin === undefined) return true;
-	let host: string;
+	let page: URL;
 	try {
-		host = new URL(origin).host.toLowerCase();
+		page = new URL(origin);
 	} catch {
 		return false;
 	}
@@ -505,7 +506,28 @@ function sameOrigin(req: IncomingMessage): boolean {
 		req.headers.host,
 		...(typeof forwarded === 'string' ? forwarded.split(',') : (forwarded ?? []))
 	];
-	return hosts.some((h) => h !== undefined && h.trim().toLowerCase() === host);
+	return hosts.some((h) => h !== undefined && pageOf(page, h.trim().toLowerCase()));
+}
+
+/**
+ * Whether a page at `page` is one of `host`'s (lower case): the same host,
+ * port and all. The one exception is this machine's own name (`localhost`, a
+ * loopback address) with no port: the production stack run on a developer's
+ * Mac (`docker-compose.local.yml`), whose nginx passes the name the browser
+ * used without its port (`$host`), so the page's port has nothing to match,
+ * and the name is enough (#164). A browser sends that name only to its own
+ * machine, so a page of the game's domain is held to its host and port as
+ * before, unlike `request.ts`'s `names`: the socket has no other guard, and a
+ * page of the domain on another port would bring a kid's session cookie in.
+ */
+function pageOf(page: URL, host: string): boolean {
+	if (host === page.host.toLowerCase()) return true;
+	return !/:\d+$/.test(host) && isLoopback(host) && host === page.hostname.toLowerCase();
+}
+
+/** Whether `name`, a host without its port, is this machine: `localhost` or a loopback address. */
+function isLoopback(name: string): boolean {
+	return name === 'localhost' || name === '[::1]' || /^127(\.\d{1,3}){3}$/.test(name);
 }
 
 function refuse(socket: Duplex, status: string): void {
