@@ -1144,6 +1144,37 @@ describe('Back to exploring beats a Rematch? it crosses (#147)', () => {
 		}
 	});
 
+	it("tells the other kid's page, away as the rematch was called off, once it is back in time", () => {
+		for (const then of ['back in time', 'not back in time'] as const) {
+			vi.clearAllTimers();
+			setup();
+			const { ada, bo, end } = onResult();
+			ada.send({ t: 'rematch', id: end, team: TEAM });
+			bo.send({ t: 'rematch', id: end, team: TEAM });
+			const again = ada.peer.last('match')!;
+			// Bo's connection drops as the rematch starts, and Ada's Back gets there meanwhile.
+			bo.leave();
+			ada.send({ t: 'done', id: end });
+			ada.at(SPAWN);
+			expect(ada.peer.last('match'), then).toMatchObject({ id: again.id, calledOff: true });
+			if (then === 'back in time') {
+				// His page is told as it comes back, and nothing of the rematch is left.
+				const back = kid('Bo', beside(1), 'match', 1, false);
+				expect(back.hiMatch, then).toBe(again.id);
+				expect(back.peer.last('match'), then).toMatchObject({
+					id: again.id,
+					rematchOf: end,
+					calledOff: true
+				});
+			} else {
+				vi.advanceTimersByTime(31_000);
+				expect(kid('Bo', beside(1), 'explore', 1, false).hiMatch, then).toBeNull();
+			}
+			expect(matches.size, then).toBe(0);
+			expect(vi.getTimerCount(), then).toBe(0);
+		}
+	});
+
 	it('takes a Back from the match before only from a page that never had the rematch up', () => {
 		const { ada, bo, end } = onResult();
 		ada.send({ t: 'rematch', id: end, team: TEAM });

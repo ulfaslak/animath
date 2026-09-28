@@ -934,6 +934,55 @@ describe('a match', () => {
 		expect(match.stage).toBe('none');
 	});
 
+	it('says the Back again for a crossing rematch that ended while its page was away', () => {
+		const t = setup();
+		const ref = started(t);
+		playedOut(t, ref);
+		t.pick('ArrowLeft', 'Enter');
+		t.pick('ArrowRight', 'Enter');
+		// The `done` went with a socket that died; the rematch started, and Bo left it meanwhile.
+		const { next, message } = rematchOf(t, ref);
+		const events = next.apply('b', { type: 'leave' });
+		t.controller.status('waiting');
+		t.controller.status('on');
+		t.controller.receive(hi(next.id));
+		t.controller.receive(message(events));
+		t.run(3);
+		// Not put up, and the Back goes again, so the server lets her go of it.
+		expect(match.stage).toBe('none');
+		expect(battle.active).toBe(false);
+		expect(t.sentOf('done')).toEqual([
+			{ t: 'done', id: ref.id },
+			{ t: 'done', id: ref.id }
+		]);
+	});
+
+	it('plays a rematch that starts while the result it follows is still coming back up after a reload', () => {
+		const t = setup();
+		const ref = started(t);
+		playedOut(t, ref);
+		t.pick('ArrowLeft', 'Enter');
+		// Ada's page reloads on the result, her Rematch? standing on the server: the new page puts the
+		// match back up ("Back in the match with Bo!"), and Bo's yes starts the rematch meanwhile.
+		stop?.();
+		battle.reset();
+		match.reset();
+		const u = setup(PARTY, { first: hi(ref.id) });
+		u.controller.receive(ref.message('a'));
+		u.run(0.3);
+		expect(match.stage).toBe('playing');
+		expect(match.id).toBe(ref.id);
+		const { next, message } = rematchOf(t, ref);
+		u.controller.receive(message());
+		// The rematch goes up; nothing leaves it.
+		expect(match.stage).toBe('playing');
+		expect(match.id).toBe(next.id);
+		expect(u.sentOf('play')).toEqual([]);
+		u.runUntil(() => battle.screen !== 'busy');
+		expect(battle.opponent?.speciesId).toBe('fox');
+		expect(u.sentOf('play')).toEqual([]);
+	});
+
 	it('shows a called-off rematch it picked up after a reload as the friend leaving, and one it never had not at all', () => {
 		// A reload as the rematch started: this page picks it up, with no result to go back to.
 		const first = new Referee(
