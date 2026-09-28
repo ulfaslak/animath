@@ -17,9 +17,12 @@
  * The page listens from its first script: `boot.ts` imports this module
  * before anything else, and the build makes it a script of its own that the
  * page runs before `boot.ts`'s (`errorReportsFirst` in `vite.config.ts`), so
- * even a script the browser cannot read is reported. Each error goes once a
- * page, and a page sends `MAX_REPORTS` at most. Reporting never throws, and
- * nothing waits on it. The module imports nothing and keeps to syntax older
+ * even a script the browser cannot read is reported. A tab sends each error
+ * once and `MAX_REPORTS` (3) an hour at most, remembered across reloads in its
+ * `sessionStorage` (a mark of each report, never its words): enough to know
+ * what broke, and too few for a class of pages breaking together behind one
+ * school address to use up nginx's guard on POSTs per address, which logging
+ * in shares. Reporting never throws, and nothing waits on it. The module imports nothing and keeps to syntax older
  * browsers read (no class fields, no `?.`, no `??`, no regular expression a
  * browser could refuse as it reads the script), so that a browser too old for
  * the rest of the game still runs it: it is what tells of the browsers that
@@ -59,10 +62,20 @@ export interface ReporterOptions {
 	build: string;
 	browser: string;
 	screen: () => string;
+	/** Where the tab remembers what it sent, across reloads; without it, the page alone remembers. */
+	memory?: ReportMemory;
+	now?: () => number;
 }
 
-/** The most reports one page sends, each a different error. */
-export const MAX_REPORTS = 10;
+/** Text the tab keeps (its `sessionStorage`, on the page). Either may throw. */
+export interface ReportMemory {
+	read(): string | null;
+	write(text: string): void;
+}
+
+/** The most reports a tab sends in `REPORT_WINDOW_MS`, each a different error. */
+export const MAX_REPORTS = 3;
+export const REPORT_WINDOW_MS = 60 * 60_000;
 /** The server keeps a message of 300 characters and a stack of 20 lines and 2,000 characters. */
 const MESSAGE_MAX = 300;
 const STACK_LINES = 20;
@@ -71,9 +84,64 @@ const STACK_MAX = 2000;
 const WORD_MIN = 2;
 const MODE = /^[a-z][a-z-]{0,23}$/;
 
+/** A report the tab sent: a mark of its message and first frame (`mark`), and when. */
+interface Sent {
+	k: string;
+	t: number;
+}
+
+function isSent(value: unknown): value is Sent {
+	return (
+		typeof value === 'object' &&
+		value !== null &&
+		typeof (value as Sent).k === 'string' &&
+		typeof (value as Sent).t === 'number'
+	);
+}
+
+/** A short mark of a report's text (32-bit FNV-1a), which the tab keeps instead of the text. */
+function mark(text: string): string {
+	let hash = 0x811c9dc5;
+	for (let i = 0; i < text.length; i++) {
+		hash ^= text.charCodeAt(i);
+		hash = Math.imul(hash, 0x01000193) >>> 0;
+	}
+	return hash.toString(16);
+}
+
 export function errorReporter(options: ReporterOptions): ErrorReports {
 	let context: ReportContext = { mode: () => 'boot', words: () => [] };
-	const seen: string[] = [];
+	const clock = options.now || Date.now;
+	let sentHere: Sent[] = [];
+
+	/** What the tab sent within the window: what it remembers, and what this page sent. */
+	function sentLately(now: number): Sent[] {
+		const all = sentHere.slice();
+		if (options.memory) {
+			try {
+				const kept: unknown = JSON.parse(options.memory.read() || '[]');
+				if (Array.isArray(kept)) {
+					for (const entry of kept) {
+						if (isSent(entry) && !all.some((s) => s.k === entry.k)) all.push(entry);
+					}
+				}
+			} catch (e) {
+				// Nothing the tab kept can be read: this page's own is what there is.
+			}
+		}
+		return all.filter((s) => now - s.t < REPORT_WINDOW_MS);
+	}
+
+	function remember(sent: Sent[]): void {
+		sentHere = sent;
+		if (options.memory) {
+			try {
+				options.memory.write(JSON.stringify(sent));
+			} catch (e) {
+				// The tab keeps nothing: this page still remembers.
+			}
+		}
+	}
 
 	function modeNow(): string {
 		try {
@@ -103,14 +171,16 @@ export function errorReporter(options: ReporterOptions): ErrorReports {
 		},
 		report(thrown, rejected = false, where = '') {
 			try {
-				if (seen.length >= MAX_REPORTS) return;
+				const now = clock();
+				const lately = sentLately(now);
+				if (lately.length >= MAX_REPORTS) return;
 				const words = wordsNow();
 				const told = described(thrown, rejected);
 				const message = shorten(oneLine(scrubbed(told.message, words)), MESSAGE_MAX);
 				const stack = trimmedStack(scrubbed(told.stack || where, words));
-				const key = `${message}\n${stack.split('\n')[0]}`;
-				if (message === '' || seen.indexOf(key) !== -1) return;
-				seen.push(key);
+				const k = mark(`${message}\n${stack.split('\n')[0]}`);
+				if (message === '' || lately.some((s) => s.k === k)) return;
+				remember(lately.concat([{ k, t: now }]));
 				options.send({
 					message,
 					stack,
@@ -295,13 +365,20 @@ export function postReport(report: ErrorReport): void {
 	}).catch(() => undefined);
 }
 
+/** The tab's `sessionStorage` key for the reports it sent this hour (`Sent`: marks and times). */
+export const SENT_KEY = 'animath.errors.sent';
+
 /** Reports every error nothing on `page` catches, through `send`. */
 export function listenTo(page: Window, send: (report: ErrorReport) => void = postReport) {
 	const reports = errorReporter({
 		send,
 		build: String(import.meta.env.VITE_BUILD_SHA || 'dev'),
 		browser: browserOf(page.navigator.userAgent, page.navigator.maxTouchPoints || 0),
-		screen: () => `${Math.round(page.innerWidth)}x${Math.round(page.innerHeight)}`
+		screen: () => `${Math.round(page.innerWidth)}x${Math.round(page.innerHeight)}`,
+		memory: {
+			read: () => page.sessionStorage.getItem(SENT_KEY),
+			write: (text) => page.sessionStorage.setItem(SENT_KEY, text)
+		}
 	});
 	page.addEventListener('error', (event) => {
 		const found = thrownBy(event);
