@@ -90,7 +90,8 @@
 		</div>
 		{#if note}
 			<!-- Answered right, the puzzle is done and the note (help another animal) is over:
-			     it goes, keeping its place, so nothing moves under "Correct!". -->
+			     it goes, keeping its place, so nothing moves under "Correct!". `note` names it for
+			     the screen that asked: the doctor's card leaves it out on a phone, the list out of view. -->
 			<div class="keys note" class:spent={judged?.correct === true}>{note}</div>
 		{/if}
 	</div>
