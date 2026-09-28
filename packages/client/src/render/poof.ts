@@ -10,9 +10,10 @@ import { COLORS } from './palette';
  * motion, half as many puffs stand round the trainer, clear of them, and
  * only swell and fade where they are.
  *
- * The puffs share one shape, built once and never freed; each poof has its
- * own material, for its fade, and frees it when it is over, so a poof leaves
- * nothing behind ([[INVARIANTS]] § Rendering).
+ * The puffs share one shape, built once and never freed; each poof has a
+ * material to itself while it plays, for its fade, and hands it back when it
+ * is over, for the next poof (`SPARE`), so poofs leave nothing behind but the
+ * few materials that ever played at once ([[INVARIANTS]] § Rendering).
  */
 export const POOF_SECONDS = 0.7;
 const PUFFS = 8;
@@ -26,6 +27,30 @@ const RISE = 0.28;
 
 /** The puff's shape: a low-poly ball, one for every puff of every poof. */
 export const PUFF_GEOMETRY = new THREE.IcosahedronGeometry(0.15, 0);
+
+/**
+ * The materials of poofs that are over, kept for the next ones, never freed.
+ * three.js frees a shader program with the last material that drew with it,
+ * so a poof freeing its own had the next poof's program compiled again: a
+ * frame of up to 0.14 s on a tablet's budget every time a friend turned up or
+ * an animal missed in a battle beside the kid (#152; other players' figures
+ * had kept the program alive until they were drawn in one go). As many are
+ * kept as poofs ever played at once: a handful.
+ */
+const SPARE: THREE.MeshLambertMaterial[] = [];
+
+function borrowMaterial(): THREE.MeshLambertMaterial {
+	return (
+		SPARE.pop() ??
+		new THREE.MeshLambertMaterial({
+			color: COLORS.dust,
+			flatShading: true,
+			transparent: true,
+			opacity: 0.95,
+			depthWrite: false
+		})
+	);
+}
 
 interface Poof {
 	group: THREE.Group;
@@ -54,13 +79,7 @@ export class Poofs {
 	 * on; `size` scales it (a miss's puff by an animal is smaller).
 	 */
 	play(at: THREE.Vector3, calm: boolean, size = 1): void {
-		const material = new THREE.MeshLambertMaterial({
-			color: COLORS.dust,
-			flatShading: true,
-			transparent: true,
-			opacity: 0.95,
-			depthWrite: false
-		});
+		const material = borrowMaterial();
 		const group = new THREE.Group();
 		group.position.copy(at);
 		group.scale.setScalar(size);
@@ -77,7 +96,7 @@ export class Poofs {
 		this.pose(poof, 0);
 	}
 
-	/** Move every poof on to `now` (seconds); the ones that are over go, and free their material. */
+	/** Move every poof on to `now` (seconds); the ones that are over go, and hand their material back. */
 	update(now: number): void {
 		this.active = this.active.filter((poof) => {
 			poof.start ??= now;
@@ -115,6 +134,6 @@ export class Poofs {
 
 	private drop(poof: Poof): void {
 		poof.group.removeFromParent();
-		poof.material.dispose();
+		SPARE.push(poof.material);
 	}
 }

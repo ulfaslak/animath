@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { smoothstep } from './ease';
+import { instantiate, markJoint, release, takeShape } from './merge';
 import { BOAT_COLORS } from './palette';
 
 /**
@@ -168,11 +169,20 @@ function mesh(geometry: THREE.BufferGeometry, material: THREE.Material): THREE.M
 
 /**
  * A new boat, on the back (`poseBoat` it), its rim and pennant in `trim`
- * (the trainer's shirt). Its geometries are its own: `disposeBoat` frees
- * them. The trainer keeps one for as long as the page lives; another
- * player's goes when they do.
+ * (the trainer's shirt): its parts merged into one mesh, and the pennant,
+ * which stands up afloat, into another (`merge.ts`), shared by every boat of
+ * its trim until `disposeBoat` lets the last one go. The trainer keeps one
+ * for as long as the page lives; another player's goes when they do.
  */
 export function buildBoatMesh(trim: number = BOAT_COLORS.trim): THREE.Group {
+	const shape = takeShape(`boat:${trim}`, 'grouped', () => ({ root: buildBoatParts(trim) }));
+	const boat = instantiate(shape);
+	poseBoat(boat, 0, false);
+	return boat;
+}
+
+/** The boat part by part, as built: what `buildBoatMesh` merges, and what the tests measure. */
+export function buildBoatParts(trim: number = BOAT_COLORS.trim): THREE.Group {
 	const { trim: trimMaterial, pennant: pennantMaterial } = trimOf(trim);
 	const boat = new THREE.Group();
 	boat.name = 'boat';
@@ -208,7 +218,7 @@ export function buildBoatMesh(trim: number = BOAT_COLORS.trim): THREE.Group {
 	transom.position.set(0, DEPTH / 2, -LENGTH / 2);
 	boat.add(transom);
 	// A pennant at the stern, which stands up once the boat is afloat.
-	const pennant = new THREE.Group();
+	const pennant = markJoint(new THREE.Group());
 	pennant.name = 'pennant';
 	const pole = mesh(new THREE.CylinderGeometry(0.012, 0.012, 0.36, 5), materials.inside);
 	pole.position.y = 0.18;
@@ -242,7 +252,12 @@ export function poseBoat(boat: THREE.Group, afloat: number, calm: boolean, bob =
 	}
 	boat.scale.setScalar(BACK_SCALE + (1 - BACK_SCALE) * e);
 	const pennant = boat.getObjectByName('pennant');
-	if (pennant) pennant.scale.setScalar(Math.max(0.001, smoothstep((e - 0.7) / 0.3)));
+	if (pennant) {
+		const up = smoothstep((e - 0.7) / 0.3);
+		pennant.scale.setScalar(Math.max(0.001, up));
+		// Folded down to nothing it is not drawn at all: two draw calls less on every back.
+		pennant.visible = up > 0;
+	}
 }
 
 /** How far the boat has come from the back (0) to afloat (1): smoothly, or with `calm` at once half way. */
@@ -260,11 +275,11 @@ export function standAstern(afloat: number, calm: boolean): number {
 	return BOAT_ASTERN * swung(afloat, calm);
 }
 
-/** Free the boat's geometries, each once (the hull's two sides share one; its materials are shared, and stay). */
+/**
+ * Let the boat go: its shape is freed with the last boat of its trim (a boat
+ * part by part frees its parts' geometries, each once). The materials are
+ * shared, and stay.
+ */
 export function disposeBoat(boat: THREE.Object3D): void {
-	const geometries = new Set<THREE.BufferGeometry>();
-	boat.traverse((o) => {
-		if (o instanceof THREE.Mesh) geometries.add(o.geometry);
-	});
-	for (const geometry of geometries) geometry.dispose();
+	release(boat);
 }
