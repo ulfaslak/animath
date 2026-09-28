@@ -41,6 +41,7 @@ const watchers = { resize: [] as Watcher[], words: [] as Watcher[] };
 interface Watcher {
 	call: () => void;
 	disconnected: boolean;
+	options?: unknown;
 }
 const fonts = new EventTarget();
 
@@ -54,7 +55,9 @@ beforeEach(() => {
 				this.w = { call: callback, disconnected: false };
 				list.push(this.w);
 			}
-			observe() {}
+			observe(_target: unknown, options?: unknown) {
+				this.w.options = options;
+			}
 			disconnect() {
 				this.w.disconnected = true;
 			}
@@ -113,6 +116,13 @@ describe('a fitted card', () => {
 		el.need = 300;
 		fonts.dispatchEvent(new Event('loadingdone'));
 		expect(el.dataset.fit).toBe('close small bare');
+	});
+
+	it('watches its outer size, which no step changes', () => {
+		// A step's padding changes the content box: watching that, each refit resized the card
+		// it had just fitted, and WebKit reported a ResizeObserver loop.
+		attach(card(250));
+		expect(watchers.resize[0]!.options).toEqual({ box: 'border-box' });
 	});
 
 	it('lets go of its watchers when the card goes', () => {

@@ -22,8 +22,10 @@ export function fit(steps: readonly string[]): (card: HTMLElement) => () => void
 			}
 		};
 		// Its size: the screen, and whatever shares the room with it (the doctor's line over it).
+		// Its outer size, which the steps never change: a step's padding changes its content box,
+		// and watching that fed each refit back into another.
 		const size = new ResizeObserver(refit);
-		size.observe(card);
+		size.observe(card, { box: 'border-box' });
 		// Its words: a new screen, a language, a line that came or went. Not `data-fit`, the steps' own.
 		const words = new MutationObserver(refit);
 		words.observe(card, {
