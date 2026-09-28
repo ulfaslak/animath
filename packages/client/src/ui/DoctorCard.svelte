@@ -901,6 +901,17 @@
 		grid-template-columns: auto minmax(0, max-content) minmax(100px, 1fr);
 		column-gap: 6px;
 	}
+	/*
+	 * In half the card (a phone held sideways, a screen held upright) the
+	 * name gives way first: the HP column keeps "tired" and its numbers whole,
+	 * as on Heal. At 100 px a tired bear's "0/100" ran past the list's edge
+	 * and read "0/1".
+	 */
+	@media (max-width: 900px) {
+		.list.tab-home {
+			grid-template-columns: auto minmax(0, max-content) minmax(130px, 1fr);
+		}
+	}
 	.list.tab-shop {
 		grid-template-columns: auto minmax(0, max-content) minmax(max-content, 1fr);
 	}
