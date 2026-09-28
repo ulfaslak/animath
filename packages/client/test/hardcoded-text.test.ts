@@ -141,7 +141,7 @@ const FOR_DEVELOPERS: Readonly<Record<string, string>> = {
 };
 
 describe('worded literals in TypeScript', () => {
-	it('finds sentences, and skips errors, console lines, keys and sums', () => {
+	it("finds sentences, and skips errors, console lines, keys, sums and a shader's source", () => {
 		const source = `
 			// A comment with words in it. Fine.
 			const a = 'Go, Pip!';
@@ -151,6 +151,7 @@ describe('worded literals in TypeScript', () => {
 			throw new Error(\`startBattle: the party is empty\`);
 			console.warn(\`battle intent rejected: \${reason}\`);
 			const e = \`Wild \${name} used it\`;
+			const f = /* glsl */ \`void main() { gl_FragColor = vec4( glow, 1.0 ); }\`;
 		`;
 		expect(wordedLiterals('fixture.ts', source)).toEqual([
 			'fixture.ts:3 Go, Pip!',
