@@ -2,6 +2,7 @@
 	import type { AttackLevel, ShownPuzzle } from '@mathgame/engine';
 	import { t } from '../copy';
 	import { unfocusable } from '../input/press';
+	import { sentences } from '../lines';
 	import { touch } from '../input/touch.svelte';
 	import HitBadge from './HitBadge.svelte';
 	import NumberPad from './NumberPad.svelte';
@@ -58,7 +59,14 @@
 
 <div class="puzzle-panel" class:with-pad={touch.on && !watch}>
 	<div class="question">
-		{#if story}<div class="story">{story}</div>{/if}
+		{#if story}
+			<!-- Each sentence holds together: a story too long for one line breaks between them. -->
+			<div class="story">
+				{#each sentences(story) as sentence, i (i)}{#if i > 0}{' '}{/if}<span class="sentence"
+						>{sentence}</span
+					>{/each}
+			</div>
+		{/if}
 		<div class="puzzle-prompt" class:long={puzzle.prompt.length > 11}>{puzzle.prompt}</div>
 		<div
 			class="answer"
@@ -117,13 +125,20 @@
 		align-items: center;
 		gap: 10px;
 	}
-	/* The token sum's story: what the numbers are, over them. */
+	/*
+	 * The token sum's story: what the numbers are, over them. Its lines break
+	 * between sentences, evenly, never inside one that fits.
+	 */
 	.story {
 		font-weight: 800;
 		font-size: 18px;
 		line-height: 1.3;
 		max-width: 26em;
 		text-align: center;
+		text-wrap: balance;
+	}
+	.sentence {
+		display: inline-block;
 	}
 	/* The judgement or the key reminder, with Back before it when there is a way back. */
 	.foot {

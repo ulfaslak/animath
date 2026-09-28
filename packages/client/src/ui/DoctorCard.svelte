@@ -991,6 +991,16 @@
 		overflow: hidden;
 		transition: background-color 0.3s;
 	}
+	/*
+	 * On a laptop's short screen (1280×720) the card is 44vh: a token sum's story
+	 * of two lines over the sum, the answer and Back ran 8 px past it, in both
+	 * languages. There the lines sit closer.
+	 */
+	@media (max-height: 760px) {
+		.puzzle {
+			gap: 6px;
+		}
+	}
 	.puzzle.correct {
 		background: color-mix(in srgb, var(--good) 22%, var(--panel-bg));
 	}
