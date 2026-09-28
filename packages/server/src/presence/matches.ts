@@ -56,7 +56,11 @@ import type { Peer, PresenceHub, Present } from './hub.js';
  * - **After the match.** Both pages stay on the result until the kid goes
  *   back to exploring (their `where` says so). "Rematch?" from both starts a
  *   new match between the same two, with a new seed; one who goes back puts
- *   it off, and so does `lingerMs` passing.
+ *   it off, and so does `lingerMs` passing. The one who left skips the
+ *   result, so they are let go of at once. A match that ended keeps nobody
+ *   busy: only a match going on does, so a kid back to exploring can ask
+ *   and be asked straight away, and asking (or being asked) lets go of the
+ *   match they had finished (#139).
  * - **Seen from outside.** The players near either of the two see the match
  *   beside them in the world: the two animals, the puzzle of whoever's turn
  *   it is, every hit and the end (`show`, through the hub), built from this
@@ -249,8 +253,10 @@ export class Matches {
 
 	/**
 	 * The socket said where it is: an invite may no longer be possible. (A
-	 * finished match is left only when the page says so, `done`: a page's
-	 * first `where` can come before it has even been sent the match.)
+	 * finished match is never left on a `where`: a page's first `where` can
+	 * come before it has even been sent the match. It is left when the page
+	 * says so, `done`, by leaving, or by asking or being asked for another,
+	 * and it keeps nobody busy meanwhile.)
 	 */
 	moved(peer: Peer): void {
 		const player = this.playerOn(peer);
@@ -345,19 +351,23 @@ export class Matches {
 		if (player.invite?.to === player && player.invite.from === them) {
 			return this.accept(player, pid, sent);
 		}
-		if (player.invite || player.match) return this.tell(player, pid, 'off');
+		// Only a match going on makes anyone busy: one that ended waits only for a rematch.
+		if (player.invite || live(player.match)) return this.tell(player, pid, 'off');
 		const team = matchTeam(sent);
 		if (!team.ok) return this.tell(player, pid, 'no-team');
 		if (me.world === null || !me.spot || !target.spot) return this.tell(player, pid, 'gone');
 		const refusal = challengeRefusal(worldSeed(me.world), me.spot, target.spot);
 		if (refusal) return this.tell(player, pid, refusalFor(refusal).from ?? 'off');
 		if (them.invite) return this.tell(player, pid, 'taken');
-		if (them.match) return this.tell(player, pid, 'busy');
+		if (live(them.match)) return this.tell(player, pid, 'busy');
 		const cooldown = `${player.key}>${them.key}`;
 		const until = this.cooldowns.get(cooldown);
 		if (until !== undefined && until > Date.now()) return this.tell(player, pid, 'wait');
 		this.cooldowns.delete(cooldown);
 		this.pruneCooldowns();
+		// Both are out exploring (the rule above says so): a match either had finished is behind them.
+		this.letGoOfEnded(player);
+		this.letGoOfEnded(them);
 
 		const invite: Invite = {
 			from: player,
@@ -506,6 +516,9 @@ export class Matches {
 			return;
 		}
 		this.advance(match, step.state, step.events as WireMatchEvent[]);
+		// The one who left goes straight back to exploring, with no result and no rematch: free
+		// at once, once their page has been sent how it ended. The other page knows from the end.
+		if (intent.type === 'leave') this.detach(match, side, false);
 	}
 
 	/** The match took a step: both pages see it, and the clock goes to whoever acts now. */
@@ -593,6 +606,15 @@ export class Matches {
 			this.forgetIfDone(player);
 		}
 		if (MATCH_SIDES.every((s) => match.players[s].match !== match)) this.drop(match);
+	}
+
+	/**
+	 * `player` is out exploring (asking someone, or asked): a match of theirs
+	 * that ended is behind them, and the other page hears its rematch is off.
+	 */
+	private letGoOfEnded(player: Player): void {
+		const match = player.match;
+		if (match && !live(match)) this.detach(match, sideOf(match, player));
 	}
 
 	/** The match is gone: its timers cleared, nobody in it any more. */
@@ -746,6 +768,11 @@ function saidTo(invite: Invite, player: Player, mine: InviteEnd, theirs: InviteE
 
 function sideOf(match: Match, player: Player): MatchSide {
 	return match.players.a === player ? 'a' : 'b';
+}
+
+/** A match still going on: the only kind that keeps its players busy. */
+function live(match: Match | null): match is Match {
+	return match !== null && match.state.phase.kind !== 'ended';
 }
 
 /** The side whose turn it is, or null once the match is over. */
