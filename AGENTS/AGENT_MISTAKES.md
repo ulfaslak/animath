@@ -10,11 +10,13 @@ Format: `### YYYY-MM-DD — <issue/PR ref> — <one-line category>` followed by 
 
 ## Patterns
 
-### 2026-09-28 — #169, fix/older-safari — a fallback that names one cause for a symptom several causes share `[not codified]`
+### 2026-09-28 — #169, fix/older-safari — a fallback that names one cause for a symptom several causes share, and an old engine's behaviour checked in a new one `[not codified]`
 
-The too-old card showed on every page whose game script never ran. A browser too old to read the script is one cause of that; a script whose download failed is another. A kid on a dropped connection was told their iPad was too old, and a grown-up would have gone looking for an update. Found in WebKit by aborting the download of `index-*.js` instead of serving a script it cannot read. Fixed by telling the two apart where the browser does: a download that fails fires `error` on its `<script>` element, and a script that cannot be read reports on the window. The card now shows only for the second.
+Two mistakes, one after the other, in the too-old card.
+- **One cause for a shared symptom.** The card showed on every page whose game script never ran. A browser too old to read the script is one cause of that, and a script whose download failed is another: a kid on a dropped connection was told their iPad was too old. Found in WebKit by aborting the download of `index-*.js` instead of serving a script it cannot read.
+- **The fix trusted today's WebKit about an old one.** It told the two apart by where the browser reports them: a failed download on the `<script>` element, an unreadable script on the page. That holds in WebKit 26.6, the only WebKit here, but a Safari before 15 reports an unreadable module script on the element too. So the card kept away from the very Safaris it is for, and the error reports, which listened only on the page, heard nothing from them. Found by the adversarial review, from WebKit's own source at Safari 14's tag. The card now asks the browser whether it reads the game's newest syntax (`new Function` with a private method and `#name in`), and the reports hear a script element's error too.
 
-Before choosing what a fallback says, list every way to reach the state it keys on (a script that never ran: unreadable, not downloaded, thrown while loading) and check that its words hold for each. Codifying it would take a line in [[DEVELOPMENT]] § Testing ideology or a CLAUDE.md edge-case bullet ("a fallback's message: every cause of its trigger").
+Before choosing what a fallback says, list every way to reach the state it keys on (a script that never ran: unreadable, not downloaded, thrown while loading), and check that its words hold for each. A behaviour of the old engine a fix is for cannot be checked in today's engine: read the old engine's source, or ask the browser for the capability itself. Codifying it would take a line in [[DEVELOPMENT]] § Testing ideology or a CLAUDE.md edge-case bullet ("a fallback's message: every cause of its trigger; an old browser's behaviour: its source, not today's browser").
 
 The categories that keep coming back. Each names where its guard lives, or the proposal that would make one; proposed CLAUDE.md lines wait for the human in [[HUMAN_TODO]].
 
