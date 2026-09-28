@@ -2,7 +2,7 @@ import { svelte } from '@sveltejs/vite-plugin-svelte';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { parseEnv } from 'node:util';
-import { defineConfig, type Plugin } from 'vite';
+import { defineConfig, transformWithEsbuild, type Plugin } from 'vite';
 import { parse } from 'yaml';
 
 // TUNNEL=1 lets an ngrok / cloudflared hostname reach the dev server (Vite
@@ -133,6 +133,8 @@ function pageAddress(): Plugin {
 
 /** The error reports' module, which the build makes a chunk of its own (`errorReportsFirst`). */
 const ERROR_REPORTS = 'src/error-reports.ts';
+/** The syntax of the error reports' chunk: what every browser that runs a module script reads. */
+const ERROR_REPORTS_TARGET = 'es2017';
 
 /**
  * The error reports (`src/error-reports.ts`) in a script of their own, run
@@ -141,11 +143,32 @@ const ERROR_REPORTS = 'src/error-reports.ts';
  * them first, so the dev server runs them first too; the build makes them an
  * entry of their own (`build.rollupOptions.input`), which `boot.ts`'s chunk
  * imports, and puts its script at the top of the page.
+ *
+ * The build writes every chunk for `build.target` (es2022), and its minifier
+ * then uses syntax the module itself does not (a `catch` with no binding,
+ * which Safari before 11.1 cannot read), so the chunk is written again for
+ * `ERROR_REPORTS_TARGET`, whose syntax esbuild keeps to or fails the build.
+ * Its name stays that of the chunk it was written from, one to one; its
+ * source map would not match it any more, and is left out.
  */
 function errorReportsFirst(): Plugin {
 	return {
 		name: 'animath:error-reports-first',
 		apply: 'build',
+		async generateBundle(_options, bundle) {
+			for (const file of Object.values(bundle)) {
+				if (file.type !== 'chunk' || !file.facadeModuleId?.endsWith(ERROR_REPORTS)) continue;
+				const lowered = await transformWithEsbuild(file.code, file.fileName, {
+					target: ERROR_REPORTS_TARGET,
+					format: 'esm',
+					minify: true,
+					sourcemap: false
+				});
+				file.code = lowered.code;
+				file.map = null;
+				delete bundle[`${file.fileName}.map`];
+			}
+		},
 		transformIndexHtml: {
 			order: 'post',
 			handler(_html, { bundle }) {
