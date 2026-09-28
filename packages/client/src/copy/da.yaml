@@ -896,6 +896,7 @@ doctor:
     emptyTitle: Intet til salg endnu
     emptyDetail: Der kommer snart nye ting. Gem dine mønter!
     pick: Vælg noget at købe
+    allOwned: Du har det hele!
     price:
       one: '{count} mønt'
       other: '{count} mønter'

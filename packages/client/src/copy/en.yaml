@@ -1057,6 +1057,8 @@ doctor:
     emptyDetail: New things are coming soon. Keep your tokens!
     # The tab's right-hand side while Bye is lit, over what Bye does (doctor.byeDetail).
     pick: Pick something to buy
+    # The same once the kid has every thing on sale.
+    allOwned: You have everything!
     # An item's price.
     price:
       one: '{count} token'
