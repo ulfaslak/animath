@@ -9,10 +9,9 @@ import type { Rect } from './presence/labels';
  * phone the note, over the message line), the note about who came or went
  * while it shows, the touch controls, and the way to the doctor's disc,
  * which a friend's arrow and its names keep clear of (`except` leaves it
- * out for the way itself). A mark counts a piece only while
- * it is on the page, and one with nothing in it not at all. A new piece of
- * the explore HUD takes the attribute too, or a friend's arrow can hide
- * under it.
+ * out for the way itself). A mark counts a piece only while it is on the
+ * page, and one with nothing in it not at all. A new piece of the explore
+ * HUD takes the attribute too, or a friend's arrow can hide under it.
  */
 export function clearBoxes(
 	root: ParentNode | null = globalThis.document ?? null,

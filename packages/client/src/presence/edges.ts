@@ -14,7 +14,10 @@ import type { Rect } from './labels';
  *   sits on the line from the player to what it points at, where that line
  *   first leaves the track: on the track's edge, or on the near side of the
  *   first piece in the way, pointing past it. So no mark is ever under a
- *   piece: the party cards, the tokens, a touch control.
+ *   piece: the party cards, the tokens, a touch control, and for a friend's
+ *   arrow the way to the doctor's disc. A piece nearer the player than the
+ *   clearance keeps what room there is (`aroundFrom`), and a mark never
+ *   stands nearer the player than it is asked, by the trainer's feet.
  * - **Ways.** Friends whose arrows would stand on one another share one
  *   arrow (#140: two friends far off the same way got the very same spot),
  *   which names every one of them: four names, or three and "+2 more". At
