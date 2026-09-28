@@ -434,22 +434,27 @@
 <!-- The player's tokens and the puzzles they have solved, the tools they own, and the world they are in. -->
 <!-- With `?debug` the position and the cues have the corner; these go under them. -->
 <div class="belongings" class:below-debug={flags.debug} {@attach keepClear}>
-	<div class="purse"><Coin />{t('hud.tokens', { count: game.tokens })}</div>
-	<!-- Right under the tokens, one above the other: side by side, the corner would reach
-	     the note at the top of the screen on a tablet (`PresenceNote`). -->
-	<div class="solved"><Tick />{t('hud.solved', { count: game.solved })}</div>
-	{#if tools.length > 0}
-		<div class="tools">
-			{#each tools as id (id)}
-				<!-- On a phone held sideways, the picture alone; the name stays for a screen reader. -->
-				<div class="tool">
-					<ItemIcon {id} size={24} /><span class="tool-name">{itemName(id)}</span>
-				</div>
-			{/each}
-		</div>
-	{/if}
-	<!-- The number a kid reads out to a friend, a glance away. -->
-	<div class="world">{t('worlds.world', { world: game.world })}</div>
+	<!-- Two rows on a phone held sideways (`.counts`, `.kit`); on a taller screen one column. -->
+	<div class="counts">
+		<div class="purse"><Coin />{t('hud.tokens', { count: game.tokens })}</div>
+		<!-- Right under the tokens, one above the other: side by side, the corner would reach
+		     the note at the top of the screen on a tablet (`PresenceNote`). -->
+		<div class="solved"><Tick />{t('hud.solved', { count: game.solved })}</div>
+	</div>
+	<div class="kit">
+		{#if tools.length > 0}
+			<div class="tools">
+				{#each tools as id (id)}
+					<!-- On a phone held sideways, the picture alone; the name stays for a screen reader. -->
+					<div class="tool">
+						<ItemIcon {id} size={24} /><span class="tool-name">{itemName(id)}</span>
+					</div>
+				{/each}
+			</div>
+		{/if}
+		<!-- The number a kid reads out to a friend, a glance away. -->
+		<div class="world">{t('worlds.world', { world: game.world })}</div>
+	</div>
 </div>
 
 <!-- Where the player stands, x to the right and y up the screen, counted from the world's
@@ -690,6 +695,11 @@
 	.belongings.below-debug {
 		top: calc(100px + var(--safe-top));
 	}
+	/* On a tall screen the two rows are not there: their pills stand in the one column. */
+	.counts,
+	.kit {
+		display: contents;
+	}
 	.tools {
 		display: flex;
 		flex-direction: column;
@@ -729,27 +739,30 @@
 	}
 	/*
 	 * A short screen, a phone held sideways (under 560 px tall, the battle's
-	 * line, `SHORT_SCREEN`): the corner packs into two rows, 72 px tall, so
+	 * line, `SHORT_SCREEN`): the corner packs into two rows, 66 px tall, so
 	 * it ends above Fly, which stands over Talk under the right thumb (at
 	 * 740×360 Fly's top is 117 px down). The tokens and the puzzles side by
-	 * side; under them the tools as pictures, side by side, and the world at
-	 * the end of that row, under the puzzles. The note that would stand at
-	 * the top of the screen between the corners stands over the message line
-	 * instead (`PresenceNote`).
+	 * side, in the tools' and the world's size; under them the tools as
+	 * pictures, side by side, and the world at the end of that row. Each row
+	 * as wide as it needs: with the widest party name (its cards 320 px) and
+	 * four-digit counts it still keeps clear of the party at 667 px. The note
+	 * that would stand at the top of the screen between the corners stands
+	 * over the message line instead (`PresenceNote`).
 	 */
 	@media (max-height: 560px) {
-		.belongings {
-			display: grid;
-			grid-template-columns: auto auto;
-			justify-items: end;
+		.counts,
+		.kit {
+			display: flex;
 			align-items: center;
+			gap: 6px;
 		}
 		.tools {
-			grid-column: 1;
 			flex-direction: row;
 		}
-		.world {
-			grid-column: 2;
+		.solved,
+		.purse {
+			padding: 4px 12px 4px 7px;
+			font-size: 16px;
 		}
 		.tool {
 			padding: 3px 6px;
