@@ -9,6 +9,7 @@
 		tokensForTier,
 		type ItemId
 	} from '@mathgame/engine';
+	import { tick } from 'svelte';
 	import { t } from '../copy';
 	import { doctorWords, NAMES_LISTED, namesOf } from '../doctor/lines';
 	import { optionKey, rowKey, tabKey, unfocusable } from '../input/press';
@@ -83,6 +84,57 @@
 	);
 	/** The confirm is up: the list and the tabs wait under it. */
 	const asking = $derived(doctor.screen === 'confirm');
+	/** A right answer's reward is playing (the heal, the goodbye, the coins): the puzzle on screen is done. */
+	const rewarding = $derived(
+		doctor.healed !== null ||
+			doctor.leaving !== null ||
+			doctor.tokenPop !== null ||
+			doctor.bought !== null
+	);
+	/**
+	 * A puzzle for the kid to type, the number pad beside it. On a short screen
+	 * (a phone held sideways) it has the whole card, as battle's puzzle has the
+	 * whole panel: the list steps aside, since beside it the sum wrapped and the
+	 * pad ran off the screen (#160). It comes back when a right answer's reward
+	 * plays, which happens on its rows (the heal's "+N", the goodbye, the tool's
+	 * tick). The styles decide the screen; this only says when.
+	 */
+	const solo = $derived(
+		touch.on &&
+			doctor.puzzle !== null &&
+			(doctor.screen === 'puzzle' || doctor.screen === 'busy') &&
+			!rewarding
+	);
+
+	/**
+	 * The doctor's line stands in its column between the badge and the
+	 * tokens. A word too wide for the column (a nickname of twelve W's) ran
+	 * under the tokens (#161), and breaking it made the line so tall that the
+	 * puzzle under it lost its last line. Such a line is `crowded`: it flows
+	 * round the badge and the tokens, its first line between them and the rest
+	 * across the whole card. Laid out in the column first, then measured, each
+	 * time the words or the card's width change.
+	 */
+	const words = $derived(doctor.line ? doctorWords(doctor.line) : '');
+	let talk: HTMLElement | undefined = $state();
+	let talkWidth = $state(0);
+	let crowded = $state(false);
+	$effect(() => {
+		const card = talk;
+		if (!card) return;
+		const watch = new ResizeObserver(() => (talkWidth = card.clientWidth));
+		watch.observe(card);
+		return () => watch.disconnect();
+	});
+	$effect(() => {
+		void words;
+		void talkWidth;
+		crowded = false;
+		void tick().then(() => {
+			const line = talk?.querySelector('.doctor-line');
+			crowded = !!line && line.scrollWidth > line.clientWidth + 1;
+		});
+	});
 
 	function tabName(tab: DoctorTab): string {
 		switch (tab) {
@@ -199,10 +251,10 @@
 	});
 </script>
 
-<div class="doctor">
-	<div class="card talk">
+<div class="doctor" class:solo>
+	<!-- The tokens come before the line, so that a crowded line's first line has them beside it. -->
+	<div class="card talk" class:crowded bind:this={talk}>
 		<span class="who">{t('doctor.title')}</span>
-		<span class="doctor-line">{doctor.line ? doctorWords(doctor.line) : ''}</span>
 		<span class="purse">
 			<Coin />
 			<span class="tokens">{t('doctor.tokens', { count: doctor.tokens })}</span>
@@ -214,6 +266,7 @@
 				{/key}
 			{/if}
 		</span>
+		<span class="doctor-line">{words}</span>
 	</div>
 
 	<div class="card patients" class:asking inert={asking}>
@@ -364,7 +417,7 @@
 		</div>
 	</div>
 
-	<div class="card puzzle" class:correct={doctor.judged?.correct === true}>
+	<div class="card puzzle" class:correct={doctor.judged?.correct === true} class:done={rewarding}>
 		{#if doctor.puzzle && (doctor.screen === 'puzzle' || doctor.screen === 'busy')}
 			{#if doctor.trade?.kind === 'home'}
 				<PuzzlePanel
@@ -595,29 +648,55 @@
 		font-size: 20px;
 	}
 	/*
+	 * A line with a word too wide for its column (`crowded`) flows round the
+	 * badge and the tokens instead, which stand at either side of its first
+	 * line: the lines under it have the whole card. Only a word wider than
+	 * the whole card breaks.
+	 */
+	.talk.crowded {
+		display: flow-root;
+	}
+	.crowded .who {
+		float: left;
+		margin: 1px 12px 0 0;
+	}
+	.crowded .purse {
+		float: right;
+		/*
+		 * A pixel taller than the line beside it: it reaches a pixel over it,
+		 * never onto the line under it, which has the card's whole width.
+		 */
+		margin: -1px 0 -4px 12px;
+	}
+	.crowded .doctor-line {
+		overflow-wrap: break-word;
+	}
+	/*
 	 * On a narrow touch screen (a phone held sideways) the doctor's line has
 	 * a row of its own under the name and the tokens, across the right-hand
 	 * side: squeezed between them it came a word or two to a line, and grew
-	 * so tall that it hid what the side under it says.
+	 * so tall that it hid what the side under it says. A puzzle that has the
+	 * whole card has the whole width for it to stand between them.
 	 */
 	@media (max-width: 900px) {
-		:global(.touch) .talk {
+		:global(.touch) .doctor:not(.solo) .talk {
 			flex-wrap: wrap;
 			row-gap: 2px;
 			padding-top: 8px;
 			padding-bottom: 8px;
 		}
-		:global(.touch) .doctor-line {
-			order: 1;
+		:global(.touch) .doctor:not(.solo) .doctor-line {
+			order: 2;
 			flex-basis: 100%;
 		}
-		:global(.touch) .purse {
+		:global(.touch) .doctor:not(.solo) .purse {
 			margin-left: auto;
 		}
 	}
-	/* The player's tokens, at the right of the doctor's line. */
+	/* The player's tokens, at the right of the doctor's line (first in the page, for `crowded`'s float). */
 	.purse {
 		position: relative;
+		order: 1;
 		flex: none;
 		display: flex;
 		align-items: center;
@@ -1040,6 +1119,8 @@
 		font-size: 26px;
 		line-height: 1.2;
 		max-width: 22em;
+		/* A name wider than the card (twelve W's on a phone) breaks rather than running off both sides. */
+		overflow-wrap: anywhere;
 	}
 	.choices {
 		display: flex;
@@ -1238,6 +1319,64 @@
 		}
 		.spark {
 			animation-name: twinkle;
+		}
+	}
+
+	/*
+	 * A short screen, a phone held sideways (`SHORT_SCREEN`): the card keeps
+	 * inside the screen (`--doctor-panel` in `styles.css`) and 8 px from its
+	 * bottom, and the right-hand side's words are a size smaller, as battle's
+	 * are there. A puzzle with its number pad has the whole card (`solo`):
+	 * the list steps aside, the doctor's line runs across the top, and the
+	 * hint to tap another animal goes, with no animal in view; Back leads to
+	 * them. While a right answer's reward plays on the list, the right-hand
+	 * side keeps only the sum, the answer and "Correct!": the pad, the story
+	 * and Back are done with, and beside the list there is no room for them.
+	 */
+	@media (max-height: 560px) {
+		.doctor {
+			gap: 8px;
+			padding-bottom: calc(8px + var(--safe-bottom));
+		}
+		.doctor.solo {
+			grid-template-columns: minmax(0, 1fr);
+		}
+		.doctor.solo .patients {
+			display: none;
+		}
+		.doctor.solo .talk,
+		.doctor.solo .puzzle {
+			grid-column: 1;
+		}
+		.doctor.solo .puzzle {
+			padding-block: 8px;
+		}
+		.doctor.solo .puzzle :global(.note) {
+			display: none;
+		}
+		.puzzle.done :global(.pad),
+		.puzzle.done :global(.story),
+		.puzzle.done :global(.back),
+		.puzzle.done :global(.note) {
+			display: none;
+		}
+		.soft {
+			font-size: 26px;
+		}
+		.detail {
+			font-size: 16px;
+		}
+		.tally {
+			padding: 2px 12px 2px 6px;
+			font-size: 17px;
+		}
+		/* Twelve W's on one line, the doctor's line's size. */
+		.question {
+			font-size: 20px;
+		}
+		/* Side by side in the narrow column, English's too, so Yes stays on the card. */
+		.choice {
+			padding: 0 14px;
 		}
 	}
 </style>

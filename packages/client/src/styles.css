@@ -60,11 +60,15 @@
  * to fit (UI_SPEC § Frame, "A phone held sideways"), so the scene keeps a band
  * above them. `SHORT_SCREEN` (`short-screen.ts`) mirrors the
  * breakpoint and `battlePanelHeight` (`render/battle-scene.ts`) the height.
+ * The doctor's card is as tall as with the touch controls on, touch or not,
+ * where the screen has room for it, and where it has not (a phone 360 px
+ * tall) it stops 8 px under the screen's top.
  */
 @media (max-height: 560px) {
 	:root,
 	:root.touch {
 		--battle-panel: calc(228px + var(--safe-bottom));
+		--doctor-panel: min(calc(364px + var(--safe-bottom)), calc(100vh - 8px - var(--safe-top)));
 	}
 }
 
