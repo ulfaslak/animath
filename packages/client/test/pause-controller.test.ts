@@ -1,4 +1,5 @@
 import {
+	BOOK_ORDER,
 	applyPartyIntent,
 	bundled,
 	bundles,
@@ -16,6 +17,7 @@ import { parseParty } from '../src/flags';
 import { languageKey, optionKey, rowKey } from '../src/input/press';
 import { PauseController } from '../src/pause/controller';
 import { account } from '../src/state/account.svelte';
+import { book } from '../src/state/book.svelte';
 import { game } from '../src/state/game.svelte';
 import {
 	menuItems,
@@ -42,6 +44,10 @@ import {
 interface Key extends KeyboardEvent {
 	prevented: boolean;
 }
+
+/** The menu's rows that open a screen of their own: Worlds, Who's here, the animal book. */
+const opens = (item: MenuItem | undefined) =>
+	item === 'worlds' || item === 'players' || item === 'book';
 
 function key(
 	name: string,
@@ -244,7 +250,15 @@ describe('pause menu', () => {
 			expect(accountRows()).toEqual(['makeAccount', 'logIn']);
 			account.ready = false;
 			expect(accountRows()).toEqual([]);
-			expect(menuItems()).toEqual(['worlds', 'players', 'language', 'sound', 'resume', 'quit']);
+			expect(menuItems()).toEqual([
+				'worlds',
+				'players',
+				'language',
+				'sound',
+				'resume',
+				'quit',
+				'book'
+			]);
 			account.name = 'Ida';
 			account.session = 'ended';
 			expect(accountRows()).toEqual(['logOut']);
@@ -567,7 +581,7 @@ describe('pause menu with cards of several animals', () => {
 						const closes = item === 'resume' || item === 'quit';
 						const target = list[row];
 						const opened = !target
-							? [item === 'worlds' || item === 'players' ? item : 'list', null, null, row]
+							? [opens(item) ? item : 'list', null, null, row]
 							: target.animals.length > 1
 								? ['bundle', target.speciesId, null, row]
 								: ['options', null, target.animals[0]!.id, row];
@@ -681,12 +695,13 @@ describe('pause menu under a pointer', () => {
 					};
 					const want = {
 						// An animal opens its own options; a setting is done on the list, the cursor on it;
-						// Worlds opens its screen, and Who's here the list of players on the right.
+						// Worlds and the animal book open their screens, and Who's here the list of players
+						// on the right.
 						at: closes
 							? 'closed'
 							: row < size
 								? ['options', ids[row], row]
-								: [item === 'worlds' || item === 'players' ? item : 'list', null, row],
+								: [opens(item) ? item : 'list', null, row],
 						language: item === 'language' ? 'da' : 'en',
 						sound: item !== 'sound',
 						sent: item === 'quit' ? [{ type: 'leave-game' }] : []
@@ -724,6 +739,109 @@ describe('pause menu under a pointer', () => {
 			true
 		]);
 		expect(sent).toEqual([]);
+	});
+});
+
+describe('the animal book', () => {
+	afterEach(() => {
+		book.columns = 6;
+		book.hops = 0;
+		book.hopping = null;
+	});
+
+	it('is the last row, drawn at the top: up from the first card reaches it, Enter opens it on its first card, Escape comes back to it', () => {
+		const { press } = setup();
+		const row = bundles(game.party).length + menuItems().indexOf('book');
+		expect(menuItems().at(-1)).toBe('book');
+		press('Escape', 'ArrowUp');
+		expect(pause.cursor).toBe(row);
+		// Left and right mean nothing on it: nothing stands beside it.
+		expect(press('ArrowRight').prevented).toBe(false);
+		expect(pause.cursor).toBe(row);
+		press('Enter');
+		expect([pause.screen, pause.option]).toEqual(['book', 0]);
+		press('ArrowRight', 'ArrowRight');
+		expect(pause.option).toBe(2);
+		press('Escape');
+		expect([pause.open, pause.screen, pause.cursor]).toEqual([true, 'list', row]);
+		// Opened again, it starts on its first card; a tap on its row opens it too.
+		press(rowKey(0), 'Escape', rowKey(row));
+		expect([pause.screen, pause.option]).toEqual(['book', 0]);
+		press('Escape', 'Escape');
+		expect(pause.open).toBe(false);
+	});
+
+	it('walks the cards as the grid lays them out: one by one, a row up or down, never past an edge', () => {
+		const count = BOOK_ORDER.length;
+		const bad: string[] = [];
+		for (const columns of [1, 5, 6, 7, count, count + 3]) {
+			pause.reset();
+			const { press } = setup();
+			book.columns = columns;
+			press('Escape', 'ArrowUp', 'Enter');
+			const rows = Math.ceil(count / columns);
+			for (let from = 0; from < count; from++) {
+				for (const [key, want] of [
+					['ArrowLeft', Math.max(0, from - 1)],
+					['a', Math.max(0, from - 1)],
+					['ArrowRight', Math.min(count - 1, from + 1)],
+					['d', Math.min(count - 1, from + 1)],
+					['ArrowUp', from >= columns ? from - columns : from],
+					['w', from >= columns ? from - columns : from],
+					// Down a row; above a short last row, onto its last card; on the last row, nowhere.
+					[
+						'ArrowDown',
+						from + columns < count
+							? from + columns
+							: Math.floor(from / columns) < rows - 1
+								? count - 1
+								: from
+					]
+				] as const) {
+					pause.option = from;
+					const pressed = press(key);
+					if (pause.option !== want || !pressed.prevented) {
+						bad.push(`${columns} a row, ${key} from ${from}: ${pause.option}, not ${want}`);
+					}
+				}
+			}
+		}
+		expect(bad.slice(0, 20)).toEqual([]);
+	});
+
+	it('a tap lights a card; Enter, Space or a tap on the lit card makes a met animal hop, and a "?" does nothing', () => {
+		const cues: CueName[] = [];
+		const stop = sfx.onCue((cue) => cues.push(cue));
+		try {
+			const { press } = setup('squirrel,fox');
+			press('Escape', 'ArrowUp', 'Enter');
+			const fox = BOOK_ORDER.findIndex((a) => a.id === 'fox');
+			const bear = BOOK_ORDER.findIndex((a) => a.id === 'bear');
+			cues.length = 0;
+			press(optionKey(fox));
+			expect([pause.option, book.hops, cues]).toEqual([fox, 0, ['move']]);
+			press(optionKey(fox));
+			expect([book.hopping, book.hops]).toEqual(['fox', 1]);
+			press('Enter', ' ');
+			expect(book.hops).toBe(3);
+			// A card never seen has no animal to hop: silence, and nothing moves.
+			press(optionKey(bear), optionKey(bear), 'Enter');
+			expect([pause.option, book.hops, book.hopping]).toEqual([bear, 3, 'fox']);
+			expect(cues).toEqual(['move', 'confirm', 'confirm', 'confirm', 'move']);
+			// A tap past the last card lights nothing.
+			press(optionKey(BOOK_ORDER.length));
+			expect(pause.option).toBe(bear);
+		} finally {
+			stop();
+		}
+	});
+
+	it('goes with the menu when something else takes the screen, and opens again on the list', () => {
+		const { authority, press } = setup();
+		press('Escape', 'ArrowUp', 'Enter', 'ArrowRight');
+		expect([pause.screen, pause.option]).toEqual(['book', 1]);
+		authority.dispatch({ type: 'leave-game' });
+		expect([pause.open, pause.screen, pause.option]).toEqual([false, 'list', 0]);
 	});
 });
 

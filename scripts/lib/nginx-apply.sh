@@ -10,8 +10,10 @@
 #     container's disk as soon as `git reset --hard` writes it: a reload reads
 #     it. (Lawcel mounts nginx.conf as a single file, which keeps showing the
 #     old file after a reset; that is what its version works around.)
-#   - A change to the template, or to the domain, reaches /etc/nginx/nginx.conf
-#     only when the container starts again: it needs a recreate (~2 s blip).
+#   - A change to the template reaches /etc/nginx/nginx.conf only when it is
+#     rendered again: the image renders it at every start, and step 5 below
+#     has the running container render it. A change to the domain changes the
+#     service's environment, which needs a new container.
 #
 # What this does:
 #
@@ -24,8 +26,24 @@
 #      config step 1 passed.
 #   3. Compare step 1's config with `nginx -T` in the running container, which
 #      reads the included files fresh and its own rendered nginx.conf.
-#   4. The same -> reload (picks up the included files; costs nothing).
-#      Different -> recreate, so the template renders again.
+#   4. The same -> reload (picks up the included files).
+#   5. Different (the template changed) -> the running container renders the
+#      template again, with the image's own script and its own environment as
+#      at a start, into a folder of its own. When that is step 1's config, it
+#      replaces nginx.conf in one rename, and nginx reloads. Otherwise nothing
+#      is touched, and this returns 1.
+#
+# A reload counts once nginx runs new workers: nginx can still refuse, as it
+# applies it, a config `nginx -T` passed, and then keeps its old workers and
+# the config they run. That returns 1, and the deploy fails with nginx
+# serving as it was.
+#
+# A reload refuses no connection: nginx's new workers take the new ones at
+# once, and the old workers finish what they hold (a WebSocket stays with its
+# old worker until it closes). A recreate refuses every connection until nginx
+# is back, and nginx's graceful stop waits for its WebSockets until Docker
+# kills it 10 s on: 12 s of refused connections with four presence sockets
+# open on the local stack (2026-09-28). So only a new definition recreates.
 
 # apply_nginx_config <compose-cmd>
 #
@@ -33,7 +51,8 @@
 # the nginx service (word-split intentionally).
 apply_nginx_config() {
 	local compose_cmd="$1"
-	local before after candidate running
+	local before after candidate running rendered
+	local scratch=/etc/nginx/.render
 
 	# shellcheck disable=SC2086
 	before=$(${compose_cmd} ps -q nginx 2>/dev/null | head -1)
@@ -73,14 +92,60 @@ apply_nginx_config() {
 	running=$(docker exec "$after" nginx -T 2>/dev/null </dev/null || true)
 	if [ "$candidate" = "$running" ]; then
 		echo "    nginx config: rendered template unchanged — reload only"
-		docker exec "$after" nginx -s reload </dev/null
+		reload_nginx "$after"
 		return
 	fi
 
-	echo "    nginx config: the template changed — recreating nginx to render it (~2 s blip)"
-	# shellcheck disable=SC2086
-	${compose_cmd} up -d --no-deps --force-recreate nginx || true
-	nginx_is_up "$compose_cmd"
+	# The template changed: the running container renders it again, as its
+	# entrypoint does at a start, but into $scratch, so nginx.conf is only ever
+	# replaced whole (a full disk would leave a render cut short). The script
+	# exits 0 even when it could not write, so what counts is its result, read
+	# the way step 1 read the candidate's (`nginx -T` names the file it read:
+	# that name is put back).
+	docker exec "$after" sh -c "rm -rf $scratch && mkdir -p $scratch" </dev/null >/dev/null 2>&1 || true
+	docker exec -e NGINX_ENVSUBST_OUTPUT_DIR="$scratch" "$after" \
+		/docker-entrypoint.d/20-envsubst-on-templates.sh </dev/null >/dev/null 2>&1 || true
+	rendered=$(docker exec "$after" nginx -T -c "$scratch/nginx.conf" 2>/dev/null </dev/null |
+		sed "s|^# configuration file $scratch/nginx.conf:\$|# configuration file /etc/nginx/nginx.conf:|" || true)
+	if [ "$candidate" = "$rendered" ] &&
+		docker exec "$after" mv "$scratch/nginx.conf" /etc/nginx/nginx.conf </dev/null; then
+		docker exec "$after" rm -rf "$scratch" </dev/null || true
+		echo "    nginx config: the template changed — rendered again in the running nginx, reload"
+		reload_nginx "$after"
+		return
+	fi
+
+	# Not what step 1 checked. A recreate would render it at the start, but
+	# nothing checked it either, and it refuses every connection for up to
+	# ~12 s: that is for someone to choose.
+	docker exec "$after" rm -rf "$scratch" </dev/null >/dev/null 2>&1 || true
+	echo "    !! the template did not render in the running nginx as it was checked; nginx keeps the config it runs." >&2
+	echo "       A recreate renders it, with no connections for up to ~12 s (when few kids play):" >&2
+	echo "       $compose_cmd up -d --no-deps --force-recreate nginx" >&2
+	return 1
+}
+
+# reload_nginx <container>: reloads nginx; 0 once it runs new workers. nginx
+# can refuse a config `nginx -T` passed as it applies it (a port another
+# process holds, say): `nginx -s reload` exits 0 all the same, and nginx says
+# why in its log and goes on with its old workers and the config they run.
+reload_nginx() {
+	local cid="$1" before now
+	before=$(nginx_workers "$cid")
+	docker exec "$cid" nginx -s reload </dev/null || return 1
+	for _ in $(seq 1 25); do
+		sleep 0.2
+		now=$(nginx_workers "$cid")
+		[ -n "$now" ] && [ "$now" != "$before" ] && return 0
+	done
+	echo "    !! nginx refused the new config and serves with the one it had. Why: docker logs --tail 20 ${cid:0:12}" >&2
+	return 1
+}
+
+# nginx_workers <container>: the PIDs of nginx's current workers, on one line
+# (a worker left from an earlier config is "worker process is shutting down").
+nginx_workers() {
+	docker top "$1" -eo pid,args 2>/dev/null </dev/null | awk '/nginx: worker process$/ { print $1 }' | sort | tr '\n' ' '
 }
 
 # nginx_is_up <compose-cmd>: 0 when nginx is running a few seconds after a

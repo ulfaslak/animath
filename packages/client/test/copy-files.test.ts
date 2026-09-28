@@ -13,7 +13,8 @@ import {
 } from '../src/copy/translate';
 import { ITEM_FORMS } from '../src/items';
 import { ANIMAL_FORMS } from '../src/names';
-import { copyCalls, svelteSources, tsSources } from './source';
+import { copyCalls, svelteSources, tsSources, type CopyCall } from './source';
+import { turn } from './turn';
 
 /**
  * The copy files agree with each other and with the code. At run time a key
@@ -120,8 +121,12 @@ describe('copy files', () => {
 		expect(problems).toEqual([]);
 	});
 
-	it('every key the code passes to t() is in English, with the params its message reads', () => {
-		const calls = [...svelteSources, ...tsSources].flatMap(([file, text]) => copyCalls(file, text));
+	it('every key the code passes to t() is in English, with the params its message reads', async () => {
+		const calls: CopyCall[] = [];
+		for (const [file, text] of [...svelteSources, ...tsSources]) {
+			calls.push(...copyCalls(file, text));
+			await turn();
+		}
 		expect(calls.length).toBeGreaterThan(0);
 		const problems: string[] = [];
 		for (const call of calls) {
@@ -145,8 +150,10 @@ describe('copy files', () => {
 			}
 		}
 		expect(problems).toEqual([]);
-		// About 1 s alone (every client source file parsed with TypeScript); over 5 s under a heavy load.
-	}, 30_000);
+		// Every client source file parsed with TypeScript: 2.5 s alone at a load average of 12 to
+		// 23, 7.3 s in the whole suite at 62, which scales to 25 s at 150; its loop turns after
+		// each file.
+	}, 90_000);
 
 	it('every species in the catalog has every form, and a name for every attack', () => {
 		const problems: string[] = [];
@@ -211,6 +218,29 @@ describe('copy files', () => {
 			if (reads !== sent) problems.push(`${key} reads {${reads}}; the engine sends {${sent}}`);
 		}
 		expect(Object.keys(LINES).length).toBeGreaterThan(0);
+		expect(problems).toEqual([]);
+	});
+
+	it('the witch doctor goes by his name, and the animals he takes are set free, in every line', () => {
+		// The human renamed him and the tab: "in danish it's "heksedoktor" ... rename from
+		// "dyrlæge". and "help home" should be "set free" i think. "slip fri" in danish."
+		// So no line says "dyrlæge", "doktor" alone, or a doctor who isn't a witch doctor,
+		// and none helps animals home (DESIGN § Voice and copy).
+		const problems: string[] = [];
+		const forbid = (lang: string, pattern: RegExp, why: string) => {
+			for (const [key, message] of messages.get(lang) ?? []) {
+				for (const text of textsOf(message)) {
+					if (pattern.test(text)) problems.push(`${lang}.yaml ${key}: "${text}" ${why}`);
+				}
+			}
+		};
+		forbid('da', /dyrlæge/i, 'says dyrlæge, not heksedoktor');
+		forbid('da', /(?<!hekse)doktor/i, 'says doktor, not heksedoktor');
+		// "hjælpe", "hjælp" and the past, "hjalp": "hjalp ræven hjem".
+		forbid('da', /\bhj[æa]lp\w*\s+(?:\S+\s+)?hjem\b/i, 'helps animals home, not slip fri');
+		forbid('en', /(?<!witch )doctor/i, 'says doctor, not witch doctor');
+		forbid('en', /\bhelp\w*\s+(?:\S+\s+)?home\b/i, 'helps animals home, not set free');
+		expect(messages.has('da')).toBe(true);
 		expect(problems).toEqual([]);
 	});
 

@@ -11,6 +11,14 @@ import pg from 'pg';
  * and writing it to a private file that `admin import-save` takes on the
  * server the game moves to ([[DEVELOPMENT]] § Moving a kid's game to
  * production).
+ *
+ * It starts from the retired anonymous backup (`saves`, by the player's id,
+ * which the kid's browser still holds in `animath.player`). Nothing has
+ * written that table since the backup was retired, so the export is for an
+ * old local database, this Mac's `mathgame`: the games the tunnel's
+ * development server backed up before then. The tables stay in every
+ * database ([[INVARIANTS]] § Server), so it runs anywhere, and finds nothing
+ * in a database the backup never wrote to.
  */
 
 /** Rows for one statement: all the export ever asks a database. */
@@ -43,7 +51,7 @@ export async function openReadOnly(url: string): Promise<Reader & { end(): Promi
 	};
 }
 
-/** A save the export can take: the anonymous backup's, or an account's. */
+/** A save the export can take: the retired anonymous backup's, or an account's. */
 export interface SaveCandidate {
 	place: 'anonymous' | 'account';
 	/** The account's name, for an account's save. */

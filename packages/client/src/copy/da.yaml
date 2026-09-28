@@ -21,6 +21,10 @@ app:
     title: Denne browser kan ikke tegne Animaths verden.
     ask: Bed en voksen om hjælp!
     grownUps: 'Til voksne: Animath skal bruge WebGL 2. Tjek at hardwareacceleration er slået til i browserens indstillinger eller prøv en anden browser. På en iPad eller iPhone slår Låsetilstand det fra.'
+  moved:
+    title: Animath er flyttet!
+    go: Spil på {domain}
+    stay: Spil videre her
 
 keys:
   esc: Esc
@@ -333,6 +337,116 @@ species:
     attacks:
       tail-slap: Halesmæk
       tree-gnaw: Træfæld
+  # De store dyr fra det nordiske landskab (#89, bølge 2).
+  wild-boar:
+    # "Vild" står allerede i navnet, så det siges aldrig to gange ("et vildt vildsvin").
+    name: Vildsvin
+    a: et vildsvin
+    the: vildsvinet
+    wild: vildsvin
+    aWild: et vildsvin
+    theWild: vildsvinet
+    bare: vildsvin
+    attacks:
+      snout-dig: Trynerod
+      tusk-charge: Hugtandsstød
+  mute-swan:
+    name: Knopsvane
+    a: en knopsvane
+    the: knopsvanen
+    wild: vild knopsvane
+    aWild: en vild knopsvane
+    theWild: den vilde knopsvane
+    bare: knopsvane
+    attacks:
+      big-hiss: Stort hvæs
+      wing-beat: Vingeslag
+  eagle-owl:
+    # To ord, for hornugle alene er en anden ugle. Tillægsordet bøjes: den store
+    # hornugle, Bos store hornugle.
+    name: Stor hornugle
+    a: en stor hornugle
+    the: den store hornugle
+    wild: vild stor hornugle
+    aWild: en vild stor hornugle
+    theWild: den vilde store hornugle
+    bare: store hornugle
+    attacks:
+      orange-eyes: Orange øjne
+      night-strike: Natangreb
+  lynx:
+    name: Los
+    a: en los
+    the: lossen
+    wild: vild los
+    aWild: en vild los
+    theWild: den vilde los
+    bare: los
+    attacks:
+      stalk: Snig
+      snow-paws: Snepoter
+      great-pounce: Stort spring
+  wolverine:
+    name: Jærv
+    a: en jærv
+    the: jærven
+    wild: vild jærv
+    aWild: en vild jærv
+    theWild: den vilde jærv
+    bare: jærv
+    attacks:
+      growl: Knurr
+      snow-dig: Snegrav
+      never-give-up: Giv aldrig op
+  golden-eagle:
+    name: Kongeørn
+    a: en kongeørn
+    the: kongeørnen
+    wild: vild kongeørn
+    aWild: en vild kongeørn
+    theWild: den vilde kongeørn
+    bare: kongeørn
+    attacks:
+      soar: Svæv
+      sky-dive: Styrtdyk
+      golden-talons: Gyldne kløer
+  white-tailed-eagle:
+    name: Havørn
+    a: en havørn
+    the: havørnen
+    wild: vild havørn
+    aWild: en vild havørn
+    theWild: den vilde havørn
+    bare: havørn
+    attacks:
+      glide: Glid
+      fish-grab: Fiskegreb
+      huge-wings: Kæmpevinger
+  moose:
+    name: Elg
+    a: en elg
+    the: elgen
+    wild: vild elg
+    aWild: en vild elg
+    theWild: den vilde elg
+    bare: elg
+    attacks:
+      munch: Gumle
+      lake-dip: Søbad
+      antler-shove: Skovlskub
+  european-bison:
+    name: Europæisk bison
+    a: en europæisk bison
+    the: den europæiske bison
+    wild: vild europæisk bison
+    aWild: en vild europæisk bison
+    theWild: den vilde europæiske bison
+    bare: europæiske bison
+    attacks:
+      stamp: Tramp
+      dust-bath: Støvbad
+      head-butt: Skalle
+      stampede: Flokstorm
   # Havdyrene, som man møder ude på det dybe vand fra båden.
   crab:
     name: Krabbe
@@ -393,18 +507,114 @@ species:
       ink-puff: Blæksky
       octo-hug: Armekram
   whale:
-    name: Hval
-    a: en hval
-    the: hvalen
-    wild: vild hval
-    aWild: en vild hval
-    theWild: den vilde hval
-    bare: hval
+    # Pukkelhvalen, hvalen der synger (#89): spækhuggeren og marsvinet er også hvaler.
+    name: Pukkelhval
+    a: en pukkelhval
+    the: pukkelhvalen
+    wild: vild pukkelhval
+    aWild: en vild pukkelhval
+    theWild: den vilde pukkelhval
+    bare: pukkelhval
     attacks:
       bubbles: Bobler
       whale-song: Hvalsang
       spout: Sprøjt
       big-wave: Kæmpebølge
+  moon-jellyfish:
+    name: Vandmand
+    a: en vandmand
+    the: vandmanden
+    wild: vild vandmand
+    aWild: en vild vandmand
+    theWild: den vilde vandmand
+    bare: vandmand
+    attacks:
+      drift: Driv
+      pulse: Pulsslag
+      wobble: Gelévrik
+  plaice:
+    name: Rødspætte
+    a: en rødspætte
+    the: rødspætten
+    wild: vild rødspætte
+    aWild: en vild rødspætte
+    theWild: den vilde rødspætte
+    bare: rødspætte
+    attacks:
+      sand-hide: Sandskjul
+      flat-flip: Fladt flip
+  lions-mane-jellyfish:
+    name: Brandmand
+    a: en brandmand
+    the: brandmanden
+    wild: vild brandmand
+    aWild: en vild brandmand
+    theWild: den vilde brandmand
+    bare: brandmand
+    attacks:
+      long-strands: Lange tråde
+      sting: Brænd
+      fire-mane: Ildmanke
+  lobster:
+    name: Hummer
+    a: en hummer
+    the: hummeren
+    wild: vild hummer
+    aWild: en vild hummer
+    theWild: den vilde hummer
+    bare: hummer
+    attacks:
+      feeler-tap: Følerslag
+      crusher-claw: Knuseklo
+      tail-flip: Halevip
+  harbour-seal:
+    # Et navn med et tillægsord: "den spættede sæl", som "den brune rotte".
+    name: Spættet sæl
+    a: en spættet sæl
+    the: den spættede sæl
+    wild: vild spættet sæl
+    aWild: en vild spættet sæl
+    theWild: den vilde spættede sæl
+    bare: spættede sæl
+    attacks:
+      whiskers: Knurhår
+      belly-flop: Maveplask
+  harbour-porpoise:
+    name: Marsvin
+    a: et marsvin
+    the: marsvinet
+    wild: vildt marsvin
+    aWild: et vildt marsvin
+    theWild: det vilde marsvin
+    bare: marsvin
+    attacks:
+      echo: Ekko
+      puff-and-dive: Pust og dyk
+  grey-seal:
+    name: Gråsæl
+    a: en gråsæl
+    the: gråsælen
+    wild: vild gråsæl
+    aWild: en vild gråsæl
+    theWild: den vilde gråsæl
+    bare: gråsæl
+    attacks:
+      seal-song: Sælsang
+      rock-flop: Klippeplask
+      big-bite: Stort bid
+  orca:
+    name: Spækhugger
+    a: en spækhugger
+    the: spækhuggeren
+    wild: vild spækhugger
+    aWild: en vild spækhugger
+    theWild: den vilde spækhugger
+    bare: spækhugger
+    attacks:
+      whistle: Fløjt
+      pod-hunt: Flokjagt
+      tail-slap: Halesmæk
+      wave-wash: Bølgeskyl
 
 puzzle:
   keys: Skriv svaret og tryk på Enter
@@ -418,8 +628,8 @@ puzzle:
 explore:
   controls: Gå med piletasterne eller WASD
   controlsTouch: Hold på en pil for at gå
-  talkPrompt: Tryk på Enter for at snakke med dyrlægen
-  talkPromptTouch: Tryk på Snak for at snakke med dyrlægen
+  talkPrompt: Tryk på Enter for at snakke med heksedoktoren
+  talkPromptTouch: Tryk på Snak for at snakke med heksedoktoren
   talk: Snak
   chopPrompt: Tryk på Enter for at fælde træet
   chopPromptTouch: Tryk på Fæld for at fælde træet
@@ -427,14 +637,14 @@ explore:
   breakPromptTouch: Tryk på Knus for at knuse stenen
   chop: Fæld
   break: Knus
-  needAxe: Du skal bruge en økse for at fælde træer. Dyrlægen sælger en!
-  needPickaxe: Du skal bruge en hakke for at knuse sten. Dyrlægen sælger en!
+  needAxe: Du skal bruge en økse for at fælde træer. Heksedoktoren sælger en!
+  needPickaxe: Du skal bruge en hakke for at knuse sten. Heksedoktoren sælger en!
   walkUp: Gå op
   walkDown: Gå ned
   walkLeft: Gå til venstre
   walkRight: Gå til højre
   turnSideways: Hold skærmen på tværs for at spille!
-  notAtTent: Gå hen til et telt for at snakke med dyrlægen.
+  notAtTent: Gå hen til et telt for at snakke med heksedoktoren.
   tired: Dine dyr er trætte. Gå hen til heksedoktorens telt!
   tiredSail: Dine dyr er trætte. Sejl hen til heksedoktorens telt!
   doctorArrow: Vejen til heksedoktorens telt
@@ -457,6 +667,7 @@ hud:
   solved:
     one: '{count} opgave'
     other: '{count} opgaver'
+  coordinates: 'x {x} · y {y}'
 
 team:
   count: '×{count}'
@@ -478,9 +689,9 @@ party:
   leadChosen: '{animal.the} er først ud!'
   leadCantSwim: '{animal.the} kan ikke svømme! På vandet er et dyr, der kan svømme, først ud.'
   leadInTheSea: '{animal.the} bor i havet! På land er et dyr, der kan gå, først ud.'
-  leadTired: '{animal.the} er træt. Gå til dyrlægen!'
+  leadTired: '{animal.the} er træt. Gå til heksedoktoren!'
   leadAlready: '{animal.the} er allerede først ud!'
-  leadAllTired: De er alle sammen trætte. Gå til dyrlægen!
+  leadAllTired: De er alle sammen trætte. Gå til heksedoktoren!
 
 battle:
   wildName: '{animal.wild}'
@@ -573,7 +784,7 @@ battle:
     lost: Dine dyr skal hvile sig. Heksedoktoren gør dem friske igen!
 
 doctor:
-  title: Dyrlæge
+  title: Heksedoktor
   came: En heksedoktor kom forbi og passede godt på dine dyr. Nu har alle det godt igen!
   hello: Hej! Hvem skal jeg hjælpe i dag?
   helloAllFit: Hej! Alle dine dyr er friske og glade.
@@ -591,7 +802,7 @@ doctor:
   back: Tilbage
   tabs:
     heal: Gør rask
-    home: Hjælp hjem
+    home: Slip fri
     shop: Butik
   tokens:
     one: '{count} mønt'
@@ -610,8 +821,8 @@ doctor:
 
   home:
     intro: Vilde dyr er lidt syge. Derfor er de så gnavne!
-    title: Hjælp dyr hjem
-    how: Vælg de dyr, der skal hjem. Jeg gør dem helt raske, og du får mønter som tak!
+    title: Slip dyr fri
+    how: Vælg de dyr, du vil slippe fri. Jeg gør dem helt raske, og de kommer hjem til naturen. Du får mønter som tak!
     worth:
       one: '{animal.the} giver {count} mønt.'
       other: '{animal.the} giver {count} mønter.'
@@ -625,9 +836,9 @@ doctor:
       other: '{count} dyr valgt: {amount} mønter.'
     keepOne: Behold ét dyr, der kan gå med dig!
     noWalker: Intet dyr kan gå med dig lige nu. Gør et dyr rask først!
-    send: Hjælp dem hjem
+    send: Slip dem fri
     keys: ↑ ↓ flyt · ← → faner · Enter vælg · Esc farvel
-    touch: Tryk på de dyr, der skal hjem
+    touch: Tryk på de dyr, du vil slippe fri
     sure: Er du sikker? De bliver glade ude i naturen!
     sureTitle: Sig farvel til {names.the}?
     sureTitleMany: Sig farvel til {many} dyr?
@@ -761,8 +972,8 @@ save:
   sessionEnded: Du er logget ud, så dit spil gemmes kun på denne enhed. Log ind for at passe på det.
   # On a window that another window of the game has played past, until it catches up.
   behind: Du spillede videre i et andet vindue.
-  # The same card when the newest game came from somewhere else (the server backup),
-  # shown only when the page has already reloaded by itself three times in a minute.
+  # The same card when the newest game came from somewhere else (an account's copy on
+  # the server, or a new game started in another window), shown only when the page has already reloaded by itself three times in a minute.
   behindReady: Dit nyeste spil er klart.
   # The same card when the saved game was cleared (a new game comes next), shown only
   # when the page has already reloaded by itself three times in a minute.
@@ -912,10 +1123,12 @@ presence:
   elsewhere: Du spiller i et andet vindue.
   busy:
     battle: kæmper mod et vildt dyr
-    doctor: hos dyrlægen
+    doctor: hos heksedoktoren
     menu: holder pause
     match: kæmper mod en ven
     flight: flyver
+  thinking: '{name} regner på {sum}'
+  choosing: '{name} tænker…'
 match:
   whose: '{name}s'
   whoseAfterS: "{name}'"
@@ -1025,3 +1238,13 @@ worlds:
   arriveNew: En ny verden at udforske!
   arriveBack: Du er tilbage, hvor du var.
   arriveHome: Hjemme igen!
+book:
+  title: Dyrebog
+  row: '{caught}/{all}'
+  count: '{caught} fanget · {seen} set · {all} i alt'
+  help: Alle dyr, du møder, kommer i din dyrebog. Kan du fange dem alle sammen?
+  unseen: Hvem mon det er? Gå på opdagelse og find ud af det!
+  seen: Du har mødt {animal.a}. Kast din snor næste gang!
+  caughtTeam: '{animal.the} er på dit hold!'
+  caughtHome: Du fangede {animal.a} og slap {animal.the} fri. Det står i din bog for altid!
+  keys: ↑ ↓ ← → flyt · Esc tilbage

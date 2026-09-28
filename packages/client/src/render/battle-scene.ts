@@ -53,22 +53,37 @@ const CAMERA_POSITION = new THREE.Vector3(0, 1.5, 5.5);
 const CAMERA_TARGET = new THREE.Vector3(0, 0.3, 0);
 /** Vertical field of view, in degrees, of the canvas area above the panel. */
 const SCENE_FOV = 25;
+/** How much lower the scene sits in the canvas area above the panel on a short screen, as a share of that area. */
+const SHORT_DROP = 0.08;
+
+/**
+ * The tallest screen that is a short one, in CSS pixels: a phone held
+ * sideways, where the battle's panel and status boxes take their compact
+ * sizes. Mirrors the `(max-height: 560px)` media queries of the battle's
+ * styles (`styles.css`, `BattlePanel.svelte` and the pieces it composes);
+ * change them together (`battle-scene.test.ts` holds them to it).
+ */
+export const SHORT_SCREEN = 560;
 
 /**
  * Height in CSS pixels of the battle screen's bottom panel for a canvas
  * `height` pixels tall, from its bottom edge. Mirrors `--battle-panel` in
  * `styles.css` (`clamp(260px, 40vh, 360px)`, and `clamp(364px, 48vh, 400px)`
- * with the touch controls on, where seven rows a finger tall must fit; both
- * over the safe area's bottom inset); change both together.
+ * with the touch controls on, where seven rows a finger tall must fit; on a
+ * short screen 228 px, touch or not; all over the safe area's bottom inset);
+ * change both together.
  */
 export function battlePanelHeight(
 	height: number,
 	touchControls = touch.on,
 	bottomInset = safeArea().bottom
 ): number {
-	const cards = touchControls
-		? Math.min(400, Math.max(364, 0.48 * height))
-		: Math.min(360, Math.max(260, 0.4 * height));
+	const cards =
+		height <= SHORT_SCREEN
+			? 228
+			: touchControls
+				? Math.min(400, Math.max(364, 0.48 * height))
+				: Math.min(360, Math.max(260, 0.4 * height));
 	return cards + bottomInset;
 }
 
@@ -164,6 +179,16 @@ const HAND = new THREE.Vector3(-2.4, 0.9, 3.4);
  * wild one.
  */
 const RELEASE = new THREE.Vector3(-2.4, 0.3, 3.8);
+/**
+ * The same on a short screen (`SHORT_SCREEN`), a phone held sideways: its
+ * picture is so wide that the hand above would be in view, under the wild
+ * animal's status box, and the rope would run along the box's bottom edge.
+ * There the throw comes from under the picture's bottom edge, nearer the
+ * middle, and rises over the player's animal to the wild one, well clear of
+ * the box.
+ */
+const HAND_SHORT = new THREE.Vector3(-1.8, 0.6, 3.8);
+const RELEASE_SHORT = new THREE.Vector3(-1.2, 0.3, 4.4);
 const UP = new THREE.Vector3(0, 1, 0);
 /** The loop leans back towards the camera, so it reads as a ring, not a line. */
 const LOOP_TILT = Math.PI / 2 - 0.6;
@@ -172,9 +197,11 @@ const LEASH_ARC = 1;
 /**
  * The sky a throw keeps clear over its loop, as a share of the scene's
  * height on screen (the canvas above the panel): the loop comes no nearer
- * than this to the top of the picture.
+ * than this to the top of the picture. Never less than `LEASH_HEADROOM_MIN`
+ * CSS pixels: a phone's band is so thin that a share of it is a sliver.
  */
 const LEASH_HEADROOM = 0.05;
+const LEASH_HEADROOM_MIN = 12;
 /**
  * The wild animal's status box over the picture's top-left corner, in CSS
  * pixels from the safe area's top left (the canvas's, on a screen with no
@@ -185,6 +212,18 @@ const LEASH_HEADROOM = 0.05;
  * light, within the loop's clearance.
  */
 export const WILD_STATUS_BOX = { right: 16 + 280, bottom: 16 + 75 };
+/**
+ * The same box on a short screen (`SHORT_SCREEN`): 8 px down from the top,
+ * 224 px wide and 60 px tall (61 here, rounded up), a size smaller. Change it
+ * with the short screen's `.status` rules in `BattlePanel.svelte` and
+ * `StatusBox.svelte`.
+ */
+export const WILD_STATUS_BOX_SHORT = { right: 16 + 224, bottom: 8 + 61 };
+
+/** Where the wild animal's status box is on a canvas `height` pixels tall. */
+export function wildStatusBox(height: number): { right: number; bottom: number } {
+	return height <= SHORT_SCREEN ? WILD_STATUS_BOX_SHORT : WILD_STATUS_BOX;
+}
 /** How far the leash's loop keeps from the wild animal's status box, in CSS pixels. */
 const LEASH_BOX_CLEARANCE = 16;
 /** Points along the throw at which its arc is measured against the picture's top and the status box. */
@@ -610,6 +649,10 @@ export class BattleScene {
 	 * Match the canvas size. The image is shifted up by the panel's height so
 	 * the scene is centred in the free area above it, and the field of view is
 	 * widened by the same proportion so that area always spans `SCENE_FOV`.
+	 * On a short screen the scene sits `SHORT_DROP` of the free area lower:
+	 * its band is so thin that the sky over a tall wild animal would leave no
+	 * room for the leash to arc, and the ground under the player's animal has
+	 * room to spare.
 	 */
 	resize(width: number, height: number): void {
 		this.width = width;
@@ -618,9 +661,10 @@ export class BattleScene {
 		const free = Math.max(1, height - panel);
 		const full = height + panel;
 		const tan = Math.tan(THREE.MathUtils.degToRad(SCENE_FOV / 2)) * (full / free);
+		const drop = height <= SHORT_SCREEN ? Math.round(SHORT_DROP * free) : 0;
 		this.camera.fov = THREE.MathUtils.radToDeg(2 * Math.atan(tan));
 		this.camera.aspect = width / full;
-		this.camera.setViewOffset(width, full, 0, panel, width, height);
+		this.camera.setViewOffset(width, full, 0, panel - drop, width, height);
 		this.camera.updateProjectionMatrix();
 	}
 
@@ -745,6 +789,16 @@ export class BattleScene {
 		return Math.max(0.8, Math.min(1.6, this.heights.opponent / 0.7));
 	}
 
+	/** Where the rope is held, for the picture as it is: `HAND`, or `HAND_SHORT` on a short screen. */
+	private hand(): THREE.Vector3 {
+		return this.height <= SHORT_SCREEN ? HAND_SHORT : HAND;
+	}
+
+	/** Where the loop leaves the hand, for the picture as it is: `RELEASE`, or `RELEASE_SHORT`. */
+	private release(): THREE.Vector3 {
+		return this.height <= SHORT_SCREEN ? RELEASE_SHORT : RELEASE;
+	}
+
 	/**
 	 * How high the throw arcs over the straight line from where the loop
 	 * leaves the hand to the animal, at its middle, with full motion:
@@ -774,11 +828,12 @@ export class BattleScene {
 		const across = (y: number) => seen(-1, 1 - (2 * y) / height, 1, 1 - (2 * y) / height);
 		const free = Math.max(1, height - battlePanelHeight(height));
 		// The loop keeps under the first line…
-		const ceiling = across(free * LEASH_HEADROOM);
+		const ceiling = across(Math.max(free * LEASH_HEADROOM, LEASH_HEADROOM_MIN));
 		// …and out of the corner above the second and left of the third: the box and its margin.
 		const inset = safeArea();
-		const boxBottom = across(WILD_STATUS_BOX.bottom + inset.top + LEASH_BOX_CLEARANCE);
-		const boxRight = (2 * (WILD_STATUS_BOX.right + inset.left + LEASH_BOX_CLEARANCE)) / width - 1;
+		const box = wildStatusBox(height);
+		const boxBottom = across(box.bottom + inset.top + LEASH_BOX_CLEARANCE);
+		const boxRight = (2 * (box.right + inset.left + LEASH_BOX_CLEARANCE)) / width - 1;
 		const boxSide = seen(boxRight, -1, boxRight, 1);
 		// Signed so that the box's side of the line (where the canvas's left edge is) is negative.
 		if (boxSide.distanceToPoint(new THREE.Vector3(-1, 0, 0.5).unproject(camera)) > 0) {
@@ -802,12 +857,13 @@ export class BattleScene {
 			new THREE.Vector3().fromBufferAttribute(rim, i).applyMatrix4(shape)
 		);
 		const hold = this.leashHold();
+		const release = this.release();
 		const at = new THREE.Vector3();
 		const point = new THREE.Vector3();
 		let arc = LEASH_ARC;
 		for (let i = 1; i < LEASH_SAMPLES; i++) {
 			const p = i / LEASH_SAMPLES;
-			at.lerpVectors(RELEASE, hold, p);
+			at.lerpVectors(release, hold, p);
 			// How far this point of the straight throw can rise before a point of the loop meets a line.
 			let room = Infinity;
 			for (const q of points) {
@@ -841,10 +897,11 @@ export class BattleScene {
 			const p = Math.min(1, leash.t / LEASH_FLIGHT_SECONDS);
 			// Measured each frame: a resize can change the picture mid-throw.
 			const lift = p < 1 ? Math.sin(p * Math.PI) * this.leashArc() * calm : 0;
+			const from = this.release();
 			loop.position.set(
-				RELEASE.x + (to.x - RELEASE.x) * p,
-				RELEASE.y + (holdY - RELEASE.y) * p + lift,
-				RELEASE.z + (to.z - RELEASE.z) * p
+				from.x + (to.x - from.x) * p,
+				from.y + (holdY - from.y) * p + lift,
+				from.z + (to.z - from.z) * p
 			);
 			// Settled on the animal: it wobbles while everyone waits, a swing each
 			// way every 0.35 s (the pace of the `wobble` cue's ticks).
@@ -865,8 +922,9 @@ export class BattleScene {
 			}
 		}
 		// The rope runs from the hand to the loop.
-		const span = loop.position.clone().sub(HAND);
-		rope.position.copy(HAND);
+		const hand = this.hand();
+		const span = loop.position.clone().sub(hand);
+		rope.position.copy(hand);
 		rope.scale.set(1, span.length(), 1);
 		rope.quaternion.setFromUnitVectors(UP, span.normalize());
 	}

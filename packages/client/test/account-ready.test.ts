@@ -138,7 +138,8 @@ describe('relit', () => {
 			makeAccount: 'resume',
 			logIn: 'resume',
 			resume: 'resume',
-			quit: 'quit'
+			quit: 'quit',
+			book: 'book'
 		});
 		expect(moves(without, withRows)).toEqual(Object.fromEntries(without.map((i) => [i, i])));
 	});

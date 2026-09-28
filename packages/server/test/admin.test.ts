@@ -13,8 +13,10 @@ afterAll(() => pool.end());
 
 // Each register, login and reset hashes a password with scrypt at its real
 // cost, about 150 ms at a load average of 14 (2026-09-27); a test here hashes
-// up to five times.
-vi.setConfig({ testTimeout: 30_000 });
+// up to five times: up to 1.3 s alone at a load average of 12 to 30 and 3.1 s
+// in the whole suite at 27 (2026-09-28), and up to ten times its run alone at
+// 150.
+vi.setConfig({ testTimeout: 60_000 });
 
 const app = createApp();
 let counter = 0;

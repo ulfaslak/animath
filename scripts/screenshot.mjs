@@ -12,6 +12,15 @@
  *                               [--clip x,y,w,h] [--gpu metal|swiftshader]
  *                               [--reduced-motion] [--touch] [--api]
  *                               [--safe-area top,right,bottom,left]
+ *                               [--host-rules "MAP old.example localhost"]
+ *
+ * `--host-rules` hands Chrome its `--host-resolver-rules`: the page can be
+ * opened under a made-up name that leads to your own server, e.g. the old
+ * tunnel's kind of address, to see what the game does away from its own
+ * domain and from localhost (the moved card, `src/moved.ts`) without a hosts
+ * file: `--host-rules "MAP old-tunnel.example localhost" --url
+ * http://old-tunnel.example:<port>/`. Vite answers a name it does not know
+ * only with `TUNNEL=1`.
  *
  * `--touch` opens the page as a touch tablet would (`hasTouch`, `isMobile`:
  * the page sees `pointer: coarse` and shows its touch controls), for the
@@ -41,9 +50,11 @@
  * the screen says — on the title its menu, the confirm, the player's name
  * box, the starters and the starter's name box; the message line in explore (and the grid position and
  * facing with `?debug` in the URL), the party cards (and an open card's
- * animals) and the puzzles solved, tokens, tools and world in the corner; in the pause menu its
- * rows, the picked animal's options and the name box (with whether it has
- * the focus); at the doctor the doctor's line, the tokens, the tabs, the
+ * animals), the puzzles solved, tokens, tools and world in the corner, and
+ * the coordinates in the other; in the pause menu its
+ * rows, the animal book's row, the picked animal's options and the name box (with whether it has
+ * the focus); in the animal book its count, what the lit card says, and every card (`Fox✓`
+ * caught, `Fox` seen, `?` never seen, the lit one in brackets); at the doctor the doctor's line, the tokens, the tabs, the
  * tab's list and what its right-hand side says; and in a battle
  * the narration line, the menu's attack tiles and moves (or the switch list),
  * the preview card, the puzzle, the typed answer, the judgement, the status
@@ -68,12 +79,13 @@
  *
  * The game's API is blocked: every request to `/api/` is aborted in the
  * browser, as if the server were down, and the blocked calls are counted at
- * the end. A game started in a fresh browser makes a player on the server,
- * and every Vite of this repo proxies `/api` to port 3000 (the primary
- * clone's API, with the kids' games in its database) unless `API_PORT` says
- * otherwise, so unblocked runs filled that database with throwaway players.
+ * the end. Every Vite of this repo proxies `/api` to port 3000 (the primary
+ * clone's API, which serves the kids on its tunnel) unless `API_PORT` says
+ * otherwise: an unblocked run would walk into the kids' worlds as a player,
+ * and an account made in it would land in their database (unblocked runs
+ * once filled it with throwaway players, when guests were backed up there).
  * The game saves in the page and plays the same. `--api` lets the calls
- * through, for a run that tests the backup: against your own API and a
+ * through, for a run that tests accounts: against your own API and a
  * throwaway database. The presence socket (`/api/ws`) is held the same way:
  * it opens onto nothing, the page looks for other players and plays alone,
  * and `--api` lets it through too. To see other players, drive several
@@ -148,7 +160,17 @@ if (args.api !== undefined && args.api !== 'true') {
 	process.exit(2);
 }
 const allowApi = args.api === 'true';
-const browser = await chromium.launch({ channel: 'chrome', headless: true, args: GPU_ARGS[gpu] });
+// A lone `--host-rules` would map nothing and open the real address instead.
+if (args['host-rules'] === 'true') {
+	console.error('--host-rules takes rules, e.g. "MAP old-tunnel.example localhost"');
+	process.exit(2);
+}
+const hostRules = args['host-rules'] ? [`--host-resolver-rules=${args['host-rules']}`] : [];
+const browser = await chromium.launch({
+	channel: 'chrome',
+	headless: true,
+	args: [...GPU_ARGS[gpu], ...hostRules]
+});
 const context = await browser.newContext({
 	viewport: { width, height },
 	deviceScaleFactor: scale,
@@ -165,7 +187,7 @@ const isApi = (u) => {
 	}
 };
 // Unless `--api`, every API request is aborted before it leaves the browser, on
-// every page of the context, and counted here ("POST /api/players" → 2).
+// every page of the context, and counted here ("GET /api/account/ready" → 2).
 const blocked = new Map();
 if (!allowApi) {
 	await context.route(isApi, (route) => {
@@ -239,6 +261,14 @@ async function textOf(selector) {
 /** What the screen says right now, one `key: value` per line. */
 async function describe() {
 	const lines = [];
+	// The moved card, before the game on an old address: its words, and where its button goes.
+	const moved = await textOf('.moved .title');
+	if (moved !== null) {
+		const go = await page.locator('.moved .go').getAttribute('href');
+		lines.push(
+			`moved: ${moved} [${await textOf('.moved .go')} → ${go}] (${await textOf('.moved .here')})`
+		);
+	}
 	// The title: its menu rows (the lit one in brackets), the confirm's choices,
 	// the player's name box, the starters' name tags (the lit one in brackets)
 	// and the card under them.
@@ -360,6 +390,10 @@ async function describe() {
 		.locator('.belongings :is(.solved, .purse, .tool, .world)')
 		.allTextContents();
 	if (belongings.length) lines.push(`belongings: ${belongings.map((b) => b.trim()).join(' · ')}`);
+	// The coordinates in explore's bottom right corner, from the world's spawn, y up the screen
+	// ("x 7 · y −1"); the `?debug` badge's `at:` is the engine's grid, y down it.
+	const coords = await textOf('.coords');
+	if (coords !== null) lines.push(`coords: ${coords}`);
 	// Party cards in explore, one per species, the lead's in brackets and an open one in braces:
 	// "[1 Pip 20/20 goes first] | {2 Rabbit ×4 3 ready · 1 tired}"; then the open card's animals.
 	const cards = await page.locator('.party .cards .bundle').evaluateAll((els) =>
@@ -389,6 +423,29 @@ async function describe() {
 		})
 	);
 	if (pauseRows.length) lines.push(`pause: ${pauseRows.join(' | ')}`);
+	// The animal book's row on the menu's title line, lit in brackets.
+	const bookRow = await page.locator('.menu .title-line .row').evaluateAll((els) =>
+		els.map((el) => {
+			const text = el.textContent.replace(/\s+/g, ' ').trim();
+			return el.classList.contains('lit') ? `[${text}]` : text;
+		})
+	);
+	if (bookRow.length) lines.push(`book row: ${bookRow.join(' | ')}`);
+	// The animal book: its count, every card (a kind caught with a tick, one seen by its
+	// name, one never seen as "?", the lit one in brackets), and what the lit card says.
+	const bookCards = await page.locator('.menu .book-grid .card').evaluateAll((els) =>
+		els.map((el) => {
+			const name = el.querySelector('.card-name')?.textContent.trim() ?? '?';
+			const text = el.classList.contains('caught') ? `${name}✓` : name;
+			return el.classList.contains('lit') ? `[${text}]` : text;
+		})
+	);
+	if (bookCards.length) {
+		const count = await page.locator('.book-count').textContent();
+		const caption = await page.locator('.book-caption').textContent();
+		lines.push(`book: ${count?.trim()} — ${caption?.trim()}`);
+		lines.push(`book cards: ${bookCards.join(' ')}`);
+	}
 	// A card's animals on the right of the pause menu, the lit one in brackets.
 	const members = await page.locator('.menu .side .animal').evaluateAll((els) =>
 		els.map((el) => {

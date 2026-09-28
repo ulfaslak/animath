@@ -1,5 +1,6 @@
 import { CHUNK_SIZE, Rng, hashInts, isWater, type Chunk, type Tile } from '@mathgame/engine';
 import * as THREE from 'three';
+import { DOCTOR_GEOMETRIES, WitchDoctor } from './doctor';
 import { BIOME_LOOK, CANOPY, COLORS, PROP_COLORS, TILE_COLORS } from './palette';
 
 /**
@@ -8,7 +9,8 @@ import { BIOME_LOOK, CANOPY, COLORS, PROP_COLORS, TILE_COLORS } from './palette'
  * chunk's trunks are one instanced mesh, all its canopies another, its rocks,
  * blades, reeds, flowers and bushes one each. So a screen of 25 chunks is a
  * few hundred draw calls however much grows on it. Tents, a few per screen,
- * are small groups of their own with the campfire's light.
+ * are small groups of their own with the campfire's light and the witch
+ * doctor (`doctor.ts`), whose shapes are shared too.
  *
  * Every geometry and material here is built once and shared by every chunk:
  * a prop is a shape placed, turned, scaled and coloured, never a shape of its
@@ -44,15 +46,20 @@ export const PROP_GEOMETRY = {
 	/** Radius 1: a flower or a bush, each scaled to its own size. */
 	ball: new THREE.IcosahedronGeometry(1, 0),
 	tent: new THREE.ConeGeometry(0.55, 0.8, 4),
-	door: new THREE.ConeGeometry(0.2, 0.4, 4),
-	fire: new THREE.ConeGeometry(0.15, 0.3, 5)
+	door: new THREE.ConeGeometry(0.2, 0.4, 4)
 } as const;
 
 /** Every geometry the chunks share; `disposeChunkGroup` leaves these alone. */
 export const SHARED_GEOMETRIES: ReadonlySet<THREE.BufferGeometry> = new Set([
 	TILE_GEO,
-	...Object.values(PROP_GEOMETRY)
+	...Object.values(PROP_GEOMETRY),
+	...DOCTOR_GEOMETRIES
 ]);
+
+/** The witch doctors of a chunk built by `buildChunkGroup`, one per tent, for the renderer to animate. */
+export function doctorsIn(chunk: THREE.Object3D): readonly WitchDoctor[] {
+	return (chunk.userData.doctors as WitchDoctor[] | undefined) ?? [];
+}
 
 /** From this height up a mountain's rocks are its peaks: paler, the boulders capped with snow. */
 export const PEAK_HEIGHT = 3;
@@ -152,7 +159,7 @@ export function disposeChunkGroup(group: THREE.Object3D): void {
 	});
 }
 
-type PropKind = Exclude<keyof typeof PROP_GEOMETRY, 'tent' | 'door' | 'fire'>;
+type PropKind = Exclude<keyof typeof PROP_GEOMETRY, 'tent' | 'door'>;
 
 /** One material for every prop: each instance brings its own colour. */
 const propMaterial = new THREE.MeshLambertMaterial({ color: 0xffffff, flatShading: true });
@@ -218,7 +225,6 @@ class Props {
 
 const tentMat = new THREE.MeshLambertMaterial({ color: COLORS.tentCloth, flatShading: true });
 const tentDoorMat = new THREE.MeshLambertMaterial({ color: COLORS.tentDoor, flatShading: true });
-const fireMat = new THREE.MeshBasicMaterial({ color: COLORS.fire });
 
 /** A random pick from a list, by the tile's own draw. */
 function pick<T>(rng: Rng, list: readonly T[]): T {
@@ -375,9 +381,13 @@ function decorate(props: Props, group: THREE.Group, tile: Tile, x: number, z: nu
 			}
 			return;
 		}
-		case 'tent':
-			group.add(tent(x, z, top));
+		case 'tent': {
+			const camp = tent(x, z, top);
+			group.add(camp);
+			const doctors = (group.userData.doctors ??= []) as WitchDoctor[];
+			doctors.push(camp.userData.doctor as WitchDoctor);
 			return;
+		}
 		default:
 			return;
 	}
@@ -418,21 +428,37 @@ function reeds(props: Props, rng: Rng, stalk: number, x: number, z: number, top:
 	}
 }
 
-/** A doctor's tent with its campfire and the fire's warm light. */
+/**
+ * Where things stand on a tent's tile, from its middle (x, z): the tent set
+ * back to the left, the witch doctor in front of it, right of its door, and
+ * his pot on the campfire at its right. The camera sees all of them, and
+ * none of them reaches where a trainer on a tile beside the tent stands.
+ */
+export const TENT_AT = [-0.11, -0.1] as const;
+export const DOCTOR_AT = [0.18, 0.28] as const;
+export const FIRE_AT = [0.34, -0.22] as const;
+
+/**
+ * A doctor's tent with the witch doctor (`userData.doctor`, a `WitchDoctor`)
+ * and his campfire, the pot on it, and the fire's warm light.
+ */
 function tent(x: number, z: number, top: number): THREE.Group {
 	const g = new THREE.Group();
 	const cloth = new THREE.Mesh(PROP_GEOMETRY.tent, tentMat);
-	cloth.position.y = 0.4;
+	cloth.position.set(TENT_AT[0], 0.4, TENT_AT[1]);
 	cloth.rotation.y = Math.PI / 4;
 	cloth.castShadow = true;
 	const door = new THREE.Mesh(PROP_GEOMETRY.door, tentDoorMat);
-	door.position.set(0, 0.2, 0.42);
+	door.position.set(TENT_AT[0], 0.2, TENT_AT[1] + 0.42);
 	door.rotation.y = Math.PI / 4;
-	const fire = new THREE.Mesh(PROP_GEOMETRY.fire, fireMat);
-	fire.position.set(0.9, 0.15, 0.6);
 	const light = new THREE.PointLight(COLORS.fire, 1.5, 4);
-	light.position.set(0.9, 0.6, 0.6);
-	g.add(cloth, door, fire, light);
+	light.position.set(FIRE_AT[0], 0.6, FIRE_AT[1]);
+	const phase = (hashInts(x, z, 17) / 4294967296) * Math.PI * 2;
+	const doctor = new WitchDoctor(x + DOCTOR_AT[0], z + DOCTOR_AT[1], phase);
+	doctor.figure.position.set(DOCTOR_AT[0], 0, DOCTOR_AT[1]);
+	doctor.pot.position.set(FIRE_AT[0], 0, FIRE_AT[1]);
+	g.add(cloth, door, light, doctor.figure, doctor.pot);
 	g.position.set(x, top, z);
+	g.userData.doctor = doctor;
 	return g;
 }

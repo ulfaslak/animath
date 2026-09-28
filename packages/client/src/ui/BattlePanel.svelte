@@ -20,6 +20,7 @@
 	import { messageWords, whose, words } from '../lines';
 	import { animalWords, nameOf, speciesName } from '../names';
 	import { battle } from '../state/battle.svelte';
+	import { match } from '../state/match.svelte';
 	import ActionPreview, { type Preview } from './ActionPreview.svelte';
 	import AttackTile from './AttackTile.svelte';
 	import Celebration from './Celebration.svelte';
@@ -346,15 +347,21 @@
 {/if}
 
 {#if battle.line}
-	<!-- Each sentence holds together, so a beat too long for one line breaks between them. -->
-	<div class="battle-line">
+	<!-- Each sentence holds together, so a beat too long for one line breaks between them.
+	     `hushed`: a match's note is up, which a short screen shows in the line's place. -->
+	<div class="battle-line" class:hushed={!!vs && match.noted}>
 		{#each sentences(words(battle.line)) as sentence, i (i)}{#if i > 0}{' '}{/if}<span
 				class="sentence">{sentence}</span
 			>{/each}
 	</div>
 {/if}
 
-<div class="panel" class:listing={battle.screen === 'party'}>
+<!-- `solo`: a puzzle of the kid's own with the number pad beside it, which a short screen gives the whole panel. -->
+<div
+	class="panel"
+	class:listing={battle.screen === 'party'}
+	class:solo={!!battle.puzzle && touch.on && !(vs && battle.turn === 'opponent')}
+>
 	{#if battle.screen === 'party'}
 		<div class="card actions party">
 			{#key battle.refused}
@@ -994,6 +1001,117 @@
 	@media (prefers-reduced-motion: reduce) {
 		.row.nudge {
 			animation-name: nudge-small;
+		}
+	}
+
+	/*
+	 * A short screen, a phone held sideways (`--battle-panel` in `styles.css`):
+	 * the cards are 220 px tall, so the menu stands its moves in a column beside
+	 * the attack tiles, and a puzzle with its number pad has the whole panel
+	 * (the menu beside it would only be dimmed). The status boxes and the
+	 * narration line are a size smaller and keep 8 px from the edges and the
+	 * panel, so the scene over the panel keeps room for both animals.
+	 */
+	@media (max-height: 560px) {
+		/*
+		 * Wide enough for the longest name of an animal the game has, at 16 px,
+		 * beside the paw: "Wild Humpback whale" is 174 px (176 px of room).
+		 */
+		.status {
+			width: 224px;
+		}
+		.status.opponent {
+			top: calc(8px + var(--safe-top));
+		}
+		.status.player {
+			bottom: calc(var(--battle-panel) + 8px);
+		}
+		/*
+		 * The line stands at the top right, over the player's box: under it,
+		 * down by the panel, is the player's animal, which a line there hid.
+		 * Short, it keeps to the corner; a long one reaches left as far as the
+		 * wild animal's box and 14 px more (16 + 224 + 14 + 16 px), so no line
+		 * takes more than two.
+		 */
+		.battle-line {
+			top: calc(8px + var(--safe-top));
+			right: calc(16px + var(--safe-right));
+			bottom: auto;
+			left: auto;
+			transform: none;
+			max-width: calc(100vw - 270px - var(--safe-left) - var(--safe-right));
+			padding: 6px 14px;
+			font-size: 16px;
+		}
+		.battle-line.hushed {
+			visibility: hidden;
+		}
+		.panel {
+			gap: 8px;
+			padding-bottom: calc(8px + var(--safe-bottom));
+		}
+		.panel.solo {
+			grid-template-columns: 1fr;
+		}
+		.panel.solo .actions {
+			display: none;
+		}
+		/* The party list takes the wider side here too, so its names show whole. */
+		.panel.listing {
+			grid-template-columns: 3fr 2fr;
+		}
+		.row {
+			font-size: 16px;
+		}
+		.actions {
+			padding: 4px 8px;
+		}
+		.menu {
+			flex-direction: row;
+			align-items: center;
+		}
+		.attacks,
+		:global(.touch) .attacks {
+			flex: 1;
+			min-width: 0;
+			gap: 3px;
+		}
+		.moves {
+			flex-direction: column;
+			justify-content: center;
+			align-self: stretch;
+			gap: 2px;
+			padding: 0 0 0 8px;
+			border-top: 0;
+			border-left: 2px dashed rgba(45, 42, 50, 0.12);
+		}
+		.moves :global(.move) {
+			flex: none;
+		}
+		.puzzle {
+			padding: 5px 12px;
+			gap: 6px;
+		}
+		.soft {
+			font-size: 26px;
+		}
+		.detail {
+			font-size: 16px;
+		}
+		/* The reminder beside Go!, in as many lines as it takes, never on a row of its own. */
+		.footer.choosing {
+			flex-wrap: nowrap;
+		}
+		.footer.choosing .keys {
+			flex: 1 1 0;
+			min-width: 0;
+		}
+		/* Back and Go! side by side in the party list's narrower card. */
+		.pill-button {
+			padding: 0 18px;
+		}
+		.pill-button.go {
+			min-width: 96px;
 		}
 	}
 </style>

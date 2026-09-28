@@ -27,6 +27,7 @@ import {
 	type GridPos,
 	type TileKind
 } from '../src/world/types.js';
+import { turn } from './turn.js';
 
 const PROTOTYPE = hashString('prototype');
 const SEEDS = [PROTOTYPE, 7, 2024];
@@ -159,7 +160,9 @@ describe('the overlay', () => {
 		}
 		// About 0.35 s alone (40 overlays of up to 300 tiles, each built in two orders and read
 		// back); 4.2 s at a load average of 40.
-	}, 30_000);
+		// 1.2 s alone at a load average of 10 and 3.0 s in the whole suite at 29 (2026-09-28), which
+		// scales to 15 s at 150.
+	}, 60_000);
 
 	it('reads text in any order, with repeats, and a "-0" or leading zeros, as the tiles it names', () => {
 		const edits = WorldEdits.decode(['0,-1:ff00', '-0,-1:00', '2,003:10', '0,-1:01']);
@@ -308,7 +311,9 @@ describe('the world as a player left it', () => {
 		}
 		expect(bad.slice(0, 20)).toEqual([]);
 		// About 0.35 s alone (27,648 tiles, each read three ways); 3.8 s at a load average of 40.
-	}, 30_000);
+		// 0.8 s alone at a load average of 10 and 2.6 s in the whole suite at 31 (2026-09-28), which
+		// scales to 12 s at 150.
+	}, 60_000);
 
 	it('is the same world every time for the same seed and edits', () => {
 		const edits = overlayOf(randomTiles(new Rng(5), { x: 0, y: 0 }, 400, 30));
@@ -322,8 +327,9 @@ describe('the world as a player left it', () => {
 // --- clearing a tile --------------------------------------------------------
 
 describe('clearing a tile', () => {
-	it('the axe chops the tree the player faces from beside it, and the pickaxe breaks a rock', () => {
+	it('the axe chops the tree the player faces from beside it, and the pickaxe breaks a rock', async () => {
 		for (const seed of SEEDS) {
+			await turn();
 			for (const [kind, tool] of [
 				['tree', 'axe'],
 				['rock', 'pickaxe']
@@ -353,10 +359,10 @@ describe('clearing a tile', () => {
 				});
 			}
 		}
-		// About 1.7 s alone since deep water (every water tile's kind reads the 5×5 square round
-		// it; 0.9 s before), finding a tree and a rock beside a stand on every seed; over vitest's
-		// 5 s default when other agents' browsers load the machine.
-	}, 30_000);
+		// Finding a tree and a rock beside a stand on every seed (every water tile's kind reads the
+		// 5×5 square round it since deep water): 1.9 s alone at a load average of 10, 6.3 s in the
+		// whole suite at 33, which scales to 29 s at 150; its loop turns before each seed.
+	}, 90_000);
 
 	it('refuses a tile not beside the player, one they do not face, and without the tool it takes', () => {
 		const seed = PROTOTYPE;

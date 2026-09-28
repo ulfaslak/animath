@@ -20,6 +20,7 @@ import {
 	type Whereabouts,
 	type WorldStay
 } from '../src/world/worlds.js';
+import { turn } from './turn.js';
 
 /**
  * Numbered worlds ([[PRODUCT]] §4 "World"): a number is a world, World 1 is
@@ -68,7 +69,7 @@ describe('world numbers', () => {
 		}
 	});
 
-	it('make neighbouring numbers unrelated worlds: no more alike than any two worlds', () => {
+	it('make neighbouring numbers unrelated worlds: no more alike than any two worlds', async () => {
 		function agreement(a: number, b: number): number {
 			let same = 0;
 			for (let y = -24; y < 24; y++)
@@ -82,13 +83,15 @@ describe('world numbers', () => {
 		for (let n = 1; n <= 30; n++) {
 			neighbours.push(agreement(worldSeed(n), worldSeed(n + 1)));
 			strangers.push(agreement(worldSeed(n), worldSeed(((n * 3779) % LAST_WORLD) + 1)));
+			await turn();
 		}
 		const mean = (a: number[]) => a.reduce((s, x) => s + x, 0) / a.length;
 		// About 0.28 each (the chance two tiles of unrelated worlds share a kind); identical is 1.
 		expect(Math.abs(mean(neighbours) - mean(strangers))).toBeLessThan(0.05);
 		expect(Math.max(...neighbours)).toBeLessThan(0.6);
-		// About a second alone; several under load.
-	}, 60_000);
+		// 60 pairs of worlds, 2,304 tiles each: 2.2 s alone at a load average of 10, 13 s in the
+		// whole suite at 30, which scales to 64 s at 150; its loop turns as it goes.
+	}, 240_000);
 });
 
 /** How many tiles can be reached on foot from `from`, counting up to `cap`: this test's own walk. */
@@ -145,7 +148,7 @@ describe('every world is playable from its spawn', () => {
 		expect(first).toEqual({ x: -2, y: 6 });
 	});
 
-	it(`over a large sample of worlds: grass, a doctor at most ${SPAWN_DOCTOR_STEPS} steps away on foot, and never boxed in`, () => {
+	it(`over a large sample of worlds: grass, a doctor at most ${SPAWN_DOCTOR_STEPS} steps away on foot, and never boxed in`, async () => {
 		const bad: string[] = [];
 		const worlds = sample(250);
 		for (const n of worlds) {
@@ -158,12 +161,15 @@ describe('every world is playable from its spawn', () => {
 				for (let dx = -12; dx <= 12 && !grass; dx++)
 					grass = tileAtWorld(seed, spawn.x + dx, spawn.y + dy).kind === 'tallgrass';
 			if (!grass) bad.push(`World ${n}: no tall grass near the spawn`);
+			await turn();
 		}
 		expect(bad).toEqual([]);
-		// Seconds alone; more under load.
-	}, 180_000);
+		// 250 worlds, each spawn searched round and its grass looked for: 5.4 s alone at a load
+		// average of 10, 19 s in the whole suite at 34, which scales to 83 s at 150; its loop
+		// turns after each world.
+	}, 300_000);
 
-	it('the spawn is the nearest such tile to the origin: no grass tile in an earlier ring, or earlier in its ring, will do', () => {
+	it('the spawn is the nearest such tile to the origin: no grass tile in an earlier ring, or earlier in its ring, will do', async () => {
 		const bad: string[] = [];
 		for (const n of sample(12).slice(0, 12)) {
 			const seed = worldSeed(n);
@@ -178,10 +184,14 @@ describe('every world is playable from its spawn', () => {
 							bad.push(`World ${n}: ${x},${y} before ${spawn.x},${spawn.y}`);
 					}
 				}
+				await turn();
 			}
 		}
 		expect(bad).toEqual([]);
-	}, 180_000);
+		// Every tile before the spawn in 12 worlds, each asked whether a kid could start there:
+		// 9.5 s alone at a load average of 10, 19 s in the whole suite at 37, 61 s at about 106
+		// before it turned its loop, and up to ten times its run alone at 150.
+	}, 300_000);
 
 	it('is the same spawn however it is asked, and one that cannot be changed from outside', () => {
 		const a = spawnPoint(worldSeed(77));

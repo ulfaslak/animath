@@ -11,12 +11,14 @@ import { Rng, hashInts } from '../src/rng.js';
 import {
 	MAX_SAVED_NAME_LENGTH,
 	MAX_SAVED_NICKNAME_LENGTH,
+	MAX_SAVE_DEPTH,
 	SAVE_UPGRADES,
 	SAVE_VERSION,
 	STARTER_SPECIES,
 	V1_KEPT,
 	canReplace,
 	isContentId,
+	isNewerSave,
 	newGame,
 	readBattle,
 	readSave,
@@ -106,6 +108,26 @@ function error(input: unknown): string {
 	return checked.ok ? '' : checked.error;
 }
 
+/** `levels` lists, each the only thing in the one around it: `[[[]]]` is 3. */
+function lists(levels: number): unknown {
+	let v: unknown = [];
+	for (let i = 1; i < levels; i++) v = [v];
+	return v;
+}
+
+/** `levels` objects, each under the key "0" of the one around it, as JSON reads `{"0":{"0":{}}}`. */
+function objects(levels: number): unknown {
+	let v: unknown = {};
+	for (let i = 1; i < levels; i++) v = { 0: v };
+	return v;
+}
+
+/** How deep a value nests: a list or an object is 1 more than the deepest thing in it. */
+function depthOf(v: unknown): number {
+	if (typeof v !== 'object' || v === null) return 0;
+	return 1 + Math.max(0, ...Object.values(v).map(depthOf));
+}
+
 describe('validateSave', () => {
 	it('accepts a v2 save with only the fields it needs, and one the client writes', () => {
 		expect(validateSave(v2)).toEqual({ ok: true, value: v2 });
@@ -189,6 +211,17 @@ describe('validateSave', () => {
 		for (const items of ['axe', [7], [''], ['x'.repeat(65)], [null], { axe: true }]) {
 			expect(error({ ...written, items }), JSON.stringify(items)).toMatch(/items/);
 		}
+		// The animal book: lists of ids shaped as species ids are (a species this build lacks is
+		// a newer build's, not a broken save: below).
+		for (const key of ['seen', 'caught']) {
+			for (const list of ['fox', [7], [''], ['Fox'], ['wood mouse'], [null], { fox: true }, null]) {
+				const at = `${key}: ${JSON.stringify(list)}`;
+				expect(error({ ...written, [key]: list }), at).toMatch(new RegExp(`^${key} `));
+			}
+		}
+		expect(error({ ...written, seen: [], caught: [] })).toBe('');
+		// A species listed twice is no harm: it is in the book once.
+		expect(error({ ...written, seen: ['fox', 'fox'], caught: ['fox', 'fox'] })).toBe('');
 	});
 
 	it('checks the worlds left behind: each a world once, where the player stood and faced, and what they cleared', () => {
@@ -238,6 +271,89 @@ describe('validateSave', () => {
 		expect(error({ ...v2, name: 'Ni\u0000ni' })).toMatch(/name/);
 		// A surrogate pair (an emoji) is fine.
 		expect(error({ ...v2, party: [animal(1, { nickname: 'Nut 🐿️' })] })).toBe('');
+	});
+});
+
+describe('how deep a save nests', () => {
+	it(`takes a document ${MAX_SAVE_DEPTH} deep and refuses one deeper, wherever the nesting is`, () => {
+		// Each place holds what it is given `above` deep into the document: an extra field and a
+		// battle a level in, an extra field on an animal three (the document, the party, the animal).
+		const places: [number, string, (inner: unknown) => unknown][] = [
+			[1, 'deep', (inner) => ({ ...written, deep: inner })],
+			[3, 'party[0].deep', (inner) => ({ ...written, party: [animal(1, { deep: inner })] })],
+			[1, 'battle', (inner) => ({ ...written, battle: inner })]
+		];
+		for (const [above, path, place] of places) {
+			for (const nest of [lists, objects]) {
+				const levels = MAX_SAVE_DEPTH - above;
+				expect(depthOf(place(nest(levels)))).toBe(MAX_SAVE_DEPTH);
+				expect(error(place(nest(levels))), path).toBe('');
+				expect(depthOf(place(nest(levels + 1)))).toBe(MAX_SAVE_DEPTH + 1);
+				const refused = error(place(nest(levels + 1)));
+				expect(refused.startsWith(path), refused).toBe(true);
+				expect(refused).toMatch(/^\S+ is nested more than 64 levels deep$/);
+			}
+		}
+	});
+
+	it('reads a document nested hundreds of thousands deep as broken, and never throws', () => {
+		// What a body within the server's 1 MiB can hold: a list is 2 bytes a level, an object 6.
+		const levels = 400_000;
+		const texts = [
+			'['.repeat(levels) + ']'.repeat(levels),
+			'{"0":'.repeat(levels / 4) + '{}' + '}'.repeat(levels / 4)
+		];
+		for (const text of texts) {
+			// As the server gets it, and as the browser keeps it: JSON text, parsed.
+			for (const base of [written, writtenV1]) {
+				const doc: unknown = JSON.parse(`${JSON.stringify(base).slice(0, -1)},"deep":${text}}`);
+				const read = readSave(doc);
+				expect(read).toMatchObject({ ok: false, reason: 'invalid' });
+				expect(read.ok ? '' : read.error).toMatch(/^deep\S* is nested more than 64 levels deep$/);
+				expect(validateSaveWrite(doc)).toMatchObject({ ok: false, reason: 'invalid' });
+				expect(validateSave(doc).ok).toBe(false);
+				expect(isNewerSave(doc)).toBe(false);
+				// Stored on the server, it is a save no build can read: replaced, and kept aside.
+				expect(canReplace(doc, { seq: 4 })).toBe(true);
+				expect(replacesAnotherGame(doc, { lineage: 'game-a' })).toBe(true);
+			}
+		}
+		// 0.8 s alone at a load average of 10 and 3.3 s in the whole suite at 30, which scales to 17 s
+		// at 150.
+	}, 60_000);
+
+	it('reads a later version as newer however deep it nests: a build that saves deeper bumps it', () => {
+		// The version is read before anything walks the document, so the way a later build
+		// saves deeper than this one allows is never mistaken for a broken save.
+		const later = { ...written, version: SAVE_VERSION + 1, deep: lists(100_000) };
+		expect(readSave(later)).toMatchObject({ ok: false, reason: 'newer' });
+		expect(validateSaveWrite(later)).toMatchObject({ ok: false, reason: 'newer' });
+		expect(isNewerSave(later)).toBe(true);
+		expect(canReplace(later, { seq: 99 })).toBe(false);
+	});
+
+	it(`a game's save nests 4 deep at most, well inside ${MAX_SAVE_DEPTH}`, () => {
+		// The deepest things a game saves: a battle's party and its puzzle (mid-puzzle among the
+		// states below), and a world left behind, where the player stood and what they cleared.
+		let deepest = 0;
+		let solving = 0;
+		for (let seed = 1; seed <= SEEDS; seed++) {
+			for (const { state } of battleStates(seed, ['squirrel', 'fox'], 'rabbit')) {
+				if (state.phase.kind === 'solving') solving++;
+				const game: SavedGame = {
+					...newGame(WORLD, undefined, 'Nini'),
+					party: state.party.map((a) => ({ ...a })),
+					battle: state,
+					edits: ['0,0:0a91'],
+					worlds: [{ world: 3, pos: { x: 1, y: -2 }, facing: 'up', edits: ['-1,0:0a91'] }]
+				};
+				const doc = saveDocument(game, { lineage: 'game-a', seq: 1 }, { later: { kept: [1] } });
+				expect(validateSaveWrite(doc).ok).toBe(true);
+				deepest = Math.max(deepest, depthOf(doc));
+			}
+		}
+		expect(solving).toBeGreaterThan(0);
+		expect(deepest).toBe(4);
 	});
 });
 
@@ -328,6 +444,9 @@ describe('readSave and the upgrade seam', () => {
 		for (const later of [
 			{ ...written, party: [animal(1), animal(2, { speciesId: LATER.species })] },
 			{ ...writtenV1, party: [animal(1, { speciesId: LATER.species })] },
+			// The animal book: a species a later build met or caught, helped home since or not.
+			{ ...written, seen: ['squirrel', 'fox', LATER.species], caught: ['squirrel', 'fox'] },
+			{ ...written, seen: ['squirrel', 'fox'], caught: ['squirrel', LATER.species] },
 			inBattle({ realm: LATER.realm }),
 			inBattle({ opponent: { ...state!.opponent, speciesId: LATER.species } }),
 			inBattle({ party: [{ ...state!.party[0]!, speciesId: LATER.species }] }),
@@ -383,6 +502,16 @@ describe('readSave and the upgrade seam', () => {
 			(doc.party as Record<string, unknown>[]).forEach((a) =>
 				places.push(() => (a.speciesId = LATER.species))
 			);
+			if (s % 2 === 0) {
+				// The animal book, as this build writes it: the party's species caught, and some met.
+				const met = Array.from({ length: rng.int(0, 8) }, () => rng.pick(ANIMALS).id);
+				const caught = [...(doc.party as { speciesId: string }[]).map((a) => a.speciesId)];
+				const seen = [...caught, ...met];
+				doc.seen = seen;
+				doc.caught = caught;
+				seen.forEach((_, i) => places.push(() => (seen[i] = LATER.species)));
+				caught.forEach((_, i) => places.push(() => (caught[i] = LATER.species)));
+			}
 			expect(readSave(doc), `${s}`).toMatchObject({ ok: true });
 			if (places.length === 0) continue;
 			rng.pick(places)();
@@ -393,7 +522,8 @@ describe('readSave and the upgrade seam', () => {
 			swapped++;
 		}
 		expect(swapped).toBeGreaterThan(200);
-	});
+		// About 1 s alone (a hundred real battles played for their states, 300 saves read twice).
+	}, 30_000);
 
 	it('has an upgrade from every version before the current one', () => {
 		for (let v = 1; v < SAVE_VERSION; v++) expect(SAVE_UPGRADES[v]).toBeTypeOf('function');
@@ -452,12 +582,31 @@ describe('readSave and the upgrade seam', () => {
 			'tawny-owl',
 			'raccoon',
 			'beaver',
+			// #89 wave 2.
+			'wild-boar',
+			'mute-swan',
+			'eagle-owl',
+			'lynx',
+			'wolverine',
+			'golden-eagle',
+			'white-tailed-eagle',
+			'moose',
+			'european-bison',
 			'crab',
 			'starfish',
 			'turtle',
 			'dolphin',
 			'octopus',
-			'whale'
+			'whale',
+			// #89 wave 3.
+			'moon-jellyfish',
+			'plaice',
+			'lions-mane-jellyfish',
+			'lobster',
+			'harbour-seal',
+			'harbour-porpoise',
+			'grey-seal',
+			'orca'
 		];
 		expect(ANIMALS.map((a) => a.id).filter((id) => !shipped.includes(id))).toEqual([]);
 		for (const speciesId of shipped) {
@@ -522,7 +671,17 @@ function randomV1(rng: Rng, seed: unknown): Record<string, unknown> {
 		doc.edits = [...edits.encode()];
 	}
 	// Extras a newer build could have left, some under the names v2 took.
-	for (const key of ['inventory', 'name', 'home', 'world', 'worlds', 'solved', V1_KEPT]) {
+	for (const key of [
+		'inventory',
+		'name',
+		'home',
+		'world',
+		'worlds',
+		'solved',
+		'seen',
+		'caught',
+		V1_KEPT
+	]) {
 		if (rng.chance(0.15)) doc[key] = rng.pick([7, 'Nini', { deep: [1, 2] }, [3], null]);
 	}
 	return doc;
@@ -652,7 +811,9 @@ describe('the v1 → v2 upgrade', () => {
 		}
 		// About 0.25 s alone (500 random v1 saves, each read, rebuilt and checked as a write);
 		// 3.4 s at a load average of 40.
-	}, 30_000);
+		// 0.55 s alone at a load average of 10 and 2.5 s in the whole suite at 31 (2026-09-28), which
+		// scales to 12 s at 150.
+	}, 60_000);
 
 	it('keeps party, tokens, items, position and cleared tiles: a v1 game plays on in World 1 as it was', () => {
 		const pos = findTile(SEED, true);
@@ -733,6 +894,9 @@ describe('newGame and restoreGame', () => {
 			tokens: 0,
 			items: [],
 			solved: 0,
+			// The animal book holds the starter alone: a starter counts as caught.
+			seen: [STARTER_SPECIES],
+			caught: [STARTER_SPECIES],
 			battle: null,
 			edits: [],
 			worlds: []
@@ -755,6 +919,9 @@ describe('newGame and restoreGame', () => {
 			tokens: 0,
 			items: [],
 			solved: 0,
+			// No book saved: the party's own, every animal in it caught.
+			seen: ['squirrel', 'fox'],
+			caught: ['squirrel', 'fox'],
 			battle: null,
 			edits: [],
 			worlds: []
@@ -779,6 +946,9 @@ describe('newGame and restoreGame', () => {
 			// 'lantern' is an item this build doesn't know: kept, doing nothing.
 			items: ['boat', 'axe', 'lantern'],
 			solved: 312,
+			// A wolf met and run from, a rabbit caught and helped home: both stay in the book.
+			seen: ['rabbit', 'fox', 'wolf', 'bear'],
+			caught: ['rabbit', 'fox', 'bear'],
 			battle: null,
 			edits: [],
 			worlds: [
@@ -1079,6 +1249,149 @@ describe('newGame and restoreGame', () => {
 	});
 });
 
+describe('the animal book in a save', () => {
+	/**
+	 * A kid's account save from before the book, as production holds one: v2,
+	 * World 1, eleven animals of eight kinds (the starter named, a tired one, a
+	 * sea animal, two of wave 1's small animals), tokens, the axe and the boat,
+	 * a name, a world left behind, and no `seen` or `caught` at all.
+	 */
+	const kidsSave = {
+		version: 2,
+		home: FIRST_WORLD,
+		world: FIRST_WORLD,
+		name: 'Aslak',
+		pos: spawnPoint(SEED),
+		facing: 'left',
+		steps: 9120,
+		visits: 44,
+		lineage: 'kid-game',
+		seq: 6310,
+		tokens: 23,
+		items: ['axe', 'boat'],
+		solved: 412,
+		worlds: [{ world: 7, pos: { x: 3, y: -2 }, facing: 'down' }],
+		party: [
+			{ id: 'starter', speciesId: 'squirrel', hp: 20, nickname: 'nini' },
+			{ id: 'f1', speciesId: 'fox', hp: 35 },
+			{ id: 'f2', speciesId: 'fox', hp: 12 },
+			{ id: 'r1', speciesId: 'rabbit', hp: 22 },
+			{ id: 'o1', speciesId: 'otter', hp: 30 },
+			{ id: 'o2', speciesId: 'otter', hp: 0 },
+			{ id: 'd1', speciesId: 'deer', hp: 50 },
+			{ id: 't1', speciesId: 'turtle', hp: 30 },
+			{ id: 'h1', speciesId: 'hedgehog', hp: 26 },
+			{ id: 'h2', speciesId: 'hedgehog', hp: 9 },
+			{ id: 'm1', speciesId: 'wood-mouse', hp: 19 }
+		]
+	};
+	const KINDS = ['squirrel', 'fox', 'rabbit', 'otter', 'deer', 'turtle', 'hedgehog', 'wood-mouse'];
+
+	it('back-fills a save from before the book: every kind in the party caught, and seen', () => {
+		expect(kidsSave.party).toHaveLength(11);
+		const stored = JSON.parse(JSON.stringify(kidsSave));
+		// What the server and the page make of it: readable, and neither broken nor a newer build's.
+		expect(validateSaveWrite(stored).ok).toBe(true);
+		const read = readSave(stored);
+		expect(read.ok).toBe(true);
+		if (!read.ok) return;
+		const game = restoreGame(read.save);
+		expect(game.caught).toEqual(KINDS);
+		expect(game.seen).toEqual(KINDS);
+		// Nothing else changes: the game plays on exactly where it was, with all eleven.
+		expect(game).toMatchObject({
+			world: 1,
+			pos: kidsSave.pos,
+			tokens: 23,
+			solved: 412,
+			name: 'Aslak'
+		});
+		expect(game.party.map((a) => a.id).sort()).toEqual(kidsSave.party.map((a) => a.id).sort());
+		expect(game.worlds).toHaveLength(1);
+		// Its next save writes the book out, and the server takes it over the stored one, as the
+		// same game's next save, kept aside nowhere because nothing is lost: every field is as it was.
+		const doc = saveDocument(game, { lineage: 'kid-game', seq: 6311 }, saveExtras(read.save));
+		expect(doc).toMatchObject({ seen: KINDS, caught: KINDS });
+		expect(validateSaveWrite(JSON.parse(JSON.stringify(doc))).ok).toBe(true);
+		expect(canReplace(stored, doc)).toBe(true);
+		expect(replacesAnotherGame(stored, doc)).toBe(false);
+		// Field for field the stored save, `seq` one on, and the book's two lists added.
+		const wrote = doc as unknown as Record<string, unknown>;
+		for (const key of Object.keys(stored).filter((k) => k !== 'seq')) {
+			expect(wrote[key], key).toEqual(stored[key]);
+		}
+		expect(Object.keys(wrote).filter((k) => !(k in stored))).toEqual(['seen', 'caught']);
+		const again = readSave(JSON.parse(JSON.stringify(doc)));
+		expect(again.ok && restoreGame(again.save)).toEqual(game);
+		// And it holds the same progress as the save it came from, both ways: only the book was
+		// written out, so another tab still on the old save carries on from it, and it from them.
+		expect(sameProgress(read.save, doc)).toBe(true);
+		expect(sameProgress(doc, read.save)).toBe(true);
+	});
+
+	it('a saved battle proves its wild animal was met, even one that cannot be picked up again', () => {
+		const [{ state }] = battleStates(3, ['squirrel', 'fox'], 'rabbit');
+		const doc = { ...written, pos: findTile(SEED7, true), party: state!.party, battle: state };
+		const inBattle = restoreGame(readSave(JSON.parse(JSON.stringify(doc))).save as SaveV2);
+		expect(inBattle.battle).not.toBeNull();
+		expect(inBattle.seen).toEqual(['squirrel', 'fox', 'rabbit']);
+		expect(inBattle.caught).toEqual(['squirrel', 'fox']);
+		// Standing somewhere else now, the battle is dropped, as if the kid had run away: the
+		// rabbit was met all the same.
+		const moved = restoreGame({ ...doc, pos: findTile(SEED7, false) } as unknown as SaveV2);
+		expect(moved.battle).toBeNull();
+		expect(moved.seen).toContain('rabbit');
+		expect(moved.caught).not.toContain('rabbit');
+	});
+
+	it('keeps what the book says: a kind helped home stays caught, one met and run from stays seen', () => {
+		const pos = findTile(SEED7, true);
+		const game = restoreGame({
+			...written,
+			pos,
+			seen: ['bear', 'squirrel', 'fox', 'wolf', 'rabbit'],
+			caught: ['rabbit', 'squirrel', 'fox']
+		} as SaveV2);
+		// The rabbit went home with the doctor long ago; the bear and the wolf were run from.
+		expect(game.party.map((a) => a.speciesId)).toEqual(['squirrel', 'fox']);
+		expect(game.seen).toEqual(['bear', 'squirrel', 'fox', 'wolf', 'rabbit']);
+		expect(game.caught).toEqual(['rabbit', 'squirrel', 'fox']);
+	});
+
+	it('mends a book a hand, or an older build playing on, left short: the party caught, every catch seen, each once', () => {
+		const pos = findTile(SEED7, true);
+		// An older build caught the fox and kept the lists as they were; a hand listed the rabbit
+		// twice and caught a bear it never saw.
+		const game = restoreGame({
+			...written,
+			pos,
+			seen: ['rabbit', 'rabbit'],
+			caught: ['bear', 'rabbit', 'bear']
+		} as SaveV2);
+		expect(game.seen).toEqual(['rabbit', 'bear', 'squirrel', 'fox']);
+		expect(game.caught).toEqual(['bear', 'rabbit', 'squirrel', 'fox']);
+	});
+
+	it('gives the starter a party got back to the book too: every animal a kid has is caught', () => {
+		const pos = findTile(SEED7, true);
+		const game = restoreGame({ ...written, pos, party: [], seen: ['wolf'], caught: [] } as SaveV2);
+		expect(game.party.map((a) => a.speciesId)).toEqual([STARTER_SPECIES]);
+		expect(game.seen).toEqual(['wolf', STARTER_SPECIES]);
+		expect(game.caught).toEqual([STARTER_SPECIES]);
+	});
+
+	it('is written in every save, the lists never shared with the game', () => {
+		const game = newGame(WORLD, { id: 'a', speciesId: 'frog', hp: 20 });
+		const doc = saveDocument(game, { lineage: 'L', seq: 1 });
+		expect(doc).toMatchObject({ seen: ['frog'], caught: ['frog'] });
+		doc.seen!.push('bear');
+		expect(game.seen).toEqual(['frog']);
+		const restored = restoreGame({ ...doc, seen: ['frog'] });
+		restored.caught.push('wolf');
+		expect(doc.caught).toEqual(['frog']);
+	});
+});
+
 describe("the player's name in a save", () => {
 	it('comes back as saved, and is written only once there is one', () => {
 		const pos = findTile(SEED7, true);
@@ -1299,6 +1612,19 @@ describe('readBattle', () => {
 		// Mid-puzzle, and waiting to replace a knocked-out animal, both come back.
 		expect(solving).toBeGreaterThan(0);
 		expect(replacing).toBeGreaterThan(0);
+	});
+
+	it('drops a battle nested deeper than a save can hold one, and never throws on one', () => {
+		const [{ state }] = battleStates(3, ['squirrel', 'fox'], 'rabbit');
+		// An extra field on the animal in front, with the party beside the battle holding it too.
+		// In a save the battle is a level in, its party two and the animal three.
+		const nested = (levels: number) => {
+			const party = state!.party.map((a, i) => (i === 0 ? { ...a, deep: lists(levels) } : a));
+			return [{ ...JSON.parse(JSON.stringify(state)), party }, party] as const;
+		};
+		expect(readBattle(...nested(MAX_SAVE_DEPTH - 4))).not.toBeNull();
+		expect(readBattle(...nested(200_000))).toBeNull();
+		expect(readBattle(...nested(MAX_SAVE_DEPTH - 3))).toBeNull();
 	});
 
 	it('drops a battle that does not fit the party or the rules', () => {
@@ -1537,7 +1863,17 @@ describe('which save wins', () => {
 		expect(sameProgress(written as SaveV2, { ...moved, edits: [], worlds: [] } as SaveV2)).toBe(
 			true
 		);
+		// One from before the animal book holds the book its party proves: the same as that book
+		// written out, in whichever order, both ways, so a tab that loaded it can carry on from a
+		// tab that walked and wrote the book.
+		const book = { seen: ['fox', 'squirrel'], caught: ['squirrel', 'fox'] };
+		expect(sameProgress(written as SaveV2, { ...moved, ...book } as SaveV2)).toBe(true);
+		expect(sameProgress({ ...moved, ...book } as SaveV2, written as SaveV2)).toBe(true);
 		for (const changed of [
+			// A new animal met, or caught, is something done: the book is progress.
+			{ ...written, seen: ['squirrel', 'fox', 'wolf'] },
+			{ ...written, caught: ['squirrel', 'fox', 'wolf'] },
+			{ ...written, seen: ['squirrel', 'fox', 'wolf'], caught: ['squirrel', 'fox', 'wolf'] },
 			{ ...written, party: [animal(1, { nickname: 'Nutkin', hp: 3 }), written.party[1]] },
 			{ ...written, party: [...written.party].reverse() },
 			{ ...written, party: [...written.party, animal(3)] },

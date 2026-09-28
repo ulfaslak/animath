@@ -6,12 +6,16 @@ import { touch } from '../src/input/touch.svelte';
 import { motion } from '../src/motion';
 import {
 	BattleScene,
+	battlePanelHeight,
 	LEASH_FLIGHT_SECONDS,
 	SEA_WATERLINE,
-	WILD_STATUS_BOX
+	SHORT_SCREEN,
+	WILD_STATUS_BOX,
+	WILD_STATUS_BOX_SHORT
 } from '../src/render/battle-scene';
 import { SWIM_DEPTH } from '../src/render/follower';
 import { svelteSources } from './source';
+import { turn } from './turn';
 
 /**
  * The leash's loop stays in the picture and in plain view ([[DESIGN]] §
@@ -34,8 +38,11 @@ const NO_INSET = { top: 0, right: 0, bottom: 0, left: 0 };
  * The supported sizes (a laptop, a tablet with a keyboard and without), and a
  * wide monitor; and tablets whose screen takes a safe area's insets: the home
  * indicator under the page (an iPad in Safari), and a notch at each side as
- * well (an iPhone's, sideways). Nothing draws over the page's top edge in
- * landscape, so no size has a top inset.
+ * well (an iPhone's, sideways). Then phones held sideways, short screens
+ * (`SHORT_SCREEN`) with the compact status box: an iPhone with its notch and
+ * home indicator, an Android phone (touch, and with a keyboard) and a small
+ * iPhone. Nothing draws over the page's top edge in landscape, so no size has
+ * a top inset.
  */
 const SIZES = [
 	{ width: 1024, height: 768, touch: false, inset: NO_INSET },
@@ -44,7 +51,11 @@ const SIZES = [
 	{ width: 1024, height: 768, touch: true, inset: NO_INSET },
 	{ width: 2560, height: 1080, touch: false, inset: NO_INSET },
 	{ width: 1024, height: 768, touch: true, inset: { top: 0, right: 0, bottom: 20, left: 0 } },
-	{ width: 1180, height: 820, touch: true, inset: { top: 0, right: 59, bottom: 21, left: 59 } }
+	{ width: 1180, height: 820, touch: true, inset: { top: 0, right: 59, bottom: 21, left: 59 } },
+	{ width: 844, height: 390, touch: true, inset: { top: 0, right: 59, bottom: 21, left: 59 } },
+	{ width: 740, height: 360, touch: true, inset: NO_INSET },
+	{ width: 740, height: 360, touch: false, inset: NO_INSET },
+	{ width: 667, height: 375, touch: true, inset: NO_INSET }
 ] as const;
 /** The loop never comes nearer the top edge or the status box than this, in CSS pixels: it never touches them. */
 const CLEAR = 8;
@@ -63,16 +74,29 @@ interface Box {
  * a screen with no safe-area insets (`inside` moves it in by them): where
  * `BattlePanel.svelte`'s CSS puts it and how wide, read from the component,
  * and 74 px tall, as Chrome draws `StatusBox`'s name and chunky HP bar at
- * every supported size, in both languages (no rule sets its height).
+ * every supported size, in both languages (no rule sets its height). On a
+ * short screen, where the rules of its `(max-height: 560px)` query move it
+ * and narrow it, 60 px tall, as Chrome draws it at 844×390, 740×360 and
+ * 667×375, in both languages.
  */
-const STATUS_BOX: Box = (() => {
-	const source = svelteSources.get('src/ui/BattlePanel.svelte');
-	const rules = (parse(source ?? '', { modern: true }).css?.children ?? []).filter(
-		(node): node is AST.CSS.Rule => node.type === 'Rule'
+const [STATUS_BOX, STATUS_BOX_SHORT]: Box[] = (() => {
+	const source = svelteSources.get('src/ui/BattlePanel.svelte') ?? '';
+	const children = parse(source, { modern: true }).css?.children ?? [];
+	type Node = AST.CSS.Rule | AST.CSS.Atrule | AST.CSS.Declaration;
+	const rulesOf = (nodes: readonly Node[]) =>
+		nodes.filter((node): node is AST.CSS.Rule => node.type === 'Rule');
+	const tall = rulesOf(children);
+	const short = rulesOf(
+		children
+			.filter(
+				(node): node is AST.CSS.Atrule =>
+					node.type === 'Atrule' && node.name === 'media' && node.prelude === '(max-height: 560px)'
+			)
+			.flatMap((media) => media.block?.children ?? [])
 	);
 	// `280px`, or `calc(16px + var(--safe-left))`: 16 px in from the safe area's edge.
-	const px = (selector: string, property: string) => {
-		const rule = rules.find((r) => source!.slice(r.prelude.start, r.prelude.end) === selector);
+	const px = (rules: AST.CSS.Rule[], selector: string, property: string) => {
+		const rule = rules.find((r) => source.slice(r.prelude.start, r.prelude.end) === selector);
 		const value = rule?.block.children.find(
 			(d): d is AST.CSS.Declaration => d.type === 'Declaration' && d.property === property
 		)?.value;
@@ -80,9 +104,13 @@ const STATUS_BOX: Box = (() => {
 		if (!found) throw new Error(`${selector} has no ${property} in px`);
 		return Number.parseFloat(found[1]!);
 	};
-	const left = px('.status.opponent', 'left');
-	const top = px('.status.opponent', 'top');
-	return { left, top, right: left + px('.status', 'width'), bottom: top + 74 };
+	const left = px(tall, '.status.opponent', 'left');
+	const top = px(tall, '.status.opponent', 'top');
+	const shortTop = px(short, '.status.opponent', 'top');
+	return [
+		{ left, top, right: left + px(tall, '.status', 'width'), bottom: top + 74 },
+		{ left, top: shortTop, right: left + px(short, '.status', 'width'), bottom: shortTop + 60 }
+	];
 })();
 
 afterEach(() => {
@@ -114,17 +142,37 @@ function onCanvas(v: THREE.Vector3, size: (typeof SIZES)[number]): Point {
 	return { x: ((p.x + 1) / 2) * size.width, y: ((1 - p.y) / 2) * size.height };
 }
 
-/** Every point of the loop on the canvas. */
-function loopOnCanvas(loop: THREE.Mesh, size: (typeof SIZES)[number]): Point[] {
+/** A point's way onto the canvas: see `loopOnCanvas`. */
+const toCanvas = new THREE.Matrix4();
+const point = new THREE.Vector3();
+
+/**
+ * How near every point of the loop comes to the canvas's top edge and to
+ * `box`, in CSS pixels. Each point goes through three's projection as
+ * `Vector3.project` does it, the camera's view and then its lens, with the
+ * loop's own place folded into the same product: one product a point, not
+ * three and a copy.
+ */
+function loopOnCanvas(
+	loop: THREE.Mesh,
+	size: (typeof SIZES)[number],
+	box: Box
+): { top: number; box: number } {
 	scene.camera.updateMatrixWorld();
 	loop.updateMatrixWorld(true);
+	toCanvas
+		.multiplyMatrices(scene.camera.projectionMatrix, scene.camera.matrixWorldInverse)
+		.multiply(loop.matrixWorld);
 	const points = loop.geometry.getAttribute('position');
-	return Array.from({ length: points.count }, (_, i) =>
-		onCanvas(
-			new THREE.Vector3().fromBufferAttribute(points, i).applyMatrix4(loop.matrixWorld),
-			size
-		)
-	);
+	let top = Infinity;
+	let near = Infinity;
+	for (let i = 0; i < points.count; i++) {
+		point.fromBufferAttribute(points, i).applyMatrix4(toCanvas);
+		const p = { x: ((point.x + 1) / 2) * size.width, y: ((1 - point.y) / 2) * size.height };
+		top = Math.min(top, p.y);
+		near = Math.min(near, gap(p, box));
+	}
+	return { top, box: near };
 }
 
 /** The box as laid out from the safe area's top left: moved in by the insets. */
@@ -193,13 +241,21 @@ interface Throw {
 /**
  * Throw the leash at `species` a frame at a time, as the battle does: the
  * flight, then (as `ending` says) the loop holding while the animal cheers,
- * or popping off.
+ * or popping off; or, `ending` null, the flight alone, which is all the arc
+ * is measured on.
  */
-function throwAt(size: (typeof SIZES)[number], species: string, ending: 'caught' | 'broke'): Throw {
+function throwAt(
+	size: (typeof SIZES)[number],
+	species: string,
+	ending: 'caught' | 'broke' | null
+): Throw {
 	touch.on = size.touch;
 	Object.assign(inset, size.inset);
 	scene.resize(size.width, size.height);
-	const statusBox = inside(STATUS_BOX, size.inset);
+	const statusBox = inside(
+		size.height <= SHORT_SCREEN ? STATUS_BOX_SHORT! : STATUS_BOX!,
+		size.inset
+	);
 	// Where it is met: a sea animal out at sea, sunk in the water, facing one that swims.
 	const atSea = !getAnimal(species).realms.includes('land');
 	scene.begin(atSea ? 'sea' : 'meadow', atSea ? 'otter' : 'squirrel', species);
@@ -219,15 +275,16 @@ function throwAt(size: (typeof SIZES)[number], species: string, ending: 'caught'
 		ropeWhen: '',
 		arc: 0
 	};
-	const look = (moment: string) => {
+	/** Looks at the leash as it is now: false once it has gone, which it never comes back from. */
+	const look = (moment: string): boolean => {
 		const leash = leashOf(scene);
-		if (!leash) return;
+		if (!leash) return false;
+		if (moment === 'flying') flight.push(leash.loop.position.clone());
+		if (!ending) return true;
 		const when = `${moment} at ${t.toFixed(2)} s`;
-		const loop = loopOnCanvas(leash.loop, size);
-		const top = Math.min(...loop.map((p) => p.y));
-		if (top < seen.top) [seen.top, seen.topWhen] = [top, when];
-		const box = Math.min(...loop.map((p) => gap(p, statusBox)));
-		if (box < seen.box) [seen.box, seen.boxWhen] = [box, when];
+		const loop = loopOnCanvas(leash.loop, size, statusBox);
+		if (loop.top < seen.top) [seen.top, seen.topWhen] = [loop.top, when];
+		if (loop.box < seen.box) [seen.box, seen.boxWhen] = [loop.box, when];
 		// The rope runs straight from the hand to the loop's middle.
 		const rope = lineGap(
 			onCanvas(leash.rope.position, size),
@@ -235,17 +292,20 @@ function throwAt(size: (typeof SIZES)[number], species: string, ending: 'caught'
 			statusBox
 		);
 		if (rope < seen.rope) [seen.rope, seen.ropeWhen] = [rope, when];
-		if (moment === 'flying') flight.push(leash.loop.position.clone());
+		return true;
 	};
 	for (; t < LEASH_FLIGHT_SECONDS + 0.1;) {
 		scene.update((t += FRAME));
 		look('flying');
 	}
-	scene.leashResult(ending === 'caught');
-	// A second: the pop is over in 0.3 s, the cheer's two hops in 0.9 s.
-	for (let i = 0; i < 60; i++) {
-		scene.update((t += FRAME));
-		look(ending === 'caught' ? 'riding the cheer' : 'popping off');
+	if (ending) {
+		scene.leashResult(ending === 'caught');
+		// A second: the pop is over in 0.3 s, the cheer's two hops in 0.9 s. A loop that
+		// has popped off is gone, and nothing after it needs a look.
+		for (let i = 0; i < 60; i++) {
+			scene.update((t += FRAME));
+			if (!look(ending === 'caught' ? 'riding the cheer' : 'popping off')) break;
+		}
 	}
 	// The straight throw runs from where the loop left the hand to where it landed; x moves along it evenly.
 	const landed = flight[flight.length - 1]!;
@@ -257,100 +317,178 @@ function throwAt(size: (typeof SIZES)[number], species: string, ending: 'caught'
 	return seen;
 }
 
-/** Every throw, thrown once for all the tests that read it. */
-let thrown: { where: string; seen: Throw }[] | null = null;
+/** A size as a failure names it. */
+function sizeName(size: (typeof SIZES)[number]): string {
+	const { top, right, bottom, left } = size.inset;
+	const insets = size.inset === NO_INSET ? '' : `, insets ${top} ${right} ${bottom} ${left}`;
+	return `${size.width}×${size.height}${size.touch ? ' (touch)' : ''}${insets}`;
+}
+
+interface Thrown {
+	species: string;
+	reduced: boolean;
+	/** Whether the throw was looked at on the canvas, or flown for its arc alone. */
+	looked: boolean;
+	seen: Throw;
+}
+
+/** Every throw at a size, thrown once for the three tests that read it. */
+const thrownAt = new Map<number, Promise<Thrown[]>>();
 
 /**
- * What `check` finds wrong with every throw: at every size, for every
- * species, ending both ways, and with reduced motion for a third of the
- * species at each size, taken in turn so each is thrown so at two or three
- * sizes. The lower throw of reduced motion is never the tight one: with the
- * 32 animals of #89 its loop kept 66 px or more from the top edge, 53 from
- * the status box and 40 from the rope's crossing, where the full throw came
- * within 10, 13 and 1; throwing it for every species too doubled the sweep.
+ * Every throw at the `s`th size: at every species, ending both ways, looked
+ * at every frame; and with reduced motion, looked at ending both ways for a
+ * third of the species, taken in turn so each is so thrown at two or three
+ * sizes, and flown for its arc alone for the rest. The lower throw of reduced
+ * motion is never the tight one: with the 32 animals of #89 its loop kept
+ * 66 px or more from the top edge, 53 from the status box and 40 from the
+ * rope's crossing, where the full throw came within 10, 13 and 1; looking at
+ * it for every species too doubled the sweep. The worker's loop turns after
+ * each species, so it reads vitest's replies however long a loaded machine
+ * takes over a size (`turn`).
  */
-function everyThrow(check: (seen: Throw) => string | null): string[] {
-	if (!thrown) {
-		thrown = [];
-		for (const reduced of [false, true]) {
+function throwsAt(s: number): Promise<Thrown[]> {
+	let thrown = thrownAt.get(s);
+	if (!thrown) thrownAt.set(s, (thrown = throwAll(s)));
+	return thrown;
+}
+
+async function throwAll(s: number): Promise<Thrown[]> {
+	const thrown: Thrown[] = [];
+	const size = SIZES[s]!;
+	for (const reduced of [false, true]) {
+		for (const [i, { id }] of ANIMALS.entries()) {
+			const looked = !reduced || (i + s) % 3 === 0;
+			const endings = looked ? (['caught', 'broke'] as const) : [null];
 			motion.reduced = reduced;
-			for (const [s, size] of SIZES.entries()) {
-				for (const [i, { id }] of ANIMALS.entries()) {
-					if (reduced && (i + s) % 3 !== 0) continue;
-					for (const ending of ['caught', 'broke'] as const) {
-						const { top, right, bottom, left } = size.inset;
-						const insets =
-							size.inset === NO_INSET ? '' : `, insets ${top} ${right} ${bottom} ${left}`;
-						const where = `${id} at ${size.width}×${size.height}${size.touch ? ' (touch)' : ''}${insets}${reduced ? ', reduced motion' : ''}`;
-						thrown.push({ where, seen: throwAt(size, id, ending) });
-					}
-				}
-			}
+			for (const ending of endings)
+				thrown.push({ species: id, reduced, looked, seen: throwAt(size, id, ending) });
+			await turn();
 		}
-		motion.reduced = false;
-		touch.on = false;
-		Object.assign(inset, NO_INSET);
 	}
-	const bad = thrown.flatMap(({ where, seen }) => {
-		const wrong = check(seen);
-		return wrong ? [`${where}: ${wrong}`] : [];
+	motion.reduced = false;
+	touch.on = false;
+	Object.assign(inset, NO_INSET);
+	return thrown;
+}
+
+/** What `check` finds wrong with every throw looked at, at the `s`th size. */
+async function everyThrow(s: number, check: (seen: Throw) => string | null): Promise<string[]> {
+	const bad = (await throwsAt(s)).flatMap(({ species, reduced, looked, seen }) => {
+		const wrong = looked ? check(seen) : null;
+		return wrong ? [`${species}${reduced ? ', reduced motion' : ''}: ${wrong}`] : [];
 	});
 	// Both endings share the flight: one line for a flight that fails in both.
 	return [...new Set(bad)];
 }
 
 describe('the leash', () => {
-	it('keeps its loop in the picture at every size, for every species, with and without reduced motion', () => {
-		const bad = everyThrow(({ top, topWhen }) =>
-			top < CLEAR ? `${top.toFixed(1)} px from the top edge, ${topWhen}` : null
-		);
-		expect(bad).toEqual([]);
-		// About 6.6 s alone at a load average of 20 with the 392 throws of 14 animals (every
-		// point of the loop projected on each of their frames, against the top edge and the
-		// status box; the tests after it reuse them), 17 s at a load average of 54; about 600
-		// throws with the 32 animals of #89 (`everyThrow`).
-	}, 60_000);
-
 	it('knows where the wild animal’s status box is: its copy of the box covers the CSS’s', () => {
-		expect(WILD_STATUS_BOX.right).toBe(STATUS_BOX.right);
-		expect(WILD_STATUS_BOX.bottom).toBeGreaterThanOrEqual(STATUS_BOX.bottom);
+		expect(WILD_STATUS_BOX.right).toBe(STATUS_BOX!.right);
+		expect(WILD_STATUS_BOX.bottom).toBeGreaterThanOrEqual(STATUS_BOX!.bottom);
+		expect(WILD_STATUS_BOX_SHORT.right).toBe(STATUS_BOX_SHORT!.right);
+		expect(WILD_STATUS_BOX_SHORT.bottom).toBeGreaterThanOrEqual(STATUS_BOX_SHORT!.bottom);
 	});
 
-	it('never goes behind the wild animal’s status box: its loop keeps clear, and its rope never crosses it', () => {
-		const bad = everyThrow(({ box, boxWhen, rope, ropeWhen }) =>
-			box < CLEAR
-				? `the loop ${box > 0 ? `${box.toFixed(1)} px from` : 'behind'} the status box, ${boxWhen}`
-				: rope <= 0
-					? `the rope crosses the status box, ${ropeWhen}`
-					: null
+	// One size at a time, so that no test holds its worker for the whole sweep.
+	for (const [s, size] of SIZES.entries()) {
+		describe(`at ${sizeName(size)}`, () => {
+			it('keeps its loop in the picture for every species, with and without reduced motion', async () => {
+				const bad = await everyThrow(s, ({ top, topWhen }) =>
+					top < CLEAR ? `${top.toFixed(1)} px from the top edge, ${topWhen}` : null
+				);
+				expect(bad).toEqual([]);
+				// Every species ending both ways, and with reduced motion looked at for a third of
+				// them and flown for the rest, a frame at a time (about 135 throws with #89's 41
+				// animals, 27 of them flights alone): 1.4 to 2.0 s alone at a load average of 12 to
+				// 23, 1.7 to 7.8 s in the whole suite at 43 to 58, which scales to 20 s at 150. The
+				// whole sweep in one test took 67 s in the whole suite at 165 with 32 animals.
+			}, 90_000);
+
+			it('never goes behind the wild animal’s status box: its loop keeps clear, and its rope never crosses it', async () => {
+				const bad = await everyThrow(s, ({ box, boxWhen, rope, ropeWhen }) =>
+					box < CLEAR
+						? `the loop ${box > 0 ? `${box.toFixed(1)} px from` : 'behind'} the status box, ${boxWhen}`
+						: rope <= 0
+							? `the rope crosses the status box, ${ropeWhen}`
+							: null
+				);
+				expect(bad).toEqual([]);
+				// Reads the throws of the test above; run alone, it throws them itself, and takes as long.
+			}, 90_000);
+
+			it('still arcs, and arcs lower with reduced motion', async () => {
+				const thrown = await throwsAt(s);
+				const bad: string[] = [];
+				for (const { id } of ANIMALS) {
+					// Every throw's arc: both endings fly the same flight.
+					const arcs = (reduced: boolean) =>
+						thrown.filter((x) => x.species === id && x.reduced === reduced).map((x) => x.seen.arc);
+					const full = Math.min(...arcs(false));
+					const calm = Math.max(...arcs(true));
+					// A fifth of a tile at least: the loop visibly lobs, however little sky there is.
+					if (full < 0.2) bad.push(`${id}: arcs ${full.toFixed(2)} tiles`);
+					if (!(Math.min(...arcs(true)) > 0 && calm < full * 0.5)) {
+						bad.push(
+							`${id}: arcs ${calm.toFixed(2)} tiles with reduced motion, ${full.toFixed(2)} without`
+						);
+					}
+				}
+				expect(bad).toEqual([]);
+				// Reads the throws of the tests above; run alone, it throws them itself.
+			}, 90_000);
+		});
+	}
+});
+
+/**
+ * A phone held sideways is one line for the whole battle screen: the scene
+ * frames itself and throws the leash by `SHORT_SCREEN` and
+ * `battlePanelHeight`, the overlay lays itself out by its `max-height`
+ * queries and `--battle-panel`, and a piece on the other side of a
+ * different line would sit where the scene does not expect it.
+ */
+describe('a short screen', () => {
+	const styles = Object.values(
+		import.meta.glob('../src/styles.css', { query: '?raw', import: 'default', eager: true })
+	)[0] as string;
+	const PIECES = [
+		'src/ui/BattlePanel.svelte',
+		'src/ui/StatusBox.svelte',
+		'src/ui/AttackTile.svelte',
+		'src/ui/MoveButton.svelte',
+		'src/ui/ActionPreview.svelte',
+		'src/ui/HitBurst.svelte',
+		'src/ui/MatchNotes.svelte'
+	];
+
+	it('is SHORT_SCREEN in every short-screen query of the battle’s pieces and styles', () => {
+		const lines = [
+			...PIECES.map((file) => [file, svelteSources.get(file) ?? ''] as const),
+			['src/styles.css', styles] as const
+		].map(([file, text]) => ({
+			file,
+			heights: [...text.matchAll(/@media \(max-height: (\d+)px\)/g)].map((m) => Number(m[1]))
+		}));
+		const bad = lines.filter(
+			({ heights }) => heights.length === 0 || heights.some((h) => h !== SHORT_SCREEN)
 		);
 		expect(bad).toEqual([]);
-		// Reads the throws of the test above; run alone, it throws them itself, and takes as long.
-	}, 30_000);
+	});
 
-	it('still arcs, and arcs lower with reduced motion', () => {
-		const bad: string[] = [];
-		for (const size of SIZES) {
-			for (const { id } of ANIMALS) {
-				motion.reduced = false;
-				const full = throwAt(size, id, 'broke').arc;
-				motion.reduced = true;
-				const calm = throwAt(size, id, 'broke').arc;
-				const { top, right, bottom, left } = size.inset;
-				const insets = size.inset === NO_INSET ? '' : `, insets ${top} ${right} ${bottom} ${left}`;
-				const where = `${id} at ${size.width}×${size.height}${size.touch ? ' (touch)' : ''}${insets}`;
-				// A fifth of a tile at least: the loop visibly lobs, however little sky there is.
-				if (full < 0.2) bad.push(`${where}: arcs ${full.toFixed(2)} tiles`);
-				if (!(calm > 0 && calm < full * 0.5)) {
-					bad.push(
-						`${where}: arcs ${calm.toFixed(2)} tiles with reduced motion, ${full.toFixed(2)} without`
-					);
-				}
-			}
+	it('gives the panel the height the scene frames itself round, touch or not', () => {
+		const found =
+			/@media \(max-height: \d+px\)\s*\{[^}]*--battle-panel: calc\((\d+)px \+ var\(--safe-bottom\)\)/.exec(
+				styles
+			);
+		const short = Number(found?.[1]);
+		expect(short).toBeGreaterThan(0);
+		for (const touchControls of [true, false]) {
+			expect(battlePanelHeight(SHORT_SCREEN, touchControls, 0)).toBe(short);
+			expect(battlePanelHeight(SHORT_SCREEN, touchControls, 21)).toBe(short + 21);
+			expect(battlePanelHeight(SHORT_SCREEN + 1, touchControls, 0)).toBe(touchControls ? 364 : 260);
 		}
-		expect(bad).toEqual([]);
-		// About 1.4 s alone; 6.6 s at a load average of 54.
-	}, 30_000);
+	});
 });
 
 describe('out at sea', () => {

@@ -72,21 +72,63 @@ describe('figures', () => {
 		expect(bySize[0]!.tier, `${bySize[0]!.id} is the smallest on land`).toBe(1);
 		expect(bySize.at(-1)!.tier, `${bySize.at(-1)!.id} is the biggest on land`).toBe(5);
 		// Inside a tier, size follows nature: the shrew, the stag beetle and the robin are
-		// smaller than the squirrel.
+		// smaller than the squirrel; the sea eagle is bigger than the golden eagle, and the
+		// eagle-owl than the tawny owl, a tier below it (#89).
 		const squirrel = volumes.get('squirrel')!;
 		for (const id of ['shrew', 'stag-beetle', 'robin']) {
 			expect(volumes.get(id)!, `${id} vs squirrel`).toBeLessThan(squirrel);
 		}
+		expect(volumes.get('white-tailed-eagle')!).toBeGreaterThan(volumes.get('golden-eagle')!);
+		expect(volumes.get('eagle-owl')!).toBeGreaterThan(volumes.get('tawny-owl')!);
 		expect(volumes.get('bear')! / squirrel).toBeGreaterThan(5);
+		// The moose stands tallest on land, over the bear and the red deer's antlers.
+		const height = (id: string) => bounds(buildAnimalMesh(id)).getSize(new THREE.Vector3()).y;
+		for (const { id } of onLand)
+			if (id !== 'moose') expect(height(id), `${id} vs moose`).toBeLessThan(height('moose'));
 		const whale = volumes.get('whale')!;
 		for (const { id } of atSea)
 			if (id !== 'whale') expect(volumes.get(id)!, id).toBeLessThan(whale);
+		// At sea too (#89's third wave): the orca is smaller than the humpback, the grey seal
+		// bigger than the harbour seal, the porpoise smaller than the dolphin, and the lion's
+		// mane's bell bigger than the moon jellyfish's.
+		for (const [big, small] of [
+			['grey-seal', 'harbour-seal'],
+			['dolphin', 'harbour-porpoise'],
+			['lions-mane-jellyfish', 'moon-jellyfish']
+		] as const)
+			expect(volumes.get(big)!, `${big} vs ${small}`).toBeGreaterThan(volumes.get(small)!);
 		for (const big of ANIMALS)
 			for (const small of ANIMALS)
 				if (big.tier >= small.tier + 2)
 					expect(volumes.get(big.id)!, `${big.id} vs ${small.id}`).toBeGreaterThan(
 						volumes.get(small.id)!
 					);
+	});
+
+	it("hangs every bird's wings from a pair of shoulder joints, wingL and wingR, and no other animal's (#91)", () => {
+		const birds = [
+			'robin',
+			'grey-heron',
+			'tawny-owl',
+			'mute-swan',
+			'eagle-owl',
+			'golden-eagle',
+			'white-tailed-eagle'
+		];
+		for (const id of birds) {
+			const figure = buildAnimalMesh(id);
+			const left = figure.getObjectByName('wingL');
+			const right = figure.getObjectByName('wingR');
+			expect(left && right, id).toBeTruthy();
+			expect(left!.position.x, id).toBeLessThan(0);
+			expect(left!.position.x, id).toBeCloseTo(-right!.position.x, 9);
+			expect(left!.position.y, id).toBeCloseTo(right!.position.y, 9);
+			expect(left!.children.length, id).toBeGreaterThan(0);
+			expect(right!.children.length, id).toBe(left!.children.length);
+		}
+		for (const { id } of ANIMALS)
+			if (!birds.includes(id))
+				expect(buildAnimalMesh(id).getObjectByName('wingL'), id).toBeUndefined();
 	});
 
 	it('refuses a species that is not in the catalog', () => {

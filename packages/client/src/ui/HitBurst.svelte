@@ -108,4 +108,23 @@
 			animation-name: burst-still;
 		}
 	}
+	/*
+	 * A short screen (a phone held sideways): a size smaller, as the status
+	 * boxes it pops beside are, so a hard hit's burst stays on the screen and
+	 * off the panel, and still plainly bigger at each level.
+	 */
+	@media (max-height: 560px) {
+		.l1 {
+			--size: 48px;
+			--text: 18px;
+		}
+		.l2 {
+			--size: 56px;
+			--text: 21px;
+		}
+		.l3 {
+			--size: 64px;
+			--text: 24px;
+		}
+	}
 </style>

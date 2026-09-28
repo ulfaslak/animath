@@ -25,8 +25,10 @@ afterAll(() => pool.end());
 
 // A welcome and a login each hash a password with scrypt at its real cost:
 // about 150 ms at a load average of 14 (2026-09-27), several times that under
-// other worktrees' browsers. The race below hashes eight at once.
-vi.setConfig({ testTimeout: 30_000 });
+// other worktrees' browsers. The race below hashes eight at once. Up to 1.1 s
+// alone at a load average of 12 to 30 and 2.2 s in the whole suite at 28
+// (2026-09-28), and up to ten times its run alone at 150.
+vi.setConfig({ testTimeout: 60_000 });
 
 const ROOMY = { limit: 100_000, windowMs: 60_000, maxKeys: 100_000 };
 const NO_LIMITS: AccountLimits = {
@@ -193,6 +195,29 @@ describe('import-save', () => {
 		expect(await userOf(name)).toBeUndefined();
 	});
 
+	it('refuses a save nested deeper than a save can be, however deep, says why, and makes nothing', async () => {
+		const name = freshName();
+		const save = JSON.stringify(doc(name));
+		// Lists, and objects under the key "0" (V8's `JSON.stringify` throws on those), as text.
+		const levels = 100_000;
+		const deeps = [
+			'['.repeat(levels) + ']'.repeat(levels),
+			'{"0":'.repeat(levels) + '{}' + '}'.repeat(levels)
+		];
+		for (const deep of deeps) {
+			const text = `${save.slice(0, -1)},"deep":${deep}}`;
+			const refused = await importSave(text, { origin: 'https://game.test' }).then(
+				() => null,
+				(error: unknown) => error
+			);
+			expect(refused).toBeInstanceOf(AdminError);
+			expect((refused as Error).message).toMatch(
+				/^This is not a save the game can play: deep\S* is nested more than 64 levels deep\.$/
+			);
+		}
+		expect(await userOf(name)).toBeUndefined();
+	});
+
 	it('refuses a taken name, says how to pick another, and says when it is an earlier import still waiting', async () => {
 		const { name } = await imported();
 		const again = importSave(JSON.stringify(doc(name.toUpperCase())), { origin: 'https://g.test' });
@@ -291,6 +316,28 @@ describe('the welcome link', () => {
 			password: 'abcd'
 		});
 		expect(malformed.status).toBe(400);
+	});
+
+	it('a body nested as deep as its 4 KiB allows is a 400, or a 404 for no link, never a 500', async () => {
+		// Nothing walks the body: only its token and password are read.
+		const deep = '['.repeat(1900) + ']'.repeat(1900);
+		const post = (body: string) =>
+			app.request('/api/account/welcome', {
+				method: 'POST',
+				headers: { 'content-type': 'application/json' },
+				body
+			});
+		for (const body of [
+			`{"token":${deep},"password":"blåbær"}`,
+			`{"token":"${'A'.repeat(43)}","password":${deep}}`
+		]) {
+			const res = await post(body);
+			expect(res.status).toBe(400);
+			expect(await res.json()).toEqual({ error: 'send the link and a password' });
+		}
+		const noLink = await post(`{"token":"${'A'.repeat(43)}","password":"blåbær","deep":${deep}}`);
+		expect(noLink.status).toBe(404);
+		expect(await noLink.json()).toEqual({ error: 'no such link' });
 	});
 
 	it('of eight uses racing each other, exactly one logs in', async () => {

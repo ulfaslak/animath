@@ -373,12 +373,12 @@ describe('LocalAuthority: encounters', () => {
 });
 
 describe('LocalAuthority: the lead decides who comes out', () => {
-	it('with the starter in front, the reed meets a Brown rat on step 11, a Frog on step 15, the first Otter on step 53 and the first Toad on step 71', () => {
+	it('with the starter in front, the reed meets a Brown rat on step 11, a Frog on step 15, the first Toad on step 71 and the first Otter on step 117', () => {
 		const met = reedWalk(session(), 200);
 		expect(met[0]).toEqual({ step: 11, wild: 'brown-rat', lead: 'squirrel' });
 		expect(met[1]).toEqual({ step: 15, wild: 'frog', lead: 'squirrel' });
-		expect(met.find((m) => m.wild === 'otter')?.step).toBe(53);
 		expect(met.find((m) => m.wild === 'common-toad')?.step).toBe(71);
+		expect(met.find((m) => m.wild === 'otter')?.step).toBe(117);
 		// Only what a tier-1 lead meets in the reeds: the river's own small and tier-2 animals,
 		// and the small ones that come down to the water.
 		const river = encounterTable('river', 0, 1).map((e) => e.species.id);
@@ -386,7 +386,7 @@ describe('LocalAuthority: the lead decides who comes out', () => {
 		expect(met.map((m) => m.wild)).toContain('wood-mouse');
 	});
 
-	it("the first animal that is not tired leads: with a fox in front the reed has the river's tier-2 animals and now and then a small one, on the same steps", () => {
+	it('the first animal that is not tired leads: with a fox in front the reed has tier-2 animals, now and then a small one and a mute swan, on the same steps', () => {
 		const starter = reedWalk(session(), 200);
 		for (const party of [
 			[animal('fox'), animal('squirrel')],
@@ -396,13 +396,37 @@ describe('LocalAuthority: the lead decides who comes out', () => {
 			giveParty(s, party);
 			const met = reedWalk(s, 200);
 			expect(met.map((m) => m.step)).toEqual(starter.map((m) => m.step));
-			// The river's small animals are one tier below a fox: 3 challengers in 43 there.
+			// The river's small animals are one tier below a fox: e^−1/2 of the four bells of its
+			// tier there, the river's own four animals and, since bigger animals live at the river
+			// (#89), the seven that come down to the water. 13% of the reed's battles.
 			const small = ['frog', 'brown-rat', 'common-toad'];
-			expect(met.filter((m) => small.includes(m.wild)).map((m) => m.step)).toEqual([53, 107, 117]);
-			const bigger = ['otter', 'grey-heron', 'raccoon', 'beaver'];
-			expect(met.filter((m) => !small.includes(m.wild)).every((m) => bigger.includes(m.wild))).toBe(
-				true
+			expect(met.filter((m) => small.includes(m.wild)).map((m) => m.step)).toEqual([
+				15, 53, 107, 117
+			]);
+			// The rest are its own size, but for one mute swan, a tier up (1/9 of a bell near home).
+			// Of its size, the river's own four come out four times as often each as one of the
+			// seven that come down to the water: no visitor weighs more than a resident (#136), so
+			// the eleven share the tier's four bells, and by the water the ground favours the river's.
+			const others = met.filter((m) => !small.includes(m.wild));
+			expect(others.filter((m) => getAnimal(m.wild).tier !== 2)).toEqual([
+				{ step: 97, wild: 'mute-swan', lead: 'fox' }
+			]);
+			expect(new Set(others.map((m) => m.wild))).toEqual(
+				new Set([
+					'adder',
+					'otter',
+					'raccoon',
+					'mute-swan',
+					'roe-deer',
+					'fox',
+					'grey-heron',
+					'stoat'
+				])
 			);
+			const residents = ['otter', 'grey-heron', 'raccoon', 'beaver'];
+			expect(others.filter((m) => residents.includes(m.wild)).map((m) => m.step)).toEqual([
+				69, 71, 131, 163
+			]);
 			expect(new Set(met.map((m) => m.lead))).toEqual(new Set(['fox']));
 		}
 		// Behind a standing squirrel, a fox changes nothing.
@@ -419,15 +443,25 @@ describe('LocalAuthority: the lead decides who comes out', () => {
 		const met = reedWalk(s, 60);
 		expect(met.length).toBeGreaterThan(0);
 		expect(met.map((m) => m.step)).toEqual(starter.map((m) => m.step));
-		expect(new Set(met.map((m) => m.wild))).toEqual(new Set(['grey-heron', 'otter', 'brown-rat']));
+		expect(new Set(met.map((m) => m.wild))).toEqual(new Set(['adder', 'brown-rat', 'common-toad']));
 		expect(new Set(met.map((m) => m.lead))).toEqual(new Set(['fox']));
 	});
 
-	it('with a bear in front, nothing at the river is big enough to come out', () => {
+	it("with a bear in front, the reed meets the river's moose, its sea eagles and now and then a mute swan, on the same steps", () => {
+		const starter = reedWalk(session(), 400);
 		for (const party of [[animal('bear')], [animal('squirrel', 0), animal('bear')]]) {
 			const s = session();
 			giveParty(s, party);
-			expect(reedWalk(s, 400)).toEqual([]);
+			const met = reedWalk(s, 400);
+			expect(met.map((m) => m.step)).toEqual(starter.map((m) => m.step));
+			// The moose is a bear's size at the river (#89), 57% of the reed's battles; the sea
+			// eagle a tier below weighs e^−1/2 (35%), the mute swan two below e^−2 (8%), and the
+			// tier-2 and small animals, three and four tiers down, 1 battle in 150 between them.
+			expect(met.filter((m) => m.wild === 'mute-swan').map((m) => m.step)).toEqual([147, 345, 395]);
+			expect(new Set(met.map((m) => m.wild))).toEqual(
+				new Set(['moose', 'white-tailed-eagle', 'mute-swan'])
+			);
+			expect(new Set(met.map((m) => m.lead))).toEqual(new Set(['bear']));
 		}
 	});
 });
@@ -1392,7 +1426,8 @@ describe('LocalAuthority: the boat', () => {
 			}
 			expect(tileAtWorld(WORLD_SEED, position(s).x, position(s).y).kind).toBe('deepwater');
 		}
-		// About one step in ten, and every one a sea animal (near home, turtles mostly).
+		// About one step in ten, and every one a sea animal (near home, mostly the otter's size:
+		// turtles, lion's manes and lobsters).
 		expect(met.length).toBeGreaterThan(15);
 		expect(met.length).toBeLessThan(50);
 		for (const id of met) expect(getAnimal(id).realms, id).toEqual(['water']);
@@ -1404,7 +1439,7 @@ describe('LocalAuthority: the boat', () => {
 		expect(dry.events.some((e) => e.type === 'battle-started')).toBe(false);
 	});
 
-	it('the sea recipe: a game at (-2, 2) with the otter in front meets a Turtle on step 11, Left and Right in turn', () => {
+	it('the sea recipe: a game at (-2, 2) with the otter in front meets a Moon jellyfish on step 11, Left and Right in turn', () => {
 		// [[CHEATSHEET]] § The sea animals and [[DEVELOPMENT]] § Looking at the game say so: change them
 		// with it. A game saved on the deep water with no steps walked yet: the steps are what the roll reads.
 		const authority = new LocalAuthority();
@@ -1427,7 +1462,8 @@ describe('LocalAuthority: the boat', () => {
 				if (e.type === 'battle-started') met.push({ step, wild: e.state.opponent.speciesId });
 			}
 		}
-		expect(met).toEqual([{ step: 11, wild: 'turtle' }]);
+		// A tier below the otter since #89's third wave, one of the four small sea animals.
+		expect(met).toEqual([{ step: 11, wild: 'moon-jellyfish' }]);
 	});
 
 	it('out on the water only an animal that swims goes first; the refusal names the one that can’t', () => {
@@ -2334,6 +2370,127 @@ describe('LocalAuthority: puzzles solved', () => {
 		title.subscribe((e) => said.push(e));
 		title.countMatchAnswers(events, 'a');
 		expect(said).toEqual([]);
+	});
+});
+
+describe('LocalAuthority: the animal book', () => {
+	/** Every book the authority said, in order. */
+	function books(s: Session): { seen: string[]; caught: string[] }[] {
+		return s.events.flatMap((e) =>
+			e.type === 'book-changed' ? [{ seen: e.seen, caught: e.caught }] : []
+		);
+	}
+
+	function resumed(game: SavedGame): Session {
+		const s: Session = { authority: new LocalAuthority(), events: [] };
+		s.authority.subscribe((e) => s.events.push(e));
+		s.authority.start({ game });
+		return s;
+	}
+
+	function throughSave(game: SavedGame): SavedGame {
+		const read = readSave(JSON.parse(JSON.stringify(saveDocument(game, { lineage: 'b', seq: 1 }))));
+		if (!read.ok) throw new Error(read.error);
+		return restoreGame(read.save);
+	}
+
+	it("a new game's book holds its starter alone, caught; a ?party= game's, its party's kinds", () => {
+		expect(welcome(session())).toMatchObject({ seen: ['squirrel'], caught: ['squirrel'] });
+		const s = session(withParty('fox,bear*2,fox,crab'));
+		expect(welcome(s)).toMatchObject({
+			seen: ['fox', 'bear', 'crab'],
+			caught: ['fox', 'bear', 'crab']
+		});
+		expect(s.authority.snapshot()).toMatchObject({
+			seen: ['fox', 'bear', 'crab'],
+			caught: ['fox', 'bear', 'crab']
+		});
+		// A starter picked on the title, too: a starter counts as caught.
+		const title = new LocalAuthority({ homeWorld: () => 7 });
+		const said: GameEvent[] = [];
+		title.subscribe((e) => said.push(e));
+		title.dispatch({ type: 'new-game', speciesId: 'frog' });
+		expect(said[0]).toMatchObject({ type: 'welcome', seen: ['frog'], caught: ['frog'] });
+	});
+
+	it('a wild animal is met the moment its battle starts, said once for each new kind, and stays met after running away', () => {
+		const s = session();
+		const met = reedWalk(s, 80);
+		const kinds: string[] = ['squirrel'];
+		for (const { wild } of met) if (!kinds.includes(wild)) kinds.push(wild);
+		expect(kinds.length).toBeGreaterThan(2);
+		// Every battle was run from: every kind met, none caught but the starter.
+		expect(s.authority.snapshot()).toMatchObject({ seen: kinds, caught: ['squirrel'] });
+		// Said once for each new kind, right after its battle started, and never for one met before.
+		const said = s.events.flatMap((e, i) => (e.type === 'book-changed' ? [i] : []));
+		expect(said).toHaveLength(kinds.length - 1);
+		for (const i of said) expect(s.events[i - 1]!.type).toBe('battle-started');
+		expect(books(s).map((b) => b.seen.at(-1))).toEqual(kinds.slice(1));
+		expect(books(s).at(-1)).toEqual({ seen: kinds, caught: ['squirrel'] });
+	});
+
+	it('a leash throw that lands catches it, said right after the throw, before the battle ends', () => {
+		// A saved battle against a shrew with 1 HP left, a bear in front: the save proves the shrew met.
+		const bear = animal('bear');
+		const s = resumed({
+			...newGame(1, bear),
+			battle: startBattle([bear], { id: 'w', speciesId: 'shrew', hp: 1 })
+		});
+		expect(welcome(s)).toMatchObject({ seen: ['bear', 'shrew'], caught: ['bear'] });
+		let throws = 0;
+		while (latestBattle(s).phase.kind !== 'ended' && throws < 20) {
+			const from = s.events.length;
+			s.authority.dispatch({ type: 'battle', intent: { type: 'throw-leash' } });
+			throws++;
+			const fresh = s.events.slice(from);
+			const update = fresh[0]!;
+			if (update.type !== 'battle-updated') throw new Error(`a throw said ${update.type}`);
+			const landed = update.events.some((e) => e.type === 'leash-thrown' && e.success);
+			const book = fresh.findIndex((e) => e.type === 'book-changed');
+			if (!landed) {
+				expect(book).toBe(-1);
+				continue;
+			}
+			// Right after the throw, before the battle ends and the shrew joins the team.
+			expect(fresh.map((e) => e.type).slice(0, 3)).toEqual([
+				'battle-updated',
+				'book-changed',
+				'battle-ended'
+			]);
+			expect(fresh[book]).toEqual({
+				type: 'book-changed',
+				seen: ['bear', 'shrew'],
+				caught: ['bear', 'shrew']
+			});
+		}
+		expect(latestBattle(s).phase).toEqual({ kind: 'ended', outcome: 'caught' });
+		expect(s.authority.snapshot()).toMatchObject({
+			seen: ['bear', 'shrew'],
+			caught: ['bear', 'shrew']
+		});
+	});
+
+	it('an animal helped home by the doctor stays caught, in every world and through a save', () => {
+		const s = session({ party: hurtParty(), tokens: 20 });
+		expect(welcome(s).caught).toEqual(['squirrel', 'rabbit', 'fox']);
+		walkToTent(s);
+		s.authority.dispatch({ type: 'interact' });
+		// The squirrel goes home, the last of its kind.
+		doctorIntent(s, { type: 'hand-over', ids: ['a'] });
+		answerDoctor(s, true);
+		doctorIntent(s, { type: 'leave' });
+		expect(party(s).map((a) => a.speciesId)).toEqual(['rabbit', 'fox']);
+		expect(books(s)).toEqual([]);
+		const game = s.authority.snapshot();
+		expect(game).toMatchObject({
+			seen: ['squirrel', 'rabbit', 'fox'],
+			caught: ['squirrel', 'rabbit', 'fox']
+		});
+		// Another world, and a reload: the book goes along, as it was.
+		s.authority.dispatch({ type: 'travel', world: 42 });
+		expect(s.authority.snapshot()).toMatchObject({ world: 42, caught: game.caught });
+		const again = resumed(throughSave(s.authority.snapshot()));
+		expect(welcome(again)).toMatchObject({ seen: game.seen, caught: game.caught });
 	});
 });
 

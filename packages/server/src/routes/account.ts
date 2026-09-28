@@ -216,15 +216,17 @@ export function accountRoute({ cookie, limits, ready }: AccountRouteOptions) {
 			let save: SaveWrite | null = null;
 			const guestSave = (body as Record<string, unknown>).save;
 			if (guestSave !== undefined && guestSave !== null) {
-				// The body limit leaves room for the name and password; the save
-				// itself gets the same cap as a PUT.
-				if (Buffer.byteLength(JSON.stringify(guestSave), 'utf8') > SAVE_MAX_BYTES) {
-					return c.json({ error: `save is bigger than ${SAVE_MAX_BYTES} bytes` }, 413);
-				}
+				// Checked before anything else walks it: the check refuses a document nested
+				// past `MAX_SAVE_DEPTH`, which `JSON.stringify` can throw on.
 				const checked = validateSaveWrite(guestSave);
 				if (!checked.ok) {
 					if (checked.reason === 'newer') return c.json({ error: SAVE_FROM_NEWER_BUILD }, 503);
 					return c.json({ error: 'bad save', detail: checked.error }, 400);
+				}
+				// The body limit leaves room for the name and password; the save
+				// itself gets the same cap as a PUT.
+				if (Buffer.byteLength(JSON.stringify(guestSave), 'utf8') > SAVE_MAX_BYTES) {
+					return c.json({ error: `save is bigger than ${SAVE_MAX_BYTES} bytes` }, 413);
 				}
 				save = checked.value;
 			}

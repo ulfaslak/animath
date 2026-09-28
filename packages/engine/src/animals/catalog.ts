@@ -378,16 +378,153 @@ export const ANIMALS: readonly AnimalSpec[] = [
 			{ id: 'tree-gnaw', kinds: ['mul', 'missing'], power: 9 }
 		]
 	},
+	// The big animals of the Nordic countryside (#89 wave 2), by tier and then as
+	// the issue lists them, inside #89's bands (tier 3: 46–56 HP, catch 0.45–0.5,
+	// two attacks of power 8–13; tier 4: 66–72, 0.3–0.35, three of 10–19; tier 5:
+	// 105–110, 0.2, three or four of 12–27, which the bear stays outside of as it
+	// was). The mute swan swims, as the toad and the beaver do.
+	{
+		id: 'wild-boar',
+		tier: 3,
+		maxHp: 56,
+		catchRate: 0.45,
+		habitats: ['forest'],
+		realms: ['land'],
+		favours: 'trees',
+		attacks: [
+			{ id: 'snout-dig', kinds: ['mul'], power: 8 },
+			{ id: 'tusk-charge', kinds: ['div', 'mul'], power: 13 }
+		]
+	},
+	{
+		id: 'mute-swan',
+		tier: 3,
+		maxHp: 48,
+		catchRate: 0.5,
+		habitats: ['river'],
+		realms: ['land', 'water'],
+		favours: 'water',
+		attacks: [
+			{ id: 'big-hiss', kinds: ['mul'], power: 8 },
+			{ id: 'wing-beat', kinds: ['div', 'mul'], power: 12 }
+		]
+	},
+	{
+		id: 'eagle-owl',
+		tier: 3,
+		maxHp: 46,
+		catchRate: 0.5,
+		habitats: ['mountain', 'forest'],
+		realms: ['land'],
+		favours: 'rocks',
+		attacks: [
+			{ id: 'orange-eyes', kinds: ['sequence', 'mul'], power: 9 },
+			{ id: 'night-strike', kinds: ['div', 'sqrt'], power: 13 }
+		]
+	},
+	{
+		id: 'lynx',
+		tier: 4,
+		maxHp: 66,
+		catchRate: 0.35,
+		habitats: ['forest', 'mountain'],
+		realms: ['land'],
+		favours: 'trees',
+		attacks: [
+			{ id: 'stalk', kinds: ['mul'], power: 11 },
+			{ id: 'snow-paws', kinds: ['sequence'], power: 15 },
+			{ id: 'great-pounce', kinds: ['div', 'sqrt'], power: 19 }
+		]
+	},
+	{
+		id: 'wolverine',
+		tier: 4,
+		maxHp: 72,
+		catchRate: 0.3,
+		habitats: ['mountain'],
+		realms: ['land'],
+		favours: 'rocks',
+		attacks: [
+			{ id: 'growl', kinds: ['mul'], power: 10 },
+			{ id: 'snow-dig', kinds: ['sequence'], power: 14 },
+			{ id: 'never-give-up', kinds: ['div', 'sqrt'], power: 18 }
+		]
+	},
+	{
+		id: 'golden-eagle',
+		tier: 4,
+		maxHp: 66,
+		catchRate: 0.35,
+		habitats: ['mountain'],
+		realms: ['land'],
+		favours: 'rocks',
+		attacks: [
+			{ id: 'soar', kinds: ['mul'], power: 10 },
+			{ id: 'sky-dive', kinds: ['sequence', 'mul'], power: 15 },
+			{ id: 'golden-talons', kinds: ['div', 'sqrt'], power: 19 }
+		]
+	},
+	{
+		// The sea eagle to a kid (havørn): its id is the species' full name.
+		id: 'white-tailed-eagle',
+		tier: 4,
+		maxHp: 68,
+		catchRate: 0.35,
+		habitats: ['river'],
+		realms: ['land'],
+		favours: 'water',
+		attacks: [
+			{ id: 'glide', kinds: ['mul'], power: 10 },
+			{ id: 'fish-grab', kinds: ['sequence'], power: 14 },
+			{ id: 'huge-wings', kinds: ['div', 'sqrt'], power: 18 }
+		]
+	},
+	{
+		id: 'moose',
+		tier: 5,
+		maxHp: 110,
+		catchRate: 0.2,
+		habitats: ['forest', 'river'],
+		realms: ['land'],
+		favours: 'water',
+		attacks: [
+			{ id: 'munch', kinds: ['mul'], power: 12 },
+			{ id: 'lake-dip', kinds: ['sequence'], power: 17 },
+			{ id: 'antler-shove', kinds: ['div', 'sqrt'], power: 24 }
+		]
+	},
+	{
+		// In the forest, where it lives in nature (Białowieża), not the meadow: the
+		// meadow has no tier-4 animal, so a tier-5 one there would be much of what a
+		// tier-4 lead meets in it (#89).
+		id: 'european-bison',
+		tier: 5,
+		maxHp: 105,
+		catchRate: 0.2,
+		habitats: ['forest'],
+		realms: ['land'],
+		favours: 'open',
+		attacks: [
+			{ id: 'stamp', kinds: ['mul'], power: 12 },
+			{ id: 'dust-bath', kinds: ['sequence'], power: 16 },
+			{ id: 'head-butt', kinds: ['div', 'sqrt'], power: 22 },
+			{ id: 'stampede', kinds: ['sqrt', 'sequence'], power: 27 }
+		]
+	},
 	// The sea animals: they live out on the deep water, in the sea biome, and
 	// only there (realm water), so a kid meets them only from the boat, with
-	// an animal that swims. One tier each from 1 to 5, as on land, each the
-	// twin in numbers of the land animal of its tier (HP, catch rate, and its
-	// attacks' number and powers: the crab the rabbit's, the starfish the
-	// frog's, the turtle the otter's, the dolphin the deer's, the octopus the
-	// wolf's, the whale the bear's), so a battle at sea is exactly as hard as
-	// one on land of its size; only what the puzzles ask is their own. The two
-	// small ones ask sums and number patterns, never a times-table sum (a
-	// pattern may double, as the rabbit's and the frog's do).
+	// an animal that swims. One or more of each tier from 1 to 5, as on land,
+	// each the twin in numbers of a named land animal of its tier (HP, catch
+	// rate, and its attacks' number and powers: the crab the rabbit's, the
+	// starfish the frog's, the moon jellyfish the wood mouse's, the plaice the
+	// mole's, the turtle the otter's, the lion's mane the adder's, the lobster
+	// the badger's, the dolphin the red deer's, the harbour seal the wild
+	// boar's, the porpoise the mute swan's, the octopus the wolf's, the grey
+	// seal the wolverine's, the whale the bear's and the orca the European
+	// bison's), so a battle at sea is exactly as hard as one on land of its
+	// size; only what the puzzles ask is their own. The small ones ask sums
+	// and number patterns, never a times-table sum (a pattern may double, as
+	// the rabbit's and the frog's do).
 	{
 		id: 'crab',
 		tier: 1,
@@ -469,6 +606,121 @@ export const ANIMALS: readonly AnimalSpec[] = [
 			{ id: 'whale-song', kinds: ['sequence'], power: 16 },
 			{ id: 'spout', kinds: ['div', 'sqrt'], power: 22 },
 			{ id: 'big-wave', kinds: ['sqrt', 'sequence'], power: 28 }
+		]
+	},
+	// #89's third wave: the sea of the Nordic countryside, after the whale.
+	{
+		id: 'moon-jellyfish',
+		tier: 1,
+		maxHp: 19,
+		catchRate: 0.9,
+		habitats: ['sea'],
+		realms: ['water'],
+		favours: 'water',
+		attacks: [
+			{ id: 'drift', kinds: ['add'], power: 4 },
+			{ id: 'pulse', kinds: ['sequence'], power: 6 },
+			{ id: 'wobble', kinds: ['add', 'sub'], power: 8 }
+		]
+	},
+	{
+		id: 'plaice',
+		tier: 1,
+		maxHp: 22,
+		catchRate: 0.85,
+		habitats: ['sea'],
+		realms: ['water'],
+		favours: 'water',
+		attacks: [
+			{ id: 'sand-hide', kinds: ['add', 'sub'], power: 4 },
+			{ id: 'flat-flip', kinds: ['add', 'sequence'], power: 8 }
+		]
+	},
+	{
+		// The lion's mane to a kid (brandmand): its id is the species' full name.
+		id: 'lions-mane-jellyfish',
+		tier: 2,
+		maxHp: 30,
+		catchRate: 0.65,
+		habitats: ['sea'],
+		realms: ['water'],
+		favours: 'water',
+		attacks: [
+			{ id: 'long-strands', kinds: ['sub', 'missing'], power: 6 },
+			{ id: 'sting', kinds: ['sequence'], power: 8 },
+			{ id: 'fire-mane', kinds: ['mul'], power: 11 }
+		]
+	},
+	{
+		id: 'lobster',
+		tier: 2,
+		maxHp: 35,
+		catchRate: 0.6,
+		habitats: ['sea'],
+		realms: ['water'],
+		favours: 'water',
+		attacks: [
+			{ id: 'feeler-tap', kinds: ['add', 'sub'], power: 6 },
+			{ id: 'crusher-claw', kinds: ['mul'], power: 9 },
+			{ id: 'tail-flip', kinds: ['missing', 'sequence'], power: 11 }
+		]
+	},
+	{
+		// Water only, like every sea animal: seals haul out on sandbanks in nature, but an
+		// amphibious animal living only in the sea is a kind the rules don't have (#89).
+		id: 'harbour-seal',
+		tier: 3,
+		maxHp: 56,
+		catchRate: 0.45,
+		habitats: ['sea'],
+		realms: ['water'],
+		favours: 'water',
+		attacks: [
+			{ id: 'whiskers', kinds: ['mul'], power: 8 },
+			{ id: 'belly-flop', kinds: ['div', 'mul'], power: 13 }
+		]
+	},
+	{
+		// The porpoise to a kid (marsvin).
+		id: 'harbour-porpoise',
+		tier: 3,
+		maxHp: 48,
+		catchRate: 0.5,
+		habitats: ['sea'],
+		realms: ['water'],
+		favours: 'water',
+		attacks: [
+			{ id: 'echo', kinds: ['mul', 'sequence'], power: 8 },
+			{ id: 'puff-and-dive', kinds: ['div', 'mul'], power: 12 }
+		]
+	},
+	{
+		id: 'grey-seal',
+		tier: 4,
+		maxHp: 72,
+		catchRate: 0.3,
+		habitats: ['sea'],
+		realms: ['water'],
+		favours: 'water',
+		attacks: [
+			{ id: 'seal-song', kinds: ['mul'], power: 10 },
+			{ id: 'rock-flop', kinds: ['sequence'], power: 14 },
+			{ id: 'big-bite', kinds: ['div', 'sqrt'], power: 18 }
+		]
+	},
+	{
+		id: 'orca',
+		tier: 5,
+		maxHp: 105,
+		catchRate: 0.2,
+		habitats: ['sea'],
+		realms: ['water'],
+		favours: 'water',
+		attacks: [
+			{ id: 'whistle', kinds: ['mul'], power: 12 },
+			{ id: 'pod-hunt', kinds: ['sequence'], power: 16 },
+			{ id: 'tail-slap', kinds: ['div', 'sqrt'], power: 22 },
+			{ id: 'wave-wash', kinds: ['sqrt', 'sequence'], power: 27 }
 		]
 	}
 ];

@@ -14,6 +14,7 @@ import {
 	type PlayerModel,
 	type Policy
 } from './battle-sim.js';
+import { turn } from './turn.js';
 
 /**
  * Balance: species × species battles with a scripted player, party of one, who
@@ -28,9 +29,10 @@ const SEEDS = 200;
 /** More seeds where a test compares a win rate with a target band. */
 const TARGET_SEEDS = 1000;
 /**
- * Sampling slack on a target band. A mean over the same-tier pairs (288 since
- * #89) at 1000 seeds each has a standard error well under half a point, so 2
- * points is over four standard errors: the band, not the dice, decides the test.
+ * Sampling slack on a target band. A mean over the same-tier pairs (391 since
+ * #89's third wave) at 1000 seeds each has a standard error well under half a
+ * point, so 2 points is over four standard errors: the band, not the dice,
+ * decides the test.
  */
 const SLACK = 0.02;
 const PRINT = Boolean(process.env.SIM);
@@ -46,7 +48,8 @@ const tier = (id: string) => getAnimal(id).tier;
 /**
  * Every (player, wild) pair that can meet: the two "never hurts" checks walk
  * them all, so a balance change that breaks either anywhere in the catalog
- * fails ([[DEVELOPMENT]] § Testing ideology). Over 700 pairs since #89.
+ * fails ([[DEVELOPMENT]] § Testing ideology). 1,561 pairs since #89's third
+ * wave.
  */
 const MEETING_PAIRS: readonly (readonly [string, string])[] = ids.flatMap((p) =>
 	ids.flatMap((w) => (arena(p, w) !== null ? [[p, w] as const] : []))
@@ -61,25 +64,27 @@ function pairs(gap: number): Array<[string, string]> {
 	);
 }
 
-const cache = new Map<string, Outcome>();
+/**
+ * The battles played so far, for each pair and player: how many of the first
+ * n seeds were won, and their rounds, at index n. Seeds count up from 0, so a
+ * run of 200 is the start of a run of 1,000, and a check at 200 seeds reads
+ * the first 200 of a pair already played at 1,000.
+ */
+const played = new Map<string, { wins: number[]; rounds: number[] }>();
 function simulate(playerId: string, wildId: string, model: PlayerModel, seeds = SEEDS): Outcome {
-	const key = `${playerId}>${wildId}|${model.policy}|${model.level}|${model.accuracy}|${seeds}`;
-	const hit = cache.get(key);
-	if (hit) return hit;
-	let wins = 0;
-	let rounds = 0;
+	const key = `${playerId}>${wildId}|${model.policy}|${model.level}|${model.accuracy}`;
+	let so = played.get(key);
+	if (!so) played.set(key, (so = { wins: [0], rounds: [0] }));
 	const realm = arena(playerId, wildId);
 	if (realm === null) throw new Error(`${playerId} and ${wildId} never meet`);
-	for (let seed = 0; seed < seeds; seed++) {
+	for (let seed = so.wins.length - 1; seed < seeds; seed++) {
 		const party = makeParty([playerId]);
 		const { state } = playBattle(seed, party, makeWild(wildId), model, undefined, 2000, realm);
 		if (state.phase.kind !== 'ended') throw new Error('battle did not end');
-		if (state.phase.outcome === 'won') wins++;
-		rounds += state.turn;
+		so.wins.push(so.wins[seed]! + (state.phase.outcome === 'won' ? 1 : 0));
+		so.rounds.push(so.rounds[seed]! + state.turn);
 	}
-	const out = { win: wins / seeds, rounds: rounds / seeds };
-	cache.set(key, out);
-	return out;
+	return { win: so.wins[seeds]! / seeds, rounds: so.rounds[seeds]! / seeds };
 }
 
 /** The kid the targets are about: the easiest puzzle, the weakest attack at level 1. */
@@ -90,6 +95,16 @@ const hardest = (accuracy: number): PlayerModel => ({ accuracy, policy: 'max', l
 const mean = (xs: number[]) => xs.reduce((a, b) => a + b, 0) / xs.length;
 const winRates = (gap: number, model: PlayerModel, seeds = TARGET_SEEDS) =>
 	pairs(gap).map(([p, w]) => ({ p, w, win: simulate(p, w, model, seeds).win }));
+
+/** `winRates`, turning the worker's event loop every ten pairs, for the tests' long sweeps. */
+async function winRatesTurning(gap: number, model: PlayerModel, seeds = TARGET_SEEDS) {
+	const rates: { p: string; w: string; win: number }[] = [];
+	for (const [i, [p, w]] of pairs(gap).entries()) {
+		if (i % 10 === 0) await turn();
+		rates.push({ p, w, win: simulate(p, w, model, seeds).win });
+	}
+	return rates;
+}
 
 const pct = (x: number) => `${Math.round(x * 100)}%`;
 
@@ -202,7 +217,7 @@ describe('balance simulation', () => {
 		}, 120_000);
 	}
 
-	it("a squirrel almost never beats a bear, even when it's always right, nor a crab a whale", () => {
+	it("a squirrel almost never beats a bear, even when it's always right, nor a crab a whale, nor any small animal a tier-5 one", () => {
 		const small = ids.filter((id) => tier(id) === 1);
 		expect(small).toEqual([
 			'squirrel',
@@ -218,20 +233,34 @@ describe('balance simulation', () => {
 			'robin',
 			'stag-beetle',
 			'crab',
-			'starfish'
+			'starfish',
+			'moon-jellyfish',
+			'plaice'
 		]);
-		// Every small animal of the land meets the bear; at sea, the whale meets the two small
-		// sea animals and the two small ones that swim, the frog and the toad.
+		// Every small animal of the land meets the bear, the moose and the bison (#89); at sea,
+		// the whale and the orca meet the four small sea animals and the two small ones that
+		// swim, the frog and the toad.
 		for (const [big, meeting] of [
 			['bear', 12],
-			['whale', 4]
+			['moose', 12],
+			['european-bison', 12],
+			['whale', 6],
+			['orca', 6]
 		] as const) {
 			const meet = small.filter((id) => arena(id, big) !== null);
 			expect(meet.length, `tier-1 animals that meet the ${big}`).toBe(meeting);
 			for (const id of meet)
 				expect(simulate(id, big, hardest(1)).win, `${id} vs ${big}`).toBeLessThan(0.05);
 		}
-	});
+		expect(ids.filter((id) => tier(id) === 5)).toEqual([
+			'bear',
+			'moose',
+			'european-bison',
+			'whale',
+			'orca'
+		]);
+		// 48 pairs, 200 battles each: under a second alone, a few beside the suite under load.
+	}, 30_000);
 
 	it('each sea animal is its land twin in numbers, so the land balance holds at sea as it is', () => {
 		const twins: Record<string, string> = {
@@ -240,7 +269,16 @@ describe('balance simulation', () => {
 			turtle: 'otter',
 			dolphin: 'deer',
 			octopus: 'wolf',
-			whale: 'bear'
+			whale: 'bear',
+			// #89's third wave: each the twin of a named land animal of its tier.
+			'moon-jellyfish': 'wood-mouse',
+			plaice: 'mole',
+			'lions-mane-jellyfish': 'adder',
+			lobster: 'badger',
+			'harbour-seal': 'wild-boar',
+			'harbour-porpoise': 'mute-swan',
+			'grey-seal': 'wolverine',
+			orca: 'european-bison'
 		};
 		const sea = ANIMALS.filter((a) => !a.realms.includes('land')).map((a) => a.id);
 		expect(Object.keys(twins)).toEqual(sea);
@@ -268,18 +306,23 @@ describe('balance simulation', () => {
 		}
 	});
 
-	// The two sweeps below play every same-tier pair that can meet (about 300 since #89), 1,000
-	// battles each, with the seeds the bands were set on: about 7 s each at a load average of
-	// 28 with nothing else running, and 15 to 22 s beside the rest of the engine's suite.
-	it('the easiest puzzle, always right, usually beats an animal of your own tier (65–80%)', () => {
-		const rates = winRates(0, easiest(1));
+	// The two sweeps below play every same-tier pair that can meet (391 since #89's third
+	// wave), 1,000 battles each, with the seeds the bands were set on. With its second wave's
+	// 337 they took 12 and 14 s alone at a load average of 10, 60 and 62 s beside the rest of
+	// the engine's suite at 120, so they turn the worker's loop as they go. At a load of 150 a
+	// test takes up to ten times its run alone, so the bounds are three times that.
+	it('the easiest puzzle, always right, usually beats an animal of your own tier (65–80%)', async () => {
+		const rates = await winRatesTurning(0, easiest(1));
 		for (const { p, w, win } of rates) expect(win, `${p} vs ${w}`).toBeGreaterThan(0.5);
 		expectInBand(mean(rates.map((r) => r.win)), 0.65, 0.8, 'same-tier mean');
-	}, 120_000);
+		// Played first, it paid for the start of the run as well: 38 s in the whole suite at a
+		// load average of 34 (2026-09-28), which scales to 170 s at 150.
+	}, 600_000);
 
-	it('the easiest puzzle at 70% right makes a same-tier fight close to a coin flip (40–55%)', () => {
-		expectInBand(mean(winRates(0, easiest(0.7)).map((r) => r.win)), 0.4, 0.55, 'same-tier mean');
-	}, 120_000);
+	it('the easiest puzzle at 70% right makes a same-tier fight close to a coin flip (40–55%)', async () => {
+		const rates = await winRatesTurning(0, easiest(0.7));
+		expectInBand(mean(rates.map((r) => r.win)), 0.4, 0.55, 'same-tier mean');
+	}, 480_000);
 
 	it('the starter squirrel meets the same targets against its own near-spawn tier', () => {
 		for (const name of ['the tier-1 animals near home', 'the river near home']) {
@@ -299,32 +342,42 @@ describe('balance simulation', () => {
 		expect(shaky, 'starter vs the meadow, right 70%').toBeLessThanOrEqual(0.55 + SLACK);
 	});
 
-	it('on the easiest puzzle, one tier up is hard and two tiers up is out of reach', () => {
-		for (const { p, w, win } of winRates(1, easiest(1)))
+	it('on the easiest puzzle, one tier up is hard and two tiers up is out of reach', async () => {
+		for (const { p, w, win } of await winRatesTurning(1, easiest(1)))
 			expect(win, `${p} vs ${w}`).toBeLessThan(0.35);
-		for (const { p, w, win } of winRates(2, easiest(1)))
+		for (const { p, w, win } of await winRatesTurning(2, easiest(1)))
 			expect(win, `${p} vs ${w}`).toBeLessThan(0.1);
-		// About 0.4 s alone (31,000 battles); 3.6 s at a load average of 40.
-	}, 30_000);
+		// 422 pairs, 1,000 battles each since #89's third wave; its second wave's 352 took 7.5 s
+		// alone at a load average of 10, 28 s beside the suite at 120, and up to ten times its
+		// run alone at 150.
+	}, 240_000);
 
-	it('being right more often never hurts', () => {
+	it('being right more often never hurts', async () => {
+		const bad: string[] = [];
 		for (const model of [hardest, easiest]) {
-			for (const [p, w] of MEETING_PAIRS) {
+			for (const [i, [p, w]] of MEETING_PAIRS.entries()) {
+				if (i % 25 === 0) await turn();
 				const sure = simulate(p, w, model(1)).win;
 				const shaky = simulate(p, w, model(0.7)).win;
-				expect(sure, `${p} vs ${w}, ${model.name}`).toBeGreaterThanOrEqual(shaky - 0.05);
+				if (!(sure >= shaky - 0.05)) bad.push(`${p} vs ${w}, ${model.name}: ${sure} < ${shaky}`);
 			}
 		}
-		// Every pair, four models, 200 battles each (about 600,000 battles with the 32
-		// animals of #89): 13 s at a load average of 53, so two minutes leaves room.
-	}, 120_000);
+		expect(bad).toEqual([]);
+		// Every pair, four models, 200 battles each (1.25 million battles with the 49 animals of
+		// #89's third wave, less the pairs the sweeps above played at 1,000 seeds, whose first
+		// 200 it reads). With its second wave's 41: 15 s alone at a load average of 10, 71 s
+		// beside the suite at 120 before it read them, and up to ten times its run alone at 150.
+		// It turns the worker's loop as it goes.
+	}, 480_000);
 
 	it('a stronger attack at a higher level never hurts an always-right player', () => {
+		const bad: string[] = [];
 		for (const [p, w] of MEETING_PAIRS) {
 			const strong = simulate(p, w, hardest(1)).win;
 			const weak = simulate(p, w, easiest(1)).win;
-			expect(strong, `${p} vs ${w}`).toBeGreaterThanOrEqual(weak - 0.05);
+			if (!(strong >= weak - 0.05)) bad.push(`${p} vs ${w}: ${strong} < ${weak}`);
 		}
+		expect(bad).toEqual([]);
 		// The two models' battles are the test above's, kept: well under a second.
 	}, 30_000);
 });

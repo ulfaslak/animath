@@ -110,7 +110,8 @@ export type GameEvent =
 	/**
 	 * The game starts, or starts over: a new game, or one picked up from a
 	 * save. Carries the facing too, so a restored player looks the way they
-	 * did, the tokens and items, and the puzzles solved (`solved`). A `battle-started` follows when the save
+	 * did, the tokens and items, the puzzles solved (`solved`), and the animal
+	 * book's species seen and caught (`seen`, `caught`). A `battle-started` follows when the save
 	 * was taken mid-battle. `newGame` tells the two apart: true for a game
 	 * that begins here (a starter just picked, or a throwaway game), false for
 	 * one picked up. `world` is the world number the player is in and `seed`
@@ -132,6 +133,8 @@ export type GameEvent =
 			tokens: number;
 			items: string[];
 			solved: number;
+			seen: string[];
+			caught: string[];
 			newGame: boolean;
 			edits: string[];
 	  }
@@ -206,6 +209,14 @@ export type GameEvent =
 	 * count now. Sent right after the event that judged it; never for a wrong answer.
 	 */
 	| { type: 'solved-changed'; solved: number }
+	/**
+	 * The animal book grew (`animals/book.ts`): a wild battle started against
+	 * a species never seen before, a leash throw caught one never caught
+	 * before, or a friendly match brought one out in front of the player.
+	 * Always both lists, whole, each in the order first met. Sent right after
+	 * the event that showed it; never when nothing is new.
+	 */
+	| { type: 'book-changed'; seen: string[]; caught: string[] }
 	/**
 	 * Something to say on the message line, as a copy key and its values; the
 	 * client words it in the language on screen. Never a finished sentence.

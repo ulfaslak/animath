@@ -14,7 +14,7 @@ import {
 } from '@mathgame/engine';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { LocalAuthority, mintId } from '../src/authority/local';
-import type { Identity, SaveServer, ServerRead, ServerWrite } from '../src/save/api';
+import type { SaveServer, ServerRead, ServerWrite } from '../src/save/api';
 import { Autosave } from '../src/save/autosave';
 import { COPY, LANGUAGES } from '../src/copy/languages';
 import { flatten } from '../src/copy/translate';
@@ -23,10 +23,11 @@ import { KEYS, type KeyValueStore } from '../src/save/storage';
 
 /**
  * The autosave's rules, against a localStorage stand-in shared by "tabs" and a
- * server stand-in that applies the real write guard (`canReplace`): the save
- * is local first and rewritten after every change, a page never writes over a
- * save it has not seen, a save it cannot read is set aside rather than lost,
- * and the server backup never blocks or breaks the game.
+ * stand-in for an account's save on the server that applies the real write
+ * guard (`canReplace`): the save is local first and rewritten after every
+ * change, a page never writes over a save it has not seen, a save it cannot
+ * read is set aside rather than lost, and the server's copy never blocks or
+ * breaks the game. A tab with no server plays a guest's game.
  */
 
 /** World 1: every game in these tests is played there. */
@@ -85,54 +86,40 @@ class LaggingView extends MemoryStore {
 	}
 }
 
+/** An account's save on the server, behind a session cookie that stays live, with the real write guard. */
 class FakeServer implements SaveServer {
-	players = new Map<string, { secret: string; save: unknown }>();
+	save: unknown = null;
 	online = true;
 	refuse = false;
-	/** Every backup is a conflict (409), whatever its `seq`: a server older than the save it holds. */
+	/** Every save sent is a conflict (409), whatever its `seq`: a server older than the save it holds. */
 	conflictAlways = false;
 	calls: string[] = [];
 	keepalives = 0;
-	private next = 1;
 
-	async createPlayer() {
-		this.calls.push('create');
-		if (!this.online) return { kind: 'offline' as const };
-		const id = `00000000-0000-4000-8000-${String(this.next++).padStart(12, '0')}`;
-		this.players.set(id, { secret: `secret-${id}`, save: null });
-		return { kind: 'created' as const, identity: { id, secret: `secret-${id}` } };
-	}
-
-	async getSave(who: Identity): Promise<ServerRead> {
+	async getSave(): Promise<ServerRead> {
 		this.calls.push('get');
 		if (!this.online) return { kind: 'offline' };
-		const player = this.players.get(who.id);
-		if (!player || player.secret !== who.secret) return { kind: 'unknown-player' };
-		if (player.save === null) return { kind: 'none' };
-		return { kind: 'found', doc: JSON.parse(JSON.stringify(player.save)) };
+		if (this.save === null) return { kind: 'none' };
+		return { kind: 'found', doc: JSON.parse(JSON.stringify(this.save)) };
 	}
 
-	async putSave(who: Identity, doc: SaveWrite, keepalive = false): Promise<ServerWrite> {
+	async putSave(doc: SaveWrite, keepalive = false): Promise<ServerWrite> {
 		this.calls.push('put');
 		if (keepalive) this.keepalives++;
 		if (!this.online) return { kind: 'offline' };
 		if (this.refuse) return { kind: 'refused', error: 'no thanks' };
-		const player = this.players.get(who.id);
-		if (!player || player.secret !== who.secret) return { kind: 'unknown-player' };
-		if (this.conflictAlways || !canReplace(player.save, doc)) return { kind: 'conflict' };
-		player.save = JSON.parse(JSON.stringify(doc));
+		if (this.conflictAlways || !canReplace(this.save, doc)) return { kind: 'conflict' };
+		this.save = JSON.parse(JSON.stringify(doc));
 		return { kind: 'saved' };
 	}
 
-	/** A player the server knows, holding `save`. */
-	seed(save: unknown): Identity {
-		const id = `00000000-0000-4000-8000-${String(this.next++).padStart(12, '0')}`;
-		this.players.set(id, { secret: `secret-${id}`, save });
-		return { id, secret: `secret-${id}` };
+	/** The account's save on the server is `save`. */
+	seed(save: unknown): void {
+		this.save = save;
 	}
 
-	saveOf(who: Identity): SaveWrite | null {
-		return (this.players.get(who.id)?.save as SaveWrite | null) ?? null;
+	saveOf(): SaveWrite | null {
+		return this.save as SaveWrite | null;
 	}
 }
 
@@ -227,12 +214,14 @@ class Tab {
 		});
 	}
 
-	/** Something a kid would miss: a new animal in the party. */
+	/** Something a kid would miss: a new animal in the party, and in the animal book. */
 	catchOne(): Promise<void> {
-		return this.play(
-			(g) => g.party.push({ id: `caught-${g.party.length}`, speciesId: 'rabbit', hp: 7 }),
-			'party-changed'
-		);
+		return this.play((g) => {
+			g.party.push({ id: `caught-${g.party.length}`, speciesId: 'rabbit', hp: 7 });
+			// As the authority keeps the book: a kind caught is caught and seen, once each.
+			if (!g.seen.includes('rabbit')) g.seen.push('rabbit');
+			if (!g.caught.includes('rabbit')) g.caught.push('rabbit');
+		}, 'party-changed');
 	}
 }
 
@@ -284,14 +273,9 @@ async function settle(): Promise<void> {
 	await vi.advanceTimersByTimeAsync(0);
 }
 
-/** Run the backup timers: a push after a change goes out within this. */
+/** Run the server's timers: a push after a change goes out within this. */
 async function later(ms = 16_000): Promise<void> {
 	await vi.advanceTimersByTimeAsync(ms);
-}
-
-function identityIn(store: MemoryStore): Identity | null {
-	const text = store.get(KEYS.player);
-	return text === null ? null : (JSON.parse(text) as Identity);
 }
 
 beforeEach(() => {
@@ -304,7 +288,10 @@ afterEach(() => {
 });
 
 describe('Autosave: the save in this browser', () => {
-	it('a first visit starts a new game, saves it at once, and makes a player for the backup', async () => {
+	it('a first visit starts a new game and saves it at once; an account with no game sends it to the server', async () => {
+		const guest = new MemoryStore();
+		await new Tab(guest, null).open();
+		expect([...guest.data.keys()]).toEqual([KEYS.save]);
 		const store = new MemoryStore();
 		const server = new FakeServer();
 		const tab = new Tab(store, server);
@@ -318,13 +305,11 @@ describe('Autosave: the save in this browser', () => {
 			party: newGame(WORLD).party
 		});
 		expect(saved.lineage).toBeTruthy();
-		const who = identityIn(store)!;
-		expect(who).toBeTruthy();
 		await later();
-		expect(server.saveOf(who)).toEqual(saved);
+		expect(server.saveOf()).toEqual(saved);
 	});
 
-	it('a reload starts from the saved game at once, without waiting for the server', async () => {
+	it("a reload starts from the saved game: a guest's at once, an account's after one look at the server, out of reach or not", async () => {
 		const store = new MemoryStore();
 		const server = new FakeServer();
 		const first = new Tab(store, server);
@@ -332,11 +317,13 @@ describe('Autosave: the save in this browser', () => {
 		await first.walk();
 		await first.catchOne();
 
-		server.online = false;
 		const calls = server.calls.length;
+		const guest = new Tab(store, null);
+		expect(await guest.autosave.boot()).toEqual({ game: first.game, notice: 'save.welcomeBack' });
+		server.online = false;
 		const again = new Tab(store, server);
 		const plan = await again.autosave.boot();
-		expect(server.calls.length).toBe(calls);
+		expect(server.calls.slice(calls)).toEqual(['get']);
 		expect(plan).toEqual({ game: first.game, notice: 'save.welcomeBack' });
 	});
 
@@ -390,9 +377,8 @@ describe('Autosave: the save in this browser', () => {
 		const store = new MemoryStore();
 		const server = new FakeServer();
 		const doc = { ...saveDocument(newGame(WORLD), { lineage: 'L', seq: 4 }), extra };
-		const who = server.seed(doc);
+		server.seed(doc);
 		store.set(KEYS.save, JSON.stringify(doc));
-		store.set(KEYS.player, JSON.stringify(who));
 		const tab = new Tab(store, server);
 		await tab.open();
 		await tab.walk();
@@ -402,7 +388,7 @@ describe('Autosave: the save in this browser', () => {
 		expect(store.save()).toMatchObject({ extra, solved: 5 });
 		expect(store.save()!.seq).toBeGreaterThan(4);
 		await later();
-		expect(server.saveOf(who)).toMatchObject({ extra, solved: 5 });
+		expect(server.saveOf()).toMatchObject({ extra, solved: 5 });
 		// A reload reads it back and keeps it on.
 		const again = new Tab(store, server);
 		await again.open();
@@ -492,7 +478,7 @@ describe('Autosave: the save in this browser', () => {
 		expect(plan.game?.battle).toEqual(battle);
 	});
 
-	it('flushing on pagehide writes at once and sends the backup with keepalive, once', async () => {
+	it("flushing on pagehide writes at once and sends the account's save with keepalive, once", async () => {
 		const store = new MemoryStore();
 		const server = new FakeServer();
 		const tab = new Tab(store, server);
@@ -505,7 +491,7 @@ describe('Autosave: the save in this browser', () => {
 		tab.autosave.flush(); // visibilitychange, then pagehide
 		await settle();
 		expect(server.keepalives).toBe(1);
-		expect(server.saveOf(identityIn(store)!)!.steps).toBe(99);
+		expect(server.saveOf()!.steps).toBe(99);
 	});
 
 	it('a save that cannot be read is left alone until the kid plays, then kept aside', async () => {
@@ -520,14 +506,28 @@ describe('Autosave: the save in this browser', () => {
 		await tab.walk();
 		await later();
 		expect(store.get(KEYS.save)).toBe(broken);
-		const who = identityIn(store);
-		if (who) expect(server.saveOf(who)).toBeNull();
+		expect(server.saveOf()).toBeNull();
 
 		await tab.catchOne();
 		expect(store.get(KEYS.unreadable)).toBe(broken);
 		expect(store.save()!.party).toHaveLength(2);
 		await later();
-		expect(server.saveOf(identityIn(store)!)!.party).toHaveLength(2);
+		expect(server.saveOf()!.party).toHaveLength(2);
+	});
+
+	it('a save nested deeper than a save can be is one that cannot be read, however deep, and no crash', async () => {
+		// A real save, edited by hand: a field nested far past what a walk one level at a time survives.
+		const real = JSON.stringify(saveDocument(newGame(WORLD), { lineage: 'L', seq: 4 }));
+		const deep = `${real.slice(0, -1)},"deep":${'['.repeat(100_000)}${']'.repeat(100_000)}}`;
+		const store = new MemoryStore();
+		store.set(KEYS.save, deep);
+		const tab = new Tab(store, null);
+		expect(await tab.open()).toEqual({ notice: 'save.couldNotLoad' });
+		await tab.walk();
+		expect(store.get(KEYS.save)).toBe(deep);
+		await tab.catchOne();
+		expect(store.get(KEYS.unreadable)).toBe(deep);
+		expect(store.save()!.party).toHaveLength(2);
 	});
 
 	it("a newer build's save starts nothing: the page is behind it, never touches it, and the server is left alone", async () => {
@@ -536,8 +536,6 @@ describe('Autosave: the save in this browser', () => {
 			const newer = JSON.stringify(doc);
 			store.set(KEYS.save, newer);
 			const server = new FakeServer();
-			store.set(KEYS.player, JSON.stringify(server.seed(null)));
-			server.calls = [];
 			const tab = new Tab(store, server);
 			// No game, no notice: the page reloads for the new version (`main.ts`), or says so.
 			expect(await tab.open(), what).toEqual({});
@@ -568,7 +566,7 @@ describe('Autosave: the save in this browser', () => {
 				await tab.catchOne();
 				await later();
 				const mine = store.get(KEYS.save)!;
-				const backedUp = server.saveOf(identityIn(store)!);
+				const backedUp = server.saveOf();
 				// The newer version played on from this page's save, or started a game of its own.
 				const lineage = sameGame ? store.save()!.lineage : 'another-game';
 				const stamp = { lineage, seq: store.save()!.seq + 5 };
@@ -586,7 +584,7 @@ describe('Autosave: the save in this browser', () => {
 				expect(store.get(KEYS.replaced), what).toBe(sameGame ? null : mine);
 				// And nothing more goes to the server from here.
 				expect(server.calls.length, what).toBe(calls);
-				expect(server.saveOf(identityIn(store)!), what).toEqual(backedUp);
+				expect(server.saveOf(), what).toEqual(backedUp);
 			}
 		}
 	});
@@ -667,7 +665,7 @@ describe('Autosave: the save in this browser', () => {
 		await tab.catchOne();
 		expect(store.get(`${KEYS.upgraded}.2`)).toBeNull();
 		await later();
-		expect(server.saveOf(identityIn(store)!)).toMatchObject({ version: 2, seq: 19552 });
+		expect(server.saveOf()).toMatchObject({ version: 2, seq: 19552 });
 	});
 
 	it("an older build's save is kept beside one kept before, and with nowhere left to keep it, the game saves all the same", async () => {
@@ -768,7 +766,7 @@ describe('Autosave: the save in this browser', () => {
 		expect(server.calls).toEqual([]);
 	});
 
-	it('when storage stops taking writes, the game goes on and the backup still goes out', async () => {
+	it("when storage stops taking writes, the game goes on and the account's save still goes out", async () => {
 		const store = new MemoryStore();
 		const server = new FakeServer();
 		const tab = new Tab(store, server);
@@ -776,7 +774,7 @@ describe('Autosave: the save in this browser', () => {
 		store.failWrites = true;
 		await tab.catchOne();
 		await later();
-		expect(server.saveOf(identityIn(store)!)!.party).toHaveLength(2);
+		expect(server.saveOf()!.party).toHaveLength(2);
 		// The next start finds the server ahead of this browser, and takes the server's game.
 		store.failWrites = false;
 		const next = new Tab(store, server);
@@ -1182,17 +1180,16 @@ describe('Autosave: two tabs, each with the real authority', () => {
 	});
 });
 
-describe('Autosave: the server backup', () => {
-	it('with an identity but no save here, start waits briefly for the server and takes its game', async () => {
+describe("Autosave: an account's save on the server", () => {
+	it("with no save of the account's game here, start waits briefly for the server and takes its game", async () => {
 		const server = new FakeServer();
 		const theirs = {
 			...saveDocument(newGame(WORLD), { lineage: 'from-server', seq: 40 }),
 			steps: 55
 		};
 		theirs.party = [...theirs.party, { id: 'fox', speciesId: 'fox', hp: 9 }];
-		const who = server.seed(theirs);
+		server.seed(theirs);
 		const store = new MemoryStore();
-		store.set(KEYS.player, JSON.stringify(who));
 		const tab = new Tab(store, server);
 		const plan = await tab.open();
 		expect(plan.notice).toBe('save.welcomeBack');
@@ -1206,31 +1203,29 @@ describe('Autosave: the server backup', () => {
 			...saveDocument(newGame(WORLD), { lineage: 'from-server', seq: 40 }),
 			steps: 55
 		};
-		const who = server.seed(theirs);
+		server.seed(theirs);
 		const store = new MemoryStore();
-		store.set(KEYS.player, JSON.stringify(who));
 		server.online = false;
 		const tab = new Tab(store, server);
 		expect(await tab.open()).toEqual({});
 		await tab.walk();
 		const fresh = store.get(KEYS.save);
-		expect(server.saveOf(who)).toEqual(theirs);
+		expect(server.saveOf()).toEqual(theirs);
 
 		server.online = true;
 		await later(10_000);
 		expect(tab.autosave.behind).toBe('replaced');
 		expect(store.save()).toMatchObject({ lineage: 'from-server', seq: 40 });
 		expect(store.get(KEYS.replaced)).toBe(fresh);
-		expect(server.saveOf(who)).toEqual(theirs);
+		expect(server.saveOf()).toEqual(theirs);
 	});
 
-	it('a backup behind this browser is brought up to date; one of the same seq is left alone', async () => {
+	it("a server's copy behind this browser is brought up to date; one of the same seq is left alone", async () => {
 		const store = new MemoryStore();
 		const server = new FakeServer();
 		const tab = new Tab(store, server);
 		await tab.open();
 		await later();
-		const who = identityIn(store)!;
 		server.online = false;
 		await tab.walk();
 		await tab.catchOne();
@@ -1238,7 +1233,7 @@ describe('Autosave: the server backup', () => {
 		const next = new Tab(store, server);
 		await next.open();
 		await later();
-		expect(server.saveOf(who)).toEqual(store.save());
+		expect(server.saveOf()).toEqual(store.save());
 		expect(next.autosave.behind).toBeNull();
 		const puts = server.calls.filter((c) => c === 'put').length;
 		const third = new Tab(store, server);
@@ -1250,47 +1245,44 @@ describe('Autosave: the server backup', () => {
 	it('an unreadable save on the server is never adopted, and saved past once the kid plays', async () => {
 		const server = new FakeServer();
 		const unreadable = { version: 1, seq: 500, party: 'not a party' };
-		const who = server.seed(unreadable);
+		server.seed(unreadable);
 		const store = new MemoryStore();
 		const tab = new Tab(store, server);
 		await tab.open();
-		store.set(KEYS.player, JSON.stringify(who));
 		const next = new Tab(store, server);
 		await next.open();
 		await next.walk();
 		await later();
 		expect(next.autosave.behind).toBeNull();
-		expect(server.saveOf(who)).toEqual(unreadable);
+		expect(server.saveOf()).toEqual(unreadable);
 		await next.catchOne();
 		await later();
-		expect(server.saveOf(who)!.seq).toBeGreaterThan(500);
-		expect(store.save()!.seq).toBe(server.saveOf(who)!.seq);
+		expect(server.saveOf()!.seq).toBeGreaterThan(500);
+		expect(store.save()!.seq).toBe(server.saveOf()!.seq);
 	});
 
-	it('with no save here, an unreadable backup gives a new game that says so and waits for play', async () => {
+	it("with no save here, an unreadable server's copy gives a new game that says so and waits for play", async () => {
 		const server = new FakeServer();
 		const unreadable = { version: 1, seq: 70, party: [{ id: 'a', speciesId: 'dragon', hp: 3 }] };
-		const who = server.seed(unreadable);
+		server.seed(unreadable);
 		const store = new MemoryStore();
-		store.set(KEYS.player, JSON.stringify(who));
 		const tab = new Tab(store, server);
 		expect(await tab.open()).toEqual({ notice: 'save.couldNotLoad' });
 		expect(store.save()!.seq).toBeGreaterThan(70);
 		await tab.walk();
 		await later();
-		expect(server.saveOf(who)).toEqual(unreadable);
+		expect(server.saveOf()).toEqual(unreadable);
 		await tab.catchOne();
 		await later();
-		expect(server.saveOf(who)).toEqual(store.save());
+		expect(server.saveOf()).toEqual(store.save());
 	});
 
-	it("with no save here (or an unreadable one), a newer build's backup starts nothing: the page is behind it, and never sends", async () => {
+	it("with no save here (or an unreadable one), a newer build's save on the server starts nothing: the page is behind it, and never sends", async () => {
 		for (const local of [null, '{"version":2,"broken":true}']) {
 			for (const [what, newer] of newerSaves(newGame(WORLD), { lineage: 'their-game', seq: 9 })) {
 				const server = new FakeServer();
-				const who = server.seed(newer);
+				server.seed(newer);
 				const store = new MemoryStore();
-				store.set(KEYS.player, JSON.stringify(who));
 				if (local !== null) store.set(KEYS.save, local);
 				const tab = new Tab(store, server);
 				expect(await tab.open(), what).toEqual({});
@@ -1299,7 +1291,7 @@ describe('Autosave: the server backup', () => {
 				await tab.catchOne();
 				tab.autosave.flush();
 				await later(60_000);
-				expect(server.saveOf(who), what).toEqual(newer);
+				expect(server.saveOf(), what).toEqual(newer);
 				expect(server.calls, what).toEqual(['get']);
 				// Nothing is written here either: an unreadable save stays where it was.
 				expect(store.get(KEYS.save), what).toBe(local);
@@ -1311,9 +1303,8 @@ describe('Autosave: the server backup', () => {
 	it('a server save from before seq and lineage never sends the page round a reload loop', async () => {
 		const server = new FakeServer();
 		const legacy = { version: 1, seed: WORLD_ONE_SEED, pos: { x: -2, y: 6 }, party: [] };
-		const who = server.seed(legacy);
+		server.seed(legacy);
 		const store = new MemoryStore();
-		store.set(KEYS.player, JSON.stringify(who));
 		store.set(KEYS.save, '{"version":1,"broken":true}');
 		server.online = false;
 		const tab = new Tab(store, server);
@@ -1324,7 +1315,7 @@ describe('Autosave: the server backup', () => {
 		// The kid plays the new game, and it is backed up over the old one.
 		await tab.catchOne();
 		await later();
-		expect(server.saveOf(who)).toEqual(store.save());
+		expect(server.saveOf()).toEqual(store.save());
 		// And a reload settles, with nothing to adopt.
 		const again = new Tab(store, server);
 		await again.open();
@@ -1335,9 +1326,8 @@ describe('Autosave: the server backup', () => {
 	it('a game adopted from the server never overwrites a game already kept aside', async () => {
 		const server = new FakeServer();
 		const theirs = { ...saveDocument(newGame(WORLD), { lineage: 'from-server', seq: 40 }) };
-		const who = server.seed(theirs);
+		server.seed(theirs);
 		const store = new MemoryStore();
-		store.set(KEYS.player, JSON.stringify(who));
 		store.set(KEYS.replaced, 'an earlier game');
 		server.online = false;
 		const tab = new Tab(store, server);
@@ -1354,11 +1344,10 @@ describe('Autosave: the server backup', () => {
 	it("a newer build's save on the server is never overwritten: the page that finds it is behind it, and plays no further", async () => {
 		for (const [what, newer] of newerSaves(newGame(WORLD), { lineage: 'their-game', seq: 3 })) {
 			const server = new FakeServer();
-			const who = server.seed(newer);
+			server.seed(newer);
 			const store = new MemoryStore();
 			// A game saved here, and the server's copy of this player's game is a newer build's.
 			await new Tab(store, null).open();
-			store.set(KEYS.player, JSON.stringify(who));
 			const tab = new Tab(store, server);
 			await tab.open();
 			await later(20_000);
@@ -1369,7 +1358,7 @@ describe('Autosave: the server backup', () => {
 			await tab.catchOne();
 			tab.autosave.flush();
 			await later(20_000);
-			expect(server.saveOf(who), what).toEqual(newer);
+			expect(server.saveOf(), what).toEqual(newer);
 			expect(
 				server.calls.filter((c) => c === 'put'),
 				what
@@ -1379,27 +1368,26 @@ describe('Autosave: the server backup', () => {
 		}
 	});
 
-	it("a newer build's save that reaches the server while a page plays puts that page behind at its next backup", async () => {
+	it("a newer build's save that reaches the server while a page plays puts that page behind at its next send", async () => {
 		const server = new FakeServer();
 		const store = new MemoryStore();
 		const tab = new Tab(store, server);
 		await tab.open();
 		await tab.catchOne();
 		await later();
-		const who = identityIn(store)!;
 		// Another device, on the new version, played the game on: the server holds its save.
 		const newer = newerSaves(tab.game, { lineage: store.save()!.lineage, seq: 40 })[1]![1];
-		server.players.get(who.id)!.save = newer;
+		server.save = newer;
 		await tab.catchOne();
 		await later();
 		expect(tab.autosave.behind).toBe('newer');
-		expect(server.saveOf(who)).toEqual(newer);
+		expect(server.saveOf()).toEqual(newer);
 		const puts = server.calls.filter((c) => c === 'put').length;
 		await tab.catchOne();
 		tab.autosave.flush();
 		await later(60_000);
 		expect(server.calls.filter((c) => c === 'put').length).toBe(puts);
-		expect(server.saveOf(who)).toEqual(newer);
+		expect(server.saveOf()).toEqual(newer);
 	});
 
 	it('a server that turns a save away for no reason its seq explains is asked again only as one out of reach is, and takes it once it can', async () => {
@@ -1411,8 +1399,7 @@ describe('Autosave: the server backup', () => {
 		const tab = new Tab(store, server);
 		await tab.open();
 		await later();
-		const who = identityIn(store)!;
-		expect(server.saveOf(who)!.seq).toBe(1);
+		expect(server.saveOf()!.seq).toBe(1);
 		server.conflictAlways = true;
 		const asked = server.calls.length;
 		await tab.catchOne();
@@ -1428,7 +1415,7 @@ describe('Autosave: the server backup', () => {
 		await tab.catchOne();
 		await later();
 		expect(store.save()!.party).toHaveLength(3);
-		expect(server.saveOf(who)).toEqual(store.save());
+		expect(server.saveOf()).toEqual(store.save());
 	});
 
 	it('while the server is down the game saves locally, retries quietly, then rests until a catch', async () => {
@@ -1441,7 +1428,8 @@ describe('Autosave: the server backup', () => {
 		await later(10 * 60_000);
 		const tries = server.calls.length;
 		expect(tries).toBeGreaterThan(1);
-		expect(tries).toBeLessThanOrEqual(6);
+		// One look as the page starts, then a try and at most five more, 2 s to 32 s apart.
+		expect(tries).toBeLessThanOrEqual(7);
 		// Resting: walking costs the server nothing, and the game saves here all the same.
 		for (let i = 0; i < 10; i++) await tab.walk();
 		await later(10 * 60_000);
@@ -1451,32 +1439,30 @@ describe('Autosave: the server backup', () => {
 		await tab.catchOne();
 		await later(10 * 60_000);
 		expect(server.calls.length).toBe(tries + 1);
-		// The server is back: the next catch makes the player and backs the game up.
+		// The server is back: the next catch sends the game.
 		server.online = true;
 		await tab.catchOne();
 		await later();
-		const who = identityIn(store)!;
-		expect(server.saveOf(who)).toEqual(store.save());
-		expect(server.saveOf(who)!.party).toHaveLength(3);
+		expect(server.saveOf()).toEqual(store.save());
+		expect(server.saveOf()!.party).toHaveLength(3);
 		expect(errors).not.toHaveBeenCalled();
 	});
 
-	it('a backup that failed while the server restarted goes out once it is back', async () => {
+	it('a save that failed to reach a restarting server goes out once it is back', async () => {
 		const store = new MemoryStore();
 		const server = new FakeServer();
 		const tab = new Tab(store, server);
 		await tab.open();
 		await later();
-		const who = identityIn(store)!;
 		server.online = false;
 		await tab.catchOne();
 		await later(3000);
 		server.online = true;
 		await later(10_000);
-		expect(server.saveOf(who)).toEqual(store.save());
+		expect(server.saveOf()).toEqual(store.save());
 	});
 
-	it('a refused backup is reported once to developers and not sent again', async () => {
+	it('a save the server refuses is reported once to developers and not sent again', async () => {
 		const store = new MemoryStore();
 		const server = new FakeServer();
 		const errors = vi.spyOn(console, 'error').mockImplementation(() => {});
@@ -1491,51 +1477,14 @@ describe('Autosave: the server backup', () => {
 		expect(server.calls.filter((c) => c === 'put')).toHaveLength(1);
 	});
 
-	it('an identity the server does not know is kept aside, and the game is backed up to a new one', async () => {
-		const store = new MemoryStore();
-		const server = new FakeServer();
-		const ghost = { id: '00000000-0000-4000-8000-999999999999', secret: 'gone' };
-		store.set(KEYS.player, JSON.stringify(ghost));
-		const tab = new Tab(store, server);
-		await tab.open();
-		await tab.catchOne();
-		await later();
-		expect(JSON.parse(store.get(KEYS.previousPlayer)!)).toEqual(ghost);
-		const who = identityIn(store)!;
-		expect(who.id).not.toBe(ghost.id);
-		expect(server.saveOf(who)).toEqual(store.save());
-	});
-
-	it('a second identity the server stops knowing is kept beside the first, never over it', async () => {
-		const store = new MemoryStore();
-		const server = new FakeServer();
-		const ghost = { id: '00000000-0000-4000-8000-999999999999', secret: 'gone' };
-		store.set(KEYS.player, JSON.stringify(ghost));
-		const tab = new Tab(store, server);
-		await tab.open();
-		await tab.catchOne();
-		await later();
-		const second = identityIn(store)!;
-		// The server loses the new player too (a database reset, say).
-		server.players.delete(second.id);
-		await tab.catchOne();
-		await later();
-		expect(JSON.parse(store.get(KEYS.previousPlayer)!)).toEqual(ghost);
-		expect(JSON.parse(store.get(`${KEYS.previousPlayer}.2`)!)).toEqual(second);
-		const third = identityIn(store)!;
-		expect([ghost.id, second.id]).not.toContain(third.id);
-		expect(server.saveOf(third)).toEqual(store.save());
-	});
-
 	it('a tab taking the server’s game in the same instant another tab saves a catch: the catch is kept aside', async () => {
 		const store = new MemoryStore();
 		const server = new FakeServer();
 		const theirs = { ...saveDocument(newGame(WORLD), { lineage: 'from-server', seq: 40 }) };
-		const who = server.seed(theirs);
+		server.seed(theirs);
 		const first = new Tab(store, null);
 		await first.open();
 		await first.walk();
-		store.set(KEYS.player, JSON.stringify(who));
 		const a = new Tab(store, null);
 		await a.open();
 		// B starts cut off from the server; its view of the save lags A's next save.
@@ -1564,7 +1513,6 @@ describe('Autosave: the server backup', () => {
 		await first.open();
 		await first.catchOne();
 		await later();
-		const who = identityIn(store)!;
 		// This tab starts while the server is out of reach: its first check waits for a retry.
 		server.online = false;
 		const tab = new Tab(store, server);
@@ -1573,7 +1521,7 @@ describe('Autosave: the server backup', () => {
 		const other = new Tab(store, null);
 		await other.open();
 		await other.walk();
-		server.players.get(who.id)!.save = JSON.parse(store.get(KEYS.save)!);
+		server.save = JSON.parse(store.get(KEYS.save)!);
 		const walked = store.get(KEYS.save);
 		// The server answers this tab before the other tab's storage event reaches it.
 		server.online = true;
@@ -1586,22 +1534,21 @@ describe('Autosave: the server backup', () => {
 		expect(store.save()!.seq).toBe(JSON.parse(walked!).seq + 1);
 	});
 
-	it('a 409 for a backup that already landed (its answer was lost) settles without a reload', async () => {
+	it('a 409 for a save that already landed (its answer was lost) settles without a reload', async () => {
 		const store = new MemoryStore();
 		const server = new FakeServer();
 		const tab = new Tab(store, server);
 		await tab.open();
 		await later();
-		const who = identityIn(store)!;
 		await tab.catchOne();
 		// The server stored the save, but the page never heard back.
-		server.players.get(who.id)!.save = JSON.parse(store.get(KEYS.save)!);
+		server.save = JSON.parse(store.get(KEYS.save)!);
 		await later();
 		expect(tab.autosave.behind).toBeNull();
-		expect(readSave(server.saveOf(who)).ok).toBe(true);
+		expect(readSave(server.saveOf()).ok).toBe(true);
 		await tab.walk();
 		await later();
-		expect(server.saveOf(who)).toEqual(store.save());
+		expect(server.saveOf()).toEqual(store.save());
 	});
 });
 
@@ -1658,7 +1605,8 @@ describe('Autosave: the title', () => {
 			expect(plan.game !== undefined).toBe(withSave);
 			await later(60_000);
 			expect(store.writes).toBe(writes);
-			expect(server.calls).toEqual([]);
+			// An account's page looks at the server once as it starts, and sends nothing.
+			expect(server.calls).toEqual(['get']);
 			// Events without a game under way change nothing either.
 			tab.autosave.handle({ type: 'player-moved' } as GameEvent);
 			await later();
@@ -1676,7 +1624,7 @@ describe('Autosave: the title', () => {
 		expect(store.save()).toMatchObject({ seq: 1, party: [{ speciesId: 'rabbit', hp: 22 }] });
 		expect(store.get(KEYS.previous)).toBeNull();
 		await later();
-		expect(server.saveOf(identityIn(store)!)).toEqual(store.save());
+		expect(server.saveOf()).toEqual(store.save());
 	});
 
 	it('a new game over a saved one keeps the old save aside, never over it, and numbers past it', async () => {
@@ -1740,9 +1688,8 @@ describe('Autosave: the title', () => {
 		// The kid's real game is on the server; this browser has lost its own copy.
 		const theirs = { ...saveDocument(newGame(WORLD), { lineage: 'kids-real-game', seq: 50 }) };
 		theirs.party = [...theirs.party, { id: 'bear-1', speciesId: 'bear', hp: 100 }];
-		const who = server.seed(theirs);
+		server.seed(theirs);
 		const store = new MemoryStore();
-		store.set(KEYS.player, JSON.stringify(who));
 		server.online = false;
 		const tab = new Tab(store, server);
 		// Out of reach at start: the title has no Continue, and New game asks nothing.
@@ -1755,7 +1702,7 @@ describe('Autosave: the title', () => {
 		expect(tab.autosave.behind).toBe('replaced');
 		expect(store.save()).toMatchObject({ lineage: 'kids-real-game', seq: 50 });
 		expect(store.get(KEYS.replaced)).toBe(rabbitGame);
-		expect(server.saveOf(who)).toEqual(theirs);
+		expect(server.saveOf()).toEqual(theirs);
 	});
 
 	it('Continue after another tab walked on while the title was up carries on from that walk', async () => {
@@ -1783,8 +1730,7 @@ describe('Autosave: the title', () => {
 		savedGame(store);
 		// The server holds the old game further on than this browser does.
 		const ahead = { ...saveDocument(newGame(WORLD), { lineage: 'old-game', seq: 50 }) };
-		const who = server.seed(ahead);
-		store.set(KEYS.player, JSON.stringify(who));
+		server.seed(ahead);
 		const tab = new Tab(store, server);
 		await tab.title();
 		await tab.startNew('rabbit');
@@ -1792,7 +1738,7 @@ describe('Autosave: the title', () => {
 		expect(tab.autosave.behind).toBeNull();
 		expect(store.save()).toMatchObject({ party: [{ speciesId: 'rabbit' }] });
 		expect(store.save()!.seq).toBeGreaterThan(50);
-		expect(server.saveOf(who)).toEqual(store.save());
+		expect(server.saveOf()).toEqual(store.save());
 	});
 
 	it('an unreadable save waiting in the key goes aside as soon as a starter is picked', async () => {
@@ -1850,7 +1796,7 @@ describe('Autosave: the title', () => {
 		expect(store.save()).toMatchObject({ steps: tab.game.steps, lineage, seq: seq + 1 });
 		expect(store.writes).toBe(writes + 1);
 		await later();
-		expect(server.saveOf(identityIn(store)!)).toEqual(store.save());
+		expect(server.saveOf()).toEqual(store.save());
 	});
 
 	it('a tab still playing the old game falls behind a new game, and the old game is kept', async () => {

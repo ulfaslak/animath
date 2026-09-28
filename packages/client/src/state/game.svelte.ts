@@ -57,6 +57,12 @@ class GameView {
 	/** The puzzles the player has solved: `welcome`'s, then every `solved-changed`. */
 	solved = $state(0);
 	/**
+	 * The animal book's species seen (caught ones included) and caught, each
+	 * in the order first met: `welcome`'s, then every `book-changed`.
+	 */
+	seen = $state<string[]>([]);
+	caught = $state<string[]>([]);
+	/**
 	 * Where the player stands: out on the water, in the boat, or on land (the
 	 * engine's `tileRealm` of their tile). Who goes first is the lead there.
 	 * Up in the air it is where they took off: the tiles flown over change
@@ -94,6 +100,8 @@ class GameView {
 				this.tokens = event.tokens;
 				this.items = event.items;
 				this.solved = event.solved;
+				this.seen = event.seen;
+				this.caught = event.caught;
 				this.edits = WorldEdits.decode(event.edits);
 				this.flying = false;
 				this.flightFrom = null;
@@ -164,6 +172,10 @@ class GameView {
 				break;
 			case 'solved-changed':
 				this.solved = event.solved;
+				break;
+			case 'book-changed':
+				this.seen = event.seen;
+				this.caught = event.caught;
 				break;
 			case 'doctor-visit-ended':
 				this.party = event.state.party.map((a) => ({ ...a }));

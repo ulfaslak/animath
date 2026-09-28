@@ -21,7 +21,9 @@ import { SAVE_MAX_BYTES } from '../src/save.js';
 //
 // A name is matched as the game matches it: case and how a letter is typed do not matter.
 // Moving a kid's game to production, the last two: DEVELOPMENT.md § Moving a kid's game
-// to production.
+// to production. export-local-save starts from the retired anonymous backup, so it finds
+// a game only in a database the tunnel's development server backed up to before that
+// backup was retired: this Mac's `mathgame`.
 
 const USAGE = [
 	'usage:',

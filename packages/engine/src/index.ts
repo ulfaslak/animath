@@ -16,6 +16,14 @@ export {
 } from './puzzles/registry.js';
 export { healingDifficulty, puzzleDifficulty } from './puzzles/difficulty.js';
 export { countSolved } from './puzzles/solved.js';
+export {
+	FACE_NUMBERS,
+	MAX_FACE_NUMBER,
+	facePrompt,
+	puzzleFace,
+	readPuzzleFace
+} from './puzzles/face.js';
+export type { PuzzleFace } from './puzzles/face.js';
 
 export type {
 	AnimalInstance,
@@ -29,6 +37,18 @@ export type {
 } from './animals/types.js';
 export { ATTACK_LEVELS, REALMS, TERRAINS } from './animals/types.js';
 export { ANIMALS, canFightIn, getAnimal } from './animals/catalog.js';
+export {
+	BOOK_ORDER,
+	EMPTY_BOOK,
+	bookOf,
+	catchSpecies,
+	hasCaught,
+	hasSeen,
+	recordBattle,
+	recordParty,
+	seeSpecies
+} from './animals/book.js';
+export type { AnimalBook } from './animals/book.js';
 
 export { attackDamage } from './battle/damage.js';
 // Only `landHit` of `attack.ts`: a screen previews a hit with the very function a reducer lands it with.
@@ -203,9 +223,10 @@ export type { Arrival } from './world/arrival.js';
 export type { EncounterEntry, EncounterSite, WildAnimal } from './world/encounters.js';
 export {
 	ENCOUNTER_CHANCE,
-	NEAR_TIER_RATIO,
-	ONE_TIER_BELOW_WEIGHT,
+	NEAR_ONE_UP,
 	SAFE_RADIUS,
+	TIER_SIGMA,
+	VISITORS_WEIGHT,
 	WILD_RADIUS,
 	distanceFromSpawn,
 	encounterTable,
@@ -261,6 +282,7 @@ export {
 export type {
 	AcceptMessage,
 	AskingMessage,
+	BattleMessage,
 	Busy,
 	ByeMessage,
 	ByeReason,
@@ -268,6 +290,7 @@ export type {
 	ClientMessage,
 	DeclineMessage,
 	DoneMessage,
+	FightMessage,
 	FindMessage,
 	FoundMessage,
 	GoneMessage,
@@ -297,6 +320,18 @@ export type {
 	WithdrawMessage
 } from './net/protocol.js';
 export {
+	FIGHT_ENDS,
+	MAX_FIGHT_EVENTS,
+	fightAnimal,
+	matchFight,
+	matchFightEvents,
+	readFightEvents,
+	readFightView,
+	wildFight,
+	wildFightEvents
+} from './net/fight.js';
+export type { FightAnimal, FightEnd, FightEvent, FightView } from './net/fight.js';
+export {
 	VIEW_KEEP,
 	VIEW_RADIUS,
 	bearingTo,
@@ -309,6 +344,7 @@ export {
 export {
 	MAX_SAVED_NAME_LENGTH,
 	MAX_SAVED_NICKNAME_LENGTH,
+	MAX_SAVE_DEPTH,
 	MAX_SAVE_ID_LENGTH,
 	SAVE_UPGRADES,
 	SAVE_VERSION,

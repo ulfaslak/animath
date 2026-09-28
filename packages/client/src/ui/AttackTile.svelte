@@ -115,4 +115,43 @@
 			transition: none;
 		}
 	}
+	/*
+	 * A short screen (a phone held sideways): the moves stand beside the tiles,
+	 * so a tile is narrower and takes two lines, its name across the whole
+	 * tile over its level's word and its badge. The ring alone marks the
+	 * highlighted one: the caret's room goes to the name. A finger tall, touch
+	 * or not.
+	 */
+	@media (max-height: 560px) {
+		.tile {
+			display: grid;
+			grid-template-columns: minmax(0, 1fr) auto;
+			grid-template-areas: 'name name' 'level badge';
+			align-items: center;
+			align-content: center;
+			column-gap: 6px;
+			flex: 0 0 var(--tap);
+			padding: 0 10px;
+			font-size: 16px;
+		}
+		.caret {
+			display: none;
+		}
+		.name {
+			grid-area: name;
+		}
+		.level {
+			grid-area: level;
+			line-height: 1.1;
+		}
+		.tile > :global(.badge) {
+			grid-area: badge;
+			line-height: 1.1;
+		}
+		/* The star as tall as the number, so a hard hit's badge fits the line. */
+		.tile > :global(.badge .star) {
+			width: 1.1em;
+			height: 1.1em;
+		}
+	}
 </style>

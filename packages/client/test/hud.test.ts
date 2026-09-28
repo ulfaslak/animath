@@ -157,6 +157,8 @@ describe('the explore message line', () => {
 			tokens: 0,
 			items: [],
 			solved: 0,
+			seen: [],
+			caught: [],
 			newGame: true,
 			edits: []
 		});
@@ -279,6 +281,8 @@ describe('the explore message line', () => {
 			tokens: 0,
 			items: [],
 			solved: 0,
+			seen: [],
+			caught: [],
 			newGame: false,
 			edits: []
 		});
@@ -303,6 +307,8 @@ describe('the explore message line', () => {
 			tokens: 0,
 			items: [],
 			solved: 0,
+			seen: [],
+			caught: [],
 			newGame: false,
 			edits: []
 		});

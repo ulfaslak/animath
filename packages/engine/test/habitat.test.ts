@@ -199,7 +199,7 @@ describe('terrainShares and habitatFactor', () => {
 });
 
 describe('where each species lives', () => {
-	it('every species favours one terrain; the amphibious ones are the frog, the otter, the toad and the beaver, and only the sea animals live only in the water', () => {
+	it('every species favours one terrain; the amphibious ones are the frog, the otter, the toad, the beaver and the mute swan, and only the sea animals live only in the water', () => {
 		for (const species of ANIMALS) {
 			expect(TERRAINS, species.id).toContain(species.favours);
 			expect(species.realms.length, species.id).toBeGreaterThan(0);
@@ -214,7 +214,13 @@ describe('where each species lives', () => {
 		const amphibious = ANIMALS.filter(
 			(a) => a.realms.includes('land') && a.realms.includes('water')
 		);
-		expect(amphibious.map((a) => a.id)).toEqual(['frog', 'otter', 'common-toad', 'beaver']);
+		expect(amphibious.map((a) => a.id)).toEqual([
+			'frog',
+			'otter',
+			'common-toad',
+			'beaver',
+			'mute-swan'
+		]);
 		const aquatic = ANIMALS.filter((a) => !a.realms.includes('land'));
 		expect(aquatic.map((a) => a.id)).toEqual([
 			'crab',
@@ -222,7 +228,15 @@ describe('where each species lives', () => {
 			'turtle',
 			'dolphin',
 			'octopus',
-			'whale'
+			'whale',
+			'moon-jellyfish',
+			'plaice',
+			'lions-mane-jellyfish',
+			'lobster',
+			'harbour-seal',
+			'harbour-porpoise',
+			'grey-seal',
+			'orca'
 		]);
 	});
 
@@ -236,12 +250,23 @@ describe('where each species lives', () => {
 			'grey-heron',
 			'raccoon',
 			'beaver',
+			'mute-swan',
+			'white-tailed-eagle',
+			'moose',
 			'crab',
 			'starfish',
 			'turtle',
 			'dolphin',
 			'octopus',
-			'whale'
+			'whale',
+			'moon-jellyfish',
+			'plaice',
+			'lions-mane-jellyfish',
+			'lobster',
+			'harbour-seal',
+			'harbour-porpoise',
+			'grey-seal',
+			'orca'
 		]);
 		expect(by('trees')).toEqual([
 			'squirrel',
@@ -253,10 +278,21 @@ describe('where each species lives', () => {
 			'roe-deer',
 			'badger',
 			'pine-marten',
-			'tawny-owl'
+			'tawny-owl',
+			'wild-boar',
+			'lynx'
 		]);
-		expect(by('rocks')).toEqual(['wolf', 'bear', 'common-lizard', 'stoat', 'adder']);
-		expect(by('open')).toEqual(['rabbit', 'shrew', 'hedgehog', 'mole']);
+		expect(by('rocks')).toEqual([
+			'wolf',
+			'bear',
+			'common-lizard',
+			'stoat',
+			'adder',
+			'eagle-owl',
+			'wolverine',
+			'golden-eagle'
+		]);
+		expect(by('open')).toEqual(['rabbit', 'shrew', 'hedgehog', 'mole', 'european-bison']);
 	});
 
 	it('only tall grass starts an encounter, and it is on land', () => {

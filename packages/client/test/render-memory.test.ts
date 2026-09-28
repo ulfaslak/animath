@@ -17,6 +17,7 @@ import { BattleScene } from '../src/render/battle-scene';
 import { ChunkRing } from '../src/render/chunks';
 import { ClearingEffects } from '../src/render/clearing';
 import { Follower, SWIM_DEPTH } from '../src/render/follower';
+import { PortraitStudio, type PortraitRenderer } from '../src/render/portraits';
 import type { GameRenderer } from '../src/render/renderer';
 import { StarterScene } from '../src/render/starter-scene';
 import { TitleScenery } from '../src/render/title-scenery';
@@ -153,7 +154,9 @@ describe('the chunks around the player', () => {
 		expect(kinds(ledger.disposedIn(parent))).toEqual([]);
 		expect(kinds([...SHARED_GEOMETRIES].filter((g) => ledger.isDisposed(g)))).toEqual([]);
 		// About 1.8 s alone (hundreds of chunks built and freed); over 5 s under a heavy load.
-	}, 30_000);
+		// 0.55 s alone at a load average of 12 to 23 and 1.9 s in the whole suite at 28 (2026-09-28),
+		// which scales to 10 s at 150.
+	}, 60_000);
 
 	it('free the whole ring on a jump, and every chunk of the old world when the world changes', () => {
 		const parent = new THREE.Group();
@@ -518,5 +521,56 @@ describe('the title', () => {
 		scenery.showWorld(WORLD_SEED, stand, 'down', team, WorldEdits.none.with(target));
 		expect(onTarget()).toBe(true);
 		scenery.hide();
+	});
+});
+
+describe("the animal book's pictures", () => {
+	it('free every figure they draw, and leave the renderer drawing to the screen as they found it', () => {
+		const ledger = new Ledger();
+		const shown = new Set<THREE.BufferGeometry>();
+		const calls: string[] = [];
+		const clear = new THREE.Color(0x8fd3f4);
+		let lost = false;
+		// A renderer that draws nothing: what each picture puts before it, and how it leaves it.
+		const renderer = {
+			getContext: () => ({ isContextLost: () => lost }),
+			getRenderTarget: () => null,
+			setRenderTarget: (target: THREE.WebGLRenderTarget | null) =>
+				calls.push(target ? 'to the picture' : 'to the screen'),
+			getClearColor: (into: THREE.Color) => into.copy(clear),
+			getClearAlpha: () => 1,
+			setClearColor: (color: THREE.ColorRepresentation, alpha = 1) =>
+				calls.push(`clear ${new THREE.Color(color).getHexString()} ${alpha}`),
+			render: (scene: THREE.Object3D) => {
+				ledger.see(scene);
+				scene.traverse((o) => {
+					if (o instanceof THREE.Mesh) shown.add(o.geometry as THREE.BufferGeometry);
+				});
+				calls.push('render');
+			},
+			readRenderTargetPixels: () => calls.push('read')
+		} as unknown as PortraitRenderer;
+		const studio = new PortraitStudio(renderer, () => 'data:,');
+		for (const spec of ANIMALS) {
+			calls.length = 0;
+			expect(studio.draw(spec.id)).toBe('data:,');
+			expect(calls).toEqual([
+				'to the picture',
+				'clear 000000 0',
+				'render',
+				'read',
+				'to the screen',
+				'clear 8fd3f4 1'
+			]);
+		}
+		expect(shown.size).toBeGreaterThan(ANIMALS.length);
+		expect(kinds([...shown].filter((g) => !ledger.isDisposed(g)))).toEqual([]);
+		// With the context lost, nothing is drawn or built, and no picture comes back to keep.
+		lost = true;
+		calls.length = 0;
+		const before = shown.size;
+		expect(studio.draw('fox')).toBeNull();
+		expect([calls, shown.size]).toEqual([[], before]);
+		studio.dispose();
 	});
 });

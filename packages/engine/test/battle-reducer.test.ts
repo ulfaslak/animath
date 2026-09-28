@@ -1,3 +1,4 @@
+import { isDeepStrictEqual } from 'node:util';
 import { describe, expect, it } from 'vitest';
 import { ANIMALS, canFightIn, getAnimal } from '../src/animals/catalog.js';
 import {
@@ -20,6 +21,7 @@ import { landHit } from '../src/index.js';
 import { puzzleDifficulty } from '../src/puzzles/difficulty.js';
 import { checkAnswer, getGenerator } from '../src/puzzles/registry.js';
 import { Rng, hashInts } from '../src/rng.js';
+import { turn } from './turn.js';
 import { wordedStrings } from './words.js';
 import {
 	arena,
@@ -54,6 +56,15 @@ function deepFreeze<T>(value: T): T {
 
 function outcome(state: BattleState): string | null {
 	return state.phase.kind === 'ended' ? state.phase.outcome : null;
+}
+
+/**
+ * The first few failures of a sweep and how many there were. A sweep collects
+ * what it finds and asserts once: an `expect` for each of thousands of items
+ * costs ten times the rules it checks ([[DEVELOPMENT]] § Testing ideology).
+ */
+function findings(bad: string[]): string[] {
+	return bad.length > 20 ? [...bad.slice(0, 20), `…and ${bad.length - 20} more`] : bad;
 }
 
 function maxHp(animal: AnimalInstance): number {
@@ -171,21 +182,26 @@ describe('applyBattleIntent', () => {
 });
 
 describe('replay', () => {
-	it('the same seed, party, wild and intents always yield the same states and events', () => {
+	it('the same seed, party, wild and intents always yield the same states and events', async () => {
 		const model: PlayerModel = { accuracy: 0.6, policy: 'random', leash: 0.1 };
+		const bad: string[] = [];
 		for (const { p, w, realm } of MEETINGS) {
 			for (let seed = 0; seed < 5; seed++) {
 				const play = () =>
 					playBattle(seed, makeParty([p, 'squirrel']), makeWild(w), model, undefined, 2000, realm);
 				const a = play();
 				const b = play();
-				expect(b.intents).toEqual(a.intents);
-				expect(b.events).toEqual(a.events);
-				expect(b.state).toEqual(a.state);
+				for (const part of ['intents', 'events', 'state'] as const)
+					if (!isDeepStrictEqual(b[part], a[part]))
+						bad.push(`${p} vs ${w}, seed ${seed}: the ${part} differ`);
 			}
+			await turn();
 		}
-		// About 0.55 s alone (620 battles, each played twice); 2 s at a load average of 40.
-	}, 30_000);
+		expect(findings(bad)).toEqual([]);
+		// Every pair that can meet, 5 seeds, each battle played twice and compared: 0.9 s alone at
+		// a load average of 10, 4.3 s in the whole suite at 30, which scales to 21 s at 150. Its
+		// loop turns after each pair.
+	}, 90_000);
 
 	it('a different seed changes the battle', () => {
 		const model: PlayerModel = { accuracy: 1, policy: 'max' };
@@ -309,7 +325,7 @@ describe('every battle in the catalog', () => {
 	let replacements = 0;
 
 	for (const p of ids) {
-		it(`${p} vs everything it meets: terminates, keeps HP in bounds, never mutates its input, explains every change`, () => {
+		it(`${p} vs everything it meets: terminates, keeps HP in bounds, never mutates its input, explains every change`, async () => {
 			const meetings = MEETINGS.filter((m) => m.p === p);
 			// About `BATTLES_PER_SPECIES` battles for each species, spread over every animal it
 			// meets (a few seeds each, never fewer than 3): the sweep grows with the catalog
@@ -342,11 +358,12 @@ describe('every battle in the catalog', () => {
 					// Nothing the engine sends is worded: the client words it (DECISIONS § Copy and languages).
 					expect(wordedStrings({ state, said }), `${p} vs ${w} seed ${seed}`).toEqual([]);
 				}
+				await turn();
 			}
-			// 0.3 to 1.5 s per species at a load average of 28 (about 80 battles each, every
-			// step checked). At 25 seeds a pair, before #89, one took 1.2 to 3.4 s alone and the
-			// frog's 40 s at a load average of 54: two minutes leaves that room.
-		}, 120_000);
+			// About 60 battles a species, every step checked: 0.7 to 2.3 s alone at a load average
+			// of 10, up to 11 s in the whole suite at 33, which scales to 48 s at 150. Its loop
+			// turns after each animal it meets.
+		}, 180_000);
 	}
 
 	it('reached every outcome, and switched both ways', () => {
@@ -552,7 +569,11 @@ describe('every battle in the catalog', () => {
 
 describe('answers', () => {
 	it('a wrong answer never damages the opponent, whatever the input', () => {
+		// Every pair that can meet, 5 seeds, 6 wrong answers each, checked once a pair: an
+		// `expect` per answer costs more than the answer (43,500 answers with #89's 41 animals).
 		for (const { p, w, realm } of MEETINGS) {
+			const got: unknown[] = [];
+			const want: unknown[] = [];
 			for (let seed = 0; seed < 5; seed++) {
 				const rng = new Rng(seed);
 				const n = rng.int(1, getAnimal(p).attacks.length);
@@ -578,26 +599,41 @@ describe('answers', () => {
 						{ type: 'answer', input },
 						seed
 					);
-					expect(state.opponent.hp).toBe(solving.opponent.hp);
-					expect(events[0]).toEqual({ type: 'answer-judged', input, correct: false, answer });
-					expect(events[1]).toEqual({
-						type: 'missed',
-						attacker: 'player',
-						attackIndex: n,
-						level
+					got.push({
+						seed,
+						input,
+						hp: state.opponent.hp,
+						judged: events[0],
+						missed: events[1],
+						hit: events.some((e) => e.type === 'hit' && e.attacker === 'player'),
+						// The wild animal still takes its turn: it hits, or misses a wary match.
+						wild: (events[2] as { attacker?: string } | undefined)?.attacker
 					});
-					expect(events.some((e) => e.type === 'hit' && e.attacker === 'player')).toBe(false);
-					// The wild animal still takes its turn: it hits, or misses a wary match.
-					expect(events[2]).toMatchObject({ attacker: 'opponent' });
+					want.push({
+						seed,
+						input,
+						hp: solving.opponent.hp,
+						judged: { type: 'answer-judged', input, correct: false, answer },
+						missed: { type: 'missed', attacker: 'player', attackIndex: n, level },
+						hit: false,
+						wild: 'opponent'
+					});
 				}
 			}
+			expect(got, `${p} vs ${w}`).toEqual(want);
 		}
-		// About 0.5 s alone (3,720 wrong answers); 1.4 s at a load average of 40.
-	}, 30_000);
+		// 1.4 s alone at a load average of 32; with an `expect` per answer, 12 s alone at 46 and
+		// over 30 s in the whole suite. 1.2 s alone at 10 and in the whole suite at 28; up to ten
+		// times its run alone at 150.
+	}, 60_000);
 
 	it('a correct answer always deals exactly the formula damage, for every attack and level', () => {
+		// Checked once a species: an `expect` per answer took 4.3 s of its 5 in the whole suite
+		// with #89's 41 animals.
 		for (const p of ids) {
 			const spec = getAnimal(p);
+			const got: unknown[] = [];
+			const want: unknown[] = [];
 			for (let n = 1; n <= spec.attacks.length; n++) {
 				for (const level of ATTACK_LEVELS) {
 					for (let seed = 0; seed < 5; seed++) {
@@ -618,23 +654,41 @@ describe('answers', () => {
 								{ type: 'answer', input },
 								seed
 							);
-							expect(events[0]).toEqual({ type: 'answer-judged', input, correct: true, answer });
-							expect(events[1]).toEqual({
-								type: 'hit',
-								attacker: 'player',
-								attackIndex: n,
+							got.push({
+								n,
 								level,
-								damage,
-								targetHp: 100 - damage
+								seed,
+								input,
+								judged: events[0],
+								hit: events[1],
+								hp: state.opponent.hp,
+								lower: state.opponent.hp < solving.opponent.hp
 							});
-							expect(state.opponent.hp).toBe(100 - damage);
-							expect(state.opponent.hp).toBeLessThan(solving.opponent.hp);
+							want.push({
+								n,
+								level,
+								seed,
+								input,
+								judged: { type: 'answer-judged', input, correct: true, answer },
+								hit: {
+									type: 'hit',
+									attacker: 'player',
+									attackIndex: n,
+									level,
+									damage,
+									targetHp: 100 - damage
+								},
+								hp: 100 - damage,
+								lower: true
+							});
 						}
 					}
 				}
 			}
+			expect(got, p).toEqual(want);
 		}
-	});
+		// 0.3 s alone at a load average of 20 (5,040 right answers, #89's 41 animals).
+	}, 30_000);
 
 	it('landHit, as a screen previews a hit, is exactly the hit a right answer lands, a knock-out included', () => {
 		// The battle panel shows the damage, the HP bar's lighter segment and "That
@@ -677,43 +731,68 @@ describe('the wild animal', () => {
 	function wildTurn(p: string, w: string, seed: number) {
 		const start = startBattle(makeParty([p]), makeWild(w), { realm: arena(p, w)! });
 		const { state, events } = attackAndAnswer(start, seed, 1, 1, false);
-		const turn = events.filter(
+		const turns = events.filter(
 			(e) => (e.type === 'hit' || e.type === 'missed') && e.attacker === 'opponent'
 		);
-		expect(turn, `${p} vs ${w}, seed ${seed}`).toHaveLength(1);
-		const e = turn[0]!;
-		if (e.type !== 'hit' && e.type !== 'missed') throw new Error('not a turn');
+		const e = turns[0];
+		if (turns.length !== 1 || (e?.type !== 'hit' && e?.type !== 'missed'))
+			throw new Error(`${p} vs ${w}, seed ${seed}: the wild animal took ${turns.length} turns`);
 		return { e, start, state };
 	}
 
 	it('picks each of its attacks equally often and hits for its level-1 power', () => {
 		const spec = getAnimal('bear');
 		const picks = new Array(spec.attacks.length).fill(0);
+		const bad: string[] = [];
 		const runs = 2000;
 		for (let seed = 0; seed < runs; seed++) {
 			const { e } = wildTurn('bear', 'bear', seed);
-			if (e.type === 'hit') expect(e.damage).toBe(spec.attacks[e.attackIndex - 1]!.power);
-			expect(e.level).toBe(1);
+			if (
+				e.level !== 1 ||
+				(e.type === 'hit' && e.damage !== spec.attacks[e.attackIndex - 1]!.power)
+			)
+				bad.push(`seed ${seed}: ${JSON.stringify(e)}`);
 			picks[e.attackIndex - 1]++;
 		}
+		expect(findings(bad)).toEqual([]);
 		for (const count of picks) expect(count / runs).toBeCloseTo(1 / spec.attacks.length, 1);
 	});
 
 	it('misses an animal of its own tier or fiercer exactly when its roll says so, never a smaller one', () => {
 		// Recomputed from the seed: the attack pick, then the miss roll, are the
-		// wild turn's two draws from the answer intent's Rng (step 1).
-		for (const { p, w } of MEETINGS) {
+		// wild turn's two draws from the answer intent's Rng (step 1). Every pair that can
+		// meet, 40 seeds each: the findings are collected and checked once, since an
+		// `expect` per turn costs more than the turn (58,000 turns with #89's 41 animals).
+		const bad: string[] = [];
+		let misses = 0;
+		for (const { p, w, realm } of MEETINGS) {
 			const wary = getAnimal(w).tier <= getAnimal(p).tier;
 			for (let seed = 0; seed < 40; seed++) {
-				const { e, start, state } = wildTurn(p, w, seed);
+				const start = startBattle(makeParty([p]), makeWild(w), { realm });
+				const { state, events } = attackAndAnswer(start, seed, 1, 1, false);
+				const turns = events.filter(
+					(e) => (e.type === 'hit' || e.type === 'missed') && e.attacker === 'opponent'
+				);
+				const where = `${p} vs ${w}, seed ${seed}`;
+				const e = turns[0];
+				if (turns.length !== 1 || !e || (e.type !== 'hit' && e.type !== 'missed')) {
+					bad.push(`${where}: ${turns.length} wild turns`);
+					continue;
+				}
 				const rng = new Rng(hashInts(seed, 1));
-				expect(e.attackIndex).toBe(rng.int(1, getAnimal(w).attacks.length));
+				if (e.attackIndex !== rng.int(1, getAnimal(w).attacks.length))
+					bad.push(`${where}: attack ${e.attackIndex}`);
 				const miss = wary && rng.next() < WILD_MISS_CHANCE;
-				expect(e.type, `${p} vs ${w}, seed ${seed}`).toBe(miss ? 'missed' : 'hit');
-				if (miss) expect(state.party[0]!.hp).toBe(start.party[0]!.hp);
+				if (e.type !== (miss ? 'missed' : 'hit')) bad.push(`${where}: ${e.type}`);
+				if (miss && state.party[0]!.hp !== start.party[0]!.hp) bad.push(`${where}: HP moved`);
+				if (e.type === 'missed') misses++;
 			}
 		}
-		// Under 0.5 s alone (every species pair, 40 seeds); over 1.4 s on a loaded machine.
+		expect(findings(bad)).toEqual([]);
+		// The misses the rolls call for do happen, so the checks above saw both kinds of turn.
+		expect(misses).toBeGreaterThan(0);
+		// 0.4 s alone at a load average of 24 (58,000 turns, #89's 41 animals); asserting every
+		// turn instead took over 30 s at a load average of 40.
 	}, 30_000);
 
 	it('misses a wary match about as often as WILD_MISS_CHANCE says', () => {
@@ -760,34 +839,40 @@ describe('the wild animal', () => {
 
 describe('the leash', () => {
 	it('catches exactly when the roll beats catchProbability, and ends the battle with the animal', () => {
+		const bad: string[] = [];
 		for (const w of ids) {
 			const spec = getAnimal(w);
+			// A fox on land; out on the water, where the sea animals are, an otter.
+			const p = arena('fox', w) ? 'fox' : 'otter';
+			const realm = arena(p, w)!;
 			for (const hp of [1, Math.ceil(spec.maxHp * 0.1), Math.ceil(spec.maxHp * 0.5), spec.maxHp]) {
+				const chance = catchProbability(hp / spec.maxHp, spec.catchRate, 1);
 				for (let seed = 0; seed < SEEDS; seed++) {
-					// A fox on land; out on the water, where the sea animals are, an otter.
-					const p = arena('fox', w) ? 'fox' : 'otter';
-					const realm = arena(p, w)!;
 					const start = deepFreeze(startBattle(makeParty([p]), makeWild(w, hp), { realm }));
 					const { state, events } = applyBattleIntent(start, { type: 'throw-leash' }, seed);
-					const chance = catchProbability(hp / spec.maxHp, spec.catchRate, 1);
 					const success = new Rng(hashInts(seed, 0)).next() < chance;
-					expect(events[0]).toEqual({ type: 'leash-thrown', chance, success });
-					expect(state.opponent).toEqual(start.opponent);
-					if (success) {
-						expect(events[1]).toEqual({ type: 'ended', outcome: 'caught', caught: start.opponent });
-						expect(events).toHaveLength(2);
-						expect(outcome(state)).toBe('caught');
-						expect(state.party).toEqual(start.party);
-					} else {
-						// A failed throw hands the turn to the wild animal.
-						expect(['hit', 'missed']).toContain(events[1]?.type);
-						expect(events[1]).toMatchObject({ attacker: 'opponent' });
-						expect(outcome(state)).toBeNull();
-					}
+					const next = events[1];
+					const right =
+						isDeepStrictEqual(events[0], { type: 'leash-thrown', chance, success }) &&
+						isDeepStrictEqual(state.opponent, start.opponent) &&
+						(success
+							? events.length === 2 &&
+								isDeepStrictEqual(next, {
+									type: 'ended',
+									outcome: 'caught',
+									caught: start.opponent
+								}) &&
+								outcome(state) === 'caught' &&
+								isDeepStrictEqual(state.party, start.party)
+							: // A failed throw hands the turn to the wild animal.
+								(next?.type === 'hit' || next?.type === 'missed') &&
+								next.attacker === 'opponent' &&
+								outcome(state) === null);
+					if (!right) bad.push(`${w} at ${hp} HP, seed ${seed}: ${JSON.stringify(events)}`);
 				}
 			}
 		}
-		// About 0.25 s alone (1,400 throws); 0.35 s at a load average of 40.
+		expect(findings(bad)).toEqual([]);
 	}, 30_000);
 
 	it('a better leash raises the chance', () => {
@@ -1072,6 +1157,7 @@ describe('rejected intents', () => {
 describe('switching', () => {
 	it('takes the turn: the wild animal replies against the newcomer, and only its hit costs HP', () => {
 		let checked = 0;
+		const bad: string[] = [];
 		for (const b of ids) {
 			for (const w of ids) {
 				// Every newcomer against every wild animal it can meet. Who leaves never changes
@@ -1091,10 +1177,6 @@ describe('switching', () => {
 						{ type: 'switch', partyIndex: 1 },
 						seed
 					);
-					const where = `${a} → ${b} vs ${w}, seed ${seed}`;
-					expect(events[0], where).toEqual({ type: 'switched', animal: party[1], partyIndex: 1 });
-					expect(state.active).toBe(1);
-
 					// The wild turn's two draws, recomputed: against the newcomer, not the one who left.
 					const spec = getAnimal(w);
 					const rng = new Rng(hashInts(seed, 0));
@@ -1102,24 +1184,31 @@ describe('switching', () => {
 					const miss = spec.tier <= getAnimal(b).tier && rng.next() < WILD_MISS_CHANCE;
 					const power = spec.attacks[attackIndex - 1]!.power;
 					const hp = miss ? maxHp(party[1]!) : Math.max(0, maxHp(party[1]!) - power);
-					expect(events[1], where).toMatchObject({
-						type: miss ? 'missed' : 'hit',
-						attacker: 'opponent',
-						attackIndex
-					});
-					expect(state.party[1]!.hp, where).toBe(hp);
-					expect(state.party[0]).toEqual(start.party[0]);
-					expect(state.opponent).toEqual(start.opponent);
-					expect(state.turn).toBe(2);
-					// A newcomer knocked out at once hands the choice back: the first one still stands.
-					expect(state.phase).toEqual({ kind: hp === 0 ? 'choose-animal' : 'choose-action' });
+					const reply = events[1];
+					if (
+						!isDeepStrictEqual(events[0], { type: 'switched', animal: party[1], partyIndex: 1 }) ||
+						state.active !== 1 ||
+						reply?.type !== (miss ? 'missed' : 'hit') ||
+						reply.attacker !== 'opponent' ||
+						reply.attackIndex !== attackIndex ||
+						state.party[1]!.hp !== hp ||
+						!isDeepStrictEqual(state.party[0], start.party[0]) ||
+						!isDeepStrictEqual(state.opponent, start.opponent) ||
+						state.turn !== 2 ||
+						// A newcomer knocked out at once hands the choice back: the first one still stands.
+						!isDeepStrictEqual(state.phase, { kind: hp === 0 ? 'choose-animal' : 'choose-action' })
+					)
+						bad.push(
+							`${a} → ${b} vs ${w}, seed ${seed}: the newcomer at ${state.party[1]!.hp} (want ${hp}), turn ${state.turn}, ${state.phase.kind}, ${JSON.stringify(events)}`
+						);
 				}
 			}
 		}
+		expect(findings(bad)).toEqual([]);
 		// Every pair that can meet was a newcomer against a wild animal.
 		expect(checked).toBe(MEETINGS.length);
-		// Five seeds a pair: 1.4 s at a load average of about 100, where every trio took 67 s
-		// with the 32 animals of #89.
+		// Five seeds a pair, where every trio took 67 s at a load average of about 100 with the
+		// 32 animals of #89.
 	}, 30_000);
 
 	it('never stalls: a player who switches whenever they can loses every battle, the wild animal untouched', () => {
@@ -1153,6 +1242,7 @@ describe('switching', () => {
 	it('canSwitchTo says exactly which switches the reducer takes', () => {
 		const model: PlayerModel = { accuracy: 0.6, policy: 'random', leash: 0.1, switch: 0.2 };
 		let checked = 0;
+		const bad: string[] = [];
 		for (const w of ids) {
 			// Out on the water, where the sea animals are, a squirrel in the boat that can't step in.
 			const realm = arena('fox', w) ? 'land' : 'water';
@@ -1163,13 +1253,16 @@ describe('switching', () => {
 				const check = (before: BattleState) => {
 					for (const i of [-1, 0, 1, 2, 3, 0.5]) {
 						const step = applyBattleIntent(before, { type: 'switch', partyIndex: i }, seed);
-						expect(canSwitchTo(before, i)).toBe(step.events[0]!.type === 'switched');
+						const taken = step.events[0]!.type === 'switched';
+						if (canSwitchTo(before, i) !== taken)
+							bad.push(`vs ${w}, seed ${seed}, step ${before.step}: switch to ${i} taken ${taken}`);
 						checked++;
 					}
 				};
 				playBattle(seed, party, makeWild(w), model, check, 2000, realm);
 			}
 		}
+		expect(findings(bad)).toEqual([]);
 		expect(checked).toBeGreaterThan(1000);
 	});
 });

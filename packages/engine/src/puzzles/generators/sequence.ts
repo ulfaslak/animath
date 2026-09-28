@@ -1,4 +1,5 @@
 import type { Rng } from '../../rng.js';
+import { facePrompt } from '../face.js';
 import type { Puzzle, PuzzleGenerator } from '../types.js';
 import { band, type Band } from './arithmetic.js';
 
@@ -171,7 +172,7 @@ export const sequence: PuzzleGenerator = {
 		return {
 			kind: 'sequence',
 			difficulty,
-			prompt: `${seq.slice(0, SHOWN).join(', ')}, ?`,
+			prompt: facePrompt({ kind: 'sequence', numbers: seq.slice(0, SHOWN) }),
 			answer
 		};
 	}

@@ -45,13 +45,13 @@ Technical items we've intentionally postponed: tech debt, hardening shortcuts, k
 
 **Trigger**: a wild battle run on the server ([[DECISIONS]] § Multiplayer: only once a gain can flow between players), or earlier if a second outcome rule lands. Move the write-back into an engine function (`concludeBattle(party, endedState) → { party, outcome }`, beside `knockOut`) and call it from both authorities; let the client word the closing line from the outcome.
 
-### Anonymous player identity is unauthenticated
+### The retired anonymous backup's tables stay in every database
 
-**What**: the player secret is a random token the client holds in `localStorage` (`animath.player`) and sends as a bearer header. Only its hash is stored, so a database dump is useless, but anyone who copies the token from the browser owns the player and its backup. No rate limiting on `POST /api/players` where it runs (development, over the tunnel, with no nginx in front): anyone can mint rows, and the game itself leaves unused ones behind (every fresh browser that starts a game is a new player; a page reloaded before its first `POST` answered makes another). No rotation, and no way to recover a lost secret: a kid whose browser forgets the site (cleared data, another browser or device, Safari deleting a site's storage after seven days without a visit) starts a new game, and their backup waits on the server under an identity nothing holds any more. Moving it to their new player takes a query written by hand; [[DEVELOPMENT]] § Database only restores a player's own backups.
+**What**: `players`, `saves` and `save_backups` (migrations `0000` to `0002`) held the anonymous per-browser backup, which the development server behind the tunnel kept until the human's kid's game moved to production (2026-09-27, [[DECISIONS]] § Saves). Nothing in the game reads or writes them since, but they stay in every database, production's (where they are empty) included, and no migration may drop or alter them ([[INVARIANTS]] § Server, checked by `migrations.test.ts`). The human's local `mathgame` database keeps the tunnel's games in them, the newest save of each browser that played there before the retirement, which `admin export-local-save` reads ([[DEVELOPMENT]] § Moving a kid's game to production). The schema (`db/schema.ts`) still describes them.
 
-**Why deferred**: the anonymous backup runs only in development now, for a handful of kids on this machine's tunnel: in production every `/api/players` route answers `410` ([[ARCHITECTURE]] § HTTP API), and the backup goes once the human's kid's save has moved to production ([[DECISIONS]] § Saves). A game moves between browsers with an account, which has a password, rate limits and an admin reset.
+**Why deferred**: those rows are the only copy off the kids' own browsers of the games played through the tunnel: a kid who has not moved yet (one of the human's kid's friends, say) can still have theirs moved from them. Dropping the tables takes a migration that runs on production too, for tables that are empty there, and the cleanup that retired the backup was asked to keep production's schema history simple. Three empty tables cost nothing.
 
-**Trigger**: the cleanup PR that removes the anonymous backup after the kid's save has moved: delete this item with it. Before then, the first report of a kid losing their save.
+**Trigger**: the human says the tunnel's games have all moved or may go, or a new table wants one of these names (`players` is the likely one, with more to multiplayer), whichever comes first. Then keep a copy of the local rows outside the repository first (`pg_dump -t players -t saves -t save_backups`), and in one PR: a migration that drops the three tables, the invariant and its check in `migrations.test.ts` retired with it, `export-local-save` and `save-export.ts` gone (they read nothing else), the tables out of the schema, and this item deleted.
 
 ### The login and register rate limits live in one process's memory
 
@@ -79,7 +79,7 @@ Technical items we've intentionally postponed: tech debt, hardening shortcuts, k
 
 ### The server stores whatever save the client sends
 
-**What**: `PUT /api/players/:id/save` checks the document's shape, not that the game in it could have happened: an HP above the species' maximum (`restoreGame` cuts it on load), a party of any animals, a position anywhere, any number of tokens and any tools, a `battle` the server never looks inside (the client checks it with `readBattle` on load). A modified client, or a hand-edited `localStorage` save, is backed up as sent. The saved battle also carries the puzzle's answer, as `BattleState` does ([[CHEATSHEET]] § Exploits).
+**What**: `PUT /api/account/save`, and the guest game a registration brings, are checked for the document's shape, not for whether the game in it could have happened: an HP above the species' maximum (`restoreGame` cuts it on load), a party of any animals, a position anywhere, any number of tokens and any tools, a `battle` the server never looks inside (the client checks it with `readBattle` on load). A modified client, or a hand-edited `localStorage` save, is stored in the account as sent. The saved battle also carries the puzzle's answer, as `BattleState` does ([[CHEATSHEET]] § Exploits).
 
 **Why deferred**: the save is the single-player authority's state, and that authority is the client, by choice ([[DECISIONS]] § Multiplayer): nothing a player gains can reach another player, and a friendly match changes nothing, so cheating gains nothing.
 
@@ -126,19 +126,19 @@ Technical items we've intentionally postponed: tech debt, hardening shortcuts, k
 
 ### A browser keeps at most 200 games left for a new one
 
-**What**: New game on the title moves the saved game to the first free slot of `animath.save.previous` (`.2` … `.200`) and never writes over one. With all of them taken, the saved game stays in `animath.save` and the new game is not saved in the browser: it plays, is backed up to the server when that is reachable, and after a reload the title offers the old game again (or, once the backup has landed, the page settles with the server and takes the new one). Nothing is lost, but the new game doesn't stick without a server, and nothing tells the kid.
+**What**: New game on the title moves the saved game to the first free slot of `animath.save.previous` (`.2` … `.200`; an account's `previous` key alike) and never writes over one. With all of them taken, the saved game stays in the save key and the new game is not saved in the browser: it plays, and after a reload the title offers the old game again. An account's new game goes to the server when that is reachable, and once it has landed the page settles with the server and takes it; a guest's lives only as long as the page. No saved game is lost, but the new one doesn't stick, and nothing tells the kid.
 
-**Why deferred**: every try of a starter puts one game away, but 200 is years of trying at this household's pace, and making room means deleting a kid's game, which [[DECISIONS]] § Saves rules out; the fix is a decision (drop games with nothing in them, a size budget, or letting the server's `save_backups` be the only copy past a point).
+**Why deferred**: every try of a starter puts one game away, but 200 is years of trying at this household's pace, and making room means deleting a kid's game, which [[DECISIONS]] § Saves rules out; the fix is a decision (drop games with nothing in them, a size budget, or, for an account, letting the server's `account_save_backups` be the only copy past a point).
 
 **Trigger**: a report of a new game that did not stick, or `animath.save.previous.100` showing up in a kid's browser.
 
 ### The doctor's Heal tab lists every animal of a kind, where the HUD shows one card
 
-**What**: the doctor's lists read the party's bundles (`bundles`), and Help home gives each kind of several a row of its own ("Rabbit ×12") that picks the whole kind (#75). Heal still lists each animal, grouped by kind with a line between kinds, and has no row for a kind. So a kid meets twelve rabbits as one card in the HUD and as twelve rows at the doctor's Heal tab.
+**What**: the doctor's lists read the party's bundles (`bundles`), and Set free gives each kind of several a row of its own ("Rabbit ×12") that picks the whole kind (#75). Heal still lists each animal, grouped by kind with a line between kinds, and has no row for a kind. So a kid meets twelve rabbits as one card in the HUD and as twelve rows at the doctor's Heal tab.
 
 **Why deferred**: Heal is where each animal's HP shows, and one puzzle already heals the whole kind whichever of its hurt animals is picked. A kind's row there would be a second way to the same puzzle, not a shortcut.
 
-**Trigger**: a save with more than 20 hurt animals of one kind, so the heal list outgrows the card, or a report that Heal and the HUD read as different teams. Then give Heal a row per kind of several that opens its puzzle, as Help home's row picks its animals.
+**Trigger**: a save with more than 20 hurt animals of one kind, so the heal list outgrows the card, or a report that Heal and the HUD read as different teams. Then give Heal a row per kind of several that opens its puzzle, as Set free's row picks its animals.
 
 ### Two tabs writing the save in the same instant: the one written over is kept aside, not merged
 
@@ -148,13 +148,13 @@ Technical items we've intentionally postponed: tech debt, hardening shortcuts, k
 
 **Trigger**: a feature that writes the save without the kid's input (a timer, a reward that grows over time, a second player on one device), or a report of a game found kept aside after playing in two tabs. Then merge a walk-versus-progress race back into play: carry on from the other save when it only walked since this page's previous save, and write this page's progress on top.
 
-### A save over 1 MiB is not backed up, and one over 64 KiB misses the backup sent as the page closes
+### An account's save over 1 MiB does not reach the server, and one over 64 KiB misses the send as the page closes
 
-**What**: a party has no cap, so a save grows with it: about 80 bytes an animal, up to 140 with a long name in 4-byte letters, twice that mid-battle. The tiles a kid cleared take up to `EDITS_BUDGET` more (24,000 characters, far from home past it), which brings the `keepalive` limit below closer: a kid who has chopped thousands of tiles reaches it with some 150 animals mid-battle with long names. The server refuses a body over `SAVE_MAX_BYTES` (1 MiB, about 3,500 animals in the worst case) with a `413`, which the autosave treats as a bug: one `console.error`, and no more backups that visit; the game in the browser is saved as always. Separately, the backup sent on `pagehide` and when the page is hidden uses `fetch`'s `keepalive`, which browsers cap at 64 KiB of body: a bigger save (some 230 animals mid-battle with long names, 400 without) fails that request quietly, and the server's copy waits for the next ordinary backup (1 s after something that matters, 15 s after walking), which a hidden tab still sends.
+**What**: a party has no cap, so a save grows with it: about 80 bytes an animal, up to 140 with a long name in 4-byte letters, twice that mid-battle. The tiles a kid cleared take up to `EDITS_BUDGET` more (24,000 characters, far from home past it), which brings the `keepalive` limit below closer: a kid who has chopped thousands of tiles reaches it with some 150 animals mid-battle with long names. The server refuses a body over `SAVE_MAX_BYTES` (1 MiB, about 3,500 animals in the worst case) with a `413`, which the autosave treats as a bug: one `console.error`, and nothing more sent that visit; the game in the browser is saved as always. Separately, the save sent on `pagehide` and when the page is hidden uses `fetch`'s `keepalive`, which browsers cap at 64 KiB of body: a bigger save (some 230 animals mid-battle with long names, 400 without) fails that request quietly, and the server's copy waits for the next ordinary send (1 s after something that matters, 15 s after walking), which a hidden tab still makes.
 
 **Why deferred**: no kid is near either size; catching 400 animals takes well over ten hours of play.
 
-**Trigger**: a save in the `saves` table over 48 KB (`pg_column_size(data)`), or any party past 300 animals. Then send a save too big for `keepalive` without it, and split or compress the backup before it nears `SAVE_MAX_BYTES`.
+**Trigger**: a save in the `account_saves` table over 48 KB (`pg_column_size(data)`), or any party past 300 animals. Then send a save too big for `keepalive` without it, and split or compress the save before it nears `SAVE_MAX_BYTES`.
 
 ### A card's list is built whole, however many animals it holds
 
@@ -166,7 +166,7 @@ Technical items we've intentionally postponed: tech debt, hardening shortcuts, k
 
 ### A save with more than six animals reads as unreadable to a build from before #66
 
-**What**: the party lost its cap without a new save `version`, since every old document still reads (the rule in [[DECISIONS]] § Saves bumps `version` only when an old document becomes unreadable). But a build from before #66 refuses a party of more than six, and calls such a save `invalid`, not `newer`: it starts a new game, and once the kid has played, sets the big team aside in `animath.save.unreadable` (and the server keeps its copy in `save_backups`). Nothing is lost, but the kid sees "Your saved game didn't load", and the team comes back only by hand. A save of six or fewer still reads in an old build.
+**What**: the party lost its cap without a new save `version`, since every old document still reads (the rule in [[DECISIONS]] § Saves bumps `version` only when an old document becomes unreadable). But a build from before #66 refuses a party of more than six, and calls such a save `invalid`, not `newer`: it starts a new game, and once the kid has played, sets the big team aside in `animath.save.unreadable`. Nothing is lost, but the kid sees "Your saved game didn't load", and the team comes back only by hand. A save of six or fewer still reads in an old build.
 
 **Why deferred**: only an older build meeting a newer save hits it, which today means rolling the tunnel's game back past #66; a `version` bump instead would make every save, small ones too, unreadable to such a build.
 
