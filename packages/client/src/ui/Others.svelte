@@ -1,8 +1,10 @@
 <script lang="ts">
 	import type { Busy } from '@mathgame/engine';
+	import { onDestroy } from 'svelte';
 	import { t } from '../copy';
 	import { speciesName } from '../names';
-	import { presence } from '../state/presence.svelte';
+	import { THOUGHT_LEAN, unclutter, type Mark, type Rect } from '../presence/labels';
+	import { presence, type Label } from '../state/presence.svelte';
 
 	/**
 	 * The other players, over the world ([[UI_SPEC]] § Explore mode, "Playing
@@ -27,10 +29,125 @@
 	 * burst as hot as the hit (`presence.pops`: the battle screen's
 	 * `HitBurst`, smaller). With reduced motion nothing jumps or wobbles: the
 	 * tick, the tint and the number say it.
+	 *
+	 * No word covers another (#141): the names and the animals' tags are laid
+	 * out by `unclutter` (`presence/labels.ts`) from what each measures here,
+	 * the tags from where their animals stand still, so a lunge or a hop never
+	 * shuffles them. A label rises over a tall animal's tag, and two tags make
+	 * room for each other; each glides to its place (`translate`, which the
+	 * placing `transform` leaves alone), and a hit's damage floats up from its
+	 * tag wherever the tag went.
 	 */
 
 	/** The gap between an arrow's middle and the near edge of its name (CSS pixels). */
 	const NAME_GAP = 20;
+
+	/** A box as laid out in its element, before any transform: its place in it, its size. */
+	interface Box {
+		x: number;
+		y: number;
+		w: number;
+		h: number;
+		/** The thought cloud, which leans off the name (`THOUGHT_LEAN`). */
+		thought: boolean;
+	}
+	/** What a label or a tag measures: its own size, and the boxes in it that hold anything. */
+	interface Measured {
+		w: number;
+		h: number;
+		parts: Box[];
+	}
+
+	/** Every label and tag on screen, by its key (`label:<pid>`, `tag:<key>`), as last measured. */
+	let measured = $state.raw<Record<string, Measured>>({});
+	/** The labels and tags being watched, and their keys. */
+	const watched = new Map<HTMLElement, string>();
+	const observer =
+		typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(() => measureAll());
+	onDestroy(() => observer?.disconnect());
+
+	/** Measure every label and tag again: one of them, or a part of one, changed size. */
+	function measureAll(): void {
+		const next: Record<string, Measured> = {};
+		for (const [el, key] of watched) {
+			const parts: Box[] = [];
+			for (const part of el.querySelectorAll<HTMLElement>(':scope > [data-part]')) {
+				parts.push({
+					x: part.offsetLeft,
+					y: part.offsetTop,
+					w: part.offsetWidth,
+					h: part.offsetHeight,
+					thought: part.dataset.part === 'thought'
+				});
+			}
+			next[key] = { w: el.offsetWidth, h: el.offsetHeight, parts };
+		}
+		measured = next;
+	}
+
+	/**
+	 * A label or a tag to lay out (`data-key` its key, which a keyed element
+	 * keeps): watched while it is on screen. What it measured stays until the
+	 * next measuring, unread: only what is on screen is laid out.
+	 */
+	function watch(el: HTMLElement): () => void {
+		watched.set(el, el.dataset.key ?? '');
+		observer?.observe(el);
+		return () => {
+			watched.delete(el);
+			observer?.unobserve(el);
+		};
+	}
+
+	/** A part of a label (the name, the bubble, the thought cloud): a change in its size lays it out again. */
+	function watchPart(el: HTMLElement): () => void {
+		observer?.observe(el);
+		return () => observer?.unobserve(el);
+	}
+
+	/**
+	 * A label's boxes round its anchor (the middle of its bottom edge): the
+	 * name, and over it the bubble or the thought, which leans away from the
+	 * battle. Before it is measured, about a name's size.
+	 */
+	function labelParts(label: Label): Rect[] {
+		const m = measured[`label:${label.pid}`];
+		if (!m) return [{ x0: -40, x1: 40, y0: -28, y1: -2 }];
+		return m.parts.map((p) => {
+			const lean = p.thought && label.thought ? label.thought.lean * THOUGHT_LEAN * p.w : 0;
+			const x0 = p.x - m.w / 2 + lean;
+			const y0 = p.y - m.h;
+			return { x0, x1: x0 + p.w, y0, y1: y0 + p.h };
+		});
+	}
+
+	/** A tag's box round its anchor (the middle of its bottom edge); before it is measured, about a tag's size. */
+	function tagParts(key: string): Rect[] {
+		const m = measured[`tag:${key}`];
+		if (!m) return [{ x0: -36, x1: 36, y0: -32, y1: 0 }];
+		return [{ x0: -m.w / 2, x1: m.w / 2, y0: -m.h, y1: 0 }];
+	}
+
+	/** Where everything goes this frame: labels over the tags, the tags apart. */
+	const layout = $derived.by(() => {
+		const labels: Mark[] = presence.labels.map((label) => ({
+			key: `label:${label.pid}`,
+			x: label.x,
+			y: label.y,
+			parts: labelParts(label)
+		}));
+		// A tag that has faded away (its animal lying down) takes no room.
+		const tags: Mark[] = presence.bars
+			.filter((bar) => bar.opacity > 0.05)
+			.map((bar) => ({ key: `tag:${bar.key}`, x: bar.rx, y: bar.ry, parts: tagParts(bar.key) }));
+		return unclutter(labels, tags);
+	});
+
+	/** How far a label or a tag is moved from its anchor, as a `translate`. */
+	function shift(key: string): string {
+		const off = layout.get(key) ?? { dx: 0, dy: 0 };
+		return [off.dx, off.dy].map((v) => `${v}px`).join(' ');
+	}
 
 	/**
 	 * Where an arrow's name sits: on the side of it towards the middle of the
@@ -89,9 +206,12 @@
 		{@const share = bar.maxHp > 0 ? bar.hp / bar.maxHp : 0}
 		<div
 			class="hp"
+			data-key="tag:{bar.key}"
 			style:transform="translate({bar.x}px, {bar.y}px) translate(-50%, -100%)"
+			style:translate={shift(`tag:${bar.key}`)}
 			style:opacity={bar.opacity}
 			aria-hidden="true"
+			{@attach watch}
 		>
 			<span class="hp-name">{speciesName(bar.species)}</span>
 			<span class="track"
@@ -107,15 +227,21 @@
 	{#each presence.labels as label (label.pid)}
 		<div
 			class="label"
+			data-key="label:{label.pid}"
 			style:transform="translate({label.x}px, {label.y}px) translate(-50%, -100%)"
+			style:translate={shift(`label:${label.pid}`)}
 			style:opacity={label.opacity}
+			{@attach watch}
 		>
 			{#if label.thought}
 				<!-- What they are working out: the sum as the engine writes it, or dots while they choose. -->
 				<div
 					class="thought"
+					data-part="thought"
 					style:--lean={label.thought.lean}
+					style:translate="{label.thought.lean * THOUGHT_LEAN * 100}% 0"
 					role="img"
+					{@attach watchPart}
 					aria-label={label.thought.sum === null
 						? t('presence.choosing', { name: label.name })
 						: t('presence.thinking', { name: label.name, sum: label.thought.sum })}
@@ -159,16 +285,27 @@
 				</div>
 				<!-- Up in the air the glider says it: no bubble over a friend who flies. -->
 			{:else if label.busy !== 'explore' && label.busy !== 'flight'}
-				<div class="bubble" role="img" aria-label={t(`presence.busy.${label.busy}`)}>
+				<div
+					class="bubble"
+					data-part="bubble"
+					role="img"
+					aria-label={t(`presence.busy.${label.busy}`)}
+					{@attach watchPart}
+				>
 					{@render icon(label.busy)}
 				</div>
 			{/if}
-			<div class="name">{label.name}</div>
+			<div class="name" data-part="name" {@attach watchPart}>{label.name}</div>
 		</div>
 	{/each}
-	<!-- The damage a hit did, floating up from the animal hit, as big and hot as the hit. -->
+	<!-- The damage a hit did, floating up from the animal hit (over its tag, wherever that went), as big and hot as the hit. -->
 	{#each presence.pops as pop (pop.id)}
-		<div class="pop-at" style:transform="translate({pop.x}px, {pop.y}px)" aria-hidden="true">
+		<div
+			class="pop-at"
+			style:transform="translate({pop.x}px, {pop.y}px)"
+			style:translate={shift(`tag:${pop.key}`)}
+			aria-hidden="true"
+		>
 			<div class="pop l{pop.level}">
 				<svg class="burst" viewBox="0 0 100 100">
 					<polygon
@@ -218,6 +355,15 @@
 		align-items: center;
 		gap: 3px;
 		padding-bottom: 2px;
+	}
+	/*
+	 * Moved off its anchor so no word covers another (`unclutter`): a glide,
+	 * not a jump, when a thought cloud comes or an animal is switched in.
+	 */
+	.label,
+	.hp,
+	.pop-at {
+		transition: translate 0.18s ease-out;
 	}
 	/*
 	 * A name over a head: readable over any ground, at a tablet's size and a
@@ -278,8 +424,9 @@
 	 */
 	/*
 	 * It leans off the name, away from their battle (`--lean`: 1 to the right,
-	 * -1 to the left), so it never covers the names over the two animals; the
-	 * puffs trail back down to the name.
+	 * -1 to the left), by `THOUGHT_LEAN` of its width (its `translate`, set
+	 * where the layout reads it), so it keeps off the animals' tags; the puffs
+	 * trail back down to the name.
 	 */
 	.thought {
 		/* Upright until the page says which way (the label's own `--lean`). */
@@ -289,7 +436,6 @@
 		flex-direction: column;
 		align-items: center;
 		padding-bottom: 12px;
-		translate: calc(var(--lean) * 32%) 0;
 	}
 	.cloud {
 		position: relative;
@@ -548,8 +694,13 @@
 			opacity: 1;
 		}
 	}
-	/* Less motion: nothing jumps, wobbles or floats; the tick, the rims and the numbers say it. */
+	/* Less motion: nothing jumps, wobbles, floats or glides; the tick, the rims and the numbers say it. */
 	@media (prefers-reduced-motion: reduce) {
+		.label,
+		.hp,
+		.pop-at {
+			transition: none;
+		}
 		.cloud.right,
 		.cloud.wrong {
 			animation: none;

@@ -187,19 +187,25 @@ export interface ThoughtMark {
 	scene: THREE.Vector3;
 }
 
-/** A small HP bar over an animal in a battle: where its head is, who it is, how much HP it has left. */
+/**
+ * A small HP bar over an animal in a battle: where its head is (`at`, as it
+ * moves; `rest`, standing on its spot, fully grown), who it is, how much HP
+ * it has left.
+ */
 export interface BarMark {
 	key: string;
 	at: THREE.Vector3;
+	rest: THREE.Vector3;
 	animal: FightAnimal;
 	maxHp: number;
 	/** How much of it is there: it grows in and shrinks away with its animal. */
 	opacity: number;
 }
 
-/** A damage number floating up from the animal hit: `id` is its own, for the page to play it once. */
+/** A damage number floating up from the animal hit: `id` is its own, for the page to play it once; `key` its animal's bar's. */
 export interface PopMark {
 	id: number;
+	key: string;
 	at: THREE.Vector3;
 	damage: number;
 	level: AttackLevel;
@@ -418,8 +424,9 @@ export class WatchedFights {
 				if (!slot.figure || slot.leaving) continue;
 				const height = heightOf(slot.figure) * slot.figure.scale.y;
 				bars.push({
-					key: `${fight.pid}:${side}`,
-					at: slot.figure.position.clone().setY(slot.figure.position.y + height + 0.18),
+					key: barKey(fight, side),
+					at: slot.figure.position.clone().setY(slot.figure.position.y + height + BAR_LIFT),
+					rest: slot.spot.clone().setY(slot.spot.y + tallness(slot) + BAR_LIFT),
 					animal: { ...slot.animal },
 					maxHp: getAnimal(slot.animal.species).maxHp,
 					// A tired one's tag fades as it lies down: its z's say it, and the tag would hide them.
@@ -977,7 +984,7 @@ export class WatchedFights {
 	private pop(fight: Fight, side: MatchSide, damage: number, level: AttackLevel): void {
 		const slot = fight.slots[side];
 		const at = slot.spot.clone().setY(slot.spot.y + tallness(slot) + 0.1);
-		this.popping.push({ id: ++pops, at, damage, level, t: 0 });
+		this.popping.push({ id: ++pops, key: barKey(fight, side), at, damage, level, t: 0 });
 		if (this.popping.length > MAX_POPS) this.popping.shift();
 	}
 
@@ -1092,6 +1099,14 @@ function motionSeconds(kind: MotionKind): number {
 		case 'hop':
 			return HOP_SECONDS;
 	}
+}
+
+/** How far over an animal's head (tiles) its bar's tag sits. */
+const BAR_LIFT = 0.18;
+
+/** The key of a side's bar, and of the damage floating up from it. */
+function barKey(fight: Fight, side: MatchSide): string {
+	return `${fight.pid}:${side}`;
 }
 
 /** How tall a figure stands at its own size (`animals.ts` measures it as it is built). */
