@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { ANIMALS, canFightIn, getAnimal } from '../src/animals/catalog.js';
+import { REALMS, type Realm } from '../src/animals/types.js';
 import { applyMatchIntent, startMatch } from '../src/match/reducer.js';
 import { MATCH_TEAM_SIZE, matchTeam } from '../src/match/team.js';
 import type { MatchIntent, MatchSide } from '../src/match/types.js';
@@ -99,16 +100,21 @@ const FACES: readonly PuzzleFace[] = [
 ];
 
 /** Someone's animal in a fight: any species, HP within its own (never a nickname: no words cross). */
-function randomFighter(rng: Rng): FightAnimal {
-	const species = pick(rng, ANIMALS).id;
+/** An animal of any species, or of one that can fight in `realm`, as every real battle's view is. */
+function randomFighter(rng: Rng, realm?: Realm): FightAnimal {
+	const species = pick(
+		rng,
+		ANIMALS.filter((a) => realm === undefined || canFightIn(a.id, realm))
+	).id;
 	return { species, hp: rng.int(0, getAnimal(species).maxHp) };
 }
 
 function randomFightView(rng: Rng): FightView {
+	const realm = pick(rng, REALMS);
 	return {
-		realm: pick(rng, ['land', 'water'] as const),
-		a: randomFighter(rng),
-		b: randomFighter(rng),
+		realm,
+		a: randomFighter(rng, realm),
+		b: randomFighter(rng, realm),
 		turn: pick(rng, ['a', 'b', null] as const),
 		puzzle: rng.chance(0.3) ? null : pick(rng, FACES)
 	};
@@ -461,11 +467,12 @@ describe('the wire protocol', () => {
 
 	it('bumps the version with every new species: a page drops a match or a fight with one it does not know', () => {
 		// A page of the last version would never see a match with the new animal in it, nor
-		// a fight; told to refresh, it reloads with the new catalog (#89's second wave: 5).
+		// a fight; told to refresh, it reloads with the new catalog (#89's second wave: 5;
+		// #91's buzzard, and fights in the air: 6).
 		expect(
 			{ version: PROTOCOL_VERSION, species: ANIMALS.length },
 			'a new species bumps PROTOCOL_VERSION'
-		).toEqual({ version: 5, species: 41 });
+		).toEqual({ version: 6, species: 42 });
 	});
 
 	it('bounds worlds, coordinates, names and rosters', () => {

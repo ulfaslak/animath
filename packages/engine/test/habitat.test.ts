@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { ANIMALS, getAnimal } from '../src/animals/catalog.js';
+import { ANIMALS, getAnimal, skiesOf } from '../src/animals/catalog.js';
 import { REALMS, TERRAINS, type Terrain } from '../src/animals/types.js';
 import { hashString } from '../src/rng.js';
 import { generateChunk, tileAtWorld } from '../src/world/generate.js';
@@ -232,6 +232,44 @@ describe('where each species lives', () => {
 		]);
 	});
 
+	it('only the birds fly, each over the skies of where it lives, and the sea eagle over the sea too (#91)', () => {
+		const flyers = ANIMALS.filter((a) => a.realms.includes('air'));
+		expect(flyers.map((a) => a.id)).toEqual([
+			'robin',
+			'grey-heron',
+			'tawny-owl',
+			'buzzard',
+			'mute-swan',
+			'eagle-owl',
+			'golden-eagle',
+			'white-tailed-eagle'
+		]);
+		for (const bird of flyers) {
+			// A bird is a land animal that also flies: caught in the grass, it fights on land too.
+			expect(bird.realms, bird.id).toContain('land');
+			const skies = skiesOf(bird);
+			expect(skies.length, bird.id).toBeGreaterThan(0);
+			expect(new Set(skies).size, bird.id).toBe(skies.length);
+			for (const biome of bird.habitats) expect(skies, bird.id).toContain(biome);
+		}
+		expect(skiesOf(getAnimal('white-tailed-eagle'))).toEqual(['river', 'sea']);
+		expect(ANIMALS.filter((a) => a.skies !== undefined).map((a) => a.id)).toEqual([
+			'white-tailed-eagle'
+		]);
+		// An animal that does not fly flies over no sky, whatever its entry says.
+		for (const a of ANIMALS) if (!a.realms.includes('air')) expect(skiesOf(a), a.id).toEqual([]);
+		expect(skiesOf({ ...getAnimal('squirrel'), skies: ['meadow'] })).toEqual([]);
+		// The buzzard is #91's, in #89's tier-2 band: 30–36 HP, catch 0.6–0.7, powers 5–12.
+		expect(getAnimal('buzzard')).toMatchObject({
+			tier: 2,
+			maxHp: 33,
+			catchRate: 0.65,
+			habitats: ['meadow'],
+			realms: ['land', 'air'],
+			favours: 'trees'
+		});
+	});
+
 	it('the ground each animal favours, as [[PRODUCT]] §4 lists it with a reason for each', () => {
 		const by = (t: Terrain) => ANIMALS.filter((a) => a.favours === t).map((a) => a.id);
 		expect(by('water')).toEqual([
@@ -263,6 +301,7 @@ describe('where each species lives', () => {
 			'badger',
 			'pine-marten',
 			'tawny-owl',
+			'buzzard',
 			'wild-boar',
 			'lynx'
 		]);

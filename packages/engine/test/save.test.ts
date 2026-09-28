@@ -593,7 +593,9 @@ describe('readSave and the upgrade seam', () => {
 			'turtle',
 			'dolphin',
 			'octopus',
-			'whale'
+			'whale',
+			// #91's birds in the air.
+			'buzzard'
 		];
 		expect(ANIMALS.map((a) => a.id).filter((id) => !shipped.includes(id))).toEqual([]);
 		for (const speciesId of shipped) {
@@ -1675,6 +1677,77 @@ describe('readBattle', () => {
 		expect(readBattle(old, party, 'land')).toEqual(onLand);
 		expect(readBattle(old, party, 'water')).toBeNull();
 		expect(readBattle(json({ realm: 'lava' }), party, 'water')).toBeNull();
+	});
+
+	it('picks up a battle in the air, fought only by birds, wherever the glider came down: on land or out on the water (#91)', () => {
+		let states = 0;
+		for (let seed = 1; seed <= 10; seed++) {
+			const all: { state: BattleState; next: Parameters<typeof applyBattleIntent>[1] }[] = [];
+			playBattle(
+				seed,
+				makeParty(['squirrel', 'robin', 'mute-swan']),
+				makeWild('buzzard'),
+				{ accuracy: 0.6, policy: 'random', leash: 0.1, switch: 0.2 },
+				(before, intent) => all.push({ state: before, next: intent }),
+				2000,
+				'air'
+			);
+			for (const { state, next } of all) {
+				states++;
+				const party = state.party.map((a) => ({ ...a }));
+				const doc = JSON.parse(JSON.stringify(state));
+				// Down on the ground or in the boat: the bird followed the glider there.
+				for (const where of ['land', 'water'] as const) {
+					const restored = readBattle(doc, party, where);
+					expect(restored).toEqual(state);
+					expect(applyBattleIntent(restored!, next, seed)).toEqual(
+						applyBattleIntent(state, next, seed)
+					);
+				}
+			}
+		}
+		expect(states).toBeGreaterThan(50);
+
+		const party = makeParty(['squirrel', 'robin']);
+		const air = startBattle(party, makeWild('buzzard'), { realm: 'air' });
+		const json = (patch: Record<string, unknown>) => ({
+			...JSON.parse(JSON.stringify(air)),
+			...patch
+		});
+		expect(readBattle(json({}), party, 'land')).toEqual(air);
+		// The squirrel can't fly: it is never the one in front up in the air.
+		expect(readBattle(json({ active: 0 }), party, 'land')).toBeNull();
+		// Nor is a wild animal that can't fly met there.
+		const squirrel = { id: 'wild-squirrel', speciesId: 'squirrel', hp: 20 };
+		expect(readBattle(json({ opponent: squirrel }), party, 'land')).toBeNull();
+		// A battle on land or on the water is still picked up only there.
+		const onLand = startBattle(party, makeWild('buzzard'));
+		expect(readBattle(JSON.parse(JSON.stringify(onLand)), party, 'water')).toBeNull();
+	});
+
+	it('comes back with a battle in the air where the glider came down: on the ground, in the boat, never out on the water without it', () => {
+		const party = makeParty(['squirrel', 'robin']);
+		const battle = startBattle(party, makeWild('buzzard'), { realm: 'air' });
+		const game = { ...newGame(1), facing: 'up' as const, steps: 14, party, battle };
+		const ground = saveDocument(
+			{ ...game, pos: findTile(SEED, true), items: ['glider'] },
+			{ lineage: 'L', seq: 2 }
+		);
+		const read = readSave(JSON.parse(JSON.stringify(ground)));
+		expect(read.ok && restoreGame(read.save).battle).toEqual(battle);
+		const pos = waterNearSpawn('deepwater');
+		const boat = saveDocument(
+			{ ...game, pos, items: ['glider', 'boat'] },
+			{ lineage: 'L', seq: 2 }
+		);
+		expect(restoreGame(JSON.parse(JSON.stringify(boat))).battle).toEqual(battle);
+		const noBoat = restoreGame(
+			JSON.parse(
+				JSON.stringify(saveDocument({ ...game, pos, items: ['glider'] }, { lineage: 'L', seq: 2 }))
+			)
+		);
+		expect(noBoat.battle).toBeNull();
+		expect(noBoat.pos).toEqual(spawnPoint(SEED));
 	});
 
 	it('comes back with the saved game out on the water only with the boat', () => {

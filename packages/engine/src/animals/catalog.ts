@@ -1,4 +1,4 @@
-import type { AnimalSpec, Realm } from './types.js';
+import type { AnimalSpec, Biome, Realm } from './types.js';
 
 /**
  * The species catalog. Placeholder roster for the prototype — the real one
@@ -232,7 +232,7 @@ export const ANIMALS: readonly AnimalSpec[] = [
 		maxHp: 19,
 		catchRate: 0.9,
 		habitats: ['forest', 'meadow'],
-		realms: ['land'],
+		realms: ['land', 'air'],
 		favours: 'trees',
 		attacks: [
 			{ id: 'song', kinds: ['sequence'], power: 5 },
@@ -328,7 +328,7 @@ export const ANIMALS: readonly AnimalSpec[] = [
 		maxHp: 33,
 		catchRate: 0.65,
 		habitats: ['river'],
-		realms: ['land'],
+		realms: ['land', 'air'],
 		favours: 'water',
 		attacks: [
 			{ id: 'wade', kinds: ['add', 'sub'], power: 6 },
@@ -343,7 +343,7 @@ export const ANIMALS: readonly AnimalSpec[] = [
 		maxHp: 32,
 		catchRate: 0.65,
 		habitats: ['forest'],
-		realms: ['land'],
+		realms: ['land', 'air'],
 		favours: 'trees',
 		attacks: [
 			{ id: 'hoot', kinds: ['sequence'], power: 5 },
@@ -378,6 +378,23 @@ export const ANIMALS: readonly AnimalSpec[] = [
 			{ id: 'tree-gnaw', kinds: ['mul', 'missing'], power: 9 }
 		]
 	},
+	{
+		// The common buzzard (musvåge), Denmark's commonest bird of prey (#91): it
+		// hunts over the open fields from a perch at the edge of the woods, so it
+		// lives in the meadow and favours the trees; in #89's tier-2 band.
+		id: 'buzzard',
+		tier: 2,
+		maxHp: 33,
+		catchRate: 0.65,
+		habitats: ['meadow'],
+		realms: ['land', 'air'],
+		favours: 'trees',
+		attacks: [
+			{ id: 'mew', kinds: ['add', 'sub'], power: 6 },
+			{ id: 'sky-circles', kinds: ['sequence'], power: 9 },
+			{ id: 'talon-drop', kinds: ['mul', 'missing'], power: 11 }
+		]
+	},
 	// The big animals of the Nordic countryside (#89 wave 2), by tier and then as
 	// the issue lists them, inside #89's bands (tier 3: 46–56 HP, catch 0.45–0.5,
 	// two attacks of power 8–13; tier 4: 66–72, 0.3–0.35, three of 10–19; tier 5:
@@ -402,7 +419,7 @@ export const ANIMALS: readonly AnimalSpec[] = [
 		maxHp: 48,
 		catchRate: 0.5,
 		habitats: ['river'],
-		realms: ['land', 'water'],
+		realms: ['land', 'water', 'air'],
 		favours: 'water',
 		attacks: [
 			{ id: 'big-hiss', kinds: ['mul'], power: 8 },
@@ -415,7 +432,7 @@ export const ANIMALS: readonly AnimalSpec[] = [
 		maxHp: 46,
 		catchRate: 0.5,
 		habitats: ['mountain', 'forest'],
-		realms: ['land'],
+		realms: ['land', 'air'],
 		favours: 'rocks',
 		attacks: [
 			{ id: 'orange-eyes', kinds: ['sequence', 'mul'], power: 9 },
@@ -456,7 +473,7 @@ export const ANIMALS: readonly AnimalSpec[] = [
 		maxHp: 66,
 		catchRate: 0.35,
 		habitats: ['mountain'],
-		realms: ['land'],
+		realms: ['land', 'air'],
 		favours: 'rocks',
 		attacks: [
 			{ id: 'soar', kinds: ['mul'], power: 10 },
@@ -465,13 +482,15 @@ export const ANIMALS: readonly AnimalSpec[] = [
 		]
 	},
 	{
-		// The sea eagle to a kid (havørn): its id is the species' full name.
+		// The sea eagle to a kid (havørn): its id is the species' full name. It hunts
+		// fish over the deep water too, so it flies over the sea as well as the river.
 		id: 'white-tailed-eagle',
 		tier: 4,
 		maxHp: 68,
 		catchRate: 0.35,
 		habitats: ['river'],
-		realms: ['land'],
+		realms: ['land', 'air'],
+		skies: ['river', 'sea'],
 		favours: 'water',
 		attacks: [
 			{ id: 'glide', kinds: ['mul'], power: 10 },
@@ -615,12 +634,23 @@ export function getAnimal(id: string): AnimalSpec {
 }
 
 /**
- * Whether an animal of this species can fight where the player stands in
+ * Whether an animal of this species can fight where a battle is, in
  * `realm`: its realms include it. On land every land and amphibious animal
  * can; out on the water, in the boat, only the ones that swim, the
  * amphibious and the sea animals. The human's rule: "you can't fight on
- * water unless you have an amphibious animal".
+ * water unless you have an amphibious animal". Up in the air, after a bird
+ * followed the glider down, only the ones that fly: the birds.
  */
 export function canFightIn(speciesId: string, realm: Realm): boolean {
 	return getAnimal(speciesId).realms.includes(realm);
+}
+
+/**
+ * The biomes whose sky a species flies over, where it may notice a kid on
+ * the glider: none for an animal that does not fly, and for a bird its
+ * `skies`, or where it lives when it names none.
+ */
+export function skiesOf(spec: AnimalSpec): readonly Biome[] {
+	if (!spec.realms.includes('air')) return [];
+	return spec.skies ?? spec.habitats;
 }
