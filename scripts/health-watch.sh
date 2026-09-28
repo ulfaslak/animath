@@ -18,9 +18,11 @@
 #            date cannot be read. Said once a day.
 #   errors   the game's pages reported errors of a new kind (a message, or a
 #            build, not seen before), read over SSH with the admin CLI's
-#            `errors --new --json` in the app's container. Said on every run that
-#            finds some. A report's own text never goes into a notification or
-#            to Slack, since anyone can send one: the log lists them, and
+#            `errors --new --json` in the app's container. Said at most once an
+#            hour (anyone can send a report, and a stranger sending a new one
+#            every 10 minutes must not ring this Mac that often), and what the
+#            hour between held is said together. A report's own text never goes
+#            into a notification or to Slack: the log lists them, and
 #            `admin errors` shows them (DEVELOPMENT.md § Errors and health).
 #   watch    the error reports cannot be read three runs in a row. Said once,
 #            until they can be read again.
@@ -54,6 +56,7 @@ SSH_KEY="$HOME/.ssh/mathgame_deploy"
 CERT_WARN_DAYS=14
 DOWN_AFTER_RUNS=2
 SAY_DOWN_EVERY_SECONDS=3600
+SAY_ERRORS_EVERY_SECONDS=3600
 ERRORS_BROKEN_AFTER_RUNS=3
 LOG_KEEP_LINES=2000
 
@@ -253,11 +256,27 @@ if [ "$HEALTH" = up ]; then
       while IFS= read -r line; do note "$line"; done < <(printf '%s' "$json" | "$JQ" -r '.groups[]
         | "\(.count) × \(if .test then "[test] " else "" end)\(.message) (build \(.build[0:7]); \(.modes | keys | join(", ")); \(.browsers | keys | join(", ")))"' \
         | LC_ALL=C tr -d '\000-\010\013-\037\177')
-      kinds="$groups new kind"; [ "$groups" -eq 1 ] || kinds="${kinds}s"
-      extra=""
-      [ "$tests" -gt 0 ] && extra=" ($tests of them sent as a test)"
-      notify "Animath: new errors" "$kinds of error in the game's pages$extra. The watch's log lists them; admin errors shows them."
     fi
+    # Told at most once an hour: anyone can send a report, and a stranger who
+    # sent a new one every run must not ring this Mac every 10 minutes. What
+    # the hour held is told together at its end.
+    [ -n "$since" ] || groups=0
+    untold=$(( $(state_get errors_untold | tr -cd '0-9') + 0 + groups ))
+    untold_tests=$(( $(state_get errors_untold_tests | tr -cd '0-9') + 0 + tests ))
+    said=$(state_get errors_said | tr -cd '0-9')
+    if [ "$untold" -gt 0 ] && { [ -z "$said" ] || [ $((NOW - said)) -ge "$SAY_ERRORS_EVERY_SECONDS" ]; }; then
+      kinds="$untold new kind"; [ "$untold" -eq 1 ] || kinds="${kinds}s"
+      extra=""
+      [ "$untold_tests" -gt 0 ] && extra=" ($untold_tests of them sent as a test)"
+      notify "Animath: new errors" "$kinds of error in the game's pages$extra. The watch's log lists them; admin errors shows them."
+      state_set errors_said "$NOW"
+      untold=0
+      untold_tests=0
+    elif [ "$untold" -gt 0 ]; then
+      note "$untold new kind(s) of error not told yet: the last notification was less than an hour ago"
+    fi
+    state_set errors_untold "$untold"
+    state_set errors_untold_tests "$untold_tests"
   else
     failures=$(( $(state_get errors_failures | tr -cd '0-9') + 0 + 1 ))
     state_set errors_failures "$failures"
