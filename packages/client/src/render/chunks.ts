@@ -120,15 +120,20 @@ export class ChunkRing {
 
 	/**
 	 * A frame's share of the work left (the renderer calls it once a frame):
-	 * one piece, then more while `budgetMs` lasts. A piece builds one chunk of
-	 * the ring's edge, or paints a step of the glow of the tent in one
-	 * (`glowSteps`: the ground round the fire, then its props a handful at a
-	 * time).
+	 * one piece, then more while `budgetMs` lasts, but never a chunk after
+	 * another piece. A piece builds one chunk of the ring's edge, or paints a
+	 * step of the glow of the tent in one (`glowSteps`: the ground round the
+	 * fire, then its props two dozen at a time).
 	 */
 	work(): void {
 		const start = performance.now();
-		for (let job = this.jobs.shift(); job; job = this.jobs.shift()) {
+		for (let job = this.jobs.shift(), first = true; job; job = this.jobs.shift(), first = false) {
 			const key = `${job.cx},${job.cy}`;
+			// A chunk is the biggest piece: never after another in the same frame.
+			if (!job.glow && !first && !this.chunks.has(key)) {
+				this.jobs.unshift(job);
+				return;
+			}
 			if (job.glow) {
 				const group = this.chunks.get(key);
 				// A chunk built again meanwhile (a tree chopped) was painted whole then.
