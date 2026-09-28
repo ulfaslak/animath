@@ -20,6 +20,7 @@ import {
 	type Whereabouts,
 	type WorldStay
 } from '../src/world/worlds.js';
+import { turn } from './turn.js';
 
 /**
  * Numbered worlds ([[PRODUCT]] §4 "World"): a number is a world, World 1 is
@@ -145,7 +146,7 @@ describe('every world is playable from its spawn', () => {
 		expect(first).toEqual({ x: -2, y: 6 });
 	});
 
-	it(`over a large sample of worlds: grass, a doctor at most ${SPAWN_DOCTOR_STEPS} steps away on foot, and never boxed in`, () => {
+	it(`over a large sample of worlds: grass, a doctor at most ${SPAWN_DOCTOR_STEPS} steps away on foot, and never boxed in`, async () => {
 		const bad: string[] = [];
 		const worlds = sample(250);
 		for (const n of worlds) {
@@ -158,12 +159,13 @@ describe('every world is playable from its spawn', () => {
 				for (let dx = -12; dx <= 12 && !grass; dx++)
 					grass = tileAtWorld(seed, spawn.x + dx, spawn.y + dy).kind === 'tallgrass';
 			if (!grass) bad.push(`World ${n}: no tall grass near the spawn`);
+			await turn();
 		}
 		expect(bad).toEqual([]);
-		// Seconds alone; more under load.
+		// WORLDS_SAMPLE_COST
 	}, 180_000);
 
-	it('the spawn is the nearest such tile to the origin: no grass tile in an earlier ring, or earlier in its ring, will do', () => {
+	it('the spawn is the nearest such tile to the origin: no grass tile in an earlier ring, or earlier in its ring, will do', async () => {
 		const bad: string[] = [];
 		for (const n of sample(12).slice(0, 12)) {
 			const seed = worldSeed(n);
@@ -178,9 +180,11 @@ describe('every world is playable from its spawn', () => {
 							bad.push(`World ${n}: ${x},${y} before ${spawn.x},${spawn.y}`);
 					}
 				}
+				await turn();
 			}
 		}
 		expect(bad).toEqual([]);
+		// WORLDS_NEAREST_COST
 	}, 180_000);
 
 	it('is the same spawn however it is asked, and one that cannot be changed from outside', () => {

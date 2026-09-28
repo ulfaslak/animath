@@ -14,6 +14,7 @@ import {
 	type PlayerModel,
 	type Policy
 } from './battle-sim.js';
+import { turn } from './turn.js';
 
 /**
  * Balance: species × species battles with a scripted player, party of one, who
@@ -61,25 +62,27 @@ function pairs(gap: number): Array<[string, string]> {
 	);
 }
 
-const cache = new Map<string, Outcome>();
+/**
+ * The battles played so far, for each pair and player: how many of the first
+ * n seeds were won, and their rounds, at index n. Seeds count up from 0, so a
+ * run of 200 is the start of a run of 1,000, and a check at 200 seeds reads
+ * the first 200 of a pair already played at 1,000.
+ */
+const played = new Map<string, { wins: number[]; rounds: number[] }>();
 function simulate(playerId: string, wildId: string, model: PlayerModel, seeds = SEEDS): Outcome {
-	const key = `${playerId}>${wildId}|${model.policy}|${model.level}|${model.accuracy}|${seeds}`;
-	const hit = cache.get(key);
-	if (hit) return hit;
-	let wins = 0;
-	let rounds = 0;
+	const key = `${playerId}>${wildId}|${model.policy}|${model.level}|${model.accuracy}`;
+	let so = played.get(key);
+	if (!so) played.set(key, (so = { wins: [0], rounds: [0] }));
 	const realm = arena(playerId, wildId);
 	if (realm === null) throw new Error(`${playerId} and ${wildId} never meet`);
-	for (let seed = 0; seed < seeds; seed++) {
+	for (let seed = so.wins.length - 1; seed < seeds; seed++) {
 		const party = makeParty([playerId]);
 		const { state } = playBattle(seed, party, makeWild(wildId), model, undefined, 2000, realm);
 		if (state.phase.kind !== 'ended') throw new Error('battle did not end');
-		if (state.phase.outcome === 'won') wins++;
-		rounds += state.turn;
+		so.wins.push(so.wins[seed]! + (state.phase.outcome === 'won' ? 1 : 0));
+		so.rounds.push(so.rounds[seed]! + state.turn);
 	}
-	const out = { win: wins / seeds, rounds: rounds / seeds };
-	cache.set(key, out);
-	return out;
+	return { win: so.wins[seeds]! / seeds, rounds: so.rounds[seeds]! / seeds };
 }
 
 /** The kid the targets are about: the easiest puzzle, the weakest attack at level 1. */
@@ -88,8 +91,21 @@ const easiest = (accuracy: number): PlayerModel => ({ accuracy, policy: 'min', l
 const hardest = (accuracy: number): PlayerModel => ({ accuracy, policy: 'max', level: 3 });
 
 const mean = (xs: number[]) => xs.reduce((a, b) => a + b, 0) / xs.length;
-const winRates = (gap: number, model: PlayerModel, seeds = TARGET_SEEDS) =>
-	pairs(gap).map(([p, w]) => ({ p, w, win: simulate(p, w, model, seeds).win }));
+
+/**
+ * Every pair `gap` tiers apart and its win rate, the worker's loop turning
+ * after each pair: a sweep of hundreds of pairs at 1,000 battles each runs past
+ * a minute on a loaded machine, longer than the worker waits for vitest's
+ * replies without reading them (`turn`).
+ */
+async function winRates(gap: number, model: PlayerModel, seeds = TARGET_SEEDS) {
+	const rates: { p: string; w: string; win: number }[] = [];
+	for (const [p, w] of pairs(gap)) {
+		rates.push({ p, w, win: simulate(p, w, model, seeds).win });
+		await turn();
+	}
+	return rates;
+}
 
 const pct = (x: number) => `${Math.round(x * 100)}%`;
 
@@ -154,22 +170,22 @@ const starterWin = (model: PlayerModel, mix: ReadonlyMap<string, number>) =>
 		0
 	);
 
-function targets(): string {
+async function targets(): Promise<string> {
 	const rows: string[] = [
 		`| matchup | player | target (tests allow ±${SLACK * 100} points of sampling) | mean | range |`,
 		'| --- | --- | --- | --- | --- |'
 	];
-	const row = (label: string, gap: number, model: PlayerModel, target: string) => {
-		const w = winRates(gap, model).map((r) => r.win);
+	const row = async (label: string, gap: number, model: PlayerModel, target: string) => {
+		const w = (await winRates(gap, model)).map((r) => r.win);
 		rows.push(
 			`| ${label} | easiest puzzle, right ${pct(model.accuracy)} | ${target} | ${pct(mean(w))} | ${pct(Math.min(...w))}–${pct(Math.max(...w))} |`
 		);
 	};
-	row('same tier', 0, easiest(1), '65–80%');
-	row('same tier', 0, easiest(0.85), '—');
-	row('same tier', 0, easiest(0.7), '40–55%');
-	row('one tier up', 1, easiest(1), 'under 35%');
-	row('two tiers up', 2, easiest(1), 'under 10%');
+	await row('same tier', 0, easiest(1), '65–80%');
+	await row('same tier', 0, easiest(0.85), '—');
+	await row('same tier', 0, easiest(0.7), '40–55%');
+	await row('one tier up', 1, easiest(1), 'under 35%');
+	await row('two tiers up', 2, easiest(1), 'under 10%');
 	for (const [name, mix] of Object.entries(STARTER_MIXES)) {
 		for (const [acc, target] of [
 			[1, '65–80%'],
@@ -192,12 +208,12 @@ function expectInBand(x: number, lo: number, hi: number, what: string): void {
 
 describe('balance simulation', () => {
 	if (PRINT) {
-		it('prints the tables', () => {
+		it('prints the tables', async () => {
 			const models: PlayerModel[] = [];
 			for (const policy of ['min', 'max', 'random'] as Policy[])
 				for (const accuracy of [1, 0.85, 0.7])
 					for (const level of [1, 2, 3] as AttackLevel[]) models.push({ accuracy, policy, level });
-			console.log('\n' + [targets(), ...models.map(grid)].join('\n\n') + '\n');
+			console.log('\n' + [await targets(), ...models.map(grid)].join('\n\n') + '\n');
 			// Every species pair under 27 models: 18 s with eight species on a loaded machine.
 		}, 120_000);
 	}
@@ -271,14 +287,15 @@ describe('balance simulation', () => {
 	// The two sweeps below play every same-tier pair that can meet (about 300 since #89), 1,000
 	// battles each, with the seeds the bands were set on: about 7 s each at a load average of
 	// 28 with nothing else running, and 15 to 22 s beside the rest of the engine's suite.
-	it('the easiest puzzle, always right, usually beats an animal of your own tier (65–80%)', () => {
-		const rates = winRates(0, easiest(1));
+	it('the easiest puzzle, always right, usually beats an animal of your own tier (65–80%)', async () => {
+		const rates = await winRates(0, easiest(1));
 		for (const { p, w, win } of rates) expect(win, `${p} vs ${w}`).toBeGreaterThan(0.5);
 		expectInBand(mean(rates.map((r) => r.win)), 0.65, 0.8, 'same-tier mean');
 	}, 120_000);
 
-	it('the easiest puzzle at 70% right makes a same-tier fight close to a coin flip (40–55%)', () => {
-		expectInBand(mean(winRates(0, easiest(0.7)).map((r) => r.win)), 0.4, 0.55, 'same-tier mean');
+	it('the easiest puzzle at 70% right makes a same-tier fight close to a coin flip (40–55%)', async () => {
+		const rates = await winRates(0, easiest(0.7));
+		expectInBand(mean(rates.map((r) => r.win)), 0.4, 0.55, 'same-tier mean');
 	}, 120_000);
 
 	it('the starter squirrel meets the same targets against its own near-spawn tier', () => {
@@ -299,24 +316,24 @@ describe('balance simulation', () => {
 		expect(shaky, 'starter vs the meadow, right 70%').toBeLessThanOrEqual(0.55 + SLACK);
 	});
 
-	it('on the easiest puzzle, one tier up is hard and two tiers up is out of reach', () => {
-		for (const { p, w, win } of winRates(1, easiest(1)))
+	it('on the easiest puzzle, one tier up is hard and two tiers up is out of reach', async () => {
+		for (const { p, w, win } of await winRates(1, easiest(1)))
 			expect(win, `${p} vs ${w}`).toBeLessThan(0.35);
-		for (const { p, w, win } of winRates(2, easiest(1)))
+		for (const { p, w, win } of await winRates(2, easiest(1)))
 			expect(win, `${p} vs ${w}`).toBeLessThan(0.1);
-		// About 0.4 s alone (31,000 battles); 3.6 s at a load average of 40.
 	}, 30_000);
 
-	it('being right more often never hurts', () => {
+	it('being right more often never hurts', async () => {
 		for (const model of [hardest, easiest]) {
 			for (const [p, w] of MEETING_PAIRS) {
 				const sure = simulate(p, w, model(1)).win;
 				const shaky = simulate(p, w, model(0.7)).win;
 				expect(sure, `${p} vs ${w}, ${model.name}`).toBeGreaterThanOrEqual(shaky - 0.05);
+				await turn();
 			}
 		}
 		// Every pair, four models, 200 battles each (about 600,000 battles with the 32
-		// animals of #89): 13 s at a load average of 53, so two minutes leaves room.
+		// animals of #89, less the pairs the sweeps above played at 1,000 seeds).
 	}, 120_000);
 
 	it('a stronger attack at a higher level never hurts an always-right player', () => {

@@ -13,7 +13,8 @@ import {
 } from '../src/copy/translate';
 import { ITEM_FORMS } from '../src/items';
 import { ANIMAL_FORMS } from '../src/names';
-import { copyCalls, svelteSources, tsSources } from './source';
+import { copyCalls, svelteSources, tsSources, type CopyCall } from './source';
+import { turn } from './turn';
 
 /**
  * The copy files agree with each other and with the code. At run time a key
@@ -120,8 +121,12 @@ describe('copy files', () => {
 		expect(problems).toEqual([]);
 	});
 
-	it('every key the code passes to t() is in English, with the params its message reads', () => {
-		const calls = [...svelteSources, ...tsSources].flatMap(([file, text]) => copyCalls(file, text));
+	it('every key the code passes to t() is in English, with the params its message reads', async () => {
+		const calls: CopyCall[] = [];
+		for (const [file, text] of [...svelteSources, ...tsSources]) {
+			calls.push(...copyCalls(file, text));
+			await turn();
+		}
 		expect(calls.length).toBeGreaterThan(0);
 		const problems: string[] = [];
 		for (const call of calls) {
@@ -145,7 +150,7 @@ describe('copy files', () => {
 			}
 		}
 		expect(problems).toEqual([]);
-		// About 1 s alone (every client source file parsed with TypeScript); over 5 s under a heavy load.
+		// COPY_KEYS_COST
 	}, 30_000);
 
 	it('every species in the catalog has every form, and a name for every attack', () => {

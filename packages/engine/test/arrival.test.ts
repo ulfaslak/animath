@@ -11,6 +11,7 @@ import {
 	type Gear,
 	type GridPos
 } from '../src/world/types.js';
+import { turn } from './turn.js';
 
 const PROTOTYPE = hashString('prototype');
 const SEEDS = [PROTOTYPE, 1, 2];
@@ -92,7 +93,7 @@ function randomTarget(rng: Rng): GridPos {
 }
 
 describe('arrivalSpot', () => {
-	it('lands exactly where the rule says: the nearest open tile, ground before water', () => {
+	it('lands exactly where the rule says: the nearest open tile, ground before water', async () => {
 		const rng = new Rng(20260927);
 		let landed = 0;
 		let afloat = 0;
@@ -108,20 +109,21 @@ describe('arrivalSpot', () => {
 					else if (isWater(tileAtWorld(seed, got.pos.x, got.pos.y).kind)) afloat++;
 					else landed++;
 				}
+				await turn();
 			}
 		}
 		// The sample reaches every case: on land, in a boat, and nowhere to go.
 		expect(landed).toBeGreaterThan(100);
 		expect(afloat).toBeGreaterThan(0);
 		expect(nowhere).toBeGreaterThan(0);
-		// About 1.6 s alone (420 arrivals, each against its own brute force); 8.6 s at a load
-		// average of 33.
+		// ARRIVAL_EXACT_COST
 	}, 60_000);
 
-	it('never lands on the friend, never on foot on the water, and faces the friend', () => {
+	it('never lands on the friend, never on foot on the water, and faces the friend', async () => {
 		const rng = new Rng(7);
 		for (const seed of SEEDS) {
 			for (let i = 0; i < 150; i++) {
+				await turn();
 				const target = randomTarget(rng);
 				for (const gear of [ON_FOOT, WITH_BOAT]) {
 					const got = arrivalSpot(seed, target, WorldEdits.none, gear);

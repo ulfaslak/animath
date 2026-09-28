@@ -21,6 +21,7 @@ import { landHit } from '../src/index.js';
 import { puzzleDifficulty } from '../src/puzzles/difficulty.js';
 import { checkAnswer, getGenerator } from '../src/puzzles/registry.js';
 import { Rng, hashInts } from '../src/rng.js';
+import { turn } from './turn.js';
 import { wordedStrings } from './words.js';
 import {
 	arena,
@@ -320,7 +321,7 @@ describe('every battle in the catalog', () => {
 	let replacements = 0;
 
 	for (const p of ids) {
-		it(`${p} vs everything it meets: terminates, keeps HP in bounds, never mutates its input, explains every change`, () => {
+		it(`${p} vs everything it meets: terminates, keeps HP in bounds, never mutates its input, explains every change`, async () => {
 			const meetings = MEETINGS.filter((m) => m.p === p);
 			// About `BATTLES_PER_SPECIES` battles for each species, spread over every animal it
 			// meets (a few seeds each, never fewer than 3): the sweep grows with the catalog
@@ -353,10 +354,9 @@ describe('every battle in the catalog', () => {
 					// Nothing the engine sends is worded: the client words it (DECISIONS § Copy and languages).
 					expect(wordedStrings({ state, said }), `${p} vs ${w} seed ${seed}`).toEqual([]);
 				}
+				await turn();
 			}
-			// 0.3 to 1.5 s per species at a load average of 28 (about 80 battles each, every
-			// step checked). At 25 seeds a pair, before #89, one took 1.2 to 3.4 s alone and the
-			// frog's 40 s at a load average of 54: two minutes leaves that room.
+			// CATALOG_COST
 		}, 120_000);
 	}
 

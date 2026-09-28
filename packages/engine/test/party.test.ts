@@ -7,6 +7,7 @@ import { MAX_NICKNAME_LENGTH, normalizeNickname } from '../src/party/names.js';
 import { applyPartyIntent, leadIndex } from '../src/party/reducer.js';
 import type { PartyIntent, PartyRejection, PartyStep, PlayerActivity } from '../src/party/types.js';
 import { Rng, hashInts } from '../src/rng.js';
+import { turn } from './turn.js';
 
 /**
  * Party management: the nickname cleaner, the bundles, and the party
@@ -948,22 +949,32 @@ describe('applyPartyIntent: when', () => {
 		}
 	});
 
-	it('keeps every animal, its HP, a clean name and the bundles through any run of edits', () => {
+	it('keeps every animal, its HP, a clean name and the bundles through any run of edits', async () => {
+		const bad: string[] = [];
 		for (let seed = 1; seed <= 100; seed++) {
 			const rng = new Rng(hashInts(0xed17, seed));
 			let party: readonly AnimalInstance[] = deepFreeze(randomParty(rng, rng.int(1, 40)));
 			const hp = new Map(party.map((a) => [a.id, a.hp]));
 			for (let i = 0; i < 30; i++) {
 				party = deepFreeze(applyPartyIntent(party, randomIntent(rng, party), 'explore').party);
-				expect(new Map(party.map((a) => [a.id, a.hp]))).toEqual(hp);
-				expect(isBundled(party)).toBe(true);
+				const where = `seed ${seed}, edit ${i}`;
+				// The same animals, each once, each at its HP.
+				if (
+					party.length !== hp.size ||
+					new Set(ids(party)).size !== hp.size ||
+					party.some((a) => hp.get(a.id) !== a.hp)
+				)
+					bad.push(`${where}: ${JSON.stringify(party)}`);
+				if (!isBundled(party)) bad.push(`${where}: not in bundles, ${ids(party)}`);
 				for (const a of party) {
-					if (a.nickname !== undefined) expect(problems(a.nickname)).toEqual([]);
+					if (a.nickname !== undefined && problems(a.nickname).length > 0)
+						bad.push(`${where}: ${JSON.stringify(a.nickname)} ${problems(a.nickname)}`);
 				}
 			}
+			await turn();
 		}
-		// About 1.7 s alone (3,000 edits, a fifth of them cleaning a hostile name); 16 s at a
-		// load average of 60.
+		expect(findings(bad)).toEqual([]);
+		// PARTY_ANYRUN_COST
 	}, 60_000);
 
 	it('puts a party that is not in bundles into them before it moves anyone, keeping who leads', () => {

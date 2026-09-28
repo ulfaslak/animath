@@ -17,6 +17,7 @@ import {
 	type Direction,
 	type GridPos
 } from '../src/world/types.js';
+import { turn } from './turn.js';
 
 const PROTOTYPE = hashString('prototype');
 const SEEDS = [PROTOTYPE, 1, 2];
@@ -217,7 +218,7 @@ describe('nearestTent', () => {
 			).toEqual(nearestTent(PROTOTYPE, from));
 	});
 
-	it('walks the paths a player chopped and broke: the nearest tent on foot in the world as they left it', () => {
+	it('walks the paths a player chopped and broke: the nearest tent on foot in the world as they left it', async () => {
 		let shorter = 0;
 		let searched = 0;
 		for (const seed of SEEDS) {
@@ -243,16 +244,16 @@ describe('nearestTent', () => {
 				const before = nearestTent(seed, from, 60);
 				searched++;
 				if (spot && (!before || spot.steps < before.steps)) shorter++;
+				await turn();
 			}
 		}
 		// Not vacuous: the cleared paths make some tents nearer, or reachable at all.
 		expect(shorter).toBeGreaterThan(3);
 		expect(searched).toBe(48);
-		// About 1.6 s alone (48 searches with their flood fills, each over a world with its
-		// trees cleared one by one); 14 s at a load average of 60.
+		// TENTS_PATHS_COST
 	}, 60_000);
 
-	it('stands the player on walkable ground next to the tent, facing it', () => {
+	it('stands the player on walkable ground next to the tent, facing it', async () => {
 		for (const seed of SEEDS) {
 			for (const from of samplePositions(seed, 60)) {
 				const spot = nearestTent(seed, from);
@@ -264,9 +265,10 @@ describe('nearestTent', () => {
 				// Walking is never shorter than the grid distance.
 				const manhattan = Math.abs(spot.stand.x - from.x) + Math.abs(spot.stand.y - from.y);
 				expect(spot.steps).toBeGreaterThanOrEqual(manhattan);
+				await turn();
 			}
 		}
-		// About 1.4 s alone (180 searches); 14 s at a load average of 54.
+		// TENTS_STANDS_COST
 	}, 60_000);
 
 	it('beside a tent, that tent is nearest: zero steps, facing it — at any sign and across chunk edges', () => {
@@ -309,9 +311,10 @@ describe('nearestTent', () => {
 		// three worlds); 2.4 s at a load average of 40.
 	}, 30_000);
 
-	it('never picks a tent that is boxed in, and prefers the door side when two sides tie', () => {
+	it('never picks a tent that is boxed in, and prefers the door side when two sides tie', async () => {
 		let boxed = 0;
 		for (const seed of SEEDS) {
+			await turn();
 			for (const tent of tentsInBox(seed, -800, -800, 800, 800)) {
 				const open = SIDES.filter(([, dx, dy]) =>
 					isWalkable(tileAtWorld(seed, tent.x + dx, tent.y + dy).kind)
@@ -338,6 +341,7 @@ describe('nearestTent', () => {
 		// both one step away; the door side wins.
 		let tied = 0;
 		for (const seed of SEEDS) {
+			await turn();
 			for (const tent of tentsNearOrigin(seed)) {
 				const corner = { x: tent.x - 1, y: tent.y + 1 };
 				const below = { x: tent.x, y: tent.y + 1 };
@@ -349,8 +353,7 @@ describe('nearestTent', () => {
 			}
 		}
 		expect(tied).toBeGreaterThan(0);
-		// About 1.5 s alone (every tent in a 1600-tile box, searched around); 21 s at a load
-		// average of 54.
+		// TENTS_BOXED_COST
 	}, 60_000);
 
 	it('is deterministic and does not depend on what was asked before', () => {
