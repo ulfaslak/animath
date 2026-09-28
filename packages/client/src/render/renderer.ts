@@ -537,12 +537,23 @@ export class GameRenderer {
 		return this.studio.draw(speciesId);
 	}
 
-	/** Draw `stage` instead of the world (a battle, the starter stage), or `null` for the world. */
+	/**
+	 * Draw `stage` instead of the world (a battle, the starter stage), or
+	 * `null` for the world. The first time a stage is shown, everything in its
+	 * scene is compiled, what it keeps hidden until later too (the battle's
+	 * dust): a program compiled mid-battle stalls that frame (#159).
+	 */
 	setStage(stage: Stage | null): void {
 		this.stage = stage;
 		const { w, h } = this.size();
 		stage?.resize(w, h);
+		if (stage && !this.compiled.has(stage)) {
+			this.compiled.add(stage);
+			this.renderer.compileAsync(stage.scene, stage.camera).catch(() => undefined);
+		}
 	}
+	/** The stages whose scenes were compiled when first shown. */
+	private compiled = new WeakSet<Stage>();
 
 	render(): void {
 		const t = performance.now() / 1000;

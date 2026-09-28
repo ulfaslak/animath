@@ -4,7 +4,7 @@ import { touch } from '../input/touch.svelte';
 import { motion } from '../motion';
 import { safeArea } from '../safe-area';
 import { SHORT_SCREEN } from '../short-screen';
-import { animateFlight, animateIdle, buildAnimalMesh, disposeFigure } from './animals';
+import { animateFlight, animateIdle, buildAnimalMesh, disposeFigure, restingZs } from './animals';
 import { appearScale, recallScale, smoothstep } from './ease';
 import { SWIM_DEPTH } from './follower';
 import {
@@ -288,6 +288,55 @@ const sparkleMaterials = SPARKLE_COLORS.map(
 const PUFF_GEOMETRY = new THREE.IcosahedronGeometry(0.12, 0);
 /** Rounder than a miss's puff, so a cloud of it never reads as a heap of pebbles. */
 const DUST_GEOMETRY = new THREE.IcosahedronGeometry(0.08, 1);
+
+/** The dust's two looks: a ring of dust on the ground, a puff of cloud in the sky. */
+type DustKind = 'dust' | 'cloud';
+
+/**
+ * The see-through materials of dusts that are over, by kind, kept for the
+ * next ones and never freed. A dust fades with a material of its own; three.js
+ * frees a shader program with the last material that drew with it, and in a
+ * game with no friends near nothing else draws with this one, so every
+ * knock-out compiled it again, a stall as the animal lay down (#159). As many
+ * are kept as dusts ever rose at once: two, and one of each kind made at the
+ * start, standing hidden in the scene so it is compiled with the battle's
+ * first frame (`BattleScene`).
+ */
+const SPARE_DUST: Record<DustKind, THREE.MeshLambertMaterial[]> = { dust: [], cloud: [] };
+
+/**
+ * One of each effect a battle shows only later, never shown itself: the dust
+ * of each kind, a puff, a piece of confetti, the leash, a star and a resting
+ * animal's z's. Each needs a shader program no figure or backdrop draws
+ * with, and the renderer compiles a stage's hidden meshes with its first
+ * frame, so none is compiled mid-battle, as an animal lies down or is caught
+ * (#159).
+ */
+function unseenEffects(): THREE.Group {
+	const unseen = new THREE.Group();
+	unseen.visible = false;
+	for (const kind of ['dust', 'cloud'] as const) {
+		const material = borrowDust(kind);
+		unseen.add(new THREE.Mesh(DUST_GEOMETRY, material));
+		SPARE_DUST[kind].push(material);
+	}
+	unseen.add(
+		new THREE.Mesh(PUFF_GEOMETRY, puffMaterial),
+		new THREE.Mesh(CONFETTI_GEOMETRY, confettiMaterials[0]),
+		new THREE.Mesh(LOOP_GEOMETRY, leashMaterial),
+		new THREE.Mesh(STAR_GEOMETRY, sparkleMaterials[0]),
+		restingZs()
+	);
+	return unseen;
+}
+
+function borrowDust(kind: DustKind): THREE.MeshLambertMaterial {
+	const material =
+		SPARE_DUST[kind].pop() ?? (kind === 'cloud' ? cloudMaterial : dustMaterial).clone();
+	material.transparent = true;
+	material.opacity = 0.8;
+	return material;
+}
 const CONFETTI_GEOMETRY = new THREE.PlaneGeometry(0.09, 0.06);
 /** The poppers' pieces are bigger: they fly close to the camera, over the whole scene. */
 const POPPER_GEOMETRY = new THREE.PlaneGeometry(0.1, 0.066);
@@ -371,6 +420,8 @@ export class BattleScene {
 
 		this.camera.position.copy(CAMERA_POSITION);
 		this.camera.lookAt(CAMERA_TARGET);
+
+		this.scene.add(unseenEffects());
 	}
 
 	/**
@@ -416,10 +467,7 @@ export class BattleScene {
 		}
 		for (const puff of this.puffs) this.scene.remove(puff.group);
 		this.puffs = [];
-		for (const dust of this.dusts) {
-			this.scene.remove(dust.group);
-			(dust.group.userData.material as THREE.Material).dispose();
-		}
+		for (const dust of this.dusts) this.dropDust(dust);
 		this.dusts = [];
 		for (const piece of this.confetti) this.scene.remove(piece.mesh);
 		this.confetti = [];
@@ -517,9 +565,9 @@ export class BattleScene {
 	 */
 	private dust(side: BattleSide): void {
 		const group = new THREE.Group();
-		// Its own material, so the cloud can fade without fading another one.
-		const material = (this.biome === 'sky' ? cloudMaterial : dustMaterial).clone();
-		material.transparent = true;
+		// A material to itself while it rises, so it fades without fading another one.
+		const kind: DustKind = this.biome === 'sky' ? 'cloud' : 'dust';
+		const material = borrowDust(kind);
 		const count = 10;
 		for (let i = 0; i < count; i++) {
 			const bit = new THREE.Mesh(DUST_GEOMETRY, material);
@@ -537,9 +585,17 @@ export class BattleScene {
 		group.position.set(spot.x, floor, spot.z);
 		group.userData.size = size;
 		group.userData.material = material;
+		group.userData.kind = kind;
 		group.visible = false;
 		this.dusts.push({ group, t: 0, delay: DUST_DELAY_SECONDS });
 		this.scene.add(group);
+	}
+
+	/** A dust that is over: out of the scene, its material kept for the next one. */
+	private dropDust(dust: Dust): void {
+		this.scene.remove(dust.group);
+		const kind = dust.group.userData.kind as DustKind;
+		SPARE_DUST[kind].push(dust.group.userData.material as THREE.MeshLambertMaterial);
 	}
 
 	/** A small burst of confetti around a figure: the caught celebration. */
@@ -786,12 +842,7 @@ export class BattleScene {
 			}
 			(dust.group.userData.material as THREE.Material).opacity = 0.8 * (1 - p);
 		}
-		for (const dust of this.dusts) {
-			if (dust.t >= dust.delay + DUST_SECONDS) {
-				this.scene.remove(dust.group);
-				(dust.group.userData.material as THREE.Material).dispose();
-			}
-		}
+		for (const dust of this.dusts) if (dust.t >= dust.delay + DUST_SECONDS) this.dropDust(dust);
 		this.dusts = this.dusts.filter((d) => d.t < d.delay + DUST_SECONDS);
 
 		const gravity = motion.reduced ? GRAVITY * 0.4 : GRAVITY;
