@@ -1316,10 +1316,8 @@ title:
   loggedOut:
     title: Your animals are safe!
     text: You're logged out. Your game waits in your account.
-    # The row, with the account's name in the login card. {name}: the account's name.
-    logIn: 'Log in as {name}'
-    # The row when the page doesn't know the account's name.
-    logInAgain: Log in again
+    # The row, with the account's name beside it (and in the login card it opens).
+    logIn: Log in
   # On the title of the game opened from the Home Screen with nothing saved there: a web app
   # keeps its own storage, apart from the browser's (#90).
   standaloneHint: Played in Safari before? Make an account there (Menu → Make an account), then log in here.

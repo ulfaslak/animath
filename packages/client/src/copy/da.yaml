@@ -1100,10 +1100,8 @@ title:
   loggedOut:
     title: Dine dyr er i sikkerhed!
     text: Du er logget ud. Dit spil venter på din konto.
-    # The row, with the account's name in the login card. {name}: the account's name.
-    logIn: 'Log ind som {name}'
-    # The row when the page doesn't know the account's name.
-    logInAgain: Log ind igen
+    # The row, with the account's name beside it (and in the login card it opens).
+    logIn: Log ind
   # On the title of the game opened from the Home Screen with nothing saved there (#90).
   standaloneHint: Har du spillet i Safari før? Lav en konto der (Menu → Lav en konto) og log så ind her.
   language: Sprog

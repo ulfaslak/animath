@@ -59,14 +59,16 @@
 	const hintFor = $derived(runsAsWebApp() && saved === null && account.name === null);
 	const standaloneHint = $derived(hintFor && account.ready);
 	const hintPending = $derived(hintFor && !account.ready && !account.readyHeard);
-	/** The login row's words: after a logout, logging in again to the account just left. */
-	const loginLabel = $derived.by(() => {
-		const left = title.loggedOut;
-		if (!left) return t('title.haveAccount');
-		return left.name === null
-			? t('title.loggedOut.logInAgain')
-			: t('title.loggedOut.logIn', { name: left.name });
-	});
+	/** The lit row stays in view when the menu scrolls, on a screen too short for it. */
+	function showRow(row: HTMLElement) {
+		row.scrollIntoView({ block: 'nearest' });
+	}
+	/**
+	 * After a logout the login row logs in to the account just left: "Log in",
+	 * and its name where Continue shows its team's lead, beside the word or
+	 * under it when a long name leaves no room.
+	 */
+	const loginName = $derived(title.loggedOut?.name ?? null);
 	const species = $derived(STARTERS[title.starter] ?? STARTERS[0]!);
 	/**
 	 * How much the player's name box takes: well past the longest name, so a
@@ -170,13 +172,23 @@
 					<div>{t('title.loggedOut.text')}</div>
 				</div>
 			{/if}
+			{#snippet login()}
+				<span class="caret">▸</span>
+				{#if title.loggedOut}
+					<span class="label">{t('title.loggedOut.logIn')}</span>
+					{#if loginName !== null}
+						<span class="team"><span class="who">{loginName}</span></span>
+					{/if}
+				{:else}
+					<span class="label">{t('title.haveAccount')}</span>
+				{/if}
+			{/snippet}
 			{#each title.slots as row (row)}
 				{#if row === 'login' && title.loginPending}
 					<!-- The login row's place, kept until the server says whether it can keep an
 					     account: the row itself, unseen, so that nothing moves when it comes. -->
-					<div class="row slot" aria-hidden="true">
-						<span class="caret">▸</span>
-						<span class="label">{loginLabel}</span>
+					<div class="row slot" class:named={loginName !== null} aria-hidden="true">
+						{@render login()}
 					</div>
 				{:else}
 					{@const i = rows.indexOf(row)}
@@ -185,13 +197,16 @@
 						type="button"
 						class="row"
 						class:lit={title.screen === 'menu' && title.cursor === i}
-						class:continue={row === 'continue'}
+						class:named={row === 'continue' || (row === 'login' && loginName !== null)}
 						data-press={rowKey(i)}
 						in:fade={{ duration: row === 'login' ? 300 : 0 }}
 						{@attach unfocusable}
+						{@attach title.screen === 'menu' && title.cursor === i ? showRow : undefined}
 					>
-						<span class="caret">▸</span>
-						{#if row === 'continue'}
+						{#if row === 'login'}
+							{@render login()}
+						{:else if row === 'continue'}
+							<span class="caret">▸</span>
 							<span class="label">{t('title.continue')}</span>
 							{#if saved && lead}
 								<span class="team">
@@ -200,10 +215,10 @@
 								</span>
 							{/if}
 						{:else if row === 'new'}
+							<span class="caret">▸</span>
 							<span class="label">{t('title.newGame')}</span>
-						{:else if row === 'login'}
-							<span class="label">{loginLabel}</span>
 						{:else if row === 'sound'}
+							<span class="caret">▸</span>
 							<span class="label">{t('title.sound')}</span>
 							<span class="setting">
 								<Switch on={sfx.on} />
@@ -212,6 +227,7 @@
 								>
 							</span>
 						{:else}
+							<span class="caret">▸</span>
 							<span class="label">{t('title.language')}</span>
 							<!-- Each language in its own words, so a kid finds theirs in any language;
 							     a tap on one is that language, anywhere else on the row the row. -->
@@ -431,7 +447,7 @@
 	}
 	.title-screen {
 		display: grid;
-		grid-template-rows: auto 1fr;
+		grid-template-rows: auto minmax(0, 1fr);
 		padding: 16px 32px 24px;
 		box-sizing: border-box;
 	}
@@ -491,11 +507,21 @@
 		box-shadow: var(--hud-shadow);
 		box-sizing: border-box;
 	}
+	/*
+	 * On a screen too short for it (a phone held sideways, just after a logout,
+	 * with a guest game) the menu scrolls, the lit row kept in view, rather
+	 * than running off the bottom of the screen.
+	 */
 	.menu-card {
 		align-self: center;
 		justify-self: start;
 		width: min(420px, 42vw);
+		max-height: 100%;
 		padding: 14px 14px 12px;
+		overflow-y: auto;
+		overscroll-behavior: contain;
+		touch-action: pan-y;
+		scrollbar-width: thin;
 	}
 	/* A row's right side that doesn't fit beside its label goes under it (Continue's long name). */
 	.row {
@@ -511,8 +537,11 @@
 		font-weight: 800;
 		font-size: 22px;
 	}
-	/* Room round Continue's two lines when the name goes under it; every other row keeps its height. */
-	.row.continue {
+	/*
+	 * Room round Continue's two lines when the name goes under it (and, after a
+	 * logout, Log in's); every other row keeps its height.
+	 */
+	.row.named {
 		padding-block: 4px;
 	}
 	/* A mouse over a row it can press. Never on touch, where hover sticks after a tap. */
