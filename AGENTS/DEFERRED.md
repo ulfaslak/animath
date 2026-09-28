@@ -46,6 +46,14 @@ Technical items we've intentionally postponed: tech debt, hardening shortcuts, k
 
 **Trigger**: the first production report whose message and stack do not lead to the bug. Then keep each build's maps off the public site (an artifact of the deploy workflow, say) and give `admin errors` a way to map a stack's places through them.
 
+### Error reports share nginx's guard on POSTs with logging in
+
+**What**: nginx counts every POST from one address in one bucket (`nginx/http.conf`: 60 at once, then one a second), and the pages' error reports are POSTs, as logging in and signing up are. A tab sends three reports an hour at most (`error-reports.ts`), so 20 pages breaking in the same seconds behind one school address send up to 60, which empties the bucket: a kid logging in during those seconds gets nginx's `429`, which the page takes for no answer ("We can't reach the game's home right now"), until the bucket refills at one a second.
+
+**Why deferred**: it takes many kids behind one address whose pages break at once, and a login in the same seconds. A bucket of the reports' own is a rule on a path, which the guard avoids on purpose: nginx and the app spell a path differently.
+
+**Trigger**: players behind one school address, or a `429` on a login traced to error reports in nginx's access log. Then give `POST /api/client-errors` a `location =` of its own in `nginx/app.conf` with a `limit_req` zone of its own, and check that no spelling of an account route reaches it.
+
 ### The puzzle's answer travels to the client inside `BattleState` and `DoctorState`
 
 **What**: `BattlePhase` (`solving`) and the `puzzle-shown` event carry the whole `Puzzle`, `answer` included, and `answer-judged` repeats it. The doctor reducer copies the shape: `DoctorPhase` (`solving`, `handing-over`, `buying`) and its `puzzle-shown`, `hand-over-shown` and `purchase-shown` carry the answer too (a token sum's answer is the balance after it, which a client can work out anyway). With `LocalAuthority` that is harmless — the client already runs the engine. With a server authority, a modified client could read the answer and never miss (or heal for free). Friendly matches, which a server runs, never carry it: their views and events hold a `ShownPuzzle` (`match/types.ts`, built by `shownPuzzle`), the answerless shape a redaction here can reuse.
@@ -72,7 +80,7 @@ Technical items we've intentionally postponed: tech debt, hardening shortcuts, k
 
 ### The login and register rate limits live in one process's memory
 
-**What**: `RateLimiter` (`packages/server/src/rate-limit.ts`) counts tries per address, per name and per account in the API process's memory. A restart or a deploy forgets every count, and two processes serving the API at once would each allow the full limit; so do the error reports' limits (`REPORT_LIMITS`, `routes/client-errors.ts`), per address and for every address together. Wrong passwords from one address shut out only that address, but wrong passwords from five or more addresses together still shut a name out for everyone for a quarter of an hour at a time, the kid on their own device included, and the admin CLI (another process) cannot lift it; only a restart does.
+**What**: `RateLimiter` (`packages/server/src/rate-limit.ts`) counts tries per address, per name and per account in the API process's memory. A restart or a deploy forgets every count, and two processes serving the API at once would each allow the full limit; so does the error reports' limit per address (`REPORT_LIMITS`, `routes/client-errors.ts`). Wrong passwords from one address shut out only that address, but wrong passwords from five or more addresses together still shut a name out for everyone for a quarter of an hour at a time, the kid on their own device included, and the admin CLI (another process) cannot lift it; only a restart does.
 
 **Why deferred**: there is one API process, and the stakes are a kid's animals, not personal data ([[DECISIONS]] § Accounts). A shared store (a Postgres table, or Redis) is a moving part for a threat nobody has made yet.
 
