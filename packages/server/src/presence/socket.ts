@@ -8,6 +8,7 @@ import {
 	byeCloseCode,
 	checkName,
 	helloVersion,
+	isBootId,
 	parseClientMessage,
 	readWire,
 	type ByeReason,
@@ -50,7 +51,10 @@ import { Matches, type MatchOptions } from './matches.js';
  *   made from `idSecret`, which every copy shares, so a player keeps theirs
  *   from one copy to the next, and the pages that see them draw them on.
  *   Friendly matches (`matches.ts`) end first: a match lives in this
- *   process, and the pages offer to play again once they are back.
+ *   process, and the pages offer to play again once they are back. Every
+ *   `hi` carries this run's own id (`boot`), so a page that comes back to a
+ *   server that stopped without a word (a crash) knows its match went with
+ *   it, rather than ending while the page was away.
  * - **Matches.** The same socket carries friendly matches: the invites and
  *   the matches themselves are `matches.ts`'s, which hears every socket that
  *   says hello, says where it is or closes, whatever closed it.
@@ -101,6 +105,14 @@ export interface PresenceOptions {
 	 * are. Without one, a random one: ids last while this server runs.
 	 */
 	idSecret?: string;
+	/**
+	 * This run's own id, in every `hi`: a new random one each time the server
+	 * starts, unlike the public ids. A page whose match was going on and comes
+	 * back to a server with another one knows the server restarted, and forgot
+	 * the match, though no `bye` said so (it stopped without one). One that is
+	 * no run id (`isBootId`) is refused as the server starts.
+	 */
+	boot?: string;
 	/** A line for the server's log: a socket closed for cause. */
 	log?: (line: string) => void;
 	/** The friendly matches' times and limits (`matches.ts`). */
@@ -148,6 +160,9 @@ export function attachPresence(server: Server, options: PresenceOptions = {}): P
 	const battleRatePerSecond = options.battleRatePerSecond ?? 2;
 	const battleBurst = options.battleBurst ?? 4;
 	const log = options.log ?? (() => {});
+	const boot = options.boot ?? randomBytes(9).toString('base64url');
+	// A page reads no hi with a run it can't read: every page would stay unseen.
+	if (!isBootId(boot)) throw new Error(`presence: boot is no run id: ${JSON.stringify(boot)}`);
 
 	// Public ids: a keyed hash of who it is, so the same player keeps one (on every copy
 	// of the server that shares the secret) and nobody can work back to their guest id.
@@ -324,7 +339,7 @@ export function attachPresence(server: Server, options: PresenceOptions = {}): P
 				// A player back in a match hears so in the hi, and is sent the match straight after.
 				const present = hub.present(peer);
 				const match = present ? matches.joined(peer, present) : null;
-				peer.send({ t: 'hi', v: PROTOCOL_VERSION, pid, name, match });
+				peer.send({ t: 'hi', v: PROTOCOL_VERSION, pid, name, match, boot });
 				matches.resume(peer);
 				return;
 			}

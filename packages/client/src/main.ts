@@ -582,8 +582,10 @@ function frame(now: number) {
 			if (doctor.active) doctorController.update(dt);
 			// A trip to another world: the cover closes, the world changes under it, and it opens.
 			travelController.update(dt);
-			// The message line's clock runs only while the explore HUD is on screen.
+			// The message line's clock runs only while the explore HUD is on screen; a line
+			// already read there goes when a battle or a match takes the screen.
 			if (!battle.active && !doctor.active && !pause.open) hud.tick(dt);
+			else if (battle.active) hud.covered();
 			countPlay(dt);
 		}
 		if (pause.open && pause.screen === 'book') drawPortrait();

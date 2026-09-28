@@ -416,6 +416,32 @@ describe('presence socket', () => {
 		expect(new Set([first, other, random, random2]).size).toBe(4);
 	});
 
+	it('says in every hi which run of the server it is: the same while it runs, another after it starts again', async () => {
+		const guest = 'c'.repeat(20);
+		const boots: (string | undefined)[] = [];
+		// The same secret, so the same player: only the run tells two copies apart.
+		for (const run of [1, 2]) {
+			const { url } = await start({ idSecret: 'one secret' });
+			for (const name of ['Cy', 'Di']) {
+				const c = new Client(url);
+				await c.opened;
+				c.hello(name, name === 'Cy' ? guest : 'd'.repeat(20));
+				boots.push((await c.next('hi')).boot);
+				c.ws.close();
+			}
+			expect(boots.length).toBe(run * 2);
+		}
+		const [a, b, c, d] = boots;
+		expect(a).toMatch(/^[A-Za-z0-9_-]{6,32}$/);
+		expect(b).toBe(a);
+		expect(d).toBe(c);
+		expect(c).not.toBe(a);
+		// A run no page could read is refused as the server starts, not sent in every hi.
+		for (const boot of ['', 'no run', 'x'.repeat(33)]) {
+			expect(() => attachPresence(createServer(), { boot })).toThrow(/boot/);
+		}
+	});
+
 	it('holds at most maxSockets sockets', async () => {
 		const { url } = await start({ maxSockets: 2 });
 		await joined(url, 'Ada', 'a'.repeat(20));

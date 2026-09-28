@@ -37,7 +37,12 @@ export interface Thought {
 	lean: 1 | -1;
 }
 
-/** A small HP bar over an animal in someone's battle: its kind, its HP, and where it goes. */
+/**
+ * A small HP bar over an animal in someone's battle: its kind, its HP, and
+ * where it goes (`x`, `y`: over the animal as it moves; `rx`, `ry`: over it
+ * standing still where it stands, which the labels are laid out from, so a
+ * lunge or a hop never shuffles them).
+ */
 export interface Bar {
 	key: string;
 	species: string;
@@ -45,12 +50,15 @@ export interface Bar {
 	maxHp: number;
 	x: number;
 	y: number;
+	rx: number;
+	ry: number;
 	opacity: number;
 }
 
-/** A damage number floating up from an animal hit in someone's battle, from where it was hit. */
+/** A damage number floating up from an animal hit in someone's battle, from where it was hit; `key` is its tag's. */
 export interface Pop {
 	id: number;
+	key: string;
 	damage: number;
 	level: AttackLevel;
 	x: number;

@@ -14,8 +14,10 @@ import type { ChallengeRefusal, MatchEndReason, MatchSide, MatchTimeout } from '
  * - `starting`: the player said yes; the match is on its way.
  * - `playing`: the match screen, until its result.
  * - `over`: the result: who won, Rematch? and Back to exploring.
- * - `updating`: the server stopped for a new version mid-match; the card
- *   says so, and Play again asks the same friend once both are back.
+ * - `updating`: the server stopped mid-match, for a new version (it said
+ *   so) or without a word (`restarted`: the page came back to a new run of
+ *   it); the card says so, and Play again asks the same friend once both are
+ *   back.
  */
 export type MatchStage =
 	'none' | 'asking' | 'invited' | 'starting' | 'playing' | 'over' | 'updating';
@@ -55,7 +57,7 @@ class MatchStateView {
 	button = $state.raw<ChallengeButton | null>(null);
 	/** The choice on screen takes a pick now: its quiet moment has passed. */
 	ready = $state(false);
-	/** The highlighted button of the result's and the update card's pair. */
+	/** The highlighted button of the result's, the update card's and the leave question's pair. */
 	option = $state(0);
 	/** The socket is not on: the match waits for it, and says so. */
 	offline = $state(false);
@@ -63,6 +65,8 @@ class MatchStateView {
 	away = $state<number | null>(null);
 	/** "Still there?": the kid has not touched a key on their turn for a while. */
 	nudged = $state(false);
+	/** "Leave the match?" is up over the match (Escape): Stay (`option` 0, lit first) or Leave. */
+	leaving = $state(false);
 
 	// --- the match on screen (the battle's screen draws it: `battle.vs`) ---------------
 
@@ -77,6 +81,8 @@ class MatchStateView {
 	friendBack = $state(false);
 	/** On the update card: the friend asked already, so Play again says yes. */
 	friendAsked = $state(false);
+	/** On the update card: the server restarted without saying it would (found on coming back), not updating. */
+	restarted = $state(false);
 
 	/**
 	 * A note is up over the match's screen (`MatchNotes`): the connection is
@@ -110,8 +116,10 @@ class MatchStateView {
 		this.rematch = { mine: false, theirs: null };
 		this.friendBack = false;
 		this.friendAsked = false;
+		this.restarted = false;
 		this.away = null;
 		this.nudged = false;
+		this.leaving = false;
 		this.offline = false;
 	}
 }

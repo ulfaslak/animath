@@ -25,6 +25,7 @@
 	import AttackTile from './AttackTile.svelte';
 	import Celebration from './Celebration.svelte';
 	import HpBar from './HpBar.svelte';
+	import MatchLeave from './MatchLeave.svelte';
 	import MatchNotes from './MatchNotes.svelte';
 	import MatchResult from './MatchResult.svelte';
 	import MoveButton from './MoveButton.svelte';
@@ -53,7 +54,8 @@
 	 * ("Bo's Rabbit"), the row of moves is Switch and Leave, the other's turn
 	 * shows their puzzle without its answer and that they are thinking
 	 * (`waiting`), and the result is the match's own (`MatchResult`), with the
-	 * match's notes over the screen (`MatchNotes`).
+	 * match's notes over the screen (`MatchNotes`) and, when Escape asks it,
+	 * "Leave the match?" (`MatchLeave`).
 	 */
 	/** The other player, in a friendly match. */
 	const vs = $derived(battle.vs);
@@ -526,6 +528,11 @@
 		{/if}
 	</div>
 </div>
+
+{#if vs && match.leaving && battle.screen !== 'result'}
+	<!-- Escape asked: Stay, or Leave. The match's notes stay over it. -->
+	<MatchLeave />
+{/if}
 
 {#if vs}
 	<MatchNotes />
