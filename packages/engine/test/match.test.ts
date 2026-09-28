@@ -18,6 +18,7 @@ import { puzzleDifficulty } from '../src/puzzles/difficulty.js';
 import { checkAnswer, getGenerator } from '../src/puzzles/registry.js';
 import { Rng, hashInts } from '../src/rng.js';
 import { mover, nextMatchIntent, party, playMatch, type MatchPlayer } from './match-sim.js';
+import { turn } from './turn.js';
 import { wordedStrings } from './words.js';
 
 const PRINT = Boolean(process.env.SIM);
@@ -716,7 +717,7 @@ function refusable(
 }
 
 describe('random matches', () => {
-	it('every match ends; turns alternate; HP only falls, by hits; refusals change nothing; no view or event holds an answer; nothing is worded or mutated', () => {
+	it('every match ends; turns alternate; HP only falls, by hits; refusals change nothing; no view or event holds an answer; nothing is worded or mutated', async () => {
 		const bad: string[] = [];
 		let more = 0;
 		const note = (m: string) => (bad.length < 20 ? bad.push(m) : more++);
@@ -896,6 +897,7 @@ describe('random matches', () => {
 			if (state.phase.kind !== 'ended') note(`match ${m}: never ended`);
 			if (hits > totalHp) note(`match ${m}: ${hits} hits on ${totalHp} HP`);
 			if (JSON.stringify(parties) !== before) note(`match ${m}: the parties changed`);
+			await turn();
 		}
 		expect(bad).toEqual([]);
 		expect(more).toBe(0);
@@ -907,8 +909,9 @@ describe('random matches', () => {
 		// 250 whole matches, about 30 steps each, every step with two views, a
 		// twin view, ten canSendIn probes and a refused intent: 0.3 s on a quiet
 		// machine, 1.1 s alone at a load of 31, and 7 s inside the whole suite
-		// at 34 (2026-09-27).
-	}, 30_000);
+		// at 34 (2026-09-27); at 150, as the load goes, over four times that. Its
+		// loop turns after each match.
+	}, 120_000);
 
 	it('a side that only ever switches never stalls a match against a side that attacks', () => {
 		for (let seed = 0; seed < 40; seed++) {

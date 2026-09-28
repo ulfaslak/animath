@@ -25,8 +25,10 @@ afterAll(() => pool.end());
 
 // A welcome and a login each hash a password with scrypt at its real cost:
 // about 150 ms at a load average of 14 (2026-09-27), several times that under
-// other worktrees' browsers. The race below hashes eight at once.
-vi.setConfig({ testTimeout: 30_000 });
+// other worktrees' browsers. The race below hashes eight at once. Up to 1.1 s
+// alone at a load average of 12 to 30 and 2.2 s in the whole suite at 28
+// (2026-09-28), and up to ten times its run alone at 150.
+vi.setConfig({ testTimeout: 60_000 });
 
 const ROOMY = { limit: 100_000, windowMs: 60_000, maxKeys: 100_000 };
 const NO_LIMITS: AccountLimits = {
