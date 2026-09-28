@@ -146,4 +146,22 @@
 			animation: none;
 		}
 	}
+	/*
+	 * A short screen (a phone held sideways): a size smaller, 60 px tall, so
+	 * the scene between the boxes keeps room for the animals. `WILD_STATUS_BOX`
+	 * in `render/battle-scene.ts` knows this size too.
+	 */
+	@media (max-height: 560px) {
+		.box {
+			padding: 6px 12px 8px;
+		}
+		.name {
+			margin-bottom: 4px;
+			font-size: 16px;
+		}
+		.paw {
+			width: 18px;
+			height: 18px;
+		}
+	}
 </style>
