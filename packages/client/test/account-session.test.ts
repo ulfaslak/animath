@@ -291,14 +291,16 @@ describe('the play clock', () => {
 		expect(short.due('game-a')).toBe(false);
 		short.tick('game-a', 1);
 		expect(short.due('game-a')).toBe(true);
+		// Answered at 2.5 of its hours: the next card at the next whole one, as ever.
 		short.answered('game-a');
-		short.tick('game-a', 59);
+		short.tick('game-a', 29);
 		expect(short.due('game-a')).toBe(false);
 		short.tick('game-a', 1);
 		expect(short.due('game-a')).toBe(true);
-		// One already due stays due, and a clock kept with this very hour is read as it was.
+		// A card already due stays due, whatever the hour of the page that reads it.
 		short.flush();
 		expect(new PlayClock(store, 60 * HOUR).due('game-a')).toBe(true);
+		// A clock kept with this very hour is read as it was: its card neither sooner nor later.
 		const same = new PlayClock(store, HOUR);
 		same.answered('game-a');
 		same.tick('game-a', 30);
