@@ -68,6 +68,13 @@ const IRIS_HOLD_SECONDS = 0.1;
 export const ENTER_SECONDS = IRIS_CLOSE_SECONDS + IRIS_HOLD_SECONDS;
 /** Seconds the iris takes to open on the wild animal, while the first line is read. */
 export const IRIS_OPEN_SECONDS = 0.45;
+/**
+ * The longest the iris waits for a landing on screen to finish before a
+ * battle in the air: the glide on to the landing tile, the descent and the
+ * bird's swoop take under two seconds; this only makes sure it never waits
+ * for ever.
+ */
+export const LANDING_WAIT_SECONDS = 4;
 
 export class BattleController {
 	/** Built on the first battle and reused for every one after it. */
@@ -91,10 +98,22 @@ export class BattleController {
 	private seed = 0;
 	private pos: GridPos = { x: 0, y: 0 };
 	private hits = 0;
+	/**
+	 * Seconds the iris may still wait for the world to finish a landing (a
+	 * bird followed the glider down), at most `LANDING_WAIT_SECONDS`; 0 once
+	 * it closes.
+	 */
+	private landingFor = 0;
 
+	/**
+	 * `landing`: whether the world on screen is still bringing the kid down
+	 * from a flight (the glider coming down, a bird swooping in), which the
+	 * battle waits for before its iris closes.
+	 */
 	constructor(
 		private authority: Authority,
-		private renderer: GameRenderer
+		private renderer: GameRenderer,
+		private landing: () => boolean = () => false
 	) {}
 
 	handle(event: GameEvent): void {
@@ -113,6 +132,7 @@ export class BattleController {
 			case 'player-moved':
 			case 'player-placed':
 			case 'taken-to-doctor':
+			case 'landed':
 				// Where the next battle is fought, for its backdrop. A lost battle's
 				// trip to the tent sends no `message`: its card shows only "Good try!",
 				// and the doctor's line waits on the message line in the world.
@@ -140,9 +160,30 @@ export class BattleController {
 		}
 	}
 
+	/**
+	 * The iris closes on the player, where they stand on screen now, with the
+	 * encounter's jingle; with reduced motion the screen dims instead.
+	 */
+	private closeIris(): void {
+		battle.transition = {
+			kind: motion.reduced ? 'fade' : 'iris',
+			closing: true,
+			p: 0,
+			...this.renderer.playerScreenPoint()
+		};
+		sfx.play('encounter');
+	}
+
 	/** Play beats as their holds expire; `dt` is seconds. */
 	update(dt: number): void {
 		if (!battle.active) return;
+		if (battle.entering && this.landingFor > 0) {
+			// The world keeps drawing the landing until the kid is down, then the iris closes.
+			this.landingFor -= dt;
+			if (this.landingFor > 0 && this.landing()) return;
+			this.landingFor = 0;
+			this.closeIris();
+		}
 		const transition = battle.transition;
 		if (battle.entering) {
 			this.enterIn -= dt;
@@ -226,14 +267,11 @@ export class BattleController {
 		battle.active = true;
 		battle.entering = true;
 		this.enterIn = ENTER_SECONDS;
-		// The iris closes on the player; with reduced motion the screen dims instead.
-		battle.transition = {
-			kind: motion.reduced ? 'fade' : 'iris',
-			closing: true,
-			p: 0,
-			...this.renderer.playerScreenPoint()
-		};
-		sfx.play('encounter');
+		// A bird that followed the glider down: the landing on screen comes first (and the
+		// bird's swoop in), then the iris closes on the kid, down on the ground.
+		this.landingFor = this.landing() ? LANDING_WAIT_SECONDS : 0;
+		battle.transition = null;
+		if (this.landingFor === 0) this.closeIris();
 		battle.party = state.party.map((a) => ({ ...a }));
 		battle.front = state.active;
 		battle.opponent = { ...state.opponent };
@@ -246,13 +284,17 @@ export class BattleController {
 		this.beats = [];
 		this.wait = 0;
 
-		const biome = tileAtWorld(this.seed, this.pos.x, this.pos.y).biome;
+		// Up in the air the battle is fought in the sky, whatever the tile the glider came
+		// down on; on the ground and on the water, in front of the tile's biome.
+		const backdrop =
+			state.realm === 'air' ? 'sky' : tileAtWorld(this.seed, this.pos.x, this.pos.y).biome;
 		this.scene ??= new BattleScene();
-		this.scene.begin(biome, this.front().speciesId, state.opponent.speciesId);
+		this.scene.begin(backdrop, this.front().speciesId, state.opponent.speciesId);
 
 		const wild = state.opponent;
 		const mine = this.front();
-		this.beats.push({ run: () => line('battle.appears', { animal: wild }), hold: 1.4 });
+		const appears = state.realm === 'air' ? 'battle.appearsAir' : 'battle.appears';
+		this.beats.push({ run: () => line(appears, { animal: wild }), hold: 1.4 });
 		// A battle picked up where the animal in front is already tired (a
 		// restored one, waiting for the player to pick) shows it lying down.
 		if (mine.hp > 0) {

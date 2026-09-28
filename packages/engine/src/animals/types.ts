@@ -30,15 +30,24 @@ export interface AnimalSpec {
 	/**
 	 * Where it can go, and so where it can fight and be met: `['land']` for
 	 * most, `['land', 'water']` for an amphibious animal (the frog, the
-	 * otter), `['water']` for a sea animal that lives out on the water only.
-	 * An animal fights only where the player stands in one of its realms
-	 * (`canFightIn`): out on the water, in the boat, only the ones that swim.
+	 * otter), `['water']` for a sea animal that lives out on the water only,
+	 * and `air` too for a bird, the only animals that fly (the swan goes in
+	 * all three). An animal fights only where its battle is, in one of its
+	 * realms (`canFightIn`): out on the water, in the boat, only the ones that
+	 * swim; up in the air, after the glider, only the ones that fly.
 	 */
 	realms: readonly Realm[];
 	/**
+	 * The biomes whose sky it flies over, where it may notice a kid on the
+	 * glider (`skyTable`): only for a species that flies, and its `habitats`
+	 * unless it says otherwise (`skiesOf`). The sea eagle also hunts over the
+	 * deep water, the sea.
+	 */
+	skies?: readonly Biome[];
+	/**
 	 * The ground it favours around the tall grass it comes out of: the more of
 	 * it nearby, the more often it comes out ([[PRODUCT]] §4 "Wild encounters",
-	 * `world/habitat.ts`).
+	 * `world/habitat.ts`), and around a tile it notices a glider over.
 	 */
 	favours: Terrain;
 }
@@ -51,16 +60,17 @@ export interface AnimalSpec {
 export type Biome = 'meadow' | 'forest' | 'river' | 'mountain' | 'sea';
 
 /**
- * Land or water: where the player stands (`tileRealm`: water tiles, reached
- * by boat, are water; every other tile is land), where an animal can go and
- * fight (`AnimalSpec.realms`), and where an encounter happens
- * (`encounterRealm`: on land in the tall grass and the river's reeds, on the
- * water out on the deep water of the sea).
+ * Land, water or air: where the player is (`tileRealm`: water tiles, reached
+ * by boat, are water; every other tile is land; up on the glider, the air),
+ * where an animal can go and fight (`AnimalSpec.realms`), and where an
+ * encounter happens (`encounterRealm`: on land in the tall grass and the
+ * river's reeds, on the water out on the deep water of the sea; in the air
+ * over any tile the glider enters, where only a bird notices a kid).
  */
-export type Realm = 'land' | 'water';
+export type Realm = 'land' | 'water' | 'air';
 
 /** Every realm, land first. */
-export const REALMS: readonly Realm[] = ['land', 'water'];
+export const REALMS: readonly Realm[] = ['land', 'water', 'air'];
 
 /**
  * A kind of ground around an encounter tile that a species can favour:

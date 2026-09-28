@@ -6,6 +6,7 @@ import {
 	ENCOUNTER_CHANCE,
 	NEAR_ONE_UP,
 	SAFE_RADIUS,
+	SKY_CHANCE,
 	TIER_SIGMA,
 	VISITORS_WEIGHT,
 	WILD_RADIUS,
@@ -13,6 +14,8 @@ import {
 	encounterTable,
 	encounterTableAt,
 	rollEncounter,
+	rollSkyEncounter,
+	skyTableAt,
 	type EncounterEntry,
 	type EncounterSite
 } from '../src/world/encounters.js';
@@ -102,6 +105,7 @@ interface Kind {
 	habitats: readonly Biome[];
 	realms: readonly Realm[];
 	favours: Terrain;
+	skies?: readonly Biome[];
 }
 
 /**
@@ -193,11 +197,12 @@ function bellTableAt(
 	biome: Biome,
 	distance: number,
 	around: Surroundings,
-	lead: number
+	lead: number,
+	inBiome: typeof bellTable = bellTable
 ): Map<string, number> {
 	const danger = Math.min(1, Math.max(0, (distance - 32) / 96));
 	const kinds = new Map(roster.map((a) => [a.id, a]));
-	const table = bellTable(roster, biome, distance, lead);
+	const table = inBiome(roster, biome, distance, lead);
 	const tiers = new Map<number, { share: number; weighed: number }>();
 	for (const [id, w] of table) {
 		const a = kinds.get(id)!;
@@ -310,7 +315,7 @@ describe('encounterTable', () => {
 					'common-lizard',
 					'robin'
 				),
-				...split(nearUp(1), 'fox', 'roe-deer', 'badger', 'stoat', 'adder'),
+				...split(nearUp(1), 'fox', 'roe-deer', 'badger', 'stoat', 'adder', 'buzzard'),
 				deer: nearUp(2)
 			})
 		);
@@ -441,7 +446,7 @@ describe('encounterTable', () => {
 					'common-lizard',
 					'robin'
 				),
-				...split(down(3), 'fox', 'roe-deer', 'badger', 'stoat', 'adder'),
+				...split(down(3), 'fox', 'roe-deer', 'badger', 'stoat', 'adder', 'buzzard'),
 				deer: down(2)
 			})
 		);
@@ -476,9 +481,10 @@ describe('encounterTable', () => {
 			0.8 / (4 + down(1) + down(2) + down(3) + nearUp(1)),
 			12
 		);
-		// A tier-2 animal at the river near home: its seven visitors would weigh 3/7 of a bell
-		// each against the four residents' 1/4; so all eleven share the four bells. The small
-		// animals and the bigger ones keep their shares: only the tier's own split moves.
+		// A tier-2 animal at the river near home: its eight visitors (the buzzard, #91, the
+		// eighth) would weigh 3/8 of a bell each against the four residents' 1/4; so all twelve
+		// share the four bells. The small animals and the bigger ones keep their shares: only
+		// the tier's own split moves.
 		expectShares(
 			encounterTable('river', 0, 2),
 			normalised({
@@ -495,7 +501,8 @@ describe('encounterTable', () => {
 					'grey-heron',
 					'tawny-owl',
 					'raccoon',
-					'beaver'
+					'beaver',
+					'buzzard'
 				),
 				'mute-swan': nearUp(1),
 				'white-tailed-eagle': nearUp(2),
@@ -763,8 +770,8 @@ describe('encounterTable', () => {
 		expect(visited).toEqual([
 			'1:river:squirrel+rabbit+shrew+wood-mouse+hedgehog+mole+common-lizard+robin+stag-beetle',
 			'1:mountain:squirrel+rabbit+frog+shrew+wood-mouse+brown-rat+hedgehog+mole+common-toad+robin+stag-beetle',
-			'2:river:fox+roe-deer+badger+pine-marten+stoat+adder+tawny-owl',
-			'2:mountain:fox+otter+roe-deer+badger+pine-marten+grey-heron+tawny-owl+raccoon+beaver',
+			'2:river:fox+roe-deer+badger+pine-marten+stoat+adder+tawny-owl+buzzard',
+			'2:mountain:fox+otter+roe-deer+badger+pine-marten+grey-heron+tawny-owl+raccoon+beaver+buzzard',
 			'3:river:deer+wild-boar+eagle-owl',
 			'3:mountain:deer+wild-boar+mute-swan',
 			'4:river:wolf+lynx+wolverine+golden-eagle',
@@ -1215,17 +1222,27 @@ describe('the start: the ground near spawn', () => {
 			})
 		);
 		// A tier-2 animal in front: its tier weighs four bells there since bigger animals live
-		// at the river (#89). Its seven visitors would weigh 3/7 of a bell each against the
-		// river's own four at 1/4, so all eleven share the four evenly (#136), and the ground
-		// re-divides them: the river's own, at home by the water, four times as much each as a
-		// visitor of the trees or the rocks, 16/23 of a bell each against 4/23. The three
-		// small ones of the water, a tier below, weigh e^−1/2 together (13% of the battles),
-		// the mute swan 1/9, the sea eagle 1/9^4 and the moose 1/9^9.
+		// at the river (#89). Its eight visitors (the buzzard, #91, the eighth) would weigh 3/8
+		// of a bell each against the river's own four at 1/4, so all twelve share the four
+		// evenly (#136), and the ground re-divides them: the river's own, at home by the water,
+		// four times as much each as a visitor of the trees or the rocks, 2/3 of a bell each
+		// against 1/6. The three small ones of the water, a tier below, weigh e^−1/2 together
+		// (13% of the battles), the mute swan 1/9, the sea eagle 1/9^4 and the moose 1/9^9.
 		expectShares(
 			encounterTableAt(site, 2),
 			normalised({
-				...each(16 / 23, 'otter', 'grey-heron', 'raccoon', 'beaver'),
-				...each(4 / 23, 'fox', 'roe-deer', 'badger', 'pine-marten', 'stoat', 'adder', 'tawny-owl'),
+				...each(2 / 3, 'otter', 'grey-heron', 'raccoon', 'beaver'),
+				...each(
+					1 / 6,
+					'fox',
+					'roe-deer',
+					'badger',
+					'pine-marten',
+					'stoat',
+					'adder',
+					'tawny-owl',
+					'buzzard'
+				),
 				...each(Math.exp(-0.5) / 3, 'frog', 'brown-rat', 'common-toad'),
 				'mute-swan': 1 / 9,
 				'white-tailed-eagle': Math.pow(9, -4),
@@ -1504,4 +1521,397 @@ describe('the generated world offers every habitat', () => {
 		// 1,156 chunks generated: 1.3 s alone at a load average of 10, 2.7 s in the whole suite at
 		// 37, and up to ten times its run alone at 150.
 	}, 60_000);
+});
+
+/** Where a bird flies: its own skies, or where it lives; no sky for an animal that does not fly. */
+const skiesOfKind = (a: Kind): readonly Biome[] =>
+	a.realms.includes('air') ? (a.skies ?? a.habitats) : [];
+
+/**
+ * A sky's table, written out again from [[PRODUCT]] §4 "Wild encounters" ("In the air") for
+ * any roster, with its numbers as literals: only birds come out, each weighing its tier's
+ * `bell` over the number of its tier's birds flying over that sky (where they live, and the
+ * sea eagle over the sea too); and in every sky, not only at the river and in the mountains,
+ * wherever a bird bigger than the lead flies there, every bird of the lead's tier that does
+ * not visits, the visitors adding three of the lead's tier's bells to it times 1 − danger,
+ * as on the ground: a third of the three each near home, unless a visitor would then weigh
+ * more than a bird of its size flying there (#136), and then the birds of the tier flying
+ * there and the visitors weigh its four bells evenly. Shares, in roster order.
+ */
+function skyBellTable(
+	roster: readonly Kind[],
+	biome: Biome,
+	distance: number,
+	lead: number
+): Map<string, number> {
+	const danger = Math.min(1, Math.max(0, (distance - 32) / 96));
+	const birds = roster.filter((a) => a.realms.includes('air'));
+	const flying = birds.filter((a) => skiesOfKind(a).includes(biome));
+	const visited = flying.some((a) => a.tier > lead);
+	const count = (tier: number) => flying.filter((a) => a.tier === tier).length;
+	const guest = (a: Kind) =>
+		a.tier === lead && !skiesOfKind(a).includes(biome) && visited && danger < 1;
+	const guests = birds.filter(guest).length;
+	const hosts = count(lead);
+	// Near home, in bells of the lead's tier (its bell is 1 at every distance).
+	const outweighs = hosts > 0 && 3 / guests > 1 / hosts;
+	const visitor = outweighs ? 4 / (hosts + guests) : 3 / guests;
+	const theirs = (1 + (3 - guests * visitor) * (1 - danger)) / hosts;
+	const raw = new Map<string, number>();
+	for (const a of birds) {
+		if (skiesOfKind(a).includes(biome))
+			raw.set(
+				a.id,
+				a.tier === lead && guests > 0 ? theirs : bell(a.tier - lead, distance) / count(a.tier)
+			);
+		else if (guest(a)) raw.set(a.id, visitor * (1 - danger));
+	}
+	let sum = 0;
+	for (const w of raw.values()) sum += w;
+	return new Map([...raw].map(([id, w]) => [id, w / sum]));
+}
+
+/** A bird's roll over a tile: the 1-in-20 chance first, then a pick down the sky's table for the ground. */
+function skyRoll(rng: Rng, site: EncounterSite, lead: Tier): string | null {
+	if (!rng.chance(1 / 20)) return null;
+	const distance = distanceFromSpawn(site.pos, site.spawn);
+	const table = bellTableAt(ANIMALS, site.tile.biome, distance, site.around, lead, skyBellTable);
+	let r = rng.next();
+	let last: string | null = null;
+	for (const [id, w] of table) {
+		r -= w;
+		last = id;
+		if (r < 0) return id;
+	}
+	return last;
+}
+
+/** The sky over a tile of any kind in `biome`, `distance` tiles east of an origin spawn. */
+const skySite = (
+	biome: Biome,
+	distance: number,
+	around: Surroundings = OPEN,
+	kind: TileKind = 'grass'
+): EncounterSite => ({ ...siteAt(biome, distance, around), tile: { kind, biome, height: 0 } });
+
+/** Every kind of tile a glider flies over. */
+const UNDER: readonly TileKind[] = [
+	'grass',
+	'tallgrass',
+	'sand',
+	'water',
+	'deepwater',
+	'tree',
+	'rock',
+	'tent'
+];
+
+/** The birds' tiers: a lead in the air is one of them. */
+const FLYING_LEADS: readonly Tier[] = [1, 2, 3, 4];
+
+/** A sky's table: the biome's in the air. */
+const skyIn = (biome: Biome, distance: number, lead: Tier) =>
+	encounterTable(biome, distance, lead, 'air');
+
+describe('the sky: birds that notice the glider (#91)', () => {
+	it('for every lead is the table [[PRODUCT]] §4 writes out, over every biome, at every distance', () => {
+		const bad = findings();
+		for (const lead of LEADS) {
+			for (const biome of BIOMES) {
+				for (const d of SWEEP) {
+					const table = skyIn(biome, d, lead);
+					const expected = skyBellTable(ANIMALS, biome, d, lead);
+					const where = `tier-${lead} lead over ${biome} @ ${d}`;
+					const ids = table.map((e) => e.species.id).join();
+					if (ids !== [...expected.keys()].join()) bad.note(`${where} lists ${ids}`);
+					for (const e of table) {
+						if (!(Math.abs(e.weight - expected.get(e.species.id)!) <= 1e-14))
+							bad.note(`${e.species.id}, ${where}: ${e.weight}`);
+					}
+				}
+			}
+		}
+		expect(bad.list).toEqual([]);
+		// With a robin in front, the tables [[PRODUCT]] §4 quotes (#91's check, re-derived here).
+		// Near home: over the meadow and the forest the robin lives, so one tier up is the usual
+		// 1 in 10; the river's, the mountains' and the sea's birds are all bigger, and robins visit.
+		const nearUp = (k: number) => Math.pow(9, -k * k);
+		const down = (k: number) => Math.exp(-(k * k) / 2);
+		const near = (biome: Biome) => skyIn(biome, 0, 1);
+		expectShares(near('meadow'), normalised({ robin: 1, buzzard: nearUp(1) }));
+		expectShares(
+			near('forest'),
+			normalised({ robin: 1, 'tawny-owl': nearUp(1), 'eagle-owl': nearUp(2) })
+		);
+		expectShares(
+			near('river'),
+			normalised({
+				robin: 3,
+				'grey-heron': nearUp(1),
+				'mute-swan': nearUp(2),
+				'white-tailed-eagle': nearUp(3)
+			})
+		);
+		expectShares(
+			near('mountain'),
+			normalised({ robin: 3, 'eagle-owl': nearUp(2), 'golden-eagle': nearUp(3) })
+		);
+		expectShares(near('sea'), normalised({ robin: 3, 'white-tailed-eagle': nearUp(3) }));
+		// Far out the visitors are gone, and the sea eagle is the sea's only bird.
+		const far = (biome: Biome) => skyIn(biome, WILD_RADIUS, 1);
+		expectShares(far('meadow'), normalised({ robin: 1, buzzard: down(1) }));
+		expectShares(
+			far('forest'),
+			normalised({ robin: 1, 'tawny-owl': down(1), 'eagle-owl': down(2) })
+		);
+		expectShares(
+			far('river'),
+			normalised({ 'grey-heron': down(1), 'mute-swan': down(2), 'white-tailed-eagle': down(3) })
+		);
+		expectShares(far('mountain'), normalised({ 'eagle-owl': down(2), 'golden-eagle': down(3) }));
+		expectShares(far('sea'), { 'white-tailed-eagle': 1 });
+		// 9,625 tables, each written out again here.
+	}, 30_000);
+
+	it('no visitor weighs more than a bird of its size flying there, over any biome, at any distance (#136)', () => {
+		const bad: string[] = [];
+		const seen = new Set<string>();
+		for (const lead of LEADS) {
+			for (const biome of BIOMES) {
+				for (const d of SWEEP) {
+					const own = skyIn(biome, d, lead).filter((e) => e.species.tier === lead);
+					const hosts = own.filter((e) => skiesOfKind(e.species).includes(biome));
+					const guests = own.filter((e) => !skiesOfKind(e.species).includes(biome));
+					if (hosts.length === 0 || guests.length === 0) continue;
+					seen.add(`${lead}:${biome}`);
+					const least = Math.min(...hosts.map((e) => e.weight));
+					for (const g of guests)
+						if (!(g.weight <= least * (1 + 1e-12)))
+							bad.push(
+								`${g.species.id}, tier-${lead} lead over ${biome} @ ${d}: ${g.weight} > ${least}`
+							);
+				}
+			}
+		}
+		expect(bad).toEqual([]);
+		// Where a bird of the lead's size lives under a bigger one, and others of its size come:
+		// the tawny owl over the forest (the eagle-owl's too) and the heron over the river, with a
+		// tier-2 bird in front; the swan over the river and the eagle-owl over the mountains,
+		// with a tier-3 one. Near home the heron and the buzzard over the forest weigh what the
+		// tawny owl does, where their three bells alone would make each half as common again.
+		expect([...seen].sort()).toEqual(['2:forest', '2:river', '3:mountain', '3:river']);
+		const forest = new Map(skyIn('forest', 0, 2).map((e) => [e.species.id, e.weight]));
+		for (const id of ['grey-heron', 'buzzard'])
+			expect(forest.get(id)!, id).toBeCloseTo(forest.get('tawny-owl')!, 14);
+		// 9,650 tables: 0.07 s alone at a load average of 2, and up to ten times its run alone
+		// at 150.
+	}, 30_000);
+
+	it('lists only birds, over every biome; every bird flies over a sky of every lead, near home and far out, and far out every one can come out', () => {
+		const step = 2 ** -32;
+		for (const lead of LEADS) {
+			for (const biome of BIOMES) {
+				for (const d of [0, 64, 1000]) {
+					const table = skyIn(biome, d, lead);
+					expect(table.length, `tier-${lead} lead over ${biome}`).toBeGreaterThan(0);
+					for (const e of table) expect(e.species.realms, e.species.id).toContain('air');
+				}
+			}
+			for (const bird of ANIMALS.filter((a) => a.realms.includes('air'))) {
+				for (const d of [0, 1000]) {
+					const listed = BIOMES.some((b) => skyIn(b, d, lead).some((e) => e.species === bird));
+					expect(listed, `${bird.id} over no sky of a tier-${lead} lead (d = ${d})`).toBe(true);
+				}
+				const most = Math.max(
+					...BIOMES.flatMap((b) =>
+						skyIn(b, 1000, lead)
+							.filter((e) => e.species === bird)
+							.map((e) => e.weight)
+					)
+				);
+				expect(most / 4, `${bird.id} for a tier-${lead} lead far out`).toBeGreaterThan(1e4 * step);
+			}
+		}
+		// The sea eagle over the sea, the buzzard over the meadow, as the issue says.
+		expect(skyIn('sea', 1000, 1).map((e) => e.species.id)).toEqual(['white-tailed-eagle']);
+		expect(skyIn('meadow', 1000, 2).map((e) => e.species.id)).toContain('buzzard');
+	});
+
+	it("inside the safe radius the lead's tier is the majority wherever a bird its size or bigger flies, one tier up at most 1 in 10 and two or more up under 1 in 5,000", () => {
+		const shareOf = (biome: Biome, d: number, lead: Tier, tiers: (t: number) => boolean) =>
+			tierShare(skyIn(biome, d, lead), tiers);
+		for (const lead of LEADS) {
+			for (const biome of BIOMES) {
+				for (const d of [0, SAFE_RADIUS / 2, SAFE_RADIUS]) {
+					const where = `tier-${lead} lead over ${biome} @ ${d}`;
+					expect(
+						shareOf(biome, d, lead, (t) => t === lead + 1),
+						where
+					).toBeLessThanOrEqual(0.1 + 1e-15);
+					expect(
+						shareOf(biome, d, lead, (t) => t >= lead + 2),
+						where
+					).toBeLessThan(1 / 5000);
+					const flying = ANIMALS.filter((a) => skiesOfKind(a).includes(biome));
+					if (!flying.some((a) => a.tier >= lead)) continue;
+					expect(
+						shareOf(biome, d, lead, (t) => t === lead),
+						where
+					).toBeGreaterThan(0.5);
+				}
+			}
+		}
+	});
+
+	it("bigger birds never grow rarer and the lead's own tier never commoner with distance, on any ground", async () => {
+		const bad = findings();
+		for (const lead of LEADS) {
+			await turn();
+			for (const biome of BIOMES) {
+				for (const around of GROUNDS) {
+					let prevBigger = -1;
+					let prevFierce = -1;
+					let prevOwn = 2;
+					for (let d = 0; d <= WILD_RADIUS + 16; d += 1) {
+						const table = skyTableAt(skySite(biome, d, around), lead);
+						const bigger = tierShare(table, (t) => t > lead);
+						const fierce = tierShare(table, (t) => t >= lead + 2);
+						const where = `tier-${lead} lead over ${biome} @ ${d} on ${JSON.stringify(around)}`;
+						if (!(bigger >= prevBigger - 1e-12)) bad.note(`${where}: bigger fell to ${bigger}`);
+						if (!(fierce >= prevFierce - 1e-12)) bad.note(`${where}: two up fell to ${fierce}`);
+						prevBigger = bigger;
+						prevFierce = fierce;
+						// The lead's own tier, on the sky's own table (the ground may pull it up,
+						// as on land, only from the tiers below it).
+						const own = tierShare(skyIn(biome, d, lead), (t) => t === lead);
+						if (!(own <= prevOwn + 1e-12)) bad.note(`${where}: own tier rose to ${own}`);
+						prevOwn = own;
+					}
+				}
+				const far = skyIn(biome, WILD_RADIUS, lead);
+				for (const e of far) expect(skiesOfKind(e.species), 'no visitor far out').toContain(biome);
+				expect(skyIn(biome, WILD_RADIUS * 4, lead)).toEqual(far);
+			}
+		}
+		expect(bad.list).toEqual([]);
+		// 5,800 sky tables, each weighed by one of 8 grounds, and as many of the sky's own: 1.3 s
+		// alone at a load of 8, so about 20 s at 150; a turn of the loop between leads.
+	}, 60_000);
+
+	it('over a tile of any kind lists the sky’s birds, each at a quarter to four times its share, weighed by the ground as [[PRODUCT]] §4 writes it', () => {
+		const bad = findings();
+		let compared = 0;
+		for (const lead of LEADS) {
+			for (const biome of BIOMES) {
+				for (const d of [0, 20, 50, 80, 127.5, 128, 1000]) {
+					const inSky = skyIn(biome, d, lead);
+					for (const around of GROUNDS) {
+						for (const kind of UNDER) {
+							const here = skyTableAt(skySite(biome, d, around, kind), lead);
+							const expected = bellTableAt(ANIMALS, biome, d, around, lead, skyBellTable);
+							const where = `tier-${lead} lead over ${kind} (${biome}) @ ${d} on ${JSON.stringify(around)}`;
+							if (here.map((e) => e.species.id).join() !== inSky.map((e) => e.species.id).join())
+								bad.note(`${where} lists ${here.map((e) => e.species.id)}`);
+							here.forEach((e, i) => {
+								compared++;
+								if (!(Math.abs(e.weight - expected.get(e.species.id)!) <= 1e-12))
+									bad.note(
+										`${e.species.id} ${where}: ${e.weight} vs ${expected.get(e.species.id)}`
+									);
+								const ratio = e.weight / inSky[i]!.weight;
+								if (!(ratio >= 0.25 - 1e-12 && ratio <= 4 + 1e-12))
+									bad.note(`${e.species.id}, ${where}: ×${ratio}`);
+							});
+						}
+					}
+				}
+			}
+		}
+		expect(bad.list).toEqual([]);
+		expect(compared).toBeGreaterThan(20_000);
+	}, 30_000);
+
+	it('rolls exactly as [[PRODUCT]] §4 says, over every kind of tile: the 1-in-20 chance first, then a pick down the sky’s table for the ground', async () => {
+		const bad = findings();
+		let met = 0;
+		for (const lead of FLYING_LEADS) {
+			await turn();
+			for (const biome of BIOMES) {
+				for (const d of [0, 40, 100, 160]) {
+					for (const around of GROUNDS) {
+						const kind = UNDER[(lead + d + around.trees) % UNDER.length]!;
+						const key = `sky:${lead}:${biome}:${d}:${JSON.stringify(around)}`;
+						const now = new Rng(hashString(key));
+						const spec = new Rng(hashString(key));
+						const site = skySite(biome, d, around, kind);
+						for (let i = 0; i < 100; i++) {
+							const a = rollSkyEncounter(now, site, lead);
+							const b = skyRoll(spec, site, lead);
+							if ((a?.speciesId ?? null) !== b) bad.note(`${key}: ${a?.speciesId} vs ${b}`);
+							if (a) {
+								met++;
+								if (a.hp !== getAnimal(a.speciesId).maxHp) bad.note(`${key}: ${a.hp} HP`);
+							}
+						}
+					}
+				}
+			}
+		}
+		expect(bad.list).toEqual([]);
+		expect(met).toBeGreaterThan(500);
+		expect(SKY_CHANCE).toBe(1 / 20);
+		// 64,000 rolls, each rolled again by the rule here: 1.3 s alone at a load of 8 (2.6 s at
+		// 200 a site), so about 20 s at 150; a turn of the loop between leads.
+	}, 60_000);
+
+	it('neither the lead, the ground nor the tile below changes whether a bird notices the glider, and one does about every 20 tiles', async () => {
+		const bad: string[] = [];
+		let noticed = 0;
+		let rolls = 0;
+		for (const biome of BIOMES) {
+			await turn();
+			for (const d of [0, 64, 400]) {
+				const seeds = Array.from({ length: 200 }, (_, i) => hashString(`sky:${biome}:${d}:${i}`));
+				const robinOverGrass = seeds.map(
+					(s) => rollSkyEncounter(new Rng(s), skySite(biome, d), 1) !== null
+				);
+				for (const lead of FLYING_LEADS) {
+					for (const around of GROUNDS.slice(0, 3)) {
+						for (const kind of ['water', 'tree', 'tent'] as const) {
+							const met = seeds.map(
+								(s) => rollSkyEncounter(new Rng(s), skySite(biome, d, around, kind), lead) !== null
+							);
+							if (met.join() !== robinOverGrass.join())
+								bad.push(`tier-${lead} lead over ${kind} in ${biome} @ ${d}`);
+						}
+					}
+				}
+				noticed += robinOverGrass.filter(Boolean).length;
+				rolls += seeds.length;
+			}
+		}
+		expect(bad).toEqual([]);
+		expect(noticed / rolls).toBeGreaterThan(1 / 25);
+		expect(noticed / rolls).toBeLessThan(1 / 16);
+		// 111,000 rolls: 1.9 s alone at a load of 8 (3.2 s over every lead and 4 grounds), so
+		// about 30 s at 150; a turn of the loop between biomes.
+	}, 90_000);
+
+	it('is deterministic, and refuses a lead that is not a tier or a site that is not real', () => {
+		const run = (seed: number) => {
+			const rng = new Rng(seed);
+			return Array.from({ length: 400 }, () =>
+				rollSkyEncounter(rng, skySite('river', 90, { water: 6, trees: 0, rocks: 1 }), 2)
+			);
+		};
+		expect(run(42)).toEqual(run(42));
+		expect(run(42)).not.toEqual(run(43));
+		for (const bad of [0, 6, 2.5, NaN, undefined, '2']) {
+			const lead = bad as unknown as Tier;
+			expect(() => rollSkyEncounter(new Rng(1), skySite('meadow', 0), lead)).toThrow(/tier/);
+			expect(() => skyTableAt(skySite('meadow', 0), lead)).toThrow(/tier/);
+		}
+		const nowhere = { ...skySite('meadow', 0), pos: { x: NaN, y: 0 } };
+		expect(() => rollSkyEncounter(new Rng(1), nowhere, 1)).toThrow(/distance/);
+	});
 });

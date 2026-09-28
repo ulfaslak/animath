@@ -19,6 +19,7 @@ import {
 	editedTileAt,
 	fitWorlds,
 	flightPos,
+	flightTile,
 	gearOf,
 	getAnimal,
 	glideOn,
@@ -35,6 +36,7 @@ import {
 	recordBattle,
 	recordParty,
 	rollEncounter,
+	rollSkyEncounter,
 	spawnPoint,
 	startBattle,
 	startDoctorVisit,
@@ -42,6 +44,7 @@ import {
 	surroundings,
 	takeOff,
 	takeToDoctor,
+	tileAtWorld,
 	tileRealm,
 	travel,
 	worldSeed,
@@ -62,6 +65,7 @@ import {
 	type ItemId,
 	type Landing,
 	type Line,
+	type LineKey,
 	type MatchEvent,
 	type MatchSide,
 	type PartyIntent,
@@ -80,13 +84,27 @@ import {
 export const WORLD_SEED = WORLD_ONE_SEED;
 
 /**
- * Salts keep the per-step encounter roll, the battle seed and the doctor's
- * seed apart from each other and from world generation, which also hashes the
- * world seed.
+ * Salts keep the per-step encounter roll, the bird's roll over each tile
+ * flown, the battle seed and the doctor's seed apart from each other and from
+ * world generation, which also hashes the world seed. The sky has a salt of
+ * its own, so a flight's tiles never draw from a walk's stream.
  */
 const ENCOUNTER_SALT = hashString('encounter');
+const SKY_SALT = hashString('sky');
 const BATTLE_SALT = hashString('battle');
 const DOCTOR_SALT = hashString('doctor');
+
+/** The closing line of a battle won, and of one run from, by where it was fought. */
+const CLOSING_WON = {
+	land: 'battle.closing.won',
+	water: 'battle.closing.wonSea',
+	air: 'battle.closing.wonAir'
+} as const satisfies Record<Realm, LineKey>;
+const CLOSING_FLED = {
+	land: 'battle.closing.fled',
+	water: 'battle.closing.fledSea',
+	air: 'battle.closing.fledAir'
+} as const satisfies Record<Realm, LineKey>;
 
 export interface LocalAuthorityOptions {
 	/**
@@ -212,6 +230,20 @@ export class LocalAuthority implements Authority {
 	 */
 	private flight: Flight | null = null;
 	/**
+	 * The wild bird following the flight down (`bird-follows`), whose battle in
+	 * the air starts as the kid lands; at most one a flight. Never saved as
+	 * such: `snapshot` lands the flight and starts its battle.
+	 */
+	private chaser: AnimalInstance | null = null;
+	/**
+	 * The id minted for a bird noticing the glider on a step: a save made in
+	 * the air, which lands the flight ahead of time, and the landing itself
+	 * meet the same bird on the same step, and give it the same id. Kept for
+	 * one game only: a game started again counts its steps again, and a bird
+	 * it meets is another animal.
+	 */
+	private minted: { steps: number; id: string } | null = null;
+	/**
 	 * A game is under way: from `start` or an accepted `new-game` until
 	 * `leave-game`. Without one there is nothing to act on but `new-game`.
 	 */
@@ -260,6 +292,8 @@ export class LocalAuthority implements Authority {
 		this.battle = null;
 		this.doctor = null;
 		this.flight = null;
+		this.chaser = null;
+		this.minted = null;
 		this.started = true;
 		this.emit({
 			type: 'welcome',
@@ -294,15 +328,24 @@ export class LocalAuthority implements Authority {
 	 *
 	 * In the air it is the game as it will be once the kid comes down if they
 	 * let go now (`landFlight`: on the landing tile, every tile to it a step,
-	 * a tree or a rock there cleared), exactly what `land` would leave. So a
-	 * save never holds a flight: a reload lands the kid by the landing rule,
-	 * and a page on an older build, which knows no flying, finds them on
-	 * ground they can stand on.
+	 * a tree or a rock there cleared), exactly what `land` would leave: with a
+	 * bird following, or one noticing the glider on the way down, its battle
+	 * in the air under way. So a save never holds a flight: a reload lands the
+	 * kid by the landing rule (and a reload is no escape from a bird). A page
+	 * on an older build, which knows no flying, finds them on ground they can
+	 * stand on; with a bird's battle in the save it knows no battle in the air
+	 * either, so it reads the save as a newer build's and leaves it be.
 	 */
 	snapshot(): SavedGame {
-		const party = this.battle ? this.battle.state.party : this.party;
 		const flight = this.flight;
-		const landing = flight ? this.landing(flight) : null;
+		const down = flight ? this.comingDown(flight) : null;
+		const landing = down?.landing ?? null;
+		// A bird following the flight down: its battle starts as the kid lands.
+		const bird = down?.bird ?? null;
+		const air = bird ? startBattle(this.party, bird, { realm: 'air' }) : null;
+		const battle = this.battle ? this.battle.state : air;
+		const party = battle ? battle.party : this.party;
+		const book = air ? recordBattle(this.book, air) : this.book;
 		const edits = landing?.cleared ? landing.edits : this.edits;
 		const worlds = landing?.cleared ? fitWorlds(edits, this.worlds, this.home) : this.worlds;
 		return {
@@ -317,9 +360,9 @@ export class LocalAuthority implements Authority {
 			tokens: this.tokens,
 			items: [...this.items],
 			solved: this.solved,
-			seen: [...this.book.seen],
-			caught: [...this.book.caught],
-			battle: this.battle ? this.battle.state : null,
+			seen: [...book.seen],
+			caught: [...book.caught],
+			battle,
 			edits: [...edits.encode()],
 			worlds: worlds.map(copyStay)
 		};
@@ -602,8 +645,9 @@ export class LocalAuthority implements Authority {
 		});
 	}
 
-	/** Where the player stands: out on the water in the boat, or on land. */
+	/** Where the player is: up in the air with the glider, out on the water in the boat, or on land. */
 	private realm(): Realm {
+		if (this.flight) return 'air';
 		return tileRealm(editedTileAt(this.seed, this.edits, this.pos.x, this.pos.y).kind);
 	}
 
@@ -622,17 +666,19 @@ export class LocalAuthority implements Authority {
 			return;
 		}
 		this.flight = result.flight;
+		this.chaser = null;
 		const { from, dir, reach } = result.flight;
 		this.emit({ type: 'took-off', playerId: this.playerId, from: { ...from }, dir, reach });
 	}
 
 	/**
 	 * `glide`: one tile on, a step like any (the step count keys what comes
-	 * after a flight, as after a walk), and never a battle: nothing on the
-	 * ground notices a kid up in the air. At the reach it goes no further: a
-	 * glide past it is a landing there. The glide onto the reach does not land
-	 * by itself, so the tile is flown over (and said to be, to the others)
-	 * before it is landed on.
+	 * after a flight, as after a walk). Nothing on the ground notices a kid up
+	 * in the air, but a bird may notice the glider over the tile it enters
+	 * (`skyRoll`) and follow it down. At the reach it goes no further: a glide
+	 * past it is a landing there. The glide onto the reach does not land by
+	 * itself, so the tile is flown over (and said to be, to the others) before
+	 * it is landed on.
 	 */
 	private glide(flight: Flight): void {
 		const next = glideOn(flight);
@@ -643,18 +689,23 @@ export class LocalAuthority implements Authority {
 		this.flight = next;
 		this.pos = flightPos(next);
 		this.steps += 1;
-		// #91 part 2, birds in the air: a bird may notice the glider on each tile it enters.
 		this.emit({ type: 'glided', playerId: this.playerId, pos: { ...this.pos }, flown: next.flown });
+		if (this.chaser) return;
+		const bird = this.skyRoll(this.pos, this.steps);
+		if (bird) this.follows(bird, this.pos, next.flown);
 	}
 
 	/**
 	 * `land`, or the reach: down on the first tile from the one the glider is
 	 * over that the player can stand on (`landFlight`), every tile flown on to
-	 * it a step. A tree or a rock there is cleared with its tool as they touch
-	 * down, and every world's cleared tiles share one budget, as after a chop.
+	 * it a step, and a tile a bird may notice the glider over, as a glide's
+	 * (`comingDown`). A tree or a rock there is cleared with its tool as they
+	 * touch down, and every world's cleared tiles share one budget, as after a
+	 * chop. Then, with a bird following, its battle in the air: the landing
+	 * always comes first.
 	 */
 	private land(flight: Flight): void {
-		const landing = this.landing(flight);
+		const { landing, bird, noticed } = this.comingDown(flight);
 		this.flight = null;
 		this.steps += landing.flown - flight.flown;
 		this.pos = { ...landing.pos };
@@ -664,6 +715,9 @@ export class LocalAuthority implements Authority {
 			this.edits = landing.edits;
 			this.worlds = fitWorlds(this.edits, this.worlds, this.home);
 		}
+		// Noticed on the way down to the landing tile (a `land` sent early carries the flight on).
+		if (bird && noticed) this.follows(bird, noticed.pos, noticed.flown);
+		this.chaser = null;
 		this.emit({
 			type: 'landed',
 			playerId: this.playerId,
@@ -675,11 +729,67 @@ export class LocalAuthority implements Authority {
 			const { pos, was, tool, regrown } = cleared;
 			this.emit({ type: 'tile-cleared', playerId: this.playerId, pos, was, tool, regrown });
 		}
+		if (bird) this.beginBattle(bird, 'air');
 	}
 
 	/** Where `flight` comes down if the kid lets go now, in this world as they left it. */
 	private landing(flight: Flight): Landing {
 		return landFlight(this.seed, this.edits, flight, { items: this.items });
+	}
+
+	/**
+	 * Letting go now: where `flight` comes down (`landing`), and the bird that
+	 * follows it down, the one already following or one that notices the
+	 * glider over a tile the flight enters on its way to the landing tile (each
+	 * a step, each rolled as a glide's tile is, until one comes out), with
+	 * where it noticed it. What `land` does and what a save in the air holds.
+	 */
+	private comingDown(flight: Flight): {
+		landing: Landing;
+		bird: AnimalInstance | null;
+		noticed: { pos: GridPos; flown: number } | null;
+	} {
+		const landing = this.landing(flight);
+		let bird = this.chaser;
+		let noticed: { pos: GridPos; flown: number } | null = null;
+		for (let flown = flight.flown + 1; bird === null && flown <= landing.flown; flown++) {
+			const pos = flightTile(flight.from, flight.dir, flown);
+			bird = this.skyRoll(pos, this.steps + flown - flight.flown);
+			if (bird) noticed = { pos, flown };
+		}
+		return { landing, bird, noticed };
+	}
+
+	/**
+	 * The bird that notices the glider over `pos`, entered on step `steps`, or
+	 * null: only while a bird stands in the team (the lead in the air: the
+	 * engine's `leadIndex` in the air realm), from the table of the sky over
+	 * that tile (`rollSkyEncounter`: one in twenty, whatever the lead and the
+	 * ground), on the step's own stream, so a flight replays from its steps.
+	 */
+	private skyRoll(pos: GridPos, steps: number): AnimalInstance | null {
+		const lead = this.party[leadIndex(this.party, 'air')];
+		if (!lead) return null;
+		const rng = new Rng(hashInts(this.seed, SKY_SALT, steps));
+		const tile = tileAtWorld(this.seed, pos.x, pos.y);
+		const site = { tile, pos, spawn: this.spawn, around: surroundings(this.seed, pos) };
+		const bird = rollSkyEncounter(rng, site, getAnimal(lead.speciesId).tier);
+		if (!bird) return null;
+		// One id per step a bird notices on, however often a save lands the flight ahead of time.
+		if (this.minted?.steps !== steps) this.minted = { steps, id: mintId() };
+		return { ...bird, id: this.minted.id };
+	}
+
+	/** A bird follows the glider down, from over `pos`, `flown` tiles out: say so. */
+	private follows(bird: AnimalInstance, pos: GridPos, flown: number): void {
+		this.chaser = bird;
+		this.emit({
+			type: 'bird-follows',
+			playerId: this.playerId,
+			speciesId: bird.speciesId,
+			pos: { ...pos },
+			flown
+		});
 	}
 
 	// --- battle ------------------------------------------------------------
@@ -725,14 +835,14 @@ export class LocalAuthority implements Authority {
 		const animal: SpeciesRef = { speciesId: state.opponent.speciesId };
 		let rescue: Rescue | null = null;
 		let line: Line | null = null;
-		// Out on the water the wild animal swims home, or stays in the water, not the grass.
-		const sea = state.realm === 'water';
+		// Out on the water the wild animal swims home, or stays in the water, not the grass; up
+		// in the air the bird flies home, or stays up in the sky.
 		switch (state.phase.outcome) {
 			case 'won':
-				line = { key: sea ? 'battle.closing.wonSea' : 'battle.closing.won', params: { animal } };
+				line = { key: CLOSING_WON[state.realm], params: { animal } };
 				break;
 			case 'fled':
-				line = { key: sea ? 'battle.closing.fledSea' : 'battle.closing.fled', params: { animal } };
+				line = { key: CLOSING_FLED[state.realm], params: { animal } };
 				break;
 			case 'caught': {
 				// The reducer always reports the caught animal on `ended`.
