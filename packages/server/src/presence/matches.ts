@@ -32,8 +32,9 @@ import type { Peer, PresenceHub, Present } from './hub.js';
  *   with the team it brings). The server asks the engine's rule
  *   (`challengeRefusal`: within reach, both exploring, both on land) with the
  *   positions both pages last reported, and checks what only it knows:
- *   neither is in a match, neither is asking or being asked, and the
- *   challenger is not asking again too soon after a No (`askAgainMs`). The
+ *   neither is in a match going on, nor in one their page has not put up
+ *   yet (`busy`), neither is asking or being asked, and the challenger is
+ *   not asking again too soon after a No (`askAgainMs`). The
  *   invite lasts `inviteMs`, and ends at once, kindly worded to each side,
  *   when either walks out of reach, gets busy, leaves the world or the game,
  *   takes it back or says no. Two players who ask each other at once want the
@@ -58,10 +59,11 @@ import type { Peer, PresenceHub, Present } from './hub.js';
  *   new match between the same two, with a new seed; one who goes back puts
  *   it off, and so does `lingerMs` passing. The one who left skips the
  *   result, so they are let go of at once. A match that ended keeps nobody
- *   busy: only a match going on does (or a finished one a page that came
- *   back is about to put up), so a kid back to exploring can ask and be
- *   asked straight away, and asking (or being asked) lets go of the match
- *   they had finished (#139).
+ *   busy: only a match going on does, or one a page has not put up yet
+ *   (it has not said `match` since it was sent it: a hidden tab, a page
+ *   just back), so a kid back to exploring can ask and be asked straight
+ *   away, and asking (or being asked) lets go of the match they had
+ *   finished (#139).
  * - **Seen from outside.** The players near either of the two see the match
  *   beside them in the world: the two animals, the puzzle of whoever's turn
  *   it is, every hit and the end (`show`, through the hub), built from this
@@ -119,13 +121,17 @@ interface Player {
 	invite: Invite | null;
 	/**
 	 * Their match, going on or ended: ended, until they go back to exploring,
-	 * leave it, or ask or are asked for another. Only one going on makes them busy.
+	 * leave it, or ask or are asked for another. Only one going on, or one their
+	 * page has not put up yet (`unshown`), makes them busy.
 	 */
 	match: Match | null;
 	/**
-	 * The finished match their page was sent as it came back (`resume`) and
-	 * has not put up yet: its first `where` can still say exploring. Until it
-	 * says `match` (it shows the result), or lets the match go, they are busy.
+	 * Their match, from when their page is sent it (`start`, `resume`) until
+	 * its `where` first says `match`: the page has not put it up yet, and its
+	 * last `where` still says exploring (one sent before the match came, or
+	 * none since: a hidden tab draws no frame, and sends no `where`). Until
+	 * then they are busy with it even once it has ended, since the page puts
+	 * its result up when it can.
 	 */
 	unshown: Match | null;
 	tokens: number;
@@ -257,19 +263,20 @@ export class Matches {
 		const player = this.playerOn(peer);
 		const match = player?.match;
 		if (!player || !match) return;
-		// A finished one goes up on the page: the player is busy with it until it is.
-		if (!live(match)) player.unshown = match;
+		// It goes up on the page, going on or finished: the player is busy with it until it is.
+		player.unshown = match;
 		for (const side of MATCH_SIDES) this.send(match, side, []);
 		// The players near the page that came back see the match again, if it goes on.
 		this.show(match, []);
 	}
 
 	/**
-	 * The socket said where it is: an invite may no longer be possible. (A
-	 * finished match is never left on a `where`: a page's first `where` can
-	 * come before it has even been sent the match. It is left when the page
-	 * says so, `done`, by leaving, or by asking or being asked for another,
-	 * and it keeps nobody busy meanwhile.)
+	 * The socket said where it is: its match is up on the page once it says
+	 * `match`, and an invite may no longer be possible. (A finished match is
+	 * never left on a `where`: a page's first `where` can come before it has
+	 * even been sent the match. It is left when the page says so, `done`, by
+	 * leaving, or by asking or being asked for another; once its page has put
+	 * it up, it keeps nobody busy meanwhile.)
 	 */
 	moved(peer: Peer): void {
 		const player = this.playerOn(peer);
@@ -507,8 +514,9 @@ export class Matches {
 		this.matches.set(match.id, match);
 		a.match = match;
 		b.match = match;
-		a.unshown = null;
-		b.unshown = null;
+		// Neither page has put it up yet: each says so with its next `where`.
+		a.unshown = match;
+		b.unshown = match;
 		this.startClock(match);
 		this.log(`matches: ${match.id} started`);
 		for (const side of MATCH_SIDES) this.send(match, side, []);
@@ -800,9 +808,10 @@ function live(match: Match | null): match is Match {
 
 /**
  * Whether a player is too busy for an invite as far as matches know: in a
- * match going on, or about to put up the finished one they came back to
- * (`unshown`). A match waiting for its rematch makes nobody busy: a page on
- * its result says so itself (`match`), and one back to exploring is free.
+ * match going on, or in one their page has not put up yet (`unshown`: sent
+ * it, and not a `where` saying `match` since). A match waiting for its
+ * rematch makes nobody busy once their page has shown it: a page on its
+ * result says so itself (`match`), and one back to exploring is free.
  */
 function busy(player: Player): boolean {
 	return live(player.match) || (player.unshown !== null && player.unshown === player.match);

@@ -918,6 +918,29 @@ describe('free again once a match is over (#139)', () => {
 		}
 	});
 
+	it('keeps a kid busy whose page never put their match up (a hidden tab), once it has ended too', () => {
+		const { ada, bo, cy } = three();
+		const start = startedMatch(ada, bo);
+		// Ada's tab is hidden: it draws no frame, so its `where` still says exploring. Bo's says match.
+		bo.at(beside(1), { busy: 'match' });
+		// Nobody touches a key: the turn clock ends the match, and Bo, on his result, asks for another.
+		vi.advanceTimersByTime(180_000);
+		expect(matches.stateOf(start.id)?.phase.kind).toBe('ended');
+		bo.send({ t: 'rematch', id: start.id, team: TEAM });
+		cy.send({ t: 'challenge', pid: ada.pid, team: TEAM });
+		expect(cy.peer.last('uninvite')).toMatchObject({ pid: ada.pid, reason: 'busy' });
+		expect(ada.peer.of('invite')).toEqual([]);
+		expect(bo.peer.of('rematch-wish').filter((w) => !w.yes)).toEqual([]);
+		// Ada comes back to the tab: her page puts the result up, then she goes back to exploring,
+		// her `done` lost on the way. Now she is free, and the rematch she walked away from is off.
+		ada.at(SPAWN, { busy: 'match' });
+		ada.at(SPAWN);
+		vi.advanceTimersByTime(1_000);
+		cy.send({ t: 'challenge', pid: ada.pid, team: TEAM });
+		expect(ada.peer.last('invite')).toMatchObject({ pid: cy.pid });
+		expect(bo.peer.last('rematch-wish')).toMatchObject({ side: 'a', yes: false });
+	});
+
 	it('still keeps a player in a match going on busy', () => {
 		const { ada, bo, cy } = three();
 		startedMatch(ada, bo);
