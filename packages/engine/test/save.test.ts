@@ -1534,8 +1534,8 @@ describe('readBattle', () => {
 			return [{ ...JSON.parse(JSON.stringify(state)), party }, party] as const;
 		};
 		expect(readBattle(...nested(MAX_SAVE_DEPTH - 4))).not.toBeNull();
-		expect(readBattle(...nested(MAX_SAVE_DEPTH - 3))).toBeNull();
 		expect(readBattle(...nested(200_000))).toBeNull();
+		expect(readBattle(...nested(MAX_SAVE_DEPTH - 3))).toBeNull();
 	});
 
 	it('drops a battle that does not fit the party or the rules', () => {
