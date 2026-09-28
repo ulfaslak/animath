@@ -297,11 +297,11 @@ export type ClientMessage =
  * `boot` is this run of the server's own id, new every time it starts: a
  * page back to no match can tell the server that forgot it (it restarted,
  * and no `bye` said so: it stopped without one) from the one it played on
- * (the match ended while the page was away). It is the one field a message
- * may leave out: a server from before it sends none (a rollback, or the
- * old copy during a deploy), and a page reads its `hi` all the same. An
- * old page drops it, as every parser drops a field it does not know, so it
- * needed no new version.
+ * (the match ended while the page was away). It may be left out, as a
+ * match message's `rematchOf` and `calledOff` may: a server from before it
+ * sends none (a rollback, or the old copy during a deploy), and a page
+ * reads its `hi` all the same. An old page drops it, as every parser drops
+ * a field it does not know, so it needed no new version.
  */
 export interface HiMessage {
 	t: 'hi';
@@ -448,6 +448,18 @@ export type MatchTimeout = (typeof MATCH_TIMEOUTS)[number];
  * side. `away`: the side whose page dropped out, and how long it has left to
  * come back. `timeout`: why a side that timed out did (`view.phase` says it
  * ended `timed-out`).
+ *
+ * `rematchOf`: this match is a rematch of that one, both players having
+ * said Rematch? on its result. `calledOff`: the rematch was called off
+ * before anyone played it, because the kid who leaves it (`view.phase`) had
+ * gone back to exploring from that result, their Back crossing the other's
+ * Rematch? on the way (#147); a page that has it up puts that result back.
+ * Both may be left out, as a `hi`'s `boot` may: a server from before them
+ * sends neither, and a page from before them drops them, so they needed no
+ * new version. Such a page reads a called-off rematch as the kid who went
+ * back leaving it: the other kid's "Ada left the match.", and on the page of
+ * the kid who went back, which put the rematch up as pages did before,
+ * "You left the match.".
  */
 export interface MatchMessage {
 	t: 'match';
@@ -458,6 +470,8 @@ export interface MatchMessage {
 	events: WireMatchEvent[];
 	away: { side: MatchSide; ms: number } | null;
 	timeout: MatchTimeout | null;
+	rematchOf?: string;
+	calledOff?: true;
 }
 
 /** The events a match message carries: every `MatchEvent` but `rejected`, which goes in its own message. */
@@ -921,6 +935,15 @@ function readMatchMessage(o: Fields): MatchMessage | null {
 	if (!isMatchId(o.id) || !pids || !names || !view || !events || away === undefined || !timeout) {
 		return null;
 	}
+	// Left out by a server from before them; there, anything but a match's id (never its own), or
+	// `true`, is junk.
+	const rematchOf = !('rematchOf' in o)
+		? undefined
+		: isMatchId(o.rematchOf) && o.rematchOf !== o.id
+			? o.rematchOf
+			: null;
+	const calledOff = !('calledOff' in o) ? undefined : o.calledOff === true ? true : null;
+	if (rematchOf === null || calledOff === null) return null;
 	return {
 		t: 'match',
 		id: o.id,
@@ -929,7 +952,9 @@ function readMatchMessage(o: Fields): MatchMessage | null {
 		view,
 		events,
 		away,
-		timeout: o.timeout as MatchTimeout | null
+		timeout: o.timeout as MatchTimeout | null,
+		...(rematchOf === undefined ? {} : { rematchOf }),
+		...(calledOff === undefined ? {} : { calledOff })
 	};
 }
 
