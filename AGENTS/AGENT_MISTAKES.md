@@ -870,11 +870,12 @@ The first fix kept the match the kid went back from in the match controller's me
 
 ### 2026-09-28 — #120 (fix/hud-corners), self-testing — a layout sized with ordinary content, not the widest the game allows `[learned]`
 
-Three times in one PR, each found by putting the widest case the game allows on screen rather than the one in front of me:
+Four times in one PR, each found by putting the widest or most crowded case the game allows on screen rather than the one in front of me:
 
 - The phone's top right corner, two rows, was planned with "23 tokens" and a party of short names. With a nickname of twelve W's (the party's cards 320 px wide) and four-digit counts, its first row reached 20 px into the first card at 667×375; a grid had also made the tools' row set the tokens' width. Fix: each row as wide as its own pills, the counts at the tools' 16 px; the check with the fix reverted shows the 20 px again.
 - Putting the space back in the catch celebration (#135) made "Humpback whale" 443 px against a phone card's 440, so it took a second line on a screen with no room for one; and "Spækhugger" at a tablet's 76 px was already wider than the card and broke inside the word. Found by measuring every species' name in both languages at both sizes. Fix: the letters take the size that fits.
 - With the keyboard instead of the touch controls, a phone's party column reached down beside the message line, which covered the end of its keys. Found walking the input edges (touch off) at 740×360. Fix: the column stops above a message line of two lines.
+- After #116 merged, a friend the same way as the nearest tent had the tent's marker on its name at 740×360: two marks each kept clear of the HUD, and not of each other. Found by the first frame with both on. Fix: the marker's disc is a piece the friends' arrows and names keep clear of.
 
 Codified: CLAUDE.md Phase 2's "Rendered layout" item is how these were found; [[DEVELOPMENT]] § Looking at the game, "Long names", now names the celebration's name and the corner's widest case, and [[UI_SPEC]] § Explore mode, "The corners", states the keyboard rule.
 
