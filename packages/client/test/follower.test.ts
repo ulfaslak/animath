@@ -21,7 +21,16 @@ import { ExploreController } from '../src/explore/controller';
 import { parseParty } from '../src/flags';
 import { Keyboard } from '../src/input/keyboard';
 import { BOAT_ASTERN, BOAT_DECK, BOAT_STAND, buildBoatMesh } from '../src/render/boat';
-import { Follower, RIDE_AHEAD, RIDE_HEIGHT, RIDE_LENGTH } from '../src/render/follower';
+import {
+	FLY_ASIDE,
+	FLY_BEHIND,
+	FLY_BELOW,
+	Follower,
+	RIDE_AHEAD,
+	RIDE_HEIGHT,
+	RIDE_LENGTH
+} from '../src/render/follower';
+import { CRUISE_HEIGHT } from '../src/render/trainer';
 import { WATER_TOP } from '../src/render/tiles';
 import type { GameRenderer } from '../src/render/renderer';
 import { doctor } from '../src/state/doctor.svelte';
@@ -48,7 +57,20 @@ function setup(party: string, game0?: SavedGame) {
 		setBoat() {},
 		setGlider() {},
 		setLandingSpot() {},
-		setPlayer() {},
+		// Where the trainer is, for the birds up in the air: over their tile, up as high as the flight has them.
+		setPlayer(
+			from: GridPos,
+			to: GridPos,
+			progress: number,
+			_dir: Direction,
+			air?: { lift: number }
+		) {
+			sky.trainer.set(
+				from.x + (to.x - from.x) * progress,
+				CRUISE_HEIGHT * (air?.lift ?? 0),
+				from.y + (to.y - from.y) * progress
+			);
+		},
 		ensureChunksAround() {},
 		cleared() {},
 		trainerPoint: sky.trainerPoint,
@@ -76,7 +98,7 @@ function setup(party: string, game0?: SavedGame) {
 	};
 	settle();
 	const trainer = () => game.pos;
-	return { authority, follower, figures, events, settle, trainer };
+	return { authority, follower, figures, events, settle, trainer, sky };
 }
 
 const standable = (p: GridPos) => isWalkable(tileAtWorld(WORLD_SEED, p.x, p.y).kind);
@@ -605,5 +627,94 @@ describe('out on the water', () => {
 		const rider = setup('squirrel', withBoat('squirrel', deep));
 		expect(rider.follower.species).toBe('squirrel');
 		expect(rider.follower.inBoat).toBe(true);
+	});
+});
+
+describe('up in the air (#91)', () => {
+	/**
+	 * World 1's start, facing up over the lake, the glider owned, with `party`
+	 * (in `?party=` style), 15 steps taken: no bird notices the glider on its way
+	 * across (steps 16 to 29).
+	 */
+	function flyer(party: string) {
+		const game0 = {
+			...newGame(1),
+			pos: { x: -2, y: 6 },
+			facing: 'up' as const,
+			steps: 15,
+			items: ['glider'],
+			party: parseParty(party)!
+		};
+		return setup(party, game0);
+	}
+
+	it('the lead in the air, a bird, takes off and flies behind the trainer, then comes down beside them; on land the land lead follows again', () => {
+		const s = flyer('squirrel,robin');
+		expect(s.follower.species).toBe('squirrel');
+		s.authority.dispatch({ type: 'take-off' });
+		let flown = false;
+		let caught = false;
+		let biggest = 0;
+		// Let go at once: over the lake to its far shore, a glide at a time, and down.
+		for (let t = 0; t < 4 && game.flying; t += 0.05) {
+			s.settle(0.05);
+			if (!s.follower.flying || s.follower.species !== 'robin') continue;
+			flown = true;
+			const figure = s.figures.find((f) => f.name === 'robin')!;
+			// Up there, behind the trainer and to their left, a little below them, wings out.
+			expect(figure.position.y).toBeGreaterThan(0.5);
+			expect(figure.getObjectByName('wingR')!.rotation.z).toBeGreaterThan(0.5);
+			biggest = Math.max(biggest, figure.scale.x);
+			// Once it has caught up, it keeps its spot as the trainer glides on: behind them (down
+			// the screen, as they fly up it), to their left and below, bobbing a little.
+			if (t > 1.2 && game.pos.y < 0) {
+				const at = s.sky.trainer;
+				expect(figure.position.z - at.z).toBeCloseTo(FLY_BEHIND, 1);
+				expect(at.x - figure.position.x).toBeCloseTo(FLY_ASIDE, 1);
+				expect(Math.abs(at.y - FLY_BELOW - figure.position.y)).toBeLessThan(0.1);
+				caught = true;
+			}
+		}
+		expect(flown && caught).toBe(true);
+		// Grown in, a robin is drawn half as big again up there, so it reads (`flyingSize`).
+		expect(biggest).toBeGreaterThan(1.3);
+		// Down: it comes down beside the trainer, then the land's lead, the squirrel, follows.
+		s.settle(3);
+		expect(game.flying).toBe(false);
+		expect(s.follower.flying).toBe(false);
+		expect(beside(s.follower.tile, s.trainer())).toBe(true);
+		expect(s.follower.species).toBe('squirrel');
+		expect(s.figures.map((f) => f.name)).toEqual(['squirrel']);
+	});
+
+	it('with no bird standing nobody follows the kid up, and the lead is back beside them once they are down', () => {
+		for (const party of ['squirrel', 'robin:0,squirrel']) {
+			const s = flyer(party);
+			s.authority.dispatch({ type: 'take-off' });
+			s.settle(0.8);
+			expect(game.flying, party).toBe(true);
+			expect(s.follower.species, party).toBe(null);
+			s.settle(4);
+			expect(game.flying).toBe(false);
+			expect(s.follower.species, party).toBe('squirrel');
+			expect(beside(s.follower.tile, s.trainer())).toBe(true);
+		}
+	});
+
+	it('a robin leading on the ground flies up with the kid itself, and lands beside them', () => {
+		const s = flyer('robin,squirrel');
+		const robin = s.figures.find((f) => f.name === 'robin')!;
+		s.authority.dispatch({ type: 'take-off' });
+		s.settle(0.8);
+		// The very figure that walked behind the trainer is the one up there: no swap.
+		expect(s.follower.flying).toBe(true);
+		expect(s.figures).toEqual([robin]);
+		s.settle(4);
+		expect(s.figures).toEqual([robin]);
+		expect(beside(s.follower.tile, s.trainer())).toBe(true);
+		// Down, its wings are folded again, as built.
+		expect(robin.getObjectByName('wingL')!.rotation.z).toBe(-0);
+		expect(robin.getObjectByName('wingR')!.scale.y).toBe(1);
+		expect(robin.rotation.x).toBe(0);
 	});
 });

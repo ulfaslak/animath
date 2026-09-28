@@ -96,7 +96,7 @@ function setup(startingParty: string, saved?: SavedGame) {
 	};
 	/** The species of the cards, top to bottom. */
 	const cards = () => bundles(game.party).map((b) => b.speciesId);
-	return { authority, explore, events, press, release, frame, run, cards, rings, listeners };
+	return { authority, explore, events, press, release, frame, run, cards, rings, listeners, sky };
 }
 
 describe('explore input', () => {
@@ -278,6 +278,35 @@ describe('the glider', () => {
 		none.press(' ');
 		none.run(HOLD_TO_FLY + RISE_SECONDS + GLIDE_SECONDS * 3 + 0.05);
 		expect([game.realm, lead()]).toEqual(['air', null]);
+	});
+
+	it('a bird that notices the glider chases it, a "!" over it and a squawk, and swoops in to hover in front of the kid once they are down (#91)', () => {
+		// A robin in the team, from the start up over the lake: a robin notices on step 4.
+		const s = setup('robin', {
+			...flyer(SPAWN, 'up'),
+			party: [{ id: 'red', speciesId: 'robin', hp: 19 }]
+		});
+		s.press(' ');
+		s.run(HOLD_TO_FLY + RISE_SECONDS + GLIDE_SECONDS * 4 + 0.05);
+		expect(count(s.events, 'bird-follows')).toBe(1);
+		expect(s.sky.chaser.species).toBe('robin');
+		expect(s.sky.chaser.marked).toBe(true);
+		expect(hud.message).toBe('A grumpy Robin is following you!');
+		expect(s.explore.landing).toBe(true);
+		// Held on to the reach: down, the battle starts, and the bird swoops in.
+		s.run(3);
+		expect(count(s.events, 'landed')).toBe(1);
+		expect(count(s.events, 'battle-started')).toBe(1);
+		expect(s.explore.flying).toBe(false);
+		// Hovering in front of the kid now: the landing on screen is over, so the iris may close.
+		expect(s.sky.chaser.arriving).toBe(false);
+		expect(s.explore.landing).toBe(false);
+		// Its battle over, the bird is gone.
+		s.release(' ');
+		for (let i = 0; i < 40 && count(s.events, 'battle-ended') === 0; i++)
+			s.authority.dispatch({ type: 'battle', intent: { type: 'flee' } });
+		expect(count(s.events, 'battle-ended')).toBe(1);
+		expect(s.sky.chaser.species).toBe(null);
 	});
 
 	it('holding on comes down at the reach by itself, and Space still held takes nobody up again', () => {

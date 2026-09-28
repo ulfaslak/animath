@@ -13,6 +13,7 @@ import * as THREE from 'three';
 import { motion } from '../motion';
 import { animateFlight, buildAnimalMesh, disposeFigure } from './animals';
 import { BOAT_DECK, BOAT_STAND } from './boat';
+import { flyingSize } from './chaser';
 import { appearScale, recallScale, smoothstep } from './ease';
 import { WATER_TOP, groundTop } from './tiles';
 
@@ -134,7 +135,7 @@ export const RIDE_HEIGHT = 0.6;
  * dips as it flies; and how long it takes to come down beside them.
  */
 export const FLY_BEHIND = 1.15;
-export const FLY_ASIDE = 0.45;
+export const FLY_ASIDE = 0.6;
 export const FLY_BELOW = 0.45;
 const FLY_CATCH_UP = 6;
 const FLY_PITCH = 0.3;
@@ -178,6 +179,11 @@ export class Follower {
 	private aloft: { at: THREE.Vector3; facing: Direction } | null = null;
 	/** Where the figure flies, up in the air and coming down. */
 	private airAt = new THREE.Vector3();
+	/**
+	 * Up in the air, where it is from the trainer: it moves with them, so it
+	 * never falls behind a glide, and only this closes on its spot behind them.
+	 */
+	private airFrom = new THREE.Vector3();
 	/** Seconds since it took off: its wings open as it rises. */
 	private airT = 0;
 	/** Coming down beside the trainer after a flight: from where in the air, and how far down (0 to 1). */
@@ -200,7 +206,7 @@ export class Follower {
 		if (trainer) {
 			if (!this.aloft) {
 				// Taking off from where it stands, or from where it was coming down.
-				if (this.figure) this.airAt.copy(this.figure.position);
+				if (this.figure) this.airFrom.subVectors(this.figure.position, trainer);
 				this.airT = 0;
 				this.landing = null;
 				this.aloft = { at: new THREE.Vector3(), facing };
@@ -409,15 +415,24 @@ export class Follower {
 		dt: number
 	): void {
 		this.airT += dt;
-		this.airAt.lerp(this.flightSpot(aloft), 1 - Math.exp(-dt * FLY_CATCH_UP));
+		const spot = this.flightSpot(aloft).sub(aloft.at);
+		this.airFrom.lerp(spot, 1 - Math.exp(-dt * FLY_CATCH_UP));
+		this.airAt.addVectors(aloft.at, this.airFrom);
 		this.facing = aloft.facing;
 		this.turn(dt);
 		const bob = motion.reduced ? 0 : Math.sin(this.t * 3.1) * 0.04;
+		const rising = Math.min(1, this.airT / 0.3);
 		figure.position.copy(this.airAt);
 		figure.position.y += bob + this.swapLift();
 		figure.rotation.set(FLY_PITCH, this.yaw, 0, 'YXZ');
-		figure.scale.setScalar(this.swapScale());
-		animateFlight(figure, this.t, Math.min(1, this.airT / 0.25));
+		figure.scale.setScalar(this.swapScale() * this.flyingScale(figure, rising));
+		animateFlight(figure, this.t, rising);
+	}
+
+	/** How big it is drawn `up` of the way into the air: a small bird bigger up there (`flyingSize`). */
+	private flyingScale(figure: THREE.Group, up: number): number {
+		const height = (figure.userData.restShape as { height: number } | undefined)?.height ?? 0.5;
+		return 1 + (flyingSize(height) - 1) * up;
 	}
 
 	/**
@@ -441,7 +456,7 @@ export class Follower {
 		figure.position.y += this.swapLift();
 		this.turn(dt);
 		figure.rotation.set(FLY_PITCH * (1 - p), this.yaw, 0, 'YXZ');
-		figure.scale.setScalar(this.swapScale());
+		figure.scale.setScalar(this.swapScale() * this.flyingScale(figure, 1 - p));
 		animateFlight(figure, this.t, 1 - p);
 		if (landing.t < 1) return;
 		this.landing = null;
@@ -519,7 +534,8 @@ export class Follower {
 		const stays = this.at && this.besideTrainer(this.at) && this.canStand(this.at, species);
 		if (this.aloft && flies(species)) {
 			// Up in the air: it comes out on its spot behind the glider, its wings open.
-			this.airAt.copy(this.flightSpot(this.aloft));
+			this.airFrom.copy(this.flightSpot(this.aloft).sub(this.aloft.at));
+			this.airAt.addVectors(this.aloft.at, this.airFrom);
 			this.airT = 1;
 		} else if (!this.wantRide && !stays) {
 			const spot = this.spotBeside(species);

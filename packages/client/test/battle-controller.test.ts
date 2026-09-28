@@ -3,6 +3,7 @@ import {
 	ATTACK_LEVELS,
 	attackDamage,
 	getAnimal,
+	newGame,
 	readSave,
 	restoreGame,
 	saveDocument,
@@ -23,7 +24,12 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { CueName } from '../src/audio/cues';
 import { sfx } from '../src/audio/sfx.svelte';
 import { LocalAuthority } from '../src/authority/local';
-import { BattleController, ENTER_SECONDS, IRIS_OPEN_SECONDS } from '../src/battle/controller';
+import {
+	BattleController,
+	ENTER_SECONDS,
+	IRIS_OPEN_SECONDS,
+	LANDING_WAIT_SECONDS
+} from '../src/battle/controller';
 import { actionAt, attackRows, rowOf, WILD_MOVES } from '../src/battle/menu';
 import { parseParty } from '../src/flags';
 import { PICK_QUIET_SECONDS } from '../src/input/pick-guard';
@@ -81,8 +87,11 @@ function throughSave(game: SavedGame): SavedGame {
 	return restoreGame(read.save);
 }
 
-/** A game to play: a starting party (`?party=` style), or a saved game to pick up. */
-function setup(from: { party?: string; game?: SavedGame } = {}) {
+/**
+ * A game to play: a starting party (`?party=` style), or a saved game to pick
+ * up; `landing`, what explore says of a flight still coming down on screen.
+ */
+function setup(from: { party?: string; game?: SavedGame; landing?: () => boolean } = {}) {
 	const authority = new LocalAuthority(from.party ? { party: parseParty(from.party)! } : {});
 	const shown: unknown[] = [];
 	const renderer = {
@@ -93,7 +102,7 @@ function setup(from: { party?: string; game?: SavedGame } = {}) {
 	const cues: CueName[] = [];
 	stopListening?.();
 	stopListening = sfx.onCue((cue) => cues.push(cue));
-	const controller = new BattleController(authority, renderer);
+	const controller = new BattleController(authority, renderer, from.landing);
 	const events: GameEvent[] = [];
 	const sent: Intent[] = [];
 	const dispatch = authority.dispatch.bind(authority);
@@ -289,6 +298,53 @@ describe('battle screen', () => {
 		t.run(3);
 		expect(battle.screen).toBe('actions');
 		expect(said()).toBe('What will Squirrel do?');
+	});
+
+	it('a battle in the air waits for the landing on screen, then closes its iris on the kid, down, and opens on the bird swooping down (#91)', () => {
+		/** From World 1's start up over the lake, a robin in the team: a robin notices the glider on step 4. */
+		const flight = (landing: () => boolean) => {
+			const game = {
+				...newGame(1),
+				pos: { x: -2, y: 6 },
+				facing: 'up' as const,
+				items: ['glider'],
+				party: [{ id: 'red', speciesId: 'robin', hp: 19 }]
+			};
+			const t = setup({ game, landing });
+			t.authority.dispatch({ type: 'take-off' });
+			for (let i = 0; i < 18; i++) t.authority.dispatch({ type: 'glide' });
+			expect(t.events.some((e) => e.type === 'bird-follows')).toBe(true);
+			expect(battle.active && battle.entering).toBe(true);
+			return t;
+		};
+		let down = false;
+		const t = flight(() => !down);
+		// The world is still bringing the kid down: no iris, no jingle, no scene.
+		t.run(1.5);
+		expect(battle.entering).toBe(true);
+		expect(battle.transition).toBeNull();
+		expect(t.cues).not.toContain('encounter');
+		expect(t.shown).toEqual([]);
+		// Down: now the iris closes on the kid, and the scene opens in the sky.
+		down = true;
+		t.run(1 / 60);
+		expect(battle.transition).toMatchObject({ kind: 'iris', closing: true });
+		expect(t.cues).toContain('encounter');
+		t.run(ENTER_SECONDS + 0.05);
+		expect(t.shown).toHaveLength(1);
+		expect(battle.realm).toBe('air');
+		expect(said()).toBe(`A wild ${name(battle.opponent!)} swoops down!`);
+		// However long the world takes, the iris waits no longer than LANDING_WAIT_SECONDS.
+		const stuck = flight(() => true);
+		stuck.run(LANDING_WAIT_SECONDS - 0.1);
+		expect(battle.transition).toBeNull();
+		stuck.run(0.2);
+		expect(battle.transition).toMatchObject({ kind: 'iris', closing: true });
+		// Not flying: the iris closes at once, as ever.
+		battle.reset();
+		const walked = setup({ landing: () => false });
+		walked.walkIntoBattle();
+		expect(battle.transition).toMatchObject({ kind: 'iris', closing: true, p: 0 });
 	});
 
 	it('closes an iris on the player, then opens it on the wild animal while the first line reads', () => {

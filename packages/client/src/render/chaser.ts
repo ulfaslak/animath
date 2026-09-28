@@ -23,9 +23,9 @@ import { FACING_ANGLE } from './trainer';
 export const CHASE_FROM = 9;
 const CHASE_FROM_UP = 1.2;
 /** Where it keeps to once it has caught up: behind the trainer, to their right, a little over them. */
-export const CHASE_BEHIND = 1.9;
-const CHASE_ASIDE = 0.55;
-const CHASE_UP = 0.3;
+export const CHASE_BEHIND = 1.7;
+const CHASE_ASIDE = 0.95;
+const CHASE_UP = 0.45;
 /** Seconds it takes to catch up with the glider. */
 export const CHASE_SECONDS = 1.1;
 /** Seconds its swoop takes, from where it flew to where it hovers in front of the kid, down. */
@@ -39,6 +39,18 @@ const MARK_POP = 0.25;
 const MARK_GO = 0.3;
 /** How far its nose dips as it flies after the glider. */
 const CHASE_PITCH = 0.35;
+/**
+ * How tall a bird up in the air is drawn at least, in tiles, and how much
+ * bigger than its size at most: a robin is drawn half as big again, so it
+ * reads from the explore camera as the bird it is; a big bird keeps its size.
+ */
+export const FLYING_HEIGHT = 0.55;
+export const FLYING_GROW = 1.7;
+
+/** How much bigger a bird `height` tiles tall is drawn up in the air (`FLYING_HEIGHT`). */
+export function flyingSize(height: number): number {
+	return Math.min(FLYING_GROW, Math.max(1, FLYING_HEIGHT / Math.max(0.01, height)));
+}
 
 const AHEAD: Record<Direction, { x: number; z: number }> = {
 	up: { x: 0, z: -1 },
@@ -125,7 +137,7 @@ export class Chaser {
 		this.at.copy(this.startFrom(trainer, facing));
 		this.yaw = FACING_ANGLE[facing];
 		this.host.addFigure(figure);
-		this.place(figure, 1);
+		this.place(figure, flyingSize(this.height));
 	}
 
 	/**
@@ -163,7 +175,7 @@ export class Chaser {
 			this.yaw = FACING_ANGLE[facing];
 			figure.rotation.set(CHASE_PITCH, this.yaw, 0, 'YXZ');
 		}
-		this.place(figure, 1);
+		this.place(figure, flyingSize(this.height));
 		animateFlight(figure, this.t * 1.15, 1, calm);
 		this.showMark(figure, calm);
 	}
@@ -232,7 +244,7 @@ export class Chaser {
 					? recallScale((t - (MARK_SECONDS - MARK_GO)) / MARK_GO)
 					: 1;
 		this.mark.position.copy(figure.position);
-		this.mark.position.y += this.height + 0.35;
+		this.mark.position.y += this.height * flyingSize(this.height) + 0.35;
 		this.mark.quaternion.copy(this.camera().quaternion);
 		this.mark.scale.setScalar(Math.max(0.001, size));
 	}
