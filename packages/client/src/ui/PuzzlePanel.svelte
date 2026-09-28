@@ -91,7 +91,7 @@
 		{#if note}
 			<!-- Answered right, the puzzle is done and the note (help another animal) is over:
 			     it goes, keeping its place, so nothing moves under "Correct!". -->
-			<div class="keys" class:spent={judged?.correct === true}>{note}</div>
+			<div class="keys note" class:spent={judged?.correct === true}>{note}</div>
 		{/if}
 	</div>
 	{#if touch.on && !watch}
