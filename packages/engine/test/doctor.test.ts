@@ -1,3 +1,4 @@
+import { isDeepStrictEqual } from 'node:util';
 import { describe, expect, it } from 'vitest';
 import { ANIMALS, canFightIn, getAnimal } from '../src/animals/catalog.js';
 import type { AnimalInstance, Realm } from '../src/animals/types.js';
@@ -22,6 +23,7 @@ import { spawnPoint } from '../src/world/spawn.js';
 import { TENT_SEARCH_STEPS, canTalkToDoctor, nearestTent } from '../src/world/tents.js';
 import { isWalkable, isWater, step, type Direction, type GridPos } from '../src/world/types.js';
 import { makeParty, makeWild, playBattle } from './battle-sim.js';
+import { turn } from './turn.js';
 import { wordedStrings } from './words.js';
 
 const SEEDS = 25;
@@ -272,7 +274,7 @@ describe('applyDoctorIntent', () => {
 
 describe('healing, for every species', () => {
 	for (const spec of ANIMALS) {
-		it(`${spec.id}: a puzzle at its healing difficulty; a wrong answer changes nothing; a right one heals it to full`, () => {
+		it(`${spec.id}: a puzzle at its healing difficulty; a wrong answer changes nothing; a right one heals it to full`, async () => {
 			const kinds = new Set(spec.attacks.flatMap((a) => a.kinds));
 			// A hurt animal of another species beside it, which the heal leaves alone.
 			const other = spec.id === 'fox' ? 'otter' : 'fox';
@@ -327,10 +329,12 @@ describe('healing, for every species', () => {
 					]);
 					expect(s.state.phase).toEqual({ kind: 'choose-patient' });
 				}
+				await turn();
 			}
-			// Up to 2 s alone per species (three HP levels, 25 seeds, every shape of wrong
-			// answer); nearly 3 s with two browsers drawing beside it.
-		}, 30_000);
+			// Three HP levels, 25 seeds, every shape of wrong answer: up to 1.0 s alone per species
+			// at a load average of 10, up to 4.9 s in the whole suite at 30, which scales to 24 s at
+			// 150; its loop turns after each HP level.
+		}, 90_000);
 	}
 
 	it('judges only with checkAnswer, whatever the input', () => {
@@ -887,7 +891,7 @@ function playVisit(seed: number, party: AnimalInstance[], accuracy: number, toke
 }
 
 describe('replay', () => {
-	it('the same seed, party and intents always yield the same states and events, and every visit ends', () => {
+	it('the same seed, party and intents always yield the same states and events, and every visit ends', async () => {
 		const ids = ANIMALS.map((a) => a.id);
 		const seen = new Set<string>();
 		for (const [i, a] of ids.entries()) {
@@ -896,12 +900,14 @@ describe('replay', () => {
 				const tokens = [0, 7, 21, 60][seed % 4]!;
 				const first = playVisit(seed, party, 0.6, tokens);
 				const again = playVisit(seed, party, 0.6, tokens);
-				expect(again).toEqual(first);
+				// Compared as they are, keys and all; a difference is shown in full below.
+				if (!isDeepStrictEqual(again, first)) expect(again).toEqual(first);
 				expect(first.state.phase.kind).toBe('ended');
 				// The doctor's words are the client's: nothing here is a sentence.
 				expect(wordedStrings(first)).toEqual([]);
 				for (const e of first.events) seen.add(e.type === 'rejected' ? e.reason : e.type);
 			}
+			await turn();
 		}
 		// The kid did everything there is to do, and ran into every refusal a kid can.
 		for (const what of [
@@ -916,8 +922,9 @@ describe('replay', () => {
 			'no-such-animal'
 		])
 			expect(seen, what).toContain(what);
-		// About 0.6 s alone (70 visits, each played twice); 3.9 s at a load average of 40.
-	}, 30_000);
+		// 205 visits, each played twice: 2.2 s alone at a load average of 10, 4.2 s in the whole
+		// suite at 39, and up to ten times its run alone at 150; its loop turns after each species.
+	}, 90_000);
 
 	it('a different seed asks different puzzles', () => {
 		const prompts = new Set<string>();
@@ -1047,8 +1054,9 @@ describe('takeToDoctor', () => {
 				expect(takeToDoctor(seed, pos, party)).toEqual(rescue);
 			}
 		}
-		// About 1 s alone (24 lost battles, three tent searches each); over 5 s under a heavy load.
-	}, 30_000);
+		// 24 lost battles, three tent searches each: 1.1 s alone at a load average of 10, 2.2 s in
+		// the whole suite at 39, and up to ten times its run alone at 150.
+	}, 60_000);
 
 	it('keeps each animal as it was, nickname and extra fields included, only with full HP', () => {
 		const party = [

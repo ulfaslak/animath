@@ -185,5 +185,7 @@ describe('worded literals in TypeScript', () => {
 		for (const file of Object.keys(FOR_DEVELOPERS)) expect([...tsSources.keys()]).toContain(file);
 		// About 0.45 s alone (every module and script block parsed by TypeScript); 3.5 s at a
 		// load average of 40.
-	}, 30_000);
+		// 1.7 s alone at a load average of 12 to 23 and 5.6 s in the whole suite at 62 (2026-09-28);
+		// up to ten times its run alone at 150.
+	}, 60_000);
 });

@@ -41,9 +41,10 @@ afterAll(() => pool.end());
 // Every register and login hashes a password with scrypt at its real cost:
 // about 150 ms a hash at a load average of 14 (2026-09-27), and 2–4 times
 // that with other worktrees' browsers drawing. A test here hashes up to eight
-// times (the rate limits: a wrong password is a hash too), about 1.6 s at
-// that load, so the file's tests get 30 s rather than vitest's 5.
-vi.setConfig({ testTimeout: 30_000 });
+// times (the rate limits: a wrong password is a hash too): up to 2.0 s alone
+// at a load average of 12 to 30 (2026-09-28), and up to ten times its run
+// alone at 150, so the file's tests get 90 s.
+vi.setConfig({ testTimeout: 90_000 });
 
 const ROOMY = { limit: 100_000, windowMs: 60_000, maxKeys: 100_000 };
 const NO_LIMITS: AccountLimits = {

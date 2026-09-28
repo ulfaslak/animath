@@ -154,7 +154,9 @@ describe('the chunks around the player', () => {
 		expect(kinds(ledger.disposedIn(parent))).toEqual([]);
 		expect(kinds([...SHARED_GEOMETRIES].filter((g) => ledger.isDisposed(g)))).toEqual([]);
 		// About 1.8 s alone (hundreds of chunks built and freed); over 5 s under a heavy load.
-	}, 30_000);
+		// 0.55 s alone at a load average of 12 to 23 and 1.9 s in the whole suite at 28 (2026-09-28),
+		// which scales to 10 s at 150.
+	}, 60_000);
 
 	it('free the whole ring on a jump, and every chunk of the old world when the world changes', () => {
 		const parent = new THREE.Group();
