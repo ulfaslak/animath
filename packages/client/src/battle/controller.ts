@@ -373,7 +373,12 @@ export class BattleController {
 	 */
 	private lightPicked(phase: { attackIndex: number; level: AttackLevel }): void {
 		const menu = { cursor: battle.cursor, levels: battle.levels };
-		const picked = pickedMenu(menu, getAnimal(this.front().speciesId), phase.attackIndex, phase.level);
+		const picked = pickedMenu(
+			menu,
+			getAnimal(this.front().speciesId),
+			phase.attackIndex,
+			phase.level
+		);
 		battle.cursor = picked.cursor;
 		if (picked.levels !== battle.levels) battle.levels = picked.levels;
 	}
