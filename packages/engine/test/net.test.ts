@@ -459,6 +459,15 @@ describe('the wire protocol', () => {
 		});
 	});
 
+	it('bumps the version with every new species: a page drops a match or a fight with one it does not know', () => {
+		// A page of the last version would never see a match with the new animal in it, nor
+		// a fight; told to refresh, it reloads with the new catalog (#89's second wave: 5).
+		expect(
+			{ version: PROTOCOL_VERSION, species: ANIMALS.length },
+			'a new species bumps PROTOCOL_VERSION'
+		).toEqual({ version: 5, species: 41 });
+	});
+
 	it('bounds worlds, coordinates, names and rosters', () => {
 		const where = (patch: object) =>
 			parseClientMessage({

@@ -552,7 +552,11 @@ describe('every battle in the catalog', () => {
 
 describe('answers', () => {
 	it('a wrong answer never damages the opponent, whatever the input', () => {
+		// Every pair that can meet, 5 seeds, 6 wrong answers each, checked once a pair: an
+		// `expect` per answer costs more than the answer (43,500 answers with #89's 41 animals).
 		for (const { p, w, realm } of MEETINGS) {
+			const got: unknown[] = [];
+			const want: unknown[] = [];
 			for (let seed = 0; seed < 5; seed++) {
 				const rng = new Rng(seed);
 				const n = rng.int(1, getAnimal(p).attacks.length);
@@ -578,26 +582,40 @@ describe('answers', () => {
 						{ type: 'answer', input },
 						seed
 					);
-					expect(state.opponent.hp).toBe(solving.opponent.hp);
-					expect(events[0]).toEqual({ type: 'answer-judged', input, correct: false, answer });
-					expect(events[1]).toEqual({
-						type: 'missed',
-						attacker: 'player',
-						attackIndex: n,
-						level
+					got.push({
+						seed,
+						input,
+						hp: state.opponent.hp,
+						judged: events[0],
+						missed: events[1],
+						hit: events.some((e) => e.type === 'hit' && e.attacker === 'player'),
+						// The wild animal still takes its turn: it hits, or misses a wary match.
+						wild: (events[2] as { attacker?: string } | undefined)?.attacker
 					});
-					expect(events.some((e) => e.type === 'hit' && e.attacker === 'player')).toBe(false);
-					// The wild animal still takes its turn: it hits, or misses a wary match.
-					expect(events[2]).toMatchObject({ attacker: 'opponent' });
+					want.push({
+						seed,
+						input,
+						hp: solving.opponent.hp,
+						judged: { type: 'answer-judged', input, correct: false, answer },
+						missed: { type: 'missed', attacker: 'player', attackIndex: n, level },
+						hit: false,
+						wild: 'opponent'
+					});
 				}
 			}
+			expect(got, `${p} vs ${w}`).toEqual(want);
 		}
-		// About 0.5 s alone (3,720 wrong answers); 1.4 s at a load average of 40.
+		// 1.4 s alone at a load average of 32; with an `expect` per answer, 12 s alone at 46 and
+		// over 30 s in the whole suite.
 	}, 30_000);
 
 	it('a correct answer always deals exactly the formula damage, for every attack and level', () => {
+		// Checked once a species: an `expect` per answer took 4.3 s of its 5 in the whole suite
+		// with #89's 41 animals.
 		for (const p of ids) {
 			const spec = getAnimal(p);
+			const got: unknown[] = [];
+			const want: unknown[] = [];
 			for (let n = 1; n <= spec.attacks.length; n++) {
 				for (const level of ATTACK_LEVELS) {
 					for (let seed = 0; seed < 5; seed++) {
@@ -618,23 +636,41 @@ describe('answers', () => {
 								{ type: 'answer', input },
 								seed
 							);
-							expect(events[0]).toEqual({ type: 'answer-judged', input, correct: true, answer });
-							expect(events[1]).toEqual({
-								type: 'hit',
-								attacker: 'player',
-								attackIndex: n,
+							got.push({
+								n,
 								level,
-								damage,
-								targetHp: 100 - damage
+								seed,
+								input,
+								judged: events[0],
+								hit: events[1],
+								hp: state.opponent.hp,
+								lower: state.opponent.hp < solving.opponent.hp
 							});
-							expect(state.opponent.hp).toBe(100 - damage);
-							expect(state.opponent.hp).toBeLessThan(solving.opponent.hp);
+							want.push({
+								n,
+								level,
+								seed,
+								input,
+								judged: { type: 'answer-judged', input, correct: true, answer },
+								hit: {
+									type: 'hit',
+									attacker: 'player',
+									attackIndex: n,
+									level,
+									damage,
+									targetHp: 100 - damage
+								},
+								hp: 100 - damage,
+								lower: true
+							});
 						}
 					}
 				}
 			}
+			expect(got, p).toEqual(want);
 		}
-	});
+		// 0.3 s alone at a load average of 20 (5,040 right answers, #89's 41 animals).
+	}, 30_000);
 
 	it('landHit, as a screen previews a hit, is exactly the hit a right answer lands, a knock-out included', () => {
 		// The battle panel shows the damage, the HP bar's lighter segment and "That
@@ -701,19 +737,39 @@ describe('the wild animal', () => {
 
 	it('misses an animal of its own tier or fiercer exactly when its roll says so, never a smaller one', () => {
 		// Recomputed from the seed: the attack pick, then the miss roll, are the
-		// wild turn's two draws from the answer intent's Rng (step 1).
-		for (const { p, w } of MEETINGS) {
+		// wild turn's two draws from the answer intent's Rng (step 1). Every pair that can
+		// meet, 40 seeds each: the findings are collected and checked once, since an
+		// `expect` per turn costs more than the turn (58,000 turns with #89's 41 animals).
+		const bad: string[] = [];
+		let misses = 0;
+		for (const { p, w, realm } of MEETINGS) {
 			const wary = getAnimal(w).tier <= getAnimal(p).tier;
 			for (let seed = 0; seed < 40; seed++) {
-				const { e, start, state } = wildTurn(p, w, seed);
+				const start = startBattle(makeParty([p]), makeWild(w), { realm });
+				const { state, events } = attackAndAnswer(start, seed, 1, 1, false);
+				const turn = events.filter(
+					(e) => (e.type === 'hit' || e.type === 'missed') && e.attacker === 'opponent'
+				);
+				const where = `${p} vs ${w}, seed ${seed}`;
+				const e = turn[0];
+				if (turn.length !== 1 || !e || (e.type !== 'hit' && e.type !== 'missed')) {
+					bad.push(`${where}: ${turn.length} wild turns`);
+					continue;
+				}
 				const rng = new Rng(hashInts(seed, 1));
-				expect(e.attackIndex).toBe(rng.int(1, getAnimal(w).attacks.length));
+				if (e.attackIndex !== rng.int(1, getAnimal(w).attacks.length))
+					bad.push(`${where}: attack ${e.attackIndex}`);
 				const miss = wary && rng.next() < WILD_MISS_CHANCE;
-				expect(e.type, `${p} vs ${w}, seed ${seed}`).toBe(miss ? 'missed' : 'hit');
-				if (miss) expect(state.party[0]!.hp).toBe(start.party[0]!.hp);
+				if (e.type !== (miss ? 'missed' : 'hit')) bad.push(`${where}: ${e.type}`);
+				if (miss && state.party[0]!.hp !== start.party[0]!.hp) bad.push(`${where}: HP moved`);
+				if (e.type === 'missed') misses++;
 			}
 		}
-		// Under 0.5 s alone (every species pair, 40 seeds); over 1.4 s on a loaded machine.
+		expect(bad).toEqual([]);
+		// The misses the rolls call for do happen, so the checks above saw both kinds of turn.
+		expect(misses).toBeGreaterThan(0);
+		// 0.4 s alone at a load average of 24 (58,000 turns, #89's 41 animals); asserting every
+		// turn instead took over 30 s at a load average of 40.
 	}, 30_000);
 
 	it('misses a wary match about as often as WILD_MISS_CHANCE says', () => {

@@ -350,6 +350,114 @@ species:
     attacks:
       tail-slap: Tail Slap
       tree-gnaw: Tree Gnaw
+  # The big animals of the Nordic countryside (#89 wave 2).
+  wild-boar:
+    # "Wild" is already in its name, so it is never said twice ("a wild Wild boar").
+    name: Wild boar
+    a: a Wild boar
+    the: the Wild boar
+    wild: Wild boar
+    aWild: a Wild boar
+    theWild: the Wild boar
+    bare: Wild boar
+    attacks:
+      snout-dig: Snout Dig
+      tusk-charge: Tusk Charge
+  mute-swan:
+    name: Mute swan
+    a: a Mute swan
+    the: the Mute swan
+    wild: wild Mute swan
+    aWild: a wild Mute swan
+    theWild: the wild Mute swan
+    bare: Mute swan
+    attacks:
+      big-hiss: Big Hiss
+      wing-beat: Wing Beat
+  eagle-owl:
+    name: Eagle-owl
+    a: an Eagle-owl
+    the: the Eagle-owl
+    wild: wild Eagle-owl
+    aWild: a wild Eagle-owl
+    theWild: the wild Eagle-owl
+    bare: Eagle-owl
+    attacks:
+      orange-eyes: Orange Eyes
+      night-strike: Night Strike
+  lynx:
+    name: Lynx
+    a: a Lynx
+    the: the Lynx
+    wild: wild Lynx
+    aWild: a wild Lynx
+    theWild: the wild Lynx
+    bare: Lynx
+    attacks:
+      stalk: Stalk
+      snow-paws: Snow Paws
+      great-pounce: Great Pounce
+  wolverine:
+    name: Wolverine
+    a: a Wolverine
+    the: the Wolverine
+    wild: wild Wolverine
+    aWild: a wild Wolverine
+    theWild: the wild Wolverine
+    bare: Wolverine
+    attacks:
+      growl: Growl
+      snow-dig: Snow Dig
+      never-give-up: Never Give Up
+  golden-eagle:
+    name: Golden eagle
+    a: a Golden eagle
+    the: the Golden eagle
+    wild: wild Golden eagle
+    aWild: a wild Golden eagle
+    theWild: the wild Golden eagle
+    bare: Golden eagle
+    attacks:
+      soar: Soar
+      sky-dive: Sky Dive
+      golden-talons: Golden Talons
+  white-tailed-eagle:
+    name: Sea eagle
+    a: a Sea eagle
+    the: the Sea eagle
+    wild: wild Sea eagle
+    aWild: a wild Sea eagle
+    theWild: the wild Sea eagle
+    bare: Sea eagle
+    attacks:
+      glide: Glide
+      fish-grab: Fish Grab
+      huge-wings: Huge Wings
+  moose:
+    name: Moose
+    a: a Moose
+    the: the Moose
+    wild: wild Moose
+    aWild: a wild Moose
+    theWild: the wild Moose
+    bare: Moose
+    attacks:
+      munch: Munch
+      lake-dip: Lake Dip
+      antler-shove: Antler Shove
+  european-bison:
+    name: European bison
+    a: a European bison
+    the: the European bison
+    wild: wild European bison
+    aWild: a wild European bison
+    theWild: the wild European bison
+    bare: European bison
+    attacks:
+      stamp: Stamp
+      dust-bath: Dust Bath
+      head-butt: Head Butt
+      stampede: Stampede
   # The sea animals, met out on the deep water from the boat.
   crab:
     name: Crab

@@ -787,7 +787,10 @@ describe('applyPartyIntent: move-species', () => {
 		}
 		expect(bad).toEqual([]);
 		expect(moves).toBeGreaterThan(300);
-	});
+		// A big party holds up to one kind per species, and every kind moves to every place: the
+		// sweep grows with the catalog's square. 3.8 s at a load average of 100 with #89's 41
+		// animals, 7 s at 120, past vitest's 5 s default.
+	}, 30_000);
 
 	it('refuses a place off the list, a place that is not a whole number, and a species not in the party', () => {
 		for (const party of PARTIES.slice(0, 40)) {

@@ -378,6 +378,139 @@ export const ANIMALS: readonly AnimalSpec[] = [
 			{ id: 'tree-gnaw', kinds: ['mul', 'missing'], power: 9 }
 		]
 	},
+	// The big animals of the Nordic countryside (#89 wave 2), by tier and then as
+	// the issue lists them, inside #89's bands (tier 3: 46–56 HP, catch 0.45–0.5,
+	// two attacks of power 8–13; tier 4: 66–72, 0.3–0.35, three of 10–19; tier 5:
+	// 105–110, 0.2, three or four of 12–27, which the bear stays outside of as it
+	// was). The mute swan swims, as the toad and the beaver do.
+	{
+		id: 'wild-boar',
+		tier: 3,
+		maxHp: 56,
+		catchRate: 0.45,
+		habitats: ['forest'],
+		realms: ['land'],
+		favours: 'trees',
+		attacks: [
+			{ id: 'snout-dig', kinds: ['mul'], power: 8 },
+			{ id: 'tusk-charge', kinds: ['div', 'mul'], power: 13 }
+		]
+	},
+	{
+		id: 'mute-swan',
+		tier: 3,
+		maxHp: 48,
+		catchRate: 0.5,
+		habitats: ['river'],
+		realms: ['land', 'water'],
+		favours: 'water',
+		attacks: [
+			{ id: 'big-hiss', kinds: ['mul'], power: 8 },
+			{ id: 'wing-beat', kinds: ['div', 'mul'], power: 12 }
+		]
+	},
+	{
+		id: 'eagle-owl',
+		tier: 3,
+		maxHp: 46,
+		catchRate: 0.5,
+		habitats: ['mountain', 'forest'],
+		realms: ['land'],
+		favours: 'rocks',
+		attacks: [
+			{ id: 'orange-eyes', kinds: ['sequence', 'mul'], power: 9 },
+			{ id: 'night-strike', kinds: ['div', 'sqrt'], power: 13 }
+		]
+	},
+	{
+		id: 'lynx',
+		tier: 4,
+		maxHp: 66,
+		catchRate: 0.35,
+		habitats: ['forest', 'mountain'],
+		realms: ['land'],
+		favours: 'trees',
+		attacks: [
+			{ id: 'stalk', kinds: ['mul'], power: 11 },
+			{ id: 'snow-paws', kinds: ['sequence'], power: 15 },
+			{ id: 'great-pounce', kinds: ['div', 'sqrt'], power: 19 }
+		]
+	},
+	{
+		id: 'wolverine',
+		tier: 4,
+		maxHp: 72,
+		catchRate: 0.3,
+		habitats: ['mountain'],
+		realms: ['land'],
+		favours: 'rocks',
+		attacks: [
+			{ id: 'growl', kinds: ['mul'], power: 10 },
+			{ id: 'snow-dig', kinds: ['sequence'], power: 14 },
+			{ id: 'never-give-up', kinds: ['div', 'sqrt'], power: 18 }
+		]
+	},
+	{
+		id: 'golden-eagle',
+		tier: 4,
+		maxHp: 66,
+		catchRate: 0.35,
+		habitats: ['mountain'],
+		realms: ['land'],
+		favours: 'rocks',
+		attacks: [
+			{ id: 'soar', kinds: ['mul'], power: 10 },
+			{ id: 'sky-dive', kinds: ['sequence', 'mul'], power: 15 },
+			{ id: 'golden-talons', kinds: ['div', 'sqrt'], power: 19 }
+		]
+	},
+	{
+		// The sea eagle to a kid (havørn): its id is the species' full name.
+		id: 'white-tailed-eagle',
+		tier: 4,
+		maxHp: 68,
+		catchRate: 0.35,
+		habitats: ['river'],
+		realms: ['land'],
+		favours: 'water',
+		attacks: [
+			{ id: 'glide', kinds: ['mul'], power: 10 },
+			{ id: 'fish-grab', kinds: ['sequence'], power: 14 },
+			{ id: 'huge-wings', kinds: ['div', 'sqrt'], power: 18 }
+		]
+	},
+	{
+		id: 'moose',
+		tier: 5,
+		maxHp: 110,
+		catchRate: 0.2,
+		habitats: ['forest', 'river'],
+		realms: ['land'],
+		favours: 'water',
+		attacks: [
+			{ id: 'munch', kinds: ['mul'], power: 12 },
+			{ id: 'lake-dip', kinds: ['sequence'], power: 17 },
+			{ id: 'antler-shove', kinds: ['div', 'sqrt'], power: 24 }
+		]
+	},
+	{
+		// In the forest, where it lives in nature (Białowieża), not the meadow: the
+		// meadow has no tier-4 animal, so a tier-5 one there would be much of what a
+		// tier-4 lead meets in it (#89).
+		id: 'european-bison',
+		tier: 5,
+		maxHp: 105,
+		catchRate: 0.2,
+		habitats: ['forest'],
+		realms: ['land'],
+		favours: 'open',
+		attacks: [
+			{ id: 'stamp', kinds: ['mul'], power: 12 },
+			{ id: 'dust-bath', kinds: ['sequence'], power: 16 },
+			{ id: 'head-butt', kinds: ['div', 'sqrt'], power: 22 },
+			{ id: 'stampede', kinds: ['sqrt', 'sequence'], power: 27 }
+		]
+	},
 	// The sea animals: they live out on the deep water, in the sea biome, and
 	// only there (realm water), so a kid meets them only from the boat, with
 	// an animal that swims. One tier each from 1 to 5, as on land, each the
