@@ -33,7 +33,8 @@ export type CueName =
 	| 'crack'
 	| 'travel'
 	| 'whoosh'
-	| 'land';
+	| 'land'
+	| 'squawk';
 
 export type Wave = 'sine' | 'triangle' | 'noise';
 
@@ -384,6 +385,46 @@ export const CUES: Record<CueName, Cue> = {
 			},
 			pluck(0.06, G5, 0.14, 0.12, 'sine'),
 			pluck(0.13, C6, 0.2, 0.12, 'sine')
+		]
+	},
+	/**
+	 * A bird noticed the glider (#91): a high mewing cry, as a buzzard calls
+	 * over the fields, gliding down and wavering, twice, the second shorter;
+	 * a little breath of wind under it. Surprised, never scary.
+	 */
+	squawk: {
+		voices: [
+			{
+				at: 0,
+				dur: 0.34,
+				wave: 'triangle',
+				freq: 1480,
+				to: 980,
+				gain: 0.2,
+				attack: 0.03,
+				hold: 0.08,
+				vibrato: { rate: 18, depth: 0.03 }
+			},
+			{
+				at: 0.36,
+				dur: 0.22,
+				wave: 'triangle',
+				freq: 1320,
+				to: 1000,
+				gain: 0.16,
+				attack: 0.02,
+				hold: 0.04,
+				vibrato: { rate: 18, depth: 0.03 }
+			},
+			{
+				at: 0,
+				dur: 0.3,
+				wave: 'noise',
+				freq: 0,
+				gain: 0.05,
+				attack: 0.08,
+				filter: { type: 'bandpass', freq: 2400, to: 1200, q: 1.2 }
+			}
 		]
 	}
 };

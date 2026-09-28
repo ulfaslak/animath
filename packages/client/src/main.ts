@@ -86,7 +86,8 @@ const renderer = new GameRenderer(canvas);
 const keyboard = new Keyboard(window);
 // The lead walks behind the trainer: a view of the party and of the trainer's steps.
 const explore = new ExploreController(authority, renderer, keyboard, new Follower(renderer));
-const battleController = new BattleController(authority, renderer);
+// A battle in the air waits for the landing on screen (and the bird's swoop) before its circle closes.
+const battleController = new BattleController(authority, renderer, () => explore.landing);
 const doctorController = new DoctorController(authority);
 // A trip to another world plays its transition, and sends `travel` under its cover.
 const travelController = new TravelController(authority, renderer);
@@ -151,7 +152,9 @@ const matchController: MatchController = new MatchController({
 		pauseController.close();
 		account.prompt = false;
 	},
-	count: (events, side) => authority.countMatchAnswers(events, side)
+	count: (events, side) => authority.countMatchAnswers(events, side),
+	// A Back to exploring from a result holds in every tab of the player's, and through a reload.
+	store
 });
 // The other players in this world (`presence/`): never behind the title, never in a
 // throwaway game, never on a page behind the save; nothing waits on it.

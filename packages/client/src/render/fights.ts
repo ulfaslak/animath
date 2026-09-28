@@ -18,7 +18,7 @@ import {
 } from '@mathgame/engine';
 import * as THREE from 'three';
 import { motion } from '../motion';
-import { buildAnimalMesh, disposeFigure } from './animals';
+import { animateFlight, buildAnimalMesh, disposeFigure } from './animals';
 import { appearScale, recallScale, smoothstep } from './ease';
 import { SWIM_DEPTH, type FigureHost } from './follower';
 import type { OtherPlayers, OtherSpot } from './others';
@@ -108,6 +108,11 @@ const SPARKLE_SECONDS = 0.8;
  */
 const NEAR_OUT = 1.2;
 const FAR_OUT = 2.45;
+/**
+ * Up in the air (#91), how high over the ground (or the water) the two birds
+ * fly beside their player, in tiles: about the height of the fighter's head.
+ */
+export const AIR_HOVER = 0.7;
 /**
  * How tall (tiles) an animal in a battle beside its player stands at least:
  * a small one is drawn bigger, up to `MAX_GROW` times its size, so a shrew
@@ -606,17 +611,26 @@ export class WatchedFights {
 		return fight.layout?.owners[side]?.pid ?? null;
 	}
 
-	/** Whether an animal could stand on a tile where the battle is fought: ground on land, water at sea. */
+	/**
+	 * Whether an animal could be on a tile where the battle is fought: ground
+	 * on land, water at sea; up in the air, over ground or water, never inside
+	 * a tree, a rock or a tent.
+	 */
 	private canStand(p: GridPos, realm: Realm): boolean {
 		const kind = tileAtWorld(this.seed, p.x, p.y).kind;
+		if (realm === 'air') return isWalkable(kind) || isWater(kind);
 		return realm === 'water' ? isWater(kind) : isWalkable(kind) && !isWater(kind);
 	}
 
-	/** Where an animal's feet go at a point (tiles): the ground's top; out at sea, low in the water. */
+	/**
+	 * Where an animal's feet go at a point (tiles): the ground's top; out at
+	 * sea, low in the water; up in the air, `AIR_HOVER` over the ground or the
+	 * water, where the birds fly.
+	 */
 	private standAt(x: number, z: number, realm: Realm): THREE.Vector3 {
 		const tile = tileAtWorld(this.seed, Math.round(x), Math.round(z));
 		const y = realm === 'water' || isWater(tile.kind) ? WATER_TOP : groundTop(tile);
-		return new THREE.Vector3(x, y, z);
+		return new THREE.Vector3(x, y + (realm === 'air' ? AIR_HOVER : 0), z);
 	}
 
 	// --- playing -------------------------------------------------------------------------
@@ -829,6 +843,15 @@ export class WatchedFights {
 				Math.min(Math.abs(slot.restTo - slot.rest), dt / FAINT_SECONDS);
 			figure.userData.rest = smoothstep(slot.rest);
 			figure.position.copy(slot.spot);
+			// Up in the air the two birds fly, bobbing with their wingbeats (not with reduced
+			// motion); a tired one comes down to rest on the ground below, folding its wings.
+			if (fight.target.realm === 'air') {
+				const down = smoothstep(slot.rest);
+				const phase = (figure.userData.idlePhase as number | undefined) ?? 0;
+				const bob = calm ? 0 : Math.sin(t * 2.4 + phase) * 0.04;
+				figure.position.y += bob * (1 - down) - AIR_HOVER * down;
+				animateFlight(figure, t, 1 - down, calm);
+			}
 			figure.rotation.y = FACING_ANGLE[slot.facing];
 			figure.scale.setScalar(slot.size);
 			const m = slot.motion;
@@ -1142,12 +1165,13 @@ export class FigurePool {
 		const figure = this.free.get(species)?.pop() ?? buildAnimalMesh(species);
 		if (this.free.get(species)?.length === 0) this.free.delete(species);
 		if (figure.parent === null) {
-			// From the pool (or new): fresh as built.
+			// From the pool (or new): fresh as built, a bird's wings folded again.
 			figure.scale.setScalar(1);
 			figure.rotation.set(0, 0, 0);
 			figure.userData.rest = 0;
 			figure.userData.restSince = undefined;
 			figure.userData.idlePhase = Math.random() * 6.28;
+			animateFlight(figure, 0, 0);
 		}
 		if (this.kept > 0 && figure.userData.pooled) this.kept--;
 		figure.userData.pooled = false;

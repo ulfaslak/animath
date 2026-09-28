@@ -9,6 +9,7 @@ import {
 	worldSeed,
 	type AnimalInstance,
 	type ClientMessage,
+	type HiMessage,
 	type MatchIntent,
 	type MatchMessage,
 	type MatchSide,
@@ -23,8 +24,9 @@ import { LocalAuthority } from '../src/authority/local';
 import { PICK_QUIET_SECONDS } from '../src/input/pick-guard';
 import { optionKey } from '../src/input/press';
 import { words } from '../src/lines';
-import { MatchController } from '../src/match/controller';
+import { MatchController, wentBackKey } from '../src/match/controller';
 import type { GameRenderer } from '../src/render/renderer';
+import type { KeyValueStore } from '../src/save/storage';
 import { battle } from '../src/state/battle.svelte';
 import { game } from '../src/state/game.svelte';
 import { hud } from '../src/state/hud.svelte';
@@ -141,7 +143,28 @@ afterEach(() => {
 	match.reset();
 });
 
-function setup(party: AnimalInstance[] = PARTY) {
+/** The browser's localStorage, in memory: every tab of it, and every load. Full, it writes nothing. */
+function memoryStore(): KeyValueStore & { map: Map<string, string>; full: boolean } {
+	const map = new Map<string, string>();
+	const store = {
+		map,
+		full: false,
+		get: (k: string) => map.get(k) ?? null,
+		set: (k: string, v: string) => !store.full && (map.set(k, v), true),
+		remove: (k: string) => void map.delete(k)
+	};
+	return store;
+}
+
+/**
+ * This page (Ada's) with its game under way, the socket on. `store` is the
+ * browser's localStorage, and the server's first hi is `hi`, naming no match
+ * unless it says otherwise.
+ */
+function setup(
+	party: AnimalInstance[] = PARTY,
+	{ store = null, first = hi(null) }: { store?: KeyValueStore | null; first?: HiMessage } = {}
+) {
 	const authority = new LocalAuthority();
 	const sent: ClientMessage[] = [];
 	let online = true;
@@ -164,7 +187,8 @@ function setup(party: AnimalInstance[] = PARTY) {
 				(e) => e.type === 'answer-judged' && e.correct && e.side === side
 			).length;
 			authority.countMatchAnswers(events, side);
-		}
+		},
+		store
 	});
 	authority.subscribe((e) => {
 		game.apply(e);
@@ -180,7 +204,7 @@ function setup(party: AnimalInstance[] = PARTY) {
 	authority.start({ game: saved });
 	stop = () => authority.dispatch({ type: 'leave-game' });
 	controller.status('on');
-	controller.receive({ t: 'hi', v: PROTOCOL_VERSION, pid: pidOf('Ada'), name: 'Ada', match: null });
+	controller.receive(first);
 	const frame = (dt = 1 / 30) => {
 		now += dt;
 		controller.update(dt);
@@ -243,6 +267,30 @@ function started(t: ReturnType<typeof setup>, seed = 5) {
 	t.controller.receive(ref.message('a'));
 	t.runUntil(() => battle.screen !== 'busy');
 	return ref;
+}
+
+/**
+ * The match played to its end, Bo's animals on 1 HP, Ada right every time and
+ * Bo never: Ada wins, and her page shows the result, Rematch? still to be had.
+ */
+function playedOut(t: ReturnType<typeof setup>, ref: Referee): void {
+	ref.state = {
+		...ref.state,
+		teams: { a: ref.state.teams.a, b: ref.state.teams.b.map((a) => ({ ...a, hp: 1 })) }
+	};
+	for (let turns = 0; ref.state.phase.kind !== 'ended'; turns++) {
+		if (turns > 40) throw new Error('never ended');
+		const phase = ref.state.phase;
+		const intent: MatchIntent =
+			phase.kind === 'choose-animal'
+				? { type: 'pick-next', teamIndex: 1 }
+				: phase.kind === 'choose-action'
+					? { type: 'attack', attackIndex: 1, level: 1 }
+					: { type: 'answer', input: phase.side === 'a' ? ref.answer() : '-1' };
+		t.controller.receive(ref.message('a', ref.apply(phase.side, intent)));
+	}
+	t.runUntil(() => battle.screen === 'result');
+	expect(match.result).toMatchObject({ won: true, reason: 'all-tired' });
 }
 
 beforeEach(() => {
@@ -581,25 +629,7 @@ describe('a match', () => {
 	it('asks for a rematch, and plays the next match when both said yes', () => {
 		const t = setup();
 		const ref = started(t);
-		// The stand-in server lets Bo's animals stand on 1 HP each: Ada's right answers end it fast.
-		ref.state = {
-			...ref.state,
-			teams: { a: ref.state.teams.a, b: ref.state.teams.b.map((a) => ({ ...a, hp: 1 })) }
-		};
-		for (let turns = 0; ref.state.phase.kind !== 'ended'; turns++) {
-			if (turns > 40) throw new Error('never ended');
-			const phase = ref.state.phase;
-			const side = phase.side;
-			const intent: MatchIntent =
-				phase.kind === 'choose-animal'
-					? { type: 'pick-next', teamIndex: 1 }
-					: phase.kind === 'choose-action'
-						? { type: 'attack', attackIndex: 1, level: 1 }
-						: { type: 'answer', input: side === 'a' ? ref.answer() : '-1' };
-			t.controller.receive(ref.message('a', ref.apply(side, intent)));
-		}
-		t.runUntil(() => battle.screen === 'result');
-		expect(match.result).toMatchObject({ won: true, reason: 'all-tired' });
+		playedOut(t, ref);
 		t.pick('ArrowLeft', 'Enter');
 		expect(t.sentOf('rematch')).toHaveLength(1);
 		t.controller.receive({ t: 'rematch-wish', id: ref.id, side: 'a', yes: true });
@@ -632,6 +662,148 @@ describe('a match', () => {
 		t.pick('Enter');
 		expect(t.sentOf('done')).toEqual([{ t: 'done', id: ref.id }]);
 		expect(match.stage).toBe('none');
+	});
+
+	it('keeps Back to exploring pressed while the connection was away: the server hears it once it is back, and the result never comes back (#146)', () => {
+		const t = setup();
+		const ref = started(t);
+		playedOut(t, ref);
+		// The connection drops on the result, and the kid goes back to exploring meanwhile.
+		t.setOnline(false);
+		t.controller.status('waiting');
+		expect(match.offline).toBe(true);
+		t.pick('ArrowRight', 'Enter');
+		expect(match.stage).toBe('none');
+		expect(t.sentOf('done')).toEqual([]);
+		// The socket is back within the 30 s the server waits: it still has Ada on the result.
+		t.setOnline(true);
+		t.controller.status('on');
+		t.controller.receive(hi(ref.id));
+		expect(t.sentOf('done')).toEqual([{ t: 'done', id: ref.id }]);
+		// It sends her the match, as to any page back in one: no iris, no "Back in the match", no result.
+		const scenes = t.shown.length;
+		t.controller.receive(ref.message('a'));
+		t.run(3);
+		expect(match.stage).toBe('none');
+		expect(match.id).toBeNull();
+		expect(battle.active).toBe(false);
+		expect(battle.transition).toBeNull();
+		expect(battle.line).toBeNull();
+		expect(t.shown).toHaveLength(scenes);
+		// She is out exploring: Bo, beside her, can be asked.
+		t.controller.peer(peer('Bo', 1));
+		t.frame();
+		expect(match.button).toMatchObject({ name: 'Bo', refusal: null });
+		// Lost again (the socket went as it was sent): the next hi that names the match says it again.
+		t.controller.status('waiting');
+		t.controller.status('on');
+		t.controller.receive(hi(ref.id));
+		expect(t.sentOf('done')).toHaveLength(2);
+		// Once the server has let go of her, there is nothing more to say.
+		t.controller.status('waiting');
+		t.controller.status('on');
+		t.controller.receive(hi(null));
+		expect(t.sentOf('done')).toHaveLength(2);
+		expect(match.stage).toBe('none');
+	});
+
+	it('never puts back up a result the kid went back from, even one the server sent before it heard', () => {
+		const t = setup();
+		const ref = started(t);
+		playedOut(t, ref);
+		t.pick('ArrowRight', 'Enter');
+		expect(t.sentOf('done')).toEqual([{ t: 'done', id: ref.id }]);
+		// Bo's page dropped out as Ada pressed Back: the server's word of it was on its way to her.
+		t.controller.receive({ ...ref.message('a'), away: { side: 'b', ms: 30_000 } });
+		t.run(3);
+		expect(match.stage).toBe('none');
+		expect(battle.active).toBe(false);
+		expect(t.sentOf('done')).toHaveLength(1);
+	});
+
+	it("keeps the kid's Back for every page of theirs in the browser, a reload or another tab, and nobody else's", () => {
+		const store = memoryStore();
+		const t = setup(PARTY, { store });
+		const ref = started(t);
+		playedOut(t, ref);
+		t.setOnline(false);
+		t.controller.status('waiting');
+		t.pick('ArrowRight', 'Enter');
+		expect(store.map.get(wentBackKey(pidOf('Ada')))).toBe(ref.id);
+		const newPage = (first: HiMessage) => {
+			stop?.();
+			battle.reset();
+			match.reset();
+			return setup(PARTY, { store, first });
+		};
+		// Bo plays on this browser too (another game of it): his page shows his result, and says nothing.
+		const bo = newPage({ ...hi(ref.id), pid: pidOf('Bo'), name: 'Bo' });
+		bo.controller.receive(ref.message('b'));
+		bo.runUntil(() => battle.screen === 'result');
+		expect(match.stage).toBe('over');
+		expect(bo.sentOf('done')).toEqual([]);
+		expect(store.map.get(wentBackKey(pidOf('Ada')))).toBe(ref.id);
+		// Ada's tab reloads (or she opens another) before her connection is back: a new page of hers.
+		const u = newPage(hi(ref.id));
+		expect(u.sentOf('done')).toEqual([{ t: 'done', id: ref.id }]);
+		u.controller.receive(ref.message('a'));
+		u.run(3);
+		expect(match.stage).toBe('none');
+		expect(battle.active).toBe(false);
+		// Once a hi of hers no longer names it, the browser forgets it.
+		u.controller.status('waiting');
+		u.controller.status('on');
+		u.controller.receive(hi(null));
+		expect(store.map.size).toBe(0);
+	});
+
+	it("keeps this page's Back when the browser is full, over an older one it still holds", () => {
+		const store = memoryStore();
+		const t = setup(PARTY, { store });
+		// A Back from an earlier match got through, and no hi has come since to forget it; then the
+		// browser's storage fills up.
+		store.map.set(wentBackKey(pidOf('Ada')), 'match00009');
+		store.full = true;
+		const ref = started(t);
+		playedOut(t, ref);
+		t.setOnline(false);
+		t.controller.status('waiting');
+		t.pick('ArrowRight', 'Enter');
+		expect(store.map.get(wentBackKey(pidOf('Ada')))).toBe('match00009');
+		t.setOnline(true);
+		t.controller.status('on');
+		t.controller.receive(hi(ref.id));
+		expect(t.sentOf('done')).toEqual([{ t: 'done', id: ref.id }]);
+		t.controller.receive(ref.message('a'));
+		t.run(3);
+		expect(match.stage).toBe('none');
+		expect(battle.active).toBe(false);
+	});
+
+	it('brings the result back to a page that never chose to leave it: after a drop, or after another window took over', () => {
+		const t = setup();
+		const ref = started(t);
+		playedOut(t, ref);
+		// Still on the result as the socket comes back: it stays, and the server hears nothing.
+		t.controller.status('waiting');
+		t.controller.status('on');
+		t.controller.receive(hi(ref.id));
+		t.controller.receive(ref.message('a'));
+		expect(match.stage).toBe('over');
+		expect(match.id).toBe(ref.id);
+		// Another window of Ada's takes over: this page lets the result go, but she did not.
+		t.setOnline(false);
+		t.controller.status('elsewhere');
+		expect(match.stage).toBe('none');
+		// Back at this window, the result follows her here.
+		t.setOnline(true);
+		t.controller.status('on');
+		t.controller.receive(hi(ref.id));
+		t.controller.receive(ref.message('a'));
+		t.runUntil(() => battle.screen === 'result');
+		expect(match.stage).toBe('over');
+		expect(match.result).toMatchObject({ won: true, reason: 'all-tired' });
+		expect(t.sentOf('done')).toEqual([]);
 	});
 
 	it('says the match is over to a page that came back to find it gone', () => {
@@ -680,23 +852,7 @@ describe('a match', () => {
 		// A match played to its end: Ada on the result, Rematch? still to be had.
 		const t = setup();
 		t.controller.receive({ ...hi(null), boot: 'run0001' });
-		const ref = started(t);
-		ref.state = {
-			...ref.state,
-			teams: { a: ref.state.teams.a, b: ref.state.teams.b.map((a) => ({ ...a, hp: 1 })) }
-		};
-		for (let turns = 0; ref.state.phase.kind !== 'ended'; turns++) {
-			if (turns > 40) throw new Error('never ended');
-			const phase = ref.state.phase;
-			const intent: MatchIntent =
-				phase.kind === 'choose-animal'
-					? { type: 'pick-next', teamIndex: 1 }
-					: phase.kind === 'choose-action'
-						? { type: 'attack', attackIndex: 1, level: 1 }
-						: { type: 'answer', input: phase.side === 'a' ? ref.answer() : '-1' };
-			t.controller.receive(ref.message('a', ref.apply(phase.side, intent)));
-		}
-		t.runUntil(() => battle.screen === 'result');
+		playedOut(t, started(t));
 		t.controller.status('waiting');
 		t.controller.status('on');
 		t.controller.receive({ ...hi(null), boot: 'run0002' });
