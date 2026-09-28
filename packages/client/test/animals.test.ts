@@ -158,8 +158,10 @@ describe('figures', () => {
 				const t = i * 0.04;
 				animateFlight(figure, t, 1, false);
 				const [l, r] = [bounds(left), bounds(right)];
-				// Out past its sides by a fifth of its width at least, the one wing the other's mirror.
+				// Out past its sides by a fifth of its width at least, the one wing the other's mirror,
+				// and never reaching in across its back to the other side.
 				expect(r.max.x, `${id} at ${t}`).toBeGreaterThan(half * 1.2);
+				expect(r.min.x, `${id} at ${t}`).toBeGreaterThan(0);
 				expect(l.min.x, `${id} at ${t}`).toBeCloseTo(-r.max.x, 6);
 				expect(l.max.y, `${id} at ${t}`).toBeCloseTo(r.max.y, 6);
 				tips.push(r.max.y);
