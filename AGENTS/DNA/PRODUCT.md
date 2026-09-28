@@ -393,6 +393,7 @@ What is built and observable today. Keep current: add a bullet when a feature sh
 
 - A name, and a fox for an icon in the browser's tab and on a Home Screen. A shared link shows a preview: the starters under "Animath", and a line in English and Danish. Search engines are kept away: a shared link is how the game is found.
 - A browser that cannot draw the world, or runs no JavaScript, gets a kind card saying so instead of an empty page ("This browser can't draw Animath's world. Ask a grown-up for help!").
+- The game plays on an iPad or iPhone from iPadOS and iOS 15, and in every other browser as new. An older one gets a kind card in English and Danish instead of an empty page: "This iPad is a bit too old for Animath. Ask a grown-up to update it, or try another device."
 - On an old address of the game (the tunnel's, where it was shared before it had its own), a card comes first, every time the page opens: "Animath has moved!", and a big button, "Play at animath.xyz", that goes there. A small "Keep playing here" under it starts the game at the old address after all, for a grown-up trying something out.
 
 ### Engine
