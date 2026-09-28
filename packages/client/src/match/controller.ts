@@ -89,6 +89,14 @@ import { travel } from '../state/travel.svelte';
  *   both are back, one tap each. A server that stopped without a word (a
  *   crash) is known by its `hi`'s `boot`, another than the one the match
  *   began on: the same card, saying the game restarted, since nobody left.
+ * - **Back to exploring is final** (#146). The kid's Back on a result
+ *   (`goBack`) goes with a `done`, which a socket that is away never
+ *   carries, and one that dies as it is sent can lose. So the page keeps
+ *   the match it went back from (`wentBack`): it never puts that match up
+ *   again, whatever the server still sends of it, and it says `done` again
+ *   when a `hi` says the server still has the kid in it. Only the kid's own
+ *   Back counts: a result this page let go of because another window took
+ *   over follows the kid back to it.
  */
 
 /** Seconds past an invite's time the page waits for the server to say it ended, before letting go. */
@@ -160,6 +168,12 @@ export class MatchController implements MatchHooks {
 	/** The run of the server this socket said hi to last (`hi.boot`), and the one the match on screen began on. */
 	private boot: string | null = null;
 	private matchBoot: string | null = null;
+	/**
+	 * The match whose result the kid went back to exploring from, while the
+	 * server may still have them in it: its `done` may not have got there.
+	 * Never put up again; forgotten once a `hi` names another match, or none.
+	 */
+	private wentBack: string | null = null;
 
 	constructor(private readonly deps: MatchDeps) {
 		this.clock = deps.clock ?? (() => performance.now() / 1000);
@@ -612,7 +626,7 @@ export class MatchController implements MatchHooks {
 				sfx.play('move');
 				return true;
 			case 'Escape':
-				this.finish();
+				this.goBack();
 				return true;
 		}
 		if (key !== 'Enter' && key !== ' ' && tapped === undefined) return false;
@@ -620,7 +634,7 @@ export class MatchController implements MatchHooks {
 		if (tapped !== undefined && !this.guard.ready) return true;
 		if (match.option === 1) {
 			sfx.play('confirm');
-			this.finish();
+			this.goBack();
 			return true;
 		}
 		if (match.stage === 'over') this.askRematch();
@@ -721,6 +735,13 @@ export class MatchController implements MatchHooks {
 		// Everyone near is said again after a hi.
 		this.peers.clear();
 		this.boot = boot;
+		if (this.wentBack !== null) {
+			// The server still has the kid on the result they went back from: the `done` that went
+			// with it never got there (the socket was away). It goes now, and the match the server
+			// sends next is not put up again (`matchMessage`). Otherwise the server let go of it.
+			if (going === this.wentBack) this.deps.send({ t: 'done', id: going });
+			else this.wentBack = null;
+		}
 		if ((match.stage === 'playing' || match.stage === 'over') && going !== match.id) {
 			// Another run of the server than the match's: it restarted without a word (a crash),
 			// and the match went with it. Nobody left it: the kids can play again, one tap each
@@ -735,6 +756,10 @@ export class MatchController implements MatchHooks {
 	}
 
 	private matchMessage(m: MatchMessage): void {
+		// Back to exploring is final: the match the kid went back from never comes back, however
+		// the server still sends it (a page back after its `done` could not go, or a message on
+		// its way as they pressed Back).
+		if (m.id === this.wentBack) return;
 		this.sentAt = null;
 		if (m.id !== match.id) {
 			this.begin(m);
@@ -1024,9 +1049,20 @@ export class MatchController implements MatchHooks {
 	}
 
 	/**
-	 * Back to exploring: the screen goes, and nothing of the match stays. From
-	 * a result the server hears so (`done`): a rematch this page asked for is
-	 * taken back, and the other page's Rematch? greys.
+	 * Back to exploring, the kid's own choice on the result or the update
+	 * card: final for that match. `finish` tells the server (`done`); should
+	 * that never get there, this page still never puts the match up again,
+	 * and says `done` once more when the next `hi` names it (`hello`).
+	 */
+	private goBack(): void {
+		this.wentBack = match.id;
+		this.finish();
+	}
+
+	/**
+	 * The screen goes, and nothing of the match stays. From a result the
+	 * server hears so (`done`), if the socket is on: a rematch this page asked
+	 * for is taken back, and the other page's Rematch? greys.
 	 */
 	private finish(): void {
 		if (match.stage === 'over' && match.id) this.deps.send({ t: 'done', id: match.id });
