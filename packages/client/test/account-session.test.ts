@@ -281,6 +281,35 @@ describe('the play clock', () => {
 		}
 	});
 
+	it('a clock kept with a longer hour is due within the shorter one: ?hour= on a game played before (#156)', () => {
+		const long = new PlayClock(store, 60 * HOUR);
+		long.tick('game-a', 90);
+		long.flush();
+		// The next page opens with `?hour=`: the card comes an hour of it from now, not at the old hour.
+		const short = new PlayClock(store, HOUR);
+		short.tick('game-a', 59);
+		expect(short.due('game-a')).toBe(false);
+		short.tick('game-a', 1);
+		expect(short.due('game-a')).toBe(true);
+		short.answered('game-a');
+		short.tick('game-a', 59);
+		expect(short.due('game-a')).toBe(false);
+		short.tick('game-a', 1);
+		expect(short.due('game-a')).toBe(true);
+		// One already due stays due, and a clock kept with this very hour is read as it was.
+		short.flush();
+		expect(new PlayClock(store, 60 * HOUR).due('game-a')).toBe(true);
+		const same = new PlayClock(store, HOUR);
+		same.answered('game-a');
+		same.tick('game-a', 30);
+		same.flush();
+		const again = new PlayClock(store, HOUR);
+		again.tick('game-a', 29);
+		expect(again.due('game-a')).toBe(false);
+		again.tick('game-a', 1);
+		expect(again.due('game-a')).toBe(true);
+	});
+
 	it('ignores a frame with no time in it, and works with no storage at all', () => {
 		const clock = new PlayClock(null, HOUR);
 		clock.tick('game-a', 0);
