@@ -25,6 +25,13 @@
 			.filter(Boolean)
 			.map((word) => Array.from(word).map((letter) => ({ letter, i: i++ })));
 	});
+	/**
+	 * How many letters the name and its longest word have (a space counting as
+	 * one), for the letters' size (`.name`): no word is wider than the card,
+	 * and on a phone held sideways the whole name stands on one line.
+	 */
+	const letters = $derived(words.reduce((n, word) => n + word.length, 0) + words.length - 1);
+	const longest = $derived(Math.max(1, ...words.map((word) => word.length)));
 
 	/** Where each star flies (px from the middle of the name), when it sets off (s), its colour. */
 	const BIG = [
@@ -61,7 +68,7 @@
 		{/each}
 	</span>
 	{#if kind === 'big'}
-		<span class="name">
+		<span class="name" style="--letters: {letters}; --longest: {longest}">
 			{#each words as word, w (w)}
 				{#if w > 0}{' '}{/if}<span class="word"
 					>{#each word as { letter, i } (i)}<span class="letter c{i % 5}" style="--i: {i}"
@@ -105,14 +112,28 @@
 	}
 
 	/* The new friend's name: chunky letters in the title's colours, a cream rim, popping in. */
+	/*
+	 * The letters' size: big, and never so big that a word is wider than the
+	 * card's room (the result card's in `BattlePanel.svelte`, less its
+	 * padding), a letter taking at most 0.66 of it ("Wood mouse", the widest
+	 * name for its length, takes 0.64): so no word breaks, and a long name
+	 * breaks between its words. On a phone held sideways, where a second line
+	 * would push the card past the screen, the whole name fits on one line.
+	 */
 	.name {
+		--room: calc(min(100vw - 32px, 520px) - 80px);
 		position: relative;
 		display: block;
 		font-weight: 800;
-		font-size: clamp(52px, 10vh, 76px);
+		font-size: min(clamp(52px, 10vh, 76px), calc(var(--room) / (var(--longest) * 0.66)));
 		line-height: 1.15;
 		letter-spacing: 0.02em;
 		margin-bottom: 4px;
+	}
+	@media (max-height: 560px) {
+		.name {
+			font-size: min(52px, calc(var(--room) / (var(--letters) * 0.66)));
+		}
 	}
 	.letter {
 		display: inline-block;

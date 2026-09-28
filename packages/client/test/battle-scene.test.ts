@@ -459,7 +459,8 @@ describe('a short screen', () => {
 		'src/ui/MoveButton.svelte',
 		'src/ui/ActionPreview.svelte',
 		'src/ui/HitBurst.svelte',
-		'src/ui/MatchNotes.svelte'
+		'src/ui/MatchNotes.svelte',
+		'src/ui/Celebration.svelte'
 	];
 
 	it('is SHORT_SCREEN in every short-screen query of the battle’s pieces and styles', () => {
