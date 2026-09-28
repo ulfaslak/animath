@@ -996,7 +996,7 @@ describe('a match', () => {
 		expect(battle.opponent?.hp).toBe(0);
 	});
 
-	it('shows a called-off rematch it picked up after a reload as the friend leaving, and one it never had not at all', () => {
+	it('goes back to exploring from a called-off rematch it picked up after a reload, and brings up none it never had', () => {
 		// A reload as the rematch started: this page picks it up, with no result to go back to.
 		const first = new Referee(
 			[{ id: 'starter', speciesId: 'squirrel' }],
@@ -1012,12 +1012,13 @@ describe('a match', () => {
 		const t = setup(PARTY, { first: hi(first.id) });
 		t.controller.receive(message());
 		t.runUntil(() => battle.screen !== 'busy');
+		// Called off: nobody played it, so no win and no result, just the friend's word.
 		t.controller.receive(message(first.apply('b', { type: 'leave' }), true));
-		t.runUntil(() => battle.screen === 'result');
-		expect(match.result).toMatchObject({ won: true, reason: 'left' });
-		expect(match.rematch.theirs).toBe(false);
-		t.pick('Enter');
 		expect(match.stage).toBe('none');
+		expect(battle.active).toBe(false);
+		expect(match.result).toBeNull();
+		expect(said()).toBe('Bo went back to exploring.');
+		expect(t.sentOf('done')).toEqual([{ t: 'done', id: first.id }]);
 		// A call-off of a rematch this page never began (of a match it never went back from) brings
 		// nothing up.
 		const other = new Referee(
