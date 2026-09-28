@@ -36,6 +36,13 @@
 			"when": 1790000400000,
 			"tag": "0004_welcome_tokens",
 			"breakpoints": true
+		},
+		{
+			"idx": 5,
+			"version": "7",
+			"when": 1790000500000,
+			"tag": "0005_client_errors",
+			"breakpoints": true
 		}
 	]
 }

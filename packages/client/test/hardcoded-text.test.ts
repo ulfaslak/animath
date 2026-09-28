@@ -137,7 +137,9 @@ const FOR_DEVELOPERS: Readonly<Record<string, string>> = {
 	'src/save/api.ts':
 		"HTTP: the server's error bodies it compares ('no save yet'), the Authorization header, status notes for the console",
 	'src/account/api.ts':
-		"HTTP: the account routes' error bodies it compares ('name taken', 'wrong name or password'), status notes for the console"
+		"HTTP: the account routes' error bodies it compares ('name taken', 'wrong name or password'), status notes for the console",
+	'src/error-reports.ts':
+		"Error reports for the admin: browser families ('Samsung Internet'), what a browser says of an error it tells nothing about ('Script error.'), a report's own words ('rejected with')"
 };
 
 describe('worded literals in TypeScript', () => {
