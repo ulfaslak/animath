@@ -32,10 +32,9 @@ Use `pnpm db:psql -c "<sql>"` (wraps `docker compose exec postgres psql`), or `d
 
 Agents started by one orchestrator run under the same session id (`$CLAUDE_CODE_SESSION_ID`), so their "session-specific" scratchpad is one folder with dozens of files from several branches in it. On 2026-09-25 another branch's `pr-body.md` replaced `feat/encounters-by-lead`'s between two edits, luckily after the PR had been opened from it. Put every scratch file in a subfolder named after your branch (`$SCRATCHPAD/<branch>/pr-body.md`), and never restore a negative control from a generic name like `local.ts.bak` that a sibling may also write.
 
-
 ## The Postgres container's clock runs ~120 ms ahead of the host
 
-Measured with `clock_timestamp()` against `Date.now()`: 116–134 ms, stable across calls. A row whose default is `now()` therefore carries a later timestamp than a `new Date()` computed in Node afterwards, and a test asserting "updated after created" fails. Write timestamps with one clock — the server writes and compares every timestamp with Postgres's `sql\`now()\`` (an account save's `updated_at`, a session's and a welcome link's `expires_at`, a link's `used_at`) — and never compare a Postgres timestamp to a Node one across a gap under a second.
+Measured with `clock_timestamp()` against `Date.now()`: 116–134 ms, stable across calls. A row whose default is `now()` therefore carries a later timestamp than a `new Date()` computed in Node afterwards, and a test asserting "updated after created" fails. Write timestamps with one clock — the server writes and compares every timestamp with Postgres's `` sql`now()` `` (an account save's `updated_at`, a session's and a welcome link's `expires_at`, a link's `used_at`) — and never compare a Postgres timestamp to a Node one across a gap under a second.
 
 ## Looking at the game
 
@@ -124,7 +123,6 @@ On 2026-09-27 the Claude-in-Chrome extension was not connected to the session. T
 ## pnpm 12 build-script approval
 
 pnpm 12 refuses to run dependency postinstall scripts unless approved in `pnpm-workspace.yaml` under `allowBuilds` (the older `onlyBuiltDependencies` key is read but not honoured). `esbuild` is approved there. If `pnpm install` ever ends with `ERR_PNPM_IGNORED_BUILDS`, run `pnpm approve-builds <pkg> --yes` — it edits the file for you.
-
 
 ## `scripts/screenshot.mjs` has no `--help`, and without `--url` it opens 5180
 

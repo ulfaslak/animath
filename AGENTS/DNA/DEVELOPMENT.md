@@ -160,7 +160,9 @@ STEPS="all:wait:4000,ada:c,all:wait:1500,bo:wait:1200,bo:Enter,all:wait:4000"
 for i in $(seq 30); do STEPS="$STEPS,all:turn:3,all:wait:2000"; done
 pnpm players --url http://localhost:<port>/ --player "ada:name=Ada,at=-2:6" \
   --player "bo:name=Bo,at=-1:6,facing=left,party=frog" --steps "$STEPS,all:shot:end" --out screenshots/m/end
-``` Each player's console errors fail the run; a socket the server did not take (it was restarting) is counted, not failed.
+```
+
+Each player's console errors fail the run; a socket the server did not take (it was restarting) is counted, not failed.
 
 A touch player driven by keys too (`turn:` presses keys) puts the touch controls away, and the next `tap:` turns them on again: the panel reflows under Playwright's check, the tap lands, and Playwright retries it into whatever it opened until it times out. Tap something that presses nothing first (a status box's name, `tap:.box .name`), wait a moment, then tap the button. A crash without a goodbye is a `run:` of a script that `kill -9`s your own API's listener (check its `lsof -a -p <pid> -d cwd` is your worktree) and starts it again, waiting for `/api/health`.
 
@@ -285,7 +287,8 @@ docker compose -p mathgame exec -T postgres psql -U postgres -d mathgame -At -c 
   "select data from save_backups where id = <backup id>" > ~/animath-exports/<name>-<backup id>.json
 ```
 
-An account's lost games are in `account_save_backups` instead (§ Accounts). The browser keeps its own set-aside copies too: `animath.save.unreadable` (a save it could not read), `animath.save.replaced` (its game, when another tab wrote over it in the same instant, or, for an account's game, a bigger one came from the server), `animath.save.previous` (a game the kid left for New game on the title) and `animath.save.upgraded` (an older version's save, as it was before this version first saved over it; an account's server keeps its copy in `account_save_backups`), each followed by `.2`, `.3`, … when the key was taken, oldest first, and an account's under its own keys (§ Accounts). To give a kid back a game they left, in their browser's developer tools copy that text into `animath.save` with its `seq` raised above the current save's (and, for an account, above the server's, or the server's newer game wins at the next start), then reload: the title offers it as Continue.
+An account's lost games are in `account_save_backups` instead (§ Accounts). The browser keeps its own set-aside copies too: `animath.save.unreadable` (a save it could not read), `animath.save.replaced` (its game, when another tab wrote over it in the same instant, or, for an account's game, a newer one came from the server), `animath.save.previous` (a game the kid left for New game on the title) and `animath.save.upgraded` (an older version's save, as it was before this version first saved over it; an account's server keeps its copy in `account_save_backups`), each followed by `.2`, `.3`, … when the key was taken, oldest first, and an account's under its own keys (§ Accounts). To give a kid back a game they left, in their browser's developer tools copy that text into `animath.save` with its `seq` raised above the current save's (and, for an account, above the server's, or the server's newer game wins at the next start), then reload: the title offers it as Continue.
+
 ### Migrations
 
 Hand-written SQL, applied by `pnpm db:migrate` (`drizzle-orm`'s migrator, journal-driven).
