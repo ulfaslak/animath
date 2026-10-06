@@ -565,7 +565,7 @@ export class PresenceController {
 function busyNow(): Busy {
 	if (battle.active) return 'battle';
 	if (doctor.active) return 'doctor';
-	// An account card (logging in, the hourly card) is a break too: nobody asks for a match meanwhile.
+	// An account card (logging in, the save card) is a break too: nobody asks for a match meanwhile.
 	if (pause.open || account.card !== null || account.prompt) return 'menu';
 	if (game.flying) return 'flight';
 	return 'explore';

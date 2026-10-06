@@ -18,7 +18,7 @@ import { account } from '../src/state/account.svelte';
  * The account screens' keys and what they do ([[UI_SPEC]] § Accounts): the
  * card checks a name and a password by the engine's rules before it asks the
  * server, says kindly why not, and only a real answer moves a game; the
- * hourly card waits its quiet moment and says "not now" on Escape.
+ * save card waits its quiet moment and says "not now" on Escape.
  */
 
 type Key = KeyboardEvent & { prevented: boolean };
@@ -681,7 +681,7 @@ describe('logging out', () => {
 	});
 });
 
-describe('the hourly card', () => {
+describe('the save card', () => {
 	it('waits its quiet moment; "Save my game" opens the card to make an account', () => {
 		const { controller, events, press, quiet } = setup('Ida');
 		controller.openPrompt();
@@ -696,7 +696,7 @@ describe('the hourly card', () => {
 		expect(account.from).toBe('prompt');
 	});
 
-	it('"Not now", or Escape, goes back to the game until another hour has passed', () => {
+	it('"Not now", or Escape, goes back to the game until another 1,000 steps are walked', () => {
 		const { controller, events, press, quiet } = setup();
 		controller.openPrompt();
 		quiet();
@@ -739,7 +739,7 @@ describe('the hourly card', () => {
 		controller.heardReady(false);
 		controller.openPrompt();
 		expect(account.prompt).toBe(false);
-		// Once the server can, the hour that was due brings it.
+		// Once the server can, the card that was due brings it.
 		controller.heardReady(true);
 		controller.openPrompt();
 		expect(account.prompt).toBe(true);

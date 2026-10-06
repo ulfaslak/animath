@@ -772,9 +772,10 @@ export function canFightIn(speciesId: string, realm: Realm): boolean {
 }
 
 /**
- * Whether a kid with the harness rides an animal of this species, on land:
- * the ones big enough to carry a kid ([[PRODUCT]] §4 "World", riding). Never out on
- * the water, where the boat carries the kid, or up in the air.
+ * Whether an animal of this species carries this owner on land: they have
+ * the harness, and it is big enough to carry a kid ([[PRODUCT]] §4 "World",
+ * riding). Only on land: the caller asks it only there, never out on the
+ * water, where the boat carries the kid, nor up in the air.
  */
 export function canRide(owner: { readonly items: readonly string[] }, speciesId: string): boolean {
 	return hasItem(owner, 'harness') && getAnimal(speciesId).carries === true;

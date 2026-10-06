@@ -57,7 +57,7 @@
 	<MatchCard />
 {/if}
 
-<!-- Over the explore HUD: after an hour of a guest's play, the offer to keep the game safe. -->
+<!-- Over the explore HUD: after every 1,000 steps of a guest's game, the offer to keep the game safe. -->
 {#if account.prompt && playing}
 	<SavePrompt />
 {/if}

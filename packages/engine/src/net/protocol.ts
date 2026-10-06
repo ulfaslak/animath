@@ -162,8 +162,8 @@ export interface HelloMessage {
  * changes: the world, the tile, the way they face, the animal following them
  * (`lead`: the species on screen behind them, or null when nobody follows),
  * whether they own the boat (it rides on their back, and they sail in it on
- * the water) and the harness (`harness`, only when they do: they ride a lead
- * big enough to carry them, `canRide`), and what they are busy with.
+ * the water) and the harness (`harness`, only when they do: on land they ride
+ * a lead big enough to carry them, `canRide`), and what they are busy with.
  */
 export interface WhereMessage {
 	t: 'where';

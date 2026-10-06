@@ -1264,7 +1264,7 @@ account:
     offline: We can't reach the game's home right now. Try again soon!
     # The account was made with the game, but this browser can't store anything, so it can't log in here.
     storage: "This browser can't remember you. Your game is saved in your account: log in on another tablet or computer."
-  # The card after every hour of a guest's play.
+  # The card after every 1,000 steps of a guest's game.
   prompt:
     title: Keep your animals safe!
     text: Pick a secret password, and your game is saved for good. You can play it on another tablet or computer too!

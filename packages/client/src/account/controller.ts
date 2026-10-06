@@ -27,7 +27,7 @@ import {
 
 /**
  * The account screens ([[UI_SPEC]] § Accounts): the card that makes an
- * account with the guest game or logs in to one, the hourly card that offers
+ * account with the guest game or logs in to one, the save card that offers
  * to keep a guest's animals safe, and logging out. While either card is up it
  * takes every key (`main.ts`); walking waits.
  *
@@ -60,7 +60,7 @@ export interface AccountHooks {
 	pushNow(): Promise<boolean>;
 	/** The player's name in the game on screen (or the title's saved game), for the name box. */
 	playerName(): string | null;
-	/** The hourly card was answered: it comes back after another hour of play. */
+	/** The save card was answered: it comes back after another 1,000 steps. */
 	answered(): void;
 	/**
 	 * Start the page again, in the game the browser now plays, saying `note`;
@@ -95,7 +95,7 @@ export class AccountController {
 	/**
 	 * Something else takes the screen (a step already under way met a wild
 	 * animal, the doctor's card opened, the game left for the title): the
-	 * hourly card goes unanswered, and comes back the next time the player is
+	 * save card goes unanswered, and comes back the next time the player is
 	 * exploring.
 	 */
 	handle(event: GameEvent): void {
@@ -186,7 +186,7 @@ export class AccountController {
 
 	/**
 	 * The server said whether it can keep an account now (`ready.ts`). When it
-	 * cannot, an hourly card that is up goes, unanswered: it offers what the
+	 * cannot, a save card that is up goes, unanswered: it offers what the
 	 * server cannot do, and comes back once it can. An account card that is
 	 * up stays, with the kid's typing: its answer says kindly if the server
 	 * is out of reach.
@@ -198,7 +198,7 @@ export class AccountController {
 	}
 
 	/**
-	 * The hourly card, while exploring a guest's game, and only while the
+	 * The save card, while exploring a guest's game, and only while the
 	 * server can keep an account: "Save my game" must be a promise it keeps.
 	 */
 	openPrompt(): void {
@@ -452,7 +452,7 @@ export class AccountController {
 		this.hooks.restart('loggedOut', name);
 	}
 
-	// --- the hourly card ------------------------------------------------------
+	// --- the save card ------------------------------------------------------
 
 	private promptKey(e: KeyboardEvent): void {
 		if (isShortcut(e)) return;
