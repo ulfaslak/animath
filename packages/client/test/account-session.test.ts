@@ -1,6 +1,6 @@
 import { newGame, saveDocument, type SavedGame } from '@mathgame/engine';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { PlayClock, PLAYTIME_KEY } from '../src/account/playtime';
+import { NUDGE_KEY, SaveNudge } from '../src/account/nudge';
 import { noteNextStart, takeAccountNote } from '../src/account/restart';
 import {
 	LOGOUT_HOLD_MS,
@@ -232,93 +232,80 @@ describe('logging in', () => {
 	});
 });
 
-describe('the play clock', () => {
-	const HOUR = 60_000;
-
-	it('is due after an hour of play in one game, and again an hour after it was answered', () => {
-		const clock = new PlayClock(store, HOUR);
-		clock.tick('game-a', 59);
-		expect(clock.due('game-a')).toBe(false);
-		clock.tick('game-a', 1);
-		expect(clock.due('game-a')).toBe(true);
-		clock.answered('game-a');
-		expect(clock.due('game-a')).toBe(false);
-		clock.tick('game-a', 59.9);
-		expect(clock.due('game-a')).toBe(false);
-		clock.tick('game-a', 0.2);
-		expect(clock.due('game-a')).toBe(true);
+describe('the save card every 1,000 steps (account/nudge.ts)', () => {
+	it('is due at 1,000 steps in a new game, and again at the next whole 1,000 after it was answered', () => {
+		const nudge = new SaveNudge(store);
+		expect(nudge.due('game-a', 0)).toBe(false);
+		expect(nudge.due('game-a', 999)).toBe(false);
+		expect(nudge.due('game-a', 1000)).toBe(true);
+		nudge.answered('game-a', 1003);
+		expect(nudge.due('game-a', 1003)).toBe(false);
+		expect(nudge.due('game-a', 1999)).toBe(false);
+		expect(nudge.due('game-a', 2000)).toBe(true);
 	});
 
-	it('counts each game on its own: a new game starts from nothing', () => {
-		const clock = new PlayClock(store, HOUR);
-		clock.tick('game-a', 70);
-		expect(clock.due('game-b')).toBe(false);
-		clock.tick('game-b', 30);
-		expect(clock.due('game-b')).toBe(false);
+	it('a game first seen part-way is due at the next whole 1,000 of its own steps', () => {
+		expect(new SaveNudge(store).due('game-a', 4500)).toBe(false);
+		const nudge = new SaveNudge(store);
+		expect(nudge.due('game-a', 4999)).toBe(false);
+		expect(nudge.due('game-a', 5000)).toBe(true);
 	});
 
-	it('a card missed while busy comes once, not once for every hour missed', () => {
-		const clock = new PlayClock(store, HOUR);
-		clock.tick('game-a', 3.5 * 60);
-		expect(clock.due('game-a')).toBe(true);
-		clock.answered('game-a');
-		expect(clock.due('game-a')).toBe(false);
-		clock.tick('game-a', 0.4 * 60);
-		expect(clock.due('game-a')).toBe(false);
-		clock.tick('game-a', 0.2 * 60);
-		expect(clock.due('game-a')).toBe(true);
+	it('follows each game on its own: a new game starts from its own steps', () => {
+		const nudge = new SaveNudge(store);
+		expect(nudge.due('game-a', 1200)).toBe(false);
+		nudge.answered('game-a', 1200);
+		expect(nudge.due('game-b', 10)).toBe(false);
+		expect(nudge.due('game-b', 1000)).toBe(true);
 	});
 
-	it('keeps its count across a reload, written every few seconds of play', () => {
-		const first = new PlayClock(store, HOUR);
-		first.tick('game-a', 45);
-		first.flush();
-		const second = new PlayClock(store, HOUR);
-		second.tick('game-a', 15);
-		expect(second.due('game-a')).toBe(true);
-		for (const bad of ['nope', '{"lineage":"game-a","ms":-5,"next":1}', '{"ms":1}']) {
-			store.set(PLAYTIME_KEY, bad);
-			expect(new PlayClock(store, HOUR).due('game-a'), bad).toBe(false);
+	it('a card missed while busy comes once, not once for every 1,000 missed', () => {
+		const nudge = new SaveNudge(store);
+		expect(nudge.due('game-a', 3500)).toBe(false);
+		expect(nudge.due('game-a', 7200)).toBe(true);
+		nudge.answered('game-a', 7200);
+		expect(nudge.due('game-a', 7999)).toBe(false);
+		expect(nudge.due('game-a', 8000)).toBe(true);
+	});
+
+	it('keeps the step its card is due at across a reload, even one that crossed it', () => {
+		expect(new SaveNudge(store).due('game-a', 990)).toBe(false);
+		// The page went at 990 steps and the game was saved at 1010: the card is due on the next page.
+		expect(new SaveNudge(store).due('game-a', 1010)).toBe(true);
+		const answered = new SaveNudge(store);
+		answered.answered('game-a', 1010);
+		expect(new SaveNudge(store).due('game-a', 1500)).toBe(false);
+		expect(new SaveNudge(store).due('game-a', 2000)).toBe(true);
+		for (const bad of ['nope', '{"lineage":"game-a","next":"soon"}', '{"next":1}']) {
+			store.set(NUDGE_KEY, bad);
+			expect(new SaveNudge(store).due('game-a', 1999), bad).toBe(false);
 		}
 	});
 
-	it('a clock kept with a longer hour is due within the shorter one: ?hour= on a game played before (#156)', () => {
-		const long = new PlayClock(store, 60 * HOUR);
-		long.tick('game-a', 90);
-		long.flush();
-		// The next page opens with `?hour=`: the card comes an hour of it from now, not at the old hour.
-		const short = new PlayClock(store, HOUR);
-		short.tick('game-a', 59);
-		expect(short.due('game-a')).toBe(false);
-		short.tick('game-a', 1);
-		expect(short.due('game-a')).toBe(true);
-		// Answered at 2.5 of its hours: the next card at the next whole one, as ever.
-		short.answered('game-a');
-		short.tick('game-a', 29);
-		expect(short.due('game-a')).toBe(false);
-		short.tick('game-a', 1);
-		expect(short.due('game-a')).toBe(true);
-		// A card already due stays due, whatever the hour of the page that reads it.
-		short.flush();
-		expect(new PlayClock(store, 60 * HOUR).due('game-a')).toBe(true);
-		// A clock kept with this very hour is read as it was: its card neither sooner nor later.
-		const same = new PlayClock(store, HOUR);
-		same.answered('game-a');
-		same.tick('game-a', 30);
-		same.flush();
-		const again = new PlayClock(store, HOUR);
-		again.tick('game-a', 29);
-		expect(again.due('game-a')).toBe(false);
-		again.tick('game-a', 1);
-		expect(again.due('game-a')).toBe(true);
+	it('a card kept for a longer stretch is due within the shorter one: ?steps= on a game played before (#156)', () => {
+		const long = new SaveNudge(store);
+		expect(long.due('game-a', 300)).toBe(false);
+		// The next page opens with `?steps=20`: the card comes 20 steps from now, not at 1,000.
+		const short = new SaveNudge(store, 20);
+		expect(short.due('game-a', 300)).toBe(false);
+		expect(short.due('game-a', 319)).toBe(false);
+		expect(short.due('game-a', 320)).toBe(true);
+		short.answered('game-a', 330);
+		expect(short.due('game-a', 339)).toBe(false);
+		expect(short.due('game-a', 340)).toBe(true);
+		// A card already due stays due, whatever the stretch of the page that reads it.
+		expect(new SaveNudge(store).due('game-a', 340)).toBe(true);
 	});
 
-	it('ignores a frame with no time in it, and works with no storage at all', () => {
-		const clock = new PlayClock(null, HOUR);
-		clock.tick('game-a', 0);
-		clock.tick('game-a', Number.NaN);
-		clock.tick('game-a', 60);
-		expect(clock.due('game-a')).toBe(true);
+	it('clears the hour clock that came before it, and works with no storage at all', () => {
+		store.set('animath.playtime', '{"lineage":"game-a","ms":5,"next":3600000}');
+		new SaveNudge(store);
+		expect(store.get('animath.playtime')).toBeNull();
+		const nudge = new SaveNudge(null);
+		expect(nudge.due('game-a', 999)).toBe(false);
+		expect(nudge.due('game-a', 1000)).toBe(true);
+		nudge.answered('game-a', 1000);
+		expect(nudge.due('game-a', 1999)).toBe(false);
 	});
 });
 

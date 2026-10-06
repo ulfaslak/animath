@@ -3,7 +3,7 @@ import type { NameRejection, PasswordRefusal } from '@mathgame/engine';
 /**
  * What the account screens show ([[UI_SPEC]] § Accounts): who this page
  * plays as, the card that makes an account, logs in or takes a welcome
- * link's password, and the hourly card that offers to keep a guest's
+ * link's password, and the save card that offers to keep a guest's
  * animals safe. Written only by
  * `AccountController` and `main.ts`, except the drafts, which the card's
  * boxes bind as the player types, and `field`, which follows the box a
@@ -60,7 +60,7 @@ export type AccountProblem =
  */
 export type SessionState = 'unknown' | 'live' | 'ended';
 
-/** The hourly card's choices, in order: keep the game safe, or not now. */
+/** The save card's choices, in order: keep the game safe, or not now. */
 export const PROMPT_CHOICES = ['save', 'later'] as const;
 export type PromptChoice = (typeof PROMPT_CHOICES)[number];
 
@@ -70,7 +70,7 @@ class AccountView {
 	session = $state<SessionState>('unknown');
 	/**
 	 * The server said, lately, that it can make and keep an account
-	 * (`account/ready.ts`). Only then does the game offer one: the hourly
+	 * (`account/ready.ts`). Only then does the game offer one: the save
 	 * card, "Make an account" and "Log in" in the menu, "I have an account"
 	 * on the title.
 	 */
@@ -95,9 +95,9 @@ class AccountView {
 	busy = $state(false);
 	/** The welcome card's content, while `card` is `welcome`. */
 	welcome = $state.raw<WelcomeView>({ phase: 'checking' });
-	/** The hourly card is up (only while exploring, and only for a guest's game). */
+	/** The save card is up (only while exploring, and only for a guest's game). */
 	prompt = $state(false);
-	/** The lit choice of the hourly card, an index into `PROMPT_CHOICES`. */
+	/** The lit choice of the save card, an index into `PROMPT_CHOICES`. */
 	promptChoice = $state(0);
 	/** Logging out is on its way: the pause menu waits. */
 	leaving = $state(false);
