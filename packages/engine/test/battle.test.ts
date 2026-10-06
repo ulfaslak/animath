@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { ANIMALS } from '../src/animals/catalog.js';
+import { ANIMALS, canRide } from '../src/animals/catalog.js';
 import { ATTACK_LEVELS } from '../src/animals/types.js';
 import { catchProbability } from '../src/battle/catch.js';
 import { attackDamage } from '../src/battle/damage.js';
@@ -22,6 +22,21 @@ describe('animal catalog', () => {
 			expect(a.catchRate).toBeGreaterThan(0);
 			expect(a.catchRate).toBeLessThanOrEqual(1);
 			expect(a.habitats.length).toBeGreaterThan(0);
+		}
+	});
+
+	it('only a big land animal carries a kid, and only for a kid with the harness', () => {
+		const carriers = ANIMALS.filter((a) => a.carries).map((a) => a.id);
+		expect(carriers.sort()).toEqual(
+			['bear', 'deer', 'european-bison', 'moose', 'wild-boar', 'wolf'].sort()
+		);
+		for (const a of ANIMALS) {
+			if (a.carries) {
+				expect(a.tier, a.id).toBeGreaterThanOrEqual(3);
+				expect(a.realms, a.id).toContain('land');
+			}
+			expect(canRide({ items: ['harness'] }, a.id), a.id).toBe(a.carries === true);
+			expect(canRide({ items: ['boat', 'glider'] }, a.id), a.id).toBe(false);
 		}
 	});
 

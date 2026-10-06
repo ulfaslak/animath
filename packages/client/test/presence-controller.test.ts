@@ -339,6 +339,19 @@ describe('presence on the page', () => {
 		expect(s.fights.count).toBe(0);
 	});
 
+	it('says the harness only when it is owned', () => {
+		for (const items of [['harness', 'boat'], ['boat']]) {
+			const s = setup();
+			s.authority.start({ game: { ...newGame(1, undefined, 'Ada'), items } });
+			s.connect();
+			s.frame();
+			const where = s.sentOf('where').at(-1) as unknown as WhereMessage;
+			expect(where.boat).toBe(true);
+			if (items.includes('harness')) expect(where.harness).toBe(true);
+			else expect('harness' in where).toBe(false);
+		}
+	});
+
 	it('up in the air says so: each tile flown goes as a flight, and the landing tile as walking again', () => {
 		const s = setup();
 		s.authority.start({

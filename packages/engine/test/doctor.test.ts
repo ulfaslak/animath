@@ -494,13 +494,15 @@ describe('tokens', () => {
 });
 
 describe('the shop', () => {
-	it('sells four tools with stable ids, cheapest first, each at a price a kid can count to', () => {
-		expect(ITEM_IDS).toEqual(['axe', 'pickaxe', 'boat', 'glider']);
+	it('sells five tools with stable ids, cheapest first, each at a price a kid can count to', () => {
+		expect(ITEM_IDS).toEqual(['axe', 'pickaxe', 'boat', 'glider', 'harness']);
 		const prices = ITEMS.map((i) => i.price);
 		for (const [i, price] of prices.entries()) {
 			expect(Number.isInteger(price) && price > 0 && price < 100).toBe(true);
-			if (i > 0) expect(price).toBeGreaterThan(prices[i - 1]!);
+			if (i > 0) expect(price).toBeGreaterThanOrEqual(prices[i - 1]!);
 		}
+		// The harness costs what the paraglider does (the human's call).
+		expect(getItem('harness').price).toBe(getItem('glider').price);
 		expect(() => getItem('sword' as 'axe')).toThrow();
 	});
 
@@ -508,8 +510,9 @@ describe('the shop', () => {
 		// The change that builds an item's effect (chopping, breaking rocks, sailing,
 		// flying) turns its `available` on and adds it here, and nothing else does. The
 		// axe and the pickaxe clear trees and rocks (`world/clearing.ts`); the boat
-		// sails: water is passable with it; the glider flies (`world/flight.ts`).
-		expect(itemsForSale()).toEqual(['axe', 'pickaxe', 'boat', 'glider']);
+		// sails: water is passable with it; the glider flies (`world/flight.ts`); the
+		// harness rides a big lead (`canRide`, drawn by the client's follower).
+		expect(itemsForSale()).toEqual(['axe', 'pickaxe', 'boat', 'glider', 'harness']);
 	});
 });
 

@@ -1255,7 +1255,7 @@ describe('LocalAuthority: the doctor', () => {
 		expect(visit(s)).toMatchObject({
 			tokens: 20,
 			items: [],
-			shop: ['axe', 'pickaxe', 'boat', 'glider']
+			shop: ['axe', 'pickaxe', 'boat', 'glider', 'harness']
 		});
 
 		doctorIntent(s, { type: 'hand-over', ids: ['a'] });
@@ -1312,7 +1312,7 @@ describe('LocalAuthority: the doctor', () => {
 		expect(visit(s).shop).toEqual(itemsForSale());
 		// Every tool does its job now (the axe and the pickaxe clear, the boat sails, the
 		// glider flies); anything not on sale can't be bought.
-		expect(visit(s).shop).toEqual(['axe', 'pickaxe', 'boat', 'glider']);
+		expect(visit(s).shop).toEqual(['axe', 'pickaxe', 'boat', 'glider', 'harness']);
 		for (const itemId of ITEM_IDS.filter((id) => !itemsForSale().includes(id))) {
 			doctorIntent(s, { type: 'buy', itemId });
 			expect(s.events.at(-1)).toMatchObject({

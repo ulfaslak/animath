@@ -20,6 +20,8 @@ import {
 } from '../src/render/others';
 import { PLAYER_LOOK, TRAINER_LOOKS } from '../src/render/palette';
 import { SWAP_IN_SECONDS } from '../src/render/follower';
+import { SADDLE, SIT_DROP } from '../src/render/mount';
+import { groundTop } from '../src/render/tiles';
 import { WING_TOP } from '../src/render/glider';
 import { forgetShapes } from '../src/render/merge';
 import { POOF_SECONDS, PUFF_GEOMETRY, Poofs } from '../src/render/poof';
@@ -258,6 +260,31 @@ describe('other players on screen', () => {
 		frames(FADE_SECONDS + 0.2);
 		// On land: small, on their back.
 		expect(figureOf('walker')!.getObjectByName('boat')!.scale.x).toBeLessThan(0.8);
+	});
+
+	it('ride their lead with the harness, sat on its back, and walk beside one without it', () => {
+		const spawn = spawnPoint(WORLD_SEED);
+		const ground = groundTop(tileAtWorld(WORLD_SEED, spawn.x, spawn.y));
+		const { others, frames, figureOf, figures } = setup(spawn);
+		others.seen(peer('rider', spawn, { lead: 'bear', harness: true }));
+		others.seen(peer('walker', step(spawn, 'right'), { lead: 'bear' }));
+		frames(FADE_SECONDS + SWAP_IN_SECONDS + 0.2);
+		const bears = figures.children.filter((f) => f.name === 'bear');
+		expect(bears).toHaveLength(2);
+		// The rider's bear is under them, their feet hanging below its back.
+		const rider = figureOf('rider')!;
+		expect(rider.position.y - ground).toBeCloseTo(SADDLE.bear!.y - SIT_DROP, 6);
+		const under = bears.find((b) => Math.abs(b.position.x - spawn.x) < 0.2)!;
+		expect(Math.abs(under.position.z - spawn.y)).toBeLessThan(0.2);
+		// Without the harness, on their own feet, the bear beside them on a tile of its own.
+		expect(figureOf('walker')!.position.y).toBeCloseTo(
+			groundTop(tileAtWorld(WORLD_SEED, spawn.x + 1, spawn.y)),
+			6
+		);
+		// The harness put away (a page that says nothing of it): off the bear's back.
+		others.seen(peer('rider', spawn, { lead: 'bear' }));
+		frames(1);
+		expect(rider.position.y).toBeCloseTo(ground, 6);
 	});
 
 	it('glide the tiles they fly, high over the lake and without a hop, and come down where they say they are down', () => {

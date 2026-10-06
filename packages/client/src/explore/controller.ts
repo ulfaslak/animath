@@ -8,6 +8,7 @@ import {
 	isClearable,
 	isWater,
 	landingDistance,
+	canRide,
 	leadIndex,
 	step,
 	tileAtWorld,
@@ -338,7 +339,9 @@ export class ExploreController {
 		}
 		if (this.flight) this.fly(this.flight, dt);
 		else this.walk(dt);
-		this.renderer.setPlayer(this.from, this.pos, this.progress, this.facing, this.airPose());
+		// On a mount's back: where it put the trainer's seat last frame, with this frame's hop.
+		const seat = this.follower?.seat(this.progress);
+		this.renderer.setPlayer(this.from, this.pos, this.progress, this.facing, this.airPose(), seat);
 		this.renderer.ensureChunksAround(this.pos);
 		const trainer = this.renderer.trainerPoint();
 		// A bird that noticed the glider: after it, or swooping in once the kid is down.
@@ -524,14 +527,15 @@ export class ExploreController {
 	}
 
 	/**
-	 * Who follows where the trainer is: on land the lead; out on the water the
-	 * first animal standing that swims, or with none, the lead on land, riding
-	 * in the boat once the trainer has stepped into it.
+	 * Who follows where the trainer is: on land the lead, carrying the trainer
+	 * on its back with the harness when it is big enough (`canRide`); out on
+	 * the water the first animal standing that swims, or with none, the lead
+	 * on land, riding in the boat once the trainer has stepped into it.
 	 */
 	private leadFollower(follower: Follower, party: readonly AnimalInstance[]): void {
 		const onLand = party[leadIndex(party, 'land')]?.speciesId ?? null;
 		if (!this.onWater(this.pos)) {
-			follower.lead(onLand);
+			follower.lead(onLand, onLand !== null && canRide(game, onLand) ? 'mount' : 'follows');
 			return;
 		}
 		const swimmer = party[leadIndex(party, 'water')];
@@ -540,7 +544,7 @@ export class ExploreController {
 			return;
 		}
 		const boarding = this.progress < 1 && !this.onWater(this.from);
-		follower.lead(onLand, !boarding);
+		follower.lead(onLand, boarding ? 'follows' : 'boat');
 	}
 
 	/** Water, shallow or deep, at a tile: where the trainer is in the boat. */

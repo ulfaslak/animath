@@ -83,7 +83,8 @@ document.addEventListener('touchstart', () => {}, { passive: true });
 const authority = new LocalAuthority({
 	party: flags.party ?? undefined,
 	tokens: flags.tokens ?? undefined,
-	shop: flags.shop ?? undefined
+	shop: flags.shop ?? undefined,
+	items: flags.items ?? undefined
 });
 const renderer = new GameRenderer(canvas);
 const keyboard = new Keyboard(window);

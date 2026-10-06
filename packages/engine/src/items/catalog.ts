@@ -9,7 +9,7 @@ import type { Gear } from '../world/types.js';
  * A kid owns at most one of each item, for good: `SavedGame.items` lists the
  * ids owned, and `hasItem` is the one check an item's effect asks.
  */
-export type ItemId = 'axe' | 'pickaxe' | 'boat' | 'glider';
+export type ItemId = 'axe' | 'pickaxe' | 'boat' | 'glider' | 'harness';
 
 export interface ItemSpec {
 	id: ItemId;
@@ -26,7 +26,8 @@ export interface ItemSpec {
 /**
  * The catalog, cheapest first. The prices put each within reach after about
  * 15, 25, 40 and 65 minutes of ordinary play ([[PRODUCT]] §4 has the model),
- * and run on as Fibonacci numbers: 8, 13, 21, 34.
+ * and run on as Fibonacci numbers: 8, 13, 21, 34. The harness costs what the
+ * paraglider does, the human's call.
  */
 export const ITEMS: readonly ItemSpec[] = [
 	/** Chops a tree down (`world/clearing.ts`). */
@@ -36,7 +37,9 @@ export const ITEMS: readonly ItemSpec[] = [
 	/** Sails on water: water is `isPassable` with it (`gearOf`). */
 	{ id: 'boat', price: 21, available: true },
 	/** Glides up to 20 tiles over anything, and comes down where the kid can stand (`world/flight.ts`). */
-	{ id: 'glider', price: 34, available: true }
+	{ id: 'glider', price: 34, available: true },
+	/** Rides on the lead's back on land, when it is big enough to carry a kid (`canRide`). */
+	{ id: 'harness', price: 34, available: true }
 ];
 
 /** Every item id, in catalog order. */

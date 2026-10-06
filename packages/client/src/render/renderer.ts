@@ -23,6 +23,7 @@ import { buildGliderMesh, poseGlider } from './glider';
 import { WatchedFights } from './fights';
 import { OtherPlayers } from './others';
 import { COLORS, GLIDER_COLORS } from './palette';
+import { SIT_DROP, poseRider } from './mount';
 import { Poofs } from './poof';
 import { PortraitStudio } from './portraits';
 import { buildTileProps, disposeChunkGroup, groundTop } from './tiles';
@@ -43,6 +44,17 @@ export interface AirPose {
 }
 
 const GROUNDED: AirPose = { lift: 0, open: 0, crouch: 0, hop: 0 };
+
+/**
+ * The trainer on a mount's back (`Follower.seat`): how high over the ground
+ * its back is, and how far they sit there (0 to 1, as it grows in or shrinks away).
+ */
+export interface Seat {
+	height: number;
+	weight: number;
+}
+
+const ON_FOOT: Seat = { height: 0, weight: 0 };
 
 /** Seconds the glider takes to grow onto the trainer's back when it is bought. */
 const GLIDER_ARRIVES_SECONDS = 0.45;
@@ -175,6 +187,8 @@ export class GameRenderer {
 	private gliderArriving: number | null = null;
 	/** The trainer's pose with the glider, as `setPlayer` last had it. */
 	private air: AirPose = GROUNDED;
+	/** How far the trainer sits on a mount this frame: 0 on foot (and up in the air). */
+	private sitting = 0;
 	/** The dark disc on the ground under a trainer in the air: where they are over. */
 	private shadow: THREE.Mesh;
 	/**
@@ -413,17 +427,20 @@ export class GameRenderer {
 
 	/**
 	 * Position the player between two tiles (progress 0..1) and face `dir`;
-	 * with the glider, `air` says how far up they are and how open it is.
+	 * with the glider, `air` says how far up they are and how open it is; on
+	 * a mount's back, `seat` where they sit (they rise off it as they take off).
 	 */
 	setPlayer(
 		from: GridPos,
 		to: GridPos,
 		progress: number,
 		dir: Direction,
-		air: AirPose = GROUNDED
+		air: AirPose = GROUNDED,
+		seat: Seat = ON_FOOT
 	): void {
 		this.air = air;
 		const lift = smoothstep(air.lift);
+		this.sitting = seat.weight * (1 - lift);
 		const { x, y, z, afloat } = trainerPose(
 			this.seed,
 			from,
@@ -431,13 +448,16 @@ export class GameRenderer {
 			progress,
 			this.boatOwned,
 			motion.reduced,
-			lift
+			lift,
+			this.sitting
 		);
 		this.afloat = afloat;
 		// A take-off refused: a little hop in place.
 		const hop =
 			air.hop > 0 ? Math.sin(Math.min(1, air.hop) * Math.PI) * (motion.reduced ? 0.04 : 0.14) : 0;
-		this.playerAt.set(x, y + hop, z);
+		// Astride: the hips on the mount's back, the feet hanging below it.
+		const astride = (seat.height - SIT_DROP * seat.weight) * (1 - lift);
+		this.playerAt.set(x, y + hop + astride, z);
 		this.player.position.copy(this.playerAt);
 		// Figures face +z at rest, which is grid "down" (toward the camera).
 		this.player.rotation.y = FACING_ANGLE[dir];
@@ -565,8 +585,15 @@ export class GameRenderer {
 		// The ring's edge, off screen, a piece a frame: its chunks, and their campfires' glow.
 		this.chunks.work();
 		animateIdle(this.player, t);
-		// Standing in the boat, the trainer's legs don't walk.
-		animateWalk(this.player, this.step.progress, this.step.stride, this.afloat === 1 ? 0 : 1);
+		// Standing in the boat, or carried, the trainer's legs don't walk; carried, they sit astride.
+		animateWalk(
+			this.player,
+			this.step.progress,
+			this.step.stride,
+			this.afloat === 1 ? 0 : 1 - this.sitting
+		);
+		const rig = this.player.children[0];
+		if (rig) poseRider(rig, this.sitting);
 		this.poseBoat(t);
 		this.poseFlight(t);
 		if (this.swing) {

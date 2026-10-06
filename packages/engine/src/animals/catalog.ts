@@ -1,3 +1,4 @@
+import { hasItem } from '../items/catalog.js';
 import type { AnimalSpec, Biome, Realm } from './types.js';
 
 /**
@@ -88,6 +89,7 @@ export const ANIMALS: readonly AnimalSpec[] = [
 		habitats: ['forest', 'meadow'],
 		realms: ['land'],
 		favours: 'trees',
+		carries: true,
 		attacks: [
 			{ id: 'kick', kinds: ['mul'], power: 8 },
 			{ id: 'antler-charge', kinds: ['div', 'mul'], power: 12 }
@@ -101,6 +103,7 @@ export const ANIMALS: readonly AnimalSpec[] = [
 		habitats: ['forest', 'mountain'],
 		realms: ['land'],
 		favours: 'rocks',
+		carries: true,
 		attacks: [
 			{ id: 'bite', kinds: ['mul'], power: 10 },
 			{ id: 'howl', kinds: ['sequence'], power: 14 },
@@ -115,6 +118,7 @@ export const ANIMALS: readonly AnimalSpec[] = [
 		habitats: ['mountain', 'forest'],
 		realms: ['land'],
 		favours: 'rocks',
+		carries: true,
 		attacks: [
 			{ id: 'swipe', kinds: ['mul'], power: 12 },
 			{ id: 'roar', kinds: ['sequence'], power: 16 },
@@ -408,6 +412,7 @@ export const ANIMALS: readonly AnimalSpec[] = [
 		habitats: ['forest'],
 		realms: ['land'],
 		favours: 'trees',
+		carries: true,
 		attacks: [
 			{ id: 'snout-dig', kinds: ['mul'], power: 8 },
 			{ id: 'tusk-charge', kinds: ['div', 'mul'], power: 13 }
@@ -506,6 +511,7 @@ export const ANIMALS: readonly AnimalSpec[] = [
 		habitats: ['forest', 'river'],
 		realms: ['land'],
 		favours: 'water',
+		carries: true,
 		attacks: [
 			{ id: 'munch', kinds: ['mul'], power: 12 },
 			{ id: 'lake-dip', kinds: ['sequence'], power: 17 },
@@ -523,6 +529,7 @@ export const ANIMALS: readonly AnimalSpec[] = [
 		habitats: ['forest'],
 		realms: ['land'],
 		favours: 'open',
+		carries: true,
 		attacks: [
 			{ id: 'stamp', kinds: ['mul'], power: 12 },
 			{ id: 'dust-bath', kinds: ['sequence'], power: 16 },
@@ -762,6 +769,16 @@ export function getAnimal(id: string): AnimalSpec {
  */
 export function canFightIn(speciesId: string, realm: Realm): boolean {
 	return getAnimal(speciesId).realms.includes(realm);
+}
+
+/**
+ * Whether an animal of this species carries this owner on land: they have
+ * the harness, and it is big enough to carry a kid ([[PRODUCT]] §4 "World",
+ * riding). Only on land: the caller asks it only there, never out on the
+ * water, where the boat carries the kid, nor up in the air.
+ */
+export function canRide(owner: { readonly items: readonly string[] }, speciesId: string): boolean {
+	return hasItem(owner, 'harness') && getAnimal(speciesId).carries === true;
 }
 
 /**

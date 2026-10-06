@@ -3,7 +3,7 @@
 
 	/**
 	 * A picture of a shop item, flat and chunky like the world's props: the
-	 * axe, the pickaxe, the boat, the paraglider. Always beside the item's
+	 * axe, the pickaxe, the boat, the paraglider, the harness. Always beside the item's
 	 * name, so it is decoration (`aria-hidden`). The colours are the world's
 	 * own (DESIGN § Palette): the trees' trunk brown, the rocks' grey, the
 	 * water's blue, the trainer's coral, the figures' cream.
@@ -60,6 +60,15 @@
 		<path class="wood" d="M3 20h26l-4 6H7Z" />
 		<rect class="mast" x="15" y="4" width="2" height="16" rx="1" />
 		<path class="sail" d="M17.5 5 26 17h-8.5Z" />
+	{:else if id === 'harness'}
+		<!-- A saddle from the side: its coral blanket, the seat with a horn in front, a stirrup. -->
+		<path class="sail" d="M3 15h26v5.5c0 1.8-1.2 3-3 3H6c-1.8 0-3-1.2-3-3Z" />
+		<path
+			class="wood"
+			d="M4 16c0-4.5 2.5-7 5.5-6.5 2.5 2.3 8.5 2.3 11 0 1.2-2.8 3.3-4.5 5.3-4 1.6.4 2.2 2.2 1.2 3.7-1.4 2-1.9 4.3-1.4 6.8Z"
+		/>
+		<path class="lines" d="M15 17v7.5" />
+		<path class="metal" d="M11.5 24.5h7l-1.2 5h-4.6Z" />
 	{:else}
 		<!-- The lines from the wing down to the harness, then the wing's cells over them. -->
 		<path

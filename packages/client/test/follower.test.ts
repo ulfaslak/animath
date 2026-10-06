@@ -31,8 +31,9 @@ import {
 	RIDE_HEIGHT,
 	RIDE_LENGTH
 } from '../src/render/follower';
+import { SADDLE } from '../src/render/mount';
 import { CRUISE_HEIGHT } from '../src/render/trainer';
-import { WATER_TOP } from '../src/render/tiles';
+import { WATER_TOP, groundTop } from '../src/render/tiles';
 import type { GameRenderer } from '../src/render/renderer';
 import { doctor } from '../src/state/doctor.svelte';
 import { game } from '../src/state/game.svelte';
@@ -740,5 +741,89 @@ describe('up in the air (#91)', () => {
 			expect(wing.scale.toArray(), name).toEqual([1, 1, 1]);
 		}
 		expect(robin.rotation.x).toBe(0);
+	});
+});
+
+describe('with the harness', () => {
+	/** A game at the spawn tile owning `items`, with this party (in `?party=` style). */
+	const owning = (team: string, items: string[]): SavedGame => ({
+		...newGame(1),
+		party: parseParty(team)!,
+		items
+	});
+	const walk = (s: ReturnType<typeof setup>, dirs: Direction[]) => {
+		for (const dir of dirs) {
+			s.authority.dispatch({ type: 'move', dir });
+			s.settle(1.2);
+		}
+	};
+	/** The animal carrying the trainer: its seat (`SADDLE`) right under them, turned the way they face. */
+	function expectCarrying(s: ReturnType<typeof setup>, species: string, at: string): void {
+		expect(s.follower.mounted, at).toBe(true);
+		expect(s.follower.species, at).toBe(species);
+		expect(s.follower.tile, at).toBeNull();
+		const mount = s.figures.at(-1)!;
+		const saddle = SADDLE[species]!;
+		expect(mount.rotation.y, at).toBeCloseTo(ANGLE[game.facing], 6);
+		expect(mount.scale.x, at).toBeCloseTo(1, 6);
+		const seat = new THREE.Vector3(0, saddle.y, saddle.z)
+			.applyEuler(mount.rotation)
+			.add(mount.position);
+		expect(seat.x, at).toBeCloseTo(s.trainer().x, 6);
+		expect(seat.z, at).toBeCloseTo(s.trainer().y, 6);
+		const ground = groundTop(tileAtWorld(WORLD_SEED, s.trainer().x, s.trainer().y));
+		expect(seat.y - ground, at).toBeCloseTo(saddle.y, 6);
+		expect(s.follower.seat(1), at).toEqual({ height: saddle.y, weight: 1 });
+	}
+
+	it('every animal big enough carries the trainer on land, its seat under them every way they face', () => {
+		for (const id of Object.keys(SADDLE)) {
+			const s = setup(id, owning(id, ['harness']));
+			expectCarrying(s, id, `${id} at the start`);
+			for (const dir of ['left', 'right', 'down', 'up'] as const) {
+				walk(s, [dir]);
+				expectCarrying(s, id, `${id} walking ${dir}`);
+			}
+		}
+	});
+
+	it('nobody carries the trainer without the harness, nor an animal too small for it', () => {
+		for (const [team, items] of [
+			['bear', ['boat', 'glider']],
+			['fox', ['harness']],
+			['lynx', ['harness']]
+		] as const) {
+			const s = setup(team, owning(team, [...items]));
+			expect(s.follower.mounted, team).toBe(false);
+			expect(s.follower.seat(1), team).toEqual({ height: 0, weight: 0 });
+			expect(beside(s.follower.tile, s.trainer()), team).toBe(true);
+		}
+	});
+
+	it('a big lead picked carries the trainer, a small one walks behind again', () => {
+		const s = setup('fox,moose', owning('fox,moose', ['harness']));
+		expect(s.follower.mounted).toBe(false);
+		s.authority.dispatch({ type: 'party', intent: { type: 'select-lead', animalId: 'party-2' } });
+		s.settle();
+		expectCarrying(s, 'moose', 'the moose picked');
+		expect(s.figures.map((f) => f.name)).toEqual(['moose']);
+		s.authority.dispatch({ type: 'party', intent: { type: 'select-lead', animalId: 'party-1' } });
+		s.settle();
+		expect(s.follower.mounted).toBe(false);
+		expect(s.follower.species).toBe('fox');
+		expect(beside(s.follower.tile, s.trainer())).toBe(true);
+		expect(s.figures.map((f) => f.name)).toEqual(['fox']);
+	});
+
+	it('out on the water it rides in the boat, and back on land it carries the trainer again', () => {
+		const s = setup('bear', owning('bear', ['harness', 'boat']));
+		expectCarrying(s, 'bear', 'on land');
+		walk(s, ['up']);
+		expect(isWater(tileAtWorld(WORLD_SEED, s.trainer().x, s.trainer().y).kind)).toBe(true);
+		expect(s.follower.inBoat).toBe(true);
+		expect(s.follower.mounted).toBe(false);
+		walk(s, ['down']);
+		expectCarrying(s, 'bear', 'back on land');
+		expect(s.figures).toHaveLength(1);
 	});
 });

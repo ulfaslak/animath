@@ -715,6 +715,9 @@ explore:
   holdToFly: Hold Space to fly!
   # The same, with the touch controls on; "Fly" is explore.fly.
   holdToFlyTouch: Hold Fly to fly!
+  # The witch doctor's goodbye just after buying the harness: a big animal (a deer, a bear…)
+  # at the top of the team carries the kid.
+  rideBig: Put a big animal first and hop on!
   # A take-off with no ground to land on in the 20 tiles ahead (a lake too wide, a forest too deep).
   tooFar: Too far! There's nowhere to land that way.
   # Up in the air, a wild bird noticed the glider and follows it down; its battle
@@ -1102,6 +1105,11 @@ items:
     the: the paraglider
     your: your paraglider
     use: Glides over trees, rocks and water.
+  harness:
+    name: Harness
+    the: the harness
+    your: your harness
+    use: Ride on big animals.
 
 pause:
   # The pause menu's title.

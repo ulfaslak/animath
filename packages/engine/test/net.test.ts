@@ -482,6 +482,30 @@ describe('the wire protocol', () => {
 		}
 	});
 
+	it('reads the harness only when it is owned, from a page from before it too, and nothing else in its place', () => {
+		const where = {
+			t: 'where',
+			world: 7,
+			x: 0,
+			y: 0,
+			facing: 'up',
+			lead: 'moose',
+			boat: false,
+			busy: 'explore'
+		} as const;
+		// A page from before the harness: read as it is, with no harness.
+		expect(parseClientMessage(where)).toEqual(where);
+		expect(parseClientMessage({ ...where, harness: true })).toEqual({ ...where, harness: true });
+		expect(parseClientMessage({ ...where, harness: false })).toEqual(where);
+		const peer = { ...where, t: 'peer', pid: 'abcdef123', name: 'Ada' } as Record<string, unknown>;
+		delete peer.world;
+		expect(parseServerMessage({ ...peer, harness: true })).toEqual({ ...peer, harness: true });
+		for (const junk of [null, 'true', 1, {}]) {
+			expect(parseClientMessage({ ...where, harness: junk }), String(junk)).toBeNull();
+			expect(parseServerMessage({ ...peer, harness: junk }), String(junk)).toBeNull();
+		}
+	});
+
 	it('reads a species it does not know as nobody following, and keeps the rest', () => {
 		const parsed = parseClientMessage({
 			t: 'where',

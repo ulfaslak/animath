@@ -2,6 +2,7 @@ import { getAnimal } from '@mathgame/engine';
 import { describe, expect, it } from 'vitest';
 import {
 	MAX_SEEDED_PARTY,
+	parseItems,
 	parseNudgeSteps,
 	parseParty,
 	parseTokens,
@@ -10,7 +11,7 @@ import {
 
 /** The URL switches (CHEATSHEET § Hidden behaviour): a typo must start an ordinary game. */
 describe('URL switches', () => {
-	it('reads ?zoo, ?debug, ?steps=, ?party=, ?new, ?tokens= and ?shop', () => {
+	it('reads ?zoo, ?debug, ?steps=, ?party=, ?new, ?tokens=, ?shop and ?items=', () => {
 		expect(readFlags('')).toEqual({
 			zoo: null,
 			debug: false,
@@ -19,16 +20,18 @@ describe('URL switches', () => {
 			fresh: false,
 			tokens: null,
 			shop: null,
+			items: null,
 			throwaway: false
 		});
-		expect(readFlags('?zoo&debug&steps=20&party=fox&new&tokens=40&shop')).toEqual({
+		expect(readFlags('?zoo&debug&steps=20&party=fox&new&tokens=40&shop&items=harness')).toEqual({
 			zoo: 'standing',
 			debug: true,
 			nudgeSteps: 20,
 			party: [{ id: 'party-1', speciesId: 'fox', hp: getAnimal('fox').maxHp }],
 			fresh: true,
 			tokens: 40,
-			shop: ['axe', 'pickaxe', 'boat', 'glider'],
+			shop: ['axe', 'pickaxe', 'boat', 'glider', 'harness'],
+			items: ['harness'],
 			throwaway: true
 		});
 	});
@@ -41,6 +44,14 @@ describe('URL switches', () => {
 			expect(parseNudgeSteps(bad), String(bad)).toBeNull();
 		}
 		expect(readFlags('?steps=30').throwaway).toBe(false);
+	});
+
+	it('?items= takes item ids, each once, and an id the catalog lacks is no switch', () => {
+		expect(parseItems('harness,boat,harness')).toEqual(['harness', 'boat']);
+		for (const bad of [null, '', ',', 'saddle', 'harness,saddle']) {
+			expect(parseItems(bad), String(bad)).toBeNull();
+		}
+		expect(readFlags('?items=boat').throwaway).toBe(true);
 	});
 
 	it('?tokens= takes a whole number up to 9999, and anything else is no switch', () => {

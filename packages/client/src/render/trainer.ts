@@ -21,7 +21,9 @@ const CALM_HOP = 0.05;
  * tile to the next in world `seed`, and how far their boat is under them
  * (`afloat`: 0 on their back, 1 afloat; always 0 without a boat). The feet
  * are on the ground, or out on the water on the boat's floor; a step hops,
- * higher into the boat or out of it, and out on the water they glide.
+ * higher into the boat or out of it, and out on the water they glide. On a
+ * mount's back (`ride`, how far they sit there, 0 to 1) the mount does the
+ * hopping, so they don't.
  */
 export function trainerStep(
 	seed: number,
@@ -29,7 +31,8 @@ export function trainerStep(
 	to: GridPos,
 	progress: number,
 	boatOwned: boolean,
-	calm: boolean
+	calm: boolean,
+	ride = 0
 ): { x: number; y: number; z: number; afloat: number } {
 	const t = progress * progress * (3 - 2 * progress); // smoothstep
 	const x = from.x + (to.x - from.x) * t;
@@ -47,7 +50,7 @@ export function trainerStep(
 	const toWater = boatOwned && isWater(tileAtWorld(seed, to.x, to.y).kind);
 	const afloat = fromWater === toWater ? (toWater ? 1 : 0) : toWater ? progress : 1 - progress;
 	const hop = fromWater && toWater ? 0 : fromWater !== toWater ? BOARD_HOP : HOP;
-	const lift = Math.sin(progress * Math.PI) * (calm ? CALM_HOP : hop);
+	const lift = Math.sin(progress * Math.PI) * (calm ? CALM_HOP : hop) * (1 - ride);
 	return { x, y: y + lift, z, afloat };
 }
 
@@ -76,9 +79,10 @@ export function trainerPose(
 	progress: number,
 	boatOwned: boolean,
 	calm: boolean,
-	lift: number
+	lift: number,
+	ride = 0
 ): { x: number; y: number; z: number; afloat: number } {
-	const ground = trainerStep(seed, from, to, progress, boatOwned, calm);
+	const ground = trainerStep(seed, from, to, progress, boatOwned, calm, ride);
 	const up = Math.min(1, Math.max(0, lift));
 	if (up === 0) return ground;
 	const t = progress * progress * (3 - 2 * progress);
