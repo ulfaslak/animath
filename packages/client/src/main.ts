@@ -8,7 +8,7 @@ import {
 	type SessionAnswer
 } from './account/api';
 import { AccountController } from './account/controller';
-import { PLAY_HOUR_MS, PlayClock } from './account/playtime';
+import { NUDGE_STEPS, SaveNudge } from './account/nudge';
 import { ReadyWatch, keepingCursors } from './account/ready';
 import { noteNextStart, restartWith, takeAccountNote } from './account/restart';
 import { currentAccount, forgetLogout, gameKeys, logoutPending } from './account/session';
@@ -153,7 +153,7 @@ const autosave = new Autosave({
 const matchController: MatchController = new MatchController({
 	send: (message): boolean => presenceController.send(message),
 	renderer,
-	// A match picked up after a reload takes the screen from the pause menu and the hourly
+	// A match picked up after a reload takes the screen from the pause menu and the save
 	// card, which comes back the next time the player is exploring.
 	stepAside: () => {
 		pauseController.close();
@@ -177,8 +177,8 @@ const presenceController: PresenceController = new PresenceController({
 	match: matchController
 });
 
-/** A guest's play, counted while the page is on screen: every hour the card offers an account. */
-const playClock = new PlayClock(store, flags.hourSeconds ? flags.hourSeconds * 1000 : PLAY_HOUR_MS);
+/** When a guest's game is next offered an account: every 1,000 steps. */
+const saveNudge = new SaveNudge(store, flags.nudgeSteps ?? NUDGE_STEPS);
 
 const accountController = new AccountController({
 	store,
@@ -189,10 +189,9 @@ const accountController = new AccountController({
 	playerName: () => (title.open ? (title.loggedOut?.name ?? title.saved?.name ?? null) : game.name),
 	answered: () => {
 		const lineage = autosave.playing;
-		if (lineage) playClock.answered(lineage);
+		if (lineage) saveNudge.answered(lineage, authority.stepsTaken);
 	},
 	restart: (note, name) => {
-		playClock.flush();
 		reloading = true;
 		restartWith(note, name);
 	},
@@ -210,7 +209,7 @@ const pauseController = new PauseController(authority, {
 /**
  * The server said whether it can keep an account now (`account/ready.ts`):
  * the rows that offer one come or go, each menu's cursor staying on the row
- * it lit, and an hourly card that is up goes, unanswered, until it can.
+ * it lit, and a save card that is up goes, unanswered, until it can.
  */
 function heardReady(ready: boolean): void {
 	// The first answer counts even when it is a no: the title stops keeping the offers' places.
@@ -297,7 +296,7 @@ authority.subscribe((event) => {
  */
 type KeyScreen = 'account' | 'title' | 'match' | 'battle' | 'doctor' | 'pause' | 'explore';
 function keyScreen(): KeyScreen | null {
-	// The account card, over the title, the pause menu or the game, and the hourly card.
+	// The account card, over the title, the pause menu or the game, and the save card.
 	if (account.card !== null || account.prompt) return 'account';
 	if (title.open) return 'title';
 	if (game.mode === 'loading' || game.mode === 'title') return null;
@@ -438,12 +437,10 @@ window.addEventListener('keydown', (e) => {
 // Leaving or hiding the page saves at once and sends an account's save with `keepalive`.
 window.addEventListener('pagehide', () => {
 	autosave.flush();
-	playClock.flush();
 });
 document.addEventListener('visibilitychange', () => {
 	if (document.visibilityState === 'hidden') {
 		autosave.flush();
-		playClock.flush();
 	}
 });
 /**
@@ -469,7 +466,6 @@ window.addEventListener('storage', (e) => {
 window.addEventListener('hashchange', () => {
 	if (flags.throwaway || !welcomeFrom(location.href)?.token) return;
 	takeWelcomeToken({ session: tabStore });
-	playClock.flush();
 	reloading = true;
 	location.reload();
 });
@@ -526,20 +522,17 @@ function catchUp(onItsOwn: boolean): void {
 }
 
 /**
- * A guest's game, played with the page on screen: its hour of play is
- * counted, and once another hour has passed, the card offers to keep the
- * game safe, while exploring (never in a battle, at the doctor, in the menu,
- * in a friendly match or its invite, on a trip to another world, or up in the
- * air with the glider, until the trainer is down), and only
- * while the server can keep an account (`openPrompt`): until then the hour
+ * A guest's game: once another 1,000 steps have been walked, the card offers
+ * to keep the game safe, while exploring (never in a battle, at the doctor,
+ * in the menu, in a friendly match or its invite, on a trip to another world,
+ * or up in the air with the glider, until the trainer is down), and only
+ * while the server can keep an account (`openPrompt`): until then the card
  * stays due. Not for an account's game, a throwaway one, or a page that keeps
  * nothing.
  */
-function countPlay(dt: number): void {
+function offerAccount(): void {
 	const lineage = autosave.playing;
 	if (account.name !== null || flags.throwaway || !autosave.keeps || lineage === null) return;
-	if (document.visibilityState !== 'visible') return;
-	playClock.tick(lineage, dt);
 	const exploring =
 		game.mode === 'explore' &&
 		!explore.flying &&
@@ -550,7 +543,7 @@ function countPlay(dt: number): void {
 		!travel.active &&
 		match.stage === 'none';
 	if (!exploring || account.prompt || account.card !== null || autosave.behind !== null) return;
-	if (playClock.due(lineage)) accountController.openPrompt();
+	if (saveNudge.due(lineage, authority.stepsTaken)) accountController.openPrompt();
 }
 
 /**
@@ -614,7 +607,7 @@ function frame(now: number) {
 			// already read there goes when a battle or a match takes the screen.
 			if (!battle.active && !doctor.active && !pause.open) hud.tick(dt);
 			else if (battle.active) hud.covered();
-			countPlay(dt);
+			offerAccount();
 		}
 		if (pause.open && pause.screen === 'book') drawPortrait();
 		renderer.render();

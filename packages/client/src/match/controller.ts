@@ -165,7 +165,7 @@ export interface MatchDeps {
 	send(message: ClientMessage): boolean;
 	renderer: Pick<GameRenderer, 'setBattle' | 'playerScreenPoint'>;
 	/**
-	 * Close the pause menu and put the hourly account card aside: a match
+	 * Close the pause menu and put the save card aside: a match
 	 * picked up after a reload takes the screen from them.
 	 */
 	stepAside?(): void;

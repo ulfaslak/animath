@@ -5,10 +5,10 @@
 	import { PROMPT_CHOICES, account, type PromptChoice } from '../state/account.svelte';
 
 	/**
-	 * The hourly card ([[UI_SPEC]] § Accounts): after every hour of a guest's
-	 * play, while exploring, it offers to keep their animals safe with a
+	 * The save card ([[UI_SPEC]] § Accounts): after every 1,000 steps of a guest's
+	 * game, while exploring, it offers to keep their animals safe with a
 	 * secret password. "Save my game" (lit first) opens the account card;
-	 * "Not now" goes back to the game, until another hour has passed. It reads
+	 * "Not now" goes back to the game, until another 1,000 steps are walked. It reads
 	 * `account`; keys are `AccountController`'s. A tap on a choice is its
 	 * `row:<i>` key.
 	 */

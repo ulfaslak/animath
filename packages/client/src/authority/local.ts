@@ -220,6 +220,10 @@ export class LocalAuthority implements Authority {
 	 * encounter roll and the battle and doctor seeds, with the world's seed.
 	 */
 	private steps = 0;
+	/** The completed steps of this game, in every world: what the account card counts. */
+	get stepsTaken(): number {
+		return this.steps;
+	}
 	/** Doctor visits opened in this game, saved with it, so a later visit at the same step asks new puzzles. */
 	private visits = 0;
 	/** The battle in progress, with the seed every intent of it is applied with. */
