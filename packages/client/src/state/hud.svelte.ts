@@ -10,6 +10,7 @@ import {
 	type ClearableKind,
 	type GameEvent,
 	type InviteEnd,
+	type ItemId,
 	type Line as MessageLine,
 	type PartyEvent,
 	type Realm
@@ -77,9 +78,10 @@ export type Said =
 	 * `interact` found no tent in front of the player (`notAtTent`); with the
 	 * glider, a tap of Space there says how to fly instead, and so does the
 	 * doctor's goodbye when it was just bought (`holdToFly`); a take-off with
-	 * nowhere to land that way (`tooFar`).
+	 * nowhere to land that way (`tooFar`); the doctor's goodbye when the
+	 * harness was just bought (`rideBig`).
 	 */
-	| { explore: 'notAtTent' | 'holdToFly' | 'tooFar' }
+	| { explore: 'notAtTent' | 'holdToFly' | 'tooFar' | 'rideBig' }
 	/** Up in the air, a wild bird of this species noticed the glider and follows it down. */
 	| { follows: string }
 	/** A tree or a rock is in the way without the tool it takes: the doctor sells one. */
@@ -132,6 +134,7 @@ export function saidWords(said: Said): string {
 		return touch.on ? t('explore.holdToFlyTouch') : t('explore.holdToFly');
 	}
 	if (said.explore === 'tooFar') return t('explore.tooFar');
+	if (said.explore === 'rideBig') return t('explore.rideBig');
 	return t('explore.notAtTent');
 }
 
@@ -276,7 +279,8 @@ class HudView {
 	/** The key of the talk on its way to the authority (`talked`): a tap of Space, or Enter. */
 	private talkKey: TalkKey = 'enter';
 	/** Whether the player owned the glider when the doctor's card opened: bought there, the card's goodbye says how to fly. */
-	private gliderBefore = false;
+	/** The items owned as the doctor's visit began: what the kid buys there is what is new at its end. */
+	private itemsBefore: readonly string[] = [];
 
 	/** The player faces a doctor's tent: interacting now talks to the doctor. */
 	facingTent = $derived(canTalkToDoctor(game.seed, game.pos, game.facing));
@@ -385,14 +389,16 @@ class HudView {
 				this.say({ line: event.line });
 				break;
 			case 'doctor-visit-started':
-				this.gliderBefore = event.state.items.includes('glider');
+				this.itemsBefore = event.state.items;
 				break;
 			case 'doctor-visit-ended':
-				// Just bought the glider: the goodbye gives way to how to fly it.
+				// Just bought the glider or the harness: the goodbye gives way to how to use it.
 				this.say(
-					event.state.items.includes('glider') && !this.gliderBefore
+					this.bought(event.state.items, 'glider')
 						? { explore: 'holdToFly' }
-						: { doctor: { say: 'goodbye' } }
+						: this.bought(event.state.items, 'harness')
+							? { explore: 'rideBig' }
+							: { doctor: { say: 'goodbye' } }
 				);
 				break;
 			case 'nothing-to-interact':
@@ -458,6 +464,11 @@ class HudView {
 	}
 
 	/** Put a line on the message line; it stays for `MESSAGE_SECONDS` of the HUD on screen. */
+	/** Whether `id` is among `items` at the doctor's goodbye and was not as the visit began. */
+	private bought(items: readonly string[], id: ItemId): boolean {
+		return items.includes(id) && !this.itemsBefore.includes(id);
+	}
+
 	private say(said: Said): void {
 		this.#said = said;
 		this.age = 0;

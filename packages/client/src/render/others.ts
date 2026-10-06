@@ -1,5 +1,6 @@
 import {
 	canFightIn,
+	canRide,
 	hashString,
 	isWater,
 	tileAtWorld,
@@ -15,6 +16,7 @@ import { animateIdle, animateWalk, buildPlayerMesh, disposeFigure } from './anim
 import { BOAT_SWING_SECONDS, buildBoatMesh, disposeBoat, poseBoat, standAstern } from './boat';
 import { doubleHop, smoothstep } from './ease';
 import { Follower, type FigureHost } from './follower';
+import { SIT_DROP, poseRider } from './mount';
 import { WING_TOP, buildGliderMesh, disposeGlider, poseGlider } from './glider';
 import { TRAINER_LOOKS, type TrainerLook } from './palette';
 import type { Poofs } from './poof';
@@ -138,6 +140,8 @@ interface Other {
 	/** The way they face, standing: as they last said. Walking, the way they walk. */
 	facing: Direction;
 	ownsBoat: boolean;
+	/** Their items as the others see them: the harness, when they own it (their lead carries them). */
+	items: readonly string[];
 	lead: string | null;
 	busy: Busy;
 	opacity: number;
@@ -228,6 +232,7 @@ export class OtherPlayers {
 		}
 		other.busy = peer.busy;
 		other.lead = peer.lead;
+		other.items = peer.harness ? ['harness'] : [];
 		other.facing = peer.facing;
 		if (peer.boat !== other.ownsBoat) this.setBoat(other, peer.boat);
 		const flying = peer.busy === 'flight';
@@ -293,6 +298,9 @@ export class OtherPlayers {
 			this.walk(other, dt);
 			this.rise(other, dt);
 			const lift = smoothstep(other.lift);
+			// On their lead's back, as the player's own trainer sits (`renderer.ts`).
+			const seat = other.follower.seat(other.progress);
+			const sitting = seat.weight * (1 - lift);
 			const { x, y, z, afloat } = trainerPose(
 				this.seed,
 				other.from,
@@ -300,8 +308,10 @@ export class OtherPlayers {
 				other.progress,
 				other.ownsBoat,
 				calm,
-				lift
+				lift,
+				sitting
 			);
+			const astride = (seat.height - SIT_DROP * seat.weight) * (1 - lift);
 			const walking =
 				(other.from.x !== other.to.x || other.from.y !== other.to.y) && other.lift === 0;
 			const standing = other.stage ?? other.facing;
@@ -315,7 +325,7 @@ export class OtherPlayers {
 			const joy = this.jump(other, dt, calm);
 			other.figure.position.set(
 				x + other.nudge.x,
-				y + joy.lift + (rocking ? Math.sin(t * 2.1 + phaseOf(other)) * 0.012 : 0),
+				y + astride + joy.lift + (rocking ? Math.sin(t * 2.1 + phaseOf(other)) * 0.012 : 0),
 				z + other.nudge.z
 			);
 			other.figure.rotation.y = FACING_ANGLE[way] + joy.turn;
@@ -339,19 +349,28 @@ export class OtherPlayers {
 				other.figure,
 				walking ? other.progress : 1,
 				strideOnto(other.to),
-				afloat === 1 ? 0 : 1
+				afloat === 1 ? 0 : 1 - sitting
 			);
+			if (rig) poseRider(rig, sitting);
 			this.fade(other);
-			// Their lead: on land who they say; out on the water one that swims swims, and one
-			// that can't rides in the boat once they have stepped into it. Nobody follows a
-			// friend up into the air.
+			// Their lead: on land who they say, carrying them with the harness when it can; out on
+			// the water one that swims swims, and one that can't rides in the boat once they have
+			// stepped into it. Nobody follows a friend up into the air.
 			const onWater = this.waterAt(other.to);
 			const boarding = walking && other.progress < 1 && !this.waterAt(other.from);
-			const riding =
-				onWater && other.lead !== null && !canFightIn(other.lead, 'water') && !boarding;
+			const ride =
+				other.lead === null
+					? 'follows'
+					: onWater
+						? !canFightIn(other.lead, 'water') && !boarding
+							? 'boat'
+							: 'follows'
+						: canRide(other, other.lead)
+							? 'mount'
+							: 'follows';
 			// Nobody follows them in the air, nor while their lead is out in a battle beside them.
 			const away = other.flying || other.lift > 0 || other.stage !== null;
-			if (!other.leaving) other.follower.lead(away ? null : other.lead, riding);
+			if (!other.leaving) other.follower.lead(away ? null : other.lead, ride);
 			other.follower.update(other.progress, dt);
 		}
 	}
@@ -518,6 +537,7 @@ export class OtherPlayers {
 			lift: flying ? 1 : 0,
 			facing: peer.facing,
 			ownsBoat: false,
+			items: peer.harness ? ['harness'] : [],
 			lead: peer.lead,
 			busy: peer.busy,
 			opacity: 0,

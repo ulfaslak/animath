@@ -50,6 +50,11 @@ export interface AnimalSpec {
 	 * `world/habitat.ts`), and around a tile it notices a glider over.
 	 */
 	favours: Terrain;
+	/**
+	 * Big and strong enough for a kid to ride on its back, with the harness
+	 * from the witch doctor's shop (`canRide`): only the big land animals.
+	 */
+	carries?: true;
 }
 
 /**

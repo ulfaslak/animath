@@ -129,6 +129,11 @@ export interface LocalAuthorityOptions {
 	 */
 	shop?: readonly ItemId[];
 	/**
+	 * Start owning these items: the `?items=` URL switch, for looking at what
+	 * an item does without buying it. Only in a game that is saved nowhere.
+	 */
+	items?: readonly ItemId[];
+	/**
 	 * The world a new game from the title starts in, its home: by default one
 	 * picked at random from 2 to 9999, so strangers don't all start in one
 	 * world ([[PRODUCT]] §4 "Starting out"). Tests pin it.
@@ -406,10 +411,15 @@ export class LocalAuthority implements Authority {
 
 	/**
 	 * A throwaway game in World 1, with the `?party=` party, in bundles, when
-	 * there is one, and the `?tokens=` tokens. Its animal book holds its party.
+	 * there is one, the `?tokens=` tokens and the `?items=` items. Its animal
+	 * book holds its party.
 	 */
 	private newGame(): SavedGame {
-		const game = { ...newGame(FIRST_WORLD), tokens: this.options.tokens ?? 0 };
+		const game = {
+			...newGame(FIRST_WORLD),
+			tokens: this.options.tokens ?? 0,
+			items: [...(this.options.items ?? [])]
+		};
 		// An empty `?party=` is no party: the starter, as without one.
 		if (!this.options.party?.length) return game;
 		const party = bundled(this.options.party).map((a) => ({ ...a }));

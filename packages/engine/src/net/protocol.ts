@@ -162,7 +162,8 @@ export interface HelloMessage {
  * changes: the world, the tile, the way they face, the animal following them
  * (`lead`: the species on screen behind them, or null when nobody follows),
  * whether they own the boat (it rides on their back, and they sail in it on
- * the water), and what they are busy with.
+ * the water) and the harness (`harness`, only when they do: they ride a lead
+ * big enough to carry them, `canRide`), and what they are busy with.
  */
 export interface WhereMessage {
 	t: 'where';
@@ -172,6 +173,7 @@ export interface WhereMessage {
 	facing: Direction;
 	lead: string | null;
 	boat: boolean;
+	harness?: true;
 	busy: Busy;
 }
 
@@ -328,6 +330,7 @@ export interface PeerMessage {
 	facing: Direction;
 	lead: string | null;
 	boat: boolean;
+	harness?: true;
 	busy: Busy;
 }
 
@@ -608,11 +611,21 @@ function readSpot(o: Fields): Omit<WhereMessage, 't' | 'world'> | null {
 		!isDirection(o.facing) ||
 		!lead.ok ||
 		typeof o.boat !== 'boolean' ||
+		(o.harness !== undefined && typeof o.harness !== 'boolean') ||
 		!isBusy(o.busy)
 	) {
 		return null;
 	}
-	return { x: o.x, y: o.y, facing: o.facing, lead: lead.lead, boat: o.boat, busy: o.busy };
+	// The harness only when owned, so a page from before it is read as it always was.
+	return {
+		x: o.x,
+		y: o.y,
+		facing: o.facing,
+		lead: lead.lead,
+		boat: o.boat,
+		...(o.harness === true ? { harness: true as const } : {}),
+		busy: o.busy
+	};
 }
 
 // --- friendly matches on the wire --------------------------------------------

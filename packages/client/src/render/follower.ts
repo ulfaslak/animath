@@ -15,6 +15,7 @@ import { animateFlight, buildAnimalMesh, disposeFigure } from './animals';
 import { BOAT_DECK, BOAT_STAND } from './boat';
 import { flyingSize } from './chaser';
 import { appearScale, recallScale, smoothstep } from './ease';
+import { SADDLE } from './mount';
 import { WATER_TOP, groundTop } from './tiles';
 
 /**
@@ -30,7 +31,7 @@ import { WATER_TOP, groundTop } from './tiles';
  * trainer's last tile is water: an animal that swims swims behind the boat,
  * low in the water, and one that can't swim never stands there — it rides in
  * the boat instead, standing on its deck at the bow facing forward, a big one
- * made smaller to fit (`lead(…, riding)`), turning with the boat when the
+ * made smaller to fit (`lead(…, 'boat')`), turning with the boat when the
  * trainer bumps into something (`face`), and whoever comes out on a tile comes out beside
  * the trainer. When the trainer is put somewhere without walking (a new game,
  * a game picked up, a go-to, another world), it is put
@@ -56,6 +57,13 @@ import { WATER_TOP, groundTop } from './tiles';
  * (held out with reduced motion); once they are down (`place`, then `fly`
  * with no trainer) it comes down onto the tile beside them, folding its
  * wings.
+ *
+ * With the harness, a lead big enough to carry a kid carries them on
+ * land (`lead(…, 'mount')`): it walks under the trainer, its back where they
+ * sit (`SADDLE`), turned the way they face, plodding with its own hop, which
+ * the trainer rides (`seat`). It grows in under the trainer and lifts them,
+ * and shrinks away from under them, as any change of lead does; off its back
+ * (the boat, the glider, a smaller lead) it follows as before.
  */
 
 /** What it asks of the renderer: a figure that stands in the world and idles there. */
@@ -141,6 +149,12 @@ const FLY_CATCH_UP = 6;
 const FLY_PITCH = 0.3;
 export const COME_DOWN_SECONDS = 0.35;
 
+/**
+ * How the one following goes with the trainer: on its own feet (or swimming)
+ * behind them, standing in their boat, or carrying them on its back.
+ */
+export type Ride = 'follows' | 'boat' | 'mount';
+
 export class Follower {
 	/** The tile it stands on or walks to; null until it is placed beside the trainer. */
 	private at: GridPos | null = null;
@@ -159,12 +173,12 @@ export class Follower {
 	private edits = WorldEdits.none;
 	/** The lead's species: who should be following. Null when every animal is tired. */
 	private wanted: string | null = null;
-	/** Whether the lead should ride in the boat rather than follow on foot or swimming. */
-	private wantRide = false;
+	/** How the lead should go: behind on foot or swimming, in the boat, or carrying the trainer. */
+	private wantRide: Ride = 'follows';
 	private figure: THREE.Group | null = null;
-	/** The species of the figure on screen, and whether it rides. */
+	/** The species of the figure on screen, and how it goes. */
 	private shown: string | null = null;
-	private riding = false;
+	private riding: Ride = 'follows';
 	/** A rider's size, to fit in the boat, and at its own size how far forward of its origin its middle is, nose to tail. */
 	private rideScale = 1;
 	private rideMiddle = 0;
@@ -218,13 +232,13 @@ export class Follower {
 		if (!this.aloft) return;
 		this.aloft = null;
 		if (!this.figure || !flies(this.shown)) return;
-		if (this.at && !this.riding) this.landing = { from: this.airAt.clone(), t: 0 };
+		if (this.at && this.riding === 'follows') this.landing = { from: this.airAt.clone(), t: 0 };
 		else this.dropFigure();
 	}
 
-	/** Where it stands (or is walking to), for tests and anything that asks; null while riding. */
+	/** Where it stands (or is walking to), for tests and anything that asks; null in the boat or under the trainer. */
 	get tile(): GridPos | null {
-		return this.riding ? null : this.at;
+		return this.riding === 'follows' ? this.at : null;
 	}
 
 	/** The species on screen, or null when nobody follows. */
@@ -234,7 +248,26 @@ export class Follower {
 
 	/** Whether the one on screen rides in the boat. */
 	get inBoat(): boolean {
-		return this.figure !== null && this.riding;
+		return this.figure !== null && this.riding === 'boat';
+	}
+
+	/** Whether the one on screen carries the trainer on its back. */
+	get mounted(): boolean {
+		return this.figure !== null && this.riding === 'mount';
+	}
+
+	/**
+	 * Carrying the trainer, `progress` of the way through their step: how high
+	 * over the ground under them its back is (`height`, with its hop and as
+	 * big as it has grown in), and how far it is grown in under them
+	 * (`weight`, 0 to 1), which is how far they sit. Zero when it carries
+	 * nobody.
+	 */
+	seat(progress: number): { height: number; weight: number } {
+		const saddle = this.shown === null ? undefined : SADDLE[this.shown];
+		if (!this.figure || this.riding !== 'mount' || !saddle) return { height: 0, weight: 0 };
+		const weight = Math.min(1, this.swapScale());
+		return { height: saddle.y * weight + this.mountHop(progress) + this.swapLift(), weight };
 	}
 
 	/** Which way it faces. */
@@ -279,7 +312,7 @@ export class Follower {
 		this.trainerFacing = direction(from, to) ?? this.trainerFacing;
 		// One that can't go where the trainer leaves (the land lead, as the trainer
 		// sails on from the shore) stays where it is: it is on its way out.
-		if (this.figure && !this.riding && !this.canStand(from, this.shown)) return;
+		if (this.figure && this.riding === 'follows' && !this.canStand(from, this.shown)) return;
 		const at = this.at;
 		if (!at || !adjacent(at, from)) {
 			// Not beside the trainer (nowhere to stand when it was placed): it turns up on
@@ -310,12 +343,12 @@ export class Follower {
 	}
 
 	/**
-	 * Who follows: the lead's species, or null when every animal is tired;
-	 * `riding` when it rides in the trainer's boat rather than following behind.
+	 * Who follows: the lead's species, or null when every animal is tired; and
+	 * how (`ride`): behind the trainer, in their boat, or carrying them.
 	 */
-	lead(speciesId: string | null, riding = false): void {
+	lead(speciesId: string | null, ride: Ride = 'follows'): void {
 		this.wanted = speciesId;
-		this.wantRide = speciesId !== null && riding;
+		this.wantRide = speciesId === null ? 'follows' : ride;
 	}
 
 	/**
@@ -338,8 +371,12 @@ export class Follower {
 			this.comeDown(figure, this.landing, dt);
 			return;
 		}
-		if (this.riding) {
+		if (this.riding === 'boat') {
 			this.ride(figure, progress);
+			return;
+		}
+		if (this.riding === 'mount') {
+			this.carry(figure, progress);
 			return;
 		}
 		if (!this.at || !this.from) return;
@@ -383,7 +420,7 @@ export class Follower {
 		this.dropFigure();
 		this.swap = null;
 		this.wanted = null;
-		this.wantRide = false;
+		this.wantRide = 'follows';
 		this.at = null;
 		this.from = null;
 		this.aside = null;
@@ -495,6 +532,41 @@ export class Follower {
 		figure.scale.setScalar(scale);
 	}
 
+	/**
+	 * Carrying the trainer: under them as they step from tile to tile, the
+	 * seat of its back (`SADDLE`) where they are, turned the way they face,
+	 * plodding with its own hop. It grows in and shrinks away about that seat.
+	 */
+	private carry(figure: THREE.Group, progress: number): void {
+		const from = this.trainerFrom;
+		const to = this.trainerTo;
+		const saddle = this.shown === null ? undefined : SADDLE[this.shown];
+		if (!from || !to || !saddle) return;
+		const t = smoothstep(Math.min(1, Math.max(0, progress)));
+		const scale = this.swapScale();
+		this.facing = this.trainerFacing;
+		this.yaw = ANGLE[this.trainerFacing];
+		// Its seat, `saddle.z` along the way it faces, under the trainer.
+		const back = saddle.z * scale;
+		const yFrom = this.standAt(from);
+		figure.position.set(
+			from.x + (to.x - from.x) * t - Math.sin(this.yaw) * back,
+			yFrom + (this.standAt(to) - yFrom) * t + this.mountHop(progress) + this.swapLift(),
+			from.y + (to.y - from.y) * t - Math.cos(this.yaw) * back
+		);
+		figure.rotation.y = this.yaw;
+		figure.scale.setScalar(scale);
+	}
+
+	/** Carrying the trainer, its hop `progress` of the way through their step: its own plod. */
+	private mountHop(progress: number): number {
+		const from = this.trainerFrom;
+		const to = this.trainerTo;
+		if (!from || !to || (from.x === to.x && from.y === to.y)) return 0;
+		const p = Math.min(1, Math.max(0, progress));
+		return Math.sin(p * Math.PI) * (HOP[this.shown ?? ''] ?? 0.08) * (motion.reduced ? 0.35 : 1);
+	}
+
 	/** Swap the figure when the lead changed: shrink the old one away, grow the new one in. */
 	private updateSwap(dt: number): void {
 		if (this.swap) this.swap.t += dt;
@@ -537,7 +609,7 @@ export class Follower {
 			this.airFrom.copy(this.flightSpot(this.aloft).sub(this.aloft.at));
 			this.airAt.addVectors(this.aloft.at, this.airFrom);
 			this.airT = 1;
-		} else if (!this.wantRide && !stays) {
+		} else if (this.wantRide === 'follows' && !stays) {
 			const spot = this.spotBeside(species);
 			if (!spot) return;
 			this.at = spot;
@@ -547,7 +619,7 @@ export class Follower {
 		const figure = buildAnimalMesh(species);
 		figure.userData.idlePhase = 0.6;
 		this.riding = this.wantRide;
-		if (this.riding) {
+		if (this.riding === 'boat') {
 			// Measured at its own size, before it starts growing in from nothing.
 			const box = new THREE.Box3().setFromObject(figure);
 			const size = box.getSize(new THREE.Vector3());
@@ -567,7 +639,7 @@ export class Follower {
 		disposeFigure(this.figure);
 		this.figure = null;
 		this.shown = null;
-		this.riding = false;
+		this.riding = 'follows';
 	}
 
 	/** With reduced motion the new one grows in without its bounce, as in a battle. */

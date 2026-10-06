@@ -103,7 +103,7 @@ const FOXES_WALK = [
 /** Nobody walks on. */
 const ALL_TIRED = [bear('w1', 0), bear('w2', 0), { id: 'r1', speciesId: 'rabbit', hp: 0 }];
 const ALL_WELL = TEAM.map(well).map((a) => (a.speciesId === 'rabbit' ? { ...a, hp: 22 } : a));
-const SHOP = ['axe', 'pickaxe', 'boat', 'glider'];
+const SHOP = ['axe', 'pickaxe', 'boat', 'glider', 'harness'];
 const sum = (prompt, answer, kind = 'add') => ({ kind, difficulty: 5, prompt, answer });
 
 const heal = (prompt, answer) => ({
@@ -309,7 +309,7 @@ function show(state) {
 		party: [],
 		tokens: 0,
 		items: [],
-		shop: ['axe', 'pickaxe', 'boat', 'glider'],
+		shop: ['axe', 'pickaxe', 'boat', 'glider', 'harness'],
 		line: null,
 		tab: 'heal',
 		cursor: 0,

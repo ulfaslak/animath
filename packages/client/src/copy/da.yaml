@@ -675,6 +675,7 @@ explore:
   doctorArrow: Vejen til heksedoktorens telt
   holdToFly: Hold mellemrum nede for at flyve!
   holdToFlyTouch: Hold Flyv nede for at flyve!
+  rideBig: Sæt et stort dyr først og hop op!
   tooFar: For langt! Der er intet sted at lande den vej.
   birdFollows: '{bird.aGrumpy} følger efter dig!'
   fly: Flyv
@@ -935,6 +936,11 @@ items:
     the: paraglideren
     your: din paraglider
     use: Svæver over træer, sten og vand.
+  harness:
+    name: Seletøj
+    the: seletøjet
+    your: dit seletøj
+    use: Rid på store dyr.
 
 pause:
   title: Pause

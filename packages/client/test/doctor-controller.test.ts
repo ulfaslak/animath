@@ -1066,7 +1066,7 @@ describe('the shop', () => {
 		t.run(PICK_QUIET_SECONDS);
 		t.press('ArrowLeft');
 		expect(doctor.tab).toBe('shop');
-		expect(doctor.shop).toEqual(['axe', 'pickaxe', 'boat', 'glider']);
+		expect(doctor.shop).toEqual(['axe', 'pickaxe', 'boat', 'glider', 'harness']);
 		return t;
 	};
 

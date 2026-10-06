@@ -1,4 +1,4 @@
-import { ANIMALS, ITEM_IDS, type AnimalInstance, type ItemId } from '@mathgame/engine';
+import { ANIMALS, ITEM_IDS, isItemId, type AnimalInstance, type ItemId } from '@mathgame/engine';
 
 /**
  * The page's URL switches, read once at load. None is a setting a player
@@ -40,7 +40,12 @@ export interface Flags {
 	 */
 	shop: ItemId[] | null;
 	/**
-	 * `?new`, `?party=`, `?zoo`, `?tokens=` or `?shop`: a throwaway game,
+	 * `?items=harness,boat`: start owning these items, in a throwaway game,
+	 * to look at what they do. Any id the catalog lacks ignores the switch.
+	 */
+	items: ItemId[] | null;
+	/**
+	 * `?new`, `?party=`, `?zoo`, `?tokens=`, `?shop` or `?items=`: a throwaway game,
 	 * straight into explore without the title. Nothing is loaded or saved, so
 	 * a look at a screen never touches a kid's game.
 	 */
@@ -54,6 +59,7 @@ export function readFlags(search: string): Flags {
 	const fresh = params.has('new');
 	const tokens = parseTokens(params.get('tokens'));
 	const shop = params.has('shop') ? [...ITEM_IDS] : null;
+	const items = parseItems(params.get('items'));
 	return {
 		zoo,
 		debug: params.has('debug'),
@@ -62,8 +68,17 @@ export function readFlags(search: string): Flags {
 		fresh,
 		tokens,
 		shop,
-		throwaway: fresh || party !== null || zoo !== null || tokens !== null || shop !== null
+		items,
+		throwaway:
+			fresh || party !== null || zoo !== null || tokens !== null || shop !== null || items !== null
 	};
+}
+
+/** `?items=`: comma-separated item ids, each once; null for none, or for an id the catalog lacks. */
+export function parseItems(text: string | null): ItemId[] | null {
+	if (text === null) return null;
+	const ids = [...new Set(text.split(',').filter((e) => e !== ''))];
+	return ids.length > 0 && ids.every(isItemId) ? ids : null;
 }
 
 /** The most animals `?party=` seeds: enough to look at any team a kid could catch. */

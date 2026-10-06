@@ -36,7 +36,7 @@ export type {
 	Tier
 } from './animals/types.js';
 export { ATTACK_LEVELS, REALMS, TERRAINS } from './animals/types.js';
-export { ANIMALS, canFightIn, getAnimal, skiesOf } from './animals/catalog.js';
+export { ANIMALS, canFightIn, canRide, getAnimal, skiesOf } from './animals/catalog.js';
 export {
 	BOOK_ORDER,
 	EMPTY_BOOK,

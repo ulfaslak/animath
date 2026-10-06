@@ -128,7 +128,7 @@ describe('the explore message line', () => {
 		expect(hud.message).toBe('');
 	});
 
-	it("says how to fly when the doctor's card closes on a glider just bought, and the goodbye otherwise", () => {
+	it("says how to fly, or to ride, when the doctor's card closes on a glider or a harness just bought, and the goodbye otherwise", () => {
 		setup();
 		const visit = (before: string[], after: string[]) => {
 			const state = (items: string[]) => ({
@@ -149,6 +149,9 @@ describe('the explore message line', () => {
 		// Owned already, or something else bought: the doctor's goodbye.
 		expect(visit(['glider'], ['glider'])).toBe(t('doctor.goodbye'));
 		expect(visit([], ['boat'])).toBe(t('doctor.goodbye'));
+		// The harness just bought: put a big animal first and hop on.
+		expect(visit(['glider'], ['glider', 'harness'])).toBe(t('explore.rideBig'));
+		expect(visit(['harness'], ['harness'])).toBe(t('doctor.goodbye'));
 		// With the touch controls on, it names the Fly button.
 		touch.on = true;
 		try {
