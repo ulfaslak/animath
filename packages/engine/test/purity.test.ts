@@ -32,6 +32,12 @@ describe('engine purity', () => {
 			for (const spec of imports) expect(spec, `${rel} imports ${spec}`).toMatch(/^\.\.?\//);
 		});
 
+		it(`${rel} pulls in no types or libs by a reference directive`, () => {
+			// `/// <reference types="node" />` or `lib="dom"` would bring Node or the DOM past
+			// tsconfig.json's `types: []` and `lib`: the tests' own `@types/node` is right there.
+			expect(src).not.toMatch(/^\s*\/\/\/\s*<reference\b/m);
+		});
+
 		it(`${rel} never uses Math.random or Date.now`, () => {
 			// Comments may mention them (they explain the rule); code may not.
 			const code = src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '');
