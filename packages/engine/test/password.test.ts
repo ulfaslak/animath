@@ -1,5 +1,11 @@
 import { describe, expect, it, vi } from 'vitest';
-import { PASSWORD_MAX_LENGTH, PASSWORD_MIN_LENGTH, checkPassword } from '../src/index.js';
+import {
+	PASSWORD_MAX_LENGTH,
+	PASSWORD_MIN_LENGTH,
+	PASSWORD_REFUSALS,
+	checkPassword,
+	isPasswordRefusal
+} from '../src/index.js';
 
 describe('checkPassword', () => {
 	it('takes four characters, counted as characters rather than UTF-16 units', () => {
@@ -52,6 +58,22 @@ describe('checkPassword', () => {
 			expect(normalize).not.toHaveBeenCalled();
 		} finally {
 			normalize.mockRestore();
+		}
+	});
+});
+
+describe('PASSWORD_REFUSALS', () => {
+	it('lists every reason checkPassword gives, each once, and isPasswordRefusal knows nothing else', () => {
+		const given = new Set<string>();
+		for (const raw of ['', 'abc', 'x'.repeat(PASSWORD_MAX_LENGTH + 1), 'x'.repeat(10_000)]) {
+			const check = checkPassword(raw);
+			if (!check.ok) given.add(check.reason);
+		}
+		expect([...given].sort()).toEqual([...PASSWORD_REFUSALS].sort());
+		expect(new Set(PASSWORD_REFUSALS).size).toBe(PASSWORD_REFUSALS.length);
+		for (const reason of PASSWORD_REFUSALS) expect(isPasswordRefusal(reason)).toBe(true);
+		for (const junk of ['LONG', 'toString', 'hasOwnProperty', '', 3, null, undefined]) {
+			expect(isPasswordRefusal(junk), String(junk)).toBe(false);
 		}
 	});
 });

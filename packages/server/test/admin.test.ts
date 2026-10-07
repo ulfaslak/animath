@@ -92,7 +92,9 @@ describe('reset-password', () => {
 		await expect(resetPassword(freshName(), 'whatever')).rejects.toBeInstanceOf(AdminError);
 		const name = freshName();
 		await register(name);
-		await expect(resetPassword(name, 'abc')).rejects.toThrow(/too short/);
+		await expect(resetPassword(name, 'abc')).rejects.toThrow(
+			/too short: it needs 4 to 128 characters\./
+		);
 		expect((await post('/login', { name, password: 'secret' })).status).toBe(200);
 	});
 

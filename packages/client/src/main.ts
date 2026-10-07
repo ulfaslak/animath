@@ -20,7 +20,7 @@ import { DoctorController } from './doctor/controller';
 import { ExploreController } from './explore/controller';
 import { DoctorWay } from './explore/doctor-way';
 import { errorReports } from './error-reports';
-import { flags } from './flags';
+import { authorityOptions, flags } from './flags';
 import { Keyboard } from './input/keyboard';
 import { press } from './input/press';
 import { clearBoxes } from './keep-clear';
@@ -80,12 +80,7 @@ window.addEventListener('contextmenu', (e) => {
 // Safari shows `:active` (a pressed key, a pressed button) only on a page that listens for touches.
 document.addEventListener('touchstart', () => {}, { passive: true });
 
-const authority = new LocalAuthority({
-	party: flags.party ?? undefined,
-	tokens: flags.tokens ?? undefined,
-	shop: flags.shop ?? undefined,
-	items: flags.items ?? undefined
-});
+const authority = new LocalAuthority(authorityOptions(flags));
 const renderer = new GameRenderer(canvas);
 const keyboard = new Keyboard(window);
 // The lead walks behind the trainer: a view of the party and of the trainer's steps.
