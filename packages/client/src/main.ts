@@ -160,7 +160,8 @@ const matchController: MatchController = new MatchController({
 		pauseController.close();
 		account.prompt = false;
 	},
-	count: (events, side) => authority.countMatchAnswers(events, side),
+	// Told each step of a match once (`match-answers`): the kid's right answers count as solved.
+	authority,
 	// A Back to exploring from a result holds in every tab of the player's, and through a reload.
 	store
 });
