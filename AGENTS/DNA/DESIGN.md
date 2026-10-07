@@ -101,7 +101,7 @@ Colour is never the only signal: a wrong answer also shakes, a low HP bar also s
 
 Cream panels with 16 px radius and a soft drop shadow floating over the 3D scene. Buttons are pill-shaped with the accent colour for the primary action (Go!, OK, Talk, Save).
 
-Shapes the battle made, for any screen to reuse ([[UI_SPEC]] § Component reuse):
+Shapes the battle made, for any screen to reuse ([[ARCHITECTURE]] § Component reuse):
 
 - **The chunky toy button**: a darker edge under the button's face, 4 px deep (`--press`), that squashes flat when it is pressed, as a toy's button does: under the accent `--accent-edge` (`#d9771f`), under anything paler `--edge` (ink at a fifth). The battle's Go!, its attack tiles, its moves and level buttons wear it; a highlighted one is lifted and ringed in the accent.
 - **The hit badge**: a little ten-pointed starburst and a number, what a hit is worth. A harder level's is bigger (16, 19, 22 px) and hotter: amber (warn), then the accent, then coral, with a thin ink rim. The number is always printed, in ink.
