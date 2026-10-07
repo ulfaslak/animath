@@ -54,11 +54,11 @@ import type {
 
 /**
  * How often a wild animal misses an animal of its own tier or fiercer (11 in
- * 25). It never misses a smaller one. Tuned so a kid who always answers the
- * easiest puzzle right beats an animal of their own tier about 79% of the time
- * (45% when right 7 times in 10), while every turn against a smaller animal
- * plays exactly as it did before misses existed (#8's balance table).
- * [[PRODUCT]] §4 "Battle" states it in prose.
+ * 25). It never misses a smaller one. Tuned for how often a kid who always
+ * answers the easiest puzzle beats an animal of their own tier, while every
+ * turn against a smaller animal plays exactly as it did before misses existed
+ * (#8's balance table). [[PRODUCT]] §4 "Battle" states it in prose, with the
+ * win rates it gives.
  */
 export const WILD_MISS_CHANCE = 0.44;
 

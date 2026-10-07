@@ -214,9 +214,8 @@ export type GameEvent =
 	| { type: 'solved-changed'; solved: number }
 	/**
 	 * The animal book grew (`animals/book.ts`): a wild battle started against
-	 * a species never seen before, a leash throw caught one never caught
-	 * before, or a friendly match brought one out in front of the player.
-	 * Always both lists, whole, each in the order first met. Sent right after
+	 * a species never seen before, or a leash throw caught one never caught
+	 * before (a friendly match never changes it). Always both lists, whole, each in the order first met. Sent right after
 	 * the event that showed it; never when nothing is new.
 	 */
 	| { type: 'book-changed'; seen: string[]; caught: string[] }
