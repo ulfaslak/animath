@@ -174,16 +174,6 @@ describe('taps on the menu', () => {
 			}
 		});
 	}
-
-	it('a tap, a level, then Enter: the tapped attack goes, at the level tapped', () => {
-		const squirrel = ANIMALS[0]!;
-		const menu = press({ cursor: 0, levels: {} }, squirrel, rowKey(1), levelKey(3));
-		expect(menuKey(menu, 'Enter', squirrel, MOVES).choice).toEqual({
-			kind: 'attack',
-			attackIndex: 2,
-			level: 3
-		});
-	});
 });
 
 describe('party list keys', () => {

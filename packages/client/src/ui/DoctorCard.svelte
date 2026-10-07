@@ -1,5 +1,6 @@
 <script lang="ts">
 	import {
+		buyRefusal,
 		getAnimal,
 		getItem,
 		homeTokens,
@@ -19,7 +20,6 @@
 	import { animalWords, nameOf, speciesName } from '../names';
 	import {
 		DOCTOR_TABS,
-		cannotBuy,
 		doctor,
 		hurtIndexes,
 		kindGoing,
@@ -226,11 +226,13 @@
 
 	/** Why a highlighted item can't be bought, in words, or null. */
 	function whyNot(itemId: ItemId): string | null {
-		switch (cannotBuy(itemId, doctor)) {
-			case 'owned':
+		// The engine's own rule for `buy`, on the tokens and items the card shows.
+		switch (buyRefusal(doctor, itemId)) {
+			case 'already-owned':
 				return t('doctor.shop.owned', { item: itemWords(itemId) });
-			case 'short':
+			case 'not-enough-tokens':
 				return t('doctor.shop.short', { count: getItem(itemId).price - doctor.tokens });
+			case 'not-for-sale':
 			case null:
 				return null;
 		}
@@ -413,7 +415,7 @@
 						type="button"
 						class="row"
 						class:selected={doctor.cursor === k}
-						class:healthy={cannotBuy(row.itemId, doctor) !== null && doctor.bought !== row.itemId}
+						class:healthy={buyRefusal(doctor, row.itemId) !== null && doctor.bought !== row.itemId}
 						class:cheer={doctor.bought === row.itemId}
 						class:shake-a={doctor.shake?.row === k && doctor.shake.n % 2 === 0}
 						class:shake-b={doctor.shake?.row === k && doctor.shake.n % 2 === 1}
@@ -583,7 +585,7 @@
 			{:else}
 				<!-- Bye is lit: what the tab is for, or that there is nothing left to buy. -->
 				<div class="soft">
-					{doctor.shop.every((id) => cannotBuy(id, doctor) === 'owned')
+					{doctor.shop.every((id) => buyRefusal(doctor, id) === 'already-owned')
 						? t('doctor.shop.allOwned')
 						: t('doctor.shop.pick')}
 				</div>

@@ -1,7 +1,7 @@
 import {
 	bundles,
+	buyRefusal,
 	canGoHome,
-	getAnimal,
 	kindGoingHome,
 	needsHealing,
 	type AnimalInstance,
@@ -18,7 +18,6 @@ import { isMashKey, PickGuard } from '../input/pick-guard';
 import { tappedOption, tappedRow, tappedTab } from '../input/press';
 import {
 	DOCTOR_TABS,
-	cannotBuy,
 	doctor,
 	rowStops,
 	stepCursor,
@@ -376,7 +375,7 @@ export class DoctorController {
 				return;
 			case 'item':
 				// An item a kid owns, or can't pay for yet, gives a little shake: the card says why.
-				if (cannotBuy(row.itemId, doctor) !== null) {
+				if (buyRefusal(doctor, row.itemId) !== null) {
 					this.shakeRow(doctor.cursor);
 					return;
 				}
@@ -703,10 +702,9 @@ export class DoctorController {
 		after: DoctorState
 	): Beat {
 		const amounts: Record<number, number> = {};
-		for (const h of heals) {
-			const max = getAnimal(h.animal.speciesId).maxHp;
-			amounts[h.partyIndex] = max - (before.party[h.partyIndex]?.hp ?? 0);
-		}
+		// What each heal gave: the HP the event says it has now, less what it had.
+		for (const h of heals)
+			amounts[h.partyIndex] = h.animal.hp - (before.party[h.partyIndex]?.hp ?? 0);
 		// The doctor names the animal picked, and counts the rest of its kind.
 		const picked = before.phase.kind === 'solving' ? before.phase.partyIndex : heals[0]!.partyIndex;
 		const animal = after.party[picked] ?? heals[0]!.animal;

@@ -10,6 +10,7 @@ import {
 	type TileKind
 } from '@mathgame/engine';
 import { WORLD_SEED } from '../src/authority/local';
+import { testStarter } from './minted';
 
 /**
  * Where the client tests chop and break: a tile of a kind, the nearest one to
@@ -46,5 +47,5 @@ export function besideA(kind: TileKind, where: (height: number) => boolean = () 
 
 /** A game standing beside `spot`, facing it, owning `items`. */
 export function gameBeside(spot: Beside, items: string[]): SavedGame {
-	return { ...newGame(1), pos: { ...spot.stand }, facing: spot.facing, items };
+	return { ...newGame(1, testStarter()), pos: { ...spot.stand }, facing: spot.facing, items };
 }

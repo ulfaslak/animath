@@ -2,6 +2,7 @@
 	import type { Busy } from '@mathgame/engine';
 	import { onDestroy } from 'svelte';
 	import { t } from '../copy';
+	import { hpBand } from '../hp';
 	import { speciesName } from '../names';
 	import { namesSide, placeNames } from '../presence/edges';
 	import { THOUGHT_LEAN, unclutter, type Mark, type Rect } from '../presence/labels';
@@ -234,8 +235,8 @@
 			<span class="track"
 				><span
 					class="fill"
-					class:warn={share <= 0.5 && share > 0.2}
-					class:bad={share <= 0.2}
+					class:warn={hpBand(bar.hp, bar.maxHp) === 'warn'}
+					class:bad={hpBand(bar.hp, bar.maxHp) === 'bad'}
 					style:width="{Math.round(share * 100)}%"
 				></span></span
 			>

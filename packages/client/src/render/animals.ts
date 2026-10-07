@@ -2089,11 +2089,6 @@ export function animateFlight(
 	}
 }
 
-/** Whether a figure has wings to fly with: a bird's (`wingL`, `wingR`). */
-export function hasWings(figure: THREE.Object3D): boolean {
-	return figure.getObjectByName('wingL') !== undefined;
-}
-
 /**
  * Free a figure that leaves the screen for good: its shape once no other
  * figure of its kind is drawn with it, its bones, and its z's. The materials

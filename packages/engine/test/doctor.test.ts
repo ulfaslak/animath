@@ -1,5 +1,6 @@
 import { isDeepStrictEqual } from 'node:util';
 import { describe, expect, it } from 'vitest';
+import { deepFreeze } from './freeze.js';
 import { ANIMALS, canFightIn, getAnimal } from '../src/animals/catalog.js';
 import { REALMS, type AnimalInstance, type Realm } from '../src/animals/types.js';
 import { careFor, doctorComes, knockOut } from '../src/doctor/knockout.js';
@@ -11,7 +12,7 @@ import {
 	needsDoctor,
 	needsHealing
 } from '../src/doctor/party.js';
-import { applyDoctorIntent, startDoctorVisit } from '../src/doctor/reducer.js';
+import { applyDoctorIntent, buyRefusal, startDoctorVisit } from '../src/doctor/reducer.js';
 import { homeTokens, tokenPuzzle, tokensForTier } from '../src/doctor/tokens.js';
 import type { DoctorEvent, DoctorIntent, DoctorState, DoctorStep } from '../src/doctor/types.js';
 import { ITEMS, ITEM_IDS, getItem, hasItem, itemsForSale } from '../src/items/catalog.js';
@@ -29,14 +30,6 @@ import { wordedStrings } from './words.js';
 
 const SEEDS = 25;
 const PROTOTYPE = hashString('prototype');
-
-function deepFreeze<T>(value: T): T {
-	if (value && typeof value === 'object' && !Object.isFrozen(value)) {
-		Object.freeze(value);
-		for (const key of Object.keys(value)) deepFreeze((value as Record<string, unknown>)[key]);
-	}
-	return value;
-}
 
 function maxHp(animal: AnimalInstance): number {
 	return getAnimal(animal.speciesId).maxHp;
@@ -786,6 +779,40 @@ describe('buying', () => {
 		expect(phase.puzzle.prompt).toBe('21 − 8 = ?');
 		expect(s.events).toEqual([
 			{ type: 'purchase-shown', itemId: 'axe', price: 8, puzzle: phase.puzzle }
+		]);
+	});
+
+	it('buyRefusal says exactly what buy does: every item, shop, owned set and balance round the price', () => {
+		// The witch doctor's card greys a row with it, so it must never disagree with the reducer.
+		const party = partyOf(['fox']);
+		const shops = [ITEM_IDS, itemsForSale(), ITEM_IDS.slice(0, 2), []];
+		const bad: unknown[] = [];
+		const seen = new Set<string>();
+		for (const shop of shops) {
+			for (const owned of [[], ['axe'], ['boat', 'harness'], ITEM_IDS]) {
+				for (const item of [...ITEMS.map((i) => i.id), 'sword', 7]) {
+					const price =
+						typeof item === 'string' && ITEM_IDS.includes(item as never)
+							? getItem(item as never).price
+							: 10;
+					for (const tokens of [0, price - 1, price, price + 1]) {
+						if (tokens < 0) continue;
+						const state = startDoctorVisit(party, { tokens, items: owned, shop });
+						const event = apply(state, { type: 'buy', itemId: item as string }, 1).events[0]!;
+						const said = event.type === 'rejected' ? event.reason : null;
+						const refusal = buyRefusal(state, item);
+						seen.add(String(refusal));
+						if (refusal !== said) bad.push({ shop, owned, item, tokens, refusal, said });
+					}
+				}
+			}
+		}
+		expect(bad).toEqual([]);
+		expect([...seen].sort()).toEqual([
+			'already-owned',
+			'not-enough-tokens',
+			'not-for-sale',
+			'null'
 		]);
 	});
 

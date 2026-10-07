@@ -1,7 +1,9 @@
-import { getAnimal } from '@mathgame/engine';
+import { FIRST_WORLD, getAnimal, type GameEvent } from '@mathgame/engine';
+import { LocalAuthority } from '../src/authority/local';
 import { describe, expect, it } from 'vitest';
 import {
 	MAX_SEEDED_PARTY,
+	authorityOptions,
 	parseItems,
 	parseNudgeSteps,
 	parseParty,
@@ -145,5 +147,40 @@ describe('URL switches', () => {
 			expect(parseParty(bad), bad).toBeNull();
 		}
 		expect(parseParty(null)).toBeNull();
+	});
+});
+
+/** ARCHITECTURE § The authority seam: a throwaway game is in World 1, every game of its page. */
+describe('authorityOptions', () => {
+	const worldsOf = (search: string) => {
+		const authority = new LocalAuthority(authorityOptions(readFlags(search)));
+		const worlds: number[] = [];
+		authority.subscribe((e: GameEvent) => {
+			if (e.type === 'welcome') worlds.push(e.world);
+		});
+		authority.start();
+		for (let i = 0; i < 4; i++) {
+			authority.dispatch({ type: 'leave-game' });
+			authority.dispatch({ type: 'new-game', speciesId: 'rabbit' });
+		}
+		return worlds;
+	};
+
+	it('starts every game on a throwaway page in World 1, New game after Quit to title too', () => {
+		for (const search of ['?new', '?party=fox', '?zoo', '?tokens=40', '?shop', '?items=axe']) {
+			expect(worldsOf(search), search).toEqual([1, 1, 1, 1, 1].map(() => FIRST_WORLD));
+		}
+	});
+
+	it('leaves a page that saves to the random home world of the authority', () => {
+		expect(authorityOptions(readFlags('')).homeWorld).toBeUndefined();
+		expect(authorityOptions(readFlags('?debug&steps=20')).homeWorld).toBeUndefined();
+	});
+
+	it('hands the switches to the authority', () => {
+		const options = authorityOptions(readFlags('?party=fox&tokens=40&shop&items=axe'));
+		expect(options).toMatchObject({ tokens: 40, items: ['axe'] });
+		expect(options.party).toHaveLength(1);
+		expect(options.shop).toBeDefined();
 	});
 });

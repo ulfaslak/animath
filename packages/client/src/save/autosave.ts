@@ -87,7 +87,12 @@ export interface AutosaveOptions {
 	loggedOut?: () => void;
 	/** The game as it stands: the authority's snapshot. */
 	snapshot: () => SavedGame;
-	/** A fresh random id, for a new game's lineage. */
+	/**
+	 * The authority's id minter: a fresh random id, for a new game's lineage and
+	 * for the starter `restoreGame` adds to a party that cannot fight on land (the
+	 * engine mints none). Never constant: `restoreGame` throws when every id it
+	 * gives is already in the party.
+	 */
 	mintId: () => string;
 	/**
 	 * Another tab of this game walked further and this page carries on from
@@ -135,7 +140,7 @@ type Server = 'unknown' | 'ready' | 'stopped';
 /** A save goes to the server this long after a change that matters, or after walking. */
 const SOON_MS = 1000;
 const WALK_MS = 15_000;
-/** Retries back off from 2 s to a minute, and give up after this many in a row. */
+/** Retries back off from 2 s, doubling, to 32 s, and give up after this many in a row. */
 const MAX_FAILURES = 6;
 const BOOT_WAIT_MS = 2500;
 
@@ -350,7 +355,7 @@ export class Autosave {
 				// fork of a game a newer version has saved on another device. Anything else it
 				// holds is settled as usual once the game begins.
 				if (await this.newerOnServer()) return {};
-				return { game: restoreGame(read.save), notice: 'save.welcomeBack' };
+				return { game: restoreGame(read.save, this.mintId), notice: 'save.welcomeBack' };
 			}
 			if (read.reason === 'newer') {
 				// Never written over or set aside: a reload fetches the version that reads it.
@@ -375,7 +380,7 @@ export class Autosave {
 					this.pushed = this.seq;
 					// The kid's game is back: an unreadable local save is set aside for it at once.
 					this.played = true;
-					return { game: restoreGame(read.save), notice: 'save.welcomeBack' };
+					return { game: restoreGame(read.save, this.mintId), notice: 'save.welcomeBack' };
 				}
 				if (read.reason === 'newer') {
 					// The kid's game is on the server, saved by a newer version: this page neither
@@ -561,7 +566,7 @@ export class Autosave {
 	 * visit counts never go back. Undefined when the page saves nothing.
 	 */
 	resumable(): SavedGame | undefined {
-		return this.base ? restoreGame(this.base) : undefined;
+		return this.base ? restoreGame(this.base, this.mintId) : undefined;
 	}
 
 	// --- local ----------------------------------------------------------------

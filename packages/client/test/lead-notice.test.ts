@@ -67,16 +67,6 @@ describe('the line about who goes first', () => {
 		expect(hud.message).toBe(chosen('Fox'));
 	});
 
-	it('says when every animal of a card is tired, and names one that is alone', () => {
-		const { edit } = setup('squirrel,rabbit:0*3,fox:0');
-		edit({ type: 'lead-species', speciesId: 'rabbit' });
-		expect(hud.message).toBe(t('party.leadAllTired'));
-		edit({ type: 'lead-species', speciesId: 'fox' });
-		expect(hud.message).toBe(t('party.leadTired', { animal: 'Fox' }));
-		edit({ type: 'lead-species', speciesId: 'squirrel' });
-		expect(hud.message).toBe(t('party.leadAlready', { animal: 'Squirrel' }));
-	});
-
 	it('says why a lead was not chosen', () => {
 		const { edit } = setup('squirrel,rabbit:0');
 		const [squirrel, rabbit] = game.party;

@@ -1,5 +1,6 @@
 import { isDeepStrictEqual } from 'node:util';
 import { describe, expect, it } from 'vitest';
+import { deepFreeze } from './freeze.js';
 import { ANIMALS, canFightIn } from '../src/animals/catalog.js';
 import type { AnimalInstance } from '../src/animals/types.js';
 import { startBattle } from '../src/battle/reducer.js';
@@ -18,14 +19,6 @@ import { turn } from './turn.js';
  * Hangul jamo that compose, invisible "letters", emoji sequences, lone
  * surrogates, every kind of space); the reducer is swept over random parties.
  */
-
-function deepFreeze<T>(value: T): T {
-	if (value && typeof value === 'object' && !Object.isFrozen(value)) {
-		Object.freeze(value);
-		for (const key of Object.keys(value)) deepFreeze((value as Record<string, unknown>)[key]);
-	}
-	return value;
-}
 
 const chars = (s: string) => Array.from(s).length;
 
@@ -1040,7 +1033,7 @@ describe('a party with no cap', () => {
 		const wild: AnimalInstance = { id: 'wild', speciesId: 'bear', hp: 60 };
 		for (const [i, start] of BIG.entries()) {
 			const rng = new Rng(hashInts(0xb1d, i));
-			let party = start;
+			let party: readonly AnimalInstance[] = start;
 			for (let n = 0; n < 40; n++) {
 				party = deepFreeze(applyPartyIntent(party, randomIntent(rng, party), 'explore').party);
 				expect(isBundled(party)).toBe(true);

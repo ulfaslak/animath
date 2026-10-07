@@ -56,7 +56,7 @@ import type { Peer, PresenceHub, Present } from './hub.js';
  *   told, and the match waits for them; then the match ends and the other
  *   side wins (`dropped`). A page that comes back is sent the match at once.
  * - **After the match.** Both pages stay on the result until the kid goes
- *   back to exploring (their `where` says so). "Rematch?" from both starts a
+ *   back to exploring (their page says `done`). "Rematch?" from both starts a
  *   new match between the same two, with a new seed; one who goes back puts
  *   it off, and so does `lingerMs` passing. The kid's Back wins over a
  *   Rematch? it crosses on the way (#147): a Rematch? said before a page

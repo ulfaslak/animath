@@ -648,8 +648,8 @@ const MAX_WIRE_ATTACK = 16;
 const MAX_WIRE_ANSWER = 32;
 /** The longest prompt on the wire: every prompt is a short sum or a short row of numbers. */
 const MAX_WIRE_PROMPT = 80;
-/** The most events one match message carries: one intent causes at most five. */
-const MAX_MATCH_EVENTS = 16;
+/** The most events one match message carries (one intent causes at most five), and one `match-answers` takes. */
+export const MAX_MATCH_EVENTS = 16;
 /** The longest wait the wire says (an invite's, the time to come back): ten minutes. */
 const MAX_WIRE_MS = 600_000;
 /** HP, damage, turns and steps on the wire are whole numbers up to this. */

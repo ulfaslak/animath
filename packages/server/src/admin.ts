@@ -1,4 +1,8 @@
 import {
+	MAX_NAME_LENGTH,
+	MIN_NAME_LENGTH,
+	PASSWORD_MAX_LENGTH,
+	PASSWORD_MIN_LENGTH,
 	checkName,
 	checkPassword,
 	nameKey,
@@ -69,7 +73,9 @@ export async function resetPassword(
 	const password = newPassword ?? easyPassword();
 	const checked = checkPassword(password);
 	if (!checked.ok) {
-		throw new AdminError(`That password is too ${checked.reason}: it needs 4 to 128 characters.`);
+		throw new AdminError(
+			`That password is too ${checked.reason}: it needs ${PASSWORD_MIN_LENGTH} to ${PASSWORD_MAX_LENGTH} characters.`
+		);
 	}
 	await setPasswordHash(user.id, await hashPassword(checked.password));
 	return [
@@ -358,8 +364,7 @@ function linkOrigin({ origin, domain }: ImportOptions): string {
 }
 
 /** What `checkName` asks of a name, for the admin. */
-const NAME_RULE =
-	'2 to 16 letters or numbers, words joined by single spaces or hyphens, and nothing rude';
+const NAME_RULE = `${MIN_NAME_LENGTH} to ${MAX_NAME_LENGTH} letters or numbers, words joined by single spaces or hyphens, and nothing rude`;
 
 /**
  * A kid's save (`exportLocalSave`'s file, as `text`) becomes an account

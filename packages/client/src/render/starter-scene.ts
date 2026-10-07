@@ -2,6 +2,7 @@ import { Rng } from '@mathgame/engine';
 import * as THREE from 'three';
 import { motion } from '../motion';
 import { IDLE_DEPTH, animateIdle, buildAnimalMesh, disposeFigure } from './animals';
+import { WORLD_LIGHT } from './campfire';
 import { COLORS, TILE_COLORS } from './palette';
 import type { Stage } from './renderer';
 
@@ -94,8 +95,10 @@ export class StarterScene implements Stage {
 	constructor() {
 		this.scene.background = new THREE.Color(COLORS.sky);
 		this.scene.fog = new THREE.Fog(COLORS.sky, 14, 30);
-		this.scene.add(new THREE.HemisphereLight(0xffffff, 0x88aa66, 1.1));
-		const sun = new THREE.DirectionalLight(0xfff2d6, 2.2);
+		this.scene.add(
+			new THREE.HemisphereLight(WORLD_LIGHT.sky, WORLD_LIGHT.bounce, WORLD_LIGHT.fill)
+		);
+		const sun = new THREE.DirectionalLight(WORLD_LIGHT.sun, WORLD_LIGHT.sunIntensity);
 		sun.position.set(3, 8, 6);
 		sun.castShadow = true;
 		sun.shadow.mapSize.set(1024, 1024);
