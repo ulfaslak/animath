@@ -20,6 +20,7 @@ import { game } from '../src/state/game.svelte';
 import { HINT_STEPS, MESSAGE_SECONDS, hud } from '../src/state/hud.svelte';
 import { besideA, gameBeside } from './clearing';
 import { skyPieces } from './sky-pieces';
+import { testStarter } from './minted';
 
 /**
  * The explore message line (UI_SPEC § Explore mode): what was said last fades
@@ -208,7 +209,7 @@ describe('the explore message line', () => {
 
 	it('while the team is tired, the line under it says to walk to a tent, until a doctor has helped', () => {
 		const squirrel = { id: 'sq', speciesId: 'squirrel', hp: 0 };
-		const s = setup({ ...newGame(1), party: [squirrel] });
+		const s = setup({ ...newGame(1, testStarter()), party: [squirrel] });
 		expect(hud.tired).toBe(true);
 		// Before the controls hint, from the first step: this is what to do now.
 		expect(hud.hint).toBe(t('explore.tired'));
@@ -230,7 +231,7 @@ describe('the explore message line', () => {
 	it('out on the water only a team with nobody standing at all is tired: a walker in the boat can still battle on land', () => {
 		const otter = { id: 'ot', speciesId: 'otter', hp: 0 };
 		const squirrel = { id: 'sq', speciesId: 'squirrel', hp: 20 };
-		const atSea = { ...newGame(1), pos: { x: -2, y: 2 }, items: ['boat'] };
+		const atSea = { ...newGame(1, testStarter()), pos: { x: -2, y: 2 }, items: ['boat'] };
 		setup({ ...atSea, party: [otter] });
 		expect(game.realm).toBe('water');
 		expect(hud.hint).toBe(t('explore.tiredSail'));
@@ -240,7 +241,7 @@ describe('the explore message line', () => {
 		expect(hud.hint).toBe(t('explore.controls'));
 		// On land, a crab standing is nobody who can fight there.
 		setup({
-			...newGame(1),
+			...newGame(1, testStarter()),
 			party: [
 				{ ...squirrel, hp: 0 },
 				{ id: 'cr', speciesId: 'crab', hp: 20 }

@@ -7,6 +7,7 @@ import { gearOf } from './items/catalog.js';
 import { checkName } from './names.js';
 import { bundled, joinParty } from './party/bundles.js';
 import { normalizeNickname } from './party/names.js';
+import type { Starter } from './party/starters.js';
 import { ALL_PUZZLE_KINDS, MAX_DIFFICULTY, MIN_DIFFICULTY } from './puzzles/types.js';
 import { WorldEdits, editedTileAt, isEditsText } from './world/edits.js';
 import { spawnPoint } from './world/spawn.js';
@@ -678,26 +679,45 @@ export function isNewerSave(doc: unknown): boolean {
 	return !read.ok && read.reason === 'newer';
 }
 
-/** The default starter at full HP: a throwaway game's, and a saved party's that came back empty. */
-function defaultStarter(): AnimalInstance {
-	return { id: 'starter', speciesId: STARTER_SPECIES, hp: getAnimal(STARTER_SPECIES).maxHp };
+/**
+ * The default starter at full HP, without an id (the engine mints none,
+ * [[DECISIONS]] § Engine): a throwaway game's, with an id the authority gives
+ * it, and the one `restoreGame` adds to a party that has none that can fight on land.
+ */
+export function defaultStarter(): Starter {
+	return { speciesId: STARTER_SPECIES, hp: getAnimal(STARTER_SPECIES).maxHp };
+}
+
+/**
+ * How many ids `restoreGame` asks its `mintId` for before it gives up: an id
+ * already in the party is never given to the starter it adds.
+ */
+const MINT_TRIES = 8;
+
+/** An id from `mintId` that no animal in `party` has. Throws when `mintId` keeps giving taken ones. */
+function freshId(party: readonly AnimalInstance[], mintId: () => string): string {
+	for (let i = 0; i < MINT_TRIES; i++) {
+		const id = mintId();
+		if (!party.some((a) => a.id === id)) return id;
+	}
+	throw new Error(`restoreGame: mintId gave ${MINT_TRIES} ids already in the party`);
 }
 
 /**
  * A new game in world `world`, which is its home: that world's spawn tile,
  * facing down, nothing walked, no tokens, no items, no puzzle solved, nothing
  * cleared and no other world visited, the player called `name` (checked by the caller with
- * `checkName`; null for none yet), and one animal, `starter` (the chosen one,
- * `chooseStarter`'s with an id from the authority), or else the default
- * starter at full HP. The animal book holds the starter alone, caught: a
+ * `checkName`; null for none yet), and one animal, `starter`, with the id the
+ * authority minted for it (`chooseStarter`'s pick, or `defaultStarter` for a
+ * throwaway game). The animal book holds the starter alone, caught: a
  * starter counts as caught.
  */
 export function newGame(
 	world: number,
-	starter?: AnimalInstance,
+	starter: AnimalInstance,
 	name: string | null = null
 ): SavedGame {
-	const party = [starter ? { ...starter } : defaultStarter()];
+	const party = [{ ...starter }];
 	const book = recordParty(bookOf([], []), party);
 	return {
 		name,
@@ -739,10 +759,14 @@ function cleanAnimal(animal: AnimalInstance): AnimalInstance {
  * nothing in it can leave the player stuck: a position the player can't be
  * on, in the world as they left it, with what they own (the world generator
  * changed under it, or water without a boat) becomes the spawn tile, an HP
- * above the species' maximum is cut to it, an empty party gets the starter,
- * a party with no animal that can fight on land (only sea animals: no save a
- * kid's game writes holds one) gets it too, behind the others, so the grass
- * is never out of reach. A team that needs the doctor (`needsDoctor`) comes
+ * above the species' maximum is cut to it, an empty party gets the default
+ * starter (`defaultStarter`), a party with no animal that can fight on land
+ * (only sea animals: no save a kid's game writes holds one) gets it too, behind
+ * the others, so the grass is never out of reach. The starter it adds takes its
+ * id from `mintId`, the authority's (the engine mints none, [[DECISIONS]] §
+ * Engine), never one an animal in the party already has; `mintId` is called
+ * only when a starter joins, so the same save and the same minted id give the
+ * same game. A team that needs the doctor (`needsDoctor`) comes
  * back exactly as tired as it was: a reload is never a heal. The live game
  * left it with a way to a doctor (`careFor`, asked after a lost battle, a
  * go-to and a trip), and asking again here, where the player now stands,
@@ -765,7 +789,7 @@ function cleanAnimal(animal: AnimalInstance): AnimalInstance {
  * The animal book comes back as saved, made whole with what the save proves
  * itself (`savedBook`): a save from before the book gets one back.
  */
-export function restoreGame(save: SaveV2): SavedGame {
+export function restoreGame(save: SaveV2, mintId: () => string): SavedGame {
 	const seed = worldSeed(save.world);
 	const items = [...new Set(save.items ?? [])];
 	// Kept within the budget as a clear keeps it, whatever wrote the save (a hand-edited
@@ -780,15 +804,8 @@ export function restoreGame(save: SaveV2): SavedGame {
 	let party = save.party.map((a) =>
 		cleanAnimal({ ...a, hp: Math.min(a.hp, getAnimal(a.speciesId).maxHp) })
 	);
-	if (party.length === 0) party = [defaultStarter()];
-	else if (!party.some((a) => canFightIn(a.speciesId, 'land'))) {
-		let id = 'starter';
-		for (let n = 2; party.some((a) => a.id === id); n++) id = `starter-${n}`;
-		party = joinParty(party, {
-			id,
-			speciesId: STARTER_SPECIES,
-			hp: getAnimal(STARTER_SPECIES).maxHp
-		});
+	if (!party.some((a) => canFightIn(a.speciesId, 'land'))) {
+		party = joinParty(party, { ...defaultStarter(), id: freshId(party, mintId) });
 	}
 	const pos = standable ? { x: save.pos.x, y: save.pos.y } : spawnPoint(seed);
 	const battle = standable ? readBattle(save.battle, party, tileRealm(here)) : null;

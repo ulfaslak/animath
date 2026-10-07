@@ -20,6 +20,7 @@ import { COPY, LANGUAGES } from '../src/copy/languages';
 import { flatten } from '../src/copy/translate';
 import { SAVE_NOTICES } from '../src/save/notices';
 import { KEYS, type KeyValueStore } from '../src/save/storage';
+import { mint, testStarter } from './minted';
 
 /**
  * The autosave's rules, against a localStorage stand-in shared by "tabs" and a
@@ -133,7 +134,7 @@ class Tab {
 		public server: FakeServer | null,
 		options: { throwaway?: boolean } = {}
 	) {
-		this.game = newGame(WORLD);
+		this.game = newGame(WORLD, testStarter());
 		this.autosave = new Autosave({
 			store,
 			server,
@@ -188,7 +189,7 @@ class Tab {
 			await settle();
 			return plan;
 		}
-		this.game = plan.game ? JSON.parse(JSON.stringify(plan.game)) : newGame(WORLD);
+		this.game = plan.game ? JSON.parse(JSON.stringify(plan.game)) : newGame(WORLD, testStarter());
 		// What `authority.start(plan)` emits, before `begin` — as in main.ts.
 		this.autosave.handle({ type: 'welcome' } as GameEvent);
 		if (this.game.battle) this.autosave.handle({ type: 'battle-started' } as GameEvent);
@@ -302,7 +303,7 @@ describe('Autosave: the save in this browser', () => {
 			seq: 1,
 			world: WORLD,
 			home: WORLD,
-			party: newGame(WORLD).party
+			party: newGame(WORLD, testStarter()).party
 		});
 		expect(saved.lineage).toBeTruthy();
 		await later();
@@ -376,7 +377,7 @@ describe('Autosave: the save in this browser', () => {
 		const extra = { stars: [3, 1], note: 'from a later build' };
 		const store = new MemoryStore();
 		const server = new FakeServer();
-		const doc = { ...saveDocument(newGame(WORLD), { lineage: 'L', seq: 4 }), extra };
+		const doc = { ...saveDocument(newGame(WORLD, testStarter()), { lineage: 'L', seq: 4 }), extra };
 		server.seed(doc);
 		store.set(KEYS.save, JSON.stringify(doc));
 		const tab = new Tab(store, server);
@@ -517,7 +518,9 @@ describe('Autosave: the save in this browser', () => {
 
 	it('a save nested deeper than a save can be is one that cannot be read, however deep, and no crash', async () => {
 		// A real save, edited by hand: a field nested far past what a walk one level at a time survives.
-		const real = JSON.stringify(saveDocument(newGame(WORLD), { lineage: 'L', seq: 4 }));
+		const real = JSON.stringify(
+			saveDocument(newGame(WORLD, testStarter()), { lineage: 'L', seq: 4 })
+		);
 		const deep = `${real.slice(0, -1)},"deep":${'['.repeat(100_000)}${']'.repeat(100_000)}}`;
 		const store = new MemoryStore();
 		store.set(KEYS.save, deep);
@@ -531,7 +534,10 @@ describe('Autosave: the save in this browser', () => {
 	});
 
 	it("a newer build's save starts nothing: the page is behind it, never touches it, and the server is left alone", async () => {
-		for (const [what, doc] of newerSaves(newGame(WORLD), { lineage: 'their-game', seq: 8 })) {
+		for (const [what, doc] of newerSaves(newGame(WORLD, testStarter()), {
+			lineage: 'their-game',
+			seq: 8
+		})) {
 			const store = new MemoryStore();
 			const newer = JSON.stringify(doc);
 			store.set(KEYS.save, newer);
@@ -590,7 +596,10 @@ describe('Autosave: the save in this browser', () => {
 	});
 
 	it("a newer version's save that lands just before a write (its storage event not in yet) is never written over or moved", async () => {
-		for (const [what, doc] of newerSaves(newGame(WORLD), { lineage: 'their-game', seq: 90 })) {
+		for (const [what, doc] of newerSaves(newGame(WORLD, testStarter()), {
+			lineage: 'their-game',
+			seq: 90
+		})) {
 			const newer = JSON.stringify(doc);
 			// A kid picking a starter on the title: the new game would put the key's save away.
 			const titleStore = new MemoryStore();
@@ -1056,7 +1065,7 @@ describe('Autosave: two tabs, each with the real authority', () => {
 	}
 
 	function savedAt(store: MemoryStore, game: Partial<SavedGame>): void {
-		const base = newGame(WORLD);
+		const base = newGame(WORLD, testStarter());
 		store.set(
 			KEYS.save,
 			JSON.stringify(saveDocument({ ...base, ...game }, { lineage: 'kid-game', seq: 1 }))
@@ -1145,7 +1154,7 @@ describe('Autosave: two tabs, each with the real authority', () => {
 			const probe = new LocalAuthority();
 			const seen: GameEvent[] = [];
 			probe.subscribe((e) => seen.push(e));
-			probe.start({ game: { ...newGame(WORLD), steps } });
+			probe.start({ game: { ...newGame(WORLD, testStarter()), steps } });
 			probe.dispatch({ type: 'move', dir: 'left' });
 			if (seen.some((e) => e.type === 'battle-started')) break;
 		}
@@ -1168,7 +1177,7 @@ describe('Autosave: two tabs, each with the real authority', () => {
 		expect(save.battle).not.toBeNull();
 		// A page picked up from that save plays the battle on exactly as A does.
 		const c = new Page(new MemoryStore());
-		c.authority.start({ game: restoreGame(readSaveOrThrow(save)) });
+		c.authority.start({ game: restoreGame(readSaveOrThrow(save), mint) });
 		for (let i = 0; i < 6; i++) {
 			const state = latestBattle(a.events);
 			if (state.phase.kind === 'ended') break;
@@ -1184,7 +1193,7 @@ describe("Autosave: an account's save on the server", () => {
 	it("with no save of the account's game here, start waits briefly for the server and takes its game", async () => {
 		const server = new FakeServer();
 		const theirs = {
-			...saveDocument(newGame(WORLD), { lineage: 'from-server', seq: 40 }),
+			...saveDocument(newGame(WORLD, testStarter()), { lineage: 'from-server', seq: 40 }),
 			steps: 55
 		};
 		theirs.party = [...theirs.party, { id: 'fox', speciesId: 'fox', hp: 9 }];
@@ -1200,7 +1209,7 @@ describe("Autosave: an account's save on the server", () => {
 	it('an unknown server game at start (offline) is found later; the bigger game wins and this tab reloads', async () => {
 		const server = new FakeServer();
 		const theirs = {
-			...saveDocument(newGame(WORLD), { lineage: 'from-server', seq: 40 }),
+			...saveDocument(newGame(WORLD, testStarter()), { lineage: 'from-server', seq: 40 }),
 			steps: 55
 		};
 		server.seed(theirs);
@@ -1279,7 +1288,10 @@ describe("Autosave: an account's save on the server", () => {
 
 	it("with no save here (or an unreadable one), a newer build's save on the server starts nothing: the page is behind it, and never sends", async () => {
 		for (const local of [null, '{"version":2,"broken":true}']) {
-			for (const [what, newer] of newerSaves(newGame(WORLD), { lineage: 'their-game', seq: 9 })) {
+			for (const [what, newer] of newerSaves(newGame(WORLD, testStarter()), {
+				lineage: 'their-game',
+				seq: 9
+			})) {
 				const server = new FakeServer();
 				server.seed(newer);
 				const store = new MemoryStore();
@@ -1325,7 +1337,9 @@ describe("Autosave: an account's save on the server", () => {
 
 	it('a game adopted from the server never overwrites a game already kept aside', async () => {
 		const server = new FakeServer();
-		const theirs = { ...saveDocument(newGame(WORLD), { lineage: 'from-server', seq: 40 }) };
+		const theirs = {
+			...saveDocument(newGame(WORLD, testStarter()), { lineage: 'from-server', seq: 40 })
+		};
 		server.seed(theirs);
 		const store = new MemoryStore();
 		store.set(KEYS.replaced, 'an earlier game');
@@ -1342,7 +1356,10 @@ describe("Autosave: an account's save on the server", () => {
 	});
 
 	it("a newer build's save on the server is never overwritten: the page that finds it is behind it, and plays no further", async () => {
-		for (const [what, newer] of newerSaves(newGame(WORLD), { lineage: 'their-game', seq: 3 })) {
+		for (const [what, newer] of newerSaves(newGame(WORLD, testStarter()), {
+			lineage: 'their-game',
+			seq: 3
+		})) {
 			const server = new FakeServer();
 			server.seed(newer);
 			const store = new MemoryStore();
@@ -1480,7 +1497,9 @@ describe("Autosave: an account's save on the server", () => {
 	it('a tab taking the server’s game in the same instant another tab saves a catch: the catch is kept aside', async () => {
 		const store = new MemoryStore();
 		const server = new FakeServer();
-		const theirs = { ...saveDocument(newGame(WORLD), { lineage: 'from-server', seq: 40 }) };
+		const theirs = {
+			...saveDocument(newGame(WORLD, testStarter()), { lineage: 'from-server', seq: 40 })
+		};
 		server.seed(theirs);
 		const first = new Tab(store, null);
 		await first.open();
@@ -1586,7 +1605,7 @@ describe('Autosave: the title', () => {
 
 	/** A saved game with progress in it, as this browser holds it: `seq` 5, a caught fox. */
 	function savedGame(store: MemoryStore, lineage = 'old-game'): string {
-		const game = newGame(WORLD);
+		const game = newGame(WORLD, testStarter());
 		game.party.push({ id: 'fox-1', speciesId: 'fox', nickname: 'Rusty', hp: 9 });
 		// As the game writes it (`saveDocument`): no battle, no `battle` key.
 		const text = JSON.stringify(saveDocument(game, { lineage, seq: 5 }));
@@ -1686,7 +1705,9 @@ describe('Autosave: the title', () => {
 	it('a new game started while the server was out of reach never puts away a game the title did not show', async () => {
 		const server = new FakeServer();
 		// The kid's real game is on the server; this browser has lost its own copy.
-		const theirs = { ...saveDocument(newGame(WORLD), { lineage: 'kids-real-game', seq: 50 }) };
+		const theirs = {
+			...saveDocument(newGame(WORLD, testStarter()), { lineage: 'kids-real-game', seq: 50 })
+		};
 		theirs.party = [...theirs.party, { id: 'bear-1', speciesId: 'bear', hp: 100 }];
 		server.seed(theirs);
 		const store = new MemoryStore();
@@ -1729,7 +1750,9 @@ describe('Autosave: the title', () => {
 		const store = new MemoryStore();
 		savedGame(store);
 		// The server holds the old game further on than this browser does.
-		const ahead = { ...saveDocument(newGame(WORLD), { lineage: 'old-game', seq: 50 }) };
+		const ahead = {
+			...saveDocument(newGame(WORLD, testStarter()), { lineage: 'old-game', seq: 50 })
+		};
 		server.seed(ahead);
 		const tab = new Tab(store, server);
 		await tab.title();
@@ -1754,7 +1777,10 @@ describe('Autosave: the title', () => {
 	});
 
 	it("a newer build's save is never touched by a new game", async () => {
-		for (const [what, doc] of newerSaves(newGame(WORLD), { lineage: 'their-game', seq: 5 })) {
+		for (const [what, doc] of newerSaves(newGame(WORLD, testStarter()), {
+			lineage: 'their-game',
+			seq: 5
+		})) {
 			const newer = JSON.stringify(doc);
 			const store = new MemoryStore();
 			store.set(KEYS.save, newer);

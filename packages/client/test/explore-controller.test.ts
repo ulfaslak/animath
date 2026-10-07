@@ -23,6 +23,7 @@ import { game } from '../src/state/game.svelte';
 import { skyPieces } from './sky-pieces';
 import { hud } from '../src/state/hud.svelte';
 import { team } from '../src/state/team.svelte';
+import { testStarter } from './minted';
 
 /**
  * Explore input against the real authority: what a frame sends, and in which
@@ -187,7 +188,7 @@ describe('the glider', () => {
 	const SPAWN = { x: -2, y: 6 };
 	/** A game in World 1 at `pos`, facing `facing`, owning the glider and `items`. */
 	function flyer(pos: GridPos, facing: Direction, items: string[] = []): SavedGame {
-		return { ...newGame(1), pos, facing, items: ['glider', ...items] };
+		return { ...newGame(1, testStarter()), pos, facing, items: ['glider', ...items] };
 	}
 	const count = (events: GameEvent[], type: GameEvent['type']) =>
 		events.filter((e) => e.type === type).length;

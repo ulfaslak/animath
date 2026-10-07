@@ -5,6 +5,7 @@ import type { Line } from './lines.js';
 import type { NameRejection } from './names.js';
 import type { NewGameRejection } from './party/starters.js';
 import type { ItemId } from './items/catalog.js';
+import type { MatchEvent, MatchSide } from './match/types.js';
 import type { PartyEvent, PartyIntent } from './party/types.js';
 import type { ChunkRef } from './world/edits.js';
 import type { TakeOffRejection } from './world/flight.js';
@@ -107,7 +108,30 @@ export type Intent =
 	 * with `game-left`; after it nothing walks, rolls or saves until a game
 	 * starts.
 	 */
-	| { type: 'leave-game' };
+	| { type: 'leave-game' }
+	/**
+	 * A friendly match took a step: `events` are that step's, as the match's
+	 * own authority (the server) sent them to this player, who plays `side`,
+	 * in match `match` (its id), whose view says `step` intents accepted now.
+	 * The player's right answers among them count as solved puzzles, as a
+	 * right answer in a battle does (`countSolved` with `side`); the other
+	 * player's never do, and nothing else in the game changes (a match is the
+	 * server's: [[DECISIONS]] § Multiplayer). In any mode while a game is
+	 * under way. A step of a match is counted once: one at or below a step
+	 * already counted for that match is ignored, as is a batch that is not
+	 * one step's events (`MAX_MATCH_EVENTS` at most, with no holes, and at
+	 * most one `answer-judged`), a side that is not `a` or `b`, or a step or a
+	 * match id that is not one. The answers were judged by the server; the
+	 * authority only counts, so a step adds at most one puzzle solved. Answered with `solved-changed` when a right answer of
+	 * the player's was among them, else with nothing.
+	 */
+	| {
+			type: 'match-answers';
+			match: string;
+			step: number;
+			side: MatchSide;
+			events: readonly MatchEvent[];
+	  };
 
 export type GameEvent =
 	/**
