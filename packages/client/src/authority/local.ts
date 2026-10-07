@@ -3,6 +3,7 @@ import {
 	FIRST_WORLD,
 	LAST_WORLD,
 	MATCH_SIDES,
+	MAX_MATCH_EVENTS,
 	Rng,
 	WORLD_ONE_SEED,
 	WorldEdits,
@@ -1056,23 +1057,34 @@ export class LocalAuthority implements Authority {
 }
 
 /**
- * A `match-answers` that is one, whatever its type says: a match id, a step
- * that is a whole number, a side, and a list of events, each an object with
- * a `type` (`countSolved` reads no more). A step below 1 is one, but never
- * counts: it is never above the last step counted, which starts at 0.
+ * A `match-answers` that is one step of a match, whatever its type says: a
+ * match id, a step that is a whole number, a side, and the events of one
+ * intent: a list of at most `MAX_MATCH_EVENTS` (as the wire takes), each an
+ * object with a `type`, and at most one `answer-judged`, with a side and
+ * `correct` true or false (the match reducer judges one answer per intent).
+ * So one step adds at most one puzzle solved. A step below 1 passes here,
+ * but never counts: it is never above the last step counted, which starts
+ * at 0.
  */
 function isMatchBatch(intent: Intent & { type: 'match-answers' }): boolean {
 	const { match, step, side, events } = intent as { [K in keyof typeof intent]: unknown };
-	return (
-		isMatchId(match) &&
-		Number.isSafeInteger(step) &&
-		MATCH_SIDES.includes(side as MatchSide) &&
-		Array.isArray(events) &&
-		events.every(
-			(e: unknown) =>
-				typeof e === 'object' && e !== null && typeof (e as { type?: unknown }).type === 'string'
-		)
-	);
+	if (!isMatchId(match) || !Number.isSafeInteger(step)) return false;
+	if (!MATCH_SIDES.includes(side as MatchSide)) return false;
+	if (!Array.isArray(events) || events.length > MAX_MATCH_EVENTS) return false;
+	let judged = 0;
+	// An index loop, not `every`: a hole in the list is looked at too, and refused.
+	for (let i = 0; i < events.length; i++) {
+		const e: unknown = events[i];
+		if (typeof e !== 'object' || e === null) return false;
+		const { type, side: by, correct } = e as { type?: unknown; side?: unknown; correct?: unknown };
+		if (typeof type !== 'string') return false;
+		if (type !== 'answer-judged') continue;
+		judged += 1;
+		if (judged > 1 || !MATCH_SIDES.includes(by as MatchSide) || typeof correct !== 'boolean') {
+			return false;
+		}
+	}
+	return true;
 }
 
 /** A copy of a world left behind, so the authority's own never leaves it. */

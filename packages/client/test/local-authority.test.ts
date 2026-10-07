@@ -2,6 +2,7 @@ import {
 	ATTACK_LEVELS,
 	EDITS_BUDGET,
 	ITEM_IDS,
+	MAX_MATCH_EVENTS,
 	Rng,
 	WorldEdits,
 	applyMatchIntent,
@@ -2449,7 +2450,16 @@ describe('LocalAuthority: puzzles solved', () => {
 			{ ...good, events: { 0: good.events[0], length: 1 } },
 			{ ...good, events: [...good.events, null] },
 			{ ...good, events: [...good.events, 'answer-judged'] },
-			{ ...good, events: [...good.events, { side: 'a', correct: true }] }
+			{ ...good, events: [...good.events, { side: 'a', correct: true }] },
+			// A list with holes, which `every` would skip.
+			{ ...good, events: new Array(2) },
+			{ ...good, events: [...good.events, , { type: 'missed', attacker: 'b' }] },
+			// More than one intent's worth: past the wire's limit, or a second answer judged.
+			{ ...good, events: [...good.events, ...Array(MAX_MATCH_EVENTS).fill({ type: 'missed' })] },
+			{ ...good, events: [...good.events, { type: 'answer-judged', side: 'a', correct: true }] },
+			// An answer judged without a side, or neither right nor wrong.
+			{ ...good, events: [{ type: 'answer-judged', side: 'c', correct: true }] },
+			{ ...good, events: [{ type: 'answer-judged', side: 'a', correct: 'yes' }] }
 		];
 		const from = s.events.length;
 		for (const intent of bad) s.authority.dispatch(intent as Intent);
