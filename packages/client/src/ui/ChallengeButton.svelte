@@ -89,11 +89,11 @@
 	}
 	.why {
 		font-weight: 600;
-		font-size: 14px;
+		font-size: 16px;
 	}
 	kbd {
 		font-family: inherit;
-		font-size: 14px;
+		font-size: 16px;
 		padding: 1px 8px;
 		border-radius: 8px;
 		background: rgba(255, 255, 255, 0.3);

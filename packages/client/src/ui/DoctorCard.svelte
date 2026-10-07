@@ -1032,7 +1032,7 @@
 		border: 2px solid rgba(0, 0, 0, 0.25);
 		background: white;
 		color: white;
-		font-size: 15px;
+		font-size: 16px;
 		line-height: 1;
 		box-sizing: border-box;
 	}
@@ -1068,7 +1068,7 @@
 		margin-left: 4px;
 		padding: 0 7px;
 		border-radius: 8px;
-		font-size: 15px;
+		font-size: 16px;
 		background: rgba(45, 42, 50, 0.08);
 		font-variant-numeric: tabular-nums;
 	}
@@ -1514,13 +1514,11 @@
 			display: none;
 		}
 		/*
-		 * The badge and the tokens a size smaller too, so they share a row over
-		 * the doctor's line at 667 px with four-digit tokens: beside the list
-		 * the tokens went to a row of their own under the badge.
+		 * The tokens a size smaller too, so they share a row with the badge
+		 * over the doctor's line at 667 px with four-digit tokens: beside the
+		 * list the tokens went to a row of their own under the badge. The
+		 * badge keeps its 16 px, the smallest text there is.
 		 */
-		.who {
-			font-size: 14px;
-		}
 		.purse {
 			font-size: 16px;
 		}
