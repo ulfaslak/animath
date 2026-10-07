@@ -36,7 +36,7 @@ ENV MATHGAME_DOMAIN=$MATHGAME_DOMAIN
 RUN pnpm build && find packages/client/dist -name '*.map' -delete
 
 FROM node:26-slim AS production
-LABEL org.opencontainers.image.source=https://github.com/ulfaslak/mathgame
+LABEL org.opencontainers.image.source=https://github.com/ulfaslak/animath
 # The server finds the client at ../client/dist, from where it runs.
 WORKDIR /app/packages/server
 COPY --from=build /workspace/packages/client/dist /app/packages/client/dist

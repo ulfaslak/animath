@@ -48,12 +48,12 @@ On the server, as `deploy`:
    ```
    Add its public half to the repo from the Mac (read-only is the default):
    ```bash
-   gh repo deploy-key add <(ssh -i ~/.ssh/mathgame_deploy deploy@<server_ip> cat .ssh/github_deploy.pub) -R ulfaslak/mathgame -t mathgame-prod
+   gh repo deploy-key add <(ssh -i ~/.ssh/mathgame_deploy deploy@<server_ip> cat .ssh/github_deploy.pub) -R ulfaslak/animath -t mathgame-prod
    ```
    A key added with `gh` goes when gh's token is revoked; the human can add it in the repo's Settings → Deploy keys instead, where it stays.
 2. Clone, with the key remembered for every later fetch:
    ```bash
-   git clone -c core.sshCommand="ssh -i ~/.ssh/github_deploy -o IdentitiesOnly=yes -o StrictHostKeyChecking=accept-new" git@github.com:ulfaslak/mathgame.git ~/mathgame
+   git clone -c core.sshCommand="ssh -i ~/.ssh/github_deploy -o IdentitiesOnly=yes -o StrictHostKeyChecking=accept-new" git@github.com:ulfaslak/animath.git ~/mathgame
    ```
 3. `~/mathgame/.env.production`, mode 600. Replacing a dead server: the offsite copy, `scp -i ~/.ssh/mathgame_deploy ~/mathgame-backups/.env.production deploy@<server_ip>:mathgame/`. A first server: from `.env.production.example`, with a new password (`openssl rand -base64 24 | tr -d '/+='`) in both `POSTGRES_PASSWORD` and `DATABASE_URL`.
 4. The key the deploy workflow logs in with. On the server:
@@ -63,9 +63,9 @@ On the server, as `deploy`:
    ```
    From the Mac, straight into the repo's secrets, never onto the screen, then drop the private half from the server:
    ```bash
-   ssh -i ~/.ssh/mathgame_deploy deploy@<server_ip> cat .ssh/deploy_key | gh secret set VPS_SSH_KEY -R ulfaslak/mathgame
-   gh secret set VPS_HOST -R ulfaslak/mathgame --body <server_ip>
-   gh secret set VPS_USER -R ulfaslak/mathgame --body deploy
+   ssh -i ~/.ssh/mathgame_deploy deploy@<server_ip> cat .ssh/deploy_key | gh secret set VPS_SSH_KEY -R ulfaslak/animath
+   gh secret set VPS_HOST -R ulfaslak/animath --body <server_ip>
+   gh secret set VPS_USER -R ulfaslak/animath --body deploy
    ssh -i ~/.ssh/mathgame_deploy deploy@<server_ip> rm .ssh/deploy_key
    ```
 5. Optional: alerts from the backup service to Slack, `~/mathgame/.env.monitoring` holding `MONITORING_SLACK_WEBHOOK_URL=…` (mode 600).
