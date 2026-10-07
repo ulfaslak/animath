@@ -580,7 +580,7 @@ Who is in which world, where, and what they are doing ([[DECISIONS]] § Multipla
    ◀── hi {v, pid, name, match, boot}  /  refresh {v}  /  bye {reason}
  where {world, x, y, facing, lead, boat, harness?, busy} ────────────────▶ into that world's room;
    ◀── peer {pid, name, …} / gone {pid}   (the players near, both ways)       sight both ways
-   ◀── roster {world, players}            (everyone else in the world, roughly, every 2 s if it changed)
+   ◀── roster {world, players}            (the 50 nearest others in the world, roughly, every 2 s if it changed)
  find {pid} ─────────────────────────────────────────────────────────────▶ found {pid, x, y} / lost {pid}
  battle {view, events}   (its own, while its where says battle) ─────────▶ kept on the player, passed on
    ◀── fight {pid, vs, view, events}       (a battle near you: someone's with a wild animal, or a match)
