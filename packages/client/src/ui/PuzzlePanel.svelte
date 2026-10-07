@@ -184,7 +184,7 @@
 	}
 	.back kbd {
 		font-family: inherit;
-		font-size: 14px;
+		font-size: 16px;
 		padding: 0 6px;
 		border-radius: 6px;
 		background: rgba(0, 0, 0, 0.08);

@@ -52,7 +52,7 @@
 		border-radius: var(--radius);
 		box-shadow: var(--hud-shadow);
 		padding: 8px 16px;
-		font-weight: 700;
+		font-weight: 800;
 		text-align: center;
 		text-wrap: balance;
 	}

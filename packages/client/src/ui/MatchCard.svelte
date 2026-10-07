@@ -139,7 +139,7 @@
 	}
 	kbd {
 		font-family: inherit;
-		font-size: 14px;
+		font-size: 16px;
 		padding: 2px 7px;
 		border-radius: 8px;
 		background: rgba(45, 42, 50, 0.1);
