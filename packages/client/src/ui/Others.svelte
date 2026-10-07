@@ -686,17 +686,17 @@
 		animation: float 1.2s ease-out forwards;
 	}
 	.pop.l1 {
-		--size: 38px;
+		--size: 42px;
 		--text: 16px;
 		--fill: var(--warn);
 	}
 	.pop.l2 {
-		--size: 44px;
+		--size: 48px;
 		--text: 18px;
 		--fill: var(--accent);
 	}
 	.pop.l3 {
-		--size: 50px;
+		--size: 54px;
 		--text: 20px;
 		--fill: var(--coral);
 	}
