@@ -44,7 +44,7 @@ Statements migrate as they change kind. A decision that has been implemented and
 
 ## Useful, optional, checks before starting work
 
-- **GitHub Issues**: Run `gh issue list` to see open work (planned + in-flight). An open issue that carries a **claim comment** ("🔨 Started work on this.") is already being worked on by another agent — read it with `gh issue view <N> --comments` to understand current state, and keep away from it. GitHub Issues (repo `ulfaslak/mathgame`) is the single source of truth for dev work — query it via `gh` rather than maintaining a local index. When picking up work, look at defects first (`gh issue list --label bug`) and skip anything labelled `eventually`; see § "Issues" for what the labels mean.
+- **GitHub Issues**: Run `gh issue list` to see open work (planned + in-flight). An open issue that carries a **claim comment** ("🔨 Started work on this.") is already being worked on by another agent — read it with `gh issue view <N> --comments` to understand current state, and keep away from it. GitHub Issues (repo `ulfaslak/animath`) is the single source of truth for dev work — query it via `gh` rather than maintaining a local index. When picking up work, look at defects first (`gh issue list --label bug`) and skip anything labelled `eventually`; see § "Issues" for what the labels mean.
 - **HUMAN_TODO**: Check [[HUMAN_TODO]] for pending manual tasks. Remove completed ones; add new ones if your work creates manual follow-ups. Only tasks requiring human action belong here (accounts, consents, product decisions). Running servers, migrations, and database operations are **not** human tasks — do them yourself.
 - **ENVIRONMENT_NOTES**: [[ENVIRONMENT_NOTES]] collects the things that are true about this machine but not derivable from the code — the ports and Postgres instance shared with another project, the browser quirks, the pnpm build-approval dance. Read it before blaming your change for a confusing local failure. It is record-keeping, not DNA — delete an entry in the same PR that fixes what it describes.
 - **DEFERRED**: [[DEFERRED]] is the tech-debt ledger. If your work touches an area with a deferred item, check whether you resolved it and remove it.
@@ -82,7 +82,7 @@ Use skills for specialized repeatable workflows, not for baseline behaviour that
 
 ## Issues
 
-Dev work is tracked in **GitHub Issues** (repo `ulfaslak/mathgame`). Since GitHub has no status columns, the four states are expressed with open/closed plus a claim comment and a linked PR:
+Dev work is tracked in **GitHub Issues** (repo `ulfaslak/animath`). Since GitHub has no status columns, the four states are expressed with open/closed plus a claim comment and a linked PR:
 
 | State           | GitHub representation                                                                    |
 | --------------- | ---------------------------------------------------------------------------------------- |
@@ -294,7 +294,7 @@ The human reads your output to learn **what is true now**, not what you did to f
 - **Make the final response self-contained.** The human has not read your tool calls and may not have read your interim updates.
 - **Length follows stakes, not effort.**
 - **Mark your confidence.** Keep verified, inferred, and assumed distinct. "Tests pass" is not "it plays well"; a green build is not a rendered frame.
-- **Link what you name.** Issues and PRs as `[#N](https://github.com/ulfaslak/mathgame/issues/N)`; local files (screenshots, mocks) as `file://` links with the absolute path to where the file actually is — the worktree if that's where you wrote it. Not in PR or issue bodies, where GitHub auto-links and `Closes #N` must stay bare.
+- **Link what you name.** Issues and PRs as `[#N](https://github.com/ulfaslak/animath/issues/N)`; local files (screenshots, mocks) as `file://` links with the absolute path to where the file actually is — the worktree if that's where you wrote it. Not in PR or issue bodies, where GitHub auto-links and `Closes #N` must stay bare.
 
 ### Status updates during long work
 

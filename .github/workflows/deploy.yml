@@ -176,9 +176,11 @@ jobs:
             MATHGAME_DOMAIN=${{ steps.domain.outputs.domain }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+          # The image keeps the repo's old name (the repo is now animath): the
+          # server, deploy.sh and every image a rollback can reach are there.
           tags: |
-            ghcr.io/${{ github.repository }}:prod
-            ghcr.io/${{ github.repository }}:${{ github.sha }}
+            ghcr.io/ulfaslak/mathgame:prod
+            ghcr.io/ulfaslak/mathgame:${{ github.sha }}
 
   # pnpm rollback: point :prod at an image built before, without a rebuild.
   retag:
@@ -197,7 +199,7 @@ jobs:
       - uses: docker/setup-buildx-action@v3
       - name: Point :prod at the image built from ${{ needs.check.outputs.rollback_sha }}
         env:
-          IMAGE: ghcr.io/${{ github.repository }}
+          IMAGE: ghcr.io/ulfaslak/mathgame
           SHA: ${{ needs.check.outputs.rollback_sha }}
         run: |
           if ! docker buildx imagetools inspect "$IMAGE:$SHA" >/dev/null; then
