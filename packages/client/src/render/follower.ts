@@ -1,7 +1,7 @@
 import {
 	WorldEdits,
+	canFightIn,
 	editedTileAt,
-	getAnimal,
 	isWalkable,
 	isWater,
 	step,
@@ -675,10 +675,9 @@ export class Follower {
 	 */
 	private canStand(p: GridPos, species: string | null): boolean {
 		const kind = editedTileAt(this.seed, this.edits, p.x, p.y).kind;
-		const realms = species ? getAnimal(species).realms : (['land'] as const);
-		return (
-			(isWalkable(kind) && realms.includes('land')) || (isWater(kind) && realms.includes('water'))
-		);
+		const lands = species ? canFightIn(species, 'land') : true;
+		const swims = species ? canFightIn(species, 'water') : false;
+		return (isWalkable(kind) && lands) || (isWater(kind) && swims);
 	}
 
 	/** The player cleared a tile: the world it stands in is as `edits` leave it. */
@@ -712,7 +711,7 @@ function adjacent(a: GridPos, b: GridPos): boolean {
 
 /** Whether an animal of `species` flies: a bird. */
 function flies(species: string | null): boolean {
-	return species !== null && getAnimal(species).realms.includes('air');
+	return species !== null && canFightIn(species, 'air');
 }
 
 /** The way from one tile to the next, or null when they are not neighbours. */

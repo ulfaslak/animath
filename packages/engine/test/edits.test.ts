@@ -28,6 +28,7 @@ import {
 	type TileKind
 } from '../src/world/types.js';
 import { turn } from './turn.js';
+import { mint, testStarter } from './minted.js';
 
 const PROTOTYPE = hashString('prototype');
 const SEEDS = [PROTOTYPE, 7, 2024];
@@ -618,7 +619,7 @@ describe('keeping the save small', () => {
 		expect(edits.trimmedAround(home).regrown).toEqual([]);
 		expect(edits.textLength).toBeLessThanOrEqual(EDITS_BUDGET);
 		// World 1 is the prototype world.
-		const game = { ...newGame(1), edits: [...edits.encode()] };
+		const game = { ...newGame(1, testStarter()), edits: [...edits.encode()] };
 		const text = JSON.stringify(saveDocument(game, { lineage: 'L', seq: 1 }));
 		// Well inside the 64 KiB of the backup sent as the page closes, with room for a team mid-battle.
 		expect(text.length).toBeLessThan(EDITS_BUDGET + 2000);
@@ -628,7 +629,7 @@ describe('keeping the save small', () => {
 		for (let i = 0; i < 3 && took >= 250; i++) {
 			const started = performance.now();
 			const read = readSave(JSON.parse(text));
-			const restored = read.ok ? restoreGame(read.save) : null;
+			const restored = read.ok ? restoreGame(read.save, mint) : null;
 			took = Math.min(took, performance.now() - started);
 			expect(restored?.edits).toEqual(game.edits);
 		}

@@ -37,6 +37,7 @@ import { game } from '../src/state/game.svelte';
 import { hud } from '../src/state/hud.svelte';
 import { pause } from '../src/state/pause.svelte';
 import { presence } from '../src/state/presence.svelte';
+import { testStarter } from './minted';
 
 // The glue between the game, the socket and the screen: when the page is
 // present and when not, what it says about itself, and "Go to", end to end
@@ -164,7 +165,7 @@ function setup(
 	/** A game under way in World 1, as Continue picks one up, named as `options` says (Ada). */
 	const start = () =>
 		authority.start({
-			game: newGame(1, undefined, options.name === undefined ? 'Ada' : options.name)
+			game: newGame(1, testStarter(), options.name === undefined ? 'Ada' : options.name)
 		});
 	cleanups.push(() => authority.dispatch({ type: 'leave-game' }));
 	return {
@@ -238,7 +239,7 @@ describe('presence on the page', () => {
 	it('tells the server about its own battle while it is in one: as it stands, each step, again on a new socket, never after its end', () => {
 		const s = setup();
 		// The eleventh step from the start, onto the reed, meets a wild animal.
-		s.authority.start({ game: { ...newGame(1, undefined, 'Ada'), steps: 10 } });
+		s.authority.start({ game: { ...newGame(1, testStarter(), 'Ada'), steps: 10 } });
 		s.connect();
 		s.frame();
 		s.authority.dispatch({ type: 'move', dir: 'left' });
@@ -342,7 +343,7 @@ describe('presence on the page', () => {
 	it('says the harness only when it is owned', () => {
 		for (const items of [['harness', 'boat'], ['boat']]) {
 			const s = setup();
-			s.authority.start({ game: { ...newGame(1, undefined, 'Ada'), items } });
+			s.authority.start({ game: { ...newGame(1, testStarter(), 'Ada'), items } });
 			s.connect();
 			s.frame();
 			const where = s.sentOf('where').at(-1) as unknown as WhereMessage;
@@ -355,7 +356,7 @@ describe('presence on the page', () => {
 	it('up in the air says so: each tile flown goes as a flight, and the landing tile as walking again', () => {
 		const s = setup();
 		s.authority.start({
-			game: { ...newGame(1, undefined, 'Ada'), items: ['glider'], facing: 'up' }
+			game: { ...newGame(1, testStarter(), 'Ada'), items: ['glider'], facing: 'up' }
 		});
 		s.connect();
 		s.frame();
@@ -386,7 +387,7 @@ describe('presence on the page', () => {
 		// Three tiles of ground, then water past the 20th: the reach is the third tile.
 		s.authority.start({
 			game: {
-				...newGame(1, undefined, 'Ada'),
+				...newGame(1, testStarter(), 'Ada'),
 				items: ['glider'],
 				pos: { x: 110, y: -154 },
 				facing: 'right'
@@ -588,7 +589,7 @@ describe('presence on the page', () => {
 	it('does not go when the player took off while the server answered, and sends no go-to into the flight', () => {
 		const s = setup();
 		s.authority.start({
-			game: { ...newGame(1, undefined, 'Ada'), items: ['glider'], facing: 'up' }
+			game: { ...newGame(1, testStarter(), 'Ada'), items: ['glider'], facing: 'up' }
 		});
 		s.connect();
 		s.controller.goTo('friend0001');

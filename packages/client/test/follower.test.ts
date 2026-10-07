@@ -39,6 +39,7 @@ import { doctor } from '../src/state/doctor.svelte';
 import { game } from '../src/state/game.svelte';
 import { besideA, gameBeside } from './clearing';
 import { skyPieces } from './sky-pieces';
+import { testStarter } from './minted';
 
 /**
  * The lead walking behind the trainer, driven as the game drives it: the real
@@ -258,7 +259,7 @@ describe('the lead walks behind the trainer', () => {
 		for (const facing of facings) {
 			for (const speciesId of ['rabbit', 'otter']) {
 				const s = setup(speciesId, {
-					...newGame(1),
+					...newGame(1, testStarter()),
 					pos,
 					facing,
 					party: [{ id: 'r', speciesId, hp: getAnimal(speciesId).maxHp }]
@@ -372,7 +373,7 @@ describe('who follows', () => {
 describe('out on the water', () => {
 	/** A game at the spawn tile with the boat, this party, standing at `pos`. */
 	const withBoat = (team: string, pos?: GridPos): SavedGame => ({
-		...newGame(1),
+		...newGame(1, testStarter()),
 		party: parseParty(team)!,
 		items: ['boat'],
 		...(pos ? { pos } : {})
@@ -657,7 +658,7 @@ describe('up in the air (#91)', () => {
 	 */
 	function flyer(party: string) {
 		const game0 = {
-			...newGame(1),
+			...newGame(1, testStarter()),
 			pos: { x: -2, y: 6 },
 			facing: 'up' as const,
 			steps: 15,
@@ -747,7 +748,7 @@ describe('up in the air (#91)', () => {
 describe('with the harness', () => {
 	/** A game at the spawn tile owning `items`, with this party (in `?party=` style). */
 	const owning = (team: string, items: string[]): SavedGame => ({
-		...newGame(1),
+		...newGame(1, testStarter()),
 		party: parseParty(team)!,
 		items
 	});

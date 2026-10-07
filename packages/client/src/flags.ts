@@ -1,4 +1,12 @@
-import { ANIMALS, ITEM_IDS, isItemId, type AnimalInstance, type ItemId } from '@mathgame/engine';
+import {
+	ANIMALS,
+	FIRST_WORLD,
+	ITEM_IDS,
+	isItemId,
+	type AnimalInstance,
+	type ItemId
+} from '@mathgame/engine';
+import type { LocalAuthorityOptions } from './authority/local';
 
 /**
  * The page's URL switches, read once at load. None is a setting a player
@@ -71,6 +79,22 @@ export function readFlags(search: string): Flags {
 		items,
 		throwaway:
 			fresh || party !== null || zoo !== null || tokens !== null || shop !== null || items !== null
+	};
+}
+
+/**
+ * What the page's authority starts with, from its switches: the party,
+ * tokens, shop and items they ask for. A throwaway game is in World 1, the
+ * one start every look at a screen shares, and so is every New game on its
+ * page; a page that saves gets a home world picked at random.
+ */
+export function authorityOptions(flags: Flags): LocalAuthorityOptions {
+	return {
+		party: flags.party ?? undefined,
+		tokens: flags.tokens ?? undefined,
+		shop: flags.shop ?? undefined,
+		items: flags.items ?? undefined,
+		homeWorld: flags.throwaway ? () => FIRST_WORLD : undefined
 	};
 }
 

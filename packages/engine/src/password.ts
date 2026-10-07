@@ -23,6 +23,19 @@ export type PasswordRefusal = 'short' | 'long';
 
 export type PasswordCheck = { ok: true; password: string } | { ok: false; reason: PasswordRefusal };
 
+/** Every `PasswordRefusal` once, so the list can't miss one the type has. */
+const PASSWORD_REFUSAL_SET: Record<PasswordRefusal, true> = { short: true, long: true };
+
+/** Every reason a password can be refused: what a refusal read off the wire is checked against. */
+export const PASSWORD_REFUSALS = Object.keys(PASSWORD_REFUSAL_SET) as readonly PasswordRefusal[];
+
+/** Whether `value` is a `PasswordRefusal`: a reason a server's answer gives, say. */
+export function isPasswordRefusal(value: unknown): value is PasswordRefusal {
+	return (
+		typeof value === 'string' && Object.prototype.hasOwnProperty.call(PASSWORD_REFUSAL_SET, value)
+	);
+}
+
 /**
  * Checks a typed password. On success `password` is the text to hash: NFC,
  * so an "å" typed as one character on a laptop and as "a" plus a ring on a
