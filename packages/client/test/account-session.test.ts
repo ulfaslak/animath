@@ -165,18 +165,23 @@ describe('making an account with the guest game', () => {
 
 	it("never writes over or sets aside a newer build's save in the account keys: the guest game stays the guest's", () => {
 		const keys = gameKeys({ name: 'Ida' });
-		const newer = JSON.stringify({ version: 99, seq: 1 });
-		const guest = saveText(20);
-		store.set(keys.save, newer);
-		store.set(KEYS.save, guest);
-		expect(moveGuestGameIn(store, 'Ida')).toBe(true);
-		expect(store.get(keys.save)).toBe(newer);
-		expect(store.get(keys.replaced)).toBeNull();
-		expect(store.get(keys.unreadable)).toBeNull();
-		expect(store.get(KEYS.save)).toBe(guest);
-		expect(store.get(KEYS.previous)).toBeNull();
-		// Logged in all the same: the page that starts next is behind the newer save.
-		expect(currentAccount(store)).toEqual({ name: 'Ida' });
+		// Both ways a save is a newer build's: a later version, and a species this build lacks.
+		const later = JSON.parse(saveText(500, 'deleted-account-game'));
+		later.party = [{ id: 'later-1', speciesId: 'later-species', hp: 9 }];
+		for (const newer of [JSON.stringify({ version: 99, seq: 1 }), JSON.stringify(later)]) {
+			store = new MemoryStore();
+			const guest = saveText(20);
+			store.set(keys.save, newer);
+			store.set(KEYS.save, guest);
+			expect(moveGuestGameIn(store, 'Ida')).toBe(true);
+			expect(store.get(keys.save)).toBe(newer);
+			expect(store.get(keys.replaced)).toBeNull();
+			expect(store.get(keys.unreadable)).toBeNull();
+			expect(store.get(KEYS.save)).toBe(guest);
+			expect(store.get(KEYS.previous)).toBeNull();
+			// Logged in all the same: the page that starts next is behind the newer save.
+			expect(currentAccount(store)).toEqual({ name: 'Ida' });
+		}
 	});
 
 	it('keeps an unreadable save the account keys held aside as unreadable', () => {

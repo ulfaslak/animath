@@ -79,12 +79,16 @@ export function guestGameFor(store: KeyValueStore, name: string): Record<string,
  * game. Anything the account's keys held here before is kept aside first
  * (`replaced`, or `unreadable` when this build could not read it), except a
  * save a newer build wrote there, which is never written over or set aside:
- * then nothing moves, the guest game stays the guest's, and the page that
- * starts next is behind that save (`newer`). The key can hold one when the
- * name was an account's before, this browser played it on a newer build, and
- * the account was deleted (`admin delete-account`, or a database restored
- * from before it) while this tab still runs an older build (a stale tab
- * during a deploy, or a rollback).
+ * then nothing moves, and the guest game stays the guest's, so it stays in
+ * reach whatever happens next. The key can hold one when the name was an
+ * account's before, this browser played it on a newer build, and the account
+ * was deleted (`admin delete-account`, or a database restored from before it)
+ * while this tab still runs an older build (a stale tab during a deploy, or
+ * a rollback). The restart then lands behind that save (`newer`) when the
+ * older build is still served; when the reload fetches the newer build, that
+ * build carries on with the save it finds here as the account's game, and
+ * the server's copy (the game registered with) gives way to it only as any
+ * further-along game's would, kept aside on the server.
  *
  * False when this browser could not even be logged in (its storage refuses
  * writes): nothing moved, and the guest game plays on. When only the move
