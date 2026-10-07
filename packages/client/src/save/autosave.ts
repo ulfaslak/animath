@@ -135,7 +135,7 @@ type Server = 'unknown' | 'ready' | 'stopped';
 /** A save goes to the server this long after a change that matters, or after walking. */
 const SOON_MS = 1000;
 const WALK_MS = 15_000;
-/** Retries back off from 2 s to a minute, and give up after this many in a row. */
+/** Retries back off from 2 s, doubling, to 32 s, and give up after this many in a row. */
 const MAX_FAILURES = 6;
 const BOOT_WAIT_MS = 2500;
 

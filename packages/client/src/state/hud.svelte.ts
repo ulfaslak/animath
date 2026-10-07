@@ -278,7 +278,6 @@ class HudView {
 	private toolHints = new Set<ClearableKind>();
 	/** The key of the talk on its way to the authority (`talked`): a tap of Space, or Enter. */
 	private talkKey: TalkKey = 'enter';
-	/** Whether the player owned the glider when the doctor's card opened: bought there, the card's goodbye says how to fly. */
 	/** The items owned as the doctor's visit began: what the kid buys there is what is new at its end. */
 	private itemsBefore: readonly string[] = [];
 
@@ -463,12 +462,12 @@ class HudView {
 		this.talkKey = key;
 	}
 
-	/** Put a line on the message line; it stays for `MESSAGE_SECONDS` of the HUD on screen. */
 	/** Whether `id` is among `items` at the doctor's goodbye and was not as the visit began. */
 	private bought(items: readonly string[], id: ItemId): boolean {
 		return items.includes(id) && !this.itemsBefore.includes(id);
 	}
 
+	/** Put a line on the message line; it stays for `MESSAGE_SECONDS` of the HUD on screen. */
 	private say(said: Said): void {
 		this.#said = said;
 		this.age = 0;
