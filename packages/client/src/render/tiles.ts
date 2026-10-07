@@ -26,8 +26,9 @@ import { BIOME_LOOK, CANOPY, COLORS, PROP_COLORS, TILE_COLORS } from './palette'
  * Turns a chunk into meshes. Ground tiles are merged into one instanced mesh
  * per chunk (16×16 = 256 boxes), and so is every kind of prop: all the
  * chunk's trunks are one instanced mesh, all its canopies another, its rocks,
- * blades, reeds, flowers and bushes one each. So a screen of 25 chunks is a
- * few hundred draw calls however much grows on it. Tents, a few per screen,
+ * blades, reeds, flowers and bushes one each. So a screen of 25 chunks is
+ * about 150 draw calls (the sun's shadow pass among them) however much grows
+ * on it. Tents, a few per screen,
  * are small groups of their own with the witch doctor (`doctor.ts`), whose
  * shapes are shared too, and the campfire's glow (`campfire.ts`).
  *

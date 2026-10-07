@@ -10,7 +10,15 @@ import {
 import * as THREE from 'three';
 import { smoothstep } from './ease';
 import { COLORS, PROP_COLORS, TILE_COLORS } from './palette';
-import { BOX_GEOMETRY, PROP_GEOMETRY, buildTileProps, disposeChunkGroup, groundTop } from './tiles';
+import {
+	BOX_GEOMETRY,
+	PEAK_HEIGHT,
+	PROP_GEOMETRY,
+	buildTileProps,
+	disposeChunkGroup,
+	groundTop
+} from './tiles';
+import { AHEAD } from './trainer';
 
 /**
  * Chopping a tree and breaking a rock, on screen ([[UI_SPEC]] § Explore
@@ -149,13 +157,6 @@ interface Clearing {
 /** With reduced motion only this many chips or pebbles, and they don't fly. */
 const CALM_BITS = 3;
 
-/** A way to face as a step on the ground. */
-const AHEAD: Record<Direction, [number, number]> = {
-	up: [0, -1],
-	down: [0, 1],
-	left: [-1, 0],
-	right: [1, 0]
-};
 
 export class ClearingEffects {
 	private active: Clearing[] = [];
@@ -177,7 +178,7 @@ export class ClearingEffects {
 		const props = buildTileProps(base, at.x, at.y);
 		props.position.set(-at.x, -top, -at.y);
 		pivot.add(props);
-		const [dx, dz] = AHEAD[facing];
+		const { x: dx, z: dz } = AHEAD[facing];
 		const rng = new Rng(hashInts(at.x, at.y, 77));
 		const flying = base.kind === 'tree' ? chips(rng, dx, dz, top) : pebbles(rng, top);
 		const colours = base.kind === 'tree' ? CHIP_COLOURS : pebbleColours(base);
@@ -314,7 +315,7 @@ const CHIP_COLOURS: readonly number[] = [PROP_COLORS.wood, PROP_COLORS.wood, COL
 
 function pebbleColours(base: Tile): readonly number[] {
 	const grey = [COLORS.rock, PROP_COLORS.boulderLight, PROP_COLORS.pebble];
-	return base.height >= 3 ? [...grey, PROP_COLORS.snow] : grey;
+	return base.height >= PEAK_HEIGHT ? [...grey, PROP_COLORS.snow] : grey;
 }
 
 /**

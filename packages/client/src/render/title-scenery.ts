@@ -13,7 +13,7 @@ import type * as THREE from 'three';
 import { motion } from '../motion';
 import { buildAnimalMesh, disposeFigure } from './animals';
 import { SWIM_DEPTH } from './follower';
-import type { GameRenderer } from './renderer';
+import { CAMERA_YAW, VIEW_HEIGHT_TILES, type GameRenderer } from './renderer';
 import { StarterScene, type StarterRoom } from './starter-scene';
 import { WATER_TOP, groundTop } from './tiles';
 
@@ -33,12 +33,10 @@ import { WATER_TOP, groundTop } from './tiles';
 
 /** How far the camera sways, in tiles, and how slowly (radians per second of frame time). */
 const DRIFT = { x: 1.3, z: 0.8, rateX: 0.19, rateZ: 0.13 };
-/** The world direction that is "right" on screen: the explore camera's yaw, 35°. */
-const SCREEN_RIGHT = { x: Math.cos((35 * Math.PI) / 180), z: -Math.sin((35 * Math.PI) / 180) };
+/** The world direction that is "right" on screen: from the explore camera's yaw. */
+const SCREEN_RIGHT = { x: Math.cos(CAMERA_YAW), z: -Math.sin(CAMERA_YAW) };
 /** The trainer stands this share of the screen's width right of centre, clear of the menu. */
 const TRAINER_AT = 0.22;
-/** The explore camera's height in tiles, which sets how many tiles a share of the width is. */
-const VIEW_HEIGHT_TILES = 14;
 
 /** What the title controller asks of the scenery; tests give it a stand-in. */
 export interface TitleView3D {

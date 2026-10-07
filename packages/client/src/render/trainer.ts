@@ -104,6 +104,14 @@ export const FACING_ANGLE: Record<Direction, number> = {
 	right: Math.PI / 2
 };
 
+/** A unit step for each way a figure faces, in world x and z (grid "down" is +z). */
+export const AHEAD: Record<Direction, { readonly x: number; readonly z: number }> = {
+	up: { x: 0, z: -1 },
+	down: { x: 0, z: 1 },
+	left: { x: -1, z: 0 },
+	right: { x: 1, z: 0 }
+};
+
 /** Which foot a step from anywhere onto `to` lands on: every step the other one (x + y changes by one). */
 export function strideOnto(to: GridPos): 1 | -1 {
 	return (((to.x + to.y) % 2) + 2) % 2 === 0 ? 1 : -1;

@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { buildAnimalMesh, disposeFigure } from './animals';
+import { SUN_FROM, WORLD_LIGHT } from './campfire';
 
 /**
  * The animal book's pictures ([[UI_SPEC]] § Pause menu, "The animal book"):
@@ -51,9 +52,9 @@ export class PortraitStudio {
 		private readonly renderer: PortraitRenderer,
 		private readonly encode: PortraitEncoder = encodePng
 	) {
-		this.scene.add(new THREE.HemisphereLight(0xffffff, 0x88aa66, 1.1));
-		const sun = new THREE.DirectionalLight(0xfff2d6, 2.2);
-		sun.position.set(12, 20, 8);
+		this.scene.add(new THREE.HemisphereLight(WORLD_LIGHT.sky, WORLD_LIGHT.bounce, WORLD_LIGHT.fill));
+		const sun = new THREE.DirectionalLight(WORLD_LIGHT.sun, WORLD_LIGHT.sunIntensity);
+		sun.position.set(...SUN_FROM);
 		this.scene.add(sun);
 	}
 

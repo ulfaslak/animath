@@ -21,7 +21,7 @@ export const SUN_FROM: readonly [number, number, number] = [12, 20, 8];
  * intensity, `height` over the ground its fire burns on, reaching `reach`
  * tiles, as three.js would light it (its distance falloff, the cut-off at
  * its reach). No such light is in the scene: its glow is painted
- * (`paintCampfire`), because every point light cost every lit pixel on
+ * (`paintCampfireSteps`), because every point light cost every lit pixel on
  * screen, and a new number of them compiled every lit shader again (#150,
  * #151). So the world's lights are the fill and the sun, always.
  */
@@ -360,7 +360,7 @@ export interface GlowShape {
 
 /**
  * The glow on `shapes` alone (what stands the same by every fire: the tent,
- * the pot), to paint once and add to every fire's (`paintCampfire`).
+ * the pot), to paint once and add to every fire's (`paintCampfireSteps`).
  */
 export function paintShapes(fire: THREE.Vector3, shapes: readonly GlowShape[]): GlowTriangles {
 	const painter = new GlowPainter(lightOver(fire));
@@ -371,6 +371,9 @@ export function paintShapes(fire: THREE.Vector3, shapes: readonly GlowShape[]): 
 /** Where the campfire's light hangs over a fire at `fire`. */
 const lightOver = (fire: THREE.Vector3) => fire.clone().setY(fire.y + CAMPFIRE_LIGHT.height);
 
+/** How many shapes one step of `paintCampfireSteps` paints: a few milliseconds' work on a slow tablet. */
+const SHAPES_A_STEP = 24;
+
 /**
  * The campfire's glow, in the frame of the tile the fire burns on (its
  * middle, on the ground), the fire at `fire`: a mesh over the ground's tops
@@ -379,28 +382,9 @@ const lightOver = (fire: THREE.Vector3) => fire.clone().setY(fire.y + CAMPFIRE_L
  * each glowing as a small warm light over the fire would light it, and
  * `extra` (the tent and the pot, painted once for every fire). Null where
  * nothing would glow. Its geometry is its own, built for this ground and
- * what stands on it: free it with its chunk.
- */
-export function paintCampfire(
-	fire: THREE.Vector3,
-	ground: GroundAround,
-	shapes: readonly GlowShape[],
-	extra?: GlowTriangles
-): THREE.Mesh | null {
-	const steps = paintCampfireSteps(fire, ground, shapes, extra);
-	for (;;) {
-		const step = steps.next();
-		if (step.done) return step.value;
-	}
-}
-
-/** How many shapes one step of `paintCampfireSteps` paints: a few milliseconds' work on a slow tablet. */
-const SHAPES_A_STEP = 24;
-
-/**
- * `paintCampfire` a step at a time, for a caller that spreads the work over
- * frames: it pauses after the ground and after every `SHAPES_A_STEP` shapes,
- * and returns the mesh.
+ * what stands on it: free it with its chunk. Painted a step at a time, for a
+ * caller that spreads the work over frames: it pauses after the ground and
+ * after every `SHAPES_A_STEP` shapes, and returns the mesh.
  */
 export function* paintCampfireSteps(
 	fire: THREE.Vector3,
