@@ -2,6 +2,7 @@
 	import type { Busy } from '@mathgame/engine';
 	import { onDestroy } from 'svelte';
 	import { t } from '../copy';
+	import { hpBand } from '../hp';
 	import { speciesName } from '../names';
 	import { namesSide, placeNames } from '../presence/edges';
 	import { THOUGHT_LEAN, unclutter, type Mark, type Rect } from '../presence/labels';
@@ -124,7 +125,7 @@
 	/** A tag's box round its anchor (the middle of its bottom edge); before it is measured, about a tag's size. */
 	function tagParts(key: string): Rect[] {
 		const m = measured[`tag:${key}`];
-		if (!m) return [{ x0: -36, x1: 36, y0: -32, y1: 0 }];
+		if (!m) return [{ x0: -50, x1: 50, y0: -34, y1: 0 }];
 		return [{ x0: -m.w / 2, x1: m.w / 2, y0: -m.h, y1: 0 }];
 	}
 
@@ -234,8 +235,8 @@
 			<span class="track"
 				><span
 					class="fill"
-					class:warn={share <= 0.5 && share > 0.2}
-					class:bad={share <= 0.2}
+					class:warn={hpBand(bar.hp, bar.maxHp) === 'warn'}
+					class:bad={hpBand(bar.hp, bar.maxHp) === 'bad'}
 					style:width="{Math.round(share * 100)}%"
 				></span></span
 			>
@@ -469,8 +470,8 @@
 		background: var(--panel-bg);
 		box-shadow: 0 2px 6px rgba(0, 0, 0, 0.18);
 		color: var(--panel-ink);
-		font-weight: 700;
-		font-size: 14px;
+		font-weight: 600;
+		font-size: 16px;
 		line-height: 1.35;
 		white-space: nowrap;
 	}
@@ -641,7 +642,7 @@
 		white-space: nowrap;
 		color: var(--panel-ink);
 		font-weight: 800;
-		font-size: 12px;
+		font-size: 16px;
 		line-height: 1.2;
 	}
 	.track {
@@ -678,7 +679,7 @@
 	.pop {
 		position: absolute;
 		left: calc(var(--size) / -2);
-		top: calc(var(--size) * -1 - 34px);
+		top: calc(var(--size) * -1 - 39px);
 		display: grid;
 		place-items: center;
 		width: var(--size);
@@ -686,18 +687,18 @@
 		animation: float 1.2s ease-out forwards;
 	}
 	.pop.l1 {
-		--size: 38px;
-		--text: 15px;
+		--size: 42px;
+		--text: 16px;
 		--fill: var(--warn);
 	}
 	.pop.l2 {
-		--size: 44px;
-		--text: 17px;
+		--size: 48px;
+		--text: 18px;
 		--fill: var(--accent);
 	}
 	.pop.l3 {
-		--size: 50px;
-		--text: 19px;
+		--size: 54px;
+		--text: 20px;
 		--fill: var(--coral);
 	}
 	.burst {

@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { MAX_NAME_LENGTH, MIN_NAME_LENGTH, checkName, nameKey } from '../src/names.js';
+import {
+	MAX_NAME_LENGTH,
+	MIN_NAME_LENGTH,
+	NAME_REJECTIONS,
+	checkName,
+	isNameRejection,
+	nameKey
+} from '../src/names.js';
 import { Rng, hashInts } from '../src/rng.js';
 
 /**
@@ -341,6 +348,22 @@ describe('checkName', () => {
 	}, 30_000);
 });
 
+describe('NAME_REJECTIONS', () => {
+	it('lists every reason checkName gives, each once, and isNameRejection knows nothing else', () => {
+		const given = new Set<string>();
+		for (const raw of ['', '   ', 'A', 'x'.repeat(MAX_NAME_LENGTH + 1), 'a_b', ...MUST_FAIL, 7]) {
+			const check = checkName(raw);
+			if (!check.ok) given.add(check.reason);
+		}
+		expect([...given].sort()).toEqual([...NAME_REJECTIONS].sort());
+		expect(new Set(NAME_REJECTIONS).size).toBe(NAME_REJECTIONS.length);
+		for (const reason of NAME_REJECTIONS) expect(isNameRejection(reason)).toBe(true);
+		for (const junk of ['SHORT', 'toString', 'constructor', '__proto__', '', 3, null, undefined]) {
+			expect(isNameRejection(junk), String(junk)).toBe(false);
+		}
+	});
+});
+
 describe('nameKey', () => {
 	it('is the same for a name in any case, or in another form of the same letters', () => {
 		for (const [a, b] of [
@@ -351,7 +374,7 @@ describe('nameKey', () => {
 			['Strauß', 'STRAUSS'],
 			['  Ida  Marie ', 'ida marie'],
 			['José', 'Jose\u0301']
-		]) {
+		] as const) {
 			expect(nameKey(a), `${a} / ${b}`).toBe(nameKey(b));
 		}
 	});
@@ -363,7 +386,7 @@ describe('nameKey', () => {
 			['Ida Marie', 'IdaMarie'],
 			['Søren', 'Soren'],
 			['Emil', 'Emil2']
-		]) {
+		] as const) {
 			expect(nameKey(a), `${a} / ${b}`).not.toBe(nameKey(b));
 		}
 	});

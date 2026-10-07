@@ -13,7 +13,7 @@ import {
  * The page's own battle with a wild animal, as the players near it see it
  * ([[PRODUCT]] §4 "Playing together"): what the presence controller tells the
  * server (`battle`), from the authority's own events, through the engine's
- * `wildFight` and `wildFightEvents`: numbers, species and a clean nickname,
+ * `wildFight` and `wildFightEvents`: numbers and species, never a nickname,
  * never words and never an answer. The battle is the browser's (the server
  * decides nothing of it), so this page is the only one that can tell it.
  *

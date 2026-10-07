@@ -89,8 +89,8 @@ export type {
 	TeamRefusal
 } from './match/types.js';
 
-export { applyDoctorIntent, startDoctorVisit } from './doctor/reducer.js';
-export type { DoctorVisitOptions } from './doctor/reducer.js';
+export { applyDoctorIntent, buyRefusal, startDoctorVisit } from './doctor/reducer.js';
+export type { BuyRefusal, DoctorVisitOptions } from './doctor/reducer.js';
 export {
 	canGoHome,
 	keepsATeam,
@@ -124,7 +124,13 @@ export type {
 export { bundled, bundles, isBundled, joinParty } from './party/bundles.js';
 export type { Bundle } from './party/bundles.js';
 export { MAX_NICKNAME_LENGTH, normalizeNickname } from './party/names.js';
-export { PASSWORD_MAX_LENGTH, PASSWORD_MIN_LENGTH, checkPassword } from './password.js';
+export {
+	PASSWORD_MAX_LENGTH,
+	PASSWORD_MIN_LENGTH,
+	PASSWORD_REFUSALS,
+	checkPassword,
+	isPasswordRefusal
+} from './password.js';
 export type { PasswordCheck, PasswordRefusal } from './password.js';
 export { applyPartyIntent, leadIndex } from './party/reducer.js';
 export { STARTERS, STARTER_TIER, chooseStarter, isStarter } from './party/starters.js';
@@ -253,7 +259,15 @@ export type { Line, LineKey, LineParam, LineParamKind, SpeciesRef } from './line
 
 export type { Authority, GameEvent, Intent } from './protocol.js';
 
-export { MAX_NAME_LENGTH, MIN_NAME_LENGTH, checkName, isRude, nameKey } from './names.js';
+export {
+	MAX_NAME_LENGTH,
+	MIN_NAME_LENGTH,
+	NAME_REJECTIONS,
+	checkName,
+	isNameRejection,
+	isRude,
+	nameKey
+} from './names.js';
 export type { NameCheck, NameRejection } from './names.js';
 
 export {
@@ -263,6 +277,7 @@ export {
 	BYE_REASONS,
 	INVITE_ENDS,
 	MATCH_TIMEOUTS,
+	MAX_MATCH_EVENTS,
 	MAX_MESSAGE_BYTES,
 	MAX_ROSTER,
 	MAX_SERVER_MESSAGE_BYTES,
@@ -355,6 +370,7 @@ export {
 	STARTER_SPECIES,
 	V1_KEPT,
 	canReplace,
+	defaultStarter,
 	isNewerSave,
 	newGame,
 	readBattle,

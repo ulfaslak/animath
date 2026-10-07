@@ -74,7 +74,7 @@
 	 * so the menu keeps its height; it opens the book in the menu's place: a
 	 * card for every species in the book's order (`BOOK_ORDER`), in a grid
 	 * that scrolls — a "?" for one never seen, the figure's picture and name
-	 * for one seen, and a leash stamp on a meadow disc for one caught — the
+	 * for one seen, and a green tick on its corner for one caught — the
 	 * count beside the title, and under the grid what the lit card says. A
 	 * card is its `option:<i>` key. The grid says how many cards it lays to a
 	 * row (`book.columns`), which the keys walk by; the pictures are

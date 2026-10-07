@@ -45,6 +45,25 @@ export type NameRejection =
 
 export type NameCheck = { ok: true; name: string } | { ok: false; reason: NameRejection };
 
+/** Every `NameRejection` once, so the list can't miss one the type has. */
+const NAME_REJECTION_SET: Record<NameRejection, true> = {
+	empty: true,
+	short: true,
+	long: true,
+	chars: true,
+	rude: true
+};
+
+/** Every reason a name can be refused: what a refusal read off the wire is checked against. */
+export const NAME_REJECTIONS = Object.keys(NAME_REJECTION_SET) as readonly NameRejection[];
+
+/** Whether `value` is a `NameRejection`: a reason a server's answer gives, say. */
+export function isNameRejection(value: unknown): value is NameRejection {
+	return (
+		typeof value === 'string' && Object.prototype.hasOwnProperty.call(NAME_REJECTION_SET, value)
+	);
+}
+
 /**
  * Whether `raw` is a name, and the name it is: trimmed, its inner spaces
  * single, in NFC. The name that comes back passes again unchanged.

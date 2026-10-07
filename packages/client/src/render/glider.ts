@@ -40,9 +40,6 @@ const ROLL_LENGTH = 0.38;
 const ON_BACK = new THREE.Vector3(0, 0.56, -0.15);
 const ON_BOAT = new THREE.Vector3(0, 0.8, -0.22);
 
-/** Seconds the glider takes to open over the trainer, or to fold away again. */
-export const GLIDER_OPEN_SECONDS = 0.35;
-
 const creamMaterial = new THREE.MeshLambertMaterial({
 	color: GLIDER_COLORS.cream,
 	flatShading: true,

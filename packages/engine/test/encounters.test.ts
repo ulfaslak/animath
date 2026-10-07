@@ -256,13 +256,13 @@ class EveryStepMeets extends Rng {
 /** The share of the biome's table held by each tier, 1 to 5. */
 function tierShares(biome: Biome, distance: number, lead: Tier): number[] {
 	const shares = [0, 0, 0, 0, 0];
-	for (const e of tableIn(biome, distance, lead)) shares[e.species.tier - 1] += e.weight;
+	for (const e of tableIn(biome, distance, lead)) shares[e.species.tier - 1]! += e.weight;
 	return shares;
 }
 
 /** The tiers with an animal living in the biome, in its realm. */
 const livingTiers = (biome: Biome) =>
-	new Set(
+	new Set<number>(
 		residents(biome)
 			.filter((a) => a.realms.includes(realmOf(biome)))
 			.map((a) => a.tier)

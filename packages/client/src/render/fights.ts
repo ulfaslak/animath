@@ -25,7 +25,7 @@ import type { OtherPlayers, OtherSpot } from './others';
 import { COLORS, SPARKLE_COLORS } from './palette';
 import type { Poofs } from './poof';
 import { WATER_TOP, groundTop } from './tiles';
-import { FACING_ANGLE } from './trainer';
+import { AHEAD, FACING_ANGLE } from './trainer';
 
 /**
  * The battles of the players in view, drawn beside them in the world
@@ -137,12 +137,6 @@ const OPPOSITE: Record<Direction, Direction> = {
 	down: 'up',
 	left: 'right',
 	right: 'left'
-};
-const AHEAD: Record<Direction, { x: number; z: number }> = {
-	up: { x: 0, z: -1 },
-	down: { x: 0, z: 1 },
-	left: { x: -1, z: 0 },
-	right: { x: 1, z: 0 }
 };
 
 // Shared shapes and materials, built once and never freed: every scene draws them.

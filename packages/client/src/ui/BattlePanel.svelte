@@ -812,7 +812,7 @@
 		opacity: 0.7;
 	}
 	.party .count {
-		font-size: 15px;
+		font-size: 16px;
 		padding: 0 7px;
 		border-radius: 8px;
 		background: rgba(45, 42, 50, 0.08);

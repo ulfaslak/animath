@@ -40,6 +40,7 @@ import { nameOf } from '../src/names';
 import { BattleScene } from '../src/render/battle-scene';
 import type { GameRenderer } from '../src/render/renderer';
 import { battle } from '../src/state/battle.svelte';
+import { mint, testStarter } from './minted';
 
 /**
  * The battle screen's input and pacing, driven by keys against the real
@@ -84,7 +85,7 @@ function throughSave(game: SavedGame): SavedGame {
 	const doc = saveDocument(game, { lineage: 'test', seq: 1 });
 	const read = readSave(JSON.parse(JSON.stringify(doc)));
 	if (!read.ok) throw new Error(read.error);
-	return restoreGame(read.save);
+	return restoreGame(read.save, mint);
 }
 
 /**
@@ -299,7 +300,7 @@ describe('battle screen', () => {
 		/** From World 1's start up over the lake, a robin in the team: a robin notices the glider on step 4. */
 		const flight = (landing: () => boolean) => {
 			const game = {
-				...newGame(1),
+				...newGame(1, testStarter()),
 				pos: { x: -2, y: 6 },
 				facing: 'up' as const,
 				items: ['glider'],

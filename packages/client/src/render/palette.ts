@@ -28,6 +28,8 @@ export const COLORS = {
 	playerSkin: 0xffcfb0,
 	playerShorts: 0x2f4fa8,
 	playerCap: 0x3d7be8,
+	// The UI's accent (`--accent` in styles.css), where the world shows it: the "!" over a bird's ring.
+	accent: 0xff9f43,
 	// Shared animal details.
 	white: 0xfff4e6,
 	dark: 0x2f2a28,

@@ -24,7 +24,6 @@ export interface AnimalRef {
  * ("Bo's Rabbit", "Bos kanin").
  */
 export const ANIMAL_FORMS = ['name', 'a', 'the', 'wild', 'aWild', 'theWild', 'bare'] as const;
-export type AnimalForm = (typeof ANIMAL_FORMS)[number];
 
 /** A species' name, as a name or a label: "Fox", "Ræv". */
 export function speciesName(speciesId: string): string {

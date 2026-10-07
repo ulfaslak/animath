@@ -90,9 +90,11 @@ export interface Stage {
  * gently on the water (still with reduced motion, where the boat snaps from
  * the back to the water half way through the step instead).
  */
-const VIEW_HEIGHT_TILES = 14; // how many tiles tall the viewport is
+/** How many tiles tall the viewport is (the title's scenery measures the screen with it too). */
+export const VIEW_HEIGHT_TILES = 14;
 const CAMERA_PITCH = THREE.MathUtils.degToRad(50);
-const CAMERA_YAW = THREE.MathUtils.degToRad(35);
+/** The camera's turn about the vertical, from +z towards +x (the title's scenery uses it too). */
+export const CAMERA_YAW = THREE.MathUtils.degToRad(35);
 /** Where the camera rides relative to what it looks at: pitch and yaw never change. */
 const CAMERA_OFFSET = new THREE.Vector3(
 	Math.sin(CAMERA_YAW) * Math.cos(CAMERA_PITCH),

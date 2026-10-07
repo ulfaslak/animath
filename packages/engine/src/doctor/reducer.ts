@@ -31,14 +31,14 @@ import type {
  * puzzles again.
  *
  * The rules ([[PRODUCT]] §4 "Knock-out and healing", "Tokens and the
- * doctor's shop"):
+ * witch doctor's shop"):
  * - Pick an animal below full HP; the doctor asks one puzzle at
  *   `healingDifficulty(tier)`, of a kind the animal's own attacks ask. A right
  *   answer heals every hurt animal of that species to full. A wrong answer
  *   costs nothing: the HP stays as it was and a different puzzle takes its
  *   place, as many times as it takes.
- * - Hand animals over (any of them, tired ones too, but never the last one
- *   standing): the doctor asks the tokens you will have, `tokens + reward`.
+ * - Hand animals over (any of them, tired ones too, but never so many that
+ *   no animal that isn't tired and can fight on land stays): the doctor asks the tokens you will have, `tokens + reward`.
  *   Right, and they go home to the wild, made better, and the tokens are
  *   yours. Wrong, and the same sum is asked again.
  * - Buy an item the shop sells, not owned yet, with enough tokens: the doctor
@@ -167,15 +167,39 @@ function handOver(state: DoctorState, ids: readonly string[]): DoctorStep {
 	]);
 }
 
+/** Why `buy` would be refused, in the order it is checked. */
+export type BuyRefusal = Extract<
+	DoctorRejection,
+	'not-for-sale' | 'already-owned' | 'not-enough-tokens'
+>;
+
+/**
+ * Why `itemId` can't be bought from this `shop` by someone with these
+ * `tokens` and `items`, or null when it can: the shop doesn't sell it, they
+ * own one already, or they can't pay for it. The one rule `buy` asks, and
+ * the witch doctor's card asks too, so a row is greyed exactly when the
+ * purchase would be refused.
+ */
+export function buyRefusal(
+	owner: { tokens: number; items: readonly string[]; shop: readonly string[] },
+	itemId: unknown
+): BuyRefusal | null {
+	if (!isItemId(itemId) || !owner.shop.includes(itemId)) return 'not-for-sale';
+	if (owner.items.includes(itemId)) return 'already-owned';
+	if (owner.tokens < getItem(itemId).price) return 'not-enough-tokens';
+	return null;
+}
+
 function buy(state: DoctorState, itemId: string): DoctorStep {
-	if (!isItemId(itemId) || !state.shop.includes(itemId)) return reject(state, 'not-for-sale');
-	if (state.items.includes(itemId)) return reject(state, 'already-owned');
-	const { price } = getItem(itemId);
-	if (state.tokens < price) return reject(state, 'not-enough-tokens');
+	const refusal = buyRefusal(state, itemId);
+	if (refusal) return reject(state, refusal);
+	// Not refused: the shop sells it, so it is an item.
+	const item = itemId as ItemId;
+	const { price } = getItem(item);
 
 	const puzzle = tokenPuzzle(state.tokens, -price);
-	return accept(state, { kind: 'buying', itemId, price, puzzle }, [
-		{ type: 'purchase-shown', itemId, price, puzzle }
+	return accept(state, { kind: 'buying', itemId: item, price, puzzle }, [
+		{ type: 'purchase-shown', itemId: item, price, puzzle }
 	]);
 }
 

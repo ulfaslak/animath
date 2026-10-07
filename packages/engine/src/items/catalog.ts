@@ -2,7 +2,7 @@ import type { Gear } from '../world/types.js';
 
 /**
  * What the doctor's shop sells, for the tokens the doctor gives for animals
- * helped home ([[PRODUCT]] §4 "Tokens and the doctor's shop"). Ids only: an
+ * helped home ([[PRODUCT]] §4 "Tokens and the witch doctor's shop"). Ids only: an
  * item's name and what it does, in every language, are in the client's copy
  * files (`items.<id>.*`).
  *
@@ -24,10 +24,10 @@ export interface ItemSpec {
 }
 
 /**
- * The catalog, cheapest first. The prices put each within reach after about
- * 15, 25, 40 and 65 minutes of ordinary play ([[PRODUCT]] §4 has the model),
- * and run on as Fibonacci numbers: 8, 13, 21, 34. The harness costs what the
- * paraglider does, the human's call.
+ * The catalog, cheapest first. The prices run on as Fibonacci numbers: 8, 13,
+ * 21, 34, and the harness costs what the paraglider does, the human's call.
+ * How long each takes to reach in ordinary play is [[PRODUCT]] §4's model
+ * ("Tokens and the witch doctor's shop").
  */
 export const ITEMS: readonly ItemSpec[] = [
 	/** Chops a tree down (`world/clearing.ts`). */

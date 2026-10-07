@@ -1,4 +1,6 @@
 import {
+	isNameRejection,
+	isPasswordRefusal,
 	nameKey,
 	type NameRejection,
 	type PasswordRefusal,
@@ -87,9 +89,6 @@ function welcomeGone(res: { status: number; body: unknown }): WelcomeGone | null
 	return null;
 }
 
-const NAME_REJECTIONS: readonly string[] = ['empty', 'short', 'long', 'chars', 'rude'];
-const PASSWORD_REFUSALS: readonly string[] = ['short', 'long'];
-
 const JSON_TYPE = { 'content-type': 'application/json' };
 
 function field(body: unknown, key: string): unknown {
@@ -160,19 +159,11 @@ export async function register(
 		const kept = userName(res.body);
 		return kept === null ? { kind: 'offline' } : { kind: 'registered', name: kept };
 	}
-	if (
-		res.status === 400 &&
-		error === ERRORS.badName &&
-		NAME_REJECTIONS.includes(reason as string)
-	) {
-		return { kind: 'bad-name', reason: reason as NameRejection };
+	if (res.status === 400 && error === ERRORS.badName && isNameRejection(reason)) {
+		return { kind: 'bad-name', reason };
 	}
-	if (
-		res.status === 400 &&
-		error === ERRORS.badPassword &&
-		PASSWORD_REFUSALS.includes(reason as string)
-	) {
-		return { kind: 'bad-password', reason: reason as PasswordRefusal };
+	if (res.status === 400 && error === ERRORS.badPassword && isPasswordRefusal(reason)) {
+		return { kind: 'bad-password', reason };
 	}
 	if (res.status === 409 && error === ERRORS.taken) return { kind: 'taken' };
 	if (res.status === 429 && error === ERRORS.tooMany) {
@@ -246,12 +237,8 @@ export async function acceptWelcome(
 	}
 	const gone = welcomeGone(res);
 	if (gone) return { kind: 'gone', why: gone };
-	if (
-		res.status === 400 &&
-		error === ERRORS.badPassword &&
-		PASSWORD_REFUSALS.includes(reason as string)
-	) {
-		return { kind: 'bad-password', reason: reason as PasswordRefusal };
+	if (res.status === 400 && error === ERRORS.badPassword && isPasswordRefusal(reason)) {
+		return { kind: 'bad-password', reason };
 	}
 	if (res.status === 429 && error === ERRORS.tooMany) {
 		return { kind: 'too-many', retryAfter: retryAfter(res.body) };

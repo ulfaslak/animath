@@ -1,5 +1,6 @@
 <script lang="ts">
 	import {
+		buyRefusal,
 		getAnimal,
 		getItem,
 		homeTokens,
@@ -19,7 +20,6 @@
 	import { animalWords, nameOf, speciesName } from '../names';
 	import {
 		DOCTOR_TABS,
-		cannotBuy,
 		doctor,
 		hurtIndexes,
 		kindGoing,
@@ -226,11 +226,13 @@
 
 	/** Why a highlighted item can't be bought, in words, or null. */
 	function whyNot(itemId: ItemId): string | null {
-		switch (cannotBuy(itemId, doctor)) {
-			case 'owned':
+		// The engine's own rule for `buy`, on the tokens and items the card shows.
+		switch (buyRefusal(doctor, itemId)) {
+			case 'already-owned':
 				return t('doctor.shop.owned', { item: itemWords(itemId) });
-			case 'short':
+			case 'not-enough-tokens':
 				return t('doctor.shop.short', { count: getItem(itemId).price - doctor.tokens });
+			case 'not-for-sale':
 			case null:
 				return null;
 		}
@@ -413,7 +415,7 @@
 						type="button"
 						class="row"
 						class:selected={doctor.cursor === k}
-						class:healthy={cannotBuy(row.itemId, doctor) !== null && doctor.bought !== row.itemId}
+						class:healthy={buyRefusal(doctor, row.itemId) !== null && doctor.bought !== row.itemId}
 						class:cheer={doctor.bought === row.itemId}
 						class:shake-a={doctor.shake?.row === k && doctor.shake.n % 2 === 0}
 						class:shake-b={doctor.shake?.row === k && doctor.shake.n % 2 === 1}
@@ -583,7 +585,7 @@
 			{:else}
 				<!-- Bye is lit: what the tab is for, or that there is nothing left to buy. -->
 				<div class="soft">
-					{doctor.shop.every((id) => cannotBuy(id, doctor) === 'owned')
+					{doctor.shop.every((id) => buyRefusal(doctor, id) === 'already-owned')
 						? t('doctor.shop.allOwned')
 						: t('doctor.shop.pick')}
 				</div>
@@ -1032,7 +1034,7 @@
 		border: 2px solid rgba(0, 0, 0, 0.25);
 		background: white;
 		color: white;
-		font-size: 15px;
+		font-size: 16px;
 		line-height: 1;
 		box-sizing: border-box;
 	}
@@ -1068,7 +1070,7 @@
 		margin-left: 4px;
 		padding: 0 7px;
 		border-radius: 8px;
-		font-size: 15px;
+		font-size: 16px;
 		background: rgba(45, 42, 50, 0.08);
 		font-variant-numeric: tabular-nums;
 	}
@@ -1514,13 +1516,11 @@
 			display: none;
 		}
 		/*
-		 * The badge and the tokens a size smaller too, so they share a row over
-		 * the doctor's line at 667 px with four-digit tokens: beside the list
-		 * the tokens went to a row of their own under the badge.
+		 * The tokens a size smaller too, so they share a row with the badge
+		 * over the doctor's line at 667 px with four-digit tokens: beside the
+		 * list the tokens went to a row of their own under the badge. The
+		 * badge keeps its 16 px, the smallest text there is.
 		 */
-		.who {
-			font-size: 14px;
-		}
 		.purse {
 			font-size: 16px;
 		}

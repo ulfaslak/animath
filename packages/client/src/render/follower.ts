@@ -1,7 +1,7 @@
 import {
 	WorldEdits,
+	canFightIn,
 	editedTileAt,
-	getAnimal,
 	isWalkable,
 	isWater,
 	step,
@@ -17,6 +17,7 @@ import { flyingSize } from './chaser';
 import { appearScale, recallScale, smoothstep } from './ease';
 import { SADDLE } from './mount';
 import { WATER_TOP, groundTop } from './tiles';
+import { AHEAD, FACING_ANGLE } from './trainer';
 
 /**
  * The lead animal walking one tile behind the trainer, as in the Game Boy
@@ -72,13 +73,6 @@ export interface FigureHost {
 	removeFigure(figure: THREE.Group): void;
 }
 
-/** A figure's turn about y for each way it faces: figures face +z (grid "down") at rest. */
-const ANGLE: Record<Direction, number> = {
-	up: Math.PI,
-	down: 0,
-	left: -Math.PI / 2,
-	right: Math.PI / 2
-};
 const BEHIND: Record<Direction, Direction> = {
 	up: 'down',
 	down: 'up',
@@ -90,13 +84,6 @@ const SIDES: Record<Direction, [Direction, Direction]> = {
 	down: ['right', 'left'],
 	left: ['up', 'down'],
 	right: ['down', 'up']
-};
-/** A unit step for each way the trainer faces, in world x and z. */
-const AHEAD: Record<Direction, { x: number; z: number }> = {
-	up: { x: 0, z: -1 },
-	down: { x: 0, z: 1 },
-	left: { x: -1, z: 0 },
-	right: { x: 1, z: 0 }
 };
 
 /** Seconds the one following takes to shrink away, and the new lead to grow in. */
@@ -299,7 +286,7 @@ export class Follower {
 		this.from = spot;
 		this.aside = null;
 		this.facing = facing;
-		this.yaw = ANGLE[facing];
+		this.yaw = FACING_ANGLE[facing];
 	}
 
 	/**
@@ -321,7 +308,7 @@ export class Follower {
 			this.from = { ...from };
 			this.aside = null;
 			this.facing = direction(from, to) ?? this.facing;
-			this.yaw = ANGLE[this.facing];
+			this.yaw = FACING_ANGLE[this.facing];
 			return;
 		}
 		this.from = { ...at };
@@ -402,7 +389,7 @@ export class Follower {
 			z + (this.aside?.z ?? 0) * aside
 		);
 		// Turn towards where it walks, the short way round.
-		const target = ANGLE[this.facing];
+		const target = FACING_ANGLE[this.facing];
 		let delta = target - this.yaw;
 		delta = Math.atan2(Math.sin(delta), Math.cos(delta));
 		this.yaw += delta * Math.min(1, dt * TURN_RATE);
@@ -503,7 +490,7 @@ export class Follower {
 
 	/** Turn towards the way it faces, the short way round. */
 	private turn(dt: number): void {
-		let delta = ANGLE[this.facing] - this.yaw;
+		let delta = FACING_ANGLE[this.facing] - this.yaw;
 		delta = Math.atan2(Math.sin(delta), Math.cos(delta));
 		this.yaw += delta * Math.min(1, dt * TURN_RATE);
 	}
@@ -527,7 +514,7 @@ export class Follower {
 			yFrom + (this.standAt(to) - yFrom) * t + BOAT_DECK + this.swapLift(),
 			from.y + (to.y - from.y) * t + ahead.z * reach
 		);
-		this.yaw = ANGLE[this.trainerFacing];
+		this.yaw = FACING_ANGLE[this.trainerFacing];
 		figure.rotation.y = this.yaw;
 		figure.scale.setScalar(scale);
 	}
@@ -545,7 +532,7 @@ export class Follower {
 		const t = smoothstep(Math.min(1, Math.max(0, progress)));
 		const scale = this.swapScale();
 		this.facing = this.trainerFacing;
-		this.yaw = ANGLE[this.trainerFacing];
+		this.yaw = FACING_ANGLE[this.trainerFacing];
 		// Its seat, `saddle.z` along the way it faces, under the trainer.
 		const back = saddle.z * scale;
 		const yFrom = this.standAt(from);
@@ -688,10 +675,9 @@ export class Follower {
 	 */
 	private canStand(p: GridPos, species: string | null): boolean {
 		const kind = editedTileAt(this.seed, this.edits, p.x, p.y).kind;
-		const realms = species ? getAnimal(species).realms : (['land'] as const);
-		return (
-			(isWalkable(kind) && realms.includes('land')) || (isWater(kind) && realms.includes('water'))
-		);
+		const lands = species ? canFightIn(species, 'land') : true;
+		const swims = species ? canFightIn(species, 'water') : false;
+		return (isWalkable(kind) && lands) || (isWater(kind) && swims);
 	}
 
 	/** The player cleared a tile: the world it stands in is as `edits` leave it. */
@@ -725,7 +711,7 @@ function adjacent(a: GridPos, b: GridPos): boolean {
 
 /** Whether an animal of `species` flies: a bird. */
 function flies(species: string | null): boolean {
-	return species !== null && getAnimal(species).realms.includes('air');
+	return species !== null && canFightIn(species, 'air');
 }
 
 /** The way from one tile to the next, or null when they are not neighbours. */

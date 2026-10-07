@@ -8,6 +8,7 @@ import {
 	tileAtWorld,
 	tilesApart,
 	type AnimalInstance,
+	type Authority,
 	type ClientMessage,
 	type GameEvent,
 	type InviteEnd,
@@ -75,9 +76,10 @@ import { travel } from '../state/travel.svelte';
  *   thinks, their puzzle shows without its answer. The result, the rematch
  *   and the match's notes (dropped out, "Still there?", the connection) are
  *   `match`'s. The player's own game is never touched, but for the puzzles
- *   they solved: each batch of events goes once to `count`, which adds this
- *   player's right answers (`countSolved`); no intent reaches the authority,
- *   so the save is otherwise exactly as it was.
+ *   they solved: each step's events go to the authority once, as a
+ *   `match-answers` intent, which adds this player's right answers
+ *   (`countSolved`); no match intent reaches it, so the save is otherwise
+ *   exactly as it was.
  * - **Leaving.** Always two deliberate presses, each with the line saying
  *   what it does: the Leave move, then Go!; or Escape (the other's turn
  *   card's button is Escape too), then Leave on the question it opens,
@@ -170,11 +172,11 @@ export interface MatchDeps {
 	 */
 	stepAside?(): void;
 	/**
-	 * Count this player's right answers in a batch of match events: the one
-	 * thing a match changes in the game, the puzzles solved
-	 * (`LocalAuthority.countMatchAnswers`). Each batch once.
+	 * The player's own authority, told each step of the match once
+	 * (`match-answers`): the one thing a match changes in the game, the
+	 * puzzles solved.
 	 */
-	count?(events: readonly WireMatchEvent[], side: MatchSide): void;
+	authority: Pick<Authority, 'dispatch'>;
 	/** Seconds, for the invite's clock and the waits (real time, not frame time). */
 	clock?: () => number;
 	/** The battle's scene, or a stand-in in a test. */
@@ -848,7 +850,15 @@ export class MatchController implements MatchHooks {
 			return;
 		}
 		// The kid's own right answers are theirs to keep, whatever else the match does.
-		if (m.events.length > 0) this.deps.count?.(m.events, m.view.you);
+		if (m.events.length > 0) {
+			this.deps.authority.dispatch({
+				type: 'match-answers',
+				match: m.id,
+				step: m.view.step,
+				side: m.view.you,
+				events: m.events
+			});
+		}
 		const was = this.latest;
 		this.latest = m;
 		this.awayUntil = m.away ? this.clock() + m.away.ms / 1000 : null;

@@ -61,6 +61,12 @@ describe('putSave', () => {
 			{ kind: 'refused', error: 'big' }
 		],
 		["413 and a proxy's page", { status: 413, html: page }, { kind: 'offline' }],
+		// Too many saves a minute: waited out, like an unreachable server.
+		[
+			'429 and its error',
+			{ status: 429, json: { error: 'too many tries', retryAfter: 30 } },
+			{ kind: 'offline' }
+		],
 		[
 			'401 and its error',
 			{ status: 401, json: { error: 'not logged in' } },

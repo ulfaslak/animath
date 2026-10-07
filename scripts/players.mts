@@ -95,6 +95,7 @@
 import {
 	ANIMALS,
 	EMPTY_BOOK,
+	defaultStarter,
 	getAnimal,
 	newGame,
 	isItemId,
@@ -105,6 +106,7 @@ import {
 	type ItemId
 } from '../packages/engine/src/index.ts';
 import { execSync } from 'node:child_process';
+import { randomUUID } from 'node:crypto';
 import { mkdirSync } from 'node:fs';
 import { basename, dirname, extname, join, resolve } from 'node:path';
 import { chromium, type BrowserContext, type Page, type WebSocketRoute } from 'playwright-core';
@@ -300,7 +302,7 @@ function parsePlayer(spec: string): Player {
 
 /** The save the player's browser starts with, as the game writes one: in their world, their home. */
 function saveOf(p: Player): string {
-	const game = newGame(p.world, undefined, p.name);
+	const game = newGame(p.world, { ...defaultStarter(), id: randomUUID() }, p.name);
 	const party = p.party ?? game.party;
 	// The animal book of a game that begins with this party: its kinds, caught.
 	const book = recordParty(EMPTY_BOOK, party);
