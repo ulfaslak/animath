@@ -1,6 +1,5 @@
 import {
 	bundles,
-	getItem,
 	kindGoingHome,
 	needsHealing,
 	type AnimalInstance,
@@ -215,15 +214,6 @@ export function kindPicked(speciesId: string, view: PicksView): 'none' | 'some' 
 	const marked = new Set(view.marked);
 	if (!view.party.some((a) => a.speciesId === speciesId && marked.has(a.id))) return 'none';
 	return kindGoingHome(view.party, view.marked, speciesId).length === 0 ? 'all' : 'some';
-}
-
-/** Why an item can't be bought now, or null when it can. */
-export function cannotBuy(
-	itemId: ItemId,
-	view: { tokens: number; items: readonly string[] }
-): 'owned' | 'short' | null {
-	if (view.items.includes(itemId)) return 'owned';
-	return view.tokens < getItem(itemId).price ? 'short' : null;
 }
 
 /**

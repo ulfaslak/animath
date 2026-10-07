@@ -1,7 +1,7 @@
 import {
 	WorldEdits,
+	canFightIn,
 	editedTileAt,
-	getAnimal,
 	isWalkable,
 	isWater,
 	tileAtWorld,
@@ -100,7 +100,7 @@ export class TitleScenery implements TitleView3D {
 		this.renderer.setPlayer(pos, pos, 1, facing);
 		this.renderer.ensureChunksAround(pos);
 		// The land's animals on the ground round the trainer, the sea's in the water.
-		const walks = (id: string) => getAnimal(id).realms.includes('land');
+		const walks = (id: string) => canFightIn(id, 'land');
 		const onLand = standingSpots(seed, edits, pos, species.filter(walks).length, isWalkable);
 		const inWater = standingSpots(
 			seed,

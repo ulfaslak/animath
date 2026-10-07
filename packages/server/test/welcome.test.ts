@@ -165,6 +165,10 @@ describe('import-save', () => {
 		expect(user?.name).toBe(name);
 		const [saved] = await db.select().from(accountSaves).where(eq(accountSaves.userId, user!.id));
 		expect(saved?.data).toMatchObject({ version: 2, world: 1, home: 1, name });
+		// A name the rules refuse says what a name may be, from the engine's own bounds.
+		await expect(
+			importSave(JSON.stringify(doc(name)), { name: 'X', origin: 'https://game.test' })
+		).rejects.toThrow(/\(short\): 2 to 16 letters or numbers, /);
 	});
 
 	it('links to https://<MATHGAME_DOMAIN>, and refuses before anything is made when it has no address', async () => {
