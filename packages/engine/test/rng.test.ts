@@ -34,9 +34,20 @@ describe('Rng', () => {
 	});
 
 	it('fork() produces an independent, reproducible stream', () => {
-		const f1 = new Rng(1).fork();
-		const f2 = new Rng(1).fork();
-		expect(f1.next()).toBe(f2.next());
+		const draw = (rng: Rng) => Array.from({ length: 20 }, () => rng.next());
+		// Reproducible: the same seed forks the same stream.
+		expect(draw(new Rng(1).fork())).toEqual(draw(new Rng(1).fork()));
+		// Independent: drawing from the fork leaves the parent's stream as it was, and the
+		// fork's stream is not the parent's.
+		const quiet = new Rng(1);
+		quiet.fork();
+		const busy = new Rng(1);
+		const fork = busy.fork();
+		const forkDraws = draw(fork);
+		const parentDraws = draw(busy);
+		expect(parentDraws).toEqual(draw(quiet));
+		expect(forkDraws).not.toEqual(parentDraws);
+		expect(new Set([...forkDraws, ...parentDraws]).size).toBe(40);
 	});
 });
 

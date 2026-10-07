@@ -1,5 +1,6 @@
 import { isDeepStrictEqual } from 'node:util';
 import { describe, expect, it } from 'vitest';
+import { deepFreeze } from './freeze.js';
 import { ANIMALS, canFightIn, getAnimal } from '../src/animals/catalog.js';
 import { REALMS, type AnimalInstance, type Realm } from '../src/animals/types.js';
 import { careFor, doctorComes, knockOut } from '../src/doctor/knockout.js';
@@ -29,14 +30,6 @@ import { wordedStrings } from './words.js';
 
 const SEEDS = 25;
 const PROTOTYPE = hashString('prototype');
-
-function deepFreeze<T>(value: T): T {
-	if (value && typeof value === 'object' && !Object.isFrozen(value)) {
-		Object.freeze(value);
-		for (const key of Object.keys(value)) deepFreeze((value as Record<string, unknown>)[key]);
-	}
-	return value;
-}
 
 function maxHp(animal: AnimalInstance): number {
 	return getAnimal(animal.speciesId).maxHp;

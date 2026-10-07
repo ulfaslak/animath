@@ -1,0 +1,10 @@
+{
+	// The tests, type-checked as strictly as the source (`pnpm check`). They may use
+	// Node (reading the source files, timing), so they get its types here; the source
+	// itself is checked by `tsconfig.json` alone, with no Node and no DOM.
+	"extends": "./tsconfig.json",
+	"compilerOptions": {
+		"types": ["node"]
+	},
+	"include": ["test", "vitest.config.ts"]
+}

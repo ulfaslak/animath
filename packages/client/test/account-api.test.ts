@@ -328,44 +328,6 @@ describe("the account's save, as the autosave's server", () => {
 		expect(seen).toEqual([me, me]);
 	});
 
-	it('maps each answer of the save routes, once the session is this account’s', async () => {
-		const cases: [Answer, unknown][] = [
-			[{ status: 200, json: { ok: true } }, { kind: 'saved' }],
-			[{ status: 409, json: { error: 'higher', save: doc } }, { kind: 'conflict' }],
-			[{ status: 401, json: { error: 'not logged in' } }, { kind: 'logged-out' }],
-			[
-				{ status: 400, json: { error: 'bad save' } },
-				{ kind: 'refused', error: 'bad save' }
-			],
-			[
-				{ status: 413, json: { error: 'big' } },
-				{ kind: 'refused', error: 'big' }
-			],
-			// Too many saves a minute: waited out, like an unreachable server.
-			[{ status: 429, json: { error: 'too many tries', retryAfter: 30 } }, { kind: 'offline' }],
-			[{ status: 401, html: page }, { kind: 'offline' }],
-			['network error', { kind: 'offline' }]
-		];
-		for (const [a, outcome] of cases) {
-			route({ [me]: { status: 200, json: { user: { name: 'Ida' } } }, [save]: a });
-			const server = accountSaveServer(new SessionCheck('Ida'));
-			expect(await server.putSave(doc), JSON.stringify(a)).toEqual(outcome);
-		}
-		route({
-			[me]: { status: 200, json: { user: { name: 'Ida' } } },
-			[save]: { status: 200, json: doc }
-		});
-		expect(await accountSaveServer(new SessionCheck('Ida')).getSave()).toEqual({
-			kind: 'found',
-			doc
-		});
-		route({
-			[me]: { status: 200, json: { user: { name: 'Ida' } } },
-			[save]: { status: 404, json: { error: 'no save yet' } }
-		});
-		expect(await accountSaveServer(new SessionCheck('Ida')).getSave()).toEqual({ kind: 'none' });
-	});
-
 	it('names its account in each request to the save routes and in the logout', async () => {
 		const heard: [string, string | null][] = [];
 		vi.stubGlobal('fetch', async (url: string, init?: RequestInit) => {

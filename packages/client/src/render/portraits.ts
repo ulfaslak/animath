@@ -52,7 +52,9 @@ export class PortraitStudio {
 		private readonly renderer: PortraitRenderer,
 		private readonly encode: PortraitEncoder = encodePng
 	) {
-		this.scene.add(new THREE.HemisphereLight(WORLD_LIGHT.sky, WORLD_LIGHT.bounce, WORLD_LIGHT.fill));
+		this.scene.add(
+			new THREE.HemisphereLight(WORLD_LIGHT.sky, WORLD_LIGHT.bounce, WORLD_LIGHT.fill)
+		);
 		const sun = new THREE.DirectionalLight(WORLD_LIGHT.sun, WORLD_LIGHT.sunIntensity);
 		sun.position.set(...SUN_FROM);
 		this.scene.add(sun);

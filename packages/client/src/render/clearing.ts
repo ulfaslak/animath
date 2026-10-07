@@ -157,7 +157,6 @@ interface Clearing {
 /** With reduced motion only this many chips or pebbles, and they don't fly. */
 const CALM_BITS = 3;
 
-
 export class ClearingEffects {
 	private active: Clearing[] = [];
 	private matrix = new THREE.Matrix4();

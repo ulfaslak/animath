@@ -95,7 +95,9 @@ export class StarterScene implements Stage {
 	constructor() {
 		this.scene.background = new THREE.Color(COLORS.sky);
 		this.scene.fog = new THREE.Fog(COLORS.sky, 14, 30);
-		this.scene.add(new THREE.HemisphereLight(WORLD_LIGHT.sky, WORLD_LIGHT.bounce, WORLD_LIGHT.fill));
+		this.scene.add(
+			new THREE.HemisphereLight(WORLD_LIGHT.sky, WORLD_LIGHT.bounce, WORLD_LIGHT.fill)
+		);
 		const sun = new THREE.DirectionalLight(WORLD_LIGHT.sun, WORLD_LIGHT.sunIntensity);
 		sun.position.set(3, 8, 6);
 		sun.castShadow = true;
