@@ -87,7 +87,12 @@ export interface AutosaveOptions {
 	loggedOut?: () => void;
 	/** The game as it stands: the authority's snapshot. */
 	snapshot: () => SavedGame;
-	/** A fresh random id, for a new game's lineage. */
+	/**
+	 * The authority's id minter: a fresh random id, for a new game's lineage and
+	 * for the starter `restoreGame` adds to a party that cannot fight on land (the
+	 * engine mints none). Never constant: `restoreGame` throws when every id it
+	 * gives is already in the party.
+	 */
 	mintId: () => string;
 	/**
 	 * Another tab of this game walked further and this page carries on from
