@@ -413,7 +413,6 @@ What is built and observable today. Keep current: add a bullet when a feature sh
 - Puzzle catalog (§4 "Puzzles"): 7 kinds (adding, taking away, times tables, sharing, missing numbers, number patterns and square roots) across difficulty 1–10.
 - Difficulty mapping (tier, attack, level) and healing difficulty.
 - Damage and catch-probability formulas.
-- Item catalog: the axe, the pickaxe, the boat, the paraglider and the harness, each with its price and whether it is on sale.
 - Species catalog: 50 species, tiers 1–5: 36 on land (12 at tier 1, 12 at tier 2, 4 at tier 3, 5 at tier 4 and 3 at tier 5; the frog, the otter, the common toad, the beaver and the mute swan swim too, and the eight birds fly: the robin, the grey heron, the tawny owl, the buzzard, the mute swan, the eagle-owl, the golden eagle and the sea eagle) and 14 in the sea (4 at tier 1, 3 at tier 2, 3 at tier 3, 2 at tier 4 and 2 at tier 5).
 
 ### Server
