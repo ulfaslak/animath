@@ -59,7 +59,9 @@ export const NAME_REJECTIONS = Object.keys(NAME_REJECTION_SET) as readonly NameR
 
 /** Whether `value` is a `NameRejection`: a reason a server's answer gives, say. */
 export function isNameRejection(value: unknown): value is NameRejection {
-	return typeof value === 'string' && Object.hasOwn(NAME_REJECTION_SET, value);
+	return (
+		typeof value === 'string' && Object.prototype.hasOwnProperty.call(NAME_REJECTION_SET, value)
+	);
 }
 
 /**

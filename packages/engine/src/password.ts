@@ -31,7 +31,9 @@ export const PASSWORD_REFUSALS = Object.keys(PASSWORD_REFUSAL_SET) as readonly P
 
 /** Whether `value` is a `PasswordRefusal`: a reason a server's answer gives, say. */
 export function isPasswordRefusal(value: unknown): value is PasswordRefusal {
-	return typeof value === 'string' && Object.hasOwn(PASSWORD_REFUSAL_SET, value);
+	return (
+		typeof value === 'string' && Object.prototype.hasOwnProperty.call(PASSWORD_REFUSAL_SET, value)
+	);
 }
 
 /**
