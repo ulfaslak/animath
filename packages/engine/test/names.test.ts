@@ -374,7 +374,7 @@ describe('nameKey', () => {
 			['Strauß', 'STRAUSS'],
 			['  Ida  Marie ', 'ida marie'],
 			['José', 'Jose\u0301']
-		]) {
+		] as const) {
 			expect(nameKey(a), `${a} / ${b}`).toBe(nameKey(b));
 		}
 	});
@@ -386,7 +386,7 @@ describe('nameKey', () => {
 			['Ida Marie', 'IdaMarie'],
 			['Søren', 'Soren'],
 			['Emil', 'Emil2']
-		]) {
+		] as const) {
 			expect(nameKey(a), `${a} / ${b}`).not.toBe(nameKey(b));
 		}
 	});

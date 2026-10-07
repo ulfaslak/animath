@@ -1,5 +1,6 @@
 import { isDeepStrictEqual } from 'node:util';
 import { describe, expect, it } from 'vitest';
+import { deepFreeze } from './freeze.js';
 import { ANIMALS, canFightIn, getAnimal } from '../src/animals/catalog.js';
 import {
 	ATTACK_LEVELS,
@@ -46,14 +47,6 @@ const MEETINGS = ids.flatMap((p) =>
 		return realm ? [{ p, w, realm }] : [];
 	})
 );
-
-function deepFreeze<T>(value: T): T {
-	if (value && typeof value === 'object' && !Object.isFrozen(value)) {
-		Object.freeze(value);
-		for (const key of Object.keys(value)) deepFreeze((value as Record<string, unknown>)[key]);
-	}
-	return value;
-}
 
 function outcome(state: BattleState): string | null {
 	return state.phase.kind === 'ended' ? state.phase.outcome : null;

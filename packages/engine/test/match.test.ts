@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
+import { deepFreeze } from './freeze.js';
 import { ANIMALS, canFightIn, getAnimal } from '../src/animals/catalog.js';
-import { ATTACK_LEVELS, type AnimalInstance, type AttackLevel } from '../src/animals/types.js';
+import { ATTACK_LEVELS, type AnimalInstance } from '../src/animals/types.js';
 import { attackDamage } from '../src/battle/damage.js';
 import { applyMatchIntent, canSendIn, otherSide, startMatch } from '../src/match/reducer.js';
 import { MATCH_TEAM_SIZE, matchTeam } from '../src/match/team.js';
@@ -34,14 +35,6 @@ const NICKNAMES: readonly unknown[] = [
 	42,
 	'Bjørn'
 ];
-
-function deepFreeze<T>(value: T): T {
-	if (value && typeof value === 'object' && !Object.isFrozen(value)) {
-		Object.freeze(value);
-		for (const key of Object.keys(value)) deepFreeze((value as Record<string, unknown>)[key]);
-	}
-	return value;
-}
 
 function maxHp(speciesId: string): number {
 	return getAnimal(speciesId).maxHp;

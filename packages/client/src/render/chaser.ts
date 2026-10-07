@@ -5,7 +5,7 @@ import { animateFlight, buildAnimalMesh, disposeFigure } from './animals';
 import { appearScale, recallScale, smoothstep } from './ease';
 import type { FigureHost } from './follower';
 import { COLORS } from './palette';
-import { FACING_ANGLE } from './trainer';
+import { AHEAD, FACING_ANGLE } from './trainer';
 
 /**
  * The wild bird that noticed the glider and follows it down (#91, [[UI_SPEC]]
@@ -52,12 +52,6 @@ export function flyingSize(height: number): number {
 	return Math.min(FLYING_GROW, Math.max(1, FLYING_HEIGHT / Math.max(0.01, height)));
 }
 
-const AHEAD: Record<Direction, { x: number; z: number }> = {
-	up: { x: 0, z: -1 },
-	down: { x: 0, z: 1 },
-	left: { x: -1, z: 0 },
-	right: { x: 1, z: 0 }
-};
 const BACK: Record<Direction, Direction> = { up: 'down', down: 'up', left: 'right', right: 'left' };
 
 /**
@@ -71,7 +65,7 @@ function buildMark(): THREE.Group {
 		new THREE.MeshBasicMaterial({ color: hex, depthTest: false, depthWrite: false });
 	const parts: [THREE.BufferGeometry, number, number][] = [
 		[new THREE.CircleGeometry(0.26, 24), COLORS.white, 0],
-		[new THREE.RingGeometry(0.24, 0.3, 24), 0xff9f43, 0.001],
+		[new THREE.RingGeometry(0.24, 0.3, 24), COLORS.accent, 0.001],
 		[new THREE.PlaneGeometry(0.075, 0.22).translate(0, 0.05, 0), COLORS.dark, 0.002],
 		[new THREE.CircleGeometry(0.045, 12).translate(0, -0.13, 0), COLORS.dark, 0.002]
 	];

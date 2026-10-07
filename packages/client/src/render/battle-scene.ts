@@ -5,6 +5,7 @@ import { motion } from '../motion';
 import { safeArea } from '../safe-area';
 import { SHORT_SCREEN } from '../short-screen';
 import { animateFlight, animateIdle, buildAnimalMesh, disposeFigure, restingZs } from './animals';
+import { WORLD_LIGHT } from './campfire';
 import { appearScale, recallScale, smoothstep } from './ease';
 import { SWIM_DEPTH } from './follower';
 import {
@@ -89,8 +90,8 @@ export function battlePanelHeight(
 	return cards + bottomInset;
 }
 
-/** The light bounced up from the ground onto the animals' undersides: a grassy green. */
-const GROUND_BOUNCE = 0x88aa66;
+/** The light bounced up from the ground onto the animals' undersides: the world's grassy green. */
+const GROUND_BOUNCE = WORLD_LIGHT.bounce;
 
 /** The ground a battle is fought on: the biome's own, as the world shows it round the grass. */
 const GROUND: Record<Biome, number> = {
@@ -413,9 +414,9 @@ export class BattleScene {
 	constructor() {
 		this.scene.background = new THREE.Color(COLORS.sky);
 		this.scene.fog = new THREE.Fog(COLORS.sky, 12, 24);
-		this.fill = new THREE.HemisphereLight(0xffffff, GROUND_BOUNCE, 1.1);
+		this.fill = new THREE.HemisphereLight(WORLD_LIGHT.sky, GROUND_BOUNCE, WORLD_LIGHT.fill);
 		this.scene.add(this.fill);
-		const sun = new THREE.DirectionalLight(0xfff2d6, 2.2);
+		const sun = new THREE.DirectionalLight(WORLD_LIGHT.sun, WORLD_LIGHT.sunIntensity);
 		sun.position.set(4, 8, 5);
 		sun.castShadow = true;
 		sun.shadow.mapSize.set(1024, 1024);

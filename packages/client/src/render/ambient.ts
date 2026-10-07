@@ -1,7 +1,7 @@
 import { Rng, isWater, tileAtWorld } from '@mathgame/engine';
 import * as THREE from 'three';
 import { motion } from '../motion';
-import { BUTTERFLY_COLORS } from './palette';
+import { BUTTERFLY_COLORS, COLORS } from './palette';
 import { groundTop } from './tiles';
 
 /**
@@ -43,7 +43,7 @@ const BODY = new THREE.CylinderGeometry(0.016, 0.016, 0.13, 4).rotateX(Math.PI /
 const wingMaterials = BUTTERFLY_COLORS.map(
 	(hex) => new THREE.MeshLambertMaterial({ color: hex, side: THREE.DoubleSide, flatShading: true })
 );
-const bodyMaterial = new THREE.MeshLambertMaterial({ color: 0x2f2a28, flatShading: true });
+const bodyMaterial = new THREE.MeshLambertMaterial({ color: COLORS.dark, flatShading: true });
 
 interface Butterfly {
 	group: THREE.Group;

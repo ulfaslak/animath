@@ -429,7 +429,7 @@ describe('readSave and the upgrade seam', () => {
 	});
 
 	it('calls a save that names a species, or a battle realm or puzzle kind, it does not have newer, never invalid', () => {
-		const [{ state }] = battleStates(3, ['squirrel', 'fox'], 'rabbit');
+		const { state } = battleStates(3, ['squirrel', 'fox'], 'rabbit')[0]!;
 		const battle = JSON.parse(JSON.stringify(state)) as Record<string, unknown>;
 		const inBattle = (patch: Record<string, unknown>) => ({
 			...written,
@@ -1440,9 +1440,12 @@ describe('the animal book in a save', () => {
 	});
 
 	it('a saved battle proves its wild animal was met, even one that cannot be picked up again', () => {
-		const [{ state }] = battleStates(3, ['squirrel', 'fox'], 'rabbit');
+		const { state } = battleStates(3, ['squirrel', 'fox'], 'rabbit')[0]!;
 		const doc = { ...written, pos: findTile(SEED7, true), party: state!.party, battle: state };
-		const inBattle = restoreGame(readSave(JSON.parse(JSON.stringify(doc))).save as SaveV2, mint);
+		const read = readSave(JSON.parse(JSON.stringify(doc)));
+		expect(read.ok).toBe(true);
+		if (!read.ok) return;
+		const inBattle = restoreGame(read.save, mint);
 		expect(inBattle.battle).not.toBeNull();
 		expect(inBattle.seen).toEqual(['squirrel', 'fox', 'rabbit']);
 		expect(inBattle.caught).toEqual(['squirrel', 'fox']);
@@ -1738,7 +1741,7 @@ describe('readBattle', () => {
 	});
 
 	it('drops a battle nested deeper than a save can hold one, and never throws on one', () => {
-		const [{ state }] = battleStates(3, ['squirrel', 'fox'], 'rabbit');
+		const { state } = battleStates(3, ['squirrel', 'fox'], 'rabbit')[0]!;
 		// An extra field on the animal in front, with the party beside the battle holding it too.
 		// In a save the battle is a level in, its party two and the animal three.
 		const nested = (levels: number) => {
@@ -1751,7 +1754,7 @@ describe('readBattle', () => {
 	});
 
 	it('drops a battle that does not fit the party or the rules', () => {
-		const [{ state }] = battleStates(3, ['squirrel', 'fox'], 'rabbit');
+		const { state } = battleStates(3, ['squirrel', 'fox'], 'rabbit')[0]!;
 		const party = state!.party.map((a) => ({ ...a }));
 		const json = (patch: Record<string, unknown>) => ({
 			...JSON.parse(JSON.stringify(state)),
@@ -2043,7 +2046,8 @@ describe('which save wins', () => {
 		};
 		expect(sameProgress(written as SaveV2, moved as SaveV2)).toBe(true);
 		// Key order and absent-versus-undefined do not matter.
-		const reordered = JSON.parse(JSON.stringify({ party: written.party, ...written }));
+		const { party, ...rest } = written;
+		const reordered = JSON.parse(JSON.stringify({ party, ...rest }));
 		expect(sameProgress(written as SaveV2, { ...reordered, extra: undefined })).toBe(true);
 		// A save from before the shop has no tokens and no items: the same as none written out.
 		expect(sameProgress(written as SaveV2, { ...moved, tokens: 0, items: [] } as SaveV2)).toBe(

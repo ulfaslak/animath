@@ -31,14 +31,14 @@ import type {
  * puzzles again.
  *
  * The rules ([[PRODUCT]] §4 "Knock-out and healing", "Tokens and the
- * doctor's shop"):
+ * witch doctor's shop"):
  * - Pick an animal below full HP; the doctor asks one puzzle at
  *   `healingDifficulty(tier)`, of a kind the animal's own attacks ask. A right
  *   answer heals every hurt animal of that species to full. A wrong answer
  *   costs nothing: the HP stays as it was and a different puzzle takes its
  *   place, as many times as it takes.
- * - Hand animals over (any of them, tired ones too, but never the last one
- *   standing): the doctor asks the tokens you will have, `tokens + reward`.
+ * - Hand animals over (any of them, tired ones too, but never so many that
+ *   no animal that isn't tired and can fight on land stays): the doctor asks the tokens you will have, `tokens + reward`.
  *   Right, and they go home to the wild, made better, and the tokens are
  *   yours. Wrong, and the same sum is asked again.
  * - Buy an item the shop sells, not owned yet, with enough tokens: the doctor

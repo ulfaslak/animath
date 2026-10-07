@@ -1057,15 +1057,6 @@ describe('LocalAuthority: saved games', () => {
 			expect(latestBattle(c)).toEqual(latestBattle(b));
 		}
 	});
-
-	it('ignores intents until it has started', () => {
-		const authority = new LocalAuthority();
-		const events: GameEvent[] = [];
-		authority.subscribe((e) => events.push(e));
-		authority.dispatch({ type: 'move', dir: 'left' });
-		authority.dispatch({ type: 'interact' });
-		expect(events).toEqual([]);
-	});
 });
 
 describe('LocalAuthority: the party', () => {
@@ -1098,13 +1089,6 @@ describe('LocalAuthority: the party', () => {
 		expect(party(s)).toEqual(before);
 		// The facts only: the client words them in the language on screen.
 		expect(s.events.slice(sent).map((e) => e.type)).toEqual(['party-edited']);
-	});
-
-	it('with the first animal tired, the next one standing leads the battle', () => {
-		const s = session(withParty('squirrel:0,rabbit'));
-		const battle = walkIntoBattle(s);
-		expect(battle.active).toBe(1);
-		expect(battle.party[1]!.speciesId).toBe('rabbit');
 	});
 
 	it('a name given in explore is the name the battle uses', () => {
@@ -1183,20 +1167,6 @@ describe('LocalAuthority: facing', () => {
 		expect(s.events.at(-1)).toMatchObject({ type: 'player-blocked', dir: 'down' });
 		s.authority.dispatch({ type: 'interact' });
 		expect(s.events.at(-1)).toMatchObject({ type: 'doctor-visit-started', visit: 1 });
-	});
-
-	it('a nearest-tent stand from far away is one the player faces the tent from', () => {
-		// The knock-out rule and the authority agree on facing for any tent, not only (5, 7).
-		const s = session();
-		const { seed } = welcome(s);
-		for (const from of [
-			{ x: 40, y: -30 },
-			{ x: -60, y: 45 }
-		]) {
-			const spot = nearestTent(seed, from);
-			if (!spot) continue;
-			expect(canTalkToDoctor(seed, spot.stand, spot.facing)).toBe(true);
-		}
 	});
 });
 

@@ -10,8 +10,8 @@
 	 * One puzzle being answered: the prompt in very large type, the answer
 	 * typed so far, then the judgement — "Correct!" or "Not quite!" (the right
 	 * answer is never shown; see UI_SPEC § Battle mode).
-	 * The one puzzle view for every screen that asks one (battle now, the
-	 * doctor later; see UI_SPEC § Component reuse). It only shows: keys are
+	 * The one puzzle view for every screen that asks one (a battle, a friendly
+	 * match, the witch doctor's token sums; see UI_SPEC § Component reuse). It only shows: keys are
 	 * turned into text by `input/answer.ts` and answers are judged by the
 	 * engine, so nothing here decides anything. With the touch controls on,
 	 * the number pad stands to the right of it, and its keys are keys too.

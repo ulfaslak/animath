@@ -194,7 +194,7 @@ Headless Chrome plays sound to no one, and an agent can't listen. Three checks i
 ## Checks and tests
 
 ```bash
-pnpm check   # tsc for engine + server, svelte-check for client
+pnpm check   # type-checks every package, its tests too: tsc for engine (source, then tests) + server, svelte-check for client
 pnpm test    # vitest in engine, client and server
 pnpm lint    # prettier --check
 pnpm format  # prettier --write

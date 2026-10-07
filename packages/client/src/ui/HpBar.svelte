@@ -3,9 +3,9 @@
 
 	/**
 	 * The one HP bar, wherever an animal's HP shows (UI_SPEC § Component reuse).
-	 * Colour follows the fraction left (green, then amber under half, then red
-	 * under a fifth) and the numbers are always printed, so the state is
-	 * readable without colour. Any HP above zero shows at least a sliver, so
+	 * Colour follows the fraction left (`hpBand`: green, then amber at half
+	 * and under, then red at a fifth and under) and the numbers are printed
+	 * (all but on a `thin` bar), so the state is readable without colour. Any HP above zero shows at least a sliver, so
 	 * 1/100 never looks the same as a tired 0/100. `emptyTag` is a word written
 	 * in the empty track at 0 HP, where the bar would fill: the doctor's list
 	 * says "tired" there, beside a name of twelve wide letters that leaves no

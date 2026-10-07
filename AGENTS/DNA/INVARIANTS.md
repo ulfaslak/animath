@@ -14,7 +14,7 @@ An entry that no longer matches the code is a bug in one of them. Find out which
 
 ### The engine imports nothing from outside its own package
 
-No DOM, no Three.js, no Node built-ins, no npm packages. It must run byte-for-byte identically in a browser and on the server, because it runs in both: the browser's authority runs every single-player rule, and the server's runs friendly matches and reads what a page sends ([[DECISIONS]] § Multiplayer). Enforced twice: `packages/engine/tsconfig.json` has `lib: ["ES2022"]` and `types: []`, so a reference to `window` or `process` fails to compile; `test/purity.test.ts` scans every source file and fails on a non-relative `from` import (a bare `import 'x'` or an `import('x')` would pass it). Design-time.
+No DOM, no Three.js, no Node built-ins, no npm packages. It must run byte-for-byte identically in a browser and on the server, because it runs in both: the browser's authority runs every single-player rule, and the server's runs friendly matches and reads what a page sends ([[DECISIONS]] § Multiplayer). Enforced twice: `packages/engine/tsconfig.json` has `lib: ["ES2022"]` and `types: []`, so a reference to `window` or `process` fails to compile; `test/purity.test.ts` scans every source file and fails on a non-relative `from` import (a bare `import 'x'` or an `import('x')` would pass it) and on any `/// <reference` directive, which would bring Node's types (the tests' `@types/node` sits in the engine's `node_modules`) or the DOM's lib past `types: []` and `lib`. Design-time.
 
 ### The engine never reads ambient randomness or the clock
 

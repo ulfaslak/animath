@@ -1,8 +1,9 @@
 import type { Rng } from '../rng.js';
 
 /**
- * Puzzle kinds. Adding a kind means: add it here, write a generator in
- * `generators/`, register it in `registry.ts`. Attacks reference kinds by name.
+ * Puzzle kinds. Attacks reference kinds by name. What adding a kind takes
+ * (here, a generator, `registry.ts`, its topics and its face) is listed in
+ * [[ARCHITECTURE]]'s `registry.ts` row.
  */
 export type PuzzleKind = 'add' | 'sub' | 'mul' | 'div' | 'missing' | 'sequence' | 'sqrt';
 
