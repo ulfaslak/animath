@@ -312,7 +312,7 @@ Hand-written SQL, applied by `pnpm db:migrate` (`drizzle-orm`'s migrator, journa
 3. Append an entry to `packages/server/drizzle/meta/_journal.json`: `idx` +1, `tag` = filename without `.sql`, `version: "7"`, a larger `when`, `breakpoints: true`. **A `.sql` without a journal entry is never applied.**
 4. Run `pnpm db:migrate` against a database of your own, never `mathgame` (§ Running: `DATABASE_URL=postgres://postgres:postgres@localhost:5433/mathgame_<yours> pnpm db:migrate`), then confirm there with `\d <table>` (the `-p mathgame` form in § Database, with `-d mathgame_<yours>`). Production runs it at the deploy (§ How a merge reaches prod).
 
-Never run `drizzle-kit generate` in a worktree (it emits a full `0000` dump that collides with the real one).
+`drizzle-kit generate` is never run ([[DECISIONS]] § Server): in a worktree it emits a full `0000` dump that collides with the real one.
 
 **A migration keeps the build before it working.** A deploy runs the new migrations while the old build still serves, the two builds then answer side by side for a few seconds, and a rollback runs an older build on the newer schema: migrations never go back. So add (a table, a nullable column, a column with a default); rename or drop only in a later PR, once no deployed build reads the old name.
 
@@ -431,7 +431,7 @@ A push during a run waits for it. GitHub keeps one run waiting and cancels an ol
 
 ### What a request meets during a swap
 
-Every request is answered, and the slowest waits about a quarter of a second: how the 250 ms `proxy_connect_timeout` and the reload after the canary keep a request off an address that has gone (which nginx's default would wait 60 s on), and how it was checked, is in [[INVARIANTS]] § Serving. A request still pays the 250 ms when it picks the app's address in the third of a second or so between the old app's container and the new one (compose gives the new one the same address), or the canary's in the fraction of a second before the reload. The same goes for a presence socket coming back after its server told it to (`bye: restart`).
+Every request is answered, and the slowest waits about a quarter of a second: how the short `proxy_connect_timeout` and the reload after the canary keep a request off an address that has gone (which nginx's default would wait 60 s on), and how it was checked, is in [[INVARIANTS]] § Serving. A request still pays that timeout when it picks the app's address in the third of a second or so between the old app's container and the new one (compose gives the new one the same address), or the canary's in the fraction of a second before the reload. The same goes for a presence socket coming back after its server told it to (`bye: restart`).
 
 Applying nginx's config refuses nothing either, unless nginx's service changed ([[INVARIANTS]] § Serving). What recreates nginx is a change to its service in `docker-compose.prod.yml` (the image, the ports, the domain in `deploy.env`), and then the site refuses every connection for 10 to 11 s while kids play (nginx's stop waits 10 s for its WebSockets; the measurement is in [[INVARIANTS]] § Serving). Merge such a change when few kids are playing.
 
