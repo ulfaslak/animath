@@ -119,8 +119,10 @@ export type Intent =
 	 * server's: [[DECISIONS]] § Multiplayer). In any mode while a game is
 	 * under way. A step of a match is counted once: one at or below a step
 	 * already counted for that match is ignored, as is a batch that is not
-	 * a list of events, a side that is not `a` or `b`, or a step or a match id
-	 * that is not one. Answered with `solved-changed` when a right answer of
+	 * one step's events (`MAX_MATCH_EVENTS` at most, with no holes, and at
+	 * most one `answer-judged`), a side that is not `a` or `b`, or a step or a
+	 * match id that is not one. The answers were judged by the server; the
+	 * authority only counts, so a step adds at most one puzzle solved. Answered with `solved-changed` when a right answer of
 	 * the player's was among them, else with nothing.
 	 */
 	| {

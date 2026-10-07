@@ -24,7 +24,7 @@ Puzzle answers are whole numbers only. Prompts are plain strings until a kind ne
 Difficulty is an integer 1..10. Every puzzle generator declares the range it supports.
 Gameplay formulas (damage, catch probability, difficulty mapping) live in the engine and nowhere else; [[PRODUCT]] §4 states them in prose and the two must agree.
 Game state changes only through **intents** validated by an **authority** that emits **events** (`protocol.ts`). The client UI and renderer are consumers of events, never mutators of state.
-The one way into the authority past `dispatch` is the host's handling of the save, never a player's choice: `LocalAuthority`'s `start({ game })` (begin a game, from a save or a throwaway one), `snapshot()` (the game as it stands, for the save) and `catchUp(counts)` (the step and visit counts of another tab's save this page carries on from), called by `main.ts` and the autosave alone, never by a controller, a view or the renderer.
+The one way into the authority past `dispatch` is the host's handling of the save, never a player's choice: `LocalAuthority`'s `start({ game })` (begin a game, from a save or a throwaway one), `snapshot()` (the game as it stands, for the save) and `catchUp(counts)` (the step and visit counts of another tab's save this page carries on from), called by `main.ts` and the autosave alone, never by a controller, a view or the renderer; its `stepsTaken`, read for the save card's nudge, only reads.
 
 ## Gameplay
 
