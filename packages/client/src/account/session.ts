@@ -76,7 +76,15 @@ export function guestGameFor(store: KeyValueStore, name: string): Record<string,
  * moves to the account's keys with the account's name, and the guest's key
  * is emptied, its text kept among the games put away (`KEYS.previous`), so
  * logging out later leads to the title rather than to an old copy of this
- * game. Anything the account's keys held here before is kept aside first.
+ * game. Anything the account's keys held here before is kept aside first
+ * (`replaced`, or `unreadable` when this build could not read it), except a
+ * save a newer build wrote there, which is never written over or set aside:
+ * then nothing moves, the guest game stays the guest's, and the page that
+ * starts next is behind that save (`newer`). The key can hold one when the
+ * name was an account's before, this browser played it on a newer build, and
+ * the account was deleted (`admin delete-account`, or a database restored
+ * from before it) while this tab still runs an older build (a stale tab
+ * during a deploy, or a rollback).
  *
  * False when this browser could not even be logged in (its storage refuses
  * writes): nothing moved, and the guest game plays on. When only the move
@@ -90,7 +98,13 @@ export function moveGuestGameIn(store: KeyValueStore, name: string): boolean {
 	const game = guestGameFor(store, name);
 	if (guest === null || game === null) return true;
 	const there = store.get(keys.save);
-	if (there !== null && !setAside(store, keys.replaced, there)) return true;
+	if (there !== null) {
+		const read = readSave(parseJson(there));
+		// A newer build's save is never written over or set aside: the page that starts next is
+		// behind it, and the guest game stays the guest's (the server has its copy, the account's).
+		if (!read.ok && read.reason === 'newer') return true;
+		if (!setAside(store, read.ok ? keys.replaced : keys.unreadable, there)) return true;
+	}
 	if (!store.set(keys.save, JSON.stringify(game))) return true;
 	setAside(store, KEYS.previous, guest, MAX_PUT_AWAY);
 	store.remove(KEYS.save);
