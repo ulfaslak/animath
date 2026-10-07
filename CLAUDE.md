@@ -12,12 +12,14 @@ It is a pnpm workspace with three packages: `packages/engine` (pure TypeScript g
 
 `AGENTS/DNA/` is the project's architectural guardrails: what the game is, its decisions, structure and interface contracts. The DNA grows with the project, but must never drift from the code. It evolves but doesn't change. Contributions that violate DNA cause cancer and must be avoided. Rules:
 
-1. Don't write code which violates DNA. A task brief never overrides it: build the DNA and raise the conflict.
+1. Don't write code which violates DNA. A task brief never overrides it: build the DNA and raise the conflict. Never bend a guardrail to fit code you have written: fit the code to the DNA, or get the guardrail changed first.
 2. Grow DNA: when your work adds new structure, record it.
 3. Don't let it drift: if something in DNA/ no longer matches the code, fix it. If it's unclear whether DNA or code should change, think deeply and resolve it only if you are certain, otherwise ask the human.
 4. Do not take DNA changes lightly. If you make changes, you must have applied deep reasoning before doing so. Err on the side of asking the human before changing an existing DNA item.
 
 The three rules a change most often brushes against: the engine is pure ([[DECISIONS]] § Engine; damage, catch outcomes, answer checking and walkability are engine code, never client or server code), every interaction is an intent and an event across the authority seam ([[DECISIONS]]), and kids read every string ([[DESIGN]] § Voice and copy).
+
+**Think about the seam.** If a change can't be expressed as an intent the player chooses, decided by the authority and told back as an event, it will not survive the move to a server: redesign it now, while it is cheap.
 
 ### Reading DNA files
 
@@ -73,7 +75,11 @@ Branch from `origin/main`. Edits on main are forbidden, and there are **no size 
 3. **Work:** `cd` into the worktree path shown by gtr. All edits, commits, and pushes happen there. **Commit early and frequently in worktrees**, so a deleted worktree costs nothing.
 4. **After merge:** From the primary clone, run `git gtr rm <branch-name>`, then `git checkout main && git pull`, then `pnpm db:prune-tests` (each checkout's server tests keep a database of their own, [[DEVELOPMENT]] § Database). If the worktree directory is deleted while it's your cwd, the session becomes permanently stuck. **Never remove another agent's worktree.**
 
-**Do not run `drizzle-kit generate` in a worktree.** Write migrations by hand, following [[DEVELOPMENT]] § Migrations — read it before touching `packages/server/drizzle/`.
+## Protecting existing work
+
+Never use `git checkout -- <file>`, `git checkout <ref> -- .`, `git reset --hard`, `git stash` or `git clean` to inspect or restore: they delete uncommitted work, yours or the human's. Look at a ref with `git show <ref>:<path>` or `git diff`. Commit first, then restore with `git show HEAD:<path> > <path>`.
+
+**Never run `drizzle-kit generate`** ([[DECISIONS]] § Server). Write migrations by hand, following [[DEVELOPMENT]] § Migrations — read it before touching `packages/server/drizzle/`.
 
 ## PR body structure
 
@@ -100,7 +106,7 @@ Given a prompt and the DNA, most decisions derive nicely from the context. There
 
 The first implementation pass should be your best effort. Think carefully, handle edge cases, get it right.
 
-- Run `pnpm check` and `pnpm test` from the repo root after your last edit, right before you commit. Both must be green.
+- Run `pnpm check`, `pnpm lint` and `pnpm test` from the repo root after your last edit, right before you commit. All three must be green (CI runs them all).
   - Engine changes: add or extend property tests following `packages/engine/test/*.test.ts`. A new puzzle kind extends the independent solver in `puzzles.test.ts`.
   - **When writing or modifying tests**, read **Testing ideology** in [[DEVELOPMENT]] first.
 - Format only your own files (`pnpm exec prettier --write <files>`).
@@ -115,7 +121,15 @@ Pick, without asking, the testing approaches from below that apply. Multiple can
 
 1. **Run the game** with `/play`: your own client dev server and the screenshot script.
 2. **Play the flow you changed** end to end, and **read every screenshot**. A rendering change is unverified until an agent has looked at a frame of it; a green build says nothing about what's on screen.
-3. **Test non-obvious edge cases.** For example: mode switches (explore ↔ battle ↔ doctor ↔ pause, reload mid-battle), grid edges (chunk borders, negative coordinates, the spawn tile), numeric edges (0 HP, difficulty 1 and 10, a party of one), input edges (key mashing, tab blur with a key down, a `dt` spike), keyboard and `--touch` at 1024×768, rendered layout not just the DOM, siblings sharing a selector you changed, a new figure where a kid meets it, adjacent features and the save round-trip, overlays a `git merge origin/main` brought in, duplicated rosters, gate run vs. gate shipped. Anchor your findings in evidence.
+3. **Test non-obvious edge cases.** Anchor your findings in evidence. For example:
+   - **Mode, grid and numeric edges**: explore ↔ battle ↔ doctor ↔ pause, reload mid-battle; chunk borders, negative coordinates, the spawn tile; 0 HP, difficulty 1 and 10, a party of one.
+   - **Input edges**: key mashing, tab blur with a key down, a `dt` spike; a drag to the very first and last place, and held still at an edge; a double click on something that moves when clicked; a slow tap held still.
+   - **Input modes and shared selectors**: keyboard and `--touch` at 1024×768; a rule added to a class its siblings share changes every sibling, so measure them all.
+   - **Rendered layout, not just the DOM**: real lengths (long species names), the panel at 1024×768, an HP bar at 1/100. Check the pixel, not the class name.
+   - **A new figure** where a kid meets it: in a battle, from behind, close up, as the kid's own animal (`?party=<id>`), not only in `?zoo`.
+   - **Adjacent features**: the save round-trip, and after `git merge origin/main` every overlay the merge brought in (`git diff --stat <merge-base> origin/main -- packages/client/src/ui`).
+   - **Duplicated rosters**: a new puzzle kind, tile kind, biome, phase, intent or species: grep for a sibling member, in the code and in the DNA's prose, to find every list that must learn the new one.
+   - **The gate you ran vs. the gate that ships**: dev server vs. `pnpm build` output.
 
 **If the change is engine-only (puzzles, formulas, catalog, world generation, a reducer):**
 
@@ -126,13 +140,14 @@ Pick, without asking, the testing approaches from below that apply. Multiple can
 **If the change is server-only (routes, schema, migrations):**
 
 1. Tests green. Apply the migration to a database of your own, never `mathgame`, which holds the kids' games, and verify the schema there with a direct query ([[DEVELOPMENT]] § Migrations).
-2. Exercise the route with `curl` against your own API on that database, including a malformed body and a missing player.
+2. Exercise the route with `curl` against your own API on that database, including a malformed body, no session, and an account that doesn't exist.
 
 **Regardless of what the change is:**
 
-1. **Fix everything you find.** Each bug gets a fix commit on the worktree branch. For each fix, run the **negative control** once: commit, revert the fix (or restore the triggering input), watch the check fail, then put it back with `git show HEAD:<path> > <path>`. **Break what the test claims to catch, not just the code it covers.**
-2. **Tick off the test plan.** As you verify each item, check its box in the PR description (`gh pr edit`).
-3. **Stop when confident.** You're done when you can't think of another way to break it.
+1. **Prose is a claim.** Every comment, DNA line and copy string that describes behaviour your diff changes is a claim to re-verify: grep for prose describing the old behaviour. A removal also documents what old clients left behind, from the code it deletes. A cost quoted in prose (a duration, a size) is measured under the load it will meet, never copied.
+2. **Fix everything you find.** Each bug gets a fix commit on the worktree branch. For each fix, run the **negative control** once: commit, revert the fix (or restore the triggering input), watch the check fail, then put it back with `git show HEAD:<path> > <path>`. **Break what the test claims to catch, not just the code it covers.**
+3. **Tick off the test plan.** As you verify each item, check its box in the PR description (`gh pr edit`).
+4. **Stop when confident.** You're done when you can't think of another way to break it.
 
 **Phase 2 routinely takes longer than Phase 1 and produces several fix commits. That's the intention, not a sign something went wrong.** Fast and wrong is worse than slow and right. Don't rush this.
 

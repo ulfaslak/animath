@@ -25,7 +25,7 @@ Thorough review of DNA against the full implementation.
    - Any UI it renders follows [[UI_SPEC]] and [[DESIGN]].
    - Every key listener, input path and player-reachable behaviour it adds is in [[CHEATSHEET]], and nothing in [[CHEATSHEET]] describes behaviour the code no longer has.
    - Every gameplay number it uses (damage, HP, catch rate, difficulty) is the one [[PRODUCT]] describes, and the formula is in the engine, not duplicated elsewhere.
-4. **Database reality check.** Compare the Drizzle schema (`packages/server/src/db/schema.ts`) against the actual database:
+4. **Database reality check.** Compare the Drizzle schema (`packages/server/src/db/schema.ts`) against the local `mathgame` database, which is migrated to the newest migration (read-only; from a worktree use `docker compose -p mathgame exec -T postgres psql -U postgres -d mathgame` in place of `pnpm db:psql`):
    ```bash
    pnpm db:psql -c "SELECT table_name, column_name, data_type, is_nullable, column_default FROM information_schema.columns WHERE table_schema = 'public' ORDER BY table_name, ordinal_position;"
    ```
@@ -62,7 +62,7 @@ Refer to the **Testing ideology** section in [[DEVELOPMENT]] for the principles 
 
 ## Broken links (both shallow and deep)
 
-Scan all markdown files in `AGENTS/`, `AGENTS/DNA/`, `CLAUDE.md`, and `.claude/commands/` for Obsidian-style `[[links]]`. For each link found:
+Scan all markdown files in `AGENTS/`, `AGENTS/DNA/`, `CLAUDE.md`, `.claude/commands/` and `.claude/agents/` for Obsidian-style `[[links]]`. For each link found:
 
 1. Resolve the target: `[[DECISIONS]]` should match a file named `DECISIONS.md` somewhere in the repo (case-insensitive basename match).
 2. Flag any link whose target file does not exist — these are broken links.

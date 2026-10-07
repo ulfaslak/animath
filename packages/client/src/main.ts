@@ -131,7 +131,7 @@ function heardSession(answer: SessionAnswer): void {
 	else sessionEndedUnsaid = true;
 }
 
-// `?new`, `?party=` (a party to look at), `?zoo`, `?tokens=` and `?shop` play a
+// A throwaway switch (`flags.throwaway`: the list is in `flags.ts`) plays a
 // throwaway game: nothing is loaded or saved, and the saved game is left alone.
 // A guest's game lives in this browser alone; an account's goes to the account too.
 const autosave = new Autosave({
@@ -619,7 +619,7 @@ function frame(now: number) {
 requestAnimationFrame(frame);
 
 // The title comes first: nothing is started, rolled or saved behind it. A
-// throwaway game (`?new`, `?party=`, `?zoo`, `?tokens=`, `?shop`) goes straight into explore, and so
+// throwaway game (`flags.throwaway`, the switches in `flags.ts`) goes straight into explore, and so
 // does a page that reloaded itself mid-game to catch up with another window: it
 // picks the newest game up at once and says so, instead of "Welcome back!".
 const caughtUp = takeCaughtUp();
