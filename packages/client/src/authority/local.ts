@@ -17,6 +17,7 @@ import {
 	chooseStarter,
 	clearTile,
 	countSolved,
+	defaultStarter,
 	editedTileAt,
 	fitWorlds,
 	flightPos,
@@ -420,7 +421,7 @@ export class LocalAuthority implements Authority {
 	 */
 	private newGame(): SavedGame {
 		const game = {
-			...newGame(FIRST_WORLD),
+			...newGame(FIRST_WORLD, { ...defaultStarter(), id: mintId() }),
 			tokens: this.options.tokens ?? 0,
 			items: [...(this.options.items ?? [])]
 		};

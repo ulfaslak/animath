@@ -350,7 +350,7 @@ export class Autosave {
 				// fork of a game a newer version has saved on another device. Anything else it
 				// holds is settled as usual once the game begins.
 				if (await this.newerOnServer()) return {};
-				return { game: restoreGame(read.save), notice: 'save.welcomeBack' };
+				return { game: restoreGame(read.save, this.mintId), notice: 'save.welcomeBack' };
 			}
 			if (read.reason === 'newer') {
 				// Never written over or set aside: a reload fetches the version that reads it.
@@ -375,7 +375,7 @@ export class Autosave {
 					this.pushed = this.seq;
 					// The kid's game is back: an unreadable local save is set aside for it at once.
 					this.played = true;
-					return { game: restoreGame(read.save), notice: 'save.welcomeBack' };
+					return { game: restoreGame(read.save, this.mintId), notice: 'save.welcomeBack' };
 				}
 				if (read.reason === 'newer') {
 					// The kid's game is on the server, saved by a newer version: this page neither
@@ -561,7 +561,7 @@ export class Autosave {
 	 * visit counts never go back. Undefined when the page saves nothing.
 	 */
 	resumable(): SavedGame | undefined {
-		return this.base ? restoreGame(this.base) : undefined;
+		return this.base ? restoreGame(this.base, this.mintId) : undefined;
 	}
 
 	// --- local ----------------------------------------------------------------

@@ -355,6 +355,7 @@ export {
 	STARTER_SPECIES,
 	V1_KEPT,
 	canReplace,
+	defaultStarter,
 	isNewerSave,
 	newGame,
 	readBattle,
