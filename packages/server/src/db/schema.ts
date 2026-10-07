@@ -76,8 +76,9 @@ export const users = pgTable('users', {
 
 /**
  * A logged-in browser. The cookie holds a random token; only its SHA-256 hash
- * is stored, so a database dump logs nobody in. `expires_at` slides forward a
- * year as the session is used (`sessions.ts`).
+ * is stored, so a database dump logs nobody in. `expires_at` is a year out,
+ * and moves a year out again when `/me` sees it more than `SLIDE_AFTER_DAYS`
+ * into its year (`sessions.ts`).
  */
 export const sessions = pgTable(
 	'sessions',

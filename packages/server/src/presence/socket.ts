@@ -76,8 +76,8 @@ export interface Account {
 /** The account a request's session cookie belongs to, or null for a guest. */
 export type AccountOf = (headers: Headers) => Promise<Account | null>;
 
-/** Until accounts land (`feat/accounts-server`), everyone is a guest. */
-export const noAccounts: AccountOf = async () => null;
+/** Without an `accountOf` (the server passes one; tests may not), everyone is a guest. */
+const noAccounts: AccountOf = async () => null;
 
 export interface PresenceOptions {
 	accountOf?: AccountOf;
