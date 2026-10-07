@@ -65,7 +65,8 @@ const INTENT_TYPES: ReadonlySet<string> = new Set<MatchIntent['type']>([
  * A new match between the parties of sides `a` and `b`, each brought as
  * `matchTeam` builds its team (a team works as well as a party: the helper is
  * idempotent), with every animal's id prefixed with its side (`a:starter`,
- * `b:starter`): old saves share the literal id `starter`. A coin flip keyed by
+ * `b:starter`): old saves share the literal id `starter`, and each side's ids
+ * were minted by its own authority. A coin flip keyed by
  * `seed` decides which side starts. Throws when a side brings no team: the
  * authority asks `matchTeam` first.
  */

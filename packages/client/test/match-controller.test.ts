@@ -31,6 +31,7 @@ import { battle } from '../src/state/battle.svelte';
 import { game } from '../src/state/game.svelte';
 import { hud } from '../src/state/hud.svelte';
 import { match } from '../src/state/match.svelte';
+import { testStarter } from './minted';
 
 /**
  * Friendly matches on the page, driven by keys against the real authority
@@ -202,7 +203,7 @@ function setup(
 	});
 	// The book this party makes: its kinds caught (the authority records them as it starts).
 	const saved: SavedGame = {
-		...newGame(1, undefined, 'Ada'),
+		...newGame(1, testStarter(), 'Ada'),
 		party: party.map((a) => ({ ...a })),
 		seen: [],
 		caught: []

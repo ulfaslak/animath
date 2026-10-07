@@ -52,6 +52,7 @@ import { LocalAuthority, WORLD_SEED, type LocalAuthorityOptions } from '../src/a
 import { parseParty } from '../src/flags';
 import { game } from '../src/state/game.svelte';
 import { besideA, gameBeside } from './clearing';
+import { mint, testStarter } from './minted';
 
 /**
  * The single-player authority's own rules — the ones around the engine, not
@@ -339,8 +340,11 @@ describe('LocalAuthority: encounters', () => {
 					s.authority.dispatch({ type: 'battle', intent: { type: 'flee' } });
 				}
 			}
-			expect(party(b)).toEqual(party(a));
+			// The same animals, as HP goes: each game's starter has an id of its own.
+			const unnamed = (s: Session) => party(s).map(({ id: _, ...rest }) => rest);
+			expect(unnamed(b)).toEqual(unnamed(a));
 		}
+		expect(party(b)[0]!.id).not.toBe(party(a)[0]!.id);
 	});
 
 	it('starts a battle only right after a step onto an encounter tile, at full HP', () => {
@@ -602,7 +606,7 @@ describe('LocalAuthority: a tired team walks to the doctor', () => {
 		const authority = new LocalAuthority();
 		const events: GameEvent[] = [];
 		authority.subscribe((e) => events.push(e));
-		authority.start({ game: restoreGame(read.save) });
+		authority.start({ game: restoreGame(read.save, mint) });
 		return { authority, events };
 	}
 
@@ -652,7 +656,7 @@ describe('LocalAuthority: a tired team walks to the doctor', () => {
 		const authority = new LocalAuthority();
 		const events: GameEvent[] = [];
 		authority.subscribe((e) => events.push(e));
-		authority.start({ game: { ...newGame(1), pos, facing, party: team, ...extra } });
+		authority.start({ game: { ...newGame(1, testStarter()), pos, facing, party: team, ...extra } });
 		return { authority, events };
 	}
 
@@ -734,11 +738,16 @@ describe('LocalAuthority: a tired team walks to the doctor', () => {
 
 	it('a game an older build saved at the tent, after its free heal, carries on there, fit', () => {
 		// The old rule put the kid beside the tent at (5, 7), from its left, every animal at full HP.
-		const old = { ...newGame(1), pos: { x: 4, y: 7 }, facing: 'right' as const, steps: 11 };
+		const old = {
+			...newGame(1, testStarter()),
+			pos: { x: 4, y: 7 },
+			facing: 'right' as const,
+			steps: 11
+		};
 		const doc = JSON.parse(JSON.stringify(saveDocument(old, { lineage: 'old', seq: 9 })));
 		const read = readSave(doc);
 		if (!read.ok) throw new Error(read.error);
-		const game = restoreGame(read.save);
+		const game = restoreGame(read.save, mint);
 		expect(game).toMatchObject({ pos: { x: 4, y: 7 }, facing: 'right', party: old.party });
 		expect(needsDoctor(game.party)).toBe(false);
 	});
@@ -755,7 +764,10 @@ describe('LocalAuthority: a tired team walks to the doctor', () => {
 		const pos = { x: -3, y: 6 };
 		const doc = JSON.parse(
 			JSON.stringify(
-				saveDocument({ ...newGame(1), pos, party: team, battle }, { lineage: 'old', seq: 3 })
+				saveDocument(
+					{ ...newGame(1, testStarter()), pos, party: team, battle },
+					{ lineage: 'old', seq: 3 }
+				)
 			)
 		);
 		delete doc.battle.realm;
@@ -764,7 +776,7 @@ describe('LocalAuthority: a tired team walks to the doctor', () => {
 		const authority = new LocalAuthority();
 		const events: GameEvent[] = [];
 		authority.subscribe((e) => events.push(e));
-		authority.start({ game: restoreGame(read.save) });
+		authority.start({ game: restoreGame(read.save, mint) });
 		const s = { authority, events };
 		expect(latestBattle(s).realm).toBe('land');
 		lose(s);
@@ -838,7 +850,7 @@ describe('LocalAuthority: saved games', () => {
 		const doc = saveDocument(game, { lineage: 'test', seq: 1 });
 		const read = readSave(JSON.parse(JSON.stringify(doc)));
 		if (!read.ok) throw new Error(read.error);
-		return restoreGame(read.save);
+		return restoreGame(read.save, mint);
 	}
 
 	it('a restored game plays on exactly as the original does, cut anywhere, mid-puzzle included', () => {
@@ -995,7 +1007,7 @@ describe('LocalAuthority: saved games', () => {
 		);
 		const read = readSave(JSON.parse(JSON.stringify(doc)));
 		if (!read.ok) throw new Error(read.error);
-		const restored = restoreGame(read.save);
+		const restored = restoreGame(read.save, mint);
 		expect(restored.party[0]!.nickname).toBe('Bob');
 		// The battle still fits the (cleaned) party, so it comes back.
 		expect(restored.battle?.party[0]!.nickname).toBe('Bob');
@@ -1296,7 +1308,7 @@ describe('LocalAuthority: the doctor', () => {
 		const doc = saveDocument(game, { lineage: 'test', seq: 1 });
 		const read = readSave(JSON.parse(JSON.stringify(doc)));
 		if (!read.ok) throw new Error(read.error);
-		t.authority.start({ game: restoreGame(read.save) });
+		t.authority.start({ game: restoreGame(read.save, mint) });
 		expect(t.events[0]).toMatchObject({ type: 'welcome', tokens: 14, items: ['axe'], solved: 2 });
 		t.authority.dispatch({ type: 'interact' });
 		expect(visit(t)).toMatchObject({ tokens: 14, items: ['axe'] });
@@ -1401,7 +1413,7 @@ describe('LocalAuthority: the boat', () => {
 		const authority = new LocalAuthority();
 		const events: GameEvent[] = [];
 		authority.subscribe((e) => events.push(e));
-		authority.start({ game: { ...newGame(1), party: team, items } });
+		authority.start({ game: { ...newGame(1, testStarter()), party: team, items } });
 		return { authority, events };
 	}
 
@@ -1481,7 +1493,7 @@ describe('LocalAuthority: the boat', () => {
 		authority.subscribe((e) => events.push(e));
 		authority.start({
 			game: {
-				...newGame(1),
+				...newGame(1, testStarter()),
 				pos: { x: -2, y: 2 },
 				party: [animal('otter'), animal('squirrel')],
 				items: ['boat']
@@ -1536,7 +1548,13 @@ describe('LocalAuthority: the boat', () => {
 		const events: GameEvent[] = [];
 		authority.subscribe((e) => events.push(e));
 		authority.start({
-			game: { ...newGame(1), pos: { x: -2, y: 2 }, party: team, items: ['boat'], battle }
+			game: {
+				...newGame(1, testStarter()),
+				pos: { x: -2, y: 2 },
+				party: team,
+				items: ['boat'],
+				battle
+			}
 		});
 		const s = { authority, events };
 		expect(latestBattle(s).realm).toBe('water');
@@ -1788,7 +1806,7 @@ describe('LocalAuthority: trees and rocks', () => {
 	function throughSave(game: SavedGame): SavedGame {
 		const read = readSave(JSON.parse(JSON.stringify(saveDocument(game, { lineage: 't', seq: 1 }))));
 		if (!read.ok) throw new Error(read.error);
-		return restoreGame(read.save);
+		return restoreGame(read.save, mint);
 	}
 
 	it('Enter facing a tree with the axe chops it down: ground to walk on from then on, in the save too', () => {
@@ -1993,7 +2011,7 @@ describe('LocalAuthority: names and worlds', () => {
 	function throughSave(game: SavedGame): SavedGame {
 		const read = readSave(JSON.parse(JSON.stringify(saveDocument(game, { lineage: 't', seq: 1 }))));
 		if (!read.ok) throw new Error(read.error);
-		return restoreGame(read.save);
+		return restoreGame(read.save, mint);
 	}
 
 	function travelTo(s: Session, world: number): GameEvent[] {
@@ -2061,7 +2079,12 @@ describe('LocalAuthority: names and worlds', () => {
 	});
 
 	it('travel goes to another world while exploring: its spawn on a first visit; party, tokens, items, puzzles solved, name and counts go along', () => {
-		const s = from({ ...newGame(1, undefined, 'Nini'), tokens: 7, items: ['axe'], solved: 312 });
+		const s = from({
+			...newGame(1, testStarter(), 'Nini'),
+			tokens: 7,
+			items: ['axe'],
+			solved: 312
+		});
 		move(s, 'right', 'right', 'down');
 		const left = { pos: position(s), facing: facing(s) };
 		const before = s.authority.snapshot();
@@ -2322,7 +2345,7 @@ describe('LocalAuthority: puzzles solved', () => {
 		if (!read.ok) throw new Error(read.error);
 		const t: Session = { authority: new LocalAuthority(), events: [] };
 		t.authority.subscribe((e) => t.events.push(e));
-		t.authority.start({ game: restoreGame(read.save) });
+		t.authority.start({ game: restoreGame(read.save, mint) });
 		expect(welcome(t).solved).toBe(1);
 		// The battle picked up goes on counting from there.
 		if (latestBattle(t).phase.kind === 'ended') throw new Error('the battle ended at once');
@@ -2542,7 +2565,7 @@ describe('LocalAuthority: the animal book', () => {
 	function throughSave(game: SavedGame): SavedGame {
 		const read = readSave(JSON.parse(JSON.stringify(saveDocument(game, { lineage: 'b', seq: 1 }))));
 		if (!read.ok) throw new Error(read.error);
-		return restoreGame(read.save);
+		return restoreGame(read.save, mint);
 	}
 
 	it("a new game's book holds its starter alone, caught; a ?party= game's, its party's kinds", () => {
@@ -2755,7 +2778,7 @@ describe('LocalAuthority: the glider', () => {
 		const authority = new LocalAuthority();
 		const events: GameEvent[] = [];
 		authority.subscribe((e) => events.push(e));
-		const game = newGame(1);
+		const game = newGame(1, testStarter());
 		authority.start({
 			game: { ...game, pos, facing, items: ['glider', ...items], party: team ?? game.party }
 		});
@@ -2781,7 +2804,7 @@ describe('LocalAuthority: the glider', () => {
 			JSON.parse(JSON.stringify(saveDocument(saved, { lineage: 'L', seq: 1 })))
 		);
 		if (!read.ok) throw new Error(read.error);
-		return restoreGame(read.save);
+		return restoreGame(read.save, mint);
 	}
 
 	it('takes off the way the player faces, and crosses the lake north of the start a tile at a time, each a step', () => {
@@ -3093,7 +3116,7 @@ describe('LocalAuthority: birds in the air (#91)', () => {
 		authority.subscribe((e) => events.push(e));
 		authority.start({
 			game: {
-				...newGame(1),
+				...newGame(1, testStarter()),
 				pos: SPAWN,
 				facing: 'up',
 				steps,
@@ -3120,7 +3143,7 @@ describe('LocalAuthority: birds in the air (#91)', () => {
 			JSON.parse(JSON.stringify(saveDocument(saved, { lineage: 'L', seq: 1 })))
 		);
 		if (!read.ok) throw new Error(read.error);
-		return restoreGame(read.save);
+		return restoreGame(read.save, mint);
 	}
 
 	/** The robin in front in the air, the squirrel on the ground. */
@@ -3233,7 +3256,7 @@ describe('LocalAuthority: birds in the air (#91)', () => {
 		let steps = 0;
 		while (follows(flyerFlown(steps)).length === 0) steps++;
 		const game = {
-			...newGame(1),
+			...newGame(1, testStarter()),
 			pos: SPAWN,
 			facing: 'up' as const,
 			steps,

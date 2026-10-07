@@ -29,6 +29,7 @@ import { doctorWay } from '../src/state/doctor-way.svelte';
 import { game } from '../src/state/game.svelte';
 import { hud } from '../src/state/hud.svelte';
 import { pause } from '../src/state/pause.svelte';
+import { testStarter } from './minted';
 
 /**
  * The way to the doctor while the team is tired ([[UI_SPEC]] § Explore mode),
@@ -80,7 +81,7 @@ afterEach(() => {
 
 describe('the way to the doctor', () => {
 	it('is there only while the team needs the doctor, and only over the explore screen', () => {
-		const tired = setup({ ...newGame(1), party: [squirrel(0)] });
+		const tired = setup({ ...newGame(1, testStarter()), party: [squirrel(0)] });
 		// From the spawn the tent at (5, 7) is 7 steps away, on the screen: no arrow, but a way.
 		expect(doctorWay.tent).toEqual({ x: 5, y: 7 });
 		expect(doctorWay.arrow).toBeNull();
@@ -98,17 +99,17 @@ describe('the way to the doctor', () => {
 			expect(doctorWay.tent, over).toEqual({ x: 5, y: 7 });
 		}
 		// A battle scene drawn instead of the world: nothing either.
-		const scene = setup({ ...newGame(1), party: [squirrel(0)] }, camera(false));
+		const scene = setup({ ...newGame(1, testStarter()), party: [squirrel(0)] }, camera(false));
 		scene.way.overlay();
 		expect(doctorWay.tent).toBeNull();
 		// A team that can fight needs no way at all.
-		setup({ ...newGame(1), party: [squirrel(3)] });
+		setup({ ...newGame(1, testStarter()), party: [squirrel(3)] });
 		expect(doctorWay.tent).toBeNull();
 		expect(doctorWay.arrow).toBeNull();
 	});
 
 	it('leads to the engine’s nearest tent from wherever the player is: every step of a long walk, a go-to, a trip', () => {
-		const s = setup({ ...newGame(1), party: [squirrel(0)] });
+		const s = setup({ ...newGame(1, testStarter()), party: [squirrel(0)] });
 		const rng = new Rng(2027);
 		const dirs = ['up', 'down', 'left', 'right'] as const;
 		const bad: string[] = [];
@@ -140,7 +141,7 @@ describe('the way to the doctor', () => {
 	it('up on the glider it keeps the tent found where the kid took off, over the lake too, and looks again once they are down', () => {
 		// From the start of World 1, facing up over the lake: its far shore 14 tiles up.
 		const s = setup({
-			...newGame(1),
+			...newGame(1, testStarter()),
 			party: [squirrel(0)],
 			items: ['glider'],
 			pos: { x: -2, y: 6 },
@@ -168,7 +169,7 @@ describe('the way to the doctor', () => {
 		// up in the air either, however near a tent the ground under the glider is, until down.
 		const pocket = { x: -2, y: 32 };
 		const out = setup({
-			...newGame(1),
+			...newGame(1, testStarter()),
 			party: [squirrel(0)],
 			items: ['glider'],
 			pos: pocket,
@@ -197,7 +198,7 @@ describe('the way to the doctor', () => {
 			const spot = nearestTent(WORLD_SEED, pos);
 			if (!spot || spot.steps < 30) continue;
 			if (Math.abs(spot.tent.x - pos.x) < 13 && Math.abs(spot.tent.y - pos.y) < 10) continue;
-			start = { ...newGame(1), pos, party: [squirrel(0)] };
+			start = { ...newGame(1, testStarter()), pos, party: [squirrel(0)] };
 		}
 		expect(start).not.toBeNull();
 		const s = setup(start!);
@@ -238,7 +239,7 @@ describe('the way to the doctor', () => {
 				if (!isWalkable(tileAtWorld(WORLD_SEED, pos.x, pos.y).kind)) continue;
 				const spot = nearestTent(WORLD_SEED, pos);
 				if (spot?.tent.x !== tx || spot.tent.y !== ty) continue;
-				return { ...newGame(1), pos, party: [squirrel(0)] };
+				return { ...newGame(1, testStarter()), pos, party: [squirrel(0)] };
 			}
 		throw new Error(`no tent ${dx} across and ${dy} down from walkable ground`);
 	}
@@ -278,7 +279,7 @@ describe('the way to the doctor', () => {
 	it('walled in where no tent is a walk away, with the paraglider: no way, and the line says to fly out', () => {
 		// No witch doctor comes to a kid who can fly, so the line must not send them walking.
 		setup({
-			...newGame(1),
+			...newGame(1, testStarter()),
 			party: [squirrel(0)],
 			items: ['glider'],
 			pos: { x: -2, y: 32 },
@@ -288,7 +289,7 @@ describe('the way to the doctor', () => {
 		expect(doctorWay.noWay).toBe(true);
 		expect(hud.hint).toBe(t('explore.tiredFly'));
 		// A walk from a tent, the glider or not: the walk's line.
-		setup({ ...newGame(1), party: [squirrel(0)], items: ['glider'] });
+		setup({ ...newGame(1, testStarter()), party: [squirrel(0)], items: ['glider'] });
 		expect(doctorWay.noWay).toBe(false);
 		expect(hud.hint).toBe(t('explore.tired'));
 	});
