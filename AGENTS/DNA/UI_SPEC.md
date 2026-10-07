@@ -30,7 +30,7 @@ A mouse and a finger work everything a keyboard works, and a tablet plays with n
 
 ## Title
 
-The first screen, every time the page opens (except the throwaway switches `?new`, `?party=`, `?zoo`, `?tokens=` and `?shop`, which go straight into explore; a page that reloaded itself mid-game to catch up with another window, and one that started again for an account with a game in it (a login, a new account, another device's newer game: § Accounts), which go straight back into play; and a page that finds a newer version's save, which shows only the behind card: § Explore mode, "Behind another window"), and the one Quit to title returns to. Nothing is started, walked, rolled or saved behind it.
+The first screen, every time the page opens (except the throwaway switches, which go straight into explore ([[ARCHITECTURE]], the `flags.ts` row, lists them); a page that reloaded itself mid-game to catch up with another window, and one that started again for an account with a game in it (a login, a new account, another device's newer game: § Accounts), which go straight back into play; and a page that finds a newer version's save, which shows only the behind card: § Explore mode, "Behind another window"), and the one Quit to title returns to. Nothing is started, walked, rolled or saved behind it.
 
 ```
 ┌──────────────────────────────────────────────────────────┐
