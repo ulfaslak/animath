@@ -182,11 +182,17 @@ function setup(
 		},
 		renderer,
 		clock: () => now,
-		count: (events, side) => {
-			counted += events.filter(
-				(e) => e.type === 'answer-judged' && e.correct && e.side === side
-			).length;
-			authority.countMatchAnswers(events, side);
+		// The real authority, through its one door: every right answer the page passes on, counted
+		// here as the authority must count it.
+		authority: {
+			dispatch: (intent) => {
+				if (intent.type === 'match-answers') {
+					counted += intent.events.filter(
+						(e) => e.type === 'answer-judged' && e.correct && e.side === intent.side
+					).length;
+				}
+				authority.dispatch(intent);
+			}
 		},
 		store
 	});
