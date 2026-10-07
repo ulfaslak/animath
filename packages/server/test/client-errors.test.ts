@@ -336,6 +336,21 @@ async function keptAgo(minutesAgo: number, overrides: Partial<ClientErrorReport>
 
 const hourAgo = () => new Date(Date.now() - 60 * 60_000);
 
+/**
+ * Waits until the database's clock, cut to the millisecond as `errorGroups`
+ * cuts a window's end, has passed every report kept so far. A report kept
+ * just now can share its millisecond with the next read, and then belongs to
+ * the window after it.
+ */
+async function clockPastReports() {
+	for (;;) {
+		const r = await db.execute<{ past: boolean }>(
+			sql`select date_trunc('milliseconds', now()) > (select max(created_at) from client_errors) as past`
+		);
+		if (r.rows[0]!.past) return;
+	}
+}
+
 describe('errorGroups', () => {
 	it('groups by message and build, keeps a test apart, and puts the group heard from last first', async () => {
 		await keptAgo(50, { mode: 'explore', stack: 'oldest@/a.js:1:1' });
@@ -370,6 +385,7 @@ describe('errorGroups', () => {
 		const first = await errorGroups(hourAgo());
 		expect(first.reports).toBe(1);
 		await keptAgo(0);
+		await clockPastReports();
 		const second = await errorGroups(first.until);
 		expect(second.since).toEqual(first.until);
 		expect(second.reports).toBe(1);
