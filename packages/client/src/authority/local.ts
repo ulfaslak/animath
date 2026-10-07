@@ -1057,15 +1057,15 @@ export class LocalAuthority implements Authority {
 
 /**
  * A `match-answers` that is one, whatever its type says: a match id, a step
- * the server can have numbered (a whole number from 1), a side, and a list
- * of events, each an object with a `type` (`countSolved` reads no more).
+ * that is a whole number, a side, and a list of events, each an object with
+ * a `type` (`countSolved` reads no more). A step below 1 is one, but never
+ * counts: it is never above the last step counted, which starts at 0.
  */
 function isMatchBatch(intent: Intent & { type: 'match-answers' }): boolean {
 	const { match, step, side, events } = intent as { [K in keyof typeof intent]: unknown };
 	return (
 		isMatchId(match) &&
 		Number.isSafeInteger(step) &&
-		(step as number) >= 1 &&
 		MATCH_SIDES.includes(side as MatchSide) &&
 		Array.isArray(events) &&
 		events.every(
