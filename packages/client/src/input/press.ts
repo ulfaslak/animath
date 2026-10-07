@@ -15,8 +15,11 @@ import { DOCTOR_TABS, type DoctorTab } from '../doctor/tabs';
  *   screen's to say: the doctor and the pause menu do the row at once; the
  *   battle, where a pick spends the turn, only highlights it, and Go
  *   (Enter) does it.
- * - `option:<i>`: option `i` of a second list beside the rows: the animal
- *   picked in the pause menu, the doctor's confirm before a hand-over. A key
+ * - `option:<i>`: option `i` of a second list beside the rows: in the pause
+ *   menu an animal's or a card's options and a card's animals, the Worlds
+ *   screen's buttons, the animal book's cards and Who's here's players; the
+ *   doctor's confirm before a hand-over; a friendly match's two buttons on its
+ *   result and on "Leave the match?". A key
  *   says what it touched, never where it sits, so two lists a pointer can
  *   reach at once never share one (#45: the team's `row:0` was read as the
  *   options' first, Go first).
@@ -64,7 +67,7 @@ export function tappedRow(key: string): number | undefined {
 	return m ? Number(m[1]) : undefined;
 }
 
-/** The key name of a tap on option `i` of the pause menu's picked animal. */
+/** The key name of a tap on option `i` of the second list on screen (`option:<i>` above). */
 export function optionKey(i: number): string {
 	return `option:${i}`;
 }
