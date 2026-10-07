@@ -2,6 +2,7 @@ import {
 	ATTACK_LEVELS,
 	EDITS_BUDGET,
 	ITEM_IDS,
+	MAX_MATCH_EVENTS,
 	Rng,
 	WorldEdits,
 	applyMatchIntent,
@@ -42,6 +43,7 @@ import {
 	type Intent,
 	type MatchEvent,
 	type MatchIntent,
+	type MatchSide,
 	type SavedGame,
 	worldSeed
 } from '@mathgame/engine';
@@ -2377,56 +2379,173 @@ describe('LocalAuthority: puzzles solved', () => {
 		const before = s.authority.snapshot();
 		expect(before.solved).toBe(1);
 
-		// A real match's events, as its authority sends them to both players.
-		const seed = 99;
-		let state = startMatch({ a: before.party, b: parseParty('wolf,deer')! }, seed);
-		const events: MatchEvent[] = [];
-		const right = { a: 0, b: 0 };
-		for (let i = 0; i < 600; i++) {
-			const phase = state.phase;
-			if (phase.kind === 'ended') break;
-			const side = phase.side;
-			let intent: MatchIntent;
-			if (phase.kind === 'solving') {
-				const correct = i % 3 !== 0;
-				const answer = phase.puzzle.answer;
-				intent = { type: 'answer', input: String(correct ? answer : answer + 1) };
-				if (correct) right[side]++;
-			} else if (phase.kind === 'choose-animal') {
-				const next = state.teams[side].findIndex((_, j) => canSendIn(state, side, j));
-				intent = { type: 'pick-next', teamIndex: next };
-			} else {
-				intent = { type: 'attack', attackIndex: 1, level: 1 };
-			}
-			const step = applyMatchIntent(state, side, intent, seed);
-			events.push(...step.events);
-			state = step.state;
-		}
-		expect(state.phase.kind).toBe('ended');
+		// A real match's steps, as its authority sends them to both players.
+		const { steps, right } = playedMatch(before.party);
 		expect(right.a).toBeGreaterThan(0);
 		expect(right.b).toBeGreaterThan(0);
 
 		const from = s.events.length;
-		s.authority.countMatchAnswers(events, 'a');
-		expect(s.events.slice(from)).toEqual([{ type: 'solved-changed', solved: 1 + right.a }]);
+		for (const step of steps) s.authority.dispatch(answers(step, 'a'));
+		expect(s.events.slice(from).filter((e) => e.type !== 'solved-changed')).toEqual([]);
+		expect(s.events.at(-1)).toEqual({ type: 'solved-changed', solved: 1 + right.a });
+		// One `solved-changed` for each step with a right answer of the player's, never one for nothing.
+		const counting = steps.filter((st) =>
+			st.events.some((e) => e.type === 'answer-judged' && e.correct && e.side === 'a')
+		);
+		expect(s.events.length - from).toBe(counting.length);
 		// Nothing else about the game changed: a match changes nothing but the count.
 		expect(s.authority.snapshot()).toEqual({ ...before, solved: 1 + right.a });
-		// The other player's right answers, and the wrong ones, are nobody's here.
-		const theirs = events.filter((e) => e.type !== 'answer-judged' || e.side === 'b' || !e.correct);
-		s.authority.countMatchAnswers(theirs, 'a');
-		expect(s.events.length).toBe(from + 1);
-		// Played from the other side, the same events count the other side's answers.
+		// The other player's right answers, and the wrong ones, are nobody's here (in a match of its own).
+		const theirs = steps.map((st) => ({
+			...st,
+			events: st.events.filter((e) => e.type !== 'answer-judged' || e.side === 'b' || !e.correct)
+		}));
+		for (const step of theirs) s.authority.dispatch(answers(step, 'a', 'another-match'));
+		expect(s.events.length).toBe(from + counting.length);
+		// Played from the other side, the same steps count the other side's answers.
 		const other = session();
-		other.authority.countMatchAnswers(events, 'b');
+		for (const step of steps) other.authority.dispatch(answers(step, 'b'));
 		expect(other.authority.snapshot().solved).toBe(right.b);
 		// Before a game is under way there is nothing to count into.
 		const title = new LocalAuthority();
 		const said: GameEvent[] = [];
 		title.subscribe((e) => said.push(e));
-		title.countMatchAnswers(events, 'a');
+		for (const step of steps) title.dispatch(answers(step, 'a'));
 		expect(said).toEqual([]);
 	});
+
+	it("counts a match's step once: a step passed again, or one before a step counted, adds nothing", () => {
+		const s = session(withParty('fox,rabbit'));
+		const { steps } = playedMatch(s.authority.snapshot().party);
+		const scoring = steps.filter((st) =>
+			st.events.some((e) => e.type === 'answer-judged' && e.correct && e.side === 'a')
+		);
+		expect(scoring.length).toBeGreaterThan(2);
+		const [first, second] = scoring as [MatchStep, MatchStep];
+
+		s.authority.dispatch(answers(first, 'a'));
+		const once = s.authority.snapshot().solved;
+		expect(once).toBe(1);
+		// The same step again: a batch passed twice.
+		s.authority.dispatch(answers(first, 'a'));
+		expect(s.authority.snapshot().solved).toBe(once);
+		s.authority.dispatch(answers(second, 'a'));
+		const twice = s.authority.snapshot().solved;
+		expect(twice).toBe(2);
+		// A step before the last one counted, late: refused as well.
+		s.authority.dispatch(answers(first, 'a'));
+		expect(s.authority.snapshot().solved).toBe(twice);
+		// Another match's steps are its own, numbered from 1 again (a rematch).
+		s.authority.dispatch(answers(first, 'a', 'rematch-1'));
+		expect(s.authority.snapshot().solved).toBe(twice + 1);
+	});
+
+	it('counts a step of a match in any mode while a game is under way, a wild battle too', () => {
+		const s = session(withParty('fox,rabbit'));
+		walkIntoBattle(s);
+		const { steps, right } = playedMatch(s.authority.snapshot().party);
+		for (const step of steps) s.authority.dispatch(answers(step, 'a'));
+		expect(s.authority.snapshot().solved).toBe(right.a);
+		expect(latestBattle(s).phase.kind).not.toBe('ended');
+	});
+
+	it('takes no batch that is not one: a side, a step, a match id or events of the wrong kind', () => {
+		const s = session(withParty('fox,rabbit'));
+		const { steps } = playedMatch(s.authority.snapshot().party);
+		const step = steps.find((st) =>
+			st.events.some((e) => e.type === 'answer-judged' && e.correct && e.side === 'a')
+		)!;
+		const good = answers(step, 'a');
+		const bad: unknown[] = [
+			{ ...good, side: 'c' },
+			{ ...good, side: undefined },
+			{ ...good, step: 0 },
+			{ ...good, step: -1 },
+			{ ...good, step: 1.5 },
+			{ ...good, step: Number.NaN },
+			{ ...good, step: Number.POSITIVE_INFINITY },
+			{ ...good, step: String(good.step) },
+			{ ...good, match: '' },
+			{ ...good, match: 'no spaces!' },
+			{ ...good, match: 42 },
+			{ ...good, events: null },
+			{ ...good, events: 'answer-judged' },
+			{ ...good, events: { 0: good.events[0], length: 1 } },
+			{ ...good, events: [...good.events, null] },
+			{ ...good, events: [...good.events, 'answer-judged'] },
+			{ ...good, events: [...good.events, { side: 'a', correct: true }] },
+			// A list with holes, which `every` would skip.
+			{ ...good, events: new Array(2) },
+			{ ...good, events: [...good.events, , { type: 'missed', attacker: 'b' }] },
+			// More than one intent's worth: past the wire's limit, or a second answer judged.
+			{ ...good, events: [...good.events, ...Array(MAX_MATCH_EVENTS).fill({ type: 'missed' })] },
+			{ ...good, events: [...good.events, { type: 'answer-judged', side: 'a', correct: true }] },
+			// An answer judged without a side, or neither right nor wrong.
+			{ ...good, events: [{ type: 'answer-judged', side: 'c', correct: true }] },
+			{ ...good, events: [{ type: 'answer-judged', side: 'a', correct: 'yes' }] }
+		];
+		const from = s.events.length;
+		for (const intent of bad) s.authority.dispatch(intent as Intent);
+		expect(s.events.slice(from)).toEqual([]);
+		expect(s.authority.snapshot().solved).toBe(0);
+		// None of them used the step up: the batch itself still counts.
+		s.authority.dispatch(good);
+		expect(s.authority.snapshot().solved).toBeGreaterThan(0);
+	});
 });
+
+/** One step of a match as the server sends it: its number (the view's `step`) and its events. */
+interface MatchStep {
+	step: number;
+	events: MatchEvent[];
+}
+
+/**
+ * A whole match played in the real reducer, party `a` against a wolf and a
+ * deer, as the server plays it: every step's events, with the step number its
+ * view carries, and how many answers each side got right. Every third answer
+ * is wrong.
+ */
+function playedMatch(party: readonly AnimalInstance[]): {
+	steps: MatchStep[];
+	right: Record<MatchSide, number>;
+} {
+	const seed = 99;
+	let state = startMatch({ a: party, b: parseParty('wolf,deer')! }, seed);
+	const steps: MatchStep[] = [];
+	const right = { a: 0, b: 0 };
+	for (let i = 0; i < 600; i++) {
+		const phase = state.phase;
+		if (phase.kind === 'ended') break;
+		const side = phase.side;
+		let intent: MatchIntent;
+		if (phase.kind === 'solving') {
+			const correct = i % 3 !== 0;
+			const answer = phase.puzzle.answer;
+			intent = { type: 'answer', input: String(correct ? answer : answer + 1) };
+			if (correct) right[side]++;
+		} else if (phase.kind === 'choose-animal') {
+			const next = state.teams[side].findIndex((_, j) => canSendIn(state, side, j));
+			intent = { type: 'pick-next', teamIndex: next };
+		} else {
+			intent = { type: 'attack', attackIndex: 1, level: 1 };
+		}
+		const step = applyMatchIntent(state, side, intent, seed);
+		state = step.state;
+		steps.push({ step: state.step, events: [...step.events] });
+	}
+	expect(state.phase.kind).toBe('ended');
+	return { steps, right };
+}
+
+/** `match-answers` for one step of match `match`, played from `side`. */
+function answers(
+	step: MatchStep,
+	side: MatchSide,
+	match = 'match-1'
+): Intent & { type: 'match-answers' } {
+	return { type: 'match-answers', match, step: step.step, side, events: step.events };
+}
 
 describe('LocalAuthority: the animal book', () => {
 	/** Every book the authority said, in order. */

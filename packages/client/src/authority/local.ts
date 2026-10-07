@@ -2,6 +2,8 @@ import {
 	EMPTY_BOOK,
 	FIRST_WORLD,
 	LAST_WORLD,
+	MATCH_SIDES,
+	MAX_MATCH_EVENTS,
 	Rng,
 	WORLD_ONE_SEED,
 	WorldEdits,
@@ -29,6 +31,7 @@ import {
 	hashInts,
 	hashString,
 	isEncounterTile,
+	isMatchId,
 	isPassable,
 	isWireCoord,
 	joinParty,
@@ -70,7 +73,6 @@ import {
 	type Landing,
 	type Line,
 	type LineKey,
-	type MatchEvent,
 	type MatchSide,
 	type PartyIntent,
 	type PlayerActivity,
@@ -266,6 +268,12 @@ export class LocalAuthority implements Authority {
 	 * saved: a reload closes the visit, and what it healed is in the party.
 	 */
 	private doctor: { visit: number; state: DoctorState; seed: number } | null = null;
+	/**
+	 * The last step of each friendly match counted (`match-answers`), by the
+	 * match's id, so no step counts twice. Not saved: after a reload the
+	 * server sends a match picked up without the steps already sent.
+	 */
+	private readonly matchSteps = new Map<string, number>();
 
 	constructor(private readonly options: LocalAuthorityOptions = {}) {}
 
@@ -400,21 +408,6 @@ export class LocalAuthority implements Authority {
 	}
 
 	/**
-	 * A friendly match's events, as the match's own authority (the server)
-	 * sent them, for the player playing `side`: each of this player's right
-	 * answers adds one to the puzzles solved, as a right answer here does
-	 * (`countSolved`), and the other player's count for them, not here.
-	 * Nothing else changes: a match changes nothing in the game ([[DECISIONS]]
-	 * § Multiplayer), the animal book included. The hook the match screen calls with every batch of
-	 * events it is sent, each batch once: a batch passed twice counts twice.
-	 * Only while a game is under way.
-	 */
-	countMatchAnswers(events: readonly MatchEvent[], side: MatchSide): void {
-		if (!this.started) return;
-		this.count(countSolved(this.solved, events, side));
-	}
-
-	/**
 	 * A throwaway game in World 1, with the `?party=` party, in bundles, when
 	 * there is one, the `?tokens=` tokens and the `?items=` items. Its animal
 	 * book holds its party.
@@ -453,6 +446,11 @@ export class LocalAuthority implements Authority {
 		if (intent.type === 'choose-name') {
 			// In any mode: a game saved mid-battle asks for the name before it goes on.
 			this.chooseName(intent.name);
+			return;
+		}
+		if (intent.type === 'match-answers') {
+			// In any mode: a right answer in a match is the kid's to keep, whatever else is up.
+			this.countMatch(intent);
 			return;
 		}
 		if (this.battle) {
@@ -1005,6 +1003,25 @@ export class LocalAuthority implements Authority {
 		this.emit({ type: 'party-edited', party: this.partyCopy(), events });
 	}
 
+	// --- friendly matches ----------------------------------------------------
+
+	/**
+	 * `match-answers`: one step of a friendly match, as the server sent it.
+	 * This player's right answers in it count (`countSolved` with their
+	 * side), and nothing else changes, the animal book included. A step is
+	 * counted once: the server numbers each match's steps (its view's `step`,
+	 * one more for every intent it accepted), so a step at or below one
+	 * already counted for that match is a batch passed twice, and adds
+	 * nothing. A batch that is not one adds nothing either.
+	 */
+	private countMatch(intent: Intent & { type: 'match-answers' }): void {
+		if (!isMatchBatch(intent)) return;
+		const { match, step, side, events } = intent;
+		if (step <= (this.matchSteps.get(match) ?? 0)) return;
+		this.matchSteps.set(match, step);
+		this.count(countSolved(this.solved, events, side));
+	}
+
 	/** What the player is doing, for the engine's rules that depend on it. */
 	private activity(): PlayerActivity {
 		if (this.battle) return 'battle';
@@ -1038,6 +1055,37 @@ export class LocalAuthority implements Authority {
 	private emit(event: GameEvent): void {
 		for (const l of this.listeners) l(event);
 	}
+}
+
+/**
+ * A `match-answers` that is one step of a match, whatever its type says: a
+ * match id, a step that is a whole number, a side, and the events of one
+ * intent: a list of at most `MAX_MATCH_EVENTS` (as the wire takes), each an
+ * object with a `type`, and at most one `answer-judged`, with a side and
+ * `correct` true or false (the match reducer judges one answer per intent).
+ * So one step adds at most one puzzle solved. A step below 1 passes here,
+ * but never counts: it is never above the last step counted, which starts
+ * at 0.
+ */
+function isMatchBatch(intent: Intent & { type: 'match-answers' }): boolean {
+	const { match, step, side, events } = intent as { [K in keyof typeof intent]: unknown };
+	if (!isMatchId(match) || !Number.isSafeInteger(step)) return false;
+	if (!MATCH_SIDES.includes(side as MatchSide)) return false;
+	if (!Array.isArray(events) || events.length > MAX_MATCH_EVENTS) return false;
+	let judged = 0;
+	// An index loop, not `every`: a hole in the list is looked at too, and refused.
+	for (let i = 0; i < events.length; i++) {
+		const e: unknown = events[i];
+		if (typeof e !== 'object' || e === null) return false;
+		const { type, side: by, correct } = e as { type?: unknown; side?: unknown; correct?: unknown };
+		if (typeof type !== 'string') return false;
+		if (type !== 'answer-judged') continue;
+		judged += 1;
+		if (judged > 1 || !MATCH_SIDES.includes(by as MatchSide) || typeof correct !== 'boolean') {
+			return false;
+		}
+	}
+	return true;
 }
 
 /** A copy of a world left behind, so the authority's own never leaves it. */
