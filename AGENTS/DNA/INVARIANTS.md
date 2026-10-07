@@ -2,7 +2,7 @@
 
 What must stay true at runtime, and the failure that taught it.
 
-**Admission test: could you write a test that fails when this stops being true?** If yes, it belongs here. A choice among alternatives goes in [[DECISIONS]]. Where code lives goes in [[ARCHITECTURE]]. Anything a player can observe goes in [[PRODUCT]]. A fact that is here is not in those files — a second copy drifts, and the two disagree silently.
+**Admission test: could you write a test that fails when this stops being true?** If yes, it belongs here. A choice among alternatives goes in [[DECISIONS]]. Where code lives goes in [[ARCHITECTURE]]. A rule or number a player meets is stated in [[PRODUCT]] §4; an entry here names it and says what enforces it, without restating the formula. A fact that is here is not in those files — a second copy drifts, and the two disagree silently.
 
 **One entry per invariant.** The `###` heading states the rule, phrased so it can be violated. Under it: the mechanism that enforces it, and the incident that made it necessary (or "design-time" when it was set before any incident).
 
