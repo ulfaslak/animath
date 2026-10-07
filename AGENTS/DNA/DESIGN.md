@@ -8,7 +8,7 @@ Kids aged roughly 6–12, playing alone or with friends, in the same room or in 
 
 ## Personality
 
-Cheerful, kind, a little silly. The world is sunny and safe. Nothing is scary: a bear is *fierce*, not frightening; a knocked-out animal is *tired*, not hurt. Winning feels big; losing feels like "go again".
+Cheerful, kind, a little silly. The world is sunny and safe. Animals act like real animals: they bite, maul, roar and pounce, and a bear is *fierce*. What stays out is death, blood and real fear: a knocked-out animal is *tired*, not hurt. Winning feels big; losing feels like "go again".
 
 ## Aesthetic direction
 
@@ -137,7 +137,7 @@ The same voice for a Danish seven-year-old reading alone: short, warm, one idea 
 - Second person "du", never "De".
 - "træt" for tired, never "besvimet", "slået ud" or "død".
 - "Ikke helt!", then "Forbi! Den vilde bjørn ryster det af sig.", not "Forkert svar." Big moments get big copy and an exclamation mark: "Du fangede en ræv!", "Du vandt!". "Godt forsøgt!" when the whole party is tired, never "Du tabte".
-- No anglicisms where Danish has a word a kid knows: "hold", not "team"; "snor", not "leash". Nothing scary: no "dø", "dræbe" or "blod"; the bear hugs ("Bjørnekram"), it doesn't maul.
+- No anglicisms where Danish has a word a kid knows: "hold", not "team"; "snor", not "leash". No death or blood: no "dø", "dræbe" or "blod". A fierce animal's attacks may still bite, maul or pounce.
 - Your own animal is called by its name in a label or a call ("Ræv", "Kom så, Ræv!") and with "the" in a sentence ("Ræven er træt.", "Lad os hjælpe ræven!"). A wild one is "en vild ræv" or "den vilde ræv". A nickname replaces all of them and is never translated.
 - Danish nouns are *en* or *et*, and the article and "vild" follow: en vild ræv / den vilde ræv, but et vildt egern / det vilde egern. Each species' forms are written out in `da.yaml`, so a sentence never guesses. Don't use a pronoun for an animal ("den", "det") where its gender could be either: "Forbi!" rather than "Den ramte ikke", "Snoren gled af!" rather than "Den slap fri".
 - Species names are lower case inside a sentence ("Du fangede et egern!") and capitalised alone, as a name or a label.
