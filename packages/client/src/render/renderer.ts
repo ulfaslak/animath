@@ -545,7 +545,8 @@ export class GameRenderer {
 			motion.reduced,
 			lift,
 			this.sitting,
-			this.ski.glide
+			// On the sled's runners they glide too: an even pace, no hop.
+			this.ski.glide || this.pull !== null
 		);
 		const { x, z } = pose;
 		let { y, afloat } = pose;

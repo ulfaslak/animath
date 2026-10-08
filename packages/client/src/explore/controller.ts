@@ -657,7 +657,7 @@ export class ExploreController {
 					? 'follows'
 					: canRide(game, onLand)
 						? 'mount'
-						: canPull(game, onLand)
+						: canPull(game, onLand) && follower.roomToPull(this.pos, this.facing, onLand)
 							? 'pull'
 							: 'follows';
 			follower.lead(onLand, ride);

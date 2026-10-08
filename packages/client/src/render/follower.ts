@@ -16,7 +16,7 @@ import { BOAT_DECK, BOAT_STAND } from './boat';
 import { flyingSize } from './chaser';
 import { appearScale, recallScale, smoothstep } from './ease';
 import { SADDLE } from './mount';
-import { SLED_FRONT, SLED_STAND } from './sled';
+import { SLED_FRONT } from './sled';
 import { WATER_TOP, groundTop } from './tiles';
 import { AHEAD, FACING_ANGLE } from './trainer';
 
@@ -248,7 +248,8 @@ export class Follower {
 	 * grown in), for the sled's traces; null when it pulls no sled.
 	 */
 	get pulling(): { reach: number; height: number } | null {
-		if (!this.figure || this.riding !== 'pull') return null;
+		// Gone with the lead as soon as it starts to shrink away: never a sled with no one in front.
+		if (!this.figure || this.riding !== 'pull' || this.swap?.phase === 'out') return null;
 		const scale = this.swapScale();
 		return {
 			reach: SLED_FRONT + (this.pullAhead - SLED_FRONT) * scale,
@@ -550,13 +551,16 @@ export class Follower {
 		const from = this.trainerFrom;
 		const to = this.trainerTo;
 		if (!from || !to) return;
-		const t = smoothstep(Math.min(1, Math.max(0, progress)));
+		// At an even pace, as the trainer on the sled glides (no hop, no ease), so the traces stay taut.
+		const t = Math.min(1, Math.max(0, progress));
 		const ahead = AHEAD[this.trainerFacing];
-		const yFrom = this.standAt(from);
+		const x = from.x + (to.x - from.x) * t + ahead.x * this.pullAhead;
+		const z = from.y + (to.y - from.y) * t + ahead.z * this.pullAhead;
+		// On the ground under its own middle, not the trainer's.
 		figure.position.set(
-			from.x + (to.x - from.x) * t + ahead.x * this.pullAhead,
-			yFrom + (this.standAt(to) - yFrom) * t + SLED_STAND + this.swapLift(),
-			from.y + (to.y - from.y) * t + ahead.z * this.pullAhead
+			x,
+			this.standAt({ x: Math.round(x), y: Math.round(z) }) + this.swapLift(),
+			z
 		);
 		this.facing = this.trainerFacing;
 		this.yaw = FACING_ANGLE[this.trainerFacing];
@@ -729,6 +733,19 @@ export class Follower {
 		const lands = species ? canFightIn(species, 'land') : true;
 		const swims = species ? canFightIn(species, 'water') : false;
 		return (isWalkable(kind) && lands) || (isWater(kind) && swims);
+	}
+
+	/**
+	 * Whether a lead of `species` could walk in front of a sled the trainer at
+	 * `at` facing `facing` stands on: the tile ahead is ground it can stand on.
+	 * Facing a tent, a tree, a block, a hole or the water, it steps out of its
+	 * traces and follows instead, never standing inside what is in front.
+	 */
+	roomToPull(at: GridPos, facing: Direction, species: string): boolean {
+		const a = AHEAD[facing];
+		const ahead = { x: at.x + a.x, y: at.y + a.z };
+		const kind = editedTileAt(this.seed, this.edits, ahead.x, ahead.y).kind;
+		return isWalkable(kind) && this.canStand(ahead, species);
 	}
 
 	/** The player cleared a tile: the world it stands in is as `edits` leave it. */

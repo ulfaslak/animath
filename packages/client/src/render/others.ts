@@ -252,6 +252,10 @@ export class OtherPlayers {
 		other.lead = peer.lead;
 		other.items = itemsOf(peer);
 		if (peer.skis && !other.skis) this.addSkis(other);
+		// Turned where they stand (a bump, a word with the witch doctor): their lead turns with them.
+		if (peer.facing !== other.facing && other.queue.length === 0 && other.progress >= 1) {
+			other.follower.face(peer.facing);
+		}
 		other.facing = peer.facing;
 		if (peer.boat !== other.ownsBoat) this.setBoat(other, peer.boat);
 		const flying = peer.busy === 'flight';
@@ -327,6 +331,8 @@ export class OtherPlayers {
 			// On their lead's back, as the player's own trainer sits (`renderer.ts`).
 			const seat = other.follower.seat(other.progress);
 			const sitting = seat.weight * (1 - lift);
+			// On their dog sled, pulled by their lead (a look only): on its runners, gliding, the skis off.
+			const pull = other.follower.pulling;
 			const { x, y, z, afloat } = trainerPose(
 				this.seed,
 				other.from,
@@ -335,7 +341,8 @@ export class OtherPlayers {
 				other.ownsBoat,
 				calm,
 				lift,
-				sitting
+				sitting,
+				pull !== null
 			);
 			const astride = (seat.height - SIT_DROP * seat.weight) * (1 - lift);
 			const moving =
@@ -351,8 +358,6 @@ export class OtherPlayers {
 			other.nudge.x += (want.x - other.nudge.x) * ease;
 			other.nudge.z += (want.z - other.nudge.z) * ease;
 			const joy = this.jump(other, dt, calm);
-			// On their dog sled, pulled by their lead (a look only): on its runners, the skis off.
-			const pull = other.follower.pulling;
 			const sledding = pull !== null && afloat === 0 && lift === 0;
 			other.figure.position.set(
 				x + other.nudge.x,
@@ -391,7 +396,7 @@ export class OtherPlayers {
 			animateIdle(other.figure, t);
 			animateWalk(
 				other.figure,
-				walking && !gliding ? other.progress : 1,
+				walking && !gliding && !sledding ? other.progress : 1,
 				strideOnto(other.to),
 				afloat === 1 ? 0 : 1 - sitting
 			);
@@ -411,7 +416,8 @@ export class OtherPlayers {
 							: 'follows'
 						: canRide(other, other.lead)
 							? 'mount'
-							: canPull(other, other.lead)
+							: canPull(other, other.lead) &&
+								  other.follower.roomToPull(other.to, other.facing, other.lead)
 								? 'pull'
 								: 'follows';
 			// Nobody follows them in the air, nor while their lead is out in a battle beside them.
