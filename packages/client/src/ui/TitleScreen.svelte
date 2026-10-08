@@ -838,4 +838,55 @@
 		color: var(--panel-ink);
 		opacity: 0.35;
 	}
+
+	/* A narrow screen (a phone held upright) or a short one (sideways, where the row may be
+	   shrunk to fit): the name tags slimmer, so three side by side keep apart. */
+	@media (max-width: 480px), (max-height: 560px) {
+		.tag {
+			padding: 4px 12px;
+			font-size: 17px;
+		}
+		:global(.touch) .tag {
+			padding: 0 12px;
+		}
+	}
+
+	/* A phone held sideways (a short screen): the heading and the card shrink to leave the
+	   animals a band between them, which the stage fits the row into (`StarterScene.setRoom`). */
+	@media (max-height: 560px) {
+		.pick-title {
+			top: calc(6px + var(--safe-top, 0px));
+			font-size: 24px;
+			-webkit-text-stroke-width: 6px;
+		}
+		.starter-card {
+			bottom: calc(8px + var(--safe-bottom, 0px));
+			padding: 8px 16px;
+		}
+		.starter-card.typing {
+			top: calc(8px + var(--safe-top, 0px));
+		}
+		.starter-card .heading {
+			font-size: 22px;
+			margin: 0 0 2px;
+		}
+		.loves {
+			font-size: 15px;
+			line-height: 1.25;
+		}
+		.card-buttons {
+			margin-top: 8px;
+		}
+		.starter-card .keys {
+			margin-top: 4px;
+		}
+		.starter-card .name-box {
+			font-size: 22px;
+			padding: 4px 12px;
+		}
+		.starter-card .note {
+			font-size: 14px;
+			margin: 4px 8px 0;
+		}
+	}
 </style>

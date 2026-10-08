@@ -31,8 +31,9 @@ import type { Stage } from './renderer';
 const SPACING = 1.45;
 /** Vertical field of view, in degrees. */
 const FOV = 30;
-/** The share of the screen's width the row may take. */
+/** The share of the screen's width the row may take; on a screen taller than wide (a phone held upright), more, so the name tags keep apart. */
 const ROW_SHARE = 0.72;
+const ROW_SHARE_UPRIGHT = 0.95;
 /** Where the row's middle sits, from the top of the screen: above the card at the bottom. */
 const ROW_AT = 0.45;
 const BOUNCE_SECONDS = 1.3;
@@ -72,6 +73,34 @@ export function liftFor(row: { feet: number; top: number }, room: StarterRoom | 
 	return high > 0 ? -Math.min(high, -low) : 0;
 }
 
+/** The least the row is shrunk to fit a short band: below it, the animals would read too small. */
+export const MIN_FIT = 0.55;
+
+/**
+ * How much to shrink the row about the screen's middle (a camera zoom, 1 as
+ * it stands) for a row whose feet and tallest top stand at `row.feet` and
+ * `row.top` to fit the band of `room` on a screen `height` tall: 1 when it
+ * fits, else just enough, never under `MIN_FIT` (a phone held sideways,
+ * where the heading and the card leave the animals a short band).
+ */
+export function fitFor(row: { feet: number; top: number }, room: StarterRoom | null): number {
+	if (!room) return 1;
+	const need = row.feet - row.top;
+	const band = room.bottom - room.top;
+	if (need <= 0 || band >= need) return 1;
+	return Math.max(MIN_FIT, band / need);
+}
+
+/** Where a row stands on a screen `height` tall shrunk by `zoom` about its middle. */
+export function zoomed(
+	row: { feet: number; top: number },
+	zoom: number,
+	height: number
+): { feet: number; top: number } {
+	const middle = height / 2;
+	return { feet: middle + (row.feet - middle) * zoom, top: middle + (row.top - middle) * zoom };
+}
+
 export class StarterScene implements Stage {
 	readonly scene = new THREE.Scene();
 	readonly camera = new THREE.PerspectiveCamera(FOV, 1, 0.1, 80);
@@ -89,6 +118,9 @@ export class StarterScene implements Stage {
 	private lift = 0;
 	/** Where `lift` is sliding to: `liftFor` the room. */
 	private liftTarget = 0;
+	/** How much the row is shrunk now to fit its room (the camera's zoom), and where that slides to: `fitFor` the room. */
+	private zoom = 1;
+	private zoomTarget = 1;
 	/** The row has taken its first room since `show`: it starts there, and slides only after. */
 	private settled = false;
 
@@ -197,22 +229,30 @@ export class StarterScene implements Stage {
 	 */
 	setRoom(room: StarterRoom | null): void {
 		this.room = room;
-		this.liftTarget = liftFor(this.row, room);
+		this.target();
 		if (!this.settled && room) {
 			this.settled = true;
 			this.lift = this.liftTarget;
+			this.zoom = this.zoomTarget;
 			this.applyLift();
 		}
+	}
+
+	/** Where the row slides to in its room: shrunk just enough to fit it, then lifted into it. */
+	private target(): void {
+		this.zoomTarget = fitFor(this.row, this.room);
+		this.liftTarget = liftFor(zoomed(this.row, this.zoomTarget, this.height), this.room);
 	}
 
 	/** Slide the row towards its room by `dt` seconds of frame time; at once with reduced motion. */
 	slide(dt: number): void {
 		const gap = this.liftTarget - this.lift;
-		if (gap === 0) return;
-		this.lift =
-			motion.reduced || Math.abs(gap) < 0.5
-				? this.liftTarget
-				: this.lift + gap * (1 - Math.exp(-dt / LIFT_EASE));
+		const zoomGap = this.zoomTarget - this.zoom;
+		if (gap === 0 && zoomGap === 0) return;
+		const done = motion.reduced || (Math.abs(gap) < 0.5 && Math.abs(zoomGap) < 0.002);
+		const step = 1 - Math.exp(-dt / LIFT_EASE);
+		this.lift = done ? this.liftTarget : this.lift + gap * step;
+		this.zoom = done ? this.zoomTarget : this.zoom + zoomGap * step;
 		this.applyLift();
 	}
 
@@ -257,7 +297,7 @@ export class StarterScene implements Stage {
 	/**
 	 * Frame the row: far enough back that it takes `ROW_SHARE` of the width
 	 * (and never so close that two animals fill the screen), its middle at
-	 * `ROW_AT` from the top, then lifted into its room. A new size places it
+	 * `ROW_AT` from the top, then shrunk and lifted into its room. A new size places it
 	 * there at once.
 	 */
 	private frame(): void {
@@ -265,7 +305,8 @@ export class StarterScene implements Stage {
 		const count = Math.max(1, this.figures.length);
 		const row = (count - 1) * SPACING + 1.2;
 		const tan = Math.tan(THREE.MathUtils.degToRad(FOV / 2));
-		const distance = Math.max(5.2, row / (ROW_SHARE * 2 * tan * aspect));
+		const share = aspect < 1 ? ROW_SHARE_UPRIGHT : ROW_SHARE;
+		const distance = Math.max(5.2, row / (share * 2 * tan * aspect));
 		const visible = 2 * distance * tan;
 		const middle = 0.45;
 		this.camera.aspect = aspect;
@@ -274,15 +315,18 @@ export class StarterScene implements Stage {
 		this.camera.updateMatrixWorld();
 		this.measure();
 		this.lift = this.liftTarget;
+		this.zoom = this.zoomTarget;
 		this.applyLift();
 	}
 
 	/** Where the row's feet and highest top are, unlifted, and so where it slides to in its room. */
 	private measure(): void {
+		// Unshrunk and unlifted.
+		this.camera.zoom = 1;
 		this.camera.clearViewOffset();
 		const feet = this.screenY(0, 0);
 		this.row = { feet, top: Math.min(feet, this.highest()) };
-		this.liftTarget = liftFor(this.row, this.room);
+		this.target();
 		this.applyLift();
 	}
 
@@ -320,9 +364,10 @@ export class StarterScene implements Stage {
 		return ((1 - p.y) / 2) * this.height;
 	}
 
-	/** Shift the picture by `lift`: up when positive, down when negative. */
+	/** Shrink the picture by `zoom` about its middle, then shift it by `lift`: up when positive, down when negative. */
 	private applyLift(): void {
 		const { width, height } = this;
+		this.camera.zoom = this.zoom;
 		if (this.lift === 0) this.camera.clearViewOffset();
 		else this.camera.setViewOffset(width, height, 0, this.lift, width, height);
 	}
