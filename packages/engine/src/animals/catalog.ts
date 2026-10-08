@@ -750,9 +750,10 @@ export const ANIMALS: readonly AnimalSpec[] = [
 		]
 	},
 	// The Arctic's animals (#192), arriving in waves as Nordland's did; wave 1 is
-	// its small land animals, tiers 1 and 2, the three starters first. Each lives
-	// on one pole only, the Arctic tern on both, and lists only its own pole's
-	// biomes. HP and powers are about 2.3 times a Nordland animal's of its tier,
+	// its small land animals, tiers 1 and 2, the three starters first, wave 2 its
+	// big ones below. Each lives on one pole only, the Arctic tern on both, and
+	// lists only its own pole's biomes. HP and powers are about 2 to 2.3 times a
+	// Nordland animal's of its tier,
 	// so a fight takes as many hits; the catch rates are Nordland's. The weakest
 	// attack asks a sum, and the stronger ones the Arctic's picture kinds and the
 	// balance, never a times table, a pattern, a missing number or a root.
@@ -996,7 +997,7 @@ export const ANIMALS: readonly AnimalSpec[] = [
 		// in front of a sled. It grazes the open tundra, the forest edge and the fells.
 		id: 'reindeer',
 		tier: 3,
-		maxHp: 112,
+		maxHp: 113,
 		catchRate: 0.45,
 		habitats: ['tundra', 'taiga', 'fell'],
 		realms: ['land'],
@@ -1004,44 +1005,44 @@ export const ANIMALS: readonly AnimalSpec[] = [
 		pulls: true,
 		attacks: [
 			{ id: 'hoof-scrape', kinds: ['add', 'sub'], power: 16 },
-			{ id: 'clicky-knees', kinds: ['clock'], power: 21 },
+			{ id: 'clicky-knees', kinds: ['clock'], power: 22 },
 			{ id: 'antler-push', kinds: ['fraction'], power: 27 }
 		]
 	},
 	{
 		id: 'snowy-owl',
 		tier: 3,
-		maxHp: 104,
+		maxHp: 107,
 		catchRate: 0.5,
 		habitats: ['tundra'],
 		realms: ['land', 'air'],
 		favours: 'open',
 		attacks: [
 			{ id: 'yellow-stare', kinds: ['add', 'sub'], power: 17 },
-			{ id: 'lemming-hunt', kinds: ['barchart'], power: 22 },
-			{ id: 'snow-swoop', kinds: ['shape'], power: 26 }
+			{ id: 'lemming-hunt', kinds: ['barchart'], power: 23 },
+			{ id: 'snow-swoop', kinds: ['shape'], power: 27 }
 		]
 	},
 	{
 		// An owl of the northern forest, which hears a vole under the snow and plunges in.
 		id: 'great-grey-owl',
 		tier: 3,
-		maxHp: 106,
+		maxHp: 109,
 		catchRate: 0.5,
 		habitats: ['taiga'],
 		realms: ['land', 'air'],
 		favours: 'trees',
 		attacks: [
 			{ id: 'big-face', kinds: ['add'], power: 17 },
-			{ id: 'snow-plunge', kinds: ['fraction'], power: 22 },
-			{ id: 'silent-wings', kinds: ['barchart'], power: 26 }
+			{ id: 'snow-plunge', kinds: ['fraction'], power: 23 },
+			{ id: 'silent-wings', kinds: ['barchart'], power: 27 }
 		]
 	},
 	{
 		// The big white-winged gull of the Arctic's coasts, which robs the bird cliffs' nests.
 		id: 'glaucous-gull',
 		tier: 3,
-		maxHp: 104,
+		maxHp: 107,
 		catchRate: 0.5,
 		habitats: ['bird-cliffs', 'arctic-ice'],
 		skies: ['bird-cliffs', 'arctic-ice', 'arctic-ocean'],
@@ -1049,8 +1050,8 @@ export const ANIMALS: readonly AnimalSpec[] = [
 		favours: 'rocks',
 		attacks: [
 			{ id: 'screech', kinds: ['add', 'sub'], power: 16 },
-			{ id: 'egg-snatch', kinds: ['kroner'], power: 21 },
-			{ id: 'sky-bully', kinds: ['clock'], power: 26 }
+			{ id: 'egg-snatch', kinds: ['kroner'], power: 22 },
+			{ id: 'sky-bully', kinds: ['clock'], power: 27 }
 		]
 	},
 	{
@@ -1058,7 +1059,7 @@ export const ANIMALS: readonly AnimalSpec[] = [
 		// round it and scavenges over the sea ice.
 		id: 'giant-petrel',
 		tier: 3,
-		maxHp: 110,
+		maxHp: 113,
 		catchRate: 0.45,
 		habitats: ['rookery', 'antarctic-ice'],
 		skies: ['rookery', 'antarctic-ice', 'southern-ocean'],
@@ -1066,7 +1067,7 @@ export const ANIMALS: readonly AnimalSpec[] = [
 		favours: 'open',
 		attacks: [
 			{ id: 'beak-clack', kinds: ['add', 'sub'], power: 17 },
-			{ id: 'stinky-spit', kinds: ['balance'], power: 23 },
+			{ id: 'stinky-spit', kinds: ['balance'], power: 24 },
 			{ id: 'storm-ride', kinds: ['thermometer'], power: 27 }
 		]
 	},
@@ -1075,15 +1076,15 @@ export const ANIMALS: readonly AnimalSpec[] = [
 		// the rookery coast stands in for that ring of islands.
 		id: 'king-penguin',
 		tier: 3,
-		maxHp: 108,
+		maxHp: 111,
 		catchRate: 0.5,
 		habitats: ['rookery'],
 		realms: ['land', 'water'],
 		favours: 'open',
 		attacks: [
 			{ id: 'trumpet', kinds: ['add', 'sub'], power: 17 },
-			{ id: 'orange-ears', kinds: ['kroner'], power: 22 },
-			{ id: 'deep-dive', kinds: ['thermometer'], power: 26 }
+			{ id: 'orange-ears', kinds: ['kroner'], power: 23 },
+			{ id: 'deep-dive', kinds: ['thermometer'], power: 27 }
 		]
 	},
 	{

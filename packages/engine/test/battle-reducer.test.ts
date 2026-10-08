@@ -633,7 +633,7 @@ describe('answers', () => {
 				for (const level of ATTACK_LEVELS) {
 					for (let seed = 0; seed < 5; seed++) {
 						// An opponent no hit knocks out, which every animal can fight somewhere: the
-						// polar bear (205 HP), which walks and swims (a tier-5 Arctic hit is up to 106).
+						// polar bear (205 HP), which walks and swims (a tier-5 Arctic hit is up to 127).
 						const big = 'polar-bear';
 						const start = startBattle(makeParty([p]), makeWild(big), { realm: arena(p, big)! });
 						const solving = applyBattleIntent(
