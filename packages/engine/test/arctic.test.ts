@@ -331,11 +331,11 @@ describe('sliding on the ice', () => {
 						expect(moved.path.length).toBeLessThanOrEqual(ICE_RUN + 1);
 						if (moved.path.length > 1) slides++;
 						if (moved.path.length > 8) long++;
-						// Slid dead into a fishing hole: stopped on the ice in front of it, facing it.
+						// No slide ends on the ice: on the bank in front of a hole it stops facing it.
+						if (moved.path.length > 1) expect(moved.tile.kind).not.toBe('ice');
 						const ahead = step(end, dir);
-						if (moved.tile.kind === 'ice' && tileAtWorld(seed, ahead.x, ahead.y).kind === 'hole') {
+						if (moved.path.length > 1 && tileAtWorld(seed, ahead.x, ahead.y).kind === 'hole')
 							holes++;
-						}
 					}
 				}
 			}
@@ -365,6 +365,71 @@ describe('sliding on the ice', () => {
 					expect(run, `${world}: column ${x} at ${y}`).toBeLessThanOrEqual(ICE_RUN);
 				}
 			}
+		}
+	});
+
+	it('never borders the ice with anything a kid cannot step onto: the bank is snow', () => {
+		for (const [world, x0, y0, w, h] of AREAS) {
+			const seed = arctic(world);
+			for (const p of window(x0, y0, w, h)) {
+				if (tileAtWorld(seed, p.x, p.y).kind !== 'ice') continue;
+				for (const dir of DIRS) {
+					const side = step(p, dir);
+					expect(
+						isWalkable(tileAtWorld(seed, side.x, side.y).kind),
+						`${world}: ${p.x},${p.y} ${dir}`
+					).toBe(true);
+				}
+			}
+		}
+	});
+
+	it('leads nowhere a kid cannot come back from: every move from where a kid can stand is undone by the move back', () => {
+		// From each world's spawn, every place a kid on foot (and in the boat) can come to a stop,
+		// and every move from each: the move the other way brings them back. So the places a
+		// kid reaches are all joined both ways, and none is a pocket they slid into for good:
+		// the adversarial review found such pockets in five worlds out of ten before the banks.
+		const back: Record<Direction, Direction> = {
+			up: 'down',
+			down: 'up',
+			left: 'right',
+			right: 'left'
+		};
+		for (const world of [2, 5, 6, 42, 9999]) {
+			const seed = arctic(world);
+			for (const boat of [false, true]) {
+				const gear = { boat };
+				const key = (p: GridPos) => `${p.x},${p.y}`;
+				const start = spawnPoint(seed);
+				const seen = new Set([key(start)]);
+				const queue = [start];
+				let moves = 0;
+				while (queue.length > 0 && seen.size < 6000) {
+					const p = queue.shift()!;
+					for (const dir of DIRS) {
+						const moved = moveFrom(seed, WorldEdits.none, p, dir, gear);
+						if (!moved) continue;
+						const to = moved.path.at(-1)!;
+						const home = moveFrom(seed, WorldEdits.none, to, back[dir], gear);
+						expect(home?.path.at(-1), `${world}: ${key(p)} ${dir} to ${key(to)}`).toEqual(p);
+						moves++;
+						if (seen.has(key(to))) continue;
+						seen.add(key(to));
+						queue.push(to);
+					}
+				}
+				expect(moves).toBeGreaterThan(10000);
+			}
+		}
+		// The review's pockets, by name: world 5's (96, −19) and world 9999's (−31, −79) now walk out.
+		for (const [world, at] of [
+			[5, { x: 96, y: -19 }],
+			[9999, { x: -31, y: -79 }]
+		] as const) {
+			const seed = arctic(world);
+			if (!isWalkable(tileAtWorld(seed, at.x, at.y).kind)) continue;
+			const tent = nearestTent(seed, at, 200);
+			expect(tent, `${world}`).not.toBeNull();
 		}
 	});
 

@@ -3865,14 +3865,16 @@ describe('LocalAuthority: sliding on the ice (#191)', () => {
 		expect(restoreGame(read.save, mint).pos).toEqual(end);
 	});
 
-	it('slid dead into a fishing hole, stands on the ice in front of it, facing it, and goes no further', () => {
+	it('slid dead into a fishing hole, stands on its bank of snow, facing it, and goes no further', () => {
 		const ahead = (end: GridPos) => tileAtWorld(seed, end.x + 1, end.y).kind === 'hole';
 		const { from, path } = slideStart('right', 3, ahead);
 		const s = arcticAt(from);
 		s.authority.dispatch({ type: 'move', dir: 'right' });
 		const end = path.at(-1)!;
 		expect(s.authority.snapshot()).toMatchObject({ pos: end, facing: 'right' });
-		expect(tileAtWorld(seed, end.x, end.y).kind).toBe('ice');
+		// The ice never borders a hole: its bank is snow, where the slide ends.
+		expect(tileAtWorld(seed, end.x, end.y).kind).toBe('snow');
+		expect(tileAtWorld(seed, end.x - 1, end.y).kind).toBe('ice');
 		s.events.length = 0;
 		s.authority.dispatch({ type: 'move', dir: 'right' });
 		expect(s.events).toEqual([{ type: 'player-blocked', playerId: 'local', dir: 'right' }]);

@@ -2,7 +2,7 @@ import type { Biome, Pole } from '../animals/types.js';
 import { Rng, hashInts } from '../rng.js';
 import { TENT_LATTICE, mod } from './lattice.js';
 import { valueNoise } from './noise.js';
-import { CHUNK_SIZE, DEEP_WATER_MARGIN, type Chunk, type Tile } from './types.js';
+import { CHUNK_SIZE, DEEP_WATER_MARGIN, isWalkable, type Chunk, type Tile } from './types.js';
 
 /**
  * The Arctic's world ([[PRODUCT]] §4 "The Arctic's map", #191 step 4): a pure
@@ -23,6 +23,10 @@ import { CHUNK_SIZE, DEEP_WATER_MARGIN, type Chunk, type Tile } from './types.js
  *   `ice-sheet` inland with a rock (a nunatak) sticking up here and there,
  *   and the `antarctic-ice`.
  * - **The ice** (a frozen lake, the sea ice) slides a kid on (`slide.ts`).
+ *   No tile of it borders anything a kid can't step onto: there it is a bank
+ *   of snow (`isBanked`), so every slide ends on ground that isn't ice, and
+ *   sliding back the other way returns the kid to where they slid from: no
+ *   slide ever leads anywhere a kid can't get back from.
  *   Every straight run of it ends within `ICE_RUN` tiles, by construction:
  *   each row has a stopper (a snowdrift or an ice block) every `ICE_STOP`
  *   tiles at an offset of its own, and so does each column (`isStopper`).
@@ -148,8 +152,36 @@ function iceTile(seed: number, x: number, y: number, local: Rng, biome: Biome, s
 	return { kind: 'ice', biome, height: 0 };
 }
 
-/** The tile at (x, y) of The Arctic's world of `seed`; deep water read as shallows unless `depth`. */
+/**
+ * The tile at (x, y) of The Arctic's world of `seed`; deep water read as
+ * shallows unless `depth`. Ice beside anything a kid can't step onto (a
+ * tree, a rock, an ice block, a fishing hole, water, a tent) is a bank of
+ * snow instead (`isBanked`), so no slide ever stops on the ice: it stops on
+ * ground that isn't ice, and the way back is the same slide the other way.
+ */
 export function arcticTileAt(seed: number, x: number, y: number, depth = true): Tile {
+	const tile = baseTileAt(seed, x, y, depth);
+	if (tile.kind !== 'ice' || !isBanked(seed, x, y)) return tile;
+	return { kind: 'snow', biome: tile.biome, height: tile.height };
+}
+
+/** Whether a tile of ice at (x, y) has a side no kid can step onto, and is a bank of snow instead. */
+function isBanked(seed: number, x: number, y: number): boolean {
+	for (const [dx, dy] of SIDES) {
+		if (!isWalkable(baseTileAt(seed, x + dx, y + dy, false).kind)) return true;
+	}
+	return false;
+}
+
+const SIDES: readonly (readonly [number, number])[] = [
+	[0, -1],
+	[0, 1],
+	[-1, 0],
+	[1, 0]
+];
+
+/** The tile at (x, y) before the ice is banked: `arcticTileAt` but for its banks of snow. */
+function baseTileAt(seed: number, x: number, y: number, depth = true): Tile {
 	const pole = poleAt(y);
 	const local = new Rng(hashInts(seed, x, y, 7));
 	const half = bandHalf(seed, x);
