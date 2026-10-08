@@ -1301,7 +1301,7 @@ book:
   unseen: Hvem mon det er? Gå på opdagelse og find ud af det!
   seen: Du har mødt {animal.a}. Kast din snor næste gang!
   caughtTeam: '{animal.the} er på dit hold!'
-  freedTeam: '{animal.the} er på dit hold! Du har også sluppet {animal.a} fri.'
+  freedTeam: '{animal.the} er på dit hold og tæller som sluppet fri!'
   caughtHome: Du fangede {animal.a} og slap {animal.the} fri. Det står i din bog for altid!
   seenFree: Du har mødt {animal.a}, og {animal.the} tæller som sluppet fri!
   keys: ↑ ↓ ← → flyt · Esc tilbage
