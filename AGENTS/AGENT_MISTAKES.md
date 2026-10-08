@@ -1044,3 +1044,11 @@ To become `[learned]`: a line in [[DEVELOPMENT]] § Testing ideology saying a se
 ### 2026-10-08 — #191 step 7 loose ends (fix/arctic-loose-ends, PR #207), deploy — an engine change past `pnpm check` and `pnpm test` that the build refused
 
 - **`.at(-1)` in engine code broke the deploy.** The engine runs in the browser too, and the client's build refuses anything Safari 15.0 cannot run (`browsers.ts`, [[INVARIANTS]] § Serving); `pnpm check` and `pnpm test` never build the client, so both were green and main went red on merge. Any change to `packages/engine/src` or `packages/client/src` also runs `pnpm -F @mathgame/client build` before the PR is merged; prefer `xs[xs.length - 1]` over `.at()`, and check the other ES2022 newcomers the same way.
+
+### 2026-10-08 — #191 step 7 the plane, Fly tab and land starters (feat/arctic-plane, PR #209), self-testing and adversarial review — a new "screen on" state that the old guards did not know
+
+- **A new overlay state reused an old flag's meaning.** The land's starter screen set `title.open`, which other code reads as "no game under way" (a reload's caught-up note, the session-ended notice). When a new screen borrows a flag, grep every reader of that flag and decide for each.
+- **A new "hands off" phase missed half the guards.** The plane blocked keys, but the presence reload, the save card, a go-to answer and a match ask each had their own "is it calm?" check that did not know the plane. When adding a phase where nothing may happen, list every place that decides "may this happen now" (`calm`, `exploring`, `exploreOnScreen`, `busyNow`) and add it to each.
+- **A view copied state at a beat and missed an event that came after it.** The doctor's card took `unlocked` from the visit's state, but a hand-over's unlock arrives as a separate `unlocked-changed` after that state. When a view shows a value that two events can change, listen to both.
+- **A hook assumed its action always works.** Escape on the starters closed them before asking the witch doctor, so with no tent ahead it flickered and did nothing. Close the old screen only once the new one has come.
+- **A test harness built the wrong land's party** (`players.mts` gave Nordland an Arctic fox): seen only because a friend's follower looked wrong in a frame. Read the frames of the harness's own setup, not only the feature under test.
