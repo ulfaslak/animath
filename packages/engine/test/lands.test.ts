@@ -80,10 +80,10 @@ describe('the land registry', () => {
 		const arctic = getLand('arctic');
 		expect(arctic.available).toBe(false);
 		expect(availableLands()).toEqual(['nordland']);
-		// #192's first two waves: its small land animals, the three starters first, then its big
-		// ones, in catalog order.
+		// #192's three waves: its small land animals, the three starters first, its big ones, then
+		// its sea and fishing-hole animals, in catalog order.
 		expect(arctic.species).toEqual(ANIMALS.slice(50).map((a) => a.id));
-		expect(arctic.species).toHaveLength(27);
+		expect(arctic.species).toHaveLength(50);
 		expect(arctic.starters).toEqual(['arctic-fox', 'arctic-hare', 'puffin']);
 		// Its own tools, never Nordland's axe, pickaxe or harness (#191 step 6).
 		expect(Object.keys(arctic.shop)).not.toContain('axe');

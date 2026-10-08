@@ -208,7 +208,7 @@ describe('where each species lives', () => {
 			for (const realm of species.realms) expect(REALMS, species.id).toContain(realm);
 			// In Nordland, living only in the water is living in the sea, the deep water's biome,
 			// and nowhere else: an encounter out there is the only way to meet one. (The Arctic's
-			// sea animals and the ones in its holes in the ice come with #192's third wave.)
+			// live in its open seas and under its ice: `encounters.test.ts` § the fishing holes.)
 			if (!getLand('nordland').species.includes(species.id)) continue;
 			const aquatic = !species.realms.includes('land');
 			expect(aquatic, species.id).toBe(species.habitats.includes('sea'));
@@ -250,7 +250,31 @@ describe('where each species lives', () => {
 			'harbour-seal',
 			'harbour-porpoise',
 			'grey-seal',
-			'orca'
+			'orca',
+			// The Arctic's (#192 wave 3): its seals, whales and fish, and the sea angel and krill,
+			'sea-angel',
+			'polar-cod',
+			'antarctic-krill',
+			'arctic-char',
+			'lumpsucker',
+			'ringed-seal',
+			'icefish',
+			'harp-seal',
+			'wolffish',
+			'snow-crab',
+			'weddell-seal',
+			'beluga',
+			'hooded-seal',
+			'minke-whale',
+			'toothfish',
+			'crabeater-seal',
+			'walrus',
+			'bowhead-whale',
+			'greenland-shark',
+			'narwhal',
+			'elephant-seal',
+			'blue-whale',
+			'leopard-seal'
 		]);
 	});
 
@@ -368,7 +392,30 @@ describe('where each species lives', () => {
 			'puffin',
 			'arctic-tern',
 			'king-eider',
-			'polar-bear'
+			'polar-bear',
+			'sea-angel',
+			'polar-cod',
+			'antarctic-krill',
+			'arctic-char',
+			'lumpsucker',
+			'ringed-seal',
+			'icefish',
+			'harp-seal',
+			'wolffish',
+			'snow-crab',
+			'weddell-seal',
+			'beluga',
+			'hooded-seal',
+			'minke-whale',
+			'toothfish',
+			'crabeater-seal',
+			'walrus',
+			'bowhead-whale',
+			'greenland-shark',
+			'narwhal',
+			'elephant-seal',
+			'blue-whale',
+			'leopard-seal'
 		]);
 		expect(by('trees')).toEqual([
 			'squirrel',

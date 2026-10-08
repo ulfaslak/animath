@@ -978,6 +978,285 @@ species:
       shaggy-shake: Pelsrys
       ring-wall: Ringmur
       horn-crash: Hornbrag
+  # Arktis' hav- og isfiskedyr (#192, bølge 3). Alle navne er fælleskøn (en). Havenglen
+  # (Clione limacina) hedder her vingesnegl: "havengel" er på dansk hajen Squatina squatina.
+  # Tandfisk (Dissostichus mawsoni): EU's handelsnavn "antarktisk isfisk" ville støde mod isfisken.
+  sea-angel:
+    name: Vingesnegl
+    a: en vingesnegl
+    the: vingesneglen
+    wild: vild vingesnegl
+    aWild: en vild vingesnegl
+    theWild: den vilde vingesnegl
+    bare: vingesnegl
+    attacks:
+      flutter: Flagre
+      angel-wings: Englevinger
+      hook-grab: Krogreb
+  polar-cod:
+    name: Polartorsk
+    a: en polartorsk
+    the: polartorsken
+    wild: vild polartorsk
+    aWild: en vild polartorsk
+    theWild: den vilde polartorsk
+    bare: polartorsk
+    attacks:
+      tail-flick: Halevip
+      ice-hide: Isskjul
+      big-school: Kæmpestime
+  antarctic-krill:
+    name: Krill
+    a: en krill
+    the: krillen
+    wild: vild krill
+    aWild: en vild krill
+    theWild: den vilde krill
+    bare: krill
+    attacks:
+      tiny-kick: Lille spark
+      glow: Lysglimt
+      big-swarm: Kæmpesværm
+  arctic-char:
+    name: Fjeldørred
+    a: en fjeldørred
+    the: fjeldørreden
+    wild: vild fjeldørred
+    aWild: en vild fjeldørred
+    theWild: den vilde fjeldørred
+    bare: fjeldørred
+    attacks:
+      fin-flick: Finneslag
+      red-belly: Rød bug
+      sea-trip: Havtur
+  lumpsucker:
+    name: Stenbider
+    a: en stenbider
+    the: stenbideren
+    wild: vild stenbider
+    aWild: en vild stenbider
+    theWild: den vilde stenbider
+    bare: stenbider
+    attacks:
+      wobble: Vrik
+      suction-cup: Sugekop
+      rock-hold: Stenfast
+  ringed-seal:
+    name: Ringsæl
+    a: en ringsæl
+    the: ringsælen
+    wild: vild ringsæl
+    aWild: en vild ringsæl
+    theWild: den vilde ringsæl
+    bare: ringsæl
+    attacks:
+      breath-hole: Åndehul
+      claw-scrape: Kloskrab
+      snow-den: Snehule
+  icefish:
+    name: Isfisk
+    a: en isfisk
+    the: isfisken
+    wild: vild isfisk
+    aWild: en vild isfisk
+    theWild: den vilde isfisk
+    bare: isfisk
+    attacks:
+      ghost-swim: Spøgelsesfart
+      clear-blood: Klart blod
+      croc-snap: Krokodillebid
+  harp-seal:
+    name: Grønlandssæl
+    a: en grønlandssæl
+    the: grønlandssælen
+    wild: vild grønlandssæl
+    aWild: en vild grønlandssæl
+    theWild: den vilde grønlandssæl
+    bare: grønlandssæl
+    attacks:
+      flipper-wave: Luffevink
+      white-pup: Hvid unge
+      harp-splash: Harpeplask
+  wolffish:
+    name: Havkat
+    a: en havkat
+    the: havkatten
+    wild: vild havkat
+    aWild: en vild havkat
+    theWild: den vilde havkat
+    bare: havkat
+    attacks:
+      grumpy-face: Surt fjæs
+      shell-crunch: Skalknas
+  snow-crab:
+    name: Snekrabbe
+    a: en snekrabbe
+    the: snekrabben
+    wild: vild snekrabbe
+    aWild: en vild snekrabbe
+    theWild: den vilde snekrabbe
+    bare: snekrabbe
+    attacks:
+      pinch: Knib
+      long-legs: Lange ben
+      shell-shove: Skalskub
+  weddell-seal:
+    name: Weddellsæl
+    a: en weddellsæl
+    the: weddellsælen
+    wild: vild weddellsæl
+    aWild: en vild weddellsæl
+    theWild: den vilde weddellsæl
+    bare: weddellsæl
+    attacks:
+      trill: Trille
+      ice-saw: Issav
+      long-dive: Langt dyk
+  beluga:
+    name: Hvidhval
+    a: en hvidhval
+    the: hvidhvalen
+    wild: vild hvidhval
+    aWild: en vild hvidhval
+    theWild: den vilde hvidhval
+    bare: hvidhval
+    attacks:
+      chirp-song: Pibesang
+      melon-bump: Pandebump
+      bubble-ring: Boblering
+  hooded-seal:
+    name: Klapmyds
+    a: en klapmyds
+    the: klapmydsen
+    wild: vild klapmyds
+    aWild: en vild klapmyds
+    theWild: den vilde klapmyds
+    bare: klapmyds
+    attacks:
+      grumble: Brum
+      red-balloon: Rød ballon
+      hood-puff: Hættepust
+  minke-whale:
+    name: Vågehval
+    a: en vågehval
+    the: vågehvalen
+    wild: vild vågehval
+    aWild: en vild vågehval
+    theWild: den vilde vågehval
+    bare: vågehval
+    attacks:
+      spout: Pust
+      big-gulp: Stor slurk
+      tail-splash: Haleplask
+  toothfish:
+    name: Tandfisk
+    a: en tandfisk
+    the: tandfisken
+    wild: vild tandfisk
+    aWild: en vild tandfisk
+    theWild: den vilde tandfisk
+    bare: tandfisk
+    attacks:
+      cold-swim: Kuldesvømning
+      antifreeze: Frostvæske
+      tooth-snap: Tandknas
+  crabeater-seal:
+    name: Krabbeædersæl
+    a: en krabbeædersæl
+    the: krabbeædersælen
+    wild: vild krabbeædersæl
+    aWild: en vild krabbeædersæl
+    theWild: den vilde krabbeædersæl
+    bare: krabbeædersæl
+    attacks:
+      krill-sieve: Krillsi
+      snake-wiggle: Slangevrid
+      ice-dash: Isspurt
+  walrus:
+    name: Hvalros
+    a: en hvalros
+    the: hvalrossen
+    wild: vild hvalros
+    aWild: en vild hvalros
+    theWild: den vilde hvalros
+    bare: hvalros
+    attacks:
+      whiskers: Knurhår
+      tusk-hook: Tandkrog
+      big-flop: Stort plask
+  bowhead-whale:
+    name: Grønlandshval
+    a: en grønlandshval
+    the: grønlandshvalen
+    wild: vild grønlandshval
+    aWild: en vild grønlandshval
+    theWild: den vilde grønlandshval
+    bare: grønlandshval
+    attacks:
+      ice-break: Isbryd
+      long-song: Lang sang
+      hundred-years: Hundrede år
+  greenland-shark:
+    name: Grønlandshaj
+    a: en grønlandshaj
+    the: grønlandshajen
+    wild: vild grønlandshaj
+    aWild: en vild grønlandshaj
+    theWild: den vilde grønlandshaj
+    bare: grønlandshaj
+    attacks:
+      slow-swim: Sneglefart
+      sleepy-stare: Søvnigt blik
+      old-jaws: Gamle kæber
+  narwhal:
+    name: Narhval
+    a: en narhval
+    the: narhvalen
+    wild: vild narhval
+    aWild: en vild narhval
+    theWild: den vilde narhval
+    bare: narhval
+    attacks:
+      tusk-wave: Tandvink
+      unicorn-dive: Enhjørningdyk
+      tusk-joust: Tandduel
+  elephant-seal:
+    name: Elefantsæl
+    a: en elefantsæl
+    the: elefantsælen
+    wild: vild elefantsæl
+    aWild: en vild elefantsæl
+    theWild: den vilde elefantsæl
+    bare: elefantsæl
+    attacks:
+      snort: Snøft
+      trunk-roar: Snablebrøl
+      belly-slam: Maveslag
+  blue-whale:
+    name: Blåhval
+    a: en blåhval
+    the: blåhvalen
+    wild: vild blåhval
+    aWild: en vild blåhval
+    theWild: den vilde blåhval
+    bare: blåhval
+    attacks:
+      krill-gulp: Krillslurk
+      deep-rumble: Dyb brummen
+      giant-spout: Kæmpepust
+      big-blue: Det store blå
+  leopard-seal:
+    name: Søleopard
+    a: en søleopard
+    the: søleoparden
+    wild: vild søleopard
+    aWild: en vild søleopard
+    theWild: den vilde søleopard
+    bare: søleopard
+    attacks:
+      spotty-sneak: Pletsnig
+      wide-jaws: Stort gab
+      ice-edge-lunge: Iskantspring
 
 puzzle:
   keys: Skriv svaret og tryk på Enter

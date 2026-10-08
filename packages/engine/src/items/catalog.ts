@@ -54,11 +54,10 @@ export const ITEMS: readonly ItemSpec[] = [
 	/** Breaks an ice block, on land or afloat; on the ice it leaves a fishing hole (`world/clearing.ts`). */
 	{ id: 'ice-pick', available: true },
 	/**
-	 * Fishes at a fishing hole (`world/fishing.ts`). Built, and off sale until a
-	 * fishing hole has an animal to hook (#192's third wave turns it on), so no
-	 * kid pays for a rod nothing ever bites.
+	 * Fishes at a fishing hole (`world/fishing.ts`). On sale since #192's third
+	 * wave brought the animals that live under the ice to hook.
 	 */
-	{ id: 'fishing-rod', available: false },
+	{ id: 'fishing-rod', available: true },
 	/** Speed on the snow: built up while a way is held, coasting on after it (`world/skis.ts`). */
 	{ id: 'skis', available: true },
 	/** The Arctic's harness: a lead that can pull one (`canPull`) pulls the kid on it on land. A look only. */

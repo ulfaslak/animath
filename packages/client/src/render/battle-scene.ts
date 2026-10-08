@@ -1,4 +1,4 @@
-import { Rng, type Biome } from '@mathgame/engine';
+import { BIOME_POLE, Rng, type Biome, type Realm } from '@mathgame/engine';
 import * as THREE from 'three';
 import { touch } from '../input/touch.svelte';
 import { motion } from '../motion';
@@ -117,6 +117,23 @@ export const SEA_WATERLINE = 0.2;
  * (#91) the sky, whatever the tile the glider came down on.
  */
 export type Backdrop = Biome | 'sky';
+
+/**
+ * Where a battle of `realm`, started with the kid on a tile of `biome`, is
+ * fought: up in the air the sky, whatever the tile the glider came down on;
+ * on the water the open sea, even where the kid stands on the ice's edge with
+ * a fish hooked through a fishing hole (#192's third wave), the sea of the
+ * pole that ice is on, so a hooked fish swims and never lies on the snow; on
+ * the ground the tile's biome.
+ */
+export function battleBackdrop(realm: Realm, biome: Biome): Backdrop {
+	if (realm === 'air') return 'sky';
+	if (realm === 'water' && !SEAS.has(biome)) {
+		const pole = BIOME_POLE[biome];
+		return pole === 'north' ? 'arctic-ocean' : pole === 'south' ? 'southern-ocean' : 'sea';
+	}
+	return biome;
+}
 
 /**
  * Up in the air the birds fly where the animals stand on the ground, their

@@ -63,8 +63,9 @@ import { readFightEvents, readFightView, type FightEvent, type FightView } from 
  * world, which a version 8 server would not know to keep apart.
  * Version 10: The Arctic's small land animals (#192's first wave).
  * Version 11: its big land animals and birds (#192's second wave).
+ * Version 12: its sea and fishing-hole animals (#192's third wave).
  */
-export const PROTOCOL_VERSION = 11;
+export const PROTOCOL_VERSION = 12;
 
 /**
  * The most a message may take on the wire, in bytes (the server closes a

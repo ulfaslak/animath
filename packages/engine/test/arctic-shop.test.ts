@@ -165,7 +165,15 @@ describe("The Arctic's witch doctor", () => {
 	it('lists his shop cheapest first, in ice dollars, as every visit shows it', () => {
 		const visit = startDoctorVisit([animal('fox')], { land: 'arctic' });
 		expect(visit.shop).toEqual(shopFor('arctic'));
-		expect(visit.shop).toEqual(['arctic-axe', 'ice-pick', 'skis', 'boat', 'glider', 'sled']);
+		expect(visit.shop).toEqual([
+			'arctic-axe',
+			'ice-pick',
+			'fishing-rod',
+			'skis',
+			'boat',
+			'glider',
+			'sled'
+		]);
 		// The whole catalog (`?shop`) too: by the land's prices, the others' after their own.
 		const all = startDoctorVisit([animal('fox')], {
 			land: 'arctic',
@@ -372,13 +380,23 @@ describe('fishing', () => {
 		expect(castLine(new Rng(3), seed, WorldEdits.none, site, rod, tired)).toEqual({
 			outcome: 'no-swimmer'
 		});
-		// A swimmer, and The Arctic's holes have nobody to hook until #192's third wave: nothing.
+		// A swimmer: every ice has animals under it now (#192 wave 3), so 2 casts in 5 bite, and
+		// what bites is one of that ice's, at full HP. 50 casts with no bite: 1 in 100 billion.
+		const table = holeTable(tileAtWorld(seed, hole.x, hole.y).biome, 0, 2);
+		expect(table.length).toBeGreaterThan(0);
+		const ids = table.map((e) => e.species.id);
+		let bites = 0;
 		for (let i = 0; i < 50; i++) {
 			const got = castLine(new Rng(i), seed, WorldEdits.none, site, rod, swimmers);
-			const table = holeTable(tileAtWorld(seed, hole.x, hole.y).biome, 0, 2);
-			if (table.length === 0) expect(got).toEqual({ outcome: 'nothing' });
-			else expect(['bite', 'nothing']).toContain(got.outcome);
+			if (got.outcome === 'nothing') continue;
+			expect(got.outcome).toBe('bite');
+			if (got.outcome !== 'bite') continue;
+			bites++;
+			expect(ids).toContain(got.wild.speciesId);
+			expect(got.wild.hp).toBe(getAnimal(got.wild.speciesId).maxHp);
 		}
+		expect(bites).toBeGreaterThan(0);
+		expect(bites).toBeLessThan(50);
 		// Without the rod, or with no hole there, it is never cast.
 		expect(() =>
 			castLine(new Rng(1), seed, WorldEdits.none, site, { items: [] }, swimmers)

@@ -1029,6 +1029,13 @@ To become `[learned]`: a line in [[DEVELOPMENT]] § Testing ideology saying a se
 - **"Every step on skis is a skim on water"**: the client took any ski move onto water as a skim, so a slow step into the boat lost the boat's swing. A flag that means "this came from the ski path" is not the same as "this is the special case of the ski path".
 - **DNA promised more than the code did** ("never poofed", "any key but the held arrow"). Write the promise after checking each way out (go-to, slides after skims, party picks), or narrow it.
 
+### 2026-10-08 — #192 wave 3 (feat/arctic-animals-3, PR #204), self-testing and adversarial review — a feature first seen with content, a filter after a share, a dev server that was someone else's
+
+- **A feature built before its content was never looked at with it.** #201's fishing staged a hooked fish's battle on the tile the kid stands on, the snow; with no animal under any ice, no frame ever showed a bite. The first real bite drew a polar cod lying on the snow beside a standing puffin. When a wave turns on what an earlier PR built empty (a table, a list, a slot), play that feature end to end and read its frames, not only the new content's.
+- **A filter applied after a share was computed.** The hole table filtered the water's encounter table to water-only animals and renormalised, but the bell had already split each tier among every swimmer, penguins included, so the icefish bit 18% for a small swimmer where the bell allows 10%. Narrow the pool before anything is divided among it; a test that re-derives the shares independently catches it.
+- **Screenshots of another agent's game.** `vite --strictPort` on a port another worktree held failed in the background, and the screenshot script then drove that other worktree's dev server, whose code had none of this branch's animals: no battle ever came. After starting a server in the background, check its log says ready on your port (or `lsof -p` its cwd) before trusting a frame.
+- **A DNA line rewritten on one branch lost the other branch's addition in a merge** (the skis in the Arctic shop's price line). After resolving a conflict in a sentence both sides changed, diff that sentence against both parents.
+
 ### 2026-10-08 — #191 step 6 dog sled (feat/arctic-sled, PR #206), adversarial review — a figure drawn on a tile nobody checked
 
 - **The lead in front of the sled stood a tile and more ahead, inside whatever the kid faced** (a tent while talking to the witch doctor, a tree being chopped), at the height of the kid's tile. The first self-test walked on open snow only. When a figure is drawn off the player's own tile, check the tile it is drawn on (what is there, how high), and play the usual "face something" flows (talk, chop, fish) with it.
