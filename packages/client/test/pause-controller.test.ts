@@ -965,6 +965,7 @@ describe('the Worlds screen', () => {
 			type: 'travelled',
 			playerId: 'someone-else',
 			world: 9,
+			land: 'nordland',
 			seed: 1,
 			pos: { x: 0, y: 0 },
 			facing: 'down',

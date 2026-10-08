@@ -23,6 +23,7 @@ describe('URL switches', () => {
 			tokens: null,
 			shop: null,
 			items: null,
+			lands: false,
 			throwaway: false
 		});
 		expect(readFlags('?zoo&debug&steps=20&party=fox&new&tokens=40&shop&items=harness')).toEqual({
@@ -34,8 +35,13 @@ describe('URL switches', () => {
 			tokens: 40,
 			shop: ['axe', 'pickaxe', 'boat', 'glider', 'harness'],
 			items: ['harness'],
+			lands: false,
 			throwaway: true
 		});
+		// `?lands`: every land open and unlocked, in a throwaway game.
+		expect(readFlags('?lands')).toMatchObject({ lands: true, throwaway: true });
+		expect(authorityOptions(readFlags('?lands')).lands).toBe(true);
+		expect(authorityOptions(readFlags('')).lands).toBeUndefined();
 	});
 
 	it('?steps= takes whole steps from 5 to 1000, is no throwaway, and anything else is no switch', () => {

@@ -5,7 +5,7 @@ import {
 	checkName,
 	hasItem,
 	spawnPoint,
-	worldSeed,
+	landSeed,
 	type Authority,
 	type GameEvent,
 	type SavedGame
@@ -430,7 +430,7 @@ export class TitleController {
 		const saved = title.saved;
 		if (saved) {
 			this.scenery.showWorld(
-				worldSeed(saved.world),
+				landSeed(saved.land, saved.world),
 				saved.pos,
 				saved.facing,
 				// One of each kind in the team, however many it holds: the scene stays light.

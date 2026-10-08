@@ -108,6 +108,7 @@ function where(x: number, patch: Partial<WhereMessage> = {}): WhereMessage {
 	return {
 		t: 'where',
 		world: 1,
+		land: 'nordland',
 		x,
 		y: 0,
 		facing: 'down',
@@ -281,6 +282,7 @@ describe('the presence connection', () => {
 		const roster: ServerMessage = {
 			t: 'roster',
 			world: 1,
+			land: 'nordland',
 			players: Array.from({ length: MAX_ROSTER }, (_, i) => ({
 				pid: `pid${String(i).padStart(9, '0')}`,
 				name: '𝐀'.repeat(MAX_WIRE_NAME / 2),

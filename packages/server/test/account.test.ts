@@ -935,8 +935,13 @@ describe('the account save', () => {
 		const { browser, name } = await account();
 		expect((await browser.putSave(docV1(5))).status).toBe(200);
 		// Upgraded: World 1, its home, and everything else as it was sent.
-		expect(await storedSave(name)).toEqual({ ...doc(5), home: 1, world: 1 });
-		expect(await (await browser.getSave()).json()).toEqual({ ...doc(5), home: 1, world: 1 });
+		expect(await storedSave(name)).toEqual({ ...doc(5), home: 1, world: 1, land: 'nordland' });
+		expect(await (await browser.getSave()).json()).toEqual({
+			...doc(5),
+			home: 1,
+			world: 1,
+			land: 'nordland'
+		});
 		// It numbers on with this build's saves, in either order, and keeps nothing aside.
 		expect((await browser.putSave(doc(6, 'game-a', { home: 1, world: 1 }))).status).toBe(200);
 		expect((await browser.putSave(docV1(6))).status).toBe(409);

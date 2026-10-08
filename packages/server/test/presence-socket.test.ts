@@ -88,7 +88,17 @@ class Client {
 	}
 
 	where(world: number, x: number, y: number, busy = 'explore'): void {
-		this.send({ t: 'where', world, x, y, facing: 'down', lead: 'rabbit', boat: false, busy });
+		this.send({
+			t: 'where',
+			world,
+			land: 'nordland',
+			x,
+			y,
+			facing: 'down',
+			lead: 'rabbit',
+			boat: false,
+			busy
+		});
 	}
 
 	/** The first message of kind `t` received since message `after` (waiting for it up to `ms`). */
@@ -616,6 +626,7 @@ describe('presence socket under attack', () => {
 				JSON.stringify({
 					t: 'where',
 					world: 1,
+					land: 'nordland',
 					x: 1,
 					y: 0,
 					facing: 'down',

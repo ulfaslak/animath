@@ -87,7 +87,7 @@ const keyboard = new Keyboard(window);
 const explore = new ExploreController(authority, renderer, keyboard, new Follower(renderer));
 // A battle in the air waits for the landing on screen (and the bird's swoop) before its circle closes.
 const battleController = new BattleController(authority, renderer, () => explore.landing);
-const doctorController = new DoctorController(authority);
+const doctorController = new DoctorController(authority, { devFly: flags.lands });
 // While the team is tired, the way to the nearest doctor's tent: an arrow at the screen's edge,
 // clear of the HUD there.
 // The way to the doctor keeps clear of every piece of the HUD but its own marker.

@@ -13,6 +13,7 @@ import {
 	type ByeReason,
 	type FightView,
 	type GridPos,
+	type LandId,
 	type MatchMessage,
 	type ServerMessage,
 	type WireAnimal
@@ -89,7 +90,7 @@ interface Kid {
 	name: string;
 	/** The hi's match id, when the kid came back into one. */
 	hiMatch: string | null;
-	at(pos: GridPos, patch?: { busy?: Busy; world?: number }): void;
+	at(pos: GridPos, patch?: { busy?: Busy; world?: number; land?: LandId }): void;
 	send(message: MatchClientMessage): void;
 	leave(): void;
 }
@@ -131,6 +132,7 @@ function kid(
 			hub.where(peer, {
 				t: 'where',
 				world: patch.world ?? world,
+				land: patch.land ?? 'nordland',
 				x: p.x,
 				y: p.y,
 				facing: 'down',
@@ -257,6 +259,14 @@ describe('the invite', () => {
 		ask('in the menu', kid('Menu', beside(-1), 'menu'));
 		ask('in a match', kid('Match', beside(1, 1), 'match'));
 		ask('in another world', kid('Away', SPAWN, 'explore', 2));
+		ask(
+			'in another land',
+			(() => {
+				const arctic = kid('Polar', beside(1), 'explore', 1, false);
+				arctic.at(beside(1), { land: 'arctic' });
+				return arctic;
+			})()
+		);
 		ask('on the water', kid('Sail', SHORE.water));
 		ask('no team on land', kid('Crab', beside(1, -1)), [{ id: 'c', speciesId: 'crab' }]);
 		reasons.self = (() => {
@@ -279,6 +289,7 @@ describe('the invite', () => {
 			'in the menu': 'busy',
 			'in a match': 'busy',
 			'in another world': 'gone',
+			'in another land': 'gone',
 			'on the water': 'moved',
 			'no team on land': 'no-team',
 			self: 'gone',
@@ -374,6 +385,8 @@ describe('the invite', () => {
 			['a wild battle', (bo) => bo.at(beside(1), { busy: 'battle' }), 'busy'],
 			['the doctor', (bo) => bo.at(beside(1), { busy: 'doctor' }), 'busy'],
 			['another world', (bo) => bo.at(SPAWN, { world: 5 }), 'gone'],
+			// A flight to another land of the same world (#191): out of sight, as another world is.
+			['another land', (bo) => bo.at(SPAWN, { land: 'arctic' }), 'gone'],
 			['closes the game', (bo) => bo.leave(), 'gone']
 		];
 		for (const [label, act, reason] of cases) {

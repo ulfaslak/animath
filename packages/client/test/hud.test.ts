@@ -138,6 +138,9 @@ describe('the explore message line', () => {
 				tokens: 0,
 				items,
 				shop: [],
+				land: 'nordland' as const,
+				unlocked: ['nordland'],
+				open: ['nordland' as const],
 				phase: { kind: 'ended' as const }
 			});
 			hud.apply({ type: 'doctor-visit-started', visit: 1, state: state(before) });
@@ -177,6 +180,8 @@ describe('the explore message line', () => {
 			playerId: 'p',
 			name: null,
 			world: 1,
+			land: 'nordland',
+			unlocked: ['nordland'],
 			home: 1,
 			seed: 1,
 			pos: { x: 0, y: 0 },
@@ -194,7 +199,17 @@ describe('the explore message line', () => {
 		hud.apply({
 			type: 'doctor-visit-ended',
 			visit: 1,
-			state: { step: 1, party: [], tokens: 0, items: [], shop: [], phase: { kind: 'ended' } }
+			state: {
+				step: 1,
+				party: [],
+				tokens: 0,
+				items: [],
+				shop: [],
+				land: 'nordland',
+				unlocked: ['nordland'],
+				open: ['nordland'],
+				phase: { kind: 'ended' }
+			}
 		});
 		hud.tick(0);
 		expect(hud.message).toBe(doctorWords({ say: 'goodbye' }));
@@ -302,6 +317,8 @@ describe('the explore message line', () => {
 			playerId: 'p',
 			name: null,
 			world: 1,
+			land: 'nordland',
+			unlocked: ['nordland'],
 			home: 1,
 			seed: hashString('prototype'),
 			pos: { x: 5, y: 6 },
@@ -329,6 +346,8 @@ describe('the explore message line', () => {
 			playerId: 'p',
 			name: null,
 			world: 1,
+			land: 'nordland',
+			unlocked: ['nordland'],
 			home: 1,
 			seed: hashString('prototype'),
 			pos: { x: 5, y: 6 },

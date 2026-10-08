@@ -459,6 +459,7 @@ describe('presence on the page', () => {
 		s.socket().say({
 			t: 'roster',
 			world: 1,
+			land: 'nordland',
 			players: [{ pid: me, name: 'Ada', bearing: 0, steps: 0, busy: 'explore' }]
 		});
 		s.frame();
@@ -484,6 +485,7 @@ describe('presence on the page', () => {
 		s.socket().say({
 			t: 'roster',
 			world: 1,
+			land: 'nordland',
 			players: [{ pid: 'friend0001', name: 'Bo', bearing: 4, steps: 1, busy: 'explore' }]
 		});
 		s.frame();
@@ -499,6 +501,7 @@ describe('presence on the page', () => {
 		s.socket().say({
 			t: 'roster',
 			world: 1,
+			land: 'nordland',
 			players: [{ pid: 'friend0001', name: 'Bo', bearing: 4, steps: 1, busy: 'explore' }]
 		});
 		expect(presence.roster).toEqual([]);
@@ -512,6 +515,7 @@ describe('presence on the page', () => {
 		s.socket().say({
 			t: 'roster',
 			world: 1,
+			land: 'nordland',
 			players: [{ pid: 'friend0001', name: 'Bo', bearing: 4, steps: 150, busy: 'explore' }]
 		});
 		s.controller.goTo('friend0001');
@@ -539,6 +543,7 @@ describe('presence on the page', () => {
 		s.socket().say({
 			t: 'roster',
 			world: 1,
+			land: 'nordland',
 			players: [{ pid: 'friend0001', name: 'Bo', bearing: 4, steps: 150, busy: 'explore' }]
 		});
 		const at = { ...game.pos };
@@ -559,6 +564,7 @@ describe('presence on the page', () => {
 		s.socket().say({
 			t: 'roster',
 			world: 1,
+			land: 'nordland',
 			players: [{ pid: 'friend0001', name: 'Bo', bearing: 4, steps: 150, busy: 'explore' }]
 		});
 		s.controller.goTo('friend0001');
@@ -627,6 +633,7 @@ describe('presence on the page', () => {
 		s.socket().say({
 			t: 'roster',
 			world: 1,
+			land: 'nordland',
 			players: [{ pid: 'friend0001', name: 'Bo', bearing: 4, steps: 1, busy: 'doctor' }]
 		});
 		s.frame();
@@ -663,6 +670,7 @@ describe('presence on the page', () => {
 		const roster: ServerMessage = {
 			t: 'roster',
 			world: 1,
+			land: 'nordland',
 			players: [{ pid: 'friend0001', name: 'Bo', bearing: 4, steps: 1, busy: 'explore' }]
 		};
 		s.socket().say(bo);
@@ -740,6 +748,7 @@ describe('presence on the page', () => {
 		s.socket().say({
 			t: 'roster',
 			world: 1,
+			land: 'nordland',
 			players: [
 				{ pid: 'friend0001', name: 'Bo', bearing: 12, steps: 190, busy: 'explore' },
 				{ pid: 'friend0002', name: 'Cy', bearing: 12, steps: 190, busy: 'explore' },

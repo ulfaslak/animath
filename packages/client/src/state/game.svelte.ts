@@ -1,4 +1,5 @@
 import {
+	FIRST_LAND,
 	WorldEdits,
 	tileAtWorld,
 	tileRealm,
@@ -6,7 +7,8 @@ import {
 	type Direction,
 	type GameEvent,
 	type GridPos,
-	type Realm
+	type Realm,
+	type LandId
 } from '@mathgame/engine';
 
 /**
@@ -37,9 +39,16 @@ class GameView {
 	 * `travelled`'s. Two players with the same number are in the same world.
 	 */
 	world = $state<number>(0);
+	/**
+	 * The land the player is in (`welcome`'s, then every `travelled`'s): with
+	 * `world`, the place whose players see each other ([[PRODUCT]] §4 "Lands").
+	 */
+	land = $state<LandId>(FIRST_LAND);
+	/** The lands unlocked: `welcome`'s, then every `unlocked-changed`'s. */
+	unlocked = $state<string[]>([FIRST_LAND]);
 	/** The world the game began in: `welcome`'s. */
 	home = $state<number>(0);
-	/** The generator seed of `world` (`worldSeed(world)`). */
+	/** The generator seed of `world` in `land` (`landSeed(land, world)`). */
 	seed = $state<number>(0);
 	pos = $state<GridPos>({ x: 0, y: 0 });
 	/** The way the player faces: `welcome`'s facing, then every move's direction, walked or blocked. */
@@ -92,6 +101,8 @@ class GameView {
 				this.playerId = event.playerId;
 				this.name = event.name;
 				this.world = event.world;
+				this.land = event.land;
+				this.unlocked = event.unlocked;
 				this.home = event.home;
 				this.seed = event.seed;
 				this.pos = event.pos;
@@ -128,10 +139,14 @@ class GameView {
 				// Another world: where the player stands there, and what they cleared there.
 				if (event.playerId !== this.playerId) break;
 				this.world = event.world;
+				this.land = event.land;
 				this.seed = event.seed;
 				this.pos = event.pos;
 				this.facing = event.facing;
 				this.edits = WorldEdits.decode(event.edits);
+				break;
+			case 'unlocked-changed':
+				this.unlocked = event.unlocked;
 				break;
 			case 'tile-cleared':
 				if (event.playerId === this.playerId) {

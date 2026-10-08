@@ -1,5 +1,6 @@
 import {
 	BEARINGS,
+	FIRST_LAND,
 	bearingVector,
 	facePrompt,
 	isWireCoord,
@@ -11,7 +12,8 @@ import {
 	type GameEvent,
 	type PeerMessage,
 	type ServerMessage,
-	type WhereMessage
+	type WhereMessage,
+	type LandId
 } from '@mathgame/engine';
 import { clearBoxes } from '../keep-clear';
 import { SHORT_SCREEN } from '../short-screen';
@@ -154,7 +156,11 @@ export class PresenceController {
 	private readonly clock: () => number;
 	private underWay = false;
 	/** The player's name and world, as the game says them: `welcome`, then `name-chosen` and `travelled`. */
-	private who: { name: string | null; world: number | null } = { name: null, world: null };
+	private who: { name: string | null; world: number | null; land: LandId } = {
+		name: null,
+		world: null,
+		land: FIRST_LAND
+	};
 	/** A go-to waiting for the server to say where they are. */
 	private finding: { pid: string; name: string; since: number } | null = null;
 	/** A go-to the authority is placing: whom it is to, for the line after it. */
@@ -183,7 +189,7 @@ export class PresenceController {
 			case 'welcome':
 				// A game under way: nobody from before is on screen.
 				this.underWay = true;
-				this.who = { name: event.name, world: event.world };
+				this.who = { name: event.name, world: event.world, land: event.land };
 				this.arrive();
 				this.connect();
 				break;
@@ -196,7 +202,7 @@ export class PresenceController {
 			case 'travelled':
 				// Another world: the next `where` names it, and the server moves the socket there.
 				if (event.playerId !== game.playerId) break;
-				this.who = { ...this.who, world: event.world };
+				this.who = { ...this.who, world: event.world, land: event.land };
 				this.arrive();
 				break;
 			case 'game-left':
@@ -444,7 +450,7 @@ export class PresenceController {
 				this.options.match?.gone(m.pid);
 				break;
 			case 'roster': {
-				if (m.world !== this.who.world) break;
+				if (m.world !== this.who.world || m.land !== this.who.land) break;
 				const players = m.players.filter((p) => p.pid !== this.connection.pid);
 				presence.roster = players;
 				this.notes.roster(
@@ -505,6 +511,7 @@ export class PresenceController {
 		return {
 			t: 'where',
 			world,
+			land: this.who.land,
 			x: game.pos.x,
 			y: game.pos.y,
 			facing: game.facing,

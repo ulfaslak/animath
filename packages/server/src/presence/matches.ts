@@ -9,7 +9,7 @@ import {
 	matchView,
 	otherSide,
 	startMatch,
-	worldSeed,
+	landSeed,
 	type AnimalInstance,
 	type ClientMessage,
 	type FightEvent,
@@ -395,7 +395,13 @@ export class Matches {
 	private challenge(player: Player, me: Present, pid: string, sent: WireAnimal[]): void {
 		const target = this.hub.presentByPid(pid);
 		const them = target ? this.players.get(target.key) : undefined;
-		if (!target || !them || target.key === me.key || target.world !== me.world) {
+		if (
+			!target ||
+			!them ||
+			target.key === me.key ||
+			target.world !== me.world ||
+			target.land !== me.land
+		) {
 			return this.tell(player, pid, 'gone');
 		}
 		// They asked me first: asking them back is a Yes.
@@ -407,8 +413,10 @@ export class Matches {
 		if (player.invite || busy(player)) return this.tell(player, pid, 'off');
 		const team = matchTeam(sent);
 		if (!team.ok) return this.tell(player, pid, 'no-team');
-		if (me.world === null || !me.spot || !target.spot) return this.tell(player, pid, 'gone');
-		const refusal = challengeRefusal(worldSeed(me.world), me.spot, target.spot);
+		if (me.world === null || me.land === null || !me.spot || !target.spot) {
+			return this.tell(player, pid, 'gone');
+		}
+		const refusal = challengeRefusal(landSeed(me.land, me.world), me.spot, target.spot);
 		if (refusal) return this.tell(player, pid, refusalFor(refusal).from ?? 'off');
 		if (them.invite) return this.tell(player, pid, 'taken');
 		if (busy(them)) return this.tell(player, pid, 'busy');
@@ -463,7 +471,14 @@ export class Matches {
 			this.endInvite(invite, { from: from ? 'gone' : 'off', to: to ? 'gone' : 'off' });
 			return false;
 		}
-		if (from.world !== to.world || from.world === null || !from.spot || !to.spot) {
+		if (
+			from.world !== to.world ||
+			from.land !== to.land ||
+			from.world === null ||
+			from.land === null ||
+			!from.spot ||
+			!to.spot
+		) {
 			// Somebody went to another world: to the other, they went.
 			const said: Said = { from: 'gone', to: 'gone' };
 			if (mover === invite.from) said.from = 'off';
@@ -471,7 +486,7 @@ export class Matches {
 			this.endInvite(invite, said);
 			return false;
 		}
-		const refusal = challengeRefusal(worldSeed(from.world), from.spot, to.spot);
+		const refusal = challengeRefusal(landSeed(from.land, from.world), from.spot, to.spot);
 		if (refusal === null) return true;
 		// Out of reach: whoever walked off is told nothing, the other that they walked off.
 		const walker = refusal === 'far' && mover === invite.from ? 'from' : null;

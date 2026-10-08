@@ -81,7 +81,15 @@ export class DoctorController {
 	/** Counts the pops and shakes, so each one starts its animation again. */
 	private pops = 0;
 
-	constructor(private authority: Authority) {}
+	/**
+	 * `devFly`: the `?lands` switch's way to fly before the witch doctor's
+	 * card has a travel option (#191 step 7): L on the card's list asks to fly
+	 * to the next land this visit flies to, in a game saved nowhere.
+	 */
+	constructor(
+		private authority: Authority,
+		private options: { devFly?: boolean } = {}
+	) {}
 
 	handle(event: GameEvent): void {
 		switch (event.type) {
@@ -231,6 +239,14 @@ export class DoctorController {
 				);
 				doctor.screen = 'puzzle';
 				break;
+			case 'paying-fare':
+				// The fare for a flight: a puzzle of the land's own kinds (#191; the card's travel
+				// option and its words are step 7's). The tab stays as it was.
+				doctor.puzzle = phase.puzzle;
+				doctor.patient = null;
+				doctor.trade = null;
+				doctor.screen = 'puzzle';
+				break;
 			case 'ended':
 				// `doctor-visit-ended` follows at once and closes the card.
 				break;
@@ -328,6 +344,13 @@ export class DoctorController {
 			case ' ':
 				if (fresh || this.marks(rows[doctor.cursor])) this.pick(rows[doctor.cursor]);
 				return true;
+			case 'l': {
+				const state = this.latest;
+				if (!this.options.devFly || !state) return false;
+				const others = state.open.filter((land) => land !== state.land);
+				if (others.length > 0) this.send({ type: 'fly', land: others[0]! });
+				return true;
+			}
 		}
 		return false;
 	}

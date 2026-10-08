@@ -2,7 +2,7 @@ import {
 	leadIndex,
 	tileAtWorld,
 	tileRealm,
-	worldSeed,
+	landSeed,
 	type AnimalInstance,
 	type NameRejection,
 	type SavedGame
@@ -153,7 +153,9 @@ class TitleView {
 		const saved = this.saved;
 		if (!saved) return null;
 		const party = saved.party;
-		const realm = tileRealm(tileAtWorld(worldSeed(saved.world), saved.pos.x, saved.pos.y).kind);
+		const realm = tileRealm(
+			tileAtWorld(landSeed(saved.land, saved.world), saved.pos.x, saved.pos.y).kind
+		);
 		return party[leadIndex(party, realm)] ?? party[leadIndex(party)] ?? party[0] ?? null;
 	}
 }

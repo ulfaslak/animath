@@ -53,7 +53,8 @@ export class TravelController {
 	handle(event: GameEvent): void {
 		switch (event.type) {
 			case 'travelled': {
-				if (event.playerId !== game.playerId) break;
+				// Only a trip of this screen's: a flight to another land has the plane's own show (#191).
+				if (event.playerId !== game.playerId || !travel.cover) break;
 				// Shut: open on the new world, and name it.
 				const arrival: Arrival =
 					event.world === game.home ? 'home' : event.firstVisit ? 'new' : 'back';

@@ -53,7 +53,13 @@ export interface Flags {
 	 */
 	items: ItemId[] | null;
 	/**
-	 * `?new`, `?party=`, `?zoo`, `?tokens=`, `?shop` or `?items=`: a throwaway game,
+	 * `?lands`: every land open and unlocked, in a throwaway game, to fly to a
+	 * land before it is built (#191): L on the witch doctor's list flies to
+	 * the next land. Lands not built yet look like Nordland and hold nothing.
+	 */
+	lands: boolean;
+	/**
+	 * `?new`, `?party=`, `?zoo`, `?tokens=`, `?shop`, `?items=` or `?lands`: a throwaway game,
 	 * straight into explore without the title. Nothing is loaded or saved, so
 	 * a look at a screen never touches a kid's game.
 	 */
@@ -68,6 +74,7 @@ export function readFlags(search: string): Flags {
 	const tokens = parseTokens(params.get('tokens'));
 	const shop = params.has('shop') ? [...ITEM_IDS] : null;
 	const items = parseItems(params.get('items'));
+	const lands = params.has('lands');
 	return {
 		zoo,
 		debug: params.has('debug'),
@@ -77,8 +84,15 @@ export function readFlags(search: string): Flags {
 		tokens,
 		shop,
 		items,
+		lands,
 		throwaway:
-			fresh || party !== null || zoo !== null || tokens !== null || shop !== null || items !== null
+			fresh ||
+			party !== null ||
+			zoo !== null ||
+			tokens !== null ||
+			shop !== null ||
+			items !== null ||
+			lands
 	};
 }
 
@@ -94,6 +108,7 @@ export function authorityOptions(flags: Flags): LocalAuthorityOptions {
 		tokens: flags.tokens ?? undefined,
 		shop: flags.shop ?? undefined,
 		items: flags.items ?? undefined,
+		lands: flags.lands || undefined,
 		homeWorld: flags.throwaway ? () => FIRST_WORLD : undefined
 	};
 }
