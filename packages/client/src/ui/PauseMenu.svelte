@@ -37,6 +37,7 @@
 		type WorldOption
 	} from '../state/pause.svelte';
 	import BookIcon from './BookIcon.svelte';
+	import FreeStamp from './FreeStamp.svelte';
 	import BundleAnimals from './BundleAnimals.svelte';
 	import HpBar from './HpBar.svelte';
 	import NumberPad from './NumberPad.svelte';
@@ -122,24 +123,29 @@
 	/** The cursor is on the animal book's row: the right side says what the book is. */
 	const bookLit = $derived(items[pause.cursor - cards.length] === 'book');
 
-	/** The animal book: what the kid has seen and caught, and the kinds on their team now. */
+	/** The animal book: what the kid has seen, caught and set free, and the kinds on their team now. */
 	const seen = $derived(new Set(game.seen));
 	const caught = $derived(new Set(game.caught));
+	const freed = $derived(new Set(game.freed));
 	const onTeam = $derived(new Set(game.party.map((a) => a.speciesId)));
 	/** The book's count: kinds caught, kinds seen, every kind there is. */
 	const bookCount = $derived(
 		t('book.count', { caught: caught.size, seen: seen.size, all: BOOK_ORDER.length })
 	);
+	/** The kinds set free, of every kind there is. */
+	const freedCount = $derived(t('book.freed', { freed: freed.size, all: BOOK_ORDER.length }));
 	/** What the lit card says, under the book. */
 	const bookCaption = $derived.by(() => {
 		const spec = BOOK_ORDER[Math.min(pause.option, BOOK_ORDER.length - 1)];
 		if (pause.screen !== 'book' || !spec) return '';
 		const animal = animalWords({ speciesId: spec.id });
 		if (caught.has(spec.id)) {
-			return onTeam.has(spec.id)
-				? t('book.caughtTeam', { animal })
-				: t('book.caughtHome', { animal });
+			if (!onTeam.has(spec.id)) return t('book.caughtHome', { animal });
+			return freed.has(spec.id)
+				? t('book.freedTeam', { animal })
+				: t('book.caughtTeam', { animal });
 		}
+		if (freed.has(spec.id)) return t('book.seenFree', { animal });
 		return seen.has(spec.id) ? t('book.seen', { animal }) : t('book.unseen');
 	});
 
@@ -387,8 +393,9 @@
 						: t('pause.title')}
 			</div>
 			{#if pause.screen === 'book'}
-				<!-- The count, and Back (Escape), for a finger or a mouse. -->
+				<!-- The counts, and Back (Escape), for a finger or a mouse. -->
 				<span class="book-count">{bookCount}</span>
+				<span class="book-freed"><FreeStamp size={22} />{freedCount}</span>
 				<button type="button" class="pill back" data-press="Escape" {@attach unfocusable}>
 					{t('pause.back')}
 				</button>
@@ -480,6 +487,10 @@
 							{#if kind === 'caught'}
 								<!-- Caught, for good: a green tick on the card's corner. -->
 								<span class="stamp"><Tick size={30} /></span>
+							{/if}
+							{#if freed.has(spec.id)}
+								<!-- Set free at the witch doctor's, for good: a rose heart on the other corner. -->
+								<span class="stamp free"><FreeStamp size={30} /></span>
 							{/if}
 						{/if}
 					</button>
@@ -692,6 +703,7 @@
 						<div class="side-title">{t('book.title')}</div>
 						<div class="note">{t('book.help')}</div>
 						<div class="note">{bookCount}</div>
+						<div class="note">{freedCount}</div>
 					{:else}
 						<div class="soft">{t('pause.pick')}</div>
 						<div class="note">{t('pause.pickHelp')}</div>
@@ -1192,6 +1204,16 @@
 		white-space: nowrap;
 		font-variant-numeric: tabular-nums;
 	}
+	/* The kinds set free, with their heart: the count a kid works towards. */
+	.book-freed {
+		display: inline-flex;
+		align-items: center;
+		gap: 6px;
+		font-weight: 800;
+		font-size: 18px;
+		white-space: nowrap;
+		font-variant-numeric: tabular-nums;
+	}
 	.book-grid {
 		flex: 1;
 		min-height: 0;
@@ -1292,6 +1314,11 @@
 		right: 8px;
 		border-radius: 50%;
 		box-shadow: 0 0 0 3px white;
+	}
+	/* Set free: the rose heart, on the disc's other corner. */
+	.stamp.free {
+		right: auto;
+		left: 8px;
 	}
 	.book-caption {
 		flex: none;

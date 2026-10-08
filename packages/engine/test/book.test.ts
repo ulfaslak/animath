@@ -280,7 +280,8 @@ describe('setting free', () => {
 					(id) => !book.freed.includes(id)
 				);
 				if (left.length > 0) wentHome++;
-				if (newly.length === 0 && next !== book) bad.push(`${s}/${i}: changed with nobody new gone`);
+				if (newly.length === 0 && next !== book)
+					bad.push(`${s}/${i}: changed with nobody new gone`);
 				if (JSON.stringify(next.freed) !== JSON.stringify([...book.freed, ...newly])) {
 					bad.push(`${s}/${i}: freed ${next.freed}, expected ${[...book.freed, ...newly]}`);
 				}

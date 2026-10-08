@@ -29,7 +29,7 @@ export const players = pgTable('players', {
 	lastSeenAt: timestamp('last_seen_at', { withTimezone: true }).notNull().defaultNow()
 });
 
-/** The retired anonymous backup (above): one save per player, the `SaveV3` its browser last sent. */
+/** The retired anonymous backup (above): one save per player, the save document (version 1 or 2) its browser last sent. */
 export const saves = pgTable('saves', {
 	playerId: uuid('player_id')
 		.primaryKey()
