@@ -38,7 +38,8 @@ const BACK: Record<Direction, Direction> = { up: 'down', down: 'up', left: 'righ
 /** A tile of `kind` near spawn with ground a kid stands on beside it: the stand, facing it. */
 function besideKind(
 	kind: string,
-	under?: string
+	under?: string,
+	stand: (ground: string) => boolean = (g) => isWalkable(g as never) && g !== 'ice'
 ): { pos: GridPos; facing: Direction; at: GridPos } {
 	for (let r = 0; r < 200; r++) {
 		for (let y = 9 - r; y <= 9 + r; y++) {
@@ -49,7 +50,7 @@ function besideKind(
 				for (const dir of DIRS) {
 					const pos = step({ x, y }, BACK[dir]);
 					const ground = tileAtWorld(SEED, pos.x, pos.y).kind;
-					if (isWalkable(ground) && ground !== 'ice') return { pos, facing: dir, at: { x, y } };
+					if (stand(ground)) return { pos, facing: dir, at: { x, y } };
 				}
 			}
 		}
@@ -218,6 +219,22 @@ describe('the ice pick and the arctic axe', () => {
 		expect(editedTileAt(SEED, game.edits, at.x, at.y).kind).toBe('hole');
 		// Facing it now is facing a fishing hole: without a rod, Enter says the rod is what it takes.
 		expect(hud.ahead).toEqual({ kind: 'hole', tool: 'fishing-rod' });
+	});
+
+	it('breaks a block afloat from the boat, and the water it leaves is water to every screen (the review of #201)', () => {
+		const { pos, facing, at } = besideKind(
+			'iceblock',
+			'water',
+			(g) => g === 'water' || g === 'deepwater'
+		);
+		const s = setup(arcticGame(pos, facing, ['ice-pick', 'boat']));
+		expect(game.realm).toBe('water');
+		s.enter();
+		expect(s.events.at(-1)).toMatchObject({ type: 'tile-cleared', was: 'iceblock' });
+		s.authority.dispatch({ type: 'move', dir: facing });
+		expect(game.pos).toEqual(at);
+		// Out on the water in the boat there, as the authority has it: the lead is a swimmer's.
+		expect(game.realm).toBe('water');
 	});
 
 	it("cuts a spruce with the arctic axe, never with Nordland's axe", () => {

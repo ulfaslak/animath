@@ -36,7 +36,8 @@ import {
 	RISE_SECONDS,
 	SLIDE_SECONDS,
 	STEP_SECONDS,
-	slidesBetween
+	slidesBetween,
+	worldOf
 } from '../render/trainer';
 import { doctor } from '../state/doctor.svelte';
 import { game } from '../state/game.svelte';
@@ -353,7 +354,7 @@ export class ExploreController {
 		this.from = this.pos;
 		this.pos = to;
 		this.progress = 0;
-		this.stepSeconds = slidesBetween(this.seed, this.from, this.pos)
+		this.stepSeconds = slidesBetween(worldOf(this.seed, this.edits), this.from, this.pos)
 			? SLIDE_SECONDS
 			: this.onWater(this.from) !== this.onWater(this.pos) && !motion.reduced
 				? BOAT_SWING_SECONDS
@@ -364,7 +365,8 @@ export class ExploreController {
 	/** Whether a slide on the ice is still under way on screen: a battle at its end waits for it. */
 	get sliding(): boolean {
 		return (
-			this.ahead.length > 0 || (this.progress < 1 && slidesBetween(this.seed, this.from, this.pos))
+			this.ahead.length > 0 ||
+			(this.progress < 1 && slidesBetween(worldOf(this.seed, this.edits), this.from, this.pos))
 		);
 	}
 
@@ -624,7 +626,7 @@ export class ExploreController {
 
 	/** Water, shallow or deep, at a tile: where the trainer is in the boat. */
 	private onWater(pos: GridPos): boolean {
-		return isWater(tileAtWorld(this.seed, pos.x, pos.y).kind);
+		return isWater(editedTileAt(this.seed, this.edits, pos.x, pos.y).kind);
 	}
 
 	/** What the party column asked for, as the authority's party intent or an open card. */
