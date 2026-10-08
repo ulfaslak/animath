@@ -42,10 +42,13 @@ export {
 	EMPTY_BOOK,
 	bookOf,
 	catchSpecies,
+	freeSpecies,
 	hasCaught,
+	hasFreed,
 	hasSeen,
 	recordBattle,
 	recordParty,
+	recordWentHome,
 	seeSpecies
 } from './animals/book.js';
 export type { AnimalBook } from './animals/book.js';
@@ -391,7 +394,7 @@ export type {
 	SaveProblem,
 	SaveRead,
 	SaveV1,
-	SaveV2,
+	SaveV3,
 	SaveWrite,
 	SaveWriteCheck,
 	SavedGame,

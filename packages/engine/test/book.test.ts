@@ -4,14 +4,19 @@ import {
 	EMPTY_BOOK,
 	bookOf,
 	catchSpecies,
+	freeSpecies,
 	hasCaught,
+	hasFreed,
 	hasSeen,
 	recordBattle,
 	recordParty,
+	recordWentHome,
 	seeSpecies,
 	type AnimalBook
 } from '../src/animals/book.js';
-import { ANIMALS, canFightIn } from '../src/animals/catalog.js';
+import { ANIMALS, canFightIn, getAnimal } from '../src/animals/catalog.js';
+import { applyDoctorIntent, startDoctorVisit } from '../src/doctor/reducer.js';
+import type { DoctorIntent, DoctorState } from '../src/doctor/types.js';
 import type { BattleOutcome, BattleState, BattleStep } from '../src/battle/types.js';
 import { Rng, hashInts } from '../src/rng.js';
 import { makeParty, makeWild, playBattle } from './battle-sim.js';
@@ -26,13 +31,17 @@ const IDS = ANIMALS.map((a) => a.id);
 /** Ids no catalog of this build has: a later build's species, and junk. */
 const NOT_SPECIES = ['later-species', 'Fox', '', 'fox ', 'wood mouse'];
 
-/** Every species caught is seen, and each list names each species once, all of the catalog. */
+/** Every species caught or set free is seen, and each list names each species once, all of the catalog. */
 function whole(book: AnimalBook): string[] {
 	const bad: string[] = [];
-	if (new Set(book.seen).size !== book.seen.length) bad.push(`seen repeats: ${book.seen}`);
-	if (new Set(book.caught).size !== book.caught.length) bad.push(`caught repeats: ${book.caught}`);
+	for (const key of ['seen', 'caught', 'freed'] as const) {
+		if (new Set(book[key]).size !== book[key].length) bad.push(`${key} repeats: ${book[key]}`);
+	}
 	for (const id of book.caught) if (!book.seen.includes(id)) bad.push(`${id} caught, not seen`);
-	for (const id of [...book.seen, ...book.caught]) if (!IDS.includes(id)) bad.push(`${id}?`);
+	for (const id of book.freed) if (!book.seen.includes(id)) bad.push(`${id} set free, not seen`);
+	for (const id of [...book.seen, ...book.caught, ...book.freed]) {
+		if (!IDS.includes(id)) bad.push(`${id}?`);
+	}
 	return bad;
 }
 
@@ -60,11 +69,15 @@ describe('seeing and catching', () => {
 		let book = seeSpecies(EMPTY_BOOK, 'fox');
 		book = seeSpecies(book, 'bear');
 		book = seeSpecies(book, 'fox');
-		expect(book).toEqual({ seen: ['fox', 'bear'], caught: [] });
+		expect(book).toEqual({ seen: ['fox', 'bear'], caught: [], freed: [] });
 		book = catchSpecies(book, 'rabbit');
 		book = catchSpecies(book, 'fox');
 		book = catchSpecies(book, 'rabbit');
-		expect(book).toEqual({ seen: ['fox', 'bear', 'rabbit'], caught: ['rabbit', 'fox'] });
+		expect(book).toEqual({
+			seen: ['fox', 'bear', 'rabbit'],
+			caught: ['rabbit', 'fox'],
+			freed: []
+		});
 		expect([hasSeen(book, 'bear'), hasCaught(book, 'bear')]).toEqual([true, false]);
 		expect([hasSeen(book, 'fox'), hasCaught(book, 'fox')]).toEqual([true, true]);
 		expect([hasSeen(book, 'wolf'), hasCaught(book, 'wolf')]).toEqual([false, false]);
@@ -83,11 +96,15 @@ describe('seeing and catching', () => {
 		for (const id of NOT_SPECIES) {
 			expect(seeSpecies(EMPTY_BOOK, id), id).toBe(EMPTY_BOOK);
 			expect(catchSpecies(EMPTY_BOOK, id), id).toBe(EMPTY_BOOK);
+			expect(freeSpecies(EMPTY_BOOK, id), id).toBe(EMPTY_BOOK);
 		}
-		expect(bookOf(['fox', 'later-species'], ['Fox', 'bear'])).toEqual({
-			seen: ['fox', 'bear'],
-			caught: ['bear']
+		expect(bookOf(['fox', 'later-species'], ['Fox', 'bear'], ['later-species', 'otter'])).toEqual({
+			seen: ['fox', 'bear', 'otter'],
+			caught: ['bear'],
+			freed: ['otter']
 		});
+		const later = { type: 'went-home', animals: [{ id: 'x', speciesId: 'later-species', hp: 1 }] };
+		expect(recordWentHome(EMPTY_BOOK, [later as never])).toBe(EMPTY_BOOK);
 	});
 
 	it('only grows, whatever order animals are met and caught in', () => {
@@ -98,10 +115,17 @@ describe('seeing and catching', () => {
 			for (let i = 0; i < 40; i++) {
 				const id = rng.chance(0.1) ? rng.pick(NOT_SPECIES) : rng.pick(IDS);
 				const before = book;
-				book = rng.chance(0.5) ? seeSpecies(book, id) : catchSpecies(book, id);
+				const roll = rng.next();
+				book =
+					roll < 0.4
+						? seeSpecies(book, id)
+						: roll < 0.8
+							? catchSpecies(book, id)
+							: freeSpecies(book, id);
 				// Everything in the book before is still there, in its place.
-				if (before.seen.some((x, j) => book.seen[j] !== x)) bad.push(`${s}: seen shrank`);
-				if (before.caught.some((x, j) => book.caught[j] !== x)) bad.push(`${s}: caught shrank`);
+				for (const key of ['seen', 'caught', 'freed'] as const) {
+					if (before[key].some((x, j) => book[key][j] !== x)) bad.push(`${s}: ${key} shrank`);
+				}
 				bad.push(...whole(book).map((w) => `${s}: ${w}`));
 			}
 		}
@@ -112,9 +136,16 @@ describe('seeing and catching', () => {
 	it('reads two saved lists as a book: each species once, in its first place, the caught ones seen too', () => {
 		expect(bookOf(['fox', 'bear', 'fox'], ['rabbit', 'fox', 'rabbit'])).toEqual({
 			seen: ['fox', 'bear', 'rabbit'],
-			caught: ['rabbit', 'fox']
+			caught: ['rabbit', 'fox'],
+			freed: []
 		});
 		expect(bookOf([], [])).toEqual(EMPTY_BOOK);
+		// A kind set free is seen too, and caught only when the save says so.
+		expect(bookOf(['fox'], ['fox'], ['otter', 'fox', 'otter'])).toEqual({
+			seen: ['fox', 'otter'],
+			caught: ['fox'],
+			freed: ['otter', 'fox']
+		});
 	});
 });
 
@@ -122,15 +153,17 @@ describe('recordParty', () => {
 	it('catches every species in the party, in party order: a starter alone is the whole book', () => {
 		expect(recordParty(EMPTY_BOOK, makeParty(['frog']))).toEqual({
 			seen: ['frog'],
-			caught: ['frog']
+			caught: ['frog'],
+			freed: []
 		});
 		const book = recordParty(
-			{ seen: ['bear'], caught: [] },
+			{ seen: ['bear'], caught: [], freed: [] },
 			makeParty(['fox', 'squirrel', 'fox', 'bear'])
 		);
 		expect(book).toEqual({
 			seen: ['bear', 'fox', 'squirrel'],
-			caught: ['fox', 'squirrel', 'bear']
+			caught: ['fox', 'squirrel', 'bear'],
+			freed: []
 		});
 	});
 });
@@ -196,4 +229,70 @@ describe('recordBattle', () => {
 		// Every way out of a battle was played: a battle run from, won or lost leaves it seen only.
 		expect([...outcomes.keys()].sort()).toEqual(['caught', 'fled', 'lost', 'won']);
 	}, 30_000);
+});
+
+describe('setting free', () => {
+	it('sets a species free once, in the order first set free, and sees it; nothing else moves', () => {
+		let book = catchSpecies(EMPTY_BOOK, 'fox');
+		book = freeSpecies(book, 'fox');
+		book = freeSpecies(book, 'wolf');
+		const same = freeSpecies(book, 'fox');
+		expect(same).toBe(book);
+		expect(book).toEqual({ seen: ['fox', 'wolf'], caught: ['fox'], freed: ['fox', 'wolf'] });
+		expect([hasFreed(book, 'fox'), hasFreed(book, 'wolf'), hasFreed(book, 'bear')]).toEqual([
+			true,
+			true,
+			false
+		]);
+		// Seeing or catching again keeps the list.
+		expect(catchSpecies(book, 'rabbit').freed).toEqual(['fox', 'wolf']);
+		expect(seeSpecies(book, 'bear').freed).toEqual(['fox', 'wolf']);
+	});
+
+	it('sets free exactly the kinds that went home, at the step whose right answer sent them', () => {
+		// Real visits, driven through the reducer by a kid who picks at random and is often wrong:
+		// the book changes only at a step that took animals out of the party, and then by
+		// exactly their kinds.
+		let wentHome = 0;
+		const bad: string[] = [];
+		for (let s = 0; s < 80; s++) {
+			const rng = new Rng(hashInts(83, s));
+			const party = Array.from({ length: rng.int(2, 9) }, (_, i) => {
+				const spec = rng.pick(ANIMALS);
+				return { id: `a${i}`, speciesId: spec.id, hp: rng.int(0, getAnimal(spec.id).maxHp) };
+			});
+			let state: DoctorState = startDoctorVisit(party, { tokens: rng.int(0, 40) });
+			let book = recordParty(EMPTY_BOOK, party);
+			for (let i = 0; i < 60 && state.phase.kind !== 'ended'; i++) {
+				const phase = state.phase;
+				let intent: DoctorIntent;
+				if (phase.kind === 'handing-over' || phase.kind === 'solving') {
+					const a = phase.puzzle.answer;
+					intent = { type: 'answer', input: String(rng.chance(0.6) ? a : a + 1) };
+				} else {
+					const ids = state.party.filter(() => rng.chance(0.4)).map((a) => a.id);
+					intent = rng.chance(0.1) ? { type: 'leave' } : { type: 'hand-over', ids };
+				}
+				const step = applyDoctorIntent(state, intent, hashInts(s, i));
+				const next = recordWentHome(book, step.events);
+				const left = state.party.filter((a) => !step.state.party.some((b) => b.id === a.id));
+				const newly = [...new Set(left.map((a) => a.speciesId))].filter(
+					(id) => !book.freed.includes(id)
+				);
+				if (left.length > 0) wentHome++;
+				if (newly.length === 0 && next !== book) bad.push(`${s}/${i}: changed with nobody new gone`);
+				if (JSON.stringify(next.freed) !== JSON.stringify([...book.freed, ...newly])) {
+					bad.push(`${s}/${i}: freed ${next.freed}, expected ${[...book.freed, ...newly]}`);
+				}
+				if (JSON.stringify(next.caught) !== JSON.stringify(book.caught)) {
+					bad.push(`${s}/${i}: caught moved`);
+				}
+				bad.push(...whole(next).map((w) => `${s}/${i}: ${w}`));
+				book = next;
+				state = step.state;
+			}
+		}
+		expect(bad.slice(0, 20)).toEqual([]);
+		expect(wentHome).toBeGreaterThan(30);
+	});
 });

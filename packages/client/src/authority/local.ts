@@ -42,6 +42,7 @@ import {
 	normalizeNickname,
 	recordBattle,
 	recordParty,
+	recordWentHome,
 	rollEncounterFor,
 	rollSkyEncounter,
 	spawnPoint,
@@ -206,10 +207,10 @@ export class LocalAuthority implements Authority {
 	 */
 	private solved = 0;
 	/**
-	 * The animal book: every species seen and caught in this game, in every
-	 * world (`animals/book.ts`). Grows at the event that shows an animal: a
-	 * wild battle's start and a leash throw that lands, a friendly match's
-	 * animal in front. Saved with the game.
+	 * The animal book: every species seen, caught and set free in this game,
+	 * in every world (`animals/book.ts`). Grows at the event that shows an
+	 * animal: a wild battle's start, a leash throw that lands, and a
+	 * hand-over at the witch doctor's answered right. Saved with the game.
 	 */
 	private book: AnimalBook = EMPTY_BOOK;
 	/**
@@ -305,7 +306,7 @@ export class LocalAuthority implements Authority {
 		this.solved = game.solved;
 		// Every animal the kid has was caught (a starter counts), and a battle in progress was
 		// met: whatever the game handed in says (a `restoreGame`'s says so already).
-		this.book = recordParty(bookOf(game.seen, game.caught), this.party);
+		this.book = recordParty(bookOf(game.seen, game.caught, game.freed), this.party);
 		if (game.battle) this.book = recordBattle(this.book, game.battle);
 		this.edits = WorldEdits.decode(game.edits);
 		this.worlds = game.worlds.map(copyStay);
@@ -330,6 +331,7 @@ export class LocalAuthority implements Authority {
 			solved: this.solved,
 			seen: [...this.book.seen],
 			caught: [...this.book.caught],
+			freed: [...this.book.freed],
 			newGame: isNew,
 			edits: [...this.edits.encode()]
 		});
@@ -382,6 +384,7 @@ export class LocalAuthority implements Authority {
 			solved: this.solved,
 			seen: [...book.seen],
 			caught: [...book.caught],
+			freed: [...book.freed],
 			battle,
 			edits: [...edits.encode()],
 			worlds: worlds.map(copyStay)
@@ -422,7 +425,13 @@ export class LocalAuthority implements Authority {
 		if (!this.options.party?.length) return game;
 		const party = bundled(this.options.party).map((a) => ({ ...a }));
 		const book = recordParty(EMPTY_BOOK, party);
-		return { ...game, party, seen: [...book.seen], caught: [...book.caught] };
+		return {
+			...game,
+			party,
+			seen: [...book.seen],
+			caught: [...book.caught],
+			freed: [...book.freed]
+		};
 	}
 
 	dispatch(intent: Intent): void {
@@ -980,6 +989,8 @@ export class LocalAuthority implements Authority {
 			this.party = state.party.map((a) => ({ ...a }));
 			this.emit({ type: 'party-changed', party: this.partyCopy() });
 		}
+		// The kinds that went home are set free in the book, for good.
+		this.note(recordWentHome(this.book, events));
 		if (events.some((e) => e.type === 'tokens-given' || e.type === 'bought')) {
 			this.tokens = state.tokens;
 			this.items = [...state.items];
@@ -1045,7 +1056,12 @@ export class LocalAuthority implements Authority {
 	private note(book: AnimalBook): void {
 		if (book === this.book) return;
 		this.book = book;
-		this.emit({ type: 'book-changed', seen: [...book.seen], caught: [...book.caught] });
+		this.emit({
+			type: 'book-changed',
+			seen: [...book.seen],
+			caught: [...book.caught],
+			freed: [...book.freed]
+		});
 	}
 
 	private partyCopy(): AnimalInstance[] {

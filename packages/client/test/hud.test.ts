@@ -187,6 +187,7 @@ describe('the explore message line', () => {
 			solved: 0,
 			seen: [],
 			caught: [],
+			freed: [],
 			newGame: true,
 			edits: []
 		});
@@ -311,6 +312,7 @@ describe('the explore message line', () => {
 			solved: 0,
 			seen: [],
 			caught: [],
+			freed: [],
 			newGame: false,
 			edits: []
 		});
@@ -337,6 +339,7 @@ describe('the explore message line', () => {
 			solved: 0,
 			seen: [],
 			caught: [],
+			freed: [],
 			newGame: false,
 			edits: []
 		});
