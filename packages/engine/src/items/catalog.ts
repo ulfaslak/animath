@@ -13,7 +13,15 @@ import type { Gear } from '../world/types.js';
  * item's effect asks.
  */
 export type ItemId =
-	'axe' | 'pickaxe' | 'boat' | 'glider' | 'harness' | 'arctic-axe' | 'ice-pick' | 'fishing-rod';
+	| 'axe'
+	| 'pickaxe'
+	| 'boat'
+	| 'glider'
+	| 'harness'
+	| 'arctic-axe'
+	| 'ice-pick'
+	| 'fishing-rod'
+	| 'skis';
 
 export interface ItemSpec {
 	id: ItemId;
@@ -49,7 +57,9 @@ export const ITEMS: readonly ItemSpec[] = [
 	 * fishing hole has an animal to hook (#192's third wave turns it on), so no
 	 * kid pays for a rod nothing ever bites.
 	 */
-	{ id: 'fishing-rod', available: false }
+	{ id: 'fishing-rod', available: false },
+	/** Speed on the snow: built up while a way is held, coasting on after it (`world/skis.ts`). */
+	{ id: 'skis', available: true }
 ];
 
 /** Every item id, in catalog order. */

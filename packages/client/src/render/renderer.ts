@@ -20,6 +20,7 @@ import { Chaser } from './chaser';
 import { ChunkRing } from './chunks';
 import { ClearingEffects, SWING_SECONDS, animateSwing, buildTool } from './clearing';
 import { FishingEffect, type CastOutcome } from './fishing';
+import { Skis } from './skis';
 import { Greetings } from './doctor';
 import { appearScale, smoothstep } from './ease';
 import { buildGliderMesh, poseGlider } from './glider';
@@ -181,6 +182,19 @@ export class GameRenderer {
 	/** The boat on the trainer, built the first time the player owns one; hidden while they don't. */
 	private boat: THREE.Group | null = null;
 	private boatOwned = false;
+	/** The skis on the trainer's feet, when owned: on the ground only. */
+	private skis = new Skis();
+	private skisOwned = false;
+	/**
+	 * The step under way on skis: gliding (no stride, no hop, an even pace),
+	 * how fast (0 to 1, for the spray), and over water: skimming it on skis
+	 * (`over`), or the boat swinging in under them where a skim ends (`board`).
+	 */
+	private ski: { glide: boolean; speed: number; skim: 'over' | 'board' | null } = {
+		glide: false,
+		speed: 0,
+		skim: null
+	};
 	/** How far the boat is under the trainer this frame: 0 on their back, 1 afloat under them. */
 	private afloat = 0;
 	/** Seconds since the boat was bought, while it grows onto the trainer's back. */
@@ -251,6 +265,7 @@ export class GameRenderer {
 
 		this.player = buildPlayerMesh();
 		this.scene.add(this.player);
+		this.player.add(this.skis.group);
 
 		// Built once, for as long as the page lives, and shown only while the trainer flies.
 		const shadow = new THREE.CircleGeometry(0.3, 16);
@@ -460,6 +475,16 @@ export class GameRenderer {
 	 * them in the air. Bought while the game is on (`arriving`), it grows
 	 * onto their back with a little bounce.
 	 */
+	/** The skis are the kid's (or no longer): on their feet whenever they stand on the ground. */
+	setSkis(owned: boolean): void {
+		this.skisOwned = owned;
+	}
+
+	/** How the next steps go on skis (the explore controller's, each tile). */
+	setSkiing(glide: boolean, speed: number, skim: 'over' | 'board' | null): void {
+		this.ski = { glide, speed, skim };
+	}
+
 	setGlider(owned: boolean, arriving = false): void {
 		if (owned && !this.glider) {
 			this.glider = buildGliderMesh();
@@ -486,16 +511,26 @@ export class GameRenderer {
 		this.air = air;
 		const lift = smoothstep(air.lift);
 		this.sitting = seat.weight * (1 - lift);
-		const { x, y, z, afloat } = trainerPose(
+		const skim = this.ski.skim;
+		const pose = trainerPose(
 			this.seed,
 			from,
 			to,
 			progress,
-			this.boatOwned,
+			// Skimming on skis, the boat stays on their back.
+			this.boatOwned && skim === null,
 			motion.reduced,
 			lift,
-			this.sitting
+			this.sitting,
+			this.ski.glide
 		);
+		const { x, z } = pose;
+		let { y, afloat } = pose;
+		if (skim === 'board') {
+			// The skim's last tile: the boat swings in under them as they glide onto it.
+			afloat = motion.reduced ? (progress < 0.5 ? 0 : 1) : progress;
+			y += BOAT_STAND * afloat;
+		}
 		this.afloat = afloat;
 		// A take-off refused: a little hop in place.
 		const hop =
@@ -510,7 +545,10 @@ export class GameRenderer {
 		// Every step lands on the other foot: x + y changes by one each step. Up in the air
 		// nobody walks, and on the ice nobody does either: they slide, feet together.
 		const moving =
-			(from.x !== to.x || from.y !== to.y) && lift === 0 && !slidesBetween(this.seed, from, to);
+			(from.x !== to.x || from.y !== to.y) &&
+			lift === 0 &&
+			!this.ski.glide &&
+			!slidesBetween(this.seed, from, to);
 		this.step.progress = moving ? progress : 1;
 		this.step.stride = strideOnto(to);
 		this.placeShadow(x, z, lift);
@@ -649,6 +687,9 @@ export class GameRenderer {
 		}
 		this.clearings.update(t, motion.reduced);
 		this.fishing.update(t, motion.reduced);
+		// On their feet on the ground only: not in the boat, up in the air or on a mount.
+		const onFeet = this.afloat === 0 && this.air.lift === 0 && this.sitting === 0;
+		this.skis.update(this.skisOwned && onFeet, this.ski.glide ? this.ski.speed : 0, t, motion.reduced);
 		const dt = this.lastT < 0 ? 0 : Math.min(0.1, Math.max(0, t - this.lastT));
 		// The others walk and fade (their followers are figures too, idled below), and their
 		// battles play beside them.

@@ -26,7 +26,19 @@ import type { TravelRejection } from './world/worlds.js';
  */
 
 export type Intent =
+	/**
+	 * A step the way `dir` points, while the arrow is held (each sent once the
+	 * last is down). On The Arctic's snow with skis it is a ski step
+	 * (`skiMove`): speed builds while one way is held.
+	 */
 	| { type: 'move'; dir: Direction }
+	/**
+	 * The arrow let go while moving fast on skis: coast on (`coast`), a tile
+	 * for each speed level, each slower. Answered with `player-moved`, or with
+	 * nothing when the kid was not moving fast enough to coast. Only while
+	 * exploring.
+	 */
+	| { type: 'coast' }
 	/**
 	 * Enter, or the touch controls' Talk: whatever the player faces. A tent
 	 * opens a doctor visit (`canTalkToDoctor`); a tree, a rock or an ice block
@@ -239,7 +251,20 @@ export type GameEvent =
 	 * every one of them a step, the last `pos`; absent, one. The client slides
 	 * the trainer over them; the authority already stands at the end.
 	 */
-	| { type: 'player-moved'; playerId: string; pos: GridPos; dir: Direction; tiles?: number }
+	/**
+	 * On skis (`skiMove`, `coast`) `speeds` gives the speed level each tile
+	 * was crossed at, 0 a walk to `TOP`, for the screen to pace them; `coast`
+	 * marks the glide after the arrow was let go.
+	 */
+	| {
+			type: 'player-moved';
+			playerId: string;
+			pos: GridPos;
+			dir: Direction;
+			tiles?: number;
+			speeds?: number[];
+			coast?: true;
+	  }
 	| { type: 'player-blocked'; playerId: string; dir: Direction }
 	/**
 	 * The player was put on a tile without walking there: `go-to` put them

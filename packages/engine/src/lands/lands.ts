@@ -169,7 +169,7 @@ export const LANDS: readonly LandSpec[] = [
 		starters: ['arctic-fox', 'arctic-hare', 'puffin'],
 		// In ice dollars, the same Fibonacci ladder from the start, since a kid arrives with none
 		// and a starter of tier 1 (#191 step 6; [[PRODUCT]] §4 "The Arctic's shop").
-		shop: { 'arctic-axe': 8, 'ice-pick': 13, 'fishing-rod': 21, boat: 55, glider: 89 },
+		shop: { 'arctic-axe': 8, 'ice-pick': 13, 'fishing-rod': 21, skis: 34, boat: 55, glider: 89 },
 		currency: 'ice-dollars',
 		// The Arctic's own kinds (#191 step 2): a taste of what waits there.
 		travelKinds: [...PICTURE_KINDS, 'balance'],
