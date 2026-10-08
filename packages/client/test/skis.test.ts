@@ -146,3 +146,57 @@ describe('skis seen by others', () => {
 		expect(parseServerMessage({ ...peer, skis: 'yes' })).toBeNull();
 	});
 });
+
+describe('the explore screen on skis', () => {
+	it('sends coast once when the held arrow is let go (a key up, a blur), never after a tap', async () => {
+		const { ExploreController } = await import('../src/explore/controller');
+		const { pos, dir } = snowRun(LEVEL_RUNS[TOP]! + 6);
+		const s = setup(['skis'], pos, dir);
+		const sent: string[] = [];
+		const authority = {
+			dispatch: (i: { type: string }) => {
+				sent.push(i.type);
+				s.authority.dispatch(i as never);
+			},
+			subscribe: (l: (e: GameEvent) => void) => s.authority.subscribe(l)
+		};
+		let held: Direction | undefined = dir;
+		const keyboard = {
+			tick: () => {},
+			takeTap: () => undefined,
+			heldDirection: () => held,
+			takeTeamPick: () => undefined,
+			takeInteract: () => false,
+			talkKey: 'enter',
+			setGlider: () => {},
+			takeTakeOff: () => false,
+			flyHeld: () => false,
+			windUp: () => 0,
+			dropTaps: () => {}
+		};
+		const renderer = {
+			setWorld() {},
+			setBoat() {},
+			setGlider() {},
+			setSkis() {},
+			setSkiing() {},
+			castPlaying: false,
+			fish() {},
+			setLandingSpot() {},
+			setPlayer() {},
+			ensureChunksAround() {},
+			cleared() {},
+			trainerPoint: () => ({ x: 0, y: 0, z: 0 }),
+			chaser: { update() {}, hide() {}, arriving: false, species: null }
+		};
+		const explore = new ExploreController(authority as never, renderer as never, keyboard as never);
+		s.authority.subscribe((e) => explore.handle(e));
+		explore.handle({ ...s.events[0]! } as never);
+		for (let f = 0; f < 120; f++) explore.update(1 / 60);
+		expect(sent.filter((t) => t === 'move').length).toBeGreaterThan(LEVEL_RUNS[TOP]!);
+		held = undefined; // let go, or the window lost focus (the keyboard clears what is held)
+		for (let f = 0; f < 120; f++) explore.update(1 / 60);
+		expect(sent.filter((t) => t === 'coast')).toHaveLength(1);
+		expect(s.moved().at(-1)).toMatchObject({ coast: true });
+	});
+});
