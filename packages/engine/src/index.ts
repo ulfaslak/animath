@@ -250,7 +250,8 @@ export {
 	needsStarter,
 	priceIn,
 	shopFor,
-	unlockLands
+	unlockLands,
+	unlockProgress
 } from './lands/lands.js';
 export type { CurrencyId, FlyRefusal, LandSpec, TrainerLook } from './lands/lands.js';
 export { fly } from './lands/fly.js';

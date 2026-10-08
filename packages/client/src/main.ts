@@ -1,5 +1,5 @@
 import './styles.css';
-import type { SavedGame } from '@mathgame/engine';
+import type { GameEvent, SavedGame } from '@mathgame/engine';
 import { flushSync, mount } from 'svelte';
 import {
 	SessionCheck,
@@ -29,6 +29,7 @@ import { watchTaps } from './input/taps';
 import { touch, watchInput } from './input/touch.svelte';
 import { MatchController } from './match/controller';
 import { PauseController } from './pause/controller';
+import { PlaneController } from './plane/controller';
 import { PresenceController } from './presence/controller';
 import { Follower } from './render/follower';
 import { GameRenderer } from './render/renderer';
@@ -53,6 +54,7 @@ import { game } from './state/game.svelte';
 import { hud } from './state/hud.svelte';
 import { match } from './state/match.svelte';
 import { pause } from './state/pause.svelte';
+import { plane } from './state/plane.svelte';
 import { title } from './state/title.svelte';
 import { travel } from './state/travel.svelte';
 import { TitleController } from './title/controller';
@@ -252,7 +254,8 @@ const titleController = new TitleController(authority, new TitleScenery(renderer
 	logIn: () => accountController.openLogin('title')
 });
 
-authority.subscribe((event) => {
+/** Every screen hears every event the authority sends, in this order (the autosave first, in `subscribe`). */
+function deliver(event: GameEvent): void {
 	game.apply(event);
 	hud.apply(event);
 	explore.handle(event);
@@ -262,7 +265,6 @@ authority.subscribe((event) => {
 	travelController.handle(event);
 	titleController.handle(event);
 	accountController.handle(event);
-	autosave.handle(event);
 	presenceController.handle(event);
 	matchController.handle(event);
 	// A new game from the title: after `welcome`, which clears the message line.
@@ -279,6 +281,15 @@ authority.subscribe((event) => {
 	// The first game of the page puts the `?zoo` line-up up; Continue after the
 	// Start screen, or a new game from the title, finds it standing.
 	if (event.type === 'welcome') zoo?.welcome(event.seed, event.pos);
+}
+
+// A flight to another land plays its plane (`plane/controller.ts`): the screens hear the land
+// change once the plane is off screen, while the game reached is saved at once, so a reload
+// mid-flight is never in the plane.
+const planeController = new PlaneController(renderer, deliver);
+authority.subscribe((event) => {
+	autosave.handle(event);
+	if (!planeController.intercept(event)) deliver(event);
 });
 
 /**
@@ -297,7 +308,7 @@ function keyScreen(): KeyScreen | null {
 	if (account.card !== null || account.prompt) return 'account';
 	if (title.open) return 'title';
 	if (game.mode === 'loading' || game.mode === 'title') return null;
-	if (travel.active) return null;
+	if (travel.active || plane.busy) return null;
 	if (matchController.onScreen) return 'match';
 	if (battle.active) return 'battle';
 	if (doctor.active) return 'doctor';
@@ -600,6 +611,8 @@ function frame(now: number) {
 			if (doctor.active) doctorController.update(dt);
 			// A trip to another world: the cover closes, the world changes under it, and it opens.
 			travelController.update(dt);
+			// A flight to another land: the plane comes, takes the kid, and brings them down.
+			planeController.update(dt);
 			// The message line's clock runs only while the explore HUD is on screen; a line
 			// already read there goes when a battle or a match takes the screen.
 			if (!battle.active && !doctor.active && !pause.open) hud.tick(dt);

@@ -544,11 +544,12 @@ describe('the wire protocol', () => {
 		// its third, the sea's: 6; #91's buzzard, and fights in the air: 7). Likewise a
 		// puzzle of a kind its registry lacks (#191's seven Arctic kinds: 8); lands, #191, which added
 		// neither: 9; The Arctic's small land animals, #192's first wave: 10; its big ones: 11;
-		// its sea and fishing-hole animals: 12.
+		// its sea and fishing-hole animals: 12; the plane's `busy`, #191 step 7, which added
+		// neither: 13.
 		expect(
 			{ version: PROTOCOL_VERSION, species: ANIMALS.length, kinds: ALL_PUZZLE_KINDS.length },
 			'a new species or puzzle kind bumps PROTOCOL_VERSION'
-		).toEqual({ version: 12, species: 100, kinds: 14 });
+		).toEqual({ version: 13, species: 100, kinds: 14 });
 	});
 
 	it('bounds worlds, coordinates, names and rosters', () => {

@@ -37,7 +37,8 @@ export type CueName =
 	| 'travel'
 	| 'whoosh'
 	| 'land'
-	| 'squawk';
+	| 'squawk'
+	| 'plane';
 
 export type Wave = 'sine' | 'triangle' | 'noise';
 
@@ -391,6 +392,32 @@ export const CUES: Record<CueName, Cue> = {
 	 * Off to another world: a soft whoosh rising into the sky while the world
 	 * closes round the trainer, then a bright chord as the new one opens.
 	 */
+	// The plane between lands (#191): a little engine's buzz, swelling and fading, with the wind.
+	plane: {
+		voices: [
+			{
+				at: 0,
+				dur: 1.1,
+				wave: 'triangle',
+				freq: 82,
+				to: 110,
+				gain: 0.12,
+				attack: 0.35,
+				hold: 0.3,
+				vibrato: { rate: 22, depth: 0.04 }
+			},
+			{
+				at: 0,
+				dur: 1.1,
+				wave: 'noise',
+				freq: 0,
+				gain: 0.08,
+				attack: 0.4,
+				hold: 0.2,
+				filter: { type: 'lowpass', freq: 600, to: 1400, q: 0.7 }
+			}
+		]
+	},
 	travel: {
 		voices: [
 			{

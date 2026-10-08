@@ -45,6 +45,7 @@ import {
 import { doctor } from '../state/doctor.svelte';
 import { game } from '../state/game.svelte';
 import { hud } from '../state/hud.svelte';
+import { plane } from '../state/plane.svelte';
 import { team } from '../state/team.svelte';
 
 /** Seconds of the little hop in place when a take-off is refused. */
@@ -449,6 +450,8 @@ export class ExploreController {
 			// the air; the lead comes back once the trainer is down.
 			if (this.flight || this.airBattle)
 				this.follower.lead(party[leadIndex(party, 'air')]?.speciesId ?? null);
+			// With the plane between lands, the lead gets on with the kid and off after them.
+			else if (planeAboard()) this.follower.lead(null);
 			else this.leadFollower(this.follower, party);
 			this.follower.fly(this.flight ? trainer : null, this.facing);
 			this.follower.update(this.progress, dt);
@@ -706,4 +709,10 @@ export class ExploreController {
 	private party(intent: PartyIntent): void {
 		this.authority.dispatch({ type: 'party', intent });
 	}
+}
+
+/** The kid is on the plane between lands, or getting on or off it: nobody follows them meanwhile. */
+function planeAboard(): boolean {
+	const phase = plane.show?.phase;
+	return phase !== undefined && phase !== 'landing' && phase !== 'departing';
 }

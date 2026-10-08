@@ -205,6 +205,20 @@ export const GLIDER_COLORS = {
 } as const;
 
 /**
+ * The plane between lands (`plane.ts`, #191): a cream body with the UI's
+ * orange on its wings and a blue stripe, pale glass, dark struts and a dark
+ * propeller, and skis of the boat's wood.
+ */
+export const PLANE_COLORS = {
+	body: COLORS.white,
+	wing: COLORS.accent,
+	stripe: COLORS.playerCap,
+	window: 0xaee4f4,
+	dark: COLORS.dark,
+	ski: COLORS.trunk
+} as const;
+
+/**
  * The witch doctor at every tent (`doctor.ts`): a purple robe and a taller,
  * floppy purple hat with the doctor's gold band, a coral feather and a gold
  * bobble on its tip, a white beard and a rosy nose, and a staff of trunk

@@ -26,6 +26,7 @@ import { doctor } from '../state/doctor.svelte';
 import { game } from '../state/game.svelte';
 import { hud } from '../state/hud.svelte';
 import { pause } from '../state/pause.svelte';
+import { plane } from '../state/plane.svelte';
 import { presence, type Bar, type Label, type Pop } from '../state/presence.svelte';
 import { PresenceConnection, type PresenceStatus } from './connection';
 import {
@@ -574,6 +575,8 @@ export class PresenceController {
  * others draw them gliding rather than walking on the water or through trees.
  */
 function busyNow(): Busy {
+	// With the plane between lands, from its landing beside them to their getting off.
+	if (plane.busy) return 'plane';
 	if (battle.active) return 'battle';
 	if (doctor.active) return 'doctor';
 	// An account card (logging in, the save card) is a break too: nobody asks for a match meanwhile.

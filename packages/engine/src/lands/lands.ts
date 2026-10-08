@@ -294,6 +294,28 @@ export function unlockLands(
 }
 
 /**
+ * How far a kid is on the way to unlocking land `to`: the species of the land
+ * before it they have set free (`freed`), of all of them (#191: the doctor's
+ * travel option shows "37 / 50"). Null for the first land, which is always
+ * open, and for an id this build lacks.
+ */
+export function unlockProgress(
+	to: unknown,
+	freed: Iterable<string>
+): { from: LandId; freed: number; of: number } | null {
+	if (!isLandId(to)) return null;
+	const at = LANDS.findIndex((l) => l.id === to);
+	if (at <= 0) return null;
+	const before = LANDS[at - 1]!;
+	const set = new Set(freed);
+	return {
+		from: before.id,
+		freed: before.species.filter((id) => set.has(id)).length,
+		of: before.species.length
+	};
+}
+
+/**
  * Why a flight from land `here` to `to` is refused, or null when it may go:
  * `no-such-land` (not a land this build has), `already-here`,
  * `land-unavailable` (not built yet: not in `open`, the lands this build
