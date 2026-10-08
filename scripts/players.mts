@@ -327,7 +327,8 @@ function saveOf(p: Player): string {
 					lands: [
 						{
 							land: 'nordland' as LandId,
-							party: base.party,
+							// Nordland's own starter: an Arctic animal never walks in Nordland.
+							party: [{ ...defaultStarter('nordland'), id: randomUUID() }],
 							tokens: 0,
 							items: [],
 							worlds: []
