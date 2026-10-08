@@ -2566,6 +2566,17 @@ describe('lands in a save', () => {
 		expect(left.lands[0]!.party).toEqual([]);
 	});
 
+	it("never puts another land's animal in a land's party: a land with no starters (not built yet) adds none", () => {
+		// The adversarial review of #196: a sea-only party in The Arctic got Nordland's squirrel.
+		const seaOnly = restoreGame(
+			{ ...written, land: 'arctic', party: [{ id: 'c1', speciesId: 'crab', hp: 10 }] } as SaveV4,
+			mint
+		);
+		expect(seaOnly.party.map((a) => a.speciesId)).toEqual(['crab']);
+		const empty = restoreGame({ ...written, land: 'arctic', party: [] } as SaveV4, mint);
+		expect(empty.party).toEqual([]);
+	});
+
 	it('mends a land left behind as it mends the land the player is in, and unlocks what its kinds set free unlock', () => {
 		const save = {
 			...written,

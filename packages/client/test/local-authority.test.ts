@@ -3692,3 +3692,88 @@ describe('LocalAuthority: lands (#191)', () => {
 		]);
 	});
 });
+
+describe('LocalAuthority: lands, from the adversarial review of #196', () => {
+	const length = (e: readonly string[]) => (e.length === 0 ? 0 : JSON.stringify(e).length);
+
+	it("a tile cleared in one land keeps every land's cleared tiles within the one budget, and a reload changes nothing", () => {
+		// Nordland 1 left behind holds nearly the whole budget; then a tree is chopped in Arktis 1.
+		let big = WorldEdits.none;
+		outer: for (let y = 0; y < 2000; y++) {
+			for (let x = 0; x < 2000; x++) {
+				const next = big.with({ x, y });
+				if (length(next.encode()) > EDITS_BUDGET - 5) break outer;
+				big = next;
+			}
+		}
+		const seed = landSeed('arctic', 1);
+		let at: GridPos | null = null;
+		for (let y = -50; y < 50 && !at; y++) {
+			for (let x = -50; x < 50 && !at; x++) {
+				if (
+					tileAtWorld(seed, x, y).kind === 'tree' &&
+					isWalkable(tileAtWorld(seed, x - 1, y).kind)
+				) {
+					at = { x: x - 1, y };
+				}
+			}
+		}
+		const base = newGame(1, { ...testStarter(), id: 'n1' });
+		const game: SavedGame = {
+			...base,
+			land: 'arctic',
+			pos: at!,
+			facing: 'right',
+			items: ['axe'],
+			party: [{ ...testStarter(), id: 'a1' }],
+			lands: [
+				{
+					land: 'nordland',
+					party: [{ ...testStarter(), id: 'n1' }],
+					tokens: 0,
+					items: [],
+					worlds: [{ world: 1, pos: { x: 0, y: 0 }, facing: 'down', edits: [...big.encode()] }]
+				}
+			],
+			unlocked: ['nordland', 'arctic']
+		};
+		const authority = new LocalAuthority();
+		const events: GameEvent[] = [];
+		authority.subscribe((e) => events.push(e));
+		authority.start({ game });
+		authority.dispatch({ type: 'interact' });
+		expect(events.at(-1)?.type).toBe('tile-cleared');
+		const snap = authority.snapshot();
+		const total =
+			length(snap.edits) +
+			snap.worlds.reduce((n, w) => n + length(w.edits), 0) +
+			snap.lands.reduce((n, l) => n + l.worlds.reduce((m, w) => m + length(w.edits), 0), 0);
+		expect(total).toBeLessThanOrEqual(EDITS_BUDGET);
+		// A reload holds exactly the game as it stands: nothing more grows back.
+		const read = readSave(JSON.parse(JSON.stringify(saveDocument(snap, { lineage: 'l', seq: 1 }))));
+		if (!read.ok) throw new Error(read.error);
+		expect(restoreGame(read.save, mint)).toEqual(snap);
+	});
+
+	it('a land unlocked at the witch doctor is open to fly to in the same visit', () => {
+		const all = getLand('nordland').species;
+		const s = session({ party: [animal('squirrel'), animal('fox')] });
+		const game = s.authority.snapshot();
+		s.authority.start({
+			game: { ...game, seen: [...all], caught: [...all], freed: all.filter((id) => id !== 'fox') }
+		});
+		walkToTent(s);
+		s.authority.dispatch({ type: 'interact' });
+		const fox = party(s).find((a) => a.speciesId === 'fox')!;
+		doctorIntent(s, { type: 'hand-over', ids: [fox.id] });
+		answerDoctor(s, true);
+		expect(s.authority.snapshot().unlocked).toEqual(['nordland', 'arctic']);
+		expect(visit(s).unlocked).toEqual(['nordland', 'arctic']);
+		// Locked no longer: only not built (in a `?lands` game it would fly; here The Arctic is closed).
+		doctorIntent(s, { type: 'fly', land: 'arctic' });
+		const last = s.events.at(-1);
+		expect(last?.type === 'doctor-visit-updated' && last.events).toEqual([
+			{ type: 'rejected', reason: 'land-unavailable' }
+		]);
+	});
+});

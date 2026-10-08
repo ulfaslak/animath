@@ -173,6 +173,13 @@ describe('unlocking a land', () => {
 		expect(unlockLands(['savannah'], nordland)).toEqual(['nordland', 'arctic', 'savannah']);
 	});
 
+	it('reads a list with a land twice as the list once, and still unlocks what is new', () => {
+		// A hand-edited save can hold one; the adversarial review of #196 found the unlock skipped.
+		expect(unlockLands(['nordland', 'nordland'], nordland)).toEqual(['nordland', 'arctic']);
+		expect(unlockLands(['nordland', 'nordland'], [])).toEqual(['nordland']);
+		expect(unlockLands(['arctic', 'arctic', 'nordland'], [])).toEqual(['nordland', 'arctic']);
+	});
+
 	it('hands back the very same list when nothing is new', () => {
 		const open = unlockLands([], []);
 		expect(unlockLands(open, ['fox'])).toBe(open);
