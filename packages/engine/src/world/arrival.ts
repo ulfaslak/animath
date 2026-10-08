@@ -1,6 +1,8 @@
 import { editedTileAt, WorldEdits } from './edits.js';
+import { moveFrom } from './slide.js';
 import {
 	NO_GEAR,
+	isIce,
 	isPassable,
 	isWater,
 	step,
@@ -25,9 +27,11 @@ import {
  * own boat beside her. Among tiles still tied, the one lower on the screen
  * (bigger `y`) wins, then the one further left.
  *
- * A spot must open onto the world: the tiles you can get to from it, the way
+ * A spot must open onto the world: the places you can get to from it, the way
  * you get about, must lead at least `ESCAPE_REACH` tiles away from her,
- * across or down. A kid put on an island without a boat, or in a nook between
+ * across or down. You get about a move at a time, as you walk: onto the ice a
+ * move is the whole slide (`moveFrom`), so a lake you can only slide across
+ * joins nothing up but the places its slides stop on. A kid put on an island without a boat, or in a nook between
  * trees and rocks, could never walk out of it, however roomy it is inside,
  * and a go-to is no way to get stuck. So a pocket that fits inside the square
  * `ESCAPE_REACH` tiles round her is closed, and every spot in it is too. With
@@ -63,16 +67,18 @@ export function arrivalSpot(
 		throw new Error(`arrivalSpot: target must be a whole-number grid position`);
 	}
 	const kindAt = (p: GridPos) => editedTileAt(seed, edits, p.x, p.y).kind;
-	const canGo = (p: GridPos) => isPassable(kindAt(p), gear);
+	const move: Move = (p, way) => moveFrom(seed, edits, p, way, gear)?.path.at(-1) ?? null;
 	// Open or closed, by tile: tiles joined up share the answer, so one search settles a whole pocket.
 	const known = new Map<string, boolean>();
+	// A tile a kid stops on when moving: anything but the ice, where a slide goes on.
+	const isStop = (p: GridPos) => !isIce(kindAt(p));
 	for (const ring of arrivalRings(target)) {
 		// Ground first, then water, at the same number of steps.
 		for (const wet of [false, true]) {
 			for (const pos of ring) {
 				const kind = kindAt(pos);
 				if (isWater(kind) !== wet || !isPassable(kind, gear)) continue;
-				if (!opensOut(pos, target, canGo, known)) continue;
+				if (!opensOut(pos, target, move, isStop, known)) continue;
 				return { pos, facing: facingToward(pos, target) };
 			}
 		}
@@ -98,28 +104,40 @@ export function arrivalRings(target: GridPos): GridPos[][] {
 	return rings;
 }
 
+/** Where a move `way` from a place ends, or null when the tile that way can't be stepped onto. */
+type Move = (from: GridPos, way: Direction) => GridPos | null;
+
 /**
- * Whether the tiles `from` joins up with, over tiles `canGo` takes, lead
- * `ESCAPE_REACH` tiles from `target`. The answer is the same for every tile
- * joined up with `from`, so each tile searched is written into `known`, and a
- * search that runs into a known tile takes its answer. The search always goes
- * on from the tile furthest from `target`, so it leaves open country in a
- * straight run; only a closed pocket is searched through, and a closed pocket
- * fits inside the square round `target`.
+ * Whether the places `from` joins up with, a move at a time, lead
+ * `ESCAPE_REACH` tiles from `target`. Every move between places a kid stops
+ * on is undone by the move back (in The Arctic every slide ends on its bank
+ * and slides back: [[INVARIANTS]] § World), so the answer is the same for
+ * every such place joined up with `from`: each one searched is written into
+ * `known`, and a search that runs into a known place takes its answer. A
+ * start on the ice itself (where a glider came down) is no such place: its
+ * slides may part ways to places that are not joined up, so nothing it finds
+ * is written down. The search always goes on from the place furthest from
+ * `target`, so it leaves open country in a straight run; only a closed pocket
+ * is searched through, and a closed pocket fits inside the square round
+ * `target`.
  */
 function opensOut(
 	from: GridPos,
 	target: GridPos,
-	canGo: (p: GridPos) => boolean,
+	move: Move,
+	isStop: (p: GridPos) => boolean,
 	known: Map<string, boolean>
 ): boolean {
 	const start = keyOf(from);
 	const already = known.get(start);
 	if (already !== undefined) return already;
+	const shared = isStop(from);
 	const reach = (p: GridPos) => Math.max(Math.abs(p.x - target.x), Math.abs(p.y - target.y));
-	// Tiles still to go on from, by how far they are from `target`.
+	// Places still to go on from, by how far they are from `target`.
 	const waiting: GridPos[][] = Array.from({ length: ESCAPE_REACH }, () => []);
 	const seen = new Set<string>([start]);
+	// The places found that a kid stops on, whose answer is the pocket's.
+	const stops: string[] = shared ? [start] : [];
 	let furthest = reach(from);
 	waiting[furthest]!.push(from);
 	let open = false;
@@ -130,27 +148,33 @@ function opensOut(
 			continue;
 		}
 		for (const way of WAYS) {
-			const next = step(here, way);
+			const next = move(here, way);
+			if (!next) continue;
 			const key = keyOf(next);
 			if (seen.has(key)) continue;
 			const answer = known.get(key);
-			if (answer !== undefined) {
-				// Only tiles `canGo` takes are ever known, so this one is joined up with `from`.
+			if (answer === true || (answer === false && shared)) {
+				// A known place is joined up with `from` both ways when `from` is one a kid stops on.
 				open = answer;
 				break search;
 			}
-			if (!canGo(next)) continue;
+			if (answer === false) {
+				// From the ice, a closed pocket is one way out that leads nowhere: try the others.
+				seen.add(key);
+				continue;
+			}
 			const far = reach(next);
 			if (far >= ESCAPE_REACH) {
 				open = true;
 				break search;
 			}
 			seen.add(key);
+			if (shared && isStop(next)) stops.push(key);
 			waiting[far]!.push(next);
 			furthest = Math.max(furthest, far);
 		}
 	}
-	for (const key of seen) known.set(key, open);
+	for (const key of stops) known.set(key, open);
 	return open;
 }
 

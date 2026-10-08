@@ -6,14 +6,6 @@ Technical items we've intentionally postponed: tech debt, hardening shortcuts, k
 
 ---
 
-### A go-to's way out reads the ice as ground a kid can stop on
-
-**What**: `arrivalSpot`'s escape check (a spot must open 64 tiles wide) and the spawn's room (`hasRoom`) walk tile by tile over `isPassable` ground, The Arctic's ice included, as if a kid could stop on any tile of it. `nearestTent` and the knock-out rule read the slides since #191 step 6; these two do not, so a go-to beside a friend could in principle count a pocket as open over ice a kid can only slide across.
-
-**Why deferred**: every slide in The Arctic is undone by the slide back and ends on a bank (§ INVARIANTS "A slide on the ice…"), so the places joined by tiles and by moves almost always agree; every Arctic world's spawn is the fixed (5, 9), checked by its own test; and The Arctic is closed to players until #191 step 7 (its first animals are met only in a throwaway game).
-
-**Trigger**: before The Arctic opens to players (its `available` on, #191 step 7), or a report of a go-to into a spot a kid can't walk out of: make `opensOut` and `hasRoom` move by `moveFrom`, as `nearestTent` does since #191 step 6.
-
 ### A friend's birds are not seen in the air
 
 **What**: another player sees a friend glide (`flight`), but not the bird that flies behind them (their lead in the air) nor a wild bird chasing them (#91): nobody follows them in the other page until they are down, and the wire carries no chaser. Their battle in the air, once it starts, is seen as any battle is: the two birds flying beside them.
@@ -106,7 +98,7 @@ Technical items we've intentionally postponed: tech debt, hardening shortcuts, k
 
 **What**: the tiles a kid clears with the axe and the pickaxe (`WorldEdits`) live in that kid's game and save, and the authority walks, restores and knocks out through them ([[DECISIONS]] § Gameplay). With friends in one world, two kids see two different forests: a gap one kid chopped is a tree to the other, who watches them walk through it. Shared edits would put one overlay per world on the server, which would then decide where every kid in that world can walk. Two more things change then: the whole overlay rides on `welcome` today (up to 24 KB), where the server should send each chunk's edits as the chunk comes into view; and `tile-cleared` goes to everyone who sees that chunk, with the chunks that grew back.
 
-Since The Arctic's ice pick, a block afloat broken is water to the kid who broke it and still a block to everyone else: a friend sees them sail through it (drawn on the block, without the boat, `others.ts`), and the server's `challengeRefusal`, which reads the world as it was made, takes them to be on land there, so a friendly match can be asked for from that one tile of water.
+Since The Arctic's ice pick, a block afloat broken is water to the kid who broke it and still a block to everyone else: a friend sees them sail through it, in their boat on top of the block. Who stands on such a tile is never in doubt, since only the kid who broke it can be there: `challengeRefusal` and `others.ts` read the tile a player stands on as their own clearing leaves it (`clearedTile`), so no friendly match is asked for from that water and the friend is drawn in the boat.
 
 **Why deferred**: every single-player rule, walking included, stays in the browser ([[DECISIONS]] § Multiplayer), and a shared edit is a gain that flows between players, so its rule would have to move to the server first. How kids play together will show whether they want it.
 

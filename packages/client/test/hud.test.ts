@@ -249,6 +249,14 @@ describe('the explore message line', () => {
 		expect(hud.hint).toBe('');
 	});
 
+	it('a first arrival in a land, waiting for its starter, is not tired: no line sends the kid to a tent', () => {
+		setup({ ...newGame(1, testStarter()), land: 'arctic', pos: { x: 5, y: 9 }, party: [] });
+		expect(game.land).toBe('arctic');
+		expect(game.party).toEqual([]);
+		expect(hud.tired).toBe(false);
+		expect(hud.hint).not.toBe(t('explore.tired'));
+	});
+
 	it('out on the water only a team with nobody standing at all is tired: a walker in the boat can still battle on land', () => {
 		const otter = { id: 'ot', speciesId: 'otter', hp: 0 };
 		const squirrel = { id: 'sq', speciesId: 'squirrel', hp: 20 };

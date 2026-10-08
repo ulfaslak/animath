@@ -2,7 +2,6 @@ import {
 	TENT_SEARCH_STEPS,
 	gearOf,
 	nearestTent,
-	needsDoctor,
 	type GridPos,
 	type TentSpot,
 	type WorldEdits
@@ -13,7 +12,7 @@ import type { GameRenderer } from '../render/renderer';
 import { safeArea } from '../safe-area';
 import { battle } from '../state/battle.svelte';
 import { doctor } from '../state/doctor.svelte';
-import { doctorWay } from '../state/doctor-way.svelte';
+import { doctorWay, needsTent } from '../state/doctor-way.svelte';
 import { game } from '../state/game.svelte';
 import { pause } from '../state/pause.svelte';
 import { title } from '../state/title.svelte';
@@ -100,7 +99,7 @@ export class DoctorWay {
 
 	/** Every frame, after the world is drawn: the tent the way leads to, and the arrow to it. */
 	overlay(): void {
-		const tired = needsDoctor(game.party, game.realm);
+		const tired = needsTent(game.party, game.realm);
 		if (!tired && doctorWay.noWay) doctorWay.noWay = false;
 		if (!this.showing() || !tired) {
 			// The search is kept, so coming back from a menu, a battle or the doctor's

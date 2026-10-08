@@ -8,6 +8,7 @@ import {
 	hashString,
 	isIce,
 	isWalkable,
+	clearedTile,
 	isWater,
 	tileAtWorld,
 	tilesApart,
@@ -743,8 +744,13 @@ export class OtherPlayers {
 		other.follower.hide();
 	}
 
+	/**
+	 * Out on the water, as the one standing there sees it: a tile they could
+	 * only stand on once they cleared it themselves (a broken ice block afloat)
+	 * is what clearing leaves, as the friendly-match rule reads it.
+	 */
 	private waterAt(p: GridPos): boolean {
-		return isWater(tileAtWorld(this.seed, p.x, p.y).kind);
+		return isWater(clearedTile(tileAtWorld(this.seed, p.x, p.y)).kind);
 	}
 }
 

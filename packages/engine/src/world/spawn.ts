@@ -1,7 +1,8 @@
 import { landOfSeed } from '../lands/ids.js';
 import { TENT_LATTICE, onTentLattice, tileAtWorld, travelKindAt } from './generate.js';
 import { nearestTent } from './tents.js';
-import { isPlainGround, isWalkable, step, type Direction, type GridPos } from './types.js';
+import { MAX_SLIDE } from './slide.js';
+import { isIce, isPlainGround, isWalkable, step, type Direction, type GridPos } from './types.js';
 
 /**
  * Where a world begins ([[PRODUCT]] §4 "World"): the spawn, where a new game
@@ -30,7 +31,7 @@ function originOf(seed: number): GridPos {
 
 /** A doctor's tent is at most this many steps from the spawn, on foot. */
 export const SPAWN_DOCTOR_STEPS = 12;
-/** At least this many tiles can be reached on foot from the spawn: the player is not boxed in. */
+/** At least this many places a kid can stop on can be reached on foot from the spawn: the player is not boxed in. */
 export const SPAWN_ROOM = 1000;
 
 /** How far out from the origin a spawn is looked for: tents this far out, in square rings. */
@@ -46,7 +47,7 @@ const DIRECTIONS: readonly Direction[] = ['up', 'right', 'left', 'down'];
 /**
  * The spawn of the world of `seed`: the grass tile nearest the origin from
  * which a doctor's tent is at most `SPAWN_DOCTOR_STEPS` steps away on foot
- * and at least `SPAWN_ROOM` tiles can be reached on foot. Deterministic per
+ * and at least `SPAWN_ROOM` places a kid can stop on can be reached on foot. Deterministic per
  * seed. Should no tile within `SEARCH_RADIUS` be all of that (no world tested
  * reaches this), the nearest grass tile, and past that (0, 0) unchecked.
  */
@@ -142,8 +143,14 @@ function grassNear(seed: number, tent: GridPos): GridPos[] {
 	return grass;
 }
 
-/** Whether at least `SPAWN_ROOM` tiles, `pos` among them, can be reached from `pos` on foot. */
+/**
+ * Whether at least `SPAWN_ROOM` places, `pos` among them, can be reached
+ * from `pos` on foot, a move at a time as a kid moves: onto the ice a move is
+ * the whole slide (as `moveFrom` slides), so only the places a slide stops
+ * on count, and a lake a kid can only slide across is no room.
+ */
 function hasRoom(seed: number, pos: GridPos): boolean {
+	const kindAt = (p: GridPos) => travelKindAt(seed, p.x, p.y);
 	const seen = new Set<string>([`${pos.x},${pos.y}`]);
 	let edge: GridPos[] = [pos];
 	let reached = 1;
@@ -151,11 +158,16 @@ function hasRoom(seed: number, pos: GridPos): boolean {
 		const next: GridPos[] = [];
 		for (const p of edge) {
 			for (const dir of DIRECTIONS) {
-				const n = step(p, dir);
+				let n = step(p, dir);
+				if (!isWalkable(kindAt(n))) continue;
+				for (let tiles = 1; isIce(kindAt(n)) && tiles < MAX_SLIDE; tiles++) {
+					const on = step(n, dir);
+					if (!isWalkable(kindAt(on))) break;
+					n = on;
+				}
 				const key = `${n.x},${n.y}`;
 				if (seen.has(key)) continue;
 				seen.add(key);
-				if (!isWalkable(travelKindAt(seed, n.x, n.y))) continue;
 				if (++reached >= SPAWN_ROOM) return true;
 				next.push(n);
 			}

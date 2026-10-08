@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { CHALLENGE_REACH, challengeRefusal, type ChallengeSpot } from '../src/match/challenge.js';
 import { BUSY_STATES, type Busy } from '../src/net/protocol.js';
 import { Rng } from '../src/rng.js';
+import { landSeed } from '../src/lands/ids.js';
 import { tileAtWorld } from '../src/world/generate.js';
 import { spawnPoint } from '../src/world/spawn.js';
 import { worldSeed } from '../src/world/worlds.js';
@@ -53,6 +54,30 @@ describe('who may challenge whom', () => {
 			}
 		}
 		expect(bad.slice(0, 20)).toEqual([]);
+	});
+
+	it('reads a broken ice block as what it stood on: afloat it is water, on the snow it is land', () => {
+		// A kid stands on an ice block's tile only once they broke it themselves, and breaking
+		// one leaves what it stood on: the rule reads that from the seeded world alone, so the
+		// page and the server judge the kid in the boat on a broken block afloat as on water.
+		const seed = landSeed('arctic', 1);
+		const found: Record<'water' | 'snow', ChallengeSpot | null> = { water: null, snow: null };
+		for (let y = -200; y < 200 && !(found.water && found.snow); y++) {
+			for (let x = -200; x < 200; x++) {
+				const tile = tileAtWorld(seed, x, y);
+				if (tile.kind !== 'iceblock') continue;
+				if (tile.under === 'water' || tile.under === 'snow')
+					found[tile.under] ??= { x, y, busy: 'explore' };
+			}
+		}
+		const afloat = found.water!;
+		const onSnow = found.snow!;
+		expect(afloat, 'a block afloat in the sample').not.toBeNull();
+		expect(onSnow, 'a block on the snow in the sample').not.toBeNull();
+		const beside = (p: ChallengeSpot): ChallengeSpot => ({ x: p.x + 1, y: p.y, busy: 'explore' });
+		expect(challengeRefusal(seed, afloat, beside(afloat))).toBe('water');
+		expect(challengeRefusal(seed, beside(afloat), afloat)).not.toBeNull();
+		expect(challengeRefusal(seed, onSnow, beside(onSnow))).not.toBe('water');
 	});
 
 	it('reaches two tiles the long way round a square, diagonals too, and no further', () => {
