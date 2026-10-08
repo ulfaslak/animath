@@ -264,7 +264,7 @@ The words the game uses for its things, the same on every screen:
 | Who's here | Hvem er her | the pause menu's row and its list of the other players |
 | Go to (a player) | gå hen til | "Gå hen til Ada", "Du er ved siden af Ada!" |
 | steps away | skridt væk | "7 skridt væk", "cirka 120 skridt væk" |
-| is here / went home | er her / gik hjem | the notes: "Ada er her!", "Bo gik hjem" |
+| is here / went home / flew away | er her / gik hjem / fløj væk | the notes: "Ada er her!", "Bo gik hjem", "Bo fløj væk" |
 | taking a break (in the menu) | holder pause | what another player is busy with: also "kæmper mod et vildt dyr", "hos heksedoktoren", "kæmper mod en ven" |
 | friendly match | venskabskamp (en kamp) | the invite ("Ada vil have en venskabskamp!"), "En venskabskamp med Bo!"; what a player is busy with: "kæmper mod en ven" |
 | challenge (a player) | udfordre | the button ("Udfordr Bo") |
