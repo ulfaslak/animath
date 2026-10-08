@@ -8,6 +8,8 @@ import { MAX_NAME_LENGTH } from '../src/names.js';
 import { bundled, isBundled } from '../src/party/bundles.js';
 import { leadIndex } from '../src/party/reducer.js';
 import { Rng, hashInts } from '../src/rng.js';
+import { landSeed } from '../src/lands/ids.js';
+import { getLand } from '../src/lands/lands.js';
 import {
 	MAX_SAVED_NAME_LENGTH,
 	MAX_SAVED_NICKNAME_LENGTH,
@@ -338,9 +340,10 @@ describe('how deep a save nests', () => {
 		expect(canReplace(later, { seq: 99 })).toBe(false);
 	});
 
-	it(`a game's save nests 4 deep at most, well inside ${MAX_SAVE_DEPTH}`, () => {
+	it(`a game's save nests 6 deep at most, well inside ${MAX_SAVE_DEPTH}`, () => {
 		// The deepest things a game saves: a battle's party and its puzzle (mid-puzzle among the
-		// states below), and a world left behind, where the player stood and what they cleared.
+		// states below), a world left behind, where the player stood and what they cleared, and
+		// the same in a land left behind (#191), two levels further down.
 		let deepest = 0;
 		let solving = 0;
 		for (let seed = 1; seed <= SEEDS; seed++) {
@@ -351,7 +354,17 @@ describe('how deep a save nests', () => {
 					party: state.party.map((a) => ({ ...a })),
 					battle: state,
 					edits: ['0,0:0a91'],
-					worlds: [{ world: 3, pos: { x: 1, y: -2 }, facing: 'up', edits: ['-1,0:0a91'] }]
+					worlds: [{ world: 3, pos: { x: 1, y: -2 }, facing: 'up', edits: ['-1,0:0a91'] }],
+					lands: [
+						{
+							land: 'arctic',
+							party: [{ id: 'a1', speciesId: 'rabbit', hp: 4, nickname: 'Snow' }],
+							tokens: 5,
+							items: ['axe'],
+							worlds: [{ world: 3, pos: { x: 1, y: -2 }, facing: 'up', edits: ['-1,0:0a91'] }]
+						}
+					],
+					unlocked: ['nordland', 'arctic']
 				};
 				const doc = saveDocument(game, { lineage: 'game-a', seq: 1 }, { later: { kept: [1] } });
 				expect(validateSaveWrite(doc).ok).toBe(true);
@@ -359,7 +372,7 @@ describe('how deep a save nests', () => {
 			}
 		}
 		expect(solving).toBeGreaterThan(0);
-		expect(deepest).toBe(4);
+		expect(deepest).toBe(6);
 	});
 });
 
@@ -382,7 +395,13 @@ describe('validateSaveWrite', () => {
 		expect(checked.ok).toBe(true);
 		if (!checked.ok) return;
 		const { seed: _seed, ...rest } = writtenV1;
-		expect(checked.value).toEqual({ ...rest, version: SAVE_VERSION, world: 1, home: 1, land: 'nordland' });
+		expect(checked.value).toEqual({
+			...rest,
+			version: SAVE_VERSION,
+			world: 1,
+			home: 1,
+			land: 'nordland'
+		});
 		// Not a document the server can't read, nor a later version's.
 		expect(validateSaveWrite({ ...writtenV1, seed: 'x' }).ok).toBe(false);
 		const newer = validateSaveWrite({ ...written, version: SAVE_VERSION + 1 });
@@ -697,8 +716,12 @@ function randomV1(rng: Rng, seed: unknown): Record<string, unknown> {
 		'seen',
 		'caught',
 		'freed',
+		'land',
+		'lands',
+		'unlocked',
 		V1_KEPT,
-		V2_KEPT
+		V2_KEPT,
+		V3_KEPT
 	]) {
 		if (rng.chance(0.15)) doc[key] = rng.pick([7, 'Nini', { deep: [1, 2] }, [3], null]);
 	}
@@ -762,7 +785,13 @@ describe('the v1 → v2 upgrade', () => {
 		expect(read.ok).toBe(true);
 		if (!read.ok) return;
 		const { seed: _seed, ...rest } = doc;
-		expect(read.save).toEqual({ ...rest, version: SAVE_VERSION, world: 1, home: 1, land: 'nordland' });
+		expect(read.save).toEqual({
+			...rest,
+			version: SAVE_VERSION,
+			world: 1,
+			home: 1,
+			land: 'nordland'
+		});
 		// Nothing to keep aside: no seed but World 1's, no extra under a name v2 took.
 		expect(V1_KEPT in read.save).toBe(false);
 	});
@@ -824,7 +853,16 @@ describe('the v1 → v2 upgrade', () => {
 			(key) => !v1Fields.has(key)
 		);
 		expect(taken).toEqual(
-			expect.arrayContaining(['name', 'home', 'world', 'worlds', 'solved', 'land', 'lands', 'unlocked'])
+			expect.arrayContaining([
+				'name',
+				'home',
+				'world',
+				'worlds',
+				'solved',
+				'land',
+				'lands',
+				'unlocked'
+			])
 		);
 		const bad: string[] = [];
 		for (const key of taken) {
@@ -2313,5 +2351,305 @@ describe('which save wins', () => {
 		expect(validateSaveWrite(doc).ok).toBe(true);
 		expect('battle' in doc).toBe(false);
 		expect('worlds' in doc).toBe(false);
+	});
+});
+
+describe('the v3 → v4 upgrade', () => {
+	/** A v3 document from a random v1 one, a book and a freed list among its fields. */
+	function randomV3(rng: Rng): Record<string, unknown> {
+		const up = upgradeSave(randomV1(rng, WORLD_ONE_SEED), SAVE_UPGRADES, 3);
+		if (!up.ok) throw new Error('should upgrade to v3');
+		const doc = JSON.parse(JSON.stringify(up.doc)) as Record<string, unknown>;
+		if (rng.chance(0.5)) doc.worlds = [{ world: 3, pos: { x: 1, y: 2 }, facing: 'up' }];
+		if (rng.chance(0.5)) doc.name = 'Nini';
+		// Extras a later build could have left under the names v4 took.
+		for (const key of ['land', 'lands', 'unlocked', V3_KEPT]) {
+			if (rng.chance(0.15)) doc[key] = rng.pick([7, 'arctic', { deep: [1, 2] }, [3], null]);
+		}
+		return doc;
+	}
+
+	it('puts every v3 save wholly in Nordland, everything else exactly as it was', () => {
+		const doc = {
+			...written,
+			version: 3,
+			tokens: 31,
+			items: ['axe', 'boat'],
+			freed: ['wolf'],
+			seen: ['squirrel', 'fox', 'wolf'],
+			caught: ['squirrel', 'fox'],
+			edits: ['0,0:11'],
+			worlds: [{ world: 3, pos: { x: 1, y: 2 }, facing: 'up' }],
+			inventory: { leashes: 3 }
+		};
+		const read = readSave(JSON.parse(JSON.stringify(doc)));
+		expect(read.ok).toBe(true);
+		if (!read.ok) return;
+		expect(read.save).toEqual({ ...doc, version: SAVE_VERSION, land: 'nordland' });
+		expect(V3_KEPT in read.save).toBe(false);
+		// The game it restores is the one the v3 save held, in Nordland, its world Nordland's.
+		const game = restoreGame(read.save, mint);
+		expect(game).toMatchObject({
+			land: 'nordland',
+			world: WORLD,
+			pos: doc.pos,
+			tokens: 31,
+			items: ['axe', 'boat'],
+			lands: [],
+			unlocked: ['nordland']
+		});
+		expect(game.party.map((a) => a.id)).toEqual(doc.party.map((a) => a.id));
+	});
+
+	it('is total and loses nothing: every valid v3 save upgrades to a valid v4 one it can be rebuilt from', () => {
+		let kept = 0;
+		for (let s = 0; s < 400; s++) {
+			const rng = new Rng(hashInts(91, s));
+			const v3doc = randomV3(rng);
+			const before = JSON.stringify(v3doc);
+			const read = readSave(v3doc);
+			expect(read.ok, `${s}: ${JSON.stringify(read)}`).toBe(true);
+			if (!read.ok) continue;
+			expect(JSON.stringify(v3doc)).toBe(before);
+			const doc = read.save as unknown as Record<string, unknown>;
+			expect(doc.version).toBe(SAVE_VERSION);
+			expect(doc.land).toBe('nordland');
+			expect(downgradeToV3(doc)).toEqual(v3doc);
+			if (V3_KEPT in doc) kept++;
+			// It plays: a game in Nordland, at its own spot when it can stand there.
+			const game = restoreGame(read.save, mint);
+			expect(game.land).toBe('nordland');
+			expect(game.lands).toEqual([]);
+		}
+		expect(kept).toBeGreaterThan(20);
+	});
+
+	it("restores a v3 save to exactly the game the v3 build restored, with Nordland's fields beside", () => {
+		// The v3 build's `restoreGame` is this one's without the lands: every field it had, the same.
+		for (let s = 0; s < 200; s++) {
+			const rng = new Rng(hashInts(92, s));
+			const v3doc = randomV3(rng);
+			const read = readSave(v3doc);
+			if (!read.ok) throw new Error(`${s}`);
+			const game = restoreGame(read.save, mints('minted'));
+			const { land: _land, ...landless } = read.save;
+			const asV4 = readSave(landless);
+			if (!asV4.ok) throw new Error(`${s}: ${asV4.error}`);
+			// A v4 save with no `land` is in Nordland: the same game.
+			expect(restoreGame(asV4.save, mints('minted'))).toEqual(game);
+		}
+	});
+});
+
+describe('lands in a save', () => {
+	const rabbit = { id: 'r1', speciesId: 'rabbit', hp: 22 };
+	const arcticStay = {
+		land: 'arctic',
+		party: [rabbit],
+		tokens: 6,
+		items: ['axe'],
+		worlds: [{ world: WORLD, pos: { x: 4, y: 5 }, facing: 'left' }]
+	};
+
+	it('checks a land left behind: its land, party, money, items and worlds', () => {
+		expect(error({ ...written, lands: [arcticStay] })).toBe('');
+		expect(
+			error({ ...written, land: 'arctic', lands: [{ ...arcticStay, land: 'nordland' }] })
+		).toBe('');
+		expect(error({ ...written, lands: [{ land: 'arctic', party: [] }] })).toBe('');
+		const bad: [unknown, RegExp][] = [
+			['arctic', /lands must be a list/],
+			[[7], /lands\[0\] must be an object/],
+			[[{ ...arcticStay, land: 'Arctic!' }], /lands\[0\]\.land/],
+			[[{ ...arcticStay, party: 'none' }], /lands\[0\]\.party must be a list/],
+			[[{ ...arcticStay, party: [rabbit, rabbit] }], /lands\[0\]\.party\[1\]\.id repeats/],
+			[[{ ...arcticStay, party: [{ ...rabbit, hp: -1 }] }], /lands\[0\]\.party\[0\]\.hp/],
+			[[{ ...arcticStay, tokens: 1.5 }], /lands\[0\]\.tokens/],
+			[[{ ...arcticStay, items: [7] }], /lands\[0\]\.items/],
+			[[{ ...arcticStay, worlds: [{ world: 0 }] }], /lands\[0\]\.worlds\[0\]\.world/],
+			[
+				[{ ...arcticStay, worlds: [arcticStay.worlds[0], arcticStay.worlds[0]] }],
+				/repeats an earlier world/
+			],
+			// Each land once, and never the land the player is in.
+			[[arcticStay, arcticStay], /lands\[1\]\.land repeats/],
+			[[{ ...arcticStay, land: 'nordland' }], /lands\[0\]\.land repeats/]
+		];
+		for (const [lands, message] of bad) {
+			expect(error({ ...written, lands }), JSON.stringify(lands)).toMatch(message);
+		}
+		expect(error({ ...written, land: 7 })).toMatch(/land must be a land id/);
+		expect(error({ ...written, unlocked: 'arctic' })).toMatch(/unlocked/);
+		expect(error({ ...written, unlocked: ['Arctic!'] })).toMatch(/unlocked/);
+		// A land unlocked that this build lacks is kept and does nothing.
+		expect(error({ ...written, unlocked: ['nordland', 'savannah'] })).toBe('');
+	});
+
+	it("reads a land, or a species of a land left behind, that this build lacks as a newer build's", () => {
+		const newer = [
+			{ ...written, land: 'savannah' },
+			{ ...written, lands: [{ ...arcticStay, land: 'savannah' }] },
+			{ ...written, lands: [{ ...arcticStay, party: [{ ...rabbit, speciesId: LATER.species }] }] }
+		];
+		for (const doc of newer) {
+			expect(readSave(doc), JSON.stringify(doc).slice(0, 120)).toMatchObject({
+				ok: false,
+				reason: 'newer'
+			});
+			expect(isNewerSave(doc)).toBe(true);
+			expect(canReplace(doc, { seq: 99 })).toBe(false);
+		}
+	});
+
+	it('a game in The Arctic, with Nordland left behind, restores exactly that game', () => {
+		const game: SavedGame = {
+			...newGame(WORLD, testStarter(), 'Nini'),
+			land: 'arctic',
+			pos: findTile(landSeed('arctic', WORLD), true),
+			facing: 'up',
+			party: [rabbit],
+			tokens: 6,
+			items: ['axe'],
+			edits: ['0,0:11'],
+			worlds: [{ world: 9, pos: { x: 3, y: 4 }, facing: 'down', edits: [] }],
+			lands: [
+				{
+					land: 'nordland',
+					party: [
+						{ id: 's', speciesId: 'squirrel', hp: 3, nickname: 'Nutkin' },
+						{ id: 'f', speciesId: 'fox', hp: 0 }
+					],
+					tokens: 40,
+					items: ['boat', 'glider'],
+					worlds: [{ world: WORLD, pos: { x: -7, y: 3 }, facing: 'left', edits: ['1,1:22'] }]
+				}
+			],
+			seen: ['squirrel', 'fox', 'rabbit'],
+			caught: ['squirrel', 'fox', 'rabbit'],
+			freed: [],
+			unlocked: ['nordland', 'arctic']
+		};
+		const doc = saveDocument(game, { lineage: 'L', seq: 9 });
+		expect(doc).toMatchObject({ land: 'arctic', unlocked: ['nordland', 'arctic'] });
+		expect(validateSaveWrite(doc).ok).toBe(true);
+		const read = readSave(JSON.parse(JSON.stringify(doc)));
+		expect(read.ok).toBe(true);
+		if (read.ok) expect(restoreGame(read.save, mint)).toEqual(game);
+	});
+
+	it('writes no lands and no unlocked lands until there are some, so a game in Nordland saves as before', () => {
+		const doc = saveDocument(newGame(WORLD, testStarter()), { lineage: 'L', seq: 1 });
+		expect(doc.land).toBe('nordland');
+		expect('lands' in doc).toBe(false);
+		expect('unlocked' in doc).toBe(false);
+		// A land left behind with nothing in it writes only its land and party.
+		const left = saveDocument(
+			{
+				...newGame(WORLD, testStarter()),
+				lands: [{ land: 'arctic', party: [], tokens: 0, items: [], worlds: [] }]
+			},
+			{ lineage: 'L', seq: 2 }
+		);
+		expect(left.lands).toEqual([{ land: 'arctic', party: [] }]);
+	});
+
+	it('an empty party in a later land waits for a starter; in Nordland it gets the starter, as ever', () => {
+		const arctic = restoreGame({ ...written, land: 'arctic', party: [] } as SaveV4, mint);
+		expect(arctic.party).toEqual([]);
+		const nordland = restoreGame({ ...written, party: [] } as SaveV4, mint);
+		expect(nordland.party.map((a) => a.speciesId)).toEqual([STARTER_SPECIES]);
+		// A land left behind is never given one: nobody plays it until the kid flies back.
+		const left = restoreGame(
+			{ ...written, lands: [{ land: 'arctic', party: [] }] } as SaveV4,
+			mint
+		);
+		expect(left.lands[0]!.party).toEqual([]);
+	});
+
+	it('mends a land left behind as it mends the land the player is in, and unlocks what its kinds set free unlock', () => {
+		const save = {
+			...written,
+			freed: getLand('nordland').species,
+			seen: getLand('nordland').species,
+			lands: [
+				{
+					land: 'arctic',
+					party: [
+						{ ...rabbit, hp: 999, nickname: '  Snow  ' },
+						{ id: 'f2', speciesId: 'fox', hp: 3 },
+						{ id: 'r2', speciesId: 'rabbit', hp: 1 }
+					],
+					items: ['axe', 'axe'],
+					worlds: [
+						arcticStay.worlds[0],
+						{ world: 12, pos: { x: 0, y: 0 }, facing: 'down', edits: ['0,0:11'] }
+					]
+				}
+			]
+		} as SaveV4;
+		const game = restoreGame(save, mint);
+		const left = game.lands[0]!;
+		// HP cut to the maximum, the nickname cleaned, the party in species bundles.
+		expect(left.party.map((a) => [a.id, a.hp, a.nickname])).toEqual([
+			['r1', 22, 'Snow'],
+			['r2', 1, undefined],
+			['f2', 3, undefined]
+		]);
+		expect(left).toMatchObject({ tokens: 0, items: ['axe'] });
+		expect(left.worlds.map((w) => [w.world, w.edits])).toEqual([
+			[WORLD, []],
+			[12, ['0,0:11']]
+		]);
+		expect(game.unlocked).toEqual(['nordland', 'arctic']);
+	});
+
+	it("shares the one budget for cleared tiles with every land's worlds: the world the player is in whole", () => {
+		const big = (x0: number) => {
+			let e = WorldEdits.none;
+			for (let cx = 0; cx < 40; cx++) {
+				for (let i = 0; i < 200; i++)
+					e = e.with({ x: x0 + cx * 16 + (i % 16), y: Math.floor(i / 16) });
+			}
+			return [...e.encode()];
+		};
+		const here = big(0);
+		const save = {
+			...written,
+			edits: here,
+			lands: [
+				{
+					land: 'arctic',
+					party: [],
+					worlds: [{ world: 2, pos: { x: 0, y: 0 }, facing: 'down', edits: big(9000) }]
+				}
+			]
+		} as SaveV4;
+		const game = restoreGame(save, mint);
+		const length = (e: readonly string[]) => (e.length === 0 ? 0 : JSON.stringify(e).length);
+		expect(game.edits).toEqual(here);
+		const total = length(game.edits) + length(game.lands[0]!.worlds[0]!.edits);
+		expect(total).toBeLessThanOrEqual(EDITS_BUDGET);
+	});
+
+	it('counts the land, the lands left and the lands unlocked as progress, never whereabouts', () => {
+		const base = restoreGame(written as SaveV4, mint);
+		const doc = (g: SavedGame) => saveDocument(g, { lineage: 'game-a', seq: 3 });
+		const a = doc(base);
+		expect(sameProgress(a, doc({ ...base, pos: { x: 0, y: 0 } }))).toBe(true);
+		expect(sameProgress(a, doc({ ...base, land: 'arctic' }))).toBe(false);
+		expect(sameProgress(a, doc({ ...base, unlocked: ['nordland', 'arctic'] }))).toBe(false);
+		expect(
+			sameProgress(
+				a,
+				doc({ ...base, lands: [{ land: 'arctic', party: [], tokens: 0, items: [], worlds: [] }] })
+			)
+		).toBe(false);
+		// A save without `unlocked` holds what its kinds set free unlock: the same progress.
+		const freedAll = {
+			...a,
+			freed: [...getLand('nordland').species],
+			seen: [...getLand('nordland').species]
+		};
+		expect(sameProgress(freedAll, { ...freedAll, unlocked: ['nordland', 'arctic'] })).toBe(true);
 	});
 });
