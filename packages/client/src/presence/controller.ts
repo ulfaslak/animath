@@ -2,7 +2,6 @@ import {
 	BEARINGS,
 	FIRST_LAND,
 	bearingVector,
-	facePrompt,
 	isWireCoord,
 	leadIndex,
 	type AnimalInstance,
@@ -16,6 +15,7 @@ import {
 	type LandId
 } from '@mathgame/engine';
 import { clearBoxes } from '../keep-clear';
+import { thoughtSum } from '../kinds';
 import { SHORT_SCREEN } from '../short-screen';
 import type { GameRenderer } from '../render/renderer';
 import { safeArea } from '../safe-area';
@@ -301,11 +301,12 @@ export class PresenceController {
 				x: Math.round(p.x),
 				y: Math.round(p.y),
 				opacity: Math.round(head.opacity * 20) / 20,
-				// The puzzle they are thinking about, written out here by the engine's own formatter; the
+				// The puzzle they are thinking about, written out here by the engine's own formatter (a
+				// puzzle with a picture as its kind's sign: `thoughtSum`); the
 				// bubble leans away from their battle, off its animals' names.
 				thought: thought
 					? {
-							sum: thought.puzzle ? facePrompt(thought.puzzle) : null,
+							sum: thought.puzzle ? thoughtSum(thought.puzzle) : null,
 							mood: thought.mood,
 							beat: thought.beat,
 							lean: p.x >= renderer.toScreen(thought.scene).x ? 1 : -1

@@ -852,6 +852,14 @@ battle:
     missing: missing numbers
     sequence: number patterns
     sqrt: square roots
+    thermometer: temperatures
+    kroner: money
+    fraction: fractions
+    area: floor tiles
+    perimeter: fences
+    barchart: bar charts
+    balance: balancing
+    clock: telling the time
   # An attack's three levels: the level picker's buttons, and the word on each attack's tile.
   level:
     easy: easy

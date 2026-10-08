@@ -23,7 +23,7 @@ import {
 	unlockLands
 } from '../src/lands/lands.js';
 import { STARTERS, STARTER_TIER } from '../src/party/starters.js';
-import { checkAnswer } from '../src/puzzles/registry.js';
+import { answerText, checkAnswer } from '../src/puzzles/registry.js';
 import { ALL_PUZZLE_KINDS } from '../src/puzzles/types.js';
 import { Rng, hashInts } from '../src/rng.js';
 import { EDITS_BUDGET, WorldEdits } from '../src/world/edits.js';
@@ -222,7 +222,7 @@ describe('a flight from the witch doctor', () => {
 				const puzzle = farePuzzle(rng, land);
 				expect(getLand(land).travelKinds).toContain(puzzle.kind);
 				expect(puzzle.difficulty).toBe(FARE_DIFFICULTY);
-				expect(checkAnswer(puzzle, String(puzzle.answer))).toBe(true);
+				expect(checkAnswer(puzzle, answerText(puzzle))).toBe(true);
 				const next = farePuzzle(new Rng(hashInts(52, s)), land, puzzle.prompt);
 				expect(next.prompt).not.toBe(puzzle.prompt);
 			}

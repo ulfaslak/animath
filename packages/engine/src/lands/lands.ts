@@ -1,7 +1,7 @@
 import { ITEMS, type ItemId } from '../items/catalog.js';
 import { STARTERS } from '../party/starters.js';
 import { generatePuzzle } from '../puzzles/registry.js';
-import type { Puzzle, PuzzleKind } from '../puzzles/types.js';
+import { PICTURE_KINDS, type Puzzle, type PuzzleKind } from '../puzzles/types.js';
 import type { Rng } from '../rng.js';
 import { FIRST_LAND, LAND_IDS, isLandId, type LandId } from './ids.js';
 
@@ -139,9 +139,8 @@ export const LANDS: readonly LandSpec[] = [
 		starters: [],
 		shop: [],
 		currency: 'ice-dollars',
-		// #191 asks the Arctic's own kinds (thermometer, kroner, …), which step 2 adds to the
-		// puzzle registry; until they are there, a chill sum.
-		travelKinds: ['add', 'sub'],
+		// The Arctic's own kinds (#191 step 2): a taste of what waits there.
+		travelKinds: [...PICTURE_KINDS, 'balance'],
 		look: 'warm-hat'
 	}
 ];
@@ -216,8 +215,8 @@ export function flyRefusal(
 
 /**
  * How hard the puzzle a flight costs is (`farePuzzle`): a taste of the land,
- * not a test, so a sum in the teens with Nordland's kinds. Every trip costs
- * one, both ways.
+ * not a test: a sum in the teens with Nordland's kinds, and the easy end of
+ * The Arctic's. Every trip costs one, both ways.
  */
 export const FARE_DIFFICULTY = 3;
 

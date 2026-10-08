@@ -5,6 +5,7 @@ import { attackDamage } from '../src/battle/damage.js';
 import { Rng } from '../src/rng.js';
 import { healingDifficulty, puzzleDifficulty } from '../src/puzzles/difficulty.js';
 import {
+	answerText,
 	checkAnswer,
 	generatePuzzle,
 	getGenerator,
@@ -12,6 +13,7 @@ import {
 } from '../src/puzzles/registry.js';
 import {
 	ALL_PUZZLE_KINDS,
+	isPictureKind,
 	MAX_DIFFICULTY,
 	MIN_DIFFICULTY,
 	type PuzzleKind
@@ -19,6 +21,10 @@ import {
 
 /** Recompute the answer from the prompt, independently of the generator. */
 function solve(prompt: string): number {
+	const picture = solvePicture(prompt);
+	if (picture !== null) return picture;
+	const box = prompt.match(/^\d+ [+−×] □/);
+	if (box) return solveBalance(prompt);
 	const seq = prompt.match(/^([\d, ]+), \?$/);
 	if (seq) {
 		const terms = (seq[1] as string).split(', ').map(Number);
@@ -47,6 +53,111 @@ function solve(prompt: string): number {
 			return x / y;
 	}
 	throw new Error(`unknown op ${op}`);
+}
+
+/**
+ * A picture kind's prompt (`thermometer(0, 3, 5)`), solved from its numbers
+ * as the kid reads the picture and the words: a thermometer counted along,
+ * money added up coin by coin, a shape's squares and fence pieces counted
+ * cell by cell, a clock's hands turned. Null for any other prompt.
+ */
+function solvePicture(prompt: string): number | null {
+	const m = prompt.match(/^([a-z]+)\((-?\d+(?:, -?\d+)*)\)$/);
+	if (!m) return null;
+	const n = (m[2] as string).split(', ').map(Number);
+	const at = (i: number) => n[i] as number;
+	switch (m[1]) {
+		case 'thermometer': {
+			// Walk the mercury a degree at a time.
+			const [how, a, b] = [at(0), at(1), at(2)];
+			if (how === 0 || how === 1) {
+				let t = a;
+				for (let k = 0; k < b; k++) t += how === 1 ? 1 : -1;
+				return t;
+			}
+			let steps = 0;
+			for (let t = a; t !== b; t += b > a ? 1 : -1) steps++;
+			return steps;
+		}
+		case 'kroner': {
+			const values = [1, 2, 5, 10, 20, 50, 100, 200];
+			let money = 0;
+			for (let k = 0; k < values.length; k++)
+				for (let c = 0; c < at(k + 1); c++) money += values[k]!;
+			return money - at(9) - at(10);
+		}
+		case 'fraction': {
+			// Deal the amount out into d piles, one at a time, and take n of them.
+			const [num, den, amount] = [at(0), at(1), at(2)];
+			const piles = Array.from({ length: den }, () => 0);
+			for (let k = 0; k < amount; k++) piles[k % den]! += 1;
+			return piles.slice(0, num).reduce((s, v) => s + v, 0);
+		}
+		case 'shape': {
+			const [how, w, h, cw, ch] = [at(0), at(1), at(2), at(3), at(4)];
+			if (how === 2 || how === 3) {
+				// The side that makes the floor's squares, or the fence's length, come out right.
+				for (let side = 1; side <= 1000; side++) {
+					if ((how === 2 ? w * side : 2 * (w + side)) === h) return side;
+				}
+				throw new Error(`no side fits ${prompt}`);
+			}
+			// The floor's squares: the rectangle's cells but the cut corner at the top right.
+			const inside = (x: number, y: number) =>
+				x >= 0 && x < w && y >= 0 && y < h && !(x >= w - cw && y < ch);
+			let cells = 0;
+			let fence = 0;
+			for (let x = 0; x < w; x++) {
+				for (let y = 0; y < h; y++) {
+					if (!inside(x, y)) continue;
+					cells++;
+					for (const [dx, dy] of [
+						[1, 0],
+						[-1, 0],
+						[0, 1],
+						[0, -1]
+					] as const)
+						if (!inside(x + dx, y + dy)) fence++;
+				}
+			}
+			return how === 0 ? cells : fence;
+		}
+		case 'barchart': {
+			const [how, , i, j, bars] = [at(0), at(1), at(2), at(3), at(4)];
+			const v = n.slice(5, 5 + bars);
+			if (how === 0) return v[i]!;
+			if (how === 1) return v[i]! - v[j]!;
+			if (how === 2) return v[i]! + v[j]!;
+			return v.reduce((s, x) => s + x, 0);
+		}
+		case 'clock': {
+			// Turn the minute hand a minute at a time, round a twelve-hour face.
+			const [how, h, mins, dh, dm] = [at(0), at(1), at(2), at(3), at(4)];
+			let t = (h === 12 ? 0 : h) * 60 + mins;
+			for (let k = 0; k < dh * 60 + dm; k++) t = (t + (how === 2 ? 719 : 1)) % 720;
+			return t;
+		}
+	}
+	throw new Error(`unknown picture kind ${prompt}`);
+}
+
+/** "8 + □ = 5 + 6", solved by trying every box from 1 up until both sides weigh the same. */
+function solveBalance(prompt: string): number {
+	const [left, right] = prompt.split(' = ') as [string, string];
+	const value = (side: string, box: number) => {
+		const t = side.replace('□', String(box)).split(' ');
+		let total = Number(t[0]);
+		let k = 1;
+		// × before + and −: fold a times into the number before it first.
+		if (t[1] === '×') {
+			total *= Number(t[2]);
+			k = 3;
+		}
+		for (; k < t.length; k += 2) total += (t[k] === '+' ? 1 : -1) * Number(t[k + 1]);
+		return total;
+	};
+	for (let box = 1; box <= 10_000; box++) if (value(left, box) === value(right, box)) return box;
+	throw new Error(`no box fits ${prompt}`);
 }
 
 function nextInSequence(t: number[]): number {
@@ -111,6 +222,9 @@ describe('puzzle generators', () => {
 	});
 });
 
+/** The kinds whose numbers climb with difficulty band by band (#7). */
+const ARITHMETIC: readonly PuzzleKind[] = ['add', 'sub', 'mul', 'div', 'missing', 'sqrt'];
+
 /** Every number a kid reads in a prompt; the answer hides behind the "?". */
 function numbersIn(prompt: string): number[] {
 	return (prompt.match(/\d+/g) ?? []).map(Number);
@@ -124,7 +238,8 @@ function numbersIn(prompt: string): number[] {
 describe('difficulty ladder', () => {
 	const SAMPLES = 300;
 
-	for (const kind of ALL_PUZZLE_KINDS.filter((k) => k !== 'sequence')) {
+	// The sums' kinds. The picture kinds and the balance climb by their own ladders (`puzzle-kinds.test.ts`).
+	for (const kind of ALL_PUZZLE_KINDS.filter((k) => ARITHMETIC.includes(k))) {
 		const g = getGenerator(kind);
 		it(`${kind}: the smallest and the largest number shown both climb with difficulty`, () => {
 			// Per operation, because `missing` mixes "+ ?" and "× ?" from difficulty 4
@@ -361,6 +476,60 @@ describe('checkAnswer', () => {
 		expect(checkAnswer(p, 'two')).toBe(false);
 		expect(checkAnswer(p, '2e0')).toBe(false);
 	});
+	it('takes a minus on a thermometer', () => {
+		const cold = {
+			kind: 'thermometer' as const,
+			difficulty: 2,
+			prompt: 'thermometer(0, 3, 5)',
+			answer: -2
+		};
+		expect(checkAnswer(cold, '-2')).toBe(true);
+		expect(checkAnswer(cold, '2')).toBe(false);
+	});
+	// A clock face cannot say morning or afternoon: either reading of it is right (#191).
+	it('reads a time, either way round the day, and nothing that is not one', () => {
+		const quarterPast3 = {
+			kind: 'clock' as const,
+			difficulty: 3,
+			prompt: 'clock(0, 3, 15, 0, 0)',
+			answer: 195
+		};
+		for (const right of ['3:15', '03:15', '15:15', '3.15', '315', '1515', ' 3:15 '])
+			expect(checkAnswer(quarterPast3, right), right).toBe(true);
+		for (const wrong of [
+			'3:5',
+			'3:150',
+			'15',
+			'195',
+			'3:16',
+			'27:15',
+			'3:75',
+			'-3:15',
+			'3:15:00',
+			'',
+			':15',
+			'3:'
+		])
+			expect(checkAnswer(quarterPast3, wrong), wrong).toBe(false);
+		const twentyPast12 = { ...quarterPast3, prompt: 'clock(0, 12, 20, 0, 0)', answer: 20 };
+		for (const right of ['12:20', '0:20', '00:20'])
+			expect(checkAnswer(twentyPast12, right), right).toBe(true);
+		expect(checkAnswer(twentyPast12, '24:20')).toBe(false);
+	});
+	it('types every answer it asks in a form it takes', () => {
+		const bad: string[] = [];
+		for (const kind of ALL_PUZZLE_KINDS) {
+			for (let d = MIN_DIFFICULTY; d <= MAX_DIFFICULTY; d++) {
+				const rng = new Rng(300 + d);
+				for (let i = 0; i < 40; i++) {
+					const puzzle = generatePuzzle(rng, d, [kind]);
+					if (!checkAnswer(puzzle, answerText(puzzle)))
+						bad.push(`${puzzle.prompt}: ${answerText(puzzle)}`);
+				}
+			}
+		}
+		expect(bad).toEqual([]);
+	});
 });
 
 describe('difficulty mapping', () => {
@@ -430,6 +599,13 @@ describe('difficulty mapping', () => {
  * `solve`; the topics each generator declares must agree with it.
  */
 function topicOf(prompt: string): string {
+	const picture = prompt.match(/^([a-z]+)\((\d+)/);
+	if (picture) {
+		// A shape asks for its floor (0, or a side from the floor's squares: 2) or its fence (1, 3).
+		if (picture[1] === 'shape') return Number(picture[2]) % 2 === 0 ? 'area' : 'perimeter';
+		return picture[1] as string;
+	}
+	if (prompt.includes('□')) return 'balance';
 	if (/^([\d, ]+), \?$/.test(prompt)) return 'sequence';
 	if (/^√\d+ = \?$/.test(prompt)) return 'sqrt';
 	const missing = prompt.match(/^\d+ ([+×]) \? = \d+$/);
@@ -438,6 +614,19 @@ function topicOf(prompt: string): string {
 	if (!bin) throw new Error(`unparseable prompt: ${prompt}`);
 	return { '+': 'add', '−': 'sub', '×': 'mul', '÷': 'div' }[bin[1] as '+' | '−' | '×' | '÷'];
 }
+
+describe('what the catalog asks', () => {
+	// The puzzle panel draws a picture kind's question and picture from its face;
+	// until it can, an attack asking one would show the kid its raw face text.
+	it('no attack asks a kind with a picture yet (#191: the panel draws them in the next step)', () => {
+		const asked = ANIMALS.flatMap((spec) =>
+			spec.attacks.flatMap((a) =>
+				a.kinds.filter((k) => isPictureKind(k)).map((k) => `${spec.id}: ${k}`)
+			)
+		);
+		expect(asked).toEqual([]);
+	});
+});
 
 describe('what an attack says it asks', () => {
 	const SEEDS_PER_CASE = 300;

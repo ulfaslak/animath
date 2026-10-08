@@ -1,5 +1,6 @@
 import {
 	ATTACK_LEVELS,
+	answerText,
 	EDITS_BUDGET,
 	ITEM_IDS,
 	MAX_MATCH_EVENTS,
@@ -266,7 +267,8 @@ function answerDoctor(s: Session, correct: boolean): void {
 		throw new Error(`expected a doctor puzzle, got ${phase.kind}`);
 	doctorIntent(s, {
 		type: 'answer',
-		input: String(correct ? phase.puzzle.answer : phase.puzzle.answer + 1)
+		// As a kid types it: a clock's time as hours and minutes (a fare to The Arctic can be one).
+		input: correct ? answerText(phase.puzzle) : String(phase.puzzle.answer + 1)
 	});
 }
 

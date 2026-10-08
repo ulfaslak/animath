@@ -19,7 +19,7 @@ import { ITEMS, ITEM_IDS, getItem, hasItem, itemsForSale } from '../src/items/ca
 import { LAND_IDS } from '../src/lands/ids.js';
 import { FARE_DIFFICULTY, getLand } from '../src/lands/lands.js';
 import { healingDifficulty } from '../src/puzzles/difficulty.js';
-import { checkAnswer } from '../src/puzzles/registry.js';
+import { answerText, checkAnswer } from '../src/puzzles/registry.js';
 import { Rng, hashInts, hashString } from '../src/rng.js';
 import { WorldEdits, editedTileAt } from '../src/world/edits.js';
 import { tileAtWorld } from '../src/world/generate.js';
@@ -1122,11 +1122,12 @@ describe('flying from the witch doctor (#191)', () => {
 			const again = apply(back.state, { type: 'fly', land: 'arctic' }, seed);
 			const fare = again.state.phase;
 			if (fare.kind !== 'paying-fare') throw new Error('fare open');
-			const paid = apply(again.state, { type: 'answer', input: String(fare.puzzle.answer) }, seed);
+			const input = answerText(fare.puzzle);
+			const paid = apply(again.state, { type: 'answer', input }, seed);
 			expect(paid.events).toEqual([
 				{
 					type: 'answer-judged',
-					input: String(fare.puzzle.answer),
+					input,
 					correct: true,
 					answer: fare.puzzle.answer
 				},
