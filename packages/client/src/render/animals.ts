@@ -1621,23 +1621,24 @@ const BUILDERS: Record<string, Builder> = {
 	// the lemming and the snow bunting the smallest, the penguins the tallest. Its birds' wings
 	// hang from joints as Nordland's do; a penguin's flippers are no wings: it never flies.
 	//
-	// Round and white, a short muzzle, small round ears, and a tail as big as its body: the
-	// fox Nordland has is red, long and square.
+	// Small and white, a short pointed muzzle, small rounded ears, and a bushy tail as long as
+	// its body: the fox Nordland has is red, bigger and square.
 	'arctic-fox': ({ fur, accent }) => [
-		ball(0.14, fur, 0, 0.22, -0.02, 1, 0.9, 1.4),
-		ball(0.1, accent, 0, 0.17, 0.08, 0.9, 0.6, 1),
-		...legs(0.05, 0.12, fur, 0.07, 0.11),
-		ball(0.1, fur, 0, 0.34, 0.2),
-		ball(0.07, fur, 0, 0.3, 0.27, 1.1, 0.8, 1),
-		rot(cone(0.04, 0.07, fur, 0, 0.31, 0.33), Math.PI / 2, 0, 0),
-		ball(0.02, COLORS.dark, 0, 0.315, 0.37),
+		ball(0.12, fur, 0, 0.23, -0.03, 1, 0.85, 1.6),
+		ball(0.085, accent, 0, 0.19, 0.08, 0.9, 0.55, 1),
+		...legs(0.04, 0.15, fur, 0.065, 0.12),
 		...([-1, 1] as const).flatMap((side) => [
-			ball(0.016, COLORS.dark, side * 0.045, 0.37, 0.29),
-			ball(0.04, fur, side * 0.075, 0.43, 0.17, 1, 1, 0.5),
-			ball(0.025, accent, side * 0.075, 0.43, 0.185, 1, 1, 0.4)
+			box(0.05, 0.02, 0.06, accent, side * 0.065, 0.01, 0.13),
+			box(0.05, 0.02, 0.06, accent, side * 0.065, 0.01, -0.11),
+			ball(0.016, COLORS.dark, side * 0.042, 0.37, 0.3),
+			rot(cone(0.038, 0.07, fur, side * 0.062, 0.45, 0.2), 0, 0, -side * 0.2),
+			rot(cone(0.022, 0.04, accent, side * 0.062, 0.445, 0.215), 0, 0, -side * 0.2)
 		]),
-		ball(0.11, fur, 0, 0.25, -0.33, 1, 1, 1.8),
-		ball(0.08, fur, 0, 0.28, -0.5)
+		ball(0.09, fur, 0, 0.35, 0.22, 1.05, 0.95, 1),
+		rot(cone(0.05, 0.12, fur, 0, 0.33, 0.33), Math.PI / 2, 0, 0),
+		ball(0.02, COLORS.dark, 0, 0.33, 0.395),
+		rot(ball(0.1, fur, 0, 0.28, -0.32, 1, 1, 1.9), -0.45, 0, 0),
+		ball(0.075, fur, 0, 0.35, -0.48)
 	],
 	// Snow white, sitting up on its haunches, big back feet, and ears tipped with black.
 	'arctic-hare': ({ fur, accent }) => [
@@ -1711,7 +1712,7 @@ const BUILDERS: Record<string, Builder> = {
 		...([-1, 1] as const).flatMap((side) => [
 			box(0.012, 0.016, 0.07, COLORS.dark, side * 0.055, 0.3, 0.13),
 			ball(0.013, COLORS.dark, side * 0.058, 0.31, 0.14),
-			ball(0.024, accent, side * 0.045, 0.34, 0.135, 1.4, 0.55, 0.9),
+			ball(0.017, accent, side * 0.042, 0.35, 0.125, 1.5, 0.45, 0.9),
 			ball(0.045, fur, side * 0.05, 0.036, 0.03, 1, 0.8, 1.2)
 		]),
 		...wings(0.12, 0.2, (side) => [ball(0.08, fur, side * 0.12, 0.18, -0.03, 0.35, 0.8, 1.3)])
@@ -1869,8 +1870,9 @@ const BUILDERS: Record<string, Builder> = {
 	],
 	// A white face under a black cap, and a thin black strap under its chin, ear to ear.
 	chinstrap: ({ fur, accent }) => {
-		const strap = part(new THREE.TorusGeometry(0.075, 0.009, 4, 12, Math.PI), COLORS.dark, 0, 0.6, 0.04);
-		strap.rotation.set(0.2, 0, Math.PI);
+		// A thin ring round the head, low at the front under the chin and high at the back.
+		const strap = part(new THREE.TorusGeometry(0.093, 0.01, 4, 16), COLORS.dark, 0, 0.6, 0.02);
+		strap.rotation.set(Math.PI / 2 + 0.55, 0, 0);
 		return [
 			...penguin(1.05, fur, accent),
 			ball(0.095, COLORS.white, 0, 0.6, 0.03),
@@ -1891,7 +1893,7 @@ const BUILDERS: Record<string, Builder> = {
 function penguin(s: number, fur: number, feet: number): THREE.Object3D[] {
 	return [
 		ball(0.15 * s, fur, 0, 0.27 * s, -0.01 * s, 1, 1.45, 0.95),
-		ball(0.13 * s, COLORS.white, 0, 0.26 * s, 0.04 * s, 0.9, 1.35, 0.85),
+		ball(0.135 * s, COLORS.white, 0, 0.26 * s, 0.055 * s, 0.92, 1.35, 0.85),
 		rot(box(0.07 * s, 0.02 * s, 0.07 * s, fur, 0, 0.05 * s, -0.15 * s), -0.6, 0, 0),
 		...([-1, 1] as const).flatMap((side) => [
 			rot(ball(0.05 * s, fur, side * 0.15 * s, 0.27 * s, 0, 0.3, 1.5, 0.75), 0, 0, side * 0.3),

@@ -6,14 +6,6 @@ Technical items we've intentionally postponed: tech debt, hardening shortcuts, k
 
 ---
 
-### The witch doctor's card is not fitted to puzzles with pictures
-
-**What**: `PuzzlePanel` draws a picture kind's picture and question (#191), and the battle gives it the whole panel, but the witch doctor's card, whose heal asks a kind its species' attacks ask, has not been laid out for one: `scripts/doctor-fit.mjs` fills the card with sums only, and nobody has looked at a picture there.
-
-**Why deferred**: no species asks a picture kind yet, so no heal can; the card's fitting (`fit(SIDE_STEPS)`) would be tuned against animals that do not exist.
-
-**Trigger**: the first Arctic species with a picture kind on an attack (#191 step 5): run `doctor-fit.mjs` with a heal of each picture kind, and look at the card at 1024×768 and on a phone, with and without touch.
-
 ### A friend's birds are not seen in the air
 
 **What**: another player sees a friend glide (`flight`), but not the bird that flies behind them (their lead in the air) nor a wild bird chasing them (#91): nobody follows them in the other page until they are down, and the wire carries no chaser. Their battle in the air, once it starts, is seen as any battle is: the two birds flying beside them.
