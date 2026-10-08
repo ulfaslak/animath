@@ -153,7 +153,7 @@ export function coast(
 		last = moved;
 		at = moved.path[moved.path.length - 1]!;
 		// A slide, a skim, a step into the boat or a slow step onto deep snow ends the coast.
-		if (!moved.ski) break;
+		if (!moved.ski || moved.roll) break;
 		deep = moved.ski.deep;
 	}
 	if (!last) return null;
