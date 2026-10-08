@@ -10,6 +10,7 @@ import {
 	landingDistance,
 	canRide,
 	leadIndex,
+	TOP,
 	step,
 	tileAtWorld,
 	type AnimalInstance,
@@ -34,6 +35,7 @@ import {
 	DESCEND_SECONDS,
 	GLIDE_SECONDS,
 	RISE_SECONDS,
+	SKI_SECONDS,
 	SLIDE_SECONDS,
 	STEP_SECONDS,
 	slidesBetween,
@@ -138,6 +140,14 @@ export class ExploreController {
 	 * it. Nothing else is taken until they are down to the last.
 	 */
 	private ahead: GridPos[] = [];
+	/**
+	 * On skis, the speed level of each tile in `ahead` (`player-moved`'s
+	 * `speeds`): its pace (`SKI_SECONDS`), and whether the trainer glides over
+	 * it; empty off skis.
+	 */
+	private speeds: number[] = [];
+	/** The last move was a held ski step: letting go now coasts on (`coast`). */
+	private coastable = false;
 	private facing: Direction = 'down';
 	private seed = 0;
 	private playerId = '';
@@ -179,6 +189,7 @@ export class ExploreController {
 				this.renderer.setWorld(this.seed, this.edits);
 				this.renderer.setBoat(hasItem(event, 'boat'));
 				this.renderer.setGlider(hasItem(event, 'glider'));
+				this.renderer.setSkis(hasItem(event, 'skis'));
 				this.keyboard.setGlider(hasItem(event, 'glider'));
 				this.renderer.setPlayer(event.pos, event.pos, 1, this.facing);
 				this.follower?.place(this.seed, event.pos, this.facing, this.edits);
@@ -217,6 +228,7 @@ export class ExploreController {
 				// Bought at the doctor: it grows onto the trainer's back.
 				this.renderer.setBoat(hasItem(event, 'boat'), true);
 				this.renderer.setGlider(hasItem(event, 'glider'), true);
+				this.renderer.setSkis(hasItem(event, 'skis'));
 				this.keyboard.setGlider(hasItem(event, 'glider'));
 				break;
 			case 'took-off': {
@@ -294,11 +306,16 @@ export class ExploreController {
 					this.ahead.push({ x: event.pos.x - dx * (tiles - k), y: event.pos.y - dy * (tiles - k) });
 				}
 				this.ahead.push(event.pos);
+				this.speeds = event.speeds ? [...event.speeds] : [];
+				// A held step on skis: letting go of the arrow after it coasts on.
+				this.coastable = event.speeds !== undefined && !event.coast;
 				this.nextTile();
 				break;
 			}
 			case 'player-blocked':
 				if (event.playerId !== this.playerId) break;
+				// Stopped dead: nothing to coast on.
+				this.coastable = false;
 				// Turned where they stand: in the boat, a rider turns with it.
 				this.facing = event.dir;
 				this.follower?.face(event.dir);
@@ -351,14 +368,28 @@ export class ExploreController {
 	private nextTile(): void {
 		const to = this.ahead.shift();
 		if (!to) return;
+		const speed = this.speeds.shift();
 		this.from = this.pos;
 		this.pos = to;
 		this.progress = 0;
-		this.stepSeconds = slidesBetween(worldOf(this.seed, this.edits), this.from, this.pos)
-			? SLIDE_SECONDS
-			: this.onWater(this.from) !== this.onWater(this.pos) && !motion.reduced
-				? BOAT_SWING_SECONDS
-				: STEP_SECONDS;
+		const slide = slidesBetween(worldOf(this.seed, this.edits), this.from, this.pos);
+		const wet = this.onWater(this.pos);
+		// A step into the boat below top speed is a step into the boat, skis or not.
+		if (speed !== undefined && !slide && (!wet || speed === TOP)) {
+			// On skis: the speed's pace. Onto the water only at top speed, skimming it on skis; where
+			// a skim ends on the water, the boat swings in under them on its last tile.
+			const last = this.ahead.length === 0;
+			const skim = wet ? (last && game.items.includes('boat') ? 'board' : 'over') : null;
+			this.renderer.setSkiing(speed > 0 || skim !== null, speed / TOP, skim);
+			this.stepSeconds = SKI_SECONDS[speed] ?? STEP_SECONDS;
+		} else {
+			this.renderer.setSkiing(false, 0, null);
+			this.stepSeconds = slide
+				? SLIDE_SECONDS
+				: this.onWater(this.from) !== wet && !motion.reduced
+					? BOAT_SWING_SECONDS
+					: STEP_SECONDS;
+		}
 		this.follower?.follow(this.from, this.pos);
 	}
 
@@ -453,6 +484,11 @@ export class ExploreController {
 		if (this.flight) return;
 		const dir = this.keyboard.takeTap() ?? this.keyboard.heldDirection();
 		if (dir) this.authority.dispatch({ type: 'move', dir });
+		else if (this.coastable) {
+			// The arrow let go at speed on skis: the authority coasts the kid on, or says nothing.
+			this.coastable = false;
+			this.authority.dispatch({ type: 'coast' });
+		} else if (this.speeds.length === 0) this.renderer.setSkiing(false, 0, null);
 		if (this.keyboard.takeInteract()) {
 			// Which key asked: a tap of Space with nothing in front says how to fly.
 			hud.talked(this.keyboard.talkKey);

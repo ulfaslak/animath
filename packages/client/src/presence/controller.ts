@@ -519,6 +519,7 @@ export class PresenceController {
 			lead: following(game.party, game.realm === 'water'),
 			boat: game.items.includes('boat'),
 			...(game.items.includes('harness') ? { harness: true as const } : {}),
+			...(game.items.includes('skis') ? { skis: true as const } : {}),
 			busy: this.busyNow()
 		};
 	}
