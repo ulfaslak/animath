@@ -551,9 +551,9 @@ export class PresenceController {
 		);
 	}
 
-	/** A calm moment to reload: exploring, nothing open, feet on the ground. */
+	/** A calm moment to reload: exploring, nothing open, feet on the ground, no plane on screen. */
 	private calm(): boolean {
-		return this.exploreOnScreen() && !game.flying;
+		return this.exploreOnScreen() && !game.flying && !plane.active && !title.open;
 	}
 
 	/** Reload for the newer version, once per version: a page that comes back still old stays as it is. */
