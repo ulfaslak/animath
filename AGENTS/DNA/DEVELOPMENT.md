@@ -191,6 +191,22 @@ Headless Chrome plays sound to no one, and an agent can't listen. Three checks i
 - **What a cue is made of.** `test/sfx.test.ts` checks every cue's data and the nodes `scheduleCue` builds.
 - **That it makes a sound.** Render the cues offline in the real browser: with the dev server up, a Playwright page runs `const { CUES, CUE_NAMES } = await import('/src/audio/cues.ts'); const { scheduleCue } = await import('/src/audio/synth.ts')`, renders each into an `OfflineAudioContext` (`scheduleCue(ctx, ctx.destination, CUES[name], 0)`, then `ctx.startRendering()`), and measures the samples: peak, RMS, and where the sound starts and stops. Every cue should be well above silence, under 1.2 s, and below clipping. To hear them, play the same in a normal browser tab's console on the dev server.
 
+### Screenshots in PRs
+
+Every PR's screenshots live on one branch, `screenshots`, in a folder named after the PR's number, and a PR body shows each one as
+
+```
+![<image name>](https://github.com/ulfaslak/animath/blob/screenshots/<pr-number>/<image-name>.png?raw=true)
+```
+
+Open the PR first, for its number, then publish the frames from your worktree and paste the lines it prints into the body (`gh pr edit <pr-number> --body-file <file>`):
+
+```bash
+scripts/pr-screenshots.sh <pr-number> screenshots/before.png screenshots/after.png
+```
+
+The script never checks `screenshots` out, so your worktree, its index and its branch stay as they were. It builds the new commit with git's plumbing in a throwaway index (the branch's tip read in, each file added as `<pr-number>/<file name>`) and pushes it without force; when another agent pushed first the push is rejected, and it fetches the new tip and builds on that again. A file of the same name in the same folder is replaced. File names are letters, digits, `.`, `_` and `-` only, since they go into the link as they are. Never force-push `screenshots` and never move a folder on it: old PR bodies link into it. The folders without a number are the PRs from before 2026-10-08, each named after the branch `screenshots/<name>` it came from; a link to `blob/screenshots/<name>/<file>` reads the branch `screenshots` and the folder `<name>`, so those links still work. The branch's own `README.md` says the same.
+
 ## Checks and tests
 
 ```bash
