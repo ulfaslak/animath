@@ -1,4 +1,4 @@
-import type { GameEvent } from '@mathgame/engine';
+import { isWalkable, tileAtWorld, type GameEvent } from '@mathgame/engine';
 import { sfx } from '../audio/sfx.svelte';
 import { motion } from '../motion';
 import type { GameRenderer } from '../render/renderer';
@@ -99,7 +99,7 @@ export class PlaneController {
 			game.mode === 'explore'
 		) {
 			this.held = [event];
-			this.spot = planeSpot(game.pos, game.facing);
+			this.spot = planeSpot(game.pos, game.facing, groundAt(game.seed));
 			plane.show = { phase: 'landing', p: 0, calm: motion.reduced };
 			sfx.play('plane');
 			this.draw();
@@ -131,7 +131,7 @@ export class PlaneController {
 			this.held = [];
 			plane.show = { ...show, phase: next, p: 0 };
 			for (const event of held) this.deliver(event);
-			this.spot = planeSpot(game.pos, game.facing);
+			this.spot = planeSpot(game.pos, game.facing, groundAt(game.seed));
 			sfx.play('plane');
 		} else {
 			plane.show = { ...show, phase: next, p: 0 };
@@ -157,4 +157,9 @@ export class PlaneController {
 		const { pose, ride } = poseOf(show.phase, show.p);
 		this.renderer.setPlane({ at: { x: spot.x, y: spot.z }, heading: spot.heading, pose, ride });
 	}
+}
+
+/** Whether a tile of the world of `seed` is ground a plane can sit on: walkable, never water, a tree or a rock. */
+function groundAt(seed: number): (x: number, y: number) => boolean {
+	return (x, y) => isWalkable(tileAtWorld(seed, x, y).kind);
 }

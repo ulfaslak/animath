@@ -339,7 +339,10 @@ export class OtherPlayers {
 		legs: ConstructorParameters<typeof PlaneTrip>[1]
 	): void {
 		other.trip?.dispose();
-		other.trip = new PlaneTrip(planeSpot(at, facing), legs);
+		other.trip = new PlaneTrip(
+			planeSpot(at, facing, (x, y) => isWalkable(tileAtWorld(this.seed, x, y).kind)),
+			legs
+		);
 		this.scene.add(other.trip.figure);
 	}
 
