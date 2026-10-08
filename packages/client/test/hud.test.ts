@@ -37,6 +37,8 @@ function setup(start?: SavedGame) {
 		setWorld() {},
 		setBoat() {},
 		setGlider() {},
+		castPlaying: false,
+		fish() {},
 		setLandingSpot() {},
 		setPlayer() {},
 		ensureChunksAround() {},

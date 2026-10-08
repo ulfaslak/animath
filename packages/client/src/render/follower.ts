@@ -686,7 +686,7 @@ export class Follower {
 	}
 
 	private waterAt(p: GridPos): boolean {
-		return isWater(tileAtWorld(this.seed, p.x, p.y).kind);
+		return isWater(editedTileAt(this.seed, this.edits, p.x, p.y).kind);
 	}
 
 	/** Where its feet go on a tile: the ground's top, or swimming, low in the water. */

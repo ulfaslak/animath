@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { gearOf } from '../src/items/catalog.js';
 import { hashString, Rng } from '../src/rng.js';
-import { CLEARING_TOOL } from '../src/world/clearing.js';
+import { clearingTool } from '../src/world/clearing.js';
 import { WorldEdits, editedTileAt } from '../src/world/edits.js';
 import {
 	GLIDE_TILES,
@@ -24,6 +24,7 @@ import {
 	type TileKind
 } from '../src/world/types.js';
 import { WORLD_ONE_SEED, worldSeed } from '../src/world/worlds.js';
+import { landSeed } from '../src/lands/ids.js';
 
 /**
  * The glider's rules ([[PRODUCT]] §4 "World", [[INVARIANTS]] § World: "A
@@ -157,15 +158,21 @@ describe('isLandable', () => {
 		];
 		for (const items of [[], ...GEAR_SETS, ['lantern', 'axe']]) {
 			for (const kind of kinds) {
-				expect(isLandable(kind, { items }), `${kind} with ${items}`).toBe(
+				expect(isLandable(WORLD_ONE_SEED, kind, { items }), `${kind} with ${items}`).toBe(
 					landableByTable(kind, items)
 				);
 			}
 		}
 		// The axe never makes a rock landable, nor the pickaxe a tree, and a tent is never landable.
-		expect(isLandable('rock', { items: ['axe', 'boat'] })).toBe(false);
-		expect(isLandable('tree', { items: ['pickaxe', 'boat'] })).toBe(false);
-		expect(isLandable('tent', { items: ['glider', ...TOOLS] })).toBe(false);
+		expect(isLandable(WORLD_ONE_SEED, 'rock', { items: ['axe', 'boat'] })).toBe(false);
+		expect(isLandable(WORLD_ONE_SEED, 'tree', { items: ['pickaxe', 'boat'] })).toBe(false);
+		expect(isLandable(WORLD_ONE_SEED, 'tent', { items: ['glider', ...TOOLS] })).toBe(false);
+		// The Arctic's spruces take its own axe, never Nordland's; the ice pick lands on no block.
+		const arctic = landSeed('arctic', 1);
+		expect(isLandable(arctic, 'tree', { items: ['axe'] })).toBe(false);
+		expect(isLandable(arctic, 'tree', { items: ['arctic-axe'] })).toBe(true);
+		expect(isLandable(WORLD_ONE_SEED, 'tree', { items: ['arctic-axe'] })).toBe(false);
+		expect(isLandable(arctic, 'iceblock', { items: ['ice-pick', 'boat'] })).toBe(false);
 	});
 });
 
@@ -252,12 +259,12 @@ describe('a flight', () => {
 				const was = brute.kinds[distance - 1]!;
 				if (was === 'tree' || was === 'rock') {
 					cleared++;
-					if (!items.includes(CLEARING_TOOL[was]))
+					if (!items.includes(clearingTool(seed, was)))
 						bad.push(`${where}: on a ${was} without its tool`);
 					if (landing.cleared?.was !== was || !landing.edits.has(pos.x, pos.y)) {
 						bad.push(`${where}: the ${was} is not cleared`);
 					}
-					if (landing.cleared && landing.cleared.tool !== CLEARING_TOOL[was])
+					if (landing.cleared && landing.cleared.tool !== clearingTool(seed, was))
 						bad.push(`${where}: wrong tool`);
 				} else if (landing.cleared !== null || landing.edits !== edits) {
 					bad.push(`${where}: cleared ${was}`);

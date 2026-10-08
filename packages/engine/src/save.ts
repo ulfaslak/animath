@@ -15,7 +15,7 @@ import { ALL_PUZZLE_KINDS, MAX_DIFFICULTY, MIN_DIFFICULTY } from './puzzles/type
 import { WorldEdits, editedTileAt, isEditsText } from './world/edits.js';
 import { spawnPoint } from './world/spawn.js';
 import type { Direction, GridPos } from './world/types.js';
-import { isPassable, tileRealm } from './world/types.js';
+import { isPassable, step, tileRealm } from './world/types.js';
 import {
 	FIRST_WORLD,
 	LAST_WORLD,
@@ -1046,7 +1046,11 @@ export function restoreGame(save: SaveV4, mintId: () => string): SavedGame {
 		party = joinParty(party, { ...defaultStarter(land), id: freshId(party, mintId) });
 	}
 	const pos = standable ? { x: save.pos.x, y: save.pos.y } : spawnPoint(seed);
-	const battle = standable ? readBattle(save.battle, party, tileRealm(here)) : null;
+	// A fish hooked through a fishing hole is fought in the water from the ice's edge, facing it.
+	const facing = save.facing ?? 'down';
+	const ahead = step(save.pos, facing);
+	const fishing = editedTileAt(seed, edits, ahead.x, ahead.y).kind === 'hole';
+	const battle = standable ? readBattle(save.battle, party, tileRealm(here), fishing) : null;
 	const named = save.name === undefined ? null : checkName(save.name);
 	const left = (save.lands ?? []).filter((stay) => stay.land !== land).map(landStayOf(save.home));
 	const [worlds, ...landWorlds] = fitStays(
@@ -1061,7 +1065,7 @@ export function restoreGame(save: SaveV4, mintId: () => string): SavedGame {
 		world: save.world,
 		land,
 		pos,
-		facing: save.facing ?? 'down',
+		facing,
 		steps: save.steps ?? 0,
 		visits: save.visits ?? 0,
 		party: bundled(party),
@@ -1151,7 +1155,9 @@ function bundledBattle(state: BattleState): BattleState {
  * restored beside it) where the player stands, in `where`: fought there (a
  * battle saved before battles had a realm was fought on land), or up in the
  * air, which a bird that followed the glider down starts on whatever tile the
- * player landed on, ground or water; the same animals with the same HP, a
+ * player landed on, ground or water, or in the water from the ice's edge
+ * (`fishing`: the player faces a fishing hole, where a hooked animal is
+ * fought); the same animals with the same HP, a
  * standing animal that can fight in the battle's realm in front (or, waiting
  * for a replacement after a knock-out, a tired one with someone standing
  * behind it who can), a wild animal that is still standing and can fight
@@ -1163,14 +1169,15 @@ function bundledBattle(state: BattleState): BattleState {
 export function readBattle(
 	value: unknown,
 	party: readonly AnimalInstance[],
-	where: Realm = 'land'
+	where: Realm = 'land',
+	fishing = false
 ): BattleState | null {
 	// Only what a save's battle can be (`findUnstorable`, a level into the document): the
 	// comparison and the copy below go down one level at a time.
 	if (!isRecord(value) || findUnstorable(value, 'battle', 1) !== null) return null;
 	const { step, turn, active, opponent, leashQuality, phase } = value;
 	const fought = value.realm ?? 'land';
-	if (fought !== where && fought !== 'air') return null;
+	if (fought !== where && fought !== 'air' && !(fishing && fought === 'water')) return null;
 	const realm = fought as Realm;
 	const fights = (a: AnimalInstance) => a.hp > 0 && canFightIn(a.speciesId, realm);
 	if (!isWhole(step) || !Number.isSafeInteger(turn) || (turn as number) < 1) return null;

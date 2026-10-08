@@ -40,8 +40,11 @@ export type TileKind =
 /** What an ice block stands on: snow on land, the ice of a lake or the sea, or open water. */
 export type IceBlockGround = 'snow' | 'ice' | 'water';
 
-/** The tiles a tool can clear: a tree (the axe) and a rock (the pickaxe). See `world/edits.ts`. */
-export type ClearableKind = 'tree' | 'rock';
+/**
+ * The tiles a tool can clear: a tree (the axe, The Arctic's arctic axe), a
+ * rock (the pickaxe) and an ice block (the ice pick). See `world/edits.ts`.
+ */
+export type ClearableKind = 'tree' | 'rock' | 'iceblock';
 
 export interface Tile {
 	kind: TileKind;
@@ -49,16 +52,18 @@ export interface Tile {
 	/** Ground height in tile units; water, shallow or deep, is 0, hills rise above. Purely visual for now. */
 	height: number;
 	/**
-	 * What a tool took from this tile: a tree chopped down or a rock broken
-	 * (`world/edits.ts`). The tile is plain ground (`grass`) from then on, and
-	 * this says what the renderer draws on it: a stump, or gravel. Absent on
-	 * every tile of the seeded world itself.
+	 * What a tool took from this tile: a tree chopped down, a rock broken or an
+	 * ice block broken (`world/edits.ts`). A tree or a rock leaves plain ground
+	 * (`grass`, The Arctic's `snow`); an ice block what it stood on (`under`).
+	 * This says what the renderer draws there: a stump, gravel, a few chips of
+	 * ice. Absent on every tile of the seeded world itself.
 	 */
 	cleared?: ClearableKind;
 	/**
 	 * What an ice block (`iceblock`) stands on, so the renderer draws it there
-	 * and the ice pick (#191 step 6) knows what it leaves: snow, a fishing hole
-	 * in the ice, or water. Absent on every other tile.
+	 * and the ice pick knows what it leaves: snow, a fishing hole in the ice, or
+	 * water. On a block broken (`cleared: 'iceblock'`), what it stood on, still.
+	 * Absent on every other tile.
 	 */
 	under?: IceBlockGround;
 }

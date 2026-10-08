@@ -1208,10 +1208,28 @@ explore:
   chop: Chop
   # The same button while it breaks a rock.
   break: Break
+  # Under the latest message while the player faces an ice block and owns the ice pick.
+  breakIcePrompt: Press Enter to break the ice block
+  # The same, with the touch controls on; "Break" is explore.break.
+  breakIcePromptTouch: Tap Break to break the ice block
+  # Under the latest message while the player faces a fishing hole and owns the fishing rod.
+  fishPrompt: Press Enter to fish
+  # The same, with the touch controls on; "Fish" is explore.fish.
+  fishPromptTouch: Tap Fish to fish
+  # The touch controls' round button (explore.talk) while it fishes at a hole.
+  fish: Fish
+  # A cast at a fishing hole, and nothing bit.
+  caughtNothing: Nothing bit this time. Try again!
+  # A cast at a fishing hole with nobody in the team who can swim: nothing bites then.
+  noSwimmer: Nothing bites, because no animal in your team can swim. Bring a swimmer!
   # The first bump into a tree without the axe, and Enter facing one.
   needAxe: You need an axe to chop trees. The witch doctor sells one!
   # The first bump into a rock without the pickaxe, and Enter facing one.
   needPickaxe: You need a pickaxe to break rocks. The witch doctor sells one!
+  # The first bump into an ice block without the ice pick, and Enter facing one.
+  needIcePick: You need an ice pick to break ice blocks. The witch doctor sells one!
+  # Enter facing a fishing hole without the fishing rod.
+  needRod: You need a fishing rod to fish here. The witch doctor sells one!
   # What a screen reader calls the arrow pad's four arrows.
   walkUp: Walk up
   walkDown: Walk down
@@ -1263,8 +1281,8 @@ hud:
   menu: Menu
   # The player's tokens, at the top right.
   tokens:
-    one: '{count} token'
-    other: '{count} tokens'
+    one: '{count} {money.word}'
+    other: '{count} {money.words}'
   # The puzzles the player has solved, under the tokens: every right answer adds one.
   solved:
     one: '{count} puzzle'
@@ -1507,8 +1525,8 @@ doctor:
     shop: Shop
   # The player's tokens, at the top right of the card.
   tokens:
-    one: '{count} token'
-    other: '{count} tokens'
+    one: '{count} {money.word}'
+    other: '{count} {money.words}'
   # The heal tab's right-hand side before an animal is picked.
   pick: Pick an animal
   pickDetail: Solve a puzzle and {animal.name} feels all better!
@@ -1532,23 +1550,23 @@ doctor:
     # The witch doctor's line on the tab: why wild animals attack.
     intro: Wild animals are a little bit sick. That's why they are so grumpy!
     title: Set animals free
-    how: Pick animals to set free. I make them all better, and they go home to the wild. You get tokens as a thank-you!
+    how: Pick animals to set free. I make them all better, and they go home to the wild. You get {money.words} as a thank-you!
     # The highlighted animal, and what it brings.
     worth:
-      one: '{animal.name} brings {count} token.'
-      other: '{animal.name} brings {count} tokens.'
+      one: '{animal.name} brings {count} {money.word}.'
+      other: '{animal.name} brings {count} {money.words}.'
     # The highlighted animal, when it has to stay: picking it too would leave no animal that can walk with the kid.
     stays: '{animal.name} stays with you.'
     # The highlighted row of a kind ("Fox ×40"), which picks them all: how many, and what they all bring.
-    kindWorth: All {count} bring {amount} tokens.
+    kindWorth: All {count} bring {amount} {money.words}.
     # The same, when one of the kind has to stay: how many of them can go, and what they bring.
     kindWorthSome:
-      one: '1 of them brings {amount} tokens.'
-      other: '{count} of them bring {amount} tokens.'
+      one: '1 of them brings {amount} {money.words}.'
+      other: '{count} of them bring {amount} {money.words}.'
     # How many animals are picked, and what they bring together: the running total.
     picked:
-      one: '1 animal picked: {amount} tokens.'
-      other: '{count} animals picked: {amount} tokens.'
+      one: '1 animal picked: {amount} {money.words}.'
+      other: '{count} animals picked: {amount} {money.words}.'
     # When one animal has to stay: the last one left that isn't tired and walks on land
     # (a sea animal can't), the one that walks on with the kid.
     keepOne: Keep one animal that can walk with you!
@@ -1563,54 +1581,54 @@ doctor:
     sure: Are you sure? They will be happy in the wild!
     sureTitle: Say bye bye to {names.name}?
     sureTitleMany: Say bye bye to {many} animals?
-    sureDetail: They go home to the wild, all better. You get {amount} tokens.
+    sureDetail: They go home to the wild, all better. You get {amount} {money.words}.
     keep: No, not now
     yes: Yes, bye bye!
     sureKeys: ← → choose · Enter pick · Esc back
     # The token sum for a hand-over: the witch doctor's line, then the story round the sum.
-    count: Thank you! Can you count your tokens?
+    count: Thank you! Can you count your {money.words}?
     story:
-      one: You have {count} token. You get {amount} more. How many will you have?
-      other: You have {count} tokens. You get {amount} more. How many will you have?
+      one: You have {count} {money.word}. You get {amount} more. How many will you have?
+      other: You have {count} {money.words}. You get {amount} more. How many will you have?
     # After the right answer: the animals leave, then the tokens come.
     wentHomeOne: Bye bye, {animal.name}! It feels much better now.
     wentHomeFew: Bye bye, {names.name}! They feel much better now.
     wentHomeMany: Bye bye, all {many}! They feel much better now.
     tokensGiven:
-      one: Thank you! Here are {amount} tokens. Now you have {count} token.
-      other: Thank you! Here are {amount} tokens. Now you have {count} tokens.
+      one: Thank you! Here are {amount} {money.words}. Now you have {count} {money.word}.
+      other: Thank you! Here are {amount} {money.words}. Now you have {count} {money.words}.
 
   # The shop tab: tools bought with tokens.
   shop:
-    intro: Look what I have! You pay with tokens.
+    intro: Look what I have! You pay with {money.words}.
     # The witch doctor's line while nothing is for sale.
     introEmpty: My shop opens soon!
     emptyTitle: Nothing for sale yet
-    emptyDetail: New things are coming soon. Keep your tokens!
+    emptyDetail: New things are coming soon. Keep your {money.words}!
     # The tab's right-hand side while Bye is lit, over what Bye does (doctor.byeDetail).
     pick: Pick something to buy
     # The same once the kid has every thing on sale.
     allOwned: You have everything!
     # An item's price.
     price:
-      one: '{count} token'
-      other: '{count} tokens'
+      one: '{count} {money.word}'
+      other: '{count} {money.words}'
     # Why an item can't be bought: it is owned, or {count} tokens are missing.
     owned: You have {item.the}!
     short:
-      one: You need {count} more token.
-      other: You need {count} more tokens.
+      one: You need {count} more {money.word}.
+      other: You need {count} more {money.words}.
     keys: ↑ ↓ choose · ← → tabs · Enter buy · Esc bye
     touch: Tap a thing to buy it
     # The token sum for a purchase: the witch doctor's line, then the story round the sum.
-    count: Good choice! Can you count your tokens?
+    count: Good choice! Can you count your {money.words}?
     story:
-      one: You have {count} token. {item.the} costs {price}. How many will you have left?
-      other: You have {count} tokens. {item.the} costs {price}. How many will you have left?
+      one: You have {count} {money.word}. {item.the} costs {price}. How many will you have left?
+      other: You have {count} {money.words}. {item.the} costs {price}. How many will you have left?
     # After the right answer.
     bought:
-      one: Here is {item.your}! You have {count} token left.
-      other: Here is {item.your}! You have {count} tokens left.
+      one: Here is {item.your}! You have {count} {money.word} left.
+      other: Here is {item.your}! You have {count} {money.words} left.
 
 # What the witch doctor's shop sells: as a label, with "the" and "your", and what it does.
 items:
@@ -1639,6 +1657,31 @@ items:
     the: the harness
     your: your harness
     use: Ride on big animals.
+  arctic-axe:
+    name: Arctic axe
+    the: the arctic axe
+    your: your arctic axe
+    use: Chops down spruces.
+  ice-pick:
+    name: Ice pick
+    the: the ice pick
+    your: your ice pick
+    use: Breaks ice blocks.
+  fishing-rod:
+    name: Fishing rod
+    the: the fishing rod
+    your: your fishing rod
+    use: Fishes at holes in the ice.
+
+# What a land pays in, said in a sentence: one of it, and more. Nordland's tokens, and
+# The Arctic's ice dollars (Danish "iskroner").
+currency:
+  tokens:
+    word: token
+    words: tokens
+  iceDollars:
+    word: ice dollar
+    words: ice dollars
 
 pause:
   # The pause menu's title.

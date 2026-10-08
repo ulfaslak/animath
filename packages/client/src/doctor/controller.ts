@@ -180,6 +180,7 @@ export class DoctorController {
 		this.said = this.tabLine('heal', state);
 		doctor.party = state.party.map((a) => ({ ...a }));
 		doctor.shop = [...state.shop];
+		doctor.land = state.land;
 		doctor.cursor = this.firstStop('heal');
 		sfx.play('confirm');
 		this.settle();

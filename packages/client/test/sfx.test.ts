@@ -183,11 +183,13 @@ describe('cues', () => {
 		expect([...CUE_NAMES].sort()).toEqual(
 			[
 				'boing',
+				'cast',
 				'caught',
 				'chop',
 				'coins',
 				'confirm',
 				'crack',
+				'shatter',
 				'correct',
 				'encounter',
 				'faint',
@@ -200,6 +202,7 @@ describe('cues', () => {
 				'whoosh',
 				'land',
 				'squawk',
+				'splash',
 				'wobble',
 				'won',
 				'wrong'

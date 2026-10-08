@@ -201,7 +201,7 @@ Everything below is a click with a mouse or a tap with a finger, and each is the
 
 ## The Arctic
 
-Only in a throwaway game for now (`?lands`, § Hidden behaviour): walk to the tent at (5, 7), Enter, L, answer the fare, and you come down beside the same tent in The Arctic. Its animals, shop and plane come in #191 steps 5 to 7.
+Only in a throwaway game for now (`?lands`, § Hidden behaviour): walk to the tent at (5, 7), Enter, L, answer the fare, and you come down beside the same tent in The Arctic. Its animals and plane come in #191 steps 5 and 7. `?land=arctic` starts a throwaway game there, where `?tokens=` are ice dollars and `?items=` the Arctic's tools (e.g. `?land=arctic&tokens=200&items=ice-pick,arctic-axe,fishing-rod&party=otter,fox`).
 
 - **Two poles.** A band of open sea runs east to west for ever just south of where you arrive (rows 11 to 22 on the grid, at least 10 wide, darker water, deep in the middle): north of it is the Arctic (tundra, taiga, fell, bird cliffs, frozen lakes, sea ice), south of it the Antarctic (the rookery coast, the white ice sheet, sea ice). Cross it only in the boat. Ice blocks float in it; the boat stops at them as at a rock.
 - **The spawn** of every Arctic world is (5, 9), on the north shore, two steps below the tent at (5, 7), where the tundra meets the bird cliffs; the band's water is a step or two further down.
@@ -214,9 +214,10 @@ Only in a throwaway game for now (`?lands`, § Hidden behaviour): walk to the te
 | Snow | Yes. |
 | Deep snow (a bluer patch heaped with white drifts) | Yes. The Arctic's tall grass: a step onto it rolls a battle, once the land has animals (until then it is quiet). On the sea ice its drifts are deep snow too. |
 | Ice (pale cyan with white streaks of shine: frozen lakes and the sea ice) | Yes, but you **slide** (below). |
-| Fishing hole (a dark round in the ice, a rim of snow) | No. Walking or sliding into it stops you in front of it, facing it (fishing comes with the rod, #191 step 6). |
-| Ice block (a glassy blue block, on snow, on the ice or afloat) | No, not even in the boat. |
-| Rock (a dark boulder capped with snow), spruce (taiga) | No. |
+| Fishing hole (a dark round in the ice, a rim of snow) | No. Walking or sliding into it stops you in front of it, facing it; with the fishing rod, Enter fishes (below). |
+| Ice block (a glassy blue block, on snow, on the ice or afloat) | No, not even in the boat. The ice pick breaks it (below). |
+| Rock (a dark boulder capped with snow) | No, never: The Arctic sells no pickaxe. |
+| Spruce (taiga) | No. The arctic axe chops it. |
 | Water, deep water | Only in the boat, as in Nordland. |
 
 **Sliding.** A step onto the ice slides you on the way you stepped, tile after tile at a smooth even pace, feet together, until something stops you, with or without anything you own:
@@ -227,6 +228,11 @@ Only in a throwaway game for now (`?lands`, § Hidden behaviour): walk to the te
 - A slide is one move: the arrow you hold sends the next only once you are down, every tile counts as a step, and a reload puts you where the slide ended (the game is never saved in the middle of one). Friends see you slide the same tiles.
 - From a standstill on the ice, a step onto the ice slides again; a step onto snow is an ordinary step. A step into the boat from the ice ends the slide on the water.
 - **The paraglider** comes down on the ice and you stand there, no slide; never on an ice block or into a hole.
+
+**The Arctic's shop** (at any Arctic witch doctor, in **ice dollars**: the HUD and the card show a blue six-sided coin with a snowflake and say "ice dollars", in Danish "iskroner"): arctic axe 8, ice pick 13, fishing rod 21 (`?items=fishing-rod` to try it in a throwaway game), boat 55, paraglider 89. Your Nordland axe, pickaxe and harness stay in Nordland.
+- **Arctic axe**: face a spruce, Enter (Touch: Chop) chops it; snow is left. It looks different from Nordland's: a red handle, a blue blade.
+- **Ice pick**: face an ice block, Enter (Touch: Break) breaks it into shards with a glassy crack. On the snow it leaves snow and a few chips of ice; on a frozen lake or the sea ice it leaves a **new fishing hole**; out on the water, water. Breaking a block you slid into on the ice turns it into a hole you already face: fish right away. Bumping into a block without the pick says the witch doctor sells one, once a game.
+- **Fishing**: face a fishing hole with the rod, Enter (Touch: Fish). The rod swings, the line flies out, the red bobber bobs in the hole; 2 casts in 5 something bites where something lives there, the bobber goes under with a splash and a battle in the water starts, fought only by your swimmers. Otherwise the line is reeled in: "Nothing bit this time. Try again!". With nobody in the team who can swim, nothing bites at all and the line says so. Every cast counts as a step, so casting again is a fresh roll. What bites is the ice's own: under a frozen lake only the Arctic char, under the Arctic's sea ice the polar cod, the ringed seal and the Greenland shark, under the Antarctic's the krill, the icefish, the Weddell seal and the toothfish, mostly of your swimmer's size.
 
 ## Birds in the air
 

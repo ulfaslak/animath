@@ -1172,8 +1172,17 @@ explore:
   breakPromptTouch: Tryk på Knus for at knuse stenen
   chop: Fæld
   break: Knus
+  breakIcePrompt: Tryk på Enter for at knuse isblokken
+  breakIcePromptTouch: Tryk på Knus for at knuse isblokken
+  fishPrompt: Tryk på Enter for at fiske
+  fishPromptTouch: Tryk på Fisk for at fiske
+  fish: Fisk
+  caughtNothing: Der var ikke noget, der bed. Prøv igen!
+  noSwimmer: Der er ikke noget, der bider, for ingen af dine dyr kan svømme. Tag et dyr med, der kan svømme!
   needAxe: Du skal bruge en økse for at fælde træer. Heksedoktoren sælger en!
   needPickaxe: Du skal bruge en hakke for at knuse sten. Heksedoktoren sælger en!
+  needIcePick: Du skal bruge en ishakke for at knuse isblokke. Heksedoktoren sælger en!
+  needRod: Du skal bruge en fiskestang for at fiske her. Heksedoktoren sælger en!
   walkUp: Gå op
   walkDown: Gå ned
   walkLeft: Gå til venstre
@@ -1200,8 +1209,8 @@ hud:
   dragTouch: Hold på et kort og træk det
   menu: Menu
   tokens:
-    one: '{count} mønt'
-    other: '{count} mønter'
+    one: '{count} {money.word}'
+    other: '{count} {money.words}'
   solved:
     one: '{count} opgave'
     other: '{count} opgaver'
@@ -1358,8 +1367,8 @@ doctor:
     home: Slip fri
     shop: Butik
   tokens:
-    one: '{count} mønt'
-    other: '{count} mønter'
+    one: '{count} {money.word}'
+    other: '{count} {money.words}'
   pick: Vælg et dyr
   pickDetail: Løs en opgave, så får {animal.the} det godt igen!
   pickDetailMore: Løs én opgave, så får {animal.the} og {others} til det godt igen!
@@ -1375,18 +1384,18 @@ doctor:
   home:
     intro: Vilde dyr er lidt syge. Derfor er de så gnavne!
     title: Slip dyr fri
-    how: Vælg de dyr, du vil slippe fri. Jeg gør dem helt raske, og de kommer hjem til naturen. Du får mønter som tak!
+    how: Vælg de dyr, du vil slippe fri. Jeg gør dem helt raske, og de kommer hjem til naturen. Du får {money.words} som tak!
     worth:
-      one: '{animal.the} giver {count} mønt.'
-      other: '{animal.the} giver {count} mønter.'
+      one: '{animal.the} giver {count} {money.word}.'
+      other: '{animal.the} giver {count} {money.words}.'
     stays: '{animal.the} bliver hos dig.'
-    kindWorth: Alle {count} giver {amount} mønter.
+    kindWorth: Alle {count} giver {amount} {money.words}.
     kindWorthSome:
-      one: '1 af dem giver {amount} mønter.'
-      other: '{count} af dem giver {amount} mønter.'
+      one: '1 af dem giver {amount} {money.words}.'
+      other: '{count} af dem giver {amount} {money.words}.'
     picked:
-      one: '1 dyr valgt: {amount} mønter.'
-      other: '{count} dyr valgt: {amount} mønter.'
+      one: '1 dyr valgt: {amount} {money.words}.'
+      other: '{count} dyr valgt: {amount} {money.words}.'
     keepOne: Behold ét dyr, der kan gå med dig!
     noWalker: Intet dyr kan gå med dig lige nu. Gør et dyr rask først!
     send: Slip dem fri
@@ -1395,44 +1404,44 @@ doctor:
     sure: Er du sikker? De bliver glade ude i naturen!
     sureTitle: Sig farvel til {names.the}?
     sureTitleMany: Sig farvel til {many} dyr?
-    sureDetail: De kommer hjem til naturen, helt raske. Du får {amount} mønter.
+    sureDetail: De kommer hjem til naturen, helt raske. Du får {amount} {money.words}.
     keep: Nej, ikke nu
     yes: Ja, farvel!
     sureKeys: ← → flyt · Enter vælg · Esc tilbage
-    count: Tak skal du have! Kan du tælle dine mønter?
+    count: Tak skal du have! Kan du tælle dine {money.words}?
     story:
-      one: Du har {count} mønt. Du får {amount} til. Hvor mange har du så?
-      other: Du har {count} mønter. Du får {amount} til. Hvor mange har du så?
+      one: Du har {count} {money.word}. Du får {amount} til. Hvor mange har du så?
+      other: Du har {count} {money.words}. Du får {amount} til. Hvor mange har du så?
     wentHomeOne: Farvel, {animal.name}! {animal.the} har det meget bedre nu.
     wentHomeFew: Farvel, {names.name}! De har det meget bedre nu.
     wentHomeMany: Farvel til alle {many}! De har det meget bedre nu.
     tokensGiven:
-      one: Tak skal du have! Her er {amount} mønter. Nu har du {count} mønt.
-      other: Tak skal du have! Her er {amount} mønter. Nu har du {count} mønter.
+      one: Tak skal du have! Her er {amount} {money.words}. Nu har du {count} {money.word}.
+      other: Tak skal du have! Her er {amount} {money.words}. Nu har du {count} {money.words}.
 
   shop:
-    intro: Se, hvad jeg har! Du betaler med mønter.
+    intro: Se, hvad jeg har! Du betaler med {money.words}.
     introEmpty: Min butik åbner snart!
     emptyTitle: Intet til salg endnu
-    emptyDetail: Der kommer snart nye ting. Gem dine mønter!
+    emptyDetail: Der kommer snart nye ting. Gem dine {money.words}!
     pick: Vælg noget at købe
     allOwned: Du har det hele!
     price:
-      one: '{count} mønt'
-      other: '{count} mønter'
+      one: '{count} {money.word}'
+      other: '{count} {money.words}'
     owned: Du har {item.the}!
     short:
-      one: Du mangler {count} mønt.
-      other: Du mangler {count} mønter.
+      one: Du mangler {count} {money.word}.
+      other: Du mangler {count} {money.words}.
     keys: ↑ ↓ flyt · ← → faner · Enter køb · Esc farvel
     touch: Tryk på en ting for at købe den
-    count: Godt valg! Kan du tælle dine mønter?
+    count: Godt valg! Kan du tælle dine {money.words}?
     story:
-      one: Du har {count} mønt. {item.the} koster {price}. Hvor mange har du tilbage?
-      other: Du har {count} mønter. {item.the} koster {price}. Hvor mange har du tilbage?
+      one: Du har {count} {money.word}. {item.the} koster {price}. Hvor mange har du tilbage?
+      other: Du har {count} {money.words}. {item.the} koster {price}. Hvor mange har du tilbage?
     bought:
-      one: Værsgo, her er {item.your}! Du har {count} mønt tilbage.
-      other: Værsgo, her er {item.your}! Du har {count} mønter tilbage.
+      one: Værsgo, her er {item.your}! Du har {count} {money.word} tilbage.
+      other: Værsgo, her er {item.your}! Du har {count} {money.words} tilbage.
 
 items:
   axe:
@@ -1460,6 +1469,29 @@ items:
     the: seletøjet
     your: dit seletøj
     use: Rid på store dyr.
+  arctic-axe:
+    name: Polarøkse
+    the: polarøksen
+    your: din polarøkse
+    use: Fælder grantræer.
+  ice-pick:
+    name: Ishakke
+    the: ishakken
+    your: din ishakke
+    use: Knuser isblokke.
+  fishing-rod:
+    name: Fiskestang
+    the: fiskestangen
+    your: din fiskestang
+    use: Fisker i hullerne i isen.
+
+currency:
+  tokens:
+    word: mønt
+    words: mønter
+  iceDollars:
+    word: iskrone
+    words: iskroner
 
 pause:
   title: Pause

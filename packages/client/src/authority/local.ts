@@ -17,6 +17,7 @@ import {
 	bundled,
 	canTalkToDoctor,
 	careFor,
+	castLine,
 	checkName,
 	chooseStarter,
 	clearTile,
@@ -31,6 +32,7 @@ import {
 	glideOn,
 	hasItem,
 	hashInts,
+	holeAhead,
 	hashString,
 	isEncounterTile,
 	isMatchId,
@@ -101,7 +103,8 @@ export const WORLD_SEED = WORLD_ONE_SEED;
 
 /**
  * Salts keep the per-step encounter roll, the bird's roll over each tile
- * flown, the battle seed and the doctor's seed apart from each other and from
+ * flown, a cast's roll at a fishing hole, the battle seed and the doctor's
+ * seed apart from each other and from
  * world generation, which also hashes the world seed. The sky has a salt of
  * its own, so a flight's tiles never draw from a walk's stream.
  */
@@ -109,6 +112,7 @@ const ENCOUNTER_SALT = hashString('encounter');
 const SKY_SALT = hashString('sky');
 const BATTLE_SALT = hashString('battle');
 const DOCTOR_SALT = hashString('doctor');
+const FISHING_SALT = hashString('fishing');
 
 /** The closing line of a battle won, and of one run from, by where it was fought. */
 const CLOSING_WON = {
@@ -1008,14 +1012,20 @@ export class LocalAuthority implements Authority {
 
 	/**
 	 * Enter/Space: whatever the player faces. A tent: talk to the doctor. A
-	 * tree or a rock: clear it with its tool (the engine's `clearTile` checks
-	 * the whole action), or, without the tool, say which one it takes. Anywhere
+	 * fishing hole: fish (`fish`). A tree, a rock or an ice block: clear it
+	 * with its tool (the engine's `clearTile` checks the whole action), or,
+	 * without the tool, say which one it takes. Anywhere
 	 * else there is nothing to talk to, and the event says so without words:
 	 * the client says how to find a doctor, in the player's language.
 	 */
 	private interact(): void {
 		if (canTalkToDoctor(this.seed, this.pos, this.facing)) {
 			this.visitDoctor();
+			return;
+		}
+		const hole = holeAhead(this.seed, this.edits, this.pos, this.facing);
+		if (hole) {
+			this.fish(hole);
 			return;
 		}
 		const player = { pos: this.pos, facing: this.facing, items: this.items };
@@ -1032,6 +1042,39 @@ export class LocalAuthority implements Authority {
 		} else {
 			this.emit({ type: 'nothing-to-interact', playerId: this.playerId });
 		}
+	}
+
+	/**
+	 * Enter facing a fishing hole: without the fishing rod, say it takes one;
+	 * with it, cast a line (the engine's `castLine`). A cast is a step of the
+	 * count, so every cast rolls on a stream of its own, keyed like an
+	 * encounter, and a reload casts on as it would have. Something bit: its
+	 * battle starts at once, in the water, fought by the swimmers.
+	 */
+	private fish(hole: GridPos): void {
+		const owner = { items: this.items };
+		if (!hasItem(owner, 'fishing-rod')) {
+			this.emit({
+				type: 'tool-needed',
+				playerId: this.playerId,
+				kind: 'hole',
+				tool: 'fishing-rod'
+			});
+			return;
+		}
+		this.steps += 1;
+		const rng = new Rng(hashInts(this.seed, FISHING_SALT, this.steps));
+		const site = { hole, spawn: this.spawn };
+		const cast = castLine(rng, this.seed, this.edits, site, owner, this.party);
+		const speciesId = cast.outcome === 'bite' ? { speciesId: cast.wild.speciesId } : {};
+		this.emit({
+			type: 'line-cast',
+			playerId: this.playerId,
+			hole: { ...hole },
+			outcome: cast.outcome,
+			...speciesId
+		});
+		if (cast.outcome === 'bite') this.beginBattle({ ...cast.wild, id: mintId() }, 'water');
 	}
 
 	// --- doctor ------------------------------------------------------------

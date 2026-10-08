@@ -186,40 +186,51 @@ describe("The Arctic's world", () => {
 		}
 	});
 
-	it('puts a tent on every spot of the lattice, a clearing of snow round it, and no open water near', () => {
+	it('puts a tent on every spot of the lattice, a clearing of snow round it, and no open water near', async () => {
+		// 6.7 s alone at a load average of 10, over 30 s in the full suite at 12–24 with an
+		// \`expect\` per tile (#202): the findings are collected, the loop turns between worlds,
+		// and it is bounded at 2 minutes.
+		const bad: string[] = [];
 		let tents = 0;
 		for (const world of WORLDS) {
+			await turn();
 			const seed = arctic(world);
 			for (const spot of [
 				...spots(6),
 				{ x: 5 + 23 * 40, y: 7 - 19 * 30 },
 				{ x: 5 - 23 * 50, y: 7 + 19 * 44 }
 			]) {
-				expect(tileAtWorld(seed, spot.x, spot.y).kind, `${world}: ${spot.x},${spot.y}`).toBe(
-					'tent'
-				);
+				if (tileAtWorld(seed, spot.x, spot.y).kind !== 'tent')
+					bad.push(`${world}: no tent at ${spot.x},${spot.y}`);
 				tents++;
 				for (let dy = -LEAD_FREE; dy <= LEAD_FREE; dy++) {
 					for (let dx = -LEAD_FREE; dx <= LEAD_FREE; dx++) {
 						const tile = tileAtWorld(seed, spot.x + dx, spot.y + dy);
 						if (dx === 0 && dy === 0) continue;
-						if (Math.max(Math.abs(dx), Math.abs(dy)) <= TENT_CLEARING)
-							expect(tile.kind).toBe('snow');
+						const where = `${world}: ${spot.x + dx},${spot.y + dy}`;
+						if (Math.max(Math.abs(dx), Math.abs(dy)) <= TENT_CLEARING) {
+							if (tile.kind !== 'snow') bad.push(`${where}: ${tile.kind} in the clearing`);
+						}
 						// The band's shore may be near; a lead in the sea ice never is.
 						else if (tile.biome !== 'arctic-ocean' && tile.biome !== 'southern-ocean') {
-							expect(isWater(tile.kind), `${world}: ${spot.x + dx},${spot.y + dy}`).toBe(false);
+							if (isWater(tile.kind)) bad.push(`${where}: open water near a tent`);
 						}
 					}
 				}
 			}
 			// And nowhere off the lattice.
 			for (const p of window(-50, -50, 100, 100)) {
-				expect(tileAtWorld(seed, p.x, p.y).kind === 'tent').toBe(onTentLattice(p.x, p.y));
-				expect(tentSpotDistance(p.x, p.y) === 0).toBe(onTentLattice(p.x, p.y));
+				const on = onTentLattice(p.x, p.y);
+				if (
+					(tileAtWorld(seed, p.x, p.y).kind === 'tent') !== on ||
+					(tentSpotDistance(p.x, p.y) === 0) !== on
+				)
+					bad.push(`${world}: ${p.x},${p.y} off the lattice`);
 			}
 		}
+		expect(bad.slice(0, 20)).toEqual([]);
 		expect(tents).toBeGreaterThan(800);
-	});
+	}, 120_000);
 
 	it('lets a kid walk (and slide) away from every tent, and back to it: no tent stands on an island', () => {
 		// Every place a kid can come to a stop from beside the tent, the way they move (`moveFrom`,
@@ -477,12 +488,12 @@ describe("The Arctic's tiles", () => {
 	});
 
 	it('the glider comes down on snow, deep snow and the ice, never on an ice block or into a fishing hole', () => {
-		for (const items of [[], ['boat', 'axe', 'pickaxe']]) {
-			expect(isLandable('snow', { items })).toBe(true);
-			expect(isLandable('deepsnow', { items })).toBe(true);
-			expect(isLandable('ice', { items })).toBe(true);
-			expect(isLandable('iceblock', { items })).toBe(false);
-			expect(isLandable('hole', { items })).toBe(false);
+		for (const items of [[], ['boat', 'arctic-axe', 'pickaxe', 'ice-pick']]) {
+			expect(isLandable(arctic(1), 'snow', { items })).toBe(true);
+			expect(isLandable(arctic(1), 'deepsnow', { items })).toBe(true);
+			expect(isLandable(arctic(1), 'ice', { items })).toBe(true);
+			expect(isLandable(arctic(1), 'iceblock', { items })).toBe(false);
+			expect(isLandable(arctic(1), 'hole', { items })).toBe(false);
 		}
 	});
 
@@ -495,8 +506,24 @@ describe("The Arctic's tiles", () => {
 		});
 		expect(clearedTile({ kind: 'rock', biome: 'fell', height: 2 }).kind).toBe('snow');
 		expect(clearedTile({ kind: 'tree', biome: 'forest', height: 1 }).kind).toBe('grass');
+		// An ice block leaves what it stood on: snow, a fishing hole in the ice (never plain ice,
+		// where a slide would stop), or water.
+		expect(clearedTile({ kind: 'iceblock', biome: 'fell', height: 2, under: 'snow' })).toEqual({
+			kind: 'snow',
+			biome: 'fell',
+			height: 2,
+			cleared: 'iceblock',
+			under: 'snow'
+		});
+		expect(
+			clearedTile({ kind: 'iceblock', biome: 'arctic-ice', height: 0, under: 'ice' }).kind
+		).toBe('hole');
+		expect(
+			clearedTile({ kind: 'iceblock', biome: 'arctic-ocean', height: 0, under: 'water' }).kind
+		).toBe('water');
 		// Nothing else of The Arctic's is ever cleared.
 		for (const kind of KINDS) {
+			if (kind === 'iceblock') continue;
 			const tile = { kind, biome: 'tundra' as const, height: 0 };
 			expect(clearedTile(tile)).toBe(tile);
 		}

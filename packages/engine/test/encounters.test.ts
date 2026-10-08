@@ -27,6 +27,7 @@ import { generateChunk, tileAtWorld } from '../src/world/generate.js';
 import { spawnPoint } from '../src/world/spawn.js';
 import { HABITAT_BOOST, surroundings, type Surroundings } from '../src/world/habitat.js';
 import { isEncounterTile, type GridPos, type Tile, type TileKind } from '../src/world/types.js';
+import { holeTable } from '../src/world/fishing.js';
 import { turn } from './turn.js';
 
 /**
@@ -2088,10 +2089,7 @@ describe('the fishing holes (#192 § Fishing holes)', () => {
 	// What a line can hook through a hole is the water's table of the ice it is in, its
 	// animals of the water alone (a polar bear or a penguin is met on the ice, not hooked
 	// through it): #192's table, each animal on the right pole.
-	const hookable = (biome: Biome) =>
-		encounterTable(biome, WILD_RADIUS, 3, 'water')
-			.filter((e) => !e.species.realms.includes('land'))
-			.map((e) => e.species.id);
+	const hookable = (biome: Biome) => holeTable(biome, WILD_RADIUS, 3).map((e) => e.species.id);
 
 	it("lists #192's animals under each ice, and the open seas hold every one of them too", () => {
 		expect(hookable('frozen-lake')).toEqual(['arctic-char']);
