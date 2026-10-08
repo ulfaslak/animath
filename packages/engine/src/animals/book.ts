@@ -1,5 +1,7 @@
 import type { BattleEvent, BattleState } from '../battle/types.js';
 import type { DoctorEvent } from '../doctor/types.js';
+import type { LandId } from '../lands/ids.js';
+import { getLand } from '../lands/lands.js';
 import { ANIMALS } from './catalog.js';
 import type { AnimalInstance, AnimalSpec } from './types.js';
 
@@ -48,11 +50,23 @@ export interface AnimalBook {
 export const EMPTY_BOOK: AnimalBook = { seen: [], caught: [], freed: [] };
 
 /**
- * Every species of the catalog, in the book's order: by tier, from small to
- * big, and within a tier in catalog order (the sort is stable). A species the
- * catalog grows is in the book at once.
+ * The book's page for land `land`, a tab of its own (#191): every species of
+ * the land, in the book's order: by tier, from small to big, and within a
+ * tier in catalog order (the sort is stable), so the land's starters lead. A
+ * species the land grows is in its page at once. One book for every land:
+ * it is the kid's, wherever they are, and a page counts its own land's kinds.
  */
-export const BOOK_ORDER: readonly AnimalSpec[] = [...ANIMALS].sort((a, b) => a.tier - b.tier);
+export function bookOrder(land: LandId): readonly AnimalSpec[] {
+	let page = PAGES.get(land);
+	if (!page) {
+		const ids = new Set(getLand(land).species);
+		page = ANIMALS.filter((a) => ids.has(a.id)).sort((a, b) => a.tier - b.tier);
+		PAGES.set(land, page);
+	}
+	return page;
+}
+
+const PAGES = new Map<LandId, readonly AnimalSpec[]>();
 
 const SPECIES: ReadonlySet<string> = new Set(ANIMALS.map((a) => a.id));
 

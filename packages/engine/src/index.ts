@@ -63,7 +63,7 @@ export type {
 export { ATTACK_LEVELS, REALMS, TERRAINS } from './animals/types.js';
 export { ANIMALS, canFightIn, canRide, getAnimal, skiesOf } from './animals/catalog.js';
 export {
-	BOOK_ORDER,
+	bookOrder,
 	EMPTY_BOOK,
 	bookOf,
 	catchSpecies,
