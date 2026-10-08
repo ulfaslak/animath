@@ -69,17 +69,24 @@ export const HABITAT_TILES = AROUND.length;
  */
 function coverOf(kind: TileKind): keyof Surroundings | null {
 	switch (kind) {
+		// The Arctic's ice over water, and its fishing holes, count as water, and its ice
+		// blocks as rocks (#192 § Biomes), so the four terrains are unchanged.
 		case 'water':
 		case 'deepwater':
+		case 'ice':
+		case 'hole':
 			return 'water';
 		case 'tree':
 			return 'trees';
 		case 'rock':
+		case 'iceblock':
 			return 'rocks';
 		case 'grass':
 		case 'tallgrass':
 		case 'sand':
 		case 'tent':
+		case 'snow':
+		case 'deepsnow':
 			return null;
 	}
 }

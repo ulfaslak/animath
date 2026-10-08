@@ -1,4 +1,4 @@
-import { isWater, tileAtWorld, type Direction, type GridPos } from '@mathgame/engine';
+import { isIce, isWater, tileAtWorld, type Direction, type GridPos } from '@mathgame/engine';
 import { BOAT_STAND } from './boat';
 import { groundTop } from './tiles';
 
@@ -10,6 +10,23 @@ import { groundTop } from './tiles';
 
 /** Seconds a trainer takes for one step, tile to tile (Game Boy pace is ~0.25). */
 export const STEP_SECONDS = 0.18;
+/**
+ * Seconds a trainer takes to slide over one tile of ice (The Arctic's frozen
+ * lakes and sea ice): quicker than a step, so a slide reads as one, and no
+ * quicker than presence tells the others of a tile (`MIN_GAP_MS`, 0.1 s).
+ */
+export const SLIDE_SECONDS = 0.11;
+
+/**
+ * Whether going from `from` to `to` is sliding: onto the ice, over it or off
+ * it at the end of a slide. The trainer glides then, feet together, with no
+ * hop and at an even speed (`SLIDE_SECONDS` a tile).
+ */
+export function slidesBetween(seed: number, from: GridPos, to: GridPos): boolean {
+	if (from.x === to.x && from.y === to.y) return false;
+	return isIce(tileAtWorld(seed, from.x, from.y).kind) || isIce(tileAtWorld(seed, to.x, to.y).kind);
+}
+
 /** How high the trainer hops on an ordinary step, and into the boat or out of it. */
 const HOP = 0.15;
 const BOARD_HOP = 0.24;
@@ -34,7 +51,9 @@ export function trainerStep(
 	calm: boolean,
 	ride = 0
 ): { x: number; y: number; z: number; afloat: number } {
-	const t = progress * progress * (3 - 2 * progress); // smoothstep
+	// On the ice they glide at an even speed, tile after tile; a step eases in and out.
+	const slide = slidesBetween(seed, from, to);
+	const t = slide ? progress : progress * progress * (3 - 2 * progress); // smoothstep
 	const x = from.x + (to.x - from.x) * t;
 	const z = from.y + (to.y - from.y) * t;
 	const groundAt = (p: GridPos) => {
@@ -49,7 +68,7 @@ export function trainerStep(
 	const fromWater = boatOwned && isWater(tileAtWorld(seed, from.x, from.y).kind);
 	const toWater = boatOwned && isWater(tileAtWorld(seed, to.x, to.y).kind);
 	const afloat = fromWater === toWater ? (toWater ? 1 : 0) : toWater ? progress : 1 - progress;
-	const hop = fromWater && toWater ? 0 : fromWater !== toWater ? BOARD_HOP : HOP;
+	const hop = slide || (fromWater && toWater) ? 0 : fromWater !== toWater ? BOARD_HOP : HOP;
 	const lift = Math.sin(progress * Math.PI) * (calm ? CALM_HOP : hop) * (1 - ride);
 	return { x, y: y + lift, z, afloat };
 }

@@ -29,7 +29,14 @@ import { SWING_STRIKE } from '../render/clearing';
 import type { Follower } from '../render/follower';
 import type { AirPose, GameRenderer } from '../render/renderer';
 import { groundTop } from '../render/tiles';
-import { DESCEND_SECONDS, GLIDE_SECONDS, RISE_SECONDS, STEP_SECONDS } from '../render/trainer';
+import {
+	DESCEND_SECONDS,
+	GLIDE_SECONDS,
+	RISE_SECONDS,
+	SLIDE_SECONDS,
+	STEP_SECONDS,
+	slidesBetween
+} from '../render/trainer';
 import { doctor } from '../state/doctor.svelte';
 import { game } from '../state/game.svelte';
 import { hud } from '../state/hud.svelte';
@@ -70,7 +77,10 @@ interface FlightOnScreen {
 
 /**
  * Explore mode: turns held keys into `move` intents, one per tile, and
- * animates the player mesh between tiles as `player-moved` events arrive.
+ * animates the player mesh between tiles as `player-moved` events arrive. On
+ * the ice a move is a whole slide (`tiles`), slid over a tile at a time at
+ * `SLIDE_SECONDS` each, feet together; the next move waits for its end, and
+ * so does a battle that starts on the tile it ends on (`landing`).
  * Enter is sent as `interact` (after the keyboard's quiet moment); what came
  * of it is the authority's to say. When it cleared a tile (`tile-cleared`),
  * the world on screen takes the change and the chop plays: the trainer's
@@ -120,6 +130,12 @@ export class ExploreController {
 	private progress = 1; // 0..1 along from → pos
 	/** How long the step under way takes: longer onto the water or off it, while the boat swings. */
 	private stepSeconds = STEP_SECONDS;
+	/**
+	 * The tiles of a slide on the ice still to slide over on screen, in order
+	 * (`player-moved`'s `tiles`): the authority already stands at the end of
+	 * it. Nothing else is taken until they are down to the last.
+	 */
+	private ahead: GridPos[] = [];
 	private facing: Direction = 'down';
 	private seed = 0;
 	private playerId = '';
@@ -253,21 +269,23 @@ export class ExploreController {
 				this.facing = event.dir;
 				break;
 			}
-			case 'player-moved':
+			case 'player-moved': {
 				if (event.playerId !== this.playerId) break;
 				// Walking on puts an open card away.
 				team.close();
-				this.from = this.pos;
-				this.pos = event.pos;
-				this.progress = 0;
 				this.facing = event.dir;
-				// Into the boat or out of it: the boat takes its time to swing.
-				this.stepSeconds =
-					this.onWater(this.from) !== this.onWater(this.pos) && !motion.reduced
-						? BOAT_SWING_SECONDS
-						: STEP_SECONDS;
-				this.follower?.follow(this.from, this.pos);
+				// A slide on the ice: every tile of it in a straight line, the last `pos`, slid
+				// over one after another.
+				const [dx, dy] = DELTA[event.dir];
+				const tiles = event.tiles ?? 1;
+				this.ahead = [];
+				for (let k = 1; k < tiles; k++) {
+					this.ahead.push({ x: event.pos.x - dx * (tiles - k), y: event.pos.y - dy * (tiles - k) });
+				}
+				this.ahead.push(event.pos);
+				this.nextTile();
 				break;
+			}
 			case 'player-blocked':
 				if (event.playerId !== this.playerId) break;
 				// Turned where they stand: in the boat, a rider turns with it.
@@ -306,7 +324,33 @@ export class ExploreController {
 	 * in the air waits for it before its circle closes.
 	 */
 	get landing(): boolean {
-		return this.flight !== null || this.renderer.chaser.arriving;
+		return this.flight !== null || this.renderer.chaser.arriving || this.sliding;
+	}
+
+	/**
+	 * On to the next tile of the move under way (`ahead`): a step, or a tile of
+	 * a slide. Into the boat or out of it, the boat takes its time to swing; on
+	 * the ice the trainer glides at the slide's even pace.
+	 */
+	private nextTile(): void {
+		const to = this.ahead.shift();
+		if (!to) return;
+		this.from = this.pos;
+		this.pos = to;
+		this.progress = 0;
+		this.stepSeconds = slidesBetween(this.seed, this.from, this.pos)
+			? SLIDE_SECONDS
+			: this.onWater(this.from) !== this.onWater(this.pos) && !motion.reduced
+				? BOAT_SWING_SECONDS
+				: STEP_SECONDS;
+		this.follower?.follow(this.from, this.pos);
+	}
+
+	/** Whether a slide on the ice is still under way on screen: a battle at its end waits for it. */
+	get sliding(): boolean {
+		return (
+			this.ahead.length > 0 || (this.progress < 1 && slidesBetween(this.seed, this.from, this.pos))
+		);
 	}
 
 	/** A tile cleared, on screen: the world takes the change, and the chop or the crack plays. */
@@ -325,6 +369,7 @@ export class ExploreController {
 	 */
 	private grounded(): void {
 		this.flight = null;
+		this.ahead = [];
 		this.hop = null;
 		this.ringKey = '';
 		this.renderer.setLandingSpot(null);
@@ -369,7 +414,20 @@ export class ExploreController {
 			this.teamPick(pick);
 		}
 		if (this.progress < 1) {
-			this.progress = Math.min(1, this.progress + dt / this.stepSeconds);
+			const progress = this.progress + dt / this.stepSeconds;
+			this.progress = Math.min(1, progress);
+			// Over a tile of a slide: the next one starts on this frame, with the time left
+			// over, so a slide never stalls a frame a tile.
+			if (progress >= 1 && this.ahead.length > 0) {
+				const over = (progress - 1) * this.stepSeconds;
+				this.nextTile();
+				this.progress = Math.min(1, over / this.stepSeconds);
+			}
+			return;
+		}
+		// A slide's next tile, if one waits (the last frame ended exactly on a tile).
+		if (this.ahead.length > 0) {
+			this.nextTile();
 			return;
 		}
 		// Space held long enough, the glider owned: up, the way the trainer faces.

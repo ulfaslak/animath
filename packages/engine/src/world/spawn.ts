@@ -1,6 +1,7 @@
+import { landOfSeed } from '../lands/ids.js';
 import { TENT_LATTICE, onTentLattice, tileAtWorld, travelKindAt } from './generate.js';
 import { nearestTent } from './tents.js';
-import { isWalkable, step, type Direction, type GridPos } from './types.js';
+import { isPlainGround, isWalkable, step, type Direction, type GridPos } from './types.js';
 
 /**
  * Where a world begins ([[PRODUCT]] §4 "World"): the spawn, where a new game
@@ -8,12 +9,24 @@ import { isWalkable, step, type Direction, type GridPos } from './types.js';
  * it: it is ground, the player is not boxed in there, and a doctor is a
  * short walk away on foot, without a tool or the boat.
  *
- * The spawn is the grass tile nearest the origin that is all of that, nearest
- * by square rings round (0, 0), then row by row within a ring. In World 1 that
- * is (−2, 6), the nearest grass tile of all, where every game began before
- * worlds had numbers; a world whose nearest grass tile is boxed in or far
- * from a doctor starts a little further out, beside one.
+ * The spawn is the plain ground (grass; The Arctic's snow: `isPlainGround`)
+ * nearest the land's origin that is all of that, nearest by square rings
+ * round it, then row by row within a ring. Nordland's origin is (0, 0): in
+ * World 1 its spawn is (−2, 6), the nearest grass tile of all, where every
+ * game began before worlds had numbers; a world whose nearest grass tile is
+ * boxed in or far from a doctor starts a little further out, beside one. The
+ * Arctic's origin is `ARCTIC_ORIGIN`, on the north shore of the open-sea band
+ * (`arctic.ts`) in the clearing of the tent at (5, 7), where the tundra meets
+ * the bird cliffs.
  */
+
+/** Where The Arctic's spawn is looked for from: the clearing's edge south of the tent at (5, 7), on the shore. */
+export const ARCTIC_ORIGIN: GridPos = { x: 5, y: 9 };
+
+/** Where the spawn of the world of `seed` is looked for from: its land's origin. */
+function originOf(seed: number): GridPos {
+	return landOfSeed(seed) === 'arctic' ? ARCTIC_ORIGIN : { x: 0, y: 0 };
+}
 
 /** A doctor's tent is at most this many steps from the spawn, on foot. */
 export const SPAWN_DOCTOR_STEPS = 12;
@@ -25,8 +38,8 @@ const SEARCH_RADIUS = 256;
 /** Spawns worked out lately, by seed. A cache, not state: a spawn is a pure function of the seed. */
 const CACHE_LIMIT = 64;
 const cache = new Map<number, GridPos>();
-/** The tiles of the tents' lattice within `SEARCH_RADIUS`, nearest the origin first, once worked out. */
-let lattice: GridPos[] | null = null;
+/** The tiles of the tents' lattice within `SEARCH_RADIUS` of each origin, nearest it first, once worked out. */
+const lattices = new Map<string, GridPos[]>();
 
 const DIRECTIONS: readonly Direction[] = ['up', 'right', 'left', 'down'];
 
@@ -47,7 +60,8 @@ export function spawnPoint(seed: number): GridPos {
 }
 
 function findSpawn(seed: number): GridPos {
-	const nearest = nearestGrass(seed);
+	const o = originOf(seed);
+	const nearest = nearestGrass(seed, o);
 	// The nearest grass tile of all, when it will do: World 1's (−2, 6).
 	if (nearest && suits(seed, nearest)) return nearest;
 	// Otherwise the grass tiles a few steps from each tent, nearest tents first, until no
@@ -55,12 +69,14 @@ function findSpawn(seed: number): GridPos {
 	const candidates = new Map<string, GridPos>();
 	const room = new Map<string, boolean>();
 	let best: GridPos | null = null;
-	for (const tent of latticeByRing()) {
+	const ring = (pos: GridPos) => ringAround(o, pos);
+	const order = (a: GridPos, b: GridPos) => ring(a) - ring(b) || a.y - b.y || a.x - b.x;
+	for (const tent of latticeByRing(o)) {
 		if (best && ring(best) < ring(tent) - SPAWN_DOCTOR_STEPS - 1) break;
 		if (tileAtWorld(seed, tent.x, tent.y).kind !== 'tent') continue;
 		for (const pos of grassNear(seed, tent)) candidates.set(`${pos.x},${pos.y}`, pos);
 		best = null;
-		for (const pos of [...candidates.values()].sort(ringOrder)) {
+		for (const pos of [...candidates.values()].sort(order)) {
 			const key = `${pos.x},${pos.y}`;
 			let roomy = room.get(key);
 			if (roomy === undefined) room.set(key, (roomy = hasRoom(seed, pos)));
@@ -70,16 +86,17 @@ function findSpawn(seed: number): GridPos {
 			}
 		}
 	}
-	return best ?? nearest ?? { x: 0, y: 0 };
+	return best ?? nearest ?? { x: o.x, y: o.y };
 }
 
-/** The first grass tile in square rings round the origin, within 64 tiles: the spawn rule before numbered worlds. */
-function nearestGrass(seed: number): GridPos | null {
+/** The first plain ground in square rings round the origin `o`, within 64 tiles: the spawn rule before numbered worlds. */
+function nearestGrass(seed: number, o: GridPos): GridPos | null {
 	for (let r = 0; r < 64; r++) {
 		for (let dy = -r; dy <= r; dy++) {
 			for (let dx = -r; dx <= r; dx++) {
 				if (Math.max(Math.abs(dx), Math.abs(dy)) !== r) continue;
-				if (tileAtWorld(seed, dx, dy).kind === 'grass') return { x: dx, y: dy };
+				const [x, y] = [o.x + dx, o.y + dy];
+				if (isPlainGround(tileAtWorld(seed, x, y).kind)) return { x, y };
 			}
 		}
 	}
@@ -107,7 +124,8 @@ function grassNear(seed: number, tent: GridPos): GridPos[] {
 	}
 	const grass: GridPos[] = [];
 	for (let steps = 0; edge.length > 0; steps++) {
-		for (const pos of edge) if (tileAtWorld(seed, pos.x, pos.y).kind === 'grass') grass.push(pos);
+		for (const pos of edge)
+			if (isPlainGround(tileAtWorld(seed, pos.x, pos.y).kind)) grass.push(pos);
 		if (steps === SPAWN_DOCTOR_STEPS) break;
 		const next: GridPos[] = [];
 		for (const pos of edge) {
@@ -147,27 +165,26 @@ function hasRoom(seed: number, pos: GridPos): boolean {
 	return false;
 }
 
-/** The square ring round the origin a tile is on. */
-function ring(pos: GridPos): number {
-	return Math.max(Math.abs(pos.x), Math.abs(pos.y));
+/** The square ring round the origin `o` a tile is on. */
+function ringAround(o: GridPos, pos: GridPos): number {
+	return Math.max(Math.abs(pos.x - o.x), Math.abs(pos.y - o.y));
 }
 
-/** Nearest the origin first: by ring, then row by row (`y`, then `x`), as `nearestGrass` scans. */
-function ringOrder(a: GridPos, b: GridPos): number {
-	return ring(a) - ring(b) || a.y - b.y || a.x - b.x;
-}
-
-/** Every tile of the tents' lattice within `SEARCH_RADIUS`, nearest the origin first. */
-function latticeByRing(): GridPos[] {
-	if (lattice) return lattice;
+/** Every tile of the tents' lattice within `SEARCH_RADIUS` of the origin `o`, nearest it first. */
+function latticeByRing(o: GridPos): GridPos[] {
+	const key = `${o.x},${o.y}`;
+	const known = lattices.get(key);
+	if (known) return known;
 	const out: GridPos[] = [];
-	for (let y = -SEARCH_RADIUS; y <= SEARCH_RADIUS; y++) {
+	for (let y = o.y - SEARCH_RADIUS; y <= o.y + SEARCH_RADIUS; y++) {
 		// Every row of the lattice, then every tile of the row on it.
 		if (!onTentLattice(TENT_LATTICE.atX, y)) continue;
-		for (let x = -SEARCH_RADIUS; x <= SEARCH_RADIUS; x++) {
+		for (let x = o.x - SEARCH_RADIUS; x <= o.x + SEARCH_RADIUS; x++) {
 			if (onTentLattice(x, y)) out.push({ x, y });
 		}
 	}
-	lattice = out.sort(ringOrder);
-	return lattice;
+	const ring = (pos: GridPos) => ringAround(o, pos);
+	out.sort((a, b) => ring(a) - ring(b) || a.y - b.y || a.x - b.x);
+	lattices.set(key, out);
+	return out;
 }

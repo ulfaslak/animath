@@ -6,6 +6,14 @@ Technical items we've intentionally postponed: tech debt, hardening shortcuts, k
 
 ---
 
+### The searches on foot read the ice as ground a kid can stop on
+
+**What**: the searches that ask where a kid can get to on foot (`nearestTent` and the arrow to the witch doctor, `doctorComes` behind the knock-out rule, the spawn's room, `arrivalSpot`'s escape) walk tile by tile over `isPassable` ground, The Arctic's ice included, as if a kid could stop on any tile of it. On the ice a step slides on (`moveFrom`), so a way they find can cross ice the kid can't steer across: an arrow may point over a lake the kid slides past the far end of, and in a pocket only reachable that way a tired team could be told a tent is in reach when the slides never lead there.
+
+**Why deferred**: The Arctic has no animals yet (#191 step 5), so no battle is lost there and nobody needs the way to a tent; every tent stands in a clearing of snow, the ice's runs are short (a stopper at least every 23 tiles), and a flood fill over `moveFrom` reaches 300 places from beside every tent tested. A slide-aware search costs a second search beside the cached one.
+
+**Trigger**: The Arctic's first animals (#191 step 5): before a battle can be lost on the ice, make `nearestTent`'s and `doctorComes`' walk read slides (`moveFrom` from each place a kid can stop), or show with a sweep that every place they find is reached by slides too.
+
 ### The witch doctor's card is not fitted to puzzles with pictures
 
 **What**: `PuzzlePanel` draws a picture kind's picture and question (#191), and the battle gives it the whole panel, but the witch doctor's card, whose heal asks a kind its species' attacks ask, has not been laid out for one: `scripts/doctor-fit.mjs` fills the card with sums only, and nobody has looked at a picture there.

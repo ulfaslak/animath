@@ -6,6 +6,7 @@ import {
 	onTentLattice,
 	isWalkable,
 	isWater,
+	landSeed,
 	spawnPoint,
 	tileAtWorld,
 	type Biome,
@@ -197,13 +198,19 @@ describe('the chunks around the player', () => {
 	it("draw only shared shapes, but for the glow of each tent's campfire, built for the ground round it", () => {
 		const parent = new THREE.Group();
 		const ring = new ChunkRing(parent);
-		ring.reset(WORLD_SEED);
-		// Meadow, river and tents by the start, forest and rocks further out.
+		// Meadow, river and tents by the start, forest and rocks further out; then The Arctic's
+		// ice blocks, ice and spruces by its spawn (#191).
 		const own = new Set<THREE.BufferGeometry>();
 		const shared = new Set<THREE.BufferGeometry>();
 		const glows = new Set<THREE.BufferGeometry>();
 		const tents = new Set<object>();
-		for (const p of [start, { x: -80, y: -2 }]) {
+		const arctic = landSeed('arctic', 1);
+		for (const [seed, p] of [
+			[WORLD_SEED, start],
+			[WORLD_SEED, { x: -80, y: -2 }],
+			[arctic, spawnPoint(arctic)]
+		] as const) {
+			ring.reset(seed);
 			ring.update(p);
 			ring.finish();
 			ring.forEachDoctor((doctor) => tents.add(doctor));

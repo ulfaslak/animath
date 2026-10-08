@@ -1,3 +1,4 @@
+import { BIOME_POLE } from '../animals/types.js';
 import { generateChunk, tileAtWorld } from './generate.js';
 import { CHUNK_SIZE, type Chunk, type ClearableKind, type GridPos, type Tile } from './types.js';
 
@@ -8,8 +9,8 @@ import { CHUNK_SIZE, type Chunk, type ClearableKind, type GridPos, type Tile } f
  * its seed: `editedTileAt(seed, edits, x, y)` is the world as this player
  * has left it.
  *
- * An edit only ever turns a tree or a rock into plain ground (`grass`, with
- * `cleared` saying what stood there). A position whose seeded tile is
+ * An edit only ever turns a tree or a rock into plain ground (`grass`, The
+ * Arctic's `snow`, with `cleared` saying what stood there). A position whose seeded tile is
  * anything else stays exactly as it is whatever the overlay holds, so no
  * edit can make water, a tent or tall grass walkable, or change it at all.
  * Who comes out of the grass never reads the overlay: encounter tables and
@@ -255,14 +256,16 @@ export class WorldEdits {
 }
 
 /**
- * A tile as a cleared tile is: plain ground where a tree or a rock stood, the
- * same biome and height, and `cleared` saying what stood there. Any other tile
+ * A tile as a cleared tile is: plain ground where a tree or a rock stood (snow
+ * in a biome of The Arctic's, grass in Nordland's), the same biome and
+ * height, and `cleared` saying what stood there. Any other tile
  * comes back as it is: an edit never touches it.
  */
 export function clearedTile(tile: Tile): Tile {
 	if (tile.kind !== 'tree' && tile.kind !== 'rock') return tile;
 	const was: ClearableKind = tile.kind;
-	return { kind: 'grass', biome: tile.biome, height: tile.height, cleared: was };
+	const kind = BIOME_POLE[tile.biome] === null ? 'grass' : 'snow';
+	return { kind, biome: tile.biome, height: tile.height, cleared: was };
 }
 
 /** The tile at (x, y) in the world of `seed`, as `edits` leave it. */

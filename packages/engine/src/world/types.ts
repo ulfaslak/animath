@@ -3,12 +3,42 @@ import type { Biome, Realm } from '../animals/types.js';
 export const CHUNK_SIZE = 16;
 
 /**
+ * Deep water is water whose every tile within this many tiles, diagonals
+ * included, is water too: the 5×5 square round it. So the shallows along
+ * every shore are at least two tiles wide, a river narrower than five tiles
+ * has no deep water, and deep water is at least three steps from any land.
+ */
+export const DEEP_WATER_MARGIN = 2;
+
+/**
  * What a tile is. `water` is the shallows along every shore; `deepwater` is
  * water with water all round it, `DEEP_WATER_MARGIN` tiles out (the middle
  * of a lake, the sea biome). Both are the player's only with a boat.
+ *
+ * The Arctic's own (#191; `world/arctic.ts`): `snow`, its plain ground;
+ * `deepsnow`, its tall grass, where animals hide; `ice`, a frozen lake or
+ * the sea ice over the water, where a step slides on (`world/slide.ts`);
+ * `iceblock`, a block of ice that stops a walk, a boat and a slide alike,
+ * standing on snow, on the ice or out in the water (`Tile.under`); and
+ * `hole`, a fishing hole in the ice, which a kid faces and never steps into.
  */
 export type TileKind =
-	'grass' | 'tallgrass' | 'sand' | 'water' | 'deepwater' | 'rock' | 'tree' | 'tent';
+	| 'grass'
+	| 'tallgrass'
+	| 'sand'
+	| 'water'
+	| 'deepwater'
+	| 'rock'
+	| 'tree'
+	| 'tent'
+	| 'snow'
+	| 'deepsnow'
+	| 'ice'
+	| 'iceblock'
+	| 'hole';
+
+/** What an ice block stands on: snow on land, the ice of a lake or the sea, or open water. */
+export type IceBlockGround = 'snow' | 'ice' | 'water';
 
 /** The tiles a tool can clear: a tree (the axe) and a rock (the pickaxe). See `world/edits.ts`. */
 export type ClearableKind = 'tree' | 'rock';
@@ -25,6 +55,12 @@ export interface Tile {
 	 * every tile of the seeded world itself.
 	 */
 	cleared?: ClearableKind;
+	/**
+	 * What an ice block (`iceblock`) stands on, so the renderer draws it there
+	 * and the ice pick (#191 step 6) knows what it leaves: snow, a fishing hole
+	 * in the ice, or water. Absent on every other tile.
+	 */
+	under?: IceBlockGround;
 }
 
 export interface Chunk {
@@ -40,7 +76,28 @@ export interface Chunk {
  * never inside it. Water takes a boat (`isPassable`).
  */
 export function isWalkable(kind: TileKind): boolean {
-	return kind === 'grass' || kind === 'tallgrass' || kind === 'sand';
+	return (
+		kind === 'grass' ||
+		kind === 'tallgrass' ||
+		kind === 'sand' ||
+		kind === 'snow' ||
+		kind === 'deepsnow' ||
+		kind === 'ice'
+	);
+}
+
+/**
+ * A land's plain ground, nothing growing on it: Nordland's grass and The
+ * Arctic's snow. What a spawn stands on, and what a tool leaves where it
+ * cleared a tile (`clearedTile`).
+ */
+export function isPlainGround(kind: TileKind): boolean {
+	return kind === 'grass' || kind === 'snow';
+}
+
+/** Ice a step slides on: a frozen lake or the sea ice (`world/slide.ts`). */
+export function isIce(kind: TileKind): boolean {
+	return kind === 'ice';
 }
 
 /** Water, shallow or deep. */
@@ -78,7 +135,8 @@ export function isPassable(kind: TileKind, gear: Gear = NO_GEAR): boolean {
  * shallows along a shore are nobody's: crossing a river starts no battle.
  */
 export function encounterRealm(kind: TileKind): Realm | null {
-	if (kind === 'tallgrass') return 'land';
+	// The Arctic's deep snow is its tall grass; the ice, sliding by, starts nothing.
+	if (kind === 'tallgrass' || kind === 'deepsnow') return 'land';
 	return kind === 'deepwater' ? 'water' : null;
 }
 
