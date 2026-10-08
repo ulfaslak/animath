@@ -176,9 +176,10 @@ export function nearestTent(
 		);
 	}
 
-	// Every tile the search looks at is within maxSteps + 1 of `from`, so offsets
-	// pack into one number without collisions.
-	const reach = maxSteps + 1;
+	// Every tile the search looks at is within maxSteps + MAX_SLIDE + 1 of `from` (a slide
+	// that starts at the search's edge reads a whole run of ice past it), so offsets pack into
+	// one number without collisions.
+	const reach = maxSteps + MAX_SLIDE + 1;
 	const span = 2 * reach + 1;
 	const key = (p: GridPos) => (p.x - from.x + reach) * span + (p.y - from.y + reach);
 	const kinds = new Map<number, TileKind>();

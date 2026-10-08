@@ -31,7 +31,15 @@ import { SIT_DROP, poseRider } from './mount';
 import { Poofs } from './poof';
 import { PortraitStudio } from './portraits';
 import { buildTileProps, disposeChunkGroup, groundTop } from './tiles';
-import { FACING_ANGLE, slidesBetween, strideOnto, trainerPose, trainerStep } from './trainer';
+import {
+	FACING_ANGLE,
+	slidesBetween,
+	strideOnto,
+	trainerPose,
+	trainerStep,
+	worldOf,
+	type WorldAt
+} from './trainer';
 
 /**
  * The trainer with the glider, as explore poses them this frame: how far up
@@ -369,7 +377,7 @@ export class GameRenderer {
 
 	/** A poof round the player's feet, on `pos`: they just turned up there (Go to). */
 	poofAt(pos: GridPos): void {
-		const { y } = trainerStep(this.seed, pos, pos, 1, this.boatOwned, motion.reduced);
+		const { y } = trainerStep(this.world(), pos, pos, 1, this.boatOwned, motion.reduced);
 		this.poofs.play(new THREE.Vector3(pos.x, y, pos.y), motion.reduced);
 	}
 
@@ -436,6 +444,11 @@ export class GameRenderer {
 	/** Whether a cast is still playing: a battle with what bit waits for the bobber to go under. */
 	get castPlaying(): boolean {
 		return this.fishing.playing(performance.now() / 1000);
+	}
+
+	/** The world as the player left it, which their own trainer walks in (a broken floating block is water). */
+	private world(): WorldAt {
+		return worldOf(this.seed, this.edits);
 	}
 
 	/** Put the tool in the trainer's right hand and swing it; a swing already going is replaced. */
@@ -513,7 +526,7 @@ export class GameRenderer {
 		this.sitting = seat.weight * (1 - lift);
 		const skim = this.ski.skim;
 		const pose = trainerPose(
-			this.seed,
+			this.world(),
 			from,
 			to,
 			progress,
@@ -548,7 +561,7 @@ export class GameRenderer {
 			(from.x !== to.x || from.y !== to.y) &&
 			lift === 0 &&
 			!this.ski.glide &&
-			!slidesBetween(this.seed, from, to);
+			!slidesBetween(this.world(), from, to);
 		this.step.progress = moving ? progress : 1;
 		this.step.stride = strideOnto(to);
 		this.placeShadow(x, z, lift);

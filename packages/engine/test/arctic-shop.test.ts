@@ -254,6 +254,42 @@ describe('the way to a tent on the ice', () => {
 		expect(onIce).toBeGreaterThan(20);
 	}, 60_000);
 
+	it('reads the ground right past the edge of its search, where a slide starts there (the review of #201)', () => {
+		// A slide from near the search's edge reads a run of ice beyond it: those tiles once
+		// shared their keys with tiles inside, so a tent was missed, or found on the ice.
+		const seed = arctic(1);
+		expect(nearestTent(seed, { x: 27, y: 192 }, 5)).toMatchObject({
+			tent: { x: 28, y: 197 },
+			steps: 5
+		});
+		expect(nearestTent(seed, { x: -295, y: -81 }, 4)).toBeNull();
+		// Every answer near its limit is the slow search's, a tent beside a stand at its steps.
+		for (const from of [
+			{ x: 27, y: 192 },
+			{ x: 118, y: 241 },
+			{ x: -295, y: -81 }
+		]) {
+			for (let max = 2; max <= 9; max++) {
+				const spot = nearestTent(seed, from, max);
+				const reach = stops(seed, WorldEdits.none, from, max);
+				const best = [...reach.entries()]
+					.filter(([p]) => {
+						const [x, y] = p.split(',').map(Number) as [number, number];
+						return (
+							isWalkable(tileAtWorld(seed, x, y).kind) &&
+							DIRS.some(
+								(d) => tileAtWorld(seed, step({ x, y }, d).x, step({ x, y }, d).y).kind === 'tent'
+							)
+						);
+					})
+					.map(([, d]) => d);
+				const want = best.length > 0 ? Math.min(...best) : null;
+				expect(spot?.steps ?? null, `${key(from)} within ${max}`).toBe(want);
+				if (spot) expect(tileAtWorld(seed, spot.tent.x, spot.tent.y).kind).toBe('tent');
+			}
+		}
+	});
+
 	it('never stands a kid on the ice to talk to a witch doctor', () => {
 		for (const world of [1, 2]) {
 			const seed = arctic(world);
