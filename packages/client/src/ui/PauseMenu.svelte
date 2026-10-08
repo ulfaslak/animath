@@ -393,9 +393,12 @@
 						: t('pause.title')}
 			</div>
 			{#if pause.screen === 'book'}
-				<!-- The counts, and Back (Escape), for a finger or a mouse. -->
-				<span class="book-count">{bookCount}</span>
-				<span class="book-freed"><FreeStamp size={22} />{freedCount}</span>
+				<!-- The counts, side by side or one over the other where there is no room, and Back
+				     (Escape), for a finger or a mouse. -->
+				<span class="book-counts">
+					<span class="book-count">{bookCount}</span>
+					<span class="book-freed"><FreeStamp size={22} />{freedCount}</span>
+				</span>
 				<button type="button" class="pill back" data-press="Escape" {@attach unfocusable}>
 					{t('pause.back')}
 				</button>
@@ -1197,6 +1200,23 @@
 		flex-direction: column;
 		overflow: hidden;
 	}
+	/*
+	 * The book's two counts share what the title and Back leave of the line: side by side
+	 * when they fit, else the kinds set free under the rest, so the line keeps its height.
+	 */
+	.book-open .title {
+		flex: none;
+	}
+	.book-counts {
+		flex: 1;
+		min-width: 0;
+		display: flex;
+		flex-wrap: wrap;
+		justify-content: flex-end;
+		align-items: center;
+		column-gap: 12px;
+		line-height: 1.2;
+	}
 	.book-count {
 		font-weight: 800;
 		font-size: 18px;
@@ -1389,6 +1409,13 @@
 		.stamp {
 			top: 4px;
 			right: 4px;
+		}
+		.stamp.free {
+			left: 4px;
+		}
+		.book-count,
+		.book-freed {
+			font-size: 16px;
 		}
 		.book-caption {
 			min-height: 40px;
