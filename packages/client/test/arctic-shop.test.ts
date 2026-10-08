@@ -248,6 +248,9 @@ describe('fishing', () => {
 		for (const c of casts) expect(c).toMatchObject({ hole: at, outcome: 'nothing' });
 		expect(s.events.some((e) => e.type === 'battle-started')).toBe(false);
 		expect(s.casts).toHaveLength(12);
+		// Said once the line is back, not as it is cast.
+		expect(hud.message).not.toBe('Nothing bit this time. Try again!');
+		for (let i = 0; i < 120; i++) hud.tick(1 / 60);
 		expect(hud.message).toBe('Nothing bit this time. Try again!');
 		// The kid is where they were, facing the hole.
 		expect(game.pos).toEqual(pos);

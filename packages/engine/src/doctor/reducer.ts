@@ -103,7 +103,10 @@ export function startDoctorVisit(
 		party: party.map((a) => ({ ...a })),
 		tokens,
 		items: [...items],
-		shop: ITEM_IDS.filter((id) => shop.includes(id)),
+		// Cheapest first in the land's money, as its witch doctor lists them (`shopFor`).
+		shop: ITEM_IDS.filter((id) => shop.includes(id)).sort(
+			(a, b) => priceIn(land, a) - priceIn(land, b)
+		),
 		land,
 		unlocked: [...(options.unlocked ?? [FIRST_LAND])],
 		open: [...(options.open ?? availableLands())],

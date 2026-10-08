@@ -7,6 +7,8 @@ import { landSeed } from '../src/lands/ids.js';
 import { Rng, hashInts } from '../src/rng.js';
 import { readBattle } from '../src/save.js';
 import { startBattle } from '../src/battle/reducer.js';
+import { startDoctorVisit } from '../src/doctor/reducer.js';
+import { shopFor } from '../src/lands/lands.js';
 import { clearTile, clearableAhead, clearingTool } from '../src/world/clearing.js';
 import { WorldEdits, editedTileAt } from '../src/world/edits.js';
 import {
@@ -158,6 +160,17 @@ describe('the ice pick and the arctic axe', () => {
 			}
 		}
 	}, 60_000);
+});
+
+describe("The Arctic's witch doctor", () => {
+	it('lists his shop cheapest first, in ice dollars, as every visit shows it', () => {
+		const visit = startDoctorVisit([animal('fox')], { land: 'arctic' });
+		expect(visit.shop).toEqual(shopFor('arctic'));
+		expect(visit.shop).toEqual(['arctic-axe', 'ice-pick', 'boat', 'glider']);
+		// The whole catalog (`?shop`) too: by the land's prices, the others' after their own.
+		const all = startDoctorVisit([animal('fox')], { land: 'arctic', shop: ['glider', 'axe', 'ice-pick'] });
+		expect(all.shop).toEqual(['axe', 'ice-pick', 'glider']);
+	});
 });
 
 describe('the way to a tent on the ice', () => {

@@ -17,6 +17,7 @@ import {
 	type Realm
 } from '@mathgame/engine';
 import { sfx } from '../audio/sfx.svelte';
+import { FISH_BITE_DELAY } from '../render/fishing';
 import { t } from '../copy';
 import { doctorWords, type DoctorLine } from '../doctor/lines';
 import type { TalkKey } from '../input/keyboard';
@@ -316,6 +317,12 @@ class HudView {
 	private toolHints = new Set<ToolTarget>();
 	/** The key of the talk on its way to the authority (`talked`): a tap of Space, or Enter. */
 	private talkKey: TalkKey = 'enter';
+	/**
+	 * A line that waits for what it tells to happen on screen: that nothing bit
+	 * once the line is reeled in (`FISH_BITE_DELAY`), not as it is cast. A line
+	 * said meanwhile takes its place.
+	 */
+	private later: { said: Said; in: number } | null = null;
 	/** The items owned as the doctor's visit began: what the kid buys there is what is new at its end. */
 	private itemsBefore: readonly string[] = [];
 
@@ -436,7 +443,9 @@ class HudView {
 			case 'line-cast':
 				// Something bit: its battle says so. Nothing did, or nobody can swim: the line says why.
 				if (event.playerId !== game.playerId || event.outcome === 'bite') break;
-				this.say({ fished: event.outcome });
+				// Nobody to swim: said at once (no line is cast). Nothing bit: once the bobber is back.
+				if (event.outcome === 'no-swimmer') this.say({ fished: event.outcome });
+				else this.later = { said: { fished: event.outcome }, in: FISH_BITE_DELAY };
 				break;
 			case 'nothing-to-interact':
 				// A tap of Space with nothing in front, the glider owned: that is how to fly.
@@ -507,6 +516,7 @@ class HudView {
 
 	/** Put a line on the message line; it stays for `MESSAGE_SECONDS` of the HUD on screen. */
 	private say(said: Said): void {
+		this.later = null;
 		this.#said = said;
 		this.age = 0;
 		this.seen = false;
@@ -514,6 +524,14 @@ class HudView {
 
 	/** Advance the message clock by `dt` seconds of the explore HUD being on screen. */
 	tick(dt: number): void {
+		if (this.later) {
+			this.later.in -= dt;
+			if (this.later.in <= 0) {
+				const { said } = this.later;
+				this.later = null;
+				this.say(said);
+			}
+		}
 		const fresh = this.#said !== null && this.age < MESSAGE_SECONDS;
 		if (fresh) this.seen = true;
 		this.age += dt;

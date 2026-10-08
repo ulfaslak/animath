@@ -24,7 +24,10 @@ export const FISH_SECONDS = 1.9;
 const CAST_END = 0.3;
 const FLY_END = 0.6;
 const WAIT_END = 1.35;
-/** Seconds from the cast to the bobber going under, when something bit: the splash's sound. */
+/**
+ * Seconds from the cast to the bobber going under when something bit (the
+ * splash's sound), or starting back when nothing did (the line says so).
+ */
 export const FISH_BITE_DELAY = WAIT_END;
 /** How far up from level the rod points as it is held out, and drawn back over the shoulder. */
 const HELD_UP = 0.55;
