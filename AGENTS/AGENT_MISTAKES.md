@@ -1040,3 +1040,7 @@ To become `[learned]`: a line in [[DEVELOPMENT]] § Testing ideology saying a se
 
 - **The lead in front of the sled stood a tile and more ahead, inside whatever the kid faced** (a tent while talking to the witch doctor, a tree being chopped), at the height of the kid's tile. The first self-test walked on open snow only. When a figure is drawn off the player's own tile, check the tile it is drawn on (what is there, how high), and play the usual "face something" flows (talk, chop, fish) with it.
 - **The trainer hopped on the sled and a friend's legs strode on it**: a new pose (standing on runners) was added to the player's own path and missed in the other players' copy of the same rules (`others.ts`). Grep for every caller of the pose functions when adding a mode.
+
+### 2026-10-08 — #191 step 7 loose ends (fix/arctic-loose-ends, PR #207), deploy — an engine change past `pnpm check` and `pnpm test` that the build refused
+
+- **`.at(-1)` in engine code broke the deploy.** The engine runs in the browser too, and the client's build refuses anything Safari 15.0 cannot run (`browsers.ts`, [[INVARIANTS]] § Serving); `pnpm check` and `pnpm test` never build the client, so both were green and main went red on merge. Any change to `packages/engine/src` or `packages/client/src` also runs `pnpm -F @mathgame/client build` before the PR is merged; prefer `xs[xs.length - 1]` over `.at()`, and check the other ES2022 newcomers the same way.

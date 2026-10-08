@@ -67,7 +67,11 @@ export function arrivalSpot(
 		throw new Error(`arrivalSpot: target must be a whole-number grid position`);
 	}
 	const kindAt = (p: GridPos) => editedTileAt(seed, edits, p.x, p.y).kind;
-	const move: Move = (p, way) => moveFrom(seed, edits, p, way, gear)?.path.at(-1) ?? null;
+	const move: Move = (p, way) => {
+		const path = moveFrom(seed, edits, p, way, gear)?.path;
+		// Not `.at(-1)`: Safari 15.0 lacks it ([[INVARIANTS]] § Serving).
+		return path ? path[path.length - 1]! : null;
+	};
 	// Open or closed, by tile: tiles joined up share the answer, so one search settles a whole pocket.
 	const known = new Map<string, boolean>();
 	// A tile a kid stops on when moving: anything but the ice, where a slide goes on.
