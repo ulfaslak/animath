@@ -52,6 +52,11 @@ function cannotDraw(): void {
 }
 
 function startGame(): void {
+	// `?puzzle=`: the puzzle preview, a page of its own for looking at puzzles (`flags.ts`), no game behind it.
+	if (new URLSearchParams(location.search).has('puzzle')) {
+		void import('./preview/main');
+		return;
+	}
 	if (hasWebGL2()) {
 		import('./main').catch((error: unknown) => {
 			// A context can still be refused for the renderer's own settings; three.js says WebGL.

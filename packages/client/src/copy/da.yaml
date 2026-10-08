@@ -648,6 +648,44 @@ puzzle:
   delete: Slet
   correct: Rigtigt!
   notQuite: Ikke helt!
+  keysTime: Skriv klokkeslættet, først timer og så minutter, og tryk på Enter
+  keysTimeTouch: Tast klokkeslættet, først timer og så minutter, og tryk på OK
+  colon: Kolon
+  ask:
+    thermometer:
+      colder: Det er {start}°. Det bliver {change}° koldere. Hvad viser termometeret nu?
+      warmer: Det er {start}°. Det bliver {change}° varmere. Hvad viser termometeret nu?
+      rose: Om morgenen er det {start}°. Ved middagstid er det {end}°. Hvor mange grader varmere er det blevet?
+      fell: Ved middagstid er det {start}°. Om natten er det {end}°. Hvor mange grader koldere er det blevet?
+    kroner:
+      count: Hvor mange kroner er det?
+      one: Du køber et stykke legetøj til {price} kroner. Du betaler med pengene på billedet. Hvor mange penge får du tilbage?
+      two: Du køber en bog til {price} kroner og en hue til {other} kroner. Du betaler med pengene på billedet. Hvor mange penge får du tilbage?
+    fraction: Hvad er {fraction} af {amount}?
+    shape:
+      floor: Hvor mange gulvfliser er der?
+      fence: Hvor mange stykker hegn går hele vejen rundt?
+      floorSide: Gulvet har {total} fliser. Hvor mange fliser lang er siden med spørgsmålstegnet?
+      fenceSide: Hegnet har {total} stykker hele vejen rundt. Hvor mange stykker lang er siden med spørgsmålstegnet?
+    barchart:
+      read: Hvor mange fisk fangede {who}?
+      more: Hvor mange flere fisk fangede {who} end {other}?
+      both: Hvor mange fisk fangede {who} og {other} tilsammen?
+      all: Hvor mange fisk fangede de i alt?
+    clock:
+      read: Hvad er klokken?
+      later: Hvad er klokken om {time}?
+      earlier: Hvad var klokken for {time} siden?
+      hours:
+        one: '{count} time'
+        other: '{count} timer'
+      minutes:
+        one: '{count} minut'
+        other: '{count} minutter'
+      both: '{hours} og {minutes}'
+  picture:
+    kr: kr.
+    missing: '?'
 
 explore:
   controls: Gå med piletasterne eller WASD

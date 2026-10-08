@@ -6,6 +6,7 @@
 		canFightIn,
 		catchProbability,
 		getAnimal,
+		isPictureKind,
 		landHit,
 		puzzleDifficulty,
 		puzzleTopics,
@@ -385,11 +386,13 @@
 	</div>
 {/if}
 
-<!-- `solo`: a puzzle of the kid's own with the number pad beside it, which a short screen gives the whole panel. -->
+<!-- `solo`: a puzzle of the kid's own with the number pad beside it, which a short screen gives the whole panel.
+     `wide`: a puzzle with a picture, which has the whole panel on every screen, a friendly match's other player's too. -->
 <div
 	class="panel"
 	class:listing={battle.screen === 'party'}
 	class:solo={!!battle.puzzle && touch.on && !(vs && battle.turn === 'opponent')}
+	class:wide={!!battle.puzzle && isPictureKind(battle.puzzle.kind)}
 >
 	{#if battle.screen === 'party'}
 		<div class="card actions party">
@@ -665,6 +668,18 @@
 		.panel.listing {
 			grid-template-columns: 1fr 1fr;
 		}
+	}
+	/*
+	 * A puzzle with a picture has the whole panel, on every screen: the
+	 * picture, its question and the answer side by side need the room, and
+	 * the menu beside them would only be dimmed. It comes back when the turn
+	 * has played, as `solo`'s does.
+	 */
+	.panel.wide {
+		grid-template-columns: 1fr;
+	}
+	.panel.wide .actions {
+		display: none;
 	}
 	.card {
 		background: var(--panel-bg);

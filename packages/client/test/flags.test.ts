@@ -6,6 +6,7 @@ import {
 	authorityOptions,
 	parseItems,
 	parseNudgeSteps,
+	parsePuzzlePreview,
 	parseParty,
 	parseTokens,
 	readFlags
@@ -16,6 +17,7 @@ describe('URL switches', () => {
 	it('reads ?zoo, ?debug, ?steps=, ?party=, ?new, ?tokens=, ?shop and ?items=', () => {
 		expect(readFlags('')).toEqual({
 			zoo: null,
+			puzzle: null,
 			debug: false,
 			nudgeSteps: null,
 			party: null,
@@ -27,6 +29,7 @@ describe('URL switches', () => {
 		});
 		expect(readFlags('?zoo&debug&steps=20&party=fox&new&tokens=40&shop&items=harness')).toEqual({
 			zoo: 'standing',
+			puzzle: null,
 			debug: true,
 			nudgeSteps: 20,
 			party: [{ id: 'party-1', speciesId: 'fox', hp: getAnimal('fox').maxHp }],
@@ -36,6 +39,16 @@ describe('URL switches', () => {
 			items: ['harness'],
 			throwaway: true
 		});
+	});
+
+	it('?puzzle= takes any kind the engine has, and ?d= a difficulty from 1 to 10', () => {
+		expect(readFlags('?puzzle=clock&d=5').puzzle).toEqual({ kind: 'clock', difficulty: 5 });
+		expect(readFlags('?puzzle=add&d=10').puzzle).toEqual({ kind: 'add', difficulty: 10 });
+		expect(readFlags('?puzzle').puzzle).toEqual({ kind: 'thermometer', difficulty: 1 });
+		expect(parsePuzzlePreview('clocks', '99')).toEqual({ kind: 'thermometer', difficulty: 10 });
+		expect(parsePuzzlePreview('__proto__', '-3')).toEqual({ kind: 'thermometer', difficulty: 1 });
+		expect(parsePuzzlePreview('kroner', '2.5')).toEqual({ kind: 'kroner', difficulty: 1 });
+		expect(readFlags('?puzzle=clock').throwaway).toBe(false);
 	});
 
 	it('?steps= takes whole steps from 5 to 1000, is no throwaway, and anything else is no switch', () => {
