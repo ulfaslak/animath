@@ -22,7 +22,7 @@ import { isShortcut, keyName } from '../input/keyboard';
 import { isMashKey, PickGuard } from '../input/pick-guard';
 import { line, type Line } from '../lines';
 import { motion } from '../motion';
-import { BattleScene, LEASH_FLIGHT_SECONDS } from '../render/battle-scene';
+import { BattleScene, LEASH_FLIGHT_SECONDS, battleBackdrop } from '../render/battle-scene';
 import type { GameRenderer } from '../render/renderer';
 import { battle } from '../state/battle.svelte';
 import {
@@ -286,10 +286,11 @@ export class BattleController {
 		this.beats = [];
 		this.wait = 0;
 
-		// Up in the air the battle is fought in the sky, whatever the tile the glider came
-		// down on; on the ground and on the water, in front of the tile's biome.
-		const backdrop =
-			state.realm === 'air' ? 'sky' : tileAtWorld(this.seed, this.pos.x, this.pos.y).biome;
+		// In the sky, at sea (a fish hooked through the ice too) or on the tile's ground.
+		const backdrop = battleBackdrop(
+			state.realm,
+			tileAtWorld(this.seed, this.pos.x, this.pos.y).biome
+		);
 		this.scene ??= new BattleScene();
 		this.scene.begin(backdrop, this.front().speciesId, state.opponent.speciesId);
 
