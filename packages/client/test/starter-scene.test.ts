@@ -154,7 +154,7 @@ describe('the starter stage in its room', () => {
 			const stage = shown(width, height);
 			const natural = feet(stage, height);
 			// The heading's bottom to the card's top, less the tags' reach: a short band.
-			const room = { top: 50, bottom: 170 };
+			const room = { top: 60, bottom: 150 };
 			stage.setRoom(room);
 			for (let i = 0; i < 60; i++) stage.slide(1 / 60);
 			const top = highest(stage, height);
