@@ -1182,6 +1182,363 @@ export const ANIMALS: readonly AnimalSpec[] = [
 			{ id: 'ring-wall', kinds: ['shape'], power: 32 },
 			{ id: 'horn-crash', kinds: ['thermometer'], power: 44 }
 		]
+	},
+	// The Arctic's sea and fishing-hole animals (#192 wave 3): every one lives in
+	// the water only (realm water), as Nordland's sea animals do, so it is no
+	// starter and is met only from the boat on the open sea's deep water, or
+	// hooked through a fishing hole in the ice its habitats name (`holeTable`:
+	// a hole's animals are the water-only species living in the ice it is in).
+	// The open sea's north half is the `arctic-ocean`, its south half the
+	// `southern-ocean`, so the whales and seals of the two poles never meet.
+	{
+		// The sea angel (Clione limacina), a see-through snail with no shell that swims on two
+		// little wings and grabs its prey with hooks from its head.
+		id: 'sea-angel',
+		tier: 1,
+		maxHp: 44,
+		catchRate: 0.9,
+		habitats: ['arctic-ocean'],
+		realms: ['water'],
+		favours: 'water',
+		attacks: [
+			{ id: 'flutter', kinds: ['add'], power: 9 },
+			{ id: 'angel-wings', kinds: ['fraction'], power: 12 },
+			{ id: 'hook-grab', kinds: ['balance'], power: 16 }
+		]
+	},
+	{
+		// The polar cod, which lives right under the sea ice and hides in its cracks: it bites
+		// through a fishing hole in the arctic-ice.
+		id: 'polar-cod',
+		tier: 1,
+		maxHp: 46,
+		catchRate: 0.85,
+		habitats: ['arctic-ocean', 'arctic-ice'],
+		realms: ['water'],
+		favours: 'water',
+		attacks: [
+			{ id: 'tail-flick', kinds: ['add', 'sub'], power: 9 },
+			{ id: 'ice-hide', kinds: ['thermometer'], power: 12 },
+			{ id: 'big-school', kinds: ['barchart'], power: 16 }
+		]
+	},
+	{
+		// Antarctic krill, swarming under the sea ice to graze the algae that grow on it: it
+		// bites through a fishing hole in the antarctic-ice.
+		id: 'antarctic-krill',
+		tier: 1,
+		maxHp: 44,
+		catchRate: 0.9,
+		habitats: ['southern-ocean', 'antarctic-ice'],
+		realms: ['water'],
+		favours: 'water',
+		attacks: [
+			{ id: 'tiny-kick', kinds: ['add'], power: 9 },
+			{ id: 'glow', kinds: ['barchart'], power: 12 },
+			{ id: 'big-swarm', kinds: ['shape'], power: 16 }
+		]
+	},
+	{
+		// The Arctic char, the fish caught through the ice of Arctic lakes; some go to sea in
+		// summer.
+		id: 'arctic-char',
+		tier: 2,
+		maxHp: 72,
+		catchRate: 0.65,
+		habitats: ['frozen-lake', 'arctic-ocean'],
+		realms: ['water'],
+		favours: 'water',
+		attacks: [
+			{ id: 'fin-flick', kinds: ['add', 'sub'], power: 13 },
+			{ id: 'red-belly', kinds: ['thermometer'], power: 20 },
+			{ id: 'sea-trip', kinds: ['clock'], power: 25 }
+		]
+	},
+	{
+		// The lumpsucker, which holds fast to the rocks with a sucker on its belly.
+		id: 'lumpsucker',
+		tier: 2,
+		maxHp: 80,
+		catchRate: 0.6,
+		habitats: ['arctic-ocean'],
+		realms: ['water'],
+		favours: 'water',
+		attacks: [
+			{ id: 'wobble', kinds: ['add'], power: 12 },
+			{ id: 'suction-cup', kinds: ['shape'], power: 17 },
+			{ id: 'rock-hold', kinds: ['balance'], power: 22 }
+		]
+	},
+	{
+		// The ringed seal, which keeps its breathing holes in the sea ice open with its claws
+		// all winter: it comes up through a fishing hole.
+		id: 'ringed-seal',
+		tier: 2,
+		maxHp: 74,
+		catchRate: 0.65,
+		habitats: ['arctic-ice', 'arctic-ocean'],
+		realms: ['water'],
+		favours: 'water',
+		attacks: [
+			{ id: 'breath-hole', kinds: ['add', 'sub'], power: 13 },
+			{ id: 'claw-scrape', kinds: ['shape'], power: 18 },
+			{ id: 'snow-den', kinds: ['thermometer'], power: 25 }
+		]
+	},
+	{
+		// The crocodile icefish (Chionodraco hamatus) under the Ross Sea's ice: its blood has no
+		// red cells, so it is see-through.
+		id: 'icefish',
+		tier: 2,
+		maxHp: 70,
+		catchRate: 0.7,
+		habitats: ['antarctic-ice', 'southern-ocean'],
+		realms: ['water'],
+		favours: 'water',
+		attacks: [
+			{ id: 'ghost-swim', kinds: ['add'], power: 13 },
+			{ id: 'clear-blood', kinds: ['thermometer'], power: 19 },
+			{ id: 'croc-snap', kinds: ['balance'], power: 27 }
+		]
+	},
+	{
+		id: 'harp-seal',
+		tier: 3,
+		maxHp: 108,
+		catchRate: 0.45,
+		habitats: ['arctic-ocean'],
+		realms: ['water'],
+		favours: 'water',
+		attacks: [
+			{ id: 'flipper-wave', kinds: ['add'], power: 16 },
+			{ id: 'white-pup', kinds: ['thermometer'], power: 21 },
+			{ id: 'harp-splash', kinds: ['balance'], power: 26 }
+		]
+	},
+	{
+		// The Atlantic wolffish, whose big front teeth crunch crabs and shells.
+		id: 'wolffish',
+		tier: 3,
+		maxHp: 104,
+		catchRate: 0.5,
+		habitats: ['arctic-ocean'],
+		realms: ['water'],
+		favours: 'water',
+		attacks: [
+			{ id: 'grumpy-face', kinds: ['sub'], power: 17 },
+			{ id: 'shell-crunch', kinds: ['kroner'], power: 25 }
+		]
+	},
+	{
+		id: 'snow-crab',
+		tier: 3,
+		maxHp: 98,
+		catchRate: 0.5,
+		habitats: ['arctic-ocean'],
+		realms: ['water'],
+		favours: 'water',
+		attacks: [
+			{ id: 'pinch', kinds: ['add', 'sub'], power: 17 },
+			{ id: 'long-legs', kinds: ['fraction'], power: 22 },
+			{ id: 'shell-shove', kinds: ['barchart'], power: 26 }
+		]
+	},
+	{
+		// The Weddell seal saws its breathing holes open with its teeth, and hunts toothfish
+		// under the ice.
+		id: 'weddell-seal',
+		tier: 3,
+		maxHp: 112,
+		catchRate: 0.45,
+		habitats: ['antarctic-ice', 'southern-ocean'],
+		realms: ['water'],
+		favours: 'water',
+		attacks: [
+			{ id: 'trill', kinds: ['add'], power: 16 },
+			{ id: 'ice-saw', kinds: ['shape'], power: 22 },
+			{ id: 'long-dive', kinds: ['clock'], power: 27 }
+		]
+	},
+	{
+		id: 'beluga',
+		tier: 4,
+		maxHp: 148,
+		catchRate: 0.35,
+		habitats: ['arctic-ocean'],
+		realms: ['water'],
+		favours: 'water',
+		attacks: [
+			{ id: 'chirp-song', kinds: ['add'], power: 22 },
+			{ id: 'melon-bump', kinds: ['shape'], power: 30 },
+			{ id: 'bubble-ring', kinds: ['kroner'], power: 37 }
+		]
+	},
+	{
+		id: 'hooded-seal',
+		tier: 4,
+		maxHp: 150,
+		catchRate: 0.3,
+		habitats: ['arctic-ocean'],
+		realms: ['water'],
+		favours: 'water',
+		attacks: [
+			{ id: 'grumble', kinds: ['sub'], power: 22 },
+			{ id: 'red-balloon', kinds: ['thermometer'], power: 30 },
+			{ id: 'hood-puff', kinds: ['balance'], power: 38 }
+		]
+	},
+	{
+		// The common minke whale of the North Atlantic and the Arctic (the Antarctic minke is a
+		// species of its own).
+		id: 'minke-whale',
+		tier: 4,
+		maxHp: 146,
+		catchRate: 0.35,
+		habitats: ['arctic-ocean'],
+		realms: ['water'],
+		favours: 'water',
+		attacks: [
+			{ id: 'spout', kinds: ['add'], power: 22 },
+			{ id: 'big-gulp', kinds: ['fraction'], power: 30 },
+			{ id: 'tail-splash', kinds: ['barchart'], power: 38 }
+		]
+	},
+	{
+		// The Antarctic toothfish, hunted by Weddell seals under the McMurdo sea ice and fished
+		// by scientists through holes in it.
+		id: 'toothfish',
+		tier: 4,
+		maxHp: 144,
+		catchRate: 0.35,
+		habitats: ['antarctic-ice', 'southern-ocean'],
+		realms: ['water'],
+		favours: 'water',
+		attacks: [
+			{ id: 'cold-swim', kinds: ['add', 'sub'], power: 22 },
+			{ id: 'antifreeze', kinds: ['thermometer'], power: 30 },
+			{ id: 'tooth-snap', kinds: ['kroner'], power: 38 }
+		]
+	},
+	{
+		// The crabeater seal eats no crabs: it sieves krill through its lobed teeth.
+		id: 'crabeater-seal',
+		tier: 4,
+		maxHp: 142,
+		catchRate: 0.35,
+		habitats: ['southern-ocean'],
+		realms: ['water'],
+		favours: 'water',
+		attacks: [
+			{ id: 'krill-sieve', kinds: ['add'], power: 21 },
+			{ id: 'snake-wiggle', kinds: ['clock'], power: 30 },
+			{ id: 'ice-dash', kinds: ['shape'], power: 38 }
+		]
+	},
+	{
+		id: 'walrus',
+		tier: 5,
+		maxHp: 208,
+		catchRate: 0.2,
+		habitats: ['arctic-ocean'],
+		realms: ['water'],
+		favours: 'water',
+		attacks: [
+			{ id: 'whiskers', kinds: ['add', 'sub'], power: 24 },
+			{ id: 'tusk-hook', kinds: ['kroner'], power: 34 },
+			{ id: 'big-flop', kinds: ['clock'], power: 45 }
+		]
+	},
+	{
+		// The bowhead whale, the only great whale that lives all year in the Arctic; it breaks
+		// the ice with its head and can live for 200 years.
+		id: 'bowhead-whale',
+		tier: 5,
+		maxHp: 200,
+		catchRate: 0.2,
+		habitats: ['arctic-ocean'],
+		realms: ['water'],
+		favours: 'water',
+		attacks: [
+			{ id: 'ice-break', kinds: ['add'], power: 25 },
+			{ id: 'long-song', kinds: ['barchart'], power: 35 },
+			{ id: 'hundred-years', kinds: ['clock'], power: 48 }
+		]
+	},
+	{
+		// The Greenland shark, so slow it was long caught on hand lines through the sea ice; it
+		// can live about 400 years.
+		id: 'greenland-shark',
+		tier: 5,
+		maxHp: 195,
+		catchRate: 0.2,
+		habitats: ['arctic-ice', 'arctic-ocean'],
+		realms: ['water'],
+		favours: 'water',
+		attacks: [
+			{ id: 'slow-swim', kinds: ['add', 'sub'], power: 24 },
+			{ id: 'sleepy-stare', kinds: ['thermometer'], power: 34 },
+			{ id: 'old-jaws', kinds: ['fraction'], power: 45 }
+		]
+	},
+	{
+		id: 'narwhal',
+		tier: 5,
+		maxHp: 198,
+		catchRate: 0.2,
+		habitats: ['arctic-ocean'],
+		realms: ['water'],
+		favours: 'water',
+		attacks: [
+			{ id: 'tusk-wave', kinds: ['add'], power: 23 },
+			{ id: 'unicorn-dive', kinds: ['shape'], power: 33 },
+			{ id: 'tusk-joust', kinds: ['balance'], power: 44 }
+		]
+	},
+	{
+		// The southern elephant seal.
+		id: 'elephant-seal',
+		tier: 5,
+		maxHp: 210,
+		catchRate: 0.2,
+		habitats: ['southern-ocean'],
+		realms: ['water'],
+		favours: 'water',
+		attacks: [
+			{ id: 'snort', kinds: ['sub'], power: 24 },
+			{ id: 'trunk-roar', kinds: ['kroner'], power: 34 },
+			{ id: 'belly-slam', kinds: ['barchart'], power: 45 }
+		]
+	},
+	{
+		// The Antarctic blue whale, which comes to the Southern Ocean every summer to eat krill:
+		// the biggest animal there has ever been.
+		id: 'blue-whale',
+		tier: 5,
+		maxHp: 205,
+		catchRate: 0.2,
+		habitats: ['southern-ocean'],
+		realms: ['water'],
+		favours: 'water',
+		attacks: [
+			{ id: 'krill-gulp', kinds: ['add', 'sub'], power: 25 },
+			{ id: 'deep-rumble', kinds: ['fraction'], power: 36 },
+			{ id: 'giant-spout', kinds: ['barchart'], power: 46 },
+			{ id: 'big-blue', kinds: ['clock'], power: 53 }
+		]
+	},
+	{
+		id: 'leopard-seal',
+		tier: 5,
+		maxHp: 192,
+		catchRate: 0.2,
+		habitats: ['southern-ocean'],
+		realms: ['water'],
+		favours: 'water',
+		attacks: [
+			{ id: 'spotty-sneak', kinds: ['add', 'sub'], power: 25 },
+			{ id: 'wide-jaws', kinds: ['kroner'], power: 35 },
+			{ id: 'ice-edge-lunge', kinds: ['balance'], power: 46 }
+		]
 	}
 ];
 

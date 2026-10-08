@@ -990,6 +990,285 @@ species:
       shaggy-shake: Shaggy Shake
       ring-wall: Ring Wall
       horn-crash: Horn Crash
+  # The Arctic's sea and fishing-hole animals (#192, wave 3). The sea angel is Clione limacina;
+  # the icefish the crocodile icefish, the toothfish the Antarctic toothfish, the elephant seal the
+  # southern one and the minke whale the common minke.
+  sea-angel:
+    name: Sea angel
+    a: a Sea angel
+    the: the Sea angel
+    wild: wild Sea angel
+    aWild: a wild Sea angel
+    theWild: the wild Sea angel
+    bare: Sea angel
+    attacks:
+      flutter: Flutter
+      angel-wings: Angel Wings
+      hook-grab: Hook Grab
+  polar-cod:
+    name: Polar cod
+    a: a Polar cod
+    the: the Polar cod
+    wild: wild Polar cod
+    aWild: a wild Polar cod
+    theWild: the wild Polar cod
+    bare: Polar cod
+    attacks:
+      tail-flick: Tail Flick
+      ice-hide: Ice Hide
+      big-school: Big School
+  antarctic-krill:
+    name: Antarctic krill
+    a: an Antarctic krill
+    the: the Antarctic krill
+    wild: wild Antarctic krill
+    aWild: a wild Antarctic krill
+    theWild: the wild Antarctic krill
+    bare: Antarctic krill
+    attacks:
+      tiny-kick: Tiny Kick
+      glow: Glow
+      big-swarm: Big Swarm
+  arctic-char:
+    name: Arctic char
+    a: an Arctic char
+    the: the Arctic char
+    wild: wild Arctic char
+    aWild: a wild Arctic char
+    theWild: the wild Arctic char
+    bare: Arctic char
+    attacks:
+      fin-flick: Fin Flick
+      red-belly: Red Belly
+      sea-trip: Sea Trip
+  lumpsucker:
+    name: Lumpsucker
+    a: a Lumpsucker
+    the: the Lumpsucker
+    wild: wild Lumpsucker
+    aWild: a wild Lumpsucker
+    theWild: the wild Lumpsucker
+    bare: Lumpsucker
+    attacks:
+      wobble: Wobble
+      suction-cup: Suction Cup
+      rock-hold: Rock Hold
+  ringed-seal:
+    name: Ringed seal
+    a: a Ringed seal
+    the: the Ringed seal
+    wild: wild Ringed seal
+    aWild: a wild Ringed seal
+    theWild: the wild Ringed seal
+    bare: Ringed seal
+    attacks:
+      breath-hole: Breath Hole
+      claw-scrape: Claw Scrape
+      snow-den: Snow Den
+  icefish:
+    name: Icefish
+    a: an Icefish
+    the: the Icefish
+    wild: wild Icefish
+    aWild: a wild Icefish
+    theWild: the wild Icefish
+    bare: Icefish
+    attacks:
+      ghost-swim: Ghost Swim
+      clear-blood: Clear Blood
+      croc-snap: Croc Snap
+  harp-seal:
+    name: Harp seal
+    a: a Harp seal
+    the: the Harp seal
+    wild: wild Harp seal
+    aWild: a wild Harp seal
+    theWild: the wild Harp seal
+    bare: Harp seal
+    attacks:
+      flipper-wave: Flipper Wave
+      white-pup: White Pup
+      harp-splash: Harp Splash
+  wolffish:
+    name: Wolffish
+    a: a Wolffish
+    the: the Wolffish
+    wild: wild Wolffish
+    aWild: a wild Wolffish
+    theWild: the wild Wolffish
+    bare: Wolffish
+    attacks:
+      grumpy-face: Grumpy Face
+      shell-crunch: Shell Crunch
+  snow-crab:
+    name: Snow crab
+    a: a Snow crab
+    the: the Snow crab
+    wild: wild Snow crab
+    aWild: a wild Snow crab
+    theWild: the wild Snow crab
+    bare: Snow crab
+    attacks:
+      pinch: Pinch
+      long-legs: Long Legs
+      shell-shove: Shell Shove
+  weddell-seal:
+    name: Weddell seal
+    a: a Weddell seal
+    the: the Weddell seal
+    wild: wild Weddell seal
+    aWild: a wild Weddell seal
+    theWild: the wild Weddell seal
+    bare: Weddell seal
+    attacks:
+      trill: Trill
+      ice-saw: Ice Saw
+      long-dive: Long Dive
+  beluga:
+    name: Beluga
+    a: a Beluga
+    the: the Beluga
+    wild: wild Beluga
+    aWild: a wild Beluga
+    theWild: the wild Beluga
+    bare: Beluga
+    attacks:
+      chirp-song: Chirp Song
+      melon-bump: Melon Bump
+      bubble-ring: Bubble Ring
+  hooded-seal:
+    name: Hooded seal
+    a: a Hooded seal
+    the: the Hooded seal
+    wild: wild Hooded seal
+    aWild: a wild Hooded seal
+    theWild: the wild Hooded seal
+    bare: Hooded seal
+    attacks:
+      grumble: Grumble
+      red-balloon: Red Balloon
+      hood-puff: Hood Puff
+  minke-whale:
+    name: Minke whale
+    a: a Minke whale
+    the: the Minke whale
+    wild: wild Minke whale
+    aWild: a wild Minke whale
+    theWild: the wild Minke whale
+    bare: Minke whale
+    attacks:
+      spout: Spout
+      big-gulp: Big Gulp
+      tail-splash: Tail Splash
+  toothfish:
+    name: Toothfish
+    a: a Toothfish
+    the: the Toothfish
+    wild: wild Toothfish
+    aWild: a wild Toothfish
+    theWild: the wild Toothfish
+    bare: Toothfish
+    attacks:
+      cold-swim: Cold Swim
+      antifreeze: Antifreeze
+      tooth-snap: Tooth Snap
+  crabeater-seal:
+    name: Crabeater seal
+    a: a Crabeater seal
+    the: the Crabeater seal
+    wild: wild Crabeater seal
+    aWild: a wild Crabeater seal
+    theWild: the wild Crabeater seal
+    bare: Crabeater seal
+    attacks:
+      krill-sieve: Krill Sieve
+      snake-wiggle: Snake Wiggle
+      ice-dash: Ice Dash
+  walrus:
+    name: Walrus
+    a: a Walrus
+    the: the Walrus
+    wild: wild Walrus
+    aWild: a wild Walrus
+    theWild: the wild Walrus
+    bare: Walrus
+    attacks:
+      whiskers: Whiskers
+      tusk-hook: Tusk Hook
+      big-flop: Big Flop
+  bowhead-whale:
+    name: Bowhead whale
+    a: a Bowhead whale
+    the: the Bowhead whale
+    wild: wild Bowhead whale
+    aWild: a wild Bowhead whale
+    theWild: the wild Bowhead whale
+    bare: Bowhead whale
+    attacks:
+      ice-break: Ice Break
+      long-song: Long Song
+      hundred-years: Hundred Years
+  greenland-shark:
+    name: Greenland shark
+    a: a Greenland shark
+    the: the Greenland shark
+    wild: wild Greenland shark
+    aWild: a wild Greenland shark
+    theWild: the wild Greenland shark
+    bare: Greenland shark
+    attacks:
+      slow-swim: Slow Swim
+      sleepy-stare: Sleepy Stare
+      old-jaws: Old Jaws
+  narwhal:
+    name: Narwhal
+    a: a Narwhal
+    the: the Narwhal
+    wild: wild Narwhal
+    aWild: a wild Narwhal
+    theWild: the wild Narwhal
+    bare: Narwhal
+    attacks:
+      tusk-wave: Tusk Wave
+      unicorn-dive: Unicorn Dive
+      tusk-joust: Tusk Joust
+  elephant-seal:
+    name: Elephant seal
+    a: an Elephant seal
+    the: the Elephant seal
+    wild: wild Elephant seal
+    aWild: a wild Elephant seal
+    theWild: the wild Elephant seal
+    bare: Elephant seal
+    attacks:
+      snort: Snort
+      trunk-roar: Trunk Roar
+      belly-slam: Belly Slam
+  blue-whale:
+    name: Blue whale
+    a: a Blue whale
+    the: the Blue whale
+    wild: wild Blue whale
+    aWild: a wild Blue whale
+    theWild: the wild Blue whale
+    bare: Blue whale
+    attacks:
+      krill-gulp: Krill Gulp
+      deep-rumble: Deep Rumble
+      giant-spout: Giant Spout
+      big-blue: Big Blue
+  leopard-seal:
+    name: Leopard seal
+    a: a Leopard seal
+    the: the Leopard seal
+    wild: wild Leopard seal
+    aWild: a wild Leopard seal
+    theWild: the wild Leopard seal
+    bare: Leopard seal
+    attacks:
+      spotty-sneak: Spotty Sneak
+      wide-jaws: Wide Jaws
+      ice-edge-lunge: Ice-Edge Lunge
 
 puzzle:
   # Under a puzzle until it is answered.

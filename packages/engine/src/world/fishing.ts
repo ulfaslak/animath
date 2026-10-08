@@ -3,6 +3,7 @@ import type { AnimalInstance, Biome, Tier } from '../animals/types.js';
 import { hasItem } from '../items/catalog.js';
 import { leadIndex } from '../party/reducer.js';
 import type { Rng } from '../rng.js';
+import { biomeLand } from './biomes.js';
 import { editedTileAt, type WorldEdits } from './edits.js';
 import {
 	distanceFromSpawn,
@@ -33,16 +34,23 @@ export const BITE_CHANCE = 0.4;
  * water of tier `leadTier`, `distance` tiles from spawn: the animals of the
  * water alone (never one that walks too: a polar bear or a penguin is met on
  * the ice, not hooked through it) whose habitats are that ice, at the shares
- * the bell over tiers gives them (`encounterTable` in the water), in catalog
- * order. Empty where nothing of the kind lives (a biome with no hole, or a
+ * the bell over tiers gives them among themselves (`encounterTable` in the
+ * water, narrowed to them before the bell is shared), in catalog order. A
+ * hole has no visitors, so it holds only the sizes living under its ice: a
+ * frozen lake's is the Arctic char whoever leads. Empty where nothing of the kind lives (a biome with no hole, or a
  * hole's animals not in the game yet).
  */
 export function holeTable(biome: Biome, distance: number, leadTier: Tier): EncounterEntry[] {
-	const swimmers = encounterTable(biome, distance, leadTier, 'water').filter(
-		(e) => !e.species.realms.includes('land')
+	// Narrowed before the bell is shared: a penguin that swims under the same ice takes no
+	// share of its size from the fish (#192 wave 3's adversarial review).
+	return encounterTable(
+		biome,
+		distance,
+		leadTier,
+		'water',
+		biomeLand(biome),
+		(a) => !a.realms.includes('land')
 	);
-	const total = swimmers.reduce((sum, e) => sum + e.weight, 0);
-	return swimmers.map((e) => ({ species: e.species, weight: e.weight / total }));
 }
 
 /** The fishing hole in front of a player at `pos` facing `facing`, in the world as `edits` leave it, or null. */

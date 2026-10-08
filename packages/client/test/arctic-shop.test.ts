@@ -287,20 +287,28 @@ describe('fishing', () => {
 		expect(s.casts).toEqual([]);
 	});
 
-	it('with a swimmer, casts a line into the hole: nothing in it yet, so nothing bites, every time', () => {
+	it('with a swimmer, casts a line into the hole: now and then nothing bites, and then something of that ice does, and a battle in the water starts', () => {
 		const { pos, facing, at } = besideKind('hole');
-		const s = setup(arcticGame(pos, facing, ['fishing-rod'], [animal('fox'), animal('otter')]));
-		for (let i = 0; i < 12; i++) s.enter();
+		const ice = tileAtWorld(SEED, at.x, at.y).biome;
+		const s = setup(arcticGame(pos, facing, ['fishing-rod'], [animal('fox'), animal('puffin')]));
+		// 2 casts in 5 bite (#192's third wave brought the holes' animals): 40 casts all empty
+		// would be a 1 in 700 million run of luck.
+		for (let i = 0; i < 40 && !s.events.some((e) => e.type === 'battle-started'); i++) {
+			s.enter();
+		}
 		const casts = s.events.filter((e) => e.type === 'line-cast');
-		expect(casts).toHaveLength(12);
-		// #192's third wave brings the holes' animals; until then a cast never starts a battle.
-		for (const c of casts) expect(c).toMatchObject({ hole: at, outcome: 'nothing' });
-		expect(s.events.some((e) => e.type === 'battle-started')).toBe(false);
-		expect(s.casts).toHaveLength(12);
-		// Said once the line is back, not as it is cast.
-		expect(hud.message).not.toBe('Nothing bit this time. Try again!');
-		for (let i = 0; i < 120; i++) hud.tick(1 / 60);
-		expect(hud.message).toBe('Nothing bit this time. Try again!');
+		expect(casts.length).toBeGreaterThan(0);
+		for (const c of casts) expect(c).toMatchObject({ hole: at });
+		expect(casts.slice(0, -1).every((c) => 'outcome' in c && c.outcome === 'nothing')).toBe(true);
+		expect(casts.at(-1)).toMatchObject({ outcome: 'bite' });
+		const started = s.events.find((e) => e.type === 'battle-started');
+		if (started?.type !== 'battle-started') throw new Error('nothing bit in 40 casts');
+		expect(started.state.realm).toBe('water');
+		// What bit lives under this ice, in the water alone, and the puffin swims out to it.
+		expect(started.state.party[started.state.active]!.speciesId).toBe('puffin');
+		const wild = getAnimal(started.state.opponent.speciesId);
+		expect(wild.habitats).toContain(ice);
+		expect(wild.realms).toEqual(['water']);
 		// The kid is where they were, facing the hole.
 		expect(game.pos).toEqual(pos);
 	});

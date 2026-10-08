@@ -264,19 +264,26 @@ describe('balance simulation', () => {
 			'whale',
 			'orca'
 		]);
-		// The Arctic's (#192's second wave): its small land animals against the polar bear and the
-		// musk ox, the polar bear met by those that swim out on the water too.
+		// The Arctic's (#192's second and third waves): its small animals against every tier-5
+		// one they can meet. On land the polar bear and the musk ox meet its nine small land
+		// animals; out on the water the seven sea giants meet the three small sea animals and the
+		// two small ones that swim, the puffin and the Adélie penguin, and the polar bear, which
+		// swims too, meets the three small sea animals besides its nine.
 		const arcticSmall = ids.filter((id) => tier(id) === 1 && landOf(id) === 'arctic');
-		for (const big of ['polar-bear', 'musk-ox'] as const) {
+		const arcticBig = ids.filter((id) => tier(id) === 5 && landOf(id) === 'arctic');
+		expect(arcticBig).toHaveLength(9);
+		for (const big of arcticBig) {
 			const meet = arcticSmall.filter((id) => arena(id, big) !== null);
-			expect(meet.length, `Arctic tier-1 animals that meet the ${big}`).toBe(9);
+			expect(meet.length, `Arctic tier-1 animals that meet the ${big}`).toBe(
+				big === 'polar-bear' ? 12 : big === 'musk-ox' ? 9 : 5
+			);
 			for (const id of meet)
 				expect(simulate(id, big, hardest(1)).win, `${id} vs ${big}`).toBeLessThan(0.05);
 		}
-		// 66 pairs, 200 battles each: under a second alone, a few beside the suite under load.
+		// 56 pairs, 200 battles each: about a second alone, a few beside the suite under load.
 	}, 30_000);
 
-	it('each sea animal is its land twin in numbers, so the land balance holds at sea as it is', () => {
+	it("each of Nordland's sea animals is its land twin in numbers, so the land balance holds at sea as it is", () => {
 		const twins: Record<string, string> = {
 			crab: 'rabbit',
 			starfish: 'frog',
@@ -294,7 +301,12 @@ describe('balance simulation', () => {
 			'grey-seal': 'wolverine',
 			orca: 'european-bison'
 		};
-		const sea = ANIMALS.filter((a) => !a.realms.includes('land')).map((a) => a.id);
+		// The Arctic's sea animals (#192 wave 3) have numbers of their own, in its bands, and the
+		// same-land sims below hold them to the same win rates.
+		const nordland = LANDS.find((l) => l.id === 'nordland')!.species;
+		const sea = ANIMALS.filter((a) => !a.realms.includes('land') && nordland.includes(a.id)).map(
+			(a) => a.id
+		);
 		expect(Object.keys(twins)).toEqual(sea);
 		const numbers = (id: string) => {
 			const a = getAnimal(id);

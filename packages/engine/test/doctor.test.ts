@@ -562,8 +562,8 @@ describe('the shop', () => {
 		// axe and the pickaxe clear trees and rocks (`world/clearing.ts`); the boat
 		// sails: water is passable with it; the glider flies (`world/flight.ts`); the
 		// harness rides a big lead (`canRide`, drawn by the client's follower). The arctic
-		// axe and the ice pick clear spruces and ice blocks. The fishing rod fishes, and
-		// stays off sale while no fishing hole has an animal to hook (`fishing.test.ts`).
+		// axe and the ice pick clear spruces and ice blocks. The fishing rod fishes, on sale
+		// since #192's third wave gave the holes animals to hook (`arctic-shop.test.ts`).
 		expect(itemsForSale()).toEqual([
 			'axe',
 			'pickaxe',
@@ -572,10 +572,18 @@ describe('the shop', () => {
 			'harness',
 			'arctic-axe',
 			'ice-pick',
+			'fishing-rod',
 			'skis'
 		]);
 		expect(shopFor('nordland')).toEqual(['axe', 'pickaxe', 'boat', 'glider', 'harness']);
-		expect(shopFor('arctic')).toEqual(['arctic-axe', 'ice-pick', 'skis', 'boat', 'glider']);
+		expect(shopFor('arctic')).toEqual([
+			'arctic-axe',
+			'ice-pick',
+			'fishing-rod',
+			'skis',
+			'boat',
+			'glider'
+		]);
 	});
 });
 

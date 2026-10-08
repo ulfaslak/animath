@@ -6,6 +6,7 @@ import { touch } from '../src/input/touch.svelte';
 import { motion } from '../src/motion';
 import {
 	BattleScene,
+	battleBackdrop,
 	battlePanelHeight,
 	CLOUD_TOP,
 	LEASH_FLIGHT_SECONDS,
@@ -514,6 +515,19 @@ describe('out at sea', () => {
 		}
 		scene.end();
 		expect(bad).toEqual([]);
+	});
+
+	it('a battle on the water is fought at sea, a fish hooked through the ice too, on the sea of its pole', () => {
+		expect(battleBackdrop('water', 'sea')).toBe('sea');
+		expect(battleBackdrop('water', 'arctic-ocean')).toBe('arctic-ocean');
+		expect(battleBackdrop('water', 'southern-ocean')).toBe('southern-ocean');
+		// The kid stands on the ice's edge, the hole's biome under them (#192's third wave).
+		expect(battleBackdrop('water', 'arctic-ice')).toBe('arctic-ocean');
+		expect(battleBackdrop('water', 'frozen-lake')).toBe('arctic-ocean');
+		expect(battleBackdrop('water', 'antarctic-ice')).toBe('southern-ocean');
+		expect(battleBackdrop('land', 'arctic-ice')).toBe('arctic-ice');
+		expect(battleBackdrop('land', 'meadow')).toBe('meadow');
+		expect(battleBackdrop('air', 'arctic-ocean')).toBe('sky');
 	});
 });
 

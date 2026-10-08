@@ -1,4 +1,6 @@
-import { ANIMALS, spawnPoint } from '@mathgame/engine';
+import { ANIMALS, getLand, spawnPoint } from '@mathgame/engine';
+
+const NORDLAND = getLand('nordland').species;
 import * as THREE from 'three';
 import { describe, expect, it } from 'vitest';
 import { WORLD_SEED } from '../src/authority/local';
@@ -19,7 +21,7 @@ import { Zoo } from '../src/render/zoo';
  * The figures' contract (see animals.ts): every catalog species has one,
  * feet on y = 0, centred on x, flat-shaded and shadow-casting, drawn as one
  * mesh, and bigger with its tier: on land the smallest is a tier-1 animal and
- * the biggest a tier-5 one, at sea the whale the biggest. Whether they *look*
+ * the biggest a tier-5 one, at sea the blue whale the biggest. Whether they *look*
  * like the animal is checked by eye with `?zoo`; this pins what a screenshot
  * cannot. What moves inside a figure (wings, lying down, limbs) is measured
  * on it part by part (`buildAnimalParts`), which the figure drawn merges
@@ -106,8 +108,13 @@ describe('figures', () => {
 		const height = (id: string) => bounds(buildAnimalMesh(id)).getSize(new THREE.Vector3()).y;
 		for (const { id } of onLand)
 			if (id !== 'moose') expect(height(id), `${id} vs moose`).toBeLessThan(height('moose'));
-		const whale = volumes.get('whale')!;
+		// At sea the blue whale is the biggest, the biggest animal there has ever been, and the
+		// humpback the biggest of Nordland's sea.
+		const blue = volumes.get('blue-whale')!;
 		for (const { id } of atSea)
+			if (id !== 'blue-whale') expect(volumes.get(id)!, id).toBeLessThan(blue);
+		const whale = volumes.get('whale')!;
+		for (const { id } of atSea.filter((s) => NORDLAND.includes(s.id)))
 			if (id !== 'whale') expect(volumes.get(id)!, id).toBeLessThan(whale);
 		// At sea too (#89's third wave): the orca is smaller than the humpback, the grey seal
 		// bigger than the harbour seal, the porpoise smaller than the dolphin, and the lion's
@@ -115,7 +122,15 @@ describe('figures', () => {
 		for (const [big, small] of [
 			['grey-seal', 'harbour-seal'],
 			['dolphin', 'harbour-porpoise'],
-			['lions-mane-jellyfish', 'moon-jellyfish']
+			['lions-mane-jellyfish', 'moon-jellyfish'],
+			// The Arctic's (#192 wave 3), as in nature.
+			['blue-whale', 'bowhead-whale'],
+			['bowhead-whale', 'minke-whale'],
+			['bowhead-whale', 'elephant-seal'],
+			['elephant-seal', 'walrus'],
+			['elephant-seal', 'leopard-seal'],
+			['walrus', 'ringed-seal'],
+			['harbour-seal', 'ringed-seal']
 		] as const)
 			expect(volumes.get(big)!, `${big} vs ${small}`).toBeGreaterThan(volumes.get(small)!);
 		// The Arctic's (#192 wave 2): the penguins by size, the emperor the biggest and a head
