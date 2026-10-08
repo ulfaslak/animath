@@ -1903,8 +1903,8 @@ const BUILDERS: Record<string, Builder> = {
 				m.position.y -= 0.08;
 				return m;
 			}),
-			rot(tube(0.02, 0.26, accent, side * 0.22, 1.42, 0.32), -0.5, 0, -side * 0.75),
-			rot(tube(0.015, 0.13, accent, side * 0.3, 1.5, 0.3), 0.6, 0, -side * 0.3),
+			rot(tube(0.02, 0.24, accent, side * 0.22, 1.36, 0.32), -0.5, 0, -side * 0.75),
+			rot(tube(0.015, 0.12, accent, side * 0.29, 1.43, 0.3), 0.6, 0, -side * 0.3),
 			rot(box(0.04, 0.012, 0.1, accent, side * 0.03, 1.1, 0.58), -0.6, 0, 0)
 		])
 	],
