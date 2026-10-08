@@ -871,7 +871,7 @@
 			margin: 0 0 2px;
 		}
 		.loves {
-			font-size: 15px;
+			font-size: 16px;
 			line-height: 1.25;
 		}
 		.card-buttons {
@@ -885,7 +885,7 @@
 			padding: 4px 12px;
 		}
 		.starter-card .note {
-			font-size: 14px;
+			font-size: 16px;
 			margin: 4px 8px 0;
 		}
 	}
