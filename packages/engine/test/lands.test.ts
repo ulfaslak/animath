@@ -90,7 +90,9 @@ describe('the land registry', () => {
 	});
 
 	it('every species is of one land, and lives and flies only there; in The Arctic on one pole, but the Arctic tern (#192)', () => {
-		const lands = ANIMALS.map((a) => LANDS.filter((l) => l.species.includes(a.id)).map((l) => l.id));
+		const lands = ANIMALS.map((a) =>
+			LANDS.filter((l) => l.species.includes(a.id)).map((l) => l.id)
+		);
 		expect(lands.filter((of) => of.length !== 1)).toEqual([]);
 		const twoPoles: string[] = [];
 		for (const [i, a] of ANIMALS.entries()) {
@@ -214,7 +216,12 @@ describe('unlocking a land', () => {
 		const arctic = getLand('arctic').species;
 		expect(unlockLands([], [...arctic, ...nordland.slice(0, -1)])).toEqual(['nordland']);
 		// Every animal there is: The Arctic, and nothing past it, the last land there is.
-		expect(unlockLands([], ANIMALS.map((a) => a.id))).toEqual(['nordland', 'arctic']);
+		expect(
+			unlockLands(
+				[],
+				ANIMALS.map((a) => a.id)
+			)
+		).toEqual(['nordland', 'arctic']);
 	});
 });
 

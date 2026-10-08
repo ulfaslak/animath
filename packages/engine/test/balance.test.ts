@@ -63,9 +63,7 @@ const MEETING_PAIRS: readonly (readonly [string, string])[] = ids.flatMap((p) =>
 /** Every (player, wild) pair that can meet, where the wild animal is `gap` tiers fiercer. */
 function pairs(gap: number): Array<[string, string]> {
 	return ids.flatMap((p) =>
-		ids
-			.filter((w) => tier(w) - tier(p) === gap && meet(p, w))
-			.map((w): [string, string] => [p, w])
+		ids.filter((w) => tier(w) - tier(p) === gap && meet(p, w)).map((w): [string, string] => [p, w])
 	);
 }
 

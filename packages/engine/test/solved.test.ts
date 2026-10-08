@@ -43,7 +43,7 @@ function wrongInputs(puzzle: Pick<Puzzle, 'kind' | 'answer'>): string[] {
 	const n = puzzle.answer;
 	if (answerForm(puzzle.kind) === 'time') {
 		const later = answerText({ ...(puzzle as Puzzle), answer: n + 1 });
-		return [later, "", `${later}.5`, "abc", "25:00"];
+		return [later, '', `${later}.5`, 'abc', '25:00'];
 	}
 	return [String(n + 1), String(n - 1), '', `${n}.5`, 'abc', `${n}${n}0`];
 }

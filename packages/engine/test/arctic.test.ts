@@ -535,7 +535,13 @@ describe("The Arctic's tiles", () => {
 			for (const lead of [1, 3, 5] as const) {
 				if (encounterTable(tile.biome, 0, lead, realm).length > 0) continue;
 				const rng = new Rng(7);
-				const site = { land: 'arctic' as const, tile, pos: p, spawn, around: surroundings(seed, p) };
+				const site = {
+					land: 'arctic' as const,
+					tile,
+					pos: p,
+					spawn,
+					around: surroundings(seed, p)
+				};
 				expect(rollEncounter(rng, site, lead)).toBeNull();
 				expect(rng.next()).toBe(new Rng(7).next());
 			}

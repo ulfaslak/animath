@@ -69,11 +69,11 @@ describe("the book's order", () => {
 		// Nordland's 50, the biggest last; The Arctic's first wave, its small land animals.
 		expect(bookOrder('nordland')).toHaveLength(50);
 		expect(bookOrder('nordland').at(-1)!.tier).toBe(5);
-		expect(bookOrder('arctic').slice(0, 3).map((a) => a.id)).toEqual([
-			'arctic-fox',
-			'arctic-hare',
-			'puffin'
-		]);
+		expect(
+			bookOrder('arctic')
+				.slice(0, 3)
+				.map((a) => a.id)
+		).toEqual(['arctic-fox', 'arctic-hare', 'puffin']);
 		expect(bookOrder('arctic')).toBe(bookOrder('arctic'));
 	});
 });

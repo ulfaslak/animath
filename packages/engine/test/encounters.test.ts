@@ -830,7 +830,7 @@ describe('encounterTable', () => {
 			for (const biome of BIOMES) {
 				const living = livingTiers(biome).size > 0;
 				for (const d of SWEEP) {
-					if ((tableIn(biome, d, lead).length > 0) !== living)
+					if (tableIn(biome, d, lead).length > 0 !== living)
 						bad.push(`tier-${lead} lead in ${biome} @ ${d}`);
 				}
 			}

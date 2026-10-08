@@ -1815,9 +1815,7 @@ const BUILDERS: Record<string, Builder> = {
 				tube(0.014, 0.16, fur, side * 0.06, 0.08, 0.0),
 				box(0.05, 0.012, 0.08, fur, side * 0.06, 0.006, 0.03)
 			]),
-			...wings(0.13, 0.36, (side) => [
-				ball(0.11, fur, side * 0.14, 0.32, -0.06, 0.3, 0.75, 1.5)
-			])
+			...wings(0.13, 0.36, (side) => [ball(0.11, fur, side * 0.14, 0.32, -0.06, 0.3, 0.75, 1.5)])
 		];
 	},
 	// A grey goose with a black neck and breast, a white face and a white belly.

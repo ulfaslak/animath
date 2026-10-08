@@ -641,7 +641,11 @@ describe('answers', () => {
 						if (solving.phase.kind !== 'solving') throw new Error('not solving');
 						const answer = solving.phase.puzzle.answer;
 						const damage = attackDamage(spec, n, level, true);
-						for (const input of [typed(solving.phase.puzzle), ` ${typed(solving.phase.puzzle)} `, ...(answerForm(solving.phase.puzzle.kind) === 'time' ? [] : [`+${answer}`])]) {
+						for (const input of [
+							typed(solving.phase.puzzle),
+							` ${typed(solving.phase.puzzle)} `,
+							...(answerForm(solving.phase.puzzle.kind) === 'time' ? [] : [`+${answer}`])
+						]) {
 							const { state, events } = applyBattleIntent(
 								deepFreeze(solving),
 								{ type: 'answer', input },
