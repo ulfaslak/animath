@@ -16,6 +16,7 @@ import { BOAT_DECK, BOAT_STAND } from './boat';
 import { flyingSize } from './chaser';
 import { appearScale, recallScale, smoothstep } from './ease';
 import { SADDLE } from './mount';
+import { SLED_FRONT, SLED_STAND } from './sled';
 import { WATER_TOP, groundTop } from './tiles';
 import { AHEAD, FACING_ANGLE } from './trainer';
 
@@ -140,7 +141,7 @@ export const COME_DOWN_SECONDS = 0.35;
  * How the one following goes with the trainer: on its own feet (or swimming)
  * behind them, standing in their boat, or carrying them on its back.
  */
-export type Ride = 'follows' | 'boat' | 'mount';
+export type Ride = 'follows' | 'boat' | 'mount' | 'pull';
 
 export class Follower {
 	/** The tile it stands on or walks to; null until it is placed beside the trainer. */
@@ -169,6 +170,9 @@ export class Follower {
 	/** A rider's size, to fit in the boat, and at its own size how far forward of its origin its middle is, nose to tail. */
 	private rideScale = 1;
 	private rideMiddle = 0;
+	/** Pulling the sled: how far ahead of the trainer's feet its middle walks, and its harness's height. */
+	private pullAhead = 0;
+	private pullHeight = 0;
 	/** Seconds of frame time, for the swimmers' bob. */
 	private t = 0;
 	/**
@@ -236,6 +240,17 @@ export class Follower {
 	/** Whether the one on screen rides in the boat. */
 	get inBoat(): boolean {
 		return this.figure !== null && this.riding === 'boat';
+	}
+
+	/**
+	 * Pulling the sled the trainer stands on (`lead(…, 'pull')`): where its
+	 * harness is, ahead of the trainer's feet and how high (as big as it has
+	 * grown in), for the sled's traces; null when it pulls no sled.
+	 */
+	get pulling(): { reach: number; height: number } | null {
+		if (!this.figure || this.riding !== 'pull') return null;
+		const scale = this.swapScale();
+		return { reach: SLED_FRONT + (this.pullAhead - SLED_FRONT) * scale, height: this.pullHeight * scale };
 	}
 
 	/** Whether the one on screen carries the trainer on its back. */
@@ -364,6 +379,10 @@ export class Follower {
 		}
 		if (this.riding === 'mount') {
 			this.carry(figure, progress);
+			return;
+		}
+		if (this.riding === 'pull') {
+			this.pull(figure, progress);
 			return;
 		}
 		if (!this.at || !this.from) return;
@@ -520,6 +539,29 @@ export class Follower {
 	}
 
 	/**
+	 * Pulling the sled: in front of the trainer, its rump just past the sled's
+	 * front (`SLED_FRONT`), turned the way they face, keeping pace with their
+	 * step. It grows in and shrinks away where it walks.
+	 */
+	private pull(figure: THREE.Group, progress: number): void {
+		const from = this.trainerFrom;
+		const to = this.trainerTo;
+		if (!from || !to) return;
+		const t = smoothstep(Math.min(1, Math.max(0, progress)));
+		const ahead = AHEAD[this.trainerFacing];
+		const yFrom = this.standAt(from);
+		figure.position.set(
+			from.x + (to.x - from.x) * t + ahead.x * this.pullAhead,
+			yFrom + (this.standAt(to) - yFrom) * t + SLED_STAND + this.swapLift(),
+			from.y + (to.y - from.y) * t + ahead.z * this.pullAhead
+		);
+		this.facing = this.trainerFacing;
+		this.yaw = FACING_ANGLE[this.trainerFacing];
+		figure.rotation.y = this.yaw;
+		figure.scale.setScalar(this.swapScale());
+	}
+
+	/**
 	 * Carrying the trainer: under them as they step from tile to tile, the
 	 * seat of its back (`SADDLE`) where they are, turned the way they face,
 	 * plodding with its own hop. It grows in and shrinks away about that seat.
@@ -606,6 +648,12 @@ export class Follower {
 		const figure = buildAnimalMesh(species);
 		figure.userData.idlePhase = 0.6;
 		this.riding = this.wantRide;
+		if (this.riding === 'pull') {
+			// Its rump a little past the sled's front, its harness about halfway up it.
+			const box = new THREE.Box3().setFromObject(figure);
+			this.pullAhead = SLED_FRONT + 0.08 - box.min.z;
+			this.pullHeight = box.max.y * 0.45;
+		}
 		if (this.riding === 'boat') {
 			// Measured at its own size, before it starts growing in from nothing.
 			const box = new THREE.Box3().setFromObject(figure);

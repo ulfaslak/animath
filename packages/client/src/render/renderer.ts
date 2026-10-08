@@ -21,6 +21,7 @@ import { ChunkRing } from './chunks';
 import { ClearingEffects, SWING_SECONDS, animateSwing, buildTool } from './clearing';
 import { FishingEffect, type CastOutcome } from './fishing';
 import { Skis } from './skis';
+import { SLED_STAND, Sled } from './sled';
 import { Greetings } from './doctor';
 import { appearScale, smoothstep } from './ease';
 import { buildGliderMesh, poseGlider } from './glider';
@@ -193,6 +194,9 @@ export class GameRenderer {
 	/** The skis on the trainer's feet, when owned: on the ground only. */
 	private skis = new Skis();
 	private skisOwned = false;
+	/** The dog sled under the trainer while their lead pulls it (the follower's `pulling`). */
+	private sled = new Sled();
+	private pull: { reach: number; height: number } | null = null;
 	/**
 	 * The step under way on skis: gliding (no stride, no hop, an even pace),
 	 * how fast (0 to 1, for the spray), and over water: skimming it on skis
@@ -274,6 +278,7 @@ export class GameRenderer {
 		this.player = buildPlayerMesh();
 		this.scene.add(this.player);
 		this.player.add(this.skis.group);
+		this.player.add(this.sled.group);
 
 		// Built once, for as long as the page lives, and shown only while the trainer flies.
 		const shadow = new THREE.CircleGeometry(0.3, 16);
@@ -493,6 +498,11 @@ export class GameRenderer {
 		this.skisOwned = owned;
 	}
 
+	/** The lead pulls the trainer's sled (its harness `reach` ahead, `height` up), or not (null). */
+	setSled(pull: { reach: number; height: number } | null): void {
+		this.pull = pull;
+	}
+
 	/** How the next steps go on skis (the explore controller's, each tile). */
 	setSkiing(glide: boolean, speed: number, skim: 'over' | 'board' | null): void {
 		this.ski = { glide, speed, skim };
@@ -545,6 +555,8 @@ export class GameRenderer {
 			y += BOAT_STAND * afloat;
 		}
 		this.afloat = afloat;
+		// On the sled's runners, a little over the ground.
+		if (this.pull && afloat === 0 && lift === 0) y += SLED_STAND;
 		// A take-off refused: a little hop in place.
 		const hop =
 			air.hop > 0 ? Math.sin(Math.min(1, air.hop) * Math.PI) * (motion.reduced ? 0.04 : 0.14) : 0;
@@ -561,6 +573,7 @@ export class GameRenderer {
 			(from.x !== to.x || from.y !== to.y) &&
 			lift === 0 &&
 			!this.ski.glide &&
+			!this.pull &&
 			!slidesBetween(this.world(), from, to);
 		this.step.progress = moving ? progress : 1;
 		this.step.stride = strideOnto(to);
@@ -702,8 +715,11 @@ export class GameRenderer {
 		this.fishing.update(t, motion.reduced);
 		// On their feet on the ground only: not in the boat, up in the air or on a mount.
 		const onFeet = this.afloat === 0 && this.air.lift === 0 && this.sitting === 0;
+		const sledding = this.pull !== null && onFeet;
+		this.sled.update(sledding, this.pull?.reach ?? 0, this.pull?.height ?? 0);
+		// On the sled, the skis are off: the sled replaces them.
 		this.skis.update(
-			this.skisOwned && onFeet,
+			this.skisOwned && onFeet && !sledding,
 			this.ski.glide ? this.ski.speed : 0,
 			t,
 			motion.reduced
