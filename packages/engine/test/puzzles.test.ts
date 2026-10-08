@@ -13,7 +13,6 @@ import {
 } from '../src/puzzles/registry.js';
 import {
 	ALL_PUZZLE_KINDS,
-	isPictureKind,
 	MAX_DIFFICULTY,
 	MIN_DIFFICULTY,
 	type PuzzleKind
@@ -614,19 +613,6 @@ function topicOf(prompt: string): string {
 	if (!bin) throw new Error(`unparseable prompt: ${prompt}`);
 	return { '+': 'add', '−': 'sub', '×': 'mul', '÷': 'div' }[bin[1] as '+' | '−' | '×' | '÷'];
 }
-
-describe('what the catalog asks', () => {
-	// The puzzle panel draws a picture kind's question and picture from its face;
-	// until it can, an attack asking one would show the kid its raw face text.
-	it('no attack asks a kind with a picture yet (#191: the panel draws them in the next step)', () => {
-		const asked = ANIMALS.flatMap((spec) =>
-			spec.attacks.flatMap((a) =>
-				a.kinds.filter((k) => isPictureKind(k)).map((k) => `${spec.id}: ${k}`)
-			)
-		);
-		expect(asked).toEqual([]);
-	});
-});
 
 describe('what an attack says it asks', () => {
 	const SEEDS_PER_CASE = 300;

@@ -663,6 +663,58 @@ puzzle:
   # After an answer, on the puzzle card and in the battle's narration.
   correct: Correct!
   notQuite: Not quite!
+  # Under a clock's puzzle, whose answer is a time: hours, a colon, minutes.
+  keysTime: Type the time, hours then minutes, then press Enter
+  keysTimeTouch: Tap the time, hours then minutes, then OK
+  # What a screen reader calls the number pad's colon key, on a clock's puzzle.
+  colon: Colon
+  # The question of a puzzle with a picture (the Arctic's kinds). Numbers are
+  # filled in from the puzzle; {fraction} is a fraction drawn stacked, and
+  # {who} and {other} are the shapes under a bar chart's bars, drawn in the line.
+  ask:
+    thermometer:
+      colder: It is {start}°. It gets {change}° colder. What does the thermometer show now?
+      warmer: It is {start}°. It gets {change}° warmer. What does the thermometer show now?
+      rose: In the morning it is {start}°. At noon it is {end}°. How many degrees warmer did it get?
+      fell: At noon it is {start}°. At night it is {end}°. How many degrees colder did it get?
+    kroner:
+      count: How many kroner is this?
+      oneThing: You buy a toy for {price} kroner. You pay with the money in the picture. How much do you get back?
+      twoThings: You buy a book for {price} kroner and a hat for {other} kroner. You pay with the money in the picture. How much do you get back?
+    fraction: What is {fraction} of {amount}?
+    shape:
+      floor: How many floor tiles are there?
+      fence: How many fence pieces go all the way around?
+      floorSide: The floor has {total} tiles. How many tiles long is the side with the question mark?
+      fenceSide: The fence has {total} pieces all the way around. How many pieces long is the side with the question mark?
+    barchart:
+      read: How many fish did {who} catch?
+      more: How many more fish did {who} catch than {other}?
+      both: How many fish did {who} and {other} catch together?
+      all: How many fish did they catch in all?
+    clock:
+      read: What time is it?
+      later: What time will it be in {time}?
+      earlier: What time was it {time} ago?
+      # How long passes, in the questions above: "1 hour and 20 minutes".
+      hours:
+        one: '{count} hour'
+        other: '{count} hours'
+      minutes:
+        one: '{count} minute'
+        other: '{count} minutes'
+      both: '{hours} and {minutes}'
+  # The picture's own words: the kroner sign on a coin or a note, and a missing side's mark.
+  picture:
+    kr: kr
+    missing: '?'
+    # A bar chart's marks, as a screen reader names them in the question.
+    marks:
+      circle: the circle
+      triangle: the triangle
+      square: the square
+      star: the star
+      heart: the heart
 
 explore:
   # Under the latest message for a player's first few moves.

@@ -1,10 +1,20 @@
 <script lang="ts">
-	import type { AttackLevel, ShownPuzzle } from '@mathgame/engine';
+	import {
+		answerForm,
+		isPictureKind,
+		puzzleFace,
+		type AttackLevel,
+		type ShownPuzzle
+	} from '@mathgame/engine';
 	import { t } from '../copy';
+	import { shownAnswer } from '../input/answer';
+	import { questionParts, questionText } from '../puzzle-words';
+	import PuzzlePicture from './pictures/PuzzlePicture.svelte';
 	import { unfocusable } from '../input/press';
 	import { touch } from '../input/touch.svelte';
 	import HitBadge from './HitBadge.svelte';
 	import NumberPad from './NumberPad.svelte';
+	import BarMark from './pictures/BarMark.svelte';
 
 	/**
 	 * One puzzle being answered: the prompt in very large type, the answer
@@ -26,6 +36,12 @@
 	 * other player's puzzle, watched while they think: its line ("Bo is
 	 * thinking…") where the key reminder would be, and no number pad, since
 	 * nothing here is typed (what they type stays on their screen).
+	 *
+	 * A puzzle with a picture (the Arctic's kinds, #191) is drawn from its
+	 * face: the picture on the left, filling the card's height, and its
+	 * question in words beside it, picked here in the language on screen
+	 * (`puzzle-words.ts`), over the answer. A clock's answer is a time: the
+	 * box shows "--:--" until a digit is typed, and the pad has a colon.
 	 */
 	let {
 		puzzle,
@@ -54,18 +70,50 @@
 		/** Someone else's puzzle, watched: the line in place of the key reminder. */
 		watch?: string;
 	} = $props();
+
+	const face = $derived(puzzleFace(puzzle));
+	const pictured = $derived(face !== null && isPictureKind(face.kind));
+	const parts = $derived(face && pictured ? questionParts(face) : null);
+	const form = $derived(answerForm(puzzle.kind));
+	const reminder = $derived(
+		form === 'time'
+			? touch.on
+				? t('puzzle.keysTimeTouch')
+				: t('puzzle.keysTime')
+			: touch.on
+				? t('puzzle.keysTouch')
+				: t('puzzle.keys')
+	);
 </script>
 
-<div class="puzzle-panel" class:with-pad={touch.on && !watch}>
+<div class="puzzle-panel" class:with-pad={touch.on && !watch} class:pictured>
+	{#if face && pictured}
+		<div class="picture-slot"><PuzzlePicture {face} /></div>
+	{/if}
 	<div class="question">
 		{#if story}<div class="story">{story}</div>{/if}
-		<div class="puzzle-prompt" class:long={puzzle.prompt.length > 11}>{puzzle.prompt}</div>
+		{#if parts}
+			<!-- Read aloud whole: a fraction as "3/5", a bar's mark by its name. -->
+			<div class="ask">
+				<span class="spoken">{questionText(parts)}</span><span aria-hidden="true"
+					>{#each parts as part, i (i)}{#if 'text' in part}{part.text}{:else if 'fraction' in part}<span
+								class="fraction"
+								><span class="top">{part.fraction[0]}</span><span class="bottom"
+									>{part.fraction[1]}</span
+								></span
+							>{:else}<BarMark index={part.shape} inline />{/if}{/each}</span
+				>
+			</div>
+		{:else}
+			<div class="puzzle-prompt" class:long={puzzle.prompt.length > 11}>{puzzle.prompt}</div>
+		{/if}
 		<div
 			class="answer"
 			class:correct={judged?.correct === true}
 			class:wrong={judged?.correct === false}
 		>
-			{input}<span class="cursor" class:blink={typing}></span>
+			{#if form === 'time' && input === '' && !watch}<span class="ghost">--:--</span
+				>{/if}{shownAnswer(input, form)}<span class="cursor" class:blink={typing}></span>
 		</div>
 		<div class="foot">
 			{#if back}
@@ -85,7 +133,7 @@
 			{:else if watch}
 				<div class="keys">{watch}</div>
 			{:else}
-				<div class="keys">{touch.on ? t('puzzle.keysTouch') : t('puzzle.keys')}</div>
+				<div class="keys">{reminder}</div>
 			{/if}
 		</div>
 		{#if note}
@@ -96,7 +144,7 @@
 		{/if}
 	</div>
 	{#if touch.on && !watch}
-		<NumberPad active={typing} />
+		<NumberPad active={typing} colon={form === 'time'} />
 	{/if}
 </div>
 
@@ -119,6 +167,95 @@
 		flex-direction: column;
 		align-items: center;
 		gap: 10px;
+	}
+	/*
+	 * A puzzle with a picture: the picture fills the card's height on the
+	 * left, as wide as its shape lets it, and the question, the answer and
+	 * the reminder stand beside it (and the pad, on touch, on the right).
+	 */
+	.puzzle-panel.pictured {
+		display: flex;
+		align-items: center;
+		gap: 20px;
+		width: 100%;
+		height: 100%;
+		min-height: 0;
+	}
+	.picture-slot {
+		flex: 0 1 auto;
+		height: 100%;
+		aspect-ratio: 3 / 2;
+		max-width: 45%;
+		min-width: 0;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+	}
+	/* Beside the pad, the question needs the room more than the picture does. */
+	.with-pad.pictured .picture-slot {
+		max-width: 36%;
+	}
+	.pictured .question {
+		display: flex;
+		flex: 1;
+		min-width: 0;
+		flex-direction: column;
+		align-items: center;
+		gap: 10px;
+	}
+	/* The question in words: big, for a kid reading it alone, and wrapped evenly. */
+	.ask {
+		font-weight: 800;
+		font-size: clamp(18px, 3vh, 24px);
+		line-height: 1.35;
+		max-width: 24em;
+		text-wrap: balance;
+	}
+	/* A fraction stacked, as a maths book writes it: the top over a line over the bottom. */
+	.fraction {
+		display: inline-flex;
+		flex-direction: column;
+		align-items: center;
+		vertical-align: middle;
+		margin: 0 0.15em;
+		font-size: 1.15em;
+		line-height: 1.05;
+	}
+	.fraction .top {
+		padding: 0 0.15em;
+		border-bottom: 3px solid currentColor;
+	}
+	/* The question as a screen reader says it, kept off the screen. */
+	.spoken {
+		position: absolute;
+		width: 1px;
+		height: 1px;
+		overflow: hidden;
+		clip-path: inset(50%);
+		white-space: nowrap;
+	}
+	.ghost {
+		opacity: 0.3;
+	}
+	/*
+	 * A phone held sideways: the card is 220 px tall, so the question is a
+	 * size smaller and the reminder goes (the pad's OK, the box's "--:--" and
+	 * its colon key say how to answer), and nothing spills out of the card.
+	 */
+	@media (max-height: 560px) {
+		.ask {
+			font-size: 16px;
+			line-height: 1.25;
+		}
+		.pictured .question {
+			gap: 6px;
+		}
+		.pictured .foot .keys {
+			display: none;
+		}
+		.with-pad.pictured .picture-slot {
+			max-width: 26%;
+		}
 	}
 	/* The token sum's story: what the numbers are, over them. */
 	.story {

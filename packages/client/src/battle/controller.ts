@@ -1,4 +1,5 @@
 import {
+	answerForm,
 	bundles,
 	canSwitchTo,
 	getAnimal,
@@ -491,7 +492,11 @@ export class BattleController {
 	}
 
 	private puzzleKey(key: string): boolean {
-		const typed = answerKey(battle.input, key);
+		const typed = answerKey(
+			battle.input,
+			key,
+			battle.puzzle ? answerForm(battle.puzzle.kind) : 'number'
+		);
 		battle.input = typed.input;
 		if (typed.submit) this.send({ type: 'answer', input: typed.input });
 		return typed.handled;

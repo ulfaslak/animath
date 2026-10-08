@@ -7,7 +7,7 @@
 	 * own keyboard never comes up over the puzzle; and on the pause menu's
 	 * Worlds screen, big, for a world's number, with no minus, and Go for OK
 	 * that is the Go row's own tap. Each key is the key a keyboard has
-	 * (`input/press.ts`): a digit, the minus, Backspace, and OK for Enter, so
+	 * (`input/press.ts`): a digit, the minus (a colon for a time), Backspace, and OK for Enter, so
 	 * it types by the same rules (`input/answer.ts`) and a screen takes it only
 	 * while it takes keys. A key acts as the finger lands, as a key on a
 	 * keyboard does. Phone order, 1 2 3 at the top, and OK tall on the right,
@@ -16,6 +16,7 @@
 	let {
 		active,
 		minus = true,
+		colon = false,
 		ok,
 		okKey = 'Enter',
 		ready = true,
@@ -25,6 +26,8 @@
 		active: boolean;
 		/** A minus key, left of the 0; without it, the place stays empty. */
 		minus?: boolean;
+		/** A colon key in the minus key's place, for a time (a clock's answer): hours, colon, minutes. */
+		colon?: boolean;
 		/** The big key's word; OK unless said. */
 		ok?: string;
 		/** The key the big key presses; Enter unless said. */
@@ -52,7 +55,15 @@
 			{digit}
 		</button>
 	{/each}
-	{#if minus}
+	{#if colon}
+		<button
+			type="button"
+			class="key sign"
+			aria-label={t('puzzle.colon')}
+			onpointerdown={key(':')}
+			{@attach unfocusable}>:</button
+		>
+	{:else if minus}
 		<button
 			type="button"
 			class="key sign"

@@ -1,4 +1,5 @@
 import {
+	answerForm,
 	bundles,
 	buyRefusal,
 	canGoHome,
@@ -526,7 +527,11 @@ export class DoctorController {
 				return true;
 			}
 		}
-		const typed = answerKey(doctor.input, key);
+		const typed = answerKey(
+			doctor.input,
+			key,
+			doctor.puzzle ? answerForm(doctor.puzzle.kind) : 'number'
+		);
 		doctor.input = typed.input;
 		if (typed.submit) this.send({ type: 'answer', input: typed.input });
 		return typed.handled;

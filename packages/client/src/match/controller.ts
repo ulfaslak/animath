@@ -1,4 +1,5 @@
 import {
+	answerForm,
 	CHALLENGE_REACH,
 	canSendIn,
 	challengeRefusal,
@@ -532,7 +533,11 @@ export class MatchController implements MatchHooks {
 			case 'party':
 				return this.partyKey(key, fresh);
 			case 'puzzle': {
-				const typed = answerKey(battle.input, key);
+				const typed = answerKey(
+					battle.input,
+					key,
+					battle.puzzle ? answerForm(battle.puzzle.kind) : 'number'
+				);
 				battle.input = typed.input;
 				if (typed.submit) this.sendPlay({ type: 'answer', input: typed.input });
 				return typed.handled;
