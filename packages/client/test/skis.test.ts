@@ -180,6 +180,7 @@ describe('the explore screen on skis', () => {
 			setGlider() {},
 			setSkis() {},
 			setSkiing() {},
+			setSled() {},
 			castPlaying: false,
 			fish() {},
 			setLandingSpot() {},
@@ -198,5 +199,24 @@ describe('the explore screen on skis', () => {
 		for (let f = 0; f < 120; f++) explore.update(1 / 60);
 		expect(sent.filter((t) => t === 'coast')).toHaveLength(1);
 		expect(s.moved().at(-1)).toMatchObject({ coast: true });
+	});
+});
+
+describe('the dog sled seen by others', () => {
+	it('crosses the wire only when owned, and only as true', () => {
+		const peer = {
+			t: 'peer',
+			pid: 'peer-002',
+			name: 'Bo',
+			x: 1,
+			y: 2,
+			facing: 'down',
+			lead: 'reindeer',
+			boat: false,
+			busy: 'explore'
+		};
+		expect(parseServerMessage({ ...peer, sled: true })).toMatchObject({ sled: true });
+		expect(parseServerMessage(peer)).not.toHaveProperty('sled');
+		expect(parseServerMessage({ ...peer, sled: 1 })).toBeNull();
 	});
 });

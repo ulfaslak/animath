@@ -348,3 +348,46 @@ describe('every ski move', () => {
 		expect(moves).toBeGreaterThan(500);
 	});
 });
+
+describe('the review of #205', () => {
+	it('a coast stops on a deep-snow tile it slows on, and rolls there', () => {
+		// World 1: a coast at level 2 from (−53, −60) right meets deep snow at x −52.
+		const seed = landSeed('arctic', 1);
+		const at = { x: -53, y: -60 };
+		expect(kindAt(seed, step(at, 'right'))).toBe('deepsnow');
+		const glided = coast(seed, NONE, at, { dir: 'right', run: LEVEL_RUNS[2]!, deep: 0 })!;
+		expect(glided.path).toEqual([step(at, 'right')]);
+		expect(glided.roll).toBe(true);
+		// Every coast that crosses deep snow below the top ends on it.
+		for (const { seed: s, from, dir } of find(
+			[1, 2, 3],
+			2,
+			(k, kind) => (k === 1 ? kind === 'deepsnow' : true),
+			30
+		)) {
+			for (const level of [1, 2]) {
+				const c = coast(s, NONE, from, { dir, run: LEVEL_RUNS[level]!, deep: 0 });
+				if (c) {
+					expect(c.path).toHaveLength(1);
+					expect(c.roll).toBe(true);
+				}
+			}
+		}
+	});
+
+	it('letting go before the third deep-snow tile at top speed still rolls on it', () => {
+		const spots = find(
+			[1, 2, 3, 4, 42],
+			LEVEL_RUNS[TOP]! + DEEP_CARRY + 1,
+			(k, kind) => (k <= LEVEL_RUNS[TOP]! ? kind === 'snow' : kind === 'deepsnow'),
+			10
+		);
+		expect(spots.length).toBeGreaterThan(2);
+		for (const { seed, from, dir } of spots) {
+			const { at, ski } = hold(seed, from, dir, LEVEL_RUNS[TOP]! + DEEP_CARRY);
+			const c = coast(seed, NONE, at, ski)!;
+			expect(c.path).toHaveLength(1);
+			expect(c.roll).toBe(true);
+		}
+	});
+});

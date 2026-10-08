@@ -29,7 +29,11 @@ function material(hex: number): THREE.MeshLambertMaterial {
 	return m;
 }
 
-function box(hex: number, size: [number, number, number], at: [number, number, number]): THREE.Mesh {
+function box(
+	hex: number,
+	size: [number, number, number],
+	at: [number, number, number]
+): THREE.Mesh {
 	const mesh = new THREE.Mesh(BOX_GEOMETRY, material(hex));
 	mesh.scale.set(...size);
 	mesh.position.set(...at);

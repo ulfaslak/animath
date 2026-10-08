@@ -375,7 +375,8 @@ export class ExploreController {
 		this.progress = 0;
 		const slide = slidesBetween(worldOf(this.seed, this.edits), this.from, this.pos);
 		const wet = this.onWater(this.pos);
-		if (speed !== undefined && !slide) {
+		// A step into the boat below top speed is a step into the boat, skis or not.
+		if (speed !== undefined && !slide && (!wet || speed === TOP)) {
 			// On skis: the speed's pace. Onto the water only at top speed, skimming it on skis; where
 			// a skim ends on the water, the boat swings in under them on its last tile.
 			const last = this.ahead.length === 0;

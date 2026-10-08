@@ -1222,7 +1222,7 @@ export function canRide(owner: { readonly items: readonly string[] }, speciesId:
  * only on land.
  */
 export function canPull(owner: { readonly items: readonly string[] }, speciesId: string): boolean {
-	return hasItem(owner, 'sled') && (getAnimal(speciesId) as { pulls?: true }).pulls === true;
+	return hasItem(owner, 'sled') && getAnimal(speciesId).pulls === true;
 }
 
 /**

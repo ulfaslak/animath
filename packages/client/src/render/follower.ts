@@ -250,7 +250,10 @@ export class Follower {
 	get pulling(): { reach: number; height: number } | null {
 		if (!this.figure || this.riding !== 'pull') return null;
 		const scale = this.swapScale();
-		return { reach: SLED_FRONT + (this.pullAhead - SLED_FRONT) * scale, height: this.pullHeight * scale };
+		return {
+			reach: SLED_FRONT + (this.pullAhead - SLED_FRONT) * scale,
+			height: this.pullHeight * scale
+		};
 	}
 
 	/** Whether the one on screen carries the trainer on its back. */
