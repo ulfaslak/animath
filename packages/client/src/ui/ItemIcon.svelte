@@ -3,7 +3,9 @@
 
 	/**
 	 * A picture of a shop item, flat and chunky like the world's props: the
-	 * axe, the pickaxe, the boat, the paraglider, the harness. Always beside the item's
+	 * axe, the pickaxe, the boat, the paraglider, the harness, and The Arctic's
+	 * axe (a red handle and a blue blade, never Nordland's), ice pick and
+	 * fishing rod. Always beside the item's
 	 * name, so it is decoration (`aria-hidden`). The colours are the world's
 	 * own (DESIGN § Palette): the trees' trunk brown, the rocks' grey, the
 	 * water's blue, the trainer's coral, the figures' cream.
@@ -55,6 +57,33 @@
 		<rect class="wood" x="14" y="7" width="4" height="23" rx="2" transform="rotate(20 16 18.5)" />
 		<path class="metal" d="M3 11.5C8 5.5 16 3.5 29 6.5 22 6.8 12 8.5 5 13.5Z" />
 		<path class="edge" d="M3 11.5 5 13.5 3.8 14.2 2 12.2Z" />
+	{:else if id === 'arctic-axe'}
+		<!-- The Arctic's axe: a red handle wrapped in white, a broad blade of blue steel. -->
+		<rect
+			class="red"
+			x="14.5"
+			y="6"
+			width="4"
+			height="23"
+			rx="2"
+			transform="rotate(-30 16.5 17.5)"
+		/>
+		<rect class="cream" x="15" y="22" width="3" height="5" transform="rotate(-30 16.5 17.5)" />
+		<path class="steel" d="M12 4 21.5 1.5l5 8.8-7.6 5.2L14.6 10Z" />
+		<path class="edge" d="M21.5 1.5l5 8.8-1.8 1.3L20 3.2Z" />
+	{:else if id === 'ice-pick'}
+		<!-- The ice pick: a straight shaft, a spike at its foot, and a head with a long point. -->
+		<rect class="red" x="14.6" y="6" width="3" height="21" rx="1.2" transform="rotate(15 16 16)" />
+		<path class="steel" d="M17 28.5 15.8 31l-.9-2.7Z" transform="rotate(15 16 16)" />
+		<path class="steel" d="M7 6.5h16.5l-1 3H12.5L4 12.5Z" transform="rotate(15 16 16)" />
+		<path class="ice" d="M23.5 6.5h3.5v3h-4.5Z" transform="rotate(15 16 16)" />
+	{:else if id === 'fishing-rod'}
+		<!-- A rod bent by its line, the reel at its grip, and a red and white bobber. -->
+		<path class="rod" d="M4 29C9 20 16 9 27 4" />
+		<rect class="metal" x="6" y="22.5" width="4.5" height="4" rx="1.2" />
+		<path class="line" d="M27 4c1 7 1 13 0 18" />
+		<circle class="cream" cx="27" cy="24.5" r="2.6" />
+		<path class="sail" d="M24.4 24.5a2.6 2.6 0 0 1 5.2 0Z" />
 	{:else if id === 'boat'}
 		<path class="water" d="M1 26c3-2 5-2 8 0s5 2 8 0 5-2 8 0 4 2 6 1v4H1Z" />
 		<path class="wood" d="M3 20h26l-4 6H7Z" />
@@ -102,6 +131,26 @@
 	}
 	.water {
 		fill: #5ec8f2;
+	}
+	.red {
+		fill: #c0392b;
+	}
+	.steel {
+		fill: #6f9fc4;
+	}
+	.ice {
+		fill: #bfe9fb;
+	}
+	.rod {
+		fill: none;
+		stroke: #8b5a3c;
+		stroke-width: 2;
+		stroke-linecap: round;
+	}
+	.line {
+		fill: none;
+		stroke: #7d8a94;
+		stroke-width: 0.8;
 	}
 	.sail {
 		fill: var(--coral);

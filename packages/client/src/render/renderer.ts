@@ -19,6 +19,7 @@ import { SUN_FROM, WORLD_LIGHT } from './campfire';
 import { Chaser } from './chaser';
 import { ChunkRing } from './chunks';
 import { ClearingEffects, SWING_SECONDS, animateSwing, buildTool } from './clearing';
+import { FishingEffect, type CastOutcome } from './fishing';
 import { Greetings } from './doctor';
 import { appearScale, smoothstep } from './ease';
 import { buildGliderMesh, poseGlider } from './glider';
@@ -164,6 +165,8 @@ export class GameRenderer {
 	private edits = WorldEdits.none;
 	/** Trees tipping over and rocks cracking, until each is gone. */
 	private clearings = new ClearingEffects(this.scene);
+	/** A line cast into a fishing hole, while it plays. */
+	private fishing = new FishingEffect(this.scene);
 	/** The trainer's swing in progress: the tool in its hand and when it started (seconds). */
 	private swing: { tool: THREE.Group; start: number } | null = null;
 	private cameraTarget = new THREE.Vector3();
@@ -321,6 +324,7 @@ export class GameRenderer {
 		this.dress(getLand(landOfSeed(seed)).look === 'warm-hat');
 		this.chunks.reset(seed, edits);
 		this.clearings.clear();
+		this.fishing.stop();
 		this.poofs.clear();
 		this.greetings.clear();
 		this.others.setWorld(seed);
@@ -401,6 +405,22 @@ export class GameRenderer {
 		const now = performance.now() / 1000;
 		this.clearings.play(tileAtWorld(this.seed, pos.x, pos.y), pos, facing, now);
 		this.startSwing(tool, now);
+	}
+
+	/**
+	 * The trainer casts a line into the fishing hole at `hole` (they stand
+	 * beside it, facing it): the bobber goes under with a splash when
+	 * something bit, or the line is reeled back in.
+	 */
+	fish(hole: GridPos, outcome: CastOutcome): void {
+		this.endSwing();
+		const arm = this.player.children[0]?.getObjectByName('armR');
+		if (arm) this.fishing.play(arm, hole, outcome, performance.now() / 1000);
+	}
+
+	/** Whether a cast is still playing: a battle with what bit waits for the bobber to go under. */
+	get castPlaying(): boolean {
+		return this.fishing.playing(performance.now() / 1000);
 	}
 
 	/** Put the tool in the trainer's right hand and swing it; a swing already going is replaced. */
@@ -628,6 +648,7 @@ export class GameRenderer {
 			if (progress >= 1) this.endSwing();
 		}
 		this.clearings.update(t, motion.reduced);
+		this.fishing.update(t, motion.reduced);
 		const dt = this.lastT < 0 ? 0 : Math.min(0.1, Math.max(0, t - this.lastT));
 		// The others walk and fade (their followers are figures too, idled below), and their
 		// battles play beside them.

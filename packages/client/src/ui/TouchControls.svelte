@@ -187,9 +187,11 @@
 >
 	{hud.action === 'chop'
 		? t('explore.chop')
-		: hud.action === 'break'
+		: hud.action === 'break' || hud.action === 'breakIce'
 			? t('explore.break')
-			: t('explore.talk')}
+			: hud.action === 'fish'
+				? t('explore.fish')
+				: t('explore.talk')}
 </button>
 
 <!-- Space, held while the finger stays: the glider takes off after a moment and flies until it lifts. -->

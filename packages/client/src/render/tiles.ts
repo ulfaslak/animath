@@ -561,6 +561,21 @@ function decorate(props: Props, group: THREE.Group, tile: Tile, x: number, z: nu
 				}
 				return;
 			}
+			if (tile.cleared === 'iceblock') {
+				// Where an ice block stood on the snow: a few flat chips of ice, catching the light.
+				const count = 3 + Math.floor(rng.next() * 3);
+				for (let k = 0; k < count; k++) {
+					const [cx, cz] = near(0.34);
+					const w = 0.06 + rng.next() * 0.06;
+					const colour = pick(rng, [ARCTIC_COLORS.block, ARCTIC_COLORS.blockTop]);
+					props.add('slab', cx, top + 0.012, cz, colour, [w, 0.024, w * 0.7], [
+						0,
+						rng.next() * Math.PI,
+						0
+					]);
+				}
+				return;
+			}
 			if (tile.biome === 'meadow' && rng.chance(0.2)) {
 				// A few flowers in the meadow grass.
 				const count = 2 + (rng.chance(0.5) ? 1 : 0);

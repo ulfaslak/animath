@@ -3,6 +3,7 @@ import {
 	canFightIn,
 	canTalkToDoctor,
 	clearableAhead,
+	holeAhead,
 	shopFor,
 	leadIndex,
 	needsDoctor,
@@ -84,8 +85,13 @@ export type Said =
 	| { explore: 'notAtTent' | 'holdToFly' | 'tooFar' | 'rideBig' }
 	/** Up in the air, a wild bird of this species noticed the glider and follows it down. */
 	| { follows: string }
-	/** A tree or a rock is in the way without the tool it takes: the doctor sells one. */
-	| { needs: ClearableKind }
+	/**
+	 * A tree, a rock or an ice block is in the way without the tool it takes,
+	 * or a fishing hole without the rod: the doctor sells one.
+	 */
+	| { needs: ToolTarget }
+	/** A cast at a fishing hole: nothing bit this time, or nobody in the team can swim. */
+	| { fished: 'nothing' | 'no-swimmer' }
 	| { party: PartyNotice }
 	/** What start-up found about the save: a copy key from `SAVE_NOTICES`. */
 	| { save: SaveNotice }
@@ -123,8 +129,9 @@ export function saidWords(said: Said): string {
 	if ('party' in said) return partyWords(said.party);
 	if ('save' in said) return t(said.save);
 	if ('account' in said) return accountWords(said.account);
-	if ('needs' in said)
-		return said.needs === 'tree' ? t('explore.needAxe') : t('explore.needPickaxe');
+	if ('needs' in said) return t(NEEDS[said.needs]);
+	if ('fished' in said)
+		return said.fished === 'nothing' ? t('explore.caughtNothing') : t('explore.noSwimmer');
 	// Only a bird has the grumpy form: a species' forms are written out, never built.
 	if ('follows' in said)
 		return t('explore.birdFollows', {
@@ -150,8 +157,39 @@ function accountWords(note: 'saved' | 'welcome' | 'movedAhead'): string {
 	}
 }
 
-/** What Enter (the touch controls' Talk) does in front of the player: talk, chop, break, or nothing. */
-export type ExploreAction = 'talk' | 'chop' | 'break' | null;
+/** What a tool is for: a tile it clears, or a fishing hole the rod fishes. */
+export type ToolTarget = ClearableKind | 'hole';
+
+/** What the line says a kid in front of one without its tool needs. */
+/** What Enter does in front of each, with its tool. */
+const ACTIONS: Readonly<Record<ToolTarget, Exclude<ExploreAction, 'talk' | null>>> = {
+	tree: 'chop',
+	rock: 'break',
+	iceblock: 'breakIce',
+	hole: 'fish'
+};
+
+/** The prompt under the message line for what Enter does: with keys, and with the touch controls on. */
+export const PROMPTS: Readonly<Record<Exclude<ExploreAction, null>, readonly [string, string]>> = {
+	talk: ['explore.talkPrompt', 'explore.talkPromptTouch'],
+	chop: ['explore.chopPrompt', 'explore.chopPromptTouch'],
+	break: ['explore.breakPrompt', 'explore.breakPromptTouch'],
+	breakIce: ['explore.breakIcePrompt', 'explore.breakIcePromptTouch'],
+	fish: ['explore.fishPrompt', 'explore.fishPromptTouch']
+};
+
+export const NEEDS: Readonly<Record<ToolTarget, string>> = {
+	tree: 'explore.needAxe',
+	rock: 'explore.needPickaxe',
+	iceblock: 'explore.needIcePick',
+	hole: 'explore.needRod'
+};
+
+/**
+ * What Enter (the touch controls' Talk) does in front of the player: talk,
+ * chop a tree, break a rock or an ice block, fish at a hole, or nothing.
+ */
+export type ExploreAction = 'talk' | 'chop' | 'break' | 'breakIce' | 'fish' | null;
 
 function partyWords(notice: PartyNotice): string {
 	if ('speciesId' in notice) {
@@ -275,7 +313,7 @@ class HudView {
 	 * The kinds whose "the doctor sells one" has been said since the game on
 	 * screen started (`welcome`): a bump says it once, not every time.
 	 */
-	private toolHints = new Set<ClearableKind>();
+	private toolHints = new Set<ToolTarget>();
 	/** The key of the talk on its way to the authority (`talked`): a tap of Space, or Enter. */
 	private talkKey: TalkKey = 'enter';
 	/** The items owned as the doctor's visit began: what the kid buys there is what is new at its end. */
@@ -283,8 +321,15 @@ class HudView {
 
 	/** The player faces a doctor's tent: interacting now talks to the doctor. */
 	facingTent = $derived(canTalkToDoctor(game.seed, game.pos, game.facing));
-	/** A tree or a rock in front of the player, and the tool it takes (owned or not); else null. */
-	ahead = $derived(clearableAhead(game.seed, game.edits, game.pos, game.facing));
+	/**
+	 * A tree, a rock or an ice block in front of the player and the tool it
+	 * takes, or a fishing hole and the rod (owned or not); else null.
+	 */
+	ahead = $derived<{ kind: ToolTarget; tool: ItemId } | null>(
+		holeAhead(game.seed, game.edits, game.pos, game.facing)
+			? { kind: 'hole', tool: 'fishing-rod' }
+			: clearableAhead(game.seed, game.edits, game.pos, game.facing)
+	);
 	/**
 	 * What Enter does now: talk to the doctor at a tent, chop the tree or break
 	 * the rock in front with the tool it takes, when the player owns it; else
@@ -298,9 +343,7 @@ class HudView {
 			: this.facingTent
 				? 'talk'
 				: this.ahead && game.items.includes(this.ahead.tool)
-					? this.ahead.kind === 'tree'
-						? 'chop'
-						: 'break'
+					? ACTIONS[this.ahead.kind]
 					: null
 	);
 	/**
@@ -321,7 +364,7 @@ class HudView {
 	 */
 	tired = $derived(needsDoctor(game.party, game.realm));
 	/**
-	 * The line under it: what Enter does here (talk, chop, break), else that
+	 * The line under it: what Enter does here (talk, chop, break, fish), else that
 	 * the team is tired and needs a doctor's tent (for as long as it does: walk,
 	 * sail, or where no tent is a walk away and the kid has the paraglider, fly
 	 * out; `doctorWay.noWay`), or the controls hint, or ''. With the touch
@@ -330,29 +373,19 @@ class HudView {
 	hint = $derived(
 		game.flying
 			? ''
-			: this.action === 'talk'
-				? touch.on
-					? t('explore.talkPromptTouch')
-					: t('explore.talkPrompt')
-				: this.action === 'chop'
-					? touch.on
-						? t('explore.chopPromptTouch')
-						: t('explore.chopPrompt')
-					: this.action === 'break'
+			: this.action !== null
+				? t(PROMPTS[this.action][touch.on ? 1 : 0])
+				: this.tired
+					? game.realm === 'water'
+						? t('explore.tiredSail')
+						: doctorWay.noWay && game.items.includes('glider')
+							? t('explore.tiredFly')
+							: t('explore.tired')
+					: game.steps < HINT_STEPS
 						? touch.on
-							? t('explore.breakPromptTouch')
-							: t('explore.breakPrompt')
-						: this.tired
-							? game.realm === 'water'
-								? t('explore.tiredSail')
-								: doctorWay.noWay && game.items.includes('glider')
-									? t('explore.tiredFly')
-									: t('explore.tired')
-							: game.steps < HINT_STEPS
-								? touch.on
-									? t('explore.controlsTouch')
-									: t('explore.controls')
-								: ''
+							? t('explore.controlsTouch')
+							: t('explore.controls')
+						: ''
 	);
 
 	/** Call after `game.apply(event)`, which knows who the player is and which way they face. */
@@ -399,6 +432,11 @@ class HudView {
 							? { explore: 'rideBig' }
 							: { doctor: { say: 'goodbye' } }
 				);
+				break;
+			case 'line-cast':
+				// Something bit: its battle says so. Nothing did, or nobody can swim: the line says why.
+				if (event.playerId !== game.playerId || event.outcome === 'bite') break;
+				this.say({ fished: event.outcome });
 				break;
 			case 'nothing-to-interact':
 				// A tap of Space with nothing in front, the glider owned: that is how to fly.

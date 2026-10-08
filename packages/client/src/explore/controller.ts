@@ -1,7 +1,7 @@
 import {
-	CLEARING_TOOL,
 	WorldEdits,
 	bundles,
+	clearingTool,
 	editedTileAt,
 	flightTile,
 	hasItem,
@@ -25,6 +25,7 @@ import type { Keyboard, TeamPick } from '../input/keyboard';
 import { motion } from '../motion';
 import { BOAT_SWING_SECONDS } from '../render/boat';
 import { HOVER_AHEAD, HOVER_UP } from '../render/chaser';
+import { FISH_BITE_DELAY } from '../render/fishing';
 import { SWING_STRIKE } from '../render/clearing';
 import type { Follower } from '../render/follower';
 import type { AirPose, GameRenderer } from '../render/renderer';
@@ -196,6 +197,15 @@ export class ExploreController {
 				this.renderer.setPlayer(event.pos, event.pos, 1, this.facing);
 				this.follower?.place(this.seed, event.pos, this.facing, this.edits);
 				break;
+			case 'line-cast':
+				// The rod swung, the line out, the bobber in the hole: under it goes, or back it comes.
+				if (event.playerId !== this.playerId) break;
+				team.close();
+				if (event.outcome === 'no-swimmer') break;
+				this.renderer.fish(event.hole, event.outcome);
+				sfx.play('cast');
+				if (event.outcome === 'bite') sfx.play('splash', { delay: FISH_BITE_DELAY });
+				break;
 			case 'tile-cleared':
 				if (event.playerId !== this.playerId) break;
 				// Landing on it from the glider: chopped as the trainer comes down onto it.
@@ -324,7 +334,12 @@ export class ExploreController {
 	 * in the air waits for it before its circle closes.
 	 */
 	get landing(): boolean {
-		return this.flight !== null || this.renderer.chaser.arriving || this.sliding;
+		return (
+			this.flight !== null ||
+			this.renderer.chaser.arriving ||
+			this.sliding ||
+			this.renderer.castPlaying
+		);
 	}
 
 	/**
@@ -358,8 +373,9 @@ export class ExploreController {
 		this.edits = this.edits.with(event.pos).without(event.regrown);
 		this.renderer.cleared(event.pos, event.tool, this.facing, this.edits, event.regrown);
 		this.follower?.setEdits(this.edits);
-		// As the tool lands: a woody chop, or a rock's crack.
-		sfx.play(event.was === 'tree' ? 'chop' : 'crack', { delay: SWING_STRIKE });
+		// As the tool lands: a woody chop, a rock's crack, or the ice's glassy shatter.
+		const sound = event.was === 'tree' ? 'chop' : event.was === 'rock' ? 'crack' : 'shatter';
+		sfx.play(sound, { delay: SWING_STRIKE });
 	}
 
 	/**
@@ -558,7 +574,8 @@ export class ExploreController {
 				landingDistance(this.seed, this.edits, f.flight, { items: game.items })
 			);
 		const { kind } = editedTileAt(this.seed, this.edits, at.x, at.y);
-		this.renderer.setLandingSpot(at, isClearable(kind) ? CLEARING_TOOL[kind] : null);
+		const tool = kind === 'tree' || kind === 'rock' ? clearingTool(this.seed, kind) : null;
+		this.renderer.setLandingSpot(at, tool);
 	}
 
 	/** The trainer's pose with the glider this frame: the wind-up, the rise, the glide, the descent. */

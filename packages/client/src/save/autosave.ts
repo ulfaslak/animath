@@ -475,6 +475,9 @@ export class Autosave {
 			case 'glided':
 			case 'bird-follows':
 			case 'landed':
+			// A cast at a fishing hole is a step of the count, so the next cast rolls anew after a
+			// reload too; a bite saves as its battle.
+			case 'line-cast':
 			case 'battle-started':
 			case 'battle-updated':
 			case 'doctor-visit-started':
