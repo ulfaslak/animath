@@ -80,9 +80,10 @@ describe('the land registry', () => {
 		const arctic = getLand('arctic');
 		expect(arctic.available).toBe(false);
 		expect(availableLands()).toEqual(['nordland']);
-		// #192's first wave: its small land animals, the three starters first, in catalog order.
+		// #192's first and third waves: its small land animals, the three starters first, and
+		// its sea and fishing-hole animals, in catalog order.
 		expect(arctic.species).toEqual(ANIMALS.slice(50).map((a) => a.id));
-		expect(arctic.species).toHaveLength(15);
+		expect(arctic.species).toHaveLength(38);
 		expect(arctic.starters).toEqual(['arctic-fox', 'arctic-hare', 'puffin']);
 		expect(arctic.shop).toEqual([]);
 		expect(arctic.currency).toBe('ice-dollars');

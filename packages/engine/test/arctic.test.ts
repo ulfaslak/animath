@@ -31,6 +31,7 @@ import {
 	type TileKind
 } from '../src/world/types.js';
 import { surroundings } from '../src/world/habitat.js';
+import { turn } from './turn.js';
 
 const DIRS: readonly Direction[] = ['up', 'down', 'left', 'right'];
 const WORLDS = [1, 2, 42, 777, 9999];
@@ -312,11 +313,17 @@ describe('sliding on the ice', () => {
 		[9999, -200, -300, 80, 80]
 	];
 
-	it('goes on over every tile of ice until something stops it, never past the longest run of ice', () => {
+	it('goes on over every tile of ice until something stops it, never past the longest run of ice', async () => {
+		// About 190,000 moves (every walkable tile of four windows, four ways, with and without
+		// the boat): 27 s alone at a load average of 8 with an \`expect\` per move, 19 s with the
+		// findings collected, so it awaits \`turn()\` between windows and is bounded at 3 minutes
+		// (#192 wave 3, which found it timing out at 30 s).
+		const bad: string[] = [];
 		let slides = 0;
 		let long = 0;
 		let holes = 0;
 		for (const [world, x0, y0, w, h] of AREAS) {
+			await turn();
 			const seed = arctic(world);
 			for (const p of window(x0, y0, w, h)) {
 				if (!isWalkable(tileAtWorld(seed, p.x, p.y).kind)) continue;
@@ -324,15 +331,18 @@ describe('sliding on the ice', () => {
 					for (const boat of [false, true]) {
 						const moved = moveFrom(seed, WorldEdits.none, p, dir, { boat });
 						const own = slide(seed, p, dir, boat);
-						expect(moved?.path ?? null, `${world}: ${p.x},${p.y} ${dir}`).toEqual(own);
+						const where = `${world}: ${p.x},${p.y} ${dir}${boat ? ' (boat)' : ''}`;
+						if (JSON.stringify(moved?.path ?? null) !== JSON.stringify(own))
+							bad.push(`${where}: slid ${JSON.stringify(moved?.path)}`);
 						if (!moved) continue;
 						const end = moved.path[moved.path.length - 1]!;
-						expect(moved.tile).toEqual(tileAtWorld(seed, end.x, end.y));
-						expect(moved.path.length).toBeLessThanOrEqual(ICE_RUN + 1);
+						if (JSON.stringify(moved.tile) !== JSON.stringify(tileAtWorld(seed, end.x, end.y)))
+							bad.push(`${where}: ends on another tile`);
+						if (moved.path.length > ICE_RUN + 1) bad.push(`${where}: ${moved.path.length} long`);
 						if (moved.path.length > 1) slides++;
 						if (moved.path.length > 8) long++;
 						// No slide ends on the ice: on the bank in front of a hole it stops facing it.
-						if (moved.path.length > 1) expect(moved.tile.kind).not.toBe('ice');
+						if (moved.path.length > 1 && moved.tile.kind === 'ice') bad.push(`${where}: on ice`);
 						const ahead = step(end, dir);
 						if (moved.path.length > 1 && tileAtWorld(seed, ahead.x, ahead.y).kind === 'hole')
 							holes++;
@@ -340,11 +350,12 @@ describe('sliding on the ice', () => {
 				}
 			}
 		}
+		expect(bad.slice(0, 20)).toEqual([]);
 		expect(slides).toBeGreaterThan(5000);
 		expect(long).toBeGreaterThan(100);
 		expect(holes).toBeGreaterThan(50);
 		expect(MAX_SLIDE).toBe(ICE_RUN + 1);
-	});
+	}, 180_000);
 
 	it('never meets a straight run of ice longer than ICE_RUN, in a row or a column', () => {
 		for (const [world, x0, y0, w, h] of AREAS) {

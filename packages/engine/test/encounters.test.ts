@@ -56,9 +56,13 @@ const BIOMES = Object.keys(PLACE) as Biome[];
 const LEADS: readonly Tier[] = [1, 2, 3, 4, 5];
 const ORIGIN = { x: 0, y: 0 };
 const tallgrass = (biome: Biome): Tile => ({ kind: 'tallgrass', biome, height: 0 });
-/** The biomes whose encounters are out on the water: the open seas, and a frozen lake's holes. */
-const WATERY: readonly Biome[] = ['sea', 'arctic-ocean', 'southern-ocean', 'frozen-lake'];
-/** The realm of an encounter in a biome: out on the open sea or at a hole in the ice, the water; else land. */
+/**
+ * The biomes whose encounters are out on the water, on deep water: the open seas. A frozen
+ * lake has no encounter tile (its ice and its banks of snow start nothing); what lives under
+ * the ice is hooked through a fishing hole, from its own table (§ the fishing holes).
+ */
+const WATERY: readonly Biome[] = ['sea', 'arctic-ocean', 'southern-ocean'];
+/** The realm of an encounter in a biome: out on the open sea, the water; else land. */
 const realmOf = (biome: Biome): Realm => (WATERY.includes(biome) ? 'water' : 'land');
 /** The tile an encounter in a biome happens on: tall grass, or out on the water, deep water. */
 const encounterTile = (biome: Biome): Tile =>
@@ -122,8 +126,8 @@ const residents = (biome: Biome) => ANIMALS.filter((a) => a.habitats.includes(bi
 
 /**
  * The biomes where something of the realm of their encounter tile lives. Every biome of a
- * land open to players is one ("is never empty…"); The Arctic's seas and frozen lakes wait for
- * #192's third wave, its sea animals and the ones that come out of a hole in the ice.
+ * land open to players is one ("is never empty…"); The Arctic's frozen lakes have no encounter
+ * tile, only fishing holes.
  */
 const INHABITED = BIOMES.filter((b) => residents(b).some((a) => a.realms.includes(realmOf(b))));
 
@@ -948,7 +952,8 @@ describe('encounterTable', () => {
 						share(biome, d, lead, (t) => t >= lead + 2),
 						where
 					).toBeLessThan(1 / 5000);
-					if (!residents(biome).some((a) => a.tier >= lead)) continue;
+					const ofRealm = residents(biome).filter((a) => a.realms.includes(realmOf(biome)));
+					if (!ofRealm.some((a) => a.tier >= lead)) continue;
 					expect(
 						share(biome, d, lead, (t) => t === lead),
 						where
@@ -2076,5 +2081,46 @@ describe('the sky: birds that notice the glider (#91)', () => {
 		}
 		const nowhere = { ...skySite('meadow', 0), pos: { x: NaN, y: 0 } };
 		expect(() => rollSkyEncounter(new Rng(1), nowhere, 1)).toThrow(/distance/);
+	});
+});
+
+describe('the fishing holes (#192 § Fishing holes)', () => {
+	// What a line can hook through a hole is the water's table of the ice it is in, its
+	// animals of the water alone (a polar bear or a penguin is met on the ice, not hooked
+	// through it): #192's table, each animal on the right pole.
+	const hookable = (biome: Biome) =>
+		encounterTable(biome, WILD_RADIUS, 3, 'water')
+			.filter((e) => !e.species.realms.includes('land'))
+			.map((e) => e.species.id);
+
+	it("lists #192's animals under each ice, and the open seas hold every one of them too", () => {
+		expect(hookable('frozen-lake')).toEqual(['arctic-char']);
+		expect(hookable('arctic-ice')).toEqual(['polar-cod', 'ringed-seal', 'greenland-shark']);
+		expect(hookable('antarctic-ice')).toEqual([
+			'antarctic-krill',
+			'icefish',
+			'weddell-seal',
+			'toothfish'
+		]);
+		// Each also swims in its pole's open sea, so a kid with the boat meets it without a rod.
+		for (const [ice, sea] of [
+			['frozen-lake', 'arctic-ocean'],
+			['arctic-ice', 'arctic-ocean'],
+			['antarctic-ice', 'southern-ocean']
+		] as const)
+			for (const id of hookable(ice)) expect(getAnimal(id).habitats, id).toContain(sea);
+	});
+
+	it('an animal of the water alone lives only in the open seas and under the ice', () => {
+		const wet: readonly Biome[] = [
+			'sea',
+			'arctic-ocean',
+			'southern-ocean',
+			'frozen-lake',
+			'arctic-ice',
+			'antarctic-ice'
+		];
+		for (const a of ANIMALS.filter((s) => !s.realms.includes('land')))
+			for (const b of a.habitats) expect(wet, `${a.id} in ${b}`).toContain(b);
 	});
 });

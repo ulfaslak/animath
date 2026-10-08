@@ -657,7 +657,31 @@ describe('readSave and the upgrade seam', () => {
 			'raven',
 			'barnacle-goose',
 			'gentoo-penguin',
-			'chinstrap'
+			'chinstrap',
+			// #192 wave 3: The Arctic's sea and fishing-hole animals.,
+			'sea-angel',
+			'polar-cod',
+			'antarctic-krill',
+			'arctic-char',
+			'lumpsucker',
+			'ringed-seal',
+			'icefish',
+			'harp-seal',
+			'wolffish',
+			'snow-crab',
+			'weddell-seal',
+			'beluga',
+			'hooded-seal',
+			'minke-whale',
+			'toothfish',
+			'crabeater-seal',
+			'walrus',
+			'bowhead-whale',
+			'greenland-shark',
+			'narwhal',
+			'elephant-seal',
+			'blue-whale',
+			'leopard-seal'
 		];
 		expect(ANIMALS.map((a) => a.id).filter((id) => !shipped.includes(id))).toEqual([]);
 		for (const speciesId of shipped) {

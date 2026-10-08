@@ -268,7 +268,7 @@ describe('balance simulation', () => {
 		// 48 pairs, 200 battles each: under a second alone, a few beside the suite under load.
 	}, 30_000);
 
-	it('each sea animal is its land twin in numbers, so the land balance holds at sea as it is', () => {
+	it("each of Nordland's sea animals is its land twin in numbers, so the land balance holds at sea as it is", () => {
 		const twins: Record<string, string> = {
 			crab: 'rabbit',
 			starfish: 'frog',
@@ -286,7 +286,12 @@ describe('balance simulation', () => {
 			'grey-seal': 'wolverine',
 			orca: 'european-bison'
 		};
-		const sea = ANIMALS.filter((a) => !a.realms.includes('land')).map((a) => a.id);
+		// The Arctic's sea animals (#192 wave 3) have numbers of their own, in its bands, and the
+		// same-land sims below hold them to the same win rates.
+		const nordland = LANDS.find((l) => l.id === 'nordland')!.species;
+		const sea = ANIMALS.filter((a) => !a.realms.includes('land') && nordland.includes(a.id)).map(
+			(a) => a.id
+		);
 		expect(Object.keys(twins)).toEqual(sea);
 		const numbers = (id: string) => {
 			const a = getAnimal(id);

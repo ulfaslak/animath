@@ -117,7 +117,8 @@ const NORDLAND_SPECIES: readonly string[] = [
 /**
  * The Arctic's species, by id, in catalog order (#192): its 50 arrive in
  * three waves, as Nordland's did, and this list grows with each, the
- * starters first. Wave 1: the small land animals, tiers 1 and 2.
+ * starters first. Wave 1: the small land animals, tiers 1 and 2; wave 3: the
+ * sea and fishing-hole animals.
  */
 const ARCTIC_SPECIES: readonly string[] = [
 	'arctic-fox',
@@ -134,7 +135,31 @@ const ARCTIC_SPECIES: readonly string[] = [
 	'raven',
 	'barnacle-goose',
 	'gentoo-penguin',
-	'chinstrap'
+	'chinstrap',
+	// Wave 3: the sea and fishing-hole animals.
+	'sea-angel',
+	'polar-cod',
+	'antarctic-krill',
+	'arctic-char',
+	'lumpsucker',
+	'ringed-seal',
+	'icefish',
+	'harp-seal',
+	'wolffish',
+	'snow-crab',
+	'weddell-seal',
+	'beluga',
+	'hooded-seal',
+	'minke-whale',
+	'toothfish',
+	'crabeater-seal',
+	'walrus',
+	'bowhead-whale',
+	'greenland-shark',
+	'narwhal',
+	'elephant-seal',
+	'blue-whale',
+	'leopard-seal'
 ];
 
 /**

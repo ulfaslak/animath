@@ -627,11 +627,15 @@ describe('answers', () => {
 			const spec = getAnimal(p);
 			const got: unknown[] = [];
 			const want: unknown[] = [];
+			// The biggest opponent it can meet, so no hit knocks it out: a tier-5 animal of The
+			// Arctic hits harder than Nordland's bear has HP (the walrus's Big Flop, 108 on hard).
+			const big = ids
+				.filter((o) => arena(p, o))
+				.reduce((a, b) => (getAnimal(b).maxHp > getAnimal(a).maxHp ? b : a));
+			const bigHp = getAnimal(big).maxHp;
 			for (let n = 1; n <= spec.attacks.length; n++) {
 				for (const level of ATTACK_LEVELS) {
 					for (let seed = 0; seed < 5; seed++) {
-						// A 100-HP opponent it can meet: the bear, or out on the water the whale.
-						const big = arena(p, 'bear') ? 'bear' : 'whale';
 						const start = startBattle(makeParty([p]), makeWild(big), { realm: arena(p, big)! });
 						const solving = applyBattleIntent(
 							start,
@@ -673,9 +677,9 @@ describe('answers', () => {
 									attackIndex: n,
 									level,
 									damage,
-									targetHp: 100 - damage
+									targetHp: bigHp - damage
 								},
-								hp: 100 - damage,
+								hp: bigHp - damage,
 								lower: true
 							});
 						}
@@ -839,8 +843,9 @@ describe('the leash', () => {
 		const bad: string[] = [];
 		for (const w of ids) {
 			const spec = getAnimal(w);
-			// A fox on land; out on the water, where the sea animals are, an otter.
-			const p = arena('fox', w) ? 'fox' : 'otter';
+			// One of its own kind, where it lives: no hit of its own knocks one out, so a failed
+			// throw always hands the battle on (an otter fell to a beluga's 37).
+			const p = w;
 			const realm = arena(p, w)!;
 			for (const hp of [1, Math.ceil(spec.maxHp * 0.1), Math.ceil(spec.maxHp * 0.5), spec.maxHp]) {
 				const chance = catchProbability(hp / spec.maxHp, spec.catchRate, 1);
