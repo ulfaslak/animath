@@ -872,7 +872,9 @@ describe('encounterTable', () => {
 		);
 		expect(encounterTable('southern-ocean', 0, 1, 'air').map((e) => e.species.id)).toEqual([
 			'snow-petrel',
-			'arctic-tern'
+			'arctic-tern',
+			'giant-petrel',
+			'albatross'
 		]);
 	});
 
@@ -1852,16 +1854,28 @@ describe('the sky: birds that notice the glider (#91)', () => {
 		// In The Arctic's north (#192), every sky with a small bird under the bigger tern, eider,
 		// goose or raven, with a small bird in front: the puffin's sea, the cliffs, the fell, the
 		// taiga's waxwings and the tundra; the snow petrel's south has no small bird visiting.
+		// Its second wave's big birds (the owls, the glaucous gull and the gyrfalcon) put the
+		// north's tier-2 birds under them over the ice, the sea, the cliffs, the fell and the
+		// taiga, and its tier-3 birds over the ice, the cliffs and the tundra; in the south the
+		// tern, the one tier-2 bird, flies over no sky a bird of its size has.
 		expect([...seen].sort()).toEqual([
 			'1:arctic-ocean',
 			'1:bird-cliffs',
 			'1:fell',
 			'1:taiga',
 			'1:tundra',
+			'2:arctic-ice',
+			'2:arctic-ocean',
+			'2:bird-cliffs',
+			'2:fell',
 			'2:forest',
 			'2:river',
+			'2:taiga',
+			'3:arctic-ice',
+			'3:bird-cliffs',
 			'3:mountain',
-			'3:river'
+			'3:river',
+			'3:tundra'
 		]);
 		const forest = new Map(skyIn('forest', 0, 2).map((e) => [e.species.id, e.weight]));
 		for (const id of ['grey-heron', 'buzzard'])

@@ -55,6 +55,13 @@ export interface AnimalSpec {
 	 * from the witch doctor's shop (`canRide`): only the big land animals.
 	 */
 	carries?: true;
+	/**
+	 * A wild animal that could pull a kid on a sled, as The Arctic's dog sled
+	 * has it do (#191, #192 § Dog sled): the counterpart of `carries`, and
+	 * like it a look only. The reindeer, which Sámi herders drive, and the
+	 * Arctic wolf, the wild animal sled dogs come from.
+	 */
+	pulls?: true;
 }
 
 /**

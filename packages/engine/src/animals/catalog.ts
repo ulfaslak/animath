@@ -896,8 +896,8 @@ export const ANIMALS: readonly AnimalSpec[] = [
 		tier: 2,
 		maxHp: 70,
 		catchRate: 0.7,
-		habitats: ['bird-cliffs', 'tundra', 'antarctic-ice'],
-		skies: ['bird-cliffs', 'tundra', 'antarctic-ice', 'arctic-ocean', 'southern-ocean'],
+		habitats: ['bird-cliffs', 'tundra', 'arctic-ice', 'antarctic-ice'],
+		skies: ['bird-cliffs', 'tundra', 'arctic-ice', 'antarctic-ice', 'arctic-ocean', 'southern-ocean'],
 		realms: ['land', 'air'],
 		favours: 'water',
 		attacks: [
@@ -979,6 +979,200 @@ export const ANIMALS: readonly AnimalSpec[] = [
 			{ id: 'squawk', kinds: ['sub'], power: 14 },
 			{ id: 'flipper-slap', kinds: ['kroner'], power: 19 },
 			{ id: 'rock-hop', kinds: ['fraction'], power: 26 }
+		]
+	},
+	// The Arctic's big land animals (#192 wave 2), tiers 3 to 5, the birds among them. Same
+	// rules as wave 1's; the bands are #192's (tier 3: 97–113 HP, catch 0.45–0.5, powers 16–27;
+	// tier 4: 137–153, 0.3–0.35, 21–40; tier 5: 190–210, 0.2, 23–53).
+	{
+		// Wild and herded reindeer are one species (Rangifer tarandus); Sámi herders drive them
+		// in front of a sled. It grazes the open tundra, the forest edge and the fells.
+		id: 'reindeer',
+		tier: 3,
+		maxHp: 112,
+		catchRate: 0.45,
+		habitats: ['tundra', 'taiga', 'fell'],
+		realms: ['land'],
+		favours: 'open',
+		pulls: true,
+		attacks: [
+			{ id: 'hoof-scrape', kinds: ['add', 'sub'], power: 16 },
+			{ id: 'clicky-knees', kinds: ['clock'], power: 21 },
+			{ id: 'antler-push', kinds: ['fraction'], power: 27 }
+		]
+	},
+	{
+		id: 'snowy-owl',
+		tier: 3,
+		maxHp: 104,
+		catchRate: 0.5,
+		habitats: ['tundra'],
+		realms: ['land', 'air'],
+		favours: 'open',
+		attacks: [
+			{ id: 'yellow-stare', kinds: ['add', 'sub'], power: 17 },
+			{ id: 'lemming-hunt', kinds: ['barchart'], power: 22 },
+			{ id: 'snow-swoop', kinds: ['shape'], power: 26 }
+		]
+	},
+	{
+		// An owl of the northern forest, which hears a vole under the snow and plunges in.
+		id: 'great-grey-owl',
+		tier: 3,
+		maxHp: 106,
+		catchRate: 0.5,
+		habitats: ['taiga'],
+		realms: ['land', 'air'],
+		favours: 'trees',
+		attacks: [
+			{ id: 'big-face', kinds: ['add'], power: 17 },
+			{ id: 'snow-plunge', kinds: ['fraction'], power: 22 },
+			{ id: 'silent-wings', kinds: ['barchart'], power: 26 }
+		]
+	},
+	{
+		// The big white-winged gull of the Arctic's coasts, which robs the bird cliffs' nests.
+		id: 'glaucous-gull',
+		tier: 3,
+		maxHp: 104,
+		catchRate: 0.5,
+		habitats: ['bird-cliffs', 'arctic-ice'],
+		skies: ['bird-cliffs', 'arctic-ice', 'arctic-ocean'],
+		realms: ['land', 'air'],
+		favours: 'rocks',
+		attacks: [
+			{ id: 'screech', kinds: ['add', 'sub'], power: 16 },
+			{ id: 'egg-snatch', kinds: ['kroner'], power: 21 },
+			{ id: 'sky-bully', kinds: ['clock'], power: 26 }
+		]
+	},
+	{
+		// The southern giant petrel, which nests on the Antarctic's rocky coasts and the islands
+		// round it and scavenges over the sea ice.
+		id: 'giant-petrel',
+		tier: 3,
+		maxHp: 110,
+		catchRate: 0.45,
+		habitats: ['rookery', 'antarctic-ice'],
+		skies: ['rookery', 'antarctic-ice', 'southern-ocean'],
+		realms: ['land', 'air'],
+		favours: 'open',
+		attacks: [
+			{ id: 'beak-clack', kinds: ['add', 'sub'], power: 17 },
+			{ id: 'stinky-spit', kinds: ['balance'], power: 23 },
+			{ id: 'storm-ride', kinds: ['thermometer'], power: 27 }
+		]
+	},
+	{
+		// It breeds on the islands round Antarctica (South Georgia, Kerguelen), not on its ice:
+		// the rookery coast stands in for that ring of islands.
+		id: 'king-penguin',
+		tier: 3,
+		maxHp: 108,
+		catchRate: 0.5,
+		habitats: ['rookery'],
+		realms: ['land', 'water'],
+		favours: 'open',
+		attacks: [
+			{ id: 'trumpet', kinds: ['add', 'sub'], power: 17 },
+			{ id: 'orange-ears', kinds: ['kroner'], power: 22 },
+			{ id: 'deep-dive', kinds: ['thermometer'], power: 26 }
+		]
+	},
+	{
+		// The wolf of the High Arctic: the same species as Nordland's wolf (Canis lupus), its
+		// white northern kind, and the wild animal sled dogs come from.
+		id: 'arctic-wolf',
+		tier: 4,
+		maxHp: 145,
+		catchRate: 0.35,
+		habitats: ['tundra', 'fell'],
+		realms: ['land'],
+		favours: 'rocks',
+		pulls: true,
+		attacks: [
+			{ id: 'snow-trot', kinds: ['add', 'sub'], power: 22 },
+			{ id: 'pack-hunt', kinds: ['barchart'], power: 30 },
+			{ id: 'white-lunge', kinds: ['balance'], power: 38 }
+		]
+	},
+	{
+		// The biggest falcon, white in the High Arctic, nesting on the cliffs. In winter some
+		// live for weeks out on the sea ice, hunting seabirds at the open water.
+		id: 'gyrfalcon',
+		tier: 4,
+		maxHp: 138,
+		catchRate: 0.35,
+		habitats: ['fell', 'bird-cliffs', 'arctic-ice'],
+		skies: ['fell', 'bird-cliffs', 'arctic-ice', 'tundra'],
+		realms: ['land', 'air'],
+		favours: 'rocks',
+		attacks: [
+			{ id: 'sky-watch', kinds: ['add', 'sub'], power: 21 },
+			{ id: 'fast-dive', kinds: ['clock'], power: 31 },
+			{ id: 'talon-strike', kinds: ['fraction'], power: 40 }
+		]
+	},
+	{
+		// The biggest penguin, and the only animal that breeds on the sea ice in the winter dark.
+		id: 'emperor-penguin',
+		tier: 4,
+		maxHp: 152,
+		catchRate: 0.3,
+		habitats: ['antarctic-ice'],
+		realms: ['land', 'water'],
+		favours: 'open',
+		attacks: [
+			{ id: 'huddle', kinds: ['add', 'sub'], power: 21 },
+			{ id: 'toboggan', kinds: ['clock'], power: 29 },
+			{ id: 'egg-guard', kinds: ['thermometer'], power: 36 }
+		]
+	},
+	{
+		// The wandering albatross, the widest wings of any bird. It nests on the islands round
+		// Antarctica (the rookery coast stands in for them) and glides over the Southern Ocean.
+		id: 'albatross',
+		tier: 4,
+		maxHp: 140,
+		catchRate: 0.35,
+		habitats: ['rookery'],
+		skies: ['rookery', 'southern-ocean'],
+		realms: ['land', 'air'],
+		favours: 'open',
+		attacks: [
+			{ id: 'glide', kinds: ['add'], power: 22 },
+			{ id: 'sky-dance', kinds: ['barchart'], power: 31 },
+			{ id: 'wide-wings', kinds: ['fraction'], power: 39 }
+		]
+	},
+	{
+		// It hunts seals from the sea ice and swims between the floes.
+		id: 'polar-bear',
+		tier: 5,
+		maxHp: 205,
+		catchRate: 0.2,
+		habitats: ['arctic-ice', 'tundra'],
+		realms: ['land', 'water'],
+		favours: 'water',
+		attacks: [
+			{ id: 'ice-sniff', kinds: ['add', 'sub'], power: 24 },
+			{ id: 'seal-wait', kinds: ['balance'], power: 33 },
+			{ id: 'snow-swipe', kinds: ['fraction'], power: 44 },
+			{ id: 'ice-pounce', kinds: ['shape'], power: 53 }
+		]
+	},
+	{
+		id: 'musk-ox',
+		tier: 5,
+		maxHp: 210,
+		catchRate: 0.2,
+		habitats: ['tundra'],
+		realms: ['land'],
+		favours: 'open',
+		attacks: [
+			{ id: 'shaggy-shake', kinds: ['add'], power: 23 },
+			{ id: 'ring-wall', kinds: ['shape'], power: 32 },
+			{ id: 'horn-crash', kinds: ['thermometer'], power: 44 }
 		]
 	}
 ];
