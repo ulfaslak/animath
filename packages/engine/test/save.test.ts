@@ -657,7 +657,20 @@ describe('readSave and the upgrade seam', () => {
 			'raven',
 			'barnacle-goose',
 			'gentoo-penguin',
-			'chinstrap'
+			'chinstrap',
+			// #192 wave 2: its big land animals and birds.
+			'reindeer',
+			'snowy-owl',
+			'great-grey-owl',
+			'glaucous-gull',
+			'giant-petrel',
+			'king-penguin',
+			'arctic-wolf',
+			'gyrfalcon',
+			'emperor-penguin',
+			'albatross',
+			'polar-bear',
+			'musk-ox'
 		];
 		expect(ANIMALS.map((a) => a.id).filter((id) => !shipped.includes(id))).toEqual([]);
 		for (const speciesId of shipped) {

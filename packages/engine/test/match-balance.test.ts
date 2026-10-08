@@ -129,8 +129,11 @@ describe('friendly-match balance', () => {
 				return [0, 1, 2].map(() => pool[rng.int(0, pool.length - 1)]!);
 			};
 			const tiers = [1, 2, 3, 4, 5].filter((tier) => land(tier).length > 0);
-			expect(tiers, id).toEqual(id === 'nordland' ? [1, 2, 3, 4, 5] : [1, 2]);
-			for (const tier of tiers) expect(land(tier).length, `${id} tier ${tier}`).toBeGreaterThan(2);
+			expect(tiers, id).toEqual([1, 2, 3, 4, 5]);
+			// At least two kinds a tier to draw from: The Arctic's tier 5 on land is the polar bear
+			// and the musk ox, its other big ones living in the sea (#192).
+			for (const tier of tiers)
+				expect(land(tier).length, `${id} tier ${tier}`).toBeGreaterThanOrEqual(2);
 			const even = simulateDrawn(drawn(1, 1), drawn(1, 2), { a: kid(0.7), b: kid(0.7) }, 1000);
 			expect(even.puzzles, id).toBeGreaterThan(18);
 			expect(even.puzzles, id).toBeLessThan(23);

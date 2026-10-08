@@ -1015,3 +1015,10 @@ Codified in [[DEVELOPMENT]] § Testing ideology ("A test types an answer as a ki
 - **A list order taken from the catalog, not the land.** The visit sorted the shop by catalog order, so The Arctic listed its dearest tools first. When a list moves from one owner (the catalog) to many (lands), its order must come from the new owner.
 
 To become `[learned]`: a line in [[DEVELOPMENT]] § Testing ideology saying a search whose step can move many tiles gets a test near its limit against a slow reference.
+
+### 2026-10-08 — #192 wave 2 (feat/arctic-animals-2, PR #203), self-testing and adversarial review — a balance margin read off one fixed sample, a promise kept by a later wave, and figure tells too small to see
+
+- **A margin quoted from the test's own seeds.** The friendly-match bound (one tier smaller wins at most 1 in 12) passed at 7.1% on `match-balance.test.ts`'s fixed 1,000 seeds, but 10,000 matches put it at 8.0%, so about one reshuffle of the random stream in three would have failed it. A balance number near its bound must be measured on a sample much bigger than the test's before it is quoted or trusted.
+- **A per-tier promise copied from a roster tally that counts animals not shipped yet.** PRODUCT said every Arctic puzzle kind is asked by two animals of each tier; #192's tally counts the sea animals of wave 3, so tiers 4 and 5 on land lack kinds. When a feature ships in waves, check each sentence about the whole against what this wave ships.
+- **Figure tells that read in the zoo but not in a battle.** The king penguin's orange, the great grey owl's face rings and the gyrfalcon's flecks were invisible, or floated off the body, at a battle's size and angle; only the battle screenshots showed it. Look at every new figure in battle, front-on and from behind, not only in `?zoo`.
+- **A one-word name broken after any letter.** The book's card names wrapped with `overflow-wrap` alone, so *Kæmpestormfugl* split as "Kæmpestormf / ugl" (wave 1's *Halsbåndlemming* too). Long single words are a Danish (and German) habit: give text that holds a name `hyphens: auto` under the page's `lang`.
