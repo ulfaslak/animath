@@ -972,3 +972,10 @@ To type-check the engine's tests, `@types/node` went into the engine's dev depen
 ### 2026-10-07 — fix/text-16px-floor, self-testing — text grown inside a fixed-size shape
 
 The first pass raised a friend's hit numbers from 15/17/19 to 16/18/20 px and left their starbursts at 38/44/50 px. In a frame of a match watched from outside, zoomed, "−29" reached the star's rim. Text grown to a size floor needs its container checked too, when the container has a fixed size (a burst, a badge, a ring, a key cap in a fixed-height button): the size check passes, and the picture does not. Fixed by growing the bursts to 42/48/54 px.
+
+### 2026-10-08 — #194 (feat/set-free-tracking, part of #191), self-testing and adversarial review — a new piece on a full line, and copy that is true for only one way into a state `[not codified]`
+
+- **A piece added to a line already full at the smallest size.** The kinds set free ("48 / 50 sluppet fri") went beside the book's count on its title line. It fit at 1280 and 1024, and on a phone held sideways (667×375) the count ran over "Dyrebog". Found in the Phase 2 frame of a full book in Danish at phone size. Fix: the counts sit in one wrapping box and stack where the line has no room, at 16 px on a short screen. The lesson: before adding to a line, shoot it at its narrowest size with its widest values (two-digit counts, Danish) first.
+- **Copy written for the live path only.** "Fox is on your team! You set one free too." was true for a kind set free at the witch doctor's, and false for a kind the v2 → v3 upgrade counted as set free (only met, then caught later). Found by the adversarial review. Fix: "…and it counts as set free!", true both ways. The lesson: when a state can be reached by an upgrade or a default as well as by play, every line that describes it has to hold for each way in.
+
+To become `[learned]`: a line in [[DEVELOPMENT]] § Copy and languages saying that a caption for a state an upgrade can produce is checked against the upgrade's way in too.
