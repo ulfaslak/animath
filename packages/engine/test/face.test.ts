@@ -64,7 +64,25 @@ describe('a puzzle and its face', () => {
 			[{ kind: 'missing', numbers: [4, 20], times: true }, '4 × ? = 20'],
 			[{ kind: 'sequence', numbers: [2, 4, 8, 16] }, '2, 4, 8, 16, ?'],
 			[{ kind: 'sequence', numbers: [0, 1, 2, 3] }, '0, 1, 2, 3, ?'],
-			[{ kind: 'sqrt', numbers: [144] }, '√144 = ?']
+			[{ kind: 'sqrt', numbers: [144] }, '√144 = ?'],
+			[{ kind: 'balance', numbers: [0, 8, 5, 6] }, '8 + □ = 5 + 6'],
+			[{ kind: 'balance', numbers: [1, 30, 25, 12] }, '30 − □ = 25 − 12'],
+			[{ kind: 'balance', numbers: [2, 6, 4, 3] }, '6 × □ = 4 × 3'],
+			[{ kind: 'balance', numbers: [3, 3, 4, 25] }, '3 × □ + 4 = 25'],
+			[{ kind: 'balance', numbers: [4, 3, 2, 25] }, '3 × □ − 2 = 25'],
+			[{ kind: 'thermometer', numbers: [0, 3, 5] }, 'thermometer(0, 3, 5)'],
+			[{ kind: 'thermometer', numbers: [2, -4, 7] }, 'thermometer(2, -4, 7)'],
+			[
+				{ kind: 'kroner', numbers: [1, 0, 0, 0, 0, 0, 1, 0, 0, 37, 0] },
+				'kroner(1, 0, 0, 0, 0, 0, 1, 0, 0, 37, 0)'
+			],
+			[{ kind: 'fraction', numbers: [3, 5, 35] }, 'fraction(3, 5, 35)'],
+			[{ kind: 'shape', numbers: [1, 6, 4, 2, 1, 1] }, 'shape(1, 6, 4, 2, 1, 1)'],
+			[
+				{ kind: 'barchart', numbers: [1, 2, 0, 2, 3, 8, 5, 3, 0, 0] },
+				'barchart(1, 2, 0, 2, 3, 8, 5, 3, 0, 0)'
+			],
+			[{ kind: 'clock', numbers: [1, 3, 15, 1, 20] }, 'clock(1, 3, 15, 1, 20)']
 		];
 		for (const [face, prompt] of cases) {
 			expect(facePrompt(face)).toBe(prompt);
@@ -92,6 +110,35 @@ describe('a puzzle and its face', () => {
 			['missing', '7 − ? = 12'],
 			['missing', 'Hello'],
 			['sqrt', ''],
+			['balance', '8 + □ = 5 + 6 = ?'],
+			['balance', '8 ÷ □ = 5 + 6'],
+			['balance', '2 + □ = 1 + 1'],
+			['balance', '7 × □ = 2 × 3'],
+			['thermometer', 'thermometer(0, 3)'],
+			['thermometer', 'thermometer(4, 3, 5)'],
+			['thermometer', 'thermometer(2, 7, -4)'],
+			['thermometer', 'thermometer(0,3,5)'],
+			['thermometer', 'kroner(0, 3, 5)'],
+			['kroner', 'kroner(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)'],
+			['kroner', 'kroner(0, 11, 0, 0, 0, 0, 0, 0, 0, 0, 0)'],
+			['kroner', 'kroner(1, 0, 0, 0, 0, 0, 1, 0, 0, 50, 0)'],
+			['kroner', 'kroner(0, -1, 2, 0, 0, 0, 0, 0, 0, 0, 0)'],
+			['fraction', 'fraction(3, 5, 34)'],
+			['fraction', 'fraction(5, 5, 35)'],
+			['fraction', 'fraction(1, 13, 26)'],
+			['shape', 'shape(0, 11, 4, 0, 0, 1)'],
+			['shape', 'shape(0, 6, 4, 6, 1, 0)'],
+			['shape', 'shape(2, 5, 24, 0, 0, 0)'],
+			['shape', 'shape(3, 5, 10, 0, 0, 0)'],
+			['barchart', 'barchart(1, 2, 0, 2, 3, 3, 5, 8, 0, 0)'],
+			['barchart', 'barchart(0, 3, 0, 0, 3, 3, 5, 8, 0, 0)'],
+			['barchart', 'barchart(0, 1, 0, 0, 3, 3, 5, 11, 0, 0)'],
+			['barchart', 'barchart(0, 1, 0, 0, 3, 3, 5, 8, 4, 0)'],
+			['barchart', 'barchart(0, 1, 5, 0, 3, 3, 5, 8, 0, 0)'],
+			['clock', 'clock(0, 13, 15, 0, 0)'],
+			['clock', 'clock(0, 3, 60, 0, 0)'],
+			['clock', 'clock(0, 3, 15, 1, 0)'],
+			['clock', 'clock(1, 3, 15, 0, 0)'],
 			['__proto__' as PuzzleFace['kind'], '1 + 1 = ?'],
 			['constructor' as PuzzleFace['kind'], '1 + 1 = ?']
 		];
@@ -102,6 +149,9 @@ describe('a puzzle and its face', () => {
 	it('reads a face off the wire only as a kind and as many whole numbers in bounds as it shows', () => {
 		const good: PuzzleFace = { kind: 'mul', numbers: [7, 8] };
 		expect(readPuzzleFace(good)).toStrictEqual(good);
+		// A thermometer is the one face that reads below 0.
+		const cold: PuzzleFace = { kind: 'thermometer', numbers: [2, -4, 7] };
+		expect(readPuzzleFace(cold)).toStrictEqual(cold);
 		expect(readPuzzleFace({ kind: 'missing', numbers: [4, 20], times: true })).toStrictEqual({
 			kind: 'missing',
 			numbers: [4, 20],
@@ -130,7 +180,17 @@ describe('a puzzle and its face', () => {
 			{ kind: 'missing', numbers: [4, 20], times: 'yes' },
 			{ kind: 'divide', numbers: [7, 8] },
 			{ kind: '__proto__', numbers: [7, 8] },
-			{ kind: 'sequence', numbers: [1, 2, 3] }
+			{ kind: 'sequence', numbers: [1, 2, 3] },
+			{ kind: 'mul', numbers: [-7, 8] },
+			{ kind: 'thermometer', numbers: [0, 3] },
+			{ kind: 'thermometer', numbers: [0, 3, -5] },
+			{ kind: 'thermometer', numbers: [0, -MAX_FACE_NUMBER - 1, 5] },
+			{ kind: 'kroner', numbers: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0] },
+			{ kind: 'fraction', numbers: [3, 5, 34] },
+			{ kind: 'shape', numbers: [0, 40, 4, 0, 0, 0] },
+			{ kind: 'barchart', numbers: [0, 1, 0, 0, 3, 3, 5, 80, 0, 0] },
+			{ kind: 'clock', numbers: [0, 0, 15, 0, 0] },
+			{ kind: 'balance', numbers: [5, 1, 2, 3] }
 		]) {
 			expect(readPuzzleFace(junk), JSON.stringify(junk)).toBeNull();
 		}

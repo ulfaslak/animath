@@ -757,6 +757,14 @@ battle:
     missing: manglende tal
     sequence: talmønstre
     sqrt: kvadratrødder
+    thermometer: temperaturer
+    kroner: penge
+    fraction: brøker
+    area: gulvfliser
+    perimeter: hegn
+    barchart: søjlediagrammer
+    balance: ligevægt
+    clock: klokken
   level:
     easy: let
     medium: mellem

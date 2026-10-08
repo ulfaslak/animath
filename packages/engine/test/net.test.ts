@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { ANIMALS, canFightIn, getAnimal } from '../src/animals/catalog.js';
+import { ALL_PUZZLE_KINDS } from '../src/puzzles/types.js';
 import { REALMS, type Realm } from '../src/animals/types.js';
 import { applyMatchIntent, startMatch } from '../src/match/reducer.js';
 import { MATCH_TEAM_SIZE, matchTeam } from '../src/match/team.js';
@@ -529,14 +530,15 @@ describe('the wire protocol', () => {
 		});
 	});
 
-	it('bumps the version with every new species: a page drops a match or a fight with one it does not know', () => {
+	it('bumps the version with every new species and puzzle kind: a page drops a match or a fight with one it does not know', () => {
 		// A page of the last version would never see a match with the new animal in it, nor
 		// a fight; told to refresh, it reloads with the new catalog (#89's second wave: 5,
-		// its third, the sea's: 6; #91's buzzard, and fights in the air: 7).
+		// its third, the sea's: 6; #91's buzzard, and fights in the air: 7). Likewise a
+		// puzzle of a kind its registry lacks (#191's seven Arctic kinds: 8).
 		expect(
-			{ version: PROTOCOL_VERSION, species: ANIMALS.length },
-			'a new species bumps PROTOCOL_VERSION'
-		).toEqual({ version: 7, species: 50 });
+			{ version: PROTOCOL_VERSION, species: ANIMALS.length, kinds: ALL_PUZZLE_KINDS.length },
+			'a new species or puzzle kind bumps PROTOCOL_VERSION'
+		).toEqual({ version: 8, species: 50, kinds: 14 });
 	});
 
 	it('bounds worlds, coordinates, names and rosters', () => {

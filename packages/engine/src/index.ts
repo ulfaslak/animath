@@ -1,13 +1,24 @@
 export { Rng, hashInts, hashString } from './rng.js';
 
-export type { Puzzle, PuzzleGenerator, PuzzleKind, PuzzleTopic } from './puzzles/types.js';
+export type {
+	AnswerForm,
+	PictureKind,
+	Puzzle,
+	PuzzleGenerator,
+	PuzzleKind,
+	PuzzleTopic
+} from './puzzles/types.js';
 export {
 	ALL_PUZZLE_KINDS,
 	ALL_PUZZLE_TOPICS,
 	MAX_DIFFICULTY,
-	MIN_DIFFICULTY
+	MIN_DIFFICULTY,
+	PICTURE_KINDS,
+	isPictureKind
 } from './puzzles/types.js';
 export {
+	answerForm,
+	answerText,
 	checkAnswer,
 	clampDifficulty,
 	generatePuzzle,
@@ -17,13 +28,27 @@ export {
 export { healingDifficulty, puzzleDifficulty } from './puzzles/difficulty.js';
 export { countSolved } from './puzzles/solved.js';
 export {
+	BAR_SCALES,
 	FACE_NUMBERS,
+	KRONER,
+	MAX_BARS,
+	MAX_BAR_LINES,
+	MAX_DENOMINATOR,
 	MAX_FACE_NUMBER,
+	MAX_GRID_SIDE,
+	MAX_KRONER_PIECES,
+	MAX_SHAPE_SIDE,
+	THERMOMETER,
+	faceFits,
 	facePrompt,
 	puzzleFace,
 	readPuzzleFace
 } from './puzzles/face.js';
 export type { PuzzleFace } from './puzzles/face.js';
+export { BARCHART } from './puzzles/generators/barchart.js';
+export { BALANCE } from './puzzles/generators/balance.js';
+export { CLOCK } from './puzzles/generators/clock.js';
+export { SHAPE } from './puzzles/generators/shape.js';
 
 export type {
 	AnimalInstance,

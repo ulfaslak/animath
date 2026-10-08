@@ -55,9 +55,10 @@ import { readFightEvents, readFightView, type FightEvent, type FightView } from 
  * version. Version 6: the sea animals of #89's third wave, which a version 5
  * page would drop from a `fight` out at sea. Version 7: the birds in the air
  * (#91): the buzzard, and a `fight` fought in the air, which a version 6 page
- * drops for its realm.
+ * drops for its realm. Version 8: the Arctic's seven puzzle kinds (#191),
+ * whose puzzles a version 7 page would drop from a `match` or a `fight`.
  */
-export const PROTOCOL_VERSION = 7;
+export const PROTOCOL_VERSION = 8;
 
 /**
  * The most a message may take on the wire, in bytes (the server closes a
@@ -646,7 +647,7 @@ const MAX_WIRE_NICKNAME = 64;
 const MAX_WIRE_ATTACK = 16;
 /** The most characters an answer takes on the wire: the page types at most seven. */
 const MAX_WIRE_ANSWER = 32;
-/** The longest prompt on the wire: every prompt is a short sum or a short row of numbers. */
+/** The longest prompt on the wire: a short sum, a short row of numbers, or a picture kind's face (64 at most). */
 const MAX_WIRE_PROMPT = 80;
 /** The most events one match message carries (one intent causes at most five), and one `match-answers` takes. */
 export const MAX_MATCH_EVENTS = 16;
