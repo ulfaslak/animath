@@ -100,11 +100,12 @@ function draw(rng: Rng, step: BalanceStep, form: Form): [Form, number[], number]
 			}
 		}
 		case minus: {
-			// a − x = b − c with b > c, all from the band, and a − x at least 1.
+			// a − x = b − c with b > c, every one of them from the band (so a − x is at least 1), a
+			// never b and the box never c (either would give it away).
 			for (;;) {
 				const [b, c, x] = [int(step.sum), int(step.sum), int(step.sum)];
 				const a = b - c + x;
-				if (b > c && a <= step.sum[1] * 2 && a !== b && x !== c) return [minus, [a, b, c], x];
+				if (b > c && a <= step.sum[1] && a !== b && x !== c) return [minus, [a, b, c], x];
 			}
 		}
 		case times: {

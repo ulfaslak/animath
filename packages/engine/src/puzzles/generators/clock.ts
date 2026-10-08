@@ -22,6 +22,8 @@ export interface ClockStep {
 	asks: readonly Ask[];
 	passing: Band;
 	step: number;
+	/** The time passing takes the minute hand past 12: from 4:45, 25 minutes later. */
+	cross?: true;
 }
 
 const { read, later, earlier } = CLOCK;
@@ -38,7 +40,7 @@ export const CLOCK_LADDER: readonly ClockStep[] = [
 	{ minutes: 5, asks: [read], passing: [0, 0], step: 1 },
 	{ minutes: 1, asks: [read], passing: [0, 0], step: 1 },
 	{ minutes: 5, asks: [later], passing: [15, 45], step: 15 },
-	{ minutes: 5, asks: [later], passing: [20, 55], step: 5 },
+	{ minutes: 5, asks: [later], passing: [20, 55], step: 5, cross: true },
 	{ minutes: 5, asks: [later], passing: [65, 175], step: 5 },
 	{ minutes: 1, asks: [later, earlier], passing: [65, 235], step: 5 },
 	{ minutes: 1, asks: [later, earlier], passing: [65, 299], step: 1 }
@@ -62,13 +64,16 @@ export const clock: PuzzleGenerator = {
 	generate(rng: Rng, difficulty: number): Puzzle {
 		const step = CLOCK_LADDER[difficulty - 1]!;
 		const h = rng.int(1, 12);
-		const m = shownMinutes(rng, step.minutes);
 		const ask = rng.pick(step.asks);
 		const passing =
 			ask === read
 				? 0
 				: step.step *
 					rng.int(Math.ceil(step.passing[0] / step.step), Math.floor(step.passing[1] / step.step));
+		// Across the hour: the hand starts late enough in the hour that the time passing goes past 12.
+		const m = step.cross
+			? step.minutes * rng.int(Math.ceil((60 - passing) / step.minutes), 60 / step.minutes - 1)
+			: shownMinutes(rng, step.minutes);
 		const shown = (h % 12) * 60 + m;
 		const answer =
 			(((ask === earlier ? shown - passing : shown + passing) % CLOCK_MINUTES) + CLOCK_MINUTES) %

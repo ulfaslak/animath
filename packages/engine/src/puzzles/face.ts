@@ -218,12 +218,16 @@ export function faceFits(face: PuzzleFace): boolean {
 		case 'balance': {
 			const [form, a, b, c] = [at(0), at(1), at(2), at(3)];
 			const answer = balanceAnswer(form, a, b, c);
+			// Neither side below 1: `a − □ = b − c` has b over c.
+			if (form === 1 && b <= c) return false;
 			return answer !== null && Number.isInteger(answer) && answer >= 1;
 		}
 		case 'thermometer': {
 			const [how, a, b] = [at(0), at(1), at(2)];
 			if (Math.abs(a) > MAX_DEGREES || Math.abs(b) > MAX_DEGREES) return false;
-			if (how === THERMOMETER.colder || how === THERMOMETER.warmer) return b >= 1;
+			// Where it ends up stays on the thermometer too.
+			if (how === THERMOMETER.colder) return b >= 1 && a - b >= -MAX_DEGREES;
+			if (how === THERMOMETER.warmer) return b >= 1 && a + b <= MAX_DEGREES;
 			if (how === THERMOMETER.rose) return b > a;
 			if (how === THERMOMETER.fell) return a > b;
 			return false;
@@ -242,7 +246,14 @@ export function faceFits(face: PuzzleFace): boolean {
 		}
 		case 'fraction': {
 			const [num, den, amount] = [at(0), at(1), at(2)];
-			return num >= 1 && num < den && den <= MAX_DENOMINATOR && amount > 0 && amount % den === 0;
+			return (
+				num >= 1 &&
+				num < den &&
+				FRACTION_PIECES.includes(den) &&
+				gcd(num, den) === 1 &&
+				amount > 0 &&
+				amount % den === 0
+			);
 		}
 		case 'shape': {
 			const [how, w, h, cw, ch, grid] = [at(0), at(1), at(2), at(3), at(4), at(5)];
@@ -250,7 +261,9 @@ export function faceFits(face: PuzzleFace): boolean {
 			if (how === 2 || how === 3) {
 				if (cw !== 0 || ch !== 0 || grid !== 0) return false;
 				// The floor's squares or the fence's length, and the side missing at least 1.
-				return how === 2 ? h % w === 0 && h / w <= MAX_SHAPE_SIDE : h % 2 === 0 && h / 2 > w;
+				return how === 2
+					? h >= w && h % w === 0 && h / w <= MAX_SHAPE_SIDE
+					: h % 2 === 0 && h / 2 > w && h / 2 - w <= MAX_SHAPE_SIDE;
 			}
 			if (how !== 0 && how !== 1) return false;
 			if (h < 1 || h > MAX_SHAPE_SIDE || (grid !== 0 && grid !== 1)) return false;
@@ -263,7 +276,10 @@ export function faceFits(face: PuzzleFace): boolean {
 			const values = n.slice(5);
 			if (!(BAR_SCALES as readonly number[]).includes(scale)) return false;
 			if (bars < 2 || bars > MAX_BARS || i >= bars || j >= bars) return false;
-			if (values.some((v, k) => (k < bars ? v > scale * MAX_BAR_LINES : v !== 0))) return false;
+			// Each bar on a line or halfway between two, the bars past the last 0.
+			const half = scale % 2 === 0 ? scale / 2 : scale;
+			if (values.some((v, k) => (k < bars ? v > scale * MAX_BAR_LINES || v % half !== 0 : v !== 0)))
+				return false;
 			if (how === 0) return j === 0;
 			if (how === 1) return i !== j && values[i]! > values[j]!;
 			if (how === 2) return i !== j;
@@ -286,6 +302,16 @@ const MAX_DEGREES = 99;
 
 /** The most pieces a fraction's whole is cut into. */
 export const MAX_DENOMINATOR = 12;
+
+/**
+ * The pieces a whole is cut into: the ones a kid meets at school, never
+ * sevenths, ninths or elevenths.
+ */
+export const FRACTION_PIECES: readonly number[] = [2, 3, 4, 5, 6, 8, 10, 12];
+
+function gcd(a: number, b: number): number {
+	return b === 0 ? a : gcd(b, a % b);
+}
 
 /** The number in the box of a balance, or null for a form there is not. */
 function balanceAnswer(form: number, a: number, b: number, c: number): number | null {
