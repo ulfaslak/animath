@@ -64,8 +64,11 @@ import { readFightEvents, readFightView, type FightEvent, type FightView } from 
  * Version 10: The Arctic's small land animals (#192's first wave).
  * Version 11: its big land animals and birds (#192's second wave).
  * Version 12: its sea and fishing-hole animals (#192's third wave).
+ * Version 13: the plane between lands (#191 step 7): `plane` joined
+ * `BUSY_STATES`, which a version 12 server refuses in a `where` and a
+ * version 12 page drops from a `peer`.
  */
-export const PROTOCOL_VERSION = 12;
+export const PROTOCOL_VERSION = 13;
 
 /**
  * The most a message may take on the wire, in bytes (the server closes a
@@ -117,9 +120,20 @@ export const MAX_ROSTER = 50;
  * doctor (the card, the shop), in the pause menu, or in a friendly match. Or
  * up in the air with the glider (`flight`: no bubble, since the glider shows
  * it): from take-off to touch-down, the tiles in a `where` are flown over,
- * not walked, so the others draw them gliding.
+ * not walked, so the others draw them gliding. Or with the plane between
+ * lands (`plane`, #191): from the plane landing beside them until it has gone
+ * from the land reached, so the others draw the plane come down by
+ * them, and fly off with them when they leave the land.
  */
-export const BUSY_STATES = ['explore', 'battle', 'doctor', 'menu', 'match', 'flight'] as const;
+export const BUSY_STATES = [
+	'explore',
+	'battle',
+	'doctor',
+	'menu',
+	'match',
+	'flight',
+	'plane'
+] as const;
 export type Busy = (typeof BUSY_STATES)[number];
 
 const DIRECTIONS: readonly Direction[] = ['up', 'down', 'left', 'right'];

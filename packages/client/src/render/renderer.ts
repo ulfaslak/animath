@@ -25,6 +25,7 @@ import { SLED_STAND, Sled } from './sled';
 import { Greetings } from './doctor';
 import { appearScale, smoothstep } from './ease';
 import { buildGliderMesh, poseGlider } from './glider';
+import { buildPlaneMesh, disposePlane, doorOf, posePlane, type PlanePose } from './plane';
 import { WatchedFights } from './fights';
 import { OtherPlayers } from './others';
 import { COLORS, GLIDER_COLORS, PLAYER_LOOK } from './palette';
@@ -163,6 +164,16 @@ export function aimWorldCamera(camera: THREE.OrthographicCamera, target: THREE.V
 	camera.updateMatrixWorld();
 }
 
+/** The plane between lands as `setPlane` puts it on screen. */
+export interface PlaneOnScreen {
+	/** Where it parks, in grid units: x, and the grid's y (the world's z). */
+	at: { x: number; y: number };
+	heading: Direction;
+	pose: PlanePose;
+	/** How far the trainer is from their tile into it: 0 on their tile, 1 inside. */
+	ride: number;
+}
+
 export class GameRenderer {
 	private renderer: THREE.WebGLRenderer;
 	private scene = new THREE.Scene();
@@ -215,6 +226,9 @@ export class GameRenderer {
 	private playerAt = new THREE.Vector3();
 	/** The glider on the trainer, built the first time the player owns one. */
 	private glider: THREE.Group | null = null;
+	/** The plane between lands while it is on screen (`setPlane`), and where it stands. */
+	private plane: THREE.Group | null = null;
+	private planeShow: PlaneOnScreen | null = null;
 	private gliderOwned = false;
 	/** Seconds since the glider was bought, while it grows onto the trainer's back. */
 	private gliderArriving: number | null = null;
@@ -602,6 +616,47 @@ export class GameRenderer {
 	}
 
 	/**
+	 * The plane between lands ([[UI_SPEC]] § Explore mode, "The plane"),
+	 * or null when there is none: parked on `at` (grid x and y, the world's
+	 * x and z), its nose `heading`, as `pose` has it on its way; and the
+	 * trainer `ride` of the way from their tile into it (0 on their tile, 1
+	 * inside, not seen), hopping to its door.
+	 */
+	setPlane(show: PlaneOnScreen | null): void {
+		this.planeShow = show;
+		if (show && !this.plane) {
+			this.plane = buildPlaneMesh();
+			this.scene.add(this.plane);
+		} else if (!show && this.plane) {
+			this.plane.removeFromParent();
+			disposePlane(this.plane);
+			this.plane = null;
+		}
+	}
+
+	/** The plane this frame, and the trainer on their way into it or out of it. */
+	private posePlaneShow(t: number): void {
+		const show = this.planeShow;
+		const plane = this.plane;
+		this.player.scale.setScalar(1);
+		if (!show || !plane) {
+			this.player.visible = true;
+			return;
+		}
+		const spot = new THREE.Vector3(show.at.x, this.playerAt.y, show.at.y);
+		posePlane(plane, spot, show.heading, show.pose, t, motion.reduced);
+		const ride = Math.min(1, Math.max(0, show.ride));
+		this.player.visible = ride < 1;
+		if (ride <= 0) return;
+		// A hop from where they stand up onto the plane's sill, a little smaller as they go in.
+		const door = doorOf(spot, this.playerAt);
+		const e = smoothstep(ride);
+		this.player.position.lerpVectors(this.playerAt, door, e);
+		if (!motion.reduced) this.player.position.y += Math.sin(Math.PI * ride) * 0.45;
+		this.player.scale.setScalar(1 - 0.35 * e);
+	}
+
+	/**
 	 * Where the trainer is in the world, as `setPlayer` last put them (up in
 	 * the air with the glider, their point in the air): what the birds up
 	 * there fly by.
@@ -714,6 +769,7 @@ export class GameRenderer {
 		}
 		this.clearings.update(t, motion.reduced);
 		this.fishing.update(t, motion.reduced);
+		this.posePlaneShow(t);
 		// On their feet on the ground only: not in the boat, up in the air or on a mount.
 		const onFeet = this.afloat === 0 && this.air.lift === 0 && this.sitting === 0;
 		const sledding = this.pull !== null && onFeet;

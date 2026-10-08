@@ -3,8 +3,10 @@ import {
 	bundles,
 	buyRefusal,
 	canGoHome,
+	FIRST_LAND,
 	kindGoingHome,
 	needsHealing,
+	unlockProgress,
 	type AnimalInstance,
 	type Authority,
 	type DoctorEvent,
@@ -17,9 +19,10 @@ import { answerKey } from '../input/answer';
 import { isShortcut, keyName } from '../input/keyboard';
 import { isMashKey, PickGuard } from '../input/pick-guard';
 import { tappedOption, tappedRow, tappedTab } from '../input/press';
+import { game } from '../state/game.svelte';
 import {
-	DOCTOR_TABS,
 	doctor,
+	doctorTabs,
 	rowStops,
 	stepCursor,
 	tabRows,
@@ -83,9 +86,9 @@ export class DoctorController {
 	private pops = 0;
 
 	/**
-	 * `devFly`: the `?lands` switch's way to fly before the witch doctor's
-	 * card has a travel option (#191 step 7): L on the card's list asks to fly
-	 * to the next land this visit flies to, in a game saved nowhere.
+	 * `devFly`: the `?lands` switch's quick way to fly: L on the card's list
+	 * asks to fly to the next land this visit flies to, in a game saved
+	 * nowhere.
 	 */
 	constructor(
 		private authority: Authority,
@@ -112,6 +115,10 @@ export class DoctorController {
 			}
 			case 'doctor-visit-ended':
 				if (event.visit === this.visit) this.close();
+				break;
+			case 'unlocked-changed':
+				// A hand-over that opened a land: its Fly row opens at once, in this visit.
+				if (doctor.active) doctor.unlocked = [...event.unlocked];
 				break;
 		}
 	}
@@ -181,7 +188,15 @@ export class DoctorController {
 		doctor.party = state.party.map((a) => ({ ...a }));
 		doctor.shop = [...state.shop];
 		doctor.land = state.land;
-		doctor.cursor = this.firstStop('heal');
+		doctor.lands = state.open.filter((land) => land !== state.land);
+		doctor.unlocked = [...state.unlocked];
+		// A kid with no animal here yet (a first arrival, waiting for a starter) has nobody to
+		// heal or set free: the card opens where they can fly back.
+		if (state.party.length === 0 && doctor.lands.length > 0) {
+			doctor.tab = 'fly';
+			this.said = this.tabLine('fly', state);
+		}
+		doctor.cursor = this.firstStop(doctor.tab);
 		sfx.play('confirm');
 		this.settle();
 	}
@@ -194,6 +209,9 @@ export class DoctorController {
 		doctor.tokens = state.tokens;
 		doctor.items = [...state.items];
 		doctor.shop = [...state.shop];
+		// Unlocked lands only grow: one opened by a hand-over (`unlocked-changed`) comes after its state.
+		doctor.unlocked = [...new Set([...doctor.unlocked, ...state.unlocked])];
+		doctor.fare = null;
 		doctor.line = this.said;
 		doctor.input = '';
 		doctor.judged = null;
@@ -242,11 +260,13 @@ export class DoctorController {
 				doctor.screen = 'puzzle';
 				break;
 			case 'paying-fare':
-				// The fare for a flight: a puzzle of the land's own kinds (#191; the card's travel
-				// option and its words are step 7's). The tab stays as it was.
+				// The fare for a flight: a puzzle of the land's own kinds (#191), its land's row lit.
+				doctor.tab = 'fly';
 				doctor.puzzle = phase.puzzle;
 				doctor.patient = null;
 				doctor.trade = null;
+				doctor.fare = phase.land;
+				doctor.cursor = this.rows().findIndex((r) => r.kind === 'land' && r.land === phase.land);
 				doctor.screen = 'puzzle';
 				break;
 			case 'ended':
@@ -306,7 +326,7 @@ export class DoctorController {
 	private listKey(key: string, fresh: boolean): boolean {
 		const tab = tappedTab(key);
 		if (tab !== undefined) {
-			this.switchTab(tab);
+			if (doctorTabs(doctor.lands).includes(tab)) this.switchTab(tab);
 			return true;
 		}
 		const rows = this.rows();
@@ -338,8 +358,9 @@ export class DoctorController {
 			case 'ArrowRight':
 			case 'd': {
 				const delta = key === 'ArrowLeft' || key === 'a' ? -1 : 1;
-				const at = DOCTOR_TABS.indexOf(doctor.tab);
-				this.switchTab(DOCTOR_TABS[(at + delta + DOCTOR_TABS.length) % DOCTOR_TABS.length]!);
+				const tabs = doctorTabs(doctor.lands);
+				const at = tabs.indexOf(doctor.tab);
+				this.switchTab(tabs[(at + delta + tabs.length) % tabs.length]!);
 				return true;
 			}
 			case 'Enter':
@@ -398,6 +419,21 @@ export class DoctorController {
 				doctor.line = this.said;
 				this.guard.show();
 				return;
+			case 'land': {
+				// A land still locked gives a little shake, and the witch doctor says how to open it:
+				// one of each animal of the land before it set free, and how many are so far.
+				const progress = unlockProgress(row.land, game.freed);
+				if (row.land !== FIRST_LAND && !doctor.unlocked.includes(row.land) && progress) {
+					this.shakeRow(doctor.cursor);
+					sfx.play('wrong');
+					this.said = { say: 'flyLocked', land: row.land, ...progress };
+					doctor.line = this.said;
+					return;
+				}
+				sfx.play('confirm');
+				this.send({ type: 'fly', land: row.land });
+				return;
+			}
 			case 'item':
 				// An item a kid owns, or can't pay for yet, gives a little shake: the card says why.
 				if (buyRefusal(doctor, row.itemId) !== null) {
@@ -541,7 +577,7 @@ export class DoctorController {
 	// --- rows ----------------------------------------------------------------
 
 	private rows(): DoctorRow[] {
-		return tabRows(doctor.tab, doctor.party, doctor.shop);
+		return tabRows(doctor.tab, doctor.party, doctor.shop, doctor.lands);
 	}
 
 	/** The row of the animal at `partyIndex` on the tab on screen. */
@@ -556,7 +592,7 @@ export class DoctorController {
 	 * shop has nothing).
 	 */
 	private firstStop(tab: DoctorTab): number {
-		const rows = tabRows(tab, doctor.party, doctor.shop);
+		const rows = tabRows(tab, doctor.party, doctor.shop, doctor.lands);
 		const stops = rowStops(rows, { tab, party: doctor.party, marked: doctor.marked });
 		return stops[0] ?? rows.length - 1;
 	}
@@ -607,6 +643,8 @@ export class DoctorController {
 				return { say: 'homeIntro' };
 			case 'shop':
 				return { say: 'shopIntro', empty: (state?.shop.length ?? 0) === 0 };
+			case 'fly':
+				return { say: 'flyIntro' };
 		}
 	}
 
@@ -644,6 +682,9 @@ export class DoctorController {
 					break;
 				case 'purchase-shown':
 					this.said = { say: 'shopCount' };
+					break;
+				case 'fare-shown':
+					this.said = { say: 'fareCount', land: e.land };
 					break;
 				case 'closed':
 					this.said = this.tabLine(doctor.tab, after);

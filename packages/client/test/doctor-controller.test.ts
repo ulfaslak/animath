@@ -1,6 +1,9 @@
 import {
+	answerText,
 	getAnimal,
+	getLand,
 	homeTokens,
+	newGame,
 	mustStay,
 	shopFor,
 	type AnimalInstance,
@@ -16,7 +19,9 @@ import { DoctorController } from '../src/doctor/controller';
 import { doctorWords } from '../src/doctor/lines';
 import { PICK_QUIET_SECONDS } from '../src/input/pick-guard';
 import { optionKey, rowKey, tabKey } from '../src/input/press';
-import { doctor, kindGoing, kindPicked, tabRows } from '../src/state/doctor.svelte';
+import { doctor, doctorTabs, kindGoing, kindPicked, tabRows } from '../src/state/doctor.svelte';
+import { game } from '../src/state/game.svelte';
+import { testStarter } from './minted';
 import { everyMash } from './mash';
 
 /**
@@ -1142,5 +1147,134 @@ describe('the shop', () => {
 		t.press(rowKey(tabRowsOf().length - 1));
 		expect(doctor.active).toBe(false);
 		expect(t.saved()).toMatchObject({ tokens: 30, items: [] });
+	});
+});
+
+describe('flying from the witch doctor', () => {
+	/** A game in Nordland with `freed` set free and `unlocked` unlocked, every land open to fly to (`?lands`'s open). */
+	function flyer(freed: readonly string[], unlocked: readonly string[]) {
+		const authority = new LocalAuthority({ lands: true });
+		const controller = new DoctorController(authority);
+		const events: GameEvent[] = [];
+		authority.subscribe((e) => {
+			events.push(e);
+			game.apply(e);
+			controller.handle(e);
+		});
+		const start = newGame(1, testStarter());
+		const fox = { id: 'fox-1', speciesId: 'fox', hp: getAnimal('fox').maxHp };
+		authority.start({
+			game: {
+				...start,
+				party: [...start.party, fox],
+				freed: [...freed],
+				seen: [...start.seen, ...freed, 'fox'],
+				caught: [...start.caught, 'fox'],
+				unlocked: [...unlocked]
+			}
+		});
+		for (let i = 0; i < 7; i++) authority.dispatch({ type: 'move', dir: 'right' });
+		authority.dispatch({ type: 'move', dir: 'down' });
+		authority.dispatch({ type: 'interact' });
+		const run = (seconds: number) => {
+			for (let t = 0; t < seconds; t += 1 / 60) controller.update(1 / 60);
+		};
+		const press = (...names: string[]) =>
+			names.forEach((n) => {
+				controller.onKey(key(n));
+				controller.update(1 / 60);
+			});
+		return { authority, events, run, press };
+	}
+
+	it('lists no fly tab where there is no other land to fly to', () => {
+		const t = setup(hurtParty());
+		t.talk();
+		expect(doctor.lands).toEqual([]);
+		expect(doctorTabs(doctor.lands)).toEqual(['heal', 'home', 'shop']);
+		// Left from heal wraps round to the shop, never to a fly tab.
+		t.press('ArrowLeft');
+		expect(doctor.tab).toBe('shop');
+		t.press(tabKey('fly'));
+		expect(doctor.tab).toBe('shop');
+	});
+
+	it('a land still locked is listed, greyed, and picking it says how far the kid is: no fare, no flight', () => {
+		const nordland = getLand('nordland').species;
+		const t = flyer(nordland.slice(0, 37), ['nordland']);
+		expect(doctor.lands).toEqual(['arctic']);
+		expect(doctorTabs(doctor.lands)).toEqual(['heal', 'home', 'shop', 'fly']);
+		t.press('ArrowLeft');
+		expect(doctor.tab).toBe('fly');
+		expect(doctor.line).toEqual({ say: 'flyIntro' });
+		expect(tabRows('fly', doctor.party, doctor.shop, doctor.lands)[doctor.cursor]).toEqual({
+			kind: 'land',
+			land: 'arctic'
+		});
+		t.run(PICK_QUIET_SECONDS);
+		const before = t.events.length;
+		t.press('Enter');
+		expect(doctor.shake?.row).toBe(doctor.cursor);
+		expect(doctor.line).toEqual({
+			say: 'flyLocked',
+			land: 'arctic',
+			from: 'nordland',
+			freed: 37,
+			of: 50
+		});
+		expect(doctorWords(doctor.line!)).toContain('37');
+		// Nothing went to the authority: no fare was asked.
+		expect(t.events.slice(before)).toEqual([]);
+		expect(doctor.puzzle).toBeNull();
+	});
+
+	it('a hand-over that opens the land opens its Fly row at once, in the same visit', () => {
+		const nordland = getLand('nordland').species;
+		const t = flyer(
+			nordland.filter((id) => id !== 'fox'),
+			['nordland']
+		);
+		expect(doctor.unlocked).toEqual(['nordland']);
+		t.authority.dispatch({ type: 'doctor', intent: { type: 'hand-over', ids: ['fox-1'] } });
+		const sum = [...t.events].reverse().find((e) => e.type === 'doctor-visit-updated');
+		if (sum?.type !== 'doctor-visit-updated' || sum.state.phase.kind !== 'handing-over')
+			throw new Error('no sum');
+		t.authority.dispatch({
+			type: 'doctor',
+			intent: { type: 'answer', input: String(sum.state.phase.puzzle.answer) }
+		});
+		t.run(6);
+		expect(doctor.unlocked).toContain('arctic');
+		t.press(tabKey('fly'));
+		expect(doctor.tab).toBe('fly');
+		t.run(PICK_QUIET_SECONDS);
+		t.press('Enter');
+		expect(doctor.fare).toBe('arctic');
+		expect(doctor.shake).toBeNull();
+	});
+
+	it('an unlocked land asks the fare; a miss asks another; the right answer flies there', () => {
+		const t = flyer(getLand('nordland').species, ['nordland', 'arctic']);
+		t.press('ArrowLeft');
+		t.run(PICK_QUIET_SECONDS);
+		t.press('Enter');
+		expect(doctor.screen).toBe('puzzle');
+		expect(doctor.fare).toBe('arctic');
+		expect(doctor.tab).toBe('fly');
+		expect(doctor.line).toEqual({ say: 'fareCount', land: 'arctic' });
+		const fare = () => {
+			const e = [...t.events].reverse().find((e) => e.type === 'doctor-visit-updated');
+			if (e?.type !== 'doctor-visit-updated' || e.state.phase.kind !== 'paying-fare')
+				throw new Error('no fare');
+			return e.state.phase.puzzle;
+		};
+		const first = fare();
+		t.press(...answerText({ ...first, answer: first.answer + 7 }).split(''), 'Enter');
+		t.run(2);
+		expect(fare().prompt).not.toBe(first.prompt);
+		expect(game.land).toBe('nordland');
+		t.press(...answerText(fare()).split(''), 'Enter');
+		expect(t.events.some((e) => e.type === 'travelled' && e.land === 'arctic')).toBe(true);
+		expect(doctor.active).toBe(false);
 	});
 });

@@ -54,8 +54,8 @@ export interface TitleView3D {
 		edits?: WorldEdits,
 		boat?: boolean
 	): void;
-	/** The starter stage, these species in a row, the first lit. */
-	showStarters(species: readonly string[]): void;
+	/** The starter stage, these species in a row, the first lit; snowy for a snowy land's (#191). */
+	showStarters(species: readonly string[], snowy?: boolean): void;
 	/** Light a starter. */
 	select(index: number): void;
 	/** A starter was picked: it hops for joy. */
@@ -78,6 +78,9 @@ export class TitleScenery implements TitleView3D {
 	private figures: THREE.Group[] = [];
 	private center: GridPos = { x: 0, y: 0 };
 	private t = 0;
+	private meadow: StarterScene | null = null;
+	private snowStage: StarterScene | null = null;
+	/** The starter stage on screen, or the last one shown. */
 	private stage: StarterScene | null = null;
 
 	constructor(private renderer: GameRenderer) {}
@@ -125,10 +128,13 @@ export class TitleScenery implements TitleView3D {
 		this.update(0);
 	}
 
-	showStarters(species: readonly string[]): void {
-		this.stage ??= new StarterScene();
-		this.stage.show(species);
-		this.renderer.setStage(this.stage);
+	showStarters(species: readonly string[], snowy = false): void {
+		const stage = snowy
+			? (this.snowStage ??= new StarterScene(true))
+			: (this.meadow ??= new StarterScene());
+		this.stage = stage;
+		stage.show(species);
+		this.renderer.setStage(stage);
 	}
 
 	select(index: number): void {

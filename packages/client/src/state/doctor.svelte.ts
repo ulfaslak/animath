@@ -11,6 +11,8 @@ import {
 import type { DoctorLine } from '../doctor/lines';
 import type { DoctorTab } from '../doctor/tabs';
 
+import { DOCTOR_TABS } from '../doctor/tabs';
+
 export { DOCTOR_TABS, type DoctorTab } from '../doctor/tabs';
 
 /**
@@ -20,9 +22,10 @@ export { DOCTOR_TABS, type DoctorTab } from '../doctor/tabs';
  * latest state, as the battle screen does. Svelte components read it and
  * never write it.
  *
- * The card has three tabs ([[UI_SPEC]] § Doctor): **heal** (the hurt animals),
- * **home** (set animals free, home to the wild, for tokens) and **shop** (buy an
- * item with tokens). `screen` says what the keyboard does: `list` moves the
+ * The card has four tabs ([[UI_SPEC]] § Doctor): **heal** (the hurt animals),
+ * **home** (set animals free, home to the wild, for tokens), **shop** (buy an
+ * item with tokens) and **fly** (to another land, for a puzzle; only where
+ * there is another land to list). `screen` says what the keyboard does: `list` moves the
  * cursor over the tab's rows (← → change the tab), `confirm` asks before a
  * hand-over, `puzzle` types an answer (a healing puzzle or a token sum),
  * `busy` ignores everything but Escape while a beat plays.
@@ -47,6 +50,8 @@ export type DoctorRow =
 	| { kind: 'bundle'; speciesId: string; groupStart: boolean }
 	| { kind: 'animal'; partyIndex: number; groupStart: boolean }
 	| { kind: 'item'; itemId: ItemId }
+	/** Another land, on the fly tab: a flight there, or (locked) why not yet. */
+	| { kind: 'land'; land: LandId }
 	| { kind: 'send' }
 	| { kind: 'bye' };
 
@@ -62,6 +67,16 @@ class DoctorView {
 	shop = $state<ItemId[]>([]);
 	/** The land the tent is in: what the shop's prices and the money are. */
 	land = $state<LandId>(FIRST_LAND);
+	/**
+	 * The other lands the fly tab lists, in their order: every land this
+	 * build flies to but this one, locked ones too (greyed: the card says how
+	 * to unlock them). Empty: no fly tab.
+	 */
+	lands = $state<LandId[]>([]);
+	/** The lands the kid has unlocked: where they may fly. */
+	unlocked = $state<string[]>([]);
+	/** The land whose fare is asked, while it is. */
+	fare = $state<LandId | null>(null);
 	/** What the doctor is saying, worded by the card in the language on screen. */
 	line = $state<DoctorLine | null>(null);
 	tab = $state<DoctorTab>('heal');
@@ -105,6 +120,9 @@ class DoctorView {
 		this.items = [];
 		this.shop = [];
 		this.land = FIRST_LAND;
+		this.lands = [];
+		this.unlocked = [];
+		this.fare = null;
 		this.line = null;
 		this.tab = 'heal';
 		this.cursor = 0;
@@ -136,14 +154,23 @@ export function hurtIndexes(party: readonly AnimalInstance[]): number[] {
 	return out;
 }
 
+/** The tabs the card shows: heal, set free and shop, and fly when there is another land to list. */
+export function doctorTabs(lands: readonly LandId[]): DoctorTab[] {
+	return DOCTOR_TABS.filter((tab) => tab !== 'fly' || lands.length > 0);
+}
+
 /** The rows of a tab's list, top to bottom. */
 export function tabRows(
 	tab: DoctorTab,
 	party: readonly AnimalInstance[],
-	shop: readonly ItemId[]
+	shop: readonly ItemId[],
+	lands: readonly LandId[] = []
 ): DoctorRow[] {
 	if (tab === 'shop') {
 		return [...shop.map((itemId) => ({ kind: 'item' as const, itemId })), { kind: 'bye' }];
+	}
+	if (tab === 'fly') {
+		return [...lands.map((land) => ({ kind: 'land' as const, land })), { kind: 'bye' }];
 	}
 	const animals = bundles(party).flatMap((bundle, b): DoctorRow[] => {
 		const head = tab === 'home' && bundle.animals.length > 1;
@@ -177,6 +204,7 @@ export function rowStops(rows: readonly DoctorRow[], view: StopsView): number[] 
 				return view.marked.length > 0 ? [k] : [];
 			case 'bundle':
 			case 'item':
+			case 'land':
 			case 'bye':
 				return [k];
 		}

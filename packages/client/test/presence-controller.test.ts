@@ -36,6 +36,8 @@ import { battle } from '../src/state/battle.svelte';
 import { game } from '../src/state/game.svelte';
 import { hud } from '../src/state/hud.svelte';
 import { pause } from '../src/state/pause.svelte';
+import { plane } from '../src/state/plane.svelte';
+import { title } from '../src/state/title.svelte';
 import { presence } from '../src/state/presence.svelte';
 import { testStarter } from './minted';
 
@@ -411,6 +413,27 @@ describe('presence on the page', () => {
 		expect(sent.map((m) => m.busy)).toEqual(['flight', 'explore']);
 	});
 
+	it("says the plane between lands while the kid is with it, and the land's starters as a break", () => {
+		const s = setup();
+		s.start();
+		s.connect();
+		s.frame();
+		plane.show = { phase: 'landing', p: 0, calm: false };
+		for (let i = 0; i < 10; i++) s.frame();
+		expect(s.sentOf('where').at(-1)).toMatchObject({ busy: 'plane' });
+		// Until it has gone: a kid waiting for a land's starter is never asked for a match meanwhile.
+		plane.show = { phase: 'departing', p: 0, calm: false };
+		for (let i = 0; i < 10; i++) s.frame();
+		expect(s.sentOf('where').at(-1)).toMatchObject({ busy: 'plane' });
+		plane.reset();
+		for (let i = 0; i < 10; i++) s.frame();
+		expect(s.sentOf('where').at(-1)).toMatchObject({ busy: 'explore' });
+		title.open = true;
+		for (let i = 0; i < 10; i++) s.frame();
+		expect(s.sentOf('where').at(-1)).toMatchObject({ busy: 'menu' });
+		title.open = false;
+	});
+
 	it("says a friendly match's screen as a match, and its asking and update cards as exploring", () => {
 		// The match draws on the battle's screen, but it is no wild battle: the others see a
 		// match, and while its cards are up (asking, the update card) the player can still be
@@ -716,6 +739,11 @@ describe('presence on the page', () => {
 		s.frame();
 		expect(s.reloads()).toBe(0);
 		pause.open = false;
+		// Nor with the plane between lands on screen: it waits until it has gone.
+		plane.show = { phase: 'departing', p: 0.5, calm: false };
+		s.frame();
+		expect(s.reloads()).toBe(0);
+		plane.reset();
 		s.frame();
 		expect([s.flushes(), s.reloads()]).toEqual([1, 1]);
 		expect(s.session!.get(REFRESHED_KEY)).toBe(String(PROTOCOL_VERSION + 1));

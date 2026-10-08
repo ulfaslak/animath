@@ -3,7 +3,7 @@ import * as THREE from 'three';
 import { motion } from '../motion';
 import { IDLE_DEPTH, animateIdle, buildAnimalMesh, disposeFigure } from './animals';
 import { WORLD_LIGHT } from './campfire';
-import { COLORS, TILE_COLORS } from './palette';
+import { ARCTIC_COLORS, COLORS, TILE_COLORS } from './palette';
 import type { Stage } from './renderer';
 
 /**
@@ -92,7 +92,11 @@ export class StarterScene implements Stage {
 	/** The row has taken its first room since `show`: it starts there, and slides only after. */
 	private settled = false;
 
-	constructor() {
+	/**
+	 * `snowy`: the stage of a snowy land's starters (The Arctic's, #191): snow
+	 * underfoot, drifts and spruce-dark bushes capped with snow, no flowers.
+	 */
+	constructor(snowy = false) {
 		this.scene.background = new THREE.Color(COLORS.sky);
 		this.scene.fog = new THREE.Fog(COLORS.sky, 14, 30);
 		this.scene.add(
@@ -111,12 +115,12 @@ export class StarterScene implements Stage {
 
 		const ground = new THREE.Mesh(
 			new THREE.CylinderGeometry(9, 9.4, 0.8, 28),
-			lambert(TILE_COLORS.grass)
+			lambert(snowy ? TILE_COLORS.snow : TILE_COLORS.grass)
 		);
 		ground.position.y = -0.4;
 		ground.receiveShadow = true;
 		this.scene.add(ground);
-		this.scene.add(buildScenery());
+		this.scene.add(buildScenery(snowy));
 
 		this.ring = new THREE.Mesh(
 			new THREE.TorusGeometry(0.46, 0.06, 6, 24).rotateX(Math.PI / 2),
@@ -330,14 +334,21 @@ function lambert(hex: number): THREE.MeshLambertMaterial {
 
 /**
  * Behind the row: tall-grass tufts, flowers and bushes, a fixed scatter kept
- * clear of the animals and of the camera's side.
+ * clear of the animals and of the camera's side. On a `snowy` stage, tufts of
+ * deep snow's blue, little chunks of ice and snow, and dark bushes with snow
+ * on their tops.
  */
-function buildScenery(): THREE.Group {
+function buildScenery(snowy = false): THREE.Group {
 	const group = new THREE.Group();
 	const rng = new Rng(11);
-	const tuft = lambert(TILE_COLORS.tallgrass);
-	const canopies = [lambert(COLORS.canopy), lambert(COLORS.canopyLight)];
-	const petals = [lambert(COLORS.white), lambert(COLORS.playerShirt), lambert(COLORS.fire)];
+	const tuft = lambert(snowy ? ARCTIC_COLORS.tuft : TILE_COLORS.tallgrass);
+	const canopies = snowy
+		? [lambert(ARCTIC_COLORS.spruce[0]!), lambert(ARCTIC_COLORS.spruce[1]!)]
+		: [lambert(COLORS.canopy), lambert(COLORS.canopyLight)];
+	const petals = snowy
+		? [lambert(ARCTIC_COLORS.drift), lambert(ARCTIC_COLORS.block), lambert(TILE_COLORS.deepsnow)]
+		: [lambert(COLORS.white), lambert(COLORS.playerShirt), lambert(COLORS.fire)];
+	const cap = lambert(ARCTIC_COLORS.drift);
 
 	for (let i = 0; i < 60; i++) {
 		const x = rng.next() * 16 - 8;
@@ -388,6 +399,13 @@ function buildScenery(): THREE.Group {
 			ball.position.set(bx, by, bz);
 			ball.castShadow = true;
 			bush.add(ball);
+			if (snowy) {
+				// Snow on top of each ball.
+				const snow = new THREE.Mesh(new THREE.IcosahedronGeometry(r * 0.75, 0), cap);
+				snow.scale.y = 0.45;
+				snow.position.set(bx, by + r * 0.62, bz);
+				bush.add(snow);
+			}
 		}
 		bush.scale.setScalar(s);
 		bush.position.set(x, 0, z);

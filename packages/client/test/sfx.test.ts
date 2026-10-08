@@ -201,6 +201,7 @@ describe('cues', () => {
 				'travel',
 				'whoosh',
 				'land',
+				'plane',
 				'squawk',
 				'splash',
 				'wobble',

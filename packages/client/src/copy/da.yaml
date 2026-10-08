@@ -1512,6 +1512,21 @@ doctor:
   healedMoreNext: Godt klaret! {animal.the} og {others} til har det godt igen! Hvem skal jeg hjælpe nu?
   healedMoreAll: Godt klaret! {animal.the} og {others} til har det godt igen! Alle er friske og glade!
   goodbye: Hej hej! Kom bare igen, når du vil.
+  fly:
+    intro: Vil du flyve et nyt sted hen? Hver tur koster én opgave.
+    locked: For at flyve til {land} skal du slippe mindst ét af hvert af de {of} dyr fra {from} fri. Du har {freed} indtil nu!
+    count: Løs den her, så flyver du til {land}!
+    progress: '{freed} / {of}'
+    open: Én opgave
+    story: Flyet til {land} koster én opgave!
+    title: Flyv til {land}!
+    how: Slip mindst ét af hvert af de {of} dyr fra {from} fri, så kan du flyve derhen.
+    soFar: '{freed} / {of} sluppet fri'
+    fare: Turen koster én opgave.
+    stays: Dine dyr og ting her venter på dig, til du kommer tilbage.
+    pick: Hvor vil du flyve hen?
+    keys: ↑ ↓ flyt · ← → faner · Enter flyv · Esc farvel
+    touch: Tryk på et land for at flyve derhen
   bye: Farvel
   byeKey: Esc
   back: Tilbage
@@ -1519,6 +1534,7 @@ doctor:
     heal: Gør rask
     home: Slip fri
     shop: Butik
+    fly: Flyv
   tokens:
     one: '{count} {money.word}'
     other: '{count} {money.words}'
@@ -1853,6 +1869,9 @@ title:
     loves: '{animal.the} er mester i {kinds}!'
     keys: ← → flyt · Enter vælg · Esc tilbage
     pick: 'Vælg {animal.the}!'
+    titleLand: Vælg dit første dyr i {land}!
+    keysLand: ← → flyt · Enter vælg · Esc heksedoktor
+    toDoctor: Heksedoktor
   naming:
     title: Hvad skal {animal.the} hedde?
     empty: Uden et navn hedder dyret bare {animal.name}.
@@ -1888,6 +1907,7 @@ presence:
     menu: holder pause
     match: kæmper mod en ven
     flight: flyver
+    plane: tager flyet
   thinking: '{name} regner på {sum}'
   choosing: '{name} tænker…'
 match:
@@ -2009,8 +2029,10 @@ worlds:
 lands:
   nordland:
     name: Nordland
+    inLine: Nordland
   arctic:
     name: Arktis
+    inLine: Arktis
 book:
   title: Dyrebog
   row: '{caught}/{all}'

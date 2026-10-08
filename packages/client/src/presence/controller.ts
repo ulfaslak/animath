@@ -26,6 +26,8 @@ import { doctor } from '../state/doctor.svelte';
 import { game } from '../state/game.svelte';
 import { hud } from '../state/hud.svelte';
 import { pause } from '../state/pause.svelte';
+import { plane } from '../state/plane.svelte';
+import { title } from '../state/title.svelte';
 import { presence, type Bar, type Label, type Pop } from '../state/presence.svelte';
 import { PresenceConnection, type PresenceStatus } from './connection';
 import {
@@ -466,7 +468,8 @@ export class PresenceController {
 				this.finding = null;
 				// Only while exploring, as the menu that asked was: a battle that started
 				// meanwhile keeps the player where they are, and so does a take-off.
-				if (!this.exploreOnScreen() || game.flying) break;
+				// Nor with the plane between lands: the land on screen may not be the game's any more.
+				if (!this.exploreOnScreen() || game.flying || plane.active) break;
 				// The authority answers at once (`player-placed` or `go-to-refused`, in `handle`).
 				this.placing = name;
 				this.options.authority.dispatch({ type: 'go-to', near: { x: m.x, y: m.y } });
@@ -549,9 +552,9 @@ export class PresenceController {
 		);
 	}
 
-	/** A calm moment to reload: exploring, nothing open, feet on the ground. */
+	/** A calm moment to reload: exploring, nothing open, feet on the ground, no plane on screen. */
 	private calm(): boolean {
-		return this.exploreOnScreen() && !game.flying;
+		return this.exploreOnScreen() && !game.flying && !plane.active && !title.open;
 	}
 
 	/** Reload for the newer version, once per version: a page that comes back still old stays as it is. */
@@ -574,6 +577,10 @@ export class PresenceController {
  * others draw them gliding rather than walking on the water or through trees.
  */
 function busyNow(): Busy {
+	// With the plane between lands, from its landing beside them until it has gone.
+	if (plane.active) return 'plane';
+	// A land's starters, on a first arrival there: a break, like the menu.
+	if (title.open) return 'menu';
 	if (battle.active) return 'battle';
 	if (doctor.active) return 'doctor';
 	// An account card (logging in, the save card) is a break too: nobody asks for a match meanwhile.

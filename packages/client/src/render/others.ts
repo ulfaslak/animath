@@ -25,6 +25,16 @@ import { doubleHop, smoothstep } from './ease';
 import { Follower, type FigureHost } from './follower';
 import { SIT_DROP, poseRider } from './mount';
 import { WING_TOP, buildGliderMesh, disposeGlider, poseGlider } from './glider';
+import {
+	ALIGHT_LEGS,
+	ARRIVE_LEGS,
+	BOARD_LEGS,
+	LEAVE_LEGS,
+	PlaneTrip,
+	doorOf,
+	planeSpot,
+	posePlane
+} from './plane';
 import { TRAINER_LOOKS, type TrainerLook } from './palette';
 import type { Poofs } from './poof';
 import { Skis } from './skis';
@@ -171,6 +181,9 @@ interface Other {
 	stage: Direction | null;
 	/** A double jump for joy under way: seconds into it, and whether it is the big one (a win) with a spin. */
 	cheer: { t: number; big: boolean } | null;
+	/** Their plane between lands while it is on screen (`busy: 'plane'`), and whether they leave in it. */
+	trip: PlaneTrip | null;
+	byPlane: boolean;
 }
 
 /** Seconds a double jump for joy takes: the battle's cheer. */
@@ -246,8 +259,17 @@ export class OtherPlayers {
 			other = this.create(peer);
 			this.others.set(peer.pid, other);
 			const hushed = this.now < this.hushedUntil;
-			if (!hushed && tilesApart(target, this.centre) <= POOF_NEAR) this.poof(target, peer.boat);
+			// One who comes by plane comes in it, not in a poof.
+			if (!hushed && !other.trip && tilesApart(target, this.centre) <= POOF_NEAR)
+				this.poof(target, peer.boat);
 			return;
+		}
+		// The plane between lands: it comes down beside them as they wait for it, and once they
+		// are off it (they are no longer busy with it) it flies away.
+		if (peer.busy === 'plane' && other.busy !== 'plane' && !other.trip) {
+			this.startTrip(other, other.to, peer.facing, BOARD_LEGS);
+		} else if (peer.busy !== 'plane' && other.busy === 'plane') {
+			other.trip?.then(ALIGHT_LEGS);
 		}
 		other.busy = peer.busy;
 		other.lead = peer.lead;
@@ -302,6 +324,23 @@ export class OtherPlayers {
 		if (!other || other.leaving) return;
 		other.leaving = true;
 		other.follower.lead(null);
+		// Gone with the plane, to another land: it flies off with them in it.
+		if (other.busy === 'plane' && other.trip) {
+			other.byPlane = true;
+			other.trip.then(LEAVE_LEGS);
+		}
+	}
+
+	/** Their plane comes, parked beside `at` where they face `facing`, its trip `legs`. */
+	private startTrip(
+		other: Other,
+		at: GridPos,
+		facing: Direction,
+		legs: ConstructorParameters<typeof PlaneTrip>[1]
+	): void {
+		other.trip?.dispose();
+		other.trip = new PlaneTrip(planeSpot(at, facing), legs);
+		this.scene.add(other.trip.figure);
 	}
 
 	/** Everyone goes at once: another world, the title, the socket gone. */
@@ -316,7 +355,14 @@ export class OtherPlayers {
 		const calm = motion.reduced;
 		const aside = this.standingAside();
 		for (const other of [...this.others.values()]) {
-			if (other.leaving) {
+			if (other.leaving && other.byPlane) {
+				// Off in the plane: they go once it has.
+				if (other.trip?.done ?? true) {
+					this.drop(other);
+					this.others.delete(other.pid);
+					continue;
+				}
+			} else if (other.leaving) {
 				other.opacity -= dt / FADE_SECONDS;
 				if (other.opacity <= 0) {
 					this.drop(other);
@@ -402,6 +448,7 @@ export class OtherPlayers {
 				afloat === 1 ? 0 : 1 - sitting
 			);
 			if (rig) poseRider(rig, sitting);
+			const aboard = this.poseTrip(other, y, t, dt, calm);
 			this.fade(other);
 			// Their lead: on land who they say, carrying them with the harness when it can; out on
 			// the water one that swims swims, and one that can't rides in the boat once they have
@@ -422,10 +469,39 @@ export class OtherPlayers {
 								? 'pull'
 								: 'follows';
 			// Nobody follows them in the air, nor while their lead is out in a battle beside them.
-			const away = other.flying || other.lift > 0 || other.stage !== null;
+			const away = other.flying || other.lift > 0 || other.stage !== null || aboard;
 			if (!other.leaving) other.follower.lead(away ? null : other.lead, ride);
 			other.follower.update(other.progress, dt);
 		}
+	}
+
+	/**
+	 * Their plane this frame, parked at the height of their tile (`ground`),
+	 * and them on their way into it or out (hopping to its door, smaller as
+	 * they go in, not seen inside). Whether they are on it or on their way.
+	 */
+	private poseTrip(other: Other, ground: number, t: number, dt: number, calm: boolean): boolean {
+		const trip = other.trip;
+		other.figure.visible = true;
+		other.figure.scale.setScalar(1);
+		if (!trip) return false;
+		const { pose, ride } = trip.advance(dt, calm);
+		const spot = new THREE.Vector3(trip.spot.x, ground, trip.spot.z);
+		posePlane(trip.figure, spot, trip.spot.heading, pose, t, calm);
+		if (trip.done && !other.byPlane) {
+			trip.dispose();
+			other.trip = null;
+			return false;
+		}
+		other.figure.visible = ride < 1;
+		if (ride > 0) {
+			const from = other.figure.position.clone();
+			const e = smoothstep(ride);
+			other.figure.position.lerpVectors(from, doorOf(spot, from), e);
+			if (!calm) other.figure.position.y += Math.sin(Math.PI * ride) * 0.45;
+			other.figure.scale.setScalar(1 - 0.35 * e);
+		}
+		return ride > 0;
 	}
 
 	/**
@@ -600,9 +676,13 @@ export class OtherPlayers {
 			leaving: false,
 			nudge: { x: 0, z: 0 },
 			stage: null,
-			cheer: null
+			cheer: null,
+			trip: null,
+			byPlane: false
 		};
 		if (peer.boat) this.setBoat(other, true);
+		// One who comes into view by plane comes down in it, and gets off once they say so.
+		if (peer.busy === 'plane') this.startTrip(other, at, peer.facing, ARRIVE_LEGS);
 		if (peer.skis) this.addSkis(other);
 		other.follower.place(this.seed, at, peer.facing);
 		this.fade(other);
@@ -724,6 +804,8 @@ export class OtherPlayers {
 	}
 
 	private drop(other: Other): void {
+		other.trip?.dispose();
+		other.trip = null;
 		other.figure.removeFromParent();
 		// The skis' boxes and colours are shared by every pair: taken off, never freed.
 		other.skis?.group.removeFromParent();

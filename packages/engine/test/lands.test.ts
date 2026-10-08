@@ -21,7 +21,8 @@ import {
 	getLand,
 	needsStarter,
 	shopFor,
-	unlockLands
+	unlockLands,
+	unlockProgress
 } from '../src/lands/lands.js';
 import { STARTERS, STARTER_TIER } from '../src/party/starters.js';
 import { answerText, checkAnswer } from '../src/puzzles/registry.js';
@@ -236,6 +237,35 @@ describe('unlocking a land', () => {
 				ANIMALS.map((a) => a.id)
 			)
 		).toEqual(['nordland', 'arctic']);
+	});
+});
+
+describe('the way to a land: how many of the land before it are set free', () => {
+	const nordland = getLand('nordland').species;
+
+	it('counts the land before its species set free, of all of them, whatever else is set free', () => {
+		expect(unlockProgress('arctic', [])).toEqual({ from: 'nordland', freed: 0, of: 50 });
+		const arctic = getLand('arctic').species;
+		// Another land's animals, an unknown id and one twice count nothing more.
+		const some = [...nordland.slice(0, 37), nordland[0]!, ...arctic, 'savannah-lion'];
+		expect(unlockProgress('arctic', some)).toEqual({ from: 'nordland', freed: 37, of: 50 });
+		expect(unlockProgress('arctic', nordland)).toEqual({ from: 'nordland', freed: 50, of: 50 });
+	});
+
+	it('agrees with the unlock rule: all of them, and only then, opens the land', () => {
+		const rng = new Rng(191);
+		for (let i = 0; i < 200; i++) {
+			const freed = nordland.filter(() => rng.chance(0.97));
+			const progress = unlockProgress('arctic', freed)!;
+			const opens = unlockLands([], freed).includes('arctic');
+			expect(opens).toBe(progress.freed === progress.of);
+		}
+	});
+
+	it('has none for the first land, always open, nor for a land this build lacks', () => {
+		expect(unlockProgress('nordland', nordland)).toBeNull();
+		expect(unlockProgress('savannah', nordland)).toBeNull();
+		expect(unlockProgress(undefined, [])).toBeNull();
 	});
 });
 
