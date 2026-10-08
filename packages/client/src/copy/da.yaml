@@ -1869,7 +1869,7 @@ title:
     loves: '{animal.the} er mester i {kinds}!'
     keys: ← → flyt · Enter vælg · Esc tilbage
     pick: 'Vælg {animal.the}!'
-    titleLand: Velkommen til {land}! Vælg dit første dyr her!
+    titleLand: Vælg dit første dyr i {land}!
     keysLand: ← → flyt · Enter vælg · Esc heksedoktor
     toDoctor: Heksedoktor
   naming:

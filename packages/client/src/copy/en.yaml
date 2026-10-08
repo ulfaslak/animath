@@ -2139,7 +2139,7 @@ title:
     pick: 'Pick {animal.the}!'
     # A first arrival in another land (#191): its own three starters. {land}: the land as a
     # sentence names it.
-    titleLand: Welcome to {land}! Pick your first animal here!
+    titleLand: Pick your first animal in {land}!
     keysLand: ← → choose · Enter pick · Esc witch doctor
     # The card's button that goes to the witch doctor instead, as Escape does.
     toDoctor: Witch doctor
