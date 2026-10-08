@@ -641,7 +641,23 @@ describe('readSave and the upgrade seam', () => {
 			'harbour-seal',
 			'harbour-porpoise',
 			'grey-seal',
-			'orca'
+			'orca',
+			// #192 wave 1: The Arctic's small land animals.
+			'arctic-fox',
+			'arctic-hare',
+			'puffin',
+			'arctic-lemming',
+			'snow-bunting',
+			'rock-ptarmigan',
+			'waxwing',
+			'adelie-penguin',
+			'snow-petrel',
+			'arctic-tern',
+			'king-eider',
+			'raven',
+			'barnacle-goose',
+			'gentoo-penguin',
+			'chinstrap'
 		];
 		expect(ANIMALS.map((a) => a.id).filter((id) => !shipped.includes(id))).toEqual([]);
 		for (const speciesId of shipped) {
@@ -2566,13 +2582,14 @@ describe('lands in a save', () => {
 		expect(left.lands[0]!.party).toEqual([]);
 	});
 
-	it("never puts another land's animal in a land's party: a land with no starters (not built yet) adds none", () => {
+	it("never puts another land's animal in a land's party: a land's own starter, or none while one is picked", () => {
 		// The adversarial review of #196: a sea-only party in The Arctic got Nordland's squirrel.
+		// Since #192 The Arctic has starters of its own, and its first one joins.
 		const seaOnly = restoreGame(
 			{ ...written, land: 'arctic', party: [{ id: 'c1', speciesId: 'crab', hp: 10 }] } as SaveV4,
 			mint
 		);
-		expect(seaOnly.party.map((a) => a.speciesId)).toEqual(['crab']);
+		expect(seaOnly.party.map((a) => a.speciesId)).toEqual(['crab', 'arctic-fox']);
 		const empty = restoreGame({ ...written, land: 'arctic', party: [] } as SaveV4, mint);
 		expect(empty.party).toEqual([]);
 	});
