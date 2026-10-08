@@ -1253,12 +1253,12 @@ save:
   behind: Du spillede videre i et andet vindue.
   # The same card when the newest game came from somewhere else (an account's copy on
   # the server, or a new game started in another window), shown only when the page has already reloaded by itself three times in a minute.
-  behindReady: Dit nyeste spil er klart.
+  behindReady: Dit spil blev gemt et andet sted.
   # The same card when the saved game was cleared (a new game comes next), shown only
   # when the page has already reloaded by itself three times in a minute.
-  behindGone: Et nyt spil er klart.
+  behindGone: Lad os starte et nyt spil!
   # The button on that card.
-  behindGo: Hent dit nyeste spil
+  behindGo: Lad os spille!
   # The same card when a newer version of the game saved the game (in another tab, or
   # on the server) and this page is still the old version: it takes no play, and a
   # reload fetches the new one. Shown when the page may not reload by itself.

@@ -6,6 +6,14 @@ Technical items we've intentionally postponed: tech debt, hardening shortcuts, k
 
 ---
 
+### The searches on foot read the ice as ground a kid can stop on
+
+**What**: the searches that ask where a kid can get to on foot (`nearestTent` and the arrow to the witch doctor, `doctorComes` behind the knock-out rule, the spawn's room, `arrivalSpot`'s escape) walk tile by tile over `isPassable` ground, The Arctic's ice included, as if a kid could stop on any tile of it. On the ice a step slides on (`moveFrom`), so a way they find can cross ice the kid can't steer across: an arrow may point over a lake the kid slides past the far end of, and in a pocket only reachable that way a tired team could be told a tent is in reach when the slides never lead there.
+
+**Why deferred**: The Arctic's first animals (#192 wave 1) live in its deep snow, so a battle can now be lost there, but only in a throwaway game (`?lands`, `?land=`): The Arctic is closed to players (`available` off) until #191 step 7. Every move there can be undone by the move back (#199), so a kid always gets back the way they came, which starts at a tent; every tent stands in a clearing of snow, the ice's runs are short (a stopper at least every 23 tiles), and a flood fill over `moveFrom` reaches 300 places from beside every tent tested. A slide-aware search costs a second search beside the cached one. (The first animals were this entry's trigger; step 5's wave 1 moved it on, its PR says why.)
+
+**Trigger**: before The Arctic opens to players (its `available` on, #191 step 7): make `nearestTent`'s and `doctorComes`' walk read slides (`moveFrom` from each place a kid can stop), or show with a sweep that every place they find is reached by slides too.
+
 ### A friend's birds are not seen in the air
 
 **What**: another player sees a friend glide (`flight`), but not the bird that flies behind them (their lead in the air) nor a wild bird chasing them (#91): nobody follows them in the other page until they are down, and the wire carries no chaser. Their battle in the air, once it starts, is seen as any battle is: the two birds flying beside them.

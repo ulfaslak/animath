@@ -939,7 +939,7 @@ export class Autosave {
 		// adoption is done: carrying on from another tab's walk settles again, and must not
 		// then push that walk over the other device's game.
 		const refused = this.refused;
-		if (refused && sameGame && theirs >= refused.seq && !sameJson(refused, doc)) {
+		if (refused && sameGame && theirs >= refused.seq && !sameSave(refused, read.save)) {
 			this.adopt(read.save, doc);
 			this.refused = null;
 			return;
@@ -949,7 +949,9 @@ export class Autosave {
 		// An account's game is played on several devices, so a tie within the game goes to the
 		// server's too when the two saves differ.
 		const tie = theirs === this.seq && theirs > 0;
-		const fork = sameGame && tie && !sameJson(this.ours(), doc);
+		// Compared as this build reads them: an older build's save on the server and the same save
+		// upgraded here are one game, not a fork (adopting it would reload into the same tie, for ever).
+		const fork = sameGame && tie && !sameSave(this.ours(), read.save);
 		if (theirs > this.seq || (tie && !sameGame) || fork) {
 			this.adopt(read.save, doc);
 			return;
@@ -1057,4 +1059,16 @@ export class Autosave {
 		this.retryTimer = null;
 		this.pushDue = Infinity;
 	}
+}
+
+/**
+ * Whether two saves hold the same game as this build reads them: each is
+ * upgraded first, so an older build's save and the same save upgraded (and
+ * written back by this build) are the same. Two saves either side cannot
+ * read are never the same.
+ */
+function sameSave(a: unknown, b: unknown): boolean {
+	const left = readSave(a);
+	const right = readSave(b);
+	return left.ok && right.ok && sameJson(left.save, right.save);
 }

@@ -99,6 +99,12 @@ const GROUND = Object.fromEntries(
 ) as Record<Biome, number>;
 
 /**
+ * The backdrops out on the deep water, where the animals swim: Nordland's
+ * sea, and The Arctic's two oceans either side of its open-sea band.
+ */
+const SEAS: ReadonlySet<Backdrop> = new Set<Backdrop>(['sea', 'arctic-ocean', 'southern-ocean']);
+
+/**
  * Out on the deep water the surface stands this high over the ground, and
  * each animal swims in it as it does behind the boat: the lower `SWIM_DEPTH`
  * of its height under the surface, so a crab shows as much of itself as a
@@ -500,12 +506,11 @@ export class BattleScene {
 		figure.scale.setScalar(scale);
 		figure.userData.baseScale = scale;
 		this.heights[side] = height * scale;
-		this.feet[side] =
-			this.biome === 'sea'
-				? SEA_WATERLINE - height * scale * SWIM_DEPTH
-				: this.biome === 'sky'
-					? SKY_HOVER
-					: 0;
+		this.feet[side] = SEAS.has(this.biome)
+			? SEA_WATERLINE - height * scale * SWIM_DEPTH
+			: this.biome === 'sky'
+				? SKY_HOVER
+				: 0;
 		const other = SPOT[side === 'player' ? 'opponent' : 'player'];
 		// Face the other animal: the player's from behind, the wild one three-quarters on.
 		figure.rotation.y = Math.atan2(other.x - SPOT[side].x, other.z - SPOT[side].z);
@@ -591,7 +596,7 @@ export class BattleScene {
 		const size = this.heights[side];
 		// At sea it rises off the water's surface, a splash more than dust; in the sky, off
 		// the cloud the bird comes to rest on.
-		const floor = this.biome === 'sea' ? SEA_WATERLINE : this.biome === 'sky' ? CLOUD_TOP : 0;
+		const floor = SEAS.has(this.biome) ? SEA_WATERLINE : this.biome === 'sky' ? CLOUD_TOP : 0;
 		group.position.set(spot.x, floor, spot.z);
 		group.userData.size = size;
 		group.userData.material = material;
@@ -1184,7 +1189,7 @@ function buildBackdrop(biome: Biome): THREE.Group {
 	const clear = (x: number, z: number, r: number) =>
 		Object.values(SPOT).every((s) => Math.hypot(x - s.x, z - s.z) > r);
 
-	if (biome === 'sea') {
+	if (SEAS.has(biome)) {
 		buildSea(group, rng, tuftMaterial, clear);
 		return group;
 	}

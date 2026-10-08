@@ -1647,10 +1647,9 @@ describe('rollEncounterFor: the lead where the step lands, or nobody', () => {
 
 describe('the generated world offers every habitat', () => {
 	it('grows tall grass or deep water in at least one habitat of every species, within 8 chunks of spawn', () => {
-		// Every species of a land open to players, in that land's worlds. A land is opened once its
-		// map is built (#191 step 4), and its animals join this test then.
-		const open = LANDS.filter((l) => l.available);
-		expect(open.map((l) => l.id)).toContain('nordland');
+		// Every species of every land, in that land's worlds: The Arctic's map is built (#191 step
+		// 4), and its deep snow grows round its animals, on both poles, close enough to meet them.
+		const open = LANDS;
 		for (const [land, seed] of open.flatMap((l) =>
 			l.id === 'nordland'
 				? [hashString('prototype'), 1, 2, 3].map((seed) => [l, seed] as const)

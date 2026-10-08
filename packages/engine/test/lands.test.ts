@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { ANIMALS, canFightIn, getAnimal, skiesOf } from '../src/animals/catalog.js';
+import { BIOME_POLE } from '../src/animals/types.js';
 import { ITEMS, itemsForSale } from '../src/items/catalog.js';
 import { fly, type LandPlace, type LandStay } from '../src/lands/fly.js';
 import {
@@ -26,7 +27,7 @@ import { STARTERS, STARTER_TIER } from '../src/party/starters.js';
 import { answerText, checkAnswer } from '../src/puzzles/registry.js';
 import { ALL_PUZZLE_KINDS } from '../src/puzzles/types.js';
 import { Rng, hashInts } from '../src/rng.js';
-import { biomeLand, biomePole } from '../src/world/biomes.js';
+import { biomeLand } from '../src/world/biomes.js';
 import { EDITS_BUDGET, WorldEdits } from '../src/world/edits.js';
 import { TENT_LATTICE, onTentLattice, tileAtWorld } from '../src/world/generate.js';
 import { spawnPoint } from '../src/world/spawn.js';
@@ -95,7 +96,7 @@ describe('the land registry', () => {
 		for (const [i, a] of ANIMALS.entries()) {
 			const homes = [...a.habitats, ...skiesOf(a)];
 			for (const b of homes) expect(biomeLand(b), `${a.id} in ${b}`).toBe(lands[i]![0]);
-			const poles = new Set(homes.map(biomePole));
+			const poles = new Set(homes.map((b) => BIOME_POLE[b]));
 			if (poles.size > 1) twoPoles.push(a.id);
 		}
 		// It nests in the Arctic and spends the southern summer on the Antarctic's sea ice.
@@ -338,16 +339,17 @@ describe('the tent mapping', () => {
 		}
 	});
 
-	it('Nordland → a land with a tent on every spot → Nordland comes home to the tent it left', () => {
-		// The Arctic of #191 step 4: a tent on every lattice spot, ground all round. A stub, until then.
-		const everyTent = { isTent: (p: GridPos) => onTentLattice(p.x, p.y), canStand: () => true };
+	it('Nordland → The Arctic, a tent on every spot → Nordland comes home to the tent it left', () => {
+		// The Arctic of #191 step 4: a tent on every lattice spot, a clearing of snow all round.
 		let tried = 0;
 		for (const world of [1, 2, 42, 777, 9999]) {
 			const seed = landSeed('nordland', world);
+			const arctic = landSeed('arctic', world);
 			for (const tent of nordlandTents(world, 6)) {
 				tried++;
-				const there = mappedTent(tent, everyTent);
+				const there = tentArrival(arctic, tent);
 				expect(there?.tent, `world ${world}`).toEqual(tent);
+				expect(canTalkToDoctor(arctic, there!.stand, there!.facing)).toBe(true);
 				const back = tentArrival(seed, there!.tent);
 				expect(back?.tent, `world ${world}`).toEqual(tent);
 				// The kid can talk to the witch doctor from where they come down.

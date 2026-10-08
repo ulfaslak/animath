@@ -2025,7 +2025,8 @@ function limb(name: string, x: number, y: number, parts: THREE.Mesh[], z = 0): T
  * same look, as an animal's is.
  */
 export function buildPlayerMesh(look: TrainerLook = PLAYER_LOOK): THREE.Group {
-	return merged(`trainer:${look.shirt}:${look.cap}`, () => buildPlayerParts(look));
+	const hat = look.warm ? 'warm' : 'cap';
+	return merged(`trainer:${look.shirt}:${look.cap}:${hat}`, () => buildPlayerParts(look));
 }
 
 /** The trainer part by part, as `buildAnimalParts` is an animal: what `buildPlayerMesh` merges. */
@@ -2048,11 +2049,31 @@ export function buildPlayerParts(look: TrainerLook = PLAYER_LOOK): THREE.Group {
 		box(0.24, 0.22, 0.22, skin, 0, 0.6, 0),
 		box(0.035, 0.05, 0.02, COLORS.dark, -0.055, 0.61, 0.11),
 		box(0.035, 0.05, 0.02, COLORS.dark, 0.055, 0.61, 0.11),
-		part(dome, cap, 0, 0.68, 0),
-		box(0.22, 0.03, 0.14, cap, 0, 0.7, 0.16)
+		...(look.warm
+			? warmHat(cap)
+			: [part(dome, cap, 0, 0.68, 0), box(0.22, 0.03, 0.14, cap, 0, 0.7, 0.16)])
 	]);
 	group.name = 'player';
 	return group;
+}
+
+/**
+ * The Arctic's warm hat (#191: the land's `warm-hat` look): a knitted hat of
+ * the cap's colour pulled down over the ears, a thick white cuff round it,
+ * flaps over the ears and a white bobble on top, so it reads as warm at a
+ * glance, and still as the trainer's own colour.
+ */
+function warmHat(colour: number): THREE.Object3D[] {
+	const crown = new THREE.SphereGeometry(0.155, 8, 5, 0, Math.PI * 2, 0, Math.PI / 2);
+	const bobble = new THREE.IcosahedronGeometry(0.055, 0);
+	const white = COLORS.white;
+	return [
+		part(crown, colour, 0, 0.7, 0),
+		box(0.28, 0.07, 0.26, white, 0, 0.69, 0),
+		box(0.04, 0.1, 0.09, colour, -0.13, 0.6, 0),
+		box(0.04, 0.1, 0.09, colour, 0.13, 0.6, 0),
+		part(bobble, white, 0, 0.865, 0)
+	];
 }
 
 const IDLE_RATE = 2.4; // radians per second: one breath every ~2.6 s

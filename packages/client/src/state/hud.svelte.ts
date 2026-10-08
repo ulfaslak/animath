@@ -3,7 +3,7 @@ import {
 	canFightIn,
 	canTalkToDoctor,
 	clearableAhead,
-	itemsForSale,
+	shopFor,
 	leadIndex,
 	needsDoctor,
 	type AnimalInstance,
@@ -364,7 +364,7 @@ class HudView {
 				if (event.playerId !== game.playerId) break;
 				const ahead = this.ahead;
 				if (!ahead || game.items.includes(ahead.tool) || this.toolHints.has(ahead.kind)) break;
-				if (!itemsForSale().includes(ahead.tool)) break;
+				if (!shopFor(game.land).includes(ahead.tool)) break;
 				this.toolHints.add(ahead.kind);
 				this.say({ needs: ahead.kind });
 				break;
@@ -375,7 +375,7 @@ class HudView {
 				if (event.playerId !== game.playerId) break;
 				this.toolHints.add(event.kind);
 				this.say(
-					itemsForSale().includes(event.tool) ? { needs: event.kind } : { explore: 'notAtTent' }
+					shopFor(game.land).includes(event.tool) ? { needs: event.kind } : { explore: 'notAtTent' }
 				);
 				break;
 			case 'welcome':

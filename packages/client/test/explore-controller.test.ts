@@ -1,7 +1,12 @@
 import {
+	WorldEdits,
 	bundles,
+	isWalkable,
+	landSeed,
 	leadIndex,
+	moveFrom,
 	newGame,
+	tileAtWorld,
 	type BattleState,
 	type Direction,
 	type GameEvent,
@@ -16,7 +21,7 @@ import { ExploreController } from '../src/explore/controller';
 import { HOLD_TO_FLY, Keyboard } from '../src/input/keyboard';
 import { PICK_QUIET_SECONDS } from '../src/input/pick-guard';
 import { animalKey, bundleKey, moveKey, openKey } from '../src/input/press';
-import { DESCEND_SECONDS, GLIDE_SECONDS, RISE_SECONDS } from '../src/render/trainer';
+import { DESCEND_SECONDS, GLIDE_SECONDS, RISE_SECONDS, SLIDE_SECONDS } from '../src/render/trainer';
 import { PauseController } from '../src/pause/controller';
 import type { GameRenderer } from '../src/render/renderer';
 import { game } from '../src/state/game.svelte';
@@ -40,6 +45,8 @@ function setup(startingParty: string, saved?: SavedGame) {
 	keyboard.setEnabled(true); // explore has the screen, as main.ts says each frame
 	/** Where the landing ring was put, each time, and the tool over it. */
 	const rings: ({ x: number; y: number; tool: string | null } | null)[] = [];
+	/** Where the trainer was drawn, each frame: between two tiles, how far along. */
+	const players: { from: GridPos; to: GridPos; progress: number }[] = [];
 	const sky = skyPieces();
 	const renderer = {
 		setWorld() {},
@@ -48,7 +55,9 @@ function setup(startingParty: string, saved?: SavedGame) {
 		setLandingSpot(at: GridPos | null, tool: string | null = null) {
 			rings.push(at && { ...at, tool });
 		},
-		setPlayer() {},
+		setPlayer(from: GridPos, to: GridPos, progress: number) {
+			players.push({ from: { ...from }, to: { ...to }, progress });
+		},
 		ensureChunksAround() {},
 		cleared() {},
 		trainerPoint: sky.trainerPoint,
@@ -97,7 +106,20 @@ function setup(startingParty: string, saved?: SavedGame) {
 	};
 	/** The species of the cards, top to bottom. */
 	const cards = () => bundles(game.party).map((b) => b.speciesId);
-	return { authority, explore, events, press, release, frame, run, cards, rings, listeners, sky };
+	return {
+		authority,
+		explore,
+		events,
+		press,
+		release,
+		frame,
+		run,
+		cards,
+		rings,
+		listeners,
+		sky,
+		players
+	};
 }
 
 describe('explore input', () => {
@@ -362,5 +384,67 @@ describe('the glider', () => {
 		expect(s.events.find((e) => e.type === 'tile-cleared')).toMatchObject({ pos: at, was: 'tree' });
 		s.run(1);
 		expect(game.edits.has(at!.x, at!.y)).toBe(true);
+	});
+});
+
+describe('explore input: sliding on the ice (#191)', () => {
+	const seed = landSeed('arctic', 1);
+
+	/** A game of The Arctic's World 1 at the first tile a move right slides at least 5 tiles from. */
+	function onTheIce() {
+		for (let y = -420; y < -360; y++) {
+			for (let x = -60; x < 50; x++) {
+				if (!isWalkable(tileAtWorld(seed, x, y).kind)) continue;
+				const moved = moveFrom(seed, WorldEdits.none, { x, y }, 'right');
+				if (!moved || moved.path.length < 5) continue;
+				const base = newGame(1, { ...testStarter(), id: 'n1' });
+				const saved: SavedGame = {
+					...base,
+					land: 'arctic',
+					pos: { x, y },
+					party: [{ ...testStarter(), id: 'a1' }],
+					lands: [
+						{
+							land: 'nordland',
+							party: [{ ...testStarter(), id: 'n1' }],
+							tokens: 0,
+							items: [],
+							worlds: []
+						}
+					],
+					unlocked: ['nordland', 'arctic']
+				};
+				return { from: { x, y }, path: moved.path, ...setup('squirrel', saved) };
+			}
+		}
+		throw new Error('no slide');
+	}
+
+	it('slides the trainer over every tile, one after another at the slide pace, and takes no step till the end', () => {
+		const { from, path, events, press, release, run, explore, players } = onTheIce();
+		press('ArrowRight');
+		explore.update(1 / 60);
+		release('ArrowRight');
+		const moves = () => events.filter((e) => e.type === 'player-moved').length;
+		expect(moves()).toBe(1);
+		// Held right all the way: still one move, while the slide is on screen.
+		press('ArrowRight');
+		players.length = 0;
+		run(SLIDE_SECONDS * (path.length - 1) - 0.05);
+		expect(moves()).toBe(1);
+		expect(explore.landing).toBe(true);
+		// Tile by tile, each from the one before, in order.
+		const tiles = [from, ...path];
+		const drawn = [...new Set(players.map((p) => `${p.from.x},${p.from.y}>${p.to.x},${p.to.y}`))];
+		expect(drawn).toEqual(
+			tiles
+				.slice(0, drawn.length)
+				.map((t, i) => `${t.x},${t.y}>${tiles[i + 1]!.x},${tiles[i + 1]!.y}`)
+		);
+		expect(drawn.length).toBeGreaterThanOrEqual(path.length - 1);
+		run(0.2);
+		// Down at the end, the next move goes.
+		expect(moves()).toBeGreaterThanOrEqual(2);
+		release('ArrowRight');
 	});
 });

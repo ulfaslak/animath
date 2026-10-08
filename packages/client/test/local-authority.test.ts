@@ -48,6 +48,7 @@ import {
 	type SavedGame,
 	getLand,
 	landSeed,
+	moveFrom,
 	worldSeed
 } from '@mathgame/engine';
 import { describe, expect, it } from 'vitest';
@@ -3705,14 +3706,22 @@ describe('LocalAuthority: lands, from the adversarial review of #196', () => {
 
 	it("a tile cleared in one land keeps every land's cleared tiles within the one budget, and a reload changes nothing", () => {
 		// Nordland 1 left behind holds nearly the whole budget; then a tree is chopped in Arktis 1.
-		let big = WorldEdits.none;
-		outer: for (let y = 0; y < 2000; y++) {
-			for (let x = 0; x < 2000; x++) {
-				const next = big.with({ x, y });
-				if (length(next.encode()) > EDITS_BUDGET - 5) break outer;
-				big = next;
-			}
+		// The most tiles, row by row from (0, 0), whose text stays within the budget less 5: found by
+		// halving, since growing it a tile at a time and writing it out each time took most of a minute
+		// on a busy machine.
+		const firstTiles = (n: number) => {
+			const tiles: GridPos[] = [];
+			for (let i = 0; i < n; i++) tiles.push({ x: i % 2000, y: Math.floor(i / 2000) });
+			return tiles.reduce((e, p) => e.with(p), WorldEdits.none);
+		};
+		let [fits, over] = [0, 1];
+		while (length(firstTiles(over).encode()) <= EDITS_BUDGET - 5) [fits, over] = [over, over * 2];
+		while (over - fits > 1) {
+			const mid = Math.floor((fits + over) / 2);
+			if (length(firstTiles(mid).encode()) <= EDITS_BUDGET - 5) fits = mid;
+			else over = mid;
 		}
+		const big = firstTiles(fits);
 		const seed = landSeed('arctic', 1);
 		let at: GridPos | null = null;
 		for (let y = -50; y < 50 && !at; y++) {
@@ -3791,5 +3800,111 @@ describe('LocalAuthority: lands, from the adversarial review of #196', () => {
 		doctorIntent(s, { type: 'fly', land: 'arctic' });
 		expect(visit(s).phase.kind).toBe('paying-fare');
 		expect(visit(s).unlocked).toEqual(['nordland', 'arctic']);
+	});
+});
+
+describe('LocalAuthority: sliding on the ice (#191)', () => {
+	const seed = landSeed('arctic', 1);
+
+	/** A game of The Arctic's World 1, standing at `pos` facing `facing`. */
+	function arcticAt(pos: GridPos, facing: Direction = 'down'): Session {
+		const base = newGame(1, { ...testStarter(), id: 'n1' });
+		const game: SavedGame = {
+			...base,
+			land: 'arctic',
+			pos,
+			facing,
+			party: [{ ...testStarter(), id: 'a1' }],
+			lands: [
+				{
+					land: 'nordland',
+					party: [{ ...testStarter(), id: 'n1' }],
+					tokens: 0,
+					items: [],
+					worlds: []
+				}
+			],
+			unlocked: ['nordland', 'arctic']
+		};
+		const authority = new LocalAuthority();
+		const events: GameEvent[] = [];
+		authority.subscribe((e) => events.push(e));
+		authority.start({ game });
+		return { authority, events };
+	}
+
+	/** The first tile (from the far north's sea ice) from which a move `dir` slides `atLeast` tiles and ends as `ends` says. */
+	function slideStart(
+		dir: Direction,
+		atLeast: number,
+		ends: (end: GridPos) => boolean = () => true
+	): { from: GridPos; path: GridPos[] } {
+		for (let y = -420; y < -360; y++) {
+			for (let x = -60; x < 50; x++) {
+				const from = { x, y };
+				if (!isWalkable(tileAtWorld(seed, x, y).kind)) continue;
+				const moved = moveFrom(seed, WorldEdits.none, from, dir);
+				if (moved && moved.path.length >= atLeast && ends(moved.path.at(-1)!)) {
+					return { from, path: moved.path };
+				}
+			}
+		}
+		throw new Error('no such slide');
+	}
+
+	it('slides the whole way in one move: one event, every tile a step, the save already at the end', () => {
+		const { from, path } = slideStart('right', 5);
+		const s = arcticAt(from);
+		const steps = s.authority.snapshot().steps;
+		s.events.length = 0;
+		s.authority.dispatch({ type: 'move', dir: 'right' });
+		const end = path.at(-1)!;
+		expect(s.events).toEqual([
+			{ type: 'player-moved', playerId: 'local', pos: end, dir: 'right', tiles: path.length }
+		]);
+		const snap = s.authority.snapshot();
+		expect(snap.pos).toEqual(end);
+		expect(snap.facing).toBe('right');
+		expect(snap.steps).toBe(steps + path.length);
+		// A reload stands where the slide ended: no save is ever taken halfway along one.
+		const read = readSave(JSON.parse(JSON.stringify(saveDocument(snap, { lineage: 's', seq: 1 }))));
+		if (!read.ok) throw new Error(read.error);
+		expect(restoreGame(read.save, mint).pos).toEqual(end);
+	});
+
+	it('slid dead into a fishing hole, stands on its bank of snow, facing it, and goes no further', () => {
+		const ahead = (end: GridPos) => tileAtWorld(seed, end.x + 1, end.y).kind === 'hole';
+		const { from, path } = slideStart('right', 3, ahead);
+		const s = arcticAt(from);
+		s.authority.dispatch({ type: 'move', dir: 'right' });
+		const end = path.at(-1)!;
+		expect(s.authority.snapshot()).toMatchObject({ pos: end, facing: 'right' });
+		// The ice never borders a hole: its bank is snow, where the slide ends.
+		expect(tileAtWorld(seed, end.x, end.y).kind).toBe('snow');
+		expect(tileAtWorld(seed, end.x - 1, end.y).kind).toBe('ice');
+		s.events.length = 0;
+		s.authority.dispatch({ type: 'move', dir: 'right' });
+		expect(s.events).toEqual([{ type: 'player-blocked', playerId: 'local', dir: 'right' }]);
+		expect(s.authority.snapshot().pos).toEqual(end);
+	});
+
+	it('a step onto snow from the ice is one step, and a step off the snow onto the ice slides', () => {
+		const { from, path } = slideStart(
+			'left',
+			3,
+			(end) => tileAtWorld(seed, end.x, end.y).kind !== 'ice'
+		);
+		const s = arcticAt(from);
+		s.authority.dispatch({ type: 'move', dir: 'left' });
+		const end = path.at(-1)!;
+		expect(tileAtWorld(seed, end.x, end.y).kind).not.toBe('ice');
+		const moved = s.events.at(-1);
+		expect(moved).toMatchObject({ type: 'player-moved', pos: end, tiles: path.length });
+		// Back the way they came: from the snow onto the ice, a slide again.
+		const back = moveFrom(seed, WorldEdits.none, end, 'right')!;
+		s.authority.dispatch({ type: 'move', dir: 'right' });
+		const last = s.events.at(-1);
+		expect(last).toMatchObject({ type: 'player-moved', pos: back.path.at(-1) });
+		if (back.path.length > 1) expect(last).toMatchObject({ tiles: back.path.length });
 	});
 });

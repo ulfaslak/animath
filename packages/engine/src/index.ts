@@ -56,11 +56,12 @@ export type {
 	AttackLevel,
 	AttackSpec,
 	Biome,
+	Pole,
 	Realm,
 	Terrain,
 	Tier
 } from './animals/types.js';
-export { ATTACK_LEVELS, REALMS, TERRAINS } from './animals/types.js';
+export { ATTACK_LEVELS, BIOME_POLE, REALMS, TERRAINS } from './animals/types.js';
 export { ANIMALS, canFightIn, canRide, getAnimal, skiesOf } from './animals/catalog.js';
 export {
 	bookOrder,
@@ -177,6 +178,7 @@ export type {
 	Direction,
 	Gear,
 	GridPos,
+	IceBlockGround,
 	Tile,
 	TileKind
 } from './world/types.js';
@@ -185,12 +187,24 @@ export {
 	NO_GEAR,
 	encounterRealm,
 	isEncounterTile,
+	isIce,
 	isPassable,
+	isPlainGround,
 	isWalkable,
 	isWater,
 	step,
 	tileRealm
 } from './world/types.js';
+export {
+	ARCTIC_BAND,
+	ICE_RUN,
+	ICE_STOP,
+	LEAD_FREE,
+	TENT_CLEARING,
+	poleAt
+} from './world/arctic.js';
+export { MAX_SLIDE, moveFrom } from './world/slide.js';
+export type { Moved } from './world/slide.js';
 export {
 	DEEP_WATER_MARGIN,
 	TENT_LATTICE,

@@ -226,7 +226,12 @@ describe('getting about', () => {
 		'deepwater',
 		'rock',
 		'tree',
-		'tent'
+		'tent',
+		'snow',
+		'deepsnow',
+		'ice',
+		'iceblock',
+		'hole'
 	];
 
 	it('on foot, only ground; with the boat, water of either depth too, and never rock, trees or a tent', () => {
@@ -240,7 +245,10 @@ describe('getting about', () => {
 			'tallgrass',
 			'sand',
 			'water',
-			'deepwater'
+			'deepwater',
+			'snow',
+			'deepsnow',
+			'ice'
 		]);
 	});
 

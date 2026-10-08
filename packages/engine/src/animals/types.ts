@@ -58,16 +58,16 @@ export interface AnimalSpec {
 }
 
 /**
- * Where a species lives in the wild. Each biome is one land's
- * (`world/biomes.ts`). Nordland's: the meadow, the forest, the river banks,
- * the mountains, or the sea, which is the deep water out in the middle of the
- * lakes (`deepwater` tiles), reached only by boat. The Arctic's (#192), each
- * on one pole, so an animal that lists only its own pole's biomes is never
- * met on the other: in the north the tundra, the taiga's edge, the fell, the
- * bird cliffs, the frozen lakes, the sea ice (`arctic-ice`) and the open sea
- * (`arctic-ocean`); in the south the inland ice (`ice-sheet`), the penguins'
- * rocky coast (`rookery`), the sea ice (`antarctic-ice`) and the open sea
- * (`southern-ocean`).
+ * Where a species lives in the wild. Nordland's: the meadow, the forest, the
+ * river banks, the mountains, or the sea, which is the deep water out in the
+ * middle of the lakes (`deepwater` tiles), reached only by boat. The Arctic's
+ * (#191, #192 § Biomes) belong to one pole each (`BIOME_POLE`), so a species
+ * that lists only biomes of its own pole is never met on the other: in the
+ * north the `tundra`, the `taiga` edge, the rocky `fell`, the `bird-cliffs`
+ * along the shore, the `frozen-lake`, the sea ice of the `arctic-ice` and the
+ * deep water of the `arctic-ocean`; in the south the inland `ice-sheet`, the
+ * penguins' rocky `rookery` coast, the sea ice of the `antarctic-ice` and the
+ * deep water of the `southern-ocean`.
  */
 export type Biome =
 	| 'meadow'
@@ -86,6 +86,33 @@ export type Biome =
 	| 'rookery'
 	| 'antarctic-ice'
 	| 'southern-ocean';
+
+/** The Arctic's two halves (`BIOME_POLE`): the Arctic in the north, the Antarctic in the south. */
+export type Pole = 'north' | 'south';
+
+/**
+ * Which pole each biome is at, or null for Nordland's: The Arctic's map keeps
+ * the two apart, on either side of the open-sea band near spawn
+ * (`world/arctic.ts`), so polar bears and penguins never meet.
+ */
+export const BIOME_POLE: Readonly<Record<Biome, Pole | null>> = {
+	meadow: null,
+	forest: null,
+	river: null,
+	mountain: null,
+	sea: null,
+	tundra: 'north',
+	taiga: 'north',
+	fell: 'north',
+	'bird-cliffs': 'north',
+	'frozen-lake': 'north',
+	'arctic-ice': 'north',
+	'arctic-ocean': 'north',
+	'ice-sheet': 'south',
+	rookery: 'south',
+	'antarctic-ice': 'south',
+	'southern-ocean': 'south'
+};
 
 /**
  * Land, water or air: where the player is (`tileRealm`: water tiles, reached
