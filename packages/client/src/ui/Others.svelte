@@ -301,8 +301,8 @@
 					<span class="trail big" aria-hidden="true"></span>
 					<span class="trail small" aria-hidden="true"></span>
 				</div>
-				<!-- Up in the air the glider says it: no bubble over a friend who flies. -->
-			{:else if label.busy !== 'explore' && label.busy !== 'flight'}
+				<!-- Up in the air the glider says it, and the plane says its own: no bubble then. -->
+			{:else if label.busy !== 'explore' && label.busy !== 'flight' && label.busy !== 'plane'}
 				<div
 					class="bubble"
 					data-part="bubble"

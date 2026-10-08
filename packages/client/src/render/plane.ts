@@ -204,3 +204,97 @@ export function doorOf(spot: THREE.Vector3, from: THREE.Vector3): THREE.Vector3 
 	if (way.lengthSq() > 0) way.setLength(DOOR_OUT);
 	return spot.clone().add(way).setY(spot.y + DOOR_UP);
 }
+
+/** Seconds each part of a flight takes on screen: the plane coming in, a kid getting on or off, the plane going. */
+export const PLANE_IN_SECONDS = 1.8;
+export const PLANE_BOARD_SECONDS = 0.6;
+export const PLANE_OUT_SECONDS = 1.6;
+/** With reduced motion every part is this quick: the plane only grows in and shrinks away. */
+export const CALM_PLANE_SECONDS = 0.5;
+
+/**
+ * One part of a plane's trip as another player's page sees it: the plane's
+ * `way`, and the kid's `ride` into it (0 on their tile, 1 inside) from its
+ * first number to its second. `hold`: it stays, parked, until the next part
+ * is said (`PlaneTrip.then`).
+ */
+export interface PlaneLeg {
+	way: PlanePose['way'];
+	ride: readonly [number, number];
+	seconds: number;
+	hold?: true;
+}
+
+/** The plane comes down beside them, and they get on: it waits for them to go. */
+export const BOARD_LEGS: readonly PlaneLeg[] = [
+	{ way: 'in', ride: [0, 0], seconds: PLANE_IN_SECONDS },
+	{ way: 'parked', ride: [0, 1], seconds: PLANE_BOARD_SECONDS, hold: true }
+];
+/** The plane comes down with them in it: it waits for them to get off. */
+export const ARRIVE_LEGS: readonly PlaneLeg[] = [
+	{ way: 'in', ride: [1, 1], seconds: PLANE_IN_SECONDS, hold: true }
+];
+/** They get off, and it flies away. */
+export const ALIGHT_LEGS: readonly PlaneLeg[] = [
+	{ way: 'parked', ride: [1, 0], seconds: PLANE_BOARD_SECONDS },
+	{ way: 'out', ride: [0, 0], seconds: PLANE_OUT_SECONDS }
+];
+/** It flies off with them in it. */
+export const LEAVE_LEGS: readonly PlaneLeg[] = [
+	{ way: 'out', ride: [1, 1], seconds: PLANE_OUT_SECONDS }
+];
+
+/**
+ * Another player's plane (`others.ts`): its figure, where it parks, and the
+ * parts of its trip still to play, one after the other. A part that holds
+ * stays parked at its end until `then` says what comes next.
+ */
+export class PlaneTrip {
+	readonly figure: THREE.Group = buildPlaneMesh();
+	private legs: PlaneLeg[];
+	private p = 0;
+
+	constructor(
+		readonly spot: { x: number; z: number; heading: Direction },
+		legs: readonly PlaneLeg[]
+	) {
+		this.legs = [...legs];
+	}
+
+	/** What comes after the part playing now (or held): it goes on as soon as that part is done. */
+	then(legs: readonly PlaneLeg[]): void {
+		const now = this.legs[0];
+		this.legs = now ? [{ ...now, hold: undefined }, ...legs] : [...legs];
+		if (now?.hold && this.p >= 1) {
+			this.legs.shift();
+			this.p = 0;
+		}
+	}
+
+	/** The trip is over: the plane has gone. */
+	get done(): boolean {
+		return this.legs.length === 0;
+	}
+
+	/** On `dt` seconds: where the plane is on its way, and how far the kid is into it. */
+	advance(dt: number, calm: boolean): { pose: PlanePose; ride: number } {
+		let leg = this.legs[0];
+		if (!leg) return { pose: { way: 'out', p: 1 }, ride: 0 };
+		this.p = Math.min(1, this.p + dt / (calm ? CALM_PLANE_SECONDS : leg.seconds));
+		if (this.p >= 1 && !leg.hold) {
+			this.legs.shift();
+			const next = this.legs[0];
+			if (!next) return { pose: { way: leg.way, p: 1 }, ride: leg.ride[1] };
+			this.p = 0;
+			leg = next;
+		}
+		const p = this.p;
+		const pose: PlanePose = { way: leg.hold && leg.way === 'in' && p >= 1 ? 'parked' : leg.way, p };
+		return { pose, ride: leg.ride[0] + (leg.ride[1] - leg.ride[0]) * smoothstep(p) };
+	}
+
+	dispose(): void {
+		this.figure.removeFromParent();
+		disposePlane(this.figure);
+	}
+}

@@ -8,6 +8,7 @@ import {
 	landSeed,
 	type Authority,
 	type GameEvent,
+	type LandId,
 	type SavedGame
 } from '@mathgame/engine';
 import { sfx } from '../audio/sfx.svelte';
@@ -67,6 +68,13 @@ export interface TitleHooks {
 	continueGame(game: SavedGame, name?: string): void;
 	/** "I have an account → Log in": the account card, over the title. */
 	logIn?(): void;
+	/**
+	 * Escape on a land's starters (a first arrival): talk to the witch doctor
+	 * the kid came down beside, who can fly them back.
+	 */
+	toDoctor?(): void;
+	/** Whether a land's starters may come up now: exploring, with nothing else on screen. */
+	starterRoom?(): boolean;
 }
 
 export class TitleController {
@@ -74,6 +82,12 @@ export class TitleController {
 	private guard = new PickGuard();
 	/** `new-game` is sent and not answered yet: keys wait. */
 	private sent = false;
+	/**
+	 * A first arrival in a land waits for its starter (`starter-wanted`):
+	 * the land and its starters, until one is picked. The starters come up
+	 * whenever nothing else is on screen (`watchLand`).
+	 */
+	private wanted: { land: LandId; starters: readonly string[] } | null = null;
 
 	constructor(
 		private authority: Authority,
@@ -107,6 +121,8 @@ export class TitleController {
 		title.nameFor = 'new';
 		title.nameRefused = null;
 		title.playerName = null;
+		title.starters = STARTERS;
+		title.land = null;
 		title.open = true;
 		this.sent = false;
 		// After a logout the login row, when the server has let it show already; else the first
@@ -116,6 +132,8 @@ export class TitleController {
 	}
 
 	handle(event: GameEvent): void {
+		// A game picked up or new: a `starter-wanted` after it says if it waits for one.
+		if (event.type === 'welcome') this.wanted = null;
 		switch (event.type) {
 			case 'welcome':
 				// A game started, picked up or new: the title's work is done.
@@ -129,7 +147,58 @@ export class TitleController {
 				console.warn(`new game refused: ${event.reason}`);
 				this.sent = false;
 				break;
+			case 'starter-wanted':
+				this.wanted = { land: event.land, starters: [...event.starters] };
+				break;
+			case 'starter-refused':
+				console.warn(`starter refused: ${event.reason}`);
+				this.sent = false;
+				break;
+			case 'party-changed':
+				// The land's first animal is the kid's (or they flew back where they have some).
+				if (event.party.length === 0) break;
+				this.wanted = null;
+				if (title.open && title.land !== null) this.closeLand();
+				break;
+			case 'game-left':
+				this.wanted = null;
+				break;
 		}
+	}
+
+	/**
+	 * Every frame: a first arrival waiting for its starter shows the land's
+	 * starters whenever nothing else is on screen (the plane has gone, the
+	 * witch doctor's card is closed). The game under way stays as it is
+	 * behind them.
+	 */
+	watchLand(): void {
+		const wanted = this.wanted;
+		if (!wanted || title.open || !(this.hooks.starterRoom?.() ?? false)) return;
+		this.openLand(wanted.land, wanted.starters);
+	}
+
+	/** The land's starters side by side, over the game under way. */
+	private openLand(land: LandId, starters: readonly string[]): void {
+		title.saved = null;
+		title.notice = null;
+		title.loggedOut = null;
+		title.awaited = null;
+		title.draft = '';
+		title.starters = starters;
+		title.land = land;
+		title.open = true;
+		this.sent = false;
+		this.toStarters(0);
+	}
+
+	/** Back to the game under way: the land's starter was picked, or the kid went to the witch doctor. */
+	private closeLand(): void {
+		title.open = false;
+		title.land = null;
+		title.starters = STARTERS;
+		this.sent = false;
+		this.scenery.hide();
 	}
 
 	update(dt: number): void {
@@ -301,7 +370,7 @@ export class TitleController {
 	}
 
 	private starterKey(key: string, fresh: boolean): boolean {
-		const count = STARTERS.length;
+		const count = title.starters.length;
 		const tapped = tappedRow(key);
 		if (tapped !== undefined) {
 			if (tapped < count && tapped !== title.starter) this.light(tapped);
@@ -330,8 +399,13 @@ export class TitleController {
 				this.guard.show();
 				return true;
 			case 'Escape':
-				// Back to the name, as it was typed.
-				this.toPlayerName('new');
+				// A land's starters: to the witch doctor, who can fly the kid back; they come up
+				// again once the card closes. A new game's: back to the name, as it was typed.
+				if (title.land !== null) {
+					sfx.play('move');
+					this.closeLand();
+					this.hooks.toDoctor?.();
+				} else this.toPlayerName('new');
 				return true;
 		}
 		return false;
@@ -382,10 +456,15 @@ export class TitleController {
 			// unseen. Here Enter alone is the key a kid mashes: Space and the
 			// numbers are letters of the name.
 			if (e.repeat || !this.guard.press()) return;
-			const speciesId = STARTERS[title.starter];
+			const speciesId = title.starters[title.starter];
 			if (speciesId === undefined) return;
 			this.sent = true;
 			sfx.play('confirm');
+			if (title.land !== null) {
+				// A land's first animal: the game under way takes it (`party-changed` closes this).
+				this.authority.dispatch({ type: 'pick-starter', speciesId, nickname: title.draft });
+				return;
+			}
 			this.authority.dispatch({
 				type: 'new-game',
 				speciesId,
@@ -446,7 +525,7 @@ export class TitleController {
 		title.screen = 'starter';
 		title.starter = index;
 		this.guard.show();
-		this.scenery.showStarters(STARTERS);
+		this.scenery.showStarters(title.starters);
 		this.scenery.select(index);
 		title.spots = this.scenery.spots();
 	}

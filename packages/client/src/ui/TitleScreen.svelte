@@ -69,7 +69,7 @@
 	 * under it when a long name leaves no room.
 	 */
 	const loginName = $derived(title.loggedOut?.name ?? null);
-	const species = $derived(STARTERS[title.starter] ?? STARTERS[0]!);
+	const species = $derived(title.starters[title.starter] ?? title.starters[0] ?? STARTERS[0]!);
 	/**
 	 * How much the player's name box takes: well past the longest name, so a
 	 * name a character too long is typed out and told kindly, never cut off unseen.
@@ -346,9 +346,13 @@
 {:else}
 	<div class="starter-screen" bind:this={starterScreen} bind:clientHeight={screenHeight}>
 		{#if title.screen === 'starter'}
-			<h2 class="pick-title" bind:this={pickTitle}>{t('title.starter.title')}</h2>
+			<h2 class="pick-title" bind:this={pickTitle}>
+				{title.land === null
+					? t('title.starter.title')
+					: t('title.starter.titleLand', { land: t(`lands.${title.land}.inLine`) })}
+			</h2>
 		{/if}
-		{#each STARTERS as id, i (id)}
+		{#each title.starters as id, i (id)}
 			{@const spot = title.spots[i]}
 			{#if spot}
 				<!-- The animal itself takes a tap too: a box over its figure, above its tag. -->
@@ -389,16 +393,19 @@
 					})}
 				</div>
 				<!-- Enter and Escape, for a finger or a mouse: picking starts the game, so a tap on a tag only lights it. -->
+				<!-- A land's starters: Escape goes to the witch doctor, who can fly the kid back. -->
 				<div class="card-buttons">
 					<button type="button" class="pill" data-press="Escape" {@attach unfocusable}>
-						{t('title.back')}
+						{title.land === null ? t('title.back') : t('title.starter.toDoctor')}
 					</button>
 					<button type="button" class="pill go" data-press="Enter" {@attach unfocusable}>
 						{t('title.starter.pick', { animal: starter })}
 					</button>
 				</div>
 				{#if !touch.on}
-					<div class="keys">{t('title.starter.keys')}</div>
+					<div class="keys">
+						{title.land === null ? t('title.starter.keys') : t('title.starter.keysLand')}
+					</div>
 				{/if}
 			{:else}
 				<div class="heading">{t('title.naming.title', { animal: starter })}</div>

@@ -1,4 +1,5 @@
 import {
+	STARTERS,
 	leadIndex,
 	editedTileAt,
 	isEditsText,
@@ -6,6 +7,7 @@ import {
 	tileRealm,
 	landSeed,
 	type AnimalInstance,
+	type LandId,
 	type NameRejection,
 	type SavedGame
 } from '@mathgame/engine';
@@ -86,8 +88,17 @@ class TitleView {
 	keeps = $state(true);
 	/** The lit choice of the confirm, an index into `CONFIRM_CHOICES`. */
 	confirm = $state(0);
-	/** The lit starter, an index into the engine's `STARTERS`. */
+	/** The lit starter, an index into `starters`. */
 	starter = $state(0);
+	/** The starters side by side: a new game's (the engine's `STARTERS`), or a land's. */
+	starters = $state.raw<readonly string[]>(STARTERS);
+	/**
+	 * The land whose first animal the starters are, on a first arrival there
+	 * (#191): the title is only its starter screen then, over the game under
+	 * way, and Escape goes to the witch doctor, who can fly the kid back.
+	 * Null for a new game's.
+	 */
+	land = $state<LandId | null>(null);
 	/** The starter's name typed so far. */
 	draft = $state('');
 	/** The player's own name typed so far. */

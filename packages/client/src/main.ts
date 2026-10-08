@@ -251,7 +251,19 @@ function continueGame(saved: SavedGame, name?: string): void {
 
 const titleController = new TitleController(authority, new TitleScenery(renderer), {
 	continueGame,
-	logIn: () => accountController.openLogin('title')
+	logIn: () => accountController.openLogin('title'),
+	// A first arrival's starters: Escape talks to the witch doctor the kid came down beside.
+	toDoctor: () => authority.dispatch({ type: 'interact' }),
+	starterRoom: () =>
+		game.mode === 'explore' &&
+		!plane.active &&
+		!doctor.active &&
+		!battle.active &&
+		!pause.open &&
+		!matchController.onScreen &&
+		account.card === null &&
+		!account.prompt &&
+		autosave.behind === null
 });
 
 /** Every screen hears every event the authority sends, in this order (the autosave first, in `subscribe`). */
@@ -622,6 +634,8 @@ function frame(now: number) {
 		if (pause.open && pause.screen === 'book') drawPortrait();
 		renderer.render();
 	}
+	// A first arrival in a land waiting for its starter: the land's starters, when nothing else is up.
+	if (!title.open && action === 'play') titleController.watchLand();
 	// Where the player is goes to the others; theirs comes back as names over their heads.
 	presenceController.update();
 	presenceController.overlay();

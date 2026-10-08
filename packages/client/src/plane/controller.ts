@@ -2,27 +2,25 @@ import type { GameEvent } from '@mathgame/engine';
 import { sfx } from '../audio/sfx.svelte';
 import { motion } from '../motion';
 import type { GameRenderer } from '../render/renderer';
-import { planeSpot, type PlanePose } from '../render/plane';
+import {
+	CALM_PLANE_SECONDS,
+	PLANE_BOARD_SECONDS,
+	PLANE_IN_SECONDS,
+	PLANE_OUT_SECONDS,
+	planeSpot,
+	type PlanePose
+} from '../render/plane';
 import { game } from '../state/game.svelte';
 import { plane, type PlanePhase } from '../state/plane.svelte';
 
-/** Seconds each part of a flight takes on screen. */
+/** Seconds each part of a flight takes on screen (`render/plane.ts` has the numbers). */
 export const PLANE_SECONDS: Readonly<Record<PlanePhase, number>> = {
-	landing: 1.8,
-	boarding: 0.6,
-	leaving: 1.6,
-	arriving: 1.8,
-	alighting: 0.6,
-	departing: 1.6
-};
-/** With reduced motion the plane only grows in and shrinks away, this quickly. */
-export const CALM_PLANE_SECONDS: Readonly<Record<PlanePhase, number>> = {
-	landing: 0.5,
-	boarding: 0.5,
-	leaving: 0.5,
-	arriving: 0.5,
-	alighting: 0.5,
-	departing: 0.5
+	landing: PLANE_IN_SECONDS,
+	boarding: PLANE_BOARD_SECONDS,
+	leaving: PLANE_OUT_SECONDS,
+	arriving: PLANE_IN_SECONDS,
+	alighting: PLANE_BOARD_SECONDS,
+	departing: PLANE_OUT_SECONDS
 };
 
 const NEXT: Readonly<Record<PlanePhase, PlanePhase | null>> = {
@@ -112,7 +110,7 @@ export class PlaneController {
 	update(dt: number): void {
 		const show = plane.show;
 		if (!show) return;
-		const seconds = (show.calm ? CALM_PLANE_SECONDS : PLANE_SECONDS)[show.phase];
+		const seconds = show.calm ? CALM_PLANE_SECONDS : PLANE_SECONDS[show.phase];
 		const p = Math.min(1, show.p + dt / seconds);
 		if (p < 1) {
 			plane.show = { ...show, p };

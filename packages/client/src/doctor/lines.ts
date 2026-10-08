@@ -1,4 +1,4 @@
-import type { AnimalInstance, ItemId } from '@mathgame/engine';
+import type { AnimalInstance, ItemId, LandId } from '@mathgame/engine';
 import { language, t, type ParamValue } from '../copy';
 import { itemWords } from '../items';
 import { moneyWords } from '../money';
@@ -33,6 +33,15 @@ export type DoctorLine =
 	/** A purchase's token sum is up. */
 	| { say: 'shopCount' }
 	| { say: 'bought'; itemId: ItemId; tokens: number }
+	/** The fly tab: every trip costs one puzzle. */
+	| { say: 'flyIntro' }
+	/**
+	 * A locked land picked: set free one of each of land `from`'s `of`
+	 * animals to go on; `freed` of them are, so far.
+	 */
+	| { say: 'flyLocked'; land: LandId; from: LandId; freed: number; of: number }
+	/** The fare to `land` is up. */
+	| { say: 'fareCount'; land: LandId }
 	| { say: 'goodbye' };
 
 export function doctorWords(line: DoctorLine): string {
@@ -94,6 +103,17 @@ export function doctorWords(line: DoctorLine): string {
 				count: line.tokens,
 				money: moneyWords()
 			});
+		case 'flyIntro':
+			return t('doctor.fly.intro');
+		case 'flyLocked':
+			return t('doctor.fly.locked', {
+				land: t(`lands.${line.land}.inLine`),
+				from: t(`lands.${line.from}.inLine`),
+				of: line.of,
+				freed: line.freed
+			});
+		case 'fareCount':
+			return t('doctor.fly.count', { land: t(`lands.${line.land}.inLine`) });
 		case 'goodbye':
 			return t('doctor.goodbye');
 	}

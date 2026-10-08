@@ -10,7 +10,9 @@
 		needsHealing,
 		priceIn,
 		tokensForTier,
-		type ItemId
+		unlockProgress,
+		type ItemId,
+		type LandId
 	} from '@mathgame/engine';
 	import { tick } from 'svelte';
 	import { t } from '../copy';
@@ -21,9 +23,10 @@
 	import { itemName, itemUse, itemWords } from '../items';
 	import { moneyWords } from '../money';
 	import { animalWords, nameOf, speciesName } from '../names';
+	import { game } from '../state/game.svelte';
 	import {
-		DOCTOR_TABS,
 		doctor,
+		doctorTabs,
 		hurtIndexes,
 		kindGoing,
 		kindPicked,
@@ -32,6 +35,7 @@
 		type DoctorTab
 	} from '../state/doctor.svelte';
 	import Coin from './Coin.svelte';
+	import FreeStamp from './FreeStamp.svelte';
 	import HpBar from './HpBar.svelte';
 	import ItemIcon from './ItemIcon.svelte';
 	import PuzzlePanel from './PuzzlePanel.svelte';
@@ -51,14 +55,16 @@
 	 * touch controls on, the doctor's line sits over the puzzle, so the list
 	 * has the card's height for rows a finger tall.
 	 */
-	const rows = $derived(tabRows(doctor.tab, doctor.party, doctor.shop));
+	const rows = $derived(tabRows(doctor.tab, doctor.party, doctor.shop, doctor.lands));
 	/**
 	 * The rows that scroll: the animals (and on set free each bundle's row)
 	 * or the items. Set free's button and Bye stay put under them.
 	 */
 	const listed = $derived(
 		rows.flatMap((row, k) =>
-			row.kind === 'animal' || row.kind === 'bundle' || row.kind === 'item' ? [{ row, k }] : []
+			row.kind === 'animal' || row.kind === 'bundle' || row.kind === 'item' || row.kind === 'land'
+				? [{ row, k }]
+				: []
 		)
 	);
 	const footer = $derived(
@@ -190,7 +196,14 @@
 				return t('doctor.tabs.home');
 			case 'shop':
 				return t('doctor.tabs.shop');
+			case 'fly':
+				return t('doctor.tabs.fly');
 		}
+	}
+
+	/** A land not unlocked yet: how many of the land before it are set free, of all; null when it is open. */
+	function lockOf(land: LandId) {
+		return doctor.unlocked.includes(land) ? null : unlockProgress(land, game.freed);
 	}
 
 	/** The animals of a kind, in party order: a bundle row's. */
@@ -218,6 +231,8 @@
 				return `bundle:${row.speciesId}`;
 			case 'item':
 				return row.itemId;
+			case 'land':
+				return `land:${row.land}`;
 			default:
 				return row.kind;
 		}
@@ -326,7 +341,7 @@
 
 	<div class="card patients" class:asking inert={asking}>
 		<div class="tabs">
-			{#each DOCTOR_TABS as tab (tab)}
+			{#each doctorTabs(doctor.lands) as tab (tab)}
 				<button
 					type="button"
 					class="tab"
@@ -446,6 +461,32 @@
 								<Coin size={16} {currency} />{/if}
 						</span>
 					</button>
+				{:else if row.kind === 'land'}
+					<!-- Another land: lit to fly there, or greyed with the way there so far ("37 / 50"). -->
+					{@const lock = lockOf(row.land)}
+					<button
+						type="button"
+						class="row land"
+						class:selected={doctor.cursor === k}
+						class:healthy={lock !== null}
+						class:shake-a={doctor.shake?.row === k && doctor.shake.n % 2 === 0}
+						class:shake-b={doctor.shake?.row === k && doctor.shake.n % 2 === 1}
+						data-press={rowKey(k)}
+						{@attach unfocusable}
+					>
+						<span class="caret">▸</span>
+						<span class="label">{t(`lands.${row.land}.name`)}</span>
+						<span class="worth">
+							{#if lock}
+								<FreeStamp size={16} />{t('doctor.fly.progress', {
+									freed: lock.freed,
+									of: lock.of
+								})}
+							{:else}
+								{t('doctor.fly.open')}
+							{/if}
+						</span>
+					</button>
 				{/if}
 			{/each}
 		</div>
@@ -506,6 +547,16 @@
 						price: doctor.trade.price,
 						money: money()
 					})}
+					back={t('doctor.back')}
+				/>
+			{:else if doctor.fare !== null}
+				<!-- The fare: one puzzle of the land's own kinds, a taste of what waits there. -->
+				<PuzzlePanel
+					puzzle={doctor.puzzle}
+					input={doctor.input}
+					judged={doctor.judged}
+					typing={doctor.screen === 'puzzle'}
+					story={t('doctor.fly.story', { land: t(`lands.${doctor.fare}.inLine`) })}
 					back={t('doctor.back')}
 				/>
 			{:else}
@@ -624,6 +675,28 @@
 				<div class="detail">{t('doctor.byeDetail')}</div>
 				<div class="keys">{touch.on ? t('doctor.shop.touch') : t('doctor.shop.keys')}</div>
 			{/if}
+		{:else if doctor.tab === 'fly'}
+			{#if highlighted?.kind === 'land'}
+				{@const land = highlighted.land}
+				{@const lock = lockOf(land)}
+				<div class="ware-name">{t('doctor.fly.title', { land: t(`lands.${land}.inLine`) })}</div>
+				{#if lock}
+					<div class="detail strong">
+						{t('doctor.fly.how', { of: lock.of, from: t(`lands.${lock.from}.inLine`) })}
+					</div>
+					<div class="tally">
+						<FreeStamp size={24} />
+						{t('doctor.fly.soFar', { freed: lock.freed, of: lock.of })}
+					</div>
+				{:else}
+					<div class="detail">{t('doctor.fly.fare')}</div>
+					<div class="detail">{t('doctor.fly.stays')}</div>
+				{/if}
+			{:else}
+				<div class="soft">{t('doctor.fly.pick')}</div>
+				<div class="detail">{t('doctor.byeDetail')}</div>
+			{/if}
+			<div class="keys">{touch.on ? t('doctor.fly.touch') : t('doctor.fly.keys')}</div>
 		{:else if hurt.length === 0}
 			<div class="soft">{t('doctor.allFit')}</div>
 			<div class="keys">{touch.on ? t('doctor.allFitTouch') : t('doctor.allFitKeys')}</div>

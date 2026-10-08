@@ -1668,6 +1668,32 @@ doctor:
   healedMoreAll: Well done! {animal.name} and {others} more feel all better! Everyone is fit and happy!
   # On the message line after leaving the card.
   goodbye: Bye! Come back any time.
+  # The fly tab: a plane to another land (#191). {land} is a land as a sentence names it
+  # (lands.*.inLine), {from} the land before it; {of} how many kinds of animal that land has,
+  # {freed} how many of them the kid has set free.
+  fly:
+    # What the witch doctor says on the tab.
+    intro: Want to fly somewhere new? Every trip costs one puzzle.
+    # The witch doctor's line when a land still locked is picked.
+    locked: To fly to {land}, set free at least one of each of the {of} animals of {from}. You have {freed} so far!
+    # The fare's puzzle is up.
+    count: Solve this, and off you fly to {land}!
+    # Beside a locked land's row: how far the kid is.
+    progress: '{freed} / {of}'
+    # Beside a land's row the kid can fly to.
+    open: One puzzle
+    # Over the fare's puzzle.
+    story: The plane to {land} costs one puzzle!
+    # The right-hand side, about the lit land.
+    title: Fly to {land}!
+    how: Set free at least one of each of the {of} animals of {from} to fly there.
+    soFar: '{freed} / {of} set free'
+    fare: The trip costs one puzzle.
+    stays: Your animals and things here wait for you until you come back.
+    # Bye is lit.
+    pick: Where do you want to fly?
+    keys: ↑ ↓ choose · ← → tabs · Enter fly · Esc bye
+    touch: Tap a land to fly there
   # The last row of the list, and its key.
   bye: Bye
   byeKey: Esc
@@ -1678,6 +1704,8 @@ doctor:
     heal: Heal
     home: Set free
     shop: Shop
+    # Fly to another land (#191): only where there is another land to list.
+    fly: Fly
   # The player's tokens, at the top right of the card.
   tokens:
     one: '{count} {money.word}'
@@ -2109,6 +2137,12 @@ title:
     keys: ← → choose · Enter pick · Esc back
     # The card's button that picks the lit one, as Enter does. {animal}: its species.
     pick: 'Pick {animal.the}!'
+    # A first arrival in another land (#191): its own three starters. {land}: the land as a
+    # sentence names it.
+    titleLand: Welcome to {land}! Pick your first animal here!
+    keysLand: ← → choose · Enter pick · Esc witch doctor
+    # The card's button that goes to the witch doctor instead, as Escape does.
+    toDoctor: Witch doctor
   # The name box for the animal just picked. {animal}: its species.
   naming:
     title: What will you call your {animal.name}?
@@ -2163,6 +2197,8 @@ presence:
     match: in a friendly match
     # Up in the air with the paraglider (no bubble: the glider shows it; only the list says it).
     flight: flying
+    # With the plane between lands (no bubble: the plane shows it; only the list says it).
+    plane: taking the plane
   # The thought bubble over a player in a battle, said for screen readers: the
   # sum they are working out ({sum}, as the bubble shows it: "7 × 8 = ?"), or,
   # while they choose what to do, that they are thinking.
@@ -2320,10 +2356,14 @@ worlds:
   arriveHome: Home again!
 # The lands (#191), by id: their names where a kid picks one, as the animal book's tabs do.
 lands:
+  # Each land's name, on a tab or a row, and as a sentence names it (inLine).
   nordland:
     name: Nordland
+    inLine: Nordland
   arctic:
     name: The Arctic
+    # The land in the middle of a sentence ("Fly to the Arctic!").
+    inLine: the Arctic
 book:
   # The animal book: a card for every kind of animal there is, a "?" for the ones not met yet.
   # The pause menu's row that opens it (on the menu's title line), and the book's own title.
