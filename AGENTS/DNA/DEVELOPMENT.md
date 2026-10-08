@@ -259,6 +259,8 @@ All code is written by agents; the human reviews PRs and plays the game but does
 
 **Redundancy rule**: a test that mocks a dependency and asserts what another test already proves with the real thing is dead weight. Remove it. `/cleanse` prunes these.
 
+**A test types an answer as a kid types it**: through the engine's `answerText` (a number, or a clock's "3:15"), never `String(puzzle.answer)`, and a wrong one as `answerText` of another answer (the sims' `test/typed.ts`). A clock's answer is minutes past 12, which `String` turns into a number no kid types, and a "wrong" input made of digits can be a right time ("000" is 12:00).
+
 **`toEqual` cannot see a key set to `undefined`**: `{ nickname: undefined }` equals `{}` to it. When a missing key is the point — no nickname is no key, as in a save — assert with `toStrictEqual`.
 
 **Pragmatic coverage.** No coverage number. The question is: "if an agent breaks this rule in a future PR, does a test fail before merge?"
