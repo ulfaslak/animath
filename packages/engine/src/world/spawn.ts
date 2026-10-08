@@ -31,7 +31,7 @@ function originOf(seed: number): GridPos {
 
 /** A doctor's tent is at most this many steps from the spawn, on foot. */
 export const SPAWN_DOCTOR_STEPS = 12;
-/** At least this many tiles can be reached on foot from the spawn: the player is not boxed in. */
+/** At least this many places a kid can stop on can be reached on foot from the spawn: the player is not boxed in. */
 export const SPAWN_ROOM = 1000;
 
 /** How far out from the origin a spawn is looked for: tents this far out, in square rings. */
@@ -47,7 +47,7 @@ const DIRECTIONS: readonly Direction[] = ['up', 'right', 'left', 'down'];
 /**
  * The spawn of the world of `seed`: the grass tile nearest the origin from
  * which a doctor's tent is at most `SPAWN_DOCTOR_STEPS` steps away on foot
- * and at least `SPAWN_ROOM` tiles can be reached on foot. Deterministic per
+ * and at least `SPAWN_ROOM` places a kid can stop on can be reached on foot. Deterministic per
  * seed. Should no tile within `SEARCH_RADIUS` be all of that (no world tested
  * reaches this), the nearest grass tile, and past that (0, 0) unchecked.
  */
