@@ -520,6 +520,7 @@ export class PresenceController {
 			boat: game.items.includes('boat'),
 			...(game.items.includes('harness') ? { harness: true as const } : {}),
 			...(game.items.includes('skis') ? { skis: true as const } : {}),
+			...(game.items.includes('sled') ? { sled: true as const } : {}),
 			busy: this.busyNow()
 		};
 	}

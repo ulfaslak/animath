@@ -184,6 +184,8 @@ export interface WhereMessage {
 	harness?: true;
 	/** Skis, only when owned: on the snow they wear them, and go fast. */
 	skis?: true;
+	/** The dog sled, only when owned: a lead that pulls one pulls them on it (`canPull`). */
+	sled?: true;
 	busy: Busy;
 }
 
@@ -343,6 +345,8 @@ export interface PeerMessage {
 	harness?: true;
 	/** Skis, only when owned: on the snow they wear them, and go fast. */
 	skis?: true;
+	/** The dog sled, only when owned: a lead that pulls one pulls them on it (`canPull`). */
+	sled?: true;
 	busy: Busy;
 }
 
@@ -626,6 +630,7 @@ function readSpot(o: Fields): Omit<WhereMessage, 't' | 'world' | 'land'> | null 
 		typeof o.boat !== 'boolean' ||
 		(o.harness !== undefined && typeof o.harness !== 'boolean') ||
 		(o.skis !== undefined && typeof o.skis !== 'boolean') ||
+		(o.sled !== undefined && typeof o.sled !== 'boolean') ||
 		!isBusy(o.busy)
 	) {
 		return null;
@@ -639,6 +644,7 @@ function readSpot(o: Fields): Omit<WhereMessage, 't' | 'world' | 'land'> | null 
 		boat: o.boat,
 		...(o.harness === true ? { harness: true as const } : {}),
 		...(o.skis === true ? { skis: true as const } : {}),
+		...(o.sled === true ? { sled: true as const } : {}),
 		busy: o.busy
 	};
 }

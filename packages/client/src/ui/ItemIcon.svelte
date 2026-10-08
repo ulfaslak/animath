@@ -91,6 +91,14 @@
 		<rect class="cream" x="8.3" y="17" width="3.4" height="3" />
 		<rect class="cream" x="18.3" y="17" width="3.4" height="3" />
 		<path class="pole" d="M4 27 28 9" />
+	{:else if id === 'sled'}
+		<!-- A wooden sled from the side: its runners curled up in front, a blue load, the handlebar at the back. -->
+		<path class="lines" d="M3 25h20c3 0 5-2 5-5" />
+		<rect class="wood" x="9" y="18" width="15" height="3" rx="1" />
+		<rect class="sled-load" x="11" y="13" width="11" height="5" rx="1.5" />
+		<rect class="wood" x="5" y="10" width="2.5" height="15" rx="1" />
+		<rect class="wood" x="4" y="9" width="7" height="2.5" rx="1" />
+		<path class="wood-line" d="M10 21v4M17 21v4M23 21v4" />
 	{:else if id === 'boat'}
 		<path class="water" d="M1 26c3-2 5-2 8 0s5 2 8 0 5-2 8 0 4 2 6 1v4H1Z" />
 		<path class="wood" d="M3 20h26l-4 6H7Z" />
@@ -153,6 +161,14 @@
 		stroke: #8b5a3c;
 		stroke-width: 2;
 		stroke-linecap: round;
+	}
+	.sled-load {
+		fill: #2f6fb3;
+	}
+	.wood-line {
+		fill: none;
+		stroke: #7a4b2a;
+		stroke-width: 1.5;
 	}
 	.pole {
 		fill: none;

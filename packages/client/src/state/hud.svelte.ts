@@ -83,7 +83,7 @@ export type Said =
 	 * nowhere to land that way (`tooFar`); the doctor's goodbye when the
 	 * harness was just bought (`rideBig`).
 	 */
-	| { explore: 'notAtTent' | 'holdToFly' | 'tooFar' | 'rideBig' | 'skiHow' }
+	| { explore: 'notAtTent' | 'holdToFly' | 'tooFar' | 'rideBig' | 'skiHow' | 'sledHow' }
 	/** Up in the air, a wild bird of this species noticed the glider and follows it down. */
 	| { follows: string }
 	/**
@@ -144,6 +144,7 @@ export function saidWords(said: Said): string {
 	if (said.explore === 'tooFar') return t('explore.tooFar');
 	if (said.explore === 'rideBig') return t('explore.rideBig');
 	if (said.explore === 'skiHow') return t('explore.skiHow');
+	if (said.explore === 'sledHow') return t('explore.sledHow');
 	return t('explore.notAtTent');
 }
 
@@ -440,7 +441,9 @@ class HudView {
 							? { explore: 'rideBig' }
 							: this.bought(event.state.items, 'skis')
 								? { explore: 'skiHow' }
-								: { doctor: { say: 'goodbye' } }
+								: this.bought(event.state.items, 'sled')
+									? { explore: 'sledHow' }
+									: { doctor: { say: 'goodbye' } }
 				);
 				break;
 			case 'line-cast':
