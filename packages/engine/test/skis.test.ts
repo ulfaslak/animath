@@ -10,6 +10,7 @@ import {
 	coast,
 	runUpBack,
 	skiLevel,
+	walksBack,
 	skiMove,
 	type Ski,
 	type SkiMoved
@@ -229,30 +230,61 @@ describe('water at top speed', () => {
 		);
 	}
 
-	it(`skims up to ${SKIM_TILES} tiles of it onto ground with room to skim back, at top speed still`, () => {
+	it(`skims up to ${SKIM_TILES} tiles of it onto ground at top speed, only where the kid can get back`, () => {
+		// Every shore with a run-up and 1 to 5 tiles of water before ground, along the sea ice's
+		// open leads far north, in three worlds.
 		let skims = 0;
-		for (let water = 1; water <= SKIM_TILES; water++) {
-			for (const { seed, from, dir } of shores(water, (kind) => kind === 'snow')) {
-				const { at, ski } = hold(seed, from, dir, LEVEL_RUNS[TOP]!);
-				const landing = ahead(at, dir, water + 1);
-				const moved = skiMove(seed, NONE, at, dir, ski, FOOT);
-				if (!runUpBack(seed, NONE, landing, dir)) {
-					// No room to take the run-up back: no skim, the shore stops them.
-					expect(moved).toBeNull();
-					continue;
+		let refused = 0;
+		for (const world of [1, 2, 3]) {
+			const seed = landSeed('arctic', world);
+			for (let y = -400; y < -360; y++) {
+				for (let x = -200; x < 200; x++) {
+					for (const dir of DIRS) {
+						const from = { x, y };
+						let plain = kindAt(seed, from) === 'snow';
+						for (let k = 1; k <= LEVEL_RUNS[TOP]! && plain; k++)
+							plain = kindAt(seed, ahead(from, dir, k)) === 'snow';
+						if (!plain) continue;
+						const at = ahead(from, dir, LEVEL_RUNS[TOP]!);
+						let water = 0;
+						while (water <= SKIM_TILES && isWater(kindAt(seed, ahead(at, dir, water + 1)))) water++;
+						const landing = ahead(at, dir, water + 1);
+						if (water < 1 || water > SKIM_TILES) continue;
+						if (!['snow', 'deepsnow'].includes(kindAt(seed, landing))) continue;
+						const { ski } = hold(seed, from, dir, LEVEL_RUNS[TOP]!);
+						expect(skiLevel(ski)).toBe(TOP);
+						const moved = skiMove(seed, NONE, at, dir, ski, FOOT);
+						const back = runUpBack(seed, NONE, landing, dir) || walksBack(seed, NONE, landing, at);
+						if (!back) {
+							// A floe with no way back: no skim, the shore stops them.
+							expect(moved).toBeNull();
+							refused++;
+							continue;
+						}
+						skims++;
+						expect(moved!.path).toEqual(
+							Array.from({ length: water + 1 }, (_, k) => ahead(at, dir, k + 1))
+						);
+						expect(moved!.speeds.every((v) => v === TOP)).toBe(true);
+						expect(moved!.roll).toBe(false);
+						expect(skiLevel(moved!.ski)).toBe(TOP);
+					}
 				}
-				skims++;
-				expect(moved!.path).toHaveLength(water + 1);
-				expect(moved!.path.at(-1)).toEqual(landing);
-				expect(moved!.speeds.every((s) => s === TOP)).toBe(true);
-				expect(skiLevel(moved!.ski)).toBe(TOP);
-				// And back: walk the run-up, turn, hold towards the water.
-				const away = hold(seed, landing, dir, LEVEL_RUNS[TOP]!);
-				const back = hold(seed, away.at, BACK[dir], LEVEL_RUNS[TOP]! + 1);
-				expect(back.moves.at(-1)!.path.at(-1)).toEqual(ahead(at, BACK[dir], 0));
 			}
 		}
-		expect(skims).toBeGreaterThan(3);
+		expect(skims).toBeGreaterThan(10);
+		void refused;
+	}, 120_000);
+
+	it('takes a kid who skimmed onto a floe back the way they came, by the run-up or on foot', () => {
+		// world 1, (55, −393) down: a run-up, 5 tiles of an open lead, and the far side.
+		const seed = landSeed('arctic', 1);
+		const from = { x: 55, y: -393 };
+		const { at, ski } = hold(seed, from, 'down', LEVEL_RUNS[TOP]!);
+		const there = skiMove(seed, NONE, at, 'down', ski, FOOT)!;
+		expect(there.path).toHaveLength(SKIM_TILES + 1);
+		const landing = there.path.at(-1)!;
+		expect(runUpBack(seed, NONE, landing, 'down') || walksBack(seed, NONE, landing, at)).toBe(true);
 	});
 
 	it('without the boat and no ground in reach, the shore stops them; with it, they skim into the boat', () => {
