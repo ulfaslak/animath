@@ -38,6 +38,8 @@ function setup(start?: SavedGame) {
 		setBoat() {},
 		setGlider() {},
 		castPlaying: false,
+		setSkis() {},
+		setSkiing() {},
 		fish() {},
 		setLandingSpot() {},
 		setPlayer() {},

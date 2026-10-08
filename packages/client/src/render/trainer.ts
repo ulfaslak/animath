@@ -46,6 +46,13 @@ export const STEP_SECONDS = 0.18;
 export const SLIDE_SECONDS = 0.11;
 
 /**
+ * Seconds a step takes on skis at each speed level (`skiMove`'s 0 to `TOP`):
+ * a walk, then the same pace gliding, then quicker, then the quickest
+ * (#191: about 0.18 s, then 0.13 s, then 0.09 s).
+ */
+export const SKI_SECONDS: readonly number[] = [STEP_SECONDS, STEP_SECONDS, 0.13, 0.09];
+
+/**
  * Whether going from `from` to `to` is sliding: onto the ice, over it or off
  * it at the end of a slide. The trainer glides then, feet together, with no
  * hop and at an even speed (`SLIDE_SECONDS` a tile).
@@ -68,7 +75,8 @@ const CALM_HOP = 0.05;
  * are on the ground, or out on the water on the boat's floor; a step hops,
  * higher into the boat or out of it, and out on the water they glide. On a
  * mount's back (`ride`, how far they sit there, 0 to 1) the mount does the
- * hopping, so they don't.
+ * hopping, so they don't. On skis at speed (`glide`) they glide as on the
+ * ice: an even pace, no hop.
  */
 export function trainerStep(
 	world: WorldAt,
@@ -77,10 +85,12 @@ export function trainerStep(
 	progress: number,
 	boatOwned: boolean,
 	calm: boolean,
-	ride = 0
+	ride = 0,
+	glide = false
 ): { x: number; y: number; z: number; afloat: number } {
-	// On the ice they glide at an even speed, tile after tile; a step eases in and out.
-	const slide = slidesBetween(world, from, to);
+	// On the ice, and on skis at speed, they glide at an even speed, tile after tile; a step
+	// eases in and out.
+	const slide = glide || slidesBetween(world, from, to);
 	const t = slide ? progress : progress * progress * (3 - 2 * progress); // smoothstep
 	const x = from.x + (to.x - from.x) * t;
 	const z = from.y + (to.y - from.y) * t;
@@ -127,9 +137,10 @@ export function trainerPose(
 	boatOwned: boolean,
 	calm: boolean,
 	lift: number,
-	ride = 0
+	ride = 0,
+	glide = false
 ): { x: number; y: number; z: number; afloat: number } {
-	const ground = trainerStep(world, from, to, progress, boatOwned, calm, ride);
+	const ground = trainerStep(world, from, to, progress, boatOwned, calm, ride, glide);
 	const up = Math.min(1, Math.max(0, lift));
 	if (up === 0) return ground;
 	const t = progress * progress * (3 - 2 * progress);

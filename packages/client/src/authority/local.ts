@@ -21,6 +21,7 @@ import {
 	checkName,
 	chooseStarter,
 	clearTile,
+	coast,
 	countSolved,
 	defaultStarter,
 	editedTileAt,
@@ -42,6 +43,7 @@ import {
 	needsStarter,
 	getLand,
 	shopFor,
+	skiMove,
 	unlockLands,
 	isWireCoord,
 	joinParty,
@@ -91,6 +93,9 @@ import {
 	type PlayerActivity,
 	type Realm,
 	type SavedGame,
+	type Ski,
+	type SkiMoved,
+	type Tile,
 	type WorldStay
 } from '@mathgame/engine';
 
@@ -281,6 +286,12 @@ export class LocalAuthority implements Authority {
 	 */
 	private flight: Flight | null = null;
 	/**
+	 * The kid's speed on skis (`skiMove`): the way they hold and how long they
+	 * have held it. Never saved: a reload, like anything but a held arrow,
+	 * stands them still.
+	 */
+	private ski: Ski | null = null;
+	/**
 	 * The wild bird following the flight down (`bird-follows`), whose battle in
 	 * the air starts as the kid lands; at most one a flight. Never saved as
 	 * such: `snapshot` lands the flight and starts its battle.
@@ -352,6 +363,7 @@ export class LocalAuthority implements Authority {
 		this.battle = null;
 		this.doctor = null;
 		this.flight = null;
+		this.ski = null;
 		this.chaser = null;
 		this.minted = null;
 		this.started = true;
@@ -547,9 +559,14 @@ export class LocalAuthority implements Authority {
 			}
 			return;
 		}
+		// Speed on skis is what a held arrow gives: anything else the kid does stands them still.
+		if (intent.type !== 'move' && intent.type !== 'coast') this.ski = null;
 		switch (intent.type) {
 			case 'move':
 				this.move(intent.dir);
+				break;
+			case 'coast':
+				this.coastOn();
 				break;
 			case 'interact':
 				this.interact();
@@ -635,6 +652,18 @@ export class LocalAuthority implements Authority {
 	private move(dir: Direction): void {
 		// Walked, slid or blocked, the player turns to face the way they tried to go.
 		this.facing = dir;
+		if (this.onSkis()) {
+			const moved = skiMove(this.seed, this.edits, this.pos, dir, this.ski, this.gear());
+			if (!moved) {
+				// Anything in the way stops a kid on skis dead.
+				this.ski = null;
+				this.emit({ type: 'player-blocked', playerId: this.playerId, dir });
+				return;
+			}
+			this.skied(moved, dir, false);
+			return;
+		}
+		this.ski = null;
 		// The world as the player left it: a tree they chopped down is ground to walk
 		// on; and with the boat the water is theirs too. On the ice the step slides on
 		// until something stops it (`moveFrom`): one move, every tile of it a step, so
@@ -655,6 +684,12 @@ export class LocalAuthority implements Authority {
 		// on any other: the ground around one is read only there. A slide is
 		// rolled once, on the tile it ends on (the ice it crosses starts nothing).
 		if (!isEncounterTile(tile.kind)) return;
+		this.rollAt(tile, next);
+	}
+
+	/** One encounter roll for a step that ended on `tile` at `pos`. */
+	private rollAt(tile: Tile, next: GridPos): void {
+		if (!isEncounterTile(tile.kind)) return;
 		// One roll per completed step, keyed by the step count so a replayed walk
 		// meets the same animals. The engine sizes it to the lead where the player
 		// now stands (`leadIndex`: the first animal standing that can fight there,
@@ -673,6 +708,53 @@ export class LocalAuthority implements Authority {
 		};
 		const wild = rollEncounterFor(rng, site, this.party);
 		if (wild) this.beginBattle({ ...wild, id: mintId() }, tileRealm(tile.kind));
+	}
+
+	/** Whether the kid is on skis: they own them, and stand on land (in the boat they sail). */
+	private onSkis(): boolean {
+		if (!hasItem({ items: this.items }, 'skis')) return false;
+		return tileRealm(editedTileAt(this.seed, this.edits, this.pos.x, this.pos.y).kind) === 'land';
+	}
+
+	private gear(): ReturnType<typeof gearOf> {
+		return gearOf({ items: this.items });
+	}
+
+	/**
+	 * `coast`: the arrow let go at speed on skis. The kid glides on, a tile for
+	 * each speed level (the engine's `coast`), and stands still after it. Not
+	 * moving fast enough: nothing happens, and nothing is said.
+	 */
+	private coastOn(): void {
+		const ski = this.ski;
+		this.ski = null;
+		if (!ski || !this.onSkis()) return;
+		const moved = coast(this.seed, this.edits, this.pos, ski, this.gear());
+		if (moved) this.skied(moved, ski.dir, true);
+	}
+
+	/**
+	 * A ski move made: the kid stands at its end, every tile a step, and only
+	 * its last tile rolls an encounter, and only when it says so (deep snow
+	 * flown over at top speed rolls none).
+	 */
+	private skied(moved: SkiMoved, dir: Direction, coasting: boolean): void {
+		const { path, tile } = moved;
+		const next = path[path.length - 1]!;
+		this.pos = next;
+		this.steps += path.length;
+		this.ski = moved.ski;
+		this.emit({
+			type: 'player-moved',
+			playerId: this.playerId,
+			pos: next,
+			dir,
+			...(path.length > 1 ? { tiles: path.length } : {}),
+			speeds: [...moved.speeds],
+			...(coasting ? { coast: true as const } : {})
+		});
+		if (!moved.roll) return;
+		this.rollAt(tile, next);
 	}
 
 	/**
@@ -933,6 +1015,7 @@ export class LocalAuthority implements Authority {
 	// --- battle ------------------------------------------------------------
 
 	private beginBattle(wild: AnimalInstance, realm: Realm): void {
+		this.ski = null;
 		const state = startBattle(this.party, wild, { realm });
 		this.battle = { state, seed: this.battleSeed() };
 		this.emit({ type: 'battle-started', state });

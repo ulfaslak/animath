@@ -522,7 +522,8 @@ describe('the shop', () => {
 			'harness',
 			'arctic-axe',
 			'ice-pick',
-			'fishing-rod'
+			'fishing-rod',
+			'skis'
 		]);
 		for (const land of LANDS) {
 			const prices = Object.values(land.shop);
@@ -545,6 +546,7 @@ describe('the shop', () => {
 			'arctic-axe': 8,
 			'ice-pick': 13,
 			'fishing-rod': 21,
+			skis: 34,
 			boat: 55,
 			glider: 89
 		});
@@ -570,10 +572,18 @@ describe('the shop', () => {
 			'harness',
 			'arctic-axe',
 			'ice-pick',
-			'fishing-rod'
+			'fishing-rod',
+			'skis'
 		]);
 		expect(shopFor('nordland')).toEqual(['axe', 'pickaxe', 'boat', 'glider', 'harness']);
-		expect(shopFor('arctic')).toEqual(['arctic-axe', 'ice-pick', 'fishing-rod', 'boat', 'glider']);
+		expect(shopFor('arctic')).toEqual([
+			'arctic-axe',
+			'ice-pick',
+			'fishing-rod',
+			'skis',
+			'boat',
+			'glider'
+		]);
 	});
 });
 

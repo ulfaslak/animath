@@ -1378,6 +1378,8 @@ explore:
   # The first bump into a rock without the pickaxe, and Enter facing one.
   needPickaxe: You need a pickaxe to break rocks. The witch doctor sells one!
   # The first bump into an ice block without the ice pick, and Enter facing one.
+  # Leaving the witch doctor's card just after buying the skis: how to ski.
+  skiHow: Hold an arrow to go faster and faster on the snow. Let go and you glide on!
   needIcePick: You need an ice pick to break ice blocks. The witch doctor sells one!
   # Enter facing a fishing hole without the fishing rod.
   needRod: You need a fishing rod to fish here. The witch doctor sells one!
@@ -1823,6 +1825,12 @@ items:
     the: the fishing rod
     your: your fishing rod
     use: Fishes at holes in the ice.
+  # A pair: "the pair of skis costs 34", "here is your pair of skis".
+  skis:
+    name: Skis
+    the: the pair of skis
+    your: your pair of skis
+    use: Hold an arrow and go faster and faster on the snow!
 
 # What a land pays in, said in a sentence: one of it, and more. Nordland's tokens, and
 # The Arctic's ice dollars (Danish "iskroner").

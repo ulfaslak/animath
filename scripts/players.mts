@@ -18,6 +18,7 @@
  *   name=Ada      the character's name (without one the game asks for it first, and
  *                 until then nobody sees the player)
  *   world=7       the world number (1 by default)
+ *   land=arctic   the land they are in (Nordland by default): its party, items and money are theirs
  *   at=x:y        where they stand (the world's spawn by default)
  *   facing=left   the way they face (down by default)
  *   party=...     their animals, as `?party=` writes them but joined with `+`
@@ -49,6 +50,7 @@
  *   press:<key>        a key, going straight on to the next step (no pause after it)
  *   type:<text>        type into what has the focus
  *   hold:<key>:<ms>    hold a key down, auto-repeating
+ *   down:<key>, up:<key>  press a key and keep it down while the next steps run; let it go
  *   click:<css> / tap:<css>   a click, or a finger (touch players), on an element
  *   reload:            reload the page, as F5 would
  *   close: / open:     close the page (the player leaves), or open it again
@@ -95,7 +97,11 @@
 import {
 	ANIMALS,
 	EMPTY_BOOK,
+	LAND_IDS,
 	defaultStarter,
+	isLandId,
+	landSeed,
+	spawnPoint,
 	getAnimal,
 	newGame,
 	isItemId,
@@ -103,7 +109,8 @@ import {
 	saveDocument,
 	type AnimalInstance,
 	type Direction,
-	type ItemId
+	type ItemId,
+	type LandId
 } from '../packages/engine/src/index.ts';
 import { execSync } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
@@ -143,6 +150,7 @@ interface Player {
 	label: string;
 	name: string | null;
 	world: number;
+	land: LandId;
 	at: { x: number; y: number } | null;
 	facing: Direction;
 	party: AnimalInstance[] | null;
@@ -198,6 +206,7 @@ function parsePlayer(spec: string): Player {
 		label,
 		name: null,
 		world: 1,
+		land: 'nordland',
 		at: null,
 		facing: 'down',
 		party: null,
@@ -233,6 +242,10 @@ function parsePlayer(spec: string): Player {
 				p.world = Number(value);
 				if (!Number.isInteger(p.world) || p.world < 1 || p.world > 9999)
 					fail(`${label}: world 1–9999`);
+				break;
+			case 'land':
+				if (!isLandId(value)) fail(`${label}: no such land "${value}"`);
+				p.land = value as LandId;
 				break;
 			case 'at': {
 				const [x, y] = value.split(':').map(Number);
@@ -302,7 +315,26 @@ function parsePlayer(spec: string): Player {
 
 /** The save the player's browser starts with, as the game writes one: in their world, their home. */
 function saveOf(p: Player): string {
-	const game = newGame(p.world, { ...defaultStarter(), id: randomUUID() }, p.name);
+	const base = newGame(p.world, { ...defaultStarter(p.land), id: randomUUID() }, p.name);
+	// In a land past the first, the game is there, Nordland left with its starter.
+	const game =
+		p.land === 'nordland'
+			? base
+			: {
+					...base,
+					land: p.land,
+					pos: spawnPoint(landSeed(p.land, p.world)),
+					lands: [
+						{
+							land: 'nordland' as LandId,
+							party: base.party,
+							tokens: 0,
+							items: [],
+							worlds: []
+						}
+					],
+					unlocked: [...LAND_IDS]
+				};
 	const party = p.party ?? game.party;
 	// The animal book of a game that begins with this party: its kinds, caught.
 	const book = recordParty(EMPTY_BOOK, party);
@@ -346,7 +378,7 @@ const steps: Step[] = (args.steps ?? '')
 		const who =
 			whoName === 'all' ? roster : [byLabel.get(whoName) ?? fail(`no player "${whoName}"`)];
 		const m =
-			/^(wait|shot|burst|press|type|hold|click|tap|reload|close|open|offline|online|delay|deliver|twin|hide|show|size|until|run|solve|turn):(.*)$/s.exec(
+			/^(wait|shot|burst|press|type|hold|click|tap|reload|close|open|offline|online|delay|deliver|twin|hide|show|size|until|run|solve|turn|down|up):(.*)$/s.exec(
 				rest
 			);
 		if (m?.[1] === 'twin') {
@@ -657,6 +689,13 @@ async function run(step: Step): Promise<void> {
 					await page!.keyboard.type(ch);
 					await page!.waitForTimeout(120);
 				}
+				break;
+			case 'down':
+				// A key pressed and kept down while the next steps run (a skier holding an arrow).
+				await page!.keyboard.down(step.arg);
+				break;
+			case 'up':
+				await page!.keyboard.up(step.arg);
 				break;
 			case 'hold': {
 				const [key, ms] = step.arg.split(':');

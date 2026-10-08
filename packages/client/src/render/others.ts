@@ -6,6 +6,7 @@ import {
 	MAX_SLIDE,
 	hashString,
 	isIce,
+	isWalkable,
 	isWater,
 	tileAtWorld,
 	tilesApart,
@@ -24,11 +25,13 @@ import { SIT_DROP, poseRider } from './mount';
 import { WING_TOP, buildGliderMesh, disposeGlider, poseGlider } from './glider';
 import { TRAINER_LOOKS, type TrainerLook } from './palette';
 import type { Poofs } from './poof';
+import { Skis } from './skis';
 import {
 	DESCEND_SECONDS,
 	FACING_ANGLE,
 	GLIDE_SECONDS,
 	RISE_SECONDS,
+	SKI_SECONDS,
 	SLIDE_SECONDS,
 	STEP_SECONDS,
 	slidesBetween,
@@ -146,8 +149,10 @@ interface Other {
 	/** The way they face, standing: as they last said. Walking, the way they walk. */
 	facing: Direction;
 	ownsBoat: boolean;
-	/** Their items as the others see them: the harness, when they own it (their lead carries them). */
+	/** Their items as the others see them: the harness (their lead carries them) and the skis, when they own them. */
 	items: readonly string[];
+	/** Their skis, once they are seen to own them: on their feet on the ground. */
+	skis: Skis | null;
 	lead: string | null;
 	busy: Busy;
 	opacity: number;
@@ -241,7 +246,8 @@ export class OtherPlayers {
 		}
 		other.busy = peer.busy;
 		other.lead = peer.lead;
-		other.items = peer.harness ? ['harness'] : [];
+		other.items = itemsOf(peer);
+		if (peer.skis && !other.skis) this.addSkis(other);
 		other.facing = peer.facing;
 		if (peer.boat !== other.ownsBoat) this.setBoat(other, peer.boat);
 		const flying = peer.busy === 'flight';
@@ -261,7 +267,7 @@ export class OtherPlayers {
 			other.queue.push({ pos: target, flying });
 			return;
 		}
-		const slid = flying ? null : this.slide(last, target);
+		const slid = flying ? null : this.slide(last, target, other.skis !== null);
 		if (slid && other.queue.length < MAX_BEHIND) {
 			// A slide on the ice: its page stands at the end at once (`moveFrom`), and here
 			// they slide there over every tile of ice between, as they did.
@@ -362,10 +368,14 @@ export class OtherPlayers {
 			if (other.glider) {
 				poseGlider(other.glider, lift, calm, other.ownsBoat && afloat < 0.5, false);
 			}
+			// On skis on the ground they glide, feet together, a spray of snow behind when quick.
+			const skiing = other.skis !== null && afloat === 0 && lift === 0 && sitting === 0;
+			const gliding = skiing && walking && other.stepSeconds < STEP_SECONDS;
+			other.skis?.update(skiing && other.opacity >= 1, gliding ? 0.7 : 0, t, calm);
 			animateIdle(other.figure, t);
 			animateWalk(
 				other.figure,
-				walking ? other.progress : 1,
+				walking && !gliding ? other.progress : 1,
 				strideOnto(other.to),
 				afloat === 1 ? 0 : 1 - sitting
 			);
@@ -556,7 +566,8 @@ export class OtherPlayers {
 			lift: flying ? 1 : 0,
 			facing: peer.facing,
 			ownsBoat: false,
-			items: peer.harness ? ['harness'] : [],
+			items: itemsOf(peer),
+			skis: null,
 			lead: peer.lead,
 			busy: peer.busy,
 			opacity: 0,
@@ -566,6 +577,7 @@ export class OtherPlayers {
 			cheer: null
 		};
 		if (peer.boat) this.setBoat(other, true);
+		if (peer.skis) this.addSkis(other);
 		other.follower.place(this.seed, at, peer.facing);
 		this.fade(other);
 		return other;
@@ -602,7 +614,9 @@ export class OtherPlayers {
 		}
 		const swing =
 			other.ownsBoat && this.waterAt(other.from) !== this.waterAt(next.pos) && !motion.reduced;
-		const base = swing ? BOAT_SWING_SECONDS : STEP_SECONDS;
+		// On skis they come quickly, as fast as a skier at speed, while more tiles wait.
+		const skiing = other.skis !== null && !this.waterAt(next.pos) && other.queue.length > 0;
+		const base = swing ? BOAT_SWING_SECONDS : skiing ? SKI_SECONDS[2]! : STEP_SECONDS;
 		other.stepSeconds = other.queue.length >= CATCH_UP ? base / 2 : base;
 		other.follower.follow(other.from, other.to);
 	}
@@ -613,7 +627,7 @@ export class OtherPlayers {
 	 * before the last is ice in the seeded world (no edit ever makes or takes
 	 * ice). Null for anything else, which is no slide.
 	 */
-	private slide(from: GridPos, to: GridPos): GridPos[] | null {
+	private slide(from: GridPos, to: GridPos, skis = false): GridPos[] | null {
 		const dx = Math.sign(to.x - from.x);
 		const dy = Math.sign(to.y - from.y);
 		const n = Math.abs(to.x - from.x) + Math.abs(to.y - from.y);
@@ -621,10 +635,19 @@ export class OtherPlayers {
 		const path: GridPos[] = [];
 		for (let k = 1; k <= n; k++) {
 			const pos = { x: from.x + dx * k, y: from.y + dy * k };
-			if (k < n && !isIce(tileAtWorld(this.seed, pos.x, pos.y).kind)) return null;
+			const kind = tileAtWorld(this.seed, pos.x, pos.y).kind;
+			// A slide crosses ice; a skier at speed (or coasting, or skimming) crosses any open
+			// tiles in a straight line, a few at a time as their page says where they are.
+			const open = isIce(kind) || (skis && n <= SKI_RUN && (isWalkable(kind) || isWater(kind)));
+			if (k < n && !open) return null;
 			path.push(pos);
 		}
 		return path;
+	}
+
+	private addSkis(other: Other): void {
+		other.skis = new Skis();
+		other.figure.add(other.skis.group);
 	}
 
 	private setBoat(other: Other, owns: boolean): void {
@@ -676,6 +699,8 @@ export class OtherPlayers {
 
 	private drop(other: Other): void {
 		other.figure.removeFromParent();
+		// The skis' boxes and colours are shared by every pair: taken off, never freed.
+		other.skis?.group.removeFromParent();
 		if (other.boat) {
 			other.boat.removeFromParent();
 			disposeBoat(other.boat);
@@ -728,4 +753,16 @@ function direction(from: GridPos, to: GridPos): Direction | null {
 	if (to.y === from.y + 1 && to.x === from.x) return 'down';
 	if (to.y === from.y - 1 && to.x === from.x) return 'up';
 	return null;
+}
+
+/**
+ * The longest straight run between two tiles another player stood on that is
+ * drawn as skied, not poofed: a coast and a skim (3 and 6 tiles) and the
+ * tiles a quick skier covers between two of their page's reports.
+ */
+const SKI_RUN = 9;
+
+/** What another player owns, as the others see it: the harness and the skis. */
+function itemsOf(peer: PeerMessage): string[] {
+	return [...(peer.harness ? ['harness'] : []), ...(peer.skis ? ['skis'] : [])];
 }

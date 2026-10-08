@@ -1245,7 +1245,17 @@ describe('LocalAuthority: the doctor', () => {
 		expect(visit(s)).toMatchObject({
 			tokens: 20,
 			items: [],
-			shop: ['axe', 'arctic-axe', 'pickaxe', 'ice-pick', 'boat', 'fishing-rod', 'glider', 'harness']
+			shop: [
+				'axe',
+				'arctic-axe',
+				'pickaxe',
+				'ice-pick',
+				'boat',
+				'fishing-rod',
+				'glider',
+				'harness',
+				'skis'
+			]
 		});
 
 		doctorIntent(s, { type: 'hand-over', ids: ['a'] });
