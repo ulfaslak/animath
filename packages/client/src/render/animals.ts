@@ -1897,19 +1897,21 @@ const BUILDERS: Record<string, Builder> = {
 		...([-1, 1] as const).flatMap((side) => [
 			ball(0.018, COLORS.dark, side * 0.072, 1.0, 0.52),
 			ball(0.03, fur, side * 0.1, 1.06, 0.4, 1, 1.5, 0.6),
-			// The beam, back and out from the head, its tines forward and up, a flat tip.
-			rot(tube(0.024, 0.4, accent, side * 0.13, 1.23, 0.35), -0.35, 0, -side * 0.42),
-			rot(tube(0.016, 0.17, accent, side * 0.16, 1.26, 0.45), 1.0, 0, -side * 0.15),
-			rot(tube(0.016, 0.15, accent, side * 0.2, 1.36, 0.37), 0.8, 0, -side * 0.3),
-			rot(tube(0.014, 0.13, accent, side * 0.23, 1.43, 0.28), 0.5, 0, -side * 0.45),
-			ball(0.05, accent, side * 0.23, 1.43, 0.21, 1, 0.35, 1.3),
-			rot(box(0.045, 0.012, 0.14, accent, side * 0.03, 1.1, 0.56), -0.5, 0, 0)
+			// The red deer's antler, set lower on its lower head, and over it a second, wider
+			// beam curving back with a tine of its own, and a flat brow tine over the face.
+			...antler(accent, side).map((m) => {
+				m.position.y -= 0.08;
+				return m;
+			}),
+			rot(tube(0.02, 0.26, accent, side * 0.22, 1.42, 0.32), -0.5, 0, -side * 0.75),
+			rot(tube(0.015, 0.13, accent, side * 0.3, 1.5, 0.3), 0.6, 0, -side * 0.3),
+			rot(box(0.04, 0.012, 0.1, accent, side * 0.03, 1.1, 0.58), -0.6, 0, 0)
 		])
 	],
 	// Big and white with black flecks, a round head with no ear tufts, and yellow eyes.
 	'snowy-owl': ({ fur, accent }) => [
 		ball(0.2, fur, 0, 0.3, 0, 1, 1.2, 1),
-		...spots(14, 0.028, COLORS.dark, [0.2, 0.24, 0.2], 0.3, 0, 0.05),
+		...spots(20, 0.017, COLORS.dark, [0.2, 0.24, 0.2], 0.3, 0, 0.05),
 		ball(0.16, fur, 0, 0.6, 0.02),
 		rot(cone(0.018, 0.05, COLORS.dark, 0, 0.57, 0.18), Math.PI * 0.6, 0, 0),
 		rot(box(0.13, 0.024, 0.13, fur, 0, 0.12, -0.19), -0.3, 0, 0),
@@ -1929,7 +1931,7 @@ const BUILDERS: Record<string, Builder> = {
 		ball(0.19, fur, 0, 0.3, 0, 1, 1.3, 0.95),
 		ball(0.17, fur, 0, 0.64, 0.01),
 		ball(0.16, accent, 0, 0.64, 0.09, 1, 1, 0.38),
-		ball(0.115, fur, 0, 0.64, 0.115, 1, 1, 0.34),
+		ball(0.115, 0x5e6167, 0, 0.64, 0.115, 1, 1, 0.34),
 		ball(0.08, accent, 0, 0.645, 0.135, 1, 1, 0.32),
 		rot(cone(0.018, 0.05, 0xe8c45a, 0, 0.6, 0.17), Math.PI * 0.6, 0, 0),
 		rot(box(0.14, 0.025, 0.16, fur, 0, 0.12, -0.2), -0.3, 0, 0),
@@ -1981,10 +1983,10 @@ const BUILDERS: Record<string, Builder> = {
 	'king-penguin': ({ fur, accent }) => [
 		...penguin(1.35, fur, 0x2a2a2f),
 		ball(0.11, fur, 0, 0.75, 0.02),
-		ball(0.075, accent, 0, 0.62, 0.11, 1.05, 0.9, 0.5),
-		ball(0.06, 0xffc04a, 0, 0.56, 0.14, 1.1, 0.8, 0.45),
+		ball(0.095, accent, 0, 0.62, 0.11, 1.05, 0.9, 0.55),
+		ball(0.08, 0xffc04a, 0, 0.55, 0.15, 1.1, 0.8, 0.5),
 		...([-1, 1] as const).flatMap((side) => [
-			rot(ball(0.032, accent, side * 0.085, 0.72, 0.05, 0.55, 1.5, 0.9), 0, 0, side * 0.2),
+			rot(ball(0.042, accent, side * 0.088, 0.72, 0.05, 0.55, 1.6, 0.95), 0, 0, side * 0.2),
 			ball(0.013, COLORS.dark, side * 0.05, 0.77, 0.1)
 		]),
 		rot(cone(0.02, 0.16, fur, 0, 0.73, 0.19), Math.PI / 2 + 0.15, 0, 0),
@@ -2013,8 +2015,8 @@ const BUILDERS: Record<string, Builder> = {
 			-0.27
 		)
 	],
-	// The biggest falcon, in the white of Greenland's: dark flecks on its back, a hooked grey
-	// beak and yellow feet.
+	// The biggest falcon, in the white of Greenland's: dark tips to its wings, a hooked grey beak
+	// and yellow feet.
 	gyrfalcon: ({ fur, accent }) => [
 		...eagle({
 			size: 0.82,
@@ -2025,8 +2027,7 @@ const BUILDERS: Record<string, Builder> = {
 			feet: accent,
 			tail: fur,
 			wedge: false
-		}),
-		...spots(12, 0.026, 0x4a4f58, [0.155, 0.19, 0.17], 0.3, -0.02, 0.05)
+		})
 	],
 	// The biggest penguin, a head taller than the king: its ears and neck washed pale yellow, not
 	// orange, and a shorter bill with a pink stripe.
