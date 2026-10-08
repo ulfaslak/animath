@@ -702,7 +702,12 @@ export class GameRenderer {
 		this.fishing.update(t, motion.reduced);
 		// On their feet on the ground only: not in the boat, up in the air or on a mount.
 		const onFeet = this.afloat === 0 && this.air.lift === 0 && this.sitting === 0;
-		this.skis.update(this.skisOwned && onFeet, this.ski.glide ? this.ski.speed : 0, t, motion.reduced);
+		this.skis.update(
+			this.skisOwned && onFeet,
+			this.ski.glide ? this.ski.speed : 0,
+			t,
+			motion.reduced
+		);
 		const dt = this.lastT < 0 ? 0 : Math.min(0.1, Math.max(0, t - this.lastT));
 		// The others walk and fade (their followers are figures too, idled below), and their
 		// battles play beside them.

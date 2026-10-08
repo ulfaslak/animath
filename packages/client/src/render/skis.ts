@@ -28,7 +28,11 @@ function material(hex: number): THREE.MeshLambertMaterial {
 	return m;
 }
 
-function box(hex: number, size: [number, number, number], at: [number, number, number]): THREE.Mesh {
+function box(
+	hex: number,
+	size: [number, number, number],
+	at: [number, number, number]
+): THREE.Mesh {
 	const mesh = new THREE.Mesh(BOX_GEOMETRY, material(hex));
 	mesh.scale.set(...size);
 	mesh.position.set(...at);
@@ -82,7 +86,11 @@ export class Skis {
 			// Each puff flies up and back from the tails and fades by shrinking, one after another.
 			const p = (t * 3 + i / SPRAY) % 1;
 			const side = i % 2 === 0 ? -0.07 : 0.07;
-			puff.position.set(side * (1 + p), 0.04 + Math.sin(p * Math.PI) * 0.18 * speed, -0.3 - p * 0.35);
+			puff.position.set(
+				side * (1 + p),
+				0.04 + Math.sin(p * Math.PI) * 0.18 * speed,
+				-0.3 - p * 0.35
+			);
 			puff.scale.setScalar(Math.max(0.01, (1 - p) * (0.6 + speed * 0.8)));
 		}
 	}

@@ -273,7 +273,18 @@ export {
 	clearingTool,
 	isClearable
 } from './world/clearing.js';
-export { DEEP_CARRY, LEVEL_RUNS, SKIM_TILES, TOP, WALK_BACK_PLACES, coast, runUpBack, skiLevel, skiMove, walksBack } from './world/skis.js';
+export {
+	DEEP_CARRY,
+	LEVEL_RUNS,
+	SKIM_TILES,
+	TOP,
+	WALK_BACK_PLACES,
+	coast,
+	runUpBack,
+	skiLevel,
+	skiMove,
+	walksBack
+} from './world/skis.js';
 export type { Ski, SkiMoved } from './world/skis.js';
 export { BITE_CHANCE, castLine, holeAhead, holeTable, rollCast } from './world/fishing.js';
 export type { CastSite, Catch } from './world/fishing.js';

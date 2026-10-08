@@ -84,6 +84,13 @@
 		<path class="line" d="M27 4c1 7 1 13 0 18" />
 		<circle class="cream" cx="27" cy="24.5" r="2.6" />
 		<path class="sail" d="M24.4 24.5a2.6 2.6 0 0 1 5.2 0Z" />
+	{:else if id === 'skis'}
+		<!-- Two red skis side by side, their tips curled up, and a pole across them. -->
+		<path class="red" d="M7 29.5 9.5 6.5c.3-2.5 3.6-2.4 3.4.2L11.2 29.6Z" />
+		<path class="red" d="M17 29.5 19.5 6.5c.3-2.5 3.6-2.4 3.4.2L21.2 29.6Z" />
+		<rect class="cream" x="8.3" y="17" width="3.4" height="3" />
+		<rect class="cream" x="18.3" y="17" width="3.4" height="3" />
+		<path class="pole" d="M4 27 28 9" />
 	{:else if id === 'boat'}
 		<path class="water" d="M1 26c3-2 5-2 8 0s5 2 8 0 5-2 8 0 4 2 6 1v4H1Z" />
 		<path class="wood" d="M3 20h26l-4 6H7Z" />
@@ -145,6 +152,12 @@
 		fill: none;
 		stroke: #8b5a3c;
 		stroke-width: 2;
+		stroke-linecap: round;
+	}
+	.pole {
+		fill: none;
+		stroke: #3a3f4a;
+		stroke-width: 1.6;
 		stroke-linecap: round;
 	}
 	.line {

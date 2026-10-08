@@ -251,7 +251,12 @@ export const WALK_BACK_PLACES = 2_000;
  * than `WALK_BACK_PLACES` places: the far side of a skim joined to the near
  * one some other way, round a lake or along the ice.
  */
-export function walksBack(seed: number, edits: WorldEdits, landing: GridPos, home: GridPos): boolean {
+export function walksBack(
+	seed: number,
+	edits: WorldEdits,
+	landing: GridPos,
+	home: GridPos
+): boolean {
 	const key = (p: GridPos) => `${p.x},${p.y}`;
 	const goal = key(home);
 	const seen = new Set([key(landing)]);
