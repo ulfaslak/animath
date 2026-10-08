@@ -115,6 +115,27 @@ describe('arrival notes', () => {
 		expect(run(notes, 1, 40)).toEqual([]);
 	});
 
+	it('say someone flew away, not went home, when they were last seen taking the plane', () => {
+		const notes = new ArrivalNotes();
+		notes.roster(['Ada', 'Bo', 'Cy', 'Di'], 0);
+		// Bo boards on the roster, Cy in view only; Di took the plane, then got off and stayed.
+		notes.roster(['Ada', 'Bo', 'Cy', 'Di'], 2, ['bo', 'Di']);
+		notes.seen('Cy', true);
+		notes.roster(['Ada', 'Bo', 'Cy', 'Di'], 3, ['Bo', 'Cy']);
+		notes.roster(['Ada', 'Di'], 4);
+		notes.roster(['Ada'], 20);
+		expect(said(run(notes, 4, 60))).toEqual(['flew:Bo+Cy', 'left:Di']);
+	});
+
+	it('say went home for someone who got off the plane before they left, and flew for one who was in it when the socket dropped', () => {
+		const notes = new ArrivalNotes();
+		notes.roster(['Bo', 'Cy'], 0, ['Bo', 'Cy']);
+		notes.seen('Bo', false);
+		notes.reconnected(1);
+		notes.roster([], 1);
+		expect(said(run(notes, 1, 40))).toEqual(['left:Bo', 'flew:Cy']);
+	});
+
 	it("say once that another window took this one's place", () => {
 		const notes = new ArrivalNotes();
 		notes.elsewhere(0);

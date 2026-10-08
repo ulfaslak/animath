@@ -1901,6 +1901,9 @@ presence:
   left: '{name} gik hjem'
   leftTwo: '{name} og {other} gik hjem'
   leftMany: '{name} og {count} andre gik hjem'
+  flew: '{name} fløj væk'
+  flewTwo: '{name} og {other} fløj væk'
+  flewMany: '{name} og {count} andre fløj væk'
   arrowMore: '+{count} andre'
   elsewhere: Du spiller i et andet vindue.
   busy:
