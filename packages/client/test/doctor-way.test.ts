@@ -106,6 +106,11 @@ describe('the way to the doctor', () => {
 		setup({ ...newGame(1, testStarter()), party: [squirrel(3)] });
 		expect(doctorWay.tent).toBeNull();
 		expect(doctorWay.arrow).toBeNull();
+		// Nor does no team at all: a first arrival in a land waits for its starter there.
+		setup({ ...newGame(1, testStarter()), land: 'arctic', pos: { x: 5, y: 9 }, party: [] });
+		expect(game.party).toEqual([]);
+		expect(doctorWay.tent).toBeNull();
+		expect(doctorWay.arrow).toBeNull();
 	});
 
 	it('leads to the engine’s nearest tent from wherever the player is: every step of a long walk, a go-to, a trip', () => {

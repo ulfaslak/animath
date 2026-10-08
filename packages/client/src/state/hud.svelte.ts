@@ -6,7 +6,6 @@ import {
 	holeAhead,
 	shopFor,
 	leadIndex,
-	needsDoctor,
 	type AnimalInstance,
 	type ClearableKind,
 	type GameEvent,
@@ -26,7 +25,7 @@ import { messageWords } from '../lines';
 import { animalWords } from '../names';
 import type { SaveNotice } from '../save/notices';
 import { account } from './account.svelte';
-import { doctorWay } from './doctor-way.svelte';
+import { doctorWay, needsTent } from './doctor-way.svelte';
 import { game } from './game.svelte';
 
 /**
@@ -368,10 +367,12 @@ class HudView {
 	);
 	/**
 	 * The team needs the doctor where the player stands (the engine's
-	 * `needsDoctor`): nothing challenges it, and the line under the message
-	 * says where to go, as the arrow at the screen's edge shows it.
+	 * `needsDoctor`, `needsTent`): nothing challenges it, and the line under the message
+	 * says where to go, as the arrow at the screen's edge shows it. Never
+	 * with no animal at all: a first arrival in a land waits for a starter
+	 * there, and its team is not tired (`needsTent`).
 	 */
-	tired = $derived(needsDoctor(game.party, game.realm));
+	tired = $derived(needsTent(game.party, game.realm));
 	/**
 	 * The line under it: what Enter does here (talk, chop, break, fish), else that
 	 * the team is tired and needs a doctor's tent (for as long as it does: walk,

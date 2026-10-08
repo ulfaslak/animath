@@ -1,6 +1,7 @@
 import type { Busy } from '../net/protocol.js';
 import { tilesApart } from '../net/nearby.js';
-import { travelKindAt } from '../world/generate.js';
+import { clearedTile } from '../world/edits.js';
+import { tileAtWorld } from '../world/generate.js';
 import { isWater, type GridPos } from '../world/types.js';
 
 /**
@@ -12,9 +13,15 @@ import { isWater, type GridPos } from '../world/types.js';
  * match already nor asked or asking, and each bringing a team, are the
  * server's to check: a page does not know them all.
  *
- * Pure: the ground under each player is the seeded world's (`travelKindAt`).
- * What a player cleared never turns water into land or land into water, so
- * the seeded world says whether they stand on land.
+ * Pure: the ground under each player is read from the seeded world, as
+ * their own clearing would leave the tile they stand on (`clearedTile`). A
+ * player stands on a tile that was a tree, a rock or an ice block only once
+ * they cleared it themselves, and what clearing leaves is the seeded tile's
+ * to say: a tree or a rock is ground, an ice block what it stood on. So a
+ * block broken out on the water is water here too, for the kid in the boat on
+ * it, whoever else still sees the block (cleared tiles are each player's own:
+ * [[DECISIONS]] § Gameplay), and the page and the server judge it alike
+ * without knowing anyone's clearings.
  */
 
 /** Two players this many tiles apart or nearer, the long way round a square (`tilesApart`), can play. */
@@ -55,5 +62,5 @@ export function challengeRefusal(
 }
 
 function onWater(seed: number, at: GridPos): boolean {
-	return isWater(travelKindAt(seed, at.x, at.y));
+	return isWater(clearedTile(tileAtWorld(seed, at.x, at.y)).kind);
 }

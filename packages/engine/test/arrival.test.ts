@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { landSeed } from '../src/lands/ids.js';
 import { Rng, hashString } from '../src/rng.js';
 import { ARRIVAL_RADIUS, ESCAPE_REACH, arrivalRings, arrivalSpot } from '../src/world/arrival.js';
 import { WorldEdits, editedTileAt } from '../src/world/edits.js';
@@ -15,6 +16,8 @@ import { turn } from './turn.js';
 
 const PROTOTYPE = hashString('prototype');
 const SEEDS = [PROTOTYPE, 1, 2];
+/** The Arctic's worlds, with their lakes and sea ice: a kid gets about there a slide at a time. */
+const ARCTIC_SEEDS = [landSeed('arctic', 1), landSeed('arctic', 42)];
 const ON_FOOT: Gear = { boat: false };
 const WITH_BOAT: Gear = { boat: true };
 
@@ -27,11 +30,35 @@ function canStand(seed: number, edits: WorldEdits, p: GridPos, boat: boolean): b
 }
 
 /**
- * Whether a spot opens onto the world, as the rule reads it: the tiles a
- * player can get to from it, the way they get about, lead `ESCAPE_REACH` or
- * more tiles away from the friend at `target`, across or down. A pocket that
- * stays nearer than that (an island without a boat, a nook in the trees) does
- * not. Searched depth first, so open country is left in a straight run.
+ * Where a move `dir` from `p` ends, as the rule reads it: null when the tile
+ * that way can't be stood on; onto the ice, on over the ice while the tile
+ * ahead can be stood on (a slide), never further than the longest slide.
+ */
+function moveTo(
+	seed: number,
+	edits: WorldEdits,
+	p: GridPos,
+	d: readonly [number, number],
+	boat: boolean
+): GridPos | null {
+	let at = { x: p.x + d[0], y: p.y + d[1] };
+	if (!canStand(seed, edits, at, boat)) return null;
+	for (let tiles = 1; tiles < 64; tiles++) {
+		if (editedTileAt(seed, edits, at.x, at.y).kind !== 'ice') break;
+		const ahead = { x: at.x + d[0], y: at.y + d[1] };
+		if (!canStand(seed, edits, ahead, boat)) break;
+		at = ahead;
+	}
+	return at;
+}
+
+/**
+ * Whether a spot opens onto the world, as the rule reads it: the places a
+ * player can get to from it, the way they get about (a step, or onto the ice
+ * the whole slide), lead `ESCAPE_REACH` or more tiles away from the friend at
+ * `target`, across or down. A pocket that stays nearer than that (an island
+ * without a boat, a nook in the trees) does not. Searched depth first, so
+ * open country is left in a straight run.
  */
 function opensOut(
 	seed: number,
@@ -45,15 +72,16 @@ function opensOut(
 	while (stack.length > 0) {
 		const p = stack.pop()!;
 		if (Math.max(Math.abs(p.x - target.x), Math.abs(p.y - target.y)) >= ESCAPE_REACH) return true;
-		for (const [dx, dy] of [
+		for (const d of [
 			[0, 1],
 			[0, -1],
 			[-1, 0],
 			[1, 0]
 		] as const) {
-			const n = { x: p.x + dx, y: p.y + dy };
+			const n = moveTo(seed, edits, p, d, boat);
+			if (!n) continue;
 			const key = `${n.x},${n.y}`;
-			if (seen.has(key) || !canStand(seed, edits, n, boat)) continue;
+			if (seen.has(key)) continue;
 			seen.add(key);
 			stack.push(n);
 		}
@@ -98,7 +126,7 @@ describe('arrivalSpot', () => {
 		let landed = 0;
 		let afloat = 0;
 		let nowhere = 0;
-		for (const seed of SEEDS) {
+		for (const seed of [...SEEDS, ...ARCTIC_SEEDS]) {
 			for (let i = 0; i < 70; i++) {
 				const target = randomTarget(rng);
 				for (const gear of [ON_FOOT, WITH_BOAT]) {
@@ -116,7 +144,7 @@ describe('arrivalSpot', () => {
 		expect(landed).toBeGreaterThan(100);
 		expect(afloat).toBeGreaterThan(0);
 		expect(nowhere).toBeGreaterThan(0);
-		// 420 arrivals, each against its own brute force: 2.8 s alone at a load average of 10,
+		// 700 arrivals (420 in Nordland), each against its own brute force: 2.8 s alone at a load average of 10,
 		// 9.7 s in the whole suite at 30, which scales to 48 s at 150; its loop turns after each
 		// friend.
 	}, 180_000);

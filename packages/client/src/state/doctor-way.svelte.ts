@@ -1,4 +1,4 @@
-import type { GridPos } from '@mathgame/engine';
+import { needsDoctor, type AnimalInstance, type GridPos, type Realm } from '@mathgame/engine';
 
 /**
  * The way to a doctor while the team needs one ([[UI_SPEC]] § Explore mode,
@@ -16,6 +16,16 @@ export interface DoctorArrow {
 	x: number;
 	y: number;
 	angle: number;
+}
+
+/**
+ * Whether the team needs a doctor's tent where the player is (`needsDoctor`),
+ * as the screen says it: the line under the message and the arrow. A team of
+ * no animal at all is waiting for its starter on a first arrival in a land
+ * ([[PRODUCT]] §4 "Lands"), not tired: it is sent to no tent.
+ */
+export function needsTent(party: readonly AnimalInstance[], realm: Realm): boolean {
+	return party.length > 0 && needsDoctor(party, realm);
 }
 
 class DoctorWayView {
