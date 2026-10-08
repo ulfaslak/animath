@@ -1252,6 +1252,52 @@ describe("Autosave: an account's save on the server", () => {
 		expect(server.calls.filter((c) => c === 'put').length).toBe(puts);
 	});
 
+	it("an older build's save of the same seq here and on the server is one game: no reload, and never a loop of them", async () => {
+		// The same save, written by an older build, in the browser and on the server: what every
+		// account held after a new save version shipped. Read, it is upgraded here; the server's
+		// copy is upgraded the same way, so the two are the same game and nothing is adopted.
+		const old = {
+			version: 1,
+			seed: WORLD_ONE_SEED,
+			pos: { x: -2, y: 6 },
+			facing: 'left',
+			steps: 5957,
+			visits: 34,
+			party: [{ id: 'nini', speciesId: 'rabbit', nickname: 'nini', hp: 22 }],
+			tokens: 9,
+			items: ['axe', 'boat'],
+			edits: ['0,0:11'],
+			lineage: 'kids-real-game',
+			seq: 19549
+		};
+		const read = readSave(old);
+		if (!read.ok) throw new Error('the older save must read');
+		const server = new FakeServer();
+		server.seed(old);
+		for (const here of [JSON.stringify(old), JSON.stringify(read.save)]) {
+			// `here`: the older build's text, or the upgraded one a looping page wrote in its place.
+			const store = new MemoryStore();
+			store.set(KEYS.save, here);
+			for (let load = 0; load < 3; load++) {
+				const tab = new Tab(store, server);
+				const plan = await tab.open();
+				expect(plan.notice).toBe('save.welcomeBack');
+				await later();
+				expect(tab.autosave.behind).toBeNull();
+			}
+			expect(store.get(KEYS.replaced)).toBeNull();
+			expect(store.get(KEYS.save)).toBe(here);
+			// Once the kid plays, the upgraded game is sent on past the server's copy.
+			const tab = new Tab(store, server);
+			await tab.open();
+			await tab.catchOne();
+			await later();
+			expect(tab.autosave.behind).toBeNull();
+			expect(server.saveOf()).toMatchObject({ version: SAVE_VERSION, seq: 19550, steps: 5957 });
+			server.seed(old);
+		}
+	});
+
 	it('an unreadable save on the server is never adopted, and saved past once the kid plays', async () => {
 		const server = new FakeServer();
 		const unreadable = { version: 1, seq: 500, party: 'not a party' };
