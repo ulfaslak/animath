@@ -61,16 +61,26 @@ export const shape: PuzzleGenerator = {
 			return puzzle(difficulty, [how, w, total, 0, 0, 0], h);
 		}
 		const grid = step.grid ? 1 : 0;
-		// An L: a corner of at least 1 by 1 cut from the top right, leaving at least 1 by 1 of each arm.
+		// An L: a corner cut from the top right, a quarter of each side or more, leaving as much of each arm.
 		const l = rng.chance(step.l) && w >= 2 && h >= 2;
-		const cw = l ? rng.int(1, w - 1) : 0;
-		const ch = l ? rng.int(1, h - 1) : 0;
+		const cw = l ? cut(rng, w) : 0;
+		const ch = l ? cut(rng, h) : 0;
 		const how = fence ? SHAPE.fence : SHAPE.floor;
 		// The fence of an L is as long as the rectangle's: the cut swaps two sides for two as long.
 		const answer = fence ? 2 * (w + h) : w * h - cw * ch;
 		return puzzle(difficulty, [how, w, h, cw, ch, grid], answer);
 	}
 };
+
+/**
+ * How much of a side an L's corner takes: from a quarter of it (at least 1)
+ * to all but a quarter, so the cut reads as a corner, never a sliver whose
+ * sides' numbers would crowd each other.
+ */
+function cut(rng: Rng, side: number): number {
+	const quarter = Math.max(1, Math.round(side / 4));
+	return rng.int(quarter, side - quarter);
+}
 
 function puzzle(difficulty: number, numbers: number[], answer: number): Puzzle {
 	return { kind: 'shape', difficulty, prompt: facePrompt({ kind: 'shape', numbers }), answer };
