@@ -2,6 +2,7 @@ import {
 	EDITS_BUDGET,
 	MAX_NICKNAME_LENGTH,
 	MAX_SAVE_DEPTH,
+	SAVE_VERSION,
 	WORLD_ONE_SEED,
 	WorldEdits,
 	nameKey,
@@ -145,7 +146,7 @@ async function account(save?: unknown): Promise<{ browser: Browser; name: string
 
 function doc(seq: number, lineage = 'game-a', overrides: Record<string, unknown> = {}) {
 	return {
-		version: 2,
+		version: SAVE_VERSION,
 		home: 7,
 		world: 7,
 		pos: { x: -7, y: 3 },
@@ -226,7 +227,7 @@ async function keptAside(name: string) {
  * (ids no catalog here has).
  */
 const NEWER_DOCS = [
-	doc(4, 'game-a', { version: 3 }),
+	doc(4, 'game-a', { version: SAVE_VERSION + 1 }),
 	doc(4, 'game-a', { party: [{ id: 'a1', speciesId: 'later-species', hp: 11 }] }),
 	doc(4, 'game-a', { battle: { realm: 'later-realm' } })
 ];

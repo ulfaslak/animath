@@ -32,7 +32,7 @@ import {
  */
 
 /** The newest save format this build reads and writes. */
-export const SAVE_VERSION = 2;
+export const SAVE_VERSION = 3;
 
 /** The longest animal id, or lineage id, a save may hold. */
 export const MAX_SAVE_ID_LENGTH = 64;
@@ -119,6 +119,11 @@ export interface SavedGame {
 	 */
 	caught: string[];
 	/**
+	 * The animal book's species set free at the witch doctor's, each once, in
+	 * the order first set free, every one seen too. It only grows.
+	 */
+	freed: string[];
+	/**
 	 * The battle in progress, or null: always in `world`, since nobody leaves
 	 * a world mid-battle. Its seed is not saved: the authority derives it from `steps`.
 	 */
@@ -169,8 +174,10 @@ export interface SavedWorldStay {
 }
 
 /**
- * Version 2 of the save document, since numbered worlds and names: the
- * version this build writes.
+ * Version 3 of the save document, since the animal book keeps the kinds set
+ * free (`freed`): the version this build writes. Version 2, since numbered
+ * worlds and names, was the same document without `freed`, read through
+ * `SAVE_UPGRADES[2]`.
  *
  * `version`, `home`, `world`, `pos` and `party` are required; the others are
  * checked when present, and every write must carry `facing`, `steps`,
@@ -180,8 +187,8 @@ export interface SavedWorldStay {
  * when an old document becomes unreadable, and add the upgrade that reads it
  * (`SAVE_UPGRADES`).
  */
-export interface SaveV2 {
-	version: 2;
+export interface SaveV3 {
+	version: 3;
 	/** The world the game began in. */
 	home: number;
 	/** The world the player is in; `pos`, `facing` and `edits` are that world's. */
@@ -224,6 +231,13 @@ export interface SaveV2 {
 	 */
 	seen?: string[];
 	caught?: string[];
+	/**
+	 * The animal book's species set free at the witch doctor's, by id, in the
+	 * order first set free. Optional in a write too: a save without it has set
+	 * none free (a version 2 save gets it from its upgrade). A species this
+	 * build does not have makes the save a newer build's, as in `seen`.
+	 */
+	freed?: string[];
 	/** The battle in progress when it was saved. Checked on load (`readBattle`), dropped if unusable. */
 	battle?: unknown;
 	/**
@@ -237,10 +251,10 @@ export interface SaveV2 {
 }
 
 /** A document ready to be written: every field a write must carry is present. */
-export type SaveWrite = SaveV2 &
-	Required<Pick<SaveV2, 'facing' | 'steps' | 'visits' | 'lineage' | 'seq'>>;
+export type SaveWrite = SaveV3 &
+	Required<Pick<SaveV3, 'facing' | 'steps' | 'visits' | 'lineage' | 'seq'>>;
 
-/** The fields `SaveV2` names. Everything else in a document is an extra and is kept as sent. */
+/** The fields `SaveV3` names. Everything else in a document is an extra and is kept as sent. */
 const SAVE_KEYS: ReadonlySet<string> = new Set([
 	'version',
 	'name',
@@ -258,6 +272,7 @@ const SAVE_KEYS: ReadonlySet<string> = new Set([
 	'solved',
 	'seen',
 	'caught',
+	'freed',
 	'battle',
 	'edits',
 	'worlds'
@@ -277,8 +292,8 @@ const WHEREABOUTS: ReadonlySet<string> = new Set([
 	'seq'
 ]);
 
-/** The animal book's two lists of species ids. */
-const BOOK_KEYS = ['seen', 'caught'] as const;
+/** The animal book's lists of species ids. */
+const BOOK_KEYS = ['seen', 'caught', 'freed'] as const;
 
 const DIRECTIONS: ReadonlySet<string> = new Set(['up', 'down', 'left', 'right']);
 const SPECIES_IDS: ReadonlySet<string> = new Set(ANIMALS.map((a) => a.id));
@@ -302,7 +317,7 @@ export type SaveProblem = 'newer' | 'invalid';
  * [[INVARIANTS]] § Saves.
  */
 export type SaveRead =
-	{ ok: true; save: SaveV2 } | { ok: false; reason: SaveProblem; error: string };
+	{ ok: true; save: SaveV3 } | { ok: false; reason: SaveProblem; error: string };
 
 /** A document someone wants to write, checked (`validateSaveWrite`). */
 export type SaveWriteCheck =
@@ -321,11 +336,21 @@ export const V1_KEPT = 'v1';
 
 /**
  * The keys a v1 document could hold only as extras and a v2 document names:
- * every key `SaveV2` has that `SaveV1` has not, the ones v2 grew later too
+ * every key a v2 document has that `SaveV1` has not, the ones v2 grew later too
  * (`solved`, the book's `seen` and `caught`), so a v1 extra never becomes one
  * of them.
  */
 const NAMED_SINCE_V2 = ['name', 'home', 'world', 'worlds', 'solved', 'seen', 'caught'] as const;
+
+/**
+ * Where the v2 → v3 upgrade keeps what a v3 document names and a v2 document
+ * held only as an extra (`freed`, or this key itself), as it was. No build
+ * wrote either; kept so the upgrade loses nothing.
+ */
+export const V2_KEPT = 'v2';
+
+/** The keys a v3 document names that a v2 document could hold only as extras. */
+const NAMED_SINCE_V3 = ['freed'] as const;
 
 /**
  * Upgrades, indexed by the version they read: `SAVE_UPGRADES[1]` turns a v1
@@ -339,6 +364,13 @@ const NAMED_SINCE_V2 = ['name', 'home', 'world', 'worlds', 'solved', 'seen', 'ca
  * tokens, items, counts, battle, lineage, `seq` and extras are untouched. A
  * v1 document without a whole-number seed was unreadable and stays so: it
  * gets no world.
+ *
+ * v2 → v3: the animal book keeps the kinds set free (`freed`). A v2 save
+ * counts every kind in its book that is not in its party as set free
+ * (`freedBefore`, the human's rule), and keeps everything else exactly as it
+ * was; a v2 extra under a key v3 has taken goes under `V2_KEPT`. A bump, not
+ * an optional field: an older build would carry on with the save unread and
+ * set animals free without writing them down ([[DECISIONS]] § Saves).
  */
 export const SAVE_UPGRADES: Readonly<Record<number, (doc: Doc) => Doc>> = {
 	1: (doc) => {
@@ -357,8 +389,42 @@ export const SAVE_UPGRADES: Readonly<Record<number, (doc: Doc) => Doc>> = {
 			out.home = FIRST_WORLD;
 		}
 		return out;
+	},
+	2: (doc) => {
+		const out: Doc = { ...doc, version: 3 };
+		const kept: Doc = {};
+		for (const key of [...NAMED_SINCE_V3, V2_KEPT]) {
+			if (!Object.prototype.hasOwnProperty.call(out, key)) continue;
+			kept[key] = out[key];
+			delete out[key];
+		}
+		if (Object.keys(kept).length > 0) out[V2_KEPT] = kept;
+		const freed = freedBefore(doc);
+		if (freed) out.freed = freed;
+		return out;
 	}
 };
+
+/**
+ * The kinds a version 2 save counts as set free, the human's rule for saves
+ * from before the book kept them, meant to be generous: every species in the
+ * book (seen, and so caught too) that no animal in the party is, in the order
+ * the book lists them. Null when the document has no book to read (a save
+ * from before the book, or one whose lists or party are not lists: the check
+ * after the upgrade refuses those anyway).
+ */
+function freedBefore(doc: Doc): string[] | null {
+	const { party, seen, caught } = doc;
+	if (!Array.isArray(party)) return null;
+	const lists = [seen, caught].filter((list) => list !== undefined);
+	if (lists.length === 0 || !lists.every(Array.isArray)) return null;
+	const held = new Set(party.map((a) => (isRecord(a) ? a.speciesId : undefined)));
+	const freed = new Set<string>();
+	for (const list of lists as unknown[][]) {
+		for (const id of list) if (isContentId(id) && !held.has(id)) freed.add(id);
+	}
+	return [...freed];
+}
 
 function isRecord(v: unknown): v is Doc {
 	return typeof v === 'object' && v !== null && !Array.isArray(v);
@@ -450,7 +516,7 @@ function validateStay(v: unknown, label: string): string | null {
  * this build does not have (`findUnknownContent`) is refused too. On success
  * the value is the input object itself.
  */
-export function validateSave(input: unknown): SaveCheck<SaveV2> {
+export function validateSave(input: unknown): SaveCheck<SaveV3> {
 	const checked = checkSave(input);
 	return checked.ok ? { ok: true, value: checked.save } : { ok: false, error: checked.error };
 }
@@ -467,7 +533,7 @@ function checkSave(input: unknown): SaveRead {
 	if (error) return { ok: false, reason: 'invalid', error };
 	const unknown = findUnknownContent(input);
 	if (unknown) return { ok: false, reason: 'newer', error: unknown };
-	return { ok: true, save: input as unknown as SaveV2 };
+	return { ok: true, save: input as unknown as SaveV3 };
 }
 
 /**
@@ -475,7 +541,7 @@ function checkSave(input: unknown): SaveRead {
  * with, as an error, or null: one none of its catalogs has, which only a
  * later build writes (a species that has shipped never leaves the catalog:
  * [[INVARIANTS]] § Saves). That is a species in the party or in the animal
- * book (`seen`, `caught`), or in a saved battle its realm, an animal's
+ * book (`seen`, `caught`, `freed`), or in a saved battle its realm, an animal's
  * species or the puzzle's kind: a game with such an animal cannot be played
  * here, a book with it would lose it at this build's next write, and such a
  * battle could only be dropped. An item this build does not have is not one
@@ -733,6 +799,7 @@ export function newGame(
 		solved: 0,
 		seen: [...book.seen],
 		caught: [...book.caught],
+		freed: [...book.freed],
 		battle: null,
 		edits: [],
 		worlds: []
@@ -789,7 +856,7 @@ function cleanAnimal(animal: AnimalInstance): AnimalInstance {
  * The animal book comes back as saved, made whole with what the save proves
  * itself (`savedBook`): a save from before the book gets one back.
  */
-export function restoreGame(save: SaveV2, mintId: () => string): SavedGame {
+export function restoreGame(save: SaveV3, mintId: () => string): SavedGame {
 	const seed = worldSeed(save.world);
 	const items = [...new Set(save.items ?? [])];
 	// Kept within the budget as a clear keeps it, whatever wrote the save (a hand-edited
@@ -830,6 +897,7 @@ export function restoreGame(save: SaveV2, mintId: () => string): SavedGame {
 		solved: save.solved ?? 0,
 		seen: [...book.seen],
 		caught: [...book.caught],
+		freed: [...book.freed],
 		battle: battle && bundledBattle(battle),
 		edits: [...edits.encode()],
 		worlds: [...worlds]
@@ -848,8 +916,8 @@ export function restoreGame(save: SaveV2, mintId: () => string): SavedGame {
  * not which. `party` is the party the game goes on with (`restoreGame`'s,
  * which a starter may have joined); by default the save's own.
  */
-function savedBook(save: SaveV2, party: readonly AnimalInstance[] = save.party): AnimalBook {
-	let book = recordParty(bookOf(save.seen ?? [], save.caught ?? []), party);
+function savedBook(save: SaveV3, party: readonly AnimalInstance[] = save.party): AnimalBook {
+	let book = recordParty(bookOf(save.seen ?? [], save.caught ?? [], save.freed ?? []), party);
 	const battle = save.battle;
 	if (isRecord(battle) && isRecord(battle.opponent)) {
 		const wild = battle.opponent.speciesId;
@@ -957,8 +1025,8 @@ export function readBattle(
 	};
 }
 
-/** The top-level fields of a document that `SaveV2` does not name. */
-export function saveExtras(doc: SaveV2): Doc {
+/** The top-level fields of a document that `SaveV3` does not name. */
+export function saveExtras(doc: SaveV3): Doc {
 	const extras: Doc = {};
 	for (const [key, value] of Object.entries(doc)) if (!SAVE_KEYS.has(key)) extras[key] = value;
 	return extras;
@@ -989,6 +1057,7 @@ export function saveDocument(
 		solved: game.solved,
 		seen: [...game.seen],
 		caught: [...game.caught],
+		freed: [...game.freed],
 		lineage: stamp.lineage,
 		seq: stamp.seq
 	};
@@ -1070,7 +1139,7 @@ export function replacesAnotherGame(
  * that only walked around can take the save back without losing anything a
  * kid would miss.
  */
-export function sameProgress(a: SaveV2, b: SaveV2): boolean {
+export function sameProgress(a: SaveV3, b: SaveV3): boolean {
 	const left = withProgressDefaults(a);
 	const right = withProgressDefaults(b);
 	const keys = new Set([...Object.keys(left), ...Object.keys(right)]);
@@ -1089,7 +1158,7 @@ export function sameProgress(a: SaveV2, b: SaveV2): boolean {
  * that writes it out. The book's lists compare as sets: the order a species
  * was first met in is no progress.
  */
-function withProgressDefaults(doc: SaveV2): Doc {
+function withProgressDefaults(doc: SaveV3): Doc {
 	const out: Doc = { ...(doc as unknown as Doc) };
 	if (out.tokens === undefined) out.tokens = 0;
 	if (out.items === undefined) out.items = [];
@@ -1099,6 +1168,7 @@ function withProgressDefaults(doc: SaveV2): Doc {
 	const book = savedBook(doc);
 	out.seen = [...book.seen].sort();
 	out.caught = [...book.caught].sort();
+	out.freed = [...book.freed].sort();
 	return out;
 }
 

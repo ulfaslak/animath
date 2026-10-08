@@ -1597,14 +1597,21 @@ book:
   # Beside the book's title, and beside the row while it is lit: kinds caught, kinds seen
   # (met in a battle or a friendly match, caught or not), and every kind there is.
   count: '{caught} caught · {seen} seen · {all} in all'
+  # Beside the count, after a rose heart: how many kinds the kid has set free at the witch
+  # doctor's, of every kind there is.
+  freed: '{freed} / {all} set free'
   # The panel beside the row while it is lit.
   help: Every animal you meet goes in your book. Can you catch them all?
   # Under the book, about the lit card: one not met yet (it gives nothing away), one met but
-  # not caught, one caught and on the team, and one caught and set free since (it stays
-  # caught for good).
+  # not caught, one caught and on the team, one on the team that has its heart (set free at
+  # the witch doctor's, or counted so: a game from before the book kept the kinds set free
+  # counts every kind it met and does not have as set free), one caught and set free since
+  # (it stays caught for good), and one met, never caught, that counts as set free.
   unseen: Who could this be? Go exploring and find out!
   seen: You met {animal.a}. Catch one with your leash!
   caughtTeam: '{animal.name} is on your team!'
+  freedTeam: '{animal.name} is on your team, and it counts as set free!'
   caughtHome: You caught {animal.a} and set it free. It stays in your book!
+  seenFree: You met {animal.a}, and it counts as set free!
   # The key reminder under the book.
   keys: ↑ ↓ ← → choose · Esc back

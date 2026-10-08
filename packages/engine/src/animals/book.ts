@@ -1,10 +1,12 @@
 import type { BattleEvent, BattleState } from '../battle/types.js';
+import type { DoctorEvent } from '../doctor/types.js';
 import { ANIMALS } from './catalog.js';
 import type { AnimalInstance, AnimalSpec } from './types.js';
 
 /**
  * The animal book ([[PRODUCT]] §4 "The animal book"): every species a player
- * has seen, and every one they have caught, for as long as the game lasts.
+ * has seen, every one they have caught, and every one they have set free at
+ * the witch doctor's, for as long as the game lasts.
  * It only grows. An animal helped home by the doctor stays caught, a battle run
  * from leaves its animal seen, and travelling takes the book along: it is the
  * player's, like the party.
@@ -13,7 +15,8 @@ import type { AnimalInstance, AnimalSpec } from './types.js';
  * rules here, which the authority calls: a wild battle's animal is seen the
  * moment the battle starts (`recordBattle`), and caught when a leash throw
  * lands (the same call, with the step's events); every animal in the party is
- * caught, the starter first (`recordParty`). Nothing else records: a friendly
+ * caught, the starter first (`recordParty`); a species is set free when one of
+ * its kind goes home from the witch doctor's (`recordWentHome`). Nothing else records: a friendly
  * match changes nothing in a game but the puzzles solved ([[DECISIONS]]
  * § Multiplayer), and watching another player's battle from outside is not
  * the kid's own battle.
@@ -30,10 +33,19 @@ export interface AnimalBook {
 	readonly seen: readonly string[];
 	/** Every species caught, each once, in the order first caught: the starter first. */
 	readonly caught: readonly string[];
+	/**
+	 * Every species set free at the witch doctor's, each once, in the order
+	 * first set free: one of its kind went home in a hand-over the kid
+	 * answered right (`recordWentHome`). Every one is seen too. A save from
+	 * before it was kept counts every kind seen and not held as set free
+	 * (`SAVE_UPGRADES[2]`), so a kind can be set free without being caught.
+	 * One list for every land: species ids are unique across the catalog.
+	 */
+	readonly freed: readonly string[];
 }
 
 /** A book with nothing in it. A game never has one: it starts with its starter caught. */
-export const EMPTY_BOOK: AnimalBook = { seen: [], caught: [] };
+export const EMPTY_BOOK: AnimalBook = { seen: [], caught: [], freed: [] };
 
 /**
  * Every species of the catalog, in the book's order: by tier, from small to
@@ -54,6 +66,11 @@ export function hasCaught(book: AnimalBook, speciesId: string): boolean {
 	return book.caught.includes(speciesId);
 }
 
+/** Whether `speciesId` is in the book as set free. */
+export function hasFreed(book: AnimalBook, speciesId: string): boolean {
+	return book.freed.includes(speciesId);
+}
+
 /**
  * `book` with `speciesId` seen, at the end of `seen` when it is new there.
  * The very same book when nothing changes: already seen, or not a species of
@@ -61,7 +78,7 @@ export function hasCaught(book: AnimalBook, speciesId: string): boolean {
  */
 export function seeSpecies(book: AnimalBook, speciesId: string): AnimalBook {
 	if (!SPECIES.has(speciesId) || book.seen.includes(speciesId)) return book;
-	return { seen: [...book.seen, speciesId], caught: book.caught };
+	return { seen: [...book.seen, speciesId], caught: book.caught, freed: book.freed };
 }
 
 /**
@@ -71,7 +88,17 @@ export function seeSpecies(book: AnimalBook, speciesId: string): AnimalBook {
 export function catchSpecies(book: AnimalBook, speciesId: string): AnimalBook {
 	if (!SPECIES.has(speciesId) || book.caught.includes(speciesId)) return book;
 	const seen = seeSpecies(book, speciesId).seen;
-	return { seen, caught: [...book.caught, speciesId] };
+	return { seen, caught: [...book.caught, speciesId], freed: book.freed };
+}
+
+/**
+ * `book` with `speciesId` set free, and so seen. The very same book when
+ * nothing changes: already set free, or not a species of the catalog.
+ */
+export function freeSpecies(book: AnimalBook, speciesId: string): AnimalBook {
+	if (!SPECIES.has(speciesId) || book.freed.includes(speciesId)) return book;
+	const { seen, caught } = seeSpecies(book, speciesId);
+	return { seen, caught, freed: [...book.freed, speciesId] };
 }
 
 /**
@@ -107,12 +134,34 @@ export function recordParty(book: AnimalBook, party: readonly AnimalInstance[]):
 }
 
 /**
- * A book from two lists as a save holds them: each species once, in the
- * order listed, the caught ones seen too, and nothing the catalog lacks.
+ * `book` after a step of a doctor visit, given the step's events: every
+ * species of every animal that went home (`went-home`, which the reducer
+ * emits only on a right answer to a hand-over's sum) is set free, in the
+ * order they went. The authority calls it with each accepted step's events.
+ * The very same book when nothing is new.
  */
-export function bookOf(seen: readonly string[], caught: readonly string[]): AnimalBook {
+export function recordWentHome(book: AnimalBook, events: readonly DoctorEvent[]): AnimalBook {
+	let next = book;
+	for (const e of events) {
+		if (e.type !== 'went-home') continue;
+		for (const animal of e.animals) next = freeSpecies(next, animal.speciesId);
+	}
+	return next;
+}
+
+/**
+ * A book from its lists as a save holds them: each species once, in the
+ * order listed, the caught and set-free ones seen too, and nothing the
+ * catalog lacks.
+ */
+export function bookOf(
+	seen: readonly string[],
+	caught: readonly string[],
+	freed: readonly string[] = []
+): AnimalBook {
 	let book: AnimalBook = EMPTY_BOOK;
 	for (const id of seen) book = seeSpecies(book, id);
 	for (const id of caught) book = catchSpecies(book, id);
+	for (const id of freed) book = freeSpecies(book, id);
 	return book;
 }
