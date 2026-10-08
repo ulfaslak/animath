@@ -1,6 +1,8 @@
 import {
 	leadIndex,
-	tileAtWorld,
+	editedTileAt,
+	isEditsText,
+	WorldEdits,
 	tileRealm,
 	landSeed,
 	type AnimalInstance,
@@ -153,9 +155,9 @@ class TitleView {
 		const saved = this.saved;
 		if (!saved) return null;
 		const party = saved.party;
-		const realm = tileRealm(
-			tileAtWorld(landSeed(saved.land, saved.world), saved.pos.x, saved.pos.y).kind
-		);
+		const seed = landSeed(saved.land, saved.world);
+		const edits = isEditsText(saved.edits) ? WorldEdits.decode(saved.edits) : WorldEdits.none;
+		const realm = tileRealm(editedTileAt(seed, edits, saved.pos.x, saved.pos.y).kind);
 		return party[leadIndex(party, realm)] ?? party[leadIndex(party)] ?? party[0] ?? null;
 	}
 }

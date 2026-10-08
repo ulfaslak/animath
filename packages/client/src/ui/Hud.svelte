@@ -18,6 +18,7 @@
 	} from '../input/drag';
 	import { animalKey, bundleKey, moveKey, openKey, press, unfocusable } from '../input/press';
 	import { itemName } from '../items';
+	import { moneyWords } from '../money';
 	import { touch } from '../input/touch.svelte';
 	import { motion } from '../motion';
 	import { safeArea } from '../safe-area';
@@ -437,7 +438,9 @@
 <div class="belongings" class:below-debug={flags.debug} data-keep-clear>
 	<!-- Two rows on a phone held sideways (`.counts`, `.kit`); on a taller screen one column. -->
 	<div class="counts">
-		<div class="purse"><Coin />{t('hud.tokens', { count: game.tokens })}</div>
+		<div class="purse">
+			<Coin />{t('hud.tokens', { count: game.tokens, money: moneyWords() })}
+		</div>
 		<!-- Right under the tokens, one above the other: side by side, the corner would reach
 		     the note at the top of the screen on a tablet (`PresenceNote`). -->
 		<div class="solved"><Tick />{t('hud.solved', { count: game.solved })}</div>

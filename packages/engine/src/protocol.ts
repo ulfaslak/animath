@@ -29,9 +29,11 @@ export type Intent =
 	| { type: 'move'; dir: Direction }
 	/**
 	 * Enter, or the touch controls' Talk: whatever the player faces. A tent
-	 * opens a doctor visit (`canTalkToDoctor`); a tree or a rock is cleared
-	 * with its tool (`clearTile`: `tile-cleared`, or `tool-needed` without
-	 * the tool); anything else is `nothing-to-interact`.
+	 * opens a doctor visit (`canTalkToDoctor`); a tree, a rock or an ice block
+	 * is cleared with its tool (`clearTile`: `tile-cleared`, or `tool-needed`
+	 * without the tool); a fishing hole is fished with the fishing rod
+	 * (`castLine`: `line-cast`, or `tool-needed` without it); anything else is
+	 * `nothing-to-interact`.
 	 */
 	| { type: 'interact' }
 	| { type: 'battle'; intent: BattleIntent }
@@ -328,8 +330,9 @@ export type GameEvent =
 	| { type: 'party-edited'; party: AnimalInstance[]; events: readonly PartyEvent[] }
 	/**
 	 * `interact` cleared the tile the player faces (`clearTile`): the tree at
-	 * `pos` chopped down with the axe, or the rock broken with the pickaxe.
-	 * It is plain ground from now on. `regrown` are the chunks whose cleared
+	 * `pos` chopped down with the axe, the rock broken with the pickaxe, or
+	 * the ice block broken with the ice pick. It is plain ground from now on,
+	 * or what the block stood on (`clearedTile`). `regrown` are the chunks whose cleared
 	 * tiles grew back to keep the save small (far away, and nearly always
 	 * none). Apply both to the world on screen (`WorldEdits.with`, `without`).
 	 */
@@ -342,10 +345,25 @@ export type GameEvent =
 			regrown: ChunkRef[];
 	  }
 	/**
-	 * `interact` while facing a tree or a rock without the tool it takes.
-	 * Nothing changed; the client may say that the doctor sells one.
+	 * `interact` while facing a tree, a rock or an ice block without the tool
+	 * it takes, or a fishing hole (`hole`) without the fishing rod. Nothing
+	 * changed; the client may say that the doctor sells one.
 	 */
-	| { type: 'tool-needed'; playerId: string; kind: ClearableKind; tool: ItemId }
+	| { type: 'tool-needed'; playerId: string; kind: ClearableKind | 'hole'; tool: ItemId }
+	/**
+	 * `interact` facing the fishing hole at `hole` with the fishing rod: a line
+	 * was cast into it (`castLine`), a step of the count. `bite`: an animal of
+	 * `speciesId` bit, and its battle in the water follows (`battle-started`);
+	 * `nothing`: nothing bit this time; `no-swimmer`: nobody in the team can
+	 * swim, so nothing bites (nothing was drawn).
+	 */
+	| {
+			type: 'line-cast';
+			playerId: string;
+			hole: GridPos;
+			outcome: 'bite' | 'nothing' | 'no-swimmer';
+			speciesId?: string;
+	  }
 	/**
 	 * `take-off`: the player is up in the air over `from`, gliding `dir` (the
 	 * way they face), and will come down at most `reach` tiles out. Nothing

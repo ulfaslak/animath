@@ -45,8 +45,11 @@ export interface LandSpec {
 	species: readonly string[];
 	/** The species a kid picks their first animal of the land from, by id: tier 1, fighting on land. */
 	starters: readonly string[];
-	/** What its witch doctor's shop can sell, in the item catalog's order; only the items `available` are on sale (`shopFor`). */
-	shop: readonly ItemId[];
+	/**
+	 * What its witch doctor's shop can sell, and the price of each in the
+	 * land's money; only the items `available` are on sale (`shopFor`).
+	 */
+	shop: Readonly<Partial<Record<ItemId, number>>>;
 	/** What it pays in. A land's money is its own, like its party and items. */
 	currency: CurrencyId;
 	/** The puzzle kinds a flight to it asks (`farePuzzle`): a taste of what waits there. */
@@ -162,7 +165,10 @@ export const LANDS: readonly LandSpec[] = [
 		available: true,
 		species: NORDLAND_SPECIES,
 		starters: STARTERS,
-		shop: ['axe', 'pickaxe', 'boat', 'glider', 'harness'],
+		// The prices run on as Fibonacci numbers: 8, 13, 21, 34, and the harness costs what the
+		// paraglider does, the human's call. How long each takes to reach in ordinary play is
+		// [[PRODUCT]] §4's model ("Tokens and the witch doctor's shop").
+		shop: { axe: 8, pickaxe: 13, boat: 21, glider: 34, harness: 34 },
 		currency: 'tokens',
 		travelKinds: ['add', 'sub'],
 		look: 'bare'
@@ -174,7 +180,9 @@ export const LANDS: readonly LandSpec[] = [
 		species: ARCTIC_SPECIES,
 		// One of each ground, as Nordland's three are (#192): open, rocks and water.
 		starters: ['arctic-fox', 'arctic-hare', 'puffin'],
-		shop: [],
+		// In ice dollars, the same Fibonacci ladder from the start, since a kid arrives with none
+		// and a starter of tier 1 (#191 step 6; [[PRODUCT]] §4 "The Arctic's shop").
+		shop: { 'arctic-axe': 8, 'ice-pick': 13, 'fishing-rod': 21, boat: 55, glider: 89 },
 		currency: 'ice-dollars',
 		// The Arctic's own kinds (#191 step 2): a taste of what waits there.
 		travelKinds: [...PICTURE_KINDS, 'balance'],
@@ -194,10 +202,30 @@ export function availableLands(): LandId[] {
 	return LANDS.filter((l) => l.available).map((l) => l.id);
 }
 
-/** What land `id`'s witch doctor sells: its shop's items that are on sale, in catalog order. */
+/**
+ * What land `id`'s witch doctor sells: its shop's items that are on sale,
+ * cheapest first (the catalog's order between two of a price).
+ */
 export function shopFor(id: LandId): ItemId[] {
 	const shop = getLand(id).shop;
-	return ITEMS.filter((i) => i.available && shop.includes(i.id)).map((i) => i.id);
+	return ITEMS.filter((i) => i.available && shop[i.id] !== undefined)
+		.map((i) => i.id)
+		.sort((a, b) => shop[a]! - shop[b]!);
+}
+
+/**
+ * What item `item` costs at land `land`'s witch doctor, in that land's money.
+ * An item that land does not sell (only ever shown by the `?shop` switch, in a
+ * game saved nowhere) costs what it does in the first land that sells it.
+ */
+export function priceIn(land: LandId, item: ItemId): number {
+	const own = getLand(land).shop[item];
+	if (own !== undefined) return own;
+	for (const other of LANDS) {
+		const price = other.shop[item];
+		if (price !== undefined) return price;
+	}
+	throw new Error(`priceIn: no land sells ${String(item)}`);
 }
 
 /**

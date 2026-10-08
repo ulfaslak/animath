@@ -10,9 +10,11 @@ import { CHUNK_SIZE, type Chunk, type ClearableKind, type GridPos, type Tile } f
  * has left it.
  *
  * An edit only ever turns a tree or a rock into plain ground (`grass`, The
- * Arctic's `snow`, with `cleared` saying what stood there). A position whose seeded tile is
- * anything else stays exactly as it is whatever the overlay holds, so no
- * edit can make water, a tent or tall grass walkable, or change it at all.
+ * Arctic's `snow`), or an ice block into what it stood on (snow, a fishing
+ * hole, water), with `cleared` saying what stood there. A position whose
+ * seeded tile is anything else stays exactly as it is whatever the overlay
+ * holds, so no edit can make water, a tent or tall grass walkable, or change
+ * it at all.
  * Who comes out of the grass never reads the overlay: encounter tables and
  * the ground round a tall-grass tile are the seeded world's ([[DECISIONS]]
  * § Gameplay).
@@ -258,10 +260,19 @@ export class WorldEdits {
 /**
  * A tile as a cleared tile is: plain ground where a tree or a rock stood (snow
  * in a biome of The Arctic's, grass in Nordland's), the same biome and
- * height, and `cleared` saying what stood there. Any other tile
- * comes back as it is: an edit never touches it.
+ * height, and `cleared` saying what stood there. Where an ice block stood,
+ * what it stood on (`under`): snow on land, a fishing hole on the ice (#191:
+ * the ice pick never leaves plain ice, so no slide ever stops on the ice),
+ * the shallows out on the water. Any other tile comes back as it is: an edit
+ * never touches it.
  */
 export function clearedTile(tile: Tile): Tile {
+	if (tile.kind === 'iceblock') {
+		const under = tile.under ?? 'snow';
+		const kind = under === 'ice' ? 'hole' : under;
+		const height = under === 'snow' ? tile.height : 0;
+		return { kind, biome: tile.biome, height, cleared: 'iceblock', under };
+	}
 	if (tile.kind !== 'tree' && tile.kind !== 'rock') return tile;
 	const was: ClearableKind = tile.kind;
 	const kind = BIOME_POLE[tile.biome] === null ? 'grass' : 'snow';

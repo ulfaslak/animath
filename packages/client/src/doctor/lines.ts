@@ -1,6 +1,7 @@
 import type { AnimalInstance, ItemId } from '@mathgame/engine';
 import { language, t, type ParamValue } from '../copy';
 import { itemWords } from '../items';
+import { moneyWords } from '../money';
 import { animalWords, nameOf } from '../names';
 
 /**
@@ -65,7 +66,7 @@ export function doctorWords(line: DoctorLine): string {
 		case 'homeSure':
 			return t('doctor.home.sure');
 		case 'homeCount':
-			return t('doctor.home.count');
+			return t('doctor.home.count', { money: moneyWords() });
 		case 'wentHome': {
 			const [first] = line.animals;
 			if (line.animals.length === 1 && first) {
@@ -76,13 +77,23 @@ export function doctorWords(line: DoctorLine): string {
 				: t('doctor.home.wentHomeMany', { many: line.animals.length });
 		}
 		case 'tokensGiven':
-			return t('doctor.home.tokensGiven', { amount: line.amount, count: line.tokens });
+			return t('doctor.home.tokensGiven', {
+				amount: line.amount,
+				count: line.tokens,
+				money: moneyWords()
+			});
 		case 'shopIntro':
-			return line.empty ? t('doctor.shop.introEmpty') : t('doctor.shop.intro');
+			return line.empty
+				? t('doctor.shop.introEmpty')
+				: t('doctor.shop.intro', { money: moneyWords() });
 		case 'shopCount':
-			return t('doctor.shop.count');
+			return t('doctor.shop.count', { money: moneyWords() });
 		case 'bought':
-			return t('doctor.shop.bought', { item: itemWords(line.itemId), count: line.tokens });
+			return t('doctor.shop.bought', {
+				item: itemWords(line.itemId),
+				count: line.tokens,
+				money: moneyWords()
+			});
 		case 'goodbye':
 			return t('doctor.goodbye');
 	}

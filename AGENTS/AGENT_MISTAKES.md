@@ -1007,3 +1007,11 @@ To become `[learned]`: a line in [[DEVELOPMENT]] § Testing ideology saying a mo
 - **A new flag field, and its test's whole-object expectation.** `readFlags` grew `land`; `flags.test.ts` compares the whole object, and the full client suite was not run after the switch was added (found by the adversarial review). Run the whole suite after adding a field to a returned object.
 
 Codified in [[DEVELOPMENT]] § Testing ideology ("A test types an answer as a kid types it").
+
+### 2026-10-08 — #191 step 6 (feat/arctic-shop, PR #201), self-testing and adversarial review — a reach widened past what a packed key holds, and an edit that changes a tile's realm
+
+- **A packed key sized for the old reach.** `nearestTent` packs offsets into one number, sized for "every tile the search looks at is within `maxSteps + 1`". Making the search move by slides let it read a whole run of ice past its edge, and the comment's promise went false silently: tiles past the edge shared keys with tiles inside, so a tent was missed or found on the ice. When a search's step can reach further than one tile, re-check every bound derived from "one tile per step" (key spaces, caches, windows).
+- **A tool that changes a tile's realm, read from the generated world.** Before the ice pick no edit turned land into water; a block afloat broken does. The client's realm, the trainer's boat and the follower read `tileAtWorld` (the world as made), so the kid's own screens disagreed with the authority on that tile. When an edit can change what a tile *is* for a rule (walkable, water, encounter), grep every reader of the generated tile for that rule and route the player's own through `editedTileAt`.
+- **A list order taken from the catalog, not the land.** The visit sorted the shop by catalog order, so The Arctic listed its dearest tools first. When a list moves from one owner (the catalog) to many (lands), its order must come from the new owner.
+
+To become `[learned]`: a line in [[DEVELOPMENT]] § Testing ideology saying a search whose step can move many tiles gets a test near its limit against a slow reference.
