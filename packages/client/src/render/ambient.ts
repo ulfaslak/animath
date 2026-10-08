@@ -1,4 +1,4 @@
-import { Rng, isWater, tileAtWorld } from '@mathgame/engine';
+import { Rng, isWater, landOfSeed, tileAtWorld } from '@mathgame/engine';
 import * as THREE from 'three';
 import { motion } from '../motion';
 import { BUTTERFLY_COLORS, COLORS } from './palette';
@@ -19,7 +19,7 @@ import { groundTop } from './tiles';
  * With reduced motion there are fewer, slower, and their wings beat slower
  * and shallower; one no longer wanted flies off screen before it goes.
  * "Off screen" is measured against the camera's own view, so it holds at
- * any width.
+ * any width. The Arctic has none: no butterfly flies over the snow.
  */
 
 const COUNT = 6;
@@ -60,6 +60,8 @@ export class Butterflies {
 	private flock: Butterfly[] = [];
 	private rng = new Rng(20260926);
 	private seed = 0;
+	/** The world on screen is The Arctic's, where no butterfly flies. */
+	private cold = false;
 	private made = 0;
 	/** Where the view's middle was last frame; null until the world has been drawn. */
 	private last: { x: number; z: number } | null = null;
@@ -76,6 +78,7 @@ export class Butterflies {
 	/** The world they fly over, for the ground's height and where land is. */
 	setWorld(seed: number): void {
 		this.seed = seed;
+		this.cold = landOfSeed(seed) === 'arctic';
 		for (const b of this.flock) this.scene.remove(b.group);
 		this.flock = [];
 		this.last = null;
@@ -86,7 +89,7 @@ export class Butterflies {
 	 * already aimed there for this frame; `dt` and `t` are seconds.
 	 */
 	update(centre: { x: number; z: number }, dt: number, t: number): void {
-		const wanted = motion.reduced ? REDUCED_COUNT : COUNT;
+		const wanted = this.cold ? 0 : motion.reduced ? REDUCED_COUNT : COUNT;
 		const last = this.last;
 		const jumped = !last || Math.hypot(centre.x - last.x, centre.z - last.z) > JUMP;
 		if (jumped) this.heading.set(0, 0);

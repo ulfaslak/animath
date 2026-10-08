@@ -85,6 +85,21 @@ Each biome has its own ground and tall grass (`BIOME_LOOK` in `palette.ts`), so 
 | Mountain | `#a6b88f` | `#7b9b5a` / `#587d3c`   | Grey-green turf with pebbles (`#97928c`), too small to look like a rock that blocks; boulder fields, a big boulder with smaller ones round it; snow on the peaks. |
 | Sea      | deep water `#3f9fdc` | none; the shallows' `#5ec8f2` in a battle's crests of waves | Nothing grows. In a battle, the deep water's surface over the animals' feet, and a sandy shore far behind. |
 
+**The Arctic** (#191 step 4) keeps the grammar in snow: every land biome's ground is a cool snow white of its own shade, and its tall grass is deep snow, a patch bluer than the snow round it, heaped with white drifts (`#fbfdff`) where Nordland's stands with blades. No butterflies fly there. The trainer, and every other trainer there, wears the warm hat (below).
+
+| Biome (pole) | Ground | Deep snow | What else grows or lies about |
+| ------------ | ------ | --------- | ----------------------------- |
+| Tundra (N)   | snow `#eef4f8` | `#d6e5f0` | Now and then a tuft of dry grass (`#c8b77a`) poking out of the snow; a stray rock or ice block. |
+| Taiga (N)    | `#e3eeea`, a little green under the trees | `#c9dedb` | Spruces: two tiers of a dark blue-green (`#23604c` / `#2a6b55` / `#1f5a4a`) with snow on the tip, never Nordland's one-cone pines. |
+| Fell (N)     | `#e1e6ec`, greyer | `#c8d3df` | Cold dark boulders (`#77747d` / `#8f8c95` on ground `#9b99a1`), standing taller, capped with snow; ice blocks. |
+| Bird cliffs (N) | `#e9eef0` | `#d0dde6` | Rock along the shore, tall and capped with snow, as the fell's. |
+| Frozen lake (N), sea ice (both) | the ice, `#aee4f4`; snowdrifts `#f3f7fa` | the sea ice's drifts, `#d6e5f0` | Streaks of shine (`#f4fcff`) across the ice, so it looks slippery; it sits a step below the snow and above the water. Fishing holes: a dark round of water (`#1f5f8f`) with a rim of snow lumps. Ice blocks: a glassy blue (`#9fd8f2`) block with a paler top (`#e3f6fd`), often a small one beside it, on snow, on the ice or afloat. |
+| Arctic Ocean (N), Southern Ocean (S) | the polar shallows `#4a9fd0`, deep water `#2f78b4` | none | Darker and colder than Nordland's water; ice blocks afloat. |
+| Ice sheet (S) | `#f6f9fc`, the brightest | `#dde8f2`, sparse | Nearly lifeless: a nunatak's rocks, a few ice blocks. |
+| Rookery (S)  | `#e4e2dd`, a warmer grey-white | `#d2d6db` | Pebbles (`#8d8a86`) and rock along the coast. |
+
+The witch doctor's tent looks the same in every land, on snow in The Arctic. **The warm hat**: a knitted hat in the colour of the trainer's own cap, a thick off-white cuff, flaps over the ears and an off-white bobble on top, in place of the cap (`warmHat` in `animals.ts`); every trainer wears it in The Arctic (the land's `warm-hat` look), so a friend still reads by their colours. A tile of a slide is drawn at an even pace, feet together, with no hop: the trainer glides.
+
 Colour is never the only signal: a wrong answer also shakes, a low HP bar also shows a number (a stack's slim bar of all its animals' HP, the count of them tired soon, "3 tired soon").
 
 ## Typography

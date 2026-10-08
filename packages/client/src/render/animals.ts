@@ -1785,11 +1785,11 @@ function warmHat(colour: number): THREE.Object3D[] {
 	const bobble = new THREE.IcosahedronGeometry(0.055, 0);
 	const white = COLORS.white;
 	return [
-		part(crown, colour, 0, 0.665, 0),
-		box(0.27, 0.06, 0.25, white, 0, 0.675, 0),
+		part(crown, colour, 0, 0.7, 0),
+		box(0.28, 0.07, 0.26, white, 0, 0.69, 0),
 		box(0.04, 0.1, 0.09, colour, -0.13, 0.6, 0),
 		box(0.04, 0.1, 0.09, colour, 0.13, 0.6, 0),
-		part(bobble, white, 0, 0.83, 0)
+		part(bobble, white, 0, 0.865, 0)
 	];
 }
 

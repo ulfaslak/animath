@@ -3699,14 +3699,22 @@ describe('LocalAuthority: lands, from the adversarial review of #196', () => {
 
 	it("a tile cleared in one land keeps every land's cleared tiles within the one budget, and a reload changes nothing", () => {
 		// Nordland 1 left behind holds nearly the whole budget; then a tree is chopped in Arktis 1.
-		let big = WorldEdits.none;
-		outer: for (let y = 0; y < 2000; y++) {
-			for (let x = 0; x < 2000; x++) {
-				const next = big.with({ x, y });
-				if (length(next.encode()) > EDITS_BUDGET - 5) break outer;
-				big = next;
-			}
+		// The most tiles, row by row from (0, 0), whose text stays within the budget less 5: found by
+		// halving, since growing it a tile at a time and writing it out each time took most of a minute
+		// on a busy machine.
+		const firstTiles = (n: number) => {
+			const tiles: GridPos[] = [];
+			for (let i = 0; i < n; i++) tiles.push({ x: i % 2000, y: Math.floor(i / 2000) });
+			return tiles.reduce((e, p) => e.with(p), WorldEdits.none);
+		};
+		let [fits, over] = [0, 1];
+		while (length(firstTiles(over).encode()) <= EDITS_BUDGET - 5) [fits, over] = [over, over * 2];
+		while (over - fits > 1) {
+			const mid = Math.floor((fits + over) / 2);
+			if (length(firstTiles(mid).encode()) <= EDITS_BUDGET - 5) fits = mid;
+			else over = mid;
 		}
+		const big = firstTiles(fits);
 		const seed = landSeed('arctic', 1);
 		let at: GridPos | null = null;
 		for (let y = -50; y < 50 && !at; y++) {
