@@ -101,8 +101,9 @@ function thermometerText(how: number, a: number, b: number): string {
 
 /** How long passes on a clock: "2 hours", "45 minutes", "1 hour and 20 minutes". */
 function duration(hours: number, minutes: number): string {
-	const h = t('puzzle.ask.clock.hours', { count: hours });
-	const m = t('puzzle.ask.clock.minutes', { count: minutes });
+	// A number and its unit stay on one line: "2 timer", never "2" at a line's end.
+	const h = t('puzzle.ask.clock.hours', { count: hours }).replace(' ', '\u00a0');
+	const m = t('puzzle.ask.clock.minutes', { count: minutes }).replace(' ', '\u00a0');
 	if (minutes === 0) return h;
 	if (hours === 0) return m;
 	return t('puzzle.ask.clock.both', { hours: h, minutes: m });

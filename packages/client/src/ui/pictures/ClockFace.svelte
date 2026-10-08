@@ -35,10 +35,6 @@
 			class:five={k % 5 === 0}
 		/>
 	{/each}
-	{#each Array.from({ length: 12 }, (_, k) => k + 1) as hour (hour)}
-		{@const p = at(hour * 30, R - 36)}
-		<text x={p.x} y={p.y} class="hour">{hour}</text>
-	{/each}
 	<line x1="0" y1="0" x2={at(hourAngle, 50).x} y2={at(hourAngle, 50).y} class="hand hour-hand" />
 	<line
 		x1="0"
@@ -47,6 +43,11 @@
 		y2={at(minuteAngle, 80).y}
 		class="hand minute-hand"
 	/>
+	<!-- The numbers over the hands, haloed, so a hand never hides one. -->
+	{#each Array.from({ length: 12 }, (_, k) => k + 1) as hour (hour)}
+		{@const p = at(hour * 30, R - 37)}
+		<text x={p.x} y={p.y} class="hour">{hour}</text>
+	{/each}
 	<circle r="6" class="pin" />
 </svg>
 
@@ -70,7 +71,11 @@
 	}
 	.hour {
 		font-weight: 800;
-		font-size: 22px;
+		font-size: 20px;
+		paint-order: stroke;
+		stroke: #ffffff;
+		stroke-width: 5px;
+		stroke-linejoin: round;
 		text-anchor: middle;
 		dominant-baseline: central;
 		fill: var(--panel-ink);

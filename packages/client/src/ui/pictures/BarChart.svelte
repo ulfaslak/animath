@@ -23,8 +23,8 @@
 	const TOP = 12;
 	const BOTTOM = 214;
 	const step = $derived((BOTTOM - TOP) / lines);
-	/** Every line numbered while they are far enough apart for the numbers; else every other. */
-	const every = $derived(step >= 20 ? 1 : 2);
+	/** Every line numbered while they are far enough apart for the numbers (up to 8 lines); else every other. */
+	const every = $derived(step >= 24 ? 1 : 2);
 	const slot = $derived((RIGHT - LEFT) / Math.max(1, bars));
 	function y(v: number): number {
 		return BOTTOM - (v / scale) * step;
@@ -69,7 +69,7 @@
 	}
 	.number {
 		font-weight: 800;
-		font-size: 18px;
+		font-size: 22px;
 		text-anchor: end;
 		dominant-baseline: central;
 		fill: var(--panel-ink);

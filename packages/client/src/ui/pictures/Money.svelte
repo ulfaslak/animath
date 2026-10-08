@@ -18,8 +18,8 @@
 		y: number;
 	}
 
-	const NOTE = { w: 92, h: 48, gap: 8 };
-	const WIDTH = 300;
+	const NOTE = { w: 100, h: 50, gap: 8 };
+	const WIDTH = 208;
 
 	/** Every coin and note, laid out: notes in rows, then coins in rows, left to right. */
 	const laid = $derived.by(() => {
@@ -64,8 +64,8 @@
 			<g transform="translate({piece.x} {piece.y})" class="note n{piece.value}">
 				<rect width={NOTE.w} height={NOTE.h} rx="6" class="paper" />
 				<rect x="5" y="5" width={NOTE.w - 10} height={NOTE.h - 10} rx="4" class="inset" />
-				<text x={NOTE.w / 2 - 6} y={NOTE.h / 2} class="value">{piece.value}</text>
-				<text x={NOTE.w - 9} y={NOTE.h / 2 + 4} class="unit">{t('puzzle.picture.kr')}</text>
+				<text x="12" y={NOTE.h / 2} class="value left">{piece.value}</text>
+				<text x={NOTE.w - 10} y={NOTE.h / 2 + 5} class="unit">{t('puzzle.picture.kr')}</text>
 			</g>
 		{:else}
 			<g transform="translate({piece.x} {piece.y})" class="coin" class:gold={piece.value >= 10}>
@@ -111,9 +111,12 @@
 		dominant-baseline: central;
 		fill: var(--panel-ink);
 	}
+	.value.left {
+		text-anchor: start;
+	}
 	.unit {
 		font-weight: 800;
-		font-size: 18px;
+		font-size: 20px;
 		text-anchor: end;
 		fill: var(--panel-ink);
 	}

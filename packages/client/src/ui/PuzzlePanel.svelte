@@ -181,12 +181,16 @@
 	.picture-slot {
 		flex: 0 1 auto;
 		height: 100%;
-		aspect-ratio: 6 / 5;
-		max-width: 42%;
+		aspect-ratio: 3 / 2;
+		max-width: 45%;
 		min-width: 0;
 		display: flex;
 		align-items: center;
 		justify-content: center;
+	}
+	/* Beside the pad, the question needs the room more than the picture does. */
+	.with-pad.pictured .picture-slot {
+		max-width: 36%;
 	}
 	.pictured .question {
 		display: flex;
@@ -220,6 +224,26 @@
 	}
 	.ghost {
 		opacity: 0.3;
+	}
+	/*
+	 * A phone held sideways: the card is 220 px tall, so the question is a
+	 * size smaller and the reminder goes (the pad's OK, the box's "--:--" and
+	 * its colon key say how to answer), and nothing spills out of the card.
+	 */
+	@media (max-height: 560px) {
+		.ask {
+			font-size: 16px;
+			line-height: 1.25;
+		}
+		.pictured .question {
+			gap: 6px;
+		}
+		.pictured .foot .keys {
+			display: none;
+		}
+		.with-pad.pictured .picture-slot {
+			max-width: 26%;
+		}
 	}
 	/* The token sum's story: what the numbers are, over them. */
 	.story {

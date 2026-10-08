@@ -16,16 +16,15 @@
 	const start = $derived(numbers[1] ?? 0);
 	const other = $derived(numbers[2] ?? 0);
 	const turn = $derived(how === THERMOMETER.colder || how === THERMOMETER.warmer);
-	/** How far the scale reaches either side of 0: a ten past every temperature in the question. */
-	const reach = $derived(
-		Math.max(
-			10,
-			10 *
-				Math.ceil(
-					(turn ? Math.abs(start) + other : Math.max(Math.abs(start), Math.abs(other))) / 10
-				)
-		)
+	/**
+	 * How far the scale reaches either side of 0: the next ten up from the
+	 * temperatures read (after a change, where it ends: a scale of tens gives
+	 * no more of that away than that it is on the thermometer).
+	 */
+	const end = $derived(
+		how === THERMOMETER.colder ? start - other : how === THERMOMETER.warmer ? start + other : other
 	);
+	const reach = $derived(Math.max(10, 10 * Math.ceil(Math.max(Math.abs(start), Math.abs(end)) / 10)));
 	/** A tick every degree up to 20, every two beyond; a number every 5 up to 10, every 10 beyond. */
 	const minor = $derived(reach <= 20 ? 1 : 2);
 	const label = $derived(reach <= 10 ? 5 : 10);
@@ -42,7 +41,7 @@
 	const down = $derived(how === THERMOMETER.colder);
 </script>
 
-<svg viewBox="0 0 180 220" class="picture" aria-hidden="true">
+<svg viewBox="0 0 200 220" class="picture" aria-hidden="true">
 	<!-- Cold below 0 and warm above it, faintly. -->
 	<rect x={TUBE_X - 14} y={y(0)} width="28" height={y(-reach) - y(0)} rx="4" class="cold" />
 	<rect x={TUBE_X - 14} y={y(reach)} width="28" height={y(0) - y(reach)} rx="4" class="warm" />
@@ -72,7 +71,7 @@
 	/>
 	{#if turn}
 		<!-- Colder or warmer: which way, and by how much, never where it ends. -->
-		<g transform="translate(140 {y(start)})">
+		<g transform="translate(168 {y(start)})">
 			<line x1="0" y1="0" x2="0" y2={down ? 46 : -46} class="arrow" class:down />
 			<polygon points={down ? '-9,40 9,40 0,54' : '-9,-40 9,-40 0,-54'} class="head" class:down />
 			<text x="0" y={down ? -10 : 22} class="change">{down ? '−' : '+'}{other}°</text>
@@ -117,7 +116,7 @@
 	}
 	.degrees {
 		font-weight: 800;
-		font-size: 18px;
+		font-size: 20px;
 		dominant-baseline: central;
 		fill: var(--panel-ink);
 	}
@@ -132,7 +131,7 @@
 	}
 	.mark {
 		font-weight: 800;
-		font-size: 18px;
+		font-size: 20px;
 		text-anchor: end;
 		dominant-baseline: central;
 		fill: var(--panel-ink);
@@ -156,7 +155,7 @@
 	}
 	.change {
 		font-weight: 800;
-		font-size: 18px;
+		font-size: 20px;
 		text-anchor: middle;
 		dominant-baseline: central;
 		fill: var(--panel-ink);
