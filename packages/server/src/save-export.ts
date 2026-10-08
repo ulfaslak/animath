@@ -1,4 +1,12 @@
-import { nameKey, readSave, saveLineage, saveSeq, type AnimalInstance } from '@mathgame/engine';
+import {
+	getLand,
+	isLandId,
+	nameKey,
+	readSave,
+	saveLineage,
+	saveSeq,
+	type AnimalInstance
+} from '@mathgame/engine';
 import { existsSync } from 'node:fs';
 import { chmod, mkdir, writeFile } from 'node:fs/promises';
 import { homedir } from 'node:os';
@@ -152,10 +160,17 @@ export function describeSave(doc: unknown, savedAt?: Date): string {
 	}
 	const save = read.save;
 	const items = save.items?.length ? save.items.join(', ') : 'no tools';
+	const land = save.land ?? 'nordland';
+	const money =
+		isLandId(land) && getLand(land).currency === 'ice-dollars' ? 'ice dollars' : 'tokens';
+	// The lands left behind keep their own teams: an empty team here may be a first arrival.
+	const left = (save.lands ?? [])
+		.map((l) => `; in ${l.land} ${l.party.length} animals (${kinds(l.party)})`)
+		.join('');
 	return (
-		`${save.name ?? '(no name)'}: ${save.party.length} animals (${kinds(save.party)}), ` +
-		`${save.tokens ?? 0} tokens, ${items}, World ${save.world} at ${save.pos.x},${save.pos.y}, ` +
-		`seq ${save.seq ?? 0}${saved}`
+		`${save.name ?? '(no name)'}: in ${land} ${save.party.length} animals (${kinds(save.party)}), ` +
+		`${save.tokens ?? 0} ${money}, ${items}, World ${save.world} at ${save.pos.x},${save.pos.y}` +
+		`${left}, seq ${save.seq ?? 0}${saved}`
 	);
 }
 

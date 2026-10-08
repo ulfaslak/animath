@@ -159,7 +159,11 @@ export class PlaneController {
 	}
 }
 
-/** Whether a tile of the world of `seed` is ground a plane can sit on: walkable, never water, a tree or a rock. */
+/**
+ * Whether a tile of the world of `seed`, as it was made, is ground a plane
+ * can sit on: walkable, never water, a tree or a rock. As made, not as the
+ * kid cleared it, so every page that sees the plane parks it on one spot.
+ */
 function groundAt(seed: number): (x: number, y: number) => boolean {
 	return (x, y) => isWalkable(tileAtWorld(seed, x, y).kind);
 }

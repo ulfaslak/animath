@@ -1052,3 +1052,7 @@ To become `[learned]`: a line in [[DEVELOPMENT]] § Testing ideology saying a se
 - **A view copied state at a beat and missed an event that came after it.** The doctor's card took `unlocked` from the visit's state, but a hand-over's unlock arrives as a separate `unlocked-changed` after that state. When a view shows a value that two events can change, listen to both.
 - **A hook assumed its action always works.** Escape on the starters closed them before asking the witch doctor, so with no tent ahead it flickered and did nothing. Close the old screen only once the new one has come.
 - **A test harness built the wrong land's party** (`players.mts` gave Nordland an Arctic fox): seen only because a friend's follower looked wrong in a frame. Read the frames of the harness's own setup, not only the feature under test.
+
+### 2026-10-08 — #191 step 7 opening The Arctic (feat/arctic-open, PR #210), adversarial review — a state only throwaway games could reach became reachable by real saves
+
+- **A save with no animal** (a first arrival before the starter pick) was possible only in `?lands` games, saved nowhere, until The Arctic opened; then the title's confirm (which named the lead) and the admin's save line ("0 animals") met it. When a switch turns a dev-only path on for real players, list the states only that path made, and walk each through every screen and tool that reads a save (title, Continue, admin export, error reports).

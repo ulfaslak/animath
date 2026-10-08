@@ -1854,6 +1854,8 @@ title:
     away: Dit spil med {animal.the} bliver gemt godt væk.
     # Instead of `away`, on a page that keeps nothing (no storage, or a write that failed).
     notKept: Dit spil med {animal.the} kan ikke gemmes på denne side.
+    awayNoAnimal: Dit gemte spil bliver gemt godt væk.
+    notKeptNoAnimal: Dit gemte spil kan ikke gemmes på denne side.
     fresh: Du starter forfra med et nyt dyr.
     back: Nej, tilbage
     yes: Ja, nyt spil

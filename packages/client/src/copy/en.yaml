@@ -2114,6 +2114,9 @@ title:
     away: Your game with {animal.the} is put away safely.
     # Instead of `away`, on a page that keeps nothing (no storage, or a write that failed).
     notKept: Your game with {animal.the} can't be kept on this page.
+    # The same for a game with no animal yet (just come to a new land, before picking one).
+    awayNoAnimal: Your saved game is put away safely.
+    notKeptNoAnimal: Your saved game can't be kept on this page.
     fresh: You start again with a new animal.
     back: No, go back
     yes: Yes, new game

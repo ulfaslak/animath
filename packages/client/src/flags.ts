@@ -75,8 +75,7 @@ export interface Flags {
 	land: LandId | null;
 	/**
 	 * `?puzzle=clock&d=5`: the puzzle preview instead of the game (`preview/`),
-	 * for looking at a kind of puzzle at a difficulty, the Arctic's above all,
-	 * which nothing in the game asks yet. The kind is any the engine has
+	 * for looking at a kind of puzzle at a difficulty, the Arctic's above all. The kind is any the engine has
 	 * (the first picture kind when unknown or left out), `d` 1 to 10 (1 when
 	 * left out). The game never starts behind it: nothing is loaded or saved.
 	 */

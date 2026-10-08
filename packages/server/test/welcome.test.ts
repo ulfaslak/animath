@@ -133,7 +133,7 @@ describe('import-save', () => {
 		const { token, lines } = await imported(name);
 		expect(lines[0]).toContain(`Made the account ${name}, with no password yet`);
 		expect(lines[0]).toContain(
-			'4 animals (whale, frog ×2, rabbit "nini"), 6 tokens, axe, boat, pickaxe'
+			'in nordland 4 animals (whale, frog ×2, rabbit "nini"), 6 tokens, axe, boat, pickaxe'
 		);
 		expect(lines.at(-1)).toBe(`http://localhost:5199/#welcome=${token}`);
 		expect(token).toMatch(/^[A-Za-z0-9_-]{43}$/);
@@ -502,7 +502,7 @@ describe('export-local-save', () => {
 		const summary = lines.at(-1)!;
 		expect(summary).toMatch(
 			new RegExp(
-				`^${name}: 4 animals \\(whale, frog ×2, rabbit "nini"\\), 6 tokens, axe, boat, pickaxe, World 1 at -40,-1000, seq 24614, saved \\d{4}-\\d\\d-\\d\\d \\d\\d:\\d\\d:\\d\\d UTC → `
+				`^${name}: in nordland 4 animals \\(whale, frog ×2, rabbit "nini"\\), 6 tokens, axe, boat, pickaxe, World 1 at -40,-1000, seq 24614, saved \\d{4}-\\d\\d-\\d\\d \\d\\d:\\d\\d:\\d\\d UTC → `
 			)
 		);
 		expect(summary.endsWith(` → ${file}`)).toBe(true);

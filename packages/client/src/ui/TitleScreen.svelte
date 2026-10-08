@@ -268,15 +268,20 @@
 			{/if}
 		</div>
 
-		{#if title.screen === 'confirm' && lead}
+		<!-- A game with no animal (a first arrival in a land, before its starter) has no lead to name. -->
+		{#if title.screen === 'confirm'}
 			<div class="shade">
 				<div class="card confirm">
 					<div class="heading">{t('title.confirm.title')}</div>
 					<p>
 						{#if title.keeps}
-							{t('title.confirm.away', { animal: animalWords(lead) })}
+							{lead
+								? t('title.confirm.away', { animal: animalWords(lead) })
+								: t('title.confirm.awayNoAnimal')}
 						{:else}
-							{t('title.confirm.notKept', { animal: animalWords(lead) })}
+							{lead
+								? t('title.confirm.notKept', { animal: animalWords(lead) })
+								: t('title.confirm.notKeptNoAnimal')}
 						{/if}
 					</p>
 					<p>{t('title.confirm.fresh')}</p>
