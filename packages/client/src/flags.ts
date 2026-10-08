@@ -7,8 +7,10 @@ import {
 	MIN_DIFFICULTY,
 	PICTURE_KINDS,
 	isItemId,
+	isLandId,
 	type AnimalInstance,
 	type ItemId,
+	type LandId,
 	type PuzzleKind
 } from '@mathgame/engine';
 import type { LocalAuthorityOptions } from './authority/local';
@@ -64,6 +66,14 @@ export interface Flags {
 	 */
 	lands: boolean;
 	/**
+	 * `?land=arctic`: start in that land instead of Nordland, every land open
+	 * and unlocked as with `?lands`, in a throwaway game: with `?party=`, the
+	 * party is that land's, for looking at its animals at home (healing them
+	 * at its witch doctor, its page of the animal book). `null` without the
+	 * switch, or with a land this build lacks.
+	 */
+	land: LandId | null;
+	/**
 	 * `?puzzle=clock&d=5`: the puzzle preview instead of the game (`preview/`),
 	 * for looking at a kind of puzzle at a difficulty, the Arctic's above all,
 	 * which nothing in the game asks yet. The kind is any the engine has
@@ -72,7 +82,7 @@ export interface Flags {
 	 */
 	puzzle: PuzzlePreview | null;
 	/**
-	 * `?new`, `?party=`, `?zoo`, `?tokens=`, `?shop`, `?items=` or `?lands`: a throwaway game,
+	 * `?new`, `?party=`, `?zoo`, `?tokens=`, `?shop`, `?items=`, `?lands` or `?land=`: a throwaway game,
 	 * straight into explore without the title. Nothing is loaded or saved, so
 	 * a look at a screen never touches a kid's game.
 	 */
@@ -87,7 +97,8 @@ export function readFlags(search: string): Flags {
 	const tokens = parseTokens(params.get('tokens'));
 	const shop = params.has('shop') ? [...ITEM_IDS] : null;
 	const items = parseItems(params.get('items'));
-	const lands = params.has('lands');
+	const land = parseLand(params.get('land'));
+	const lands = params.has('lands') || land !== null;
 	return {
 		zoo,
 		puzzle: params.has('puzzle') ? parsePuzzlePreview(params.get('puzzle'), params.get('d')) : null,
@@ -99,6 +110,7 @@ export function readFlags(search: string): Flags {
 		shop,
 		items,
 		lands,
+		land,
 		throwaway:
 			fresh ||
 			party !== null ||
@@ -123,8 +135,14 @@ export function authorityOptions(flags: Flags): LocalAuthorityOptions {
 		shop: flags.shop ?? undefined,
 		items: flags.items ?? undefined,
 		lands: flags.lands || undefined,
+		land: flags.land ?? undefined,
 		homeWorld: flags.throwaway ? () => FIRST_WORLD : undefined
 	};
+}
+
+/** The land `?land=` names, or null for none or one this build lacks. */
+export function parseLand(text: string | null): LandId | null {
+	return isLandId(text) ? text : null;
 }
 
 /** The puzzle preview's kind and difficulty (`?puzzle=`, `?d=`). */
