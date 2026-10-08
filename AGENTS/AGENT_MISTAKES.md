@@ -1060,3 +1060,7 @@ To become `[learned]`: a line in [[DEVELOPMENT]] § Testing ideology saying a se
 ### 2026-10-08 — #191 step 7 on prod (fix/doctor-banknotes) — a component's class name met another's `:global` rule
 
 - **The kroner picture's banknotes were hidden at the witch doctor's.** `Money.svelte` drew each note as `g.note`; `DoctorCard.svelte` hides `:global(.note)` (its help line) in a picture puzzle. The fare showed 32 kroner of 82, and a right count of the picture was judged wrong. Only a prod journey with a kroner fare found it: unit tests never render the card, and earlier frames had no note. A `:global(.x)` rule reaches every descendant: give a picture's parts names no card styles (`picture-classes.test.ts` now checks), and read a frame of every picture kind in every place it shows (battle, the witch doctor's heal and fare).
+
+### 2026-10-08 — Arctic rough edges (fix/arctic-rough-edges, PR #212), self-testing — a compact layout broke a design floor
+
+- **Shrinking text to fit a phone went under the 16 px floor** ([[DESIGN]] § Typography, `text-size.test.ts`). When a layout gets tight, shrink spacing, the heading and the 3D first, never body text under the floor; run the client suite, not only the tests of the file changed, before the first push.
