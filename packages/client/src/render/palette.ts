@@ -353,5 +353,21 @@ export const ANIMAL_COLORS: Record<string, { fur: number; accent: number }> = {
 	raven: { fur: 0x1f2028, accent: 0x3d4560 },
 	'barnacle-goose': { fur: 0x9298a0, accent: 0x1f1f24 },
 	'gentoo-penguin': { fur: 0x2a2e36, accent: 0xf2662a },
-	chinstrap: { fur: 0x2a2c33, accent: 0xeba7a0 }
+	chinstrap: { fur: 0x2a2c33, accent: 0xeba7a0 },
+	// Its big ones (#192 wave 2). The Arctic wolf cream white where Nordland's wolf is grey, the
+	// reindeer grey-brown where the red deer is red, and the polar bear yellowish white where
+	// the bear is brown, so the book's two pages never show one animal twice. The king
+	// penguin's orange is vivid, the emperor's a pale yellow wash: its tell beside the king.
+	reindeer: { fur: 0x8b7c6a, accent: 0xd8c6a2 },
+	'snowy-owl': { fur: 0xfbfaf5, accent: 0xf2c230 },
+	'great-grey-owl': { fur: 0x8d8f93, accent: 0xc4c6c9 },
+	'glaucous-gull': { fur: 0xfbfbf8, accent: 0xc6d0d8 },
+	'giant-petrel': { fur: 0x6e665d, accent: 0xe6d29a },
+	'king-penguin': { fur: 0x2e3440, accent: 0xff8a12 },
+	'arctic-wolf': { fur: 0xf1ece0, accent: 0xd3cab6 },
+	gyrfalcon: { fur: 0xeef0f0, accent: 0xe0b23a },
+	'emperor-penguin': { fur: 0x2a2f3a, accent: 0xf3e2a0 },
+	albatross: { fur: 0xfbfbf8, accent: 0xf0a3a0 },
+	'polar-bear': { fur: 0xf3ecd8, accent: 0x1f1f24 },
+	'musk-ox': { fur: 0x3b2c22, accent: 0xd9ccb0 }
 };

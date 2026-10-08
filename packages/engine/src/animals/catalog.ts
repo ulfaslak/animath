@@ -897,7 +897,14 @@ export const ANIMALS: readonly AnimalSpec[] = [
 		maxHp: 70,
 		catchRate: 0.7,
 		habitats: ['bird-cliffs', 'tundra', 'arctic-ice', 'antarctic-ice'],
-		skies: ['bird-cliffs', 'tundra', 'arctic-ice', 'antarctic-ice', 'arctic-ocean', 'southern-ocean'],
+		skies: [
+			'bird-cliffs',
+			'tundra',
+			'arctic-ice',
+			'antarctic-ice',
+			'arctic-ocean',
+			'southern-ocean'
+		],
 		realms: ['land', 'air'],
 		favours: 'water',
 		attacks: [

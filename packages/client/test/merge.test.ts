@@ -320,9 +320,9 @@ describe('a figure drawn in one go measures as its parts did', () => {
 				expect(far, `${figure.name} ${name}`).toBeLessThanOrEqual(sphere.radius);
 			}
 		}
-		// Nordland's eight birds and The Arctic's nine (#192), the wolf's tail, the octopus's arms,
-		// the stag beetle's jaws, the trainer.
-		expect(skinned).toBe(21);
+		// Nordland's eight birds and The Arctic's fifteen (#192), the wolf's and the Arctic wolf's
+		// tails, the octopus's arms, the stag beetle's jaws, the trainer.
+		expect(skinned).toBe(28);
 		expect(REACH).toBeGreaterThan(1);
 	});
 });

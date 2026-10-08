@@ -306,7 +306,12 @@ describe('where each species lives', () => {
 		// The big seabirds of #192's second wave over the open sea too, the gyrfalcon over the
 		// tundra where it hunts ptarmigan.
 		expect(skiesOf(getAnimal('albatross'))).toEqual(['rookery', 'southern-ocean']);
-		expect(skiesOf(getAnimal('gyrfalcon'))).toEqual(['fell', 'bird-cliffs', 'arctic-ice', 'tundra']);
+		expect(skiesOf(getAnimal('gyrfalcon'))).toEqual([
+			'fell',
+			'bird-cliffs',
+			'arctic-ice',
+			'tundra'
+		]);
 		expect(ANIMALS.filter((a) => a.skies !== undefined).map((a) => a.id)).toEqual([
 			'white-tailed-eagle',
 			'puffin',
