@@ -2123,6 +2123,33 @@ describe('the fishing holes (#192 § Fishing holes)', () => {
 			for (const id of hookable(ice)) expect(getAnimal(id).habitats, id).toContain(sea);
 	});
 
+	it("shares the bell among the hole's own animals alone: a penguin that swims there takes no fish's share", () => {
+		// From the wild radius a tier k from the lead weighs e^(−k²/2) whichever side, and a tier's
+		// animals split it evenly; only the tiers living under that ice share the table.
+		const bad: string[] = [];
+		for (const ice of ['frozen-lake', 'arctic-ice', 'antarctic-ice'] as const) {
+			for (const lead of LEADS) {
+				const table = holeTable(ice, WILD_RADIUS, lead);
+				const count = new Map<number, number>();
+				for (const e of table) count.set(e.species.tier, (count.get(e.species.tier) ?? 0) + 1);
+				const bell = (t: number) => Math.exp(-((t - lead) ** 2) / 2);
+				const total = [...count.keys()].reduce((s, t) => s + bell(t), 0);
+				for (const e of table) {
+					const want = bell(e.species.tier) / total / count.get(e.species.tier)!;
+					if (Math.abs(e.weight - want) > 1e-12)
+						bad.push(`${ice}, tier-${lead} lead: ${e.species.id} ${e.weight} not ${want}`);
+				}
+			}
+		}
+		expect(bad).toEqual([]);
+		// The Antarctic's sea ice has penguins swimming under it, of tiers 1 and 4.
+		expect(
+			encounterTable('antarctic-ice', WILD_RADIUS, 1, 'water').some((e) =>
+				e.species.realms.includes('land')
+			)
+		).toBe(true);
+	});
+
 	it('an animal of the water alone lives only in the open seas and under the ice', () => {
 		const wet: readonly Biome[] = [
 			'sea',

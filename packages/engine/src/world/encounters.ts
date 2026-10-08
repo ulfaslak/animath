@@ -272,18 +272,21 @@ function assertTier(tier: unknown, where: string): asserts tier is Tier {
  * Only species of `land` are listed (by default the biome's own land), and
  * a visitor only from the biome's place (`livesNear`: the same land and
  * pole). So a biome of one land lists nothing in another: the ground of a
- * land not built yet, laid out as Nordland's, is quiet there.
+ * land not built yet, laid out as Nordland's, is quiet there. `only` narrows
+ * the animals before the bell is shared out, so an animal it leaves out takes
+ * no share of its tier from the others (a fishing hole's, `holeTable`).
  */
 export function encounterTable(
 	biome: Biome,
 	distance: number,
 	leadTier: Tier,
 	realm: Realm = 'land',
-	land: LandId = biomeLand(biome)
+	land: LandId = biomeLand(biome),
+	only: (a: AnimalSpec) => boolean = () => true
 ): EncounterEntry[] {
 	if (!Number.isFinite(distance)) throw new Error(`encounterTable: distance is ${distance}`);
 	assertTier(leadTier, 'encounterTable');
-	const pool = speciesOf(land);
+	const pool = speciesOf(land).filter(only);
 	const lives = (a: AnimalSpec) => livesNear(a, biome, realm);
 	const residents = pool.filter((a) => livesIn(a, biome, realm));
 	// What is left of the visitors' weight here: all of it near home, none from the wild radius.
