@@ -686,6 +686,12 @@ puzzle:
   picture:
     kr: kr.
     missing: '?'
+    marks:
+      circle: cirklen
+      triangle: trekanten
+      square: firkanten
+      star: stjernen
+      heart: hjertet
 
 explore:
   controls: Gå med piletasterne eller WASD

@@ -89,4 +89,11 @@
 	.asked-mark {
 		fill: var(--accent-edge);
 	}
+	/* A phone held sideways draws the bar small: bigger numbers. */
+	@media (max-height: 560px) {
+		.amount,
+		.asked-mark {
+			font-size: 34px;
+		}
+	}
 </style>

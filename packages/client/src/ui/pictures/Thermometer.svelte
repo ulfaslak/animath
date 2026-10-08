@@ -73,7 +73,8 @@
 	/>
 	{#if turn}
 		<!-- Colder or warmer: which way, and by how much, never where it ends. -->
-		<g transform="translate(168 {y(start)})">
+		<!-- Halfway up the tube, whatever the start: it says which way and how much, and stays in the picture. -->
+		<g transform="translate(168 {(TOP + BOTTOM) / 2})">
 			<line x1="0" y1="0" x2="0" y2={down ? 46 : -46} class="arrow" class:down />
 			<polygon points={down ? '-9,40 9,40 0,54' : '-9,-40 9,-40 0,-54'} class="head" class:down />
 			<text x="0" y={down ? -10 : 22} class="change">{down ? '−' : '+'}{other}°</text>

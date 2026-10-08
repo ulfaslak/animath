@@ -80,6 +80,12 @@
 		dominant-baseline: central;
 		fill: var(--panel-ink);
 	}
+	/* A phone held sideways draws the clock small: bigger numbers. */
+	@media (max-height: 560px) {
+		.hour {
+			font-size: 24px;
+		}
+	}
 	.hand {
 		stroke-linecap: round;
 	}

@@ -119,7 +119,7 @@
 		{#each sides as side, i (i)}
 			{#if missing && i === 3}
 				<!-- The left side, the one asked for. -->
-				<circle cx={side.x - 4} cy={side.y} r="14" class="asked" />
+				<circle cx={side.x - 4} cy={side.y} r="20" class="asked" />
 				<text x={side.x - 4} y={side.y} class="length">{t('puzzle.picture.missing')}</text>
 			{:else if !missing || i === 2}
 				<text x={side.x} y={side.y} class="length" class:side={side.vertical}
@@ -169,6 +169,12 @@
 		text-anchor: middle;
 		dominant-baseline: central;
 		fill: var(--panel-ink);
+	}
+	/* A phone held sideways draws the shape small: bigger numbers. */
+	@media (max-height: 560px) {
+		.length {
+			font-size: 34px;
+		}
 	}
 	.asked {
 		fill: var(--accent);

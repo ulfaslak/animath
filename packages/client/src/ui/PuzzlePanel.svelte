@@ -8,7 +8,7 @@
 	} from '@mathgame/engine';
 	import { t } from '../copy';
 	import { shownAnswer } from '../input/answer';
-	import { questionParts } from '../puzzle-words';
+	import { questionParts, questionText } from '../puzzle-words';
 	import PuzzlePicture from './pictures/PuzzlePicture.svelte';
 	import { unfocusable } from '../input/press';
 	import { touch } from '../input/touch.svelte';
@@ -93,13 +93,16 @@
 	<div class="question">
 		{#if story}<div class="story">{story}</div>{/if}
 		{#if parts}
+			<!-- Read aloud whole: a fraction as "3/5", a bar's mark by its name. -->
 			<div class="ask">
-				{#each parts as part, i (i)}{#if 'text' in part}{part.text}{:else if 'fraction' in part}<span
-							class="fraction"
-							><span class="top">{part.fraction[0]}</span><span class="bottom"
-								>{part.fraction[1]}</span
-							></span
-						>{:else}<BarMark index={part.shape} inline />{/if}{/each}
+				<span class="spoken">{questionText(parts)}</span><span aria-hidden="true"
+					>{#each parts as part, i (i)}{#if 'text' in part}{part.text}{:else if 'fraction' in part}<span
+								class="fraction"
+								><span class="top">{part.fraction[0]}</span><span class="bottom"
+									>{part.fraction[1]}</span
+								></span
+							>{:else}<BarMark index={part.shape} inline />{/if}{/each}</span
+				>
 			</div>
 		{:else}
 			<div class="puzzle-prompt" class:long={puzzle.prompt.length > 11}>{puzzle.prompt}</div>
@@ -221,6 +224,15 @@
 	.fraction .top {
 		padding: 0 0.15em;
 		border-bottom: 3px solid currentColor;
+	}
+	/* The question as a screen reader says it, kept off the screen. */
+	.spoken {
+		position: absolute;
+		width: 1px;
+		height: 1px;
+		overflow: hidden;
+		clip-path: inset(50%);
+		white-space: nowrap;
 	}
 	.ghost {
 		opacity: 0.3;

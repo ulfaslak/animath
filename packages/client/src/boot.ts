@@ -54,7 +54,10 @@ function cannotDraw(): void {
 function startGame(): void {
 	// `?puzzle=`: the puzzle preview, a page of its own for looking at puzzles (`flags.ts`), no game behind it.
 	if (new URLSearchParams(location.search).has('puzzle')) {
-		void import('./preview/main');
+		import('./preview/main').catch((error: unknown) => {
+			if (error instanceof SyntaxError) tooOld();
+			throw error;
+		});
 		return;
 	}
 	if (hasWebGL2()) {

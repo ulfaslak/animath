@@ -708,6 +708,13 @@ puzzle:
   picture:
     kr: kr
     missing: '?'
+    # A bar chart's marks, as a screen reader names them in the question.
+    marks:
+      circle: the circle
+      triangle: the triangle
+      square: the square
+      star: the star
+      heart: the heart
 
 explore:
   # Under the latest message for a player's first few moves.

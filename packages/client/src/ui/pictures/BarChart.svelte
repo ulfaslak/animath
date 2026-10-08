@@ -35,7 +35,9 @@
 	{#each Array.from({ length: lines + 1 }, (_, k) => k) as k (k)}
 		<line x1={LEFT} x2={RIGHT} y1={BOTTOM - k * step} y2={BOTTOM - k * step} class="line" />
 		{#if k % every === 0}
-			<text x={LEFT - 8} y={BOTTOM - k * step} class="number">{k * scale}</text>
+			<text x={LEFT - 8} y={BOTTOM - k * step} class="number" class:odd={k % 2 === 1}
+				>{k * scale}</text
+			>
 		{/if}
 	{/each}
 	{#each values as value, i (i)}
@@ -73,6 +75,15 @@
 		text-anchor: end;
 		dominant-baseline: central;
 		fill: var(--panel-ink);
+	}
+	/* A phone held sideways draws the chart small: bigger numbers, every other line's. */
+	@media (max-height: 560px) {
+		.number {
+			font-size: 32px;
+		}
+		.number.odd {
+			display: none;
+		}
 	}
 	.bar {
 		stroke: var(--panel-ink);

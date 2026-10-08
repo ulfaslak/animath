@@ -112,7 +112,6 @@ export function authorityOptions(flags: Flags): LocalAuthorityOptions {
 	};
 }
 
-/** `?items=`: comma-separated item ids, each once; null for none, or for an id the catalog lacks. */
 /** The puzzle preview's kind and difficulty (`?puzzle=`, `?d=`). */
 export interface PuzzlePreview {
 	kind: PuzzleKind;
@@ -128,6 +127,7 @@ export function parsePuzzlePreview(kind: string | null, d: string | null): Puzzl
 	};
 }
 
+/** `?items=`: comma-separated item ids, each once; null for none, or for an id the catalog lacks. */
 export function parseItems(text: string | null): ItemId[] | null {
 	if (text === null) return null;
 	const ids = [...new Set(text.split(',').filter((e) => e !== ''))];

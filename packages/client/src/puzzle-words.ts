@@ -125,7 +125,10 @@ function cut(
 		});
 }
 
-/** The question in plain words, for a screen reader: a fraction as "3/5", a bar by nothing but its place. */
+/**
+ * The question in plain words, for a screen reader (the `.ask` line's
+ * label): a fraction as "3/5", a bar by its mark's name ("the star").
+ */
 export function questionText(parts: readonly QuestionPart[]): string {
 	return parts
 		.map((part) =>
@@ -133,7 +136,23 @@ export function questionText(parts: readonly QuestionPart[]): string {
 				? part.text
 				: 'fraction' in part
 					? `${part.fraction[0]}/${part.fraction[1]}`
-					: `${part.shape + 1}`
+					: markName(part.shape)
 		)
 		.join('');
+}
+
+/** A bar chart's mark by name, in `BAR_MARKS`' order (`ui/pictures/BarMark.svelte`). */
+function markName(index: number): string {
+	switch (index % 5) {
+		case 0:
+			return t('puzzle.picture.marks.circle');
+		case 1:
+			return t('puzzle.picture.marks.triangle');
+		case 2:
+			return t('puzzle.picture.marks.square');
+		case 3:
+			return t('puzzle.picture.marks.star');
+		default:
+			return t('puzzle.picture.marks.heart');
+	}
 }

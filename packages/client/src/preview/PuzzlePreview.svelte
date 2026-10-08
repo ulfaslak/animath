@@ -31,7 +31,8 @@
 		<span class="dial">{kindGlyph(topic)}</span>
 		<button type="button" onpointerdown={key('ArrowDown')} {@attach unfocusable}>▼</button>
 		<button type="button" onpointerdown={key('ArrowLeft')} {@attach unfocusable}>◀</button>
-		<span class="dial">{preview.difficulty}</span>
+		<!-- The difficulty the puzzle was made at: a kind asked below its range is made at its lowest. -->
+		<span class="dial">{preview.puzzle?.difficulty ?? preview.difficulty}</span>
 		<button type="button" onpointerdown={key('ArrowRight')} {@attach unfocusable}>▶</button>
 	</div>
 	<div class="panel" class:wide>
