@@ -157,6 +157,13 @@ export interface LocalAuthorityOptions {
 	 */
 	lands?: boolean;
 	/**
+	 * Start in this land instead of Nordland: the `?land=arctic` URL switch,
+	 * which opens every land as `lands` does, for looking at a land's animals
+	 * at home there (`?party=` is then that land's party), in a game that is
+	 * saved nowhere. Nordland, never visited, has no party of the kid's.
+	 */
+	land?: LandId;
+	/**
 	 * The world a new game from the title starts in, its home: by default one
 	 * picked at random from 2 to 9999, so strangers don't all start in one
 	 * world ([[PRODUCT]] §4 "Starting out"). Tests pin it.
@@ -456,11 +463,16 @@ export class LocalAuthority implements Authority {
 	 * book holds its party.
 	 */
 	private newGame(): SavedGame {
+		const land = this.options.land ?? FIRST_LAND;
+		const started = newGame(FIRST_WORLD, { ...defaultStarter(land), id: mintId() });
 		const game = {
-			...newGame(FIRST_WORLD, { ...defaultStarter(), id: mintId() }),
+			...started,
+			// A throwaway game in another land (`?land=`) starts at that land's spawn.
+			land,
+			pos: land === FIRST_LAND ? started.pos : spawnPoint(landSeed(land, FIRST_WORLD)),
 			tokens: this.options.tokens ?? 0,
 			items: [...(this.options.items ?? [])],
-			unlocked: this.options.lands ? [...LAND_IDS] : [FIRST_LAND]
+			unlocked: this.options.lands || land !== FIRST_LAND ? [...LAND_IDS] : [FIRST_LAND]
 		};
 		// An empty `?party=` is no party: the starter, as without one.
 		if (!this.options.party?.length) return game;
