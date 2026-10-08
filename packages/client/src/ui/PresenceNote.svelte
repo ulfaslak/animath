@@ -6,7 +6,7 @@
 
 	/**
 	 * The little note when someone comes into the player's world or leaves it
-	 * ("Ada is here!", "Bo went home"), or when this window stopped showing
+	 * ("Ada is here!", "Bo went home", "Bo flew away"), or when this window stopped showing
 	 * the player to the others ([[UI_SPEC]] § Explore mode, "Playing
 	 * together"). Only over the explore screen, so it never covers a battle,
 	 * the doctor or the menu; when and which is `presence/notes.ts`. It takes
@@ -24,7 +24,12 @@
 	function words(note: Note): string {
 		if (note.kind === 'elsewhere') return t('presence.elsewhere');
 		const [name = '', other = ''] = note.names;
-		const base = note.kind === 'arrived' ? 'presence.arrived' : 'presence.left';
+		const base =
+			note.kind === 'arrived'
+				? 'presence.arrived'
+				: note.kind === 'flew'
+					? 'presence.flew'
+					: 'presence.left';
 		if (note.names.length === 1) return t(base, { name });
 		if (note.names.length === 2) return t(`${base}Two`, { name, other });
 		return t(`${base}Many`, { name, count: note.names.length - 1 });

@@ -2187,6 +2187,10 @@ presence:
   left: '{name} went home'
   leftTwo: '{name} and {other} went home'
   leftMany: '{name} and {count} more went home'
+  # The same when someone leaves it by plane, to another land.
+  flew: '{name} flew away'
+  flewTwo: '{name} and {other} flew away'
+  flewMany: '{name} and {count} more flew away'
   # Under the names beside an arrow at the edge of the screen, when more than four
   # players are out of sight that way: the first three are named, and this many more.
   arrowMore: '+{count} more'

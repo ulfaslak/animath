@@ -446,6 +446,7 @@ export class PresenceController {
 				if (m.pid === this.connection.pid) break;
 				this.unconfirmed.delete(m.pid);
 				others.seen(m);
+				this.notes.seen(m.name, m.busy === 'plane');
 				this.options.match?.peer(m);
 				break;
 			case 'gone':
@@ -458,7 +459,8 @@ export class PresenceController {
 				presence.roster = players;
 				this.notes.roster(
 					players.map((p) => p.name),
-					now
+					now,
+					players.filter((p) => p.busy === 'plane').map((p) => p.name)
 				);
 				break;
 			}
