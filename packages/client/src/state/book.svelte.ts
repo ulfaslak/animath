@@ -36,15 +36,17 @@ class BookView {
 }
 
 /**
- * The lands with a page in the book, in their order: every land open to
- * players in this build, and the land the kid is in (a throwaway game's
- * `?lands` opens them all). A land not built yet has no page, so the book
- * never shows a kid animals of a land they cannot go to; with one page, no
- * tabs show.
+ * The lands with a page in the book, in their order: every land the kid can
+ * fly to (open to players in this build and unlocked by the kid), and the
+ * land the kid is in (a throwaway game's `?lands` opens them all). A land
+ * not built, or not unlocked yet, has no page, so the book never shows a kid
+ * animals of a land they cannot go to (the witch doctor's Fly tab shows the
+ * way to it); with one page, no tabs show.
  */
-export function bookLands(here: LandId): LandId[] {
-	const open: readonly LandId[] = flags.lands ? LAND_IDS : availableLands();
-	return LAND_IDS.filter((id) => open.includes(id) || id === here);
+export function bookLands(here: LandId, unlocked: readonly string[]): LandId[] {
+	if (flags.lands) return [...LAND_IDS];
+	const open = availableLands();
+	return LAND_IDS.filter((id) => (open.includes(id) && unlocked.includes(id)) || id === here);
 }
 
 export const book = new BookView();

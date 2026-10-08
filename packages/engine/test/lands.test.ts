@@ -77,10 +77,10 @@ describe('the land registry', () => {
 		expect(nordland.look).toBe('bare');
 	});
 
-	it('The Arctic is registered and closed: its first animals, and its own shop', () => {
+	it('The Arctic is registered and open (#191 step 7): its animals, and its own shop', () => {
 		const arctic = getLand('arctic');
-		expect(arctic.available).toBe(false);
-		expect(availableLands()).toEqual(['nordland']);
+		expect(arctic.available).toBe(true);
+		expect(availableLands()).toEqual(['nordland', 'arctic']);
 		// #192's three waves: its small land animals, the three starters first, its big ones, then
 		// its sea and fishing-hole animals, in catalog order.
 		expect(arctic.species).toEqual(ANIMALS.slice(50).map((a) => a.id));
@@ -287,8 +287,11 @@ describe('a flight from the witch doctor', () => {
 		);
 		// Nordland, the first land, is always unlocked.
 		expect(flyRefusal({ here: 'arctic', unlocked: [], open: LAND_IDS }, 'nordland')).toBeNull();
-		// In this build The Arctic is not built: nobody flies there.
-		expect(flyRefusal({ ...trip, open: availableLands() }, 'arctic')).toBe('land-unavailable');
+		// In this build The Arctic is open: a kid who unlocked it flies there, one who has not, not yet.
+		expect(flyRefusal({ ...trip, open: availableLands() }, 'arctic')).toBeNull();
+		expect(flyRefusal({ ...trip, unlocked: ['nordland'], open: availableLands() }, 'arctic')).toBe(
+			'land-locked'
+		);
 	});
 
 	it("asks a fare of the land's own kinds, at the fare's difficulty, a different one after a miss", () => {

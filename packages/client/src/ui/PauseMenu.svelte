@@ -130,7 +130,7 @@
 	const freed = $derived(new Set(game.freed));
 	const onTeam = $derived(new Set(game.party.map((a) => a.speciesId)));
 	/** The lands with a page, a tab each when there are two or more (#191). */
-	const pages = $derived(bookLands(game.land));
+	const pages = $derived(bookLands(game.land, game.unlocked));
 	/** The page open in the book: its land's kinds. The row on the list counts the land the kid is in. */
 	const page = $derived(bookOrder(pause.screen === 'book' ? book.land : game.land));
 	/** How many kinds of `page` are in `kinds`. */

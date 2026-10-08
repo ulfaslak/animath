@@ -15,7 +15,7 @@ import { answerKey } from '../input/answer';
 /**
  * The puzzle preview (`?puzzle=clock&d=5`, `flags.ts`): a page of its own,
  * for a grown-up or an agent to look at any kind of puzzle at any
- * difficulty, the Arctic's above all, which nothing in the game asks yet.
+ * difficulty, the Arctic's above all.
  * Not a screen of the game: no world, no save, no authority. A puzzle comes
  * from the engine's own generator and an answer is judged by the engine's
  * own `checkAnswer`, as the battle's authority judges one; the keys type an

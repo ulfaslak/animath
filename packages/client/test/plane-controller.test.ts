@@ -4,7 +4,7 @@ import { LocalAuthority } from '../src/authority/local';
 import { motion } from '../src/motion';
 import { PLANE_SECONDS, PlaneController } from '../src/plane/controller';
 import type { PlaneOnScreen } from '../src/render/renderer';
-import { CALM_PLANE_SECONDS } from '../src/render/plane';
+import { CALM_PLANE_SECONDS, planeSpot } from '../src/render/plane';
 import { game } from '../src/state/game.svelte';
 import { plane } from '../src/state/plane.svelte';
 import { testStarter } from './minted';
@@ -108,8 +108,9 @@ describe('the plane between lands', () => {
 		const t = setup();
 		t.fly();
 		const at = () => t.drawn.at(-1)!;
-		// Facing the tent below them at (5, 7) from (5, 6): parked a step and a half behind them.
-		expect(at().at).toEqual({ x: 5, y: 4.5 });
+		// Facing the tent below them at (5, 7) from (5, 6): behind them is the reeds' water, so
+		// parked a step and a half to their side, on the grass.
+		expect(at().at).toEqual({ x: 3.5, y: 6 });
 		expect(at().ride).toBe(0);
 		t.run(PLANE_SECONDS.landing + PLANE_SECONDS.boarding / 2);
 		expect(at().ride).toBeGreaterThan(0);
@@ -143,5 +144,22 @@ describe('the plane between lands', () => {
 		expect(plane.show).toBeNull();
 		expect(t.delivered.some((e) => e.type === 'travelled')).toBe(true);
 		expect(game.world).toBe(42);
+	});
+});
+
+describe('where the plane parks', () => {
+	it('behind the kid when that is ground, else to a side that is, else behind all the same', () => {
+		const all = () => true;
+		expect(planeSpot({ x: 0, y: 0 }, 'up', all)).toEqual({ x: 0, z: 1.5, heading: 'right' });
+		expect(planeSpot({ x: 0, y: 0 }, 'left', all)).toEqual({ x: 1.5, z: 0, heading: 'up' });
+		// Water two rows behind (y > 1), under its tail: to the left.
+		const dryAbove = (_x: number, y: number) => y <= 1;
+		expect(planeSpot({ x: 0, y: 0 }, 'up', dryAbove)).toEqual({ x: -1.5, z: 0, heading: 'up' });
+		// Nowhere: behind.
+		expect(planeSpot({ x: 0, y: 0 }, 'up', () => false)).toEqual({
+			x: 0,
+			z: 1.5,
+			heading: 'right'
+		});
 	});
 });

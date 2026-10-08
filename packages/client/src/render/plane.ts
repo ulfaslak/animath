@@ -174,22 +174,55 @@ export function posePlane(
 	if (propeller) propeller.rotation.z = calm ? 0 : t * spin;
 }
 
+/** The ways from a kid a plane can park, by the way they face: behind them first, then to either side. */
+const PARK_WAYS: Readonly<Record<Direction, readonly Direction[]>> = {
+	up: ['down', 'left', 'right'],
+	down: ['up', 'left', 'right'],
+	left: ['right', 'up', 'down'],
+	right: ['left', 'up', 'down']
+};
+const OFFSET: Readonly<Record<Direction, readonly [number, number]>> = {
+	up: [0, -1],
+	down: [0, 1],
+	left: [-1, 0],
+	right: [1, 0]
+};
+
 /**
  * Where a plane parks beside a kid on `pos` facing `facing` (the witch
- * doctor's tent, at a flight's start and end): a step and a half behind
- * them, away from the tent, broadside to them, so they walk to its door; its
- * nose across their way. In grid units (x, then the grid's y as the world's z).
+ * doctor's tent, at a flight's start and end): a step and a half from them,
+ * behind them (away from the tent) when the ground there takes it, else to
+ * one side, broadside to them so they walk to its door, its nose across the
+ * way to them. `ground(x, y)` says whether a tile is ground a plane can sit
+ * on (never water): the first way whose tiles under it all are wins, and
+ * with none, behind them all the same. In grid units (x, then the grid's y
+ * as the world's z).
  */
 export function planeSpot(
 	pos: { x: number; y: number },
-	facing: Direction
+	facing: Direction,
+	ground: (x: number, y: number) => boolean = () => true
 ): { x: number; z: number; heading: Direction } {
-	const back = { up: [0, 1], down: [0, -1], left: [1, 0], right: [-1, 0] }[facing];
-	return {
-		x: pos.x + back[0]! * 1.5,
-		z: pos.y + back[1]! * 1.5,
-		heading: facing === 'up' || facing === 'down' ? 'right' : 'up'
+	const spotOf = (way: Direction) => {
+		const [dx, dy] = OFFSET[way];
+		const heading: Direction = dx === 0 ? 'right' : 'up';
+		return { x: pos.x + dx * 1.5, z: pos.y + dy * 1.5, heading };
 	};
+	for (const way of PARK_WAYS[facing]) {
+		const spot = spotOf(way);
+		// The tiles under its body and both wings: along its nose, a tile each way.
+		const [ax, ay] = OFFSET[spot.heading];
+		const tiles = [-1, 0, 1].flatMap((k) => {
+			const cx = spot.x + ax * k;
+			const cy = spot.z + ay * k;
+			return [
+				[Math.floor(cx), Math.floor(cy)],
+				[Math.ceil(cx), Math.ceil(cy)]
+			] as const;
+		});
+		if (tiles.every(([x, y]) => ground(x, y))) return spot;
+	}
+	return spotOf(PARK_WAYS[facing][0]!);
 }
 
 /**

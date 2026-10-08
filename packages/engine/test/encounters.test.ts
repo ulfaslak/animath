@@ -828,7 +828,9 @@ describe('encounterTable', () => {
 	it('is never empty where anything of its realm lives, and empty where nothing does', () => {
 		const bad: string[] = [];
 		for (const biome of BIOMES) {
-			if (getLand(biomeLand(biome)).available)
+			// A frozen lake has no ground a land animal comes out of (its banks are plain snow,
+			// no deep snow): its one animal lives under the ice, met with the rod.
+			if (getLand(biomeLand(biome)).available && biome !== 'frozen-lake')
 				expect(livingTiers(biome).size, biome).toBeGreaterThan(0);
 		}
 		for (const lead of LEADS) {
