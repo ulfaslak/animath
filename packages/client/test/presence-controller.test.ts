@@ -421,10 +421,13 @@ describe('presence on the page', () => {
 		plane.show = { phase: 'landing', p: 0, calm: false };
 		for (let i = 0; i < 10; i++) s.frame();
 		expect(s.sentOf('where').at(-1)).toMatchObject({ busy: 'plane' });
+		// Until it has gone: a kid waiting for a land's starter is never asked for a match meanwhile.
 		plane.show = { phase: 'departing', p: 0, calm: false };
 		for (let i = 0; i < 10; i++) s.frame();
-		expect(s.sentOf('where').at(-1)).toMatchObject({ busy: 'explore' });
+		expect(s.sentOf('where').at(-1)).toMatchObject({ busy: 'plane' });
 		plane.reset();
+		for (let i = 0; i < 10; i++) s.frame();
+		expect(s.sentOf('where').at(-1)).toMatchObject({ busy: 'explore' });
 		title.open = true;
 		for (let i = 0; i < 10; i++) s.frame();
 		expect(s.sentOf('where').at(-1)).toMatchObject({ busy: 'menu' });

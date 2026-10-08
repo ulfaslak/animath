@@ -73,7 +73,7 @@ export interface TitleHooks {
 	 * Escape on a land's starters (a first arrival): talk to the witch doctor
 	 * the kid came down beside, who can fly them back.
 	 */
-	toDoctor?(): void;
+	toDoctor?(): boolean;
 	/** Whether a land's starters may come up now: exploring, with nothing else on screen. */
 	starterRoom?(): boolean;
 }
@@ -403,9 +403,11 @@ export class TitleController {
 				// A land's starters: to the witch doctor, who can fly the kid back; they come up
 				// again once the card closes. A new game's: back to the name, as it was typed.
 				if (title.land !== null) {
-					sfx.play('move');
-					this.closeLand();
-					this.hooks.toDoctor?.();
+					// Only once his card is up: a kid not facing a tent keeps the starters.
+					if (this.hooks.toDoctor?.()) {
+						sfx.play('move');
+						this.closeLand();
+					}
 				} else this.toPlayerName('new');
 				return true;
 		}

@@ -128,7 +128,8 @@ function heardSession(answer: SessionAnswer): void {
 	if (answer === 'offline' || account.session === answer) return;
 	account.session = answer;
 	if (answer !== 'ended') return;
-	if (title.open) title.notice = 'save.sessionEnded';
+	// A land's starters are the game under way: the message line says it, as mid-game.
+	if (title.open && title.land === null) title.notice = 'save.sessionEnded';
 	else if (game.mode === 'explore') hud.notice('save.sessionEnded');
 	else sessionEndedUnsaid = true;
 }
@@ -253,7 +254,10 @@ const titleController = new TitleController(authority, new TitleScenery(renderer
 	continueGame,
 	logIn: () => accountController.openLogin('title'),
 	// A first arrival's starters: Escape talks to the witch doctor the kid came down beside.
-	toDoctor: () => authority.dispatch({ type: 'interact' }),
+	toDoctor: () => {
+		authority.dispatch({ type: 'interact' });
+		return doctor.active;
+	},
 	starterRoom: () =>
 		game.mode === 'explore' &&
 		!plane.active &&
@@ -533,7 +537,9 @@ let reloading = false;
 function catchUp(onItsOwn: boolean): void {
 	if (reloading) return;
 	reloading = true;
-	const midGame = !title.open && game.mode !== 'title' && game.mode !== 'loading';
+	// A land's starters, up over the game under way, are mid-game too.
+	const midGame =
+		(!title.open || title.land !== null) && game.mode !== 'title' && game.mode !== 'loading';
 	// An account's game that another device got further in: the newer one, and a kind word.
 	if (account.name !== null && autosave.behind === 'replaced' && midGame && !accountSwitched) {
 		noteNextStart('movedAhead');
@@ -561,6 +567,7 @@ function offerAccount(): void {
 		!pause.open &&
 		!title.open &&
 		!travel.active &&
+		!plane.active &&
 		match.stage === 'none';
 	if (!exploring || account.prompt || account.card !== null || autosave.behind !== null) return;
 	if (saveNudge.due(lineage, authority.stepsTaken)) accountController.openPrompt();

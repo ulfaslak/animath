@@ -886,12 +886,15 @@ describe("a land's starters on a first arrival", () => {
 		const room = { open: true };
 		// As main.ts has it: no room while the witch doctor's card is up.
 		let visiting = false;
+		/** The kid faces away from the tent: Enter there talks to nobody. */
+		const away = { value: false };
 		const doctors: number[] = [];
 		const controller = new TitleController(authority, scenery, {
 			continueGame() {},
 			toDoctor() {
 				doctors.push(doctors.length);
-				authority.dispatch({ type: 'interact' });
+				if (!away.value) authority.dispatch({ type: 'interact' });
+				return visiting;
 			},
 			starterRoom: () => room.open && !visiting
 		});
@@ -934,7 +937,7 @@ describe("a land's starters on a first arrival", () => {
 				controller.onKey(key(name));
 				frames(1 / 60);
 			});
-		return { authority, scenery, room, doctors, events, sent, frames, press };
+		return { authority, scenery, room, doctors, events, sent, frames, press, away };
 	}
 
 	afterEach(() => {
@@ -981,6 +984,18 @@ describe("a land's starters on a first arrival", () => {
 		t.frames(1);
 		expect(title.open).toBe(false);
 		expect(t.sent.some((i) => i.type === 'new-game')).toBe(false);
+	});
+
+	it('Escape keeps the starters when no witch doctor answers (the kid faces no tent)', () => {
+		const t = arrive();
+		t.frames(PICK_QUIET_SECONDS);
+		t.away.value = true;
+		const shown = t.scenery.shown.length;
+		t.press('Escape');
+		// Never closed: no flicker, the lit starter kept.
+		expect(t.scenery.shown.slice(shown)).toEqual([]);
+		expect(title.open).toBe(true);
+		expect(title.land).toBe('arctic');
 	});
 
 	it('Escape goes to the witch doctor, who can fly the kid back; they come up again after him', () => {

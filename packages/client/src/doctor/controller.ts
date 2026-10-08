@@ -116,6 +116,10 @@ export class DoctorController {
 			case 'doctor-visit-ended':
 				if (event.visit === this.visit) this.close();
 				break;
+			case 'unlocked-changed':
+				// A hand-over that opened a land: its Fly row opens at once, in this visit.
+				if (doctor.active) doctor.unlocked = [...event.unlocked];
+				break;
 		}
 	}
 
@@ -205,7 +209,8 @@ export class DoctorController {
 		doctor.tokens = state.tokens;
 		doctor.items = [...state.items];
 		doctor.shop = [...state.shop];
-		doctor.unlocked = [...state.unlocked];
+		// Unlocked lands only grow: one opened by a hand-over (`unlocked-changed`) comes after its state.
+		doctor.unlocked = [...new Set([...doctor.unlocked, ...state.unlocked])];
 		doctor.fare = null;
 		doctor.line = this.said;
 		doctor.input = '';

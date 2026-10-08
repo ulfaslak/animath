@@ -26,8 +26,8 @@ class PlaneView {
 
 	/**
 	 * The kid is with the plane, from its landing beside them to their getting
-	 * off in the land reached: no key does anything, and the others see them
-	 * busy with it.
+	 * off in the land reached: no key does anything. (The others see them busy
+	 * with it until it has gone: `active`.)
 	 */
 	get busy(): boolean {
 		const phase = this.show?.phase;

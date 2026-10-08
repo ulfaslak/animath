@@ -1162,11 +1162,14 @@ describe('flying from the witch doctor', () => {
 			controller.handle(e);
 		});
 		const start = newGame(1, testStarter());
+		const fox = { id: 'fox-1', speciesId: 'fox', hp: getAnimal('fox').maxHp };
 		authority.start({
 			game: {
 				...start,
+				party: [...start.party, fox],
 				freed: [...freed],
-				seen: [...start.seen, ...freed],
+				seen: [...start.seen, ...freed, 'fox'],
+				caught: [...start.caught, 'fox'],
 				unlocked: [...unlocked]
 			}
 		});
@@ -1223,6 +1226,31 @@ describe('flying from the witch doctor', () => {
 		// Nothing went to the authority: no fare was asked.
 		expect(t.events.slice(before)).toEqual([]);
 		expect(doctor.puzzle).toBeNull();
+	});
+
+	it('a hand-over that opens the land opens its Fly row at once, in the same visit', () => {
+		const nordland = getLand('nordland').species;
+		const t = flyer(
+			nordland.filter((id) => id !== 'fox'),
+			['nordland']
+		);
+		expect(doctor.unlocked).toEqual(['nordland']);
+		t.authority.dispatch({ type: 'doctor', intent: { type: 'hand-over', ids: ['fox-1'] } });
+		const sum = [...t.events].reverse().find((e) => e.type === 'doctor-visit-updated');
+		if (sum?.type !== 'doctor-visit-updated' || sum.state.phase.kind !== 'handing-over')
+			throw new Error('no sum');
+		t.authority.dispatch({
+			type: 'doctor',
+			intent: { type: 'answer', input: String(sum.state.phase.puzzle.answer) }
+		});
+		t.run(6);
+		expect(doctor.unlocked).toContain('arctic');
+		t.press(tabKey('fly'));
+		expect(doctor.tab).toBe('fly');
+		t.run(PICK_QUIET_SECONDS);
+		t.press('Enter');
+		expect(doctor.fare).toBe('arctic');
+		expect(doctor.shake).toBeNull();
 	});
 
 	it('an unlocked land asks the fare; a miss asks another; the right answer flies there', () => {

@@ -468,7 +468,8 @@ export class PresenceController {
 				this.finding = null;
 				// Only while exploring, as the menu that asked was: a battle that started
 				// meanwhile keeps the player where they are, and so does a take-off.
-				if (!this.exploreOnScreen() || game.flying) break;
+				// Nor with the plane between lands: the land on screen may not be the game's any more.
+				if (!this.exploreOnScreen() || game.flying || plane.active) break;
 				// The authority answers at once (`player-placed` or `go-to-refused`, in `handle`).
 				this.placing = name;
 				this.options.authority.dispatch({ type: 'go-to', near: { x: m.x, y: m.y } });
@@ -576,8 +577,8 @@ export class PresenceController {
  * others draw them gliding rather than walking on the water or through trees.
  */
 function busyNow(): Busy {
-	// With the plane between lands, from its landing beside them to their getting off.
-	if (plane.busy) return 'plane';
+	// With the plane between lands, from its landing beside them until it has gone.
+	if (plane.active) return 'plane';
 	// A land's starters, on a first arrival there: a break, like the menu.
 	if (title.open) return 'menu';
 	if (battle.active) return 'battle';

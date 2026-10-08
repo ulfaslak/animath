@@ -121,8 +121,8 @@ export const MAX_ROSTER = 50;
  * up in the air with the glider (`flight`: no bubble, since the glider shows
  * it): from take-off to touch-down, the tiles in a `where` are flown over,
  * not walked, so the others draw them gliding. Or with the plane between
- * lands (`plane`, #191): from the plane landing beside them to their getting
- * off it in the land reached, so the others draw the plane come down by
+ * lands (`plane`, #191): from the plane landing beside them until it has gone
+ * from the land reached, so the others draw the plane come down by
  * them, and fly off with them when they leave the land.
  */
 export const BUSY_STATES = [
