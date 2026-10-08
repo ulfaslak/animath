@@ -1,10 +1,22 @@
-import { newGame, type GameEvent } from '@mathgame/engine';
+import {
+	landSeed,
+	newGame,
+	onTentLattice,
+	tentArrival,
+	tileAtWorld,
+	type GameEvent
+} from '@mathgame/engine';
 import { afterEach, describe, expect, it } from 'vitest';
 import { LocalAuthority } from '../src/authority/local';
 import { motion } from '../src/motion';
 import { PLANE_SECONDS, PlaneController } from '../src/plane/controller';
 import type { PlaneOnScreen } from '../src/render/renderer';
-import { CALM_PLANE_SECONDS, planeSpot } from '../src/render/plane';
+import {
+	CALM_PLANE_SECONDS,
+	planeGroundOf,
+	planeSpot,
+	type PlaneGround
+} from '../src/render/plane';
 import { game } from '../src/state/game.svelte';
 import { plane } from '../src/state/plane.svelte';
 import { testStarter } from './minted';
@@ -148,18 +160,116 @@ describe('the plane between lands', () => {
 });
 
 describe('where the plane parks', () => {
-	it('behind the kid when that is ground, else to a side that is, else behind all the same', () => {
-		const all = () => true;
-		expect(planeSpot({ x: 0, y: 0 }, 'up', all)).toEqual({ x: 0, z: 1.5, heading: 'right' });
-		expect(planeSpot({ x: 0, y: 0 }, 'left', all)).toEqual({ x: 1.5, z: 0, heading: 'up' });
-		// Water two rows behind (y > 1), under its tail: to the left.
-		const dryAbove = (_x: number, y: number) => y <= 1;
-		expect(planeSpot({ x: 0, y: 0 }, 'up', dryAbove)).toEqual({ x: -1.5, z: 0, heading: 'up' });
-		// Nowhere: behind.
-		expect(planeSpot({ x: 0, y: 0 }, 'up', () => false)).toEqual({
+	const all = (): PlaneGround => 'ground';
+	/** What a tile is to the plane, from a map of rows: `.` ground, `#` scenery, `~` water; off it, water. */
+	const mapped =
+		(rows: string[], ox: number, oy: number) =>
+		(x: number, y: number): PlaneGround => {
+			const c = rows[y - oy]?.[x - ox] ?? '~';
+			return c === '~' ? 'water' : c === '#' ? 'scenery' : 'ground';
+		};
+
+	it('behind the kid when that is ground, else to a side that is', () => {
+		expect(planeSpot({ x: 0, y: 0 }, 'up', all)).toEqual({
 			x: 0,
 			z: 1.5,
-			heading: 'right'
+			heading: 'right',
+			water: false
 		});
+		expect(planeSpot({ x: 0, y: 0 }, 'left', all)).toEqual({
+			x: 1.5,
+			z: 0,
+			heading: 'up',
+			water: false
+		});
+		// Water two rows behind (y > 1), under its tail: to the left.
+		const dryAbove = (_x: number, y: number): PlaneGround => (y <= 1 ? 'ground' : 'water');
+		expect(planeSpot({ x: 0, y: 0 }, 'up', dryAbove)).toEqual({
+			x: -1.5,
+			z: 0,
+			heading: 'up',
+			water: false
+		});
+	});
+
+	it('among trees and rocks before over the water, and a step further out before that', () => {
+		// The kid @ at (0, 0) facing up, the tent over them. Behind: trees; left: a tree; right: water.
+		// prettier-ignore
+		const trees = mapped([
+			'.....~~~',
+			'.....~~~',
+			'..#@.~~~',
+			'.#####~~',
+			'.#####~~',
+		], -3, -2);
+		expect(planeSpot({ x: 0, y: 0 }, 'up', trees)).toMatchObject({ x: 0, z: 1.5, water: false });
+		// A brook right behind, and ground past it: there, a step further.
+		// prettier-ignore
+		const further = mapped([
+			'.....~~~',
+			'..#@.~~~',
+			'~~~~~~~~',
+			'........',
+			'........',
+		], -3, -1);
+		expect(planeSpot({ x: 0, y: 0 }, 'up', further)).toMatchObject({ x: 0, z: 2.5, water: false });
+	});
+
+	it('on a strip of shore, its skis on the ground and its nose over the water', () => {
+		// World 4's tent at (-87, 64): the kid on a strip of ground one row deep over a lake.
+		// prettier-ignore
+		const shore = mapped([
+			'.#####.T.#.##..',
+			'~......@.......',
+			'~~~~~~~~~~~..#.',
+			'~~~~~~~~~~~...#',
+		], -94, 64);
+		const spot = planeSpot({ x: -87, y: 65 }, 'up', shore);
+		expect(spot.water).toBe(false);
+		for (const y of [Math.floor(spot.z), Math.ceil(spot.z)]) {
+			for (const x of [Math.floor(spot.x), Math.ceil(spot.x)])
+				expect(shore(x, y)).not.toBe('water');
+		}
+	});
+
+	it('on the water as a seaplane only where no ground near takes it, behind the kid', () => {
+		// World 5's tent at (-225, -69): the kid on a spit of land in the water.
+		// prettier-ignore
+		const spit = mapped([
+			'~~~~~~.#...~~~~',
+			'~~~~~~...~~~~~.',
+			'~~~~~~.T.~~~~~.',
+			'~~~~~~.@~~~~~~.',
+			'~~~~~~~~~~~~~~~',
+		], -232, -71);
+		expect(planeSpot({ x: -225, y: -68 }, 'up', spit)).toEqual({
+			x: -225,
+			z: -66.5,
+			heading: 'right',
+			water: true
+		});
+		expect(planeSpot({ x: 0, y: 0 }, 'up', () => 'water')).toMatchObject({ water: true, z: 1.5 });
+		expect(planeSpot({ x: 0, y: 0 }, 'up', () => 'scenery').water).toBe(false);
+	});
+
+	it('in every world of every land, its skis are never over the water unless it is a seaplane on floats', () => {
+		for (const land of ['nordland', 'arctic'] as const) {
+			for (let world = 1; world <= 6; world++) {
+				const seed = landSeed(land, world);
+				const ground = (x: number, y: number) => planeGroundOf(tileAtWorld(seed, x, y));
+				for (let x = -120; x <= 120; x++) {
+					for (let y = -100; y <= 100; y++) {
+						if (!onTentLattice(x, y) || tileAtWorld(seed, x, y).kind !== 'tent') continue;
+						const at = tentArrival(seed, { x, y });
+						if (!at) continue;
+						const spot = planeSpot(at.stand, at.facing, ground);
+						const skis = [Math.floor(spot.x), Math.ceil(spot.x)].flatMap((sx) =>
+							[Math.floor(spot.z), Math.ceil(spot.z)].map((sz) => ground(sx, sz))
+						);
+						expect(skis.includes('water'), `${land} ${world} ${x},${y}`).toBe(spot.water);
+					}
+				}
+			}
+		}
 	});
 });

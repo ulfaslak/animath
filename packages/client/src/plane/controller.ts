@@ -1,4 +1,4 @@
-import { isWalkable, tileAtWorld, type GameEvent } from '@mathgame/engine';
+import { tileAtWorld, type GameEvent } from '@mathgame/engine';
 import { sfx } from '../audio/sfx.svelte';
 import { motion } from '../motion';
 import type { GameRenderer } from '../render/renderer';
@@ -7,7 +7,9 @@ import {
 	PLANE_BOARD_SECONDS,
 	PLANE_IN_SECONDS,
 	PLANE_OUT_SECONDS,
+	planeGroundOf,
 	planeSpot,
+	type PlaneGround,
 	type PlanePose
 } from '../render/plane';
 import { game } from '../state/game.svelte';
@@ -155,15 +157,20 @@ export class PlaneController {
 		const spot = this.spot;
 		if (!show || !spot) return;
 		const { pose, ride } = poseOf(show.phase, show.p);
-		this.renderer.setPlane({ at: { x: spot.x, y: spot.z }, heading: spot.heading, pose, ride });
+		this.renderer.setPlane({
+			at: { x: spot.x, y: spot.z },
+			heading: spot.heading,
+			water: spot.water,
+			pose,
+			ride
+		});
 	}
 }
 
 /**
- * Whether a tile of the world of `seed`, as it was made, is ground a plane
- * can sit on: walkable, never water, a tree or a rock. As made, not as the
- * kid cleared it, so every page that sees the plane parks it on one spot.
+ * What a tile of the world of `seed`, as it was made, is to a plane parking
+ * on it (`planeGroundOf`).
  */
-function groundAt(seed: number): (x: number, y: number) => boolean {
-	return (x, y) => isWalkable(tileAtWorld(seed, x, y).kind);
+function groundAt(seed: number): (x: number, y: number) => PlaneGround {
+	return (x, y) => planeGroundOf(tileAtWorld(seed, x, y));
 }

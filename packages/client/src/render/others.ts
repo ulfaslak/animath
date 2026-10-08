@@ -32,12 +32,14 @@ import {
 	LEAVE_LEGS,
 	PlaneTrip,
 	doorOf,
+	planeGroundOf,
 	planeSpot,
 	posePlane
 } from './plane';
 import { TRAINER_LOOKS, type TrainerLook } from './palette';
 import type { Poofs } from './poof';
 import { Skis } from './skis';
+import { WATER_TOP } from './tiles';
 import { SLED_STAND, Sled } from './sled';
 import {
 	DESCEND_SECONDS,
@@ -340,7 +342,7 @@ export class OtherPlayers {
 	): void {
 		other.trip?.dispose();
 		other.trip = new PlaneTrip(
-			planeSpot(at, facing, (x, y) => isWalkable(tileAtWorld(this.seed, x, y).kind)),
+			planeSpot(at, facing, (x, y) => planeGroundOf(tileAtWorld(this.seed, x, y))),
 			legs
 		);
 		this.scene.add(other.trip.figure);
@@ -489,7 +491,8 @@ export class OtherPlayers {
 		other.figure.scale.setScalar(1);
 		if (!trip) return false;
 		const { pose, ride } = trip.advance(dt, calm);
-		const spot = new THREE.Vector3(trip.spot.x, ground, trip.spot.z);
+		// A seaplane sits on the water, under the land their tile is on.
+		const spot = new THREE.Vector3(trip.spot.x, trip.spot.water ? WATER_TOP : ground, trip.spot.z);
 		posePlane(trip.figure, spot, trip.spot.heading, pose, t, calm);
 		if (trip.done && !other.byPlane) {
 			trip.dispose();

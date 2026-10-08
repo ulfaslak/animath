@@ -1,4 +1,4 @@
-import type { Direction } from '@mathgame/engine';
+import { isWalkable, isWater, type Direction, type Tile } from '@mathgame/engine';
 import * as THREE from 'three';
 import { appearScale, smoothstep } from './ease';
 import { instantiate, markJoint, release, takeShape } from './merge';
@@ -42,8 +42,12 @@ function box(w: number, h: number, d: number, x: number, y: number, z: number, c
 	return part(g, color);
 }
 
-/** The plane part by part, as built: what `buildPlaneMesh` merges, and what the tests measure. */
-export function buildPlaneParts(): THREE.Group {
+/**
+ * The plane part by part, as built: what `buildPlaneMesh` merges, and what
+ * the tests measure. On skis, or with `floats` (a seaplane, parked on the
+ * water: `PlaneSpot.water`) on two floats instead.
+ */
+export function buildPlaneParts(floats = false): THREE.Group {
 	const c = PLANE_COLORS;
 	const plane = new THREE.Group();
 	plane.name = 'plane';
@@ -84,10 +88,19 @@ export function buildPlaneParts(): THREE.Group {
 	// The tail's fin and its little wings.
 	body.add(box(0.05, 0.36, 0.28, 0, 0.84, -1.0, c.wing));
 	body.add(box(0.85, 0.05, 0.24, 0, 0.62, -1.02, c.wing));
-	// Skis under it on struts, for the snow and the grass alike.
+	// Skis under it on struts, for the snow and the grass alike; or floats, on the water.
 	for (const side of [-1, 1]) {
 		body.add(box(0.03, 0.26, 0.03, side * 0.3, 0.2, 0.32, c.dark));
 		body.add(box(0.03, 0.26, 0.03, side * 0.3, 0.2, 0.0, c.dark));
+		if (floats) {
+			body.add(box(0.18, 0.16, 1.2, side * 0.3, 0.06, 0.12, c.body));
+			const bow = new THREE.BoxGeometry(0.18, 0.12, 0.22);
+			bow.rotateX(-0.5);
+			bow.translate(side * 0.3, 0.11, 0.78);
+			body.add(part(bow, c.body));
+			body.add(box(0.19, 0.04, 1.21, side * 0.3, 0.1, 0.12, c.stripe));
+			continue;
+		}
 		body.add(box(0.1, 0.05, 0.75, side * 0.3, 0.05, 0.18, c.ski));
 		const tip = new THREE.BoxGeometry(0.1, 0.05, 0.14);
 		tip.rotateX(-0.6);
@@ -105,9 +118,13 @@ export function buildPlaneParts(): THREE.Group {
 	return plane;
 }
 
-/** A new plane: its shape, merged, shared by every plane on screen until `disposePlane` lets the last go. */
-export function buildPlaneMesh(): THREE.Group {
-	return instantiate(takeShape('plane', 'grouped', () => ({ root: buildPlaneParts() })));
+/**
+ * A new plane, on skis or (`floats`) on floats: its shape, merged, shared by
+ * every plane on screen until `disposePlane` lets the last go.
+ */
+export function buildPlaneMesh(floats = false): THREE.Group {
+	const key = floats ? 'plane-floats' : 'plane';
+	return instantiate(takeShape(key, 'grouped', () => ({ root: buildPlaneParts(floats) })));
 }
 
 /** Let a plane go: its shape is freed with the last plane. */
@@ -189,40 +206,83 @@ const OFFSET: Readonly<Record<Direction, readonly [number, number]>> = {
 };
 
 /**
+ * What a tile is to a plane parking on it: open `ground` (walkable), the
+ * `scenery` it may stand among (a tree, a rock, a tent, an ice block on the
+ * land or the ice), or `water` (an ice block in the water too).
+ */
+export type PlaneGround = 'ground' | 'scenery' | 'water';
+
+/** Where a plane parks: in grid units (x, then the grid's y as the world's z), its nose, and whether on the water. */
+export interface PlaneSpot {
+	x: number;
+	z: number;
+	heading: Direction;
+	/** On the water, as a seaplane, on floats: only where no ground near the kid takes it. */
+	water: boolean;
+}
+
+/** How far from the kid a plane parks: a step and a half, else one step further out. */
+const PARK_DISTANCES = [1.5, 2.5] as const;
+
+/**
  * Where a plane parks beside a kid on `pos` facing `facing` (the witch
- * doctor's tent, at a flight's start and end): a step and a half from them,
- * behind them (away from the tent) when the ground there takes it, else to
- * one side, broadside to them so they walk to its door, its nose across the
- * way to them. `ground(x, y)` says whether a tile is ground a plane can sit
- * on (never water): the first way whose tiles under it all are wins, and
- * with none, behind them all the same. In grid units (x, then the grid's y
- * as the world's z).
+ * doctor's tent, at a flight's start and end): broadside to them so they
+ * walk to its door, its nose across the way to them, behind them (away from
+ * the tent) or to one side ([[UI_SPEC]] § Explore mode, "The plane").
+ * `ground(x, y)` says what a tile is to it. The first spot that reads as
+ * solid wins, nearest first and behind before the sides, best first:
+ *
+ * 1. every tile under its body, nose to tail, open ground, a step and a half out;
+ * 2. none of them water (it may stand among trees and rocks: a cutscene, not a tile), there;
+ * 3. 1 and 2 a step further out;
+ * 4. the tiles under its skis (its middle) not water, nose or tail over the
+ *    water's edge, a step and a half out, then a step further.
+ *
+ * With none (a tent on a spit of land in the water), it comes down on the
+ * water behind them as a seaplane (`water`): drawn on floats, at the water's
+ * height. Never on the water while ground near takes it.
  */
 export function planeSpot(
 	pos: { x: number; y: number },
 	facing: Direction,
-	ground: (x: number, y: number) => boolean = () => true
-): { x: number; z: number; heading: Direction } {
-	const spotOf = (way: Direction) => {
+	ground: (x: number, y: number) => PlaneGround = () => 'ground'
+): PlaneSpot {
+	const spotOf = (way: Direction, d: number) => {
 		const [dx, dy] = OFFSET[way];
 		const heading: Direction = dx === 0 ? 'right' : 'up';
-		return { x: pos.x + dx * 1.5, z: pos.y + dy * 1.5, heading };
+		return { x: pos.x + dx * d, z: pos.y + dy * d, heading };
 	};
-	for (const way of PARK_WAYS[facing]) {
-		const spot = spotOf(way);
-		// The tiles under its body and both wings: along its nose, a tile each way.
+	/** The tiles under it, nose to tail: along its nose, a tile each way; its middle two are under its skis. */
+	const under = (spot: { x: number; z: number; heading: Direction }) => {
 		const [ax, ay] = OFFSET[spot.heading];
-		const tiles = [-1, 0, 1].flatMap((k) => {
+		return [0, -1, 1].flatMap((k) => {
 			const cx = spot.x + ax * k;
 			const cy = spot.z + ay * k;
-			return [
-				[Math.floor(cx), Math.floor(cy)],
-				[Math.ceil(cx), Math.ceil(cy)]
-			] as const;
+			return [ground(Math.floor(cx), Math.floor(cy)), ground(Math.ceil(cx), Math.ceil(cy))];
 		});
-		if (tiles.every(([x, y]) => ground(x, y))) return spot;
+	};
+	const solid = (tiles: PlaneGround[]) => tiles.every((g) => g === 'ground');
+	const dry = (tiles: PlaneGround[]) => tiles.every((g) => g !== 'water');
+	const tries: { d: number; ok: (tiles: PlaneGround[]) => boolean }[] = [];
+	for (const d of PARK_DISTANCES) tries.push({ d, ok: solid }, { d, ok: dry });
+	for (const d of PARK_DISTANCES) tries.push({ d, ok: (tiles) => dry(tiles.slice(0, 2)) });
+	for (const { d, ok } of tries) {
+		for (const way of PARK_WAYS[facing]) {
+			const spot = spotOf(way, d);
+			if (ok(under(spot))) return { ...spot, water: false };
+		}
 	}
-	return spotOf(PARK_WAYS[facing][0]!);
+	return { ...spotOf(PARK_WAYS[facing][0]!, 1.5), water: true };
+}
+
+/**
+ * What a tile of the world is to a plane parking on it ([[UI_SPEC]] § The
+ * plane): the world as made, not as the kid cleared it, so every page that
+ * sees a plane parks it on one spot.
+ */
+export function planeGroundOf(tile: Tile): PlaneGround {
+	if (isWater(tile.kind) || tile.under === 'water') return 'water';
+	return isWalkable(tile.kind) ? 'ground' : 'scenery';
 }
 
 /**
@@ -283,14 +343,15 @@ export const LEAVE_LEGS: readonly PlaneLeg[] = [
  * stays parked at its end until `then` says what comes next.
  */
 export class PlaneTrip {
-	readonly figure: THREE.Group = buildPlaneMesh();
+	readonly figure: THREE.Group;
 	private legs: PlaneLeg[];
 	private p = 0;
 
 	constructor(
-		readonly spot: { x: number; z: number; heading: Direction },
+		readonly spot: PlaneSpot,
 		legs: readonly PlaneLeg[]
 	) {
+		this.figure = buildPlaneMesh(spot.water);
 		this.legs = [...legs];
 	}
 

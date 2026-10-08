@@ -32,7 +32,7 @@ import { COLORS, GLIDER_COLORS, PLAYER_LOOK } from './palette';
 import { SIT_DROP, poseRider } from './mount';
 import { Poofs } from './poof';
 import { PortraitStudio } from './portraits';
-import { buildTileProps, disposeChunkGroup, groundTop } from './tiles';
+import { WATER_TOP, buildTileProps, disposeChunkGroup, groundTop } from './tiles';
 import {
 	FACING_ANGLE,
 	slidesBetween,
@@ -169,6 +169,8 @@ export interface PlaneOnScreen {
 	/** Where it parks, in grid units: x, and the grid's y (the world's z). */
 	at: { x: number; y: number };
 	heading: Direction;
+	/** On the water, as a seaplane on floats (`PlaneSpot.water`). */
+	water?: boolean;
 	pose: PlanePose;
 	/** How far the trainer is from their tile into it: 0 on their tile, 1 inside. */
 	ride: number;
@@ -623,9 +625,16 @@ export class GameRenderer {
 	 * inside, not seen), hopping to its door.
 	 */
 	setPlane(show: PlaneOnScreen | null): void {
+		const floats = !!show?.water;
+		if (this.plane && show && floats !== !!this.planeShow?.water) {
+			// Another spot, on the water where the last was on the land or the other way: the other plane.
+			this.plane.removeFromParent();
+			disposePlane(this.plane);
+			this.plane = null;
+		}
 		this.planeShow = show;
 		if (show && !this.plane) {
-			this.plane = buildPlaneMesh();
+			this.plane = buildPlaneMesh(floats);
 			this.scene.add(this.plane);
 		} else if (!show && this.plane) {
 			this.plane.removeFromParent();
@@ -643,7 +652,8 @@ export class GameRenderer {
 			this.player.visible = true;
 			return;
 		}
-		const spot = new THREE.Vector3(show.at.x, this.playerAt.y, show.at.y);
+		// A seaplane sits on the water, under the land the trainer stands on.
+		const spot = new THREE.Vector3(show.at.x, show.water ? WATER_TOP : this.playerAt.y, show.at.y);
 		posePlane(plane, spot, show.heading, show.pose, t, motion.reduced);
 		const ride = Math.min(1, Math.max(0, show.ride));
 		this.player.visible = ride < 1;
