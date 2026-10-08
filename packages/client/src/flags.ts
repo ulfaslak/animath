@@ -1,10 +1,15 @@
 import {
+	ALL_PUZZLE_KINDS,
 	ANIMALS,
 	FIRST_WORLD,
 	ITEM_IDS,
+	MAX_DIFFICULTY,
+	MIN_DIFFICULTY,
+	PICTURE_KINDS,
 	isItemId,
 	type AnimalInstance,
-	type ItemId
+	type ItemId,
+	type PuzzleKind
 } from '@mathgame/engine';
 import type { LocalAuthorityOptions } from './authority/local';
 
@@ -53,6 +58,14 @@ export interface Flags {
 	 */
 	items: ItemId[] | null;
 	/**
+	 * `?puzzle=clock&d=5`: the puzzle preview instead of the game (`preview/`),
+	 * for looking at a kind of puzzle at a difficulty, the Arctic's above all,
+	 * which nothing in the game asks yet. The kind is any the engine has
+	 * (the first picture kind when unknown or left out), `d` 1 to 10 (1 when
+	 * left out). The game never starts behind it: nothing is loaded or saved.
+	 */
+	puzzle: PuzzlePreview | null;
+	/**
 	 * `?new`, `?party=`, `?zoo`, `?tokens=`, `?shop` or `?items=`: a throwaway game,
 	 * straight into explore without the title. Nothing is loaded or saved, so
 	 * a look at a screen never touches a kid's game.
@@ -70,6 +83,7 @@ export function readFlags(search: string): Flags {
 	const items = parseItems(params.get('items'));
 	return {
 		zoo,
+		puzzle: params.has('puzzle') ? parsePuzzlePreview(params.get('puzzle'), params.get('d')) : null,
 		debug: params.has('debug'),
 		nudgeSteps: parseNudgeSteps(params.get('steps')),
 		party,
@@ -95,6 +109,21 @@ export function authorityOptions(flags: Flags): LocalAuthorityOptions {
 		shop: flags.shop ?? undefined,
 		items: flags.items ?? undefined,
 		homeWorld: flags.throwaway ? () => FIRST_WORLD : undefined
+	};
+}
+
+/** The puzzle preview's kind and difficulty (`?puzzle=`, `?d=`). */
+export interface PuzzlePreview {
+	kind: PuzzleKind;
+	difficulty: number;
+}
+
+export function parsePuzzlePreview(kind: string | null, d: string | null): PuzzlePreview {
+	const known = ALL_PUZZLE_KINDS.find((k) => k === kind) ?? PICTURE_KINDS[0]!;
+	const n = Number(d);
+	return {
+		kind: known,
+		difficulty: Number.isInteger(n) ? Math.min(MAX_DIFFICULTY, Math.max(MIN_DIFFICULTY, n)) : 1
 	};
 }
 
