@@ -36,7 +36,10 @@ const DIRS: readonly Direction[] = ['up', 'down', 'left', 'right'];
 const BACK: Record<Direction, Direction> = { up: 'down', down: 'up', left: 'right', right: 'left' };
 
 /** A tile of `kind` near spawn with ground a kid stands on beside it: the stand, facing it. */
-function besideKind(kind: string, under?: string): { pos: GridPos; facing: Direction; at: GridPos } {
+function besideKind(
+	kind: string,
+	under?: string
+): { pos: GridPos; facing: Direction; at: GridPos } {
 	for (let r = 0; r < 200; r++) {
 		for (let y = 9 - r; y <= 9 + r; y++) {
 			for (let x = 5 - r; x <= 5 + r; x++) {
@@ -149,14 +152,20 @@ describe("The Arctic's money", () => {
 		expect(doctorWords({ say: 'tokensGiven', amount: 6, tokens: 27 })).toBe(
 			'Thank you! Here are 6 ice dollars. Now you have 27 ice dollars.'
 		);
-		expect(t('doctor.shop.price', { count: 13, money: moneyWords('arctic') })).toBe('13 ice dollars');
-		expect(t('doctor.home.how', { money: moneyWords('arctic') })).toContain('ice dollars as a thank-you');
+		expect(t('doctor.shop.price', { count: 13, money: moneyWords('arctic') })).toBe(
+			'13 ice dollars'
+		);
+		expect(t('doctor.home.how', { money: moneyWords('arctic') })).toContain(
+			'ice dollars as a thank-you'
+		);
 		// A sentence starting with the money says it with a capital.
 		expect(t('currency.iceDollars.words')).toBe('ice dollars');
 		language.set('da');
 		expect(t('hud.tokens', { count: 21, money: moneyWords() })).toBe('21 iskroner');
 		expect(t('hud.tokens', { count: 1, money: moneyWords() })).toBe('1 iskrone');
-		expect(t('doctor.shop.count', { money: moneyWords() })).toBe('Godt valg! Kan du tælle dine iskroner?');
+		expect(t('doctor.shop.count', { money: moneyWords() })).toBe(
+			'Godt valg! Kan du tælle dine iskroner?'
+		);
 		language.set('en');
 		expect(t('hud.tokens', { count: 21, money: moneyWords('nordland') })).toBe('21 tokens');
 	});
@@ -177,7 +186,11 @@ describe('the ice pick and the arctic axe', () => {
 		const without = setup(arcticGame(pos, facing, []));
 		expect(hud.action).toBeNull();
 		without.enter();
-		expect(without.events.at(-1)).toMatchObject({ type: 'tool-needed', kind: 'iceblock', tool: 'ice-pick' });
+		expect(without.events.at(-1)).toMatchObject({
+			type: 'tool-needed',
+			kind: 'iceblock',
+			tool: 'ice-pick'
+		});
 		// The Arctic's witch doctor sells the ice pick, so the line says so.
 		expect(hud.message).toBe(t('explore.needIcePick'));
 
@@ -185,7 +198,12 @@ describe('the ice pick and the arctic axe', () => {
 		expect(hud.action).toBe('breakIce');
 		expect(hud.hint).toBe('Press Enter to break the ice block');
 		s.enter();
-		expect(s.events.at(-1)).toMatchObject({ type: 'tile-cleared', was: 'iceblock', tool: 'ice-pick', pos: at });
+		expect(s.events.at(-1)).toMatchObject({
+			type: 'tile-cleared',
+			was: 'iceblock',
+			tool: 'ice-pick',
+			pos: at
+		});
 		expect(editedTileAt(SEED, game.edits, at.x, at.y).kind).toBe('snow');
 		// A step onto where it stood.
 		s.authority.dispatch({ type: 'move', dir: facing });
@@ -206,11 +224,19 @@ describe('the ice pick and the arctic axe', () => {
 		const { pos, facing } = besideKind('tree');
 		const nordlands = setup(arcticGame(pos, facing, ['axe']));
 		nordlands.enter();
-		expect(nordlands.events.at(-1)).toMatchObject({ type: 'tool-needed', kind: 'tree', tool: 'arctic-axe' });
+		expect(nordlands.events.at(-1)).toMatchObject({
+			type: 'tool-needed',
+			kind: 'tree',
+			tool: 'arctic-axe'
+		});
 		const s = setup(arcticGame(pos, facing, ['arctic-axe']));
 		expect(hud.hint).toBe('Press Enter to chop the tree');
 		s.enter();
-		expect(s.events.at(-1)).toMatchObject({ type: 'tile-cleared', was: 'tree', tool: 'arctic-axe' });
+		expect(s.events.at(-1)).toMatchObject({
+			type: 'tile-cleared',
+			was: 'tree',
+			tool: 'arctic-axe'
+		});
 	});
 });
 
@@ -219,7 +245,11 @@ describe('fishing', () => {
 		const { pos, facing, at } = besideKind('hole');
 		const without = setup(arcticGame(pos, facing, []));
 		without.enter();
-		expect(without.events.at(-1)).toMatchObject({ type: 'tool-needed', kind: 'hole', tool: 'fishing-rod' });
+		expect(without.events.at(-1)).toMatchObject({
+			type: 'tool-needed',
+			kind: 'hole',
+			tool: 'fishing-rod'
+		});
 
 		const s = setup(arcticGame(pos, facing, ['fishing-rod'], [animal('fox')]));
 		expect(hud.action).toBe('fish');

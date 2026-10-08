@@ -524,12 +524,19 @@ describe('the shop', () => {
 		for (const land of LANDS) {
 			const prices = Object.values(land.shop);
 			expect(prices.length, land.id).toBeGreaterThan(0);
-			for (const price of prices) expect(Number.isInteger(price) && price! > 0 && price! < 100).toBe(true);
+			for (const price of prices)
+				expect(Number.isInteger(price) && price! > 0 && price! < 100).toBe(true);
 			const sale = shopFor(land.id).map((id) => priceIn(land.id, id));
 			expect(sale, land.id).toEqual([...sale].sort((a, b) => a - b));
 		}
 		// Nordland's: Fibonacci, and the harness costs what the paraglider does (the human's call).
-		expect(getLand('nordland').shop).toEqual({ axe: 8, pickaxe: 13, boat: 21, glider: 34, harness: 34 });
+		expect(getLand('nordland').shop).toEqual({
+			axe: 8,
+			pickaxe: 13,
+			boat: 21,
+			glider: 34,
+			harness: 34
+		});
 		// The Arctic's, in ice dollars: the same ladder from the start (#191 step 6).
 		expect(getLand('arctic').shop).toEqual({
 			'arctic-axe': 8,

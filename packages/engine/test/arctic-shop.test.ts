@@ -11,13 +11,7 @@ import { startDoctorVisit } from '../src/doctor/reducer.js';
 import { shopFor } from '../src/lands/lands.js';
 import { clearTile, clearableAhead, clearingTool } from '../src/world/clearing.js';
 import { WorldEdits, editedTileAt } from '../src/world/edits.js';
-import {
-	BITE_CHANCE,
-	castLine,
-	holeAhead,
-	holeTable,
-	rollCast
-} from '../src/world/fishing.js';
+import { BITE_CHANCE, castLine, holeAhead, holeTable, rollCast } from '../src/world/fishing.js';
 import { tileAtWorld } from '../src/world/generate.js';
 import { worldSeed } from '../src/world/numbers.js';
 import { moveFrom } from '../src/world/slide.js';
@@ -75,7 +69,12 @@ describe('the ice pick and the arctic axe', () => {
 				const under = tileAtWorld(seed, block.x, block.y).under!;
 				for (const dir of DIRS) {
 					const pos = step(block, BACK[dir]);
-					const result = clearTile(seed, WorldEdits.none, { pos, facing: dir, items: ['ice-pick'] }, block);
+					const result = clearTile(
+						seed,
+						WorldEdits.none,
+						{ pos, facing: dir, items: ['ice-pick'] },
+						block
+					);
 					expect(result.ok, `${key(block)} from ${dir}`).toBe(true);
 					if (!result.ok) continue;
 					expect(result.cleared).toMatchObject({ was: 'iceblock', tool: 'ice-pick' });
@@ -168,7 +167,10 @@ describe("The Arctic's witch doctor", () => {
 		expect(visit.shop).toEqual(shopFor('arctic'));
 		expect(visit.shop).toEqual(['arctic-axe', 'ice-pick', 'boat', 'glider']);
 		// The whole catalog (`?shop`) too: by the land's prices, the others' after their own.
-		const all = startDoctorVisit([animal('fox')], { land: 'arctic', shop: ['glider', 'axe', 'ice-pick'] });
+		const all = startDoctorVisit([animal('fox')], {
+			land: 'arctic',
+			shop: ['glider', 'axe', 'ice-pick']
+		});
 		expect(all.shop).toEqual(['axe', 'ice-pick', 'glider']);
 	});
 });
@@ -179,7 +181,12 @@ describe('the way to a tent on the ice', () => {
 	 * moves (`moveFrom`: a slide is one move, its tiles each a step): Dijkstra
 	 * the slow way, for what `nearestTent` must agree with.
 	 */
-	function stops(seed: number, edits: WorldEdits, from: GridPos, limit: number): Map<string, number> {
+	function stops(
+		seed: number,
+		edits: WorldEdits,
+		from: GridPos,
+		limit: number
+	): Map<string, number> {
 		const best = new Map<string, number>([[key(from), 0]]);
 		const open: { p: GridPos; d: number }[] = [{ p: from, d: 0 }];
 		while (open.length > 0) {
@@ -213,7 +220,9 @@ describe('the way to a tent on the ice', () => {
 				// A place by the ice a kid can stand on: the bank a slide ends on.
 				const lake = rng.pick(lakes);
 				const from = DIRS.map((d) => step(lake, d)).find(
-					(p) => isWalkable(tileAtWorld(seed, p.x, p.y).kind) && tileAtWorld(seed, p.x, p.y).kind !== 'ice'
+					(p) =>
+						isWalkable(tileAtWorld(seed, p.x, p.y).kind) &&
+						tileAtWorld(seed, p.x, p.y).kind !== 'ice'
 				);
 				if (!from) continue;
 				onIce++;
@@ -223,7 +232,10 @@ describe('the way to a tent on the ice', () => {
 					// No tent within reach by the moves a kid makes: none beside any place they stop on.
 					for (const [p] of reach) {
 						const [x, y] = p.split(',').map(Number) as [number, number];
-						for (const d of DIRS) expect(tileAtWorld(seed, step({ x, y }, d).x, step({ x, y }, d).y).kind).not.toBe('tent');
+						for (const d of DIRS)
+							expect(tileAtWorld(seed, step({ x, y }, d).x, step({ x, y }, d).y).kind).not.toBe(
+								'tent'
+							);
 					}
 					continue;
 				}
@@ -273,7 +285,9 @@ describe('fishing', () => {
 		}
 		// Nordland's sea, where the sea animals live: every one of them, none that walks.
 		const sea = holeTable('sea', 50, 3).map((e) => e.species.id);
-		const swimmers = ANIMALS.filter((a) => a.habitats.includes('sea') && !a.realms.includes('land'));
+		const swimmers = ANIMALS.filter(
+			(a) => a.habitats.includes('sea') && !a.realms.includes('land')
+		);
 		expect(sea).toEqual(swimmers.map((a) => a.id));
 		expect(sea.length).toBeGreaterThan(5);
 	});
@@ -314,10 +328,14 @@ describe('fishing', () => {
 		const swimmers = [animal('fox'), animal('otter')];
 		// No swimmer standing: nothing bites, and nothing is drawn.
 		const rng = new Rng(3);
-		expect(castLine(rng, seed, WorldEdits.none, site, rod, walkers)).toEqual({ outcome: 'no-swimmer' });
+		expect(castLine(rng, seed, WorldEdits.none, site, rod, walkers)).toEqual({
+			outcome: 'no-swimmer'
+		});
 		expect(rng.next()).toBe(new Rng(3).next());
 		const tired = [animal('fox'), animal('otter', 0)];
-		expect(castLine(new Rng(3), seed, WorldEdits.none, site, rod, tired)).toEqual({ outcome: 'no-swimmer' });
+		expect(castLine(new Rng(3), seed, WorldEdits.none, site, rod, tired)).toEqual({
+			outcome: 'no-swimmer'
+		});
 		// A swimmer, and The Arctic's holes have nobody to hook until #192's third wave: nothing.
 		for (let i = 0; i < 50; i++) {
 			const got = castLine(new Rng(i), seed, WorldEdits.none, site, rod, swimmers);
@@ -326,7 +344,9 @@ describe('fishing', () => {
 			else expect(['bite', 'nothing']).toContain(got.outcome);
 		}
 		// Without the rod, or with no hole there, it is never cast.
-		expect(() => castLine(new Rng(1), seed, WorldEdits.none, site, { items: [] }, swimmers)).toThrow();
+		expect(() =>
+			castLine(new Rng(1), seed, WorldEdits.none, site, { items: [] }, swimmers)
+		).toThrow();
 		expect(() =>
 			castLine(new Rng(1), seed, WorldEdits.none, { hole: spawn, spawn }, rod, swimmers)
 		).toThrow();
@@ -347,9 +367,14 @@ describe('fishing', () => {
 		const edits = WorldEdits.none.with(block);
 		const bank = step(block, 'up');
 		expect(holeAhead(seed, edits, bank, 'down')).toEqual(block);
-		const got = castLine(new Rng(5), seed, edits, { hole: block, spawn: spawnPoint(seed) }, { items: ['fishing-rod'] }, [
-			animal('otter')
-		]);
+		const got = castLine(
+			new Rng(5),
+			seed,
+			edits,
+			{ hole: block, spawn: spawnPoint(seed) },
+			{ items: ['fishing-rod'] },
+			[animal('otter')]
+		);
 		expect(['bite', 'nothing']).toContain(got.outcome);
 	});
 

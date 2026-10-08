@@ -13,14 +13,7 @@ import type { Gear } from '../world/types.js';
  * item's effect asks.
  */
 export type ItemId =
-	| 'axe'
-	| 'pickaxe'
-	| 'boat'
-	| 'glider'
-	| 'harness'
-	| 'arctic-axe'
-	| 'ice-pick'
-	| 'fishing-rod';
+	'axe' | 'pickaxe' | 'boat' | 'glider' | 'harness' | 'arctic-axe' | 'ice-pick' | 'fishing-rod';
 
 export interface ItemSpec {
 	id: ItemId;

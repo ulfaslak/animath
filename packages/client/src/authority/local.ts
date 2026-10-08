@@ -1039,7 +1039,12 @@ export class LocalAuthority implements Authority {
 	private fish(hole: GridPos): void {
 		const owner = { items: this.items };
 		if (!hasItem(owner, 'fishing-rod')) {
-			this.emit({ type: 'tool-needed', playerId: this.playerId, kind: 'hole', tool: 'fishing-rod' });
+			this.emit({
+				type: 'tool-needed',
+				playerId: this.playerId,
+				kind: 'hole',
+				tool: 'fishing-rod'
+			});
 			return;
 		}
 		this.steps += 1;

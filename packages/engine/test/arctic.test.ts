@@ -493,9 +493,9 @@ describe("The Arctic's tiles", () => {
 			cleared: 'iceblock',
 			under: 'snow'
 		});
-		expect(clearedTile({ kind: 'iceblock', biome: 'arctic-ice', height: 0, under: 'ice' }).kind).toBe(
-			'hole'
-		);
+		expect(
+			clearedTile({ kind: 'iceblock', biome: 'arctic-ice', height: 0, under: 'ice' }).kind
+		).toBe('hole');
 		expect(
 			clearedTile({ kind: 'iceblock', biome: 'arctic-ocean', height: 0, under: 'water' }).kind
 		).toBe('water');

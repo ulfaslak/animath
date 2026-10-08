@@ -304,7 +304,7 @@
 	<div class="card talk" class:crowded class:small bind:this={talk}>
 		<span class="who">{t('doctor.title')}</span>
 		<span class="purse">
-			<Coin currency={currency} />
+			<Coin {currency} />
 			<span class="tokens">{t('doctor.tokens', { count: doctor.tokens, money: money() })}</span>
 			{#if doctor.tokenPop}
 				{#key doctor.tokenPop.n}
@@ -456,7 +456,8 @@
 					<span class="caret">▸</span>
 					{#if row.kind === 'send'}
 						<span class="label">{t('doctor.home.send')}</span>
-						{#if marked.size > 0}<span class="worth">+{reward} <Coin size={16} {currency} /></span>{/if}
+						{#if marked.size > 0}<span class="worth">+{reward} <Coin size={16} {currency} /></span
+							>{/if}
 					{:else}
 						<span class="label">{t('doctor.bye')}</span>
 						{#if !touch.on}<kbd>{t('doctor.byeKey')}</kbd>{/if}

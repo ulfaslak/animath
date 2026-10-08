@@ -62,9 +62,7 @@ export function holeAhead(
  * nothing would (`no-swimmer`).
  */
 export type Catch =
-	| { outcome: 'bite'; wild: WildAnimal }
-	| { outcome: 'nothing' }
-	| { outcome: 'no-swimmer' };
+	{ outcome: 'bite'; wild: WildAnimal } | { outcome: 'nothing' } | { outcome: 'no-swimmer' };
 
 /** Where a line is cast: the hole, and the world's spawn for the bell's distance. */
 export interface CastSite {
@@ -96,7 +94,11 @@ export function castLine(
 	if (tile.kind !== 'hole') throw new Error(`castLine: no hole at ${hole.x},${hole.y}`);
 	const lead = party[leadIndex(party, 'water')];
 	if (!lead) return { outcome: 'no-swimmer' };
-	const table = holeTable(tile.biome, distanceFromSpawn(hole, spawn), getAnimal(lead.speciesId).tier);
+	const table = holeTable(
+		tile.biome,
+		distanceFromSpawn(hole, spawn),
+		getAnimal(lead.speciesId).tier
+	);
 	const wild = rollCast(rng, table);
 	return wild ? { outcome: 'bite', wild } : { outcome: 'nothing' };
 }

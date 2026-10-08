@@ -568,11 +568,15 @@ function decorate(props: Props, group: THREE.Group, tile: Tile, x: number, z: nu
 					const [cx, cz] = near(0.34);
 					const w = 0.06 + rng.next() * 0.06;
 					const colour = pick(rng, [ARCTIC_COLORS.block, ARCTIC_COLORS.blockTop]);
-					props.add('slab', cx, top + 0.012, cz, colour, [w, 0.024, w * 0.7], [
-						0,
-						rng.next() * Math.PI,
-						0
-					]);
+					props.add(
+						'slab',
+						cx,
+						top + 0.012,
+						cz,
+						colour,
+						[w, 0.024, w * 0.7],
+						[0, rng.next() * Math.PI, 0]
+					);
 				}
 				return;
 			}

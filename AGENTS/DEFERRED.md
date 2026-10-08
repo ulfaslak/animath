@@ -6,13 +6,13 @@ Technical items we've intentionally postponed: tech debt, hardening shortcuts, k
 
 ---
 
-### The searches on foot read the ice as ground a kid can stop on
+### A go-to's way out reads the ice as ground a kid can stop on
 
-**What**: the searches that ask where a kid can get to on foot (`nearestTent` and the arrow to the witch doctor, `doctorComes` behind the knock-out rule, the spawn's room, `arrivalSpot`'s escape) walk tile by tile over `isPassable` ground, The Arctic's ice included, as if a kid could stop on any tile of it. On the ice a step slides on (`moveFrom`), so a way they find can cross ice the kid can't steer across: an arrow may point over a lake the kid slides past the far end of, and in a pocket only reachable that way a tired team could be told a tent is in reach when the slides never lead there.
+**What**: `arrivalSpot`'s escape check (a spot must open 64 tiles wide) and the spawn's room (`hasRoom`) walk tile by tile over `isPassable` ground, The Arctic's ice included, as if a kid could stop on any tile of it. `nearestTent` and the knock-out rule read the slides since #191 step 6; these two do not, so a go-to beside a friend could in principle count a pocket as open over ice a kid can only slide across.
 
-**Why deferred**: The Arctic has no animals yet (#191 step 5), so no battle is lost there and nobody needs the way to a tent; every tent stands in a clearing of snow, the ice's runs are short (a stopper at least every 23 tiles), and a flood fill over `moveFrom` reaches 300 places from beside every tent tested. A slide-aware search costs a second search beside the cached one.
+**Why deferred**: every slide in The Arctic is undone by the slide back and ends on a bank (§ INVARIANTS "A slide on the ice…"), so the places joined by tiles and by moves almost always agree; every Arctic world's spawn is the fixed (5, 9), checked by its own test; and The Arctic is closed to kids until #191 step 7.
 
-**Trigger**: The Arctic's first animals (#191 step 5): before a battle can be lost on the ice, make `nearestTent`'s and `doctorComes`' walk read slides (`moveFrom` from each place a kid can stop), or show with a sweep that every place they find is reached by slides too.
+**Trigger**: #191 step 7 (The Arctic opens to kids), or a report of a go-to into a spot a kid can't walk out of: make `opensOut` and `hasRoom` move by `moveFrom`, as `nearestTent` does.
 
 ### The witch doctor's card is not fitted to puzzles with pictures
 

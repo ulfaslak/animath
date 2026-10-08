@@ -113,7 +113,12 @@ export class FishingEffect {
 		this.rod.position.set(0, -0.25, 0);
 		arm.add(this.rod);
 		this.parent.add(this.line, this.bobber);
-		this.cast = { start: now, hole: new THREE.Vector3(hole.x, ICE_TOP + 0.02, hole.y), outcome, arm };
+		this.cast = {
+			start: now,
+			hole: new THREE.Vector3(hole.x, ICE_TOP + 0.02, hole.y),
+			outcome,
+			arm
+		};
 	}
 
 	/** Take the rod, the line and the bobber away. */
