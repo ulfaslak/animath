@@ -186,7 +186,10 @@ export function unlockLands(
 		const before = LANDS[i - 1]!.species;
 		if (before.length > 0 && before.every((id) => set.has(id))) open.add(LANDS[i]!.id);
 	}
-	if (open.size === unlocked.length && unlocked.includes(FIRST_LAND)) return unlocked;
+	// The very same list when nothing is new and it names each land once (a hand-edited save
+	// can name one twice: it comes back named once).
+	const once = new Set(unlocked).size === unlocked.length;
+	if (once && open.size === unlocked.length && unlocked.includes(FIRST_LAND)) return unlocked;
 	const known = LAND_IDS.filter((id) => open.has(id));
 	const unknown = [...open].filter((id) => !isLandId(id));
 	return [...known, ...unknown];

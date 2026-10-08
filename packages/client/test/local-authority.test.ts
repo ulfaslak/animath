@@ -3757,23 +3757,32 @@ describe('LocalAuthority: lands, from the adversarial review of #196', () => {
 
 	it('a land unlocked at the witch doctor is open to fly to in the same visit', () => {
 		const all = getLand('nordland').species;
-		const s = session({ party: [animal('squirrel'), animal('fox')] });
+		// Every land built (`?lands`), so only the unlock stands in the way.
+		const s = session({ party: [animal('squirrel'), animal('fox')], lands: true });
 		const game = s.authority.snapshot();
 		s.authority.start({
-			game: { ...game, seen: [...all], caught: [...all], freed: all.filter((id) => id !== 'fox') }
+			game: {
+				...game,
+				seen: [...all],
+				caught: [...all],
+				freed: all.filter((id) => id !== 'fox'),
+				unlocked: ['nordland']
+			}
 		});
 		walkToTent(s);
 		s.authority.dispatch({ type: 'interact' });
+		doctorIntent(s, { type: 'fly', land: 'arctic' });
+		const locked = s.events.at(-1);
+		expect(locked?.type === 'doctor-visit-updated' && locked.events).toEqual([
+			{ type: 'rejected', reason: 'land-locked' }
+		]);
 		const fox = party(s).find((a) => a.speciesId === 'fox')!;
 		doctorIntent(s, { type: 'hand-over', ids: [fox.id] });
 		answerDoctor(s, true);
 		expect(s.authority.snapshot().unlocked).toEqual(['nordland', 'arctic']);
-		expect(visit(s).unlocked).toEqual(['nordland', 'arctic']);
-		// Locked no longer: only not built (in a `?lands` game it would fly; here The Arctic is closed).
+		// Asked before the hand-over, it was locked; now the fare is asked.
 		doctorIntent(s, { type: 'fly', land: 'arctic' });
-		const last = s.events.at(-1);
-		expect(last?.type === 'doctor-visit-updated' && last.events).toEqual([
-			{ type: 'rejected', reason: 'land-unavailable' }
-		]);
+		expect(visit(s).phase.kind).toBe('paying-fare');
+		expect(visit(s).unlocked).toEqual(['nordland', 'arctic']);
 	});
 });

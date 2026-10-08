@@ -1037,9 +1037,12 @@ export function restoreGame(save: SaveV4, mintId: () => string): SavedGame {
 		cleanAnimal({ ...a, hp: Math.min(a.hp, getAnimal(a.speciesId).maxHp) })
 	);
 	// In a land past the first, an empty party is a kid who has just arrived and has not
-	// picked a starter yet (`needsStarter`): they pick one, and none is added for them.
+	// picked a starter yet (`needsStarter`): they pick one, and none is added for them. And a
+	// land's party only ever holds a starter of its own: a land with none (not built yet) adds
+	// nothing, never another land's.
+	const own = land === FIRST_LAND || getLand(land).starters.length > 0;
 	const waiting = party.length === 0 && land !== FIRST_LAND;
-	if (!waiting && !party.some((a) => canFightIn(a.speciesId, 'land'))) {
+	if (own && !waiting && !party.some((a) => canFightIn(a.speciesId, 'land'))) {
 		party = joinParty(party, { ...defaultStarter(land), id: freshId(party, mintId) });
 	}
 	const pos = standable ? { x: save.pos.x, y: save.pos.y } : spawnPoint(seed);

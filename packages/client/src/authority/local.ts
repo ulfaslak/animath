@@ -23,7 +23,7 @@ import {
 	countSolved,
 	defaultStarter,
 	editedTileAt,
-	fitWorlds,
+	fitStays,
 	flightPos,
 	flightTile,
 	gearOf,
@@ -400,7 +400,9 @@ export class LocalAuthority implements Authority {
 		const party = battle ? battle.party : this.party;
 		const book = air ? recordBattle(this.book, air) : this.book;
 		const edits = landing?.cleared ? landing.edits : this.edits;
-		const worlds = landing?.cleared ? fitWorlds(edits, this.worlds, this.home) : this.worlds;
+		const fitted = landing?.cleared
+			? this.fitted(edits)
+			: { worlds: this.worlds, lands: this.lands };
 		return {
 			name: this.name,
 			home: this.home,
@@ -418,9 +420,9 @@ export class LocalAuthority implements Authority {
 			freed: [...book.freed],
 			battle,
 			edits: [...edits.encode()],
-			worlds: worlds.map(copyStay),
+			worlds: fitted.worlds.map(copyStay),
 			land: this.land,
-			lands: this.lands.map(copyLand),
+			lands: fitted.lands.map(copyLand),
 			unlocked: [...this.unlocked]
 		};
 	}
@@ -813,7 +815,7 @@ export class LocalAuthority implements Authority {
 		const cleared = landing.cleared;
 		if (cleared) {
 			this.edits = landing.edits;
-			this.worlds = fitWorlds(this.edits, this.worlds, this.home);
+			this.fitAround(this.edits);
 		}
 		// Noticed on the way down to the landing tile (a `land` sent early carries the flight on).
 		if (bird && noticed) this.follows(bird, noticed.pos, noticed.flown);
@@ -989,7 +991,7 @@ export class LocalAuthority implements Authority {
 		if (result.ok) {
 			this.edits = result.edits;
 			// Every world's cleared tiles share one budget: this world's come first.
-			this.worlds = fitWorlds(this.edits, this.worlds, this.home);
+			this.fitAround(this.edits);
 			const { pos, was, tool, regrown } = result.cleared;
 			this.emit({ type: 'tile-cleared', playerId: this.playerId, pos, was, tool, regrown });
 		} else if (result.reason === 'needs-tool' && result.kind && result.tool) {
@@ -1116,6 +1118,32 @@ export class LocalAuthority implements Authority {
 		this.askStarter();
 	}
 
+	/**
+	 * The worlds left behind, in this land and every other, with their
+	 * cleared tiles cut to what fits beside `edits` (this world's) within the
+	 * one budget (`fitStays`): this land's first, then the lands left.
+	 */
+	private fitted(edits: WorldEdits): { worlds: readonly WorldStay[]; lands: readonly LandStay[] } {
+		const [worlds, ...lands] = fitStays(
+			edits,
+			[this.worlds, ...this.lands.map((l) => l.worlds)],
+			this.home
+		);
+		return {
+			worlds: worlds!,
+			lands: this.lands.map((l, i) =>
+				lands[i] === l.worlds ? l : { ...l, worlds: [...lands[i]!] }
+			)
+		};
+	}
+
+	/** Every world's cleared tiles, in every land, back within the budget after `edits` grew. */
+	private fitAround(edits: WorldEdits): void {
+		const { worlds, lands } = this.fitted(edits);
+		this.worlds = worlds;
+		this.lands = lands;
+	}
+
 	/** Waiting for the kid to pick the first animal of this land (`needsStarter`). */
 	private waiting(): boolean {
 		return needsStarter(this.land, this.party);
@@ -1154,6 +1182,8 @@ export class LocalAuthority implements Authority {
 		const unlocked = unlockLands(this.unlocked, this.book.freed);
 		if (unlocked === this.unlocked) return;
 		this.unlocked = unlocked;
+		// A visit under way flies to it at once: its rule reads the lands unlocked it opened with.
+		if (this.doctor) this.doctor.state = { ...this.doctor.state, unlocked: [...unlocked] };
 		this.emit({ type: 'unlocked-changed', unlocked: [...unlocked] });
 	}
 
