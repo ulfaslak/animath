@@ -17,7 +17,7 @@ import { homeTokens, tokenPuzzle, tokensForTier } from '../src/doctor/tokens.js'
 import type { DoctorEvent, DoctorIntent, DoctorState, DoctorStep } from '../src/doctor/types.js';
 import { ITEMS, ITEM_IDS, getItem, hasItem, itemsForSale } from '../src/items/catalog.js';
 import { LAND_IDS } from '../src/lands/ids.js';
-import { FARE_DIFFICULTY, getLand } from '../src/lands/lands.js';
+import { FARE_DIFFICULTY, LANDS, getLand, priceIn, shopFor } from '../src/lands/lands.js';
 import { healingDifficulty } from '../src/puzzles/difficulty.js';
 import { answerForm, answerText, checkAnswer } from '../src/puzzles/registry.js';
 import { Rng, hashInts, hashString } from '../src/rng.js';
@@ -105,7 +105,7 @@ function apply(state: DoctorState, intent: DoctorIntent, seed: number): DoctorSt
 		expect(correct, 'bought without a right answer').toBe(true);
 		if (state.phase.kind !== 'buying') throw new Error('bought with no purchase open');
 		expect(bought.itemId).toBe(state.phase.itemId);
-		expect(bought.price).toBe(getItem(bought.itemId).price);
+		expect(bought.price).toBe(priceIn(state.land, bought.itemId));
 		tokens -= bought.price;
 		expect(bought.tokens).toBe(tokens);
 		expect(after.items).toEqual([...state.items, bought.itemId]);
@@ -159,7 +159,7 @@ describe('startDoctorVisit', () => {
 			party,
 			tokens: 0,
 			items: [],
-			shop: itemsForSale(),
+			shop: shopFor('nordland'),
 			// In Nordland by default, nothing unlocked past it, and only the lands built open.
 			land: 'nordland',
 			unlocked: ['nordland'],
@@ -513,15 +513,44 @@ describe('tokens', () => {
 });
 
 describe('the shop', () => {
-	it('sells five tools with stable ids, cheapest first, each at a price a kid can count to', () => {
-		expect(ITEM_IDS).toEqual(['axe', 'pickaxe', 'boat', 'glider', 'harness']);
-		const prices = ITEMS.map((i) => i.price);
-		for (const [i, price] of prices.entries()) {
-			expect(Number.isInteger(price) && price > 0 && price < 100).toBe(true);
-			if (i > 0) expect(price).toBeGreaterThanOrEqual(prices[i - 1]!);
+	it('sells each land its tools, cheapest first, each at a price a kid can count to', () => {
+		expect(ITEM_IDS).toEqual([
+			'axe',
+			'pickaxe',
+			'boat',
+			'glider',
+			'harness',
+			'arctic-axe',
+			'ice-pick',
+			'fishing-rod'
+		]);
+		for (const land of LANDS) {
+			const prices = Object.values(land.shop);
+			expect(prices.length, land.id).toBeGreaterThan(0);
+			for (const price of prices)
+				expect(Number.isInteger(price) && price! > 0 && price! < 100).toBe(true);
+			const sale = shopFor(land.id).map((id) => priceIn(land.id, id));
+			expect(sale, land.id).toEqual([...sale].sort((a, b) => a - b));
 		}
-		// The harness costs what the paraglider does (the human's call).
-		expect(getItem('harness').price).toBe(getItem('glider').price);
+		// Nordland's: Fibonacci, and the harness costs what the paraglider does (the human's call).
+		expect(getLand('nordland').shop).toEqual({
+			axe: 8,
+			pickaxe: 13,
+			boat: 21,
+			glider: 34,
+			harness: 34
+		});
+		// The Arctic's, in ice dollars: the same ladder from the start (#191 step 6).
+		expect(getLand('arctic').shop).toEqual({
+			'arctic-axe': 8,
+			'ice-pick': 13,
+			'fishing-rod': 21,
+			boat: 55,
+			glider: 89
+		});
+		// An item a land does not sell costs what it does where it is sold (the `?shop` look).
+		expect(priceIn('arctic', 'harness')).toBe(34);
+		expect(priceIn('nordland', 'ice-pick')).toBe(13);
 		expect(() => getItem('sword' as 'axe')).toThrow();
 	});
 
@@ -530,8 +559,20 @@ describe('the shop', () => {
 		// flying) turns its `available` on and adds it here, and nothing else does. The
 		// axe and the pickaxe clear trees and rocks (`world/clearing.ts`); the boat
 		// sails: water is passable with it; the glider flies (`world/flight.ts`); the
-		// harness rides a big lead (`canRide`, drawn by the client's follower).
-		expect(itemsForSale()).toEqual(['axe', 'pickaxe', 'boat', 'glider', 'harness']);
+		// harness rides a big lead (`canRide`, drawn by the client's follower). The arctic
+		// axe and the ice pick clear spruces and ice blocks. The fishing rod fishes, and
+		// stays off sale while no fishing hole has an animal to hook (`fishing.test.ts`).
+		expect(itemsForSale()).toEqual([
+			'axe',
+			'pickaxe',
+			'boat',
+			'glider',
+			'harness',
+			'arctic-axe',
+			'ice-pick'
+		]);
+		expect(shopFor('nordland')).toEqual(['axe', 'pickaxe', 'boat', 'glider', 'harness']);
+		expect(shopFor('arctic')).toEqual(['arctic-axe', 'ice-pick', 'boat', 'glider']);
 	});
 });
 
@@ -819,7 +860,7 @@ describe('buying', () => {
 				for (const item of [...ITEMS.map((i) => i.id), 'sword', 7]) {
 					const price =
 						typeof item === 'string' && ITEM_IDS.includes(item as never)
-							? getItem(item as never).price
+							? priceIn('nordland', item as never)
 							: 10;
 					for (const tokens of [0, price - 1, price, price + 1]) {
 						if (tokens < 0) continue;
@@ -845,7 +886,8 @@ describe('buying', () => {
 	it('a wrong answer asks the same sum again and buys nothing; a right one buys it, to exactly the balance less the price', () => {
 		for (const item of ITEMS) {
 			for (const extra of [0, 1, 7, 50]) {
-				const balance = item.price + extra;
+				const price = priceIn('nordland', item.id);
+				const balance = price + extra;
 				let state = apply(
 					shopVisit(partyOf(['fox']), balance),
 					{ type: 'buy', itemId: item.id },
@@ -864,7 +906,7 @@ describe('buying', () => {
 				expect(s.events.at(-1)).toEqual({
 					type: 'bought',
 					itemId: item.id,
-					price: item.price,
+					price,
 					tokens: extra
 				});
 				expect(s.state.tokens).toBe(extra);
@@ -1062,7 +1104,7 @@ describe('replay', () => {
 			],
 			tokens: 0,
 			items: [],
-			shop: itemsForSale(),
+			shop: shopFor('nordland'),
 			land: 'nordland',
 			unlocked: ['nordland'],
 			open: ['nordland'],

@@ -1,25 +1,40 @@
 import { hasItem, type ItemId } from '../items/catalog.js';
+import { landOfSeed, type LandId } from '../lands/ids.js';
 import { editedTileAt, type ChunkRef, type WorldEdits } from './edits.js';
 import { step, type ClearableKind, type Direction, type GridPos, type TileKind } from './types.js';
 
 /**
- * Clearing a tile with a tool ([[PRODUCT]] §4 "World"): the axe chops down a
- * tree, the pickaxe breaks a rock, and the tile is plain ground from then on
- * (`world/edits.ts`). The player stands next to the tile and faces it, as
- * they face a tent to talk to the doctor; `interact` does it. Or they come
- * down on it from the glider (`clearLanding`, `world/flight.ts`). Nothing else
- * can be cleared: not tall grass, sand, water or a tent, and not a tile
- * already cleared.
+ * Clearing a tile with a tool ([[PRODUCT]] §4 "World", "The Arctic's shop"):
+ * the axe chops down a tree, the pickaxe breaks a rock, and the tile is plain
+ * ground from then on; in The Arctic its own axe chops down a spruce, and the
+ * ice pick breaks an ice block, which leaves what it stood on (snow, a
+ * fishing hole in the ice, or water: `world/edits.ts`). The player stands
+ * next to the tile and faces it, as they face a tent to talk to the doctor;
+ * `interact` does it. Or they come down on a tree or a rock from the glider
+ * (`clearLanding`, `world/flight.ts`); never on an ice block, which is never
+ * a landing tile. Nothing else can be cleared: not tall grass, sand, water or
+ * a tent, and not a tile already cleared.
  */
 
-/** The tool each kind of tile takes. */
-export const CLEARING_TOOL: Readonly<Record<ClearableKind, ItemId>> = {
-	tree: 'axe',
-	rock: 'pickaxe'
+/**
+ * The tool each kind of tile takes, land by land: a tree takes the land's own
+ * axe (Nordland's `axe`, The Arctic's `arctic-axe`, which looks different), a
+ * rock the pickaxe and an ice block the ice pick wherever they stand. A tool
+ * a land's witch doctor does not sell (the pickaxe in The Arctic) is never
+ * owned there, so that land's rocks stay.
+ */
+export const CLEARING_TOOLS: Readonly<Record<LandId, Readonly<Record<ClearableKind, ItemId>>>> = {
+	nordland: { tree: 'axe', rock: 'pickaxe', iceblock: 'ice-pick' },
+	arctic: { tree: 'arctic-axe', rock: 'pickaxe', iceblock: 'ice-pick' }
 };
 
+/** The tool a tile of kind `kind` takes in the world of `seed` (its land: `landOfSeed`). */
+export function clearingTool(seed: number, kind: ClearableKind): ItemId {
+	return CLEARING_TOOLS[landOfSeed(seed)][kind];
+}
+
 export function isClearable(kind: TileKind): kind is ClearableKind {
-	return kind === 'tree' || kind === 'rock';
+	return kind === 'tree' || kind === 'rock' || kind === 'iceblock';
 }
 
 /** A tile a tool could clear: where it is, what it is, and the tool it takes. */
@@ -43,7 +58,7 @@ export function clearableAhead(
 ): Clearable | null {
 	const front = step(pos, facing);
 	const { kind } = editedTileAt(seed, edits, front.x, front.y);
-	return isClearable(kind) ? { pos: front, kind, tool: CLEARING_TOOL[kind] } : null;
+	return isClearable(kind) ? { pos: front, kind, tool: clearingTool(seed, kind) } : null;
 }
 
 /**
@@ -104,7 +119,8 @@ export function clearTile(
  * standing on it: the one other way a tile is cleared. The same rule as
  * `clearTile` but for where the player is: a tree or a rock not yet cleared,
  * and its tool owned; the save is trimmed round the landing tile. Anything
- * else is a refusal that changes nothing.
+ * else (an ice block too, which no glide comes down on) is a refusal that
+ * changes nothing.
  */
 export function clearLanding(
 	seed: number,
@@ -113,6 +129,9 @@ export function clearLanding(
 ): ClearStep {
 	const { pos } = player;
 	if (!Number.isSafeInteger(pos?.x) || !Number.isSafeInteger(pos?.y)) {
+		return { ok: false, reason: 'nothing-to-clear' };
+	}
+	if (editedTileAt(seed, edits, pos.x, pos.y).kind === 'iceblock') {
 		return { ok: false, reason: 'nothing-to-clear' };
 	}
 	return clearAt(seed, edits, player, pos, pos);
@@ -132,7 +151,7 @@ function clearAt(
 ): ClearStep {
 	const { kind } = editedTileAt(seed, edits, at.x, at.y);
 	if (!isClearable(kind)) return { ok: false, reason: 'nothing-to-clear' };
-	const tool = CLEARING_TOOL[kind];
+	const tool = clearingTool(seed, kind);
 	if (!hasItem(player, tool)) return { ok: false, reason: 'needs-tool', kind, tool };
 	const { edits: kept, regrown } = edits.with(at).trimmedAround(around);
 	return {

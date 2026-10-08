@@ -1,5 +1,5 @@
 import { hasItem } from '../items/catalog.js';
-import { CLEARING_TOOL, clearLanding, isClearable, type Cleared } from './clearing.js';
+import { clearLanding, clearingTool, type Cleared } from './clearing.js';
 import { editedTileAt, type WorldEdits } from './edits.js';
 import { travelKindAt } from './generate.js';
 import { isWalkable, isWater, type Direction, type GridPos, type TileKind } from './types.js';
@@ -84,14 +84,14 @@ const DELTA: Readonly<Record<Direction, readonly [number, number]>> = {
 };
 
 /**
- * Whether a kid who owns `gear` can come down on a tile of this kind: ground
- * always, water with the boat, a tree with the axe, a rock with the pickaxe,
- * a tent never.
+ * Whether a kid who owns `gear` can come down on a tile of this kind in the
+ * world of `seed`: ground always, water with the boat, a tree with the land's
+ * axe, a rock with the pickaxe; a tent, an ice block and a fishing hole never.
  */
-export function isLandable(kind: TileKind, gear: FlightGear): boolean {
+export function isLandable(seed: number, kind: TileKind, gear: FlightGear): boolean {
 	if (isWalkable(kind)) return true;
 	if (isWater(kind)) return hasItem(gear, 'boat');
-	if (isClearable(kind)) return hasItem(gear, CLEARING_TOOL[kind]);
+	if (kind === 'tree' || kind === 'rock') return hasItem(gear, clearingTool(seed, kind));
 	return false;
 }
 
@@ -117,7 +117,7 @@ function landableAt(
 ): boolean {
 	const { x, y } = flightTile(from, dir, n);
 	const kind = edits.has(x, y) ? editedTileAt(seed, edits, x, y).kind : travelKindAt(seed, x, y);
-	return isLandable(kind, gear);
+	return isLandable(seed, kind, gear);
 }
 
 /** The tile a flight is over now. */

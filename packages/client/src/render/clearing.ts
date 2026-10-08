@@ -9,7 +9,7 @@ import {
 } from '@mathgame/engine';
 import * as THREE from 'three';
 import { smoothstep } from './ease';
-import { COLORS, PROP_COLORS, TILE_COLORS } from './palette';
+import { ARCTIC_COLORS, COLORS, PROP_COLORS, TILE_COLORS } from './palette';
 import {
 	BOX_GEOMETRY,
 	PEAK_HEIGHT,
@@ -21,10 +21,11 @@ import {
 import { AHEAD } from './trainer';
 
 /**
- * Chopping a tree and breaking a rock, on screen ([[UI_SPEC]] § Explore
- * mode): the trainer swings the tool over the shoulder and down, and as it
- * lands the tree tips over, away from the trainer, and shrinks away with a
- * few chips of wood flying, or the rock shakes and cracks into pebbles. A
+ * Chopping a tree and breaking a rock or an ice block, on screen ([[UI_SPEC]]
+ * § Explore mode): the trainer swings the tool over the shoulder and down,
+ * and as it lands the tree tips over, away from the trainer, and shrinks away
+ * with a few chips of wood flying, or the rock shakes and cracks into
+ * pebbles, the ice block into shards of ice. A
  * little under a second, all of it. The chunk already holds the stump or the
  * gravel when the flourish starts (`ChunkRing.setEdits`); the flourish draws
  * what stood there, exactly as the chunk drew it, and takes it down.
@@ -95,6 +96,9 @@ function block(hex: number, size: [number, number, number], at: [number, number,
 
 /** A pale edge on the axe's blade, as the shop's picture has it. */
 const EDGE = 0xe9e6e2;
+/** The Arctic's tools, as their shop pictures have them: a red shaft and blue steel. */
+const ICE_PICK_SHAFT = 0xc0392b;
+const STEEL = 0x6f9fc4;
 
 /**
  * The tool in the trainer's fist, to hang on the right arm's joint for a
@@ -105,6 +109,21 @@ export function buildTool(tool: ItemId): THREE.Group {
 	const group = new THREE.Group();
 	group.name = `tool:${tool}`;
 	// The hand is 0.25 below the shoulder joint; the handle runs on past it.
+	if (tool === 'ice-pick') {
+		// The ice pick: a red shaft, a long pick of blue steel across its head, a spike at its foot.
+		group.add(block(ICE_PICK_SHAFT, [0.03, 0.34, 0.03], [0, -0.35, 0]));
+		group.add(block(STEEL, [0.025, 0.035, 0.32], [0, -0.51, 0.03]));
+		group.add(block(ARCTIC_COLORS.block, [0.027, 0.03, 0.06], [0, -0.51, 0.2]));
+		return group;
+	}
+	if (tool === 'arctic-axe') {
+		// The Arctic's axe: a red handle wrapped in white, and a broad blade of blue steel.
+		group.add(block(ICE_PICK_SHAFT, [0.035, 0.3, 0.035], [0, -0.33, 0]));
+		group.add(block(COLORS.white, [0.04, 0.06, 0.04], [0, -0.26, 0]));
+		group.add(block(STEEL, [0.025, 0.14, 0.12], [0, -0.45, 0.06]));
+		group.add(block(EDGE, [0.027, 0.14, 0.025], [0, -0.45, 0.125]));
+		return group;
+	}
 	group.add(block(COLORS.trunk, [0.035, 0.3, 0.035], [0, -0.33, 0]));
 	if (tool === 'pickaxe') {
 		group.add(block(TILE_COLORS.rock, [0.03, 0.04, 0.3], [0, -0.47, 0]));
@@ -170,7 +189,7 @@ export class ClearingEffects {
 	 * renderer's clock when the swing starts, in seconds.
 	 */
 	play(base: Tile, at: GridPos, facing: Direction, now: number): void {
-		if (base.kind !== 'tree' && base.kind !== 'rock') return;
+		if (base.kind !== 'tree' && base.kind !== 'rock' && base.kind !== 'iceblock') return;
 		const top = groundTop(base);
 		const pivot = new THREE.Group();
 		pivot.position.set(at.x, top, at.y);
@@ -180,7 +199,12 @@ export class ClearingEffects {
 		const { x: dx, z: dz } = AHEAD[facing];
 		const rng = new Rng(hashInts(at.x, at.y, 77));
 		const flying = base.kind === 'tree' ? chips(rng, dx, dz, top) : pebbles(rng, top);
-		const colours = base.kind === 'tree' ? CHIP_COLOURS : pebbleColours(base);
+		const colours =
+			base.kind === 'tree'
+				? CHIP_COLOURS
+				: base.kind === 'iceblock'
+					? SHARD_COLOURS
+					: pebbleColours(base);
 		const shape = base.kind === 'tree' ? PROP_GEOMETRY.ball : PROP_GEOMETRY.rock;
 		const bits = new THREE.InstancedMesh(shape, bitMaterial, flying.length);
 		const colour = new THREE.Color();
@@ -266,7 +290,7 @@ export class ClearingEffects {
 
 	/** The chips or pebbles `since` seconds after the tool landed (a rock's after its shake); true once gone. */
 	private fly(c: Clearing, since: number, calm: boolean): boolean {
-		const from = c.was === 'rock' && !calm ? since - SHAKE_SECONDS : since;
+		const from = c.was !== 'tree' && !calm ? since - SHAKE_SECONDS : since;
 		if (from < 0) return false;
 		const life = calm ? CALM_SECONDS : BIT_SECONDS;
 		const shown = calm ? Math.min(CALM_BITS, c.flying.length) : c.flying.length;
@@ -311,6 +335,12 @@ function landingTime(bit: Bit, ground: number): number {
 }
 
 const CHIP_COLOURS: readonly number[] = [PROP_COLORS.wood, PROP_COLORS.wood, COLORS.trunk];
+/** An ice block's shards: its blue and its pale top, and the ice's shine. */
+const SHARD_COLOURS: readonly number[] = [
+	ARCTIC_COLORS.block,
+	ARCTIC_COLORS.blockTop,
+	ARCTIC_COLORS.shine
+];
 
 function pebbleColours(base: Tile): readonly number[] {
 	const grey = [COLORS.rock, PROP_COLORS.boulderLight, PROP_COLORS.pebble];

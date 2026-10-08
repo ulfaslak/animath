@@ -2,12 +2,13 @@
 	import {
 		buyRefusal,
 		getAnimal,
-		getItem,
+		getLand,
 		homeTokens,
 		isPictureKind,
 		keepsATeam,
 		mustStay,
 		needsHealing,
+		priceIn,
 		tokensForTier,
 		type ItemId
 	} from '@mathgame/engine';
@@ -18,6 +19,7 @@
 	import { optionKey, rowKey, tabKey, unfocusable } from '../input/press';
 	import { touch } from '../input/touch.svelte';
 	import { itemName, itemUse, itemWords } from '../items';
+	import { moneyWords } from '../money';
 	import { animalWords, nameOf, speciesName } from '../names';
 	import {
 		DOCTOR_TABS,
@@ -227,8 +229,12 @@
 		return hurt.filter((j) => j !== i && doctor.party[j]!.speciesId === species).length;
 	}
 
+	/** The money of the land the tent is in: its words for a line, and its coin. */
+	const money = () => moneyWords(doctor.land);
+	const currency = $derived(getLand(doctor.land).currency);
+
 	function price(itemId: ItemId): string {
-		return t('doctor.shop.price', { count: getItem(itemId).price });
+		return t('doctor.shop.price', { count: priceIn(doctor.land, itemId), money: money() });
 	}
 
 	/** Why a highlighted item can't be bought, in words, or null. */
@@ -238,7 +244,10 @@
 			case 'already-owned':
 				return t('doctor.shop.owned', { item: itemWords(itemId) });
 			case 'not-enough-tokens':
-				return t('doctor.shop.short', { count: getItem(itemId).price - doctor.tokens });
+				return t('doctor.shop.short', {
+					count: priceIn(doctor.land, itemId) - doctor.tokens,
+					money: money()
+				});
 			case 'not-for-sale':
 			case null:
 				return null;
@@ -302,8 +311,8 @@
 	<div class="card talk" class:crowded class:small bind:this={talk}>
 		<span class="who">{t('doctor.title')}</span>
 		<span class="purse">
-			<Coin />
-			<span class="tokens">{t('doctor.tokens', { count: doctor.tokens })}</span>
+			<Coin {currency} />
+			<span class="tokens">{t('doctor.tokens', { count: doctor.tokens, money: money() })}</span>
 			{#if doctor.tokenPop}
 				{#key doctor.tokenPop.n}
 					<span class="token-pop" class:spend={doctor.tokenPop.amount < 0} aria-hidden="true">
@@ -367,7 +376,7 @@
 						>
 						<!-- What the pick brings: the one who stays, when one must, is not counted. -->
 						{#if going.length > 0}
-							<span class="worth">+{homeTokens(going)} <Coin size={16} /></span>
+							<span class="worth">+{homeTokens(going)} <Coin size={16} {currency} /></span>
 						{/if}
 					</button>
 				{:else if row.kind === 'animal'}
@@ -433,7 +442,8 @@
 						<ItemIcon id={row.itemId} size={28} />
 						<span class="label">{itemName(row.itemId)}</span>
 						<span class="worth">
-							{#if owned}✓{:else}{getItem(row.itemId).price} <Coin size={16} />{/if}
+							{#if owned}✓{:else}{priceIn(doctor.land, row.itemId)}
+								<Coin size={16} {currency} />{/if}
 						</span>
 					</button>
 				{/if}
@@ -453,7 +463,8 @@
 					<span class="caret">▸</span>
 					{#if row.kind === 'send'}
 						<span class="label">{t('doctor.home.send')}</span>
-						{#if marked.size > 0}<span class="worth">+{reward} <Coin size={16} /></span>{/if}
+						{#if marked.size > 0}<span class="worth">+{reward} <Coin size={16} {currency} /></span
+							>{/if}
 					{:else}
 						<span class="label">{t('doctor.bye')}</span>
 						{#if !touch.on}<kbd>{t('doctor.byeKey')}</kbd>{/if}
@@ -476,7 +487,11 @@
 					input={doctor.input}
 					judged={doctor.judged}
 					typing={doctor.screen === 'puzzle'}
-					story={t('doctor.home.story', { count: doctor.balance, amount: doctor.trade.reward })}
+					story={t('doctor.home.story', {
+						count: doctor.balance,
+						amount: doctor.trade.reward,
+						money: money()
+					})}
 					back={t('doctor.back')}
 				/>
 			{:else if doctor.trade?.kind === 'buy'}
@@ -488,7 +503,8 @@
 					story={t('doctor.shop.story', {
 						count: doctor.balance,
 						item: itemWords(doctor.trade.itemId),
-						price: doctor.trade.price
+						price: doctor.trade.price,
+						money: money()
 					})}
 					back={t('doctor.back')}
 				/>
@@ -510,7 +526,7 @@
 			{/if}
 		{:else if doctor.screen === 'confirm'}
 			<div class="question">{sureTitle}</div>
-			<div class="detail">{t('doctor.home.sureDetail', { amount: reward })}</div>
+			<div class="detail">{t('doctor.home.sureDetail', { amount: reward, money: money() })}</div>
 			<div class="choices">
 				<button
 					type="button"
@@ -537,11 +553,11 @@
 			<!-- Once something is picked, the running total takes the explanation's place. -->
 			{#if marked.size > 0}
 				<div class="tally">
-					<Coin size={24} />
-					{t('doctor.home.picked', { count: marked.size, amount: reward })}
+					<Coin size={24} {currency} />
+					{t('doctor.home.picked', { count: marked.size, amount: reward, money: money() })}
 				</div>
 			{:else}
-				<div class="detail">{t('doctor.home.how')}</div>
+				<div class="detail">{t('doctor.home.how', { money: money() })}</div>
 			{/if}
 			{#if highlighted?.kind === 'bundle'}
 				{@const kind = kindOf(highlighted.speciesId)}
@@ -549,8 +565,16 @@
 				{#if going.length > 0}
 					<div class="detail strong">
 						{going.length === kind.length
-							? t('doctor.home.kindWorth', { count: going.length, amount: homeTokens(going) })
-							: t('doctor.home.kindWorthSome', { count: going.length, amount: homeTokens(going) })}
+							? t('doctor.home.kindWorth', {
+									count: going.length,
+									amount: homeTokens(going),
+									money: money()
+								})
+							: t('doctor.home.kindWorthSome', {
+									count: going.length,
+									amount: homeTokens(going),
+									money: money()
+								})}
 					</div>
 				{/if}
 			{:else if highlighted?.kind === 'animal' && doctor.party[highlighted.partyIndex]}
@@ -561,7 +585,8 @@
 						? t('doctor.home.stays', { animal: animalWords(animal) })
 						: t('doctor.home.worth', {
 								animal: animalWords(animal),
-								count: tokensForTier(getAnimal(animal.speciesId).tier)
+								count: tokensForTier(getAnimal(animal.speciesId).tier),
+								money: money()
 							})}
 				</div>
 			{/if}
@@ -574,7 +599,7 @@
 		{:else if doctor.tab === 'shop'}
 			{#if doctor.shop.length === 0}
 				<div class="soft">{t('doctor.shop.emptyTitle')}</div>
-				<div class="detail">{t('doctor.shop.emptyDetail')}</div>
+				<div class="detail">{t('doctor.shop.emptyDetail', { money: money() })}</div>
 				<div class="keys">{touch.on ? t('doctor.allFitTouch') : t('doctor.allFitKeys')}</div>
 			{:else if highlighted?.kind === 'item'}
 				{@const itemId = highlighted.itemId}
@@ -586,7 +611,7 @@
 						<div class="detail">{itemUse(itemId)}</div>
 					</div>
 				</div>
-				<div class="price"><Coin size={20} /> {price(itemId)}</div>
+				<div class="price"><Coin size={20} {currency} /> {price(itemId)}</div>
 				{#if why}<div class="detail strong">{why}</div>{/if}
 				<div class="keys">{touch.on ? t('doctor.shop.touch') : t('doctor.shop.keys')}</div>
 			{:else}

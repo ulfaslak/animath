@@ -1,7 +1,7 @@
 import {
 	FIRST_LAND,
 	WorldEdits,
-	tileAtWorld,
+	editedTileAt,
 	tileRealm,
 	type AnimalInstance,
 	type Direction,
@@ -82,7 +82,8 @@ class GameView {
 	 */
 	realm = $derived.by<Realm>(() => {
 		if (this.flying) return 'air';
-		return tileRealm(tileAtWorld(this.seed, this.pos.x, this.pos.y).kind);
+		// The world as the player left it: a broken ice block afloat is water.
+		return tileRealm(editedTileAt(this.seed, this.edits, this.pos.x, this.pos.y).kind);
 	});
 	/**
 	 * The tiles the player has cleared with a tool: `welcome`'s, then every

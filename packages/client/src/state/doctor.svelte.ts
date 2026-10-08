@@ -1,9 +1,11 @@
 import {
+	FIRST_LAND,
 	bundles,
 	kindGoingHome,
 	needsHealing,
 	type AnimalInstance,
 	type ItemId,
+	type LandId,
 	type Puzzle
 } from '@mathgame/engine';
 import type { DoctorLine } from '../doctor/lines';
@@ -58,6 +60,8 @@ class DoctorView {
 	items = $state<string[]>([]);
 	/** What the shop sells in this visit. */
 	shop = $state<ItemId[]>([]);
+	/** The land the tent is in: what the shop's prices and the money are. */
+	land = $state<LandId>(FIRST_LAND);
 	/** What the doctor is saying, worded by the card in the language on screen. */
 	line = $state<DoctorLine | null>(null);
 	tab = $state<DoctorTab>('heal');
@@ -100,6 +104,7 @@ class DoctorView {
 		this.tokens = 0;
 		this.items = [];
 		this.shop = [];
+		this.land = FIRST_LAND;
 		this.line = null;
 		this.tab = 'heal';
 		this.cursor = 0;

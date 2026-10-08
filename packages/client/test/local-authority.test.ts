@@ -18,7 +18,7 @@ import {
 	isEncounterTile,
 	isWalkable,
 	isWater,
-	itemsForSale,
+	shopFor,
 	joinParty,
 	leadIndex,
 	knockOut,
@@ -1241,10 +1241,11 @@ describe('LocalAuthority: the doctor', () => {
 		expect(s.events[0]).toMatchObject({ type: 'welcome', tokens: 20, items: [] });
 		walkToTent(s);
 		s.authority.dispatch({ type: 'interact' });
+		// The whole catalog (`?shop`), cheapest first by Nordland's prices, the others' at their own.
 		expect(visit(s)).toMatchObject({
 			tokens: 20,
 			items: [],
-			shop: ['axe', 'pickaxe', 'boat', 'glider', 'harness']
+			shop: ['axe', 'arctic-axe', 'pickaxe', 'ice-pick', 'boat', 'fishing-rod', 'glider', 'harness']
 		});
 
 		doctorIntent(s, { type: 'hand-over', ids: ['a'] });
@@ -1299,11 +1300,11 @@ describe('LocalAuthority: the doctor', () => {
 		const s = session({ party: hurtParty(), tokens: 50 });
 		walkToTent(s);
 		s.authority.dispatch({ type: 'interact' });
-		expect(visit(s).shop).toEqual(itemsForSale());
+		expect(visit(s).shop).toEqual(shopFor('nordland'));
 		// Every tool does its job now (the axe and the pickaxe clear, the boat sails, the
 		// glider flies); anything not on sale can't be bought.
 		expect(visit(s).shop).toEqual(['axe', 'pickaxe', 'boat', 'glider', 'harness']);
-		for (const itemId of ITEM_IDS.filter((id) => !itemsForSale().includes(id))) {
+		for (const itemId of ITEM_IDS.filter((id) => !shopFor('nordland').includes(id))) {
 			doctorIntent(s, { type: 'buy', itemId });
 			expect(s.events.at(-1)).toMatchObject({
 				events: [{ type: 'rejected', reason: 'not-for-sale' }]
@@ -3740,7 +3741,7 @@ describe('LocalAuthority: lands, from the adversarial review of #196', () => {
 			land: 'arctic',
 			pos: at!,
 			facing: 'right',
-			items: ['axe'],
+			items: ['arctic-axe'],
 			party: [{ ...testStarter(), id: 'a1' }],
 			lands: [
 				{

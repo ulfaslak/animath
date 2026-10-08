@@ -31,6 +31,9 @@ export type CueName =
 	| 'won'
 	| 'chop'
 	| 'crack'
+	| 'shatter'
+	| 'cast'
+	| 'splash'
 	| 'travel'
 	| 'whoosh'
 	| 'land'
@@ -329,6 +332,59 @@ export const CUES: Record<CueName, Cue> = {
 			pluck(0.2, 1800, 0.04, 0.12),
 			pluck(0.27, 2300, 0.04, 0.1),
 			pluck(0.34, 2000, 0.04, 0.09)
+		]
+	},
+	/**
+	 * The ice pick breaks an ice block: a bright glassy crack, then the shards
+	 * tinkling down, higher and lighter than a rock's pebbles.
+	 */
+	shatter: {
+		voices: [
+			{
+				at: 0,
+				dur: 0.06,
+				wave: 'noise',
+				freq: 0,
+				gain: 0.28,
+				attack: 0.002,
+				filter: { type: 'highpass', freq: 2600, to: 4200, q: 1 }
+			},
+			{ at: 0, dur: 0.1, wave: 'sine', freq: 260, to: 140, gain: 0.22, attack: 0.003 },
+			pluck(0.12, 3100, 0.06, 0.1, 'sine'),
+			pluck(0.18, 3300, 0.05, 0.09, 'sine'),
+			pluck(0.25, 3500, 0.05, 0.08, 'sine'),
+			pluck(0.33, 3700, 0.05, 0.06, 'sine')
+		]
+	},
+	/** A line cast at a fishing hole: the rod's swish, then a little plop as the bobber lands. */
+	cast: {
+		voices: [
+			{
+				at: 0.1,
+				dur: 0.25,
+				wave: 'noise',
+				freq: 0,
+				gain: 0.14,
+				attack: 0.05,
+				filter: { type: 'bandpass', freq: 1400, to: 3200, q: 1.2 }
+			},
+			{ at: 0.58, dur: 0.12, wave: 'sine', freq: 620, to: 300, gain: 0.22, attack: 0.004 }
+		]
+	},
+	/** Something bit: the bobber goes under with a splash and a bright "bloop". */
+	splash: {
+		voices: [
+			{
+				at: 0,
+				dur: 0.3,
+				wave: 'noise',
+				freq: 0,
+				gain: 0.22,
+				attack: 0.01,
+				filter: { type: 'lowpass', freq: 2400, to: 600 }
+			},
+			{ at: 0, dur: 0.16, wave: 'sine', freq: 300, to: 700, gain: 0.26, attack: 0.004 },
+			pluck(0.18, E6, 0.14, 0.12, 'sine')
 		]
 	},
 	/**

@@ -466,12 +466,12 @@ describe("The Arctic's tiles", () => {
 	});
 
 	it('the glider comes down on snow, deep snow and the ice, never on an ice block or into a fishing hole', () => {
-		for (const items of [[], ['boat', 'axe', 'pickaxe']]) {
-			expect(isLandable('snow', { items })).toBe(true);
-			expect(isLandable('deepsnow', { items })).toBe(true);
-			expect(isLandable('ice', { items })).toBe(true);
-			expect(isLandable('iceblock', { items })).toBe(false);
-			expect(isLandable('hole', { items })).toBe(false);
+		for (const items of [[], ['boat', 'arctic-axe', 'pickaxe', 'ice-pick']]) {
+			expect(isLandable(arctic(1), 'snow', { items })).toBe(true);
+			expect(isLandable(arctic(1), 'deepsnow', { items })).toBe(true);
+			expect(isLandable(arctic(1), 'ice', { items })).toBe(true);
+			expect(isLandable(arctic(1), 'iceblock', { items })).toBe(false);
+			expect(isLandable(arctic(1), 'hole', { items })).toBe(false);
 		}
 	});
 
@@ -484,8 +484,24 @@ describe("The Arctic's tiles", () => {
 		});
 		expect(clearedTile({ kind: 'rock', biome: 'fell', height: 2 }).kind).toBe('snow');
 		expect(clearedTile({ kind: 'tree', biome: 'forest', height: 1 }).kind).toBe('grass');
+		// An ice block leaves what it stood on: snow, a fishing hole in the ice (never plain ice,
+		// where a slide would stop), or water.
+		expect(clearedTile({ kind: 'iceblock', biome: 'fell', height: 2, under: 'snow' })).toEqual({
+			kind: 'snow',
+			biome: 'fell',
+			height: 2,
+			cleared: 'iceblock',
+			under: 'snow'
+		});
+		expect(
+			clearedTile({ kind: 'iceblock', biome: 'arctic-ice', height: 0, under: 'ice' }).kind
+		).toBe('hole');
+		expect(
+			clearedTile({ kind: 'iceblock', biome: 'arctic-ocean', height: 0, under: 'water' }).kind
+		).toBe('water');
 		// Nothing else of The Arctic's is ever cleared.
 		for (const kind of KINDS) {
+			if (kind === 'iceblock') continue;
 			const tile = { kind, biome: 'tundra' as const, height: 0 };
 			expect(clearedTile(tile)).toBe(tile);
 		}

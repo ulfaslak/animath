@@ -1,8 +1,10 @@
 import { editedTileAt, WorldEdits } from './edits.js';
 import { generateChunk, tileAtWorld, travelKindAt } from './generate.js';
+import { MAX_SLIDE } from './slide.js';
 import {
 	CHUNK_SIZE,
 	NO_GEAR,
+	isIce,
 	isPassable,
 	isWalkable,
 	step,
@@ -142,7 +144,9 @@ const TOWARD_TENT: readonly Direction[] = ['up', 'right', 'left', 'down'];
  * boat), with the tile to stand on beside it.
  *
  * The search spreads out one step at a time from `from` over the tiles the
- * player can go to (`isPassable`). The first ring that touches a tent from a
+ * player can go to (`isPassable`), a move at a time as the kid moves: onto
+ * the ice a move is the whole slide (`moveFrom`), so it reaches only the
+ * places a slide stops on, each slid tile a step. The first ring that touches a tent from a
  * walkable tile wins; when that ring touches more than one tent side, the
  * tent further up (smaller `y`) wins, then the one further left (smaller
  * `x`), then the side in `TOWARD_TENT` order. `from` itself may be any tile:
@@ -172,9 +176,10 @@ export function nearestTent(
 		);
 	}
 
-	// Every tile the search looks at is within maxSteps + 1 of `from`, so offsets
-	// pack into one number without collisions.
-	const reach = maxSteps + 1;
+	// Every tile the search looks at is within maxSteps + MAX_SLIDE + 1 of `from` (a slide
+	// that starts at the search's edge reads a whole run of ice past it), so offsets pack into
+	// one number without collisions.
+	const reach = maxSteps + MAX_SLIDE + 1;
 	const span = 2 * reach + 1;
 	const key = (p: GridPos) => (p.x - from.x + reach) * span + (p.y - from.y + reach);
 	const kinds = new Map<number, TileKind>();
@@ -193,35 +198,59 @@ export function nearestTent(
 	};
 
 	const start = { x: from.x, y: from.y };
-	const seen = new Set<number>([key(start)]);
-	let ring: GridPos[] = [start];
-	for (let steps = 0; ; steps++) {
-		let best: TentSpot | null = null;
+	// A move from a place a kid can stop on: a step, or onto the ice the whole slide (as
+	// `moveFrom` slides): the place it ends and its tiles, every one a step; null where the
+	// tile that way can't be stepped onto. So the way never stops on the ice where a slide
+	// goes on, and never steers across a lake a kid slides past the far end of.
+	const passable = (p: GridPos) => isPassable(kindAt(p), gear);
+	const move = (pos: GridPos, dir: Direction): { to: GridPos; tiles: number } | null => {
+		let at = step(pos, dir);
+		if (!passable(at)) return null;
+		let tiles = 1;
+		while (isIce(kindAt(at)) && tiles < MAX_SLIDE) {
+			const next = step(at, dir);
+			if (!passable(next)) break;
+			at = next;
+			tiles++;
+		}
+		return { to: at, tiles };
+	};
+	// The places reached, by the fewest steps there, a bucket of them for each number of
+	// steps: a slide of n tiles lands n buckets on. A place is taken from the bucket of its
+	// fewest steps; a later, longer way to it is passed over.
+	const best = new Map<number, number>([[key(start), 0]]);
+	const buckets: GridPos[][] = [[start]];
+	let waiting = 1;
+	for (let steps = 0; steps <= maxSteps && waiting > 0; steps++) {
+		const ring = (buckets[steps] ?? []).filter((p) => best.get(key(p)) === steps);
+		waiting -= buckets[steps]?.length ?? 0;
+		let found: TentSpot | null = null;
 		for (const stand of ring) {
 			if (!isWalkable(kindAt(stand))) continue;
 			for (const facing of TOWARD_TENT) {
 				const tent = step(stand, facing);
 				if (kindAt(tent) !== 'tent') continue;
 				const spot: TentSpot = { tent, stand, facing, steps };
-				if (!best || comesFirst(spot, best)) best = spot;
+				if (!found || comesFirst(spot, found)) found = spot;
 			}
 		}
-		if (best) return best;
-		if (steps === maxSteps) return null;
-
-		const next: GridPos[] = [];
+		if (found) return found;
 		for (const pos of ring) {
 			for (const dir of TOWARD_TENT) {
-				const n = step(pos, dir);
-				const k = key(n);
-				if (seen.has(k)) continue;
-				seen.add(k);
-				if (isPassable(kindAt(n), gear)) next.push(n);
+				const moved = move(pos, dir);
+				if (!moved) continue;
+				const far = steps + moved.tiles;
+				if (far > maxSteps) continue;
+				const k = key(moved.to);
+				const known = best.get(k);
+				if (known !== undefined && known <= far) continue;
+				best.set(k, far);
+				(buckets[far] ??= []).push(moved.to);
+				waiting++;
 			}
 		}
-		if (next.length === 0) return null;
-		ring = next;
 	}
+	return null;
 }
 
 function comesFirst(a: TentSpot, b: TentSpot): boolean {

@@ -6,13 +6,13 @@ Technical items we've intentionally postponed: tech debt, hardening shortcuts, k
 
 ---
 
-### The searches on foot read the ice as ground a kid can stop on
+### A go-to's way out reads the ice as ground a kid can stop on
 
-**What**: the searches that ask where a kid can get to on foot (`nearestTent` and the arrow to the witch doctor, `doctorComes` behind the knock-out rule, the spawn's room, `arrivalSpot`'s escape) walk tile by tile over `isPassable` ground, The Arctic's ice included, as if a kid could stop on any tile of it. On the ice a step slides on (`moveFrom`), so a way they find can cross ice the kid can't steer across: an arrow may point over a lake the kid slides past the far end of, and in a pocket only reachable that way a tired team could be told a tent is in reach when the slides never lead there.
+**What**: `arrivalSpot`'s escape check (a spot must open 64 tiles wide) and the spawn's room (`hasRoom`) walk tile by tile over `isPassable` ground, The Arctic's ice included, as if a kid could stop on any tile of it. `nearestTent` and the knock-out rule read the slides since #191 step 6; these two do not, so a go-to beside a friend could in principle count a pocket as open over ice a kid can only slide across.
 
-**Why deferred**: The Arctic's first animals (#192 wave 1) live in its deep snow, so a battle can now be lost there, but only in a throwaway game (`?lands`, `?land=`): The Arctic is closed to players (`available` off) until #191 step 7. Every move there can be undone by the move back (#199), so a kid always gets back the way they came, which starts at a tent; every tent stands in a clearing of snow, the ice's runs are short (a stopper at least every 23 tiles), and a flood fill over `moveFrom` reaches 300 places from beside every tent tested. A slide-aware search costs a second search beside the cached one. (The first animals were this entry's trigger; step 5's wave 1 moved it on, its PR says why.)
+**Why deferred**: every slide in The Arctic is undone by the slide back and ends on a bank (§ INVARIANTS "A slide on the ice…"), so the places joined by tiles and by moves almost always agree; every Arctic world's spawn is the fixed (5, 9), checked by its own test; and The Arctic is closed to players until #191 step 7 (its first animals are met only in a throwaway game).
 
-**Trigger**: before The Arctic opens to players (its `available` on, #191 step 7): make `nearestTent`'s and `doctorComes`' walk read slides (`moveFrom` from each place a kid can stop), or show with a sweep that every place they find is reached by slides too.
+**Trigger**: before The Arctic opens to players (its `available` on, #191 step 7), or a report of a go-to into a spot a kid can't walk out of: make `opensOut` and `hasRoom` move by `moveFrom`, as `nearestTent` does since #191 step 6.
 
 ### A friend's birds are not seen in the air
 
@@ -105,6 +105,8 @@ Technical items we've intentionally postponed: tech debt, hardening shortcuts, k
 ### Cleared tiles are each player's own, so a friend can walk through a tree you still see
 
 **What**: the tiles a kid clears with the axe and the pickaxe (`WorldEdits`) live in that kid's game and save, and the authority walks, restores and knocks out through them ([[DECISIONS]] § Gameplay). With friends in one world, two kids see two different forests: a gap one kid chopped is a tree to the other, who watches them walk through it. Shared edits would put one overlay per world on the server, which would then decide where every kid in that world can walk. Two more things change then: the whole overlay rides on `welcome` today (up to 24 KB), where the server should send each chunk's edits as the chunk comes into view; and `tile-cleared` goes to everyone who sees that chunk, with the chunks that grew back.
+
+Since The Arctic's ice pick, a block afloat broken is water to the kid who broke it and still a block to everyone else: a friend sees them sail through it (drawn on the block, without the boat, `others.ts`), and the server's `challengeRefusal`, which reads the world as it was made, takes them to be on land there, so a friendly match can be asked for from that one tile of water.
 
 **Why deferred**: every single-player rule, walking included, stays in the browser ([[DECISIONS]] § Multiplayer), and a shared edit is a gain that flows between players, so its rule would have to move to the server first. How kids play together will show whether they want it.
 

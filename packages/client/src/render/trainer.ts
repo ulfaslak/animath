@@ -1,4 +1,13 @@
-import { isIce, isWater, tileAtWorld, type Direction, type GridPos } from '@mathgame/engine';
+import {
+	editedTileAt,
+	isIce,
+	isWater,
+	tileAtWorld,
+	type Direction,
+	type GridPos,
+	type Tile,
+	type WorldEdits
+} from '@mathgame/engine';
 import { BOAT_STAND } from './boat';
 import { groundTop } from './tiles';
 
@@ -7,6 +16,25 @@ import { groundTop } from './tiles';
  * and every other player's (`others.ts`) alike, so a friend walks, hops and
  * sails exactly as you do.
  */
+
+/**
+ * The world a trainer walks in: a seed (the world as it was made, for another
+ * player, whose cleared tiles are their own), or the world as the player left
+ * it (`worldOf(seed, edits)`), where a broken ice block afloat is water.
+ */
+export type WorldAt = number | { readonly seed: number; readonly edits: WorldEdits };
+
+/** The world of `seed` as `edits` leave it, for the player's own trainer. */
+export function worldOf(seed: number, edits: WorldEdits): WorldAt {
+	return { seed, edits };
+}
+
+/** The tile at (x, y) of `world`. */
+export function tileIn(world: WorldAt, x: number, y: number): Tile {
+	return typeof world === 'number'
+		? tileAtWorld(world, x, y)
+		: editedTileAt(world.seed, world.edits, x, y);
+}
 
 /** Seconds a trainer takes for one step, tile to tile (Game Boy pace is ~0.25). */
 export const STEP_SECONDS = 0.18;
@@ -22,9 +50,9 @@ export const SLIDE_SECONDS = 0.11;
  * it at the end of a slide. The trainer glides then, feet together, with no
  * hop and at an even speed (`SLIDE_SECONDS` a tile).
  */
-export function slidesBetween(seed: number, from: GridPos, to: GridPos): boolean {
+export function slidesBetween(world: WorldAt, from: GridPos, to: GridPos): boolean {
 	if (from.x === to.x && from.y === to.y) return false;
-	return isIce(tileAtWorld(seed, from.x, from.y).kind) || isIce(tileAtWorld(seed, to.x, to.y).kind);
+	return isIce(tileIn(world, from.x, from.y).kind) || isIce(tileIn(world, to.x, to.y).kind);
 }
 
 /** How high the trainer hops on an ordinary step, and into the boat or out of it. */
@@ -43,7 +71,7 @@ const CALM_HOP = 0.05;
  * hopping, so they don't.
  */
 export function trainerStep(
-	seed: number,
+	world: WorldAt,
 	from: GridPos,
 	to: GridPos,
 	progress: number,
@@ -52,12 +80,12 @@ export function trainerStep(
 	ride = 0
 ): { x: number; y: number; z: number; afloat: number } {
 	// On the ice they glide at an even speed, tile after tile; a step eases in and out.
-	const slide = slidesBetween(seed, from, to);
+	const slide = slidesBetween(world, from, to);
 	const t = slide ? progress : progress * progress * (3 - 2 * progress); // smoothstep
 	const x = from.x + (to.x - from.x) * t;
 	const z = from.y + (to.y - from.y) * t;
 	const groundAt = (p: GridPos) => {
-		const tile = tileAtWorld(seed, p.x, p.y);
+		const tile = tileIn(world, p.x, p.y);
 		return groundTop(tile) + (boatOwned && isWater(tile.kind) ? BOAT_STAND : 0);
 	};
 	const yFrom = groundAt(from);
@@ -65,8 +93,8 @@ export function trainerStep(
 	// With the boat, a step onto the water swings it under the trainer and one
 	// back onto land swings it onto their back, in step with them; out on the
 	// water they glide, standing in it.
-	const fromWater = boatOwned && isWater(tileAtWorld(seed, from.x, from.y).kind);
-	const toWater = boatOwned && isWater(tileAtWorld(seed, to.x, to.y).kind);
+	const fromWater = boatOwned && isWater(tileIn(world, from.x, from.y).kind);
+	const toWater = boatOwned && isWater(tileIn(world, to.x, to.y).kind);
 	const afloat = fromWater === toWater ? (toWater ? 1 : 0) : toWater ? progress : 1 - progress;
 	const hop = slide || (fromWater && toWater) ? 0 : fromWater !== toWater ? BOARD_HOP : HOP;
 	const lift = Math.sin(progress * Math.PI) * (calm ? CALM_HOP : hop) * (1 - ride);
@@ -92,7 +120,7 @@ export const CRUISE_HEIGHT = 2.1;
  * them again. `lift` is eased by the caller.
  */
 export function trainerPose(
-	seed: number,
+	world: WorldAt,
 	from: GridPos,
 	to: GridPos,
 	progress: number,
@@ -101,11 +129,11 @@ export function trainerPose(
 	lift: number,
 	ride = 0
 ): { x: number; y: number; z: number; afloat: number } {
-	const ground = trainerStep(seed, from, to, progress, boatOwned, calm, ride);
+	const ground = trainerStep(world, from, to, progress, boatOwned, calm, ride);
 	const up = Math.min(1, Math.max(0, lift));
 	if (up === 0) return ground;
 	const t = progress * progress * (3 - 2 * progress);
-	const topAt = (p: GridPos) => groundTop(tileAtWorld(seed, p.x, p.y));
+	const topAt = (p: GridPos) => groundTop(tileIn(world, p.x, p.y));
 	const air = topAt(from) + (topAt(to) - topAt(from)) * t + CRUISE_HEIGHT;
 	return {
 		x: ground.x,
