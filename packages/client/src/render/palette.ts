@@ -353,5 +353,32 @@ export const ANIMAL_COLORS: Record<string, { fur: number; accent: number }> = {
 	raven: { fur: 0x1f2028, accent: 0x3d4560 },
 	'barnacle-goose': { fur: 0x9298a0, accent: 0x1f1f24 },
 	'gentoo-penguin': { fur: 0x2a2e36, accent: 0xf2662a },
-	chinstrap: { fur: 0x2a2c33, accent: 0xeba7a0 }
+	chinstrap: { fur: 0x2a2c33, accent: 0xeba7a0 },
+	// The Arctic's sea and fishing-hole animals (#192 wave 3). Its seals each a coat of their
+	// own (the ringed seal's rings, the harp seal's harp, the hooded seal's blotches, the
+	// Weddell seal's dark coat with pale spots, the crabeater's plain blond, the leopard
+	// seal's spots), none the brown-grey of Nordland's two.
+	'sea-angel': { fur: 0xdfeaf2, accent: 0xe8572c },
+	'polar-cod': { fur: 0x8c8470, accent: 0xd9d6cb },
+	'antarctic-krill': { fur: 0xf08a68, accent: 0xffd1b8 },
+	'arctic-char': { fur: 0x5c6b58, accent: 0xe8602c },
+	lumpsucker: { fur: 0x6f8478, accent: 0xd9733e },
+	'ringed-seal': { fur: 0x7e868e, accent: 0xe4e7ea },
+	icefish: { fur: 0xeef2f2, accent: 0xa9b8be },
+	'harp-seal': { fur: 0xd0d4d8, accent: 0x202228 },
+	wolffish: { fur: 0x6f7d8c, accent: 0x3c4652 },
+	'snow-crab': { fur: 0xc9692f, accent: 0xf2d3a6 },
+	'weddell-seal': { fur: 0x3f4858, accent: 0xaab4c0 },
+	beluga: { fur: 0xf4f4ef, accent: 0xc9cfd3 },
+	'hooded-seal': { fur: 0x9a9fa6, accent: 0x2c2f35 },
+	'minke-whale': { fur: 0x40474f, accent: 0xeef0f1 },
+	toothfish: { fur: 0x3a3a42, accent: 0x77747c },
+	'crabeater-seal': { fur: 0xd9c8a6, accent: 0xb8a582 },
+	walrus: { fur: 0xb57b62, accent: 0xf3ead6 },
+	'bowhead-whale': { fur: 0x1e2026, accent: 0xf2f2ec },
+	'greenland-shark': { fur: 0x5c5850, accent: 0x8f897c },
+	narwhal: { fur: 0x8a9198, accent: 0x343a42 },
+	'elephant-seal': { fur: 0x7a6150, accent: 0x56443a },
+	'blue-whale': { fur: 0x627d95, accent: 0xa6b9c8 },
+	'leopard-seal': { fur: 0x8f959c, accent: 0x34383e }
 };

@@ -1879,6 +1879,407 @@ const BUILDERS: Record<string, Builder> = {
 			...([-1, 1] as const).map((side) => ball(0.013, COLORS.dark, side * 0.045, 0.62, 0.11)),
 			rot(cone(0.02, 0.06, COLORS.dark, 0, 0.6, 0.135), Math.PI / 2 + 0.1, 0, 0)
 		];
+	},
+	// The Arctic's sea and fishing-hole animals (#192 wave 3), each sized as in nature within
+	// its tier (the sea angel and the krill the tiniest, the blue whale the biggest of all).
+	// Like Nordland's sea animals they swim with their lower 40% under the water, so each one's
+	// tell is in its top 60%. The seals share a body (`sealBody`) and differ in their coats and
+	// heads; the fish share one too (`fish`).
+	//
+	// A see-through snail with no shell, its orange-red insides showing, flapping two little
+	// wings out of its sides, as an angel would.
+	'sea-angel': ({ fur, accent }) => [
+		ball(0.06, fur, 0, 0.13, 0, 1, 1.9, 1),
+		rot(cone(0.035, 0.06, fur, 0, 0.03, 0), Math.PI, 0, 0),
+		ball(0.046, fur, 0, 0.27, 0),
+		ball(0.03, accent, 0, 0.15, 0.035, 1, 1.5, 1),
+		ball(0.022, accent, 0, 0.3, 0.012),
+		...([-1, 1] as const).flatMap((side) => [
+			rot(ball(0.05, fur, side * 0.095, 0.21, 0, 1.3, 0.9, 0.3), 0, 0, side * 0.5),
+			ball(0.009, COLORS.dark, side * 0.018, 0.28, 0.04)
+		])
+	],
+	// A tiny pink shrimp: big black eyes on its head, two long feelers, a bent back of
+	// segments ending in a tail fan, and a row of little legs under it.
+	'antarctic-krill': ({ fur, accent }) => [
+		ball(0.06, fur, 0, 0.12, 0.08, 0.95, 0.9, 1.6),
+		...(
+			[
+				[0.0, 0.125, 0.052],
+				[-0.06, 0.13, 0.046],
+				[-0.11, 0.125, 0.04],
+				[-0.155, 0.115, 0.033]
+			] as const
+		).map(([z, y, r]) => ball(r, fur, 0, y, z, 1, 0.9, 0.9)),
+		rot(box(0.09, 0.012, 0.06, accent, 0, 0.11, -0.2), -0.3, 0, 0),
+		...[0.1, 0.05, 0, -0.05].map((z) => ball(0.012, accent, 0, 0.075, z)),
+		...([-1, 1] as const).flatMap((side) => [
+			ball(0.032, COLORS.dark, side * 0.045, 0.15, 0.16),
+			ball(0.009, COLORS.white, side * 0.06, 0.162, 0.185),
+			rot(box(0.006, 0.006, 0.22, fur, side * 0.025, 0.2, 0.26), -0.55, side * 0.25, 0),
+			...[0.1, 0.05, 0, -0.05].map((z) => tube(0.006, 0.075, fur, side * 0.03, 0.0375, z))
+		])
+	],
+	// A small slim fish, brown above and silver below, three little fins along its back and a
+	// whisker (a barbel) hanging from its chin, as every cod has.
+	'polar-cod': ({ fur, accent }) => [
+		...fish(0.42, 0.14, 0.1, 0.1, fur, accent, fur),
+		backFin(0.07, 0.05, fur, 0.16, 0.08, 0.4),
+		backFin(0.07, 0.05, fur, 0.16, -0.01, 0.4),
+		backFin(0.06, 0.045, fur, 0.15, -0.1, 0.4),
+		tube(0.006, 0.05, accent, 0, 0.04, 0.17),
+		...fishEyes(0.022, 0.035, 0.12, 0.15)
+	],
+	// A trout-like fish, olive above with pale spots, its belly red-orange and its low fins red
+	// with white front edges.
+	'arctic-char': ({ fur, accent }) => [
+		...fish(0.62, 0.2, 0.13, 0.13, fur, accent, accent),
+		...spots(10, 0.02, 0xf2e6c8, [0.065, 0.1, 0.31], 0.13, 0, 0.1),
+		backFin(0.1, 0.08, fur, 0.21, 0.04, 0.4),
+		...([-1, 1] as const).map((side) =>
+			rot(box(0.03, 0.022, 0.08, COLORS.white, side * 0.2, 0.011, 0.07), 0, side * 0.5, 0)
+		),
+		...fishEyes(0.026, 0.05, 0.16, 0.22)
+	],
+	// Round and lumpy, rows of knobbly bumps along its sides and back, a crest on top and a
+	// sucker on its belly it holds on to the rocks with.
+	lumpsucker: ({ fur, accent }) => [
+		ball(0.17, fur, 0, 0.21, 0, 1, 0.95, 1.2),
+		ball(0.13, accent, 0, 0.15, 0.04, 0.95, 0.6, 1.05),
+		part(new THREE.CylinderGeometry(0.08, 0.08, 0.03, 9), accent, 0, 0.015, 0.03),
+		rot(box(0.03, 0.1, 0.22, fur, 0, 0.37, -0.02), 0, 0, 0),
+		(() => {
+			const tail = rot(cone(0.09, 0.1, fur, 0, 0.22, -0.24), Math.PI / 2, 0, 0);
+			tail.scale.x = 0.25;
+			return tail;
+		})(),
+		...[-0.12, 0, 0.12].flatMap((z) =>
+			([-1, 1] as const).flatMap((side) => [
+				ball(0.022, fur, side * 0.16, 0.27, z),
+				ball(0.022, fur, side * 0.1, 0.34, z)
+			])
+		),
+		...([-1, 1] as const).map((side) =>
+			rot(box(0.12, 0.02, 0.08, fur, side * 0.18, 0.01, 0.05), 0, side * 0.5, 0)
+		),
+		...fishEyes(0.03, 0.09, 0.26, 0.16),
+		box(0.05, 0.01, 0.01, COLORS.dark, 0, 0.19, 0.2)
+	],
+	// The smallest seal, grey and covered in pale rings, with a small round cat's face and
+	// big dark eyes.
+	'ringed-seal': ({ fur, accent }) => [
+		...sealBody(0.8, fur),
+		...sealHead(0.8, 0.95, fur),
+		...spots(9, 0.058, accent, [0.16, 0.136, 0.304], 0.144, -0.112),
+		...spots(9, 0.034, fur, [0.178, 0.153, 0.322], 0.144, -0.112),
+		...spots(3, 0.048, accent, [0.132, 0.132, 0.138], 0.2, 0.112, 0.3),
+		...spots(3, 0.027, fur, [0.149, 0.149, 0.155], 0.2, 0.112, 0.3)
+	],
+	// A ghost of a fish, white and see-through (its blood has no red in it), with a long flat
+	// crocodile's snout, big eyes on top and big fan fins.
+	icefish: ({ fur, accent }) => [
+		...fish(0.6, 0.16, 0.13, 0.11, fur, fur, accent),
+		ball(0.06, fur, 0, 0.12, 0.37, 1.15, 0.45, 2.1),
+		box(0.08, 0.008, 0.18, accent, 0, 0.107, 0.4),
+		backFin(0.12, 0.1, accent, 0.18, 0.08, 0.3),
+		backFin(0.18, 0.06, fur, 0.18, -0.1, 0.5),
+		...([-1, 1] as const).map((side) =>
+			rot(ball(0.08, accent, side * 0.1, 0.09, 0.06, 1, 0.2, 0.7), 0, 0, side * 0.6)
+		),
+		...fishEyes(0.03, 0.045, 0.17, 0.22)
+	],
+	// Silver, a black face, and a black horseshoe (the "harp") on its back.
+	'harp-seal': ({ fur, accent }) => {
+		const harp = part(
+			new THREE.TorusGeometry(0.16, 0.05, 4, 12, Math.PI).rotateX(Math.PI / 2),
+			accent,
+			0,
+			0.32,
+			-0.12
+		);
+		harp.scale.set(1, 1, 1.7);
+		return [...sealBody(1.1, fur), harp, ...sealHead(1.1, 1, accent)];
+	},
+	// A long blue-grey fish with dark stripes down its sides, a grumpy frowning face and big
+	// front teeth sticking out of its jaws; its fin runs the whole length of its back.
+	wolffish: ({ fur, accent }) => [
+		...fish(1.0, 0.26, 0.22, 0.17, fur, fur, fur),
+		ball(0.15, fur, 0, 0.21, 0.42, 1, 0.95, 1),
+		box(0.03, 0.07, 0.6, fur, 0, 0.31, 0.02),
+		...[0.18, 0.04, -0.1, -0.24].map((z) => ball(0.5, accent, 0, 0.17, z, 0.23, 0.27, 0.05)),
+		...([-1, 1] as const).flatMap((side) => [
+			rot(box(0.06, 0.012, 0.012, COLORS.dark, side * 0.05, 0.31, 0.55), 0, 0, side * 0.45),
+			rot(box(0.1, 0.012, 0.012, COLORS.dark, side * 0.05, 0.15, 0.56), 0, 0, -side * 0.35),
+			rot(cone(0.022, 0.07, COLORS.white, side * 0.03, 0.15, 0.58), Math.PI, 0, 0),
+			rot(ball(0.14, fur, side * 0.15, 0.15, 0.2, 1, 0.2, 0.7), 0, 0, side * 0.5)
+		]),
+		...fishEyes(0.035, 0.11, 0.28, 0.48)
+	],
+	// An orange crab with a round shell, eyes on stalks, small claws and very long thin legs
+	// with their knees up high.
+	'snow-crab': ({ fur, accent }) => [
+		ball(0.18, fur, 0, 0.22, 0, 1.15, 0.5, 1),
+		ball(0.15, accent, 0, 0.19, 0.01, 1.1, 0.4, 0.95),
+		...([-1, 1] as const).flatMap((side) => [
+			tube(0.012, 0.1, fur, side * 0.05, 0.3, 0.13),
+			ball(0.024, COLORS.white, side * 0.05, 0.35, 0.13),
+			ball(0.013, COLORS.dark, side * 0.05, 0.355, 0.152),
+			rot(box(0.03, 0.03, 0.14, fur, side * 0.1, 0.2, 0.22), 0, side * 0.4, 0),
+			ball(0.04, fur, side * 0.14, 0.2, 0.3, 0.9, 0.8, 1.3),
+			...[-0.15, -0.05, 0.05, 0.15].flatMap((z) => [
+				rot(box(0.29, 0.024, 0.024, fur, side * 0.31, 0.27, z), 0, 0, side * 0.42),
+				box(0.024, 0.34, 0.024, fur, side * 0.45, 0.17, z)
+			])
+		])
+	],
+	// A plump dark seal with pale spots and streaks, a small round head and a short snout
+	// that looks as if it smiles.
+	'weddell-seal': ({ fur, accent }) => {
+		const s = 1.18;
+		const smile = part(
+			new THREE.TorusGeometry(0.04, 0.008, 3, 8, Math.PI).rotateZ(Math.PI),
+			COLORS.dark,
+			0,
+			0.385 * s,
+			0.47 * s
+		);
+		return [
+			...sealBody(s, fur, 1.12),
+			...sealHead(s, 0.85, fur),
+			smile,
+			// Silver flanks and a speckle of small pale spots, where the ringed seal has rings.
+			ball(0.19 * s, accent, 0, 0.15 * s, -0.12 * s, 1.2, 0.6, 1.85),
+			...spots(30, 0.022, accent, [0.2 * s * 1.12, 0.17 * s, 0.38 * s], 0.18 * s, -0.14 * s),
+			...spots(8, 0.02, accent, [0.165 * s * 1.12, 0.165 * s, 0.17 * s], 0.25 * s, 0.14 * s, 0.3)
+		];
+	},
+	// All white, with a big round bulge of a forehead (its melon), a short beak and a
+	// smile, and no fin on its back.
+	beluga: ({ fur }) => [
+		ball(0.27, fur, 0, 0.28, -0.12, 1, 0.92, 2.2),
+		ball(0.2, fur, 0, 0.42, 0.42, 1, 0.95, 1),
+		ball(0.09, fur, 0, 0.3, 0.6, 1.1, 0.7, 1),
+		box(0.1, 0.012, 0.012, COLORS.dark, 0, 0.27, 0.66),
+		ball(0.1, fur, 0, 0.18, -0.78, 1, 1, 1.6),
+		box(0.26, 0.03, 0.16, fur, -0.13, 0.015, -1.0),
+		box(0.26, 0.03, 0.16, fur, 0.13, 0.015, -1.0),
+		...([-1, 1] as const).flatMap((side) => [
+			ball(0.026, COLORS.dark, side * 0.17, 0.4, 0.55),
+			rot(box(0.24, 0.03, 0.12, fur, side * 0.3, 0.015, 0.25), 0, side * 0.4, 0)
+		])
+	],
+	// Grey with dark blotches, a black hood on its head and a red balloon blown out of its nose.
+	'hooded-seal': ({ fur, accent }) => {
+		const s = 1.35;
+		return [
+			...sealBody(s, fur),
+			...sealHead(s, 1, fur),
+			ball(0.11 * s, accent, 0, 0.5 * s, 0.33 * s, 0.85, 0.75, 1.15),
+			ball(0.065 * s, 0xd8343a, 0, 0.37 * s, 0.53 * s, 1, 1, 1.15),
+			...spots(12, 0.06, accent, [0.2 * s, 0.17 * s, 0.38 * s], 0.18 * s, -0.14 * s),
+			...spots(4, 0.05, accent, [0.165 * s, 0.165 * s, 0.17 * s], 0.25 * s, 0.14 * s, 0.3)
+		];
+	},
+	// A small sleek whale, dark grey with a white belly, a pointed head, a small curved fin
+	// far back, and a white band across each flipper.
+	'minke-whale': ({ fur, accent }) => [
+		ball(0.24, fur, 0, 0.28, -0.05, 1, 0.9, 2.6),
+		ball(0.2, accent, 0, 0.2, 0.05, 0.95, 0.6, 2.3),
+		(() => {
+			const head = rot(cone(0.17, 0.42, fur, 0, 0.28, 0.72), Math.PI / 2, 0, 0);
+			head.scale.z = 0.75;
+			return head;
+		})(),
+		backFin(0.16, 0.15, fur, 0.44, -0.4, 0.6),
+		ball(0.09, fur, 0, 0.19, -0.75, 1, 1, 2),
+		box(0.26, 0.03, 0.16, fur, -0.13, 0.015, -1.0),
+		box(0.26, 0.03, 0.16, fur, 0.13, 0.015, -1.0),
+		...([-1, 1] as const).flatMap((side) => [
+			ball(0.024, COLORS.dark, side * 0.2, 0.32, 0.45),
+			rot(box(0.3, 0.03, 0.1, fur, side * 0.3, 0.015, 0.25), 0, side * 0.4, 0),
+			rot(box(0.08, 0.034, 0.104, accent, side * 0.31, 0.017, 0.245), 0, side * 0.4, 0)
+		])
+	],
+	// A big dark fish with a big head, a pale throat and an open mouth of sharp white teeth.
+	toothfish: ({ fur, accent }) => [
+		...fish(1.05, 0.32, 0.26, 0.2, fur, accent, fur),
+		ball(0.19, fur, 0, 0.24, 0.42, 1, 0.95, 1),
+		ball(0.12, accent, 0, 0.13, 0.5, 1.1, 0.5, 1),
+		box(0.14, 0.02, 0.1, 0xb04a4a, 0, 0.19, 0.6),
+		backFin(0.2, 0.12, fur, 0.35, 0.12, 0.5),
+		backFin(0.36, 0.1, fur, 0.33, -0.22, 0.4),
+		...([-1, 1] as const).flatMap((side) => [
+			...[0.04, 0.09].map((x) =>
+				rot(cone(0.016, 0.05, COLORS.white, side * x, 0.21, 0.6), Math.PI, 0, 0)
+			),
+			rot(box(0.26, 0.02, 0.14, fur, side * 0.28, 0.01, 0.2), 0, side * 0.5, 0)
+		]),
+		...fishEyes(0.045, 0.14, 0.32, 0.5)
+	],
+	// Slim and plain pale tan, no spots at all, with a long slender snout.
+	'crabeater-seal': ({ fur, accent }) => {
+		const s = 1.3;
+		return [
+			...sealBody(s, fur, 0.82),
+			...sealHead(s, 0.85, fur, 1.6),
+			ball(0.15 * s, accent, 0, 0.17 * s, -0.4 * s, 0.7, 0.4, 0.9)
+		];
+	},
+	// The biggest seal of the north: a pinkish-brown giant with a wide whiskery muzzle and
+	// two long white tusks hanging down from it.
+	walrus: ({ fur, accent }) => {
+		const s = 1.5;
+		return [
+			...sealBody(s, fur, 1.15),
+			ball(0.15 * s, fur, 0, 0.42 * s, 0.32 * s, 1.15, 0.95, 1),
+			ball(0.1 * s, fur, 0, 0.36 * s, 0.45 * s, 1.45, 0.85, 0.85),
+			...whiskers(0.13 * s, 0.36 * s, 0.53 * s),
+			...([-1, 1] as const).flatMap((side) => [
+				ball(0.022 * s, COLORS.dark, side * 0.09 * s, 0.49 * s, 0.43 * s),
+				rot(
+					cone(0.025 * s, 0.24 * s, accent, side * 0.05 * s, 0.22 * s, 0.53 * s),
+					Math.PI - 0.15,
+					0,
+					0
+				)
+			])
+		];
+	},
+	// A huge black whale with no fin on its back, a big bowed head and a white chin.
+	'bowhead-whale': ({ fur, accent }) => [
+		ball(0.34, fur, 0, 0.36, -0.2, 1, 0.95, 2.1),
+		ball(0.32, fur, 0, 0.42, 0.45, 1, 1.05, 1.1),
+		ball(0.24, accent, 0, 0.22, 0.66, 0.95, 0.55, 0.9),
+		ball(0.06, fur, 0, 0.75, 0.42, 1.4, 0.6, 1),
+		ball(0.13, fur, 0, 0.22, -0.95, 1, 1, 1.6),
+		box(0.34, 0.035, 0.22, fur, -0.17, 0.0175, -1.25),
+		box(0.34, 0.035, 0.22, fur, 0.17, 0.0175, -1.25),
+		...([-1, 1] as const).flatMap((side) => [
+			ball(0.03, COLORS.dark, side * 0.3, 0.3, 0.55),
+			ball(0.012, COLORS.white, side * 0.31, 0.31, 0.57),
+			rot(box(0.34, 0.035, 0.16, fur, side * 0.38, 0.0175, 0.2), 0, side * 0.4, 0)
+		])
+	],
+	// A big slow grey-brown shark with small fins, a rounded snout, gill slits, and tiny eyes,
+	// a pale worm (a parasite) hanging from each.
+	'greenland-shark': ({ fur, accent }) => [
+		...raised(0.08, [
+			ball(0.26, fur, 0, 0.3, -0.1, 1, 0.92, 3),
+			ball(0.22, accent, 0, 0.22, 0.05, 0.95, 0.55, 2.5),
+			ball(0.2, fur, 0, 0.29, 0.6, 1, 0.8, 1.15),
+			backFin(0.22, 0.12, fur, 0.5, -0.3, 0.45),
+			backFin(0.18, 0.1, fur, 0.44, -0.6, 0.45),
+			(() => {
+				const top = rot(cone(0.08, 0.36, fur, 0, 0.38, -0.98), -0.9, 0, 0);
+				top.scale.x = 0.3;
+				return top;
+			})(),
+			(() => {
+				const low = rot(cone(0.06, 0.22, fur, 0, 0.2, -0.95), -2.3, 0, 0);
+				low.scale.x = 0.3;
+				return low;
+			})(),
+			box(0.04, 0.012, 0.012, COLORS.dark, 0, 0.2, 0.8),
+			...([-1, 1] as const).flatMap((side) => [
+				ball(0.018, COLORS.dark, side * 0.17, 0.36, 0.66),
+				tube(0.008, 0.06, 0xf2e8c8, side * 0.18, 0.32, 0.67),
+				...[0.36, 0.31, 0.26, 0.21].map((z) =>
+					box(0.01, 0.1, 0.012, COLORS.dark, side * 0.252, 0.31, z)
+				)
+			])
+		]),
+		...([-1, 1] as const).flatMap((side) => [
+			rot(box(0.3, 0.03, 0.16, fur, side * 0.3, 0.015, 0.25), 0, side * 0.45, 0),
+			rot(box(0.16, 0.03, 0.1, fur, side * 0.17, 0.015, -0.45), 0, side * 0.4, 0)
+		])
+	],
+	// A grey whale covered in dark spots, with a long spiral tusk (a tooth) out of its lip.
+	narwhal: ({ fur, accent }) => {
+		const up = 0.12;
+		const tusk = (d: number) => [0, 0.34 + d * Math.sin(up), 0.72 + d * Math.cos(up)] as const;
+		const [tx, ty, tz] = tusk(0.45);
+		return [
+			...raised(0.06, [
+				ball(0.25, fur, 0, 0.27, -0.12, 1, 0.92, 2.4),
+				ball(0.21, COLORS.white, 0, 0.2, -0.02, 0.95, 0.6, 2.1),
+				ball(0.2, fur, 0, 0.32, 0.5, 1, 0.95, 1.05),
+				...spots(18, 0.035, accent, [0.25, 0.23, 0.6], 0.27, -0.12),
+				...spots(5, 0.03, accent, [0.2, 0.19, 0.21], 0.32, 0.5, 0.3),
+				rot(cone(0.028, 0.9, COLORS.white, tx, ty, tz), Math.PI / 2 - up, 0, 0),
+				...[0.1, 0.25, 0.4, 0.55, 0.7].map((d, i) => {
+					const [x, y, z] = tusk(d);
+					const ring = part(
+						new THREE.TorusGeometry(0.028 * (1 - d / 0.9) + 0.004, 0.005, 3, 8),
+						0xd8cdb0,
+						x,
+						y,
+						z
+					);
+					ring.rotation.set(-up + (i % 2 ? 0.35 : -0.35), 0, 0);
+					return ring;
+				}),
+				ball(0.1, fur, 0, 0.18, -0.8, 1, 1, 1.6),
+				...([-1, 1] as const).map((side) => ball(0.024, COLORS.dark, side * 0.18, 0.34, 0.6))
+			]),
+			box(0.26, 0.03, 0.16, fur, -0.13, 0.015, -1.0),
+			box(0.26, 0.03, 0.16, fur, 0.13, 0.015, -1.0),
+			...([-1, 1] as const).map((side) =>
+				rot(box(0.22, 0.03, 0.1, fur, side * 0.28, 0.015, 0.25), 0, side * 0.4, 0)
+			)
+		];
+	},
+	// The biggest seal of all, brown, with a big floppy trunk of a nose hanging over its mouth.
+	'elephant-seal': ({ fur, accent }) => {
+		const s = 1.6;
+		return [
+			...sealBody(s, fur, 1.1),
+			...sealHead(s, 1, fur),
+			ball(0.05 * s, accent, 0, 0.4 * s, 0.47 * s, 1.1, 0.9, 1.2),
+			rot(tube(0.04 * s, 0.12 * s, accent, 0, 0.33 * s, 0.53 * s), 0.35, 0, 0),
+			...spots(6, 0.05 * s, accent, [0.165 * s * 1.1, 0.165 * s, 0.17 * s], 0.25 * s, 0.14 * s)
+		];
+	},
+	// The longest animal there is: mottled blue-grey, a broad flat head, a tiny fin far back,
+	// and a tall spout.
+	'blue-whale': ({ fur, accent }) => [
+		ball(0.3, fur, 0, 0.3, -0.25, 1, 0.9, 3.2),
+		ball(0.26, accent, 0, 0.21, -0.1, 0.95, 0.55, 2.9),
+		ball(0.27, fur, 0, 0.3, 0.72, 1.05, 0.65, 1.45),
+		...spots(16, 0.05, accent, [0.3, 0.27, 0.96], 0.3, -0.25),
+		backFin(0.1, 0.08, fur, 0.4, -0.95, 0.7),
+		ball(0.11, fur, 0, 0.18, -1.3, 1, 1, 2),
+		box(0.34, 0.035, 0.2, fur, -0.17, 0.0175, -1.6),
+		box(0.34, 0.035, 0.2, fur, 0.17, 0.0175, -1.6),
+		...spout(0, 0.56, 0.45),
+		...spout(0, 0.68, 0.45),
+		...([-1, 1] as const).flatMap((side) => [
+			ball(0.028, COLORS.dark, side * 0.27, 0.3, 0.65),
+			rot(box(0.32, 0.03, 0.1, fur, side * 0.36, 0.015, 0.35), 0, side * 0.4, 0)
+		])
+	],
+	// Long and slender, grey with dark spots, and a huge reptile's head with wide-open jaws.
+	'leopard-seal': ({ fur, accent }) => {
+		const s = 1.5;
+		return [
+			...sealBody(s, fur, 0.82, 1.25),
+			ball(0.17 * s, fur, 0, 0.42 * s, 0.33 * s, 1.05, 0.75, 1.35),
+			ball(0.11 * s, fur, 0, 0.44 * s, 0.53 * s, 1, 0.55, 1.4),
+			rot(ball(0.1 * s, fur, 0, 0.31 * s, 0.52 * s, 0.95, 0.35, 1.4), 0.25, 0, 0),
+			ball(0.08 * s, 0xc95a5a, 0, 0.37 * s, 0.54 * s, 0.9, 0.45, 1.2),
+			...([-1, 1] as const).flatMap((side) => [
+				ball(0.028 * s, COLORS.dark, side * 0.12 * s, 0.5 * s, 0.45 * s),
+				...[0.5, 0.58, 0.66].map((z) =>
+					rot(
+						cone(0.01 * s, 0.035 * s, COLORS.white, side * 0.07 * s, 0.39 * s, z * s),
+						Math.PI,
+						0,
+						0
+					)
+				)
+			]),
+			...spots(16, 0.05, accent, [0.2 * s * 0.82, 0.17 * s, 0.38 * s * 1.25], 0.18 * s, -0.14 * s),
+			...spots(4, 0.045, accent, [0.165 * s * 0.82, 0.165 * s, 0.17 * s], 0.25 * s, 0.14 * s, 0.3)
+		];
 	}
 };
 
@@ -1898,6 +2299,100 @@ function penguin(s: number, fur: number, feet: number): THREE.Object3D[] {
 			box(0.06 * s, 0.02 * s, 0.09 * s, feet, side * 0.06 * s, 0.01 * s, 0.06 * s)
 		])
 	];
+}
+
+/**
+ * A seal's body, `s` times the harbour seal's, `slim` as wide and `long` as long: a long body
+ * lying low and its chest raised, the front flippers flat on the ground at its sides and the
+ * hind ones trailing behind. Its head is the species' own (`sealHead`, or its own parts) at
+ * (0, 0.4·s, 0.3·s).
+ */
+function sealBody(s: number, fur: number, slim = 1, long = 1): THREE.Mesh[] {
+	return [
+		ball(0.2 * s, fur, 0, 0.18 * s, -0.14 * s * long, slim, 0.85, 1.9 * long),
+		ball(0.165 * s, fur, 0, 0.25 * s, 0.14 * s, slim, 1, 1.05),
+		...([-1, 1] as const).flatMap((side) => [
+			rot(
+				ball(0.1 * s, fur, side * 0.2 * s * slim, 0.03 * s, 0.1 * s, 0.35, 0.3, 1),
+				0,
+				side * 0.5,
+				0
+			),
+			rot(
+				ball(0.09 * s, fur, side * 0.06 * s, 0.0225 * s, -0.6 * s * long, 0.45, 0.25, 1.1),
+				0,
+				side * 0.35,
+				0
+			)
+		])
+	];
+}
+
+/**
+ * A seal's head on `sealBody(s)`: round, `size` times the harbour seal's, in `hex`, with a
+ * muzzle `snout` times as long, a dark nose, whiskers, and big dark eyes that shine.
+ */
+function sealHead(s: number, size: number, hex: number, snout = 1): THREE.Mesh[] {
+	const r = 0.145 * s * size;
+	const front = 0.3 * s + r * 0.95;
+	return [
+		ball(r, hex, 0, 0.4 * s, 0.3 * s, 1, 0.95, 1.05),
+		ball(0.07 * s * size, hex, 0, 0.36 * s, front, 1.15, 0.78, 0.8 * snout),
+		ball(0.026 * s * size, COLORS.dark, 0, 0.38 * s, front + 0.055 * s * size * snout),
+		...whiskers(0.05 * s * size, 0.35 * s, front + 0.03 * s * size * snout),
+		...([-1, 1] as const).flatMap((side) => [
+			ball(0.042 * s * size, COLORS.dark, side * r * 0.47, 0.44 * s, 0.3 * s + r * 0.76),
+			ball(0.013 * s * size, COLORS.white, side * r * 0.4, 0.455 * s, 0.3 * s + r * 1.02)
+		])
+	];
+}
+
+/**
+ * A fish `len` long, upright as it swims: its body an egg `deep` tall and `wide` across, its
+ * middle `lift` over the ground, a belly of `belly` under it, a tail fin standing up behind it
+ * and a fin flat on the ground on each side, which it rests on; its fins in `fin`.
+ */
+function fish(
+	len: number,
+	deep: number,
+	wide: number,
+	lift: number,
+	fur: number,
+	belly: number,
+	fin: number
+): THREE.Mesh[] {
+	const tail = rot(cone(deep * 0.55, len * 0.32, fin, 0, lift, -len * 0.62), Math.PI / 2, 0, 0);
+	tail.scale.x = 0.2;
+	return [
+		ball(0.5, fur, 0, lift, 0, wide, deep, len),
+		ball(0.5, belly, 0, lift - deep * 0.14, len * 0.04, wide * 0.92, deep * 0.78, len * 0.88),
+		tail,
+		...([-1, 1] as const).map((side) =>
+			rot(
+				box(len * 0.22, 0.02, len * 0.12, fin, side * (wide * 0.5 + len * 0.08), 0.01, len * 0.08),
+				0,
+				side * 0.5,
+				0
+			)
+		)
+	];
+}
+
+/**
+ * `parts` raised `dy` off the ground: a long animal's body, kept clear of its fins on the
+ * ground, so it lies down low enough when it rests (`liePose` tips it head down).
+ */
+function raised<T extends THREE.Object3D>(dy: number, parts: T[]): T[] {
+	for (const p of parts) p.position.y += dy;
+	return parts;
+}
+
+/** A fish's eyes, `r` wide, on each side of a head whose sides are `x` out at (`y`, `z`). */
+function fishEyes(r: number, x: number, y: number, z: number): THREE.Mesh[] {
+	return ([-1, 1] as const).flatMap((side) => [
+		ball(r, COLORS.white, side * x, y, z),
+		ball(r * 0.55, COLORS.dark, side * (x + r * 0.45), y, z + r * 0.35)
+	]);
 }
 
 function wrap(parts: THREE.Object3D[]): THREE.Group {
