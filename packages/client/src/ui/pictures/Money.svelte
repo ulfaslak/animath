@@ -61,7 +61,7 @@
 <svg viewBox="-4 -4 {WIDTH + 8} {laid.height + 8}" class="picture" aria-hidden="true">
 	{#each laid.pieces as piece, i (i)}
 		{#if piece.value >= 50}
-			<g transform="translate({piece.x} {piece.y})" class="note n{piece.value}">
+			<g transform="translate({piece.x} {piece.y})" class="banknote n{piece.value}">
 				<rect width={NOTE.w} height={NOTE.h} rx="6" class="paper" />
 				<rect x="5" y="5" width={NOTE.w - 10} height={NOTE.h - 10} rx="4" class="inset" />
 				<text x="12" y={NOTE.h / 2} class="value left">{piece.value}</text>

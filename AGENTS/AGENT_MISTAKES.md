@@ -1056,3 +1056,7 @@ To become `[learned]`: a line in [[DEVELOPMENT]] § Testing ideology saying a se
 ### 2026-10-08 — #191 step 7 opening The Arctic (feat/arctic-open, PR #210), adversarial review — a state only throwaway games could reach became reachable by real saves
 
 - **A save with no animal** (a first arrival before the starter pick) was possible only in `?lands` games, saved nowhere, until The Arctic opened; then the title's confirm (which named the lead) and the admin's save line ("0 animals") met it. When a switch turns a dev-only path on for real players, list the states only that path made, and walk each through every screen and tool that reads a save (title, Continue, admin export, error reports).
+
+### 2026-10-08 — #191 step 7 on prod (fix/doctor-banknotes) — a component's class name met another's `:global` rule
+
+- **The kroner picture's banknotes were hidden at the witch doctor's.** `Money.svelte` drew each note as `g.note`; `DoctorCard.svelte` hides `:global(.note)` (its help line) in a picture puzzle. The fare showed 32 kroner of 82, and a right count of the picture was judged wrong. Only a prod journey with a kroner fare found it: unit tests never render the card, and earlier frames had no note. A `:global(.x)` rule reaches every descendant: give a picture's parts names no card styles (`picture-classes.test.ts` now checks), and read a frame of every picture kind in every place it shows (battle, the witch doctor's heal and fare).
