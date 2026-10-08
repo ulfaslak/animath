@@ -999,7 +999,7 @@ export const ANIMALS: readonly AnimalSpec[] = [
 		realms: ['water'],
 		favours: 'water',
 		attacks: [
-			{ id: 'flutter', kinds: ['add'], power: 8 },
+			{ id: 'flutter', kinds: ['add'], power: 9 },
 			{ id: 'angel-wings', kinds: ['fraction'], power: 12 },
 			{ id: 'hook-grab', kinds: ['balance'], power: 16 }
 		]
@@ -1009,13 +1009,13 @@ export const ANIMALS: readonly AnimalSpec[] = [
 		// through a fishing hole in the arctic-ice.
 		id: 'polar-cod',
 		tier: 1,
-		maxHp: 50,
+		maxHp: 46,
 		catchRate: 0.85,
 		habitats: ['arctic-ocean', 'arctic-ice'],
 		realms: ['water'],
 		favours: 'water',
 		attacks: [
-			{ id: 'tail-flick', kinds: ['add', 'sub'], power: 8 },
+			{ id: 'tail-flick', kinds: ['add', 'sub'], power: 9 },
 			{ id: 'ice-hide', kinds: ['thermometer'], power: 12 },
 			{ id: 'big-school', kinds: ['barchart'], power: 16 }
 		]
@@ -1031,7 +1031,7 @@ export const ANIMALS: readonly AnimalSpec[] = [
 		realms: ['water'],
 		favours: 'water',
 		attacks: [
-			{ id: 'tiny-kick', kinds: ['add'], power: 8 },
+			{ id: 'tiny-kick', kinds: ['add'], power: 9 },
 			{ id: 'glow', kinds: ['barchart'], power: 12 },
 			{ id: 'big-swarm', kinds: ['shape'], power: 16 }
 		]
@@ -1047,7 +1047,7 @@ export const ANIMALS: readonly AnimalSpec[] = [
 		realms: ['water'],
 		favours: 'water',
 		attacks: [
-			{ id: 'fin-flick', kinds: ['add', 'sub'], power: 12 },
+			{ id: 'fin-flick', kinds: ['add', 'sub'], power: 13 },
 			{ id: 'red-belly', kinds: ['thermometer'], power: 20 },
 			{ id: 'sea-trip', kinds: ['clock'], power: 25 }
 		]
@@ -1062,7 +1062,7 @@ export const ANIMALS: readonly AnimalSpec[] = [
 		realms: ['water'],
 		favours: 'water',
 		attacks: [
-			{ id: 'wobble', kinds: ['add'], power: 11 },
+			{ id: 'wobble', kinds: ['add'], power: 12 },
 			{ id: 'suction-cup', kinds: ['shape'], power: 17 },
 			{ id: 'rock-hold', kinds: ['balance'], power: 22 }
 		]
@@ -1078,7 +1078,7 @@ export const ANIMALS: readonly AnimalSpec[] = [
 		realms: ['water'],
 		favours: 'water',
 		attacks: [
-			{ id: 'breath-hole', kinds: ['add', 'sub'], power: 12 },
+			{ id: 'breath-hole', kinds: ['add', 'sub'], power: 13 },
 			{ id: 'claw-scrape', kinds: ['shape'], power: 18 },
 			{ id: 'snow-den', kinds: ['thermometer'], power: 25 }
 		]
@@ -1094,7 +1094,7 @@ export const ANIMALS: readonly AnimalSpec[] = [
 		realms: ['water'],
 		favours: 'water',
 		attacks: [
-			{ id: 'ghost-swim', kinds: ['add'], power: 12 },
+			{ id: 'ghost-swim', kinds: ['add'], power: 13 },
 			{ id: 'clear-blood', kinds: ['thermometer'], power: 19 },
 			{ id: 'croc-snap', kinds: ['balance'], power: 27 }
 		]
