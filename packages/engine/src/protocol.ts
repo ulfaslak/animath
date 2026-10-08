@@ -5,6 +5,7 @@ import type { Line } from './lines.js';
 import type { NameRejection } from './names.js';
 import type { NewGameRejection } from './party/starters.js';
 import type { ItemId } from './items/catalog.js';
+import type { LandId } from './lands/ids.js';
 import type { MatchEvent, MatchSide } from './match/types.js';
 import type { PartyEvent, PartyIntent } from './party/types.js';
 import type { ChunkRef } from './world/edits.js';
@@ -66,6 +67,16 @@ export type Intent =
 	 * `travelled`, or `travel-refused`.
 	 */
 	| { type: 'travel'; world: number }
+	/**
+	 * Pick the first animal of the land the player has just flown to, one of
+	 * its starters (`LandSpec.starters`), with a name for it as typed: only
+	 * while the authority waits for one (`starter-wanted`: the player is in a
+	 * land with no animal of theirs there, `needsStarter`). The engine's
+	 * `chooseStarter` checks it, with the land's starters. Answered with
+	 * `party-changed` (the starter, alone) and `book-changed`, or
+	 * `starter-refused`.
+	 */
+	| { type: 'pick-starter'; speciesId: string; nickname?: string }
 	/**
 	 * Go to another player in this world, who stands at `near` (the presence
 	 * server's word for where: [[DECISIONS]], the server is the authority for
@@ -141,8 +152,9 @@ export type GameEvent =
 	 * book's species seen, caught and set free (`seen`, `caught`, `freed`). A `battle-started` follows when the save
 	 * was taken mid-battle. `newGame` tells the two apart: true for a game
 	 * that begins here (a starter just picked, or a throwaway game), false for
-	 * one picked up. `world` is the world number the player is in and `seed`
-	 * its generator seed (`worldSeed(world)`), `home` the world the game began
+	 * one picked up. `world` is the world number the player is in, `land` the
+	 * land (`unlocked`: the lands unlocked, `unlockLands`), and `seed` its
+	 * generator seed (`landSeed(land, world)`), `home` the world the game began
 	 * in, `name` the player's name (null until chosen). `edits` are the tiles
 	 * the player has cleared in `world`, in `WorldEdits`' text form: the world
 	 * is the seed's, as they left it.
@@ -152,6 +164,8 @@ export type GameEvent =
 			playerId: string;
 			name: string | null;
 			world: number;
+			land: LandId;
+			unlocked: string[];
 			home: number;
 			seed: number;
 			pos: GridPos;
@@ -173,17 +187,23 @@ export type GameEvent =
 	/** `choose-name` was refused, and the name is as it was: why, as a code the client words kindly. */
 	| { type: 'name-refused'; reason: NameRejection }
 	/**
-	 * The player went to another world (`travel`): the world left is
-	 * remembered, and this is the world reached, in `welcome`'s terms: its
-	 * number and seed, where they stand and face, and the tiles they cleared
-	 * there. Put the player on `pos` without a tween and draw the new world.
-	 * `firstVisit`: they had not been there (or it was forgotten), and stand at
-	 * its spawn. Party, tokens and items travel unchanged.
+	 * The player went to another world (`travel`), or flew to another land
+	 * (a `doctor` intent whose fare was paid: `flew`): the place left is
+	 * remembered, and this is the place reached, in `welcome`'s terms: its
+	 * world number, land and seed, where they stand and face, and the tiles
+	 * they cleared there. Put the player on `pos` without a tween and draw the
+	 * new world. `firstVisit`: they had not been there (or it was forgotten):
+	 * after `travel` they stand at its spawn; after a flight they come down at
+	 * a tent either way (`tentArrival`). Across world numbers the party,
+	 * tokens and items travel unchanged; to another land, that land's own
+	 * follow at once (`party-changed`, `belongings-changed`), and
+	 * `starter-wanted` when it has none of the player's animals yet.
 	 */
 	| {
 			type: 'travelled';
 			playerId: string;
 			world: number;
+			land: LandId;
 			seed: number;
 			pos: GridPos;
 			facing: Direction;
@@ -192,6 +212,23 @@ export type GameEvent =
 	  }
 	/** `travel` went nowhere: why, as a code. */
 	| { type: 'travel-refused'; reason: TravelRejection }
+	/**
+	 * The player is in `land` with no animal of theirs there (`needsStarter`):
+	 * they pick one of `starters` (`pick-starter`). Until they do, they stay
+	 * beside the witch doctor they came down at: nothing walks, flies or
+	 * travels, and the witch doctor still talks (a flight back included).
+	 * Sent after the flight's `travelled`, and after `welcome` for a game
+	 * saved while waiting.
+	 */
+	| { type: 'starter-wanted'; land: LandId; starters: string[] }
+	/** `pick-starter` was refused, and nothing changed: why, as a code (`not-wanted`: no pick is waited for). */
+	| { type: 'starter-refused'; reason: 'not-wanted' | 'not-a-starter' | 'not-text' }
+	/**
+	 * The lands unlocked grew (`unlockLands`): the kid set free the last kind
+	 * a land asked for. The whole list, in unlock order. Sent right after the
+	 * `book-changed` that did it.
+	 */
+	| { type: 'unlocked-changed'; unlocked: string[] }
 	/** The player left the game for the title (`leave-game`). No game is under way now. */
 	| { type: 'game-left' }
 	| { type: 'player-moved'; playerId: string; pos: GridPos; dir: Direction }

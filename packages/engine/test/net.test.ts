@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { LAND_IDS } from '../src/lands/ids.js';
 import { ANIMALS, canFightIn, getAnimal } from '../src/animals/catalog.js';
 import { REALMS, type Realm } from '../src/animals/types.js';
 import { applyMatchIntent, startMatch } from '../src/match/reducer.js';
@@ -164,6 +165,7 @@ function randomClient(rng: Rng): ClientMessage {
 			return {
 				t: 'where',
 				world: pick(rng, [1, 2, 9999, rng.int(1, 9999)]),
+				land: pick(rng, LAND_IDS),
 				x: coord(rng),
 				y: coord(rng),
 				facing: pick(rng, FACINGS),
@@ -303,6 +305,7 @@ function randomServer(rng: Rng): ServerMessage {
 			return {
 				t: 'roster',
 				world: rng.int(1, 9999),
+				land: pick(rng, LAND_IDS),
 				players: Array.from({ length: rng.int(0, 6) }, () => randomEntry(rng))
 			};
 		case 5:
@@ -441,6 +444,7 @@ describe('the wire protocol', () => {
 		const where = {
 			t: 'where',
 			world: 1,
+			land: 'nordland',
 			x: 3,
 			y: -4,
 			facing: 'left',
@@ -452,7 +456,7 @@ describe('the wire protocol', () => {
 		};
 		const parsed = parseClientMessage(where) as unknown as Record<string, unknown>;
 		expect(Object.keys(parsed).sort()).toEqual(
-			['boat', 'busy', 'facing', 'lead', 't', 'world', 'x', 'y'].sort()
+			['boat', 'busy', 'facing', 'land', 'lead', 't', 'world', 'x', 'y'].sort()
 		);
 		expect(parsed.polluted).toBeUndefined();
 	});
@@ -486,6 +490,7 @@ describe('the wire protocol', () => {
 		const where = {
 			t: 'where',
 			world: 7,
+			land: 'nordland',
 			x: 0,
 			y: 0,
 			facing: 'up',
@@ -499,6 +504,7 @@ describe('the wire protocol', () => {
 		expect(parseClientMessage({ ...where, harness: false })).toEqual(where);
 		const peer = { ...where, t: 'peer', pid: 'abcdef123', name: 'Ada' } as Record<string, unknown>;
 		delete peer.world;
+		delete peer.land;
 		expect(parseServerMessage({ ...peer, harness: true })).toEqual({ ...peer, harness: true });
 		for (const junk of [null, 'true', 1, {}]) {
 			expect(parseClientMessage({ ...where, harness: junk }), String(junk)).toBeNull();
@@ -510,6 +516,7 @@ describe('the wire protocol', () => {
 		const parsed = parseClientMessage({
 			t: 'where',
 			world: 7,
+			land: 'arctic',
 			x: 0,
 			y: 0,
 			facing: 'up',
@@ -520,6 +527,7 @@ describe('the wire protocol', () => {
 		expect(parsed).toEqual({
 			t: 'where',
 			world: 7,
+			land: 'arctic',
 			x: 0,
 			y: 0,
 			facing: 'up',
@@ -532,11 +540,12 @@ describe('the wire protocol', () => {
 	it('bumps the version with every new species: a page drops a match or a fight with one it does not know', () => {
 		// A page of the last version would never see a match with the new animal in it, nor
 		// a fight; told to refresh, it reloads with the new catalog (#89's second wave: 5,
-		// its third, the sea's: 6; #91's buzzard, and fights in the air: 7).
+		// its third, the sea's: 6; #91's buzzard, and fights in the air: 7; lands, #191, which
+		// added no species: 8).
 		expect(
 			{ version: PROTOCOL_VERSION, species: ANIMALS.length },
 			'a new species bumps PROTOCOL_VERSION'
-		).toEqual({ version: 7, species: 50 });
+		).toEqual({ version: 8, species: 50 });
 	});
 
 	it('bounds worlds, coordinates, names and rosters', () => {
@@ -544,6 +553,7 @@ describe('the wire protocol', () => {
 			parseClientMessage({
 				t: 'where',
 				world: 1,
+				land: 'nordland',
 				x: 0,
 				y: 0,
 				facing: 'up',
@@ -553,6 +563,10 @@ describe('the wire protocol', () => {
 				...patch
 			});
 		expect(where({ world: 0 })).toBeNull();
+		// The land is one this build has: a page and its server are of one version.
+		expect(where({ land: 'atlantis' })).toBeNull();
+		expect(where({ land: undefined })).toBeNull();
+		expect(where({ land: 'arctic' })).not.toBeNull();
 		expect(where({ world: 10000 })).toBeNull();
 		expect(where({ x: MAX_WIRE_COORD + 1 })).toBeNull();
 		expect(where({ y: -MAX_WIRE_COORD - 1 })).toBeNull();
@@ -566,12 +580,22 @@ describe('the wire protocol', () => {
 		).toBeNull();
 		const rng = new Rng(4);
 		const players = Array.from({ length: MAX_ROSTER + 1 }, () => randomEntry(rng));
-		expect(parseServerMessage({ t: 'roster', world: 1, players })).toBeNull();
+		expect(parseServerMessage({ t: 'roster', world: 1, land: 'nordland', players })).toBeNull();
 		expect(
-			parseServerMessage({ t: 'roster', world: 1, players: players.slice(0, MAX_ROSTER) })
+			parseServerMessage({
+				t: 'roster',
+				world: 1,
+				land: 'nordland',
+				players: players.slice(0, MAX_ROSTER)
+			})
 		).not.toBeNull();
 		expect(
-			parseServerMessage({ t: 'roster', world: 1, players: [{ ...players[0], bearing: BEARINGS }] })
+			parseServerMessage({
+				t: 'roster',
+				world: 1,
+				land: 'nordland',
+				players: [{ ...players[0], bearing: BEARINGS }]
+			})
 		).toBeNull();
 	});
 

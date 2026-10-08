@@ -4,6 +4,9 @@ import { bookOf, recordParty, seeSpecies, type AnimalBook } from './animals/book
 import { ANIMALS, canFightIn, getAnimal } from './animals/catalog.js';
 import type { BattleState } from './battle/types.js';
 import { gearOf } from './items/catalog.js';
+import { FIRST_LAND, LAND_IDS, isLandId, landSeed, type LandId } from './lands/ids.js';
+import type { LandStay } from './lands/fly.js';
+import { getLand, unlockLands } from './lands/lands.js';
 import { checkName } from './names.js';
 import { bundled, joinParty } from './party/bundles.js';
 import { normalizeNickname } from './party/names.js';
@@ -17,10 +20,9 @@ import {
 	FIRST_WORLD,
 	LAST_WORLD,
 	WORLD_ONE_SEED,
-	fitWorlds,
+	fitStays,
 	isWorldNumber,
 	keepWorlds,
-	worldSeed,
 	type WorldStay
 } from './world/worlds.js';
 
@@ -32,7 +34,7 @@ import {
  */
 
 /** The newest save format this build reads and writes. */
-export const SAVE_VERSION = 3;
+export const SAVE_VERSION = 4;
 
 /** The longest animal id, or lineage id, a save may hold. */
 export const MAX_SAVE_ID_LENGTH = 64;
@@ -54,8 +56,8 @@ export const MAX_SAVED_NAME_LENGTH = 40;
  * How deep a save may nest: the document is 1 deep, an object or a list in
  * it 2, and so on, counted as this build reads it (a v1 document after its
  * upgrade, which moves some fields a level down, under `V1_KEPT`). A game's
- * save is 4 deep at most (a saved battle's party or puzzle, a world left
- * behind's position: `save.test.ts` pins it). A document nested deeper is
+ * save is 6 deep at most (the position of a world left behind in a land
+ * left behind; 4 before lands: `save.test.ts` pins it). A document nested deeper is
  * invalid: a body within the server's limit can nest hundreds of thousands
  * deep, and the walks that go down one level at a time (the check here, V8's
  * `JSON.stringify` for some shapes, Postgres' jsonb) run out of stack
@@ -79,8 +81,14 @@ export interface SavedGame {
 	name: string | null;
 	/** The world the game began in, a world number: a new game's is picked for it; a game from before numbered worlds began in World 1. */
 	home: number;
-	/** The world the player is in, a world number: the world is a pure function of `worldSeed(world)`. */
+	/** The world the player is in, a world number: with `land`, the world is a pure function of `landSeed(land, world)`. */
 	world: number;
+	/**
+	 * The land the player is in ([[PRODUCT]] §4 "Lands"): `pos`, `facing`,
+	 * `edits` and `worlds`, and the party, tokens, items and a battle, are
+	 * that land's.
+	 */
+	land: LandId;
 	/** Where the player stands in `world`, in world tile coordinates. */
 	pos: GridPos;
 	/** Which way the player faces. */
@@ -142,6 +150,19 @@ export interface SavedGame {
 	 * `edits` (`fitWorlds`).
 	 */
 	worlds: WorldStay[];
+	/**
+	 * The lands the player has been to and left, the one left most recently
+	 * first, never `land`: each one's party, money, items and worlds as they
+	 * left them (`lands/fly.ts`). Their worlds' cleared tiles share
+	 * `EDITS_BUDGET` with the rest (`fitStays`).
+	 */
+	lands: LandStay[];
+	/**
+	 * The lands the player has unlocked, the first land always among them
+	 * (`unlockLands`): an unlocked land stays so. An id this build lacks is
+	 * kept as it is.
+	 */
+	unlocked: string[];
 }
 
 /**
@@ -174,10 +195,27 @@ export interface SavedWorldStay {
 }
 
 /**
- * Version 3 of the save document, since the animal book keeps the kinds set
- * free (`freed`): the version this build writes. Version 2, since numbered
- * worlds and names, was the same document without `freed`, read through
- * `SAVE_UPGRADES[2]`.
+ * A land the player left, as a save holds it (`LandStay`): its party, money
+ * and items, and its worlds, `tokens` and `items` only once there are some,
+ * `worlds` once there is one.
+ */
+export interface SavedLandStay {
+	land: string;
+	party: AnimalInstance[];
+	tokens?: number;
+	items?: string[];
+	worlds?: SavedWorldStay[];
+}
+
+/**
+ * Version 4 of the save document, since lands (#191): the version this build
+ * writes. `land` is the land the player is in, whose are the position, the
+ * facing, the cleared tiles, the worlds left behind, the party, the tokens,
+ * the items and a battle; `lands` are the lands left behind, and `unlocked`
+ * the lands unlocked. Version 3 (since the animal book keeps the kinds set
+ * free, `freed`) was the same document without them, every game in
+ * Nordland, read through `SAVE_UPGRADES[3]`; version 2, since numbered
+ * worlds and names, was version 3 without `freed`.
  *
  * `version`, `home`, `world`, `pos` and `party` are required; the others are
  * checked when present, and every write must carry `facing`, `steps`,
@@ -187,12 +225,18 @@ export interface SavedWorldStay {
  * when an old document becomes unreadable, and add the upgrade that reads it
  * (`SAVE_UPGRADES`).
  */
-export interface SaveV3 {
-	version: 3;
+export interface SaveV4 {
+	version: 4;
 	/** The world the game began in. */
 	home: number;
 	/** The world the player is in; `pos`, `facing` and `edits` are that world's. */
 	world: number;
+	/**
+	 * The land the player is in, by id. Written in every save; a document
+	 * without it is in the first land, Nordland. A land this build does not
+	 * have makes the save a newer build's.
+	 */
+	land?: string;
 	pos: GridPos;
 	party: AnimalInstance[];
 	/** The player's name, once chosen. A stored name `checkName` refuses loads as no name. */
@@ -248,13 +292,26 @@ export interface SaveV3 {
 	edits?: string[];
 	/** The worlds the player has been to and left, the one left most recently first. Written only once there is one. */
 	worlds?: SavedWorldStay[];
+	/**
+	 * The lands the player has been to and left, the one left most recently
+	 * first, each once and never `land`. Written only once there is one. A
+	 * land, or a species in its party, this build does not have makes the
+	 * save a newer build's.
+	 */
+	lands?: SavedLandStay[];
+	/**
+	 * The lands unlocked, by id. Written only once a land past the first is
+	 * among them; a save without it has unlocked what its kinds set free
+	 * unlock (`unlockLands`). An id this build does not have is kept as it is.
+	 */
+	unlocked?: string[];
 }
 
 /** A document ready to be written: every field a write must carry is present. */
-export type SaveWrite = SaveV3 &
-	Required<Pick<SaveV3, 'facing' | 'steps' | 'visits' | 'lineage' | 'seq'>>;
+export type SaveWrite = SaveV4 &
+	Required<Pick<SaveV4, 'facing' | 'steps' | 'visits' | 'lineage' | 'seq'>>;
 
-/** The fields `SaveV3` names. Everything else in a document is an extra and is kept as sent. */
+/** The fields `SaveV4` names. Everything else in a document is an extra and is kept as sent. */
 const SAVE_KEYS: ReadonlySet<string> = new Set([
 	'version',
 	'name',
@@ -275,7 +332,10 @@ const SAVE_KEYS: ReadonlySet<string> = new Set([
 	'freed',
 	'battle',
 	'edits',
-	'worlds'
+	'worlds',
+	'land',
+	'lands',
+	'unlocked'
 ]);
 
 /**
@@ -299,6 +359,7 @@ const DIRECTIONS: ReadonlySet<string> = new Set(['up', 'down', 'left', 'right'])
 const SPECIES_IDS: ReadonlySet<string> = new Set(ANIMALS.map((a) => a.id));
 const REALMS_KNOWN: ReadonlySet<string> = new Set(REALMS);
 const PUZZLE_KINDS: ReadonlySet<string> = new Set(ALL_PUZZLE_KINDS);
+const LANDS_KNOWN: ReadonlySet<string> = new Set(LAND_IDS);
 
 export type SaveCheck<T> = { ok: true; value: T } | { ok: false; error: string };
 
@@ -317,7 +378,7 @@ export type SaveProblem = 'newer' | 'invalid';
  * [[INVARIANTS]] § Saves.
  */
 export type SaveRead =
-	{ ok: true; save: SaveV3 } | { ok: false; reason: SaveProblem; error: string };
+	{ ok: true; save: SaveV4 } | { ok: false; reason: SaveProblem; error: string };
 
 /** A document someone wants to write, checked (`validateSaveWrite`). */
 export type SaveWriteCheck =
@@ -353,6 +414,16 @@ export const V2_KEPT = 'v2';
 const NAMED_SINCE_V3 = ['freed'] as const;
 
 /**
+ * Where the v3 → v4 upgrade keeps what a v4 document names and a v3 document
+ * held only as an extra (`land`, `lands`, `unlocked`, or this key itself), as
+ * it was. No build wrote any; kept so the upgrade loses nothing.
+ */
+export const V3_KEPT = 'v3';
+
+/** The keys a v4 document names that a v3 document could hold only as extras. */
+const NAMED_SINCE_V4 = ['land', 'lands', 'unlocked'] as const;
+
+/**
  * Upgrades, indexed by the version they read: `SAVE_UPGRADES[1]` turns a v1
  * document into a v2 one. Version N + 1 ships with `SAVE_UPGRADES[N]`, and
  * `readSave` chains them, so a save from any earlier version still loads.
@@ -371,6 +442,16 @@ const NAMED_SINCE_V3 = ['freed'] as const;
  * was; a v2 extra under a key v3 has taken goes under `V2_KEPT`. A bump, not
  * an optional field: an older build would carry on with the save unread and
  * set animals free without writing them down ([[DECISIONS]] § Saves).
+ *
+ * v3 → v4: lands (#191). Every v3 game was played in Nordland, the only land
+ * there was, so the game is in Nordland (`land`), and everything else stays
+ * exactly as it was: the position, facing, cleared tiles and worlds left
+ * behind are Nordland's, and so are the party, tokens, items and battle. It
+ * has left no land and unlocked what its kinds set free unlock, which
+ * `restoreGame` reads from `freed`. A v3 extra under a key v4 has taken goes
+ * under `V3_KEPT`. A bump, not an optional field: an older build would play a
+ * game in The Arctic as a game in Nordland, its Arctic party on Nordland's
+ * ground ([[DECISIONS]] § Saves).
  */
 export const SAVE_UPGRADES: Readonly<Record<number, (doc: Doc) => Doc>> = {
 	1: (doc) => {
@@ -401,6 +482,18 @@ export const SAVE_UPGRADES: Readonly<Record<number, (doc: Doc) => Doc>> = {
 		if (Object.keys(kept).length > 0) out[V2_KEPT] = kept;
 		const freed = freedBefore(doc);
 		if (freed) out.freed = freed;
+		return out;
+	},
+	3: (doc) => {
+		const out: Doc = { ...doc, version: 4 };
+		const kept: Doc = {};
+		for (const key of [...NAMED_SINCE_V4, V3_KEPT]) {
+			if (!Object.prototype.hasOwnProperty.call(out, key)) continue;
+			kept[key] = out[key];
+			delete out[key];
+		}
+		if (Object.keys(kept).length > 0) out[V3_KEPT] = kept;
+		out.land = FIRST_LAND;
 		return out;
 	}
 };
@@ -508,15 +601,59 @@ function validateStay(v: unknown, label: string): string | null {
 	return null;
 }
 
+/** A party's animals (`validateAnimal`), each id once: the error, or null. */
+function validateParty(party: unknown, label: string): string | null {
+	// Any number of animals: a party has no cap. What bounds a document is the server's body limit.
+	if (!Array.isArray(party)) return `${label} must be a list`;
+	const ids = new Set<string>();
+	for (let i = 0; i < party.length; i++) {
+		const error = validateAnimal(party[i], `${label}[${i}]`);
+		if (error) return error;
+		const id = (party[i] as AnimalInstance).id;
+		if (ids.has(id)) return `${label}[${i}].id repeats an earlier id`;
+		ids.add(id);
+	}
+	return null;
+}
+
+/** A list of worlds left behind (`validateStay`), each world once: the error, or null. */
+function validateWorlds(worlds: unknown, label: string): string | null {
+	if (!Array.isArray(worlds)) return `${label} must be a list`;
+	const seen = new Set<number>();
+	for (let i = 0; i < worlds.length; i++) {
+		const error = validateStay(worlds[i], `${label}[${i}]`);
+		if (error) return error;
+		const world = (worlds[i] as SavedWorldStay).world;
+		if (seen.has(world)) return `${label}[${i}].world repeats an earlier world`;
+		seen.add(world);
+	}
+	return null;
+}
+
+/** A land left behind (`SavedLandStay`): the error, or null. Whether this build has the land is `findUnknownContent`'s. */
+function validateLandStay(v: unknown, label: string): string | null {
+	if (!isRecord(v)) return `${label} must be an object`;
+	if (!isContentId(v.land)) return `${label}.land must be a land id`;
+	const party = validateParty(v.party, `${label}.party`);
+	if (party) return party;
+	if (v.tokens !== undefined && !isWhole(v.tokens)) {
+		return `${label}.tokens must be a whole number of 0 or more`;
+	}
+	if (v.items !== undefined && (!Array.isArray(v.items) || !v.items.every(isId))) {
+		return `${label}.items must be a list of ids of 1–${MAX_SAVE_ID_LENGTH} characters`;
+	}
+	return v.worlds === undefined ? null : validateWorlds(v.worlds, `${label}.worlds`);
+}
+
 /**
- * Checks an untrusted value against the v2 document. `version`, `home`,
+ * Checks an untrusted value against the v4 document. `version`, `home`,
  * `world`, `pos` and `party` are required; the other fields are checked when
  * present, except `battle`, which only has to be storable (a load checks it
  * with `readBattle`). A document of the right shape that names something
  * this build does not have (`findUnknownContent`) is refused too. On success
  * the value is the input object itself.
  */
-export function validateSave(input: unknown): SaveCheck<SaveV3> {
+export function validateSave(input: unknown): SaveCheck<SaveV4> {
 	const checked = checkSave(input);
 	return checked.ok ? { ok: true, value: checked.save } : { ok: false, error: checked.error };
 }
@@ -533,7 +670,7 @@ function checkSave(input: unknown): SaveRead {
 	if (error) return { ok: false, reason: 'invalid', error };
 	const unknown = findUnknownContent(input);
 	if (unknown) return { ok: false, reason: 'newer', error: unknown };
-	return { ok: true, save: input as unknown as SaveV3 };
+	return { ok: true, save: input as unknown as SaveV4 };
 }
 
 /**
@@ -542,7 +679,8 @@ function checkSave(input: unknown): SaveRead {
  * later build writes (a species that has shipped never leaves the catalog:
  * [[INVARIANTS]] § Saves). That is a species in the party or in the animal
  * book (`seen`, `caught`, `freed`), or in a saved battle its realm, an animal's
- * species or the puzzle's kind: a game with such an animal cannot be played
+ * species or the puzzle's kind, and a land (the one the player is in, or one
+ * left behind) or a species in a land left behind's party: a game with such an animal cannot be played
  * here, a book with it would lose it at this build's next write, and such a
  * battle could only be dropped. An item this build does not have is not one
  * of them: it is kept as it is and does nothing, so the save plays on and
@@ -553,10 +691,21 @@ function checkSave(input: unknown): SaveRead {
  * still dropped on load here as if the kid had run away ([[DEFERRED]]).
  */
 function findUnknownContent(doc: Doc): string | null {
-	const party = doc.party as { speciesId: string }[];
-	for (let i = 0; i < party.length; i++) {
-		const unknown = unknownId(party[i]!.speciesId, SPECIES_IDS, `party[${i}].speciesId`);
+	const parties: [unknown, string][] = [[doc.party, 'party']];
+	const land = unknownId(doc.land, LANDS_KNOWN, 'land');
+	if (land) return land;
+	const lands = Array.isArray(doc.lands) ? (doc.lands as SavedLandStay[]) : [];
+	for (let i = 0; i < lands.length; i++) {
+		const unknown = unknownId(lands[i]!.land, LANDS_KNOWN, `lands[${i}].land`);
 		if (unknown) return unknown;
+		parties.push([lands[i]!.party, `lands[${i}].party`]);
+	}
+	for (const [list, label] of parties) {
+		const party = list as { speciesId: string }[];
+		for (let i = 0; i < party.length; i++) {
+			const unknown = unknownId(party[i]!.speciesId, SPECIES_IDS, `${label}[${i}].speciesId`);
+			if (unknown) return unknown;
+		}
 	}
 	for (const key of BOOK_KEYS) {
 		const list = doc[key];
@@ -625,17 +774,8 @@ function findSaveError(input: Doc): string | null {
 		return `name must be a string of 1–${MAX_SAVED_NAME_LENGTH} characters`;
 	}
 	if (!isPos(input.pos)) return 'pos must be an object with whole-number x and y';
-	const party = input.party;
-	// Any number of animals: a party has no cap. What bounds a document is the server's body limit.
-	if (!Array.isArray(party)) return 'party must be a list';
-	const ids = new Set<string>();
-	for (let i = 0; i < party.length; i++) {
-		const error = validateAnimal(party[i], `party[${i}]`);
-		if (error) return error;
-		const id = (party[i] as AnimalInstance).id;
-		if (ids.has(id)) return `party[${i}].id repeats an earlier id`;
-		ids.add(id);
-	}
+	const party = validateParty(input.party, 'party');
+	if (party) return party;
 	if (input.facing !== undefined && !DIRECTIONS.has(input.facing as string)) {
 		return 'facing must be up, down, left or right';
 	}
@@ -662,17 +802,27 @@ function findSaveError(input: Doc): string | null {
 	if (input.edits !== undefined && !isEditsText(input.edits)) {
 		return 'edits must be a list of "cx,cy:" entries with tile indices in hex, each of a chunk a save can hold';
 	}
-	const worlds = input.worlds;
-	if (worlds !== undefined) {
-		if (!Array.isArray(worlds)) return 'worlds must be a list';
-		const seen = new Set<number>();
-		for (let i = 0; i < worlds.length; i++) {
-			const error = validateStay(worlds[i], `worlds[${i}]`);
+	if (input.worlds !== undefined) {
+		const worlds = validateWorlds(input.worlds, 'worlds');
+		if (worlds) return worlds;
+	}
+	const land = input.land ?? FIRST_LAND;
+	if (!isContentId(land)) return 'land must be a land id';
+	const lands = input.lands;
+	if (lands !== undefined) {
+		if (!Array.isArray(lands)) return 'lands must be a list';
+		const seen = new Set<unknown>([land]);
+		for (let i = 0; i < lands.length; i++) {
+			const error = validateLandStay(lands[i], `lands[${i}]`);
 			if (error) return error;
-			const world = (worlds[i] as SavedWorldStay).world;
-			if (seen.has(world)) return `worlds[${i}].world repeats an earlier world`;
-			seen.add(world);
+			const id = (lands[i] as SavedLandStay).land;
+			if (seen.has(id)) return `lands[${i}].land repeats the land the player is in, or an earlier one`;
+			seen.add(id);
 		}
+	}
+	const unlocked = input.unlocked;
+	if (unlocked !== undefined && (!Array.isArray(unlocked) || !unlocked.every(isContentId))) {
+		return 'unlocked must be a list of land ids';
 	}
 	return null;
 }
@@ -750,8 +900,9 @@ export function isNewerSave(doc: unknown): boolean {
  * [[DECISIONS]] § Engine): a throwaway game's, with an id the authority gives
  * it, and the one `restoreGame` adds to a party that has none that can fight on land.
  */
-export function defaultStarter(): Starter {
-	return { speciesId: STARTER_SPECIES, hp: getAnimal(STARTER_SPECIES).maxHp };
+export function defaultStarter(land: LandId = FIRST_LAND): Starter {
+	const speciesId = getLand(land).starters[0] ?? STARTER_SPECIES;
+	return { speciesId, hp: getAnimal(speciesId).maxHp };
 }
 
 /**
@@ -789,7 +940,8 @@ export function newGame(
 		name,
 		home: world,
 		world,
-		pos: spawnPoint(worldSeed(world)),
+		land: FIRST_LAND,
+		pos: spawnPoint(landSeed(FIRST_LAND, world)),
 		facing: 'down',
 		steps: 0,
 		visits: 0,
@@ -802,7 +954,9 @@ export function newGame(
 		freed: [...book.freed],
 		battle: null,
 		edits: [],
-		worlds: []
+		worlds: [],
+		lands: [],
+		unlocked: [...unlockLands([], book.freed)]
 	};
 }
 
@@ -826,10 +980,13 @@ function cleanAnimal(animal: AnimalInstance): AnimalInstance {
  * nothing in it can leave the player stuck: a position the player can't be
  * on, in the world as they left it, with what they own (the world generator
  * changed under it, or water without a boat) becomes the spawn tile, an HP
- * above the species' maximum is cut to it, an empty party gets the default
- * starter (`defaultStarter`), a party with no animal that can fight on land
- * (only sea animals: no save a kid's game writes holds one) gets it too, behind
- * the others, so the grass is never out of reach. The starter it adds takes its
+ * above the species' maximum is cut to it, an empty party in the first land
+ * gets the default starter (`defaultStarter`), a party with no animal that can
+ * fight on land (only sea animals: no save a kid's game writes holds one) gets
+ * the land's too, behind the others, so the grass is never out of reach. An
+ * empty party in a later land stays empty: the kid has just flown in and picks
+ * a starter of that land (`needsStarter`), standing beside the witch doctor
+ * they came down at. The starter it adds takes its
  * id from `mintId`, the authority's (the engine mints none, [[DECISIONS]] §
  * Engine), never one an animal in the party already has; `mintId` is called
  * only when a starter joins, so the same save and the same minted id give the
@@ -843,10 +1000,15 @@ function cleanAnimal(animal: AnimalInstance): AnimalInstance {
  * position had to move, nor when the starter joined (it was not in the
  * battle). See [[INVARIANTS]] § "A loaded save never strands the player".
  *
+ * The game is in the land it was saved in (Nordland when it names none), its
+ * world `landSeed(land, world)`. The lands left behind come back as
+ * `landStayOf` makes them, and the lands unlocked are the save's with what
+ * its kinds set free unlock (`unlockLands`).
+ *
  * The worlds left behind come back in the order they were left, each world
  * once and never the current one, at most `MAX_WORLDS_KEPT` (`keepWorlds`),
  * their cleared tiles in canonical text and within what `EDITS_BUDGET` leaves
- * beside the current world's (`fitWorlds`).
+ * beside the current world's, the lands left behind's worlds after them (`fitStays`).
  *
  * The party comes back in species bundles (`bundled`), a saved battle's
  * party in the same order with the same animal in front. A save this build
@@ -856,8 +1018,10 @@ function cleanAnimal(animal: AnimalInstance): AnimalInstance {
  * The animal book comes back as saved, made whole with what the save proves
  * itself (`savedBook`): a save from before the book gets one back.
  */
-export function restoreGame(save: SaveV3, mintId: () => string): SavedGame {
-	const seed = worldSeed(save.world);
+export function restoreGame(save: SaveV4, mintId: () => string): SavedGame {
+	// Known to this build: a land it lacks makes the save a newer build's (`readSave`).
+	const land = (save.land ?? FIRST_LAND) as LandId;
+	const seed = landSeed(land, save.world);
 	const items = [...new Set(save.items ?? [])];
 	// Kept within the budget as a clear keeps it, whatever wrote the save (a hand-edited
 	// one can hold more): the chunks round the player are the last to go, and never go.
@@ -871,15 +1035,19 @@ export function restoreGame(save: SaveV3, mintId: () => string): SavedGame {
 	let party = save.party.map((a) =>
 		cleanAnimal({ ...a, hp: Math.min(a.hp, getAnimal(a.speciesId).maxHp) })
 	);
-	if (!party.some((a) => canFightIn(a.speciesId, 'land'))) {
-		party = joinParty(party, { ...defaultStarter(), id: freshId(party, mintId) });
+	// In a land past the first, an empty party is a kid who has just arrived and has not
+	// picked a starter yet (`needsStarter`): they pick one, and none is added for them.
+	const waiting = party.length === 0 && land !== FIRST_LAND;
+	if (!waiting && !party.some((a) => canFightIn(a.speciesId, 'land'))) {
+		party = joinParty(party, { ...defaultStarter(land), id: freshId(party, mintId) });
 	}
 	const pos = standable ? { x: save.pos.x, y: save.pos.y } : spawnPoint(seed);
 	const battle = standable ? readBattle(save.battle, party, tileRealm(here)) : null;
 	const named = save.name === undefined ? null : checkName(save.name);
-	const worlds = fitWorlds(
+	const left = (save.lands ?? []).filter((stay) => stay.land !== land).map(landStayOf(save.home));
+	const [worlds, ...landWorlds] = fitStays(
 		edits,
-		keepWorlds(staysOf(save.worlds, save.world), save.home),
+		[keepWorlds(staysOf(save.worlds, save.world), save.home), ...left.map((l) => l.worlds)],
 		save.home
 	);
 	const book = savedBook(save, party);
@@ -887,6 +1055,7 @@ export function restoreGame(save: SaveV3, mintId: () => string): SavedGame {
 		name: named?.ok ? named.name : null,
 		home: save.home,
 		world: save.world,
+		land,
 		pos,
 		facing: save.facing ?? 'down',
 		steps: save.steps ?? 0,
@@ -900,8 +1069,31 @@ export function restoreGame(save: SaveV3, mintId: () => string): SavedGame {
 		freed: [...book.freed],
 		battle: battle && bundledBattle(battle),
 		edits: [...edits.encode()],
-		worlds: [...worlds]
+		worlds: [...worlds!],
+		lands: left.map((stay, i) => ({ ...stay, worlds: [...landWorlds[i]!] })),
+		unlocked: [...unlockLands(save.unlocked ?? [], book.freed)]
 	};
+}
+
+/**
+ * A land left behind as a save holds it, made whole as `restoreGame` makes
+ * the land the player is in: nicknames cleaned, every HP within its
+ * species' maximum, the party in species bundles; no money or items when
+ * none are written (an item listed twice owned once); its worlds each once,
+ * at most `MAX_WORLDS_KEPT`, home kept, their cleared tiles in canonical
+ * text. Its party is never given a starter: nobody plays it until the kid
+ * flies back, and the land then is as it was left.
+ */
+function landStayOf(home: number): (saved: SavedLandStay) => LandStay {
+	return (saved) => ({
+		land: saved.land as LandId,
+		party: bundled(
+			saved.party.map((a) => cleanAnimal({ ...a, hp: Math.min(a.hp, getAnimal(a.speciesId).maxHp) }))
+		),
+		tokens: saved.tokens ?? 0,
+		items: [...new Set(saved.items ?? [])],
+		worlds: keepWorlds(staysOf(saved.worlds, null), home)
+	});
 }
 
 /**
@@ -916,7 +1108,7 @@ export function restoreGame(save: SaveV3, mintId: () => string): SavedGame {
  * not which. `party` is the party the game goes on with (`restoreGame`'s,
  * which a starter may have joined); by default the save's own.
  */
-function savedBook(save: SaveV3, party: readonly AnimalInstance[] = save.party): AnimalBook {
+function savedBook(save: SaveV4, party: readonly AnimalInstance[] = save.party): AnimalBook {
 	let book = recordParty(bookOf(save.seen ?? [], save.caught ?? [], save.freed ?? []), party);
 	const battle = save.battle;
 	if (isRecord(battle) && isRecord(battle.opponent)) {
@@ -926,8 +1118,8 @@ function savedBook(save: SaveV3, party: readonly AnimalInstance[] = save.party):
 	return book;
 }
 
-/** The worlds left behind in a save, but `current`, their cleared tiles in canonical text. */
-function staysOf(saved: readonly SavedWorldStay[] | undefined, current: number): WorldStay[] {
+/** The worlds left behind in a save, but `current` (none: all of them), their cleared tiles in canonical text. */
+function staysOf(saved: readonly SavedWorldStay[] | undefined, current: number | null): WorldStay[] {
 	return (saved ?? [])
 		.filter((stay) => stay.world !== current)
 		.map((stay) => ({
@@ -1025,8 +1217,8 @@ export function readBattle(
 	};
 }
 
-/** The top-level fields of a document that `SaveV3` does not name. */
-export function saveExtras(doc: SaveV3): Doc {
+/** The top-level fields of a document that `SaveV4` does not name. */
+export function saveExtras(doc: SaveV4): Doc {
 	const extras: Doc = {};
 	for (const [key, value] of Object.entries(doc)) if (!SAVE_KEYS.has(key)) extras[key] = value;
 	return extras;
@@ -1047,6 +1239,7 @@ export function saveDocument(
 		version: SAVE_VERSION,
 		home: game.home,
 		world: game.world,
+		land: game.land,
 		pos: { x: game.pos.x, y: game.pos.y },
 		facing: game.facing,
 		steps: game.steps,
@@ -1067,7 +1260,18 @@ export function saveDocument(
 	if (game.edits.length > 0) doc.edits = [...game.edits];
 	// Only once another world was visited.
 	if (game.worlds.length > 0) doc.worlds = game.worlds.map(savedStay);
+	// Only once another land was flown to, and once a land past the first is unlocked.
+	if (game.lands.length > 0) doc.lands = game.lands.map(savedLandStay);
+	if (game.unlocked.some((id) => id !== FIRST_LAND)) doc.unlocked = [...game.unlocked];
 	return doc;
+}
+
+function savedLandStay(stay: LandStay): SavedLandStay {
+	const saved: SavedLandStay = { land: stay.land, party: stay.party.map((a) => ({ ...a })) };
+	if (stay.tokens > 0) saved.tokens = stay.tokens;
+	if (stay.items.length > 0) saved.items = [...stay.items];
+	if (stay.worlds.length > 0) saved.worlds = stay.worlds.map(savedStay);
+	return saved;
 }
 
 function savedStay(stay: WorldStay): SavedWorldStay {
@@ -1134,12 +1338,13 @@ export function replacesAnotherGame(
  * player is in the world they are in (position, facing, steps, doctor
  * visits) and in which write they are, and in nothing else — not the party,
  * not a battle, not the puzzles solved, not the animal book, not the world
- * they are in or the worlds they left, not the name, not any extra field. A
+ * they are in or the worlds they left, not the land they are in, the lands
+ * they left or the lands unlocked, not the name, not any extra field. A
  * page whose save was replaced by another page
  * that only walked around can take the save back without losing anything a
  * kid would miss.
  */
-export function sameProgress(a: SaveV3, b: SaveV3): boolean {
+export function sameProgress(a: SaveV4, b: SaveV4): boolean {
 	const left = withProgressDefaults(a);
 	const right = withProgressDefaults(b);
 	const keys = new Set([...Object.keys(left), ...Object.keys(right)]);
@@ -1158,17 +1363,20 @@ export function sameProgress(a: SaveV3, b: SaveV3): boolean {
  * that writes it out. The book's lists compare as sets: the order a species
  * was first met in is no progress.
  */
-function withProgressDefaults(doc: SaveV3): Doc {
+function withProgressDefaults(doc: SaveV4): Doc {
 	const out: Doc = { ...(doc as unknown as Doc) };
 	if (out.tokens === undefined) out.tokens = 0;
 	if (out.items === undefined) out.items = [];
 	if (out.solved === undefined) out.solved = 0;
 	if (out.edits === undefined) out.edits = [];
 	if (out.worlds === undefined) out.worlds = [];
+	if (out.land === undefined) out.land = FIRST_LAND;
+	if (out.lands === undefined) out.lands = [];
 	const book = savedBook(doc);
 	out.seen = [...book.seen].sort();
 	out.caught = [...book.caught].sort();
 	out.freed = [...book.freed].sort();
+	out.unlocked = [...unlockLands(doc.unlocked ?? [], book.freed)].sort();
 	return out;
 }
 

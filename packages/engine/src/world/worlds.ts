@@ -1,8 +1,11 @@
 import { gearOf } from '../items/catalog.js';
-import { hashString } from '../rng.js';
 import { EDITS_BUDGET, WorldEdits, editedTileAt } from './edits.js';
 import { spawnPoint } from './spawn.js';
 import { isPassable, type Direction, type GridPos } from './types.js';
+import { FIRST_WORLD, LAST_WORLD, WORLD_ONE_SEED, isWorldNumber, worldSeed } from './numbers.js';
+import { FIRST_LAND, landSeed, type LandId } from '../lands/ids.js';
+
+export { FIRST_WORLD, LAST_WORLD, WORLD_ONE_SEED, isWorldNumber, worldSeed };
 
 /**
  * Numbered worlds ([[PRODUCT]] §4 "World"): every world is a number from
@@ -17,34 +20,6 @@ import { isPassable, type Direction, type GridPos } from './types.js';
  * the world left behind is remembered as the player left it, and the one
  * reached is picked up where they left it, or at its spawn on a first visit.
  */
-
-/** The lowest world number. */
-export const FIRST_WORLD = 1;
-/** The highest world number: four digits, so a kid can read it out and type it. */
-export const LAST_WORLD = 9999;
-
-/**
- * World 1's generator seed: the seed of the one world every game was played
- * in before worlds had numbers (`hashString('prototype')`, 821322741). Every
- * save from then is in World 1.
- */
-export const WORLD_ONE_SEED = hashString('prototype');
-
-/** Whether `n` is a world number: a whole number from `FIRST_WORLD` to `LAST_WORLD`. */
-export function isWorldNumber(n: unknown): n is number {
-	return Number.isSafeInteger(n) && (n as number) >= FIRST_WORLD && (n as number) <= LAST_WORLD;
-}
-
-/**
- * The generator seed of world `n`: World 1's seed, counted on by one for each
- * world after it. Neighbouring seeds make unrelated worlds (every seed goes
- * through `hashInts`' avalanche before it shapes a tile), and no two numbers
- * share a seed.
- */
-export function worldSeed(n: number): number {
-	if (!isWorldNumber(n)) throw new Error(`worldSeed: ${String(n)} is not a world number`);
-	return (WORLD_ONE_SEED + n - FIRST_WORLD) >>> 0;
-}
 
 /**
  * The world number a kid typed: digits only (leading zeros are fine: "007"
@@ -112,11 +87,17 @@ export type TravelStep =
  * otherwise, as when a save is loaded, they start at the spawn, facing down,
  * the tiles they cleared still cleared. The tiles cleared in every world
  * together stay within the budget they were in: travelling only moves them.
+ *
+ * Within one land (`player.land`, Nordland by default): the worlds left
+ * behind are that land's, and the world reached is that land's world `to`
+ * (`landSeed`). Lands and world numbers are two ways of going: a trip to
+ * another number keeps the player in their land, with its party, money and
+ * items, and a flight to another land (`lands/fly.ts`) keeps the number.
  */
 export function travel(
 	from: Whereabouts,
 	to: unknown,
-	player: { home: number; items: readonly string[] }
+	player: { home: number; items: readonly string[]; land?: LandId }
 ): TravelStep {
 	if (!isWorldNumber(to)) return { ok: false, reason: 'not-a-world' };
 	if (to === from.world) return { ok: false, reason: 'already-there' };
@@ -132,7 +113,7 @@ export function travel(
 		left,
 		player.home
 	);
-	const seed = worldSeed(to);
+	const seed = landSeed(player.land ?? FIRST_LAND, to);
 	const edits = kept ? WorldEdits.decode(kept.edits) : WorldEdits.none;
 	const back =
 		kept && isPassable(editedTileAt(seed, edits, kept.pos.x, kept.pos.y).kind, gearOf(player))
@@ -190,29 +171,50 @@ export function fitWorlds(
 	worlds: readonly WorldStay[],
 	home: number
 ): readonly WorldStay[] {
-	const lengths = worlds.map((stay) => editsLength(stay.edits));
+	return fitStays(current, [worlds], home)[0]!;
+}
+
+/**
+ * `fitWorlds` over several lists of worlds left behind, one budget for all
+ * (`EDITS_BUDGET`): the lands' (`lands/fly.ts`), the land the player is in
+ * first. The current world's tiles are kept whole; then each list in turn,
+ * its home world first, then the rest in order, cut back as `fitWorlds` cuts
+ * them. Each list comes back the same array when nothing in it changed.
+ */
+export function fitStays(
+	current: WorldEdits,
+	groups: readonly (readonly WorldStay[])[],
+	home: number
+): (readonly WorldStay[])[] {
 	let room = EDITS_BUDGET - editsLength(current.encode());
-	if (lengths.reduce((sum, n) => sum + n, 0) <= room) return worlds;
-	const order = worlds
-		.map((stay, index) => index)
-		.sort((a, b) => Number(worlds[b]!.world === home) - Number(worlds[a]!.world === home) || a - b);
-	const fitted = [...worlds];
-	for (const index of order) {
-		const stay = worlds[index]!;
-		const length = lengths[index]!;
-		if (length === 0) continue;
-		if (length <= room) {
-			room -= length;
-			continue;
+	const lengths = groups.map((worlds) => worlds.map((stay) => editsLength(stay.edits)));
+	const total = lengths.flat().reduce((sum, n) => sum + n, 0);
+	if (total <= room) return [...groups];
+	return groups.map((worlds, g) => {
+		const order = worlds
+			.map((stay, index) => index)
+			.sort(
+				(a, b) => Number(worlds[b]!.world === home) - Number(worlds[a]!.world === home) || a - b
+			);
+		let fitted: WorldStay[] | null = null;
+		for (const index of order) {
+			const stay = worlds[index]!;
+			const length = lengths[g]![index]!;
+			if (length === 0) continue;
+			if (length <= room) {
+				room -= length;
+				continue;
+			}
+			const trimmed =
+				room > 0
+					? WorldEdits.decode(stay.edits).trimmedAround(stay.pos, room).edits
+					: WorldEdits.none;
+			room -= editsLength(trimmed.encode());
+			fitted ??= [...worlds];
+			fitted[index] = { ...stay, edits: [...trimmed.encode()] };
 		}
-		const trimmed =
-			room > 0
-				? WorldEdits.decode(stay.edits).trimmedAround(stay.pos, room).edits
-				: WorldEdits.none;
-		room -= editsLength(trimmed.encode());
-		fitted[index] = { ...stay, edits: [...trimmed.encode()] };
-	}
-	return fitted;
+		return fitted ?? worlds;
+	});
 }
 
 /** The characters a world's cleared tiles take in a save: none when nothing is cleared there. */

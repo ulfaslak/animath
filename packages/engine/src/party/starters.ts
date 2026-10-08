@@ -47,15 +47,21 @@ export type Starter = Omit<AnimalInstance, 'id'>;
 export type StarterPick = { ok: true; starter: Starter } | { ok: false; reason: NewGameRejection };
 
 /**
- * The starter a choice from the starter screen gives: that species at full
- * HP, its nickname cleaned the way a rename cleans one (none when nothing
+ * The starter a choice from the starter screen gives: that species, one of
+ * `starters` (a new game's, `STARTERS`, by default; a later land's own on the
+ * first arrival there, `LandSpec.starters`), at full HP, its nickname cleaned the way a rename cleans one (none when nothing
  * usable is left, so it goes by its species' name). Anything else in the
  * choice is ignored.
  */
-export function chooseStarter(choice: unknown): StarterPick {
+export function chooseStarter(
+	choice: unknown,
+	starters: readonly string[] = STARTERS
+): StarterPick {
 	if (typeof choice !== 'object' || choice === null) return { ok: false, reason: 'not-a-starter' };
 	const { speciesId, nickname } = choice as Record<string, unknown>;
-	if (!isStarter(speciesId)) return { ok: false, reason: 'not-a-starter' };
+	if (typeof speciesId !== 'string' || !starters.includes(speciesId)) {
+		return { ok: false, reason: 'not-a-starter' };
+	}
 	if (nickname !== undefined && typeof nickname !== 'string') {
 		return { ok: false, reason: 'not-text' };
 	}

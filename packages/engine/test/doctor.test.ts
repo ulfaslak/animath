@@ -144,6 +144,10 @@ describe('startDoctorVisit', () => {
 			tokens: 0,
 			items: [],
 			shop: itemsForSale(),
+			// In Nordland by default, nothing unlocked past it, and only the lands built open.
+			land: 'nordland',
+			unlocked: ['nordland'],
+			open: ['nordland'],
 			phase: { kind: 'choose-patient' }
 		});
 		expect(state.party[0]).not.toBe(party[0]);
@@ -173,11 +177,14 @@ describe('startDoctorVisit', () => {
 	it('carries no seed and no words: a client can neither predict a puzzle nor show English', () => {
 		expect(Object.keys(startDoctorVisit(partyOf(['fox', 3]))).sort()).toEqual([
 			'items',
+			'land',
+			'open',
 			'party',
 			'phase',
 			'shop',
 			'step',
-			'tokens'
+			'tokens',
+			'unlocked'
 		]);
 	});
 
@@ -1037,6 +1044,9 @@ describe('replay', () => {
 			tokens: 0,
 			items: [],
 			shop: itemsForSale(),
+			land: 'nordland',
+			unlocked: ['nordland'],
+			open: ['nordland'],
 			phase: { kind: 'ended' }
 		});
 	});
