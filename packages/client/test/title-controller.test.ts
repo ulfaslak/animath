@@ -877,3 +877,125 @@ describe('title: just after a logout', () => {
 		expect(title.rows[title.cursor]).toBe('continue');
 	});
 });
+
+describe("a land's starters on a first arrival", () => {
+	/** A game in World 1 that flies to The Arctic, with no animal there yet: it waits for a starter. */
+	function arrive() {
+		const authority = new LocalAuthority({ lands: true });
+		const scenery = new FakeScenery();
+		const room = { open: true };
+		// As main.ts has it: no room while the witch doctor's card is up.
+		let visiting = false;
+		const doctors: number[] = [];
+		const controller = new TitleController(authority, scenery, {
+			continueGame() {},
+			toDoctor() {
+				doctors.push(doctors.length);
+				authority.dispatch({ type: 'interact' });
+			},
+			starterRoom: () => room.open && !visiting
+		});
+		const events: GameEvent[] = [];
+		const sent: Intent[] = [];
+		const dispatch = authority.dispatch.bind(authority);
+		authority.dispatch = (intent) => {
+			sent.push(intent);
+			dispatch(intent);
+		};
+		authority.subscribe((e) => {
+			events.push(e);
+			if (e.type === 'doctor-visit-started') visiting = true;
+			if (e.type === 'doctor-visit-ended') visiting = false;
+			game.apply(e);
+			controller.handle(e);
+		});
+		authority.start({ game: { ...savedGame(), unlocked: ['nordland', 'arctic'] } });
+		for (let i = 0; i < 7; i++) authority.dispatch({ type: 'move', dir: 'right' });
+		authority.dispatch({ type: 'move', dir: 'down' });
+		authority.dispatch({ type: 'interact' });
+		authority.dispatch({ type: 'doctor', intent: { type: 'fly', land: 'arctic' } });
+		const fare = [...events].reverse().find((e) => e.type === 'doctor-visit-updated');
+		if (fare?.type !== 'doctor-visit-updated' || fare.state.phase.kind !== 'paying-fare')
+			throw new Error('no fare');
+		const puzzle = fare.state.phase.puzzle;
+		const input =
+			puzzle.kind === 'clock'
+				? `${Math.floor(puzzle.answer / 60) || 12}:${String(puzzle.answer % 60).padStart(2, '0')}`
+				: String(puzzle.answer);
+		authority.dispatch({ type: 'doctor', intent: { type: 'answer', input } });
+		const frames = (seconds: number) => {
+			for (let t = 0; t < seconds; t += 1 / 60) {
+				controller.watchLand();
+				controller.update(1 / 60);
+			}
+		};
+		const press = (...names: string[]) =>
+			names.forEach((name) => {
+				controller.onKey(key(name));
+				frames(1 / 60);
+			});
+		return { authority, scenery, room, doctors, events, sent, frames, press };
+	}
+
+	afterEach(() => {
+		title.open = false;
+		title.land = null;
+		title.starters = STARTERS;
+	});
+
+	it("come up only once nothing else is on screen, the land's own three on its snow", () => {
+		const t = arrive();
+		expect(game.land).toBe('arctic');
+		expect(game.party).toEqual([]);
+		t.room.open = false;
+		t.frames(1);
+		expect(title.open).toBe(false);
+		t.room.open = true;
+		t.frames(1 / 60);
+		expect(title.open).toBe(true);
+		expect(title.land).toBe('arctic');
+		expect(title.screen).toBe('starter');
+		expect(title.starters).toEqual(['arctic-fox', 'arctic-hare', 'puffin']);
+		expect(t.scenery.shown.at(-2)).toBe('starters arctic-fox,arctic-hare,puffin');
+	});
+
+	it('a pick and a name make the first animal of the land, and the game goes on where it was', () => {
+		const t = arrive();
+		t.frames(PICK_QUIET_SECONDS);
+		t.press('ArrowRight');
+		t.frames(PICK_QUIET_SECONDS);
+		t.press('Enter');
+		expect(title.screen).toBe('naming');
+		title.draft = 'Snow';
+		t.frames(PICK_QUIET_SECONDS);
+		t.press('Enter');
+		expect(t.sent.at(-1)).toEqual({
+			type: 'pick-starter',
+			speciesId: 'arctic-hare',
+			nickname: 'Snow'
+		});
+		expect(game.party.map((a) => [a.speciesId, a.nickname])).toEqual([['arctic-hare', 'Snow']]);
+		expect(title.open).toBe(false);
+		expect(t.scenery.shown.at(-1)).toBe('hide');
+		// Never again: the land has its first animal.
+		t.frames(1);
+		expect(title.open).toBe(false);
+		expect(t.sent.some((i) => i.type === 'new-game')).toBe(false);
+	});
+
+	it('Escape goes to the witch doctor, who can fly the kid back; they come up again after him', () => {
+		const t = arrive();
+		t.frames(PICK_QUIET_SECONDS);
+		t.press('Escape');
+		expect(t.doctors).toEqual([0]);
+		expect(title.open).toBe(false);
+		expect(t.events.at(-1)?.type).toBe('doctor-visit-started');
+		// While the card is up, nothing.
+		t.frames(1);
+		expect(title.open).toBe(false);
+		t.authority.dispatch({ type: 'doctor', intent: { type: 'leave' } });
+		t.frames(1 / 60);
+		expect(title.open).toBe(true);
+		expect(title.land).toBe('arctic');
+	});
+});

@@ -26,7 +26,8 @@ import { SWAP_IN_SECONDS } from '../src/render/follower';
 import { SADDLE, SIT_DROP } from '../src/render/mount';
 import { groundTop } from '../src/render/tiles';
 import { WING_TOP } from '../src/render/glider';
-import { forgetShapes } from '../src/render/merge';
+import { forgetShapes, shapesInUse } from '../src/render/merge';
+import { PLANE_BOARD_SECONDS, PLANE_IN_SECONDS, PLANE_OUT_SECONDS } from '../src/render/plane';
 import { POOF_SECONDS, PUFF_GEOMETRY, Poofs } from '../src/render/poof';
 import {
 	CRUISE_HEIGHT,
@@ -476,5 +477,58 @@ describe('other players on screen', () => {
 		// Each trainer faded with materials of its own, and freed them all.
 		expect(own.size).toBeGreaterThan(20);
 		expect([...own].filter((m) => !disposed.has(m)).map((m) => m.type)).toEqual([]);
+	});
+});
+
+describe('a friend and the plane between lands', () => {
+	const planeOf = (scene: THREE.Scene) => scene.getObjectByName('plane') ?? null;
+	const planesIn = (scene: THREE.Scene) => {
+		let n = 0;
+		scene.traverse((o) => {
+			if (o.name === 'plane') n++;
+		});
+		return n;
+	};
+
+	it('a friend waiting for the plane: it comes down beside them, they get on, and it flies off with them', () => {
+		const { scene, others, frames, figureOf, centre } = setup();
+		const at = { x: centre.x + 2, y: centre.y };
+		others.seen(peer('ada', at));
+		frames(1);
+		expect(planeOf(scene)).toBeNull();
+		others.seen(peer('ada', at, { busy: 'plane' }));
+		expect(planesIn(scene)).toBe(1);
+		frames(PLANE_IN_SECONDS);
+		expect(figureOf('ada')!.visible).toBe(true);
+		frames(PLANE_BOARD_SECONDS + 0.1);
+		// On board: not seen, but still here, parked.
+		expect(figureOf('ada')!.visible).toBe(false);
+		expect(others.has('ada')).toBe(true);
+		frames(3);
+		expect(planesIn(scene)).toBe(1);
+		// Off to another land: the plane flies away with them, and then they are gone.
+		others.gone('ada');
+		frames(PLANE_OUT_SECONDS / 2);
+		expect(others.has('ada')).toBe(true);
+		frames(PLANE_OUT_SECONDS / 2 + 0.1);
+		expect(others.has('ada')).toBe(false);
+		expect(planesIn(scene)).toBe(0);
+		expect(shapesInUse().has('plane')).toBe(false);
+	});
+
+	it('a friend who comes by plane comes in it, with no poof, gets off, and it takes off without them', () => {
+		const { scene, others, frames, figureOf, centre, poofs } = setup();
+		const at = { x: centre.x + 2, y: centre.y };
+		others.seen(peer('bo', at, { busy: 'plane' }));
+		expect(poofs.playing).toBe(0);
+		frames(PLANE_IN_SECONDS + 1);
+		expect(figureOf('bo')!.visible).toBe(false);
+		others.seen(peer('bo', at, { busy: 'explore' }));
+		frames(PLANE_BOARD_SECONDS + 0.1);
+		expect(figureOf('bo')!.visible).toBe(true);
+		frames(PLANE_OUT_SECONDS + 0.1);
+		expect(planesIn(scene)).toBe(0);
+		expect(others.has('bo')).toBe(true);
+		expect(shapesInUse().has('plane')).toBe(false);
 	});
 });

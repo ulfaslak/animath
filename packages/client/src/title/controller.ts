@@ -3,6 +3,7 @@ import {
 	WorldEdits,
 	bundles,
 	checkName,
+	getLand,
 	hasItem,
 	spawnPoint,
 	landSeed,
@@ -525,7 +526,9 @@ export class TitleController {
 		title.screen = 'starter';
 		title.starter = index;
 		this.guard.show();
-		this.scenery.showStarters(title.starters);
+		// A land's starters stand on its own ground: The Arctic's on snow.
+		const snowy = title.land !== null && getLand(title.land).look === 'warm-hat';
+		this.scenery.showStarters(title.starters, snowy);
 		this.scenery.select(index);
 		title.spots = this.scenery.spots();
 	}

@@ -14,6 +14,7 @@ import {
 import { buildBoatMesh, buildBoatParts, disposeBoat, poseBoat } from '../src/render/boat';
 import { animateSwing } from '../src/render/clearing';
 import { buildGliderMesh, buildGliderParts, poseGlider } from '../src/render/glider';
+import { buildPlaneMesh, buildPlaneParts, posePlane } from '../src/render/plane';
 import { REACH, forgetShapes, shapesInUse } from '../src/render/merge';
 import { PLAYER_LOOK, TRAINER_LOOKS } from '../src/render/palette';
 
@@ -270,6 +271,16 @@ describe('a figure drawn in one go draws exactly its parts', () => {
 				['placed in the world', placed]
 			]);
 		}
+	});
+
+	it('the plane between lands: parked, its propeller turned, coming in and going out', () => {
+		const spot = new THREE.Vector3(3, 0.2, -4);
+		expectSame('plane', buildPlaneParts(), buildPlaneMesh(), [
+			['parked', (p) => posePlane(p, spot, 'right', { way: 'parked', p: 0 }, 0.3, false)],
+			['coming in', (p) => posePlane(p, spot, 'up', { way: 'in', p: 0.6 }, 1.1, false)],
+			['going out', (p) => posePlane(p, spot, 'left', { way: 'out', p: 0.4 }, 2.2, false)],
+			['growing in, calm', (p) => posePlane(p, spot, 'down', { way: 'in', p: 0.5 }, 0, true)]
+		]);
 	});
 });
 

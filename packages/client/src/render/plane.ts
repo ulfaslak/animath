@@ -31,10 +31,7 @@ const DOOR_OUT = 0.3;
 const DOOR_UP = 0.35;
 
 function part(geometry: THREE.BufferGeometry, color: number): THREE.Mesh {
-	const m = new THREE.Mesh(
-		geometry,
-		new THREE.MeshLambertMaterial({ color, flatShading: true })
-	);
+	const m = new THREE.Mesh(geometry, new THREE.MeshLambertMaterial({ color, flatShading: true }));
 	m.castShadow = true;
 	return m;
 }
@@ -202,7 +199,10 @@ export function planeSpot(
 export function doorOf(spot: THREE.Vector3, from: THREE.Vector3): THREE.Vector3 {
 	const way = new THREE.Vector3(from.x - spot.x, 0, from.z - spot.z);
 	if (way.lengthSq() > 0) way.setLength(DOOR_OUT);
-	return spot.clone().add(way).setY(spot.y + DOOR_UP);
+	return spot
+		.clone()
+		.add(way)
+		.setY(spot.y + DOOR_UP);
 }
 
 /** Seconds each part of a flight takes on screen: the plane coming in, a kid getting on or off, the plane going. */

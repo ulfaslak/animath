@@ -125,7 +125,15 @@ export const MAX_ROSTER = 50;
  * off it in the land reached, so the others draw the plane come down by
  * them, and fly off with them when they leave the land.
  */
-export const BUSY_STATES = ['explore', 'battle', 'doctor', 'menu', 'match', 'flight', 'plane'] as const;
+export const BUSY_STATES = [
+	'explore',
+	'battle',
+	'doctor',
+	'menu',
+	'match',
+	'flight',
+	'plane'
+] as const;
 export type Busy = (typeof BUSY_STATES)[number];
 
 const DIRECTIONS: readonly Direction[] = ['up', 'down', 'left', 'right'];

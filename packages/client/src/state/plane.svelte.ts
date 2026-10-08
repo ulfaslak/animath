@@ -11,7 +11,8 @@
  * `departing` (it takes off and flies away; the kid is free to go). `p` is
  * how far along the phase is, 0..1. Null when there is no plane.
  */
-export type PlanePhase = 'landing' | 'boarding' | 'leaving' | 'arriving' | 'alighting' | 'departing';
+export type PlanePhase =
+	'landing' | 'boarding' | 'leaving' | 'arriving' | 'alighting' | 'departing';
 
 export interface PlaneShow {
 	phase: PlanePhase;

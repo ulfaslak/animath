@@ -240,7 +240,7 @@ describe('unlocking a land', () => {
 	});
 });
 
-describe("the way to a land: how many of the land before it are set free", () => {
+describe('the way to a land: how many of the land before it are set free', () => {
 	const nordland = getLand('nordland').species;
 
 	it('counts the land before its species set free, of all of them, whatever else is set free', () => {

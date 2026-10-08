@@ -85,7 +85,10 @@ export class PlaneController {
 	 */
 	intercept(event: GameEvent): boolean {
 		const show = plane.show;
-		if (show && (show.phase === 'landing' || show.phase === 'boarding' || show.phase === 'leaving')) {
+		if (
+			show &&
+			(show.phase === 'landing' || show.phase === 'boarding' || show.phase === 'leaving')
+		) {
 			this.held.push(event);
 			return true;
 		}
