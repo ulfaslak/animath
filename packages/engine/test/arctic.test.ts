@@ -344,7 +344,8 @@ describe('sliding on the ice', () => {
 		expect(long).toBeGreaterThan(100);
 		expect(holes).toBeGreaterThan(50);
 		expect(MAX_SLIDE).toBe(ICE_RUN + 1);
-	});
+		// 29 s alone at a load average of 11, and past the 30 s default in the whole suite.
+	}, 180_000);
 
 	it('never meets a straight run of ice longer than ICE_RUN, in a row or a column', () => {
 		for (const [world, x0, y0, w, h] of AREAS) {
