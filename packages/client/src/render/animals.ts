@@ -1880,6 +1880,232 @@ const BUILDERS: Record<string, Builder> = {
 			rot(cone(0.02, 0.06, COLORS.dark, 0, 0.6, 0.135), Math.PI / 2 + 0.1, 0, 0)
 		];
 	},
+	// The Arctic's big land animals and birds (#192 wave 2), each sized as in nature within its
+	// tier, and none the colour of its Nordland cousin: the book shows both lands.
+	//
+	// Stockier than the red deer, grey-brown with a white neck and rump, wide dark hooves, and
+	// antlers bigger and more branched than the deer's, a flat brow tine over its face.
+	reindeer: ({ fur, accent }) => [
+		box(0.3, 0.3, 0.6, fur, 0, 0.58, 0),
+		ball(0.09, NECK_WHITE, 0, 0.6, -0.3, 1, 1, 0.5),
+		...legs(0.075, 0.44, fur, 0.1, 0.21),
+		...legs(0.1, 0.04, COLORS.dark, 0.1, 0.21),
+		rot(box(0.17, 0.17, 0.34, NECK_WHITE, 0, 0.8, 0.3), -0.8, 0, 0),
+		box(0.14, 0.14, 0.26, fur, 0, 0.98, 0.48),
+		ball(0.075, NECK_WHITE, 0, 0.94, 0.58, 1, 0.85, 1),
+		ball(0.03, COLORS.dark, 0, 0.96, 0.64),
+		...([-1, 1] as const).flatMap((side) => [
+			ball(0.018, COLORS.dark, side * 0.072, 1.0, 0.52),
+			ball(0.03, fur, side * 0.1, 1.06, 0.4, 1, 1.5, 0.6),
+			// The red deer's antler, set lower on its lower head, and over it a second, wider
+			// beam curving back with a tine of its own, and a flat brow tine over the face.
+			...antler(accent, side).map((m) => {
+				m.position.y -= 0.08;
+				return m;
+			}),
+			rot(tube(0.02, 0.24, accent, side * 0.22, 1.36, 0.32), -0.5, 0, -side * 0.75),
+			rot(tube(0.015, 0.12, accent, side * 0.29, 1.43, 0.3), 0.6, 0, -side * 0.3),
+			rot(box(0.04, 0.012, 0.1, accent, side * 0.03, 1.1, 0.58), -0.6, 0, 0)
+		])
+	],
+	// Big and white with black flecks, a round head with no ear tufts, and yellow eyes.
+	'snowy-owl': ({ fur, accent }) => [
+		ball(0.2, fur, 0, 0.3, 0, 1, 1.2, 1),
+		...spots(20, 0.017, COLORS.dark, [0.2, 0.24, 0.2], 0.3, 0, 0.05),
+		ball(0.16, fur, 0, 0.6, 0.02),
+		rot(cone(0.018, 0.05, COLORS.dark, 0, 0.57, 0.18), Math.PI * 0.6, 0, 0),
+		rot(box(0.13, 0.024, 0.13, fur, 0, 0.12, -0.19), -0.3, 0, 0),
+		...([-1, 1] as const).flatMap((side) => [
+			ball(0.036, accent, side * 0.062, 0.63, 0.14),
+			ball(0.017, COLORS.dark, side * 0.062, 0.632, 0.172),
+			box(0.08, 0.05, 0.08, fur, side * 0.07, 0.025, 0.07)
+		]),
+		...wings(0.18, 0.4, (side) => [
+			ball(0.13, fur, side * 0.19, 0.3, -0.01, 0.35, 1.1, 0.95),
+			ball(0.022, COLORS.dark, side * 0.24, 0.32, 0.03),
+			ball(0.022, COLORS.dark, side * 0.24, 0.24, -0.04)
+		])
+	],
+	// Grey, a huge face of rings round small yellow eyes, and a white "bow tie" under its chin.
+	'great-grey-owl': ({ fur, accent }) => [
+		ball(0.19, fur, 0, 0.3, 0, 1, 1.3, 0.95),
+		ball(0.17, fur, 0, 0.64, 0.01),
+		ball(0.16, accent, 0, 0.64, 0.09, 1, 1, 0.38),
+		ball(0.115, 0x5e6167, 0, 0.64, 0.115, 1, 1, 0.34),
+		ball(0.08, accent, 0, 0.645, 0.135, 1, 1, 0.32),
+		rot(cone(0.018, 0.05, 0xe8c45a, 0, 0.6, 0.17), Math.PI * 0.6, 0, 0),
+		rot(box(0.14, 0.025, 0.16, fur, 0, 0.12, -0.2), -0.3, 0, 0),
+		...([-1, 1] as const).flatMap((side) => [
+			ball(0.022, 0xf2c230, side * 0.04, 0.66, 0.16),
+			ball(0.011, COLORS.dark, side * 0.04, 0.66, 0.178),
+			ball(0.03, COLORS.white, side * 0.035, 0.5, 0.16, 1.4, 0.6, 0.5),
+			box(0.08, 0.05, 0.08, fur, side * 0.07, 0.025, 0.07)
+		]),
+		ball(0.014, COLORS.dark, 0, 0.5, 0.18),
+		...wings(0.17, 0.4, (side) => [ball(0.13, fur, side * 0.18, 0.3, -0.01, 0.35, 1.15, 0.95)])
+	],
+	// A big white gull, pale grey on its back and wings, which end in white, never black; a
+	// yellow bill with a red spot, and pink legs.
+	'glaucous-gull': ({ fur, accent }) => [
+		ball(0.15, fur, 0, 0.27, -0.03, 1, 0.85, 1.55),
+		ball(0.12, accent, 0, 0.33, -0.08, 0.95, 0.45, 1.3),
+		ball(0.095, fur, 0, 0.43, 0.15),
+		rot(cone(0.026, 0.13, 0xf2c230, 0, 0.42, 0.29), Math.PI / 2 + 0.08, 0, 0),
+		ball(0.014, 0xd8322a, 0, 0.405, 0.3),
+		rot(cone(0.06, 0.14, fur, 0, 0.27, -0.3), -Math.PI / 2 + 0.3, 0, 0),
+		...([-1, 1] as const).flatMap((side) => [
+			ball(0.014, COLORS.dark, side * 0.055, 0.45, 0.2),
+			tube(0.012, 0.14, 0xf0b0a8, side * 0.05, 0.07, 0.0),
+			box(0.05, 0.01, 0.07, 0xf0b0a8, side * 0.05, 0.005, 0.03)
+		]),
+		...wings(0.13, 0.31, (side) => [
+			ball(0.12, accent, side * 0.14, 0.3, -0.07, 0.28, 0.55, 1.7),
+			ball(0.04, fur, side * 0.14, 0.29, -0.28, 0.28, 0.5, 1.1)
+		])
+	],
+	// Hunched and dusky brown with a paler face, and a huge pale bill with a tube on top.
+	'giant-petrel': ({ fur, accent }) => [
+		ball(0.17, fur, 0, 0.27, -0.02, 1, 0.85, 1.45),
+		ball(0.105, 0x9c958b, 0, 0.42, 0.16),
+		rot(cone(0.04, 0.16, accent, 0, 0.4, 0.31), Math.PI / 2 + 0.1, 0, 0),
+		rot(tube(0.018, 0.08, accent, 0, 0.445, 0.25), Math.PI / 2 + 0.1, 0, 0),
+		ball(0.022, 0x8fa36a, 0, 0.38, 0.385),
+		rot(cone(0.06, 0.12, fur, 0, 0.25, -0.29), -Math.PI / 2 + 0.4, 0, 0),
+		...([-1, 1] as const).flatMap((side) => [
+			ball(0.015, COLORS.dark, side * 0.06, 0.45, 0.22),
+			tube(0.014, 0.12, 0x5b6370, side * 0.06, 0.06, 0.0),
+			box(0.06, 0.012, 0.08, 0x5b6370, side * 0.06, 0.006, 0.03)
+		]),
+		...wings(0.15, 0.31, (side) => [ball(0.13, fur, side * 0.16, 0.3, -0.08, 0.28, 0.55, 1.7)])
+	],
+	// Taller than the gentoo and slim, a long thin bill, and on each side of its black head a
+	// bright orange "comma" that runs down into an orange breast.
+	'king-penguin': ({ fur, accent }) => [
+		...penguin(1.35, fur, 0x2a2a2f),
+		ball(0.11, fur, 0, 0.75, 0.02),
+		ball(0.095, accent, 0, 0.62, 0.11, 1.05, 0.9, 0.55),
+		ball(0.08, 0xffc04a, 0, 0.55, 0.15, 1.1, 0.8, 0.5),
+		...([-1, 1] as const).flatMap((side) => [
+			rot(ball(0.042, accent, side * 0.088, 0.72, 0.05, 0.55, 1.6, 0.95), 0, 0, side * 0.2),
+			ball(0.013, COLORS.dark, side * 0.05, 0.77, 0.1)
+		]),
+		rot(cone(0.02, 0.16, fur, 0, 0.73, 0.19), Math.PI / 2 + 0.15, 0, 0),
+		rot(box(0.014, 0.008, 0.09, accent, 0, 0.712, 0.16), 0.15, 0, 0)
+	],
+	// Nordland's wolf in the High Arctic's coat: cream white, rounder ears and a shorter muzzle.
+	'arctic-wolf': ({ fur, accent }) => [
+		box(0.3, 0.28, 0.6, fur, 0, 0.44, 0),
+		box(0.26, 0.12, 0.14, accent, 0, 0.38, 0.28),
+		...legs(0.09, 0.3, fur, 0.1, 0.22),
+		box(0.25, 0.22, 0.25, fur, 0, 0.62, 0.37),
+		box(0.12, 0.09, 0.12, accent, 0, 0.57, 0.53),
+		ball(0.033, COLORS.dark, 0, 0.6, 0.6),
+		ball(0.018, 0xb8862a, -0.06, 0.67, 0.5),
+		ball(0.018, 0xb8862a, 0.06, 0.67, 0.5),
+		cone(0.06, 0.12, fur, -0.085, 0.78, 0.33),
+		cone(0.06, 0.12, fur, 0.085, 0.78, 0.33),
+		limb(
+			'tail',
+			0,
+			0.42,
+			[
+				rot(ball(0.085, fur, 0, 0.65, -0.36, 1, 2.8, 1), -0.35, 0, 0),
+				ball(0.075, accent, 0, 0.86, -0.44)
+			],
+			-0.27
+		)
+	],
+	// The biggest falcon, in the white of Greenland's: dark tips to its wings, a hooked grey beak
+	// and yellow feet.
+	gyrfalcon: ({ fur, accent }) => [
+		...eagle({
+			size: 0.82,
+			body: fur,
+			head: COLORS.white,
+			beak: 0x5b6370,
+			bill: 0.9,
+			feet: accent,
+			tail: fur,
+			wedge: false
+		})
+	],
+	// The biggest penguin, a head taller than the king: its ears and neck washed pale yellow, not
+	// orange, and a shorter bill with a pink stripe.
+	'emperor-penguin': ({ fur, accent }) => [
+		...penguin(1.7, fur, 0x2a2a2f),
+		ball(0.14, fur, 0, 0.94, 0.03),
+		ball(0.11, accent, 0, 0.79, 0.13, 1.05, 0.9, 0.5),
+		...([-1, 1] as const).flatMap((side) => [
+			rot(ball(0.04, accent, side * 0.105, 0.9, 0.05, 0.55, 1.4, 0.9), 0, 0, side * 0.2),
+			ball(0.016, COLORS.dark, side * 0.065, 0.97, 0.13)
+		]),
+		rot(cone(0.025, 0.13, fur, 0, 0.92, 0.22), Math.PI / 2 + 0.2, 0, 0),
+		rot(box(0.016, 0.009, 0.07, 0xf0a08a, 0, 0.9, 0.2), 0.2, 0, 0)
+	],
+	// White with very long, narrow wings, black at their ends, folded along its back, and a big
+	// pink bill.
+	albatross: ({ fur, accent }) => {
+		// Every length times this: as big as the eagles, the biggest of the seabirds.
+		const s = 1.2;
+		return [
+			ball(0.18 * s, fur, 0, 0.3 * s, -0.04 * s, 1, 0.85, 1.5),
+			ball(0.105 * s, fur, 0, 0.48 * s, 0.17 * s),
+			rot(cone(0.032 * s, 0.17 * s, accent, 0, 0.465 * s, 0.34 * s), Math.PI / 2 + 0.1, 0, 0),
+			ball(0.016 * s, accent, 0, 0.445 * s, 0.425 * s),
+			rot(cone(0.06 * s, 0.12 * s, fur, 0, 0.27 * s, -0.33 * s), -Math.PI / 2 + 0.3, 0, 0),
+			...([-1, 1] as const).flatMap((side) => [
+				ball(0.016 * s, COLORS.dark, side * 0.06 * s, 0.5 * s, 0.23 * s),
+				tube(0.018 * s, 0.14 * s, 0xd9c3c0, side * 0.07 * s, 0.07 * s, 0.02 * s),
+				box(0.07 * s, 0.014 * s, 0.09 * s, 0xd9c3c0, side * 0.07 * s, 0.007 * s, 0.05 * s)
+			]),
+			...wings(0.15 * s, 0.36 * s, (side) => [
+				ball(0.1 * s, fur, side * 0.17 * s, 0.35 * s, -0.14 * s, 0.22, 0.45, 2.7),
+				ball(0.06 * s, COLORS.dark, side * 0.175 * s, 0.35 * s, -0.45 * s, 0.2, 0.4, 1.6)
+			])
+		];
+	},
+	// Bigger than the bear and yellowish white, a long neck, a small head with small ears, a
+	// black nose and big paws.
+	'polar-bear': ({ fur, accent }) => [
+		ball(0.4, fur, 0, 0.52, -0.06, 1, 0.92, 1.35),
+		...([-1, 1] as const).flatMap((side) => [
+			tube(0.1, 0.32, fur, side * 0.2, 0.16, -0.32),
+			tube(0.1, 0.32, fur, side * 0.2, 0.16, 0.28),
+			box(0.16, 0.05, 0.2, fur, side * 0.2, 0.025, 0.32),
+			ball(0.022, accent, side * 0.07, 0.82, 0.72),
+			ball(0.05, fur, side * 0.11, 0.9, 0.56)
+		]),
+		ball(0.22, fur, 0, 0.7, 0.4, 0.9, 0.9, 1.1),
+		ball(0.17, fur, 0, 0.76, 0.6, 0.95, 0.9, 1.15),
+		ball(0.1, fur, 0, 0.72, 0.76, 0.9, 0.8, 1.1),
+		ball(0.04, accent, 0, 0.75, 0.86)
+	],
+	// Dark brown under a long shaggy skirt that hangs almost to the ground, a paler saddle,
+	// pale socks, and horns that meet in a boss on its brow and hook down past its eyes.
+	'musk-ox': ({ fur, accent }) => [
+		...legs(0.09, 0.32, accent, 0.15, 0.28),
+		ball(0.38, fur, 0, 0.62, -0.05, 1, 0.85, 1.25),
+		ball(0.27, fur, 0, 0.8, 0.14),
+		ball(0.18, 0x7a6450, 0, 0.88, -0.12, 1.1, 0.42, 1.2),
+		...Array.from({ length: 14 }, (_, i) => {
+			const a = (i / 14) * Math.PI * 2;
+			return rot(
+				cone(0.08, 0.3, fur, Math.sin(a) * 0.33, 0.3, Math.cos(a) * 0.42 - 0.04),
+				Math.PI,
+				0,
+				0
+			);
+		}),
+		ball(0.16, fur, 0, 0.6, 0.5, 0.9, 1, 1.1),
+		ball(0.08, 0x9a8c7c, 0, 0.52, 0.64),
+		ball(0.025, COLORS.dark, 0, 0.53, 0.71),
+		box(0.26, 0.06, 0.1, accent, 0, 0.74, 0.47),
+		...([-1, 1] as const).flatMap((side) => [
+			ball(0.02, COLORS.dark, side * 0.08, 0.62, 0.62),
+			rot(cone(0.045, 0.24, accent, side * 0.17, 0.62, 0.49), 0, 0, Math.PI - side * 0.35),
+			rot(cone(0.025, 0.1, accent, side * 0.24, 0.5, 0.5), 0, 0, -side * 0.6)
+		])
+	],
 	// The Arctic's sea and fishing-hole animals (#192 wave 3), each sized as in nature within
 	// its tier (the sea angel and the krill the tiniest, the blue whale the biggest of all).
 	// Like Nordland's sea animals they swim with their lower 40% under the water, so each one's
@@ -2282,6 +2508,9 @@ const BUILDERS: Record<string, Builder> = {
 		];
 	}
 };
+
+/** The white of a reindeer's neck and rump: a winter coat, against its grey-brown back. */
+const NECK_WHITE = 0xeee6d6;
 
 /**
  * A penguin's body, `s` times the Adélie's: upright, black down the back, a white belly, two

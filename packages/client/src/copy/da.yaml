@@ -827,6 +827,157 @@ species:
       squawk: Skræp
       flipper-slap: Vingeklask
       rock-hop: Klippehop
+  reindeer:
+    name: Rensdyr
+    a: et rensdyr
+    the: rensdyret
+    wild: vildt rensdyr
+    aWild: et vildt rensdyr
+    theWild: det vilde rensdyr
+    bare: rensdyr
+    attacks:
+      hoof-scrape: Hovskrab
+      clicky-knees: Klikkeknæ
+      antler-push: Gevirskub
+  snowy-owl:
+    name: Sneugle
+    a: en sneugle
+    the: sneuglen
+    wild: vild sneugle
+    aWild: en vild sneugle
+    theWild: den vilde sneugle
+    bare: sneugle
+    aGrumpy: en gnaven sneugle
+    attacks:
+      yellow-stare: Gult blik
+      lemming-hunt: Lemmingjagt
+      snow-swoop: Snedyk
+  great-grey-owl:
+    name: Lapugle
+    a: en lapugle
+    the: lapuglen
+    wild: vild lapugle
+    aWild: en vild lapugle
+    theWild: den vilde lapugle
+    bare: lapugle
+    aGrumpy: en gnaven lapugle
+    attacks:
+      big-face: Stort ansigt
+      snow-plunge: Snestyrt
+      silent-wings: Lydløse vinger
+  glaucous-gull:
+    name: Gråmåge
+    a: en gråmåge
+    the: gråmågen
+    wild: vild gråmåge
+    aWild: en vild gråmåge
+    theWild: den vilde gråmåge
+    bare: gråmåge
+    aGrumpy: en gnaven gråmåge
+    attacks:
+      screech: Skrig
+      egg-snatch: Æggerov
+      sky-bully: Luftbølle
+  giant-petrel:
+    name: Kæmpestormfugl
+    a: en kæmpestormfugl
+    the: kæmpestormfuglen
+    wild: vild kæmpestormfugl
+    aWild: en vild kæmpestormfugl
+    theWild: den vilde kæmpestormfugl
+    bare: kæmpestormfugl
+    aGrumpy: en gnaven kæmpestormfugl
+    attacks:
+      beak-clack: Næbklap
+      stinky-spit: Stinkespyt
+      storm-ride: Stormridt
+  king-penguin:
+    name: Kongepingvin
+    a: en kongepingvin
+    the: kongepingvinen
+    wild: vild kongepingvin
+    aWild: en vild kongepingvin
+    theWild: den vilde kongepingvin
+    bare: kongepingvin
+    attacks:
+      trumpet: Trompet
+      orange-ears: Orange ører
+      deep-dive: Dybt dyk
+  arctic-wolf:
+    name: Polarulv
+    a: en polarulv
+    the: polarulven
+    wild: vild polarulv
+    aWild: en vild polarulv
+    theWild: den vilde polarulv
+    bare: polarulv
+    attacks:
+      snow-trot: Snetrav
+      pack-hunt: Flokjagt
+      white-lunge: Hvidt spring
+  gyrfalcon:
+    name: Jagtfalk
+    a: en jagtfalk
+    the: jagtfalken
+    wild: vild jagtfalk
+    aWild: en vild jagtfalk
+    theWild: den vilde jagtfalk
+    bare: jagtfalk
+    aGrumpy: en gnaven jagtfalk
+    attacks:
+      sky-watch: Himmelvagt
+      fast-dive: Lyndyk
+      talon-strike: Kloslag
+  emperor-penguin:
+    name: Kejserpingvin
+    a: en kejserpingvin
+    the: kejserpingvinen
+    wild: vild kejserpingvin
+    aWild: en vild kejserpingvin
+    theWild: den vilde kejserpingvin
+    bare: kejserpingvin
+    attacks:
+      huddle: Klynge
+      toboggan: Kælkefart
+      egg-guard: Æggevagt
+  albatross:
+    name: Vandrealbatros
+    a: en vandrealbatros
+    the: vandrealbatrossen
+    wild: vild vandrealbatros
+    aWild: en vild vandrealbatros
+    theWild: den vilde vandrealbatros
+    bare: vandrealbatros
+    aGrumpy: en gnaven vandrealbatros
+    attacks:
+      glide: Glid
+      sky-dance: Himmeldans
+      wide-wings: Brede vinger
+  polar-bear:
+    name: Isbjørn
+    a: en isbjørn
+    the: isbjørnen
+    wild: vild isbjørn
+    aWild: en vild isbjørn
+    theWild: den vilde isbjørn
+    bare: isbjørn
+    attacks:
+      ice-sniff: Issnus
+      seal-wait: Sælvagt
+      snow-swipe: Snelab
+      ice-pounce: Isspring
+  musk-ox:
+    name: Moskusokse
+    a: en moskusokse
+    the: moskusoksen
+    wild: vild moskusokse
+    aWild: en vild moskusokse
+    theWild: den vilde moskusokse
+    bare: moskusokse
+    attacks:
+      shaggy-shake: Pelsrys
+      ring-wall: Ringmur
+      horn-crash: Hornbrag
   # Arktis' hav- og isfiskedyr (#192, bølge 3). Alle navne er fælleskøn (en). Havenglen
   # (Clione limacina) hedder her vingesnegl: "havengel" er på dansk hajen Squatina squatina.
   # Tandfisk (Dissostichus mawsoni): EU's handelsnavn "antarktisk isfisk" ville støde mod isfisken.

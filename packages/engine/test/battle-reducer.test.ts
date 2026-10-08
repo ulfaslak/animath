@@ -40,6 +40,8 @@ const SEEDS = 25;
 /** About how many battles the catalog sweep plays for each species, over every animal it meets. */
 const BATTLES_PER_SPECIES = 60;
 const ids = ANIMALS.map((a) => a.id);
+/** The polar bear's HP: more than any one hit, so it stands through every hit the tests land. */
+const BIG_HP = getAnimal('polar-bear').maxHp;
 const PRINT = Boolean(process.env.SIM);
 /** Every (player, wild) pair of the catalog that can meet, and where: a sea animal only out on the water. */
 const MEETINGS = ids.flatMap((p) =>
@@ -627,15 +629,12 @@ describe('answers', () => {
 			const spec = getAnimal(p);
 			const got: unknown[] = [];
 			const want: unknown[] = [];
-			// The biggest opponent it can meet, so no hit knocks it out: a tier-5 animal of The
-			// Arctic hits harder than Nordland's bear has HP (the walrus's Big Flop, 108 on hard).
-			const big = ids
-				.filter((o) => arena(p, o))
-				.reduce((a, b) => (getAnimal(b).maxHp > getAnimal(a).maxHp ? b : a));
-			const bigHp = getAnimal(big).maxHp;
 			for (let n = 1; n <= spec.attacks.length; n++) {
 				for (const level of ATTACK_LEVELS) {
 					for (let seed = 0; seed < 5; seed++) {
+						// An opponent no hit knocks out, which every animal can fight somewhere: the
+						// polar bear (205 HP), which walks and swims (a tier-5 Arctic hit is up to 127).
+						const big = 'polar-bear';
 						const start = startBattle(makeParty([p]), makeWild(big), { realm: arena(p, big)! });
 						const solving = applyBattleIntent(
 							start,
@@ -677,9 +676,9 @@ describe('answers', () => {
 									attackIndex: n,
 									level,
 									damage,
-									targetHp: bigHp - damage
+									targetHp: BIG_HP - damage
 								},
-								hp: bigHp - damage,
+								hp: BIG_HP - damage,
 								lower: true
 							});
 						}
@@ -699,11 +698,13 @@ describe('answers', () => {
 		const bad: string[] = [];
 		for (const p of ids) {
 			const spec = getAnimal(p);
-			const big = arena(p, 'bear') ? 'bear' : 'whale';
+			const big = 'polar-bear';
 			for (let n = 1; n <= spec.attacks.length; n++) {
 				for (const level of ATTACK_LEVELS) {
 					const damage = attackDamage(spec, n, level, true);
-					const hps = [100, damage + 1, damage, damage - 1, 1].filter((hp) => hp > 0 && hp <= 100);
+					const hps = [BIG_HP, damage + 1, damage, damage - 1, 1].filter(
+						(hp) => hp > 0 && hp <= BIG_HP
+					);
 					for (const hp of hps) {
 						const start = startBattle(makeParty([p]), makeWild(big, hp), { realm: arena(p, big)! });
 						const preview = landHit(spec, n, level, start.opponent);
@@ -843,8 +844,8 @@ describe('the leash', () => {
 		const bad: string[] = [];
 		for (const w of ids) {
 			const spec = getAnimal(w);
-			// One of its own kind, where it lives: no hit of its own knocks one out, so a failed
-			// throw always hands the battle on (an otter fell to a beluga's 37).
+			// One of its own kind, which no wild hit knocks out from full HP, so a failed throw
+			// always hands the turn on (a Nordland fox fell to one of an Arctic wolf's).
 			const p = w;
 			const realm = arena(p, w)!;
 			for (const hp of [1, Math.ceil(spec.maxHp * 0.1), Math.ceil(spec.maxHp * 0.5), spec.maxHp]) {

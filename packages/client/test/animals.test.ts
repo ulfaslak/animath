@@ -133,6 +133,17 @@ describe('figures', () => {
 			['harbour-seal', 'ringed-seal']
 		] as const)
 			expect(volumes.get(big)!, `${big} vs ${small}`).toBeGreaterThan(volumes.get(small)!);
+		// The Arctic's (#192 wave 2): the penguins by size, the emperor the biggest and a head
+		// taller than the king, so a kid tells the two apart; the polar bear bigger than Nordland's
+		// bear (longer, its head held low); and the reindeer under the moose's height too (above).
+		for (const [big, small] of [
+			['emperor-penguin', 'king-penguin'],
+			['king-penguin', 'gentoo-penguin']
+		] as const) {
+			expect(volumes.get(big)!, `${big} vs ${small}`).toBeGreaterThan(volumes.get(small)!);
+			expect(height(big), `${big} vs ${small}`).toBeGreaterThan(height(small) * 1.15);
+		}
+		expect(volumes.get('polar-bear')!).toBeGreaterThan(volumes.get('bear')!);
 		for (const big of ANIMALS)
 			for (const small of ANIMALS)
 				if (big.tier >= small.tier + 2)
@@ -160,7 +171,14 @@ describe('figures', () => {
 			'arctic-tern',
 			'king-eider',
 			'raven',
-			'barnacle-goose'
+			'barnacle-goose',
+			// Its second wave's big birds.
+			'snowy-owl',
+			'great-grey-owl',
+			'glaucous-gull',
+			'giant-petrel',
+			'gyrfalcon',
+			'albatross'
 		];
 		// Every bird flies, and only birds (the engine's realms).
 		expect(ANIMALS.filter((a) => a.realms.includes('air')).map((a) => a.id)).toEqual(birds);

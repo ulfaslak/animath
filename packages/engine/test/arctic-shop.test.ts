@@ -372,7 +372,7 @@ describe('fishing', () => {
 		expect(castLine(new Rng(3), seed, WorldEdits.none, site, rod, tired)).toEqual({
 			outcome: 'no-swimmer'
 		});
-		// A swimmer, and The Arctic's holes have nobody to hook until #192's third wave: nothing.
+		// A swimmer: where the hole's ice has animals something may bite, else nothing.
 		for (let i = 0; i < 50; i++) {
 			const got = castLine(new Rng(i), seed, WorldEdits.none, site, rod, swimmers);
 			const table = holeTable(tileAtWorld(seed, hole.x, hole.y).biome, 0, 2);

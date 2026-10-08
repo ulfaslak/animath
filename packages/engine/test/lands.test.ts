@@ -80,10 +80,10 @@ describe('the land registry', () => {
 		const arctic = getLand('arctic');
 		expect(arctic.available).toBe(false);
 		expect(availableLands()).toEqual(['nordland']);
-		// #192's first and third waves: its small land animals, the three starters first, and
+		// #192's three waves: its small land animals, the three starters first, its big ones, then
 		// its sea and fishing-hole animals, in catalog order.
 		expect(arctic.species).toEqual(ANIMALS.slice(50).map((a) => a.id));
-		expect(arctic.species).toHaveLength(38);
+		expect(arctic.species).toHaveLength(50);
 		expect(arctic.starters).toEqual(['arctic-fox', 'arctic-hare', 'puffin']);
 		// Its own tools, never Nordland's axe, pickaxe or harness (#191 step 6).
 		expect(Object.keys(arctic.shop)).not.toContain('axe');
@@ -91,6 +91,16 @@ describe('the land registry', () => {
 		expect(Object.keys(arctic.shop)).not.toContain('harness');
 		expect(arctic.currency).toBe('ice-dollars');
 		expect(arctic.look).toBe('warm-hat');
+	});
+
+	it("the animals that could pull The Arctic's dog sled are the reindeer and the Arctic wolf, both walking there (#192)", () => {
+		expect(ANIMALS.filter((a) => a.pulls).map((a) => a.id)).toEqual(['reindeer', 'arctic-wolf']);
+		for (const a of ANIMALS.filter((a) => a.pulls)) {
+			expect(getLand('arctic').species, a.id).toContain(a.id);
+			expect(canFightIn(a.id, 'land'), a.id).toBe(true);
+			// A sled runs on snow: no animal that flies or swims pulls one.
+			expect(a.realms, a.id).toEqual(['land']);
+		}
 	});
 
 	it('every species is of one land, and lives and flies only there; in The Arctic on one pole, but the Arctic tern (#192)', () => {

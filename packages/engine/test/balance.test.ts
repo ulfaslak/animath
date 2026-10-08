@@ -223,7 +223,6 @@ describe('balance simulation', () => {
 	}
 
 	it("a squirrel almost never beats a bear, even when it's always right, nor a crab a whale, nor any small animal a tier-5 one", () => {
-		// Nordland's: The Arctic has no tier-5 animal before #192's second wave.
 		const small = ids.filter((id) => tier(id) === 1 && landOf(id) === 'nordland');
 		expect(small).toEqual([
 			'squirrel',
@@ -265,7 +264,23 @@ describe('balance simulation', () => {
 			'whale',
 			'orca'
 		]);
-		// 48 pairs, 200 battles each: under a second alone, a few beside the suite under load.
+		// The Arctic's (#192's second and third waves): its small animals against every tier-5
+		// one they can meet. On land the polar bear and the musk ox meet its nine small land
+		// animals; out on the water the seven sea giants meet the three small sea animals and the
+		// two small ones that swim, the puffin and the Adélie penguin, and the polar bear, which
+		// swims too, meets the three small sea animals besides its nine.
+		const arcticSmall = ids.filter((id) => tier(id) === 1 && landOf(id) === 'arctic');
+		const arcticBig = ids.filter((id) => tier(id) === 5 && landOf(id) === 'arctic');
+		expect(arcticBig).toHaveLength(9);
+		for (const big of arcticBig) {
+			const meet = arcticSmall.filter((id) => arena(id, big) !== null);
+			expect(meet.length, `Arctic tier-1 animals that meet the ${big}`).toBe(
+				big === 'polar-bear' ? 12 : big === 'musk-ox' ? 9 : 5
+			);
+			for (const id of meet)
+				expect(simulate(id, big, hardest(1)).win, `${id} vs ${big}`).toBeLessThan(0.05);
+		}
+		// 56 pairs, 200 battles each: about a second alone, a few beside the suite under load.
 	}, 30_000);
 
 	it("each of Nordland's sea animals is its land twin in numbers, so the land balance holds at sea as it is", () => {

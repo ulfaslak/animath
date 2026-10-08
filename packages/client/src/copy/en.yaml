@@ -839,6 +839,157 @@ species:
       squawk: Squawk
       flipper-slap: Flipper Slap
       rock-hop: Rock Hop
+  reindeer:
+    name: Reindeer
+    a: a Reindeer
+    the: the Reindeer
+    wild: wild Reindeer
+    aWild: a wild Reindeer
+    theWild: the wild Reindeer
+    bare: Reindeer
+    attacks:
+      hoof-scrape: Hoof Scrape
+      clicky-knees: Clicky Knees
+      antler-push: Antler Push
+  snowy-owl:
+    name: Snowy owl
+    a: a Snowy owl
+    the: the Snowy owl
+    wild: wild Snowy owl
+    aWild: a wild Snowy owl
+    theWild: the wild Snowy owl
+    bare: Snowy owl
+    aGrumpy: a grumpy Snowy owl
+    attacks:
+      yellow-stare: Yellow Stare
+      lemming-hunt: Lemming Hunt
+      snow-swoop: Snow Swoop
+  great-grey-owl:
+    name: Great grey owl
+    a: a Great grey owl
+    the: the Great grey owl
+    wild: wild Great grey owl
+    aWild: a wild Great grey owl
+    theWild: the wild Great grey owl
+    bare: Great grey owl
+    aGrumpy: a grumpy Great grey owl
+    attacks:
+      big-face: Big Face
+      snow-plunge: Snow Plunge
+      silent-wings: Silent Wings
+  glaucous-gull:
+    name: Glaucous gull
+    a: a Glaucous gull
+    the: the Glaucous gull
+    wild: wild Glaucous gull
+    aWild: a wild Glaucous gull
+    theWild: the wild Glaucous gull
+    bare: Glaucous gull
+    aGrumpy: a grumpy Glaucous gull
+    attacks:
+      screech: Screech
+      egg-snatch: Egg Snatch
+      sky-bully: Sky Bully
+  giant-petrel:
+    name: Giant petrel
+    a: a Giant petrel
+    the: the Giant petrel
+    wild: wild Giant petrel
+    aWild: a wild Giant petrel
+    theWild: the wild Giant petrel
+    bare: Giant petrel
+    aGrumpy: a grumpy Giant petrel
+    attacks:
+      beak-clack: Beak Clack
+      stinky-spit: Stinky Spit
+      storm-ride: Storm Ride
+  king-penguin:
+    name: King penguin
+    a: a King penguin
+    the: the King penguin
+    wild: wild King penguin
+    aWild: a wild King penguin
+    theWild: the wild King penguin
+    bare: King penguin
+    attacks:
+      trumpet: Trumpet
+      orange-ears: Orange Ears
+      deep-dive: Deep Dive
+  arctic-wolf:
+    name: Arctic wolf
+    a: an Arctic wolf
+    the: the Arctic wolf
+    wild: wild Arctic wolf
+    aWild: a wild Arctic wolf
+    theWild: the wild Arctic wolf
+    bare: Arctic wolf
+    attacks:
+      snow-trot: Snow Trot
+      pack-hunt: Pack Hunt
+      white-lunge: White Lunge
+  gyrfalcon:
+    name: Gyrfalcon
+    a: a Gyrfalcon
+    the: the Gyrfalcon
+    wild: wild Gyrfalcon
+    aWild: a wild Gyrfalcon
+    theWild: the wild Gyrfalcon
+    bare: Gyrfalcon
+    aGrumpy: a grumpy Gyrfalcon
+    attacks:
+      sky-watch: Sky Watch
+      fast-dive: Fast Dive
+      talon-strike: Talon Strike
+  emperor-penguin:
+    name: Emperor penguin
+    a: an Emperor penguin
+    the: the Emperor penguin
+    wild: wild Emperor penguin
+    aWild: a wild Emperor penguin
+    theWild: the wild Emperor penguin
+    bare: Emperor penguin
+    attacks:
+      huddle: Huddle
+      toboggan: Toboggan
+      egg-guard: Egg Guard
+  albatross:
+    name: Albatross
+    a: an Albatross
+    the: the Albatross
+    wild: wild Albatross
+    aWild: a wild Albatross
+    theWild: the wild Albatross
+    bare: Albatross
+    aGrumpy: a grumpy Albatross
+    attacks:
+      glide: Glide
+      sky-dance: Sky Dance
+      wide-wings: Wide Wings
+  polar-bear:
+    name: Polar bear
+    a: a Polar bear
+    the: the Polar bear
+    wild: wild Polar bear
+    aWild: a wild Polar bear
+    theWild: the wild Polar bear
+    bare: Polar bear
+    attacks:
+      ice-sniff: Ice Sniff
+      seal-wait: Seal Wait
+      snow-swipe: Snow Swipe
+      ice-pounce: Ice Pounce
+  musk-ox:
+    name: Musk ox
+    a: a Musk ox
+    the: the Musk ox
+    wild: wild Musk ox
+    aWild: a wild Musk ox
+    theWild: the wild Musk ox
+    bare: Musk ox
+    attacks:
+      shaggy-shake: Shaggy Shake
+      ring-wall: Ring Wall
+      horn-crash: Horn Crash
   # The Arctic's sea and fishing-hole animals (#192, wave 3). The sea angel is Clione limacina;
   # the icefish the crocodile icefish, the toothfish the Antarctic toothfish, the elephant seal the
   # southern one and the minke whale the common minke.
