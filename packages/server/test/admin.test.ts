@@ -36,7 +36,7 @@ async function post(path: string, body: unknown): Promise<Response> {
 /** Registers `name`, with a save, and returns its session cookie. */
 async function register(name: string, password = 'secret'): Promise<string> {
 	const save = {
-		version: 2,
+		version: 3,
 		home: 7,
 		world: 7,
 		pos: { x: 0, y: 0 },

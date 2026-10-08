@@ -31,7 +31,7 @@ export interface SaveKeys {
  * never the save's.
  */
 export const KEYS = {
-	/** The save document (`SaveV2`). */
+	/** The save document (`SaveV3`). */
 	save: 'animath.save',
 	/**
 	 * A save an older build wrote, kept as it was, text and all, before this

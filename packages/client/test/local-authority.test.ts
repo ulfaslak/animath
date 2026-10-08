@@ -1253,6 +1253,7 @@ describe('LocalAuthority: the doctor', () => {
 			{ type: 'doctor-visit-updated' },
 			{ type: 'solved-changed', solved: 1 },
 			{ type: 'party-changed', party: [hurtParty()[1], hurtParty()[2]] },
+			{ type: 'book-changed', freed: ['squirrel'] },
 			{ type: 'belongings-changed', tokens: 22, items: [] }
 		]);
 
@@ -2525,6 +2526,11 @@ describe('LocalAuthority: the animal book', () => {
 		);
 	}
 
+	/** The kinds set free each `book-changed` said, in order. */
+	function freedSaid(s: Session): string[][] {
+		return s.events.flatMap((e) => (e.type === 'book-changed' ? [e.freed] : []));
+	}
+
 	function resumed(game: SavedGame): Session {
 		const s: Session = { authority: new LocalAuthority(), events: [] };
 		s.authority.subscribe((e) => s.events.push(e));
@@ -2604,7 +2610,8 @@ describe('LocalAuthority: the animal book', () => {
 			expect(fresh[book]).toEqual({
 				type: 'book-changed',
 				seen: ['bear', 'shrew'],
-				caught: ['bear', 'shrew']
+				caught: ['bear', 'shrew'],
+				freed: []
 			});
 		}
 		expect(latestBattle(s).phase).toEqual({ kind: 'ended', outcome: 'caught' });
@@ -2614,27 +2621,66 @@ describe('LocalAuthority: the animal book', () => {
 		});
 	});
 
-	it('an animal helped home by the doctor stays caught, in every world and through a save', () => {
+	it('an animal helped home by the doctor stays caught and is set free, in every world and through a save', () => {
 		const s = session({ party: hurtParty(), tokens: 20 });
-		expect(welcome(s).caught).toEqual(['squirrel', 'rabbit', 'fox']);
+		expect(welcome(s)).toMatchObject({ caught: ['squirrel', 'rabbit', 'fox'], freed: [] });
 		walkToTent(s);
 		s.authority.dispatch({ type: 'interact' });
-		// The squirrel goes home, the last of its kind.
+		// A wrong answer sets nobody free.
 		doctorIntent(s, { type: 'hand-over', ids: ['a'] });
+		answerDoctor(s, false);
+		expect(books(s)).toEqual([]);
+		// The squirrel goes home, the last of its kind: set free, said once, right after it left.
 		answerDoctor(s, true);
 		doctorIntent(s, { type: 'leave' });
 		expect(party(s).map((a) => a.speciesId)).toEqual(['rabbit', 'fox']);
-		expect(books(s)).toEqual([]);
+		expect(books(s)).toEqual([
+			{ seen: ['squirrel', 'rabbit', 'fox'], caught: ['squirrel', 'rabbit', 'fox'] }
+		]);
+		expect(freedSaid(s)).toEqual([['squirrel']]);
 		const game = s.authority.snapshot();
 		expect(game).toMatchObject({
 			seen: ['squirrel', 'rabbit', 'fox'],
-			caught: ['squirrel', 'rabbit', 'fox']
+			caught: ['squirrel', 'rabbit', 'fox'],
+			freed: ['squirrel']
 		});
 		// Another world, and a reload: the book goes along, as it was.
 		s.authority.dispatch({ type: 'travel', world: 42 });
-		expect(s.authority.snapshot()).toMatchObject({ world: 42, caught: game.caught });
+		expect(s.authority.snapshot()).toMatchObject({
+			world: 42,
+			caught: game.caught,
+			freed: game.freed
+		});
 		const again = resumed(throughSave(s.authority.snapshot()));
-		expect(welcome(again)).toMatchObject({ seen: game.seen, caught: game.caught });
+		expect(welcome(again)).toMatchObject({
+			seen: game.seen,
+			caught: game.caught,
+			freed: game.freed
+		});
+	});
+
+	it('sets a kind free when one of several goes home, and says nothing when a kind already free goes again', () => {
+		const s = session({
+			party: [
+				{ id: 'a', speciesId: 'fox', hp: 30 },
+				{ id: 'b', speciesId: 'fox', hp: 30 },
+				{ id: 'c', speciesId: 'fox', hp: 30 },
+				{ id: 'd', speciesId: 'rabbit', hp: 22 }
+			],
+			tokens: 0
+		});
+		walkToTent(s);
+		s.authority.dispatch({ type: 'interact' });
+		doctorIntent(s, { type: 'hand-over', ids: ['a'] });
+		answerDoctor(s, true);
+		// A fox is still on the team, and the fox is set free all the same.
+		expect(party(s).map((a) => a.id)).toEqual(['b', 'c', 'd']);
+		expect(freedSaid(s)).toEqual([['fox']]);
+		doctorIntent(s, { type: 'hand-over', ids: ['b'] });
+		answerDoctor(s, true);
+		expect(party(s).map((a) => a.id)).toEqual(['c', 'd']);
+		expect(books(s)).toHaveLength(1);
+		expect(s.authority.snapshot().freed).toEqual(['fox']);
 	});
 });
 

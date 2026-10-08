@@ -121,6 +121,7 @@ describe('newGame with a starter', () => {
 			// The animal book: the starter alone, caught (a starter counts as caught).
 			seen: ['rabbit'],
 			caught: ['rabbit'],
+			freed: [],
 			battle: null,
 			edits: [],
 			worlds: []
