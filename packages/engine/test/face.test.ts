@@ -139,6 +139,12 @@ describe('a puzzle and its face', () => {
 			['clock', 'clock(0, 3, 60, 0, 0)'],
 			['clock', 'clock(0, 3, 15, 1, 0)'],
 			['clock', 'clock(1, 3, 15, 0, 0)'],
+			['balance', '1 − □ = 2 − 9'],
+			['barchart', 'barchart(0, 10, 0, 0, 2, 37, 0, 0, 0, 0)'],
+			['shape', 'shape(2, 5, 0, 0, 0, 0)'],
+			['fraction', 'fraction(2, 4, 8)'],
+			['fraction', 'fraction(1, 7, 14)'],
+			['thermometer', 'thermometer(1, 99, 99)'],
 			['__proto__' as PuzzleFace['kind'], '1 + 1 = ?'],
 			['constructor' as PuzzleFace['kind'], '1 + 1 = ?']
 		];

@@ -107,10 +107,25 @@ describe('the ladders climb', () => {
 		}
 	});
 
-	it('shape: sides never shrink, the fence joins at 2 and an L at 5 and both stay', () => {
+	it('shape: sides never shrink, the fence joins at 2, an L at 5 and from 7, a side missing from 6', () => {
 		expect(climbs(SHAPE_LADDER.map((s) => s.side))).toEqual([]);
 		expect(SHAPE_LADDER.map((s) => s.fence)).toEqual([false, ...Array(9).fill(true)]);
-		expect(SHAPE_LADDER.slice(4).every((s) => s.l > 0 || s.missing > 0)).toBe(true);
+		expect(SHAPE_LADDER.map((s) => s.l > 0)).toEqual([
+			false,
+			false,
+			false,
+			false,
+			true,
+			false,
+			true,
+			true,
+			true,
+			true
+		]);
+		expect(SHAPE_LADDER.map((s) => s.missing > 0)).toEqual([
+			...Array(5).fill(false),
+			...Array(5).fill(true)
+		]);
 	});
 
 	it('bar chart: the lines count in ones, twos, fives and tens, never back', () => {
@@ -220,16 +235,35 @@ describe('what each kind promises a kid', () => {
 		const bad: string[] = [];
 		for (const d of DS) {
 			for (const [form, a, b, c, answer] of faces('balance', d)) {
-				// "8 + □ = 8 + 3" gives the box away: 3.
+				// "8 + □ = 8 + 3" gives the box away: 3; so do "9 − □ = 9 − 4" and "9 − □ = 7 − 4"'s 4.
 				if ((form === 0 || form === 2) && (a === b || a === c))
 					bad.push(`d${d}: ${[form, a, b, c]}`);
+				if (form === 1 && (a === b || answer === c)) bad.push(`d${d}: ${[form, a, b, c]}`);
 				if (answer! < 1) bad.push(`d${d}: ${answer}`);
 			}
 		}
 		expect(bad).toEqual([]);
 	});
 
-	it('clock: the hand on its marks, and the new mark at least a third of the time', () => {
+	it("balance: every number shown is from its step's bands", () => {
+		const bad: string[] = [];
+		const within = (v: number, [lo, hi]: readonly [number, number]) => v >= lo && v <= hi;
+		for (const d of DS) {
+			const step = BALANCE_LADDER[d - 1]!;
+			for (const [form, a, b, c, answer] of faces('balance', d)) {
+				const ok =
+					form === 0 || form === 1
+						? [a!, b!, c!, answer!].every((v) => within(v, step.sum))
+						: form === 2
+							? within(a!, step.factor) && within(answer!, step.box)
+							: within(a!, step.factor) && within(answer!, step.box) && b! <= step.extra[1];
+				if (!ok) bad.push(`d${d}: ${[form, a, b, c]} → ${answer}`);
+			}
+		}
+		expect(bad.slice(0, 20)).toEqual([]);
+	});
+
+	it('clock: the hand on its marks, the new mark at least half the time, and across the hour where it says', () => {
 		const bad: string[] = [];
 		for (const d of DS) {
 			const every = CLOCK_LADDER[d - 1]!.minutes;
@@ -238,9 +272,12 @@ describe('what each kind promises a kid', () => {
 				bad.push(`d${d} off its marks`);
 			if (every === 30 || every === 15) {
 				const fresh = shown.filter(([, , m]) => m! % (2 * every) !== 0).length;
-				if (fresh < shown.length / 3)
+				if (fresh < shown.length / 2)
 					bad.push(`d${d}: ${fresh} of ${shown.length} on the new mark`);
 			}
+			// Across the hour: the minute hand passes 12 on the way.
+			if (CLOCK_LADDER[d - 1]!.cross && shown.some(([, , m, dh, dm]) => m! + 60 * dh! + dm! < 60))
+				bad.push(`d${d}: not across the hour`);
 		}
 		expect(bad).toEqual([]);
 	});

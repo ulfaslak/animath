@@ -1,5 +1,5 @@
 import type { Rng } from '../../rng.js';
-import { facePrompt } from '../face.js';
+import { FRACTION_PIECES as PIECES, facePrompt } from '../face.js';
 import type { Puzzle, PuzzleGenerator } from '../types.js';
 import type { Band } from './arithmetic.js';
 
@@ -17,7 +17,7 @@ export interface FractionStep {
 
 /**
  * Index = difficulty − 1. One piece of halves and quarters first, then of
- * anything up to tenths; then several pieces (difficulty 5 on), each band's
+ * thirds to tenths; then several pieces (difficulty 5 on), each band's
  * ends never falling within each half.
  */
 export const FRACTION_LADDER: readonly FractionStep[] = [
@@ -32,12 +32,6 @@ export const FRACTION_LADDER: readonly FractionStep[] = [
 	{ pieces: [6, 12], unit: false, share: [8, 15] },
 	{ pieces: [7, 12], unit: false, share: [11, 25] }
 ];
-
-/**
- * The pieces a whole is cut into: the ones a kid meets at school, never
- * sevenths, ninths or elevenths.
- */
-export const PIECES: readonly number[] = [2, 3, 4, 5, 6, 8, 10, 12];
 
 /**
  * "½ of 8", later "⅗ of 35": a fraction of an amount, whose answer is always

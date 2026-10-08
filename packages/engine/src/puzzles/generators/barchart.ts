@@ -33,7 +33,7 @@ export const BARCHART_LADDER: readonly BarchartStep[] = [
 	{ bars: 3, scale: 1, least: 1, lines: 6, half: false, asks: [read] },
 	{ bars: 4, scale: 1, least: 1, lines: 9, half: false, asks: [read, more] },
 	{ bars: 4, scale: 1, least: 2, lines: 10, half: false, asks: [more, both] },
-	{ bars: 4, scale: 2, least: 1, lines: 10, half: false, asks: [read, more] },
+	{ bars: 4, scale: 2, least: 1, lines: 10, half: false, asks: [read, more, both] },
 	{ bars: 4, scale: 2, least: 1, lines: 10, half: true, asks: [read, more, both] },
 	{ bars: 4, scale: 5, least: 2, lines: 10, half: false, asks: [read, more, both] },
 	{ bars: 5, scale: 5, least: 2, lines: 10, half: false, asks: [more, both, all] },
