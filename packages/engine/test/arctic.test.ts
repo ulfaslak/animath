@@ -28,18 +28,44 @@ import {
 	tileRealm,
 	type Direction,
 	type GridPos,
+	type Tile,
 	type TileKind
 } from '../src/world/types.js';
 import { surroundings } from '../src/world/habitat.js';
 import { turn } from './turn.js';
 
 const DIRS: readonly Direction[] = ['up', 'down', 'left', 'right'];
+/**
+ * The bound of a sweep here that takes one to three seconds alone (#202):
+ * at a load average of 150 a test takes up to 28 times as long, and must
+ * pass a third of its bound ([[DEVELOPMENT]] § Testing ideology).
+ */
+const SWEEP_BOUND = 250_000;
 const WORLDS = [1, 2, 42, 777, 9999];
 const arctic = (world: number) => landSeed('arctic', world);
 
 /** Every tile of a window, `w` × `h` from (x0, y0). */
 function* window(x0: number, y0: number, w: number, h: number): Generator<GridPos> {
 	for (let y = y0; y < y0 + h; y++) for (let x = x0; x < x0 + w; x++) yield { x, y };
+}
+
+/**
+ * `tileAtWorld` for `seed`, each tile read once: a sweep that reads a tile
+ * again (its own slide beside the engine's, a neighbour's side) looks it up.
+ * The world is a pure function of its seed, so this is the same tile.
+ */
+function tilesOf(seed: number): (x: number, y: number) => Tile {
+	const seen = new Map<number, Tile>();
+	return (x, y) => {
+		// Every sweep here stays well within ±2^20 tiles of the origin.
+		const key = (x + 0x100000) * 0x200000 + (y + 0x100000);
+		let tile = seen.get(key);
+		if (!tile) {
+			tile = tileAtWorld(seed, x, y);
+			seen.set(key, tile);
+		}
+		return tile;
+	};
 }
 
 /** The tents' lattice spots within `n` spots of the origin's. */
@@ -80,19 +106,23 @@ describe("Nordland's worlds", () => {
 		}
 	});
 
-	it('have no Arctic tile and no slide: every move there is one step', () => {
-		const seed = worldSeed(1);
-		const arcticKinds = new Set<TileKind>(['snow', 'deepsnow', 'ice', 'iceblock', 'hole']);
-		for (const p of window(-40, -40, 80, 80)) {
-			const tile = tileAtWorld(seed, p.x, p.y);
-			expect(arcticKinds.has(tile.kind)).toBe(false);
-			expect(BIOME_POLE[tile.biome]).toBeNull();
-			for (const dir of DIRS) {
-				const moved = moveFrom(seed, WorldEdits.none, p, dir, { boat: true });
-				if (moved) expect(moved.path).toEqual([step(p, dir)]);
+	it(
+		'have no Arctic tile and no slide: every move there is one step',
+		() => {
+			const seed = worldSeed(1);
+			const arcticKinds = new Set<TileKind>(['snow', 'deepsnow', 'ice', 'iceblock', 'hole']);
+			for (const p of window(-40, -40, 80, 80)) {
+				const tile = tileAtWorld(seed, p.x, p.y);
+				expect(arcticKinds.has(tile.kind)).toBe(false);
+				expect(BIOME_POLE[tile.biome]).toBeNull();
+				for (const dir of DIRS) {
+					const moved = moveFrom(seed, WorldEdits.none, p, dir, { boat: true });
+					if (moved) expect(moved.path).toEqual([step(p, dir)]);
+				}
 			}
-		}
-	});
+		},
+		SWEEP_BOUND
+	);
 });
 
 describe("The Arctic's world", () => {
@@ -120,40 +150,54 @@ describe("The Arctic's world", () => {
 		expect(generateChunk(arctic(4), 0, 0)).not.toEqual(generateChunk(seed, 0, 0));
 	});
 
-	it('keeps the poles apart: every tile north of the band is the Arctic, every tile south of it the Antarctic', () => {
-		for (const world of [1, 42]) {
-			const seed = arctic(world);
-			for (const p of window(-60, -120, 120, 260)) {
-				const tile = tileAtWorld(seed, p.x, p.y);
-				expect(BIOME_POLE[tile.biome], `${p.x},${p.y}`).toBe(poleAt(p.y));
-			}
-		}
-	});
-
-	it('lays a band of open sea between them, never walked across, deep water in its middle', () => {
-		for (const world of WORLDS) {
-			const seed = arctic(world);
-			for (let x = -300; x <= 300; x++) {
-				// Rows 12 to 21 are always the band's water (half-width at least 5 round 16.5).
-				for (let y = 12; y <= 21; y++) {
-					const kind = tileAtWorld(seed, x, y).kind;
-					expect(['water', 'deepwater', 'iceblock'], `${world}: ${x},${y}`).toContain(kind);
+	it(
+		'keeps the poles apart: every tile north of the band is the Arctic, every tile south of it the Antarctic',
+		() => {
+			const bad: string[] = [];
+			for (const world of [1, 42]) {
+				const seed = arctic(world);
+				for (const p of window(-60, -120, 120, 260)) {
+					const tile = tileAtWorld(seed, p.x, p.y);
+					if (BIOME_POLE[tile.biome] !== poleAt(p.y))
+						bad.push(`${world}: ${p.x},${p.y} ${tile.biome}`);
 				}
-				const ocean = tileAtWorld(seed, x, 16).biome;
-				expect(ocean).toBe('arctic-ocean');
-				expect(tileAtWorld(seed, x, 17).biome).toBe('southern-ocean');
-				expect(
-					[14, 15, 16, 17, 18, 19].some((y) => tileAtWorld(seed, x, y).kind === 'deepwater')
-				).toBe(true);
 			}
-		}
-		expect(ARCTIC_BAND.middle - ARCTIC_BAND.halfWidth - ARCTIC_BAND.wobble).toBeGreaterThan(
-			7 + TENT_CLEARING
-		);
-		expect(ARCTIC_BAND.middle + ARCTIC_BAND.halfWidth + ARCTIC_BAND.wobble).toBeLessThan(
-			26 - TENT_CLEARING
-		);
-	});
+			expect(bad.slice(0, 20)).toEqual([]);
+		},
+		SWEEP_BOUND
+	);
+
+	it(
+		'lays a band of open sea between them, never walked across, deep water in its middle',
+		() => {
+			const bad: string[] = [];
+			for (const world of WORLDS) {
+				const seed = arctic(world);
+				const tile = tilesOf(seed);
+				for (let x = -300; x <= 300; x++) {
+					const where = `${world}: ${x}`;
+					// Rows 12 to 21 are always the band's water (half-width at least 5 round 16.5).
+					for (let y = 12; y <= 21; y++) {
+						const kind = tile(x, y).kind;
+						if (kind !== 'water' && kind !== 'deepwater' && kind !== 'iceblock')
+							bad.push(`${where},${y}: ${kind}`);
+					}
+					if (tile(x, 16).biome !== 'arctic-ocean') bad.push(`${where},16: ${tile(x, 16).biome}`);
+					if (tile(x, 17).biome !== 'southern-ocean') bad.push(`${where},17: ${tile(x, 17).biome}`);
+					if (![14, 15, 16, 17, 18, 19].some((y) => tile(x, y).kind === 'deepwater'))
+						bad.push(`${where}: no deep water`);
+				}
+			}
+			expect(bad.slice(0, 20)).toEqual([]);
+			expect(ARCTIC_BAND.middle - ARCTIC_BAND.halfWidth - ARCTIC_BAND.wobble).toBeGreaterThan(
+				7 + TENT_CLEARING
+			);
+			expect(ARCTIC_BAND.middle + ARCTIC_BAND.halfWidth + ARCTIC_BAND.wobble).toBeLessThan(
+				26 - TENT_CLEARING
+			);
+		},
+		SWEEP_BOUND
+	);
 
 	it('grows every biome of both poles, and the encounter tile of each, within 8 chunks of spawn', () => {
 		// Deep snow is the land's tall grass and deep water the oceans'; a frozen lake's animals
@@ -232,88 +276,117 @@ describe("The Arctic's world", () => {
 		expect(tents).toBeGreaterThan(800);
 	}, 120_000);
 
-	it('lets a kid walk (and slide) away from every tent, and back to it: no tent stands on an island', () => {
-		// Every place a kid can come to a stop from beside the tent, the way they move (`moveFrom`,
-		// a slide is one move), on foot: at least 300 of them, and the tent's side among them.
-		const ENOUGH = 300;
-		for (const world of [1, 42, 9999]) {
-			const seed = arctic(world);
-			for (const tent of [
-				...spots(4),
-				{ x: 5 + 23 * 9, y: 7 - 19 * 20 },
-				{ x: 5 - 23 * 7, y: 7 + 19 * 12 }
-			]) {
-				const start = step(tent, 'down');
-				const key = (p: GridPos) => `${p.x},${p.y}`;
-				const seen = new Set([key(start)]);
-				let edge = [start];
-				while (edge.length > 0 && seen.size < ENOUGH) {
-					const next: GridPos[] = [];
-					for (const p of edge) {
-						for (const dir of DIRS) {
-							const moved = moveFrom(seed, WorldEdits.none, p, dir);
-							if (!moved) continue;
-							const to = moved.path[moved.path.length - 1]!;
-							if (seen.has(key(to))) continue;
-							seen.add(key(to));
-							next.push(to);
+	it(
+		'lets a kid walk (and slide) away from every tent, and back to it: no tent stands on an island',
+		() => {
+			// Every place a kid can come to a stop from beside the tent, the way they move (`moveFrom`,
+			// a slide is one move), on foot: at least 300 of them, and the tent's side among them.
+			const ENOUGH = 300;
+			for (const world of [1, 42, 9999]) {
+				const seed = arctic(world);
+				for (const tent of [
+					...spots(4),
+					{ x: 5 + 23 * 9, y: 7 - 19 * 20 },
+					{ x: 5 - 23 * 7, y: 7 + 19 * 12 }
+				]) {
+					const start = step(tent, 'down');
+					const key = (p: GridPos) => `${p.x},${p.y}`;
+					const seen = new Set([key(start)]);
+					let edge = [start];
+					while (edge.length > 0 && seen.size < ENOUGH) {
+						const next: GridPos[] = [];
+						for (const p of edge) {
+							for (const dir of DIRS) {
+								const moved = moveFrom(seed, WorldEdits.none, p, dir);
+								if (!moved) continue;
+								const to = moved.path[moved.path.length - 1]!;
+								if (seen.has(key(to))) continue;
+								seen.add(key(to));
+								next.push(to);
+							}
 						}
+						edge = next;
 					}
-					edge = next;
+					expect(seen.size, `${world}: tent ${tent.x},${tent.y}`).toBeGreaterThanOrEqual(ENOUGH);
+					expect(canTalkToDoctor(seed, step(tent, 'up'), 'down')).toBe(true);
 				}
-				expect(seen.size, `${world}: tent ${tent.x},${tent.y}`).toBeGreaterThanOrEqual(ENOUGH);
-				expect(canTalkToDoctor(seed, step(tent, 'up'), 'down')).toBe(true);
 			}
-		}
-	});
+		},
+		SWEEP_BOUND
+	);
 
-	it('starts every world on the north shore by the tent at (5, 7): snow, room to roam, the witch doctor 2 steps off', () => {
-		for (let world = 1; world <= 9999; world += 197) {
-			const seed = arctic(world);
-			const spawn = spawnPoint(seed);
-			expect(spawn, `world ${world}`).toEqual(ARCTIC_ORIGIN);
-			const tile = tileAtWorld(seed, spawn.x, spawn.y);
-			expect(tile.kind).toBe('snow');
-			expect(['tundra', 'bird-cliffs']).toContain(tile.biome);
-			expect(nearestTent(seed, spawn, 12)?.tent).toEqual({ x: 5, y: 7 });
-			// The band's water is a few steps south.
-			let water = spawn.y;
-			while (!isWater(travelKindAt(seed, spawn.x, water))) water++;
-			expect(water - spawn.y).toBeLessThanOrEqual(4);
-		}
-		// Room to roam, counted on foot as the spawn rule counts it.
-		const seed = arctic(1);
-		const seen = new Set<string>([`5,9`]);
-		let edge: GridPos[] = [ARCTIC_ORIGIN];
-		while (edge.length && seen.size < SPAWN_ROOM) {
-			const next: GridPos[] = [];
-			for (const p of edge)
-				for (const dir of DIRS) {
-					const n = step(p, dir);
-					if (seen.has(`${n.x},${n.y}`) || !isWalkable(travelKindAt(seed, n.x, n.y))) continue;
-					seen.add(`${n.x},${n.y}`);
-					next.push(n);
-				}
-			edge = next;
-		}
-		expect(seen.size).toBeGreaterThanOrEqual(SPAWN_ROOM);
-	});
+	it(
+		'starts every world on the north shore by the tent at (5, 7): snow, room to roam, the witch doctor 2 steps off',
+		() => {
+			for (let world = 1; world <= 9999; world += 197) {
+				const seed = arctic(world);
+				const spawn = spawnPoint(seed);
+				expect(spawn, `world ${world}`).toEqual(ARCTIC_ORIGIN);
+				const tile = tileAtWorld(seed, spawn.x, spawn.y);
+				expect(tile.kind).toBe('snow');
+				expect(['tundra', 'bird-cliffs']).toContain(tile.biome);
+				expect(nearestTent(seed, spawn, 12)?.tent).toEqual({ x: 5, y: 7 });
+				// The band's water is a few steps south.
+				let water = spawn.y;
+				while (!isWater(travelKindAt(seed, spawn.x, water))) water++;
+				expect(water - spawn.y).toBeLessThanOrEqual(4);
+			}
+			// Room to roam, counted on foot as the spawn rule counts it.
+			const seed = arctic(1);
+			const seen = new Set<string>([`5,9`]);
+			let edge: GridPos[] = [ARCTIC_ORIGIN];
+			while (edge.length && seen.size < SPAWN_ROOM) {
+				const next: GridPos[] = [];
+				for (const p of edge)
+					for (const dir of DIRS) {
+						const n = step(p, dir);
+						if (seen.has(`${n.x},${n.y}`) || !isWalkable(travelKindAt(seed, n.x, n.y))) continue;
+						seen.add(`${n.x},${n.y}`);
+						next.push(n);
+					}
+				edge = next;
+			}
+			expect(seen.size).toBeGreaterThanOrEqual(SPAWN_ROOM);
+		},
+		SWEEP_BOUND
+	);
 });
 
 describe('sliding on the ice', () => {
 	/** The test's own slide: on over ice while the tile ahead can be stepped onto. */
-	function slide(seed: number, from: GridPos, dir: Direction, boat: boolean): GridPos[] | null {
+	function slide(
+		tile: (x: number, y: number) => Tile,
+		from: GridPos,
+		dir: Direction,
+		boat: boolean
+	): GridPos[] | null {
 		const gear = { boat };
 		let at = step(from, dir);
-		if (!isPassable(tileAtWorld(seed, at.x, at.y).kind, gear)) return null;
+		if (!isPassable(tile(at.x, at.y).kind, gear)) return null;
 		const path = [at];
 		for (;;) {
-			if (tileAtWorld(seed, at.x, at.y).kind !== 'ice') return path;
+			if (tile(at.x, at.y).kind !== 'ice') return path;
 			const next = step(at, dir);
-			if (!isPassable(tileAtWorld(seed, next.x, next.y).kind, gear)) return path;
+			if (!isPassable(tile(next.x, next.y).kind, gear)) return path;
 			at = next;
 			path.push(at);
 		}
+	}
+
+	/** Whether two paths are the same tiles in the same order (null: no move). */
+	function samePath(a: readonly GridPos[] | null, b: readonly GridPos[] | null): boolean {
+		if (a === null || b === null) return a === b;
+		return a.length === b.length && a.every((p, i) => p.x === b[i]!.x && p.y === b[i]!.y);
+	}
+
+	/** Whether two tiles are the same in every field (a tile is a flat record). */
+	function sameTile(a: Tile, b: Tile): boolean {
+		const keys = new Set([...Object.keys(a), ...Object.keys(b)]);
+		return [...keys].every(
+			(k) =>
+				(a as unknown as Record<string, unknown>)[k] ===
+				(b as unknown as Record<string, unknown>)[k]
+		);
 	}
 
 	/** Windows with lakes and sea ice: by spawn, far north (the Arctic Ocean's ice), far south. */
@@ -324,71 +397,87 @@ describe('sliding on the ice', () => {
 		[9999, -200, -300, 80, 80]
 	];
 
-	it('goes on over every tile of ice until something stops it, never past the longest run of ice', async () => {
-		// About 190,000 moves (every walkable tile of four windows, four ways, with and without
-		// the boat): 27 s alone at a load average of 8 with an \`expect\` per move, 19 s with the
-		// findings collected, so it awaits \`turn()\` between windows and is bounded at 3 minutes
-		// (#192 wave 3, which found it timing out at 30 s).
-		const bad: string[] = [];
-		let slides = 0;
-		let long = 0;
-		let holes = 0;
-		for (const [world, x0, y0, w, h] of AREAS) {
-			await turn();
-			const seed = arctic(world);
-			for (const p of window(x0, y0, w, h)) {
-				if (!isWalkable(tileAtWorld(seed, p.x, p.y).kind)) continue;
-				for (const dir of DIRS) {
-					for (const boat of [false, true]) {
-						const moved = moveFrom(seed, WorldEdits.none, p, dir, { boat });
-						const own = slide(seed, p, dir, boat);
-						const where = `${world}: ${p.x},${p.y} ${dir}${boat ? ' (boat)' : ''}`;
-						if (JSON.stringify(moved?.path ?? null) !== JSON.stringify(own))
-							bad.push(`${where}: slid ${JSON.stringify(moved?.path)}`);
-						if (!moved) continue;
-						const end = moved.path[moved.path.length - 1]!;
-						if (JSON.stringify(moved.tile) !== JSON.stringify(tileAtWorld(seed, end.x, end.y)))
-							bad.push(`${where}: ends on another tile`);
-						if (moved.path.length > ICE_RUN + 1) bad.push(`${where}: ${moved.path.length} long`);
-						if (moved.path.length > 1) slides++;
-						if (moved.path.length > 8) long++;
-						// No slide ends on the ice: on the bank in front of a hole it stops facing it.
-						if (moved.path.length > 1 && moved.tile.kind === 'ice') bad.push(`${where}: on ice`);
-						const ahead = step(end, dir);
-						if (moved.path.length > 1 && tileAtWorld(seed, ahead.x, ahead.y).kind === 'hole')
-							holes++;
+	it(
+		'goes on over every tile of ice until something stops it, never past the longest run of ice',
+		async () => {
+			// About 190,000 moves (every walkable tile of four windows, four ways, with and without
+			// the boat): 27 s alone at a load average of 8 with an \`expect\` per move, 19 s with the
+			// findings collected (#192 wave 3, which found it timing out at 30 s), 9.5 s on main's
+			// later engine, and 2.6 s with the test's own reads looked up once
+			// (\`tilesOf\`) and paths compared without JSON (#202). The engine's \`moveFrom\` reads its
+			// own tiles, every move, as it must. So it awaits \`turn()\` between windows and is
+			// bounded by `SWEEP_BOUND`.
+			const bad: string[] = [];
+			let slides = 0;
+			let long = 0;
+			let holes = 0;
+			for (const [world, x0, y0, w, h] of AREAS) {
+				await turn();
+				const seed = arctic(world);
+				const tile = tilesOf(seed);
+				for (const p of window(x0, y0, w, h)) {
+					if (!isWalkable(tile(p.x, p.y).kind)) continue;
+					for (const dir of DIRS) {
+						for (const boat of [false, true]) {
+							const moved = moveFrom(seed, WorldEdits.none, p, dir, { boat });
+							const own = slide(tile, p, dir, boat);
+							const where = () => `${world}: ${p.x},${p.y} ${dir}${boat ? ' (boat)' : ''}`;
+							if (!samePath(moved?.path ?? null, own))
+								bad.push(`${where()}: slid ${JSON.stringify(moved?.path)}`);
+							if (!moved) continue;
+							const end = moved.path[moved.path.length - 1]!;
+							if (!sameTile(moved.tile, tile(end.x, end.y)))
+								bad.push(`${where()}: ends on another tile`);
+							if (moved.path.length > ICE_RUN + 1)
+								bad.push(`${where()}: ${moved.path.length} long`);
+							if (moved.path.length > 1) slides++;
+							if (moved.path.length > 8) long++;
+							// No slide ends on the ice: on the bank in front of a hole it stops facing it.
+							if (moved.path.length > 1 && moved.tile.kind === 'ice')
+								bad.push(`${where()}: on ice`);
+							const ahead = step(end, dir);
+							if (moved.path.length > 1 && tile(ahead.x, ahead.y).kind === 'hole') holes++;
+						}
 					}
 				}
 			}
-		}
-		expect(bad.slice(0, 20)).toEqual([]);
-		expect(slides).toBeGreaterThan(5000);
-		expect(long).toBeGreaterThan(100);
-		expect(holes).toBeGreaterThan(50);
-		expect(MAX_SLIDE).toBe(ICE_RUN + 1);
-	}, 180_000);
+			expect(bad.slice(0, 20)).toEqual([]);
+			expect(slides).toBeGreaterThan(5000);
+			expect(long).toBeGreaterThan(100);
+			expect(holes).toBeGreaterThan(50);
+			expect(MAX_SLIDE).toBe(ICE_RUN + 1);
+		},
+		SWEEP_BOUND
+	);
 
-	it('never meets a straight run of ice longer than ICE_RUN, in a row or a column', () => {
-		for (const [world, x0, y0, w, h] of AREAS) {
-			const seed = arctic(world);
-			const ice = (x: number, y: number) => tileAtWorld(seed, x, y).kind === 'ice';
-			// Read a run's whole length, from the window's edge out as far as it goes.
-			for (let y = y0; y < y0 + h; y++) {
-				let run = 0;
-				for (let x = x0 - ICE_RUN; x < x0 + w + ICE_RUN; x++) {
-					run = ice(x, y) ? run + 1 : 0;
-					expect(run, `${world}: row ${y} at ${x}`).toBeLessThanOrEqual(ICE_RUN);
+	it(
+		'never meets a straight run of ice longer than ICE_RUN, in a row or a column',
+		() => {
+			const bad: string[] = [];
+			for (const [world, x0, y0, w, h] of AREAS) {
+				const seed = arctic(world);
+				const tile = tilesOf(seed);
+				const ice = (x: number, y: number) => tile(x, y).kind === 'ice';
+				// Read a run's whole length, from the window's edge out as far as it goes.
+				for (let y = y0; y < y0 + h; y++) {
+					let run = 0;
+					for (let x = x0 - ICE_RUN; x < x0 + w + ICE_RUN; x++) {
+						run = ice(x, y) ? run + 1 : 0;
+						if (run > ICE_RUN) bad.push(`${world}: row ${y} at ${x}`);
+					}
+				}
+				for (let x = x0; x < x0 + w; x += 3) {
+					let run = 0;
+					for (let y = y0 - ICE_RUN; y < y0 + h + ICE_RUN; y++) {
+						run = ice(x, y) ? run + 1 : 0;
+						if (run > ICE_RUN) bad.push(`${world}: column ${x} at ${y}`);
+					}
 				}
 			}
-			for (let x = x0; x < x0 + w; x += 3) {
-				let run = 0;
-				for (let y = y0 - ICE_RUN; y < y0 + h + ICE_RUN; y++) {
-					run = ice(x, y) ? run + 1 : 0;
-					expect(run, `${world}: column ${x} at ${y}`).toBeLessThanOrEqual(ICE_RUN);
-				}
-			}
-		}
-	});
+			expect(bad.slice(0, 20)).toEqual([]);
+		},
+		SWEEP_BOUND
+	);
 
 	it('never borders the ice with anything a kid cannot step onto: the bank is snow', () => {
 		for (const [world, x0, y0, w, h] of AREAS) {
@@ -406,54 +495,79 @@ describe('sliding on the ice', () => {
 		}
 	});
 
-	it('leads nowhere a kid cannot come back from: every move from where a kid can stand is undone by the move back', () => {
-		// From each world's spawn, every place a kid on foot (and in the boat) can come to a stop,
-		// and every move from each: the move the other way brings them back. So the places a
-		// kid reaches are all joined both ways, and none is a pocket they slid into for good:
-		// the adversarial review found such pockets in five worlds out of ten before the banks.
-		const back: Record<Direction, Direction> = {
-			up: 'down',
-			down: 'up',
-			left: 'right',
-			right: 'left'
-		};
-		for (const world of [2, 5, 6, 42, 9999]) {
-			const seed = arctic(world);
-			for (const boat of [false, true]) {
-				const gear = { boat };
-				const key = (p: GridPos) => `${p.x},${p.y}`;
-				const start = spawnPoint(seed);
-				const seen = new Set([key(start)]);
-				const queue = [start];
-				let moves = 0;
-				while (queue.length > 0 && seen.size < 6000) {
-					const p = queue.shift()!;
-					for (const dir of DIRS) {
-						const moved = moveFrom(seed, WorldEdits.none, p, dir, gear);
-						if (!moved) continue;
-						const to = moved.path.at(-1)!;
-						const home = moveFrom(seed, WorldEdits.none, to, back[dir], gear);
-						expect(home?.path.at(-1), `${world}: ${key(p)} ${dir} to ${key(to)}`).toEqual(p);
-						moves++;
-						if (seen.has(key(to))) continue;
-						seen.add(key(to));
-						queue.push(to);
+	it(
+		'leads nowhere a kid cannot come back from: every move from where a kid can stand is undone by the move back',
+		async () => {
+			// From each world's spawn, every place a kid on foot (and in the boat) can come to a stop,
+			// and every move from each: the move the other way brings them back. So the places a
+			// kid reaches are all joined both ways, and none is a pocket they slid into for good:
+			// the adversarial review found such pockets in five worlds out of ten before the banks.
+			const back: Record<Direction, Direction> = {
+				up: 'down',
+				down: 'up',
+				left: 'right',
+				right: 'left'
+			};
+			// 9.5 s alone at a load average of 8 with an \`expect\` per move (#202): every move back
+			// is a move the search makes again from where it ends, so each move is made once
+			// (\`moveFrom\` is a pure function of the world, the place, the way and the gear) and the
+			// findings are collected: 2.5 s. Still seconds, so it awaits \`turn()\` between worlds and is
+			// bounded by `SWEEP_BOUND`.
+			const bad: string[] = [];
+			for (const world of [2, 5, 6, 42, 9999]) {
+				const seed = arctic(world);
+				for (const boat of [false, true]) {
+					await turn();
+					const gear = { boat };
+					const key = (p: GridPos) => `${p.x},${p.y}`;
+					const made = new Map<string, GridPos | null>();
+					/** Where a move ends, each move made once. */
+					const end = (p: GridPos, dir: Direction): GridPos | null => {
+						const k = `${key(p)} ${dir}`;
+						let to = made.get(k);
+						if (to === undefined) {
+							to = moveFrom(seed, WorldEdits.none, p, dir, gear)?.path.at(-1) ?? null;
+							made.set(k, to);
+						}
+						return to;
+					};
+					const start = spawnPoint(seed);
+					const seen = new Set([key(start)]);
+					const queue = [start];
+					let moves = 0;
+					while (queue.length > 0 && seen.size < 6000) {
+						const p = queue.shift()!;
+						for (const dir of DIRS) {
+							const to = end(p, dir);
+							if (!to) continue;
+							const home = end(to, back[dir]);
+							if (!home || home.x !== p.x || home.y !== p.y)
+								bad.push(
+									`${world}${boat ? ' (boat)' : ''}: ${key(p)} ${dir} to ${key(to)}, back to ${home && key(home)}`
+								);
+							moves++;
+							if (seen.has(key(to))) continue;
+							seen.add(key(to));
+							queue.push(to);
+						}
 					}
+					expect(moves, `${world}${boat ? ' (boat)' : ''}`).toBeGreaterThan(10000);
 				}
-				expect(moves).toBeGreaterThan(10000);
 			}
-		}
-		// The review's pockets, by name: world 5's (96, −19) and world 9999's (−31, −79) now walk out.
-		for (const [world, at] of [
-			[5, { x: 96, y: -19 }],
-			[9999, { x: -31, y: -79 }]
-		] as const) {
-			const seed = arctic(world);
-			if (!isWalkable(tileAtWorld(seed, at.x, at.y).kind)) continue;
-			const tent = nearestTent(seed, at, 200);
-			expect(tent, `${world}`).not.toBeNull();
-		}
-	});
+			expect(bad.slice(0, 20)).toEqual([]);
+			// The review's pockets, by name: world 5's (96, −19) and world 9999's (−31, −79) now walk out.
+			for (const [world, at] of [
+				[5, { x: 96, y: -19 }],
+				[9999, { x: -31, y: -79 }]
+			] as const) {
+				const seed = arctic(world);
+				if (!isWalkable(tileAtWorld(seed, at.x, at.y).kind)) continue;
+				const tent = nearestTent(seed, at, 200);
+				expect(tent, `${world}`).not.toBeNull();
+			}
+		},
+		SWEEP_BOUND
+	);
 
 	it('stops a slide at MAX_SLIDE tiles whatever the ground: a slide always ends', () => {
 		// No world The Arctic makes has so long a run, so the cap is read off a slide's own rule:
@@ -469,24 +583,28 @@ describe('sliding on the ice', () => {
 });
 
 describe("The Arctic's tiles", () => {
-	it('lay no deep snow in a frozen lake: its animal is under the ice, met with the rod alone', () => {
-		let lake = 0;
-		const bad: string[] = [];
-		for (const world of [1, 2, 3, 42]) {
-			const seed = arctic(world);
-			for (let cy = -12; cy <= -1; cy++) {
-				for (let cx = -8; cx <= 8; cx++) {
-					for (const tile of generateChunk(seed, cx, cy).tiles) {
-						if (tile.biome !== 'frozen-lake') continue;
-						lake++;
-						if (tile.kind === 'deepsnow' || tile.kind === 'tallgrass') bad.push(`${world}`);
+	it(
+		'lay no deep snow in a frozen lake: its animal is under the ice, met with the rod alone',
+		() => {
+			let lake = 0;
+			const bad: string[] = [];
+			for (const world of [1, 2, 3, 42]) {
+				const seed = arctic(world);
+				for (let cy = -12; cy <= -1; cy++) {
+					for (let cx = -8; cx <= 8; cx++) {
+						for (const tile of generateChunk(seed, cx, cy).tiles) {
+							if (tile.biome !== 'frozen-lake') continue;
+							lake++;
+							if (tile.kind === 'deepsnow' || tile.kind === 'tallgrass') bad.push(`${world}`);
+						}
 					}
 				}
 			}
-		}
-		expect(lake).toBeGreaterThan(1000);
-		expect(bad).toEqual([]);
-	});
+			expect(lake).toBeGreaterThan(1000);
+			expect(bad).toEqual([]);
+		},
+		SWEEP_BOUND
+	);
 
 	const KINDS: readonly TileKind[] = ['snow', 'deepsnow', 'ice', 'iceblock', 'hole'];
 
