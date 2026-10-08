@@ -1,7 +1,11 @@
 import {
 	canFightIn,
 	canRide,
+	getLand,
+	landOfSeed,
+	MAX_SLIDE,
 	hashString,
+	isIce,
 	isWater,
 	tileAtWorld,
 	tilesApart,
@@ -25,7 +29,9 @@ import {
 	FACING_ANGLE,
 	GLIDE_SECONDS,
 	RISE_SECONDS,
+	SLIDE_SECONDS,
 	STEP_SECONDS,
+	slidesBetween,
 	strideOnto,
 	trainerPose,
 	trainerStep
@@ -166,6 +172,8 @@ const WIN_HOP = 0.5;
 export class OtherPlayers {
 	private readonly others = new Map<string, Other>();
 	private seed = 0;
+	/** Whether the world on screen is The Arctic's, where trainers wear the warm hat (`TrainerLook.warm`). */
+	private warm = false;
 	/** Where the middle of the screen is: the player's tile, as the renderer last put it. */
 	private centre: GridPos = { x: 0, y: 0 };
 	/** The clock of the last frame drawn (seconds), and until when newcomers come without a poof. */
@@ -198,6 +206,7 @@ export class OtherPlayers {
 		if (seed === this.seed) return;
 		this.clear();
 		this.seed = seed;
+		this.warm = getLand(landOfSeed(seed)).look === 'warm-hat';
 	}
 
 	/** Where the middle of the screen is now (the player's tile), for telling on screen from off. */
@@ -250,6 +259,13 @@ export class OtherPlayers {
 			const wasFlying = lastReached?.flying ?? other.flying;
 			if (wasFlying && !flying) other.queue.push({ pos: target, flying: true });
 			other.queue.push({ pos: target, flying });
+			return;
+		}
+		const slid = flying ? null : this.slide(last, target);
+		if (slid && other.queue.length < MAX_BEHIND) {
+			// A slide on the ice: its page stands at the end at once (`moveFrom`), and here
+			// they slide there over every tile of ice between, as they did.
+			for (const pos of slid) other.queue.push({ pos, flying: false });
 			return;
 		}
 		// Further than a step: gone from there in a poof, and here in another.
@@ -312,10 +328,12 @@ export class OtherPlayers {
 				sitting
 			);
 			const astride = (seat.height - SIT_DROP * seat.weight) * (1 - lift);
-			const walking =
+			const moving =
 				(other.from.x !== other.to.x || other.from.y !== other.to.y) && other.lift === 0;
+			// On the ice they slide, feet together, as the player's own trainer does.
+			const walking = moving && !slidesBetween(this.seed, other.from, other.to);
 			const standing = other.stage ?? other.facing;
-			const way = walking ? (direction(other.from, other.to) ?? other.facing) : standing;
+			const way = moving ? (direction(other.from, other.to) ?? other.facing) : standing;
 			const rocking = afloat === 1 && !calm;
 			// Standing where someone else stands, they stand a little aside, easing there.
 			const want = aside.get(other) ?? { x: 0, z: 0 };
@@ -508,7 +526,8 @@ export class OtherPlayers {
 	// --- one player ---------------------------------------------------------------
 
 	private create(peer: PeerMessage): Other {
-		const look = trainerLook(peer.name);
+		// In The Arctic everyone wears the warm hat, in the colour of their own cap.
+		const look = { ...trainerLook(peer.name), warm: this.warm };
 		const figure = buildPlayerMesh(look);
 		figure.name = `other:${peer.pid}`;
 		figure.userData.idlePhase = (hashString(peer.pid) % 628) / 100;
@@ -574,12 +593,38 @@ export class OtherPlayers {
 			other.stepSeconds = other.queue.length >= CATCH_UP ? GLIDE_SECONDS / 2 : GLIDE_SECONDS;
 			return;
 		}
-		// Into the boat or out of it takes the boat's swing, as the player's own step does.
+		// Into the boat or out of it takes the boat's swing, as the player's own step does; a
+		// tile of a slide on the ice goes at the slide's even pace, never hurried.
+		if (slidesBetween(this.seed, other.from, next.pos)) {
+			other.stepSeconds = SLIDE_SECONDS;
+			other.follower.follow(other.from, other.to);
+			return;
+		}
 		const swing =
 			other.ownsBoat && this.waterAt(other.from) !== this.waterAt(next.pos) && !motion.reduced;
 		const base = swing ? BOAT_SWING_SECONDS : STEP_SECONDS;
 		other.stepSeconds = other.queue.length >= CATCH_UP ? base / 2 : base;
 		other.follower.follow(other.from, other.to);
+	}
+
+	/**
+	 * The tiles of a slide from `from` to `to`, in order, the last `to`: when
+	 * they are in one row or column, at most `MAX_SLIDE` apart, and every tile
+	 * before the last is ice in the seeded world (no edit ever makes or takes
+	 * ice). Null for anything else, which is no slide.
+	 */
+	private slide(from: GridPos, to: GridPos): GridPos[] | null {
+		const dx = Math.sign(to.x - from.x);
+		const dy = Math.sign(to.y - from.y);
+		const n = Math.abs(to.x - from.x) + Math.abs(to.y - from.y);
+		if ((dx !== 0 && dy !== 0) || n < 2 || n > MAX_SLIDE) return null;
+		const path: GridPos[] = [];
+		for (let k = 1; k <= n; k++) {
+			const pos = { x: from.x + dx * k, y: from.y + dy * k };
+			if (k < n && !isIce(tileAtWorld(this.seed, pos.x, pos.y).kind)) return null;
+			path.push(pos);
+		}
+		return path;
 	}
 
 	private setBoat(other: Other, owns: boolean): void {

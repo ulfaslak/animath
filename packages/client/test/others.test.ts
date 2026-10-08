@@ -1,6 +1,9 @@
 import {
+	WorldEdits,
 	isWalkable,
 	isWater,
+	landSeed,
+	moveFrom,
 	spawnPoint,
 	step,
 	tileAtWorld,
@@ -30,6 +33,7 @@ import {
 	DESCEND_SECONDS,
 	GLIDE_SECONDS,
 	RISE_SECONDS,
+	SLIDE_SECONDS,
 	STEP_SECONDS
 } from '../src/render/trainer';
 
@@ -40,7 +44,7 @@ import {
 // each test starts with none, as a page does.
 beforeEach(() => forgetShapes());
 
-function setup(centre: GridPos = spawnPoint(WORLD_SEED)) {
+function setup(centre: GridPos = spawnPoint(WORLD_SEED), seed = WORLD_SEED) {
 	const scene = new THREE.Scene();
 	const figures = new THREE.Group();
 	scene.add(figures);
@@ -51,7 +55,7 @@ function setup(centre: GridPos = spawnPoint(WORLD_SEED)) {
 	const poofs = new Poofs(scene);
 	let now = 0;
 	const others = new OtherPlayers(scene, host, poofs);
-	others.setWorld(WORLD_SEED);
+	others.setWorld(seed);
 	others.setCentre(centre);
 	const frame = (dt = 1 / 30) => {
 		now += dt;
@@ -236,6 +240,48 @@ describe('other players on screen', () => {
 		frames(1 / 30);
 		expect(figureOf('jumper')!.position.x).toBeCloseTo(far.x);
 		expect(figureOf('jumper')!.position.z).toBeCloseTo(far.y);
+	});
+
+	it('slide over the ice they slid over, a tile at a time, with no poof (#191)', () => {
+		const seed = landSeed('arctic', 1);
+		let start: GridPos | null = null;
+		let path: GridPos[] = [];
+		for (let y = -420; y < -360 && !start; y++) {
+			for (let x = -60; x < 50 && !start; x++) {
+				if (!isWalkable(tileAtWorld(seed, x, y).kind)) continue;
+				const moved = moveFrom(seed, WorldEdits.none, { x, y }, 'right');
+				if (moved && moved.path.length >= 5) [start, path] = [{ x, y }, moved.path];
+			}
+		}
+		const { others, poofs, frames, figureOf } = setup(start!, seed);
+		others.seen(peer('skater', start!));
+		frames(POOF_SECONDS + 0.1);
+		// Their page stands at the end of the slide at once, and says so.
+		const end = path.at(-1)!;
+		others.seen(peer('skater', end, { facing: 'right' }));
+		expect(poofs.playing).toBe(0);
+		// Halfway through the slide's time, they are halfway along it, on its row.
+		frames((SLIDE_SECONDS * path.length) / 2, 1 / 60);
+		const figure = figureOf('skater')!;
+		expect(figure.position.z).toBeCloseTo(start!.y, 1);
+		expect(figure.position.x).toBeGreaterThan(start!.x + 1);
+		expect(figure.position.x).toBeLessThan(end.x - 1);
+		frames(SLIDE_SECONDS * path.length, 1 / 60);
+		expect(figure.position.x).toBeCloseTo(end.x, 1);
+		// Further than a step over anything but ice is still a poof.
+		others.seen(peer('skater', { x: end.x - 6, y: end.y - 9 }));
+		expect(poofs.playing).toBe(2);
+	});
+
+	it('wear the warm hat in The Arctic, and the cap in Nordland (#191)', () => {
+		const height = (seed: number) => {
+			const { others, frames, figureOf, centre } = setup(spawnPoint(seed), seed);
+			others.seen(peer('ada', centre));
+			frames(FADE_SECONDS + 0.1);
+			return new THREE.Box3().setFromObject(figureOf('ada')!).getSize(new THREE.Vector3()).y;
+		};
+		// The hat's bobble stands over the cap's crown.
+		expect(height(landSeed('arctic', 1))).toBeGreaterThan(height(WORLD_SEED) + 0.03);
 	});
 
 	it('sail in their own boat out on the water, and carry it on land', () => {

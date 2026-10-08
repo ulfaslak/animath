@@ -231,7 +231,13 @@ export type GameEvent =
 	| { type: 'unlocked-changed'; unlocked: string[] }
 	/** The player left the game for the title (`leave-game`). No game is under way now. */
 	| { type: 'game-left' }
-	| { type: 'player-moved'; playerId: string; pos: GridPos; dir: Direction }
+	/**
+	 * A `move` went: to `pos`, the way `dir` points. On the ice it slid
+	 * (`moveFrom`): `tiles` says how many tiles it went in a straight line,
+	 * every one of them a step, the last `pos`; absent, one. The client slides
+	 * the trainer over them; the authority already stands at the end.
+	 */
+	| { type: 'player-moved'; playerId: string; pos: GridPos; dir: Direction; tiles?: number }
 	| { type: 'player-blocked'; playerId: string; dir: Direction }
 	/**
 	 * The player was put on a tile without walking there: `go-to` put them

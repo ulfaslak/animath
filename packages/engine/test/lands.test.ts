@@ -320,16 +320,17 @@ describe('the tent mapping', () => {
 		}
 	});
 
-	it('Nordland → a land with a tent on every spot → Nordland comes home to the tent it left', () => {
-		// The Arctic of #191 step 4: a tent on every lattice spot, ground all round. A stub, until then.
-		const everyTent = { isTent: (p: GridPos) => onTentLattice(p.x, p.y), canStand: () => true };
+	it('Nordland → The Arctic, a tent on every spot → Nordland comes home to the tent it left', () => {
+		// The Arctic of #191 step 4: a tent on every lattice spot, a clearing of snow all round.
 		let tried = 0;
 		for (const world of [1, 2, 42, 777, 9999]) {
 			const seed = landSeed('nordland', world);
+			const arctic = landSeed('arctic', world);
 			for (const tent of nordlandTents(world, 6)) {
 				tried++;
-				const there = mappedTent(tent, everyTent);
+				const there = tentArrival(arctic, tent);
 				expect(there?.tent, `world ${world}`).toEqual(tent);
+				expect(canTalkToDoctor(arctic, there!.stand, there!.facing)).toBe(true);
 				const back = tentArrival(seed, there!.tent);
 				expect(back?.tent, `world ${world}`).toEqual(tent);
 				// The kid can talk to the witch doctor from where they come down.

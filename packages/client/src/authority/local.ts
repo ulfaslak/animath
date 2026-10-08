@@ -34,7 +34,6 @@ import {
 	hashString,
 	isEncounterTile,
 	isMatchId,
-	isPassable,
 	availableLands,
 	fly,
 	landSeed,
@@ -47,6 +46,7 @@ import {
 	knockOut,
 	landFlight,
 	leadIndex,
+	moveFrom,
 	newGame,
 	normalizeNickname,
 	recordBattle,
@@ -614,22 +614,27 @@ export class LocalAuthority implements Authority {
 	// --- explore -----------------------------------------------------------
 
 	private move(dir: Direction): void {
-		// Walked or blocked, the player turns to face the way they tried to go.
+		// Walked, slid or blocked, the player turns to face the way they tried to go.
 		this.facing = dir;
-		const next = step(this.pos, dir);
 		// The world as the player left it: a tree they chopped down is ground to walk
-		// on; and with the boat the water is theirs too.
-		const tile = editedTileAt(this.seed, this.edits, next.x, next.y);
-		if (!isPassable(tile.kind, gearOf({ items: this.items }))) {
+		// on; and with the boat the water is theirs too. On the ice the step slides on
+		// until something stops it (`moveFrom`): one move, every tile of it a step, so
+		// no save is ever taken halfway through a slide.
+		const moved = moveFrom(this.seed, this.edits, this.pos, dir, gearOf({ items: this.items }));
+		if (!moved) {
 			this.emit({ type: 'player-blocked', playerId: this.playerId, dir });
 			return;
 		}
+		const { path, tile } = moved;
+		const next = path[path.length - 1]!;
 		this.pos = next;
-		this.steps += 1;
-		this.emit({ type: 'player-moved', playerId: this.playerId, pos: next, dir });
+		this.steps += path.length;
+		const tiles = path.length > 1 ? { tiles: path.length } : {};
+		this.emit({ type: 'player-moved', playerId: this.playerId, pos: next, dir, ...tiles });
 
 		// Only an encounter tile can start a battle, and the engine draws nothing
-		// on any other: the ground around one is read only there.
+		// on any other: the ground around one is read only there. A slide is
+		// rolled once, on the tile it ends on (the ice it crosses starts nothing).
 		if (!isEncounterTile(tile.kind)) return;
 		// One roll per completed step, keyed by the step count so a replayed walk
 		// meets the same animals. The engine sizes it to the lead where the player

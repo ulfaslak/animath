@@ -1,4 +1,5 @@
 import {
+	BIOME_POLE,
 	CHUNK_SIZE,
 	Rng,
 	hashInts,
@@ -20,7 +21,7 @@ import {
 	type GlowTriangles
 } from './campfire';
 import { DOCTOR_GEOMETRIES, WitchDoctor } from './doctor';
-import { BIOME_LOOK, CANOPY, COLORS, PROP_COLORS, TILE_COLORS } from './palette';
+import { ARCTIC_COLORS, BIOME_LOOK, CANOPY, COLORS, PROP_COLORS, TILE_COLORS } from './palette';
 
 /**
  * Turns a chunk into meshes. Ground tiles are merged into one instanced mesh
@@ -76,7 +77,9 @@ export const PROP_GEOMETRY = {
 	/** Radius 1: a flower or a bush, each scaled to its own size. */
 	ball: new THREE.IcosahedronGeometry(1, 0),
 	tent: new THREE.ConeGeometry(0.55, 0.8, 4),
-	door: new THREE.ConeGeometry(0.2, 0.4, 4)
+	door: new THREE.ConeGeometry(0.2, 0.4, 4),
+	/** A unit box: an ice block, each scaled to its own size, and the shine on the ice. */
+	slab: new THREE.BoxGeometry(1, 1, 1)
 } as const;
 
 /** Every geometry the chunks share; `disposeChunkGroup` leaves these alone. */
@@ -97,9 +100,23 @@ export const PEAK_HEIGHT = 3;
 /** The height of the water's surface: it sits below the land. */
 export const WATER_TOP = 0.2;
 
-/** Height of a tile's top face. Figures stand here; water, shallow or deep, sits below the land. */
+/** The height of the ice of a frozen lake or the sea: over the water, a step below the snow. */
+export const ICE_TOP = 0.36;
+
+/** Whether a tile is The Arctic's, which draws its water, rocks and trees its own way. */
+export function isArcticTile(tile: Tile): boolean {
+	return BIOME_POLE[tile.biome] !== null;
+}
+
+/**
+ * Height of a tile's top face. Figures stand here; water, shallow or deep,
+ * sits below the land, and the ice (a fishing hole in it too) between the
+ * two; an ice block stands on what it is on.
+ */
 export function groundTop(tile: Tile): number {
-	return isWater(tile.kind) ? WATER_TOP : 0.5 + tile.height * 0.25;
+	if (isWater(tile.kind) || tile.under === 'water') return WATER_TOP;
+	if (tile.kind === 'ice' || tile.kind === 'hole' || tile.under === 'ice') return ICE_TOP;
+	return 0.5 + tile.height * 0.25;
 }
 
 /**
@@ -109,18 +126,30 @@ export function groundTop(tile: Tile): number {
  */
 export function groundColor(tile: Tile): number {
 	const look = BIOME_LOOK[tile.biome];
+	const arctic = isArcticTile(tile);
 	if (tile.cleared === 'rock') {
 		return tile.height >= PEAK_HEIGHT ? PROP_COLORS.gravelHigh : PROP_COLORS.gravel;
 	}
 	switch (tile.kind) {
 		case 'grass':
+		case 'snow':
 		case 'tree':
 		case 'tent':
 			return look.ground;
 		case 'tallgrass':
+		case 'deepsnow':
 			return look.tallgrass;
 		case 'rock':
+			if (arctic) return ARCTIC_COLORS.rockGround;
 			return tile.height >= PEAK_HEIGHT ? PROP_COLORS.rockHigh : TILE_COLORS.rock;
+		case 'water':
+		case 'deepwater':
+			return arctic ? ARCTIC_COLORS[tile.kind] : TILE_COLORS[tile.kind];
+		case 'iceblock':
+			// The ground under the block: snow, the ice, or the open water round it.
+			if (tile.under === 'water') return ARCTIC_COLORS.water;
+			if (tile.under === 'ice') return TILE_COLORS.ice;
+			return look.ground;
 		default:
 			return TILE_COLORS[tile.kind];
 	}
@@ -333,7 +362,8 @@ const CASTS_SHADOW: Record<PropKind, boolean> = {
 	blade: false,
 	reed: false,
 	cattail: false,
-	ball: true
+	ball: true,
+	slab: true
 };
 
 /**
@@ -411,6 +441,7 @@ function decorate(props: Props, group: THREE.Group, tile: Tile, x: number, z: nu
 		z + (rng.next() * 2 - 1) * r
 	];
 
+	if (isArcticTile(tile) && decorateArctic(props, group, rng, tile, x, z, top, near)) return;
 	switch (tile.kind) {
 		case 'tree': {
 			tree(props, rng, x, z, top, 0.9 + rng.next() * 0.4);
@@ -481,7 +512,8 @@ function decorate(props: Props, group: THREE.Group, tile: Tile, x: number, z: nu
 			}
 			return;
 		}
-		case 'grass': {
+		case 'grass':
+		case 'snow': {
 			if (tile.cleared === 'tree') {
 				// A stump where the tree stood, set back from the middle (away from the
 				// camera), so the trainer or the lead standing on the tile never stands in
@@ -561,6 +593,208 @@ function decorate(props: Props, group: THREE.Group, tile: Tile, x: number, z: nu
 		default:
 			return;
 	}
+}
+
+/**
+ * What stands on a tile of The Arctic's ([[DESIGN]] § Palette, "The
+ * Arctic"), where it is drawn its own way; false for a tile drawn as
+ * Nordland's (a tent, a stump). Snow lies bare, now and then with a tuft of
+ * dry tundra grass or a rookery's pebbles; deep snow is heaped with white
+ * drifts, as tall grass stands with blades; the ice has a streak of shine,
+ * so it looks slippery; a fishing hole is a dark round of water with a rim
+ * of snow; an ice block is a glassy blue-white block, a smaller one often
+ * beside it; a rock a cold dark boulder, capped with snow; a tree a spruce,
+ * two tiers of a darker, bluer green than Nordland's pines, snow on its tip.
+ */
+function decorateArctic(
+	props: Props,
+	group: THREE.Group,
+	rng: Rng,
+	tile: Tile,
+	x: number,
+	z: number,
+	top: number,
+	near: (r: number) => [number, number]
+): boolean {
+	const look = BIOME_LOOK[tile.biome];
+	switch (tile.kind) {
+		case 'snow': {
+			if (tile.cleared) return false;
+			if ((tile.biome === 'tundra' || tile.biome === 'taiga') && rng.chance(0.12)) {
+				for (let k = 0; k < 3; k++) {
+					const [bx, bz] = near(0.3);
+					props.add('blade', bx, top + 0.08, bz, ARCTIC_COLORS.tuft, 0.55, [
+						0,
+						rng.next() * Math.PI,
+						0
+					]);
+				}
+			} else if (tile.biome === 'rookery' && rng.chance(0.35)) {
+				const count = 2 + Math.floor(rng.next() * 3);
+				for (let k = 0; k < count; k++) {
+					const [px, pz] = near(0.38);
+					const s = 0.04 + rng.next() * 0.04;
+					props.add('rock', px, top + s * 0.3, pz, ARCTIC_COLORS.pebble, s, [
+						rng.next(),
+						rng.next(),
+						0
+					]);
+				}
+			}
+			return true;
+		}
+		case 'deepsnow': {
+			// Drifts heaped on it: soft white mounds, so it reads as tall grass does.
+			const count = 3 + (rng.chance(0.5) ? 1 : 0);
+			for (let k = 0; k < count; k++) {
+				const [bx, bz] = near(0.28);
+				const r = 0.13 + rng.next() * 0.08;
+				props.add(
+					'ball',
+					bx,
+					top + r * 0.25,
+					bz,
+					look.blade,
+					[r * 1.3, r * 0.75, r],
+					[0, rng.next() * Math.PI, 0]
+				);
+			}
+			return true;
+		}
+		case 'ice': {
+			// A streak or two of shine across the ice: it looks slippery.
+			const streaks = rng.chance(0.55) ? 1 + (rng.chance(0.3) ? 1 : 0) : 0;
+			for (let k = 0; k < streaks; k++) {
+				const [sx, sz] = near(0.2);
+				const length = 0.35 + rng.next() * 0.25;
+				props.add(
+					'slab',
+					sx,
+					top + 0.006,
+					sz,
+					ARCTIC_COLORS.shine,
+					[length, 0.012, 0.05],
+					[0, Math.PI / 4 + (rng.next() - 0.5) * 0.4, 0]
+				);
+			}
+			return true;
+		}
+		case 'hole': {
+			// A dark round of water in the ice, a rim of snow lumps round it.
+			props.add('ball', x, top + 0.004, z, ARCTIC_COLORS.hole, [0.3, 0.01, 0.3]);
+			for (let k = 0; k < 7; k++) {
+				const angle = (k / 7) * Math.PI * 2 + rng.next() * 0.4;
+				const r = 0.05 + rng.next() * 0.03;
+				props.add(
+					'ball',
+					x + Math.cos(angle) * 0.34,
+					top + r * 0.3,
+					z + Math.sin(angle) * 0.34,
+					ARCTIC_COLORS.holeRim,
+					[r * 1.4, r * 0.7, r]
+				);
+			}
+			return true;
+		}
+		case 'iceblock': {
+			const turn = (rng.next() - 0.5) * 0.5;
+			const w = 0.66 + rng.next() * 0.12;
+			const h = 0.55 + rng.next() * 0.2;
+			// Afloat it shows a little more of itself under the waterline.
+			const base = tile.under === 'water' ? top - 0.1 : top;
+			props.add('slab', x, base + h / 2, z, ARCTIC_COLORS.block, [w, h, w * 0.9], [0, turn, 0]);
+			props.add(
+				'slab',
+				x,
+				base + h + 0.02,
+				z,
+				ARCTIC_COLORS.blockTop,
+				[w * 0.86, 0.04, w * 0.76],
+				[0, turn, 0]
+			);
+			if (rng.chance(0.5)) {
+				const [bx, bz] = [x + (rng.chance(0.5) ? 0.3 : -0.3), z + 0.28];
+				const s = 0.22 + rng.next() * 0.08;
+				props.add('slab', bx, base + s / 2, bz, ARCTIC_COLORS.block, [s, s, s], [0, rng.next(), 0]);
+			}
+			return true;
+		}
+		case 'rock': {
+			const r = 0.32 + rng.next() * 0.18;
+			const turn: [number, number, number] = [0, rng.next() * Math.PI, 0];
+			const colour = rng.chance(0.5) ? ARCTIC_COLORS.rock : ARCTIC_COLORS.rockLight;
+			// Cliffs stand taller on the shore and the fell; a nunatak out of the ice sheet too.
+			const tall = tile.biome === 'bird-cliffs' || tile.biome === 'fell' ? 1.35 : 1;
+			props.add('rock', x, top + 0.2 * tall, z, colour, [r, r * tall, r], turn);
+			if (rng.chance(0.75)) {
+				props.add(
+					'rock',
+					x,
+					top + 0.2 * tall + r * tall * 0.72,
+					z,
+					PROP_COLORS.snow,
+					[r * 0.82, r * 0.42, r * 0.82],
+					turn
+				);
+			}
+			return true;
+		}
+		case 'tree': {
+			spruce(props, rng, x, z, top, 0.85 + rng.next() * 0.35);
+			if (rng.chance(0.4)) {
+				const [sx, sz] = [x + (rng.chance(0.5) ? 0.3 : -0.3), z + (rng.chance(0.5) ? 0.28 : -0.28)];
+				spruce(props, rng, sx, sz, top, 0.45 + rng.next() * 0.15);
+			}
+			return true;
+		}
+		default:
+			return false;
+	}
+}
+
+/**
+ * The taiga's spruce: a trunk, two tiers of a dark blue-green canopy, the
+ * upper narrower, and a cap of snow on its tip: never Nordland's pine.
+ */
+function spruce(props: Props, rng: Rng, x: number, z: number, top: number, scale: number): void {
+	const turn = rng.next() * Math.PI * 2;
+	const green = pick(rng, ARCTIC_COLORS.spruce);
+	props.add(
+		'trunk',
+		x,
+		top + 0.2 * scale,
+		z,
+		COLORS.trunk,
+		[scale, scale * 0.8, scale],
+		[0, turn, 0]
+	);
+	props.add(
+		'canopy',
+		x,
+		top + 0.62 * scale,
+		z,
+		green,
+		[scale * 1.05, scale * 0.62, scale * 1.05],
+		[0, turn, 0]
+	);
+	props.add(
+		'canopy',
+		x,
+		top + 1.0 * scale,
+		z,
+		green,
+		[scale * 0.72, scale * 0.55, scale * 0.72],
+		[0, turn + 0.5, 0]
+	);
+	props.add(
+		'canopy',
+		x,
+		top + 1.22 * scale,
+		z,
+		PROP_COLORS.snow,
+		[scale * 0.3, scale * 0.2, scale * 0.3],
+		[0, turn, 0]
+	);
 }
 
 /** A pine: a trunk and a cone of canopy, `scale` times the size of the one in the battle backdrop. */

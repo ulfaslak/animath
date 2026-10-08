@@ -157,7 +157,8 @@ class GameView {
 				if (event.playerId !== this.playerId) break;
 				this.pos = event.pos;
 				this.facing = event.dir;
-				this.steps += 1;
+				// A slide on the ice is a step for every tile of it.
+				this.steps += event.tiles ?? 1;
 				break;
 			case 'player-blocked':
 				if (event.playerId === this.playerId) this.facing = event.dir;

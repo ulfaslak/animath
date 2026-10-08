@@ -65,7 +65,12 @@ const KIND_CODES: Readonly<Record<TileKind, number>> = {
 	deepwater: 4,
 	rock: 5,
 	tree: 6,
-	tent: 7
+	tent: 7,
+	snow: 8,
+	deepsnow: 9,
+	ice: 10,
+	iceblock: 11,
+	hole: 12
 };
 const KINDS: readonly TileKind[] = (Object.keys(KIND_CODES) as TileKind[]).sort(
 	(a, b) => KIND_CODES[a] - KIND_CODES[b]

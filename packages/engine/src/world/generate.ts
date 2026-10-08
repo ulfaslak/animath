@@ -1,6 +1,12 @@
 import type { Biome } from '../animals/types.js';
 import { Rng, hashInts } from '../rng.js';
-import { CHUNK_SIZE, type Chunk, type Tile, type TileKind } from './types.js';
+import { landOfSeed } from '../lands/ids.js';
+import { arcticTileAt, generateArcticChunk } from './arctic.js';
+import { TENT_LATTICE, onTentLattice } from './lattice.js';
+import { valueNoise } from './noise.js';
+import { CHUNK_SIZE, DEEP_WATER_MARGIN, type Chunk, type Tile, type TileKind } from './types.js';
+
+export { DEEP_WATER_MARGIN, TENT_LATTICE, onTentLattice };
 
 /**
  * Procedural world — placeholder version.
@@ -20,33 +26,15 @@ import { CHUNK_SIZE, type Chunk, type Tile, type TileKind } from './types.js';
  * a lake, never next to a shore. Doctor tents are placed on a sparse lattice
  * near water or trees. Rivers, paths, points of interest and proper biome
  * shaping are the real work, tracked as issues.
+ *
+ * That is Nordland's world. A land's generator is chosen by the seed
+ * (`landOfSeed`): a seed of The Arctic's is made by `arctic.ts`, so every
+ * function here keeps its signature, and every Nordland seed gives exactly
+ * the world it gave before lands.
  */
 
 /** Below this elevation a tile is water. */
 const WATER_LEVEL = 0.36;
-
-/**
- * Deep water is water whose every tile within this many tiles, diagonals
- * included, is water too: the 5×5 square round it. So the shallows along
- * every shore are at least two tiles wide, a river narrower than five tiles
- * has no deep water, and deep water is at least three steps from any land.
- */
-export const DEEP_WATER_MARGIN = 2;
-
-function valueNoise(seed: number, x: number, y: number, scale: number): number {
-	const fx = x / scale;
-	const fy = y / scale;
-	const x0 = Math.floor(fx);
-	const y0 = Math.floor(fy);
-	const tx = fx - x0;
-	const ty = fy - y0;
-	const lattice = (ix: number, iy: number) => hashInts(seed, ix, iy) / 4294967296;
-	const sx = tx * tx * (3 - 2 * tx);
-	const sy = ty * ty * (3 - 2 * ty);
-	const top = lattice(x0, y0) * (1 - sx) + lattice(x0 + 1, y0) * sx;
-	const bottom = lattice(x0, y0 + 1) * (1 - sx) + lattice(x0 + 1, y0 + 1) * sx;
-	return top * (1 - sy) + bottom * sy;
-}
 
 function elevation(seed: number, x: number, y: number): number {
 	return (
@@ -151,26 +139,6 @@ function tileAt(
 	return { kind, biome, height };
 }
 
-/**
- * The tents' lattice: a tent stands only on a tile where `x mod 23 = 5` and
- * `y mod 19 = 7` (and only there where the ground would be grass, in the
- * forest or near water), so the doctors are spread out, never side by side.
- */
-export const TENT_LATTICE = { everyX: 23, atX: 5, everyY: 19, atY: 7 } as const;
-
-/** Whether a tent could stand on tile (x, y): it is on the tents' lattice. */
-export function onTentLattice(x: number, y: number): boolean {
-	return (
-		mod(x, TENT_LATTICE.everyX) === TENT_LATTICE.atX &&
-		mod(y, TENT_LATTICE.everyY) === TENT_LATTICE.atY
-	);
-}
-
-/** Modulo that is never negative: `%` keeps the sign of `x`, so `-3 % 23` is -3. */
-function mod(x: number, m: number): number {
-	return ((x % m) + m) % m;
-}
-
 function hasWaterNearby(seed: number, x: number, y: number): boolean {
 	for (let dy = -3; dy <= 3; dy++) {
 		for (let dx = -3; dx <= 3; dx++) {
@@ -181,6 +149,7 @@ function hasWaterNearby(seed: number, x: number, y: number): boolean {
 }
 
 export function generateChunk(seed: number, cx: number, cy: number): Chunk {
+	if (landOfSeed(seed) === 'arctic') return generateArcticChunk(seed, cx, cy);
 	const tiles: Tile[] = new Array(CHUNK_SIZE * CHUNK_SIZE);
 	const x0 = cx * CHUNK_SIZE;
 	const y0 = cy * CHUNK_SIZE;
@@ -207,6 +176,7 @@ export function generateChunk(seed: number, cx: number, cy: number): Chunk {
 
 /** Convenience for callers that think in world coordinates. */
 export function tileAtWorld(seed: number, x: number, y: number): Tile {
+	if (landOfSeed(seed) === 'arctic') return arcticTileAt(seed, x, y);
 	return tileAt(seed, x, y);
 }
 
@@ -217,5 +187,6 @@ export function tileAtWorld(seed: number, x: number, y: number): Tile {
  * over many tiles (`nearestTent`) reads this instead.
  */
 export function travelKindAt(seed: number, x: number, y: number): TileKind {
+	if (landOfSeed(seed) === 'arctic') return arcticTileAt(seed, x, y, false).kind;
 	return tileAt(seed, x, y, undefined, false).kind;
 }

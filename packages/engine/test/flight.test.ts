@@ -47,6 +47,10 @@ function landableByTable(kind: TileKind, items: readonly string[]): boolean {
 		case 'grass':
 		case 'tallgrass':
 		case 'sand':
+		// The Arctic's (#191): snow, deep snow and the ice are ground; an ice block and a hole never.
+		case 'snow':
+		case 'deepsnow':
+		case 'ice':
 			return true;
 		case 'water':
 		case 'deepwater':
@@ -56,6 +60,8 @@ function landableByTable(kind: TileKind, items: readonly string[]): boolean {
 		case 'rock':
 			return items.includes('pickaxe');
 		case 'tent':
+		case 'iceblock':
+		case 'hole':
 			return false;
 	}
 }
@@ -142,7 +148,12 @@ describe('isLandable', () => {
 			'deepwater',
 			'rock',
 			'tree',
-			'tent'
+			'tent',
+			'snow',
+			'deepsnow',
+			'ice',
+			'iceblock',
+			'hole'
 		];
 		for (const items of [[], ...GEAR_SETS, ['lantern', 'axe']]) {
 			for (const kind of kinds) {

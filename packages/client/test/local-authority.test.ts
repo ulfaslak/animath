@@ -48,6 +48,7 @@ import {
 	type SavedGame,
 	getLand,
 	landSeed,
+	moveFrom,
 	worldSeed
 } from '@mathgame/engine';
 import { describe, expect, it } from 'vitest';
@@ -3784,5 +3785,109 @@ describe('LocalAuthority: lands, from the adversarial review of #196', () => {
 		doctorIntent(s, { type: 'fly', land: 'arctic' });
 		expect(visit(s).phase.kind).toBe('paying-fare');
 		expect(visit(s).unlocked).toEqual(['nordland', 'arctic']);
+	});
+});
+
+describe('LocalAuthority: sliding on the ice (#191)', () => {
+	const seed = landSeed('arctic', 1);
+
+	/** A game of The Arctic's World 1, standing at `pos` facing `facing`. */
+	function arcticAt(pos: GridPos, facing: Direction = 'down'): Session {
+		const base = newGame(1, { ...testStarter(), id: 'n1' });
+		const game: SavedGame = {
+			...base,
+			land: 'arctic',
+			pos,
+			facing,
+			party: [{ ...testStarter(), id: 'a1' }],
+			lands: [
+				{
+					land: 'nordland',
+					party: [{ ...testStarter(), id: 'n1' }],
+					tokens: 0,
+					items: [],
+					worlds: []
+				}
+			],
+			unlocked: ['nordland', 'arctic']
+		};
+		const authority = new LocalAuthority();
+		const events: GameEvent[] = [];
+		authority.subscribe((e) => events.push(e));
+		authority.start({ game });
+		return { authority, events };
+	}
+
+	/** The first tile (from the far north's sea ice) from which a move `dir` slides `atLeast` tiles and ends as `ends` says. */
+	function slideStart(
+		dir: Direction,
+		atLeast: number,
+		ends: (end: GridPos) => boolean = () => true
+	): { from: GridPos; path: GridPos[] } {
+		for (let y = -420; y < -360; y++) {
+			for (let x = -60; x < 50; x++) {
+				const from = { x, y };
+				if (!isWalkable(tileAtWorld(seed, x, y).kind)) continue;
+				const moved = moveFrom(seed, WorldEdits.none, from, dir);
+				if (moved && moved.path.length >= atLeast && ends(moved.path.at(-1)!)) {
+					return { from, path: moved.path };
+				}
+			}
+		}
+		throw new Error('no such slide');
+	}
+
+	it('slides the whole way in one move: one event, every tile a step, the save already at the end', () => {
+		const { from, path } = slideStart('right', 5);
+		const s = arcticAt(from);
+		const steps = s.authority.snapshot().steps;
+		s.events.length = 0;
+		s.authority.dispatch({ type: 'move', dir: 'right' });
+		const end = path.at(-1)!;
+		expect(s.events).toEqual([
+			{ type: 'player-moved', playerId: 'local', pos: end, dir: 'right', tiles: path.length }
+		]);
+		const snap = s.authority.snapshot();
+		expect(snap.pos).toEqual(end);
+		expect(snap.facing).toBe('right');
+		expect(snap.steps).toBe(steps + path.length);
+		// A reload stands where the slide ended: no save is ever taken halfway along one.
+		const read = readSave(JSON.parse(JSON.stringify(saveDocument(snap, { lineage: 's', seq: 1 }))));
+		if (!read.ok) throw new Error(read.error);
+		expect(restoreGame(read.save, mint).pos).toEqual(end);
+	});
+
+	it('slid dead into a fishing hole, stands on the ice in front of it, facing it, and goes no further', () => {
+		const ahead = (end: GridPos) => tileAtWorld(seed, end.x + 1, end.y).kind === 'hole';
+		const { from, path } = slideStart('right', 3, ahead);
+		const s = arcticAt(from);
+		s.authority.dispatch({ type: 'move', dir: 'right' });
+		const end = path.at(-1)!;
+		expect(s.authority.snapshot()).toMatchObject({ pos: end, facing: 'right' });
+		expect(tileAtWorld(seed, end.x, end.y).kind).toBe('ice');
+		s.events.length = 0;
+		s.authority.dispatch({ type: 'move', dir: 'right' });
+		expect(s.events).toEqual([{ type: 'player-blocked', playerId: 'local', dir: 'right' }]);
+		expect(s.authority.snapshot().pos).toEqual(end);
+	});
+
+	it('a step onto snow from the ice is one step, and a step off the snow onto the ice slides', () => {
+		const { from, path } = slideStart(
+			'left',
+			3,
+			(end) => tileAtWorld(seed, end.x, end.y).kind !== 'ice'
+		);
+		const s = arcticAt(from);
+		s.authority.dispatch({ type: 'move', dir: 'left' });
+		const end = path.at(-1)!;
+		expect(tileAtWorld(seed, end.x, end.y).kind).not.toBe('ice');
+		const moved = s.events.at(-1);
+		expect(moved).toMatchObject({ type: 'player-moved', pos: end, tiles: path.length });
+		// Back the way they came: from the snow onto the ice, a slide again.
+		const back = moveFrom(seed, WorldEdits.none, end, 'right')!;
+		s.authority.dispatch({ type: 'move', dir: 'right' });
+		const last = s.events.at(-1);
+		expect(last).toMatchObject({ type: 'player-moved', pos: back.path.at(-1) });
+		if (back.path.length > 1) expect(last).toMatchObject({ tiles: back.path.length });
 	});
 });

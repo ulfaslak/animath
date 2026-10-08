@@ -1,7 +1,9 @@
 import {
 	CHUNK_SIZE,
 	WorldEdits,
+	getLand,
 	isWater,
+	landOfSeed,
 	tileAtWorld,
 	type ChunkRef,
 	type Direction,
@@ -22,12 +24,12 @@ import { appearScale, smoothstep } from './ease';
 import { buildGliderMesh, poseGlider } from './glider';
 import { WatchedFights } from './fights';
 import { OtherPlayers } from './others';
-import { COLORS, GLIDER_COLORS } from './palette';
+import { COLORS, GLIDER_COLORS, PLAYER_LOOK } from './palette';
 import { SIT_DROP, poseRider } from './mount';
 import { Poofs } from './poof';
 import { PortraitStudio } from './portraits';
 import { buildTileProps, disposeChunkGroup, groundTop } from './tiles';
-import { FACING_ANGLE, strideOnto, trainerPose, trainerStep } from './trainer';
+import { FACING_ANGLE, slidesBetween, strideOnto, trainerPose, trainerStep } from './trainer';
 
 /**
  * The trainer with the glider, as explore poses them this frame: how far up
@@ -316,6 +318,7 @@ export class GameRenderer {
 		}
 		this.seed = seed;
 		this.edits = edits;
+		this.dress(getLand(landOfSeed(seed)).look === 'warm-hat');
 		this.chunks.reset(seed, edits);
 		this.clearings.clear();
 		this.poofs.clear();
@@ -323,6 +326,26 @@ export class GameRenderer {
 		this.others.setWorld(seed);
 		this.fights.setWorld(seed);
 		this.butterflies.setWorld(seed);
+	}
+
+	/**
+	 * The trainer in the land's look: in The Arctic the warm hat (`warm`),
+	 * elsewhere the cap. Only the figure changes: what it carries (the boat,
+	 * the glider) stays on it.
+	 */
+	private dress(warm: boolean): void {
+		const rig = this.player.children[0];
+		if (!rig || Boolean(this.player.userData.warm) === warm) return;
+		this.endSwing();
+		const dressed = buildPlayerMesh({ ...PLAYER_LOOK, warm }).children[0];
+		if (!dressed) return;
+		this.player.remove(rig);
+		this.player.add(dressed);
+		// The rig is the figure's first child: the walk, the breath and the rider's pose read it there.
+		this.player.children.splice(this.player.children.indexOf(dressed), 1);
+		this.player.children.unshift(dressed);
+		this.player.userData.warm = warm;
+		this.player.userData.airborne = undefined;
 	}
 
 	/** A poof round the player's feet, on `pos`: they just turned up there (Go to). */
@@ -465,8 +488,9 @@ export class GameRenderer {
 		this.player.rotation.y = FACING_ANGLE[dir];
 		this.cameraTarget.set(x, 0, z);
 		// Every step lands on the other foot: x + y changes by one each step. Up in the air
-		// nobody walks.
-		const moving = (from.x !== to.x || from.y !== to.y) && lift === 0;
+		// nobody walks, and on the ice nobody does either: they slide, feet together.
+		const moving =
+			(from.x !== to.x || from.y !== to.y) && lift === 0 && !slidesBetween(this.seed, from, to);
 		this.step.progress = moving ? progress : 1;
 		this.step.stride = strideOnto(to);
 		this.placeShadow(x, z, lift);

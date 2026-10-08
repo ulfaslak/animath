@@ -11,8 +11,41 @@ export const TILE_COLORS: Record<TileKind, number> = {
 	deepwater: 0x3f9fdc,
 	rock: 0xa8a39e,
 	tree: 0x8bd66b, // ground under the tree
-	tent: 0x8bd66b
+	tent: 0x8bd66b,
+	// The Arctic (#191; `ARCTIC_COLORS` has the rest): snow a cool white, deep snow a
+	// shade bluer, the ice a pale glassy cyan, a fishing hole's ice round it.
+	snow: 0xeef4f8,
+	deepsnow: 0xd6e5f0,
+	ice: 0xaee4f4,
+	iceblock: 0xeef4f8,
+	hole: 0xaee4f4
 };
+
+/**
+ * The Arctic's own colours ([[DESIGN]] § Palette, "The Arctic"): its water a
+ * darker, colder blue than Nordland's lakes, the deep water darker still; its
+ * rocks a cold dark grey, capped with snow; the ice blocks a glassy blue-white
+ * over the ice's cyan, with a lighter top; the shine on the ice; a fishing
+ * hole's dark water; the taiga's spruces a darker, bluer green than
+ * Nordland's pines, snow on their tips.
+ */
+export const ARCTIC_COLORS = {
+	water: 0x4a9fd0,
+	deepwater: 0x2f78b4,
+	rockGround: 0x9b99a1,
+	rock: 0x77747d,
+	rockLight: 0x8f8c95,
+	block: 0xc4ebfa,
+	blockTop: 0xe6f7fd,
+	shine: 0xf4fcff,
+	hole: 0x1f5f8f,
+	holeRim: 0xf7fbff,
+	drift: 0xfbfdff,
+	spruce: [0x23604c, 0x2a6b55, 0x1f5a4a] as readonly number[],
+	/** Dry tundra grass poking out of the snow, and a rookery's pebbles. */
+	tuft: 0xc8b77a,
+	pebble: 0x8d8a86
+} as const;
 
 export const COLORS = {
 	sky: 0x8fd3f4,
@@ -37,10 +70,15 @@ export const COLORS = {
 	dust: 0xf6efe2
 } as const;
 
-/** What a trainer wears that tells one from another: the shirt, and the cap. */
+/**
+ * What a trainer wears that tells one from another: the shirt, and the cap.
+ * In The Arctic (`warm`, the land's `warm-hat` look) the cap is a knitted
+ * hat of the cap's colour, a white cuff and a bobble on top.
+ */
 export interface TrainerLook {
 	shirt: number;
 	cap: number;
+	warm?: boolean;
 }
 
 /** The player's own trainer: the coral shirt and the blue cap. */
@@ -89,7 +127,40 @@ export const BIOME_LOOK: Record<Biome, BiomeLook> = {
 	mountain: { ground: 0xa6b88f, tallgrass: 0x7b9b5a, blade: 0x587d3c },
 	// Deep water all round: no ground, and no grass. A battle there is fought on
 	// the deep water's blue, with the shallows' paler blue in the crests of its waves.
-	sea: { ground: TILE_COLORS.deepwater, tallgrass: TILE_COLORS.deepwater, blade: TILE_COLORS.water }
+	sea: {
+		ground: TILE_COLORS.deepwater,
+		tallgrass: TILE_COLORS.deepwater,
+		blade: TILE_COLORS.water
+	},
+	// The Arctic's: snow everywhere, each a shade of its own so a kid tells them apart, and
+	// deep snow always bluer than the snow round it, drifts of white heaped on it.
+	tundra: { ground: TILE_COLORS.snow, tallgrass: TILE_COLORS.deepsnow, blade: ARCTIC_COLORS.drift },
+	// The taiga's floor a little green under the spruces.
+	taiga: { ground: 0xe3eeea, tallgrass: 0xc9dedb, blade: ARCTIC_COLORS.drift },
+	// The fell greyer, among its rocks.
+	fell: { ground: 0xe1e6ec, tallgrass: 0xc8d3df, blade: ARCTIC_COLORS.drift },
+	'bird-cliffs': { ground: 0xe9eef0, tallgrass: 0xd0dde6, blade: ARCTIC_COLORS.drift },
+	'frozen-lake': { ground: 0xf3f7fa, tallgrass: TILE_COLORS.deepsnow, blade: ARCTIC_COLORS.drift },
+	'arctic-ice': { ground: 0xf3f7fa, tallgrass: TILE_COLORS.deepsnow, blade: ARCTIC_COLORS.drift },
+	'arctic-ocean': {
+		ground: ARCTIC_COLORS.deepwater,
+		tallgrass: ARCTIC_COLORS.deepwater,
+		blade: ARCTIC_COLORS.water
+	},
+	// The ice sheet the brightest, nearly lifeless.
+	'ice-sheet': { ground: 0xf6f9fc, tallgrass: 0xdde8f2, blade: ARCTIC_COLORS.drift },
+	// The rookery's coast a warmer grey-white, pebbly.
+	rookery: { ground: 0xe4e2dd, tallgrass: 0xd2d6db, blade: ARCTIC_COLORS.drift },
+	'antarctic-ice': {
+		ground: 0xf3f7fa,
+		tallgrass: TILE_COLORS.deepsnow,
+		blade: ARCTIC_COLORS.drift
+	},
+	'southern-ocean': {
+		ground: ARCTIC_COLORS.deepwater,
+		tallgrass: ARCTIC_COLORS.deepwater,
+		blade: ARCTIC_COLORS.water
+	}
 };
 
 /**
