@@ -35,8 +35,8 @@ export function questionParts(face: PuzzleFace): QuestionPart[] | null {
 				at(0) === 0
 					? t('puzzle.ask.kroner.count')
 					: at(0) === 1
-						? t('puzzle.ask.kroner.one', { price: p })
-						: t('puzzle.ask.kroner.two', { price: p, other: q });
+						? t('puzzle.ask.kroner.oneThing', { price: p })
+						: t('puzzle.ask.kroner.twoThings', { price: p, other: q });
 			return [{ text }];
 		}
 		case 'fraction':

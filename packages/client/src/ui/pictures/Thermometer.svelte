@@ -24,7 +24,9 @@
 	const end = $derived(
 		how === THERMOMETER.colder ? start - other : how === THERMOMETER.warmer ? start + other : other
 	);
-	const reach = $derived(Math.max(10, 10 * Math.ceil(Math.max(Math.abs(start), Math.abs(end)) / 10)));
+	const reach = $derived(
+		Math.max(10, 10 * Math.ceil(Math.max(Math.abs(start), Math.abs(end)) / 10))
+	);
 	/** A tick every degree up to 20, every two beyond; a number every 5 up to 10, every 10 beyond. */
 	const minor = $derived(reach <= 20 ? 1 : 2);
 	const label = $derived(reach <= 10 ? 5 : 10);

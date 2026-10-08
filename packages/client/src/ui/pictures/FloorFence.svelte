@@ -24,12 +24,12 @@
 	const ch = $derived(missing ? 0 : (numbers[4] ?? 0));
 	const grid = $derived(!missing && numbers[5] === 1);
 
-	const BOX = { w: 250, h: 170 };
+	const BOX = { w: 250, h: 160 };
 	/** Room round the shape for the sides' numbers. */
 	const PAD = 34;
 	const cell = $derived(Math.min(BOX.w / w, BOX.h / h));
 	const left = $derived(PAD + (BOX.w - w * cell) / 2);
-	const top = $derived(PAD / 2 + (BOX.h - h * cell) / 2);
+	const top = $derived(PAD + (BOX.h - h * cell) / 2);
 
 	function px(x: number): number {
 		return left + x * cell;
@@ -57,7 +57,8 @@
 				]
 	);
 	const path = $derived(
-		outline.map(([x, y], i) => `${i === 0 ? 'M' : 'L'}${px(x!)} ${py(y!)}`).join(' ') + ' Z'
+		// SVG path data: M, then L to each corner, Z to close.
+		`M${outline.map(([x, y]) => `${px(x!)},${py(y!)}`).join('L')}Z`
 	);
 	const inside = (x: number, y: number) => !(x >= w - cw && y < ch);
 
@@ -74,13 +75,14 @@
 			return { length, x: mx + dy * 18, y: my - dx * 16, vertical: dx === 0 };
 		})
 	);
-	/** The fence's posts: at every tile's corner in squares, else at the corners and about every tile. */
+	/** The fence's posts: at every tile's corner in squares, else at the shape's corners only. */
 	const posts = $derived.by(() => {
 		const out: [number, number][] = [];
 		outline.forEach(([x1, y1], i) => {
 			const [x2, y2] = outline[(i + 1) % outline.length]!;
 			const length = Math.abs(x2! - x1!) + Math.abs(y2! - y1!);
-			const steps = grid ? length : Math.min(length, 6);
+			// Without squares, posts only at the corners: posts between them would be counted as pieces.
+			const steps = grid ? length : 1;
 			for (let k = 0; k < steps; k++) {
 				out.push([px(x1! + ((x2! - x1!) * k) / steps), py(y1! + ((y2! - y1!) * k) / steps)]);
 			}
@@ -89,7 +91,7 @@
 	});
 </script>
 
-<svg viewBox="0 0 {BOX.w + 2 * PAD} {BOX.h + PAD}" class="picture" aria-hidden="true">
+<svg viewBox="0 0 {BOX.w + 2 * PAD} {BOX.h + 2 * PAD}" class="picture" aria-hidden="true">
 	<path d={path} class="area" class:floor={!fence} class:grass={fence} />
 	{#if grid}
 		{#each Array.from({ length: w * h }, (_, k) => k) as k (k)}
