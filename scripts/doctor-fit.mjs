@@ -106,12 +106,12 @@ const ALL_WELL = TEAM.map(well).map((a) => (a.speciesId === 'rabbit' ? { ...a, h
 const SHOP = ['axe', 'pickaxe', 'boat', 'glider', 'harness'];
 const sum = (prompt, answer, kind = 'add') => ({ kind, difficulty: 5, prompt, answer });
 
-const heal = (prompt, answer) => ({
+const heal = (prompt, answer, kind = 'add', difficulty = 5) => ({
 	party: TEAM,
 	tab: 'heal',
 	screen: 'puzzle',
 	patient: 0,
-	puzzle: sum(prompt, answer),
+	puzzle: { ...sum(prompt, answer, kind), difficulty },
 	input: String(answer),
 	find: { kind: 'animal', partyIndex: 0 },
 	line: { say: 'letsHelp', animal: bears[0], others: 2 }
@@ -163,6 +163,19 @@ const STATES = {
 	'heal-puzzle-seq': heal('13, 39, 117, 351, ?', 1053),
 	'heal-puzzle-short': heal('20 − 10 = ?', 10),
 	'heal-puzzle-div': heal('1620 ÷ 18 = ?', 90),
+	// The Arctic's heals ask its picture kinds (#192), at a tier-2 animal's healing difficulty:
+	// each the biggest picture and the longest question its kind asks there.
+	'heal-thermometer': heal('thermometer(1, -10, 12)', 2, 'thermometer', 3),
+	'heal-kroner': heal('kroner(0, 0, 1, 1, 2, 1, 0, 0, 0, 0, 0)', 47, 'kroner', 3),
+	'heal-fraction': heal('fraction(1, 3, 12)', 4, 'fraction', 3),
+	'heal-shape': heal('shape(1, 4, 3, 0, 0, 1)', 14, 'shape', 3),
+	'heal-barchart': heal('barchart(2, 1, 0, 2, 4, 3, 10, 10, 10, 0)', 13, 'barchart', 3),
+	'heal-clock': { ...heal('clock(0, 11, 30, 0, 0)', 690, 'clock', 3), input: '11:30' },
+	'heal-balance': heal('21 + □ = 23 + 20', 22, 'balance', 3),
+	'heal-picture-miss': wrong(heal('barchart(2, 1, 0, 2, 4, 3, 10, 10, 10, 0)', 13, 'barchart', 3), {
+		say: 'notQuite'
+	}),
+	'heal-picture-correct': right(heal('kroner(0, 0, 1, 1, 2, 1, 0, 0, 0, 0, 0)', 47, 'kroner', 3)),
 	'heal-miss': wrong(heal('13, 39, 117, 351, ?', 1053), { say: 'notQuite' }),
 	'heal-correct': right(heal('13, 39, 117, 351, ?', 1053)),
 	'heal-reward': right(heal('13, 39, 117, 351, ?', 1053), {

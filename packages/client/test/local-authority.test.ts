@@ -3537,15 +3537,22 @@ describe('LocalAuthority: lands (#191)', () => {
 			firstVisit: true,
 			edits: []
 		});
-		// The visit ended first, then the trip, then the land's own party and things: none yet.
+		// The visit ended first, then the trip, then the land's own party and things: none yet,
+		// and so a starter of The Arctic's own to pick (#192).
 		const at = lastIndexOf(s, 'travelled');
 		expect(s.events[at - 1]?.type).toBe('doctor-visit-ended');
 		expect(s.events.slice(at + 1).map((e) => e.type)).toEqual([
 			'party-changed',
-			'belongings-changed'
+			'belongings-changed',
+			'starter-wanted'
 		]);
 		expect(party(s)).toEqual([]);
-		expect(s.events.at(-1)).toEqual({ type: 'belongings-changed', tokens: 0, items: [] });
+		expect(s.events.at(-2)).toEqual({ type: 'belongings-changed', tokens: 0, items: [] });
+		expect(s.events.at(-1)).toEqual({
+			type: 'starter-wanted',
+			land: 'arctic',
+			starters: ['arctic-fox', 'arctic-hare', 'puffin']
+		});
 		// Beside a witch doctor of The Arctic, facing it: the fare was a puzzle solved.
 		expect(canTalkToDoctor(landSeed('arctic', 1), trip.pos, trip.facing)).toBe(true);
 		expect(s.authority.snapshot()).toMatchObject({
@@ -3557,12 +3564,12 @@ describe('LocalAuthority: lands (#191)', () => {
 		expect(s.authority.snapshot().lands[0]!.party).toEqual(nordlandParty);
 	});
 
-	it('in a land with nothing built (no starters), asks no starter; the witch doctor flies the kid home', () => {
+	it('in a land the kid has no animal of, asks for one of its starters, and the witch doctor still flies the kid home', () => {
 		const s = session({ lands: true, tokens: 12 });
 		walkToTent(s);
 		flyTo(s, 'arctic');
 		const there = travelled(s);
-		expect(s.events.some((e) => e.type === 'starter-wanted')).toBe(false);
+		expect(s.events.some((e) => e.type === 'starter-wanted')).toBe(true);
 		// Home: the witch doctor they came down at flies them back to Nordland, as they left it.
 		flyTo(s, 'nordland');
 		const home = travelled(s);

@@ -10,6 +10,7 @@ import type {
 } from '../src/match/types.js';
 import { matchView } from '../src/match/view.js';
 import { Rng, hashInts } from '../src/rng.js';
+import { typed } from './typed.js';
 
 /**
  * Scripted players for driving whole friendly matches in tests and
@@ -74,9 +75,8 @@ export function nextMatchIntent(
 			return null;
 		case 'solving': {
 			if (state.phase.kind !== 'solving') throw new Error('the view and the state disagree');
-			const answer = state.phase.puzzle.answer;
 			const right = rng.chance(player.accuracy);
-			return { side, intent: { type: 'answer', input: String(right ? answer : answer + 1) } };
+			return { side, intent: { type: 'answer', input: typed(state.phase.puzzle, right) } };
 		}
 		case 'choose-animal': {
 			const standing = standingOthers(state, side);

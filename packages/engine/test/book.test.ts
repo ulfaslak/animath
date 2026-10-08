@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
-	BOOK_ORDER,
+	bookOrder,
 	EMPTY_BOOK,
 	bookOf,
 	catchSpecies,
@@ -16,6 +16,7 @@ import {
 } from '../src/animals/book.js';
 import { ANIMALS, canFightIn, getAnimal } from '../src/animals/catalog.js';
 import { applyDoctorIntent, startDoctorVisit } from '../src/doctor/reducer.js';
+import { LANDS } from '../src/lands/lands.js';
 import type { DoctorIntent, DoctorState } from '../src/doctor/types.js';
 import type { BattleOutcome, BattleState, BattleStep } from '../src/battle/types.js';
 import { Rng, hashInts } from '../src/rng.js';
@@ -46,21 +47,34 @@ function whole(book: AnimalBook): string[] {
 }
 
 describe("the book's order", () => {
-	it('holds every species of the catalog once, by tier from small to big, then in catalog order', () => {
-		expect(BOOK_ORDER.map((a) => a.id).sort()).toEqual([...IDS].sort());
-		expect(BOOK_ORDER).toHaveLength(ANIMALS.length);
+	it("holds every species of each land once, on the land's own page, by tier from small to big, then in catalog order", () => {
+		const pages = LANDS.map((land) => bookOrder(land.id));
+		// Every species is on exactly one land's page: no Arctic animal in Nordland's, and none left out.
+		expect(pages.flatMap((page) => page.map((a) => a.id)).sort()).toEqual([...IDS].sort());
 		const bad: string[] = [];
-		for (let i = 1; i < BOOK_ORDER.length; i++) {
-			const [a, b] = [BOOK_ORDER[i - 1]!, BOOK_ORDER[i]!];
-			if (a.tier > b.tier) bad.push(`${a.id} (${a.tier}) before ${b.id} (${b.tier})`);
-			if (a.tier === b.tier && IDS.indexOf(a.id) > IDS.indexOf(b.id)) {
-				bad.push(`${a.id} before ${b.id}, against the catalog`);
+		for (const [i, page] of pages.entries()) {
+			expect(page.map((a) => a.id).sort()).toEqual([...LANDS[i]!.species].sort());
+			for (let j = 1; j < page.length; j++) {
+				const [a, b] = [page[j - 1]!, page[j]!];
+				if (a.tier > b.tier) bad.push(`${a.id} (${a.tier}) before ${b.id} (${b.tier})`);
+				if (a.tier === b.tier && IDS.indexOf(a.id) > IDS.indexOf(b.id)) {
+					bad.push(`${a.id} before ${b.id}, against the catalog`);
+				}
 			}
+			// The land's starters lead, as the catalog lists them.
+			const starters = LANDS[i]!.starters;
+			expect(page.slice(0, starters.length).map((a) => a.id)).toEqual([...starters]);
 		}
 		expect(bad).toEqual([]);
-		// The small ones first, the starters leading as the catalog lists them; the biggest last.
-		expect(BOOK_ORDER.slice(0, 3).map((a) => a.id)).toEqual(['squirrel', 'rabbit', 'frog']);
-		expect(BOOK_ORDER.at(-1)!.tier).toBe(5);
+		// Nordland's 50, the biggest last; The Arctic's first wave, its small land animals.
+		expect(bookOrder('nordland')).toHaveLength(50);
+		expect(bookOrder('nordland').at(-1)!.tier).toBe(5);
+		expect(
+			bookOrder('arctic')
+				.slice(0, 3)
+				.map((a) => a.id)
+		).toEqual(['arctic-fox', 'arctic-hare', 'puffin']);
+		expect(bookOrder('arctic')).toBe(bookOrder('arctic'));
 	});
 });
 

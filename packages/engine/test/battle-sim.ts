@@ -3,6 +3,7 @@ import { REALMS, type AnimalInstance, type AttackLevel, type Realm } from '../sr
 import { applyBattleIntent, startBattle } from '../src/battle/reducer.js';
 import type { BattleEvent, BattleIntent, BattleState, BattleStep } from '../src/battle/types.js';
 import { Rng, hashInts } from '../src/rng.js';
+import { typed } from './typed.js';
 
 /**
  * A scripted player for driving whole battles in tests and simulations.
@@ -71,9 +72,8 @@ export function nextIntent(state: BattleState, model: PlayerModel, rng: Rng): Ba
 		case 'ended':
 			return null;
 		case 'solving': {
-			const answer = state.phase.puzzle.answer;
 			const correct = rng.chance(model.accuracy);
-			return { type: 'answer', input: String(correct ? answer : answer + 1) };
+			return { type: 'answer', input: typed(state.phase.puzzle, correct) };
 		}
 		case 'choose-animal': {
 			const standing = others(state);

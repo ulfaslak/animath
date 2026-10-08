@@ -1,7 +1,7 @@
 <script lang="ts">
 	import {
-		BOOK_ORDER,
 		MAX_NICKNAME_LENGTH,
+		bookOrder,
 		bundles,
 		canFightIn,
 		getAnimal,
@@ -13,12 +13,12 @@
 	import { sfx } from '../audio/sfx.svelte';
 	import { LANGUAGES, language, languageName, t } from '../copy';
 	import { stackSummary } from '../hp';
-	import { languageKey, optionKey, rowKey, unfocusable } from '../input/press';
+	import { landKey, languageKey, optionKey, rowKey, unfocusable } from '../input/press';
 	import { touch } from '../input/touch.svelte';
 	import { motion } from '../motion';
 	import { animalWords, nameOf, speciesName } from '../names';
 	import { account } from '../state/account.svelte';
-	import { book } from '../state/book.svelte';
+	import { book, bookLands } from '../state/book.svelte';
 	import { game } from '../state/game.svelte';
 	import { presence } from '../state/presence.svelte';
 	import {
@@ -73,7 +73,8 @@
 	 *
 	 * The animal book's row stands on the menu's title line, beside "Paused",
 	 * so the menu keeps its height; it opens the book in the menu's place: a
-	 * card for every species in the book's order (`BOOK_ORDER`), in a grid
+	 * card for every species of a land in the book's order (`bookOrder`), a
+	 * page per land with a tab for each over the cards (`bookLands`), in a grid
 	 * that scrolls — a "?" for one never seen, the figure's picture and name
 	 * for one seen, and a green tick on its corner for one caught — the
 	 * count beside the title, and under the grid what the lit card says. A
@@ -128,16 +129,24 @@
 	const caught = $derived(new Set(game.caught));
 	const freed = $derived(new Set(game.freed));
 	const onTeam = $derived(new Set(game.party.map((a) => a.speciesId)));
-	/** The book's count: kinds caught, kinds seen, every kind there is. */
+	/** The lands with a page, a tab each when there are two or more (#191). */
+	const pages = $derived(bookLands(game.land));
+	/** The page open in the book: its land's kinds. The row on the list counts the land the kid is in. */
+	const page = $derived(bookOrder(pause.screen === 'book' ? book.land : game.land));
+	/** How many kinds of `page` are in `kinds`. */
+	const ofPage = (kinds: ReadonlySet<string>) => page.filter((a) => kinds.has(a.id)).length;
+	/** The book's count: kinds caught, kinds seen, every kind there is, in the land of the page. */
 	const bookCount = $derived(
-		t('book.count', { caught: caught.size, seen: seen.size, all: BOOK_ORDER.length })
+		t('book.count', { caught: ofPage(caught), seen: ofPage(seen), all: page.length })
 	);
-	/** The kinds set free, of every kind there is. */
-	const freedCount = $derived(t('book.freed', { freed: freed.size, all: BOOK_ORDER.length }));
-	/** What the lit card says, under the book. */
+	/** The kinds set free, of every kind there is in the land of the page: the way to the next land. */
+	const freedCount = $derived(t('book.freed', { freed: ofPage(freed), all: page.length }));
+	/** What the lit card says, under the book; on the land tabs, what the tabs are. */
 	const bookCaption = $derived.by(() => {
-		const spec = BOOK_ORDER[Math.min(pause.option, BOOK_ORDER.length - 1)];
-		if (pause.screen !== 'book' || !spec) return '';
+		if (pause.screen !== 'book') return '';
+		if (book.tabs) return t('book.lands');
+		const spec = page[Math.min(pause.option, page.length - 1)];
+		if (!spec) return '';
 		const animal = animalWords({ speciesId: spec.id });
 		if (caught.has(spec.id)) {
 			if (!onTeam.has(spec.id)) return t('book.caughtHome', { animal });
@@ -374,7 +383,7 @@
 			<BookIcon />
 			<span class="setting">{itemLabel(item)}</span>
 			<span class="setting-value"
-				>{t('book.row', { caught: caught.size, all: BOOK_ORDER.length })}</span
+				>{t('book.row', { caught: ofPage(caught), all: page.length })}</span
 			>
 		{:else}
 			<span class="button" class:secondary={item !== 'resume'}>{itemLabel(item)}</span>
@@ -454,15 +463,32 @@
 				/>
 			</div>
 		{:else if pause.screen === 'book'}
-			<!-- The animal book, in the menu's place: every kind there is, in a grid that scrolls. -->
+			<!-- The animal book, in the menu's place: a tab per land, and every kind of the land open,
+			     in a grid that scrolls. -->
+			{#if pages.length > 1}
+				<div class="book-lands">
+					{#each pages as land (land)}
+						<button
+							type="button"
+							class="land-tab"
+							class:open={book.land === land}
+							class:lit={book.tabs && book.land === land}
+							data-press={landKey(land)}
+							{@attach unfocusable}
+						>
+							{t(`lands.${land}.name`)}
+						</button>
+					{/each}
+				</div>
+			{/if}
 			<div class="book-grid" {@attach bookGrid}>
-				{#each BOOK_ORDER as spec, i (spec.id)}
+				{#each page as spec, i (spec.id)}
 					{@const kind = caught.has(spec.id) ? 'caught' : seen.has(spec.id) ? 'seen' : 'unseen'}
 					{@const picture = book.portraits[spec.id]}
 					<button
 						type="button"
 						class="card {kind}"
-						class:lit={pause.option === i}
+						class:lit={!book.tabs && pause.option === i}
 						class:sea={!canFightIn(spec.id, 'land')}
 						data-press={optionKey(i)}
 						{@attach unfocusable}
@@ -1234,6 +1260,31 @@
 		white-space: nowrap;
 		font-variant-numeric: tabular-nums;
 	}
+	/* The lands' tabs over the cards: the open one filled, the lit one ringed as a card is. */
+	.book-lands {
+		flex: none;
+		display: flex;
+		gap: 10px;
+		margin-bottom: 8px;
+	}
+	.land-tab {
+		min-height: 44px;
+		padding: 0 20px;
+		border-radius: 22px;
+		background: rgba(0, 0, 0, 0.06);
+		color: var(--panel-ink);
+		font-weight: 800;
+		font-size: 18px;
+		outline: 3px solid transparent;
+		outline-offset: 2px;
+	}
+	.land-tab.open {
+		background: var(--accent);
+		color: white;
+	}
+	.land-tab.lit {
+		outline-color: var(--accent);
+	}
 	.book-grid {
 		flex: 1;
 		min-height: 0;
@@ -1392,6 +1443,13 @@
 		}
 		.book-open .title {
 			font-size: 26px;
+		}
+		.land-tab {
+			min-height: 36px;
+			font-size: 16px;
+		}
+		.book-lands {
+			margin-bottom: 4px;
 		}
 		.book-grid {
 			grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));

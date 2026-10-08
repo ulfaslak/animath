@@ -153,6 +153,13 @@ export interface LocalAuthorityOptions {
 	 */
 	lands?: boolean;
 	/**
+	 * Start in this land instead of Nordland: the `?land=arctic` URL switch,
+	 * which opens every land as `lands` does, for looking at a land's animals
+	 * at home there (`?party=` is then that land's party), in a game that is
+	 * saved nowhere. Nordland, never visited, has no party of the kid's.
+	 */
+	land?: LandId;
+	/**
 	 * The world a new game from the title starts in, its home: by default one
 	 * picked at random from 2 to 9999, so strangers don't all start in one
 	 * world ([[PRODUCT]] §4 "Starting out"). Tests pin it.
@@ -452,15 +459,23 @@ export class LocalAuthority implements Authority {
 	 * book holds its party.
 	 */
 	private newGame(): SavedGame {
+		const land = this.options.land ?? FIRST_LAND;
+		const started = newGame(FIRST_WORLD, { ...defaultStarter(land), id: mintId() });
 		const game = {
-			...newGame(FIRST_WORLD, { ...defaultStarter(), id: mintId() }),
+			...started,
+			// A throwaway game in another land (`?land=`) starts at that land's spawn.
+			land,
+			pos: land === FIRST_LAND ? started.pos : spawnPoint(landSeed(land, FIRST_WORLD)),
 			tokens: this.options.tokens ?? 0,
 			items: [...(this.options.items ?? [])],
-			unlocked: this.options.lands ? [...LAND_IDS] : [FIRST_LAND]
+			unlocked: this.options.lands || land !== FIRST_LAND ? [...LAND_IDS] : [FIRST_LAND]
 		};
-		// An empty `?party=` is no party: the starter, as without one.
-		if (!this.options.party?.length) return game;
-		const party = bundled(this.options.party).map((a) => ({ ...a }));
+		// A `?party=` brings only the animals of the land the game starts in, as every land's
+		// party is its own; with none of them (or an empty one), the land's starter, as without.
+		const own = new Set(getLand(land).species);
+		const animals = (this.options.party ?? []).filter((a) => own.has(a.speciesId));
+		if (!animals.length) return game;
+		const party = bundled(animals).map((a) => ({ ...a }));
 		const book = recordParty(EMPTY_BOOK, party);
 		return {
 			...game,
@@ -645,7 +660,13 @@ export class LocalAuthority implements Authority {
 		// team that needs the doctor walks to one in peace, and a boat with no
 		// swimmer standing sails in peace.
 		const rng = new Rng(hashInts(this.seed, ENCOUNTER_SALT, this.steps));
-		const site = { tile, pos: next, spawn: this.spawn, around: surroundings(this.seed, next) };
+		const site = {
+			land: this.land,
+			tile,
+			pos: next,
+			spawn: this.spawn,
+			around: surroundings(this.seed, next)
+		};
 		const wild = rollEncounterFor(rng, site, this.party);
 		if (wild) this.beginBattle({ ...wild, id: mintId() }, tileRealm(tile.kind));
 	}
@@ -879,7 +900,13 @@ export class LocalAuthority implements Authority {
 		if (!lead) return null;
 		const rng = new Rng(hashInts(this.seed, SKY_SALT, steps));
 		const tile = tileAtWorld(this.seed, pos.x, pos.y);
-		const site = { tile, pos, spawn: this.spawn, around: surroundings(this.seed, pos) };
+		const site = {
+			land: this.land,
+			tile,
+			pos,
+			spawn: this.spawn,
+			around: surroundings(this.seed, pos)
+		};
 		const bird = rollSkyEncounter(rng, site, getAnimal(lead.speciesId).tier);
 		if (!bird) return null;
 		// One id per step a bird notices on, however often a save lands the flight ahead of time.

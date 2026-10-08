@@ -1,3 +1,6 @@
+import { LAND_IDS, availableLands, type LandId } from '@mathgame/engine';
+import { flags } from '../flags';
+
 /**
  * What the animal book shows besides the game's own record (`game.seen`,
  * `game.caught`) and the pause menu's cursor (`pause.option`, the lit card):
@@ -23,6 +26,25 @@ class BookView {
 	 */
 	hops = $state(0);
 	hopping = $state<string | null>(null);
+	/**
+	 * The land whose page is open: a tab per land (#191), the land the kid
+	 * is in when the book opens (`pause/controller.ts`).
+	 */
+	land = $state<LandId>('nordland');
+	/** The cursor is on the land tabs over the cards, not on a card: up from the top row. */
+	tabs = $state(false);
+}
+
+/**
+ * The lands with a page in the book, in their order: every land open to
+ * players in this build, and the land the kid is in (a throwaway game's
+ * `?lands` opens them all). A land not built yet has no page, so the book
+ * never shows a kid animals of a land they cannot go to; with one page, no
+ * tabs show.
+ */
+export function bookLands(here: LandId): LandId[] {
+	const open: readonly LandId[] = flags.lands ? LAND_IDS : availableLands();
+	return LAND_IDS.filter((id) => open.includes(id) || id === here);
 }
 
 export const book = new BookView();

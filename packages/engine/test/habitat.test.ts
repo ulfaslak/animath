@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { ANIMALS, getAnimal, skiesOf } from '../src/animals/catalog.js';
 import { REALMS, TERRAINS, type Terrain } from '../src/animals/types.js';
+import { getLand } from '../src/lands/lands.js';
 import { hashString } from '../src/rng.js';
 import { generateChunk, tileAtWorld } from '../src/world/generate.js';
 import { spawnPoint } from '../src/world/spawn.js';
@@ -205,8 +206,10 @@ describe('where each species lives', () => {
 			expect(species.realms.length, species.id).toBeGreaterThan(0);
 			expect(new Set(species.realms).size, species.id).toBe(species.realms.length);
 			for (const realm of species.realms) expect(REALMS, species.id).toContain(realm);
-			// Living only in the water is living in the sea, the deep water's biome, and nowhere
-			// else: an encounter out there is the only way to meet one.
+			// In Nordland, living only in the water is living in the sea, the deep water's biome,
+			// and nowhere else: an encounter out there is the only way to meet one. (The Arctic's
+			// sea animals and the ones in its holes in the ice come with #192's third wave.)
+			if (!getLand('nordland').species.includes(species.id)) continue;
 			const aquatic = !species.realms.includes('land');
 			expect(aquatic, species.id).toBe(species.habitats.includes('sea'));
 			if (aquatic) expect(species.habitats, species.id).toEqual(['sea']);
@@ -219,7 +222,14 @@ describe('where each species lives', () => {
 			'otter',
 			'common-toad',
 			'beaver',
-			'mute-swan'
+			'mute-swan',
+			// The Arctic's (#192): the swimming birds and the penguins.
+			'puffin',
+			'adelie-penguin',
+			'king-eider',
+			'barnacle-goose',
+			'gentoo-penguin',
+			'chinstrap'
 		]);
 		const aquatic = ANIMALS.filter((a) => !a.realms.includes('land'));
 		expect(aquatic.map((a) => a.id)).toEqual([
@@ -250,7 +260,17 @@ describe('where each species lives', () => {
 			'mute-swan',
 			'eagle-owl',
 			'golden-eagle',
-			'white-tailed-eagle'
+			'white-tailed-eagle',
+			// The Arctic's (#192). Its penguins swim and never fly.
+			'puffin',
+			'snow-bunting',
+			'rock-ptarmigan',
+			'waxwing',
+			'snow-petrel',
+			'arctic-tern',
+			'king-eider',
+			'raven',
+			'barnacle-goose'
 		]);
 		for (const bird of flyers) {
 			// A bird is a land animal that also flies: caught in the grass, it fights on land too.
@@ -261,8 +281,23 @@ describe('where each species lives', () => {
 			for (const biome of bird.habitats) expect(skies, bird.id).toContain(biome);
 		}
 		expect(skiesOf(getAnimal('white-tailed-eagle'))).toEqual(['river', 'sea']);
+		// The Arctic's seabirds fly out over the open sea (#192), the snow petrel over the sea ice
+		// and the raven over the frozen lakes and the sea ice, where it scavenges all winter.
+		expect(skiesOf(getAnimal('puffin'))).toEqual(['bird-cliffs', 'arctic-ocean']);
+		expect(skiesOf(getAnimal('arctic-tern'))).toEqual([
+			'bird-cliffs',
+			'tundra',
+			'antarctic-ice',
+			'arctic-ocean',
+			'southern-ocean'
+		]);
 		expect(ANIMALS.filter((a) => a.skies !== undefined).map((a) => a.id)).toEqual([
-			'white-tailed-eagle'
+			'white-tailed-eagle',
+			'puffin',
+			'snow-petrel',
+			'arctic-tern',
+			'king-eider',
+			'raven'
 		]);
 		// An animal that does not fly flies over no sky, whatever its entry says.
 		for (const a of ANIMALS) if (!a.realms.includes('air')) expect(skiesOf(a), a.id).toEqual([]);
@@ -304,7 +339,10 @@ describe('where each species lives', () => {
 			'harbour-seal',
 			'harbour-porpoise',
 			'grey-seal',
-			'orca'
+			'orca',
+			'puffin',
+			'arctic-tern',
+			'king-eider'
 		]);
 		expect(by('trees')).toEqual([
 			'squirrel',
@@ -319,7 +357,8 @@ describe('where each species lives', () => {
 			'tawny-owl',
 			'buzzard',
 			'wild-boar',
-			'lynx'
+			'lynx',
+			'waxwing'
 		]);
 		expect(by('rocks')).toEqual([
 			'wolf',
@@ -329,9 +368,26 @@ describe('where each species lives', () => {
 			'adder',
 			'eagle-owl',
 			'wolverine',
-			'golden-eagle'
+			'golden-eagle',
+			'arctic-hare',
+			'snow-bunting',
+			'rock-ptarmigan',
+			'adelie-penguin',
+			'snow-petrel',
+			'raven',
+			'chinstrap'
 		]);
-		expect(by('open')).toEqual(['rabbit', 'shrew', 'hedgehog', 'mole', 'european-bison']);
+		expect(by('open')).toEqual([
+			'rabbit',
+			'shrew',
+			'hedgehog',
+			'mole',
+			'european-bison',
+			'arctic-fox',
+			'arctic-lemming',
+			'barnacle-goose',
+			'gentoo-penguin'
+		]);
 	});
 
 	it('only tall grass starts an encounter, and it is on land', () => {

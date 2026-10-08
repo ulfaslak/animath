@@ -1,5 +1,5 @@
 import {
-	BOOK_ORDER,
+	bookOrder,
 	applyPartyIntent,
 	bundled,
 	bundles,
@@ -14,7 +14,7 @@ import { sfx } from '../src/audio/sfx.svelte';
 import { LocalAuthority } from '../src/authority/local';
 import { language } from '../src/copy';
 import { parseParty } from '../src/flags';
-import { languageKey, optionKey, rowKey } from '../src/input/press';
+import { landKey, languageKey, optionKey, rowKey } from '../src/input/press';
 import { PauseController } from '../src/pause/controller';
 import { account } from '../src/state/account.svelte';
 import { book } from '../src/state/book.svelte';
@@ -772,7 +772,7 @@ describe('the animal book', () => {
 	});
 
 	it('walks the cards as the grid lays them out: one by one, a row up or down, never past an edge', () => {
-		const count = BOOK_ORDER.length;
+		const count = bookOrder('nordland').length;
 		const bad: string[] = [];
 		for (const columns of [1, 5, 6, 7, count, count + 3]) {
 			pause.reset();
@@ -815,8 +815,8 @@ describe('the animal book', () => {
 		try {
 			const { press } = setup('squirrel,fox');
 			press('Escape', 'ArrowUp', 'Enter');
-			const fox = BOOK_ORDER.findIndex((a) => a.id === 'fox');
-			const bear = BOOK_ORDER.findIndex((a) => a.id === 'bear');
+			const fox = bookOrder('nordland').findIndex((a) => a.id === 'fox');
+			const bear = bookOrder('nordland').findIndex((a) => a.id === 'bear');
 			cues.length = 0;
 			press(optionKey(fox));
 			expect([pause.option, book.hops, cues]).toEqual([fox, 0, ['move']]);
@@ -829,10 +829,53 @@ describe('the animal book', () => {
 			expect([pause.option, book.hops, book.hopping]).toEqual([bear, 3, 'fox']);
 			expect(cues).toEqual(['move', 'confirm', 'confirm', 'confirm', 'move']);
 			// A tap past the last card lights nothing.
-			press(optionKey(BOOK_ORDER.length));
+			press(optionKey(bookOrder('nordland').length));
 			expect(pause.option).toBe(bear);
 		} finally {
 			stop();
+		}
+	});
+
+	it("opens on the page of the land the kid is in; up from the top row lights the lands' tabs, where left and right open the land beside (#191)", () => {
+		const cues: CueName[] = [];
+		const stop = sfx.onCue((cue) => cues.push(cue));
+		try {
+			const { press } = setup();
+			// In Nordland, with The Arctic not built, there is one page and no tab: up stays put.
+			press('Escape', 'ArrowUp', 'Enter');
+			expect([book.land, book.tabs]).toEqual(['nordland', false]);
+			cues.length = 0;
+			press('ArrowUp');
+			expect([book.tabs, cues]).toEqual([false, []]);
+			press('Escape');
+			// Flown to The Arctic: its page opens, and Nordland's is a tab away.
+			game.land = 'arctic';
+			press('Enter');
+			expect([pause.screen, book.land, book.tabs, pause.option]).toEqual([
+				'book',
+				'arctic',
+				false,
+				0
+			]);
+			press('ArrowRight', 'ArrowRight', 'ArrowUp');
+			expect([book.tabs, pause.option]).toEqual([true, 2]);
+			// Right from the last land stays; left opens Nordland's page, on its first card.
+			press('ArrowRight');
+			expect(book.land).toBe('arctic');
+			press('ArrowLeft');
+			expect([book.land, book.tabs, pause.option]).toEqual(['nordland', true, 0]);
+			press('ArrowDown');
+			expect([book.tabs, pause.option]).toEqual([false, 0]);
+			// A tap on a tab opens its page; Enter goes down to its first card.
+			press(landKey('arctic'));
+			expect([book.land, book.tabs]).toEqual(['arctic', true]);
+			press('Enter');
+			expect([book.land, book.tabs, pause.option]).toEqual(['arctic', false, 0]);
+			// The cards are the land's own: Enter on the first one hops an Arctic fox, if met.
+			expect(bookOrder('arctic')[0]!.id).toBe('arctic-fox');
+		} finally {
+			stop();
+			game.land = 'nordland';
 		}
 	});
 
