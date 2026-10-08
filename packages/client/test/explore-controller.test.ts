@@ -52,6 +52,8 @@ function setup(startingParty: string, saved?: SavedGame) {
 		setWorld() {},
 		setBoat() {},
 		setGlider() {},
+		castPlaying: false,
+		fish() {},
 		setLandingSpot(at: GridPos | null, tool: string | null = null) {
 			rings.push(at && { ...at, tool });
 		},

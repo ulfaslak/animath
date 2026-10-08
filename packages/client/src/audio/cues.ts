@@ -351,9 +351,9 @@ export const CUES: Record<CueName, Cue> = {
 			},
 			{ at: 0, dur: 0.1, wave: 'sine', freq: 260, to: 140, gain: 0.22, attack: 0.003 },
 			pluck(0.12, 3100, 0.06, 0.1, 'sine'),
-			pluck(0.18, 3900, 0.05, 0.09, 'sine'),
+			pluck(0.18, 3300, 0.05, 0.09, 'sine'),
 			pluck(0.25, 3500, 0.05, 0.08, 'sine'),
-			pluck(0.33, 4400, 0.05, 0.06, 'sine')
+			pluck(0.33, 3700, 0.05, 0.06, 'sine')
 		]
 	},
 	/** A line cast at a fishing hole: the rod's swish, then a little plop as the bobber lands. */

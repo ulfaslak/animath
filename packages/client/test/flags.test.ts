@@ -1,4 +1,4 @@
-import { FIRST_WORLD, getAnimal, type GameEvent } from '@mathgame/engine';
+import { FIRST_WORLD, ITEM_IDS, getAnimal, type GameEvent } from '@mathgame/engine';
 import { LocalAuthority } from '../src/authority/local';
 import { describe, expect, it } from 'vitest';
 import {
@@ -26,6 +26,7 @@ describe('URL switches', () => {
 			shop: null,
 			items: null,
 			lands: false,
+			land: null,
 			throwaway: false
 		});
 		expect(readFlags('?zoo&debug&steps=20&party=fox&new&tokens=40&shop&items=harness')).toEqual({
@@ -36,9 +37,10 @@ describe('URL switches', () => {
 			party: [{ id: 'party-1', speciesId: 'fox', hp: getAnimal('fox').maxHp }],
 			fresh: true,
 			tokens: 40,
-			shop: ['axe', 'pickaxe', 'boat', 'glider', 'harness'],
+			shop: [...ITEM_IDS],
 			items: ['harness'],
 			lands: false,
+			land: null,
 			throwaway: true
 		});
 		// `?lands`: every land open and unlocked, in a throwaway game.
