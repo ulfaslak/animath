@@ -1,4 +1,10 @@
-import { FIRST_WORLD, LAST_WORLD, WORLD_ONE_SEED, isWorldNumber, worldSeed } from '../world/numbers.js';
+import {
+	FIRST_WORLD,
+	LAST_WORLD,
+	WORLD_ONE_SEED,
+	isWorldNumber,
+	worldSeed
+} from '../world/numbers.js';
 
 /**
  * The lands' names and seeds ([[PRODUCT]] §4 "Lands", #191): a leaf module,

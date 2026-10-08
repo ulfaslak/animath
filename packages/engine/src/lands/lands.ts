@@ -176,7 +176,10 @@ export function shopFor(id: LandId): ItemId[] {
  * A land before another with no species yet (one still being built) unlocks
  * nothing: a kid sets free one of every animal there is, never of none.
  */
-export function unlockLands(unlocked: readonly string[], freed: Iterable<string>): readonly string[] {
+export function unlockLands(
+	unlocked: readonly string[],
+	freed: Iterable<string>
+): readonly string[] {
 	const set = new Set(freed);
 	const open = new Set<string>(unlocked);
 	open.add(FIRST_LAND);

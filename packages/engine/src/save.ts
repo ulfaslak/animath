@@ -816,7 +816,8 @@ function findSaveError(input: Doc): string | null {
 			const error = validateLandStay(lands[i], `lands[${i}]`);
 			if (error) return error;
 			const id = (lands[i] as SavedLandStay).land;
-			if (seen.has(id)) return `lands[${i}].land repeats the land the player is in, or an earlier one`;
+			if (seen.has(id))
+				return `lands[${i}].land repeats the land the player is in, or an earlier one`;
 			seen.add(id);
 		}
 	}
@@ -1088,7 +1089,9 @@ function landStayOf(home: number): (saved: SavedLandStay) => LandStay {
 	return (saved) => ({
 		land: saved.land as LandId,
 		party: bundled(
-			saved.party.map((a) => cleanAnimal({ ...a, hp: Math.min(a.hp, getAnimal(a.speciesId).maxHp) }))
+			saved.party.map((a) =>
+				cleanAnimal({ ...a, hp: Math.min(a.hp, getAnimal(a.speciesId).maxHp) })
+			)
 		),
 		tokens: saved.tokens ?? 0,
 		items: [...new Set(saved.items ?? [])],
@@ -1119,7 +1122,10 @@ function savedBook(save: SaveV4, party: readonly AnimalInstance[] = save.party):
 }
 
 /** The worlds left behind in a save, but `current` (none: all of them), their cleared tiles in canonical text. */
-function staysOf(saved: readonly SavedWorldStay[] | undefined, current: number | null): WorldStay[] {
+function staysOf(
+	saved: readonly SavedWorldStay[] | undefined,
+	current: number | null
+): WorldStay[] {
 	return (saved ?? [])
 		.filter((stay) => stay.world !== current)
 		.map((stay) => ({
