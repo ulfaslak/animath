@@ -197,14 +197,6 @@ Technical items we've intentionally postponed: tech debt, hardening shortcuts, k
 
 **Trigger**: a kid's save with a card past 150 animals, or a stutter reported when a card opens. Then draw only the rows in view (fixed row heights, the name column sized from all the names), or build the rows over a few frames.
 
-### A save with more than six animals reads as unreadable to a build from before #66
-
-**What**: the party lost its cap without a new save `version`, since every old document still reads (the rule in [[DECISIONS]] § Saves bumps `version` only when an old document becomes unreadable). But a build from before #66 refuses a party of more than six, and calls such a save `invalid`, not `newer`: it starts a new game, and once the kid has played, sets the big team aside in `animath.save.unreadable`. Nothing is lost, but the kid sees "Your saved game didn't load", and the team comes back only by hand. A save of six or fewer still reads in an old build.
-
-**Why deferred**: only an older build meeting a newer save hits it, which today means rolling the tunnel's game back past #66; a `version` bump instead would make every save, small ones too, unreadable to such a build.
-
-**Trigger**: before rolling the game back past #66 (every build production has served is newer), or serving a build from before #66 beside a newer one behind one address. Then bump `SAVE_VERSION` with an upgrade that only renumbers, so an older build calls a big save `newer` and leaves it alone.
-
 ### Presence and friendly matches live in one server process's memory
 
 **What**: who is in which world, where, and who sees whom (`PresenceHub`), and the invites and matches (`Matches`), are kept in the memory of the Node process that holds each socket. A restart forgets it (every page says where it is again as its socket comes back, within a second on a deploy), and two processes split every world in two, each half blind to the other (and two players on different processes can't challenge each other: the one asked is not there, 'gone'): a deploy's swap does that for its few seconds, to a page that opens its socket while two copies run.

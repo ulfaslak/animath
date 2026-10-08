@@ -1,4 +1,4 @@
-import { nameKey } from '@mathgame/engine';
+import { SAVE_VERSION, nameKey } from '@mathgame/engine';
 import { eq, sql } from 'drizzle-orm';
 import { createHash } from 'node:crypto';
 import { mkdtempSync, readdirSync, readFileSync, rmSync, statSync } from 'node:fs';
@@ -51,7 +51,7 @@ function freshName(): string {
 
 function doc(name: string | undefined, overrides: Record<string, unknown> = {}) {
 	return {
-		version: 2,
+		version: SAVE_VERSION,
 		home: 1,
 		world: 1,
 		pos: { x: -40, y: -1000 },
@@ -164,7 +164,7 @@ describe('import-save', () => {
 		const user = await userOf(name);
 		expect(user?.name).toBe(name);
 		const [saved] = await db.select().from(accountSaves).where(eq(accountSaves.userId, user!.id));
-		expect(saved?.data).toMatchObject({ version: 2, world: 1, home: 1, name });
+		expect(saved?.data).toMatchObject({ version: SAVE_VERSION, world: 1, home: 1, name });
 		// A name the rules refuse says what a name may be, from the engine's own bounds.
 		await expect(
 			importSave(JSON.stringify(doc(name)), { name: 'X', origin: 'https://game.test' })
@@ -187,7 +187,7 @@ describe('import-save', () => {
 		const refused = [
 			'not json',
 			JSON.stringify(doc(name, { seq: undefined })),
-			JSON.stringify(doc(name, { version: 3 })),
+			JSON.stringify(doc(name, { version: SAVE_VERSION + 1 })),
 			JSON.stringify(doc(undefined)),
 			JSON.stringify(doc('x'))
 		];

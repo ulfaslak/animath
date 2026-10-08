@@ -204,11 +204,16 @@ describe('what each kind promises a kid', () => {
 		expect(bad).toEqual([]);
 	});
 
-	it('shape: squares only while they fit the picture, and the floor alone at difficulty 1', () => {
+	it('shape: squares only while they fit the picture, an L never a sliver, and the floor alone at difficulty 1', () => {
 		const bad: string[] = [];
 		for (const d of DS) {
-			for (const [how, w, h, , , grid] of faces('shape', d)) {
+			for (const [how, w, h, cw, ch, grid] of faces('shape', d)) {
 				if (grid === 1 && (w! > 10 || h! > 10)) bad.push(`d${d}: ${w}×${h} in squares`);
+				// An L's corner is a quarter of each side or more, and leaves as much: never a sliver.
+				const fits = (c: number, side: number) =>
+					c >= Math.max(1, Math.round(side / 4)) && side - c >= Math.max(1, Math.round(side / 4));
+				if (cw! > 0 && !(fits(cw!, w!) && fits(ch!, h!)))
+					bad.push(`d${d}: ${w}×${h} cut ${cw}×${ch}`);
 				if (d === 1 && how !== 0) bad.push(`d1 asks ${how}`);
 			}
 		}

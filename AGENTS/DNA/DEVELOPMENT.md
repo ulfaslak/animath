@@ -191,6 +191,22 @@ Headless Chrome plays sound to no one, and an agent can't listen. Three checks i
 - **What a cue is made of.** `test/sfx.test.ts` checks every cue's data and the nodes `scheduleCue` builds.
 - **That it makes a sound.** Render the cues offline in the real browser: with the dev server up, a Playwright page runs `const { CUES, CUE_NAMES } = await import('/src/audio/cues.ts'); const { scheduleCue } = await import('/src/audio/synth.ts')`, renders each into an `OfflineAudioContext` (`scheduleCue(ctx, ctx.destination, CUES[name], 0)`, then `ctx.startRendering()`), and measures the samples: peak, RMS, and where the sound starts and stops. Every cue should be well above silence, under 1.2 s, and below clipping. To hear them, play the same in a normal browser tab's console on the dev server.
 
+### Screenshots in PRs
+
+Every PR's screenshots live on one branch, `screenshots`, in a folder named after the PR's number, and a PR body shows each one as
+
+```
+![<image name>](https://github.com/ulfaslak/animath/blob/screenshots/<pr-number>/<image-name>.png?raw=true)
+```
+
+Open the PR first, for its number, then publish the frames from your worktree and paste the lines it prints into the body (`gh pr edit <pr-number> --body-file <file>`):
+
+```bash
+scripts/pr-screenshots.sh <pr-number> screenshots/before.png screenshots/after.png
+```
+
+The script never checks `screenshots` out, so your worktree, its index and its branch stay as they were. It builds the new commit with git's plumbing in a throwaway index (the branch's tip read in, each file added as `<pr-number>/<file name>`) and pushes it without force; when another agent pushed first the push is rejected, and it fetches the new tip and builds on that again. A file of the same name in the same folder is replaced. File names are letters, digits, `.`, `_` and `-` only, since they go into the link as they are. Never force-push `screenshots` and never move a folder on it: old PR bodies link into it. The folders without a number are the PRs from before 2026-10-08, each named after the branch `screenshots/<name>` it came from; a link to `blob/screenshots/<name>/<file>` reads the branch `screenshots` and the folder `<name>`, so those links still work. The branch's own `README.md` says the same.
+
 ## Checks and tests
 
 ```bash
@@ -456,7 +472,7 @@ pnpm rollback          # the recent deploys, newest first: the commit each one p
 pnpm rollback <sha>    # the image built from <sha> back on prod
 ```
 
-It dispatches the deploy workflow with that SHA: no build and no tests; `:prod` points at that commit's image, the server checks out that commit, and the same swap and health check run. It holds until the next push to main; to stay back, merge a revert. The database stays as it is, so the older build runs on the newer schema (§ Migrations). Rolling back past a build that added species leaves every save that names one of them a newer build's ([[INVARIANTS]] § Saves), and so does merely having met one: an animal only seen is in the save's animal book. Those kids' pages take no play and say "A new version of the game is ready." until prod is rolled forward again. Past a species wave, roll forward with a fix rather than back. Without GitHub Actions: `/redeploy` § Roll back.
+It dispatches the deploy workflow with that SHA: no build and no tests; `:prod` points at that commit's image, the server checks out that commit, and the same swap and health check run. It holds until the next push to main; to stay back, merge a revert. The database stays as it is, so the older build runs on the newer schema (§ Migrations). Rolling back past a build that added species leaves every save that names one of them a newer build's ([[INVARIANTS]] § Saves), and so does merely having met one: an animal only seen is in the save's animal book. Those kids' pages take no play and say "A new version of the game is ready." until prod is rolled forward again. Rolling back past a build that raised `SAVE_VERSION` does the same to every game saved since, whatever it holds: an older build reads a later version as a newer build's. Version 3 (the kinds set free, #191's first step) is one. Past a species wave or a version bump, roll forward with a fix rather than back. Without GitHub Actions: `/redeploy` § Roll back.
 
 ### Backups
 

@@ -57,11 +57,13 @@ class GameView {
 	/** The puzzles the player has solved: `welcome`'s, then every `solved-changed`. */
 	solved = $state(0);
 	/**
-	 * The animal book's species seen (caught ones included) and caught, each
-	 * in the order first met: `welcome`'s, then every `book-changed`.
+	 * The animal book's species seen (caught and set-free ones included),
+	 * caught and set free at the witch doctor's, each in the order first met:
+	 * `welcome`'s, then every `book-changed`.
 	 */
 	seen = $state<string[]>([]);
 	caught = $state<string[]>([]);
+	freed = $state<string[]>([]);
 	/**
 	 * Where the player is: out on the water, in the boat, or on land (the
 	 * engine's `tileRealm` of their tile), or up in the air with the glider,
@@ -101,6 +103,7 @@ class GameView {
 				this.solved = event.solved;
 				this.seen = event.seen;
 				this.caught = event.caught;
+				this.freed = event.freed;
 				this.edits = WorldEdits.decode(event.edits);
 				this.flying = false;
 				this.mode = 'explore';
@@ -172,6 +175,7 @@ class GameView {
 			case 'book-changed':
 				this.seen = event.seen;
 				this.caught = event.caught;
+				this.freed = event.freed;
 				break;
 			case 'doctor-visit-ended':
 				this.party = event.state.party.map((a) => ({ ...a }));

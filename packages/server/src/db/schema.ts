@@ -29,7 +29,7 @@ export const players = pgTable('players', {
 	lastSeenAt: timestamp('last_seen_at', { withTimezone: true }).notNull().defaultNow()
 });
 
-/** The retired anonymous backup (above): one save per player, the `SaveV2` its browser last sent. */
+/** The retired anonymous backup (above): one save per player, the save document (version 1 or 2) its browser last sent. */
 export const saves = pgTable('saves', {
 	playerId: uuid('player_id')
 		.primaryKey()
@@ -94,7 +94,7 @@ export const sessions = pgTable(
 );
 
 /**
- * The one save an account keeps: the same document as the browser's (`SaveV2`,
+ * The one save an account keeps: the same document as the browser's (`SaveV3`,
  * the engine's), written only with a higher `seq` (`writeAccountSave`). `seq`
  * is the document's own `seq`, kept beside it.
  */

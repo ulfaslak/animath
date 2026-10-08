@@ -1,4 +1,5 @@
 import {
+	SAVE_VERSION,
 	WORLD_ONE_SEED,
 	canReplace,
 	getAnimal,
@@ -255,7 +256,7 @@ function newerSaves(
 		phase: { kind: 'choose-action' }
 	};
 	const saves = [
-		{ ...doc, version: 3 },
+		{ ...doc, version: SAVE_VERSION + 1 },
 		{ ...doc, party: [...doc.party, later] },
 		{ ...doc, battle },
 		{ ...doc, battle: { ...battle, opponent: doc.party[0], realm: 'later-realm' } }
@@ -299,7 +300,7 @@ describe('Autosave: the save in this browser', () => {
 		expect(await tab.open()).toEqual({});
 		const saved = store.save()!;
 		expect(saved).toMatchObject({
-			version: 2,
+			version: SAVE_VERSION,
 			seq: 1,
 			world: WORLD,
 			home: WORLD,
@@ -660,7 +661,7 @@ describe('Autosave: the save in this browser', () => {
 		await tab.walk();
 		expect(store.get(KEYS.upgraded)).toBe(old);
 		expect(store.save()).toMatchObject({
-			version: 2,
+			version: SAVE_VERSION,
 			world: 1,
 			home: 1,
 			lineage: 'kids-real-game',
@@ -674,7 +675,7 @@ describe('Autosave: the save in this browser', () => {
 		await tab.catchOne();
 		expect(store.get(`${KEYS.upgraded}.2`)).toBeNull();
 		await later();
-		expect(server.saveOf()).toMatchObject({ version: 2, seq: 19552 });
+		expect(server.saveOf()).toMatchObject({ version: SAVE_VERSION, seq: 19552 });
 	});
 
 	it("an older build's save is kept beside one kept before, and with nowhere left to keep it, the game saves all the same", async () => {
@@ -700,7 +701,7 @@ describe('Autosave: the save in this browser', () => {
 		const stuck = new Tab(full, null);
 		await stuck.open();
 		await stuck.catchOne();
-		expect(full.save()).toMatchObject({ version: 2, world: 1 });
+		expect(full.save()).toMatchObject({ version: SAVE_VERSION, world: 1 });
 		// The starter the empty v1 party was given, and the one caught.
 		expect(full.save()!.party).toHaveLength(2);
 		expect(full.get(KEYS.upgraded)).toBe('kept 1');
@@ -719,7 +720,7 @@ describe('Autosave: the save in this browser', () => {
 		await cramped.open();
 		await cramped.catchOne();
 		await cramped.walk();
-		expect(tight.save()).toMatchObject({ version: 2, world: 1, seq: 2, steps: 1 });
+		expect(tight.save()).toMatchObject({ version: SAVE_VERSION, world: 1, seq: 2, steps: 1 });
 		expect(tight.get(KEYS.upgraded)).toBeNull();
 		expect(cramped.autosave.titleNotice).toBeNull();
 		// And a reload carries on from it, not from the older save.

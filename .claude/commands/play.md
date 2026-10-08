@@ -17,4 +17,4 @@ Run the game locally from the current worktree and look at it. This is the game'
 5. **Play the flow you changed.** Movement, encounters, battle turns, puzzle input, doctor healing — whichever your change touches. Chain key presses with `--keys` and screenshot at each state that matters. Typing an answer is `type:<answer>` in `--keys`. A flow the script cannot drive (two fingers at once, reduced motion switched mid-run) gets a throwaway Playwright script in your scratch folder ([[DEVELOPMENT]] § Looking at the game); extend the script instead when other runs will need the same.
 6. **Stop what you started** when done (Phase 4 in CLAUDE.md): kill only the server processes you launched.
 
-Screenshots go in `screenshots/` (gitignored). Link the ones worth showing in the PR body.
+Screenshots go in `screenshots/` (gitignored). Publish the ones worth showing with `scripts/pr-screenshots.sh <pr-number> <file.png>...` and paste the `![…](https://github.com/ulfaslak/animath/blob/screenshots/<pr-number>/<image-name>.png?raw=true)` lines it prints into the PR body ([[DEVELOPMENT]] § Screenshots in PRs).
