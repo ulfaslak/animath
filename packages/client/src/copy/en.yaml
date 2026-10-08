@@ -649,6 +649,196 @@ species:
       pod-hunt: Pod Hunt
       tail-slap: Tail Slap
       wave-wash: Wave Wash
+  # The Arctic (#192, wave 1): its small land animals, the three starters first. Every Danish
+  # name is common gender (en). The chinstrap is the chinstrap penguin by its short name.
+  arctic-fox:
+    name: Arctic fox
+    a: an Arctic fox
+    the: the Arctic fox
+    wild: wild Arctic fox
+    aWild: a wild Arctic fox
+    theWild: the wild Arctic fox
+    bare: Arctic fox
+    attacks:
+      snow-sniff: Snow Sniff
+      fluffy-tail: Fluffy Tail
+      snow-dive: Snow Dive
+  arctic-hare:
+    name: Arctic hare
+    a: an Arctic hare
+    the: the Arctic hare
+    wild: wild Arctic hare
+    aWild: a wild Arctic hare
+    theWild: the wild Arctic hare
+    bare: Arctic hare
+    attacks:
+      hop: Hop
+      big-feet: Big Feet
+      zigzag-dash: Zigzag Dash
+  puffin:
+    name: Puffin
+    a: a Puffin
+    the: the Puffin
+    wild: wild Puffin
+    aWild: a wild Puffin
+    theWild: the wild Puffin
+    bare: Puffin
+    aGrumpy: a grumpy Puffin
+    attacks:
+      waddle: Waddle
+      beakful: Beakful
+      wing-dive: Wing Dive
+  arctic-lemming:
+    name: Arctic lemming
+    a: an Arctic lemming
+    the: the Arctic lemming
+    wild: wild Arctic lemming
+    aWild: a wild Arctic lemming
+    theWild: the wild Arctic lemming
+    bare: Arctic lemming
+    attacks:
+      nibble: Nibble
+      tunnel-dash: Tunnel Dash
+  snow-bunting:
+    name: Snow bunting
+    a: a Snow bunting
+    the: the Snow bunting
+    wild: wild Snow bunting
+    aWild: a wild Snow bunting
+    theWild: the wild Snow bunting
+    bare: Snow bunting
+    aGrumpy: a grumpy Snow bunting
+    attacks:
+      chirp: Chirp
+      snow-flurry: Snow Flurry
+      wing-flash: Wing Flash
+  rock-ptarmigan:
+    name: Rock ptarmigan
+    a: a Rock ptarmigan
+    the: the Rock ptarmigan
+    wild: wild Rock ptarmigan
+    aWild: a wild Rock ptarmigan
+    theWild: the wild Rock ptarmigan
+    bare: Rock ptarmigan
+    aGrumpy: a grumpy Rock ptarmigan
+    attacks:
+      peck: Peck
+      white-coat: White Coat
+      snow-burrow: Snow Burrow
+  waxwing:
+    name: Waxwing
+    a: a Waxwing
+    the: the Waxwing
+    wild: wild Waxwing
+    aWild: a wild Waxwing
+    theWild: the wild Waxwing
+    bare: Waxwing
+    aGrumpy: a grumpy Waxwing
+    attacks:
+      trill: Trill
+      berry-feast: Berry Feast
+      crest-pop: Crest Pop
+  adelie-penguin:
+    name: Adélie penguin
+    a: an Adélie penguin
+    the: the Adélie penguin
+    wild: wild Adélie penguin
+    aWild: a wild Adélie penguin
+    theWild: the wild Adélie penguin
+    bare: Adélie penguin
+    attacks:
+      waddle: Waddle
+      pebble-gift: Pebble Gift
+      belly-slide: Belly Slide
+  snow-petrel:
+    name: Snow petrel
+    a: a Snow petrel
+    the: the Snow petrel
+    wild: wild Snow petrel
+    aWild: a wild Snow petrel
+    theWild: the wild Snow petrel
+    bare: Snow petrel
+    aGrumpy: a grumpy Snow petrel
+    attacks:
+      glide: Glide
+      oil-spit: Oil Spit
+      blizzard: Blizzard
+  arctic-tern:
+    name: Arctic tern
+    a: an Arctic tern
+    the: the Arctic tern
+    wild: wild Arctic tern
+    aWild: a wild Arctic tern
+    theWild: the wild Arctic tern
+    bare: Arctic tern
+    aGrumpy: a grumpy Arctic tern
+    attacks:
+      plunge: Plunge
+      head-peck: Head Peck
+      long-trip: Long Trip
+  king-eider:
+    name: King eider
+    a: a King eider
+    the: the King eider
+    wild: wild King eider
+    aWild: a wild King eider
+    theWild: the wild King eider
+    bare: King eider
+    aGrumpy: a grumpy King eider
+    attacks:
+      paddle: Paddle
+      deep-dive: Deep Dive
+      orange-crown: Orange Crown
+  raven:
+    name: Raven
+    a: a Raven
+    the: the Raven
+    wild: wild Raven
+    aWild: a wild Raven
+    theWild: the wild Raven
+    bare: Raven
+    aGrumpy: a grumpy Raven
+    attacks:
+      croak: Croak
+      clever-trick: Clever Trick
+      food-stash: Food Stash
+  barnacle-goose:
+    name: Barnacle goose
+    a: a Barnacle goose
+    the: the Barnacle goose
+    wild: wild Barnacle goose
+    aWild: a wild Barnacle goose
+    theWild: the wild Barnacle goose
+    bare: Barnacle goose
+    aGrumpy: a grumpy Barnacle goose
+    attacks:
+      honk: Honk
+      cliff-jump: Cliff Jump
+      flock-flight: Flock Flight
+  gentoo-penguin:
+    name: Gentoo penguin
+    a: a Gentoo penguin
+    the: the Gentoo penguin
+    wild: wild Gentoo penguin
+    aWild: a wild Gentoo penguin
+    theWild: the wild Gentoo penguin
+    bare: Gentoo penguin
+    attacks:
+      peck: Peck
+      fast-swim: Fast Swim
+      pebble-pile: Pebble Pile
+  chinstrap:
+    name: Chinstrap
+    a: a Chinstrap
+    the: the Chinstrap
+    wild: wild Chinstrap
+    aWild: a wild Chinstrap
+    theWild: the wild Chinstrap
+    bare: Chinstrap
+    attacks:
+      squawk: Squawk
+      flipper-slap: Flipper Slap
+      rock-hop: Rock Hop
 
 puzzle:
   # Under a puzzle until it is answered.
@@ -1640,6 +1830,12 @@ worlds:
   arriveNew: A new world to explore!
   arriveBack: Back where you left off.
   arriveHome: Home again!
+# The lands (#191), by id: their names where a kid picks one, as the animal book's tabs do.
+lands:
+  nordland:
+    name: Nordland
+  arctic:
+    name: The Arctic
 book:
   # The animal book: a card for every kind of animal there is, a "?" for the ones not met yet.
   # The pause menu's row that opens it (on the menu's title line), and the book's own title.
@@ -1666,4 +1862,6 @@ book:
   caughtHome: You caught {animal.a} and set it free. It stays in your book!
   seenFree: You met {animal.a}, and it counts as set free!
   # The key reminder under the book.
+  # Under the book while the cursor is on the lands' tabs over the cards.
+  lands: Pick a land to see its animals!
   keys: ↑ ↓ ← → choose · Esc back

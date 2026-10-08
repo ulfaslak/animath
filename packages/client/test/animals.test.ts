@@ -135,7 +135,17 @@ describe('figures', () => {
 			'mute-swan',
 			'eagle-owl',
 			'golden-eagle',
-			'white-tailed-eagle'
+			'white-tailed-eagle',
+			// The Arctic's (#192); its penguins swim, and their flippers are no wings.
+			'puffin',
+			'snow-bunting',
+			'rock-ptarmigan',
+			'waxwing',
+			'snow-petrel',
+			'arctic-tern',
+			'king-eider',
+			'raven',
+			'barnacle-goose'
 		];
 		// Every bird flies, and only birds (the engine's realms).
 		expect(ANIMALS.filter((a) => a.realms.includes('air')).map((a) => a.id)).toEqual(birds);

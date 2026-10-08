@@ -1616,8 +1616,289 @@ const BUILDERS: Record<string, Builder> = {
 			ball(0.025, COLORS.dark, side * 0.17, 0.35, 0.47),
 			rot(ball(0.1, fur, side * 0.26, 0.02, 0.22, 1.4, 0.2, 0.8), 0, side * 0.5, 0)
 		])
-	]
+	],
+	// The Arctic's small land animals (#192 wave 1), each sized as in nature within its tier:
+	// the lemming and the snow bunting the smallest, the penguins the tallest. Its birds' wings
+	// hang from joints as Nordland's do; a penguin's flippers are no wings: it never flies.
+	//
+	// Round and white, a short muzzle, small round ears, and a tail as big as its body: the
+	// fox Nordland has is red, long and square.
+	'arctic-fox': ({ fur, accent }) => [
+		ball(0.14, fur, 0, 0.22, -0.02, 1, 0.9, 1.4),
+		ball(0.1, accent, 0, 0.17, 0.08, 0.9, 0.6, 1),
+		...legs(0.05, 0.12, fur, 0.07, 0.11),
+		ball(0.1, fur, 0, 0.34, 0.2),
+		ball(0.07, fur, 0, 0.3, 0.27, 1.1, 0.8, 1),
+		rot(cone(0.04, 0.07, fur, 0, 0.31, 0.33), Math.PI / 2, 0, 0),
+		ball(0.02, COLORS.dark, 0, 0.315, 0.37),
+		...([-1, 1] as const).flatMap((side) => [
+			ball(0.016, COLORS.dark, side * 0.045, 0.37, 0.29),
+			ball(0.04, fur, side * 0.075, 0.43, 0.17, 1, 1, 0.5),
+			ball(0.025, accent, side * 0.075, 0.43, 0.185, 1, 1, 0.4)
+		]),
+		ball(0.11, fur, 0, 0.25, -0.33, 1, 1, 1.8),
+		ball(0.08, fur, 0, 0.28, -0.5)
+	],
+	// Snow white, sitting up on its haunches, big back feet, and ears tipped with black.
+	'arctic-hare': ({ fur, accent }) => [
+		ball(0.17, fur, 0, 0.21, -0.03, 1, 1.1, 1.15),
+		ball(0.12, fur, 0, 0.41, 0.09),
+		ball(0.05, fur, 0, 0.37, 0.18, 1.2, 0.8, 0.8),
+		ball(0.017, accent, 0, 0.39, 0.215),
+		...([-1, 1] as const).flatMap((side) => [
+			ball(0.017, COLORS.dark, side * 0.055, 0.45, 0.18),
+			rot(ball(0.04, fur, side * 0.055, 0.6, 0.06, 1, 2.8, 0.55), 0, 0, -side * 0.18),
+			rot(ball(0.03, COLORS.dark, side * 0.08, 0.7, 0.06, 0.9, 1, 0.5), 0, 0, -side * 0.18),
+			box(0.1, 0.05, 0.24, fur, side * 0.11, 0.025, 0.03),
+			box(0.05, 0.12, 0.05, fur, side * 0.06, 0.06, 0.15)
+		]),
+		ball(0.05, fur, 0, 0.18, -0.21)
+	],
+	// Upright in black and white, a white face, orange feet and a big striped orange beak.
+	puffin: ({ fur, accent }) => [
+		ball(0.1, fur, 0, 0.2, -0.01, 1, 1.25, 1),
+		ball(0.085, COLORS.white, 0, 0.19, 0.04, 0.95, 1.15, 0.85),
+		ball(0.075, fur, 0, 0.35, 0.02),
+		ball(0.065, COLORS.white, 0, 0.345, 0.05, 1.05, 0.85, 0.8),
+		ball(0.014, COLORS.dark, -0.04, 0.36, 0.1),
+		ball(0.014, COLORS.dark, 0.04, 0.36, 0.1),
+		rot(cone(0.045, 0.1, accent, 0, 0.335, 0.15), Math.PI / 2, 0, 0),
+		box(0.03, 0.08, 0.012, 0xf2c94c, 0, 0.335, 0.115),
+		box(0.012, 0.06, 0.014, 0x8a8f99, 0, 0.335, 0.165),
+		rot(box(0.07, 0.015, 0.08, fur, 0, 0.11, -0.12), -0.6, 0, 0),
+		...([-1, 1] as const).flatMap((side) => [
+			box(0.04, 0.03, 0.03, accent, side * 0.04, 0.05, 0.0),
+			box(0.05, 0.012, 0.07, accent, side * 0.04, 0.006, 0.03)
+		]),
+		...wings(0.09, 0.24, (side) => [ball(0.06, fur, side * 0.1, 0.2, -0.02, 0.35, 1, 1.3)])
+	],
+	// A round ball of a rodent, no ears to see, a rusty collar and a dark stripe down its back.
+	'arctic-lemming': ({ fur, accent }) => [
+		ball(0.105, fur, 0, 0.12, -0.01, 1.1, 0.9, 1.25),
+		ball(0.08, fur, 0, 0.125, 0.1, 1.05, 0.9, 1),
+		ball(0.072, accent, 0, 0.115, 0.06, 1.2, 0.9, 0.5),
+		box(0.025, 0.012, 0.2, COLORS.dark, 0, 0.212, -0.01),
+		ball(0.015, COLORS.dark, 0, 0.125, 0.18),
+		...([-1, 1] as const).flatMap((side) => [
+			ball(0.012, COLORS.dark, side * 0.04, 0.155, 0.16),
+			box(0.035, 0.035, 0.04, accent, side * 0.06, 0.0175, 0.08),
+			box(0.035, 0.035, 0.04, accent, side * 0.06, 0.0175, -0.08)
+		])
+	],
+	// A tiny white songbird with black-and-white wings and a black tail.
+	'snow-bunting': ({ fur, accent }) => [
+		ball(0.085, fur, 0, 0.17, -0.02, 1, 0.95, 1.2),
+		ball(0.06, fur, 0, 0.26, 0.05),
+		rot(cone(0.016, 0.04, 0xe0b050, 0, 0.255, 0.115), Math.PI / 2, 0, 0),
+		rot(box(0.06, 0.016, 0.12, accent, 0, 0.17, -0.14), -0.4, 0, 0),
+		...([-1, 1] as const).flatMap((side) => [
+			ball(0.011, COLORS.dark, side * 0.035, 0.275, 0.09),
+			tube(0.007, 0.09, COLORS.dark, side * 0.03, 0.045, 0),
+			box(0.025, 0.008, 0.04, COLORS.dark, side * 0.03, 0.004, 0.02)
+		]),
+		...wings(0.08, 0.2, (side) => [
+			ball(0.055, accent, side * 0.09, 0.17, -0.04, 0.35, 0.85, 1.4),
+			ball(0.03, fur, side * 0.095, 0.19, 0.0, 0.3, 0.7, 1)
+		])
+	],
+	// Plump and white as snow, a red eyebrow over a black eye stripe, a black tail and feet
+	// feathered like snowshoes.
+	'rock-ptarmigan': ({ fur, accent }) => [
+		ball(0.14, fur, 0, 0.17, -0.02, 1, 0.9, 1.2),
+		ball(0.075, fur, 0, 0.3, 0.1),
+		rot(cone(0.018, 0.04, COLORS.dark, 0, 0.29, 0.18), Math.PI / 2, 0, 0),
+		rot(box(0.12, 0.02, 0.09, COLORS.dark, 0, 0.16, -0.18), -0.3, 0, 0),
+		...([-1, 1] as const).flatMap((side) => [
+			box(0.012, 0.016, 0.07, COLORS.dark, side * 0.055, 0.3, 0.13),
+			ball(0.013, COLORS.dark, side * 0.058, 0.31, 0.14),
+			ball(0.024, accent, side * 0.045, 0.34, 0.135, 1.4, 0.55, 0.9),
+			ball(0.045, fur, side * 0.05, 0.036, 0.03, 1, 0.8, 1.2)
+		]),
+		...wings(0.12, 0.2, (side) => [ball(0.08, fur, side * 0.12, 0.18, -0.03, 0.35, 0.8, 1.3)])
+	],
+	// A pinkish-brown bird with a crest swept back, a black mask, a yellow tip on its tail
+	// and drops of red wax on its wings.
+	waxwing: ({ fur, accent }) => [
+		ball(0.09, fur, 0, 0.18, -0.02, 1, 1, 1.25),
+		ball(0.065, fur, 0, 0.28, 0.05),
+		rot(cone(0.035, 0.12, fur, 0, 0.35, -0.01), -0.9, 0, 0),
+		box(0.11, 0.022, 0.03, COLORS.dark, 0, 0.29, 0.09),
+		box(0.035, 0.03, 0.02, COLORS.dark, 0, 0.24, 0.1),
+		rot(cone(0.015, 0.04, COLORS.dark, 0, 0.275, 0.125), Math.PI / 2, 0, 0),
+		rot(box(0.06, 0.016, 0.12, 0x8a8f99, 0, 0.17, -0.14), -0.45, 0, 0),
+		rot(box(0.062, 0.018, 0.035, accent, 0, 0.135, -0.205), -0.45, 0, 0),
+		...([-1, 1] as const).flatMap((side) => [
+			tube(0.007, 0.09, COLORS.dark, side * 0.03, 0.045, 0),
+			box(0.025, 0.008, 0.04, COLORS.dark, side * 0.03, 0.004, 0.02)
+		]),
+		...wings(0.08, 0.21, (side) => [
+			ball(0.06, 0x6f6f78, side * 0.09, 0.18, -0.04, 0.35, 0.85, 1.4),
+			ball(0.012, 0xd23a2a, side * 0.11, 0.18, 0.01),
+			ball(0.012, 0xd23a2a, side * 0.11, 0.165, -0.03)
+		])
+	],
+	// Upright in black and white, an all-black head, a white ring round each eye, a stubby beak.
+	'adelie-penguin': ({ fur, accent }) => [
+		...penguin(0.9, fur, accent),
+		ball(0.09, fur, 0, 0.5, 0.02),
+		...([-1, 1] as const).flatMap((side) => [
+			ball(0.024, COLORS.white, side * 0.045, 0.52, 0.085),
+			ball(0.012, COLORS.dark, side * 0.047, 0.522, 0.1)
+		]),
+		rot(cone(0.022, 0.06, COLORS.dark, 0, 0.49, 0.12), Math.PI / 2 + 0.1, 0, 0)
+	],
+	// All white, a pigeon of the south with long white wings, a black eye and a black bill.
+	'snow-petrel': ({ fur, accent }) => [
+		ball(0.1, fur, 0, 0.17, -0.02, 1, 0.9, 1.4),
+		ball(0.068, fur, 0, 0.27, 0.1),
+		rot(cone(0.016, 0.06, accent, 0, 0.265, 0.18), Math.PI / 2, 0, 0),
+		rot(box(0.08, 0.016, 0.1, fur, 0, 0.17, -0.18), -0.3, 0, 0),
+		...([-1, 1] as const).flatMap((side) => [
+			ball(0.019, accent, side * 0.043, 0.285, 0.14),
+			tube(0.008, 0.08, 0x5b6370, side * 0.035, 0.04, 0.01),
+			box(0.03, 0.008, 0.05, 0x5b6370, side * 0.035, 0.004, 0.03)
+		]),
+		...wings(0.09, 0.21, (side) => [ball(0.075, fur, side * 0.12, 0.2, -0.04, 0.3, 0.6, 1.8)])
+	],
+	// Slim and pale grey, a black cap, a blood-red bill and short red legs, a deeply forked
+	// tail and long narrow wings: built for the longest trip of any animal.
+	'arctic-tern': ({ fur, accent }) => [
+		ball(0.09, fur, 0, 0.17, -0.03, 1, 0.85, 1.6),
+		ball(0.075, COLORS.white, 0, 0.15, 0.04, 0.85, 0.7, 1.2),
+		ball(0.06, COLORS.white, 0, 0.26, 0.11),
+		ball(0.062, COLORS.dark, 0, 0.275, 0.1, 1, 0.7, 1.05),
+		rot(cone(0.016, 0.11, accent, 0, 0.255, 0.21), Math.PI / 2, 0, 0),
+		...([-1, 1] as const).flatMap((side) => [
+			ball(0.012, COLORS.dark, side * 0.04, 0.265, 0.15),
+			tube(0.008, 0.07, accent, side * 0.035, 0.035, 0.0),
+			box(0.03, 0.008, 0.045, accent, side * 0.035, 0.004, 0.02),
+			rot(cone(0.018, 0.22, fur, side * 0.05, 0.16, -0.28), -Math.PI / 2 - 0.25, side * 0.25, 0)
+		]),
+		...wings(0.08, 0.21, (side) => [
+			ball(0.08, fur, side * 0.11, 0.21, -0.06, 0.25, 0.5, 2.2),
+			ball(0.03, COLORS.dark, side * 0.115, 0.205, -0.22, 0.25, 0.45, 1.2)
+		])
+	],
+	// A sea duck: a black body, a pale pink breast, a pale blue head with green cheeks, and on
+	// its red bill a big orange shield, its crown.
+	'king-eider': ({ fur, accent }) => [
+		ball(0.17, fur, 0, 0.2, -0.04, 1, 0.82, 1.45),
+		ball(0.13, 0xf3e3d2, 0, 0.21, 0.12, 0.95, 0.85, 0.75),
+		ball(0.1, 0xa9c4e0, 0, 0.36, 0.17),
+		...([-1, 1] as const).flatMap((side) => [
+			ball(0.04, 0x7fbf8a, side * 0.055, 0.34, 0.19, 0.5, 0.9, 1.2),
+			ball(0.014, COLORS.dark, side * 0.06, 0.375, 0.23),
+			box(0.04, 0.05, 0.03, COLORS.dark, side * 0.07, 0.025, 0.03),
+			box(0.07, 0.01, 0.09, accent, side * 0.07, 0.005, 0.06)
+		]),
+		ball(0.05, accent, 0, 0.38, 0.25, 1, 1, 0.8),
+		rot(cone(0.03, 0.08, 0xd8322a, 0, 0.33, 0.28), Math.PI / 2 + 0.2, 0, 0),
+		rot(cone(0.06, 0.12, fur, 0, 0.24, -0.27), -Math.PI / 2 + 0.6, 0, 0),
+		...wings(0.15, 0.27, (side) => [
+			ball(0.1, fur, side * 0.15, 0.25, -0.05, 0.3, 0.6, 1.4),
+			ball(0.035, COLORS.white, side * 0.16, 0.27, 0.04, 0.3, 0.6, 1)
+		])
+	],
+	// A big black bird all over, a heavy beak, a shaggy throat and a tail cut like a wedge.
+	raven: ({ fur, accent }) => {
+		const tail = rot(cone(0.08, 0.2, fur, 0, 0.2, -0.27), -2.2, 0, 0);
+		tail.scale.z = 0.3;
+		return [
+			ball(0.15, fur, 0, 0.3, -0.03, 1, 0.95, 1.4),
+			ball(0.08, accent, 0, 0.36, 0.1, 0.9, 0.9, 0.8),
+			ball(0.095, fur, 0, 0.47, 0.13),
+			rot(cone(0.035, 0.15, fur, 0, 0.45, 0.27), Math.PI / 2 + 0.1, 0, 0),
+			tail,
+			...([-1, 1] as const).flatMap((side) => [
+				ball(0.016, 0x8a8f99, side * 0.055, 0.49, 0.19),
+				tube(0.014, 0.16, fur, side * 0.06, 0.08, 0.0),
+				box(0.05, 0.012, 0.08, fur, side * 0.06, 0.006, 0.03)
+			]),
+			...wings(0.13, 0.36, (side) => [
+				ball(0.11, fur, side * 0.14, 0.32, -0.06, 0.3, 0.75, 1.5)
+			])
+		];
+	},
+	// A grey goose with a black neck and breast, a white face and a white belly.
+	'barnacle-goose': ({ fur, accent }) => [
+		ball(0.16, fur, 0, 0.25, -0.05, 1, 0.82, 1.45),
+		ball(0.13, COLORS.white, 0, 0.2, 0.0, 0.9, 0.6, 1.2),
+		ball(0.09, accent, 0, 0.3, 0.13, 0.95, 0.95, 0.85),
+		part(
+			curvedTube(
+				[
+					[0, 0],
+					[0.06, 0.1],
+					[0.03, 0.2],
+					[0, 0.28]
+				],
+				0.045,
+				0,
+				0.04
+			),
+			accent,
+			0,
+			0.33,
+			0.16
+		),
+		ball(0.065, accent, 0, 0.64, 0.2, 0.95, 0.95, 1.2),
+		ball(0.055, COLORS.white, 0, 0.635, 0.24, 1.08, 0.85, 0.9),
+		rot(cone(0.022, 0.06, COLORS.dark, 0, 0.62, 0.3), Math.PI / 2 + 0.2, 0, 0),
+		...([-1, 1] as const).flatMap((side) => [
+			ball(0.013, COLORS.dark, side * 0.045, 0.655, 0.26),
+			tube(0.015, 0.12, COLORS.dark, side * 0.06, 0.06, 0.02),
+			box(0.06, 0.012, 0.08, COLORS.dark, side * 0.06, 0.006, 0.05)
+		]),
+		rot(cone(0.05, 0.1, COLORS.dark, 0, 0.28, -0.28), -Math.PI / 2 + 0.5, 0, 0),
+		...wings(0.14, 0.32, (side) => [
+			ball(0.1, fur, side * 0.15, 0.3, -0.06, 0.3, 0.6, 1.5),
+			ball(0.04, COLORS.dark, side * 0.155, 0.3, -0.2, 0.3, 0.5, 1)
+		])
+	],
+	// The biggest of its three penguins here: a long orange beak, orange feet, and a white
+	// band over its head from eye to eye.
+	'gentoo-penguin': ({ fur, accent }) => [
+		...penguin(1.1, fur, accent),
+		ball(0.1, fur, 0, 0.61, 0.02),
+		ball(0.04, COLORS.white, 0, 0.69, 0.02, 2.5, 0.45, 0.9),
+		...([-1, 1] as const).flatMap((side) => [
+			ball(0.03, COLORS.white, side * 0.07, 0.65, 0.05, 0.6, 0.8, 1),
+			ball(0.013, COLORS.dark, side * 0.055, 0.63, 0.09)
+		]),
+		rot(cone(0.026, 0.1, accent, 0, 0.59, 0.14), Math.PI / 2 + 0.1, 0, 0)
+	],
+	// A white face under a black cap, and a thin black strap under its chin, ear to ear.
+	chinstrap: ({ fur, accent }) => {
+		const strap = part(new THREE.TorusGeometry(0.075, 0.009, 4, 12, Math.PI), COLORS.dark, 0, 0.6, 0.04);
+		strap.rotation.set(0.2, 0, Math.PI);
+		return [
+			...penguin(1.05, fur, accent),
+			ball(0.095, COLORS.white, 0, 0.6, 0.03),
+			ball(0.096, fur, 0, 0.645, 0.0, 1, 0.65, 0.95),
+			strap,
+			...([-1, 1] as const).map((side) => ball(0.013, COLORS.dark, side * 0.045, 0.62, 0.11)),
+			rot(cone(0.02, 0.06, COLORS.dark, 0, 0.6, 0.135), Math.PI / 2 + 0.1, 0, 0)
+		];
+	}
 };
+
+/**
+ * A penguin's body, `s` times the Adélie's: upright, black down the back, a white belly, two
+ * flippers held out a little from its sides (never wings: it does not fly), a short tail and
+ * feet of `feet`. Its head is the species' own (`adelie-penguin`, `gentoo-penguin`,
+ * `chinstrap`).
+ */
+function penguin(s: number, fur: number, feet: number): THREE.Object3D[] {
+	return [
+		ball(0.15 * s, fur, 0, 0.27 * s, -0.01 * s, 1, 1.45, 0.95),
+		ball(0.13 * s, COLORS.white, 0, 0.26 * s, 0.04 * s, 0.9, 1.35, 0.85),
+		rot(box(0.07 * s, 0.02 * s, 0.07 * s, fur, 0, 0.05 * s, -0.15 * s), -0.6, 0, 0),
+		...([-1, 1] as const).flatMap((side) => [
+			rot(ball(0.05 * s, fur, side * 0.15 * s, 0.27 * s, 0, 0.3, 1.5, 0.75), 0, 0, side * 0.3),
+			box(0.06 * s, 0.02 * s, 0.09 * s, feet, side * 0.06 * s, 0.01 * s, 0.06 * s)
+		])
+	];
+}
 
 function wrap(parts: THREE.Object3D[]): THREE.Group {
 	const group = new THREE.Group();

@@ -94,13 +94,9 @@ export function battlePanelHeight(
 const GROUND_BOUNCE = WORLD_LIGHT.bounce;
 
 /** The ground a battle is fought on: the biome's own, as the world shows it round the grass. */
-const GROUND: Record<Biome, number> = {
-	meadow: BIOME_LOOK.meadow.ground,
-	forest: BIOME_LOOK.forest.ground,
-	river: BIOME_LOOK.river.ground,
-	mountain: BIOME_LOOK.mountain.ground,
-	sea: BIOME_LOOK.sea.ground
-};
+const GROUND = Object.fromEntries(
+	Object.entries(BIOME_LOOK).map(([biome, look]) => [biome, look.ground])
+) as Record<Biome, number>;
 
 /**
  * Out on the deep water the surface stands this high over the ground, and

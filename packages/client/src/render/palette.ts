@@ -89,7 +89,20 @@ export const BIOME_LOOK: Record<Biome, BiomeLook> = {
 	mountain: { ground: 0xa6b88f, tallgrass: 0x7b9b5a, blade: 0x587d3c },
 	// Deep water all round: no ground, and no grass. A battle there is fought on
 	// the deep water's blue, with the shallows' paler blue in the crests of its waves.
-	sea: { ground: TILE_COLORS.deepwater, tallgrass: TILE_COLORS.deepwater, blade: TILE_COLORS.water }
+	sea: { ground: TILE_COLORS.deepwater, tallgrass: TILE_COLORS.deepwater, blade: TILE_COLORS.water },
+	// The Arctic's (#192): snow, deep snow a shade bluer, white drifts in it; its open seas a
+	// colder blue. Placeholders for a battle's ground until its map (#191 step 4) colours them.
+	tundra: { ground: 0xeef4f8, tallgrass: 0xd6e5f0, blade: 0xfbfdff },
+	taiga: { ground: 0xe3eeea, tallgrass: 0xc9dedb, blade: 0xfbfdff },
+	fell: { ground: 0xe1e6ec, tallgrass: 0xc8d3df, blade: 0xfbfdff },
+	'bird-cliffs': { ground: 0xe9eef0, tallgrass: 0xd0dde6, blade: 0xfbfdff },
+	'frozen-lake': { ground: 0xf3f7fa, tallgrass: 0xd6e5f0, blade: 0xfbfdff },
+	'arctic-ice': { ground: 0xf3f7fa, tallgrass: 0xd6e5f0, blade: 0xfbfdff },
+	'arctic-ocean': { ground: 0x2f78b4, tallgrass: 0x2f78b4, blade: 0x4a9fd0 },
+	'ice-sheet': { ground: 0xf6f9fc, tallgrass: 0xdde8f2, blade: 0xfbfdff },
+	rookery: { ground: 0xe4e2dd, tallgrass: 0xd2d6db, blade: 0xfbfdff },
+	'antarctic-ice': { ground: 0xf3f7fa, tallgrass: 0xd6e5f0, blade: 0xfbfdff },
+	'southern-ocean': { ground: 0x2f78b4, tallgrass: 0x2f78b4, blade: 0x4a9fd0 }
 };
 
 /**
@@ -264,5 +277,23 @@ export const ANIMAL_COLORS: Record<string, { fur: number; accent: number }> = {
 	'harbour-seal': { fur: 0x8f8a7e, accent: 0x3a3632 },
 	'harbour-porpoise': { fur: 0x4a5560, accent: 0xd9dde0 },
 	'grey-seal': { fur: 0x6f7378, accent: 0xc9c4b8 },
-	orca: { fur: 0x1e1e22, accent: 0xf7f5ef }
+	orca: { fur: 0x1e1e22, accent: 0xf7f5ef },
+	// The Arctic's small land animals (#192 wave 1). The fox, the hare and the ptarmigan in
+	// their white winter coats, each a different white beside the snow, and never Nordland's
+	// fox's red; the lemming in its summer coat with its rusty collar.
+	'arctic-fox': { fur: 0xf2f4f6, accent: 0xb9c6d3 },
+	'arctic-hare': { fur: 0xfbfaf6, accent: 0xf2a7b4 },
+	puffin: { fur: 0x2a2b31, accent: 0xf07a2a },
+	'arctic-lemming': { fur: 0x9b8774, accent: 0xc8783c },
+	'snow-bunting': { fur: 0xf7f3ea, accent: 0x2b2b30 },
+	'rock-ptarmigan': { fur: 0xf6f3ec, accent: 0xd8343a },
+	waxwing: { fur: 0xc39a7c, accent: 0xf2c230 },
+	'adelie-penguin': { fur: 0x23262d, accent: 0xeba7a0 },
+	'snow-petrel': { fur: 0xfcfcfd, accent: 0x26272c },
+	'arctic-tern': { fur: 0xdfe5ea, accent: 0xd8322a },
+	'king-eider': { fur: 0x2a2a2f, accent: 0xf0882a },
+	raven: { fur: 0x1f2028, accent: 0x3d4560 },
+	'barnacle-goose': { fur: 0x9298a0, accent: 0x1f1f24 },
+	'gentoo-penguin': { fur: 0x2a2e36, accent: 0xf2662a },
+	chinstrap: { fur: 0x2a2c33, accent: 0xeba7a0 }
 };
