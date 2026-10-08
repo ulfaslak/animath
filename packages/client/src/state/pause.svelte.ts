@@ -20,9 +20,9 @@ import { account } from './account.svelte';
  * picked animal; `naming` is the name box; `worlds` is the Worlds screen:
  * the world the player is in and their home, a number pad for a world's
  * number, Go, Go home and Back; `players` is who else is in this world,
- * each one a "Go to" (`presence.roster`); `book` is the animal book, a card
- * for every species of the catalog in the book's order (`BOOK_ORDER`), the
- * lit one `option`.
+ * each one a "Go to" (`presence.roster`); `book` is the animal book, a page
+ * per land (`book.land`) with a card for every species of the land in the
+ * book's order (`bookOrder`), the lit one `option`.
  */
 export type PauseScreen = 'list' | 'bundle' | 'options' | 'naming' | 'worlds' | 'players' | 'book';
 
@@ -115,7 +115,7 @@ class PauseView {
 	/**
 	 * Highlighted row on the right: an option, or on a card's screen an option
 	 * or an animal; on the Worlds screen a row; in the animal book the lit
-	 * card, by its place in `BOOK_ORDER`.
+	 * card, by its place on the open page (`bookOrder(book.land)`).
 	 */
 	option = $state(0);
 	/** The name typed so far. */
