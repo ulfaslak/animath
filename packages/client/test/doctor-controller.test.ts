@@ -471,7 +471,7 @@ function bigParty(): AnimalInstance[] {
 }
 
 describe("the doctor's tabs", () => {
-	it('left and right go round heal, set free and shop, each with its own line and cursor', () => {
+	it('left and right go round heal, set free, shop and fly, each with its own line and cursor', () => {
 		const t = setup(hurtParty());
 		t.talk();
 		expect(doctor.tab).toBe('heal');
@@ -487,10 +487,15 @@ describe("the doctor's tabs", () => {
 		expect(doctor.shop).toEqual(shopFor('nordland'));
 		expect(doctor.cursor).toBe(0);
 		t.press('ArrowRight');
+		// The Arctic is open: every witch doctor lists it, locked for a kid who has not set
+		// one of every Nordland animal free.
+		expect(doctor.tab).toBe('fly');
+		expect(doctor.line).toEqual({ say: 'flyIntro' });
+		t.press('ArrowRight');
 		expect(doctor.tab).toBe('heal');
-		t.press('ArrowLeft', 'a');
+		t.press('ArrowLeft', 'a', 'a');
 		expect(doctor.tab).toBe('home');
-		expect(t.cues).toEqual(['move', 'move', 'move', 'move', 'move']);
+		expect(t.cues).toEqual(['move', 'move', 'move', 'move', 'move', 'move', 'move']);
 		// A tap on a tab goes there; on the tab on screen, nothing.
 		t.press(tabKey('shop'));
 		expect(doctor.tab).toBe('shop');
@@ -1069,7 +1074,7 @@ describe('the shop', () => {
 		const t = setup(hurtParty(), { tokens, shop: shopFor('nordland') });
 		t.talk();
 		t.run(PICK_QUIET_SECONDS);
-		t.press('ArrowLeft');
+		t.press(tabKey('shop'));
 		expect(doctor.tab).toBe('shop');
 		expect(doctor.shop).toEqual(['axe', 'pickaxe', 'boat', 'glider', 'harness']);
 		return t;
@@ -1187,16 +1192,23 @@ describe('flying from the witch doctor', () => {
 		return { authority, events, run, press };
 	}
 
-	it('lists no fly tab where there is no other land to fly to', () => {
+	it('a new game sees The Arctic on Fly, locked, and how far it is: 0 / 50', () => {
 		const t = setup(hurtParty());
 		t.talk();
-		expect(doctor.lands).toEqual([]);
-		expect(doctorTabs(doctor.lands)).toEqual(['heal', 'home', 'shop']);
-		// Left from heal wraps round to the shop, never to a fly tab.
-		t.press('ArrowLeft');
-		expect(doctor.tab).toBe('shop');
+		expect(doctor.lands).toEqual(['arctic']);
+		expect(doctorTabs(doctor.lands)).toEqual(['heal', 'home', 'shop', 'fly']);
+		expect(doctor.unlocked).toEqual(['nordland']);
 		t.press(tabKey('fly'));
-		expect(doctor.tab).toBe('shop');
+		t.run(PICK_QUIET_SECONDS);
+		t.press('Enter');
+		expect(doctor.line).toEqual({
+			say: 'flyLocked',
+			land: 'arctic',
+			from: 'nordland',
+			freed: 0,
+			of: 50
+		});
+		expect(t.doctorSent()).toEqual([]);
 	});
 
 	it('a land still locked is listed, greyed, and picking it says how far the kid is: no fare, no flight', () => {

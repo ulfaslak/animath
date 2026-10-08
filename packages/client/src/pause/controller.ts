@@ -332,7 +332,7 @@ export class PauseController {
 	 * hop). Nothing here changes the game.
 	 */
 	private bookKey(key: string): boolean {
-		const lands = bookLands(game.land);
+		const lands = bookLands(game.land, game.unlocked);
 		const page = bookOrder(book.land);
 		const count = page.length;
 		const at = Math.min(pause.option, count - 1);

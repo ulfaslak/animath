@@ -469,6 +469,25 @@ describe('sliding on the ice', () => {
 });
 
 describe("The Arctic's tiles", () => {
+	it('lay no deep snow in a frozen lake: its animal is under the ice, met with the rod alone', () => {
+		let lake = 0;
+		const bad: string[] = [];
+		for (const world of [1, 2, 3, 42]) {
+			const seed = arctic(world);
+			for (let cy = -12; cy <= -1; cy++) {
+				for (let cx = -8; cx <= 8; cx++) {
+					for (const tile of generateChunk(seed, cx, cy).tiles) {
+						if (tile.biome !== 'frozen-lake') continue;
+						lake++;
+						if (tile.kind === 'deepsnow' || tile.kind === 'tallgrass') bad.push(`${world}`);
+					}
+				}
+			}
+		}
+		expect(lake).toBeGreaterThan(1000);
+		expect(bad).toEqual([]);
+	});
+
 	const KINDS: readonly TileKind[] = ['snow', 'deepsnow', 'ice', 'iceblock', 'hole'];
 
 	it('snow, deep snow and ice are walked on; an ice block and a fishing hole stop a walk and a boat alike', () => {

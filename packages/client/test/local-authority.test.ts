@@ -3516,7 +3516,7 @@ describe('LocalAuthority: lands (#191)', () => {
 		return e;
 	}
 
-	it('flies nowhere the build has not built: The Arctic is closed, and nothing changes', () => {
+	it('flies nowhere locked: a new game cannot fly to The Arctic yet, and nothing changes', () => {
 		const s = session();
 		walkToTent(s);
 		s.authority.dispatch({ type: 'interact' });
@@ -3525,7 +3525,7 @@ describe('LocalAuthority: lands (#191)', () => {
 		expect(visit(s).phase.kind).toBe('choose-patient');
 		const last = s.events.at(-1);
 		expect(last?.type === 'doctor-visit-updated' && last.events).toEqual([
-			{ type: 'rejected', reason: 'land-unavailable' }
+			{ type: 'rejected', reason: 'land-locked' }
 		]);
 		expect(s.authority.snapshot()).toEqual(before);
 		expect(welcome(s)).toMatchObject({ land: 'nordland', unlocked: ['nordland'] });
@@ -3704,11 +3704,11 @@ describe('LocalAuthority: lands (#191)', () => {
 		const at = lastIndexOf(s, 'unlocked-changed');
 		expect(s.events[at - 1]?.type).toBe('book-changed');
 		expect(s.authority.snapshot().unlocked).toEqual(['nordland', 'arctic']);
-		// The witch doctor knows: The Arctic is not locked any more, only not built.
+		// The witch doctor knows at once, in the same visit: the fare is asked.
 		doctorIntent(s, { type: 'fly', land: 'arctic' });
 		const last = s.events.at(-1);
-		expect(last?.type === 'doctor-visit-updated' && last.events).toEqual([
-			{ type: 'rejected', reason: 'land-unavailable' }
+		expect(last?.type === 'doctor-visit-updated' && last.events.map((e) => e.type)).toEqual([
+			'fare-shown'
 		]);
 	});
 });

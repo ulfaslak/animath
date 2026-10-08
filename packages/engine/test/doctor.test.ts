@@ -163,7 +163,7 @@ describe('startDoctorVisit', () => {
 			// In Nordland by default, nothing unlocked past it, and only the lands built open.
 			land: 'nordland',
 			unlocked: ['nordland'],
-			open: ['nordland'],
+			open: ['nordland', 'arctic'],
 			phase: { kind: 'choose-patient' }
 		});
 		expect(state.party[0]).not.toBe(party[0]);
@@ -1122,7 +1122,7 @@ describe('replay', () => {
 			shop: shopFor('nordland'),
 			land: 'nordland',
 			unlocked: ['nordland'],
-			open: ['nordland'],
+			open: ['nordland', 'arctic'],
 			phase: { kind: 'ended' }
 		});
 	});
@@ -1141,8 +1141,8 @@ describe('flying from the witch doctor (#191)', () => {
 			[open, 'nordland', 'already-here'],
 			[{ ...open, open: ['nordland'] }, 'arctic', 'land-unavailable'],
 			[{ ...open, unlocked: ['nordland'] }, 'arctic', 'land-locked'],
-			// By default: in Nordland, nothing past it unlocked, only the lands built open.
-			[{}, 'arctic', 'land-unavailable']
+			// By default: in Nordland, nothing past it unlocked: The Arctic is built, and locked.
+			[{}, 'arctic', 'land-locked']
 		];
 		for (const [options, land, reason] of cases) {
 			const state = startDoctorVisit(party, options);

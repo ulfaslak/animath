@@ -179,9 +179,8 @@ const ARCTIC_SPECIES: readonly string[] = [
 ];
 
 /**
- * The registry, in unlock order. The Arctic is here and not available: its
- * map, animals and shop come in steps 4 to 6 of #191, which fill in its
- * `species`, `starters` and `shop` and turn `available` on.
+ * The registry, in unlock order. The Arctic opened with #191 step 7, its map,
+ * animals and shop built in steps 4 to 6.
  */
 export const LANDS: readonly LandSpec[] = [
 	{
@@ -201,7 +200,7 @@ export const LANDS: readonly LandSpec[] = [
 	{
 		id: 'arctic',
 		order: 1,
-		available: false,
+		available: true,
 		species: ARCTIC_SPECIES,
 		// One of each ground, as Nordland's three are (#192): open, rocks and water.
 		starters: ['arctic-fox', 'arctic-hare', 'puffin'],

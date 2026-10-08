@@ -17,7 +17,7 @@ import { parseParty } from '../src/flags';
 import { landKey, languageKey, optionKey, rowKey } from '../src/input/press';
 import { PauseController } from '../src/pause/controller';
 import { account } from '../src/state/account.svelte';
-import { book } from '../src/state/book.svelte';
+import { book, bookLands } from '../src/state/book.svelte';
 import { game } from '../src/state/game.svelte';
 import {
 	menuItems,
@@ -834,6 +834,13 @@ describe('the animal book', () => {
 		} finally {
 			stop();
 		}
+	});
+
+	it('has a page for a land only once the kid can fly there, or is in it', () => {
+		expect(bookLands('nordland', ['nordland'])).toEqual(['nordland']);
+		expect(bookLands('nordland', ['nordland', 'arctic'])).toEqual(['nordland', 'arctic']);
+		// Put in The Arctic some other way (a hand-made save): its page, and Nordland's.
+		expect(bookLands('arctic', ['nordland'])).toEqual(['nordland', 'arctic']);
 	});
 
 	it("opens on the page of the land the kid is in; up from the top row lights the lands' tabs, where left and right open the land beside (#191)", () => {
