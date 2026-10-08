@@ -1254,7 +1254,8 @@ describe('LocalAuthority: the doctor', () => {
 				'fishing-rod',
 				'glider',
 				'harness',
-				'skis'
+				'skis',
+				'sled'
 			]
 		});
 

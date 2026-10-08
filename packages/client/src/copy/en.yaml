@@ -1379,6 +1379,8 @@ explore:
   needPickaxe: You need a pickaxe to break rocks. The witch doctor sells one!
   # The first bump into an ice block without the ice pick, and Enter facing one.
   # Leaving the witch doctor's card just after buying the skis: how to ski.
+  # Leaving the witch doctor's card just after buying the dog sled: who pulls it.
+  sledHow: Put a reindeer or an Arctic wolf first, and it pulls you on your sled!
   skiHow: Hold an arrow to go faster and faster on the snow. Let go and you glide on!
   needIcePick: You need an ice pick to break ice blocks. The witch doctor sells one!
   # Enter facing a fishing hole without the fishing rod.
@@ -1831,6 +1833,11 @@ items:
     the: the pair of skis
     your: your pair of skis
     use: Hold an arrow and go faster and faster on the snow!
+  sled:
+    name: Dog sled
+    the: the dog sled
+    your: your dog sled
+    use: A reindeer or an Arctic wolf pulls you on it.
 
 # What a land pays in, said in a sentence: one of it, and more. Nordland's tokens, and
 # The Arctic's ice dollars (Danish "iskroner").

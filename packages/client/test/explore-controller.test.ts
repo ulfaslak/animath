@@ -55,6 +55,7 @@ function setup(startingParty: string, saved?: SavedGame) {
 		castPlaying: false,
 		setSkis() {},
 		setSkiing() {},
+		setSled() {},
 		fish() {},
 		setLandingSpot(at: GridPos | null, tool: string | null = null) {
 			rings.push(at && { ...at, tool });

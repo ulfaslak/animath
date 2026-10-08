@@ -62,7 +62,7 @@ export type {
 	Tier
 } from './animals/types.js';
 export { ATTACK_LEVELS, BIOME_POLE, REALMS, TERRAINS } from './animals/types.js';
-export { ANIMALS, canFightIn, canRide, getAnimal, skiesOf } from './animals/catalog.js';
+export { ANIMALS, canFightIn, canPull, canRide, getAnimal, skiesOf } from './animals/catalog.js';
 export {
 	bookOrder,
 	EMPTY_BOOK,

@@ -1573,6 +1573,16 @@ export function canRide(owner: { readonly items: readonly string[] }, speciesId:
 }
 
 /**
+ * Whether an animal of this species pulls this owner's dog sled on land: they
+ * have the sled, and it is one that could pull one in nature (`pulls`: the
+ * reindeer, the Arctic wolf). A look only, as riding is: the caller asks it
+ * only on land.
+ */
+export function canPull(owner: { readonly items: readonly string[] }, speciesId: string): boolean {
+	return hasItem(owner, 'sled') && getAnimal(speciesId).pulls === true;
+}
+
+/**
  * The biomes whose sky a species flies over, where it may notice a kid on
  * the glider: none for an animal that does not fly, and for a bird its
  * `skies`, or where it lives when it names none.

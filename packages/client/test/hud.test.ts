@@ -40,6 +40,7 @@ function setup(start?: SavedGame) {
 		castPlaying: false,
 		setSkis() {},
 		setSkiing() {},
+		setSled() {},
 		fish() {},
 		setLandingSpot() {},
 		setPlayer() {},

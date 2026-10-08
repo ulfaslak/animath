@@ -1332,6 +1332,7 @@ explore:
   noSwimmer: Der er ikke noget, der bider, for ingen af dine dyr kan svømme. Tag et dyr med, der kan svømme!
   needAxe: Du skal bruge en økse for at fælde træer. Heksedoktoren sælger en!
   needPickaxe: Du skal bruge en hakke for at knuse sten. Heksedoktoren sælger en!
+  sledHow: Sæt et rensdyr eller en polarulv forrest, så får du en tur på slæden!
   skiHow: Hold en pil nede og kør hurtigere og hurtigere på sneen. Slip, så glider du videre!
   needIcePick: Du skal bruge en ishakke for at knuse isblokke. Heksedoktoren sælger en!
   needRod: Du skal bruge en fiskestang for at fiske her. Heksedoktoren sælger en!
@@ -1641,6 +1642,11 @@ items:
     the: skiene
     your: dine ski
     use: Hold en pil nede og kør hurtigere og hurtigere på sneen!
+  sled:
+    name: Hundeslæde
+    the: hundeslæden
+    your: din hundeslæde
+    use: Et rensdyr eller en polarulv kan trække dig på slæden.
 
 currency:
   tokens:

@@ -21,7 +21,8 @@ export type ItemId =
 	| 'arctic-axe'
 	| 'ice-pick'
 	| 'fishing-rod'
-	| 'skis';
+	| 'skis'
+	| 'sled';
 
 export interface ItemSpec {
 	id: ItemId;
@@ -58,7 +59,9 @@ export const ITEMS: readonly ItemSpec[] = [
 	 */
 	{ id: 'fishing-rod', available: true },
 	/** Speed on the snow: built up while a way is held, coasting on after it (`world/skis.ts`). */
-	{ id: 'skis', available: true }
+	{ id: 'skis', available: true },
+	/** The Arctic's harness: a lead that can pull one (`canPull`) pulls the kid on it on land. A look only. */
+	{ id: 'sled', available: true }
 ];
 
 /** Every item id, in catalog order. */

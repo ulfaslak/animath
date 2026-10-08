@@ -104,6 +104,7 @@ function setup(start: SavedGame) {
 		castPlaying: false,
 		setSkis() {},
 		setSkiing() {},
+		setSled() {},
 		fish(hole: GridPos, outcome: string) {
 			casts.push({ hole, outcome });
 		},

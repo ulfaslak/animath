@@ -62,6 +62,7 @@ function setup(party: string, game0?: SavedGame) {
 		castPlaying: false,
 		setSkis() {},
 		setSkiing() {},
+		setSled() {},
 		fish() {},
 		setLandingSpot() {},
 		// Where the trainer is, for the birds up in the air: over their tile, up as high as the flight has them.

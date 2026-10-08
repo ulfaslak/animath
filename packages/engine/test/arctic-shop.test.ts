@@ -165,7 +165,15 @@ describe("The Arctic's witch doctor", () => {
 	it('lists his shop cheapest first, in ice dollars, as every visit shows it', () => {
 		const visit = startDoctorVisit([animal('fox')], { land: 'arctic' });
 		expect(visit.shop).toEqual(shopFor('arctic'));
-		expect(visit.shop).toEqual(['arctic-axe', 'ice-pick', 'fishing-rod', 'skis', 'boat', 'glider']);
+		expect(visit.shop).toEqual([
+			'arctic-axe',
+			'ice-pick',
+			'fishing-rod',
+			'skis',
+			'boat',
+			'glider',
+			'sled'
+		]);
 		// The whole catalog (`?shop`) too: by the land's prices, the others' after their own.
 		const all = startDoctorVisit([animal('fox')], {
 			land: 'arctic',

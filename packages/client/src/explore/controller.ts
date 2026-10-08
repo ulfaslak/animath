@@ -8,6 +8,7 @@ import {
 	isClearable,
 	isWater,
 	landingDistance,
+	canPull,
 	canRide,
 	leadIndex,
 	TOP,
@@ -451,6 +452,8 @@ export class ExploreController {
 			else this.leadFollower(this.follower, party);
 			this.follower.fly(this.flight ? trainer : null, this.facing);
 			this.follower.update(this.progress, dt);
+			// The sled under the trainer while the lead pulls it.
+			this.renderer.setSled(this.follower.pulling);
 		}
 	}
 
@@ -648,7 +651,16 @@ export class ExploreController {
 	private leadFollower(follower: Follower, party: readonly AnimalInstance[]): void {
 		const onLand = party[leadIndex(party, 'land')]?.speciesId ?? null;
 		if (!this.onWater(this.pos)) {
-			follower.lead(onLand, onLand !== null && canRide(game, onLand) ? 'mount' : 'follows');
+			// On a mount's back with the harness; on the dog sled, pulled, with the sled (a look only).
+			const ride =
+				onLand === null
+					? 'follows'
+					: canRide(game, onLand)
+						? 'mount'
+						: canPull(game, onLand) && follower.roomToPull(this.pos, this.facing, onLand)
+							? 'pull'
+							: 'follows';
+			follower.lead(onLand, ride);
 			return;
 		}
 		const swimmer = party[leadIndex(party, 'water')];
