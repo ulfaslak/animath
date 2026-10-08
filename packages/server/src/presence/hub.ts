@@ -14,7 +14,8 @@ import {
 	type PeerMessage,
 	type RosterEntry,
 	type ServerMessage,
-	type WhereMessage
+	type WhereMessage,
+	type LandId
 } from '@mathgame/engine';
 
 /**
@@ -54,18 +55,31 @@ export interface Peer {
 	close(reason: ByeReason): void;
 }
 
+/**
+ * A room: one land of one world ([[DECISIONS]] § Multiplayer, #191). Players
+ * see each other only in the same land of the same world: Nordland 42 and
+ * Arktis 42 are two rooms.
+ */
 interface Room {
 	readonly world: number;
+	readonly land: LandId;
+	/** `placeKey(land, world)`, its key among the rooms. */
+	readonly key: string;
 	readonly members: Set<Member>;
 }
 
-/** Where a member stands and what the others see of them: `where` without its kind and world. */
-export type Spot = Omit<WhereMessage, 't' | 'world'>;
+/** A room's key: its land and world, as `nordland:42`. */
+export function placeKey(land: LandId, world: number): string {
+	return `${land}:${world}`;
+}
+
+/** Where a member stands and what the others see of them: `where` without its kind, world and land. */
+export type Spot = Omit<WhereMessage, 't' | 'world' | 'land'>;
 
 /**
  * A player who said hello, as the friendly matches read them (`matches.ts`):
- * their socket, public id, who they are (never sent), name, and the world and
- * spot their last `where` named (null before the first).
+ * their socket, public id, who they are (never sent), name, and the world,
+ * land and spot their last `where` named (null before the first).
  */
 export interface Present {
 	readonly peer: Peer;
@@ -73,6 +87,7 @@ export interface Present {
 	readonly key: string;
 	readonly name: string;
 	readonly world: number | null;
+	readonly land: LandId | null;
 	readonly spot: Spot | null;
 }
 
@@ -111,12 +126,12 @@ export interface HubOptions {
 	 * first is somebody else's, which a good hash makes all but never).
 	 */
 	pidFor: (key: string, attempt: number) => string;
-	/** The most players one world holds; one more is turned away (`full`). */
+	/** The most players one land of one world holds; one more is turned away (`full`). */
 	maxPerWorld?: number;
 }
 
 export class PresenceHub {
-	private readonly rooms = new Map<number, Room>();
+	private readonly rooms = new Map<string, Room>();
 	private readonly byPeer = new Map<Peer, Member>();
 	private readonly byKey = new Map<string, Member>();
 	private readonly byPid = new Map<string, Member>();
@@ -131,9 +146,9 @@ export class PresenceHub {
 		return this.byPeer.size;
 	}
 
-	/** The worlds with anyone in them, and how many: for tests and logs. */
-	worlds(): Map<number, number> {
-		return new Map([...this.rooms].map(([world, room]) => [world, room.members.size]));
+	/** The rooms with anyone in them, by `placeKey` (`nordland:42`), and how many: for tests and logs. */
+	places(): Map<string, number> {
+		return new Map([...this.rooms].map(([key, room]) => [key, room.members.size]));
 	}
 
 	/**
@@ -185,16 +200,17 @@ export class PresenceHub {
 	}
 
 	/**
-	 * Where a member is now: into that world's room (out of any other), and
-	 * then to everyone near, both ways. A full world turns them away: they
-	 * leave, and their socket is closed (`full`).
+	 * Where a member is now: into the room of that land of that world (out of
+	 * any other), and then to everyone near, both ways. A full room turns them
+	 * away: they leave, and their socket is closed (`full`).
 	 */
 	where(peer: Peer, where: WhereMessage): void {
 		const member = this.byPeer.get(peer);
 		if (!member) return;
-		const { t: _t, world, ...spot } = where;
-		if (member.room?.world !== world) {
-			const room = this.rooms.get(world);
+		const { t: _t, world, land, ...spot } = where;
+		const key = placeKey(land, world);
+		if (member.room?.key !== key) {
+			const room = this.rooms.get(key);
 			if (room && room.members.size >= this.maxPerWorld) {
 				this.leave(peer);
 				peer.close('full');
@@ -203,7 +219,7 @@ export class PresenceHub {
 			// Everyone it saw in the world it leaves goes from its screen too.
 			this.leaveRoom(member, true);
 			member.spot = spot;
-			this.enter(member, world);
+			this.enter(member, world, land);
 		} else {
 			member.spot = spot;
 		}
@@ -334,11 +350,12 @@ export class PresenceHub {
 
 	// --- rooms ------------------------------------------------------------------
 
-	private enter(member: Member, world: number): void {
-		let room = this.rooms.get(world);
+	private enter(member: Member, world: number, land: LandId): void {
+		const key = placeKey(land, world);
+		let room = this.rooms.get(key);
 		if (!room) {
-			room = { world, members: new Set() };
-			this.rooms.set(world, room);
+			room = { world, land, key, members: new Set() };
+			this.rooms.set(key, room);
 		}
 		room.members.add(member);
 		member.room = room;
@@ -363,7 +380,7 @@ export class PresenceHub {
 		// A battle is fought where it started: out of that world, there is none to see.
 		member.showing = null;
 		room.members.delete(member);
-		if (room.members.size === 0) this.rooms.delete(room.world);
+		if (room.members.size === 0) this.rooms.delete(room.key);
 		member.room = null;
 		member.lastRoster = '';
 	}
@@ -405,11 +422,12 @@ export class PresenceHub {
 
 	private sendRoster(member: Member): void {
 		if (!member.room || !member.spot) return;
-		const players = fitRoster(member.room.world, this.rosterFor(member));
+		const { world, land } = member.room;
+		const players = fitRoster(world, land, this.rosterFor(member));
 		const text = JSON.stringify(players);
 		if (text === member.lastRoster) return;
 		member.lastRoster = text;
-		member.peer.send({ t: 'roster', world: member.room.world, players });
+		member.peer.send({ t: 'roster', world, land, players });
 	}
 }
 
@@ -418,9 +436,9 @@ export class PresenceHub {
  * names the wire takes can be long in JSON, and a browser drops a message
  * longer than it reads.
  */
-function fitRoster(world: number, players: RosterEntry[]): RosterEntry[] {
+function fitRoster(world: number, land: LandId, players: RosterEntry[]): RosterEntry[] {
 	// The message is its frame round '[]' plus each entry, a comma between.
-	let length = JSON.stringify({ t: 'roster', world, players: [] }).length;
+	let length = JSON.stringify({ t: 'roster', world, land, players: [] }).length;
 	let fits = 0;
 	for (const entry of players) {
 		length += JSON.stringify(entry).length + (fits > 0 ? 1 : 0);
@@ -437,6 +455,7 @@ function presentOf(member: Member): Present {
 		key: member.key,
 		name: member.name,
 		world: member.room?.world ?? null,
+		land: member.room?.land ?? null,
 		spot: member.spot
 	};
 }

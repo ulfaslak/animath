@@ -58,6 +58,12 @@ export interface Flags {
 	 */
 	items: ItemId[] | null;
 	/**
+	 * `?lands`: every land open and unlocked, in a throwaway game, to fly to a
+	 * land before it is built (#191): L on the witch doctor's list flies to
+	 * the next land. Lands not built yet look like Nordland and hold nothing.
+	 */
+	lands: boolean;
+	/**
 	 * `?puzzle=clock&d=5`: the puzzle preview instead of the game (`preview/`),
 	 * for looking at a kind of puzzle at a difficulty, the Arctic's above all,
 	 * which nothing in the game asks yet. The kind is any the engine has
@@ -66,7 +72,7 @@ export interface Flags {
 	 */
 	puzzle: PuzzlePreview | null;
 	/**
-	 * `?new`, `?party=`, `?zoo`, `?tokens=`, `?shop` or `?items=`: a throwaway game,
+	 * `?new`, `?party=`, `?zoo`, `?tokens=`, `?shop`, `?items=` or `?lands`: a throwaway game,
 	 * straight into explore without the title. Nothing is loaded or saved, so
 	 * a look at a screen never touches a kid's game.
 	 */
@@ -81,6 +87,7 @@ export function readFlags(search: string): Flags {
 	const tokens = parseTokens(params.get('tokens'));
 	const shop = params.has('shop') ? [...ITEM_IDS] : null;
 	const items = parseItems(params.get('items'));
+	const lands = params.has('lands');
 	return {
 		zoo,
 		puzzle: params.has('puzzle') ? parsePuzzlePreview(params.get('puzzle'), params.get('d')) : null,
@@ -91,8 +98,15 @@ export function readFlags(search: string): Flags {
 		tokens,
 		shop,
 		items,
+		lands,
 		throwaway:
-			fresh || party !== null || zoo !== null || tokens !== null || shop !== null || items !== null
+			fresh ||
+			party !== null ||
+			zoo !== null ||
+			tokens !== null ||
+			shop !== null ||
+			items !== null ||
+			lands
 	};
 }
 
@@ -108,6 +122,7 @@ export function authorityOptions(flags: Flags): LocalAuthorityOptions {
 		tokens: flags.tokens ?? undefined,
 		shop: flags.shop ?? undefined,
 		items: flags.items ?? undefined,
+		lands: flags.lands || undefined,
 		homeWorld: flags.throwaway ? () => FIRST_WORLD : undefined
 	};
 }

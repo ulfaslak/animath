@@ -69,6 +69,7 @@ class Page {
 		const hi = await this.next('hi');
 		this.send({
 			t: 'where',
+			land: 'nordland',
 			world: 1,
 			...at,
 			facing: 'down',

@@ -16,8 +16,10 @@ import { applyDoctorIntent, buyRefusal, startDoctorVisit } from '../src/doctor/r
 import { homeTokens, tokenPuzzle, tokensForTier } from '../src/doctor/tokens.js';
 import type { DoctorEvent, DoctorIntent, DoctorState, DoctorStep } from '../src/doctor/types.js';
 import { ITEMS, ITEM_IDS, getItem, hasItem, itemsForSale } from '../src/items/catalog.js';
+import { LAND_IDS } from '../src/lands/ids.js';
+import { FARE_DIFFICULTY, getLand } from '../src/lands/lands.js';
 import { healingDifficulty } from '../src/puzzles/difficulty.js';
-import { checkAnswer } from '../src/puzzles/registry.js';
+import { answerText, checkAnswer } from '../src/puzzles/registry.js';
 import { Rng, hashInts, hashString } from '../src/rng.js';
 import { WorldEdits, editedTileAt } from '../src/world/edits.js';
 import { tileAtWorld } from '../src/world/generate.js';
@@ -112,6 +114,20 @@ function apply(state: DoctorState, intent: DoctorIntent, seed: number): DoctorSt
 	}
 	expect(after.tokens).toBe(tokens);
 	expect(after.tokens).toBeGreaterThanOrEqual(0);
+	// A flight leaves only on a right answer to its fare, to the land it was asked for, and ends
+	// the visit; where the tent is and where a kid may fly never change in a visit.
+	const flew = step.events.find((e) => e.type === 'flew');
+	if (flew?.type === 'flew') {
+		expect(correct, 'flew without a right answer').toBe(true);
+		if (state.phase.kind !== 'paying-fare') throw new Error('flew with no fare open');
+		expect(flew.land).toBe(state.phase.land);
+		expect(after.phase.kind).toBe('ended');
+	}
+	expect([after.land, after.unlocked, after.open]).toEqual([
+		state.land,
+		state.unlocked,
+		state.open
+	]);
 	return step;
 }
 
@@ -144,6 +160,10 @@ describe('startDoctorVisit', () => {
 			tokens: 0,
 			items: [],
 			shop: itemsForSale(),
+			// In Nordland by default, nothing unlocked past it, and only the lands built open.
+			land: 'nordland',
+			unlocked: ['nordland'],
+			open: ['nordland'],
 			phase: { kind: 'choose-patient' }
 		});
 		expect(state.party[0]).not.toBe(party[0]);
@@ -173,11 +193,14 @@ describe('startDoctorVisit', () => {
 	it('carries no seed and no words: a client can neither predict a puzzle nor show English', () => {
 		expect(Object.keys(startDoctorVisit(partyOf(['fox', 3]))).sort()).toEqual([
 			'items',
+			'land',
+			'open',
 			'party',
 			'phase',
 			'shop',
 			'step',
-			'tokens'
+			'tokens',
+			'unlocked'
 		]);
 	});
 
@@ -1037,8 +1060,94 @@ describe('replay', () => {
 			tokens: 0,
 			items: [],
 			shop: itemsForSale(),
+			land: 'nordland',
+			unlocked: ['nordland'],
+			open: ['nordland'],
 			phase: { kind: 'ended' }
 		});
+	});
+});
+
+// --- flying to another land ---------------------------------------------------
+
+describe('flying from the witch doctor (#191)', () => {
+	const party = partyOf(['squirrel'], ['fox', 3]);
+	const open = { land: 'nordland', unlocked: ['nordland', 'arctic'], open: LAND_IDS } as const;
+
+	it('refuses a flight the rules refuse (`flyRefusal`), changing nothing', () => {
+		const cases: [Parameters<typeof startDoctorVisit>[1], unknown, string][] = [
+			[open, 'atlantis', 'no-such-land'],
+			[open, 7, 'no-such-land'],
+			[open, 'nordland', 'already-here'],
+			[{ ...open, open: ['nordland'] }, 'arctic', 'land-unavailable'],
+			[{ ...open, unlocked: ['nordland'] }, 'arctic', 'land-locked'],
+			// By default: in Nordland, nothing past it unlocked, only the lands built open.
+			[{}, 'arctic', 'land-unavailable']
+		];
+		for (const [options, land, reason] of cases) {
+			const state = startDoctorVisit(party, options);
+			const step = apply(state, { type: 'fly', land: land as string }, 7);
+			expect(step.events, `${String(land)}`).toEqual([{ type: 'rejected', reason }]);
+		}
+	});
+
+	it("asks the fare, a puzzle of the land's own kinds; a wrong answer asks another, and nothing else changes", () => {
+		for (let s = 0; s < SEEDS; s++) {
+			let state = startDoctorVisit(party, { ...open, tokens: 9, items: ['axe'] });
+			const seed = hashInts(81, s);
+			let step = apply(state, { type: 'fly', land: 'arctic' }, seed);
+			const shown = step.events[0];
+			if (shown?.type !== 'fare-shown') throw new Error('no fare');
+			expect(shown.land).toBe('arctic');
+			expect(getLand('arctic').travelKinds).toContain(shown.puzzle.kind);
+			expect(shown.puzzle.difficulty).toBe(FARE_DIFFICULTY);
+			expect(step.state.phase).toEqual({
+				kind: 'paying-fare',
+				land: 'arctic',
+				puzzle: shown.puzzle
+			});
+			state = step.state;
+			const wrong = WRONG_INPUTS[s % WRONG_INPUTS.length]!(shown.puzzle.answer);
+			step = apply(state, { type: 'answer', input: wrong }, seed);
+			expect(step.events[0]).toMatchObject({ type: 'answer-judged', correct: false });
+			expect(step.events[1]?.type).toBe('fare-shown');
+			expect(step.events.some((e) => e.type === 'flew')).toBe(false);
+			expect(step.state.party).toEqual(state.party);
+			if (step.state.phase.kind !== 'paying-fare') throw new Error('fare still open');
+			expect(step.state.phase.puzzle.prompt).not.toBe(shown.puzzle.prompt);
+			// Back puts it away: nothing flew.
+			const back = apply(step.state, { type: 'back' }, seed);
+			expect(back.state.phase.kind).toBe('choose-patient');
+			// Asked again and answered right: off they fly, and the visit is over.
+			const again = apply(back.state, { type: 'fly', land: 'arctic' }, seed);
+			const fare = again.state.phase;
+			if (fare.kind !== 'paying-fare') throw new Error('fare open');
+			const input = answerText(fare.puzzle);
+			const paid = apply(again.state, { type: 'answer', input }, seed);
+			expect(paid.events).toEqual([
+				{
+					type: 'answer-judged',
+					input,
+					correct: true,
+					answer: fare.puzzle.answer
+				},
+				{ type: 'flew', land: 'arctic' },
+				{ type: 'ended' }
+			]);
+			// The fare costs no tokens and nothing else: only the puzzle.
+			expect(paid.state).toMatchObject({ tokens: 9, items: ['axe'], party: state.party });
+			expect(wordedStrings(paid)).toEqual([]);
+		}
+	});
+
+	it('flies back to Nordland from anywhere, unlocked or not, and is a pure function of its seed', () => {
+		const there = startDoctorVisit([], { land: 'arctic', unlocked: [], open: LAND_IDS });
+		const a = apply(there, { type: 'fly', land: 'nordland' }, 99);
+		const b = apply(there, { type: 'fly', land: 'nordland' }, 99);
+		expect(a).toEqual(b);
+		expect(a.events[0]?.type).toBe('fare-shown');
+		if (a.state.phase.kind !== 'paying-fare') throw new Error('fare open');
+		expect(getLand('nordland').travelKinds).toContain(a.state.phase.puzzle.kind);
 	});
 });
 

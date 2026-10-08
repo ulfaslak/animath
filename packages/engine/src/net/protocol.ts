@@ -15,6 +15,7 @@ import {
 import { ALL_PUZZLE_KINDS, MAX_DIFFICULTY, MIN_DIFFICULTY } from '../puzzles/types.js';
 import { MAX_SAVE_ID_LENGTH } from '../save.js';
 import type { Direction } from '../world/types.js';
+import { isLandId, type LandId } from '../lands/ids.js';
 import { readFightEvents, readFightView, type FightEvent, type FightView } from './fight.js';
 
 /**
@@ -57,8 +58,11 @@ import { readFightEvents, readFightView, type FightEvent, type FightView } from 
  * (#91): the buzzard, and a `fight` fought in the air, which a version 6 page
  * drops for its realm. Version 8: the Arctic's seven puzzle kinds (#191),
  * whose puzzles a version 7 page would drop from a `match` or a `fight`.
+ * Version 9: lands (#191): a `where` and a `roster` name the land as well as
+ * the world, and players see each other only in the same land of the same
+ * world, which a version 8 server would not know to keep apart.
  */
-export const PROTOCOL_VERSION = 8;
+export const PROTOCOL_VERSION = 9;
 
 /**
  * The most a message may take on the wire, in bytes (the server closes a
@@ -169,6 +173,8 @@ export interface HelloMessage {
 export interface WhereMessage {
 	t: 'where';
 	world: number;
+	/** The land the player is in: with `world`, the place whose players see each other. */
+	land: LandId;
 	x: number;
 	y: number;
 	facing: Direction;
@@ -354,10 +360,11 @@ export interface RosterEntry {
 	busy: Busy;
 }
 
-/** Everyone else in your world, nearest first, at most `MAX_ROSTER`. */
+/** Everyone else in your world and land, nearest first, at most `MAX_ROSTER`. */
 export interface RosterMessage {
 	t: 'roster';
 	world: number;
+	land: LandId;
 	players: RosterEntry[];
 }
 
@@ -604,7 +611,7 @@ function readLead(value: unknown): { ok: true; lead: string | null } | { ok: fal
 }
 
 /** The fields `where` and `peer` share: a spot in the world and what the player there shows. */
-function readSpot(o: Fields): Omit<WhereMessage, 't' | 'world'> | null {
+function readSpot(o: Fields): Omit<WhereMessage, 't' | 'world' | 'land'> | null {
 	const lead = readLead(o.lead);
 	if (
 		!isWireCoord(o.x) ||
@@ -723,7 +730,9 @@ const CLIENT_PARSERS: { [K in ClientMessage['t']]: Parser<Extract<ClientMessage,
 			: null,
 	where: (o) => {
 		const spot = readSpot(o);
-		return spot && isWireWorld(o.world) ? { t: 'where', world: o.world, ...spot } : null;
+		return spot && isWireWorld(o.world) && isLandId(o.land)
+			? { t: 'where', world: o.world, land: o.land, ...spot }
+			: null;
 	},
 	find: (o) => (isPid(o.pid) ? { t: 'find', pid: o.pid } : null),
 	challenge: (o) => {
@@ -998,7 +1007,12 @@ const SERVER_PARSERS: { [K in ServerMessage['t']]: Parser<Extract<ServerMessage,
 	},
 	gone: (o) => (isPid(o.pid) ? { t: 'gone', pid: o.pid } : null),
 	roster: (o) => {
-		if (!isWireWorld(o.world) || !Array.isArray(o.players) || o.players.length > MAX_ROSTER) {
+		if (
+			!isWireWorld(o.world) ||
+			!isLandId(o.land) ||
+			!Array.isArray(o.players) ||
+			o.players.length > MAX_ROSTER
+		) {
 			return null;
 		}
 		const players: RosterEntry[] = [];
@@ -1007,7 +1021,7 @@ const SERVER_PARSERS: { [K in ServerMessage['t']]: Parser<Extract<ServerMessage,
 			if (!entry) return null;
 			players.push(entry);
 		}
-		return { t: 'roster', world: o.world, players };
+		return { t: 'roster', world: o.world, land: o.land, players };
 	},
 	found: (o) =>
 		isPid(o.pid) && isWireCoord(o.x) && isWireCoord(o.y)

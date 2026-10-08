@@ -1,5 +1,7 @@
 import type { AnimalInstance } from '../animals/types.js';
 import type { ItemId } from '../items/catalog.js';
+import type { LandId } from '../lands/ids.js';
+import type { FlyRefusal } from '../lands/lands.js';
 import type { Puzzle } from '../puzzles/types.js';
 
 /**
@@ -16,6 +18,9 @@ import type { Puzzle } from '../puzzles/types.js';
  *   each. The player always keeps one animal that isn't tired and can
  *   fight on land.
  * - **The shop.** The player buys an item with tokens.
+ * - **Flying.** The player flies to another land they have unlocked
+ *   ([[PRODUCT]] §4 "Lands"), once they solve the fare: one puzzle of the
+ *   land's own kinds. A wrong answer asks another.
  * A hand-over and a purchase each complete only when the player works out
  * the tokens they will have afterwards; a wrong answer asks the same sum
  * again. Nothing is lost by backing out, picking something else or leaving.
@@ -29,6 +34,8 @@ export type DoctorPhase =
 	| { kind: 'handing-over'; ids: readonly string[]; reward: number; puzzle: Puzzle }
 	/** Buying `itemId` for `price` tokens, once `puzzle` (tokens − price) is solved. */
 	| { kind: 'buying'; itemId: ItemId; price: number; puzzle: Puzzle }
+	/** Flying to `land`, once `puzzle`, the fare (`farePuzzle`), is solved. */
+	| { kind: 'paying-fare'; land: LandId; puzzle: Puzzle }
 	| { kind: 'ended' };
 
 export interface DoctorState {
@@ -46,6 +53,12 @@ export interface DoctorState {
 	items: readonly string[];
 	/** What the shop sells in this visit, in catalog order. */
 	shop: readonly ItemId[];
+	/** The land the tent is in, which a flight leaves. */
+	land: LandId;
+	/** The lands the player has unlocked (`unlockLands`): where they may fly. */
+	unlocked: readonly string[];
+	/** The lands this build flies to (`availableLands`, or more in a game a switch opens). */
+	open: readonly LandId[];
 	phase: DoctorPhase;
 }
 
@@ -61,6 +74,8 @@ export type DoctorIntent =
 	| { type: 'hand-over'; ids: readonly string[] }
 	/** Buy this item. Asks the sum of the tokens left after it. */
 	| { type: 'buy'; itemId: string }
+	/** Fly to this land. Asks the fare, a puzzle of the land's own kinds. */
+	| { type: 'fly'; land: string }
 	/** Answer the puzzle that is open: a healing puzzle or a token sum. */
 	| { type: 'answer'; input: string }
 	/** Close the open puzzle without answering it. Nothing changes. */
@@ -84,7 +99,9 @@ export type DoctorRejection =
 	| 'already-owned'
 	| 'not-enough-tokens'
 	/** An answer, or `back`, with no puzzle open. */
-	| 'no-puzzle';
+	| 'no-puzzle'
+	/** A `fly` the rules refuse (`flyRefusal`): not a land, the land the tent is in, not built yet, or locked. */
+	| FlyRefusal;
 
 /**
  * What happened, in order, as a result of one intent. `answer-judged` carries
@@ -106,6 +123,13 @@ export type DoctorEvent =
 	| { type: 'tokens-given'; amount: number; tokens: number }
 	/** The player bought `itemId` for `price`; `tokens` is what they have left. */
 	| { type: 'bought'; itemId: ItemId; price: number; tokens: number }
+	/** The fare to fly to `land`: a puzzle of its kinds. */
+	| { type: 'fare-shown'; land: LandId; puzzle: Puzzle }
+	/**
+	 * The fare was paid: the player flies to `land`, and the visit ends (an
+	 * `ended` follows). The authority moves them there (`lands/fly.ts`).
+	 */
+	| { type: 'flew'; land: LandId }
 	/** The open puzzle was put away (`back`). */
 	| { type: 'closed' }
 	| { type: 'ended' }

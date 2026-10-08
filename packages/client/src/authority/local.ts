@@ -1,6 +1,8 @@
 import {
 	EMPTY_BOOK,
+	FIRST_LAND,
 	FIRST_WORLD,
+	LAND_IDS,
 	LAST_WORLD,
 	MATCH_SIDES,
 	MAX_MATCH_EVENTS,
@@ -21,7 +23,7 @@ import {
 	countSolved,
 	defaultStarter,
 	editedTileAt,
-	fitWorlds,
+	fitStays,
 	flightPos,
 	flightTile,
 	gearOf,
@@ -33,6 +35,13 @@ import {
 	isEncounterTile,
 	isMatchId,
 	isPassable,
+	availableLands,
+	fly,
+	landSeed,
+	needsStarter,
+	getLand,
+	shopFor,
+	unlockLands,
 	isWireCoord,
 	joinParty,
 	knockOut,
@@ -54,8 +63,9 @@ import {
 	tileAtWorld,
 	tileRealm,
 	travel,
-	worldSeed,
 	type AnimalBook,
+	type LandId,
+	type LandStay,
 	type AnimalInstance,
 	type Authority,
 	type BattleEvent,
@@ -138,6 +148,11 @@ export interface LocalAuthorityOptions {
 	 */
 	items?: readonly ItemId[];
 	/**
+	 * Every land open and unlocked: the `?lands` URL switch, for flying to a
+	 * land not built yet (#191's steps), in a game that is saved nowhere.
+	 */
+	lands?: boolean;
+	/**
 	 * The world a new game from the title starts in, its home: by default one
 	 * picked at random from 2 to 9999, so strangers don't all start in one
 	 * world ([[PRODUCT]] §4 "Starting out"). Tests pin it.
@@ -185,6 +200,16 @@ export class LocalAuthority implements Authority {
 	private home = FIRST_WORLD;
 	/** The world the player is in; `seed` is its generator seed, and `pos`, `facing` and `edits` are its. */
 	private world = FIRST_WORLD;
+	/**
+	 * The land the player is in ([[PRODUCT]] §4 "Lands"): the seed is
+	 * `landSeed(land, world)`, and the party, tokens, items, position, facing,
+	 * cleared tiles and worlds left behind are this land's. Saved with the game.
+	 */
+	private land: LandId = FIRST_LAND;
+	/** The lands left behind, as they were left (`fly`). Saved with the game. */
+	private lands: readonly LandStay[] = [];
+	/** The lands unlocked (`unlockLands`). Saved with the game. */
+	private unlocked: readonly string[] = [FIRST_LAND];
 	private seed = WORLD_SEED;
 	private spawn: GridPos = { x: 0, y: 0 };
 	private pos: GridPos = { x: 0, y: 0 };
@@ -291,7 +316,9 @@ export class LocalAuthority implements Authority {
 		this.name = game.name;
 		this.home = game.home;
 		this.world = game.world;
-		this.seed = worldSeed(game.world);
+		this.land = game.land;
+		this.lands = game.lands.map(copyLand);
+		this.seed = landSeed(game.land, game.world);
 		this.spawn = spawnPoint(this.seed);
 		this.pos = { x: game.pos.x, y: game.pos.y };
 		this.facing = game.facing;
@@ -310,6 +337,7 @@ export class LocalAuthority implements Authority {
 		if (game.battle) this.book = recordBattle(this.book, game.battle);
 		this.edits = WorldEdits.decode(game.edits);
 		this.worlds = game.worlds.map(copyStay);
+		this.unlocked = unlockLands(game.unlocked, this.book.freed);
 		this.battle = null;
 		this.doctor = null;
 		this.flight = null;
@@ -321,6 +349,8 @@ export class LocalAuthority implements Authority {
 			playerId: this.playerId,
 			name: this.name,
 			world: this.world,
+			land: this.land,
+			unlocked: [...this.unlocked],
 			home: this.home,
 			seed: this.seed,
 			pos: { ...this.pos },
@@ -341,6 +371,7 @@ export class LocalAuthority implements Authority {
 			this.battle = { state: game.battle, seed: this.battleSeed() };
 			this.emit({ type: 'battle-started', state: game.battle });
 		}
+		this.askStarter();
 	}
 
 	/**
@@ -369,7 +400,9 @@ export class LocalAuthority implements Authority {
 		const party = battle ? battle.party : this.party;
 		const book = air ? recordBattle(this.book, air) : this.book;
 		const edits = landing?.cleared ? landing.edits : this.edits;
-		const worlds = landing?.cleared ? fitWorlds(edits, this.worlds, this.home) : this.worlds;
+		const fitted = landing?.cleared
+			? this.fitted(edits)
+			: { worlds: this.worlds, lands: this.lands };
 		return {
 			name: this.name,
 			home: this.home,
@@ -387,7 +420,10 @@ export class LocalAuthority implements Authority {
 			freed: [...book.freed],
 			battle,
 			edits: [...edits.encode()],
-			worlds: worlds.map(copyStay)
+			worlds: fitted.worlds.map(copyStay),
+			land: this.land,
+			lands: fitted.lands.map(copyLand),
+			unlocked: [...this.unlocked]
 		};
 	}
 
@@ -419,7 +455,8 @@ export class LocalAuthority implements Authority {
 		const game = {
 			...newGame(FIRST_WORLD, { ...defaultStarter(), id: mintId() }),
 			tokens: this.options.tokens ?? 0,
-			items: [...(this.options.items ?? [])]
+			items: [...(this.options.items ?? [])],
+			unlocked: this.options.lands ? [...LAND_IDS] : [FIRST_LAND]
 		};
 		// An empty `?party=` is no party: the starter, as without one.
 		if (!this.options.party?.length) return game;
@@ -476,7 +513,19 @@ export class LocalAuthority implements Authority {
 			// In the air only the flight goes on: no walking, talking, clearing, travelling
 			// or going to anyone until the kid is down.
 			if (intent.type === 'glide') this.glide(this.flight);
-			else if (intent.type === 'land') this.land(this.flight);
+			else if (intent.type === 'land') this.comeDown(this.flight);
+			return;
+		}
+		if (intent.type === 'pick-starter') {
+			this.pickStarter(intent);
+			return;
+		}
+		if (this.waiting()) {
+			// Just flown in, with no animal of this land yet: the kid stays by the witch doctor
+			// they came down at until they pick one, and the witch doctor still talks.
+			if (intent.type === 'interact' && canTalkToDoctor(this.seed, this.pos, this.facing)) {
+				this.visitDoctor();
+			}
 			return;
 		}
 		switch (intent.type) {
@@ -647,7 +696,8 @@ export class LocalAuthority implements Authority {
 	 * `travel`, while exploring: to world `to` (the engine's `travel`). The
 	 * world left is remembered as the player leaves it; the world reached is
 	 * picked up where they left it, or at its spawn on a first visit. The
-	 * party, tokens, items, name and counts go along unchanged.
+	 * party, tokens, items, name and counts go along unchanged, and so does
+	 * the land: lands and world numbers are two ways of going.
 	 */
 	private travel(to: unknown): void {
 		const trip = travel(
@@ -659,7 +709,7 @@ export class LocalAuthority implements Authority {
 				worlds: this.worlds
 			},
 			to,
-			{ home: this.home, items: this.items }
+			{ home: this.home, items: this.items, land: this.land }
 		);
 		if (!trip.ok) {
 			this.emit({ type: 'travel-refused', reason: trip.reason });
@@ -667,7 +717,7 @@ export class LocalAuthority implements Authority {
 		}
 		const here = trip.whereabouts;
 		this.world = here.world;
-		this.seed = worldSeed(here.world);
+		this.seed = landSeed(this.land, here.world);
 		this.spawn = spawnPoint(this.seed);
 		this.pos = { x: here.pos.x, y: here.pos.y };
 		this.facing = here.facing;
@@ -677,6 +727,7 @@ export class LocalAuthority implements Authority {
 			type: 'travelled',
 			playerId: this.playerId,
 			world: this.world,
+			land: this.land,
 			seed: this.seed,
 			pos: { ...this.pos },
 			facing: this.facing,
@@ -734,7 +785,7 @@ export class LocalAuthority implements Authority {
 	private glide(flight: Flight): void {
 		const next = glideOn(flight);
 		if (next === flight) {
-			this.land(flight);
+			this.comeDown(flight);
 			return;
 		}
 		this.flight = next;
@@ -755,7 +806,7 @@ export class LocalAuthority implements Authority {
 	 * chop. Then, with a bird following, its battle in the air: the landing
 	 * always comes first.
 	 */
-	private land(flight: Flight): void {
+	private comeDown(flight: Flight): void {
 		const { landing, bird, noticed } = this.comingDown(flight);
 		this.flight = null;
 		this.steps += landing.flown - flight.flown;
@@ -764,7 +815,7 @@ export class LocalAuthority implements Authority {
 		const cleared = landing.cleared;
 		if (cleared) {
 			this.edits = landing.edits;
-			this.worlds = fitWorlds(this.edits, this.worlds, this.home);
+			this.fitAround(this.edits);
 		}
 		// Noticed on the way down to the landing tile (a `land` sent early carries the flight on).
 		if (bird && noticed) this.follows(bird, noticed.pos, noticed.flown);
@@ -940,7 +991,7 @@ export class LocalAuthority implements Authority {
 		if (result.ok) {
 			this.edits = result.edits;
 			// Every world's cleared tiles share one budget: this world's come first.
-			this.worlds = fitWorlds(this.edits, this.worlds, this.home);
+			this.fitAround(this.edits);
 			const { pos, was, tool, regrown } = result.cleared;
 			this.emit({ type: 'tile-cleared', playerId: this.playerId, pos, was, tool, regrown });
 		} else if (result.reason === 'needs-tool' && result.kind && result.tool) {
@@ -959,7 +1010,10 @@ export class LocalAuthority implements Authority {
 		const state = startDoctorVisit(this.party, {
 			tokens: this.tokens,
 			items: this.items,
-			shop: this.options.shop
+			shop: this.options.shop ?? shopFor(this.land),
+			land: this.land,
+			unlocked: this.unlocked,
+			open: this.options.lands ? LAND_IDS : availableLands()
 		});
 		// A fresh seed per visit, keyed like everything else here so a session
 		// replays; the visit count keeps a second visit from asking the same
@@ -989,8 +1043,10 @@ export class LocalAuthority implements Authority {
 			this.party = state.party.map((a) => ({ ...a }));
 			this.emit({ type: 'party-changed', party: this.partyCopy() });
 		}
-		// The kinds that went home are set free in the book, for good.
+		// The kinds that went home are set free in the book, for good, and the last kind a land
+		// asked for unlocks the next.
 		this.note(recordWentHome(this.book, events));
+		this.unlock();
 		if (events.some((e) => e.type === 'tokens-given' || e.type === 'bought')) {
 			this.tokens = state.tokens;
 			this.items = [...state.items];
@@ -999,6 +1055,136 @@ export class LocalAuthority implements Authority {
 		if (state.phase.kind !== 'ended') return;
 		this.doctor = null;
 		this.emit({ type: 'doctor-visit-ended', visit, state });
+		const flew = events.find((e) => e.type === 'flew');
+		if (flew?.type === 'flew') this.fly(flew.land);
+	}
+
+	// --- lands ---------------------------------------------------------------
+
+	/**
+	 * The fare was paid at the witch doctor's (`flew`): off to land `to`, in
+	 * this world number (the engine's `fly`). This land is remembered as it is
+	 * left, its party, tokens and items with it, and the land reached comes
+	 * back as it was left, or with nothing on a first visit; the player comes
+	 * down beside the tent the mapping gives (`tentArrival`), facing it. The
+	 * name, the book, the puzzles solved, the counts and home go along. Not a
+	 * step: nothing is rolled. With no animal of the land yet, the kid picks a
+	 * starter there (`starter-wanted`).
+	 */
+	private fly(to: LandId): void {
+		const trip = fly(
+			{
+				land: this.land,
+				world: this.world,
+				pos: this.pos,
+				facing: this.facing,
+				edits: this.edits,
+				worlds: this.worlds,
+				party: this.party,
+				tokens: this.tokens,
+				items: this.items,
+				lands: this.lands
+			},
+			step(this.pos, this.facing),
+			to,
+			this.home
+		);
+		if (!trip.ok) return;
+		const here = trip.place;
+		this.land = here.land;
+		this.seed = landSeed(here.land, here.world);
+		this.spawn = spawnPoint(this.seed);
+		this.pos = { ...here.pos };
+		this.facing = here.facing;
+		this.edits = here.edits;
+		this.worlds = here.worlds.map(copyStay);
+		this.party = here.party.map((a) => ({ ...a }));
+		this.tokens = here.tokens;
+		this.items = [...here.items];
+		this.lands = here.lands.map(copyLand);
+		this.emit({
+			type: 'travelled',
+			playerId: this.playerId,
+			world: this.world,
+			land: this.land,
+			seed: this.seed,
+			pos: { ...this.pos },
+			facing: this.facing,
+			edits: [...this.edits.encode()],
+			firstVisit: trip.firstVisit
+		});
+		this.emit({ type: 'party-changed', party: this.partyCopy() });
+		this.emit({ type: 'belongings-changed', tokens: this.tokens, items: [...this.items] });
+		this.askStarter();
+	}
+
+	/**
+	 * The worlds left behind, in this land and every other, with their
+	 * cleared tiles cut to what fits beside `edits` (this world's) within the
+	 * one budget (`fitStays`): this land's first, then the lands left.
+	 */
+	private fitted(edits: WorldEdits): { worlds: readonly WorldStay[]; lands: readonly LandStay[] } {
+		const [worlds, ...lands] = fitStays(
+			edits,
+			[this.worlds, ...this.lands.map((l) => l.worlds)],
+			this.home
+		);
+		return {
+			worlds: worlds!,
+			lands: this.lands.map((l, i) =>
+				lands[i] === l.worlds ? l : { ...l, worlds: [...lands[i]!] }
+			)
+		};
+	}
+
+	/** Every world's cleared tiles, in every land, back within the budget after `edits` grew. */
+	private fitAround(edits: WorldEdits): void {
+		const { worlds, lands } = this.fitted(edits);
+		this.worlds = worlds;
+		this.lands = lands;
+	}
+
+	/** Waiting for the kid to pick the first animal of this land (`needsStarter`). */
+	private waiting(): boolean {
+		return needsStarter(this.land, this.party);
+	}
+
+	/** Ask for a starter, when the kid has no animal in this land yet. */
+	private askStarter(): void {
+		if (!this.waiting()) return;
+		const starters = [...getLand(this.land).starters];
+		this.emit({ type: 'starter-wanted', land: this.land, starters });
+	}
+
+	/**
+	 * `pick-starter`: the first animal of this land, while one is waited for,
+	 * one of the land's starters (the engine's `chooseStarter`, which cleans
+	 * its name), with a fresh id like a caught animal. It is caught, in the book.
+	 */
+	private pickStarter(choice: Intent & { type: 'pick-starter' }): void {
+		if (this.battle || this.doctor || !this.waiting()) {
+			this.emit({ type: 'starter-refused', reason: 'not-wanted' });
+			return;
+		}
+		const pick = chooseStarter(choice, getLand(this.land).starters);
+		if (!pick.ok) {
+			const reason = pick.reason === 'not-text' ? 'not-text' : 'not-a-starter';
+			this.emit({ type: 'starter-refused', reason });
+			return;
+		}
+		this.party = [{ ...pick.starter, id: mintId() }];
+		this.emit({ type: 'party-changed', party: this.partyCopy() });
+		this.note(recordParty(this.book, this.party));
+	}
+
+	/** The lands unlocked, grown by what the book now says is set free: say so when they grew. */
+	private unlock(): void {
+		const unlocked = unlockLands(this.unlocked, this.book.freed);
+		if (unlocked === this.unlocked) return;
+		this.unlocked = unlocked;
+		// A visit under way flies to it at once: its rule reads the lands unlocked it opened with.
+		if (this.doctor) this.doctor.state = { ...this.doctor.state, unlocked: [...unlocked] };
+		this.emit({ type: 'unlocked-changed', unlocked: [...unlocked] });
 	}
 
 	// --- party ---------------------------------------------------------------
@@ -1102,6 +1288,17 @@ function isMatchBatch(intent: Intent & { type: 'match-answers' }): boolean {
 		}
 	}
 	return true;
+}
+
+/** A copy of a land left behind, so the authority's own never leaves it. */
+function copyLand(stay: LandStay): LandStay {
+	return {
+		land: stay.land,
+		party: stay.party.map((a) => ({ ...a })),
+		tokens: stay.tokens,
+		items: [...stay.items],
+		worlds: stay.worlds.map(copyStay)
+	};
 }
 
 /** A copy of a world left behind, so the authority's own never leaves it. */

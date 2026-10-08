@@ -1,4 +1,5 @@
 import {
+	LAND_IDS,
 	BUSY_STATES,
 	MAX_ROSTER,
 	MAX_SERVER_MESSAGE_BYTES,
@@ -75,6 +76,7 @@ function where(
 	return {
 		t: 'where',
 		world,
+		land: 'nordland',
 		x,
 		y,
 		facing: 'down',
@@ -104,6 +106,38 @@ describe('presence hub', () => {
 		expect(b.drawn().get(pa)).toMatchObject({ x: 1, busy: 'battle', facing: 'right' });
 	});
 
+	it('keeps lands apart within a world, and moves a player who flies from one to another (#191)', () => {
+		const hub = newHub();
+		const [a, b] = [new FakePeer(), new FakePeer()];
+		const pa = hub.join(a, 'guest:a', 'Ada');
+		const pb = hub.join(b, 'guest:b', 'Bo');
+		// The same world number and the same tile, in two lands: neither sees the other.
+		hub.where(a, where(42, 0, 0));
+		hub.where(b, where(42, 0, 0, { land: 'arctic' }));
+		expect(a.drawn().size + b.drawn().size).toBe(0);
+		expect(hub.places()).toEqual(
+			new Map([
+				['nordland:42', 1],
+				['arctic:42', 1]
+			])
+		);
+		const rosterOf = (peer: FakePeer) =>
+			peer.got.filter((m) => m.t === 'roster').at(-1) as { land: string; players: unknown[] };
+		expect(rosterOf(a)).toMatchObject({ land: 'nordland', players: [] });
+		expect(rosterOf(b)).toMatchObject({ land: 'arctic', players: [] });
+		// Going to someone in another land finds nobody.
+		hub.find(a, pb);
+		expect(a.got.at(-1)).toEqual({ t: 'lost', pid: pb });
+		// Ada flies to Arktis 42: she is beside Bo there, and Nordland 42 is empty.
+		hub.where(a, where(42, 1, 0, { land: 'arctic' }));
+		expect(hub.places()).toEqual(new Map([['arctic:42', 2]]));
+		expect([...b.drawn().keys()]).toEqual([pa]);
+		expect([...a.drawn().keys()]).toEqual([pb]);
+		// And back: Bo is told she has gone, and she that he has.
+		hub.where(a, where(42, 1, 0));
+		expect(b.drawn().size + a.drawn().size).toBe(0);
+	});
+
 	it('keeps worlds apart, and moves a player from one world to another', () => {
 		const hub = newHub();
 		const [a, b] = [new FakePeer(), new FakePeer()];
@@ -112,15 +146,15 @@ describe('presence hub', () => {
 		hub.where(a, where(1, 0, 0));
 		hub.where(b, where(2, 0, 0));
 		expect(a.drawn().size + b.drawn().size).toBe(0);
-		expect(hub.worlds()).toEqual(
+		expect(hub.places()).toEqual(
 			new Map([
-				[1, 1],
-				[2, 1]
+				['nordland:1', 1],
+				['nordland:2', 1]
 			])
 		);
 		// Ada travels to world 2: she is there, next to Bo, and world 1 is empty.
 		hub.where(a, where(2, 1, 0));
-		expect(hub.worlds()).toEqual(new Map([[2, 2]]));
+		expect(hub.places()).toEqual(new Map([['nordland:2', 2]]));
 		expect([...b.drawn().keys()]).toEqual([pa]);
 		// And back: Bo is told she has gone.
 		hub.where(a, where(1, 1, 0));
@@ -302,7 +336,7 @@ describe('presence hub', () => {
 		hub.where(b, where(1, 0, 0));
 		hub.where(c, where(1, 0, 0));
 		expect(c.closed).toBe('full');
-		expect(hub.worlds()).toEqual(new Map([[1, 2]]));
+		expect(hub.places()).toEqual(new Map([['nordland:1', 2]]));
 		expect(a.drawn().size).toBe(1);
 	});
 
@@ -344,9 +378,13 @@ describe('presence hub', () => {
 					const w =
 						old && rng.chance(0.9)
 							? where(old.world, old.x + rng.int(-3, 3), old.y + rng.int(-3, 3), {
+									land: old.land,
 									busy: BUSY_STATES[rng.int(0, BUSY_STATES.length - 1)]!
 								})
-							: where(rng.int(1, 3), rng.int(-40, 40), rng.int(-40, 40));
+							: // Another world, another land, or both: a trip, or a flight (#191).
+								where(rng.int(1, 3), rng.int(-40, 40), rng.int(-40, 40), {
+									land: LAND_IDS[rng.int(0, LAND_IDS.length - 1)]!
+								});
 					hub.where(p, w);
 					if (hub.has(p)) spots.set(p, w);
 				}
@@ -362,8 +400,8 @@ describe('presence hub', () => {
 						const [sp, sq] = [spots.get(p), spots.get(q)];
 						const pSeesQ = p.drawn().has(q.pid);
 						check(pSeesQ === q.drawn().has(p.pid), 'sight is both ways');
-						if (!sp || !sq || sp.world !== sq.world) {
-							check(!pSeesQ, 'nobody sees into another world');
+						if (!sp || !sq || sp.world !== sq.world || sp.land !== sq.land) {
+							check(!pSeesQ, 'nobody sees into another world, or another land of it');
 							continue;
 						}
 						const apart = tilesApart(sp, sq);

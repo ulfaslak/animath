@@ -1,5 +1,6 @@
 import {
 	ATTACK_LEVELS,
+	answerText,
 	EDITS_BUDGET,
 	ITEM_IDS,
 	MAX_MATCH_EVENTS,
@@ -45,6 +46,8 @@ import {
 	type MatchIntent,
 	type MatchSide,
 	type SavedGame,
+	getLand,
+	landSeed,
 	worldSeed
 } from '@mathgame/engine';
 import { describe, expect, it } from 'vitest';
@@ -264,7 +267,8 @@ function answerDoctor(s: Session, correct: boolean): void {
 		throw new Error(`expected a doctor puzzle, got ${phase.kind}`);
 	doctorIntent(s, {
 		type: 'answer',
-		input: String(correct ? phase.puzzle.answer : phase.puzzle.answer + 1)
+		// As a kid types it: a clock's time as hours and minutes (a fare to The Arctic can be one).
+		input: correct ? answerText(phase.puzzle) : String(phase.puzzle.answer + 1)
 	});
 }
 
@@ -2065,6 +2069,7 @@ describe('LocalAuthority: names and worlds', () => {
 				type: 'travelled',
 				playerId: 'local',
 				world: 42,
+				land: 'nordland',
 				seed: worldSeed(42),
 				pos: spawnPoint(worldSeed(42)),
 				facing: 'down',
@@ -2127,6 +2132,7 @@ describe('LocalAuthority: names and worlds', () => {
 				type: 'travelled',
 				playerId: 'local',
 				world: 1,
+				land: 'nordland',
 				seed: WORLD_SEED,
 				pos: tree.stand,
 				facing: tree.facing,
@@ -3466,5 +3472,317 @@ describe('LocalAuthority: birds in the air (#91)', () => {
 			type: 'party-edited',
 			events: [{ type: 'rejected', reason: 'not-exploring' }]
 		});
+	});
+});
+
+describe('LocalAuthority: lands (#191)', () => {
+	/** A save round trip, as a reload does it, the authority started with `options`. */
+	function reload(s: Session, options?: LocalAuthorityOptions): Session {
+		const doc = saveDocument(s.authority.snapshot(), { lineage: 't', seq: 1 });
+		const read = readSave(JSON.parse(JSON.stringify(doc)));
+		if (!read.ok) throw new Error(read.error);
+		const authority = new LocalAuthority(options);
+		const events: GameEvent[] = [];
+		authority.subscribe((e) => events.push(e));
+		authority.start({ game: restoreGame(read.save, mint) });
+		return { authority, events };
+	}
+
+	/** At the witch doctor of World 1's spawn, asking to fly to `land` and answering the fare. */
+	function flyTo(s: Session, land: string, right = true): void {
+		s.authority.dispatch({ type: 'interact' });
+		expect(visit(s).phase.kind).toBe('choose-patient');
+		doctorIntent(s, { type: 'fly', land });
+		if (visit(s).phase.kind !== 'paying-fare') return;
+		answerDoctor(s, right);
+	}
+
+	function travelled(s: Session): Extract<GameEvent, { type: 'travelled' }> {
+		const e = s.events.at(lastIndexOf(s, 'travelled'));
+		if (e?.type !== 'travelled') throw new Error('no trip');
+		return e;
+	}
+
+	it('flies nowhere the build has not built: The Arctic is closed, and nothing changes', () => {
+		const s = session();
+		walkToTent(s);
+		s.authority.dispatch({ type: 'interact' });
+		const before = s.authority.snapshot();
+		doctorIntent(s, { type: 'fly', land: 'arctic' });
+		expect(visit(s).phase.kind).toBe('choose-patient');
+		const last = s.events.at(-1);
+		expect(last?.type === 'doctor-visit-updated' && last.events).toEqual([
+			{ type: 'rejected', reason: 'land-unavailable' }
+		]);
+		expect(s.authority.snapshot()).toEqual(before);
+		expect(welcome(s)).toMatchObject({ land: 'nordland', unlocked: ['nordland'] });
+	});
+
+	it('with `?lands`, the fare paid flies the kid to Arktis 1, its own world, with nothing of it yet', () => {
+		const s = session({ lands: true, tokens: 30, items: ['axe'] });
+		walkToTent(s);
+		const solved = s.authority.snapshot().solved;
+		const nordlandParty = party(s);
+		flyTo(s, 'arctic', false);
+		// A wrong fare flies nowhere.
+		expect(lastIndexOf(s, 'travelled')).toBe(-1);
+		expect(visit(s).phase.kind).toBe('paying-fare');
+		answerDoctor(s, true);
+		const trip = travelled(s);
+		expect(trip).toMatchObject({
+			land: 'arctic',
+			world: 1,
+			seed: landSeed('arctic', 1),
+			firstVisit: true,
+			edits: []
+		});
+		// The visit ended first, then the trip, then the land's own party and things: none yet.
+		const at = lastIndexOf(s, 'travelled');
+		expect(s.events[at - 1]?.type).toBe('doctor-visit-ended');
+		expect(s.events.slice(at + 1).map((e) => e.type)).toEqual([
+			'party-changed',
+			'belongings-changed'
+		]);
+		expect(party(s)).toEqual([]);
+		expect(s.events.at(-1)).toEqual({ type: 'belongings-changed', tokens: 0, items: [] });
+		// Beside a witch doctor of The Arctic, facing it: the fare was a puzzle solved.
+		expect(canTalkToDoctor(landSeed('arctic', 1), trip.pos, trip.facing)).toBe(true);
+		expect(s.authority.snapshot()).toMatchObject({
+			land: 'arctic',
+			world: 1,
+			solved: solved + 1,
+			lands: [{ land: 'nordland', tokens: 30, items: ['axe'] }]
+		});
+		expect(s.authority.snapshot().lands[0]!.party).toEqual(nordlandParty);
+	});
+
+	it('in a land with nothing built (no starters), asks no starter; the witch doctor flies the kid home', () => {
+		const s = session({ lands: true, tokens: 12 });
+		walkToTent(s);
+		flyTo(s, 'arctic');
+		const there = travelled(s);
+		expect(s.events.some((e) => e.type === 'starter-wanted')).toBe(false);
+		// Home: the witch doctor they came down at flies them back to Nordland, as they left it.
+		flyTo(s, 'nordland');
+		const home = travelled(s);
+		expect(home).toMatchObject({ land: 'nordland', world: 1, seed: WORLD_SEED, firstVisit: false });
+		expect(canTalkToDoctor(WORLD_SEED, home.pos, home.facing)).toBe(true);
+		// Back at the tent they left when The Arctic has one on its spot (The Arctic of step 4 has
+		// one on every spot); else at Nordland's nearest.
+		if (stepFrom(there.pos, there.facing).x === 5 && stepFrom(there.pos, there.facing).y === 7) {
+			expect(stepFrom(home.pos, home.facing)).toEqual({ x: 5, y: 7 });
+		}
+		expect(s.authority.snapshot()).toMatchObject({ land: 'nordland', tokens: 12 });
+		expect(party(s).length).toBeGreaterThan(0);
+		// And walking works again.
+		s.authority.dispatch({ type: 'move', dir: 'right' });
+		expect(
+			lastIndexOf(s, 'player-moved') > lastIndexOf(s, 'travelled') ||
+				lastIndexOf(s, 'player-blocked') > lastIndexOf(s, 'travelled')
+		).toBe(true);
+	});
+
+	it('a game saved in The Arctic picks up there, the lands as they were, and plays on the same', () => {
+		const s = session({ lands: true, tokens: 5 });
+		walkToTent(s);
+		flyTo(s, 'arctic');
+		const r = reload(s, { lands: true });
+		expect(welcome(r)).toMatchObject({ land: 'arctic', world: 1, seed: landSeed('arctic', 1) });
+		expect(r.authority.snapshot()).toEqual(s.authority.snapshot());
+		// The same intents give the same events after the reload as without it.
+		const intents: Intent[] = [
+			{ type: 'interact' },
+			{ type: 'doctor', intent: { type: 'fly', land: 'nordland' } }
+		];
+		const after = (x: Session) => {
+			const from = x.events.length;
+			for (const i of intents) x.authority.dispatch(i);
+			return x.events.slice(from);
+		};
+		expect(after(r)).toEqual(after(s));
+	});
+
+	it('travels to another world number in The Arctic: the land stays, Nordland waits as it was left', () => {
+		const s = session({ lands: true, tokens: 5 });
+		walkToTent(s);
+		flyTo(s, 'arctic');
+		// A party of the land, as a starter pick would give (The Arctic has no starters yet).
+		giveParty(s, [animal('rabbit')]);
+		s.authority.dispatch({ type: 'travel', world: 5 });
+		const trip = travelled(s);
+		expect(trip).toMatchObject({
+			land: 'arctic',
+			world: 5,
+			seed: landSeed('arctic', 5),
+			firstVisit: true
+		});
+		expect(trip.pos).toEqual(spawnPoint(landSeed('arctic', 5)));
+		const game = s.authority.snapshot();
+		expect(game.party.map((a) => a.speciesId)).toEqual(['rabbit']);
+		expect(game.lands).toMatchObject([{ land: 'nordland', tokens: 5 }]);
+	});
+
+	it('asks for a starter in a land with none of the kid’s animals, and takes only one of its starters', () => {
+		// Nordland with an empty team stands in for a land just flown to: the rule is the same.
+		const s = session();
+		s.authority.dispatch({ type: 'pick-starter', speciesId: 'rabbit' });
+		expect(s.events.at(-1)).toEqual({ type: 'starter-refused', reason: 'not-wanted' });
+		giveParty(s, []);
+		// While one is waited for, nothing walks, flies, travels or goes to anyone.
+		const count = s.events.length;
+		for (const intent of [
+			{ type: 'move', dir: 'left' },
+			{ type: 'move', dir: 'up' },
+			{ type: 'travel', world: 5 },
+			{ type: 'take-off' },
+			{ type: 'go-to', near: { x: 0, y: 0 } },
+			{ type: 'interact' }
+		] as Intent[]) {
+			s.authority.dispatch(intent);
+		}
+		expect(s.events.length).toBe(count);
+		for (const [choice, reason] of [
+			[{ speciesId: 'bear' }, 'not-a-starter'],
+			[{ speciesId: 7 }, 'not-a-starter'],
+			[{ speciesId: 'rabbit', nickname: 3 }, 'not-text']
+		] as const) {
+			s.authority.dispatch({ type: 'pick-starter', ...(choice as { speciesId: string }) });
+			expect(s.events.at(-1)).toEqual({ type: 'starter-refused', reason });
+		}
+		s.authority.dispatch({ type: 'pick-starter', speciesId: 'rabbit', nickname: '  Hop ' });
+		const picked = party(s);
+		expect(picked).toHaveLength(1);
+		expect(picked[0]).toMatchObject({
+			speciesId: 'rabbit',
+			nickname: 'Hop',
+			hp: getAnimal('rabbit').maxHp
+		});
+		expect(STARTERS).toContain('rabbit');
+		// One pick: the next is refused, and the kid walks on.
+		s.authority.dispatch({ type: 'pick-starter', speciesId: 'frog' });
+		expect(s.events.at(-1)).toEqual({ type: 'starter-refused', reason: 'not-wanted' });
+		s.authority.dispatch({ type: 'move', dir: 'right' });
+		expect(s.events.at(-1)?.type).toMatch(/player-(moved|blocked)/);
+	});
+
+	it('says a land is unlocked at the hand-over that sets free the last kind it asked for, once', () => {
+		const all = getLand('nordland').species;
+		const s = session({ party: [animal('squirrel'), animal('fox')] });
+		const game = s.authority.snapshot();
+		s.authority.start({
+			game: { ...game, seen: [...all], caught: [...all], freed: all.filter((id) => id !== 'fox') }
+		});
+		expect(welcome(s).unlocked).toEqual(['nordland']);
+		walkToTent(s);
+		s.authority.dispatch({ type: 'interact' });
+		const fox = party(s).find((a) => a.speciesId === 'fox')!;
+		doctorIntent(s, { type: 'hand-over', ids: [fox.id] });
+		answerDoctor(s, true);
+		const unlocked = s.events.filter((e) => e.type === 'unlocked-changed');
+		expect(unlocked).toEqual([{ type: 'unlocked-changed', unlocked: ['nordland', 'arctic'] }]);
+		// Right after the book that set the fox free.
+		const at = lastIndexOf(s, 'unlocked-changed');
+		expect(s.events[at - 1]?.type).toBe('book-changed');
+		expect(s.authority.snapshot().unlocked).toEqual(['nordland', 'arctic']);
+		// The witch doctor knows: The Arctic is not locked any more, only not built.
+		doctorIntent(s, { type: 'fly', land: 'arctic' });
+		const last = s.events.at(-1);
+		expect(last?.type === 'doctor-visit-updated' && last.events).toEqual([
+			{ type: 'rejected', reason: 'land-unavailable' }
+		]);
+	});
+});
+
+describe('LocalAuthority: lands, from the adversarial review of #196', () => {
+	const length = (e: readonly string[]) => (e.length === 0 ? 0 : JSON.stringify(e).length);
+
+	it("a tile cleared in one land keeps every land's cleared tiles within the one budget, and a reload changes nothing", () => {
+		// Nordland 1 left behind holds nearly the whole budget; then a tree is chopped in Arktis 1.
+		let big = WorldEdits.none;
+		outer: for (let y = 0; y < 2000; y++) {
+			for (let x = 0; x < 2000; x++) {
+				const next = big.with({ x, y });
+				if (length(next.encode()) > EDITS_BUDGET - 5) break outer;
+				big = next;
+			}
+		}
+		const seed = landSeed('arctic', 1);
+		let at: GridPos | null = null;
+		for (let y = -50; y < 50 && !at; y++) {
+			for (let x = -50; x < 50 && !at; x++) {
+				if (
+					tileAtWorld(seed, x, y).kind === 'tree' &&
+					isWalkable(tileAtWorld(seed, x - 1, y).kind)
+				) {
+					at = { x: x - 1, y };
+				}
+			}
+		}
+		const base = newGame(1, { ...testStarter(), id: 'n1' });
+		const game: SavedGame = {
+			...base,
+			land: 'arctic',
+			pos: at!,
+			facing: 'right',
+			items: ['axe'],
+			party: [{ ...testStarter(), id: 'a1' }],
+			lands: [
+				{
+					land: 'nordland',
+					party: [{ ...testStarter(), id: 'n1' }],
+					tokens: 0,
+					items: [],
+					worlds: [{ world: 1, pos: { x: 0, y: 0 }, facing: 'down', edits: [...big.encode()] }]
+				}
+			],
+			unlocked: ['nordland', 'arctic']
+		};
+		const authority = new LocalAuthority();
+		const events: GameEvent[] = [];
+		authority.subscribe((e) => events.push(e));
+		authority.start({ game });
+		authority.dispatch({ type: 'interact' });
+		expect(events.at(-1)?.type).toBe('tile-cleared');
+		const snap = authority.snapshot();
+		const total =
+			length(snap.edits) +
+			snap.worlds.reduce((n, w) => n + length(w.edits), 0) +
+			snap.lands.reduce((n, l) => n + l.worlds.reduce((m, w) => m + length(w.edits), 0), 0);
+		expect(total).toBeLessThanOrEqual(EDITS_BUDGET);
+		// A reload holds exactly the game as it stands: nothing more grows back.
+		const read = readSave(JSON.parse(JSON.stringify(saveDocument(snap, { lineage: 'l', seq: 1 }))));
+		if (!read.ok) throw new Error(read.error);
+		expect(restoreGame(read.save, mint)).toEqual(snap);
+	});
+
+	it('a land unlocked at the witch doctor is open to fly to in the same visit', () => {
+		const all = getLand('nordland').species;
+		// Every land built (`?lands`), so only the unlock stands in the way.
+		const s = session({ party: [animal('squirrel'), animal('fox')], lands: true });
+		const game = s.authority.snapshot();
+		s.authority.start({
+			game: {
+				...game,
+				seen: [...all],
+				caught: [...all],
+				freed: all.filter((id) => id !== 'fox'),
+				unlocked: ['nordland']
+			}
+		});
+		walkToTent(s);
+		s.authority.dispatch({ type: 'interact' });
+		doctorIntent(s, { type: 'fly', land: 'arctic' });
+		const locked = s.events.at(-1);
+		expect(locked?.type === 'doctor-visit-updated' && locked.events).toEqual([
+			{ type: 'rejected', reason: 'land-locked' }
+		]);
+		const fox = party(s).find((a) => a.speciesId === 'fox')!;
+		doctorIntent(s, { type: 'hand-over', ids: [fox.id] });
+		answerDoctor(s, true);
+		expect(s.authority.snapshot().unlocked).toEqual(['nordland', 'arctic']);
+		// Asked before the hand-over, it was locked; now the fare is asked.
+		doctorIntent(s, { type: 'fly', land: 'arctic' });
+		expect(visit(s).phase.kind).toBe('paying-fare');
+		expect(visit(s).unlocked).toEqual(['nordland', 'arctic']);
 	});
 });

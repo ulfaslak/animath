@@ -204,6 +204,7 @@ export {
 	LAST_WORLD,
 	MAX_WORLDS_KEPT,
 	WORLD_ONE_SEED,
+	fitStays,
 	fitWorlds,
 	isWorldNumber,
 	keepWorlds,
@@ -213,6 +214,32 @@ export {
 	worldSeed
 } from './world/worlds.js';
 export type { TravelRejection, TravelStep, Whereabouts, WorldStay } from './world/worlds.js';
+export { TENT_MAP_SPOTS, mappedTent, tentArrival } from './world/tent-map.js';
+export type { TentArrival } from './world/tent-map.js';
+export {
+	FIRST_LAND,
+	LAND_IDS,
+	SEEDS_PER_LAND,
+	isLandId,
+	landOfSeed,
+	landSeed
+} from './lands/ids.js';
+export type { LandId } from './lands/ids.js';
+export {
+	FARE_DIFFICULTY,
+	LANDS,
+	availableLands,
+	farePuzzle,
+	flyRefusal,
+	getLand,
+	isLandStarter,
+	needsStarter,
+	shopFor,
+	unlockLands
+} from './lands/lands.js';
+export type { CurrencyId, FlyRefusal, LandSpec, TrainerLook } from './lands/lands.js';
+export { fly } from './lands/fly.js';
+export type { FlyRejection, FlyStep, LandPlace, LandStay } from './lands/fly.js';
 export {
 	EDITS_BUDGET,
 	MAX_ENTRY_LENGTH,
@@ -397,6 +424,8 @@ export {
 	SAVE_VERSION,
 	STARTER_SPECIES,
 	V1_KEPT,
+	V2_KEPT,
+	V3_KEPT,
 	canReplace,
 	defaultStarter,
 	isNewerSave,
@@ -419,7 +448,8 @@ export type {
 	SaveProblem,
 	SaveRead,
 	SaveV1,
-	SaveV3,
+	SaveV4,
+	SavedLandStay,
 	SaveWrite,
 	SaveWriteCheck,
 	SavedGame,

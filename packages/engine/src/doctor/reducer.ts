@@ -1,6 +1,8 @@
 import { getAnimal } from '../animals/catalog.js';
 import type { AnimalInstance } from '../animals/types.js';
-import { ITEM_IDS, getItem, isItemId, itemsForSale, type ItemId } from '../items/catalog.js';
+import { ITEM_IDS, getItem, isItemId, type ItemId } from '../items/catalog.js';
+import { FIRST_LAND, type LandId } from '../lands/ids.js';
+import { availableLands, farePuzzle, flyRefusal, shopFor } from '../lands/lands.js';
 import { healingDifficulty } from '../puzzles/difficulty.js';
 import { checkAnswer, generatePuzzle } from '../puzzles/registry.js';
 import type { Puzzle, PuzzleKind } from '../puzzles/types.js';
@@ -60,11 +62,21 @@ export interface DoctorVisitOptions {
 	/** The ids of the items the player owns. Default none. */
 	items?: readonly string[];
 	/**
-	 * What the shop sells in this visit. Default: every item the catalog has
-	 * on sale (`itemsForSale`). An authority passes more only for a look at
+	 * What the shop sells in this visit. Default: what the land's witch doctor
+	 * has on sale (`shopFor`). An authority passes more only for a look at
 	 * the shop in a game that is saved nowhere (the client's `?shop`).
 	 */
 	shop?: readonly ItemId[];
+	/** The land the tent is in. Default: the first land, Nordland. */
+	land?: LandId;
+	/** The lands the player has unlocked (`unlockLands`). Default: none but the first. */
+	unlocked?: readonly string[];
+	/**
+	 * The lands this build flies to. Default: the `available` ones
+	 * (`availableLands`). An authority passes more only in a game that is
+	 * saved nowhere (the client's `?lands`).
+	 */
+	open?: readonly LandId[];
 }
 
 export function startDoctorVisit(
@@ -80,7 +92,8 @@ export function startDoctorVisit(
 	if (!Array.isArray(items) || items.some((i) => typeof i !== 'string')) {
 		throw new Error('startDoctorVisit: items must be a list of ids');
 	}
-	const shop = options.shop ?? itemsForSale();
+	const land = options.land ?? FIRST_LAND;
+	const shop = options.shop ?? shopFor(land);
 	if (!Array.isArray(shop) || !shop.every(isItemId)) {
 		throw new Error('startDoctorVisit: the shop must list items of the catalog');
 	}
@@ -90,6 +103,9 @@ export function startDoctorVisit(
 		tokens,
 		items: [...items],
 		shop: ITEM_IDS.filter((id) => shop.includes(id)),
+		land,
+		unlocked: [...(options.unlocked ?? [FIRST_LAND])],
+		open: [...(options.open ?? availableLands())],
 		phase: { kind: 'choose-patient' }
 	};
 }
@@ -115,6 +131,8 @@ export function applyDoctorIntent(
 			return handOver(state, intent.ids);
 		case 'buy':
 			return buy(state, intent.itemId);
+		case 'fly':
+			return flyTo(state, seed, intent.land);
 		case 'answer':
 			return answer(state, seed, intent.input);
 		case 'back':
@@ -205,7 +223,12 @@ function buy(state: DoctorState, itemId: string): DoctorStep {
 
 function answer(state: DoctorState, seed: number, input: string): DoctorStep {
 	const phase = state.phase;
-	if (phase.kind !== 'solving' && phase.kind !== 'handing-over' && phase.kind !== 'buying') {
+	if (
+		phase.kind !== 'solving' &&
+		phase.kind !== 'handing-over' &&
+		phase.kind !== 'buying' &&
+		phase.kind !== 'paying-fare'
+	) {
 		return reject(state, 'no-puzzle');
 	}
 	const correct = checkAnswer(phase.puzzle, input);
@@ -228,7 +251,24 @@ function answer(state: DoctorState, seed: number, input: string): DoctorStep {
 			return correct
 				? sell(state, phase.itemId, phase.price, judged)
 				: accept(state, phase, [judged]);
+		case 'paying-fare':
+			return correct ? depart(state, phase.land, judged) : retryFare(state, seed, phase, judged);
 	}
+}
+
+/**
+ * A flight to `to` ([[PRODUCT]] §4 "Lands"): the rules allow it
+ * (`flyRefusal`: a land of this build, not this one, built, unlocked), and
+ * the fare is asked, a puzzle of the land's own kinds (`farePuzzle`).
+ */
+function flyTo(state: DoctorState, seed: number, to: string): DoctorStep {
+	const refusal = flyRefusal({ here: state.land, unlocked: state.unlocked, open: state.open }, to);
+	if (refusal) return reject(state, refusal);
+	const land = to as LandId;
+	const puzzle = farePuzzle(rngFor(seed, state), land);
+	return accept(state, { kind: 'paying-fare', land, puzzle }, [
+		{ type: 'fare-shown', land, puzzle }
+	]);
 }
 
 // --- outcomes ------------------------------------------------------------------
@@ -294,6 +334,25 @@ function sell(state: DoctorState, itemId: ItemId, price: number, judged: DoctorE
 		[judged, { type: 'bought', itemId, price, tokens }],
 		{ tokens, items: [...state.items, itemId] }
 	);
+}
+
+/** A wrong fare: nothing changes but the puzzle, which is a different one. */
+function retryFare(
+	state: DoctorState,
+	seed: number,
+	phase: Extract<DoctorPhase, { kind: 'paying-fare' }>,
+	judged: DoctorEvent
+): DoctorStep {
+	const puzzle = farePuzzle(rngFor(seed, state), phase.land, phase.puzzle.prompt);
+	return accept(state, { kind: 'paying-fare', land: phase.land, puzzle }, [
+		judged,
+		{ type: 'fare-shown', land: phase.land, puzzle }
+	]);
+}
+
+/** The fare is paid: off they fly, and the visit is over. */
+function depart(state: DoctorState, land: LandId, judged: DoctorEvent): DoctorStep {
+	return accept(state, { kind: 'ended' }, [judged, { type: 'flew', land }, { type: 'ended' }]);
 }
 
 // --- helpers ---------------------------------------------------------------

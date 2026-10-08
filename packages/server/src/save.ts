@@ -11,7 +11,7 @@ import { accountSaveBackups, accountSaves, users } from './db/schema.js';
 
 /**
  * Storing an account's save. The document's shape is the engine's
- * (`SaveV3`, `validateSaveWrite`); this module decides whether a write lands.
+ * (`SaveV4`, `validateSaveWrite`); this module decides whether a write lands.
  */
 
 /**
