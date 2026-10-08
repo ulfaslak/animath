@@ -1374,9 +1374,13 @@
 		font-weight: 800;
 		color: rgba(45, 42, 50, 0.3);
 	}
+	/* A long one-word name (kæmpestormfugl, halsbåndlemming) breaks where the language
+	   hyphenates it (the page's lang is the game's), and only failing that anywhere. */
 	.card-name {
 		max-width: 100%;
 		overflow-wrap: break-word;
+		-webkit-hyphens: auto;
+		hyphens: auto;
 	}
 	/* Caught, for good: the right answer's green tick, ringed in cream over the disc's corner. */
 	.stamp {

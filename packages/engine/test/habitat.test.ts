@@ -229,7 +229,11 @@ describe('where each species lives', () => {
 			'king-eider',
 			'barnacle-goose',
 			'gentoo-penguin',
-			'chinstrap'
+			'chinstrap',
+			// Its second wave's: the two big penguins and the polar bear.
+			'king-penguin',
+			'emperor-penguin',
+			'polar-bear'
 		]);
 		const aquatic = ANIMALS.filter((a) => !a.realms.includes('land'));
 		expect(aquatic.map((a) => a.id)).toEqual([
@@ -270,7 +274,14 @@ describe('where each species lives', () => {
 			'arctic-tern',
 			'king-eider',
 			'raven',
-			'barnacle-goose'
+			'barnacle-goose',
+			// Its second wave's big birds.
+			'snowy-owl',
+			'great-grey-owl',
+			'glaucous-gull',
+			'giant-petrel',
+			'gyrfalcon',
+			'albatross'
 		]);
 		for (const bird of flyers) {
 			// A bird is a land animal that also flies: caught in the grass, it fights on land too.
@@ -287,9 +298,19 @@ describe('where each species lives', () => {
 		expect(skiesOf(getAnimal('arctic-tern'))).toEqual([
 			'bird-cliffs',
 			'tundra',
+			'arctic-ice',
 			'antarctic-ice',
 			'arctic-ocean',
 			'southern-ocean'
+		]);
+		// The big seabirds of #192's second wave over the open sea too, the gyrfalcon over the
+		// tundra where it hunts ptarmigan.
+		expect(skiesOf(getAnimal('albatross'))).toEqual(['rookery', 'southern-ocean']);
+		expect(skiesOf(getAnimal('gyrfalcon'))).toEqual([
+			'fell',
+			'bird-cliffs',
+			'arctic-ice',
+			'tundra'
 		]);
 		expect(ANIMALS.filter((a) => a.skies !== undefined).map((a) => a.id)).toEqual([
 			'white-tailed-eagle',
@@ -297,7 +318,11 @@ describe('where each species lives', () => {
 			'snow-petrel',
 			'arctic-tern',
 			'king-eider',
-			'raven'
+			'raven',
+			'glaucous-gull',
+			'giant-petrel',
+			'gyrfalcon',
+			'albatross'
 		]);
 		// An animal that does not fly flies over no sky, whatever its entry says.
 		for (const a of ANIMALS) if (!a.realms.includes('air')) expect(skiesOf(a), a.id).toEqual([]);
@@ -342,7 +367,8 @@ describe('where each species lives', () => {
 			'orca',
 			'puffin',
 			'arctic-tern',
-			'king-eider'
+			'king-eider',
+			'polar-bear'
 		]);
 		expect(by('trees')).toEqual([
 			'squirrel',
@@ -358,7 +384,8 @@ describe('where each species lives', () => {
 			'buzzard',
 			'wild-boar',
 			'lynx',
-			'waxwing'
+			'waxwing',
+			'great-grey-owl'
 		]);
 		expect(by('rocks')).toEqual([
 			'wolf',
@@ -375,7 +402,10 @@ describe('where each species lives', () => {
 			'adelie-penguin',
 			'snow-petrel',
 			'raven',
-			'chinstrap'
+			'chinstrap',
+			'glaucous-gull',
+			'arctic-wolf',
+			'gyrfalcon'
 		]);
 		expect(by('open')).toEqual([
 			'rabbit',
@@ -386,7 +416,14 @@ describe('where each species lives', () => {
 			'arctic-fox',
 			'arctic-lemming',
 			'barnacle-goose',
-			'gentoo-penguin'
+			'gentoo-penguin',
+			'reindeer',
+			'snowy-owl',
+			'giant-petrel',
+			'king-penguin',
+			'emperor-penguin',
+			'albatross',
+			'musk-ox'
 		]);
 	});
 
