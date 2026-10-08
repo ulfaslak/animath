@@ -9,7 +9,9 @@ import type { DoctorEvent, DoctorIntent } from '../src/doctor/types.js';
 import { ITEM_IDS } from '../src/items/catalog.js';
 import { applyMatchIntent, startMatch } from '../src/match/reducer.js';
 import type { MatchEvent, MatchIntent, MatchSide } from '../src/match/types.js';
+import { answerForm, answerText } from '../src/puzzles/registry.js';
 import { countSolved } from '../src/puzzles/solved.js';
+import type { Puzzle } from '../src/puzzles/types.js';
 import { Rng, hashInts } from '../src/rng.js';
 import { arena, makeParty, makeWild, nextIntent } from './battle-sim.js';
 import { nextMatchIntent, party as matchParty } from './match-sim.js';
@@ -23,20 +25,37 @@ import { nextMatchIntent, party as matchParty } from './match-sim.js';
  * count without asking the code it checks.
  */
 
-/** Ways a kid types the right answer `n`: as it is, with spaces round it, with a plus. */
-function rightInputs(n: number): string[] {
+/**
+ * Ways a kid types the right answer to `puzzle`: as it is, with spaces round it, with a plus;
+ * a clock's time as "3:15", with spaces round it, or "3.15".
+ */
+function rightInputs(puzzle: Pick<Puzzle, 'kind' | 'answer'>): string[] {
+	const n = puzzle.answer;
+	if (answerForm(puzzle.kind) === 'time') {
+		const text = answerText(puzzle as Puzzle);
+		return [text, ` ${text} `, text.replace(':', '.')];
+	}
 	return [String(n), ` ${n} `, `+${n}`];
 }
 
-/** Ways a kid types a wrong answer to `n`: one off, nothing, a fraction, letters. */
-function wrongInputs(n: number): string[] {
+/** Ways a kid types a wrong answer: one off, nothing, a fraction, letters; on a clock, a minute off. */
+function wrongInputs(puzzle: Pick<Puzzle, 'kind' | 'answer'>): string[] {
+	const n = puzzle.answer;
+	if (answerForm(puzzle.kind) === 'time') {
+		const later = answerText({ ...(puzzle as Puzzle), answer: n + 1 });
+		return [later, "", `${later}.5`, "abc", "25:00"];
+	}
 	return [String(n + 1), String(n - 1), '', `${n}.5`, 'abc', `${n}${n}0`];
 }
 
 /** An answer the kid meant right or wrong, and whether it was right. */
-function typed(rng: Rng, n: number, accuracy: number): { input: string; right: boolean } {
+function typed(
+	rng: Rng,
+	puzzle: Pick<Puzzle, 'kind' | 'answer'>,
+	accuracy: number
+): { input: string; right: boolean } {
 	const right = rng.chance(accuracy);
-	return { input: rng.pick(right ? rightInputs(n) : wrongInputs(n)), right };
+	return { input: rng.pick(right ? rightInputs(puzzle) : wrongInputs(puzzle)), right };
 }
 
 /** The first few failures of a sweep and how many there were, so a broken rule fails fast. */
@@ -93,7 +112,7 @@ describe('countSolved', () => {
 						let intent: BattleIntent;
 						let meant = false;
 						if (state.phase.kind === 'solving') {
-							const answer = typed(rng, state.phase.puzzle.answer, 0.6);
+							const answer = typed(rng, state.phase.puzzle, 0.6);
 							intent = { type: 'answer', input: answer.input };
 							meant = answer.right;
 							if (meant) right++;
@@ -149,7 +168,7 @@ describe('countSolved', () => {
 				if (phase.kind === 'solving' || phase.kind === 'handing-over' || phase.kind === 'buying') {
 					if (rng.chance(0.08)) intent = { type: 'back' };
 					else {
-						const answer = typed(rng, phase.puzzle.answer, 0.55);
+						const answer = typed(rng, phase.puzzle, 0.55);
 						intent = { type: 'answer', input: answer.input };
 						meant = answer.right;
 						if (meant) counted.set(phase.kind, (counted.get(phase.kind) ?? 0) + 1);
@@ -200,7 +219,7 @@ describe('countSolved', () => {
 				let intent: MatchIntent;
 				let meant = false;
 				if (phase.kind === 'solving') {
-					const answer = typed(rng, phase.puzzle.answer, 0.5);
+					const answer = typed(rng, phase.puzzle, 0.5);
 					intent = { type: 'answer', input: answer.input };
 					meant = answer.right;
 					if (meant) right[side]++;

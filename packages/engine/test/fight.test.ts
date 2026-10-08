@@ -73,7 +73,15 @@ const TOKENS = new Set([
 	'div',
 	'missing',
 	'sequence',
-	'sqrt'
+	'sqrt',
+	// The Arctic's kinds (#191): a picture's kind goes by its id, its numbers beside it.
+	'thermometer',
+	'kroner',
+	'fraction',
+	'shape',
+	'barchart',
+	'clock',
+	'balance'
 ]);
 
 /** What must hold of every view and events a fight sends, whatever the battle. */

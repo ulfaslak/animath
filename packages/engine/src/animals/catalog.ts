@@ -796,7 +796,7 @@ export const ANIMALS: readonly AnimalSpec[] = [
 		realms: ['land', 'water', 'air'],
 		favours: 'water',
 		attacks: [
-			{ id: 'waddle', kinds: ['add', 'sub'], power: 7 },
+			{ id: 'waddle', kinds: ['add', 'sub'], power: 8 },
 			{ id: 'beakful', kinds: ['kroner'], power: 11 },
 			{ id: 'wing-dive', kinds: ['fraction'], power: 15 }
 		]
@@ -824,7 +824,7 @@ export const ANIMALS: readonly AnimalSpec[] = [
 		realms: ['land', 'air'],
 		favours: 'rocks',
 		attacks: [
-			{ id: 'chirp', kinds: ['add'], power: 7 },
+			{ id: 'chirp', kinds: ['add'], power: 8 },
 			{ id: 'snow-flurry', kinds: ['clock'], power: 10 },
 			{ id: 'wing-flash', kinds: ['barchart'], power: 14 }
 		]
@@ -838,7 +838,7 @@ export const ANIMALS: readonly AnimalSpec[] = [
 		realms: ['land', 'air'],
 		favours: 'rocks',
 		attacks: [
-			{ id: 'peck', kinds: ['sub'], power: 7 },
+			{ id: 'peck', kinds: ['sub'], power: 8 },
 			{ id: 'white-coat', kinds: ['thermometer'], power: 11 },
 			{ id: 'snow-burrow', kinds: ['shape'], power: 14 }
 		]
@@ -853,7 +853,7 @@ export const ANIMALS: readonly AnimalSpec[] = [
 		realms: ['land', 'air'],
 		favours: 'trees',
 		attacks: [
-			{ id: 'trill', kinds: ['add'], power: 7 },
+			{ id: 'trill', kinds: ['add'], power: 8 },
 			{ id: 'berry-feast', kinds: ['fraction'], power: 11 },
 			{ id: 'crest-pop', kinds: ['kroner'], power: 15 }
 		]
@@ -901,7 +901,7 @@ export const ANIMALS: readonly AnimalSpec[] = [
 		realms: ['land', 'air'],
 		favours: 'water',
 		attacks: [
-			{ id: 'plunge', kinds: ['add', 'sub'], power: 12 },
+			{ id: 'plunge', kinds: ['add', 'sub'], power: 13 },
 			{ id: 'head-peck', kinds: ['fraction'], power: 18 },
 			{ id: 'long-trip', kinds: ['clock'], power: 25 }
 		]
@@ -916,7 +916,7 @@ export const ANIMALS: readonly AnimalSpec[] = [
 		realms: ['land', 'water', 'air'],
 		favours: 'water',
 		attacks: [
-			{ id: 'paddle', kinds: ['add'], power: 11 },
+			{ id: 'paddle', kinds: ['add'], power: 12 },
 			{ id: 'deep-dive', kinds: ['thermometer'], power: 18 },
 			{ id: 'orange-crown', kinds: ['shape'], power: 24 }
 		]
@@ -933,7 +933,7 @@ export const ANIMALS: readonly AnimalSpec[] = [
 		realms: ['land', 'air'],
 		favours: 'rocks',
 		attacks: [
-			{ id: 'croak', kinds: ['sub'], power: 12 },
+			{ id: 'croak', kinds: ['sub'], power: 13 },
 			{ id: 'clever-trick', kinds: ['balance'], power: 18 },
 			{ id: 'food-stash', kinds: ['kroner'], power: 25 }
 		]
@@ -947,7 +947,7 @@ export const ANIMALS: readonly AnimalSpec[] = [
 		realms: ['land', 'water', 'air'],
 		favours: 'open',
 		attacks: [
-			{ id: 'honk', kinds: ['add', 'sub'], power: 11 },
+			{ id: 'honk', kinds: ['add', 'sub'], power: 12 },
 			{ id: 'cliff-jump', kinds: ['fraction'], power: 19 },
 			{ id: 'flock-flight', kinds: ['barchart'], power: 24 }
 		]
@@ -961,7 +961,7 @@ export const ANIMALS: readonly AnimalSpec[] = [
 		realms: ['land', 'water'],
 		favours: 'open',
 		attacks: [
-			{ id: 'peck', kinds: ['add', 'sub'], power: 12 },
+			{ id: 'peck', kinds: ['add', 'sub'], power: 13 },
 			{ id: 'fast-swim', kinds: ['clock'], power: 20 },
 			{ id: 'pebble-pile', kinds: ['barchart'], power: 24 }
 		]
@@ -976,7 +976,7 @@ export const ANIMALS: readonly AnimalSpec[] = [
 		realms: ['land', 'water'],
 		favours: 'rocks',
 		attacks: [
-			{ id: 'squawk', kinds: ['sub'], power: 13 },
+			{ id: 'squawk', kinds: ['sub'], power: 14 },
 			{ id: 'flipper-slap', kinds: ['kroner'], power: 19 },
 			{ id: 'rock-hop', kinds: ['fraction'], power: 26 }
 		]

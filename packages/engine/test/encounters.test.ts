@@ -20,6 +20,8 @@ import {
 	type EncounterEntry,
 	type EncounterSite
 } from '../src/world/encounters.js';
+import { landSeed } from '../src/lands/ids.js';
+import { LANDS, getLand } from '../src/lands/lands.js';
 import { biomeLand } from '../src/world/biomes.js';
 import { generateChunk, tileAtWorld } from '../src/world/generate.js';
 import { spawnPoint } from '../src/world/spawn.js';
@@ -117,6 +119,13 @@ function share(biome: Biome, distance: number, lead: Tier, tiers: (t: number) =>
 
 /** Species whose habitats include the biome. */
 const residents = (biome: Biome) => ANIMALS.filter((a) => a.habitats.includes(biome));
+
+/**
+ * The biomes where something of the realm of their encounter tile lives. Every biome of a
+ * land open to players is one ("is never empty…"); The Arctic's seas and frozen lakes wait for
+ * #192's third wave, its sea animals and the ones that come out of a hole in the ice.
+ */
+const INHABITED = BIOMES.filter((b) => residents(b).some((a) => a.realms.includes(realmOf(b))));
 
 /** Raw weights scaled to shares. */
 function normalised(weights: Record<string, number>): Record<string, number> {
@@ -766,7 +775,7 @@ describe('encounterTable', () => {
 								(a) =>
 									a.tier === lead &&
 									!a.habitats.includes(biome) &&
-									a.realms.includes(realmOf(biome))
+									livesNear(a, biome, realmOf(biome))
 							)
 						: [];
 				if (guests.length > 0)
@@ -813,11 +822,15 @@ describe('encounterTable', () => {
 
 	it('is never empty where anything of its realm lives, and empty where nothing does', () => {
 		const bad: string[] = [];
+		for (const biome of BIOMES) {
+			if (getLand(biomeLand(biome)).available)
+				expect(livingTiers(biome).size, biome).toBeGreaterThan(0);
+		}
 		for (const lead of LEADS) {
 			for (const biome of BIOMES) {
-				expect(livingTiers(biome).size, biome).toBeGreaterThan(0);
+				const living = livingTiers(biome).size > 0;
 				for (const d of SWEEP) {
-					if (tableIn(biome, d, lead).length === 0)
+					if ((tableIn(biome, d, lead).length > 0) !== living)
 						bad.push(`tier-${lead} lead in ${biome} @ ${d}`);
 				}
 			}
@@ -826,6 +839,41 @@ describe('encounterTable', () => {
 			expect(encounterTable('meadow', 400, lead, 'water')).toEqual([]);
 		}
 		expect(bad).toEqual([]);
+	});
+
+	it('keeps each land to its own animals, and in The Arctic each pole: no animal of another place comes, visiting or not (#191, #192)', () => {
+		const bad: string[] = [];
+		const realmsOf = (biome: Biome): Realm[] => [realmOf(biome), 'air'];
+		for (const lead of LEADS) {
+			for (const biome of BIOMES) {
+				for (const realm of realmsOf(biome)) {
+					for (const d of [0, SAFE_RADIUS, 80, WILD_RADIUS, 1000]) {
+						for (const land of LANDS) {
+							const table = encounterTable(biome, d, lead, realm, land.id);
+							const where = `tier-${lead} lead in ${land.id}'s ${biome} (${realm}) @ ${d}`;
+							// Another land's ground is quiet there: The Arctic, not built yet, lies on
+							// Nordland's kind of ground, and nothing comes out of it.
+							if (land.id !== biomeLand(biome) && table.length > 0) bad.push(`${where}: not quiet`);
+							for (const e of table) {
+								if (!land.species.includes(e.species.id)) bad.push(`${where}: ${e.species.id}`);
+								const homes = realm === 'air' ? skiesOfKind(e.species) : e.species.habitats;
+								if (!homes.some((b) => PLACE[b] === PLACE[biome]))
+									bad.push(`${where}: ${e.species.id} lives elsewhere`);
+							}
+						}
+					}
+				}
+			}
+		}
+		expect(bad).toEqual([]);
+		// The puffin, a small bird of the north, visits the north's skies, never the south's.
+		expect(encounterTable('arctic-ocean', 0, 1, 'air').map((e) => e.species.id)).toContain(
+			'snow-bunting'
+		);
+		expect(encounterTable('southern-ocean', 0, 1, 'air').map((e) => e.species.id)).toEqual([
+			'snow-petrel',
+			'arctic-tern'
+		]);
 	});
 
 	it('every species is on a table of every lead, near home and far out, and far out every one can come out', () => {
@@ -1310,7 +1358,7 @@ describe('rollEncounter', () => {
 					expect(rolls.filter((w) => w !== null)).toEqual([]);
 					expect(rng.next()).toBe(new Rng(7).next());
 					// Everywhere animals live, every lead's step draws.
-					for (const biome of BIOMES) {
+					for (const biome of INHABITED) {
 						const drawn = new Rng(7);
 						rollEncounter(drawn, siteAt(biome, d, around), lead);
 						expect(drawn.next(), `tier-${lead} lead in ${biome}`).not.toBe(new Rng(7).next());
@@ -1324,7 +1372,7 @@ describe('rollEncounter', () => {
 		const bad = findings();
 		let met = 0;
 		for (const lead of LEADS) {
-			for (const biome of BIOMES) {
+			for (const biome of INHABITED) {
 				for (const d of [0, 16, 40, 64, 100, 127.5, 160]) {
 					for (const around of GROUNDS) {
 						const key = `before:${lead}:${biome}:${d}:${JSON.stringify(around)}`;
@@ -1386,7 +1434,7 @@ describe('rollEncounter', () => {
 	it('starts one encounter per 8–12 grass steps, whoever leads and wherever', async () => {
 		const steps = 8000;
 		for (const lead of LEADS) {
-			for (const biome of BIOMES) {
+			for (const biome of INHABITED) {
 				const rng = new Rng(hashString(`${lead}:${biome}`));
 				let hits = 0;
 				for (let i = 0; i < steps; i++)
@@ -1457,7 +1505,7 @@ describe('rollEncounter', () => {
 		const bad: string[] = [];
 		let met = 0;
 		for (const lead of LEADS) {
-			for (const biome of BIOMES) {
+			for (const biome of INHABITED) {
 				for (const spawn of spawns) {
 					for (const o of offsets) {
 						const pos = { x: spawn.x + o.x, y: spawn.y + o.y };
@@ -1495,7 +1543,7 @@ describe('rollEncounter', () => {
 
 	it("samples the lead's table: species shares match the weights, and every species of 1 in 250 or more shows up", async () => {
 		for (const lead of LEADS) {
-			for (const biome of BIOMES) {
+			for (const biome of INHABITED) {
 				for (const d of [0, 400]) {
 					// Every roll is an encounter, so no time goes on the nine steps in
 					// ten that meet nothing (the rate has its own tests above).
@@ -1599,7 +1647,15 @@ describe('rollEncounterFor: the lead where the step lands, or nobody', () => {
 
 describe('the generated world offers every habitat', () => {
 	it('grows tall grass or deep water in at least one habitat of every species, within 8 chunks of spawn', () => {
-		for (const seed of [hashString('prototype'), 1, 2, 3]) {
+		// Every species of a land open to players, in that land's worlds. A land is opened once its
+		// map is built (#191 step 4), and its animals join this test then.
+		const open = LANDS.filter((l) => l.available);
+		expect(open.map((l) => l.id)).toContain('nordland');
+		for (const [land, seed] of open.flatMap((l) =>
+			l.id === 'nordland'
+				? [hashString('prototype'), 1, 2, 3].map((seed) => [l, seed] as const)
+				: [1, 2, 3, 4].map((n) => [l, landSeed(l.id, n)] as const)
+		)) {
 			const grassy = new Set<Biome>();
 			const spawn = spawnPoint(seed);
 			const scx = Math.floor(spawn.x / 16);
@@ -1608,7 +1664,7 @@ describe('the generated world offers every habitat', () => {
 				for (let cx = scx - 8; cx <= scx + 8; cx++)
 					for (const t of generateChunk(seed, cx, cy).tiles)
 						if (isEncounterTile(t.kind)) grassy.add(t.biome);
-			for (const a of ANIMALS) {
+			for (const a of ANIMALS.filter((a) => land.species.includes(a.id))) {
 				const reachable = a.habitats.some((b) => grassy.has(b));
 				expect(reachable, `${a.id} has nowhere to be met (seed ${seed})`).toBe(true);
 			}
@@ -1794,7 +1850,20 @@ describe('the sky: birds that notice the glider (#91)', () => {
 		// tier-2 bird in front; the swan over the river and the eagle-owl over the mountains,
 		// with a tier-3 one. Near home the heron and the buzzard over the forest weigh what the
 		// tawny owl does, where their three bells alone would make each half as common again.
-		expect([...seen].sort()).toEqual(['2:forest', '2:river', '3:mountain', '3:river']);
+		// In The Arctic's north (#192), every sky with a small bird under the bigger tern, eider,
+		// goose or raven, with a small bird in front: the puffin's sea, the cliffs, the fell, the
+		// taiga's waxwings and the tundra; the snow petrel's south has no small bird visiting.
+		expect([...seen].sort()).toEqual([
+			'1:arctic-ocean',
+			'1:bird-cliffs',
+			'1:fell',
+			'1:taiga',
+			'1:tundra',
+			'2:forest',
+			'2:river',
+			'3:mountain',
+			'3:river'
+		]);
 		const forest = new Map(skyIn('forest', 0, 2).map((e) => [e.species.id, e.weight]));
 		for (const id of ['grey-heron', 'buzzard'])
 			expect(forest.get(id)!, id).toBeCloseTo(forest.get('tawny-owl')!, 14);

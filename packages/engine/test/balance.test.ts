@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { ANIMALS, getAnimal } from '../src/animals/catalog.js';
 import type { AttackLevel, Biome } from '../src/animals/types.js';
+import { LANDS } from '../src/lands/lands.js';
 import { hashString } from '../src/rng.js';
 import { SAFE_RADIUS, distanceFromSpawn, encounterTableAt } from '../src/world/encounters.js';
 import { tileAtWorld } from '../src/world/generate.js';
@@ -44,6 +45,10 @@ interface Outcome {
 
 const ids = ANIMALS.map((a) => a.id);
 const tier = (id: string) => getAnimal(id).tier;
+/** The land a species lives in: animals of two lands never meet, in the wild or in a match. */
+const landOf = (id: string) => LANDS.find((l) => l.species.includes(id))!.id;
+/** Whether two species can meet in a battle: in one land, and somewhere both can fight. */
+const meet = (p: string, w: string) => landOf(p) === landOf(w) && arena(p, w) !== null;
 
 /**
  * Every (player, wild) pair that can meet: the two "never hurts" checks walk
@@ -52,14 +57,14 @@ const tier = (id: string) => getAnimal(id).tier;
  * wave.
  */
 const MEETING_PAIRS: readonly (readonly [string, string])[] = ids.flatMap((p) =>
-	ids.flatMap((w) => (arena(p, w) !== null ? [[p, w] as const] : []))
+	ids.flatMap((w) => (meet(p, w) ? [[p, w] as const] : []))
 );
 
 /** Every (player, wild) pair that can meet, where the wild animal is `gap` tiers fiercer. */
 function pairs(gap: number): Array<[string, string]> {
 	return ids.flatMap((p) =>
 		ids
-			.filter((w) => tier(w) - tier(p) === gap && arena(p, w) !== null)
+			.filter((w) => tier(w) - tier(p) === gap && meet(p, w))
 			.map((w): [string, string] => [p, w])
 	);
 }
@@ -114,7 +119,7 @@ function grid(model: PlayerModel): string {
 	const sep = `| --- | ${ids.map(() => '---').join(' | ')} |`;
 	const rows = ids.map((p) => {
 		const cells = ids.map((w) => {
-			if (arena(p, w) === null) return '—';
+			if (!meet(p, w)) return '—';
 			const { win, rounds } = simulate(p, w, model);
 			return `${pct(win)} (${rounds.toFixed(1)})`;
 		});
@@ -220,7 +225,8 @@ describe('balance simulation', () => {
 	}
 
 	it("a squirrel almost never beats a bear, even when it's always right, nor a crab a whale, nor any small animal a tier-5 one", () => {
-		const small = ids.filter((id) => tier(id) === 1);
+		// Nordland's: The Arctic has no tier-5 animal before #192's second wave.
+		const small = ids.filter((id) => tier(id) === 1 && landOf(id) === 'nordland');
 		expect(small).toEqual([
 			'squirrel',
 			'rabbit',
@@ -254,7 +260,7 @@ describe('balance simulation', () => {
 			for (const id of meet)
 				expect(simulate(id, big, hardest(1)).win, `${id} vs ${big}`).toBeLessThan(0.05);
 		}
-		expect(ids.filter((id) => tier(id) === 5)).toEqual([
+		expect(ids.filter((id) => tier(id) === 5 && landOf(id) === 'nordland')).toEqual([
 			'bear',
 			'moose',
 			'european-bison',
@@ -316,14 +322,21 @@ describe('balance simulation', () => {
 	it('the easiest puzzle, always right, usually beats an animal of your own tier (65–80%)', async () => {
 		const rates = await winRatesTurning(0, easiest(1));
 		for (const { p, w, win } of rates) expect(win, `${p} vs ${w}`).toBeGreaterThan(0.5);
-		expectInBand(mean(rates.map((r) => r.win)), 0.65, 0.8, 'same-tier mean');
+		// Each land on its own: their animals never meet (#191), and The Arctic's numbers are its own.
+		for (const land of LANDS.map((l) => l.id)) {
+			const its = rates.filter((r) => landOf(r.p) === land).map((r) => r.win);
+			if (its.length > 0) expectInBand(mean(its), 0.65, 0.8, `${land}'s same-tier mean`);
+		}
 		// Played first, it paid for the start of the run as well: 38 s in the whole suite at a
 		// load average of 34 (2026-09-28), which scales to 170 s at 150.
 	}, 600_000);
 
 	it('the easiest puzzle at 70% right makes a same-tier fight close to a coin flip (40–55%)', async () => {
 		const rates = await winRatesTurning(0, easiest(0.7));
-		expectInBand(mean(rates.map((r) => r.win)), 0.4, 0.55, 'same-tier mean');
+		for (const land of LANDS.map((l) => l.id)) {
+			const its = rates.filter((r) => landOf(r.p) === land).map((r) => r.win);
+			if (its.length > 0) expectInBand(mean(its), 0.4, 0.55, `${land}'s same-tier mean`);
+		}
 	}, 480_000);
 
 	it('the starter squirrel meets the same targets against its own near-spawn tier', () => {
