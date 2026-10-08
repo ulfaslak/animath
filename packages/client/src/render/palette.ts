@@ -335,5 +335,23 @@ export const ANIMAL_COLORS: Record<string, { fur: number; accent: number }> = {
 	'harbour-seal': { fur: 0x8f8a7e, accent: 0x3a3632 },
 	'harbour-porpoise': { fur: 0x4a5560, accent: 0xd9dde0 },
 	'grey-seal': { fur: 0x6f7378, accent: 0xc9c4b8 },
-	orca: { fur: 0x1e1e22, accent: 0xf7f5ef }
+	orca: { fur: 0x1e1e22, accent: 0xf7f5ef },
+	// The Arctic's small land animals (#192 wave 1). The fox, the hare and the ptarmigan in
+	// their white winter coats, each a different white beside the snow, and never Nordland's
+	// fox's red; the lemming in its summer coat with its rusty collar.
+	'arctic-fox': { fur: 0xf2f4f6, accent: 0xb9c6d3 },
+	'arctic-hare': { fur: 0xfbfaf6, accent: 0xf2a7b4 },
+	puffin: { fur: 0x2a2b31, accent: 0xf07a2a },
+	'arctic-lemming': { fur: 0x9b8774, accent: 0xc8783c },
+	'snow-bunting': { fur: 0xf7f3ea, accent: 0x2b2b30 },
+	'rock-ptarmigan': { fur: 0xf6f3ec, accent: 0xd8343a },
+	waxwing: { fur: 0xc39a7c, accent: 0xf2c230 },
+	'adelie-penguin': { fur: 0x23262d, accent: 0xeba7a0 },
+	'snow-petrel': { fur: 0xfcfcfd, accent: 0x26272c },
+	'arctic-tern': { fur: 0xdfe5ea, accent: 0xd8322a },
+	'king-eider': { fur: 0x2a2a2f, accent: 0xf0882a },
+	raven: { fur: 0x1f2028, accent: 0x3d4560 },
+	'barnacle-goose': { fur: 0x9298a0, accent: 0x1f1f24 },
+	'gentoo-penguin': { fur: 0x2a2e36, accent: 0xf2662a },
+	chinstrap: { fur: 0x2a2c33, accent: 0xeba7a0 }
 };

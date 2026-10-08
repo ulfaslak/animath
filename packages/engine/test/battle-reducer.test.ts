@@ -21,9 +21,10 @@ import {
 import type { BattleEvent, BattleIntent, BattleState, BattleStep } from '../src/battle/types.js';
 import { landHit } from '../src/index.js';
 import { puzzleDifficulty } from '../src/puzzles/difficulty.js';
-import { checkAnswer, getGenerator } from '../src/puzzles/registry.js';
+import { answerForm, checkAnswer, getGenerator } from '../src/puzzles/registry.js';
 import { Rng, hashInts } from '../src/rng.js';
 import { turn } from './turn.js';
+import { typed } from './typed.js';
 import { wordedStrings } from './words.js';
 import {
 	arena,
@@ -98,10 +99,9 @@ function attackAndAnswer(
 ): BattleStep {
 	const solving = applyBattleIntent(state, { type: 'attack', attackIndex, level }, seed).state;
 	if (solving.phase.kind !== 'solving') throw new Error('attack was rejected');
-	const answer = solving.phase.puzzle.answer;
 	return applyBattleIntent(
 		solving,
-		{ type: 'answer', input: String(correct ? answer : 'x') },
+		{ type: 'answer', input: correct ? typed(solving.phase.puzzle) : 'x' },
 		seed
 	);
 }
@@ -238,8 +238,7 @@ describe('replay', () => {
 				if (s.phase.kind === 'ended') return null;
 				if (s.phase.kind === 'choose-animal') return { type: 'switch', partyIndex: 1 };
 				if (s.phase.kind === 'solving') {
-					const a = s.phase.puzzle.answer;
-					return { type: 'answer', input: String(answers++ % 3 === 1 ? a + 1 : a) };
+					return { type: 'answer', input: typed(s.phase.puzzle, answers++ % 3 !== 1) };
 				}
 				if (s.turn === 3) return { type: 'throw-leash' };
 				return { type: 'attack', attackIndex: 2, level: 3 };
@@ -642,7 +641,11 @@ describe('answers', () => {
 						if (solving.phase.kind !== 'solving') throw new Error('not solving');
 						const answer = solving.phase.puzzle.answer;
 						const damage = attackDamage(spec, n, level, true);
-						for (const input of [String(answer), ` ${answer} `, `+${answer}`]) {
+						for (const input of [
+							typed(solving.phase.puzzle),
+							` ${typed(solving.phase.puzzle)} `,
+							...(answerForm(solving.phase.puzzle.kind) === 'time' ? [] : [`+${answer}`])
+						]) {
 							const { state, events } = applyBattleIntent(
 								deepFreeze(solving),
 								{ type: 'answer', input },

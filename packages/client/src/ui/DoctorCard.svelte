@@ -4,6 +4,7 @@
 		getAnimal,
 		getLand,
 		homeTokens,
+		isPictureKind,
 		keepsATeam,
 		mustStay,
 		needsHealing,
@@ -102,9 +103,15 @@
 	 * plays, which happens on its rows (the heal's "+N", the goodbye, the tool's
 	 * tick), and then the puzzle keeps only the sum, the answer and "Correct!"
 	 * (`done`), on every screen. The styles decide the screen; this only says when.
+	 *
+	 * A puzzle with a picture (the Arctic's kinds, #191) has the whole card on
+	 * every screen, with a keyboard too, as it has battle's whole panel: beside
+	 * the list, the picture, the question and the pad did not fit a tablet's
+	 * card, and the question ran off it (`pictured`).
 	 */
+	const pictured = $derived(doctor.puzzle !== null && isPictureKind(doctor.puzzle.kind));
 	const solo = $derived(
-		touch.on &&
+		(touch.on || pictured) &&
 			doctor.puzzle !== null &&
 			(doctor.screen === 'puzzle' || doctor.screen === 'busy') &&
 			!rewarding
@@ -299,7 +306,7 @@
 	});
 </script>
 
-<div class="doctor" class:solo>
+<div class="doctor" class:solo class:pictured={solo && pictured}>
 	<!-- The tokens come before the line, so that a crowded line's first line has them beside it. -->
 	<div class="card talk" class:crowded class:small bind:this={talk}>
 		<span class="who">{t('doctor.title')}</span>
@@ -1510,6 +1517,25 @@
 	}
 
 	/*
+	 * A puzzle with a picture has the whole card on every screen (`pictured`):
+	 * the list steps aside and the doctor's line runs across the top, as on a
+	 * phone held sideways below; Back leads to the list.
+	 */
+	.doctor.pictured {
+		grid-template-columns: minmax(0, 1fr);
+	}
+	.doctor.pictured .patients {
+		display: none;
+	}
+	.doctor.pictured .talk,
+	.doctor.pictured .puzzle {
+		grid-column: 1;
+	}
+	.doctor.pictured .puzzle :global(.note) {
+		display: none;
+	}
+
+	/*
 	 * A short screen, a phone held sideways (`SHORT_SCREEN`): the card keeps
 	 * inside the screen (`--doctor-panel` in `styles.css`) and 8 px from its
 	 * bottom, and the right-hand side's words are a size smaller, as battle's
@@ -1536,6 +1562,10 @@
 		}
 		.doctor.solo .puzzle {
 			padding-block: 8px;
+		}
+		/* A bar chart's top number stands a little over its picture: room for it. */
+		.doctor.pictured .puzzle {
+			padding-top: 12px;
 		}
 		.doctor.solo .puzzle :global(.note) {
 			display: none;

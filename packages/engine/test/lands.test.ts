@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { ANIMALS, canFightIn, getAnimal } from '../src/animals/catalog.js';
+import { ANIMALS, canFightIn, getAnimal, skiesOf } from '../src/animals/catalog.js';
+import { BIOME_POLE } from '../src/animals/types.js';
 import { ITEMS } from '../src/items/catalog.js';
 import { fly, type LandPlace, type LandStay } from '../src/lands/fly.js';
 import {
@@ -26,6 +27,7 @@ import { STARTERS, STARTER_TIER } from '../src/party/starters.js';
 import { answerText, checkAnswer } from '../src/puzzles/registry.js';
 import { ALL_PUZZLE_KINDS } from '../src/puzzles/types.js';
 import { Rng, hashInts } from '../src/rng.js';
+import { biomeLand } from '../src/world/biomes.js';
 import { EDITS_BUDGET, WorldEdits } from '../src/world/edits.js';
 import { TENT_LATTICE, onTentLattice, tileAtWorld } from '../src/world/generate.js';
 import { spawnPoint } from '../src/world/spawn.js';
@@ -64,8 +66,9 @@ describe('the land registry', () => {
 	it("Nordland is today's game: its 50 species, its starters, its shop, tokens and its sums", () => {
 		const nordland = getLand('nordland');
 		expect(nordland.available).toBe(true);
-		// Every species there is today, in catalog order: the 50 a kid sets free to fly on.
-		expect(nordland.species).toEqual(ANIMALS.map((a) => a.id));
+		// Every species of Nordland, in catalog order: the 50 a kid sets free to fly on. A later
+		// land's animals, further down the catalog, never join them.
+		expect(nordland.species).toEqual(ANIMALS.slice(0, 50).map((a) => a.id));
 		expect(nordland.species).toHaveLength(50);
 		expect(nordland.starters).toEqual(STARTERS);
 		expect(shopFor('nordland')).toEqual(['axe', 'pickaxe', 'boat', 'glider', 'harness']);
@@ -73,17 +76,36 @@ describe('the land registry', () => {
 		expect(nordland.look).toBe('bare');
 	});
 
-	it('The Arctic is registered and closed: no species or starters until #191 step 5, its own shop', () => {
+	it('The Arctic is registered and closed: its first animals, and its own shop', () => {
 		const arctic = getLand('arctic');
 		expect(arctic.available).toBe(false);
 		expect(availableLands()).toEqual(['nordland']);
-		expect(arctic).toMatchObject({ species: [], starters: [] });
+		// #192's first wave: its small land animals, the three starters first, in catalog order.
+		expect(arctic.species).toEqual(ANIMALS.slice(50).map((a) => a.id));
+		expect(arctic.species).toHaveLength(15);
+		expect(arctic.starters).toEqual(['arctic-fox', 'arctic-hare', 'puffin']);
 		// Its own tools, never Nordland's axe, pickaxe or harness (#191 step 6).
 		expect(Object.keys(arctic.shop)).not.toContain('axe');
 		expect(Object.keys(arctic.shop)).not.toContain('pickaxe');
 		expect(Object.keys(arctic.shop)).not.toContain('harness');
 		expect(arctic.currency).toBe('ice-dollars');
 		expect(arctic.look).toBe('warm-hat');
+	});
+
+	it('every species is of one land, and lives and flies only there; in The Arctic on one pole, but the Arctic tern (#192)', () => {
+		const lands = ANIMALS.map((a) =>
+			LANDS.filter((l) => l.species.includes(a.id)).map((l) => l.id)
+		);
+		expect(lands.filter((of) => of.length !== 1)).toEqual([]);
+		const twoPoles: string[] = [];
+		for (const [i, a] of ANIMALS.entries()) {
+			const homes = [...a.habitats, ...skiesOf(a)];
+			for (const b of homes) expect(biomeLand(b), `${a.id} in ${b}`).toBe(lands[i]![0]);
+			const poles = new Set(homes.map((b) => BIOME_POLE[b]));
+			if (poles.size > 1) twoPoles.push(a.id);
+		}
+		// It nests in the Arctic and spends the southern summer on the Antarctic's sea ice.
+		expect(twoPoles).toEqual(['arctic-tern']);
 	});
 
 	it("every land's species, starters, shop and fare are ones the catalogs have, and fit the rules", () => {
@@ -192,9 +214,11 @@ describe('unlocking a land', () => {
 		expect(unlockLands(both, nordland)).toBe(both);
 	});
 
-	it('never unlocks a land after one with no species yet', () => {
-		// The Arctic has none: setting free every Nordland animal opens it, and nothing past it.
-		expect(getLand('arctic').species).toHaveLength(0);
+	it("opens no land for another land's animals: The Arctic's own set free open nothing in Nordland", () => {
+		// Every Arctic animal set free, and every Nordland one but the last: still Nordland alone.
+		const arctic = getLand('arctic').species;
+		expect(unlockLands([], [...arctic, ...nordland.slice(0, -1)])).toEqual(['nordland']);
+		// Every animal there is: The Arctic, and nothing past it, the last land there is.
 		expect(
 			unlockLands(
 				[],
@@ -243,8 +267,9 @@ describe('a flight from the witch doctor', () => {
 	it('asks for a starter only in a land with none of the kid’s animals, and starters to pick from', () => {
 		expect(needsStarter('nordland', [])).toBe(true);
 		expect(needsStarter('nordland', [{}])).toBe(false);
-		// The Arctic has no starters yet: nothing to pick.
-		expect(needsStarter('arctic', [])).toBe(false);
+		// The Arctic has its three (#192): a first arrival picks one.
+		expect(needsStarter('arctic', [])).toBe(true);
+		expect(needsStarter('arctic', [{}])).toBe(false);
 	});
 });
 

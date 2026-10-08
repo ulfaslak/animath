@@ -61,8 +61,9 @@ import { readFightEvents, readFightView, type FightEvent, type FightView } from 
  * Version 9: lands (#191): a `where` and a `roster` name the land as well as
  * the world, and players see each other only in the same land of the same
  * world, which a version 8 server would not know to keep apart.
+ * Version 10: The Arctic's small land animals (#192's first wave).
  */
-export const PROTOCOL_VERSION = 9;
+export const PROTOCOL_VERSION = 10;
 
 /**
  * The most a message may take on the wire, in bytes (the server closes a

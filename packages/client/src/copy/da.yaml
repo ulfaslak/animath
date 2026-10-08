@@ -639,6 +639,194 @@ species:
       pod-hunt: Flokjagt
       tail-slap: Halesmæk
       wave-wash: Bølgeskyl
+  arctic-fox:
+    name: Polarræv
+    a: en polarræv
+    the: polarræven
+    wild: vild polarræv
+    aWild: en vild polarræv
+    theWild: den vilde polarræv
+    bare: polarræv
+    attacks:
+      snow-sniff: Snesnus
+      fluffy-tail: Pjusket hale
+      snow-dive: Snedyk
+  arctic-hare:
+    name: Polarhare
+    a: en polarhare
+    the: polarharen
+    wild: vild polarhare
+    aWild: en vild polarhare
+    theWild: den vilde polarhare
+    bare: polarhare
+    attacks:
+      hop: Hop
+      big-feet: Store fødder
+      zigzag-dash: Zigzagløb
+  puffin:
+    name: Lunde
+    a: en lunde
+    the: lunden
+    wild: vild lunde
+    aWild: en vild lunde
+    theWild: den vilde lunde
+    bare: lunde
+    aGrumpy: en gnaven lunde
+    attacks:
+      waddle: Vralt
+      beakful: Næbfuld
+      wing-dive: Vingedyk
+  arctic-lemming:
+    name: Halsbåndlemming
+    a: en halsbåndlemming
+    the: halsbåndlemmingen
+    wild: vild halsbåndlemming
+    aWild: en vild halsbåndlemming
+    theWild: den vilde halsbåndlemming
+    bare: halsbåndlemming
+    attacks:
+      nibble: Gnask
+      tunnel-dash: Tunnelspurt
+  snow-bunting:
+    name: Snespurv
+    a: en snespurv
+    the: snespurven
+    wild: vild snespurv
+    aWild: en vild snespurv
+    theWild: den vilde snespurv
+    bare: snespurv
+    aGrumpy: en gnaven snespurv
+    attacks:
+      chirp: Kvidder
+      snow-flurry: Snefog
+      wing-flash: Vingeblink
+  rock-ptarmigan:
+    name: Fjeldrype
+    a: en fjeldrype
+    the: fjeldrypen
+    wild: vild fjeldrype
+    aWild: en vild fjeldrype
+    theWild: den vilde fjeldrype
+    bare: fjeldrype
+    aGrumpy: en gnaven fjeldrype
+    attacks:
+      peck: Hak
+      white-coat: Hvid dragt
+      snow-burrow: Snehule
+  waxwing:
+    name: Silkehale
+    a: en silkehale
+    the: silkehalen
+    wild: vild silkehale
+    aWild: en vild silkehale
+    theWild: den vilde silkehale
+    bare: silkehale
+    aGrumpy: en gnaven silkehale
+    attacks:
+      trill: Trille
+      berry-feast: Bærfest
+      crest-pop: Fjertop
+  adelie-penguin:
+    name: Adeliepingvin
+    a: en adeliepingvin
+    the: adeliepingvinen
+    wild: vild adeliepingvin
+    aWild: en vild adeliepingvin
+    theWild: den vilde adeliepingvin
+    bare: adeliepingvin
+    attacks:
+      waddle: Vralt
+      pebble-gift: Stengave
+      belly-slide: Maveglid
+  snow-petrel:
+    name: Snepetrel
+    a: en snepetrel
+    the: snepetrellen
+    wild: vild snepetrel
+    aWild: en vild snepetrel
+    theWild: den vilde snepetrel
+    bare: snepetrel
+    aGrumpy: en gnaven snepetrel
+    attacks:
+      glide: Glid
+      oil-spit: Oliespyt
+      blizzard: Snestorm
+  arctic-tern:
+    name: Havterne
+    a: en havterne
+    the: havternen
+    wild: vild havterne
+    aWild: en vild havterne
+    theWild: den vilde havterne
+    bare: havterne
+    aGrumpy: en gnaven havterne
+    attacks:
+      plunge: Styrtdyk
+      head-peck: Hovedhak
+      long-trip: Lang rejse
+  king-eider:
+    name: Kongeederfugl
+    a: en kongeederfugl
+    the: kongeederfuglen
+    wild: vild kongeederfugl
+    aWild: en vild kongeederfugl
+    theWild: den vilde kongeederfugl
+    bare: kongeederfugl
+    aGrumpy: en gnaven kongeederfugl
+    attacks:
+      paddle: Padle
+      deep-dive: Dybt dyk
+      orange-crown: Orange krone
+  raven:
+    name: Ravn
+    a: en ravn
+    the: ravnen
+    wild: vild ravn
+    aWild: en vild ravn
+    theWild: den vilde ravn
+    bare: ravn
+    aGrumpy: en gnaven ravn
+    attacks:
+      croak: Kra
+      clever-trick: Snedigt trick
+      food-stash: Madlager
+  barnacle-goose:
+    name: Bramgås
+    a: en bramgås
+    the: bramgåsen
+    wild: vild bramgås
+    aWild: en vild bramgås
+    theWild: den vilde bramgås
+    bare: bramgås
+    aGrumpy: en gnaven bramgås
+    attacks:
+      honk: Snadder
+      cliff-jump: Klippespring
+      flock-flight: Flokflugt
+  gentoo-penguin:
+    name: Æselpingvin
+    a: en æselpingvin
+    the: æselpingvinen
+    wild: vild æselpingvin
+    aWild: en vild æselpingvin
+    theWild: den vilde æselpingvin
+    bare: æselpingvin
+    attacks:
+      peck: Hak
+      fast-swim: Lynsvømning
+      pebble-pile: Stendynge
+  chinstrap:
+    name: Rempingvin
+    a: en rempingvin
+    the: rempingvinen
+    wild: vild rempingvin
+    aWild: en vild rempingvin
+    theWild: den vilde rempingvin
+    bare: rempingvin
+    attacks:
+      squawk: Skræp
+      flipper-slap: Vingeklask
+      rock-hop: Klippehop
 
 puzzle:
   keys: Skriv svaret og tryk på Enter
@@ -1376,6 +1564,11 @@ worlds:
   arriveNew: En ny verden at udforske!
   arriveBack: Du er tilbage, hvor du var.
   arriveHome: Hjemme igen!
+lands:
+  nordland:
+    name: Nordland
+  arctic:
+    name: Arktis
 book:
   title: Dyrebog
   row: '{caught}/{all}'
@@ -1388,4 +1581,5 @@ book:
   freedTeam: '{animal.the} er på dit hold og tæller som sluppet fri!'
   caughtHome: Du fangede {animal.a} og slap {animal.the} fri. Det står i din bog for altid!
   seenFree: Du har mødt {animal.a}, og {animal.the} tæller som sluppet fri!
+  lands: Vælg et land og se dets dyr!
   keys: ↑ ↓ ← → flyt · Esc tilbage

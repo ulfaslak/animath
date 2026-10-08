@@ -1,16 +1,17 @@
 import {
-	BOOK_ORDER,
+	bookOrder,
 	bundles,
 	parseWorldNumber,
 	type Authority,
 	type GameEvent,
+	type LandId,
 	type PartyIntent
 } from '@mathgame/engine';
 import { sfx } from '../audio/sfx.svelte';
 import { isLanguage, language, nextLanguage } from '../copy';
 import { isShortcut, keyName } from '../input/keyboard';
-import { tappedLanguage, tappedOption, tappedRow } from '../input/press';
-import { book } from '../state/book.svelte';
+import { tappedLand, tappedLanguage, tappedOption, tappedRow } from '../input/press';
+import { book, bookLands } from '../state/book.svelte';
 import { game } from '../state/game.svelte';
 import { presence } from '../state/presence.svelte';
 import {
@@ -285,6 +286,9 @@ export class PauseController {
 				sfx.play('confirm');
 				pause.screen = 'book';
 				pause.option = 0;
+				// The page of the land the kid is in, its first card lit.
+				book.land = game.land;
+				book.tabs = false;
 				break;
 		}
 	}
@@ -319,24 +323,66 @@ export class PauseController {
 	 * arrows as the cards are laid out, `book.columns` to a row. Left and
 	 * right go card by card, on into the next row and back; up and down a
 	 * row, and down onto the last card from above a short last row. At an
-	 * edge they stay put, silently. A tap on a card lights it; on the lit
-	 * one, and Enter or Space, its animal hops (a card never met has no
-	 * animal to hop). Nothing here changes the game.
+	 * edge they stay put, silently, but for up from the top row with more
+	 * than one land's page, which lights the land tabs over the cards
+	 * (`book.tabs`): there left and right open the land beside, at once, and
+	 * down, Enter or Space go back to its first card. A tap on a tab opens
+	 * its page, the tab lit. A tap on a card lights it; on the lit one, and
+	 * Enter or Space, its animal hops (a card never met has no animal to
+	 * hop). Nothing here changes the game.
 	 */
 	private bookKey(key: string): boolean {
-		const count = BOOK_ORDER.length;
+		const lands = bookLands(game.land);
+		const page = bookOrder(book.land);
+		const count = page.length;
 		const at = Math.min(pause.option, count - 1);
 		const light = (to: number): boolean => {
-			if (to !== at) {
+			if (to !== at || book.tabs) {
 				pause.option = to;
+				book.tabs = false;
 				sfx.play('move');
 			}
 			return true;
 		};
+		const open = (land: LandId | undefined): boolean => {
+			if (land && land !== book.land) {
+				book.land = land;
+				pause.option = 0;
+				sfx.play('move');
+			}
+			book.tabs = true;
+			return true;
+		};
+		if (key === 'Escape') {
+			this.backToList();
+			return true;
+		}
+		const tappedTab = tappedLand(key);
+		if (tappedTab !== undefined) return lands.includes(tappedTab) ? open(tappedTab) : true;
 		const tapped = tappedOption(key);
 		if (tapped !== undefined) {
 			if (tapped >= count) return true;
-			return tapped === at ? this.bookKey('Enter') : light(tapped);
+			return tapped === at && !book.tabs ? this.bookKey('Enter') : light(tapped);
+		}
+		if (book.tabs) {
+			const i = lands.indexOf(book.land);
+			switch (key) {
+				case 'ArrowLeft':
+				case 'a':
+					return open(lands[Math.max(0, i - 1)]);
+				case 'ArrowRight':
+				case 'd':
+					return open(lands[Math.min(lands.length - 1, i + 1)]);
+				case 'ArrowDown':
+				case 's':
+				case 'Enter':
+				case ' ':
+					return light(0);
+				case 'ArrowUp':
+				case 'w':
+					return true;
+			}
+			return false;
 		}
 		const columns = Math.max(1, book.columns);
 		switch (key) {
@@ -348,7 +394,13 @@ export class PauseController {
 				return light(Math.min(count - 1, at + 1));
 			case 'ArrowUp':
 			case 'w':
-				return light(at - columns >= 0 ? at - columns : at);
+				if (at - columns >= 0) return light(at - columns);
+				// Up from the top row: the land tabs, where there is more than one land's page.
+				if (lands.length > 1) {
+					book.tabs = true;
+					sfx.play('move');
+				}
+				return true;
 			case 'ArrowDown':
 			case 's': {
 				if (at + columns < count) return light(at + columns);
@@ -358,7 +410,7 @@ export class PauseController {
 			}
 			case 'Enter':
 			case ' ': {
-				const speciesId = BOOK_ORDER[at]!.id;
+				const speciesId = page[at]!.id;
 				if (game.seen.includes(speciesId)) {
 					book.hopping = speciesId;
 					book.hops += 1;
@@ -366,9 +418,6 @@ export class PauseController {
 				}
 				return true;
 			}
-			case 'Escape':
-				this.backToList();
-				return true;
 		}
 		return false;
 	}

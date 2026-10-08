@@ -1,4 +1,11 @@
-import { FIRST_WORLD, ITEM_IDS, getAnimal, type GameEvent } from '@mathgame/engine';
+import {
+	FIRST_WORLD,
+	ITEM_IDS,
+	getAnimal,
+	landSeed,
+	spawnPoint,
+	type GameEvent
+} from '@mathgame/engine';
 import { LocalAuthority } from '../src/authority/local';
 import { describe, expect, it } from 'vitest';
 import {
@@ -47,6 +54,47 @@ describe('URL switches', () => {
 		expect(readFlags('?lands')).toMatchObject({ lands: true, throwaway: true });
 		expect(authorityOptions(readFlags('?lands')).lands).toBe(true);
 		expect(authorityOptions(readFlags('')).lands).toBeUndefined();
+		// `?land=arctic`: start in that land, every land open as with `?lands`.
+		expect(readFlags('?land=arctic')).toMatchObject({
+			land: 'arctic',
+			lands: true,
+			throwaway: true
+		});
+		expect(authorityOptions(readFlags('?land=arctic'))).toMatchObject({
+			land: 'arctic',
+			lands: true
+		});
+		// A land this build lacks, or none, is no switch.
+		for (const bad of ['?land=', '?land=Arctic', '?land=atlantis', '?land']) {
+			expect(readFlags(bad), bad).toMatchObject({ land: null, lands: false, throwaway: false });
+		}
+		expect(authorityOptions(readFlags('')).land).toBeUndefined();
+	});
+
+	it("?land= starts a game in that land, at its spawn, with its first starter or the party's animals of that land alone", () => {
+		const start = (search: string) => {
+			const events: GameEvent[] = [];
+			const authority = new LocalAuthority(authorityOptions(readFlags(search)));
+			authority.subscribe((e) => events.push(e));
+			authority.start();
+			return authority.snapshot();
+		};
+		const arctic = start('?land=arctic');
+		expect(arctic).toMatchObject({
+			land: 'arctic',
+			world: FIRST_WORLD,
+			unlocked: ['nordland', 'arctic']
+		});
+		expect(arctic.pos).toEqual(spawnPoint(landSeed('arctic', FIRST_WORLD)));
+		expect(arctic.party.map((a) => a.speciesId)).toEqual(['arctic-fox']);
+		// A Nordland animal in the party stays home: the lands are kept apart.
+		const mixed = start('?land=arctic&party=bear,puffin,fox');
+		expect(mixed.party.map((a) => a.speciesId)).toEqual(['puffin']);
+		expect(mixed.caught).toEqual(['puffin']);
+		// Only Nordland's: none of them comes, and the land's first starter does instead.
+		expect(start('?land=arctic&party=bear').party.map((a) => a.speciesId)).toEqual(['arctic-fox']);
+		// And in Nordland, an arctic animal stays in The Arctic.
+		expect(start('?party=fox,puffin').party.map((a) => a.speciesId)).toEqual(['fox']);
 	});
 
 	it('?puzzle= takes any kind the engine has, and ?d= a difficulty from 1 to 10', () => {

@@ -474,9 +474,12 @@ export class LocalAuthority implements Authority {
 			items: [...(this.options.items ?? [])],
 			unlocked: this.options.lands || land !== FIRST_LAND ? [...LAND_IDS] : [FIRST_LAND]
 		};
-		// An empty `?party=` is no party: the starter, as without one.
-		if (!this.options.party?.length) return game;
-		const party = bundled(this.options.party).map((a) => ({ ...a }));
+		// A `?party=` brings only the animals of the land the game starts in, as every land's
+		// party is its own; with none of them (or an empty one), the land's starter, as without.
+		const own = new Set(getLand(land).species);
+		const animals = (this.options.party ?? []).filter((a) => own.has(a.speciesId));
+		if (!animals.length) return game;
+		const party = bundled(animals).map((a) => ({ ...a }));
 		const book = recordParty(EMPTY_BOOK, party);
 		return {
 			...game,
@@ -661,7 +664,13 @@ export class LocalAuthority implements Authority {
 		// team that needs the doctor walks to one in peace, and a boat with no
 		// swimmer standing sails in peace.
 		const rng = new Rng(hashInts(this.seed, ENCOUNTER_SALT, this.steps));
-		const site = { tile, pos: next, spawn: this.spawn, around: surroundings(this.seed, next) };
+		const site = {
+			land: this.land,
+			tile,
+			pos: next,
+			spawn: this.spawn,
+			around: surroundings(this.seed, next)
+		};
 		const wild = rollEncounterFor(rng, site, this.party);
 		if (wild) this.beginBattle({ ...wild, id: mintId() }, tileRealm(tile.kind));
 	}
@@ -895,7 +904,13 @@ export class LocalAuthority implements Authority {
 		if (!lead) return null;
 		const rng = new Rng(hashInts(this.seed, SKY_SALT, steps));
 		const tile = tileAtWorld(this.seed, pos.x, pos.y);
-		const site = { tile, pos, spawn: this.spawn, around: surroundings(this.seed, pos) };
+		const site = {
+			land: this.land,
+			tile,
+			pos,
+			spawn: this.spawn,
+			around: surroundings(this.seed, pos)
+		};
 		const bird = rollSkyEncounter(rng, site, getAnimal(lead.speciesId).tier);
 		if (!bird) return null;
 		// One id per step a bird notices on, however often a save lands the flight ahead of time.

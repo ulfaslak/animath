@@ -118,6 +118,29 @@ const NORDLAND_SPECIES: readonly string[] = [
 ];
 
 /**
+ * The Arctic's species, by id, in catalog order (#192): its 50 arrive in
+ * three waves, as Nordland's did, and this list grows with each, the
+ * starters first. Wave 1: the small land animals, tiers 1 and 2.
+ */
+const ARCTIC_SPECIES: readonly string[] = [
+	'arctic-fox',
+	'arctic-hare',
+	'puffin',
+	'arctic-lemming',
+	'snow-bunting',
+	'rock-ptarmigan',
+	'waxwing',
+	'adelie-penguin',
+	'snow-petrel',
+	'arctic-tern',
+	'king-eider',
+	'raven',
+	'barnacle-goose',
+	'gentoo-penguin',
+	'chinstrap'
+];
+
+/**
  * The registry, in unlock order. The Arctic is here and not available: its
  * map, animals and shop come in steps 4 to 6 of #191, which fill in its
  * `species`, `starters` and `shop` and turn `available` on.
@@ -141,8 +164,9 @@ export const LANDS: readonly LandSpec[] = [
 		id: 'arctic',
 		order: 1,
 		available: false,
-		species: [],
-		starters: [],
+		species: ARCTIC_SPECIES,
+		// One of each ground, as Nordland's three are (#192): open, rocks and water.
+		starters: ['arctic-fox', 'arctic-hare', 'puffin'],
 		// In ice dollars, the same Fibonacci ladder from the start, since a kid arrives with none
 		// and a starter of tier 1 (#191 step 6; [[PRODUCT]] §4 "The Arctic's shop").
 		shop: { 'arctic-axe': 8, 'ice-pick': 13, 'fishing-rod': 21, boat: 55, glider: 89 },

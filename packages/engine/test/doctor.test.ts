@@ -19,7 +19,7 @@ import { ITEMS, ITEM_IDS, getItem, hasItem, itemsForSale } from '../src/items/ca
 import { LAND_IDS } from '../src/lands/ids.js';
 import { FARE_DIFFICULTY, LANDS, getLand, priceIn, shopFor } from '../src/lands/lands.js';
 import { healingDifficulty } from '../src/puzzles/difficulty.js';
-import { answerText, checkAnswer } from '../src/puzzles/registry.js';
+import { answerForm, answerText, checkAnswer } from '../src/puzzles/registry.js';
 import { Rng, hashInts, hashString } from '../src/rng.js';
 import { WorldEdits, editedTileAt } from '../src/world/edits.js';
 import { tileAtWorld } from '../src/world/generate.js';
@@ -325,11 +325,14 @@ describe('healing, for every species', () => {
 					}
 
 					const { puzzle } = solving(state);
-					s = apply(state, { type: 'answer', input: ` +${puzzle.answer} ` }, seed);
+					// Typed with room round it, and a number with its plus: a clock's time as a time.
+					const right =
+						answerForm(puzzle.kind) === 'time' ? ` ${answerText(puzzle)} ` : ` +${puzzle.answer} `;
+					s = apply(state, { type: 'answer', input: right }, seed);
 					expect(s.events).toEqual([
 						{
 							type: 'answer-judged',
-							input: ` +${puzzle.answer} `,
+							input: right,
 							correct: true,
 							answer: puzzle.answer
 						},

@@ -1,7 +1,10 @@
 import { ANIMALS, getAnimal, skiesOf } from '../animals/catalog.js';
 import type { AnimalInstance, AnimalSpec, Biome, Realm, Tier } from '../animals/types.js';
+import type { LandId } from '../lands/ids.js';
+import { getLand } from '../lands/lands.js';
 import { leadIndex } from '../party/reducer.js';
 import type { Rng } from '../rng.js';
+import { biomeLand, samePlace } from './biomes.js';
 import { factorForShare, terrainShares, type Surroundings } from './habitat.js';
 import { encounterRealm, isEncounterTile, type GridPos, type Tile } from './types.js';
 
@@ -63,6 +66,13 @@ import { encounterRealm, isEncounterTile, type GridPos, type Tile } from './type
  * near home a small bird in front mostly meets small birds wherever it flies.
  * The authority rolls only while a bird stands in the team, and only until
  * one bird has come out in a flight.
+ *
+ * Every land keeps its own animals (#191): a table lists only species of the
+ * land the player is in (`EncounterSite.land`), so a Nordland kid never meets
+ * an arctic animal, nor an arctic kid a Nordland one, whatever ground a land
+ * not built yet lies on. A visitor, too, comes only from its own place, the
+ * same land and in The Arctic the same pole (`samePlace`): no puffin visits
+ * the Antarctic's sky, and no penguin the Arctic's.
  */
 
 /** Chance that a step landing on tall grass starts a battle: one encounter per ten grass steps. */
@@ -110,6 +120,8 @@ export interface EncounterEntry {
  * the ground near the tile.
  */
 export interface EncounterSite {
+	/** The land the player is in, whose animals alone can come out (`landOfSeed` of the world's seed). */
+	land: LandId;
 	tile: Tile;
 	pos: GridPos;
 	spawn: GridPos;
@@ -179,6 +191,22 @@ function livesIn(species: AnimalSpec, biome: Biome, realm: Realm): boolean {
 }
 
 /**
+ * Whether a species lives in `biome`'s place, in `realm`: somewhere of the
+ * same land and pole (`samePlace`), on the ground where it lives, in the air
+ * over the skies it flies. Only such an animal visits `biome`.
+ */
+function livesNear(species: AnimalSpec, biome: Biome, realm: Realm): boolean {
+	if (!species.realms.includes(realm)) return false;
+	return (realm === 'air' ? skiesOf(species) : species.habitats).some((b) => samePlace(b, biome));
+}
+
+/** The species of land `land`, in catalog order. */
+function speciesOf(land: LandId): readonly AnimalSpec[] {
+	const ids = new Set(getLand(land).species);
+	return ANIMALS.filter((a) => ids.has(a.id));
+}
+
+/**
  * What the visitors of the lead's tier add to it inside the safe radius, in
  * bells of that tier, on top of its residents' one: three, so that by the
  * river's reeds the river's own small animals are a quarter of the small
@@ -240,17 +268,24 @@ function assertTier(tier: unknown, where: string): asserts tier is Tier {
  * would make it. The weights are then normalised, so a tier the biome doesn't
  * hold never comes out there and the others share its place. Empty only where
  * nothing of the realm lives in the biome.
+ *
+ * Only species of `land` are listed (by default the biome's own land), and
+ * a visitor only from the biome's place (`livesNear`: the same land and
+ * pole). So a biome of one land lists nothing in another: the ground of a
+ * land not built yet, laid out as Nordland's, is quiet there.
  */
 export function encounterTable(
 	biome: Biome,
 	distance: number,
 	leadTier: Tier,
-	realm: Realm = 'land'
+	realm: Realm = 'land',
+	land: LandId = biomeLand(biome)
 ): EncounterEntry[] {
 	if (!Number.isFinite(distance)) throw new Error(`encounterTable: distance is ${distance}`);
 	assertTier(leadTier, 'encounterTable');
-	const lives = (a: AnimalSpec) => a.realms.includes(realm);
-	const residents = ANIMALS.filter((a) => livesIn(a, biome, realm));
+	const pool = speciesOf(land);
+	const lives = (a: AnimalSpec) => livesNear(a, biome, realm);
+	const residents = pool.filter((a) => livesIn(a, biome, realm));
 	// What is left of the visitors' weight here: all of it near home, none from the wild radius.
 	const near =
 		isVisited(biome, realm) && residents.some((a) => a.tier > leadTier) ? 1 - danger(distance) : 0;
@@ -260,8 +295,8 @@ export function encounterTable(
 	for (const a of residents) living.set(a.tier, (living.get(a.tier) ?? 0) + 1);
 	const isGuest = (a: AnimalSpec) =>
 		near > 0 && lives(a) && a.tier === leadTier && !livesIn(a, biome, realm);
-	const { guest, spare } = visitorShares(living.get(leadTier) ?? 0, ANIMALS.filter(isGuest).length);
-	const raw = ANIMALS.flatMap((species) => {
+	const { guest, spare } = visitorShares(living.get(leadTier) ?? 0, pool.filter(isGuest).length);
+	const raw = pool.flatMap((species) => {
 		const bell = tierWeight(species.tier - leadTier, distance);
 		if (livesIn(species, biome, realm)) {
 			const extra = species.tier === leadTier ? spare * near : 0;
@@ -323,7 +358,7 @@ function tableOnGround(
 	const distance = distanceFromSpawn(site.pos, site.spawn);
 	if (!Number.isFinite(distance)) throw new Error(`${where}: distance is ${distance}`);
 	const shares = terrainShares(site.around);
-	const inBiome = encounterTable(site.tile.biome, distance, leadTier, realm);
+	const inBiome = encounterTable(site.tile.biome, distance, leadTier, realm, site.land);
 	// Per tier: its share of the biome's table, and that share weighed by the ground.
 	const tiers = new Map<Tier, { share: number; weighed: number }>();
 	const weighed = inBiome.map((e) => {

@@ -1,4 +1,4 @@
-import type { AttackLevel } from '@mathgame/engine';
+import { isLandId, type AttackLevel, type LandId } from '@mathgame/engine';
 import { DOCTOR_TABS, type DoctorTab } from '../doctor/tabs';
 
 /**
@@ -28,6 +28,7 @@ import { DOCTOR_TABS, type DoctorTab } from '../doctor/tabs';
  * - `language:<code>`: a language on a Language row (the pause menu's, the
  *   title's).
  * - `tab:<id>`: a tab of the doctor's card (`heal`, `home`, `shop`).
+ * - `land:<id>`: a land's tab in the animal book (`nordland`, `arctic`).
  *
  * The explore HUD's party column names what it shows by what it is, never
  * by its place, since a drag can re-sort the column under a resting finger:
@@ -52,6 +53,7 @@ const ANIMAL = /^animal:(.+)$/;
 const OPEN = /^open:(.+)$/;
 const MOVE = /^move:([^:]+):(\d+)$/;
 const TAB = /^tab:([a-z]+)$/;
+const LAND = /^land:([a-z]+)$/;
 
 /** The key name of the account card's show-password button. */
 export const REVEAL_KEY = 'reveal';
@@ -149,6 +151,17 @@ export function tabKey(tab: DoctorTab): string {
 export function tappedTab(key: string): DoctorTab | undefined {
 	const tab = TAB.exec(key)?.[1];
 	return (DOCTOR_TABS as readonly string[]).includes(tab ?? '') ? (tab as DoctorTab) : undefined;
+}
+
+/** The key name of a tap on a land's tab in the animal book. */
+export function landKey(land: LandId): string {
+	return `land:${land}`;
+}
+
+/** The land a key name taps in the animal book, or undefined for any other key. */
+export function tappedLand(key: string): LandId | undefined {
+	const land = LAND.exec(key)?.[1];
+	return isLandId(land) ? land : undefined;
 }
 
 function send(type: 'keydown' | 'keyup', key: string): void {

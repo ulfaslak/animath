@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { ANIMALS } from '../src/animals/catalog.js';
+import { LANDS } from '../src/lands/lands.js';
 import type { MatchSide } from '../src/match/types.js';
 import { Rng, hashInts } from '../src/rng.js';
 import { party, playMatch, type MatchPlayer } from './match-sim.js';
@@ -112,39 +113,46 @@ describe('friendly-match balance', () => {
 	}, 60_000);
 
 	it('pins §4 for teams drawn from each tier: an even tier-1 match takes about 20 puzzles, an even match of any tier is close to a coin flip, and one tier up decides', async () => {
-		// Three animals drawn for each match from a tier's land animals (repeats allowed, as a
-		// kid's party may hold them), with a seed of their own: the small animals of #89 play
-		// as the prototype's three did, and so do its big ones.
-		const land = (tier: number) =>
-			ANIMALS.filter((a) => a.tier === tier && a.realms.includes('land')).map((a) => a.id);
-		const drawn = (tier: number, salt: number) => (seed: number) => {
-			const rng = new Rng(hashInts(seed, salt));
-			const pool = land(tier);
-			return [0, 1, 2].map(() => pool[rng.int(0, pool.length - 1)]!);
-		};
-		for (const tier of [1, 2, 3, 4, 5])
-			expect(land(tier).length, `tier ${tier}`).toBeGreaterThan(2);
-		const even = simulateDrawn(drawn(1, 1), drawn(1, 2), { a: kid(0.7), b: kid(0.7) }, 1000);
-		expect(even.puzzles).toBeGreaterThan(18);
-		expect(even.puzzles).toBeLessThan(23);
-		for (const tier of [1, 2, 3, 4, 5]) {
-			const match =
-				tier === 1
-					? even
-					: simulateDrawn(drawn(tier, 1), drawn(tier, 2), { a: kid(0.7), b: kid(0.7) }, 1000);
-			expect(match.starterWins, `tier ${tier}`).toBeGreaterThan(0.5);
-			expect(match.starterWins, `tier ${tier}`).toBeLessThan(0.64);
-			await turn();
-		}
-		for (const tier of [1, 2, 3, 4]) {
-			const up = simulateDrawn(
-				drawn(tier, 1),
-				drawn(tier + 1, 2),
-				{ a: kid(0.7), b: kid(0.7) },
-				1000
-			);
-			expect(up.aWins, `tier ${tier} v tier ${tier + 1}`).toBeLessThan(1 / 12);
-			await turn();
+		// Three animals drawn for each match from a tier's land animals of one land (repeats
+		// allowed, as a kid's party may hold them), with a seed of their own: the small animals of
+		// #89 play as the prototype's three did, and so do its big ones. A match is between two
+		// kids in one land, so it pits one land's animals only; The Arctic's (#192) play as
+		// Nordland's do, tier for tier, as far as its waves have come.
+		for (const { id, species } of LANDS) {
+			const land = (tier: number) =>
+				ANIMALS.filter(
+					(a) => a.tier === tier && a.realms.includes('land') && species.includes(a.id)
+				).map((a) => a.id);
+			const drawn = (tier: number, salt: number) => (seed: number) => {
+				const rng = new Rng(hashInts(seed, salt));
+				const pool = land(tier);
+				return [0, 1, 2].map(() => pool[rng.int(0, pool.length - 1)]!);
+			};
+			const tiers = [1, 2, 3, 4, 5].filter((tier) => land(tier).length > 0);
+			expect(tiers, id).toEqual(id === 'nordland' ? [1, 2, 3, 4, 5] : [1, 2]);
+			for (const tier of tiers) expect(land(tier).length, `${id} tier ${tier}`).toBeGreaterThan(2);
+			const even = simulateDrawn(drawn(1, 1), drawn(1, 2), { a: kid(0.7), b: kid(0.7) }, 1000);
+			expect(even.puzzles, id).toBeGreaterThan(18);
+			expect(even.puzzles, id).toBeLessThan(23);
+			for (const tier of tiers) {
+				const match =
+					tier === 1
+						? even
+						: simulateDrawn(drawn(tier, 1), drawn(tier, 2), { a: kid(0.7), b: kid(0.7) }, 1000);
+				expect(match.starterWins, `${id} tier ${tier}`).toBeGreaterThan(0.5);
+				expect(match.starterWins, `${id} tier ${tier}`).toBeLessThan(0.64);
+				await turn();
+			}
+			for (const tier of tiers.filter((t) => tiers.includes(t + 1))) {
+				const up = simulateDrawn(
+					drawn(tier, 1),
+					drawn(tier + 1, 2),
+					{ a: kid(0.7), b: kid(0.7) },
+					1000
+				);
+				expect(up.aWins, `${id} tier ${tier} v tier ${tier + 1}`).toBeLessThan(1 / 12);
+				await turn();
+			}
 		}
 		// 9,000 whole matches, the big tiers' longer ones among them: 2.1 s alone at a load average
 		// of 10, 6.8 s in the whole suite at 35, and up to ten times its run alone at 150; its loop

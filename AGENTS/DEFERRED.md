@@ -10,17 +10,9 @@ Technical items we've intentionally postponed: tech debt, hardening shortcuts, k
 
 **What**: `arrivalSpot`'s escape check (a spot must open 64 tiles wide) and the spawn's room (`hasRoom`) walk tile by tile over `isPassable` ground, The Arctic's ice included, as if a kid could stop on any tile of it. `nearestTent` and the knock-out rule read the slides since #191 step 6; these two do not, so a go-to beside a friend could in principle count a pocket as open over ice a kid can only slide across.
 
-**Why deferred**: every slide in The Arctic is undone by the slide back and ends on a bank (§ INVARIANTS "A slide on the ice…"), so the places joined by tiles and by moves almost always agree; every Arctic world's spawn is the fixed (5, 9), checked by its own test; and The Arctic is closed to kids until #191 step 7.
+**Why deferred**: every slide in The Arctic is undone by the slide back and ends on a bank (§ INVARIANTS "A slide on the ice…"), so the places joined by tiles and by moves almost always agree; every Arctic world's spawn is the fixed (5, 9), checked by its own test; and The Arctic is closed to players until #191 step 7 (its first animals are met only in a throwaway game).
 
-**Trigger**: #191 step 7 (The Arctic opens to kids), or a report of a go-to into a spot a kid can't walk out of: make `opensOut` and `hasRoom` move by `moveFrom`, as `nearestTent` does.
-
-### The witch doctor's card is not fitted to puzzles with pictures
-
-**What**: `PuzzlePanel` draws a picture kind's picture and question (#191), and the battle gives it the whole panel, but the witch doctor's card, whose heal asks a kind its species' attacks ask, has not been laid out for one: `scripts/doctor-fit.mjs` fills the card with sums only, and nobody has looked at a picture there.
-
-**Why deferred**: no species asks a picture kind yet, so no heal can; the card's fitting (`fit(SIDE_STEPS)`) would be tuned against animals that do not exist.
-
-**Trigger**: the first Arctic species with a picture kind on an attack (#191 step 5): run `doctor-fit.mjs` with a heal of each picture kind, and look at the card at 1024×768 and on a phone, with and without touch.
+**Trigger**: before The Arctic opens to players (its `available` on, #191 step 7), or a report of a go-to into a spot a kid can't walk out of: make `opensOut` and `hasRoom` move by `moveFrom`, as `nearestTent` does since #191 step 6.
 
 ### A friend's birds are not seen in the air
 
