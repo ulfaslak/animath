@@ -58,11 +58,34 @@ export interface AnimalSpec {
 }
 
 /**
- * Where a species lives in the wild: the meadow, the forest, the river banks,
+ * Where a species lives in the wild. Each biome is one land's
+ * (`world/biomes.ts`). Nordland's: the meadow, the forest, the river banks,
  * the mountains, or the sea, which is the deep water out in the middle of the
- * lakes (`deepwater` tiles), reached only by boat.
+ * lakes (`deepwater` tiles), reached only by boat. The Arctic's (#192), each
+ * on one pole, so an animal that lists only its own pole's biomes is never
+ * met on the other: in the north the tundra, the taiga's edge, the fell, the
+ * bird cliffs, the frozen lakes, the sea ice (`arctic-ice`) and the open sea
+ * (`arctic-ocean`); in the south the inland ice (`ice-sheet`), the penguins'
+ * rocky coast (`rookery`), the sea ice (`antarctic-ice`) and the open sea
+ * (`southern-ocean`).
  */
-export type Biome = 'meadow' | 'forest' | 'river' | 'mountain' | 'sea';
+export type Biome =
+	| 'meadow'
+	| 'forest'
+	| 'river'
+	| 'mountain'
+	| 'sea'
+	| 'tundra'
+	| 'taiga'
+	| 'fell'
+	| 'bird-cliffs'
+	| 'frozen-lake'
+	| 'arctic-ice'
+	| 'arctic-ocean'
+	| 'ice-sheet'
+	| 'rookery'
+	| 'antarctic-ice'
+	| 'southern-ocean';
 
 /**
  * Land, water or air: where the player is (`tileRealm`: water tiles, reached

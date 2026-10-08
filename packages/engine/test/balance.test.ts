@@ -141,7 +141,7 @@ function nearHomeMix(biome?: Biome): Map<string, number> {
 			const tile = tileAtWorld(seed, x, y);
 			if (tile.kind !== 'tallgrass' || distanceFromSpawn(pos, spawn) > SAFE_RADIUS) continue;
 			if (biome && tile.biome !== biome) continue;
-			const site = { tile, pos, spawn, around: surroundings(seed, pos) };
+			const site = { land: 'nordland' as const, tile, pos, spawn, around: surroundings(seed, pos) };
 			for (const e of encounterTableAt(site, 1))
 				if (e.species.tier === 1) mix.set(e.species.id, (mix.get(e.species.id) ?? 0) + e.weight);
 		}

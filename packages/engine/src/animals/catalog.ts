@@ -748,6 +748,238 @@ export const ANIMALS: readonly AnimalSpec[] = [
 			{ id: 'tail-slap', kinds: ['div', 'sqrt'], power: 22 },
 			{ id: 'wave-wash', kinds: ['sqrt', 'sequence'], power: 27 }
 		]
+	},
+	// The Arctic's animals (#192), arriving in waves as Nordland's did; wave 1 is
+	// its small land animals, tiers 1 and 2, the three starters first. Each lives
+	// on one pole only, the Arctic tern on both, and lists only its own pole's
+	// biomes. HP and powers are about 2.3 times a Nordland animal's of its tier,
+	// so a fight takes as many hits; the catch rates are Nordland's. The weakest
+	// attack asks a sum, and the stronger ones the Arctic's picture kinds and the
+	// balance, never a times table, a pattern, a missing number or a root.
+	{
+		id: 'arctic-fox',
+		tier: 1,
+		maxHp: 48,
+		catchRate: 0.85,
+		habitats: ['tundra', 'bird-cliffs', 'arctic-ice'],
+		realms: ['land'],
+		favours: 'open',
+		attacks: [
+			{ id: 'snow-sniff', kinds: ['add', 'sub'], power: 8 },
+			{ id: 'fluffy-tail', kinds: ['thermometer'], power: 12 },
+			{ id: 'snow-dive', kinds: ['clock'], power: 16 }
+		]
+	},
+	{
+		id: 'arctic-hare',
+		tier: 1,
+		maxHp: 50,
+		catchRate: 0.85,
+		habitats: ['tundra', 'fell'],
+		realms: ['land'],
+		favours: 'rocks',
+		attacks: [
+			{ id: 'hop', kinds: ['add'], power: 8 },
+			{ id: 'big-feet', kinds: ['shape'], power: 11 },
+			{ id: 'zigzag-dash', kinds: ['barchart'], power: 15 }
+		]
+	},
+	{
+		// The Atlantic puffin, which nests on Greenland's and Svalbard's bird cliffs and
+		// fishes out at sea.
+		id: 'puffin',
+		tier: 1,
+		maxHp: 46,
+		catchRate: 0.9,
+		habitats: ['bird-cliffs'],
+		skies: ['bird-cliffs', 'arctic-ocean'],
+		realms: ['land', 'water', 'air'],
+		favours: 'water',
+		attacks: [
+			{ id: 'waddle', kinds: ['add', 'sub'], power: 7 },
+			{ id: 'beakful', kinds: ['kroner'], power: 11 },
+			{ id: 'wing-dive', kinds: ['fraction'], power: 15 }
+		]
+	},
+	{
+		// The northern collared lemming, the one that turns white in winter.
+		id: 'arctic-lemming',
+		tier: 1,
+		maxHp: 44,
+		catchRate: 0.9,
+		habitats: ['tundra'],
+		realms: ['land'],
+		favours: 'open',
+		attacks: [
+			{ id: 'nibble', kinds: ['add'], power: 9 },
+			{ id: 'tunnel-dash', kinds: ['balance'], power: 17 }
+		]
+	},
+	{
+		id: 'snow-bunting',
+		tier: 1,
+		maxHp: 45,
+		catchRate: 0.9,
+		habitats: ['tundra', 'fell', 'bird-cliffs'],
+		realms: ['land', 'air'],
+		favours: 'rocks',
+		attacks: [
+			{ id: 'chirp', kinds: ['add'], power: 7 },
+			{ id: 'snow-flurry', kinds: ['clock'], power: 10 },
+			{ id: 'wing-flash', kinds: ['barchart'], power: 14 }
+		]
+	},
+	{
+		id: 'rock-ptarmigan',
+		tier: 1,
+		maxHp: 52,
+		catchRate: 0.85,
+		habitats: ['tundra', 'fell'],
+		realms: ['land', 'air'],
+		favours: 'rocks',
+		attacks: [
+			{ id: 'peck', kinds: ['sub'], power: 7 },
+			{ id: 'white-coat', kinds: ['thermometer'], power: 11 },
+			{ id: 'snow-burrow', kinds: ['shape'], power: 14 }
+		]
+	},
+	{
+		// The Bohemian waxwing, of the northern forest's edge.
+		id: 'waxwing',
+		tier: 1,
+		maxHp: 46,
+		catchRate: 0.9,
+		habitats: ['taiga'],
+		realms: ['land', 'air'],
+		favours: 'trees',
+		attacks: [
+			{ id: 'trill', kinds: ['add'], power: 7 },
+			{ id: 'berry-feast', kinds: ['fraction'], power: 11 },
+			{ id: 'crest-pop', kinds: ['kroner'], power: 15 }
+		]
+	},
+	{
+		id: 'adelie-penguin',
+		tier: 1,
+		maxHp: 54,
+		catchRate: 0.8,
+		habitats: ['rookery', 'antarctic-ice'],
+		realms: ['land', 'water'],
+		favours: 'rocks',
+		attacks: [
+			{ id: 'waddle', kinds: ['add', 'sub'], power: 7 },
+			{ id: 'pebble-gift', kinds: ['kroner'], power: 11 },
+			{ id: 'belly-slide', kinds: ['clock'], power: 15 }
+		]
+	},
+	{
+		// It nests in rock cracks on the mountains that stick up through the inland ice,
+		// and flies out over the sea ice.
+		id: 'snow-petrel',
+		tier: 1,
+		maxHp: 46,
+		catchRate: 0.9,
+		habitats: ['ice-sheet', 'rookery'],
+		skies: ['ice-sheet', 'rookery', 'antarctic-ice'],
+		realms: ['land', 'air'],
+		favours: 'rocks',
+		attacks: [
+			{ id: 'glide', kinds: ['sub'], power: 8 },
+			{ id: 'oil-spit', kinds: ['balance'], power: 12 },
+			{ id: 'blizzard', kinds: ['fraction'], power: 15 }
+		]
+	},
+	{
+		// The one animal on both poles: it nests in the Arctic and spends the southern
+		// summer on the Antarctic's sea ice, the longest trip of any animal.
+		id: 'arctic-tern',
+		tier: 2,
+		maxHp: 70,
+		catchRate: 0.7,
+		habitats: ['bird-cliffs', 'tundra', 'antarctic-ice'],
+		skies: ['bird-cliffs', 'tundra', 'antarctic-ice', 'arctic-ocean', 'southern-ocean'],
+		realms: ['land', 'air'],
+		favours: 'water',
+		attacks: [
+			{ id: 'plunge', kinds: ['add', 'sub'], power: 12 },
+			{ id: 'head-peck', kinds: ['fraction'], power: 18 },
+			{ id: 'long-trip', kinds: ['clock'], power: 25 }
+		]
+	},
+	{
+		id: 'king-eider',
+		tier: 2,
+		maxHp: 74,
+		catchRate: 0.65,
+		habitats: ['bird-cliffs', 'tundra'],
+		skies: ['bird-cliffs', 'tundra', 'arctic-ocean'],
+		realms: ['land', 'water', 'air'],
+		favours: 'water',
+		attacks: [
+			{ id: 'paddle', kinds: ['add'], power: 11 },
+			{ id: 'deep-dive', kinds: ['thermometer'], power: 18 },
+			{ id: 'orange-crown', kinds: ['shape'], power: 24 }
+		]
+	},
+	{
+		// The common raven, which stays the whole winter and scavenges far out over
+		// the lake ice and the sea ice too.
+		id: 'raven',
+		tier: 2,
+		maxHp: 72,
+		catchRate: 0.65,
+		habitats: ['tundra', 'taiga', 'fell'],
+		skies: ['tundra', 'taiga', 'fell', 'frozen-lake', 'arctic-ice'],
+		realms: ['land', 'air'],
+		favours: 'rocks',
+		attacks: [
+			{ id: 'croak', kinds: ['sub'], power: 12 },
+			{ id: 'clever-trick', kinds: ['balance'], power: 18 },
+			{ id: 'food-stash', kinds: ['kroner'], power: 25 }
+		]
+	},
+	{
+		id: 'barnacle-goose',
+		tier: 2,
+		maxHp: 76,
+		catchRate: 0.65,
+		habitats: ['bird-cliffs', 'tundra'],
+		realms: ['land', 'water', 'air'],
+		favours: 'open',
+		attacks: [
+			{ id: 'honk', kinds: ['add', 'sub'], power: 11 },
+			{ id: 'cliff-jump', kinds: ['fraction'], power: 19 },
+			{ id: 'flock-flight', kinds: ['barchart'], power: 24 }
+		]
+	},
+	{
+		id: 'gentoo-penguin',
+		tier: 2,
+		maxHp: 76,
+		catchRate: 0.65,
+		habitats: ['rookery'],
+		realms: ['land', 'water'],
+		favours: 'open',
+		attacks: [
+			{ id: 'peck', kinds: ['add', 'sub'], power: 12 },
+			{ id: 'fast-swim', kinds: ['clock'], power: 20 },
+			{ id: 'pebble-pile', kinds: ['barchart'], power: 24 }
+		]
+	},
+	{
+		// The chinstrap penguin, named for the thin black strap under its chin.
+		id: 'chinstrap',
+		tier: 2,
+		maxHp: 72,
+		catchRate: 0.7,
+		habitats: ['rookery'],
+		realms: ['land', 'water'],
+		favours: 'rocks',
+		attacks: [
+			{ id: 'squawk', kinds: ['sub'], power: 13 },
+			{ id: 'flipper-slap', kinds: ['kroner'], power: 19 },
+			{ id: 'rock-hop', kinds: ['fraction'], power: 26 }
+		]
 	}
 ];
 

@@ -20,25 +20,54 @@ import {
 	type EncounterEntry,
 	type EncounterSite
 } from '../src/world/encounters.js';
+import { biomeLand } from '../src/world/biomes.js';
 import { generateChunk, tileAtWorld } from '../src/world/generate.js';
 import { spawnPoint } from '../src/world/spawn.js';
 import { HABITAT_BOOST, surroundings, type Surroundings } from '../src/world/habitat.js';
 import { isEncounterTile, type GridPos, type Tile, type TileKind } from '../src/world/types.js';
 import { turn } from './turn.js';
 
-/** Where encounters happen: the tall grass of the four biomes on land, and the sea's deep water. */
-const BIOMES: readonly Biome[] = ['meadow', 'forest', 'river', 'mountain', 'sea'];
+/**
+ * Where encounters happen, in every land: Nordland's four biomes on land and the sea's deep
+ * water, and The Arctic's (#192), each on one pole. Each biome's place, written out again from
+ * #192: its land, and in The Arctic its pole. Animals come out only in their own place.
+ */
+const PLACE: Record<Biome, string> = {
+	meadow: 'nordland',
+	forest: 'nordland',
+	river: 'nordland',
+	mountain: 'nordland',
+	sea: 'nordland',
+	tundra: 'arctic north',
+	taiga: 'arctic north',
+	fell: 'arctic north',
+	'bird-cliffs': 'arctic north',
+	'frozen-lake': 'arctic north',
+	'arctic-ice': 'arctic north',
+	'arctic-ocean': 'arctic north',
+	'ice-sheet': 'arctic south',
+	rookery: 'arctic south',
+	'antarctic-ice': 'arctic south',
+	'southern-ocean': 'arctic south'
+};
+const BIOMES = Object.keys(PLACE) as Biome[];
 const LEADS: readonly Tier[] = [1, 2, 3, 4, 5];
 const ORIGIN = { x: 0, y: 0 };
 const tallgrass = (biome: Biome): Tile => ({ kind: 'tallgrass', biome, height: 0 });
-/** The realm of an encounter in a biome: out on the sea's deep water, the water; else land. */
-const realmOf = (biome: Biome): Realm => (biome === 'sea' ? 'water' : 'land');
-/** The tile an encounter in a biome happens on: tall grass, or out in the sea, deep water. */
+/** The biomes whose encounters are out on the water: the open seas, and a frozen lake's holes. */
+const WATERY: readonly Biome[] = ['sea', 'arctic-ocean', 'southern-ocean', 'frozen-lake'];
+/** The realm of an encounter in a biome: out on the open sea or at a hole in the ice, the water; else land. */
+const realmOf = (biome: Biome): Realm => (WATERY.includes(biome) ? 'water' : 'land');
+/** The tile an encounter in a biome happens on: tall grass, or out on the water, deep water. */
 const encounterTile = (biome: Biome): Tile =>
-	biome === 'sea' ? { kind: 'deepwater', biome, height: 0 } : tallgrass(biome);
+	realmOf(biome) === 'water' ? { kind: 'deepwater', biome, height: 0 } : tallgrass(biome);
 /** The biome's table in its own realm. */
 const tableIn = (biome: Biome, distance: number, lead: Tier) =>
 	encounterTable(biome, distance, lead, realmOf(biome));
+/** Whether a kind lives in `biome`'s place, in `realm`: where it lives, or in the air the skies it flies. */
+const livesNear = (a: Kind, biome: Biome, realm: Realm): boolean =>
+	a.realms.includes(realm) &&
+	(realm === 'air' ? skiesOfKind(a) : a.habitats).some((b) => PLACE[b] === PLACE[biome]);
 
 /** Open ground: no water, trees or rocks within 3 tiles. */
 const OPEN: Surroundings = { water: 0, trees: 0, rocks: 0 };
@@ -68,8 +97,9 @@ const GROUND_GRID: readonly Surroundings[] = Array.from({ length: 9 ** 3 }, (_, 
 	rocks: Math.floor(i / 81)
 }));
 
-/** Site `distance` tiles east of an origin spawn, with the ground `around` it. */
+/** Site `distance` tiles east of an origin spawn, with the ground `around` it, in the biome's land. */
 const siteAt = (biome: Biome, distance: number, around: Surroundings = OPEN): EncounterSite => ({
+	land: biomeLand(biome),
 	tile: encounterTile(biome),
 	pos: { x: distance, y: 0 },
 	spawn: ORIGIN,
@@ -147,7 +177,7 @@ function bellTable(
 ): Map<string, number> {
 	const danger = Math.min(1, Math.max(0, (distance - 32) / 96));
 	const realm = realmOf(biome);
-	const here = roster.filter((a) => a.realms.includes(realm));
+	const here = roster.filter((a) => livesNear(a, biome, realm));
 	const living = here.filter((a) => a.habitats.includes(biome));
 	const visited = (biome === 'river' || biome === 'mountain') && living.some((a) => a.tier > lead);
 	const count = (tier: number) => living.filter((a) => a.tier === tier).length;
@@ -1202,7 +1232,7 @@ describe('the start: the ground near spawn', () => {
 		const pos = { x: spawn.x - 1, y: spawn.y };
 		const tile = tileAtWorld(seed, pos.x, pos.y);
 		expect(tile).toMatchObject({ kind: 'tallgrass', biome: 'river' });
-		const site = { tile, pos, spawn, around: surroundings(seed, pos) };
+		const site = { land: 'nordland' as const, tile, pos, spawn, around: surroundings(seed, pos) };
 		// Near home the ground only divides each tier's share. The three small kinds living in
 		// the reeds weigh a third of the nine that come down to the water, each as much as one
 		// of those, and by the water four times as much: four sevenths of the small animals'
@@ -1432,7 +1462,7 @@ describe('rollEncounter', () => {
 					for (const o of offsets) {
 						const pos = { x: spawn.x + o.x, y: spawn.y + o.y };
 						const around = GROUNDS[(o.x + o.y + spawn.x) & 7]!;
-						const site = { tile: encounterTile(biome), pos, spawn, around };
+						const site = { land: biomeLand(biome), tile: encounterTile(biome), pos, spawn, around };
 						const table = encounterTableAt(site, lead);
 						const rng = new Rng(hashString(`${lead}:${biome}:${pos.x}:${pos.y}`));
 						let here = 0;
@@ -1610,7 +1640,7 @@ function skyBellTable(
 	lead: number
 ): Map<string, number> {
 	const danger = Math.min(1, Math.max(0, (distance - 32) / 96));
-	const birds = roster.filter((a) => a.realms.includes('air'));
+	const birds = roster.filter((a) => livesNear(a, biome, 'air'));
 	const flying = birds.filter((a) => skiesOfKind(a).includes(biome));
 	const visited = flying.some((a) => a.tier > lead);
 	const count = (tier: number) => flying.filter((a) => a.tier === tier).length;
