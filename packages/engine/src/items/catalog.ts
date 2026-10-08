@@ -1,20 +1,29 @@
 import type { Gear } from '../world/types.js';
 
 /**
- * What the doctor's shop sells, for the tokens the doctor gives for animals
- * helped home ([[PRODUCT]] §4 "Tokens and the witch doctor's shop"). Ids only: an
- * item's name and what it does, in every language, are in the client's copy
- * files (`items.<id>.*`).
+ * What the witch doctors' shops sell, for the money each land's witch doctor
+ * gives for animals set free ([[PRODUCT]] §4 "Tokens and the witch doctor's
+ * shop", "The Arctic's shop"). Ids only: an item's name and what it does, in
+ * every language, are in the client's copy files (`items.<id>.*`). Which land
+ * sells an item, and for how much of its money, is the land's (`LandSpec.shop`,
+ * `priceIn`).
  *
- * A kid owns at most one of each item, for good: `SavedGame.items` lists the
- * ids owned, and `hasItem` is the one check an item's effect asks.
+ * A kid owns at most one of each item, for good, in the land they bought it
+ * in: `SavedGame.items` lists the ids owned, and `hasItem` is the one check an
+ * item's effect asks.
  */
-export type ItemId = 'axe' | 'pickaxe' | 'boat' | 'glider' | 'harness';
+export type ItemId =
+	| 'axe'
+	| 'pickaxe'
+	| 'boat'
+	| 'glider'
+	| 'harness'
+	| 'arctic-axe'
+	| 'ice-pick'
+	| 'fishing-rod';
 
 export interface ItemSpec {
 	id: ItemId;
-	/** What it costs, in tokens. */
-	price: number;
 	/**
 	 * On sale. The shop sells an item only once what it does is built, so no
 	 * kid ever pays for a tool that does nothing; the change that builds an
@@ -24,22 +33,30 @@ export interface ItemSpec {
 }
 
 /**
- * The catalog, cheapest first. The prices run on as Fibonacci numbers: 8, 13,
- * 21, 34, and the harness costs what the paraglider does, the human's call.
- * How long each takes to reach in ordinary play is [[PRODUCT]] §4's model
- * ("Tokens and the witch doctor's shop").
+ * The catalog: Nordland's tools, then The Arctic's own. What each costs is
+ * the land's that sells it (`LandSpec.shop`).
  */
 export const ITEMS: readonly ItemSpec[] = [
-	/** Chops a tree down (`world/clearing.ts`). */
-	{ id: 'axe', price: 8, available: true },
+	/** Chops a tree down in Nordland (`world/clearing.ts`). */
+	{ id: 'axe', available: true },
 	/** Breaks a rock (`world/clearing.ts`). */
-	{ id: 'pickaxe', price: 13, available: true },
+	{ id: 'pickaxe', available: true },
 	/** Sails on water: water is `isPassable` with it (`gearOf`). */
-	{ id: 'boat', price: 21, available: true },
+	{ id: 'boat', available: true },
 	/** Glides up to 20 tiles over anything, and comes down where the kid can stand (`world/flight.ts`). */
-	{ id: 'glider', price: 34, available: true },
+	{ id: 'glider', available: true },
 	/** Rides on the lead's back on land, when it is big enough to carry a kid (`canRide`). */
-	{ id: 'harness', price: 34, available: true }
+	{ id: 'harness', available: true },
+	/** Chops a tree down in The Arctic: its own axe, never Nordland's (`world/clearing.ts`). */
+	{ id: 'arctic-axe', available: true },
+	/** Breaks an ice block, on land or afloat; on the ice it leaves a fishing hole (`world/clearing.ts`). */
+	{ id: 'ice-pick', available: true },
+	/**
+	 * Fishes at a fishing hole (`world/fishing.ts`). Built, and off sale until a
+	 * fishing hole has an animal to hook (#192's third wave turns it on), so no
+	 * kid pays for a rod nothing ever bites.
+	 */
+	{ id: 'fishing-rod', available: false }
 ];
 
 /** Every item id, in catalog order. */

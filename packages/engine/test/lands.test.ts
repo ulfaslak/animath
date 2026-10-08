@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { ANIMALS, canFightIn, getAnimal } from '../src/animals/catalog.js';
-import { ITEMS, itemsForSale } from '../src/items/catalog.js';
+import { ITEMS } from '../src/items/catalog.js';
 import { fly, type LandPlace, type LandStay } from '../src/lands/fly.js';
 import {
 	FIRST_LAND,
@@ -68,16 +68,20 @@ describe('the land registry', () => {
 		expect(nordland.species).toEqual(ANIMALS.map((a) => a.id));
 		expect(nordland.species).toHaveLength(50);
 		expect(nordland.starters).toEqual(STARTERS);
-		expect(shopFor('nordland')).toEqual(itemsForSale());
+		expect(shopFor('nordland')).toEqual(['axe', 'pickaxe', 'boat', 'glider', 'harness']);
 		expect(nordland.currency).toBe('tokens');
 		expect(nordland.look).toBe('bare');
 	});
 
-	it('The Arctic is registered and closed: no species, starters or shop until #191 steps 4 to 6', () => {
+	it('The Arctic is registered and closed: no species or starters until #191 step 5, its own shop', () => {
 		const arctic = getLand('arctic');
 		expect(arctic.available).toBe(false);
 		expect(availableLands()).toEqual(['nordland']);
-		expect(arctic).toMatchObject({ species: [], starters: [], shop: [] });
+		expect(arctic).toMatchObject({ species: [], starters: [] });
+		// Its own tools, never Nordland's axe, pickaxe or harness (#191 step 6).
+		expect(Object.keys(arctic.shop)).not.toContain('axe');
+		expect(Object.keys(arctic.shop)).not.toContain('pickaxe');
+		expect(Object.keys(arctic.shop)).not.toContain('harness');
 		expect(arctic.currency).toBe('ice-dollars');
 		expect(arctic.look).toBe('warm-hat');
 	});
@@ -93,7 +97,7 @@ describe('the land registry', () => {
 				expect(getAnimal(id).tier, id).toBe(STARTER_TIER);
 				expect(canFightIn(id, 'land'), id).toBe(true);
 			}
-			for (const id of land.shop) expect(items.has(id), id).toBe(true);
+			for (const id of Object.keys(land.shop)) expect(items.has(id), id).toBe(true);
 			expect(land.travelKinds.length, land.id).toBeGreaterThan(0);
 			for (const kind of land.travelKinds) expect(kinds.has(kind), kind).toBe(true);
 			// A land a kid can go to has someone to start with there.

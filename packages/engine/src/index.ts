@@ -248,6 +248,7 @@ export {
 	getLand,
 	isLandStarter,
 	needsStarter,
+	priceIn,
 	shopFor,
 	unlockLands
 } from './lands/lands.js';
@@ -265,12 +266,15 @@ export {
 } from './world/edits.js';
 export type { ChunkRef } from './world/edits.js';
 export {
-	CLEARING_TOOL,
+	CLEARING_TOOLS,
 	clearLanding,
 	clearTile,
 	clearableAhead,
+	clearingTool,
 	isClearable
 } from './world/clearing.js';
+export { BITE_CHANCE, castLine, holeAhead, holeTable, rollCast } from './world/fishing.js';
+export type { CastSite, Catch } from './world/fishing.js';
 export type { ClearRejection, ClearStep, Clearable, Cleared, Clearer } from './world/clearing.js';
 export {
 	GLIDE_TILES,

@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { hashString, Rng } from '../src/rng.js';
 import { readSave, restoreGame, saveDocument, newGame } from '../src/save.js';
 import {
-	CLEARING_TOOL,
+	clearingTool,
 	clearLanding,
 	clearTile,
 	clearableAhead,
@@ -469,12 +469,12 @@ describe('clearing a tile', () => {
 						const result = clearTile(seed, edits, player(pos, facing, items), front);
 						const expected = !ahead
 							? { ok: false, reason: 'nothing-to-clear' }
-							: !items.includes(CLEARING_TOOL[ahead.kind])
+							: !items.includes(clearingTool(seed, ahead.kind))
 								? {
 										ok: false,
 										reason: 'needs-tool',
 										kind: ahead.kind,
-										tool: CLEARING_TOOL[ahead.kind]
+										tool: clearingTool(seed, ahead.kind)
 									}
 								: null;
 						if (expected) {
@@ -522,7 +522,7 @@ describe('clearing a tile', () => {
 					const { kind } = editedTileAt(seed, edits, x, y);
 					const result = clearLanding(seed, edits, { pos, items });
 					if (kind === 'tree' || kind === 'rock') {
-						const tool = CLEARING_TOOL[kind];
+						const tool = clearingTool(seed, kind);
 						if (!items.includes(tool)) {
 							const want = { ok: false, reason: 'needs-tool', kind, tool };
 							if (JSON.stringify(result) !== JSON.stringify(want)) bad.push(`${x},${y} ${kind}`);

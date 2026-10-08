@@ -1,8 +1,8 @@
 import { getAnimal } from '../animals/catalog.js';
 import type { AnimalInstance } from '../animals/types.js';
-import { ITEM_IDS, getItem, isItemId, type ItemId } from '../items/catalog.js';
+import { ITEM_IDS, isItemId, type ItemId } from '../items/catalog.js';
 import { FIRST_LAND, type LandId } from '../lands/ids.js';
-import { availableLands, farePuzzle, flyRefusal, shopFor } from '../lands/lands.js';
+import { availableLands, farePuzzle, flyRefusal, priceIn, shopFor } from '../lands/lands.js';
 import { healingDifficulty } from '../puzzles/difficulty.js';
 import { checkAnswer, generatePuzzle } from '../puzzles/registry.js';
 import type { Puzzle, PuzzleKind } from '../puzzles/types.js';
@@ -43,7 +43,8 @@ import type {
  *   no animal that isn't tired and can fight on land stays): the doctor asks the tokens you will have, `tokens + reward`.
  *   Right, and they go home to the wild, made better, and the tokens are
  *   yours. Wrong, and the same sum is asked again.
- * - Buy an item the shop sells, not owned yet, with enough tokens: the doctor
+ * - Buy an item the shop sells, not owned yet, with enough tokens (its price in
+ * the land's money, `priceIn`): the doctor
  *   asks the tokens you will have left, `tokens − price`. Right, and it is
  *   yours. Wrong, and the same sum is asked again.
  * - Backing out of any puzzle, picking something else, or leaving is always
@@ -199,12 +200,12 @@ export type BuyRefusal = Extract<
  * purchase would be refused.
  */
 export function buyRefusal(
-	owner: { tokens: number; items: readonly string[]; shop: readonly string[] },
+	owner: { tokens: number; items: readonly string[]; shop: readonly string[]; land?: LandId },
 	itemId: unknown
 ): BuyRefusal | null {
 	if (!isItemId(itemId) || !owner.shop.includes(itemId)) return 'not-for-sale';
 	if (owner.items.includes(itemId)) return 'already-owned';
-	if (owner.tokens < getItem(itemId).price) return 'not-enough-tokens';
+	if (owner.tokens < priceIn(owner.land ?? FIRST_LAND, itemId)) return 'not-enough-tokens';
 	return null;
 }
 
@@ -213,7 +214,7 @@ function buy(state: DoctorState, itemId: string): DoctorStep {
 	if (refusal) return reject(state, refusal);
 	// Not refused: the shop sells it, so it is an item.
 	const item = itemId as ItemId;
-	const { price } = getItem(item);
+	const price = priceIn(state.land, item);
 
 	const puzzle = tokenPuzzle(state.tokens, -price);
 	return accept(state, { kind: 'buying', itemId: item, price, puzzle }, [

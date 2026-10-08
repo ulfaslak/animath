@@ -90,9 +90,9 @@ export function knockOut(
 		);
 	}
 	// Where the player stands now: where the battle was, but for one in the air, which ends
-	// with the kid on the tile the glider came down on, the ground or the water.
-	const standing =
-		realm === 'air' ? tileRealm(editedTileAt(seed, edits, pos.x, pos.y).kind) : realm;
+	// with the kid on the tile the glider came down on, the ground or the water, and one
+	// fought in the water from the ice's edge, with a fish hooked through a fishing hole.
+	const standing = tileRealm(editedTileAt(seed, edits, pos.x, pos.y).kind);
 	return careFor(seed, pos, party, edits, { ...options, realm: standing });
 }
 
