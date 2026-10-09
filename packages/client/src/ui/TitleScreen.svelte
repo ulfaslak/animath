@@ -577,14 +577,19 @@
 	.label {
 		flex: none;
 	}
-	/* As long as the name and the count need, so a long name wraps the pair under Continue whole. */
+	/*
+	 * As long as the name and the count need, so a long name wraps the pair under Continue whole;
+	 * where the row is too narrow for both even there (a phone held sideways), the count goes
+	 * under the name, never into it.
+	 */
 	.team {
 		flex: 1 1 auto;
 		min-width: 0;
 		display: flex;
+		flex-wrap: wrap;
 		justify-content: flex-end;
 		align-items: baseline;
-		gap: 8px;
+		gap: 0 8px;
 		font-size: 16px;
 	}
 	.who {
@@ -854,6 +859,10 @@
 	/* A phone held sideways (a short screen): the heading and the card shrink to leave the
 	   animals a band between them, which the stage fits the row into (`StarterScene.setRoom`). */
 	@media (max-height: 560px) {
+		/* Room for sixteen of the widest letters under Continue or Log in (287 px at 16 px). */
+		.menu-card {
+			width: min(420px, max(42vw, 340px));
+		}
 		.pick-title {
 			top: calc(6px + var(--safe-top, 0px));
 			font-size: 24px;
