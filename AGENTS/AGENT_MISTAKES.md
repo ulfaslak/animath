@@ -1069,3 +1069,10 @@ To become `[learned]`: a line in [[DEVELOPMENT]] § Testing ideology saying a se
 
 - **"The way home lands near Nordland's start" was true in World 1 and false in about one world in seven**: Nordland's tents are sparse, and the tent mapped from the lattice spot (5, 7) can be over 100 tiles from a world's start. Play-testing in World 1 only confirmed it. Before DNA states where something lands "in every world", measure it over a range of world numbers (a few hundred is seconds), not World 1.
 - **A changed rule left a test title and a test comment saying the old rule** (`lands.test.ts`, `local-authority.test.ts`), and the client test could not tell the two rules apart, since World 1's start tent is on the spot the Arctic spawn tent is. When a rule gains an exception, grep the tests for the rule's old wording.
+
+### 2026-10-09 — Catch one of each to open the next land (feat/unlock-on-caught, PR #219), self-testing and adversarial review
+
+- **A reward offered on its gate, not on what earns it.** The witch doctor's surprise trip checked "unlocked and never visited", while its line says "you caught one of every animal". A land unlocked can outlive what unlocked it (an old rule's save keeps `unlocked`, a land grows a species), so the gate and the deed part. When a reward's words claim a deed, check the deed itself, not a flag it once set.
+- **A new phase that took every old intent.** `offering` let `fly` to the offered land through, so the same trip was on offer free and paid at once, depending only on the order of intents. A phase that offers something should refuse every intent that is not an answer to the offer.
+- **An overlay placed "a little above the middle" covered the trainer**, who stands at the middle of the explore screen. Place anything over the world relative to the trainer, and read a frame of it.
+- **A YAML block inserted after a line that was not its block's last** took the next key (`doctor.fly.touch`) into the new block. Insert after a block's last key, or before the next block's first; the copy test caught it.
