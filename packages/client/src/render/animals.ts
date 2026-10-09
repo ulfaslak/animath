@@ -1,7 +1,14 @@
 import * as THREE from 'three';
 import { motion } from '../motion';
 import { markJoint, instantiate, release, takeShape } from './merge';
-import { ANIMAL_COLORS, COLORS, PLAYER_LOOK, TILE_COLORS, type TrainerLook } from './palette';
+import {
+	ANIMAL_COLORS,
+	ANIMAL_DETAILS,
+	COLORS,
+	PLAYER_LOOK,
+	TILE_COLORS,
+	type TrainerLook
+} from './palette';
 
 /**
  * Crude but recognisable figures built from primitives: one per species in
@@ -1664,8 +1671,8 @@ const BUILDERS: Record<string, Builder> = {
 		ball(0.014, COLORS.dark, -0.04, 0.36, 0.1),
 		ball(0.014, COLORS.dark, 0.04, 0.36, 0.1),
 		rot(cone(0.045, 0.1, accent, 0, 0.335, 0.15), Math.PI / 2, 0, 0),
-		box(0.03, 0.08, 0.012, 0xf2c94c, 0, 0.335, 0.115),
-		box(0.012, 0.06, 0.014, 0x8a8f99, 0, 0.335, 0.165),
+		box(0.03, 0.08, 0.012, ANIMAL_DETAILS.puffin.beakStripe, 0, 0.335, 0.115),
+		box(0.012, 0.06, 0.014, ANIMAL_DETAILS.puffin.beakBand, 0, 0.335, 0.165),
 		rot(box(0.07, 0.015, 0.08, fur, 0, 0.11, -0.12), -0.6, 0, 0),
 		...([-1, 1] as const).flatMap((side) => [
 			box(0.04, 0.03, 0.03, accent, side * 0.04, 0.05, 0.0),
@@ -1690,7 +1697,7 @@ const BUILDERS: Record<string, Builder> = {
 	'snow-bunting': ({ fur, accent }) => [
 		ball(0.085, fur, 0, 0.17, -0.02, 1, 0.95, 1.2),
 		ball(0.06, fur, 0, 0.26, 0.05),
-		rot(cone(0.016, 0.04, 0xe0b050, 0, 0.255, 0.115), Math.PI / 2, 0, 0),
+		rot(cone(0.016, 0.04, ANIMAL_DETAILS['snow-bunting'].beak, 0, 0.255, 0.115), Math.PI / 2, 0, 0),
 		rot(box(0.06, 0.016, 0.12, accent, 0, 0.17, -0.14), -0.4, 0, 0),
 		...([-1, 1] as const).flatMap((side) => [
 			ball(0.011, COLORS.dark, side * 0.035, 0.275, 0.09),
@@ -1726,16 +1733,16 @@ const BUILDERS: Record<string, Builder> = {
 		box(0.11, 0.022, 0.03, COLORS.dark, 0, 0.29, 0.09),
 		box(0.035, 0.03, 0.02, COLORS.dark, 0, 0.24, 0.1),
 		rot(cone(0.015, 0.04, COLORS.dark, 0, 0.275, 0.125), Math.PI / 2, 0, 0),
-		rot(box(0.06, 0.016, 0.12, 0x8a8f99, 0, 0.17, -0.14), -0.45, 0, 0),
+		rot(box(0.06, 0.016, 0.12, ANIMAL_DETAILS.waxwing.tail, 0, 0.17, -0.14), -0.45, 0, 0),
 		rot(box(0.062, 0.018, 0.035, accent, 0, 0.135, -0.205), -0.45, 0, 0),
 		...([-1, 1] as const).flatMap((side) => [
 			tube(0.007, 0.09, COLORS.dark, side * 0.03, 0.045, 0),
 			box(0.025, 0.008, 0.04, COLORS.dark, side * 0.03, 0.004, 0.02)
 		]),
 		...wings(0.08, 0.21, (side) => [
-			ball(0.06, 0x6f6f78, side * 0.09, 0.18, -0.04, 0.35, 0.85, 1.4),
-			ball(0.012, 0xd23a2a, side * 0.11, 0.18, 0.01),
-			ball(0.012, 0xd23a2a, side * 0.11, 0.165, -0.03)
+			ball(0.06, ANIMAL_DETAILS.waxwing.wing, side * 0.09, 0.18, -0.04, 0.35, 0.85, 1.4),
+			ball(0.012, ANIMAL_DETAILS.waxwing.wax, side * 0.11, 0.18, 0.01),
+			ball(0.012, ANIMAL_DETAILS.waxwing.wax, side * 0.11, 0.165, -0.03)
 		])
 	],
 	// Upright in black and white, an all-black head, a white ring round each eye, a stubby beak.
@@ -1756,8 +1763,8 @@ const BUILDERS: Record<string, Builder> = {
 		rot(box(0.08, 0.016, 0.1, fur, 0, 0.17, -0.18), -0.3, 0, 0),
 		...([-1, 1] as const).flatMap((side) => [
 			ball(0.019, accent, side * 0.043, 0.285, 0.14),
-			tube(0.008, 0.08, 0x5b6370, side * 0.035, 0.04, 0.01),
-			box(0.03, 0.008, 0.05, 0x5b6370, side * 0.035, 0.004, 0.03)
+			tube(0.008, 0.08, ANIMAL_DETAILS['snow-petrel'].legs, side * 0.035, 0.04, 0.01),
+			box(0.03, 0.008, 0.05, ANIMAL_DETAILS['snow-petrel'].legs, side * 0.035, 0.004, 0.03)
 		]),
 		...wings(0.09, 0.21, (side) => [ball(0.075, fur, side * 0.12, 0.2, -0.04, 0.3, 0.6, 1.8)])
 	],
@@ -1784,16 +1791,21 @@ const BUILDERS: Record<string, Builder> = {
 	// its red bill a big orange shield, its crown.
 	'king-eider': ({ fur, accent }) => [
 		ball(0.17, fur, 0, 0.2, -0.04, 1, 0.82, 1.45),
-		ball(0.13, 0xf3e3d2, 0, 0.21, 0.12, 0.95, 0.85, 0.75),
-		ball(0.1, 0xa9c4e0, 0, 0.36, 0.17),
+		ball(0.13, ANIMAL_DETAILS['king-eider'].breast, 0, 0.21, 0.12, 0.95, 0.85, 0.75),
+		ball(0.1, ANIMAL_DETAILS['king-eider'].head, 0, 0.36, 0.17),
 		...([-1, 1] as const).flatMap((side) => [
-			ball(0.04, 0x7fbf8a, side * 0.055, 0.34, 0.19, 0.5, 0.9, 1.2),
+			ball(0.04, ANIMAL_DETAILS['king-eider'].cheek, side * 0.055, 0.34, 0.19, 0.5, 0.9, 1.2),
 			ball(0.014, COLORS.dark, side * 0.06, 0.375, 0.23),
 			box(0.04, 0.05, 0.03, COLORS.dark, side * 0.07, 0.025, 0.03),
 			box(0.07, 0.01, 0.09, accent, side * 0.07, 0.005, 0.06)
 		]),
 		ball(0.05, accent, 0, 0.38, 0.25, 1, 1, 0.8),
-		rot(cone(0.03, 0.08, 0xd8322a, 0, 0.33, 0.28), Math.PI / 2 + 0.2, 0, 0),
+		rot(
+			cone(0.03, 0.08, ANIMAL_DETAILS['king-eider'].bill, 0, 0.33, 0.28),
+			Math.PI / 2 + 0.2,
+			0,
+			0
+		),
 		rot(cone(0.06, 0.12, fur, 0, 0.24, -0.27), -Math.PI / 2 + 0.6, 0, 0),
 		...wings(0.15, 0.27, (side) => [
 			ball(0.1, fur, side * 0.15, 0.25, -0.05, 0.3, 0.6, 1.4),
@@ -1811,7 +1823,7 @@ const BUILDERS: Record<string, Builder> = {
 			rot(cone(0.035, 0.15, fur, 0, 0.45, 0.27), Math.PI / 2 + 0.1, 0, 0),
 			tail,
 			...([-1, 1] as const).flatMap((side) => [
-				ball(0.016, 0x8a8f99, side * 0.055, 0.49, 0.19),
+				ball(0.016, ANIMAL_DETAILS.raven.eye, side * 0.055, 0.49, 0.19),
 				tube(0.014, 0.16, fur, side * 0.06, 0.08, 0.0),
 				box(0.05, 0.012, 0.08, fur, side * 0.06, 0.006, 0.03)
 			]),
@@ -1931,12 +1943,17 @@ const BUILDERS: Record<string, Builder> = {
 		ball(0.19, fur, 0, 0.3, 0, 1, 1.3, 0.95),
 		ball(0.17, fur, 0, 0.64, 0.01),
 		ball(0.16, accent, 0, 0.64, 0.09, 1, 1, 0.38),
-		ball(0.115, 0x5e6167, 0, 0.64, 0.115, 1, 1, 0.34),
+		ball(0.115, ANIMAL_DETAILS['great-grey-owl'].ring, 0, 0.64, 0.115, 1, 1, 0.34),
 		ball(0.08, accent, 0, 0.645, 0.135, 1, 1, 0.32),
-		rot(cone(0.018, 0.05, 0xe8c45a, 0, 0.6, 0.17), Math.PI * 0.6, 0, 0),
+		rot(
+			cone(0.018, 0.05, ANIMAL_DETAILS['great-grey-owl'].beak, 0, 0.6, 0.17),
+			Math.PI * 0.6,
+			0,
+			0
+		),
 		rot(box(0.14, 0.025, 0.16, fur, 0, 0.12, -0.2), -0.3, 0, 0),
 		...([-1, 1] as const).flatMap((side) => [
-			ball(0.022, 0xf2c230, side * 0.04, 0.66, 0.16),
+			ball(0.022, ANIMAL_DETAILS['great-grey-owl'].eye, side * 0.04, 0.66, 0.16),
 			ball(0.011, COLORS.dark, side * 0.04, 0.66, 0.178),
 			ball(0.03, COLORS.white, side * 0.035, 0.5, 0.16, 1.4, 0.6, 0.5),
 			box(0.08, 0.05, 0.08, fur, side * 0.07, 0.025, 0.07)
@@ -1950,13 +1967,18 @@ const BUILDERS: Record<string, Builder> = {
 		ball(0.15, fur, 0, 0.27, -0.03, 1, 0.85, 1.55),
 		ball(0.12, accent, 0, 0.33, -0.08, 0.95, 0.45, 1.3),
 		ball(0.095, fur, 0, 0.43, 0.15),
-		rot(cone(0.026, 0.13, 0xf2c230, 0, 0.42, 0.29), Math.PI / 2 + 0.08, 0, 0),
-		ball(0.014, 0xd8322a, 0, 0.405, 0.3),
+		rot(
+			cone(0.026, 0.13, ANIMAL_DETAILS['glaucous-gull'].bill, 0, 0.42, 0.29),
+			Math.PI / 2 + 0.08,
+			0,
+			0
+		),
+		ball(0.014, ANIMAL_DETAILS['glaucous-gull'].billSpot, 0, 0.405, 0.3),
 		rot(cone(0.06, 0.14, fur, 0, 0.27, -0.3), -Math.PI / 2 + 0.3, 0, 0),
 		...([-1, 1] as const).flatMap((side) => [
 			ball(0.014, COLORS.dark, side * 0.055, 0.45, 0.2),
-			tube(0.012, 0.14, 0xf0b0a8, side * 0.05, 0.07, 0.0),
-			box(0.05, 0.01, 0.07, 0xf0b0a8, side * 0.05, 0.005, 0.03)
+			tube(0.012, 0.14, ANIMAL_DETAILS['glaucous-gull'].legs, side * 0.05, 0.07, 0.0),
+			box(0.05, 0.01, 0.07, ANIMAL_DETAILS['glaucous-gull'].legs, side * 0.05, 0.005, 0.03)
 		]),
 		...wings(0.13, 0.31, (side) => [
 			ball(0.12, accent, side * 0.14, 0.3, -0.07, 0.28, 0.55, 1.7),
@@ -1966,25 +1988,25 @@ const BUILDERS: Record<string, Builder> = {
 	// Hunched and dusky brown with a paler face, and a huge pale bill with a tube on top.
 	'giant-petrel': ({ fur, accent }) => [
 		ball(0.17, fur, 0, 0.27, -0.02, 1, 0.85, 1.45),
-		ball(0.105, 0x9c958b, 0, 0.42, 0.16),
+		ball(0.105, ANIMAL_DETAILS['giant-petrel'].head, 0, 0.42, 0.16),
 		rot(cone(0.04, 0.16, accent, 0, 0.4, 0.31), Math.PI / 2 + 0.1, 0, 0),
 		rot(tube(0.018, 0.08, accent, 0, 0.445, 0.25), Math.PI / 2 + 0.1, 0, 0),
-		ball(0.022, 0x8fa36a, 0, 0.38, 0.385),
+		ball(0.022, ANIMAL_DETAILS['giant-petrel'].billTip, 0, 0.38, 0.385),
 		rot(cone(0.06, 0.12, fur, 0, 0.25, -0.29), -Math.PI / 2 + 0.4, 0, 0),
 		...([-1, 1] as const).flatMap((side) => [
 			ball(0.015, COLORS.dark, side * 0.06, 0.45, 0.22),
-			tube(0.014, 0.12, 0x5b6370, side * 0.06, 0.06, 0.0),
-			box(0.06, 0.012, 0.08, 0x5b6370, side * 0.06, 0.006, 0.03)
+			tube(0.014, 0.12, ANIMAL_DETAILS['giant-petrel'].legs, side * 0.06, 0.06, 0.0),
+			box(0.06, 0.012, 0.08, ANIMAL_DETAILS['giant-petrel'].legs, side * 0.06, 0.006, 0.03)
 		]),
 		...wings(0.15, 0.31, (side) => [ball(0.13, fur, side * 0.16, 0.3, -0.08, 0.28, 0.55, 1.7)])
 	],
 	// Taller than the gentoo and slim, a long thin bill, and on each side of its black head a
 	// bright orange "comma" that runs down into an orange breast.
 	'king-penguin': ({ fur, accent }) => [
-		...penguin(1.35, fur, 0x2a2a2f),
+		...penguin(1.35, fur, ANIMAL_DETAILS['king-penguin'].feet),
 		ball(0.11, fur, 0, 0.75, 0.02),
 		ball(0.095, accent, 0, 0.62, 0.11, 1.05, 0.9, 0.55),
-		ball(0.08, 0xffc04a, 0, 0.55, 0.15, 1.1, 0.8, 0.5),
+		ball(0.08, ANIMAL_DETAILS['king-penguin'].breast, 0, 0.55, 0.15, 1.1, 0.8, 0.5),
 		...([-1, 1] as const).flatMap((side) => [
 			rot(ball(0.042, accent, side * 0.088, 0.72, 0.05, 0.55, 1.6, 0.95), 0, 0, side * 0.2),
 			ball(0.013, COLORS.dark, side * 0.05, 0.77, 0.1)
@@ -2000,8 +2022,8 @@ const BUILDERS: Record<string, Builder> = {
 		box(0.25, 0.22, 0.25, fur, 0, 0.62, 0.37),
 		box(0.12, 0.09, 0.12, accent, 0, 0.57, 0.53),
 		ball(0.033, COLORS.dark, 0, 0.6, 0.6),
-		ball(0.018, 0xb8862a, -0.06, 0.67, 0.5),
-		ball(0.018, 0xb8862a, 0.06, 0.67, 0.5),
+		ball(0.018, ANIMAL_DETAILS['arctic-wolf'].eye, -0.06, 0.67, 0.5),
+		ball(0.018, ANIMAL_DETAILS['arctic-wolf'].eye, 0.06, 0.67, 0.5),
 		cone(0.06, 0.12, fur, -0.085, 0.78, 0.33),
 		cone(0.06, 0.12, fur, 0.085, 0.78, 0.33),
 		limb(
@@ -2022,7 +2044,7 @@ const BUILDERS: Record<string, Builder> = {
 			size: 0.82,
 			body: fur,
 			head: COLORS.white,
-			beak: 0x5b6370,
+			beak: ANIMAL_DETAILS.gyrfalcon.beak,
 			bill: 0.9,
 			feet: accent,
 			tail: fur,
@@ -2032,7 +2054,7 @@ const BUILDERS: Record<string, Builder> = {
 	// The biggest penguin, a head taller than the king: its ears and neck washed pale yellow, not
 	// orange, and a shorter bill with a pink stripe.
 	'emperor-penguin': ({ fur, accent }) => [
-		...penguin(1.7, fur, 0x2a2a2f),
+		...penguin(1.7, fur, ANIMAL_DETAILS['emperor-penguin'].feet),
 		ball(0.14, fur, 0, 0.94, 0.03),
 		ball(0.11, accent, 0, 0.79, 0.13, 1.05, 0.9, 0.5),
 		...([-1, 1] as const).flatMap((side) => [
@@ -2040,7 +2062,12 @@ const BUILDERS: Record<string, Builder> = {
 			ball(0.016, COLORS.dark, side * 0.065, 0.97, 0.13)
 		]),
 		rot(cone(0.025, 0.13, fur, 0, 0.92, 0.22), Math.PI / 2 + 0.2, 0, 0),
-		rot(box(0.016, 0.009, 0.07, 0xf0a08a, 0, 0.9, 0.2), 0.2, 0, 0)
+		rot(
+			box(0.016, 0.009, 0.07, ANIMAL_DETAILS['emperor-penguin'].billStripe, 0, 0.9, 0.2),
+			0.2,
+			0,
+			0
+		)
 	],
 	// White with very long, narrow wings, black at their ends, folded along its back, and a big
 	// pink bill.
@@ -2055,8 +2082,23 @@ const BUILDERS: Record<string, Builder> = {
 			rot(cone(0.06 * s, 0.12 * s, fur, 0, 0.27 * s, -0.33 * s), -Math.PI / 2 + 0.3, 0, 0),
 			...([-1, 1] as const).flatMap((side) => [
 				ball(0.016 * s, COLORS.dark, side * 0.06 * s, 0.5 * s, 0.23 * s),
-				tube(0.018 * s, 0.14 * s, 0xd9c3c0, side * 0.07 * s, 0.07 * s, 0.02 * s),
-				box(0.07 * s, 0.014 * s, 0.09 * s, 0xd9c3c0, side * 0.07 * s, 0.007 * s, 0.05 * s)
+				tube(
+					0.018 * s,
+					0.14 * s,
+					ANIMAL_DETAILS.albatross.legs,
+					side * 0.07 * s,
+					0.07 * s,
+					0.02 * s
+				),
+				box(
+					0.07 * s,
+					0.014 * s,
+					0.09 * s,
+					ANIMAL_DETAILS.albatross.legs,
+					side * 0.07 * s,
+					0.007 * s,
+					0.05 * s
+				)
 			]),
 			...wings(0.15 * s, 0.36 * s, (side) => [
 				ball(0.1 * s, fur, side * 0.17 * s, 0.35 * s, -0.14 * s, 0.22, 0.45, 2.7),
@@ -2086,7 +2128,7 @@ const BUILDERS: Record<string, Builder> = {
 		...legs(0.09, 0.32, accent, 0.15, 0.28),
 		ball(0.38, fur, 0, 0.62, -0.05, 1, 0.85, 1.25),
 		ball(0.27, fur, 0, 0.8, 0.14),
-		ball(0.18, 0x7a6450, 0, 0.88, -0.12, 1.1, 0.42, 1.2),
+		ball(0.18, ANIMAL_DETAILS['musk-ox'].saddle, 0, 0.88, -0.12, 1.1, 0.42, 1.2),
 		...Array.from({ length: 14 }, (_, i) => {
 			const a = (i / 14) * Math.PI * 2;
 			return rot(
@@ -2097,7 +2139,7 @@ const BUILDERS: Record<string, Builder> = {
 			);
 		}),
 		ball(0.16, fur, 0, 0.6, 0.5, 0.9, 1, 1.1),
-		ball(0.08, 0x9a8c7c, 0, 0.52, 0.64),
+		ball(0.08, ANIMAL_DETAILS['musk-ox'].muzzle, 0, 0.52, 0.64),
 		ball(0.025, COLORS.dark, 0, 0.53, 0.71),
 		box(0.26, 0.06, 0.1, accent, 0, 0.74, 0.47),
 		...([-1, 1] as const).flatMap((side) => [
@@ -2160,7 +2202,7 @@ const BUILDERS: Record<string, Builder> = {
 	// with white front edges.
 	'arctic-char': ({ fur, accent }) => [
 		...fish(0.62, 0.2, 0.13, 0.13, fur, accent, accent),
-		...spots(10, 0.02, 0xf2e6c8, [0.065, 0.1, 0.31], 0.13, 0, 0.1),
+		...spots(10, 0.02, ANIMAL_DETAILS['arctic-char'].spots, [0.065, 0.1, 0.31], 0.13, 0, 0.1),
 		backFin(0.1, 0.08, fur, 0.21, 0.04, 0.4),
 		...([-1, 1] as const).map((side) =>
 			rot(box(0.03, 0.022, 0.08, COLORS.white, side * 0.2, 0.011, 0.07), 0, side * 0.5, 0)
@@ -2301,7 +2343,7 @@ const BUILDERS: Record<string, Builder> = {
 			...sealBody(s, fur),
 			...sealHead(s, 1, fur),
 			ball(0.11 * s, accent, 0, 0.5 * s, 0.33 * s, 0.85, 0.75, 1.15),
-			ball(0.065 * s, 0xd8343a, 0, 0.37 * s, 0.53 * s, 1, 1, 1.15),
+			ball(0.065 * s, ANIMAL_DETAILS['hooded-seal'].balloon, 0, 0.37 * s, 0.53 * s, 1, 1, 1.15),
 			...spots(12, 0.06, accent, [0.2 * s, 0.17 * s, 0.38 * s], 0.18 * s, -0.14 * s),
 			...spots(4, 0.05, accent, [0.165 * s, 0.165 * s, 0.17 * s], 0.25 * s, 0.14 * s, 0.3)
 		];
@@ -2331,7 +2373,7 @@ const BUILDERS: Record<string, Builder> = {
 		...fish(1.05, 0.32, 0.26, 0.2, fur, accent, fur),
 		ball(0.19, fur, 0, 0.24, 0.42, 1, 0.95, 1),
 		ball(0.12, accent, 0, 0.13, 0.5, 1.1, 0.5, 1),
-		box(0.14, 0.02, 0.1, 0xb04a4a, 0, 0.19, 0.6),
+		box(0.14, 0.02, 0.1, ANIMAL_DETAILS.toothfish.mouth, 0, 0.19, 0.6),
 		backFin(0.2, 0.12, fur, 0.35, 0.12, 0.5),
 		backFin(0.36, 0.1, fur, 0.33, -0.22, 0.4),
 		...([-1, 1] as const).flatMap((side) => [
@@ -2408,7 +2450,7 @@ const BUILDERS: Record<string, Builder> = {
 			box(0.04, 0.012, 0.012, COLORS.dark, 0, 0.2, 0.8),
 			...([-1, 1] as const).flatMap((side) => [
 				ball(0.018, COLORS.dark, side * 0.17, 0.36, 0.66),
-				tube(0.008, 0.06, 0xf2e8c8, side * 0.18, 0.32, 0.67),
+				tube(0.008, 0.06, ANIMAL_DETAILS['greenland-shark'].parasite, side * 0.18, 0.32, 0.67),
 				...[0.36, 0.31, 0.26, 0.21].map((z) =>
 					box(0.01, 0.1, 0.012, COLORS.dark, side * 0.252, 0.31, z)
 				)
@@ -2436,7 +2478,7 @@ const BUILDERS: Record<string, Builder> = {
 					const [x, y, z] = tusk(d);
 					const ring = part(
 						new THREE.TorusGeometry(0.028 * (1 - d / 0.9) + 0.004, 0.005, 3, 8),
-						0xd8cdb0,
+						ANIMAL_DETAILS.narwhal.tuskRing,
 						x,
 						y,
 						z
@@ -2491,7 +2533,7 @@ const BUILDERS: Record<string, Builder> = {
 			ball(0.17 * s, fur, 0, 0.42 * s, 0.33 * s, 1.05, 0.75, 1.35),
 			ball(0.11 * s, fur, 0, 0.44 * s, 0.53 * s, 1, 0.55, 1.4),
 			rot(ball(0.1 * s, fur, 0, 0.31 * s, 0.52 * s, 0.95, 0.35, 1.4), 0.25, 0, 0),
-			ball(0.08 * s, 0xc95a5a, 0, 0.37 * s, 0.54 * s, 0.9, 0.45, 1.2),
+			ball(0.08 * s, ANIMAL_DETAILS['leopard-seal'].mouth, 0, 0.37 * s, 0.54 * s, 0.9, 0.45, 1.2),
 			...([-1, 1] as const).flatMap((side) => [
 				ball(0.028 * s, COLORS.dark, side * 0.12 * s, 0.5 * s, 0.45 * s),
 				...[0.5, 0.58, 0.66].map((z) =>
@@ -2510,7 +2552,7 @@ const BUILDERS: Record<string, Builder> = {
 };
 
 /** The white of a reindeer's neck and rump: a winter coat, against its grey-brown back. */
-const NECK_WHITE = 0xeee6d6;
+const NECK_WHITE = ANIMAL_DETAILS.reindeer.neck;
 
 /**
  * A penguin's body, `s` times the Adélie's: upright, black down the back, a white belly, two

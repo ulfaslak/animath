@@ -1,6 +1,6 @@
 import type { GridPos } from '@mathgame/engine';
 import * as THREE from 'three';
-import { COLORS } from './palette';
+import { ROD_COLORS } from './palette';
 import { BOX_GEOMETRY, ICE_TOP } from './tiles';
 
 /**
@@ -39,13 +39,13 @@ const ROD_LENGTH = 0.62;
 const SAG = 0.12;
 const LINE_POINTS = 9;
 
-const rodMaterial = new THREE.MeshLambertMaterial({ color: 0x7a4b2e, flatShading: true });
-const reelMaterial = new THREE.MeshLambertMaterial({ color: 0x9aa4ad, flatShading: true });
-const bobberRed = new THREE.MeshLambertMaterial({ color: COLORS.playerShirt, flatShading: true });
-const bobberWhite = new THREE.MeshLambertMaterial({ color: 0xffffff, flatShading: true });
-const lineMaterial = new THREE.LineBasicMaterial({ color: 0xf4f7fa });
+const rodMaterial = new THREE.MeshLambertMaterial({ color: ROD_COLORS.rod, flatShading: true });
+const reelMaterial = new THREE.MeshLambertMaterial({ color: ROD_COLORS.reel, flatShading: true });
+const bobberRed = new THREE.MeshLambertMaterial({ color: ROD_COLORS.bobber, flatShading: true });
+const bobberWhite = new THREE.MeshLambertMaterial({ color: ROD_COLORS.white, flatShading: true });
+const lineMaterial = new THREE.LineBasicMaterial({ color: ROD_COLORS.line });
 const ringMaterial = new THREE.MeshBasicMaterial({
-	color: 0xffffff,
+	color: ROD_COLORS.white,
 	transparent: true,
 	opacity: 0.8,
 	depthWrite: false

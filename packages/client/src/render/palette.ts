@@ -219,6 +219,40 @@ export const PLANE_COLORS = {
 } as const;
 
 /**
+ * The Arctic's skis (`skis.ts`): bright red planks with a white binding, dark
+ * poles, and the snow they spray at speed, the white of the drifts.
+ */
+export const SKI_COLORS = {
+	ski: 0xe0483b,
+	binding: 0xf4f4f4,
+	pole: 0x3a3f4a,
+	spray: ARCTIC_COLORS.drift
+} as const;
+
+/**
+ * The dog sled (`sled.ts`): a sled of warm wood on darker runners, a blue
+ * cloth load, and dark traces to the lead's harness.
+ */
+export const SLED_COLORS = {
+	wood: 0xa86b3c,
+	runner: 0x7a4b2a,
+	cloth: 0x2f6fb3,
+	trace: 0x3a2f2a
+} as const;
+
+/**
+ * The fishing rod (`fishing.ts`): a brown rod with a grey reel, a pale line,
+ * and a bobber of the trainer's coral and white, the ring round it white.
+ */
+export const ROD_COLORS = {
+	rod: 0x7a4b2e,
+	reel: 0x9aa4ad,
+	line: 0xf4f7fa,
+	bobber: COLORS.playerShirt,
+	white: 0xffffff
+} as const;
+
+/**
  * The druid at every tent (`doctor.ts`): a purple robe and a taller,
  * floppy purple hat with the doctor's gold band, a coral feather and a gold
  * bobble on its tip, a white beard and a rosy nose, and a staff of trunk
@@ -412,3 +446,34 @@ export const ANIMAL_COLORS: Record<string, { fur: number; accent: number }> = {
 	'blue-whale': { fur: 0x627d95, accent: 0xa6b9c8 },
 	'leopard-seal': { fur: 0x8f959c, accent: 0x34383e }
 };
+
+/**
+ * The Arctic's animals' details beyond their fur and accent, each named by
+ * species and part ([[DESIGN]] § Palette, the Arctic's animals): a puffin's
+ * yellow stripe on its beak, a waxwing's red wax, a hooded seal's red balloon.
+ * Keyed by the engine's species id, as `ANIMAL_COLORS` is.
+ */
+export const ANIMAL_DETAILS = {
+	puffin: { beakStripe: 0xf2c94c, beakBand: 0x8a8f99 },
+	'snow-bunting': { beak: 0xe0b050 },
+	waxwing: { tail: 0x8a8f99, wing: 0x6f6f78, wax: 0xd23a2a },
+	'snow-petrel': { legs: 0x5b6370 },
+	'king-eider': { breast: 0xf3e3d2, head: 0xa9c4e0, cheek: 0x7fbf8a, bill: 0xd8322a },
+	raven: { eye: 0x8a8f99 },
+	reindeer: { neck: 0xeee6d6 },
+	'great-grey-owl': { ring: 0x5e6167, beak: 0xe8c45a, eye: 0xf2c230 },
+	'glaucous-gull': { bill: 0xf2c230, billSpot: 0xd8322a, legs: 0xf0b0a8 },
+	'giant-petrel': { head: 0x9c958b, billTip: 0x8fa36a, legs: 0x5b6370 },
+	'king-penguin': { feet: 0x2a2a2f, breast: 0xffc04a },
+	'arctic-wolf': { eye: 0xb8862a },
+	gyrfalcon: { beak: 0x5b6370 },
+	'emperor-penguin': { feet: 0x2a2a2f, billStripe: 0xf0a08a },
+	albatross: { legs: 0xd9c3c0 },
+	'musk-ox': { saddle: 0x7a6450, muzzle: 0x9a8c7c },
+	'arctic-char': { spots: 0xf2e6c8 },
+	'hooded-seal': { balloon: 0xd8343a },
+	toothfish: { mouth: 0xb04a4a },
+	'greenland-shark': { parasite: 0xf2e8c8 },
+	narwhal: { tuskRing: 0xd8cdb0 },
+	'leopard-seal': { mouth: 0xc95a5a }
+} as const satisfies Record<string, Record<string, number>>;

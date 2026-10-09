@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { SKI_COLORS } from './palette';
 import { BOX_GEOMETRY } from './tiles';
 
 /**
@@ -12,11 +13,8 @@ import { BOX_GEOMETRY } from './tiles';
  * to free.
  */
 
-/** The skis' colour: a bright red, with a white binding. */
-const SKI = 0xe0483b;
-const BINDING = 0xf4f4f4;
-const POLE = 0x3a3f4a;
-const SNOW = 0xfbfdff;
+/** The skis' colours ([[DESIGN]] § Palette): a bright red, with a white binding. */
+const { ski: SKI, binding: BINDING, pole: POLE, spray: SNOW } = SKI_COLORS;
 
 const materials = new Map<number, THREE.MeshLambertMaterial>();
 function material(hex: number): THREE.MeshLambertMaterial {
