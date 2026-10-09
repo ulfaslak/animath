@@ -2,13 +2,15 @@
 	import {
 		ATTACK_LEVELS,
 		attackDamage,
+		bonusOf,
 		bundles,
 		canFightIn,
 		catchProbability,
 		getAnimal,
+		hitSpan,
 		isPictureKind,
-		landHit,
 		puzzleDifficulty,
+		puzzleTopic,
 		puzzleTopics,
 		type AttackLevel,
 		type PuzzleTopic
@@ -72,12 +74,36 @@
 	const spec = $derived(front ? getAnimal(front.speciesId) : null);
 	const opponent = $derived(battle.opponent);
 	const opponentSpec = $derived(opponent ? getAnimal(opponent.speciesId) : null);
-	/** Each attack with its own level, that level's word and what it hits for there (the engine's). */
+	/**
+	 * The topic of the kid's own puzzle on screen (`puzzleTopic`), while it
+	 * waits for its answer and once it is judged: from then on its attack's
+	 * hit is known, one number. Null with none, and for the other player's
+	 * puzzle in a match.
+	 */
+	const drawn = $derived(
+		battle.puzzle && !(vs && battle.turn === 'opponent') ? puzzleTopic(battle.puzzle) : null
+	);
+	/**
+	 * What attack `index` hits for at `level` (the engine's): `damage` the
+	 * least and `high` the most over the topics its puzzle can be
+	 * (`hitSpan`, with the battle's bonus), or, for the attack whose puzzle is
+	 * on screen, exactly what it lands.
+	 */
+	function hitFor(index: number, level: AttackLevel): { damage: number; high: number } {
+		if (!spec) return { damage: 0, high: 0 };
+		if (drawn && action?.kind === 'attack' && action.index === index) {
+			const damage = attackDamage(spec, index, level, true, bonusOf(battle.bonus, drawn));
+			return { damage, high: damage };
+		}
+		const span = hitSpan(spec, index, level, battle.bonus);
+		return { damage: span.low, high: span.high };
+	}
+	/** Each attack with its own level, that level's word and what it hits for there. */
 	const tiles = $derived(
 		spec
 			? attackRows(spec, battle.levels).map((row) => ({
 					...row,
-					damage: attackDamage(spec, row.index, row.level, true)
+					...hitFor(row.index, row.level)
 				}))
 			: []
 	);
@@ -122,16 +148,19 @@
 
 	/**
 	 * The HP the highlighted attack at its level would leave the wild animal
-	 * with, from the engine's `landHit` on the HP on screen — the very
-	 * function the battle lands the hit with, so the preview on its HP bar
-	 * can never disagree with the hit. Shown while the menu is up and while
-	 * that attack's puzzle waits for its answer.
+	 * with, from the engine's numbers on the HP on screen (`hitFor`: the
+	 * very functions the battle lands the hit with, so the preview on its HP
+	 * bar can never disagree with the hit). Before the puzzle is drawn, the
+	 * softest hit its topics land: the bar never promises more than any
+	 * puzzle does, and neither does "That would tire it out!". Shown while
+	 * the menu is up and while that attack's puzzle waits for its answer,
+	 * then exactly.
 	 */
 	const previewHp = $derived.by(() => {
 		if (!spec || !opponent || !tile) return null;
 		const choosing = battle.screen === 'actions' || (battle.screen === 'puzzle' && !battle.judged);
 		if (!choosing) return null;
-		return landHit(spec, tile.index, tile.level, opponent).target.hp;
+		return Math.max(0, opponent.hp - tile.damage);
 	});
 
 	/** What the highlighted move does, in words a kid can read: the sentence under its preview. */
@@ -143,7 +172,10 @@
 				attack: tile.name,
 				level: tile.word,
 				kinds: kindWords(topicsOf(tile.index, tile.level)),
-				damage: tile.damage,
+				damage:
+					tile.high > tile.damage
+						? t('battle.hitSpan', { low: tile.damage, high: tile.high })
+						: tile.damage,
 				...(vs ? { whose: whose(vs.name) } : {}),
 				animal: animalWords(opponent)
 			});
@@ -234,10 +266,11 @@
 			name: tile.name,
 			level: tile.level,
 			damage: tile.damage,
+			high: tile.high,
 			levels: ATTACK_LEVELS.map((level) => ({
 				level,
 				word: levelWord(level),
-				damage: attackDamage(spec, tile.index, level, true)
+				...hitFor(tile.index, level)
 			})),
 			topics: topicsOf(tile.index, tile.level),
 			line: detail,
@@ -245,7 +278,7 @@
 		};
 	});
 
-	/** What a right answer to the puzzle on screen wins: its attack's hit, at its level. */
+	/** What a right answer to the puzzle on screen wins: its attack's hit, at its level, exactly (`hitFor` with the puzzle drawn). */
 	const reward = $derived(tile ? { damage: tile.damage, level: tile.level } : undefined);
 
 	/**
@@ -461,6 +494,7 @@
 							word={row.word}
 							level={row.level}
 							damage={row.damage}
+							high={row.high}
 							press={rowKey(i)}
 							selected={battle.cursor === i}
 						/>

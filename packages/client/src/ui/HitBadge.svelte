@@ -8,14 +8,17 @@
 	 * bigger and hotter (amber, orange, coral), so a hard hit looks heavier
 	 * than an easy one; the number is always printed, so it reads without
 	 * colour. It only shows a number the engine gave (`attackDamage`,
-	 * `landHit`) and decides nothing, so any screen that has one can show it.
-	 * `big` is the preview card's.
+	 * `landHit`, `hitSpan`) and decides nothing, so any screen that has one
+	 * can show it. `high` above `damage` makes it a span, "7–11": what an
+	 * attack can hit for before its puzzle is drawn, when its topics land
+	 * differently. `big` is the preview card's.
 	 */
 	let {
 		damage,
+		high = damage,
 		level,
 		big = false
-	}: { damage: number; level: AttackLevel; big?: boolean } = $props();
+	}: { damage: number; high?: number; level: AttackLevel; big?: boolean } = $props();
 </script>
 
 <span class="badge l{level}" class:big>
@@ -24,7 +27,7 @@
 			points="12 0.5 14.2 5.2 18.8 2.7 17.8 7.8 22.9 8.4 19.2 12 22.9 15.6 17.8 16.2 18.8 21.3 14.2 18.8 12 23.5 9.8 18.8 5.2 21.3 6.2 16.2 1.1 15.6 4.8 12 1.1 8.4 6.2 7.8 5.2 2.7 9.8 5.2"
 		/>
 	</svg>
-	<span class="n">{damage}</span>
+	<span class="n">{high > damage ? `${damage}–${high}` : damage}</span>
 </span>
 
 <style>

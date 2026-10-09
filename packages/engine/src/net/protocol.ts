@@ -12,7 +12,13 @@ import {
 	type MatchViewPhase,
 	type ShownPuzzle
 } from '../match/types.js';
-import { ALL_PUZZLE_KINDS, MAX_DIFFICULTY, MIN_DIFFICULTY } from '../puzzles/types.js';
+import {
+	ALL_PUZZLE_KINDS,
+	ALL_PUZZLE_TOPICS,
+	MAX_DIFFICULTY,
+	MIN_DIFFICULTY,
+	type PuzzleTopic
+} from '../puzzles/types.js';
 import { MAX_SAVE_ID_LENGTH } from '../save.js';
 import type { Direction } from '../world/types.js';
 import { isLandId, type LandId } from '../lands/ids.js';
@@ -921,10 +927,15 @@ function readMatchEvent(value: unknown): WireMatchEvent | null {
 			}
 			return { type, side, attackIndex, level, puzzle };
 		}
-		case 'answer-judged':
-			return isSide(value.side) && typeof value.correct === 'boolean'
-				? { type, side: value.side, correct: value.correct }
-				: null;
+		case 'answer-judged': {
+			const { side, correct, topic } = value;
+			if (!isSide(side) || typeof correct !== 'boolean') return null;
+			// A topic this build has; any other (a server from before topics sends none, a
+			// newer one may send one this build lacks) is left out, and the answer goes unrecorded.
+			return (ALL_PUZZLE_TOPICS as readonly unknown[]).includes(topic)
+				? { type, side, correct, topic: topic as PuzzleTopic }
+				: { type, side, correct };
+		}
 		case 'hit': {
 			const { attacker, attackIndex, level, damage, targetHp } = value;
 			if (!isSide(attacker) || !isWhole(attackIndex, 1, MAX_WIRE_ATTACK) || !isLevel(level)) {

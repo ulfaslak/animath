@@ -1531,8 +1531,12 @@ battle:
   backButton: Back
   # The highlighted attack. {attack}: its name; {level}: its level's word;
   # {kinds}: what its sums are about (the words below, in an "or" list);
-  # {animal}: the wild animal it would hit; {damage}: the HP it would lose.
+  # {animal}: the wild animal it would hit; {damage}: the HP it would lose,
+  # a number or, when its puzzles hit differently, hitSpan.
   attackDetail: '{attack} on {level}: {kinds}. It hits {animal.theWild} for {damage}.'
+  # {damage} in attackDetail when the attack can hit for anything from {low}
+  # to {high}, by which puzzle it gets. Said as a plain fact, never why.
+  hitSpan: '{low} to {high}'
   # On the preview card, when the highlighted attack at its level would bring
   # the wild animal to 0 HP.
   tiresOut: That would tire it out!
@@ -2419,3 +2423,23 @@ book:
   # Under the book while the cursor is on the lands' tabs over the cards.
   lands: Pick a land to see its animals!
   keys: ↑ ↓ ← → choose · Esc back
+puzzles:
+  # "My puzzles": every kind of puzzle the kid has answered, with how many they
+  # tried and got right. The pause menu's row (on the menu's title line, beside
+  # the animal book) and the page's own title.
+  title: My puzzles
+  # Beside the page's title, and in the panel while its row is lit: every
+  # puzzle solved, the count the HUD shows.
+  solved:
+    one: '{count} solved in all'
+    other: '{count} solved in all'
+  # The panel beside the row while it is lit.
+  help: Every puzzle you answer is counted here, kind by kind.
+  # A kind's row: how many of it were answered right, of how many tried.
+  row: '{right} right of {tried}'
+  # A kind's row when none of it has been answered yet.
+  never: Not tried yet
+  # Under the rows: what the bars mean. Never what a kind is worth in a battle.
+  caption: Each bar is the puzzles you tried. The green part is the ones you got right.
+  # The key reminder under the page.
+  keys: ↑ ↓ choose · Esc back

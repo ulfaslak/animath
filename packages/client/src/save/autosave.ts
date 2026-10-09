@@ -11,7 +11,7 @@ import {
 	saveVersion,
 	validateSaveWrite,
 	type GameEvent,
-	type SaveV4,
+	type SaveV5,
 	type SaveWrite,
 	type SavedGame
 } from '@mathgame/engine';
@@ -179,7 +179,7 @@ export class Autosave {
 	private writtenText: string | null = null;
 	private writtenSeq = 0;
 	/** The save this page's game grows from: the one it loaded, carried on from, or last wrote. */
-	private base: SaveV4 | null = null;
+	private base: SaveV5 | null = null;
 	/** Fields a newer build left in the loaded save, written back unchanged. */
 	private extras: Record<string, unknown> = {};
 	/** The newest document built, for the server. */
@@ -488,6 +488,8 @@ export class Autosave {
 			// itself: every game under way beside an unreadable save has been played already
 			// (a starter picked, or the server's game taken).
 			case 'solved-changed':
+			// An answer judged, right or wrong: the record, as the count, in a friendly match too.
+			case 'puzzles-changed':
 			// The animal book grew, at a battle's start or a catch: the battle's own events save too.
 			case 'book-changed':
 			// A land unlocked: the hand-over that did it saves too.
@@ -678,7 +680,7 @@ export class Autosave {
 	}
 
 	/** Take `save` as the one this page's game grows from. */
-	private carryOn(save: SaveV4): void {
+	private carryOn(save: SaveV5): void {
 		this.lineage = saveLineage(save) || this.mintId();
 		this.seq = Math.max(this.seq, saveSeq(save));
 		this.extras = saveExtras(save);
@@ -983,7 +985,7 @@ export class Autosave {
 	 * its `replaced` key (or `unreadable`), make the server's the saved
 	 * game, and reload into it.
 	 */
-	private adopt(save: SaveV4, doc: unknown): void {
+	private adopt(save: SaveV5, doc: unknown): void {
 		const store = this.store;
 		if (!store || this.local === 'frozen' || this.local === 'none') return;
 		const current = store.get(this.keys.save);

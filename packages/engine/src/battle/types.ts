@@ -1,5 +1,6 @@
 import type { AnimalInstance, AttackLevel, Realm } from '../animals/types.js';
-import type { Puzzle } from '../puzzles/types.js';
+import type { TopicBonus } from '../puzzles/record.js';
+import type { Puzzle, PuzzleTopic } from '../puzzles/types.js';
 
 /**
  * Battle state machine. `startBattle` builds a state, `applyBattleIntent`
@@ -49,6 +50,12 @@ export interface BattleState {
 	 * birds; the battle is lost once every one of those is tired.
 	 */
 	realm: Realm;
+	/**
+	 * How hard the player's hit lands per topic of its puzzle (`topicBonus`),
+	 * fixed for the battle as it started. Missing in a battle saved before
+	 * the bonus, and on a topic it lacks: the hit lands as it is.
+	 */
+	bonus?: TopicBonus;
 	phase: BattlePhase;
 }
 
@@ -99,7 +106,14 @@ export type BattleRejection =
  */
 export type BattleEvent =
 	| { type: 'puzzle-shown'; attackIndex: number; level: AttackLevel; puzzle: Puzzle }
-	| { type: 'answer-judged'; input: string; correct: boolean; answer: number }
+	| {
+			type: 'answer-judged';
+			input: string;
+			correct: boolean;
+			answer: number;
+			/** The puzzle's topic (`puzzleTopic`), which the kid's record counts it under. */
+			topic: PuzzleTopic;
+	  }
 	| {
 			type: 'hit';
 			attacker: BattleSide;

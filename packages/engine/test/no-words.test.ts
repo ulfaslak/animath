@@ -58,7 +58,9 @@ const files = walk(root);
  */
 const FOR_DEVELOPERS: Readonly<Record<string, string>> = {
 	'save.ts':
-		"the save validator's messages ('party must be a list') answer the API as { error } and go to the console"
+		"the save validator's messages ('party must be a list') answer the API as { error } and go to the console",
+	'puzzles/record.ts':
+		"the save validator's messages for the puzzle record ('puzzles must be an object'), as save.ts's"
 };
 
 describe('the engine holds no words', () => {

@@ -19,6 +19,7 @@ import { ITEMS, ITEM_IDS, getItem, hasItem, itemsForSale } from '../src/items/ca
 import { LAND_IDS } from '../src/lands/ids.js';
 import { FARE_DIFFICULTY, LANDS, getLand, priceIn, shopFor } from '../src/lands/lands.js';
 import { healingDifficulty } from '../src/puzzles/difficulty.js';
+import { puzzleTopic } from '../src/puzzles/record.js';
 import { answerForm, answerText, checkAnswer } from '../src/puzzles/registry.js';
 import { Rng, hashInts, hashString } from '../src/rng.js';
 import { WorldEdits, editedTileAt } from '../src/world/edits.js';
@@ -320,7 +321,8 @@ describe('healing, for every species', () => {
 							type: 'answer-judged',
 							input,
 							correct: false,
-							answer: puzzle.answer
+							answer: puzzle.answer,
+							topic: puzzleTopic(puzzle)
 						});
 						expect(checkAnswer(puzzle, input)).toBe(false);
 						expect(s.events[1]).toMatchObject({ type: 'puzzle-shown', partyIndex: 0 });
@@ -339,7 +341,8 @@ describe('healing, for every species', () => {
 							type: 'answer-judged',
 							input: right,
 							correct: true,
-							answer: puzzle.answer
+							answer: puzzle.answer,
+							topic: puzzleTopic(puzzle)
 						},
 						{
 							type: 'healed',
@@ -394,7 +397,8 @@ describe('healing, for every species', () => {
 					type: 'answer-judged',
 					input,
 					correct,
-					answer: puzzle.answer
+					answer: puzzle.answer,
+					topic: puzzleTopic(puzzle)
 				});
 				expect(s.state.party[0]!.hp).toBe(correct ? getAnimal('wolf').maxHp : 0);
 				if (correct) {
@@ -641,7 +645,7 @@ describe('helping animals home', () => {
 			const input = wrong(puzzle.answer);
 			const s = apply(state, { type: 'answer', input }, 2);
 			expect(s.events).toEqual([
-				{ type: 'answer-judged', input, correct: false, answer: puzzle.answer }
+				{ type: 'answer-judged', input, correct: false, answer: puzzle.answer, topic: 'add' }
 			]);
 			expect(trading(s.state)).toEqual(trading(state));
 			expect(s.state.party).toEqual(party);
@@ -650,7 +654,7 @@ describe('helping animals home', () => {
 		}
 		const s = apply(state, { type: 'answer', input: '13' }, 2);
 		expect(s.events).toEqual([
-			{ type: 'answer-judged', input: '13', correct: true, answer: 13 },
+			{ type: 'answer-judged', input: '13', correct: true, answer: 13, topic: 'add' },
 			{
 				type: 'went-home',
 				animals: [
@@ -1194,7 +1198,8 @@ describe('flying from the druid (#191)', () => {
 					type: 'answer-judged',
 					input,
 					correct: true,
-					answer: fare.puzzle.answer
+					answer: fare.puzzle.answer,
+					topic: puzzleTopic(fare.puzzle)
 				},
 				{ type: 'flew', land: 'arctic' },
 				{ type: 'ended' }

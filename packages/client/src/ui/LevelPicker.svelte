@@ -6,6 +6,8 @@
 		level: AttackLevel;
 		word: string;
 		damage: number;
+		/** The most it can hit for, when its topics land differently (`hitSpan`); `damage` is then the least. */
+		high?: number;
 	}
 </script>
 
@@ -34,7 +36,7 @@
 			{@attach unfocusable}
 		>
 			<span class="word">{option.word}</span>
-			<HitBadge damage={option.damage} level={option.level} />
+			<HitBadge damage={option.damage} high={option.high} level={option.level} />
 		</button>
 	{/each}
 </div>
