@@ -241,7 +241,7 @@ export type GameEvent =
 	/** `pick-starter` was refused, and nothing changed: why, as a code (`not-wanted`: no pick is waited for). */
 	| { type: 'starter-refused'; reason: 'not-wanted' | 'not-a-starter' | 'not-text' }
 	/**
-	 * The lands unlocked grew (`unlockLands`): the kid set free the last kind
+	 * The lands unlocked grew (`unlockLands`): the kid caught the last kind
 	 * a land asked for. The whole list, in unlock order. Sent right after the
 	 * `book-changed` that did it.
 	 */

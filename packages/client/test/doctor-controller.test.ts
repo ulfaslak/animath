@@ -99,7 +99,7 @@ function setup(
 			const e = events[i]!;
 			if (e.type === 'doctor-visit-updated' || e.type === 'doctor-visit-started') {
 				const phase = e.state.phase;
-				if (phase.kind === 'choose-patient' || phase.kind === 'ended')
+				if (phase.kind === 'choose-patient' || phase.kind === 'offering' || phase.kind === 'ended')
 					throw new Error('no puzzle open');
 				return phase.puzzle.answer;
 			}
@@ -1157,9 +1157,12 @@ describe('the shop', () => {
 });
 
 describe('flying from the druid', () => {
-	/** A game in Nordland with `freed` set free and `unlocked` unlocked, every land open to fly to (`?lands`'s open). */
-	function flyer(freed: readonly string[], unlocked: readonly string[]) {
-		const authority = new LocalAuthority({ lands: true });
+	/**
+	 * A game in Nordland with `caught` caught and `unlocked` unlocked, every land open to fly to
+	 * (`?lands`'s open, which offers no surprise), or with `lands` false the lands this build flies to.
+	 */
+	function flyer(caught: readonly string[], unlocked: readonly string[], lands = true) {
+		const authority = new LocalAuthority({ lands });
 		const controller = new DoctorController(authority);
 		const events: GameEvent[] = [];
 		authority.subscribe((e) => {
@@ -1173,9 +1176,8 @@ describe('flying from the druid', () => {
 			game: {
 				...start,
 				party: [...start.party, fox],
-				freed: [...freed],
-				seen: [...start.seen, ...freed, 'fox'],
-				caught: [...start.caught, 'fox'],
+				seen: [...start.seen, ...caught, 'fox'],
+				caught: [...start.caught, ...caught, 'fox'],
 				unlocked: [...unlocked]
 			}
 		});
@@ -1190,26 +1192,33 @@ describe('flying from the druid', () => {
 				controller.onKey(key(n));
 				controller.update(1 / 60);
 			});
-		return { authority, events, run, press };
+		/** The kinds of Nordland caught, as the Fly tab counts them. */
+		const counted = getLand('nordland').species.filter((id) =>
+			authority.snapshot().caught.includes(id)
+		).length;
+		return { authority, events, run, press, counted };
 	}
 
-	it('a new game sees The Arctic on Fly, locked, and how far it is: 0 / 50', () => {
-		const t = setup(hurtParty());
-		t.talk();
+	it("a new game sees The Arctic on Fly, locked, and how far it is: its team's kinds, caught", () => {
+		const t = flyer([], ['nordland'], false);
+		expect(doctor.screen).toBe('list');
 		expect(doctor.lands).toEqual(['arctic']);
 		expect(doctorTabs(doctor.lands)).toEqual(['heal', 'home', 'shop', 'fly']);
 		expect(doctor.unlocked).toEqual(['nordland']);
 		t.press(tabKey('fly'));
 		t.run(PICK_QUIET_SECONDS);
+		const before = t.events.length;
 		t.press('Enter');
+		// The starter and the fox: a new game's team is caught, and that is the way so far.
+		expect(t.counted).toBe(2);
 		expect(doctor.line).toEqual({
 			say: 'flyLocked',
 			land: 'arctic',
 			from: 'nordland',
-			freed: 0,
+			caught: 2,
 			of: 50
 		});
-		expect(t.doctorSent()).toEqual([]);
+		expect(t.events.slice(before)).toEqual([]);
 	});
 
 	it('a land still locked is listed, greyed, and picking it says how far the kid is: no fare, no flight', () => {
@@ -1228,42 +1237,62 @@ describe('flying from the druid', () => {
 		const before = t.events.length;
 		t.press('Enter');
 		expect(doctor.shake?.row).toBe(doctor.cursor);
+		expect(t.counted).toBeGreaterThanOrEqual(37);
+		expect(t.counted).toBeLessThan(50);
 		expect(doctor.line).toEqual({
 			say: 'flyLocked',
 			land: 'arctic',
 			from: 'nordland',
-			freed: 37,
+			caught: t.counted,
 			of: 50
 		});
-		expect(doctorWords(doctor.line!)).toContain('37');
+		expect(doctorWords(doctor.line!)).toContain(String(t.counted));
 		// Nothing went to the authority: no fare was asked.
 		expect(t.events.slice(before)).toEqual([]);
 		expect(doctor.puzzle).toBeNull();
 	});
 
-	it('a hand-over that opens the land opens its Fly row at once, in the same visit', () => {
-		const nordland = getLand('nordland').species;
-		const t = flyer(
-			nordland.filter((id) => id !== 'fox'),
-			['nordland']
-		);
-		expect(doctor.unlocked).toEqual(['nordland']);
-		t.authority.dispatch({ type: 'doctor', intent: { type: 'hand-over', ids: ['fox-1'] } });
-		const sum = [...t.events].reverse().find((e) => e.type === 'doctor-visit-updated');
-		if (sum?.type !== 'doctor-visit-updated' || sum.state.phase.kind !== 'handing-over')
-			throw new Error('no sum');
-		t.authority.dispatch({
-			type: 'doctor',
-			intent: { type: 'answer', input: String(sum.state.phase.puzzle.answer) }
-		});
-		t.run(6);
-		expect(doctor.unlocked).toContain('arctic');
-		t.press(tabKey('fly'));
-		expect(doctor.tab).toBe('fly');
+	it('a land caught open and never visited: the card opens on the surprise; Yes flies with no fare', () => {
+		const t = flyer(getLand('nordland').species, ['nordland', 'arctic'], false);
+		expect(doctor.screen).toBe('offer');
+		expect(doctor.offer).toBe('arctic');
+		expect(doctor.confirm).toBe(1);
+		expect(doctor.line).toEqual({ say: 'surprise', from: 'nordland' });
+		expect(doctorWords(doctor.line!)).toContain('Nordland');
+		// A mashed Enter from the tent does nothing until the quiet moment has passed.
+		const before = t.events.length;
+		t.press('Enter');
+		expect(t.events.slice(before)).toEqual([]);
 		t.run(PICK_QUIET_SECONDS);
 		t.press('Enter');
-		expect(doctor.fare).toBe('arctic');
-		expect(doctor.shake).toBeNull();
+		expect(t.events.some((e) => e.type === 'travelled' && e.land === 'arctic')).toBe(true);
+		expect(
+			t.events.some(
+				(e) => e.type === 'doctor-visit-updated' && e.events.some((d) => d.type === 'fare-shown')
+			)
+		).toBe(false);
+		expect(doctor.active).toBe(false);
+		expect(game.land).toBe('arctic');
+	});
+
+	it('Not now, or Escape, opens the list; the next visit asks again', () => {
+		const t = flyer(getLand('nordland').species, ['nordland', 'arctic'], false);
+		t.run(PICK_QUIET_SECONDS);
+		t.press('ArrowLeft');
+		expect(doctor.confirm).toBe(0);
+		t.press('Enter');
+		t.run(1);
+		expect(doctor.screen).toBe('list');
+		expect(doctor.offer).toBeNull();
+		expect(doctor.line?.say).toMatch(/^hello/);
+		t.press('Escape');
+		expect(doctor.active).toBe(false);
+		t.authority.dispatch({ type: 'interact' });
+		expect(doctor.screen).toBe('offer');
+		t.press('Escape');
+		t.run(1);
+		expect(doctor.screen).toBe('list');
+		expect(game.land).toBe('nordland');
 	});
 
 	it('an unlocked land asks the fare; a miss asks another; the right answer flies there', () => {

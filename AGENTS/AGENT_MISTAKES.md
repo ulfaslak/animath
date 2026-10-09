@@ -1076,6 +1076,13 @@ To become `[learned]`: a line in [[DEVELOPMENT]] § Testing ideology saying a se
 - **`giveParty` in `local-authority.test.ts` swapped the team without recording it in the book**, a state no real game has (`?party=` and loading a save both run `recordParty`), so the pinned walks with a fox or a bear in front stayed green while the real game's [[CHEATSHEET]] recipes changed. A helper that sets an authority's private fields must keep every field the real path derives from them in step.
 - **Step recipes in [[CHEATSHEET]] went stale** when what decides a pick gained an input (the book). When a roll reads a new piece of state, re-derive every recipe written down from that roll by running the real game setup each recipe names.
 
+### 2026-10-09 — Catch one of each to open the next land (feat/unlock-on-caught, PR #219), self-testing and adversarial review
+
+- **A reward offered on its gate, not on what earns it.** The druid's surprise trip checked "unlocked and never visited", while its line says "you caught one of every animal". A land unlocked can outlive what unlocked it (an old rule's save keeps `unlocked`, a land grows a species), so the gate and the deed part. When a reward's words claim a deed, check the deed itself, not a flag it once set.
+- **A new phase that took every old intent.** `offering` let `fly` to the offered land through, so the same trip was on offer free and paid at once, depending only on the order of intents. A phase that offers something should refuse every intent that is not an answer to the offer.
+- **An overlay placed "a little above the middle" covered the trainer**, who stands at the middle of the explore screen. Place anything over the world relative to the trainer, and read a frame of it.
+- **A YAML block inserted after a line that was not its block's last** took the next key (`doctor.fly.touch`) into the new block. Insert after a block's last key, or before the next block's first; the copy test caught it.
+
 ### 2026-10-09 — The puzzle record and the topic bonus (feat/puzzle-stats-weighting), adversarial review and play-testing — an incentive measured where it is earned, not where it is recorded
 
 - **The bonus read misses that cost nothing.** The record took every answer, and the bonus read them all, but a wrong answer at the druid's draws a new puzzle and a friendly match changes nothing: a kid could miss sharing at the druid's twenty times and hit ×1.6 in every battle after. When a reward is derived from behaviour, feed it only behaviour that pays the price the reward balances; check every place the input event is emitted, not only the one the feature is about.

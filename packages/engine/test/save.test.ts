@@ -2767,10 +2767,10 @@ describe('lands in a save', () => {
 		expect(empty.party).toEqual([]);
 	});
 
-	it('mends a land left behind as it mends the land the player is in, and unlocks what its kinds set free unlock', () => {
+	it('mends a land left behind as it mends the land the player is in, and unlocks what its kinds caught unlock', () => {
 		const save = {
 			...written,
-			freed: getLand('nordland').species,
+			caught: getLand('nordland').species,
 			seen: getLand('nordland').species,
 			lands: [
 				{
@@ -2845,12 +2845,12 @@ describe('lands in a save', () => {
 				doc({ ...base, lands: [{ land: 'arctic', party: [], tokens: 0, items: [], worlds: [] }] })
 			)
 		).toBe(false);
-		// A save without `unlocked` holds what its kinds set free unlock: the same progress.
-		const freedAll = {
+		// A save without `unlocked` holds what its kinds caught unlock: the same progress.
+		const caughtAll = {
 			...a,
-			freed: [...getLand('nordland').species],
+			caught: [...getLand('nordland').species],
 			seen: [...getLand('nordland').species]
 		};
-		expect(sameProgress(freedAll, { ...freedAll, unlocked: ['nordland', 'arctic'] })).toBe(true);
+		expect(sameProgress(caughtAll, { ...caughtAll, unlocked: ['nordland', 'arctic'] })).toBe(true);
 	});
 });
