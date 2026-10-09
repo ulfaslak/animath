@@ -1075,7 +1075,7 @@ species:
     bare: Icefish
     attacks:
       ghost-swim: Ghost Swim
-      clear-blood: Clear Blood
+      clear-blood: Frost Shield
       croc-snap: Croc Snap
   harp-seal:
     name: Harp seal

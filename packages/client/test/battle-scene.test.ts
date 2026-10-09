@@ -16,6 +16,7 @@ import {
 	WILD_STATUS_BOX_SHORT
 } from '../src/render/battle-scene';
 import { SWIM_DEPTH } from '../src/render/follower';
+import { ARCTIC_COLORS, TILE_COLORS } from '../src/render/palette';
 import { svelteSources } from './source';
 import { turn } from './turn';
 
@@ -515,6 +516,30 @@ describe('out at sea', () => {
 		}
 		scene.end();
 		expect(bad).toEqual([]);
+	});
+
+	it('each sea is drawn in its own land’s colours: The Arctic’s darker water and a shore of ice and snow, never Nordland’s', () => {
+		// The Arctic's oceans were drawn under Nordland's deep water, with a sandy, grassy shore.
+		const inside = scene as unknown as { backdrops: Map<string, THREE.Group> };
+		const colours = (biome: 'sea' | 'arctic-ocean' | 'southern-ocean') => {
+			scene.begin(biome, 'otter', 'otter');
+			const hexes = new Set<number>();
+			inside.backdrops.get(biome)!.traverse((object) => {
+				const material = (object as THREE.Mesh).material as THREE.MeshLambertMaterial | undefined;
+				if (material?.color) hexes.add(material.color.getHex());
+			});
+			scene.end();
+			return hexes;
+		};
+		const nordland = colours('sea');
+		expect(nordland).toEqual(
+			new Set([TILE_COLORS.deepwater, TILE_COLORS.water, TILE_COLORS.sand, TILE_COLORS.grass])
+		);
+		for (const biome of ['arctic-ocean', 'southern-ocean'] as const) {
+			expect(colours(biome)).toEqual(
+				new Set([ARCTIC_COLORS.deepwater, ARCTIC_COLORS.water, TILE_COLORS.ice, TILE_COLORS.snow])
+			);
+		}
 	});
 
 	it('a battle on the water is fought at sea, a fish hooked through the ice too, on the sea of its pole', () => {
