@@ -38,7 +38,7 @@ import {
 	upgradeSave,
 	validateSave,
 	validateSaveWrite,
-	type SaveV4,
+	type SaveV5,
 	type SavedGame
 } from '../src/save.js';
 import { ITEM_IDS, gearOf } from '../src/items/catalog.js';
@@ -1063,7 +1063,7 @@ describe('newGame and restoreGame', () => {
 
 	it('a save with only the fields it needs gets facing down, no steps, tokens, items, puzzles solved, name, nothing cleared, no world left', () => {
 		const pos = findTile(SEED7, true);
-		const game = restoreGame({ ...v4, pos } as SaveV4, mint);
+		const game = restoreGame({ ...v4, pos } as SaveV5, mint);
 		expect(game).toMatchObject({
 			name: null,
 			home: WORLD,
@@ -1125,7 +1125,7 @@ describe('newGame and restoreGame', () => {
 
 	it('an item listed twice is owned once, and the list is never shared with the save', () => {
 		const pos = findTile(SEED7, true);
-		const save = { ...v4, pos, tokens: 5, items: ['axe', 'boat', 'axe'] } as SaveV4;
+		const save = { ...v4, pos, tokens: 5, items: ['axe', 'boat', 'axe'] } as SaveV5;
 		const game = restoreGame(save, mint);
 		expect(game.items).toEqual(['axe', 'boat']);
 		game.items.push('pickaxe');
@@ -1134,7 +1134,7 @@ describe('newGame and restoreGame', () => {
 
 	it('never strands the player: a blocked tile becomes the spawn tile', () => {
 		const blocked = findTile(SEED7, false);
-		const game = restoreGame({ ...v4, pos: blocked } as SaveV4, mint);
+		const game = restoreGame({ ...v4, pos: blocked } as SaveV5, mint);
 		expect(game.pos).toEqual(spawnPoint(SEED7));
 	});
 
@@ -1143,19 +1143,19 @@ describe('newGame and restoreGame', () => {
 		const shallow = waterNearSpawn('water');
 		const deep = waterNearSpawn('deepwater');
 		for (const pos of [shallow, deep]) {
-			const withBoat = restoreGame({ ...worldOne, pos, items: ['axe', 'boat'] } as SaveV4, mint);
+			const withBoat = restoreGame({ ...worldOne, pos, items: ['axe', 'boat'] } as SaveV5, mint);
 			expect(withBoat.pos).toEqual(pos);
 			// A game that somehow lost its boat (a hand-edited save) never leaves the
 			// kid stuck out on the water: it starts again from the spawn tile.
 			for (const items of [[], ['axe', 'pickaxe'], undefined]) {
-				const without = restoreGame({ ...worldOne, pos, items } as SaveV4, mint);
+				const without = restoreGame({ ...worldOne, pos, items } as SaveV5, mint);
 				expect(without.pos).toEqual(spawnPoint(SEED));
 			}
 		}
 		// Rock, trees and tents are no place for anyone, boat or not.
 		for (const kind of ['rock', 'tree', 'tent']) {
 			const pos = findKind(SEED, kind);
-			expect(restoreGame({ ...worldOne, pos, items: ['boat'] } as SaveV4, mint).pos).toEqual(
+			expect(restoreGame({ ...worldOne, pos, items: ['boat'] } as SaveV5, mint).pos).toEqual(
 				spawnPoint(SEED)
 			);
 		}
@@ -1163,10 +1163,10 @@ describe('newGame and restoreGame', () => {
 
 	it('cuts an HP above the maximum, gives an empty party the starter, and keeps a tired party tired', () => {
 		const pos = findTile(SEED7, true);
-		const over = restoreGame({ ...v4, pos, party: [animal(1, { hp: 999 })] } as SaveV4, mint);
+		const over = restoreGame({ ...v4, pos, party: [animal(1, { hp: 999 })] } as SaveV5, mint);
 		expect(over.party[0]!.hp).toBe(getAnimal('squirrel').maxHp);
 
-		const empty = restoreGame({ ...v4, pos, party: [] } as SaveV4, mint);
+		const empty = restoreGame({ ...v4, pos, party: [] } as SaveV5, mint);
 		expect(empty.party).toEqual(newGame(WORLD, testStarter()).party);
 
 		// A doctor's tent is a walk away from beside the spawn: a reload is no heal.
@@ -1176,7 +1176,7 @@ describe('newGame and restoreGame', () => {
 				...v4,
 				pos,
 				party: [animal(1, { hp: 0 }), animal(2, { speciesId: 'bear', hp: 0 })]
-			} as SaveV4,
+			} as SaveV5,
 			mint
 		);
 		expect(tired.party.map((a) => a.hp)).toEqual([0, 0]);
@@ -1205,7 +1205,7 @@ describe('newGame and restoreGame', () => {
 					if (round.every((k) => !isWalkable(k) && k !== 'tent')) walled = at;
 				}
 		expect(walled).not.toBeNull();
-		const walledIn = restoreGame({ ...v4, pos: walled!, party: tired } as SaveV4, mint);
+		const walledIn = restoreGame({ ...v4, pos: walled!, party: tired } as SaveV5, mint);
 		expect(walledIn.party.map((a) => a.hp)).toEqual([0, 0]);
 		expect(walledIn.pos).toEqual(walled);
 
@@ -1213,7 +1213,7 @@ describe('newGame and restoreGame', () => {
 		const deep = findKind(SEED7, 'deepwater');
 		const swimmers = [animal(1, { speciesId: 'otter', hp: 0 })];
 		const atSea = restoreGame(
-			{ ...v4, pos: deep, items: ['boat'], party: swimmers } as SaveV4,
+			{ ...v4, pos: deep, items: ['boat'], party: swimmers } as SaveV5,
 			mint
 		);
 		expect(atSea.pos).toEqual(deep);
@@ -1221,13 +1221,13 @@ describe('newGame and restoreGame', () => {
 		// A walker standing in the boat can battle on land: nobody needs the doctor, so nobody comes.
 		const walker = [...swimmers, animal(2, { speciesId: 'squirrel', hp: 3 })];
 		const inBoat = restoreGame(
-			{ ...v4, pos: deep, items: ['boat'], party: walker } as SaveV4,
+			{ ...v4, pos: deep, items: ['boat'], party: walker } as SaveV5,
 			mint
 		);
 		expect(inBoat.party.map((a) => a.hp)).toEqual([0, 3]);
 		// On land with only a sea animal standing: the grass is quiet, the tent a walk away.
 		const crab = [animal(1, { hp: 0 }), animal(2, { speciesId: 'crab', hp: 5 })];
-		const ashore = restoreGame({ ...v4, pos: spawn, party: crab } as SaveV4, mint);
+		const ashore = restoreGame({ ...v4, pos: spawn, party: crab } as SaveV5, mint);
 		expect(ashore.party.map((a) => a.hp)).toEqual([0, 5]);
 	});
 
@@ -1235,7 +1235,7 @@ describe('newGame and restoreGame', () => {
 		const pos = findTile(SEED7, true);
 		const sea = [animal(1, { speciesId: 'crab', hp: 0 }), animal(2, { speciesId: 'whale' })];
 		for (const items of [[], ['boat']]) {
-			const game = restoreGame({ ...v4, pos, items, party: sea } as SaveV4, mint);
+			const game = restoreGame({ ...v4, pos, items, party: sea } as SaveV5, mint);
 			expect(game.party.map((a) => a.speciesId)).toEqual(['crab', 'whale', STARTER_SPECIES]);
 			expect(game.party[leadIndex(game.party, 'land')]!.speciesId).toBe(STARTER_SPECIES);
 			// Somebody stood already: nobody is rested, the tired crab included.
@@ -1244,7 +1244,7 @@ describe('newGame and restoreGame', () => {
 		// Its id is new to the party, whatever the save called its animals.
 		const taken = [animal(1, { id: 'starter', speciesId: 'turtle' })];
 		const ids = restoreGame(
-			{ ...v4, pos, party: taken } as SaveV4,
+			{ ...v4, pos, party: taken } as SaveV5,
 			mints('starter', 'fresh')
 		).party.map((a) => a.id);
 		expect(ids).toEqual(['starter', 'fresh']);
@@ -1252,14 +1252,14 @@ describe('newGame and restoreGame', () => {
 		const deep = findKind(SEED7, 'deepwater');
 		const whale = [animal(1, { speciesId: 'whale', hp: 50 })];
 		const battle = startBattle(whale, makeWild('crab'), { realm: 'water' });
-		const atSea = { ...v4, pos: deep, items: ['boat'], party: whale, battle } as SaveV4;
+		const atSea = { ...v4, pos: deep, items: ['boat'], party: whale, battle } as SaveV5;
 		const back = restoreGame(JSON.parse(JSON.stringify(atSea)), mint);
 		expect(back.battle).toBeNull();
 		expect(back.pos).toEqual(deep);
 		expect(back.party.map((a) => a.speciesId)).toEqual(['whale', STARTER_SPECIES]);
 		// An animal that walks, even tired, is enough: the doctor is a walk away.
 		const walker = [animal(1, { speciesId: 'crab' }), animal(2, { speciesId: 'frog', hp: 0 })];
-		expect(restoreGame({ ...v4, pos, party: walker } as SaveV4, mint).party).toHaveLength(2);
+		expect(restoreGame({ ...v4, pos, party: walker } as SaveV5, mint).party).toHaveLength(2);
 	});
 
 	it('over random saves of every shape, the restored game is always playable', () => {
@@ -1289,7 +1289,7 @@ describe('newGame and restoreGame', () => {
 				facing: rng.pick(['up', 'down', 'left', 'right'] as Direction[]),
 				steps: rng.int(0, 10_000),
 				items: rng.pick([[], ['boat'], ['axe'], ['boat', 'boat']])
-			} as SaveV4;
+			} as SaveV5;
 			const game = restoreGame(save, mint);
 			const gear = gearOf(game);
 			const note = (broken: string) => {
@@ -1366,7 +1366,7 @@ describe('newGame and restoreGame', () => {
 			{ id: 'sq2', speciesId: 'squirrel', hp: getAnimal('squirrel').maxHp }
 		];
 		const pos = findTile(SEED, true);
-		const game = restoreGame({ ...written, world: 1, pos, party } as SaveV4, mint);
+		const game = restoreGame({ ...written, world: 1, pos, party } as SaveV5, mint);
 		expect(game.party.map((a) => a.id)).toEqual(['fox', 'sq1', 'sq2']);
 		expect(game.party[leadIndex(game.party)]!.id).toBe('fox');
 		// Over random parties of every kind in any order, the lead is the lead before.
@@ -1379,7 +1379,7 @@ describe('newGame and restoreGame', () => {
 			});
 			if (!mixed.some((a) => a.hp > 0)) continue;
 			const restored = restoreGame(
-				{ ...written, world: 1, pos, party: mixed } as SaveV4,
+				{ ...written, world: 1, pos, party: mixed } as SaveV5,
 				mint
 			).party;
 			const was = mixed[leadIndex(mixed)]!.id;
@@ -1437,7 +1437,7 @@ describe('the engine mints no ids', () => {
 	it('the starter restoreGame adds, to an empty party or one of only sea animals, has the minted id', () => {
 		for (const party of [[], sea]) {
 			const mintId = mints('minted-1');
-			const game = restoreGame({ ...v4, pos, party } as SaveV4, mintId);
+			const game = restoreGame({ ...v4, pos, party } as SaveV5, mintId);
 			expect(mintId.calls).toBe(1);
 			const joined = game.party.filter((a) => !party.some((b) => b.id === a.id));
 			expect(joined).toEqual([{ ...defaultStarter(), id: 'minted-1' }]);
@@ -1472,17 +1472,17 @@ describe('the engine mints no ids', () => {
 			animal(2, { id: 'y', speciesId: 'whale' })
 		];
 		const mintId = mints('y', 'x', 'z');
-		const game = restoreGame({ ...v4, pos, party: taken } as SaveV4, mintId);
+		const game = restoreGame({ ...v4, pos, party: taken } as SaveV5, mintId);
 		expect(game.party.map((a) => a.id)).toEqual(['x', 'y', 'z']);
 		expect(mintId.calls).toBe(3);
-		expect(() => restoreGame({ ...v4, pos, party: taken } as SaveV4, () => 'x')).toThrow(
+		expect(() => restoreGame({ ...v4, pos, party: taken } as SaveV5, () => 'x')).toThrow(
 			/already in the party/
 		);
 	});
 
 	it('the same save and the same minted id give the same game', () => {
 		for (const party of [[], sea, v4.party]) {
-			const save = { ...v4, pos, party } as SaveV4;
+			const save = { ...v4, pos, party } as SaveV5;
 			expect(restoreGame(save, mints('m'))).toEqual(restoreGame(save, mints('m')));
 		}
 	});
@@ -1504,7 +1504,7 @@ describe('the engine mints no ids', () => {
 				minted.push(id);
 				return id;
 			};
-			const game = restoreGame({ ...v4, pos, party } as SaveV4, mintId);
+			const game = restoreGame({ ...v4, pos, party } as SaveV5, mintId);
 			const out = game.party.map((a) => a.id);
 			expect(new Set(out).size, `save ${s}`).toBe(out.length);
 			const added = out.filter((id) => !ids.includes(id));
@@ -1716,7 +1716,7 @@ describe('the animal book in a save', () => {
 		expect(inBattle.caught).toEqual(['squirrel', 'fox']);
 		// Standing somewhere else now, the battle is dropped, as if the kid had run away: the
 		// rabbit was met all the same.
-		const moved = restoreGame({ ...doc, pos: findTile(SEED7, false) } as unknown as SaveV4, mint);
+		const moved = restoreGame({ ...doc, pos: findTile(SEED7, false) } as unknown as SaveV5, mint);
 		expect(moved.battle).toBeNull();
 		expect(moved.seen).toContain('rabbit');
 		expect(moved.caught).not.toContain('rabbit');
@@ -1731,7 +1731,7 @@ describe('the animal book in a save', () => {
 				seen: ['bear', 'squirrel', 'fox', 'wolf', 'rabbit'],
 				caught: ['rabbit', 'squirrel', 'fox'],
 				freed: ['rabbit', 'fox']
-			} as SaveV4,
+			} as SaveV5,
 			mint
 		);
 		// The rabbit went home with the doctor long ago, and one fox of several; the bear and the
@@ -1745,7 +1745,7 @@ describe('the animal book in a save', () => {
 	it('mends a set-free list a hand left odd: each kind once, every one seen, nothing the catalog lacks', () => {
 		const pos = findTile(SEED7, true);
 		const game = restoreGame(
-			{ ...written, pos, seen: ['fox'], caught: [], freed: ['otter', 'otter', 'fox'] } as SaveV4,
+			{ ...written, pos, seen: ['fox'], caught: [], freed: ['otter', 'otter', 'fox'] } as SaveV5,
 			mint
 		);
 		expect(game.freed).toEqual(['otter', 'fox']);
@@ -1763,7 +1763,7 @@ describe('the animal book in a save', () => {
 				pos,
 				seen: ['rabbit', 'rabbit'],
 				caught: ['bear', 'rabbit', 'bear']
-			} as SaveV4,
+			} as SaveV5,
 			mint
 		);
 		expect(game.seen).toEqual(['rabbit', 'bear', 'squirrel', 'fox']);
@@ -1773,7 +1773,7 @@ describe('the animal book in a save', () => {
 	it('gives the starter a party got back to the book too: every animal a kid has is caught', () => {
 		const pos = findTile(SEED7, true);
 		const game = restoreGame(
-			{ ...written, pos, party: [], seen: ['wolf'], caught: [] } as SaveV4,
+			{ ...written, pos, party: [], seen: ['wolf'], caught: [] } as SaveV5,
 			mint
 		);
 		expect(game.party.map((a) => a.speciesId)).toEqual([STARTER_SPECIES]);
@@ -1798,8 +1798,8 @@ describe('the animal book in a save', () => {
 describe("the player's name in a save", () => {
 	it('comes back as saved, and is written only once there is one', () => {
 		const pos = findTile(SEED7, true);
-		expect(restoreGame({ ...v4, pos, name: 'Nini' } as SaveV4, mint).name).toBe('Nini');
-		expect(restoreGame({ ...v4, pos, name: 'Ørn-Åse 2' } as SaveV4, mint).name).toBe('Ørn-Åse 2');
+		expect(restoreGame({ ...v4, pos, name: 'Nini' } as SaveV5, mint).name).toBe('Nini');
+		expect(restoreGame({ ...v4, pos, name: 'Ørn-Åse 2' } as SaveV5, mint).name).toBe('Ørn-Åse 2');
 		expect('name' in saveDocument(newGame(1, testStarter()), { lineage: 'L', seq: 1 })).toBe(false);
 		expect(saveDocument(newGame(1, testStarter(), 'Bo'), { lineage: 'L', seq: 1 }).name).toBe('Bo');
 	});
@@ -1807,10 +1807,10 @@ describe("the player's name in a save", () => {
 	it('a stored name that is not one (hand-edited, or a rule grown since) loads as no name: the kid is asked again', () => {
 		const pos = findTile(SEED7, true);
 		for (const name of ['x', 'Fuck', 'a'.repeat(MAX_NAME_LENGTH + 1), 'Pip!', '  ']) {
-			expect(restoreGame({ ...v4, pos, name } as SaveV4, mint).name, name).toBeNull();
+			expect(restoreGame({ ...v4, pos, name } as SaveV5, mint).name, name).toBeNull();
 		}
 		// One that only needed tidying comes back tidy.
-		expect(restoreGame({ ...v4, pos, name: '  Ida   Marie ' } as SaveV4, mint).name).toBe(
+		expect(restoreGame({ ...v4, pos, name: '  Ida   Marie ' } as SaveV5, mint).name).toBe(
 			'Ida Marie'
 		);
 	});
@@ -1849,7 +1849,7 @@ describe('the worlds left behind, in a save', () => {
 				{ world: WORLD, pos: { x: 1, y: 1 }, facing: 'up' },
 				{ world: 3, pos: { x: 2, y: 2 }, facing: 'up', edits: ['0,0:11', '0,0:22'] }
 			]
-		} as SaveV4;
+		} as SaveV5;
 		expect(restoreGame(doc, mint).worlds).toEqual([
 			{ world: 3, pos: { x: 2, y: 2 }, facing: 'up', edits: ['0,0:1122'] }
 		]);
@@ -1946,20 +1946,20 @@ describe('the tiles a kid cleared', () => {
 		expect('edits' in saveDocument(newGame(1, testStarter()), { lineage: 'L', seq: 1 })).toBe(
 			false
 		);
-		expect(restoreGame(v4 as SaveV4, mint).edits).toEqual([]);
+		expect(restoreGame(v4 as SaveV5, mint).edits).toEqual([]);
 	});
 
 	it('are written canonically, whatever order a save held them in', () => {
 		const shuffled = new Rng(4).shuffle([...edits.encode()]);
 		const pos = findTile(SEED, true);
-		const restored = restoreGame({ ...written, world: 1, pos, edits: shuffled } as SaveV4, mint);
+		const restored = restoreGame({ ...written, world: 1, pos, edits: shuffled } as SaveV5, mint);
 		expect(restored.edits).toEqual(edits.encode());
 	});
 
 	it('keep a player standing where they cleared: a cleared tree is ground to stand on', () => {
 		// Stand on a cleared tree or rock: without the overlay that tile is blocked.
 		const on = cleared[0]!;
-		const save = { ...written, world: 1, pos: on, edits: [...edits.encode()] } as SaveV4;
+		const save = { ...written, world: 1, pos: on, edits: [...edits.encode()] } as SaveV5;
 		expect(restoreGame(save, mint).pos).toEqual(on);
 		// The same save without its edits cannot stand there, and goes to the spawn tile.
 		expect(restoreGame({ ...save, edits: undefined }, mint).pos).toEqual(spawnPoint(SEED));
@@ -2326,30 +2326,30 @@ describe('which save wins', () => {
 			lineage: 'game-z',
 			seq: 77
 		};
-		expect(sameProgress(written as SaveV4, moved as SaveV4)).toBe(true);
+		expect(sameProgress(written as SaveV5, moved as SaveV5)).toBe(true);
 		// Key order and absent-versus-undefined do not matter.
 		const { party, ...rest } = written;
 		const reordered = JSON.parse(JSON.stringify({ party, ...rest }));
-		expect(sameProgress(written as SaveV4, { ...reordered, extra: undefined })).toBe(true);
+		expect(sameProgress(written as SaveV5, { ...reordered, extra: undefined })).toBe(true);
 		// A save from before the shop has no tokens and no items: the same as none written out.
-		expect(sameProgress(written as SaveV4, { ...moved, tokens: 0, items: [] } as SaveV4)).toBe(
+		expect(sameProgress(written as SaveV5, { ...moved, tokens: 0, items: [] } as SaveV5)).toBe(
 			true
 		);
 		// One from before the count of puzzles has solved none: the same as 0 written out,
 		// both ways, so a tab that loaded it can carry on from a tab that walked and wrote 0.
-		expect(sameProgress(written as SaveV4, { ...moved, solved: 0 } as SaveV4)).toBe(true);
-		expect(sameProgress({ ...moved, solved: 0 } as SaveV4, written as SaveV4)).toBe(true);
+		expect(sameProgress(written as SaveV5, { ...moved, solved: 0 } as SaveV5)).toBe(true);
+		expect(sameProgress({ ...moved, solved: 0 } as SaveV5, written as SaveV5)).toBe(true);
 		// One from before the tools has cleared nothing: the same as an empty overlay; and one
 		// that never travelled has left no world behind.
-		expect(sameProgress(written as SaveV4, { ...moved, edits: [], worlds: [] } as SaveV4)).toBe(
+		expect(sameProgress(written as SaveV5, { ...moved, edits: [], worlds: [] } as SaveV5)).toBe(
 			true
 		);
 		// One from before the animal book holds the book its party proves: the same as that book
 		// written out, in whichever order, both ways, so a tab that loaded it can carry on from a
 		// tab that walked and wrote the book.
 		const book = { seen: ['fox', 'squirrel'], caught: ['squirrel', 'fox'], freed: [] };
-		expect(sameProgress(written as SaveV4, { ...moved, ...book } as SaveV4)).toBe(true);
-		expect(sameProgress({ ...moved, ...book } as SaveV4, written as SaveV4)).toBe(true);
+		expect(sameProgress(written as SaveV5, { ...moved, ...book } as SaveV5)).toBe(true);
+		expect(sameProgress({ ...moved, ...book } as SaveV5, written as SaveV5)).toBe(true);
 		for (const changed of [
 			// A new animal met, or caught, is something done: the book is progress.
 			{ ...written, seen: ['squirrel', 'fox', 'wolf'] },
@@ -2376,11 +2376,11 @@ describe('which save wins', () => {
 			// A tree chopped down is something done, too.
 			{ ...written, edits: ['0,0:11'] }
 		]) {
-			expect(sameProgress(written as SaveV4, changed as SaveV4)).toBe(false);
+			expect(sameProgress(written as SaveV5, changed as SaveV5)).toBe(false);
 		}
 	});
 
-	it('saveExtras returns only the fields SaveV4 does not name, and saveDocument writes them back', () => {
+	it('saveExtras returns only the fields SaveV5 does not name, and saveDocument writes them back', () => {
 		const withExtras = {
 			...written,
 			name: 'Nini',
@@ -2388,7 +2388,7 @@ describe('which save wins', () => {
 			solved: 312,
 			inventory: { leashes: 2 },
 			battle: { step: 1 }
-		} as SaveV4;
+		} as SaveV5;
 		expect(saveExtras(withExtras)).toEqual({ inventory: { leashes: 2 } });
 		const doc = saveDocument(
 			newGame(1, testStarter()),
@@ -2607,13 +2607,13 @@ describe('lands in a save', () => {
 	});
 
 	it('an empty party in a later land waits for a starter; in Nordland it gets the starter, as ever', () => {
-		const arctic = restoreGame({ ...written, land: 'arctic', party: [] } as SaveV4, mint);
+		const arctic = restoreGame({ ...written, land: 'arctic', party: [] } as SaveV5, mint);
 		expect(arctic.party).toEqual([]);
-		const nordland = restoreGame({ ...written, party: [] } as SaveV4, mint);
+		const nordland = restoreGame({ ...written, party: [] } as SaveV5, mint);
 		expect(nordland.party.map((a) => a.speciesId)).toEqual([STARTER_SPECIES]);
 		// A land left behind is never given one: nobody plays it until the kid flies back.
 		const left = restoreGame(
-			{ ...written, lands: [{ land: 'arctic', party: [] }] } as SaveV4,
+			{ ...written, lands: [{ land: 'arctic', party: [] }] } as SaveV5,
 			mint
 		);
 		expect(left.lands[0]!.party).toEqual([]);
@@ -2623,11 +2623,11 @@ describe('lands in a save', () => {
 		// The adversarial review of #196: a sea-only party in The Arctic got Nordland's squirrel.
 		// Since #192 The Arctic has starters of its own, and its first one joins.
 		const seaOnly = restoreGame(
-			{ ...written, land: 'arctic', party: [{ id: 'c1', speciesId: 'crab', hp: 10 }] } as SaveV4,
+			{ ...written, land: 'arctic', party: [{ id: 'c1', speciesId: 'crab', hp: 10 }] } as SaveV5,
 			mint
 		);
 		expect(seaOnly.party.map((a) => a.speciesId)).toEqual(['crab', 'arctic-fox']);
-		const empty = restoreGame({ ...written, land: 'arctic', party: [] } as SaveV4, mint);
+		const empty = restoreGame({ ...written, land: 'arctic', party: [] } as SaveV5, mint);
 		expect(empty.party).toEqual([]);
 	});
 
@@ -2651,7 +2651,7 @@ describe('lands in a save', () => {
 					]
 				}
 			]
-		} as SaveV4;
+		} as SaveV5;
 		const game = restoreGame(save, mint);
 		const left = game.lands[0]!;
 		// HP cut to the maximum, the nickname cleaned, the party in species bundles.
@@ -2688,7 +2688,7 @@ describe('lands in a save', () => {
 					worlds: [{ world: 2, pos: { x: 0, y: 0 }, facing: 'down', edits: big(9000) }]
 				}
 			]
-		} as SaveV4;
+		} as SaveV5;
 		const game = restoreGame(save, mint);
 		const length = (e: readonly string[]) => (e.length === 0 ? 0 : JSON.stringify(e).length);
 		expect(game.edits).toEqual(here);
@@ -2697,7 +2697,7 @@ describe('lands in a save', () => {
 	});
 
 	it('counts the land, the lands left and the lands unlocked as progress, never whereabouts', () => {
-		const base = restoreGame(written as SaveV4, mint);
+		const base = restoreGame(written as SaveV5, mint);
 		const doc = (g: SavedGame) => saveDocument(g, { lineage: 'game-a', seq: 3 });
 		const a = doc(base);
 		expect(sameProgress(a, doc({ ...base, pos: { x: 0, y: 0 } }))).toBe(true);

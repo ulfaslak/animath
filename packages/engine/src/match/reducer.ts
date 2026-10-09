@@ -2,6 +2,7 @@ import { getAnimal } from '../animals/catalog.js';
 import type { AnimalInstance, AttackLevel } from '../animals/types.js';
 import { attackPuzzle, attackRefusal, landHit } from '../battle/attack.js';
 import { leadIndex } from '../party/reducer.js';
+import { puzzleTopic } from '../puzzles/record.js';
 import { checkAnswer } from '../puzzles/registry.js';
 import { Rng, hashInts, hashString } from '../rng.js';
 import { matchTeam } from './team.js';
@@ -175,7 +176,9 @@ function answer(state: MatchState, side: MatchSide, input: string): MatchStep {
 	const { attackIndex, level, puzzle } = phase;
 	const foe = otherSide(side);
 	const correct = checkAnswer(puzzle, input);
-	const events: MatchEvent[] = [{ type: 'answer-judged', side, correct }];
+	const events: MatchEvent[] = [
+		{ type: 'answer-judged', side, correct, topic: puzzleTopic(puzzle) }
+	];
 
 	if (!correct) {
 		events.push({ type: 'missed', attacker: side, attackIndex, level });

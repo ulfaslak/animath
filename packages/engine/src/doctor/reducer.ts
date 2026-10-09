@@ -4,6 +4,7 @@ import { ITEM_IDS, isItemId, type ItemId } from '../items/catalog.js';
 import { FIRST_LAND, type LandId } from '../lands/ids.js';
 import { availableLands, farePuzzle, flyRefusal, priceIn, shopFor } from '../lands/lands.js';
 import { healingDifficulty } from '../puzzles/difficulty.js';
+import { puzzleTopic } from '../puzzles/record.js';
 import { checkAnswer, generatePuzzle } from '../puzzles/registry.js';
 import type { Puzzle, PuzzleKind } from '../puzzles/types.js';
 import { Rng, hashInts } from '../rng.js';
@@ -240,7 +241,8 @@ function answer(state: DoctorState, seed: number, input: string): DoctorStep {
 		type: 'answer-judged',
 		input,
 		correct,
-		answer: phase.puzzle.answer
+		answer: phase.puzzle.answer,
+		topic: puzzleTopic(phase.puzzle)
 	};
 	switch (phase.kind) {
 		case 'solving':

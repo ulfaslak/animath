@@ -94,7 +94,7 @@ export const sessions = pgTable(
 );
 
 /**
- * The one save an account keeps: the same document as the browser's (`SaveV4`,
+ * The one save an account keeps: the same document as the browser's (`SaveV5`,
  * the engine's), written only with a higher `seq` (`writeAccountSave`). `seq`
  * is the document's own `seq`, kept beside it.
  */

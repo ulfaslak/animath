@@ -1,5 +1,5 @@
 import type { AnimalInstance, AttackLevel } from '../animals/types.js';
-import type { Puzzle, PuzzleKind } from '../puzzles/types.js';
+import type { Puzzle, PuzzleKind, PuzzleTopic } from '../puzzles/types.js';
 
 /**
  * A friendly match between two players ([[PRODUCT]] §4 "Friendly matches").
@@ -135,7 +135,16 @@ export type MatchEvent =
 			level: AttackLevel;
 			puzzle: ShownPuzzle;
 	  }
-	| { type: 'answer-judged'; side: MatchSide; correct: boolean }
+	| {
+			type: 'answer-judged';
+			side: MatchSide;
+			correct: boolean;
+			/**
+			 * The puzzle's topic (`puzzleTopic`), which its kid's record counts it
+			 * under. Missing from a server from before topics: not recorded.
+			 */
+			topic?: PuzzleTopic;
+	  }
 	| {
 			type: 'hit';
 			attacker: MatchSide;
