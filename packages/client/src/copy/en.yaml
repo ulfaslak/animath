@@ -1695,6 +1695,7 @@ doctor:
     # Bye is lit.
     pick: Where do you want to fly?
     keys: ↑ ↓ choose · ← → tabs · Enter fly · Esc bye
+    touch: Tap a land to fly there
   # The surprise: a kid who caught one of every animal of a land is offered a trip to the next
   # one, with no puzzle, as the card opens, until they go. {from} is the land they stand in,
   # {land} the land offered, both as a sentence names them (lands.*.inLine).
@@ -1706,7 +1707,6 @@ doctor:
     notNow: Not now
     yes: Yes, let's fly!
     keys: ← → choose · Enter pick · Esc not now
-    touch: Tap a land to fly there
   # The last row of the list, and its key.
   bye: Bye
   byeKey: Esc

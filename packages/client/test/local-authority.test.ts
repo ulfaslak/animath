@@ -3684,31 +3684,39 @@ describe('LocalAuthority: lands (#191)', () => {
 		expect(s.events.at(-1)?.type).toMatch(/player-(moved|blocked)/);
 	});
 
-	it('says a land is unlocked at the hand-over that sets free the last kind it asked for, once', () => {
+	it('says a land is unlocked at the leash throw that catches the last kind it asked for, once, and the witch doctor offers the trip', () => {
 		const all = getLand('nordland').species;
-		const s = session({ party: [animal('squirrel'), animal('fox')] });
-		const game = s.authority.snapshot();
+		// A saved battle against a shrew with 1 HP left, every other kind of Nordland caught.
+		const bear = { ...animal('bear'), id: 'bear-1' };
+		const s: Session = { authority: new LocalAuthority(), events: [] };
+		s.authority.subscribe((e) => s.events.push(e));
 		s.authority.start({
-			game: { ...game, seen: [...all], caught: [...all], freed: all.filter((id) => id !== 'fox') }
+			game: {
+				...newGame(1, bear),
+				seen: [...all],
+				caught: all.filter((id) => id !== 'shrew'),
+				battle: startBattle([bear], { id: 'w', speciesId: 'shrew', hp: 1 })
+			}
 		});
 		expect(welcome(s).unlocked).toEqual(['nordland']);
-		walkToTent(s);
-		s.authority.dispatch({ type: 'interact' });
-		const fox = party(s).find((a) => a.speciesId === 'fox')!;
-		doctorIntent(s, { type: 'hand-over', ids: [fox.id] });
-		answerDoctor(s, true);
+		for (let i = 0; i < 20 && latestBattle(s).phase.kind !== 'ended'; i++) {
+			s.authority.dispatch({ type: 'battle', intent: { type: 'throw-leash' } });
+		}
+		expect(latestBattle(s).phase).toEqual({ kind: 'ended', outcome: 'caught' });
 		const unlocked = s.events.filter((e) => e.type === 'unlocked-changed');
 		expect(unlocked).toEqual([{ type: 'unlocked-changed', unlocked: ['nordland', 'arctic'] }]);
-		// Right after the book that set the fox free.
+		// Right after the book that caught the shrew, before the battle ends.
 		const at = lastIndexOf(s, 'unlocked-changed');
 		expect(s.events[at - 1]?.type).toBe('book-changed');
+		expect(lastIndexOf(s, 'battle-ended')).toBeGreaterThan(at);
 		expect(s.authority.snapshot().unlocked).toEqual(['nordland', 'arctic']);
-		// The witch doctor knows at once, in the same visit: the fare is asked.
-		doctorIntent(s, { type: 'fly', land: 'arctic' });
-		const last = s.events.at(-1);
-		expect(last?.type === 'doctor-visit-updated' && last.events.map((e) => e.type)).toEqual([
-			'fare-shown'
-		]);
+		// At a tent the witch doctor offers the trip, and a yes flies there with no fare.
+		walkToTent(s);
+		s.authority.dispatch({ type: 'interact' });
+		expect(visit(s).phase).toEqual({ kind: 'offering', land: 'arctic' });
+		doctorIntent(s, { type: 'accept-offer' });
+		expect(s.events.some((e) => e.type === 'travelled' && e.land === 'arctic')).toBe(true);
+		expect(s.authority.snapshot().land).toBe('arctic');
 	});
 });
 
@@ -3782,35 +3790,47 @@ describe('LocalAuthority: lands, from the adversarial review of #196', () => {
 		expect(restoreGame(read.save, mint)).toEqual(snap);
 	});
 
-	it('a land unlocked at the witch doctor is open to fly to in the same visit', () => {
+	it('offers the surprise at every visit until the kid has been there, and never after', () => {
 		const all = getLand('nordland').species;
-		// Every land built (`?lands`), so only the unlock stands in the way.
-		const s = session({ party: [animal('squirrel'), animal('fox')], lands: true });
+		const s = session({ party: [animal('squirrel'), animal('fox')] });
 		const game = s.authority.snapshot();
-		s.authority.start({
-			game: {
-				...game,
-				seen: [...all],
-				caught: [...all],
-				freed: all.filter((id) => id !== 'fox'),
-				unlocked: ['nordland']
-			}
-		});
+		s.authority.start({ game: { ...game, seen: [...all], caught: [...all] } });
+		expect(s.authority.snapshot().unlocked).toEqual(['nordland', 'arctic']);
 		walkToTent(s);
 		s.authority.dispatch({ type: 'interact' });
-		doctorIntent(s, { type: 'fly', land: 'arctic' });
-		const locked = s.events.at(-1);
-		expect(locked?.type === 'doctor-visit-updated' && locked.events).toEqual([
-			{ type: 'rejected', reason: 'land-locked' }
-		]);
-		const fox = party(s).find((a) => a.speciesId === 'fox')!;
-		doctorIntent(s, { type: 'hand-over', ids: [fox.id] });
+		expect(visit(s).phase).toEqual({ kind: 'offering', land: 'arctic' });
+		// Not now: the list, and the next visit asks again.
+		doctorIntent(s, { type: 'back' });
+		expect(visit(s).phase.kind).toBe('choose-patient');
+		doctorIntent(s, { type: 'leave' });
+		s.authority.dispatch({ type: 'interact' });
+		expect(visit(s).phase).toEqual({ kind: 'offering', land: 'arctic' });
+		doctorIntent(s, { type: 'accept-offer' });
+		expect(s.authority.snapshot().land).toBe('arctic');
+		// In The Arctic, Nordland is never offered; flown back for the fare, nothing is.
+		s.authority.dispatch({ type: 'pick-starter', speciesId: getLand('arctic').starters[0]! });
+		s.authority.dispatch({ type: 'interact' });
+		expect(visit(s).phase.kind).toBe('choose-patient');
+		doctorIntent(s, { type: 'fly', land: 'nordland' });
 		answerDoctor(s, true);
-		expect(s.authority.snapshot().unlocked).toEqual(['nordland', 'arctic']);
-		// Asked before the hand-over, it was locked; now the fare is asked.
-		doctorIntent(s, { type: 'fly', land: 'arctic' });
-		expect(visit(s).phase.kind).toBe('paying-fare');
-		expect(visit(s).unlocked).toEqual(['nordland', 'arctic']);
+		expect(s.authority.snapshot().land).toBe('nordland');
+		s.authority.dispatch({ type: 'interact' });
+		expect(visit(s).phase.kind).toBe('choose-patient');
+		// A reload beside the tent, The Arctic left behind in the save: still been there.
+		const back = session();
+		back.authority.start({ game: s.authority.snapshot() });
+		back.authority.dispatch({ type: 'interact' });
+		expect(visit(back).phase.kind).toBe('choose-patient');
+	});
+
+	it('offers no surprise in a game a switch opened every land in', () => {
+		const all = getLand('nordland').species;
+		const s = session({ party: [animal('squirrel')], lands: true });
+		const game = s.authority.snapshot();
+		s.authority.start({ game: { ...game, seen: [...all], caught: [...all] } });
+		walkToTent(s);
+		s.authority.dispatch({ type: 'interact' });
+		expect(visit(s).phase.kind).toBe('choose-patient');
 	});
 });
 
