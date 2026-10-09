@@ -13,6 +13,7 @@
 		"lint": "prettier --check . && node scripts/check-learned.mjs",
 		"format": "prettier --write .",
 		"players": "packages/server/node_modules/.bin/tsx scripts/players.mts",
+		"fit": "packages/server/node_modules/.bin/tsx scripts/fit.mts",
 		"db:up": "docker compose up -d",
 		"db:down": "docker compose down",
 		"db:migrate": "pnpm -F @mathgame/server migrate",

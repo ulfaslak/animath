@@ -126,7 +126,7 @@ Pick, without asking, the testing approaches from below that apply. Multiple can
    - **Mode, grid and numeric edges**: explore ↔ battle ↔ doctor ↔ pause, reload mid-battle; chunk borders, negative coordinates, the spawn tile; 0 HP, difficulty 1 and 10, a party of one.
    - **Input edges**: key mashing, tab blur with a key down, a `dt` spike; a drag to the very first and last place, and held still at an edge; a double click on something that moves when clicked; a slow tap held still.
    - **Input modes and shared selectors**: keyboard and `--touch` at 1024×768; a rule added to a class its siblings share changes every sibling, so measure them all.
-   - **Rendered layout, not just the DOM**: real lengths (long species names), the panel at 1024×768, an HP bar at 1/100. Check the pixel, not the class name.
+   - **Rendered layout, not just the DOM**: real lengths (long species names), the panel at 1024×768, an HP bar at 1/100. Check the pixel, not the class name. `pnpm fit` measures the title, explore, the pause menu and the druid's card with the widest names at every size, by keys and by touch, in both languages.
    - **A new figure** where a kid meets it: in a battle, from behind, close up, as the kid's own animal (`?party=<id>`), not only in `?zoo`.
    - **Adjacent features**: the save round-trip, and after `git merge origin/main` every overlay the merge brought in (`git diff --stat <merge-base> origin/main -- packages/client/src/ui`).
    - **Duplicated rosters**: a new puzzle kind, tile kind, biome, phase, intent or species: grep for a sibling member, in the code and in the DNA's prose, to find every list that must learn the new one. A new event fails `handlers.test.ts` on purpose, with the list of every file that branches on an event's type.
