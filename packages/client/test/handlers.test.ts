@@ -329,6 +329,7 @@ describe('the handlers of the authority’s events', () => {
 		'party-edited',
 		'belongings-changed',
 		'solved-changed',
+		'puzzles-changed',
 		'book-changed',
 		'unlocked-changed',
 		'doctor-visit-started',
