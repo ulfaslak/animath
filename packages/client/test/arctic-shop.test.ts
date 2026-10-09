@@ -313,4 +313,41 @@ describe('fishing', () => {
 		// The kid is where they were, facing the hole.
 		expect(game.pos).toEqual(pos);
 	});
+
+	it('casts replay: two games casting the same way hook the same animals on the same casts, and a game picked up between casts casts on alike', () => {
+		const { pos, facing } = besideKind('hole');
+		const start = arcticGame(pos, facing, ['fishing-rod'], [animal('fox'), animal('puffin')]);
+		/** A bare authority on `game`, and its events. */
+		const open = (game: SavedGame) => {
+			const authority = new LocalAuthority();
+			const events: GameEvent[] = [];
+			authority.subscribe((e) => events.push(e));
+			authority.start({ game });
+			return { authority, events };
+		};
+		/** `n` casts, each a bite run from at once: what each brought up, the hooked animal by kind. */
+		const cast = (s: ReturnType<typeof open>, n: number) => {
+			const seen: string[] = [];
+			for (let i = 0; i < n; i++) {
+				const from = s.events.length;
+				s.authority.dispatch({ type: 'interact' });
+				const line = s.events.slice(from).find((e) => e.type === 'line-cast');
+				if (line?.type !== 'line-cast') throw new Error(`cast ${i}: no line cast`);
+				seen.push(line.outcome === 'bite' ? `bite ${line.speciesId}` : line.outcome);
+				if (line.outcome === 'bite') {
+					s.authority.dispatch({ type: 'battle', intent: { type: 'flee' } });
+				}
+			}
+			return seen;
+		};
+		const a = cast(open(start), 30);
+		expect(cast(open(start), 30)).toEqual(a);
+		// Both kinds of cast, and more than one animal: a stream that ignored its step would not.
+		expect(a.filter((c) => c.startsWith('bite')).length).toBeGreaterThan(3);
+		expect(a).toContain('nothing');
+		// Cut after 12 casts, saved, and picked up in a new page: the next 18 are the same.
+		const first = open(start);
+		expect(cast(first, 12)).toEqual(a.slice(0, 12));
+		expect(cast(open(first.authority.snapshot()), 18)).toEqual(a.slice(12));
+	});
 });
