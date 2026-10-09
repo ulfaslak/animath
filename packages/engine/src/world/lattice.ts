@@ -1,7 +1,8 @@
 /**
  * The tents' lattice: a tent stands only on a tile where `x mod 23 = 5` and
- * `y mod 19 = 7` (and only there where the ground would be grass, in the
- * forest or near water), so the doctors are spread out, never side by side.
+ * `y mod 19 = 7`, so the druids are spread out, never side by side. In
+ * Nordland only where the ground there would be grass, in the forest or near
+ * water; in The Arctic on every spot (`world/arctic.ts`).
  */
 export const TENT_LATTICE = { everyX: 23, atX: 5, everyY: 19, atY: 7 } as const;
 

@@ -6,21 +6,13 @@ Technical items we've intentionally postponed: tech debt, hardening shortcuts, k
 
 ---
 
-### A friend's birds are not seen in the air
-
-**What**: another player sees a friend glide (`flight`), but not the bird that flies behind them (their lead in the air) nor a wild bird chasing them (#91): nobody follows them in the other page until they are down, and the wire carries no chaser. Their battle in the air, once it starts, is seen as any battle is: the two birds flying beside them.
-
-**Why deferred**: #91 put flying in multiplayer out of scope. Drawing the lead in the air needs only the `lead` a page already reports (the lead in the air while flying) and `Follower.fly` on the other page; the chaser would need a field on `where` and a protocol bump.
-
-**Trigger**: the human asks for friends' flights to show their birds, or a kid watching a friend fly asks where the bird went.
-
 ### A friendly match under way ends on every deploy
 
 **What**: a match lives in the memory of the app that holds both players' sockets (`presence/matches.ts`). When a deploy stops that app (twice a deploy: the old app replaced, then the canary removed), every match under way there ends with no winner, and the pages say the game is updating and offer to play again ([[DECISIONS]] § Multiplayer). The alternatives were to keep matches running while the old app drains (it has 8 s before it exits and Docker's 10 s before the kill, a match takes minutes, two hops a deploy, and any hiccup of a kid's connection meanwhile lands them on the new app, which knows no match) or to hand the state on (the reducer replays from its seed and its log, which Postgres could hold, and the next app would resume it when both come back).
 
 **Why deferred**: a handoff costs a table, a migration and a resume path on the next app, against a match that starts again with one tap each; the game is played by a few kids, and a deploy lands during a match rarely.
 
-**Trigger**: kids report matches cut short by updates, or deploys land in playing hours often enough to matter. Then persist `(seed, parties, log)` per match on each step, and let the next app pick it up when both players say hello, within `awayMs`.
+**Trigger**: kids report matches cut short by updates, or deploys land in playing hours often enough to matter. Then persist `(seed, parties, log)` per match on each step, and let the next app pick it up when both players say hello, within `awayMs`. The same move, matches into a place more than one process reaches, is the fix for "Presence and friendly matches live in one server process's memory" below; do the two together.
 
 ### A file under `/assets/` is downloaded whole on every visit
 
@@ -56,7 +48,7 @@ Technical items we've intentionally postponed: tech debt, hardening shortcuts, k
 
 ### The puzzle's answer travels to the client inside `BattleState` and `DoctorState`
 
-**What**: `BattlePhase` (`solving`) and the `puzzle-shown` event carry the whole `Puzzle`, `answer` included, and `answer-judged` repeats it. The doctor reducer copies the shape: `DoctorPhase` (`solving`, `handing-over`, `buying`) and its `puzzle-shown`, `hand-over-shown` and `purchase-shown` carry the answer too (a token sum's answer is the balance after it, which a client can work out anyway). With `LocalAuthority` that is harmless — the client already runs the engine. With a server authority, a modified client could read the answer and never miss (or heal for free). Friendly matches, which a server runs, never carry it: their views and events hold a `ShownPuzzle` (`match/types.ts`, built by `shownPuzzle`), the answerless shape a redaction here can reuse.
+**What**: `BattlePhase` (`solving`) and the `puzzle-shown` event carry the whole `Puzzle`, `answer` included, and `answer-judged` repeats it. The doctor reducer copies the shape: `DoctorPhase` (`solving`, `handing-over`, `buying`, `paying-fare`) and its `puzzle-shown`, `hand-over-shown`, `purchase-shown` and `fare-shown` carry the answer too (a token sum's answer is the balance after it, which a client can work out anyway). With `LocalAuthority` that is harmless — the client already runs the engine. With a server authority, a modified client could read the answer and never miss (or heal for free). Friendly matches, which a server runs, never carry it: their views and events hold a `ShownPuzzle` (`match/types.ts`, built by `shownPuzzle`), the answerless shape a redaction here can reuse.
 
 **Why deferred**: there is no server authority for wild battles or doctor visits, and stripping the answer there is a cheat fix nobody can attempt today.
 
@@ -94,16 +86,6 @@ Technical items we've intentionally postponed: tech debt, hardening shortcuts, k
 
 **Trigger**: the production server's disk passing half full, or a registration flood in the logs.
 
-### Cleared tiles are each player's own, so a friend can walk through a tree you still see
-
-**What**: the tiles a kid clears with the axe and the pickaxe (`WorldEdits`) live in that kid's game and save, and the authority walks, restores and knocks out through them ([[DECISIONS]] § Gameplay). With friends in one world, two kids see two different forests: a gap one kid chopped is a tree to the other, who watches them walk through it. Shared edits would put one overlay per world on the server, which would then decide where every kid in that world can walk. Two more things change then: the whole overlay rides on `welcome` today (up to 24 KB), where the server should send each chunk's edits as the chunk comes into view; and `tile-cleared` goes to everyone who sees that chunk, with the chunks that grew back.
-
-Since The Arctic's ice pick, a block afloat broken is water to the kid who broke it and still a block to everyone else: a friend sees them sail through it, in their boat on top of the block. Who stands on such a tile is never in doubt, since only the kid who broke it can be there: `challengeRefusal` and `others.ts` read the tile a player stands on as their own clearing leaves it (`clearedTile`), so no friendly match is asked for from that water and the friend is drawn in the boat.
-
-**Why deferred**: every single-player rule, walking included, stays in the browser ([[DECISIONS]] § Multiplayer), and a shared edit is a gain that flows between players, so its rule would have to move to the server first. How kids play together will show whether they want it.
-
-**Trigger**: the human asks for clearings friends share, or a report of a kid confused by a friend walking through a tree. Then decide with the human who may clear what in a shared world (a kid could open a path for friends, or clear a forest bare for everyone), and move clearing and the overlay onto the server, one overlay per world.
-
 ### The server stores whatever save the client sends
 
 **What**: `PUT /api/account/save`, and the guest game a registration brings, are checked for the document's shape, not for whether the game in it could have happened: an HP above the species' maximum (`restoreGame` cuts it on load), a party of any animals, a position anywhere, any number of tokens and any tools, a `battle` the server never looks inside (the client checks it with `readBattle` on load). A modified client, or a hand-edited `localStorage` save, is stored in the account as sent. The saved battle also carries the puzzle's answer, as `BattleState` does ([[CHEATSHEET]] § Exploits and quirks).
@@ -116,9 +98,9 @@ Since The Arctic's ice pick, a block afloat broken is water to the kid who broke
 
 **What**: a save holds tile positions (in the world the player is in, and in each world left behind) and a step count, all meaningful only in the worlds `generateChunk` makes today. A change to world generation that moves tiles under an existing seed can leave a saved player on water or a tree (`restoreGame` then puts them on the spawn tile, far from where they were) or walled in on a patch of walkable tiles, which `restoreGame` does not detect.
 
-**Why deferred**: the generator has changed once since the first save: deep water turned water tiles out in the lakes into deep water, and moved no tile anyone could stand on (0 of 205,861 land tiles within 256 of the prototype spawn changed; `world.test.ts` pins the world within 64 of it by a checksum, [[INVARIANTS]] § World). Only World 1 is pinned: saves stand in other worlds since numbered worlds, and a change to generation moves those too. No save could stand on water before the boat, so none moved. The right fix for a change that does move land depends on the change: keep old seeds on the old generator, or bump `SAVE_VERSION` with an upgrade that moves saved players to a safe tile near where they were (the knock-out rule's `nearestTent` search is the model).
+**Why deferred**: the generator has changed once since the first save: deep water turned water tiles out in the lakes into deep water, and moved no tile anyone could stand on (0 of 205,861 land tiles within 256 of the prototype spawn changed; `world.test.ts` pins the world within 64 of it by a checksum, [[INVARIANTS]] § World). The Arctic is open and kids stand there too, so the same test pins The Arctic's first world within 64 of its spawn, what each ice block stands on included. Only the first world of each land is pinned: saves stand in other worlds since numbered worlds, and a change to generation moves those too. No save could stand on water before the boat, so none moved. The right fix for a change that does move land depends on the change: keep old seeds on the old generator, or bump `SAVE_VERSION` with an upgrade that moves saved players to a safe tile near where they were (the knock-out rule's `nearestTent` search is the model).
 
-**Trigger**: any PR that changes where a player can stand in an existing seed's world (the checksum in `world.test.ts` goes red first; procedural world v2 in [[PRODUCT]] §6 is one), or one that changes the water a saved player may now be sailing on. The Arctic's own generator (#191 step 4) changes the ground under The Arctic's seeds, which until then make Nordland's kind of world: no kid can be there before it ships (the land is closed), only a `?lands` game saved nowhere, so step 4 needs no upgrade for it.
+**Trigger**: any PR that changes where a player can stand in an existing seed's world (the checksum in `world.test.ts` goes red first; procedural world v2 in [[PRODUCT]] §6 is one), or one that changes the water a saved player may now be sailing on, in either land. A change to The Arctic's generator (`arctic.ts`) is one too: its checksum goes red first.
 
 ### `nearestTent` is a synchronous flood fill that costs up to a few hundred milliseconds the first time it reads a place
 
@@ -127,6 +109,8 @@ Since The Arctic's ice pick, a block afloat broken is water to the kid who broke
 **World 1** (the seed `'prototype'`, where every game from before numbered worlds stands; a new game starts in a world from 2 to 9999, which the 300 worlds above sample): over every tall-grass tile within 40 tiles of the start (where a battle can be lost), plus samples out to 400 tiles: median 5–11 ms, max 50 ms in node on an M-series Mac, and 20–40 ms at the slowest of those spots measured in Chrome, before the cache. Losing at the reed by the start (the usual place): the whole keydown, battle reducer and the tent search included, took 2 ms (Chrome's Event Timing, 2026-09-25). Not perceptible: the first beat after an answer holds for a second anyway.
 
 **With the boat** the search crosses water too, and a battle can be lost out on a lake. It reads deep water as water, as `travelKindAt` does, sparing the deep-water check (24 more tiles of elevation per deep tile). In the prototype world, from 400 random water tiles within 600 of the start: median 7 ms, p99 44 ms, max 50 ms; every one found a tent, the furthest 91 steps away.
+
+Every number above was measured in Nordland's worlds, before The Arctic's slides made a search step able to cross a whole run of ice; The Arctic's cost is not measured yet. Measure it the same way (cold and warm, random walkable starts in a few hundred Arctic worlds) before relying on these numbers there.
 
 **Why deferred**: in World 1 a cold search costs at most a few frames, and in the other worlds a few at the median (the numbers above), once per lost battle or trip; and no server runs the rules that call it ([[DECISIONS]] § Multiplayer). Faster options change the algorithm (visit the tent lattice in order of distance and path-check each candidate, or cap by tiles visited).
 
@@ -159,14 +143,6 @@ Since The Arctic's ice pick, a block afloat broken is water to the kid who broke
 
 **Trigger**: a report of a new game that did not stick, or `animath.save.previous.100` showing up in a kid's browser.
 
-### The druid's Heal tab lists every animal of a kind, where the HUD shows one card
-
-**What**: the druid's lists read the party's bundles (`bundles`), and Set free gives each kind of several a row of its own ("Rabbit ×12") that picks the whole kind (#75). Heal still lists each animal, grouped by kind with a line between kinds, and has no row for a kind. So a kid meets twelve rabbits as one card in the HUD and as twelve rows at the druid's Heal tab.
-
-**Why deferred**: Heal is where each animal's HP shows, and one puzzle already heals the whole kind whichever of its hurt animals is picked. A kind's row there would be a second way to the same puzzle, not a shortcut.
-
-**Trigger**: a save with more than 20 hurt animals of one kind, so the heal list outgrows the card, or a report that Heal and the HUD read as different teams. Then give Heal a row per kind of several that opens its puzzle, as Set free's row picks its animals.
-
 ### Two tabs writing the save in the same instant: the one written over is kept aside, not merged
 
 **What**: compare-before-write (`Autosave.commit`) is not atomic across tabs. A page's view of `localStorage` is brought up to date only between tasks, so two tabs that write in the same instant both pass the check, and the first write is lost from the key. A two-page probe in headless Chrome lost 4,999 of 10,000 checked writes. The page written over keeps its own save aside when it finds itself behind (`keepOwnSave`, into `animath.save.replaced`), so nothing is gone. But what the kid did there is no longer in play: they see the other tab's game, and only the human can put the kept one back ([[DEVELOPMENT]] § Database). A lock around the write (Web Locks) would not close it on its own, because the lock's grant and the other page's write reach a page by different routes.
@@ -197,7 +173,7 @@ Since The Arctic's ice pick, a block afloat broken is water to the kid who broke
 
 **Why deferred**: one process serves the game between deploys; forgetting on a restart costs nothing a page doesn't put back by itself, and a friend missing for the seconds of a swap is back at its next hop.
 
-**Trigger**: a second server process serving at the same time for longer than a deploy's swap (a cluster, a second container kept for load): then presence moves to one place both reach, or each world to one process.
+**Trigger**: a second server process serving at the same time for longer than a deploy's swap (a cluster, a second container kept for load): then presence moves to one place both reach, or each world to one process. Matches moved there are also what "A friendly match under way ends on every deploy" above needs.
 
 ### An older build drops a saved battle that a newer build's content, other than a new id, made
 

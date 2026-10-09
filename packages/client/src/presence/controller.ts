@@ -56,7 +56,7 @@ import { BattleReport } from './report';
  *   and only with a name to show.
  * - **Where.** Every frame it works out where the player is and what they
  *   are doing (`busy`: a battle, the doctor, the menu or an account card, a
- *   friendly match, gliding, else exploring) and
+ *   friendly match, gliding, the plane between lands, else exploring) and
  *   hands it to the socket, which sends it when it changed.
  * - **Who.** The server's `peer` and `gone` put the players near on screen
  *   and take them off (`render/others.ts`); its roster is the pause menu's

@@ -8,10 +8,12 @@ import type { BattleEvent } from '../src/battle/types.js';
 import { applyMatchIntent, startMatch } from '../src/match/reducer.js';
 import type { MatchEvent } from '../src/match/types.js';
 import { puzzleDifficulty } from '../src/puzzles/difficulty.js';
+import { puzzleFace } from '../src/puzzles/face.js';
 import {
 	MAX_TOPIC_BONUS,
 	MIN_TOPIC_BONUS,
 	RECENT_ANSWERS,
+	faceTopic,
 	puzzleTopic,
 	recordAnswers,
 	topicBonus,
@@ -75,7 +77,7 @@ function judged(topic: PuzzleTopic, correct: boolean): BattleEvent {
 	return { type: 'answer-judged', input: '0', correct, answer: 0, topic };
 }
 
-describe('puzzleTopic', () => {
+describe('puzzleTopic and faceTopic', () => {
 	it('is the topic the kid sees: a times-table missing number is times tables, a fence is perimeter', () => {
 		const rng = new Rng(5);
 		for (const kind of ALL_PUZZLE_KINDS) {
@@ -98,6 +100,8 @@ describe('puzzleTopic', () => {
 									: 'area'
 								: kind;
 					expect(topic, puzzle.prompt).toBe(want);
+					// And off its face, as a thought bubble or a match's wire carries it.
+					expect(faceTopic(puzzleFace(puzzle)!), puzzle.prompt).toBe(want);
 				}
 			}
 		}

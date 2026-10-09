@@ -98,8 +98,8 @@ export interface DoctorVisitOptions {
 }
 
 /**
- * A visit, open on the list (`choose-patient`), or on the trip the witch
- * doctor offers when there is one (`offering`, `surpriseLand`).
+ * A visit, open on the list (`choose-patient`), or on the trip the druid
+ * offers when there is one (`offering`, `surpriseLand`).
  */
 export function startDoctorVisit(
 	party: readonly AnimalInstance[],

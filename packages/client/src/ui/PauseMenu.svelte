@@ -49,10 +49,10 @@
 	/**
 	 * The pause menu: the team's cards in battle order on the left (one per
 	 * species; a card of several animals shows how many, and how many can
-	 * play), then the menu items (Worlds, the settings — Language with every
-	 * language in its own words, Sound with its switch — then "Keep playing"
-	 * and "Start screen" side by side); on the
-	 * right, what can be done with the picked card or animal — a card's
+	 * play), then the menu items (Worlds beside Who's here, the settings —
+	 * Language with every language in its own words, Sound with its switch —
+	 * the account's rows, then "Keep playing" and "Start screen" side by side;
+	 * `MENU_LINES`); on the right, what can be done with the picked card or animal — a card's
 	 * options and its animals, an animal's options, or the name box. The
 	 * Worlds row (the world the kid is in beside it) opens the Worlds screen in
 	 * the menu's place: where the kid is and their home, the number being
@@ -73,8 +73,8 @@
 	 * naming the menu moves to the top of the screen, clear of the tablet's
 	 * own keyboard.
 	 *
-	 * The animal book's row stands on the menu's title line, beside "Paused",
-	 * so the menu keeps its height; it opens the book in the menu's place: a
+	 * The "My puzzles" row and the animal book's row stand on the menu's title
+	 * line, beside "Paused", so the menu keeps its height; the book's opens it in the menu's place: a
 	 * card for every species of a land in the book's order (`bookOrder`), a
 	 * page per land with a tab for each over the cards (`bookLands`), in a grid
 	 * that scrolls — a "?" for one never seen, the figure's picture and name

@@ -51,7 +51,7 @@ export const TENT_CLEARING = 2;
 export const LEAD_FREE = 6;
 
 /** Each row and column of the ice has a stopper every this many tiles. */
-export const ICE_STOP = 23;
+const ICE_STOP = 23;
 
 /** The longest straight run of ice tiles the world has: a slide crosses at most this many. */
 export const ICE_RUN = ICE_STOP - 1;

@@ -104,7 +104,7 @@ function names(origin: URL, host: string): boolean {
  * site can open a socket here, and on a same-site subdomain the session
  * cookie goes along.
  */
-export function fromThisSite(c: Context): boolean {
+function fromThisSite(c: Context): boolean {
 	const origin = c.req.header('origin');
 	if (origin === undefined) return true;
 	let url: URL;

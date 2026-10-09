@@ -141,6 +141,10 @@ The nickname cleaner's fuzz proved the safety promises: idempotent, capped, neve
 
 A throwaway script that replayed the battle for puzzle answers had to sit inside `packages/client` to resolve `@mathgame/engine`. The next `git add -A` committed it, and `pnpm lint` failed on it. Found by the second adversarial review. Fix: the file is gone, and `.gitignore` ignores `*.scratch.*`, the name such scripts get. Category: **a staging sweep in a working tree with throwaway files**. Name a throwaway that must live in the tree `*.scratch.*`, and keep everything else in the scratchpad.
 
+### 2026-09-25 — PR #17 (encounters by lead) — described a normalised weight as a frequency `[learned]`
+
+One tier below the lead weighs 0.1 against 1 for the lead's own tier. The CHEATSHEET said such animals come out "about 1 battle in 10 where there is any", and the constant's comment said "small animals rarely challenge a bigger one". But the tables are normalised: where only one-tier-smaller animals live, 0.1 is 100% (a deer at the river meets only otters, at the full rate), and far out, where big animals crowd in, the share falls to 2.4%. The tables printed for the same PR showed both, two lines apart. In the same diff, [[PRODUCT]] §4 told a kid to "put a smaller animal in front", which the build cannot do yet. Found by the adversarial review. Fix: the prose gives the computed range (2–14% where bigger animals live too, 100% where they don't) and says the lead only changes when the animals before it are tired, and HUMAN_TODO asked whether the one-below-only biomes should keep the full rate. Category: **a weight is not a share** — after normalisation, what a weight means depends on what else is in the table. Quote a share only after computing it at the table's extremes (the row alone, near home, far out). Codified: [[DEVELOPMENT]] § Testing ideology, "A number in prose comes from a sweep".
+
 ### 2026-09-26 — PR #19 (client save) — judged shared state by the value an event carried `[learned]`
 
 Several tabs share one `localStorage`, and a tab that sees another tab's save in a `storage` event decides whether it has fallen behind. The first cut compared the event's `newValue` with its own last save. Events arrive late, though, and by the time one did, this tab had already carried on from that other save and written on top of it. It judged a superseded value, called itself behind, and reloaded in the middle of a battle. Nothing was lost, since every change was already saved, but the kid saw an unexplained reload. Found by driving two tabs in headless Chrome during Phase 2. Fix: the handler reads the key as it is when the event arrives. [[INVARIANTS]] § "A page never writes over a save it has not seen" says so, and `autosave.test.ts` ("a storage event that arrives after this tab already saved on top of it") fails with the old handler. Category: **an event is a notification, not the state**. When state is shared (a storage key, a database row, another tab), an event's payload is a snapshot from when it fired. Decide from the state as it is now.
@@ -396,6 +400,21 @@ The rider was lowered below the boat's floor to sit, and the test asserted that 
 The trainer's facing is kept by the explore controller, which turns the trainer and the boat, and by the follower, which seats the rider and chooses where a lead comes out. A step updates both. A bump (`player-blocked`) updated only the controller, so a rider stayed on the old heading while the boat turned under it: across the gunwale after a quarter turn, and inside the trainer after a half turn, once the trainer stood astern. Fix: the controller hands a bump to the follower (`face`); `follower.test.ts` bumps the boat into the tree at (21, 34) (red without it). Category: **a copy of state updated on some of the events that change the original**. When a view keeps its own copy of something another part tracks, list every event that changes the original and check that each one reaches the copy.
 
 **Again in PR #92 (numbered worlds), found by its adversarial review.** The world's seed is kept by the game state, the explore controller and the battle controller, each set on `welcome`. The new `travelled` event was taught to the first two; the battle controller kept the old world's seed, so every battle after a trip drew the old world's ground at the new world's tile (a river backdrop on a meadow). Fixed in the same PR; `battle-controller.test.ts` "a battle after travelling is fought on the new world's ground" fails without it. The guard for next time: an event that changes what `welcome` set is a new member of `welcome`'s roster, so grep every `case 'welcome'` handler (six in the client) before calling it handled.
+
+### 2026-09-26 — PR #21 (the frog) — a sample's window stated as a rule `[learned]`
+
+The CHEATSHEET said that with a fox in front the reed meets "an Otter every time but the 147th" step. That was read off a test that walks 200 steps; frogs come again on steps 345, 395, 683 and later. Found by the adversarial review. Fix: the CHEATSHEET names the first frog and the rate after it. Category: **a finite observation is not a rule**. A statement read off the first N steps or seeds says its bound, or gives the rate instead. Codified: [[DEVELOPMENT]] § Testing ideology, "A number in prose comes from a sweep", which rules out "the first N steps".
+
+### 2026-09-26 — PR #64 — a pooled mean stated for every world, and an extreme read off a sample `[learned]`
+
+- PRODUCT and INVARIANTS said the ground never raised the share of animals bigger than the lead near home, "over the prototype world and 200 others". It was measured once, pooled over all 201 worlds. Per world it fails in 7 to 13 of every 200, by up to 12 points for a deer in front.
+- CHEATSHEET said one tier below comes out "as rarely as 1 in 75" far out. That was the minimum over every second tile of one world. A tile of the same world gives 1 in 87, and the rule allows 1 in 101.
+
+Both were found by the adversarial review. Fix: the average claim went with the redesign (near spawn the tiers are the biome's on every tile), and the CHEATSHEET gives the rule's extremes, 1 in 5 to 1 in 100. Category: **a statistic stated at a finer grain than it was measured**: pooled means for each world, a sampled minimum for the minimum. Codified: [[DEVELOPMENT]] § Testing ideology, "A number in prose comes from a sweep".
+
+### 2026-09-26 — PR #75 (Help home) — a rule lifted into a new function while another lane changed it `[learned]`
+
+#75 lifted keep-one out of the reducer into `canGoHome`, using the rule as its branch found it: somebody standing stays. Meanwhile #74 changed the same line to `keepsATeam`: somebody standing who can fight on land stays, since a team of only sea animals could battle nothing on the way back. The merge conflicted on that line. Taking #75's side would have shipped the old rule under a new name, and a kid who handed over every land animal would have been left on land with only crabs, meeting nothing. Found when merging main, and flagged by the orchestrator from #74's review. Fix: `canGoHome` asks `keepsATeam`, which moved beside it into `doctor/party.ts`. `doctor.test.ts` refuses handing over every walker, and goes red with the HP-only rule, in #74's seaside test and in #75's own. Category: **a conflict on a rule's line is two rule changes, not two spellings of one**. When a merge conflicts inside a rule, read the other side as a change to the rule, and carry it into your version before choosing a side. Codified: CLAUDE.md § Protecting existing work runs `scripts/merge-lost-lines.sh` after every resolved conflict, which prints the other side's line (`keepsATeam` here) as missing from a resolution that took one side.
 
 ### 2026-09-27 — PR #84 (match engine), found by its adversarial review — costly cleaning spent on untrusted entries the function then throws away `[learned]`
 
@@ -762,9 +781,31 @@ The same PR's fitting (`fit.ts`) watched the card's size with a `ResizeObserver`
 
 `watchTaps` passed a `pointerup`'s target on only when it was an `HTMLElement` (0d3ee92), since the button's `contains` wanted an element. In WebKit a finger's lift goes to the part of the button the finger landed on, not to the button that holds the pointer, and a picture there (a level's star, Run's icon, a shop tool, the animal book's icon, a caught card's tick) is an SVG element, which is no `HTMLElement`: the tap pressed nothing in Safari on an iPad. Chrome gives the lift to the button itself, so every run of `scripts/screenshot.mjs` passed. Found by the QA smoke tapping in Playwright's WebKit; an event log of one tap named the `polygon`. Fix: any node the lift came to is asked about. In WebKit, at iPad and phone sizes, all 19 finger taps on a picture press their button; with the fix reverted, none of the 15 it could still reach pressed anything. Category: **a type narrowing on an event's target decides which parts of the page count**: narrow to what the next call takes (`Node` for `contains`), not to the kind of element the author pictured; and anything a finger does is tried in WebKit too. Codified in [[INVARIANTS]] § Input ("A tap presses what its finger touched, or nothing") with `pointer-input.test.ts`, and in [[DEVELOPMENT]] § The oldest browser, "Trying it".
 
+### 2026-09-28 — #89 wave 2 (feat/species-wave-2), self-review of a merge — a conflict resolved to main's side took the branch's own lines in the hunk with it `[learned]`
+
+Resolving #128's merge, the conflicting hunks of [[PRODUCT]] §5 were taken from main, and the numbers the bell had moved were worked out again on top. Three lines this branch had written inside those hunks went with main's side: the nine big animals' feature bullet, the ground each animal likes, and the catalog's count, back at "32 species". No test reads §5. Found at the next merge (#130) by listing the lines of `HEAD` that are in neither the merge base nor the resolved file. Fix: the three lines written back. Codified: `scripts/merge-lost-lines.sh` lists those lines for both sides, and CLAUDE.md § Protecting existing work says to run it and account for each.
+
 ### 2026-10-06 — feat/harness, self-testing — a seat worked out from a primitive's formula, not measured on the figure `[learned]`
 
 Where a kid sits on each animal that carries one (`render/mount.ts`'s `SADDLE`) was first worked out by hand from the builders' ellipsoids. On the bison the seat's spot is behind the hump, where the top is the rump, but the height was taken from the hump's ball: 0.92 against a back at 0.873, the kid floating 5 cm over it. The frames looked plausible, since the kid's legs hide the gap. Found by `mount.test.ts`, which casts a ray straight down onto each built figure at the seat. Fix: every seat is the measured height, and the test holds each within 6 mm. Category: **a measure of a figure taken from the formula of one of its parts**: where two parts overlap, which one is on top at a point is a question for the built figure, not for one part's equation. The same family as "an extent estimated from a point" above; the guard is a ray or a box against the figure as built, as `mount.test.ts` and `battle-scene.test.ts` do.
+
+### 2026-10-07 — refactor/match-answers-intent, adversarial review — a shape check that `every` skipped holes in, and a limit the wire had but the intent did not `[learned]`
+
+`match-answers`'s check on its events used `events.every(…)`, which skips the holes in an array with gaps, so `new Array(2)` passed. `countSolved`'s `for…of` then read `undefined.type` and threw out of `dispatch`, after the step had been marked as counted. The same check took any number of events, where the wire's reader takes at most 16. So a batch could claim any number of right answers. Both came from writing a check over unknown input from scratch instead of starting from the wire parser that already reads the same data (`readMatchEvents`: a length limit, then an index loop).
+
+Codified: `local-authority.test.ts` "takes no batch that is not one" (holes, past `MAX_MATCH_EVENTS`, two answers judged in one step); [[ARCHITECTURE]] § The authority seam lists what a batch must be.
+
+### 2026-10-07 — refactor/rules-back-to-engine, adversarial review — an engine helper used a built-in the oldest browser lacks `[learned]`
+
+`isNameRejection` and `isPasswordRefusal`, new engine guards that the page's account API calls, used `Object.hasOwn` (Safari 15.4). [[DEVELOPMENT]] § The oldest browser forbids it by name, and the client build's `animath:old-browsers` check refuses it. `pnpm check`, `pnpm lint` and `pnpm test` were all green, because none of them builds the client. The deploy gate does, and it would have failed after the merge. Found by the adversarial reviewer, who ran `vite build`. Fix: `Object.prototype.hasOwnProperty.call`, as the engine's other own-key checks already do. Category: **engine code is browser code**: anything new in `packages/engine/src` ships to the oldest iPad too, so its built-ins follow § The oldest browser; run `pnpm -F @mathgame/client build` before the Phase 1 commit when the engine gains code the page imports.
+
+Codified: `pnpm check` builds the client (CLAUDE.md Phase 1), and `.github/workflows/checks.yml` runs it on every pull request, so the build refuses such a built-in before the merge.
+
+### 2026-10-07 — #185 (chore/code-hygiene-cleanse), adversarial review — a dev dependency that a guard elsewhere counted on being absent `[learned]`
+
+To type-check the engine's tests, `@types/node` went into the engine's dev dependencies, with the tests in a tsconfig of their own so the source's `types: []` stayed. But `types: []` only stops automatic inclusion: a `/// <reference types="node" />` in `src` now found the package in the engine's `node_modules` and compiled, so Node could slip into the engine with every check green, where before the same line failed with `TS2688`. Found by the cold review, which ran the probe against both checkouts. Fix: `purity.test.ts` refuses any reference directive in `src`. The same review found a comment rewritten to a reason its own cited file contradicts (the welcome token stays out of paths because of nginx's *error* log, not the access log). Category: **adding something to a package changes what its existing guards stand on**: before adding a dependency, list the checks that relied on it being missing and try to get past each one.
+
+Codified: `purity.test.ts` refuses any reference directive in the engine's `src`.
 
 ### 2026-10-08 — #192 (feat/arctic-animals-1, #191 step 5), self-testing and adversarial review — a new answer form typed as the old one, and an id list that had never seen a new kind `[learned]`
 
@@ -773,3 +814,65 @@ Where a kid sits on each animal that carries one (`render/mount.ts`'s `SADDLE`) 
 - **A new flag field, and its test's whole-object expectation.** `readFlags` grew `land`; `flags.test.ts` compares the whole object, and the full client suite was not run after the switch was added (found by the adversarial review). Run the whole suite after adding a field to a returned object.
 
 Codified in [[DEVELOPMENT]] § Testing ideology ("A test types an answer as a kid types it").
+
+### 2026-10-08 — #192 wave 2 (feat/arctic-animals-2, PR #203), self-testing and adversarial review — a balance margin read off one fixed sample, a promise kept by a later wave, and figure tells too small to see `[learned]`
+
+- **A margin quoted from the test's own seeds.** The friendly-match bound (one tier smaller wins at most 1 in 12) passed at 7.1% on `match-balance.test.ts`'s fixed 1,000 seeds, but 10,000 matches put it at 8.0%, so about one reshuffle of the random stream in three would have failed it. A balance number near its bound must be measured on a sample much bigger than the test's before it is quoted or trusted.
+- **A per-tier promise copied from a roster tally that counts animals not shipped yet.** PRODUCT said every Arctic puzzle kind is asked by two animals of each tier; #192's tally counts the sea animals of wave 3, so tiers 4 and 5 on land lack kinds. When a feature ships in waves, check each sentence about the whole against what this wave ships.
+- **Figure tells that read in the zoo but not in a battle.** The king penguin's orange, the great grey owl's face rings and the gyrfalcon's flecks were invisible, or floated off the body, at a battle's size and angle; only the battle screenshots showed it. Look at every new figure in battle, front-on and from behind, not only in `?zoo`.
+- **A one-word name broken after any letter.** The book's card names wrapped with `overflow-wrap` alone, so *Kæmpestormfugl* split as "Kæmpestormf / ugl" (wave 1's *Halsbåndlemming* too). Long single words are a Danish (and German) habit: give text that holds a name `hyphens: auto` under the page's `lang`.
+
+Codified: the margin by [[DEVELOPMENT]] § Testing ideology, "A number in prose comes from a sweep"; the figure tells by CLAUDE.md Phase 2's "A new figure" (in a battle, from behind).
+
+### 2026-10-08 — #192 wave 3 (feat/arctic-animals-3, PR #204), self-testing and adversarial review — a feature first seen with content, a filter after a share, a dev server that was someone else's `[learned]`
+
+
+Codified: [[ENVIRONMENT_NOTES]], "A free port can be taken before your server gets it" (read the log for "ready", or `lsof` the cwd); CLAUDE.md § Protecting existing work runs `scripts/merge-lost-lines.sh` after a conflict.
+
+### 2026-10-08 — #191 step 7 loose ends (fix/arctic-loose-ends, PR #207), deploy — an engine change past `pnpm check` and `pnpm test` that the build refused `[learned]`
+
+- **`.at(-1)` in engine code broke the deploy.** The engine runs in the browser too, and the client's build refuses anything Safari 15.0 cannot run (`browsers.ts`, [[INVARIANTS]] § Serving); `pnpm check` and `pnpm test` never build the client, so both were green and main went red on merge. Any change to `packages/engine/src` or `packages/client/src` also runs `pnpm -F @mathgame/client build` before the PR is merged; prefer `xs[xs.length - 1]` over `.at()`, and check the other ES2022 newcomers the same way.
+
+Codified: `pnpm check` builds the client (CLAUDE.md Phase 1), and `.github/workflows/checks.yml` runs it on every pull request, so the build refuses such a built-in before the merge.
+
+### 2026-10-08 — #191 step 7 the plane, Fly tab and land starters (feat/arctic-plane, PR #209), self-testing and adversarial review — a new "screen on" state that the old guards did not know `[learned]`
+
+- **A new overlay state reused an old flag's meaning.** The land's starter screen set `title.open`, which other code reads as "no game under way" (a reload's caught-up note, the session-ended notice). When a new screen borrows a flag, grep every reader of that flag and decide for each.
+- **A new "hands off" phase missed half the guards.** The plane blocked keys, but the presence reload, the save card, a go-to answer and a match ask each had their own "is it calm?" check that did not know the plane. When adding a phase where nothing may happen, list every place that decides "may this happen now" (`calm`, `exploring`, `exploreOnScreen`, `busyNow`) and add it to each.
+- **A view copied state at a beat and missed an event that came after it.** The doctor's card took `unlocked` from the visit's state, but a hand-over's unlock arrives as a separate `unlocked-changed` after that state. When a view shows a value that two events can change, listen to both.
+- **A hook assumed its action always works.** Escape on the starters closed them before asking the witch doctor, so with no tent ahead it flickered and did nothing. Close the old screen only once the new one has come.
+- **A test harness built the wrong land's party** (`players.mts` gave Nordland an Arctic fox): seen only because a friend's follower looked wrong in a frame. Read the frames of the harness's own setup, not only the feature under test.
+
+Codified: CLAUDE.md Phase 2's "Duplicated rosters": a new screen state or hands-off phase greps every "may this happen now" gate and every reader of a flag it reuses.
+
+### 2026-10-08 — #191 step 7 on prod (fix/doctor-banknotes) — a component's class name met another's `:global` rule `[learned]`
+
+- **The kroner picture's banknotes were hidden at the witch doctor's.** `Money.svelte` drew each note as `g.note`; `DoctorCard.svelte` hides `:global(.note)` (its help line) in a picture puzzle. The fare showed 32 kroner of 82, and a right count of the picture was judged wrong. Only a prod journey with a kroner fare found it: unit tests never render the card, and earlier frames had no note. A `:global(.x)` rule reaches every descendant: give a picture's parts names no card styles (`picture-classes.test.ts` now checks), and read a frame of every picture kind in every place it shows (battle, the witch doctor's heal and fare).
+
+### 2026-10-08 — Arctic rough edges (fix/arctic-rough-edges, PR #212), self-testing — a compact layout broke a design floor `[learned]`
+
+- **Shrinking text to fit a phone went under the 16 px floor** ([[DESIGN]] § Typography, `text-size.test.ts`). When a layout gets tight, shrink spacing, the heading and the 3D first, never body text under the floor; run the client suite, not only the tests of the file changed, before the first push.
+
+### 2026-10-09 — First flight lands at the spawn tent (feat/first-flight-at-spawn, PR #214), adversarial review — a World 1 fact written down for every world `[learned]`
+
+- **"The way home lands near Nordland's start" was true in World 1 and false in about one world in seven**: Nordland's tents are sparse, and the tent mapped from the lattice spot (5, 7) can be over 100 tiles from a world's start. Play-testing in World 1 only confirmed it. Before DNA states where something lands "in every world", measure it over a range of world numbers (a few hundred is seconds), not World 1.
+- **A changed rule left a test title and a test comment saying the old rule** (`lands.test.ts`, `local-authority.test.ts`), and the client test could not tell the two rules apart, since World 1's start tent is on the spot the Arctic spawn tent is. When a rule gains an exception, grep the tests for the rule's old wording.
+
+Codified: [[DEVELOPMENT]] § Testing ideology, "A number in prose comes from a sweep" (never World 1); CLAUDE.md Phase 2's "Prose is a claim" for the stale test titles.
+
+### 2026-10-09 — Catch one of each to open the next land (feat/unlock-on-caught, PR #219), self-testing and adversarial review `[learned]`
+
+
+Codified: CLAUDE.md Phase 2's "Duplicated rosters": a phase that offers something refuses every intent that does not answer it. The YAML block was caught by the copy test.
+
+### 2026-10-09 — Guardrails (chore/agent-guardrails, PR #221), adversarial review — guards checked only against the failure they were built for `[learned]`
+
+Three new guards each passed their own negative control and were still easy to fool. The cold review reproduced every case:
+
+- **A verdict with no baseline.** `negctl.sh` read any failing test command as "the control holds", a typo or a missing test file included, because it never ran the test with the fix in place first. It also ran the test from the repo's root when called from a package, where the command could not find its runner and failed for that reason. A negative control proves something only next to a positive one: the same command, passing, before the break.
+- **A heuristic that passes vacuously.** `check-learned.mjs` took any wiki link, any AGENTS file named in prose, or any backticked word the code contains (`null`) as a "guard", so changing a tag alone passed. An exemption pattern (`old` (now `new`)) also shifted the backtick pairs, so the names after it went unchecked.
+- **A check of presence, not of content.** `handlers.test.ts` asked whether a file handled `travelled` at all, not whether it took again what it took at `welcome`. A `travelled` case that dropped the seed (PR #92's exact bug) passed. It also saw only one way of writing a branch (a `case`, or an `if` with `===`).
+
+Found by Phase 2.5's cold review, which planted each case. Fixed in the same PR, and each case replayed as a negative control that now fails. Category: **a guard tested only against the one failure it was built for**. When writing a check, list the ways a wrong input could pass it (a failure for another reason, a near-miss of the pattern, a vacuous match) and plant each one, not only the motivating bug. Applied: CLAUDE.md's negative-control step points to `scripts/negctl.sh`, which now refuses a test that fails with the fix in place.
+
+Codified: `scripts/negctl.sh` (a baseline run first), `scripts/check-learned.mjs` (names specific enough to be guards), `handlers.test.ts` (what a handler takes again at `travelled`).

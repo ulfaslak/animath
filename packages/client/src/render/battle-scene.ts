@@ -6,7 +6,7 @@ import { safeArea } from '../safe-area';
 import { SHORT_SCREEN } from '../short-screen';
 import { animateFlight, animateIdle, buildAnimalMesh, disposeFigure, restingZs } from './animals';
 import { WORLD_LIGHT } from './campfire';
-import { appearScale, recallScale, smoothstep } from './ease';
+import { appearScale, doubleHop, recallScale, smoothstep } from './ease';
 import { SWIM_DEPTH } from './follower';
 import {
 	BIOME_LOOK,
@@ -296,9 +296,6 @@ const boulderMaterial = lambert(COLORS.rock);
 const snowMaterial = lambert(PROP_COLORS.snow);
 const cattailMaterial = lambert(PROP_COLORS.cattail);
 const waterMaterial = lambert(TILE_COLORS.water);
-const deepWaterMaterial = lambert(TILE_COLORS.deepwater);
-const sandMaterial = lambert(TILE_COLORS.sand);
-const shoreGrassMaterial = lambert(TILE_COLORS.grass);
 const puffMaterial = lambert(COLORS.white);
 const dustMaterial = lambert(COLORS.dust);
 const cloudMaterial = lambert(SKY_COLORS.cloud);
@@ -1165,14 +1162,9 @@ function applyEffect(figure: THREE.Group, effect: Effect): void {
 		case 'cheer': {
 			// Two hops for joy, the first higher and with a whole turn; with less
 			// motion, one small hop and no turn.
-			if (motion.reduced) {
-				figure.position.y += Math.sin(Math.min(1, p * 2) * Math.PI) * 0.1;
-				break;
-			}
-			const first = p < 0.5;
-			const q = first ? p / 0.5 : (p - 0.5) / 0.5;
-			figure.position.y += Math.sin(q * Math.PI) * (first ? 0.4 : 0.22);
-			if (first) figure.rotation.y += smoothstep(q) * Math.PI * 2;
+			const hop = doubleHop(p, { high: 0.4, spin: true, calm: motion.reduced });
+			figure.position.y += hop.lift;
+			figure.rotation.y += hop.turn;
 			break;
 		}
 	}
@@ -1207,7 +1199,7 @@ function buildBackdrop(biome: Biome): THREE.Group {
 		Object.values(SPOT).every((s) => Math.hypot(x - s.x, z - s.z) > r);
 
 	if (SEAS.has(biome)) {
-		buildSea(group, rng, tuftMaterial, clear);
+		buildSea(group, biome, rng, tuftMaterial, clear);
 		return group;
 	}
 
@@ -1311,18 +1303,36 @@ function buildBackdrop(biome: Biome): THREE.Group {
 }
 
 /**
- * The sea's scenery: the deep water's surface at `SEA_WATERLINE`, over the
- * ground and the animals' feet, crests of waves in the shallows' paler blue,
- * kept off the line from the camera to either animal, and far behind, a sandy
- * shore with the meadow's green beyond it.
+ * The far shore behind a sea battle, in the land's own colours ([[DESIGN]] §
+ * Palette): Nordland's a strip of sand with the meadow's green beyond it; The
+ * Arctic's, either pole, a strip of the ice with snow beyond it, never sand
+ * or grass.
+ */
+const SEA_SHORE = {
+	sea: { near: TILE_COLORS.sand, far: TILE_COLORS.grass },
+	'arctic-ocean': { near: TILE_COLORS.ice, far: TILE_COLORS.snow },
+	'southern-ocean': { near: TILE_COLORS.ice, far: TILE_COLORS.snow }
+} as const satisfies Partial<Record<Biome, { near: number; far: number }>>;
+
+/**
+ * The sea's scenery: the deep water's surface at `SEA_WATERLINE`, in the
+ * biome's own deep blue (Nordland's, or The Arctic's darker, colder one),
+ * over the ground and the animals' feet, crests of waves in the shallows'
+ * paler blue, kept off the line from the camera to either animal, and far
+ * behind, the land's shore (`SEA_SHORE`).
  */
 function buildSea(
 	group: THREE.Group,
+	biome: Biome,
 	rng: Rng,
 	crestMaterial: THREE.Material,
 	clear: (x: number, z: number, r: number) => boolean
 ): void {
-	const surface = new THREE.Mesh(new THREE.CylinderGeometry(16, 16, 0.1, 24), deepWaterMaterial);
+	const shore = SEA_SHORE[biome as keyof typeof SEA_SHORE] ?? SEA_SHORE.sea;
+	const surface = new THREE.Mesh(
+		new THREE.CylinderGeometry(16, 16, 0.1, 24),
+		lambert(BIOME_LOOK[biome].ground)
+	);
 	surface.position.y = SEA_WATERLINE - 0.05;
 	surface.receiveShadow = true;
 	group.add(surface);
@@ -1340,12 +1350,12 @@ function buildSea(
 		crest.position.set(x, SEA_WATERLINE, z);
 		group.add(crest);
 	}
-	const sand = new THREE.Mesh(new THREE.BoxGeometry(40, 0.5, 3), sandMaterial);
-	sand.position.set(0, 0.1, -10.5);
-	sand.receiveShadow = true;
-	const grass = new THREE.Mesh(new THREE.BoxGeometry(40, 0.6, 6), shoreGrassMaterial);
-	grass.position.set(0, 0.2, -15);
-	group.add(sand, grass);
+	const near = new THREE.Mesh(new THREE.BoxGeometry(40, 0.5, 3), lambert(shore.near));
+	near.position.set(0, 0.1, -10.5);
+	near.receiveShadow = true;
+	const far = new THREE.Mesh(new THREE.BoxGeometry(40, 0.6, 6), lambert(shore.far));
+	far.position.set(0, 0.2, -15);
+	group.add(near, far);
 }
 
 /** One puff of a cloud: a round low-poly ball, faceted like the figures. */

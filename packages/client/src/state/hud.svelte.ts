@@ -166,7 +166,6 @@ function accountWords(note: 'saved' | 'welcome' | 'movedAhead'): string {
 /** What a tool is for: a tile it clears, or a fishing hole the rod fishes. */
 export type ToolTarget = ClearableKind | 'hole';
 
-/** What the line says a kid in front of one without its tool needs. */
 /** What Enter does in front of each, with its tool. */
 const ACTIONS: Readonly<Record<ToolTarget, Exclude<ExploreAction, 'talk' | null>>> = {
 	tree: 'chop',
@@ -343,8 +342,9 @@ class HudView {
 			: clearableAhead(game.seed, game.edits, game.pos, game.facing)
 	);
 	/**
-	 * What Enter does now: talk to the doctor at a tent, chop the tree or break
-	 * the rock in front with the tool it takes, when the player owns it; else
+	 * What Enter does now: talk to the doctor at a tent, chop the tree, break
+	 * the rock or the ice block, or fish at the fishing hole in front with the
+	 * tool it takes, when the player owns it; else
 	 * null (Enter only says how to find a doctor, and does nothing at all up in
 	 * the air). The prompt below says it, and the touch controls' Talk button
 	 * is named and lit by it.

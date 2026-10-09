@@ -8,7 +8,7 @@
 		"dev:client": "pnpm -F @mathgame/client dev",
 		"dev:server": "pnpm -F @mathgame/server dev",
 		"build": "pnpm -r build",
-		"check": "pnpm -r check",
+		"check": "pnpm -r check && pnpm -F @mathgame/client build",
 		"test": "pnpm -r test",
 		"lint": "prettier --check . && node scripts/check-learned.mjs",
 		"format": "prettier --write .",

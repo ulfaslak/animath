@@ -2,11 +2,16 @@ import { isDeepStrictEqual } from 'node:util';
 import { describe, expect, it } from 'vitest';
 import { deepFreeze } from './freeze.js';
 import { ANIMALS, canFightIn } from '../src/animals/catalog.js';
-import type { AnimalInstance } from '../src/animals/types.js';
+import { REALMS, type AnimalInstance } from '../src/animals/types.js';
 import { startBattle } from '../src/battle/reducer.js';
 import { bundled, bundles, isBundled, joinParty } from '../src/party/bundles.js';
 import { MAX_NICKNAME_LENGTH, normalizeNickname } from '../src/party/names.js';
-import { applyPartyIntent, leadIndex } from '../src/party/reducer.js';
+import {
+	applyPartyIntent,
+	leadIndex,
+	leadRefusal,
+	speciesLeadRefusal
+} from '../src/party/reducer.js';
 import type { PartyIntent, PartyRejection, PartyStep, PlayerActivity } from '../src/party/types.js';
 import { Rng, hashInts } from '../src/rng.js';
 import { turn } from './turn.js';
@@ -446,7 +451,7 @@ describe('bundles', () => {
 	}
 	const kinds = (party: readonly AnimalInstance[]) => [...new Set(party.map((a) => a.speciesId))];
 
-	it('gathers each species behind its first animal, keeping every animal, who leads, and every order it can', () => {
+	it('gathers each species behind its first animal, keeping every animal, who leads in every realm, and every order it can', () => {
 		let reordered = 0;
 		let leadKept = 0;
 		for (let seed = 1; seed <= 400; seed++) {
@@ -454,17 +459,26 @@ describe('bundles', () => {
 			const out = bundled(party);
 			expect(isBundled(out)).toBe(true);
 			expect([...ids(out)].sort()).toEqual([...ids(party)].sort());
-			// The same animal leads: the first one standing.
-			const lead = party.find((a) => a.hp > 0);
-			expect(out.find((a) => a.hp > 0)).toBe(lead);
+			// The same animal leads on land, on the water and in the air.
+			const leads = (p: readonly AnimalInstance[]) =>
+				REALMS.map((realm) => p.find((a) => a.hp > 0 && canFightIn(a.speciesId, realm)));
+			expect(leads(out)).toEqual(leads(party));
 			// The bundles stand in the order their species first did, each in the party's order;
-			// but when that order would put a standing animal in front of the lead, the lead's
-			// bundle goes first.
+			// but when that order would put a standing animal in front of a lead, the leads'
+			// bundles go first, in the order the leads stood.
 			const gathered = kinds(party).flatMap((k) => party.filter((a) => a.speciesId === k));
-			const moves = lead !== undefined && gathered.find((a) => a.hp > 0) !== lead;
+			const moves = leads(gathered).some((lead, i) => lead !== leads(party)[i]);
 			if (moves) leadKept++;
+			const leading = [
+				...new Set(
+					leads(party)
+						.filter((a) => a !== undefined)
+						.sort((a, b) => party.indexOf(a) - party.indexOf(b))
+						.map((a) => a.speciesId)
+				)
+			];
 			const order = moves
-				? [lead.speciesId, ...kinds(party).filter((k) => k !== lead.speciesId)]
+				? [...leading, ...kinds(party).filter((k) => !leading.includes(k))]
 				: kinds(party);
 			expect(kinds(out)).toEqual(order);
 			for (const species of kinds(party)) {
@@ -484,6 +498,18 @@ describe('bundles', () => {
 		}
 		expect(reordered).toBeGreaterThan(100);
 		expect(leadKept).toBeGreaterThan(10);
+	});
+
+	it('a fox leads nobody it did not lead: behind a tired fox and a crab, the squirrel still leads on land', () => {
+		const party = deepFreeze([
+			{ id: 'a0', speciesId: 'fox', hp: 0 },
+			{ id: 'a1', speciesId: 'crab', hp: 10 },
+			{ id: 'a2', speciesId: 'squirrel', hp: 10 },
+			{ id: 'a3', speciesId: 'fox', hp: 10 }
+		]);
+		const out = bundled(party);
+		expect(out[leadIndex(out, 'land')]!.speciesId).toBe('squirrel');
+		expect(out[leadIndex(out, 'water')]!.speciesId).toBe('crab');
 	});
 
 	it('a caught animal joins the end of its bundle, or starts a bundle at the end', () => {
@@ -698,6 +724,43 @@ describe('applyPartyIntent: lead-species', () => {
 				expectRejected(party, applyPartyIntent(party, intent, 'explore'), 'unknown-species');
 			}
 		}
+	});
+});
+
+describe('leadRefusal and speciesLeadRefusal', () => {
+	/** What the reducer says to `intent`: the reason it refuses, or null when it takes it. */
+	const said = (party: readonly AnimalInstance[], intent: PartyIntent, realm: 'land' | 'water') => {
+		const [event] = applyPartyIntent(party, intent, 'explore', realm).events;
+		return event?.type === 'rejected' ? event.reason : null;
+	};
+
+	it('say what select-lead and lead-species say, for every animal and card, on land and on the water', () => {
+		const bad: unknown[] = [];
+		let refused = 0;
+		for (const party of PARTIES) {
+			for (const realm of ['land', 'water'] as const) {
+				for (const animal of party) {
+					const why = leadRefusal(party, animal.id, realm);
+					const reducer = said(party, { type: 'select-lead', animalId: animal.id }, realm);
+					if (why !== reducer) bad.push({ animal: animal.id, realm, why, reducer });
+					if (why) refused++;
+				}
+				for (const { speciesId } of bundles(bundled(party))) {
+					const why = speciesLeadRefusal(party, speciesId, realm);
+					const reducer = said(party, { type: 'lead-species', speciesId }, realm);
+					if (why !== reducer) bad.push({ speciesId, realm, why, reducer });
+				}
+			}
+		}
+		expect(findings(bad)).toEqual([]);
+		expect(refused).toBeGreaterThan(100);
+	});
+
+	it('refuse nothing about an animal or a species not in the party: the reducer calls that unknown', () => {
+		const party = PARTIES[0]!;
+		expect(leadRefusal(party, 'nobody')).toBeNull();
+		const absent = ANIMALS.find((a) => !party.some((p) => p.speciesId === a.id))!;
+		expect(speciesLeadRefusal(party, absent.id)).toBeNull();
 	});
 });
 

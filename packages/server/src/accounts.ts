@@ -64,9 +64,9 @@ export async function accountTablesReady(
 }
 
 /** How long the server keeps its answer to whether accounts work: every page asks every half minute. */
-export const READY_TTL_MS = 10_000;
+const READY_TTL_MS = 10_000;
 /** How long the question may take: a database that does not answer by then is a no. */
-export const READY_TIMEOUT_MS = 2_000;
+const READY_TIMEOUT_MS = 2_000;
 
 /**
  * `accountTablesReady`, asked at most once every `ttlMs` however many pages

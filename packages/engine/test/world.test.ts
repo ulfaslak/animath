@@ -16,6 +16,8 @@ import {
 	type TileKind
 } from '../src/world/types.js';
 import { hashString } from '../src/rng.js';
+import { landSeed } from '../src/lands/ids.js';
+import { FIRST_WORLD } from '../src/world/numbers.js';
 
 const PROTOTYPE = hashString('prototype');
 
@@ -187,6 +189,29 @@ describe('deep water', () => {
 		expect(bad).toEqual([]);
 	});
 
+	/**
+	 * Every tile within 64 of the spawn of the world of `seed`, folded into
+	 * one FNV-1a hash: its kind, biome and height, and what an ice block stands
+	 * on. With `fold`, deep water reads as water and the sea as the river.
+	 */
+	function checksum(seed: number, fold: boolean): string {
+		const spawn = spawnPoint(seed);
+		let h = 0x811c9dc5;
+		for (let y = spawn.y - 64; y <= spawn.y + 64; y++) {
+			for (let x = spawn.x - 64; x <= spawn.x + 64; x++) {
+				const t = tileAtWorld(seed, x, y);
+				const kind = fold && t.kind === 'deepwater' ? 'water' : t.kind;
+				const biome = fold && t.biome === 'sea' ? 'river' : t.biome;
+				const under = t.under ? `/${t.under}` : '';
+				for (const ch of `${kind}/${biome}/${t.height}${under};`) {
+					h ^= ch.charCodeAt(0);
+					h = Math.imul(h, 0x01000193) >>> 0;
+				}
+			}
+		}
+		return h.toString(16).padStart(8, '0');
+	}
+
 	it('changed no land: the prototype world near spawn is the one saved games stand in', () => {
 		// Kids' saves hold a position in this world ([[DEFERRED]] "A saved
 		// position assumes today's world generator"). Deep water turned some
@@ -195,25 +220,20 @@ describe('deep water', () => {
 		// what the world was before it (the first checksum), and the second pins
 		// the world as it is. A change to generation that moves anything fails
 		// here: check what it does to saved games before updating them.
-		function checksum(fold: boolean): string {
-			const spawn = spawnPoint(PROTOTYPE);
-			let h = 0x811c9dc5;
-			for (let y = spawn.y - 64; y <= spawn.y + 64; y++) {
-				for (let x = spawn.x - 64; x <= spawn.x + 64; x++) {
-					const t = tileAtWorld(PROTOTYPE, x, y);
-					const kind = fold && t.kind === 'deepwater' ? 'water' : t.kind;
-					const biome = fold && t.biome === 'sea' ? 'river' : t.biome;
-					for (const ch of `${kind}/${biome}/${t.height};`) {
-						h ^= ch.charCodeAt(0);
-						h = Math.imul(h, 0x01000193) >>> 0;
-					}
-				}
-			}
-			return h.toString(16).padStart(8, '0');
-		}
 		expect(spawnPoint(PROTOTYPE)).toEqual({ x: -2, y: 6 });
-		expect(checksum(true)).toBe('6a2ad48f');
-		expect(checksum(false)).toBe('8ac33e0d');
+		expect(checksum(PROTOTYPE, true)).toBe('6a2ad48f');
+		expect(checksum(PROTOTYPE, false)).toBe('8ac33e0d');
+	});
+
+	it("changed no land in The Arctic's first world: kids stand there too", () => {
+		// The Arctic is open, and saves hold positions in its worlds as well
+		// (the same [[DEFERRED]] item). Its own generator (`arctic.ts`) pins
+		// here as Nordland's does above: a change that moves a tile, or what an
+		// ice block stands on, near its spawn fails, so check what it does to
+		// saved games before updating the checksum.
+		const seed = landSeed('arctic', FIRST_WORLD);
+		expect(spawnPoint(seed)).toEqual({ x: 5, y: 9 });
+		expect(checksum(seed, false)).toBe('ef19df78');
 	});
 });
 

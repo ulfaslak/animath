@@ -25,7 +25,7 @@ export interface AppOptions {
  * The built client, `packages/client/dist`, from the server package's own
  * directory: the working directory in development and in the image alike.
  */
-export const CLIENT_DIST = '../client/dist';
+const CLIENT_DIST = '../client/dist';
 
 /**
  * Cache-Control for a file of the built client, by the path it was asked for.
@@ -36,7 +36,7 @@ export const CLIENT_DIST = '../client/dist';
  * deploy reaches every kid at their next load, and a file `public/` copies over
  * keeps its name when it changes.
  */
-export function cacheControl(requestPath: string): string {
+function cacheControl(requestPath: string): string {
 	return requestPath.startsWith('/immutable/') ? 'public, max-age=31536000, immutable' : 'no-cache';
 }
 

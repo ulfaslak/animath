@@ -64,7 +64,7 @@ import { acceptWelcome, welcomeState } from '../welcome.js';
  */
 
 /** The header a welcome link's lookup carries its token in. */
-export const WELCOME_HEADER = 'x-animath-welcome';
+const WELCOME_HEADER = 'x-animath-welcome';
 
 type Env = { Variables: { user: SessionUser } };
 
@@ -113,7 +113,7 @@ function credentials(body: unknown): { name: string; password: string } | null {
  * another account never lands in that account, and a logout never ends its
  * session.
  */
-export const ACCOUNT_HEADER = 'x-animath-account';
+const ACCOUNT_HEADER = 'x-animath-account';
 
 /**
  * The `nameKey` of the account a request names: undefined when it names

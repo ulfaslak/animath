@@ -669,7 +669,7 @@ function mixesColours(container: Container): boolean {
 }
 
 /** `root`'s mixes given their colours, and kept as written inside `@supports` (`colorMixFallbacks`). */
-export function withColorMixFallbacks(root: Root, palette: ReadonlyMap<string, string>): void {
+function withColorMixFallbacks(root: Root, palette: ReadonlyMap<string, string>): void {
 	const asked = /^supports$/i;
 	root.walkAtRules(/keyframes$/i, (keyframes) => {
 		if (!mixesColours(keyframes) || insideAtRule(keyframes, asked, COLOR_MIX)) return;

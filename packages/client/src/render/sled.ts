@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { SLED_COLORS } from './palette';
 import { BOX_GEOMETRY } from './tiles';
 
 /**
@@ -14,10 +15,7 @@ import { BOX_GEOMETRY } from './tiles';
  * but the traces' little line geometry, which `dispose` frees.
  */
 
-const WOOD = 0xa86b3c;
-const WOOD_DARK = 0x7a4b2a;
-const CLOTH = 0x2f6fb3;
-const TRACE = 0x3a2f2a;
+const { wood: WOOD, runner: WOOD_DARK, cloth: CLOTH, trace: TRACE } = SLED_COLORS;
 
 const materials = new Map<number, THREE.MeshLambertMaterial>();
 function material(hex: number): THREE.MeshLambertMaterial {

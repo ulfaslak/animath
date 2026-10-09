@@ -36,7 +36,7 @@ export const ADD_BAND: readonly Band[] = [
  * never a factor: "10 × 7" is a freebie, not a difficulty-3 or -4 question.
  * Difficulty 1 is below `mul.minDifficulty`; its row keeps the tables aligned.
  */
-export const MUL_BIG_BAND: readonly Band[] = [
+const MUL_BIG_BAND: readonly Band[] = [
 	[2, 5], //      (1: unused)
 	[2, 5], //      2: small tables
 	[6, 9], //      3: tables 6–9 by 2–5
@@ -48,7 +48,7 @@ export const MUL_BIG_BAND: readonly Band[] = [
 	[51, 100], //   9: two-digit by two-digit
 	[101, 500] //   10: three-digit by two-digit
 ];
-export const MUL_SMALL_BAND: readonly Band[] = [
+const MUL_SMALL_BAND: readonly Band[] = [
 	[2, 5],
 	[2, 5],
 	[2, 5],
@@ -145,7 +145,7 @@ export const div: PuzzleGenerator = {
  * From this difficulty on, half of the missing-number puzzles hide a number in
  * a times table ("4 × ? = 20") instead of a sum.
  */
-export const MISSING_TIMES_FROM = 4;
+const MISSING_TIMES_FROM = 4;
 
 /** "7 + ? = 12" / "4 × ? = 20": solve for the missing operand. */
 export const missing: PuzzleGenerator = {

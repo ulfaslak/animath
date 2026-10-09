@@ -109,6 +109,9 @@ export type PartyEvent =
 	 */
 	| { type: 'rejected'; reason: PartyRejection; animalId?: string; speciesId?: string };
 
+/** What `select-lead` and `lead-species` refuse an animal or a card that is in the party for. */
+export type LeadRefusal = Extract<PartyRejection, 'cannot-fight-here' | 'tired' | 'already-lead'>;
+
 export interface PartyStep {
 	party: readonly AnimalInstance[];
 	events: readonly PartyEvent[];

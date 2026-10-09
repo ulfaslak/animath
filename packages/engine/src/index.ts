@@ -30,9 +30,9 @@ export { countSolved } from './puzzles/solved.js';
 export {
 	MAX_TOPIC_BONUS,
 	MIN_TOPIC_BONUS,
-	PRIOR_ANSWERS,
 	RECENT_ANSWERS,
 	bonusOf,
+	faceTopic,
 	puzzleTopic,
 	readRecord,
 	recordAnswers,
@@ -42,25 +42,18 @@ export {
 	type TopicRecord
 } from './puzzles/record.js';
 export {
-	BAR_SCALES,
 	FACE_NUMBERS,
 	KRONER,
 	MAX_BARS,
 	MAX_BAR_LINES,
-	MAX_DENOMINATOR,
 	MAX_FACE_NUMBER,
-	MAX_GRID_SIDE,
-	MAX_KRONER_PIECES,
-	MAX_SHAPE_SIDE,
 	THERMOMETER,
-	faceFits,
 	facePrompt,
 	puzzleFace,
 	readPuzzleFace
 } from './puzzles/face.js';
 export type { PuzzleFace } from './puzzles/face.js';
 export { BARCHART } from './puzzles/generators/barchart.js';
-export { BALANCE } from './puzzles/generators/balance.js';
 export { CLOCK } from './puzzles/generators/clock.js';
 export { SHAPE } from './puzzles/generators/shape.js';
 
@@ -175,10 +168,11 @@ export {
 	isPasswordRefusal
 } from './password.js';
 export type { PasswordCheck, PasswordRefusal } from './password.js';
-export { applyPartyIntent, leadIndex } from './party/reducer.js';
+export { applyPartyIntent, leadIndex, leadRefusal, speciesLeadRefusal } from './party/reducer.js';
 export { STARTERS, STARTER_TIER, chooseStarter, isStarter } from './party/starters.js';
 export type { NewGameRejection, Starter, StarterPick } from './party/starters.js';
 export type {
+	LeadRefusal,
 	PartyEvent,
 	PartyIntent,
 	PartyRejection,
@@ -209,14 +203,7 @@ export {
 	step,
 	tileRealm
 } from './world/types.js';
-export {
-	ARCTIC_BAND,
-	ICE_RUN,
-	ICE_STOP,
-	LEAD_FREE,
-	TENT_CLEARING,
-	poleAt
-} from './world/arctic.js';
+export { ARCTIC_BAND, ICE_RUN, LEAD_FREE, TENT_CLEARING, poleAt } from './world/arctic.js';
 export { MAX_SLIDE, moveFrom } from './world/slide.js';
 export type { Moved } from './world/slide.js';
 export {
@@ -261,7 +248,6 @@ export {
 	flyRefusal,
 	surpriseLand,
 	getLand,
-	isLandStarter,
 	needsStarter,
 	priceIn,
 	shopFor,
@@ -282,7 +268,6 @@ export {
 } from './world/edits.js';
 export type { ChunkRef } from './world/edits.js';
 export {
-	CLEARING_TOOLS,
 	clearLanding,
 	clearTile,
 	clearableAhead,
@@ -294,7 +279,6 @@ export {
 	LEVEL_RUNS,
 	SKIM_TILES,
 	TOP,
-	WALK_BACK_PLACES,
 	coast,
 	runUpBack,
 	skiLevel,
@@ -308,7 +292,6 @@ export type { ClearRejection, ClearStep, Clearable, Cleared, Clearer } from './w
 export {
 	GLIDE_TILES,
 	flightPos,
-	flightReach,
 	flightTile,
 	glideOn,
 	isLandable,
@@ -395,9 +378,7 @@ export {
 	isBootId,
 	isGuestId,
 	isMatchId,
-	isPid,
 	isWireCoord,
-	isWireWorld,
 	parseClientMessage,
 	parseServerMessage,
 	readWire

@@ -1063,7 +1063,7 @@ species:
     bare: isfisk
     attacks:
       ghost-swim: Spøgelsesfart
-      clear-blood: Klart blod
+      clear-blood: Frostskjold
       croc-snap: Krokodillebid
   harp-seal:
     name: Grønlandssæl

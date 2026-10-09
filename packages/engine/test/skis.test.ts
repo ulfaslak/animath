@@ -29,9 +29,9 @@ import {
 } from '../src/world/types.js';
 
 /**
- * Skis ([[PRODUCT]] §4 "Skis", #191 step 6): the speed a held way builds, the
- * coast after it, turns and walls, deep snow and water at top speed, and the
- * ice that slides the same with skis or without.
+ * Skis ([[PRODUCT]] §4 "The Arctic's shop", #191 step 6): the speed a held
+ * way builds, the coast after it, turns and walls, deep snow and water at top
+ * speed, and the ice that slides the same with skis or without.
  */
 
 const NONE = WorldEdits.none;
