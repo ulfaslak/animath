@@ -27,8 +27,11 @@
  *   items=axe+glider  the tools they own, in the order bought (`boat` alone is `items=boat`)
  *   tokens=23     their tokens (0 by default)
  *   solved=312    the puzzles they have solved (0 by default)
+ *   caught=49     how many of Nordland's species they have caught (its first ones, in the
+ *                 registry's order; 0 by default): all 50 unlock The Arctic, and 49 leave one
+ *                 catch to the witch doctor's surprise
  *   freed=50      how many of Nordland's species they have set free (its first ones, in the
- *                 registry's order; 0 by default): all 50 unlock The Arctic
+ *                 registry's order; 0 by default)
  *   touch         a touch tablet (the touch controls on)
  *   safe=0:59:21:59  a safe area, as `scripts/screenshot.mjs --safe-area` gives one (top,
  *                 right, bottom, left: an iPhone held sideways here), tinted red in the frames
@@ -160,6 +163,7 @@ interface Player {
 	items: ItemId[];
 	tokens: number;
 	solved: number;
+	caught: number;
 	freed: number;
 	touch: boolean;
 	calm: boolean;
@@ -217,6 +221,7 @@ function parsePlayer(spec: string): Player {
 		items: [],
 		tokens: 0,
 		solved: 0,
+		caught: 0,
 		freed: 0,
 		touch: false,
 		calm: false,
@@ -273,11 +278,12 @@ function parsePlayer(spec: string): Player {
 					if (!p.items.includes(id)) p.items.push(id);
 				}
 				break;
+			case 'caught':
 			case 'freed': {
 				const n = Number(value);
 				const all = getLand('nordland').species.length;
-				if (!Number.isInteger(n) || n < 0 || n > all) fail(`${label}: freed is 0 to ${all}`);
-				p.freed = n;
+				if (!Number.isInteger(n) || n < 0 || n > all) fail(`${label}: ${key} is 0 to ${all}`);
+				p[key] = n;
 				break;
 			}
 			case 'tokens':
@@ -351,7 +357,8 @@ function saveOf(p: Player): string {
 	const party = p.party ?? game.party;
 	// The animal book of a game that begins with this party: its kinds, caught.
 	const book = recordParty(EMPTY_BOOK, party);
-	// Kinds set free at a witch doctor's, met first: the way to The Arctic.
+	// Kinds caught, the way to The Arctic, and kinds set free at a witch doctor's, met first.
+	const caught = getLand('nordland').species.slice(0, p.caught);
 	const freed = getLand('nordland').species.slice(0, p.freed);
 	const doc = saveDocument(
 		{
@@ -360,8 +367,8 @@ function saveOf(p: Player): string {
 			steps: p.steps,
 			facing: p.facing,
 			party,
-			seen: [...new Set([...book.seen, ...freed])],
-			caught: [...book.caught],
+			seen: [...new Set([...book.seen, ...caught, ...freed])],
+			caught: [...new Set([...book.caught, ...caught])],
 			freed: [...new Set([...(game.freed ?? []), ...freed])],
 			items: [...p.items],
 			tokens: p.tokens,
