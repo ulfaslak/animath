@@ -222,6 +222,8 @@ Every pull request to main runs `.github/workflows/checks.yml`: `pnpm check`, `p
 
 A negative control (CLAUDE.md § The test-fix-learn cycle) runs with `scripts/negctl.sh`: commit the fix, then `scripts/negctl.sh <path>... -- <test command>` first runs the test as the code is (it must pass: a command that fails anyway proves nothing), then puts each path back as it was before the fix (`--from <ref>`, default `HEAD~1`), runs the test again, and restores the fix from HEAD whatever happens. Paths and the test command are read from where you run it. It refuses while a path has uncommitted changes, and a path the fix added (break the code that uses it instead). Exit 0: the control holds; 1: the test passed without the fix; 2: an error, or a test that could not run; 3: a restore that did not match HEAD. `--from` takes any commit, so a fix older than the last commit is broken the same way. Something that was never committed broken (the triggering input, a test's own guard) is broken by hand: commit first, break it, run the test, and put it back with `git show HEAD:<path> > <path>`.
 
+After a merge conflict, `scripts/merge-lost-lines.sh` (the merge in progress, or a merge commit) prints each line a side added since the merge base that the result lacks, file by file and side by side. A line it prints may be a rewording on purpose; it is a line to read. Exit 0: none; 1: lines printed; 2: not a merge.
+
 `pnpm build` prints the size of each chunk of the client. When a change reaches for a three.js class the game didn't use before, compare the `three` chunk with main's: a `Shape`, say, brings its triangulator along (about 24 kB for one star).
 
 ### The oldest browser: Safari 15

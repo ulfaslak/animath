@@ -79,6 +79,8 @@ Branch from `origin/main`. Edits on main are forbidden, and there are **no size 
 
 Never use `git checkout -- <file>`, `git checkout <ref> -- .`, `git reset --hard`, `git stash` or `git clean` to inspect or restore: they delete uncommitted work, yours or the human's. Look at a ref with `git show <ref>:<path>` or `git diff`. Commit first, then restore with `git show HEAD:<path> > <path>`.
 
+After resolving a merge conflict, run `scripts/merge-lost-lines.sh` and account for each line it prints.
+
 **Never run `drizzle-kit generate`** ([[DECISIONS]] § Server). Write migrations by hand, following [[DEVELOPMENT]] § Migrations — read it before touching `packages/server/drizzle/`.
 
 ## PR body structure
