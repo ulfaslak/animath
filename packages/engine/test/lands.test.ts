@@ -525,7 +525,7 @@ describe('fly', () => {
 		]);
 	});
 
-	it('a flight back picks the land up as it was, and comes home to the tent it left when the land has a tent there', () => {
+	it('a flight back picks the land up as it was, and comes home to the tent the mapping gives from the one flown from', () => {
 		const here = nordlandAt(7);
 		const tent = step(here.pos, here.facing);
 		const out = fly(here, tent, 'arctic', 7);

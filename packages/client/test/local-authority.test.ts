@@ -3587,11 +3587,10 @@ describe('LocalAuthority: lands (#191)', () => {
 		const home = travelled(s);
 		expect(home).toMatchObject({ land: 'nordland', world: 1, seed: WORLD_SEED, firstVisit: false });
 		expect(canTalkToDoctor(WORLD_SEED, home.pos, home.facing)).toBe(true);
-		// Back at the tent they left when The Arctic has one on its spot (The Arctic of step 4 has
-		// one on every spot); else at Nordland's nearest.
-		if (stepFrom(there.pos, there.facing).x === 5 && stepFrom(there.pos, there.facing).y === 7) {
-			expect(stepFrom(home.pos, home.facing)).toEqual({ x: 5, y: 7 });
-		}
+		// A first arrival comes down at The Arctic's spawn tent, (5, 7) in every world ([[DECISIONS]]
+		// § Lands), and home is mapped from there: World 1's Nordland tent on that spot.
+		expect(stepFrom(there.pos, there.facing)).toEqual({ x: 5, y: 7 });
+		expect(stepFrom(home.pos, home.facing)).toEqual({ x: 5, y: 7 });
 		expect(s.authority.snapshot()).toMatchObject({ land: 'nordland', tokens: 12 });
 		expect(party(s).length).toBeGreaterThan(0);
 		// And walking works again.
