@@ -1,0 +1,74 @@
+name: Checks
+
+# Every pull request to main runs the deploy's gate before it is merged: the
+# same checks as the `test` job of deploy.yml, which runs them again on the
+# merge before anything is built. A red run here is a red deploy saved. No
+# build of the image, no deploy and no secrets: a pull request's code never
+# reaches the server from here. AGENTS/DNA/DEVELOPMENT.md § Checks and tests.
+#
+# Keep the steps, the versions and the Postgres service in step with
+# deploy.yml's `test` job.
+
+on:
+  pull_request:
+    branches: [main]
+
+# A new push to a pull request cancels its run still going: only the newest
+# commit's result counts.
+concurrency:
+  group: checks-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:18-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: mathgame
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      # As in deploy.yml: the server tests create, migrate and empty the
+      # database TEST_DATABASE_URL names (packages/server/test/database.ts).
+      DATABASE_URL: postgres://postgres:postgres@localhost:5432/mathgame
+      TEST_DATABASE_URL: postgres://postgres:postgres@localhost:5432/mathgame_ci_test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 26
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      # Type-checks every package, then builds the client as it ships: the
+      # build fails over anything Safari 15 cannot run
+      # (packages/client/browsers.ts).
+      - run: pnpm check
+      - run: pnpm lint
+      - run: pnpm test
+      - name: nginx config
+        # The server's nginx, as the image renders it, with a stand-in domain
+        # when none is set yet.
+        run: |
+          . ./deploy.env
+          image=$(sed -n 's/^ *image: \(nginx:.*\)$/\1/p' docker-compose.prod.yml)
+          docker run --rm \
+            -e MATHGAME_DOMAIN="${MATHGAME_DOMAIN:-game.example.com}" \
+            -e NGINX_ENVSUBST_TEMPLATE_DIR=/etc/nginx/mathgame \
+            -e NGINX_ENVSUBST_OUTPUT_DIR=/etc/nginx \
+            -e NGINX_ENVSUBST_FILTER='^MATHGAME_' \
+            -e NGINX_ENTRYPOINT_QUIET_LOGS=1 \
+            -v "$PWD/nginx:/etc/nginx/mathgame:ro" \
+            "$image" nginx -t

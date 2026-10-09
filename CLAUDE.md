@@ -79,6 +79,8 @@ Branch from `origin/main`. Edits on main are forbidden, and there are **no size 
 
 Never use `git checkout -- <file>`, `git checkout <ref> -- .`, `git reset --hard`, `git stash` or `git clean` to inspect or restore: they delete uncommitted work, yours or the human's. Look at a ref with `git show <ref>:<path>` or `git diff`. Commit first, then restore with `git show HEAD:<path> > <path>`.
 
+After resolving a merge conflict, run `scripts/merge-lost-lines.sh` and account for each line it prints.
+
 **Never run `drizzle-kit generate`** ([[DECISIONS]] § Server). Write migrations by hand, following [[DEVELOPMENT]] § Migrations — read it before touching `packages/server/drizzle/`.
 
 ## PR body structure
@@ -107,7 +109,7 @@ Given a prompt and the DNA, most decisions derive nicely from the context. There
 
 The first implementation pass should be your best effort. Think carefully, handle edge cases, get it right.
 
-- Run `pnpm check`, `pnpm lint` and `pnpm test` from the repo root after your last edit, right before you commit. All three must be green (CI runs them all).
+- Run `pnpm check`, `pnpm lint` and `pnpm test` from the repo root after your last edit, right before you commit. All three must be green: CI runs them on every pull request (`.github/workflows/checks.yml`) and again before deploying. `pnpm check` also builds the client, so code Safari 15 cannot run (engine code included: it ships to the page too) fails before the merge, not on the deploy.
   - Engine changes: add or extend property tests following `packages/engine/test/*.test.ts`. A new puzzle kind extends the independent solver in `puzzles.test.ts`.
   - **When writing or modifying tests**, read **Testing ideology** in [[DEVELOPMENT]] first.
 - Format only your own files (`pnpm exec prettier --write <files>`).
@@ -129,7 +131,7 @@ Pick, without asking, the testing approaches from below that apply. Multiple can
    - **Rendered layout, not just the DOM**: real lengths (long species names), the panel at 1024×768, an HP bar at 1/100. Check the pixel, not the class name. `pnpm fit` measures the title, explore, the pause menu and the druid's card with the widest names at every size, by keys and by touch, in both languages.
    - **A new figure** where a kid meets it: in a battle, from behind, close up, as the kid's own animal (`?party=<id>`), not only in `?zoo`.
    - **Adjacent features**: the save round-trip, and after `git merge origin/main` every overlay the merge brought in (`git diff --stat <merge-base> origin/main -- packages/client/src/ui`).
-   - **Duplicated rosters**: a new puzzle kind, tile kind, biome, phase, intent or species: grep for a sibling member, in the code and in the DNA's prose, to find every list that must learn the new one. A new event fails `handlers.test.ts` on purpose, with the list of every file that branches on an event's type.
+   - **Duplicated rosters**: a new puzzle kind, tile kind, biome, phase, intent or species: grep for a sibling member, in the code and in the DNA's prose, to find every list that must learn the new one. A new event fails `handlers.test.ts` on purpose, with the list of every file that branches on an event's type. A new screen state or hands-off phase: grep every gate that decides "may this happen now" (`calm`, `exploring`, `exploreOnScreen`, `busyNow`, `keyScreen`, `noteScreen`, `others.ts`) and every reader of any flag you reuse; a phase that offers something refuses every intent that does not answer it.
    - **The gate you ran vs. the gate that ships**: dev server vs. `pnpm build` output.
 
 **If the change is engine-only (puzzles, formulas, catalog, world generation, a reducer):**
