@@ -1,10 +1,11 @@
-import { ANIMALS, ATTACK_LEVELS, type AnimalSpec } from '@mathgame/engine';
+import { ANIMALS, ATTACK_LEVELS, catchProbability, type AnimalSpec } from '@mathgame/engine';
 import { describe, expect, it } from 'vitest';
 import {
 	actionAt,
 	actionCount,
 	attackRows,
 	firstPickable,
+	leashBand,
 	listKey,
 	menuKey,
 	rowOf,
@@ -210,5 +211,34 @@ describe('party list keys', () => {
 		expect(firstPickable([false, false, true, true])).toBe(2);
 		expect(firstPickable([true])).toBe(0);
 		expect(firstPickable([false])).toBe(0);
+	});
+});
+
+/**
+ * The leash's hint for every species from full HP down to 1 HP. A bear's
+ * best chance is just under one in five, so with "Maybe" at one in five it
+ * said "Hard to catch" all the way down, and wearing it out changed nothing.
+ */
+describe('leash hint', () => {
+	const RANK = { bad: 0, warn: 1, good: 2 } as const;
+	const bandAt = (spec: AnimalSpec, hp: number) =>
+		leashBand(catchProbability(hp / spec.maxHp, spec.catchRate));
+
+	it('is better than "Hard to catch" for every animal at 1 HP', () => {
+		for (const spec of ANIMALS) expect(bandAt(spec, 1), spec.id).not.toBe('bad');
+	});
+
+	it('never gets worse as the animal tires', () => {
+		for (const spec of ANIMALS) {
+			for (let hp = spec.maxHp; hp > 1; hp--) {
+				expect(RANK[bandAt(spec, hp - 1)], `${spec.id} at ${hp - 1} HP`).toBeGreaterThanOrEqual(
+					RANK[bandAt(spec, hp)]
+				);
+			}
+		}
+	});
+
+	it('is "Hard to catch" for every animal at full HP', () => {
+		for (const spec of ANIMALS) expect(bandAt(spec, spec.maxHp), spec.id).toBe('bad');
 	});
 });
