@@ -58,10 +58,11 @@ export type AccountWriteResult =
 /**
  * Stores `doc` as the account's save unless the stored one has the same or a
  * higher `seq`, or was written by a newer build (`canReplace`). Before
- * replacing a document from a different game, or one this build cannot read,
- * copies it to `account_save_backups`, within `ACCOUNT_BACKUP_BYTES`. The
- * account's row is locked for the read-decide-write, so two concurrent writes
- * are decided one after the other, never both against the same old document.
+ * replacing a document from a different game, one this build cannot read, or
+ * one an older build wrote (`replacesAnotherGame`), copies it to
+ * `account_save_backups`, within `ACCOUNT_BACKUP_BYTES`. The account's row
+ * is locked for the read-decide-write, so two concurrent writes are decided
+ * one after the other, never both against the same old document.
  * A write that does not land returns the stored save.
  */
 export async function writeAccountSave(

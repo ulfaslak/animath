@@ -24,9 +24,9 @@ import {
  * Kept in memory only; a restart forgets everyone, and every browser comes
  * back on its own and says where it is again.
  *
- * A room is a world. A socket joins one by saying where it is (`where`), and
- * is in exactly one room from then on, or none: saying another world moves
- * it, and leaving takes it out. Two players in a room see each other's
+ * A room is one land of one world (`placeKey`). A socket joins one by saying
+ * where it is (`where`), and is in exactly one room from then on, or none:
+ * saying another world or land moves it, and leaving takes it out. Two players in a room see each other's
  * every change while they are near (`inView`), and the server keeps that
  * pairwise, both ways at once: either both see the other, or neither does.
  * Everyone else in the room is on the roster, roughly (`rosterFor`), sent
@@ -318,7 +318,7 @@ export class PresenceHub {
 	}
 
 	/**
-	 * Everyone else in `member`'s world who has said where they are, nearest
+	 * Everyone else in `member`'s room who has said where they are, nearest
 	 * first, at most `MAX_ROSTER`: their name, which way they are and about
 	 * how far, and what they are doing.
 	 */
