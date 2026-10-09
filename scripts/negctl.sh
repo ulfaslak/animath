@@ -8,18 +8,26 @@
 #   scripts/negctl.sh packages/client/src/save/autosave.ts -- \
 #     pnpm -F @mathgame/client exec vitest run test/autosave.test.ts
 #
-# Each <path> is written as it was at <ref> (default `HEAD~1`: the commit before
-# the fix; a path that did not exist there is removed), the test command runs,
-# and every path is written back from HEAD with `git show HEAD:<path>`, never
-# `git checkout` (CLAUDE.md § Protecting existing work). It refuses to start
-# while any <path> differs from HEAD, so nothing uncommitted can be lost: commit
-# the fix first. Exits 0 when the test failed without the fix (the control
-# holds), 1 when it passed (the test does not catch what it claims), 2 on a
-# usage or git error.
-set -euo pipefail
+# Paths are read from where you run it, and the test command runs there too.
+# First the test runs as the code is, and must pass: a command that fails
+# anyway (a typo, a missing test file) proves nothing. Then each <path> is
+# written as it was at <ref> (default `HEAD~1`: the commit before the fix), the
+# test runs again, and every path is written back from HEAD with
+# `git show HEAD:<path>` and its mode, never `git checkout` (CLAUDE.md
+# § Protecting existing work). It refuses to start while any <path> differs
+# from HEAD, so nothing uncommitted can be lost: commit the fix first. A path
+# the fix added (not at <ref>) is refused: deleting it would fail the test on a
+# missing module, not on the bug. A run killed outright (SIGKILL) cannot
+# restore: put the files back with the command it prints first.
+#
+# Exit: 0 the control holds (the test passed with the fix, failed without it);
+# 1 the test passed without the fix (it does not catch what it claims);
+# 2 a usage or git error, or a test that fails with the fix too or could not
+# run (exit 126, 127, or a signal); 3 the restore did not match HEAD.
+set -uo pipefail
 
 from=HEAD~1
-paths=()
+args=()
 while [ $# -gt 0 ]; do
 	case "$1" in
 		--from)
@@ -32,72 +40,113 @@ while [ $# -gt 0 ]; do
 			break
 			;;
 		-h | --help)
-			sed -n '2,18p' "$0" | sed 's/^# \{0,1\}//'
+			sed -n '2,29p' "$0" | sed 's/^# \{0,1\}//'
 			exit 0
 			;;
 		*)
-			paths+=("$1")
+			args+=("$1")
 			shift
 			;;
 	esac
 done
 
-if [ ${#paths[@]} -eq 0 ] || [ $# -eq 0 ]; then
+if [ ${#args[@]} -eq 0 ] || [ $# -eq 0 ]; then
 	echo "usage: scripts/negctl.sh [--from <ref>] <path>... -- <test command>..." >&2
 	exit 2
 fi
 
-root=$(git rev-parse --show-toplevel)
-cd "$root"
+root=$(git rev-parse --show-toplevel) || exit 2
+prefix=$(git rev-parse --show-prefix) || exit 2
 git rev-parse --verify --quiet "$from^{commit}" >/dev/null || {
 	echo "negctl: no commit '$from'" >&2
 	exit 2
 }
 
+# Each path from the repo's root, for git; the files themselves are reached through $root.
+paths=()
+for a in "${args[@]}"; do
+	p=$(cd "$(dirname "$a")" 2>/dev/null && printf '%s%s' "$(git rev-parse --show-prefix)" "$(basename "$a")") || p="$prefix$a"
+	p=${p#./}
+	paths+=("$p")
+done
+
 for p in "${paths[@]}"; do
-	if ! git cat-file -e "HEAD:$p" 2>/dev/null; then
-		echo "negctl: $p is not in HEAD; commit the fix first" >&2
+	if [ "$(git cat-file -t "HEAD:$p" 2>/dev/null)" != blob ]; then
+		echo "negctl: $p is not a file in HEAD; commit the fix first" >&2
 		exit 2
 	fi
-	if ! git diff --quiet HEAD -- "$p"; then
+	if ! git -C "$root" diff --quiet HEAD -- "$p" || [ ! -e "$root/$p" ]; then
 		echo "negctl: $p has uncommitted changes; commit them first, so the restore cannot lose them" >&2
 		exit 2
 	fi
+	if [ "$(git cat-file -t "$from:$p" 2>/dev/null)" != blob ]; then
+		echo "negctl: $p is not a file at $from: the fix added it, and deleting it would fail the test on its absence, not on the bug. Break the code that uses it instead." >&2
+		exit 2
+	fi
 done
 
-restore() {
-	for p in "${paths[@]}"; do
-		mkdir -p "$(dirname "$p")"
-		git show "HEAD:$p" >"$p"
-	done
-	if git diff --quiet HEAD -- "${paths[@]}"; then
-		echo "negctl: restored ${#paths[@]} file(s) from HEAD"
-	else
-		echo "negctl: RESTORE DID NOT MATCH HEAD for: ${paths[*]}" >&2
-	fi
-}
-trap restore EXIT
-
-same=0
-for p in "${paths[@]}"; do
-	if git cat-file -e "$from:$p" 2>/dev/null; then
-		git show "$from:$p" >"$p"
-	else
-		rm -f "$p"
-	fi
-	git diff --quiet HEAD -- "$p" && same=$((same + 1))
-done
-if [ "$same" -eq ${#paths[@]} ]; then
+if git -C "$root" diff --quiet "$from" HEAD -- "${paths[@]}"; then
 	echo "negctl: every path is the same at $from as at HEAD: nothing to break (is --from right?)" >&2
 	exit 2
 fi
 
-echo "negctl: ${paths[*]} as at $(git rev-parse --short "$from"); running: $*"
-set +e
+ran() {
+	local status=$1
+	if [ "$status" -eq 126 ] || [ "$status" -eq 127 ] || [ "$status" -ge 128 ]; then
+		echo "negctl: the test command could not run, or was stopped (exit $status)" >&2
+		return 1
+	fi
+	return 0
+}
+
+echo "negctl: with the fix: $*"
 "$@"
 status=$?
-set -e
+if [ "$status" -ne 0 ]; then
+	ran "$status" || exit 2
+	echo "negctl: the test fails with the fix in place too (exit $status): a failure without it would prove nothing" >&2
+	exit 2
+fi
 
+echo "negctl: if this run is killed, restore with: git -C '$root' show HEAD:<path> > <path> for ${paths[*]}"
+
+restored=0
+restore() {
+	[ "$restored" -eq 1 ] && return
+	restored=1
+	local ok=1
+	for p in "${paths[@]}"; do
+		git show "HEAD:$p" >"$root/$p" || ok=0
+		case "$(git ls-tree HEAD -- "$p" | cut -d' ' -f1)" in
+			100755) chmod +x "$root/$p" ;;
+			*) chmod -x "$root/$p" ;;
+		esac
+	done
+	if [ "$ok" -eq 1 ] && git -C "$root" diff --quiet HEAD -- "${paths[@]}"; then
+		echo "negctl: restored ${#paths[@]} file(s) from HEAD"
+		return 0
+	fi
+	echo "negctl: RESTORE DID NOT MATCH HEAD for: ${paths[*]}" >&2
+	return 1
+}
+on_exit() {
+	local status=$?
+	restore || exit 3
+	exit "$status"
+}
+trap on_exit EXIT
+trap 'exit 130' INT
+trap 'exit 143' TERM
+trap 'exit 129' HUP
+
+for p in "${paths[@]}"; do
+	git show "$from:$p" >"$root/$p" || { echo "negctl: could not write $p as at $from" >&2; exit 2; }
+done
+
+echo "negctl: without the fix (${paths[*]} as at $(git rev-parse --short "$from")): $*"
+"$@"
+status=$?
+ran "$status" || exit 2
 if [ "$status" -eq 0 ]; then
 	echo "negctl: THE TEST PASSED WITHOUT THE FIX. It does not catch what it claims." >&2
 	exit 1
