@@ -1,6 +1,6 @@
 import { canFightIn } from '../animals/catalog.js';
 import type { AnimalInstance, Realm } from '../animals/types.js';
-import { bundled, bundles } from './bundles.js';
+import { bundled, bundles, leadIndex } from './bundles.js';
 import { normalizeNickname } from './names.js';
 import type {
 	LeadRefusal,
@@ -11,18 +11,7 @@ import type {
 	PlayerActivity
 } from './types.js';
 
-/**
- * The lead where the player stands in `realm` (land unless said otherwise):
- * the animal that steps into the next battle there, the first one in party
- * order that is not tired and can fight there (`canFightIn`). Out on the
- * water that is the first one that swims. -1 when there is none: every
- * animal is tired, or none of the standing ones can go there. The battle
- * reducer uses the same function for who starts and who steps in after a
- * knock-out, so the animal the HUD marks as the lead is the one that fights.
- */
-export function leadIndex(party: readonly AnimalInstance[], realm: Realm = 'land'): number {
-	return party.findIndex((a) => a.hp > 0 && canFightIn(a.speciesId, realm));
-}
+export { leadIndex };
 
 /**
  * Apply one party intent: choose the lead (an animal, or a bundle's first
