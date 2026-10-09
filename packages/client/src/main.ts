@@ -54,6 +54,7 @@ import { game } from './state/game.svelte';
 import { hud } from './state/hud.svelte';
 import { match } from './state/match.svelte';
 import { pause } from './state/pause.svelte';
+import { surprise } from './state/surprise.svelte';
 import { plane } from './state/plane.svelte';
 import { title } from './state/title.svelte';
 import { travel } from './state/travel.svelte';
@@ -272,6 +273,8 @@ const titleController = new TitleController(authority, new TitleScenery(renderer
 
 /** Every screen hears every event the authority sends, in this order (the autosave first, in `subscribe`). */
 function deliver(event: GameEvent): void {
+	// Before `game.apply`: it reads the lands unlocked before the event.
+	surprise.apply(event);
 	game.apply(event);
 	hud.apply(event);
 	explore.handle(event);
@@ -647,6 +650,11 @@ function frame(now: number) {
 	presenceController.update();
 	presenceController.overlay();
 	doctorWay.overlay();
+	// The catch that opened a land: its party once the kid is back in the world (`surprise`).
+	if (surprise.tick(dt, doctorWay.showing() && !plane.show && !travel.active)) {
+		sfx.play('caught');
+		hud.surprise();
+	}
 	noteScreen();
 	requestAnimationFrame(frame);
 }

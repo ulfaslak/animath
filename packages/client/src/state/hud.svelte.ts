@@ -80,9 +80,12 @@ export type Said =
 	 * glider, a tap of Space there says how to fly instead, and so does the
 	 * doctor's goodbye when it was just bought (`holdToFly`); a take-off with
 	 * nowhere to land that way (`tooFar`); the doctor's goodbye when the
-	 * harness was just bought (`rideBig`).
+	 * harness was just bought (`rideBig`); the druid has a surprise
+	 * (`surprise`, `state/surprise.svelte.ts`).
 	 */
-	| { explore: 'notAtTent' | 'holdToFly' | 'tooFar' | 'rideBig' | 'skiHow' | 'sledHow' }
+	| {
+			explore: 'notAtTent' | 'holdToFly' | 'tooFar' | 'rideBig' | 'skiHow' | 'sledHow' | 'surprise';
+	  }
 	/** Up in the air, a wild bird of this species noticed the glider and follows it down. */
 	| { follows: string }
 	/**
@@ -144,6 +147,7 @@ export function saidWords(said: Said): string {
 	if (said.explore === 'rideBig') return t('explore.rideBig');
 	if (said.explore === 'skiHow') return t('explore.skiHow');
 	if (said.explore === 'sledHow') return t('explore.sledHow');
+	if (said.explore === 'surprise') return t('explore.surprise');
 	return t('explore.notAtTent');
 }
 
@@ -519,6 +523,11 @@ class HudView {
 	/** Whether `id` is among `items` at the doctor's goodbye and was not as the visit began. */
 	private bought(items: readonly string[], id: ItemId): boolean {
 		return items.includes(id) && !this.itemsBefore.includes(id);
+	}
+
+	/** The druid's surprise party started (`surprise.tick`): where to find him. */
+	surprise(): void {
+		this.say({ explore: 'surprise' });
 	}
 
 	/** Put a line on the message line; it stays for `MESSAGE_SECONDS` of the HUD on screen. */

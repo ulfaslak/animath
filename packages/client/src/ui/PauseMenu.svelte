@@ -139,7 +139,7 @@
 	const bookCount = $derived(
 		t('book.count', { caught: ofPage(caught), seen: ofPage(seen), all: page.length })
 	);
-	/** The kinds set free, of every kind there is in the land of the page: the way to the next land. */
+	/** The kinds set free, of every kind there is in the land of the page. */
 	const freedCount = $derived(t('book.freed', { freed: ofPage(freed), all: page.length }));
 	/** What the lit card says, under the book; on the land tabs, what the tabs are. */
 	const bookCaption = $derived.by(() => {

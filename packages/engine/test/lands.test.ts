@@ -194,7 +194,7 @@ describe("the lands' seeds", () => {
 describe('unlocking a land', () => {
 	const nordland = getLand('nordland').species;
 
-	it('opens the next land once every species of the one before is set free, and never before', () => {
+	it('opens the next land once every species of the one before is caught, and never before', () => {
 		expect(unlockLands([], [])).toEqual(['nordland']);
 		expect(unlockLands([], nordland.slice(1))).toEqual(['nordland']);
 		expect(unlockLands([], nordland.slice(0, -1))).toEqual(['nordland']);
@@ -226,8 +226,8 @@ describe('unlocking a land', () => {
 		expect(unlockLands(both, nordland)).toBe(both);
 	});
 
-	it("opens no land for another land's animals: The Arctic's own set free open nothing in Nordland", () => {
-		// Every Arctic animal set free, and every Nordland one but the last: still Nordland alone.
+	it("opens no land for another land's animals: The Arctic's own caught open nothing in Nordland", () => {
+		// Every Arctic animal caught, and every Nordland one but the last: still Nordland alone.
 		const arctic = getLand('arctic').species;
 		expect(unlockLands([], [...arctic, ...nordland.slice(0, -1)])).toEqual(['nordland']);
 		// Every animal there is: The Arctic, and nothing past it, the last land there is.
@@ -240,25 +240,25 @@ describe('unlocking a land', () => {
 	});
 });
 
-describe('the way to a land: how many of the land before it are set free', () => {
+describe('the way to a land: how many of the land before it are caught', () => {
 	const nordland = getLand('nordland').species;
 
-	it('counts the land before its species set free, of all of them, whatever else is set free', () => {
-		expect(unlockProgress('arctic', [])).toEqual({ from: 'nordland', freed: 0, of: 50 });
+	it('counts the land before its species caught, of all of them, whatever else is caught', () => {
+		expect(unlockProgress('arctic', [])).toEqual({ from: 'nordland', caught: 0, of: 50 });
 		const arctic = getLand('arctic').species;
 		// Another land's animals, an unknown id and one twice count nothing more.
 		const some = [...nordland.slice(0, 37), nordland[0]!, ...arctic, 'savannah-lion'];
-		expect(unlockProgress('arctic', some)).toEqual({ from: 'nordland', freed: 37, of: 50 });
-		expect(unlockProgress('arctic', nordland)).toEqual({ from: 'nordland', freed: 50, of: 50 });
+		expect(unlockProgress('arctic', some)).toEqual({ from: 'nordland', caught: 37, of: 50 });
+		expect(unlockProgress('arctic', nordland)).toEqual({ from: 'nordland', caught: 50, of: 50 });
 	});
 
 	it('agrees with the unlock rule: all of them, and only then, opens the land', () => {
 		const rng = new Rng(191);
 		for (let i = 0; i < 200; i++) {
-			const freed = nordland.filter(() => rng.chance(0.97));
-			const progress = unlockProgress('arctic', freed)!;
-			const opens = unlockLands([], freed).includes('arctic');
-			expect(opens).toBe(progress.freed === progress.of);
+			const caught = nordland.filter(() => rng.chance(0.97));
+			const progress = unlockProgress('arctic', caught)!;
+			const opens = unlockLands([], caught).includes('arctic');
+			expect(opens).toBe(progress.caught === progress.of);
 		}
 	});
 

@@ -1394,6 +1394,8 @@ explore:
   turnSideways: Turn your screen sideways to play!
   # Enter with nothing in front to talk to, chop or break.
   notAtTent: Walk up to a tent to talk to the druid.
+  # The catch that completed a land: the druid offers the trip to the next one.
+  surprise: The druid has a surprise for you! Walk to a tent.
   # Under the latest message for as long as no animal can fight (after a lost
   # battle), until the druid has helped one: nothing jumps out of the grass meanwhile.
   tired: Your animals are tired. Walk to the druid's tent!
@@ -1670,30 +1672,41 @@ doctor:
   goodbye: Bye! Come back any time.
   # The fly tab: a plane to another land (#191). {land} is a land as a sentence names it
   # (lands.*.inLine), {from} the land before it; {of} how many kinds of animal that land has,
-  # {freed} how many of them the kid has set free.
+  # {caught} how many of them the kid has caught.
   fly:
     # What the druid says on the tab.
     intro: Want to fly somewhere new? Every trip costs one puzzle.
     # The druid's line when a land still locked is picked.
-    locked: To fly to {land}, set free at least one of each of the {of} animals of {from}. You have {freed} so far!
+    locked: To fly to {land}, catch at least one of each of the {of} animals of {from}. You have {caught} so far!
     # The fare's puzzle is up.
     count: Solve this, and off you fly to {land}!
     # Beside a locked land's row: how far the kid is.
-    progress: '{freed} / {of}'
+    progress: '{caught} / {of}'
     # Beside a land's row the kid can fly to.
     open: One puzzle
     # Over the fare's puzzle.
     story: The plane to {land} costs one puzzle!
     # The right-hand side, about the lit land.
     title: Fly to {land}!
-    how: Set free at least one of each of the {of} animals of {from} to fly there.
-    soFar: '{freed} / {of} set free'
+    how: Catch at least one of each of the {of} animals of {from} to fly there.
+    soFar: '{caught} / {of} caught'
     fare: The trip costs one puzzle.
     stays: Your animals and things here wait for you until you come back.
     # Bye is lit.
     pick: Where do you want to fly?
     keys: ↑ ↓ choose · ← → tabs · Enter fly · Esc bye
     touch: Tap a land to fly there
+  # The surprise: a kid who caught one of every animal of a land is offered a trip to the next
+  # one, with no puzzle, as the card opens, until they go. {from} is the land they stand in,
+  # {land} the land offered, both as a sentence names them (lands.*.inLine).
+  surprise:
+    # The druid's line.
+    line: Wow! You explored all of {from} and caught one of every animal. I have a surprise for you!
+    question: Do you want to fly to {land}?
+    detail: The plane is my gift. No puzzle this time!
+    notNow: Not now
+    yes: Yes, let's fly!
+    keys: ← → choose · Enter pick · Esc not now
   # The last row of the list, and its key.
   bye: Bye
   byeKey: Esc
@@ -2371,6 +2384,12 @@ lands:
     name: The Arctic
     # The land in the middle of a sentence ("Fly to the Arctic!").
     inLine: the Arctic
+# The druid's surprise party: the catch that completed a land. {from} is the land as a
+# sentence names it (lands.*.inLine).
+surprise:
+  # In big letters, over the rays.
+  hooray: Hooray!
+  caughtAll: You caught every animal in {from}!
 book:
   # The animal book: a card for every kind of animal there is, a "?" for the ones not met yet.
   # The pause menu's row that opens it (on the menu's title line), and the book's own title.

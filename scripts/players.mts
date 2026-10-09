@@ -27,8 +27,13 @@
  *   items=axe+glider  the tools they own, in the order bought (`boat` alone is `items=boat`)
  *   tokens=23     their tokens (0 by default)
  *   solved=312    the puzzles they have solved (0 by default)
+ *   caught=49     how many of Nordland's species they have caught (its first ones, in the
+ *                 registry's order; 0 by default): all 50 unlock The Arctic, and 49 leave one
+ *                 catch to the druid's surprise; caught=all-shrew is every one but the shrew
+ *   wild=brown-rat:1  the game opens in a battle against this wild animal, at this HP (full
+ *                 when left out), its lead the party's first
  *   freed=50      how many of Nordland's species they have set free (its first ones, in the
- *                 registry's order; 0 by default): all 50 unlock The Arctic
+ *                 registry's order; 0 by default)
  *   touch         a touch tablet (the touch controls on)
  *   safe=0:59:21:59  a safe area, as `scripts/screenshot.mjs --safe-area` gives one (top,
  *                 right, bottom, left: an iPhone held sideways here), tinted red in the frames
@@ -110,6 +115,7 @@ import {
 	isItemId,
 	recordParty,
 	saveDocument,
+	startBattle,
 	type AnimalInstance,
 	type Direction,
 	type ItemId,
@@ -160,6 +166,7 @@ interface Player {
 	items: ItemId[];
 	tokens: number;
 	solved: number;
+	caught: number | string[];
 	freed: number;
 	touch: boolean;
 	calm: boolean;
@@ -169,6 +176,7 @@ interface Player {
 	debug: boolean;
 	title: boolean;
 	steps: number;
+	wild: { speciesId: string; hp?: number } | null;
 	context?: BrowserContext;
 	page?: Page;
 	errors: string[];
@@ -217,6 +225,7 @@ function parsePlayer(spec: string): Player {
 		items: [],
 		tokens: 0,
 		solved: 0,
+		caught: 0,
 		freed: 0,
 		touch: false,
 		calm: false,
@@ -226,6 +235,7 @@ function parsePlayer(spec: string): Player {
 		debug: true,
 		title: false,
 		steps: 0,
+		wild: null,
 		errors: [],
 		socketFailures: 0,
 		net: { offline: false, delayed: false, sockets: [] }
@@ -273,11 +283,20 @@ function parsePlayer(spec: string): Player {
 					if (!p.items.includes(id)) p.items.push(id);
 				}
 				break;
+			case 'caught':
+				if (value.startsWith('all-')) {
+					const all = getLand('nordland').species;
+					const but = value.slice(4);
+					if (!all.includes(but)) fail(`${label}: ${but} is no animal of Nordland`);
+					p.caught = all.filter((id) => id !== but);
+					break;
+				}
+			// falls through: a count
 			case 'freed': {
 				const n = Number(value);
 				const all = getLand('nordland').species.length;
-				if (!Number.isInteger(n) || n < 0 || n > all) fail(`${label}: freed is 0 to ${all}`);
-				p.freed = n;
+				if (!Number.isInteger(n) || n < 0 || n > all) fail(`${label}: ${key} is 0 to ${all}`);
+				p[key] = n;
 				break;
 			}
 			case 'tokens':
@@ -306,6 +325,15 @@ function parsePlayer(spec: string): Player {
 			case 'size': {
 				const [width, height] = value.split('x').map(Number);
 				p.size = { width: width!, height: height! };
+				break;
+			}
+			case 'wild': {
+				const [speciesId = '', hp] = value.split(':');
+				if (!ANIMALS.some((a) => a.id === speciesId)) fail(`${label}: no animal ${speciesId}`);
+				const n = hp === undefined ? undefined : Number(hp);
+				if (n !== undefined && (!Number.isInteger(n) || n < 1 || n > getAnimal(speciesId).maxHp))
+					fail(`${label}: wild HP is 1 to its most`);
+				p.wild = n === undefined ? { speciesId } : { speciesId, hp: n };
 				break;
 			}
 			case 'steps':
@@ -351,7 +379,10 @@ function saveOf(p: Player): string {
 	const party = p.party ?? game.party;
 	// The animal book of a game that begins with this party: its kinds, caught.
 	const book = recordParty(EMPTY_BOOK, party);
-	// Kinds set free at a druid's, met first: the way to The Arctic.
+	// Kinds caught, the way to The Arctic, and kinds set free at a druid's, met first.
+	const caught = Array.isArray(p.caught)
+		? p.caught
+		: getLand('nordland').species.slice(0, p.caught);
 	const freed = getLand('nordland').species.slice(0, p.freed);
 	const doc = saveDocument(
 		{
@@ -360,12 +391,21 @@ function saveOf(p: Player): string {
 			steps: p.steps,
 			facing: p.facing,
 			party,
-			seen: [...new Set([...book.seen, ...freed])],
-			caught: [...book.caught],
+			seen: [...new Set([...book.seen, ...caught, ...freed])],
+			caught: [...new Set([...book.caught, ...caught])],
 			freed: [...new Set([...(game.freed ?? []), ...freed])],
 			items: [...p.items],
 			tokens: p.tokens,
-			solved: p.solved
+			solved: p.solved,
+			...(p.wild
+				? {
+						battle: startBattle(party, {
+							id: `wild-${p.label}`,
+							speciesId: p.wild.speciesId,
+							hp: p.wild.hp ?? getAnimal(p.wild.speciesId).maxHp
+						})
+					}
+				: {})
 		},
 		{ lineage: `players-${p.label}`, seq: 1 }
 	);

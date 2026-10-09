@@ -117,7 +117,7 @@ export class DoctorController {
 				if (event.visit === this.visit) this.close();
 				break;
 			case 'unlocked-changed':
-				// A hand-over that opened a land: its Fly row opens at once, in this visit.
+				// A land unlocked while the card is open (none is today: only a catch unlocks) opens its row.
 				if (doctor.active) doctor.unlocked = [...event.unlocked];
 				break;
 		}
@@ -165,6 +165,7 @@ export class DoctorController {
 				handled = this.listKey(key, fresh);
 				break;
 			case 'confirm':
+			case 'offer':
 				handled = this.confirmKey(key, fresh);
 				break;
 			case 'puzzle':
@@ -196,6 +197,11 @@ export class DoctorController {
 			doctor.tab = 'fly';
 			this.said = this.tabLine('fly', state);
 		}
+		// A land caught open and never visited: the druid's surprise comes first.
+		if (state.phase.kind === 'offering') {
+			this.said = { say: 'surprise', from: state.phase.from };
+			doctor.confirm = 1;
+		}
 		doctor.cursor = this.firstStop(doctor.tab);
 		sfx.play('confirm');
 		this.settle();
@@ -209,9 +215,10 @@ export class DoctorController {
 		doctor.tokens = state.tokens;
 		doctor.items = [...state.items];
 		doctor.shop = [...state.shop];
-		// Unlocked lands only grow: one opened by a hand-over (`unlocked-changed`) comes after its state.
+		// Unlocked lands only grow: one an `unlocked-changed` told of may be newer than the state.
 		doctor.unlocked = [...new Set([...doctor.unlocked, ...state.unlocked])];
 		doctor.fare = null;
+		doctor.offer = null;
 		doctor.line = this.said;
 		doctor.input = '';
 		doctor.judged = null;
@@ -269,6 +276,12 @@ export class DoctorController {
 				doctor.cursor = this.rows().findIndex((r) => r.kind === 'land' && r.land === phase.land);
 				doctor.screen = 'puzzle';
 				break;
+			case 'offering':
+				doctor.offer = phase.land;
+				// The card opening on the question: a new choice.
+				if (doctor.screen !== 'offer') this.guard.show();
+				doctor.screen = 'offer';
+				break;
 			case 'ended':
 				// `doctor-visit-ended` follows at once and closes the card.
 				break;
@@ -297,6 +310,8 @@ export class DoctorController {
 				this.backToList();
 				break;
 			case 'puzzle':
+			case 'offer':
+				// Not now, for the trip: the list, and the Fly tab is still the way there.
 				this.send({ type: 'back' });
 				break;
 			default:
@@ -421,8 +436,8 @@ export class DoctorController {
 				return;
 			case 'land': {
 				// A land still locked gives a little shake, and the druid says how to open it:
-				// one of each animal of the land before it set free, and how many are so far.
-				const progress = unlockProgress(row.land, game.freed);
+				// one of each animal of the land before it caught, and how many are so far.
+				const progress = unlockProgress(row.land, game.caught);
 				if (row.land !== FIRST_LAND && !doctor.unlocked.includes(row.land) && progress) {
 					this.shakeRow(doctor.cursor);
 					sfx.play('wrong');
@@ -492,7 +507,7 @@ export class DoctorController {
 			return this.confirmKey('Enter', fresh);
 		}
 		switch (key) {
-			// The two choices stand side by side, "No" first: either pair of arrows
+			// The two choices stand side by side, "No" (or "Not now") first: either pair of arrows
 			// moves between them, without wrapping round.
 			case 'ArrowLeft':
 			case 'a':
@@ -512,7 +527,9 @@ export class DoctorController {
 			case ' ':
 				if (!fresh) return true;
 				sfx.play('confirm');
-				if (doctor.confirm === 0) this.backToList();
+				if (doctor.screen === 'offer')
+					this.send(doctor.confirm === 0 ? { type: 'back' } : { type: 'accept-offer' });
+				else if (doctor.confirm === 0) this.backToList();
 				else this.send({ type: 'hand-over', ids: [...doctor.marked] });
 				return true;
 		}
