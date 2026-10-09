@@ -1341,11 +1341,11 @@ explore:
   controls: Arrows / WASD to walk
   # The same, with the touch controls on: the arrow pad in the corner.
   controlsTouch: Hold an arrow to walk
-  # Under the latest message while the player faces the witch doctor's tent.
-  talkPrompt: Press Enter to talk to the witch doctor
+  # Under the latest message while the player faces the druid's tent.
+  talkPrompt: Press Enter to talk to the druid
   # The same, with the touch controls on; "Talk" is explore.talk.
-  talkPromptTouch: Tap Talk to talk to the witch doctor
-  # The touch controls' round button: talk to the witch doctor, as Enter does.
+  talkPromptTouch: Tap Talk to talk to the druid
+  # The touch controls' round button: talk to the druid, as Enter does.
   talk: Talk
   # Under the latest message while the player faces a tree and owns the axe.
   chopPrompt: Press Enter to chop the tree
@@ -1374,17 +1374,17 @@ explore:
   # A cast at a fishing hole with nobody in the team who can swim: nothing bites then.
   noSwimmer: Nothing bites, because no animal in your team can swim. Bring a swimmer!
   # The first bump into a tree without the axe, and Enter facing one.
-  needAxe: You need an axe to chop trees. The witch doctor sells one!
+  needAxe: You need an axe to chop trees. The druid sells one!
   # The first bump into a rock without the pickaxe, and Enter facing one.
-  needPickaxe: You need a pickaxe to break rocks. The witch doctor sells one!
+  needPickaxe: You need a pickaxe to break rocks. The druid sells one!
   # The first bump into an ice block without the ice pick, and Enter facing one.
-  # Leaving the witch doctor's card just after buying the skis: how to ski.
-  # Leaving the witch doctor's card just after buying the dog sled: who pulls it.
+  # Leaving the druid's card just after buying the skis: how to ski.
+  # Leaving the druid's card just after buying the dog sled: who pulls it.
   sledHow: Put a reindeer or an Arctic wolf first, and it pulls you on your sled!
   skiHow: Hold an arrow to go faster and faster on the snow. Let go and you glide on!
-  needIcePick: You need an ice pick to break ice blocks. The witch doctor sells one!
+  needIcePick: You need an ice pick to break ice blocks. The druid sells one!
   # Enter facing a fishing hole without the fishing rod.
-  needRod: You need a fishing rod to fish here. The witch doctor sells one!
+  needRod: You need a fishing rod to fish here. The druid sells one!
   # What a screen reader calls the arrow pad's four arrows.
   walkUp: Walk up
   walkDown: Walk down
@@ -1393,23 +1393,23 @@ explore:
   # Over the whole screen when a touch screen is held upright.
   turnSideways: Turn your screen sideways to play!
   # Enter with nothing in front to talk to, chop or break.
-  notAtTent: Walk up to a tent to talk to the witch doctor.
+  notAtTent: Walk up to a tent to talk to the druid.
   # Under the latest message for as long as no animal can fight (after a lost
-  # battle), until the witch doctor has helped one: nothing jumps out of the grass meanwhile.
-  tired: Your animals are tired. Walk to the witch doctor's tent!
+  # battle), until the druid has helped one: nothing jumps out of the grass meanwhile.
+  tired: Your animals are tired. Walk to the druid's tent!
   # The same, out on the water in the boat.
-  tiredSail: Your animals are tired. Sail to the witch doctor's tent!
-  # The same, walled in where no tent is a walk away, with the paraglider (no witch doctor
+  tiredSail: Your animals are tired. Sail to the druid's tent!
+  # The same, walled in where no tent is a walk away, with the paraglider (no druid
   # comes to a kid who can fly): glide out, and walk from there.
-  tiredFly: Your animals are tired. Fly out to find the witch doctor's tent!
+  tiredFly: Your animals are tired. Fly out to find the druid's tent!
   # What a screen reader calls the arrow at the screen's edge that points to the nearest tent then.
-  doctorArrow: The way to the witch doctor's tent
-  # With the glider: a tap of Space with nothing in front, and the witch doctor's goodbye
+  doctorArrow: The way to the druid's tent
+  # With the glider: a tap of Space with nothing in front, and the druid's goodbye
   # just after buying it. "Space" is the space bar.
   holdToFly: Hold Space to fly!
   # The same, with the touch controls on; "Fly" is explore.fly.
   holdToFlyTouch: Hold Fly to fly!
-  # The witch doctor's goodbye just after buying the harness: a big animal (a deer, a bear…)
+  # The druid's goodbye just after buying the harness: a big animal (a deer, a bear…)
   # at the top of the team carries the kid.
   rideBig: Put a big animal first and hop on!
   # A take-off with no ground to land on in the 20 tiles ahead (a lake too wide, a forest too deep).
@@ -1480,11 +1480,11 @@ party:
   # The message line, on land, when the number of a sea animal was pressed.
   leadInTheSea: '{animal.name} lives in the sea! On land, an animal that walks goes first.'
   # The message line, when the number of a tired animal was pressed.
-  leadTired: '{animal.name} is tired. Visit the witch doctor!'
+  leadTired: '{animal.name} is tired. Visit the druid!'
   # The message line, when the lead's own number was pressed.
   leadAlready: '{animal.name} already goes first!'
   # The message line, when the number of a card whose animals are all tired was pressed.
-  leadAllTired: They are all tired. Visit the witch doctor!
+  leadAllTired: They are all tired. Visit the druid!
 
 battle:
   # The status box over the wild animal.
@@ -1637,16 +1637,16 @@ battle:
     fledAir: '{animal.theWild} stays up in the sky.'
     joined: '{animal.name} joins your team!'
     # Under "Good try!": the team is tired where it stood, and walks to a doctor.
-    lost: Your animals need a rest. The witch doctor will make them feel all better!
+    lost: Your animals need a rest. The druid will make them feel all better!
 
-# The witch doctor at every tent: he heals, takes animals to set free, and
-# sells tools. "Witch doctor" everywhere, never "doctor" alone.
+# The druid at every tent: he heals, takes animals to set free, and
+# sells tools. "Druid" everywhere: never "doctor", never a witch.
 doctor:
-  # The name tag in front of what the witch doctor says.
-  title: Witch doctor
-  # The team needs the witch doctor and no tent is near (after a lost battle, a go-to or a
+  # The name tag in front of what the druid says.
+  title: Druid
+  # The team needs the druid and no tent is near (after a lost battle, a go-to or a
   # trip): one came and helped everyone right there. Under "Good try!" and on the message line.
-  came: A witch doctor came by and looked after your animals. Everyone feels better!
+  came: A druid came by and looked after your animals. Everyone feels better!
   # Opening the card with someone to help.
   hello: Hello! Who needs help today?
   # Opening the card with nobody to help.
@@ -1659,7 +1659,7 @@ doctor:
   notQuite: Not quite! Let's try another one.
   # After a wrong answer to a token sum: the same sum stays.
   tryAgain: Not quite! Try again.
-  # After a right answer, while someone else still needs the witch doctor.
+  # After a right answer, while someone else still needs the druid.
   healedNext: Well done! {animal.name} feels all better! Who is next?
   # After a right answer that leaves everyone at full HP.
   healedAll: Well done! {animal.name} feels all better! Everyone is fit and happy!
@@ -1672,9 +1672,9 @@ doctor:
   # (lands.*.inLine), {from} the land before it; {of} how many kinds of animal that land has,
   # {freed} how many of them the kid has set free.
   fly:
-    # What the witch doctor says on the tab.
+    # What the druid says on the tab.
     intro: Want to fly somewhere new? Every trip costs one puzzle.
-    # The witch doctor's line when a land still locked is picked.
+    # The druid's line when a land still locked is picked.
     locked: To fly to {land}, set free at least one of each of the {of} animals of {from}. You have {freed} so far!
     # The fare's puzzle is up.
     count: Solve this, and off you fly to {land}!
@@ -1719,18 +1719,18 @@ doctor:
   listKeys: ↑ ↓ choose · ← → tabs · Enter pick · Esc bye
   # The same, with the touch controls on.
   listTouch: Tap an animal to help it
-  # Under a witch doctor's puzzle while another animal needs help too.
+  # Under a druid's puzzle while another animal needs help too.
   puzzleKeys: ↑ ↓ help another animal
   puzzleTouch: Tap another animal to help it instead
-  # The heal tab when nobody needs the witch doctor.
+  # The heal tab when nobody needs the druid.
   allFit: Time to explore!
   allFitKeys: ← → tabs · Enter or Esc to say bye
   allFitTouch: Tap Bye to go exploring
 
   # The set-free tab: the animals picked are made all better and go home to the wild,
-  # and the witch doctor thanks the kid with tokens.
+  # and the druid thanks the kid with tokens.
   home:
-    # The witch doctor's line on the tab: why wild animals attack.
+    # The druid's line on the tab: why wild animals attack.
     intro: Wild animals are a little bit sick. That's why they are so grumpy!
     title: Set animals free
     how: Pick animals to set free. I make them all better, and they go home to the wild. You get {money.words} as a thank-you!
@@ -1760,7 +1760,7 @@ doctor:
     send: Set them free
     keys: ↑ ↓ choose · ← → tabs · Enter pick · Esc bye
     touch: Tap the animals to set free
-    # The confirm before a hand-over: the witch doctor's line, the question, and the choices.
+    # The confirm before a hand-over: the druid's line, the question, and the choices.
     sure: Are you sure? They will be happy in the wild!
     sureTitle: Say bye bye to {names.name}?
     sureTitleMany: Say bye bye to {many} animals?
@@ -1768,7 +1768,7 @@ doctor:
     keep: No, not now
     yes: Yes, bye bye!
     sureKeys: ← → choose · Enter pick · Esc back
-    # The token sum for a hand-over: the witch doctor's line, then the story round the sum.
+    # The token sum for a hand-over: the druid's line, then the story round the sum.
     count: Thank you! Can you count your {money.words}?
     story:
       one: You have {count} {money.word}. You get {amount} more. How many will you have?
@@ -1784,7 +1784,7 @@ doctor:
   # The shop tab: tools bought with tokens.
   shop:
     intro: Look what I have! You pay with {money.words}.
-    # The witch doctor's line while nothing is for sale.
+    # The druid's line while nothing is for sale.
     introEmpty: My shop opens soon!
     emptyTitle: Nothing for sale yet
     emptyDetail: New things are coming soon. Keep your {money.words}!
@@ -1803,7 +1803,7 @@ doctor:
       other: You need {count} more {money.words}.
     keys: ↑ ↓ choose · ← → tabs · Enter buy · Esc bye
     touch: Tap a thing to buy it
-    # The token sum for a purchase: the witch doctor's line, then the story round the sum.
+    # The token sum for a purchase: the druid's line, then the story round the sum.
     count: Good choice! Can you count your {money.words}?
     story:
       one: You have {count} {money.word}. {item.the} costs {price}. How many will you have left?
@@ -1813,7 +1813,7 @@ doctor:
       one: Here is {item.your}! You have {count} {money.word} left.
       other: Here is {item.your}! You have {count} {money.words} left.
 
-# What the witch doctor's shop sells: as a label, with "the" and "your", and what it does.
+# What the druid's shop sells: as a label, with "the" and "your", and what it does.
 items:
   axe:
     name: Axe
@@ -2143,9 +2143,9 @@ title:
     # A first arrival in another land (#191): its own three starters. {land}: the land as a
     # sentence names it.
     titleLand: Pick your first animal in {land}!
-    keysLand: ← → choose · Enter pick · Esc witch doctor
-    # The card's button that goes to the witch doctor instead, as Escape does.
-    toDoctor: Witch doctor
+    keysLand: ← → choose · Enter pick · Esc druid
+    # The card's button that goes to the druid instead, as Escape does.
+    toDoctor: Druid
   # The name box for the animal just picked. {animal}: its species.
   naming:
     title: What will you call your {animal.name}?
@@ -2199,7 +2199,7 @@ presence:
   # What a player is busy with: the bubble over them, and beside their name in the list.
   busy:
     battle: battling a wild animal
-    doctor: at the witch doctor
+    doctor: at the druid
     menu: taking a break
     match: in a friendly match
     # Up in the air with the paraglider (no bubble: the glider shows it; only the list says it).
@@ -2380,14 +2380,14 @@ book:
   # Beside the book's title, and beside the row while it is lit: kinds caught, kinds seen
   # (met in a battle or a friendly match, caught or not), and every kind there is.
   count: '{caught} caught · {seen} seen · {all} in all'
-  # Beside the count, after a rose heart: how many kinds the kid has set free at the witch
-  # doctor's, of every kind there is.
+  # Beside the count, after a rose heart: how many kinds the kid has set free at the
+  # druid's, of every kind there is.
   freed: '{freed} / {all} set free'
   # The panel beside the row while it is lit.
   help: Every animal you meet goes in your book. Can you catch them all?
   # Under the book, about the lit card: one not met yet (it gives nothing away), one met but
   # not caught, one caught and on the team, one on the team that has its heart (set free at
-  # the witch doctor's, or counted so: a game from before the book kept the kinds set free
+  # the druid's, or counted so: a game from before the book kept the kinds set free
   # counts every kind it met and does not have as set free), one caught and set free since
   # (it stays caught for good), and one met, never caught, that counts as set free.
   unseen: Who could this be? Go exploring and find out!

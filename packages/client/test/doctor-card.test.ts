@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { parseSvelte, svelteSources, walk, type AstNode } from './source';
 
 /**
- * The witch doctor's card, read from its template (`DoctorCard.svelte`): on
+ * The druid's card, read from its template (`DoctorCard.svelte`): on
  * Set free and on the Shop, the right-hand side's title is the tab's own
  * line, never another tab's. The Shop once said the Heal tab's "Pick an
  * animal" while Bye was lit, where a kid can only buy tools (#163).
@@ -43,7 +43,7 @@ function isTitle(element: AstNode): boolean {
 	);
 }
 
-describe("the witch doctor's card", () => {
+describe("the druid's card", () => {
 	it('titles Set free and the Shop with their own lines', () => {
 		for (const tab of ['home', 'shop']) {
 			const keys = titles(tab);

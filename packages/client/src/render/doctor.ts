@@ -3,7 +3,7 @@ import { smoothstep } from './ease';
 import { DOCTOR_COLORS as C } from './palette';
 
 /**
- * The witch doctor ([[UI_SPEC]] § Explore mode, "The witch doctor"): the
+ * The druid ([[UI_SPEC]] § Explore mode, "The druid"): the
  * figure who stands at every tent, and his pot bubbling on the fire beside
  * it. Built from the primitives the trainer and the animals are made of, in
  * tiles, his feet on y = 0 and his face towards +z, but every part of him
@@ -16,7 +16,7 @@ import { DOCTOR_COLORS as C } from './palette';
  * more in the sun's shadow (the body and the hat; the rest are too small to
  * cast one worth drawing).
  *
- * He is alive (`WitchDoctor.animate`, every frame the world is drawn): he
+ * He is alive (`Druid.animate`, every frame the world is drawn): he
  * breathes and sways, his tall floppy hat nods a moment after him and its
  * tip swings, every few seconds he lifts his staff and taps it down, and
  * bubbles rise and pop in the pot. When the trainer comes within two tiles
@@ -301,10 +301,10 @@ function wrap(a: number): number {
 }
 
 /**
- * One tent's witch doctor and the pot on its fire. The tent puts `figure`
+ * One tent's druid and the pot on its fire. The tent puts `figure`
  * and `pot` where they stand on its tile; `animate` moves them every frame.
  */
-export class WitchDoctor {
+export class Druid {
 	/** The doctor, turned as a whole towards the trainer. */
 	readonly figure = new THREE.Group();
 	/** The campfire, from the ground under it: the logs, the flames, the pot on them. */

@@ -95,7 +95,7 @@ class TitleView {
 	/**
 	 * The land whose first animal the starters are, on a first arrival there
 	 * (#191): the title is only its starter screen then, over the game under
-	 * way, and Escape goes to the witch doctor, who can fly the kid back.
+	 * way, and Escape goes to the druid, who can fly the kid back.
 	 * Null for a new game's.
 	 */
 	land = $state<LandId | null>(null);

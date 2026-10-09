@@ -316,7 +316,7 @@ describe("The Arctic's world", () => {
 	);
 
 	it(
-		'starts every world on the north shore by the tent at (5, 7): snow, room to roam, the witch doctor 2 steps off',
+		'starts every world on the north shore by the tent at (5, 7): snow, room to roam, the druid 2 steps off',
 		() => {
 			for (let world = 1; world <= 9999; world += 197) {
 				const seed = arctic(world);

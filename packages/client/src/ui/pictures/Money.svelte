@@ -7,7 +7,7 @@
 	 * pictures"): the notes on top, biggest first, then the coins, biggest
 	 * first, each with its value on it. Coins of 1, 2 and 5 kroner are silver
 	 * with a hole, as the real ones are; 10 and 20 are gold; the notes of 50,
-	 * 100 and 200 are purple, orange and green. Never the witch doctor's
+	 * 100 and 200 are purple, orange and green. Never the druid's
 	 * tokens, whose gold coin has a heart and no number.
 	 */
 	let { numbers }: { numbers: readonly number[] } = $props();
