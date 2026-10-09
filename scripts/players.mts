@@ -30,6 +30,8 @@
  *   caught=49     how many of Nordland's species they have caught (its first ones, in the
  *                 registry's order; 0 by default): all 50 unlock The Arctic, and 49 leave one
  *                 catch to the witch doctor's surprise; caught=all-shrew is every one but the shrew
+ *   wild=brown-rat:1  the game opens in a battle against this wild animal, at this HP (full
+ *                 when left out), its lead the party's first
  *   freed=50      how many of Nordland's species they have set free (its first ones, in the
  *                 registry's order; 0 by default)
  *   touch         a touch tablet (the touch controls on)
@@ -113,6 +115,7 @@ import {
 	isItemId,
 	recordParty,
 	saveDocument,
+	startBattle,
 	type AnimalInstance,
 	type Direction,
 	type ItemId,
@@ -173,6 +176,7 @@ interface Player {
 	debug: boolean;
 	title: boolean;
 	steps: number;
+	wild: { speciesId: string; hp?: number } | null;
 	context?: BrowserContext;
 	page?: Page;
 	errors: string[];
@@ -231,6 +235,7 @@ function parsePlayer(spec: string): Player {
 		debug: true,
 		title: false,
 		steps: 0,
+		wild: null,
 		errors: [],
 		socketFailures: 0,
 		net: { offline: false, delayed: false, sockets: [] }
@@ -322,6 +327,15 @@ function parsePlayer(spec: string): Player {
 				p.size = { width: width!, height: height! };
 				break;
 			}
+			case 'wild': {
+				const [speciesId = '', hp] = value.split(':');
+				if (!ANIMALS.some((a) => a.id === speciesId)) fail(`${label}: no animal ${speciesId}`);
+				const n = hp === undefined ? undefined : Number(hp);
+				if (n !== undefined && (!Number.isInteger(n) || n < 1 || n > getAnimal(speciesId).maxHp))
+					fail(`${label}: wild HP is 1 to its most`);
+				p.wild = n === undefined ? { speciesId } : { speciesId, hp: n };
+				break;
+			}
 			case 'steps':
 				p.steps = Number(value);
 				if (!Number.isInteger(p.steps) || p.steps < 0) fail(`${label}: steps is a whole number`);
@@ -382,7 +396,16 @@ function saveOf(p: Player): string {
 			freed: [...new Set([...(game.freed ?? []), ...freed])],
 			items: [...p.items],
 			tokens: p.tokens,
-			solved: p.solved
+			solved: p.solved,
+			...(p.wild
+				? {
+						battle: startBattle(party, {
+							id: `wild-${p.label}`,
+							speciesId: p.wild.speciesId,
+							hp: p.wild.hp ?? getAnimal(p.wild.speciesId).maxHp
+						})
+					}
+				: {})
 		},
 		{ lineage: `players-${p.label}`, seq: 1 }
 	);
