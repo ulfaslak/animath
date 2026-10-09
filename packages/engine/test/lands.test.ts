@@ -558,11 +558,65 @@ describe('fly', () => {
 				worlds: [{ world: 7, pos: arctic.pos, facing: arctic.facing, edits: [] }]
 			}
 		]);
-		// The Arctic's tent at Nordland's tent's spot (when its ground put one there) brings the kid home.
-		if (arcticTent.x === tent.x && arcticTent.y === tent.y) {
-			expect(step(back.place.pos, back.place.facing)).toEqual(tent);
-		}
+		// The first arrival came down at the Arctic's spawn tent: home is the tent the mapping gives from it.
+		expect(step(back.place.pos, back.place.facing)).toEqual(
+			tentArrival(landSeed('nordland', 7), arcticTent, here.edits)!.tent
+		);
 		expect(canTalkToDoctor(landSeed('nordland', 7), back.place.pos, back.place.facing)).toBe(true);
+	});
+
+	it("a first arrival comes down at the spawn tent; every later one at the tent on the spot flown from, and out and back comes home to it", () => {
+		// The human's call (option 2 of the HUMAN_TODO "first flight" question): the arrival a starter
+		// is picked on is at the world's spawn tent, wherever the kid flew from.
+		const kept = (party: LandStay['party'], world?: number): LandStay => ({
+			land: 'arctic',
+			party,
+			tokens: 4,
+			items: [],
+			worlds: world === undefined ? [] : [{ world, pos: { x: 0, y: 0 }, facing: 'up', edits: [] }]
+		});
+		let tried = 0;
+		for (const world of [1, 2, 42, 777, 9999]) {
+			const nordland = landSeed('nordland', world);
+			const arctic = landSeed('arctic', world);
+			const spawnTent = tentArrival(arctic, spawnPoint(arctic))!;
+			// Every Arctic world's spawn is by the tent at (5, 7) ([[DECISIONS]] § Lands).
+			expect(spawnTent.tent).toEqual({ x: 5, y: 7 });
+			for (const tent of nordlandTents(world, 4)) {
+				tried++;
+				const arrival = tentArrival(nordland, tent)!;
+				const here: LandPlace = { ...nordlandAt(world), pos: arrival.stand, facing: arrival.facing };
+				const lands = (stay?: LandStay): LandPlace => ({ ...here, lands: stay ? [stay] : [] });
+				// Asks for a starter: never been there, or left before picking one (with the world or not).
+				for (const from of [lands(), lands(kept([])), lands(kept([], world))]) {
+					const out = fly(from, tent, 'arctic', world);
+					if (!out.ok) throw new Error('flies');
+					expect(out.place.party).toEqual([]);
+					expect({ pos: out.place.pos, facing: out.place.facing }, `world ${world} from ${tent.x},${tent.y}`).toEqual({
+						pos: spawnTent.stand,
+						facing: spawnTent.facing
+					});
+					// The way home from there is the tent the mapping gives from the spawn tent.
+					const back = fly(out.place, spawnTent.tent, 'nordland', world);
+					if (!back.ok) throw new Error('flies back');
+					expect(step(back.place.pos, back.place.facing)).toEqual(
+						tentArrival(nordland, spawnTent.tent, here.edits)!.tent
+					);
+				}
+				// An animal of the land kept: the tent on the spot flown from, and out and back comes home.
+				// A hand-made save with an Arctic party and no Arctic spot is one of these.
+				for (const from of [lands(kept([fox])), lands(kept([fox], world))]) {
+					const out = fly(from, tent, 'arctic', world);
+					if (!out.ok) throw new Error('flies');
+					expect(step(out.place.pos, out.place.facing), `world ${world}`).toEqual(tent);
+					const back = fly(out.place, tent, 'nordland', world);
+					if (!back.ok) throw new Error('flies back');
+					expect(step(back.place.pos, back.place.facing)).toEqual(tent);
+					expect(back.place.pos).toEqual(here.pos);
+				}
+			}
+		}
+		expect(tried).toBeGreaterThan(50);
 	});
 
 	it('keeps lands and world numbers apart: a trip to another number in The Arctic leaves Nordland as it was', () => {

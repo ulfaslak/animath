@@ -9,7 +9,9 @@ import { isWalkable, step, type Direction, type GridPos } from './types.js';
  * tent on T's own spot in the land reached when that land has one there, and
  * otherwise at the tent of that land nearest to T. A land with a tent on
  * every lattice spot (The Arctic, #191 step 4) is always reached at T, so a
- * flight out and back comes home to the tent it left.
+ * flight out and back comes home to the tent it left. A first arrival, the
+ * one a starter is picked on, is mapped from the world's spawn instead
+ * (`fly`), so it comes down at the spawn tent.
  *
  * Grid coordinates throughout: the coordinates a kid sees count from each
  * world's spawn (`coordinates.ts`), and are unaffected.
