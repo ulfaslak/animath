@@ -87,12 +87,17 @@
 			transform: translateY(calc(100vh + 48px)) rotate(calc(var(--spin) * 540deg));
 		}
 	}
-	/* Over the world, a little above the middle: the player stays in view under it. */
+	/*
+	 * Under the trainer, who stands in the middle of the screen, so they stay
+	 * in view; on a short screen (a phone held sideways), above them, clear of
+	 * the message line.
+	 */
 	.card {
+		--from: translate(-50%, 0);
 		position: absolute;
 		left: 50%;
-		top: 38%;
-		transform: translate(-50%, -50%);
+		top: calc(50% + 56px);
+		transform: var(--from);
 		width: min(calc(100vw - 32px), 520px);
 		box-sizing: border-box;
 		padding: 20px 24px 22px;
@@ -110,7 +115,7 @@
 	}
 	@keyframes pop-in {
 		from {
-			transform: translate(-50%, -50%) scale(0.6);
+			transform: var(--from) scale(0.6);
 			opacity: 0;
 		}
 	}
@@ -121,7 +126,8 @@
 	}
 	@media (max-height: 560px) {
 		.card {
-			top: 42%;
+			--from: translate(-50%, -100%);
+			top: calc(50% - 72px);
 			padding: 12px 20px 14px;
 		}
 		.words {

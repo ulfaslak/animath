@@ -29,7 +29,7 @@
  *   solved=312    the puzzles they have solved (0 by default)
  *   caught=49     how many of Nordland's species they have caught (its first ones, in the
  *                 registry's order; 0 by default): all 50 unlock The Arctic, and 49 leave one
- *                 catch to the witch doctor's surprise
+ *                 catch to the witch doctor's surprise; caught=all-shrew is every one but the shrew
  *   freed=50      how many of Nordland's species they have set free (its first ones, in the
  *                 registry's order; 0 by default)
  *   touch         a touch tablet (the touch controls on)
@@ -163,7 +163,7 @@ interface Player {
 	items: ItemId[];
 	tokens: number;
 	solved: number;
-	caught: number;
+	caught: number | string[];
 	freed: number;
 	touch: boolean;
 	calm: boolean;
@@ -279,6 +279,14 @@ function parsePlayer(spec: string): Player {
 				}
 				break;
 			case 'caught':
+				if (value.startsWith('all-')) {
+					const all = getLand('nordland').species;
+					const but = value.slice(4);
+					if (!all.includes(but)) fail(`${label}: ${but} is no animal of Nordland`);
+					p.caught = all.filter((id) => id !== but);
+					break;
+				}
+			// falls through: a count
 			case 'freed': {
 				const n = Number(value);
 				const all = getLand('nordland').species.length;
@@ -358,7 +366,9 @@ function saveOf(p: Player): string {
 	// The animal book of a game that begins with this party: its kinds, caught.
 	const book = recordParty(EMPTY_BOOK, party);
 	// Kinds caught, the way to The Arctic, and kinds set free at a witch doctor's, met first.
-	const caught = getLand('nordland').species.slice(0, p.caught);
+	const caught = Array.isArray(p.caught)
+		? p.caught
+		: getLand('nordland').species.slice(0, p.caught);
 	const freed = getLand('nordland').species.slice(0, p.freed);
 	const doc = saveDocument(
 		{
