@@ -1394,6 +1394,8 @@ explore:
   turnSideways: Turn your screen sideways to play!
   # Enter with nothing in front to talk to, chop or break.
   notAtTent: Walk up to a tent to talk to the witch doctor.
+  # The catch that completed a land: the witch doctor offers the trip to the next one.
+  surprise: The witch doctor has a surprise for you! Walk to a tent.
   # Under the latest message for as long as no animal can fight (after a lost
   # battle), until the witch doctor has helped one: nothing jumps out of the grass meanwhile.
   tired: Your animals are tired. Walk to the witch doctor's tent!
@@ -1693,6 +1695,17 @@ doctor:
     # Bye is lit.
     pick: Where do you want to fly?
     keys: ↑ ↓ choose · ← → tabs · Enter fly · Esc bye
+  # The surprise: a kid who caught one of every animal of a land is offered a trip to the next
+  # one, with no puzzle, as the card opens, until they go. {from} is the land they stand in,
+  # {land} the land offered, both as a sentence names them (lands.*.inLine).
+  surprise:
+    # The witch doctor's line.
+    line: Wow! You explored all of {from} and caught one of every animal. I have a surprise for you!
+    question: Do you want to fly to {land}?
+    detail: The plane is my gift. No puzzle this time!
+    notNow: Not now
+    yes: Yes, let's fly!
+    keys: ← → choose · Enter pick · Esc not now
     touch: Tap a land to fly there
   # The last row of the list, and its key.
   bye: Bye
@@ -2371,6 +2384,12 @@ lands:
     name: The Arctic
     # The land in the middle of a sentence ("Fly to the Arctic!").
     inLine: the Arctic
+# The witch doctor's surprise party: the catch that completed a land. {from} is the land as a
+# sentence names it (lands.*.inLine).
+surprise:
+  # In big letters, over the rays.
+  hooray: Hooray!
+  caughtAll: You caught every animal in {from}!
 book:
   # The animal book: a card for every kind of animal there is, a "?" for the ones not met yet.
   # The pause menu's row that opens it (on the menu's title line), and the book's own title.

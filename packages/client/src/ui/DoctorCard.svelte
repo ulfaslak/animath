@@ -92,8 +92,8 @@
 	const otherHurtSpecies = $derived(
 		new Set(hurt.map((i) => doctor.party[i]!.speciesId).filter((s) => s !== patientSpecies)).size
 	);
-	/** The confirm is up: the list and the tabs wait under it. */
-	const asking = $derived(doctor.screen === 'confirm');
+	/** The confirm or the surprise trip is up: the list and the tabs wait under it. */
+	const asking = $derived(doctor.screen === 'confirm' || doctor.screen === 'offer');
 	/** A right answer's reward is playing (the heal, the goodbye, the coins): the puzzle on screen is done. */
 	const rewarding = $derived(
 		doctor.healed !== null ||
@@ -575,6 +575,33 @@
 					back={t('doctor.back')}
 				/>
 			{/if}
+		{:else if doctor.screen === 'offer' && doctor.offer !== null}
+			<!-- The surprise: a trip to the land caught open, no fare, at the first visit and every one after until the kid goes. -->
+			<div class="question">
+				{t('doctor.surprise.question', { land: t(`lands.${doctor.offer}.inLine`) })}
+			</div>
+			<div class="detail">{t('doctor.surprise.detail')}</div>
+			<div class="choices">
+				<button
+					type="button"
+					class="choice"
+					class:lit={doctor.confirm === 0}
+					data-press={optionKey(0)}
+					{@attach unfocusable}
+				>
+					{t('doctor.surprise.notNow')}
+				</button>
+				<button
+					type="button"
+					class="choice yes"
+					class:lit={doctor.confirm === 1}
+					data-press={optionKey(1)}
+					{@attach unfocusable}
+				>
+					{t('doctor.surprise.yes')}
+				</button>
+			</div>
+			{#if !touch.on}<div class="keys">{t('doctor.surprise.keys')}</div>{/if}
 		{:else if doctor.screen === 'confirm'}
 			<div class="question">{sureTitle}</div>
 			<div class="detail">{t('doctor.home.sureDetail', { amount: reward, money: money() })}</div>

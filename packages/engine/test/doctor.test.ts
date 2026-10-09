@@ -1254,9 +1254,7 @@ describe('the surprise trip (`surpriseLand`)', () => {
 			{ type: 'rejected', reason: 'no-offer' }
 		]);
 		// The Fly tab still flies there, for the fare.
-		expect(apply(no.state, { type: 'fly', land: 'arctic' }, 5).events[0]?.type).toBe(
-			'fare-shown'
-		);
+		expect(apply(no.state, { type: 'fly', land: 'arctic' }, 5).events[0]?.type).toBe('fare-shown');
 	});
 
 	it('refuses a yes with no trip offered, in every other phase', () => {

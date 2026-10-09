@@ -1342,6 +1342,7 @@ explore:
   walkRight: Gå til højre
   turnSideways: Hold skærmen på tværs for at spille!
   notAtTent: Gå hen til et telt for at snakke med heksedoktoren.
+  surprise: Heksedoktoren har en overraskelse til dig! Gå hen til et telt.
   tired: Dine dyr er trætte. Gå hen til heksedoktorens telt!
   tiredSail: Dine dyr er trætte. Sejl hen til heksedoktorens telt!
   tiredFly: Dine dyr er trætte. Flyv ud og find heksedoktorens telt!
@@ -1527,6 +1528,13 @@ doctor:
     pick: Hvor vil du flyve hen?
     keys: ↑ ↓ flyt · ← → faner · Enter flyv · Esc farvel
     touch: Tryk på et land for at flyve derhen
+  surprise:
+    line: Wow! Du har udforsket hele {from} og fanget ét af hvert dyr. Jeg har en overraskelse til dig!
+    question: Vil du flyve til {land}?
+    detail: Flyet er min gave. Ingen opgave denne gang!
+    notNow: Ikke nu
+    yes: Ja, lad os flyve!
+    keys: ← → flyt · Enter vælg · Esc ikke nu
   bye: Farvel
   byeKey: Esc
   back: Tilbage
@@ -2038,6 +2046,9 @@ lands:
   arctic:
     name: Arktis
     inLine: Arktis
+surprise:
+  hooray: Hurra!
+  caughtAll: Du har fanget alle dyrene i {from}!
 book:
   title: Dyrebog
   row: '{caught}/{all}'

@@ -264,7 +264,7 @@ function hurtParty(): AnimalInstance[] {
 /** Answer the open doctor puzzle (a heal, or a token sum), right or wrong on purpose. */
 function answerDoctor(s: Session, correct: boolean): void {
 	const phase = visit(s).phase;
-	if (phase.kind === 'choose-patient' || phase.kind === 'ended')
+	if (phase.kind === 'choose-patient' || phase.kind === 'offering' || phase.kind === 'ended')
 		throw new Error(`expected a doctor puzzle, got ${phase.kind}`);
 	doctorIntent(s, {
 		type: 'answer',

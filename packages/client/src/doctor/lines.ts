@@ -36,12 +36,14 @@ export type DoctorLine =
 	/** The fly tab: every trip costs one puzzle. */
 	| { say: 'flyIntro' }
 	/**
-	 * A locked land picked: set free one of each of land `from`'s `of`
-	 * animals to go on; `freed` of them are, so far.
+	 * A locked land picked: catch one of each of land `from`'s `of` animals
+	 * to go on; `caught` of them are, so far.
 	 */
 	| { say: 'flyLocked'; land: LandId; from: LandId; caught: number; of: number }
 	/** The fare to `land` is up. */
 	| { say: 'fareCount'; land: LandId }
+	/** The surprise trip to `land`, for catching every kind of animal in `from`. */
+	| { say: 'surprise'; from: LandId }
 	| { say: 'goodbye' };
 
 export function doctorWords(line: DoctorLine): string {
@@ -112,6 +114,8 @@ export function doctorWords(line: DoctorLine): string {
 				of: line.of,
 				caught: line.caught
 			});
+		case 'surprise':
+			return t('doctor.surprise.line', { from: t(`lands.${line.from}.inLine`) });
 		case 'fareCount':
 			return t('doctor.fly.count', { land: t(`lands.${line.land}.inLine`) });
 		case 'goodbye':

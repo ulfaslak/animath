@@ -165,6 +165,7 @@ export class DoctorController {
 				handled = this.listKey(key, fresh);
 				break;
 			case 'confirm':
+			case 'offer':
 				handled = this.confirmKey(key, fresh);
 				break;
 			case 'puzzle':
@@ -196,6 +197,11 @@ export class DoctorController {
 			doctor.tab = 'fly';
 			this.said = this.tabLine('fly', state);
 		}
+		// A land caught open and never visited: the witch doctor's surprise comes first.
+		if (state.phase.kind === 'offering') {
+			this.said = { say: 'surprise', from: state.land };
+			doctor.confirm = 1;
+		}
 		doctor.cursor = this.firstStop(doctor.tab);
 		sfx.play('confirm');
 		this.settle();
@@ -212,6 +218,7 @@ export class DoctorController {
 		// Unlocked lands only grow: one opened by a hand-over (`unlocked-changed`) comes after its state.
 		doctor.unlocked = [...new Set([...doctor.unlocked, ...state.unlocked])];
 		doctor.fare = null;
+		doctor.offer = null;
 		doctor.line = this.said;
 		doctor.input = '';
 		doctor.judged = null;
@@ -269,6 +276,12 @@ export class DoctorController {
 				doctor.cursor = this.rows().findIndex((r) => r.kind === 'land' && r.land === phase.land);
 				doctor.screen = 'puzzle';
 				break;
+			case 'offering':
+				doctor.offer = phase.land;
+				// The card opening on the question: a new choice.
+				if (doctor.screen !== 'offer') this.guard.show();
+				doctor.screen = 'offer';
+				break;
 			case 'ended':
 				// `doctor-visit-ended` follows at once and closes the card.
 				break;
@@ -297,6 +310,8 @@ export class DoctorController {
 				this.backToList();
 				break;
 			case 'puzzle':
+			case 'offer':
+				// Not now, for the trip: the list, and the Fly tab is still the way there.
 				this.send({ type: 'back' });
 				break;
 			default:
@@ -492,7 +507,7 @@ export class DoctorController {
 			return this.confirmKey('Enter', fresh);
 		}
 		switch (key) {
-			// The two choices stand side by side, "No" first: either pair of arrows
+			// The two choices stand side by side, "No" (or "Not now") first: either pair of arrows
 			// moves between them, without wrapping round.
 			case 'ArrowLeft':
 			case 'a':
@@ -512,7 +527,9 @@ export class DoctorController {
 			case ' ':
 				if (!fresh) return true;
 				sfx.play('confirm');
-				if (doctor.confirm === 0) this.backToList();
+				if (doctor.screen === 'offer')
+					this.send(doctor.confirm === 0 ? { type: 'back' } : { type: 'accept-offer' });
+				else if (doctor.confirm === 0) this.backToList();
 				else this.send({ type: 'hand-over', ids: [...doctor.marked] });
 				return true;
 		}

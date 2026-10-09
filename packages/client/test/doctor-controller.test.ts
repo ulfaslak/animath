@@ -99,7 +99,7 @@ function setup(
 			const e = events[i]!;
 			if (e.type === 'doctor-visit-updated' || e.type === 'doctor-visit-started') {
 				const phase = e.state.phase;
-				if (phase.kind === 'choose-patient' || phase.kind === 'ended')
+				if (phase.kind === 'choose-patient' || phase.kind === 'offering' || phase.kind === 'ended')
 					throw new Error('no puzzle open');
 				return phase.puzzle.answer;
 			}

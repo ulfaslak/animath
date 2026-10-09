@@ -27,10 +27,11 @@ export { DOCTOR_TABS, type DoctorTab } from '../doctor/tabs';
  * item with tokens) and **fly** (to another land, for a puzzle; only where
  * there is another land to list). `screen` says what the keyboard does: `list` moves the
  * cursor over the tab's rows (← → change the tab), `confirm` asks before a
- * hand-over, `puzzle` types an answer (a healing puzzle or a token sum),
- * `busy` ignores everything but Escape while a beat plays.
+ * hand-over, `offer` asks whether to take the surprise trip the witch doctor
+ * offers (`surpriseLand`), `puzzle` types an answer (a healing puzzle or a
+ * token sum), `busy` ignores everything but Escape while a beat plays.
  */
-export type DoctorScreen = 'list' | 'confirm' | 'puzzle' | 'busy';
+export type DoctorScreen = 'list' | 'confirm' | 'offer' | 'puzzle' | 'busy';
 
 /** The token sum that is open: what it is for, and what changes hands. */
 export type DoctorTrade =
@@ -84,7 +85,12 @@ class DoctorView {
 	cursor = $state(0);
 	/** The animals picked on the home tab to go home, by id. */
 	marked = $state<string[]>([]);
-	/** The confirm before a hand-over: 0 lights "No, keep them", 1 "Yes, bye bye!". */
+	/** The land of the surprise trip offered, while it is. */
+	offer = $state<LandId | null>(null);
+	/**
+	 * The two choices of the confirm before a hand-over (0 lights "No, keep
+	 * them", 1 "Yes, bye bye!") and of the surprise trip (0 "Not now", 1 "Yes, let's fly!").
+	 */
 	confirm = $state<0 | 1>(0);
 	/** The animal whose healing puzzle is open. */
 	patient = $state<number | null>(null);
@@ -123,6 +129,7 @@ class DoctorView {
 		this.lands = [];
 		this.unlocked = [];
 		this.fare = null;
+		this.offer = null;
 		this.line = null;
 		this.tab = 'heal';
 		this.cursor = 0;
