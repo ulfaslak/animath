@@ -1343,7 +1343,8 @@ export class LocalAuthority implements Authority {
 		const unlocked = unlockLands(this.unlocked, this.book.caught);
 		if (unlocked === this.unlocked) return;
 		this.unlocked = unlocked;
-		// A visit under way flies to it at once: its rule reads the lands unlocked it opened with.
+		// A visit under way learns it too (none can unlock a land today: only a catch does, never
+		// at a tent), so its rule never reads a list older than the game's.
 		if (this.doctor) this.doctor.state = { ...this.doctor.state, unlocked: [...unlocked] };
 		this.emit({ type: 'unlocked-changed', unlocked: [...unlocked] });
 	}
