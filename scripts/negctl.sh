@@ -108,7 +108,8 @@ if [ "$status" -ne 0 ]; then
 	exit 2
 fi
 
-echo "negctl: if this run is killed, restore with: git -C '$root' show HEAD:<path> > <path> for ${paths[*]}"
+echo "negctl: if this run is killed, restore with:"
+for p in "${paths[@]}"; do echo "  git -C '$root' show 'HEAD:$p' > '$root/$p'"; done
 
 restored=0
 restore() {
