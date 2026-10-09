@@ -176,8 +176,7 @@ A game played before the public site moves there in an account the admin makes, 
 
 ## Development
 
-All implementation work happens in a git worktree via `git gtr new`, never on `main`.
-GitHub Issues (repo `ulfaslak/animath`) is the tracker. PRs merge with `--merge`.
+The workflow (a worktree for every edit, GitHub Issues as the tracker, the test-fix-learn cycle) is CLAUDE.md's. PRs merge with `--merge`.
 Rendering changes are verified by reading a screenshot from `scripts/screenshot.mjs`; engine changes by vitest; balance changes by a property test over the whole catalog.
 
 ## Deployment
