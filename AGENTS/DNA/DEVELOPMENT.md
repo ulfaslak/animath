@@ -210,7 +210,7 @@ The script never checks `screenshots` out, so your worktree, its index and its b
 ## Checks and tests
 
 ```bash
-pnpm check   # type-checks every package, its tests too: tsc for engine (source, then tests) + server, svelte-check for client
+pnpm check   # type-checks every package, its tests too: tsc for engine (source, then tests) + server, svelte-check for client; then builds the client (§ The oldest browser)
 pnpm test    # vitest in engine, client and server
 pnpm lint    # prettier --check, then scripts/check-learned.mjs (the mistakes log's guards exist)
 pnpm format  # prettier --write
@@ -218,13 +218,15 @@ pnpm format  # prettier --write
 
 Per package: `pnpm -F @mathgame/engine test`, `pnpm -F @mathgame/engine test:watch`.
 
+Every pull request to main runs `.github/workflows/checks.yml`: `pnpm check`, `pnpm lint`, `pnpm test` with Postgres beside it, and `nginx -t`, the steps of the deploy's `test` gate (§ How a merge reaches prod), with no image, no deploy and no secrets. A new push to the pull request cancels its run still going. Keep its steps in step with `deploy.yml`'s `test` job.
+
 A negative control (CLAUDE.md § The test-fix-learn cycle) runs with `scripts/negctl.sh`: commit the fix, then `scripts/negctl.sh <path>... -- <test command>` first runs the test as the code is (it must pass: a command that fails anyway proves nothing), then puts each path back as it was before the fix (`--from <ref>`, default `HEAD~1`), runs the test again, and restores the fix from HEAD whatever happens. Paths and the test command are read from where you run it. It refuses while a path has uncommitted changes, and a path the fix added (break the code that uses it instead). Exit 0: the control holds; 1: the test passed without the fix; 2: an error, or a test that could not run; 3: a restore that did not match HEAD. `--from` takes any commit, so a fix older than the last commit is broken the same way. Something that was never committed broken (the triggering input, a test's own guard) is broken by hand: commit first, break it, run the test, and put it back with `git show HEAD:<path> > <path>`.
 
 `pnpm build` prints the size of each chunk of the client. When a change reaches for a three.js class the game didn't use before, compare the `three` chunk with main's: a `Shape`, say, brings its triangulator along (about 24 kB for one star).
 
 ### The oldest browser: Safari 15
 
-The game plays in Safari 15 and up ([[DECISIONS]] § The page), and the client's build fails over anything in it Safari 15.0 cannot read or run ([[INVARIANTS]] § Serving; `oldBrowsers` in `packages/client/browsers.ts`). CI builds the client before the tests. The message names each file, what it found, from which Safari that works, and the code round it:
+The game plays in Safari 15 and up ([[DECISIONS]] § The page), and the client's build fails over anything in it Safari 15.0 cannot read or run ([[INVARIANTS]] § Serving; `oldBrowsers` in `packages/client/browsers.ts`). `pnpm check` ends with that build, so it fails on your machine and on every pull request, before a merge. The message names each file, what it found, from which Safari that works, and the code round it:
 
 - **A lookbehind** (`(?<=`, `(?<!`): write the regular expression without one (`sentences` in `BattlePanel.svelte` walks the matches of `/[.!?]\s+/g`). Nothing can lower it: esbuild turns the literal into a `new RegExp` that throws as it runs, which the check finds too.
 - **A built-in Safari 15.0 lacks** (`Object.hasOwn`, `.at()`, `structuredClone`, `.findLast()`, `AbortSignal.timeout`, …): write it plainly (`Object.prototype.hasOwnProperty.call(o, k)`, `list[list.length - 1]`), or ask for it first and use it only where you asked (`if (typeof x.name === 'function') x.name()`, `typeof X < 'u' && new X()`, or a variable set from that test, as three.js keeps whether it has an `OffscreenCanvas`); a `typeof` elsewhere in the chunk lets nothing through. A small polyfill is the last resort, never a bundle of them.
