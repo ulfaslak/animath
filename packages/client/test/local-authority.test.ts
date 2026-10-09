@@ -3501,7 +3501,7 @@ describe('LocalAuthority: lands (#191)', () => {
 		return { authority, events };
 	}
 
-	/** At the witch doctor of World 1's spawn, asking to fly to `land` and answering the fare. */
+	/** At the druid of World 1's spawn, asking to fly to `land` and answering the fare. */
 	function flyTo(s: Session, land: string, right = true): void {
 		s.authority.dispatch({ type: 'interact' });
 		expect(visit(s).phase.kind).toBe('choose-patient');
@@ -3565,7 +3565,7 @@ describe('LocalAuthority: lands (#191)', () => {
 			land: 'arctic',
 			starters: ['arctic-fox', 'arctic-hare', 'puffin']
 		});
-		// Beside a witch doctor of The Arctic, facing it: the fare was a puzzle solved.
+		// Beside a druid of The Arctic, facing it: the fare was a puzzle solved.
 		expect(canTalkToDoctor(landSeed('arctic', 1), trip.pos, trip.facing)).toBe(true);
 		expect(s.authority.snapshot()).toMatchObject({
 			land: 'arctic',
@@ -3576,13 +3576,13 @@ describe('LocalAuthority: lands (#191)', () => {
 		expect(s.authority.snapshot().lands[0]!.party).toEqual(nordlandParty);
 	});
 
-	it('in a land the kid has no animal of, asks for one of its starters, and the witch doctor still flies the kid home', () => {
+	it('in a land the kid has no animal of, asks for one of its starters, and the druid still flies the kid home', () => {
 		const s = session({ lands: true, tokens: 12 });
 		walkToTent(s);
 		flyTo(s, 'arctic');
 		const there = travelled(s);
 		expect(s.events.some((e) => e.type === 'starter-wanted')).toBe(true);
-		// Home: the witch doctor they came down at flies them back to Nordland, as they left it.
+		// Home: the druid they came down at flies them back to Nordland, as they left it.
 		flyTo(s, 'nordland');
 		const home = travelled(s);
 		expect(home).toMatchObject({ land: 'nordland', world: 1, seed: WORLD_SEED, firstVisit: false });
@@ -3703,7 +3703,7 @@ describe('LocalAuthority: lands (#191)', () => {
 		const at = lastIndexOf(s, 'unlocked-changed');
 		expect(s.events[at - 1]?.type).toBe('book-changed');
 		expect(s.authority.snapshot().unlocked).toEqual(['nordland', 'arctic']);
-		// The witch doctor knows at once, in the same visit: the fare is asked.
+		// The druid knows at once, in the same visit: the fare is asked.
 		doctorIntent(s, { type: 'fly', land: 'arctic' });
 		const last = s.events.at(-1);
 		expect(last?.type === 'doctor-visit-updated' && last.events.map((e) => e.type)).toEqual([
@@ -3782,7 +3782,7 @@ describe('LocalAuthority: lands, from the adversarial review of #196', () => {
 		expect(restoreGame(read.save, mint)).toEqual(snap);
 	});
 
-	it('a land unlocked at the witch doctor is open to fly to in the same visit', () => {
+	it('a land unlocked at the druid is open to fly to in the same visit', () => {
 		const all = getLand('nordland').species;
 		// Every land built (`?lands`), so only the unlock stands in the way.
 		const s = session({ party: [animal('squirrel'), animal('fox')], lands: true });

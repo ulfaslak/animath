@@ -471,7 +471,7 @@ describe('a short screen', () => {
 		expect(heights.filter(({ height }) => height !== SHORT_SCREEN)).toEqual([]);
 	});
 
-	it('is SHORT_SCREEN where the witch doctor’s puzzle takes the whole card, over the explore screen', () => {
+	it('is SHORT_SCREEN where the druid’s puzzle takes the whole card, over the explore screen', () => {
 		const source = svelteSources.get('src/ui/DoctorCard.svelte') ?? '';
 		// The query whose rules lay out `.solo`: the card's only height query, as it stands.
 		const phone = (parse(source, { modern: true }).css?.children ?? []).filter(

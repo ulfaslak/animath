@@ -8,7 +8,7 @@ import type { AnimalInstance, AnimalSpec } from './types.js';
 /**
  * The animal book ([[PRODUCT]] §4 "The animal book"): every species a player
  * has seen, every one they have caught, and every one they have set free at
- * the witch doctor's, for as long as the game lasts.
+ * the druid's, for as long as the game lasts.
  * It only grows. An animal helped home by the doctor stays caught, a battle run
  * from leaves its animal seen, and travelling takes the book along: it is the
  * player's, like the party.
@@ -18,7 +18,7 @@ import type { AnimalInstance, AnimalSpec } from './types.js';
  * moment the battle starts (`recordBattle`), and caught when a leash throw
  * lands (the same call, with the step's events); every animal in the party is
  * caught, the starter first (`recordParty`); a species is set free when one of
- * its kind goes home from the witch doctor's (`recordWentHome`). Nothing else records: a friendly
+ * its kind goes home from the druid's (`recordWentHome`). Nothing else records: a friendly
  * match changes nothing in a game but the puzzles solved ([[DECISIONS]]
  * § Multiplayer), and watching another player's battle from outside is not
  * the kid's own battle.
@@ -36,7 +36,7 @@ export interface AnimalBook {
 	/** Every species caught, each once, in the order first caught: the starter first. */
 	readonly caught: readonly string[];
 	/**
-	 * Every species set free at the witch doctor's, each once, in the order
+	 * Every species set free at the druid's, each once, in the order
 	 * first set free: one of its kind went home in a hand-over the kid
 	 * answered right (`recordWentHome`). Every one is seen too. A save from
 	 * before it was kept counts every kind seen and not held as set free

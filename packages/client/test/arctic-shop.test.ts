@@ -195,7 +195,7 @@ describe('the ice pick and the arctic axe', () => {
 			kind: 'iceblock',
 			tool: 'ice-pick'
 		});
-		// The Arctic's witch doctor sells the ice pick, so the line says so.
+		// The Arctic's druid sells the ice pick, so the line says so.
 		expect(hud.message).toBe(t('explore.needIcePick'));
 
 		const s = setup(arcticGame(pos, facing, ['ice-pick']));

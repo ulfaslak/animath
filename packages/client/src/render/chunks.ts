@@ -7,7 +7,7 @@ import {
 	type GridPos
 } from '@mathgame/engine';
 import type * as THREE from 'three';
-import type { WitchDoctor } from './doctor';
+import type { Druid } from './doctor';
 import {
 	awaitsGlow,
 	buildChunkGroup,
@@ -192,8 +192,8 @@ export class ChunkRing {
 		return this.chunks.size;
 	}
 
-	/** Each witch doctor at a tent in the chunks built: the renderer animates them every frame. */
-	forEachDoctor(visit: (doctor: WitchDoctor) => void): void {
+	/** Each druid at a tent in the chunks built: the renderer animates them every frame. */
+	forEachDoctor(visit: (doctor: Druid) => void): void {
 		for (const group of this.chunks.values()) for (const d of doctorsIn(group)) visit(d);
 	}
 

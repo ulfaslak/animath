@@ -4,7 +4,7 @@ import { isWalkable, step, type Direction, type GridPos } from './types.js';
 
 /**
  * The tent mapping ([[PRODUCT]] §4 "Lands", #191): where a flight from a
- * witch doctor's tent comes down in another land. Every land keeps the same
+ * druid's tent comes down in another land. Every land keeps the same
  * lattice of tent spots (`TENT_LATTICE`), so a flight from tent T lands at the
  * tent on T's own spot in the land reached when that land has one there, and
  * otherwise at the tent of that land nearest to T. A land with a tent on
@@ -102,7 +102,7 @@ function comesFirst(a: GridPos, d2a: number, b: GridPos, d2b: number): boolean {
  * where a flight from the tent at `from` comes down there. A spot holds a
  * tent when the seed's tile there is one (tents are never cleared), and a kid
  * can stand on walkable ground, a path they cleared included: they get off
- * the plane on foot, beside the witch doctor, who can always fly them on.
+ * the plane on foot, beside the druid, who can always fly them on.
  */
 export function tentArrival(
 	seed: number,

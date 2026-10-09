@@ -398,7 +398,7 @@
 					})}
 				</div>
 				<!-- Enter and Escape, for a finger or a mouse: picking starts the game, so a tap on a tag only lights it. -->
-				<!-- A land's starters: Escape goes to the witch doctor, who can fly the kid back. -->
+				<!-- A land's starters: Escape goes to the druid, who can fly the kid back. -->
 				<div class="card-buttons">
 					<button type="button" class="pill" data-press="Escape" {@attach unfocusable}>
 						{title.land === null ? t('title.back') : t('title.starter.toDoctor')}

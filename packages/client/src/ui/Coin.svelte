@@ -5,7 +5,7 @@
 	/**
 	 * A coin of the land's money, beside the number and the word, so it is
 	 * decoration (`aria-hidden`), and reads without its colour. Nordland's
-	 * token: a gold coin with a cream heart, the witch doctor's thank-you. The
+	 * token: a gold coin with a cream heart, the druid's thank-you. The
 	 * Arctic's ice dollar: a six-sided coin of pale ice blue with a white
 	 * snowflake, another shape as well as another colour (#191: "it looks
 	 * different on screen"). The land on screen's by default.
