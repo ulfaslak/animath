@@ -75,9 +75,9 @@ export type FlyStep =
  * starter (`needsStarter`: no animal of the land kept, a first visit or one
  * left before a starter was picked) comes down at the world's spawn tent
  * instead, the tent the mapping gives from the spawn, so a brand-new starter
- * meets the gentle animals near it (the human's call, [[DECISIONS]] § Lands). Every world's cleared
- * tiles, in every land, stay within the one budget (`fitStays`): the world
- * reached keeps its own whole.
+ * meets the gentle animals near it (the human's call, [[DECISIONS]] §
+ * Lands). Every world's cleared tiles, in every land, stay within the one
+ * budget (`fitStays`): the world reached keeps its own whole.
  *
  * Whether the flight may go at all (unlocked, built, at a witch doctor's) is
  * the witch doctor's reducer's to ask (`flyRefusal`): this is what a flight

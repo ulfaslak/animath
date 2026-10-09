@@ -565,7 +565,7 @@ describe('fly', () => {
 		expect(canTalkToDoctor(landSeed('nordland', 7), back.place.pos, back.place.facing)).toBe(true);
 	});
 
-	it("a first arrival comes down at the spawn tent; every later one at the tent on the spot flown from, and out and back comes home to it", () => {
+	it('a first arrival comes down at the spawn tent; every later one at the tent on the spot flown from, and out and back comes home to it', () => {
 		// The human's call (option 2 of the HUMAN_TODO "first flight" question): the arrival a starter
 		// is picked on is at the world's spawn tent, wherever the kid flew from.
 		const kept = (party: LandStay['party'], world?: number): LandStay => ({
@@ -585,14 +585,21 @@ describe('fly', () => {
 			for (const tent of nordlandTents(world, 4)) {
 				tried++;
 				const arrival = tentArrival(nordland, tent)!;
-				const here: LandPlace = { ...nordlandAt(world), pos: arrival.stand, facing: arrival.facing };
+				const here: LandPlace = {
+					...nordlandAt(world),
+					pos: arrival.stand,
+					facing: arrival.facing
+				};
 				const lands = (stay?: LandStay): LandPlace => ({ ...here, lands: stay ? [stay] : [] });
 				// Asks for a starter: never been there, or left before picking one (with the world or not).
 				for (const from of [lands(), lands(kept([])), lands(kept([], world))]) {
 					const out = fly(from, tent, 'arctic', world);
 					if (!out.ok) throw new Error('flies');
 					expect(out.place.party).toEqual([]);
-					expect({ pos: out.place.pos, facing: out.place.facing }, `world ${world} from ${tent.x},${tent.y}`).toEqual({
+					expect(
+						{ pos: out.place.pos, facing: out.place.facing },
+						`world ${world} from ${tent.x},${tent.y}`
+					).toEqual({
 						pos: spawnTent.stand,
 						facing: spawnTent.facing
 					});
