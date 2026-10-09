@@ -19,8 +19,8 @@ export function recallScale(p: number): number {
 
 /**
  * A little double jump for joy: the battle's cheer (`battle-scene.ts`), and
- * the same cheer on another player's trainer (`others.ts`): two hops, the second lower, and with `spin` a whole turn through
- * the first. `lift` is how high (tiles, the first hop `high`), `turn` how far
+ * the same cheer on another player's trainer (`others.ts`): two hops, the
+ * second lower, and with `spin` a whole turn through the first. `lift` is how high (tiles, the first hop `high`), `turn` how far
  * round (radians). With `calm` (reduced motion) one small hop and no turn.
  */
 export function doubleHop(
