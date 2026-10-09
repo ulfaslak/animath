@@ -884,7 +884,7 @@ describe("a land's starters on a first arrival", () => {
 		const authority = new LocalAuthority({ lands: true });
 		const scenery = new FakeScenery();
 		const room = { open: true };
-		// As main.ts has it: no room while the witch doctor's card is up.
+		// As main.ts has it: no room while the druid's card is up.
 		let visiting = false;
 		/** The kid faces away from the tent: Enter there talks to nobody. */
 		const away = { value: false };
@@ -986,7 +986,7 @@ describe("a land's starters on a first arrival", () => {
 		expect(t.sent.some((i) => i.type === 'new-game')).toBe(false);
 	});
 
-	it('Escape keeps the starters when no witch doctor answers (the kid faces no tent)', () => {
+	it('Escape keeps the starters when no druid answers (the kid faces no tent)', () => {
 		const t = arrive();
 		t.frames(PICK_QUIET_SECONDS);
 		t.away.value = true;
@@ -998,7 +998,7 @@ describe("a land's starters on a first arrival", () => {
 		expect(title.land).toBe('arctic');
 	});
 
-	it('Escape goes to the witch doctor, who can fly the kid back; they come up again after him', () => {
+	it('Escape goes to the druid, who can fly the kid back; they come up again after him', () => {
 		const t = arrive();
 		t.frames(PICK_QUIET_SECONDS);
 		t.press('Escape');

@@ -47,7 +47,7 @@ import {
  *   is `moveFrom`'s slide, and it stops the skis' speed.
  *
  * Nothing here is saved: speed is what a held key gives, so a reload (or
- * anything else the kid does: a battle, a word with the witch doctor, a
+ * anything else the kid does: a battle, a word with the druid, a
  * take-off) stands them still.
  */
 

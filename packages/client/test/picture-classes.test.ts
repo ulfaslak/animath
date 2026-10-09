@@ -17,7 +17,7 @@ function classesIn(source: string): Set<string> {
 
 describe("a puzzle's picture", () => {
 	it('uses no class name a card styles from outside (`:global`), which would reach into the picture', () => {
-		// The witch doctor's card hid every `.note` in its puzzle, the help line it meant and the
+		// The druid's card hid every `.note` in its puzzle, the help line it meant and the
 		// kroner picture's banknotes too: the fare showed 32 kroner of 82, and 32 was "wrong".
 		const reaching = new Set<string>();
 		for (const file of readdirSync(ui).filter((f) => f.endsWith('.svelte'))) {

@@ -487,7 +487,7 @@ describe("the doctor's tabs", () => {
 		expect(doctor.shop).toEqual(shopFor('nordland'));
 		expect(doctor.cursor).toBe(0);
 		t.press('ArrowRight');
-		// The Arctic is open: every witch doctor lists it, locked for a kid who has not set
+		// The Arctic is open: every druid lists it, locked for a kid who has not set
 		// one of every Nordland animal free.
 		expect(doctor.tab).toBe('fly');
 		expect(doctor.line).toEqual({ say: 'flyIntro' });
@@ -1155,7 +1155,7 @@ describe('the shop', () => {
 	});
 });
 
-describe('flying from the witch doctor', () => {
+describe('flying from the druid', () => {
 	/** A game in Nordland with `freed` set free and `unlocked` unlocked, every land open to fly to (`?lands`'s open). */
 	function flyer(freed: readonly string[], unlocked: readonly string[]) {
 		const authority = new LocalAuthority({ lands: true });

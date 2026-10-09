@@ -20,7 +20,7 @@ import {
 	type GlowShape,
 	type GlowTriangles
 } from './campfire';
-import { DOCTOR_GEOMETRIES, WitchDoctor } from './doctor';
+import { DOCTOR_GEOMETRIES, Druid } from './doctor';
 import { ARCTIC_COLORS, BIOME_LOOK, CANOPY, COLORS, PROP_COLORS, TILE_COLORS } from './palette';
 
 /**
@@ -30,7 +30,7 @@ import { ARCTIC_COLORS, BIOME_LOOK, CANOPY, COLORS, PROP_COLORS, TILE_COLORS } f
  * blades, reeds, flowers and bushes one each. So a screen of 25 chunks is
  * about 150 draw calls (the sun's shadow pass among them) however much grows
  * on it. Tents, a few per screen,
- * are small groups of their own with the witch doctor (`doctor.ts`), whose
+ * are small groups of their own with the druid (`doctor.ts`), whose
  * shapes are shared too, and the campfire's glow (`campfire.ts`).
  *
  * Every instanced mesh lists its boxes and props from the tile nearest the
@@ -89,9 +89,9 @@ export const SHARED_GEOMETRIES: ReadonlySet<THREE.BufferGeometry> = new Set([
 	...DOCTOR_GEOMETRIES
 ]);
 
-/** The witch doctors of a chunk built by `buildChunkGroup`, one per tent, for the renderer to animate. */
-export function doctorsIn(chunk: THREE.Object3D): readonly WitchDoctor[] {
-	return (chunk.userData.doctors as WitchDoctor[] | undefined) ?? [];
+/** The druids of a chunk built by `buildChunkGroup`, one per tent, for the renderer to animate. */
+export function doctorsIn(chunk: THREE.Object3D): readonly Druid[] {
+	return (chunk.userData.doctors as Druid[] | undefined) ?? [];
 }
 
 /** From this height up a mountain's rocks are its peaks: paler, the boulders capped with snow. */
@@ -605,8 +605,8 @@ function decorate(props: Props, group: THREE.Group, tile: Tile, x: number, z: nu
 		case 'tent': {
 			const camp = tent(x, z, top);
 			group.add(camp);
-			const doctors = (group.userData.doctors ??= []) as WitchDoctor[];
-			doctors.push(camp.userData.doctor as WitchDoctor);
+			const doctors = (group.userData.doctors ??= []) as Druid[];
+			doctors.push(camp.userData.doctor as Druid);
 			return;
 		}
 		default:
@@ -853,7 +853,7 @@ function reeds(props: Props, rng: Rng, stalk: number, x: number, z: number, top:
 
 /**
  * Where things stand on a tent's tile, from its middle (x, z): the tent set
- * back to the left, the witch doctor in front of it, right of its door, and
+ * back to the left, the druid in front of it, right of its door, and
  * his pot on the campfire at its right. The camera sees all of them, and
  * none of them reaches where a trainer on a tile beside the tent stands.
  */
@@ -862,7 +862,7 @@ export const DOCTOR_AT = [0.18, 0.28] as const;
 export const FIRE_AT = [0.34, -0.22] as const;
 
 /**
- * A doctor's tent with the witch doctor (`userData.doctor`, a `WitchDoctor`)
+ * A doctor's tent with the druid (`userData.doctor`, a `Druid`)
  * and his campfire with the pot on it. What the fire lights of it, which
  * never moves, is `userData.glowing` (the tent, its door and the pot); the
  * chunk paints the glow once all round it is placed (`paintGlow`). The
@@ -878,7 +878,7 @@ function tent(x: number, z: number, top: number): THREE.Group {
 	door.position.set(TENT_AT[0], 0.2, TENT_AT[1] + 0.42);
 	door.rotation.y = Math.PI / 4;
 	const phase = (hashInts(x, z, 17) / 4294967296) * Math.PI * 2;
-	const doctor = new WitchDoctor(x + DOCTOR_AT[0], z + DOCTOR_AT[1], phase);
+	const doctor = new Druid(x + DOCTOR_AT[0], z + DOCTOR_AT[1], phase);
 	doctor.figure.position.set(DOCTOR_AT[0], 0, DOCTOR_AT[1]);
 	doctor.pot.position.set(FIRE_AT[0], 0, FIRE_AT[1]);
 	g.add(cloth, door, doctor.figure, doctor.pot);

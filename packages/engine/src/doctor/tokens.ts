@@ -6,7 +6,7 @@ import type { Puzzle } from '../puzzles/types.js';
 
 /**
  * Tokens: what the doctor gives for animals helped home, and what the shop
- * takes ([[PRODUCT]] §4 "Tokens and the witch doctor's shop").
+ * takes ([[PRODUCT]] §4 "Tokens and the druid's shop").
  *
  * Every token that changes hands is a sum the kid works out: the balance
  * before, and what comes in or goes out. The engine makes it from the real

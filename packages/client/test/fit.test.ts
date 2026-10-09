@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { fit } from '../src/fit';
 
 /**
- * A card fitted to what it holds (`fit.ts`, the witch doctor's right-hand
+ * A card fitted to what it holds (`fit.ts`, the druid's right-hand
  * side, #166): as designed while it fits, then a step at a time only while
  * it is still too big, the steps in their order; and laid out as designed
  * again each time its words, its size or its font change, so a card never
