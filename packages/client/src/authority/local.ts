@@ -252,8 +252,9 @@ export class LocalAuthority implements Authority {
 	private solved = 0;
 	/**
 	 * The puzzle record: every answer judged, right or wrong, under its topic,
-	 * in a battle, at the doctor or in a friendly match (`recordAnswers`).
-	 * Saved with the game; a wild battle's hits read it as it starts (`topicBonus`).
+	 * in a battle, at the doctor or in a friendly match (`recordAnswers`), a
+	 * wild battle's in its latest answers too. Saved with the game; a wild
+	 * battle's hits read it as it starts (`topicBonus`).
 	 */
 	private puzzles: PuzzleRecord = {};
 	/**
@@ -1049,7 +1050,7 @@ export class LocalAuthority implements Authority {
 		battle.state = state;
 		this.emit({ type: 'battle-updated', state, events });
 		this.count(countSolved(this.solved, events));
-		this.recordPuzzles(recordAnswers(this.puzzles, events));
+		this.recordPuzzles(recordAnswers(this.puzzles, events, { where: 'battle' }));
 		// Caught, at the leash throw that lands.
 		this.note(recordBattle(this.book, state, events));
 		if (state.phase.kind !== 'ended') return;
@@ -1213,7 +1214,7 @@ export class LocalAuthority implements Authority {
 		doctor.state = state;
 		this.emit({ type: 'doctor-visit-updated', visit, state, events });
 		this.count(countSolved(this.solved, events));
-		this.recordPuzzles(recordAnswers(this.puzzles, events));
+		this.recordPuzzles(recordAnswers(this.puzzles, events, { where: 'doctor' }));
 		if (events.some((e) => e.type === 'healed' || e.type === 'went-home')) {
 			this.party = state.party.map((a) => ({ ...a }));
 			this.emit({ type: 'party-changed', party: this.partyCopy() });
@@ -1393,7 +1394,7 @@ export class LocalAuthority implements Authority {
 		if (step <= (this.matchSteps.get(match) ?? 0)) return;
 		this.matchSteps.set(match, step);
 		this.count(countSolved(this.solved, events, side));
-		this.recordPuzzles(recordAnswers(this.puzzles, events, side));
+		this.recordPuzzles(recordAnswers(this.puzzles, events, { where: 'match', side }));
 	}
 
 	/** What the player is doing, for the engine's rules that depend on it. */

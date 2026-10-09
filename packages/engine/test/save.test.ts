@@ -2552,7 +2552,12 @@ describe('the puzzle record in a save', () => {
 	};
 
 	it('saves and restores the record, and a topic a newer build has as it was', () => {
-		const later = { ...record, later: { tried: 2, right: 1, recent: '01' } };
+		// A topic a newer build has, whatever it holds, as it was.
+		const later = {
+			...record,
+			later: { tried: 2, right: 1, recent: '01' },
+			'bar-graph-2': { tried: 3, recent: '0'.repeat(30), since: { world: 4 } }
+		};
 		const read = readSave({ ...written, puzzles: later });
 		expect(read.ok).toBe(true);
 		if (!read.ok) return;
@@ -2580,9 +2585,12 @@ describe('the puzzle record in a save', () => {
 			[{ add: { ...record.div, recent: '012' } }, /recent/],
 			[{ add: { ...record.div, recent: 7 } }, /recent/],
 			[{ add: { tried: 30, right: 30, recent: '1'.repeat(21) } }, /recent/],
-			// More answers in `recent` than were tried, or more right ones than were right.
-			[{ add: { tried: 2, right: 2, recent: '110' } }, /more answers/],
-			[{ add: { tried: 5, right: 1, recent: '11' } }, /more answers/]
+			// More right answers in `recent` than were right, or wrong ones than were wrong.
+			[{ add: { tried: 2, right: 2, recent: '110' } }, /more right or wrong/],
+			[{ add: { tried: 5, right: 1, recent: '11' } }, /more right or wrong/],
+			[{ div: { tried: 20, right: 20, recent: '0'.repeat(20) } }, /more right or wrong/],
+			// A topic this build lacks is named as an id is.
+			[{ 'Later topic': 3 }, /not a topic/]
 		];
 		for (const [puzzles, why] of bad) {
 			expect(error({ ...written, puzzles }), JSON.stringify(puzzles)).toMatch(why);

@@ -28,6 +28,9 @@ import {
 } from '../src/puzzles/types.js';
 import { Rng, hashInts } from '../src/rng.js';
 import { makeParty, makeWild } from './battle-sim.js';
+
+/** Answers judged in a wild battle: they go into the latest answers too. */
+const BATTLE = { where: 'battle' } as const;
 import { party as matchParty, mover } from './match-sim.js';
 
 /**
@@ -38,14 +41,19 @@ import { party as matchParty, mover } from './match-sim.js';
  * the prose, not read from the code.
  */
 
-/** The prose's formula: p̄ the plain mean of the topics' recent accuracies, p = (right + 4p̄)/(n + 4), bonus p̄/p in [0.7, 1.6]. */
+/**
+ * The prose's formula: o the kid's overall accuracy (every recent answer together); p̄ the
+ * plain mean of the topics' accuracies, each pulled towards o, (right + 4o)/(n + 4); a
+ * topic's p = (right + 4p̄)/(n + 4); its bonus p̄/p in [0.7, 1.6].
+ */
 function expectedBonus(recent: Partial<Record<PuzzleTopic, string>>): Map<PuzzleTopic, number> {
 	const acc = Object.entries(recent)
 		.filter(([, r]) => r.length > 0)
 		.map(([t, r]) => [t, r.split('1').length - 1, r.length] as const);
 	const out = new Map<PuzzleTopic, number>();
 	if (acc.length === 0) return out;
-	const mean = acc.reduce((s, [, right, n]) => s + right / n, 0) / acc.length;
+	const o = acc.reduce((s, [, right]) => s + right, 0) / acc.reduce((s, [, , n]) => s + n, 0);
+	const mean = acc.reduce((s, [, right, n]) => s + (right + 4 * o) / (n + 4), 0) / acc.length;
 	if (mean === 0) return out;
 	for (const [t, right, n] of acc) {
 		const p = (right + 4 * mean) / (n + 4);
@@ -100,13 +108,15 @@ describe('recordAnswers', () => {
 	it('counts every judged answer under its topic, right or wrong, and keeps the latest 20', () => {
 		let record: PuzzleRecord = {};
 		const before = record;
-		record = recordAnswers(record, [judged('div', false), judged('add', true)]);
+		record = recordAnswers(record, [judged('div', false), judged('add', true)], BATTLE);
 		expect(before).toEqual({});
 		expect(record).toEqual({
 			div: { tried: 1, right: 0, recent: '0' },
 			add: { tried: 1, right: 1, recent: '1' }
 		});
-		for (let i = 0; i < 30; i++) record = recordAnswers(record, [judged('div', i % 3 === 0)]);
+		for (let i = 0; i < 30; i++) {
+			record = recordAnswers(record, [judged('div', i % 3 === 0)], BATTLE);
+		}
 		expect(record.div!.tried).toBe(31);
 		expect(record.div!.right).toBe(10);
 		expect(record.div!.recent).toHaveLength(RECENT_ANSWERS);
@@ -119,9 +129,30 @@ describe('recordAnswers', () => {
 	it('hands back the very record when nothing was judged, and skips an answer with no topic', () => {
 		const record = recordOf({ add: '11' });
 		const miss: BattleEvent = { type: 'missed', attacker: 'player', attackIndex: 1, level: 1 };
-		expect(recordAnswers(record, [miss])).toBe(record);
+		expect(recordAnswers(record, [miss], BATTLE)).toBe(record);
 		const old: MatchEvent[] = [{ type: 'answer-judged', side: 'a', correct: true }];
-		expect(recordAnswers(record, old, 'a')).toBe(record);
+		expect(recordAnswers(record, old, { where: 'match', side: 'a' })).toBe(record);
+	});
+
+	it("counts the witch doctor's and a match's answers, but only a wild battle's go into the latest, which the bonus reads", () => {
+		// A miss costs nothing at the doctor's or in a match: missing there on purpose must not
+		// make a topic look hard (a kid could top up a bonus before every battle).
+		let record = recordOf({ div: '1111' });
+		const misses = Array.from({ length: 20 }, () => judged('div', false));
+		record = recordAnswers(record, misses, { where: 'doctor' });
+		expect(record.div).toEqual({ tried: 24, right: 4, recent: '1111' });
+		const matchMisses: MatchEvent[] = misses.map(() => ({
+			type: 'answer-judged',
+			side: 'a',
+			correct: false,
+			topic: 'div'
+		}));
+		record = recordAnswers(record, matchMisses, { where: 'match', side: 'a' });
+		expect(record.div).toEqual({ tried: 44, right: 4, recent: '1111' });
+		const withAdd = recordAnswers(record, [judged('add', true)], { where: 'doctor' });
+		// Met at the doctor's only: no recent answers, no bonus.
+		expect(withAdd.add).toEqual({ tried: 1, right: 1, recent: '' });
+		expect(topicBonus(withAdd)).toEqual({ div: 1 });
 	});
 
 	it("in a match, records only the kid's own side", () => {
@@ -130,11 +161,13 @@ describe('recordAnswers', () => {
 			{ type: 'answer-judged', side: 'b', correct: false, topic: 'div' },
 			{ type: 'answer-judged', side: 'a', correct: false, topic: 'div' }
 		];
-		expect(recordAnswers({}, events, 'a')).toEqual({
-			add: { tried: 1, right: 1, recent: '1' },
-			div: { tried: 1, right: 0, recent: '0' }
+		expect(recordAnswers({}, events, { where: 'match', side: 'a' })).toEqual({
+			add: { tried: 1, right: 1, recent: '' },
+			div: { tried: 1, right: 0, recent: '' }
 		});
-		expect(recordAnswers({}, events, 'b')).toEqual({ div: { tried: 1, right: 0, recent: '0' } });
+		expect(recordAnswers({}, events, { where: 'match', side: 'b' })).toEqual({
+			div: { tried: 1, right: 0, recent: '' }
+		});
 	});
 });
 
@@ -172,7 +205,8 @@ describe('topicBonus', () => {
 		const bonus = topicBonus(record);
 		expect(bonus.add!).toBeLessThan(1);
 		expect(bonus.div!).toBeGreaterThan(1);
-		const mean = (19 / 20 + 4 / 10) / 2;
+		const o = 23 / 30;
+		const mean = ((19 + 4 * o) / 24 + (4 + 4 * o) / 14) / 2;
 		const p = (right: number, n: number) => (right + 4 * mean) / (n + 4);
 		// Unclamped, a right answer to either is worth the average one: p · bonus = p̄.
 		expect(p(19, 20) * bonus.add!).toBeCloseTo(mean, 12);
@@ -184,6 +218,16 @@ describe('topicBonus', () => {
 			expect(b).toBeGreaterThanOrEqual(MIN_TOPIC_BONUS);
 			expect(b).toBeLessThanOrEqual(MAX_TOPIC_BONUS);
 		}
+	});
+
+	it('lets a topic met once barely move the topics a kid has mastered', () => {
+		// A first flight's fare asks a topic of the new land, and a kid gets it wrong: their
+		// mastered topics must not lose a third of every hit for it.
+		const mastered = { add: '1'.repeat(20), sub: '1'.repeat(20) };
+		const once = topicBonus(recordOf({ ...mastered, thermometer: '0' }));
+		expect(once.add!).toBeGreaterThan(0.9);
+		expect(once.sub!).toBeGreaterThan(0.9);
+		expect(once.thermometer!).toBeGreaterThan(1);
 	});
 
 	it('never pays a topic the kid gets right less often a smaller bonus', () => {
@@ -263,6 +307,16 @@ describe('a hit with a topic bonus', () => {
 });
 
 describe('a wild battle with a topic bonus', () => {
+	it('never hits past what a battle seen from outside carries: the most HP any animal has', () => {
+		// A hit's damage crosses the wire to the players watching (`net/fight.ts`), checked
+		// against the biggest HP there is; the hardest hit at the biggest bonus must fit.
+		const most = Math.max(...ANIMALS.map((a) => a.maxHp));
+		const hardest = Math.max(
+			...ANIMALS.map((a) => attackDamage(a, a.attacks.length, 3, true, MAX_TOPIC_BONUS))
+		);
+		expect(hardest).toBeLessThanOrEqual(most);
+	});
+
 	it("lands the drawn puzzle's topic's bonus, says its topic, and keeps the bonus for the whole battle", () => {
 		const bonus = { add: 0.7, sub: 1.6, mul: 1.3, missing: 0.9, div: 1.45, sqrt: 1.1 };
 		let checked = 0;

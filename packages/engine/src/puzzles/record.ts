@@ -7,12 +7,15 @@ import { ALL_PUZZLE_TOPICS, type Puzzle, type PuzzleTopic } from './types.js';
 
 /**
  * The kid's puzzle record ([[PRODUCT]] §4 "Puzzles"): for every topic, how
- * many puzzles of it they were asked and got right, and how the last few
- * went. It is read from the `answer-judged` events, as the count of puzzles
- * solved is (`solved.ts`), so it follows the judgement itself, never a
- * screen. The kid sees the counts ("My puzzles", in the pause menu); the
- * last few set how hard a wild battle's hit of that topic lands
- * (`topicBonus`), which nothing on screen says.
+ * many puzzles of it they were asked and got right, anywhere, and how their
+ * last few in wild battles went. It is read from the `answer-judged`
+ * events, as the count of puzzles solved is (`solved.ts`), so it follows
+ * the judgement itself, never a screen. The kid sees the counts ("My
+ * puzzles", in the pause menu); the last few set how hard a wild battle's
+ * hit of that topic lands (`topicBonus`), which nothing on screen says.
+ * Only a wild battle's answers go into them: a miss there costs the turn,
+ * where a miss at the witch doctor's or in a friendly match costs nothing,
+ * so a kid could miss there on purpose to make a topic look hard.
  */
 
 /** How many of a topic's latest answers `recent` keeps: the window the bonus reads. */
@@ -36,8 +39,8 @@ export interface TopicRecord {
 	/** Of those, the ones answered right. */
 	right: number;
 	/**
-	 * The latest answers, oldest first, at most `RECENT_ANSWERS`: `1` for a
-	 * right one, `0` for a wrong one.
+	 * The latest answers in wild battles, oldest first, at most
+	 * `RECENT_ANSWERS`: `1` for a right one, `0` for a wrong one.
 	 */
 	recent: string;
 }
@@ -73,37 +76,32 @@ interface Judged {
 	readonly topic?: PuzzleTopic;
 }
 
+/** Where the events were judged: a wild battle's go into `recent` too; a match's are only `side`'s. */
+export type Judging =
+	{ where: 'battle' } | { where: 'doctor' } | { where: 'match'; side: MatchSide };
+
 /**
- * `record` after `events`, the events of one step of a wild battle or a
- * doctor visit: every answer they judged, right or wrong, under its topic.
- * The very same record when they judged none.
+ * `record` after `events`, the events of one step of a wild battle, a
+ * doctor visit or a friendly match (`where`): every answer they judged,
+ * right or wrong, under its topic, in a match only `side`'s, the kid's own;
+ * a wild battle's in `recent` too. The very same record when they judged none.
  */
 export function recordAnswers(
 	record: PuzzleRecord,
-	events: readonly (BattleEvent | DoctorEvent)[]
-): PuzzleRecord;
-/**
- * `record` after `events`, a friendly match's: only `side`'s answers, the
- * kid's own, never the other player's.
- */
-export function recordAnswers(
-	record: PuzzleRecord,
-	events: readonly MatchEvent[],
-	side: MatchSide
-): PuzzleRecord;
-export function recordAnswers(
-	record: PuzzleRecord,
-	events: readonly Judged[],
-	side?: MatchSide
+	events: readonly (BattleEvent | DoctorEvent | MatchEvent)[],
+	judging: Judging
 ): PuzzleRecord {
 	let out = record;
-	for (const e of events) {
+	for (const e of events as readonly Judged[]) {
 		if (e.type !== 'answer-judged' || typeof e.correct !== 'boolean') continue;
-		if (side !== undefined && e.side !== side) continue;
+		if (judging.where === 'match' && e.side !== judging.side) continue;
 		// A match event from a server from before topics has none: it is not recorded.
 		if (e.topic === undefined || !ALL_PUZZLE_TOPICS.includes(e.topic)) continue;
 		const was = out[e.topic] ?? { tried: 0, right: 0, recent: '' };
-		const recent = (was.recent + (e.correct ? '1' : '0')).slice(-RECENT_ANSWERS);
+		const recent =
+			judging.where === 'battle'
+				? (was.recent + (e.correct ? '1' : '0')).slice(-RECENT_ANSWERS)
+				: was.recent;
 		out = {
 			...out,
 			[e.topic]: {
@@ -119,16 +117,19 @@ export function recordAnswers(
 
 /**
  * How hard each topic's hit lands in a wild battle ([[PRODUCT]] §4
- * "Puzzles"), from the record's latest answers. A topic's accuracy is its
- * recent answers with `PRIOR_ANSWERS` answers at the kid's average mixed in,
- * `p = (right + k·p̄) / (answers + k)`, where the average `p̄` is the plain
- * mean of the topics met's own accuracies, each topic counting once however
- * often it was asked. The bonus is `p̄ / p`, kept within `MIN_TOPIC_BONUS`
- * and `MAX_TOPIC_BONUS`: a right answer to a topic is worth what the kid's
- * average answer is, `p · bonus = p̄`, so a topic the kid finds hard is no
- * worse a pick than one they always get right. Every topic is 1 for a kid
- * who answers every topic as well as the others (an always-right kid
- * included), and for a kid with no answers yet.
+ * "Puzzles"), from the record's latest answers in wild battles (`recent`),
+ * over the topics met there. Every accuracy is pulled towards a wider one
+ * by `PRIOR_ANSWERS` answers' worth, `(right + k·wider) / (answers + k)`, so
+ * a few answers swing little: the kid's average `p̄` is the plain mean of
+ * the topics' accuracies, each pulled towards the kid's overall accuracy
+ * (every recent answer together), each topic counting once however often it
+ * was asked; and a topic's own `p` is pulled towards `p̄`. The bonus is
+ * `p̄ / p`, kept within `MIN_TOPIC_BONUS` and `MAX_TOPIC_BONUS`: a right
+ * answer to a topic is worth what the kid's average answer is, `p · bonus =
+ * p̄`, so a topic the kid finds hard is no worse a pick than one they always
+ * get right. Every topic is 1 for a kid who answers every topic as well as
+ * the others (an always-right kid included), and for a kid with no answers
+ * yet.
  */
 export function topicBonus(record: PuzzleRecord): TopicBonus {
 	const met: [PuzzleTopic, number, number][] = [];
@@ -139,12 +140,16 @@ export function topicBonus(record: PuzzleRecord): TopicBonus {
 		met.push([topic, right, recent.length]);
 	}
 	if (met.length === 0) return {};
-	const mean = met.reduce((sum, [, right, n]) => sum + right / n, 0) / met.length;
+	const pull = (right: number, n: number, towards: number) =>
+		(right + PRIOR_ANSWERS * towards) / (n + PRIOR_ANSWERS);
+	const overall =
+		met.reduce((sum, [, right]) => sum + right, 0) / met.reduce((sum, [, , n]) => sum + n, 0);
+	const mean = met.reduce((sum, [, right, n]) => sum + pull(right, n, overall), 0) / met.length;
 	// Every answer wrong: no topic is harder than another.
 	if (mean === 0) return {};
 	const bonus: Partial<Record<PuzzleTopic, number>> = {};
 	for (const [topic, right, n] of met) {
-		const p = (right + PRIOR_ANSWERS * mean) / (n + PRIOR_ANSWERS);
+		const p = pull(right, n, mean);
 		bonus[topic] = Math.min(MAX_TOPIC_BONUS, Math.max(MIN_TOPIC_BONUS, mean / p));
 	}
 	return bonus;
@@ -177,11 +182,14 @@ export function readTopicBonus(value: unknown): TopicBonus | null {
 
 /**
  * Why `value` is not a record a save can hold, or null when it is: an object
- * of topics, each with whole `tried` and `right` counts, `right` no more
- * than `tried`, and a `recent` of at most `RECENT_ANSWERS` ones and zeros,
- * no more of them than `tried` nor ones than `right`. A topic this build
- * does not know, with entries of that shape, is no error: the save keeps it
- * (`readRecord`), and nothing here reads it.
+ * of topics, each of this build's topics with whole `tried` and `right`
+ * counts, `right` no more than `tried`, and a `recent` of at most
+ * `RECENT_ANSWERS` ones and zeros, no more ones than `right` nor zeros than
+ * the wrong ones (`tried − right`). A topic this build does not have is
+ * named as a content id is (lower-case words joined by hyphens) and holds
+ * anything: the save keeps it as it was (`readRecord`), and nothing here
+ * reads it. A later build that changes what this build's topics hold (a
+ * longer `recent`, another field) bumps `SAVE_VERSION`.
  */
 export function recordError(value: unknown): string | null {
 	if (typeof value !== 'object' || value === null || Array.isArray(value)) {
@@ -189,8 +197,9 @@ export function recordError(value: unknown): string | null {
 	}
 	for (const [topic, entry] of Object.entries(value)) {
 		const where = `puzzles.${topic}`;
-		// A topic's name as a topic is named, so no key ever reaches an object's prototype.
-		if (!/^[a-z]+$/.test(topic)) return `${where} is not a topic`;
+		// Named as an id is, so no key ever reaches an object's prototype (`__proto__`).
+		if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(topic)) return `${where} is not a topic`;
+		if (!(ALL_PUZZLE_TOPICS as readonly string[]).includes(topic)) continue;
 		if (typeof entry !== 'object' || entry === null || Array.isArray(entry)) {
 			return `${where} must be an object`;
 		}
@@ -208,8 +217,9 @@ export function recordError(value: unknown): string | null {
 		if (typeof recent !== 'string' || !/^[01]*$/.test(recent) || recent.length > RECENT_ANSWERS) {
 			return `${where}.recent must be up to ${RECENT_ANSWERS} ones and zeros`;
 		}
-		if (recent.length > (tried as number) || recent.replace(/0/g, '').length > (right as number)) {
-			return `${where}.recent holds more answers than tried and right`;
+		const ones = recent.replace(/0/g, '').length;
+		if (ones > (right as number) || recent.length - ones > (tried as number) - (right as number)) {
+			return `${where}.recent holds more right or wrong answers than the counts`;
 		}
 	}
 	return null;
@@ -217,14 +227,16 @@ export function recordError(value: unknown): string | null {
 
 /**
  * The record a save holds, each topic a copy: a topic this build does not
- * know too, so a newer build's topic is written back as it was. Empty when
- * there is none, or it is not a record (`recordError`).
+ * have too, as it was, so a newer build's topic is written back unchanged.
+ * Empty when there is none, or it is not a record (`recordError`).
  */
 export function readRecord(value: unknown): PuzzleRecord {
 	if (value === undefined || recordError(value) !== null) return {};
-	const out: Record<string, TopicRecord> = {};
+	const out: Record<string, unknown> = {};
 	for (const [topic, entry] of Object.entries(value as Record<string, TopicRecord>)) {
-		out[topic] = { tried: entry.tried, right: entry.right, recent: entry.recent };
+		out[topic] = (ALL_PUZZLE_TOPICS as readonly string[]).includes(topic)
+			? { tried: entry.tried, right: entry.right, recent: entry.recent }
+			: (JSON.parse(JSON.stringify(entry ?? null)) as unknown);
 	}
 	return out as PuzzleRecord;
 }
