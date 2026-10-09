@@ -107,7 +107,7 @@ Given a prompt and the DNA, most decisions derive nicely from the context. There
 
 The first implementation pass should be your best effort. Think carefully, handle edge cases, get it right.
 
-- Run `pnpm check`, `pnpm lint` and `pnpm test` from the repo root after your last edit, right before you commit. All three must be green (CI runs them all).
+- Run `pnpm check`, `pnpm lint` and `pnpm test` from the repo root after your last edit, right before you commit. All three must be green: CI runs them on every pull request (`.github/workflows/checks.yml`) and again before deploying. `pnpm check` also builds the client, so code Safari 15 cannot run (engine code included: it ships to the page too) fails before the merge, not on the deploy.
   - Engine changes: add or extend property tests following `packages/engine/test/*.test.ts`. A new puzzle kind extends the independent solver in `puzzles.test.ts`.
   - **When writing or modifying tests**, read **Testing ideology** in [[DEVELOPMENT]] first.
 - Format only your own files (`pnpm exec prettier --write <files>`).
