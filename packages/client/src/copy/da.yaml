@@ -1342,6 +1342,7 @@ explore:
   walkRight: Gå til højre
   turnSideways: Hold skærmen på tværs for at spille!
   notAtTent: Gå hen til et telt for at snakke med druiden.
+  surprise: Druiden har en overraskelse til dig! Gå hen til et telt.
   tired: Dine dyr er trætte. Gå hen til druidens telt!
   tiredSail: Dine dyr er trætte. Sejl hen til druidens telt!
   tiredFly: Dine dyr er trætte. Flyv ud og find druidens telt!
@@ -1514,19 +1515,26 @@ doctor:
   goodbye: Hej hej! Kom bare igen, når du vil.
   fly:
     intro: Vil du flyve et nyt sted hen? Hver tur koster én opgave.
-    locked: For at flyve til {land} skal du slippe mindst ét af hvert af de {of} dyr fra {from} fri. Du har {freed} indtil nu!
+    locked: For at flyve til {land} skal du fange mindst ét af hvert af de {of} dyr fra {from}. Du har {caught} indtil nu!
     count: Løs den her, så flyver du til {land}!
-    progress: '{freed} / {of}'
+    progress: '{caught} / {of}'
     open: Én opgave
     story: Flyet til {land} koster én opgave!
     title: Flyv til {land}!
-    how: Slip mindst ét af hvert af de {of} dyr fra {from} fri, så kan du flyve derhen.
-    soFar: '{freed} / {of} sluppet fri'
+    how: Fang mindst ét af hvert af de {of} dyr fra {from}, så kan du flyve derhen.
+    soFar: '{caught} / {of} fanget'
     fare: Turen koster én opgave.
     stays: Dine dyr og ting her venter på dig, til du kommer tilbage.
     pick: Hvor vil du flyve hen?
     keys: ↑ ↓ flyt · ← → faner · Enter flyv · Esc farvel
     touch: Tryk på et land for at flyve derhen
+  surprise:
+    line: Wow! Du har udforsket hele {from} og fanget ét af hvert dyr. Jeg har en overraskelse til dig!
+    question: Vil du flyve til {land}?
+    detail: Flyet er min gave. Ingen opgave denne gang!
+    notNow: Ikke nu
+    yes: Ja, lad os flyve!
+    keys: ← → flyt · Enter vælg · Esc ikke nu
   bye: Farvel
   byeKey: Esc
   back: Tilbage
@@ -2038,6 +2046,9 @@ lands:
   arctic:
     name: Arktis
     inLine: Arktis
+surprise:
+  hooray: Hurra!
+  caughtAll: Du har fanget alle dyrene i {from}!
 book:
   title: Dyrebog
   row: '{caught}/{all}'

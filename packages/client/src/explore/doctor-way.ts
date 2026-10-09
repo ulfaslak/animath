@@ -15,6 +15,7 @@ import { doctor } from '../state/doctor.svelte';
 import { doctorWay, needsTent } from '../state/doctor-way.svelte';
 import { game } from '../state/game.svelte';
 import { pause } from '../state/pause.svelte';
+import { surprise } from '../state/surprise.svelte';
 import { title } from '../state/title.svelte';
 
 /**
@@ -101,7 +102,8 @@ export class DoctorWay {
 	overlay(): void {
 		const tired = needsTent(game.party, game.realm);
 		if (!tired && doctorWay.noWay) doctorWay.noWay = false;
-		if (!this.showing() || !tired) {
+		// A tired team, or the druid's surprise waiting (`surprise.land`): the way to a tent.
+		if (!this.showing() || (!tired && surprise.land === null)) {
 			// The search is kept, so coming back from a menu, a battle or the doctor's
 			// card is no search at all, unless the player moved meanwhile.
 			if (doctorWay.tent) doctorWay.tent = null;
@@ -110,7 +112,8 @@ export class DoctorWay {
 		}
 		const tent = this.find()?.tent ?? null;
 		if (!samePos(tent, doctorWay.tent)) doctorWay.tent = tent && { x: tent.x, y: tent.y };
-		if (doctorWay.noWay !== (tent === null)) doctorWay.noWay = tent === null;
+		const noWay = tired && tent === null;
+		if (doctorWay.noWay !== noWay) doctorWay.noWay = noWay;
 		const arrow = tent ? this.arrowTo(tent) : null;
 		const shown = doctorWay.arrow;
 		if (
@@ -124,7 +127,7 @@ export class DoctorWay {
 	}
 
 	/** The world is on screen with the explore screen over it: no battle, card, menu or title. */
-	private showing(): boolean {
+	showing(): boolean {
 		return (
 			this.renderer.showingWorld &&
 			game.mode === 'explore' &&

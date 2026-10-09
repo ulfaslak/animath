@@ -245,6 +245,7 @@ export {
 	availableLands,
 	farePuzzle,
 	flyRefusal,
+	surpriseLand,
 	getLand,
 	isLandStarter,
 	needsStarter,
