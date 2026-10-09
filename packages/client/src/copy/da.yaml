@@ -1314,8 +1314,8 @@ puzzle:
 explore:
   controls: Gå med piletasterne eller WASD
   controlsTouch: Hold på en pil for at gå
-  talkPrompt: Tryk på Enter for at snakke med heksedoktoren
-  talkPromptTouch: Tryk på Snak for at snakke med heksedoktoren
+  talkPrompt: Tryk på Enter for at snakke med druiden
+  talkPromptTouch: Tryk på Snak for at snakke med druiden
   talk: Snak
   chopPrompt: Tryk på Enter for at fælde træet
   chopPromptTouch: Tryk på Fæld for at fælde træet
@@ -1330,23 +1330,23 @@ explore:
   fish: Fisk
   caughtNothing: Der var ikke noget, der bed. Prøv igen!
   noSwimmer: Der er ikke noget, der bider, for ingen af dine dyr kan svømme. Tag et dyr med, der kan svømme!
-  needAxe: Du skal bruge en økse for at fælde træer. Heksedoktoren sælger en!
-  needPickaxe: Du skal bruge en hakke for at knuse sten. Heksedoktoren sælger en!
+  needAxe: Du skal bruge en økse for at fælde træer. Druiden sælger en!
+  needPickaxe: Du skal bruge en hakke for at knuse sten. Druiden sælger en!
   sledHow: Sæt et rensdyr eller en polarulv forrest, så får du en tur på slæden!
   skiHow: Hold en pil nede og kør hurtigere og hurtigere på sneen. Slip, så glider du videre!
-  needIcePick: Du skal bruge en ishakke for at knuse isblokke. Heksedoktoren sælger en!
-  needRod: Du skal bruge en fiskestang for at fiske her. Heksedoktoren sælger en!
+  needIcePick: Du skal bruge en ishakke for at knuse isblokke. Druiden sælger en!
+  needRod: Du skal bruge en fiskestang for at fiske her. Druiden sælger en!
   walkUp: Gå op
   walkDown: Gå ned
   walkLeft: Gå til venstre
   walkRight: Gå til højre
   turnSideways: Hold skærmen på tværs for at spille!
-  notAtTent: Gå hen til et telt for at snakke med heksedoktoren.
-  surprise: Heksedoktoren har en overraskelse til dig! Gå hen til et telt.
-  tired: Dine dyr er trætte. Gå hen til heksedoktorens telt!
-  tiredSail: Dine dyr er trætte. Sejl hen til heksedoktorens telt!
-  tiredFly: Dine dyr er trætte. Flyv ud og find heksedoktorens telt!
-  doctorArrow: Vejen til heksedoktorens telt
+  notAtTent: Gå hen til et telt for at snakke med druiden.
+  surprise: Druiden har en overraskelse til dig! Gå hen til et telt.
+  tired: Dine dyr er trætte. Gå hen til druidens telt!
+  tiredSail: Dine dyr er trætte. Sejl hen til druidens telt!
+  tiredFly: Dine dyr er trætte. Flyv ud og find druidens telt!
+  doctorArrow: Vejen til druidens telt
   holdToFly: Hold mellemrum nede for at flyve!
   holdToFlyTouch: Hold Flyv nede for at flyve!
   rideBig: Sæt et stort dyr først og hop op!
@@ -1390,9 +1390,9 @@ party:
   leadChosen: '{animal.the} er først ud!'
   leadCantSwim: '{animal.the} kan ikke svømme! På vandet er et dyr, der kan svømme, først ud.'
   leadInTheSea: '{animal.the} bor i havet! På land er et dyr, der kan gå, først ud.'
-  leadTired: '{animal.the} er træt. Gå til heksedoktoren!'
+  leadTired: '{animal.the} er træt. Gå til druiden!'
   leadAlready: '{animal.the} er allerede først ud!'
-  leadAllTired: De er alle sammen trætte. Gå til heksedoktoren!
+  leadAllTired: De er alle sammen trætte. Gå til druiden!
 
 battle:
   wildName: '{animal.wild}'
@@ -1497,11 +1497,11 @@ battle:
     wonAir: '{animal.theWild} flyver hjem og hviler sig.'
     fledAir: '{animal.theWild} bliver oppe i luften.'
     joined: '{animal.the} kommer med på dit hold!'
-    lost: Dine dyr skal hvile sig. Heksedoktoren gør dem friske igen!
+    lost: Dine dyr skal hvile sig. Druiden gør dem friske igen!
 
 doctor:
-  title: Heksedoktor
-  came: En heksedoktor kom forbi og passede godt på dine dyr. Nu har alle det godt igen!
+  title: Druide
+  came: En druide kom forbi og passede godt på dine dyr. Nu har alle det godt igen!
   hello: Hej! Hvem skal jeg hjælpe i dag?
   helloAllFit: Hej! Alle dine dyr er friske og glade.
   letsHelp: Lad os hjælpe {animal.the}! Kan du løse den her?
@@ -1880,8 +1880,8 @@ title:
     keys: ← → flyt · Enter vælg · Esc tilbage
     pick: 'Vælg {animal.the}!'
     titleLand: Vælg dit første dyr i {land}!
-    keysLand: ← → flyt · Enter vælg · Esc heksedoktor
-    toDoctor: Heksedoktor
+    keysLand: ← → flyt · Enter vælg · Esc druide
+    toDoctor: Druide
   naming:
     title: Hvad skal {animal.the} hedde?
     empty: Uden et navn hedder dyret bare {animal.name}.
@@ -1916,7 +1916,7 @@ presence:
   elsewhere: Du spiller i et andet vindue.
   busy:
     battle: kæmper mod et vildt dyr
-    doctor: hos heksedoktoren
+    doctor: hos druiden
     menu: holder pause
     match: kæmper mod en ven
     flight: flyver

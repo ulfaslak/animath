@@ -127,7 +127,7 @@ export interface SavedGame {
 	 */
 	caught: string[];
 	/**
-	 * The animal book's species set free at the witch doctor's, each once, in
+	 * The animal book's species set free at the druid's, each once, in
 	 * the order first set free, every one seen too. It only grows.
 	 */
 	freed: string[];
@@ -276,7 +276,7 @@ export interface SaveV4 {
 	seen?: string[];
 	caught?: string[];
 	/**
-	 * The animal book's species set free at the witch doctor's, by id, in the
+	 * The animal book's species set free at the druid's, by id, in the
 	 * order first set free. Optional in a write too: a save without it has set
 	 * none free (a version 2 save gets it from its upgrade). A species this
 	 * build does not have makes the save a newer build's, as in `seen`.
@@ -986,7 +986,7 @@ function cleanAnimal(animal: AnimalInstance): AnimalInstance {
  * fight on land (only sea animals: no save a kid's game writes holds one) gets
  * the land's too, behind the others, so the grass is never out of reach. An
  * empty party in a later land stays empty: the kid has just flown in and picks
- * a starter of that land (`needsStarter`), standing beside the witch doctor
+ * a starter of that land (`needsStarter`), standing beside the druid
  * they came down at. The starter it adds takes its
  * id from `mintId`, the authority's (the engine mints none, [[DECISIONS]] §
  * Engine), never one an animal in the party already has; `mintId` is called

@@ -219,7 +219,7 @@ export const PLANE_COLORS = {
 } as const;
 
 /**
- * The witch doctor at every tent (`doctor.ts`): a purple robe and a taller,
+ * The druid at every tent (`doctor.ts`): a purple robe and a taller,
  * floppy purple hat with the doctor's gold band, a coral feather and a gold
  * bobble on its tip, a white beard and a rosy nose, and a staff of trunk
  * brown with the doctor's green gem. His pot on the campfire is iron with

@@ -1324,7 +1324,7 @@
 	/*
 	 * While a right answer's reward plays (`done`), the puzzle keeps only the
 	 * sum, the answer and "Correct!": the pad, the story and Back are done
-	 * with (Back would say bye while a beat plays), and the witch doctor's
+	 * with (Back would say bye while a beat plays), and the druid's
 	 * cheer over the card can take three lines.
 	 */
 	.puzzle.done :global(.pad),

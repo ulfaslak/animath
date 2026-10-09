@@ -225,8 +225,8 @@ export interface PlaneSpot {
 const PARK_DISTANCES = [1.5, 2.5] as const;
 
 /**
- * Where a plane parks beside a kid on `pos` facing `facing` (the witch
- * doctor's tent, at a flight's start and end): broadside to them so they
+ * Where a plane parks beside a kid on `pos` facing `facing` (the druid's
+ * tent, at a flight's start and end): broadside to them so they
  * walk to its door, its nose across the way to them, behind them (away from
  * the tent) or to one side ([[UI_SPEC]] § Explore mode, "The plane").
  * `ground(x, y)` says what a tile is to it. The first spot that reads as

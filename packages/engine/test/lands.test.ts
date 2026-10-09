@@ -269,7 +269,7 @@ describe('the way to a land: how many of the land before it are caught', () => {
 	});
 });
 
-describe('a flight from the witch doctor', () => {
+describe('a flight from the druid', () => {
 	const trip = { here: 'nordland' as LandId, unlocked: ['nordland', 'arctic'], open: LAND_IDS };
 
 	it('goes to an unlocked, built land other than this one, and says why not otherwise, in order', () => {
@@ -406,7 +406,7 @@ describe('the tent mapping', () => {
 				expect(canTalkToDoctor(arctic, there!.stand, there!.facing)).toBe(true);
 				const back = tentArrival(seed, there!.tent);
 				expect(back?.tent, `world ${world}`).toEqual(tent);
-				// The kid can talk to the witch doctor from where they come down.
+				// The kid can talk to the druid from where they come down.
 				expect(canTalkToDoctor(seed, back!.stand, back!.facing)).toBe(true);
 				expect(isWalkable(tileAtWorld(seed, back!.stand.x, back!.stand.y).kind)).toBe(true);
 			}

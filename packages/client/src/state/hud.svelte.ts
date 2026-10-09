@@ -80,7 +80,7 @@ export type Said =
 	 * glider, a tap of Space there says how to fly instead, and so does the
 	 * doctor's goodbye when it was just bought (`holdToFly`); a take-off with
 	 * nowhere to land that way (`tooFar`); the doctor's goodbye when the
-	 * harness was just bought (`rideBig`); the witch doctor has a surprise
+	 * harness was just bought (`rideBig`); the druid has a surprise
 	 * (`surprise`, `state/surprise.svelte.ts`).
 	 */
 	| {
@@ -525,7 +525,7 @@ class HudView {
 		return items.includes(id) && !this.itemsBefore.includes(id);
 	}
 
-	/** The witch doctor's surprise party started (`surprise.tick`): where to find him. */
+	/** The druid's surprise party started (`surprise.tick`): where to find him. */
 	surprise(): void {
 		this.say({ explore: 'surprise' });
 	}

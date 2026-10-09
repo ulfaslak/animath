@@ -251,7 +251,7 @@ export class LocalAuthority implements Authority {
 	 * The animal book: every species seen, caught and set free in this game,
 	 * in every world (`animals/book.ts`). Grows at the event that shows an
 	 * animal: a wild battle's start, a leash throw that lands, and a
-	 * hand-over at the witch doctor's answered right. Saved with the game.
+	 * hand-over at the druid's answered right. Saved with the game.
 	 */
 	private book: AnimalBook = EMPTY_BOOK;
 	/**
@@ -552,8 +552,8 @@ export class LocalAuthority implements Authority {
 			return;
 		}
 		if (this.waiting()) {
-			// Just flown in, with no animal of this land yet: the kid stays by the witch doctor
-			// they came down at until they pick one, and the witch doctor still talks.
+			// Just flown in, with no animal of this land yet: the kid stays by the druid
+			// they came down at until they pick one, and the druid still talks.
 			if (intent.type === 'interact' && canTalkToDoctor(this.seed, this.pos, this.facing)) {
 				this.visitDoctor();
 			}
@@ -706,7 +706,7 @@ export class LocalAuthority implements Authority {
 			spawn: this.spawn,
 			around: surroundings(this.seed, next)
 		};
-		const wild = rollEncounterFor(rng, site, this.party);
+		const wild = rollEncounterFor(rng, site, this.party, this.book.caught);
 		if (wild) this.beginBattle({ ...wild, id: mintId() }, tileRealm(tile.kind));
 	}
 
@@ -993,7 +993,7 @@ export class LocalAuthority implements Authority {
 			spawn: this.spawn,
 			around: surroundings(this.seed, pos)
 		};
-		const bird = rollSkyEncounter(rng, site, getAnimal(lead.speciesId).tier);
+		const bird = rollSkyEncounter(rng, site, getAnimal(lead.speciesId).tier, this.book.caught);
 		if (!bird) return null;
 		// One id per step a bird notices on, however often a save lands the flight ahead of time.
 		if (this.minted?.steps !== steps) this.minted = { steps, id: mintId() };
@@ -1148,7 +1148,7 @@ export class LocalAuthority implements Authority {
 		this.steps += 1;
 		const rng = new Rng(hashInts(this.seed, FISHING_SALT, this.steps));
 		const site = { hole, spawn: this.spawn };
-		const cast = castLine(rng, this.seed, this.edits, site, owner, this.party);
+		const cast = castLine(rng, this.seed, this.edits, site, owner, this.party, this.book.caught);
 		const speciesId = cast.outcome === 'bite' ? { speciesId: cast.wild.speciesId } : {};
 		this.emit({
 			type: 'line-cast',
@@ -1222,7 +1222,7 @@ export class LocalAuthority implements Authority {
 	// --- lands ---------------------------------------------------------------
 
 	/**
-	 * The fare was paid at the witch doctor's (`flew`): off to land `to`, in
+	 * The fare was paid at the druid's (`flew`): off to land `to`, in
 	 * this world number (the engine's `fly`). This land is remembered as it is
 	 * left, its party, tokens and items with it, and the land reached comes
 	 * back as it was left, or with nothing on a first visit; the player comes

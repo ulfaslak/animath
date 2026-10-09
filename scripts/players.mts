@@ -29,7 +29,7 @@
  *   solved=312    the puzzles they have solved (0 by default)
  *   caught=49     how many of Nordland's species they have caught (its first ones, in the
  *                 registry's order; 0 by default): all 50 unlock The Arctic, and 49 leave one
- *                 catch to the witch doctor's surprise; caught=all-shrew is every one but the shrew
+ *                 catch to the druid's surprise; caught=all-shrew is every one but the shrew
  *   wild=brown-rat:1  the game opens in a battle against this wild animal, at this HP (full
  *                 when left out), its lead the party's first
  *   freed=50      how many of Nordland's species they have set free (its first ones, in the
@@ -379,7 +379,7 @@ function saveOf(p: Player): string {
 	const party = p.party ?? game.party;
 	// The animal book of a game that begins with this party: its kinds, caught.
 	const book = recordParty(EMPTY_BOOK, party);
-	// Kinds caught, the way to The Arctic, and kinds set free at a witch doctor's, met first.
+	// Kinds caught, the way to The Arctic, and kinds set free at a druid's, met first.
 	const caught = Array.isArray(p.caught)
 		? p.caught
 		: getLand('nordland').species.slice(0, p.caught);

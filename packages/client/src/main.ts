@@ -254,7 +254,7 @@ function continueGame(saved: SavedGame, name?: string): void {
 const titleController = new TitleController(authority, new TitleScenery(renderer), {
 	continueGame,
 	logIn: () => accountController.openLogin('title'),
-	// A first arrival's starters: Escape talks to the witch doctor the kid came down beside.
+	// A first arrival's starters: Escape talks to the druid the kid came down beside.
 	toDoctor: () => {
 		authority.dispatch({ type: 'interact' });
 		return doctor.active;

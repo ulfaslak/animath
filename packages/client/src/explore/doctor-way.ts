@@ -102,7 +102,7 @@ export class DoctorWay {
 	overlay(): void {
 		const tired = needsTent(game.party, game.realm);
 		if (!tired && doctorWay.noWay) doctorWay.noWay = false;
-		// A tired team, or the witch doctor's surprise waiting (`surprise.land`): the way to a tent.
+		// A tired team, or the druid's surprise waiting (`surprise.land`): the way to a tent.
 		if (!this.showing() || (!tired && surprise.land === null)) {
 			// The search is kept, so coming back from a menu, a battle or the doctor's
 			// card is no search at all, unless the player moved meanwhile.

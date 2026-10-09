@@ -37,7 +37,7 @@ export type DoctorPhase =
 	/** Flying to `land`, once `puzzle`, the fare (`farePuzzle`), is solved. */
 	| { kind: 'paying-fare'; land: LandId; puzzle: Puzzle }
 	/**
-	 * The witch doctor offers a trip to `land`, a surprise with no fare, for
+	 * The druid offers a trip to `land`, a surprise with no fare, for
 	 * catching one of every animal of `from` (`surpriseLand`): `accept-offer`
 	 * flies there, `back` says not now, `leave` says bye; nothing else is taken.
 	 */
@@ -84,7 +84,7 @@ export type DoctorIntent =
 	| { type: 'fly'; land: string }
 	/** Answer the puzzle that is open: a healing puzzle or a token sum. */
 	| { type: 'answer'; input: string }
-	/** Say yes to the trip the witch doctor offers (`offering`): off they fly, no fare asked. */
+	/** Say yes to the trip the druid offers (`offering`): off they fly, no fare asked. */
 	| { type: 'accept-offer' }
 	/** Close the open puzzle, or say not now to the trip offered, without answering it. Nothing changes. */
 	| { type: 'back' }

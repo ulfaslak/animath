@@ -27,7 +27,7 @@ export { DOCTOR_TABS, type DoctorTab } from '../doctor/tabs';
  * item with tokens) and **fly** (to another land, for a puzzle; only where
  * there is another land to list). `screen` says what the keyboard does: `list` moves the
  * cursor over the tab's rows (← → change the tab), `confirm` asks before a
- * hand-over, `offer` asks whether to take the surprise trip the witch doctor
+ * hand-over, `offer` asks whether to take the surprise trip the druid
  * offers (`surpriseLand`), `puzzle` types an answer (a healing puzzle or a
  * token sum), `busy` ignores everything but Escape while a beat plays.
  */

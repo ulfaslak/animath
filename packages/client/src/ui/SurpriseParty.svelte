@@ -4,12 +4,12 @@
 	import Celebration from './Celebration.svelte';
 
 	/**
-	 * The witch doctor's surprise party ([[UI_SPEC]] § Explore mode, "The
+	 * The druid's surprise party ([[UI_SPEC]] § Explore mode, "The
 	 * surprise"): the catch that completed a land, once the kid is back in the
 	 * world. Confetti rains over the whole screen, and a card in the middle
 	 * says "Hooray!" in the result card's big letters, over the rays and the
 	 * stars (`Celebration`), and that every animal of the land is caught; the
-	 * message line under it says the witch doctor has a surprise. Nothing here
+	 * message line under it says the druid has a surprise. Nothing here
 	 * takes a key or a tap: the kid walks on while it plays, for
 	 * `PARTY_SECONDS`. With reduced motion the confetti stays still and fades.
 	 */

@@ -51,7 +51,7 @@
 	<Others />
 	<DoctorArrow />
 	<Hud />
-	<!-- The witch doctor's surprise, over the HUD: the catch that opened a land. -->
+	<!-- The druid's surprise, over the HUD: the catch that opened a land. -->
 	<SurpriseParty />
 	<!-- Not under a trip's cover, which takes no key: a thumb that lands there presses nothing. -->
 	{#if touch.on && !travel.active}<TouchControls />{/if}

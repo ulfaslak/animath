@@ -2,12 +2,12 @@ import { availableLands, type GameEvent, type LandId } from '@mathgame/engine';
 import { game } from './game.svelte';
 
 /**
- * The witch doctor's surprise ([[UI_SPEC]] § Explore mode, "The surprise"):
+ * The druid's surprise ([[UI_SPEC]] § Explore mode, "The surprise"):
  * the catch that completes a land (one of each of its animals) opens the next
  * one (`unlocked-changed`), and once the kid is back in the world a party
- * plays over it (`party`) saying the witch doctor has a surprise; from then
+ * plays over it (`party`) saying the druid has a surprise; from then
  * on, the way to the nearest tent shows (`land`, read by `DoctorWay`) until
- * the kid talks to a witch doctor, who offers the trip (the engine's
+ * the kid talks to a druid, who offers the trip (the engine's
  * `surpriseLand`). The party is for the moment it happens: a reload, or a
  * land opened by a save, finds the offer waiting at any tent, with no party
  * and no arrow.
@@ -46,7 +46,7 @@ class SurpriseView {
 				break;
 			}
 			case 'doctor-visit-started':
-				// At a tent: the witch doctor offers the trip; the way to him is done.
+				// At a tent: the druid offers the trip; the way to him is done.
 				this.land = null;
 				break;
 			case 'welcome':

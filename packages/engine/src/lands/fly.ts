@@ -63,7 +63,7 @@ export type FlyStep =
 	| { ok: false; reason: FlyRejection };
 
 /**
- * Fly from the witch doctor's tent at `tent` (the one the player faces) to
+ * Fly from the druid's tent at `tent` (the one the player faces) to
  * land `to`, in the same world number. The land left is remembered as the
  * player leaves it: its party, money and items, and the world they stood in
  * among its worlds (`remember`: most recently left first, at most
@@ -79,8 +79,8 @@ export type FlyStep =
  * Lands). Every world's cleared tiles, in every land, stay within the one
  * budget (`fitStays`): the world reached keeps its own whole.
  *
- * Whether the flight may go at all (unlocked, built, at a witch doctor's) is
- * the witch doctor's reducer's to ask (`flyRefusal`): this is what a flight
+ * Whether the flight may go at all (unlocked, built, at a druid's) is
+ * the druid's reducer's to ask (`flyRefusal`): this is what a flight
  * does.
  */
 export function fly(from: LandPlace, tent: GridPos, to: unknown, home: number): FlyStep {

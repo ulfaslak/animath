@@ -1,5 +1,7 @@
 import {
 	ATTACK_LEVELS,
+	recordParty,
+	type AnimalBook,
 	answerText,
 	EDITS_BUDGET,
 	ITEM_IDS,
@@ -103,11 +105,14 @@ function welcome(s: Session): Extract<GameEvent, { type: 'welcome' }> {
 }
 
 /**
- * Hand the authority a party before any battle, as a loaded save would.
- * `LocalAuthority` has no way to take one yet, so this sets the field itself.
+ * Hand the authority a party before any battle, as a loaded save would: its
+ * kinds caught in the book too, as loading one records them (`recordParty`).
+ * `LocalAuthority` has no way to take one yet, so this sets the fields itself.
  */
 function giveParty(s: Session, party: AnimalInstance[]): void {
-	(s.authority as unknown as { party: AnimalInstance[] }).party = party.map((a) => ({ ...a }));
+	const inside = s.authority as unknown as { party: AnimalInstance[]; book: AnimalBook };
+	inside.party = party.map((a) => ({ ...a }));
+	inside.book = recordParty(inside.book, inside.party);
 }
 
 const animal = (speciesId: string, hp = getAnimal(speciesId).maxHp): AnimalInstance => ({
@@ -384,12 +389,15 @@ describe('LocalAuthority: encounters', () => {
 });
 
 describe('LocalAuthority: the lead decides who comes out', () => {
-	it('with the starter in front, the reed meets a Brown rat on step 11, a Frog on step 15, the first Toad on step 71 and the first Otter on step 117', () => {
+	it('with the starter in front, the reed meets a Brown rat on step 11, a Frog on step 15 and the first Toad on step 71, and seven kinds in thirteen battles', () => {
 		const met = reedWalk(session(), 200);
 		expect(met[0]).toEqual({ step: 11, wild: 'brown-rat', lead: 'squirrel' });
 		expect(met[1]).toEqual({ step: 15, wild: 'frog', lead: 'squirrel' });
 		expect(met.find((m) => m.wild === 'common-toad')?.step).toBe(71);
-		expect(met.find((m) => m.wild === 'otter')?.step).toBe(117);
+		// The kinds not caught yet come out twice as often within their size (`favourUncaught`),
+		// so the small ones that come down to the water show up among the river's own.
+		expect(met.length).toBe(13);
+		expect(new Set(met.map((m) => m.wild)).size).toBe(7);
 		// Only what a tier-1 lead meets in the reeds: the river's own small and tier-2 animals,
 		// and the small ones that come down to the water.
 		const river = encounterTable('river', 0, 1).map((e) => e.species.id);
@@ -424,16 +432,7 @@ describe('LocalAuthority: the lead decides who comes out', () => {
 				{ step: 97, wild: 'mute-swan', lead: 'fox' }
 			]);
 			expect(new Set(others.map((m) => m.wild))).toEqual(
-				new Set([
-					'adder',
-					'otter',
-					'raccoon',
-					'mute-swan',
-					'roe-deer',
-					'fox',
-					'grey-heron',
-					'stoat'
-				])
+				new Set(['adder', 'otter', 'raccoon', 'mute-swan', 'badger', 'fox', 'grey-heron', 'stoat'])
 			);
 			const residents = ['otter', 'grey-heron', 'raccoon', 'beaver'];
 			expect(others.filter((m) => residents.includes(m.wild)).map((m) => m.step)).toEqual([
@@ -1620,12 +1619,14 @@ describe('LocalAuthority: the title', () => {
 		expect(welcome(a).party[0]!.id).not.toBe(welcome(b).party[0]!.id);
 	});
 
-	it('every starter meets the same animals on the same steps: all starters are one size', () => {
+	it('every starter meets animals of the same sizes on the same steps: all starters are one size', () => {
+		// Which animal of a size comes out may differ: each starter's own kind is caught, and a
+		// kind not caught yet comes out more often within its size (`favourUncaught`).
 		const walks = STARTERS.map((speciesId) => {
 			// In World 1, whose spawn has the reed beside it.
 			const s = atTitle({ homeWorld: () => 1 });
 			s.authority.dispatch({ type: 'new-game', speciesId });
-			return reedWalk(s, 40).map(({ step, wild }) => [step, wild]);
+			return reedWalk(s, 40).map(({ step, wild }) => [step, getAnimal(wild).tier]);
 		});
 		expect(walks[0]!.length).toBeGreaterThan(0);
 		for (const walk of walks) expect(walk).toEqual(walks[0]);
@@ -3501,7 +3502,7 @@ describe('LocalAuthority: lands (#191)', () => {
 		return { authority, events };
 	}
 
-	/** At the witch doctor of World 1's spawn, asking to fly to `land` and answering the fare. */
+	/** At the druid of World 1's spawn, asking to fly to `land` and answering the fare. */
 	function flyTo(s: Session, land: string, right = true): void {
 		s.authority.dispatch({ type: 'interact' });
 		expect(visit(s).phase.kind).toBe('choose-patient');
@@ -3565,7 +3566,7 @@ describe('LocalAuthority: lands (#191)', () => {
 			land: 'arctic',
 			starters: ['arctic-fox', 'arctic-hare', 'puffin']
 		});
-		// Beside a witch doctor of The Arctic, facing it: the fare was a puzzle solved.
+		// Beside a druid of The Arctic, facing it: the fare was a puzzle solved.
 		expect(canTalkToDoctor(landSeed('arctic', 1), trip.pos, trip.facing)).toBe(true);
 		expect(s.authority.snapshot()).toMatchObject({
 			land: 'arctic',
@@ -3576,13 +3577,13 @@ describe('LocalAuthority: lands (#191)', () => {
 		expect(s.authority.snapshot().lands[0]!.party).toEqual(nordlandParty);
 	});
 
-	it('in a land the kid has no animal of, asks for one of its starters, and the witch doctor still flies the kid home', () => {
+	it('in a land the kid has no animal of, asks for one of its starters, and the druid still flies the kid home', () => {
 		const s = session({ lands: true, tokens: 12 });
 		walkToTent(s);
 		flyTo(s, 'arctic');
 		const there = travelled(s);
 		expect(s.events.some((e) => e.type === 'starter-wanted')).toBe(true);
-		// Home: the witch doctor they came down at flies them back to Nordland, as they left it.
+		// Home: the druid they came down at flies them back to Nordland, as they left it.
 		flyTo(s, 'nordland');
 		const home = travelled(s);
 		expect(home).toMatchObject({ land: 'nordland', world: 1, seed: WORLD_SEED, firstVisit: false });
@@ -3684,7 +3685,7 @@ describe('LocalAuthority: lands (#191)', () => {
 		expect(s.events.at(-1)?.type).toMatch(/player-(moved|blocked)/);
 	});
 
-	it('says a land is unlocked at the leash throw that catches the last kind it asked for, once, and the witch doctor offers the trip', () => {
+	it('says a land is unlocked at the leash throw that catches the last kind it asked for, once, and the druid offers the trip', () => {
 		const all = getLand('nordland').species;
 		// A saved battle against a shrew with 1 HP left, every other kind of Nordland caught.
 		const bear = { ...animal('bear'), id: 'bear-1' };
@@ -3710,7 +3711,7 @@ describe('LocalAuthority: lands (#191)', () => {
 		expect(s.events[at - 1]?.type).toBe('book-changed');
 		expect(lastIndexOf(s, 'battle-ended')).toBeGreaterThan(at);
 		expect(s.authority.snapshot().unlocked).toEqual(['nordland', 'arctic']);
-		// At a tent the witch doctor offers the trip, and a yes flies there with no fare.
+		// At a tent the druid offers the trip, and a yes flies there with no fare.
 		walkToTent(s);
 		s.authority.dispatch({ type: 'interact' });
 		expect(visit(s).phase).toEqual({ kind: 'offering', land: 'arctic', from: 'nordland' });

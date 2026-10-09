@@ -251,7 +251,7 @@ export class GameRenderer {
 	private ringTool: ItemId | null = null;
 	/** Little clouds of dust where a trainer turns up out of nowhere. */
 	private poofs = new Poofs(this.scene);
-	/** Which witch doctors are greeting the trainer, who came near them. */
+	/** Which druids are greeting the trainer, who came near them. */
 	private greetings = new Greetings();
 	/** Draws the animal book's pictures, made the first time the book asks for one. */
 	private studio: PortraitStudio | null = null;
@@ -812,7 +812,7 @@ export class GameRenderer {
 	}
 
 	/**
-	 * The witch doctors at the tents in the chunks built (`doctor.ts`): each
+	 * The druids at the tents in the chunks built (`doctor.ts`): each
 	 * breathes, sways and taps his staff, and one the trainer comes near hops
 	 * and waves, turned their way.
 	 */

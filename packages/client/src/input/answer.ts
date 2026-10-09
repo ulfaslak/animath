@@ -2,7 +2,7 @@ import type { AnswerForm } from '@mathgame/engine';
 
 /**
  * Typing a puzzle answer, shared by every screen that asks one (a battle, a
- * friendly match, the witch doctor). Pure: the key and the text so far in,
+ * friendly match, the druid). Pure: the key and the text so far in,
  * the new text and whether to submit out. Judging the answer is the engine's
  * job, never this.
  *

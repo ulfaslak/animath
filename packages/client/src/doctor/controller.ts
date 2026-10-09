@@ -197,7 +197,7 @@ export class DoctorController {
 			doctor.tab = 'fly';
 			this.said = this.tabLine('fly', state);
 		}
-		// A land caught open and never visited: the witch doctor's surprise comes first.
+		// A land caught open and never visited: the druid's surprise comes first.
 		if (state.phase.kind === 'offering') {
 			this.said = { say: 'surprise', from: state.phase.from };
 			doctor.confirm = 1;
@@ -435,7 +435,7 @@ export class DoctorController {
 				this.guard.show();
 				return;
 			case 'land': {
-				// A land still locked gives a little shake, and the witch doctor says how to open it:
+				// A land still locked gives a little shake, and the druid says how to open it:
 				// one of each animal of the land before it caught, and how many are so far.
 				const progress = unlockProgress(row.land, game.caught);
 				if (row.land !== FIRST_LAND && !doctor.unlocked.includes(row.land) && progress) {

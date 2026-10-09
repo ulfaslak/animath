@@ -11,6 +11,7 @@ import { startDoctorVisit } from '../src/doctor/reducer.js';
 import { shopFor } from '../src/lands/lands.js';
 import { clearTile, clearableAhead, clearingTool } from '../src/world/clearing.js';
 import { WorldEdits, editedTileAt } from '../src/world/edits.js';
+import { distanceFromSpawn, favourUncaught } from '../src/world/encounters.js';
 import { BITE_CHANCE, castLine, holeAhead, holeTable, rollCast } from '../src/world/fishing.js';
 import { tileAtWorld } from '../src/world/generate.js';
 import { worldSeed } from '../src/world/numbers.js';
@@ -161,7 +162,7 @@ describe('the ice pick and the arctic axe', () => {
 	}, 60_000);
 });
 
-describe("The Arctic's witch doctor", () => {
+describe("The Arctic's druid", () => {
 	it('lists his shop cheapest first, in ice dollars, as every visit shows it', () => {
 		const visit = startDoctorVisit([animal('fox')], { land: 'arctic' });
 		expect(visit.shop).toEqual(shopFor('arctic'));
@@ -298,7 +299,7 @@ describe('the way to a tent on the ice', () => {
 		}
 	});
 
-	it('never stands a kid on the ice to talk to a witch doctor', () => {
+	it('never stands a kid on the ice to talk to a druid', () => {
 		for (const world of [1, 2]) {
 			const seed = arctic(world);
 			for (const p of [...around(spawnPoint(seed), 60)].filter((_, i) => i % 37 === 0)) {
@@ -360,6 +361,35 @@ describe('fishing', () => {
 		expect(rng.next()).toBe(before);
 	});
 
+	it('a cast picks from the hole’s table favouring the kinds not caught', () => {
+		const seed = arctic(1);
+		const spawn = spawnPoint(seed);
+		const rod = { items: ['fishing-rod'] };
+		const swimmers = [animal('fox'), animal('otter')];
+		for (const hole of tilesOf(seed, 'hole', 200).slice(0, 5)) {
+			const table = holeTable(
+				tileAtWorld(seed, hole.x, hole.y).biome,
+				distanceFromSpawn(hole, spawn),
+				getAnimal('otter').tier
+			);
+			for (const caught of [[], table.slice(1).map((e) => e.species.id)]) {
+				for (let i = 0; i < 30; i++) {
+					const got = castLine(
+						new Rng(i),
+						seed,
+						WorldEdits.none,
+						{ hole, spawn },
+						rod,
+						swimmers,
+						caught
+					);
+					const want = rollCast(new Rng(i), favourUncaught(table, caught));
+					expect(got).toEqual(want ? { outcome: 'bite', wild: want } : { outcome: 'nothing' });
+				}
+			}
+		}
+	});
+
 	it('casts into the hole ahead only: nobody to swim, and nothing bites; a swimmer, and the hole is rolled', () => {
 		const seed = arctic(1);
 		const holes = tilesOf(seed, 'hole', 200);
@@ -372,12 +402,12 @@ describe('fishing', () => {
 		const swimmers = [animal('fox'), animal('otter')];
 		// No swimmer standing: nothing bites, and nothing is drawn.
 		const rng = new Rng(3);
-		expect(castLine(rng, seed, WorldEdits.none, site, rod, walkers)).toEqual({
+		expect(castLine(rng, seed, WorldEdits.none, site, rod, walkers, [])).toEqual({
 			outcome: 'no-swimmer'
 		});
 		expect(rng.next()).toBe(new Rng(3).next());
 		const tired = [animal('fox'), animal('otter', 0)];
-		expect(castLine(new Rng(3), seed, WorldEdits.none, site, rod, tired)).toEqual({
+		expect(castLine(new Rng(3), seed, WorldEdits.none, site, rod, tired, [])).toEqual({
 			outcome: 'no-swimmer'
 		});
 		// A swimmer: every ice has animals under it now (#192 wave 3), so 2 casts in 5 bite, and
@@ -387,7 +417,7 @@ describe('fishing', () => {
 		const ids = table.map((e) => e.species.id);
 		let bites = 0;
 		for (let i = 0; i < 50; i++) {
-			const got = castLine(new Rng(i), seed, WorldEdits.none, site, rod, swimmers);
+			const got = castLine(new Rng(i), seed, WorldEdits.none, site, rod, swimmers, []);
 			if (got.outcome === 'nothing') continue;
 			expect(got.outcome).toBe('bite');
 			if (got.outcome !== 'bite') continue;
@@ -399,10 +429,10 @@ describe('fishing', () => {
 		expect(bites).toBeLessThan(50);
 		// Without the rod, or with no hole there, it is never cast.
 		expect(() =>
-			castLine(new Rng(1), seed, WorldEdits.none, site, { items: [] }, swimmers)
+			castLine(new Rng(1), seed, WorldEdits.none, site, { items: [] }, swimmers, [])
 		).toThrow();
 		expect(() =>
-			castLine(new Rng(1), seed, WorldEdits.none, { hole: spawn, spawn }, rod, swimmers)
+			castLine(new Rng(1), seed, WorldEdits.none, { hole: spawn, spawn }, rod, swimmers, [])
 		).toThrow();
 		// The hole ahead, from its bank.
 		const bank = DIRS.map((d) => ({ pos: step(hole, BACK[d]), facing: d })).find((b) =>
@@ -427,7 +457,8 @@ describe('fishing', () => {
 			edits,
 			{ hole: block, spawn: spawnPoint(seed) },
 			{ items: ['fishing-rod'] },
-			[animal('otter')]
+			[animal('otter')],
+			[]
 		);
 		expect(['bite', 'nothing']).toContain(got.outcome);
 	});

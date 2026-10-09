@@ -870,7 +870,7 @@ describe('buying', () => {
 	});
 
 	it('buyRefusal says exactly what buy does: every item, shop, owned set and balance round the price', () => {
-		// The witch doctor's card greys a row with it, so it must never disagree with the reducer.
+		// The druid's card greys a row with it, so it must never disagree with the reducer.
 		const party = partyOf(['fox']);
 		const shops = [ITEM_IDS, itemsForSale(), ITEM_IDS.slice(0, 2), []];
 		const bad: unknown[] = [];
@@ -1135,7 +1135,7 @@ describe('replay', () => {
 
 // --- flying to another land ---------------------------------------------------
 
-describe('flying from the witch doctor (#191)', () => {
+describe('flying from the druid (#191)', () => {
 	const party = partyOf(['squirrel'], ['fox', 3]);
 	const open = { land: 'nordland', unlocked: ['nordland', 'arctic'], open: LAND_IDS } as const;
 
