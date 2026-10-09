@@ -6,7 +6,7 @@ Entries tagged `[learned]` have been reviewed AND addressed with a **referenced 
 
 Entries tagged `[not codified]` are the counterpart: the lesson is real, no guardrail states it anywhere, and the entry names what would have to be written for the tag to become `[learned]`. That set is the backlog.
 
-Format: `### YYYY-MM-DD — <issue/PR ref> — <one-line category> `[not codified]`` (every heading carries one of the two tags, which `scripts/check-learned.mjs` checks; a new entry starts `[not codified]` and says what would codify it, unless its guard already exists) followed by what was wrong, what caused it, how it was found, and the fix. A category that recurs is one entry with an incident per bullet, not a new entry each time.
+Format: `### YYYY-MM-DD — <issue/PR ref> — <one-line category>`, the heading ending with its tag (every heading carries `[learned]` or `[not codified]`, which `scripts/check-learned.mjs` checks; a new entry is `[not codified]` and says what would codify it, unless its guard already exists), followed by what was wrong, what caused it, how it was found, and the fix. A category that recurs is one entry with an incident per bullet, not a new entry each time.
 
 ## Patterns
 
