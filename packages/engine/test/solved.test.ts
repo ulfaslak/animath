@@ -65,14 +65,32 @@ function findings(bad: string[]): string[] {
 
 describe('countSolved', () => {
 	it('adds one for each right answer and none for a wrong one; other events change nothing', () => {
-		const right: BattleEvent = { type: 'answer-judged', input: '12', correct: true, answer: 12 };
-		const wrong: BattleEvent = { type: 'answer-judged', input: '13', correct: false, answer: 12 };
+		const right: BattleEvent = {
+			type: 'answer-judged',
+			input: '12',
+			correct: true,
+			answer: 12,
+			topic: 'add'
+		};
+		const wrong: BattleEvent = {
+			type: 'answer-judged',
+			input: '13',
+			correct: false,
+			answer: 12,
+			topic: 'add'
+		};
 		const miss: BattleEvent = { type: 'missed', attacker: 'player', attackIndex: 1, level: 1 };
 		expect(countSolved(0, [])).toBe(0);
 		expect(countSolved(7, [right])).toBe(8);
 		expect(countSolved(7, [wrong, miss])).toBe(7);
 		expect(countSolved(7, [right, wrong, right])).toBe(9);
-		const healed: DoctorEvent = { type: 'answer-judged', input: '4', correct: true, answer: 4 };
+		const healed: DoctorEvent = {
+			type: 'answer-judged',
+			input: '4',
+			correct: true,
+			answer: 4,
+			topic: 'add'
+		};
 		expect(countSolved(312, [healed])).toBe(313);
 	});
 
@@ -88,7 +106,13 @@ describe('countSolved', () => {
 	});
 
 	it('never goes past the most a save holds', () => {
-		const right: BattleEvent = { type: 'answer-judged', input: '1', correct: true, answer: 1 };
+		const right: BattleEvent = {
+			type: 'answer-judged',
+			input: '1',
+			correct: true,
+			answer: 1,
+			topic: 'add'
+		};
 		const max = Number.MAX_SAFE_INTEGER;
 		expect(countSolved(max, [right])).toBe(max);
 		expect(countSolved(max - 1, [right, right])).toBe(max);

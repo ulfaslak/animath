@@ -692,6 +692,28 @@ describe('friendly matches on the wire', () => {
 		expect(Math.max(biggest, bytes)).toBeLessThan(MAX_SERVER_MESSAGE_BYTES / 2);
 	});
 
+	it("leaves out an answer's topic this build lacks, and keeps the step", () => {
+		const rng = new Rng(29);
+		let message: Record<string, unknown> & { events: Record<string, unknown>[] };
+		do {
+			message = JSON.parse(JSON.stringify(randomMatchMessage(rng)));
+		} while (!message.events.some((e) => e.type === 'answer-judged'));
+		const judged = message.events.findIndex((e) => e.type === 'answer-judged');
+		const { topic: known, ...without } = message.events[judged]!;
+		expect(known).toBeTypeOf('string');
+		for (const topic of ['later-topic', 7, null, { a: 1 }]) {
+			message.events[judged] = { ...without, topic };
+			const read = parseServerMessage(message) as { events: unknown[] } | null;
+			expect(read, String(topic)).not.toBeNull();
+			expect(read!.events[judged]).toEqual(without);
+		}
+		message.events[judged] = { ...without, topic: known };
+		expect((parseServerMessage(message) as { events: unknown[] }).events[judged]).toEqual({
+			...without,
+			topic: known
+		});
+	});
+
 	it('refuses a match message with anything inside it swapped for junk, or missing', () => {
 		const rng = new Rng(13);
 		const through: string[] = [];
@@ -710,7 +732,9 @@ describe('friendly matches on the wire', () => {
 				const original = parent[key];
 				// A nickname may be missing, as may the match a rematch follows and its call-off
 				// (a server from before them); an empty list of events is a whole message too (a
-				// start, a resume).
+				// start, a resume). An answer's topic is never a reason to drop a step: one this
+				// build lacks is left out (below).
+				if (key === 'topic') continue;
 				const optional = key === 'nickname' || where === 'rematchOf' || where === 'calledOff';
 				for (const junk of [...JUNK, DELETE]) {
 					if ((junk === undefined || junk === DELETE) && optional) continue;

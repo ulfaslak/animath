@@ -1,4 +1,5 @@
 import {
+	ALL_PUZZLE_TOPICS,
 	bookOrder,
 	bundles,
 	parseWorldNumber,
@@ -155,7 +156,9 @@ export class PauseController {
 							? this.playersKey(key)
 							: pause.screen === 'book'
 								? this.bookKey(key)
-								: this.optionsKey(key);
+								: pause.screen === 'puzzles'
+									? this.puzzlesKey(key)
+									: this.optionsKey(key);
 		if (handled) e.preventDefault();
 	}
 
@@ -282,6 +285,11 @@ export class PauseController {
 				sfx.play('confirm');
 				this.options.logOut?.();
 				break;
+			case 'puzzles':
+				sfx.play('confirm');
+				pause.screen = 'puzzles';
+				pause.option = 0;
+				break;
 			case 'book':
 				sfx.play('confirm');
 				pause.screen = 'book';
@@ -313,6 +321,7 @@ export class PauseController {
 			case 'players':
 			case 'resume':
 			case 'quit':
+			case 'puzzles':
 			case 'book':
 				return false;
 		}
@@ -418,6 +427,38 @@ export class PauseController {
 				}
 				return true;
 			}
+		}
+		return false;
+	}
+
+	/**
+	 * "My puzzles", in the menu's place: a row per topic, one lit. Up and
+	 * down walk the rows and keep the lit one in view, stopping at the ends; a
+	 * tap lights one. Escape or Back goes back to the list, on its row.
+	 * Nothing here does anything else: it only shows the record.
+	 */
+	private puzzlesKey(key: string): boolean {
+		const count = ALL_PUZZLE_TOPICS.length;
+		const at = Math.min(pause.option, count - 1);
+		const light = (to: number): boolean => {
+			if (to !== at) {
+				pause.option = to;
+				sfx.play('move');
+			}
+			return true;
+		};
+		const tapped = tappedOption(key);
+		if (tapped !== undefined) return tapped < count ? light(tapped) : true;
+		switch (key) {
+			case 'Escape':
+				this.backToList();
+				return true;
+			case 'ArrowUp':
+			case 'w':
+				return light(Math.max(0, at - 1));
+			case 'ArrowDown':
+			case 's':
+				return light(Math.min(count - 1, at + 1));
 		}
 		return false;
 	}
@@ -794,8 +835,8 @@ export class PauseController {
 
 	/**
 	 * Back to the team, with the cursor on the card that was open, wherever it
-	 * is now; from the Worlds screen, on the Worlds row; from the animal book,
-	 * on its row.
+	 * is now; from the Worlds screen, on the Worlds row; from the animal book
+	 * or "My puzzles", on its row.
 	 */
 	private backToList(): void {
 		const from = pause.screen;
@@ -808,6 +849,7 @@ export class PauseController {
 		const place = bundles(game.party).findIndex((b) => b.speciesId === species);
 		if (from === 'worlds') pause.cursor = cards + menuItems().indexOf('worlds');
 		else if (from === 'book') pause.cursor = cards + menuItems().indexOf('book');
+		else if (from === 'puzzles') pause.cursor = cards + menuItems().indexOf('puzzles');
 		else if (place >= 0) pause.cursor = place;
 		this.settle();
 	}

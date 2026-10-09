@@ -416,7 +416,7 @@ describe('the invite', () => {
 });
 
 describe('a match', () => {
-	it('plays to the end, beat by beat, and changes nothing in the game but the puzzles solved', () => {
+	it('plays to the end, beat by beat, and changes nothing in the game but the puzzles solved and the record', () => {
 		const t = setup();
 		const before = t.authority.snapshot();
 		const ref = started(t);
@@ -475,7 +475,10 @@ describe('a match', () => {
 		const after = t.authority.snapshot();
 		expect(t.counted()).toBeGreaterThan(0);
 		expect(after.solved).toBe(before.solved + t.counted());
-		expect({ ...after, solved: before.solved }).toStrictEqual(before);
+		// The record grew by the kid's own answers, right or wrong.
+		const tried = (g: typeof after) => Object.values(g.puzzles).reduce((n, r) => n + r!.tried, 0);
+		expect(tried(after)).toBeGreaterThanOrEqual(tried(before) + t.counted());
+		expect({ ...after, solved: before.solved, puzzles: before.puzzles }).toStrictEqual(before);
 		// Back to exploring: the screen goes, and the others see the player exploring again.
 		t.pick('ArrowRight', 'Enter');
 		expect(match.stage).toBe('none');

@@ -8,6 +8,7 @@ import type { ItemId } from './items/catalog.js';
 import type { LandId } from './lands/ids.js';
 import type { MatchEvent, MatchSide } from './match/types.js';
 import type { PartyEvent, PartyIntent } from './party/types.js';
+import type { PuzzleRecord } from './puzzles/record.js';
 import type { ChunkRef } from './world/edits.js';
 import type { TakeOffRejection } from './world/flight.js';
 import type { ClearableKind, Direction, GridPos } from './world/types.js';
@@ -162,7 +163,8 @@ export type GameEvent =
 	/**
 	 * The game starts, or starts over: a new game, or one picked up from a
 	 * save. Carries the facing too, so a restored player looks the way they
-	 * did, the tokens and items, the puzzles solved (`solved`), and the animal
+	 * did, the tokens and items, the puzzles solved (`solved`) and the puzzle
+	 * record (`puzzles`), and the animal
 	 * book's species seen, caught and set free (`seen`, `caught`, `freed`). A `battle-started` follows when the save
 	 * was taken mid-battle. `newGame` tells the two apart: true for a game
 	 * that begins here (a starter just picked, or a throwaway game), false for
@@ -188,6 +190,7 @@ export type GameEvent =
 			tokens: number;
 			items: string[];
 			solved: number;
+			puzzles: PuzzleRecord;
 			seen: string[];
 			caught: string[];
 			freed: string[];
@@ -307,6 +310,12 @@ export type GameEvent =
 	 * count now. Sent right after the event that judged it; never for a wrong answer.
 	 */
 	| { type: 'solved-changed'; solved: number }
+	/**
+	 * An answer was judged, right or wrong (`recordAnswers`), in a battle, at
+	 * the doctor or in a friendly match: `puzzles` is the whole record now.
+	 * Sent right after the event that judged it.
+	 */
+	| { type: 'puzzles-changed'; puzzles: PuzzleRecord }
 	/**
 	 * The animal book grew (`animals/book.ts`): a wild battle started against
 	 * a species never seen before, a leash throw caught one never caught

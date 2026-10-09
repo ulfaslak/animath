@@ -315,6 +315,14 @@ To become `[learned]`: a line in [[DEVELOPMENT]] § Testing ideology saying a se
 - **An overlay placed "a little above the middle" covered the trainer**, who stands at the middle of the explore screen. Place anything over the world relative to the trainer, and read a frame of it.
 - **A YAML block inserted after a line that was not its block's last** took the next key (`doctor.fly.touch`) into the new block. Insert after a block's last key, or before the next block's first; the copy test caught it.
 
+### 2026-10-09 — The puzzle record and the topic bonus (feat/puzzle-stats-weighting), adversarial review and play-testing — an incentive measured where it is earned, not where it is recorded
+
+- **The bonus read misses that cost nothing.** The record took every answer, and the bonus read them all, but a wrong answer at the druid's draws a new puzzle and a friendly match changes nothing: a kid could miss sharing at the druid's twenty times and hit ×1.6 in every battle after. When a reward is derived from behaviour, feed it only behaviour that pays the price the reward balances; check every place the input event is emitted, not only the one the feature is about.
+- **An unsmoothed average let one answer move every topic.** Each topic's own accuracy was steadied by a prior, but the average they were measured against was a plain mean over topics, so one wrong answer in a newly met topic (a first flight's fare) cut every mastered topic by 30%. When an estimate is steadied against small samples, steady every term it is built from, and test the one-answer case.
+- **A save check that bounded one side of a pair**: `recent`'s ones were checked against `right` and its zeros against nothing, so a record could say "20 right of 20" and score as 0%. Check a derived field against every count it summarises, both ways.
+- **A newer build's content was refused or dropped, not kept**: an unknown topic's name had to be lowercase letters, its entry today's shape, and a match step with a topic this build lacks was thrown away whole, which would freeze a match on an open old tab. Content from the future is kept as it was or left out field by field, never a reason to drop a whole save or message.
+- **Bars meant to be compared were drawn on tracks of different lengths**, since each row's count text sized its own grid column. Comparisons across rows need fixed columns; look at the shortest and longest label side by side in a screenshot.
+
 ### 2026-10-09 — Guardrails (chore/agent-guardrails, PR #221), adversarial review — guards checked only against the failure they were built for
 
 Three new guards each passed their own negative control and were still easy to fool. The cold review reproduced every case:

@@ -42,8 +42,8 @@ import { acceptWelcome, welcomeState } from '../welcome.js';
  *   POST /api/account/logout                              → 200 { ok: true }: the session ended
  *   GET  /api/account/ready                               → 200 { ready: boolean }
  *   GET  /api/account/me                                  → 200 { user: { name } | null }
- *   GET  /api/account/save                                → 200 SaveV4 | 404 no save yet
- *   PUT  /api/account/save      SaveV4                    → 200 { ok: true } | 409 { error, save }
+ *   GET  /api/account/save                                → 200 SaveV5 | 404 no save yet
+ *   PUT  /api/account/save      SaveV5                    → 200 { ok: true } | 409 { error, save }
  *   GET  /api/account/welcome   (x-animath-welcome: token) → 200 { name } | 410 used or expired | 404
  *   POST /api/account/welcome   { token, password }       → 200 { user: { name }, save } + cookie
  *

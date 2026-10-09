@@ -1,6 +1,7 @@
 import { canFightIn, getAnimal } from '../animals/catalog.js';
 import { REALMS, type AnimalInstance, type AttackLevel, type Realm } from '../animals/types.js';
 import { leadIndex } from '../party/reducer.js';
+import { bonusOf, puzzleTopic, type TopicBonus } from '../puzzles/record.js';
 import { checkAnswer } from '../puzzles/registry.js';
 import { Rng, hashInts } from '../rng.js';
 import { attackPuzzle, attackRefusal, landHit } from './attack.js';
@@ -67,6 +68,8 @@ export interface StartBattleOptions {
 	leashQuality?: number;
 	/** Where the battle is fought: land (the default), the water, from the boat, or the air. */
 	realm?: Realm;
+	/** How hard the player's hit lands per topic (`topicBonus` of the kid's record); none lands every hit as it is. */
+	bonus?: TopicBonus;
 }
 
 export function startBattle(
@@ -108,6 +111,9 @@ export function startBattle(
 		opponent: { ...wild },
 		leashQuality,
 		realm,
+		...(options.bonus && Object.keys(options.bonus).length > 0
+			? { bonus: { ...options.bonus } }
+			: {}),
 		phase: { kind: 'choose-action' }
 	};
 }
@@ -206,10 +212,11 @@ function answer(state: BattleState, seed: number, input: string): BattleStep {
 	const spec = getAnimal(draft.active().speciesId);
 
 	const correct = checkAnswer(puzzle, input);
-	draft.events.push({ type: 'answer-judged', input, correct, answer: puzzle.answer });
+	const topic = puzzleTopic(puzzle);
+	draft.events.push({ type: 'answer-judged', input, correct, answer: puzzle.answer, topic });
 
 	if (correct) {
-		const hit = landHit(spec, attackIndex, level, draft.opponent);
+		const hit = landHit(spec, attackIndex, level, draft.opponent, bonusOf(state.bonus, topic));
 		draft.opponent = hit.target;
 		draft.events.push({
 			type: 'hit',

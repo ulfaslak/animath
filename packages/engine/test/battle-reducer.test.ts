@@ -21,6 +21,7 @@ import {
 import type { BattleEvent, BattleIntent, BattleState, BattleStep } from '../src/battle/types.js';
 import { landHit } from '../src/index.js';
 import { puzzleDifficulty } from '../src/puzzles/difficulty.js';
+import { puzzleTopic } from '../src/puzzles/record.js';
 import { answerForm, checkAnswer, getGenerator } from '../src/puzzles/registry.js';
 import { Rng, hashInts } from '../src/rng.js';
 import { turn } from './turn.js';
@@ -608,7 +609,13 @@ describe('answers', () => {
 						seed,
 						input,
 						hp: solving.opponent.hp,
-						judged: { type: 'answer-judged', input, correct: false, answer },
+						judged: {
+							type: 'answer-judged',
+							input,
+							correct: false,
+							answer,
+							topic: puzzleTopic(solving.phase.puzzle)
+						},
 						missed: { type: 'missed', attacker: 'player', attackIndex: n, level },
 						hit: false,
 						wild: 'opponent'
@@ -669,7 +676,13 @@ describe('answers', () => {
 								level,
 								seed,
 								input,
-								judged: { type: 'answer-judged', input, correct: true, answer },
+								judged: {
+									type: 'answer-judged',
+									input,
+									correct: true,
+									answer,
+									topic: puzzleTopic(solving.phase.puzzle)
+								},
 								hit: {
 									type: 'hit',
 									attacker: 'player',

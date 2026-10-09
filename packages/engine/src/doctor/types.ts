@@ -2,7 +2,7 @@ import type { AnimalInstance } from '../animals/types.js';
 import type { ItemId } from '../items/catalog.js';
 import type { LandId } from '../lands/ids.js';
 import type { FlyRefusal } from '../lands/lands.js';
-import type { Puzzle } from '../puzzles/types.js';
+import type { Puzzle, PuzzleTopic } from '../puzzles/types.js';
 
 /**
  * A visit to the doctor. `startDoctorVisit` builds a state, `applyDoctorIntent`
@@ -126,7 +126,14 @@ export type DoctorEvent =
 	| { type: 'hand-over-shown'; ids: readonly string[]; reward: number; puzzle: Puzzle }
 	/** The sum for a purchase: the tokens now, less `price`. */
 	| { type: 'purchase-shown'; itemId: ItemId; price: number; puzzle: Puzzle }
-	| { type: 'answer-judged'; input: string; correct: boolean; answer: number }
+	| {
+			type: 'answer-judged';
+			input: string;
+			correct: boolean;
+			answer: number;
+			/** The puzzle's topic (`puzzleTopic`), which the kid's record counts it under. */
+			topic: PuzzleTopic;
+	  }
 	/** `animal` as it is now, at full HP. */
 	| { type: 'healed'; partyIndex: number; animal: AnimalInstance }
 	/** These animals left the party for the wild, made better first (at full HP), in party order. */

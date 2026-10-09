@@ -15,7 +15,7 @@
 	 * beside it say how many are ready, tired soon and tired
 	 * (`BundleCard`), so it is readable without colour there too. `thick`
 	 * is the battle's status boxes': a chunkier bar and a bigger number.
-	 * `preview` is the HP a hit would leave (the engine's `landHit`, from the
+	 * `preview` is the HP a hit would leave (the engine's numbers, from the
 	 * screen that shows it): the part of the bar it would take off shows as
 	 * a lighter segment that pulses gently (and holds still with reduced
 	 * motion), running to the empty end when the hit would tire the animal.

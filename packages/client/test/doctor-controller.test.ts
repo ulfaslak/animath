@@ -717,10 +717,11 @@ describe('helping animals home', () => {
 		expect(doctor.cursor).toBe(0);
 		// Written back at once: the save holds it, whatever happens to the visit.
 		expect(t.saved()).toEqual({ tokens: 9, items: [], party: ['c'] });
-		const kinds = t.events.slice(-5).map((e) => e.type);
+		const kinds = t.events.slice(-6).map((e) => e.type);
 		expect(kinds).toEqual([
 			'doctor-visit-updated',
 			'solved-changed',
+			'puzzles-changed',
 			'party-changed',
 			'book-changed',
 			'belongings-changed'

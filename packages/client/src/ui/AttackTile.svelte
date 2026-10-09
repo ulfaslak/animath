@@ -16,6 +16,7 @@
 		word,
 		level,
 		damage,
+		high,
 		press,
 		selected = false
 	}: {
@@ -25,6 +26,8 @@
 		level: AttackLevel;
 		/** The damage at that level, from the engine. */
 		damage: number;
+		/** The most it hits for there, when its topics land differently (`hitSpan`); `damage` is then the least. */
+		high?: number;
 		press: string;
 		selected?: boolean;
 	} = $props();
@@ -34,7 +37,7 @@
 	<span class="caret" aria-hidden="true">▸</span>
 	<span class="name">{name}</span>
 	<span class="level">{word}</span>
-	<HitBadge {damage} {level} />
+	<HitBadge {damage} {high} {level} />
 </button>
 
 <style>

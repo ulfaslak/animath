@@ -5,7 +5,8 @@ import type {
 	BattleSide,
 	Line as MessageLine,
 	Realm,
-	ShownPuzzle
+	ShownPuzzle,
+	TopicBonus
 } from '@mathgame/engine';
 import { WILD_MOVES, type FightMove, type Levels } from '../battle/menu';
 import type { Line } from '../lines';
@@ -65,6 +66,11 @@ class BattleView {
 	leashQuality = $state(1);
 	/** Where the battle is fought: on land, or out on the water, where only the animals that swim fight. */
 	realm = $state<Realm>('land');
+	/**
+	 * How hard the player's hit lands per topic, as the battle started with it
+	 * (`topicBonus`): none in a friendly match, nor in a battle from before it.
+	 */
+	bonus = $state.raw<TopicBonus | undefined>(undefined);
 	screen = $state<BattleScreen>('busy');
 	/**
 	 * The choice on screen (the menu, a switch list, the result card) takes a
@@ -123,6 +129,7 @@ class BattleView {
 		this.opponent = null;
 		this.leashQuality = 1;
 		this.realm = 'land';
+		this.bonus = undefined;
 		this.screen = 'busy';
 		this.ready = false;
 		this.cursor = 0;
