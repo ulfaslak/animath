@@ -36,7 +36,8 @@ Thorough review of DNA against the full implementation.
 8. **Agent mistake review.** Read [[AGENT_MISTAKES]] and look for patterns — recurring error categories, common root causes, or classes of mistake that keep happening. For each pattern found:
    - Determine if it can be prevented by updating workflows (CLAUDE.md), DNA files, or code (e.g. adding a helper, a type guard, a test pattern).
    - Propose the specific change and implement it if the human approves.
-   - Mark addressed patterns in [[AGENT_MISTAKES]] with a `[learned]` tag and a reference to what was changed.
+   - Mark addressed patterns in [[AGENT_MISTAKES]] with a `[learned]` tag and a reference to what was changed, and move each such entry, word for word, to [[AGENT_MISTAKES_ARCHIVE]] (`pnpm lint` fails while a `[learned]` entry is left in the log, or names a guard that no longer exists).
+   - When a new mistake looks like an old one, search the archive too: a guard that failed to stop a repeat is a pattern of its own.
 
    The goal is to close the feedback loop: mistakes → patterns → guardrails → fewer mistakes. One-off errors with no pattern should be left as-is — not every mistake needs a systemic fix.
 

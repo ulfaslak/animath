@@ -212,11 +212,13 @@ The script never checks `screenshots` out, so your worktree, its index and its b
 ```bash
 pnpm check   # type-checks every package, its tests too: tsc for engine (source, then tests) + server, svelte-check for client
 pnpm test    # vitest in engine, client and server
-pnpm lint    # prettier --check
+pnpm lint    # prettier --check, then scripts/check-learned.mjs (the mistakes log's guards exist)
 pnpm format  # prettier --write
 ```
 
 Per package: `pnpm -F @mathgame/engine test`, `pnpm -F @mathgame/engine test:watch`.
+
+A negative control (CLAUDE.md § The test-fix-learn cycle) runs with `scripts/negctl.sh`: commit the fix, then `scripts/negctl.sh <path>... -- <test command>` first runs the test as the code is (it must pass: a command that fails anyway proves nothing), then puts each path back as it was before the fix (`--from <ref>`, default `HEAD~1`), runs the test again, and restores the fix from HEAD whatever happens. Paths and the test command are read from where you run it. It refuses while a path has uncommitted changes, and a path the fix added (break the code that uses it instead). Exit 0: the control holds; 1: the test passed without the fix; 2: an error, or a test that could not run; 3: a restore that did not match HEAD. `--from` takes any commit, so a fix older than the last commit is broken the same way. Something that was never committed broken (the triggering input, a test's own guard) is broken by hand: commit first, break it, run the test, and put it back with `git show HEAD:<path> > <path>`.
 
 `pnpm build` prints the size of each chunk of the client. When a change reaches for a three.js class the game didn't use before, compare the `three` chunk with main's: a `Shape`, say, brings its triangulator along (about 24 kB for one star).
 
