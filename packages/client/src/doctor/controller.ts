@@ -420,7 +420,7 @@ export class DoctorController {
 				this.guard.show();
 				return;
 			case 'land': {
-				// A land still locked gives a little shake, and the witch doctor says how to open it:
+				// A land still locked gives a little shake, and the druid says how to open it:
 				// one of each animal of the land before it set free, and how many are so far.
 				const progress = unlockProgress(row.land, game.freed);
 				if (row.land !== FIRST_LAND && !doctor.unlocked.includes(row.land) && progress) {

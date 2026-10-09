@@ -134,7 +134,7 @@ describe('recordAnswers', () => {
 		expect(recordAnswers(record, old, { where: 'match', side: 'a' })).toBe(record);
 	});
 
-	it("counts the witch doctor's and a match's answers, but only a wild battle's go into the latest, which the bonus reads", () => {
+	it("counts the druid's and a match's answers, but only a wild battle's go into the latest, which the bonus reads", () => {
 		// A miss costs nothing at the doctor's or in a match: missing there on purpose must not
 		// make a topic look hard (a kid could top up a bonus before every battle).
 		let record = recordOf({ div: '1111' });

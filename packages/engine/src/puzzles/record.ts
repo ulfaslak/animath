@@ -14,7 +14,7 @@ import { ALL_PUZZLE_TOPICS, type Puzzle, type PuzzleTopic } from './types.js';
  * puzzles", in the pause menu); the last few set how hard a wild battle's
  * hit of that topic lands (`topicBonus`), which nothing on screen says.
  * Only a wild battle's answers go into them: a miss there costs the turn,
- * where a miss at the witch doctor's or in a friendly match costs nothing,
+ * where a miss at the druid's or in a friendly match costs nothing,
  * so a kid could miss there on purpose to make a topic look hard.
  */
 

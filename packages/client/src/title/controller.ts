@@ -70,7 +70,7 @@ export interface TitleHooks {
 	/** "I have an account → Log in": the account card, over the title. */
 	logIn?(): void;
 	/**
-	 * Escape on a land's starters (a first arrival): talk to the witch doctor
+	 * Escape on a land's starters (a first arrival): talk to the druid
 	 * the kid came down beside, who can fly them back.
 	 */
 	toDoctor?(): boolean;
@@ -170,7 +170,7 @@ export class TitleController {
 	/**
 	 * Every frame: a first arrival waiting for its starter shows the land's
 	 * starters whenever nothing else is on screen (the plane has gone, the
-	 * witch doctor's card is closed). The game under way stays as it is
+	 * druid's card is closed). The game under way stays as it is
 	 * behind them.
 	 */
 	watchLand(): void {
@@ -193,7 +193,7 @@ export class TitleController {
 		this.toStarters(0);
 	}
 
-	/** Back to the game under way: the land's starter was picked, or the kid went to the witch doctor. */
+	/** Back to the game under way: the land's starter was picked, or the kid went to the druid. */
 	private closeLand(): void {
 		title.open = false;
 		title.land = null;
@@ -400,7 +400,7 @@ export class TitleController {
 				this.guard.show();
 				return true;
 			case 'Escape':
-				// A land's starters: to the witch doctor, who can fly the kid back; they come up
+				// A land's starters: to the druid, who can fly the kid back; they come up
 				// again once the card closes. A new game's: back to the name, as it was typed.
 				if (title.land !== null) {
 					// Only once his card is up: a kid not facing a tent keeps the starters.

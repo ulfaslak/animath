@@ -351,7 +351,7 @@ function saveOf(p: Player): string {
 	const party = p.party ?? game.party;
 	// The animal book of a game that begins with this party: its kinds, caught.
 	const book = recordParty(EMPTY_BOOK, party);
-	// Kinds set free at a witch doctor's, met first: the way to The Arctic.
+	// Kinds set free at a druid's, met first: the way to The Arctic.
 	const freed = getLand('nordland').species.slice(0, p.freed);
 	const doc = saveDocument(
 		{

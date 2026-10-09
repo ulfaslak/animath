@@ -52,7 +52,7 @@ export interface AnimalSpec {
 	favours: Terrain;
 	/**
 	 * Big and strong enough for a kid to ride on its back, with the harness
-	 * from the witch doctor's shop (`canRide`): only the big land animals.
+	 * from the druid's shop (`canRide`): only the big land animals.
 	 */
 	carries?: true;
 	/**

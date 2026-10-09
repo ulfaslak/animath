@@ -542,7 +542,7 @@
 								<span class="stamp"><Tick size={30} /></span>
 							{/if}
 							{#if freed.has(spec.id)}
-								<!-- Set free at the witch doctor's, for good: a rose heart on the other corner. -->
+								<!-- Set free at the druid's, for good: a rose heart on the other corner. -->
 								<span class="stamp free"><FreeStamp size={30} /></span>
 							{/if}
 						{/if}

@@ -34,7 +34,7 @@ import type {
  * puzzles again.
  *
  * The rules ([[PRODUCT]] §4 "Knock-out and healing", "Tokens and the
- * witch doctor's shop"):
+ * druid's shop"):
  * - Pick an animal below full HP; the doctor asks one puzzle at
  *   `healingDifficulty(tier)`, of a kind the animal's own attacks ask. A right
  *   answer heals every hurt animal of that species to full. A wrong answer
@@ -64,7 +64,7 @@ export interface DoctorVisitOptions {
 	/** The ids of the items the player owns. Default none. */
 	items?: readonly string[];
 	/**
-	 * What the shop sells in this visit. Default: what the land's witch doctor
+	 * What the shop sells in this visit. Default: what the land's druid
 	 * has on sale (`shopFor`). An authority passes more only for a look at
 	 * the shop in a game that is saved nowhere (the client's `?shop`).
 	 */
@@ -104,7 +104,7 @@ export function startDoctorVisit(
 		party: party.map((a) => ({ ...a })),
 		tokens,
 		items: [...items],
-		// Cheapest first in the land's money, as its witch doctor lists them (`shopFor`).
+		// Cheapest first in the land's money, as its druid lists them (`shopFor`).
 		shop: ITEM_IDS.filter((id) => shop.includes(id)).sort(
 			(a, b) => priceIn(land, a) - priceIn(land, b)
 		),
@@ -200,7 +200,7 @@ export type BuyRefusal = Extract<
  * Why `itemId` can't be bought from this `shop` by someone with these
  * `tokens` and `items`, or null when it can: the shop doesn't sell it, they
  * own one already, or they can't pay for it. The one rule `buy` asks, and
- * the witch doctor's card asks too, so a row is greyed exactly when the
+ * the druid's card asks too, so a row is greyed exactly when the
  * purchase would be refused.
  */
 export function buyRefusal(

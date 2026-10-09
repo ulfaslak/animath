@@ -238,10 +238,11 @@ describe('copy files', () => {
 		expect(problems).toEqual([]);
 	});
 
-	it('the witch doctor goes by his name, and the animals he takes are set free, in every line', () => {
+	it('the druid goes by his name, and the animals he takes are set free, in every line', () => {
 		// The human renamed him and the tab: "in danish it's "heksedoktor" ... rename from
 		// "dyrlæge". and "help home" should be "set free" i think. "slip fri" in danish."
-		// So no line says "dyrlæge", "doktor" alone, or a doctor who isn't a witch doctor,
+		// Then again, to a druid: "witch doctors are horrible people in real life. we
+		// need to rename". So no line says "dyrlæge", a doctor of any kind or a witch,
 		// and none helps animals home (DESIGN § Voice and copy).
 		const problems: string[] = [];
 		const forbid = (lang: string, pattern: RegExp, why: string) => {
@@ -251,11 +252,13 @@ describe('copy files', () => {
 				}
 			}
 		};
-		forbid('da', /dyrlæge/i, 'says dyrlæge, not heksedoktor');
-		forbid('da', /(?<!hekse)doktor/i, 'says doktor, not heksedoktor');
+		forbid('da', /dyrlæge/i, 'says dyrlæge, not druide');
+		forbid('da', /doktor/i, 'says doktor, not druide');
+		forbid('da', /\bheks/i, 'says heks, not druide');
 		// "hjælpe", "hjælp" and the past, "hjalp": "hjalp ræven hjem".
 		forbid('da', /\bhj[æa]lp\w*\s+(?:\S+\s+)?hjem\b/i, 'helps animals home, not slip fri');
-		forbid('en', /(?<!witch )doctor/i, 'says doctor, not witch doctor');
+		forbid('en', /doctor/i, 'says doctor, not druid');
+		forbid('en', /\bwitch/i, 'says witch, not druid');
 		forbid('en', /\bhelp\w*\s+(?:\S+\s+)?home\b/i, 'helps animals home, not set free');
 		expect(messages.has('da')).toBe(true);
 		expect(problems).toEqual([]);

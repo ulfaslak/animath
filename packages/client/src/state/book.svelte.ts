@@ -40,7 +40,7 @@ class BookView {
  * fly to (open to players in this build and unlocked by the kid), and the
  * land the kid is in (a throwaway game's `?lands` opens them all). A land
  * not built, or not unlocked yet, has no page, so the book never shows a kid
- * animals of a land they cannot go to (the witch doctor's Fly tab shows the
+ * animals of a land they cannot go to (the druid's Fly tab shows the
  * way to it); with one page, no tabs show.
  */
 export function bookLands(here: LandId, unlocked: readonly string[]): LandId[] {

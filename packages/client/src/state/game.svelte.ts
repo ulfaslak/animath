@@ -70,7 +70,7 @@ class GameView {
 	puzzles = $state.raw<PuzzleRecord>({});
 	/**
 	 * The animal book's species seen (caught and set-free ones included),
-	 * caught and set free at the witch doctor's, each in the order first met:
+	 * caught and set free at the druid's, each in the order first met:
 	 * `welcome`'s, then every `book-changed`.
 	 */
 	seen = $state<string[]>([]);

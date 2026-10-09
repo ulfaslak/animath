@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * The witch doctor's card, measured ([[UI_SPEC]] § Doctor): its worst cases,
+ * The druid's card, measured ([[UI_SPEC]] § Doctor): its worst cases,
  * at every size a kid plays on, in English and Danish, with a finger and with
  * a keyboard. It prints each piece that leaves its card or the safe area,
  * each button (Back, the number pad's keys, the tabs, Set free and Bye, the

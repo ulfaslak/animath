@@ -1,8 +1,8 @@
 import type { Gear } from '../world/types.js';
 
 /**
- * What the witch doctors' shops sell, for the money each land's witch doctor
- * gives for animals set free ([[PRODUCT]] §4 "Tokens and the witch doctor's
+ * What the druids' shops sell, for the money each land's druid
+ * gives for animals set free ([[PRODUCT]] §4 "Tokens and the druid's
  * shop", "The Arctic's shop"). Ids only: an item's name and what it does, in
  * every language, are in the client's copy files (`items.<id>.*`). Which land
  * sells an item, and for how much of its money, is the land's (`LandSpec.shop`,

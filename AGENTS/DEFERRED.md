@@ -64,7 +64,7 @@ Technical items we've intentionally postponed: tech debt, hardening shortcuts, k
 
 ### A battle's result is written back by the client's authority, not the engine
 
-**What**: when a battle ends, `LocalAuthority.endBattle` decides what it means for the world: the party takes the battle's HP, a caught animal joins (where it goes is the engine's `joinParty`, and with no cap nothing is let go, but the call is the authority's), and the closing line is chosen. Only a lost battle's party is the engine's (`knockOut`: tired, or looked after by a witch doctor who came). A server authority would have to repeat the rest, and the two copies could drift.
+**What**: when a battle ends, `LocalAuthority.endBattle` decides what it means for the world: the party takes the battle's HP, a caught animal joins (where it goes is the engine's `joinParty`, and with no cap nothing is let go, but the call is the authority's), and the closing line is chosen. Only a lost battle's party is the engine's (`knockOut`: tired, or looked after by a druid who came). A server authority would have to repeat the rest, and the two copies could drift.
 
 **Why deferred**: one authority runs wild battles today (`LocalAuthority`), and the brief for the battle work put the outcomes there.
 
@@ -122,7 +122,7 @@ Since The Arctic's ice pick, a block afloat broken is water to the kid who broke
 
 ### `nearestTent` is a synchronous flood fill that costs up to a few hundred milliseconds the first time it reads a place
 
-**What**: `nearestTent` visits about 2·s² tiles for a tent s steps away. Since the way to the witch doctor (the arrow a tired team follows, `DoctorWay`) looks again at every step, it reads the ground from a cache of whole chunks (`tents.ts`, [[INVARIANTS]] § "A tent search answers the same whatever was searched before"), so a search where the last one looked is cheap: over 1,539 steps of random walks in six worlds, at a load average of 50, median 0.19 ms, p99 17 ms, max 22 ms (main before the cache, the same walks: median 0.89 ms, p99 34 ms, max 141 ms). The first search in a place still makes every chunk it touches: from 300 random walkable starts in 300 worlds, at the same load, median 57 ms, p90 217 ms, max 1 s (main: 43, 243 and 781 ms). It runs where a battle is lost, a go-to lands or a trip arrives (`knockOut`, `careFor`, `doctorComes`: only for a team that needs the witch doctor, and never for a kid with the glider), and for the arrow wherever a tired team is put without a step (`DoctorWay` after a reload, a go-to or a trip, reaching up to `DOCTOR_WAY_STEPS`), each once; in a server authority a cold one would block the event loop for every connection.
+**What**: `nearestTent` visits about 2·s² tiles for a tent s steps away. Since the way to the druid (the arrow a tired team follows, `DoctorWay`) looks again at every step, it reads the ground from a cache of whole chunks (`tents.ts`, [[INVARIANTS]] § "A tent search answers the same whatever was searched before"), so a search where the last one looked is cheap: over 1,539 steps of random walks in six worlds, at a load average of 50, median 0.19 ms, p99 17 ms, max 22 ms (main before the cache, the same walks: median 0.89 ms, p99 34 ms, max 141 ms). The first search in a place still makes every chunk it touches: from 300 random walkable starts in 300 worlds, at the same load, median 57 ms, p90 217 ms, max 1 s (main: 43, 243 and 781 ms). It runs where a battle is lost, a go-to lands or a trip arrives (`knockOut`, `careFor`, `doctorComes`: only for a team that needs the druid, and never for a kid with the glider), and for the arrow wherever a tired team is put without a step (`DoctorWay` after a reload, a go-to or a trip, reaching up to `DOCTOR_WAY_STEPS`), each once; in a server authority a cold one would block the event loop for every connection.
 
 **World 1** (the seed `'prototype'`, where every game from before numbered worlds stands; a new game starts in a world from 2 to 9999, which the 300 worlds above sample): over every tall-grass tile within 40 tiles of the start (where a battle can be lost), plus samples out to 400 tiles: median 5–11 ms, max 50 ms in node on an M-series Mac, and 20–40 ms at the slowest of those spots measured in Chrome, before the cache. Losing at the reed by the start (the usual place): the whole keydown, battle reducer and the tent search included, took 2 ms (Chrome's Event Timing, 2026-09-25). Not perceptible: the first beat after an answer holds for a second anyway.
 
@@ -130,7 +130,7 @@ Since The Arctic's ice pick, a block afloat broken is water to the kid who broke
 
 **Why deferred**: in World 1 a cold search costs at most a few frames, and in the other worlds a few at the median (the numbers above), once per lost battle or trip; and no server runs the rules that call it ([[DECISIONS]] § Multiplayer). Faster options change the algorithm (visit the tent lattice in order of distance and path-check each candidate, or cap by tiles visited).
 
-**Trigger**: the first PR that handles a lost battle, a go-to or a trip on the server, or a report of a pause after losing a battle or while walking to the witch doctor.
+**Trigger**: the first PR that handles a lost battle, a go-to or a trip on the server, or a report of a pause after losing a battle or while walking to the druid.
 
 ### `reorder` names an absolute slot, which a remote authority's latency can turn stale
 
@@ -159,9 +159,9 @@ Since The Arctic's ice pick, a block afloat broken is water to the kid who broke
 
 **Trigger**: a report of a new game that did not stick, or `animath.save.previous.100` showing up in a kid's browser.
 
-### The witch doctor's Heal tab lists every animal of a kind, where the HUD shows one card
+### The druid's Heal tab lists every animal of a kind, where the HUD shows one card
 
-**What**: the witch doctor's lists read the party's bundles (`bundles`), and Set free gives each kind of several a row of its own ("Rabbit ×12") that picks the whole kind (#75). Heal still lists each animal, grouped by kind with a line between kinds, and has no row for a kind. So a kid meets twelve rabbits as one card in the HUD and as twelve rows at the witch doctor's Heal tab.
+**What**: the druid's lists read the party's bundles (`bundles`), and Set free gives each kind of several a row of its own ("Rabbit ×12") that picks the whole kind (#75). Heal still lists each animal, grouped by kind with a line between kinds, and has no row for a kind. So a kid meets twelve rabbits as one card in the HUD and as twelve rows at the druid's Heal tab.
 
 **Why deferred**: Heal is where each animal's HP shows, and one puzzle already heals the whole kind whichever of its hurt animals is picked. A kind's row there would be a second way to the same puzzle, not a shortcut.
 
@@ -185,7 +185,7 @@ Since The Arctic's ice pick, a block afloat broken is water to the kid who broke
 
 ### A card's list is built whole, however many animals it holds
 
-**What**: opening a card in the HUD or the pause menu builds a row for every animal of that kind at once (the switch list and the witch doctor's list likewise list the whole team). A card of 120 rabbits took 60–100 ms of script and layout to come up at a load average of 40–77 (six took 4 ms): a hitch of a few frames when the card opens, none while it is open or while walking.
+**What**: opening a card in the HUD or the pause menu builds a row for every animal of that kind at once (the switch list and the druid's list likewise list the whole team). A card of 120 rabbits took 60–100 ms of script and layout to come up at a load average of 40–77 (six took 4 ms): a hitch of a few frames when the card opens, none while it is open or while walking.
 
 **Why deferred**: a card of a hundred of one kind is far from any kid's team today, and drawing only the rows in view fights the lists' shared columns, which are sized by the longest name.
 
