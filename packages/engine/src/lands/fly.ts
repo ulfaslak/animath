@@ -5,6 +5,7 @@ import { tentArrival } from '../world/tent-map.js';
 import type { Direction, GridPos } from '../world/types.js';
 import { fitStays, remember, type WorldStay } from '../world/worlds.js';
 import { isLandId, landSeed, type LandId } from './ids.js';
+import { needsStarter } from './lands.js';
 
 /**
  * Flying to another land ([[PRODUCT]] §4 "Lands", #191): what goes with the
@@ -70,9 +71,13 @@ export type FlyStep =
  * or with nothing on a first visit: no animal, no money, no item, nothing
  * cleared. They come down at the tent the mapping gives (`tentArrival`, in
  * that world as they left it), beside it and facing it; with no tent in
- * reach there, at the world's spawn, facing down. Every world's cleared
- * tiles, in every land, stay within the one budget (`fitStays`): the world
- * reached keeps its own whole.
+ * reach there, at the world's spawn, facing down. An arrival that asks for a
+ * starter (`needsStarter`: no animal of the land kept, a first visit or one
+ * left before a starter was picked) comes down at the world's spawn tent
+ * instead, the tent the mapping gives from the spawn, so a brand-new starter
+ * meets the gentle animals near it (the human's call, [[DECISIONS]] §
+ * Lands). Every world's cleared tiles, in every land, stay within the one
+ * budget (`fitStays`): the world reached keeps its own whole.
  *
  * Whether the flight may go at all (unlocked, built, at a witch doctor's) is
  * the witch doctor's reducer's to ask (`flyRefusal`): this is what a flight
@@ -104,18 +109,23 @@ export function fly(from: LandPlace, tent: GridPos, to: unknown, home: number): 
 		[worlds, ...others.map((stay) => stay.worlds)],
 		home
 	);
+	const party = kept ? kept.party.map((a) => ({ ...a })) : [];
 	const seed = landSeed(to, from.world);
-	const arrival = tentArrival(seed, tent, edits);
+	const spawn = spawnPoint(seed);
+	// A first arrival, the one a starter is picked on (no animal of the land yet), comes down at the
+	// world's spawn tent, where the land's gentlest animals live ([[DECISIONS]] § Lands); every other
+	// flight at the tent the mapping gives from the one flown from.
+	const arrival = tentArrival(seed, needsStarter(to, party) ? spawn : tent, edits);
 	return {
 		ok: true,
 		place: {
 			land: to,
 			world: from.world,
-			pos: arrival ? arrival.stand : spawnPoint(seed),
+			pos: arrival ? arrival.stand : spawn,
 			facing: arrival ? arrival.facing : 'down',
 			edits,
 			worlds: fitted!,
-			party: kept ? kept.party.map((a) => ({ ...a })) : [],
+			party,
 			tokens: kept?.tokens ?? 0,
 			items: kept ? [...kept.items] : [],
 			lands: others.map((stay, i) => ({ ...stay, worlds: [...fittedLands[i]!] }))

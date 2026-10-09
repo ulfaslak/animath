@@ -1224,7 +1224,8 @@ export class LocalAuthority implements Authority {
 	 * this world number (the engine's `fly`). This land is remembered as it is
 	 * left, its party, tokens and items with it, and the land reached comes
 	 * back as it was left, or with nothing on a first visit; the player comes
-	 * down beside the tent the mapping gives (`tentArrival`), facing it. The
+	 * down beside the tent the mapping gives (`tentArrival`; on an arrival
+	 * that asks for a starter, from the spawn), facing it. The
 	 * name, the book, the puzzles solved, the counts and home go along. Not a
 	 * step: nothing is rolled. With no animal of the land yet, the kid picks a
 	 * starter there (`starter-wanted`).

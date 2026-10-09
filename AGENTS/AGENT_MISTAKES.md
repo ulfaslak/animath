@@ -1064,3 +1064,8 @@ To become `[learned]`: a line in [[DEVELOPMENT]] § Testing ideology saying a se
 ### 2026-10-08 — Arctic rough edges (fix/arctic-rough-edges, PR #212), self-testing — a compact layout broke a design floor
 
 - **Shrinking text to fit a phone went under the 16 px floor** ([[DESIGN]] § Typography, `text-size.test.ts`). When a layout gets tight, shrink spacing, the heading and the 3D first, never body text under the floor; run the client suite, not only the tests of the file changed, before the first push.
+
+### 2026-10-09 — First flight lands at the spawn tent (feat/first-flight-at-spawn, PR #214), adversarial review — a World 1 fact written down for every world
+
+- **"The way home lands near Nordland's start" was true in World 1 and false in about one world in seven**: Nordland's tents are sparse, and the tent mapped from the lattice spot (5, 7) can be over 100 tiles from a world's start. Play-testing in World 1 only confirmed it. Before DNA states where something lands "in every world", measure it over a range of world numbers (a few hundred is seconds), not World 1.
+- **A changed rule left a test title and a test comment saying the old rule** (`lands.test.ts`, `local-authority.test.ts`), and the client test could not tell the two rules apart, since World 1's start tent is on the spot the Arctic spawn tent is. When a rule gains an exception, grep the tests for the rule's old wording.
