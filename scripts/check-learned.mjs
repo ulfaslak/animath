@@ -7,6 +7,7 @@
  *
  * `AGENTS/AGENT_MISTAKES.md` holds the patterns and the open entries;
  * `AGENTS/AGENT_MISTAKES_ARCHIVE.md` the `[learned]` ones. It checks:
+ * - every entry's heading carries `[learned]` or `[not codified]`, not both;
  * - every entry of the archive is `[learned]`, and no entry of the log is;
  * - a `[learned]` entry names a guard: CLAUDE.md, a `[[link]]`, an `AGENTS/`
  *   file by its name (`ENVIRONMENT_NOTES`), a file of the repo in backticks,
@@ -146,8 +147,13 @@ checkNames(`${LOG} (header and patterns)`, log.patterns);
 for (const e of [...log.entries, ...archive.entries]) {
 	const where = `${e.file}:${e.line}`;
 	const learned = /\[learned\]/i.test(e.title);
+	const open = /\[not codified\]/i.test(e.title);
 	const text = [e.title, ...e.body].join('\n');
 	checkNames(where, text);
+	if (learned === open)
+		problems.push(
+			`${where}: the heading carries ${learned ? 'both [learned] and [not codified]' : 'neither [learned] nor [not codified]'}; give it one`
+		);
 	if (e.file === ARCHIVE && !learned)
 		problems.push(`${where}: only [learned] entries belong in the archive`);
 	if (e.file === LOG && learned) problems.push(`${where}: a [learned] entry belongs in ${ARCHIVE}`);
