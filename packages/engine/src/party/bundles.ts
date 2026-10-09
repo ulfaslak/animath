@@ -1,11 +1,12 @@
-import type { AnimalInstance } from '../animals/types.js';
+import { canFightIn } from '../animals/catalog.js';
+import { REALMS, type AnimalInstance, type Realm } from '../animals/types.js';
 
 /**
  * The party in species bundles ([[PRODUCT]] §4 "Party"). All the animals of
  * one species stand together, a bundle, and the bundles stand in the order
  * the player chose, so the bundles top to bottom are the battle order: the
- * lead (`leadIndex`) is the first animal standing in the first bundle that
- * has one. Every rule that changes the party's order keeps it in bundles,
+ * lead where the player stands (`leadIndex`) is the first animal standing
+ * that can fight there, in the first bundle that has one. Every rule that changes the party's order keeps it in bundles,
  * and a party from outside (an old save, `?party=`) is put in bundles on the
  * way in (`bundled`).
  */
@@ -38,24 +39,44 @@ export function bundles(party: readonly AnimalInstance[]): Bundle[] {
 }
 
 /**
+ * The lead where the player stands in `realm` (land unless said otherwise):
+ * the animal that steps into the next battle there, the first one in party
+ * order that is not tired and can fight there (`canFightIn`). Out on the
+ * water that is the first one that swims. -1 when there is none: every
+ * animal is tired, or none of the standing ones can go there. The battle
+ * reducer uses the same function for who starts and who steps in after a
+ * knock-out, so the animal the HUD marks as the lead is the one that fights.
+ */
+export function leadIndex(party: readonly AnimalInstance[], realm: Realm = 'land'): number {
+	return party.findIndex((a) => a.hp > 0 && canFightIn(a.speciesId, realm));
+}
+
+/**
  * The party in bundles: each species' animals gathered behind its first one,
  * in their own order, and the bundles in the order their first animals
- * stood, keeping who leads. Gathering alone could put a standing animal in
- * front of the lead: behind a tired squirrel, a fox leads a squirrel caught
- * after it, and the squirrels gathered together would put that squirrel
- * first. Then the lead's bundle goes first instead. A party already in
- * bundles comes back in the same order. Always a new array; the animals are
- * the same objects.
+ * stood, keeping who leads in every realm (`leadIndex`). Gathering alone
+ * could put a standing animal in front of a lead: behind a tired squirrel, a
+ * fox leads a squirrel caught after it, and the squirrels gathered together
+ * would put that squirrel first; behind a tired fox and a crab, a squirrel
+ * leads on land, and a fox caught after it would. Then the leads' bundles go
+ * first instead, in the order the leads stood: one before another's is of a
+ * kind that can't fight where that one leads. A party already in bundles
+ * comes back in the same order. Always a new array; the animals are the
+ * same objects.
  */
 export function bundled(party: readonly AnimalInstance[]): AnimalInstance[] {
 	const list = bundles(party);
 	const gathered = list.flatMap((b) => b.animals);
-	// The lead, as `leadIndex` finds it: the first animal standing.
-	const lead = party.find((a) => a.hp > 0);
-	if (!lead || gathered.find((a) => a.hp > 0) === lead) return gathered;
-	// Every animal of its kind in front of it was tired, so at the front of the party it leads again.
-	const own = list.find((b) => b.speciesId === lead.speciesId)!;
-	return [own, ...list.filter((b) => b !== own)].flatMap((b) => b.animals);
+	const leads = REALMS.map((realm) => leadIndex(party, realm));
+	if (REALMS.every((realm, i) => gathered[leadIndex(gathered, realm)] === party[leads[i]!])) {
+		return gathered;
+	}
+	const first = [...new Set(leads.filter((i) => i >= 0).sort((a, b) => a - b))].map(
+		(i) => party[i]!.speciesId
+	);
+	const front = list.filter((b) => first.includes(b.speciesId));
+	front.sort((a, b) => first.indexOf(a.speciesId) - first.indexOf(b.speciesId));
+	return [...front, ...list.filter((b) => !first.includes(b.speciesId))].flatMap((b) => b.animals);
 }
 
 /** Whether every species' animals stand together. */

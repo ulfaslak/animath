@@ -5,11 +5,11 @@ import { DOCTOR_TABS, type DoctorTab } from '../doctor/tabs';
  * The pointer's way into the game: a tap or a click (`input/taps.ts`)
  * becomes a key press on `window`, the same event a keyboard sends, so it
  * reaches the same listeners, guards and handlers a real key does (`main.ts`
- * sends it to the screen that is up, explore's `Keyboard` included). A pointer is never
- * a second path to an action: Go is Enter, Back is Escape, the number pad's
+ * sends it to the screen that is up, explore's `Keyboard` included). A
+ * pointer is never a second path to an action: Go is Enter, Back is Escape, the number pad's
  * 7 is the 7 key, the D-pad's arrow is the arrow key held down.
  *
- * A pointer can also name what it touched, which no key can: four key
+ * A pointer can also name what it touched, which no key can: six key
  * names of its own, read by the screens that have such things.
  * - `row:<i>`: row `i` of the list on screen. What that does is the
  *   screen's to say: the doctor and the pause menu do the row at once; the
@@ -27,7 +27,7 @@ import { DOCTOR_TABS, type DoctorTab } from '../doctor/tabs';
  *   medium, 3 hard). It sets the level; it does not attack.
  * - `language:<code>`: a language on a Language row (the pause menu's, the
  *   title's).
- * - `tab:<id>`: a tab of the doctor's card (`heal`, `home`, `shop`).
+ * - `tab:<id>`: a tab of the doctor's card (`heal`, `home`, `shop`, `fly`).
  * - `land:<id>`: a land's tab in the animal book (`nordland`, `arctic`).
  *
  * The explore HUD's party column names what it shows by what it is, never

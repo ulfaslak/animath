@@ -25,7 +25,8 @@ import type {
  * Both are pure. The input state is never mutated; every accepted intent
  * returns a fresh state and the list of events that explain it, in order.
  * Randomness for the n-th accepted intent comes from `hashInts(seed, n)`, so a
- * battle replays exactly from `(seed, party, wild, leashQuality, intents)`.
+ * battle replays exactly from `(seed, party, wild, options, intents)`: the
+ * leash's quality, the realm and the topic bonus.
  *
  * The seed is the authority's secret and travels with each call, never inside
  * the state: the state goes to the client, and a client that knew the seed

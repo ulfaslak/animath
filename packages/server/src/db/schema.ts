@@ -130,8 +130,8 @@ export const welcomeTokens = pgTable(
 
 /**
  * An account's saves the server was about to lose, kept instead: one replaced
- * by a different game (a New game on the title), or one this build could not
- * read. Nothing reads it; it is there to recover a kid's game by hand.
+ * by a different game (a New game on the title), one this build could not
+ * read, or one an older build wrote. Nothing reads it; it is there to recover a kid's game by hand.
  */
 export const accountSaveBackups = pgTable(
 	'account_save_backups',

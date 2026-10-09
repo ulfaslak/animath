@@ -504,11 +504,6 @@ export class GameRenderer {
 		if (this.boat) this.boat.visible = owned;
 	}
 
-	/**
-	 * The player owns the glider or not: folded on their back, it opens over
-	 * them in the air. Bought while the game is on (`arriving`), it grows
-	 * onto their back with a little bounce.
-	 */
 	/** The skis are the kid's (or no longer): on their feet whenever they stand on the ground. */
 	setSkis(owned: boolean): void {
 		this.skisOwned = owned;
@@ -524,6 +519,11 @@ export class GameRenderer {
 		this.ski = { glide, speed, skim };
 	}
 
+	/**
+	 * The player owns the glider or not: folded on their back, it opens over
+	 * them in the air. Bought while the game is on (`arriving`), it grows
+	 * onto their back with a little bounce.
+	 */
 	setGlider(owned: boolean, arriving = false): void {
 		if (owned && !this.glider) {
 			this.glider = buildGliderMesh();

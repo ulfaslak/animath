@@ -161,10 +161,12 @@ export function keepWorlds(worlds: readonly WorldStay[], home: number): WorldSta
  * The worlds left behind with their cleared tiles cut to what fits beside
  * `current` (the world the player is in) within `EDITS_BUDGET`, all worlds
  * together. The current world's are kept whole; then the home world's, then
- * the rest, the world left most recently first. The first that no longer fits
- * loses its chunks farthest from where the player stood there, and the ones
- * after it lose all of theirs: those tiles grow back. Unchanged (the same
- * array) when everything fits.
+ * the rest, the world left most recently first. Each in turn is kept whole
+ * when it fits in the room still left, and otherwise loses its chunks
+ * farthest from where the player stood there, down to that room (all of
+ * them once none is left): those tiles grow back. So a small world after one
+ * cut back can still keep all of its tiles. Unchanged (the same array) when
+ * everything fits.
  */
 export function fitWorlds(
 	current: WorldEdits,

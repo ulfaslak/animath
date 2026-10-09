@@ -228,7 +228,7 @@ export class PauseController {
 				// Left and right set the setting on its row, even where it shares its line.
 				if (this.settingKey(item, right)) return true;
 				// Rows side by side (Worlds and Who's here, the account's, Keep playing and Start
-				// screen): left and right step between them. Elsewhere they do nothing.
+				// screen, My puzzles and the book): left and right step between them. Elsewhere they do nothing.
 				const line = lineOf(item, items);
 				if (line.length < 2) return false;
 				const at = line.indexOf(item);

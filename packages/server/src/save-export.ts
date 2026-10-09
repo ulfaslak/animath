@@ -1,4 +1,5 @@
 import {
+	FIRST_LAND,
 	getLand,
 	isLandId,
 	nameKey,
@@ -160,7 +161,7 @@ export function describeSave(doc: unknown, savedAt?: Date): string {
 	}
 	const save = read.save;
 	const items = save.items?.length ? save.items.join(', ') : 'no tools';
-	const land = save.land ?? 'nordland';
+	const land = save.land ?? FIRST_LAND;
 	const money =
 		isLandId(land) && getLand(land).currency === 'ice-dollars' ? 'ice dollars' : 'tokens';
 	// The lands left behind keep their own teams: an empty team here may be a first arrival.

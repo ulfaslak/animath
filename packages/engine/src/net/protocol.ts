@@ -602,7 +602,7 @@ export function isGuestId(value: unknown): value is string {
 }
 
 /** A socket's public id: the server's, 6 to 32 characters of base64url. */
-export function isPid(value: unknown): value is string {
+function isPid(value: unknown): value is string {
 	return isToken(value, 6, 32);
 }
 
@@ -611,7 +611,7 @@ function isWireName(value: unknown): value is string {
 }
 
 /** A world number on the wire. */
-export function isWireWorld(value: unknown): value is number {
+function isWireWorld(value: unknown): value is number {
 	return isWhole(value, MIN_WIRE_WORLD, MAX_WIRE_WORLD);
 }
 

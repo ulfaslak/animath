@@ -131,7 +131,7 @@ export function flightPos(flight: Flight): GridPos {
  * could come down on, as a distance from 1 to `GLIDE_TILES`, or null when
  * there is none.
  */
-export function flightReach(
+function flightReach(
 	seed: number,
 	edits: WorldEdits,
 	from: GridPos,

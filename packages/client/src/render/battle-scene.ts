@@ -6,7 +6,7 @@ import { safeArea } from '../safe-area';
 import { SHORT_SCREEN } from '../short-screen';
 import { animateFlight, animateIdle, buildAnimalMesh, disposeFigure, restingZs } from './animals';
 import { WORLD_LIGHT } from './campfire';
-import { appearScale, recallScale, smoothstep } from './ease';
+import { appearScale, doubleHop, recallScale, smoothstep } from './ease';
 import { SWIM_DEPTH } from './follower';
 import {
 	BIOME_LOOK,
@@ -1162,14 +1162,9 @@ function applyEffect(figure: THREE.Group, effect: Effect): void {
 		case 'cheer': {
 			// Two hops for joy, the first higher and with a whole turn; with less
 			// motion, one small hop and no turn.
-			if (motion.reduced) {
-				figure.position.y += Math.sin(Math.min(1, p * 2) * Math.PI) * 0.1;
-				break;
-			}
-			const first = p < 0.5;
-			const q = first ? p / 0.5 : (p - 0.5) / 0.5;
-			figure.position.y += Math.sin(q * Math.PI) * (first ? 0.4 : 0.22);
-			if (first) figure.rotation.y += smoothstep(q) * Math.PI * 2;
+			const hop = doubleHop(p, { high: 0.4, spin: true, calm: motion.reduced });
+			figure.position.y += hop.lift;
+			figure.rotation.y += hop.turn;
 			break;
 		}
 	}

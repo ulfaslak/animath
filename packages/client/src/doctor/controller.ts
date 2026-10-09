@@ -43,8 +43,8 @@ import type { DoctorLine } from './lines';
  * "Correct!", the sparkle with the heal, the coins with the tokens). Nothing
  * here decides anything: the engine judges answers, heals, pays and sells.
  *
- * Three tabs ([[UI_SPEC]] § Doctor): heal, set free and shop, left and right
- * between them. The home tab's marks and its confirm are the card's own: the
+ * Four tabs ([[UI_SPEC]] § Doctor): heal, set free, shop and, when there is
+ * another land, fly, left and right between them. The home tab's marks and its confirm are the card's own: the
  * authority hears of a hand-over only once the kid says yes, and even then
  * nothing leaves until the kid works out the tokens they will have.
  */

@@ -1,9 +1,12 @@
 import {
 	Rng,
+	WorldEdits,
 	getAnimal,
 	isWalkable,
 	isWater,
+	landSeed,
 	newGame,
+	spawnPoint,
 	step,
 	tileAtWorld,
 	type BattleState,
@@ -831,5 +834,57 @@ describe('with the harness', () => {
 		walk(s, ['down']);
 		expectCarrying(s, 'bear', 'back on land');
 		expect(s.figures).toHaveLength(1);
+	});
+});
+
+describe('where an ice block afloat was broken', () => {
+	/**
+	 * The Arctic's World 1: the first block out on the water, looking out from
+	 * the spawn, with water beside it, and the way a trainer on that water
+	 * faces with the block behind them.
+	 */
+	const seed = landSeed('arctic', 1);
+	const block = (() => {
+		const home = spawnPoint(seed);
+		for (let r = 1; r < 300; r++) {
+			for (let y = home.y - r; y <= home.y + r; y++) {
+				for (let x = home.x - r; x <= home.x + r; x++) {
+					if (Math.max(Math.abs(x - home.x), Math.abs(y - home.y)) !== r) continue;
+					const tile = tileAtWorld(seed, x, y);
+					if (tile.kind !== 'iceblock' || tile.under !== 'water') continue;
+					for (const facing of ['up', 'down', 'left', 'right'] as const) {
+						const trainer = step({ x, y }, facing);
+						if (isWater(tileAtWorld(seed, trainer.x, trainer.y).kind)) {
+							return { at: { x, y }, trainer, facing };
+						}
+					}
+				}
+			}
+		}
+		throw new Error('no ice block afloat beside water in the Arctic');
+	})();
+	const broken = WorldEdits.none.with(block.at);
+	const shown = (species: string, ride: 'follows' | 'boat', trainer: GridPos) => {
+		const figures: THREE.Group[] = [];
+		const follower = new Follower({
+			addFigure: (f) => void figures.push(f),
+			removeFigure: (f) => void figures.splice(figures.indexOf(f), 1)
+		});
+		follower.place(seed, trainer, block.facing, broken);
+		follower.lead(species, ride);
+		for (let i = 0; i < 20; i++) follower.update(1, 0.1);
+		return { follower, figure: figures.at(-1)! };
+	};
+
+	it('one that swims swims there, low in the water, not standing on it', () => {
+		const { follower, figure } = shown('otter', 'follows', block.trainer);
+		expect(follower.tile).toEqual(block.at);
+		expect(figure.position.y).toBeLessThan(WATER_TOP - 0.05);
+	});
+
+	it('the boat sailed onto it floats as on any water: the rider on its deck', () => {
+		const { follower, figure } = shown('squirrel', 'boat', block.at);
+		expect(follower.inBoat).toBe(true);
+		expect(figure.position.y).toBeCloseTo(WATER_TOP + BOAT_STAND + BOAT_DECK, 6);
 	});
 });

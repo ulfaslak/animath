@@ -1,6 +1,7 @@
 import {
 	ATTACK_LEVELS,
 	facePrompt,
+	faceTopic,
 	getAnimal,
 	isPictureKind,
 	puzzleDifficulty,
@@ -100,10 +101,7 @@ export function kindGlyph(topic: PuzzleTopic): string {
  */
 export function thoughtSum(face: PuzzleFace): string {
 	if (!isPictureKind(face.kind)) return facePrompt(face);
-	// A shape's floor (0, or a side from the floor: 2) or its fence (1, 3).
-	const topic =
-		face.kind === 'shape' ? ((face.numbers[0] ?? 0) % 2 === 0 ? 'area' : 'perimeter') : face.kind;
-	return `${kindGlyph(topic)} ?`;
+	return `${kindGlyph(faceTopic(face))} ?`;
 }
 
 /**
