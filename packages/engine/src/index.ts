@@ -203,13 +203,7 @@ export {
 	step,
 	tileRealm
 } from './world/types.js';
-export {
-	ARCTIC_BAND,
-	ICE_RUN,
-	LEAD_FREE,
-	TENT_CLEARING,
-	poleAt
-} from './world/arctic.js';
+export { ARCTIC_BAND, ICE_RUN, LEAD_FREE, TENT_CLEARING, poleAt } from './world/arctic.js';
 export { MAX_SLIDE, moveFrom } from './world/slide.js';
 export type { Moved } from './world/slide.js';
 export {
