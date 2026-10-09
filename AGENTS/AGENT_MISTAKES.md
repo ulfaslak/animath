@@ -285,3 +285,10 @@ To become `[learned]`: a CLAUDE.md line that a reward whose words claim a deed c
 - **Bars meant to be compared were drawn on tracks of different lengths**, since each row's count text sized its own grid column. Comparisons across rows need fixed columns; look at the shortest and longest label side by side in a screenshot.
 
 To become `[learned]`: a line in [[DEVELOPMENT]] § Testing ideology that a reward derived from behaviour is fed only behaviour that pays its price, from every place the input is emitted, steadied in every term and tested at one answer; and that a save check bounds a derived field against every count it summarises, both ways.
+
+### 2026-10-09 — Deep cleanse (chore/deep-cleanse), self-testing — a fix sized to the finding's one case, and negative controls that broke nothing `[not codified]`
+
+- **A fix sized to the case the finding named.** The review said `bundled` could move the lead on land and proposed `leadIndex(party, 'land')`. That fix would have moved the lead on the water in another party (`[otter:0, crab, squirrel, otter]`). `bundled` now keeps the lead of every realm, and the sweep checks land, water and air. A finding names one way in; the fix is checked against every case the function serves.
+- **Two hand-made breaks that broke nothing**, so a green result meant nothing. A `sed '0,/re/'` (GNU only) changed no byte on macOS, and a hole chance moved from 0.02 to 0.021 moved no tile the checksum reads. Both were caught by `git diff --stat` and by making the break bigger. This repeats the archived PR #87 "a negative control whose harness ran against nothing": that guard covers a harness, not a hand-made break.
+
+To become `[learned]`: a line in [[DEVELOPMENT]] § Testing ideology that a hand-made break is confirmed by `git diff` and by the value the test reads changing, before its result counts; and that a fix proposed by a review is checked over every input class the function serves, not only the finding's.
