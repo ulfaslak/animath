@@ -8,6 +8,7 @@ import { editedTileAt, type WorldEdits } from './edits.js';
 import {
 	distanceFromSpawn,
 	encounterTable,
+	favourUnseen,
 	type EncounterEntry,
 	type WildAnimal
 } from './encounters.js';
@@ -83,7 +84,8 @@ export interface CastSite {
  * owns `items` with `party`: the whole rule. The hole's table is the ice's
  * it is in (`holeTable`, the world as it was made: a hole the ice pick made
  * is in the ice the block stood on), sized to the lead in the water (the first
- * swimmer standing, `leadIndex`, who fights first). With nobody to fight in
+ * swimmer standing, `leadIndex`, who fights first), favouring the kinds the
+ * kid has not seen (`favourUnseen`, `seen` the animal book's). With nobody to fight in
  * the water nothing is drawn (`no-swimmer`); with nothing living there, or a
  * roll over `BITE_CHANCE`, nothing bites. Throws without the rod, or with no
  * hole there: the caller asks both first.
@@ -94,7 +96,8 @@ export function castLine(
 	edits: WorldEdits,
 	site: CastSite,
 	owner: { readonly items: readonly string[] },
-	party: readonly AnimalInstance[]
+	party: readonly AnimalInstance[],
+	seen: readonly string[]
 ): Catch {
 	if (!hasItem(owner, 'fishing-rod')) throw new Error('castLine: no fishing rod');
 	const { hole, spawn } = site;
@@ -107,7 +110,7 @@ export function castLine(
 		distanceFromSpawn(hole, spawn),
 		getAnimal(lead.speciesId).tier
 	);
-	const wild = rollCast(rng, table);
+	const wild = rollCast(rng, favourUnseen(table, seen));
 	return wild ? { outcome: 'bite', wild } : { outcome: 'nothing' };
 }
 

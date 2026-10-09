@@ -8,11 +8,13 @@ import {
 	SAFE_RADIUS,
 	SKY_CHANCE,
 	TIER_SIGMA,
+	UNSEEN_BOOST,
 	VISITORS_WEIGHT,
 	WILD_RADIUS,
 	distanceFromSpawn,
 	encounterTable,
 	encounterTableAt,
+	favourUnseen,
 	rollEncounter,
 	rollEncounterFor,
 	rollSkyEncounter,
@@ -1016,11 +1018,11 @@ describe('encounterTable', () => {
 		for (const bad of [0, 6, 2.5, -1, NaN, Infinity, undefined, null, '2']) {
 			const lead = bad as unknown as Tier;
 			expect(() => encounterTable('meadow', 0, lead), String(bad)).toThrow(/tier/);
-			expect(() => rollEncounter(new Rng(1), siteAt('meadow', 0), lead), String(bad)).toThrow(
+			expect(() => rollEncounter(new Rng(1), siteAt('meadow', 0), lead, []), String(bad)).toThrow(
 				/tier/
 			);
 			const onSand = { ...siteAt('meadow', 0), tile: { kind: 'sand', biome: 'meadow', height: 0 } };
-			expect(() => rollEncounter(new Rng(1), onSand as EncounterSite, lead)).toThrow(/tier/);
+			expect(() => rollEncounter(new Rng(1), onSand as EncounterSite, lead, [])).toThrow(/tier/);
 		}
 	});
 });
@@ -1349,7 +1351,7 @@ describe('rollEncounter', () => {
 				for (const biome of BIOMES) {
 					const rng = new Rng(1);
 					const site = { ...siteAt(biome, 300), tile: { kind, biome, height: 0 } };
-					const rolls = Array.from({ length: 100 }, () => rollEncounter(rng, site, lead));
+					const rolls = Array.from({ length: 100 }, () => rollEncounter(rng, site, lead, []));
 					expect(rolls.filter((w) => w !== null)).toEqual([]);
 					expect(rng.next()).toBe(new Rng(1).next());
 				}
@@ -1364,13 +1366,13 @@ describe('rollEncounter', () => {
 				for (const around of GROUNDS) {
 					const rng = new Rng(7);
 					const site = { ...siteAt('sea', d, around), tile: tallgrass('sea') };
-					const rolls = Array.from({ length: 100 }, () => rollEncounter(rng, site, lead));
+					const rolls = Array.from({ length: 100 }, () => rollEncounter(rng, site, lead, []));
 					expect(rolls.filter((w) => w !== null)).toEqual([]);
 					expect(rng.next()).toBe(new Rng(7).next());
 					// Everywhere animals live, every lead's step draws.
 					for (const biome of INHABITED) {
 						const drawn = new Rng(7);
-						rollEncounter(drawn, siteAt(biome, d, around), lead);
+						rollEncounter(drawn, siteAt(biome, d, around), lead, []);
 						expect(drawn.next(), `tier-${lead} lead in ${biome}`).not.toBe(new Rng(7).next());
 					}
 				}
@@ -1392,7 +1394,7 @@ describe('rollEncounter', () => {
 						// The starter's rolls in full; a bigger lead's an eighth as many, as its table is
 						// checked on every ground above and only the draws are new here.
 						for (let i = 0; i < (lead === 1 ? 400 : 50); i++) {
-							const a = rollEncounter(now, site, lead)?.speciesId ?? null;
+							const a = rollEncounter(now, site, lead, [])?.speciesId ?? null;
 							const b = bellRoll(spec, site, lead);
 							if (a !== b)
 								bad.note(
@@ -1420,12 +1422,12 @@ describe('rollEncounter', () => {
 			for (const d of [0, 64, 400]) {
 				const seeds = Array.from({ length: 200 }, (_, i) => hashString(`${biome}:${d}:${i}`));
 				const starterOnOpen = seeds.map(
-					(s) => rollEncounter(new Rng(s), siteAt(biome, d), 1) !== null
+					(s) => rollEncounter(new Rng(s), siteAt(biome, d), 1, []) !== null
 				);
 				for (const lead of LEADS) {
 					for (const around of GROUNDS) {
 						const met = seeds.map(
-							(s) => rollEncounter(new Rng(s), siteAt(biome, d, around), lead) !== null
+							(s) => rollEncounter(new Rng(s), siteAt(biome, d, around), lead, []) !== null
 						);
 						if (met.join() !== starterOnOpen.join())
 							bad.push(`tier-${lead} lead in ${biome} @ ${d} on ${JSON.stringify(around)}`);
@@ -1448,7 +1450,7 @@ describe('rollEncounter', () => {
 				const rng = new Rng(hashString(`${lead}:${biome}`));
 				let hits = 0;
 				for (let i = 0; i < steps; i++)
-					if (rollEncounter(rng, siteAt(biome, 50, GROUNDS[i % GROUNDS.length]), lead)) hits++;
+					if (rollEncounter(rng, siteAt(biome, 50, GROUNDS[i % GROUNDS.length]), lead, [])) hits++;
 				const where = `tier-${lead} lead in ${biome}`;
 				expect(hits / steps, where).toBeGreaterThan(1 / 12);
 				expect(hits / steps, where).toBeLessThan(1 / 8);
@@ -1465,7 +1467,7 @@ describe('rollEncounter', () => {
 			const run = (seed: number) => {
 				const rng = new Rng(seed);
 				const site = siteAt('forest', 200, { water: 0, trees: 4, rocks: 3 });
-				return Array.from({ length: 300 }, () => rollEncounter(rng, site, lead));
+				return Array.from({ length: 300 }, () => rollEncounter(rng, site, lead, []));
 			};
 			expect(run(42)).toEqual(run(42));
 			expect(run(42)).not.toEqual(run(43));
@@ -1475,7 +1477,7 @@ describe('rollEncounter', () => {
 	it('refuses a site with a broken position or ground instead of guessing a table', () => {
 		const broken = { ...siteAt('forest', 0), pos: { x: NaN, y: 0 } };
 		for (const lead of LEADS) {
-			expect(() => rollEncounter(new Rng(3), broken, lead)).toThrow(/distance/);
+			expect(() => rollEncounter(new Rng(3), broken, lead, [])).toThrow(/distance/);
 			expect(() => encounterTableAt(broken, lead)).toThrow(/distance/);
 		}
 		expect(() => encounterTable('forest', NaN, 1)).toThrow();
@@ -1485,7 +1487,7 @@ describe('rollEncounter', () => {
 		for (const around of [undefined, null, { water: NaN, trees: 0, rocks: 0 }, { water: 1 }]) {
 			const site = { ...siteAt('forest', 0), around } as unknown as EncounterSite;
 			for (const lead of LEADS) {
-				expect(() => rollEncounter(new Rng(3), site, lead), JSON.stringify(around)).toThrow(
+				expect(() => rollEncounter(new Rng(3), site, lead, []), JSON.stringify(around)).toThrow(
 					/surroundings/
 				);
 				expect(() => encounterTableAt(site, lead)).toThrow(/surroundings/);
@@ -1495,7 +1497,7 @@ describe('rollEncounter', () => {
 				...site,
 				tile: { kind: 'sand', biome: 'forest', height: 0 }
 			} as EncounterSite;
-			expect(rollEncounter(new Rng(3), onSand, 1)).toBeNull();
+			expect(rollEncounter(new Rng(3), onSand, 1, [])).toBeNull();
 		}
 	});
 
@@ -1525,7 +1527,7 @@ describe('rollEncounter', () => {
 						const rng = new Rng(hashString(`${lead}:${biome}:${pos.x}:${pos.y}`));
 						let here = 0;
 						for (let i = 0; i < 200; i++) {
-							const wild = rollEncounter(rng, site, lead);
+							const wild = rollEncounter(rng, site, lead, []);
 							if (!wild) continue;
 							here++;
 							const spec = getAnimal(wild.speciesId);
@@ -1563,7 +1565,7 @@ describe('rollEncounter', () => {
 					// A ground with some of every terrain, so no species is at its floor.
 					const site = siteAt(biome, d, { water: 2, trees: 2, rocks: 2 });
 					for (let n = 0; n < encounters; n++) {
-						const wild = rollEncounter(rng, site, lead);
+						const wild = rollEncounter(rng, site, lead, []);
 						if (!wild) throw new Error(`no encounter for a tier-${lead} lead in ${biome}`);
 						counts.set(wild.speciesId, (counts.get(wild.speciesId) ?? 0) + 1);
 					}
@@ -1612,7 +1614,7 @@ describe('rollEncounterFor: the lead where the step lands, or nobody', () => {
 			const realm = realmOf(biome);
 			const seed = hashString(`step ${n}`);
 			const rng = new Rng(seed);
-			const wild = rollEncounterFor(rng, site, party);
+			const wild = rollEncounterFor(rng, site, party, []);
 			const lead = party.find((a) => a.hp > 0 && getAnimal(a.speciesId).realms.includes(realm));
 			if (!lead) {
 				quiet++;
@@ -1622,7 +1624,7 @@ describe('rollEncounterFor: the lead where the step lands, or nobody', () => {
 				continue;
 			}
 			const same = new Rng(seed);
-			const want = rollEncounter(same, site, getAnimal(lead.speciesId).tier);
+			const want = rollEncounter(same, site, getAnimal(lead.speciesId).tier, []);
 			if (JSON.stringify(wild) !== JSON.stringify(want)) bad.push(`${n}: ${JSON.stringify(wild)}`);
 			if (rng.next() !== same.next()) bad.push(`${n}: drew differently`);
 			if (wild) met++;
@@ -1644,14 +1646,14 @@ describe('rollEncounterFor: the lead where the step lands, or nobody', () => {
 			for (const kind of kinds) {
 				const site = { ...siteAt(biome, 100), tile: { kind, biome, height: 0 } };
 				const rng = new EveryStepMeets(7);
-				for (let n = 0; n < 20; n++) expect(rollEncounterFor(rng, site, tired)).toBeNull();
+				for (let n = 0; n < 20; n++) expect(rollEncounterFor(rng, site, tired, [])).toBeNull();
 			}
 		}
 		// A crab standing is someone out at sea, and nobody in the grass.
 		const crab = [...tired, { id: 'd', speciesId: 'crab', hp: getAnimal('crab').maxHp }];
 		const every = new EveryStepMeets(3);
-		expect(rollEncounterFor(every, siteAt('meadow', 0), crab)).toBeNull();
-		expect(rollEncounterFor(every, siteAt('sea', 0), crab)).not.toBeNull();
+		expect(rollEncounterFor(every, siteAt('meadow', 0), crab, [])).toBeNull();
+		expect(rollEncounterFor(every, siteAt('sea', 0), crab, [])).not.toBeNull();
 	});
 });
 
@@ -2030,7 +2032,7 @@ describe('the sky: birds that notice the glider (#91)', () => {
 						const spec = new Rng(hashString(key));
 						const site = skySite(biome, d, around, kind);
 						for (let i = 0; i < 100; i++) {
-							const a = rollSkyEncounter(now, site, lead);
+							const a = rollSkyEncounter(now, site, lead, []);
 							const b = skyRoll(spec, site, lead);
 							if ((a?.speciesId ?? null) !== b) bad.note(`${key}: ${a?.speciesId} vs ${b}`);
 							if (a) {
@@ -2058,13 +2060,14 @@ describe('the sky: birds that notice the glider (#91)', () => {
 			for (const d of [0, 64, 400]) {
 				const seeds = Array.from({ length: 200 }, (_, i) => hashString(`sky:${biome}:${d}:${i}`));
 				const robinOverGrass = seeds.map(
-					(s) => rollSkyEncounter(new Rng(s), skySite(biome, d), 1) !== null
+					(s) => rollSkyEncounter(new Rng(s), skySite(biome, d), 1, []) !== null
 				);
 				for (const lead of FLYING_LEADS) {
 					for (const around of GROUNDS.slice(0, 3)) {
 						for (const kind of ['water', 'tree', 'tent'] as const) {
 							const met = seeds.map(
-								(s) => rollSkyEncounter(new Rng(s), skySite(biome, d, around, kind), lead) !== null
+								(s) =>
+									rollSkyEncounter(new Rng(s), skySite(biome, d, around, kind), lead, []) !== null
 							);
 							if (met.join() !== robinOverGrass.join())
 								bad.push(`tier-${lead} lead over ${kind} in ${biome} @ ${d}`);
@@ -2086,18 +2089,18 @@ describe('the sky: birds that notice the glider (#91)', () => {
 		const run = (seed: number) => {
 			const rng = new Rng(seed);
 			return Array.from({ length: 400 }, () =>
-				rollSkyEncounter(rng, skySite('river', 90, { water: 6, trees: 0, rocks: 1 }), 2)
+				rollSkyEncounter(rng, skySite('river', 90, { water: 6, trees: 0, rocks: 1 }), 2, [])
 			);
 		};
 		expect(run(42)).toEqual(run(42));
 		expect(run(42)).not.toEqual(run(43));
 		for (const bad of [0, 6, 2.5, NaN, undefined, '2']) {
 			const lead = bad as unknown as Tier;
-			expect(() => rollSkyEncounter(new Rng(1), skySite('meadow', 0), lead)).toThrow(/tier/);
+			expect(() => rollSkyEncounter(new Rng(1), skySite('meadow', 0), lead, [])).toThrow(/tier/);
 			expect(() => skyTableAt(skySite('meadow', 0), lead)).toThrow(/tier/);
 		}
 		const nowhere = { ...skySite('meadow', 0), pos: { x: NaN, y: 0 } };
-		expect(() => rollSkyEncounter(new Rng(1), nowhere, 1)).toThrow(/distance/);
+		expect(() => rollSkyEncounter(new Rng(1), nowhere, 1, [])).toThrow(/distance/);
 	});
 });
 
@@ -2163,5 +2166,119 @@ describe('the fishing holes (#192 § Fishing holes)', () => {
 		];
 		for (const a of ANIMALS.filter((s) => !s.realms.includes('land')))
 			for (const b of a.habitats) expect(wet, `${a.id} in ${b}`).toContain(b);
+	});
+});
+
+describe('a kind never seen comes out more often within its size', () => {
+	/** Each species of `table` seen or not, by a coin from `rng`. */
+	const someSeen = (rng: Rng, table: readonly EncounterEntry[]) =>
+		table.filter(() => rng.chance(0.5)).map((e) => e.species.id);
+	const tierShares = (table: readonly EncounterEntry[]) => {
+		const shares = new Map<Tier, number>();
+		for (const e of table) shares.set(e.species.tier, (shares.get(e.species.tier) ?? 0) + e.weight);
+		return shares;
+	};
+
+	it('keeps every tier its share, and weighs a kind never seen twice a seen one within it', () => {
+		expect(UNSEEN_BOOST).toBe(2);
+		const coins = new Rng(11);
+		for (const biome of BIOMES) {
+			for (const lead of LEADS) {
+				for (const d of [0, 50, 100, 200]) {
+					for (const around of GROUNDS) {
+						const where = `tier-${lead} lead in ${biome} at ${d}`;
+						const table = encounterTableAt(siteAt(biome, d, around), lead);
+						const seen = someSeen(coins, table);
+						const known = new Set(seen);
+						const out = favourUnseen(table, seen);
+						expect(
+							out.map((e) => e.species.id),
+							where
+						).toEqual(table.map((e) => e.species.id));
+						if (table.length > 0) expect(total(out), where).toBeCloseTo(1, 12);
+						const before = tierShares(table);
+						for (const [tier, share] of tierShares(out)) {
+							expect(share, `${where}, tier ${tier}`).toBeCloseTo(before.get(tier)!, 12);
+						}
+						// Within a tier, every pair keeps its ratio, a kind never seen counted twice.
+						const weight = (i: number) =>
+							(known.has(table[i]!.species.id) ? 1 : 2) * table[i]!.weight;
+						for (let i = 0; i < table.length; i++) {
+							for (let j = i + 1; j < table.length; j++) {
+								if (table[i]!.species.tier !== table[j]!.species.tier) continue;
+								if (weight(j) === 0 || out[j]!.weight === 0) continue;
+								expect(out[i]!.weight / out[j]!.weight, where).toBeCloseTo(
+									weight(i) / weight(j),
+									9
+								);
+							}
+						}
+						// A book with nothing, or everything, in it changes nothing.
+						const all = table.map((e) => e.species.id);
+						for (const book of [[], all]) {
+							favourUnseen(table, book).forEach((e, i) =>
+								expect(e.weight, where).toBeCloseTo(table[i]!.weight, 12)
+							);
+						}
+					}
+				}
+			}
+		}
+	});
+
+	/** A roll's draws done by hand: the chance first, then a kind from `table` by the next draw. */
+	function byHand(rng: Rng, chance: number, table: readonly EncounterEntry[]): string | null {
+		if (table.length === 0 || !rng.chance(chance)) return null;
+		let r = rng.next();
+		for (const e of table) {
+			r -= e.weight;
+			if (r < 0) return e.species.id;
+		}
+		return table[table.length - 1]!.species.id;
+	}
+
+	it('the grass and the sky pick from the table favouring the kinds not in the book', () => {
+		const coins = new Rng(5);
+		let differ = 0;
+		for (const biome of BIOMES) {
+			for (const lead of LEADS) {
+				const site = siteAt(biome, 0, GROUNDS[lead]!);
+				const sky = skySite(biome, 0, GROUNDS[lead]!);
+				const grassTable = encounterTableAt(site, lead);
+				const skyTable = skyTableAt(sky, lead);
+				const grassSeen = someSeen(coins, grassTable);
+				const skySeen = someSeen(coins, skyTable);
+				for (let s = 0; s < 40; s++) {
+					const grass = rollEncounter(new Rng(s), site, lead, grassSeen)?.speciesId ?? null;
+					const want = byHand(new Rng(s), ENCOUNTER_CHANCE, favourUnseen(grassTable, grassSeen));
+					expect(grass, `tier-${lead} lead in ${biome}, seed ${s}`).toBe(want);
+					if (want !== byHand(new Rng(s), ENCOUNTER_CHANCE, grassTable)) differ++;
+					const bird = rollSkyEncounter(new Rng(s), sky, lead, skySeen)?.speciesId ?? null;
+					expect(bird, `sky over ${biome}, tier-${lead} lead, seed ${s}`).toBe(
+						byHand(new Rng(s), SKY_CHANCE, favourUnseen(skyTable, skySeen))
+					);
+				}
+			}
+		}
+		// The book changed some of those rolls: the roll does read it.
+		expect(differ).toBeGreaterThan(0);
+	});
+
+	it('a party passes the book on to its lead’s roll', () => {
+		const party = [{ id: 'a', speciesId: 'rabbit', hp: getAnimal('rabbit').maxHp }];
+		const site = siteAt('meadow', 0);
+		// Every kind seen but the shrew.
+		const seen = encounterTableAt(site, 1)
+			.map((e) => e.species.id)
+			.filter((id) => id !== 'shrew');
+		let shrews = 0;
+		let shrewsWithoutBook = 0;
+		for (let s = 0; s < 3000; s++) {
+			const wild = rollEncounterFor(new Rng(s), site, party, seen);
+			expect(wild).toEqual(rollEncounter(new Rng(s), site, 1, seen));
+			if (wild?.speciesId === 'shrew') shrews++;
+			if (rollEncounterFor(new Rng(s), site, party, [])?.speciesId === 'shrew') shrewsWithoutBook++;
+		}
+		expect(shrews).toBeGreaterThan(shrewsWithoutBook);
 	});
 });

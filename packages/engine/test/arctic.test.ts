@@ -717,7 +717,7 @@ describe("The Arctic's tiles", () => {
 					spawn,
 					around: surroundings(seed, p)
 				};
-				expect(rollEncounter(rng, site, lead)).toBeNull();
+				expect(rollEncounter(rng, site, lead, [])).toBeNull();
 				expect(rng.next()).toBe(new Rng(7).next());
 			}
 		}

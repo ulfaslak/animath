@@ -384,12 +384,15 @@ describe('LocalAuthority: encounters', () => {
 });
 
 describe('LocalAuthority: the lead decides who comes out', () => {
-	it('with the starter in front, the reed meets a Brown rat on step 11, a Frog on step 15, the first Toad on step 71 and the first Otter on step 117', () => {
+	it('with the starter in front, the reed meets a Brown rat on step 11, a Frog on step 15 and the first Toad on step 71, and eight kinds in thirteen battles', () => {
 		const met = reedWalk(session(), 200);
 		expect(met[0]).toEqual({ step: 11, wild: 'brown-rat', lead: 'squirrel' });
 		expect(met[1]).toEqual({ step: 15, wild: 'frog', lead: 'squirrel' });
 		expect(met.find((m) => m.wild === 'common-toad')?.step).toBe(71);
-		expect(met.find((m) => m.wild === 'otter')?.step).toBe(117);
+		// The kinds not in the book yet come out twice as often within their size (`favourUnseen`),
+		// so the small ones that come down to the water show up among the river's own.
+		expect(met.length).toBe(13);
+		expect(new Set(met.map((m) => m.wild)).size).toBe(8);
 		// Only what a tier-1 lead meets in the reeds: the river's own small and tier-2 animals,
 		// and the small ones that come down to the water.
 		const river = encounterTable('river', 0, 1).map((e) => e.species.id);
@@ -412,9 +415,7 @@ describe('LocalAuthority: the lead decides who comes out', () => {
 			// (#89), the eight that come down to the water (the buzzard, #91, the eighth). 13% of
 			// the reed's battles.
 			const small = ['frog', 'brown-rat', 'common-toad'];
-			expect(met.filter((m) => small.includes(m.wild)).map((m) => m.step)).toEqual([
-				15, 53, 107, 117
-			]);
+			expect(met.filter((m) => small.includes(m.wild)).map((m) => m.step)).toEqual([15, 53, 147]);
 			// The rest are its own size, but for one mute swan, a tier up (1/9 of a bell near home).
 			// Of its size, the river's own four come out four times as often each as one of the
 			// eight that come down to the water: no visitor weighs more than a resident (#136), so
@@ -429,8 +430,9 @@ describe('LocalAuthority: the lead decides who comes out', () => {
 					'otter',
 					'raccoon',
 					'mute-swan',
+					'badger',
 					'roe-deer',
-					'fox',
+					'beaver',
 					'grey-heron',
 					'stoat'
 				])
