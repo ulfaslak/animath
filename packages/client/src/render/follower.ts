@@ -5,7 +5,6 @@ import {
 	isWalkable,
 	isWater,
 	step,
-	tileAtWorld,
 	type Direction,
 	type GridPos
 } from '@mathgame/engine';
@@ -757,18 +756,25 @@ export class Follower {
 		return isWater(editedTileAt(this.seed, this.edits, p.x, p.y).kind);
 	}
 
-	/** Where its feet go on a tile: the ground's top, or swimming, low in the water. */
+	/**
+	 * Where its feet go on a tile, in the world as the edits leave it: the
+	 * ground's top, or swimming, low in the water (where a block broken afloat
+	 * stood too).
+	 */
 	private groundAt(p: GridPos): number {
-		const tile = tileAtWorld(this.seed, p.x, p.y);
+		const tile = editedTileAt(this.seed, this.edits, p.x, p.y);
 		if (!isWater(tile.kind)) return groundTop(tile);
 		const height =
 			(this.figure?.userData.restShape as { height: number } | undefined)?.height ?? 0.4;
 		return WATER_TOP - height * SWIM_DEPTH;
 	}
 
-	/** Where the trainer's feet are on a tile: its top, or out on the water, the boat's floor. */
+	/**
+	 * Where the trainer's feet are on a tile, in the world as the edits leave
+	 * it: its top, or out on the water, the boat's floor.
+	 */
 	private standAt(p: GridPos): number {
-		const tile = tileAtWorld(this.seed, p.x, p.y);
+		const tile = editedTileAt(this.seed, this.edits, p.x, p.y);
 		return groundTop(tile) + (isWater(tile.kind) ? BOAT_STAND : 0);
 	}
 }
