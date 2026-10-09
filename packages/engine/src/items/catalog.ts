@@ -77,7 +77,10 @@ export function getItem(id: ItemId): ItemSpec {
 	return item;
 }
 
-/** What the doctor's shop sells: every item that is `available`, in catalog order. */
+/**
+ * Every item that is `available`, in catalog order: what is on sale
+ * anywhere. What each land's druid sells is `shopFor`.
+ */
 export function itemsForSale(): ItemId[] {
 	return ITEMS.filter((i) => i.available).map((i) => i.id);
 }

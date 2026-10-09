@@ -221,8 +221,10 @@ export interface SavedLandStay {
 }
 
 /**
- * Version 4 of the save document, since lands (#191): the version this build
- * writes. `land` is the land the player is in, whose are the position, the
+ * Version 5 of the save document, since the puzzle record (`puzzles`): the
+ * version this build writes. Version 4, since lands (#191), was the same
+ * document without it, read through `SAVE_UPGRADES[4]`. `land` is the land
+ * the player is in, whose are the position, the
  * facing, the cleared tiles, the worlds left behind, the party, the tokens,
  * the items and a battle; `lands` are the lands left behind, and `unlocked`
  * the lands unlocked. Version 3 (since the animal book keeps the kinds set
@@ -694,7 +696,7 @@ function validateLandStay(v: unknown, label: string): string | null {
 }
 
 /**
- * Checks an untrusted value against the v4 document. `version`, `home`,
+ * Checks an untrusted value against the v5 document. `version`, `home`,
  * `world`, `pos` and `party` are required; the other fields are checked when
  * present, except `battle`, which only has to be storable (a load checks it
  * with `readBattle`). A document of the right shape that names something
@@ -707,7 +709,7 @@ export function validateSave(input: unknown): SaveCheck<SaveV5> {
 }
 
 /**
- * The v2 check, saying why a document fails: its shape makes it `invalid`;
+ * The v5 check, saying why a document fails: its shape makes it `invalid`;
  * a document of the right shape that names content this build does not have
  * was written by a newer build, and is `newer`.
  */

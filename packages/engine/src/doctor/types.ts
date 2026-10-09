@@ -57,7 +57,7 @@ export interface DoctorState {
 	tokens: number;
 	/** The ids of the items the player owns, in the order bought. */
 	items: readonly string[];
-	/** What the shop sells in this visit, in catalog order. */
+	/** What the shop sells in this visit, cheapest first in the land's money (`shopFor`). */
 	shop: readonly ItemId[];
 	/** The land the tent is in, which a flight leaves. */
 	land: LandId;

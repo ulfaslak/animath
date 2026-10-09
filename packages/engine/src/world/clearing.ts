@@ -92,8 +92,8 @@ export interface Clearer {
 /**
  * Clear `target` for `player` in the world of `seed` as `edits` leave it:
  * the whole rule, checked here and nowhere else. `target` must be the tile
- * next to the player that they face, a tree or a rock not yet cleared, and
- * the player must own its tool. Then the overlay gains the tile, and, when
+ * next to the player that they face, a tree, a rock or an ice block not yet
+ * cleared, and the player must own its tool. Then the overlay gains the tile, and, when
  * that takes the save past `EDITS_BUDGET`, the chunks farthest from the
  * player grow back (`WorldEdits.trimmedAround`). Pure: `edits` is left as it
  * was, and a refusal changes nothing.
@@ -139,8 +139,8 @@ export function clearLanding(
 
 /**
  * The tile at `at` cleared with its tool, the save trimmed round `around`
- * (where the player stands): a tree or a rock, in the world as `edits` leave
- * it, whose tool the player owns; else why not.
+ * (where the player stands): a tree, a rock or an ice block, in the world as
+ * `edits` leave it, whose tool the player owns; else why not.
  */
 function clearAt(
 	seed: number,

@@ -14,9 +14,10 @@ import {
 } from './types.js';
 
 /**
- * Skis ([[PRODUCT]] §4 "Skis", #191 step 6): on The Arctic's snow a kid with
- * skis picks up speed while they hold a way, coasts on when they let go, and
- * at top speed flies over a little deep snow and skims a little water. The
+ * Skis ([[PRODUCT]] §4 "The Arctic's shop", #191 step 6): on The Arctic's
+ * snow a kid with skis picks up speed while they hold a way, coasts on when
+ * they let go, and at top speed flies over a little deep snow and skims a
+ * little water. The
  * authority decides every tile (`skiMove` for a held step, `coast` for the
  * glide after it), each one a step of the count; the screen only paces them.
  *
