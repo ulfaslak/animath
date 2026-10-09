@@ -22,16 +22,19 @@ import { account } from './account.svelte';
  * number, Go, Go home and Back; `players` is who else is in this world,
  * each one a "Go to" (`presence.roster`); `book` is the animal book, a page
  * per land (`book.land`) with a card for every species of the land in the
- * book's order (`bookOrder`), the lit one `option`.
+ * book's order (`bookOrder`), the lit one `option`; `puzzles` is "My
+ * puzzles", a row per topic (`statRows`), the lit one `option`.
  */
-export type PauseScreen = 'list' | 'bundle' | 'options' | 'naming' | 'worlds' | 'players' | 'book';
+export type PauseScreen =
+	'list' | 'bundle' | 'options' | 'naming' | 'worlds' | 'players' | 'book' | 'puzzles';
 
 /**
  * The rows under the team, in order: Worlds, Who's here, the settings, the
  * account's rows (as `menuItems` shows them), then "Keep playing" and Quit
- * to title, which are drawn side by side; and last the animal book, which is
- * drawn at the top, on the menu's title line, so up from the first card
- * reaches it and down from the last row comes round to it. A new row is a
+ * to title, which are drawn side by side; and last "My puzzles" and the
+ * animal book, which are drawn side by side at the top, on the menu's title
+ * line, so up from the first card reaches the book and down from the last
+ * row comes round to "My puzzles". A new row is a
  * new id here, before Keep playing, its label in `PauseMenu.svelte`, and its
  * case in `PauseController.chooseItem` — the cursor, keys and layout already
  * count every row shown. A setting's row also takes left and right
@@ -43,7 +46,8 @@ export type PauseScreen = 'list' | 'bundle' | 'options' | 'naming' | 'worlds' | 
  * device; `sound` turns the sound off and on (`sfx`); the account's rows
  * open the account card or log out (`PauseHooks`); `quit` (Start screen)
  * saves the game as it stands and goes back to the title, where Continue
- * picks it up; `book` opens the animal book in the menu's place.
+ * picks it up; `puzzles` opens "My puzzles" in the menu's place, and `book`
+ * the animal book.
  */
 export const MENU_ITEMS = [
 	'worlds',
@@ -55,6 +59,7 @@ export const MENU_ITEMS = [
 	'logOut',
 	'resume',
 	'quit',
+	'puzzles',
 	'book'
 ] as const;
 export type MenuItem = (typeof MENU_ITEMS)[number];
@@ -82,7 +87,7 @@ export function menuItems(): MenuItem[] {
  * Rows drawn side by side on one line, so the menu keeps its height (eight
  * cards fit 1024×768): Worlds beside Who's here, Language beside Sound, the
  * account's rows beside each other (those `menuItems` shows), Keep playing
- * beside Start screen. Each line is neighbours in `MENU_ITEMS`. Up and down
+ * beside Start screen, and on the title line "My puzzles" beside the book. Each line is neighbours in `MENU_ITEMS`. Up and down
  * walk them in order as any rows; left and right step between them, except
  * on a setting, where they change it.
  */
@@ -90,7 +95,8 @@ export const MENU_LINES: readonly (readonly MenuItem[])[] = [
 	['worlds', 'players'],
 	['language', 'sound'],
 	['makeAccount', 'logIn', 'logOut'],
-	['resume', 'quit']
+	['resume', 'quit'],
+	['puzzles', 'book']
 ];
 
 /** The rows drawn on the line `item` is on, of those the menu shows (`items`). */
@@ -115,7 +121,8 @@ class PauseView {
 	/**
 	 * Highlighted row on the right: an option, or on a card's screen an option
 	 * or an animal; on the Worlds screen a row; in the animal book the lit
-	 * card, by its place on the open page (`bookOrder(book.land)`).
+	 * card, by its place on the open page (`bookOrder(book.land)`); in "My
+	 * puzzles" the lit row.
 	 */
 	option = $state(0);
 	/** The name typed so far. */

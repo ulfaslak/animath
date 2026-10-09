@@ -139,6 +139,7 @@ describe('relit', () => {
 			logIn: 'resume',
 			resume: 'resume',
 			quit: 'quit',
+			puzzles: 'puzzles',
 			book: 'book'
 		});
 		expect(moves(without, withRows)).toEqual(Object.fromEntries(without.map((i) => [i, i])));

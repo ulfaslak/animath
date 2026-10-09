@@ -2053,3 +2053,13 @@ book:
   seenFree: Du har mødt {animal.a}, og {animal.the} tæller som sluppet fri!
   lands: Vælg et land og se dets dyr!
   keys: ↑ ↓ ← → flyt · Esc tilbage
+puzzles:
+  title: Mine opgaver
+  solved:
+    one: '{count} løst i alt'
+    other: '{count} løst i alt'
+  help: Hver opgave, du svarer på, bliver talt her, slags for slags.
+  row: '{right} rigtige af {tried}'
+  never: Ikke prøvet endnu
+  caption: Hver bjælke er de opgaver, du har prøvet. Den grønne del er dem, du fik rigtige.
+  keys: ↑ ↓ flyt · Esc tilbage

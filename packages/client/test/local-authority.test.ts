@@ -496,6 +496,7 @@ describe('LocalAuthority: outcomes', () => {
 		expect(closingEvents(s).map((e) => e.type)).toEqual([
 			'battle-updated',
 			'solved-changed',
+			'puzzles-changed',
 			'battle-ended',
 			'party-changed',
 			'message'
@@ -529,6 +530,8 @@ describe('LocalAuthority: outcomes', () => {
 		expect(end.phase).toEqual({ kind: 'ended', outcome: 'lost' });
 		expect(closingEvents(s).map((e) => e.type)).toEqual([
 			'battle-updated',
+			// The losing turn's answer, a wrong one, is recorded.
+			'puzzles-changed',
 			'battle-ended',
 			'party-changed',
 			'message'
@@ -1195,13 +1198,13 @@ describe('LocalAuthority: the doctor', () => {
 		expect(s.events.at(-1)).toMatchObject({ type: 'doctor-visit-updated' });
 		expect(visit(s).phase).toEqual({ kind: 'choose-patient' });
 
-		// A miss: the HP stays, another puzzle, no party change.
+		// A miss: the HP stays, another puzzle, no party change; only the record has it.
 		doctorIntent(s, { type: 'pick-patient', partyIndex: 1 });
 		const first = visit(s).phase;
 		const beforeMiss = s.events.length;
 		answerDoctor(s, false);
 		const missed = s.events.slice(beforeMiss);
-		expect(missed.map((e) => e.type)).toEqual(['doctor-visit-updated']);
+		expect(missed.map((e) => e.type)).toEqual(['doctor-visit-updated', 'puzzles-changed']);
 		expect(visit(s).party[1]!.hp).toBe(0);
 		expect(visit(s).phase).toMatchObject({ kind: 'solving', partyIndex: 1 });
 		expect(visit(s).phase).not.toEqual(first);
@@ -1263,12 +1266,17 @@ describe('LocalAuthority: the doctor', () => {
 		expect(visit(s).phase).toMatchObject({ kind: 'handing-over', reward: 2 });
 		let from = s.events.length;
 		answerDoctor(s, false);
-		expect(s.events.slice(from).map((e) => e.type)).toEqual(['doctor-visit-updated']);
+		// A wrong answer is recorded too, under its topic, and changes nothing else.
+		expect(s.events.slice(from).map((e) => e.type)).toEqual([
+			'doctor-visit-updated',
+			'puzzles-changed'
+		]);
 		from = s.events.length;
 		answerDoctor(s, true);
 		expect(s.events.slice(from)).toMatchObject([
 			{ type: 'doctor-visit-updated' },
 			{ type: 'solved-changed', solved: 1 },
+			{ type: 'puzzles-changed' },
 			{ type: 'party-changed', party: [hurtParty()[1], hurtParty()[2]] },
 			{ type: 'book-changed', freed: ['squirrel'] },
 			{ type: 'belongings-changed', tokens: 22, items: [] }
@@ -1277,12 +1285,17 @@ describe('LocalAuthority: the doctor', () => {
 		doctorIntent(s, { type: 'buy', itemId: 'axe' });
 		from = s.events.length;
 		answerDoctor(s, false);
-		expect(s.events.slice(from).map((e) => e.type)).toEqual(['doctor-visit-updated']);
+		// A wrong answer is recorded too, under its topic, and changes nothing else.
+		expect(s.events.slice(from).map((e) => e.type)).toEqual([
+			'doctor-visit-updated',
+			'puzzles-changed'
+		]);
 		from = s.events.length;
 		answerDoctor(s, true);
 		expect(s.events.slice(from)).toMatchObject([
 			{ type: 'doctor-visit-updated' },
 			{ type: 'solved-changed', solved: 2 },
+			{ type: 'puzzles-changed' },
 			{ type: 'belongings-changed', tokens: 14, items: ['axe'] }
 		]);
 		doctorIntent(s, { type: 'leave' });
@@ -1969,6 +1982,8 @@ describe('LocalAuthority: trees and rocks', () => {
 		lose(walled);
 		expect(closingEvents(walled).map((e) => e.type)).toEqual([
 			'battle-updated',
+			// The losing turn's answer, a wrong one, is recorded.
+			'puzzles-changed',
 			'battle-ended',
 			'party-changed',
 			'message'
@@ -2376,22 +2391,39 @@ describe('LocalAuthority: puzzles solved', () => {
 
 		const from = s.events.length;
 		for (const step of steps) s.authority.dispatch(answers(step, 'a'));
-		expect(s.events.slice(from).filter((e) => e.type !== 'solved-changed')).toEqual([]);
-		expect(s.events.at(-1)).toEqual({ type: 'solved-changed', solved: 1 + right.a });
-		// One `solved-changed` for each step with a right answer of the player's, never one for nothing.
+		const told = s.events.slice(from);
+		expect(told.filter((e) => e.type !== 'solved-changed' && e.type !== 'puzzles-changed')).toEqual(
+			[]
+		);
+		expect(told.filter((e) => e.type === 'solved-changed').at(-1)).toEqual({
+			type: 'solved-changed',
+			solved: 1 + right.a
+		});
+		// One `solved-changed` for each step with a right answer of the player's, never one for
+		// nothing; one `puzzles-changed` for each step with an answer of the player's, right or wrong.
 		const counting = steps.filter((st) =>
 			st.events.some((e) => e.type === 'answer-judged' && e.correct && e.side === 'a')
 		);
-		expect(s.events.length - from).toBe(counting.length);
-		// Nothing else about the game changed: a match changes nothing but the count.
-		expect(s.authority.snapshot()).toEqual({ ...before, solved: 1 + right.a });
-		// The other player's right answers, and the wrong ones, are nobody's here (in a match of its own).
+		const judging = steps.filter((st) =>
+			st.events.some((e) => e.type === 'answer-judged' && e.side === 'a')
+		);
+		expect(told.filter((e) => e.type === 'solved-changed')).toHaveLength(counting.length);
+		expect(told.filter((e) => e.type === 'puzzles-changed')).toHaveLength(judging.length);
+		// Every answer of the player's is in the record, under its topic.
+		const record = s.authority.snapshot().puzzles;
+		const tried = Object.values(record).reduce((n, r) => n + r!.tried, 0);
+		const triedBefore = Object.values(before.puzzles).reduce((n, r) => n + r!.tried, 0);
+		expect(tried - triedBefore).toBe(judging.length);
+		// Nothing else about the game changed: a match changes nothing but the count and the record.
+		expect(s.authority.snapshot()).toEqual({ ...before, solved: 1 + right.a, puzzles: record });
+		// The other player's answers are nobody's here (in a match of its own).
 		const theirs = steps.map((st) => ({
 			...st,
-			events: st.events.filter((e) => e.type !== 'answer-judged' || e.side === 'b' || !e.correct)
+			events: st.events.filter((e) => e.type !== 'answer-judged' || e.side === 'b')
 		}));
+		const was = s.events.length;
 		for (const step of theirs) s.authority.dispatch(answers(step, 'a', 'another-match'));
-		expect(s.events.length).toBe(from + counting.length);
+		expect(s.events.length).toBe(was);
 		// Played from the other side, the same steps count the other side's answers.
 		const other = session();
 		for (const step of steps) other.authority.dispatch(answers(step, 'b'));
