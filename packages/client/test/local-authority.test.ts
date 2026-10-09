@@ -3713,7 +3713,7 @@ describe('LocalAuthority: lands (#191)', () => {
 		// At a tent the witch doctor offers the trip, and a yes flies there with no fare.
 		walkToTent(s);
 		s.authority.dispatch({ type: 'interact' });
-		expect(visit(s).phase).toEqual({ kind: 'offering', land: 'arctic' });
+		expect(visit(s).phase).toEqual({ kind: 'offering', land: 'arctic', from: 'nordland' });
 		doctorIntent(s, { type: 'accept-offer' });
 		expect(s.events.some((e) => e.type === 'travelled' && e.land === 'arctic')).toBe(true);
 		expect(s.authority.snapshot().land).toBe('arctic');
@@ -3798,13 +3798,13 @@ describe('LocalAuthority: lands, from the adversarial review of #196', () => {
 		expect(s.authority.snapshot().unlocked).toEqual(['nordland', 'arctic']);
 		walkToTent(s);
 		s.authority.dispatch({ type: 'interact' });
-		expect(visit(s).phase).toEqual({ kind: 'offering', land: 'arctic' });
+		expect(visit(s).phase).toEqual({ kind: 'offering', land: 'arctic', from: 'nordland' });
 		// Not now: the list, and the next visit asks again.
 		doctorIntent(s, { type: 'back' });
 		expect(visit(s).phase.kind).toBe('choose-patient');
 		doctorIntent(s, { type: 'leave' });
 		s.authority.dispatch({ type: 'interact' });
-		expect(visit(s).phase).toEqual({ kind: 'offering', land: 'arctic' });
+		expect(visit(s).phase).toEqual({ kind: 'offering', land: 'arctic', from: 'nordland' });
 		doctorIntent(s, { type: 'accept-offer' });
 		expect(s.authority.snapshot().land).toBe('arctic');
 		// In The Arctic, Nordland is never offered; flown back for the fare, nothing is.

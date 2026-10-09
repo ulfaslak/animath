@@ -336,22 +336,30 @@ export function flyRefusal(
 }
 
 /**
- * The land the witch doctor offers a kid a trip to as a surprise, or null: the
- * first land, in unlock order, a flight may go to (`flyRefusal`: built,
+ * The trip the witch doctor offers a kid as a surprise, or null: the first
+ * land (`land`), in unlock order, a flight may go to (`flyRefusal`: built,
  * unlocked, not the land the tent is in) that the kid has never been to
- * (`visited`: the land they stand in and every land left behind). The trip is
- * the reward for catching one of every animal of the land before it, so it
- * costs no fare; it is offered at every visit until the kid has gone there.
+ * (`visited`: the land they stand in and every land left behind), and whose
+ * land before it (`from`) has every one of its species in `caught`. The trip
+ * is the reward for that catching, so it costs no fare; it is offered at
+ * every visit until the kid has gone there. A land unlocked some other way (a
+ * save from the rule before, a species added to the land before since) is
+ * offered nothing: the Fly tab, and its fare, go there.
  */
 export function surpriseLand(trip: {
 	here: LandId;
 	unlocked: readonly string[];
 	open: readonly LandId[];
 	visited: readonly string[];
-}): LandId | null {
-	for (const id of LAND_IDS) {
-		if (id === FIRST_LAND || trip.visited.includes(id)) continue;
-		if (flyRefusal(trip, id) === null) return id;
+	caught: readonly string[];
+}): { land: LandId; from: LandId } | null {
+	for (let i = 1; i < LANDS.length; i++) {
+		const land = LANDS[i]!.id;
+		const before = LANDS[i - 1]!;
+		if (trip.visited.includes(land) || flyRefusal(trip, land) !== null) continue;
+		if (before.species.length === 0 || !before.species.every((id) => trip.caught.includes(id)))
+			continue;
+		return { land, from: before.id };
 	}
 	return null;
 }

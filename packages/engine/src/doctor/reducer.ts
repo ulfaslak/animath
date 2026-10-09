@@ -92,6 +92,8 @@ export interface DoctorVisitOptions {
 	 * land the tent is in.
 	 */
 	visited?: readonly string[];
+	/** The species the player has caught (the animal book's), which the surprise asks. Default: none. */
+	caught?: readonly string[];
 }
 
 /**
@@ -118,7 +120,13 @@ export function startDoctorVisit(
 	}
 	const unlocked = [...(options.unlocked ?? [FIRST_LAND])];
 	const open = [...(options.open ?? availableLands())];
-	const offer = surpriseLand({ here: land, unlocked, open, visited: options.visited ?? [land] });
+	const offer = surpriseLand({
+		here: land,
+		unlocked,
+		open,
+		visited: options.visited ?? [land],
+		caught: options.caught ?? []
+	});
 	return {
 		step: 0,
 		party: party.map((a) => ({ ...a })),
@@ -131,7 +139,7 @@ export function startDoctorVisit(
 		land,
 		unlocked,
 		open,
-		phase: offer ? { kind: 'offering', land: offer } : { kind: 'choose-patient' }
+		phase: offer ? { kind: 'offering', ...offer } : { kind: 'choose-patient' }
 	};
 }
 
@@ -149,6 +157,15 @@ export function applyDoctorIntent(
 	}
 	if (!intent || typeof intent !== 'object') return reject(state, 'not-an-intent');
 	if (state.phase.kind === 'ended') return reject(state, 'visit-over');
+	// The trip offered is answered first: yes, not now, or bye.
+	if (
+		state.phase.kind === 'offering' &&
+		intent.type !== 'accept-offer' &&
+		intent.type !== 'back' &&
+		intent.type !== 'leave'
+	) {
+		return reject(state, 'offer-open');
+	}
 	switch (intent.type) {
 		case 'pick-patient':
 			return pickPatient(state, seed, intent.partyIndex);

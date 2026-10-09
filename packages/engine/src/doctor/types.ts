@@ -37,10 +37,11 @@ export type DoctorPhase =
 	/** Flying to `land`, once `puzzle`, the fare (`farePuzzle`), is solved. */
 	| { kind: 'paying-fare'; land: LandId; puzzle: Puzzle }
 	/**
-	 * The witch doctor offers a trip to `land`, a surprise with no fare
-	 * (`surpriseLand`): `accept-offer` flies there, `back` says not now.
+	 * The witch doctor offers a trip to `land`, a surprise with no fare, for
+	 * catching one of every animal of `from` (`surpriseLand`): `accept-offer`
+	 * flies there, `back` says not now, `leave` says bye; nothing else is taken.
 	 */
-	| { kind: 'offering'; land: LandId }
+	| { kind: 'offering'; land: LandId; from: LandId }
 	| { kind: 'ended' };
 
 export interface DoctorState {
@@ -109,6 +110,8 @@ export type DoctorRejection =
 	| 'no-puzzle'
 	/** An `accept-offer` with no trip offered. */
 	| 'no-offer'
+	/** Anything but `accept-offer`, `back` or `leave` while the trip is offered. */
+	| 'offer-open'
 	/** A `fly` the rules refuse (`flyRefusal`): not a land, the land the tent is in, not built yet, or locked. */
 	| FlyRefusal;
 

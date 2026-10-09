@@ -199,7 +199,7 @@ export class DoctorController {
 		}
 		// A land caught open and never visited: the witch doctor's surprise comes first.
 		if (state.phase.kind === 'offering') {
-			this.said = { say: 'surprise', from: state.land };
+			this.said = { say: 'surprise', from: state.phase.from };
 			doctor.confirm = 1;
 		}
 		doctor.cursor = this.firstStop(doctor.tab);

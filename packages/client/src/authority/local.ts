@@ -1174,7 +1174,8 @@ export class LocalAuthority implements Authority {
 			open: this.options.lands ? LAND_IDS : availableLands(),
 			// The surprise trip rewards catching one of each animal: a game a switch opened every
 			// land in earned none, so it is offered nothing.
-			visited: this.options.lands ? LAND_IDS : [this.land, ...this.lands.map((l) => l.land)]
+			visited: this.options.lands ? LAND_IDS : [this.land, ...this.lands.map((l) => l.land)],
+			caught: this.book.caught
 		});
 		// A fresh seed per visit, keyed like everything else here so a session
 		// replays; the visit count keeps a second visit from asking the same

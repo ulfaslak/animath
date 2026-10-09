@@ -1218,9 +1218,15 @@ describe('flying from the witch doctor (#191)', () => {
 
 describe('the surprise trip (`surpriseLand`)', () => {
 	const party = partyOf(['squirrel'], ['fox', 3]);
-	const unlocked = { land: 'nordland', unlocked: ['nordland', 'arctic'], open: LAND_IDS } as const;
+	const nordland = getLand('nordland').species;
+	const unlocked = {
+		land: 'nordland',
+		unlocked: ['nordland', 'arctic'],
+		open: LAND_IDS,
+		caught: nordland
+	} as const;
 
-	it('opens on the trip to a land unlocked and never visited, and on the list otherwise', () => {
+	it('opens on the trip to a land unlocked, earned and never visited, and on the list otherwise', () => {
 		const cases: [Parameters<typeof startDoctorVisit>[1], string | null][] = [
 			[unlocked, 'arctic'],
 			[{ ...unlocked, visited: ['nordland'] }, 'arctic'],
@@ -1228,14 +1234,21 @@ describe('the surprise trip (`surpriseLand`)', () => {
 			[{ ...unlocked, visited: ['nordland', 'arctic'] }, null],
 			[{ ...unlocked, unlocked: ['nordland'] }, null],
 			[{ ...unlocked, open: ['nordland'] }, null],
+			// Unlocked but not earned by catching (a save from the set-free rule, or a species
+			// added to Nordland since): the Fly tab goes there, for the fare, and nothing is offered.
+			[{ ...unlocked, caught: nordland.slice(1) }, null],
+			[{ ...unlocked, caught: undefined }, null],
 			// In The Arctic, Nordland is never a surprise: every kid starts there.
-			[{ land: 'arctic', unlocked: LAND_IDS, open: ['nordland', 'arctic'] }, null],
+			[
+				{ land: 'arctic', unlocked: LAND_IDS, open: ['nordland', 'arctic'], caught: nordland },
+				null
+			],
 			[{}, null]
 		];
 		for (const [options, land] of cases) {
 			const state = startDoctorVisit(party, options);
 			expect(state.phase, JSON.stringify(options)).toEqual(
-				land ? { kind: 'offering', land } : { kind: 'choose-patient' }
+				land ? { kind: 'offering', land, from: 'nordland' } : { kind: 'choose-patient' }
 			);
 		}
 	});
@@ -1255,6 +1268,23 @@ describe('the surprise trip (`surpriseLand`)', () => {
 		]);
 		// The Fly tab still flies there, for the fare.
 		expect(apply(no.state, { type: 'fly', land: 'arctic' }, 5).events[0]?.type).toBe('fare-shown');
+	});
+
+	it('takes nothing but a yes, a not-now or a bye while the trip is offered', () => {
+		const state = startDoctorVisit(party, unlocked);
+		const others: DoctorIntent[] = [
+			{ type: 'fly', land: 'arctic' },
+			{ type: 'pick-patient', partyIndex: 1 },
+			{ type: 'hand-over', ids: ['squirrel-0'] },
+			{ type: 'buy', itemId: 'axe' },
+			{ type: 'answer', input: '3' }
+		];
+		for (const intent of others) {
+			expect(apply(state, intent, 4).events, intent.type).toEqual([
+				{ type: 'rejected', reason: 'offer-open' }
+			]);
+		}
+		expect(apply(state, { type: 'leave' }, 4).events).toEqual([{ type: 'ended' }]);
 	});
 
 	it('refuses a yes with no trip offered, in every other phase', () => {
