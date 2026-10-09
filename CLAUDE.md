@@ -86,6 +86,7 @@ Never use `git checkout -- <file>`, `git checkout <ref> -- .`, `git reset --hard
 At minimum, include `## Summary` and `## Test plan` (checklist). Add `## Decisions taken without asking` if any autonomous scope calls were made. Add `## Balance` with a simulation table if numbers changed. Add `## Mistakes found during self-testing` if you found any. Link an issue the PR addresses with `Closes #N`. The session ID footer goes last.
 
 - **Screenshots for anything visible.** If the PR changes what's on screen, add before/after screenshots (`scripts/screenshot.mjs` → `screenshots/`, which is gitignored). Publish them with `scripts/pr-screenshots.sh <pr-number> <file.png>...`, which adds them to the one `screenshots` branch in the folder `<pr-number>/` without checking it out, and paste the lines it prints: `![<image name>](https://github.com/ulfaslak/animath/blob/screenshots/<pr-number>/<image-name>.png?raw=true)` ([[DEVELOPMENT]] § Screenshots in PRs).
+- **Pictures that explain.** If a descriptive image would make the work much easier for the human to understand (a diagram, a figure or a graph of any kind), include one in the PR body too. Render it to a PNG and publish it the same way.
 - **Include session ID in every PR description.** `echo $CLAUDE_CODE_SESSION_ID`, then add a footer line `Session: <session-id>`, so future agents can trace back to the conversation that produced the changes.
 
 ## Making decisions autonomously
