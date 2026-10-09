@@ -11,7 +11,7 @@ import { startDoctorVisit } from '../src/doctor/reducer.js';
 import { shopFor } from '../src/lands/lands.js';
 import { clearTile, clearableAhead, clearingTool } from '../src/world/clearing.js';
 import { WorldEdits, editedTileAt } from '../src/world/edits.js';
-import { distanceFromSpawn, favourUnseen } from '../src/world/encounters.js';
+import { distanceFromSpawn, favourUncaught } from '../src/world/encounters.js';
 import { BITE_CHANCE, castLine, holeAhead, holeTable, rollCast } from '../src/world/fishing.js';
 import { tileAtWorld } from '../src/world/generate.js';
 import { worldSeed } from '../src/world/numbers.js';
@@ -361,7 +361,7 @@ describe('fishing', () => {
 		expect(rng.next()).toBe(before);
 	});
 
-	it('a cast picks from the hole’s table favouring the kinds not in the book', () => {
+	it('a cast picks from the hole’s table favouring the kinds not caught', () => {
 		const seed = arctic(1);
 		const spawn = spawnPoint(seed);
 		const rod = { items: ['fishing-rod'] };
@@ -372,7 +372,7 @@ describe('fishing', () => {
 				distanceFromSpawn(hole, spawn),
 				getAnimal('otter').tier
 			);
-			for (const seen of [[], table.slice(1).map((e) => e.species.id)]) {
+			for (const caught of [[], table.slice(1).map((e) => e.species.id)]) {
 				for (let i = 0; i < 30; i++) {
 					const got = castLine(
 						new Rng(i),
@@ -381,9 +381,9 @@ describe('fishing', () => {
 						{ hole, spawn },
 						rod,
 						swimmers,
-						seen
+						caught
 					);
-					const want = rollCast(new Rng(i), favourUnseen(table, seen));
+					const want = rollCast(new Rng(i), favourUncaught(table, caught));
 					expect(got).toEqual(want ? { outcome: 'bite', wild: want } : { outcome: 'nothing' });
 				}
 			}

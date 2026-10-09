@@ -8,13 +8,13 @@ import {
 	SAFE_RADIUS,
 	SKY_CHANCE,
 	TIER_SIGMA,
-	UNSEEN_BOOST,
+	UNCAUGHT_BOOST,
 	VISITORS_WEIGHT,
 	WILD_RADIUS,
 	distanceFromSpawn,
 	encounterTable,
 	encounterTableAt,
-	favourUnseen,
+	favourUncaught,
 	rollEncounter,
 	rollEncounterFor,
 	rollSkyEncounter,
@@ -2169,9 +2169,9 @@ describe('the fishing holes (#192 § Fishing holes)', () => {
 	});
 });
 
-describe('a kind never seen comes out more often within its size', () => {
-	/** Each species of `table` seen or not, by a coin from `rng`. */
-	const someSeen = (rng: Rng, table: readonly EncounterEntry[]) =>
+describe('a kind not caught yet comes out more often within its size', () => {
+	/** Each species of `table` caught or not, by a coin from `rng`. */
+	const someCaught = (rng: Rng, table: readonly EncounterEntry[]) =>
 		table.filter(() => rng.chance(0.5)).map((e) => e.species.id);
 	const tierShares = (table: readonly EncounterEntry[]) => {
 		const shares = new Map<Tier, number>();
@@ -2179,8 +2179,8 @@ describe('a kind never seen comes out more often within its size', () => {
 		return shares;
 	};
 
-	it('keeps every tier its share, and weighs a kind never seen twice a seen one within it', () => {
-		expect(UNSEEN_BOOST).toBe(2);
+	it('keeps every tier its share, and weighs a kind not caught twice a caught one within it', () => {
+		expect(UNCAUGHT_BOOST).toBe(2);
 		const coins = new Rng(11);
 		for (const biome of BIOMES) {
 			for (const lead of LEADS) {
@@ -2188,9 +2188,9 @@ describe('a kind never seen comes out more often within its size', () => {
 					for (const around of GROUNDS) {
 						const where = `tier-${lead} lead in ${biome} at ${d}`;
 						const table = encounterTableAt(siteAt(biome, d, around), lead);
-						const seen = someSeen(coins, table);
-						const known = new Set(seen);
-						const out = favourUnseen(table, seen);
+						const caught = someCaught(coins, table);
+						const known = new Set(caught);
+						const out = favourUncaught(table, caught);
 						expect(
 							out.map((e) => e.species.id),
 							where
@@ -2200,7 +2200,7 @@ describe('a kind never seen comes out more often within its size', () => {
 						for (const [tier, share] of tierShares(out)) {
 							expect(share, `${where}, tier ${tier}`).toBeCloseTo(before.get(tier)!, 12);
 						}
-						// Within a tier, every pair keeps its ratio, a kind never seen counted twice.
+						// Within a tier, every pair keeps its ratio, a kind not caught counted twice.
 						const weight = (i: number) =>
 							(known.has(table[i]!.species.id) ? 1 : 2) * table[i]!.weight;
 						for (let i = 0; i < table.length; i++) {
@@ -2216,7 +2216,7 @@ describe('a kind never seen comes out more often within its size', () => {
 						// A book with nothing, or everything, in it changes nothing.
 						const all = table.map((e) => e.species.id);
 						for (const book of [[], all]) {
-							favourUnseen(table, book).forEach((e, i) =>
+							favourUncaught(table, book).forEach((e, i) =>
 								expect(e.weight, where).toBeCloseTo(table[i]!.weight, 12)
 							);
 						}
@@ -2237,7 +2237,7 @@ describe('a kind never seen comes out more often within its size', () => {
 		return table[table.length - 1]!.species.id;
 	}
 
-	it('the grass and the sky pick from the table favouring the kinds not in the book', () => {
+	it('the grass and the sky pick from the table favouring the kinds not caught', () => {
 		const coins = new Rng(5);
 		let differ = 0;
 		for (const biome of BIOMES) {
@@ -2246,16 +2246,20 @@ describe('a kind never seen comes out more often within its size', () => {
 				const sky = skySite(biome, 0, GROUNDS[lead]!);
 				const grassTable = encounterTableAt(site, lead);
 				const skyTable = skyTableAt(sky, lead);
-				const grassSeen = someSeen(coins, grassTable);
-				const skySeen = someSeen(coins, skyTable);
+				const grassCaught = someCaught(coins, grassTable);
+				const skyCaught = someCaught(coins, skyTable);
 				for (let s = 0; s < 40; s++) {
-					const grass = rollEncounter(new Rng(s), site, lead, grassSeen)?.speciesId ?? null;
-					const want = byHand(new Rng(s), ENCOUNTER_CHANCE, favourUnseen(grassTable, grassSeen));
+					const grass = rollEncounter(new Rng(s), site, lead, grassCaught)?.speciesId ?? null;
+					const want = byHand(
+						new Rng(s),
+						ENCOUNTER_CHANCE,
+						favourUncaught(grassTable, grassCaught)
+					);
 					expect(grass, `tier-${lead} lead in ${biome}, seed ${s}`).toBe(want);
 					if (want !== byHand(new Rng(s), ENCOUNTER_CHANCE, grassTable)) differ++;
-					const bird = rollSkyEncounter(new Rng(s), sky, lead, skySeen)?.speciesId ?? null;
+					const bird = rollSkyEncounter(new Rng(s), sky, lead, skyCaught)?.speciesId ?? null;
 					expect(bird, `sky over ${biome}, tier-${lead} lead, seed ${s}`).toBe(
-						byHand(new Rng(s), SKY_CHANCE, favourUnseen(skyTable, skySeen))
+						byHand(new Rng(s), SKY_CHANCE, favourUncaught(skyTable, skyCaught))
 					);
 				}
 			}
@@ -2267,15 +2271,15 @@ describe('a kind never seen comes out more often within its size', () => {
 	it('a party passes the book on to its lead’s roll', () => {
 		const party = [{ id: 'a', speciesId: 'rabbit', hp: getAnimal('rabbit').maxHp }];
 		const site = siteAt('meadow', 0);
-		// Every kind seen but the shrew.
-		const seen = encounterTableAt(site, 1)
+		// Every kind caught but the shrew.
+		const caught = encounterTableAt(site, 1)
 			.map((e) => e.species.id)
 			.filter((id) => id !== 'shrew');
 		let shrews = 0;
 		let shrewsWithoutBook = 0;
 		for (let s = 0; s < 3000; s++) {
-			const wild = rollEncounterFor(new Rng(s), site, party, seen);
-			expect(wild).toEqual(rollEncounter(new Rng(s), site, 1, seen));
+			const wild = rollEncounterFor(new Rng(s), site, party, caught);
+			expect(wild).toEqual(rollEncounter(new Rng(s), site, 1, caught));
 			if (wild?.speciesId === 'shrew') shrews++;
 			if (rollEncounterFor(new Rng(s), site, party, [])?.speciesId === 'shrew') shrewsWithoutBook++;
 		}

@@ -67,13 +67,13 @@ import { encounterRealm, isEncounterTile, type GridPos, type Tile } from './type
  * The authority rolls only while a bird stands in the team, and only until
  * one bird has come out in a flight.
  *
- * A kind the kid has never seen comes out a little more often than its
- * table says (`favourUnseen`): within its tier it weighs
- * `UNSEEN_BOOST` times what a seen kind of the same weight would, and its
- * tier keeps its share, so the bell, the distance rule and the ground decide
- * how big an animal comes out exactly as before, and the book only picks,
- * among the animals of that size, the one more likely to be new. Every roll
- * takes the book's `seen` list; the tables themselves never see it.
+ * A kind the kid has not caught yet (never met, or met and not caught) comes
+ * out a little more often than its table says (`favourUncaught`): within its
+ * tier it weighs `UNCAUGHT_BOOST` times what a caught kind of the same weight
+ * would, and its tier keeps its share, so the bell, the distance rule and the
+ * ground decide how big an animal comes out exactly as before, and the book
+ * only picks, among the animals of that size, the one the kid still needs.
+ * Every roll takes the book's `caught` list; the tables themselves never see it.
  *
  * Every land keeps its own animals (#191): a table lists only species of the
  * land the player is in (`EncounterSite.land`), so a Nordland kid never meets
@@ -116,11 +116,11 @@ export const TIER_SIGMA = 1;
 export const NEAR_ONE_UP = 1 / 9;
 
 /**
- * What a kind never seen weighs within its tier next to a seen one of the
- * same table weight: twice, so the last few kinds of a size a kid still
- * misses are easier to find, without making any size commoner.
+ * What a kind not caught yet weighs within its tier next to a caught one of
+ * the same table weight: twice, so the last few kinds of a size a kid still
+ * has to catch are easier to find, without making any size commoner.
  */
-export const UNSEEN_BOOST = 2;
+export const UNCAUGHT_BOOST = 2;
 
 export interface EncounterEntry {
 	species: AnimalSpec;
@@ -403,19 +403,19 @@ function tableOnGround(
 }
 
 /**
- * `table` with each kind not in `seen` (the animal book's species seen)
- * weighing `UNSEEN_BOOST` times its weight within its tier: every tier keeps
+ * `table` with each kind not in `caught` (the animal book's species caught)
+ * weighing `UNCAUGHT_BOOST` times its weight within its tier: every tier keeps
  * its share of the table, and its animals split it by their weights, a kind
- * never seen counted `UNSEEN_BOOST` times. The same species, in the same
- * order. A tier all seen, or all unseen, is unchanged, so an empty book
+ * not caught counted `UNCAUGHT_BOOST` times. The same species, in the same
+ * order. A tier all caught, or none of it, is unchanged, so an empty book
  * changes nothing.
  */
-export function favourUnseen(
+export function favourUncaught(
 	table: readonly EncounterEntry[],
-	seen: readonly string[]
+	caught: readonly string[]
 ): EncounterEntry[] {
-	const known = new Set(seen);
-	const boost = (e: EncounterEntry) => (known.has(e.species.id) ? 1 : UNSEEN_BOOST);
+	const known = new Set(caught);
+	const boost = (e: EncounterEntry) => (known.has(e.species.id) ? 1 : UNCAUGHT_BOOST);
 	const tiers = new Map<Tier, { share: number; boosted: number }>();
 	for (const e of table) {
 		const tier = tiers.get(e.species.tier) ?? { share: 0, boosted: 0 };
@@ -438,7 +438,7 @@ export function favourUnseen(
  * happens. The chance is `ENCOUNTER_CHANCE` whatever the lead and the ground,
  * wherever anything of the tile's realm lives in its biome; where nothing
  * does, the roll is `null` without a draw. On a hit, the animal is picked from
- * `encounterTableAt`, favouring the kinds not in `seen` (`favourUnseen`).
+ * `encounterTableAt`, favouring the kinds not in `caught` (`favourUncaught`).
  * Throws on a site whose position, spawn or surroundings are not real, or a
  * lead that is not a tier, rather than guessing a table.
  */
@@ -446,14 +446,14 @@ export function rollEncounter(
 	rng: Rng,
 	site: EncounterSite,
 	leadTier: Tier,
-	seen: readonly string[]
+	caught: readonly string[]
 ): WildAnimal | null {
 	assertTier(leadTier, 'rollEncounter');
 	if (!isEncounterTile(site.tile.kind)) return null;
 	const table = encounterTableAt(site, leadTier);
 	if (table.length === 0) return null;
 	if (!rng.chance(ENCOUNTER_CHANCE)) return null;
-	const species = pickWeighted(rng, favourUnseen(table, seen));
+	const species = pickWeighted(rng, favourUncaught(table, caught));
 	return { speciesId: species.id, hp: species.maxHp };
 }
 
@@ -471,13 +471,13 @@ export function rollEncounterFor(
 	rng: Rng,
 	site: EncounterSite,
 	party: readonly AnimalInstance[],
-	seen: readonly string[]
+	caught: readonly string[]
 ): WildAnimal | null {
 	const realm = encounterRealm(site.tile.kind);
 	if (realm === null) return null;
 	const lead = party[leadIndex(party, realm)];
 	if (!lead) return null;
-	return rollEncounter(rng, site, getAnimal(lead.speciesId).tier, seen);
+	return rollEncounter(rng, site, getAnimal(lead.speciesId).tier, caught);
 }
 
 /**
@@ -485,7 +485,7 @@ export function rollEncounterFor(
  * lead in the air (the first bird standing) of tier `leadTier`, whatever kind
  * of tile it is: the bird at full HP, or `null`. The chance is `SKY_CHANCE`,
  * drawn first, whatever the lead and the ground; on a hit the bird is picked
- * from `skyTableAt`, favouring the kinds not in `seen` (`favourUnseen`).
+ * from `skyTableAt`, favouring the kinds not in `caught` (`favourUncaught`).
  * Where no bird flies over the biome the roll is `null` without a draw.
  * Throws as `rollEncounter` does.
  */
@@ -493,13 +493,13 @@ export function rollSkyEncounter(
 	rng: Rng,
 	site: EncounterSite,
 	leadTier: Tier,
-	seen: readonly string[]
+	caught: readonly string[]
 ): WildAnimal | null {
 	assertTier(leadTier, 'rollSkyEncounter');
 	const table = skyTableAt(site, leadTier);
 	if (table.length === 0) return null;
 	if (!rng.chance(SKY_CHANCE)) return null;
-	const species = pickWeighted(rng, favourUnseen(table, seen));
+	const species = pickWeighted(rng, favourUncaught(table, caught));
 	return { speciesId: species.id, hp: species.maxHp };
 }
 

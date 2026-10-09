@@ -1,5 +1,7 @@
 import {
 	ATTACK_LEVELS,
+	recordParty,
+	type AnimalBook,
 	answerText,
 	EDITS_BUDGET,
 	ITEM_IDS,
@@ -103,11 +105,14 @@ function welcome(s: Session): Extract<GameEvent, { type: 'welcome' }> {
 }
 
 /**
- * Hand the authority a party before any battle, as a loaded save would.
- * `LocalAuthority` has no way to take one yet, so this sets the field itself.
+ * Hand the authority a party before any battle, as a loaded save would: its
+ * kinds caught in the book too, as loading one records them (`recordParty`).
+ * `LocalAuthority` has no way to take one yet, so this sets the fields itself.
  */
 function giveParty(s: Session, party: AnimalInstance[]): void {
-	(s.authority as unknown as { party: AnimalInstance[] }).party = party.map((a) => ({ ...a }));
+	const inside = s.authority as unknown as { party: AnimalInstance[]; book: AnimalBook };
+	inside.party = party.map((a) => ({ ...a }));
+	inside.book = recordParty(inside.book, inside.party);
 }
 
 const animal = (speciesId: string, hp = getAnimal(speciesId).maxHp): AnimalInstance => ({
@@ -384,15 +389,15 @@ describe('LocalAuthority: encounters', () => {
 });
 
 describe('LocalAuthority: the lead decides who comes out', () => {
-	it('with the starter in front, the reed meets a Brown rat on step 11, a Frog on step 15 and the first Toad on step 71, and eight kinds in thirteen battles', () => {
+	it('with the starter in front, the reed meets a Brown rat on step 11, a Frog on step 15 and the first Toad on step 71, and seven kinds in thirteen battles', () => {
 		const met = reedWalk(session(), 200);
 		expect(met[0]).toEqual({ step: 11, wild: 'brown-rat', lead: 'squirrel' });
 		expect(met[1]).toEqual({ step: 15, wild: 'frog', lead: 'squirrel' });
 		expect(met.find((m) => m.wild === 'common-toad')?.step).toBe(71);
-		// The kinds not in the book yet come out twice as often within their size (`favourUnseen`),
+		// The kinds not caught yet come out twice as often within their size (`favourUncaught`),
 		// so the small ones that come down to the water show up among the river's own.
 		expect(met.length).toBe(13);
-		expect(new Set(met.map((m) => m.wild)).size).toBe(8);
+		expect(new Set(met.map((m) => m.wild)).size).toBe(7);
 		// Only what a tier-1 lead meets in the reeds: the river's own small and tier-2 animals,
 		// and the small ones that come down to the water.
 		const river = encounterTable('river', 0, 1).map((e) => e.species.id);
@@ -415,7 +420,9 @@ describe('LocalAuthority: the lead decides who comes out', () => {
 			// (#89), the eight that come down to the water (the buzzard, #91, the eighth). 13% of
 			// the reed's battles.
 			const small = ['frog', 'brown-rat', 'common-toad'];
-			expect(met.filter((m) => small.includes(m.wild)).map((m) => m.step)).toEqual([15, 53, 147]);
+			expect(met.filter((m) => small.includes(m.wild)).map((m) => m.step)).toEqual([
+				15, 53, 107, 117
+			]);
 			// The rest are its own size, but for one mute swan, a tier up (1/9 of a bell near home).
 			// Of its size, the river's own four come out four times as often each as one of the
 			// eight that come down to the water: no visitor weighs more than a resident (#136), so
@@ -425,17 +432,7 @@ describe('LocalAuthority: the lead decides who comes out', () => {
 				{ step: 97, wild: 'mute-swan', lead: 'fox' }
 			]);
 			expect(new Set(others.map((m) => m.wild))).toEqual(
-				new Set([
-					'adder',
-					'otter',
-					'raccoon',
-					'mute-swan',
-					'badger',
-					'roe-deer',
-					'beaver',
-					'grey-heron',
-					'stoat'
-				])
+				new Set(['adder', 'otter', 'raccoon', 'mute-swan', 'badger', 'fox', 'grey-heron', 'stoat'])
 			);
 			const residents = ['otter', 'grey-heron', 'raccoon', 'beaver'];
 			expect(others.filter((m) => residents.includes(m.wild)).map((m) => m.step)).toEqual([
@@ -1622,12 +1619,14 @@ describe('LocalAuthority: the title', () => {
 		expect(welcome(a).party[0]!.id).not.toBe(welcome(b).party[0]!.id);
 	});
 
-	it('every starter meets the same animals on the same steps: all starters are one size', () => {
+	it('every starter meets animals of the same sizes on the same steps: all starters are one size', () => {
+		// Which animal of a size comes out may differ: each starter's own kind is caught, and a
+		// kind not caught yet comes out more often within its size (`favourUncaught`).
 		const walks = STARTERS.map((speciesId) => {
 			// In World 1, whose spawn has the reed beside it.
 			const s = atTitle({ homeWorld: () => 1 });
 			s.authority.dispatch({ type: 'new-game', speciesId });
-			return reedWalk(s, 40).map(({ step, wild }) => [step, wild]);
+			return reedWalk(s, 40).map(({ step, wild }) => [step, getAnimal(wild).tier]);
 		});
 		expect(walks[0]!.length).toBeGreaterThan(0);
 		for (const walk of walks) expect(walk).toEqual(walks[0]);
