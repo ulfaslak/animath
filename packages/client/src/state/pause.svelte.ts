@@ -1,9 +1,10 @@
 import {
 	bundles,
-	canFightIn,
-	leadIndex,
+	leadRefusal,
 	parseWorldNumber,
+	speciesLeadRefusal,
 	type AnimalInstance,
+	type LeadRefusal,
 	type Realm
 } from '@mathgame/engine';
 import { flags } from '../flags';
@@ -157,8 +158,8 @@ export interface OptionRow<T extends string> {
  * Why "Go first" is greyed, said under the options so a kid knows: the
  * animal can't go first where the player stands (out on the water it can't
  * swim, `cantSwim`; on land it lives in the sea, `inTheSea`), it is tired, or
- * it goes first already. The first that holds, in the order the engine
- * refuses in, so the panel says what the number key's line says.
+ * it goes first already. The engine's own refusal (`leadRefusal`,
+ * `speciesLeadRefusal`), so the panel says what the number key's line says.
  */
 export type NotFirst = 'cantSwim' | 'inTheSea' | 'tired' | 'already';
 
@@ -169,10 +170,7 @@ export function whyNotFirst(
 	realm: Realm = 'land'
 ): NotFirst | null {
 	const animal = party[index];
-	if (!animal) return null;
-	if (!canFightIn(animal.speciesId, realm)) return realm === 'water' ? 'cantSwim' : 'inTheSea';
-	if (animal.hp <= 0) return 'tired';
-	return leadIndex(party, realm) === index ? 'already' : null;
+	return animal ? notFirst(leadRefusal(party, animal.id, realm), realm) : null;
 }
 
 /** Why the card of `speciesId` can't go first where the player stands in `realm`; null if it can. */
@@ -181,11 +179,21 @@ export function whyCardNotFirst(
 	speciesId: string,
 	realm: Realm = 'land'
 ): NotFirst | null {
-	const bundle = bundles(party).find((b) => b.speciesId === speciesId);
-	if (!bundle) return null;
-	if (!canFightIn(speciesId, realm)) return realm === 'water' ? 'cantSwim' : 'inTheSea';
-	if (!bundle.animals.some((a) => a.hp > 0)) return 'tired';
-	return party[leadIndex(party, realm)]?.speciesId === speciesId ? 'already' : null;
+	return notFirst(speciesLeadRefusal(party, speciesId, realm), realm);
+}
+
+/** The engine's refusal, said as the panel says it. */
+function notFirst(refusal: LeadRefusal | null, realm: Realm): NotFirst | null {
+	switch (refusal) {
+		case 'cannot-fight-here':
+			return realm === 'water' ? 'cantSwim' : 'inTheSea';
+		case 'tired':
+			return 'tired';
+		case 'already-lead':
+			return 'already';
+		case null:
+			return null;
+	}
 }
 
 /**

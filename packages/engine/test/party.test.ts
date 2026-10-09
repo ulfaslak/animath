@@ -6,7 +6,12 @@ import type { AnimalInstance } from '../src/animals/types.js';
 import { startBattle } from '../src/battle/reducer.js';
 import { bundled, bundles, isBundled, joinParty } from '../src/party/bundles.js';
 import { MAX_NICKNAME_LENGTH, normalizeNickname } from '../src/party/names.js';
-import { applyPartyIntent, leadIndex } from '../src/party/reducer.js';
+import {
+	applyPartyIntent,
+	leadIndex,
+	leadRefusal,
+	speciesLeadRefusal
+} from '../src/party/reducer.js';
 import type { PartyIntent, PartyRejection, PartyStep, PlayerActivity } from '../src/party/types.js';
 import { Rng, hashInts } from '../src/rng.js';
 import { turn } from './turn.js';
@@ -698,6 +703,43 @@ describe('applyPartyIntent: lead-species', () => {
 				expectRejected(party, applyPartyIntent(party, intent, 'explore'), 'unknown-species');
 			}
 		}
+	});
+});
+
+describe('leadRefusal and speciesLeadRefusal', () => {
+	/** What the reducer says to `intent`: the reason it refuses, or null when it takes it. */
+	const said = (party: readonly AnimalInstance[], intent: PartyIntent, realm: 'land' | 'water') => {
+		const [event] = applyPartyIntent(party, intent, 'explore', realm).events;
+		return event?.type === 'rejected' ? event.reason : null;
+	};
+
+	it('say what select-lead and lead-species say, for every animal and card, on land and on the water', () => {
+		const bad: unknown[] = [];
+		let refused = 0;
+		for (const party of PARTIES) {
+			for (const realm of ['land', 'water'] as const) {
+				for (const animal of party) {
+					const why = leadRefusal(party, animal.id, realm);
+					const reducer = said(party, { type: 'select-lead', animalId: animal.id }, realm);
+					if (why !== reducer) bad.push({ animal: animal.id, realm, why, reducer });
+					if (why) refused++;
+				}
+				for (const { speciesId } of bundles(bundled(party))) {
+					const why = speciesLeadRefusal(party, speciesId, realm);
+					const reducer = said(party, { type: 'lead-species', speciesId }, realm);
+					if (why !== reducer) bad.push({ speciesId, realm, why, reducer });
+				}
+			}
+		}
+		expect(findings(bad)).toEqual([]);
+		expect(refused).toBeGreaterThan(100);
+	});
+
+	it('refuse nothing about an animal or a species not in the party: the reducer calls that unknown', () => {
+		const party = PARTIES[0]!;
+		expect(leadRefusal(party, 'nobody')).toBeNull();
+		const absent = ANIMALS.find((a) => !party.some((p) => p.speciesId === a.id))!;
+		expect(speciesLeadRefusal(party, absent.id)).toBeNull();
 	});
 });
 

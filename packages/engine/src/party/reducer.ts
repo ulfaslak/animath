@@ -3,6 +3,7 @@ import type { AnimalInstance, Realm } from '../animals/types.js';
 import { bundled, bundles } from './bundles.js';
 import { normalizeNickname } from './names.js';
 import type {
+	LeadRefusal,
 	PartyEvent,
 	PartyIntent,
 	PartyRejection,
@@ -60,6 +61,63 @@ export function applyPartyIntent(
 }
 
 /**
+ * Why `select-lead` refuses the animal `animalId` where the player stands in
+ * `realm`, in the order it refuses in: it can't fight there (out on the
+ * water, it can't swim; on land, it lives in the sea), it is tired, or it
+ * leads there already. Null when it would be chosen, and for an animal not in
+ * the party (refused as `unknown-animal`). What the pause menu greys "Go
+ * first" by, so it offers only what the engine accepts.
+ */
+export function leadRefusal(
+	party: readonly AnimalInstance[],
+	animalId: string,
+	realm: Realm = 'land'
+): LeadRefusal | null {
+	const base = bundled(party);
+	const from = indexOf(base, animalId);
+	return from < 0 ? null : refusalAt(base, from, realm);
+}
+
+/**
+ * Why `lead-species` refuses the card of `speciesId` where the player stands
+ * in `realm`, in the order it refuses in: it can't fight there, one of its
+ * kind leads there already, or every one of its kind is tired. Null when it
+ * would be chosen, and for a species not in the party (refused as
+ * `unknown-species`).
+ */
+export function speciesLeadRefusal(
+	party: readonly AnimalInstance[],
+	speciesId: string,
+	realm: Realm = 'land'
+): LeadRefusal | null {
+	return speciesRefusal(bundled(party), speciesId, realm);
+}
+
+/** Why `base[from]` can't go first in `realm`, `base` a party in bundles; null if it can. */
+function refusalAt(
+	base: readonly AnimalInstance[],
+	from: number,
+	realm: Realm
+): LeadRefusal | null {
+	const animal = base[from]!;
+	if (!canFightIn(animal.speciesId, realm)) return 'cannot-fight-here';
+	if (animal.hp <= 0) return 'tired';
+	return leadIndex(base, realm) === from ? 'already-lead' : null;
+}
+
+/** Why the species can't go first in `realm`, `base` a party in bundles holding it; null if it can. */
+function speciesRefusal(
+	base: readonly AnimalInstance[],
+	speciesId: string,
+	realm: Realm
+): LeadRefusal | null {
+	if (!base.some((a) => a.speciesId === speciesId)) return null;
+	if (!canFightIn(speciesId, realm)) return 'cannot-fight-here';
+	if (base[leadIndex(base, realm)]?.speciesId === speciesId) return 'already-lead';
+	return base.some((a) => a.speciesId === speciesId && a.hp > 0) ? null : 'tired';
+}
+
+/**
  * Choose who goes first where the player stands: an animal that can fight
  * there (out on the water, one that swims) and isn't tired goes to the front.
  */
@@ -68,12 +126,8 @@ function selectLead(party: readonly AnimalInstance[], animalId: unknown, realm: 
 	const from = indexOf(base, animalId);
 	if (from < 0) return reject(party, 'unknown-animal');
 	const animal = base[from]!;
-	if (!canFightIn(animal.speciesId, realm)) {
-		return reject(party, 'cannot-fight-here', { animalId: animal.id });
-	}
-	if (animal.hp <= 0) return reject(party, 'tired', { animalId: animal.id });
-	if (leadIndex(base, realm) === from)
-		return reject(party, 'already-lead', { animalId: animal.id });
+	const refusal = refusalAt(base, from, realm);
+	if (refusal) return reject(party, refusal, { animalId: animal.id });
 	return leadFrom(base, from);
 }
 
@@ -86,14 +140,15 @@ function leadSpecies(
 	if (typeof speciesId !== 'string' || !base.some((a) => a.speciesId === speciesId)) {
 		return reject(party, 'unknown-species');
 	}
-	if (!canFightIn(speciesId, realm)) return reject(party, 'cannot-fight-here', { speciesId });
-	const lead = base[leadIndex(base, realm)];
-	if (lead?.speciesId === speciesId) {
-		return reject(party, 'already-lead', { animalId: lead.id, speciesId });
+	const refusal = speciesRefusal(base, speciesId, realm);
+	if (refusal === 'already-lead') {
+		return reject(party, refusal, { animalId: base[leadIndex(base, realm)]!.id, speciesId });
 	}
-	const from = base.findIndex((a) => a.speciesId === speciesId && a.hp > 0);
-	if (from < 0) return reject(party, 'tired', { speciesId });
-	return leadFrom(base, from);
+	if (refusal) return reject(party, refusal, { speciesId });
+	return leadFrom(
+		base,
+		base.findIndex((a) => a.speciesId === speciesId && a.hp > 0)
+	);
 }
 
 /**

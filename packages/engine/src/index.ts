@@ -175,10 +175,11 @@ export {
 	isPasswordRefusal
 } from './password.js';
 export type { PasswordCheck, PasswordRefusal } from './password.js';
-export { applyPartyIntent, leadIndex } from './party/reducer.js';
+export { applyPartyIntent, leadIndex, leadRefusal, speciesLeadRefusal } from './party/reducer.js';
 export { STARTERS, STARTER_TIER, chooseStarter, isStarter } from './party/starters.js';
 export type { NewGameRejection, Starter, StarterPick } from './party/starters.js';
 export type {
+	LeadRefusal,
 	PartyEvent,
 	PartyIntent,
 	PartyRejection,
