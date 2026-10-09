@@ -15,7 +15,15 @@
 		type AttackLevel,
 		type PuzzleTopic
 	} from '@mathgame/engine';
-	import { actionAt, attackRows, levelWord, rowOf, type FightMove } from '../battle/menu';
+	import {
+		actionAt,
+		attackRows,
+		leashBand as bandOf,
+		levelWord,
+		rowOf,
+		type FightMove,
+		type LeashBand
+	} from '../battle/menu';
 	import { t } from '../copy';
 	import { rowKey, unfocusable } from '../input/press';
 	import { touch } from '../input/touch.svelte';
@@ -317,14 +325,12 @@
 	/**
 	 * The leash hints at the real odds — the engine's `catchProbability` for
 	 * this animal at the HP on screen, with this leash — never as a number
-	 * (UI_SPEC): at least one in two is a good chance, at least one in five is
-	 * a maybe, anything less is hard. The word says what the colour says.
+	 * (UI_SPEC), in the bands of `bandOf`. The word says what the colour says.
 	 */
-	const leashBand = $derived.by((): 'good' | 'warn' | 'bad' => {
+	const leashBand = $derived.by((): LeashBand => {
 		if (!opponent || !opponentSpec) return 'bad';
 		const hp = opponent.hp / opponentSpec.maxHp;
-		const chance = catchProbability(hp, opponentSpec.catchRate, battle.leashQuality);
-		return chance >= 0.5 ? 'good' : chance >= 0.2 ? 'warn' : 'bad';
+		return bandOf(catchProbability(hp, opponentSpec.catchRate, battle.leashQuality));
 	});
 
 	/**

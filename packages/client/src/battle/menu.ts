@@ -269,3 +269,16 @@ export function listKey(
 export function firstPickable(pickable: readonly boolean[]): number {
 	return Math.max(0, pickable.indexOf(true));
 }
+
+export type LeashBand = 'good' | 'warn' | 'bad';
+
+/**
+ * The leash's catch hint for a throw's real chance (UI_SPEC): at least one
+ * in two is a good chance, at least one in ten is a maybe, anything less is
+ * hard. One in ten, not one in five: the fiercest animals' best chance, at
+ * 1 HP, is just under one in five, so a bear said "Hard to catch" all the
+ * way down and wearing it out changed nothing on screen.
+ */
+export function leashBand(chance: number): LeashBand {
+	return chance >= 0.5 ? 'good' : chance >= 0.1 ? 'warn' : 'bad';
+}
