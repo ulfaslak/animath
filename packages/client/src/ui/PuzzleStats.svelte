@@ -95,7 +95,8 @@
 	}
 	.stat {
 		display: grid;
-		grid-template-columns: 64px minmax(0, 11em) minmax(60px, 1fr) max-content;
+		/* Every row's columns alike, so every bar's track is as long and the bars compare. */
+		grid-template-columns: 64px minmax(0, 11em) minmax(60px, 1fr) 11em;
 		align-items: center;
 		gap: 12px;
 		min-height: var(--tap);
@@ -112,7 +113,8 @@
 	.stat.lit {
 		outline-color: var(--accent);
 	}
-	.stat.none {
+	/* Never tried: its contents fade, never the ring that says it is lit. */
+	.stat.none > :global(*) {
 		opacity: 0.5;
 	}
 	.word {
@@ -146,6 +148,7 @@
 	.count {
 		font-variant-numeric: tabular-nums;
 		white-space: nowrap;
+		text-align: right;
 		font-size: 16px;
 	}
 	/* A phone held sideways: tighter rows. */
@@ -154,7 +157,7 @@
 			min-height: 40px;
 			font-size: 16px;
 			gap: 8px;
-			grid-template-columns: 64px minmax(0, 9em) minmax(40px, 1fr) max-content;
+			grid-template-columns: 64px minmax(0, 9em) minmax(40px, 1fr) 10.5em;
 		}
 		.count {
 			font-size: 16px;
