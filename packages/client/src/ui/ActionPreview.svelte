@@ -64,12 +64,9 @@
 		<div class="head">
 			<span class="title">{preview.name}</span>
 			<TopicChips topics={preview.topics} />
-			<span class="badge"><HitBadge
-					damage={preview.damage}
-					high={preview.high}
-					level={preview.level}
-					big
-				/></span>
+			<span class="badge"
+				><HitBadge damage={preview.damage} high={preview.high} level={preview.level} big /></span
+			>
 		</div>
 		<div class="picker" class:waiting>
 			<LevelPicker options={preview.levels} current={preview.level} />
