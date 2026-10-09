@@ -4,8 +4,8 @@
 	/**
 	 * A picture of a shop item, flat and chunky like the world's props: the
 	 * axe, the pickaxe, the boat, the paraglider, the harness, and The Arctic's
-	 * axe (a red handle and a blue blade, never Nordland's), ice pick and
-	 * fishing rod. Always beside the item's
+	 * axe (a red handle and a blue blade, never Nordland's), ice pick, fishing
+	 * rod, skis and dog sled. Always beside the item's
 	 * name, so it is decoration (`aria-hidden`). The colours are the world's
 	 * own (DESIGN § Palette): the trees' trunk brown, the rocks' grey, the
 	 * water's blue, the trainer's coral, the figures' cream.

@@ -42,8 +42,9 @@
 
 	/**
 	 * The doctor's card, over the world at the bottom of the screen (UI_SPEC §
-	 * Doctor): the doctor's line and the player's tokens across the top; on the
-	 * left the tabs (heal, set free, shop) over the tab's list, which scrolls,
+	 * Doctor): the doctor's line and the player's money across the top; on the
+	 * left the tabs (heal, set free, shop, and fly when there is another land)
+	 * over the tab's list, which scrolls,
 	 * with Set free's button and Bye under it; on the right what the
 	 * highlighted row does, the confirm before a hand-over, or the puzzle in
 	 * the same `PuzzlePanel` as battle. Everything comes from `doctor` (the

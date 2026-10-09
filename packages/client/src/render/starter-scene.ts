@@ -380,8 +380,8 @@ function lambert(hex: number): THREE.MeshLambertMaterial {
 /**
  * Behind the row: tall-grass tufts, flowers and bushes, a fixed scatter kept
  * clear of the animals and of the camera's side. On a `snowy` stage, tufts of
- * deep snow's blue, little chunks of ice and snow, and dark bushes with snow
- * on their tops.
+ * dry grass, little chunks of ice and snow, and dark bushes with snow on
+ * their tops.
  */
 function buildScenery(snowy = false): THREE.Group {
 	const group = new THREE.Group();

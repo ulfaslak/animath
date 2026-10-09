@@ -1108,7 +1108,7 @@ export class LocalAuthority implements Authority {
 		this.emit({ type: 'message', line });
 	}
 
-	// --- interact: a tent, a tree, a rock ---------------------------------
+	// --- interact: a tent, a tree, a rock, an ice block, a fishing hole ----
 
 	/**
 	 * Enter/Space: whatever the player faces. A tent: talk to the doctor. A

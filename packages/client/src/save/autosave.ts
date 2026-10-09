@@ -492,7 +492,7 @@ export class Autosave {
 			case 'puzzles-changed':
 			// The animal book grew, at a battle's start or a catch: the battle's own events save too.
 			case 'book-changed':
-			// A land unlocked: the hand-over that did it saves too.
+			// A land unlocked: only a catch does, whose own events save too.
 			case 'unlocked-changed':
 				this.changed(false);
 				break;

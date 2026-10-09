@@ -88,8 +88,9 @@ export function menuItems(): MenuItem[] {
  * Rows drawn side by side on one line, so the menu keeps its height (eight
  * cards fit 1024×768): Worlds beside Who's here, Language beside Sound, the
  * account's rows beside each other (those `menuItems` shows), Keep playing
- * beside Start screen, and on the title line "My puzzles" beside the book. Each line is neighbours in `MENU_ITEMS`. Up and down
- * walk them in order as any rows; left and right step between them, except
+ * beside Start screen, and on the title line "My puzzles" beside the book.
+ * Each line is neighbours in `MENU_ITEMS`. Up and down walk them in order as
+ * any rows; left and right step between them, except
  * on a setting, where they change it.
  */
 export const MENU_LINES: readonly (readonly MenuItem[])[] = [

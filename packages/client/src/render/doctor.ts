@@ -21,8 +21,11 @@ import { DOCTOR_COLORS as C } from './palette';
  * tip swings, every few seconds he lifts his staff and taps it down, and
  * bubbles rise and pop in the pot. When the trainer comes within two tiles
  * he hops and waves, once (`Greetings` remembers), turned their way unless
- * the tent stands between them. With reduced motion everything moves a
- * third as much, and he still waves.
+ * the tent stands between them. With reduced motion his sway, the hat's nod
+ * and swing, the staff, the hop, his looking about, the flames and the
+ * bubbles' rise move a third as much (`CALM`), the wave swings half as far
+ * and the bubbles come slower; his breath and his turn towards the trainer
+ * are as they are, and he still waves.
  */
 
 type Vec3 = readonly [number, number, number];
