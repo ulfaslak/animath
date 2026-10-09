@@ -13,7 +13,7 @@ import { FIRST_LAND, LAND_IDS, isLandId, type LandId } from './ids.js';
  * (`generate.ts`, chosen by the seed: `landOfSeed`).
  *
  * The rules that read it are here too: which lands a kid has unlocked
- * (`unlockLands`), where they may fly from a witch doctor's tent
+ * (`unlockLands`), where they may fly from a druid's tent
  * (`flyRefusal`), and the puzzle a flight costs (`farePuzzle`).
  */
 
@@ -46,7 +46,7 @@ export interface LandSpec {
 	/** The species a kid picks their first animal of the land from, by id: tier 1, fighting on land. */
 	starters: readonly string[];
 	/**
-	 * What its witch doctor's shop can sell, and the price of each in the
+	 * What its druid's shop can sell, and the price of each in the
 	 * land's money; only the items `available` are on sale (`shopFor`).
 	 */
 	shop: Readonly<Partial<Record<ItemId, number>>>;
@@ -191,7 +191,7 @@ export const LANDS: readonly LandSpec[] = [
 		starters: STARTERS,
 		// The prices run on as Fibonacci numbers: 8, 13, 21, 34, and the harness costs what the
 		// paraglider does, the human's call. How long each takes to reach in ordinary play is
-		// [[PRODUCT]] §4's model ("Tokens and the witch doctor's shop").
+		// [[PRODUCT]] §4's model ("Tokens and the druid's shop").
 		shop: { axe: 8, pickaxe: 13, boat: 21, glider: 34, harness: 34 },
 		currency: 'tokens',
 		travelKinds: ['add', 'sub'],
@@ -235,7 +235,7 @@ export function availableLands(): LandId[] {
 }
 
 /**
- * What land `id`'s witch doctor sells: its shop's items that are on sale,
+ * What land `id`'s druid sells: its shop's items that are on sale,
  * cheapest first (the catalog's order between two of a price).
  */
 export function shopFor(id: LandId): ItemId[] {
@@ -246,7 +246,7 @@ export function shopFor(id: LandId): ItemId[] {
 }
 
 /**
- * What item `item` costs at land `land`'s witch doctor, in that land's money.
+ * What item `item` costs at land `land`'s druid, in that land's money.
  * An item that land does not sell (only ever shown by the `?shop` switch, in a
  * game saved nowhere) costs what it does in the first land that sells it.
  */
@@ -319,8 +319,8 @@ export function unlockProgress(
  * `no-such-land` (not a land this build has), `already-here`,
  * `land-unavailable` (not built yet: not in `open`, the lands this build
  * flies to, `availableLands()` unless a switch opens more) and `land-locked`
- * (not in `unlocked`: `unlockLands`'), in that order. The one rule the witch
- * doctor's reducer asks, and the card greys a destination with.
+ * (not in `unlocked`: `unlockLands`'), in that order. The one rule the druid's
+ * reducer asks, and the card greys a destination with.
  */
 export type FlyRefusal = 'no-such-land' | 'already-here' | 'land-unavailable' | 'land-locked';
 
@@ -363,7 +363,7 @@ export function farePuzzle(rng: Rng, to: LandId, avoid?: string): Puzzle {
  * Whether `land` asks a kid to pick a first animal: they stand there with no
  * animal of that land (their first arrival), and the land has starters to
  * pick from. Nordland's party is never empty (a game starts with a starter,
- * and the witch doctor always leaves one), so only a later land asks.
+ * and the druid always leaves one), so only a later land asks.
  */
 export function needsStarter(land: LandId, party: readonly unknown[]): boolean {
 	return party.length === 0 && getLand(land).starters.length > 0;

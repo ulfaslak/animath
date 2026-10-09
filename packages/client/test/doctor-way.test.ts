@@ -282,7 +282,7 @@ describe('the way to the doctor', () => {
 	});
 
 	it('walled in where no tent is a walk away, with the paraglider: no way, and the line says to fly out', () => {
-		// No witch doctor comes to a kid who can fly, so the line must not send them walking.
+		// No druid comes to a kid who can fly, so the line must not send them walking.
 		setup({
 			...newGame(1, testStarter()),
 			party: [squirrel(0)],

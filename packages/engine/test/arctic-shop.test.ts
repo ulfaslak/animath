@@ -162,7 +162,7 @@ describe('the ice pick and the arctic axe', () => {
 	}, 60_000);
 });
 
-describe("The Arctic's witch doctor", () => {
+describe("The Arctic's druid", () => {
 	it('lists his shop cheapest first, in ice dollars, as every visit shows it', () => {
 		const visit = startDoctorVisit([animal('fox')], { land: 'arctic' });
 		expect(visit.shop).toEqual(shopFor('arctic'));
@@ -299,7 +299,7 @@ describe('the way to a tent on the ice', () => {
 		}
 	});
 
-	it('never stands a kid on the ice to talk to a witch doctor', () => {
+	it('never stands a kid on the ice to talk to a druid', () => {
 		for (const world of [1, 2]) {
 			const seed = arctic(world);
 			for (const p of [...around(spawnPoint(seed), 60)].filter((_, i) => i % 37 === 0)) {

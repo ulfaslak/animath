@@ -8,13 +8,13 @@ import {
 	GREET_SECONDS,
 	Greetings,
 	REST_YAW,
-	type WitchDoctor
+	type Druid
 } from '../src/render/doctor';
 import { GLOW_MATERIAL } from '../src/render/campfire';
 import { buildTileProps, doctorsIn } from '../src/render/tiles';
 
 /**
- * The witch doctor at every tent (`doctor.ts`): alive, greeting the trainer
+ * The druid at every tent (`doctor.ts`): alive, greeting the trainer
  * once as they come near, and keeping close to his tent whatever he does,
  * so nobody on the tiles round it, or walking past, stands in him, his staff
  * or his pot. What frames can't show for sure: every moment of the idle and
@@ -25,7 +25,7 @@ const TENT: Tile = { kind: 'tent', biome: 'meadow', height: 0 };
 const AT = { x: 10, z: 20 };
 
 /** A tent at `AT` as its chunk draws it, and its doctor. */
-function camp(): { group: THREE.Group; doctor: WitchDoctor } {
+function camp(): { group: THREE.Group; doctor: Druid } {
 	const group = buildTileProps(TENT, AT.x, AT.z);
 	const doctors = doctorsIn(group);
 	expect(doctors).toHaveLength(1);
@@ -47,22 +47,21 @@ const AROUND = [
 ].map(([dx, dz]) => ({ x: AT.x + dx!, z: AT.z + dz! }));
 
 /** Where a named part of the doctor is in the world, or a point in its own frame. */
-function whereIs(doctor: WitchDoctor, name: string, local = new THREE.Vector3()): THREE.Vector3 {
+function whereIs(doctor: Druid, name: string, local = new THREE.Vector3()): THREE.Vector3 {
 	const part = doctor.figure.getObjectByName(name)!;
 	part.updateWorldMatrix(true, false);
 	return part.localToWorld(local.clone());
 }
 
 /** His free arm's shoulder, and his hand at the end of it. */
-const shoulder = (doctor: WitchDoctor) => whereIs(doctor, 'waving');
-const hand = (doctor: WitchDoctor) =>
-	whereIs(doctor, 'waving', new THREE.Vector3(0, -ARM_LENGTH, 0));
+const shoulder = (doctor: Druid) => whereIs(doctor, 'waving');
+const hand = (doctor: Druid) => whereIs(doctor, 'waving', new THREE.Vector3(0, -ARM_LENGTH, 0));
 
 /** Every moment of a few seconds: `frames` samples, 1/20 s apart, from `from`. */
 const seconds = (from: number, frames: number) =>
 	Array.from({ length: frames }, (_, i) => from + i / 20);
 
-describe('the witch doctor', () => {
+describe('the druid', () => {
 	it('keeps the tent, himself and his pot where no trainer beside the tent reaches, idling and greeting from every side', () => {
 		// A trainer on a tile beside the tent, standing or walking past, keeps at least 0.77
 		// from the tent's middle (their cap's peak, 0.23 out from their own middle, the

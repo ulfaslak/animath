@@ -61,7 +61,7 @@ export interface Flags {
 	items: ItemId[] | null;
 	/**
 	 * `?lands`: every land open and unlocked, in a throwaway game, to fly to a
-	 * land before it is built (#191): L on the witch doctor's list flies to
+	 * land before it is built (#191): L on the druid's list flies to
 	 * the next land. Lands not built yet look like Nordland and hold nothing.
 	 */
 	lands: boolean;
@@ -69,7 +69,7 @@ export interface Flags {
 	 * `?land=arctic`: start in that land instead of Nordland, every land open
 	 * and unlocked as with `?lands`, in a throwaway game: with `?party=`, the
 	 * party is that land's, for looking at its animals at home (healing them
-	 * at its witch doctor, its page of the animal book). `null` without the
+	 * at its druid, its page of the animal book). `null` without the
 	 * switch, or with a land this build lacks.
 	 */
 	land: LandId | null;

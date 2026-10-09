@@ -21,7 +21,7 @@
 	 * typed so far, then the judgement — "Correct!" or "Not quite!" (the right
 	 * answer is never shown; see UI_SPEC § Battle mode).
 	 * The one puzzle view for every screen that asks one (a battle, a friendly
-	 * match, the witch doctor's token sums; see UI_SPEC § Component reuse). It only shows: keys are
+	 * match, the druid's token sums; see UI_SPEC § Component reuse). It only shows: keys are
 	 * turned into text by `input/answer.ts` and answers are judged by the
 	 * engine, so nothing here decides anything. With the touch controls on,
 	 * the number pad stands to the right of it, and its keys are keys too.
@@ -289,8 +289,8 @@
 		text-wrap: balance;
 	}
 	/*
-	 * The note once the answer was right: unseen, in its place. The witch
-	 * doctor's cheer that comes with it can take three lines in Danish, and
+	 * The note once the answer was right: unseen, in its place. The druid's
+	 * cheer that comes with it can take three lines in Danish, and
 	 * the card under it has no room left for the note's last line.
 	 */
 	.keys.spent {

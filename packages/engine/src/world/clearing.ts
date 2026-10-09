@@ -20,7 +20,7 @@ import { step, type ClearableKind, type Direction, type GridPos, type TileKind }
  * The tool each kind of tile takes, land by land: a tree takes the land's own
  * axe (Nordland's `axe`, The Arctic's `arctic-axe`, which looks different), a
  * rock the pickaxe and an ice block the ice pick wherever they stand. A tool
- * a land's witch doctor does not sell (the pickaxe in The Arctic) is never
+ * a land's druid does not sell (the pickaxe in The Arctic) is never
  * owned there, so that land's rocks stay.
  */
 export const CLEARING_TOOLS: Readonly<Record<LandId, Readonly<Record<ClearableKind, ItemId>>>> = {

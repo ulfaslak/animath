@@ -251,7 +251,7 @@ export class LocalAuthority implements Authority {
 	 * The animal book: every species seen, caught and set free in this game,
 	 * in every world (`animals/book.ts`). Grows at the event that shows an
 	 * animal: a wild battle's start, a leash throw that lands, and a
-	 * hand-over at the witch doctor's answered right. Saved with the game.
+	 * hand-over at the druid's answered right. Saved with the game.
 	 */
 	private book: AnimalBook = EMPTY_BOOK;
 	/**
@@ -552,8 +552,8 @@ export class LocalAuthority implements Authority {
 			return;
 		}
 		if (this.waiting()) {
-			// Just flown in, with no animal of this land yet: the kid stays by the witch doctor
-			// they came down at until they pick one, and the witch doctor still talks.
+			// Just flown in, with no animal of this land yet: the kid stays by the druid
+			// they came down at until they pick one, and the druid still talks.
 			if (intent.type === 'interact' && canTalkToDoctor(this.seed, this.pos, this.facing)) {
 				this.visitDoctor();
 			}
@@ -1220,7 +1220,7 @@ export class LocalAuthority implements Authority {
 	// --- lands ---------------------------------------------------------------
 
 	/**
-	 * The fare was paid at the witch doctor's (`flew`): off to land `to`, in
+	 * The fare was paid at the druid's (`flew`): off to land `to`, in
 	 * this world number (the engine's `fly`). This land is remembered as it is
 	 * left, its party, tokens and items with it, and the land reached comes
 	 * back as it was left, or with nothing on a first visit; the player comes

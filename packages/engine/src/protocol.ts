@@ -229,8 +229,8 @@ export type GameEvent =
 	/**
 	 * The player is in `land` with no animal of theirs there (`needsStarter`):
 	 * they pick one of `starters` (`pick-starter`). Until they do, they stay
-	 * beside the witch doctor they came down at: nothing walks, flies or
-	 * travels, and the witch doctor still talks (a flight back included).
+	 * beside the druid they came down at: nothing walks, flies or
+	 * travels, and the druid still talks (a flight back included).
 	 * Sent after the flight's `travelled`, and after `welcome` for a game
 	 * saved while waiting.
 	 */
@@ -310,7 +310,7 @@ export type GameEvent =
 	/**
 	 * The animal book grew (`animals/book.ts`): a wild battle started against
 	 * a species never seen before, a leash throw caught one never caught
-	 * before, or a hand-over at the witch doctor's set free one never set free
+	 * before, or a hand-over at the druid's set free one never set free
 	 * before (a friendly match never changes it). Always all three lists,
 	 * whole, each in the order first met. Sent right after the event that
 	 * showed it; never when nothing is new.

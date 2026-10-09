@@ -1,7 +1,7 @@
 <script lang="ts">
 	/**
-	 * A kind set free at the witch doctor's: a rose badge with a cream heart,
-	 * the heart of the witch doctor's thank-you. In the animal book, on a
+	 * A kind set free at the druid's: a rose badge with a cream heart,
+	 * the heart of the druid's thank-you. In the animal book, on a
 	 * card's corner and beside the count of kinds set free; always beside
 	 * words or a card's caption, so it is decoration (`aria-hidden`).
 	 */

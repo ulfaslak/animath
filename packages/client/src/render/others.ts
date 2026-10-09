@@ -277,7 +277,7 @@ export class OtherPlayers {
 		other.lead = peer.lead;
 		other.items = itemsOf(peer);
 		if (peer.skis && !other.skis) this.addSkis(other);
-		// Turned where they stand (a bump, a word with the witch doctor): their lead turns with them.
+		// Turned where they stand (a bump, a word with the druid): their lead turns with them.
 		if (peer.facing !== other.facing && other.queue.length === 0 && other.progress >= 1) {
 			other.follower.face(peer.facing);
 		}
