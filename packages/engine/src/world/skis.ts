@@ -243,7 +243,7 @@ export function runUpBack(
 }
 
 /** How many places `walksBack` looks at before it gives up. */
-export const WALK_BACK_PLACES = 2_000;
+const WALK_BACK_PLACES = 2_000;
 
 /**
  * Whether a kid on foot at `landing` can get back to `home` by the moves a

@@ -104,7 +104,7 @@ export function cleanLine(text: string): string {
 }
 
 /** A stack: each line cleaned, empty ones dropped, at most `STACK_MAX_LINES` and `STACK_MAX_LENGTH`. */
-export function cleanStack(text: string): string {
+function cleanStack(text: string): string {
 	const lines: string[] = [];
 	let length = 0;
 	for (const raw of text.split(/\r\n|\r|\n/)) {
@@ -196,7 +196,7 @@ const millis = (time: SQL) => sql`(extract(epoch from ${time}) * 1000)::float8`;
  * insert lands within milliseconds, so a window that ends this long ago has
  * every row it will ever hold.
  */
-export const NEW_WINDOW_LAG_MS = 10_000;
+const NEW_WINDOW_LAG_MS = 10_000;
 
 /**
  * The reports that came in from `since` until now, grouped by message and

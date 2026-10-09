@@ -26,7 +26,7 @@ export const RECENT_ANSWERS = 20;
  * accuracy (`topicBonus`): a topic answered 3 times is mostly the average,
  * one answered 20 times mostly its own.
  */
-export const PRIOR_ANSWERS = 4;
+const PRIOR_ANSWERS = 4;
 
 /** The softest and the hardest a topic's hit may land, as a multiple of the attack's damage. */
 export const MIN_TOPIC_BONUS = 0.7;
@@ -172,7 +172,7 @@ export function bonusOf(bonus: TopicBonus | undefined, topic: PuzzleTopic): numb
 }
 
 /** A number a topic's bonus can be: within `MIN_TOPIC_BONUS` and `MAX_TOPIC_BONUS`. */
-export function isTopicBonus(v: unknown): v is number {
+function isTopicBonus(v: unknown): v is number {
 	return typeof v === 'number' && v >= MIN_TOPIC_BONUS && v <= MAX_TOPIC_BONUS;
 }
 

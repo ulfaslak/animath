@@ -4,7 +4,7 @@ import type { Puzzle, PuzzleGenerator } from '../types.js';
 import type { Band } from './arithmetic.js';
 
 /** The balance's forms, as `face.ts` writes them. */
-export const BALANCE = {
+const BALANCE = {
 	/** `a + □ = b + c` */
 	plus: 0,
 	/** `a − □ = b − c` */

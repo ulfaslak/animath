@@ -69,7 +69,7 @@ interface Room {
 }
 
 /** A room's key: its land and world, as `nordland:42`. */
-export function placeKey(land: LandId, world: number): string {
+function placeKey(land: LandId, world: number): string {
 	return `${land}:${world}`;
 }
 

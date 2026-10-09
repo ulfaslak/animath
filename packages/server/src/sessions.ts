@@ -27,7 +27,7 @@ export const SESSION_DAYS = 365;
  * login in another tab and put the old cookie back (§ `currentUser`), so it
  * happens once a month, not at every start.
  */
-export const SLIDE_AFTER_DAYS = 30;
+const SLIDE_AFTER_DAYS = 30;
 /** A browser logged in to one account on more devices than this loses the least used session. */
 export const MAX_SESSIONS_PER_USER = 20;
 

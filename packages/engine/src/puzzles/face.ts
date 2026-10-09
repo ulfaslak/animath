@@ -79,16 +79,16 @@ export const THERMOMETER = { colder: 0, warmer: 1, rose: 2, fell: 3 } as const;
 export const KRONER = [1, 2, 5, 10, 20, 50, 100, 200] as const;
 
 /** The coins and notes a kroner face may show at once: more would not fit the picture. */
-export const MAX_KRONER_PIECES = 10;
+const MAX_KRONER_PIECES = 10;
 
 /** The lines a bar chart may be drawn with, and the most bars and lines it has. */
-export const BAR_SCALES = [1, 2, 5, 10] as const;
+const BAR_SCALES = [1, 2, 5, 10] as const;
 export const MAX_BARS = 5;
 export const MAX_BAR_LINES = 10;
 
 /** The longest side of a shape drawn in squares, and of one with its lengths written on. */
-export const MAX_GRID_SIDE = 10;
-export const MAX_SHAPE_SIDE = 30;
+const MAX_GRID_SIDE = 10;
+const MAX_SHAPE_SIDE = 30;
 
 /**
  * The balance's forms, by `form`: the box stands for the number missing, and
@@ -208,7 +208,7 @@ export function readPuzzleFace(value: unknown): PuzzleFace | null {
  * from (a known `how`, as many coins as fit, a bar chart's bars on its
  * lines). So a page draws nothing a generator could not have made.
  */
-export function faceFits(face: PuzzleFace): boolean {
+function faceFits(face: PuzzleFace): boolean {
 	const n = face.numbers;
 	if (n.length !== FACE_NUMBERS[face.kind]) return false;
 	// Only a thermometer reads below 0.

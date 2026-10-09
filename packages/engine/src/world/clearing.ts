@@ -23,7 +23,7 @@ import { step, type ClearableKind, type Direction, type GridPos, type TileKind }
  * a land's druid does not sell (the pickaxe in The Arctic) is never
  * owned there, so that land's rocks stay.
  */
-export const CLEARING_TOOLS: Readonly<Record<LandId, Readonly<Record<ClearableKind, ItemId>>>> = {
+const CLEARING_TOOLS: Readonly<Record<LandId, Readonly<Record<ClearableKind, ItemId>>>> = {
 	nordland: { tree: 'axe', rock: 'pickaxe', iceblock: 'ice-pick' },
 	arctic: { tree: 'arctic-axe', rock: 'pickaxe', iceblock: 'ice-pick' }
 };
