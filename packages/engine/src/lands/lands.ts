@@ -397,8 +397,3 @@ export function farePuzzle(rng: Rng, to: LandId, avoid?: string): Puzzle {
 export function needsStarter(land: LandId, party: readonly unknown[]): boolean {
 	return party.length === 0 && getLand(land).starters.length > 0;
 }
-
-/** Whether `speciesId` is one of land `land`'s starters. */
-export function isLandStarter(land: LandId, speciesId: unknown): boolean {
-	return typeof speciesId === 'string' && getLand(land).starters.includes(speciesId);
-}

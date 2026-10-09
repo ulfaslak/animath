@@ -27,9 +27,6 @@ const LANDS: Record<Biome, LandId> = {
 	'southern-ocean': 'arctic'
 };
 
-/** Every biome, land by land, in the order `Biome` names them. */
-export const BIOMES: readonly Biome[] = Object.keys(LANDS) as Biome[];
-
 /** The land `biome` is in. */
 export function biomeLand(biome: Biome): LandId {
 	return LANDS[biome];

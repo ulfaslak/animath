@@ -300,9 +300,6 @@ export function faceFits(face: PuzzleFace): boolean {
 /** The coldest and warmest a thermometer face reads: the ladder's ±40 and a little room. */
 const MAX_DEGREES = 99;
 
-/** The most pieces a fraction's whole is cut into. */
-export const MAX_DENOMINATOR = 12;
-
 /**
  * The pieces a whole is cut into: the ones a kid meets at school, never
  * sevenths, ninths or elevenths.
