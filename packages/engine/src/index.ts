@@ -33,6 +33,7 @@ export {
 	PRIOR_ANSWERS,
 	RECENT_ANSWERS,
 	bonusOf,
+	faceTopic,
 	puzzleTopic,
 	readRecord,
 	recordAnswers,

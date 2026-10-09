@@ -1,7 +1,7 @@
 import type { BattleEvent } from '../battle/types.js';
 import type { DoctorEvent } from '../doctor/types.js';
 import type { MatchEvent, MatchSide } from '../match/types.js';
-import { puzzleFace } from './face.js';
+import { puzzleFace, type PuzzleFace } from './face.js';
 import { SHAPE } from './generators/shape.js';
 import { ALL_PUZZLE_TOPICS, type Puzzle, type PuzzleTopic } from './types.js';
 
@@ -57,15 +57,25 @@ export type TopicBonus = Readonly<Partial<Record<PuzzleTopic, number>>>;
 /**
  * The topic a puzzle is, as the kid sees it: its kind, except that a
  * missing number in a times table is `mul`, and a floor is `area` and a
- * fence `perimeter`.
+ * fence `perimeter` (`faceTopic`, read off its prompt).
  */
 export function puzzleTopic(puzzle: Pick<Puzzle, 'kind' | 'prompt'>): PuzzleTopic {
-	if (puzzle.kind === 'missing') return puzzleFace(puzzle)?.times ? 'mul' : 'missing';
-	if (puzzle.kind === 'shape') {
-		const how = puzzleFace(puzzle)?.numbers[0];
+	if (puzzle.kind !== 'missing' && puzzle.kind !== 'shape') return puzzle.kind;
+	return faceTopic(puzzleFace(puzzle) ?? { kind: puzzle.kind, numbers: [] });
+}
+
+/**
+ * The topic of the puzzle a face shows: its kind, except that a missing
+ * number in a times table (`times`) is `mul`, and a shape's fence or a
+ * side from its fence (`SHAPE`) is `perimeter`, any other shape `area`.
+ */
+export function faceTopic(face: PuzzleFace): PuzzleTopic {
+	if (face.kind === 'missing') return face.times ? 'mul' : 'missing';
+	if (face.kind === 'shape') {
+		const how = face.numbers[0];
 		return how === SHAPE.fence || how === SHAPE.fenceSide ? 'perimeter' : 'area';
 	}
-	return puzzle.kind;
+	return face.kind;
 }
 
 /** What any reducer's event holds that the record reads. */
