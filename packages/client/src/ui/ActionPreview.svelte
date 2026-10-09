@@ -13,8 +13,10 @@
 				kind: 'attack';
 				name: string;
 				level: AttackLevel;
-				/** What it hits for at `level`. */
+				/** What it hits for at `level`: the least, when its topics land differently. */
 				damage: number;
+				/** The most it hits for at `level` (`hitSpan`). */
+				high: number;
 				/** Every level, with its word and what it hits for. */
 				levels: readonly LevelOption[];
 				/** What its puzzles can be at `level` (the engine's `puzzleTopics`). */
@@ -62,7 +64,12 @@
 		<div class="head">
 			<span class="title">{preview.name}</span>
 			<TopicChips topics={preview.topics} />
-			<span class="badge"><HitBadge damage={preview.damage} level={preview.level} big /></span>
+			<span class="badge"><HitBadge
+					damage={preview.damage}
+					high={preview.high}
+					level={preview.level}
+					big
+				/></span>
 		</div>
 		<div class="picker" class:waiting>
 			<LevelPicker options={preview.levels} current={preview.level} />

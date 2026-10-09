@@ -111,7 +111,9 @@ export function startBattle(
 		opponent: { ...wild },
 		leashQuality,
 		realm,
-		...(options.bonus && Object.keys(options.bonus).length > 0 ? { bonus: { ...options.bonus } } : {}),
+		...(options.bonus && Object.keys(options.bonus).length > 0
+			? { bonus: { ...options.bonus } }
+			: {}),
 		phase: { kind: 'choose-action' }
 	};
 }

@@ -7,6 +7,7 @@ import {
 	type Direction,
 	type GameEvent,
 	type GridPos,
+	type PuzzleRecord,
 	type Realm,
 	type LandId
 } from '@mathgame/engine';
@@ -65,6 +66,8 @@ class GameView {
 	items = $state<string[]>([]);
 	/** The puzzles the player has solved: `welcome`'s, then every `solved-changed`. */
 	solved = $state(0);
+	/** The puzzle record, every topic's answers ("My puzzles"): `welcome`'s, then every `puzzles-changed`. */
+	puzzles = $state.raw<PuzzleRecord>({});
 	/**
 	 * The animal book's species seen (caught and set-free ones included),
 	 * caught and set free at the witch doctor's, each in the order first met:
@@ -113,6 +116,7 @@ class GameView {
 				this.tokens = event.tokens;
 				this.items = event.items;
 				this.solved = event.solved;
+				this.puzzles = event.puzzles;
 				this.seen = event.seen;
 				this.caught = event.caught;
 				this.freed = event.freed;
@@ -188,6 +192,9 @@ class GameView {
 				break;
 			case 'solved-changed':
 				this.solved = event.solved;
+				break;
+			case 'puzzles-changed':
+				this.puzzles = event.puzzles;
 				break;
 			case 'book-changed':
 				this.seen = event.seen;

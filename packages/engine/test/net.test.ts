@@ -709,9 +709,10 @@ describe('friendly matches on the wire', () => {
 				const key = path[path.length - 1]!;
 				const original = parent[key];
 				// A nickname may be missing, as may the match a rematch follows and its call-off
-				// (a server from before them); an empty list of events is a whole message too (a
-				// start, a resume).
-				const optional = key === 'nickname' || where === 'rematchOf' || where === 'calledOff';
+				// (a server from before them), and an answer's topic; an empty list of events is a
+				// whole message too (a start, a resume).
+				const optional =
+					key === 'nickname' || where === 'rematchOf' || where === 'calledOff' || key === 'topic';
 				for (const junk of [...JUNK, DELETE]) {
 					if ((junk === undefined || junk === DELETE) && optional) continue;
 					if (where === 'events' && Array.isArray(junk) && junk.length === 0) continue;

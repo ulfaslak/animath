@@ -930,10 +930,10 @@ function readMatchEvent(value: unknown): WireMatchEvent | null {
 		case 'answer-judged': {
 			const { side, correct, topic } = value;
 			if (!isSide(side) || typeof correct !== 'boolean') return null;
-			// A topic this build lacks is left out, as a server from before topics leaves it.
-			return (ALL_PUZZLE_TOPICS as readonly unknown[]).includes(topic)
-				? { type, side, correct, topic: topic as PuzzleTopic }
-				: { type, side, correct };
+			// Missing from a server from before topics; otherwise a topic this build has.
+			if (topic === undefined) return { type, side, correct };
+			if (!(ALL_PUZZLE_TOPICS as readonly unknown[]).includes(topic)) return null;
+			return { type, side, correct, topic: topic as PuzzleTopic };
 		}
 		case 'hit': {
 			const { attacker, attackIndex, level, damage, targetHp } = value;

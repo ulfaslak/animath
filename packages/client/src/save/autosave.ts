@@ -488,6 +488,8 @@ export class Autosave {
 			// itself: every game under way beside an unreadable save has been played already
 			// (a starter picked, or the server's game taken).
 			case 'solved-changed':
+			// An answer judged, right or wrong: the record, as the count, in a friendly match too.
+			case 'puzzles-changed':
 			// The animal book grew, at a battle's start or a catch: the battle's own events save too.
 			case 'book-changed':
 			// A land unlocked: the hand-over that did it saves too.

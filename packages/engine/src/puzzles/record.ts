@@ -198,7 +198,11 @@ export function recordError(value: unknown): string | null {
 		if (!Number.isSafeInteger(tried) || (tried as number) < 0) {
 			return `${where}.tried must be a whole number`;
 		}
-		if (!Number.isSafeInteger(right) || (right as number) < 0 || (right as number) > (tried as number)) {
+		if (
+			!Number.isSafeInteger(right) ||
+			(right as number) < 0 ||
+			(right as number) > (tried as number)
+		) {
 			return `${where}.right must be a whole number no bigger than tried`;
 		}
 		if (typeof recent !== 'string' || !/^[01]*$/.test(recent) || recent.length > RECENT_ANSWERS) {

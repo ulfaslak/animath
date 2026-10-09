@@ -1329,7 +1329,8 @@ export function saveDocument(
 	};
 	if (game.name !== null) doc.name = game.name;
 	// Only once a puzzle has been judged.
-	if (Object.keys(game.puzzles).length > 0) doc.puzzles = readRecord(game.puzzles) as Record<string, TopicRecord>;
+	if (Object.keys(game.puzzles).length > 0)
+		doc.puzzles = readRecord(game.puzzles) as Record<string, TopicRecord>;
 	if (game.battle) doc.battle = JSON.parse(JSON.stringify(game.battle));
 	// Only once something is cleared: a game that never used a tool saves as it did before tools.
 	if (game.edits.length > 0) doc.edits = [...game.edits];

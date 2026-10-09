@@ -1529,8 +1529,12 @@ battle:
   backButton: Back
   # The highlighted attack. {attack}: its name; {level}: its level's word;
   # {kinds}: what its sums are about (the words below, in an "or" list);
-  # {animal}: the wild animal it would hit; {damage}: the HP it would lose.
+  # {animal}: the wild animal it would hit; {damage}: the HP it would lose,
+  # a number or, when its puzzles hit differently, hitSpan.
   attackDetail: '{attack} on {level}: {kinds}. It hits {animal.theWild} for {damage}.'
+  # {damage} in attackDetail when the attack can hit for anything from {low}
+  # to {high}, by which puzzle it gets. Said as a plain fact, never why.
+  hitSpan: '{low} to {high}'
   # On the preview card, when the highlighted attack at its level would bring
   # the wild animal to 0 HP.
   tiresOut: That would tire it out!
