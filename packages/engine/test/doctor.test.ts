@@ -114,12 +114,17 @@ function apply(state: DoctorState, intent: DoctorIntent, seed: number): DoctorSt
 	}
 	expect(after.tokens).toBe(tokens);
 	expect(after.tokens).toBeGreaterThanOrEqual(0);
-	// A flight leaves only on a right answer to its fare, to the land it was asked for, and ends
-	// the visit; where the tent is and where a kid may fly never change in a visit.
+	// A flight leaves only on a right answer to its fare, to the land it was asked for, or on a
+	// yes to the trip offered, to that land, and ends the visit; where the tent is and where a
+	// kid may fly never change in a visit.
 	const flew = step.events.find((e) => e.type === 'flew');
 	if (flew?.type === 'flew') {
-		expect(correct, 'flew without a right answer').toBe(true);
-		if (state.phase.kind !== 'paying-fare') throw new Error('flew with no fare open');
+		if (state.phase.kind === 'offering') {
+			expect(intent.type).toBe('accept-offer');
+		} else {
+			expect(correct, 'flew without a right answer').toBe(true);
+			if (state.phase.kind !== 'paying-fare') throw new Error('flew with no fare open');
+		}
 		expect(flew.land).toBe(state.phase.land);
 		expect(after.phase.kind).toBe('ended');
 	}
@@ -1208,6 +1213,61 @@ describe('flying from the witch doctor (#191)', () => {
 		expect(a.events[0]?.type).toBe('fare-shown');
 		if (a.state.phase.kind !== 'paying-fare') throw new Error('fare open');
 		expect(getLand('nordland').travelKinds).toContain(a.state.phase.puzzle.kind);
+	});
+});
+
+describe('the surprise trip (`surpriseLand`)', () => {
+	const party = partyOf(['squirrel'], ['fox', 3]);
+	const unlocked = { land: 'nordland', unlocked: ['nordland', 'arctic'], open: LAND_IDS } as const;
+
+	it('opens on the trip to a land unlocked and never visited, and on the list otherwise', () => {
+		const cases: [Parameters<typeof startDoctorVisit>[1], string | null][] = [
+			[unlocked, 'arctic'],
+			[{ ...unlocked, visited: ['nordland'] }, 'arctic'],
+			// Been there and back: the Fly tab, with its fare, is the way now.
+			[{ ...unlocked, visited: ['nordland', 'arctic'] }, null],
+			[{ ...unlocked, unlocked: ['nordland'] }, null],
+			[{ ...unlocked, open: ['nordland'] }, null],
+			// In The Arctic, Nordland is never a surprise: every kid starts there.
+			[{ land: 'arctic', unlocked: LAND_IDS, open: ['nordland', 'arctic'] }, null],
+			[{}, null]
+		];
+		for (const [options, land] of cases) {
+			const state = startDoctorVisit(party, options);
+			expect(state.phase, JSON.stringify(options)).toEqual(
+				land ? { kind: 'offering', land } : { kind: 'choose-patient' }
+			);
+		}
+	});
+
+	it('flies on a yes with no fare and nothing else changed, and a not-now opens the list for good', () => {
+		const state = startDoctorVisit(party, { ...unlocked, tokens: 9, items: ['axe'] });
+		const yes = apply(state, { type: 'accept-offer' }, 5);
+		expect(yes.events).toEqual([{ type: 'flew', land: 'arctic' }, { type: 'ended' }]);
+		expect(yes.state).toMatchObject({ tokens: 9, items: ['axe'], party: state.party });
+		expect(wordedStrings(yes)).toEqual([]);
+
+		const no = apply(state, { type: 'back' }, 5);
+		expect(no.events).toEqual([{ type: 'closed' }]);
+		expect(no.state.phase).toEqual({ kind: 'choose-patient' });
+		expect(apply(no.state, { type: 'accept-offer' }, 5).events).toEqual([
+			{ type: 'rejected', reason: 'no-offer' }
+		]);
+		// The Fly tab still flies there, for the fare.
+		expect(apply(no.state, { type: 'fly', land: 'arctic' }, 5).events[0]?.type).toBe(
+			'fare-shown'
+		);
+	});
+
+	it('refuses a yes with no trip offered, in every other phase', () => {
+		const list = startDoctorVisit(party, { ...unlocked, visited: LAND_IDS });
+		const puzzle = apply(list, { type: 'pick-patient', partyIndex: 1 }, 3).state;
+		const fare = apply(list, { type: 'fly', land: 'arctic' }, 3).state;
+		for (const state of [list, puzzle, fare]) {
+			expect(apply(state, { type: 'accept-offer' }, 3).events).toEqual([
+				{ type: 'rejected', reason: 'no-offer' }
+			]);
+		}
 	});
 });
 

@@ -336,6 +336,27 @@ export function flyRefusal(
 }
 
 /**
+ * The land the witch doctor offers a kid a trip to as a surprise, or null: the
+ * first land, in unlock order, a flight may go to (`flyRefusal`: built,
+ * unlocked, not the land the tent is in) that the kid has never been to
+ * (`visited`: the land they stand in and every land left behind). The trip is
+ * the reward for catching one of every animal of the land before it, so it
+ * costs no fare; it is offered at every visit until the kid has gone there.
+ */
+export function surpriseLand(trip: {
+	here: LandId;
+	unlocked: readonly string[];
+	open: readonly LandId[];
+	visited: readonly string[];
+}): LandId | null {
+	for (const id of LAND_IDS) {
+		if (id === FIRST_LAND || trip.visited.includes(id)) continue;
+		if (flyRefusal(trip, id) === null) return id;
+	}
+	return null;
+}
+
+/**
  * How hard the puzzle a flight costs is (`farePuzzle`): a taste of the land,
  * not a test: a sum in the teens with Nordland's kinds, and the easy end of
  * The Arctic's. Every trip costs one, both ways.

@@ -2,7 +2,14 @@ import { getAnimal } from '../animals/catalog.js';
 import type { AnimalInstance } from '../animals/types.js';
 import { ITEM_IDS, isItemId, type ItemId } from '../items/catalog.js';
 import { FIRST_LAND, type LandId } from '../lands/ids.js';
-import { availableLands, farePuzzle, flyRefusal, priceIn, shopFor } from '../lands/lands.js';
+import {
+	availableLands,
+	farePuzzle,
+	flyRefusal,
+	priceIn,
+	shopFor,
+	surpriseLand
+} from '../lands/lands.js';
 import { healingDifficulty } from '../puzzles/difficulty.js';
 import { checkAnswer, generatePuzzle } from '../puzzles/registry.js';
 import type { Puzzle, PuzzleKind } from '../puzzles/types.js';
@@ -78,8 +85,19 @@ export interface DoctorVisitOptions {
 	 * saved nowhere (the client's `?lands`).
 	 */
 	open?: readonly LandId[];
+	/**
+	 * The lands the player has been to: the one the tent is in and every one
+	 * left behind. A land unlocked that is in none of them is offered as a
+	 * surprise trip as the visit opens (`surpriseLand`). Default: only the
+	 * land the tent is in.
+	 */
+	visited?: readonly string[];
 }
 
+/**
+ * A visit, open on the list (`choose-patient`), or on the trip the witch
+ * doctor offers when there is one (`offering`, `surpriseLand`).
+ */
 export function startDoctorVisit(
 	party: readonly AnimalInstance[],
 	options: DoctorVisitOptions = {}
@@ -98,6 +116,9 @@ export function startDoctorVisit(
 	if (!Array.isArray(shop) || !shop.every(isItemId)) {
 		throw new Error('startDoctorVisit: the shop must list items of the catalog');
 	}
+	const unlocked = [...(options.unlocked ?? [FIRST_LAND])];
+	const open = [...(options.open ?? availableLands())];
+	const offer = surpriseLand({ here: land, unlocked, open, visited: options.visited ?? [land] });
 	return {
 		step: 0,
 		party: party.map((a) => ({ ...a })),
@@ -108,9 +129,9 @@ export function startDoctorVisit(
 			(a, b) => priceIn(land, a) - priceIn(land, b)
 		),
 		land,
-		unlocked: [...(options.unlocked ?? [FIRST_LAND])],
-		open: [...(options.open ?? availableLands())],
-		phase: { kind: 'choose-patient' }
+		unlocked,
+		open,
+		phase: offer ? { kind: 'offering', land: offer } : { kind: 'choose-patient' }
 	};
 }
 
@@ -139,6 +160,12 @@ export function applyDoctorIntent(
 			return flyTo(state, seed, intent.land);
 		case 'answer':
 			return answer(state, seed, intent.input);
+		case 'accept-offer':
+			if (state.phase.kind !== 'offering') return reject(state, 'no-offer');
+			return accept(state, { kind: 'ended' }, [
+				{ type: 'flew', land: state.phase.land },
+				{ type: 'ended' }
+			]);
 		case 'back':
 			if (state.phase.kind === 'choose-patient') return reject(state, 'no-puzzle');
 			return accept(state, { kind: 'choose-patient' }, [{ type: 'closed' }]);

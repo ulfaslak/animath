@@ -1171,7 +1171,10 @@ export class LocalAuthority implements Authority {
 			shop: this.options.shop ?? shopFor(this.land),
 			land: this.land,
 			unlocked: this.unlocked,
-			open: this.options.lands ? LAND_IDS : availableLands()
+			open: this.options.lands ? LAND_IDS : availableLands(),
+			// The surprise trip rewards catching one of each animal: a game a switch opened every
+			// land in earned none, so it is offered nothing.
+			visited: this.options.lands ? LAND_IDS : [this.land, ...this.lands.map((l) => l.land)]
 		});
 		// A fresh seed per visit, keyed like everything else here so a session
 		// replays; the visit count keeps a second visit from asking the same
